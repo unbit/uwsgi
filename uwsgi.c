@@ -95,6 +95,9 @@ int wsgi_cnt = 1;
 int default_app = -1 ;
 int enable_profiler = 0;
 
+// save my pid for logging
+pid_t mypid;
+
 struct timeval start_of_uwsgi ;
 
 #ifndef UNBIT
@@ -172,7 +175,7 @@ struct __attribute__((packed)) wsgi_request {
 void harakiri() {
         PyThreadState *_myself ;        
         _myself =  PyThreadState_Get();
-        fprintf(stderr,"\nF*CK !!! i must kill myself %p %p...\n", _myself, _myself->frame);
+        fprintf(stderr,"\nF*CK !!! i must kill myself (pid %d) %p %p...\n", mypid,  _myself, _myself->frame);
         Py_FatalError("HARAKIRI !\n");
 }
 
@@ -324,12 +327,11 @@ struct uwsgi_app {
 struct uwsgi_app wsgi_apps[64] ;
 PyObject *py_apps ;
 
-// save my pid for logging
-pid_t mypid;
 #ifndef UNBIT
 pid_t masterpid;
 pid_t diedpid;
 int waitpid_status;
+int master_process = 0;
 #endif
 // flag for memory debug
 int memory_debug = 0 ;
@@ -367,7 +369,7 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&start_of_uwsgi, NULL) ;
 
 #ifndef UNBIT
-        while ((i = getopt (argc, argv, "s:p:t:x:d:mcaCTPi")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:mcaCTPiM")) != -1) {
 #else
         while ((i = getopt (argc, argv, "p:t:mTPi")) != -1) {
 #endif
@@ -401,6 +403,9 @@ int main(int argc, char *argv[]) {
                                 break;
                         case 'C':
                                 chmod_socket = 1;
+                                break;
+                        case 'M':
+                                master_process = 1;
                                 break;
 #endif
                         case 'T':
@@ -521,23 +526,33 @@ int main(int argc, char *argv[]) {
 
         wsgi_poll.events = POLLIN ;
 
-        memset(&wsgi_req, 0, sizeof(struct wsgi_request));
-	wsgi_req.app_id = -1 ;	
-        wsgi_req.sendfile_fd = -1 ;
 
 #ifndef UNBIT
 	if (xml_config != NULL) {
+        	memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 		uwsgi_xml_config();
 	}
 #endif
 
 
         mypid = getpid();
+#ifndef UNBIT
 	masterpid = mypid ;
+#endif
 
         /* preforking() */
+#ifndef UNBIT
+	if (master_process == 0) {
+        	fprintf(stderr, "spawned uWSGI worker 0 (pid: %d)\n", mypid);
+	}
+	else {
+        	fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
+	}
+        for(i=1;i<numproc+master_process;i++) {
+#else
         fprintf(stderr, "spawned uWSGI worker 0 (pid: %d)\n", mypid);
         for(i=1;i<numproc;i++) {
+#endif
                 pid = fork();
                 if (pid == 0 ) {
                         mypid = getpid();
@@ -552,9 +567,9 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+#ifndef UNBIT
 
-	if (getpid() == masterpid) {
-		fprintf(stderr,"sono il master.\n") ;
+	if (getpid() == masterpid && master_process == 1) {
 		for(;;) {
 			diedpid = waitpid(WAIT_ANY , &waitpid_status, 0) ;
 			if (diedpid == -1) {
@@ -562,7 +577,7 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "something horrible happened...\n");
 				harakiri();
 			}
-			fprintf(stderr,"process %d died :( trying respawn ...\n", diedpid);
+			fprintf(stderr,"DAMN ! process %d died :( trying respawn ...\n", diedpid);
 			pid = fork();
 			if (pid == 0 ) {
 				mypid = getpid();
@@ -576,7 +591,12 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
+#endif
 
+
+        memset(&wsgi_req, 0, sizeof(struct wsgi_request));
+	wsgi_req.app_id = default_app ;	
+        wsgi_req.sendfile_fd = -1 ;
 
         while( (wsgi_poll.fd = accept(serverfd,(struct sockaddr *)&c_addr, (socklen_t *) &c_len)) ) {
 
