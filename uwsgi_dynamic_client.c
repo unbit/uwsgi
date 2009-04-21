@@ -3,7 +3,7 @@
  *** uWSGI cgi client ***
 
 to compile:
-        gcc -Wall -o uwsgi_client.cgi uwsgi_client.c
+        gcc -Wall -o uwsgi_client.cgi uwsgi_dynamic_client.c
 
 */
 
