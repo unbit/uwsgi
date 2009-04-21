@@ -16,7 +16,6 @@ to compile:
 
 
 #define UWSGI_SOCK "/tmp/uwsgi.sock"
-#define UWSGI_SCRIPT "django_wsgi"
 
 int main() {
         extern char **environ;
@@ -49,10 +48,7 @@ int main() {
         memset(message, 0, 4096);
 
         mptr = message+4;
-        if (setenv("UWSGI_SCRIPT", UWSGI_SCRIPT, 1) != 0) {
-                perror("setenv()");
-                exit(1);
-        }
+
         if (**environ) {
                 while( (env = *environ) ) {
                         place_holder = strchr(env,'=');
