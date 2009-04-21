@@ -19,15 +19,15 @@
 
 
 Compile on Linux 2.6
-gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` uwsgi.c
-gcc -o uwsgi26 `python2.6-config --cflags` `python2.6-config --libs` uwsgi.c
-gcc -o uwsgi24 `python2.4-config --cflags` `python2.4-config --libs` uwsgi.c
+gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` uwsgi.c
+gcc -o uwsgi26 `python2.6-config --cflags` `python2.6-config --libs` `xml2-config --cflags` `xml2-config --libs` uwsgi.c
+gcc -o uwsgi24 `python2.4-config --cflags` `python2.4-config --libs` `xml2-config --cflags` `xml2-config --libs` uwsgi.c
 Compile on Unbit
 gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` -DUNBIT uwsgi.c
 gcc -o uwsgi26 `python2.6-config --cflags` `python2.6-config --libs` -DUNBIT uwsgi.c
 gcc -o uwsgi24 `python2.4-config --cflags` `python2.4-config --libs` -DUNBIT uwsgi.c
 Compile on *BSD (FreeBSD and OSX)
-gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` -DBSD uwsgi.c
+gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD uwsgi.c
 
 
 ********* Note for OSX/BSD *********
