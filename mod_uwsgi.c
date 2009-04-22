@@ -31,6 +31,7 @@ LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
 
 #include "apr_strings.h"
 #include "httpd.h"
+#include "http_log.h"
 #include "http_config.h"
 
 #include <sys/socket.h>
@@ -76,9 +77,18 @@ static int uwsgi_handler(request_rec *r) {
         strcpy(s_addr.sun_path, UWSGI_SOCK);
 
         uwsgi_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+	
+	if (uwsgi_socket < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, errno, r, "uwsgi: socket() %s", strerror(errno));
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
 
 
-	connect(uwsgi_socket, (struct sockaddr *) &s_addr, strlen(UWSGI_SOCK) + ( (void *)&s_addr.sun_path - (void *)&s_addr) ) ;
+	if (connect(uwsgi_socket, (struct sockaddr *) &s_addr, strlen(UWSGI_SOCK) + ( (void *)&s_addr.sun_path - (void *)&s_addr) ) < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, errno, r, "uwsgi: connect() %s", strerror(errno));
+		close(uwsgi_socket);
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
 
 		
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REQUEST_METHOD", (char *) r->method, &pkt_size) ;
@@ -91,7 +101,6 @@ static int uwsgi_handler(request_rec *r) {
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_USER", r->user ? r->args : "", &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
 	if (r->path_info) {
-		//ap_log_rerror(APLOG_MARK, APLOG_ERR, 404, r, "uwsgi: %s", r->path_info);
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", apr_pstrndup(r->pool, r->uri, (strlen(r->uri) - strlen(r->path_info) )) , &pkt_size) ;
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->path_info, &pkt_size) ;
 	}
@@ -106,7 +115,19 @@ static int uwsgi_handler(request_rec *r) {
 	memcpy(pkt_header+1, &pkt_size, 2);
 	pkt_header[3] = 0 ;
 
-	writev( uwsgi_socket, uwsgi_vars, vecptr );
+	cnt = writev( uwsgi_socket, uwsgi_vars, vecptr );
+	if (cnt < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, errno, r, "uwsgi: writev() %s", strerror(errno));
+		close(uwsgi_socket);
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+	else if (cnt != pkt_size+4) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: writev() returned wrong size");
+		close(uwsgi_socket);
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+
+	
 
 	if (ap_should_client_block(r)) {
 		while ((cnt = ap_get_client_block(r, buf, 4096)) > 0) {
@@ -118,7 +139,7 @@ static int uwsgi_handler(request_rec *r) {
 
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 	
-	while(cnt = recv(uwsgi_socket, buf, 4096, 0)) {
+	while( (cnt = recv(uwsgi_socket, buf, 4096, 0)) > 0) {
 		apr_brigade_write(bb, NULL, NULL, buf, cnt);
 	}
 
