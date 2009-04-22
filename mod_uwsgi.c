@@ -108,6 +108,12 @@ static int uwsgi_handler(request_rec *r) {
 
 	writev( uwsgi_socket, uwsgi_vars, vecptr );
 
+	if (ap_should_client_block(r)) {
+		while ((cnt = ap_get_client_block(r, buf, 4096)) > 0) {
+			send( uwsgi_socket, buf, cnt, 0);
+		}
+	}
+
 	r->assbackwards = 1 ;
 
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
