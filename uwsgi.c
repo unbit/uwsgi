@@ -645,7 +645,7 @@ int main(int argc, char *argv[]) {
                 }
                 rlen = read(wsgi_poll.fd, buffer, wsgi_req.size);
                 if (rlen != wsgi_req.size){
-                        fprintf(stderr,"invalid request var size: %d...skip\n", rlen);
+                        fprintf(stderr,"invalid request var size: %d (expected %d)...skip\n", rlen, wsgi_req.size);
                         continue;
                 }
 
