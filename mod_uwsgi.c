@@ -1,6 +1,6 @@
 /* 
         
-    *** uWSGI ***
+    *** uWSGI/mod_uwsgi ***
 
     Copyright 2009 Unbit S.a.s.
         
@@ -19,6 +19,13 @@
 
 To compile:
 	apxs2 -i -c mod_uwsgi.c
+
+Configure:
+
+LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
+<Location XXX>
+	SetHandler uwsgi-handler
+</Location>
 
 */
 
