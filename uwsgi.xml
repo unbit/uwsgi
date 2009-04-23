@@ -8,4 +8,7 @@
 	<app mountpoint="/ciao">
 		<script>pippo_wsgi</script>
 	</app>
+	<app mountpoint="/test2">
+		<script>myapp_wsgi</script>
+	</app>
 </uwsgi>

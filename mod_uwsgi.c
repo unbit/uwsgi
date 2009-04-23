@@ -37,9 +37,18 @@ LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/uio.h>
+#include <time.h>
 
-#define UWSGI_SOCK "/tmp/uwsgi.sock"
 #define MAX_VARS 64
+#define DEFAULT_SOCK "/tmp/uwsgi.sock"
+
+typedef struct {
+	struct sockaddr_un s_addr ;
+	int addr_size;
+	struct timeval socket_timeout;
+} uwsgi_cfg;
+
+module AP_MODULE_DECLARE_DATA uwsgi_module;
 
 static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, unsigned short *pkt_size) {
 
@@ -57,10 +66,34 @@ static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, unsig
 	return i+4;
 }
 
+static void *uwsgi_server_config(apr_pool_t *p, server_rec *s) {
+
+	uwsgi_cfg *c = (uwsgi_cfg *) apr_pcalloc(p, sizeof(uwsgi_cfg));
+	strcpy(c->s_addr.sun_path, DEFAULT_SOCK);
+        c->s_addr.sun_family = AF_UNIX;
+	c->addr_size = strlen(DEFAULT_SOCK) + ( (void *)&c->s_addr.sun_path - (void *)&c->s_addr ) ;
+	c->socket_timeout.tv_sec = 0 ;
+	c->socket_timeout.tv_usec = 0 ;
+
+	return c;
+}
+
+static void *uwsgi_dir_config(apr_pool_t *p, char *dir) {
+
+	uwsgi_cfg *c = (uwsgi_cfg *) apr_pcalloc(p, sizeof(uwsgi_cfg));
+	strcpy(c->s_addr.sun_path, DEFAULT_SOCK);
+        c->s_addr.sun_family = AF_UNIX;
+        c->addr_size = strlen(DEFAULT_SOCK) + ( (void *)&c->s_addr.sun_path - (void *)&c->s_addr ) ;
+	c->socket_timeout.tv_sec = 0 ;
+	c->socket_timeout.tv_usec = 0 ;
+
+	return c;
+}
 
 static int uwsgi_handler(request_rec *r) {
-	struct sockaddr_un s_addr ;
         int uwsgi_socket ;
+
+	uwsgi_cfg *c = ap_get_module_config(r->per_dir_config, &uwsgi_module);
 
 	struct iovec uwsgi_vars[(MAX_VARS*4)+1] ;
 	int vecptr = 1 ;
@@ -70,22 +103,33 @@ static int uwsgi_handler(request_rec *r) {
 	int cnt;
 
 	apr_bucket_brigade *bb;
+
+	if (strcmp(r->handler, "uwsgi-handler"))
+        	return DECLINED;
+
 	
-	memset(&s_addr, 0, sizeof(struct sockaddr_un)) ;
-
-        s_addr.sun_family = AF_UNIX;
-        strcpy(s_addr.sun_path, UWSGI_SOCK);
-
+	if (c == NULL) {
+		c = ap_get_module_config(r->server->module_config, &uwsgi_module);
+	}
+	
         uwsgi_socket = socket(AF_UNIX, SOCK_STREAM, 0);
 	
 	if (uwsgi_socket < 0) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, errno, r, "uwsgi: socket() %s", strerror(errno));
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: socket() %s", strerror(errno));
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
+	if (c->socket_timeout.tv_sec > 0) {
+		setsockopt(uwsgi_socket, SOL_SOCKET, SO_SNDTIMEO, &c->socket_timeout, sizeof(struct timeval));
+		setsockopt(uwsgi_socket, SOL_SOCKET, SO_RCVTIMEO, &c->socket_timeout, sizeof(struct timeval));
+	}
 
-	if (connect(uwsgi_socket, (struct sockaddr *) &s_addr, strlen(UWSGI_SOCK) + ( (void *)&s_addr.sun_path - (void *)&s_addr) ) < 0) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, errno, r, "uwsgi: connect() %s", strerror(errno));
+	if (connect(uwsgi_socket, (struct sockaddr *) &c->s_addr, c->addr_size ) < 0) {
+		if (c->s_addr.sun_path[0] == 0)
+			c->s_addr.sun_path[0] = '@';
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: connect(\"%s\") %s", c->s_addr.sun_path, strerror(errno));
+		if (c->s_addr.sun_path[0] == '@')
+			c->s_addr.sun_path[0] = 0;
 		close(uwsgi_socket);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
@@ -117,7 +161,7 @@ static int uwsgi_handler(request_rec *r) {
 
 	cnt = writev( uwsgi_socket, uwsgi_vars, vecptr );
 	if (cnt < 0) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, errno, r, "uwsgi: writev() %s", strerror(errno));
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: writev() %s", strerror(errno));
 		close(uwsgi_socket);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
@@ -128,7 +172,6 @@ static int uwsgi_handler(request_rec *r) {
 	}
 
 	
-
 	if (ap_should_client_block(r)) {
 		while ((cnt = ap_get_client_block(r, buf, 4096)) > 0) {
 			send( uwsgi_socket, buf, cnt, 0);
@@ -138,9 +181,13 @@ static int uwsgi_handler(request_rec *r) {
 	r->assbackwards = 1 ;
 
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
-	
+
 	while( (cnt = recv(uwsgi_socket, buf, 4096, 0)) > 0) {
 		apr_brigade_write(bb, NULL, NULL, buf, cnt);
+	}
+
+	if (cnt < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
 	}
 
 	close(uwsgi_socket);
@@ -148,8 +195,36 @@ static int uwsgi_handler(request_rec *r) {
 	return ap_pass_brigade(r->output_filters, bb);;
 }
 
+static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path, const char *timeout) {
+
+	uwsgi_cfg *c ;
+
+	if (cfg) {
+		c = cfg ;
+	}
+	else {
+		c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
+	}
+
+	if (strlen(path) < 104) {
+		strcpy(c->s_addr.sun_path, path);
+		c->addr_size = strlen(path) + ( (void *)&c->s_addr.sun_path - (void *)&c->s_addr ) ;
+		// abstract namespace ??
+		if (path[0] == '@') {
+			c->s_addr.sun_path[0] = 0 ;
+		}
+	}
+
+	if (timeout) {
+		c->socket_timeout.tv_sec = atoi(timeout);
+	}
+
+	return NULL ;
+}
+
 static const command_rec uwsgi_cmds[] = {
-    {NULL}
+	AP_INIT_TAKE12("uWSGIsocket", cmd_uwsgi_socket, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path and optional timeout in seconds of uwsgi server socket"),	
+	{NULL}
 };
 
 static void register_hooks(apr_pool_t *p) {
@@ -159,9 +234,9 @@ static void register_hooks(apr_pool_t *p) {
 module AP_MODULE_DECLARE_DATA uwsgi_module = {
 
     STANDARD20_MODULE_STUFF,
+    uwsgi_dir_config,
     NULL,
-    NULL,
-    NULL,
+    uwsgi_server_config,
     NULL,
     uwsgi_cmds,
     register_hooks

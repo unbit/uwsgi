@@ -104,6 +104,7 @@ struct timeval start_of_uwsgi ;
 int cgi_mode = 0 ;
 int abstract_socket = 0 ;
 int chmod_socket = 0 ;
+int listen_queue = 64 ;
 char *xml_config = NULL;
 #endif
 
@@ -369,7 +370,7 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&start_of_uwsgi, NULL) ;
 
 #ifndef UNBIT
-        while ((i = getopt (argc, argv, "s:p:t:x:d:mcaCTPiM")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:mcaCTPiM")) != -1) {
 #else
         while ((i = getopt (argc, argv, "p:t:mTPi")) != -1) {
 #endif
@@ -383,6 +384,9 @@ int main(int argc, char *argv[]) {
                                 break;
 			case 'x':
 				xml_config = optarg;
+				break;
+			case 'l':
+				listen_queue = atoi(optarg);
 				break;
 #endif
                         case 'p':
@@ -482,7 +486,7 @@ int main(int argc, char *argv[]) {
                         exit(1);
                 }
 
-                if (listen(serverfd, 64) != 0) {
+                if (listen(serverfd, listen_queue) != 0) {
                         perror("listen()");
                         exit(1);
                 }
@@ -752,17 +756,17 @@ int main(int argc, char *argv[]) {
                                         wsgi_req.script_name_len = wsgi_req.hvec[i+1].iov_len ;
                                 }
                                 if (!strncmp("UWSGI_SCRIPT", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
-                                       	wsgi_req.wsgi_script = wsgi_req.hvec[i+1].iov_base ;
-                                       	wsgi_req.wsgi_script_len = wsgi_req.hvec[i+1].iov_len ;
-                                }
-                                if (!strncmp("UWSGI_MODULE", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
-                                       	wsgi_req.wsgi_module = wsgi_req.hvec[i+1].iov_base ;
+                                 	wsgi_req.wsgi_script = wsgi_req.hvec[i+1].iov_base ;
+                                      	wsgi_req.wsgi_script_len = wsgi_req.hvec[i+1].iov_len ;
+                               	}
+                               	if (!strncmp("UWSGI_MODULE", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
+                                  	wsgi_req.wsgi_module = wsgi_req.hvec[i+1].iov_base ;
                                        	wsgi_req.wsgi_module_len = wsgi_req.hvec[i+1].iov_len ;
                                 }
                                 if (!strncmp("UWSGI_CALLABLE", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
-                                       	wsgi_req.wsgi_callable = wsgi_req.hvec[i+1].iov_base ;
+                                   	wsgi_req.wsgi_callable = wsgi_req.hvec[i+1].iov_base ;
                                        	wsgi_req.wsgi_callable_len = wsgi_req.hvec[i+1].iov_len ;
-                                }
+                               	}
                         }
 
 
