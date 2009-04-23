@@ -100,12 +100,20 @@ static int uwsgi_handler(request_rec *r) {
 	char pkt_header[4];
 	unsigned short pkt_size = 0;
 	char buf[4096] ;
-	int cnt;
+	int cnt,i ;
+	const apr_array_header_t *headers;
+	apr_table_entry_t *h;
+	char *penv, *cp;
 
 	apr_bucket_brigade *bb;
 
 	if (strcmp(r->handler, "uwsgi-handler"))
         	return DECLINED;
+
+	cnt = ap_setup_client_block(r, REQUEST_CHUNKED_ERROR);
+	if (cnt != OK) {
+		return cnt;
+	}
 
 	
 	if (c == NULL) {
@@ -151,6 +159,39 @@ static int uwsgi_handler(request_rec *r) {
 	else {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", "", &pkt_size) ;
 	}
+
+	headers = apr_table_elts(r->headers_in);
+	h = (apr_table_entry_t *) headers->elts;
+
+	// check for max vars (a bit ugly)
+	cnt = headers->nelts ;
+	if (cnt + 11 > MAX_VARS) {
+		cnt = MAX_VARS -11;
+	}
+
+	for(i=0;i< cnt;i++) {
+		if (h[i].key){
+			if (!strcmp(h[i].key, "Content-type")) {
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "CONTENT_TYPE", h[i].val, &pkt_size) ;
+			}
+			else if (!strcmp(h[i].key, "Content-Length")) {
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "CONTENT_LENGTH", h[i].val, &pkt_size) ;
+			}
+			else {
+				penv = apr_pstrcat(r->pool, "HTTP_", h[i].key, NULL);
+				for(cp = penv+5; *cp !=0; cp++) {
+					if (*cp == '-') {
+						*cp = '_';
+					}
+					else {
+						*cp = toupper(*cp);
+					}
+				}
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, penv, h[i].val, &pkt_size) ;
+			}
+		}
+	}
+	
 
 	uwsgi_vars[0].iov_base = pkt_header;
 	uwsgi_vars[0].iov_len = 4;
