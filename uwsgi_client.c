@@ -28,6 +28,7 @@ int main() {
         unsigned short len ;
         char message[4096];
         char *mptr;
+	char *content_length;
 
         memset(&s_addr, 0, sizeof(struct sockaddr_un)) ;
 
@@ -75,9 +76,13 @@ int main() {
 
         res = send(uwsgi_socket, message, mptr-message, 0);
 
-        while( (cnt = read(0, message, 4096)) ) {
-                send(uwsgi_socket, message, cnt, 0) ; 
-        }
+	if ( (content_length = getenv("CONTENT_LENGTH")) != NULL) {
+		if (atoi(content_length) > 0) {
+        		while( (cnt = read(0, message, 4096)) ) {
+               			send(uwsgi_socket, message, cnt, 0) ; 
+        		}
+		}
+	}
 
         if (res == mptr-message) {
                 while( (res = recv(uwsgi_socket, message, 4096,0)) ) {

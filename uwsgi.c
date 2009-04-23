@@ -109,6 +109,7 @@ char *xml_config = NULL;
 #endif
 
 int single_interpreter = 0 ;
+int py_optimize = 0 ;
 
 PyObject *py_sendfile ;
 
@@ -120,7 +121,10 @@ int harakiri_timeout = 60 ;
 
 PyObject *wsgi_writeout ;
 
-#define VEC_SIZE 64
+#define MAX_VARS 64
+
+int max_vars = MAX_VARS ;
+int vec_size = 4+1+(4*MAX_VARS) ;
 
 void log_request(void) ;
 void get_memusage(void) ;
@@ -168,9 +172,10 @@ struct __attribute__((packed)) wsgi_request {
         // memory debug
         unsigned long vsz_size;
         long rss_size;
-        // iovec
-        struct iovec hvec[4+1+4*VEC_SIZE] ;
 } wsgi_req;
+
+// iovec
+struct iovec *hvec ;
 
 
 void harakiri() {
@@ -253,58 +258,58 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 	if (cgi_mode == 0) {
 		base = 4 ;
 #endif
-        	wsgi_req.hvec[0].iov_base = wsgi_req.protocol ;
-        	wsgi_req.hvec[0].iov_len = wsgi_req.protocol_len ;
-        	wsgi_req.hvec[1].iov_base = " " ;
-        	wsgi_req.hvec[1].iov_len = 1 ;
-        	wsgi_req.hvec[2].iov_base = PyString_AsString(head) ;
-        	wsgi_req.hvec[2].iov_len = PyString_Size(head) ;
-        	wsgi_req.status = atoi(wsgi_req.hvec[2].iov_base) ;
-        	wsgi_req.hvec[3].iov_base = nl ;
-        	wsgi_req.hvec[3].iov_len = NL_SIZE ;
+        	hvec[0].iov_base = wsgi_req.protocol ;
+        	hvec[0].iov_len = wsgi_req.protocol_len ;
+        	hvec[1].iov_base = " " ;
+        	hvec[1].iov_len = 1 ;
+        	hvec[2].iov_base = PyString_AsString(head) ;
+        	hvec[2].iov_len = PyString_Size(head) ;
+        	wsgi_req.status = atoi(hvec[2].iov_base) ;
+        	hvec[3].iov_base = nl ;
+        	hvec[3].iov_len = NL_SIZE ;
 #ifndef UNBIT
 	}
 	else {
 		// drop http status on cgi mode
 		base = 3 ;
-        	wsgi_req.hvec[0].iov_base = "Status: " ;
-        	wsgi_req.hvec[0].iov_len = 8 ;
-        	wsgi_req.hvec[1].iov_base = PyString_AsString(head) ;
-        	wsgi_req.hvec[1].iov_len = PyString_Size(head) ;
-        	wsgi_req.status = atoi(wsgi_req.hvec[1].iov_base) ;
-        	wsgi_req.hvec[2].iov_base = nl ;
-        	wsgi_req.hvec[2].iov_len = NL_SIZE ;
+        	hvec[0].iov_base = "Status: " ;
+        	hvec[0].iov_len = 8 ;
+        	hvec[1].iov_base = PyString_AsString(head) ;
+        	hvec[1].iov_len = PyString_Size(head) ;
+        	wsgi_req.status = atoi(hvec[1].iov_base) ;
+        	hvec[2].iov_base = nl ;
+        	hvec[2].iov_len = NL_SIZE ;
 	}
 #endif
         
         headers = PyTuple_GetItem(args,1) ;
         wsgi_req.header_cnt = PyList_Size(headers) ;
 
-        if (wsgi_req.header_cnt > VEC_SIZE) {
-                wsgi_req.header_cnt = VEC_SIZE ;
+        if (wsgi_req.header_cnt > max_vars) {
+                wsgi_req.header_cnt = max_vars ;
         }
         for(i=0;i<wsgi_req.header_cnt;i++) {
                 j = (i*4)+base ;
                 head = PyList_GetItem(headers, i);
                 h_key = PyTuple_GetItem(head,0) ;
                 h_value = PyTuple_GetItem(head,1) ;
-                wsgi_req.hvec[j].iov_base = PyString_AsString(h_key) ;
-                wsgi_req.hvec[j].iov_len = PyString_Size(h_key) ;
-                wsgi_req.hvec[j+1].iov_base = h_sep;
-                wsgi_req.hvec[j+1].iov_len = H_SEP_SIZE;
-                wsgi_req.hvec[j+2].iov_base = PyString_AsString(h_value) ;
-                wsgi_req.hvec[j+2].iov_len = PyString_Size(h_value) ;
-                wsgi_req.hvec[j+3].iov_base = nl;
-                wsgi_req.hvec[j+3].iov_len = NL_SIZE;
-		//fprintf(stderr, "%.*s: %.*s\n", wsgi_req.hvec[j].iov_len, (char *)wsgi_req.hvec[j].iov_base, wsgi_req.hvec[j+2].iov_len, (char *) wsgi_req.hvec[j+2].iov_base);
+                hvec[j].iov_base = PyString_AsString(h_key) ;
+                hvec[j].iov_len = PyString_Size(h_key) ;
+                hvec[j+1].iov_base = h_sep;
+                hvec[j+1].iov_len = H_SEP_SIZE;
+                hvec[j+2].iov_base = PyString_AsString(h_value) ;
+                hvec[j+2].iov_len = PyString_Size(h_value) ;
+                hvec[j+3].iov_base = nl;
+                hvec[j+3].iov_len = NL_SIZE;
+		//fprintf(stderr, "%.*s: %.*s\n", hvec[j].iov_len, (char *)hvec[j].iov_base, hvec[j+2].iov_len, (char *) hvec[j+2].iov_base);
         }
 
         // \r\n
         j = (i*4)+base ;
-        wsgi_req.hvec[j].iov_base = nl;
-        wsgi_req.hvec[j].iov_len = NL_SIZE;
+        hvec[j].iov_base = nl;
+        hvec[j].iov_len = NL_SIZE;
 
-        wsgi_req.headers_size = writev(wsgi_poll.fd, wsgi_req.hvec,j+1);
+        wsgi_req.headers_size = writev(wsgi_poll.fd, hvec,j+1);
         Py_INCREF(wsgi_writeout);
         return wsgi_writeout ;
 }
@@ -370,9 +375,9 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&start_of_uwsgi, NULL) ;
 
 #ifndef UNBIT
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:mcaCTPiM")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:mcaCTPiMh")) != -1) {
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPi")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:")) != -1) {
 #endif
                 switch(i) {
 #ifndef UNBIT
@@ -389,11 +394,18 @@ int main(int argc, char *argv[]) {
 				listen_queue = atoi(optarg);
 				break;
 #endif
+                        case 'v':
+                                max_vars = atoi(optarg);
+				vec_size = 4+1+(4*max_vars) ;
+                                break;
                         case 'p':
                                 numproc = atoi(optarg);
                                 break;
                         case 'm':
                                 memory_debug = 1 ;
+                                break;
+                        case 'O':
+                                py_optimize = atoi(optarg) ;
                                 break;
                         case 't':
                                 harakiri_timeout = atoi(optarg);
@@ -421,6 +433,28 @@ int main(int argc, char *argv[]) {
                         case 'i':
                                 single_interpreter = 1;
                                 break;
+#ifndef UNBIT
+			case 'h':
+				fprintf(stderr, "Usage: %s [options...]\n\
+\t-s <name>\tpath (or name) of UNIX socket to bind to\n\
+\t-l <num>\tset socket listen queue to <n>\n\
+\t-x <path>\tpath of xml config file\n\
+\t-t <sec>\tset harakiri timeout to <sec> seconds\n\
+\t-p <n>\t\tspawn <n> uwsgi worker processes\n\
+\t-O <n>\t\tset python optimization level to <n>\n\
+\t-v <n>\t\tset maximum number of vars/headers to <n>\n\
+\t-c\t\tset cgi mode\n\
+\t-C\t\tchmod socket to 666\n\
+\t-P\t\tenable profiler\n\
+\t-m\t\tenable memory usage report (Linux only)\n\
+\t-i\t\tsingle interpreter mode\n\
+\t-a\t\tset socket in the abstract namespace (Linux only)\n\
+\t-T\t\tenable threads support\n\
+\t-M\t\tenable master process manager\n\
+\t-h\t\tthis help\n\
+\t-d <logfile>	daemonize and log into <logfile>\n", argv[0]);
+				exit(1);
+#endif
 			default:
 				exit(1);
                 }
@@ -439,6 +473,8 @@ int main(int argc, char *argv[]) {
 
 	Py_SetProgramName("uWSGI");
         Py_Initialize() ;
+
+	Py_OptimizeFlag = py_optimize;
 
         wsgi_thread = PyThreadState_Get();
 
@@ -598,9 +634,17 @@ int main(int argc, char *argv[]) {
 #endif
 
 
+	
         memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 	wsgi_req.app_id = default_app ;	
         wsgi_req.sendfile_fd = -1 ;
+
+	hvec = malloc(sizeof(struct iovec)*vec_size) ;
+	if (hvec == NULL) {
+		fprintf(stderr,"unable to allocate memory for iovec.\n");
+		exit(1);
+	}
+
 
         while( (wsgi_poll.fd = accept(serverfd,(struct sockaddr *)&c_addr, (socklen_t *) &c_len)) ) {
 
@@ -665,14 +709,14 @@ int main(int argc, char *argv[]) {
                                         ptrbuf+=2;
                                         if (ptrbuf+strsize < bufferend) {
                                                 // var key
-                                                wsgi_req.hvec[wsgi_req.var_cnt].iov_base = ptrbuf ;
-                                                wsgi_req.hvec[wsgi_req.var_cnt].iov_len = strsize ;
+                                                hvec[wsgi_req.var_cnt].iov_base = ptrbuf ;
+                                                hvec[wsgi_req.var_cnt].iov_len = strsize ;
                                                 ptrbuf+=strsize;
                                                 if (ptrbuf+2 < bufferend) {
                                                         memcpy(&strsize,ptrbuf,2);
                                                         ptrbuf+=2 ;
                                                         if ( ptrbuf+strsize <= bufferend) {
-                                                                if (!strncmp("SCRIPT_NAME", wsgi_req.hvec[wsgi_req.var_cnt].iov_base , wsgi_req.hvec[wsgi_req.var_cnt].iov_len)) {
+                                                                if (!strncmp("SCRIPT_NAME", hvec[wsgi_req.var_cnt].iov_base , hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         // set the request app_id
                                                                         // LOCKED SECTION
                                                                         if (strsize > 0) {
@@ -694,35 +738,47 @@ int main(int argc, char *argv[]) {
                                                                         }
                                                                         // UNLOCK
                                                                 }
-                                                                else if (!strncmp("SERVER_PROTOCOL", wsgi_req.hvec[wsgi_req.var_cnt].iov_base , wsgi_req.hvec[wsgi_req.var_cnt].iov_len)) {
+                                                                else if (!strncmp("SERVER_PROTOCOL", hvec[wsgi_req.var_cnt].iov_base , hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         wsgi_req.protocol = ptrbuf ;
                                                                         wsgi_req.protocol_len = strsize ;
                                                                 }
-                                                                else if (!strncmp("REQUEST_URI", wsgi_req.hvec[wsgi_req.var_cnt].iov_base, wsgi_req.hvec[wsgi_req.var_cnt].iov_len)) {
+                                                                else if (!strncmp("REQUEST_URI", hvec[wsgi_req.var_cnt].iov_base, hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         wsgi_req.uri = ptrbuf ;
                                                                         wsgi_req.uri_len = strsize ;
                                                                 }
-                                                                else if (!strncmp("QUERY_STRING", wsgi_req.hvec[wsgi_req.var_cnt].iov_base, wsgi_req.hvec[wsgi_req.var_cnt].iov_len)) {
+                                                                else if (!strncmp("QUERY_STRING", hvec[wsgi_req.var_cnt].iov_base, hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         wsgi_req.query_string = ptrbuf ;
                                                                         wsgi_req.query_string_len = strsize ;
                                                                 }
-                                                                else if (!strncmp("REQUEST_METHOD", wsgi_req.hvec[wsgi_req.var_cnt].iov_base, wsgi_req.hvec[wsgi_req.var_cnt].iov_len)) {
+                                                                else if (!strncmp("REQUEST_METHOD", hvec[wsgi_req.var_cnt].iov_base, hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         wsgi_req.method = ptrbuf ;
                                                                         wsgi_req.method_len = strsize ;
                                                                 }
-                                                                else if (!strncmp("REMOTE_ADDR", wsgi_req.hvec[wsgi_req.var_cnt].iov_base, wsgi_req.hvec[wsgi_req.var_cnt].iov_len)) {
+                                                                else if (!strncmp("REMOTE_ADDR", hvec[wsgi_req.var_cnt].iov_base, hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         wsgi_req.remote_addr = ptrbuf ;
                                                                         wsgi_req.remote_addr_len = strsize ;
                                                                 }
-                                                                else if (!strncmp("REMOTE_USER", wsgi_req.hvec[wsgi_req.var_cnt].iov_base, wsgi_req.hvec[wsgi_req.var_cnt].iov_len)) {
+                                                                else if (!strncmp("REMOTE_USER", hvec[wsgi_req.var_cnt].iov_base, hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         wsgi_req.remote_user = ptrbuf ;
                                                                         wsgi_req.remote_user_len = strsize ;
                                                                 }
-                                                                wsgi_req.var_cnt++ ;
+								if (wsgi_req.var_cnt < vec_size-(4+1)) {
+                                                                	wsgi_req.var_cnt++ ;
+								}
+								else {
+									fprintf(stderr, "max vec size reached. skip this header.\n");
+									break;
+								}
                                                                 // var value
-                                                                wsgi_req.hvec[wsgi_req.var_cnt].iov_base = ptrbuf ;
-                                                                wsgi_req.hvec[wsgi_req.var_cnt].iov_len = strsize ;
-                                                                wsgi_req.var_cnt++ ;
+                                                                hvec[wsgi_req.var_cnt].iov_base = ptrbuf ;
+                                                                hvec[wsgi_req.var_cnt].iov_len = strsize ;
+								if (wsgi_req.var_cnt < vec_size-(4+1)) {
+                                                                	wsgi_req.var_cnt++ ;
+								}
+								else {
+									fprintf(stderr, "max vec size reached. skip this header.\n");
+									break;
+								}
                                                                 ptrbuf+=strsize;
                                                         }
                                                         else {
@@ -751,21 +807,21 @@ int main(int argc, char *argv[]) {
                 if (wsgi_req.app_id == -1) {
 #endif
                         for(i=0;i<wsgi_req.var_cnt;i+=2) {
-                                if (!strncmp("SCRIPT_NAME", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
-                                        wsgi_req.script_name = wsgi_req.hvec[i+1].iov_base ;
-                                        wsgi_req.script_name_len = wsgi_req.hvec[i+1].iov_len ;
+                                if (!strncmp("SCRIPT_NAME", hvec[i].iov_base, hvec[i].iov_len)) {
+                                        wsgi_req.script_name = hvec[i+1].iov_base ;
+                                        wsgi_req.script_name_len = hvec[i+1].iov_len ;
                                 }
-                                if (!strncmp("UWSGI_SCRIPT", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
-                                 	wsgi_req.wsgi_script = wsgi_req.hvec[i+1].iov_base ;
-                                      	wsgi_req.wsgi_script_len = wsgi_req.hvec[i+1].iov_len ;
+                                if (!strncmp("UWSGI_SCRIPT", hvec[i].iov_base, hvec[i].iov_len)) {
+                                 	wsgi_req.wsgi_script = hvec[i+1].iov_base ;
+                                      	wsgi_req.wsgi_script_len = hvec[i+1].iov_len ;
                                	}
-                               	if (!strncmp("UWSGI_MODULE", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
-                                  	wsgi_req.wsgi_module = wsgi_req.hvec[i+1].iov_base ;
-                                       	wsgi_req.wsgi_module_len = wsgi_req.hvec[i+1].iov_len ;
+                               	if (!strncmp("UWSGI_MODULE", hvec[i].iov_base, hvec[i].iov_len)) {
+                                  	wsgi_req.wsgi_module = hvec[i+1].iov_base ;
+                                       	wsgi_req.wsgi_module_len = hvec[i+1].iov_len ;
                                 }
-                                if (!strncmp("UWSGI_CALLABLE", wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len)) {
-                                   	wsgi_req.wsgi_callable = wsgi_req.hvec[i+1].iov_base ;
-                                       	wsgi_req.wsgi_callable_len = wsgi_req.hvec[i+1].iov_len ;
+                                if (!strncmp("UWSGI_CALLABLE", hvec[i].iov_base, hvec[i].iov_len)) {
+                                   	wsgi_req.wsgi_callable = hvec[i+1].iov_base ;
+                                       	wsgi_req.wsgi_callable_len = hvec[i+1].iov_len ;
                                	}
                         }
 
@@ -799,8 +855,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 for(i=0;i<wsgi_req.var_cnt;i+=2) {
-                        pydictkey = PyString_FromStringAndSize(wsgi_req.hvec[i].iov_base, wsgi_req.hvec[i].iov_len) ;
-                        pydictvalue = PyString_FromStringAndSize(wsgi_req.hvec[i+1].iov_base, wsgi_req.hvec[i+1].iov_len) ;
+                        pydictkey = PyString_FromStringAndSize(hvec[i].iov_base, hvec[i].iov_len) ;
+                        pydictvalue = PyString_FromStringAndSize(hvec[i+1].iov_base, hvec[i+1].iov_len) ;
                         PyDict_SetItem(wi->wsgi_environ, pydictkey, pydictvalue);
                         Py_DECREF(pydictkey);
                         Py_DECREF(pydictvalue);
