@@ -157,7 +157,7 @@ static int uwsgi_handler(request_rec *r) {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->path_info, &pkt_size) ;
 	}
 	else {
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", "", &pkt_size) ;
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
 	}
 
 	headers = apr_table_elts(r->headers_in);
