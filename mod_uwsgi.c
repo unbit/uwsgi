@@ -46,6 +46,7 @@ typedef struct {
 	struct sockaddr_un s_addr ;
 	int addr_size;
 	struct timeval socket_timeout;
+	char script_name[256];
 } uwsgi_cfg;
 
 module AP_MODULE_DECLARE_DATA uwsgi_module;
@@ -152,12 +153,19 @@ static int uwsgi_handler(request_rec *r) {
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_ADDR", r->connection->remote_ip, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_USER", r->user ? r->args : "", &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
-	if (r->path_info) {
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", apr_pstrndup(r->pool, r->uri, (strlen(r->uri) - strlen(r->path_info) )) , &pkt_size) ;
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->path_info, &pkt_size) ;
+
+	if (c->script_name[0] == '/') {
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", c->script_name, &pkt_size) ;
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
 	}
 	else {
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
+		if (r->path_info) {
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", apr_pstrndup(r->pool, r->uri, (strlen(r->uri) - strlen(r->path_info) )) , &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->path_info, &pkt_size) ;
+		}
+		else {
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
+		}
 	}
 
 	headers = apr_table_elts(r->headers_in);
@@ -236,6 +244,20 @@ static int uwsgi_handler(request_rec *r) {
 	return ap_pass_brigade(r->output_filters, bb);;
 }
 
+static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const char *location) {
+	uwsgi_cfg *c = cfg;
+
+	if (strlen(location) <= 255 && location[0] == '/') {
+		strcpy(c->script_name, location);
+	}
+	else {
+		return "ignored uWSGIforceScriptName. Invalid location" ;
+	}
+
+	return NULL ;
+
+}
+
 static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path, const char *timeout) {
 
 	uwsgi_cfg *c ;
@@ -265,6 +287,7 @@ static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path
 
 static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE12("uWSGIsocket", cmd_uwsgi_socket, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path and optional timeout in seconds of uwsgi server socket"),	
+	AP_INIT_TAKE1("uWSGIforceScriptName", cmd_uwsgi_force_script_name, NULL, ACCESS_CONF, "Fix for PATH_INFO/SCRIPT_NAME when the location has filesystem correspondence"),	
 	{NULL}
 };
 
