@@ -179,10 +179,10 @@ static int uwsgi_handler(request_rec *r) {
 
 	for(i=0;i< cnt;i++) {
 		if (h[i].key){
-			if (!strcmp(h[i].key, "Content-type")) {
+			if (!strcasecmp(h[i].key, "Content-Type")) {
 				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "CONTENT_TYPE", h[i].val, &pkt_size) ;
 			}
-			else if (!strcmp(h[i].key, "Content-Length")) {
+			else if (!strcasecmp(h[i].key, "Content-Length")) {
 				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "CONTENT_LENGTH", h[i].val, &pkt_size) ;
 			}
 			else {
