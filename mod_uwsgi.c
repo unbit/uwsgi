@@ -18,7 +18,11 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 To compile:
+(Linux)
 	apxs2 -i -c mod_uwsgi.c
+(OSX)
+	sudo apxs -i -c mod_uwsgi.c
+
 
 Configure:
 
