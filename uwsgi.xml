@@ -1,4 +1,6 @@
 <uwsgi>
+	<pythonpath>/tmp</pythonpath>
+	<pythonpath>/opt/apps</pythonpath>
 	<app mountpoint="/trac">
 		<script>trac_wsgi</script>
 	</app>

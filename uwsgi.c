@@ -106,6 +106,8 @@ int abstract_socket = 0 ;
 int chmod_socket = 0 ;
 int listen_queue = 64 ;
 char *xml_config = NULL;
+char *python_path[64];
+int python_path_cnt = 0 ;
 #endif
 
 int single_interpreter = 0 ;
@@ -603,7 +605,7 @@ int main(int argc, char *argv[]) {
                         exit(1);
                 }
                 else {
-                        fprintf(stderr, "Spawned uWSGI worker %d (pid: %d)\n", i, pid);
+                        fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
                 }
         }
 
@@ -1033,6 +1035,7 @@ void get_memusage() {
 
 void init_uwsgi_vars() {
 
+	int i;
 	PyObject *wsgi_argv, *zero ;
 	PyObject *pysys, *pysys_dict, *pypath ;
 
@@ -1057,7 +1060,15 @@ void init_uwsgi_vars() {
                 PyErr_Print();
                 exit(1);
         }
-        PyList_Insert(pypath,0,PyString_FromString("."));
+        if (PyList_Insert(pypath,0,PyString_FromString(".")) != 0) {
+                PyErr_Print();
+	}
+
+	for(i=0; i< python_path_cnt; i++) {
+        	if (PyList_Insert(pypath,0,PyString_FromString(python_path[i])) != 0) {
+                	PyErr_Print();
+		}
+	}
 
 }
 
@@ -1304,8 +1315,38 @@ void uwsgi_xml_config() {
 		exit(1);
 	}
 
+
+	// first check for pythonpath
 	for(node = element->children; node; node = node->next) {
 		if (node->type == XML_ELEMENT_NODE) {
+			if (!strcmp((char *) node->name, "pythonpath")) {
+				if (!node->children) {
+                                	fprintf(stderr, "no path defined for pythonpath. skip.\n");
+                                        continue;
+                                }
+				if (!node->children->content) {
+                                	fprintf(stderr, "invalid path for pythonpath. skip.\n");
+                                        continue;
+				}
+				if (python_path_cnt < 63) {
+					python_path[python_path_cnt] = malloc( strlen((char *)node->children->content) + 1 );
+					memset(python_path[python_path_cnt], 0, strlen( (char *) node->children->content) + 1);
+					strcpy(python_path[python_path_cnt], (char *) node->children->content);
+					fprintf(stderr, "added %s to pythonpath.\n", python_path[python_path_cnt]);
+					python_path_cnt++;
+				}
+				else {
+                                	fprintf(stderr, "max pythonpath element reached. skip.\n");
+					continue;
+				}	
+			}
+		}	
+	}
+
+	// ... then for wsgi apps
+	for(node = element->children; node; node = node->next) {
+		if (node->type == XML_ELEMENT_NODE) {
+
 			if (!strcmp((char *) node->name, "app")) {
 				xml_uwsgi_mountpoint = xmlGetProp(node, (const xmlChar *)"mountpoint");
 				if (xml_uwsgi_mountpoint == NULL) {
@@ -1316,7 +1357,7 @@ void uwsgi_xml_config() {
 				wsgi_req.script_name_len = strlen(wsgi_req.script_name);
 
 				for(node2 = node->children; node2; node2 = node2->next) {
-					if (node->type == XML_ELEMENT_NODE) {
+					if (node2->type == XML_ELEMENT_NODE) {
 						if (!strcmp((char *) node2->name, "script")) {
 							if (!node2->children) {
 								fprintf(stderr, "no wsgi script defined. skip.\n");
