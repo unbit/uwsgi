@@ -95,6 +95,8 @@ int wsgi_cnt = 1;
 int default_app = -1 ;
 int enable_profiler = 0;
 
+int buffer_size = 4096 ;
+
 // save my pid for logging
 pid_t mypid;
 
@@ -131,6 +133,9 @@ int vec_size = 4+1+(4*MAX_VARS) ;
 void log_request(void) ;
 void get_memusage(void) ;
 void harakiri(void) ;
+#ifndef UNBIT
+void stats(void) ;
+#endif
 void init_uwsgi_vars(void);
 
 #ifndef UNBIT
@@ -179,6 +184,21 @@ struct __attribute__((packed)) wsgi_request {
 // iovec
 struct iovec *hvec ;
 
+struct uwsgi_app {
+        PyThreadState *interpreter ;
+        PyObject *pymain_dict ;
+        PyObject *wsgi_callable ;
+        PyObject *wsgi_environ ;
+        PyObject *wsgi_args;
+        PyObject *wsgi_sendfile;
+        PyObject *wsgi_cprofile_run;
+        int requests ;
+};
+
+
+struct uwsgi_app wsgi_apps[64] ;
+PyObject *py_apps ;
+
 
 void harakiri() {
         PyThreadState *_myself ;        
@@ -186,6 +206,23 @@ void harakiri() {
         fprintf(stderr,"\nF*CK !!! i must kill myself (pid %d) %p %p...\n", mypid,  _myself, _myself->frame);
         Py_FatalError("HARAKIRI !\n");
 }
+
+#ifndef UNBIT
+void stats() {
+	struct uwsgi_app *ua = NULL;
+	int i;
+
+	fprintf(stderr, "*** pid %d stats ***\n", getpid());
+	fprintf(stderr, "\ttotal requests: %d\n", requests);
+	for(i=0;i<wsgi_cnt;i++) {
+		ua = &wsgi_apps[i];
+		if (ua) {
+			fprintf(stderr, "\tapp %d requests: %d\n", i, ua->requests);
+		}
+	}
+	fprintf(stderr, "\n");
+}
+#endif
 
 void internal_server_error(int fd, char *message) {
 #ifndef UNBIT
@@ -321,19 +358,6 @@ PyMethodDef uwsgi_spit_method[] = {{"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, "
 PyMethodDef uwsgi_write_method[] = {{"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""}} ;
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}} ;
 
-struct uwsgi_app {
-        PyThreadState *interpreter ;
-        PyObject *pymain_dict ;
-        PyObject *wsgi_callable ;
-        PyObject *wsgi_environ ;
-        PyObject *wsgi_args;
-        PyObject *wsgi_sendfile;
-        PyObject *wsgi_cprofile_run;
-        int requests ;
-};
-
-struct uwsgi_app wsgi_apps[64] ;
-PyObject *py_apps ;
 
 #ifndef UNBIT
 pid_t masterpid;
@@ -364,7 +388,7 @@ int main(int argc, char *argv[]) {
 
         PyObject *pydictkey, *pydictvalue;
 
-        char buffer[4096] ;
+        char *buffer ;
         char *ptrbuf ;
         char *bufferend ;
 
@@ -377,9 +401,9 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&start_of_uwsgi, NULL) ;
 
 #ifndef UNBIT
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:mcaCTPiMh")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMh")) != -1) {
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:")) != -1) {
 #endif
                 switch(i) {
 #ifndef UNBIT
@@ -412,6 +436,9 @@ int main(int argc, char *argv[]) {
                         case 't':
                                 harakiri_timeout = atoi(optarg);
                                 break;
+			case 'b':
+				buffer_size = atoi(optarg);
+				break;
 #ifndef UNBIT
                         case 'c':
                                 cgi_mode = 1;
@@ -440,6 +467,7 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "Usage: %s [options...]\n\
 \t-s <name>\tpath (or name) of UNIX socket to bind to\n\
 \t-l <num>\tset socket listen queue to <n>\n\
+\t-b <n>\t\tset buffer size to <n> bytes\n\
 \t-x <path>\tpath of xml config file\n\
 \t-t <sec>\tset harakiri timeout to <sec> seconds\n\
 \t-p <n>\t\tspawn <n> uwsgi worker processes\n\
@@ -566,6 +594,10 @@ int main(int argc, char *argv[]) {
 
         signal(SIGINT, (void *) &harakiri);
 
+#ifndef UNBIT
+	signal(SIGUSR1, (void *) &stats);
+#endif
+
         wsgi_poll.events = POLLIN ;
 
 
@@ -581,6 +613,18 @@ int main(int argc, char *argv[]) {
 #ifndef UNBIT
 	masterpid = mypid ;
 #endif
+
+	if (buffer_size > 65536) {
+		fprintf(stderr,"invalid buffer size.\n");
+		exit(1);
+	}
+	buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		fprintf(stderr,"unable to allocate memory for buffer.\n");
+		exit(1);
+	}
+
+	fprintf(stderr,"request/response buffer (%d bytes) allocated.\n", buffer_size);
 
         /* preforking() */
 #ifndef UNBIT
@@ -648,6 +692,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
+
         while( (wsgi_poll.fd = accept(serverfd,(struct sockaddr *)&c_addr, (socklen_t *) &c_len)) ) {
 
                 if (wsgi_poll.fd < 0){
@@ -677,7 +722,7 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr,"invalid request header size: %d...skip\n", rlen);
                         continue;
                 }
-                if (wsgi_req.size > 4096) {
+                if (wsgi_req.size > buffer_size) {
                         fprintf(stderr,"invalid request block size: %d...skip\n", wsgi_req.size);
                         continue;
                 }

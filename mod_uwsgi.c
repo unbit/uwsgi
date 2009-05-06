@@ -49,6 +49,8 @@ LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
 typedef struct {
 	struct sockaddr_un s_addr ;
 	int addr_size;
+	struct sockaddr_un s_addr2 ;
+	int addr_size2;
 	struct timeval socket_timeout;
 	char script_name[256];
 } uwsgi_cfg;
@@ -76,6 +78,7 @@ static void *uwsgi_server_config(apr_pool_t *p, server_rec *s) {
 	uwsgi_cfg *c = (uwsgi_cfg *) apr_pcalloc(p, sizeof(uwsgi_cfg));
 	strcpy(c->s_addr.sun_path, DEFAULT_SOCK);
         c->s_addr.sun_family = AF_UNIX;
+        c->s_addr2.sun_family = AF_UNIX;
 	c->addr_size = strlen(DEFAULT_SOCK) + ( (void *)&c->s_addr.sun_path - (void *)&c->s_addr ) ;
 	c->socket_timeout.tv_sec = 0 ;
 	c->socket_timeout.tv_usec = 0 ;
@@ -88,6 +91,7 @@ static void *uwsgi_dir_config(apr_pool_t *p, char *dir) {
 	uwsgi_cfg *c = (uwsgi_cfg *) apr_pcalloc(p, sizeof(uwsgi_cfg));
 	strcpy(c->s_addr.sun_path, DEFAULT_SOCK);
         c->s_addr.sun_family = AF_UNIX;
+        c->s_addr2.sun_family = AF_UNIX;
         c->addr_size = strlen(DEFAULT_SOCK) + ( (void *)&c->s_addr.sun_path - (void *)&c->s_addr ) ;
 	c->socket_timeout.tv_sec = 0 ;
 	c->socket_timeout.tv_usec = 0 ;
@@ -143,8 +147,25 @@ static int uwsgi_handler(request_rec *r) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: connect(\"%s\") %s", c->s_addr.sun_path, strerror(errno));
 		if (c->s_addr.sun_path[0] == '@')
 			c->s_addr.sun_path[0] = 0;
-		close(uwsgi_socket);
-		return HTTP_INTERNAL_SERVER_ERROR;
+
+		if (c->addr_size2 > 0) {
+			if (connect(uwsgi_socket, (struct sockaddr *) &c->s_addr2, c->addr_size2 ) < 0) {
+				if (c->s_addr2.sun_path[0] == 0)
+					c->s_addr2.sun_path[0] = '@';
+
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: failover connect(\"%s\") %s", c->s_addr2.sun_path, strerror(errno));
+
+				if (c->s_addr2.sun_path[0] == '@')
+					c->s_addr2.sun_path[0] = 0;
+
+				close(uwsgi_socket);
+				return HTTP_INTERNAL_SERVER_ERROR;
+			}
+		}
+		else {
+			close(uwsgi_socket);
+			return HTTP_INTERNAL_SERVER_ERROR;
+		}
 	}
 
 		
@@ -262,6 +283,30 @@ static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const
 
 }
 
+static const char * cmd_uwsgi_socket2(cmd_parms *cmd, void *cfg, const char *path) {
+
+        uwsgi_cfg *c ;
+
+        if (cfg) {
+                c = cfg ;
+        }
+        else {
+                c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
+        }
+
+        if (strlen(path) < 104) {
+                strcpy(c->s_addr2.sun_path, path);
+                c->addr_size2 = strlen(path) + ( (void *)&c->s_addr2.sun_path - (void *)&c->s_addr2 ) ;
+                // abstract namespace ??
+                if (path[0] == '@') {
+                        c->s_addr2.sun_path[0] = 0 ;
+                }
+        }
+
+        return NULL ;
+}
+
+
 static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path, const char *timeout) {
 
 	uwsgi_cfg *c ;
@@ -291,6 +336,7 @@ static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path
 
 static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE12("uWSGIsocket", cmd_uwsgi_socket, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path and optional timeout in seconds of uwsgi server socket"),	
+	AP_INIT_TAKE1("uWSGIsocket2", cmd_uwsgi_socket2, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path of failover uwsgi server socket"),	
 	AP_INIT_TAKE1("uWSGIforceScriptName", cmd_uwsgi_force_script_name, NULL, ACCESS_CONF, "Fix for PATH_INFO/SCRIPT_NAME when the location has filesystem correspondence"),	
 	{NULL}
 };
