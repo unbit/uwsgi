@@ -1083,7 +1083,9 @@ void get_memusage() {
 
 void init_uwsgi_vars() {
 
+#ifndef UNBIT
 	int i;
+#endif
 	PyObject *wsgi_argv, *zero ;
 	PyObject *pysys, *pysys_dict, *pypath ;
 
