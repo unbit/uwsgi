@@ -70,6 +70,9 @@ in particular)
 	#include <sys/sendfile.h>
 #endif
 
+#ifdef _POSIX_C_SOURCE
+        #undef _POSIX_C_SOURCE
+#endif
 #include <Python.h>
 
 #ifndef UNBIT
