@@ -406,6 +406,8 @@ int main(int argc, char *argv[]) {
 
 	gettimeofday(&start_of_uwsgi, NULL) ;
 
+	setlinebuf(stdout);
+
 #ifndef UNBIT
         while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMh")) != -1) {
 #else
@@ -1271,7 +1273,16 @@ int init_uwsgi_app() {
 		pycprof =  PyImport_ImportModule("cProfile");
         	if (!pycprof) {
                 	PyErr_Print();
-                	exit(1);
+			fprintf(stderr, "trying old profile module... ");
+			pycprof =  PyImport_ImportModule("profile");
+			if (!pycprof) {
+				fprintf(stderr, "doh!!!\n");
+                		PyErr_Print();
+                		exit(1);
+			}
+			else {
+				fprintf(stderr, "ok and set stdout to linebuf mode.\n");
+			}
         	}
         	pycprof_dict = PyModule_GetDict(pycprof);
 		if (!pycprof_dict) {
