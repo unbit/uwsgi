@@ -28,6 +28,7 @@ Compile on Unbit
 gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` -DUNBIT uwsgi.c
 gcc -o uwsgi26 `python2.6-config --cflags` `python2.6-config --libs` -DUNBIT uwsgi.c
 gcc -o uwsgi24 `python2.4-config --cflags` `python2.4-config --libs` -DUNBIT uwsgi.c
+(dapper)  gcc -o uwsgi24 -I/usr/include/python2.4 -I/usr/include/python2.4 -fno-strict-aliasing -DNDEBUG -g -O3 -Wall -Wstrict-prototypes -lpthread -ldl -lutil -lm -lpython2.4 -DUNBIT uwsgi.c
 Compile on *BSD (FreeBSD and OSX)
 gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD uwsgi.c
 
@@ -1111,11 +1112,13 @@ void init_uwsgi_vars() {
                 PyErr_Print();
 	}
 
+#ifndef UNBIT
 	for(i=0; i< python_path_cnt; i++) {
         	if (PyList_Insert(pypath,0,PyString_FromString(python_path[i])) != 0) {
                 	PyErr_Print();
 		}
 	}
+#endif
 
 }
 
