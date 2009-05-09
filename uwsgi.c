@@ -233,12 +233,12 @@ void stats() {
 void internal_server_error(int fd, char *message) {
 #ifndef UNBIT
 	if (cgi_mode == 0) {
+#endif
         	wsgi_req.headers_size = write(fd, "HTTP/1.1 500 Internal Server Error\r\n\r\n", 38);
+#ifndef UNBIT
 	}
 	else {
-#endif
         	wsgi_req.headers_size = write(fd, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
-#ifndef UNBIT
 	}
 #endif
         wsgi_req.response_size = write(fd, "<h1>uWSGI Error</h1>", 20);
