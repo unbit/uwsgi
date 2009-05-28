@@ -560,18 +560,18 @@ int main(int argc, char *argv[]) {
 \t-s <name>\tpath (or name) of UNIX socket to bind to\n\
 \t-l <num>\tset socket listen queue to <n>\n\
 \t-b <n>\t\tset buffer size to <n> bytes\n\
-\t-x <path>\tpath of xml config file\n\
+\t-x <path>\tpath of xml config file (no ROCK_SOLID)\n\
 \t-t <sec>\tset harakiri timeout to <sec> seconds\n\
 \t-p <n>\t\tspawn <n> uwsgi worker processes\n\
-\t-O <n>\t\tset python optimization level to <n>\n\
+\t-O <n>\t\tset python optimization level to <n> (no ROCK_SOLID)\n\
 \t-v <n>\t\tset maximum number of vars/headers to <n>\n\
-\t-c\t\tset cgi mode\n\
+\t-c\t\tset cgi mode (no ROCK_SOLID) \n\
 \t-C\t\tchmod socket to 666\n\
-\t-P\t\tenable profiler\n\
-\t-m\t\tenable memory usage report (Linux only)\n\
-\t-i\t\tsingle interpreter mode\n\
+\t-P\t\tenable profiler (no ROCK_SOLID)\n\
+\t-m\t\tenable memory usage report (Linux only, no ROCK_SOLID)\n\
+\t-i\t\tsingle interpreter mode (no ROCK_SOLID)\n\
 \t-a\t\tset socket in the abstract namespace (Linux only)\n\
-\t-T\t\tenable threads support\n\
+\t-T\t\tenable threads support (no ROCK_SOLID)\n\
 \t-M\t\tenable master process manager\n\
 \t-h\t\tthis help\n\
 \t-d <logfile>	daemonize and log into <logfile>\n", argv[0]);
