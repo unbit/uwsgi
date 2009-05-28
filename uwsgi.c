@@ -33,6 +33,11 @@ Compile on *BSD (FreeBSD and OSX)
 gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD uwsgi.c
 
 
+Compile ROCK_SOLID mode
+gcc -o uwsgi_rs `python2.5-config --cflags` `python2.5-config --libs` -DROCK_SOLID uwsgi.c
+gcc -o uwsgi26_rs `python2.6-config --cflags` `python2.6-config --libs` -DROCK_SOLID uwsgi.c
+
+
 ********* Note for OSX/BSD *********
 the sockaddr_un structure is defined as
 struct sockaddr_un {
@@ -66,8 +71,11 @@ in particular)
 #include <sys/stat.h>
 #include <sys/types.h>
 
+
+#ifndef ROCK_SOLID
 #ifndef BSD
 	#include <sys/sendfile.h>
+#endif
 #endif
 
 #ifdef _POSIX_C_SOURCE
@@ -77,15 +85,19 @@ in particular)
 
 #ifndef UNBIT
 
+#ifndef ROCK_SOLID
 #include <libxml/parser.h>
 #include <libxml/tree.h>
+#endif
 #include <fcntl.h>
 #include <sys/wait.h>
 
 #endif
 
 
+#ifndef ROCK_SOLID
 int init_uwsgi_app(void) ;
+#endif
 
 
 char *nl = "\r\n";
@@ -96,10 +108,13 @@ char *h_sep = ": " ;
 #define PAGE_SIZE 4096
 
 int requests = 0 ;
+
+#ifndef ROCK_SOLID
 int has_threads = 0 ;
 int wsgi_cnt = 1;
 int default_app = -1 ;
 int enable_profiler = 0;
+#endif
 
 int buffer_size = 4096 ;
 
@@ -109,23 +124,29 @@ pid_t mypid;
 struct timeval start_of_uwsgi ;
 
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 int cgi_mode = 0 ;
+#endif
 int abstract_socket = 0 ;
 int chmod_socket = 0 ;
 int listen_queue = 64 ;
+#ifndef ROCK_SOLID
 char *xml_config = NULL;
 char *python_path[64];
 int python_path_cnt = 0 ;
 #endif
+#endif
 
+#ifndef ROCK_SOLID
 int single_interpreter = 0 ;
 int py_optimize = 0 ;
 
 PyObject *py_sendfile ;
 
-struct pollfd wsgi_poll; 
-
 PyThreadState *wsgi_thread ;
+#endif
+
+struct pollfd wsgi_poll; 
 
 int harakiri_timeout = 60 ;
 
@@ -137,7 +158,9 @@ int max_vars = MAX_VARS ;
 int vec_size = 4+1+(4*MAX_VARS) ;
 
 void log_request(void) ;
+#ifndef ROCK_SOLID
 void get_memusage(void) ;
+#endif
 void harakiri(void) ;
 #ifndef UNBIT
 void stats(void) ;
@@ -154,7 +177,9 @@ struct __attribute__((packed)) wsgi_request {
         unsigned short size ;
         unsigned char pad_id ;     
         // temporary attr
+#ifndef ROCK_SOLID
         int app_id ;     
+#endif
         struct timeval start_of_request ;
         char *uri;
         unsigned short uri_len;
@@ -168,6 +193,7 @@ struct __attribute__((packed)) wsgi_request {
         unsigned short protocol_len;
         char *method;
         unsigned short method_len;
+#ifndef ROCK_SOLID
         char *wsgi_script;
         unsigned short wsgi_script_len;
         char *wsgi_module;
@@ -177,6 +203,7 @@ struct __attribute__((packed)) wsgi_request {
         char *script_name;
         unsigned short script_name_len;
         int sendfile_fd;
+#endif
         unsigned short var_cnt;
         unsigned short header_cnt;
         int status;
@@ -191,19 +218,33 @@ struct __attribute__((packed)) wsgi_request {
 struct iovec *hvec ;
 
 struct uwsgi_app {
+#ifndef ROCK_SOLID
         PyThreadState *interpreter ;
         PyObject *pymain_dict ;
+#endif
+
+#ifdef ROCK_SOLID
+	PyObject *wsgi_module;
+	PyObject *wsgi_dict;
+#endif
         PyObject *wsgi_callable ;
         PyObject *wsgi_environ ;
         PyObject *wsgi_args;
+#ifndef ROCK_SOLID
         PyObject *wsgi_sendfile;
         PyObject *wsgi_cprofile_run;
         int requests ;
+#endif
 };
 
+#ifdef ROCK_SOLID
+struct uwsgi_app *wi;
+#endif
 
+#ifndef ROCK_SOLID
 struct uwsgi_app wsgi_apps[64] ;
 PyObject *py_apps ;
+#endif
 
 
 void harakiri() {
@@ -214,6 +255,7 @@ void harakiri() {
 }
 
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 void stats() {
 	struct uwsgi_app *ua = NULL;
 	int i;
@@ -229,22 +271,28 @@ void stats() {
 	fprintf(stderr, "\n");
 }
 #endif
+#endif
 
 void internal_server_error(int fd, char *message) {
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	if (cgi_mode == 0) {
+#endif
 #endif
         	wsgi_req.headers_size = write(fd, "HTTP/1.1 500 Internal Server Error\r\n\r\n", 38);
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	}
 	else {
         	wsgi_req.headers_size = write(fd, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
 	}
 #endif
+#endif
         wsgi_req.response_size = write(fd, "<h1>uWSGI Error</h1>", 20);
         wsgi_req.response_size += write(fd, message, strlen(message));
 }
 
+#ifndef ROCK_SOLID
 PyObject *py_uwsgi_sendfile(PyObject *self, PyObject *args) {
 
         PyObject *zero ;
@@ -261,6 +309,7 @@ PyObject *py_uwsgi_sendfile(PyObject *self, PyObject *args) {
 
         return PyTuple_New(0);
 }
+#endif
 
 PyObject *py_uwsgi_write(PyObject *self, PyObject *args) {
         PyObject *data;
@@ -270,14 +319,18 @@ PyObject *py_uwsgi_write(PyObject *self, PyObject *args) {
         if (PyString_Check(data)) {
                 content = PyString_AsString(data) ;
                 len = PyString_Size(data);
+#ifndef ROCK_SOLID
                 if (has_threads) {
                         Py_BEGIN_ALLOW_THREADS
                         wsgi_req.response_size = write(wsgi_poll.fd, content, len);
                         Py_END_ALLOW_THREADS
                 }
                 else {
+#endif
                         wsgi_req.response_size = write(wsgi_poll.fd, content, len);
+#ifndef ROCK_SOLID
                 }
+#endif
         }
         Py_INCREF(Py_None);
         return Py_None;
@@ -291,7 +344,11 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
         PyObject *h_key, *h_value;
         int i,j ;
 #ifndef UNBIT
+#ifdef ROCK_SOLID
+	int base = 4 ;
+#else
 	int base = 0 ;
+#endif
 #else
 	int base = 4 ;
 #endif
@@ -300,9 +357,13 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 
         head = PyTuple_GetItem(args,0) ;
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	if (cgi_mode == 0) {
 		base = 4 ;
 #endif
+#endif
+
+
         	hvec[0].iov_base = wsgi_req.protocol ;
         	hvec[0].iov_len = wsgi_req.protocol_len ;
         	hvec[1].iov_base = " " ;
@@ -313,6 +374,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
         	hvec[3].iov_base = nl ;
         	hvec[3].iov_len = NL_SIZE ;
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	}
 	else {
 		// drop http status on cgi mode
@@ -325,6 +387,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
         	hvec[2].iov_base = nl ;
         	hvec[2].iov_len = NL_SIZE ;
 	}
+#endif
 #endif
         
         headers = PyTuple_GetItem(args,1) ;
@@ -356,13 +419,17 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 
         wsgi_req.headers_size = writev(wsgi_poll.fd, hvec,j+1);
         Py_INCREF(wsgi_writeout);
+
         return wsgi_writeout ;
 }
 
 
 PyMethodDef uwsgi_spit_method[] = {{"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""}} ;
 PyMethodDef uwsgi_write_method[] = {{"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""}} ;
+
+#ifndef ROCK_SOLID
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}} ;
+#endif
 
 
 #ifndef UNBIT
@@ -371,14 +438,19 @@ pid_t diedpid;
 int waitpid_status;
 int master_process = 0;
 #endif
+
+#ifndef ROCK_SOLID
 // flag for memory debug
 int memory_debug = 0 ;
+#endif
 
 int main(int argc, char *argv[]) {
 
         PyObject *wsgi_result, *wsgi_chunks, *wchunk;
         PyObject *zero, *wsgi_socket;
+#ifndef ROCK_SOLID
         PyThreadState *_save = NULL;
+#endif
 
         FILE *wsgi_file;
         struct sockaddr_un c_addr ;
@@ -409,7 +481,11 @@ int main(int argc, char *argv[]) {
 	setlinebuf(stdout);
 
 #ifndef UNBIT
+	#ifndef ROCK_SOLID
         while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMh")) != -1) {
+	#else
+        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMh")) != -1) {
+	#endif
 #else
         while ((i = getopt (argc, argv, "p:t:mTPiv:b:")) != -1) {
 #endif
@@ -421,9 +497,11 @@ int main(int argc, char *argv[]) {
                         case 's':
                                 socket_name = optarg;
                                 break;
+#ifndef ROCK_SOLID
 			case 'x':
 				xml_config = optarg;
 				break;
+#endif
 			case 'l':
 				listen_queue = atoi(optarg);
 				break;
@@ -435,12 +513,14 @@ int main(int argc, char *argv[]) {
                         case 'p':
                                 numproc = atoi(optarg);
                                 break;
+#ifndef ROCK_SOLID
                         case 'm':
                                 memory_debug = 1 ;
                                 break;
                         case 'O':
                                 py_optimize = atoi(optarg) ;
                                 break;
+#endif
                         case 't':
                                 harakiri_timeout = atoi(optarg);
                                 break;
@@ -448,9 +528,11 @@ int main(int argc, char *argv[]) {
 				buffer_size = atoi(optarg);
 				break;
 #ifndef UNBIT
+#ifndef ROCK_SOLID
                         case 'c':
                                 cgi_mode = 1;
                                 break;
+#endif
                         case 'a':
                                 abstract_socket = 1;
                                 break;
@@ -461,6 +543,7 @@ int main(int argc, char *argv[]) {
                                 master_process = 1;
                                 break;
 #endif
+#ifndef ROCK_SOLID
                         case 'T':
                                 has_threads = 1;
                                 break;
@@ -470,6 +553,7 @@ int main(int argc, char *argv[]) {
                         case 'i':
                                 single_interpreter = 1;
                                 break;
+#endif
 #ifndef UNBIT
 			case 'h':
 				fprintf(stderr, "Usage: %s [options...]\n\
@@ -499,19 +583,82 @@ int main(int argc, char *argv[]) {
         }
 
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	if (cgi_mode == 0) {
+#endif
 #endif
         	fprintf(stderr,"*** Starting uWSGI on [%.*s] ***\n", 24, ctime(&start_of_uwsgi.tv_sec));
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	}
 	else {
         	fprintf(stderr,"*** Starting uWSGI (CGI mode) on [%.*s] ***\n", 24, ctime(&start_of_uwsgi.tv_sec));
 	}
 #endif
+#endif
 
 	Py_SetProgramName("uWSGI");
         Py_Initialize() ;
 
+#ifdef ROCK_SOLID
+
+
+        wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
+        wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
+
+	wi = malloc(sizeof(struct uwsgi_app));
+	if (wi == NULL) {
+		perror("malloc()");
+		exit(1);
+	}
+	memset(wi, 0, sizeof(struct uwsgi_app));
+
+	// load wsgi module/script
+	for (i = optind; i < argc; i++) {
+		init_uwsgi_vars();
+		wi->wsgi_module = PyImport_ImportModule(argv[i]);
+		if (!wi->wsgi_module) {
+			PyErr_Print();
+			exit(1);
+		}
+		wi->wsgi_dict = PyModule_GetDict(wi->wsgi_module);
+		if (!wi->wsgi_dict) {
+			PyErr_Print();
+			exit(1);
+		}
+		wi->wsgi_callable = PyDict_GetItemString(wi->wsgi_dict, "application");
+		if (!wi->wsgi_callable) {
+			PyErr_Print();
+			exit(1);
+		}
+		wi->wsgi_environ = PyDict_New();
+		if (!wi->wsgi_environ) {
+			PyErr_Print();
+			exit(1);
+		}
+		wi->wsgi_args = PyTuple_New(2) ;
+		if (!wi->wsgi_args) {
+			PyErr_Print();
+			exit(1);
+		}
+		if (PyTuple_SetItem(wi->wsgi_args,0, wi->wsgi_environ)) {
+			PyErr_Print();
+			exit(1);
+		}
+		if (PyTuple_SetItem(wi->wsgi_args,1, wsgi_spitout)) {
+			PyErr_Print();
+			exit(1);
+		}
+		break;	
+	}
+
+	if (!wi->wsgi_module) {
+		fprintf(stderr,"unable to find the wsgi script. Have you specified it ?\n");
+		exit(1);
+	}
+#endif
+
+#ifndef ROCK_SOLID
 	Py_OptimizeFlag = py_optimize;
 
         wsgi_thread = PyThreadState_Get();
@@ -521,6 +668,8 @@ int main(int argc, char *argv[]) {
                 PyEval_InitThreads() ;
                 fprintf(stderr, "threads support enabled\n");
         }
+
+#endif
 
 #ifndef UNBIT
         if (socket_name != NULL) {
@@ -576,6 +725,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
+#ifndef ROCK_SOLID
 	if (single_interpreter == 1) {
 		init_uwsgi_vars();
 	}
@@ -586,15 +736,13 @@ int main(int argc, char *argv[]) {
                 exit(1);
         }
 
-        wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
-        wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
-
         memset(wsgi_apps, 0, sizeof(wsgi_apps));
 
 
         if (has_threads) {
                 _save = PyEval_SaveThread();
         }
+#endif
 
         if (harakiri_timeout > 0) {
                 signal(SIGALRM, (void *) &harakiri);
@@ -603,17 +751,21 @@ int main(int argc, char *argv[]) {
         signal(SIGINT, (void *) &harakiri);
 
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	signal(SIGUSR1, (void *) &stats);
+#endif
 #endif
 
         wsgi_poll.events = POLLIN ;
 
 
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	if (xml_config != NULL) {
         	memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 		uwsgi_xml_config();
 	}
+#endif
 #endif
 
 
@@ -690,8 +842,11 @@ int main(int argc, char *argv[]) {
 
 	
         memset(&wsgi_req, 0, sizeof(struct wsgi_request));
+
+#ifndef ROCK_SOLID
 	wsgi_req.app_id = default_app ;	
         wsgi_req.sendfile_fd = -1 ;
+#endif
 
 	hvec = malloc(sizeof(struct iovec)*vec_size) ;
 	if (hvec == NULL) {
@@ -771,6 +926,7 @@ int main(int argc, char *argv[]) {
                                                         memcpy(&strsize,ptrbuf,2);
                                                         ptrbuf+=2 ;
                                                         if ( ptrbuf+strsize <= bufferend) {
+#ifndef ROCK_SOLID
                                                                 if (!strncmp("SCRIPT_NAME", hvec[wsgi_req.var_cnt].iov_base , hvec[wsgi_req.var_cnt].iov_len)) {
                                                                         // set the request app_id
                                                                         // LOCKED SECTION
@@ -794,6 +950,9 @@ int main(int argc, char *argv[]) {
                                                                         // UNLOCK
                                                                 }
                                                                 else if (!strncmp("SERVER_PROTOCOL", hvec[wsgi_req.var_cnt].iov_base , hvec[wsgi_req.var_cnt].iov_len)) {
+#else
+                                                                if (!strncmp("SERVER_PROTOCOL", hvec[wsgi_req.var_cnt].iov_base , hvec[wsgi_req.var_cnt].iov_len)) {
+#endif
                                                                         wsgi_req.protocol = ptrbuf ;
                                                                         wsgi_req.protocol_len = strsize ;
                                                                 }
@@ -850,11 +1009,15 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
+#ifndef ROCK_SOLID
                 if (has_threads) {
                         PyEval_RestoreThread(_save);
                 }
+#endif
 
                 wsgi_file = fdopen(wsgi_poll.fd,"r") ;
+
+#ifndef ROCK_SOLID
 
 #ifndef UNBIT
                 if (wsgi_req.app_id == -1 && xml_config == NULL) {
@@ -887,6 +1050,7 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
+
                 if (wsgi_req.app_id == -1) {
                         internal_server_error(wsgi_poll.fd, "wsgi application not found");
                         goto clean;
@@ -904,10 +1068,13 @@ int main(int argc, char *argv[]) {
                 	PyThreadState_Swap(wi->interpreter) ;
 		}
 
+#endif
+
                 /* max 1 minute before harakiri */
                 if (harakiri_timeout > 0) {
                         alarm(harakiri_timeout);
                 }
+
 
                 for(i=0;i<wsgi_req.var_cnt;i+=2) {
                         pydictkey = PyString_FromStringAndSize(hvec[i].iov_base, hvec[i].iov_len) ;
@@ -917,13 +1084,17 @@ int main(int argc, char *argv[]) {
                         Py_DECREF(pydictvalue);
                 }
 
+
+
                 // set wsgi vars
 
                 wsgi_socket = PyFile_FromFile(wsgi_file,"wsgi_input","r", NULL) ;
                 PyDict_SetItemString(wi->wsgi_environ, "wsgi.input", wsgi_socket );
                 Py_DECREF(wsgi_socket) ;
 
+#ifndef ROCK_SOLID
                 PyDict_SetItemString(wi->wsgi_environ, "wsgi.file_wrapper", wi->wsgi_sendfile );
+#endif
 
                 zero = PyTuple_New(2);
                 PyTuple_SetItem(zero, 0 , PyInt_FromLong(1));
@@ -945,7 +1116,9 @@ int main(int argc, char *argv[]) {
                 Py_DECREF(zero);
 
 
+
                 // call
+#ifndef ROCK_SOLID
                 if (enable_profiler == 1) {
                 	wsgi_result = PyEval_CallObject(wi->wsgi_cprofile_run, wi->wsgi_args);
                 	if (PyErr_Occurred()) {
@@ -957,14 +1130,21 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		else {
+#endif
+
                 	wsgi_result = PyEval_CallObject(wi->wsgi_callable, wi->wsgi_args);
+
                 	if (PyErr_Occurred()) {
                         	PyErr_Print();
                 	}
+#ifndef ROCK_SOLID
 		}
+#endif
 
 
                 if (wsgi_result) {
+
+#ifndef ROCK_SOLID
                         if (wsgi_req.sendfile_fd > -1) {
                                 rlen = lseek(wsgi_req.sendfile_fd, 0, SEEK_END) ;
                                 if (rlen > 0) {
@@ -978,6 +1158,8 @@ int main(int argc, char *argv[]) {
                                 Py_DECREF(py_sendfile);
                         }
                         else {
+
+#endif
                                 wsgi_chunks = PyObject_GetIter(wsgi_result);
                                 if (wsgi_chunks) {
                                         while((wchunk = PyIter_Next(wsgi_chunks))) {
@@ -988,35 +1170,47 @@ int main(int argc, char *argv[]) {
                                         }
                                         Py_DECREF(wsgi_chunks);
                                 }
+#ifndef ROCK_SOLID
                         }
-
 			if (enable_profiler == 0) {
+#endif
                         	Py_DECREF(wsgi_result);
+#ifndef ROCK_SOLID
 			}
+#endif
                 }
 
 
                 PyDict_Clear(wi->wsgi_environ);
+#ifndef ROCK_SOLID
                 wi->requests++;
+#endif
                 PyErr_Clear();
                 if (harakiri_timeout > 0) {
                         alarm(0);
                 }
+#ifndef ROCK_SOLID
 		if (single_interpreter == 0) {
                 	PyThreadState_Swap(wsgi_thread);
 		}
 clean:
+#endif
                 fclose(wsgi_file);
+#ifndef ROCK_SOLID
                 if (has_threads) {
                         _save = PyEval_SaveThread();
                 }
+#endif
                 requests++ ;
                 // GO LOGGING...
                 log_request() ;
                 // reset request
                 memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+
+#ifndef ROCK_SOLID
                 wsgi_req.app_id = default_app ;
                 wsgi_req.sendfile_fd = -1 ;
+#endif
 
         }
 
@@ -1029,13 +1223,15 @@ void log_request() {
         struct timeval end_request ;
         time_t microseconds, microseconds2;
 
-        char *msg1 = " via sendfile() " ;
-        char *msg2 = " " ;
         char *msg3 = "?" ;
         char *msg4 = "" ;
 
-        char *via ;
         char *qs_sep;
+
+#ifndef ROCK_SOLID
+        char *msg1 = " via sendfile() " ;
+        char *msg2 = " " ;
+        char *via ;
 	struct uwsgi_app *wi;
 	int app_req = -1 ;
 
@@ -1049,6 +1245,7 @@ void log_request() {
         if (wsgi_req.sendfile_fd > -1) {
                 via = msg1 ;
         }
+#endif
 
         qs_sep = msg4 ;
         if (wsgi_req.query_string_len > 0) {
@@ -1059,19 +1256,32 @@ void log_request() {
         gettimeofday(&end_request, NULL) ;
         microseconds = end_request.tv_sec*1000000+end_request.tv_usec ;
         microseconds2 = wsgi_req.start_of_request.tv_sec*1000000+wsgi_req.start_of_request.tv_usec ;
+#ifndef ROCK_SOLID
         if (memory_debug == 1) {
                 get_memusage();
                 fprintf(stderr,"{address space usage: %ld bytes/%luMB} {rss usage: %lu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
         }
+#endif
+
+#ifdef ROCK_SOLID
+        fprintf(stderr, "[pid: %d|req: %d] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s%s%.*s => generated %d bytes in %ld msecs (%.*s %d) %d headers in %d bytes\n",
+                mypid, requests, wsgi_req.remote_addr_len, wsgi_req.remote_addr,
+                wsgi_req.remote_user_len, wsgi_req.remote_user, wsgi_req.var_cnt, wsgi_req.size, 24, time_request,
+                wsgi_req.method_len, wsgi_req.method, wsgi_req.uri_len, wsgi_req.uri, qs_sep, wsgi_req.query_string_len, wsgi_req.query_string, wsgi_req.response_size, 
+                (microseconds-microseconds2)/1000,
+                wsgi_req.protocol_len, wsgi_req.protocol, wsgi_req.status, wsgi_req.header_cnt, wsgi_req.headers_size) ;
+#else
         fprintf(stderr, "[pid: %d|app: %d|req: %d/%d] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s%s%.*s => generated %d bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes\n",
                 mypid, wsgi_req.app_id, app_req, requests, wsgi_req.remote_addr_len, wsgi_req.remote_addr,
                 wsgi_req.remote_user_len, wsgi_req.remote_user, wsgi_req.var_cnt, wsgi_req.size, 24, time_request,
                 wsgi_req.method_len, wsgi_req.method, wsgi_req.uri_len, wsgi_req.uri, qs_sep, wsgi_req.query_string_len, wsgi_req.query_string, wsgi_req.response_size, 
                 (microseconds-microseconds2)/1000, via,
                 wsgi_req.protocol_len, wsgi_req.protocol, wsgi_req.status, wsgi_req.header_cnt, wsgi_req.headers_size) ;
+#endif
 
 }
 
+#ifndef ROCK_SOLID
 void get_memusage() {
         FILE *procfile;
 	int i;
@@ -1085,11 +1295,14 @@ void get_memusage() {
                 fclose(procfile);
         }
 }
+#endif
 
 void init_uwsgi_vars() {
 
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	int i;
+#endif
 #endif
 	PyObject *wsgi_argv, *zero ;
 	PyObject *pysys, *pysys_dict, *pypath ;
@@ -1120,15 +1333,18 @@ void init_uwsgi_vars() {
 	}
 
 #ifndef UNBIT
+#ifndef ROCK_SOLID
 	for(i=0; i< python_path_cnt; i++) {
         	if (PyList_Insert(pypath,0,PyString_FromString(python_path[i])) != 0) {
                 	PyErr_Print();
 		}
 	}
 #endif
+#endif
 
 }
 
+#ifndef ROCK_SOLID
 int init_uwsgi_app() {
         PyObject *wsgi_module, *wsgi_dict ;
 	PyObject *pymain, *zero;
@@ -1350,8 +1566,12 @@ int init_uwsgi_app() {
         return id ;
 }
 
+#endif
+
 // part useless for Unbit
 #ifndef UNBIT
+
+#ifndef ROCK_SOLID
 
 void uwsgi_xml_config() {
 	xmlDoc *doc = NULL;
@@ -1452,6 +1672,7 @@ void uwsgi_xml_config() {
 }
 
 
+#endif
 
 void daemonize(char *logfile) {
         pid_t pid;
