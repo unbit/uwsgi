@@ -600,11 +600,12 @@ int main(int argc, char *argv[]) {
 	Py_SetProgramName("uWSGI");
         Py_Initialize() ;
 
-#ifdef ROCK_SOLID
 
 
         wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
+
+#ifdef ROCK_SOLID
 
 	wi = malloc(sizeof(struct uwsgi_app));
 	if (wi == NULL) {
