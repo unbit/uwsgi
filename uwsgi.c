@@ -576,9 +576,9 @@ int main(int argc, char *argv[]) {
 \t-h\t\tthis help\n\
 \t-d <logfile>	daemonize and log into <logfile>\n", argv[0]);
 				exit(1);
-#endif
 			default:
 				exit(1);
+#endif
                 }
         }
 
