@@ -32,6 +32,12 @@ gcc -o /usr/share/unbit/uwsgi24 `python2.4-config --cflags` `python2.4-config --
 Compile on *BSD (FreeBSD and OSX)
 gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD uwsgi.c
 
+** Warning for FreeBSD users **
+the sendfile() prototype is not very clear for all BSD systems.
+If you have problem with compilation you can use the following:
+gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD -DFREEBSD uwsgi.c
+(thanks to Christopher Villalobos for the patch)
+
 
 Compile ROCK_SOLID mode
 gcc -o uwsgi_rs `python2.5-config --cflags` `python2.5-config --libs` -DROCK_SOLID uwsgi.c
@@ -90,9 +96,10 @@ in particular)
 #include <libxml/tree.h>
 #endif
 #include <fcntl.h>
+#endif
+
 #include <sys/wait.h>
 
-#endif
 
 
 #ifndef ROCK_SOLID
@@ -1194,7 +1201,11 @@ int main(int argc, char *argv[]) {
                                 if (rlen > 0) {
                                         lseek(wsgi_req.sendfile_fd, 0, SEEK_SET) ;
 #ifdef BSD
+	#ifdef FREEBSD
+					wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, wsgi_poll.fd, 0, 0, NULL, (off_t *) &rlen, 0) ;
+	#else
                                         wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, wsgi_poll.fd, 0, (off_t *) &rlen, NULL, 0) ;
+	#endif
 #else
                                         wsgi_req.response_size = sendfile(wsgi_poll.fd, wsgi_req.sendfile_fd, NULL, rlen) ;
 #endif
