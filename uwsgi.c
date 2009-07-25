@@ -247,6 +247,18 @@ struct uwsgi_app wsgi_apps[64] ;
 PyObject *py_apps ;
 #endif
 
+void goodbye_cruel_world(void);
+void reap_them_all(void);
+
+void goodbye_cruel_world() {
+	fprintf(stderr, "The work of process %d is done. Seeya!\n", getpid());
+	exit(0);
+}
+
+void reap_them_all() {
+	fprintf(stderr,"...brutally killing workers...\n");
+	kill(-1, SIGKILL);
+}
 
 void harakiri() {
 
@@ -448,12 +460,15 @@ PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, MET
 #endif
 
 
-#ifndef UNBIT
+// process manager is now (20090725) available on Unbit
 pid_t masterpid;
 pid_t diedpid;
 int waitpid_status;
 int master_process = 0;
-#endif
+int process_reaper = 0 ;
+int max_requests = 0;
+struct timeval last_respawn;
+time_t respawn_delta;
 
 #ifndef ROCK_SOLID
 // flag for memory debug
@@ -498,12 +513,12 @@ int main(int argc, char *argv[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMh")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:")) != -1) {
 	#else
-        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMh")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:")) != -1) {
 #endif
                 switch(i) {
 #ifndef UNBIT
@@ -528,6 +543,9 @@ int main(int argc, char *argv[]) {
                                 break;
                         case 'p':
                                 numproc = atoi(optarg);
+                                break;
+                        case 'r':
+                                process_reaper = 1;
                                 break;
 #ifndef ROCK_SOLID
                         case 'm':
@@ -555,10 +573,13 @@ int main(int argc, char *argv[]) {
                         case 'C':
                                 chmod_socket = 1;
                                 break;
+#endif
                         case 'M':
                                 master_process = 1;
                                 break;
-#endif
+                        case 'R':
+                                max_requests = atoi(optarg);
+                                break;
 #ifndef ROCK_SOLID
                         case 'T':
                                 has_threads = 1;
@@ -768,6 +789,8 @@ int main(int argc, char *argv[]) {
                 signal(SIGALRM, (void *) &harakiri);
         }
 
+	/* the best job for SIGINT is to gracefully kill a process. Probably a futex here is a good choice to wait for request completion
+	for now i will map it to harakiri() */
         signal(SIGINT, (void *) &harakiri);
 
 #ifndef UNBIT
@@ -790,9 +813,7 @@ int main(int argc, char *argv[]) {
 
 
         mypid = getpid();
-#ifndef UNBIT
 	masterpid = mypid ;
-#endif
 
 	if (buffer_size > 65536) {
 		fprintf(stderr,"invalid buffer size.\n");
@@ -807,7 +828,6 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr,"request/response buffer (%d bytes) allocated.\n", buffer_size);
 
         /* preforking() */
-#ifndef UNBIT
 	if (master_process == 0) {
         	fprintf(stderr, "spawned uWSGI worker 0 (pid: %d)\n", mypid);
 	}
@@ -815,10 +835,6 @@ int main(int argc, char *argv[]) {
         	fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
 	}
         for(i=1;i<numproc+master_process;i++) {
-#else
-        fprintf(stderr, "spawned uWSGI worker 0 (pid: %d)\n", mypid);
-        for(i=1;i<numproc;i++) {
-#endif
                 pid = fork();
                 if (pid == 0 ) {
                         mypid = getpid();
@@ -830,10 +846,11 @@ int main(int argc, char *argv[]) {
                 }
                 else {
                         fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
+			gettimeofday(&last_respawn, NULL) ;
+			respawn_delta = last_respawn.tv_sec;
                 }
         }
 
-#ifndef UNBIT
 
 	if (getpid() == masterpid && master_process == 1) {
 		for(;;) {
@@ -841,9 +858,17 @@ int main(int argc, char *argv[]) {
 			if (diedpid == -1) {
 				perror("waitpid()");
 				fprintf(stderr, "something horrible happened...\n");
-				harakiri();
+				reap_them_all();
+				exit(1);
 			}
 			fprintf(stderr,"DAMN ! process %d died :( trying respawn ...\n", diedpid);
+			gettimeofday(&last_respawn, NULL) ;
+			if (last_respawn.tv_sec == respawn_delta) {
+				fprintf(stderr,"worker respawning too fast !!! i have to sleep a bit...\n");
+				sleep(2);
+			}
+			gettimeofday(&last_respawn, NULL) ;
+			respawn_delta = last_respawn.tv_sec;
 			pid = fork();
 			if (pid == 0 ) {
 				mypid = getpid();
@@ -857,7 +882,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-#endif
 
 
 	
@@ -1224,6 +1248,10 @@ clean:
                 requests++ ;
                 // GO LOGGING...
                 log_request() ;
+		// defunct process reaper
+		if (process_reaper == 1) {
+			waitpid(-1, &waitpid_status, WNOHANG);
+		}
                 // reset request
                 memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
 
@@ -1231,6 +1259,10 @@ clean:
                 wsgi_req.app_id = default_app ;
                 wsgi_req.sendfile_fd = -1 ;
 #endif
+
+		if (max_requests > 0 && requests >= max_requests) {
+			goodbye_cruel_world();
+		}
 
         }
 
