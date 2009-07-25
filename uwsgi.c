@@ -230,6 +230,7 @@ struct uwsgi_app {
         PyObject *wsgi_callable ;
         PyObject *wsgi_environ ;
         PyObject *wsgi_args;
+        PyObject *wsgi_harakiri;
 #ifndef ROCK_SOLID
         PyObject *wsgi_sendfile;
         PyObject *wsgi_cprofile_run;
@@ -248,9 +249,24 @@ PyObject *py_apps ;
 
 
 void harakiri() {
-        PyThreadState *_myself ;        
-        _myself =  PyThreadState_Get();
-        fprintf(stderr,"\nF*CK !!! i must kill myself (pid %d) %p %p...\n", mypid,  _myself, _myself->frame);
+
+	PyThreadState *_myself;
+#ifndef ROCK_SOLID
+	struct uwsgi_app *wi = NULL ;
+	if (wsgi_req.app_id >= 0) {
+		wi = &wsgi_apps[wsgi_req.app_id] ;
+	}
+#endif
+	PyGILState_Ensure();
+	_myself = PyThreadState_Get();
+       	fprintf(stderr,"\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", mypid, wsgi_req.app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame );
+
+	if (wi && wi->wsgi_harakiri) {
+		PyEval_CallObject(wi->wsgi_harakiri, wi->wsgi_args);
+                if (PyErr_Occurred()) {
+                	PyErr_Print();
+                }
+	}
         Py_FatalError("HARAKIRI !\n");
 }
 
@@ -637,6 +653,9 @@ int main(int argc, char *argv[]) {
 			PyErr_Print();
 			exit(1);
 		}
+
+		wi->wsgi_harakiri = PyDict_GetItemString(wi->wsgi_dict, "harakiri");
+
 		wi->wsgi_args = PyTuple_New(2) ;
 		if (!wi->wsgi_args) {
 			PyErr_Print();
@@ -1461,6 +1480,11 @@ int init_uwsgi_app() {
 		}
                 return -1 ;
         }
+
+	wi->wsgi_harakiri = PyDict_GetItemString(wsgi_dict, "harakiri");
+	if (wi->wsgi_harakiri) {
+		fprintf(stderr, "initialized Harakiri custom handler: %p.\n", wi->wsgi_harakiri);
+	}
 
 
 	if (enable_profiler) {
