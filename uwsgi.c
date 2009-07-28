@@ -477,6 +477,9 @@ int process_reaper = 0 ;
 int max_requests = 0;
 struct timeval last_respawn;
 time_t respawn_delta;
+#ifdef UNBIT
+int single_app_mode = 0;
+#endif
 
 #ifndef ROCK_SOLID
 // flag for memory debug
@@ -526,9 +529,16 @@ int main(int argc, char *argv[]) {
         while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:S")) != -1) {
 #endif
                 switch(i) {
+#ifdef UNBIT
+                        case 'S':
+                                single_interpreter = 1;
+                                single_app_mode = 1;
+				default_app = 0;
+                                break;
+#endif
 #ifndef UNBIT
 			case 'd':
 				daemonize(optarg);
@@ -842,6 +852,24 @@ int main(int argc, char *argv[]) {
 	else {
         	fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
 	}
+
+        memset(&wsgi_req, 0, sizeof(struct wsgi_request));
+
+#ifdef UNBIT
+	if (single_app_mode == 1) {
+		wsgi_req.wsgi_script = getenv("UWSGI_SCRIPT");
+		if (wsgi_req.wsgi_script) {
+			wsgi_req.wsgi_script_len = strlen(wsgi_req.wsgi_script);
+		}
+		else {
+			fprintf(stderr, "UWSGI_SCRIPT env var not set !\n");
+			exit(1);
+		}
+
+		init_uwsgi_app();
+	}
+#endif
+
         for(i=1;i<numproc+master_process;i++) {
                 pid = fork();
                 if (pid == 0 ) {
@@ -893,7 +921,6 @@ int main(int argc, char *argv[]) {
 
 
 	
-        memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 
 #ifndef ROCK_SOLID
 	wsgi_req.app_id = default_app ;	
@@ -979,7 +1006,11 @@ int main(int argc, char *argv[]) {
                                                         ptrbuf+=2 ;
                                                         if ( ptrbuf+strsize <= bufferend) {
 #ifndef ROCK_SOLID
+						#ifdef UNBIT
+                                                                if (single_app_mode == 0 && !strncmp("SCRIPT_NAME", hvec[wsgi_req.var_cnt].iov_base , hvec[wsgi_req.var_cnt].iov_len)) {
+						#else
                                                                 if (!strncmp("SCRIPT_NAME", hvec[wsgi_req.var_cnt].iov_base , hvec[wsgi_req.var_cnt].iov_len)) {
+						#endif
                                                                         // set the request app_id
                                                                         // LOCKED SECTION
                                                                         if (strsize > 0) {
