@@ -101,6 +101,11 @@ in particular)
 
 #include <sys/wait.h>
 
+#ifdef UNBIT
+#define UWSGI_MODIFIER_HT_S 1
+#define UWSGI_MODIFIER_HT_M 2
+#define UWSGI_MODIFIER_HT_H 3
+#endif
 
 
 #ifndef ROCK_SOLID
@@ -181,9 +186,9 @@ void daemonize(char *);
 #endif
 
 struct __attribute__((packed)) wsgi_request {
-        unsigned char version;
+        unsigned char modifier;
         unsigned short size ;
-        unsigned char pad_id ;     
+        unsigned char modifier_arg;     
         // temporary attr
 #ifndef ROCK_SOLID
         int app_id ;     
@@ -1155,7 +1160,23 @@ int main(int argc, char *argv[]) {
 
                 /* max 1 minute before harakiri */
                 if (harakiri_timeout > 0) {
+#ifdef UNBIT
+			if (wsgi_req.modifier != 0) {
+				switch(wsgi_req.modifier) {
+					case UWSGI_MODIFIER_HT_S:
+						alarm(wsgi_req.modifier_arg);
+					case UWSGI_MODIFIER_HT_M:
+						alarm(wsgi_req.modifier_arg*60);
+					case UWSGI_MODIFIER_HT_H:
+						alarm(wsgi_req.modifier_arg*3600);
+				}
+			}
+			else {
+#endif
                         alarm(harakiri_timeout);
+#ifdef UNBIT
+			}
+#endif
                 }
 
 
