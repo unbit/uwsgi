@@ -284,13 +284,15 @@ void harakiri() {
 #endif
 	PyGILState_Ensure();
 	_myself = PyThreadState_Get();
-       	fprintf(stderr,"\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", mypid, wsgi_req.app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame );
+	if (wi) {
+       		fprintf(stderr,"\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", mypid, wsgi_req.app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame );
 
-	if (wi && wi->wsgi_harakiri) {
-		PyEval_CallObject(wi->wsgi_harakiri, wi->wsgi_args);
-                if (PyErr_Occurred()) {
-                	PyErr_Print();
-                }
+		if (wi->wsgi_harakiri) {
+			PyEval_CallObject(wi->wsgi_harakiri, wi->wsgi_args);
+                	if (PyErr_Occurred()) {
+                		PyErr_Print();
+                	}
+		}
 	}
         Py_FatalError("HARAKIRI !\n");
 }
@@ -967,10 +969,12 @@ int main(int argc, char *argv[]) {
                 rlen = read(wsgi_poll.fd, &wsgi_req, 4) ;
                 if (rlen != 4){
                         fprintf(stderr,"invalid request header size: %d...skip\n", rlen);
+                        close(wsgi_poll.fd);
                         continue;
                 }
                 if (wsgi_req.size > buffer_size) {
                         fprintf(stderr,"invalid request block size: %d...skip\n", wsgi_req.size);
+                        close(wsgi_poll.fd);
                         continue;
                 }
 
