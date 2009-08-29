@@ -21,21 +21,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 Compile on Linux 2.6
-gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` uwsgi.c
-gcc -o uwsgi26 `python2.6-config --cflags` `python2.6-config --libs` `xml2-config --cflags` `xml2-config --libs` uwsgi.c
-gcc -o uwsgi24 `python2.4-config --cflags` `python2.4-config --libs` `xml2-config --cflags` `xml2-config --libs` uwsgi.c
+gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` utils.c socket.c uwsgi.c
+gcc -o uwsgi26 `python2.6-config --cflags` `python2.6-config --libs` `xml2-config --cflags` `xml2-config --libs` utils.c socket.c uwsgi.c
+gcc -o uwsgi24 `python2.4-config --cflags` `python2.4-config --libs` `xml2-config --cflags` `xml2-config --libs` utils.c socket.c uwsgi.c
 Compile on Unbit
 gcc -o /usr/share/unbit/uwsgi `python2.5-config --cflags` `python2.5-config --libs` -DUNBIT uwsgi.c
 gcc -o /usr/share/unbit/uwsgi26 `python2.6-config --cflags` `python2.6-config --libs` -DUNBIT uwsgi.c
 gcc -o /usr/share/unbit/uwsgi24 `python2.4-config --cflags` `python2.4-config --libs` -DUNBIT uwsgi.c
 (dapper)  gcc -o uwsgi24 -I/usr/include/python2.4 -I/usr/include/python2.4 -fno-strict-aliasing -DNDEBUG -g -O3 -Wall -Wstrict-prototypes -lpthread -ldl -lutil -lm -lpython2.4 -DUNBIT uwsgi.c
 Compile on *BSD (FreeBSD and OSX)
-gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD uwsgi.c
+gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD utils.c socket.c uwsgi.c
 
 ** Warning for FreeBSD users **
 the sendfile() prototype is not very clear for all BSD systems.
 If you have problem with compilation you can use the following:
-gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD -DFREEBSD uwsgi.c
+gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` -DBSD -DFREEBSD utils.c socket.c uwsgi.c
 (thanks to Christopher Villalobos for the patch)
 
 

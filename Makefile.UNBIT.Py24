@@ -1,0 +1,9 @@
+CC=gcc
+
+PYTHON_CFLAGS=`python2.4-config --cflags`
+PYTHON_LIBS=`python2.4-config --libs`
+
+all:	uwsgi
+
+uwsgi:
+	$(CC) -o /usr/share/unbit/uwsgi24 $(PYTHON_CFLAGS) $(PYTHON_LIBS) -DUNBIT uwsgi.c
