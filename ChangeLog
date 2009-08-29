@@ -5,6 +5,6 @@
 - Cherokee handler
 - code refactoring
 - Makefiles
-- customizable harakiri handler (put an harakiri() function in your wsgi script)
+- customizable harakiri handler (put an harakiri(environ, start_response) function in your wsgi script)
 - limit requests per worker
 - a lot of bugfix and optimizations

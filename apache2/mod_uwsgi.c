@@ -328,12 +328,7 @@ static const char * cmd_uwsgi_socket2(cmd_parms *cmd, void *cfg, const char *pat
                 c->s_addr2.i_addr.sin_family = AF_INET;
                 c->s_addr2.i_addr.sin_port = htons(atoi(tcp_port+1));
                 tcp_port[0] = 0;
-                if (path[0] == 0) {
-                        c->s_addr2.i_addr.sin_addr.s_addr = INADDR_ANY;
-                }
-                else {
-                        c->s_addr2.i_addr.sin_addr.s_addr = inet_addr(path);
-                }
+                c->s_addr2.i_addr.sin_addr.s_addr = inet_addr(path);
         }
         else if (strlen(path) < 104) {
                 strcpy(c->s_addr2.u_addr.sun_path, path);
@@ -366,12 +361,7 @@ static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path
 		c->s_addr.i_addr.sin_family = AF_INET;
 		c->s_addr.i_addr.sin_port = htons(atoi(tcp_port+1));
 		tcp_port[0] = 0;
-		if (path[0] == 0) {
-			c->s_addr.i_addr.sin_addr.s_addr = INADDR_ANY;
-		}
-		else {
-			c->s_addr.i_addr.sin_addr.s_addr = inet_addr(path);
-		}
+		c->s_addr.i_addr.sin_addr.s_addr = inet_addr(path);
 	}
 	else if (strlen(path) < 104) {
 		strcpy(c->s_addr.u_addr.sun_path, path);
