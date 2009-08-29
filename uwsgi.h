@@ -78,7 +78,7 @@ struct __attribute__((packed)) wsgi_request {
         // memory debug
         unsigned long vsz_size;
         long rss_size;
-} wsgi_req;
+};
 
 
 struct uwsgi_app {

@@ -114,6 +114,8 @@ int buffer_size = 4096 ;
 // save my pid for logging
 pid_t mypid;
 
+struct wsgi_request wsgi_req;
+
 struct timeval start_of_uwsgi ;
 
 #ifndef UNBIT

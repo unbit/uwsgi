@@ -66,6 +66,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	int reuse = 1 ;
 	
 	tcp_port[0] = 0 ;
+	memset(&s_addr, 0, sizeof(struct sockaddr_in));
 
 	s_addr.sin_family = AF_INET;
 	s_addr.sin_port = htons(atoi(tcp_port+1));
@@ -90,7 +91,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 
-	fprintf(stderr,"binding on TCP port: %d\n", atoi(tcp_port+1));
+	fprintf(stderr,"binding on TCP port: %d\n", ntohs(s_addr.sin_port));
 
 	if (bind(serverfd, (struct sockaddr *) &s_addr, sizeof(s_addr) ) != 0) {
 		perror("bind()");
