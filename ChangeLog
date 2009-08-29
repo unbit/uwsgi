@@ -1,0 +1,10 @@
+*** 20090829 Version 0.9.2 ***
+
+- TCP support
+- configurable internal timeout (socket/poll)
+- Cherokee handler
+- code refactoring
+- Makefiles
+- customizable harakiri handler (put an harakiri() function in your wsgi script)
+- limit requests per worker
+- a lot of bugfix and optimizations
