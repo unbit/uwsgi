@@ -23,7 +23,9 @@ To compile:
 (Linux)
 	apxs2 -i -c mod_uwsgi.c
 (OSX)
-	sudo apxs -i -c mod_uwsgi.c
+	sudo apxs -i -a -c mod_uwsgi.c
+(OSX 64bit)
+	sudo apxs -i -a -c -Wc,'-arch x86_64' -Wl,'-arch x86_64' mod_uwsgi.c
 
 
 Configure:
@@ -37,8 +39,9 @@ LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
 
 #include "apr_strings.h"
 #include "httpd.h"
-#include "http_log.h"
+#include "http_core.h"
 #include "http_config.h"
+#include "http_log.h"
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -144,6 +147,7 @@ static int uwsgi_handler(request_rec *r) {
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
+
 	if (connect(uwsgi_poll.fd, (struct sockaddr *) &c->s_addr, c->addr_size ) < 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: connect to socket failed: %s", strerror(errno));
 
@@ -170,6 +174,7 @@ static int uwsgi_handler(request_rec *r) {
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 	}
+
 
 		
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REQUEST_METHOD", (char *) r->method, &pkt_size) ;
