@@ -67,15 +67,6 @@ Try to keep the same configuration on your unbit account (threading mode
 in particular)
 
 */
-#include <poll.h>
-#include <sys/uio.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 
 #ifndef ROCK_SOLID
@@ -84,28 +75,20 @@ in particular)
 #endif
 #endif
 
-#ifdef _POSIX_C_SOURCE
-        #undef _POSIX_C_SOURCE
-#endif
-#include <Python.h>
-
 #ifndef UNBIT
 
 #ifndef ROCK_SOLID
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #endif
-#include <fcntl.h>
+
 #endif
 
 
 #include <sys/wait.h>
 
-#ifdef UNBIT
-#define UWSGI_MODIFIER_HT_S 1
-#define UWSGI_MODIFIER_HT_M 2
-#define UWSGI_MODIFIER_HT_H 3
-#endif
+
+#include "uwsgi.h"
 
 
 #ifndef ROCK_SOLID
@@ -161,7 +144,8 @@ PyThreadState *wsgi_thread ;
 
 struct pollfd wsgi_poll; 
 
-int harakiri_timeout = 60 ;
+int harakiri_timeout = 0 ;
+int socket_timeout = 4 ;
 
 PyObject *wsgi_writeout ;
 
@@ -182,74 +166,10 @@ void init_uwsgi_vars(void);
 
 #ifndef UNBIT
 void uwsgi_xml_config(void);
-void daemonize(char *);
 #endif
-
-struct __attribute__((packed)) wsgi_request {
-        unsigned char modifier;
-        unsigned short size ;
-        unsigned char modifier_arg;     
-        // temporary attr
-#ifndef ROCK_SOLID
-        int app_id ;     
-#endif
-        struct timeval start_of_request ;
-        char *uri;
-        unsigned short uri_len;
-        char *remote_addr;
-        unsigned short remote_addr_len;
-        char *remote_user;
-        unsigned short remote_user_len;
-        char *query_string;
-        unsigned short query_string_len;
-        char *protocol;
-        unsigned short protocol_len;
-        char *method;
-        unsigned short method_len;
-#ifndef ROCK_SOLID
-        char *wsgi_script;
-        unsigned short wsgi_script_len;
-        char *wsgi_module;
-        unsigned short wsgi_module_len;
-        char *wsgi_callable;
-        unsigned short wsgi_callable_len;
-        char *script_name;
-        unsigned short script_name_len;
-        int sendfile_fd;
-#endif
-        unsigned short var_cnt;
-        unsigned short header_cnt;
-        int status;
-        int response_size;
-        int headers_size;
-        // memory debug
-        unsigned long vsz_size;
-        long rss_size;
-} wsgi_req;
 
 // iovec
 struct iovec *hvec ;
-
-struct uwsgi_app {
-#ifndef ROCK_SOLID
-        PyThreadState *interpreter ;
-        PyObject *pymain_dict ;
-#endif
-
-#ifdef ROCK_SOLID
-	PyObject *wsgi_module;
-	PyObject *wsgi_dict;
-#endif
-        PyObject *wsgi_callable ;
-        PyObject *wsgi_environ ;
-        PyObject *wsgi_args;
-        PyObject *wsgi_harakiri;
-#ifndef ROCK_SOLID
-        PyObject *wsgi_sendfile;
-        PyObject *wsgi_cprofile_run;
-        int requests ;
-#endif
-};
 
 #ifdef ROCK_SOLID
 struct uwsgi_app *wi;
@@ -260,11 +180,8 @@ struct uwsgi_app wsgi_apps[64] ;
 PyObject *py_apps ;
 #endif
 
-void goodbye_cruel_world(void);
-void reap_them_all(void);
-
 void goodbye_cruel_world() {
-	fprintf(stderr, "The work of process %d is done. Seeya!\n", getpid());
+	fprintf(stderr, "...The work of process %d is done. Seeya!\n", getpid());
 	exit(0);
 }
 
@@ -285,7 +202,11 @@ void harakiri() {
 	PyGILState_Ensure();
 	_myself = PyThreadState_Get();
 	if (wi) {
+	#ifdef ROCK_SOLID
+       		fprintf(stderr,"\nF*CK !!! i must kill myself (pid: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", mypid, wi, wi->wsgi_harakiri, _myself, _myself->frame );
+	#else
        		fprintf(stderr,"\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", mypid, wsgi_req.app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame );
+	#endif
 
 		if (wi->wsgi_harakiri) {
 			PyEval_CallObject(wi->wsgi_harakiri, wi->wsgi_args);
@@ -461,6 +382,9 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
         hvec[j].iov_len = NL_SIZE;
 
         wsgi_req.headers_size = writev(wsgi_poll.fd, hvec,j+1);
+	if (wsgi_req.headers_size < 0) {
+		perror("writev()");
+	}
         Py_INCREF(wsgi_writeout);
 
         return wsgi_writeout ;
@@ -510,7 +434,6 @@ int main(int argc, char *argv[]) {
         int serverfd = 0 ;
 #ifndef UNBIT
         char *socket_name = NULL ;
-        struct sockaddr_un *s_addr;
 #endif
 
         PyObject *pydictkey, *pydictvalue;
@@ -531,12 +454,12 @@ int main(int argc, char *argv[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:")) != -1) {
 	#else
-        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:S")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:")) != -1) {
 #endif
                 switch(i) {
 #ifdef UNBIT
@@ -605,6 +528,11 @@ int main(int argc, char *argv[]) {
                         case 'R':
                                 max_requests = atoi(optarg);
                                 break;
+                        case 'z':
+                                if (atoi(optarg) > 0) {
+					socket_timeout = atoi(optarg) ;
+				}
+                                break;
 #ifndef ROCK_SOLID
                         case 'T':
                                 has_threads = 1;
@@ -621,6 +549,7 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "Usage: %s [options...]\n\
 \t-s <name>\tpath (or name) of UNIX socket to bind to\n\
 \t-l <num>\tset socket listen queue to <n>\n\
+\t-z <sec>\tset socket timeout to <sec> seconds\n\
 \t-b <n>\t\tset buffer size to <n> bytes\n\
 \t-x <path>\tpath of xml config file (no ROCK_SOLID)\n\
 \t-t <sec>\tset harakiri timeout to <sec> seconds\n\
@@ -739,55 +668,18 @@ int main(int argc, char *argv[]) {
 
 #ifndef UNBIT
         if (socket_name != NULL) {
-                fprintf(stderr, "binding on UNIX socket: %s\n", socket_name);
-
-		// leave 1 byte for abstract namespace (108 linux -> 104 bsd/mac)
-                if (strlen(socket_name) > 102) {
-                	fprintf(stderr, "invalid socket name\n");
-                	exit(1);
-                }
-
-                s_addr = malloc(sizeof(struct sockaddr_un));
-                if (s_addr == NULL) {
-                        perror("malloc()");
-                        exit(1);
-                }
-                memset(s_addr, 0, sizeof(struct sockaddr_un)) ;
-                serverfd = socket(AF_UNIX, SOCK_STREAM, 0);
-                if (serverfd < 0) {
-                        perror("socket()");
-                        exit(1);
-                }
-		if (abstract_socket == 0) {
-                	if (unlink(socket_name) != 0) {
-                        	perror("unlink()");
-                	}
+		char *tcp_port = strchr(socket_name, ':');
+               	if (tcp_port == NULL) {
+			serverfd = bind_to_unix(socket_name, listen_queue, chmod_socket, abstract_socket);
+		}
+		else {
+			serverfd = bind_to_tcp(socket_name, listen_queue, tcp_port);
 		}
 
-		if (abstract_socket ==1) {
-			fprintf(stderr, "setting abstract socket mode (warning: only Linux supports this)\n");
+		if (serverfd < 0) {
+			fprintf(stderr,"unable to create the server socket.\n");
+			exit(1);
 		}
-                s_addr->sun_family = AF_UNIX;
-               	strcpy(s_addr->sun_path+abstract_socket, socket_name);
-                
-                if (bind(serverfd, (struct sockaddr *) s_addr, strlen(socket_name)+ abstract_socket + ( (void *)s_addr->sun_path - (void *)s_addr) ) != 0) {
-                        perror("bind()");
-                        exit(1);
-                }
-
-                if (listen(serverfd, listen_queue) != 0) {
-                        perror("listen()");
-                        exit(1);
-                }
-
-		// chmod unix socket for lazy users
-		if (chmod_socket == 1 && abstract_socket == 0) {
-			fprintf(stderr, "chmod() socket to 666 for lazy and brave users\n");
-			if (chmod(socket_name, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0) {
-				perror("chmod()");
-			}
-		}
-                
         }
 #endif
 
@@ -815,8 +707,8 @@ int main(int argc, char *argv[]) {
         }
 
 	/* the best job for SIGINT is to gracefully kill a process. Probably a futex here is a good choice to wait for request completion
-	for now i will map it to harakiri() */
-        signal(SIGINT, (void *) &harakiri);
+	for now i will map it to goodbye_cruel_world() (was harakiri()) */
+        signal(SIGINT, (void *) &goodbye_cruel_world);
 
 #ifndef UNBIT
 #ifndef ROCK_SOLID
@@ -950,13 +842,13 @@ int main(int argc, char *argv[]) {
                 }
 
                 /*
-                        poll con timeout ;
+                        poll with timeout ;
                 */
 
                 gettimeofday(&wsgi_req.start_of_request, NULL) ;
 
                 /* first 4 byte header */
-                rlen = poll(&wsgi_poll, 1, 4000) ;
+                rlen = poll(&wsgi_poll, 1, socket_timeout*1000) ;
                 if (rlen < 0) {
                         perror("poll()");
                         exit(1);
@@ -972,28 +864,32 @@ int main(int argc, char *argv[]) {
                         close(wsgi_poll.fd);
                         continue;
                 }
-                if (wsgi_req.size > buffer_size) {
+		/* check for max buffer size and for a minimal null string */
+                if (wsgi_req.size > buffer_size || wsgi_req.size < 2) {
                         fprintf(stderr,"invalid request block size: %d...skip\n", wsgi_req.size);
                         close(wsgi_poll.fd);
                         continue;
                 }
 
                 /* http headers parser */
-                rlen = poll(&wsgi_poll, 1, 4000) ;
-                if (rlen < 0) {
-                        perror("poll()");
-                        exit(1);
-                }
-                else if (rlen == 0) {
-                        fprintf(stderr, "timeout. skip request\n");
-                        close(wsgi_poll.fd);
-                        continue ;
-                }
-                rlen = read(wsgi_poll.fd, buffer, wsgi_req.size);
-                if (rlen != wsgi_req.size){
-                        fprintf(stderr,"invalid request var size: %d (expected %d)...skip\n", rlen, wsgi_req.size);
-                        continue;
-                }
+		i = 0 ;
+		while(i < wsgi_req.size) {
+                	rlen = poll(&wsgi_poll, 1, socket_timeout*1000) ;
+                	if (rlen < 0) {
+                        	perror("poll()");
+                        	exit(1);
+                	}
+                	else if (rlen == 0) {
+                        	fprintf(stderr, "timeout. skip request. (expecting %d bytes, got %d)\n", wsgi_req.size, i);
+                        	close(wsgi_poll.fd);
+                        	break ;
+                	}
+                	i += read(wsgi_poll.fd, buffer, wsgi_req.size-i);
+		}
+
+		if (i < wsgi_req.size) {
+			continue;
+		}
 
 
                 ptrbuf = buffer ;
@@ -1798,81 +1694,6 @@ void uwsgi_xml_config() {
 
 
 #endif
-
-void daemonize(char *logfile) {
-        pid_t pid;
-        int fd, fdin;
-
-
-        pid = fork();
-        if (pid < 0) {
-                perror("fork()");
-                exit(1) ;
-        }
-        if (pid != 0) {
-                exit(0);
-        }
-
-        if (setsid() < 0) {
-                perror("setsid()");
-                exit(1) ;
-        }
-
-
-        /* refork... */
-        pid = fork();
-        if (pid < 0) {
-                perror("fork()");
-                exit(1) ;
-        }
-        if (pid != 0) {
-                exit(0);
-        }
-
-        umask(0);
-
-
-        /*if (chdir("/") != 0) {
-                perror("chdir()");
-                exit(1);
-        }*/
-
-
-        fdin = open("/dev/null", O_RDWR);
-        if (fdin < 0) {
-                perror("open()");
-                exit(1);
-        }
-
-        fd = open(logfile, O_RDWR|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR|S_IRGRP );
-        if (fd < 0) {
-                perror("open()");
-                exit(1);
-        }
-
-        /* stdin */
-        if (dup2(fdin,0) < 0) {
-                perror("dup2()");
-                exit(1);
-        }
-
-        /* stdout */
-        if (dup2(fd,1) < 0) {
-                perror("dup2()");
-                exit(1);
-        }
-
-        /* stderr */
-        if (dup2(fd,2) < 0) {
-                perror("dup2()");
-                exit(1);
-        }
-
-        close(fd);
-
-
-}
-
 
 #endif
 

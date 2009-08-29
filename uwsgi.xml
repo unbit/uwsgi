@@ -5,7 +5,7 @@
 		<script>trac_wsgi</script>
 	</app>
 	<app mountpoint="/">
-		<script>django_wsgi</script>
+		<script>myapp</script>
 	</app>
 	<app mountpoint="/ciao">
 		<script>pippo_wsgi</script>

@@ -1,0 +1,9 @@
+CC=gcc
+
+PYTHON_CFLAGS=`python2.6-config --cflags`
+PYTHON_LIBS=`python2.6-config --libs`
+
+all:	uwsgi
+
+uwsgi:
+	$(CC) -o uwsgi26_rs $(PYTHON_CFLAGS) $(PYTHON_LIBS) -DROCK_SOLID socket.c uwsgi.c

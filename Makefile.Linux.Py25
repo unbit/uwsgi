@@ -1,0 +1,11 @@
+CC=gcc
+
+PYTHON_CFLAGS=`python2.5-config --cflags`
+PYTHON_LIBS=`python2.5-config --libs`
+XML_CFLAGS=`xml2-config --cflags`
+XML_LIBS=`xml2-config --libs`
+
+all:	uwsgi
+
+uwsgi:
+	$(CC) -o uwsgi $(PYTHON_CFLAGS) $(PYTHON_LIBS) $(XML_CFLAGS) $(XML_LIBS) socket.c uwsgi.c
