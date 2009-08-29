@@ -3,7 +3,18 @@ CC=gcc
 PYTHON_CFLAGS=`python2.6-config --cflags`
 PYTHON_LIBS=`python2.6-config --libs`
 
-all:	uwsgi
+CFLAGS=$(PYTHON_CFLAGS) -DUNBIT
+LD_FLAGS=$(PYTHON_LIBS) -DUNBIT
 
-uwsgi:
-	$(CC) -o /usr/share/unbit/uwsgi26 $(PYTHON_CFLAGS) $(PYTHON_LIBS) -DUNBIT uwsgi.c
+PROGRAM=/usr/share/unbit/uwsgi26
+
+all:	clean uwsgi
+
+uwsgi:	main.o
+	$(CC) $(LD_FLAGS) main.o -o $(PROGRAM)
+
+main.o:	uwsgi.c
+	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
+	
+clean:
+	rm -f main.o

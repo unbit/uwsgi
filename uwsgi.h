@@ -32,6 +32,12 @@
 #endif
 
 
+#define NL_SIZE 2
+#define H_SEP_SIZE 2
+
+#define PAGE_SIZE 4096
+
+
 struct __attribute__((packed)) wsgi_request {
         unsigned char modifier;
         unsigned short size ;
@@ -104,4 +110,17 @@ int bind_to_unix(char *, int,  int , int );
 int bind_to_tcp(char *, int , char *);
 #ifndef UNBIT
 void daemonize(char *);
+#endif
+void log_request(void) ;
+#ifndef ROCK_SOLID
+void get_memusage(void) ;
+#endif
+void harakiri(void) ;
+#ifndef UNBIT
+void stats(void) ;
+#endif
+void init_uwsgi_vars(void);
+
+#ifndef UNBIT
+void uwsgi_xml_config(void);
 #endif

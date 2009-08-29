@@ -5,7 +5,24 @@ PYTHON_LIBS=`python2.5-config --libs`
 XML_CFLAGS=`xml2-config --cflags`
 XML_LIBS=`xml2-config --libs`
 
+CFLAGS=$(PYTHON_CFLAGS) $(XML_CFLAGS) -DBSD -arch ppc
+LD_FLAGS=$(PYTHON_LIBS) $(XML_LIBS) -DBSD -arch ppc
+
+PROGRAM=uwsgi
+
 all:	uwsgi
 
-uwsgi:
-	$(CC) -arch ppc -o uwsgi $(PYTHON_CFLAGS) $(PYTHON_LIBS) $(XML_CFLAGS) $(XML_LIBS) -DBSD utils.c socket.c uwsgi.c
+uwsgi:	utils.o socket.o main.o
+	$(CC) $(LD_FLAGS) utils.o socket.o main.o -o $(PROGRAM)
+
+utils.o: utils.c
+	$(CC) -c $(CFLAGS) utils.c
+
+socket.o: socket.c
+	$(CC) -c $(CFLAGS) socket.c
+
+main.o:	uwsgi.c
+	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
+	
+clean:
+	rm -f utils.o socket.o main.o

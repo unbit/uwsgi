@@ -19,6 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
+*** Please use the supplied Makefiles ***
 
 Compile on Linux 2.6
 gcc -o uwsgi `python2.5-config --cflags` `python2.5-config --libs` `xml2-config --cflags` `xml2-config --libs` utils.c socket.c uwsgi.c
@@ -97,11 +98,7 @@ int init_uwsgi_app(void) ;
 
 
 char *nl = "\r\n";
-#define NL_SIZE 2
 char *h_sep = ": " ;
-#define H_SEP_SIZE 2
-
-#define PAGE_SIZE 4096
 
 int requests = 0 ;
 
@@ -153,20 +150,6 @@ PyObject *wsgi_writeout ;
 
 int max_vars = MAX_VARS ;
 int vec_size = 4+1+(4*MAX_VARS) ;
-
-void log_request(void) ;
-#ifndef ROCK_SOLID
-void get_memusage(void) ;
-#endif
-void harakiri(void) ;
-#ifndef UNBIT
-void stats(void) ;
-#endif
-void init_uwsgi_vars(void);
-
-#ifndef UNBIT
-void uwsgi_xml_config(void);
-#endif
 
 // iovec
 struct iovec *hvec ;
