@@ -232,6 +232,13 @@ static ret_t
 build_header (cherokee_handler_uwsgi_t *hdl)
 {
 
+	cuint_t len;
+        char    tmp[64];
+
+        len = snprintf (tmp, sizeof(tmp), FMT_OFFSET, (CST_OFFSET)hdl->post_len);
+
+        add_env_pair(HDL_CGI_BASE(hdl), "CONTENT_LENGTH", 14, tmp, len);
+
 	cherokee_handler_cgi_base_build_envp (HDL_CGI_BASE(hdl), HANDLER_CONN(hdl));       	
 
 	return uwsgi_fix_packet (&hdl->header);
