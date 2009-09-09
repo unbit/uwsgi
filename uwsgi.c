@@ -1066,6 +1066,7 @@ int main(int argc, char *argv[]) {
 
 
                 for(i=0;i<wsgi_req.var_cnt;i+=2) {
+			/*fprintf(stderr,"%.*s: %.*s\n", hvec[i].iov_len, hvec[i].iov_base, hvec[i+1].iov_len, hvec[i+1].iov_base);*/
                         pydictkey = PyString_FromStringAndSize(hvec[i].iov_base, hvec[i].iov_len) ;
                         pydictvalue = PyString_FromStringAndSize(hvec[i+1].iov_base, hvec[i+1].iov_len) ;
                         PyDict_SetItem(wi->wsgi_environ, pydictkey, pydictvalue);
@@ -1359,7 +1360,7 @@ int init_uwsgi_app() {
 
 
 	if (wsgi_req.wsgi_script_len == 0 && (wsgi_req.wsgi_module_len == 0 || wsgi_req.wsgi_callable_len == 0)) {
-		fprintf(stderr, "invalid application. skip.\n");
+		fprintf(stderr, "invalid application (%.*s). skip.\n", wsgi_req.script_name_len, wsgi_req.script_name);
 		return -1;
 	}
 
