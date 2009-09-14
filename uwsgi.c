@@ -545,6 +545,7 @@ int main(int argc, char *argv[]) {
 \t-z <sec>\tset socket timeout to <sec> seconds\n\
 \t-b <n>\t\tset buffer size to <n> bytes\n\
 \t-x <path>\tpath of xml config file (no ROCK_SOLID)\n\
+\t-w <path>\tname of wsgi config module (no ROCK_SOLID)\n\
 \t-t <sec>\tset harakiri timeout to <sec> seconds\n\
 \t-p <n>\t\tspawn <n> uwsgi worker processes\n\
 \t-O <n>\t\tset python optimization level to <n> (no ROCK_SOLID)\n\
