@@ -93,7 +93,7 @@ in particular)
 
 
 #ifndef ROCK_SOLID
-int init_uwsgi_app(void) ;
+int init_uwsgi_app(PyObject *) ;
 #endif
 
 
@@ -130,6 +130,10 @@ char *xml_config = NULL;
 char *python_path[64];
 int python_path_cnt = 0 ;
 #endif
+#endif
+
+#ifndef ROCK_SOLID
+char *wsgi_config;
 #endif
 
 #ifndef ROCK_SOLID
@@ -439,12 +443,12 @@ int main(int argc, char *argv[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:")) != -1) {
 	#else
         while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:")) != -1) {
 #endif
                 switch(i) {
 #ifdef UNBIT
@@ -481,6 +485,10 @@ int main(int argc, char *argv[]) {
                                 process_reaper = 1;
                                 break;
 #ifndef ROCK_SOLID
+			case 'w':
+                                single_interpreter = 1;
+				wsgi_config = optarg;
+				break;
                         case 'm':
                                 memory_debug = 1 ;
                                 break;
@@ -703,10 +711,16 @@ int main(int argc, char *argv[]) {
 
         wsgi_poll.events = POLLIN ;
 
+#ifndef ROCK_SOLID
+	if (wsgi_config != NULL) {
+		memset(&wsgi_req, 0, sizeof(struct wsgi_request));
+		uwsgi_wsgi_config();
+	}
+#endif
 
 #ifndef UNBIT
 #ifndef ROCK_SOLID
-	if (xml_config != NULL) {
+	else if (xml_config != NULL) {
         	memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 		uwsgi_xml_config();
 	}
@@ -750,7 +764,7 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 
-		init_uwsgi_app();
+		init_uwsgi_app(NULL);
 	}
 #endif
 
@@ -995,7 +1009,7 @@ int main(int argc, char *argv[]) {
 #ifndef UNBIT
                 if (wsgi_req.app_id == -1 && xml_config == NULL) {
 #else
-                if (wsgi_req.app_id == -1) {
+                if (wsgi_req.app_id == -1 && wsgi_config == NULL) {
 #endif
                         for(i=0;i<wsgi_req.var_cnt;i+=2) {
                                 if (!strncmp("SCRIPT_NAME", hvec[i].iov_base, hvec[i].iov_len)) {
@@ -1017,7 +1031,7 @@ int main(int argc, char *argv[]) {
                         }
 
 
-                        if ((wsgi_req.app_id = init_uwsgi_app()) == -1) {
+                        if ((wsgi_req.app_id = init_uwsgi_app(NULL)) == -1) {
                                 internal_server_error(wsgi_poll.fd, "wsgi application not found");
                                 goto clean ;
                         }
@@ -1347,7 +1361,7 @@ void init_uwsgi_vars() {
 }
 
 #ifndef ROCK_SOLID
-int init_uwsgi_app() {
+int init_uwsgi_app(PyObject *force_wsgi_dict) {
         PyObject *wsgi_module, *wsgi_dict ;
 	PyObject *pymain, *zero;
 	PyObject *pycprof, *pycprof_dict;
@@ -1359,7 +1373,12 @@ int init_uwsgi_app() {
         memset(tmpstring,0, 256) ;
 
 
-	if (wsgi_req.wsgi_script_len == 0 && (wsgi_req.wsgi_module_len == 0 || wsgi_req.wsgi_callable_len == 0)) {
+	if (wsgi_req.wsgi_script_len == 0 && ( (wsgi_req.wsgi_module_len == 0 || wsgi_req.wsgi_callable_len == 0) && wsgi_config == NULL) ) {
+		fprintf(stderr, "invalid application (%.*s). skip.\n", wsgi_req.script_name_len, wsgi_req.script_name);
+		return -1;
+	}
+
+	if (wsgi_config && wsgi_req.wsgi_callable_len == 0) {
 		fprintf(stderr, "invalid application (%.*s). skip.\n", wsgi_req.script_name_len, wsgi_req.script_name);
 		return -1;
 	}
@@ -1402,43 +1421,48 @@ int init_uwsgi_app() {
 
 	
 
-        if (wsgi_req.wsgi_script_len > 0) {
-                memcpy(tmpstring, wsgi_req.wsgi_script, wsgi_req.wsgi_script_len) ;
-                wsgi_module = PyImport_ImportModule(tmpstring) ;
-                if (!wsgi_module) {
-                        PyErr_Print();
-			if (single_interpreter == 0) {
-                        	Py_EndInterpreter(wi->interpreter);
-                        	PyThreadState_Swap(wsgi_thread) ;
-			}
-                        return -1 ;
-                }
-                wsgi_req.wsgi_callable = "application" ;
-                wsgi_req.wsgi_callable_len = 11;
-        }
-        else {
-                memcpy(tmpstring, wsgi_req.wsgi_module, wsgi_req.wsgi_module_len) ;
-                wsgi_module = PyImport_ImportModule(tmpstring) ;
-                if (!wsgi_module) {
-                        PyErr_Print();
-			if (single_interpreter == 0) {
-                        	Py_EndInterpreter(wi->interpreter);
-                        	PyThreadState_Swap(wsgi_thread) ;
-			}
-                        return -1 ;
-                }
-                
-        }
+	if (wsgi_config == NULL) {
+        	if (wsgi_req.wsgi_script_len > 0) {
+                	memcpy(tmpstring, wsgi_req.wsgi_script, wsgi_req.wsgi_script_len) ;
+                	wsgi_module = PyImport_ImportModule(tmpstring) ;
+                	if (!wsgi_module) {
+                        	PyErr_Print();
+				if (single_interpreter == 0) {
+                        		Py_EndInterpreter(wi->interpreter);
+                        		PyThreadState_Swap(wsgi_thread) ;
+				}
+                        	return -1 ;
+                	}
+                	wsgi_req.wsgi_callable = "application" ;
+                	wsgi_req.wsgi_callable_len = 11;
+        	}
+        	else {
+                	memcpy(tmpstring, wsgi_req.wsgi_module, wsgi_req.wsgi_module_len) ;
+                	wsgi_module = PyImport_ImportModule(tmpstring) ;
+                	if (!wsgi_module) {
+                        	PyErr_Print();
+				if (single_interpreter == 0) {
+                        		Py_EndInterpreter(wi->interpreter);
+                        		PyThreadState_Swap(wsgi_thread) ;
+				}
+                        	return -1 ;
+                	}
+               } 
 
-        wsgi_dict = PyModule_GetDict(wsgi_module);
-        if (!wsgi_dict) {
-                PyErr_Print();
-		if (single_interpreter == 0) {
-                	Py_EndInterpreter(wi->interpreter);
-                	PyThreadState_Swap(wsgi_thread) ;
-		}
-                return -1 ;
-        }
+        	wsgi_dict = PyModule_GetDict(wsgi_module);
+        	if (!wsgi_dict) {
+                	PyErr_Print();
+			if (single_interpreter == 0) {
+                		Py_EndInterpreter(wi->interpreter);
+                		PyThreadState_Swap(wsgi_thread) ;
+			}
+                	return -1 ;
+        	}
+
+	}
+	else {
+		wsgi_dict = force_wsgi_dict;
+	}
 
         memset(tmpstring, 0, 256);
         memcpy(tmpstring, wsgi_req.wsgi_callable, wsgi_req.wsgi_callable_len) ;
@@ -1573,9 +1597,87 @@ int init_uwsgi_app() {
         return id ;
 }
 
+
+void uwsgi_wsgi_config() {
+
+	PyObject *wsgi_module, *wsgi_dict ;
+	PyObject *applications;
+	PyObject *app_list;
+	int ret;
+	Py_ssize_t i;
+	PyObject *app_mnt, *app_app ;
+
+	wsgi_module = PyImport_ImportModule(wsgi_config) ;
+        if (!wsgi_module) {
+        	PyErr_Print();
+		exit(1);
+	}
+
+	wsgi_dict = PyModule_GetDict(wsgi_module);
+        if (!wsgi_dict) {
+                PyErr_Print();
+		exit(1);
+	}
+
+	fprintf(stderr,"...getting the applications list from the '%s' module...\n", wsgi_config);
+
+	applications = PyDict_GetItemString(wsgi_dict, "applications");
+	if (!applications) {
+                PyErr_Print();
+		exit(1);
+	}
+	if (!PyDict_Check(applications)) {
+		fprintf(stderr,"The 'applications' object must be a dictionary.\n");
+		exit(1);
+	}
+
+	app_list = PyDict_Keys(applications);
+	if (!app_list) {
+                PyErr_Print();
+		exit(1);
+	}
+	if (PyList_Size(app_list) < 1) {
+		fprintf(stderr,"You must define an app.\n");
+		exit(1);
+	}
+
+	for(i=0;i<PyList_Size(app_list);i++) {
+		app_mnt = PyList_GetItem(app_list, i) ;
+
+		if (!PyString_Check(app_mnt)) {
+			fprintf(stderr, "the app mountpoint must be a string.\n");
+			exit(1);
+		}
+
+		wsgi_req.script_name = PyString_AsString(app_mnt);
+		wsgi_req.script_name_len = strlen(wsgi_req.script_name);
+
+		app_app = PyDict_GetItem(applications, app_mnt);
+
+		if (!PyString_Check(app_app)) {
+                        fprintf(stderr, "the app callable must be a string.\n");
+                        exit(1);
+                }
+		wsgi_req.wsgi_callable = PyString_AsString(app_app) ;
+		wsgi_req.wsgi_callable_len = strlen(wsgi_req.wsgi_callable);
+
+
+
+		fprintf(stderr,"initializing [%s => %s] app...\n",  wsgi_req.script_name, wsgi_req.wsgi_callable);
+		ret = init_uwsgi_app(wsgi_dict);
+		if (ret < 0) {
+			fprintf(stderr,"...goodbye cruel world...\n");
+			exit(1);
+		}
+		Py_DECREF(app_mnt);
+		Py_DECREF(app_app);
+	}
+
+}
+
 #endif
 
-// part useless for Unbit
+// useless part for Unbit
 #ifndef UNBIT
 
 #ifndef ROCK_SOLID
@@ -1663,7 +1765,7 @@ void uwsgi_xml_config() {
 							}
 							wsgi_req.wsgi_script = (char *) xml_uwsgi_script ;
 							wsgi_req.wsgi_script_len = strlen(wsgi_req.wsgi_script);
-							init_uwsgi_app();
+							init_uwsgi_app(NULL);
 						}
 					}
 				}			

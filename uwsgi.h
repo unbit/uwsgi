@@ -124,3 +124,7 @@ void init_uwsgi_vars(void);
 #ifndef UNBIT
 void uwsgi_xml_config(void);
 #endif
+
+#ifndef ROCK_SOLID
+void uwsgi_wsgi_config(void);
+#endif
