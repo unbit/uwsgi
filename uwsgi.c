@@ -91,6 +91,10 @@ in particular)
 
 #include "uwsgi.h"
 
+#if PY_MINOR_VERSION < 5
+	#define Py_ssize_t int
+#endif
+
 
 #ifndef ROCK_SOLID
 int init_uwsgi_app(PyObject *) ;
