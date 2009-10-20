@@ -158,8 +158,7 @@ int socket_timeout = 4 ;
 int save_to_disk = -1 ;
 int tmp_dir_fd = -1 ;
 char *tmp_filename ;
-int uri_to_base64(void);
-char to_base64(char);
+int uri_to_hex(void);
 #endif
 
 PyObject *wsgi_writeout ;
@@ -1176,7 +1175,7 @@ int main(int argc, char *argv[]) {
 #ifdef UNBIT
 		if (wsgi_req.unbit_flags & (unsigned long long) 1) {	
 		fprintf(stderr,"UNBIT FLAGS: %llu\n", wsgi_req.unbit_flags);
-			if (uri_to_base64() <= 0) {
+			if (uri_to_hex() <= 0) {
 				tmp_filename[0] = 0 ;
 			}
 				fprintf(stderr,"CACHEFILE: %s\n", tmp_filename);
@@ -1869,54 +1868,22 @@ void uwsgi_xml_config() {
 
 
 #ifdef UNBIT
-int uri_to_base64()
+int uri_to_hex()
 {
-	int len = 0,i=0,j=0 ;
+	int i=0,j=0 ;
 
 	if (wsgi_req.uri_len < 1) {
 		return 0 ;
 	}
 
-	if (wsgi_req.uri_len+(wsgi_req.uri_len/3) > 8192) {
+	if (wsgi_req.uri_len*2 > 8192) {
 		return 0 ;
 	}
 
-	for ( len = wsgi_req.uri_len - (wsgi_req.uri_len % 3);i < len ; i += 3 ) {
-		tmp_filename[j] = to_base64( wsgi_req.uri[i] >> 2 ) ; j++ ;
-		tmp_filename[j] = to_base64( ((wsgi_req.uri[i] << 4 ) | ((wsgi_req.uri[i+1] >> 4) & 0x3F)) ) ; j++ ;
-		tmp_filename[j] = to_base64( ((wsgi_req.uri[i+1] << 2 ) | ((wsgi_req.uri[i+2] >> 6) & 0x3F)) ) ; j++ ;
-		tmp_filename[j] = to_base64( wsgi_req.uri[i+2] & 0x3F ) ; j++ ;
+	for ( i = 0;i < wsgi_req.uri_len ; i++ ) {
+		sprintf(tmp_filename+j, "%02X", wsgi_req.uri[i]); j+=2;
 	}
-
-	switch(wsgi_req.uri_len % 3) {
-		case 1:
-			tmp_filename[j] = to_base64(wsgi_req.uri[i] >> 2) ; j++;
-			tmp_filename[j] = to_base64( ((wsgi_req.uri[i] << 4) | 0x00 ) & 0x3F) ; j++;
-			tmp_filename[j] = '=' ; j++ ;
-			tmp_filename[j] = '=' ; j++ ;
-			break;
-		case 2:
-			tmp_filename[j] = to_base64(wsgi_req.uri[i] >> 2) ; j++;
-			tmp_filename[j] = to_base64( (((wsgi_req.uri[i] << 4) | (wsgi_req.uri[i + 1] >> 4)) & 0x3F)) ; j++;
-			tmp_filename[j] = to_base64( ((wsgi_req.uri[i+1] << 2) | 0x00 ) & 0x3F) ; j++;
-			tmp_filename[j] = '=' ; j++ ;
-			break;
-	}
-
+	
 	return j ;
-}
-
-char to_base64(char c)
-{
-	if ( c >= 0 && c <= 25 )
-		return c+'A';
-
-	if ( c > 25 && c <= 51 ) 
-		return c+'G';
-
-	if ( c > 51 && c <= 61 )
-		return c-4;
-
-	return (c == 62) ? '+' : '/'; 
 }
 #endif
