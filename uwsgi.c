@@ -371,7 +371,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 #endif
 
 #ifdef UNBIT
-	if (wsgi_req.unbit_flags & 1) {
+	if (wsgi_req.unbit_flags & (unsigned long long) 1) {
 		if (tmp_dir_fd >= 0 && tmp_filename[0] != 0 && wsgi_req.status == 200 && wsgi_req.method_len == 3 && wsgi_req.method[0] == 'G' && wsgi_req.method[1] == 'E' && wsgi_req.method[2] == 'T') {
 			save_to_disk = openat(tmp_dir_fd, tmp_filename,O_CREAT | O_TRUNC | O_WRONLY , S_IRUSR |S_IRUSR |S_IRGRP);
 		}
@@ -1174,7 +1174,7 @@ int main(int argc, char *argv[]) {
                 Py_DECREF(zero);
 
 #ifdef UNBIT
-		if (wsgi_req.unbit_flags & 1) {	
+		if (wsgi_req.unbit_flags & (unsigned long long) 1) {	
 			if (uri_to_base64() <= 0) {
 				tmp_filename[0] = 0 ;
 			}
