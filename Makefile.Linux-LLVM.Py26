@@ -1,4 +1,4 @@
-CC=/usr/lib/llvm/llvm/gcc-4.2/bin/llvm-gcc
+CC=llvmc -clang
 
 PYTHON_CFLAGS=`python2.6-config --cflags`
 PYTHON_LIBS=`python2.6-config --libs`

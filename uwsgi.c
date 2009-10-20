@@ -154,6 +154,14 @@ struct pollfd wsgi_poll;
 int harakiri_timeout = 0 ;
 int socket_timeout = 4 ;
 
+#ifdef UNBIT
+int save_to_disk = -1 ;
+int tmp_dir_fd = -1 ;
+char *tmp_filename ;
+int uri_to_base64(void);
+char to_base64(char);
+#endif
+
 PyObject *wsgi_writeout ;
 
 #define MAX_VARS 64
@@ -285,10 +293,25 @@ PyObject *py_uwsgi_write(PyObject *self, PyObject *args) {
                 else {
 #endif
                         wsgi_req.response_size = write(wsgi_poll.fd, content, len);
+#ifdef UNBIT
+			if (save_to_disk >= 0) {
+				if (write(save_to_disk, content, len) != len) {
+					perror("write()");
+					close(save_to_disk);
+					save_to_disk = -1 ;
+				}
+			}
+#endif
 #ifndef ROCK_SOLID
                 }
 #endif
         }
+#ifdef UNBIT
+	if (save_to_disk >= 0) {
+		close(save_to_disk);
+		save_to_disk = -1 ;
+	}
+#endif
         Py_INCREF(Py_None);
         return Py_None;
 }
@@ -345,6 +368,14 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
         	hvec[2].iov_len = NL_SIZE ;
 	}
 #endif
+#endif
+
+#ifdef UNBIT
+	if (wsgi_req.unbit_flags & 1) {
+		if (tmp_dir_fd >= 0 && tmp_filename[0] != 0 && wsgi_req.status == 200 && wsgi_req.method_len == 3 && wsgi_req.method[0] == 'G' && wsgi_req.method[1] == 'E' && wsgi_req.method[2] == 'T') {
+			save_to_disk = openat(tmp_dir_fd, tmp_filename,O_CREAT | O_TRUNC | O_WRONLY , S_IRUSR |S_IRUSR |S_IRGRP);
+		}
+	}
 #endif
         
         headers = PyTuple_GetItem(args,1) ;
@@ -452,7 +483,7 @@ int main(int argc, char *argv[]) {
         while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:")) != -1) {
 #endif
                 switch(i) {
 #ifdef UNBIT
@@ -461,6 +492,19 @@ int main(int argc, char *argv[]) {
                                 single_app_mode = 1;
 				default_app = 0;
                                 break;
+			case 'C':
+				tmp_dir_fd = open(optarg, O_DIRECTORY);
+				if (tmp_dir_fd <0) {
+					perror("open()");
+					exit(1);
+				}
+				tmp_filename = malloc(8192);
+				if (!tmp_filename) {
+					fprintf(stderr,"unable to allocate space (8k) for tmp_filename\n");
+					exit(1);
+				}
+				memset(tmp_filename, 0 ,8192);
+				break;
 #endif
 #ifndef UNBIT
 			case 'd':
@@ -968,6 +1012,11 @@ int main(int argc, char *argv[]) {
                                                                         wsgi_req.remote_user = ptrbuf ;
                                                                         wsgi_req.remote_user_len = strsize ;
                                                                 }
+#ifdef UNBIT
+								else if (!strncmp("UNBIT_FLAGS", hvec[wsgi_req.var_cnt].iov_base, hvec[wsgi_req.var_cnt].iov_len)) {
+									wsgi_req.unbit_flags = *(unsigned long long *) ptrbuf ;
+								}
+#endif
 								if (wsgi_req.var_cnt < vec_size-(4+1)) {
                                                                 	wsgi_req.var_cnt++ ;
 								}
@@ -1124,6 +1173,15 @@ int main(int argc, char *argv[]) {
                 PyDict_SetItemString(wi->wsgi_environ, "wsgi.url_scheme", zero);
                 Py_DECREF(zero);
 
+#ifdef UNBIT
+		if (wsgi_req.unbit_flags & 1) {	
+			if (uri_to_base64() <= 0) {
+				tmp_filename[0] = 0 ;
+			}
+		}
+#endif
+
+
 
 
                 // call
@@ -1178,10 +1236,22 @@ int main(int argc, char *argv[]) {
                                         while((wchunk = PyIter_Next(wsgi_chunks))) {
                                                 if (PyString_Check(wchunk)) {
                                                         wsgi_req.response_size += write(wsgi_poll.fd, PyString_AsString(wchunk), PyString_Size(wchunk)) ;
+							if (save_to_disk >= 0) {
+								if (write(save_to_disk, PyString_AsString(wchunk), PyString_Size(wchunk)) < 0) {
+									perror("write()");
+									close(save_to_disk);
+									save_to_disk = -1 ;
+									unlinkat(tmp_dir_fd, tmp_filename, 0);
+								}
+							}
                                                 }
                                                 Py_DECREF(wchunk);
                                         }
                                         Py_DECREF(wsgi_chunks);
+					if (save_to_disk >= 0) {
+						close(save_to_disk);
+						save_to_disk = -1 ;
+					}
                                 }
 #ifndef ROCK_SOLID
                         }
@@ -1223,6 +1293,11 @@ clean:
 		}
                 // reset request
                 memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+#ifdef UNBIT
+		if (tmp_filename && tmp_dir_fd >= 0) {
+			tmp_filename[0] = 0 ;
+		}
+#endif
 
 #ifndef ROCK_SOLID
                 wsgi_req.app_id = default_app ;
@@ -1790,3 +1865,56 @@ void uwsgi_xml_config() {
 
 #endif
 
+
+#ifdef UNBIT
+int uri_to_base64()
+{
+	int len = 0,i=0,j=0 ;
+
+	if (wsgi_req.uri_len < 1) {
+		return 0 ;
+	}
+
+	if (wsgi_req.uri_len+(wsgi_req.uri_len/3) > 8192) {
+		return 0 ;
+	}
+
+	for ( len = wsgi_req.uri_len - (wsgi_req.uri_len % 3);i < len ; i += 3 ) {
+		tmp_filename[j] = to_base64( wsgi_req.uri[i] >> 2 ) ; j++ ;
+		tmp_filename[j] = to_base64( ((wsgi_req.uri[i] << 4 ) | ((wsgi_req.uri[i+1] >> 4) & 0x3F)) ) ; j++ ;
+		tmp_filename[j] = to_base64( ((wsgi_req.uri[i+1] << 2 ) | ((wsgi_req.uri[i+2] >> 6) & 0x3F)) ) ; j++ ;
+		tmp_filename[j] = to_base64( wsgi_req.uri[i+2] & 0x3F ) ; j++ ;
+	}
+
+	switch(wsgi_req.uri_len % 3) {
+		case 1:
+			tmp_filename[j] = to_base64(wsgi_req.uri[i] >> 2) ; j++;
+			tmp_filename[j] = to_base64( ((wsgi_req.uri[i] << 4) | 0x00 ) & 0x3F) ; j++;
+			tmp_filename[j] = '=' ; j++ ;
+			tmp_filename[j] = '=' ; j++ ;
+			break;
+		case 2:
+			tmp_filename[j] = to_base64(wsgi_req.uri[i] >> 2) ; j++;
+			tmp_filename[j] = to_base64( (((wsgi_req.uri[i] << 4) | (wsgi_req.uri[i + 1] >> 4)) & 0x3F)) ; j++;
+			tmp_filename[j] = to_base64( ((wsgi_req.uri[i+1] << 2) | 0x00 ) & 0x3F) ; j++;
+			tmp_filename[j] = '=' ; j++ ;
+			break;
+	}
+
+	return j ;
+}
+
+char to_base64(char c)
+{
+	if ( c >= 0 && c <= 25 )
+		return c+'A';
+
+	if ( c > 25 && c <= 51 ) 
+		return c+'G';
+
+	if ( c > 51 && c <= 61 )
+		return c-4;
+
+	return (c == 62) ? '+' : '/'; 
+}
+#endif

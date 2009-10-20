@@ -15,10 +15,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#ifndef UNBIT
 #include <fcntl.h>
-#endif
 
+#ifdef UNBIT
+#undef _XOPEN_SOURCE
+#endif
 
 #ifdef _POSIX_C_SOURCE
         #undef _POSIX_C_SOURCE
@@ -29,6 +30,7 @@
 #define UWSGI_MODIFIER_HT_S 1
 #define UWSGI_MODIFIER_HT_M 2
 #define UWSGI_MODIFIER_HT_H 3
+#undef _XOPEN_SOURCE
 #endif
 
 
@@ -59,6 +61,9 @@ struct __attribute__((packed)) wsgi_request {
         unsigned short protocol_len;
         char *method;
         unsigned short method_len;
+#ifdef UNBIT
+	unsigned long long unbit_flags;
+#endif
 #ifndef ROCK_SOLID
         char *wsgi_script;
         unsigned short wsgi_script_len;
