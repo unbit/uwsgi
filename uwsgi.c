@@ -1134,7 +1134,7 @@ int main(int argc, char *argv[]) {
 
 
                 for(i=0;i<wsgi_req.var_cnt;i+=2) {
-			/*fprintf(stderr,"%.*s: %.*s\n", hvec[i].iov_len, hvec[i].iov_base, hvec[i+1].iov_len, hvec[i+1].iov_base);*/
+			fprintf(stderr,"%.*s: %.*s\n", hvec[i].iov_len, hvec[i].iov_base, hvec[i+1].iov_len, hvec[i+1].iov_base);
                         pydictkey = PyString_FromStringAndSize(hvec[i].iov_base, hvec[i].iov_len) ;
                         pydictvalue = PyString_FromStringAndSize(hvec[i+1].iov_base, hvec[i+1].iov_len) ;
                         PyDict_SetItem(wi->wsgi_environ, pydictkey, pydictvalue);
