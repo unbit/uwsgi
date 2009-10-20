@@ -1174,11 +1174,9 @@ int main(int argc, char *argv[]) {
 
 #ifdef UNBIT
 		if (wsgi_req.unbit_flags & (unsigned long long) 1) {	
-		fprintf(stderr,"UNBIT FLAGS: %llu\n", wsgi_req.unbit_flags);
 			if (uri_to_hex() <= 0) {
 				tmp_filename[0] = 0 ;
 			}
-				fprintf(stderr,"CACHEFILE: %s\n", tmp_filename);
 		}
 #endif
 
