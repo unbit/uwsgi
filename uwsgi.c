@@ -1177,9 +1177,9 @@ int main(int argc, char *argv[]) {
 		if (wsgi_req.unbit_flags & (unsigned long long) 1) {	
 		fprintf(stderr,"UNBIT FLAGS: %llu\n", wsgi_req.unbit_flags);
 			if (uri_to_base64() <= 0) {
-				fprintf(stderr,"CACHEFILE: %s\n", tmp_filename);
 				tmp_filename[0] = 0 ;
 			}
+				fprintf(stderr,"CACHEFILE: %s\n", tmp_filename);
 		}
 #endif
 
