@@ -259,16 +259,22 @@ void internal_server_error(int fd, char *message) {
 #ifndef ROCK_SOLID
 PyObject *py_uwsgi_sendfile(PyObject *self, PyObject *args) {
 
-        PyObject *zero ;
+        //PyObject *zero ;
 
         py_sendfile = PyTuple_GetItem(args, 0);
 
+#ifdef PYTHREE
+	if ((wsgi_req.sendfile_fd = PyObject_AsFileDescriptor(py_sendfile)) >= 0) {
+		Py_INCREF(py_sendfile);
+	}
+#else
         if (PyFile_Check(py_sendfile)) {
-                zero = PyFile_Name(py_sendfile) ;
+                //zero = PyFile_Name(py_sendfile) ;
                 //fprintf(stderr,"->serving %s as static file...", PyString_AsString(zero));
                 wsgi_req.sendfile_fd = PyObject_AsFileDescriptor(py_sendfile);
                 Py_INCREF(py_sendfile);
         }
+#endif
 
 
         return PyTuple_New(0);
@@ -347,8 +353,13 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
         	hvec[0].iov_len = wsgi_req.protocol_len ;
         	hvec[1].iov_base = " " ;
         	hvec[1].iov_len = 1 ;
+#ifdef PYTHREE
+        	hvec[2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head)) ;
+        	hvec[2].iov_len = strlen(hvec[2].iov_base);
+#else
         	hvec[2].iov_base = PyString_AsString(head) ;
         	hvec[2].iov_len = PyString_Size(head) ;
+#endif
         	wsgi_req.status = atoi(hvec[2].iov_base) ;
         	hvec[3].iov_base = nl ;
         	hvec[3].iov_len = NL_SIZE ;
@@ -360,8 +371,13 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 		base = 3 ;
         	hvec[0].iov_base = "Status: " ;
         	hvec[0].iov_len = 8 ;
+#ifdef PYTHREE
+		hvec[1].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head)) ;
+                hvec[1].iov_len = strlen(hvec[1].iov_base);
+#else
         	hvec[1].iov_base = PyString_AsString(head) ;
         	hvec[1].iov_len = PyString_Size(head) ;
+#endif
         	wsgi_req.status = atoi(hvec[1].iov_base) ;
         	hvec[2].iov_base = nl ;
         	hvec[2].iov_len = NL_SIZE ;
@@ -388,12 +404,22 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
                 head = PyList_GetItem(headers, i);
                 h_key = PyTuple_GetItem(head,0) ;
                 h_value = PyTuple_GetItem(head,1) ;
+#ifdef PYTHREE
+		hvec[j].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_key)) ;
+                hvec[j].iov_len = strlen(hvec[j].iov_base);
+#else
                 hvec[j].iov_base = PyString_AsString(h_key) ;
                 hvec[j].iov_len = PyString_Size(h_key) ;
+#endif
                 hvec[j+1].iov_base = h_sep;
                 hvec[j+1].iov_len = H_SEP_SIZE;
+#ifdef PYTHREE
+		hvec[j+2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_value)) ;
+                hvec[j+2].iov_len = strlen(hvec[j+2].iov_base);
+#else
                 hvec[j+2].iov_base = PyString_AsString(h_value) ;
                 hvec[j+2].iov_len = PyString_Size(h_value) ;
+#endif
                 hvec[j+3].iov_base = nl;
                 hvec[j+3].iov_len = NL_SIZE;
 		//fprintf(stderr, "%.*s: %.*s\n", hvec[j].iov_len, (char *)hvec[j].iov_base, hvec[j+2].iov_len, (char *) hvec[j+2].iov_base);
@@ -629,7 +655,13 @@ int main(int argc, char *argv[]) {
 #endif
 #endif
 
+#ifdef PYTHREE
+	wchar_t	pname[6] ;
+	mbstowcs(pname, "uWSGI", 6);
+	Py_SetProgramName(pname);
+#else
 	Py_SetProgramName("uWSGI");
+#endif
         Py_Initialize() ;
 
 

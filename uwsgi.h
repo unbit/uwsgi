@@ -33,6 +33,18 @@
 #undef _XOPEN_SOURCE
 #endif
 
+#ifdef PYTHREE
+	#define PyInt_FromLong	PyLong_FromLong
+	#define PyInt_AsLong	PyLong_AsLong
+	#define PyString_Check	PyUnicode_Check
+	#define	PyString_FromStringAndSize	PyUnicode_FromStringAndSize
+	#define	PyString_FromFormat	PyUnicode_FromFormat
+	#define	PyString_FromString	PyUnicode_FromString
+	#define	PyString_Size		PyUnicode_GET_DATA_SIZE
+	#define	PyString_AsString	(char *) PyUnicode_AS_UNICODE
+	#define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), -1, NULL, NULL, NULL, 0)
+#endif
+
 
 #define NL_SIZE 2
 #define H_SEP_SIZE 2
