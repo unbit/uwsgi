@@ -1,0 +1,27 @@
+CC=gcc
+
+PYBASE=/opt/packages/python/31
+
+PATH := ${PATH}:$(PYBASE)/bin
+
+LD_LIBRARY_PATH= $(PYBASE)/lib
+export LD_LIBRARY_PATH
+
+PYTHON_CFLAGS=`python3.1-config --cflags`
+PYTHON_LIBS=`python3.1-config --libs`
+
+CFLAGS=$(PYTHON_CFLAGS) -DUNBIT -D_GNU_SOURCE -DPYTHREE
+LD_FLAGS=$(PYTHON_LIBS) -DUNBIT -D_GNU_SOURCE -DPYTHREE -L $(LD_LIBRARY_PATH)
+
+PROGRAM=/usr/share/unbit/uwsgi31
+
+all:	clean uwsgi
+
+uwsgi:	main.o
+	$(CC) $(LD_FLAGS) main.o -o $(PROGRAM)
+
+main.o:	uwsgi.c
+	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
+	
+clean:
+	rm -f main.o
