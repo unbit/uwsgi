@@ -1267,6 +1267,7 @@ int main(int argc, char *argv[]) {
                                         while((wchunk = PyIter_Next(wsgi_chunks))) {
                                                 if (PyString_Check(wchunk)) {
                                                         wsgi_req.response_size += write(wsgi_poll.fd, PyString_AsString(wchunk), PyString_Size(wchunk)) ;
+#ifdef UNBIT
 							if (save_to_disk >= 0) {
 								if (write(save_to_disk, PyString_AsString(wchunk), PyString_Size(wchunk)) < 0) {
 									perror("write()");
@@ -1275,14 +1276,17 @@ int main(int argc, char *argv[]) {
 									unlinkat(tmp_dir_fd, tmp_filename, 0);
 								}
 							}
+#endif
                                                 }
                                                 Py_DECREF(wchunk);
                                         }
                                         Py_DECREF(wsgi_chunks);
+#ifdef UNBIT
 					if (save_to_disk >= 0) {
 						close(save_to_disk);
 						save_to_disk = -1 ;
 					}
+#endif
                                 }
 #ifndef ROCK_SOLID
                         }
