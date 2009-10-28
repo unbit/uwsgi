@@ -113,6 +113,9 @@ int default_app = -1 ;
 int enable_profiler = 0;
 #endif
 
+int manage_next_request = 1 ;
+int in_request = 0;
+
 int buffer_size = 4096 ;
 
 // save my pid for logging
@@ -180,9 +183,24 @@ struct uwsgi_app wsgi_apps[64] ;
 PyObject *py_apps ;
 #endif
 
+void gracefully_kill() {
+	fprintf(stderr, "Gracefully killing worker %d...\n", mypid);
+	if (in_request) {
+		manage_next_request = 0 ;	
+	}
+	else {
+		goodbye_cruel_world() ;
+	}
+}
+
 void goodbye_cruel_world() {
 	fprintf(stderr, "...The work of process %d is done. Seeya!\n", getpid());
 	exit(0);
+}
+
+void grace_them_all() {
+	fprintf(stderr,"...gracefully killing workers...\n");
+	kill(-1, SIGTERM);
 }
 
 void reap_them_all() {
@@ -775,19 +793,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
-        if (harakiri_timeout > 0) {
-                signal(SIGALRM, (void *) &harakiri);
-        }
 
-	/* the best job for SIGINT is to gracefully kill a process. Probably a futex here is a good choice to wait for request completion
-	for now i will map it to goodbye_cruel_world() (was harakiri()) */
-        signal(SIGINT, (void *) &goodbye_cruel_world);
-
-#ifndef UNBIT
-#ifndef ROCK_SOLID
-	signal(SIGUSR1, (void *) &stats);
-#endif
-#endif
 
         wsgi_poll.events = POLLIN ;
 
@@ -867,6 +873,9 @@ int main(int argc, char *argv[]) {
 
 
 	if (getpid() == masterpid && master_process == 1) {
+		/* route signals to workers... */
+		signal(SIGTERM, (void *) &grace_them_all);
+        	signal(SIGINT, (void *) &reap_them_all);
 		for(;;) {
 			diedpid = waitpid(WAIT_ANY , &waitpid_status, 0) ;
 			if (diedpid == -1) {
@@ -911,9 +920,27 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+        if (harakiri_timeout > 0) {
+                signal(SIGALRM, (void *) &harakiri);
+        }
+
+        signal(SIGINT, (void *) &goodbye_cruel_world);
 
 
-        while( (wsgi_poll.fd = accept(serverfd,(struct sockaddr *)&c_addr, (socklen_t *) &c_len)) ) {
+#ifndef UNBIT
+#ifndef ROCK_SOLID
+	signal(SIGUSR1, (void *) &stats);
+#endif
+#endif
+
+	/* the best job for SIGTERM is to gracefully kill a process. */
+	signal(SIGTERM, (void *) &gracefully_kill);
+
+        while(manage_next_request) {
+
+		in_request = 0 ;
+		wsgi_poll.fd = accept(serverfd,(struct sockaddr *)&c_addr, (socklen_t *) &c_len) ;
+		in_request = 1 ;
 
                 if (wsgi_poll.fd < 0){
                         perror("accept()");
@@ -1345,8 +1372,10 @@ clean:
 
         }
 
-	return 0 ;
+	goodbye_cruel_world();
 
+	/* never here */
+	return 0 ;
 }
 
 void log_request() {
