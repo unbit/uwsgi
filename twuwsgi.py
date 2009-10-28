@@ -51,9 +51,9 @@ class uWSGIClientProtocol(basic.LineReceiver):
 	for hkey, hval in self.request.headers.getAllRawHeaders():
 		# use a list, probably it will be extended
 		if hkey.lower() not in ('content-type'):
-			vars += self.build_uwsgi_var('HTTP_'+hkey.upper(),(','.join(hval)).replace('-','_'))
+			vars += self.build_uwsgi_var('HTTP_'+hkey.upper().replace('-','_'),','.join(hval))
 		else:
-			vars += self.build_uwsgi_var(hkey.upper(),(','.join(hval)).replace('-','_'))
+			vars += self.build_uwsgi_var(hkey.upper().replace('-','_'),','.join(hval))
 		
 
 	vars += self.build_uwsgi_var('REQUEST_METHOD', self.request.method)
