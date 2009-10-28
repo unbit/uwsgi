@@ -531,6 +531,9 @@ int main(int argc, char *argv[]) {
         while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:")) != -1) {
 #endif
                 switch(i) {
+			case 'j':
+				test_module = optarg;
+				break;
 #ifdef UNBIT
                         case 'S':
                                 single_interpreter = 1;
@@ -654,8 +657,6 @@ int main(int argc, char *argv[]) {
 \t-h\t\tthis help\n\
 \t-d <logfile>	daemonize and log into <logfile>\n", argv[0]);
 				exit(1);
-			case 'j':
-				test_module = optarg;
 			default:
 				exit(1);
 #endif
