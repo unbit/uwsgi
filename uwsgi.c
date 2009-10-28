@@ -668,7 +668,9 @@ int main(int argc, char *argv[]) {
 	if (cgi_mode == 0) {
 #endif
 #endif
-        	fprintf(stderr,"*** Starting uWSGI on [%.*s] ***\n", 24, ctime(&start_of_uwsgi.tv_sec));
+		if (test_module == NULL) {
+        		fprintf(stderr,"*** Starting uWSGI on [%.*s] ***\n", 24, ctime(&start_of_uwsgi.tv_sec));
+		}
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 	}
