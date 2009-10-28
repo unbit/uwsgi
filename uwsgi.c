@@ -118,6 +118,8 @@ int in_request = 0;
 
 int buffer_size = 4096 ;
 
+char *test_module = NULL;
+
 // save my pid for logging
 pid_t mypid;
 
@@ -521,12 +523,12 @@ int main(int argc, char *argv[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:")) != -1) {
 	#else
-        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:")) != -1) {
 #endif
                 switch(i) {
 #ifdef UNBIT
@@ -652,6 +654,8 @@ int main(int argc, char *argv[]) {
 \t-h\t\tthis help\n\
 \t-d <logfile>	daemonize and log into <logfile>\n", argv[0]);
 				exit(1);
+			case 'j':
+				test_module = optarg;
 			default:
 				exit(1);
 #endif
@@ -812,6 +816,13 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 #endif
+
+	if (test_module != NULL) {
+		if (PyImport_ImportModule(test_module)) {
+			exit(0);
+		}
+		exit(1);
+	}
 
 
         mypid = getpid();
