@@ -188,8 +188,14 @@ static int uwsgi_handler(request_rec *r) {
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
 
 	if (c->script_name[0] == '/') {
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", c->script_name, &pkt_size) ;
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
+		if (strlen(c->script_name) == 1) {
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", "", &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
+		}
+		else {
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", c->script_name, &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
+		}
 	}
 	else {
 		if (r->path_info) {
@@ -197,6 +203,7 @@ static int uwsgi_handler(request_rec *r) {
 			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->path_info, &pkt_size) ;
 		}
 		else {
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", "", &pkt_size) ;
 			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
 		}
 	}
