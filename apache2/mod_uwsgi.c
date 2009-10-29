@@ -199,6 +199,7 @@ static int uwsgi_handler(request_rec *r) {
 	}
 	else {
 		if (r->path_info) {
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: PATH_INFO: %s", r->path_info);
 			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", apr_pstrndup(r->pool, r->uri, (strlen(r->uri) - strlen(r->path_info) )) , &pkt_size) ;
 			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->path_info, &pkt_size) ;
 		}
