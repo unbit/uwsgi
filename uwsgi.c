@@ -445,6 +445,18 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 		//fprintf(stderr, "%.*s: %.*s\n", hvec[j].iov_len, (char *)hvec[j].iov_base, hvec[j+2].iov_len, (char *) hvec[j+2].iov_base);
         }
 
+#ifdef UNBIT
+	if (save_to_disk >= 0) {
+		for(j=0;j<i;j+=4) {
+			if (!strncasecmp(hvec[j].iov_base,"Set-Cookie",hvec[j].iov_len)) {
+				close(save_to_disk);
+				save_to_disk = -1 ;
+				break;
+			}
+		}
+	}
+#endif
+
         // \r\n
         j = (i*4)+base ;
         hvec[j].iov_base = nl;
