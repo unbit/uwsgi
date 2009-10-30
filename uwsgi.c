@@ -335,6 +335,7 @@ PyObject *py_uwsgi_write(PyObject *self, PyObject *args) {
 	if (save_to_disk >= 0) {
 		close(save_to_disk);
 		save_to_disk = -1 ;
+		fprintf(stderr,"[uWSGI cacher] output of request %d (%.*s) on pid %d written to cache file %s\n",requests, wsgi_req.uri_len, wsgi_req.uri, mypid,tmp_filename);
 	}
 #endif
         Py_INCREF(Py_None);
