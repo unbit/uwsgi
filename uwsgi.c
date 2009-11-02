@@ -120,8 +120,23 @@ int buffer_size = 4096 ;
 
 char *test_module = NULL;
 
+int numproc = 1;
+
 // save my pid for logging
 pid_t mypid;
+
+// the list of workers
+pid_t *workers;
+
+int find_worker_id(pid_t pid) {
+	int i ;
+	for(i = 1 ; i<= numproc ; i++) {
+		if (workers[i] == pid)
+			return i ;
+	}
+
+	return -1 ;
+}
 
 struct wsgi_request wsgi_req;
 
@@ -200,14 +215,29 @@ void goodbye_cruel_world() {
 	exit(0);
 }
 
+void kill_them_all() {
+	int i ;
+	fprintf(stderr,"...killing workers...\n");
+	for(i=1;i<=numproc;i++) {	
+		kill(workers[i], SIGKILL);
+	}
+	exit(0);
+}
+
 void grace_them_all() {
+	int i ;
 	fprintf(stderr,"...gracefully killing workers...\n");
-	kill(-1, SIGTERM);
+	for(i=1;i<=numproc;i++) {	
+		kill(workers[i], SIGTERM);
+	}
 }
 
 void reap_them_all() {
+	int i ;
 	fprintf(stderr,"...brutally killing workers...\n");
-	kill(-1, SIGKILL);
+	for(i=1;i<=numproc;i++) {
+		kill(workers[i], SIGKILL);
+	}
 }
 
 void harakiri() {
@@ -527,7 +557,6 @@ int main(int argc, char *argv[]) {
         unsigned short strsize;
         struct uwsgi_app *wi;
 
-        int numproc = 1;
 
 
 	gettimeofday(&start_of_uwsgi, NULL) ;
@@ -862,6 +891,7 @@ int main(int argc, char *argv[]) {
 	}
 	else {
         	fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
+		workers = malloc(sizeof(pid_t)*numproc+1);
 	}
 
         memset(&wsgi_req, 0, sizeof(struct wsgi_request));
@@ -893,6 +923,8 @@ int main(int argc, char *argv[]) {
                 }
                 else {
                         fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
+			if (master_process)
+				workers[i] = pid ;
 			gettimeofday(&last_respawn, NULL) ;
 			respawn_delta = last_respawn.tv_sec;
                 }
@@ -903,6 +935,7 @@ int main(int argc, char *argv[]) {
 		/* route signals to workers... */
 		signal(SIGTERM, (void *) &grace_them_all);
         	signal(SIGINT, (void *) &reap_them_all);
+        	signal(SIGQUIT, (void *) &kill_them_all);
 		for(;;) {
 			diedpid = waitpid(WAIT_ANY , &waitpid_status, 0) ;
 			if (diedpid == -1) {
@@ -929,6 +962,13 @@ int main(int argc, char *argv[]) {
 			}
 			else {
                         	fprintf(stderr, "Respawned uWSGI worker (new pid: %d)\n", pid);
+				i = find_worker_id(diedpid);
+				if (i > 0) {
+					workers[i] = pid ;
+				}
+				else {
+					fprintf(stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n") ;
+				}
 			}
 		}
 	}

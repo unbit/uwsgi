@@ -124,6 +124,7 @@ struct uwsgi_app {
 void goodbye_cruel_world(void);
 void gracefully_kill(void);
 void reap_them_all(void);
+void kill_them_all(void);
 void grace_them_all(void);
 int bind_to_unix(char *, int,  int , int );
 int bind_to_tcp(char *, int , char *);
