@@ -722,6 +722,15 @@ int main(int argc, char *argv[]) {
 #endif
 #endif
 
+#ifndef UNBIT
+#ifndef ROCK_SOLID
+	for (i = optind; i < argc; i++) {
+        	fprintf(stderr,"Setting PythonHome to %s...\n", argv[i]);
+		Py_SetPythonHome(argv[i]);		
+	}
+#endif	
+#endif
+
 #ifdef PYTHREE
 	wchar_t	pname[6] ;
 	mbstowcs(pname, "uWSGI", 6);
@@ -735,6 +744,7 @@ int main(int argc, char *argv[]) {
 
         wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
+
 
 #ifdef ROCK_SOLID
 
