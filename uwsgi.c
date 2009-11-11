@@ -100,6 +100,7 @@ in particular)
 int init_uwsgi_app(PyObject *) ;
 #endif
 
+char *pyhome;
 
 char *nl = "\r\n";
 char *h_sep = ": " ;
@@ -565,16 +566,19 @@ int main(int argc, char *argv[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:")) != -1) {
 	#else
-        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:")) != -1) {
 #endif
                 switch(i) {
 			case 'j':
 				test_module = optarg;
+				break;
+			case 'H':
+				pyhome = optarg;
 				break;
 #ifdef UNBIT
                         case 'S':
@@ -696,6 +700,7 @@ int main(int argc, char *argv[]) {
 \t-a\t\tset socket in the abstract namespace (Linux only)\n\
 \t-T\t\tenable threads support (no ROCK_SOLID)\n\
 \t-M\t\tenable master process manager\n\
+\t-H <path>\tset python home/virtualenv\n\
 \t-h\t\tthis help\n\
 \t-d <logfile>	daemonize and log into <logfile>\n", argv[0]);
 				exit(1);
@@ -721,15 +726,12 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 #endif
+	
 
-#ifndef UNBIT
-#ifndef ROCK_SOLID
-	for (i = optind; i < argc; i++) {
-        	fprintf(stderr,"Setting PythonHome to %s...\n", argv[i]);
-		Py_SetPythonHome(argv[i]);		
+	if (pyhome != NULL) {
+        	fprintf(stderr,"Setting PythonHome to %s...\n", pyhome);
+		Py_SetPythonHome(pyhome);		
 	}
-#endif	
-#endif
 
 #ifdef PYTHREE
 	wchar_t	pname[6] ;
@@ -1042,7 +1044,32 @@ int main(int argc, char *argv[]) {
                         continue ;      
                 }
                 rlen = read(wsgi_poll.fd, &wsgi_req, 4) ;
-                if (rlen != 4){
+		if (rlen > 0 && rlen < 4) {
+			i = rlen ;
+			while(i < 4) {
+				rlen = poll(&wsgi_poll, 1, socket_timeout*1000) ;
+				if (rlen < 0) {
+					perror("poll()");
+					exit(1);
+				}
+				else if (rlen == 0) {
+                        		fprintf(stderr, "timeout waiting for header. skip request.\n");
+                        		close(wsgi_poll.fd);
+                        		break ;
+				}	
+				rlen = read(wsgi_poll.fd, (char *)(&wsgi_req)+i, 4-i);
+				if (rlen <= 0) {
+					fprintf(stderr, "broken header. skip request.\n");	
+					close(wsgi_poll.fd);
+					break ;
+				}
+				i += rlen;
+			}
+			if (i < 4) {
+				continue;
+			}
+		}
+                else if (rlen <= 0){
                         fprintf(stderr,"invalid request header size: %d...skip\n", rlen);
                         close(wsgi_poll.fd);
                         continue;
@@ -1067,7 +1094,13 @@ int main(int argc, char *argv[]) {
                         	close(wsgi_poll.fd);
                         	break ;
                 	}
-                	i += read(wsgi_poll.fd, buffer, wsgi_req.size-i);
+                	rlen = read(wsgi_poll.fd, buffer, wsgi_req.size-i);
+			if (rlen <= 0) {
+				fprintf(stderr, "broken vars. skip request.\n");             
+                                close(wsgi_poll.fd);
+                                break ;
+			}
+			i += rlen ;
 		}
 
 		if (i < wsgi_req.size) {
