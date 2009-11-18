@@ -1,6 +1,6 @@
-#ifndef UNBIT
-
 #include "uwsgi.h"
+
+#ifndef UNBIT
 
 void daemonize(char *logfile) {
         pid_t pid;
@@ -79,3 +79,33 @@ void daemonize(char *logfile) {
 
 
 #endif
+
+char * uwsgi_get_cwd() {
+
+	int newsize = 256 ;
+	char *cwd ;
+
+	cwd = malloc(newsize);
+	if (cwd == NULL) {
+		perror("malloc()");
+		exit(1);
+	}	
+
+	if (getcwd(cwd, newsize) == NULL) {
+		newsize = errno;
+		fprintf(stderr,"need a bigger buffer (%d bytes) for getcwd(). doing reallocation.\n", newsize);
+		free(cwd);
+		cwd = malloc(newsize);
+		if (cwd == NULL) {
+			perror("malloc()");
+			exit(1);
+		}		
+		if (getcwd(cwd, newsize) == NULL) {
+			perror("getcwd()");
+			exit(1);
+		}
+	}
+
+	return cwd;
+	
+}

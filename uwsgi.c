@@ -143,6 +143,8 @@ struct wsgi_request wsgi_req;
 
 struct timeval start_of_uwsgi ;
 
+char *sharedarea ;
+
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 int cgi_mode = 0 ;
@@ -207,8 +209,16 @@ void gracefully_kill() {
 		manage_next_request = 0 ;	
 	}
 	else {
-		goodbye_cruel_world() ;
+		reload_me();
 	}
+}
+
+void reload_me() {
+	exit(UWSGI_RELOAD_CODE);
+}
+
+void end_me() {
+	exit(UWSGI_END_CODE);
 }
 
 void goodbye_cruel_world() {
@@ -218,18 +228,17 @@ void goodbye_cruel_world() {
 
 void kill_them_all() {
 	int i ;
-	fprintf(stderr,"...killing workers...\n");
+	fprintf(stderr,"SIGINT/SIGQUIT received...killing workers...\n");
 	for(i=1;i<=numproc;i++) {	
-		kill(workers[i], SIGKILL);
+		kill(workers[i], SIGINT);
 	}
-	exit(0);
 }
 
 void grace_them_all() {
 	int i ;
 	fprintf(stderr,"...gracefully killing workers...\n");
 	for(i=1;i<=numproc;i++) {	
-		kill(workers[i], SIGTERM);
+		kill(workers[i], SIGHUP);
 	}
 }
 
@@ -237,7 +246,7 @@ void reap_them_all() {
 	int i ;
 	fprintf(stderr,"...brutally killing workers...\n");
 	for(i=1;i<=numproc;i++) {
-		kill(workers[i], SIGKILL);
+		kill(workers[i], SIGTERM);
 	}
 }
 
@@ -530,7 +539,7 @@ int single_app_mode = 0;
 int memory_debug = 0 ;
 #endif
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[], char *envp[]) {
 
         PyObject *wsgi_result, *wsgi_chunks, *wchunk;
         PyObject *zero, *wsgi_socket;
@@ -549,6 +558,13 @@ int main(int argc, char *argv[]) {
         char *socket_name = NULL ;
 #endif
 
+	char *cwd ;
+	char *binary_path ;
+	int ready_to_reload = 0;
+	int ready_to_die = 0;
+	
+	int is_a_reload = 0 ;
+
         PyObject *pydictkey, *pydictvalue;
 
         char *buffer ;
@@ -559,10 +575,31 @@ int main(int argc, char *argv[]) {
         struct uwsgi_app *wi;
 
 
+	int socket_type; 
+	socklen_t socket_type_len; 
 
 	gettimeofday(&start_of_uwsgi, NULL) ;
 
 	setlinebuf(stdout);
+
+	cwd = uwsgi_get_cwd();
+	binary_path = malloc(strlen(argv[0])) ;
+	if (binary_path == NULL) {
+		perror("malloc()");
+		exit(1);
+	}
+	strcpy(binary_path, argv[0]);
+
+	if (!getsockopt(3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
+		fprintf(stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
+		is_a_reload = 1 ;
+#ifdef UNBIT
+		/* discard the 3'th fd as we will use the fd 0 */
+		close(3);
+#else
+		serverfd = 3;
+#endif
+	}
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
@@ -602,7 +639,9 @@ int main(int argc, char *argv[]) {
 #endif
 #ifndef UNBIT
 			case 'd':
-				daemonize(optarg);
+				if (!is_a_reload) {
+					daemonize(optarg);
+				}
 				break;
                         case 's':
                                 socket_name = optarg;
@@ -819,7 +858,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifndef UNBIT
-        if (socket_name != NULL) {
+        if (socket_name != NULL && !is_a_reload) {
 		char *tcp_port = strchr(socket_name, ':');
                	if (tcp_port == NULL) {
 			serverfd = bind_to_unix(socket_name, listen_queue, chmod_socket, abstract_socket);
@@ -902,7 +941,12 @@ int main(int argc, char *argv[]) {
         	fprintf(stderr, "spawned uWSGI worker 0 (pid: %d)\n", mypid);
 	}
 	else {
-        	fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
+		if (is_a_reload) {
+        		fprintf(stderr, "gracefully (RE)spawned uWSGI master process (pid: %d)\n", mypid);
+		}
+		else {
+        		fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
+		}
 		workers = malloc(sizeof(pid_t)*numproc+1);
 	}
 
@@ -927,6 +971,10 @@ int main(int argc, char *argv[]) {
                 pid = fork();
                 if (pid == 0 ) {
                         mypid = getpid();
+			if (serverfd != 0 && master_process == 1) {
+				/* close STDIN for workers */
+				close(0);
+			}
                         break;
                 }
                 else if (pid < 1) {
@@ -945,10 +993,41 @@ int main(int argc, char *argv[]) {
 
 	if (getpid() == masterpid && master_process == 1) {
 		/* route signals to workers... */
-		signal(SIGTERM, (void *) &grace_them_all);
-        	signal(SIGINT, (void *) &reap_them_all);
+		signal(SIGHUP, (void *) &grace_them_all);
+		signal(SIGTERM, (void *) &reap_them_all);
+        	signal(SIGINT, (void *) &kill_them_all);
         	signal(SIGQUIT, (void *) &kill_them_all);
 		for(;;) {
+			if (ready_to_die >= numproc) {
+				fprintf(stderr,"goodbye to uWSGI.\n");
+				exit(0);
+			}		
+			if (ready_to_reload >= numproc) {
+				fprintf(stderr,"binary reloading uWSGI...\n");
+				if (chdir(cwd)) {
+					perror("chdir()");
+					exit(1);
+				}
+				/* check fd table (a module can obviosly open some fd on initialization...) */
+				fprintf(stderr,"closing all fds > 2 (_SC_OPEN_MAX = %ld)...\n",sysconf(_SC_OPEN_MAX));
+				for(i=3;i<sysconf(_SC_OPEN_MAX);i++) {
+					if (i == serverfd) {
+						continue ;
+					}
+					close(i);
+				}
+				if (serverfd != 3) {
+					if (dup2(serverfd,3) < 0) {
+                				perror("dup2()");
+                				exit(1);
+					}
+				}
+				fprintf(stderr,"running %s\n", binary_path);
+				strcpy(argv[0], binary_path);
+				execve(binary_path, argv, envp);
+				perror("execve()");
+				exit(1);
+			}
 			diedpid = waitpid(WAIT_ANY , &waitpid_status, 0) ;
 			if (diedpid == -1) {
 				perror("waitpid()");
@@ -956,10 +1035,22 @@ int main(int argc, char *argv[]) {
 				reap_them_all();
 				exit(1);
 			}
+			/* check for reloading */
+			if (WIFEXITED(waitpid_status)) {
+				if (WEXITSTATUS(waitpid_status) == UWSGI_RELOAD_CODE) {
+					ready_to_reload++;
+					continue;
+				}
+				else if (WEXITSTATUS(waitpid_status) == UWSGI_END_CODE) {
+					ready_to_die++;
+					continue;
+				}
+			}
 			fprintf(stderr,"DAMN ! process %d died :( trying respawn ...\n", diedpid);
 			gettimeofday(&last_respawn, NULL) ;
 			if (last_respawn.tv_sec == respawn_delta) {
 				fprintf(stderr,"worker respawning too fast !!! i have to sleep a bit...\n");
+				/* TODO, user configurable fork throttler */
 				sleep(2);
 			}
 			gettimeofday(&last_respawn, NULL) ;
@@ -1003,7 +1094,12 @@ int main(int argc, char *argv[]) {
                 signal(SIGALRM, (void *) &harakiri);
         }
 
-        signal(SIGINT, (void *) &goodbye_cruel_world);
+	/* gracefully reload */
+        signal(SIGHUP, (void *) &gracefully_kill);
+	/* close the process (useful for master INT) */
+        signal(SIGINT, (void *) &end_me);
+	/* brutally reload */
+        signal(SIGTERM, (void *) &reload_me);
 
 
 #ifndef UNBIT
@@ -1011,9 +1107,6 @@ int main(int argc, char *argv[]) {
 	signal(SIGUSR1, (void *) &stats);
 #endif
 #endif
-
-	/* the best job for SIGTERM is to gracefully kill a process. */
-	signal(SIGTERM, (void *) &gracefully_kill);
 
         while(manage_next_request) {
 
@@ -1483,7 +1576,12 @@ clean:
 
         }
 
-	goodbye_cruel_world();
+	if (manage_next_request == 0) {
+		reload_me();
+	}
+	else {
+		goodbye_cruel_world();
+	}
 
 	/* never here */
 	return 0 ;

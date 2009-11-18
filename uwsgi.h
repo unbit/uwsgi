@@ -51,6 +51,9 @@
 
 #define PAGE_SIZE 4096
 
+#define UWSGI_RELOAD_CODE 17
+#define UWSGI_END_CODE 30
+
 
 struct __attribute__((packed)) wsgi_request {
         unsigned char modifier;
@@ -120,12 +123,15 @@ struct uwsgi_app {
 };
 
 
+char *uwsgi_get_cwd(void);
 
 void goodbye_cruel_world(void);
 void gracefully_kill(void);
 void reap_them_all(void);
 void kill_them_all(void);
 void grace_them_all(void);
+void reload_me(void);
+void end_me(void);
 int bind_to_unix(char *, int,  int , int );
 int bind_to_tcp(char *, int , char *);
 #ifndef UNBIT
