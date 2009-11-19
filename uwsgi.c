@@ -143,7 +143,8 @@ struct wsgi_request wsgi_req;
 
 struct timeval start_of_uwsgi ;
 
-char *sharedarea ;
+extern PyMethodDef *uwsgi_methods ;
+extern PyMethodDef *null_methods ;
 
 #ifndef UNBIT
 #ifndef ROCK_SOLID
@@ -578,12 +579,14 @@ int main(int argc, char *argv[], char *envp[]) {
 	int socket_type; 
 	socklen_t socket_type_len; 
 
+	sharedareasize = 0 ;
+
 	gettimeofday(&start_of_uwsgi, NULL) ;
 
 	setlinebuf(stdout);
 
 	cwd = uwsgi_get_cwd();
-	binary_path = malloc(strlen(argv[0])) ;
+	binary_path = malloc(strlen(argv[0])+1) ;
 	if (binary_path == NULL) {
 		perror("malloc()");
 		exit(1);
@@ -603,12 +606,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:")) != -1) {
 	#else
-        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:A:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:")) != -1) {
 #endif
                 switch(i) {
 			case 'j':
@@ -616,6 +619,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				break;
 			case 'H':
 				pyhome = optarg;
+				break;
+			case 'A':
+				sharedareasize = atoi(optarg);	
 				break;
 #ifdef UNBIT
                         case 'S':
@@ -779,15 +785,59 @@ int main(int argc, char *argv[], char *envp[]) {
 #else
 	Py_SetProgramName("uWSGI");
 #endif
-        Py_Initialize() ;
 
+        Py_Initialize() ;
 
 
         wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
 
+	if (sharedareasize > 0) {
+		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANONYMOUS , -1, 0);
+		if (!sharedareamutex) {
+			perror("mmap()");
+			exit(1);
+		}
+		sharedarea = mmap(NULL, getpagesize() * sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANONYMOUS , -1, 0);
+		if (sharedarea) { 
+			fprintf(stderr,"shared area mapped at %p, you can access it with uwsgi.sharedarea_read(ptr,[len])\n", sharedarea);
+			if (pthread_mutexattr_init((pthread_mutexattr_t *)sharedareamutex)) {
+				fprintf(stderr,"unable to allocate mutexattr structure\n");
+				exit(1);
+			}
+			if (pthread_mutexattr_setpshared((pthread_mutexattr_t *)sharedareamutex, PTHREAD_PROCESS_SHARED)) {
+				fprintf(stderr,"unable to share mutex\n");
+				exit(1);
+			}
+			if (pthread_mutex_init((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t), (pthread_mutexattr_t *)sharedareamutex)) {
+				fprintf(stderr,"unable to initialize mutex\n");
+				exit(1);
+			}
+				
+		}
+		else {
+			perror("mmap()");
+			exit(1);
+		}
+
+		uwsgi_module = Py_InitModule("uwsgi", uwsgi_methods);
+        	if (uwsgi_module == NULL) {
+			fprintf(stderr,"could not initialize the uwsgi python module\n");
+			exit(1);
+		}
+	}
+	else {
+		uwsgi_module = Py_InitModule("uwsgi", null_methods);
+        	if (uwsgi_module == NULL) {
+			fprintf(stderr,"could not initialize the uwsgi python module\n");
+			exit(1);
+		}
+	}
+
+
 
 #ifdef ROCK_SOLID
+
 
 	wi = malloc(sizeof(struct uwsgi_app));
 	if (wi == NULL) {
@@ -874,6 +924,8 @@ int main(int argc, char *argv[], char *envp[]) {
         }
 #endif
 
+
+
 #ifndef ROCK_SOLID
 	if (single_interpreter == 1) {
 		init_uwsgi_vars();
@@ -935,6 +987,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	fprintf(stderr,"request/response buffer (%d bytes) allocated.\n", buffer_size);
+
+	
 
         /* preforking() */
 	if (master_process == 0) {

@@ -9,6 +9,8 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/mman.h>
+
 
 #include <poll.h>
 #include <sys/uio.h>
@@ -16,6 +18,7 @@
 #include <sys/un.h>
 
 #include <fcntl.h>
+#include <pthread.h>
 
 #ifdef UNBIT
 #undef _XOPEN_SOURCE
@@ -154,3 +157,9 @@ void uwsgi_xml_config(void);
 #ifndef ROCK_SOLID
 void uwsgi_wsgi_config(void);
 #endif
+
+
+char *sharedarea ;
+void *sharedareamutex ;
+int sharedareasize ;
+PyObject *uwsgi_module;
