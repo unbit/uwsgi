@@ -805,6 +805,7 @@ int main(int argc, char *argv[], char *envp[]) {
         wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
 
+#ifndef PYTHREE
 	if (sharedareasize > 0) {
 		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANONYMOUS , -1, 0);
 		if (!sharedareamutex) {
@@ -846,6 +847,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 	}
+#endif
 
 
 
