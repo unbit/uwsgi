@@ -10,7 +10,7 @@ LD_FLAGS=$(PYTHON_LIBS) $(XML_LIBS)
 
 PROGRAM=uwsgi26
 
-all:	uwsgi
+all:	clean uwsgi
 
 uwsgi:	utils.o socket.o pymodule.o main.o
 	$(CC) $(LD_FLAGS) utils.o socket.o pymodule.o main.o -o $(PROGRAM)

@@ -39,6 +39,7 @@
 #ifdef PYTHREE
 	#define PyInt_FromLong	PyLong_FromLong
 	#define PyInt_AsLong	PyLong_AsLong
+	#define PyInt_Check	PyLong_Check
 	#define PyString_Check	PyUnicode_Check
 	#define	PyString_FromStringAndSize	PyUnicode_FromStringAndSize
 	#define	PyString_FromFormat	PyUnicode_FromFormat

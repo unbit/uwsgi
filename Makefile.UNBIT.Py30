@@ -15,13 +15,19 @@ LD_FLAGS=$(PYTHON_LIBS) -DUNBIT -D_GNU_SOURCE -DPYTHREE -L $(LD_LIBRARY_PATH)
 
 PROGRAM=/usr/share/unbit/uwsgi30
 
-all:	clean uwsgi
+all:    clean uwsgi
 
-uwsgi:	main.o
-	$(CC) $(LD_FLAGS) main.o -o $(PROGRAM)
+uwsgi:  utils.o pymodule.o main.o
+	$(CC) $(LD_FLAGS) main.o utils.o pymodule.o -o $(PROGRAM)
 
-main.o:	uwsgi.c
+utils.o: utils.c
+	$(CC) -c $(CFLAGS) utils.c
+
+pymodule.o: uwsgi_pymodule.c
+	$(CC) -c $(CFLAGS) -o pymodule.o uwsgi_pymodule.c
+
+main.o: uwsgi.c
 	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
-	
+        
 clean:
-	rm -f main.o
+	rm -f utils.o pymodule.o main.o

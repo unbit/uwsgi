@@ -737,6 +737,7 @@ int main(int argc, char *argv[], char *envp[]) {
 \t-p <n>\t\tspawn <n> uwsgi worker processes\n\
 \t-O <n>\t\tset python optimization level to <n> (no ROCK_SOLID)\n\
 \t-v <n>\t\tset maximum number of vars/headers to <n>\n\
+\t-A <n>\t\tcreate a shared memory area of <n> pages\n\
 \t-c\t\tset cgi mode (no ROCK_SOLID) \n\
 \t-C\t\tchmod socket to 666\n\
 \t-P\t\tenable profiler (no ROCK_SOLID)\n\
@@ -775,7 +776,19 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (pyhome != NULL) {
         	fprintf(stderr,"Setting PythonHome to %s...\n", pyhome);
+#ifdef PYTHREE
+		wchar_t *wpyhome ;
+		wpyhome = malloc((sizeof(wchar_t)*strlen(pyhome))+2) ;
+		if (!wpyhome) {
+			perror("malloc()");
+			exit(1);
+		}
+		mbstowcs(wpyhome, pyhome, strlen(pyhome));
+		Py_SetPythonHome(wpyhome);		
+		free(wpyhome);
+#else
 		Py_SetPythonHome(pyhome);		
+#endif
 	}
 
 #ifdef PYTHREE
