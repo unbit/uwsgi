@@ -1,5 +1,18 @@
 #include "uwsgi.h"
 
+extern char *sharedarea ;
+extern void *sharedareamutex ;
+extern int sharedareasize ;
+extern PyObject *uwsgi_module;
+
+#ifdef __APPLE__
+#define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) sharedareamutex)
+#define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) sharedareamutex)
+#else
+#define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t))
+#define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t))
+#endif
+
 PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
 	PyObject *arg0 ;
 	int pos = 0 ;
@@ -23,11 +36,11 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+	LOCK_SHAREDAREA;
 	memcpy(&value, sharedarea+pos, 4);
 	value++;
 	memcpy(sharedarea+pos, &value,4);
-	pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+	UNLOCK_SHAREDAREA;
 
         return PyInt_FromLong(value);
 	
@@ -62,10 +75,10 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+	LOCK_SHAREDAREA;
         value = (long) PyInt_AsLong(arg1);
 	memcpy(sharedarea+pos, &value,4);
-	pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+	UNLOCK_SHAREDAREA;
 
         return PyInt_FromLong(value);
 	
@@ -130,9 +143,9 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+	LOCK_SHAREDAREA;
 	memcpy(&value, sharedarea+pos, 4);
-	pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+	UNLOCK_SHAREDAREA;
 
         return PyInt_FromLong(value);
 	
@@ -198,7 +211,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
 
 
 
-PyMethodDef uwsgi_methods[] = {
+static PyMethodDef uwsgi_methods[] = {
   {"sharedarea_read", py_uwsgi_sharedarea_read, METH_VARARGS, ""},
   {"sharedarea_readbyte", py_uwsgi_sharedarea_readbyte, METH_VARARGS, ""},
   {"sharedarea_writebyte", py_uwsgi_sharedarea_writebyte, METH_VARARGS, ""},
@@ -207,6 +220,23 @@ PyMethodDef uwsgi_methods[] = {
   {"sharedarea_inclong", py_uwsgi_sharedarea_inclong, METH_VARARGS, ""},
   {NULL, NULL},
 };
+
+void init_uwsgi_module_sharedarea() {
+	PyMethodDef *uwsgi_function;
+	PyObject *uwsgi_module_dict;
+
+	uwsgi_module_dict = PyModule_GetDict(uwsgi_module);
+        if (!uwsgi_module_dict) {
+        	fprintf(stderr,"could not get uwsgi module __dict__\n");
+                exit(1);
+        }
+
+        for (uwsgi_function = uwsgi_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
+                PyObject *func = PyCFunction_New(uwsgi_function, NULL);
+                PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
+        	Py_DECREF(func);
+        }
+}
 
 PyMethodDef null_methods[] = {
   {NULL, NULL},

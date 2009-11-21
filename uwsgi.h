@@ -20,6 +20,10 @@
 #include <fcntl.h>
 #include <pthread.h>
 
+#ifdef __APPLE__
+	#include <libkern/OSAtomic.h>
+#endif
+
 #ifdef UNBIT
 #undef _XOPEN_SOURCE
 #endif
@@ -159,8 +163,4 @@ void uwsgi_xml_config(void);
 void uwsgi_wsgi_config(void);
 #endif
 
-
-char *sharedarea ;
-void *sharedareamutex ;
-int sharedareasize ;
-PyObject *uwsgi_module;
+void init_uwsgi_module_sharedarea(void);

@@ -123,6 +123,11 @@ char *test_module = NULL;
 
 int numproc = 1;
 
+char *sharedarea ;
+void *sharedareamutex ;
+int sharedareasize ;
+PyObject *uwsgi_module;
+
 // save my pid for logging
 pid_t mypid;
 
@@ -553,7 +558,7 @@ int main(int argc, char *argv[], char *envp[]) {
         int c_len = sizeof(struct sockaddr_un);
         int rlen,i ;
         pid_t pid ;
-        
+
         int serverfd = 0 ;
 #ifndef UNBIT
         char *socket_name = NULL ;
@@ -805,16 +810,34 @@ int main(int argc, char *argv[], char *envp[]) {
         wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
 
+	uwsgi_module = Py_InitModule("uwsgi", null_methods);
+        if (uwsgi_module == NULL) {
+		fprintf(stderr,"could not initialize the uwsgi python module\n");
+		exit(1);
+	}
+
 #ifndef PYTHREE
 	if (sharedareasize > 0) {
+#ifdef BSD
+		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
+#else
 		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANONYMOUS , -1, 0);
+#endif
 		if (!sharedareamutex) {
 			perror("mmap()");
 			exit(1);
 		}
+#ifdef BSD
+		sharedarea = mmap(NULL, getpagesize() * sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
+#else
 		sharedarea = mmap(NULL, getpagesize() * sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANONYMOUS , -1, 0);
+#endif
 		if (sharedarea) { 
-			fprintf(stderr,"shared area mapped at %p, you can access it with uwsgi.sharedarea_read(ptr,[len])\n", sharedarea);
+			fprintf(stderr,"shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", sharedarea);
+
+#ifdef __APPLE__
+			memset(sharedareamutex,0, sizeof(OSSpinLock));
+#else
 			if (pthread_mutexattr_init((pthread_mutexattr_t *)sharedareamutex)) {
 				fprintf(stderr,"unable to allocate mutexattr structure\n");
 				exit(1);
@@ -827,6 +850,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				fprintf(stderr,"unable to initialize mutex\n");
 				exit(1);
 			}
+#endif
 				
 		}
 		else {
@@ -834,18 +858,14 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 
-		uwsgi_module = Py_InitModule("uwsgi", uwsgi_methods);
-        	if (uwsgi_module == NULL) {
-			fprintf(stderr,"could not initialize the uwsgi python module\n");
+		PyObject *uwsgi_module_dict = PyModule_GetDict(uwsgi_module);
+		if (!uwsgi_module_dict) {
+			fprintf(stderr,"could not get uwsgi module __dict__\n");
 			exit(1);
 		}
-	}
-	else {
-		uwsgi_module = Py_InitModule("uwsgi", null_methods);
-        	if (uwsgi_module == NULL) {
-			fprintf(stderr,"could not initialize the uwsgi python module\n");
-			exit(1);
-		}
+
+		init_uwsgi_module_sharedarea();
+		
 	}
 #endif
 
