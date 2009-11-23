@@ -188,6 +188,7 @@ int save_to_disk = -1 ;
 int tmp_dir_fd = -1 ;
 char *tmp_filename ;
 int uri_to_hex(void);
+int check_for_memory_errors = 0 ;
 #endif
 
 PyObject *wsgi_writeout ;
@@ -623,7 +624,7 @@ int main(int argc, char *argv[], char *envp[]) {
         while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:A:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:E")) != -1) {
 #endif
                 switch(i) {
 			case 'j':
@@ -636,6 +637,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				sharedareasize = atoi(optarg);	
 				break;
 #ifdef UNBIT
+			case 'E':
+				check_for_memory_errors = 1 ;
+				break;
                         case 'S':
                                 single_interpreter = 1;
                                 single_app_mode = 1;
@@ -1676,10 +1680,12 @@ clean:
 		}
 
 #ifdef UNBIT
-		if (syscall(357,&us,0) > 0) {
-			if (us.memory_errors > 0) {
-				fprintf(stderr,"Unbit Kernel found a memory allocation error for process %d.\n", mypid);
-				goodbye_cruel_world();
+		if (check_for_memory_errors) {
+			if (syscall(357,&us,0) > 0) {
+				if (us.memory_errors > 0) {
+					fprintf(stderr,"Unbit Kernel found a memory allocation error for process %d.\n", mypid);
+					goodbye_cruel_world();
+				}
 			}
 		}
 #endif
