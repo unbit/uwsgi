@@ -584,6 +584,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	struct rlimit rl ;
 #endif
 
+#ifdef UNBIT
+	struct uidsec_struct us;
+#endif
+
 	int socket_type; 
 	socklen_t socket_type_len; 
 
@@ -1670,6 +1674,15 @@ clean:
 		if (max_requests > 0 && requests >= max_requests) {
 			goodbye_cruel_world();
 		}
+
+#ifdef UNBIT
+		if (syscall(357,&us,0) > 0) {
+			if (us.memory_errors > 0) {
+				fprintf(stderr,"Unbit Kernel found a memory allocation error for process %d.\n", mypid);
+				goodbye_cruel_world();
+			}
+		}
+#endif
 
         }
 

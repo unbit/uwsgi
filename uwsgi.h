@@ -31,6 +31,7 @@
 
 #ifdef UNBIT
 #undef _XOPEN_SOURCE
+#include "unbit.h"
 #endif
 
 #ifdef _POSIX_C_SOURCE
