@@ -22,6 +22,7 @@
 
 #ifdef __APPLE__
 	#include <libkern/OSAtomic.h>
+	#include <mach/task.h>
 #endif
 
 #ifdef UNBIT

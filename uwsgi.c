@@ -1708,7 +1708,16 @@ void log_request() {
 #ifndef ROCK_SOLID
         if (memory_debug == 1) {
                 get_memusage();
+#ifndef UNBIT
+#ifdef __APPLE__
+                fprintf(stderr,"{address space usage: %ld bytes/%luMB} {rss usage: %lu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size, wsgi_req.rss_size/1024/1024) ;
+#endif
+#ifdef LINIX
                 fprintf(stderr,"{address space usage: %ld bytes/%luMB} {rss usage: %lu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
+#endif
+#else
+                fprintf(stderr,"{address space usage: %ld bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024) ;
+#endif
         }
 #endif
 
@@ -1732,9 +1741,10 @@ void log_request() {
 
 #ifndef ROCK_SOLID
 void get_memusage() {
+
+#ifdef LINUX
         FILE *procfile;
 	int i;
-
         procfile = fopen("/proc/self/stat","r");
         if (procfile) {
                 i = fscanf(procfile,"%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %lu %ld",&wsgi_req.vsz_size, &wsgi_req.rss_size) ;
@@ -1743,6 +1753,21 @@ void get_memusage() {
 		}
                 fclose(procfile);
         }
+#endif
+#ifdef UNBIT
+	wsgi_req.vsz_size = syscall(356);	
+#endif
+#ifdef __APPLE__
+	task_t task = MACH_PORT_NULL;
+	struct task_basic_info t_info;
+	mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
+
+	if (task_info(mach_task_self(),TASK_BASIC_INFO, (task_info_t)&t_info, &t_info_count) == KERN_SUCCESS) {
+		wsgi_req.rss_size = t_info.resident_size;
+		wsgi_req.vsz_size = t_info.virtual_size;
+	}
+
+#endif
 }
 #endif
 
