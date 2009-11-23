@@ -580,6 +580,9 @@ int main(int argc, char *argv[], char *envp[]) {
         unsigned short strsize;
         struct uwsgi_app *wi;
 
+#ifdef __linux__
+	struct rlimit rl ;
+#endif
 
 	int socket_type; 
 	socklen_t socket_type_len; 
@@ -746,7 +749,7 @@ int main(int argc, char *argv[], char *envp[]) {
 \t-c\t\tset cgi mode (no ROCK_SOLID) \n\
 \t-C\t\tchmod socket to 666\n\
 \t-P\t\tenable profiler (no ROCK_SOLID)\n\
-\t-m\t\tenable memory usage report (Linux only, no ROCK_SOLID)\n\
+\t-m\t\tenable memory usage report (Linux/OSX only, no ROCK_SOLID)\n\
 \t-i\t\tsingle interpreter mode (no ROCK_SOLID)\n\
 \t-a\t\tset socket in the abstract namespace (Linux only)\n\
 \t-T\t\tenable threads support (no ROCK_SOLID)\n\
@@ -778,6 +781,11 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 	
+#ifdef __linux__
+	if (!getrlimit(RLIMIT_AS, &rl)) {
+		fprintf(stderr,"your process address space limit is %lld bytes (%lld MB)\n", (long long) rl.rlim_max, (long long) rl.rlim_max/1024/1024);
+	}
+#endif
 
 	if (pyhome != NULL) {
         	fprintf(stderr,"Setting PythonHome to %s...\n", pyhome);
@@ -1712,8 +1720,8 @@ void log_request() {
 #ifdef __APPLE__
                 fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size, wsgi_req.rss_size/1024/1024) ;
 #endif
-#ifdef LINUX
-                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
+#ifdef __linux__
+                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
 #endif
 #else
                 fprintf(stderr,"{address space usage: %lld bytes/%lluMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024) ;
@@ -1745,12 +1753,12 @@ void get_memusage() {
 #ifdef UNBIT
 	wsgi_req.vsz_size = syscall(356);	
 #else
-#ifdef LINUX
+#ifdef __linux__
         FILE *procfile;
 	int i;
         procfile = fopen("/proc/self/stat","r");
         if (procfile) {
-                i = fscanf(procfile,"%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %lu %ld",&wsgi_req.vsz_size, &wsgi_req.rss_size) ;
+                i = fscanf(procfile,"%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld",&wsgi_req.vsz_size, &wsgi_req.rss_size) ;
 		if (i != 2) {
 			fprintf(stderr, "warning: invalid record in /proc/self/stat\n");
 		}

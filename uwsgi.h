@@ -20,6 +20,9 @@
 #include <fcntl.h>
 #include <pthread.h>
 
+#include <sys/resource.h>
+
+
 #ifdef __APPLE__
 	#include <libkern/OSAtomic.h>
 	#include <mach/task.h>
