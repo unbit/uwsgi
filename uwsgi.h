@@ -23,6 +23,7 @@
 #ifdef __APPLE__
 	#include <libkern/OSAtomic.h>
 	#include <mach/task.h>
+	#include <mach/mach_init.h>
 #endif
 
 #ifdef UNBIT
@@ -58,7 +59,9 @@
 #define NL_SIZE 2
 #define H_SEP_SIZE 2
 
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#endif
 
 #define UWSGI_RELOAD_CODE 17
 #define UWSGI_END_CODE 30
@@ -105,8 +108,8 @@ struct __attribute__((packed)) wsgi_request {
         int response_size;
         int headers_size;
         // memory debug
-        unsigned long vsz_size;
-        long rss_size;
+        unsigned long long vsz_size;
+        long long rss_size;
 };
 
 

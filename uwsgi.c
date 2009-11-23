@@ -1710,13 +1710,13 @@ void log_request() {
                 get_memusage();
 #ifndef UNBIT
 #ifdef __APPLE__
-                fprintf(stderr,"{address space usage: %ld bytes/%luMB} {rss usage: %lu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size, wsgi_req.rss_size/1024/1024) ;
+                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", wsgi_req.vsz_size*4096, (wsgi_req.vsz_size*PAGE_SIZE)/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
 #endif
-#ifdef LINIX
-                fprintf(stderr,"{address space usage: %ld bytes/%luMB} {rss usage: %lu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
+#ifdef LINUX
+                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
 #endif
 #else
-                fprintf(stderr,"{address space usage: %ld bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024) ;
+                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024) ;
 #endif
         }
 #endif
@@ -1758,7 +1758,6 @@ void get_memusage() {
 	wsgi_req.vsz_size = syscall(356);	
 #endif
 #ifdef __APPLE__
-	task_t task = MACH_PORT_NULL;
 	struct task_basic_info t_info;
 	mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
 
