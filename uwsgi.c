@@ -1710,7 +1710,7 @@ void log_request() {
                 get_memusage();
 #ifndef UNBIT
 #ifdef __APPLE__
-                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", wsgi_req.vsz_size*4096, (wsgi_req.vsz_size*PAGE_SIZE)/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
+                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size, wsgi_req.rss_size/1024/1024) ;
 #endif
 #ifdef LINUX
                 fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%luMB} ", wsgi_req.vsz_size, wsgi_req.vsz_size/1024/1024, wsgi_req.rss_size*PAGE_SIZE, (wsgi_req.rss_size*PAGE_SIZE)/1024/1024) ;
@@ -1742,6 +1742,9 @@ void log_request() {
 #ifndef ROCK_SOLID
 void get_memusage() {
 
+#ifdef UNBIT
+	wsgi_req.vsz_size = syscall(356);	
+#else
 #ifdef LINUX
         FILE *procfile;
 	int i;
@@ -1754,18 +1757,17 @@ void get_memusage() {
                 fclose(procfile);
         }
 #endif
-#ifdef UNBIT
-	wsgi_req.vsz_size = syscall(356);	
-#endif
 #ifdef __APPLE__
+	/* darwin documentation says that the value are in pages, bot they are bytes !!! */
 	struct task_basic_info t_info;
-	mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
+	mach_msg_type_number_t t_size = sizeof(struct task_basic_info);
 
-	if (task_info(mach_task_self(),TASK_BASIC_INFO, (task_info_t)&t_info, &t_info_count) == KERN_SUCCESS) {
+	if (task_info(mach_task_self(),TASK_BASIC_INFO, (task_info_t)&t_info, &t_size) == KERN_SUCCESS) {
 		wsgi_req.rss_size = t_info.resident_size;
 		wsgi_req.vsz_size = t_info.virtual_size;
 	}
 
+#endif
 #endif
 }
 #endif
