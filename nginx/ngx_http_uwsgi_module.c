@@ -22,6 +22,9 @@ typedef struct {
     ngx_array_t                   *uwsgi_lengths;
     ngx_array_t                   *uwsgi_values;
 
+    u_char		           modifier1;	
+    u_char		           modifier2;	
+
 } ngx_http_uwsgi_loc_conf_t;
 
 typedef struct {
@@ -46,6 +49,12 @@ static ngx_int_t ngx_http_uwsgi_process_header(ngx_http_request_t *r);
 static void ngx_http_uwsgi_abort_request(ngx_http_request_t *r);
 static void ngx_http_uwsgi_finalize_request(ngx_http_request_t *r,
     ngx_int_t rc);
+
+static char *
+ngx_http_uwsgi_modifier1(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+static char *
+ngx_http_uwsgi_modifier2(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static ngx_int_t ngx_http_uwsgi_add_variables(ngx_conf_t *cf);
 static void *ngx_http_uwsgi_create_loc_conf(ngx_conf_t *cf);
@@ -86,6 +95,20 @@ static ngx_command_t  ngx_http_uwsgi_commands[] = {
     { ngx_string("uwsgi_pass"),
       NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF|NGX_CONF_TAKE1,
       ngx_http_uwsgi_pass,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("uwsgi_modifier1"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_uwsgi_modifier1,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("uwsgi_modifier2"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_uwsgi_modifier2,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
       NULL },
@@ -478,9 +501,9 @@ ngx_http_uwsgi_create_request(ngx_http_request_t *r)
 
     cl->buf = b;
 
-    *b->pos = 0;
+    *b->pos = uwcf->modifier1;
     b->last = ngx_cpymem(b->pos+1, &uwsgi_pkt_size, 2);
-    *(b->pos+3) = 0;
+    *(b->pos+3) = uwcf->modifier2;
     b->last++;
 
     if (uwcf->params_len) {
@@ -1297,6 +1320,14 @@ ngx_http_uwsgi_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->uwsgi_values = prev->uwsgi_values;
     }
 
+    if (conf->modifier1 == 0) {
+        conf->modifier1 = prev->modifier1;
+    }
+
+    if (conf->modifier2 == 0) {
+        conf->modifier2 = prev->modifier2;
+    }
+
     if (conf->params_source == NULL) {
         conf->flushes = prev->flushes;
         conf->params_len = prev->params_len;
@@ -1488,4 +1519,32 @@ ngx_http_uwsgi_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     return NGX_CONF_OK;
+}
+
+static char *
+ngx_http_uwsgi_modifier1(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+	ngx_http_uwsgi_loc_conf_t *uwcf = conf;
+	ngx_str_t  *value;
+
+	value = cf->args->elts;
+
+	uwcf->modifier1 = (u_char) ngx_atoi(value[1].data,value[1].len);
+
+	return NGX_CONF_OK;
+}
+
+static char *
+ngx_http_uwsgi_modifier2(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+	ngx_http_uwsgi_loc_conf_t *uwcf = conf;
+
+	ngx_str_t  *value;
+
+	value = cf->args->elts;
+
+	uwcf->modifier2 = (u_char) ngx_atoi(value[1].data,value[1].len);
+
+
+	return NGX_CONF_OK;
 }

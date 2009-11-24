@@ -599,6 +599,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	setlinebuf(stdout);
 
+	char *path_info;
+
 	cwd = uwsgi_get_cwd();
 	binary_path = malloc(strlen(argv[0])+1) ;
 	if (binary_path == NULL) {
@@ -1500,6 +1502,21 @@ int main(int argc, char *argv[], char *envp[]) {
                         Py_DECREF(pydictkey);
                         Py_DECREF(pydictvalue);
                 }
+
+		if (wsgi_req.modifier == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
+			pydictkey = PyDict_GetItemString(wi->wsgi_environ,"SCRIPT_NAME");
+			if (pydictkey) {
+				if (PyString_Check(pydictkey)) {
+					pydictvalue = PyDict_GetItemString(wi->wsgi_environ,"PATH_INFO");
+					if (pydictvalue) {
+						if (PyString_Check(pydictvalue)) {
+							path_info = PyString_AsString(pydictvalue);
+							PyDict_SetItemString(wi->wsgi_environ, "PATH_INFO", PyString_FromString(path_info + PyString_Size(pydictkey)));
+						}
+					}
+				}
+			}
+		}
 
 
 

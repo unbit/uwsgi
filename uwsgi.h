@@ -46,6 +46,8 @@
 #undef _XOPEN_SOURCE
 #endif
 
+#define UWSGI_MODIFIER_MANAGE_PATH_INFO	30
+
 #ifdef PYTHREE
 	#define PyInt_FromLong	PyLong_FromLong
 	#define PyInt_AsLong	PyLong_AsLong
