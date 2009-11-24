@@ -162,6 +162,7 @@ void harakiri(void) ;
 void stats(void) ;
 #endif
 void init_uwsgi_vars(void);
+void init_uwsgi_embedded_module(void);
 
 #ifndef UNBIT
 void uwsgi_xml_config(void);
@@ -171,4 +172,4 @@ void uwsgi_xml_config(void);
 void uwsgi_wsgi_config(void);
 #endif
 
-void init_uwsgi_module_sharedarea(void);
+void init_uwsgi_module_sharedarea(PyObject *);

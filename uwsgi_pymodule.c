@@ -3,7 +3,6 @@
 extern char *sharedarea ;
 extern void *sharedareamutex ;
 extern int sharedareasize ;
-extern PyObject *uwsgi_module;
 
 #ifdef __APPLE__
 #define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) sharedareamutex)
@@ -221,11 +220,11 @@ static PyMethodDef uwsgi_methods[] = {
   {NULL, NULL},
 };
 
-void init_uwsgi_module_sharedarea() {
+void init_uwsgi_module_sharedarea(PyObject *current_uwsgi_module) {
 	PyMethodDef *uwsgi_function;
 	PyObject *uwsgi_module_dict;
 
-	uwsgi_module_dict = PyModule_GetDict(uwsgi_module);
+	uwsgi_module_dict = PyModule_GetDict(current_uwsgi_module);
         if (!uwsgi_module_dict) {
         	fprintf(stderr,"could not get uwsgi module __dict__\n");
                 exit(1);

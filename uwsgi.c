@@ -126,7 +126,6 @@ int numproc = 1;
 char *sharedarea ;
 void *sharedareamutex ;
 int sharedareasize ;
-PyObject *uwsgi_module;
 
 // save my pid for logging
 pid_t mypid;
@@ -548,6 +547,8 @@ int memory_debug = 0 ;
 
 int main(int argc, char *argv[], char *envp[]) {
 
+	
+	PyObject *uwsgi_module;
         PyObject *wsgi_result, *wsgi_chunks, *wchunk;
         PyObject *zero, *wsgi_socket;
 #ifndef ROCK_SOLID
@@ -874,13 +875,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 
-		PyObject *uwsgi_module_dict = PyModule_GetDict(uwsgi_module);
-		if (!uwsgi_module_dict) {
-			fprintf(stderr,"could not get uwsgi module __dict__\n");
-			exit(1);
-		}
-
-		init_uwsgi_module_sharedarea();
+		init_uwsgi_module_sharedarea(uwsgi_module);
 		
 	}
 #endif
@@ -1000,9 +995,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
         wsgi_poll.events = POLLIN ;
 
+	memset(&wsgi_req, 0, sizeof(struct wsgi_request));
+
 #ifndef ROCK_SOLID
 	if (wsgi_config != NULL) {
-		memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 		uwsgi_wsgi_config();
 	}
 #endif
@@ -1010,7 +1006,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 	else if (xml_config != NULL) {
-        	memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 		uwsgi_xml_config();
 	}
 #endif
@@ -1054,8 +1049,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		workers = malloc(sizeof(pid_t)*numproc+1);
 	}
-
-        memset(&wsgi_req, 0, sizeof(struct wsgi_request));
 
 #ifdef UNBIT
 	if (single_app_mode == 1) {
@@ -1900,7 +1893,12 @@ int init_uwsgi_app(PyObject *force_wsgi_dict) {
 
 	if (single_interpreter == 0) {
         	wi->interpreter = Py_NewInterpreter();
+		if (!wi->interpreter) {
+			fprintf(stderr,"unable to initialize the new interpreter\n");
+			exit(1);
+		}
         	PyThreadState_Swap(wi->interpreter) ;
+		init_uwsgi_embedded_module();
 		init_uwsgi_vars();
 		fprintf(stderr,"interpreter for app %d initialized.\n", id);
 	}
@@ -2292,3 +2290,17 @@ int uri_to_hex()
 	return j ;
 }
 #endif
+
+void init_uwsgi_embedded_module() {
+	PyObject *new_uwsgi_module;
+
+	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);
+        if (new_uwsgi_module == NULL) {
+                fprintf(stderr,"could not initialize the uwsgi python module\n");
+                exit(1);
+        }
+
+	if (sharedareasize > 0 && sharedarea) {
+		init_uwsgi_module_sharedarea(new_uwsgi_module);
+	}
+}
