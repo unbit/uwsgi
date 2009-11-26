@@ -1916,7 +1916,9 @@ int init_uwsgi_app(PyObject *force_wsgi_dict) {
 			exit(1);
 		}
         	PyThreadState_Swap(wi->interpreter) ;
+#ifndef PYTHREE
 		init_uwsgi_embedded_module();
+#endif
 		init_uwsgi_vars();
 		fprintf(stderr,"interpreter for app %d initialized.\n", id);
 	}
