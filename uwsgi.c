@@ -548,7 +548,9 @@ int memory_debug = 0 ;
 int main(int argc, char *argv[], char *envp[]) {
 
 	
+#ifndef PYTHREE
 	PyObject *uwsgi_module;
+#endif
         PyObject *wsgi_result, *wsgi_chunks, *wchunk;
         PyObject *zero, *wsgi_socket;
 #ifndef ROCK_SOLID
@@ -829,13 +831,12 @@ int main(int argc, char *argv[], char *envp[]) {
         wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
 
+#ifndef PYTHREE
 	uwsgi_module = Py_InitModule("uwsgi", null_methods);
         if (uwsgi_module == NULL) {
 		fprintf(stderr,"could not initialize the uwsgi python module\n");
 		exit(1);
 	}
-
-#ifndef PYTHREE
 	if (sharedareasize > 0) {
 #ifdef BSD
 		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
@@ -2308,6 +2309,7 @@ int uri_to_hex()
 }
 #endif
 
+#ifndef PYTHREE
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module;
 
@@ -2321,3 +2323,4 @@ void init_uwsgi_embedded_module() {
 		init_uwsgi_module_sharedarea(new_uwsgi_module);
 	}
 }
+#endif
