@@ -97,7 +97,7 @@ in particular)
 
 
 #ifndef ROCK_SOLID
-int init_uwsgi_app(PyObject *) ;
+int init_uwsgi_app(PyObject *, PyObject *) ;
 #endif
 
 char *pyhome;
@@ -1064,7 +1064,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 
-		init_uwsgi_app(NULL);
+		init_uwsgi_app(NULL, NULL);
 	}
 #endif
 
@@ -1447,7 +1447,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         }
 
 
-                        if ((wsgi_req.app_id = init_uwsgi_app(NULL)) == -1) {
+                        if ((wsgi_req.app_id = init_uwsgi_app(NULL, NULL)) == -1) {
                                 internal_server_error(wsgi_poll.fd, "wsgi application not found");
                                 goto clean ;
                         }
@@ -1858,7 +1858,7 @@ void init_uwsgi_vars() {
 }
 
 #ifndef ROCK_SOLID
-int init_uwsgi_app(PyObject *force_wsgi_dict) {
+int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
         PyObject *wsgi_module, *wsgi_dict ;
 	PyObject *pymain, *zero;
 	PyObject *pycprof, *pycprof_dict;
@@ -1870,12 +1870,12 @@ int init_uwsgi_app(PyObject *force_wsgi_dict) {
         memset(tmpstring,0, 256) ;
 
 
-	if (wsgi_req.wsgi_script_len == 0 && ( (wsgi_req.wsgi_module_len == 0 || wsgi_req.wsgi_callable_len == 0) && wsgi_config == NULL) ) {
+	if (wsgi_req.wsgi_script_len == 0 && ( (wsgi_req.wsgi_module_len == 0 || wsgi_req.wsgi_callable_len == 0) && wsgi_config == NULL && my_callable == NULL) ) {
 		fprintf(stderr, "invalid application (%.*s). skip.\n", wsgi_req.script_name_len, wsgi_req.script_name);
 		return -1;
 	}
 
-	if (wsgi_config && wsgi_req.wsgi_callable_len == 0) {
+	if (wsgi_config && wsgi_req.wsgi_callable_len == 0 && my_callable == NULL) {
 		fprintf(stderr, "invalid application (%.*s). skip.\n", wsgi_req.script_name_len, wsgi_req.script_name);
 		return -1;
 	}
@@ -1970,7 +1970,13 @@ int init_uwsgi_app(PyObject *force_wsgi_dict) {
 
         memset(tmpstring, 0, 256);
         memcpy(tmpstring, wsgi_req.wsgi_callable, wsgi_req.wsgi_callable_len) ;
-        wi->wsgi_callable = PyDict_GetItemString(wsgi_dict, tmpstring);
+	if (my_callable) {
+        	wi->wsgi_callable = my_callable;
+	}
+	else {
+        	wi->wsgi_callable = PyDict_GetItemString(wsgi_dict, tmpstring);
+	}
+
         if (!wi->wsgi_callable) {
                 PyErr_Print();
 		if (single_interpreter == 0) {
@@ -2158,17 +2164,22 @@ void uwsgi_wsgi_config() {
 
 		app_app = PyDict_GetItem(applications, app_mnt);
 
-		if (!PyString_Check(app_app)) {
-                        fprintf(stderr, "the app callable must be a string.\n");
+		if (!PyString_Check(app_app) && !PyFunction_Check(app_app) && !PyCallable_Check(app_app)) {
+                        fprintf(stderr, "the app callable must be a string, a function or a callable. (found %s)\n", app_app->ob_type->tp_name);
                         exit(1);
                 }
-		wsgi_req.wsgi_callable = PyString_AsString(app_app) ;
-		wsgi_req.wsgi_callable_len = strlen(wsgi_req.wsgi_callable);
 
+		if (PyString_Check(app_app)) {
+			wsgi_req.wsgi_callable = PyString_AsString(app_app) ;
+			wsgi_req.wsgi_callable_len = strlen(wsgi_req.wsgi_callable);
+			fprintf(stderr,"initializing [%s => %s] app...\n",  wsgi_req.script_name, wsgi_req.wsgi_callable);
+			ret = init_uwsgi_app(wsgi_dict, NULL);
+		}
+		else {
+			fprintf(stderr,"initializing [%s] app...\n",  wsgi_req.script_name);
+			ret = init_uwsgi_app(wsgi_dict, app_app);
+		}
 
-
-		fprintf(stderr,"initializing [%s => %s] app...\n",  wsgi_req.script_name, wsgi_req.wsgi_callable);
-		ret = init_uwsgi_app(wsgi_dict);
 		if (ret < 0) {
 			fprintf(stderr,"...goodbye cruel world...\n");
 			exit(1);
@@ -2269,7 +2280,7 @@ void uwsgi_xml_config() {
 							}
 							wsgi_req.wsgi_script = (char *) xml_uwsgi_script ;
 							wsgi_req.wsgi_script_len = strlen(wsgi_req.wsgi_script);
-							init_uwsgi_app(NULL);
+							init_uwsgi_app(NULL, NULL);
 						}
 					}
 				}			
