@@ -83,6 +83,46 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
 	
 }
 
+PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
+	PyObject *arg0,*arg1 ;
+	int pos = 0 ;
+	char *value ;
+
+        if (sharedareasize <= 0) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        arg0 = PyTuple_GetItem(args, 0);
+        if (!PyInt_Check(arg0)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	pos = PyInt_AsLong(arg0);
+
+	arg1 = PyTuple_GetItem(args, 1);
+        if (!PyString_Check(arg1)) {
+		/* PyErr_SetString(PyExc_TypeError,"the second argument of sharedarea_write must be a string"); */
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	value = PyString_AsString(arg1);
+
+	if (pos+strlen(value) >= getpagesize()*sharedareasize) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	LOCK_SHAREDAREA;
+	memcpy(sharedarea+pos, value,strlen(value));
+	UNLOCK_SHAREDAREA;
+
+        return PyInt_FromLong(strlen(value));
+	
+}
+
 PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
 	PyObject *arg0,*arg1 ;
 	int pos = 0 ;
@@ -212,6 +252,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
 
 static PyMethodDef uwsgi_methods[] = {
   {"sharedarea_read", py_uwsgi_sharedarea_read, METH_VARARGS, ""},
+  {"sharedarea_write", py_uwsgi_sharedarea_write, METH_VARARGS, ""},
   {"sharedarea_readbyte", py_uwsgi_sharedarea_readbyte, METH_VARARGS, ""},
   {"sharedarea_writebyte", py_uwsgi_sharedarea_writebyte, METH_VARARGS, ""},
   {"sharedarea_readlong", py_uwsgi_sharedarea_readlong, METH_VARARGS, ""},
