@@ -7,4 +7,6 @@ def application(env, start_response):
 	except:
 		yield 'Hello World'
 
+	print env
+
 applications = {'/':'application'}
