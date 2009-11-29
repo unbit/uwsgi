@@ -1,3 +1,15 @@
+*** 20091129 Version 0.9.3 ***
+
+- Nginx 0.7.x module
+- configuration via python module
+- support (non-standard) for Python 3.x
+- Twisted client resource adapter
+- graceful restart of worker processes and hot-plug substitution/upgrade of the uWSGI server
+- shared memory area to share data between workers/processes
+- Tomcat handler
+- support for virtualenv
+- tons of bugfixes and optimizations
+
 *** 20090829 Version 0.9.2 ***
 
 - TCP support
