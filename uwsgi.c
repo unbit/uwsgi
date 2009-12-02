@@ -568,6 +568,12 @@ int main(int argc, char *argv[], char *envp[]) {
         char *socket_name = NULL ;
 #endif
 
+#ifndef ROCK_SOLID
+	char *spool_dir = NULL ;
+	char spool_filename[1024];
+	pid_t spooler_pid = 0 ;
+#endif
+
 	char *cwd ;
 	char *binary_path ;
 	int ready_to_reload = 0;
@@ -624,12 +630,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:Q:")) != -1) {
 	#else
         while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:A:")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:E")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:")) != -1) {
 #endif
                 switch(i) {
 			case 'j':
@@ -641,6 +647,16 @@ int main(int argc, char *argv[], char *envp[]) {
 			case 'A':
 				sharedareasize = atoi(optarg);	
 				break;
+#ifndef ROCK_SOLID
+			case 'Q':
+				spool_dir = optarg;
+				if (access(spool_dir, R_OK|W_OK|X_OK)) {
+					perror("access()");
+					exit(1);
+				}
+                                master_process = 1;
+				break;
+#endif
 #ifdef UNBIT
 			case 'E':
 				check_for_memory_errors = 1 ;
@@ -1068,6 +1084,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+#ifndef ROCK_SOLID
+	if (spool_dir != NULL) {
+		spooler_pid = spooler_start(spool_dir, serverfd, uwsgi_module);
+	}
+#endif
+
         for(i=1;i<numproc+master_process;i++) {
                 pid = fork();
                 if (pid == 0 ) {
@@ -1100,10 +1122,20 @@ int main(int argc, char *argv[], char *envp[]) {
         	signal(SIGQUIT, (void *) &kill_them_all);
 		for(;;) {
 			if (ready_to_die >= numproc) {
+#ifndef ROCK_SOLID
+				if (spool_dir && spooler_pid > 0) {
+					kill(spooler_pid, SIGKILL);
+				}
+#endif
 				fprintf(stderr,"goodbye to uWSGI.\n");
 				exit(0);
 			}		
 			if (ready_to_reload >= numproc) {
+#ifndef ROCK_SOLID
+				if (spool_dir && spooler_pid > 0) {
+					kill(spooler_pid, SIGKILL);
+				}
+#endif
 				fprintf(stderr,"binary reloading uWSGI...\n");
 				if (chdir(cwd)) {
 					perror("chdir()");
@@ -1136,6 +1168,15 @@ int main(int argc, char *argv[], char *envp[]) {
 				reap_them_all();
 				exit(1);
 			}
+#ifndef ROCK_SOLID
+			/* reload the spooler */
+			if (spool_dir && spooler_pid > 0) {
+				if (diedpid == spooler_pid) {
+					spooler_pid = spooler_start(spool_dir,serverfd, uwsgi_module);
+					continue;
+				}
+			}
+#endif
 			/* check for reloading */
 			if (WIFEXITED(waitpid_status)) {
 				if (WEXITSTATUS(waitpid_status) == UWSGI_RELOAD_CODE) {
@@ -1299,6 +1340,35 @@ int main(int argc, char *argv[], char *envp[]) {
 
 		if (i < wsgi_req.size) {
 			continue;
+		}
+
+		
+		/* check for spooler request */
+		if (wsgi_req.modifier == UWSGI_MODIFIER_SPOOL_REQUEST && spool_dir != NULL) {
+			fprintf(stderr,"managing spool request...\n");
+			i = spool_request(NULL,NULL,spool_dir, spool_filename, requests+1, buffer,wsgi_req.size) ;
+			if (i > 0) {
+				if (write(wsgi_poll.fd,"\1",1) != 1) {
+					fprintf(stderr,"disconnected client, remove spool file.\n");
+					/* client disconnect, remove spool file */	
+					if (unlink(spool_filename)) {
+						perror("unlink()");
+						fprintf(stderr,"something horrible happened !!! check your spooler ASAP !!!\n");	
+						goodbye_cruel_world();
+					}
+				}
+			}
+			else {
+				/* announce a failed spool request */
+				i = write(wsgi_poll.fd,"\0",1);
+				if (i != 1) {
+					perror("write()");
+				}
+			}
+			close(wsgi_poll.fd);
+			memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+			requests++;
+			continue;	
 		}
 
 
@@ -2133,8 +2203,8 @@ void uwsgi_wsgi_config() {
 
 	applications = PyDict_GetItemString(wsgi_dict, "applications");
 	if (!applications) {
-                PyErr_Print();
-		exit(1);
+		fprintf(stderr,"applications dictionary is not defined, now you have to use dynamic apps.\n");
+		return;
 	}
 	if (!PyDict_Check(applications)) {
 		fprintf(stderr,"The 'applications' object must be a dictionary.\n");
@@ -2325,6 +2395,7 @@ int uri_to_hex()
 #ifndef PYTHREE
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module;
+	PyObject *uwsgi_dict;
 
 	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);
         if (new_uwsgi_module == NULL) {
@@ -2332,8 +2403,41 @@ void init_uwsgi_embedded_module() {
                 exit(1);
         }
 
+	uwsgi_dict = PyModule_GetDict(new_uwsgi_module);
+        if (!uwsgi_dict) {
+                fprintf(stderr,"could not get uwsgi module __dict__\n");
+                exit(1);
+        }
+
+	if (PyDict_SetItemString(uwsgi_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
+		PyErr_Print();
+		exit(1);
+	}
+
+
 	if (sharedareasize > 0 && sharedarea) {
 		init_uwsgi_module_sharedarea(new_uwsgi_module);
 	}
+}
+#endif
+
+#ifndef ROCK_SOLID
+pid_t spooler_start(char *spool_dir, int serverfd, PyObject *uwsgi_module) {
+	pid_t pid ;
+
+	pid = fork();
+        if (pid < 0) {
+        	perror("fork()");
+                exit(1);
+        }
+	else if (pid == 0) {
+		close(serverfd);
+        	spooler(spool_dir, uwsgi_module);
+	}
+	else if (pid > 0) {
+        	fprintf(stderr,"spawned the uWSGI spooler on dir %s with pid %d\n", spool_dir, pid);
+	}
+
+	return pid ;
 }
 #endif

@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <sys/mman.h>
 
+#include <stdint.h>
+
 
 #include <poll.h>
 #include <sys/uio.h>
@@ -46,6 +48,7 @@
 #undef _XOPEN_SOURCE
 #endif
 
+#define UWSGI_MODIFIER_SPOOL_REQUEST	17
 #define UWSGI_MODIFIER_MANAGE_PATH_INFO	30
 
 #ifdef PYTHREE
@@ -175,3 +178,9 @@ void uwsgi_wsgi_config(void);
 #endif
 
 void init_uwsgi_module_sharedarea(PyObject *);
+
+#ifndef ROCK_SOLID
+int spool_request(char *, char *, char *, char *, int, char *, int);
+void spooler(char *, PyObject *);
+pid_t spooler_start(char *,int, PyObject *);
+#endif
