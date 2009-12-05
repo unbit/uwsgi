@@ -12,8 +12,8 @@ PROGRAM=uwsgi
 
 all:	clean uwsgi
 
-uwsgi:	utils.o socket.o pymodule.o main.o
-	$(CC) $(LD_FLAGS) utils.o socket.o pymodule.o main.o -o $(PROGRAM)
+uwsgi:	utils.o socket.o pymodule.o spooler.o main.o
+	$(CC) $(LD_FLAGS) utils.o socket.o pymodule.o spooler.o main.o -o $(PROGRAM)
 
 utils.o: utils.c
 	$(CC) -c $(CFLAGS) utils.c
@@ -24,8 +24,11 @@ socket.o: socket.c
 pymodule.o: uwsgi_pymodule.c
 	$(CC) -c $(CFLAGS) -o pymodule.o uwsgi_pymodule.c
 
+spooler.o: spooler.c
+	$(CC) -c $(CFLAGS) -o spooler.o spooler.c
+
 main.o:	uwsgi.c
 	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
 	
 clean:
-	rm -f utils.o socket.o pymodule.o main.o
+	rm -f utils.o socket.o pymodule.o spooler.o main.o

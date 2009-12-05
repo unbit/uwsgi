@@ -104,6 +104,7 @@ char *pyhome;
 
 char *nl = "\r\n";
 char *h_sep = ": " ;
+static const char *app_slash = "/" ;
 
 int requests = 0 ;
 
@@ -989,6 +990,11 @@ int main(int argc, char *argv[], char *envp[]) {
         }
 #endif
 
+	if (getsockopt(serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
+		perror("getsockopt()");
+		exit(1);
+	}
+
 
 
 #ifndef ROCK_SOLID
@@ -1258,7 +1264,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
                 if (wsgi_poll.fd < 0){
                         perror("accept()");
-                        exit(1);
+			continue;
                 }
 
                 /*
@@ -1316,6 +1322,8 @@ int main(int argc, char *argv[], char *envp[]) {
                         continue;
                 }
 
+		fprintf(stderr,"ready for reading %d bytes\n", wsgi_req.size);
+
                 /* http headers parser */
 		i = 0 ;
 		while(i < wsgi_req.size) {
@@ -1329,7 +1337,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         	close(wsgi_poll.fd);
                         	break ;
                 	}
-                	rlen = read(wsgi_poll.fd, buffer, wsgi_req.size-i);
+                	rlen = read(wsgi_poll.fd, buffer+i, wsgi_req.size-i);
 			if (rlen <= 0) {
 				fprintf(stderr, "broken vars. skip request.\n");             
                                 close(wsgi_poll.fd);
@@ -1338,6 +1346,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			i += rlen ;
 		}
 
+
 		if (i < wsgi_req.size) {
 			continue;
 		}
@@ -1345,6 +1354,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		
 		/* check for spooler request */
 		if (wsgi_req.modifier == UWSGI_MODIFIER_SPOOL_REQUEST && spool_dir != NULL) {
+
 			fprintf(stderr,"managing spool request...\n");
 			i = spool_request(NULL,NULL,spool_dir, spool_filename, requests+1, buffer,wsgi_req.size) ;
 			if (i > 0) {
@@ -1369,8 +1379,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
 			requests++;
 			continue;	
-		}
-
+		}	
 
                 ptrbuf = buffer ;
                 bufferend = ptrbuf+wsgi_req.size ;
@@ -1449,6 +1458,7 @@ int main(int argc, char *argv[], char *envp[]) {
 									wsgi_req.unbit_flags = *(unsigned long long *) ptrbuf ;
 								}
 #endif
+								fprintf(stderr,"VEC: %d/%d\n", wsgi_req.var_cnt, vec_size);
 								if (wsgi_req.var_cnt < vec_size-(4+1)) {
                                                                 	wsgi_req.var_cnt++ ;
 								}
@@ -1481,6 +1491,9 @@ int main(int argc, char *argv[], char *envp[]) {
                                         break;
                                 }
                         }
+
+
+		fprintf(stderr,"BOH\n");
 
 #ifndef ROCK_SOLID
                 if (has_threads) {
@@ -1517,18 +1530,25 @@ int main(int argc, char *argv[], char *envp[]) {
                         }
 
 
-                        if ((wsgi_req.app_id = init_uwsgi_app(NULL, NULL)) == -1) {
-                                internal_server_error(wsgi_poll.fd, "wsgi application not found");
-                                goto clean ;
-                        }
+
+		fprintf(stderr,"BOH3\n");
+			if (wsgi_req.wsgi_script_len > 0 || (wsgi_req.wsgi_callable_len > 0 && wsgi_req.wsgi_module_len > 0)) {
+                        	if ((wsgi_req.app_id = init_uwsgi_app(NULL, NULL)) == -1) {
+                                	internal_server_error(wsgi_poll.fd, "wsgi application not found");
+                                	goto clean ;
+                        	}
+			}
                 }
 
 
+		fprintf(stderr,"BOH4\n");
                 if (wsgi_req.app_id == -1) {
                         internal_server_error(wsgi_poll.fd, "wsgi application not found");
                         goto clean;
                 }
 
+
+		fprintf(stderr,"BOH5\n");
                 wi = &wsgi_apps[wsgi_req.app_id] ;
 
 		if (single_interpreter == 0) {
@@ -1542,6 +1562,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 
 #endif
+
+		fprintf(stderr,"BOH2\n");
 
                 /* max 1 minute before harakiri */
                 if (harakiri_timeout > 0) {
@@ -1957,9 +1979,11 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 
 	id = wsgi_cnt ;
 
-	if (wsgi_req.script_name_len == 0 || (wsgi_req.script_name_len == 1 && wsgi_req.script_name[0] == '/')) {
-		wsgi_req.script_name = "/" ;
-		wsgi_req.script_name_len = 1;
+
+	fprintf(stderr,"setupping base\n");
+	if (wsgi_req.script_name_len == 0) {
+		wsgi_req.script_name_len = 1 ;
+		wsgi_req.script_name = (char *) app_slash ;
 		id = 0 ;
 	}
 
@@ -1967,11 +1991,14 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 	if (!zero) {
 		Py_FatalError("cannot get mountpoint python object !\n");
 	}
+
+	fprintf(stderr,"setting base\n");
 	if (PyDict_GetItem(py_apps, zero) != NULL) {
 		Py_DECREF(zero);
 		fprintf(stderr, "mountpoint %.*s already configured. skip.\n", wsgi_req.script_name_len, wsgi_req.script_name);
 		return -1;
 	}
+	fprintf(stderr,"setted base\n");
 
 	Py_DECREF(zero);
 
@@ -1993,6 +2020,8 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		fprintf(stderr,"interpreter for app %d initialized.\n", id);
 	}
 
+
+	fprintf(stderr,"OK setted base\n");
 	
 
 	if (wsgi_config == NULL) {
@@ -2038,14 +2067,22 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		wsgi_dict = force_wsgi_dict;
 	}
 
+	fprintf(stderr,"OK2 setted base %d\n", wsgi_req.wsgi_callable_len);
+
         memset(tmpstring, 0, 256);
         memcpy(tmpstring, wsgi_req.wsgi_callable, wsgi_req.wsgi_callable_len) ;
 	if (my_callable) {
         	wi->wsgi_callable = my_callable;
 	}
-	else {
+	else if (wsgi_dict) {
+	fprintf(stderr,"OK4 setted base %d %p\n", wsgi_req.wsgi_callable_len, wsgi_dict);
         	wi->wsgi_callable = PyDict_GetItemString(wsgi_dict, tmpstring);
 	}
+	else {
+		return -1;
+	}
+
+	fprintf(stderr,"OK5 setted base %d\n", wsgi_req.wsgi_callable_len);
 
         if (!wi->wsgi_callable) {
                 PyErr_Print();

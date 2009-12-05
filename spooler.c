@@ -64,6 +64,7 @@ int spool_request(char *host, char *port, char *spooldir, char *filename, int rn
 	}
 
 
+	fprintf(stderr,"writing %d bytes to spool file.\n",size);
 	if (write(fd, buffer, size) != size) {
 		goto clear ;
 	}
@@ -101,11 +102,6 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
                 exit(1);
         }
 
-	spooler_callable = PyDict_GetItemString(uwsgi_module_dict, "spooler");
-	if (!spooler_callable) {
-		fprintf(stderr,"you have to define uwsgi.spooler to use the spooler !!!\n");
-		exit(1);
-	}
 
 	spool_tuple = PyTuple_New(1);
 
@@ -128,6 +124,12 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 					if (!access(dp->d_name, R_OK|W_OK)) {
 						fprintf(stderr,"managing spool request %s...\n", dp->d_name);
 
+						spooler_callable = PyDict_GetItemString(uwsgi_module_dict, "spooler");
+						if (!spooler_callable) {
+							fprintf(stderr,"you have to define uwsgi.spooler to use the spooler !!!\n");
+							continue;
+						}
+
 						spool_fd = open(dp->d_name, O_RDONLY) ;
 						if (spool_fd < 0) {
 							perror("open()");
@@ -142,6 +144,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						}
 
 
+						fprintf(stderr,"file opened\n");
 						host[0] = 0 ;
 						port[0] = 0 ;
 
@@ -149,7 +152,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						/* get spool host */
 						rlen = read(spool_fd, &uwstrlen, 2) ;
 						if (rlen != 2) {
-							perror("read()");
+							perror("BAH read()");
 							goto next_spool;
 						}	
 						if (uwstrlen > 0) {
@@ -159,7 +162,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 							}
 							rlen = read(spool_fd, host, uwstrlen);
 							if (rlen != uwstrlen) {
-								perror("read()");
+								perror("BAH2 read()");
 								goto next_spool;
 							}
 							host[rlen] = 0;
@@ -168,7 +171,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						/* get spool port */
 						rlen = read(spool_fd, &uwstrlen, 2) ;
 						if (rlen != 2) {
-							perror("read()");
+							perror("BAH3 read()");
 							goto next_spool;
 						}	
 						if (uwstrlen > 0) {
@@ -193,6 +196,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 									perror("malloc()");
 									goto retry_later;
 								}
+								fprintf(stderr,"reading %d bytes\n", uwstrlen);
 								rlen = read(spool_fd, key, uwstrlen);
 								if (rlen != uwstrlen) {
 									perror("read()");
@@ -277,6 +281,7 @@ next_spool:
 retry_later:
 						Py_DECREF(spool_env);
 						close(spool_fd);
+						Py_DECREF(spooler_callable);
 					}
 				}
 			}

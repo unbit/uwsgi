@@ -76,6 +76,13 @@
 #define UWSGI_END_CODE 30
 
 
+struct __attribute__((packed)) uwsgi_worker {
+	unsigned long long requests;
+	unsigned long long failed_requests;
+	time_t harakiri;
+	unsigned long long respawn;
+}
+
 struct __attribute__((packed)) wsgi_request {
         unsigned char modifier;
         unsigned short size ;
