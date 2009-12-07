@@ -1,7 +1,7 @@
 CC=gcc
 
-PYTHON_CFLAGS=`python-config --cflags`
-PYTHON_LIBS=`python-config --libs`
+PYTHON_CFLAGS=`python2.5-config --cflags`
+PYTHON_LIBS=`python2.5-config --libs`
 XML_CFLAGS=`xml2-config --cflags`
 XML_LIBS=`xml2-config --libs`
 

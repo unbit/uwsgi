@@ -806,13 +806,13 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 		if (test_module == NULL) {
-        		fprintf(stderr,"*** Starting uWSGI on [%.*s] ***\n", 24, ctime(&start_of_uwsgi.tv_sec));
+        		fprintf(stderr,"*** Starting uWSGI on [%.*s] ***\n", 24, ctime( (const time_t *) &start_of_uwsgi.tv_sec));
 		}
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 	}
 	else {
-        	fprintf(stderr,"*** Starting uWSGI (CGI mode) on [%.*s] ***\n", 24, ctime(&start_of_uwsgi.tv_sec));
+        	fprintf(stderr,"*** Starting uWSGI (CGI mode) on [%.*s] ***\n", 24, ctime( (const time_t *) &start_of_uwsgi.tv_sec));
 	}
 #endif
 #endif
@@ -868,7 +868,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 		#else
-			fprintf(stderr,"***WARNING*** the sharedarea on OpenBSD is not SMP-safe. Beware of race conditions !!!");
+			fprintf(stderr,"***WARNING*** the sharedarea on OpenBSD is not SMP-safe. Beware of race conditions !!!\n");
 		#endif
 		sharedarea = mmap(NULL, getpagesize() * sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
 		if (sharedarea) { 
@@ -1730,6 +1730,24 @@ int main(int argc, char *argv[], char *envp[]) {
 	#ifdef __freebsd__
 
 					wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, wsgi_poll.fd, 0, 0, NULL, (off_t *) &rlen, 0) ;
+	#elif __OpenBSD__
+					char *no_sendfile_buf[4096] ;
+					int jlen = 0 ;
+					i = 0 ;
+					while(i < rlen) {
+						jlen = read(wsgi_req.sendfile_fd, no_sendfile_buf, 4096);
+						if (jlen<=0) {
+							perror("read()");
+							break;
+						}
+						i += jlen;
+						jlen = write(wsgi_poll.fd, no_sendfile_buf, jlen);		
+						if (jlen<=0) {
+							perror("write()");
+							break;
+						}
+						
+					}
 	#else
                                         wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, wsgi_poll.fd, 0, (off_t *) &rlen, NULL, 0) ;
 	#endif
@@ -1873,7 +1891,7 @@ void log_request() {
         }
 #endif
 
-        time_request = ctime(&wsgi_req.start_of_request.tv_sec);
+        time_request = ctime( (const time_t *) &wsgi_req.start_of_request.tv_sec);
         gettimeofday(&end_request, NULL) ;
         microseconds = end_request.tv_sec*1000000+end_request.tv_usec ;
         microseconds2 = wsgi_req.start_of_request.tv_sec*1000000+wsgi_req.start_of_request.tv_usec ;
