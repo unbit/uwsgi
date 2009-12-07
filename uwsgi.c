@@ -71,7 +71,7 @@ in particular)
 
 
 #ifndef ROCK_SOLID
-#ifndef BSD
+#ifdef __linux__
 	#include <sys/sendfile.h>
 #endif
 #endif
@@ -859,20 +859,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 	if (sharedareasize > 0) {
-#ifdef BSD
 		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
-#else
-		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANONYMOUS , -1, 0);
-#endif
 		if (!sharedareamutex) {
 			perror("mmap()");
 			exit(1);
 		}
-#ifdef BSD
 		sharedarea = mmap(NULL, getpagesize() * sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
-#else
-		sharedarea = mmap(NULL, getpagesize() * sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANONYMOUS , -1, 0);
-#endif
 		if (sharedarea) { 
 			fprintf(stderr,"shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", sharedarea);
 
@@ -1726,8 +1718,9 @@ int main(int argc, char *argv[], char *envp[]) {
                                 rlen = lseek(wsgi_req.sendfile_fd, 0, SEEK_END) ;
                                 if (rlen > 0) {
                                         lseek(wsgi_req.sendfile_fd, 0, SEEK_SET) ;
-#ifdef BSD
-	#ifdef FREEBSD
+#ifndef __linux__
+	#ifdef __freebsd__
+
 					wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, wsgi_poll.fd, 0, 0, NULL, (off_t *) &rlen, 0) ;
 	#else
                                         wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, wsgi_poll.fd, 0, (off_t *) &rlen, NULL, 0) ;
