@@ -125,7 +125,9 @@ char *test_module = NULL;
 int numproc = 1;
 
 char *sharedarea ;
+#ifndef __OpenBSD__
 void *sharedareamutex ;
+#endif
 int sharedareasize ;
 
 
@@ -859,11 +861,15 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 	if (sharedareasize > 0) {
+		#ifndef __OpenBSD__
 		sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
 		if (!sharedareamutex) {
 			perror("mmap()");
 			exit(1);
 		}
+		#else
+			fprintf(stderr,"***WARNING*** the sharedarea on OpenBSD is not SMP-safe. Beware of race conditions !!!");
+		#endif
 		sharedarea = mmap(NULL, getpagesize() * sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
 		if (sharedarea) { 
 			fprintf(stderr,"shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", sharedarea);
@@ -871,6 +877,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef __APPLE__
 			memset(sharedareamutex,0, sizeof(OSSpinLock));
 #else
+		#ifndef __OpenBSD__
 			if (pthread_mutexattr_init((pthread_mutexattr_t *)sharedareamutex)) {
 				fprintf(stderr,"unable to allocate mutexattr structure\n");
 				exit(1);
@@ -883,8 +890,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				fprintf(stderr,"unable to initialize mutex\n");
 				exit(1);
 			}
+		#endif
 #endif
-				
+			
 		}
 		else {
 			perror("mmap()");

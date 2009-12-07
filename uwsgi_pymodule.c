@@ -8,8 +8,12 @@ extern int sharedareasize ;
 #define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) sharedareamutex)
 #define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) sharedareamutex)
 #else
+#ifdef __OpenBSD__
+	__noop()
+#else
 #define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t))
 #define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t))
+#endif
 #endif
 
 PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
