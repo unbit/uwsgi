@@ -11,6 +11,9 @@ extern int sharedareasize ;
 #ifndef __OpenBSD__
 #define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
 #define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+#else
+#define LOCK_SHAREDAREA
+#define UNLOCK_SHAREDAREA
 #endif
 #endif
 
