@@ -1425,10 +1425,10 @@ int main(int argc, char *argv[], char *envp[]) {
                         // pluginIZE this part (ucgi, fastcgi, scgi, http...)
                         while(ptrbuf < bufferend) {
                                 if (ptrbuf+2 < bufferend) {
+                                        memcpy(&strsize,ptrbuf,2);
 					#if _BYTE_ORDER == _BIG_ENDIAN
 					strsize = uwsgi_swap16(strsize);
 					#endif
-                                        memcpy(&strsize,ptrbuf,2);
                                         ptrbuf+=2;
                                         if (ptrbuf+strsize < bufferend) {
                                                 // var key
@@ -1436,10 +1436,10 @@ int main(int argc, char *argv[], char *envp[]) {
                                                 hvec[wsgi_req.var_cnt].iov_len = strsize ;
                                                 ptrbuf+=strsize;
                                                 if (ptrbuf+2 < bufferend) {
+                                                        memcpy(&strsize,ptrbuf,2);
 							#if _BYTE_ORDER == _BIG_ENDIAN
 							strsize = uwsgi_swap16(strsize);
 							#endif
-                                                        memcpy(&strsize,ptrbuf,2);
                                                         ptrbuf+=2 ;
                                                         if ( ptrbuf+strsize <= bufferend) {
 #ifndef ROCK_SOLID
@@ -2083,8 +2083,6 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 	}
 
 
-	fprintf(stderr,"OK setted base\n");
-	
 
 	if (wsgi_config == NULL) {
         	if (wsgi_req.wsgi_script_len > 0) {
@@ -2129,7 +2127,6 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		wsgi_dict = force_wsgi_dict;
 	}
 
-	fprintf(stderr,"OK2 setted base %d\n", wsgi_req.wsgi_callable_len);
 
         memset(tmpstring, 0, 256);
         memcpy(tmpstring, wsgi_req.wsgi_callable, wsgi_req.wsgi_callable_len) ;
@@ -2137,14 +2134,12 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
         	wi->wsgi_callable = my_callable;
 	}
 	else if (wsgi_dict) {
-	fprintf(stderr,"OK4 setted base %d %p\n", wsgi_req.wsgi_callable_len, wsgi_dict);
         	wi->wsgi_callable = PyDict_GetItemString(wsgi_dict, tmpstring);
 	}
 	else {
 		return -1;
 	}
 
-	fprintf(stderr,"OK5 setted base %d\n", wsgi_req.wsgi_callable_len);
 
         if (!wi->wsgi_callable) {
                 PyErr_Print();
