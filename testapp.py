@@ -26,4 +26,6 @@ def application(env, start_response):
 	start_response('200 OK', [('Content-Type', 'text/plain')])
 	yield { '/': helloworld, '/sleep': force_harakiri, '/counter': increment }[env['PATH_INFO']]()
 
+	print env
+
 applications = {'/':'application'}
