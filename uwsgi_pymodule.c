@@ -5,14 +5,12 @@ extern void *sharedareamutex ;
 extern int sharedareasize ;
 
 #ifdef __APPLE__
-#define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) sharedareamutex)
-#define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) sharedareamutex)
+#define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) sharedareamutex);
+#define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) sharedareamutex);
 #else
-#ifdef __OpenBSD__
-	__noop()
-#else
-#define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t))
-#define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t))
+#ifndef __OpenBSD__
+#define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+#define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
 #endif
 #endif
 
@@ -39,11 +37,11 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA;
+	LOCK_SHAREDAREA
 	memcpy(&value, sharedarea+pos, 4);
 	value++;
 	memcpy(sharedarea+pos, &value,4);
-	UNLOCK_SHAREDAREA;
+	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
 	
@@ -78,10 +76,10 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA;
+	LOCK_SHAREDAREA
         value = (long) PyInt_AsLong(arg1);
 	memcpy(sharedarea+pos, &value,4);
-	UNLOCK_SHAREDAREA;
+	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
 	
@@ -119,9 +117,9 @@ PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA;
+	LOCK_SHAREDAREA
 	memcpy(sharedarea+pos, value,strlen(value));
-	UNLOCK_SHAREDAREA;
+	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(strlen(value));
 	
@@ -186,9 +184,9 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA;
+	LOCK_SHAREDAREA
 	memcpy(&value, sharedarea+pos, 4);
-	UNLOCK_SHAREDAREA;
+	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
 	
