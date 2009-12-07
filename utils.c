@@ -1,5 +1,23 @@
 #include "uwsgi.h"
 
+extern struct uwsgi_worker *workers;
+extern int mywid ;
+
+void set_harakiri(int sec) {
+	if (workers) {
+		if (sec == 0) {
+			workers[mywid].harakiri = 0 ;
+		}
+		else {
+			workers[mywid].harakiri = time(NULL) + sec ;
+			fprintf(stderr,"harakiri set to %d\n", workers[mywid].harakiri);
+		}
+	}
+	else {
+		alarm(sec);
+	}
+}
+
 #ifndef UNBIT
 
 void daemonize(char *logfile) {

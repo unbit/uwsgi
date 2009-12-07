@@ -77,11 +77,13 @@
 
 
 struct __attribute__((packed)) uwsgi_worker {
+	pid_t pid;
+	time_t last_spawn;
 	unsigned long long requests;
 	unsigned long long failed_requests;
 	time_t harakiri;
-	unsigned long long respawn;
-}
+	unsigned long long respawn_count;
+};
 
 struct __attribute__((packed)) wsgi_request {
         unsigned char modifier;
@@ -191,3 +193,5 @@ int spool_request(char *, char *, char *, char *, int, char *, int);
 void spooler(char *, PyObject *);
 pid_t spooler_start(char *,int, PyObject *);
 #endif
+
+void set_harakiri(int);

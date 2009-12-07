@@ -128,16 +128,19 @@ char *sharedarea ;
 void *sharedareamutex ;
 int sharedareasize ;
 
-// save my pid for logging
-pid_t mypid;
 
 // the list of workers
-pid_t *workers;
+struct uwsgi_worker *workers ;
+
+// save my pid for logging
+pid_t mypid;
+int mywid = 0 ;
 
 int find_worker_id(pid_t pid) {
 	int i ;
 	for(i = 1 ; i<= numproc ; i++) {
-		if (workers[i] == pid)
+		fprintf(stderr,"%d of %d\n", pid, workers[i].pid);
+		if (workers[i].pid == pid)
 			return i ;
 	}
 
@@ -237,7 +240,7 @@ void kill_them_all() {
 	int i ;
 	fprintf(stderr,"SIGINT/SIGQUIT received...killing workers...\n");
 	for(i=1;i<=numproc;i++) {	
-		kill(workers[i], SIGINT);
+		kill(workers[i].pid, SIGINT);
 	}
 }
 
@@ -245,7 +248,7 @@ void grace_them_all() {
 	int i ;
 	fprintf(stderr,"...gracefully killing workers...\n");
 	for(i=1;i<=numproc;i++) {	
-		kill(workers[i], SIGHUP);
+		kill(workers[i].pid, SIGHUP);
 	}
 }
 
@@ -253,7 +256,7 @@ void reap_them_all() {
 	int i ;
 	fprintf(stderr,"...brutally killing workers...\n");
 	for(i=1;i<=numproc;i++) {
-		kill(workers[i], SIGTERM);
+		kill(workers[i].pid, SIGTERM);
 	}
 }
 
@@ -548,6 +551,7 @@ int memory_debug = 0 ;
 
 int main(int argc, char *argv[], char *envp[]) {
 
+	struct timeval check_interval = {.tv_sec = 1, .tv_usec = 0 };
 	
 #ifndef PYTHREE
 	PyObject *uwsgi_module;
@@ -1072,7 +1076,11 @@ int main(int argc, char *argv[], char *envp[]) {
 		else {
         		fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
 		}
-		workers = malloc(sizeof(pid_t)*numproc+1);
+		workers = mmap(NULL, sizeof(struct uwsgi_worker)*numproc+1, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
+		if (!workers) {
+			perror("mmap()");
+			exit(1);
+		}
 	}
 
 #ifdef UNBIT
@@ -1097,6 +1105,8 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
         for(i=1;i<numproc+master_process;i++) {
+		/* let the worker know his worker_id (wid) */
+		mywid = i;
                 pid = fork();
                 if (pid == 0 ) {
                         mypid = getpid();
@@ -1113,7 +1123,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 else {
                         fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
 			if (master_process)
-				workers[i] = pid ;
+				workers[i].pid = pid ;
 			gettimeofday(&last_respawn, NULL) ;
 			respawn_delta = last_respawn.tv_sec;
                 }
@@ -1167,12 +1177,27 @@ int main(int argc, char *argv[], char *envp[]) {
 				perror("execve()");
 				exit(1);
 			}
-			diedpid = waitpid(WAIT_ANY , &waitpid_status, 0) ;
+			diedpid = waitpid(WAIT_ANY , &waitpid_status, WNOHANG) ;
 			if (diedpid == -1) {
 				perror("waitpid()");
 				fprintf(stderr, "something horrible happened...\n");
 				reap_them_all();
 				exit(1);
+			}
+			else if (diedpid == 0) {
+				/* all processes ok, doing status scan after 1 second */
+				select(0, NULL, NULL, NULL, &check_interval);
+				for(i=1;i<=numproc;i++) {
+					/* first check for harakiri */
+                			if (workers[i].harakiri > 0) {
+						if (workers[i].harakiri < time(NULL)) {
+							/* first try to invoke the harakiri() custom handler */
+							/* the brutally kill the worker */
+							kill(workers[i].pid, SIGKILL);
+						}
+					}
+        			}
+				continue;
 			}
 #ifndef ROCK_SOLID
 			/* reload the spooler */
@@ -1203,6 +1228,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 			gettimeofday(&last_respawn, NULL) ;
 			respawn_delta = last_respawn.tv_sec;
+			mywid = find_worker_id(diedpid);
 			pid = fork();
 			if (pid == 0 ) {
 				mypid = getpid();
@@ -1213,9 +1239,13 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 			else {
                         	fprintf(stderr, "Respawned uWSGI worker (new pid: %d)\n", pid);
-				i = find_worker_id(diedpid);
-				if (i > 0) {
-					workers[i] = pid ;
+				if (mywid > 0) {
+					workers[mywid].pid = pid ;
+					workers[mywid].harakiri = 0 ;
+					workers[mywid].requests = 0 ;
+					workers[mywid].failed_requests = 0 ;
+					workers[mywid].respawn_count++ ;
+					workers[mywid].last_spawn = time(NULL) ;
 				}
 				else {
 					fprintf(stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n") ;
@@ -1238,7 +1268,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 
-        if (harakiri_timeout > 0) {
+        if (harakiri_timeout > 0 && workers == NULL) {
                 signal(SIGALRM, (void *) &harakiri);
         }
 
@@ -1571,16 +1601,16 @@ int main(int argc, char *argv[], char *envp[]) {
 			if (wsgi_req.modifier != 0) {
 				switch(wsgi_req.modifier) {
 					case UWSGI_MODIFIER_HT_S:
-						alarm(wsgi_req.modifier_arg);
+						set_harakiri(wsgi_req.modifier_arg);
 					case UWSGI_MODIFIER_HT_M:
-						alarm(wsgi_req.modifier_arg*60);
+						set_harakiri(wsgi_req.modifier_arg*60);
 					case UWSGI_MODIFIER_HT_H:
-						alarm(wsgi_req.modifier_arg*3600);
+						set_harakiri(wsgi_req.modifier_arg*3600);
 				}
 			}
 			else {
 #endif
-                        alarm(harakiri_timeout);
+                        	set_harakiri(harakiri_timeout);
 #ifdef UNBIT
 			}
 #endif
@@ -1744,7 +1774,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
                 PyErr_Clear();
                 if (harakiri_timeout > 0) {
-                        alarm(0);
+                        set_harakiri(0);
                 }
 #ifndef ROCK_SOLID
 		if (single_interpreter == 0) {
@@ -1985,6 +2015,11 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		wsgi_req.script_name_len = 1 ;
 		wsgi_req.script_name = (char *) app_slash ;
 		id = 0 ;
+	}
+	else if (wsgi_req.script_name_len == 1) {
+		if (wsgi_req.script_name[0] == '/') {
+			id = 0 ;
+		}
 	}
 
 	zero = PyString_FromStringAndSize(wsgi_req.script_name, wsgi_req.script_name_len);

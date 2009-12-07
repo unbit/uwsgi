@@ -10,11 +10,20 @@ def myspooler(env):
 
 uwsgi.spooler = myspooler
 
+def helloworld():
+	return 'Hello World'
+
+def increment():
+	return "Shared counter is %d\n" % uwsgi.sharedarea_inclong(100)
+
+def force_harakiri():
+	time.sleep(60)
+	
+	
+
 def application(env, start_response):
+
 	start_response('200 OK', [('Content-Type', 'text/plain')])
-	try:
-		yield "Shared counter is %d\n" % uwsgi.sharedarea_inclong(100)
-	except:
-		yield 'Hello World'
+	yield { '/': helloworld, '/sleep': force_harakiri, '/counter': increment }[env['PATH_INFO']]()
 
 applications = {'/':'application'}
