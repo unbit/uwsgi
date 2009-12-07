@@ -3,6 +3,12 @@
 extern struct uwsgi_worker *workers;
 extern int mywid ;
 
+#if _BYTE_ORDER == _BIG_ENDIAN
+uint16_t uwsgi_swap16(uint16_t x) {
+	return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
+}
+#endif
+
 void set_harakiri(int sec) {
 	if (workers) {
 		if (sec == 0) {
@@ -10,7 +16,6 @@ void set_harakiri(int sec) {
 		}
 		else {
 			workers[mywid].harakiri = time(NULL) + sec ;
-			fprintf(stderr,"harakiri set to %d\n", workers[mywid].harakiri);
 		}
 	}
 	else {

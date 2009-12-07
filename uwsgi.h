@@ -2,6 +2,7 @@
 
 
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -10,6 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/mman.h>
+
 
 #include <stdint.h>
 
@@ -40,6 +42,15 @@
         #undef _POSIX_C_SOURCE
 #endif
 #include <Python.h>
+
+
+#ifdef __linux__
+#include <endian.h>
+#elif __sun__
+#include <ast/endian.h>
+#else
+#include <machine/endian.h>
+#endif
 
 #ifdef UNBIT
 #define UWSGI_MODIFIER_HT_S 1
@@ -195,3 +206,7 @@ pid_t spooler_start(char *,int, PyObject *);
 #endif
 
 void set_harakiri(int);
+
+#if _BYTE_ORDER == _BIG_ENDIAN
+uint16_t uwsgi_swap16( uint16_t );
+#endif

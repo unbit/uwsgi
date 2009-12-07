@@ -592,7 +592,7 @@ int main(int argc, char *argv[], char *envp[]) {
         char *ptrbuf ;
         char *bufferend ;
 
-        unsigned short strsize;
+        unsigned short strsize = 0;
         struct uwsgi_app *wi;
 
 #ifdef __linux__
@@ -1345,6 +1345,11 @@ int main(int argc, char *argv[], char *envp[]) {
                         close(wsgi_poll.fd);
                         continue;
                 }
+		/* big endian ? */
+		#if _BYTE_ORDER == _BIG_ENDIAN
+		wsgi_req.size = uwsgi_swap16(wsgi_req.size);
+		#endif
+
 		/* check for max buffer size and for a minimal null string */
                 if (wsgi_req.size > buffer_size || wsgi_req.size < 2) {
                         fprintf(stderr,"invalid request block size: %d...skip\n", wsgi_req.size);
@@ -1418,6 +1423,9 @@ int main(int argc, char *argv[], char *envp[]) {
                         // pluginIZE this part (ucgi, fastcgi, scgi, http...)
                         while(ptrbuf < bufferend) {
                                 if (ptrbuf+2 < bufferend) {
+					#if _BYTE_ORDER == _BIG_ENDIAN
+					strsize = uwsgi_swap16(strsize);
+					#endif
                                         memcpy(&strsize,ptrbuf,2);
                                         ptrbuf+=2;
                                         if (ptrbuf+strsize < bufferend) {
@@ -1426,6 +1434,9 @@ int main(int argc, char *argv[], char *envp[]) {
                                                 hvec[wsgi_req.var_cnt].iov_len = strsize ;
                                                 ptrbuf+=strsize;
                                                 if (ptrbuf+2 < bufferend) {
+							#if _BYTE_ORDER == _BIG_ENDIAN
+							strsize = uwsgi_swap16(strsize);
+							#endif
                                                         memcpy(&strsize,ptrbuf,2);
                                                         ptrbuf+=2 ;
                                                         if ( ptrbuf+strsize <= bufferend) {
