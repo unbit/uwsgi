@@ -36,6 +36,13 @@ typedef struct {
 
 #define NGX_HTTP_XCGI_PARSE_NO_HEADER  20
 
+#ifndef NGX_HAVE_LITTLE_ENDIAN
+static uint16_t uwsgi_swap16(uint16_t x) {
+        return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
+}
+#endif
+
+
 
 static ngx_int_t ngx_http_uwsgi_eval(ngx_http_request_t *r,
     ngx_http_uwsgi_loc_conf_t *uwcf);
@@ -502,6 +509,9 @@ ngx_http_uwsgi_create_request(ngx_http_request_t *r)
     cl->buf = b;
 
     *b->pos = uwcf->modifier1;
+#ifndef NGX_HAVE_LITTLE_ENDIAN
+    uwsgi_pkt_size = uwsgi_swap16(uwsgi_pkt_size);
+#endif
     b->last = ngx_cpymem(b->pos+1, &uwsgi_pkt_size, 2);
     *(b->pos+3) = uwcf->modifier2;
     b->last++;
@@ -526,7 +536,11 @@ ngx_http_uwsgi_create_request(ngx_http_request_t *r)
             }
             le.ip += sizeof(uintptr_t);
 
+#ifndef NGX_HAVE_LITTLE_ENDIAN
+            uwsgi_strlen = uwsgi_swap16(key_len);
+#else
             uwsgi_strlen = key_len;
+#endif
 	    e.pos = ngx_cpymem(e.pos, &uwsgi_strlen, 2);
 
             while (*(uintptr_t *) e.ip) {
@@ -544,7 +558,11 @@ ngx_http_uwsgi_create_request(ngx_http_request_t *r)
 
 	    e.pos = pos;
 	   
-	    uwsgi_strlen = val_len;
+#ifndef NGX_HAVE_LITTLE_ENDIAN
+	    uwsgi_strlen = uwsgi_swap16(val_len);
+#else
+	    uwsgi_strlen = val_len ;
+#endif
 	    e.pos = ngx_cpymem(e.pos, &uwsgi_strlen, 2);
             e.pos += val_len ;	
 
@@ -574,7 +592,11 @@ ngx_http_uwsgi_create_request(ngx_http_request_t *r)
                 i = 0;
             }
 
+#ifndef NGX_HAVE_LITTLE_ENDIAN
+	    uwsgi_strlen = uwsgi_swap16(5 + header[i].key.len) ;
+#else
 	    uwsgi_strlen = 5 + header[i].key.len ;
+#endif
 	    b->last = ngx_cpymem(b->last, &uwsgi_strlen, 2);
             b->last = ngx_cpymem(b->last, "HTTP_", 5);
 	    for (n = 0; n < header[i].key.len; n++) {
@@ -589,7 +611,11 @@ ngx_http_uwsgi_create_request(ngx_http_request_t *r)
 
                 *b->last++ = ch;
             }
+#ifndef NGX_HAVE_LITTLE_ENDIAN
+            uwsgi_strlen = uwsgi_swap16(header[i].value.len) ;
+#else
             uwsgi_strlen = header[i].value.len ;
+#endif
             b->last = ngx_cpymem(b->last, &uwsgi_strlen, 2);
             b->last = ngx_copy(b->last, header[i].value.data, header[i].value.len);
 	    
