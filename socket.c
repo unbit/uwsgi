@@ -3,7 +3,7 @@
 int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abstract_socket) {
 
 	int serverfd;
-	struct sockaddr_un *s_addr;
+	struct sockaddr_un *uws_addr;
 
 	fprintf(stderr, "binding on UNIX socket: %s\n", socket_name);
 
@@ -13,13 +13,13 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
                 	exit(1);
         }
 
-        s_addr = malloc(sizeof(struct sockaddr_un));
-        if (s_addr == NULL) {
+        uws_addr = malloc(sizeof(struct sockaddr_un));
+        if (uws_addr == NULL) {
         	perror("malloc()");
                 exit(1);
         }
 
-        memset(s_addr, 0, sizeof(struct sockaddr_un)) ;
+        memset(uws_addr, 0, sizeof(struct sockaddr_un)) ;
         serverfd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (serverfd < 0) {
         	perror("socket()");
@@ -35,10 +35,10 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
         	fprintf(stderr, "setting abstract socket mode (warning: only Linux supports this)\n");
         }
 
-	s_addr->sun_family = AF_UNIX;
-	strcpy(s_addr->sun_path+abstract_socket, socket_name);
+	uws_addr->sun_family = AF_UNIX;
+	strcpy(uws_addr->sun_path+abstract_socket, socket_name);
 
-	if (bind(serverfd, (struct sockaddr *) s_addr, strlen(socket_name)+ abstract_socket + ( (void *)s_addr->sun_path - (void *)s_addr) ) != 0) {
+	if (bind(serverfd, (struct sockaddr *) uws_addr, strlen(socket_name)+ abstract_socket + ( (void *)uws_addr->sun_path - (void *)uws_addr) ) != 0) {
 		perror("bind()");
 		exit(1);
 	}
@@ -62,21 +62,21 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	int serverfd;
-	struct sockaddr_in s_addr;
+	struct sockaddr_in uws_addr;
 	int reuse = 1 ;
 	
 	tcp_port[0] = 0 ;
-	memset(&s_addr, 0, sizeof(struct sockaddr_in));
+	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
 
-	s_addr.sin_family = AF_INET;
-	s_addr.sin_port = htons(atoi(tcp_port+1));
+	uws_addr.sin_family = AF_INET;
+	uws_addr.sin_port = htons(atoi(tcp_port+1));
 
 
 	if (socket_name[0] == 0) {
-		s_addr.sin_addr.s_addr = INADDR_ANY;
+		uws_addr.sin_addr.s_addr = INADDR_ANY;
 	}
 	else {
-		s_addr.sin_addr.s_addr = inet_addr(socket_name);
+		uws_addr.sin_addr.s_addr = inet_addr(socket_name);
 	}
 
         serverfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -91,9 +91,9 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 
-	fprintf(stderr,"binding on TCP port: %d\n", ntohs(s_addr.sin_port));
+	fprintf(stderr,"binding on TCP port: %d\n", ntohs(uws_addr.sin_port));
 
-	if (bind(serverfd, (struct sockaddr *) &s_addr, sizeof(s_addr) ) != 0) {
+	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr) ) != 0) {
 		perror("bind()");
 		exit(1);
 	}

@@ -606,7 +606,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	int socket_type; 
-	socklen_t socket_type_len; 
+	socklen_t socket_type_len ; 
 
 	sharedareasize = 0 ;
 
@@ -624,6 +624,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 	strcpy(binary_path, argv[0]);
 
+	socket_type_len = sizeof(int);
 	if (!getsockopt(3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
 		fprintf(stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
 		is_a_reload = 1 ;
@@ -771,7 +772,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifndef UNBIT
 			case 'h':
 				fprintf(stderr, "Usage: %s [options...]\n\
-\t-s <name>\tpath (or name) of UNIX socket to bind to\n\
+\t-s <name>\tpath (or name) of UNIX/TCP socket to bind to\n\
 \t-l <num>\tset socket listen queue to <n>\n\
 \t-z <sec>\tset socket timeout to <sec> seconds\n\
 \t-b <n>\t\tset buffer size to <n> bytes\n\
@@ -994,6 +995,7 @@ int main(int argc, char *argv[], char *envp[]) {
         }
 #endif
 
+	socket_type_len = sizeof(int);
 	if (getsockopt(serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
 		perror("getsockopt()");
 		exit(1);
@@ -1076,7 +1078,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		else {
         		fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", mypid);
 		}
-		workers = mmap(NULL, sizeof(struct uwsgi_worker)*numproc+1, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
+		workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker)*numproc+1, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
 		if (!workers) {
 			perror("mmap()");
 			exit(1);
@@ -1725,7 +1727,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	#ifdef __freebsd__
 
 					wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, wsgi_poll.fd, 0, 0, NULL, (off_t *) &rlen, 0) ;
-	#elif __OpenBSD__
+	#elif __OpenBSD__ || __sun__
 					char *no_sendfile_buf[4096] ;
 					int jlen = 0 ;
 					i = 0 ;

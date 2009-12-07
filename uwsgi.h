@@ -41,13 +41,16 @@
 #ifdef _POSIX_C_SOURCE
         #undef _POSIX_C_SOURCE
 #endif
+#ifdef __sun__
+#undef _FILE_OFFSET_BITS
+#define WAIT_ANY (-1)
+#endif
 #include <Python.h>
 
 
 #ifdef __linux__
 #include <endian.h>
 #elif __sun__
-#include <ast/endian.h>
 #else
 #include <machine/endian.h>
 #endif
