@@ -144,7 +144,6 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						}
 
 
-						fprintf(stderr,"file opened\n");
 						host[0] = 0 ;
 						port[0] = 0 ;
 
@@ -152,7 +151,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						/* get spool host */
 						rlen = read(spool_fd, &uwstrlen, 2) ;
 						if (rlen != 2) {
-							perror("BAH read()");
+							perror("read()");
 							goto next_spool;
 						}	
 						if (uwstrlen > 0) {
@@ -162,7 +161,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 							}
 							rlen = read(spool_fd, host, uwstrlen);
 							if (rlen != uwstrlen) {
-								perror("BAH2 read()");
+								perror("read()");
 								goto next_spool;
 							}
 							host[rlen] = 0;
@@ -171,7 +170,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						/* get spool port */
 						rlen = read(spool_fd, &uwstrlen, 2) ;
 						if (rlen != 2) {
-							perror("BAH3 read()");
+							perror("read()");
 							goto next_spool;
 						}	
 						if (uwstrlen > 0) {
@@ -196,7 +195,6 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 									perror("malloc()");
 									goto retry_later;
 								}
-								fprintf(stderr,"reading %d bytes\n", uwstrlen);
 								rlen = read(spool_fd, key, uwstrlen);
 								if (rlen != uwstrlen) {
 									perror("read()");
@@ -291,6 +289,7 @@ retry_later:
 			perror("opendir()");
 		}
 
+		/* TODO spooler frequency user-configurable */
 		sleep(5);
 	}
 }
