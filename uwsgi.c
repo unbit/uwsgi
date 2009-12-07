@@ -1534,7 +1534,6 @@ int main(int argc, char *argv[], char *envp[]) {
                         }
 
 
-		fprintf(stderr,"BOH\n");
 
 #ifndef ROCK_SOLID
                 if (has_threads) {
@@ -1572,7 +1571,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
-		fprintf(stderr,"BOH3\n");
 			if (wsgi_req.wsgi_script_len > 0 || (wsgi_req.wsgi_callable_len > 0 && wsgi_req.wsgi_module_len > 0)) {
                         	if ((wsgi_req.app_id = init_uwsgi_app(NULL, NULL)) == -1) {
                                 	internal_server_error(wsgi_poll.fd, "wsgi application not found");
@@ -1582,14 +1580,12 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
 
 
-		fprintf(stderr,"BOH4\n");
                 if (wsgi_req.app_id == -1) {
                         internal_server_error(wsgi_poll.fd, "wsgi application not found");
                         goto clean;
                 }
 
 
-		fprintf(stderr,"BOH5\n");
                 wi = &wsgi_apps[wsgi_req.app_id] ;
 
 		if (single_interpreter == 0) {
@@ -1604,7 +1600,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
-		fprintf(stderr,"BOH2\n");
 
                 /* max 1 minute before harakiri */
                 if (harakiri_timeout > 0) {
