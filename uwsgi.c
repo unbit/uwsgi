@@ -1501,7 +1501,6 @@ int main(int argc, char *argv[], char *envp[]) {
 									wsgi_req.unbit_flags = *(unsigned long long *) ptrbuf ;
 								}
 #endif
-								fprintf(stderr,"VEC: %d/%d\n", wsgi_req.var_cnt, vec_size);
 								if (wsgi_req.var_cnt < vec_size-(4+1)) {
                                                                 	wsgi_req.var_cnt++ ;
 								}
