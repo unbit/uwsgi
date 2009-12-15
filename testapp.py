@@ -1,7 +1,6 @@
 import uwsgi
 
 import time
-from mako.template import Template
 
 
 def myspooler(env):
@@ -31,12 +30,20 @@ def application(env, start_response):
 	print env
 
 def gomako():
-	print "ciao"
+	from mako.template import Template
 	uwsgi.start_response('200 OK', [('Content-Type', 'text/html')])
-	print "ciao2"
 	yield Template("hello ${data}!").render(data="world")
+
+def goxml():
+	import xml.dom.minidom
+	doc = xml.dom.minidom.Document()
+	foo = doc.createElement("foo")
+	doc.appendChild(foo)
+	uwsgi.start_response('200 OK', [('Content-Type', 'text/xml')])
+	return doc.toxml()
 	
 
 uwsgi.fastfuncs.insert(10, gomako)
+uwsgi.fastfuncs.insert(11, goxml)
 
 applications = {'/':'application'}
