@@ -1358,7 +1358,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         continue;
                 }
 		/* big endian ? */
-		#if _BYTE_ORDER == _BIG_ENDIAN
+		#if __BYTE_ORDER == __BIG_ENDIAN
 		wsgi_req.size = uwsgi_swap16(wsgi_req.size);
 		#endif
 
@@ -1402,13 +1402,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (wsgi_req.modifier == UWSGI_MODIFIER_FASTFUNC) {
 			zero = PyList_GetItem(uwsgi_fastfuncslist, wsgi_req.modifier_arg) ;
 			if (zero) {
-				fprintf(stderr,"managing fastfunc %d %s\n", wsgi_req.modifier_arg, zero->ob_type->tp_name) ;
+				fprintf(stderr,"managing fastfunc %d\n", wsgi_req.modifier_arg) ;
 				wsgi_result = PyEval_CallObject(zero, NULL);
 				if (PyErr_Occurred()) {
                                 	PyErr_Print();
                         	}
 				if (wsgi_result) {
-					fprintf(stderr,"fatto\n");
 					wsgi_chunks = PyObject_GetIter(wsgi_result);
                                 	if (wsgi_chunks) {
                                         	while((wchunk = PyIter_Next(wsgi_chunks))) {
@@ -1418,8 +1417,6 @@ int main(int argc, char *argv[], char *envp[]) {
                                                 	Py_DECREF(wchunk);
                                         	}
                                         	Py_DECREF(wsgi_chunks);
-
-						fprintf(stderr,"ok for fastfunc\n");
 					}
 					Py_DECREF(wsgi_result);
 				}
@@ -1467,7 +1464,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         while(ptrbuf < bufferend) {
                                 if (ptrbuf+2 < bufferend) {
                                         memcpy(&strsize,ptrbuf,2);
-					#if _BYTE_ORDER == _BIG_ENDIAN
+					#if __BYTE_ORDER == __BIG_ENDIAN
 					strsize = uwsgi_swap16(strsize);
 					#endif
                                         ptrbuf+=2;
@@ -1478,7 +1475,7 @@ int main(int argc, char *argv[], char *envp[]) {
                                                 ptrbuf+=strsize;
                                                 if (ptrbuf+2 < bufferend) {
                                                         memcpy(&strsize,ptrbuf,2);
-							#if _BYTE_ORDER == _BIG_ENDIAN
+							#if __BYTE_ORDER == __BIG_ENDIAN
 							strsize = uwsgi_swap16(strsize);
 							#endif
                                                         ptrbuf+=2 ;

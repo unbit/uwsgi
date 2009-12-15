@@ -1,6 +1,14 @@
 import uwsgi
 
 import time
+import sys
+import os
+
+sys.path.insert(0,'/opt/apps')
+
+os.environ['DJANGO_SETTINGS_MODULE'] = 'mysite.settings'
+
+import django.core.handlers.wsgi
 
 
 def myspooler(env):
@@ -46,4 +54,6 @@ def goxml():
 uwsgi.fastfuncs.insert(10, gomako)
 uwsgi.fastfuncs.insert(11, goxml)
 
-applications = {'/':'application'}
+djangoapp = django.core.handlers.wsgi.WSGIHandler()
+
+applications = { '/':djangoapp }
