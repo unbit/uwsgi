@@ -104,6 +104,7 @@ char *pyhome;
 
 char *nl = "\r\n";
 char *h_sep = ": " ;
+static const char *http_protocol = "HTTP/1.1" ;
 static const char *app_slash = "/" ;
 
 int requests = 0 ;
@@ -179,6 +180,7 @@ int single_interpreter = 0 ;
 int py_optimize = 0 ;
 
 PyObject *py_sendfile ;
+PyObject *uwsgi_fastfuncslist ;
 
 PyThreadState *wsgi_thread ;
 #endif
@@ -421,8 +423,13 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 #endif
 #endif
 
-
-        	hvec[0].iov_base = wsgi_req.protocol ;
+		if (wsgi_req.protocol_len == 0) {
+        		hvec[0].iov_base = (char * )http_protocol ;
+			wsgi_req.protocol_len = 8 ;
+		}
+		else {
+        		hvec[0].iov_base = wsgi_req.protocol ;
+		}
         	hvec[0].iov_len = wsgi_req.protocol_len ;
         	hvec[1].iov_base = " " ;
         	hvec[1].iov_len = 1 ;
@@ -465,9 +472,12 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 		}
 	}
 #endif
+
         
         headers = PyTuple_GetItem(args,1) ;
         wsgi_req.header_cnt = PyList_Size(headers) ;
+
+
 
         if (wsgi_req.header_cnt > max_vars) {
                 wsgi_req.header_cnt = max_vars ;
@@ -900,9 +910,9 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 
-		init_uwsgi_module_sharedarea(uwsgi_module);
-		
 	}
+
+	init_uwsgi_embedded_module();
 #endif
 
 
@@ -1352,14 +1362,14 @@ int main(int argc, char *argv[], char *envp[]) {
 		wsgi_req.size = uwsgi_swap16(wsgi_req.size);
 		#endif
 
-		/* check for max buffer size and for a minimal null string */
-                if (wsgi_req.size > buffer_size || wsgi_req.size < 2) {
+		/* check for max buffer size */
+                if (wsgi_req.size > buffer_size) {
                         fprintf(stderr,"invalid request block size: %d...skip\n", wsgi_req.size);
                         close(wsgi_poll.fd);
                         continue;
                 }
 
-		fprintf(stderr,"ready for reading %d bytes\n", wsgi_req.size);
+		//fprintf(stderr,"ready for reading %d bytes\n", wsgi_req.size);
 
                 /* http headers parser */
 		i = 0 ;
@@ -1389,8 +1399,39 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 
 		
+		if (wsgi_req.modifier == UWSGI_MODIFIER_FASTFUNC) {
+			zero = PyList_GetItem(uwsgi_fastfuncslist, wsgi_req.modifier_arg) ;
+			if (zero) {
+				fprintf(stderr,"managing fastfunc %d %s\n", wsgi_req.modifier_arg, zero->ob_type->tp_name) ;
+				wsgi_result = PyEval_CallObject(zero, NULL);
+				if (PyErr_Occurred()) {
+                                	PyErr_Print();
+                        	}
+				if (wsgi_result) {
+					fprintf(stderr,"fatto\n");
+					wsgi_chunks = PyObject_GetIter(wsgi_result);
+                                	if (wsgi_chunks) {
+                                        	while((wchunk = PyIter_Next(wsgi_chunks))) {
+                                                	if (PyString_Check(wchunk)) {
+                                                        	wsgi_req.response_size += write(wsgi_poll.fd, PyString_AsString(wchunk), PyString_Size(wchunk)) ;
+                                                	}
+                                                	Py_DECREF(wchunk);
+                                        	}
+                                        	Py_DECREF(wsgi_chunks);
+
+						fprintf(stderr,"ok for fastfunc\n");
+					}
+					Py_DECREF(wsgi_result);
+				}
+			}
+			PyErr_Clear();
+			close(wsgi_poll.fd);
+			memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+			requests++;
+			continue;
+		}
 		/* check for spooler request */
-		if (wsgi_req.modifier == UWSGI_MODIFIER_SPOOL_REQUEST && spool_dir != NULL) {
+		else if (wsgi_req.modifier == UWSGI_MODIFIER_SPOOL_REQUEST && spool_dir != NULL) {
 
 			fprintf(stderr,"managing spool request...\n");
 			i = spool_request(NULL,NULL,spool_dir, spool_filename, requests+1, buffer,wsgi_req.size) ;
@@ -2503,6 +2544,22 @@ void init_uwsgi_embedded_module() {
         }
 
 	if (PyDict_SetItemString(uwsgi_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	if (PyDict_SetItemString(uwsgi_dict, "start_response", wsgi_spitout)) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	if (PyDict_SetItemString(uwsgi_dict, "fastfuncs", PyList_New(256))) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	uwsgi_fastfuncslist = PyDict_GetItemString(uwsgi_dict, "fastfuncs");
+	if (!uwsgi_fastfuncslist) {
 		PyErr_Print();
 		exit(1);
 	}

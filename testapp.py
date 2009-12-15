@@ -1,6 +1,8 @@
 import uwsgi
 
 import time
+from mako.template import Template
+
 
 def myspooler(env):
 	print env
@@ -27,5 +29,14 @@ def application(env, start_response):
 	yield { '/': helloworld, '/sleep': force_harakiri, '/counter': increment }[env['PATH_INFO']]()
 
 	print env
+
+def gomako():
+	print "ciao"
+	uwsgi.start_response('200 OK', [('Content-Type', 'text/html')])
+	print "ciao2"
+	yield Template("hello ${data}!").render(data="world")
+	
+
+uwsgi.fastfuncs.insert(10, gomako)
 
 applications = {'/':'application'}
