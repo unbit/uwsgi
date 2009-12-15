@@ -490,7 +490,7 @@ ngx_http_uwsgi_create_request(ngx_http_request_t *r)
 
 
     // check here
-    if (uwsgi_pkt_size < 4) {
+    if (uwsgi_pkt_size > 0 && uwsgi_pkt_size < 2) {
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
                       "uwsgi request is too little: %uz", uwsgi_pkt_size);
         return NGX_ERROR;
