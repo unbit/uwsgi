@@ -3,7 +3,7 @@
 extern struct uwsgi_worker *workers;
 extern int mywid ;
 
-#if _BYTE_ORDER == _BIG_ENDIAN
+#ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t x) {
 	return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
 }

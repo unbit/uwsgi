@@ -1358,7 +1358,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         continue;
                 }
 		/* big endian ? */
-		#if __BYTE_ORDER == __BIG_ENDIAN
+		#ifdef __BIG_ENDIAN__
 		wsgi_req.size = uwsgi_swap16(wsgi_req.size);
 		#endif
 
@@ -1464,7 +1464,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         while(ptrbuf < bufferend) {
                                 if (ptrbuf+2 < bufferend) {
                                         memcpy(&strsize,ptrbuf,2);
-					#if __BYTE_ORDER == __BIG_ENDIAN
+					#ifdef __BIG_ENDIAN__
 					strsize = uwsgi_swap16(strsize);
 					#endif
                                         ptrbuf+=2;
@@ -1475,7 +1475,7 @@ int main(int argc, char *argv[], char *envp[]) {
                                                 ptrbuf+=strsize;
                                                 if (ptrbuf+2 < bufferend) {
                                                         memcpy(&strsize,ptrbuf,2);
-							#if __BYTE_ORDER == __BIG_ENDIAN
+							#ifdef __BIG_ENDIAN__
 							strsize = uwsgi_swap16(strsize);
 							#endif
                                                         ptrbuf+=2 ;

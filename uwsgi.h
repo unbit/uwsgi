@@ -51,6 +51,8 @@
 #ifdef __linux__
 #include <endian.h>
 #elif __sun__
+#elif __apple__
+#include <libkern/OSByteOrder.h>
 #else
 #include <machine/endian.h>
 #endif
@@ -211,6 +213,6 @@ pid_t spooler_start(char *,int, PyObject *);
 
 void set_harakiri(int);
 
-#if __BYTE_ORDER == __BIG_ENDIAN
+#ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16( uint16_t );
 #endif
