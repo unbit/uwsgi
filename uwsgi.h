@@ -211,6 +211,6 @@ pid_t spooler_start(char *,int, PyObject *);
 
 void set_harakiri(int);
 
-#if _BYTE_ORDER == _BIG_ENDIAN
+#if __BYTE_ORDER == __BIG_ENDIAN
 uint16_t uwsgi_swap16( uint16_t );
 #endif
