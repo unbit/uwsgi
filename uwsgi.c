@@ -2089,7 +2089,6 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 	id = wsgi_cnt ;
 
 
-	fprintf(stderr,"setupping base\n");
 	if (wsgi_req.script_name_len == 0) {
 		wsgi_req.script_name_len = 1 ;
 		wsgi_req.script_name = (char *) app_slash ;
@@ -2106,13 +2105,11 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		Py_FatalError("cannot get mountpoint python object !\n");
 	}
 
-	fprintf(stderr,"setting base\n");
 	if (PyDict_GetItem(py_apps, zero) != NULL) {
 		Py_DECREF(zero);
 		fprintf(stderr, "mountpoint %.*s already configured. skip.\n", wsgi_req.script_name_len, wsgi_req.script_name);
 		return -1;
 	}
-	fprintf(stderr,"setted base\n");
 
 	Py_DECREF(zero);
 
