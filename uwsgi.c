@@ -861,6 +861,15 @@ int main(int argc, char *argv[], char *envp[]) {
 
         Py_Initialize() ;
 
+#ifndef ROCK_SOLID
+        py_apps = PyDict_New();
+        if (!py_apps) {
+                PyErr_Print();
+                exit(1);
+        }
+
+#endif
+
 
         wsgi_spitout = PyCFunction_New(uwsgi_spit_method,NULL) ;
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
@@ -1018,18 +1027,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		init_uwsgi_vars();
 	}
 
-        py_apps = PyDict_New();
-        if (!py_apps) {
-                PyErr_Print();
-                exit(1);
-        }
-
         memset(wsgi_apps, 0, sizeof(wsgi_apps));
 
 
-        if (has_threads) {
-                _save = PyEval_SaveThread();
-        }
 #endif
 
 
@@ -1037,6 +1037,7 @@ int main(int argc, char *argv[], char *envp[]) {
         wsgi_poll.events = POLLIN ;
 
 	memset(&wsgi_req, 0, sizeof(struct wsgi_request));
+
 
 #ifndef ROCK_SOLID
 	if (wsgi_config != NULL) {
@@ -1197,8 +1198,18 @@ int main(int argc, char *argv[], char *envp[]) {
 				exit(1);
 			}
 			else if (diedpid == 0) {
+				/* PLEASE, do not run python threads in the master process, you can potentially destroy the world,
+				 we support this for hyperultramegagodprogrammer and systems
+				*/
+        			if (has_threads) {
+                			_save = PyEval_SaveThread();
+        			}
 				/* all processes ok, doing status scan after 1 second */
 				select(0, NULL, NULL, NULL, &check_interval);
+                                if (has_threads) {
+                                	PyEval_RestoreThread(_save);
+                                }
+				check_interval.tv_sec = 1 ;
 				for(i=1;i<=numproc;i++) {
 					/* first check for harakiri */
                 			if (workers[i].harakiri > 0) {
@@ -1297,6 +1308,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	signal(SIGUSR1, (void *) &stats);
 #endif
 #endif
+
+        if (has_threads) {
+                _save = PyEval_SaveThread();
+        }
 
         while(manage_next_request) {
 
@@ -2554,6 +2569,13 @@ void init_uwsgi_embedded_module() {
 		PyErr_Print();
 		exit(1);
 	}
+
+#ifndef ROCK_SOLID
+	if (PyDict_SetItemString(uwsgi_dict, "applications", py_apps)) {
+		PyErr_Print();
+		exit(1);
+	}
+#endif
 
 	uwsgi_fastfuncslist = PyDict_GetItemString(uwsgi_dict, "fastfuncs");
 	if (!uwsgi_fastfuncslist) {
