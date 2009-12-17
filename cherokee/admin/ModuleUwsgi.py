@@ -16,7 +16,11 @@ HELPS = [
 
 class ModuleUwsgi (ModuleCgiBase):
     PROPERTIES = ModuleCgiBase.PROPERTIES + [
-        'balancer'
+        'balancer',
+        'modifier1',
+        'modifier2',
+	'pass_wsgi_vars',
+	'pass_request_body'
     ]
 
     def __init__ (self, cfg, prefix, submit):
@@ -32,13 +36,45 @@ class ModuleUwsgi (ModuleCgiBase):
         txt += '<h2>%s</h2>' % (_('UWSGI specific'))
 
         table = TableProps()
-        prefix = "%s!balancer" % (self._prefix)
-        e = self.AddPropOptions_Reload_Module (table, _("Balancer"), prefix, 
+
+
+        opt = "%s!modifier1" % (self._prefix)
+	self.AddPropEntry(table, _('Modifier1'), opt, 'a number between 0 and 255', size=3);
+
+        opt = "%s!modifier2" % (self._prefix)
+	self.AddPropEntry(table, _('Modifier2'), opt, 'a number between 0 and 255', size=3);
+
+	opt = "%s!pass_wsgi_vars" % (self._prefix)
+	self.AddPropCheck (table, _("Pass WSGI vars"), opt, True,  'pass all the wsgi vars to the application')
+
+	opt = "%s!pass_request_body" % (self._prefix)
+	self.AddPropCheck (table, _("Pass Request body"), opt, True,  'pass the request body to the application')
+
+        opt = "%s!balancer" % (self._prefix)
+        e = self.AddPropOptions_Reload_Module (table, _("Balancer"), opt,
                                                modules_available(BALANCERS), _(NOTE_BALANCER))
+
         txt += self.Indent(str(table) + e)
+
         return txt
 
     def _op_apply_changes (self, uri, post):
+
+        # Apply modifier1
+        opt = "%s!modifier1" % (self._prefix)
+        mod1 = post.pop(opt)
+        if mod1:
+            self._cfg[opt] = mod1
+
+        # Apply modifier2
+        opt  = "%s!modifier2" % (self._prefix)
+        mod2 = post.pop(opt)
+        if mod2:
+            self._cfg[opt] = mod2
+
+        # Apply pass_request_body and pass_wsgi_vars
+	self.ApplyChangesPrefix (self._prefix, ['pass_wsgi_vars','pass_request_body'], post)
+
         # Apply balancer changes
         pre  = "%s!balancer" % (self._prefix)
 

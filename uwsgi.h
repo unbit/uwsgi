@@ -103,9 +103,9 @@ struct __attribute__((packed)) uwsgi_worker {
 };
 
 struct __attribute__((packed)) wsgi_request {
-        unsigned char modifier;
-        unsigned short size ;
-        unsigned char modifier_arg;
+        uint8_t modifier;
+        uint16_t size ;
+        uint8_t modifier_arg;
         // temporary attr
 #ifndef ROCK_SOLID
         int app_id ;

@@ -20,7 +20,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
- */ 
+ */
 
 #ifndef CHEROKEE_HANDLER_UWSGI_H
 #define CHEROKEE_HANDLER_UWSGI_H
@@ -35,15 +35,19 @@
 #include "balancer.h"
 
 typedef struct __attribute__((packed)) {
-	unsigned char arg1;
-	unsigned short env_size;
-	unsigned char arg2;
+	uint8_t modifier1;
+	uint16_t env_size;
+	uint8_t modifier2;
 } uwsgi_header ;
 
 
 typedef struct {
 	cherokee_handler_cgi_base_t  base;
 	cherokee_balancer_t         *balancer;
+	uint8_t modifier1;
+	uint8_t modifier2;
+	cherokee_boolean_t pass_wsgi_vars;
+	cherokee_boolean_t pass_request_body;
 } cherokee_handler_uwsgi_props_t;
 
 
@@ -60,7 +64,7 @@ typedef struct {
 #define PROP_UWSGI(x)          ((cherokee_handler_uwsgi_props_t *)(x))
 #define HANDLER_UWSGI_PROPS(x) (PROP_UWSGI(MODULE(x)->props))
 
- 
+
 /* Library init function
  */
 void PLUGIN_INIT_NAME(uwsgi)      (cherokee_plugin_loader_t *loader);

@@ -1413,7 +1413,6 @@ int main(int argc, char *argv[], char *envp[]) {
 			continue;
 		}
 
-		
 		if (wsgi_req.modifier == UWSGI_MODIFIER_FASTFUNC) {
 			zero = PyList_GetItem(uwsgi_fastfuncslist, wsgi_req.modifier_arg) ;
 			if (zero) {
