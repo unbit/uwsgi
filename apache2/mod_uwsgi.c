@@ -48,6 +48,8 @@ LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
 #include <sys/uio.h>
 #include <time.h>
 #include <poll.h>
+#include <fcntl.h>
+
 
 #define MAX_VARS 64
 #define DEFAULT_SOCK "/tmp/uwsgi.sock"
@@ -66,12 +68,14 @@ typedef struct {
 	} s_addr2;
 	int addr_size2;
 	int socket_timeout;
+	uint8_t modifier1;
+	uint8_t modifier2;
 	char script_name[256];
 } uwsgi_cfg;
 
 module AP_MODULE_DECLARE_DATA uwsgi_module;
 
-static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, unsigned short *pkt_size) {
+static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, uint16_t *pkt_size) {
 
 	vec[i].iov_base = &vec[i+1].iov_len ;
 	vec[i].iov_len = 2 ;
@@ -94,6 +98,8 @@ static void *uwsgi_server_config(apr_pool_t *p, server_rec *s) {
         c->s_addr.u_addr.sun_family = AF_UNIX;
 	c->addr_size = strlen(DEFAULT_SOCK) + ( (void *)&c->s_addr.u_addr.sun_path - (void *)&c->s_addr ) ;
 	c->socket_timeout = 0 ;
+	c->modifier1 = 0 ;
+	c->modifier2 = 0 ;
 
 	return c;
 }
@@ -105,8 +111,79 @@ static void *uwsgi_dir_config(apr_pool_t *p, char *dir) {
         c->s_addr.u_addr.sun_family = AF_UNIX;
         c->addr_size = strlen(DEFAULT_SOCK) + ( (void *)&c->s_addr.u_addr.sun_path - (void *)&c->s_addr ) ;
 	c->socket_timeout = 0 ;
+	c->modifier1 = 0 ;
+	c->modifier2 = 0 ;
 
 	return c;
+}
+
+static int timed_connect(struct pollfd *fdpoll , struct sockaddr *addr, int addr_size, int timeout, request_rec *r) {
+
+	int arg, ret;
+	int soopt ;
+	socklen_t solen = sizeof(int) ;
+	int cnt;
+	/* set non-blocking socket */
+
+	arg = fcntl(fdpoll->fd, F_GETFL, NULL) ;
+	if (arg < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to set non-blocking socket: %s", strerror(errno));
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+	arg |= O_NONBLOCK;
+	if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to set non-blocking socket: %s", strerror(errno));
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+
+	ret = connect(fdpoll->fd, addr, addr_size) ;
+	if (ret < 0) {
+		/* check what happened */
+	
+		// in progress ?
+		if (errno == EINPROGRESS) { 
+			if (timeout < 1)
+				timeout = 3;
+			fdpoll->events = POLLOUT ;
+			cnt = poll(fdpoll, 1, timeout*1000) ;	
+			/* check for errors */
+			if (cnt < 0 && errno != EINTR) {
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: %s", strerror(errno));
+				return HTTP_BAD_GATEWAY;
+			}
+			/* something hapened on the socket ... */
+			else if (cnt > 0) {
+				if (getsockopt(fdpoll->fd, SOL_SOCKET, SO_ERROR, (void*)(&soopt), &solen) < 0) {
+					ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: %s", strerror(errno));
+					return HTTP_BAD_GATEWAY;
+				}
+				/* is something bad ? */
+				if (soopt) {
+					ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: %s", strerror(errno));
+					return HTTP_BAD_GATEWAY;
+				}
+			}
+			/* timeout */
+			else {
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: connect() timeout");
+				return HTTP_GATEWAY_TIME_OUT;
+			}
+		}	
+		else {
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to connect to uWSGI server: %s", strerror(errno));
+			return HTTP_BAD_GATEWAY;
+		}
+	}
+
+	/* re-set blocking socket */
+	arg &= (~O_NONBLOCK);
+	if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to re-set blocking socket: %s", strerror(errno));
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+
+	return 0 ;
+	
 }
 
 static int uwsgi_handler(request_rec *r) {
@@ -118,12 +195,14 @@ static int uwsgi_handler(request_rec *r) {
 	struct iovec uwsgi_vars[(MAX_VARS*4)+1] ;
 	int vecptr = 1 ;
 	char pkt_header[4];
-	unsigned short pkt_size = 0;
+	uint16_t pkt_size = 0;
 	char buf[4096] ;
 	int cnt,i ;
 	const apr_array_header_t *headers;
 	apr_table_entry_t *h;
 	char *penv, *cp;
+	int ret;
+	
 
 	apr_bucket_brigade *bb;
 
@@ -148,8 +227,7 @@ static int uwsgi_handler(request_rec *r) {
 	}
 
 
-	if (connect(uwsgi_poll.fd, (struct sockaddr *) &c->s_addr, c->addr_size ) < 0) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: connect to socket failed: %s", strerror(errno));
+	if ( (ret = timed_connect(&uwsgi_poll, (struct sockaddr *) &c->s_addr, c->addr_size, c->socket_timeout, r) ) != 0) {
 
 		close(uwsgi_poll.fd);
 
@@ -161,17 +239,19 @@ static int uwsgi_handler(request_rec *r) {
 				return HTTP_INTERNAL_SERVER_ERROR;
 			}
 
-			if (connect(uwsgi_poll.fd, (struct sockaddr *) &c->s_addr2, c->addr_size2 ) < 0) {
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: trying failover server.");
 
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: failover connect failed: %s", strerror(errno));
+			if ( (ret = timed_connect(&uwsgi_poll, (struct sockaddr *) &c->s_addr2, c->addr_size2, c->socket_timeout, r)) != 0) {
+
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: failover connect failed.");
 
 				close(uwsgi_poll.fd);
 
-				return HTTP_INTERNAL_SERVER_ERROR;
+				return ret ;
 			}
 		}
 		else {
-			return HTTP_INTERNAL_SERVER_ERROR;
+			return ret ;
 		}
 	}
 
@@ -250,9 +330,9 @@ static int uwsgi_handler(request_rec *r) {
 	uwsgi_vars[0].iov_base = pkt_header;
 	uwsgi_vars[0].iov_len = 4;
 
-	pkt_header[0] = 0 ;
+	pkt_header[0] = c->modifier1 ;
 	memcpy(pkt_header+1, &pkt_size, 2);
-	pkt_header[3] = 0 ;
+	pkt_header[3] = c->modifier2 ;
 
 	cnt = writev( uwsgi_poll.fd, uwsgi_vars, vecptr );
 	if (cnt < 0) {
@@ -329,6 +409,52 @@ static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const
 
 }
 
+static const char * cmd_uwsgi_modifier1(cmd_parms *cmd, void *cfg, const char *value) {
+
+        uwsgi_cfg *c ;
+	int val ;
+
+        if (cfg) {
+                c = cfg ;
+        }
+        else {
+                c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
+        }
+
+	val = atoi(value);
+	if (val < 0 || val > 255) {
+		return "ignored uWSGImodifier1. Value must be between 0 and 255" ;
+	}
+	else {
+		c->modifier1 = (uint8_t) val;
+	}
+
+	return NULL;
+}
+
+static const char * cmd_uwsgi_modifier2(cmd_parms *cmd, void *cfg, const char *value) {
+
+        uwsgi_cfg *c ;
+	int val ;
+
+        if (cfg) {
+                c = cfg ;
+        }
+        else {
+                c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
+        }
+
+	val = atoi(value);
+	if (val < 0 || val > 255) {
+		return "ignored uWSGImodifier2. Value must be between 0 and 255" ;
+	}
+	else {
+		c->modifier2 = (uint8_t) val;
+	}
+
+	return NULL;
+}
+
 static const char * cmd_uwsgi_socket2(cmd_parms *cmd, void *cfg, const char *path) {
 
         uwsgi_cfg *c ;
@@ -402,6 +528,8 @@ static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path
 static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE12("uWSGIsocket", cmd_uwsgi_socket, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path and optional timeout in seconds of uwsgi server socket"),	
 	AP_INIT_TAKE1("uWSGIsocket2", cmd_uwsgi_socket2, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path of failover uwsgi server socket"),	
+	AP_INIT_TAKE1("uWSGImodifier1", cmd_uwsgi_modifier1, NULL, RSRC_CONF|ACCESS_CONF, "Set uWSGI modifier1"),	
+	AP_INIT_TAKE1("uWSGImodifier2", cmd_uwsgi_modifier2, NULL, RSRC_CONF|ACCESS_CONF, "Set uWSGI modifier2"),	
 	AP_INIT_TAKE1("uWSGIforceScriptName", cmd_uwsgi_force_script_name, NULL, ACCESS_CONF, "Fix for PATH_INFO/SCRIPT_NAME when the location has filesystem correspondence"),	
 	{NULL}
 };
