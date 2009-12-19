@@ -31,9 +31,11 @@ def myspooler(env):
 	print env
 	for i in range(1,100):
 		uwsgi.sharedarea_inclong(100)
-		time.sleep(1)
+		#time.sleep(1)
 
 uwsgi.spooler = myspooler
+
+print "SPOOLER: ", uwsgi.send_to_spooler({'TESTKEY':'TESTVALUE', 'APPNAME':'uWSGI'})
 
 def helloworld():
 	return 'Hello World'

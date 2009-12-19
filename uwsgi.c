@@ -561,6 +561,8 @@ int single_app_mode = 0;
 int memory_debug = 0 ;
 #endif
 
+char *spool_dir = NULL ;
+
 int main(int argc, char *argv[], char *envp[]) {
 
 	struct timeval check_interval = {.tv_sec = 1, .tv_usec = 0 };
@@ -586,7 +588,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 #ifndef ROCK_SOLID
-	char *spool_dir = NULL ;
 	char spool_filename[1024];
 	pid_t spooler_pid = 0 ;
 #endif
@@ -1113,7 +1114,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifndef ROCK_SOLID
 	if (spool_dir != NULL) {
-		spooler_pid = spooler_start(spool_dir, serverfd, uwsgi_module);
+		spooler_pid = spooler_start(serverfd, uwsgi_module);
 	}
 #endif
 
@@ -1226,7 +1227,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			/* reload the spooler */
 			if (spool_dir && spooler_pid > 0) {
 				if (diedpid == spooler_pid) {
-					spooler_pid = spooler_start(spool_dir,serverfd, uwsgi_module);
+					spooler_pid = spooler_start(serverfd, uwsgi_module);
 					continue;
 				}
 			}
@@ -1472,7 +1473,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 
 			fprintf(stderr,"managing spool request...\n");
-			i = spool_request(spool_dir, spool_filename, requests+1, buffer,wsgi_req.size) ;
+			i = spool_request(spool_filename, requests+1, buffer,wsgi_req.size) ;
 			wsgi_req.modifier = 255 ;
 			wsgi_req.size = 0 ;
 			if (i > 0) {
@@ -2637,6 +2638,10 @@ void init_uwsgi_embedded_module() {
 
 	init_uwsgi_module_advanced(new_uwsgi_module);
 
+	if (spool_dir != NULL) {
+		init_uwsgi_module_spooler(new_uwsgi_module);
+	}
+
 
 	if (sharedareasize > 0 && sharedarea) {
 		init_uwsgi_module_sharedarea(new_uwsgi_module);
@@ -2645,7 +2650,7 @@ void init_uwsgi_embedded_module() {
 #endif
 
 #ifndef ROCK_SOLID
-pid_t spooler_start(char *spool_dir, int serverfd, PyObject *uwsgi_module) {
+pid_t spooler_start(int serverfd, PyObject *uwsgi_module) {
 	pid_t pid ;
 
 	pid = fork();
@@ -2655,7 +2660,7 @@ pid_t spooler_start(char *spool_dir, int serverfd, PyObject *uwsgi_module) {
         }
 	else if (pid == 0) {
 		close(serverfd);
-        	spooler(spool_dir, uwsgi_module);
+        	spooler(uwsgi_module);
 	}
 	else if (pid > 0) {
         	fprintf(stderr,"spawned the uWSGI spooler on dir %s with pid %d\n", spool_dir, pid);

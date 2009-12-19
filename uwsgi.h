@@ -207,11 +207,12 @@ void uwsgi_wsgi_config(void);
 
 void init_uwsgi_module_sharedarea(PyObject *);
 void init_uwsgi_module_advanced(PyObject *);
+void init_uwsgi_module_spooler(PyObject *);
 
 #ifndef ROCK_SOLID
-int spool_request(char *, char *, int, char *, int);
-void spooler(char *, PyObject *);
-pid_t spooler_start(char *,int, PyObject *);
+int spool_request(char *, int, char *, int);
+void spooler(PyObject *);
+pid_t spooler_start(int, PyObject *);
 #endif
 
 void set_harakiri(int);

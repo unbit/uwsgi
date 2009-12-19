@@ -3,12 +3,21 @@
 #include <dirent.h>
 
 
+extern char *spool_dir;
 
-int spool_request(char *spooldir, char *filename, int rn, char *buffer, int size) {
+struct uwsgi_packet_header {
+    uint8_t modifier1;
+    uint16_t datasize;
+    uint8_t modifier2;
+};
+
+
+int spool_request(char *filename, int rn, char *buffer, int size) {
 
         char hostname[256+1];
         struct timeval tv;
 	int fd;
+	struct uwsgi_packet_header uh ;
 
         if (gethostname(hostname,256)) {
                 perror("gethostname()");
@@ -19,7 +28,7 @@ int spool_request(char *spooldir, char *filename, int rn, char *buffer, int size
 
         hostname[256] = 0 ;
 
-        if (snprintf(filename,1024,"%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", spooldir, hostname, getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec ) <= 0) {
+        if (snprintf(filename,1024,"%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", spool_dir, hostname, getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec ) <= 0) {
 		return 0;
 	}
 
@@ -35,12 +44,24 @@ int spool_request(char *spooldir, char *filename, int rn, char *buffer, int size
 		return 0;
 	}
 
-	fprintf(stderr,"writing %d bytes to spool file.\n",size);
+	uh.modifier1 = 17 ;
+	uh.modifier2 = 0  ;
+	uh.datasize = (uint16_t) size ;
+#ifdef __BIG_ENDIAN__
+	uh.datasize= uwsgi_swap16(uh.datasize);
+#endif
+
+	if (write(fd, &uh, 4) != 4) {
+		goto clear ;
+	}
+
 	if (write(fd, buffer, size) != size) {
 		goto clear ;
 	}
 
 	close(fd);
+
+	fprintf(stderr,"written %d bytes to spool file %s.\n",size + 4, filename);
 
 	return 1;
 	
@@ -53,13 +74,16 @@ clear:
 	return 0;
 }
 
-void spooler(char *spooldir, PyObject *uwsgi_module) {
+void spooler(PyObject *uwsgi_module) {
 	DIR *sdir ;
 	struct dirent *dp;
 	PyObject *uwsgi_module_dict, *spooler_callable, *spool_result, *spool_tuple, *spool_env ;
 	int spool_fd ;
 	uint16_t uwstrlen ;
-	int rlen;
+	int rlen = 0;
+	int datasize ;
+
+	struct uwsgi_packet_header uh ;
 
 	char *key;
 	char *val;
@@ -79,7 +103,18 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 	}
 
 
-	if (chdir(spooldir)) {
+	spool_env = PyDict_New();
+	if (!spool_env) {
+		fprintf(stderr,"could not create spooler env.\n");
+		exit(1);
+	}
+
+	if (PyTuple_SetItem(spool_tuple, 0, spool_env)) {
+		PyErr_Print();
+		exit(1);
+	}
+	
+	if (chdir(spool_dir)) {
 		perror("chdir()");
 		exit(1);
 	}
@@ -110,25 +145,36 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						}
 
 						spool_fd = open(dp->d_name, O_RDONLY) ;
+						if (spool_fd < 0) {
+							perror("open()");
+							continue;
+						}	
+
 						if (flock(spool_fd, LOCK_EX)) {
 							perror("flock()");
 							close(spool_fd);
 							continue;
 						}
 
-						if (spool_fd < 0) {
-							perror("open()");
-							continue;
-						}	
-
-						spool_env = PyDict_New();
-						if (!spool_env) {
-							PyErr_Print();	
+						if (read(spool_fd, &uh, 4) != 4) {
+							perror("read()");
 							close(spool_fd);
 							continue;
 						}
 
-						while( (rlen = read(spool_fd, &uwstrlen, 2) ) == 2) {
+				#ifdef __BIG_ENDIAN__
+						uh.datasize= uwsgi_swap16(uh.datasize);
+				#endif
+		
+						datasize = 0 ;
+
+						while( datasize < uh.datasize) {
+							rlen = read(spool_fd, &uwstrlen, 2) ;
+							if (rlen != 2) {
+								perror("read()");
+								goto next_spool ;
+							}
+							datasize += rlen ;
 							key = NULL;
 							val = NULL;
 							if (uwstrlen > 0) {
@@ -143,6 +189,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 									free(key);
 									goto next_spool;
 								}
+								datasize += rlen ;
 								key[rlen] = 0 ;
 
 
@@ -152,6 +199,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 									free(key);
 									goto next_spool;
 								}
+								datasize += rlen ;
 
 								if (uwstrlen > 0) {
 									val = malloc(uwstrlen+1);
@@ -167,6 +215,7 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
                                                                         	free(key);
                                                                         	goto next_spool;
                                                                 	}
+									datasize += rlen ;
 									val[rlen] = 0 ;
 									/* ready to add item to the dict */
 								}
@@ -187,10 +236,6 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						}
 						
 
-						if (PyTuple_SetItem(spool_tuple, 0, spool_env)) {
-							PyErr_Print();
-							goto retry_later;
-						}
 						spool_result = PyEval_CallObject(spooler_callable, spool_tuple);	
 						if (!spool_result) {
 							PyErr_Print();
@@ -199,10 +244,13 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						}
 						if (PyInt_Check(spool_result)) {
 							if (PyInt_AsLong(spool_result) == 17) {
+								Py_DECREF(spool_result);
 								fprintf(stderr,"retry this task later...\n");
 								goto retry_later;
 							}
 						}
+
+						Py_DECREF(spool_result);
 
 						fprintf(stderr,"done with task/spool %s\n", dp->d_name);
 next_spool:
@@ -213,9 +261,8 @@ next_spool:
 							exit(1);
 						}
 retry_later:
-						Py_DECREF(spool_env);
+						PyDict_Clear(spool_env);
 						close(spool_fd);
-						Py_DECREF(spooler_callable);
 					}
 				}
 			}

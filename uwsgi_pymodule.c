@@ -4,6 +4,9 @@ extern char *sharedarea ;
 extern void *sharedareamutex ;
 extern int sharedareasize ;
 
+char *spool_buffer = NULL ;
+extern int buffer_size ;
+
 #ifdef __APPLE__
 #define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) sharedareamutex);
 #define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) sharedareamutex);
@@ -253,6 +256,98 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
 	return PyString_FromStringAndSize(sharedarea+pos, len);
 }
 
+PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
+	PyObject *spool_dict, *spool_vars ;
+	PyObject *zero, *key, *val;
+	extern int requests ;
+	uint16_t keysize, valsize ;
+	char *cur_buf ;
+	int i ;
+	char spool_filename[1024];
+
+	spool_dict = PyTuple_GetItem(args, 0);
+        if (!PyDict_Check(spool_dict)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	spool_vars = PyDict_Items(spool_dict);
+	if (!spool_vars) {
+                Py_INCREF(Py_None);
+                return Py_None;
+	}
+	
+	cur_buf = spool_buffer ;
+
+	for(i=0;i<PyList_Size(spool_vars);i++) {
+		zero = PyList_GetItem(spool_vars, i);
+		if (zero) {
+			if (PyTuple_Check(zero)) {
+				key = PyTuple_GetItem(zero, 0);
+				val = PyTuple_GetItem(zero, 1);
+
+				if (PyString_Check(key) && PyString_Check(val)) {
+
+				
+					keysize = PyString_Size(key) ;
+					valsize= PyString_Size(val) ;
+					if (cur_buf + keysize + 2 + valsize + 2 <= spool_buffer + buffer_size) {
+
+						#ifdef __BIG_ENDIAN__
+                                        		keysize = uwsgi_swap16(keysize);
+                                        	#endif 
+							memcpy(cur_buf, &keysize, 2);
+							cur_buf+=2;
+						#ifdef __BIG_ENDIAN__
+                                        		keysize = uwsgi_swap16(keysize);
+                                        	#endif 
+							memcpy(cur_buf, PyString_AsString(key), keysize);
+							cur_buf += keysize;
+						#ifdef __BIG_ENDIAN__
+                                        		valsize = uwsgi_swap16(valsize);
+                                        	#endif 
+							memcpy(cur_buf, &valsize, 2);
+							cur_buf+=2;
+						#ifdef __BIG_ENDIAN__
+                                        		valsize = uwsgi_swap16(valsize);
+                                        	#endif 
+							memcpy(cur_buf, PyString_AsString(val), valsize);
+							cur_buf += valsize;
+					}
+					else {
+						Py_DECREF(zero);	
+						Py_INCREF(Py_None);
+						return Py_None;
+					}
+				}
+				else {
+					Py_DECREF(zero);	
+					Py_INCREF(Py_None);
+					return Py_None;
+				}
+			}
+			else {
+				Py_DECREF(zero);	
+				Py_INCREF(Py_None);
+				return Py_None;
+			}
+		}
+		else {
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
+	}
+
+	i = spool_request(spool_filename, requests+1, spool_buffer, cur_buf - spool_buffer) ;
+	if (i > 0) {
+		return Py_True;
+	}
+
+	Py_DECREF(spool_vars);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 
 	PyObject *arg_host, *arg_port, *arg_modifier1, *arg_modifier2, *arg_message, *arg_timeout;
@@ -278,6 +373,11 @@ PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 }
 
 
+static PyMethodDef uwsgi_spooler_methods[] = {
+  {"send_to_spooler", py_uwsgi_send_spool, METH_VARARGS, ""},
+  {NULL, NULL},
+};
+
 static PyMethodDef uwsgi_advanced_methods[] = {
   {"send_uwsgi_message", py_uwsgi_send_message, METH_VARARGS, ""},
   {NULL, NULL},
@@ -296,6 +396,30 @@ static PyMethodDef uwsgi_sa_methods[] = {
 };
 
 
+
+void init_uwsgi_module_spooler(PyObject *current_uwsgi_module) {
+	PyMethodDef *uwsgi_function;
+	PyObject *uwsgi_module_dict;
+
+	uwsgi_module_dict = PyModule_GetDict(current_uwsgi_module);
+        if (!uwsgi_module_dict) {
+        	fprintf(stderr,"could not get uwsgi module __dict__\n");
+                exit(1);
+        }
+
+	spool_buffer = malloc(buffer_size);
+        if (!spool_buffer) {
+                perror("malloc()");
+                exit(1);
+        }
+
+
+        for (uwsgi_function = uwsgi_spooler_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
+                PyObject *func = PyCFunction_New(uwsgi_function, NULL);
+                PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
+        	Py_DECREF(func);
+        }
+}
 
 void init_uwsgi_module_advanced(PyObject *current_uwsgi_module) {
 	PyMethodDef *uwsgi_function;
