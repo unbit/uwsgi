@@ -1413,7 +1413,19 @@ int main(int argc, char *argv[], char *envp[]) {
 			continue;
 		}
 
-		if (wsgi_req.modifier == UWSGI_MODIFIER_FASTFUNC) {
+		
+		if (wsgi_req.modifier == UWSGI_MODIFIER_PING) {
+			fprintf(stderr,"PING\n");
+			wsgi_req.modifier_arg = 1 ;
+			if (write(wsgi_poll.fd,&wsgi_req,4) != 4) {
+				perror("write()");
+			}
+			close(wsgi_poll.fd);
+			memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+			requests++;
+			continue;
+		}
+		else if (wsgi_req.modifier == UWSGI_MODIFIER_FASTFUNC) {
 			zero = PyList_GetItem(uwsgi_fastfuncslist, wsgi_req.modifier_arg) ;
 			if (zero) {
 				fprintf(stderr,"managing fastfunc %d\n", wsgi_req.modifier_arg) ;
@@ -1442,12 +1454,30 @@ int main(int argc, char *argv[], char *envp[]) {
 			continue;
 		}
 		/* check for spooler request */
-		else if (wsgi_req.modifier == UWSGI_MODIFIER_SPOOL_REQUEST && spool_dir != NULL) {
+		else if (wsgi_req.modifier == UWSGI_MODIFIER_SPOOL_REQUEST) {
+			
+			if (spool_dir == NULL) {
+				fprintf(stderr,"the spooler is inactive !!!...skip\n");
+				wsgi_req.modifier = 255 ;
+				wsgi_req.size = 0 ;
+				wsgi_req.modifier_arg = 0 ;
+				i = write(wsgi_poll.fd,&wsgi_req,4);
+				if (i != 4) {
+					perror("write()");
+				}
+				close(wsgi_poll.fd);
+				memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+				requests++;
+				continue;	
+			}
 
 			fprintf(stderr,"managing spool request...\n");
-			i = spool_request(NULL,NULL,spool_dir, spool_filename, requests+1, buffer,wsgi_req.size) ;
+			i = spool_request(spool_dir, spool_filename, requests+1, buffer,wsgi_req.size) ;
+			wsgi_req.modifier = 255 ;
+			wsgi_req.size = 0 ;
 			if (i > 0) {
-				if (write(wsgi_poll.fd,"\1",1) != 1) {
+				wsgi_req.modifier_arg = 1 ;
+				if (write(wsgi_poll.fd,&wsgi_req,4) != 4) {
 					fprintf(stderr,"disconnected client, remove spool file.\n");
 					/* client disconnect, remove spool file */	
 					if (unlink(spool_filename)) {
@@ -1459,8 +1489,9 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 			else {
 				/* announce a failed spool request */
-				i = write(wsgi_poll.fd,"\0",1);
-				if (i != 1) {
+				wsgi_req.modifier_arg = 0 ;
+				i = write(wsgi_poll.fd,&wsgi_req,4);
+				if (i != 4) {
 					perror("write()");
 				}
 			}
@@ -1474,7 +1505,6 @@ int main(int argc, char *argv[], char *envp[]) {
                 bufferend = ptrbuf+wsgi_req.size ;
 
 
-                        // pluginIZE this part (ucgi, fastcgi, scgi, http...)
                         while(ptrbuf < bufferend) {
                                 if (ptrbuf+2 < bufferend) {
                                         memcpy(&strsize,ptrbuf,2);
@@ -2180,6 +2210,7 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
         memcpy(tmpstring, wsgi_req.wsgi_callable, wsgi_req.wsgi_callable_len) ;
 	if (my_callable) {
         	wi->wsgi_callable = my_callable;
+		Py_INCREF(my_callable);
 	}
 	else if (wsgi_dict) {
         	wi->wsgi_callable = PyDict_GetItemString(wsgi_dict, tmpstring);
@@ -2323,6 +2354,7 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 void uwsgi_wsgi_config() {
 
 	PyObject *wsgi_module, *wsgi_dict ;
+	PyObject *uwsgi_module, *uwsgi_dict ;
 	PyObject *applications;
 	PyObject *app_list;
 	int ret;
@@ -2343,11 +2375,30 @@ void uwsgi_wsgi_config() {
 
 	fprintf(stderr,"...getting the applications list from the '%s' module...\n", wsgi_config);
 
-	applications = PyDict_GetItemString(wsgi_dict, "applications");
-	if (!applications) {
-		fprintf(stderr,"applications dictionary is not defined, now you have to use dynamic apps.\n");
-		return;
+	uwsgi_module = PyImport_ImportModule("uwsgi") ;
+        if (!uwsgi_module) {
+        	PyErr_Print();
+		exit(1);
 	}
+
+	uwsgi_dict = PyModule_GetDict(uwsgi_module);
+        if (!uwsgi_dict) {
+                PyErr_Print();
+		exit(1);
+	}
+
+	
+
+	applications = PyDict_GetItemString(uwsgi_dict, "applications");
+	if (!PyDict_Check(applications)) {
+		fprintf(stderr,"uwsgi.applications dictionary is not defined, trying with the (deprecated) \"applications\" one...\n");
+		applications = PyDict_GetItemString(wsgi_dict, "applications");
+		if (!applications) {
+			fprintf(stderr,"applications dictionary is not defined, now you have to use dynamic apps.\n");
+			return;
+		}
+	}
+
 	if (!PyDict_Check(applications)) {
 		fprintf(stderr,"The 'applications' object must be a dictionary.\n");
 		exit(1);
@@ -2567,7 +2618,12 @@ void init_uwsgi_embedded_module() {
 	}
 
 #ifndef ROCK_SOLID
-	if (PyDict_SetItemString(uwsgi_dict, "applications", py_apps)) {
+	if (PyDict_SetItemString(uwsgi_dict, "applist", py_apps)) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	if (PyDict_SetItemString(uwsgi_dict, "applications", Py_None)) {
 		PyErr_Print();
 		exit(1);
 	}
@@ -2578,6 +2634,8 @@ void init_uwsgi_embedded_module() {
 		PyErr_Print();
 		exit(1);
 	}
+
+	init_uwsgi_module_advanced(new_uwsgi_module);
 
 
 	if (sharedareasize > 0 && sharedarea) {

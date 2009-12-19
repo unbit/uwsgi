@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/mman.h>
+#include <sys/file.h>
 
 
 #include <stdint.h>
@@ -67,6 +68,7 @@
 #define UWSGI_MODIFIER_SPOOL_REQUEST	17
 #define UWSGI_MODIFIER_FASTFUNC		26
 #define UWSGI_MODIFIER_MANAGE_PATH_INFO	30
+#define UWSGI_MODIFIER_PING		100
 
 #ifdef PYTHREE
 	#define PyInt_FromLong	PyLong_FromLong
@@ -204,9 +206,10 @@ void uwsgi_wsgi_config(void);
 #endif
 
 void init_uwsgi_module_sharedarea(PyObject *);
+void init_uwsgi_module_advanced(PyObject *);
 
 #ifndef ROCK_SOLID
-int spool_request(char *, char *, char *, char *, int, char *, int);
+int spool_request(char *, char *, int, char *, int);
 void spooler(char *, PyObject *);
 pid_t spooler_start(char *,int, PyObject *);
 #endif

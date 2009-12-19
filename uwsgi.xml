@@ -1,7 +1,5 @@
 <uwsgi>
-	<pythonpath>/tmp</pythonpath>
-	<pythonpath>/opt/apps</pythonpath>
-	<app mountpoint="/django">
-		<script>django_wsgi</script>
+	<app mountpoint="/test">
+		<script>myapp_wsgi</script>
 	</app>
 </uwsgi>

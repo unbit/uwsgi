@@ -8,9 +8,8 @@ sys.path.insert(0,'/opt/apps')
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'mysite.settings'
 
-#import django.core.handlers.wsgi
+import django.core.handlers.wsgi
 
-print uwsgi.applications
 
 from threading import Thread
 
@@ -26,6 +25,7 @@ tthread = testthread()
 tthread.start()
 
 
+uwsgi.send_uwsgi_message("127.0.0.1", 3033, 0, 0, {'pippo':'pluto'}, 17)
 
 def myspooler(env):
 	print env
@@ -47,9 +47,9 @@ def force_harakiri():
 	
 
 def application(env, start_response):
-
+	print env
 	start_response('200 OK', [('Content-Type', 'text/plain')])
-	yield { '/': helloworld, '/sleep': force_harakiri, '/counter': increment }[env['PATH_INFO']]()
+	yield { '/': helloworld, '/sleep': force_harakiri, '/counter': increment, '/uwsgi/':helloworld }[env['PATH_INFO']]()
 
 	print env
 
@@ -83,6 +83,10 @@ uwsgi.fastfuncs.insert(10, gomako)
 uwsgi.fastfuncs.insert(11, goxml)
 uwsgi.fastfuncs.insert(17, djangohomepage)
 
-#djangoapp = django.core.handlers.wsgi.WSGIHandler()
+djangoapp = django.core.handlers.wsgi.WSGIHandler()
 
-applications = { '/':application }
+#applications = { '/':django.core.handlers.wsgi.WSGIHandler() }
+uwsgi.applications = { '/':django.core.handlers.wsgi.WSGIHandler() }
+
+print uwsgi.applications
+print uwsgi.applist

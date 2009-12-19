@@ -4,12 +4,11 @@
 
 
 
-int spool_request(char *host, char *port, char *spooldir, char *filename, int rn, char *buffer, int size) {
+int spool_request(char *spooldir, char *filename, int rn, char *buffer, int size) {
 
         char hostname[256+1];
         struct timeval tv;
 	int fd;
-	uint16_t uwstrsize;
 
         if (gethostname(hostname,256)) {
                 perror("gethostname()");
@@ -30,39 +29,11 @@ int spool_request(char *host, char *port, char *spooldir, char *filename, int rn
 		return 0 ;
 	}
 
-	if (host != NULL) {
-		uwstrsize = strlen(host) ;	
-		if (write(fd, &uwstrsize, 2) != 2) {
-			goto clear;
-		}
-		
-		if (write(fd, host, uwstrsize) != uwstrsize) {
-			goto clear;
-		}
+	if (flock(fd, LOCK_EX)) {
+		perror("flock()");
+		close(fd);
+		return 0;
 	}
-	else {
-		if (write(fd, "\0\0", 2) != 2) {
-			goto clear;
-		}
-	}
-
-
-	if (port != NULL) {
-		uwstrsize = strlen(port) ;	
-		if (write(fd, &uwstrsize, 2) != 2) {
-			goto clear;
-		}
-		
-		if (write(fd, port, uwstrsize) != uwstrsize) {
-			goto clear;
-		}
-	}
-	else {
-		if (write(fd, "\0\0", 2) != 2) {
-			goto clear;
-		}
-	}
-
 
 	fprintf(stderr,"writing %d bytes to spool file.\n",size);
 	if (write(fd, buffer, size) != size) {
@@ -75,7 +46,6 @@ int spool_request(char *host, char *port, char *spooldir, char *filename, int rn
 	
 
 clear:
-
 
 	perror("write()");
 	unlink(filename);
@@ -91,8 +61,6 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 	uint16_t uwstrlen ;
 	int rlen;
 
-	char host[256+1];
-	char port[6];
 	char *key;
 	char *val;
 
@@ -142,6 +110,12 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						}
 
 						spool_fd = open(dp->d_name, O_RDONLY) ;
+						if (flock(spool_fd, LOCK_EX)) {
+							perror("flock()");
+							close(spool_fd);
+							continue;
+						}
+
 						if (spool_fd < 0) {
 							perror("open()");
 							continue;
@@ -152,49 +126,6 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 							PyErr_Print();	
 							close(spool_fd);
 							continue;
-						}
-
-
-						host[0] = 0 ;
-						port[0] = 0 ;
-
-
-						/* get spool host */
-						rlen = read(spool_fd, &uwstrlen, 2) ;
-						if (rlen != 2) {
-							perror("read()");
-							goto next_spool;
-						}	
-						if (uwstrlen > 0) {
-							if (uwstrlen > 256) {
-								fprintf(stderr,"invalid host for this spool file\n");	
-								goto next_spool;
-							}
-							rlen = read(spool_fd, host, uwstrlen);
-							if (rlen != uwstrlen) {
-								perror("read()");
-								goto next_spool;
-							}
-							host[rlen] = 0;
-						}
-
-						/* get spool port */
-						rlen = read(spool_fd, &uwstrlen, 2) ;
-						if (rlen != 2) {
-							perror("read()");
-							goto next_spool;
-						}	
-						if (uwstrlen > 0) {
-							if (uwstrlen > 5) {
-								fprintf(stderr,"invalid port for this spool file\n");	
-								goto next_spool;
-							}
-							rlen = read(spool_fd, port, uwstrlen);
-							if (rlen != uwstrlen) {
-								perror("read()");
-								goto next_spool;
-							}
-							port[rlen] = 0;
 						}
 
 						while( (rlen = read(spool_fd, &uwstrlen, 2) ) == 2) {
@@ -256,35 +187,29 @@ void spooler(char *spooldir, PyObject *uwsgi_module) {
 						}
 						
 
-						if (host[0] == 0 || port[0] == 0) {
-							fprintf(stderr,"CALLING the spooler callable...\n");
-							if (PyTuple_SetItem(spool_tuple, 0, spool_env)) {
-								PyErr_Print();
+						if (PyTuple_SetItem(spool_tuple, 0, spool_env)) {
+							PyErr_Print();
+							goto retry_later;
+						}
+						spool_result = PyEval_CallObject(spooler_callable, spool_tuple);	
+						if (!spool_result) {
+							PyErr_Print();
+							fprintf(stderr,"error detected. spool request canceled.\n");
+							goto next_spool;
+						}
+						if (PyInt_Check(spool_result)) {
+							if (PyInt_AsLong(spool_result) == 17) {
+								fprintf(stderr,"retry this task later...\n");
 								goto retry_later;
 							}
-							spool_result = PyEval_CallObject(spooler_callable, spool_tuple);	
-							if (!spool_result) {
-								PyErr_Print();
-								goto next_spool;
-							}
-							if (PyInt_Check(spool_result)) {
-								if (PyInt_AsLong(spool_result) == 17) {
-									fprintf(stderr,"retry this task later...\n");
-									goto retry_later;
-								}
-							}
-
-							fprintf(stderr,"done with task/spool %s\n", dp->d_name);
-						}
-						else {
-							/* manage remote spooler connecting and copying file over the socket */
-							fprintf(stderr,"sending to remote spooler...\n");
 						}
 
+						fprintf(stderr,"done with task/spool %s\n", dp->d_name);
 next_spool:
 
 						if (unlink(dp->d_name)) {
 							perror("unlink");
+							fprintf(stderr,"something horrible happened to the spooler. Better to kill it.\n");
 							exit(1);
 						}
 retry_later:

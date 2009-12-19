@@ -253,9 +253,38 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
 	return PyString_FromStringAndSize(sharedarea+pos, len);
 }
 
+PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
+
+	PyObject *arg_host, *arg_port, *arg_modifier1, *arg_modifier2, *arg_message, *arg_timeout;
+
+	arg_host = PyTuple_GetItem(args, 0);
+	if (!PyString_Check(arg_host)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+	}
+
+	arg_port = PyTuple_GetItem(args, 1);
+	if (!PyInt_Check(arg_port)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+	}
+
+	fprintf(stderr,"sending message to %s:%lu\n", PyString_AsString(arg_host), PyInt_AsLong(arg_port));
 
 
-static PyMethodDef uwsgi_methods[] = {
+	Py_INCREF(Py_None);
+	return Py_None;
+	
+}
+
+
+static PyMethodDef uwsgi_advanced_methods[] = {
+  {"send_uwsgi_message", py_uwsgi_send_message, METH_VARARGS, ""},
+  {NULL, NULL},
+};
+
+
+static PyMethodDef uwsgi_sa_methods[] = {
   {"sharedarea_read", py_uwsgi_sharedarea_read, METH_VARARGS, ""},
   {"sharedarea_write", py_uwsgi_sharedarea_write, METH_VARARGS, ""},
   {"sharedarea_readbyte", py_uwsgi_sharedarea_readbyte, METH_VARARGS, ""},
@@ -265,6 +294,25 @@ static PyMethodDef uwsgi_methods[] = {
   {"sharedarea_inclong", py_uwsgi_sharedarea_inclong, METH_VARARGS, ""},
   {NULL, NULL},
 };
+
+
+
+void init_uwsgi_module_advanced(PyObject *current_uwsgi_module) {
+	PyMethodDef *uwsgi_function;
+	PyObject *uwsgi_module_dict;
+
+	uwsgi_module_dict = PyModule_GetDict(current_uwsgi_module);
+        if (!uwsgi_module_dict) {
+        	fprintf(stderr,"could not get uwsgi module __dict__\n");
+                exit(1);
+        }
+
+        for (uwsgi_function = uwsgi_advanced_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
+                PyObject *func = PyCFunction_New(uwsgi_function, NULL);
+                PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
+        	Py_DECREF(func);
+        }
+}
 
 void init_uwsgi_module_sharedarea(PyObject *current_uwsgi_module) {
 	PyMethodDef *uwsgi_function;
@@ -276,7 +324,7 @@ void init_uwsgi_module_sharedarea(PyObject *current_uwsgi_module) {
                 exit(1);
         }
 
-        for (uwsgi_function = uwsgi_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
+        for (uwsgi_function = uwsgi_sa_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
                 PyObject *func = PyCFunction_New(uwsgi_function, NULL);
                 PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
         	Py_DECREF(func);
