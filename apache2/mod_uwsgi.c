@@ -364,6 +364,11 @@ static int uwsgi_handler(request_rec *r) {
 
 	uwsgi_poll.events = POLLIN ;
 
+	/* neede to set the right http status code in logs */
+	char uwsgi_http_status[13] ;
+	int uwsgi_http_status_read = 0;
+	uwsgi_http_status[13] = 0 ;
+
 	for(;;) {
 		/* put -1 to disable timeout on zero */
 		cnt = poll(&uwsgi_poll, 1, (c->socket_timeout*1000)-1) ;
@@ -374,6 +379,16 @@ static int uwsgi_handler(request_rec *r) {
 		else if (cnt > 0) {
 			cnt = recv(uwsgi_poll.fd, buf, 4096, 0) ;
 			if (cnt > 0) {
+				if (uwsgi_http_status_read < 12) {
+					if (uwsgi_http_status_read + cnt >= 12) {
+						memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, 12-uwsgi_http_status_read);
+						r->status = atoi(uwsgi_http_status+8);
+					}
+					else {
+						memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, cnt);
+						uwsgi_http_status_read+=cnt;
+					}
+				}
 				apr_brigade_write(bb, NULL, NULL, buf, cnt);
 			}
 			else if (cnt == 0) {
@@ -391,6 +406,11 @@ static int uwsgi_handler(request_rec *r) {
 
 
 	close(uwsgi_poll.fd);
+
+	/* empty response return 500 */
+	if (uwsgi_http_status_read == 0) {
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
 	
 	return ap_pass_brigade(r->output_filters, bb);;
 }

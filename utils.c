@@ -1,7 +1,6 @@
 #include "uwsgi.h"
 
-extern struct uwsgi_worker *workers;
-extern int mywid ;
+extern struct uwsgi_server uwsgi;
 
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t x) {
@@ -10,12 +9,12 @@ uint16_t uwsgi_swap16(uint16_t x) {
 #endif
 
 void set_harakiri(int sec) {
-	if (workers) {
+	if (uwsgi.workers) {
 		if (sec == 0) {
-			workers[mywid].harakiri = 0 ;
+			uwsgi.workers[uwsgi.mywid].harakiri = 0 ;
 		}
 		else {
-			workers[mywid].harakiri = time(NULL) + sec ;
+			uwsgi.workers[uwsgi.mywid].harakiri = time(NULL) + sec ;
 		}
 	}
 	else {

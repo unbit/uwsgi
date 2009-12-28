@@ -1,19 +1,16 @@
 #include "uwsgi.h"
 
-extern char *sharedarea ;
-extern void *sharedareamutex ;
-extern int sharedareasize ;
-
 char *spool_buffer = NULL ;
-extern int buffer_size ;
+
+extern struct uwsgi_server uwsgi;
 
 #ifdef __APPLE__
-#define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) sharedareamutex);
-#define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) sharedareamutex);
+#define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) uwsgi.sharedareamutex);
+#define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) uwsgi.sharedareamutex);
 #else
 #ifndef __OpenBSD__
-#define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
-#define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) sharedareamutex + sizeof(pthread_mutexattr_t));
+#define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
+#define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #else
 #define LOCK_SHAREDAREA
 #define UNLOCK_SHAREDAREA
@@ -25,7 +22,7 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
 	int pos = 0 ;
 	long value ;
 
-        if (sharedareasize <= 0) {
+        if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -38,15 +35,15 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos+4 >= getpagesize()*sharedareasize) {
+	if (pos+4 >= getpagesize()*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
 	LOCK_SHAREDAREA
-	memcpy(&value, sharedarea+pos, 4);
+	memcpy(&value, uwsgi.sharedarea+pos, 4);
 	value++;
-	memcpy(sharedarea+pos, &value,4);
+	memcpy(uwsgi.sharedarea+pos, &value,4);
 	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
@@ -58,7 +55,7 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
 	int pos = 0 ;
 	long value ;
 
-        if (sharedareasize <= 0) {
+        if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -71,7 +68,7 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos+4 >= getpagesize()*sharedareasize) {
+	if (pos+4 >= getpagesize()*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -84,7 +81,7 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
 
 	LOCK_SHAREDAREA
         value = (long) PyInt_AsLong(arg1);
-	memcpy(sharedarea+pos, &value,4);
+	memcpy(uwsgi.sharedarea+pos, &value,4);
 	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
@@ -96,7 +93,7 @@ PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
 	int pos = 0 ;
 	char *value ;
 
-        if (sharedareasize <= 0) {
+        if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -118,13 +115,13 @@ PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
 
 	value = PyString_AsString(arg1);
 
-	if (pos+strlen(value) >= getpagesize()*sharedareasize) {
+	if (pos+strlen(value) >= getpagesize()*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
 	LOCK_SHAREDAREA
-	memcpy(sharedarea+pos, value,strlen(value));
+	memcpy(uwsgi.sharedarea+pos, value,strlen(value));
 	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(strlen(value));
@@ -136,7 +133,7 @@ PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
 	int pos = 0 ;
 	char value ;
 
-        if (sharedareasize <= 0) {
+        if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -149,7 +146,7 @@ PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos >= getpagesize()*sharedareasize) {
+	if (pos >= getpagesize()*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -161,9 +158,9 @@ PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
         }
 
         value = (char) PyInt_AsLong(arg1);
-	sharedarea[pos] = value;
+	uwsgi.sharedarea[pos] = value;
 
-        return PyInt_FromLong(sharedarea[pos]);
+        return PyInt_FromLong(uwsgi.sharedarea[pos]);
 	
 }
 
@@ -172,7 +169,7 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
 	int pos = 0 ;
 	long value ;
 
-        if (sharedareasize <= 0) {
+        if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -185,13 +182,13 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos+4 >= getpagesize()*sharedareasize) {
+	if (pos+4 >= getpagesize()*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
 	LOCK_SHAREDAREA
-	memcpy(&value, sharedarea+pos, 4);
+	memcpy(&value, uwsgi.sharedarea+pos, 4);
 	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
@@ -203,7 +200,7 @@ PyObject *py_uwsgi_sharedarea_readbyte(PyObject *self, PyObject *args) {
 	PyObject *arg0 ;
 	int pos = 0 ;
 
-        if (sharedareasize <= 0) {
+        if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -216,12 +213,12 @@ PyObject *py_uwsgi_sharedarea_readbyte(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos >= getpagesize()*sharedareasize) {
+	if (pos >= getpagesize()*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
-        return PyInt_FromLong(sharedarea[pos]);
+        return PyInt_FromLong(uwsgi.sharedarea[pos]);
 	
 }
 
@@ -231,7 +228,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
         int len = 1 ;
         int pos = 0 ;
 
-        if (sharedareasize <= 0) {
+        if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -248,18 +245,17 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
 
         pos = PyInt_AsLong(arg0);
 
-        if (pos+len >= getpagesize()*sharedareasize) {
+        if (pos+len >= getpagesize()*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
-	return PyString_FromStringAndSize(sharedarea+pos, len);
+	return PyString_FromStringAndSize(uwsgi.sharedarea+pos, len);
 }
 
 PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
 	PyObject *spool_dict, *spool_vars ;
 	PyObject *zero, *key, *val;
-	extern int requests ;
 	uint16_t keysize, valsize ;
 	char *cur_buf ;
 	int i ;
@@ -291,7 +287,7 @@ PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
 				
 					keysize = PyString_Size(key) ;
 					valsize= PyString_Size(val) ;
-					if (cur_buf + keysize + 2 + valsize + 2 <= spool_buffer + buffer_size) {
+					if (cur_buf + keysize + 2 + valsize + 2 <= spool_buffer + uwsgi.buffer_size) {
 
 						#ifdef __BIG_ENDIAN__
                                         		keysize = uwsgi_swap16(keysize);
@@ -338,7 +334,7 @@ PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
 		}
 	}
 
-	i = spool_request(spool_filename, requests+1, spool_buffer, cur_buf - spool_buffer) ;
+	i = spool_request(spool_filename, uwsgi.requests+1, spool_buffer, cur_buf - spool_buffer) ;
 	if (i > 0) {
 		return Py_True;
 	}
@@ -407,7 +403,7 @@ void init_uwsgi_module_spooler(PyObject *current_uwsgi_module) {
                 exit(1);
         }
 
-	spool_buffer = malloc(buffer_size);
+	spool_buffer = malloc(uwsgi.buffer_size);
         if (!spool_buffer) {
                 perror("malloc()");
                 exit(1);
@@ -454,8 +450,3 @@ void init_uwsgi_module_sharedarea(PyObject *current_uwsgi_module) {
         	Py_DECREF(func);
         }
 }
-
-PyMethodDef null_methods[] = {
-  {NULL, NULL},
-};
-

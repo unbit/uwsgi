@@ -94,6 +94,106 @@
 #define UWSGI_RELOAD_CODE 17
 #define UWSGI_END_CODE 30
 
+#define MAX_VARS 64
+
+struct uwsgi_app {
+#ifndef ROCK_SOLID
+        PyThreadState *interpreter ;
+        PyObject *pymain_dict ;
+#endif
+
+#ifdef ROCK_SOLID
+        PyObject *wsgi_module;
+        PyObject *wsgi_dict;
+#endif
+        PyObject *wsgi_callable ;
+        PyObject *wsgi_environ ;
+        PyObject *wsgi_args;
+        PyObject *wsgi_harakiri;
+#ifndef ROCK_SOLID
+        PyObject *wsgi_sendfile;
+        PyObject *wsgi_cprofile_run;
+        int requests ;
+#endif
+};
+
+
+struct uwsgi_server {
+	char *pyhome;
+	int requests;	
+#ifndef ROCK_SOLID
+	int has_threads;
+	int wsgi_cnt;
+	int default_app;
+	int enable_profiler;
+#endif
+	int manage_next_request;
+	int in_request;
+
+	int buffer_size;
+
+	char *test_module;
+
+	int numproc;
+
+	int max_vars ;
+	int vec_size ;
+
+	char *sharedarea ;
+#ifndef __OpenBSD__
+	void *sharedareamutex ;
+#endif
+	int sharedareasize ;
+
+	/* the list of workers */
+	struct uwsgi_worker *workers ;
+	pid_t mypid;
+	int mywid;
+
+	struct timeval start_tv;
+#ifndef UNBIT
+#ifndef ROCK_SOLID
+	int cgi_mode;
+#endif
+	int abstract_socket;
+	int chmod_socket;
+	int listen_queue;
+#ifndef ROCK_SOLID
+	char *xml_config;
+	char *python_path[64];
+	int python_path_cnt;
+#endif
+#endif
+
+#ifndef ROCK_SOLID
+	char *wsgi_config;
+#endif
+
+#ifndef ROCK_SOLID
+	int single_interpreter;
+	int py_optimize;
+
+	PyObject *py_sendfile ;
+	PyObject *fastfuncslist ;
+
+	PyThreadState *main_thread ;
+#endif
+
+	struct pollfd poll;
+
+	int harakiri_timeout;
+	int socket_timeout;
+
+#ifndef ROCK_SOLID
+	int memory_debug;
+#endif
+
+#ifndef ROCK_SOLID
+	struct uwsgi_app wsgi_apps[64];
+	PyObject *py_apps;
+#endif
+};
+
 
 struct __attribute__((packed)) uwsgi_worker {
 	pid_t pid;
@@ -150,27 +250,6 @@ struct __attribute__((packed)) wsgi_request {
 };
 
 
-struct uwsgi_app {
-#ifndef ROCK_SOLID
-        PyThreadState *interpreter ;
-        PyObject *pymain_dict ;
-#endif
-
-#ifdef ROCK_SOLID
-        PyObject *wsgi_module;
-        PyObject *wsgi_dict;
-#endif
-        PyObject *wsgi_callable ;
-        PyObject *wsgi_environ ;
-        PyObject *wsgi_args;
-        PyObject *wsgi_harakiri;
-#ifndef ROCK_SOLID
-        PyObject *wsgi_sendfile;
-        PyObject *wsgi_cprofile_run;
-        int requests ;
-#endif
-};
-
 
 char *uwsgi_get_cwd(void);
 
@@ -219,4 +298,8 @@ void set_harakiri(int);
 
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16( uint16_t );
+#endif
+
+#ifndef ROCK_SOLID
+int init_uwsgi_app(PyObject *, PyObject *) ;
 #endif
