@@ -38,8 +38,13 @@ int spool_request(char *filename, int rn, char *buffer, int size) {
 		return 0 ;
 	}
 
+#ifdef __sun__
+	if (lockf(fd, F_LOCK, 0)) {
+		perror("lockf()");
+#else
 	if (flock(fd, LOCK_EX)) {
 		perror("flock()");
+#endif
 		close(fd);
 		return 0;
 	}
@@ -150,8 +155,13 @@ void spooler(PyObject *uwsgi_module) {
 							continue;
 						}	
 
+#ifdef __sun__
+						if (lockf(spool_fd, F_LOCK, 0)) {
+							perror("lockf()");
+#else
 						if (flock(spool_fd, LOCK_EX)) {
 							perror("flock()");
+#endif
 							close(spool_fd);
 							continue;
 						}
