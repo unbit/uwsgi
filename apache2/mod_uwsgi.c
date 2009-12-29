@@ -383,6 +383,7 @@ static int uwsgi_handler(request_rec *r) {
 					if (uwsgi_http_status_read + cnt >= 12) {
 						memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, 12-uwsgi_http_status_read);
 						r->status = atoi(uwsgi_http_status+8);
+						uwsgi_http_status_read+=cnt;
 					}
 					else {
 						memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, cnt);
@@ -407,7 +408,7 @@ static int uwsgi_handler(request_rec *r) {
 
 	close(uwsgi_poll.fd);
 
-	/* empty response return 500 */
+	/* empty response returns 500 */
 	if (uwsgi_http_status_read == 0) {
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
