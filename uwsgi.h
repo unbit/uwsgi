@@ -139,6 +139,8 @@ struct uwsgi_server {
 	int max_vars ;
 	int vec_size ;
 
+	int request_logging;
+
 	char *sharedarea ;
 #ifndef __OpenBSD__
 	void *sharedareamutex ;
