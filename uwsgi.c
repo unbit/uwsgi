@@ -1047,6 +1047,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		signal(SIGTERM, (void *) &reap_them_all);
         	signal(SIGINT, (void *) &kill_them_all);
         	signal(SIGQUIT, (void *) &kill_them_all);
+		/* used only to avoid human-errors */
+		signal(SIGUSR1, (void *) &stats);
 		for(;;) {
 			if (ready_to_die >= uwsgi.numproc) {
 #ifndef ROCK_SOLID
