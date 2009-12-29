@@ -675,8 +675,8 @@ int main(int argc, char *argv[], char *envp[]) {
 			case 'h':
 				fprintf(stderr, "Usage: %s [options...]\n\
 \t-s <name>\tpath (or name) of UNIX/TCP socket to bind to\n\
-\t-l <num>\tset socket listen queue to <n>\n\
-\t-z <sec>\tset socket timeout to <sec> seconds\n\
+\t-l <num>\tset socket listen queue to <n> (default 64, maximum is system dependent)\n\
+\t-z <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
 \t-b <n>\t\tset buffer size to <n> bytes\n\
 \t-x <path>\tpath of xml config file (no ROCK_SOLID)\n\
 \t-w <path>\tname of wsgi config module (no ROCK_SOLID)\n\
