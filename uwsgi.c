@@ -510,6 +510,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 	uwsgi.max_vars = MAX_VARS ;
 	uwsgi.vec_size = 4+1+(4*MAX_VARS) ;
+
+	uwsgi.request_logging = 1;
 	
 
 
@@ -540,12 +542,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifndef UNBIT
 	#ifndef ROCK_SOLID
-        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:Q:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:Q:L")) != -1) {
 	#else
-        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:A:")) != -1) {
+        while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:A:L")) != -1) {
 	#endif
 #else
-        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:")) != -1) {
+        while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:L")) != -1) {
 #endif
                 switch(i) {
 			case 'j':
@@ -556,6 +558,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				break;
 			case 'A':
 				uwsgi.sharedareasize = atoi(optarg);	
+				break;
+			case 'L':
+				uwsgi.request_logging = 0 ;
 				break;
 #ifndef ROCK_SOLID
 			case 'Q':
@@ -678,6 +683,7 @@ int main(int argc, char *argv[], char *envp[]) {
 \t-l <num>\tset socket listen queue to <n> (default 64, maximum is system dependent)\n\
 \t-z <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
 \t-b <n>\t\tset buffer size to <n> bytes\n\
+\t-L\t\tdisable request logging (only errors or server messages will be logged)\n\
 \t-x <path>\tpath of xml config file (no ROCK_SOLID)\n\
 \t-w <path>\tname of wsgi config module (no ROCK_SOLID)\n\
 \t-t <sec>\tset harakiri timeout to <sec> seconds\n\
@@ -1220,7 +1226,8 @@ int main(int argc, char *argv[], char *envp[]) {
                         poll with timeout ;
                 */
 
-                gettimeofday(&wsgi_req.start_of_request, NULL) ;
+		if (uwsgi.request_logging)
+                	gettimeofday(&wsgi_req.start_of_request, NULL) ;
 
                 /* first 4 byte header */
                 rlen = poll(&uwsgi.poll, 1, uwsgi.socket_timeout*1000) ;
@@ -1803,7 +1810,8 @@ clean:
 #endif
                 uwsgi.requests++ ;
                 // GO LOGGING...
-                log_request() ;
+		if (uwsgi.request_logging)
+                	log_request() ;
 		// defunct process reaper
 		if (process_reaper == 1) {
 			waitpid(-1, &waitpid_status, WNOHANG);
