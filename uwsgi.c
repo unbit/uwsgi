@@ -1581,6 +1581,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
+		if (strncmp(wsgi_req.protocol, "HTTP/", 5)) {
+			fprintf(stderr,"INVALID PROTOCOL: %.*s", wsgi_req.protocol_len, wsgi_req.protocol);
+                        internal_server_error(uwsgi.poll.fd, "invalid HTTP protocol !!!");
+                        goto clean;
+		}
+
 
                 /* max 1 minute before harakiri */
                 if (uwsgi.harakiri_timeout > 0) {
@@ -1784,7 +1790,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
 #ifndef ROCK_SOLID
 		if (uwsgi.single_interpreter == 0) {
-			fprintf(stderr,"restoring main interpreter\n");
+			// restoring main interpreter
                 	PyThreadState_Swap(uwsgi.main_thread);
 		}
 clean:
