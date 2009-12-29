@@ -195,7 +195,7 @@ void internal_server_error(int fd, char *message) {
 	if (uwsgi.cgi_mode == 0) {
 #endif
 #endif
-        	wsgi_req.headers_size = write(fd, "HTTP/1.1 500 Internal Server Error\r\n\r\n", 38);
+        	wsgi_req.headers_size = write(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 	}
@@ -203,6 +203,7 @@ void internal_server_error(int fd, char *message) {
         	wsgi_req.headers_size = write(fd, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
 	}
 #endif
+	wsgi_req.header_cnt = 2 ;
 #endif
         wsgi_req.response_size = write(fd, "<h1>uWSGI Error</h1>", 20);
         wsgi_req.response_size += write(fd, message, strlen(message));
@@ -1395,6 +1396,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 ptrbuf = buffer ;
                 bufferend = ptrbuf+wsgi_req.size ;
 
+
 		/* set an HTTP 500 status as default */
 		wsgi_req.status = 500;
 
@@ -1512,6 +1514,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
+
 #ifndef ROCK_SOLID
                 if (uwsgi.has_threads) {
                         PyEval_RestoreThread(_save);
@@ -1575,6 +1578,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 	PyThreadState_Swap(wi->interpreter) ;
 		}
 
+
 #endif
 
 
@@ -1626,6 +1630,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
+
                 // set wsgi vars
 
                 wsgi_socket = PyFile_FromFile(wsgi_file,"wsgi_input","r", NULL) ;
@@ -1662,7 +1667,6 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 		}
 #endif
-
 
 
 
@@ -1780,6 +1784,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
 #ifndef ROCK_SOLID
 		if (uwsgi.single_interpreter == 0) {
+			fprintf(stderr,"restoring main interpreter\n");
                 	PyThreadState_Swap(uwsgi.main_thread);
 		}
 clean:
