@@ -1402,6 +1402,16 @@ int main(int argc, char *argv[], char *envp[]) {
 			continue;	
 		}	
 
+		/* Standard WSGI request */
+
+		if (!wsgi_req.size) {
+			fprintf(stderr,"Invalid WSGI request. skip.\n");
+			close(uwsgi.poll.fd);
+                        memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+                        uwsgi.requests++;
+                        continue;
+		}
+
                 ptrbuf = buffer ;
                 bufferend = ptrbuf+wsgi_req.size ;
 
@@ -1523,7 +1533,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
-
 #ifndef ROCK_SOLID
                 if (uwsgi.has_threads) {
                         PyEval_RestoreThread(_save);
@@ -1590,11 +1599,18 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
+
+		if (wsgi_req.protocol_len < 5) {
+			fprintf(stderr,"INVALID PROTOCOL: %.*s", wsgi_req.protocol_len, wsgi_req.protocol);
+                        internal_server_error(uwsgi.poll.fd, "invalid HTTP protocol !!!");
+                        goto clean;
+		}
 		if (strncmp(wsgi_req.protocol, "HTTP/", 5)) {
 			fprintf(stderr,"INVALID PROTOCOL: %.*s", wsgi_req.protocol_len, wsgi_req.protocol);
                         internal_server_error(uwsgi.poll.fd, "invalid HTTP protocol !!!");
                         goto clean;
 		}
+
 
 
                 /* max 1 minute before harakiri */

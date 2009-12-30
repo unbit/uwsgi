@@ -256,8 +256,6 @@ uwsgi_fix_packet (cherokee_buffer_t *buf, uint8_t modifier1, uint8_t modifier2)
 	uh.env_size = (uint16_t) buf->len ;
 #endif
 
-	/* TODO: check endianess */
-
 	cherokee_buffer_ensure_size (buf, buf->len + 4);
 	cherokee_buffer_prepend (buf, (const char * )&uh, 4);
 

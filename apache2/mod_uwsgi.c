@@ -71,6 +71,7 @@ typedef struct {
 	uint8_t modifier1;
 	uint8_t modifier2;
 	char script_name[256];
+	int cgi_mode ;
 } uwsgi_cfg;
 
 module AP_MODULE_DECLARE_DATA uwsgi_module;
@@ -100,6 +101,7 @@ static void *uwsgi_server_config(apr_pool_t *p, server_rec *s) {
 	c->socket_timeout = 0 ;
 	c->modifier1 = 0 ;
 	c->modifier2 = 0 ;
+	c->cgi_mode = 0 ;
 
 	return c;
 }
@@ -113,6 +115,7 @@ static void *uwsgi_dir_config(apr_pool_t *p, char *dir) {
 	c->socket_timeout = 0 ;
 	c->modifier1 = 0 ;
 	c->modifier2 = 0 ;
+	c->cgi_mode = 0 ;
 
 	return c;
 }
@@ -204,6 +207,9 @@ static int uwsgi_handler(request_rec *r) {
 	int ret;
 	apr_status_t hret ;
 	apr_bucket *b  = NULL;
+
+	char uwsgi_http_status[13] ;
+	int uwsgi_http_status_read = 0;
 	
 
 	apr_bucket_brigade *bb;
@@ -360,6 +366,10 @@ static int uwsgi_handler(request_rec *r) {
 		}
 	}
 
+	if (!c->cgi_mode) {
+		r->assbackwards = 1 ;
+		uwsgi_http_status[13] = 0 ;
+	}
 
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
@@ -375,6 +385,17 @@ static int uwsgi_handler(request_rec *r) {
 		else if (cnt > 0) {
 			cnt = recv(uwsgi_poll.fd, buf, 4096, 0) ;
 			if (cnt > 0) {
+				if (!c->cgi_mode && uwsgi_http_status_read < 12) {
+	                        	if (uwsgi_http_status_read + cnt >= 12) {
+                                        	memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, 12-uwsgi_http_status_read);
+                                                r->status = atoi(uwsgi_http_status+8);
+                				uwsgi_http_status_read+=cnt;
+                                        }
+                                        else {
+	                                	memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, cnt);
+                                        	uwsgi_http_status_read+=cnt;
+                                        }
+                                }
 				apr_brigade_write(bb, NULL, NULL, buf, cnt);
 			}
 			else if (cnt == 0) {
@@ -393,12 +414,19 @@ static int uwsgi_handler(request_rec *r) {
 
 	close(uwsgi_poll.fd);
 
-	b = apr_bucket_eos_create(r->connection->bucket_alloc);
-    	APR_BRIGADE_INSERT_TAIL(bb, b);
+	if (!c->cgi_mode) {
+		if (uwsgi_http_status_read == 0) {
+			return HTTP_INTERNAL_SERVER_ERROR;
+		}
+	}
+	else {
+		b = apr_bucket_eos_create(r->connection->bucket_alloc);
+    		APR_BRIGADE_INSERT_TAIL(bb, b);
 
-	if (hret = ap_scan_script_header_err_brigade(r, bb, NULL)) {
-		apr_brigade_destroy(bb);
-		return hret;
+		if (hret = ap_scan_script_header_err_brigade(r, bb, NULL)) {
+			apr_brigade_destroy(bb);
+			return hret;
+		}
 	}
 
 	return ap_pass_brigade(r->output_filters, bb);
@@ -439,6 +467,25 @@ static const char * cmd_uwsgi_modifier1(cmd_parms *cmd, void *cfg, const char *v
 	}
 
 	return NULL;
+}
+
+static const char * cmd_uwsgi_force_cgi_mode(cmd_parms *cmd, void *cfg, const char *value) {
+
+	uwsgi_cfg *c ;
+
+	if (cfg) {
+                c = cfg ;
+        }
+        else {
+                c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
+        }
+
+	if (!strcmp("yes", value) || !strcmp("on", value) || !strcmp("enable", value) || !strcmp("1", value)) {
+		c->cgi_mode = 1 ;
+	}
+
+	return NULL ;
+
 }
 
 static const char * cmd_uwsgi_modifier2(cmd_parms *cmd, void *cfg, const char *value) {
@@ -540,6 +587,7 @@ static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE1("uWSGImodifier1", cmd_uwsgi_modifier1, NULL, RSRC_CONF|ACCESS_CONF, "Set uWSGI modifier1"),	
 	AP_INIT_TAKE1("uWSGImodifier2", cmd_uwsgi_modifier2, NULL, RSRC_CONF|ACCESS_CONF, "Set uWSGI modifier2"),	
 	AP_INIT_TAKE1("uWSGIforceScriptName", cmd_uwsgi_force_script_name, NULL, ACCESS_CONF, "Fix for PATH_INFO/SCRIPT_NAME when the location has filesystem correspondence"),	
+	AP_INIT_TAKE1("uWSGIforceCGImode", cmd_uwsgi_force_cgi_mode, NULL, ACCESS_CONF, "Force uWSGI CGI mode for perfect integration with apache filter"),	
 	{NULL}
 };
 
