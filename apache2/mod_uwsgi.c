@@ -202,6 +202,8 @@ static int uwsgi_handler(request_rec *r) {
 	apr_table_entry_t *h;
 	char *penv, *cp;
 	int ret;
+	apr_status_t hret ;
+	apr_bucket *b  = NULL;
 	
 
 	apr_bucket_brigade *bb;
@@ -358,16 +360,10 @@ static int uwsgi_handler(request_rec *r) {
 		}
 	}
 
-	r->assbackwards = 1 ;
 
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
 	uwsgi_poll.events = POLLIN ;
-
-	/* neede to set the right http status code in logs */
-	char uwsgi_http_status[13] ;
-	int uwsgi_http_status_read = 0;
-	uwsgi_http_status[13] = 0 ;
 
 	for(;;) {
 		/* put -1 to disable timeout on zero */
@@ -379,17 +375,6 @@ static int uwsgi_handler(request_rec *r) {
 		else if (cnt > 0) {
 			cnt = recv(uwsgi_poll.fd, buf, 4096, 0) ;
 			if (cnt > 0) {
-				if (uwsgi_http_status_read < 12) {
-					if (uwsgi_http_status_read + cnt >= 12) {
-						memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, 12-uwsgi_http_status_read);
-						r->status = atoi(uwsgi_http_status+8);
-						uwsgi_http_status_read+=cnt;
-					}
-					else {
-						memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, cnt);
-						uwsgi_http_status_read+=cnt;
-					}
-				}
 				apr_brigade_write(bb, NULL, NULL, buf, cnt);
 			}
 			else if (cnt == 0) {
@@ -408,12 +393,15 @@ static int uwsgi_handler(request_rec *r) {
 
 	close(uwsgi_poll.fd);
 
-	/* empty response returns 500 */
-	if (uwsgi_http_status_read == 0) {
-		return HTTP_INTERNAL_SERVER_ERROR;
+	b = apr_bucket_eos_create(r->connection->bucket_alloc);
+    	APR_BRIGADE_INSERT_TAIL(bb, b);
+
+	if (hret = ap_scan_script_header_err_brigade(r, bb, NULL)) {
+		apr_brigade_destroy(bb);
+		return hret;
 	}
-	
-	return ap_pass_brigade(r->output_filters, bb);;
+
+	return ap_pass_brigade(r->output_filters, bb);
 }
 
 static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const char *location) {
