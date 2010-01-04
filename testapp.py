@@ -8,7 +8,7 @@ sys.path.insert(0,'/opt/apps')
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'mysite.settings'
 
-import django.core.handlers.wsgi
+#import django.core.handlers.wsgi
 
 
 from threading import Thread
@@ -24,8 +24,15 @@ tthread = testthread()
 
 tthread.start()
 
+p = "serena"
 
-uwsgi.send_uwsgi_message("127.0.0.1", 3033, 0, 0, {'pippo':'pluto'}, 17)
+#while 1:
+#print "MARSHALLED OUT: ",uwsgi.send_uwsgi_message("127.0.0.1", 3033, 33, 17, {'prodotto':p, 'tempo': time.time(), 'pippo':'pluto', 'topolino':'paperino', 'callable':4+1, 'nullo': None, 'embedded': {'a':1} }, 17)
+
+def mako(filename, vars):
+	return uwsgi.send_uwsgi_message("127.0.0.1", 3033, 33, 17, (filename, vars), 17)
+
+#print uwsgi.send_uwsgi_message("127.0.0.1", 3033, 33, 17, ('makotest.txt', {'whattimeisit':time.time(), 'roberta':'serena'}), 17)
 
 def myspooler(env):
 	print env
@@ -35,7 +42,7 @@ def myspooler(env):
 
 uwsgi.spooler = myspooler
 
-print "SPOOLER: ", uwsgi.send_to_spooler({'TESTKEY':'TESTVALUE', 'APPNAME':'uWSGI'})
+#print "SPOOLER: ", uwsgi.send_to_spooler({'TESTKEY':'TESTVALUE', 'APPNAME':'uWSGI'})
 
 def helloworld():
 	return 'Hello World'
@@ -79,16 +86,28 @@ def djangohomepage():
 	yield str(a)
 
 
+def remotemako(env, start_response):
+	start_response('200 OK', [('Content-Type', 'text/html')])
+	clusters = (	('192.168.173.5', 3431, [0,3000] ), 
+			('192.168.173.5', 3432, [3001, 6000] ),
+			('192.168.173.5', 3433, [6001, 9000] ),
+			('192.168.173.5', 3434, [9001, 12000] ),
+			('192.168.173.5', 3435, [12001, 15000] ) 
+		);
+	print clusters
+	all_values = uwsgi.send_multi_uwsgi_message(clusters, 33, 17, 40);
+	print all_values
+	return mako('makotest.txt', {'whattimeisit':time.time(), 'roberta':'serena', 'cluster_values': all_values})
 	
 
 uwsgi.fastfuncs.insert(10, gomako)
 uwsgi.fastfuncs.insert(11, goxml)
 uwsgi.fastfuncs.insert(17, djangohomepage)
 
-djangoapp = django.core.handlers.wsgi.WSGIHandler()
+#djangoapp = django.core.handlers.wsgi.WSGIHandler()
 
 #applications = { '/':django.core.handlers.wsgi.WSGIHandler() }
-uwsgi.applications = { '/':django.core.handlers.wsgi.WSGIHandler() }
+uwsgi.applications = { '/':remotemako }
 
 print uwsgi.applications
 print uwsgi.applist

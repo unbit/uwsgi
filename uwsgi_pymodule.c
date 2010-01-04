@@ -344,9 +344,173 @@ PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_send_multi_message(PyObject *self, PyObject *args) {
+
+
+	int i ;
+	int clen ;
+	int pret;
+	int managed ;
+	struct pollfd *multipoll ;
+	char *buffer ;
+	struct uwsgi_header uh;
+	PyObject *arg_cluster ;
+
+        PyObject *arg_host, *arg_port, *arg_message;
+
+	PyObject *arg_modifier1, *arg_modifier2, *arg_timeout;
+
+        PyObject *marshalled ;
+        PyObject *retobject ;
+
+
+	arg_cluster = PyTuple_GetItem(args, 0);
+	if (!PyTuple_Check(arg_cluster)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+	}
+
+
+        arg_modifier1 = PyTuple_GetItem(args, 1);
+        if (!PyInt_Check(arg_modifier1)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        arg_modifier2 = PyTuple_GetItem(args, 2);
+        if (!PyInt_Check(arg_modifier2)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        arg_timeout = PyTuple_GetItem(args, 3);
+        if (!PyInt_Check(arg_timeout)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+
+	/* iterate cluster */
+	clen = PyTuple_Size(arg_cluster);
+	multipoll = malloc(clen*sizeof(struct pollfd));
+	if (!multipoll) {
+		perror("malloc");
+		Py_INCREF(Py_None);
+                return Py_None;
+	}
+
+	
+	buffer = malloc(uwsgi.buffer_size*clen);
+	if (!buffer) {
+		perror("malloc");
+		free(multipoll);
+		Py_INCREF(Py_None);
+                return Py_None;
+	}
+
+	
+	for(i=0;i<clen;i++) {
+		multipoll[i].events = POLLIN ;
+
+		PyObject *cluster_node = PyTuple_GetItem(arg_cluster, i);
+		arg_host = PyTuple_GetItem(cluster_node, 0);
+		if (!PyString_Check(arg_host)) {
+			goto clear;			
+		}
+
+		arg_port = PyTuple_GetItem(cluster_node, 1);
+		if (!PyInt_Check(arg_port)) {
+			goto clear;
+		}
+
+		arg_message = PyTuple_GetItem(cluster_node, 2);
+		if (!arg_message) {
+			goto clear;
+		}
+
+
+        	switch(PyInt_AsLong(arg_modifier1)) {
+                	case UWSGI_MODIFIER_MESSAGE_MARSHAL:
+                        	marshalled = PyMarshal_WriteObjectToString(arg_message, 1);
+                        	if (!marshalled) {
+                                	PyErr_Print();
+					goto clear;
+                        	}
+                        	multipoll[i].fd = uwsgi_enqueue_message(PyString_AsString(arg_host), PyInt_AsLong(arg_port), PyInt_AsLong(arg_modifier1), PyInt_AsLong(arg_modifier2), PyString_AsString(marshalled), PyString_Size(marshalled), PyInt_AsLong(arg_timeout));
+                        	Py_DECREF(marshalled);
+                        	if (multipoll[i].fd < 0) {
+					goto multiclear;
+                        	}
+                        break;
+        	}
+
+
+	}
+
+	managed = 0 ;
+	retobject = PyTuple_New(clen);
+	if (!retobject) {
+		PyErr_Print();
+		goto multiclear;
+	}
+
+	while(managed < clen) {
+		pret = poll(multipoll, clen, PyInt_AsLong(arg_timeout)*1000);
+		if (pret < 0) {
+			perror("poll()");
+			goto megamulticlear;	
+		}	
+		else if (pret == 0) {
+			fprintf(stderr,"timeout on multiple send !\n");
+			goto megamulticlear;	
+		}
+		else {
+			for(i=0;i<clen;i++) {
+				if (multipoll[i].revents & POLLIN) {
+					if (!uwsgi_parse_response(&multipoll[i], PyInt_AsLong(arg_timeout), &uh, &buffer[i])) {
+						goto megamulticlear;
+					}
+					else {
+						if (PyTuple_SetItem(retobject, i, PyMarshal_ReadObjectFromString(&buffer[i], uh.pktsize))) {
+							PyErr_Print();
+							goto megamulticlear;
+						}
+						close(multipoll[i].fd);
+						managed++;
+					}
+				}	
+			}
+		}
+	}
+	
+	return retobject;
+
+megamulticlear:	
+
+	Py_DECREF(retobject);
+
+multiclear:
+
+	for(i=0;i<clen;i++) {
+		close(multipoll[i].fd);
+	}
+clear:
+
+	free(multipoll);
+	free(buffer);
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+
+
 PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 
 	PyObject *arg_host, *arg_port, *arg_modifier1, *arg_modifier2, *arg_message, *arg_timeout;
+	PyObject *marshalled ;
+	PyObject *retobject ;
 
 	arg_host = PyTuple_GetItem(args, 0);
 	if (!PyString_Check(arg_host)) {
@@ -360,7 +524,51 @@ PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
                 return Py_None;
 	}
 
-	fprintf(stderr,"sending message to %s:%lu\n", PyString_AsString(arg_host), PyInt_AsLong(arg_port));
+	arg_modifier1 = PyTuple_GetItem(args, 2);
+	if (!PyInt_Check(arg_modifier1)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	arg_modifier2 = PyTuple_GetItem(args, 3);
+	if (!PyInt_Check(arg_modifier2)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	arg_message = PyTuple_GetItem(args, 4);
+	if (!arg_message) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	arg_timeout = PyTuple_GetItem(args, 5);
+	if (!PyInt_Check(arg_timeout)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	
+
+	switch(PyInt_AsLong(arg_modifier1)) {
+		case UWSGI_MODIFIER_MESSAGE_MARSHAL:
+			marshalled = PyMarshal_WriteObjectToString(arg_message, 1);
+			if (!marshalled) {
+				PyErr_Print();
+				Py_INCREF(Py_None);
+        			return Py_None;
+			}
+			retobject = uwsgi_send_message(PyString_AsString(arg_host), PyInt_AsLong(arg_port), PyInt_AsLong(arg_modifier1), PyInt_AsLong(arg_modifier2), PyString_AsString(marshalled), PyString_Size(marshalled), PyInt_AsLong(arg_timeout));
+			Py_DECREF(marshalled);
+			if (!retobject) {
+				PyErr_Print();
+				PyErr_Clear();
+			}
+			else {
+				return retobject ;
+			}
+			break;
+	}
 
 
 	Py_INCREF(Py_None);
@@ -376,6 +584,7 @@ static PyMethodDef uwsgi_spooler_methods[] = {
 
 static PyMethodDef uwsgi_advanced_methods[] = {
   {"send_uwsgi_message", py_uwsgi_send_message, METH_VARARGS, ""},
+  {"send_multi_uwsgi_message", py_uwsgi_send_multi_message, METH_VARARGS, ""},
   {NULL, NULL},
 };
 

@@ -1,10 +1,13 @@
 all:	clean uwsgi
 
-uwsgi:  utils.o socket.o pymodule.o spooler.o main.o
-	$(CC) $(LD_FLAGS) utils.o socket.o spooler.o pymodule.o main.o -o $(PROGRAM)
+uwsgi:  utils.o protocol.o socket.o pymodule.o spooler.o main.o
+	$(CC) $(LD_FLAGS) utils.o protocol.o socket.o spooler.o pymodule.o main.o -o $(PROGRAM)
 
 utils.o: utils.c
 	$(CC) -c $(CFLAGS) utils.c
+
+protocol.o: protocol.c
+	$(CC) -c $(CFLAGS) protocol.c
 
 socket.o: socket.c
 	$(CC) -c $(CFLAGS) socket.c
@@ -19,4 +22,4 @@ main.o: uwsgi.c
 	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
         
 clean:
-	rm -f utils.o socket.o pymodule.o spooler.o main.o
+	rm -f utils.o protocol.o socket.o pymodule.o spooler.o main.o

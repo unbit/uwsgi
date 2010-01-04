@@ -1231,86 +1231,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (uwsgi.request_logging)
                 	gettimeofday(&wsgi_req.start_of_request, NULL) ;
 
-                /* first 4 byte header */
-                rlen = poll(&uwsgi.poll, 1, uwsgi.socket_timeout*1000) ;
-                if (rlen < 0) {
-                        perror("poll()");
-                        exit(1);
-                }
-                else if (rlen == 0) {
-                        fprintf(stderr, "timeout. skip request\n");
-                        close(uwsgi.poll.fd);
-                        continue ;      
-                }
-                rlen = read(uwsgi.poll.fd, &wsgi_req, 4) ;
-		if (rlen > 0 && rlen < 4) {
-			i = rlen ;
-			while(i < 4) {
-				rlen = poll(&uwsgi.poll, 1, uwsgi.socket_timeout*1000) ;
-				if (rlen < 0) {
-					perror("poll()");
-					exit(1);
-				}
-				else if (rlen == 0) {
-                        		fprintf(stderr, "timeout waiting for header. skip request.\n");
-                        		close(uwsgi.poll.fd);
-                        		break ;
-				}	
-				rlen = read(uwsgi.poll.fd, (char *)(&wsgi_req)+i, 4-i);
-				if (rlen <= 0) {
-					fprintf(stderr, "broken header. skip request.\n");	
-					close(uwsgi.poll.fd);
-					break ;
-				}
-				i += rlen;
-			}
-			if (i < 4) {
-				continue;
-			}
-		}
-                else if (rlen <= 0){
-                        fprintf(stderr,"invalid request header size: %d...skip\n", rlen);
-                        close(uwsgi.poll.fd);
-                        continue;
-                }
-		/* big endian ? */
-		#ifdef __BIG_ENDIAN__
-		wsgi_req.size = uwsgi_swap16(wsgi_req.size);
-		#endif
 
-		/* check for max buffer size */
-                if (wsgi_req.size > uwsgi.buffer_size) {
-                        fprintf(stderr,"invalid request block size: %d...skip\n", wsgi_req.size);
-                        close(uwsgi.poll.fd);
-                        continue;
-                }
-
-		//fprintf(stderr,"ready for reading %d bytes\n", wsgi_req.size);
-
-                /* http headers parser */
-		i = 0 ;
-		while(i < wsgi_req.size) {
-                	rlen = poll(&uwsgi.poll, 1, uwsgi.socket_timeout*1000) ;
-                	if (rlen < 0) {
-                        	perror("poll()");
-                        	exit(1);
-                	}
-                	else if (rlen == 0) {
-                        	fprintf(stderr, "timeout. skip request. (expecting %d bytes, got %d)\n", wsgi_req.size, i);
-                        	close(uwsgi.poll.fd);
-                        	break ;
-                	}
-                	rlen = read(uwsgi.poll.fd, buffer+i, wsgi_req.size-i);
-			if (rlen <= 0) {
-				fprintf(stderr, "broken vars. skip request.\n");             
-                                close(uwsgi.poll.fd);
-                                break ;
-			}
-			i += rlen ;
-		}
-
-
-		if (i < wsgi_req.size) {
+		if (!uwsgi_parse_response(&uwsgi.poll, uwsgi.socket_timeout, (struct uwsgi_header *) &wsgi_req, buffer)) {
 			continue;
 		}
 
@@ -1348,6 +1270,53 @@ int main(int argc, char *argv[], char *envp[]) {
 					Py_DECREF(wsgi_result);
 				}
 			}
+			PyErr_Clear();
+			close(uwsgi.poll.fd);
+			memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
+			uwsgi.requests++;
+			continue;
+		}
+		/* check for marshalled message */
+		else if (wsgi_req.modifier == UWSGI_MODIFIER_MESSAGE_MARSHAL) {
+			PyObject *umm = PyDict_GetItemString(uwsgi.embedded_dict, "message_manager_marshal");
+			if (umm) {
+				PyObject *ummo = PyMarshal_ReadObjectFromString(buffer, wsgi_req.size) ;
+				if (ummo) {
+					if (!PyTuple_SetItem(uwsgi.embedded_args, 0, ummo)) {
+						if (!PyTuple_SetItem(uwsgi.embedded_args, 1, PyInt_FromLong(wsgi_req.modifier_arg))) {
+							wsgi_result = PyEval_CallObject(umm, uwsgi.embedded_args);
+							if (PyErr_Occurred()) {
+								PyErr_Print();
+							}
+							if (wsgi_result) {
+								PyObject *marshalled = PyMarshal_WriteObjectToString(wsgi_result, 1);
+								if (!marshalled) {
+									PyErr_Print() ;
+								}
+								else {
+									if (PyString_Size(marshalled) <= 0xFFFF) {
+										wsgi_req.size = (uint16_t) PyString_Size(marshalled) ;
+										if (write(uwsgi.poll.fd, &wsgi_req, 4) == 4) {
+											if (write(uwsgi.poll.fd, PyString_AsString(marshalled), wsgi_req.size) != wsgi_req.size) {
+												perror("write()");
+											}
+										}
+										else {
+											perror("write()");
+										}
+									}
+									else {
+										fprintf(stderr,"marshalled object is too big. skip\n");
+									}
+									Py_DECREF(marshalled);
+								}
+								Py_DECREF(wsgi_result);
+							}
+						}
+					}
+					//Py_DECREF(ummo);
+				}
+			}		
 			PyErr_Clear();
 			close(uwsgi.poll.fd);
 			memset(&wsgi_req, 0,  sizeof(struct wsgi_request));
@@ -2519,7 +2488,6 @@ int uri_to_hex()
 #ifndef PYTHREE
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module;
-	PyObject *uwsgi_dict;
 
 	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);
         if (new_uwsgi_module == NULL) {
@@ -2527,40 +2495,51 @@ void init_uwsgi_embedded_module() {
                 exit(1);
         }
 
-	uwsgi_dict = PyModule_GetDict(new_uwsgi_module);
-        if (!uwsgi_dict) {
+	uwsgi.embedded_dict = PyModule_GetDict(new_uwsgi_module);
+        if (!uwsgi.embedded_dict) {
                 fprintf(stderr,"could not get uwsgi module __dict__\n");
                 exit(1);
         }
 
-	if (PyDict_SetItemString(uwsgi_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
 		PyErr_Print();
 		exit(1);
 	}
 
-	if (PyDict_SetItemString(uwsgi_dict, "start_response", wsgi_spitout)) {
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "start_response", wsgi_spitout)) {
 		PyErr_Print();
 		exit(1);
 	}
 
-	if (PyDict_SetItemString(uwsgi_dict, "fastfuncs", PyList_New(256))) {
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "fastfuncs", PyList_New(256))) {
 		PyErr_Print();
 		exit(1);
 	}
 
 #ifndef ROCK_SOLID
-	if (PyDict_SetItemString(uwsgi_dict, "applist", uwsgi.py_apps)) {
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "applist", uwsgi.py_apps)) {
 		PyErr_Print();
 		exit(1);
 	}
 
-	if (PyDict_SetItemString(uwsgi_dict, "applications", Py_None)) {
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "applications", Py_None)) {
 		PyErr_Print();
 		exit(1);
 	}
 #endif
 
-	uwsgi.fastfuncslist = PyDict_GetItemString(uwsgi_dict, "fastfuncs");
+	uwsgi.embedded_args = PyTuple_New(2);
+	if (!uwsgi.embedded_args) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "message_manager_marshal", Py_None)) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	uwsgi.fastfuncslist = PyDict_GetItemString(uwsgi.embedded_dict, "fastfuncs");
 	if (!uwsgi.fastfuncslist) {
 		PyErr_Print();
 		exit(1);

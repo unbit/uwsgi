@@ -46,7 +46,11 @@
 #undef _FILE_OFFSET_BITS
 #define WAIT_ANY (-1)
 #endif
+
+
 #include <Python.h>
+PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
+PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 
 #ifdef __linux__
@@ -68,6 +72,9 @@
 #define UWSGI_MODIFIER_SPOOL_REQUEST	17
 #define UWSGI_MODIFIER_FASTFUNC		26
 #define UWSGI_MODIFIER_MANAGE_PATH_INFO	30
+#define UWSGI_MODIFIER_MESSAGE		31
+#define UWSGI_MODIFIER_MESSAGE_ARRAY	32
+#define UWSGI_MODIFIER_MESSAGE_MARSHAL	33
 #define UWSGI_MODIFIER_PING		100
 
 #ifdef PYTHREE
@@ -176,6 +183,8 @@ struct uwsgi_server {
 	int py_optimize;
 
 	PyObject *py_sendfile ;
+	PyObject *embedded_dict ;
+	PyObject *embedded_args ;
 	PyObject *fastfuncslist ;
 
 	PyThreadState *main_thread ;
@@ -204,6 +213,12 @@ struct __attribute__((packed)) uwsgi_worker {
 	unsigned long long failed_requests;
 	time_t harakiri;
 	unsigned long long respawn_count;
+};
+
+struct __attribute__((packed)) uwsgi_header {
+	uint8_t	modifier1;
+	uint16_t pktsize ;
+	uint8_t	modifier2;
 };
 
 struct __attribute__((packed)) wsgi_request {
@@ -305,3 +320,9 @@ uint16_t uwsgi_swap16( uint16_t );
 #ifndef ROCK_SOLID
 int init_uwsgi_app(PyObject *, PyObject *) ;
 #endif
+
+PyObject *uwsgi_send_message(char *, int, uint8_t, uint8_t, char *, int, int);
+
+int uwsgi_parse_response(struct pollfd*, int, struct uwsgi_header *, char *);
+
+int uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
