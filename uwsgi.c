@@ -1931,12 +1931,7 @@ void log_request() {
         if (uwsgi.memory_debug == 1) {
                 get_memusage();
 #ifndef UNBIT
-#ifdef __APPLE__
                 fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size/1024/1024) ;
-#endif
-#ifdef __linux__
-                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024, uwsgi.workers[uwsgi.mywid].rss_size*PAGE_SIZE, (uwsgi.workers[uwsgi.mywid].rss_size*PAGE_SIZE)/1024/1024) ;
-#endif
 #else
                 fprintf(stderr,"{address space usage: %lld bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024) ;
 #endif
@@ -1978,6 +1973,7 @@ void get_memusage() {
 		}
                 fclose(procfile);
         }
+	uwsgi.workers[uwsgi.mywid].rss_size = uwsgi.workers[uwsgi.mywid].rss_size*PAGE_SIZE;
 #endif
 #ifdef __APPLE__
 	/* darwin documentation says that the value are in pages, bot they are bytes !!! */
