@@ -396,19 +396,14 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 
 	connection *con   = hctx->remote_conn;
 	server_socket *srv_sock = con->srv_socket;
-	data_uwsgi *host= hctx->host;
 	buffer *b;
 
 	/* build header */
 
 	b = chunkqueue_get_append_buffer(hctx->wb);
 
-	log_error_write(srv, __FILE__, __LINE__, "s", "starting uwsgi request...");
-
 	/* make space for uwsgi header */
 	buffer_append_memory(b, "\0\0\0\0", 4);
-
-	log_error_write(srv, __FILE__, __LINE__, "s", "space done...");
 
 	/* set WSGI vars */
 	s = get_http_method_name(con->request.http_method);
@@ -440,7 +435,7 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 #else
                 s = inet_ntoa(srv_sock->addr.ipv4.sin_addr);
 #endif
-		uwsgi_add_var(b, "SERVER_NAME", 11, s, strlen(s));
+		uwsgi_add_var(b, "SERVER_NAME", 11, (char *)s, strlen(s));
         }	
 
 	LI_ltostr(buf,
@@ -465,12 +460,12 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 
 
 	s = inet_ntop_cache_get_ip(srv, &(con->dst_addr));
-	uwsgi_add_var(b, "REMOTE_ADDR", 11, s, strlen(s));
+	uwsgi_add_var(b, "REMOTE_ADDR", 11, (char *)s, strlen(s));
 
-	if (hctx->path_info_offset > 0) {
+	if (hctx->path_info_offset > 1) {
 		uwsgi_add_var(b, "SCRIPT_NAME", 11, con->uri.path->ptr, hctx->path_info_offset);
 		if (strlen(con->uri.path->ptr + hctx->path_info_offset) > 0) {
-			uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr + hctx->path_info_offset, strlen(con->uri.path->ptr + hctx->path_info_offset));
+			uwsgi_add_var(b, "PATH_INFO", 9, con->request.orig_uri->ptr + hctx->path_info_offset, strlen(con->request.orig_uri->ptr + hctx->path_info_offset));
 		}
 		else {
 			uwsgi_add_var(b, "PATH_INFO", 9, "/", 1);
@@ -478,11 +473,47 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 	}
 	else {
 		uwsgi_add_var(b, "SCRIPT_NAME", 11, "", 0) ;
-		uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr, strlen(con->uri.path->ptr)) ;
+		uwsgi_add_var(b, "PATH_INFO", 9, con->request.orig_uri->ptr, con->request.orig_uri->used-1) ;
 	}
 	
 	
-	
+	for (i = 0; i < con->request.headers->used; i++) {
+		data_string *ds;
+		ds = (data_string *)con->request.headers->data[i];
+
+		if (ds->value->used && ds->key->used) {
+			size_t j;
+			buffer_reset(srv->tmp_buf);
+			if (!strcasecmp(ds->key->ptr, "CONTENT-TYPE") || !strcasecmp(ds->key->ptr, "CONTENT-LENGTH")) {
+				buffer_prepare_append(srv->tmp_buf, ds->key->used + 2);
+			}
+			else {
+				buffer_prepare_append(srv->tmp_buf, ds->key->used + 7);
+				buffer_append_memory(srv->tmp_buf, "HTTP_", 5);
+			}
+			for (j = 0; j < ds->key->used - 1; j++) {
+				srv->tmp_buf->ptr[srv->tmp_buf->used++] = light_isalpha(ds->key->ptr[j]) ? ds->key->ptr[j] & ~32 : '_';
+			}	
+			srv->tmp_buf->ptr[srv->tmp_buf->used++] = '\0';
+			uwsgi_add_var(b, srv->tmp_buf->ptr, srv->tmp_buf->used-1, ds->value->ptr, ds->value->used-1);
+		}
+	}
+
+	for (i = 0; i < con->environment->used; i++) {
+		data_string *ds;
+		ds = (data_string *)con->environment->data[i];
+		if (ds->value->used && ds->key->used) {
+			size_t j;
+			buffer_reset(srv->tmp_buf);
+			buffer_prepare_append(srv->tmp_buf, ds->key->used + 2);
+			for (j = 0; j < ds->key->used - 1; j++) {
+				srv->tmp_buf->ptr[srv->tmp_buf->used++] = light_isalnum((unsigned char)ds->key->ptr[j]) ? toupper((unsigned char)ds->key->ptr[j]) : '_';
+			}
+
+			srv->tmp_buf->ptr[srv->tmp_buf->used++] = '\0';
+			uwsgi_add_var(b, srv->tmp_buf->ptr, srv->tmp_buf->used-1, ds->value->ptr, ds->value->used-1);
+		}
+	}
 
 	
 	uh = (uwsgi_header *) b->ptr ;
