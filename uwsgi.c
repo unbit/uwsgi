@@ -2410,8 +2410,24 @@ void uwsgi_wsgi_config() {
 		fprintf(stderr,"uwsgi.applications dictionary is not defined, trying with the (deprecated) \"applications\" one...\n");
 		applications = PyDict_GetItemString(wsgi_dict, "applications");
 		if (!applications) {
-			fprintf(stderr,"applications dictionary is not defined, now you have to use dynamic apps.\n");
-			return;
+			fprintf(stderr,"applications dictionary is not defined, trying with the \"application\" callable.\n");
+			app_app = PyDict_GetItemString(wsgi_dict, "application");
+			if (app_app) {
+				applications = PyDict_New();
+				if (!applications) {
+					fprintf(stderr,"could not initialize applications dictionary\n");
+					exit(1);
+				}
+				if (PyDict_SetItemString(applications, "/", app_app)) {
+					PyErr_Print();
+					fprintf(stderr,"unable to set default application\n");
+					exit(1);
+				}
+			}
+			else {
+				fprintf(stderr,"static applications not defined, you have to used the dynamic one...\n");
+				return ;
+			}
 		}
 	}
 
