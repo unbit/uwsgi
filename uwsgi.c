@@ -460,12 +460,16 @@ int main(int argc, char *argv[], char *envp[]) {
         int serverfd = 0 ;
 #ifndef UNBIT
         char *socket_name = NULL ;
+#ifndef ROCK_SOLID
+	FILE *pidfile;
+#endif
 #endif
 
 #ifndef ROCK_SOLID
 	char spool_filename[1024];
 	pid_t spooler_pid = 0 ;
 #endif
+
 
 	char *cwd ;
 	char *binary_path ;
@@ -550,7 +554,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"spooler", required_argument, 0, 'Q'},
 		{"disable-logging", no_argument, 0, 'L'},
 
-		{"pidfile", required_argument, 0, 17001},
+		{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
 		{"sync-log", no_argument, &uwsgi.synclog, 1},
 		{"no-server", no_argument, &no_server, 1},
 		{0, 0, 0, 0}
@@ -594,7 +598,7 @@ int main(int argc, char *argv[], char *envp[]) {
         while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:L")) != -1) {
 #endif
                 switch(i) {
-			case 17001:
+			case LONG_ARGS_PIDFILE:
 				uwsgi.pidfile = optarg;
 				break;
 			case 'j':
@@ -748,6 +752,13 @@ int main(int argc, char *argv[], char *envp[]) {
 \t-M|--master\t\t\tenable master process manager\n\
 \t-H|--home <path>\t\tset python home/virtualenv\n\
 \t-h|--help\t\t\tthis help\n\
+\t-r|--reaper\t\t\tprocess reaper (call waitpid(-1,...) after each request)\n\
+\t-R|--max-requests\t\tmaximum number of requests for each worker\n\
+\t-j|--test\t\t\ttest if uWSGI can import a module\n\
+\t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
+\t--pidfile <file>\t\twrite the masterpid to <file>\n\
+\t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
+\t--no-server\t\t\tinitialize teh uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
 				exit(1);
 			case 0:
@@ -1025,6 +1036,19 @@ int main(int argc, char *argv[], char *envp[]) {
 
         uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid ;
+
+	if (uwsgi.pidfile) {
+		fprintf(stderr,"writing pidfile to %s\n", uwsgi.pidfile);
+		pidfile = fopen(uwsgi.pidfile, "w");
+		if (!pidfile) {
+			perror("fopen");
+			exit(1);
+		}
+		if (fprintf(pidfile, "%d\n", masterpid) < 0) {
+			fprintf(stderr,"could not write pidfile.\n");
+		}
+		fclose(pidfile);
+	}
 
 	if (uwsgi.buffer_size > 65536) {
 		fprintf(stderr,"invalid buffer size.\n");

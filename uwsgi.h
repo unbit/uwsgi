@@ -59,6 +59,8 @@ PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
 PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 
+#define LONG_ARGS_PIDFILE	17001
+
 #ifdef __linux__
 #include <endian.h>
 #elif __sun__
