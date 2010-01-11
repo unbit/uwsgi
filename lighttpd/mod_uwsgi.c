@@ -35,6 +35,8 @@
 #define data_uwsgi data_fastcgi
 #define data_uwsgi_init data_fastcgi_init
 
+
+
 /**
  *
  * the uwsgi module is based on the proxy module
@@ -49,23 +51,15 @@ typedef struct __attribute__((packed)) {
 	uint8_t		modifier2;
 } uwsgi_header ;
 
-typedef enum {
-	UWSGI_BALANCE_UNSET,
-	UWSGI_BALANCE_FAIR,
-} uwsgi_balance_t;
-
 typedef struct {
 	array *extensions;
 	unsigned short debug;
-
-	uwsgi_balance_t balance;
 } plugin_config;
 
 typedef struct {
 	PLUGIN_DATA;
 
 	buffer *parse_response;
-	buffer *balance_buf;
 
 	plugin_config **config_storage;
 
@@ -121,6 +115,7 @@ static handler_ctx * handler_ctx_init() {
 	hctx->fd = -1;
 	hctx->fde_ndx = -1;
 
+
 	return hctx;
 }
 
@@ -138,7 +133,6 @@ INIT_FUNC(mod_uwsgi_init) {
 	p = calloc(1, sizeof(*p));
 
 	p->parse_response = buffer_init();
-	p->balance_buf = buffer_init();
 
 	return p;
 }
@@ -150,7 +144,6 @@ FREE_FUNC(mod_uwsgi_free) {
 	UNUSED(srv);
 
 	buffer_free(p->parse_response);
-	buffer_free(p->balance_buf);
 
 	if (p->config_storage) {
 		size_t i;
@@ -180,7 +173,6 @@ SETDEFAULTS_FUNC(mod_uwsgi_set_defaults) {
 	config_values_t cv[] = {
 		{ "uwsgi.server",              NULL, T_CONFIG_LOCAL, T_CONFIG_SCOPE_CONNECTION },       /* 0 */
 		{ "uwsgi.debug",               NULL, T_CONFIG_SHORT, T_CONFIG_SCOPE_CONNECTION },       /* 1 */
-		{ "uwsgi.balance",             NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },      /* 2 */
 		{ NULL,                        NULL, T_CONFIG_UNSET, T_CONFIG_SCOPE_UNSET }
 	};
 
@@ -196,24 +188,12 @@ SETDEFAULTS_FUNC(mod_uwsgi_set_defaults) {
 
 		cv[0].destination = s->extensions;
 		cv[1].destination = &(s->debug);
-		cv[2].destination = p->balance_buf;
 
-		buffer_reset(p->balance_buf);
 
 		p->config_storage[i] = s;
 		ca = ((data_config *)srv->config_context->data[i])->value;
 
 		if (0 != config_insert_values_global(srv, ca, cv)) {
-			return HANDLER_ERROR;
-		}
-
-		if (buffer_is_empty(p->balance_buf)) {
-			s->balance = UWSGI_BALANCE_FAIR;
-		} else if (buffer_is_equal_string(p->balance_buf, CONST_STR_LEN("fair"))) {
-			s->balance = UWSGI_BALANCE_FAIR;
-		} else {
-			log_error_write(srv, __FILE__, __LINE__, "s",
-				        "uwsgi.balance has to be fair");
 			return HANDLER_ERROR;
 		}
 
@@ -276,7 +256,7 @@ SETDEFAULTS_FUNC(mod_uwsgi_set_defaults) {
 
 					df = data_uwsgi_init();
 
-					df->port = 80;
+					df->port = 3031;
 
 					buffer_copy_string_buffer(df->key, da_host->key);
 
@@ -396,12 +376,18 @@ static int uwsgi_establish_connection(server *srv, handler_ctx *hctx) {
 	return 0;
 }
 
+static void uwsgi_add_var(buffer *b, char * key, uint16_t keylen, char *val, uint16_t vallen) {
+
+	buffer_append_memory(b, (char *) &keylen, 2); buffer_append_memory(b, key, keylen);
+	buffer_append_memory(b, (char *) &vallen, 2); buffer_append_memory(b, val, vallen);
+	
+}
+
 static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 	size_t i;
 
 	char buf[32];
 	uwsgi_header *uh ;
-	uint16_t uwsgi_strsize;
 	const char *s;
 #ifdef HAVE_IPV6
 	char b2[INET6_ADDRSTRLEN + 1];
@@ -410,6 +396,7 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 
 	connection *con   = hctx->remote_conn;
 	server_socket *srv_sock = con->srv_socket;
+	data_uwsgi *host= hctx->host;
 	buffer *b;
 
 	/* build header */
@@ -425,27 +412,23 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 
 	/* set WSGI vars */
 	s = get_http_method_name(con->request.http_method);
-	uwsgi_strsize = 14; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "REQUEST_METHOD", uwsgi_strsize); 
-	uwsgi_strsize = strlen(s); buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, s, uwsgi_strsize); 
+	uwsgi_add_var(b, "REQUEST_METHOD", 14, (char *) s, strlen(s));
 
-	uwsgi_strsize = 12; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "QUERY_STRING", uwsgi_strsize);
 	if (!buffer_is_empty(con->uri.query)) {
-		uwsgi_strsize = con->uri.query->used; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, con->uri.query->ptr, uwsgi_strsize);
+		uwsgi_add_var(b, "QUERY_STRING", 12, con->uri.query->ptr, con->uri.query->used-1);
         } else {
-		uwsgi_strsize = 0; buffer_append_memory(b, &uwsgi_strsize, 2);
+		uwsgi_add_var(b, "QUERY_STRING", 12, "", 0);
         }
 
 	s = get_http_version_name(con->request.http_version);
-	uwsgi_strsize = 15; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "SERVER_PROTOCOL", uwsgi_strsize); 
-	uwsgi_strsize = strlen(s); buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, s, uwsgi_strsize); 
+	uwsgi_add_var(b, "SERVER_PROTOCOL", 15, (char *) s, strlen(s));
 
 
-	uwsgi_strsize = 11; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "SERVER_NAME", uwsgi_strsize); 
 	if (con->server_name->used) {
                 size_t len = con->server_name->used - 1;
                 char *colon = strchr(con->server_name->ptr, ':');
                 if (colon) len = colon - con->server_name->ptr;
-		uwsgi_strsize = len ;
+		uwsgi_add_var(b, "SERVER_NAME", 11, con->server_name->ptr, len);
 
         } else {
 #ifdef HAVE_IPV6
@@ -457,11 +440,9 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 #else
                 s = inet_ntoa(srv_sock->addr.ipv4.sin_addr);
 #endif
-		uwsgi_strsize = strlen(s);
+		uwsgi_add_var(b, "SERVER_NAME", 11, s, strlen(s));
         }	
-	buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, s, uwsgi_strsize); 
 
-	uwsgi_strsize = 11; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "SERVER_PORT", uwsgi_strsize); 
 	LI_ltostr(buf,
 #ifdef HAVE_IPV6
                ntohs(srv_sock->addr.plain.sa_family ? srv_sock->addr.ipv6.sin6_port : srv_sock->addr.ipv4.sin_port)
@@ -470,12 +451,9 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 #endif
                );
 
-	uwsgi_strsize = strlen(s); buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, s, uwsgi_strsize);
+	uwsgi_add_var(b, "SERVER_PORT", 11, buf, strlen(buf));
+	uwsgi_add_var(b, "REQUEST_URI", 11, con->request.orig_uri->ptr, con->request.orig_uri->used-1);
 
-	uwsgi_strsize = 11; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "REQUEST_URI", uwsgi_strsize);
-	uwsgi_strsize = con->request.orig_uri->used; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, con->request.orig_uri->ptr, uwsgi_strsize);
-
-	uwsgi_strsize = 11; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "REMOTE_PORT", uwsgi_strsize);
 	LI_ltostr(buf,
 #ifdef HAVE_IPV6
                ntohs(con->dst_addr.plain.sa_family ? con->dst_addr.ipv6.sin6_port : con->dst_addr.ipv4.sin_port)
@@ -483,23 +461,35 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
                ntohs(con->dst_addr.ipv4.sin_port)
 #endif
                );	
+	uwsgi_add_var(b, "REMOTE_PORT", 11, buf, strlen(buf));
 
-	uwsgi_strsize = strlen(s); buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, s, uwsgi_strsize);
 
-	uwsgi_strsize = 11; buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, "REMOTE_ADDR", uwsgi_strsize);
 	s = inet_ntop_cache_get_ip(srv, &(con->dst_addr));
-	uwsgi_strsize = strlen(s); buffer_append_memory(b, &uwsgi_strsize, 2); buffer_append_memory(b, s, uwsgi_strsize);	
+	uwsgi_add_var(b, "REMOTE_ADDR", 11, s, strlen(s));
+
+	if (hctx->path_info_offset > 0) {
+		uwsgi_add_var(b, "SCRIPT_NAME", 11, con->uri.path->ptr, hctx->path_info_offset);
+		if (strlen(con->uri.path->ptr + hctx->path_info_offset) > 0) {
+			uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr + hctx->path_info_offset, strlen(con->uri.path->ptr + hctx->path_info_offset));
+		}
+		else {
+			uwsgi_add_var(b, "PATH_INFO", 9, "/", 1);
+		}
+	}
+	else {
+		uwsgi_add_var(b, "SCRIPT_NAME", 11, "", 0) ;
+		uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr, strlen(con->uri.path->ptr)) ;
+	}
 	
 	
 	
 
 	
 	uh = (uwsgi_header *) b->ptr ;
-	uh->modifier1 = 0 ;
+	uh->modifier1 = (uint8_t) 0 ;
 	uh->pktsize = b->used - 4 ;
-	uh->modifier2 = 0 ;
+	uh->modifier2 = (uint8_t) 0 ;
 
-	log_error_write(srv, __FILE__, __LINE__, "sd", "uwsgi_header ", b->used - 4);
 	b->used++; /* fix size */
 
 	hctx->wb->bytes_in += b->used -1   ;
@@ -908,7 +898,6 @@ static int mod_uwsgi_patch_connection(server *srv, connection *con, plugin_data 
 
 	PATCH(extensions);
 	PATCH(debug);
-	PATCH(balance);
 
 	/* skip the first, the global context */
 	for (i = 1; i < srv->config_context->used; i++) {
@@ -926,8 +915,6 @@ static int mod_uwsgi_patch_connection(server *srv, connection *con, plugin_data 
 				PATCH(extensions);
 			} else if (buffer_is_equal_string(du->key, CONST_STR_LEN("uwsgi.debug"))) {
 				PATCH(debug);
-			} else if (buffer_is_equal_string(du->key, CONST_STR_LEN("uwsgi.balance"))) {
-				PATCH(balance);
 			}
 		}
 	}
@@ -1097,7 +1084,6 @@ static handler_t uwsgi_handle_fdevent(void *s, void *ctx, int revents) {
 static handler_t mod_uwsgi_check_extension(server *srv, connection *con, void *p_d) {
 	plugin_data *p = p_d;
 	size_t s_len;
-	unsigned long last_max = ULONG_MAX;
 	int max_usage = INT_MAX;
 	int ndx = -1;
 	size_t k;
@@ -1143,13 +1129,7 @@ static handler_t mod_uwsgi_check_extension(server *srv, connection *con, void *p
 		/* check extension in the form "/uwsgi_pattern" */
 		if (*(ext->key->ptr) == '/') {
 			if (strncmp(fn->ptr, ext->key->ptr, ct_len) == 0) {
-				if (s_len > ct_len + 1) {
-					char *pi_offset;
-
-					if (0 != (pi_offset = strchr(fn->ptr + ct_len + 1, '/'))) {
-						path_info_offset = pi_offset - fn->ptr;
-					}
-				}
+				path_info_offset = ct_len ;
 				extension = ext;
 				break;
 			}

@@ -115,7 +115,7 @@ def reload(env, start_response):
 
 #	yield 4/0
 
-	out = '<h1>uWSGI status</h1>' ;
+	out = '<h1>uWSGI status ('+env['SCRIPT_NAME']+')</h1>' ;
 	out += 'masterpid: <b>' + str(uwsgi.masterpid()) + '</b><br/>'
 
 	out += 'started on: <b>' + time.ctime(uwsgi.started_on) + '</b><br/>'
@@ -163,7 +163,7 @@ uwsgi.fastfuncs.insert(17, djangohomepage)
 #djangoapp = django.core.handlers.wsgi.WSGIHandler()
 
 #applications = { '/':django.core.handlers.wsgi.WSGIHandler() }
-uwsgi.applications = { '/':reload }
+uwsgi.applications = { '/':reload, '/pippo':reload }
 
 print uwsgi.applications
 print uwsgi.applist
