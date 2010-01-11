@@ -35,7 +35,7 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos+4 >= getpagesize()*uwsgi.sharedareasize) {
+	if (pos+4 >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -68,7 +68,7 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos+4 >= getpagesize()*uwsgi.sharedareasize) {
+	if (pos+4 >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -115,7 +115,7 @@ PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
 
 	value = PyString_AsString(arg1);
 
-	if (pos+strlen(value) >= getpagesize()*uwsgi.sharedareasize) {
+	if (pos+strlen(value) >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -146,7 +146,7 @@ PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos >= getpagesize()*uwsgi.sharedareasize) {
+	if (pos >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -182,7 +182,7 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos+4 >= getpagesize()*uwsgi.sharedareasize) {
+	if (pos+4 >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -213,7 +213,7 @@ PyObject *py_uwsgi_sharedarea_readbyte(PyObject *self, PyObject *args) {
 
 	pos = PyInt_AsLong(arg0);
 
-	if (pos >= getpagesize()*uwsgi.sharedareasize) {
+	if (pos >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -245,7 +245,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
 
         pos = PyInt_AsLong(arg0);
 
-        if (pos+len >= getpagesize()*uwsgi.sharedareasize) {
+        if (pos+len >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
@@ -604,9 +604,6 @@ PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
 
 		PyDict_Clear(worker_dict);
 
-		fprintf(stderr,"count: %d\n", worker_dict->ob_refcnt);
-		fprintf(stderr,"tuple count: %d\n", uwsgi.workers_tuple->ob_refcnt);
-
 		zero = PyInt_FromLong(uwsgi.workers[i+1].id);
 		if (PyDict_SetItemString(worker_dict, "id", zero)) {
                 	goto clear;
@@ -633,6 +630,12 @@ PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
 
 		zero = PyInt_FromLong(uwsgi.workers[i+1].vsz_size);
 		if (PyDict_SetItemString(worker_dict, "vsz", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyFloat_FromDouble(uwsgi.workers[i+1].running_time);
+		if (PyDict_SetItemString(worker_dict, "running_time", zero)) {
                 	goto clear;
         	}
 		Py_DECREF(zero);

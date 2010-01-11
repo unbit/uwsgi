@@ -272,7 +272,10 @@ static int uwsgi_handler(request_rec *r) {
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SERVER_PROTOCOL", r->protocol, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REQUEST_URI", r->uri, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_ADDR", r->connection->remote_ip, &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_USER", r->user ? r->args : "", &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_USER", r->user ? r->user : "", &pkt_size) ;
+	if (r->user) {
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "AUTH_TYPE", (char *) ap_auth_type(r), &pkt_size) ;
+	}
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
 
 	if (c->script_name[0] == '/') {

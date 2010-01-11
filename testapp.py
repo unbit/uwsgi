@@ -22,7 +22,7 @@ class testthread(Thread):
 	
 tthread = testthread()
 
-tthread.start()
+#tthread.start()
 
 p = "serena"
 
@@ -127,19 +127,20 @@ def reload(env, start_response):
 	out += 'workers: <b>' + str(uwsgi.numproc) + '</b><br/>'
 
 	out += '<table border="1">'
-	out += '<th>worker id</th><th>pid</th><th>requests</th><th>address space</th><th>rss</th>'
+	out += '<th>worker id</th><th>pid</th><th>requests</th><th>running time</th><th>address space</th><th>rss</th>'
 
 	workers = uwsgi.workers();
 
 	for w in workers:
-		print w
+		#print w
+		#print w['running_time']
 		if w is not None:
-			out += '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
+			out += '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
 	
 	out += '</table>'
 
 	yield out
-	print "FATTOfattoFATTO"
+	#print "FATTOfattoFATTO"
 
 def remotemako(env, start_response):
 	start_response('200 OK', [('Content-Type', 'text/html')])

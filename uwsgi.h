@@ -100,10 +100,6 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define NL_SIZE 2
 #define H_SEP_SIZE 2
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4096
-#endif
-
 #define UWSGI_RELOAD_CODE 17
 #define UWSGI_END_CODE 30
 
@@ -145,6 +141,11 @@ struct uwsgi_server {
 	int buffer_size;
 
 	int master_process;
+
+	int page_size ;
+
+	char *sync_page ;
+	int synclog;
 
 	char *test_module;
 
@@ -228,6 +229,7 @@ struct __attribute__((packed)) uwsgi_worker {
 
 	unsigned long long vsz_size;
 	unsigned long long rss_size;
+	double	running_time ;
 };
 
 struct __attribute__((packed)) uwsgi_header {

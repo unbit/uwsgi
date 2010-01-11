@@ -57,6 +57,7 @@ in particular)
 struct uwsgi_server uwsgi;
 
 static char *nl = "\r\n";
+static char *empty = "";
 static char *h_sep = ": " ;
 static const char *http_protocol = "HTTP/1.1" ;
 static const char *app_slash = "/" ;
@@ -454,6 +455,7 @@ int main(int argc, char *argv[], char *envp[]) {
         int c_len = sizeof(struct sockaddr_un);
         int rlen,i ;
         pid_t pid ;
+	int no_server = 0 ;
 
         int serverfd = 0 ;
 #ifndef UNBIT
@@ -548,7 +550,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"spooler", required_argument, 0, 'Q'},
 		{"disable-logging", no_argument, 0, 'L'},
 
-		{"pidfile", required_argument, 0, 10001},
+		{"pidfile", required_argument, 0, 17001},
+		{"sync-log", no_argument, &uwsgi.synclog, 1},
+		{"no-server", no_argument, &no_server, 1},
 		{0, 0, 0, 0}
 	};
 #endif
@@ -590,7 +594,7 @@ int main(int argc, char *argv[], char *envp[]) {
         while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:L")) != -1) {
 #endif
                 switch(i) {
-			case 10001:
+			case 17001:
 				uwsgi.pidfile = optarg;
 				break;
 			case 'j':
@@ -746,6 +750,8 @@ int main(int argc, char *argv[], char *envp[]) {
 \t-h|--help\t\t\tthis help\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
 				exit(1);
+			case 0:
+				break;
 			default:
 				exit(1);
 #endif
@@ -774,6 +780,18 @@ int main(int argc, char *argv[], char *envp[]) {
 		fprintf(stderr,"your process address space limit is %lld bytes (%lld MB)\n", (long long) rl.rlim_max, (long long) rl.rlim_max/1024/1024);
 	}
 #endif
+
+	uwsgi.page_size = getpagesize();
+	fprintf(stderr,"your memory page size is %d bytes\n", uwsgi.page_size);
+
+	if (uwsgi.synclog) {
+		fprintf(stderr,"allocating a memory page for synced logging.\n");
+		uwsgi.sync_page = malloc(uwsgi.page_size);
+		if (!uwsgi.sync_page) {
+			perror("malloc()");
+			exit(1);
+		}
+	}
 
 	if (uwsgi.pyhome != NULL) {
         	fprintf(stderr,"Setting PythonHome to %s...\n", uwsgi.pyhome);
@@ -831,7 +849,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		#else
 			fprintf(stderr,"***WARNING*** the sharedarea on OpenBSD is not SMP-safe. Beware of race conditions !!!\n");
 		#endif
-		uwsgi.sharedarea = mmap(NULL, getpagesize() * uwsgi.sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
+		uwsgi.sharedarea = mmap(NULL, uwsgi.page_size * uwsgi.sharedareasize, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
 		if (uwsgi.sharedarea) { 
 			fprintf(stderr,"shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
 
@@ -938,6 +956,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
+	if (!no_server) {
 #ifndef UNBIT
         if (socket_name != NULL && !is_a_reload) {
 		char *tcp_port = strchr(socket_name, ':');
@@ -959,6 +978,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (getsockopt(serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
 		perror("getsockopt()");
 		exit(1);
+	}
+
 	}
 
 
@@ -1026,6 +1047,15 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker)*uwsgi.numproc+1);
+
+#ifndef UNBIT
+#ifndef ROCK_SOLID
+	if (no_server) {
+		fprintf(stderr,"no-server mode requested. Goodbye.\n");
+		exit(0);
+	}
+#endif
+#endif
 
         /* preforking() */
 	if (uwsgi.master_process) {
@@ -1908,6 +1938,7 @@ void log_request() {
         char *msg1 = " via sendfile() " ;
         char *msg2 = " " ;
         char *via ;
+	char *first_part = empty ;
 	struct uwsgi_app *wi;
 	int app_req = -1 ;
 
@@ -1927,16 +1958,26 @@ void log_request() {
         gettimeofday(&end_request, NULL) ;
         microseconds = end_request.tv_sec*1000000+end_request.tv_usec ;
         microseconds2 = wsgi_req.start_of_request.tv_sec*1000000+wsgi_req.start_of_request.tv_usec ;
+
+
 #ifndef ROCK_SOLID
         if (uwsgi.memory_debug == 1) {
                 get_memusage();
 #ifndef UNBIT
-                fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size/1024/1024) ;
+		if (uwsgi.synclog) {
+			snprintf(uwsgi.sync_page, uwsgi.page_size, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size/1024/1024) ;
+			first_part = uwsgi.sync_page;
+		}
+		else {
+                	fprintf(stderr,"{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size/1024/1024) ;
+		}
 #else
                 fprintf(stderr,"{address space usage: %lld bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024) ;
 #endif
         }
 #endif
+
+	uwsgi.workers[uwsgi.mywid].running_time += (double) (( (double)microseconds-(double)microseconds2)/ (double)1000.0) ;
 
 #ifdef ROCK_SOLID
         fprintf(stderr, "[pid: %d|req: %d] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs (%.*s %d) %d headers in %d bytes\n",
@@ -1946,13 +1987,14 @@ void log_request() {
                 (microseconds-microseconds2)/1000,
                 wsgi_req.protocol_len, wsgi_req.protocol, wsgi_req.status, wsgi_req.header_cnt, wsgi_req.headers_size) ;
 #else
-        fprintf(stderr, "[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes\n",
+        fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes\n", first_part,
                 uwsgi.mypid, wsgi_req.app_id, app_req, uwsgi.workers[0].requests, wsgi_req.remote_addr_len, wsgi_req.remote_addr,
                 wsgi_req.remote_user_len, wsgi_req.remote_user, wsgi_req.var_cnt, wsgi_req.size, 24, time_request,
                 wsgi_req.method_len, wsgi_req.method, wsgi_req.uri_len, wsgi_req.uri, wsgi_req.response_size, 
                 (microseconds-microseconds2)/1000, via,
                 wsgi_req.protocol_len, wsgi_req.protocol, wsgi_req.status, wsgi_req.header_cnt, wsgi_req.headers_size) ;
 #endif
+
 
 }
 
@@ -1973,7 +2015,7 @@ void get_memusage() {
 		}
                 fclose(procfile);
         }
-	uwsgi.workers[uwsgi.mywid].rss_size = uwsgi.workers[uwsgi.mywid].rss_size*PAGE_SIZE;
+	uwsgi.workers[uwsgi.mywid].rss_size = uwsgi.workers[uwsgi.mywid].rss_size*uwsgi.page_size;
 #endif
 #ifdef __APPLE__
 	/* darwin documentation says that the value are in pages, bot they are bytes !!! */
