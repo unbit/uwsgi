@@ -27,6 +27,12 @@
 
 #include <sys/resource.h>
 
+#ifndef UNBIT
+#ifndef ROCK_SOLID
+#include <getopt.h>
+#endif
+#endif
+
 
 #ifdef __APPLE__
 	#include <libkern/OSAtomic.h>
@@ -127,7 +133,6 @@ struct uwsgi_app {
 
 struct uwsgi_server {
 	char *pyhome;
-	int requests;	
 #ifndef ROCK_SOLID
 	int has_threads;
 	int wsgi_cnt;
@@ -139,7 +144,11 @@ struct uwsgi_server {
 
 	int buffer_size;
 
+	int master_process;
+
 	char *test_module;
+
+	char *pidfile;
 
 	int numproc;
 
@@ -187,6 +196,8 @@ struct uwsgi_server {
 	PyObject *embedded_args ;
 	PyObject *fastfuncslist ;
 
+	PyObject *workers_tuple ;
+
 	PyThreadState *main_thread ;
 #endif
 
@@ -207,12 +218,16 @@ struct uwsgi_server {
 
 
 struct __attribute__((packed)) uwsgi_worker {
+	int id ;
 	pid_t pid;
 	time_t last_spawn;
 	unsigned long long requests;
 	unsigned long long failed_requests;
 	time_t harakiri;
 	unsigned long long respawn_count;
+
+	unsigned long long vsz_size;
+	unsigned long long rss_size;
 };
 
 struct __attribute__((packed)) uwsgi_header {
@@ -261,9 +276,6 @@ struct __attribute__((packed)) wsgi_request {
         int status;
         int response_size;
         int headers_size;
-        // memory debug
-        unsigned long long vsz_size;
-        long long rss_size;
 };
 
 

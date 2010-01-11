@@ -334,7 +334,7 @@ PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
 		}
 	}
 
-	i = spool_request(spool_filename, uwsgi.requests+1, spool_buffer, cur_buf - spool_buffer) ;
+	i = spool_request(spool_filename, uwsgi.workers[0].requests+1, spool_buffer, cur_buf - spool_buffer) ;
 	if (i > 0) {
 		return Py_True;
 	}
@@ -576,6 +576,93 @@ PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 	
 }
 
+/* uWSGI masterpid */
+PyObject *py_uwsgi_masterpid(PyObject *self, PyObject *args) {
+	if (uwsgi.master_process) {
+		return PyInt_FromLong(uwsgi.workers[0].pid) ;
+	}
+	return PyInt_FromLong(0);
+}
+
+/* uWSGI total_requests */
+PyObject *py_uwsgi_total_requests(PyObject *self, PyObject *args) {
+	return PyInt_FromLong(uwsgi.workers[0].requests) ;
+}
+
+/* uWSGI workers */
+PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
+
+	PyObject *worker_dict, *zero;
+	int i ;
+
+	for(i=0;i<uwsgi.numproc;i++) {
+		worker_dict = PyTuple_GetItem(uwsgi.workers_tuple, i) ;
+		if (!worker_dict) {
+			fprintf(stderr,"NON TROVO IL DICT %d\n", i);
+			goto clear;
+		}
+
+		PyDict_Clear(worker_dict);
+
+		fprintf(stderr,"count: %d\n", worker_dict->ob_refcnt);
+		fprintf(stderr,"tuple count: %d\n", uwsgi.workers_tuple->ob_refcnt);
+
+		zero = PyInt_FromLong(uwsgi.workers[i+1].id);
+		if (PyDict_SetItemString(worker_dict, "id", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyInt_FromLong(uwsgi.workers[i+1].pid);
+		if (PyDict_SetItemString(worker_dict, "pid", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyInt_FromLong(uwsgi.workers[i+1].requests);
+		if (PyDict_SetItemString(worker_dict, "requests", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyInt_FromLong(uwsgi.workers[i+1].rss_size);
+		if (PyDict_SetItemString(worker_dict, "rss", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyInt_FromLong(uwsgi.workers[i+1].vsz_size);
+		if (PyDict_SetItemString(worker_dict, "vsz", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+	}
+
+
+	Py_INCREF(uwsgi.workers_tuple);
+	return uwsgi.workers_tuple;
+
+clear:
+	PyErr_Print();
+	PyErr_Clear();
+	Py_INCREF(Py_None);
+	return Py_None;
+
+}
+
+/* uWSGI reload */
+PyObject *py_uwsgi_reload(PyObject *self, PyObject *args) {
+	
+	if (kill(uwsgi.workers[0].pid, SIGHUP)) {
+		perror("kill()");
+		Py_INCREF(Py_None);
+        	return Py_None;
+	}
+
+	Py_INCREF(Py_True);
+       	return Py_True;
+}
+
 
 static PyMethodDef uwsgi_spooler_methods[] = {
   {"send_to_spooler", py_uwsgi_send_spool, METH_VARARGS, ""},
@@ -585,6 +672,10 @@ static PyMethodDef uwsgi_spooler_methods[] = {
 static PyMethodDef uwsgi_advanced_methods[] = {
   {"send_uwsgi_message", py_uwsgi_send_message, METH_VARARGS, ""},
   {"send_multi_uwsgi_message", py_uwsgi_send_multi_message, METH_VARARGS, ""},
+  {"reload", py_uwsgi_reload, METH_VARARGS, ""},
+  {"workers", py_uwsgi_workers, METH_VARARGS, ""},
+  {"masterpid", py_uwsgi_masterpid, METH_VARARGS, ""},
+  {"total_requests", py_uwsgi_total_requests, METH_VARARGS, ""},
   {NULL, NULL},
 };
 

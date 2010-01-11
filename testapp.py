@@ -85,6 +85,61 @@ def djangohomepage():
 	print "ciao", a
 	yield str(a)
 
+def reload(env, start_response):
+
+	start_response('200 OK', [('Content-Type', 'text/html')])
+	#uwsgi.reload()
+
+#	print str(uwsgi.masterpid()) + "\n"
+
+#	print "i am python"
+	#yo()
+
+#	yield "python"
+
+	#print 4/0
+
+#	yield str(uwsgi.masterpid())
+
+	#print uwsgi.pippo
+
+	#print 4/0
+#	try:
+#		print 4/0
+#	
+#		print uwsgi.pippo
+#	except:
+#		print "bah"
+
+#	print "ok"
+
+#	yield 4/0
+
+	out = '<h1>uWSGI status</h1>' ;
+	out += 'masterpid: <b>' + str(uwsgi.masterpid()) + '</b><br/>'
+
+	out += 'started on: <b>' + time.ctime(uwsgi.started_on) + '</b><br/>'
+
+	out += 'buffer size: <b>' + str(uwsgi.buffer_size) + '</b><br/>'
+
+	out += 'total_requests: <b>' + str(uwsgi.total_requests()) + '</b><br/>'
+
+	out += 'workers: <b>' + str(uwsgi.numproc) + '</b><br/>'
+
+	out += '<table border="1">'
+	out += '<th>worker id</th><th>pid</th><th>requests</th><th>address space</th><th>rss</th>'
+
+	workers = uwsgi.workers();
+
+	for w in workers:
+		print w
+		if w is not None:
+			out += '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
+	
+	out += '</table>'
+
+	yield out
+	print "FATTOfattoFATTO"
 
 def remotemako(env, start_response):
 	start_response('200 OK', [('Content-Type', 'text/html')])
@@ -107,7 +162,7 @@ uwsgi.fastfuncs.insert(17, djangohomepage)
 #djangoapp = django.core.handlers.wsgi.WSGIHandler()
 
 #applications = { '/':django.core.handlers.wsgi.WSGIHandler() }
-uwsgi.applications = { '/':remotemako }
+uwsgi.applications = { '/':reload }
 
 print uwsgi.applications
 print uwsgi.applist
