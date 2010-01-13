@@ -758,7 +758,7 @@ int main(int argc, char *argv[], char *envp[]) {
 \t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
 \t--pidfile <file>\t\twrite the masterpid to <file>\n\
 \t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
-\t--no-server\t\t\tinitialize teh uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
+\t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
 				exit(1);
 			case 0:
