@@ -730,7 +730,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifndef UNBIT
 			case 'h':
 				fprintf(stderr, "Usage: %s [options...]\n\
-\t-s|--server <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
+\t-s|--socket <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
 \t-l|--listen <num>\t\tset socket listen queue to <n> (default 64, maximum is system dependent)\n\
 \t-z|--socket-timeout <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
 \t-b|--buffer-size <n>\t\tset buffer size to <n> bytes\n\
