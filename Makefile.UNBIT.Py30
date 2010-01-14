@@ -1,30 +1,11 @@
 CC=gcc
 
-PYBASE=/opt/packages/python/30
-
-PATH := ${PATH}:$(PYBASE)/bin
-
-LD_LIBRARY_PATH= $(PYBASE)/lib
-export LD_LIBRARY_PATH
-
 PYTHON_CFLAGS=`python3.0-config --cflags`
 PYTHON_LIBS=`python3.0-config --libs`
 
-CFLAGS=$(PYTHON_CFLAGS) -DUNBIT -D_GNU_SOURCE -DPYTHREE
-LD_FLAGS=$(PYTHON_LIBS) -DUNBIT -D_GNU_SOURCE -DPYTHREE -L $(LD_LIBRARY_PATH)
+CFLAGS=$(PYTHON_CFLAGS) -DUNBIT -D_GNU_SOURCE
+LD_FLAGS=$(PYTHON_LIBS) -DUNBIT -D_GNU_SOURCE
 
 PROGRAM=/usr/share/unbit/uwsgi30
 
-all:    clean uwsgi
-
-uwsgi:  utils.o main.o
-	$(CC) $(LD_FLAGS) main.o utils.o -o $(PROGRAM)
-
-utils.o: utils.c
-	$(CC) -c $(CFLAGS) utils.c
-
-main.o: uwsgi.c
-	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
-        
-clean:
-	rm -f utils.o main.o
+include base.mk

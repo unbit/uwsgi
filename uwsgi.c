@@ -273,7 +273,7 @@ PyObject *py_uwsgi_write(PyObject *self, PyObject *args) {
 	if (save_to_disk >= 0) {
 		close(save_to_disk);
 		save_to_disk = -1 ;
-		fprintf(stderr,"[uWSGI cacher] output of request %d (%.*s) on pid %d written to cache file %s\n",uwsgi.workers[0].requests, wsgi_req.uri_len, wsgi_req.uri, uwsgi.mypid,tmp_filename);
+		fprintf(stderr,"[uWSGI cacher] output of request %llu (%.*s) on pid %d written to cache file %s\n",uwsgi.workers[0].requests, wsgi_req.uri_len, wsgi_req.uri, uwsgi.mypid,tmp_filename);
 	}
 #endif
         Py_INCREF(Py_None);
@@ -1949,7 +1949,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					else if (save_to_disk >= 0) {
 						close(save_to_disk);
 						save_to_disk = -1 ;
-						fprintf(stderr,"[uWSGI cacher] output of request %d (%.*s) on pid %d written to cache file %s\n",uwsgi.workers[0].requests+1, wsgi_req.uri_len, wsgi_req.uri, uwsgi.mypid,tmp_filename);
+						fprintf(stderr,"[uWSGI cacher] output of request %llu (%.*s) on pid %d written to cache file %s\n",uwsgi.workers[0].requests+1, wsgi_req.uri_len, wsgi_req.uri, uwsgi.mypid,tmp_filename);
 					}
 #endif
                                         Py_DECREF(wsgi_chunks);

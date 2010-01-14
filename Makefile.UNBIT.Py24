@@ -8,19 +8,4 @@ LD_FLAGS=$(PYTHON_LIBS) -DUNBIT -D_GNU_SOURCE
 
 PROGRAM=/usr/share/unbit/uwsgi24
 
-all:	clean uwsgi
-
-uwsgi:	utils.o pymodule.o main.o
-	$(CC) $(LD_FLAGS) main.o utils.o pymodule.o -o $(PROGRAM)
-
-utils.o: utils.c
-	$(CC) -c $(CFLAGS) utils.c
-
-pymodule.o: uwsgi_pymodule.c
-	$(CC) -c $(CFLAGS) -o pymodule.o uwsgi_pymodule.c
-
-main.o:	uwsgi.c
-	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
-	
-clean:
-	rm -f utils.o pymodule.o main.o
+include base.mk
