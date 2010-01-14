@@ -1114,31 +1114,40 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	/* save the masterpid */
 	uwsgi.workers[0].pid = masterpid ;
-        for(i=1;i<uwsgi.numproc+1;i++) {
-		/* let the worker know his worker_id (wid) */
-                pid = fork();
-                if (pid == 0 ) {
-                        uwsgi.mypid = getpid();
-			uwsgi.mywid = i;
-			if (serverfd != 0 && uwsgi.master_process == 1) {
-				/* close STDIN for workers */
-				close(0);
-			}
-                        break;
-                }
-                else if (pid < 1) {
-                        perror("fork()");
-                        exit(1);
-                }
-                else {
-                        fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
-			uwsgi.workers[i].pid = pid ;
-			uwsgi.workers[i].id = i ;
+
+	if (!uwsgi.master_process && uwsgi.numproc == 1) {
+                        fprintf(stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n",  masterpid);
+			uwsgi.workers[1].pid = masterpid ;
+			uwsgi.workers[1].id = 1 ;
 			gettimeofday(&last_respawn, NULL) ;
 			respawn_delta = last_respawn.tv_sec;
-                }
-        }
-
+	}
+	else {
+        	for(i=1;i<uwsgi.numproc+1;i++) {
+			/* let the worker know his worker_id (wid) */
+                	pid = fork();
+                	if (pid == 0 ) {
+                        	uwsgi.mypid = getpid();
+				uwsgi.mywid = i;
+				if (serverfd != 0 && uwsgi.master_process == 1) {
+					/* close STDIN for workers */
+					close(0);
+				}
+                        	break;
+                	}
+                	else if (pid < 1) {
+                        	perror("fork()");
+                        	exit(1);
+                	}
+                	else {
+                        	fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
+				uwsgi.workers[i].pid = pid ;
+				uwsgi.workers[i].id = i ;
+				gettimeofday(&last_respawn, NULL) ;
+				respawn_delta = last_respawn.tv_sec;
+                	}
+        	}
+	}
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 		/* route signals to workers... */
