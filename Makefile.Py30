@@ -1,0 +1,13 @@
+CC=gcc
+
+PYTHON_CFLAGS=`python3.0-config --cflags`
+PYTHON_LIBS=`python3.0-config --libs`
+XML_CFLAGS=`xml2-config --cflags`
+XML_LIBS=`xml2-config --libs`
+
+CFLAGS=$(PYTHON_CFLAGS) $(XML_CFLAGS)
+LD_FLAGS=$(PYTHON_LIBS) $(XML_LIBS)
+
+PROGRAM=uwsgi30
+
+include base.mk

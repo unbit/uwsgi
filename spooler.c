@@ -1,3 +1,4 @@
+#ifndef ROCK_SOLID
 #include "uwsgi.h"
 
 #include <dirent.h>
@@ -286,3 +287,5 @@ retry_later:
 		sleep(5);
 	}
 }
+
+#endif

@@ -55,6 +55,15 @@
 
 
 #include <Python.h>
+
+#if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
+	#define Py_ssize_t int
+#endif
+
+#if PY_MAJOR_VERSION > 2
+	#define PYTHREE
+#endif
+
 PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
 PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 

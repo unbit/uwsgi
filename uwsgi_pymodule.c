@@ -1,3 +1,5 @@
+#ifndef ROCK_SOLID
+
 #include "uwsgi.h"
 
 char *spool_buffer = NULL ;
@@ -753,3 +755,5 @@ void init_uwsgi_module_sharedarea(PyObject *current_uwsgi_module) {
         	Py_DECREF(func);
         }
 }
+
+#endif

@@ -57,10 +57,14 @@ in particular)
 struct uwsgi_server uwsgi;
 
 static char *nl = "\r\n";
+#ifndef ROCK_SOLID
 static char *empty = "";
+#endif
 static char *h_sep = ": " ;
 static const char *http_protocol = "HTTP/1.1" ;
+#ifndef ROCK_SOLID
 static const char *app_slash = "/" ;
+#endif
 
 int find_worker_id(pid_t pid) {
 	int i ;
@@ -295,13 +299,24 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 
         // use writev()
 
+
         head = PyTuple_GetItem(args,0) ;
+	if (!head) {
+		goto clear;
+	}
+	
+	if (!PyString_Check(head)) {
+		fprintf(stderr,"http status must be a string !\n");
+		goto clear;
+	}
+
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 	if (uwsgi.cgi_mode == 0) {
 		base = 4 ;
 #endif
 #endif
+
 
 		if (wsgi_req.protocol_len == 0) {
         		hvec[0].iov_base = (char * )http_protocol ;
@@ -310,6 +325,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 		else {
         		hvec[0].iov_base = wsgi_req.protocol ;
 		}
+
         	hvec[0].iov_len = wsgi_req.protocol_len ;
         	hvec[1].iov_base = " " ;
         	hvec[1].iov_len = 1 ;
@@ -345,6 +361,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 #endif
 #endif
 
+
 #ifdef UNBIT
 	if (wsgi_req.unbit_flags & (unsigned long long) 1) {
 		if (tmp_dir_fd >= 0 && tmp_filename[0] != 0 && wsgi_req.status == 200 && wsgi_req.method_len == 3 && wsgi_req.method[0] == 'G' && wsgi_req.method[1] == 'E' && wsgi_req.method[2] == 'T') {
@@ -355,6 +372,13 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 
         
         headers = PyTuple_GetItem(args,1) ;
+	if (!headers) {
+		goto clear;
+	}	
+	if (!PyList_Check(headers)) {
+		fprintf(stderr,"http headers must be in a python list\n");
+		goto clear;
+	}
         wsgi_req.header_cnt = PyList_Size(headers) ;
 
 
@@ -365,8 +389,17 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
         for(i=0;i<wsgi_req.header_cnt;i++) {
                 j = (i*4)+base ;
                 head = PyList_GetItem(headers, i);
+		if (!head) {
+			goto clear;
+		}
+		if (!PyTuple_Check(head)) {
+			fprintf(stderr,"http header must be defined in a tuple !\n");
+			goto clear;
+		}
                 h_key = PyTuple_GetItem(head,0) ;
+		if (!h_key) { goto clear; }
                 h_value = PyTuple_GetItem(head,1) ;
+		if (!h_value) { goto clear; }
 #ifdef PYTHREE
 		hvec[j].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_key)) ;
                 hvec[j].iov_len = strlen(hvec[j].iov_base);
@@ -411,7 +444,13 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 	}
         Py_INCREF(wsgi_writeout);
 
+
         return wsgi_writeout ;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 
@@ -442,7 +481,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	struct timeval check_interval = {.tv_sec = 1, .tv_usec = 0 };
 	
 #ifndef PYTHREE
+#ifndef ROCK_SOLID
 	PyObject *uwsgi_module;
+#endif
 #endif
         PyObject *wsgi_result, *wsgi_chunks, *wchunk;
         PyObject *zero, *wsgi_socket;
@@ -453,7 +494,10 @@ int main(int argc, char *argv[], char *envp[]) {
         FILE *wsgi_file;
         struct sockaddr_un c_addr ;
         int c_len = sizeof(struct sockaddr_un);
-        int rlen,i ;
+        int i ;
+#ifndef ROCK_SOLID
+	int rlen;
+#endif
         pid_t pid ;
 	int no_server = 0 ;
 
@@ -785,6 +829,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 #endif
+
+#ifdef PYTHREE
+	fprintf(stderr,"*** Warning Python3.x support is experimental, do not use it in production environment ***\n");
+#endif
 	
 #ifdef __linux__
 	if (!getrlimit(RLIMIT_AS, &rl)) {
@@ -845,6 +893,7 @@ int main(int argc, char *argv[], char *envp[]) {
         wsgi_writeout = PyCFunction_New(uwsgi_write_method,NULL) ;
 
 #ifndef PYTHREE
+#ifndef ROCK_SOLID
 	uwsgi_module = Py_InitModule("uwsgi", null_methods);
         if (uwsgi_module == NULL) {
 		fprintf(stderr,"could not initialize the uwsgi python module\n");
@@ -892,6 +941,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	init_uwsgi_embedded_module();
+#endif
 #endif
 
 
@@ -1037,6 +1087,8 @@ int main(int argc, char *argv[], char *envp[]) {
         uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid ;
 
+#ifndef ROCK_SOLID
+#ifndef UNBIT
 	if (uwsgi.pidfile) {
 		fprintf(stderr,"writing pidfile to %s\n", uwsgi.pidfile);
 		pidfile = fopen(uwsgi.pidfile, "w");
@@ -1049,6 +1101,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		fclose(pidfile);
 	}
+#endif
+#endif
 
 	if (uwsgi.buffer_size > 65536) {
 		fprintf(stderr,"invalid buffer size.\n");
@@ -1107,9 +1161,11 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 #ifndef ROCK_SOLID
+#ifndef PYTHREE
 	if (spool_dir != NULL) {
 		spooler_pid = spooler_start(serverfd, uwsgi_module);
 	}
+#endif
 #endif
 
 	/* save the masterpid */
@@ -1156,7 +1212,11 @@ int main(int argc, char *argv[], char *envp[]) {
         	signal(SIGINT, (void *) &kill_them_all);
         	signal(SIGQUIT, (void *) &kill_them_all);
 		/* used only to avoid human-errors */
+#ifndef ROCK_SOLID
+#ifndef UNBIT
 		signal(SIGUSR1, (void *) &stats);
+#endif
+#endif
 		for(;;) {
 			if (ready_to_die >= uwsgi.numproc) {
 #ifndef ROCK_SOLID
@@ -1209,14 +1269,18 @@ int main(int argc, char *argv[], char *envp[]) {
 				/* PLEASE, do not run python threads in the master process, you can potentially destroy the world,
 				 we support this for hyperultramegagodprogrammer and systems
 				*/
+#ifndef ROCK_SOLID
         			if (uwsgi.has_threads) {
                 			_save = PyEval_SaveThread();
         			}
+#endif
 				/* all processes ok, doing status scan after 1 second */
 				select(0, NULL, NULL, NULL, &check_interval);
+#ifndef ROCK_SOLID
                                 if (uwsgi.has_threads) {
                                 	PyEval_RestoreThread(_save);
                                 }
+#endif
 				check_interval.tv_sec = 1 ;
 				for(i=1;i<=uwsgi.numproc;i++) {
 					/* first check for harakiri */
@@ -1232,6 +1296,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				continue;
 			}
 #ifndef ROCK_SOLID
+#ifndef PYTHREE
 			/* reload the spooler */
 			if (spool_dir && spooler_pid > 0) {
 				if (diedpid == spooler_pid) {
@@ -1239,6 +1304,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					continue;
 				}
 			}
+#endif
 #endif
 			/* check for reloading */
 			if (WIFEXITED(waitpid_status)) {
@@ -1318,9 +1384,11 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 
+#ifndef ROCK_SOLID
         if (uwsgi.has_threads) {
                 _save = PyEval_SaveThread();
         }
+#endif
 
         while(uwsgi.manage_next_request) {
 
@@ -1357,6 +1425,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi.workers[0].requests++; uwsgi.workers[uwsgi.mywid].requests++;
 			continue;
 		}
+#ifndef ROCK_SOLID
 		else if (wsgi_req.modifier == UWSGI_MODIFIER_FASTFUNC) {
 			zero = PyList_GetItem(uwsgi.fastfuncslist, wsgi_req.modifier_arg) ;
 			if (zero) {
@@ -1479,6 +1548,9 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi.workers[0].requests++; uwsgi.workers[uwsgi.mywid].requests++;
 			continue;	
 		}	
+#endif
+
+		else if (!wsgi_req.modifier || wsgi_req.modifier == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
 
 		/* Standard WSGI request */
 
@@ -1616,6 +1688,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         PyEval_RestoreThread(_save);
                 }
 #endif
+
 
                 wsgi_file = fdopen(uwsgi.poll.fd,"r") ;
 
@@ -1804,6 +1877,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 
+
                 if (wsgi_result) {
 
 #ifndef ROCK_SOLID
@@ -1904,8 +1978,8 @@ int main(int argc, char *argv[], char *envp[]) {
 			// restoring main interpreter
                 	PyThreadState_Swap(uwsgi.main_thread);
 		}
-clean:
 #endif
+clean:
                 fclose(wsgi_file);
 #ifndef ROCK_SOLID
                 if (uwsgi.has_threads) {
@@ -1947,6 +2021,11 @@ clean:
 			}
 		}
 #endif
+
+		}
+		else {
+			fprintf(stderr,"Unsupported uwsgi modifier requested: %d\n", wsgi_req.modifier);
+		}
 
         }
 
@@ -2013,7 +2092,7 @@ void log_request() {
 	uwsgi.workers[uwsgi.mywid].running_time += (double) (( (double)microseconds-(double)microseconds2)/ (double)1000.0) ;
 
 #ifdef ROCK_SOLID
-        fprintf(stderr, "[pid: %d|req: %d] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs (%.*s %d) %d headers in %d bytes\n",
+        fprintf(stderr, "[pid: %d|req: %llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs (%.*s %d) %d headers in %d bytes\n",
                 uwsgi.mypid, uwsgi.workers[0].requests, wsgi_req.remote_addr_len, wsgi_req.remote_addr,
                 wsgi_req.remote_user_len, wsgi_req.remote_user, wsgi_req.var_cnt, wsgi_req.size, 24, time_request,
                 wsgi_req.method_len, wsgi_req.method, wsgi_req.uri_len, wsgi_req.uri, wsgi_req.response_size, 
@@ -2379,7 +2458,9 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 void uwsgi_wsgi_config() {
 
 	PyObject *wsgi_module, *wsgi_dict ;
+#ifndef PYTHREE
 	PyObject *uwsgi_module, *uwsgi_dict ;
+#endif
 	PyObject *applications;
 	PyObject *app_list;
 	int ret;
@@ -2400,6 +2481,7 @@ void uwsgi_wsgi_config() {
 
 	fprintf(stderr,"...getting the applications list from the '%s' module...\n", uwsgi.wsgi_config);
 
+#ifndef PYTHREE
 	uwsgi_module = PyImport_ImportModule("uwsgi") ;
         if (!uwsgi_module) {
         	PyErr_Print();
@@ -2417,6 +2499,7 @@ void uwsgi_wsgi_config() {
 	applications = PyDict_GetItemString(uwsgi_dict, "applications");
 	if (!PyDict_Check(applications)) {
 		fprintf(stderr,"uwsgi.applications dictionary is not defined, trying with the (deprecated) \"applications\" one...\n");
+#endif
 		applications = PyDict_GetItemString(wsgi_dict, "applications");
 		if (!applications) {
 			fprintf(stderr,"applications dictionary is not defined, trying with the \"application\" callable.\n");
@@ -2438,7 +2521,9 @@ void uwsgi_wsgi_config() {
 				return ;
 			}
 		}
+#ifndef PYTHREE
 	}
+#endif
 
 	if (!PyDict_Check(applications)) {
 		fprintf(stderr,"The 'applications' object must be a dictionary.\n");
@@ -2627,6 +2712,7 @@ int uri_to_hex()
 #endif
 
 #ifndef PYTHREE
+#ifndef ROCK_SOLID
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module, *zero;
 	int i ;
@@ -2683,7 +2769,6 @@ void init_uwsgi_embedded_module() {
 	}
 
 
-#ifndef ROCK_SOLID
 	if (PyDict_SetItemString(uwsgi.embedded_dict, "applist", uwsgi.py_apps)) {
 		PyErr_Print();
 		exit(1);
@@ -2693,7 +2778,6 @@ void init_uwsgi_embedded_module() {
 		PyErr_Print();
 		exit(1);
 	}
-#endif
 
 	uwsgi.embedded_args = PyTuple_New(2);
 	if (!uwsgi.embedded_args) {
@@ -2723,6 +2807,7 @@ void init_uwsgi_embedded_module() {
 		init_uwsgi_module_sharedarea(new_uwsgi_module);
 	}
 }
+#endif
 #endif
 
 #ifndef ROCK_SOLID
