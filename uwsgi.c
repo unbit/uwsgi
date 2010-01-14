@@ -1886,7 +1886,7 @@ int main(int argc, char *argv[], char *envp[]) {
                                 if (rlen > 0) {
                                         lseek(wsgi_req.sendfile_fd, 0, SEEK_SET) ;
 #ifndef __linux__
-	#ifdef __freebsd__
+	#ifdef __FreeBSD__
 
 					wsgi_req.response_size = sendfile(wsgi_req.sendfile_fd, uwsgi.poll.fd, 0, 0, NULL, (off_t *) &rlen, 0) ;
 	#elif __OpenBSD__ || __sun__
