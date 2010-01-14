@@ -69,6 +69,9 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 
 #define LONG_ARGS_PIDFILE	17001
+#define LONG_ARGS_CHROOT	17002
+#define LONG_ARGS_GID		17003
+#define LONG_ARGS_UID		17004
 
 #ifdef __linux__
 #include <endian.h>
@@ -145,6 +148,11 @@ struct uwsgi_server {
 	int wsgi_cnt;
 	int default_app;
 	int enable_profiler;
+#ifndef UNBIT
+	char *chroot;
+	gid_t gid;
+	uid_t uid;
+#endif
 #endif
 	int manage_next_request;
 	int in_request;

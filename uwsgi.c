@@ -599,6 +599,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"disable-logging", no_argument, 0, 'L'},
 
 		{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
+		{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
+		{"gid", required_argument, 0, LONG_ARGS_GID},
+		{"uid", required_argument, 0, LONG_ARGS_UID},
 		{"sync-log", no_argument, &uwsgi.synclog, 1},
 		{"no-server", no_argument, &no_server, 1},
 		{0, 0, 0, 0}
@@ -644,6 +647,15 @@ int main(int argc, char *argv[], char *envp[]) {
                 switch(i) {
 			case LONG_ARGS_PIDFILE:
 				uwsgi.pidfile = optarg;
+				break;
+			case LONG_ARGS_CHROOT:
+				uwsgi.chroot = optarg;
+				break;
+			case LONG_ARGS_GID:
+				uwsgi.gid = atoi(optarg);
+				break;
+			case LONG_ARGS_UID:
+				uwsgi.uid = atoi(optarg);
 				break;
 			case 'j':
 				uwsgi.test_module = optarg;
@@ -801,6 +813,9 @@ int main(int argc, char *argv[], char *envp[]) {
 \t-j|--test\t\t\ttest if uWSGI can import a module\n\
 \t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
 \t--pidfile <file>\t\twrite the masterpid to <file>\n\
+\t--chroot <dir>\t\t\tchroot to directory <dir> (only root)\n\
+\t--gid <id>\t\t\tsetgid to <id> (only root)\n\
+\t--uid <id>\t\t\tsetuid to <id> (only root)\n\
 \t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
 \t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
@@ -833,6 +848,36 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef PYTHREE
 	fprintf(stderr,"*** Warning Python3.x support is experimental, do not use it in production environment ***\n");
 #endif
+
+	if (!getuid()) {
+		fprintf(stderr,"uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+		if (uwsgi.chroot) {
+			fprintf(stderr,"chroot() to %s\n", uwsgi.chroot);
+			if (chroot(uwsgi.chroot)) {
+				perror("chroot()");
+				exit(1);
+			}
+		}
+		if (uwsgi.gid) {
+			fprintf(stderr,"setgid() to %d\n", uwsgi.gid);
+			if (setgid(uwsgi.gid)) {
+				perror("setgid()");
+				exit(1);
+			}
+		}
+		if (uwsgi.uid) {
+			fprintf(stderr,"setuid() to %d\n", uwsgi.uid);
+			if (setuid(uwsgi.uid)) {
+				perror("setuid()");
+				exit(1);
+			}
+		}
+	}
+	else {
+		if (uwsgi.chroot) { fprintf(stderr,"cannot chroot() as non-root user\n"); exit(1); }
+		if (uwsgi.gid) { fprintf(stderr,"cannot setgid() as non-root user\n"); exit(1); }
+		if (uwsgi.uid) { fprintf(stderr,"cannot setuid() as non-root user\n"); exit(1); }
+	}
 	
 #ifdef __linux__
 	if (!getrlimit(RLIMIT_AS, &rl)) {
