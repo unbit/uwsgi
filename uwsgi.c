@@ -857,6 +857,11 @@ int main(int argc, char *argv[], char *envp[]) {
 				perror("chroot()");
 				exit(1);
 			}
+#ifdef __linux__
+			if (uwsgi.memory_debug) {
+				fprintf(stderr,"*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
+			}			
+#endif
 		}
 		if (uwsgi.gid) {
 			fprintf(stderr,"setgid() to %d\n", uwsgi.gid);
