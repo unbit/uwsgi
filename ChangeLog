@@ -1,3 +1,19 @@
+*** january 2010 ***
+
+- Integrated Spooler
+- better error management
+- long options
+- clustering functions
+- lighttpd module
+- official support for OpenBSD and OpenSolaris
+- FastFuncs
+- new functions for embedded module
+- reliable harakiri
+- better Makefiles
+- proper timeotu handling in apache2 module
+- endianess fixes all over the place
+- lot of bugfixes and optimizations
+
 *** 20091129 Version 0.9.3 ***
 
 - Nginx 0.7.x module
