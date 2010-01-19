@@ -72,6 +72,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_CHROOT	17002
 #define LONG_ARGS_GID		17003
 #define LONG_ARGS_UID		17004
+#define LONG_ARGS_PYTHONPATH	17005
 
 #ifdef __linux__
 #include <endian.h>

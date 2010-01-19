@@ -602,6 +602,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
 		{"gid", required_argument, 0, LONG_ARGS_GID},
 		{"uid", required_argument, 0, LONG_ARGS_UID},
+		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"sync-log", no_argument, &uwsgi.synclog, 1},
 		{"no-server", no_argument, &no_server, 1},
 		{0, 0, 0, 0}
@@ -656,6 +657,10 @@ int main(int argc, char *argv[], char *envp[]) {
 				break;
 			case LONG_ARGS_UID:
 				uwsgi.uid = atoi(optarg);
+				break;
+			case LONG_ARGS_PYTHONPATH:
+				uwsgi.python_path[0] = optarg;
+				uwsgi.python_path_cnt = 1;
 				break;
 			case 'j':
 				uwsgi.test_module = optarg;
@@ -818,6 +823,7 @@ int main(int argc, char *argv[], char *envp[]) {
 \t--uid <id>\t\t\tsetuid to <id> (only root)\n\
 \t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
 \t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
+\t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
 				exit(1);
 			case 0:
@@ -2238,6 +2244,9 @@ void init_uwsgi_vars() {
         	if (PyList_Insert(pypath,0,PyString_FromString(uwsgi.python_path[i])) != 0) {
                 	PyErr_Print();
 		}
+		else {
+			fprintf(stderr, "added %s to pythonpath.\n", uwsgi.python_path[i]);
+		}
 	}
 #endif
 #endif
@@ -2684,7 +2693,6 @@ void uwsgi_xml_config() {
 					uwsgi.python_path[uwsgi.python_path_cnt] = malloc( strlen((char *)node->children->content) + 1 );
 					memset(uwsgi.python_path[uwsgi.python_path_cnt], 0, strlen( (char *) node->children->content) + 1);
 					strcpy(uwsgi.python_path[uwsgi.python_path_cnt], (char *) node->children->content);
-					fprintf(stderr, "added %s to pythonpath.\n", uwsgi.python_path[uwsgi.python_path_cnt]);
 					uwsgi.python_path_cnt++;
 				}
 				else {
