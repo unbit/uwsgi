@@ -603,6 +603,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"gid", required_argument, 0, LONG_ARGS_GID},
 		{"uid", required_argument, 0, LONG_ARGS_UID},
 		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
+		{"paste", required_argument, 0, LONG_ARGS_PASTE},
 		{"sync-log", no_argument, &uwsgi.synclog, 1},
 		{"no-server", no_argument, &no_server, 1},
 		{0, 0, 0, 0}
@@ -661,6 +662,10 @@ int main(int argc, char *argv[], char *envp[]) {
 			case LONG_ARGS_PYTHONPATH:
 				uwsgi.python_path[0] = optarg;
 				uwsgi.python_path_cnt = 1;
+				break;
+			case LONG_ARGS_PASTE:
+                                uwsgi.single_interpreter = 1;
+				uwsgi.paste = optarg;
 				break;
 			case 'j':
 				uwsgi.test_module = optarg;
@@ -823,6 +828,7 @@ int main(int argc, char *argv[], char *envp[]) {
 \t--uid <id>\t\t\tsetuid to <id> (only root)\n\
 \t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
 \t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
+\t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\
 \t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
 				exit(1);
@@ -1132,6 +1138,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_xml_config();
 	}
 #endif
+#endif
+
+#ifndef ROCK_SOLID
+	else if (uwsgi.paste != NULL) {
+		uwsgi_paste_config();
+	}
 #endif
 
 	if (uwsgi.test_module != NULL) {
@@ -1895,7 +1907,12 @@ int main(int argc, char *argv[], char *envp[]) {
                 PyDict_SetItemString(wi->wsgi_environ, "wsgi.run_once", Py_False);
 
                 PyDict_SetItemString(wi->wsgi_environ, "wsgi.multithread", Py_False);
-                PyDict_SetItemString(wi->wsgi_environ, "wsgi.multiprocess", Py_True);
+		if (uwsgi.numproc == 1) {
+                	PyDict_SetItemString(wi->wsgi_environ, "wsgi.multiprocess", Py_False);
+		}
+		else {
+                	PyDict_SetItemString(wi->wsgi_environ, "wsgi.multiprocess", Py_True);
+		}
 
                 zero = PyString_FromString("http") ;
                 PyDict_SetItemString(wi->wsgi_environ, "wsgi.url_scheme", zero);
@@ -2295,6 +2312,7 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		}
 	}
 
+
 	zero = PyString_FromStringAndSize(wsgi_req.script_name, wsgi_req.script_name_len);
 	if (!zero) {
 		Py_FatalError("cannot get mountpoint python object !\n");
@@ -2326,7 +2344,12 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		fprintf(stderr,"interpreter for app %d initialized.\n", id);
 	}
 
+	if (uwsgi.paste) {
+		wi->wsgi_callable = my_callable ;
+		Py_INCREF(my_callable);
+	}
 
+	else {
 
 	if (uwsgi.wsgi_config == NULL) {
         	if (wsgi_req.wsgi_script_len > 0) {
@@ -2385,6 +2408,8 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
 		return -1;
 	}
 
+	}
+
 
         if (!wi->wsgi_callable) {
                 PyErr_Print();
@@ -2406,10 +2431,13 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
                 return -1 ;
         }
 
-	wi->wsgi_harakiri = PyDict_GetItemString(wsgi_dict, "harakiri");
-	if (wi->wsgi_harakiri) {
-		fprintf(stderr, "initialized Harakiri custom handler: %p.\n", wi->wsgi_harakiri);
+	if (wsgi_dict) {
+		wi->wsgi_harakiri = PyDict_GetItemString(wsgi_dict, "harakiri");
+		if (wi->wsgi_harakiri) {
+			fprintf(stderr, "initialized Harakiri custom handler: %p.\n", wi->wsgi_harakiri);
+		}
 	}
+
 
 
 	if (uwsgi.enable_profiler) {
@@ -2516,6 +2544,48 @@ int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
         return id ;
 }
 
+void uwsgi_paste_config() {
+	PyObject *paste_module, *paste_dict, *paste_loadapp;
+	PyObject *paste_arg, *paste_app ;
+
+	fprintf(stderr,"Loading paste environment: %s\n", uwsgi.paste);
+	paste_module = PyImport_ImportModule("paste.deploy");
+	if (!paste_module) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	paste_dict = PyModule_GetDict(paste_module);
+	if (!paste_dict) {
+                PyErr_Print();
+                exit(1);
+        }
+
+	paste_loadapp = PyDict_GetItemString(paste_dict, "loadapp");
+	if (!paste_loadapp) {
+                PyErr_Print();
+                exit(1);
+	}
+
+	paste_arg = PyTuple_New(1);
+	if (!paste_arg) {
+                PyErr_Print();
+                exit(1);
+	}
+
+	if (PyTuple_SetItem(paste_arg, 0 , PyString_FromString(uwsgi.paste))) {
+                PyErr_Print();
+                exit(1);
+	}
+
+	paste_app = PyEval_CallObject(paste_loadapp, paste_arg);
+	if (!paste_app) {
+                PyErr_Print();
+                exit(1);
+	}
+
+	init_uwsgi_app(NULL, paste_app);
+}
 
 void uwsgi_wsgi_config() {
 

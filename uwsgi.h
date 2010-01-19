@@ -73,6 +73,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_GID		17003
 #define LONG_ARGS_UID		17004
 #define LONG_ARGS_PYTHONPATH	17005
+#define LONG_ARGS_PASTE		17006
 
 #ifdef __linux__
 #include <endian.h>
@@ -206,6 +207,7 @@ struct uwsgi_server {
 
 #ifndef ROCK_SOLID
 	char *wsgi_config;
+	char *paste;
 #endif
 
 #ifndef ROCK_SOLID
@@ -333,6 +335,7 @@ void uwsgi_xml_config(void);
 
 #ifndef ROCK_SOLID
 void uwsgi_wsgi_config(void);
+void uwsgi_paste_config(void);
 #endif
 
 void init_uwsgi_module_sharedarea(PyObject *);
