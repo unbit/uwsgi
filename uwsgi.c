@@ -865,6 +865,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	fprintf(stderr,"*** Warning Python3.x support is experimental, do not use it in production environment ***\n");
 #endif
 
+
+#ifndef UNBIT
 	if (!getuid()) {
 		fprintf(stderr,"uWSGI running as root, you can use --uid/--gid/--chroot options\n");
 		if (uwsgi.chroot) {
@@ -873,12 +875,10 @@ int main(int argc, char *argv[], char *envp[]) {
 				perror("chroot()");
 				exit(1);
 			}
-#ifndef UNBIT
 #ifdef __linux__
 			if (uwsgi.memory_debug) {
 				fprintf(stderr,"*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
 			}			
-#endif
 #endif
 		}
 		if (uwsgi.gid) {
@@ -901,6 +901,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (uwsgi.gid) { fprintf(stderr,"cannot setgid() as non-root user\n"); exit(1); }
 		if (uwsgi.uid) { fprintf(stderr,"cannot setuid() as non-root user\n"); exit(1); }
 	}
+
+#endif
 	
 #ifdef __linux__
 	if (!getrlimit(RLIMIT_AS, &rl)) {
