@@ -647,6 +647,8 @@ int main(int argc, char *argv[], char *envp[]) {
         while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:L")) != -1) {
 #endif
                 switch(i) {
+#ifndef ROCK_SOLID
+#ifndef UNBIT
 			case LONG_ARGS_PIDFILE:
 				uwsgi.pidfile = optarg;
 				break;
@@ -663,10 +665,12 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi.python_path[0] = optarg;
 				uwsgi.python_path_cnt = 1;
 				break;
+#endif
 			case LONG_ARGS_PASTE:
                                 uwsgi.single_interpreter = 1;
 				uwsgi.paste = optarg;
 				break;
+#endif
 			case 'j':
 				uwsgi.test_module = optarg;
 				break;
