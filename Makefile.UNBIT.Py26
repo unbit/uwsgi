@@ -1,10 +1,14 @@
 CC=gcc
 
-PYTHON_CFLAGS=`python2.6-config --cflags`
-PYTHON_LIBS=`python2.6-config --libs`
+BASE=/opt/packages/python/26
+
+export LD_LIBRARY_PATH=$(BASE)/lib
+
+PYTHON_CFLAGS=`$(BASE)/bin/python2.6-config --cflags`
+PYTHON_LIBS=`$(BASE)/bin/python2.6-config --libs`
 
 CFLAGS=$(PYTHON_CFLAGS) -DUNBIT -D_GNU_SOURCE
-LD_FLAGS=$(PYTHON_LIBS) -DUNBIT -D_GNU_SOURCE
+LD_FLAGS=$(PYTHON_LIBS) -L$(BASE)/lib -DUNBIT -D_GNU_SOURCE
 
 PROGRAM=/usr/share/unbit/uwsgi26
 
