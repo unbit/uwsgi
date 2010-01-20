@@ -2278,7 +2278,7 @@ void init_uwsgi_vars() {
 
 #ifndef ROCK_SOLID
 int init_uwsgi_app(PyObject *force_wsgi_dict, PyObject *my_callable) {
-        PyObject *wsgi_module, *wsgi_dict ;
+        PyObject *wsgi_module, *wsgi_dict = NULL ;
 	PyObject *pymain, *zero;
 	PyObject *pycprof, *pycprof_dict;
         char tmpstring[256] ;
