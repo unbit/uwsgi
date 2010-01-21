@@ -913,6 +913,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.page_size = getpagesize();
 	fprintf(stderr,"your memory page size is %d bytes\n", uwsgi.page_size);
 
+#ifndef UNBIT
+	fprintf(stderr,"your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
+#endif
+
 	if (uwsgi.synclog) {
 		fprintf(stderr,"allocating a memory page for synced logging.\n");
 		uwsgi.sync_page = malloc(uwsgi.page_size);
