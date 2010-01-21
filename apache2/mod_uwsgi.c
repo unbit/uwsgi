@@ -96,9 +96,9 @@ static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, uint1
 
 #if APR_IS_BIGENDIAN
 	ptr = (char *) &vec[i+2].iov_len;
-	vec[i].iov_base = ptr+3 ;
+	vec[i].iov_base = ptr+sizeof(long)-1 ;
 	vec[i].iov_len = 1 ;
-	vec[i+1].iov_base = ptr+2 ;
+	vec[i+1].iov_base = ptr+sizeof(long)-2 ;
 	vec[i+1].iov_len = 1 ;
 #else
 	vec[i].iov_base = &vec[i+1].iov_len ;
@@ -116,9 +116,9 @@ static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, uint1
 
 #if APR_IS_BIGENDIAN
 	ptr = (char *) &vec[i+5].iov_len;
-        vec[i+3].iov_base = ptr+3 ;
+        vec[i+3].iov_base = ptr+sizeof(long)-1 ;
         vec[i+3].iov_len = 1 ;
-        vec[i+4].iov_base = ptr+2 ;
+        vec[i+4].iov_base = ptr+sizeof(long)-2 ;
         vec[i+4].iov_len = 1 ;
 #else
         vec[i+2].iov_base = &vec[i+3].iov_len ;

@@ -10,8 +10,10 @@
 - new functions for embedded module
 - reliable harakiri
 - better Makefiles
-- proper timeotu handling in apache2 module
+- proper timeout handling in apache2 module
 - endianess fixes all over the place
+- paste support
+- Django app for managing and monitoring the uWSGI server
 - lot of bugfixes and optimizations
 
 *** 20091129 Version 0.9.3 ***
