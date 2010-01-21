@@ -4,12 +4,13 @@
 - better error management
 - long options
 - clustering functions
-- lighttpd module
+- experimental lighttpd module
 - official support for OpenBSD and OpenSolaris
 - FastFuncs
 - new functions for embedded module
 - reliable harakiri
 - better Makefiles
+- python threads support in master process
 - proper timeout handling in apache2 module
 - endianess fixes all over the place
 - paste support
