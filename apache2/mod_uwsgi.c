@@ -76,16 +76,52 @@ typedef struct {
 
 module AP_MODULE_DECLARE_DATA uwsgi_module;
 
+#if APR_IS_BIGENDIAN
+static uint16_t uwsgi_swap16(uint16_t x) {
+	return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
+}
+#endif
+
 static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, uint16_t *pkt_size) {
 
-	vec[i].iov_base = &vec[i+1].iov_len ;
-	vec[i].iov_len = 2 ;
+
+#if APR_IS_BIGENDIAN
+	vec[i+2].iov_base = key ;
+	vec[i+2].iov_len = strlen(key) ;
+#else
 	vec[i+1].iov_base = key ;
 	vec[i+1].iov_len = strlen(key) ;
-	vec[i+2].iov_base = &vec[i+3].iov_len ;
-	vec[i+2].iov_len = 2 ;
-	vec[i+3].iov_base = value ;
-	vec[i+3].iov_len = strlen(value) ;
+#endif
+
+#if APR_IS_BIGENDIAN
+	vec[i].iov_base = &vec[i+1].iov_len[3] ;
+	vec[i].iov_len = 1 ;
+	vec[i+1].iov_base = &vec[i+1].iov_len[2] ;
+	vec[i+1].iov_len = 1 ;
+#else
+	vec[i].iov_base = &vec[i+1].iov_len ;
+	vec[i].iov_len = 2 ;
+#endif
+
+
+#if APR_IS_BIGENDIAN
+        vec[i+5].iov_base = value ;
+        vec[i+5].iov_len = strlen(key) ;
+#else
+        vec[i+3].iov_base = value ;
+        vec[i+3].iov_len = strlen(value) ;
+#endif
+
+#if APR_IS_BIGENDIAN
+        vec[i+3].iov_base = &vec[i+5].iov_len[3] ;
+        vec[i+3].iov_len = 1 ;
+        vec[i+4].iov_base = &vec[i+5].iov_len[2] ;
+        vec[i+4].iov_len = 1 ;
+#else
+        vec[i+2].iov_base = &vec[i+3].iov_len ;
+        vec[i+2].iov_len = 2 ;
+#endif
+
 
 	*pkt_size+= vec[i+1].iov_len + vec[i+3].iov_len + 4 ;
 
@@ -195,7 +231,11 @@ static int uwsgi_handler(request_rec *r) {
 
 	uwsgi_cfg *c = ap_get_module_config(r->per_dir_config, &uwsgi_module);
 
+#if APR_IS_BIGENDIAN
+	struct iovec uwsgi_vars[(MAX_VARS*6)+1] ;
+#else
 	struct iovec uwsgi_vars[(MAX_VARS*4)+1] ;
+#endif
 	int vecptr = 1 ;
 	char pkt_header[4];
 	uint16_t pkt_size = 0;
@@ -342,7 +382,13 @@ static int uwsgi_handler(request_rec *r) {
 	uwsgi_vars[0].iov_len = 4;
 
 	pkt_header[0] = c->modifier1 ;
+#if APR_IS_BIGENDIAN
+	pkt_size = uwsgi_swap16(pkt_size);
 	memcpy(pkt_header+1, &pkt_size, 2);
+	pkt_size = uwsgi_swap16(pkt_size);
+#else
+	memcpy(pkt_header+1, &pkt_size, 2);
+#endif
 	pkt_header[3] = c->modifier2 ;
 
 	cnt = writev( uwsgi_poll.fd, uwsgi_vars, vecptr );
