@@ -600,7 +600,6 @@ PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
 	for(i=0;i<uwsgi.numproc;i++) {
 		worker_dict = PyTuple_GetItem(uwsgi.workers_tuple, i) ;
 		if (!worker_dict) {
-			fprintf(stderr,"NON TROVO IL DICT %d\n", i);
 			goto clear;
 		}
 
@@ -638,6 +637,18 @@ PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
 
 		zero = PyFloat_FromDouble(uwsgi.workers[i+1].running_time);
 		if (PyDict_SetItemString(worker_dict, "running_time", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyLong_FromLong(uwsgi.workers[i+1].last_spawn);
+		if (PyDict_SetItemString(worker_dict, "last_spawn", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyLong_FromLong(uwsgi.workers[i+1].respawn_count);
+		if (PyDict_SetItemString(worker_dict, "respawn_count", zero)) {
                 	goto clear;
         	}
 		Py_DECREF(zero);

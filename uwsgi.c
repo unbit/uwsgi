@@ -1255,6 +1255,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         fprintf(stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n",  masterpid);
 			uwsgi.workers[1].pid = masterpid ;
 			uwsgi.workers[1].id = 1 ;
+			uwsgi.workers[1].last_spawn = time(NULL) ;
 			uwsgi.mywid = 1;
 			gettimeofday(&last_respawn, NULL) ;
 			respawn_delta = last_respawn.tv_sec;
@@ -1280,6 +1281,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         	fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
 				uwsgi.workers[i].pid = pid ;
 				uwsgi.workers[i].id = i ;
+				uwsgi.workers[i].last_spawn = time(NULL) ;
 				gettimeofday(&last_respawn, NULL) ;
 				respawn_delta = last_respawn.tv_sec;
                 	}

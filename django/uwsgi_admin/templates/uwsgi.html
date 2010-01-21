@@ -2,7 +2,6 @@
 
 {% load i18n %}
 
-{% block bodyclass %}dashboard{% endblock %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
@@ -23,15 +22,18 @@
 
 <br/>
 
-<div class="module">
+<div class="module" style="width:860px">
 <table>
-	<caption>workers</caption>
+	<caption style="width:860px">workers</caption>
 	<thead>
 		<tr>
 			<th scope="row">id</th>
 			<th scope="row">pid</th>
 			<th scope="row">requests</th>
 			<th scope="row">running time (milliseconds)</th>
+			<th scope="row">load</th>
+			<th scope="row">last spawn</th>
+			<th scope="row">respawn count</th>
 			<th scope="row">address space (vsz)</th>
 			<th scope="row">resident memory (rss)</th>
 		</tr>
@@ -43,6 +45,9 @@
 		<td align="center">{{w.pid}}</td>
 		<td align="right">{{w.requests}}</td>
 		<td align="right">{{w.running_time}}</td>
+		<td align="right">{{w.load|floatformat:2}} %</td>
+		<td align="right">{{w.last_spawn_str}}</td>
+		<td align="right">{{w.respawn_count}}</td>
 		<td align="right">{{w.vsz|filesizeformat}}</td>
 		<td align="right">{{w.rss|filesizeformat}}</td>
 	</tr>
