@@ -14,6 +14,7 @@
 - endianess fixes all over the place
 - paste support
 - Django app for managing and monitoring the uWSGI server
+- options for changin uid/gid and chrooting when run by root
 - lot of bugfixes and optimizations
 
 *** 20091129 Version 0.9.3 ***

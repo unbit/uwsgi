@@ -35,6 +35,21 @@
 #define data_uwsgi data_fastcgi
 #define data_uwsgi_init data_fastcgi_init
 
+#ifdef __linux__
+#include <endian.h>
+#elif __sun__
+#elif __apple__
+#include <libkern/OSByteOrder.h>
+#else
+#include <machine/endian.h>
+#endif
+
+
+#ifdef __BIG_ENDIAN__
+static uint16_t uwsgi_swap16(uint16_t x) {
+        return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
+}
+#endif
 
 
 /**
@@ -378,8 +393,18 @@ static int uwsgi_establish_connection(server *srv, handler_ctx *hctx) {
 
 static void uwsgi_add_var(buffer *b, char * key, uint16_t keylen, char *val, uint16_t vallen) {
 
+#ifdef __BIG_ENDIAN__
+	uint16_t uwlen ;
+
+	uwlen = uwsgi_swap16(keylen);
+	buffer_append_memory(b, (char *) &uwlen, 2); buffer_append_memory(b, key, keylen);
+	uwlen = uwsgi_swap16(vallen);
+	buffer_append_memory(b, (char *) &uwlen, 2); buffer_append_memory(b, val, vallen);
+#else
 	buffer_append_memory(b, (char *) &keylen, 2); buffer_append_memory(b, key, keylen);
 	buffer_append_memory(b, (char *) &vallen, 2); buffer_append_memory(b, val, vallen);
+#endif
+
 	
 }
 
@@ -518,7 +543,11 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 	
 	uh = (uwsgi_header *) b->ptr ;
 	uh->modifier1 = (uint8_t) 0 ;
+#ifdef __BIG_ENDIAN__
+	uh->pktsize = uwsgi_swap16((uint16_t) b->used - 4) ;
+#else
 	uh->pktsize = b->used - 4 ;
+#endif
 	uh->modifier2 = (uint8_t) 0 ;
 
 	b->used++; /* fix size */
