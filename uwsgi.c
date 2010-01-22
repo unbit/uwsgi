@@ -2891,6 +2891,15 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+#ifdef UNBIT
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "unbit", Py_True)) {
+#else
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "unbit", Py_None)) {
+#endif
+		PyErr_Print();
+		exit(1);
+	}
+
 	if (PyDict_SetItemString(uwsgi.embedded_dict, "buffer_size", PyInt_FromLong(uwsgi.buffer_size))) {
 		PyErr_Print();
 		exit(1);
