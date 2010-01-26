@@ -1,5 +1,7 @@
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
 int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abstract_socket) {
 
 	int serverfd;
@@ -90,6 +92,19 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		exit(1);
 	}
 
+	if (!uwsgi.no_defer_accept) {
+
+#ifdef TCP_DEFER_ACCEPT
+		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
+			perror("setsockopt()");
+		}
+		else {
+			fprintf(stderr,"TCP_DEFER_ACCEPT enabled.\n");
+		}
+#endif
+
+	}
+
 
 	fprintf(stderr,"binding on TCP port: %d\n", ntohs(uws_addr.sin_port));
 
@@ -102,6 +117,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
         	perror("listen()");
                 exit(1);
 	}
+
 
 	return serverfd;
 }

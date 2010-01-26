@@ -22,7 +22,7 @@ class testthread(Thread):
 	
 tthread = testthread()
 
-#tthread.start()
+tthread.start()
 
 p = "serena"
 

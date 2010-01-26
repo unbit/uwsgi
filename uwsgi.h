@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <sys/mman.h>
 #include <sys/file.h>
@@ -53,6 +54,7 @@
 #define WAIT_ANY (-1)
 #endif
 
+#define MAX_PYARGV 10
 
 #include <Python.h>
 
@@ -68,12 +70,15 @@ PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
 PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 
-#define LONG_ARGS_PIDFILE	17001
-#define LONG_ARGS_CHROOT	17002
-#define LONG_ARGS_GID		17003
-#define LONG_ARGS_UID		17004
-#define LONG_ARGS_PYTHONPATH	17005
-#define LONG_ARGS_PASTE		17006
+#define LONG_ARGS_PIDFILE		17001
+#define LONG_ARGS_CHROOT		17002
+#define LONG_ARGS_GID			17003
+#define LONG_ARGS_UID			17004
+#define LONG_ARGS_PYTHONPATH		17005
+#define LONG_ARGS_PASTE			17006
+#define LONG_ARGS_CHECK_INTERVAL	17007
+#define LONG_ARGS_PYARGV		17008
+
 
 #ifdef __linux__
 #include <endian.h>
@@ -84,6 +89,16 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #include <machine/endian.h>
 #endif
 
+#define UWSGI_OPTION_LOGGING		0
+#define UWSGI_OPTION_MAX_REQUESTS	1
+#define UWSGI_OPTION_SOCKET_TIMEOUT	2
+#define UWSGI_OPTION_MEMORY_DEBUG	3
+#define UWSGI_OPTION_MASTER_INTERVAL	4
+#define UWSGI_OPTION_HARAKIRI		5
+#define UWSGI_OPTION_CGI_MODE		6
+#define UWSGI_OPTION_THREADS		7
+#define UWSGI_OPTION_REAPER		8
+
 #ifdef UNBIT
 #define UWSGI_MODIFIER_HT_S 1
 #define UWSGI_MODIFIER_HT_M 2
@@ -91,6 +106,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #undef _XOPEN_SOURCE
 #endif
 
+#define UWSGI_MODIFIER_ADMIN_REQUEST	10
 #define UWSGI_MODIFIER_SPOOL_REQUEST	17
 #define UWSGI_MODIFIER_FASTFUNC		26
 #define UWSGI_MODIFIER_MANAGE_PATH_INFO	30
@@ -98,6 +114,8 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define UWSGI_MODIFIER_MESSAGE_ARRAY	32
 #define UWSGI_MODIFIER_MESSAGE_MARSHAL	33
 #define UWSGI_MODIFIER_PING		100
+
+#define UWSGI_MODIFIER_RESPONSE		255
 
 #ifdef PYTHREE
 	#define PyInt_FromLong	PyLong_FromLong
@@ -157,11 +175,12 @@ struct uwsgi_server {
 #endif
 #endif
 	int manage_next_request;
-	int in_request;
 
 	int buffer_size;
 
 	int master_process;
+
+	int no_defer_accept;
 
 	int page_size ;
 
@@ -177,8 +196,6 @@ struct uwsgi_server {
 	int max_vars ;
 	int vec_size ;
 
-	int request_logging;
-
 	char *sharedarea ;
 #ifndef __OpenBSD__
 	void *sharedareamutex ;
@@ -192,9 +209,6 @@ struct uwsgi_server {
 
 	struct timeval start_tv;
 #ifndef UNBIT
-#ifndef ROCK_SOLID
-	int cgi_mode;
-#endif
 	int abstract_socket;
 	int chmod_socket;
 	int listen_queue;
@@ -202,6 +216,7 @@ struct uwsgi_server {
 	char *xml_config;
 	char *python_path[64];
 	int python_path_cnt;
+	char *pyargv ;
 #endif
 #endif
 
@@ -226,12 +241,7 @@ struct uwsgi_server {
 
 	struct pollfd poll;
 
-	int harakiri_timeout;
-	int socket_timeout;
-
-#ifndef ROCK_SOLID
-	int memory_debug;
-#endif
+	uint32_t *options;
 
 #ifndef ROCK_SOLID
 	struct uwsgi_app wsgi_apps[64];
@@ -251,7 +261,13 @@ struct __attribute__((packed)) uwsgi_worker {
 
 	unsigned long long vsz_size;
 	unsigned long long rss_size;
-	double	running_time ;
+	double running_time ;
+
+	double load ;
+
+	double last_running_time ;
+
+	int in_request;
 };
 
 struct __attribute__((packed)) uwsgi_header {
@@ -318,7 +334,7 @@ int bind_to_tcp(char *, int , char *);
 #ifndef UNBIT
 void daemonize(char *);
 #endif
-void log_request(void) ;
+void log_request(struct wsgi_request*) ;
 #ifndef ROCK_SOLID
 void get_memusage(void) ;
 #endif
@@ -358,7 +374,7 @@ uint16_t uwsgi_swap16( uint16_t );
 int init_uwsgi_app(PyObject *, PyObject *) ;
 #endif
 
-PyObject *uwsgi_send_message(char *, int, uint8_t, uint8_t, char *, int, int);
+PyObject *uwsgi_send_message(const char *, int, uint8_t, uint8_t, char *, int, int);
 
 int uwsgi_parse_response(struct pollfd*, int, struct uwsgi_header *, char *);
 

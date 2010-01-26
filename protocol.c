@@ -53,7 +53,7 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 	return uwsgi_fd;
 }
 
-PyObject *uwsgi_send_message(char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
+PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
 
 	struct pollfd uwsgi_mpoll ;
 	struct sockaddr_in uws_addr;
@@ -117,6 +117,17 @@ PyObject *uwsgi_send_message(char *host, int port, uint8_t modifier1, uint8_t mo
 	}
 
 	close(uwsgi_mpoll.fd);
+
+	if (uh.modifier1 == UWSGI_MODIFIER_RESPONSE) {
+		if (!uh.modifier2) {
+			Py_INCREF(Py_None);
+			return Py_None ;
+		}
+		else {
+			Py_INCREF(Py_True);
+			return Py_True ;
+		}
+	}
 	
 	return PyMarshal_ReadObjectFromString(buffer, uh.pktsize);	
 }

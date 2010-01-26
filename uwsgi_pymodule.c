@@ -20,22 +20,17 @@ extern struct uwsgi_server uwsgi;
 #endif
 
 PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
-	PyObject *arg0 ;
 	int pos = 0 ;
-	long value ;
+	long value = 0 ;
 
         if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
-        arg0 = PyTuple_GetItem(args, 0);
-        if (!PyInt_Check(arg0)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-	pos = PyInt_AsLong(arg0);
+	if (!PyArg_ParseTuple(args, "ii:sharedarea_inclong", &pos, &value)) {
+		return NULL ;
+	}
 
 	if (pos+4 >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
@@ -510,49 +505,22 @@ clear:
 
 PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 
-	PyObject *arg_host, *arg_port, *arg_modifier1, *arg_modifier2, *arg_message, *arg_timeout;
+	PyObject *arg_message = NULL;
+	
+	const char *arg_host = NULL;
+	int arg_port = 0 ;
+	int arg_modifier1 = 0;
+	int arg_modifier2 = 0;
+	int arg_timeout = 0;
+
 	PyObject *marshalled ;
 	PyObject *retobject ;
 
-	arg_host = PyTuple_GetItem(args, 0);
-	if (!PyString_Check(arg_host)) {
-                Py_INCREF(Py_None);
-                return Py_None;
+	if (!PyArg_ParseTuple(args, "siiiO|i:send_uwsgi_message", &arg_host, &arg_port, &arg_modifier1, &arg_modifier2, &arg_message, &arg_timeout)) {
+		return NULL;
 	}
 
-	arg_port = PyTuple_GetItem(args, 1);
-	if (!PyInt_Check(arg_port)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-	}
-
-	arg_modifier1 = PyTuple_GetItem(args, 2);
-	if (!PyInt_Check(arg_modifier1)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-	arg_modifier2 = PyTuple_GetItem(args, 3);
-	if (!PyInt_Check(arg_modifier2)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-	arg_message = PyTuple_GetItem(args, 4);
-	if (!arg_message) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-	arg_timeout = PyTuple_GetItem(args, 5);
-	if (!PyInt_Check(arg_timeout)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-	
-
-	switch(PyInt_AsLong(arg_modifier1)) {
+	switch(arg_modifier1) {
 		case UWSGI_MODIFIER_MESSAGE_MARSHAL:
 			marshalled = PyMarshal_WriteObjectToString(arg_message, 1);
 			if (!marshalled) {
@@ -560,7 +528,7 @@ PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 				Py_INCREF(Py_None);
         			return Py_None;
 			}
-			retobject = uwsgi_send_message(PyString_AsString(arg_host), PyInt_AsLong(arg_port), PyInt_AsLong(arg_modifier1), PyInt_AsLong(arg_modifier2), PyString_AsString(marshalled), PyString_Size(marshalled), PyInt_AsLong(arg_timeout));
+			retobject = uwsgi_send_message(arg_host, arg_port,arg_modifier1, arg_modifier2, PyString_AsString(marshalled), PyString_Size(marshalled), arg_timeout);
 			Py_DECREF(marshalled);
 			if (!retobject) {
 				PyErr_Print();
@@ -570,6 +538,20 @@ PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 				return retobject ;
 			}
 			break;
+		case UWSGI_MODIFIER_ADMIN_REQUEST:
+			if (PyString_Check(arg_message)) {
+				retobject = uwsgi_send_message(arg_host, arg_port,arg_modifier1, arg_modifier2, PyString_AsString(arg_message), PyString_Size(arg_message), arg_timeout);
+				if (!retobject) {
+					PyErr_Print();
+                               		PyErr_Clear();
+                        	}
+                        	else {
+                                	return retobject ;
+                        	}
+			}
+                        break;
+		default:
+			break;		
 	}
 
 
@@ -649,6 +631,18 @@ PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
 
 		zero = PyLong_FromLong(uwsgi.workers[i+1].respawn_count);
 		if (PyDict_SetItemString(worker_dict, "respawn_count", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyLong_FromLong(uwsgi.workers[i+1].in_request);
+		if (PyDict_SetItemString(worker_dict, "in_request", zero)) {
+                	goto clear;
+        	}
+		Py_DECREF(zero);
+
+		zero = PyFloat_FromDouble(uwsgi.workers[i+1].load);
+		if (PyDict_SetItemString(worker_dict, "load", zero)) {
                 	goto clear;
         	}
 		Py_DECREF(zero);
