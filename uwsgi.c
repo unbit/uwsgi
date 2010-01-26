@@ -549,12 +549,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	memset(&uwsgi, 0, sizeof(struct uwsgi_server));
 
 	/* shared area for dynamic options */
-	uwsgi.options = (uint32_t *) mmap(NULL, sizeof(uint32_t)*0xFF, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
+	uwsgi.options = (uint32_t *) mmap(NULL, sizeof(uint32_t)*(0xFF+1), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
 	if (!uwsgi.options) {
 		perror("mmap()");
 		exit(1);
 	}
-	memset(uwsgi.options, 0, sizeof(uint32_t)*0xFF);
+	memset(uwsgi.options, 0, sizeof(uint32_t)*(0xFF+1));
 
 #ifndef ROCK_SOLID
 	uwsgi.wsgi_cnt = 1;
@@ -1492,11 +1492,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	
 
-#ifndef ROCK_SOLID
-	wsgi_req.app_id = uwsgi.default_app ;	
-        wsgi_req.sendfile_fd = -1 ;
-#endif
-
 	hvec = malloc(sizeof(struct iovec)*uwsgi.vec_size) ;
 	if (hvec == NULL) {
 		fprintf(stderr,"unable to allocate memory for iovec.\n");
@@ -1530,6 +1525,11 @@ int main(int argc, char *argv[], char *envp[]) {
 
         while(uwsgi.manage_next_request) {
 
+		
+#ifndef ROCK_SOLID
+                wsgi_req.app_id = uwsgi.default_app ;
+                wsgi_req.sendfile_fd = -1 ;
+#endif
 		uwsgi.workers[uwsgi.mywid].in_request = 0 ;
 		uwsgi.poll.fd = accept(serverfd,(struct sockaddr *)&c_addr, (socklen_t *) &c_len) ;
 		uwsgi.workers[uwsgi.mywid].in_request = 1 ;
@@ -1538,6 +1538,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         perror("accept()");
 			continue;
                 }
+
 
                 /*
                         poll with timeout ;
@@ -1550,6 +1551,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (!uwsgi_parse_response(&uwsgi.poll, uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) &wsgi_req, buffer)) {
 			continue;
 		}
+
 
 		
 		if (wsgi_req.modifier == UWSGI_MODIFIER_PING) {
@@ -1567,6 +1569,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			uint32_t opt_value = 0 ;
 			if (wsgi_req.size >=4) {
 				memcpy(&opt_value, buffer, 4);
+				// TODO: check endianess
 			}
 			fprintf(stderr,"setting internal option %d to %d\n", wsgi_req.modifier_arg, opt_value);
 			uwsgi.options[wsgi_req.modifier_arg] = opt_value ;
@@ -1727,6 +1730,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		wsgi_req.status = 500;
 
 
+
                         while(ptrbuf < bufferend) {
                                 if (ptrbuf+2 < bufferend) {
                                         memcpy(&strsize,ptrbuf,2);
@@ -1755,8 +1759,9 @@ int main(int argc, char *argv[], char *envp[]) {
                                                                         // set the request app_id
                                                                         // LOCKED SECTION
                                                                         if (strsize > 0) {
-                                                                                if (uwsgi.has_threads && uwsgi.options[UWSGI_OPTION_THREADS] == 1) {
+                                                                                if (uwsgi.has_threads && !i_have_gil) {
                                                                                         PyEval_RestoreThread(_save);
+											i_have_gil = 1;
                                                                                 }
                                                                                 zero = PyString_FromStringAndSize(ptrbuf, strsize) ;
                                                                                 if (PyDict_Contains(uwsgi.py_apps, zero)) {
@@ -1767,9 +1772,9 @@ int main(int argc, char *argv[], char *envp[]) {
                                                                                         wsgi_req.app_id = -1 ;
                                                                                 }
                                                                                 Py_DECREF(zero);
-                                                                                if (uwsgi.has_threads && !i_have_gil) {
+                                                                                if (uwsgi.has_threads && uwsgi.options[UWSGI_OPTION_THREADS] == 1) {
                                                                                         _save = PyEval_SaveThread();
-											i_have_gil = 1;
+											i_have_gil = 0;
                                                                                 }
                                                                         }
                                                                         // UNLOCK
@@ -2016,6 +2021,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
+
                 // call
 #ifndef ROCK_SOLID
                 if (uwsgi.enable_profiler == 1) {
@@ -2042,7 +2048,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
+
                 if (wsgi_result) {
+
 
 #ifndef ROCK_SOLID
                         if (wsgi_req.sendfile_fd > -1) {
@@ -2083,6 +2091,7 @@ int main(int argc, char *argv[], char *envp[]) {
                         else {
 
 #endif
+
                                 wsgi_chunks = PyObject_GetIter(wsgi_result);
                                 if (wsgi_chunks) {
                                         while((wchunk = PyIter_Next(wsgi_chunks))) {
@@ -2129,6 +2138,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
 
 
+
                 PyDict_Clear(wi->wsgi_environ);
 #ifndef ROCK_SOLID
                 wi->requests++;
@@ -2167,10 +2177,6 @@ clean:
 		}
 #endif
 
-#ifndef ROCK_SOLID
-                wsgi_req.app_id = uwsgi.default_app ;
-                wsgi_req.sendfile_fd = -1 ;
-#endif
 
 		if (uwsgi.options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.options[UWSGI_OPTION_MAX_REQUESTS]) {
 			goodbye_cruel_world();

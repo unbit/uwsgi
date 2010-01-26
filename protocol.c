@@ -9,6 +9,9 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
         int cnt ;
         struct uwsgi_header uh;
 
+	if (!timeout)
+		timeout = 1;
+
 	if (size > 0xFFFF) {
                 fprintf(stderr,"invalid object (marshalled) size\n");
 		return -1 ;
@@ -61,6 +64,10 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 	struct uwsgi_header uh;
 	char buffer[0xFFFF];
 
+
+
+	if (!timeout)
+		timeout = 1;
 
 	if (size > 0xFFFF) {
 		fprintf(stderr,"invalid object (marshalled) size\n");
@@ -134,6 +141,9 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 
 int uwsgi_parse_response(struct pollfd * upoll, int timeout, struct uwsgi_header *uh, char *buffer) {
 	int rlen, i;
+
+	if (!timeout)
+		timeout = 1;
 	/* first 4 byte header */
                 rlen = poll(upoll, 1, timeout*1000) ;
                 if (rlen < 0) {

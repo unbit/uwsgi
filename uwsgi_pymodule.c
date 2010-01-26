@@ -502,6 +502,27 @@ clear:
 }
 
 
+PyObject *py_uwsgi_get_option(PyObject *self, PyObject *args) {
+	int opt_id ;
+
+	if (!PyArg_ParseTuple(args, "i:get_option", &opt_id)) {
+		return NULL ;
+	}
+
+	return PyInt_FromLong(uwsgi.options[(uint8_t) opt_id]);
+}
+
+PyObject *py_uwsgi_set_option(PyObject *self, PyObject *args) {
+	int opt_id ;
+	int value ;
+
+	if (!PyArg_ParseTuple(args, "ii:set_option", &opt_id, &value)) {
+		return NULL ;
+	}
+
+	uwsgi.options[(uint8_t) opt_id] = (uint32_t) value ;
+	return PyInt_FromLong(value);
+}
 
 PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 
@@ -686,6 +707,10 @@ static PyMethodDef uwsgi_advanced_methods[] = {
   {"workers", py_uwsgi_workers, METH_VARARGS, ""},
   {"masterpid", py_uwsgi_masterpid, METH_VARARGS, ""},
   {"total_requests", py_uwsgi_total_requests, METH_VARARGS, ""},
+  {"getoption", py_uwsgi_get_option, METH_VARARGS, ""},
+  {"get_option", py_uwsgi_get_option, METH_VARARGS, ""},
+  {"setoption", py_uwsgi_set_option, METH_VARARGS, ""},
+  {"set_option", py_uwsgi_set_option, METH_VARARGS, ""},
   {NULL, NULL},
 };
 

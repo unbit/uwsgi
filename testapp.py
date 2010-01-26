@@ -115,31 +115,45 @@ def reload(env, start_response):
 
 #	yield 4/0
 
-	out = '<h1>uWSGI status ('+env['SCRIPT_NAME']+')</h1>' ;
-	out += 'masterpid: <b>' + str(uwsgi.masterpid()) + '</b><br/>'
+	yield '<h1>uWSGI status ('+env['SCRIPT_NAME']+')</h1>' ;
+	yield 'masterpid: <b>' + str(uwsgi.masterpid()) + '</b><br/>'
 
-	out += 'started on: <b>' + time.ctime(uwsgi.started_on) + '</b><br/>'
+	yield 'started on: <b>' + time.ctime(uwsgi.started_on) + '</b><br/>'
 
-	out += 'buffer size: <b>' + str(uwsgi.buffer_size) + '</b><br/>'
+	yield 'buffer size: <b>' + str(uwsgi.buffer_size) + '</b><br/>'
 
-	out += 'total_requests: <b>' + str(uwsgi.total_requests()) + '</b><br/>'
+	yield 'total_requests: <b>' + str(uwsgi.total_requests()) + '</b><br/>'
 
-	out += 'workers: <b>' + str(uwsgi.numproc) + '</b><br/>'
+	yield 'workers: <b>' + str(uwsgi.numproc) + '</b><br/>'
 
-	out += '<table border="1">'
-	out += '<th>worker id</th><th>pid</th><th>requests</th><th>running time</th><th>address space</th><th>rss</th>'
+	yield '<h2>dynamic options</h2>'
+	
+	yield '<b>logging</b>: ' + str(uwsgi.get_option(0)) + '<br/>'
+	yield '<b>max_requests</b>: '  + str(uwsgi.getoption(1)) + '<br/>'
+	yield '<b>socket_timeout</b>: ' + str(uwsgi.getoption(2)) + '<br/>'
+	yield '<b>memory_debug</b>: ' + str(uwsgi.getoption(3)) + '<br/>'
+	yield '<b>master_interval</b>: ' + str(uwsgi.getoption(4)) + '<br/>'
+	yield '<b>harakiri</b>: ' + str(uwsgi.getoption(5)) + '<br/>'
+	yield '<b>cgi_mode</b>: ' + str(uwsgi.get_option(6)) + '<br/>'
+	yield '<b>threads</b>: ' + str(uwsgi.get_option(7)) + '<br/>'
+	yield '<b>process_reaper</b>: ' + str(uwsgi.get_option(8)) + '<br/>'
+
+	yield '<table border="1">'
+	yield '<th>worker id</th><th>pid</th><th>requests</th><th>running time</th><th>address space</th><th>rss</th>'
 
 	workers = uwsgi.workers();
+
+	yield '<h2>workers</h2>'
 
 	for w in workers:
 		#print w
 		#print w['running_time']
 		if w is not None:
-			out += '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
+			yield '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
 	
-	out += '</table>'
+	yield '</table>'
 
-	yield out
+	#yield out
 	#print "FATTOfattoFATTO"
 
 def remotemako(env, start_response):
