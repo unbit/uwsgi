@@ -21,9 +21,13 @@ from distutils.core import setup
 from distutils.command.build import build as _build
 
 
+
 class build(_build):
 	def run(self):
 		os.system(make_cmd)
+
+datafiles = [ ('bin', ['uwsgi']) ]
+
 
 
 setup(name='uWSGI',
@@ -33,7 +37,7 @@ setup(name='uWSGI',
       author_email='roberto@unbit.it',
       url='http://projects.unbit.it/uwsgi/',
       license='GPL2',
-      scripts=[bin_name],
+      data_files = datafiles,	
       cmdclass = { 'build': build }
      )
 
