@@ -18,7 +18,7 @@ if uver != "25":
 	make_cmd = "%s -f Makefile.Py%s" % (make_cmd, uver) 
 
 try:
-	if sys.argv[1] == 'install':
+	if sys.argv[1] == 'install' or sys.argv[1] == 'build_ext':
 		os.system(make_cmd)
 except:
 	pass
