@@ -17,13 +17,14 @@ if uver != "25":
 	bin_name = "%s%s" % (bin_name, uver)
 	make_cmd = "%s -f Makefile.Py%s" % (make_cmd, uver) 
 
-try:
-	if sys.argv[1] == 'install' or sys.argv[1] == 'build_ext' or sys.argv[1] == 'develop':
-		os.system(make_cmd)
-except:
-	pass
-
 from distutils.core import setup
+from distutils.command.build import build as _build
+
+
+class build(_build):
+	def run(self):
+		os.system(make_cmd)
+
 
 setup(name='uWSGI',
       version='0.9.4',
@@ -33,6 +34,7 @@ setup(name='uWSGI',
       url='http://projects.unbit.it/uwsgi/',
       license='GPL2',
       scripts=[bin_name],
+      cmdclass = { 'build': build }
      )
 
 
