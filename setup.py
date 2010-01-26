@@ -1,7 +1,7 @@
 import os
 import sys
+import shutil
 
-print "ARGV:",sys.argv
 version = sys.version_info
 
 if version[0] > 2:
@@ -19,26 +19,10 @@ if uver != "25":
 	make_cmd = "%s -f Makefile.Py%s" % (make_cmd, uver) 
 
 from distutils.core import setup
-from distutils.command.build import build as _build
-from distutils.command.install import install as _install
-from distutils.command.install_data import install_data
-
-
-print "PREFIX:",sys.prefix
-
-class install(_install):
-	def run(self):
-		os.system(make_cmd)
 
 os.system(make_cmd)
 
-class build(_build):
-	def run(self):
-		os.system(make_cmd)
-
-datafiles = [ ('bin', [bin_name]) ]
-
-
+shutil.copyfile(bin_name, sys.prefix + '/bin')
 
 setup(name='uWSGI',
       version='0.9.4',
@@ -47,8 +31,6 @@ setup(name='uWSGI',
       author_email='roberto@unbit.it',
       url='http://projects.unbit.it/uwsgi/',
       license='GPL2',
-      data_files = datafiles,	
-      cmdclass = { 'build': build, 'install': install  }
      )
 
 
