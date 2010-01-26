@@ -22,7 +22,7 @@ from distutils.core import setup
 
 os.system(make_cmd)
 
-shutil.copyfile(bin_name, sys.prefix + '/bin/' + bin_name)
+shutil.copy(bin_name, sys.prefix + '/bin')
 
 setup(name='uWSGI',
       version='0.9.4',
