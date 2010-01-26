@@ -30,6 +30,8 @@ class install(_install):
 	def run(self):
 		os.system(make_cmd)
 
+os.system(make_cmd)
+
 class build(_build):
 	def run(self):
 		os.system(make_cmd)
