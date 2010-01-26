@@ -20,14 +20,21 @@ if uver != "25":
 
 from distutils.core import setup
 from distutils.command.build import build as _build
+from distutils.command.install import install as _install
+from distutils.command.install_data import install_data
 
 
+print "PREFIX:",sys.prefix
+
+class install(_install):
+	def run(self):
+		os.system(make_cmd)
 
 class build(_build):
 	def run(self):
 		os.system(make_cmd)
 
-datafiles = [ ('bin', ['uwsgi']) ]
+datafiles = [ ('bin', [bin_name]) ]
 
 
 
@@ -39,7 +46,7 @@ setup(name='uWSGI',
       url='http://projects.unbit.it/uwsgi/',
       license='GPL2',
       data_files = datafiles,	
-      cmdclass = { 'build': build }
+      cmdclass = { 'build': build, 'install': install  }
      )
 
 
