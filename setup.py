@@ -17,7 +17,11 @@ if uver != "25":
 	bin_name = "%s%s" % (bin_name, uver)
 	make_cmd = "%s -f Makefile.Py%s" % (make_cmd, uver) 
 
-os.system(make_cmd)
+try:
+	if sys.argv[1] == 'install':
+		os.system(make_cmd)
+except:
+	pass
 
 from distutils.core import setup
 

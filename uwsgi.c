@@ -849,11 +849,11 @@ int main(int argc, char *argv[], char *envp[]) {
 \t--uid <id>\t\t\tsetuid to <id> (only root)\n\
 \t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
 \t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
-\t--no-defer-accept\tdisable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)\n\
+\t--no-defer-accept\t\tdisable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)\n\
 \t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\
 \t--check-interval <sec>\t\tset the check interval (in seconds) of the master process\n\
 \t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
-\t--pyargv <args>\t\tassign args to python sys.argv\n\
+\t--pyargv <args>\t\t\tassign args to python sys.argv\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
 				exit(1);
 			case 0:
