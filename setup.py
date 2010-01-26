@@ -1,6 +1,7 @@
 import os
 import sys
 
+print "ARGV:",sys.argv
 version = sys.version_info
 
 if version[0] > 2:
