@@ -100,7 +100,7 @@ struct uwsgi_app *wi;
 void gracefully_kill() {
 	fprintf(stderr, "Gracefully killing worker %d...\n", uwsgi.mypid);
 	if (uwsgi.workers[uwsgi.mywid].in_request) {
-		uwsgi.manage_next_request = 0 ;	
+		uwsgi.workers[uwsgi.mywid].manage_next_request = 0 ;	
 	}
 	else {
 		reload_me();
@@ -122,6 +122,7 @@ void goodbye_cruel_world() {
 
 void kill_them_all() {
 	int i ;
+	uwsgi.to_hell = 1 ;
 	fprintf(stderr,"SIGINT/SIGQUIT received...killing workers...\n");
 	for(i=1;i<=uwsgi.numproc;i++) {	
 		kill(uwsgi.workers[i].pid, SIGINT);
@@ -130,6 +131,7 @@ void kill_them_all() {
 
 void grace_them_all() {
 	int i ;
+	uwsgi.to_heaven = 1 ;
 	fprintf(stderr,"...gracefully killing workers...\n");
 	for(i=1;i<=uwsgi.numproc;i++) {	
 		kill(uwsgi.workers[i].pid, SIGHUP);
@@ -560,12 +562,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.wsgi_cnt = 1;
 	uwsgi.default_app = -1;
 #endif
-	uwsgi.manage_next_request = 1;
 	uwsgi.buffer_size = 4096;
 	uwsgi.numproc = 1;
 #ifndef UNBIT
 	uwsgi.listen_queue = 64;
 #endif
+	
+	uwsgi.maxworkers = 64 ;
 	
 	uwsgi.max_vars = MAX_VARS ;
 	uwsgi.vec_size = 4+1+(4*MAX_VARS) ;
@@ -1242,12 +1245,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	/* shared area for workers */
-	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker)*uwsgi.numproc+1, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
+	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker)*uwsgi.maxworkers+1, PROT_READ|PROT_WRITE , MAP_SHARED|MAP_ANON , -1, 0);
 	if (!uwsgi.workers) {
 		perror("mmap()");
 		exit(1);
 	}
-	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker)*uwsgi.numproc+1);
+	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker)*uwsgi.maxworkers+1);
 
 #ifndef UNBIT
 #ifndef ROCK_SOLID
@@ -1294,11 +1297,14 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* save the masterpid */
 	uwsgi.workers[0].pid = masterpid ;
 
+	uwsgi.current_workers = uwsgi.numproc ;
+
 	if (!uwsgi.master_process && uwsgi.numproc == 1) {
                         fprintf(stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n",  masterpid);
 			uwsgi.workers[1].pid = masterpid ;
 			uwsgi.workers[1].id = 1 ;
 			uwsgi.workers[1].last_spawn = time(NULL) ;
+			uwsgi.workers[1].manage_next_request = 1 ;
 			uwsgi.mywid = 1;
 			gettimeofday(&last_respawn, NULL) ;
 			respawn_delta = last_respawn.tv_sec;
@@ -1325,6 +1331,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi.workers[i].pid = pid ;
 				uwsgi.workers[i].id = i ;
 				uwsgi.workers[i].last_spawn = time(NULL) ;
+				uwsgi.workers[i].manage_next_request = 1 ;
 				gettimeofday(&last_respawn, NULL) ;
 				respawn_delta = last_respawn.tv_sec;
                 	}
@@ -1344,7 +1351,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 		for(;;) {
-			if (ready_to_die >= uwsgi.numproc) {
+			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifndef ROCK_SOLID
 				if (spool_dir && spooler_pid > 0) {
 					kill(spooler_pid, SIGKILL);
@@ -1353,7 +1360,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				fprintf(stderr,"goodbye to uWSGI.\n");
 				exit(0);
 			}		
-			if (ready_to_reload >= uwsgi.numproc) {
+			if (ready_to_reload >= uwsgi.numproc && uwsgi.to_heaven) {
 #ifndef ROCK_SOLID
 				if (spool_dir && spooler_pid > 0) {
 					kill(spooler_pid, SIGKILL);
@@ -1415,7 +1422,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				check_interval.tv_sec = uwsgi.options[UWSGI_OPTION_MASTER_INTERVAL] ;
 				if (!check_interval.tv_sec)	
 					check_interval.tv_sec = 1;
-				for(i=1;i<=uwsgi.numproc;i++) {
+				for(i=1;i<=uwsgi.current_workers;i++) {
 					/* first check for harakiri */
                 			if (uwsgi.workers[i].harakiri > 0) {
 						if (uwsgi.workers[i].harakiri < time(NULL)) {
@@ -1445,11 +1452,11 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 			/* check for reloading */
 			if (WIFEXITED(waitpid_status)) {
-				if (WEXITSTATUS(waitpid_status) == UWSGI_RELOAD_CODE) {
+				if (WEXITSTATUS(waitpid_status) == UWSGI_RELOAD_CODE && uwsgi.to_heaven) {
 					ready_to_reload++;
 					continue;
 				}
-				else if (WEXITSTATUS(waitpid_status) == UWSGI_END_CODE) {
+				else if (WEXITSTATUS(waitpid_status) == UWSGI_END_CODE && uwsgi.to_hell) {
 					ready_to_die++;
 					continue;
 				}
@@ -1481,6 +1488,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					uwsgi.workers[uwsgi.mywid].failed_requests = 0 ;
 					uwsgi.workers[uwsgi.mywid].respawn_count++ ;
 					uwsgi.workers[uwsgi.mywid].last_spawn = time(NULL) ;
+					uwsgi.workers[uwsgi.mywid].manage_next_request = 1 ;
 				}
 				else {
 					fprintf(stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n") ;
@@ -1523,7 +1531,7 @@ int main(int argc, char *argv[], char *envp[]) {
         }
 #endif
 
-        while(uwsgi.manage_next_request) {
+        while(uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 		
 #ifndef ROCK_SOLID
@@ -2200,8 +2208,14 @@ clean:
 
         }
 
-	if (uwsgi.manage_next_request == 0) {
-		reload_me();
+	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
+		/* am i a grunt ? */
+		if (uwsgi.mywid > uwsgi.numproc) {
+			end_me() ;
+		}
+		else {
+			reload_me() ;
+		}
 	}
 	else {
 		goodbye_cruel_world();

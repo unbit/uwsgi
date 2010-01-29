@@ -174,7 +174,9 @@ struct uwsgi_server {
 	uid_t uid;
 #endif
 #endif
-	int manage_next_request;
+
+	int to_heaven ;
+	int to_hell ;
 
 	int buffer_size;
 
@@ -192,6 +194,8 @@ struct uwsgi_server {
 	char *pidfile;
 
 	int numproc;
+	int maxworkers;
+	int current_workers ;
 
 	int max_vars ;
 	int vec_size ;
@@ -268,6 +272,7 @@ struct __attribute__((packed)) uwsgi_worker {
 	double last_running_time ;
 
 	int in_request;
+	int manage_next_request;
 };
 
 struct __attribute__((packed)) uwsgi_header {
