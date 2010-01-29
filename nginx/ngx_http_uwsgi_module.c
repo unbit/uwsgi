@@ -1055,8 +1055,8 @@ ngx_http_uwsgi_process_status_line (ngx_http_request_t * r)
 
     u->headers_in.status_line.len = ctx->status_end - ctx->status_start;
     u->headers_in.status_line.data = ngx_pnalloc (r->pool,
-						  u->headers_in.status_line.
-						  len);
+						  u->headers_in.
+						  status_line.len);
     if (u->headers_in.status_line.data == NULL)
       {
 	  return NGX_ERROR;
