@@ -78,6 +78,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_PASTE			17006
 #define LONG_ARGS_CHECK_INTERVAL	17007
 #define LONG_ARGS_PYARGV		17008
+#define LONG_ARGS_LIMIT_AS		17009
 
 
 #ifdef __linux__

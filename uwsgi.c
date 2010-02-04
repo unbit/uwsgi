@@ -541,9 +541,7 @@ int main(int argc, char *argv[], char *envp[]) {
         unsigned short strsize = 0;
         struct uwsgi_app *wi;
 
-#ifdef __linux__
 	struct rlimit rl ;
-#endif
 
 #ifdef UNBIT
 	struct uidsec_struct us;
@@ -627,6 +625,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"sync-log", no_argument, &uwsgi.synclog, 1},
 		{"no-server", no_argument, &no_server, 1},
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
+		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
 		{0, 0, 0, 0}
 	};
@@ -638,6 +637,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	setlinebuf(stdout);
 
+	rl.rlim_cur = 0 ;
+	rl.rlim_max = 0 ;
 
 	cwd = uwsgi_get_cwd();
 	binary_path = malloc(strlen(argv[0])+1) ;
@@ -686,6 +687,10 @@ int main(int argc, char *argv[], char *envp[]) {
 			case LONG_ARGS_PYTHONPATH:
 				uwsgi.python_path[0] = optarg;
 				uwsgi.python_path_cnt = 1;
+				break;
+			case LONG_ARGS_LIMIT_AS:
+				rl.rlim_cur = (atoi(optarg))*1024*1024;
+				rl.rlim_max = rl.rlim_cur;
 				break;
 #endif
 			case LONG_ARGS_PASTE:
@@ -866,6 +871,7 @@ int main(int argc, char *argv[], char *envp[]) {
 \t--check-interval <sec>\t\tset the check interval (in seconds) of the master process\n\
 \t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
 \t--pyargv <args>\t\t\tassign args to python sys.argv\n\
+\t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
 				exit(1);
 			case 0:
@@ -936,12 +942,17 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 #endif
+
+	if (rl.rlim_max > 0) {
+		fprintf(stderr,"limiting address space of processes...\n");
+		if (setrlimit(RLIMIT_AS, &rl)) {
+			perror("setrlimit()");
+		}
+	}
 	
-#ifdef __linux__
 	if (!getrlimit(RLIMIT_AS, &rl)) {
 		fprintf(stderr,"your process address space limit is %lld bytes (%lld MB)\n", (long long) rl.rlim_max, (long long) rl.rlim_max/1024/1024);
 	}
-#endif
 
 	uwsgi.page_size = getpagesize();
 	fprintf(stderr,"your memory page size is %d bytes\n", uwsgi.page_size);

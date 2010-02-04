@@ -5,6 +5,7 @@
 #include <mach/mach_host.h>
 #endif
 
+
 extern struct uwsgi_server uwsgi;
 
 #ifdef __BIG_ENDIAN__
@@ -150,7 +151,17 @@ uint64_t get_free_memory() {
 		freemem += (page_info.inactive_count + page_info.free_count) * uwsgi.page_size ;		
 	}
 	
+#elif defined(__linux__)
+	/* sadly linux has no api for getting the current size of page cache. we need to parse /proc/meminfo */
+	FILE *meminfo;
 	
+	meminfo = fopen("/proc/meminfo", "r");
+	if (!meminfo) {
+		perror("fopen()");
+	}
+	else {
+		
+	}
 #elif defined(__FreeBSD__)
 	int value ;
 	size_t dlen;
