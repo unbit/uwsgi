@@ -951,7 +951,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 	
 	if (!getrlimit(RLIMIT_AS, &rl)) {
-		fprintf(stderr,"your process address space limit is %lld bytes (%lld MB)\n", (long long) rl.rlim_max, (long long) rl.rlim_max/1024/1024);
+		// check for overflow
+		if (rl.rlim_max + 1 != 0) {
+			fprintf(stderr,"your process address space limit is %lld bytes (%lld MB)\n", (long long) rl.rlim_max, (long long) rl.rlim_max/1024/1024);
+		}
 	}
 
 	uwsgi.page_size = getpagesize();
