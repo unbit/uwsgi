@@ -956,7 +956,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 	if (!getrlimit(RLIMIT_AS, &rl)) {
 		// check for overflow
-		if (rl.rlim_max + 1 != 0) {
+		if ( (sizeof(void *) == 4 && (uint32_t) rl.rlim_max < UINT32_MAX) || (sizeof(void *) == 8 && (uint64_t) rl.rlim_max < UINT64_MAX)) {
 			fprintf(stderr,"your process address space limit is %lld bytes (%lld MB)\n", (long long) rl.rlim_max, (long long) rl.rlim_max/1024/1024);
 		}
 	}
