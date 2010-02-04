@@ -888,15 +888,19 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 		if (uwsgi.test_module == NULL) {
-        		fprintf(stderr,"*** Starting uWSGI on [%.*s] ***\n", 24, ctime( (const time_t *) &uwsgi.start_tv.tv_sec));
+        		fprintf(stderr,"*** Starting uWSGI (%dbit) on [%.*s] ***\n", (sizeof(void *))*8, 24, ctime( (const time_t *) &uwsgi.start_tv.tv_sec));
 		}
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 	}
 	else {
-        	fprintf(stderr,"*** Starting uWSGI (CGI mode) on [%.*s] ***\n", 24, ctime( (const time_t *) &uwsgi.start_tv.tv_sec));
+        	fprintf(stderr,"*** Starting uWSGI (CGI mode) (%dbit) on [%.*s] ***\n", (sizeof(void *))*8, 24, ctime( (const time_t *) &uwsgi.start_tv.tv_sec));
 	}
 #endif
+#endif
+
+#ifdef __BIG_ENDIAN__
+	fprintf(stderr,"*** big endian arch detected ***\n");
 #endif
 
 #ifdef PYTHREE
