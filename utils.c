@@ -1,5 +1,10 @@
 #include "uwsgi.h"
 
+#ifdef __APPLE__
+#include <mach/host_info.h>
+#include <mach/mach_host.h>
+#endif
+
 extern struct uwsgi_server uwsgi;
 
 #ifdef __BIG_ENDIAN__
@@ -136,18 +141,26 @@ uint64_t get_free_memory() {
 
 	uint64_t freemem = 0 ;
 
-#if defined(__FreeBSD__) || defined(__apple__)
+#ifdef __APPLE__
+	vm_statistics_data_t page_info;
+	mach_msg_type_number_t count;
+
+	count = HOST_VM_INFO_COUNT;
+	if (host_statistics (mach_host_self(), HOST_VM_INFO, (host_info_t)&page_info, &count) == KERN_SUCCESS){
+		freemem += (page_info.inactive_count + page_info.free_count) * uwsgi.page_size ;		
+	}
+	
+	
+#elif defined(__FreeBSD__)
 	int value ;
 	size_t dlen;
 
 	if (sysctlbyname("vm.stats.vm.v_free_count", &value, &dlen, NULL, 0) != 0) {
 		perror("sysctlbyname()");
 	}
-
-	freemem += value*uwsgi.page_size ;
-
-	fprintf(stderr,"available memory: %llu\n", freemem);
-
+	else {
+		freemem += value*uwsgi.page_size ;
+	}
 #endif
 
 	return freemem ;
