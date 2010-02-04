@@ -1,11 +1,5 @@
 #include "uwsgi.h"
 
-#ifdef __APPLE__
-#include <mach/host_info.h>
-#include <mach/mach_host.h>
-#endif
-
-
 extern struct uwsgi_server uwsgi;
 
 #ifdef __BIG_ENDIAN__
@@ -136,43 +130,4 @@ char * uwsgi_get_cwd() {
 
 	return cwd;
 	
-}
-
-uint64_t get_free_memory() {
-
-	uint64_t freemem = 0 ;
-
-#ifdef __APPLE__
-	vm_statistics_data_t page_info;
-	mach_msg_type_number_t count;
-
-	count = HOST_VM_INFO_COUNT;
-	if (host_statistics (mach_host_self(), HOST_VM_INFO, (host_info_t)&page_info, &count) == KERN_SUCCESS){
-		freemem += (page_info.inactive_count + page_info.free_count) * uwsgi.page_size ;		
-	}
-	
-#elif defined(__linux__)
-	/* sadly linux has no api for getting the current size of page cache. we need to parse /proc/meminfo */
-	FILE *meminfo;
-	
-	meminfo = fopen("/proc/meminfo", "r");
-	if (!meminfo) {
-		perror("fopen()");
-	}
-	else {
-		
-	}
-#elif defined(__FreeBSD__)
-	int value ;
-	size_t dlen;
-
-	if (sysctlbyname("vm.stats.vm.v_free_count", &value, &dlen, NULL, 0) != 0) {
-		perror("sysctlbyname()");
-	}
-	else {
-		freemem += value*uwsgi.page_size ;
-	}
-#endif
-
-	return freemem ;
 }

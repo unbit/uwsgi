@@ -964,8 +964,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.page_size = getpagesize();
 	fprintf(stderr,"your memory page size is %d bytes\n", uwsgi.page_size);
 
-	fprintf(stderr,"your system has %llu megabytes of free memory\n", get_free_memory()/1024/1024);
-
 #ifndef UNBIT
 	fprintf(stderr,"your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
@@ -1328,8 +1326,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.workers[0].current_workers = uwsgi.numproc ;
 
-	/* print memory usage after module initialization */
-	fprintf(stderr,"you system has now %llu megabytes of free memory\n", get_free_memory()/1024/1024);
 
 	if (!uwsgi.master_process && uwsgi.numproc == 1) {
                         fprintf(stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n",  masterpid);

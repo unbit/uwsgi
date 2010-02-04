@@ -366,8 +366,6 @@ void init_uwsgi_module_sharedarea(PyObject *);
 void init_uwsgi_module_advanced(PyObject *);
 void init_uwsgi_module_spooler(PyObject *);
 
-uint64_t get_free_memory(void);
-
 #ifndef ROCK_SOLID
 int spool_request(char *, int, char *, int);
 void spooler(PyObject *);
