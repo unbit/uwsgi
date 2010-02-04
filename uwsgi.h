@@ -195,7 +195,6 @@ struct uwsgi_server {
 
 	int numproc;
 	int maxworkers;
-	int current_workers ;
 
 	int max_vars ;
 	int vec_size ;
@@ -273,6 +272,8 @@ struct __attribute__((packed)) uwsgi_worker {
 
 	int in_request;
 	int manage_next_request;
+	int blocking ;
+	int current_workers ;
 };
 
 struct __attribute__((packed)) uwsgi_header {
@@ -327,6 +328,7 @@ struct __attribute__((packed)) wsgi_request {
 
 char *uwsgi_get_cwd(void);
 
+void warn_pipe(void);
 void goodbye_cruel_world(void);
 void gracefully_kill(void);
 void reap_them_all(void);
@@ -362,6 +364,8 @@ void uwsgi_paste_config(void);
 void init_uwsgi_module_sharedarea(PyObject *);
 void init_uwsgi_module_advanced(PyObject *);
 void init_uwsgi_module_spooler(PyObject *);
+
+uint64_t get_free_memory(void);
 
 #ifndef ROCK_SOLID
 int spool_request(char *, int, char *, int);

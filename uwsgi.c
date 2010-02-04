@@ -97,6 +97,10 @@ struct iovec *hvec ;
 struct uwsgi_app *wi;
 #endif
 
+void warn_pipe() {
+	fprintf(stderr,"writing to a closed pipe/socket/fd !!!\n");
+}
+
 void gracefully_kill() {
 	fprintf(stderr, "Gracefully killing worker %d...\n", uwsgi.mypid);
 	if (uwsgi.workers[uwsgi.mywid].in_request) {
@@ -309,6 +313,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 		goto clear;
 	}
 
+
 #ifndef UNBIT
 #ifndef ROCK_SOLID
 	if (uwsgi.options[UWSGI_OPTION_CGI_MODE] == 0) {
@@ -389,6 +394,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
                 j = (i*4)+base ;
                 head = PyList_GetItem(headers, i);
 		if (!head) {
+			fprintf(stderr,"NON e' UNA LISTA\n");
 			goto clear;
 		}
 		if (!PyTuple_Check(head)) {
@@ -396,9 +402,9 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
 			goto clear;
 		}
                 h_key = PyTuple_GetItem(head,0) ;
-		if (!h_key) { goto clear; }
+		if (!h_key) { fprintf(stderr,"NIENTE CHIAVE\n");goto clear; }
                 h_value = PyTuple_GetItem(head,1) ;
-		if (!h_value) { goto clear; }
+		if (!h_value) { fprintf(stderr,"NIENTE VALORE\n");goto clear; }
 #ifdef PYTHREE
 		hvec[j].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_key)) ;
                 hvec[j].iov_len = strlen(hvec[j].iov_base);
@@ -419,6 +425,7 @@ PyObject *py_uwsgi_spit(PyObject *self, PyObject *args) {
                 hvec[j+3].iov_len = NL_SIZE;
 		//fprintf(stderr, "%.*s: %.*s\n", hvec[j].iov_len, (char *)hvec[j].iov_base, hvec[j+2].iov_len, (char *) hvec[j+2].iov_base);
         }
+
 
 #ifdef UNBIT
 	if (save_to_disk >= 0) {
@@ -515,6 +522,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	pid_t spooler_pid = 0 ;
 #endif
 
+	int working_workers = 0 ;
+	int blocking_workers = 0 ;
 
 	char *cwd ;
 	char *binary_path ;
@@ -937,6 +946,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.page_size = getpagesize();
 	fprintf(stderr,"your memory page size is %d bytes\n", uwsgi.page_size);
 
+	get_free_memory();
+
 #ifndef UNBIT
 	fprintf(stderr,"your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
@@ -1297,7 +1308,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* save the masterpid */
 	uwsgi.workers[0].pid = masterpid ;
 
-	uwsgi.current_workers = uwsgi.numproc ;
+	uwsgi.workers[0].current_workers = uwsgi.numproc ;
 
 	if (!uwsgi.master_process && uwsgi.numproc == 1) {
                         fprintf(stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n",  masterpid);
@@ -1394,6 +1405,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			diedpid = waitpid(WAIT_ANY , &waitpid_status, WNOHANG) ;
 			if (diedpid == -1) {
 				perror("waitpid()");
+				/* here is better to reload all the uWSGI stack */
 				fprintf(stderr, "something horrible happened...\n");
 				reap_them_all();
 				exit(1);
@@ -1413,6 +1425,8 @@ int main(int argc, char *argv[], char *envp[]) {
 				if (!check_interval.tv_sec)	
 					check_interval.tv_sec = 1;
 				select(0, NULL, NULL, NULL, &check_interval);
+				working_workers = 0 ;
+				blocking_workers = 0 ;	
 #ifndef ROCK_SOLID
                                 if (uwsgi.has_threads && !i_have_gil) {
                                 	PyEval_RestoreThread(_save);
@@ -1422,21 +1436,74 @@ int main(int argc, char *argv[], char *envp[]) {
 				check_interval.tv_sec = uwsgi.options[UWSGI_OPTION_MASTER_INTERVAL] ;
 				if (!check_interval.tv_sec)	
 					check_interval.tv_sec = 1;
-				for(i=1;i<=uwsgi.current_workers;i++) {
+				for(i=1;i<=uwsgi.workers[0].current_workers;i++) {
 					/* first check for harakiri */
                 			if (uwsgi.workers[i].harakiri > 0) {
 						if (uwsgi.workers[i].harakiri < time(NULL)) {
 							/* first try to invoke the harakiri() custom handler */
 							/* TODO */
-							/* the brutally kill the worker */
+							/* then brutally kill the worker */
 							kill(uwsgi.workers[i].pid, SIGKILL);
 						}
 					}
+					/* load counters */
+					if (uwsgi.workers[i].in_request)
+						working_workers++;
+
+					if (uwsgi.workers[i].blocking)
+						blocking_workers++;
+					/* set the load */
 					if (uwsgi.workers[i].last_running_time > 0 && uwsgi.workers[i].running_time > 0) {
 						uwsgi.workers[i].load = (((uwsgi.workers[i].running_time-uwsgi.workers[i].last_running_time)/1000) * 100)/check_interval.tv_sec ;
 					}
 					uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time ;
         			}
+
+				/* check if i need to add a subworker */
+				fprintf(stderr,"working workers: %d\n",  working_workers);
+				if (working_workers >= uwsgi.workers[0].current_workers) {
+					/* ok the system is overloaded, check if some worker is in blocking mode */
+					if (blocking_workers > 0) {
+						/* check if is it safe to add a new worker (for now check only for enough free memory) */
+						fprintf(stderr,"adding a new subworker as there are workers in blocking mode...\n");
+						uwsgi.mywid = uwsgi.workers[0].current_workers+1;
+						pid = fork();
+						if (pid < 0) {
+							perror("fork()");
+						}
+						else if (pid > 0) {
+                        				fprintf(stderr, "spawned uWSGI subworker (pid: %d)\n", pid);
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].id = uwsgi.workers[0].current_workers+1 ;
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].pid = pid ;
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].harakiri = 0 ;
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].requests = 0 ;
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].failed_requests = 0 ;
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].respawn_count++ ;
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].last_spawn = time(NULL) ;
+							uwsgi.workers[uwsgi.workers[0].current_workers+1].manage_next_request = 1 ;
+							uwsgi.workers[0].current_workers++ ;
+						}
+						else if (pid == 0) {
+							uwsgi.mypid = getpid();
+                                			break;
+						}
+					}
+				}
+				else {
+					/* the system is no more overloaded, mark subworkers */
+					for(i=uwsgi.numproc+1;i<=uwsgi.workers[0].current_workers;i++) {
+						uwsgi.workers[i].manage_next_request = 0 ;
+					}	
+				}
+
+				/* now check for subworkers to remove */
+				for(i=uwsgi.workers[0].current_workers;i>uwsgi.numproc;i--) {
+					if (uwsgi.workers[i].manage_next_request)
+						break;
+					/* reset this worker (no interest in killing it) */
+					memset(&uwsgi.workers[i], 0, sizeof(struct uwsgi_worker));
+					uwsgi.workers[0].current_workers--;
+				}
 				continue;
 			}
 #ifndef ROCK_SOLID
@@ -1460,6 +1527,16 @@ int main(int argc, char *argv[], char *envp[]) {
 					ready_to_die++;
 					continue;
 				}
+			}
+
+			/* subworkers need to be respawned ? i do not think so */
+			if (find_worker_id(diedpid) > uwsgi.numproc) {
+				fprintf(stderr,"OOPS ! process %d (subworker id %d) died :( i will not respawn it.\n", diedpid, find_worker_id(diedpid));
+				/* decrease the number of workers */
+				if (uwsgi.workers[0].current_workers > uwsgi.numproc) {
+					uwsgi.workers[find_worker_id(diedpid)].manage_next_request = 0 ;
+				}
+				continue;
 			}
 			fprintf(stderr,"DAMN ! process %d died :( trying respawn ...\n", diedpid);
 			gettimeofday(&last_respawn, NULL) ;
@@ -1531,6 +1608,8 @@ int main(int argc, char *argv[], char *envp[]) {
         }
 #endif
 
+	signal(SIGPIPE, (void *) &warn_pipe);
+
         while(uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 		
@@ -1538,6 +1617,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 wsgi_req.app_id = uwsgi.default_app ;
                 wsgi_req.sendfile_fd = -1 ;
 #endif
+                uwsgi.workers[uwsgi.mywid].blocking = 0 ;
 		uwsgi.workers[uwsgi.mywid].in_request = 0 ;
 		uwsgi.poll.fd = accept(serverfd,(struct sockaddr *)&c_addr, (socklen_t *) &c_len) ;
 		uwsgi.workers[uwsgi.mywid].in_request = 1 ;
@@ -2104,7 +2184,10 @@ int main(int argc, char *argv[], char *envp[]) {
                                 if (wsgi_chunks) {
                                         while((wchunk = PyIter_Next(wsgi_chunks))) {
                                                 if (PyString_Check(wchunk)) {
-                                                        wsgi_req.response_size += write(uwsgi.poll.fd, PyString_AsString(wchunk), PyString_Size(wchunk)) ;
+                                                        if ( (i = write(uwsgi.poll.fd, PyString_AsString(wchunk), PyString_Size(wchunk))) < 0) {
+								perror("write()");
+							}
+							wsgi_req.response_size += i ;
 #ifdef UNBIT
 							if (save_to_disk >= 0) {
 								if (write(save_to_disk, PyString_AsString(wchunk), PyString_Size(wchunk)) < 0) {
@@ -2144,7 +2227,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 #endif
                 }
-
+		
 
 
                 PyDict_Clear(wi->wsgi_environ);
@@ -2844,12 +2927,23 @@ void init_uwsgi_embedded_module() {
 	int i ;
 
 	/* initialize for stats */
-	uwsgi.workers_tuple = PyTuple_New(uwsgi.numproc);
-	for(i=0;i<uwsgi.numproc;i++) {
-		zero = PyDict_New() ;
-		Py_INCREF(zero);
-		PyTuple_SetItem(uwsgi.workers_tuple, i, zero);
+	if (uwsgi.master_process) {
+		uwsgi.workers_tuple = PyTuple_New(uwsgi.maxworkers);
+		for(i=0;i<uwsgi.maxworkers;i++) {
+			zero = PyDict_New() ;
+			Py_INCREF(zero);
+			PyTuple_SetItem(uwsgi.workers_tuple, i, zero);
+		}
 	}
+	else {
+		uwsgi.workers_tuple = PyTuple_New(uwsgi.numproc);
+		for(i=0;i<uwsgi.numproc;i++) {
+			zero = PyDict_New() ;
+			Py_INCREF(zero);
+			PyTuple_SetItem(uwsgi.workers_tuple, i, zero);
+		}
+	}
+
 	
 
 	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);

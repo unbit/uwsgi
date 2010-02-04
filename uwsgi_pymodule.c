@@ -19,6 +19,28 @@ extern struct uwsgi_server uwsgi;
 #endif
 #endif
 
+#define UWSGI_LOGBASE "[- uWSGI -"
+
+PyObject *py_uwsgi_log(PyObject *self, PyObject *args) {
+	char *logline ;
+	time_t tt ;
+
+	if (!PyArg_ParseTuple(args, "s:log", &logline)) {
+                return NULL ;
+        }
+
+	tt = time(NULL) ;
+	if (logline[strlen(logline)] != '\n') {
+		fprintf(stderr, UWSGI_LOGBASE " %.*s] %s\n", 24, ctime(&tt), logline);
+	}
+	else {
+		fprintf(stderr, UWSGI_LOGBASE " %.*s] %s",  24, ctime(&tt), logline);
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
 PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
 	int pos = 0 ;
 	long value = 0 ;
@@ -598,9 +620,18 @@ PyObject *py_uwsgi_total_requests(PyObject *self, PyObject *args) {
 PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
 
 	PyObject *worker_dict, *zero;
-	int i ;
+	int i, w ;
 
-	for(i=0;i<uwsgi.numproc;i++) {
+	if (uwsgi.master_process) {
+		w = uwsgi.workers[0].current_workers ;
+	}
+	else {
+		w = uwsgi.numproc;
+	}
+
+	fprintf(stderr,"W = %d\n", w);
+
+	for(i=0;i<w;i++) {
 		worker_dict = PyTuple_GetItem(uwsgi.workers_tuple, i) ;
 		if (!worker_dict) {
 			goto clear;
@@ -694,6 +725,39 @@ PyObject *py_uwsgi_reload(PyObject *self, PyObject *args) {
        	return Py_True;
 }
 
+/* blocking hint */
+PyObject *py_uwsgi_set_blocking(PyObject *self, PyObject *args) {
+
+	if (uwsgi.master_process) {
+		uwsgi.workers[uwsgi.mywid].blocking = 1;
+		Py_INCREF(Py_True);
+       		return Py_True;
+	}
+	
+
+	Py_INCREF(Py_None);
+        return Py_None;
+}
+
+PyObject *py_uwsgi_current_workers(PyObject *self, PyObject *args) {
+	return PyInt_FromLong(uwsgi.workers[0].current_workers) ;	
+}
+
+PyObject *py_uwsgi_request_id(PyObject *self, PyObject *args) {
+        return PyInt_FromLong(uwsgi.workers[uwsgi.mywid].requests) ;
+}
+
+PyObject *py_uwsgi_worker_id(PyObject *self, PyObject *args) {
+        return PyInt_FromLong(uwsgi.mywid) ;
+}
+
+PyObject *py_uwsgi_disconnect(PyObject *self, PyObject *args) {
+	fprintf(stderr,"detaching uWSGI from current connection...\n");
+	close(uwsgi.poll.fd);
+
+	Py_INCREF(Py_True);
+        return Py_True;
+}
 
 static PyMethodDef uwsgi_spooler_methods[] = {
   {"send_to_spooler", py_uwsgi_send_spool, METH_VARARGS, ""},
@@ -711,6 +775,12 @@ static PyMethodDef uwsgi_advanced_methods[] = {
   {"get_option", py_uwsgi_get_option, METH_VARARGS, ""},
   {"setoption", py_uwsgi_set_option, METH_VARARGS, ""},
   {"set_option", py_uwsgi_set_option, METH_VARARGS, ""},
+  {"sorry_i_need_to_block", py_uwsgi_set_blocking, METH_VARARGS, ""},
+  {"current_workers", py_uwsgi_current_workers, METH_VARARGS, ""},
+  {"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
+  {"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
+  {"log", py_uwsgi_log, METH_VARARGS, ""},
+  {"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
   {NULL, NULL},
 };
 

@@ -88,6 +88,10 @@ def djangohomepage():
 def reload(env, start_response):
 
 	start_response('200 OK', [('Content-Type', 'text/html')])
+
+	uwsgi.sorry_i_need_to_block()
+	time.sleep(1)
+
 	#uwsgi.reload()
 
 #	print str(uwsgi.masterpid()) + "\n"
@@ -139,7 +143,7 @@ def reload(env, start_response):
 	yield '<b>process_reaper</b>: ' + str(uwsgi.get_option(8)) + '<br/>'
 
 	yield '<table border="1">'
-	yield '<th>worker id</th><th>pid</th><th>requests</th><th>running time</th><th>address space</th><th>rss</th>'
+	yield '<th>worker id</th><th>pid</th><th>in request</th><th>requests</th><th>running time</th><th>address space</th><th>rss</th>'
 
 	workers = uwsgi.workers();
 
@@ -149,7 +153,7 @@ def reload(env, start_response):
 		#print w
 		#print w['running_time']
 		if w is not None:
-			yield '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
+			yield '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['in_request']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
 	
 	yield '</table>'
 

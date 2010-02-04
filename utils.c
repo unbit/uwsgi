@@ -131,3 +131,24 @@ char * uwsgi_get_cwd() {
 	return cwd;
 	
 }
+
+uint64_t get_free_memory() {
+
+	uint64_t freemem = 0 ;
+
+#if defined(__FreeBSD__) || defined(__apple__)
+	int value ;
+	size_t dlen;
+
+	if (sysctlbyname("vm.stats.vm.v_free_count", &value, &dlen, NULL, 0) != 0) {
+		perror("sysctlbyname()");
+	}
+
+	freemem += value*uwsgi.page_size ;
+
+	fprintf(stderr,"available memory: %llu\n", freemem);
+
+#endif
+
+	return freemem ;
+}
