@@ -546,6 +546,51 @@ PyObject *py_uwsgi_set_option(PyObject *self, PyObject *args) {
 	return PyInt_FromLong(value);
 }
 
+PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
+	uint8_t modifier ;
+	char *plugin_name = NULL ;
+	
+	void *plugin_handle;
+	void (*plugin_init)(struct uwsgi_server *);
+        int (*plugin_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
+        int (*plugin_after_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
+
+	if (!PyArg_ParseTuple(args, "is:load_plugin", &modifier, &plugin_name)) {
+		return NULL ;
+	}
+
+	if (modifier <= 255) {
+		plugin_handle = dlopen(plugin_name, RTLD_LAZY);
+        	if (!plugin_handle) {
+                	fprintf (stderr, "%s\n", dlerror());
+        	}
+        	else {
+                	plugin_init = dlsym(plugin_handle, "uwsgi_init");
+                	if (plugin_init) {
+                        	(*plugin_init)(&uwsgi);
+                	}
+
+                	plugin_request = dlsym(plugin_handle, "uwsgi_request");
+                	if (plugin_request) {
+                        	uwsgi.hooks[modifier] = plugin_request ;
+                        	plugin_after_request = dlsym(plugin_handle, "uwsgi_after_request");
+                        	if (plugin_after_request) {
+                                	uwsgi.after_hooks[modifier] = plugin_after_request ;
+                        	}
+				Py_INCREF(Py_True);
+				return Py_True;
+		
+                	}
+                	else {
+                        	fprintf (stderr, "%s\n", dlerror());
+                	}
+        	}
+	}
+	
+	Py_INCREF(Py_None);
+        return Py_None;
+}
+
 PyObject *py_uwsgi_send_message(PyObject *self, PyObject *args) {
 
 	PyObject *arg_message = NULL;
@@ -620,18 +665,9 @@ PyObject *py_uwsgi_total_requests(PyObject *self, PyObject *args) {
 PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
 
 	PyObject *worker_dict, *zero;
-	int i, w ;
+	int i ;
 
-	if (uwsgi.master_process) {
-		w = uwsgi.workers[0].current_workers ;
-	}
-	else {
-		w = uwsgi.numproc;
-	}
-
-	fprintf(stderr,"W = %d\n", w);
-
-	for(i=0;i<w;i++) {
+	for(i=0;i<uwsgi.numproc;i++) {
 		worker_dict = PyTuple_GetItem(uwsgi.workers_tuple, i) ;
 		if (!worker_dict) {
 			goto clear;
@@ -693,11 +729,6 @@ PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
         	}
 		Py_DECREF(zero);
 
-		zero = PyFloat_FromDouble(uwsgi.workers[i+1].load);
-		if (PyDict_SetItemString(worker_dict, "load", zero)) {
-                	goto clear;
-        	}
-		Py_DECREF(zero);
 	}
 
 
@@ -781,6 +812,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
   {"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
   {"log", py_uwsgi_log, METH_VARARGS, ""},
   {"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
+  {"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
   {NULL, NULL},
 };
 

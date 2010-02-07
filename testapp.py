@@ -10,6 +10,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'mysite.settings'
 
 #import django.core.handlers.wsgi
 
+uwsgi.load_plugin(0, "plugins/rack/rack_plugin.so")
 
 from threading import Thread
 
@@ -89,8 +90,8 @@ def reload(env, start_response):
 
 	start_response('200 OK', [('Content-Type', 'text/html')])
 
-	uwsgi.sorry_i_need_to_block()
-	time.sleep(1)
+	#uwsgi.sorry_i_need_to_block()
+	#time.sleep(1)
 
 	#uwsgi.reload()
 
@@ -154,6 +155,7 @@ def reload(env, start_response):
 		#print w['running_time']
 		if w is not None:
 			yield '<tr><td>'+ str(w['id']) +'</td><td>' + str(w['pid']) + '</td><td>' + str(w['in_request']) + '</td><td>' + str(w['requests']) + '</td><td>' + str(w['running_time']) + '</td><td>' + str(w['vsz']) + '</td><td>' + str(w['rss']) + '</td></tr>'
+			print w
 	
 	yield '</table>'
 
