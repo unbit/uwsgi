@@ -560,33 +560,31 @@ PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
 		return NULL ;
 	}
 
-	if (modifier <= 255) {
-		plugin_handle = dlopen(plugin_name, RTLD_LAZY);
-        	if (!plugin_handle) {
-                	fprintf (stderr, "%s\n", dlerror());
-        	}
-        	else {
-                	plugin_init = dlsym(plugin_handle, "uwsgi_init");
-                	if (plugin_init) {
-                        	(*plugin_init)(&uwsgi, pargs);
-                	}
+	plugin_handle = dlopen(plugin_name, RTLD_LAZY);
+        if (!plugin_handle) {
+               	fprintf (stderr, "%s\n", dlerror());
+        }
+        else {
+               	plugin_init = dlsym(plugin_handle, "uwsgi_init");
+               	if (plugin_init) {
+                       	(*plugin_init)(&uwsgi, pargs);
+               	}
 
-                	plugin_request = dlsym(plugin_handle, "uwsgi_request");
-                	if (plugin_request) {
-                        	uwsgi.hooks[modifier] = plugin_request ;
-                        	plugin_after_request = dlsym(plugin_handle, "uwsgi_after_request");
-                        	if (plugin_after_request) {
-                                	uwsgi.after_hooks[modifier] = plugin_after_request ;
-                        	}
-				Py_INCREF(Py_True);
-				return Py_True;
-		
-                	}
-                	else {
-                        	fprintf (stderr, "%s\n", dlerror());
-                	}
-        	}
-	}
+               	plugin_request = dlsym(plugin_handle, "uwsgi_request");
+               	if (plugin_request) {
+                       	uwsgi.hooks[modifier] = plugin_request ;
+                       	plugin_after_request = dlsym(plugin_handle, "uwsgi_after_request");
+                       	if (plugin_after_request) {
+                               	uwsgi.after_hooks[modifier] = plugin_after_request ;
+                       	}
+			Py_INCREF(Py_True);
+			return Py_True;
+
+               	}
+               	else {
+                      	fprintf (stderr, "%s\n", dlerror());
+               	}
+       	}
 	
 	Py_INCREF(Py_None);
         return Py_None;
