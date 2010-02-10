@@ -2,13 +2,12 @@ CC=gcc
 
 PYTHON_CFLAGS=`python3.1-config --cflags`
 PYTHON_LIBS=`python3.1-config --libs`
-XML_CFLAGS=`xml2-config --cflags`
-XML_LIBS=`xml2-config --libs`
 
-CFLAGS=$(PYTHON_CFLAGS) $(XML_CFLAGS)
-LD_FLAGS=$(PYTHON_LIBS) $(XML_LIBS)
+UWSGI_CFLAGS=`python3.1 uconfig.py --cflags`
+UWSGI_LDFLAGS=`python3.1 uconfig.py --ldflags`
 
-UWSGI_BASEFLAGS=`python3.1 ucheck.py`
+CFLAGS=$(PYTHON_CFLAGS) $(UWSGI_CFLAGS)
+LD_FLAGS=$(PYTHON_LIBS) $(UWSGI_LDFLAGS)
 
 PROGRAM=uwsgi31
 

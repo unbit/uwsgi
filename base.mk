@@ -1,20 +1,9 @@
 include config
 
-UWSGI_CFLAGS = ""
-UWSGI_LD_FLAGS = ""
-
-ifneq ($(SCTP), 'no')
-	UWSGI_CFLAGS = -DSCTP
-	UWSGI_LD_FLAGS = -lsctp
-endif
-
-CFLAGS := $(CFLAGS) $(UWSGI_CFLAGS)
-LD_FLAGS := $(LD_FLAGS) $(UWSGI_LD_FLAGS)
-
 all:	clean uwsgi
 
 uwsgi:  utils.o protocol.o socket.o pymodule.o spooler.o logging.o snmp.o wsgihandlers.o basehandlers.o main.o
-	$(CC) $(LD_FLAGS) $(UWSGI_BASEFLAGS) -lpthread utils.o protocol.o socket.o spooler.o logging.o snmp.o pymodule.o wsgihandlers.o basehandlers.o main.o -o $(PROGRAM)
+	$(CC) $(LD_FLAGS) -lpthread utils.o protocol.o socket.o spooler.o logging.o snmp.o pymodule.o wsgihandlers.o basehandlers.o main.o -o $(PROGRAM)
 
 utils.o: utils.c
 	$(CC) -c $(CFLAGS) utils.c
