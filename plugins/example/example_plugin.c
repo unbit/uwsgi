@@ -1,7 +1,9 @@
 #include "../../uwsgi.h"
 
-void uwsgi_init(struct uwsgi_server *uwsgi){
-	fprintf(stderr,"i am the example plugin initialization function\n");
+/* gcc `python2.5-config --cflags` -o example_plugin.so -fPIC -shared example_plugin.c */
+
+void uwsgi_init(struct uwsgi_server *uwsgi, char *args){
+	fprintf(stderr,"i am the example plugin initialization function with arg: %s\n", args);
 }
 
 int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {

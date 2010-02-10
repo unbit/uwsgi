@@ -549,13 +549,14 @@ PyObject *py_uwsgi_set_option(PyObject *self, PyObject *args) {
 PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
 	uint8_t modifier ;
 	char *plugin_name = NULL ;
+	char *pargs = NULL ;
 	
 	void *plugin_handle;
-	void (*plugin_init)(struct uwsgi_server *);
+	void (*plugin_init)(struct uwsgi_server *, char *);
         int (*plugin_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
-        int (*plugin_after_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
+        void (*plugin_after_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
 
-	if (!PyArg_ParseTuple(args, "is:load_plugin", &modifier, &plugin_name)) {
+	if (!PyArg_ParseTuple(args, "is|s:load_plugin", &modifier, &plugin_name, &pargs)) {
 		return NULL ;
 	}
 
@@ -567,7 +568,7 @@ PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
         	else {
                 	plugin_init = dlsym(plugin_handle, "uwsgi_init");
                 	if (plugin_init) {
-                        	(*plugin_init)(&uwsgi);
+                        	(*plugin_init)(&uwsgi, pargs);
                 	}
 
                 	plugin_request = dlsym(plugin_handle, "uwsgi_request");

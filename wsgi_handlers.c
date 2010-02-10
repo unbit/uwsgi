@@ -1,5 +1,7 @@
 #include "uwsgi.h"
 
+static int uwsgi_sendfile(struct uwsgi_server *, int , int ) ;
+
 int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
 
 	char *ptrbuf;
@@ -18,10 +20,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 	PyObject *wsgi_result, *wsgi_chunks, *wchunk;
 
-	int rlen;
-
 	/* Standard WSGI request */
-
 	if (!wsgi_req->size) {
 		fprintf (stderr, "Invalid WSGI request. skip.\n");
 		return -1;
@@ -231,29 +230,6 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 	}
 
 
-
-	/* max 1 minute before harakiri */
-	if (uwsgi->options[UWSGI_OPTION_HARAKIRI] > 0) {
-#ifdef UNBIT
-		if (wsgi_req->modifier != 0) {
-			switch (wsgi_req->modifier) {
-			case UWSGI_MODIFIER_HT_S:
-				set_harakiri (wsgi_req->modifier_arg);
-			case UWSGI_MODIFIER_HT_M:
-				set_harakiri (wsgi_req->modifier_arg * 60);
-			case UWSGI_MODIFIER_HT_H:
-				set_harakiri (wsgi_req->modifier_arg * 3600);
-			}
-		}
-		else {
-#endif
-			set_harakiri (uwsgi->options[UWSGI_OPTION_HARAKIRI]);
-#ifdef UNBIT
-		}
-#endif
-	}
-
-
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 		/*fprintf(stderr,"%.*s: %.*s\n", uwsgi->hvec[i].iov_len, uwsgi->hvec[i].iov_base, uwsgi->hvec[i+1].iov_len, uwsgi->hvec[i+1].iov_base); */
 		pydictkey = PyString_FromStringAndSize (uwsgi->hvec[i].iov_base, uwsgi->hvec[i].iov_len);
@@ -277,8 +253,6 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 			}
 		}
 	}
-
-
 
 
 	// set wsgi vars
@@ -324,8 +298,6 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 #endif
 
 
-
-
 	// call
 #ifndef ROCK_SOLID
 	if (uwsgi->enable_profiler == 1) {
@@ -358,39 +330,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 #ifndef ROCK_SOLID
 		if (wsgi_req->sendfile_fd > -1) {
-			rlen = lseek (wsgi_req->sendfile_fd, 0, SEEK_END);
-			if (rlen > 0) {
-				lseek (wsgi_req->sendfile_fd, 0, SEEK_SET);
-#ifndef __linux__
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-
-				wsgi_req->response_size = sendfile (wsgi_req->sendfile_fd, uwsgi->poll.fd, 0, 0, NULL, (off_t *) & rlen, 0);
-#elif __OpenBSD__ || __sun__
-				char *no_sendfile_buf[4096];
-				int jlen = 0;
-				i = 0;
-				while (i < rlen) {
-					jlen = read (wsgi_req->sendfile_fd, no_sendfile_buf, 4096);
-					if (jlen <= 0) {
-						perror ("read()");
-						break;
-					}
-					i += jlen;
-					jlen = write (uwsgi->poll.fd, no_sendfile_buf, jlen);
-					if (jlen <= 0) {
-						perror ("write()");
-						break;
-					}
-
-				}
-#else
-				wsgi_req->response_size = sendfile (wsgi_req->sendfile_fd, uwsgi->poll.fd, 0, (off_t *) & rlen, NULL, 0);
-#endif
-#else
-				wsgi_req->response_size = sendfile (uwsgi->poll.fd, wsgi_req->sendfile_fd, NULL, rlen);
-#endif
-			}
-			Py_DECREF (uwsgi->py_sendfile);
+			wsgi_req->response_size = uwsgi_sendfile(uwsgi, wsgi_req->sendfile_fd, uwsgi->poll.fd);
 		}
 		else {
 
@@ -474,10 +414,70 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 }
 
-int uwsgi_after_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+void uwsgi_after_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
 
 	if (uwsgi->options[UWSGI_OPTION_LOGGING])
 		log_request(wsgi_req) ;
-
-	return 0;
 }
+
+#ifndef ROCK_SOLID
+static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
+
+	int rlen,i ;
+
+#ifdef __sun__
+	struct stat stat_buf;
+        if (fstat(fd, &stat_buf)) {
+        	perror("fstat()");
+                return 0;
+        }
+        else {
+        	rlen = stat_buf.st_size ;
+        }
+#else
+        rlen = lseek(fd, 0, SEEK_END) ;
+#endif
+
+	if (rlen > 0) {
+        	lseek(fd, 0, SEEK_SET) ;
+#if !defined(__linux__) && !defined(__sun__)
+        #if defined(__FreeBSD__) || defined(__DragonFly__)
+
+		if (sendfile(fd, sockfd, 0, 0, NULL, (off_t *) &rlen, 0)) {
+                	perror("sendfile()");
+                }
+        #elif __APPLE__
+                if (sendfile(fd, sockfd, 0, (off_t *) &rlen, NULL, 0)) {
+                	perror("sendfile()");
+                }
+        #else
+        	char *no_sendfile_buf[4096] ;
+                int jlen = 0 ;
+		rlen = 0 ;
+                i = 0 ;
+                while(i < rlen) {
+                	jlen = read(fd, no_sendfile_buf, 4096);
+                        if (jlen<=0) {
+                        	perror("read()");
+                                break;
+                        }
+                        i += jlen;
+                        jlen = write(sockfd, no_sendfile_buf, jlen);
+                        if (jlen<=0) {
+                        	perror("write()");
+                                break;
+                        }
+			rlen += jlen;
+                }
+        #endif
+#else
+		i = 0 ;
+        	rlen = sendfile(sockfd, fd, (off_t *) &i, rlen) ;
+#endif
+
+	}
+	Py_DECREF(uwsgi->py_sendfile);
+
+	return rlen;
+}
+#endif

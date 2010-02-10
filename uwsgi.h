@@ -188,6 +188,7 @@ struct __attribute__ ((packed)) wsgi_request {
              int app_id;
 #endif
              struct timeval start_of_request;
+             struct timeval end_of_request;
              char *uri;
              unsigned short uri_len;
              char *remote_addr;
@@ -240,7 +241,7 @@ struct __attribute__ ((packed)) wsgi_request {
 #endif
 
 	     int (*hooks[0xFF])(struct uwsgi_server *, struct wsgi_request*, char*) ;
-             int (*after_hooks[0xFF])(struct uwsgi_server *, struct wsgi_request*, char*) ;	
+             void (*after_hooks[0xFF])(struct uwsgi_server *, struct wsgi_request*, char*) ;	
 
 	     // iovec
 	     struct iovec *hvec;
@@ -428,7 +429,7 @@ struct __attribute__ ((packed)) wsgi_request {
 
 /* included HOOKS */
 int uwsgi_request_wsgi(struct uwsgi_server*, struct wsgi_request*, char *);
-int uwsgi_after_request_wsgi(struct uwsgi_server*, struct wsgi_request*, char *);
+void uwsgi_after_request_wsgi(struct uwsgi_server*, struct wsgi_request*, char *);
 
 int uwsgi_request_admin(struct uwsgi_server*, struct wsgi_request*, char *);
 int uwsgi_request_spooler(struct uwsgi_server*, struct wsgi_request*, char *);

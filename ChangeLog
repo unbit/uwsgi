@@ -1,3 +1,13 @@
+*** february 2010 ***
+ * Maintenance release *
+
+- better support for NetBSD
+- threading fix for FreeBSD
+- sendfile portability fixes 
+- new makefiles
+- example app for testing static file serving
+- fixes for ROCK_SOLID mode
+
 *** january 2010 ***
 
 - Integrated Spooler

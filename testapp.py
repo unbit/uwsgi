@@ -10,7 +10,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'mysite.settings'
 
 #import django.core.handlers.wsgi
 
-uwsgi.load_plugin(0, "plugins/rack/rack_plugin.so")
+uwsgi.load_plugin(0, "plugins/example/example_plugin.so", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
 
 from threading import Thread
 

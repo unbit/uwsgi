@@ -4,7 +4,6 @@ extern struct uwsgi_server uwsgi;
 
 void log_request(struct wsgi_request *wsgi_req) {
         char *time_request ;
-        struct timeval end_request ;
         time_t microseconds, microseconds2;
 
 
@@ -27,20 +26,19 @@ void log_request(struct wsgi_request *wsgi_req) {
                 }
         }
         via = msg2 ;
+
         if (wsgi_req->sendfile_fd > -1) {
                 via = msg1 ;
         }
 #endif
 
         time_request = ctime( (const time_t *) &wsgi_req->start_of_request.tv_sec);
-        gettimeofday(&end_request, NULL) ;
-        microseconds = end_request.tv_sec*1000000+end_request.tv_usec ;
+        microseconds = wsgi_req->end_of_request.tv_sec*1000000+wsgi_req->end_of_request.tv_usec ;
         microseconds2 = wsgi_req->start_of_request.tv_sec*1000000+wsgi_req->start_of_request.tv_usec ;
 
 
 #ifndef ROCK_SOLID
-        if (uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
-                get_memusage();
+	if (uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
 #ifndef UNBIT
                 if (uwsgi.synclog) {
                         snprintf(uwsgi.sync_page, uwsgi.page_size, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size/1024/1024) ;
@@ -54,8 +52,6 @@ void log_request(struct wsgi_request *wsgi_req) {
 #endif
         }
 #endif
-
-        uwsgi.workers[uwsgi.mywid].running_time += (double) (( (double)microseconds-(double)microseconds2)/ (double)1000.0) ;
 
 #ifdef ROCK_SOLID
         fprintf(stderr, "[pid: %d|req: %llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs (%.*s %d) %d headers in %d bytes\n",
@@ -81,8 +77,7 @@ void get_memusage() {
 
 #ifdef UNBIT
         uwsgi.workers[uwsgi.mywid].vsz_size = syscall(356);
-#else
-#ifdef __linux__
+#elif defined(__linux__)
         FILE *procfile;
         int i;
         procfile = fopen("/proc/self/stat","r");
@@ -94,9 +89,8 @@ void get_memusage() {
                 fclose(procfile);
         }
         uwsgi.workers[uwsgi.mywid].rss_size = uwsgi.workers[uwsgi.mywid].rss_size*uwsgi.page_size;
-#endif
-#ifdef __APPLE__
-        /* darwin documentation says that the value are in pages, bot they are bytes !!! */
+#elif defined( __APPLE__)
+        /* darwin documentation says that the value are in pages, but they are bytes !!! */
         struct task_basic_info t_info;
         mach_msg_type_number_t t_size = sizeof(struct task_basic_info);
 
@@ -104,8 +98,8 @@ void get_memusage() {
                 uwsgi.workers[uwsgi.mywid].rss_size = t_info.resident_size;
                 uwsgi.workers[uwsgi.mywid].vsz_size = t_info.virtual_size;
         }
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
 
-#endif
 #endif
 }
 #endif

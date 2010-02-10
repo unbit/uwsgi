@@ -207,31 +207,6 @@ void internal_server_error (int fd, char *message) {
 	wsgi_req.response_size += write (fd, message, strlen (message));
 }
 
-#ifndef ROCK_SOLID
-PyObject *py_uwsgi_sendfile (PyObject * self, PyObject * args) {
-
-	//PyObject *zero ;
-
-	uwsgi.py_sendfile = PyTuple_GetItem (args, 0);
-
-#ifdef PYTHREE
-	if ((wsgi_req.sendfile_fd = PyObject_AsFileDescriptor (uwsgi.py_sendfile)) >= 0) {
-		Py_INCREF (uwsgi.py_sendfile);
-	}
-#else
-	if (PyFile_Check (uwsgi.py_sendfile)) {
-		//zero = PyFile_Name(uwsgi.py_sendfile) ;
-		//fprintf(stderr,"->serving %s as static file...", PyString_AsString(zero));
-		wsgi_req.sendfile_fd = PyObject_AsFileDescriptor (uwsgi.py_sendfile);
-		Py_INCREF (uwsgi.py_sendfile);
-	}
-#endif
-
-
-	return PyTuple_New (0);
-}
-#endif
-
 PyObject *py_uwsgi_write (PyObject * self, PyObject * args) {
 	PyObject *data;
 	char *content;
@@ -450,6 +425,30 @@ PyObject *py_uwsgi_spit (PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+#ifndef ROCK_SOLID
+PyObject *py_uwsgi_sendfile (PyObject * self, PyObject * args) {
+
+        //PyObject *zero ;
+
+        uwsgi.py_sendfile = PyTuple_GetItem (args, 0);
+
+#ifdef PYTHREE
+        if ((wsgi_req.sendfile_fd = PyObject_AsFileDescriptor (uwsgi.py_sendfile)) >= 0) {
+                Py_INCREF (uwsgi.py_sendfile);
+        }
+#else
+        if (PyFile_Check (uwsgi.py_sendfile)) {
+                //zero = PyFile_Name(uwsgi.py_sendfile) ;
+                //fprintf(stderr,"->serving %s as static file...", PyString_AsString(zero));
+                wsgi_req.sendfile_fd = PyObject_AsFileDescriptor (uwsgi.py_sendfile);
+                Py_INCREF (uwsgi.py_sendfile);
+        }
+#endif
+
+
+        return PyTuple_New (0);
+}
+#endif
 
 PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""}
 };
@@ -473,6 +472,15 @@ int single_app_mode = 0;
 #endif
 
 char *spool_dir = NULL;
+
+static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+	fprintf(stderr, "-- unavailable modifier requested: %d --\n", wsgi_req->modifier);
+	return -1;
+}
+
+static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+	return;
+}
 
 int main (int argc, char *argv[], char *envp[]) {
 
@@ -549,8 +557,8 @@ int main (int argc, char *argv[], char *envp[]) {
 	signal (SIGTERM, SIG_IGN);
 
 	for(i=0;i<0xFF;i++) {
-		uwsgi.hooks[i] = NULL;
-		uwsgi.after_hooks[i] = NULL;
+		uwsgi.hooks[i] = unconfigured_hook;
+		uwsgi.after_hooks[i] = unconfigured_after_hook;
 	}
 	memset (&uwsgi, 0, sizeof (struct uwsgi_server));
 
@@ -1802,30 +1810,36 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 #endif
 
-		ret = -1 ;
+		// enter harakiri mode
 		if (uwsgi.options[UWSGI_OPTION_HARAKIRI] > 0) {
 			set_harakiri(uwsgi.options[UWSGI_OPTION_HARAKIRI]);
 		}
-		if (uwsgi.hooks[wsgi_req.modifier] != NULL) {
-			ret = (*uwsgi.hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req, buffer);
-			if (!ret) {
-				if (uwsgi.after_hooks[wsgi_req.modifier] != NULL) {
-					ret = (*uwsgi.after_hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req, buffer);
-				}
-			}
-		}
-		else {
-			fprintf(stderr,"unknown uwsgi request type received: %d\n", wsgi_req.modifier);
-		}
+
+		ret = (*uwsgi.hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req, buffer);
+		// calculate execution time
+		gettimeofday(&wsgi_req.end_of_request, NULL) ;
+		uwsgi.workers[uwsgi.mywid].running_time += (double) (( (double)(wsgi_req.end_of_request.tv_sec*1000000+wsgi_req.end_of_request.tv_usec)-(double)(wsgi_req.start_of_request.tv_sec*1000000+wsgi_req.start_of_request.tv_usec))/ (double)1000.0) ;
+
+#ifndef ROCK_SOLID
+		// get memory usage
+		if (uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG] == 1)
+                	get_memusage();
+#endif
+
+		// close the connection with the webserver
+		close(uwsgi.poll.fd);
+		uwsgi.workers[0].requests++;
+		uwsgi.workers[uwsgi.mywid].requests++;
+
+		if (!ret)
+			(*uwsgi.after_hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req, buffer);
 
 
+		// leave harakiri mode
 		if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
 			set_harakiri(0);
 		}
 
-		close(uwsgi.poll.fd);
-		uwsgi.workers[0].requests++;
-		uwsgi.workers[uwsgi.mywid].requests++;
 
 		// defunct process reaper
 		if (uwsgi.options[UWSGI_OPTION_REAPER] == 1) {
@@ -1838,7 +1852,6 @@ int main (int argc, char *argv[], char *envp[]) {
 			tmp_filename[0] = 0;
 		}
 #endif
-
 
 		if (uwsgi.options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.options[UWSGI_OPTION_MAX_REQUESTS]) {
 			goodbye_cruel_world ();
@@ -1854,13 +1867,6 @@ int main (int argc, char *argv[], char *envp[]) {
 			}
 		}
 #endif
-
-/*
-	}
-	else {
-		fprintf (stderr, "Unsupported uwsgi modifier requested: %d\n", wsgi_req.modifier);
-	}
-*/
 
 	}
 

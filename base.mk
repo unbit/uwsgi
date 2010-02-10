@@ -14,7 +14,7 @@ LD_FLAGS := $(LD_FLAGS) $(UWSGI_LD_FLAGS)
 all:	clean uwsgi
 
 uwsgi:  utils.o protocol.o socket.o pymodule.o spooler.o logging.o snmp.o wsgihandlers.o basehandlers.o main.o
-	$(CC) $(LD_FLAGS) utils.o protocol.o socket.o spooler.o logging.o snmp.o pymodule.o wsgihandlers.o basehandlers.o main.o -o $(PROGRAM)
+	$(CC) $(LD_FLAGS) $(UWSGI_BASEFLAGS) -lpthread utils.o protocol.o socket.o spooler.o logging.o snmp.o pymodule.o wsgihandlers.o basehandlers.o main.o -o $(PROGRAM)
 
 utils.o: utils.c
 	$(CC) -c $(CFLAGS) utils.c

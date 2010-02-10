@@ -8,6 +8,8 @@ XML_LIBS=`xml2-config --libs`
 CFLAGS=$(PYTHON_CFLAGS) $(XML_CFLAGS)
 LD_FLAGS=$(PYTHON_LIBS) $(XML_LIBS)
 
+UWSGI_BASEFLAGS=`python2.5 ucheck.py`
+
 PROGRAM=uwsgi
 
 include base.mk
