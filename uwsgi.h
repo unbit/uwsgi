@@ -201,6 +201,8 @@ struct __attribute__ ((packed)) wsgi_request {
              unsigned short protocol_len;
              char *method;
              unsigned short method_len;
+             char *scheme;
+             unsigned short scheme_len;
 #ifdef UNBIT
              unsigned long long unbit_flags;
 #endif

@@ -1,5 +1,3 @@
-include config
-
 all:	clean uwsgi
 
 uwsgi:  utils.o protocol.o socket.o pymodule.o spooler.o logging.o snmp.o wsgihandlers.o basehandlers.o main.o

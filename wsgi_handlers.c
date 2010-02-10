@@ -109,6 +109,10 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 							wsgi_req->remote_user = ptrbuf;
 							wsgi_req->remote_user_len = strsize;
 						}
+						else if (!strncmp ("UWSGI_SCHEME", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->scheme = ptrbuf;
+							wsgi_req->scheme_len = strsize;
+						}
 #ifdef UNBIT
 						else if (!strncmp ("UNBIT_FLAGS", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->unbit_flags = *(unsigned long long *) ptrbuf;
@@ -285,7 +289,12 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 		PyDict_SetItemString (wi->wsgi_environ, "wsgi.multiprocess", Py_True);
 	}
 
-	zero = PyString_FromString ("http");
+	if (wsgi_req->scheme) {
+		zero = PyString_FromStringAndSize (wsgi_req->scheme, wsgi_req->scheme_len);
+	}
+	else {
+		zero = PyString_FromString ("http");
+	}
 	PyDict_SetItemString (wi->wsgi_environ, "wsgi.url_scheme", zero);
 	Py_DECREF (zero);
 
