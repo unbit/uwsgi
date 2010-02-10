@@ -525,10 +525,6 @@ int main (int argc, char *argv[], char *envp[]) {
 
 #ifndef ROCK_SOLID
 	pid_t spooler_pid = 0;
-#ifndef UNBIT
-	char *snmp = NULL;
-	pid_t snmp_pid;
-#endif
 #endif
 
 	int working_workers = 0;
@@ -863,7 +859,7 @@ int main (int argc, char *argv[], char *envp[]) {
 \t-c|--cgi-mode\t\t\tset cgi mode (no ROCK_SOLID) \n\
 \t-C|--chmod-socket\t\tchmod socket to 666\n\
 \t-P|--profiler\t\t\tenable profiler (no ROCK_SOLID)\n\
-\t-m|--memory-report\t\tenable memory usage report (Linux/OSX only, no ROCK_SOLID)\n\
+\t-m|--memory-report\t\tenable memory usage report\n\
 \t-i|--single-interpreter\t\tsingle interpreter mode (no ROCK_SOLID)\n\
 \t-a|--abstract-socket\t\tset socket in the abstract namespace (Linux only)\n\
 \t-T|--enable-threads\t\tenable threads support (no ROCK_SOLID)\n\
@@ -953,6 +949,10 @@ int main (int argc, char *argv[], char *envp[]) {
 				exit (1);
 			}
 		}
+
+		if (!getuid()) {
+			fprintf(stderr," *** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
+		}
 	}
 	else {
 		if (uwsgi.chroot) {
@@ -968,6 +968,8 @@ int main (int argc, char *argv[], char *envp[]) {
 			exit (1);
 		}
 	}
+
+	
 
 #endif
 
@@ -1386,18 +1388,6 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 
-#ifndef ROCK_SOLID
-#ifndef PYTHREE
-#ifndef UNBIT
-	if (snmp != NULL) {
-		//snmp_pid = snmp_start(snmp);
-	}
-#endif
-#endif
-#endif
-
-
-
 
 	if (!uwsgi.master_process && uwsgi.numproc == 1) {
 		fprintf (stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n", masterpid);
@@ -1468,9 +1458,6 @@ int main (int argc, char *argv[], char *envp[]) {
 					kill (spooler_pid, SIGKILL);
 				}
 
-				if (snmp && snmp_pid > 0) {
-					kill (snmp_pid, SIGKILL);
-				}
 #endif
 				fprintf (stderr, "goodbye to uWSGI.\n");
 				exit (0);
@@ -1643,17 +1630,6 @@ int main (int argc, char *argv[], char *envp[]) {
 					continue;
 				}
 			}
-#ifndef UNBIT
-
-			/* reload the snmp server */
-			if (snmp && snmp_pid > 0) {
-				if (diedpid == snmp_pid) {
-					//snmp_pid = snmp_start(snmp);
-					continue;
-				}
-			}
-
-#endif
 #endif
 #endif
 			/* check for reloading */

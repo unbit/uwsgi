@@ -423,7 +423,7 @@ void uwsgi_after_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *
 #ifndef ROCK_SOLID
 static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
 
-	int rlen,i ;
+	int rlen ;
 
 #ifdef __sun__
 	struct stat stat_buf;
@@ -451,6 +451,7 @@ static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
                 	perror("sendfile()");
                 }
         #else
+		int i = 0;
         	char *no_sendfile_buf[4096] ;
                 int jlen = 0 ;
 		rlen = 0 ;
@@ -471,7 +472,7 @@ static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
                 }
         #endif
 #else
-		i = 0 ;
+		int i = 0 ;
         	rlen = sendfile(sockfd, fd, (off_t *) &i, rlen) ;
 #endif
 

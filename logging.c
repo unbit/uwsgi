@@ -1,5 +1,11 @@
 #include "uwsgi.h"
 
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__sun__) || defined(__OpenBSD__)
+#include <kvm.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#endif
+
 extern struct uwsgi_server uwsgi;
 
 void log_request(struct wsgi_request *wsgi_req) {
@@ -65,7 +71,7 @@ void log_request(struct wsgi_request *wsgi_req) {
                 uwsgi.mypid, wsgi_req->app_id, app_req, uwsgi.workers[0].requests, wsgi_req->remote_addr_len, wsgi_req->remote_addr,
                 wsgi_req->remote_user_len, wsgi_req->remote_user, wsgi_req->var_cnt, wsgi_req->size, 24, time_request,
                 wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->response_size,
-                (microseconds-microseconds2)/1000, via,
+                (long int)(microseconds-microseconds2)/1000, via,
                 wsgi_req->protocol_len, wsgi_req->protocol, wsgi_req->status, wsgi_req->header_cnt, wsgi_req->headers_size) ;
 #endif
 
@@ -98,7 +104,23 @@ void get_memusage() {
                 uwsgi.workers[uwsgi.mywid].rss_size = t_info.resident_size;
                 uwsgi.workers[uwsgi.mywid].vsz_size = t_info.virtual_size;
         }
-#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__sun__) || defined(__OpenBSD__)
+	kvm_t *kv;
+
+	kv = kvm_open(NULL, NULL, NULL, O_RDONLY, NULL);		
+	if (kv) {
+#ifdef __FreeBSD__
+		struct kinfo_proc *kproc;
+		int cnt ;
+		kproc = kvm_getprocs(kv, KERN_PROC_PID, uwsgi.mypid, &cnt);
+		if (kproc && cnt > 0) {
+			uwsgi.workers[uwsgi.mywid].vsz_size = kproc->ki_size ;
+			uwsgi.workers[uwsgi.mywid].rss_size = kproc->ki_rssize * uwsgi.page_size ;
+		}
+#endif
+
+		kvm_close(kv);
+	}
 
 #endif
 }
