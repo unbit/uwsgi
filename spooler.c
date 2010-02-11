@@ -129,9 +129,6 @@ void spooler (PyObject * uwsgi_module) {
 		sdir = opendir (".");
 		if (sdir) {
 			while ((dp = readdir (sdir)) != NULL) {
-#ifndef __sun__
-				if (!strncmp ("uwsgi_spoolfile_on_", dp->d_name, 19) && dp->d_type == DT_REG) {
-#else
 				if (!strncmp ("uwsgi_spoolfile_on_", dp->d_name, 19)) {
 					struct stat sf_lstat;
 					if (lstat (dp->d_name, &sf_lstat)) {
@@ -140,7 +137,6 @@ void spooler (PyObject * uwsgi_module) {
 					if (!S_ISREG (sf_lstat.st_mode)) {
 						continue;
 					}
-#endif
 					if (!access (dp->d_name, R_OK | W_OK)) {
 						fprintf (stderr, "managing spool request %s...\n", dp->d_name);
 
