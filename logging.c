@@ -109,7 +109,7 @@ void get_memusage() {
 
 	kv = kvm_open(NULL, NULL, NULL, O_RDONLY, NULL);		
 	if (kv) {
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 		struct kinfo_proc *kproc;
 		int cnt ;
 		kproc = kvm_getprocs(kv, KERN_PROC_PID, uwsgi.mypid, &cnt);

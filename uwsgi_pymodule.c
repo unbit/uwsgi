@@ -552,7 +552,7 @@ PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
 	char *pargs = NULL ;
 	
 	void *plugin_handle;
-	void (*plugin_init)(struct uwsgi_server *, char *);
+	int (*plugin_init)(struct uwsgi_server *, char *);
         int (*plugin_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
         void (*plugin_after_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
 
@@ -567,7 +567,15 @@ PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
         else {
                	plugin_init = dlsym(plugin_handle, "uwsgi_init");
                	if (plugin_init) {
-                       	(*plugin_init)(&uwsgi, pargs);
+                       	if ((*plugin_init)(&uwsgi, pargs)) {
+				fprintf(stderr,"plugin initialization returned error\n");
+				if (dlclose(plugin_handle)) {
+					fprintf(stderr,"unable to unload plugin\n");
+				}
+
+				Py_INCREF(Py_None);
+        			return Py_None;
+			}
                	}
 
                	plugin_request = dlsym(plugin_handle, "uwsgi_request");

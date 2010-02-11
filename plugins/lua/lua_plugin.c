@@ -49,7 +49,7 @@ static int uwsgi_lua_input(lua_State *L) {
         return 1;
 }
 
-void uwsgi_init(struct uwsgi_server *uwsgi, char *args){
+int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 
 	int fd, i;
 
@@ -66,7 +66,7 @@ void uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 	fd = open(args, O_RDONLY) ;
 	if (fd < 0) {
 		perror("open()");
-		return ;
+		return -1 ;
 	}
 	
 	
@@ -80,7 +80,7 @@ void uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 	fprintf(stderr,"%s\n", lua_typename(ulua.L, lua_type(ulua.L, -1)));
 
 	// ok the lua engine is ready
-	return ;
+	return 0 ;
 	
 	
 }

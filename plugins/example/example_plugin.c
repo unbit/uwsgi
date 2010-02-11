@@ -2,8 +2,9 @@
 
 /* gcc `python2.5-config --cflags` -o example_plugin.so -fPIC -shared example_plugin.c */
 
-void uwsgi_init(struct uwsgi_server *uwsgi, char *args){
+int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 	fprintf(stderr,"i am the example plugin initialization function with arg: %s\n", args);
+	return 0;
 }
 
 int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
@@ -14,7 +15,6 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, cha
 }
 
 
-int uwsgi_after_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+void uwsgi_after_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
 	fprintf(stderr,"i am the example plugin after request function\n");
-	return 0;
 }
