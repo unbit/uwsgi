@@ -7,15 +7,14 @@ char *spool_buffer = NULL ;
 extern struct uwsgi_server uwsgi;
 
 #ifdef __APPLE__
-#define LOCK_SHAREDAREA OSSpinLockLock((OSSpinLock *) uwsgi.sharedareamutex);
-#define UNLOCK_SHAREDAREA OSSpinLockUnlock((OSSpinLock *) uwsgi.sharedareamutex);
+	#define UWSGI_LOCK OSSpinLockLock((OSSpinLock *) uwsgi.sharedareamutex);
+	#define UWSGI_UNLOCK OSSpinLockUnlock((OSSpinLock *) uwsgi.sharedareamutex);
+#elif defined(__linux__)
+	#define UWSGI_LOCK pthread_mutex_lock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
+	#define UWSGI_UNLOCK pthread_mutex_unlock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #else
-#ifndef __OpenBSD__
-#define LOCK_SHAREDAREA pthread_mutex_lock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
-#define UNLOCK_SHAREDAREA pthread_mutex_unlock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
-#else
-#define LOCK_SHAREDAREA
-#define UNLOCK_SHAREDAREA
+	#define UWSGI_LOCK if (flock(uwsgi.serverfd, LOCK_EX)) { perror("flock()"); }
+	#define UWSGI_UNLOCK if (flock(uwsgi.serverfd, LOCK_UN)) { perror("flock()"); }
 #endif
 #endif
 
@@ -41,6 +40,22 @@ PyObject *py_uwsgi_log(PyObject *self, PyObject *args) {
 	return Py_True;
 }
 
+PyObject *py_uwsgi_lock(PyObject *self, PyObject *args) {
+
+	UWSGI_LOCK
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_uwsgi_unlock(PyObject *self, PyObject *args) {
+
+	UWSGI_UNLOCK
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
 	int pos = 0 ;
 	long value = 0 ;
@@ -59,11 +74,10 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA
+// TODO big endian
 	memcpy(&value, uwsgi.sharedarea+pos, 4);
 	value++;
 	memcpy(uwsgi.sharedarea+pos, &value,4);
-	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
 	
@@ -98,10 +112,8 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA
         value = (long) PyInt_AsLong(arg1);
 	memcpy(uwsgi.sharedarea+pos, &value,4);
-	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
 	
@@ -139,9 +151,7 @@ PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA
 	memcpy(uwsgi.sharedarea+pos, value,strlen(value));
-	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(strlen(value));
 	
@@ -206,9 +216,7 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-	LOCK_SHAREDAREA
 	memcpy(&value, uwsgi.sharedarea+pos, 4);
-	UNLOCK_SHAREDAREA
 
         return PyInt_FromLong(value);
 	
@@ -820,6 +828,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
   {"log", py_uwsgi_log, METH_VARARGS, ""},
   {"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
   {"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
+  {"lock", py_uwsgi_lock, METH_VARARGS, ""},
+  {"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
   {NULL, NULL},
 };
 
