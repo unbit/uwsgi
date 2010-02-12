@@ -76,7 +76,6 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-// TODO big endian
 	memcpy(&value, uwsgi.sharedarea+pos, 4);
 	value++;
 	memcpy(uwsgi.sharedarea+pos, &value,4);
@@ -86,7 +85,6 @@ PyObject *py_uwsgi_sharedarea_inclong(PyObject *self, PyObject *args) {
 }
 
 PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
-	PyObject *arg0,*arg1 ;
 	int pos = 0 ;
 	long value ;
 
@@ -95,26 +93,15 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-        arg0 = PyTuple_GetItem(args, 0);
-        if (!PyInt_Check(arg0)) {
-                Py_INCREF(Py_None);
-                return Py_None;
+	if (!PyArg_ParseTuple(args, "ii:sharedarea_writelong", &pos, &value)) {
+                return NULL ;
         }
-
-	pos = PyInt_AsLong(arg0);
 
 	if (pos+4 >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
-	arg1 = PyTuple_GetItem(args, 1);
-        if (!PyInt_Check(arg1)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-        value = (long) PyInt_AsLong(arg1);
 	memcpy(uwsgi.sharedarea+pos, &value,4);
 
         return PyInt_FromLong(value);
@@ -122,7 +109,6 @@ PyObject *py_uwsgi_sharedarea_writelong(PyObject *self, PyObject *args) {
 }
 
 PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
-	PyObject *arg0,*arg1 ;
 	int pos = 0 ;
 	char *value ;
 
@@ -131,22 +117,9 @@ PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-        arg0 = PyTuple_GetItem(args, 0);
-        if (!PyInt_Check(arg0)) {
-                Py_INCREF(Py_None);
-                return Py_None;
+	if (!PyArg_ParseTuple(args, "is:sharedarea_write", &pos, &value)) {
+                return NULL ;
         }
-
-	pos = PyInt_AsLong(arg0);
-
-	arg1 = PyTuple_GetItem(args, 1);
-        if (!PyString_Check(arg1)) {
-		/* PyErr_SetString(PyExc_TypeError,"the second argument of sharedarea_write must be a string"); */
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-	value = PyString_AsString(arg1);
 
 	if (pos+strlen(value) >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
@@ -160,7 +133,6 @@ PyObject *py_uwsgi_sharedarea_write(PyObject *self, PyObject *args) {
 }
 
 PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
-	PyObject *arg0,*arg1 ;
 	int pos = 0 ;
 	char value ;
 
@@ -169,26 +141,16 @@ PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-        arg0 = PyTuple_GetItem(args, 0);
-        if (!PyInt_Check(arg0)) {
-                Py_INCREF(Py_None);
-                return Py_None;
+	
+	if (!PyArg_ParseTuple(args, "ib:sharedarea_writebyte", &pos, &value)) {
+                return NULL ;
         }
-
-	pos = PyInt_AsLong(arg0);
 
 	if (pos >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
-	arg1 = PyTuple_GetItem(args, 1);
-        if (!PyInt_Check(arg1)) {
-                Py_INCREF(Py_None);
-                return Py_None;
-        }
-
-        value = (char) PyInt_AsLong(arg1);
 	uwsgi.sharedarea[pos] = value;
 
         return PyInt_FromLong(uwsgi.sharedarea[pos]);
@@ -196,7 +158,6 @@ PyObject *py_uwsgi_sharedarea_writebyte(PyObject *self, PyObject *args) {
 }
 
 PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
-	PyObject *arg0 ;
 	int pos = 0 ;
 	long value ;
 
@@ -205,13 +166,9 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-        arg0 = PyTuple_GetItem(args, 0);
-        if (!PyInt_Check(arg0)) {
-                Py_INCREF(Py_None);
-                return Py_None;
+	if (!PyArg_ParseTuple(args, "i:sharedarea_readlong", &pos)) {
+                return NULL ;
         }
-
-	pos = PyInt_AsLong(arg0);
 
 	if (pos+4 >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
@@ -226,7 +183,6 @@ PyObject *py_uwsgi_sharedarea_readlong(PyObject *self, PyObject *args) {
 
 
 PyObject *py_uwsgi_sharedarea_readbyte(PyObject *self, PyObject *args) {
-	PyObject *arg0 ;
 	int pos = 0 ;
 
         if (uwsgi.sharedareasize <= 0) {
@@ -234,13 +190,9 @@ PyObject *py_uwsgi_sharedarea_readbyte(PyObject *self, PyObject *args) {
                 return Py_None;
         }
 
-        arg0 = PyTuple_GetItem(args, 0);
-        if (!PyInt_Check(arg0)) {
-                Py_INCREF(Py_None);
-                return Py_None;
+	if (!PyArg_ParseTuple(args, "i:sharedarea_readbyte", &pos)) {
+                return NULL ;
         }
-
-	pos = PyInt_AsLong(arg0);
 
 	if (pos >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);
@@ -252,27 +204,17 @@ PyObject *py_uwsgi_sharedarea_readbyte(PyObject *self, PyObject *args) {
 }
 
 PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
-        PyObject *arg0, *arg1;
-
-        int len = 1 ;
         int pos = 0 ;
+        int len = 1 ;
 
         if (uwsgi.sharedareasize <= 0) {
                 Py_INCREF(Py_None);
                 return Py_None;
         }
 
-        arg0 = PyTuple_GetItem(args, 0);
-        if (!PyInt_Check(arg0)) {
-                Py_INCREF(Py_None);
-                return Py_None;
+	if (!PyArg_ParseTuple(args, "i|i:sharedarea_read", &pos, &len)) {
+                return NULL ;
         }
-        arg1 = PyTuple_GetItem(args, 1);
-        if (PyInt_Check(arg1)) {
-                len = PyInt_AsLong(arg1);
-        }
-
-        pos = PyInt_AsLong(arg0);
 
         if (pos+len >= uwsgi.page_size*uwsgi.sharedareasize) {
                 Py_INCREF(Py_None);

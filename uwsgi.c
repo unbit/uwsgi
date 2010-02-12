@@ -499,6 +499,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	int c_len = sizeof (struct sockaddr_un);
 	int i;
 	int ret;
+
 #ifndef ROCK_SOLID
 	int rlen;
 #ifdef SCTP
@@ -710,6 +711,9 @@ int main (int argc, char *argv[], char *envp[]) {
 			if (uwsgi.python_path_cnt < 63) {
 				uwsgi.python_path[uwsgi.python_path_cnt] = optarg;
 				uwsgi.python_path_cnt++;
+			}
+			else {
+				fprintf(stderr,"you can specify at most 64 --pythonpath options\n");
 			}
 			break;
 		case LONG_ARGS_LIMIT_AS:
