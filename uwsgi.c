@@ -707,8 +707,10 @@ int main (int argc, char *argv[], char *envp[]) {
 			uwsgi.uid = atoi (optarg);
 			break;
 		case LONG_ARGS_PYTHONPATH:
-			uwsgi.python_path[0] = optarg;
-			uwsgi.python_path_cnt = 1;
+			if (uwsgi.python_path_cnt < 63) {
+				uwsgi.python_path[uwsgi.python_path_cnt] = optarg;
+				uwsgi.python_path_cnt++;
+			}
 			break;
 		case LONG_ARGS_LIMIT_AS:
 			rl.rlim_cur = (atoi (optarg)) * 1024 * 1024;
