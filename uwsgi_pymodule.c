@@ -16,7 +16,6 @@ extern struct uwsgi_server uwsgi;
 	#define UWSGI_LOCK if (flock(uwsgi.serverfd, LOCK_EX)) { perror("flock()"); }
 	#define UWSGI_UNLOCK if (flock(uwsgi.serverfd, LOCK_UN)) { perror("flock()"); }
 #endif
-#endif
 
 #define UWSGI_LOGBASE "[- uWSGI -"
 
@@ -42,7 +41,10 @@ PyObject *py_uwsgi_log(PyObject *self, PyObject *args) {
 
 PyObject *py_uwsgi_lock(PyObject *self, PyObject *args) {
 
-	UWSGI_LOCK
+	// the spooler, the master process or single process environment cannot lock resources
+	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid && uwsgi.mypid != uwsgi.workers[0].spooler_pid) {
+		UWSGI_LOCK
+	}
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -830,6 +832,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
   {"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
   {"lock", py_uwsgi_lock, METH_VARARGS, ""},
   {"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
+  //{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
   {NULL, NULL},
 };
 

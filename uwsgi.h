@@ -242,8 +242,10 @@ struct __attribute__ ((packed)) wsgi_request {
 #endif
 #endif
 
-	     int (*hooks[0xFF])(struct uwsgi_server *, struct wsgi_request*, char*) ;
-             void (*after_hooks[0xFF])(struct uwsgi_server *, struct wsgi_request*, char*) ;	
+		int serverfd ;
+
+	     int (**hooks)(struct uwsgi_server *, struct wsgi_request*, char*) ;
+             void (**after_hooks)(struct uwsgi_server *, struct wsgi_request*, char*) ;	
 
 	     // iovec
 	     struct iovec *hvec;
@@ -326,7 +328,7 @@ struct __attribute__ ((packed)) wsgi_request {
      };
 
 
-     struct __attribute__ ((packed)) uwsgi_worker {
+     struct uwsgi_worker {
 	int id;
 	pid_t pid;
 	time_t last_spawn;
@@ -345,6 +347,8 @@ struct __attribute__ ((packed)) wsgi_request {
 	int manage_next_request;
 	int blocking;
 	int current_workers;
+
+	pid_t spooler_pid;
      };
 
      struct __attribute__ ((packed)) uwsgi_header {

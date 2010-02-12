@@ -515,16 +515,11 @@ int main (int argc, char *argv[], char *envp[]) {
 	pid_t pid;
 	int no_server = 0;
 
-	int serverfd = 0;
 #ifndef UNBIT
 	char *socket_name = NULL;
 #ifndef ROCK_SOLID
 	FILE *pidfile;
 #endif
-#endif
-
-#ifndef ROCK_SOLID
-	pid_t spooler_pid = 0;
 #endif
 
 	int working_workers = 0;
@@ -552,10 +547,6 @@ int main (int argc, char *argv[], char *envp[]) {
 	signal (SIGHUP, SIG_IGN);
 	signal (SIGTERM, SIG_IGN);
 
-	for(i=0;i<0xFF;i++) {
-		uwsgi.hooks[i] = unconfigured_hook;
-		uwsgi.after_hooks[i] = unconfigured_after_hook;
-	}
 	memset (&uwsgi, 0, sizeof (struct uwsgi_server));
 
 	/* shared area for dynamic options */
@@ -565,6 +556,27 @@ int main (int argc, char *argv[], char *envp[]) {
 		exit (1);
 	}
 	memset (uwsgi.options, 0, sizeof (uint32_t) * (0xFF + 1));
+
+	/* hooks */
+	uwsgi.hooks = mmap (NULL, sizeof (void *) * (0xFF + 1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+        if (!uwsgi.hooks) {
+                perror ("mmap()");
+                exit (1);
+        }
+        memset (uwsgi.hooks, 0, sizeof (void *) * (0xFF + 1));
+
+	/* hooks */
+	uwsgi.after_hooks = mmap (NULL, sizeof (void *) * (0xFF + 1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+        if (!uwsgi.after_hooks) {
+                perror ("mmap()");
+                exit (1);
+        }
+        memset (uwsgi.after_hooks, 0, sizeof (void *) * (0xFF + 1));
+
+	for(i=0;i<0xFF;i++) {
+		uwsgi.hooks[i] = unconfigured_hook;
+		uwsgi.after_hooks[i] = unconfigured_after_hook;
+	}
 
 #ifndef ROCK_SOLID
 	uwsgi.wsgi_cnt = 1;
@@ -662,7 +674,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		/* discard the 3'th fd as we will use the fd 0 */
 		close (3);
 #else
-		serverfd = 3;
+		uwsgi.serverfd = 3;
 #endif
 	}
 
@@ -1205,20 +1217,20 @@ int main (int argc, char *argv[], char *envp[]) {
 					fprintf (stderr, "invalid SCTP port ! syntax: sctp:ip1,ip2,ipN:port\n");
 					exit (1);
 				}
-				serverfd = bind_to_sctp (socket_name + 5, uwsgi.listen_queue, sctp_port);
+				uwsgi.serverfd = bind_to_sctp (socket_name + 5, uwsgi.listen_queue, sctp_port);
 				i_am_sctp = 1;
 			}
 			else {
 #endif
 				char *tcp_port = strchr (socket_name, ':');
 				if (tcp_port == NULL) {
-					serverfd = bind_to_unix (socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+					uwsgi.serverfd = bind_to_unix (socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				}
 				else {
-					serverfd = bind_to_tcp (socket_name, uwsgi.listen_queue, tcp_port);
+					uwsgi.serverfd = bind_to_tcp (socket_name, uwsgi.listen_queue, tcp_port);
 				}
 
-				if (serverfd < 0) {
+				if (uwsgi.serverfd < 0) {
 					fprintf (stderr, "unable to create the server socket.\n");
 					exit (1);
 				}
@@ -1229,8 +1241,9 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 
 		socket_type_len = sizeof (int);
-		if (getsockopt (serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
+		if (getsockopt (uwsgi.serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
 			perror ("getsockopt()");
+			fprintf(stderr, "The -s/--socket option is missing and stdin is not a socket.\n");
 			exit (1);
 		}
 
@@ -1383,7 +1396,7 @@ int main (int argc, char *argv[], char *envp[]) {
 #ifndef ROCK_SOLID
 #ifndef PYTHREE
 	if (spool_dir != NULL) {
-		spooler_pid = spooler_start (serverfd, uwsgi_module);
+		uwsgi.workers[0].spooler_pid = spooler_start (uwsgi.serverfd, uwsgi_module);
 	}
 #endif
 #endif
@@ -1406,7 +1419,7 @@ int main (int argc, char *argv[], char *envp[]) {
 			if (pid == 0) {
 				uwsgi.mypid = getpid ();
 				uwsgi.mywid = i;
-				if (serverfd != 0 && uwsgi.master_process == 1) {
+				if (uwsgi.serverfd != 0 && uwsgi.master_process == 1) {
 					/* close STDIN for workers */
 					close (0);
 				}
@@ -1454,8 +1467,8 @@ int main (int argc, char *argv[], char *envp[]) {
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifndef ROCK_SOLID
-				if (spool_dir && spooler_pid > 0) {
-					kill (spooler_pid, SIGKILL);
+				if (spool_dir && uwsgi.workers[0].spooler_pid > 0) {
+					kill (uwsgi.workers[0].spooler_pid, SIGKILL);
 				}
 
 #endif
@@ -1464,8 +1477,8 @@ int main (int argc, char *argv[], char *envp[]) {
 			}
 			if (ready_to_reload >= uwsgi.numproc && uwsgi.to_heaven) {
 #ifndef ROCK_SOLID
-				if (spool_dir && spooler_pid > 0) {
-					kill (spooler_pid, SIGKILL);
+				if (spool_dir && uwsgi.workers[0].spooler_pid > 0) {
+					kill (uwsgi.workers[0].spooler_pid, SIGKILL);
 				}
 #endif
 				fprintf (stderr, "binary reloading uWSGI...\n");
@@ -1476,13 +1489,13 @@ int main (int argc, char *argv[], char *envp[]) {
 				/* check fd table (a module can obviosly open some fd on initialization...) */
 				fprintf (stderr, "closing all fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf (_SC_OPEN_MAX));
 				for (i = 3; i < sysconf (_SC_OPEN_MAX); i++) {
-					if (i == serverfd) {
+					if (i == uwsgi.serverfd) {
 						continue;
 					}
 					close (i);
 				}
-				if (serverfd != 3) {
-					if (dup2 (serverfd, 3) < 0) {
+				if (uwsgi.serverfd != 3) {
+					if (dup2 (uwsgi.serverfd, 3) < 0) {
 						perror ("dup2()");
 						exit (1);
 					}
@@ -1624,9 +1637,9 @@ int main (int argc, char *argv[], char *envp[]) {
 #ifndef ROCK_SOLID
 #ifndef PYTHREE
 			/* reload the spooler */
-			if (spool_dir && spooler_pid > 0) {
-				if (diedpid == spooler_pid) {
-					spooler_pid = spooler_start (serverfd, uwsgi_module);
+			if (spool_dir && uwsgi.workers[0].spooler_pid > 0) {
+				if (diedpid == uwsgi.workers[0].spooler_pid) {
+					uwsgi.workers[0].spooler_pid = spooler_start (uwsgi.serverfd, uwsgi_module);
 					continue;
 				}
 			}
@@ -1736,7 +1749,7 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 		uwsgi.workers[uwsgi.mywid].blocking = 0;
 		uwsgi.workers[uwsgi.mywid].in_request = 0;
-		uwsgi.poll.fd = accept (serverfd, (struct sockaddr *) &c_addr, (socklen_t *) & c_len);
+		uwsgi.poll.fd = accept (uwsgi.serverfd, (struct sockaddr *) &c_addr, (socklen_t *) & c_len);
 		uwsgi.workers[uwsgi.mywid].in_request = 1;
 
 		if (uwsgi.poll.fd < 0) {
