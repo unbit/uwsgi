@@ -71,6 +71,7 @@ typedef struct {
 	uint8_t modifier1;
 	uint8_t modifier2;
 	char script_name[256];
+	char scheme[9];
 	int cgi_mode ;
 } uwsgi_cfg;
 
@@ -329,6 +330,10 @@ static int uwsgi_handler(request_rec *r) {
 	}
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
 
+	if (c->scheme[0] != 0) {
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "UWSGI_SCHEME", c->scheme, &pkt_size) ;
+	}
+
 	if (c->script_name[0] == '/') {
 		if (c->script_name[1] == 0) {
 			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", "", &pkt_size) ;
@@ -492,7 +497,7 @@ static int uwsgi_handler(request_rec *r) {
 	return ap_pass_brigade(r->output_filters, bb);
 }
 
-static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const char *location) {
+static const char * cmd_uwsgi_force_wsgi_scheme(cmd_parms *cmd, void *cfg, const char *location) {
 	uwsgi_cfg *c = cfg;
 
 	if (strlen(location) <= 255 && location[0] == '/') {
@@ -500,6 +505,20 @@ static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const
 	}
 	else {
 		return "ignored uWSGIforceScriptName. Invalid location" ;
+	}
+
+	return NULL ;
+
+}
+
+static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const char *scheme) {
+	uwsgi_cfg *c = cfg;
+
+	if (strlen(scheme) < 9 & strlen(scheme) > 0) {
+		strcpy(c->scheme, scheme);
+	}
+	else {
+		return "ignored uWSGIforceWSGIscheme. Invalid size (max 8 chars)" ;
 	}
 
 	return NULL ;
@@ -648,6 +667,7 @@ static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE1("uWSGImodifier2", cmd_uwsgi_modifier2, NULL, RSRC_CONF|ACCESS_CONF, "Set uWSGI modifier2"),	
 	AP_INIT_TAKE1("uWSGIforceScriptName", cmd_uwsgi_force_script_name, NULL, ACCESS_CONF, "Fix for PATH_INFO/SCRIPT_NAME when the location has filesystem correspondence"),	
 	AP_INIT_TAKE1("uWSGIforceCGImode", cmd_uwsgi_force_cgi_mode, NULL, ACCESS_CONF, "Force uWSGI CGI mode for perfect integration with apache filter"),	
+	AP_INIT_TAKE1("uWSGIforceWSGIscheme", cmd_uwsgi_force_wsgi_scheme, NULL, ACCESS_CONF, "Force the WSGI scheme var (set by default to \"http\")"),	
 	{NULL}
 };
 
