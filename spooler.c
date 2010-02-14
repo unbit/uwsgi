@@ -125,6 +125,10 @@ void spooler (PyObject * uwsgi_module) {
 		exit (1);
 	}
 
+	// asked by Marco Beri
+	fprintf(stderr,"lowering spooler priority to %d\n", PRIO_MAX);
+	setpriority(PRIO_PROCESS, getpid(), PRIO_MAX);
+
 	for (;;) {
 		sdir = opendir (".");
 		if (sdir) {
