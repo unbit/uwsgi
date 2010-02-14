@@ -748,7 +748,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		case 'Q':
 			spool_dir = optarg;
 			if (access (spool_dir, R_OK | W_OK | X_OK)) {
-				perror ("access()");
+				perror ("[spooler directory] access()");
 				exit (1);
 			}
 			uwsgi.master_process = 1;
@@ -1652,6 +1652,7 @@ int main (int argc, char *argv[], char *envp[]) {
 			/* reload the spooler */
 			if (spool_dir && uwsgi.workers[0].spooler_pid > 0) {
 				if (diedpid == uwsgi.workers[0].spooler_pid) {
+					fprintf(stderr,"OOOPS the spooler is no more...trying respawn...\n");
 					uwsgi.workers[0].spooler_pid = spooler_start (uwsgi.serverfd, uwsgi_module);
 					continue;
 				}
