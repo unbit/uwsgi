@@ -861,7 +861,7 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 #ifndef UNBIT
 		case 'h':
-			fprintf (stderr, "Usage: %s [options...]\n\
+			fprintf (stdout, "Usage: %s [options...]\n\
 \t-s|--socket <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
 \t-l|--listen <num>\t\tset socket listen queue to <n> (default 64, maximum is system dependent)\n\
 \t-z|--socket-timeout <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
@@ -1408,8 +1408,13 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 
 
-	if (!uwsgi.master_process && uwsgi.numproc == 1) {
-		fprintf (stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n", masterpid);
+	if (!uwsgi.master_process) {
+		if (uwsgi.numproc == 1) {
+			fprintf (stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n", masterpid);
+		}
+		else {
+			fprintf (stderr, "spawned uWSGI worker 1 (pid: %d)\n", masterpid);
+		}
 		uwsgi.workers[1].pid = masterpid;
 		uwsgi.workers[1].id = 1;
 		uwsgi.workers[1].last_spawn = time (NULL);
@@ -1418,12 +1423,17 @@ int main (int argc, char *argv[], char *envp[]) {
 		gettimeofday (&last_respawn, NULL);
 		respawn_delta = last_respawn.tv_sec;
 	}
-	else {
-		for (i = 1; i < uwsgi.numproc + 1; i++) {
+
+
+		for (i = 2-uwsgi.master_process ; i < uwsgi.numproc + 1; i++) {
 			/* let the worker know his worker_id (wid) */
 			pid = fork ();
 			if (pid == 0) {
 				uwsgi.mypid = getpid ();
+				uwsgi.workers[i].pid = uwsgi.mypid;
+				uwsgi.workers[i].id = i;
+				uwsgi.workers[i].last_spawn = time (NULL);
+				uwsgi.workers[i].manage_next_request = 1;
 				uwsgi.mywid = i;
 				if (uwsgi.serverfd != 0 && uwsgi.master_process == 1) {
 					/* close STDIN for workers */
@@ -1437,15 +1447,11 @@ int main (int argc, char *argv[], char *envp[]) {
 			}
 			else {
 				fprintf (stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
-				uwsgi.workers[i].pid = pid;
-				uwsgi.workers[i].id = i;
-				uwsgi.workers[i].last_spawn = time (NULL);
-				uwsgi.workers[i].manage_next_request = 1;
 				gettimeofday (&last_respawn, NULL);
 				respawn_delta = last_respawn.tv_sec;
 			}
 		}
-	}
+
 
 	if (getpid () == masterpid && uwsgi.master_process == 1) {
 		/* route signals to workers... */
@@ -1534,7 +1540,8 @@ int main (int argc, char *argv[], char *envp[]) {
 				check_interval.tv_sec = uwsgi.options[UWSGI_OPTION_MASTER_INTERVAL];
 				if (!check_interval.tv_sec)
 					check_interval.tv_sec = 1;
-				if (udp_poll.fd >= 0) {
+				
+				if (udp_socket && udp_poll.fd >= 0) {
 					rlen = poll (&udp_poll, 1, check_interval.tv_sec * 1000);
 					if (rlen < 0) {
 						perror ("poll()");
@@ -1685,6 +1692,13 @@ int main (int argc, char *argv[], char *envp[]) {
 			pid = fork ();
 			if (pid == 0) {
 				uwsgi.mypid = getpid ();
+				uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
+				uwsgi.workers[uwsgi.mywid].harakiri = 0;
+				uwsgi.workers[uwsgi.mywid].requests = 0;
+				uwsgi.workers[uwsgi.mywid].failed_requests = 0;
+				uwsgi.workers[uwsgi.mywid].respawn_count++;
+				uwsgi.workers[uwsgi.mywid].last_spawn = time (NULL);
+				uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 				break;
 			}
 			else if (pid < 1) {
@@ -1692,16 +1706,7 @@ int main (int argc, char *argv[], char *envp[]) {
 			}
 			else {
 				fprintf (stderr, "Respawned uWSGI worker (new pid: %d)\n", pid);
-				if (uwsgi.mywid > 0) {
-					uwsgi.workers[uwsgi.mywid].pid = pid;
-					uwsgi.workers[uwsgi.mywid].harakiri = 0;
-					uwsgi.workers[uwsgi.mywid].requests = 0;
-					uwsgi.workers[uwsgi.mywid].failed_requests = 0;
-					uwsgi.workers[uwsgi.mywid].respawn_count++;
-					uwsgi.workers[uwsgi.mywid].last_spawn = time (NULL);
-					uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
-				}
-				else {
+				if (uwsgi.mywid <= 0 && diedpid != uwsgi.workers[0].spooler_pid) {
 					fprintf (stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
 				}
 			}
@@ -1743,7 +1748,6 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 
 	signal (SIGPIPE, (void *) &warn_pipe);
-
 
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
