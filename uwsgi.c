@@ -669,14 +669,16 @@ int main (int argc, char *argv[], char *envp[]) {
 
 	socket_type_len = sizeof (int);
 	if (!getsockopt (3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
-		fprintf (stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
-		is_a_reload = 1;
+		if (socket_type == AF_INET || socket_type == AF_UNIX) { 
+			fprintf (stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
+			is_a_reload = 1;
 #ifdef UNBIT
-		/* discard the 3'th fd as we will use the fd 0 */
-		close (3);
+			/* discard the 3'th fd as we will use the fd 0 */
+			close (3);
 #else
-		uwsgi.serverfd = 3;
+			uwsgi.serverfd = 3;
 #endif
+		}
 	}
 
 #ifndef UNBIT
