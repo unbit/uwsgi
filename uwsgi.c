@@ -541,7 +541,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	struct uidsec_struct us;
 #endif
 
-	int socket_type;
+	int socket_type = 0;
 	socklen_t socket_type_len;
 
 	/* anti signal bombing */
