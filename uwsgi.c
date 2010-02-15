@@ -669,7 +669,7 @@ int main (int argc, char *argv[], char *envp[]) {
 
 	socket_type_len = sizeof (int);
 	if (!getsockopt (3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
-		if (socket_type == AF_INET || socket_type == AF_UNIX) { 
+		if (socket_type == SOCK_STREAM) { 
 			fprintf (stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
 			is_a_reload = 1;
 #ifdef UNBIT
