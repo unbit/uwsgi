@@ -55,6 +55,8 @@ static const char *http_protocol = "HTTP/1.1";
 static const char *app_slash = "/";
 #endif
 
+extern char **environ;
+
 int find_worker_id (pid_t pid) {
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -531,7 +533,10 @@ int main (int argc, char *argv[], char *envp[]) {
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
 
+	char *env_reloads ;
+	unsigned int reloads = 0;
 	int is_a_reload = 0;
+	char env_reload_buf[11];
 
 	char *buffer;
 
@@ -667,9 +672,30 @@ int main (int argc, char *argv[], char *envp[]) {
 	}
 	strcpy (binary_path, argv[0]);
 
+	env_reloads = getenv("UWSGI_RELOADS");
+	if (env_reloads) {
+		// convert env value to int
+		reloads = atoi(env_reloads);
+		reloads++;
+		// convert reloads to string
+		rlen = snprintf(env_reload_buf, 10, "%u", reloads) ;
+		if (rlen > 0) {
+			env_reload_buf[rlen] = 0 ;
+			if (setenv("UWSGI_RELOADS",env_reload_buf, 1)) {
+				perror("setenv()");
+			}
+		}
+	}
+	else {
+		fprintf(stderr,"setting UWSGI_RELOADS\n");
+		if (setenv("UWSGI_RELOADS","0", 1)) {
+			perror("setenv()");
+		}
+	}
+
 	socket_type_len = sizeof (int);
 	if (!getsockopt (3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
-		if (socket_type == SOCK_STREAM) { 
+		if (socket_type == SOCK_STREAM && reloads > 0) { 
 			fprintf (stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
 			is_a_reload = 1;
 #ifdef UNBIT
@@ -1516,7 +1542,7 @@ int main (int argc, char *argv[], char *envp[]) {
 				}
 				fprintf (stderr, "running %s\n", binary_path);
 				strcpy (argv[0], binary_path);
-				execve (binary_path, argv, envp);
+				execve (binary_path, argv, environ);
 				perror ("execve()");
 				exit (1);
 			}
