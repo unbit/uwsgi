@@ -1,16 +1,17 @@
 # uWSGI configuration
 
-XML=False
-SNMP=False
+XML=True
+SNMP=True
 SCTP=True
-ERLANG=False
-SPOOLER=False
+ERLANG=True
+SPOOLER=True
 EMBEDDED=True
 UDP=True
 THREADING=True
 SENDFILE=True
 PROFILER=True
-PASTE=True
+PROXY=True
+
 
 
 
@@ -38,6 +39,9 @@ if EMBEDDED:
 
 if UDP:
 	cflags = cflags + ' -DUWSGI_UDP '
+
+if PROXY:
+	cflags = cflags + ' -DUWSGI_PROXY '
 
 if SNMP:
 	cflags = cflags + ' -DUWSGI_SNMP '
