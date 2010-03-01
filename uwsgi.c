@@ -1096,6 +1096,7 @@ int main (int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_node) {
+		uwsgi.erlang_nodes = 1;
 		uwsgi.erlangfd = init_erlang(uwsgi.erlang_node);
 	}
 #endif
@@ -1467,16 +1468,18 @@ int main (int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_nodes > 0) {
-		if ( (uwsgi.mywid - uwsgi.erlang_nodes) <= (uwsgi.numproc - uwsgi.erlang_nodes)) {
+		if (uwsgi.numproc <= uwsgi.erlang_nodes) {
+			fprintf(stderr,"You do not have enough worker for Erlang. Please respawn with at least %d processes.\n", uwsgi.erlang_nodes+1);
+		}
+		else if ( uwsgi.mywid > (uwsgi.numproc - uwsgi.erlang_nodes) ) {
+			fprintf(stderr,"Erlang mode enabled for worker %d.\n", uwsgi.mywid);
 			erlang_loop(buffer);
 			// NEVER HERE
 			exit(1);
 		}
 	}
-	else {
-		// close the erlang server fd for python workers
-		close(uwsgi.erlangfd);
-	}
+	// close the erlang server fd for python workers
+	close(uwsgi.erlangfd);
 #endif
 
 #ifdef UWSGI_THREADING

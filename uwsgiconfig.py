@@ -52,6 +52,9 @@ if THREADING:
 if PROFILER:
 	cflags = cflags + ' -DUWSGI_PROFILER '
 
+if SENDFILE:
+	cflags = cflags + ' -DUWSGI_SENDFILE '
+
 if XML:
         ldflags = ldflags + os.popen('xml2-config --libs').read().rstrip()
         cflags = cflags + ' -DUWSGI_XML ' + os.popen('xml2-config --cflags').read().rstrip()

@@ -4,6 +4,106 @@
 
 extern struct uwsgi_server uwsgi;
 
+PyObject *py_erlang_connect(PyObject *self, PyObject *args) {
+
+	char *erlang_node ;
+	int fd ;
+
+
+	if (!PyArg_ParseTuple(args, "s:erlang_connect", &erlang_node)) {
+                return NULL ;
+        }
+
+	UWSGI_SET_BLOCKING ;
+	fd = erl_connect(erlang_node) ;
+	UWSGI_UNSET_BLOCKING ;
+	return PyInt_FromLong(fd);
+}
+
+PyObject *py_erlang_send_message(PyObject *self, PyObject *args) {
+
+	ETERM *pymessage ;
+	PyObject *erfd, *ermessage, *erdest ;
+
+	int er_node, er_number, er_serial, er_creation ;
+
+	erfd = PyTuple_GetItem(args, 0);
+	if (!erfd) {
+		goto clear;	
+	}
+
+	erdest = PyTuple_GetItem(args, 1);
+	if (!erdest) {
+		goto clear;
+	}
+
+	if (!PyString_Check(erdest) && !PyTuple_Check(erdest)) {
+		goto clear;
+	}
+
+	ermessage = PyTuple_GetItem(args, 2);
+	if (!ermessage) {
+		goto clear;
+	}
+
+	pymessage = py_to_eterm(ermessage);
+	if (!pymessage) {
+		goto clear;
+	}
+
+
+	if (PyString_Check(erdest)) {
+		if (!erl_reg_send(PyInt_AsLong(erfd), "uwsgi", pymessage)) {
+			erl_err_msg("erl_reg_send()");
+			goto clear;
+		}
+	}
+	else if (PyTuple_Check(erdest)) {
+		fprintf(stderr,"ready to send\n");
+		if (!PyArg_ParseTuple(erdest, "siii", &er_node, &er_number, &er_serial, &er_creation)) {
+			goto clear;
+		}
+		if (!erl_send(PyInt_AsLong(erfd), erl_mk_pid((const char *) er_node, er_number,er_serial,er_creation), pymessage)) {
+			erl_err_msg("erl_send()");
+			goto clear;
+		}
+	}
+	else {
+		goto clear;
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+	PyErr_Print();
+	Py_INCREF(Py_None);
+	return Py_None;	
+}
+
+PyObject *py_erlang_close(PyObject *self, PyObject *args) {
+	
+	int fd;
+
+	if (!PyArg_ParseTuple(args, "i:erlang_close", &fd)) {
+                return NULL ;
+        }
+
+	erl_close_connection(fd);
+
+	Py_INCREF(Py_True);
+        return Py_True;
+}
+
+static PyMethodDef uwsgi_erlang_methods[] = {
+  {"erlang_connect", py_erlang_connect, METH_VARARGS, ""},
+  {"erlang_send_message", py_erlang_send_message, METH_VARARGS, ""},
+ // {"erlang_recv_message", py_erlang_recv_message, METH_VARARGS, ""},
+  {"erlang_close", py_erlang_close, METH_VARARGS, ""},
+  {NULL, NULL},
+};
+
+
 int init_erlang(char *nodename) {
 
 	struct sockaddr_in e_addr;
@@ -12,6 +112,8 @@ int init_erlang(char *nodename) {
 	char *node ;
 	int efd ;
 	int rlen ;
+
+	PyMethodDef *uwsgi_function;
 
 
 	ip = strchr(nodename, '@');
@@ -81,6 +183,12 @@ int init_erlang(char *nodename) {
 
 	fprintf(stderr,"Erlang C-Node initialized on port %d you can access it with name %s\n", ntohs(e_addr.sin_port), nodename);
 
+	for (uwsgi_function = uwsgi_erlang_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
+                PyObject *func = PyCFunction_New(uwsgi_function, NULL);
+                PyDict_SetItemString(uwsgi.embedded_dict, uwsgi_function->ml_name, func);
+                Py_DECREF(func);
+        }
+
 	return efd;
 	
 }
@@ -91,6 +199,7 @@ ETERM *py_to_eterm(PyObject *pobj) {
         PyObject *pobj2 ;
 	ETERM *eobj = NULL ;
 	ETERM *eobj2 = NULL ;
+	ETERM **eobj3 ;
 
 	if (pobj == NULL) {
 		return erl_mk_empty_list() ;
@@ -101,6 +210,7 @@ ETERM *py_to_eterm(PyObject *pobj) {
 		eobj = erl_mk_atom(PyString_AsString(pobj));
 	}
 	else if (PyInt_Check(pobj)) {
+		fprintf(stderr,"creating ERLANG int\n");
 		eobj = erl_mk_int(PyInt_AsLong(pobj));
 	}
 	else if (PyList_Check(pobj)) {
@@ -110,10 +220,22 @@ ETERM *py_to_eterm(PyObject *pobj) {
 			eobj2 = py_to_eterm(pobj2);
 			eobj = erl_cons(eobj2, eobj);
 		}
+		fprintf(stderr,"created list\n");
 	}
 	else if (PyTuple_Check(pobj)) {
 		count = PyTuple_Size(pobj);
-		// allocate memory for the eterms...need to find a good way
+		fprintf(stderr,"PYTUPLE !!!\n");
+		eobj3 = malloc(sizeof(ETERM *)*count) ;
+		for(i=0;i<count;i++) {
+			pobj2 = PyTuple_GetItem(pobj, i);
+			if (!pobj2) {
+				fprintf(stderr,"oops\n");
+				break;
+			}
+			eobj3[i] = py_to_eterm(pobj2);
+		}
+		eobj = erl_mk_tuple(eobj3, count);
+		free(eobj3);
 	}
 
 	if (eobj == NULL) {
@@ -126,7 +248,7 @@ ETERM *py_to_eterm(PyObject *pobj) {
 PyObject *eterm_to_py(ETERM *obj) {
         int i;
         int count ;
-        ETERM *obj2 ;
+        ETERM *obj2  ;
 	PyObject *eobj = NULL ;
 
         if (obj == NULL) {
@@ -163,7 +285,7 @@ PyObject *eterm_to_py(ETERM *obj) {
                         fprintf(stderr,"FOUND A BINARY %.*s\n", ERL_BIN_SIZE(obj), ERL_BIN_PTR(obj));
                         break;
                 case ERL_PID:
-                        fprintf(stderr,"FOUND A PID\n");
+                        fprintf(stderr,"FOUND A PID %s %d %d %d\n", ERL_PID_NODE(obj), ERL_PID_NUMBER(obj), ERL_PID_SERIAL(obj), ERL_PID_CREATION(obj));
                         break;
                 default:
                         fprintf(stderr,"UNMANAGED ETERM TYPE: %d\n", ERL_TYPE(obj));
