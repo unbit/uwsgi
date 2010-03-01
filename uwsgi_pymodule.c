@@ -42,7 +42,11 @@ PyObject *py_uwsgi_log(PyObject *self, PyObject *args) {
 PyObject *py_uwsgi_lock(PyObject *self, PyObject *args) {
 
 	// the spooler, the master process or single process environment cannot lock resources
+#ifdef UWSGI_SPOOLER
 	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid && uwsgi.mypid != uwsgi.workers[0].spooler_pid) {
+#else
+	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid) {
+#endif
 		UWSGI_LOCK
 	}
 
@@ -224,6 +228,7 @@ PyObject *py_uwsgi_sharedarea_read(PyObject *self, PyObject *args) {
 	return PyString_FromStringAndSize(uwsgi.sharedarea+pos, len);
 }
 
+#ifdef UWSGI_SPOOLER
 PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
 	PyObject *spool_dict, *spool_vars ;
 	PyObject *zero, *key, *val;
@@ -314,6 +319,7 @@ PyObject *py_uwsgi_send_spool(PyObject *self, PyObject *args) {
 	Py_INCREF(Py_None);
 	return Py_None;
 }
+#endif
 
 PyObject *py_uwsgi_send_multi_message(PyObject *self, PyObject *args) {
 
@@ -682,11 +688,14 @@ PyObject *py_uwsgi_workers(PyObject *self, PyObject *args) {
         	}
 		Py_DECREF(zero);
 
+		/* return a tuple of current status ! (in_request, blocking, locking, )
+
 		zero = PyLong_FromLong(uwsgi.workers[i+1].in_request);
 		if (PyDict_SetItemString(worker_dict, "in_request", zero)) {
                 	goto clear;
         	}
 		Py_DECREF(zero);
+		*/
 
 	}
 
@@ -719,7 +728,7 @@ PyObject *py_uwsgi_reload(PyObject *self, PyObject *args) {
 PyObject *py_uwsgi_set_blocking(PyObject *self, PyObject *args) {
 
 	if (uwsgi.master_process) {
-		uwsgi.workers[uwsgi.mywid].blocking = 1;
+		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_BLOCKING ;
 		Py_INCREF(Py_True);
        		return Py_True;
 	}
@@ -729,9 +738,6 @@ PyObject *py_uwsgi_set_blocking(PyObject *self, PyObject *args) {
         return Py_None;
 }
 
-PyObject *py_uwsgi_current_workers(PyObject *self, PyObject *args) {
-	return PyInt_FromLong(uwsgi.workers[0].current_workers) ;	
-}
 
 PyObject *py_uwsgi_request_id(PyObject *self, PyObject *args) {
         return PyInt_FromLong(uwsgi.workers[uwsgi.mywid].requests) ;
@@ -749,10 +755,12 @@ PyObject *py_uwsgi_disconnect(PyObject *self, PyObject *args) {
         return Py_True;
 }
 
+#ifdef UWSGI_SPOOLER
 static PyMethodDef uwsgi_spooler_methods[] = {
   {"send_to_spooler", py_uwsgi_send_spool, METH_VARARGS, ""},
   {NULL, NULL},
 };
+#endif
 
 static PyMethodDef uwsgi_advanced_methods[] = {
   {"send_uwsgi_message", py_uwsgi_send_message, METH_VARARGS, ""},
@@ -766,7 +774,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
   {"setoption", py_uwsgi_set_option, METH_VARARGS, ""},
   {"set_option", py_uwsgi_set_option, METH_VARARGS, ""},
   {"sorry_i_need_to_block", py_uwsgi_set_blocking, METH_VARARGS, ""},
-  {"current_workers", py_uwsgi_current_workers, METH_VARARGS, ""},
   {"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
   {"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
   {"log", py_uwsgi_log, METH_VARARGS, ""},
@@ -792,6 +799,7 @@ static PyMethodDef uwsgi_sa_methods[] = {
 
 
 
+#ifdef UWSGI_SPOOLER
 void init_uwsgi_module_spooler(PyObject *current_uwsgi_module) {
 	PyMethodDef *uwsgi_function;
 	PyObject *uwsgi_module_dict;
@@ -815,6 +823,7 @@ void init_uwsgi_module_spooler(PyObject *current_uwsgi_module) {
         	Py_DECREF(func);
         }
 }
+#endif
 
 void init_uwsgi_module_advanced(PyObject *current_uwsgi_module) {
 	PyMethodDef *uwsgi_function;

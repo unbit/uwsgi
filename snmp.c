@@ -1,5 +1,4 @@
-#ifndef ROCK_SOLID
-#ifndef UNBIT
+#ifdef UWSGI_SNMP
 
 #include "uwsgi.h"
 
@@ -431,6 +430,6 @@ static int build_snmp_response(struct uwsgi_oid* output_oid, int num_output_oid,
 }
 
 
-
-#endif
+#else
+#warning "*** SNMP support is disabled ***"
 #endif

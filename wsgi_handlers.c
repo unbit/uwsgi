@@ -62,9 +62,9 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 							// set the request app_id
 							// LOCKED SECTION
 							if (strsize > 0) {
-								if (uwsgi->has_threads && !uwsgi->i_have_gil) {
+								if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {
 									PyEval_RestoreThread (uwsgi->_save);
-									uwsgi->i_have_gil = 1;
+									uwsgi->workers[uwsgi->mywid].i_have_gil = 1;
 								}
 								zero = PyString_FromStringAndSize (ptrbuf, strsize);
 								if (PyDict_Contains (uwsgi->py_apps, zero)) {
@@ -77,7 +77,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 								Py_DECREF (zero);
 								if (uwsgi->has_threads && uwsgi->options[UWSGI_OPTION_THREADS] == 1) {
 									uwsgi->_save = PyEval_SaveThread ();
-									uwsgi->i_have_gil = 0;
+									uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
 								}
 							}
 							// UNLOCK
@@ -112,6 +112,10 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 						else if (!strncmp ("UWSGI_SCHEME", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->scheme = ptrbuf;
 							wsgi_req->scheme_len = strsize;
+						}
+						else if (!strncmp ("HTTPS", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->https = ptrbuf;
+							wsgi_req->https_len = strsize;
 						}
 #ifdef UNBIT
 						else if (!strncmp ("UNBIT_FLAGS", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
@@ -154,9 +158,9 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 
 #ifndef ROCK_SOLID
-	if (uwsgi->has_threads && !uwsgi->i_have_gil) {
+	if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {
 		PyEval_RestoreThread (uwsgi->_save);
-		uwsgi->i_have_gil = 1;
+		uwsgi->workers[uwsgi->mywid].i_have_gil = 1;
 	}
 #endif
 
@@ -165,7 +169,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 #ifndef ROCK_SOLID
 
-#ifndef UNBIT
+#ifdef UWSGI_XML
 	if (wsgi_req->app_id == -1 && uwsgi->xml_config == NULL) {
 #else
 	if (wsgi_req->app_id == -1 && uwsgi->wsgi_config == NULL) {
@@ -289,8 +293,16 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 		PyDict_SetItemString (wi->wsgi_environ, "wsgi.multiprocess", Py_True);
 	}
 
-	if (wsgi_req->scheme) {
+	if (wsgi_req->scheme_len > 0) {
 		zero = PyString_FromStringAndSize (wsgi_req->scheme, wsgi_req->scheme_len);
+	}
+	else if (wsgi_req->https_len > 0) {
+		if ( !strncasecmp(wsgi_req->https, "on", 2) || wsgi_req->https[0] == '1') {
+			zero = PyString_FromString ("https");
+		}
+		else {
+			zero = PyString_FromString ("http");
+		}
 	}
 	else {
 		zero = PyString_FromString ("http");
@@ -414,7 +426,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 #ifndef ROCK_SOLID
 	if (uwsgi->has_threads && uwsgi->options[UWSGI_OPTION_THREADS] == 1) {
 		uwsgi->_save = PyEval_SaveThread ();
-		uwsgi->i_have_gil = 0;
+		uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
 	}
 #endif
 	uwsgi->workers[uwsgi->mywid].requests++;

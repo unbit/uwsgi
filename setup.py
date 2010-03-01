@@ -24,7 +24,7 @@ os.system(make_cmd)
 shutil.copy(bin_name, sys.prefix + '/bin')
 
 setup(name='uWSGI',
-      version='0.9.4.1',
+      version='0.9.4.2',
       description='The uWSGI server',
       author='Roberto De Ioris',
       author_email='roberto@unbit.it',

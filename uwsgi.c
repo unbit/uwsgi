@@ -29,17 +29,6 @@ in particular)
 */
 
 
-
-#ifndef UNBIT
-
-#ifndef ROCK_SOLID
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-#endif
-
-#endif
-
-
 #include "uwsgi.h"
 
 #if PY_MINOR_VERSION < 5
@@ -51,9 +40,7 @@ struct uwsgi_server uwsgi;
 static char *nl = "\r\n";
 static char *h_sep = ": ";
 static const char *http_protocol = "HTTP/1.1";
-#ifndef ROCK_SOLID
 static const char *app_slash = "/";
-#endif
 
 extern char **environ;
 
@@ -85,9 +72,7 @@ int check_for_memory_errors = 0;
 PyObject *wsgi_writeout;
 
 
-#ifdef ROCK_SOLID
 struct uwsgi_app *wi;
-#endif
 
 void warn_pipe () {
 	fprintf (stderr, "writing to a closed pipe/socket/fd !!!\n");
@@ -95,7 +80,7 @@ void warn_pipe () {
 
 void gracefully_kill () {
 	fprintf (stderr, "Gracefully killing worker %d...\n", uwsgi.mypid);
-	if (uwsgi.workers[uwsgi.mywid].in_request) {
+	if (UWSGI_IS_IN_REQUEST) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	}
 	else {
@@ -171,7 +156,6 @@ void harakiri () {
 }
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 void stats () {
 	struct uwsgi_app *ua = NULL;
 	int i;
@@ -187,22 +171,17 @@ void stats () {
 	fprintf (stderr, "\n");
 }
 #endif
-#endif
 
 void internal_server_error (int fd, char *message) {
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	if (uwsgi.options[UWSGI_OPTION_CGI_MODE] == 0) {
-#endif
 #endif
 		wsgi_req.headers_size = write (fd, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	}
 	else {
 		wsgi_req.headers_size = write (fd, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
 	}
-#endif
 	wsgi_req.header_cnt = 2;
 #endif
 	wsgi_req.response_size = write (fd, "<h1>uWSGI Error</h1>", 20);
@@ -280,10 +259,8 @@ PyObject *py_uwsgi_spit (PyObject * self, PyObject * args) {
 
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	if (uwsgi.options[UWSGI_OPTION_CGI_MODE] == 0) {
 		base = 4;
-#endif
 #endif
 
 
@@ -309,7 +286,6 @@ PyObject *py_uwsgi_spit (PyObject * self, PyObject * args) {
 		uwsgi.hvec[3].iov_base = nl;
 		uwsgi.hvec[3].iov_len = NL_SIZE;
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	}
 	else {
 		// drop http status on cgi mode
@@ -327,7 +303,6 @@ PyObject *py_uwsgi_spit (PyObject * self, PyObject * args) {
 		uwsgi.hvec[2].iov_base = nl;
 		uwsgi.hvec[2].iov_len = NL_SIZE;
 	}
-#endif
 #endif
 
 
@@ -427,7 +402,7 @@ PyObject *py_uwsgi_spit (PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_sendfile (PyObject * self, PyObject * args) {
 
         //PyObject *zero ;
@@ -457,7 +432,7 @@ PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, 
 PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""}
 };
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SENDFILE
 PyMethodDef uwsgi_sendfile_method[] = { {"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}
 };
 #endif
@@ -502,9 +477,9 @@ int main (int argc, char *argv[], char *envp[]) {
 	int i;
 	int ret;
 
-#ifndef ROCK_SOLID
 	int rlen;
-#ifdef SCTP
+
+#ifdef UWSGI_SCTP
 	int i_am_sctp = 0;
 	struct sctp_sndrcvinfo sctp_ss;
 #endif
@@ -514,33 +489,26 @@ int main (int argc, char *argv[], char *envp[]) {
 	struct sockaddr_in udp_client;
 	socklen_t udp_len;
 	char udp_client_addr[16];
-#endif
+
 	pid_t pid;
 	int no_server = 0;
 
 #ifndef UNBIT
-	char *socket_name = NULL;
-#ifndef ROCK_SOLID
 	FILE *pidfile;
-#endif
 #endif
 
 	int working_workers = 0;
 	int blocking_workers = 0;
 
 	char *cwd;
-	char *binary_path;
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
 
 	char *env_reloads ;
 	unsigned int reloads = 0;
-	int is_a_reload = 0;
 	char env_reload_buf[11];
 
 	char *buffer;
-
-	struct rlimit rl;
 
 #ifdef UNBIT
 	struct uidsec_struct us;
@@ -584,17 +552,14 @@ int main (int argc, char *argv[], char *envp[]) {
 		uwsgi.after_hooks[i] = unconfigured_after_hook;
 	}
 
-#ifndef ROCK_SOLID
 	uwsgi.wsgi_cnt = 1;
 	uwsgi.default_app = -1;
-#endif
+
 	uwsgi.buffer_size = 4096;
 	uwsgi.numproc = 1;
 #ifndef UNBIT
 	uwsgi.listen_queue = 64;
 #endif
-
-	uwsgi.maxworkers = 64;
 
 	uwsgi.max_vars = MAX_VARS;
 	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);
@@ -602,12 +567,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
 	uwsgi.options[UWSGI_OPTION_LOGGING] = 1;
 
-#ifndef ROCK_SOLID
-	uwsgi.i_have_gil = 1;
-#endif
-
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	int option_index = 0;
 	struct option long_options[] = {
 		{"socket", required_argument, 0, 's'},
@@ -651,9 +611,9 @@ int main (int argc, char *argv[], char *envp[]) {
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
 		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
+		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
 		{0, 0, 0, 0}
 	};
-#endif
 #endif
 
 
@@ -661,16 +621,16 @@ int main (int argc, char *argv[], char *envp[]) {
 
 	setlinebuf (stdout);
 
-	rl.rlim_cur = 0;
-	rl.rlim_max = 0;
+	uwsgi.rl.rlim_cur = 0;
+	uwsgi.rl.rlim_max = 0;
 
 	cwd = uwsgi_get_cwd ();
-	binary_path = malloc (strlen (argv[0]) + 1);
-	if (binary_path == NULL) {
+	uwsgi.binary_path = malloc (strlen (argv[0]) + 1);
+	if (uwsgi.binary_path == NULL) {
 		perror ("malloc()");
 		exit (1);
 	}
-	strcpy (binary_path, argv[0]);
+	strcpy (uwsgi.binary_path, argv[0]);
 
 	env_reloads = getenv("UWSGI_RELOADS");
 	if (env_reloads) {
@@ -687,7 +647,6 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 	}
 	else {
-		fprintf(stderr,"setting UWSGI_RELOADS\n");
 		if (setenv("UWSGI_RELOADS","0", 1)) {
 			perror("setenv()");
 		}
@@ -697,7 +656,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	if (!getsockopt (3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
 		if (socket_type == SOCK_STREAM && reloads > 0) { 
 			fprintf (stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
-			is_a_reload = 1;
+			uwsgi.is_a_reload = 1;
 #ifdef UNBIT
 			/* discard the 3'th fd as we will use the fd 0 */
 			close (3);
@@ -708,236 +667,19 @@ int main (int argc, char *argv[], char *envp[]) {
 	}
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	while ((i = getopt_long (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
-#else
-	while ((i = getopt (argc, argv, "s:p:t:d:l:v:b:aCMhrR:z:j:H:A:L")) != -1) {
-#endif
 #else
 	while ((i = getopt (argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:L")) != -1) {
 #endif
-		switch (i) {
-#ifndef ROCK_SOLID
-#ifndef UNBIT
-		case LONG_ARGS_PIDFILE:
-			uwsgi.pidfile = optarg;
-			break;
-		case LONG_ARGS_UDP:
-			udp_socket = optarg;
-			uwsgi.master_process = 1;
-			break;
-		case LONG_ARGS_CHROOT:
-			uwsgi.chroot = optarg;
-			break;
-		case LONG_ARGS_GID:
-			uwsgi.gid = atoi (optarg);
-			break;
-		case LONG_ARGS_UID:
-			uwsgi.uid = atoi (optarg);
-			break;
-		case LONG_ARGS_PYTHONPATH:
-			if (uwsgi.python_path_cnt < 63) {
-				uwsgi.python_path[uwsgi.python_path_cnt] = optarg;
-				uwsgi.python_path_cnt++;
-			}
-			else {
-				fprintf(stderr,"you can specify at most 64 --pythonpath options\n");
-			}
-			break;
-		case LONG_ARGS_LIMIT_AS:
-			rl.rlim_cur = (atoi (optarg)) * 1024 * 1024;
-			rl.rlim_max = rl.rlim_cur;
-			break;
-#endif
-		case LONG_ARGS_PASTE:
-			uwsgi.single_interpreter = 1;
-			uwsgi.paste = optarg;
-			break;
-		case LONG_ARGS_CHECK_INTERVAL:
-			uwsgi.options[UWSGI_OPTION_MASTER_INTERVAL] = atoi (optarg);
-			break;
-		case LONG_ARGS_PYARGV:
-			uwsgi.pyargv = optarg;
-			break;
-#endif
-		case 'j':
-			uwsgi.test_module = optarg;
-			break;
-		case 'H':
-			uwsgi.pyhome = optarg;
-			break;
-		case 'A':
-			uwsgi.sharedareasize = atoi (optarg);
-			break;
-		case 'L':
-			uwsgi.options[UWSGI_OPTION_LOGGING] = 0;
-			break;
-#ifndef ROCK_SOLID
-		case 'Q':
-			spool_dir = optarg;
-			if (access (spool_dir, R_OK | W_OK | X_OK)) {
-				perror ("[spooler directory] access()");
-				exit (1);
-			}
-			uwsgi.master_process = 1;
-			break;
-#endif
-#ifdef UNBIT
-		case 'E':
-			check_for_memory_errors = 1;
-			break;
-		case 'S':
-			uwsgi.single_interpreter = 1;
-			single_app_mode = 1;
-			uwsgi.default_app = 0;
-			break;
-		case 'C':
-			tmp_dir_fd = open (optarg, O_DIRECTORY);
-			if (tmp_dir_fd < 0) {
-				perror ("open()");
-				exit (1);
-			}
-			tmp_filename = malloc (8192);
-			if (!tmp_filename) {
-				fprintf (stderr, "unable to allocate space (8k) for tmp_filename\n");
-				exit (1);
-			}
-			memset (tmp_filename, 0, 8192);
-			break;
-#endif
-#ifndef UNBIT
-		case 'd':
-			if (!is_a_reload) {
-				daemonize (optarg);
-			}
-			break;
-		case 's':
-			socket_name = optarg;
-			break;
-#ifndef ROCK_SOLID
-		case 'x':
-			uwsgi.xml_config = optarg;
-			break;
-#endif
-		case 'l':
-			uwsgi.listen_queue = atoi (optarg);
-			break;
-#endif
-		case 'v':
-			uwsgi.max_vars = atoi (optarg);
-			uwsgi.vec_size = 4 + 1 + (4 * uwsgi.max_vars);
-			break;
-		case 'p':
-			uwsgi.numproc = atoi (optarg);
-			break;
-		case 'r':
-			uwsgi.options[UWSGI_OPTION_REAPER] = 1;
-			break;
-#ifndef ROCK_SOLID
-		case 'w':
-			uwsgi.single_interpreter = 1;
-			uwsgi.wsgi_config = optarg;
-			break;
-		case 'm':
-			uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG] = 1;
-			break;
-		case 'O':
-			uwsgi.py_optimize = atoi (optarg);
-			break;
-#endif
-		case 't':
-			uwsgi.options[UWSGI_OPTION_HARAKIRI] = atoi (optarg);
-			break;
-		case 'b':
-			uwsgi.buffer_size = atoi (optarg);
-			break;
-#ifndef UNBIT
-#ifndef ROCK_SOLID
-		case 'c':
-			uwsgi.options[UWSGI_OPTION_CGI_MODE] = 1;
-			break;
-#endif
-		case 'a':
-			uwsgi.abstract_socket = 1;
-			break;
-		case 'C':
-			uwsgi.chmod_socket = 1;
-			break;
-#endif
-		case 'M':
-			uwsgi.master_process = 1;
-			break;
-		case 'R':
-			uwsgi.options[UWSGI_OPTION_MAX_REQUESTS] = atoi (optarg);
-			break;
-		case 'z':
-			if (atoi (optarg) > 0) {
-				uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT] = atoi (optarg);
-			}
-			break;
-#ifndef ROCK_SOLID
-		case 'T':
-			uwsgi.has_threads = 1;
-			uwsgi.options[UWSGI_OPTION_THREADS] = 1;
-			break;
-		case 'P':
-			uwsgi.enable_profiler = 1;
-			break;
-		case 'i':
-			uwsgi.single_interpreter = 1;
-			break;
-#endif
-#ifndef UNBIT
-		case 'h':
-			fprintf (stdout, "Usage: %s [options...]\n\
-\t-s|--socket <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
-\t-l|--listen <num>\t\tset socket listen queue to <n> (default 64, maximum is system dependent)\n\
-\t-z|--socket-timeout <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
-\t-b|--buffer-size <n>\t\tset buffer size to <n> bytes\n\
-\t-L|--disable-logging\t\tdisable request logging (only errors or server messages will be logged)\n\
-\t-x|--xmlconfig <path>\t\tpath of xml config file (no ROCK_SOLID)\n\
-\t-w|--module <module>\t\tname of python config module (no ROCK_SOLID)\n\
-\t-t|--harakiri <sec>\t\tset harakiri timeout to <sec> seconds\n\
-\t-p|--processes <n>\t\tspawn <n> uwsgi worker processes\n\
-\t-O|--optimize <n>\t\tset python optimization level to <n> (no ROCK_SOLID)\n\
-\t-v|--max-vars <n>\t\tset maximum number of vars/headers to <n>\n\
-\t-A|--sharedarea <n>\t\tcreate a shared memory area of <n> pages\n\
-\t-c|--cgi-mode\t\t\tset cgi mode (no ROCK_SOLID) \n\
-\t-C|--chmod-socket\t\tchmod socket to 666\n\
-\t-P|--profiler\t\t\tenable profiler (no ROCK_SOLID)\n\
-\t-m|--memory-report\t\tenable memory usage report\n\
-\t-i|--single-interpreter\t\tsingle interpreter mode (no ROCK_SOLID)\n\
-\t-a|--abstract-socket\t\tset socket in the abstract namespace (Linux only)\n\
-\t-T|--enable-threads\t\tenable threads support (no ROCK_SOLID)\n\
-\t-M|--master\t\t\tenable master process manager\n\
-\t-H|--home <path>\t\tset python home/virtualenv\n\
-\t-h|--help\t\t\tthis help\n\
-\t-r|--reaper\t\t\tprocess reaper (call waitpid(-1,...) after each request)\n\
-\t-R|--max-requests\t\tmaximum number of requests for each worker\n\
-\t-j|--test\t\t\ttest if uWSGI can import a module\n\
-\t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
-\t--pidfile <file>\t\twrite the masterpid to <file>\n\
-\t--chroot <dir>\t\t\tchroot to directory <dir> (only root)\n\
-\t--gid <id>\t\t\tsetgid to <id> (only root)\n\
-\t--uid <id>\t\t\tsetuid to <id> (only root)\n\
-\t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
-\t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
-\t--no-defer-accept\t\tdisable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)\n\
-\t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\
-\t--check-interval <sec>\t\tset the check interval (in seconds) of the master process\n\
-\t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
-\t--pyargv <args>\t\t\tassign args to python sys.argv\n\
-\t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
-\t--udp <ip:port>\t\t\tbind master process to udp socket on ip:port\n\
-\t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", argv[0]);
-			exit (1);
-		case 0:
-			break;
-		default:
-			exit (1);
-#endif
-		}
+		manage_opt(i, optarg);
+
 	}
+
+#ifdef UWSGI_XML
+        if (uwsgi.xml_config != NULL) {
+                uwsgi_xml_config (&wsgi_req, long_options);
+        }
+#endif
 
 #ifndef UNBIT
 #ifndef ROCK_SOLID
@@ -948,12 +690,10 @@ int main (int argc, char *argv[], char *envp[]) {
 			fprintf (stderr, "*** Starting uWSGI (%dbit) on [%.*s] ***\n", (int) (sizeof (void *)) * 8, 24, ctime ((const time_t *) &uwsgi.start_tv.tv_sec));
 		}
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	}
 	else {
 		fprintf (stderr, "*** Starting uWSGI (CGI mode) (%dbit) on [%.*s] ***\n", (int) (sizeof (void *)) * 8, 24, ctime ((const time_t *) &uwsgi.start_tv.tv_sec));
 	}
-#endif
 #endif
 
 #ifdef __BIG_ENDIAN__
@@ -1020,20 +760,20 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 
 #ifndef UNBIT
-	if (rl.rlim_max > 0) {
+	if (uwsgi.rl.rlim_max > 0) {
 		fprintf (stderr, "limiting address space of processes...\n");
-		if (setrlimit (RLIMIT_AS, &rl)) {
+		if (setrlimit (RLIMIT_AS, &uwsgi.rl)) {
 			perror ("setrlimit()");
 		}
 	}
 #endif
 
-	if (!getrlimit (RLIMIT_AS, &rl)) {
+	if (!getrlimit (RLIMIT_AS, &uwsgi.rl)) {
 #ifndef UNBIT
 		// check for overflow
-		if ((sizeof (void *) == 4 && (uint32_t) rl.rlim_max < UINT32_MAX) || (sizeof (void *) == 8 && (uint64_t) rl.rlim_max < UINT64_MAX)) {
+		if ((sizeof (void *) == 4 && (uint32_t) uwsgi.rl.rlim_max < UINT32_MAX) || (sizeof (void *) == 8 && (uint64_t) uwsgi.rl.rlim_max < UINT64_MAX)) {
 #endif
-			fprintf (stderr, "your process address space limit is %lld bytes (%lld MB)\n", (long long) rl.rlim_max, (long long) rl.rlim_max / 1024 / 1024);
+			fprintf (stderr, "your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
 #ifndef UNBIT
 		}
 #endif
@@ -1103,14 +843,11 @@ int main (int argc, char *argv[], char *envp[]) {
 	PySys_SetArgv (pyargc, pyargv);
 
 
-#ifndef ROCK_SOLID
 	uwsgi.py_apps = PyDict_New ();
 	if (!uwsgi.py_apps) {
 		PyErr_Print ();
 		exit (1);
 	}
-
-#endif
 
 
 	wsgi_spitout = PyCFunction_New (uwsgi_spit_method, NULL);
@@ -1170,7 +907,7 @@ int main (int argc, char *argv[], char *envp[]) {
 
 
 
-#ifdef ROCK_SOLID
+#ifdef UWSGI_ONEAPP
 
 
 	wi = malloc (sizeof (struct uwsgi_app));
@@ -1228,12 +965,12 @@ int main (int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
-#ifndef ROCK_SOLID
 	Py_OptimizeFlag = uwsgi.py_optimize;
 
 	uwsgi.main_thread = PyThreadState_Get ();
 
 
+#ifdef UWSGI_THREADING
 	if (uwsgi.has_threads) {
 		PyEval_InitThreads ();
 		fprintf (stderr, "threads support enabled\n");
@@ -1243,32 +980,32 @@ int main (int argc, char *argv[], char *envp[]) {
 
 	if (!no_server) {
 #ifndef UNBIT
-		if (socket_name != NULL && !is_a_reload) {
-#ifdef SCTP
-			if (!strncmp (socket_name, "sctp:", 5)) {
-				char *sctp_port = strchr (socket_name + 5, ':');
+		if (uwsgi.socket_name != NULL && !uwsgi.is_a_reload) {
+#ifdef UWSGI_SCTP
+			if (!strncmp (uwsgi.socket_name, "sctp:", 5)) {
+				char *sctp_port = strchr (uwsgi.socket_name + 5, ':');
 				if (sctp_port == NULL) {
 					fprintf (stderr, "invalid SCTP port ! syntax: sctp:ip1,ip2,ipN:port\n");
 					exit (1);
 				}
-				uwsgi.serverfd = bind_to_sctp (socket_name + 5, uwsgi.listen_queue, sctp_port);
+				uwsgi.serverfd = bind_to_sctp (uwsgi.socket_name + 5, uwsgi.listen_queue, sctp_port);
 				i_am_sctp = 1;
 			}
 			else {
 #endif
-				char *tcp_port = strchr (socket_name, ':');
+				char *tcp_port = strchr (uwsgi.socket_name, ':');
 				if (tcp_port == NULL) {
-					uwsgi.serverfd = bind_to_unix (socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+					uwsgi.serverfd = bind_to_unix (uwsgi.socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				}
 				else {
-					uwsgi.serverfd = bind_to_tcp (socket_name, uwsgi.listen_queue, tcp_port);
+					uwsgi.serverfd = bind_to_tcp (uwsgi.socket_name, uwsgi.listen_queue, tcp_port);
 				}
 
 				if (uwsgi.serverfd < 0) {
 					fprintf (stderr, "unable to create the server socket.\n");
 					exit (1);
 				}
-#ifdef SCTP
+#ifdef UWSGI_SCTP
 			}
 #endif
 		}
@@ -1285,15 +1022,11 @@ int main (int argc, char *argv[], char *envp[]) {
 
 
 
-#ifndef ROCK_SOLID
 	if (uwsgi.single_interpreter == 1) {
 		init_uwsgi_vars ();
 	}
 
 	memset (uwsgi.wsgi_apps, 0, sizeof (uwsgi.wsgi_apps));
-
-
-#endif
 
 
 
@@ -1302,17 +1035,16 @@ int main (int argc, char *argv[], char *envp[]) {
 	memset (&wsgi_req, 0, sizeof (struct wsgi_request));
 
 	/* shared area for workers */
-	uwsgi.workers = (struct uwsgi_worker *) mmap (NULL, sizeof (struct uwsgi_worker) * uwsgi.maxworkers + 1, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+	uwsgi.workers = (struct uwsgi_worker *) mmap (NULL, sizeof (struct uwsgi_worker) * uwsgi.numproc + 1, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (!uwsgi.workers) {
 		perror ("mmap()");
 		exit (1);
 	}
-	memset (uwsgi.workers, 0, sizeof (struct uwsgi_worker) * uwsgi.maxworkers + 1);
+	memset (uwsgi.workers, 0, sizeof (struct uwsgi_worker) * uwsgi.numproc + 1);
 
 	uwsgi.mypid = getpid ();
 	masterpid = uwsgi.mypid;
 
-#ifndef ROCK_SOLID
 #ifndef UNBIT
 	if (uwsgi.pidfile) {
 		fprintf (stderr, "writing pidfile to %s\n", uwsgi.pidfile);
@@ -1326,7 +1058,6 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 		fclose (pidfile);
 	}
-#endif
 #endif
 
 	if (uwsgi.buffer_size > 65536) {
@@ -1344,15 +1075,15 @@ int main (int argc, char *argv[], char *envp[]) {
 	/* save the masterpid */
 	uwsgi.workers[0].pid = masterpid;
 
-	uwsgi.workers[0].current_workers = uwsgi.numproc;
-
 	fprintf(stderr,"initializing hooks...");
 
 	uwsgi.hooks[0] = uwsgi_request_wsgi ; 
 	uwsgi.after_hooks[0] = uwsgi_after_request_wsgi ; 
 
 	uwsgi.hooks[UWSGI_MODIFIER_ADMIN_REQUEST] = uwsgi_request_admin ; //10
+#ifdef UWSGI_SPOOLER
 	uwsgi.hooks[UWSGI_MODIFIER_SPOOL_REQUEST] = uwsgi_request_spooler ; //17
+#endif
 	uwsgi.hooks[UWSGI_MODIFIER_FASTFUNC] = uwsgi_request_fastfunc ; //26
 
 	uwsgi.hooks[UWSGI_MODIFIER_MANAGE_PATH_INFO] = uwsgi_request_wsgi ; // 30
@@ -1363,22 +1094,24 @@ int main (int argc, char *argv[], char *envp[]) {
 
 	fprintf(stderr,"done.\n");
 
+#ifdef UWSGI_ERLANG
+	if (uwsgi.erlang_node) {
+		uwsgi.erlangfd = init_erlang(uwsgi.erlang_node);
+	}
+#endif
 
-#ifndef ROCK_SOLID
+
+
 	if (uwsgi.wsgi_config != NULL) {
 		uwsgi_wsgi_config ();
 	}
-#endif
-
-#ifndef UNBIT
-#ifndef ROCK_SOLID
+#ifdef UWSGI_XML
 	else if (uwsgi.xml_config != NULL) {
-		uwsgi_xml_config ();
+		uwsgi_xml_config (&wsgi_req, NULL);
 	}
 #endif
-#endif
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_PASTE
 	else if (uwsgi.paste != NULL) {
 		uwsgi_paste_config ();
 	}
@@ -1402,9 +1135,13 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 
+	if (!uwsgi.single_interpreter) {
+		fprintf(stderr,"*** uWSGI is running in multiple interpreter mode !!! ***\n");
+	}
+
 	/* preforking() */
 	if (uwsgi.master_process) {
-		if (is_a_reload) {
+		if (uwsgi.is_a_reload) {
 			fprintf (stderr, "gracefully (RE)spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
 		}
 		else {
@@ -1427,12 +1164,10 @@ int main (int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
-#ifndef ROCK_SOLID
-#ifndef PYTHREE
+#ifdef UWSGI_SPOOLER
 	if (spool_dir != NULL) {
 		uwsgi.workers[0].spooler_pid = spooler_start (uwsgi.serverfd, uwsgi_module);
 	}
-#endif
 #endif
 
 
@@ -1447,6 +1182,9 @@ int main (int argc, char *argv[], char *envp[]) {
 		uwsgi.workers[1].id = 1;
 		uwsgi.workers[1].last_spawn = time (NULL);
 		uwsgi.workers[1].manage_next_request = 1;
+#ifdef UWSGI_THREADING
+		uwsgi.workers[1].i_have_gil = 1;
+#endif
 		uwsgi.mywid = 1;
 		gettimeofday (&last_respawn, NULL);
 		respawn_delta = last_respawn.tv_sec;
@@ -1462,6 +1200,9 @@ int main (int argc, char *argv[], char *envp[]) {
 				uwsgi.workers[i].id = i;
 				uwsgi.workers[i].last_spawn = time (NULL);
 				uwsgi.workers[i].manage_next_request = 1;
+#ifdef UWSGI_THREADING
+				uwsgi.workers[i].i_have_gil = 1;
+#endif
 				uwsgi.mywid = i;
 				if (uwsgi.serverfd != 0 && uwsgi.master_process == 1) {
 					/* close STDIN for workers */
@@ -1488,10 +1229,8 @@ int main (int argc, char *argv[], char *envp[]) {
 		signal (SIGINT, (void *) &kill_them_all);
 		signal (SIGQUIT, (void *) &kill_them_all);
 		/* used only to avoid human-errors */
-#ifndef ROCK_SOLID
 #ifndef UNBIT
 		signal (SIGUSR1, (void *) &stats);
-#endif
 #endif
 
 		if (udp_socket) {
@@ -1506,9 +1245,10 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SPOOLER
 				if (spool_dir && uwsgi.workers[0].spooler_pid > 0) {
 					kill (uwsgi.workers[0].spooler_pid, SIGKILL);
+					fprintf(stderr,"killed the spooler with pid %d\n", uwsgi.workers[0].spooler_pid);
 				}
 
 #endif
@@ -1516,9 +1256,12 @@ int main (int argc, char *argv[], char *envp[]) {
 				exit (0);
 			}
 			if (ready_to_reload >= uwsgi.numproc && uwsgi.to_heaven) {
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SPOOLER
 				if (spool_dir && uwsgi.workers[0].spooler_pid > 0) {
 					kill (uwsgi.workers[0].spooler_pid, SIGKILL);
+					fprintf(stderr,"wait4() the spooler with pid %d...", uwsgi.workers[0].spooler_pid);
+                                        diedpid = waitpid(uwsgi.workers[0].spooler_pid, &waitpid_status, 0);
+                                        fprintf(stderr,"done.");
 				}
 #endif
 				fprintf (stderr, "binary reloading uWSGI...\n");
@@ -1540,10 +1283,11 @@ int main (int argc, char *argv[], char *envp[]) {
 						exit (1);
 					}
 				}
-				fprintf (stderr, "running %s\n", binary_path);
-				strcpy (argv[0], binary_path);
-				execve (binary_path, argv, environ);
+				fprintf (stderr, "running %s\n", uwsgi.binary_path);
+				strcpy (argv[0], uwsgi.binary_path);
+				execve (uwsgi.binary_path, argv, environ);
 				perror ("execve()");
+				// never here
 				exit (1);
 			}
 			diedpid = waitpid (WAIT_ANY, &waitpid_status, WNOHANG);
@@ -1558,10 +1302,10 @@ int main (int argc, char *argv[], char *envp[]) {
 				/* PLEASE, do not run python threads in the master process, you can potentially destroy the world,
 				   we support this for hyperultramegagodprogrammer and systems
 				 */
-#ifndef ROCK_SOLID
+#ifdef UWSGI_THREADING
 				if (uwsgi.has_threads && uwsgi.options[UWSGI_OPTION_THREADS] == 1) {
 					uwsgi._save = PyEval_SaveThread ();
-					uwsgi.i_have_gil = 0;
+					uwsgi.workers[uwsgi.mywid].i_have_gil = 0;
 				}
 #endif
 				/* all processes ok, doing status scan after N seconds */
@@ -1582,7 +1326,7 @@ int main (int argc, char *argv[], char *envp[]) {
 						}
 						else if (rlen > 0) {
 							memset (udp_client_addr, 0, 16);
-							if (inet_ntop (AF_INET, &udp_client, udp_client_addr, 16)) {
+							if (inet_ntop (AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
 								fprintf (stderr, "received udp packet of %d bytes from %s:%d\n", rlen, udp_client_addr, ntohs (udp_client.sin_port));
 								if (buffer[0] == 0x30) {
 									manage_snmp (udp_poll.fd, (uint8_t *) buffer, rlen, &udp_client);
@@ -1599,16 +1343,16 @@ int main (int argc, char *argv[], char *envp[]) {
 				}
 				working_workers = 0;
 				blocking_workers = 0;
-#ifndef ROCK_SOLID
-				if (uwsgi.has_threads && !uwsgi.i_have_gil) {
+#ifdef UWSGI_THREADING
+				if (uwsgi.has_threads && !uwsgi.workers[uwsgi.mywid].i_have_gil) {
 					PyEval_RestoreThread (uwsgi._save);
-					uwsgi.i_have_gil = 1;
+					uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
 				}
 #endif
 				check_interval.tv_sec = uwsgi.options[UWSGI_OPTION_MASTER_INTERVAL];
 				if (!check_interval.tv_sec)
 					check_interval.tv_sec = 1;
-				for (i = 1; i <= uwsgi.workers[0].current_workers; i++) {
+				for (i = 1; i <= uwsgi.numproc; i++) {
 					/* first check for harakiri */
 					if (uwsgi.workers[i].harakiri > 0) {
 						if (uwsgi.workers[i].harakiri < time (NULL)) {
@@ -1619,64 +1363,19 @@ int main (int argc, char *argv[], char *envp[]) {
 						}
 					}
 					/* load counters */
-					if (uwsgi.workers[i].in_request)
+					if (uwsgi.workers[i].status & UWSGI_STATUS_IN_REQUEST)
 						working_workers++;
 
-					if (uwsgi.workers[i].blocking)
+					if (uwsgi.workers[i].status & UWSGI_STATUS_BLOCKING)
 						blocking_workers++;
 
 					uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
 				}
 
-				/* check if i need to add a subworker */
-				//fprintf(stderr,"working workers: %d\n",  working_workers);
-				if (working_workers >= uwsgi.workers[0].current_workers) {
-					/* ok the system is overloaded, check if some worker is in blocking mode */
-					if (blocking_workers > 0) {
-						/* check if is it safe to add a new worker (for now check only for enough free memory) */
-						fprintf (stderr, "adding a new subworker as there are workers in blocking mode...\n");
-						uwsgi.mywid = uwsgi.workers[0].current_workers + 1;
-						pid = fork ();
-						if (pid < 0) {
-							perror ("fork()");
-						}
-						else if (pid > 0) {
-							fprintf (stderr, "spawned uWSGI subworker (pid: %d)\n", pid);
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].id = uwsgi.workers[0].current_workers + 1;
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].pid = pid;
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].harakiri = 0;
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].requests = 0;
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].failed_requests = 0;
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].respawn_count++;
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].last_spawn = time (NULL);
-							uwsgi.workers[uwsgi.workers[0].current_workers + 1].manage_next_request = 1;
-							uwsgi.workers[0].current_workers++;
-						}
-						else if (pid == 0) {
-							uwsgi.mypid = getpid ();
-							break;
-						}
-					}
-				}
-				else {
-					/* the system is no more overloaded, mark subworkers */
-					for (i = uwsgi.numproc + 1; i <= uwsgi.workers[0].current_workers; i++) {
-						uwsgi.workers[i].manage_next_request = 0;
-					}
-				}
-
-				/* now check for subworkers to remove */
-				for (i = uwsgi.workers[0].current_workers; i > uwsgi.numproc; i--) {
-					if (uwsgi.workers[i].manage_next_request)
-						break;
-					/* reset this worker (no interest in killing it) */
-					memset (&uwsgi.workers[i], 0, sizeof (struct uwsgi_worker));
-					uwsgi.workers[0].current_workers--;
-				}
 				continue;
+
 			}
-#ifndef ROCK_SOLID
-#ifndef PYTHREE
+#ifdef UWSGI_SPOOLER
 			/* reload the spooler */
 			if (spool_dir && uwsgi.workers[0].spooler_pid > 0) {
 				if (diedpid == uwsgi.workers[0].spooler_pid) {
@@ -1685,7 +1384,6 @@ int main (int argc, char *argv[], char *envp[]) {
 					continue;
 				}
 			}
-#endif
 #endif
 			/* check for reloading */
 			if (WIFEXITED (waitpid_status)) {
@@ -1699,15 +1397,6 @@ int main (int argc, char *argv[], char *envp[]) {
 				}
 			}
 
-			/* subworkers need to be respawned ? i do not think so */
-			if (find_worker_id (diedpid) > uwsgi.numproc) {
-				fprintf (stderr, "OOPS ! process %d (subworker id %d) died :( i will not respawn it.\n", diedpid, find_worker_id (diedpid));
-				/* decrease the number of workers */
-				if (uwsgi.workers[0].current_workers > uwsgi.numproc) {
-					uwsgi.workers[find_worker_id (diedpid)].manage_next_request = 0;
-				}
-				continue;
-			}
 			fprintf (stderr, "DAMN ! process %d died :( trying respawn ...\n", diedpid);
 			gettimeofday (&last_respawn, NULL);
 			if (last_respawn.tv_sec == respawn_delta) {
@@ -1728,6 +1417,7 @@ int main (int argc, char *argv[], char *envp[]) {
 				uwsgi.workers[uwsgi.mywid].respawn_count++;
 				uwsgi.workers[uwsgi.mywid].last_spawn = time (NULL);
 				uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
+				uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
 				break;
 			}
 			else if (pid < 1) {
@@ -1735,7 +1425,11 @@ int main (int argc, char *argv[], char *envp[]) {
 			}
 			else {
 				fprintf (stderr, "Respawned uWSGI worker (new pid: %d)\n", pid);
+#ifdef UWSGI_SPOOLER
 				if (uwsgi.mywid <= 0 && diedpid != uwsgi.workers[0].spooler_pid) {
+#else
+				if (uwsgi.mywid <= 0) {
+#endif
 					fprintf (stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
 				}
 			}
@@ -1764,49 +1458,61 @@ int main (int argc, char *argv[], char *envp[]) {
 
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	signal (SIGUSR1, (void *) &stats);
 #endif
-#endif
 
-#ifndef ROCK_SOLID
-	if (uwsgi.has_threads) {
-		uwsgi._save = PyEval_SaveThread ();
-		uwsgi.i_have_gil = 0;
+
+	signal (SIGPIPE, (void *) &warn_pipe);
+
+
+#ifdef UWSGI_ERLANG
+	if (uwsgi.erlang_nodes > 0) {
+		if ( (uwsgi.mywid - uwsgi.erlang_nodes) <= (uwsgi.numproc - uwsgi.erlang_nodes)) {
+			erlang_loop(buffer);
+			// NEVER HERE
+			exit(1);
+		}
+	}
+	else {
+		// close the erlang server fd for python workers
+		close(uwsgi.erlangfd);
 	}
 #endif
 
-	signal (SIGPIPE, (void *) &warn_pipe);
+#ifdef UWSGI_THREADING
+	// release the GIL
+	if (uwsgi.has_threads) {
+		uwsgi._save = PyEval_SaveThread ();
+		uwsgi.workers[uwsgi.mywid].i_have_gil = 0;
+	}
+#endif
 
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
-#ifndef ROCK_SOLID
 		wsgi_req.app_id = uwsgi.default_app;
+#ifdef UWSGI_SENDFILE
 		wsgi_req.sendfile_fd = -1;
 #endif
-		uwsgi.workers[uwsgi.mywid].blocking = 0;
-		uwsgi.workers[uwsgi.mywid].in_request = 0;
+		// clear all status bits
+		UWSGI_CLEAR_STATUS ;
+
 		uwsgi.poll.fd = accept (uwsgi.serverfd, (struct sockaddr *) &c_addr, (socklen_t *) & c_len);
-		uwsgi.workers[uwsgi.mywid].in_request = 1;
 
 		if (uwsgi.poll.fd < 0) {
 			perror ("accept()");
 			continue;
 		}
 
-
-		/*
-		   poll with timeout ;
-		 */
+		UWSGI_SET_IN_REQUEST;
 
 		if (uwsgi.options[UWSGI_OPTION_LOGGING])
 			gettimeofday (&wsgi_req.start_of_request, NULL);
 
 		
 
-#ifdef SCTP
+#ifdef UWSGI_SCTP
 		if (i_am_sctp == 1) {
 			// get stream id, and map it to uwsgi modifiers
 			struct sctp_status sstatus;
@@ -1834,7 +1540,7 @@ int main (int argc, char *argv[], char *envp[]) {
 			if (!uwsgi_parse_response (&uwsgi.poll, uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) &wsgi_req, buffer)) {
 				continue;
 			}
-#ifdef SCTP
+#ifdef UWSGI_SCTP
 		}
 #endif
 
@@ -1848,11 +1554,10 @@ int main (int argc, char *argv[], char *envp[]) {
 		gettimeofday(&wsgi_req.end_of_request, NULL) ;
 		uwsgi.workers[uwsgi.mywid].running_time += (double) (( (double)(wsgi_req.end_of_request.tv_sec*1000000+wsgi_req.end_of_request.tv_usec)-(double)(wsgi_req.start_of_request.tv_sec*1000000+wsgi_req.start_of_request.tv_usec))/ (double)1000.0) ;
 
-#ifndef ROCK_SOLID
+
 		// get memory usage
 		if (uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG] == 1)
                 	get_memusage();
-#endif
 
 		// close the connection with the webserver
 		close(uwsgi.poll.fd);
@@ -1899,13 +1604,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	}
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
-		/* am i a grunt ? */
-		if (uwsgi.mywid > uwsgi.numproc) {
-			end_me ();
-		}
-		else {
-			reload_me ();
-		}
+		reload_me ();
 	}
 	else {
 		goodbye_cruel_world ();
@@ -1918,9 +1617,7 @@ int main (int argc, char *argv[], char *envp[]) {
 void init_uwsgi_vars () {
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	int i;
-#endif
 #endif
 	PyObject *pysys, *pysys_dict, *pypath;
 
@@ -1941,7 +1638,6 @@ void init_uwsgi_vars () {
 	}
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	for (i = 0; i < uwsgi.python_path_cnt; i++) {
 		if (PyList_Insert (pypath, 0, PyString_FromString (uwsgi.python_path[i])) != 0) {
 			PyErr_Print ();
@@ -1950,7 +1646,6 @@ void init_uwsgi_vars () {
 			fprintf (stderr, "added %s to pythonpath.\n", uwsgi.python_path[i]);
 		}
 	}
-#endif
 #endif
 
 }
@@ -2125,6 +1820,7 @@ int init_uwsgi_app (PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 
 
+#ifdef UWSGI_PROFILER
 	if (uwsgi.enable_profiler) {
 		pymain = PyImport_AddModule ("__main__");
 		if (!pymain) {
@@ -2185,6 +1881,7 @@ int init_uwsgi_app (PyObject * force_wsgi_dict, PyObject * my_callable) {
 		}
 	}
 	else {
+#endif
 		wi->wsgi_args = PyTuple_New (2);
 		if (PyTuple_SetItem (wi->wsgi_args, 0, wi->wsgi_environ)) {
 			PyErr_Print ();
@@ -2202,10 +1899,14 @@ int init_uwsgi_app (PyObject * force_wsgi_dict, PyObject * my_callable) {
 			}
 			return -1;
 		}
+#ifdef UWSGI_PROFILER
 	}
+#endif
 
+#ifdef UWSGI_SENDFILE
 	// prepare sendfile()
 	wi->wsgi_sendfile = PyCFunction_New (uwsgi_sendfile_method, NULL);
+#endif
 
 	if (uwsgi.single_interpreter == 0) {
 		PyThreadState_Swap (uwsgi.main_thread);
@@ -2229,6 +1930,7 @@ int init_uwsgi_app (PyObject * force_wsgi_dict, PyObject * my_callable) {
 	return id;
 }
 
+#ifdef UWSGI_PASTE
 void uwsgi_paste_config () {
 	PyObject *paste_module, *paste_dict, *paste_loadapp;
 	PyObject *paste_arg, *paste_app;
@@ -2271,6 +1973,8 @@ void uwsgi_paste_config () {
 
 	init_uwsgi_app (NULL, paste_app);
 }
+
+#endif
 
 void uwsgi_wsgi_config () {
 
@@ -2398,114 +2102,6 @@ void uwsgi_wsgi_config () {
 
 #endif
 
-// useless part for Unbit
-#ifndef UNBIT
-
-#ifndef ROCK_SOLID
-
-void uwsgi_xml_config () {
-	xmlDoc *doc = NULL;
-	xmlNode *element = NULL;
-	xmlNode *node = NULL;
-	xmlNode *node2 = NULL;
-
-	xmlChar *xml_uwsgi_mountpoint = NULL;
-	xmlChar *xml_uwsgi_script = NULL;
-
-
-	doc = xmlReadFile (uwsgi.xml_config, NULL, 0);
-	if (doc == NULL) {
-		fprintf (stderr, "could not parse file %s.\n", uwsgi.xml_config);
-		exit (1);
-	}
-
-	fprintf (stderr, "parsing config file %s\n", uwsgi.xml_config);
-
-	element = xmlDocGetRootElement (doc);
-	if (element == NULL) {
-		fprintf (stderr, "invalid xml config file.\n");
-		exit (1);
-	}
-	if (strcmp ((char *) element->name, "uwsgi")) {
-		fprintf (stderr, "invalid xml root element, <uwsgi> expected.\n");
-		exit (1);
-	}
-
-
-	// first check for pythonpath
-	for (node = element->children; node; node = node->next) {
-		if (node->type == XML_ELEMENT_NODE) {
-			if (!strcmp ((char *) node->name, "pythonpath")) {
-				if (!node->children) {
-					fprintf (stderr, "no path defined for pythonpath. skip.\n");
-					continue;
-				}
-				if (!node->children->content) {
-					fprintf (stderr, "invalid path for pythonpath. skip.\n");
-					continue;
-				}
-				if (uwsgi.python_path_cnt < 63) {
-					uwsgi.python_path[uwsgi.python_path_cnt] = malloc (strlen ((char *) node->children->content) + 1);
-					memset (uwsgi.python_path[uwsgi.python_path_cnt], 0, strlen ((char *) node->children->content) + 1);
-					strcpy (uwsgi.python_path[uwsgi.python_path_cnt], (char *) node->children->content);
-					uwsgi.python_path_cnt++;
-				}
-				else {
-					fprintf (stderr, "max pythonpath element reached. skip.\n");
-					continue;
-				}
-			}
-		}
-	}
-
-	// ... then for wsgi apps
-	for (node = element->children; node; node = node->next) {
-		if (node->type == XML_ELEMENT_NODE) {
-
-			if (!strcmp ((char *) node->name, "app")) {
-				xml_uwsgi_mountpoint = xmlGetProp (node, (const xmlChar *) "mountpoint");
-				if (xml_uwsgi_mountpoint == NULL) {
-					fprintf (stderr, "no mountpoint defined for app. skip.\n");
-					continue;
-				}
-				wsgi_req.script_name = (char *) xml_uwsgi_mountpoint;
-				wsgi_req.script_name_len = strlen (wsgi_req.script_name);
-
-				for (node2 = node->children; node2; node2 = node2->next) {
-					if (node2->type == XML_ELEMENT_NODE) {
-						if (!strcmp ((char *) node2->name, "script")) {
-							if (!node2->children) {
-								fprintf (stderr, "no wsgi script defined. skip.\n");
-								continue;
-							}
-							xml_uwsgi_script = node2->children->content;
-							if (xml_uwsgi_script == NULL) {
-								fprintf (stderr, "no wsgi script defined. skip.\n");
-								continue;
-							}
-							wsgi_req.wsgi_script = (char *) xml_uwsgi_script;
-							wsgi_req.wsgi_script_len = strlen (wsgi_req.wsgi_script);
-							init_uwsgi_app (NULL, NULL);
-						}
-					}
-				}
-			}
-		}
-	}
-
-
-	xmlFreeDoc (doc);
-	xmlCleanupParser ();
-
-	fprintf (stderr, "config file parsed.\n");
-}
-
-
-#endif
-
-#endif
-
-
 #ifdef UNBIT
 int uri_to_hex () {
 	int i = 0, j = 0;
@@ -2527,8 +2123,7 @@ int uri_to_hex () {
 }
 #endif
 
-#ifndef PYTHREE
-#ifndef ROCK_SOLID
+#ifdef UWSGI_EMBEDDED
 void init_uwsgi_embedded_module () {
 	PyObject *new_uwsgi_module, *zero;
 	int i;
@@ -2624,9 +2219,11 @@ void init_uwsgi_embedded_module () {
 
 	init_uwsgi_module_advanced (new_uwsgi_module);
 
+#ifdef UWSGI_SPOOLER
 	if (spool_dir != NULL) {
 		init_uwsgi_module_spooler (new_uwsgi_module);
 	}
+#endif
 
 
 	if (uwsgi.sharedareasize > 0 && uwsgi.sharedarea) {
@@ -2634,9 +2231,8 @@ void init_uwsgi_embedded_module () {
 	}
 }
 #endif
-#endif
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SPOOLER
 pid_t spooler_start (int serverfd, PyObject * uwsgi_module) {
 	pid_t pid;
 
@@ -2656,3 +2252,234 @@ pid_t spooler_start (int serverfd, PyObject * uwsgi_module) {
 	return pid;
 }
 #endif
+
+void manage_opt(int i, char *optarg) {
+
+		switch (i) {
+#ifndef ROCK_SOLID
+#ifndef UNBIT
+		case LONG_ARGS_PIDFILE:
+			uwsgi.pidfile = optarg;
+			break;
+		case LONG_ARGS_UDP:
+			uwsgi.udp_socket = optarg;
+			uwsgi.master_process = 1;
+			break;
+		case LONG_ARGS_CHROOT:
+			uwsgi.chroot = optarg;
+			break;
+		case LONG_ARGS_GID:
+			uwsgi.gid = atoi (optarg);
+			break;
+		case LONG_ARGS_UID:
+			uwsgi.uid = atoi (optarg);
+			break;
+#ifdef UWSGI_ERLANG
+		case LONG_ARGS_ERLANG:
+			uwsgi.erlang_node = optarg;
+			break;
+#endif
+		case LONG_ARGS_PYTHONPATH:
+			if (uwsgi.python_path_cnt < 63) {
+				uwsgi.python_path[uwsgi.python_path_cnt] = optarg;
+				uwsgi.python_path_cnt++;
+			}
+			else {
+				fprintf(stderr,"you can specify at most 64 --pythonpath options\n");
+			}
+			break;
+		case LONG_ARGS_LIMIT_AS:
+			uwsgi.rl.rlim_cur = (atoi (optarg)) * 1024 * 1024;
+			uwsgi.rl.rlim_max = uwsgi.rl.rlim_cur;
+			break;
+#endif
+		case LONG_ARGS_PASTE:
+			uwsgi.single_interpreter = 1;
+			uwsgi.paste = optarg;
+			break;
+		case LONG_ARGS_CHECK_INTERVAL:
+			uwsgi.options[UWSGI_OPTION_MASTER_INTERVAL] = atoi (optarg);
+			break;
+		case LONG_ARGS_PYARGV:
+			uwsgi.pyargv = optarg;
+			break;
+#endif
+		case 'j':
+			uwsgi.test_module = optarg;
+			break;
+		case 'H':
+			uwsgi.pyhome = optarg;
+			break;
+		case 'A':
+			uwsgi.sharedareasize = atoi (optarg);
+			break;
+		case 'L':
+			uwsgi.options[UWSGI_OPTION_LOGGING] = 0;
+			break;
+#ifdef UWSGI_SPOOLER
+		case 'Q':
+			spool_dir = optarg;
+			if (access (spool_dir, R_OK | W_OK | X_OK)) {
+				perror ("[spooler directory] access()");
+				exit (1);
+			}
+			uwsgi.master_process = 1;
+			break;
+#endif
+#ifdef UNBIT
+		case 'E':
+			check_for_memory_errors = 1;
+			break;
+		case 'S':
+			uwsgi.single_interpreter = 1;
+			single_app_mode = 1;
+			uwsgi.default_app = 0;
+			break;
+		case 'C':
+			tmp_dir_fd = open (optarg, O_DIRECTORY);
+			if (tmp_dir_fd < 0) {
+				perror ("open()");
+				exit (1);
+			}
+			tmp_filename = malloc (8192);
+			if (!tmp_filename) {
+				fprintf (stderr, "unable to allocate space (8k) for tmp_filename\n");
+				exit (1);
+			}
+			memset (tmp_filename, 0, 8192);
+			break;
+#endif
+#ifndef UNBIT
+		case 'd':
+			if (!uwsgi.is_a_reload) {
+				daemonize (optarg);
+			}
+			break;
+		case 's':
+			uwsgi.socket_name = optarg;
+			break;
+#ifdef UWSGI_XML
+		case 'x':
+			uwsgi.xml_config = optarg;
+			break;
+#endif
+		case 'l':
+			uwsgi.listen_queue = atoi (optarg);
+			break;
+#endif
+		case 'v':
+			uwsgi.max_vars = atoi (optarg);
+			uwsgi.vec_size = 4 + 1 + (4 * uwsgi.max_vars);
+			break;
+		case 'p':
+			uwsgi.numproc = atoi (optarg);
+			break;
+		case 'r':
+			uwsgi.options[UWSGI_OPTION_REAPER] = 1;
+			break;
+#ifndef ROCK_SOLID
+		case 'w':
+			uwsgi.single_interpreter = 1;
+			uwsgi.wsgi_config = optarg;
+			break;
+		case 'm':
+			uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG] = 1;
+			break;
+		case 'O':
+			uwsgi.py_optimize = atoi (optarg);
+			break;
+#endif
+		case 't':
+			uwsgi.options[UWSGI_OPTION_HARAKIRI] = atoi (optarg);
+			break;
+		case 'b':
+			uwsgi.buffer_size = atoi (optarg);
+			break;
+#ifndef UNBIT
+#ifndef ROCK_SOLID
+		case 'c':
+			uwsgi.options[UWSGI_OPTION_CGI_MODE] = 1;
+			break;
+#endif
+		case 'a':
+			uwsgi.abstract_socket = 1;
+			break;
+		case 'C':
+			uwsgi.chmod_socket = 1;
+			break;
+#endif
+		case 'M':
+			uwsgi.master_process = 1;
+			break;
+		case 'R':
+			uwsgi.options[UWSGI_OPTION_MAX_REQUESTS] = atoi (optarg);
+			break;
+		case 'z':
+			if (atoi (optarg) > 0) {
+				uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT] = atoi (optarg);
+			}
+			break;
+#ifndef ROCK_SOLID
+		case 'T':
+			uwsgi.has_threads = 1;
+			uwsgi.options[UWSGI_OPTION_THREADS] = 1;
+			break;
+		case 'P':
+			uwsgi.enable_profiler = 1;
+			break;
+		case 'i':
+			uwsgi.single_interpreter = 1;
+			break;
+#endif
+#ifndef UNBIT
+		case 'h':
+			fprintf (stdout, "Usage: %s [options...]\n\
+\t-s|--socket <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
+\t-l|--listen <num>\t\tset socket listen queue to <n> (default 64, maximum is system dependent)\n\
+\t-z|--socket-timeout <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
+\t-b|--buffer-size <n>\t\tset buffer size to <n> bytes\n\
+\t-L|--disable-logging\t\tdisable request logging (only errors or server messages will be logged)\n\
+\t-x|--xmlconfig <path>\t\tpath of xml config file (no ROCK_SOLID)\n\
+\t-w|--module <module>\t\tname of python config module (no ROCK_SOLID)\n\
+\t-t|--harakiri <sec>\t\tset harakiri timeout to <sec> seconds\n\
+\t-p|--processes <n>\t\tspawn <n> uwsgi worker processes\n\
+\t-O|--optimize <n>\t\tset python optimization level to <n> (no ROCK_SOLID)\n\
+\t-v|--max-vars <n>\t\tset maximum number of vars/headers to <n>\n\
+\t-A|--sharedarea <n>\t\tcreate a shared memory area of <n> pages\n\
+\t-c|--cgi-mode\t\t\tset cgi mode (no ROCK_SOLID) \n\
+\t-C|--chmod-socket\t\tchmod socket to 666\n\
+\t-P|--profiler\t\t\tenable profiler (no ROCK_SOLID)\n\
+\t-m|--memory-report\t\tenable memory usage report\n\
+\t-i|--single-interpreter\t\tsingle interpreter mode (no ROCK_SOLID)\n\
+\t-a|--abstract-socket\t\tset socket in the abstract namespace (Linux only)\n\
+\t-T|--enable-threads\t\tenable threads support (no ROCK_SOLID)\n\
+\t-M|--master\t\t\tenable master process manager\n\
+\t-H|--home <path>\t\tset python home/virtualenv\n\
+\t-h|--help\t\t\tthis help\n\
+\t-r|--reaper\t\t\tprocess reaper (call waitpid(-1,...) after each request)\n\
+\t-R|--max-requests\t\tmaximum number of requests for each worker\n\
+\t-j|--test\t\t\ttest if uWSGI can import a module\n\
+\t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
+\t--pidfile <file>\t\twrite the masterpid to <file>\n\
+\t--chroot <dir>\t\t\tchroot to directory <dir> (only root)\n\
+\t--gid <id>\t\t\tsetgid to <id> (only root)\n\
+\t--uid <id>\t\t\tsetuid to <id> (only root)\n\
+\t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
+\t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
+\t--no-defer-accept\t\tdisable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)\n\
+\t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\
+\t--check-interval <sec>\t\tset the check interval (in seconds) of the master process\n\
+\t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
+\t--pyargv <args>\t\t\tassign args to python sys.argv\n\
+\t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
+\t--udp <ip:port>\t\t\tbind master process to udp socket on ip:port\n\
+\t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", uwsgi.binary_path);
+			exit (1);
+		case 0:
+			break;
+		default:
+			exit (1);
+#endif
+		}
+	}
+

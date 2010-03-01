@@ -12,7 +12,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#ifdef SCTP
+#ifdef UWSGI_SCTP
 #include <netinet/sctp.h>
 #endif
 
@@ -98,6 +98,31 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define LONG_ARGS_PYARGV		17008
 #define LONG_ARGS_LIMIT_AS		17009
 #define LONG_ARGS_UDP			17010
+#define LONG_ARGS_ERLANG		17011
+
+
+#define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
+
+
+#define UWSGI_STATUS_IN_REQUEST		1 << 0
+#define UWSGI_IS_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_IN_REQUEST
+#define UWSGI_SET_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_IN_REQUEST
+#define UWSGI_UNSET_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_IN_REQUEST
+
+#define UWSGI_STATUS_BLOCKING		1 << 1
+#define UWSGI_IS_BLOCKING		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_BLOCKING
+#define UWSGI_SET_BLOCKING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_BLOCKING
+#define UWSGI_UNSET_BLOCKING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_BLOCKING
+
+#define UWSGI_STATUS_LOCKING		1 << 2
+#define UWSGI_IS_LOCKING		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_LOCKING
+#define UWSGI_SET_LOCKING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_LOCKING
+#define UWSGI_UNSET_LOCKING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_LOCKING
+
+#define UWSGI_STATUS_ERLANGING		1 << 3
+#define UWSGI_IS_ERLANGING		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_ERLANGING
+#define UWSGI_SET_ERLANGING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_ERLANGING
+#define UWSGI_UNSET_ERLANGING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_ERLANGING
 
 
 #ifdef __linux__
@@ -203,6 +228,8 @@ struct __attribute__ ((packed)) wsgi_request {
              unsigned short method_len;
              char *scheme;
              unsigned short scheme_len;
+             char *https;
+             unsigned short https_len;
 #ifdef UNBIT
              unsigned long long unbit_flags;
 #endif
@@ -233,7 +260,6 @@ struct __attribute__ ((packed)) wsgi_request {
 	     int wsgi_cnt;
 	     int default_app;
 	     int enable_profiler;
-	     int i_have_gil ;
 	     PyThreadState *_save;
 #ifndef UNBIT
 	     char *chroot;
@@ -243,6 +269,18 @@ struct __attribute__ ((packed)) wsgi_request {
 #endif
 
 		int serverfd ;
+
+		struct rlimit rl;
+
+		char *binary_path;
+
+		int is_a_reload;
+
+		char *socket_name;
+		char *udp_socket;
+#ifdef UWSGI_ERLANG
+		char *erlang_node;
+#endif
 
 	     int (**hooks)(struct uwsgi_server *, struct wsgi_request*, char*) ;
              void (**after_hooks)(struct uwsgi_server *, struct wsgi_request*, char*) ;	
@@ -269,7 +307,6 @@ struct __attribute__ ((packed)) wsgi_request {
 	     char *pidfile;
 
 	     int numproc;
-	     int maxworkers;
 
 	     int max_vars;
 	     int vec_size;
@@ -290,8 +327,11 @@ struct __attribute__ ((packed)) wsgi_request {
 	     int abstract_socket;
 	     int chmod_socket;
 	     int listen_queue;
-#ifndef ROCK_SOLID
+
+#ifdef UWSGI_XML
 	     char *xml_config;
+#endif
+#ifndef ROCK_SOLID
 	     char *python_path[64];
 	     int python_path_cnt;
 	     char *pyargv;
@@ -324,6 +364,9 @@ struct __attribute__ ((packed)) wsgi_request {
 #ifndef ROCK_SOLID
 	     struct uwsgi_app wsgi_apps[64];
 	     PyObject *py_apps;
+
+		int erlang_nodes;
+		int erlangfd;
 #endif
      };
 
@@ -331,24 +374,29 @@ struct __attribute__ ((packed)) wsgi_request {
      struct uwsgi_worker {
 	int id;
 	pid_t pid;
+	uint64_t status;
+
+	int i_have_gil;
+
 	time_t last_spawn;
-	unsigned long long requests;
-	unsigned long long failed_requests;
+	uint64_t respawn_count;
+
+	uint64_t requests;
+	uint64_t failed_requests;
+
 	time_t harakiri;
-	unsigned long long respawn_count;
 
-	unsigned long long vsz_size;
-	unsigned long long rss_size;
+	uint64_t vsz_size;
+	uint64_t rss_size;
+
 	double running_time;
-
 	double last_running_time;
 
-	int in_request;
 	int manage_next_request;
-	int blocking;
-	int current_workers;
 
+#ifdef UWSGI_SPOOLER
 	pid_t spooler_pid;
+#endif
      };
 
      struct __attribute__ ((packed)) uwsgi_header {
@@ -372,7 +420,7 @@ struct __attribute__ ((packed)) wsgi_request {
      int bind_to_unix (char *, int, int, int);
      int bind_to_tcp (char *, int, char *);
      int bind_to_udp (char *);
-#ifdef SCTP
+#ifdef UWSGI_SCTP
      int bind_to_sctp (char *, int, char *);
 #endif
 #ifndef UNBIT
@@ -389,8 +437,8 @@ struct __attribute__ ((packed)) wsgi_request {
      void init_uwsgi_vars (void);
      void init_uwsgi_embedded_module (void);
 
-#ifndef UNBIT
-     void uwsgi_xml_config (void);
+#ifdef UWSGI_XML
+     void uwsgi_xml_config (struct wsgi_request *, struct option *);
 #endif
 
 #ifndef ROCK_SOLID
@@ -402,15 +450,15 @@ struct __attribute__ ((packed)) wsgi_request {
 
      void init_uwsgi_module_sharedarea (PyObject *);
      void init_uwsgi_module_advanced (PyObject *);
+#ifdef UWSGI_SPOOLER
      void init_uwsgi_module_spooler (PyObject *);
+#endif
 
-#ifndef ROCK_SOLID
-#ifndef UNBIT
+#ifdef UWSGI_SNMP
      void manage_snmp (int, uint8_t *, int, struct sockaddr_in *);
 #endif
-#endif
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SPOOLER
      int spool_request (char *, int, char *, int);
      void spooler (PyObject *);
      pid_t spooler_start (int, PyObject *);
@@ -438,8 +486,19 @@ int uwsgi_request_wsgi(struct uwsgi_server*, struct wsgi_request*, char *);
 void uwsgi_after_request_wsgi(struct uwsgi_server*, struct wsgi_request*, char *);
 
 int uwsgi_request_admin(struct uwsgi_server*, struct wsgi_request*, char *);
+#ifdef UWSGI_SPOOLER
 int uwsgi_request_spooler(struct uwsgi_server*, struct wsgi_request*, char *);
+#endif
 int uwsgi_request_fastfunc(struct uwsgi_server*, struct wsgi_request*, char *);
 int uwsgi_request_marshal(struct uwsgi_server*, struct wsgi_request*, char *);
 int uwsgi_request_ping(struct uwsgi_server*, struct wsgi_request*, char *);
 
+#include <erl_interface.h>
+#include <ei.h>
+
+int init_erlang(char *);
+void erlang_loop(char *);
+PyObject *eterm_to_py(ETERM *);
+ETERM *py_to_eterm(PyObject *);
+
+void manage_opt(int, char*);

@@ -1,4 +1,4 @@
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SPOOLER
 #include "uwsgi.h"
 
 #include <dirent.h>
@@ -6,19 +6,13 @@
 
 extern char *spool_dir;
 
-struct uwsgi_packet_header {
-	uint8_t modifier1;
-	uint16_t datasize;
-	uint8_t modifier2;
-};
-
 
 int spool_request (char *filename, int rn, char *buffer, int size) {
 
 	char hostname[256 + 1];
 	struct timeval tv;
 	int fd;
-	struct uwsgi_packet_header uh;
+	struct uwsgi_header uh;
 
 	if (gethostname (hostname, 256)) {
 		perror ("gethostname()");
@@ -52,9 +46,9 @@ int spool_request (char *filename, int rn, char *buffer, int size) {
 
 	uh.modifier1 = 17;
 	uh.modifier2 = 0;
-	uh.datasize = (uint16_t) size;
+	uh.pktsize = (uint16_t) size;
 #ifdef __BIG_ENDIAN__
-	uh.datasize = uwsgi_swap16 (uh.datasize);
+	uh.pktsize = uwsgi_swap16 (uh.pktsize);
 #endif
 
 	if (write (fd, &uh, 4) != 4) {
@@ -89,7 +83,7 @@ void spooler (PyObject * uwsgi_module) {
 	int rlen = 0;
 	int datasize;
 
-	struct uwsgi_packet_header uh;
+	struct uwsgi_header uh;
 
 	char *key;
 	char *val;
@@ -174,12 +168,12 @@ void spooler (PyObject * uwsgi_module) {
 						}
 
 #ifdef __BIG_ENDIAN__
-						uh.datasize = uwsgi_swap16 (uh.datasize);
+						uh.pktsize = uwsgi_swap16 (uh.pktsize);
 #endif
 
 						datasize = 0;
 
-						while (datasize < uh.datasize) {
+						while (datasize < uh.pktsize) {
 							rlen = read (spool_fd, &uwstrlen, 2);
 							if (rlen != 2) {
 								perror ("read()");
@@ -334,4 +328,6 @@ int uwsgi_request_spooler (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	return -1 ;
 }
 
+#else
+#warning "*** Spooler support is disabled ***"
 #endif

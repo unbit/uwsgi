@@ -61,7 +61,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	return serverfd;
 }
 
-#ifdef SCTP
+#ifdef UWSGI_SCTP
 
 #define MAX_SCTP_ADDRESS 4
 /* sctp address format sctp:127.0.0.1,192.168.0.17:3031 */
@@ -119,12 +119,13 @@ int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
 }
 #endif
 
-#ifndef ROCK_SOLID
-#ifndef UNBIT
+#ifdef UWSGI_UDP
 int bind_to_udp(char *socket_name) {
 	int serverfd ;
 	struct sockaddr_in uws_addr;
 	char *udp_port ;
+
+	struct ip_mreq mc ;
 
 	udp_port = strchr(socket_name, ':');
 	if (udp_port == NULL) {
@@ -135,7 +136,8 @@ int bind_to_udp(char *socket_name) {
 	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
 	uws_addr.sin_family = AF_INET;
 	uws_addr.sin_port = htons(atoi(udp_port+1));
-	uws_addr.sin_addr.s_addr = inet_addr(socket_name);
+	//uws_addr.sin_addr.s_addr = inet_addr(socket_name);
+	uws_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	serverfd = socket(AF_INET,SOCK_DGRAM,0);
 	if (serverfd < 0) {
@@ -143,16 +145,23 @@ int bind_to_udp(char *socket_name) {
 		return -1 ;
         }	
 
+	mc.imr_multiaddr.s_addr = inet_addr("225.0.0.1");
+	mc.imr_interface.s_addr = inet_addr(socket_name);
+
+
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr) ) != 0) {
                 perror("bind()");
 		close(serverfd);
 		return -1 ;
         }
 
+	if (setsockopt(serverfd,IPPROTO_IP,IP_ADD_MEMBERSHIP,&mc,sizeof(mc))) {
+		perror("setsockopt()");
+	}
+
 	return serverfd;
 	
 }
-#endif
 #endif
 
 int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
