@@ -2,7 +2,7 @@
 
 static int uwsgi_sendfile(struct uwsgi_server *, int , int ) ;
 
-int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	char *ptrbuf;
 	char *bufferend;
@@ -26,7 +26,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 		return -1;
 	}
 
-	ptrbuf = buffer;
+	ptrbuf = uwsgi->buffer;
 	bufferend = ptrbuf + wsgi_req->size;
 
 	/* set an HTTP 500 status as default */
@@ -435,7 +435,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 }
 
-void uwsgi_after_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+void uwsgi_after_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	if (uwsgi->options[UWSGI_OPTION_LOGGING])
 		log_request(wsgi_req) ;

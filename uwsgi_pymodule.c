@@ -511,8 +511,8 @@ PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
 	
 	void *plugin_handle;
 	int (*plugin_init)(struct uwsgi_server *, char *);
-        int (*plugin_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
-        void (*plugin_after_request)(struct uwsgi_server *, struct wsgi_request*, char*) ;
+        int (*plugin_request)(struct uwsgi_server *, struct wsgi_request*) ;
+        void (*plugin_after_request)(struct uwsgi_server *, struct wsgi_request*) ;
 
 	if (!PyArg_ParseTuple(args, "is|s:load_plugin", &modifier, &plugin_name, &pargs)) {
 		return NULL ;

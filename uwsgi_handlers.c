@@ -1,7 +1,7 @@
 #include "uwsgi.h"
 
 /* uwsgi PING|100 */
-int uwsgi_request_ping (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+int uwsgi_request_ping (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	fprintf (stderr, "PING\n");
 	wsgi_req->modifier_arg = 1;
 	if (write (uwsgi->poll.fd, wsgi_req, 4) != 4) {
@@ -12,12 +12,12 @@ int uwsgi_request_ping (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 }
 
 /* uwsgi ADMIN|10 */
-int uwsgi_request_admin (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+int uwsgi_request_admin (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	uint32_t opt_value = 0;
 	int i;
 
 	if (wsgi_req->size >= 4) {
-		memcpy (&opt_value, buffer, 4);
+		memcpy (&opt_value, uwsgi->buffer, 4);
 		// TODO: check endianess
 	}
 	fprintf (stderr, "setting internal option %d to %d\n", wsgi_req->modifier_arg, opt_value);
@@ -34,7 +34,7 @@ int uwsgi_request_admin (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 }
 
 /* uwsgi FASTFUNC|26 */
-int uwsgi_request_fastfunc (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+int uwsgi_request_fastfunc (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	PyObject *zero, *func_result, *fchunk, *func_chunks;
 
@@ -66,13 +66,13 @@ int uwsgi_request_fastfunc (struct uwsgi_server *uwsgi, struct wsgi_request *wsg
 
 
 /* uwsgi MARSHAL|33 */
-int uwsgi_request_marshal (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+int uwsgi_request_marshal (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	PyObject *func_result;
 
 	PyObject *umm = PyDict_GetItemString (uwsgi->embedded_dict,
 					      "message_manager_marshal");
 	if (umm) {
-		PyObject *ummo = PyMarshal_ReadObjectFromString (buffer,
+		PyObject *ummo = PyMarshal_ReadObjectFromString (uwsgi->buffer,
 								 wsgi_req->size);
 		if (ummo) {
 			if (!PyTuple_SetItem (uwsgi->embedded_args, 0, ummo)) {

@@ -282,7 +282,7 @@ void spooler (PyObject * uwsgi_module) {
 	}
 }
 
-int uwsgi_request_spooler (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+int uwsgi_request_spooler (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	
 	int i;
 	char spool_filename[1024];
@@ -300,7 +300,7 @@ int uwsgi_request_spooler (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	}
 
 	fprintf (stderr, "managing spool request...\n");
-	i = spool_request (spool_filename, uwsgi->workers[0].requests + 1, buffer, wsgi_req->size);
+	i = spool_request (spool_filename, uwsgi->workers[0].requests + 1, uwsgi->buffer, wsgi_req->size);
 	wsgi_req->modifier = 255;
 	wsgi_req->size = 0;
 	if (i > 0) {

@@ -450,12 +450,12 @@ int single_app_mode = 0;
 
 char *spool_dir = NULL;
 
-static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	fprintf(stderr, "-- unavailable modifier requested: %d --\n", wsgi_req->modifier);
 	return -1;
 }
 
-static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, char *buffer) {
+static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	return;
 }
 
@@ -508,7 +508,6 @@ int main (int argc, char *argv[], char *envp[]) {
 	unsigned int reloads = 0;
 	char env_reload_buf[11];
 
-	char *buffer;
 
 #ifdef UNBIT
 	struct uidsec_struct us;
@@ -1064,8 +1063,8 @@ int main (int argc, char *argv[], char *envp[]) {
 		fprintf (stderr, "invalid buffer size.\n");
 		exit (1);
 	}
-	buffer = malloc (uwsgi.buffer_size);
-	if (buffer == NULL) {
+	uwsgi.buffer = malloc (uwsgi.buffer_size);
+	if (uwsgi.buffer == NULL) {
 		fprintf (stderr, "unable to allocate memory for buffer.\n");
 		exit (1);
 	}
@@ -1321,7 +1320,7 @@ int main (int argc, char *argv[], char *envp[]) {
 					}
 					else if (rlen > 0) {
 						udp_len = sizeof (udp_client);
-						rlen = recvfrom (udp_poll.fd, buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+						rlen = recvfrom (udp_poll.fd, uwsgi.buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
 						if (rlen < 0) {
 							perror ("recvfrom()");
 						}
@@ -1329,8 +1328,8 @@ int main (int argc, char *argv[], char *envp[]) {
 							memset (udp_client_addr, 0, 16);
 							if (inet_ntop (AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
 								fprintf (stderr, "received udp packet of %d bytes from %s:%d\n", rlen, udp_client_addr, ntohs (udp_client.sin_port));
-								if (buffer[0] == 0x30) {
-									manage_snmp (udp_poll.fd, (uint8_t *) buffer, rlen, &udp_client);
+								if (uwsgi.buffer[0] == 0x30) {
+									manage_snmp (udp_poll.fd, (uint8_t *) uwsgi.buffer, rlen, &udp_client);
 								}
 							}
 							else {
@@ -1473,7 +1472,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 		else if ( uwsgi.mywid > (uwsgi.numproc - uwsgi.erlang_nodes) ) {
 			fprintf(stderr,"Erlang mode enabled for worker %d.\n", uwsgi.mywid);
-			erlang_loop(buffer);
+			erlang_loop();
 			// NEVER HERE
 			exit(1);
 		}
@@ -1531,7 +1530,7 @@ int main (int argc, char *argv[], char *envp[]) {
 			fprintf (stderr, "%d %d\n", sstatus.sstat_instrms, sstatus.sstat_outstrms);
 
 			i = 0;
-			wsgi_req.size = sctp_recvmsg (uwsgi.poll.fd, buffer, uwsgi.buffer_size, 0, 0, &sctp_ss, 0);
+			wsgi_req.size = sctp_recvmsg (uwsgi.poll.fd, uwsgi.buffer, uwsgi.buffer_size, 0, 0, &sctp_ss, 0);
 			if (wsgi_req.size < 0) {
 				perror ("sctp_recvmsg()");
 			}
@@ -1540,7 +1539,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 		else {
 #endif
-			if (!uwsgi_parse_response (&uwsgi.poll, uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) &wsgi_req, buffer)) {
+			if (!uwsgi_parse_response (&uwsgi.poll, uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) &wsgi_req, uwsgi.buffer)) {
 				continue;
 			}
 #ifdef UWSGI_SCTP
@@ -1552,7 +1551,7 @@ int main (int argc, char *argv[], char *envp[]) {
 			set_harakiri(uwsgi.options[UWSGI_OPTION_HARAKIRI]);
 		}
 
-		ret = (*uwsgi.hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req, buffer);
+		ret = (*uwsgi.hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req);
 		// calculate execution time
 		gettimeofday(&wsgi_req.end_of_request, NULL) ;
 		uwsgi.workers[uwsgi.mywid].running_time += (double) (( (double)(wsgi_req.end_of_request.tv_sec*1000000+wsgi_req.end_of_request.tv_usec)-(double)(wsgi_req.start_of_request.tv_sec*1000000+wsgi_req.start_of_request.tv_usec))/ (double)1000.0) ;
@@ -1568,7 +1567,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		uwsgi.workers[uwsgi.mywid].requests++;
 
 		if (!ret)
-			(*uwsgi.after_hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req, buffer);
+			(*uwsgi.after_hooks[wsgi_req.modifier])(&uwsgi, &wsgi_req);
 
 
 		// leave harakiri mode

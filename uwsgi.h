@@ -268,6 +268,8 @@ struct __attribute__ ((packed)) wsgi_request {
 #endif
 #endif
 
+		char *buffer;
+
 		int serverfd ;
 
 		struct rlimit rl;
@@ -282,8 +284,8 @@ struct __attribute__ ((packed)) wsgi_request {
 		char *erlang_node;
 #endif
 
-	     int (**hooks)(struct uwsgi_server *, struct wsgi_request*, char*) ;
-             void (**after_hooks)(struct uwsgi_server *, struct wsgi_request*, char*) ;	
+	     int (**hooks)(struct uwsgi_server *, struct wsgi_request*) ;
+             void (**after_hooks)(struct uwsgi_server *, struct wsgi_request*) ;	
 
 	     // iovec
 	     struct iovec *hvec;
@@ -482,23 +484,27 @@ struct __attribute__ ((packed)) wsgi_request {
 
 
 /* included HOOKS */
-int uwsgi_request_wsgi(struct uwsgi_server*, struct wsgi_request*, char *);
-void uwsgi_after_request_wsgi(struct uwsgi_server*, struct wsgi_request*, char *);
+int uwsgi_request_wsgi(struct uwsgi_server*, struct wsgi_request*);
+void uwsgi_after_request_wsgi(struct uwsgi_server*, struct wsgi_request*);
 
-int uwsgi_request_admin(struct uwsgi_server*, struct wsgi_request*, char *);
+int uwsgi_request_admin(struct uwsgi_server*, struct wsgi_request*);
 #ifdef UWSGI_SPOOLER
-int uwsgi_request_spooler(struct uwsgi_server*, struct wsgi_request*, char *);
+int uwsgi_request_spooler(struct uwsgi_server*, struct wsgi_request*);
 #endif
-int uwsgi_request_fastfunc(struct uwsgi_server*, struct wsgi_request*, char *);
-int uwsgi_request_marshal(struct uwsgi_server*, struct wsgi_request*, char *);
-int uwsgi_request_ping(struct uwsgi_server*, struct wsgi_request*, char *);
+int uwsgi_request_fastfunc(struct uwsgi_server*, struct wsgi_request*);
+int uwsgi_request_marshal(struct uwsgi_server*, struct wsgi_request*);
+int uwsgi_request_ping(struct uwsgi_server*, struct wsgi_request*);
+
+#ifdef UWSGI_ERLANG
 
 #include <erl_interface.h>
 #include <ei.h>
 
 int init_erlang(char *);
-void erlang_loop(char *);
+void erlang_loop(void);
 PyObject *eterm_to_py(ETERM *);
 ETERM *py_to_eterm(PyObject *);
+
+#endif
 
 void manage_opt(int, char*);
