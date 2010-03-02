@@ -611,6 +611,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
 		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
 		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
+		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
 		{0, 0, 0, 0}
 	};
 #endif
@@ -1096,7 +1097,7 @@ int main (int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_node) {
 		uwsgi.erlang_nodes = 1;
-		uwsgi.erlangfd = init_erlang(uwsgi.erlang_node);
+		uwsgi.erlangfd = init_erlang(uwsgi.erlang_node, uwsgi.erlang_cookie);
 	}
 #endif
 
@@ -2279,6 +2280,9 @@ void manage_opt(int i, char *optarg) {
 #ifdef UWSGI_ERLANG
 		case LONG_ARGS_ERLANG:
 			uwsgi.erlang_node = optarg;
+			break;
+		case LONG_ARGS_ERLANG_COOKIE:
+			uwsgi.erlang_cookie = optarg;
 			break;
 #endif
 		case LONG_ARGS_PYTHONPATH:

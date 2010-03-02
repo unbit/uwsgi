@@ -99,6 +99,7 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define LONG_ARGS_LIMIT_AS		17009
 #define LONG_ARGS_UDP			17010
 #define LONG_ARGS_ERLANG		17011
+#define LONG_ARGS_ERLANG_COOKIE		17012
 
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
@@ -282,6 +283,7 @@ struct __attribute__ ((packed)) wsgi_request {
 		char *udp_socket;
 #ifdef UWSGI_ERLANG
 		char *erlang_node;
+		char *erlang_cookie;
 #endif
 
 	     int (**hooks)(struct uwsgi_server *, struct wsgi_request*) ;
@@ -500,7 +502,7 @@ int uwsgi_request_ping(struct uwsgi_server*, struct wsgi_request*);
 #include <erl_interface.h>
 #include <ei.h>
 
-int init_erlang(char *);
+int init_erlang(char *, char *);
 void erlang_loop(void);
 PyObject *eterm_to_py(ETERM *);
 ETERM *py_to_eterm(PyObject *);
