@@ -479,7 +479,7 @@ void erlang_loop() {
 
 					uwsgi.workers[0].requests++;
                 			uwsgi.workers[uwsgi.mywid].requests++;
-					if (uwsgi.options[UWSGI_OPTION_LOGGING])
+					if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
 						erlang_log();
                         	}
 				else {
@@ -494,7 +494,7 @@ void erlang_loop() {
 }
 
 static void erlang_log() {
-	if (uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG]) {
+	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
 		get_memusage();
 	}
 	else {

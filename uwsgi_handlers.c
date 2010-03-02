@@ -2,10 +2,25 @@
 
 /* uwsgi PING|100 */
 int uwsgi_request_ping (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+	char len ;
+
 	fprintf (stderr, "PING\n");
 	wsgi_req->modifier_arg = 1;
+	wsgi_req->size = 0 ;
+
+	len = strlen(uwsgi->shared->warning_message) ;
+	if (len>0) {
+		// endianess check is not needed as the warning message can be max 80 chars
+		wsgi_req->size = len ;
+	}
 	if (write (uwsgi->poll.fd, wsgi_req, 4) != 4) {
 		perror ("write()");
+	}
+
+	if (len > 0) {
+		if (write (uwsgi->poll.fd, uwsgi->shared->warning_message, len) != len) {
+			perror ("write()");
+		}
 	}
 
 	return 0;
@@ -21,7 +36,7 @@ int uwsgi_request_admin (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 		// TODO: check endianess
 	}
 	fprintf (stderr, "setting internal option %d to %d\n", wsgi_req->modifier_arg, opt_value);
-	uwsgi->options[wsgi_req->modifier_arg] = opt_value;
+	uwsgi->shared->options[wsgi_req->modifier_arg] = opt_value;
 	wsgi_req->modifier = 255;
 	wsgi_req->size = 0;
 	wsgi_req->modifier_arg = 1;

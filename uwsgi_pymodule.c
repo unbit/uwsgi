@@ -19,6 +19,29 @@ extern struct uwsgi_server uwsgi;
 
 #define UWSGI_LOGBASE "[- uWSGI -"
 
+PyObject *py_uwsgi_warning(PyObject *self, PyObject *args) {
+	char *message ;
+	int len ;
+
+	if (!PyArg_ParseTuple(args, "s:set_warning_message", &message)) {
+                return NULL ;
+        }
+
+	len = strlen(message);
+	if (len > 80) {
+		fprintf(stderr,"- warning message must be max 80 chars, it will be truncated -");
+		memcpy(uwsgi.shared->warning_message, message, 80);
+		uwsgi.shared->warning_message[80] = 0 ;
+	}
+	else {
+		memcpy(uwsgi.shared->warning_message, message, len);
+		uwsgi.shared->warning_message[len] = 0 ;
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
 PyObject *py_uwsgi_log(PyObject *self, PyObject *args) {
 	char *logline ;
 	time_t tt ;
@@ -43,7 +66,7 @@ PyObject *py_uwsgi_lock(PyObject *self, PyObject *args) {
 
 	// the spooler, the master process or single process environment cannot lock resources
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid && uwsgi.mypid != uwsgi.workers[0].spooler_pid) {
+	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid && uwsgi.mypid != uwsgi.shared->spooler_pid) {
 #else
 	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid) {
 #endif
@@ -489,7 +512,7 @@ PyObject *py_uwsgi_get_option(PyObject *self, PyObject *args) {
 		return NULL ;
 	}
 
-	return PyInt_FromLong(uwsgi.options[(uint8_t) opt_id]);
+	return PyInt_FromLong(uwsgi.shared->options[(uint8_t) opt_id]);
 }
 
 PyObject *py_uwsgi_set_option(PyObject *self, PyObject *args) {
@@ -500,7 +523,7 @@ PyObject *py_uwsgi_set_option(PyObject *self, PyObject *args) {
 		return NULL ;
 	}
 
-	uwsgi.options[(uint8_t) opt_id] = (uint32_t) value ;
+	uwsgi.shared->options[(uint8_t) opt_id] = (uint32_t) value ;
 	return PyInt_FromLong(value);
 }
 
@@ -538,10 +561,10 @@ PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
 
                	plugin_request = dlsym(plugin_handle, "uwsgi_request");
                	if (plugin_request) {
-                       	uwsgi.hooks[modifier] = plugin_request ;
+                       	uwsgi.shared->hooks[modifier] = plugin_request ;
                        	plugin_after_request = dlsym(plugin_handle, "uwsgi_after_request");
                        	if (plugin_after_request) {
-                               	uwsgi.after_hooks[modifier] = plugin_after_request ;
+                               	uwsgi.shared->after_hooks[modifier] = plugin_after_request ;
                        	}
 			Py_INCREF(Py_True);
 			return Py_True;
@@ -781,6 +804,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
   {"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
   {"lock", py_uwsgi_lock, METH_VARARGS, ""},
   {"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
+  {"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
   //{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
   {NULL, NULL},
 };

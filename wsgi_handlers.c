@@ -75,7 +75,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 									wsgi_req->app_id = -1;
 								}
 								Py_DECREF (zero);
-								if (uwsgi->has_threads && uwsgi->options[UWSGI_OPTION_THREADS] == 1) {
+								if (uwsgi->has_threads && uwsgi->shared->options[UWSGI_OPTION_THREADS] == 1) {
 									uwsgi->_save = PyEval_SaveThread ();
 									uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
 								}
@@ -412,7 +412,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 	wi->requests++;
 #endif
 	PyErr_Clear ();
-	if (uwsgi->options[UWSGI_OPTION_HARAKIRI] > 0) {
+	if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 		set_harakiri (0);
 	}
 #ifndef ROCK_SOLID
@@ -424,7 +424,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
       clean:
 	fclose (wsgi_file);
 #ifndef ROCK_SOLID
-	if (uwsgi->has_threads && uwsgi->options[UWSGI_OPTION_THREADS] == 1) {
+	if (uwsgi->has_threads && uwsgi->shared->options[UWSGI_OPTION_THREADS] == 1) {
 		uwsgi->_save = PyEval_SaveThread ();
 		uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
 	}
@@ -437,7 +437,7 @@ int uwsgi_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 void uwsgi_after_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
-	if (uwsgi->options[UWSGI_OPTION_LOGGING])
+	if (uwsgi->shared->options[UWSGI_OPTION_LOGGING])
 		log_request(wsgi_req) ;
 }
 

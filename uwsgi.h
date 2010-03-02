@@ -286,8 +286,6 @@ struct __attribute__ ((packed)) wsgi_request {
 		char *erlang_cookie;
 #endif
 
-	     int (**hooks)(struct uwsgi_server *, struct wsgi_request*) ;
-             void (**after_hooks)(struct uwsgi_server *, struct wsgi_request*) ;	
 
 	     // iovec
 	     struct iovec *hvec;
@@ -363,7 +361,8 @@ struct __attribute__ ((packed)) wsgi_request {
 
 	     struct pollfd poll;
 
-	     uint32_t *options;
+
+		struct uwsgi_shared *shared ;
 
 #ifndef ROCK_SOLID
 	     struct uwsgi_app wsgi_apps[64];
@@ -373,6 +372,20 @@ struct __attribute__ ((packed)) wsgi_request {
 		int erlangfd;
 #endif
      };
+
+	struct uwsgi_shared {
+
+		// vga 80x25 specific !
+		char warning_message[81];
+
+	     int (*hooks[256])(struct uwsgi_server *, struct wsgi_request*) ;
+             void (*after_hooks[256])(struct uwsgi_server *, struct wsgi_request*) ;	
+	     uint32_t options[256];
+
+#ifdef UWSGI_SPOOLER
+		pid_t spooler_pid;
+#endif
+	};
 
 
      struct uwsgi_worker {
@@ -398,9 +411,6 @@ struct __attribute__ ((packed)) wsgi_request {
 
 	int manage_next_request;
 
-#ifdef UWSGI_SPOOLER
-	pid_t spooler_pid;
-#endif
      };
 
      struct __attribute__ ((packed)) uwsgi_header {
@@ -424,6 +434,8 @@ struct __attribute__ ((packed)) wsgi_request {
      int bind_to_unix (char *, int, int, int);
      int bind_to_tcp (char *, int, char *);
      int bind_to_udp (char *);
+	int timed_connect(struct pollfd * , const struct sockaddr *, int , int );
+	int connect_to_tcp(char *, int , int );
 #ifdef UWSGI_SCTP
      int bind_to_sctp (char *, int, char *);
 #endif

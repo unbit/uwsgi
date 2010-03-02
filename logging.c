@@ -44,7 +44,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 
 
 #ifndef ROCK_SOLID
-	if (uwsgi.options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
+	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
 #ifndef UNBIT
                 if (uwsgi.synclog) {
                         snprintf(uwsgi.sync_page, uwsgi.page_size, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size/1024/1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size/1024/1024) ;

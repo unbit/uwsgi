@@ -164,6 +164,41 @@ int bind_to_udp(char *socket_name) {
 }
 #endif
 
+int connect_to_tcp(char *socket_name, int port, int timeout) {
+
+	struct pollfd uwsgi_poll;
+	struct sockaddr_in uws_addr;
+
+	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
+
+	uws_addr.sin_family = AF_INET;
+	uws_addr.sin_port = htons(port);
+
+	if (socket_name[0] == 0) {
+		uws_addr.sin_addr.s_addr = INADDR_ANY;
+	}
+	else {
+		uws_addr.sin_addr.s_addr = inet_addr(socket_name);
+	}
+
+	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (uwsgi_poll.fd < 0) {
+                perror("socket()");
+		return -1 ;
+        }
+
+	uwsgi_poll.events = POLLIN ;
+
+	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
+                perror("connect()");
+                close(uwsgi_poll.fd);
+                return -1 ;
+        }
+
+	return uwsgi_poll.fd ;
+
+}
+
 int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	int serverfd;
@@ -198,7 +233,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	if (!uwsgi.no_defer_accept) {
 
 #ifdef TCP_DEFER_ACCEPT
-		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
+		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
 			perror("setsockopt()");
 		}
 		else {
@@ -224,3 +259,71 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	return serverfd;
 }
+
+int timed_connect(struct pollfd *fdpoll , const struct sockaddr *addr, int addr_size, int timeout) {
+
+        int arg, ret;
+        int soopt ;
+        socklen_t solen = sizeof(int) ;
+        int cnt;
+        /* set non-blocking socket */
+
+        arg = fcntl(fdpoll->fd, F_GETFL, NULL) ;
+        if (arg < 0) {
+		perror("fcntl()");
+		return -1 ;
+        }
+        arg |= O_NONBLOCK;
+        if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
+		perror("fcntl()");
+		return -1 ;
+        }
+
+        ret = connect(fdpoll->fd, addr, addr_size) ;
+        if (ret < 0) {
+                /* check what happened */
+
+                // in progress ?
+                if (errno == EINPROGRESS) {
+                        if (timeout < 1)
+                                timeout = 3;
+                        fdpoll->events = POLLOUT ;
+                        cnt = poll(fdpoll, 1, timeout*1000) ;
+                        /* check for errors */
+                        if (cnt < 0 && errno != EINTR) {
+				perror("poll()");
+				return -1 ;
+                        }
+                        /* something hapened on the socket ... */
+                        else if (cnt > 0) {
+                                if (getsockopt(fdpoll->fd, SOL_SOCKET, SO_ERROR, (void*)(&soopt), &solen) < 0) {
+					perror("getsockopt()");
+					return -1;
+                                }
+                                /* is something bad ? */
+                                if (soopt) {
+					return -1;
+                                }
+                        }
+                        /* timeout */
+                        else {
+				return -1 ;
+                        }
+                }
+                else {
+			return -1;
+                }
+        }
+
+        /* re-set blocking socket */
+        arg &= (~O_NONBLOCK);
+        if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
+		perror("fcntl()");
+                return -1;
+        }
+
+        return 0 ;
+
+}
+
+

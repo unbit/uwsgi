@@ -4,7 +4,7 @@ extern struct uwsgi_server uwsgi;
 
 int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
 
-	int uwsgi_fd;
+	struct pollfd uwsgi_poll;
 	struct sockaddr_in uws_addr;
         int cnt ;
         struct uwsgi_header uh;
@@ -17,8 +17,8 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 		return -1 ;
         }
 
-	uwsgi_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (uwsgi_fd < 0) {
+	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (uwsgi_poll.fd < 0) {
 		perror("socket()");
 		return -1 ;
 	}
@@ -28,10 +28,11 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
         uws_addr.sin_port = htons(port);
         uws_addr.sin_addr.s_addr = inet_addr(host);
 
+	uwsgi_poll.events = POLLIN ;
 
-        if (connect(uwsgi_fd, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in))) {
+        if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
                 perror("connect()");
-                close(uwsgi_fd);
+                close(uwsgi_poll.fd);
 		return -1 ;
         }
 
@@ -39,21 +40,21 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
         uh.pktsize = (uint16_t) size ;
         uh.modifier2 = modifier2;
 
-        cnt = write(uwsgi_fd, &uh, 4) ;
+        cnt = write(uwsgi_poll.fd, &uh, 4) ;
         if (cnt != 4) {
                 perror("write()");
-                close(uwsgi_fd);
+                close(uwsgi_poll.fd);
                 return -1;
         }
 
-	cnt = write(uwsgi_fd, message, size) ;
+	cnt = write(uwsgi_poll.fd, message, size) ;
         if (cnt != size) {
                 perror("write()");
-                close(uwsgi_fd);
+                close(uwsgi_poll.fd);
                 return -1;
         }
 
-	return uwsgi_fd;
+	return uwsgi_poll.fd;
 }
 
 PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
@@ -90,7 +91,7 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 	uws_addr.sin_addr.s_addr = inet_addr(host);
 
 
-	if (connect(uwsgi_mpoll.fd, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in))) {
+	if (timed_connect(&uwsgi_mpoll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
 		perror("connect()");
 		close(uwsgi_mpoll.fd);
 		Py_INCREF(Py_None);

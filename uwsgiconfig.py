@@ -10,6 +10,7 @@ UDP=True
 THREADING=True
 SENDFILE=True
 PROFILER=True
+NAGIOS=True
 PROXY=True
 
 
@@ -39,6 +40,9 @@ if EMBEDDED:
 
 if UDP:
 	cflags = cflags + ' -DUWSGI_UDP '
+
+if NAGIOS:
+	cflags = cflags + ' -DUWSGI_NAGIOS '
 
 if PROXY:
 	cflags = cflags + ' -DUWSGI_PROXY '
