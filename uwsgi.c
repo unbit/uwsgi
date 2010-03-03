@@ -504,7 +504,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	int working_workers = 0;
 	int blocking_workers = 0;
 
-	char *cwd;
+	char *cwd = NULL;
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
 
@@ -519,6 +519,8 @@ int main (int argc, char *argv[], char *envp[]) {
 
 	int socket_type = 0;
 	socklen_t socket_type_len;
+
+	fprintf(stderr,"ARGV0 = %s %s\n", argv[0], argv[1]);
 
 	/* anti signal bombing */
 	signal (SIGHUP, SIG_IGN);
@@ -601,6 +603,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
 		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
 		{"nagios", no_argument, &nagios, 1},
+		{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
 		{0, 0, 0, 0}
 	};
 #endif
@@ -613,13 +616,6 @@ int main (int argc, char *argv[], char *envp[]) {
 	uwsgi.rl.rlim_cur = 0;
 	uwsgi.rl.rlim_max = 0;
 
-	cwd = uwsgi_get_cwd ();
-	uwsgi.binary_path = malloc (strlen (argv[0]) + 1);
-	if (uwsgi.binary_path == NULL) {
-		perror ("malloc()");
-		exit (1);
-	}
-	strcpy (uwsgi.binary_path, argv[0]);
 
 	env_reloads = getenv("UWSGI_RELOADS");
 	if (env_reloads) {
@@ -669,6 +665,16 @@ int main (int argc, char *argv[], char *envp[]) {
                 uwsgi_xml_config (&wsgi_req, long_options);
         }
 #endif
+
+	if (uwsgi.binary_path == NULL) {
+		cwd = uwsgi_get_cwd ();
+		uwsgi.binary_path = malloc (strlen (argv[0]) + 1);
+		if (uwsgi.binary_path == NULL) {
+			perror ("malloc()");
+			exit (1);
+		}
+		strcpy (uwsgi.binary_path, argv[0]);
+	}
 
 #ifndef UNBIT
 #ifndef ROCK_SOLID
@@ -1308,9 +1314,11 @@ int main (int argc, char *argv[], char *envp[]) {
 				}
 #endif
 				fprintf (stderr, "binary reloading uWSGI...\n");
-				if (chdir (cwd)) {
-					perror ("chdir()");
-					exit (1);
+				if (cwd) {
+					if (chdir (cwd)) {
+						perror ("chdir()");
+						exit (1);
+					}
 				}
 				/* check fd table (a module can obviosly open some fd on initialization...) */
 				fprintf (stderr, "closing all fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf (_SC_OPEN_MAX));
@@ -1327,7 +1335,8 @@ int main (int argc, char *argv[], char *envp[]) {
 					}
 				}
 				fprintf (stderr, "running %s\n", uwsgi.binary_path);
-				strcpy (argv[0], uwsgi.binary_path);
+				argv[0] = uwsgi.binary_path ;
+				//strcpy (argv[0], uwsgi.binary_path);
 				execve (uwsgi.binary_path, argv, environ);
 				perror ("execve()");
 				// never here
@@ -2318,6 +2327,9 @@ void manage_opt(int i, char *optarg) {
 			break;
 		case LONG_ARGS_UID:
 			uwsgi.uid = atoi (optarg);
+			break;
+		case LONG_ARGS_BINARY_PATH:
+			uwsgi.binary_path = optarg;
 			break;
 #ifdef UWSGI_ERLANG
 		case LONG_ARGS_ERLANG:

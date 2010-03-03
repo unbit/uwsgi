@@ -100,6 +100,7 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define LONG_ARGS_UDP			17010
 #define LONG_ARGS_ERLANG		17011
 #define LONG_ARGS_ERLANG_COOKIE		17012
+#define LONG_ARGS_BINARY_PATH		17013
 
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
@@ -255,8 +256,9 @@ struct __attribute__ ((packed)) wsgi_request {
 
 
      struct uwsgi_server {
+
 	     char *pyhome;
-#ifndef ROCK_SOLID
+
 	     int has_threads;
 	     int wsgi_cnt;
 	     int default_app;
@@ -266,7 +268,6 @@ struct __attribute__ ((packed)) wsgi_request {
 	     char *chroot;
 	     gid_t gid;
 	     uid_t uid;
-#endif
 #endif
 
 		char *buffer;
@@ -314,17 +315,17 @@ struct __attribute__ ((packed)) wsgi_request {
 	     int vec_size;
 
 	     char *sharedarea;
-#ifndef __OpenBSD__
 	     void *sharedareamutex;
-#endif
 	     int sharedareasize;
 
 	     /* the list of workers */
 	     struct uwsgi_worker *workers;
+
 	     pid_t mypid;
 	     int mywid;
 
 	     struct timeval start_tv;
+
 #ifndef UNBIT
 	     int abstract_socket;
 	     int chmod_socket;
@@ -333,19 +334,16 @@ struct __attribute__ ((packed)) wsgi_request {
 #ifdef UWSGI_XML
 	     char *xml_config;
 #endif
-#ifndef ROCK_SOLID
+
 	     char *python_path[64];
 	     int python_path_cnt;
 	     char *pyargv;
 #endif
-#endif
 
-#ifndef ROCK_SOLID
+
 	     char *wsgi_config;
 	     char *paste;
-#endif
 
-#ifndef ROCK_SOLID
 	     int single_interpreter;
 	     int py_optimize;
 
@@ -357,17 +355,16 @@ struct __attribute__ ((packed)) wsgi_request {
 	     PyObject *workers_tuple;
 
 	     PyThreadState *main_thread;
-#endif
 
 	     struct pollfd poll;
 
 
 		struct uwsgi_shared *shared ;
 
-#ifndef ROCK_SOLID
 	     struct uwsgi_app wsgi_apps[64];
 	     PyObject *py_apps;
 
+#ifdef UWSGI_ERLANG
 		int erlang_nodes;
 		int erlangfd;
 #endif
