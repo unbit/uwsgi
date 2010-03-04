@@ -606,6 +606,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		{"proxy", required_argument, 0, LONG_ARGS_PROXY},
 		{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
 		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
+		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
 		{0, 0, 0, 0}
 	};
 #endif
@@ -1172,6 +1173,9 @@ int main (int argc, char *argv[], char *envp[]) {
 	if (uwsgi.wsgi_config != NULL) {
 		uwsgi_wsgi_config ();
 	}
+	else if (uwsgi.wsgi_file != NULL) {
+                uwsgi_wsgi_file_config();
+        }
 #ifdef UWSGI_XML
 	else if (uwsgi.xml_config != NULL) {
 		uwsgi_xml_config (&wsgi_req, NULL);
@@ -1865,7 +1869,10 @@ int init_uwsgi_app (PyObject * force_wsgi_dict, PyObject * my_callable) {
 		wi->wsgi_callable = my_callable;
 		Py_INCREF (my_callable);
 	}
-
+	else if (uwsgi.wsgi_file) {
+                wi->wsgi_callable = my_callable;
+                Py_INCREF (my_callable);
+        }
 	else {
 
 		if (uwsgi.wsgi_config == NULL) {
@@ -2112,6 +2119,72 @@ void uwsgi_paste_config () {
 }
 
 #endif
+
+/* trying to emulate Graham's mod_wsgi, this will allows easy and fast migrations */
+void uwsgi_wsgi_file_config() {
+
+        FILE *wsgifile ;
+        struct _node *wsgi_file_node = NULL;
+        PyObject *wsgi_compiled_node, *wsgi_file_module, *wsgi_file_dict;
+        PyObject *wsgi_file_callable ;
+        int ret;
+
+
+        wsgifile = fopen(uwsgi.wsgi_file, "r");
+        if (!wsgifile) {
+                perror("fopen()");
+                exit(1);
+        }
+
+        wsgi_file_node = PyParser_SimpleParseFile(wsgifile, uwsgi.wsgi_file, Py_file_input);
+        if (!wsgi_file_node) {
+                PyErr_Print();
+                fprintf(stderr,"failed to parse wsgi file %s\n", uwsgi.wsgi_file);
+                exit(1);
+        }
+
+        fclose(wsgifile);
+
+        wsgi_compiled_node = (PyObject *)PyNode_Compile(wsgi_file_node, uwsgi.wsgi_file);
+
+        if (!wsgi_compiled_node) {
+                PyErr_Print();
+                fprintf(stderr,"failed to compile wsgi file %s\n", uwsgi.wsgi_file);
+                exit(1);
+        }
+
+        wsgi_file_module = PyImport_ExecCodeModule("uwsgi_wsgi_file", wsgi_compiled_node);
+        if (!wsgi_file_module) {
+                PyErr_Print();
+                exit(1);
+        }
+
+        Py_DECREF(wsgi_compiled_node);
+
+        wsgi_file_dict = PyModule_GetDict(wsgi_file_module);
+        if (!wsgi_file_dict) {
+                PyErr_Print();
+                exit(1);
+        }
+
+
+        wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, "application");
+        if (!wsgi_file_callable) {
+                PyErr_Print();
+                fprintf(stderr,"unable to find \"application\" callable in wsgi file %s\n", uwsgi.wsgi_file);
+                exit(1);
+        }
+
+	if (!PyFunction_Check (wsgi_file_callable) && !PyCallable_Check (wsgi_file_callable)) {
+                fprintf(stderr,"\"application\" must be a callable object in wsgi file %s\n", uwsgi.wsgi_file);
+                exit(1);
+        }
+
+
+        ret = init_uwsgi_app (NULL, wsgi_file_callable);
+
+}
+
 
 void uwsgi_wsgi_config () {
 
@@ -2459,6 +2532,10 @@ void manage_opt(int i, char *optarg) {
 		case LONG_ARGS_BINARY_PATH:
 			uwsgi.binary_path = optarg;
 			break;
+		case LONG_ARGS_WSGI_FILE:
+                        uwsgi.single_interpreter = 1;
+                        uwsgi.wsgi_file = optarg;
+                        break;
 #ifdef UWSGI_PROXY
 		case LONG_ARGS_PROXY_NODE:
 			uwsgi_cluster_add_node(optarg, 1);

@@ -108,13 +108,13 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define LONG_ARGS_PYARGV		17008
 #define LONG_ARGS_LIMIT_AS		17009
 #define LONG_ARGS_UDP			17010
-#define LONG_ARGS_ERLANG		17011
-#define LONG_ARGS_ERLANG_COOKIE		17012
-#define LONG_ARGS_BINARY_PATH		17013
-#define LONG_ARGS_PROXY			17014
-#define LONG_ARGS_PROXY_NODE		17015
-#define LONG_ARGS_PROXY_MAX_CONNECTIONS	17016
-
+#define LONG_ARGS_WSGI_FILE             17011
+#define LONG_ARGS_ERLANG		17012
+#define LONG_ARGS_ERLANG_COOKIE		17013
+#define LONG_ARGS_BINARY_PATH		17014
+#define LONG_ARGS_PROXY			17015
+#define LONG_ARGS_PROXY_NODE		17016
+#define LONG_ARGS_PROXY_MAX_CONNECTIONS	17017
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
@@ -360,6 +360,7 @@ struct __attribute__ ((packed)) wsgi_request {
 
 	     char *wsgi_config;
 	     char *paste;
+		char *wsgi_file;		
 
 	     int single_interpreter;
 	     int py_optimize;
@@ -493,6 +494,7 @@ struct uwsgi_cluster_node {
 #ifndef ROCK_SOLID
      void uwsgi_wsgi_config (void);
      void uwsgi_paste_config (void);
+	void uwsgi_wsgi_file_config (void);
 #endif
 
      void internal_server_error(int, char *);
