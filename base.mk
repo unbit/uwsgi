@@ -1,7 +1,7 @@
 all:	clean uwsgi
 
-uwsgi:  utils.o protocol.o socket.o pymodule.o spooler.o logging.o xmlconf.o snmp.o erlang.o wsgihandlers.o basehandlers.o main.o
-	$(CC) -lpthread utils.o protocol.o socket.o spooler.o logging.o xmlconf.o snmp.o erlang.o pymodule.o wsgihandlers.o basehandlers.o main.o -o $(PROGRAM) $(LD_FLAGS) 
+uwsgi:  utils.o protocol.o socket.o pymodule.o spooler.o logging.o xmlconf.o snmp.o proxy.o erlang.o wsgihandlers.o basehandlers.o main.o
+	$(CC) -lpthread utils.o protocol.o socket.o spooler.o logging.o xmlconf.o snmp.o proxy.o erlang.o pymodule.o wsgihandlers.o basehandlers.o main.o -o $(PROGRAM) $(LD_FLAGS) 
 
 utils.o: utils.c
 	$(CC) -c $(CFLAGS) utils.c
@@ -24,6 +24,9 @@ xmlconf.o: xmlconf.c
 snmp.o: snmp.c
 	$(CC) -c $(CFLAGS) snmp.c
 
+proxy.o: proxy.c
+	$(CC) -c $(CFLAGS) proxy.c
+
 erlang.o: erlang.c
 	$(CC) -c $(CFLAGS) erlang.c
 
@@ -40,4 +43,4 @@ main.o: uwsgi.c
 	$(CC) -c $(CFLAGS) -o main.o uwsgi.c
         
 clean:
-	rm -f utils.o protocol.o socket.o pymodule.o spooler.o logging.o xmlconf.o snmp.o erlang.o wsgihandlers.o basehandlers.o main.o
+	rm -f utils.o protocol.o socket.o pymodule.o spooler.o logging.o xmlconf.o snmp.o proxy.o erlang.o wsgihandlers.o basehandlers.o main.o

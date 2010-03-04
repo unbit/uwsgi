@@ -83,10 +83,20 @@
 #define PYTHREE
 #endif
 
+/* this value are taken from nginx */
+#if defined(__apple__) || defined(__freebsd__)
+#define UWSGI_LISTEN_QUEUE -1
+#else
+#define UWSGI_LISTEN_QUEUE 511
+#endif
 
 PyAPI_FUNC (PyObject *) PyMarshal_WriteObjectToString (PyObject *, int);
 PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 
+#define MAX_CLUSTER_NODES	100
+
+#define UWSGI_NODE_OK		0
+#define UWSGI_NODE_FAILED	1
 
 #define LONG_ARGS_PIDFILE		17001
 #define LONG_ARGS_CHROOT		17002
@@ -101,6 +111,9 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define LONG_ARGS_ERLANG		17011
 #define LONG_ARGS_ERLANG_COOKIE		17012
 #define LONG_ARGS_BINARY_PATH		17013
+#define LONG_ARGS_PROXY			17014
+#define LONG_ARGS_PROXY_NODE		17015
+#define LONG_ARGS_PROXY_MAX_CONNECTIONS	17016
 
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
@@ -273,6 +286,10 @@ struct __attribute__ ((packed)) wsgi_request {
 		char *buffer;
 
 		int serverfd ;
+#ifdef UWSGI_PROXY
+		int proxyfd ;
+		char *proxy_socket_name;
+#endif
 
 		struct rlimit rl;
 
@@ -370,6 +387,18 @@ struct __attribute__ ((packed)) wsgi_request {
 #endif
      };
 
+struct uwsgi_cluster_node {
+	char name[101];
+
+	struct sockaddr_in ucn_addr;
+
+	int workers ;
+	int status ;
+
+	time_t last_seen;
+	int errors;
+};
+
 	struct uwsgi_shared {
 
 		// vga 80x25 specific !
@@ -379,9 +408,16 @@ struct __attribute__ ((packed)) wsgi_request {
              void (*after_hooks[256])(struct uwsgi_server *, struct wsgi_request*) ;	
 	     uint32_t options[256];
 
+		struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
+
 #ifdef UWSGI_SPOOLER
 		pid_t spooler_pid;
 #endif
+
+#ifdef UWSGI_PROXY
+		pid_t proxy_pid;
+#endif
+
 	};
 
 
@@ -519,3 +555,11 @@ ETERM *py_to_eterm(PyObject *);
 #endif
 
 void manage_opt(int, char*);
+
+#ifdef UWSGI_PROXY
+void uwsgi_proxy(int);
+pid_t proxy_start(int);
+#endif
+
+void uwsgi_cluster_add_node(char *, int);
+int uwsgi_ping_node(int, struct wsgi_request *);

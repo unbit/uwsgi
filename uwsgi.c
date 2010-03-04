@@ -461,6 +461,7 @@ static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_requ
 
 int main (int argc, char *argv[], char *envp[]) {
 
+	uint64_t master_cycles = 0 ;
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
 #ifndef PYTHREE
@@ -519,8 +520,6 @@ int main (int argc, char *argv[], char *envp[]) {
 
 	int socket_type = 0;
 	socklen_t socket_type_len;
-
-	fprintf(stderr,"ARGV0 = %s %s\n", argv[0], argv[1]);
 
 	/* anti signal bombing */
 	signal (SIGHUP, SIG_IGN);
@@ -604,6 +603,9 @@ int main (int argc, char *argv[], char *envp[]) {
 		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
 		{"nagios", no_argument, &nagios, 1},
 		{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
+		{"proxy", required_argument, 0, LONG_ARGS_PROXY},
+		{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
+		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
 		{0, 0, 0, 0}
 	};
 #endif
@@ -1068,12 +1070,28 @@ int main (int argc, char *argv[], char *envp[]) {
 
 		socket_type_len = sizeof (int);
 		if (getsockopt (uwsgi.serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
-			perror ("getsockopt()");
-			fprintf(stderr, "The -s/--socket option is missing and stdin is not a socket.\n");
-			exit (1);
+			//perror ("getsockopt()");
+			uwsgi.numproc = 0 ;
 		}
 
+#ifdef UWSGI_PROXY
+		if (uwsgi.proxy_socket_name) {
+			uwsgi.shared->proxy_pid = proxy_start(uwsgi.master_process);
+		}
+#endif
+
+
 	}
+
+#ifdef UWSGI_PROXY
+	if (uwsgi.numproc == 0 && (!uwsgi.proxy_socket_name || uwsgi.shared->proxy_pid <= 0)) {
+#else
+	if (uwsgi.numproc == 0) {
+#endif
+		fprintf(stderr, "The -s/--socket option is missing and stdin is not a socket.\n");
+		exit (1);
+	}
+
 
 
 #ifndef UNBIT
@@ -1184,6 +1202,12 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 #endif
 
+// is this a proxy only worker ?
+
+	if (!uwsgi.master_process && uwsgi.numproc == 0) {
+		exit(0);
+	}
+
 	if (!uwsgi.single_interpreter) {
 		fprintf(stderr,"*** uWSGI is running in multiple interpreter mode !!! ***\n");
 	}
@@ -1214,7 +1238,7 @@ int main (int argc, char *argv[], char *envp[]) {
 #endif
 
 #ifdef UWSGI_SPOOLER
-	if (spool_dir != NULL) {
+	if (spool_dir != NULL && uwsgi.numproc > 0) {
 		uwsgi.shared->spooler_pid = spooler_start (uwsgi.serverfd, uwsgi_module);
 	}
 #endif
@@ -1301,6 +1325,13 @@ int main (int argc, char *argv[], char *envp[]) {
 				}
 
 #endif
+
+#ifdef UWSGI_PROXY
+				if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
+					kill (uwsgi.shared->proxy_pid, SIGKILL);
+					fprintf(stderr,"killed proxy with pid %d\n", uwsgi.shared->proxy_pid);
+				}
+#endif
 				fprintf (stderr, "goodbye to uWSGI.\n");
 				exit (0);
 			}
@@ -1310,6 +1341,15 @@ int main (int argc, char *argv[], char *envp[]) {
 					kill (uwsgi.shared->spooler_pid, SIGKILL);
 					fprintf(stderr,"wait4() the spooler with pid %d...", uwsgi.shared->spooler_pid);
                                         diedpid = waitpid(uwsgi.shared->spooler_pid, &waitpid_status, 0);
+                                        fprintf(stderr,"done.");
+				}
+#endif
+
+#ifdef UWSGI_PROXY
+				if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
+					kill (uwsgi.shared->proxy_pid, SIGKILL);
+					fprintf(stderr,"wait4() the proxy with pid %d...", uwsgi.shared->proxy_pid);
+                                        diedpid = waitpid(uwsgi.shared->proxy_pid, &waitpid_status, 0);
                                         fprintf(stderr,"done.");
 				}
 #endif
@@ -1380,9 +1420,11 @@ int main (int argc, char *argv[], char *envp[]) {
 							memset (udp_client_addr, 0, 16);
 							if (inet_ntop (AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
 								fprintf (stderr, "received udp packet of %d bytes from %s:%d\n", rlen, udp_client_addr, ntohs (udp_client.sin_port));
+#ifdef UWSGI_SNMP
 								if (uwsgi.buffer[0] == 0x30) {
 									manage_snmp (uwsgi_poll.fd, (uint8_t *) uwsgi.buffer, rlen, &udp_client);
 								}
+#endif
 							}
 							else {
 								perror ("inet_ntop()");
@@ -1393,6 +1435,7 @@ int main (int argc, char *argv[], char *envp[]) {
 				else {
 					select (0, NULL, NULL, NULL, &check_interval);
 				}
+				master_cycles++;
 				working_workers = 0;
 				blocking_workers = 0;
 #ifdef UWSGI_THREADING
@@ -1424,6 +1467,24 @@ int main (int argc, char *argv[], char *envp[]) {
 					uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
 				}
 
+				// check for cluster nodes
+				for(i=0;i<MAX_CLUSTER_NODES;i++) {
+					struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[i];
+					
+					if (ucn->name[0] != 0 && ucn->status == UWSGI_NODE_FAILED) {
+						// should i retry ?
+						if (master_cycles % ucn->errors == 0) {
+							if (!uwsgi_ping_node(i, &wsgi_req)) {
+								ucn->status = UWSGI_NODE_OK ;
+								fprintf(stderr,"re-enabled cluster node %d/%s\n", i, ucn->name);
+							}
+							else {
+								ucn->errors++;
+							}
+						}
+					}
+				}
+
 				continue;
 
 			}
@@ -1434,6 +1495,21 @@ int main (int argc, char *argv[], char *envp[]) {
 					fprintf(stderr,"OOOPS the spooler is no more...trying respawn...\n");
 					uwsgi.shared->spooler_pid = spooler_start (uwsgi.serverfd, uwsgi_module);
 					continue;
+				}
+			}
+#endif
+
+#ifdef UWSGI_SPOOLER
+			/* reload the proxy (can be the only process running) */
+			if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
+				if (diedpid == uwsgi.shared->proxy_pid) {
+					if (WIFEXITED (waitpid_status)) {
+						if (WEXITSTATUS (waitpid_status) != UWSGI_END_CODE) {	
+							fprintf(stderr,"OOOPS the proxy is no more...trying respawn...\n");
+							uwsgi.shared->spooler_pid = proxy_start(1);
+							continue;
+						}
+					}
 				}
 			}
 #endif
@@ -1482,7 +1558,14 @@ int main (int argc, char *argv[], char *envp[]) {
 #else
 				if (uwsgi.mywid <= 0) {
 #endif
-					fprintf (stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
+
+#ifdef UWSGI_PROXY
+					if (diedpid != uwsgi.shared->proxy_pid) {
+#endif
+						fprintf (stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
+#ifdef UWSGI_PROXY
+					}
+#endif
 				}
 			}
 		}
@@ -2286,6 +2369,51 @@ void init_uwsgi_embedded_module () {
 }
 #endif
 
+#ifdef UWSGI_PROXY
+pid_t proxy_start (has_master) {
+	
+	pid_t pid ;
+
+	char *tcp_port = strchr (uwsgi.proxy_socket_name, ':');
+
+        if (tcp_port == NULL) {
+		uwsgi.proxyfd = bind_to_unix (uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, uwsgi.chmod_socket, uwsgi.abstract_socket);
+	}
+        else {
+		uwsgi.proxyfd = bind_to_tcp (uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, tcp_port);
+		tcp_port[0] = ':';
+	}
+
+	if (uwsgi.proxyfd < 0) {
+        	fprintf (stderr, "unable to create the server socket.\n");
+		exit (1);
+	}
+
+	if (!has_master && uwsgi.numproc == 0) {
+        	uwsgi_proxy(uwsgi.proxyfd);
+                // never here
+                exit(1);
+	}
+	else {
+		pid = fork() ;
+        	if (pid < 0) {
+        		perror("fork()");
+                	exit(1);
+		}
+        	else if (pid > 0) {
+        		close(uwsgi.proxyfd);
+			return pid ;
+                	// continue with uWSGI spawn...
+		}
+        	else {
+        		uwsgi_proxy(uwsgi.proxyfd);
+                	// never here
+                	exit(1);
+		}
+	}
+}
+#endif
+
 #ifdef UWSGI_SPOOLER
 pid_t spooler_start (int serverfd, PyObject * uwsgi_module) {
 	pid_t pid;
@@ -2331,6 +2459,14 @@ void manage_opt(int i, char *optarg) {
 		case LONG_ARGS_BINARY_PATH:
 			uwsgi.binary_path = optarg;
 			break;
+#ifdef UWSGI_PROXY
+		case LONG_ARGS_PROXY_NODE:
+			uwsgi_cluster_add_node(optarg, 1);
+			break;
+		case LONG_ARGS_PROXY:
+			uwsgi.proxy_socket_name = optarg;
+			break;
+#endif
 #ifdef UWSGI_ERLANG
 		case LONG_ARGS_ERLANG:
 			uwsgi.erlang_node = optarg;
@@ -2543,3 +2679,46 @@ void manage_opt(int i, char *optarg) {
 		}
 	}
 
+
+void uwsgi_cluster_add_node(char *nodename, int workers) {
+
+	int i ;
+	struct uwsgi_cluster_node *ucn ;
+	char *tcp_port ;
+
+	if (strlen(nodename) > 100) {
+		fprintf(stderr,"invalid cluster node name %s\n", nodename);
+		return;
+	}
+
+	tcp_port = strchr (nodename, ':');
+        if (tcp_port == NULL) {
+        	fprintf(stdout,"invalid cluster node name %s\n", nodename);
+		return ;
+        }
+
+	for(i=0;i<MAX_CLUSTER_NODES; i++) {
+		ucn = &uwsgi.shared->nodes[i] ;
+
+		if (ucn->name[0] == 0) {
+			strcpy(ucn->name, nodename);
+			ucn->workers = workers ;
+			ucn->ucn_addr.sin_family = AF_INET ;
+			ucn->ucn_addr.sin_port = htons(atoi(tcp_port+1));
+			tcp_port[0] = 0 ;
+			if (nodename[0] == 0) {
+				ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY ;
+			}
+			else {
+				fprintf(stderr,"%s\n", nodename);
+				ucn->ucn_addr.sin_addr.s_addr = inet_addr(nodename);
+			}
+
+			ucn->last_seen = time(NULL);
+
+			return ;
+		}
+	}
+	
+	fprintf(stderr,"unable to add node %s\n", nodename);
+}

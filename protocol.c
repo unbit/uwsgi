@@ -229,3 +229,45 @@ int uwsgi_parse_response(struct pollfd * upoll, int timeout, struct uwsgi_header
 
 		return 1;
 }
+
+int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
+
+
+	struct pollfd uwsgi_poll ;
+
+	struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[node] ;
+
+	if (ucn->name[0] == 0) {
+		return 0 ;
+	}
+
+	if (ucn->status == UWSGI_NODE_OK) {
+		return 0 ;
+	}
+
+	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (uwsgi_poll.fd < 0) {
+		perror("socket()");
+		return -1 ;
+	}
+
+	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &ucn->ucn_addr, sizeof(struct sockaddr_in), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		close(uwsgi_poll.fd);
+		return -1 ;
+	}	
+
+        wsgi_req->modifier = UWSGI_MODIFIER_PING ;
+        wsgi_req->size = 0 ;
+        wsgi_req->modifier_arg = 0 ;
+        if (write(uwsgi_poll.fd, wsgi_req, 4) != 4) {
+        	perror("write()");
+		return -1;
+	}
+
+	uwsgi_poll.events = POLLIN ;
+	if (!uwsgi_parse_response (&uwsgi_poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, uwsgi.buffer)) {
+		return -1;
+	}
+
+	return 0;
+}

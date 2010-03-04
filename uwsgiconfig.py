@@ -1,12 +1,12 @@
 # uWSGI configuration
 
 XML=True
-SNMP=True
-SCTP=True
-ERLANG=True
+SNMP=False
+SCTP=False
+ERLANG=False
 SPOOLER=True
 EMBEDDED=True
-UDP=True
+UDP=False
 THREADING=True
 SENDFILE=True
 PROFILER=True
