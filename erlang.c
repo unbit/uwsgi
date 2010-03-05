@@ -24,29 +24,53 @@ PyObject *py_erlang_connect(PyObject *self, PyObject *args) {
 
 PyObject *py_erlang_recv_message(PyObject *self, PyObject *args) {
 	int erfd ;
+	struct pollfd erpoll ;
 	ErlMessage emsg;
-	PyObject *pyer;
+	PyObject *pyer = NULL;
 	unsigned char erlang_buffer[8192];
+	int eret ;
+	int timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] ;
 
-	if (!PyArg_ParseTuple(args, "i:erlang_recv_message", &erfd)) {
+	if (!PyArg_ParseTuple(args, "i|i:erlang_recv_message", &erfd, &timeout)) {
                 return NULL ;
         }
 
+	if (erfd < 0) {
+		goto clear;
+	}
+
+	erpoll.fd = erfd;
+	erpoll.events = POLLIN ;
 cycle:
 	memset(&emsg, 0, sizeof(ErlMessage));
+	UWSGI_SET_BLOCKING ;
+	if (timeout > 0) {
+		eret = poll(&erpoll, 1, timeout*1000);
+		if (eret < 0) {
+			perror("poll()");
+			goto clear;
+		}
+		else if (eret == 0) {
+			goto clear;
+		}
+	}
 	if (erl_receive_msg(erfd, erlang_buffer, 8192, &emsg) == ERL_MSG) {
 		if (emsg.type == ERL_TICK) { goto cycle;}
-		pyer = eterm_to_py(emsg.msg);
+		if (emsg.msg) {
+			pyer = eterm_to_py(emsg.msg);
+		}
 		if (emsg.msg) {erl_free_compound(emsg.msg);}
 		if (emsg.to) {erl_free_compound(emsg.to);}
 		if (emsg.from) { erl_free_compound(emsg.from);}
 		if (!pyer) {
 			goto clear;
 		}
+		UWSGI_UNSET_BLOCKING ;
 		return pyer ;
 	}
 
 clear:
+	UWSGI_UNSET_BLOCKING ;
 	Py_INCREF(Py_None);
 	return Py_None;
 	
@@ -56,27 +80,21 @@ PyObject *py_erlang_send_message(PyObject *self, PyObject *args) {
 
 	ETERM *pymessage ;
 	ETERM *pid;
-	PyObject *erfd, *ermessage, *erdest, *zero ;
+	int erfd ;
+	PyObject  *ermessage, *erdest, *zero ;
 
 	int er_number, er_serial, er_creation ;
 	char *er_node;
 
-	erfd = PyTuple_GetItem(args, 0);
-	if (!erfd) {
-		goto clear;	
-	}
+	if (!PyArg_ParseTuple(args, "iOO|i:erlang_send_message", &erfd, &erdest, &ermessage)) {
+                return NULL ;
+        }
 
-	erdest = PyTuple_GetItem(args, 1);
-	if (!erdest) {
+	if (erfd < 0) {
 		goto clear;
 	}
 
 	if (!PyString_Check(erdest) && !PyDict_Check(erdest)) {
-		goto clear;
-	}
-
-	ermessage = PyTuple_GetItem(args, 2);
-	if (!ermessage) {
 		goto clear;
 	}
 
@@ -87,7 +105,7 @@ PyObject *py_erlang_send_message(PyObject *self, PyObject *args) {
 
 
 	if (PyString_Check(erdest)) {
-		if (!erl_reg_send(PyInt_AsLong(erfd), PyString_AsString(erdest), pymessage)) {
+		if (!erl_reg_send(erfd, PyString_AsString(erdest), pymessage)) {
 			erl_err_msg("erl_reg_send()");
 			goto clear2;
 		}
@@ -113,7 +131,7 @@ PyObject *py_erlang_send_message(PyObject *self, PyObject *args) {
 
 		if (!pid) { goto clear2; }
 
-		if (!erl_send(PyInt_AsLong(erfd), pid, pymessage)) {
+		if (!erl_send(erfd, pid, pymessage)) {
 			erl_err_msg("erl_send()");
 			erl_free_term(pid);
 			goto clear2;
@@ -138,6 +156,84 @@ clear:
 	return Py_None;	
 }
 
+PyObject *py_erlang_rpc(PyObject *self, PyObject *args) {
+
+	int fd, timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+	char *emod, *efun ;
+	PyObject *eargs, *pyer = NULL ;
+	ETERM *pyargs, *rex ;
+	ErlMessage emsg;
+	int eret;
+
+	if (!PyArg_ParseTuple(args, "issO|i:erlang_rpc", &fd, &emod, &efun, &eargs, &timeout)) {
+                return NULL ;
+        }
+
+	if (fd < 0) {
+		goto clear;
+	}
+
+	pyargs = py_to_eterm(eargs);
+        if (!pyargs) {
+                goto clear;
+        }
+	
+
+	if (erl_rpc_to(fd, emod, efun, pyargs)) {
+		erl_err_msg("erl_rpc_to()");
+		goto clear2;
+	}
+
+
+cycle:
+	memset(&emsg, 0, sizeof(ErlMessage));
+	UWSGI_SET_BLOCKING ;
+	eret = erl_rpc_from(fd, timeout*1000, &emsg) ;
+	if (eret == ERL_TICK) { goto cycle;}
+	else if (eret == ERL_MSG) {
+		if (emsg.msg) {
+			if (ERL_IS_TUPLE(emsg.msg)) {
+				rex = erl_element(1, emsg.msg) ;
+				if (!rex) {
+					goto clear2;
+				}	
+				if (!strncmp("rex", ERL_ATOM_PTR(rex), ERL_ATOM_SIZE(rex))) {
+					erl_free_term(rex);
+					rex = erl_element(2, emsg.msg) ;
+					if (!rex) {
+						goto clear2;
+					}	
+					pyer = eterm_to_py(rex);
+					erl_free_term(rex);
+				}
+				else {
+					erl_free_term(rex);
+				}
+			}
+		}
+                if (emsg.msg) {erl_free_compound(emsg.msg);}
+                if (emsg.to) {erl_free_compound(emsg.to);}
+                if (emsg.from) { erl_free_compound(emsg.from);}
+                if (!pyer) {
+                        goto clear2;
+                }
+		erl_free_compound(pyargs);
+		UWSGI_UNSET_BLOCKING ;
+                return pyer ;		
+	}
+	else {
+		erl_err_msg("erl_rpc_from()");
+	}
+
+clear2:
+	UWSGI_UNSET_BLOCKING ;
+	erl_free_compound(pyargs);
+
+clear:
+	Py_INCREF(Py_None);
+	return Py_None;	
+}
+
 PyObject *py_erlang_close(PyObject *self, PyObject *args) {
 	
 	int fd;
@@ -146,7 +242,10 @@ PyObject *py_erlang_close(PyObject *self, PyObject *args) {
                 return NULL ;
         }
 
-	erl_close_connection(fd);
+
+	if (fd >= 0) {
+		erl_close_connection(fd);
+	}
 
 	Py_INCREF(Py_True);
         return Py_True;
@@ -156,6 +255,7 @@ static PyMethodDef uwsgi_erlang_methods[] = {
   {"erlang_connect", py_erlang_connect, METH_VARARGS, ""},
   {"erlang_send_message", py_erlang_send_message, METH_VARARGS, ""},
   {"erlang_recv_message", py_erlang_recv_message, METH_VARARGS, ""},
+  {"erlang_rpc", py_erlang_rpc, METH_VARARGS, ""},
   {"erlang_close", py_erlang_close, METH_VARARGS, ""},
   {NULL, NULL},
 };
@@ -308,7 +408,7 @@ ETERM *py_to_eterm(PyObject *pobj) {
 	}
 	else if (PyList_Check(pobj)) {
 		eobj = erl_mk_empty_list();
-		for(i=0;i<PyList_Size(pobj);i++) {
+		for(i=PyList_Size(pobj)-1;i>=0;i--) {
 			pobj2 = PyList_GetItem(pobj, i);
 			eobj2 = py_to_eterm(pobj2);
 			eobj = erl_cons(eobj2, eobj);
@@ -425,7 +525,7 @@ void erlang_loop() {
 	PyObject *callable = PyDict_GetItemString(uwsgi.embedded_dict, "erlang_func");
 	if (!callable) {
         	PyErr_Print();
-		fprintf(stderr,"- you have not defined a uwsgi.erlang_func callable, Erlang message manager will be disabled -\n");
+		fprintf(stderr,"- you have not defined a uwsgi.erlang_func callable, Erlang message manager will be disabled until you define it -\n");
 	}
 
 	PyObject *pargs = PyTuple_New(1);
@@ -447,6 +547,14 @@ void erlang_loop() {
                         for(;;) {
                         	if (erl_receive_msg(uwsgi.poll.fd, (unsigned char *) uwsgi.buffer, uwsgi.buffer_size, &em) == ERL_MSG) {
 					if (em.type == ERL_TICK) continue;
+
+					if (!callable) {
+						callable = PyDict_GetItemString(uwsgi.embedded_dict, "erlang_func");
+					}
+
+					if (!callable) {
+						fprintf(stderr,"- you still have not defined a uwsgi.erlang_func callable, Erlang message rejected -\n");
+					}
 
                                         PyObject *zero = eterm_to_py(em.msg);
 					if (em.msg) {erl_free_compound(em.msg);}
