@@ -7,6 +7,7 @@ from distutils.core import setup, Distribution
 from distutils.command.install import install
 
 
+print sys.argv
 
 class uWSGIInstall(install):
 
