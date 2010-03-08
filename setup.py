@@ -5,9 +5,15 @@ import shutil
 
 from distutils.core import setup, Distribution
 from distutils.command.install import install
+from distutils.command.build_ext import build_ext
 
 
-print sys.argv
+
+class uWSGIBuilder(build_ext):
+
+	def run(self):
+		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME, uc.uver, uc.cflags, uc.ldflags)
+
 
 class uWSGIInstall(install):
 
@@ -19,6 +25,7 @@ class uWSGIDistribution(Distribution):
 	def __init__(self, *attrs):
 		Distribution.__init__(self, *attrs)
 		self.cmdclass['install'] = uWSGIInstall
+		self.cmdclass['build_ext'] = uWSGIBuilder
 		
 
 
