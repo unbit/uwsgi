@@ -394,6 +394,7 @@ struct uwsgi_cluster_node {
 	struct sockaddr_in ucn_addr;
 
 	int workers ;
+	int connections ;
 	int status ;
 
 	time_t last_seen;
@@ -528,6 +529,7 @@ struct uwsgi_cluster_node {
      PyObject *uwsgi_send_message (const char *, int, uint8_t, uint8_t, char *, int, int);
 
      int uwsgi_parse_response (struct pollfd *, int, struct uwsgi_header *, char *);
+     int uwsgi_parse_vars (struct uwsgi_server *, struct wsgi_request *);
 
      int uwsgi_enqueue_message (char *, int, uint8_t, uint8_t, char *, int, int);
 

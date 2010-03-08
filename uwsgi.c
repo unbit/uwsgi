@@ -130,20 +130,23 @@ void reap_them_all () {
 void harakiri () {
 
 	PyThreadState *_myself;
-#ifndef ROCK_SOLID
+
+/* CHECK ROCK_SOLID 
 	struct uwsgi_app *wi = NULL;
 	if (wsgi_req.app_id >= 0) {
 		wi = &uwsgi.wsgi_apps[wsgi_req.app_id];
 	}
-#endif
+ end rock_solid */
+
 	PyGILState_Ensure ();
 	_myself = PyThreadState_Get ();
 	if (wi) {
+/*
 #ifdef ROCK_SOLID
 		fprintf (stderr, "\nF*CK !!! i must kill myself (pid: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", uwsgi.mypid, wi, wi->wsgi_harakiri, _myself, _myself->frame);
 #else
+*/
 		fprintf (stderr, "\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", uwsgi.mypid, wsgi_req.app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame);
-#endif
 
 		if (wi->wsgi_harakiri) {
 			PyEval_CallObject (wi->wsgi_harakiri, wi->wsgi_args);
@@ -196,7 +199,8 @@ PyObject *py_uwsgi_write (PyObject * self, PyObject * args) {
 	if (PyString_Check (data)) {
 		content = PyString_AsString (data);
 		len = PyString_Size (data);
-#ifndef ROCK_SOLID
+
+#ifdef UWSGI_THREADING
 		if (uwsgi.has_threads && uwsgi.shared->options[UWSGI_OPTION_THREADS] == 1) {
 			Py_BEGIN_ALLOW_THREADS wsgi_req.response_size = write (uwsgi.poll.fd, content, len);
 		Py_END_ALLOW_THREADS}
@@ -212,7 +216,7 @@ PyObject *py_uwsgi_write (PyObject * self, PyObject * args) {
 				}
 			}
 #endif
-#ifndef ROCK_SOLID
+#ifdef UWSGI_THREADING
 		}
 #endif
 	}
@@ -234,12 +238,9 @@ PyObject *py_uwsgi_spit (PyObject * self, PyObject * args) {
 	PyObject *headers, *head;
 	PyObject *h_key, *h_value;
 	int i, j;
+
 #ifndef UNBIT
-#ifdef ROCK_SOLID
-	int base = 4;
-#else
 	int base = 0;
-#endif
 #else
 	int base = 4;
 #endif
@@ -464,11 +465,9 @@ int main (int argc, char *argv[], char *envp[]) {
 	uint64_t master_cycles = 0 ;
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
-#ifndef PYTHREE
-#ifndef ROCK_SOLID
+#ifdef UWSGI_EMBEDDED
 	PyObject *uwsgi_module;
 
-#endif
 #endif
 	char *pyargv[MAX_PYARGV];
 	int pyargc = 1;
@@ -654,6 +653,8 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 	}
 
+	uwsgi.binary_path = argv[0] ;
+
 #ifndef UNBIT
 	while ((i = getopt_long (argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
 #else
@@ -669,7 +670,7 @@ int main (int argc, char *argv[], char *envp[]) {
         }
 #endif
 
-	if (uwsgi.binary_path == NULL) {
+	if (uwsgi.binary_path == argv[0]) {
 		cwd = uwsgi_get_cwd ();
 		uwsgi.binary_path = malloc (strlen (argv[0]) + 1);
 		if (uwsgi.binary_path == NULL) {
@@ -680,9 +681,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	}
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-#endif
 #endif
 		if (uwsgi.test_module == NULL) {
 			fprintf (stderr, "*** Starting uWSGI (%dbit) on [%.*s] ***\n", (int) (sizeof (void *)) * 8, 24, ctime ((const time_t *) &uwsgi.start_tv.tv_sec));
@@ -848,8 +847,7 @@ int main (int argc, char *argv[], char *envp[]) {
 	wsgi_spitout = PyCFunction_New (uwsgi_spit_method, NULL);
 	wsgi_writeout = PyCFunction_New (uwsgi_write_method, NULL);
 
-#ifndef PYTHREE
-#ifndef ROCK_SOLID
+#ifdef UWSGI_EMBEDDED
 	uwsgi_module = Py_InitModule ("uwsgi", null_methods);
 	if (uwsgi_module == NULL) {
 		fprintf (stderr, "could not initialize the uwsgi python module\n");
@@ -897,7 +895,6 @@ int main (int argc, char *argv[], char *envp[]) {
 	}
 
 	init_uwsgi_embedded_module ();
-#endif
 #endif
 
 
@@ -1198,12 +1195,10 @@ int main (int argc, char *argv[], char *envp[]) {
 
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 	if (no_server) {
 		fprintf (stderr, "no-server mode requested. Goodbye.\n");
 		exit (0);
 	}
-#endif
 #endif
 
 // is this a proxy only worker ?
@@ -1678,6 +1673,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 		else {
 #endif
+			fprintf(stderr,"POLL ADDR: %p\n", &uwsgi.poll);
 			if (!uwsgi_parse_response (&uwsgi.poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) &wsgi_req, uwsgi.buffer)) {
 				continue;
 			}
@@ -1791,7 +1787,6 @@ void init_uwsgi_vars () {
 
 }
 
-#ifndef ROCK_SOLID
 int init_uwsgi_app (PyObject * force_wsgi_dict, PyObject * my_callable) {
 	PyObject *wsgi_module, *wsgi_dict = NULL;
 	PyObject *pymain, *zero;
@@ -2310,7 +2305,6 @@ void uwsgi_wsgi_config () {
 
 }
 
-#endif
 
 #ifdef UNBIT
 int uri_to_hex () {
@@ -2511,7 +2505,6 @@ pid_t spooler_start (int serverfd, PyObject * uwsgi_module) {
 void manage_opt(int i, char *optarg) {
 
 		switch (i) {
-#ifndef ROCK_SOLID
 #ifndef UNBIT
 		case LONG_ARGS_PIDFILE:
 			uwsgi.pidfile = optarg;
@@ -2565,7 +2558,6 @@ void manage_opt(int i, char *optarg) {
 			uwsgi.rl.rlim_cur = (atoi (optarg)) * 1024 * 1024;
 			uwsgi.rl.rlim_max = uwsgi.rl.rlim_cur;
 			break;
-#endif
 		case LONG_ARGS_PASTE:
 			uwsgi.single_interpreter = 1;
 			uwsgi.paste = optarg;
@@ -2650,7 +2642,6 @@ void manage_opt(int i, char *optarg) {
 		case 'r':
 			uwsgi.shared->options[UWSGI_OPTION_REAPER] = 1;
 			break;
-#ifndef ROCK_SOLID
 		case 'w':
 			uwsgi.single_interpreter = 1;
 			uwsgi.wsgi_config = optarg;
@@ -2661,7 +2652,6 @@ void manage_opt(int i, char *optarg) {
 		case 'O':
 			uwsgi.py_optimize = atoi (optarg);
 			break;
-#endif
 		case 't':
 			uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] = atoi (optarg);
 			break;
@@ -2669,11 +2659,9 @@ void manage_opt(int i, char *optarg) {
 			uwsgi.buffer_size = atoi (optarg);
 			break;
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 		case 'c':
 			uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
 			break;
-#endif
 		case 'a':
 			uwsgi.abstract_socket = 1;
 			break;
@@ -2692,7 +2680,6 @@ void manage_opt(int i, char *optarg) {
 				uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = atoi (optarg);
 			}
 			break;
-#ifndef ROCK_SOLID
 		case 'T':
 			uwsgi.has_threads = 1;
 			uwsgi.shared->options[UWSGI_OPTION_THREADS] = 1;
@@ -2703,7 +2690,6 @@ void manage_opt(int i, char *optarg) {
 		case 'i':
 			uwsgi.single_interpreter = 1;
 			break;
-#endif
 #ifndef UNBIT
 		case 'h':
 			fprintf (stdout, "Usage: %s [options...]\n\
@@ -2746,6 +2732,14 @@ void manage_opt(int i, char *optarg) {
 \t--pyargv <args>\t\t\tassign args to python sys.argv\n\
 \t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
 \t--udp <ip:port>\t\t\tbind master process to udp socket on ip:port\n\
+\t--erlang <name@ip>\t\tenable the Erlang server with node name <node@ip>\n\
+\t--erlang-cookie <cookie>\ttset the erlang cookie to <cookie>\n\
+\t--nagios\t\t\tdo a nagios check\n\
+\t--binary-path <bin-path>\ttset the path for the next reload of uWSGI (needed for chroot environments)\n\
+\t--proxy <socket>\t\trun the uwsgi proxy on socket <socket>\n\
+\t--proxy-node <socket>\t\tadd the node <socket> to the proxy\n\
+\t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
+\t--wsgi-file <file>\t\tload the <file> wsgi file\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", uwsgi.binary_path);
 			exit (1);
 		case 0:

@@ -1,5 +1,17 @@
 #ifdef UWSGI_PROXY
 
+/* 
+
+	uWSGI proxy
+
+	it needs one of this tecnology to work:
+
+	- epoll (linux 2.6)
+	- kqueue (various BSD)
+	- /dev/poll Solaris
+
+*/
+
 #include "uwsgi.h"
 
 #include <sys/epoll.h>
@@ -37,6 +49,10 @@ static void uwsgi_proxy_close(struct uwsgi_proxy_connection *upcs, int fd) {
 		upcs[upcs[fd].dest_fd].dest_fd = -1 ;
 		upcs[upcs[fd].dest_fd].status = 0 ;
 		upcs[upcs[fd].dest_fd].retry = 0 ;
+		if (upcs[upcs[fd].dest_fd].node > -1) {
+			if (uwsgi.shared->nodes[upcs[upcs[fd].dest_fd].node].connections > 0)
+				uwsgi.shared->nodes[upcs[upcs[fd].dest_fd].node].connections--;
+		}
 	}
 
 	if (fd >= 0) {
@@ -44,6 +60,10 @@ static void uwsgi_proxy_close(struct uwsgi_proxy_connection *upcs, int fd) {
 		upcs[fd].dest_fd = -1 ;
 		upcs[fd].status = 0 ;
 		upcs[fd].retry = 0 ;
+		if (upcs[fd].node > -1) {
+			if (uwsgi.shared->nodes[upcs[fd].node].connections > 0)
+				uwsgi.shared->nodes[upcs[fd].node].connections--;
+		}
 	}
 	
 }
@@ -59,10 +79,23 @@ static int uwsgi_proxy_find_next_node(int current_node) {
 
 	// is it a good node ?
 	if (uwsgi.shared->nodes[current_node].name[0] != 0 && uwsgi.shared->nodes[current_node].status == UWSGI_NODE_OK) {
-		return current_node ;
+		if (uwsgi.shared->nodes[current_node].connections < uwsgi.shared->nodes[current_node].workers)
+			return current_node ;
 	}
 
 	// try to find a better one
+
+	for(i=0;i<MAX_CLUSTER_NODES;i++) {
+		if (uwsgi.shared->nodes[i].name[0] != 0 && uwsgi.shared->nodes[i].status == UWSGI_NODE_OK) {
+			if (uwsgi.shared->nodes[i].connections < uwsgi.shared->nodes[i].workers)
+				return i ;
+		}
+	}
+
+	// ok, it is a very loaded system, fallback to round robin
+	if (uwsgi.shared->nodes[current_node].name[0] != 0 && uwsgi.shared->nodes[current_node].status == UWSGI_NODE_OK) {
+			return current_node ;
+	}
 
 	for(i=0;i<MAX_CLUSTER_NODES;i++) {
 		if (uwsgi.shared->nodes[i].name[0] != 0 && uwsgi.shared->nodes[i].status == UWSGI_NODE_OK) {
@@ -162,6 +195,7 @@ void uwsgi_proxy(int proxyfd) {
 						perror("accept()");
 						continue;
 					}
+					upcs[ee.data.fd].node = -1;
 
 					// now connect to the first worker available
 
@@ -171,6 +205,7 @@ void uwsgi_proxy(int proxyfd) {
 						uwsgi_proxy_close(upcs, ee.data.fd);
 						continue;
 					}
+					upcs[upcs[ee.data.fd].dest_fd].node = -1;
 
 					// set nonblocking
 					if (ioctl(upcs[ee.data.fd].dest_fd, FIONBIO, &nonblocking)) {
@@ -189,6 +224,7 @@ void uwsgi_proxy(int proxyfd) {
 					}
 					upcs[upcs[ee.data.fd].dest_fd].node = next_node ;
 					rc = connect(upcs[ee.data.fd].dest_fd, (struct sockaddr *) &uwsgi.shared->nodes[next_node].ucn_addr, sizeof(struct sockaddr_in));
+					uwsgi.shared->nodes[next_node].connections++;
 			
 					if (!rc) {
 						// connected to worker, put it in the epoll_list

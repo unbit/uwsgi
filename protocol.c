@@ -230,6 +230,75 @@ int uwsgi_parse_response(struct pollfd * upoll, int timeout, struct uwsgi_header
 		return 1;
 }
 
+int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+
+	char *buffer = uwsgi->buffer ;
+
+	char *ptrbuf, *bufferend ;
+
+	uint16_t strsize = 0;
+
+	ptrbuf = buffer;
+        bufferend = ptrbuf + wsgi_req->size;
+
+        /* set an HTTP 500 status as default */
+        wsgi_req->status = 500;
+
+        while (ptrbuf < bufferend) {
+                if (ptrbuf + 2 < bufferend) {
+                        memcpy (&strsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                        strsize = uwsgi_swap16 (strsize);
+#endif
+                        ptrbuf += 2;
+                        if (ptrbuf + strsize < bufferend) {
+                                // var key
+                                uwsgi->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
+                                uwsgi->hvec[wsgi_req->var_cnt].iov_len = strsize;
+                                ptrbuf += strsize;
+                                if (ptrbuf + 2 < bufferend) {
+                                        memcpy (&strsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                                        strsize = uwsgi_swap16 (strsize);
+#endif
+                                        ptrbuf += 2;
+                                        if (ptrbuf + strsize <= bufferend) {
+                                                if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
+                                                        wsgi_req->var_cnt++;
+                                                }
+                                                else {
+                                                        fprintf (stderr, "max vec size reached. skip this header.\n");
+                                                        return -1;
+                                                }
+                                                // var value
+                                                uwsgi->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
+                                                uwsgi->hvec[wsgi_req->var_cnt].iov_len = strsize;
+                                                if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
+                                                        wsgi_req->var_cnt++;
+                                                }
+                                                else {
+                                                        fprintf (stderr, "max vec size reached. skip this header.\n");
+                                                        return -1 ;
+                                                }
+                                                ptrbuf += strsize;
+                                        }
+                                        else {
+                                                return -1;
+                                        }
+                                }
+                                else {
+                                        return -1;
+                                }
+                        }
+                }
+                else {
+                        return -1;
+                }
+        }
+
+	return 0 ;
+}
+
 int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 
 

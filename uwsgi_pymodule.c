@@ -541,7 +541,7 @@ PyObject *py_uwsgi_load_plugin(PyObject *self, PyObject *args) {
 		return NULL ;
 	}
 
-	plugin_handle = dlopen(plugin_name, RTLD_LAZY);
+	plugin_handle = dlopen(plugin_name, RTLD_NOW|RTLD_GLOBAL);
         if (!plugin_handle) {
                	fprintf (stderr, "%s\n", dlerror());
         }
