@@ -3,7 +3,9 @@ import sys
 import uwsgiconfig as uc
 import shutil
 
+print "SETUP.PY"
 print sys.argv
+print "SETUP.PY"
 
 from distutils.core import setup
 
