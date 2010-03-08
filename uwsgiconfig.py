@@ -65,7 +65,9 @@ def build_uwsgi(bin_name, version, cflags, ldflags):
 		print("*** error linking uWSGI ***")
 		sys.exit(1)
 
-	print("*** uWSGI is ready, launch it with ./%s ***" % bin_name)
+	if bin_name.find("/") < 0:
+		bin_name = './' + bin_name
+	print("*** uWSGI is ready, launch it with %s ***" % bin_name)
 
 
 
