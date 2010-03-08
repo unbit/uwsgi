@@ -1,9 +1,9 @@
 # uWSGI configuration
 
 XML=True
-SNMP=True
-SCTP=True
-ERLANG=True
+SNMP=False
+SCTP=False
+ERLANG=False
 SPOOLER=True
 EMBEDDED=True
 UDP=True
@@ -12,7 +12,7 @@ SENDFILE=True
 PROFILER=True
 NAGIOS=True
 PROXY=True
-PLUGINS = ['example', 'lua', 'psgi']
+PLUGINS = []
 UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
 
