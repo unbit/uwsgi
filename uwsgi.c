@@ -2224,7 +2224,7 @@ void uwsgi_wsgi_config () {
 
 	applications = PyDict_GetItemString (uwsgi_dict, "applications");
 	if (!PyDict_Check (applications)) {
-		fprintf (stderr, "uwsgi.applications dictionary is not defined, trying with the (deprecated) \"applications\" one...\n");
+		fprintf (stderr, "uwsgi.applications dictionary is not defined, trying with the \"applications\" one...\n");
 #endif
 		applications = PyDict_GetItemString (wsgi_dict, "applications");
 		if (!applications) {
@@ -2698,20 +2698,20 @@ void manage_opt(int i, char *optarg) {
 \t-z|--socket-timeout <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
 \t-b|--buffer-size <n>\t\tset buffer size to <n> bytes\n\
 \t-L|--disable-logging\t\tdisable request logging (only errors or server messages will be logged)\n\
-\t-x|--xmlconfig <path>\t\tpath of xml config file (no ROCK_SOLID)\n\
-\t-w|--module <module>\t\tname of python config module (no ROCK_SOLID)\n\
+\t-x|--xmlconfig <path>\t\tpath of xml config file\n\
+\t-w|--module <module>\t\tname of python config module\n\
 \t-t|--harakiri <sec>\t\tset harakiri timeout to <sec> seconds\n\
 \t-p|--processes <n>\t\tspawn <n> uwsgi worker processes\n\
-\t-O|--optimize <n>\t\tset python optimization level to <n> (no ROCK_SOLID)\n\
+\t-O|--optimize <n>\t\tset python optimization level to <n>\n\
 \t-v|--max-vars <n>\t\tset maximum number of vars/headers to <n>\n\
 \t-A|--sharedarea <n>\t\tcreate a shared memory area of <n> pages\n\
-\t-c|--cgi-mode\t\t\tset cgi mode (no ROCK_SOLID) \n\
+\t-c|--cgi-mode\t\t\tset cgi mode\n\
 \t-C|--chmod-socket\t\tchmod socket to 666\n\
-\t-P|--profiler\t\t\tenable profiler (no ROCK_SOLID)\n\
+\t-P|--profiler\t\t\tenable profiler\n\
 \t-m|--memory-report\t\tenable memory usage report\n\
-\t-i|--single-interpreter\t\tsingle interpreter mode (no ROCK_SOLID)\n\
+\t-i|--single-interpreter\t\tsingle interpreter mode\n\
 \t-a|--abstract-socket\t\tset socket in the abstract namespace (Linux only)\n\
-\t-T|--enable-threads\t\tenable threads support (no ROCK_SOLID)\n\
+\t-T|--enable-threads\t\tenable threads support\n\
 \t-M|--master\t\t\tenable master process manager\n\
 \t-H|--home <path>\t\tset python home/virtualenv\n\
 \t-h|--help\t\t\tthis help\n\

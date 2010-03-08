@@ -1,33 +1,21 @@
 import os
 import sys
+import uwsgiconfig as uc
 import shutil
 
-version = sys.version_info
-
-if version[0] > 2:
-	print("python 3.x is not supported")
-	sys.exit()
-
-print("detected python version %d.%d" % (version[0], version[1]))
-
-uver = "%d%d" % (version[0], version[1])
-bin_name = "uwsgi"
-make_cmd = "make"
-
-if uver != "25":
-	bin_name = "%s%s" % (bin_name, uver)
-	make_cmd = "%s -f Makefile.Py%s" % (make_cmd, uver) 
+print sys.argv
 
 from distutils.core import setup
 
-os.system(make_cmd)
-shutil.copy(bin_name, sys.prefix + '/bin')
+uc.build_uwsgi(uc.UWSGI_BIN_NAME, uc.uver, uc.cflags, uc.ldflags)
+
+shutil.copy(uc.UWSGI_BIN_NAME, sys.prefix + '/bin')
 
 setup(name='uWSGI',
-      version='0.9.4.2',
+      version='0.9.5',
       description='The uWSGI server',
-      author='Roberto De Ioris',
-      author_email='roberto@unbit.it',
+      author='Unbit',
+      author_email='info@unbit.it',
       url='http://projects.unbit.it/uwsgi/',
       license='GPL2',
      )

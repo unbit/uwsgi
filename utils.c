@@ -1,5 +1,6 @@
 #include "uwsgi.h"
 
+
 extern struct uwsgi_server uwsgi;
 
 #ifdef __BIG_ENDIAN__
