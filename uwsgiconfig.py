@@ -70,60 +70,62 @@ def build_uwsgi(bin_name, version, cflags, ldflags):
 	print("*** uWSGI is ready, launch it with %s ***" % bin_name)
 
 
+def parse_vars():
 
-kvm_list = ['SunOS', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
+	kvm_list = ['SunOS', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
-if uwsgi_os == 'SunOS':
-        ldflags.append('-lsendfile')
+	if uwsgi_os == 'SunOS':
+        	ldflags.append('-lsendfile')
 
-if uwsgi_os in kvm_list:
-        ldflags.append('-lkvm')
+	if uwsgi_os in kvm_list:
+        	ldflags.append('-lkvm')
 
-if EMBEDDED:
-	cflags.append('-DUWSGI_EMBEDDED')
-	gcc_list.append('uwsgi_pymodule')
+	if EMBEDDED:
+		cflags.append('-DUWSGI_EMBEDDED')
+		gcc_list.append('uwsgi_pymodule')
 
-if UDP:
-	cflags.append("-DUWSGI_UDP")
+	if UDP:
+		cflags.append("-DUWSGI_UDP")
 
-if NAGIOS:
-	cflags.append("-DUWSGI_NAGIOS")
+	if NAGIOS:
+		cflags.append("-DUWSGI_NAGIOS")
 
-if PROXY:
-	cflags.append("-DUWSGI_PROXY")
-	gcc_list.append('proxy')
+	if PROXY:
+		cflags.append("-DUWSGI_PROXY")
+		gcc_list.append('proxy')
 
-if SNMP:
-	cflags.append("-DUWSGI_SNMP")
-	gcc_list.append('snmp')
+	if SNMP:
+		cflags.append("-DUWSGI_SNMP")
+		gcc_list.append('snmp')
 
-if THREADING:
-	cflags.append("-DUWSGI_THREADING")
+	if THREADING:
+		cflags.append("-DUWSGI_THREADING")
 
-if PROFILER:
-	cflags.append("-DUWSGI_PROFILER")
+	if PROFILER:
+		cflags.append("-DUWSGI_PROFILER")
 
-if SENDFILE:
-	cflags.append("-DUWSGI_SENDFILE")
+	if SENDFILE:
+		cflags.append("-DUWSGI_SENDFILE")
 
-if XML:
-        ldflags.append(os.popen('xml2-config --libs').read().rstrip())
-        cflags.append("-DUWSGI_XML")
-	cflags.append(os.popen('xml2-config --cflags').read().rstrip())
-	gcc_list.append('xmlconf')
+	if XML:
+        	ldflags.append(os.popen('xml2-config --libs').read().rstrip())
+        	cflags.append("-DUWSGI_XML")
+		cflags.append(os.popen('xml2-config --cflags').read().rstrip())
+		gcc_list.append('xmlconf')
 
-if ERLANG:
-	cflags.append("-DUWSGI_ERLANG")
-	ldflags.append("-lerl_interface -lei")
-	gcc_list.append('erlang')
+	if ERLANG:
+		cflags.append("-DUWSGI_ERLANG")
+		ldflags.append("-lerl_interface -lei")
+		gcc_list.append('erlang')
 
-if SCTP:
-        ldflags.append("-lsctp")
-        cflags.append("-DUWSGI_SCTP")
+	if SCTP:
+        	ldflags.append("-lsctp")
+        	cflags.append("-DUWSGI_SCTP")
 
-if SPOOLER:
-	cflags.append("-DUWSGI_SPOOLER")
-	gcc_list.append('spooler')
+	if SPOOLER:
+		cflags.append("-DUWSGI_SPOOLER")
+		gcc_list.append('spooler')
+
 
 version = sys.version_info
 uver = "%d.%d" % (version[0], version[1])
@@ -135,4 +137,5 @@ if __name__ == "__main__":
 	if sys.argv[1] == '--ldflags':
         	print(' '.join(ldflags))
 	elif sys.argv[1] == '--build':
+		parse_vars()
 		build_uwsgi(UWSGI_BIN_NAME, uver, cflags, ldflags)
