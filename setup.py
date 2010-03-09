@@ -9,7 +9,7 @@ from distutils.command.build_ext import build_ext
 
 
 def is_yes(name, d):
-	print("enable %s ? y/n [%s]>\n" % (name, d))
+	sys.stderr.write("write your answer in the next line: enable %s ? y/n [ default %s ]>\n" % (name, d))
 	x = raw_input()
 	if x is None:
 		x = d
