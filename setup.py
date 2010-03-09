@@ -11,7 +11,6 @@ from distutils.command.build_ext import build_ext
 def is_yes(name, d):
 	sys.stderr.write("*** Write your answer in the next line: enable %s ? y/n [ default %s ]>\n" % (name, d))
 	x = raw_input()
-	sys.stderr.write("response: |%s|\n" % x)
 	if x is None or str(x) == "":
 		x = d
 	if x == 'y' or x == 'Y':
