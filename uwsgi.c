@@ -1498,7 +1498,7 @@ int main (int argc, char *argv[], char *envp[]) {
 			}
 #endif
 
-#ifdef UWSGI_SPOOLER
+#ifdef UWSGI_PROXY
 			/* reload the proxy (can be the only process running) */
 			if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
 				if (diedpid == uwsgi.shared->proxy_pid) {
