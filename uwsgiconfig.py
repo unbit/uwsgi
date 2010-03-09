@@ -28,8 +28,10 @@ import sys
 
 gcc_list = ['utils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'uwsgi_handlers', 'uwsgi']
 
-cflags = []
-ldflags = []
+# large file support
+cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64']
+ldflags = ['-lpthread', '-export-dynamic']
+
 
 def add_o(x):
 	if x == 'uwsgi':
@@ -38,9 +40,7 @@ def add_o(x):
 	return x
 
 
-def build_uwsgi(bin_name, version, cflags, ldflags):
-	cflags.insert(0, os.popen("python%s-config --cflags" % version).read().rstrip())
-	ldflags.insert(0, os.popen("python%s-config --libs" % version).read().rstrip())
+def build_uwsgi(bin_name):
 	print("*** uWSGI compiling ***")
 	for file in gcc_list:
 		objfile = file
@@ -58,7 +58,7 @@ def build_uwsgi(bin_name, version, cflags, ldflags):
 			print plugin
 
 	print("*** uWSGI linking ***")
-	ldline = "%s -o %s -lpthread -export-dynamic %s %s" % (GCC, bin_name, ' '.join(map(add_o, gcc_list)), ' '.join(ldflags))
+	ldline = "%s -o %s %s %s" % (GCC, bin_name, ' '.join(map(add_o, gcc_list)), ' '.join(ldflags))
 	print(ldline)
 	ret = os.system(ldline)
 	if ret != 0:
@@ -71,6 +71,12 @@ def build_uwsgi(bin_name, version, cflags, ldflags):
 
 
 def parse_vars():
+
+	version = sys.version_info
+	uver = "%d.%d" % (version[0], version[1])
+
+	cflags.insert(0, os.popen("python%s-config --cflags" % uver).read().rstrip())
+	ldflags.insert(0, os.popen("python%s-config --libs" % uver).read().rstrip())
 
 	kvm_list = ['SunOS', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
@@ -126,16 +132,54 @@ def parse_vars():
 		cflags.append("-DUWSGI_SPOOLER")
 		gcc_list.append('spooler')
 
+def build_plugin(path):
+	path = path.rstrip('/')
 
-version = sys.version_info
-uver = "%d.%d" % (version[0], version[1])
+	sys.path.insert(0, path)
+	import uwsgiplugin as up
+
+	cflags.append(up.CFLAGS)
+	ldflags.append(up.LDFLAGS)
+
+	cflags.insert(0, '-I.')
+
+	plugin_base = path + '/' + up.NAME + '_plugin'
+
+	gccline = "%s -fPIC -shared -o %s.so %s %s.c %s" % (GCC, plugin_base, ' '.join(cflags), plugin_base, ' '.join(ldflags))
+	print(gccline)
+
+	ret = os.system(gccline)
+	if ret != 0:
+		print("*** unable to build %s plugin ***" % up.NAME)
+		sys.exit(1)
+
+	print("*** %s plugin built and available in %s ***" % (up.NAME, plugin_base + '.so'))
+	
+	
+
+	
+	
+
 
 
 if __name__ == "__main__":
-	if sys.argv[1] == '--cflags':
+	try:
+		cmd = sys.argv[1]
+	except:
+		print "please psecify an argument"
+		sys.exit(1)
+
+	if cmd == '--cflags':
         	print(' '.join(cflags))
-	if sys.argv[1] == '--ldflags':
+	if cmd == '--ldflags':
         	print(' '.join(ldflags))
-	elif sys.argv[1] == '--build':
+	elif cmd == '--build':
 		parse_vars()
-		build_uwsgi(UWSGI_BIN_NAME, uver, cflags, ldflags)
+		build_uwsgi(UWSGI_BIN_NAME)
+	elif cmd == '--plugin':
+		parse_vars()
+		build_plugin(sys.argv[2])
+	else:
+		print "unknown uwsgiconfig command"
+		sys.exit(1)
+		

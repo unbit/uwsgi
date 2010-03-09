@@ -1673,7 +1673,6 @@ int main (int argc, char *argv[], char *envp[]) {
 		}
 		else {
 #endif
-			fprintf(stderr,"POLL ADDR: %p\n", &uwsgi.poll);
 			if (!uwsgi_parse_response (&uwsgi.poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) &wsgi_req, uwsgi.buffer)) {
 				continue;
 			}

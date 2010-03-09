@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 /* gcc -fPIC -shared -o lua_plugin.so `python2.5-config --cflags` -I /usr/include/lua5.1 -llua5.1 lua_plugin.c */
 
@@ -267,14 +267,3 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 void uwsgi_after_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	return;
 }
-
-
-struct uwsgi_plugin lua_plugin {
-	
-	.name = "lua",
-	.modifier1 = 6,
-	.init = uwsgi_init,
-	.request = uwsgi_request,
-	.after_request = uwsgi_after_request,
-	.async = 0,
-};
