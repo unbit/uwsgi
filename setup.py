@@ -9,7 +9,7 @@ from distutils.command.build_ext import build_ext
 
 
 def is_yes(name, d):
-	sys.stderr.write("enable %s ? y/n [%s]>\n" % (name, d))
+	sys.stderr.write("enable %s ? y/n [%s]>" % (name, d))
 	x = raw_input()
 	if x is None:
 		x = d
@@ -33,14 +33,14 @@ class uWSGIBuilder(build_ext):
 		uc.ERLANG = is_yes( "ERLANG", 'n' )
 		uc.SCTP = is_yes( "experimental SCTP", 'n' )
 		uc.parse_vars()
-		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME, uc.uver, uc.cflags, uc.ldflags)
+		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
 
 
 class uWSGIInstall(install):
 
 	def run(self):
 		uc.parse_vars()
-		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME, uc.uver, uc.cflags, uc.ldflags)
+		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
 
 class uWSGIDistribution(Distribution):
 
