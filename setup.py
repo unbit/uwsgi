@@ -8,7 +8,9 @@ from distutils.command.install import install
 from distutils.command.build_ext import build_ext
 
 
-def is_yes(x, d):
+def is_yes(name, d):
+	sys.stderr.write("enable %s ? y/n [%s]>\n" % (name, d))
+	x = raw_input()
 	if x is None:
 		x = d
 	if x == 'y' or x == 'Y':
@@ -18,18 +20,18 @@ def is_yes(x, d):
 class uWSGIBuilder(build_ext):
 
 	def run(self):
-		uc.XML = is_yes( raw_input("enable XML ? y/n [y]>"), 'y' )
-		uc.SNMP = is_yes( raw_input("enable SNMP ? y/n [n]>"), 'n' )
-		uc.SPOOLER = is_yes( raw_input("enable SPOOLER ? y/n [y]>"), 'y' )
-		uc.EMBEDDED = is_yes( raw_input("enable EMBEDDED uwsgi module ? y/n [y]>"), 'y' )
-		uc.UDP = is_yes( raw_input("enable UDP ? y/n [y]>"), 'y' )
-		uc.THREADING = is_yes( raw_input("enable THREADING ? y/n [y]>"), 'y' )
-		uc.SENDFILE = is_yes( raw_input("enable SENDFILE ? y/n [y]>"), 'y' )
-		uc.PROFILER = is_yes( raw_input("enable PROFILER ? y/n [y]>"), 'y' )
-		uc.NAGIOS = is_yes( raw_input("enable NAGIOS ? y/n [y]>"), 'y' )
-		uc.PROXY = is_yes( raw_input("enable PROXY ? y/n [y]>"), 'y' )
-		uc.ERLANG = is_yes( raw_input("enable ERLANG ? y/n [n]>"), 'n' )
-		uc.SCTP = is_yes( raw_input("enable *experimental* SCTP ? y/n [n]>"), 'n' )
+		uc.XML = is_yes( "XML", 'y' )
+		uc.SNMP = is_yes( "SNMP", 'n' )
+		uc.SPOOLER = is_yes( "SPOOLER", 'y' )
+		uc.EMBEDDED = is_yes( "EMBEDDED uwsgi module", 'y' )
+		uc.UDP = is_yes( "UDP", 'y' )
+		uc.THREADING = is_yes( "THREADING", 'y' )
+		uc.SENDFILE = is_yes( "SENDFILE", 'y' )
+		uc.PROFILER = is_yes( "PROFILER", 'y' )
+		uc.NAGIOS = is_yes( "NAGIOS", 'y' )
+		uc.PROXY = is_yes( "PROXY", 'y' )
+		uc.ERLANG = is_yes( "ERLANG", 'n' )
+		uc.SCTP = is_yes( "experimental SCTP", 'n' )
 		uc.parse_vars()
 		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME, uc.uver, uc.cflags, uc.ldflags)
 
