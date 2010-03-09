@@ -11,6 +11,7 @@ from distutils.command.build_ext import build_ext
 def is_yes(name, d):
 	sys.stderr.write("*** Write your answer in the next line: enable %s ? y/n [ default %s ]>\n" % (name, d))
 	x = raw_input()
+	sys.stderr.write("response: %s\n" % x)
 	if x is None or x is "\n":
 		x = d
 	if x == 'y' or x == 'Y':
@@ -34,6 +35,7 @@ class uWSGIBuilder(build_ext):
 		uc.PROXY = is_yes( "PROXY", 'y' )
 		uc.ERLANG = is_yes( "ERLANG", 'n' )
 		uc.SCTP = is_yes( "experimental SCTP", 'n' )
+		sys.stderr.write(" *** Starting the uWSGI building process ... *** \n")
 		uc.parse_vars()
 		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
 
