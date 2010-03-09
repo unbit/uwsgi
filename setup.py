@@ -14,7 +14,9 @@ def is_yes(name, d):
 	if x is None:
 		x = d
 	if x == 'y' or x == 'Y':
+		sys.stderr.write("%s will be enabled.\n" % name);
 		return True
+	sys.stderr.write("%s will NOT be enabled.\n" % name);
 	return False
 
 class uWSGIBuilder(build_ext):
