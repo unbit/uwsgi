@@ -250,6 +250,12 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 #ifdef __BIG_ENDIAN__
                         strsize = uwsgi_swap16 (strsize);
 #endif
+
+			/* key cannot be null */
+			if (!strsize) {
+                        	fprintf (stderr, "uwsgi key cannot be null. skip this request.\n");
+                                return -1;
+			}
                         ptrbuf += 2;
                         if (ptrbuf + strsize < bufferend) {
                                 // var key

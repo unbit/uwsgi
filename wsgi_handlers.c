@@ -493,8 +493,8 @@ static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
                 }
         #endif
 #else
-		int i = 0 ;
-        	rlen = sendfile(sockfd, fd, (off_t *) &i, rlen) ;
+		off_t sf_ot = 0 ;
+        	rlen = sendfile(sockfd, fd, &sf_ot, rlen) ;
 #endif
 
 	}

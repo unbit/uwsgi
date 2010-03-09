@@ -40,9 +40,7 @@
 #include <sys/resource.h>
 
 #ifndef UNBIT
-#ifndef ROCK_SOLID
 #include <getopt.h>
-#endif
 #endif
 
 
@@ -66,10 +64,8 @@
 
 #define MAX_PYARGV 10
 
-#ifndef ROCK_SOLID
 #ifdef __linux__
 #include <sys/sendfile.h>
-#endif
 #endif
 
 #undef _XOPEN_SOURCE
@@ -199,24 +195,20 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define MAX_VARS 64
 
      struct uwsgi_app {
-#ifndef ROCK_SOLID
+
 	     PyThreadState *interpreter;
 	     PyObject *pymain_dict;
-#endif
 
-#ifdef ROCK_SOLID
-	     PyObject *wsgi_module;
-	     PyObject *wsgi_dict;
-#endif
 	     PyObject *wsgi_callable;
 	     PyObject *wsgi_environ;
 	     PyObject *wsgi_args;
 	     PyObject *wsgi_harakiri;
-#ifndef ROCK_SOLID
+
 	     PyObject *wsgi_sendfile;
 	     PyObject *wsgi_cprofile_run;
+
 	     int requests;
-#endif
+
      };
 
 struct __attribute__ ((packed)) wsgi_request {
@@ -224,9 +216,9 @@ struct __attribute__ ((packed)) wsgi_request {
              uint16_t size;
              uint8_t modifier_arg;
              // temporary attr
-#ifndef ROCK_SOLID
+
              int app_id;
-#endif
+
              struct timeval start_of_request;
              struct timeval end_of_request;
              char *uri;
@@ -248,7 +240,6 @@ struct __attribute__ ((packed)) wsgi_request {
 #ifdef UNBIT
              unsigned long long unbit_flags;
 #endif
-#ifndef ROCK_SOLID
              char *wsgi_script;
              unsigned short wsgi_script_len;
              char *wsgi_module;
@@ -257,10 +248,12 @@ struct __attribute__ ((packed)) wsgi_request {
              unsigned short wsgi_callable_len;
              char *script_name;
              unsigned short script_name_len;
+
              int sendfile_fd;
-#endif
+
              unsigned short var_cnt;
              unsigned short header_cnt;
+
              int status;
              int response_size;
              int headers_size;
@@ -478,9 +471,7 @@ struct uwsgi_cluster_node {
      void daemonize (char *);
 #endif
      void log_request (struct wsgi_request *);
-#ifndef ROCK_SOLID
      void get_memusage (void);
-#endif
      void harakiri (void);
 #ifndef UNBIT
      void stats (void);
@@ -492,11 +483,9 @@ struct uwsgi_cluster_node {
      void uwsgi_xml_config (struct wsgi_request *, struct option *);
 #endif
 
-#ifndef ROCK_SOLID
      void uwsgi_wsgi_config (void);
      void uwsgi_paste_config (void);
 	void uwsgi_wsgi_file_config (void);
-#endif
 
      void internal_server_error(int, char *);
 
@@ -522,9 +511,7 @@ struct uwsgi_cluster_node {
      uint16_t uwsgi_swap16 (uint16_t);
 #endif
 
-#ifndef ROCK_SOLID
      int init_uwsgi_app (PyObject *, PyObject *);
-#endif
 
      PyObject *uwsgi_send_message (const char *, int, uint8_t, uint8_t, char *, int, int);
 
@@ -567,3 +554,11 @@ pid_t proxy_start(int);
 
 void uwsgi_cluster_add_node(char *, int);
 int uwsgi_ping_node(int, struct wsgi_request *);
+
+struct http_status_codes
+{
+  char key[3];
+  char *message;
+  int message_size ;
+};
+
