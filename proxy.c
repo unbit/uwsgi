@@ -394,41 +394,6 @@ void uwsgi_proxy(int proxyfd) {
 						// disconnected node
 						continue;
 					}
-/*
-#ifdef UWSGI_PROXY_USE_KQUEUE
-					else if (upcs[EV_FD].status == UWSGI_PROXY_CONNECTING) {
-						
-						fprintf(stderr,"connecting\n");
-
-						NEV_FD = upcs[EV_FD].dest_fd ;
-						NEV_EV = EV_IN ;
-						upcs[NEV_FD].status = 0;
-						if (NEV_ADD) {
-                					perror(EV_NAME);
-							uwsgi_proxy_close(upcs, NEV_FD);
-                					continue;
-        					}
-
-						NEV_FD = upcs[NEV_FD].dest_fd ;
-						upcs[NEV_FD].status = 0;
-						if (NEV_MOD) {
-                					perror(EV_NAME);
-							uwsgi_proxy_close(upcs, NEV_FD);
-                					continue;
-        					}
-
-						// re-set blocking
-						if (ioctl(NEV_FD, FIONBIO, &blocking)) {
-							perror("ioctl()");
-							uwsgi_proxy_close(upcs, NEV_FD);
-							continue;
-						}
-
-						fprintf(stderr,"connesso\n");
-
-					}
-#endif
-*/
 					else {
 						fprintf(stderr,"UNKNOWN STATUS %d\n", upcs[EV_FD].status);
 						continue;
@@ -437,6 +402,26 @@ void uwsgi_proxy(int proxyfd) {
 				else if (EV_IS_OUT) {
 					if ( upcs[EV_FD].status == UWSGI_PROXY_CONNECTING ){
 
+
+#ifdef UWSGI_PROXY_USE_KQUEUE
+						if (getsockopt(EV_FD, SOL_SOCKET, SO_ERROR, (void*)(&soopt), &solen) < 0) {
+                                        		perror("getsockopt()");
+							uwsgi_proxy_close(upcs, NEV_FD);
+                					continue;
+                                		}
+                                		/* is something bad ? */
+                                		if (soopt) {
+                                        		fprintf(stderr,"connect() %s\n", strerror(soopt));
+							// increase errors on node
+							fprintf(stderr,"*** marking cluster node %d/%s as failed ***\n", upcs[EV_FD].node, uwsgi.shared->nodes[upcs[EV_FD].node].name);
+							uwsgi.shared->nodes[upcs[EV_FD].node].errors++;	
+							uwsgi.shared->nodes[upcs[EV_FD].node].status = UWSGI_NODE_FAILED;	
+							uwsgi_proxy_close(upcs, NEV_FD);
+                					continue;
+                                		}
+
+						// increase errors on node
+#endif
 						NEV_FD = upcs[EV_FD].dest_fd ;
 						NEV_EV = EV_IN ;
 						upcs[NEV_FD].status = 0;
