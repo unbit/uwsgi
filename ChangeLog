@@ -1,3 +1,10 @@
+*** march 2010 ***
+
+ * Third Maintenance release [20100310] *
+
+- fix sendfile on 64bit
+- include setup.py
+
 *** february 2010 ***
  * Maintenance release *
 

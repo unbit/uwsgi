@@ -444,7 +444,7 @@ void uwsgi_after_request_wsgi (struct uwsgi_server *uwsgi, struct wsgi_request *
 #ifndef ROCK_SOLID
 static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
 
-	int rlen ;
+	off_t rlen ;
 
 #ifdef __sun__
 	struct stat stat_buf;
@@ -464,17 +464,17 @@ static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
 #if !defined(__linux__) && !defined(__sun__)
         #if defined(__FreeBSD__) || defined(__DragonFly__)
 
-		if (sendfile(fd, sockfd, 0, 0, NULL, (off_t *) &rlen, 0)) {
+		if (sendfile(fd, sockfd, 0, 0, NULL, &rlen, 0)) {
                 	perror("sendfile()");
                 }
         #elif __APPLE__
-                if (sendfile(fd, sockfd, 0, (off_t *) &rlen, NULL, 0)) {
+                if (sendfile(fd, sockfd, 0, &rlen, NULL, 0)) {
                 	perror("sendfile()");
                 }
         #else
-		int i = 0;
+		ssize_t i = 0;
         	char *no_sendfile_buf[4096] ;
-                int jlen = 0 ;
+                ssize_t jlen = 0 ;
 		rlen = 0 ;
                 i = 0 ;
                 while(i < rlen) {
