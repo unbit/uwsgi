@@ -24,8 +24,8 @@ To compile:
 	apxs2 -i -c mod_uwsgi.c
 (OSX)
 	sudo apxs -i -a -c mod_uwsgi.c
-(OSX 64bit)
-	sudo apxs -i -a -c -Wc,'-arch x86_64' -Wl,'-arch x86_64' mod_uwsgi.c
+(OSX Universal binary)
+	sudo apxs -i -a -c -Wc,"-arch ppc -arch i386 -arch x86_64" -Wl,"-arch ppc -arch i386 -arch x86_64" mod_uwsgi.c
 
 
 Configure:
@@ -252,7 +252,8 @@ static int uwsgi_handler(request_rec *r) {
 	char pkt_header[4];
 	uint16_t pkt_size = 0;
 	char buf[4096] ;
-	int cnt,i ;
+	int i ;
+	apr_size_t cnt ;
 	const apr_array_header_t *headers;
 	apr_table_entry_t *h;
 	char *penv, *cp;
@@ -361,6 +362,7 @@ static int uwsgi_handler(request_rec *r) {
 		}
 	}
 
+
 	headers = apr_table_elts(r->headers_in);
 	h = (apr_table_entry_t *) headers->elts;
 
@@ -419,6 +421,7 @@ static int uwsgi_handler(request_rec *r) {
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
+
 	
 	if (ap_should_client_block(r)) {
 		while ((cnt = ap_get_client_block(r, buf, 4096)) > 0) {
@@ -431,11 +434,13 @@ static int uwsgi_handler(request_rec *r) {
 		}
 	}
 
+
 	if (!c->cgi_mode) {
 		r->assbackwards = 1 ;
-		uwsgi_http_status[13] = 0 ;
+		uwsgi_http_status[12] = 0 ;
 	}
 
+	
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
 	uwsgi_poll.events = POLLIN ;
@@ -462,6 +467,7 @@ static int uwsgi_handler(request_rec *r) {
                                         }
                                 }
 				apr_brigade_write(bb, NULL, NULL, buf, cnt);
+					
 			}
 			else if (cnt == 0) {
 				break;
@@ -479,14 +485,16 @@ static int uwsgi_handler(request_rec *r) {
 
 	close(uwsgi_poll.fd);
 
+
+	b = apr_bucket_eos_create(r->connection->bucket_alloc);
+    	APR_BRIGADE_INSERT_TAIL(bb, b);
+
 	if (!c->cgi_mode) {
 		if (uwsgi_http_status_read == 0) {
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 	}
 	else {
-		b = apr_bucket_eos_create(r->connection->bucket_alloc);
-    		APR_BRIGADE_INSERT_TAIL(bb, b);
 
 		if (hret = ap_scan_script_header_err_brigade(r, bb, NULL)) {
 			apr_brigade_destroy(bb);
@@ -494,7 +502,8 @@ static int uwsgi_handler(request_rec *r) {
 		}
 	}
 
-	return ap_pass_brigade(r->output_filters, bb);
+
+	return ap_pass_brigade(r->output_filters, bb) ;
 }
 
 static const char * cmd_uwsgi_force_wsgi_scheme(cmd_parms *cmd, void *cfg, const char *location) {

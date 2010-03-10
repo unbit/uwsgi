@@ -31,7 +31,7 @@ gcc_list = ['utils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'uwsgi_ha
 
 # large file support
 cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64']
-ldflags = ['-lpthread', '-export-dynamic']
+ldflags = ['-lpthread', '-rdynamic']
 
 def spcall(cmd):
 	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)

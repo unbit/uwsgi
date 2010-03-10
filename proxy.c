@@ -7,14 +7,45 @@
 	it needs one of this tecnology to work:
 
 	- epoll (linux 2.6)
-	- kqueue (various BSD)
-	- /dev/poll Solaris
+	- kqueue (various BSD and Darwin)
+	- /dev/poll (Solaris)
 
 */
 
 #include "uwsgi.h"
 
-#include <sys/epoll.h>
+#ifdef __linux__
+	#include <sys/epoll.h>
+	#define UWSGI_PROXY_USE_EPOLL 1
+	#define EV_FD eevents[i].data.fd
+	#define EV_EV eevents[i].events
+	#define EV_IN EPOLLIN
+	#define EV_OUT EPOLLOUT
+	#define NEV_FD ee.data.fd
+	#define NEV_EV ee.events
+	#define NEV_ADD epoll_ctl(epfd, EPOLL_CTL_ADD, NEV_FD, &ee)
+	#define NEV_MOD epoll_ctl(epfd, EPOLL_CTL_MOD, NEV_FD, &ee)
+	#define EV_NAME "epoll_ctl()"
+	#define EV_IS_IN EV_EV & EV_IN
+	#define EV_IS_OUT EV_EV & EV_OUT
+#elif  defined(__sun__)
+
+#else
+	#include <sys/event.h>
+	#define UWSGI_PROXY_USE_KQUEUE 1
+	#define EV_FD krevents[i].ident
+	#define EV_EV krevents[i].filter
+	#define EV_IN EVFILT_READ
+	#define EV_OUT EVFILT_WRITE
+	#define NEV_FD kev.ident
+	#define NEV_EV kev.filter
+	#define NEV_ADD kevent(kq, &kev, 1, NULL, 0, NULL) < 0
+	#define NEV_MOD kevent(kq, &kev, 1, NULL, 0, NULL) < 0
+	#define EV_NAME "kevent()"
+	#define EV_IS_IN EV_EV == EV_IN
+	#define EV_IS_OUT EV_EV == EV_OUT
+#endif
+
 #include <sys/ioctl.h>
 
 
@@ -109,17 +140,24 @@ static int uwsgi_proxy_find_next_node(int current_node) {
 
 void uwsgi_proxy(int proxyfd) {
 
+#ifdef __linux__
 	int epfd ;
 	struct epoll_event ee;
 	struct epoll_event *eevents;
+#else
+	int kq;
+	struct kevent *krevents ;
+	struct kevent kev ;
+#endif
+
 	int max_events = 64 ;
 	int nevents, i ;
 	const int nonblocking = 1 ;
 	const int blocking = 0 ;
 
 	char buffer[4096];
-	int rlen ;
-	int wlen ;
+	ssize_t rlen ;
+	ssize_t wlen ;
 	int max_connections = sysconf (_SC_OPEN_MAX);
 
 	int soopt;
@@ -146,6 +184,7 @@ void uwsgi_proxy(int proxyfd) {
 	}
 	memset(upcs, 0, sizeof(struct uwsgi_proxy_connection) * max_connections);
 
+#ifdef __linux__
 	//init epoll
 	epfd = epoll_create(256);
 
@@ -155,7 +194,7 @@ void uwsgi_proxy(int proxyfd) {
 	}
 
 	// allocate memory for events
-	eevents = malloc(sizeof(struct epoll_event)*max_events) ;
+	events = malloc(sizeof(struct epoll_event)*max_events) ;
 	if (!eevents) {
 		perror("malloc()");
 		exit(1);
@@ -170,6 +209,27 @@ void uwsgi_proxy(int proxyfd) {
 		perror("epoll_ctl()");
 		exit(1);
 	}
+#else
+	kq = kqueue();
+	if (kq < 0) {
+		perror("kqueue()");
+		exit(1);
+	}
+
+	// allocate memory for events
+	krevents = malloc(sizeof(struct kevent)*max_events) ;
+	if (!krevents) {
+		perror("malloc()");
+		exit(1);
+	}
+
+	EV_SET(&kev, proxyfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
+	if (kevent(kq, &kev, 1, NULL, 0, NULL) < 0){
+		perror("kevent()");
+		exit(1);
+	}
+	
+#endif
 	
 	signal(SIGINT, (void *)&end_proxy);
 	signal(SIGTERM, (void *)&reload_proxy);
@@ -177,98 +237,108 @@ void uwsgi_proxy(int proxyfd) {
 	// and welcome to the loop...
 
 	for(;;) {
+
+#ifdef __linux__
 		nevents = epoll_wait(epfd, eevents, max_events, -1);	
 		if (nevents < 0) {
 			perror("epoll_wait()");
 			continue;
 		}
+#else
+		nevents = kevent(kq, NULL, 0, krevents, max_events, NULL);	
+		if (nevents < 0) {
+			perror("kevent()");
+			continue;
+		}
+#endif
+
 	
 		for(i=0;i<nevents;i++) {
 
 
-			if (eevents[i].data.fd == proxyfd) {
+			if (EV_FD == proxyfd) {
 
-				if (eevents[i].events & EPOLLIN) {
+				if (EV_IS_IN) {
 					// new connection, accept it
-					ee.data.fd = accept(proxyfd, (struct sockaddr *) &upc_addr, &upc_len);
-					if (ee.data.fd < 0) {
+					NEV_FD = accept(proxyfd, (struct sockaddr *) &upc_addr, &upc_len);
+					if (NEV_FD < 0) {
 						perror("accept()");
 						continue;
 					}
-					upcs[ee.data.fd].node = -1;
+					upcs[NEV_FD].node = -1;
 
 					// now connect to the first worker available
 
-					upcs[ee.data.fd].dest_fd = socket(AF_INET, SOCK_STREAM, 0);
-					if (upcs[ee.data.fd].dest_fd < 0) {
+					upcs[NEV_FD].dest_fd = socket(AF_INET, SOCK_STREAM, 0);
+					if (upcs[NEV_FD].dest_fd < 0) {
 						perror("socket()");
-						uwsgi_proxy_close(upcs, ee.data.fd);
+						uwsgi_proxy_close(upcs, NEV_FD);
 						continue;
 					}
-					upcs[upcs[ee.data.fd].dest_fd].node = -1;
+					upcs[upcs[NEV_FD].dest_fd].node = -1;
 
 					// set nonblocking
-					if (ioctl(upcs[ee.data.fd].dest_fd, FIONBIO, &nonblocking)) {
+					if (ioctl(upcs[NEV_FD].dest_fd, FIONBIO, &nonblocking)) {
 						perror("ioctl()");
-						uwsgi_proxy_close(upcs, ee.data.fd);
+						uwsgi_proxy_close(upcs, NEV_FD);
 						continue;
 					}
 
-					upcs[ee.data.fd].status = 0;
-					upcs[ee.data.fd].retry = 0;
+					upcs[NEV_FD].status = 0;
+					upcs[NEV_FD].retry = 0;
 					next_node = uwsgi_proxy_find_next_node(next_node);
 					if (next_node == -1) {
 						fprintf(stderr,"unable to find an available worker in the cluster !\n");
-						uwsgi_proxy_close(upcs, ee.data.fd);
+						uwsgi_proxy_close(upcs, NEV_FD);
 						continue;
 					}
-					upcs[upcs[ee.data.fd].dest_fd].node = next_node ;
-					rc = connect(upcs[ee.data.fd].dest_fd, (struct sockaddr *) &uwsgi.shared->nodes[next_node].ucn_addr, sizeof(struct sockaddr_in));
+					upcs[upcs[NEV_FD].dest_fd].node = next_node ;
+					rc = connect(upcs[NEV_FD].dest_fd, (struct sockaddr *) &uwsgi.shared->nodes[next_node].ucn_addr, sizeof(struct sockaddr_in));
 					uwsgi.shared->nodes[next_node].connections++;
 			
 					if (!rc) {
 						// connected to worker, put it in the epoll_list
 
-						ee.events = EPOLLIN ;
-						if (epoll_ctl(epfd, EPOLL_CTL_ADD, ee.data.fd, &ee)) {
-                					perror("epoll_ctl()");
-							uwsgi_proxy_close(upcs, ee.data.fd);
+						NEV_EV = EV_IN ;
+						if (NEV_ADD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
                 					continue;
         					}
 
-						upcs[upcs[ee.data.fd].dest_fd].dest_fd = ee.data.fd;
-						upcs[upcs[ee.data.fd].dest_fd].status = 0;
-						upcs[upcs[ee.data.fd].dest_fd].retry = 0;
+						upcs[upcs[NEV_FD].dest_fd].dest_fd = NEV_FD;
+						upcs[upcs[NEV_FD].dest_fd].status = 0;
+						upcs[upcs[NEV_FD].dest_fd].retry = 0;
 
-						ee.data.fd = upcs[ee.data.fd].dest_fd ;
+						NEV_FD = upcs[NEV_FD].dest_fd ;
 
-						ee.events = EPOLLIN ;
-						if (epoll_ctl(epfd, EPOLL_CTL_ADD, ee.data.fd, &ee)) {
-                					perror("epoll_ctl()");
-							uwsgi_proxy_close(upcs, ee.data.fd);
+						NEV_EV = EV_IN ;
+						if (NEV_ADD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
                 					continue;
         					}
 
 						// re-set blocking
-						if (ioctl(upcs[upcs[ee.data.fd].dest_fd].dest_fd, FIONBIO, &blocking)) {
+						if (ioctl(upcs[upcs[NEV_FD].dest_fd].dest_fd, FIONBIO, &blocking)) {
 							perror("ioctl()");
-							uwsgi_proxy_close(upcs, ee.data.fd);
+							uwsgi_proxy_close(upcs, NEV_FD);
 							continue;
 						}
 
 					}
 					else if (errno == EINPROGRESS) {
 						// the socket is waiting, set status to CONNECTING
-						upcs[ee.data.fd].status = UWSGI_PROXY_WAITING;
-						upcs[upcs[ee.data.fd].dest_fd].dest_fd = ee.data.fd;
-						upcs[upcs[ee.data.fd].dest_fd].status = UWSGI_PROXY_CONNECTING;
-						upcs[upcs[ee.data.fd].dest_fd].retry = 0;
+						upcs[NEV_FD].status = UWSGI_PROXY_WAITING;
+						upcs[upcs[NEV_FD].dest_fd].dest_fd = NEV_FD;
+						upcs[upcs[NEV_FD].dest_fd].status = UWSGI_PROXY_CONNECTING;
+						upcs[upcs[NEV_FD].dest_fd].retry = 0;
 
-						ee.data.fd = upcs[ee.data.fd].dest_fd ;
-						ee.events = EPOLLOUT ;
-						if (epoll_ctl(epfd, EPOLL_CTL_ADD, ee.data.fd, &ee)) {
-                					perror("epoll_ctl()");
-							uwsgi_proxy_close(upcs, ee.data.fd);
+						NEV_FD = upcs[NEV_FD].dest_fd ;
+						NEV_EV = EV_OUT ;
+						if (NEV_ADD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
                 					continue;
         					}
 					}
@@ -276,7 +346,7 @@ void uwsgi_proxy(int proxyfd) {
 						// connection failed, retry with the next node ?
 						perror("connect()");
 						// close only when all node are tried
-						uwsgi_proxy_close(upcs, ee.data.fd);
+						uwsgi_proxy_close(upcs, NEV_FD);
 						continue;
 					}
 					
@@ -289,79 +359,122 @@ void uwsgi_proxy(int proxyfd) {
 			}
 			else {
 				// this is for clients/workers
-				if (eevents[i].events & EPOLLIN) {
+				if (EV_IS_IN) {
 					
 					// is this a connected client/worker ?
 						//fprintf(stderr,"ready %d\n", upcs[eevents[i].data.fd].status);
 
-					if (!upcs[eevents[i].data.fd].status) {
-						if (upcs[eevents[i].data.fd].dest_fd >= 0) {
-							rlen = read(eevents[i].data.fd, buffer, 4096);
+					if (!upcs[EV_FD].status) {
+						if (upcs[EV_FD].dest_fd >= 0) {
+
+							rlen = read(EV_FD, buffer, 4096);
 							if (rlen < 0) {
 								perror("read()");
-								uwsgi_proxy_close(upcs, eevents[i].data.fd);
+								uwsgi_proxy_close(upcs, EV_FD);
 								continue;
 							}
 							else if (rlen == 0) {
-								uwsgi_proxy_close(upcs, eevents[i].data.fd);
+								uwsgi_proxy_close(upcs, EV_FD);
 								continue;
 							}
 							else {
-								wlen = write(upcs[eevents[i].data.fd].dest_fd, buffer, rlen);
+								wlen = write(upcs[EV_FD].dest_fd, buffer, rlen);
 								if (wlen != rlen) {
 									perror("write()");
-									uwsgi_proxy_close(upcs, eevents[i].data.fd);
+									uwsgi_proxy_close(upcs, EV_FD);
 									continue;
 								}
 							}
 						}
 						else {
-							uwsgi_proxy_close(upcs, eevents[i].data.fd);
+							uwsgi_proxy_close(upcs, EV_FD);
 							continue;
 						}
 					}
-					else if (upcs[eevents[i].data.fd].status == UWSGI_PROXY_WAITING) {
+					else if (upcs[EV_FD].status == UWSGI_PROXY_WAITING) {
 						// disconnected node
 						continue;
 					}
+/*
+#ifdef UWSGI_PROXY_USE_KQUEUE
+					else if (upcs[EV_FD].status == UWSGI_PROXY_CONNECTING) {
+						
+						fprintf(stderr,"connecting\n");
+
+						NEV_FD = upcs[EV_FD].dest_fd ;
+						NEV_EV = EV_IN ;
+						upcs[NEV_FD].status = 0;
+						if (NEV_ADD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
+                					continue;
+        					}
+
+						NEV_FD = upcs[NEV_FD].dest_fd ;
+						upcs[NEV_FD].status = 0;
+						if (NEV_MOD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
+                					continue;
+        					}
+
+						// re-set blocking
+						if (ioctl(NEV_FD, FIONBIO, &blocking)) {
+							perror("ioctl()");
+							uwsgi_proxy_close(upcs, NEV_FD);
+							continue;
+						}
+
+						fprintf(stderr,"connesso\n");
+
+					}
+#endif
+*/
 					else {
-						fprintf(stderr,"UNKOWN STATUS %d\n", upcs[eevents[i].data.fd].status);
+						fprintf(stderr,"UNKNOWN STATUS %d\n", upcs[EV_FD].status);
 						continue;
 					}
 				}
-				else if (eevents[i].events & EPOLLOUT) {
-					if ( upcs[eevents[i].data.fd].status == UWSGI_PROXY_CONNECTING ){
+				else if (EV_IS_OUT) {
+					if ( upcs[EV_FD].status == UWSGI_PROXY_CONNECTING ){
 
-						ee.data.fd = upcs[eevents[i].data.fd].dest_fd ;
-						ee.events = EPOLLIN ;
-						upcs[ee.data.fd].status = 0;
-						if (epoll_ctl(epfd, EPOLL_CTL_ADD, ee.data.fd, &ee)) {
-                					perror("epoll_ctl()");
-							uwsgi_proxy_close(upcs, ee.data.fd);
+						NEV_FD = upcs[EV_FD].dest_fd ;
+						NEV_EV = EV_IN ;
+						upcs[NEV_FD].status = 0;
+						if (NEV_ADD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
                 					continue;
         					}
 
-						ee.data.fd = upcs[ee.data.fd].dest_fd ;
-						upcs[ee.data.fd].status = 0;
-						if (epoll_ctl(epfd, EPOLL_CTL_MOD, ee.data.fd, &ee)) {
-                					perror("epoll_ctl()");
-							uwsgi_proxy_close(upcs, ee.data.fd);
+						NEV_FD = upcs[NEV_FD].dest_fd ;
+						upcs[NEV_FD].status = 0;
+						EV_SET(&kev, NEV_FD, EVFILT_WRITE, EV_ADD|EV_DISABLE, 0, 0, NULL);
+						if (NEV_MOD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
+                					continue;
+        					}
+						EV_SET(&kev, NEV_FD, EVFILT_READ, EV_ADD, 0, 0, NULL);
+						if (NEV_MOD) {
+                					perror(EV_NAME);
+							uwsgi_proxy_close(upcs, NEV_FD);
                 					continue;
         					}
 						// re-set blocking
-						if (ioctl(ee.data.fd, FIONBIO, &blocking)) {
+						if (ioctl(NEV_FD, FIONBIO, &blocking)) {
 							perror("ioctl()");
-							uwsgi_proxy_close(upcs, ee.data.fd);
+							uwsgi_proxy_close(upcs, NEV_FD);
 							continue;
 						}
 					}
 					else {
-						fprintf(stderr,"strange event for %d\n", eevents[i].data.fd);
+						fprintf(stderr,"strange event for %d\n", (int) EV_FD);
 					}
 				}
 				else {
-					if (upcs[eevents[i].data.fd].status == UWSGI_PROXY_CONNECTING) {
-						if (getsockopt(eevents[i].data.fd, SOL_SOCKET, SO_ERROR, (void*)(&soopt), &solen) < 0) {
+					if (upcs[EV_FD].status == UWSGI_PROXY_CONNECTING) {
+						if (getsockopt(EV_FD, SOL_SOCKET, SO_ERROR, (void*)(&soopt), &solen) < 0) {
                                         		perror("getsockopt()");
                                 		}
                                 		/* is something bad ? */
@@ -370,14 +483,14 @@ void uwsgi_proxy(int proxyfd) {
                                 		}
 
 						// increase errors on node
-						fprintf(stderr,"*** marking cluster node %d/%s as failed ***\n", upcs[eevents[i].data.fd].node, uwsgi.shared->nodes[upcs[eevents[i].data.fd].node].name);
-						uwsgi.shared->nodes[upcs[eevents[i].data.fd].node].errors++;	
-						uwsgi.shared->nodes[upcs[eevents[i].data.fd].node].status = UWSGI_NODE_FAILED;	
+						fprintf(stderr,"*** marking cluster node %d/%s as failed ***\n", upcs[EV_FD].node, uwsgi.shared->nodes[upcs[EV_FD].node].name);
+						uwsgi.shared->nodes[upcs[EV_FD].node].errors++;	
+						uwsgi.shared->nodes[upcs[EV_FD].node].status = UWSGI_NODE_FAILED;	
 					}
 					else {
-						fprintf(stderr,"STRANGE EVENT !!! %d %d %d\n", eevents[i].data.fd, eevents[i].events, upcs[eevents[i].data.fd].status);
+						fprintf(stderr,"STRANGE EVENT !!! %d %d %d\n", (int) EV_FD, EV_EV, upcs[EV_FD].status);
 					}
-					uwsgi_proxy_close(upcs, eevents[i].data.fd);
+					uwsgi_proxy_close(upcs, EV_FD);
 					continue;
 				}
 			}
