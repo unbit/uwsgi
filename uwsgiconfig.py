@@ -25,6 +25,7 @@ import os
 uwsgi_os = os.uname()[0]
 
 import sys
+import subprocess
 
 gcc_list = ['utils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'uwsgi_handlers', 'uwsgi']
 
@@ -32,6 +33,13 @@ gcc_list = ['utils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'uwsgi_ha
 cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64']
 ldflags = ['-lpthread', '-export-dynamic']
 
+def spcall(cmd):
+	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+
+	if p.wait() == 0:
+        	return p.stdout.read().rstrip().decode()
+	else:
+        	return None
 
 def add_o(x):
 	if x == 'uwsgi':
@@ -55,7 +63,7 @@ def build_uwsgi(bin_name):
 	if len(PLUGINS) > 0:
 		print("*** uWSGI embedding plugin ***")
 		for plugin in PLUGINS:
-			print plugin
+			print(plugin)
 
 	print("*** uWSGI linking ***")
 	ldline = "%s -o %s %s %s" % (GCC, bin_name, ' '.join(map(add_o, gcc_list)), ' '.join(ldflags))
@@ -75,8 +83,17 @@ def parse_vars():
 	version = sys.version_info
 	uver = "%d.%d" % (version[0], version[1])
 
-	cflags.insert(0, os.popen("python%s-config --cflags" % uver).read().rstrip())
-	ldflags.insert(0, os.popen("python%s-config --libs" % uver).read().rstrip())
+	pyconf = spcall("python%s-config --cflags" % uver)
+	if pyconf is None:
+		print("python development headers unavailable !!!!")
+		sys.exit(1)
+	cflags.insert(0,pyconf)
+
+	pyconf = spcall("python%s-config --libs" % uver)
+	if pyconf is None:
+		print("python development headers unavailable !!!!")
+		sys.exit(1)
+	ldflags.insert(0,pyconf)
 
 	kvm_list = ['SunOS', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
@@ -114,10 +131,18 @@ def parse_vars():
 		cflags.append("-DUWSGI_SENDFILE")
 
 	if XML:
-        	ldflags.append(os.popen('xml2-config --libs').read().rstrip())
-        	cflags.append("-DUWSGI_XML")
-		cflags.append(os.popen('xml2-config --cflags').read().rstrip())
-		gcc_list.append('xmlconf')
+		xmlconf = spcall('xml2-config --libs')
+		if xmlconf is None:
+			print("libxml2 headers unavailable. XML support will be disabled")
+		else:
+			ldflags.append(xmlconf)
+			xmlconf = spcall("xml2-config --cflags")
+			if xmlconf is None:
+                        	print("libxml2 headers unavailable. XML support will be disabled")
+			else:
+				cflags.append(xmlconf)
+				cflags.append("-DUWSGI_XML")
+				gcc_list.append('xmlconf')
 
 	if ERLANG:
 		cflags.append("-DUWSGI_ERLANG")
@@ -166,7 +191,7 @@ if __name__ == "__main__":
 	try:
 		cmd = sys.argv[1]
 	except:
-		print "please psecify an argument"
+		print("please specify an argument")
 		sys.exit(1)
 
 	if cmd == '--cflags':
@@ -180,6 +205,6 @@ if __name__ == "__main__":
 		parse_vars()
 		build_plugin(sys.argv[2])
 	else:
-		print "unknown uwsgiconfig command"
+		print("unknown uwsgiconfig command")
 		sys.exit(1)
 		

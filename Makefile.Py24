@@ -1,14 +1,2 @@
-CC=gcc
-
-PYTHON_CFLAGS=`python2.4-config --cflags`
-PYTHON_LIBS=`python2.4-config --libs`
-
-UWSGI_CFLAGS=`python2.4 uconfig.py --cflags`
-UWSGI_LDFLAGS=`python2.4 uconfig.py --ldflags`
-
-CFLAGS=$(PYTHON_CFLAGS) $(UWSGI_CFLAGS)
-LD_FLAGS=$(PYTHON_LIBS) $(UWSGI_LDFLAGS)
-
-PROGRAM=uwsgi24
-
-include base.mk
+all:
+	python2.4 uwsgiconfig.py --build

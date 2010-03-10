@@ -1,14 +1,2 @@
-CC=gcc
-
-PYTHON_CFLAGS=`python3.0-config --cflags`
-PYTHON_LIBS=`python3.0-config --libs`
-
-UWSGI_CFLAGS=`python3.0 uconfig.py --cflags`
-UWSGI_LDFLAGS=`python3.0 uconfig.py --ldflags`
-
-CFLAGS=$(PYTHON_CFLAGS) $(UWSGI_CFLAGS)
-LD_FLAGS=$(PYTHON_LIBS) $(UWSGI_LDFLAGS)
-
-PROGRAM=uwsgi30
-
-include base.mk
+all:
+	python3.0 uwsgiconfig.py --build
