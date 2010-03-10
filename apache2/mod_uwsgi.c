@@ -253,7 +253,7 @@ static int uwsgi_handler(request_rec *r) {
 	uint16_t pkt_size = 0;
 	char buf[4096] ;
 	int i ;
-	apr_size_t cnt ;
+	ssize_t cnt ;
 	const apr_array_header_t *headers;
 	apr_table_entry_t *h;
 	char *penv, *cp;
@@ -445,16 +445,24 @@ static int uwsgi_handler(request_rec *r) {
 
 	uwsgi_poll.events = POLLIN ;
 
+
+
 	for(;;) {
 		/* put -1 to disable timeout on zero */
 		cnt = poll(&uwsgi_poll, 1, (c->socket_timeout*1000)-1) ;
 		if (cnt == 0) {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() timeout");
-			break;
+			apr_brigade_destroy(bb);
+			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 		else if (cnt > 0) {
 			cnt = recv(uwsgi_poll.fd, buf, 4096, 0) ;
-			if (cnt > 0) {
+			if (cnt < 0) {
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
+				apr_brigade_destroy(bb);
+				return HTTP_INTERNAL_SERVER_ERROR;
+			}
+			else if (cnt > 0) {
 				if (!c->cgi_mode && uwsgi_http_status_read < 12) {
 	                        	if (uwsgi_http_status_read + cnt >= 12) {
                                         	memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, 12-uwsgi_http_status_read);
@@ -469,16 +477,14 @@ static int uwsgi_handler(request_rec *r) {
 				apr_brigade_write(bb, NULL, NULL, buf, cnt);
 					
 			}
-			else if (cnt == 0) {
-				break;
-			}
 			else {
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
+				break;
 			}
 		}
 		else {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: poll() %s", strerror(errno));
-			break;
+			apr_brigade_destroy(bb);
+			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 	}
 

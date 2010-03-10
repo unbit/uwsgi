@@ -71,6 +71,24 @@ static void reload_proxy (void) {
         exit (UWSGI_RELOAD_CODE);
 }
 
+static void send_http_service_unavailable(int fd) {
+
+	if (write(fd, "HTTP/1.0 503 Service Unavailable\r\n", 34) != 34) {
+		perror("write()");
+		return ;
+	}
+
+	if (write(fd, "Content-type: text/html\r\n\r\n", 27) != 27) {
+		perror("write()");
+		return ;
+	}
+
+	if (write(fd, "<h1>Service Unavailable</h1>", 28) != 28) {
+		perror("write()");
+		return ;
+	}
+	
+}
 
 static void uwsgi_proxy_close(struct uwsgi_proxy_connection *upcs, int fd) {
 
@@ -194,7 +212,7 @@ void uwsgi_proxy(int proxyfd) {
 	}
 
 	// allocate memory for events
-	events = malloc(sizeof(struct epoll_event)*max_events) ;
+	eevents = malloc(sizeof(struct epoll_event)*max_events) ;
 	if (!eevents) {
 		perror("malloc()");
 		exit(1);
@@ -289,6 +307,7 @@ void uwsgi_proxy(int proxyfd) {
 					next_node = uwsgi_proxy_find_next_node(next_node);
 					if (next_node == -1) {
 						fprintf(stderr,"unable to find an available worker in the cluster !\n");
+						send_http_service_unavailable(NEV_FD);
 						uwsgi_proxy_close(upcs, NEV_FD);
 						continue;
 					}
@@ -449,6 +468,8 @@ void uwsgi_proxy(int proxyfd) {
 
 						NEV_FD = upcs[NEV_FD].dest_fd ;
 						upcs[NEV_FD].status = 0;
+
+#ifdef UWSGI_PROXY_USE_KQUEUE
 						EV_SET(&kev, NEV_FD, EVFILT_WRITE, EV_ADD|EV_DISABLE, 0, 0, NULL);
 						if (NEV_MOD) {
                 					perror(EV_NAME);
@@ -456,6 +477,7 @@ void uwsgi_proxy(int proxyfd) {
                 					continue;
         					}
 						EV_SET(&kev, NEV_FD, EVFILT_READ, EV_ADD, 0, 0, NULL);
+#endif
 						if (NEV_MOD) {
                 					perror(EV_NAME);
 							uwsgi_proxy_close(upcs, NEV_FD);
