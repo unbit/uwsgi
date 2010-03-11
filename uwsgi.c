@@ -606,6 +606,7 @@ int main (int argc, char *argv[], char *envp[]) {
 		{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
 		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
 		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
+		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
 #endif
@@ -684,12 +685,12 @@ int main (int argc, char *argv[], char *envp[]) {
 	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
 #endif
 		if (uwsgi.test_module == NULL) {
-			fprintf (stderr, "*** Starting uWSGI (%dbit) on [%.*s] ***\n", (int) (sizeof (void *)) * 8, 24, ctime ((const time_t *) &uwsgi.start_tv.tv_sec));
+			fprintf (stderr, "*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof (void *)) * 8, 24, ctime ((const time_t *) &uwsgi.start_tv.tv_sec));
 		}
 #ifndef UNBIT
 	}
 	else {
-		fprintf (stderr, "*** Starting uWSGI (CGI mode) (%dbit) on [%.*s] ***\n", (int) (sizeof (void *)) * 8, 24, ctime ((const time_t *) &uwsgi.start_tv.tv_sec));
+		fprintf (stderr, "*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof (void *)) * 8, 24, ctime ((const time_t *) &uwsgi.start_tv.tv_sec));
 	}
 #endif
 
@@ -2505,6 +2506,9 @@ void manage_opt(int i, char *optarg) {
 
 		switch (i) {
 #ifndef UNBIT
+		case LONG_ARGS_VERSION:
+			fprintf(stdout,"uWSGI %s\n", UWSGI_VERSION);
+			exit(0);
 		case LONG_ARGS_PIDFILE:
 			uwsgi.pidfile = optarg;
 			break;

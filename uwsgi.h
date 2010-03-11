@@ -3,6 +3,7 @@
 
 /* indent -i8 -br -brs -brf -l0 -npsl */
 
+#define UWSGI_VERSION	"0.9.5-dev"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,6 +112,7 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define LONG_ARGS_PROXY			17015
 #define LONG_ARGS_PROXY_NODE		17016
 #define LONG_ARGS_PROXY_MAX_CONNECTIONS	17017
+#define LONG_ARGS_VERSION		17018
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
@@ -257,6 +259,8 @@ struct __attribute__ ((packed)) wsgi_request {
              int status;
              int response_size;
              int headers_size;
+
+		int async_status ;
      };
 
 
