@@ -1,7 +1,6 @@
 /* uWSGI */
 
-
-/* indent -i8 -br -brs -brf -l0 -npsl */
+/* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs */
 
 #define UWSGI_VERSION	"0.9.5-dev"
 
@@ -21,14 +20,11 @@
 #include <sys/mman.h>
 #include <sys/file.h>
 
-
 #include <stdint.h>
-
 
 #include <sys/wait.h>
 
 #include <dlfcn.h>
-
 
 #include <poll.h>
 #include <sys/uio.h>
@@ -43,7 +39,6 @@
 #ifndef UNBIT
 #include <getopt.h>
 #endif
-
 
 #ifdef __APPLE__
 #include <libkern/OSAtomic.h>
@@ -87,8 +82,8 @@
 #define UWSGI_LISTEN_QUEUE 511
 #endif
 
-PyAPI_FUNC (PyObject *) PyMarshal_WriteObjectToString (PyObject *, int);
-PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
+PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define MAX_CLUSTER_NODES	100
 
@@ -116,7 +111,6 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
-
 #define UWSGI_STATUS_IN_REQUEST		1 << 0
 #define UWSGI_IS_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_IN_REQUEST
 #define UWSGI_SET_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_IN_REQUEST
@@ -136,7 +130,6 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define UWSGI_IS_ERLANGING		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_ERLANGING
 #define UWSGI_SET_ERLANGING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_ERLANGING
 #define UWSGI_UNSET_ERLANGING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_ERLANGING
-
 
 #ifdef __linux__
 #include <endian.h>
@@ -187,7 +180,6 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 #define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), -1, NULL, NULL, NULL, 0)
 #endif
 
-
 #define NL_SIZE 2
 #define H_SEP_SIZE 2
 
@@ -196,231 +188,229 @@ PyAPI_FUNC (PyObject *) PyMarshal_ReadObjectFromString (char *, Py_ssize_t);
 
 #define MAX_VARS 64
 
-     struct uwsgi_app {
+struct uwsgi_app {
 
-	     PyThreadState *interpreter;
-	     PyObject *pymain_dict;
+	PyThreadState *interpreter;
+	PyObject *pymain_dict;
 
-	     PyObject *wsgi_callable;
-	     PyObject *wsgi_environ;
-	     PyObject *wsgi_args;
-	     PyObject *wsgi_harakiri;
+	PyObject *wsgi_callable;
+	PyObject *wsgi_environ;
+	PyObject *wsgi_args;
+	PyObject *wsgi_harakiri;
 
-	     PyObject *wsgi_sendfile;
-	     PyObject *wsgi_cprofile_run;
+	PyObject *wsgi_sendfile;
+	PyObject *wsgi_cprofile_run;
 
-	     int requests;
+	int requests;
 
-     };
+};
 
 struct __attribute__ ((packed)) wsgi_request {
-             uint8_t modifier;
-             uint16_t size;
-             uint8_t modifier_arg;
-             // temporary attr
+	uint8_t modifier;
+	uint16_t size;
+	uint8_t modifier_arg;
+	// temporary attr
 
-             int app_id;
+	int app_id;
 
-             struct timeval start_of_request;
-             struct timeval end_of_request;
-             char *uri;
-             unsigned short uri_len;
-             char *remote_addr;
-             unsigned short remote_addr_len;
-             char *remote_user;
-             unsigned short remote_user_len;
-             char *query_string;
-             unsigned short query_string_len;
-             char *protocol;
-             unsigned short protocol_len;
-             char *method;
-             unsigned short method_len;
-             char *scheme;
-             unsigned short scheme_len;
-             char *https;
-             unsigned short https_len;
+	struct timeval start_of_request;
+	struct timeval end_of_request;
+	char *uri;
+	unsigned short uri_len;
+	char *remote_addr;
+	unsigned short remote_addr_len;
+	char *remote_user;
+	unsigned short remote_user_len;
+	char *query_string;
+	unsigned short query_string_len;
+	char *protocol;
+	unsigned short protocol_len;
+	char *method;
+	unsigned short method_len;
+	char *scheme;
+	unsigned short scheme_len;
+	char *https;
+	unsigned short https_len;
 #ifdef UNBIT
-             unsigned long long unbit_flags;
+	unsigned long long unbit_flags;
 #endif
-             char *wsgi_script;
-             unsigned short wsgi_script_len;
-             char *wsgi_module;
-             unsigned short wsgi_module_len;
-             char *wsgi_callable;
-             unsigned short wsgi_callable_len;
-             char *script_name;
-             unsigned short script_name_len;
+	char *wsgi_script;
+	unsigned short wsgi_script_len;
+	char *wsgi_module;
+	unsigned short wsgi_module_len;
+	char *wsgi_callable;
+	unsigned short wsgi_callable_len;
+	char *script_name;
+	unsigned short script_name_len;
 
-             int sendfile_fd;
+	int sendfile_fd;
 
-             unsigned short var_cnt;
-             unsigned short header_cnt;
+	unsigned short var_cnt;
+	unsigned short header_cnt;
 
-             int status;
-             int response_size;
-             int headers_size;
+	int status;
+	int response_size;
+	int headers_size;
 
-		int async_status ;
-     };
+	int async_status;
+};
 
+struct uwsgi_server {
 
+	char *pyhome;
 
-     struct uwsgi_server {
-
-	     char *pyhome;
-
-	     int has_threads;
-	     int wsgi_cnt;
-	     int default_app;
-	     int enable_profiler;
-	     PyThreadState *_save;
+	int has_threads;
+	int wsgi_cnt;
+	int default_app;
+	int enable_profiler;
+	PyThreadState *_save;
 #ifndef UNBIT
-	     char *chroot;
-	     gid_t gid;
-	     uid_t uid;
+	char *chroot;
+	gid_t gid;
+	uid_t uid;
 #endif
 
-		char *buffer;
+	char *buffer;
 
-		int serverfd ;
+	int serverfd;
 #ifdef UWSGI_PROXY
-		int proxyfd ;
-		char *proxy_socket_name;
+	int proxyfd;
+	char *proxy_socket_name;
 #endif
 
-		struct rlimit rl;
+	struct rlimit rl;
 
-		char *binary_path;
+	char *binary_path;
 
-		int is_a_reload;
+	int is_a_reload;
 
-		char *socket_name;
-		char *udp_socket;
+	char *socket_name;
+	char *udp_socket;
 #ifdef UWSGI_ERLANG
-		char *erlang_node;
-		char *erlang_cookie;
+	char *erlang_node;
+	char *erlang_cookie;
 #endif
 
+#ifdef UWSGI_SNMP
+	int snmp;
+#endif
 
-	     // iovec
-	     struct iovec *hvec;
+	// iovec
+	struct iovec *hvec;
 
-	     int to_heaven;
-	     int to_hell;
+	int to_heaven;
+	int to_hell;
 
-	     int buffer_size;
+	int buffer_size;
 
-	     int master_process;
+	int master_process;
 
-	     int no_defer_accept;
+	int no_defer_accept;
 
-	     int page_size;
+	int page_size;
 
-	     char *sync_page;
-	     int synclog;
+	char *sync_page;
+	int synclog;
 
-	     char *test_module;
+	char *test_module;
 
-	     char *pidfile;
+	char *pidfile;
 
-	     int numproc;
+	int numproc;
 
-	     int max_vars;
-	     int vec_size;
+	int max_vars;
+	int vec_size;
 
-	     char *sharedarea;
-	     void *sharedareamutex;
-	     int sharedareasize;
+	char *sharedarea;
+	void *sharedareamutex;
+	int sharedareasize;
 
-	     /* the list of workers */
-	     struct uwsgi_worker *workers;
+	/* the list of workers */
+	struct uwsgi_worker *workers;
 
-	     pid_t mypid;
-	     int mywid;
+	pid_t mypid;
+	int mywid;
 
-	     struct timeval start_tv;
+	struct timeval start_tv;
 
 #ifndef UNBIT
-	     int abstract_socket;
-	     int chmod_socket;
-	     int listen_queue;
+	int abstract_socket;
+	int chmod_socket;
+	int listen_queue;
 
 #ifdef UWSGI_XML
-	     char *xml_config;
+	char *xml_config;
 #endif
 
-	     char *python_path[64];
-	     int python_path_cnt;
-	     char *pyargv;
+	char *python_path[64];
+	int python_path_cnt;
+	char *pyargv;
 #endif
 
+	char *wsgi_config;
+	char *paste;
+	char *wsgi_file;
 
-	     char *wsgi_config;
-	     char *paste;
-		char *wsgi_file;		
+	int single_interpreter;
+	int py_optimize;
 
-	     int single_interpreter;
-	     int py_optimize;
+	PyObject *py_sendfile;
+	PyObject *embedded_dict;
+	PyObject *embedded_args;
+	PyObject *fastfuncslist;
 
-	     PyObject *py_sendfile;
-	     PyObject *embedded_dict;
-	     PyObject *embedded_args;
-	     PyObject *fastfuncslist;
+	PyObject *workers_tuple;
 
-	     PyObject *workers_tuple;
+	PyThreadState *main_thread;
 
-	     PyThreadState *main_thread;
+	struct pollfd poll;
 
-	     struct pollfd poll;
+	struct uwsgi_shared *shared;
 
-
-		struct uwsgi_shared *shared ;
-
-	     struct uwsgi_app wsgi_apps[64];
-	     PyObject *py_apps;
+	struct uwsgi_app wsgi_apps[64];
+	PyObject *py_apps;
 
 #ifdef UWSGI_ERLANG
-		int erlang_nodes;
-		int erlangfd;
+	int erlang_nodes;
+	int erlangfd;
 #endif
-     };
+};
 
 struct uwsgi_cluster_node {
 	char name[101];
 
 	struct sockaddr_in ucn_addr;
 
-	int workers ;
-	int connections ;
-	int status ;
+	int workers;
+	int connections;
+	int status;
 
 	time_t last_seen;
 	int errors;
 };
 
-	struct uwsgi_shared {
+struct uwsgi_shared {
 
-		// vga 80x25 specific !
-		char warning_message[81];
+	// vga 80x25 specific !
+	char warning_message[81];
 
-	     int (*hooks[256])(struct uwsgi_server *, struct wsgi_request*) ;
-             void (*after_hooks[256])(struct uwsgi_server *, struct wsgi_request*) ;	
-	     uint32_t options[256];
+	int (*hooks[256]) (struct uwsgi_server *, struct wsgi_request *);
+	void (*after_hooks[256]) (struct uwsgi_server *, struct wsgi_request *);
+	uint32_t options[256];
 
-		struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
+	struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
 
 #ifdef UWSGI_SPOOLER
-		pid_t spooler_pid;
+	pid_t spooler_pid;
 #endif
 
 #ifdef UWSGI_PROXY
-		pid_t proxy_pid;
+	pid_t proxy_pid;
 #endif
 
-	};
+};
 
-
-     struct uwsgi_worker {
+struct uwsgi_worker {
 	int id;
 	pid_t pid;
 	uint64_t status;
@@ -443,99 +433,96 @@ struct uwsgi_cluster_node {
 
 	int manage_next_request;
 
-     };
+};
 
-     struct __attribute__ ((packed)) uwsgi_header {
-	     uint8_t modifier1;
-	     uint16_t pktsize;
-	     uint8_t modifier2;
-     };
+struct __attribute__ ((packed)) uwsgi_header {
+	uint8_t modifier1;
+	uint16_t pktsize;
+	uint8_t modifier2;
+};
 
+char *uwsgi_get_cwd(void);
 
-
-     char *uwsgi_get_cwd (void);
-
-     void warn_pipe (void);
-     void goodbye_cruel_world (void);
-     void gracefully_kill (void);
-     void reap_them_all (void);
-     void kill_them_all (void);
-     void grace_them_all (void);
-     void reload_me (void);
-     void end_me (void);
-     int bind_to_unix (char *, int, int, int);
-     int bind_to_tcp (char *, int, char *);
-     int bind_to_udp (char *);
-	int timed_connect(struct pollfd * , const struct sockaddr *, int , int );
-	int connect_to_tcp(char *, int , int );
+void warn_pipe(void);
+void goodbye_cruel_world(void);
+void gracefully_kill(void);
+void reap_them_all(void);
+void kill_them_all(void);
+void grace_them_all(void);
+void reload_me(void);
+void end_me(void);
+int bind_to_unix(char *, int, int, int);
+int bind_to_tcp(char *, int, char *);
+int bind_to_udp(char *);
+int timed_connect(struct pollfd *, const struct sockaddr *, int, int);
+int connect_to_tcp(char *, int, int);
 #ifdef UWSGI_SCTP
-     int bind_to_sctp (char *, int, char *);
+int bind_to_sctp(char *, int, char *);
 #endif
 #ifndef UNBIT
-     void daemonize (char *);
+void daemonize(char *);
 #endif
-     void log_request (struct wsgi_request *);
-     void get_memusage (void);
-     void harakiri (void);
+void log_request(struct wsgi_request *);
+void get_memusage(void);
+void harakiri(void);
 #ifndef UNBIT
-     void stats (void);
+void stats(void);
 #endif
-     void init_uwsgi_vars (void);
-     void init_uwsgi_embedded_module (void);
+void init_uwsgi_vars(void);
+void init_uwsgi_embedded_module(void);
 
 #ifdef UWSGI_XML
-     void uwsgi_xml_config (struct wsgi_request *, struct option *);
+void uwsgi_xml_config(struct wsgi_request *, struct option *);
 #endif
 
-     void uwsgi_wsgi_config (void);
-     void uwsgi_paste_config (void);
-	void uwsgi_wsgi_file_config (void);
+void uwsgi_wsgi_config(void);
+void uwsgi_paste_config(void);
+void uwsgi_wsgi_file_config(void);
 
-     void internal_server_error(int, char *);
+void internal_server_error(int, char *);
 
-     void init_uwsgi_module_sharedarea (PyObject *);
-     void init_uwsgi_module_advanced (PyObject *);
+void init_uwsgi_module_sharedarea(PyObject *);
+void init_uwsgi_module_advanced(PyObject *);
 #ifdef UWSGI_SPOOLER
-     void init_uwsgi_module_spooler (PyObject *);
+void init_uwsgi_module_spooler(PyObject *);
 #endif
 
 #ifdef UWSGI_SNMP
-     void manage_snmp (int, uint8_t *, int, struct sockaddr_in *);
+void manage_snmp(int, uint8_t *, int, struct sockaddr_in *);
 #endif
 
 #ifdef UWSGI_SPOOLER
-     int spool_request (char *, int, char *, int);
-     void spooler (PyObject *);
-     pid_t spooler_start (int, PyObject *);
+int spool_request(char *, int, char *, int);
+void spooler(PyObject *);
+pid_t spooler_start(int, PyObject *);
 #endif
 
-     void set_harakiri (int);
+void set_harakiri(int);
 
 #ifdef __BIG_ENDIAN__
-     uint16_t uwsgi_swap16 (uint16_t);
+uint16_t uwsgi_swap16(uint16_t);
 #endif
 
-     int init_uwsgi_app (PyObject *, PyObject *);
+int init_uwsgi_app(PyObject *, PyObject *);
 
-     PyObject *uwsgi_send_message (const char *, int, uint8_t, uint8_t, char *, int, int);
+PyObject *uwsgi_send_message(const char *, int, uint8_t, uint8_t, char *, int, int);
 
-     int uwsgi_parse_response (struct pollfd *, int, struct uwsgi_header *, char *);
-     int uwsgi_parse_vars (struct uwsgi_server *, struct wsgi_request *);
+int uwsgi_parse_response(struct pollfd *, int, struct uwsgi_header *, char *);
+int uwsgi_parse_vars(struct uwsgi_server *, struct wsgi_request *);
 
-     int uwsgi_enqueue_message (char *, int, uint8_t, uint8_t, char *, int, int);
-
+int uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
 
 /* included HOOKS */
-int uwsgi_request_wsgi(struct uwsgi_server*, struct wsgi_request*);
-void uwsgi_after_request_wsgi(struct uwsgi_server*, struct wsgi_request*);
+int uwsgi_request_wsgi(struct uwsgi_server *, struct wsgi_request *);
+void uwsgi_after_request_wsgi(struct uwsgi_server *, struct wsgi_request *);
 
-int uwsgi_request_admin(struct uwsgi_server*, struct wsgi_request*);
+int uwsgi_request_admin(struct uwsgi_server *, struct wsgi_request *);
 #ifdef UWSGI_SPOOLER
-int uwsgi_request_spooler(struct uwsgi_server*, struct wsgi_request*);
+int uwsgi_request_spooler(struct uwsgi_server *, struct wsgi_request *);
 #endif
-int uwsgi_request_fastfunc(struct uwsgi_server*, struct wsgi_request*);
-int uwsgi_request_marshal(struct uwsgi_server*, struct wsgi_request*);
-int uwsgi_request_ping(struct uwsgi_server*, struct wsgi_request*);
+int uwsgi_request_fastfunc(struct uwsgi_server *, struct wsgi_request *);
+int uwsgi_request_marshal(struct uwsgi_server *, struct wsgi_request *);
+int uwsgi_request_ping(struct uwsgi_server *, struct wsgi_request *);
 
 #ifdef UWSGI_ERLANG
 
@@ -549,7 +536,7 @@ ETERM *py_to_eterm(PyObject *);
 
 #endif
 
-void manage_opt(int, char*);
+void manage_opt(int, char *);
 
 #ifdef UWSGI_PROXY
 void uwsgi_proxy(int);
@@ -559,10 +546,8 @@ pid_t proxy_start(int);
 void uwsgi_cluster_add_node(char *, int);
 int uwsgi_ping_node(int, struct wsgi_request *);
 
-struct http_status_codes
-{
-  char key[3];
-  char *message;
-  int message_size ;
+struct http_status_codes {
+	char key[3];
+	char *message;
+	int message_size;
 };
-

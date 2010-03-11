@@ -1,9 +1,9 @@
 # uWSGI configuration
 
 XML=True
-SNMP=False
-SCTP=False
-ERLANG=False
+SNMP=True
+SCTP=True
+ERLANG=True
 SPOOLER=True
 EMBEDDED=True
 UDP=True
