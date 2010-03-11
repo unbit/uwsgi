@@ -2743,6 +2743,7 @@ void manage_opt(int i, char *optarg) {
 \t--proxy-node <socket>\t\tadd the node <socket> to the proxy\n\
 \t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
 \t--wsgi-file <file>\t\tload the <file> wsgi file\n\
+\t--version\t\t\tprint server version\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", uwsgi.binary_path);
 			exit (1);
 		case 0:
