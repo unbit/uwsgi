@@ -108,6 +108,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_PROXY_NODE		17016
 #define LONG_ARGS_PROXY_MAX_CONNECTIONS	17017
 #define LONG_ARGS_VERSION		17018
+#define LONG_ARGS_SNMP			17019
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
@@ -293,6 +294,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SNMP
 	int snmp;
+	char *snmp_community;
 #endif
 
 	// iovec
@@ -389,6 +391,18 @@ struct uwsgi_cluster_node {
 	int errors;
 };
 
+#ifdef UWSGI_SNMP
+struct uwsgi_snmp_custom_value {
+	uint8_t type;
+	uint64_t val;
+};
+
+struct uwsgi_snmp_server_value {
+	uint8_t type;
+	uint64_t *val;
+};
+#endif
+
 struct uwsgi_shared {
 
 	// vga 80x25 specific !
@@ -406,6 +420,17 @@ struct uwsgi_shared {
 
 #ifdef UWSGI_PROXY
 	pid_t proxy_pid;
+#endif
+
+#ifdef UWSGI_SNMP
+	char snmp_community[72+1];
+	struct uwsgi_snmp_server_value snmp_gvalue[100];	
+	struct uwsgi_snmp_custom_value snmp_value[100];	
+
+#define SNMP_COUNTER32 0x41
+#define SNMP_GAUGE 0x42
+#define SNMP_COUNTER64 0x46
+
 #endif
 
 };
@@ -489,6 +514,7 @@ void init_uwsgi_module_spooler(PyObject *);
 
 #ifdef UWSGI_SNMP
 void manage_snmp(int, uint8_t *, int, struct sockaddr_in *);
+void snmp_init(void);
 #endif
 
 #ifdef UWSGI_SPOOLER

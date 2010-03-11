@@ -596,7 +596,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
-		{"snmp", no_argument, &uwsgi.snmp, 1},
+		{"snmp", optional_argument, 0, LONG_ARGS_SNMP},
 		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
 		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
 		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
@@ -1166,6 +1166,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+#ifdef UWSGI_SNMP
+	if (uwsgi.snmp) {
+		snmp_init();
+	}
+#endif
 
 
 	if (uwsgi.wsgi_config != NULL) {
@@ -1316,6 +1321,26 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi_poll.events = POLLIN;
 			}
 		}
+#ifdef UWSGI_SNMP
+		if (uwsgi.snmp) {
+			if (uwsgi.snmp_community) {
+				if (strlen(uwsgi.snmp_community) > 72) {
+					fprintf(stderr, "*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
+					memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 72);
+				}
+				else {
+					strcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community);
+				}
+			}
+			fprintf(stderr, "filling SNMP table...");
+
+			uwsgi.shared->snmp_gvalue[0].type = SNMP_COUNTER64;
+			uwsgi.shared->snmp_gvalue[0].val = &uwsgi.workers[0].requests;
+
+			fprintf(stderr, "done\n");
+
+		}
+#endif
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifdef UWSGI_SPOOLER
@@ -2509,6 +2534,12 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_VERSION:
 		fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);
 		exit(0);
+	case LONG_ARGS_SNMP:
+		uwsgi.snmp = 1;
+		if (optarg) {
+			uwsgi.snmp_community = optarg;
+		}
+		break;
 	case LONG_ARGS_PIDFILE:
 		uwsgi.pidfile = optarg;
 		break;
