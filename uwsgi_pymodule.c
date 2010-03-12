@@ -70,7 +70,9 @@ PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 #else
 	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid) {
 #endif
-	UWSGI_LOCK}
+		UWSGI_LOCK
+		UWSGI_SET_LOCKING;
+	}
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -78,7 +80,10 @@ PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
 
-	UWSGI_UNLOCK Py_INCREF(Py_None);
+	UWSGI_UNLOCK 
+	UWSGI_UNSET_LOCKING;
+
+	Py_INCREF(Py_None);
 	return Py_None;
 }
 

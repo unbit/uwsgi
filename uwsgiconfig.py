@@ -13,6 +13,7 @@ SENDFILE=True
 PROFILER=True
 NAGIOS=True
 PROXY=True
+MINTERPRETERS=True
 PLUGINS = []
 UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
@@ -113,6 +114,9 @@ def parse_vars():
 
 	if MULTICAST:
 		cflags.append("-DUWSGI_MULTICAST")
+
+	if MINTERPRETERS:
+		cflags.append("-DUWSGI_MINTERPRETERS")
 
 	if NAGIOS:
 		cflags.append("-DUWSGI_NAGIOS")

@@ -146,6 +146,7 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 	uws_addr.sin_port = htons(port);
 	uws_addr.sin_addr.s_addr = inet_addr(host);
 
+	UWSGI_SET_BLOCKING;
 
 	if (timed_connect(&uwsgi_mpoll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
 		perror("connect()");
@@ -176,9 +177,12 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 
 
 	if (!uwsgi_parse_response(&uwsgi_mpoll, timeout, &uh, buffer)) {
+		UWSGI_UNSET_BLOCKING;
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
+
+	UWSGI_UNSET_BLOCKING;
 
 	close(uwsgi_mpoll.fd);
 
