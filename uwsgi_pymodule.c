@@ -1,4 +1,4 @@
-#ifndef ROCK_SOLID
+#ifdef UWSGI_EMBEDDED
 
 #include "uwsgi.h"
 
@@ -576,6 +576,27 @@ PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_multicast(PyObject * self, PyObject * args) {
+
+	char *host, *message ;
+	ssize_t ret ;
+
+	if (!PyArg_ParseTuple(args, "ss:send_multicast_message", &host, &message)) {
+		return NULL;
+	}
+
+	ret = send_udp_message(UWSGI_MODIFIER_MULTICAST, host, message, strlen(message));
+
+	if (ret <= 0) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+	
+}
+
 PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
 	PyObject *arg_message = NULL;
@@ -802,6 +823,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
+#ifdef UWSGI_MULTICAST
+	{"send_multicast_message", py_uwsgi_multicast, METH_VARARGS, ""},
+#endif
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 	{NULL, NULL},
 };

@@ -32,7 +32,7 @@ in particular)
 #include "uwsgi.h"
 
 #if PY_MINOR_VERSION < 5
-#define Py_ssize_t int
+#define Py_ssize_t ssize_t
 #endif
 
 struct uwsgi_server uwsgi;
@@ -131,29 +131,20 @@ void harakiri() {
 
 	PyThreadState *_myself;
 
-/* CHECK ROCK_SOLID 
-	struct uwsgi_app *wi = NULL;
-	if (wsgi_req.app_id >= 0) {
-		wi = &uwsgi.wsgi_apps[wsgi_req.app_id];
-	}
- end rock_solid */
-
 	PyGILState_Ensure();
 	_myself = PyThreadState_Get();
 	if (wi) {
-/*
-#ifdef ROCK_SOLID
-		fprintf (stderr, "\nF*CK !!! i must kill myself (pid: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", uwsgi.mypid, wi, wi->wsgi_harakiri, _myself, _myself->frame);
-#else
-*/
 		fprintf(stderr, "\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", uwsgi.mypid, wsgi_req.app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame);
 
+/*
+		// NEED TO FIND A SAFER WAY !!!
 		if (wi->wsgi_harakiri) {
 			PyEval_CallObject(wi->wsgi_harakiri, wi->wsgi_args);
 			if (PyErr_Occurred()) {
 				PyErr_Print();
 			}
 		}
+*/
 	}
 	Py_FatalError("HARAKIRI !\n");
 }
@@ -596,7 +587,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
-		{"snmp", optional_argument, 0, LONG_ARGS_SNMP},
+		{"snmp", no_argument, 0, LONG_ARGS_SNMP},
+		{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
 		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
 		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
 		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
@@ -1445,8 +1437,10 @@ int main(int argc, char *argv[], char *envp[]) {
 							memset(udp_client_addr, 0, 16);
 							if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
 								fprintf(stderr, "received udp packet of %d bytes from %s:%d\n", rlen, udp_client_addr, ntohs(udp_client.sin_port));
+								if (uwsgi.buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
+								}
 #ifdef UWSGI_SNMP
-								if (uwsgi.buffer[0] == 0x30 && uwsgi.snmp) {
+								else if (uwsgi.buffer[0] == 0x30 && uwsgi.snmp) {
 									manage_snmp(uwsgi_poll.fd, (uint8_t *) uwsgi.buffer, rlen, &udp_client);
 								}
 #endif
@@ -2536,9 +2530,10 @@ void manage_opt(int i, char *optarg) {
 		exit(0);
 	case LONG_ARGS_SNMP:
 		uwsgi.snmp = 1;
-		if (optarg) {
-			uwsgi.snmp_community = optarg;
-		}
+		break;
+	case LONG_ARGS_SNMP_COMMUNITY:
+		uwsgi.snmp = 1;
+		uwsgi.snmp_community = optarg;
 		break;
 	case LONG_ARGS_PIDFILE:
 		uwsgi.pidfile = optarg;

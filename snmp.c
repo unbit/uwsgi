@@ -66,7 +66,7 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 
 
 
-	// check for community string (this must be set from the python vm using uwsgi.snmp_community or with --snmp arg)
+	// check for community string (this must be set from the python vm using uwsgi.snmp_community or with --snmp-community arg)
 	if (*ptr != SNMP_STRING)
 		return;
 	ptr++;
@@ -78,7 +78,12 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	if (community_len > 72 || community_len < 1)
 		return;
 	ptr++;
-	// TODO check for community string
+
+	// check for community string
+	if (strlen(uwsgi.shared->snmp_community) != community_len)
+		return;
+	if (memcmp(ptr, uwsgi.shared->snmp_community, community_len))
+		return;
 
 	ptr += community_len;
 

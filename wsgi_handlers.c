@@ -53,7 +53,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 					ptrbuf += 2;
 					if (ptrbuf + strsize <= bufferend) {
-#ifndef ROCK_SOLID
 #ifdef UNBIT
 						if (single_app_mode == 0 && !strncmp("SCRIPT_NAME", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
 #else
@@ -83,9 +82,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 							// UNLOCK
 						}
 						else if (!strncmp("SERVER_PROTOCOL", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-#else
-						if (!strncmp("SERVER_PROTOCOL", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-#endif
 							wsgi_req->protocol = ptrbuf;
 							wsgi_req->protocol_len = strsize;
 						}
@@ -157,7 +153,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 
-#ifndef ROCK_SOLID
+#ifndef UWSGI_THREADING
 	if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {
 		PyEval_RestoreThread(uwsgi->_save);
 		uwsgi->workers[uwsgi->mywid].i_have_gil = 1;
@@ -167,7 +163,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	wsgi_file = fdopen(uwsgi->poll.fd, "r");
 
-#ifndef ROCK_SOLID
 
 #ifdef UWSGI_XML
 	if (wsgi_req->app_id == -1 && uwsgi->xml_config == NULL) {
@@ -223,9 +218,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 
 
-#endif
-
-
 	if (wsgi_req->protocol_len < 5) {
 		fprintf(stderr, "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
 		internal_server_error(uwsgi->poll.fd, "invalid HTTP protocol !!!");
@@ -269,7 +261,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	PyDict_SetItemString(wi->wsgi_environ, "wsgi.input", wsgi_socket);
 	Py_DECREF(wsgi_socket);
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SENDFILE
 	PyDict_SetItemString(wi->wsgi_environ, "wsgi.file_wrapper", wi->wsgi_sendfile);
 #endif
 
@@ -320,7 +312,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	// call
-#ifndef ROCK_SOLID
+#ifdef UWSGI_PROFILER
 	if (uwsgi->enable_profiler == 1) {
 		wsgi_result = PyEval_CallObject(wi->wsgi_cprofile_run, wi->wsgi_args);
 		if (PyErr_Occurred()) {
@@ -339,7 +331,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		if (PyErr_Occurred()) {
 			PyErr_Print();
 		}
-#ifndef ROCK_SOLID
+#ifdef UWSGI_PROFILER
 	}
 #endif
 
@@ -349,7 +341,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	if (wsgi_result) {
 
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SENDFILE
 		if (wsgi_req->sendfile_fd > -1) {
 			wsgi_req->response_size = uwsgi_sendfile(uwsgi, wsgi_req->sendfile_fd, uwsgi->poll.fd);
 		}
@@ -395,12 +387,12 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 				Py_DECREF(wsgi_chunks);
 			}
-#ifndef ROCK_SOLID
+#ifdef UWSGI_PROFILER
 		}
 		if (uwsgi->enable_profiler == 0) {
 #endif
 			Py_DECREF(wsgi_result);
-#ifndef ROCK_SOLID
+#ifdef UWSGI_PROFILER
 		}
 #endif
 	}
@@ -408,22 +400,22 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	PyDict_Clear(wi->wsgi_environ);
-#ifndef ROCK_SOLID
 	wi->requests++;
-#endif
+
 	PyErr_Clear();
 	if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 		set_harakiri(0);
 	}
-#ifndef ROCK_SOLID
+
 	if (uwsgi->single_interpreter == 0) {
 		// restoring main interpreter
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
-#endif
+
       clean:
 	fclose(wsgi_file);
-#ifndef ROCK_SOLID
+
+#ifdef UWSGI_THREADING
 	if (uwsgi->has_threads && uwsgi->shared->options[UWSGI_OPTION_THREADS] == 1) {
 		uwsgi->_save = PyEval_SaveThread();
 		uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
@@ -441,7 +433,7 @@ void uwsgi_after_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *w
 		log_request(wsgi_req);
 }
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SENDFILE
 static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
 
 	off_t rlen;

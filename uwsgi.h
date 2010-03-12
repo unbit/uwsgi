@@ -109,6 +109,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_PROXY_MAX_CONNECTIONS	17017
 #define LONG_ARGS_VERSION		17018
 #define LONG_ARGS_SNMP			17019
+#define LONG_ARGS_SNMP_COMMUNITY	17020
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
@@ -157,14 +158,16 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define UWSGI_MODIFIER_HT_H 3
 #endif
 
-#define UWSGI_MODIFIER_ADMIN_REQUEST	10
-#define UWSGI_MODIFIER_SPOOL_REQUEST	17
-#define UWSGI_MODIFIER_FASTFUNC		26
-#define UWSGI_MODIFIER_MANAGE_PATH_INFO	30
-#define UWSGI_MODIFIER_MESSAGE		31
-#define UWSGI_MODIFIER_MESSAGE_ARRAY	32
-#define UWSGI_MODIFIER_MESSAGE_MARSHAL	33
-#define UWSGI_MODIFIER_PING		100
+#define UWSGI_MODIFIER_ADMIN_REQUEST		10
+#define UWSGI_MODIFIER_SPOOL_REQUEST		17
+#define UWSGI_MODIFIER_FASTFUNC			26
+#define UWSGI_MODIFIER_MANAGE_PATH_INFO		30
+#define UWSGI_MODIFIER_MESSAGE			31
+#define UWSGI_MODIFIER_MESSAGE_ARRAY		32
+#define UWSGI_MODIFIER_MESSAGE_MARSHAL		33
+#define UWSGI_MODIFIER_MULTICAST_ANNOUNCE	73
+#define UWSGI_MODIFIER_MULTICAST		74
+#define UWSGI_MODIFIER_PING			100
 
 #define UWSGI_MODIFIER_RESPONSE		255
 
@@ -423,9 +426,9 @@ struct uwsgi_shared {
 #endif
 
 #ifdef UWSGI_SNMP
-	char snmp_community[72+1];
-	struct uwsgi_snmp_server_value snmp_gvalue[100];	
-	struct uwsgi_snmp_custom_value snmp_value[100];	
+	char snmp_community[72 + 1];
+	struct uwsgi_snmp_server_value snmp_gvalue[100];
+	struct uwsgi_snmp_custom_value snmp_value[100];
 
 #define SNMP_COUNTER32 0x41
 #define SNMP_GAUGE 0x42
@@ -532,6 +535,10 @@ uint16_t uwsgi_swap16(uint16_t);
 int init_uwsgi_app(PyObject *, PyObject *);
 
 PyObject *uwsgi_send_message(const char *, int, uint8_t, uint8_t, char *, int, int);
+
+#ifdef UWSGI_UDP
+ssize_t send_udp_message(uint8_t, char *, char *, uint16_t); 
+#endif
 
 int uwsgi_parse_response(struct pollfd *, int, struct uwsgi_header *, char *);
 int uwsgi_parse_vars(struct uwsgi_server *, struct wsgi_request *);

@@ -2,6 +2,62 @@
 
 extern struct uwsgi_server uwsgi;
 
+#ifdef UWSGI_UDP
+ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t message_size) {
+
+	int fd ;
+	struct sockaddr_in udp_addr;
+	char *udp_port ;
+	ssize_t ret;
+	char udpbuff[1024];
+
+	if (message_size + 4 > 1024)
+		return -1;
+
+	udp_port = strchr(host, ':');
+	if (udp_port == NULL) {
+		return -1 ;
+	}
+
+	udp_port[0] = 0 ; 
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0) {
+		perror("socket()");
+		return -1 ;
+	}
+
+	memset(&udp_addr, 0, sizeof(struct sockaddr_in));
+	udp_addr.sin_family = AF_INET;
+	udp_addr.sin_port = htons(atoi(udp_port));
+	udp_addr.sin_addr.s_addr = inet_addr(host);
+
+	udpbuff[0] = modifier1 ;
+#ifdef __BIG_ENDIAN__
+	message_size = uwsgi_swap16(message_size);
+#endif
+
+	memcpy(udpbuff+1, &message_size, 2);
+
+	udpbuff[3] = 0 ;
+
+#ifdef __BIG_ENDIAN__
+	message_size = uwsgi_swap16(message_size);
+#endif
+
+	memcpy(udpbuff+4, message, message_size);
+
+	ret = sendto(fd, udpbuff, message_size+4, 0, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
+	if (ret < 0) {
+		perror("sendto()");
+	}
+	close(fd);
+
+	return ret;
+	
+}
+#endif
+
 int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
 
 	struct pollfd uwsgi_poll;

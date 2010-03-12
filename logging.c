@@ -13,13 +13,11 @@ void log_request(struct wsgi_request *wsgi_req) {
 	time_t microseconds, microseconds2;
 
 
-#ifndef ROCK_SOLID
+#ifdef UWSGI_SENDFILE
 	char *msg1 = " via sendfile() ";
 	char *msg2 = " ";
 	char *via;
-#ifndef ROCK_SOLID
 	static char *empty = "";
-#endif
 
 	char *first_part = empty;
 	struct uwsgi_app *wi;
@@ -43,7 +41,6 @@ void log_request(struct wsgi_request *wsgi_req) {
 	microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
 
 
-#ifndef ROCK_SOLID
 	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
 #ifndef UNBIT
 		if (uwsgi.synclog) {
@@ -57,18 +54,12 @@ void log_request(struct wsgi_request *wsgi_req) {
 		fprintf(stderr, "{address space usage: %lld bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024);
 #endif
 	}
-#endif
 
-#ifdef ROCK_SOLID
-	fprintf(stderr, "[pid: %d|req: %llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs (%.*s %d) %d headers in %d bytes\n", uwsgi.mypid, uwsgi.workers[0].requests, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->remote_user_len, wsgi_req->remote_user, wsgi_req->var_cnt, wsgi_req->size, 24, time_request, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->response_size, (microseconds - microseconds2) / 1000, wsgi_req->protocol_len, wsgi_req->protocol, wsgi_req->status, wsgi_req->header_cnt, wsgi_req->headers_size);
-#else
 	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes\n", first_part, uwsgi.mypid, wsgi_req->app_id, app_req, uwsgi.workers[0].requests, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->remote_user_len, wsgi_req->remote_user, wsgi_req->var_cnt, wsgi_req->size, 24, time_request, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->response_size, (long int) (microseconds - microseconds2) / 1000, via, wsgi_req->protocol_len, wsgi_req->protocol, wsgi_req->status, wsgi_req->header_cnt, wsgi_req->headers_size);
-#endif
 
 
 }
 
-#ifndef ROCK_SOLID
 void get_memusage() {
 
 #ifdef UNBIT
@@ -114,4 +105,3 @@ void get_memusage() {
 
 #endif
 }
-#endif

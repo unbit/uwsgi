@@ -7,6 +7,7 @@ ERLANG=False
 SPOOLER=True
 EMBEDDED=True
 UDP=True
+MULTICAST=True
 THREADING=True
 SENDFILE=True
 PROFILER=True
@@ -109,6 +110,9 @@ def parse_vars():
 
 	if UDP:
 		cflags.append("-DUWSGI_UDP")
+
+	if MULTICAST:
+		cflags.append("-DUWSGI_MULTICAST")
 
 	if NAGIOS:
 		cflags.append("-DUWSGI_NAGIOS")
