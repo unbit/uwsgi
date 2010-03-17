@@ -594,7 +594,7 @@ PyObject *eterm_to_py(ETERM * obj) {
 	return eobj;
 }
 
-void erlang_loop() {
+void erlang_loop(struct wsgi_request *wsgi_req) {
 
 	ErlConnect econn;
 	ErlMessage em;
@@ -617,13 +617,13 @@ void erlang_loop() {
 
 		UWSGI_CLEAR_STATUS;
 
-		uwsgi.poll.fd = erl_accept(uwsgi.erlangfd, &econn);
+		wsgi_req->poll.fd = erl_accept(uwsgi.erlangfd, &econn);
 
-		if (uwsgi.poll.fd >= 0) {
+		if (wsgi_req->poll.fd >= 0) {
 
 			UWSGI_SET_ERLANGING;
 			for (;;) {
-				if (erl_receive_msg(uwsgi.poll.fd, (unsigned char *) uwsgi.buffer, uwsgi.buffer_size, &em) == ERL_MSG) {
+				if (erl_receive_msg(wsgi_req->poll.fd, (unsigned char *) &wsgi_req->buffer, uwsgi.buffer_size, &em) == ERL_MSG) {
 					if (em.type == ERL_TICK)
 						continue;
 
@@ -660,7 +660,7 @@ void erlang_loop() {
 					if (erlang_result) {
 						eresponse = py_to_eterm(erlang_result);
 						if (eresponse) {
-							erl_send(uwsgi.poll.fd, em.from, eresponse);
+							erl_send(wsgi_req->poll.fd, em.from, eresponse);
 							erl_free_compound(eresponse);
 						}
 						Py_DECREF(erlang_result);
@@ -679,7 +679,7 @@ void erlang_loop() {
 					break;
 				}
 			}
-			erl_close_connection(uwsgi.poll.fd);
+			erl_close_connection(wsgi_req->poll.fd);
 
 			UWSGI_UNSET_ERLANGING;
 		}

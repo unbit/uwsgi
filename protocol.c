@@ -292,7 +292,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 
 int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
-	char *buffer = uwsgi->buffer;
+	char *buffer = &wsgi_req->buffer;
 
 	char *ptrbuf, *bufferend;
 
@@ -400,7 +400,7 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 	}
 
 	uwsgi_poll.events = POLLIN;
-	if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, uwsgi.buffer)) {
+	if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, &wsgi_req->buffer)) {
 		return -1;
 	}
 

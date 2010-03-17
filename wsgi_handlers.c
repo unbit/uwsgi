@@ -2,12 +2,67 @@
 
 static int uwsgi_sendfile(struct uwsgi_server *, int, int);
 
+static PyObject *wsgi_response(PyObject *chunks, struct wsgi_request *wsgi_req) {
+
+	PyObject *wchunk ;
+	ssize_t wsize ;
+
+	wchunk = PyIter_Next(chunks) ;
+
+
+	if (!wchunk) {
+		if (PyErr_Occurred())
+			PyErr_Print();
+		return NULL;
+	}
+
+        if (PyString_Check(wchunk)) {
+        	if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wchunk), PyString_Size(wchunk))) < 0) {
+                	perror("write()");
+			return NULL;
+                }
+                wsgi_req->response_size += wsize;
+
+#ifdef UNBIT
+                                                if (save_to_disk >= 0) {
+                                                        if (write(save_to_disk, PyString_AsString(wchunk), PyString_Size(wchunk)) < 0) {
+                                                                perror("write()");
+                                                                close(save_to_disk);
+                                                                save_to_disk = -1;
+                                                                unlinkat(tmp_dir_fd, tmp_filename, 0);
+                                                        }
+                                                }
+#endif
+
+
+	}
+
+	return wchunk;
+
+}
+
+static void wsgi_end(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+
+	PyErr_Clear();
+
+	Py_XDECREF(wsgi_req->async_placeholder);
+	Py_XDECREF(wsgi_req->async_environ);
+	fclose(wsgi_req->async_post);
+
+#ifdef UWSGI_THREADING
+	if (uwsgi->has_threads && uwsgi->shared->options[UWSGI_OPTION_THREADS] == 1) {
+		uwsgi->_save = PyEval_SaveThread();
+		uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
+	}
+#endif
+
+}
+
 int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	char *ptrbuf;
 	char *bufferend;
 	uint16_t strsize = 0;
-	FILE *wsgi_file;
 	int i;
 
 	struct uwsgi_app *wi;
@@ -18,7 +73,21 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	char *path_info;
 
-	PyObject *wsgi_result, *wsgi_chunks, *wchunk;
+	PyObject *wchunk;
+
+
+#ifdef UWSGI_ASYNC
+	if (wsgi_req->async_status == UWSGI_AGAIN) {
+		wchunk = wsgi_response(wsgi_req->async_placeholder, wsgi_req);
+		if (!wchunk) {
+			wsgi_end(uwsgi, wsgi_req);
+			return UWSGI_OK ;
+		}
+		Py_DECREF(wchunk);
+		wsgi_req->async_switches++;
+		return UWSGI_AGAIN ;
+	}
+#endif
 
 	/* Standard WSGI request */
 	if (!wsgi_req->size) {
@@ -26,7 +95,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		return -1;
 	}
 
-	ptrbuf = uwsgi->buffer;
+	ptrbuf = &wsgi_req->buffer;
 	bufferend = ptrbuf + wsgi_req->size;
 
 	/* set an HTTP 500 status as default */
@@ -61,10 +130,12 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 							// set the request app_id
 							// LOCKED SECTION
 							if (strsize > 0) {
+#ifdef UWSGI_THREADING
 								if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {
 									PyEval_RestoreThread(uwsgi->_save);
 									uwsgi->workers[uwsgi->mywid].i_have_gil = 1;
 								}
+#endif
 								zero = PyString_FromStringAndSize(ptrbuf, strsize);
 								if (PyDict_Contains(uwsgi->py_apps, zero)) {
 									wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
@@ -74,10 +145,12 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 									wsgi_req->app_id = -1;
 								}
 								Py_DECREF(zero);
+#ifdef UWSGI_THREADING
 								if (uwsgi->has_threads && uwsgi->shared->options[UWSGI_OPTION_THREADS] == 1) {
 									uwsgi->_save = PyEval_SaveThread();
 									uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
 								}
+#endif
 							}
 							// UNLOCK
 						}
@@ -153,7 +226,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 
-#ifndef UWSGI_THREADING
+#ifdef UWSGI_THREADING
 	if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {
 		PyEval_RestoreThread(uwsgi->_save);
 		uwsgi->workers[uwsgi->mywid].i_have_gil = 1;
@@ -161,7 +234,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 
 
-	wsgi_file = fdopen(uwsgi->poll.fd, "r");
+	wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 
 
 #ifdef UWSGI_XML
@@ -192,25 +265,27 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 		if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
 			if ((wsgi_req->app_id = init_uwsgi_app(NULL, NULL)) == -1) {
-				internal_server_error(uwsgi->poll.fd, "wsgi application not found");
-				goto clean;
+				internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
+				wsgi_end(uwsgi, wsgi_req);
 			}
 		}
 	}
 
 
 	if (wsgi_req->app_id == -1) {
-		internal_server_error(uwsgi->poll.fd, "wsgi application not found");
-		goto clean;
+		internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
+		wsgi_end(uwsgi, wsgi_req);
+
 	}
+
 
 
 	wi = &uwsgi->wsgi_apps[wsgi_req->app_id];
 
 	if (uwsgi->single_interpreter == 0) {
 		if (!wi->interpreter) {
-			internal_server_error(uwsgi->poll.fd, "wsgi application's %d interpreter not found");
-			goto clean;
+			internal_server_error(wsgi_req->poll.fd, "wsgi application's %d interpreter not found");
+			wsgi_end(uwsgi, wsgi_req);
 		}
 
 		// set the interpreter
@@ -218,36 +293,41 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 
 
+
 	if (wsgi_req->protocol_len < 5) {
 		fprintf(stderr, "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
-		internal_server_error(uwsgi->poll.fd, "invalid HTTP protocol !!!");
-		goto clean;
+		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
+		wsgi_end(uwsgi, wsgi_req);
+
 	}
 	if (strncmp(wsgi_req->protocol, "HTTP/", 5)) {
 		fprintf(stderr, "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
-		internal_server_error(uwsgi->poll.fd, "invalid HTTP protocol !!!");
-		goto clean;
+		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
+		wsgi_end(uwsgi, wsgi_req);
 	}
 
+
+	wsgi_req->async_environ = PyDict_New();
+	Py_INCREF(wsgi_req->async_environ);
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 		/*fprintf(stderr,"%.*s: %.*s\n", uwsgi->hvec[i].iov_len, uwsgi->hvec[i].iov_base, uwsgi->hvec[i+1].iov_len, uwsgi->hvec[i+1].iov_base); */
 		pydictkey = PyString_FromStringAndSize(uwsgi->hvec[i].iov_base, uwsgi->hvec[i].iov_len);
 		pydictvalue = PyString_FromStringAndSize(uwsgi->hvec[i + 1].iov_base, uwsgi->hvec[i + 1].iov_len);
-		PyDict_SetItem(wi->wsgi_environ, pydictkey, pydictvalue);
+		PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
 		Py_DECREF(pydictkey);
 		Py_DECREF(pydictvalue);
 	}
 
 	if (wsgi_req->modifier == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
-		pydictkey = PyDict_GetItemString(wi->wsgi_environ, "SCRIPT_NAME");
+		pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
 		if (pydictkey) {
 			if (PyString_Check(pydictkey)) {
-				pydictvalue = PyDict_GetItemString(wi->wsgi_environ, "PATH_INFO");
+				pydictvalue = PyDict_GetItemString(wsgi_req->async_environ, "PATH_INFO");
 				if (pydictvalue) {
 					if (PyString_Check(pydictvalue)) {
 						path_info = PyString_AsString(pydictvalue);
-						PyDict_SetItemString(wi->wsgi_environ, "PATH_INFO", PyString_FromString(path_info + PyString_Size(pydictkey)));
+						PyDict_SetItemString(wsgi_req->async_environ, "PATH_INFO", PyString_FromString(path_info + PyString_Size(pydictkey)));
 					}
 				}
 			}
@@ -255,34 +335,42 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 
 
+
 	// set wsgi vars
 
-	wsgi_socket = PyFile_FromFile(wsgi_file, "wsgi_input", "r", NULL);
-	PyDict_SetItemString(wi->wsgi_environ, "wsgi.input", wsgi_socket);
+	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
 	Py_DECREF(wsgi_socket);
 
 #ifdef UWSGI_SENDFILE
-	PyDict_SetItemString(wi->wsgi_environ, "wsgi.file_wrapper", wi->wsgi_sendfile);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->wsgi_sendfile);
+#endif
+
+#ifdef UWSGI_ASYNC
+	if (uwsgi->async > 1) {
+		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.readable", wi->wsgi_eventfd_read);
+		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.writable", wi->wsgi_eventfd_write);
+	}
 #endif
 
 	zero = PyTuple_New(2);
 	PyTuple_SetItem(zero, 0, PyInt_FromLong(1));
 	PyTuple_SetItem(zero, 1, PyInt_FromLong(0));
-	PyDict_SetItemString(wi->wsgi_environ, "wsgi.version", zero);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", zero);
 	Py_DECREF(zero);
 
 	zero = PyFile_FromFile(stderr, "wsgi_input", "w", NULL);
-	PyDict_SetItemString(wi->wsgi_environ, "wsgi.errors", zero);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.errors", zero);
 	Py_DECREF(zero);
 
-	PyDict_SetItemString(wi->wsgi_environ, "wsgi.run_once", Py_False);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.run_once", Py_False);
 
-	PyDict_SetItemString(wi->wsgi_environ, "wsgi.multithread", Py_False);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multithread", Py_False);
 	if (uwsgi->numproc == 1) {
-		PyDict_SetItemString(wi->wsgi_environ, "wsgi.multiprocess", Py_False);
+		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_False);
 	}
 	else {
-		PyDict_SetItemString(wi->wsgi_environ, "wsgi.multiprocess", Py_True);
+		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_True);
 	}
 
 	if (wsgi_req->scheme_len > 0) {
@@ -299,7 +387,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	else {
 		zero = PyString_FromString("http");
 	}
-	PyDict_SetItemString(wi->wsgi_environ, "wsgi.url_scheme", zero);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
 	Py_DECREF(zero);
 
 #ifdef UNBIT
@@ -311,22 +399,25 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 
 
+
+	PyTuple_SetItem(wi->wsgi_args, 0, wsgi_req->async_environ);
+
 	// call
 #ifdef UWSGI_PROFILER
 	if (uwsgi->enable_profiler == 1) {
-		wsgi_result = PyEval_CallObject(wi->wsgi_cprofile_run, wi->wsgi_args);
+		wsgi_req->async_result = PyEval_CallObject(wi->wsgi_cprofile_run, wi->wsgi_args);
 		if (PyErr_Occurred()) {
 			PyErr_Print();
 		}
-		if (wsgi_result) {
-			Py_DECREF(wsgi_result);
-			wsgi_result = PyDict_GetItemString(wi->pymain_dict, "uwsgi_out");
+		if (wsgi_req->async_result) {
+			Py_DECREF(wsgi_req->async_result);
+			wsgi_req->async_result = PyDict_GetItemString(wi->pymain_dict, "uwsgi_out");
 		}
 	}
 	else {
 #endif
 
-		wsgi_result = PyEval_CallObject(wi->wsgi_callable, wi->wsgi_args);
+		wsgi_req->async_result = PyEval_CallObject(wi->wsgi_callable, wi->wsgi_args);
 
 		if (PyErr_Occurred()) {
 			PyErr_Print();
@@ -336,47 +427,31 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 
 
-
-
-	if (wsgi_result) {
+	if (wsgi_req->async_result) {
 
 
 #ifdef UWSGI_SENDFILE
 		if (wsgi_req->sendfile_fd > -1) {
-			wsgi_req->response_size = uwsgi_sendfile(uwsgi, wsgi_req->sendfile_fd, uwsgi->poll.fd);
+			wsgi_req->response_size = uwsgi_sendfile(uwsgi, wsgi_req->sendfile_fd, wsgi_req->poll.fd);
 		}
 		else {
 
 #endif
 
-			wsgi_chunks = PyObject_GetIter(wsgi_result);
-			if (wsgi_chunks) {
-				while ((wchunk = PyIter_Next(wsgi_chunks))) {
-					if (PyString_Check(wchunk)) {
-						if ((i = write(uwsgi->poll.fd, PyString_AsString(wchunk), PyString_Size(wchunk))) < 0) {
-							perror("write()");
-						}
-						wsgi_req->response_size += i;
-#ifdef UNBIT
-						if (save_to_disk >= 0) {
-							if (write(save_to_disk, PyString_AsString(wchunk), PyString_Size(wchunk)) < 0) {
-								perror("write()");
-								close(save_to_disk);
-								save_to_disk = -1;
-								unlinkat(tmp_dir_fd, tmp_filename, 0);
-							}
-						}
-#endif
-					}
-					else {
-						fprintf(stderr, "invalid output returned by the wsgi callable !!!\n");
-					}
+			wsgi_req->async_placeholder = PyObject_GetIter(wsgi_req->async_result);
+			if (wsgi_req->async_placeholder) {
+				if (uwsgi->async > 1) {
+					return UWSGI_AGAIN;
+				}
+
+				while ( (wchunk = wsgi_response(wsgi_req->async_placeholder, wsgi_req)) ) {
 					Py_DECREF(wchunk);
 				}
 
 				if (PyErr_Occurred()) {
 					PyErr_Print();
 				}
+
 
 #ifdef UNBIT
 				else if (save_to_disk >= 0) {
@@ -385,45 +460,25 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 					fprintf(stderr, "[uWSGI cacher] output of request %llu (%.*s) on pid %d written to cache file %s\n", uwsgi->workers[0].requests + 1, wsgi_req->uri_len, wsgi_req->uri, uwsgi->mypid, tmp_filename);
 				}
 #endif
-				Py_DECREF(wsgi_chunks);
 			}
-#ifdef UWSGI_PROFILER
-		}
-		if (uwsgi->enable_profiler == 0) {
-#endif
-			Py_DECREF(wsgi_result);
-#ifdef UWSGI_PROFILER
+
+#ifdef UWSGI_SENDFILE
 		}
 #endif
+
 	}
 
 
 
-	PyDict_Clear(wi->wsgi_environ);
 	wi->requests++;
-
-	PyErr_Clear();
-	if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-		set_harakiri(0);
-	}
 
 	if (uwsgi->single_interpreter == 0) {
 		// restoring main interpreter
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
 
-      clean:
-	fclose(wsgi_file);
 
-#ifdef UWSGI_THREADING
-	if (uwsgi->has_threads && uwsgi->shared->options[UWSGI_OPTION_THREADS] == 1) {
-		uwsgi->_save = PyEval_SaveThread();
-		uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
-	}
-#endif
-	uwsgi->workers[uwsgi->mywid].requests++;
-
-	return 0;
+	return UWSGI_OK;
 
 }
 

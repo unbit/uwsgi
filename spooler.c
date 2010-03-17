@@ -292,7 +292,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 		wsgi_req->modifier = 255;
 		wsgi_req->size = 0;
 		wsgi_req->modifier_arg = 0;
-		i = write(uwsgi->poll.fd, wsgi_req, 4);
+		i = write(wsgi_req->poll.fd, wsgi_req, 4);
 		if (i != 4) {
 			perror("write()");
 		}
@@ -300,12 +300,12 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	}
 
 	fprintf(stderr, "managing spool request...\n");
-	i = spool_request(spool_filename, uwsgi->workers[0].requests + 1, uwsgi->buffer, wsgi_req->size);
+	i = spool_request(spool_filename, uwsgi->workers[0].requests + 1, &wsgi_req->buffer, wsgi_req->size);
 	wsgi_req->modifier = 255;
 	wsgi_req->size = 0;
 	if (i > 0) {
 		wsgi_req->modifier_arg = 1;
-		if (write(uwsgi->poll.fd, wsgi_req, 4) != 4) {
+		if (write(wsgi_req->poll.fd, wsgi_req, 4) != 4) {
 			fprintf(stderr, "disconnected client, remove spool file.\n");
 			/* client disconnect, remove spool file */
 			if (unlink(spool_filename)) {
@@ -319,7 +319,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	else {
 		/* announce a failed spool request */
 		wsgi_req->modifier_arg = 0;
-		i = write(uwsgi->poll.fd, wsgi_req, 4);
+		i = write(wsgi_req->poll.fd, wsgi_req, 4);
 		if (i != 4) {
 			perror("write()");
 		}

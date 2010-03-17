@@ -14,6 +14,7 @@ PROFILER=True
 NAGIOS=True
 PROXY=True
 MINTERPRETERS=True
+ASYNC=True
 PLUGINS = []
 UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
@@ -111,6 +112,10 @@ def parse_vars():
 
 	if UDP:
 		cflags.append("-DUWSGI_UDP")
+
+	if ASYNC:
+		cflags.append("-DUWSGI_ASYNC")
+		gcc_list.append('async')
 
 	if MULTICAST:
 		cflags.append("-DUWSGI_MULTICAST")

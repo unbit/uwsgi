@@ -13,12 +13,12 @@ int uwsgi_request_ping(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		// endianess check is not needed as the warning message can be max 80 chars
 		wsgi_req->size = len;
 	}
-	if (write(uwsgi->poll.fd, wsgi_req, 4) != 4) {
+	if (write(wsgi_req->poll.fd, wsgi_req, 4) != 4) {
 		perror("write()");
 	}
 
 	if (len > 0) {
-		if (write(uwsgi->poll.fd, uwsgi->shared->warning_message, len)
+		if (write(wsgi_req->poll.fd, uwsgi->shared->warning_message, len)
 		    != len) {
 			perror("write()");
 		}
@@ -33,7 +33,7 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 	int i;
 
 	if (wsgi_req->size >= 4) {
-		memcpy(&opt_value, uwsgi->buffer, 4);
+		memcpy(&opt_value, &wsgi_req->buffer, 4);
 		// TODO: check endianess
 	}
 	fprintf(stderr, "setting internal option %d to %d\n", wsgi_req->modifier_arg, opt_value);
@@ -41,7 +41,7 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 	wsgi_req->modifier = 255;
 	wsgi_req->size = 0;
 	wsgi_req->modifier_arg = 1;
-	i = write(uwsgi->poll.fd, wsgi_req, 4);
+	i = write(wsgi_req->poll.fd, wsgi_req, 4);
 	if (i != 4) {
 		perror("write()");
 	}
@@ -66,7 +66,7 @@ int uwsgi_request_fastfunc(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 			if (func_chunks) {
 				while ((fchunk = PyIter_Next(func_chunks))) {
 					if (PyString_Check(fchunk)) {
-						wsgi_req->response_size += write(uwsgi->poll.fd, PyString_AsString(fchunk), PyString_Size(fchunk));
+						wsgi_req->response_size += write(wsgi_req->poll.fd, PyString_AsString(fchunk), PyString_Size(fchunk));
 					}
 					Py_DECREF(fchunk);
 				}
@@ -87,7 +87,7 @@ int uwsgi_request_marshal(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	PyObject *umm = PyDict_GetItemString(uwsgi->embedded_dict,
 					     "message_manager_marshal");
 	if (umm) {
-		PyObject *ummo = PyMarshal_ReadObjectFromString(uwsgi->buffer,
+		PyObject *ummo = PyMarshal_ReadObjectFromString(&wsgi_req->buffer,
 								wsgi_req->size);
 		if (ummo) {
 			if (!PyTuple_SetItem(uwsgi->embedded_args, 0, ummo)) {
@@ -105,8 +105,8 @@ int uwsgi_request_marshal(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 							if (PyString_Size(marshalled) <= 0xFFFF) {
 								wsgi_req->size = (uint16_t)
 									PyString_Size(marshalled);
-								if (write(uwsgi->poll.fd, wsgi_req, 4) == 4) {
-									if (write(uwsgi->poll.fd, PyString_AsString(marshalled), wsgi_req->size) != wsgi_req->size) {
+								if (write(wsgi_req->poll.fd, wsgi_req, 4) == 4) {
+									if (write(wsgi_req->poll.fd, PyString_AsString(marshalled), wsgi_req->size) != wsgi_req->size) {
 										perror("write()");
 									}
 								}

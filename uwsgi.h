@@ -110,6 +110,10 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_VERSION		17018
 #define LONG_ARGS_SNMP			17019
 #define LONG_ARGS_SNMP_COMMUNITY	17020
+#define LONG_ARGS_ASYNC			17021
+
+#define UWSGI_OK	0
+#define UWSGI_AGAIN	1
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
@@ -198,12 +202,16 @@ struct uwsgi_app {
 	PyObject *pymain_dict;
 
 	PyObject *wsgi_callable;
-	PyObject *wsgi_environ;
 	PyObject *wsgi_args;
 	PyObject *wsgi_harakiri;
 
 	PyObject *wsgi_sendfile;
 	PyObject *wsgi_cprofile_run;
+
+#ifdef UWSGI_ASYNC
+	PyObject *wsgi_eventfd_read;
+	PyObject *wsgi_eventfd_write;
+#endif
 
 	int requests;
 
@@ -217,46 +225,65 @@ struct __attribute__ ((packed)) wsgi_request {
 
 	int app_id;
 
+	struct pollfd poll;
+
+
 	struct timeval start_of_request;
 	struct timeval end_of_request;
+
 	char *uri;
-	unsigned short uri_len;
+	uint16_t uri_len;
 	char *remote_addr;
-	unsigned short remote_addr_len;
+	uint16_t remote_addr_len;
 	char *remote_user;
-	unsigned short remote_user_len;
+	uint16_t remote_user_len;
 	char *query_string;
-	unsigned short query_string_len;
+	uint16_t query_string_len;
 	char *protocol;
-	unsigned short protocol_len;
+	uint16_t protocol_len;
 	char *method;
-	unsigned short method_len;
+	uint16_t method_len;
 	char *scheme;
-	unsigned short scheme_len;
+	uint16_t scheme_len;
 	char *https;
-	unsigned short https_len;
+	uint16_t https_len;
+	char *script_name;
+	uint16_t script_name_len;
+
+	char *wsgi_script;
+	uint16_t wsgi_script_len;
+	char *wsgi_module;
+	uint16_t wsgi_module_len;
+	char *wsgi_callable;
+	uint16_t wsgi_callable_len;
+
 #ifdef UNBIT
 	unsigned long long unbit_flags;
 #endif
-	char *wsgi_script;
-	unsigned short wsgi_script_len;
-	char *wsgi_module;
-	unsigned short wsgi_module_len;
-	char *wsgi_callable;
-	unsigned short wsgi_callable_len;
-	char *script_name;
-	unsigned short script_name_len;
 
 	int sendfile_fd;
 
-	unsigned short var_cnt;
-	unsigned short header_cnt;
+	uint16_t var_cnt;
+	uint16_t header_cnt;
 
 	int status;
 	int response_size;
 	int headers_size;
 
-	int async_status;
+	int async_status ;
+	int async_waiting_fd;
+	int async_waiting_fd_type;
+	int async_waiting_fd_monitored;
+	int async_switches;
+
+	void *async_app;
+	void *async_result;
+	void *async_placeholder;
+	void *async_environ;
+	void *async_post;
+
+	// buffer MUST BE THE LAST VAR !!!
+	char buffer;
 };
 
 struct uwsgi_server {
@@ -267,6 +294,11 @@ struct uwsgi_server {
 	int wsgi_cnt;
 	int default_app;
 	int enable_profiler;
+
+	// base for all the requests (even on async mode)
+	struct wsgi_request *wsgi_requests ;
+	struct wsgi_request *wsgi_req ;
+
 	PyThreadState *_save;
 #ifndef UNBIT
 	char *chroot;
@@ -274,7 +306,6 @@ struct uwsgi_server {
 	uid_t uid;
 #endif
 
-	char *buffer;
 
 	int serverfd;
 #ifdef UWSGI_PROXY
@@ -322,6 +353,13 @@ struct uwsgi_server {
 	char *pidfile;
 
 	int numproc;
+	int async;
+	int async_running;
+	int async_queue ;
+	int async_nevents ;
+#ifdef __linux__
+	struct epoll_event *async_events;
+#endif
 
 	int max_vars;
 	int vec_size;
@@ -368,7 +406,6 @@ struct uwsgi_server {
 
 	PyThreadState *main_thread;
 
-	struct pollfd poll;
 
 	struct uwsgi_shared *shared;
 
@@ -563,7 +600,7 @@ int uwsgi_request_ping(struct uwsgi_server *, struct wsgi_request *);
 #include <ei.h>
 
 int init_erlang(char *, char *);
-void erlang_loop(void);
+void erlang_loop(struct wsgi_request *);
 PyObject *eterm_to_py(ETERM *);
 ETERM *py_to_eterm(PyObject *);
 
@@ -584,3 +621,10 @@ struct http_status_codes {
 	char *message;
 	int message_size;
 };
+
+#ifdef UWSGI_ASYNC
+struct wsgi_request *async_loop(struct uwsgi_server *);
+struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *); 
+struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
+int async_queue_init(int);
+#endif

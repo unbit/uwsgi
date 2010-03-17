@@ -795,7 +795,8 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	fprintf(stderr, "detaching uWSGI from current connection...\n");
-	close(uwsgi.poll.fd);
+	// FIX HERE !!!
+	//close(uwsgi.poll.fd);
 
 	Py_INCREF(Py_True);
 	return Py_True;
