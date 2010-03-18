@@ -569,6 +569,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.buffer_size = 4096;
 	uwsgi.numproc = 1;
+
 	uwsgi.async = 1;
 #ifndef UNBIT
 	uwsgi.listen_queue = 64;
@@ -608,7 +609,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"test", required_argument, 0, 'j'},
 		{"home", required_argument, 0, 'H'},
 		{"sharedarea", required_argument, 0, 'A'},
+#ifdef UWSGI_SPOOLER
 		{"spooler", required_argument, 0, 'Q'},
+#endif
 		{"disable-logging", no_argument, 0, 'L'},
 
 		{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
@@ -623,18 +626,26 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
+#ifdef UWSGI_SNMP
 		{"snmp", no_argument, 0, LONG_ARGS_SNMP},
 		{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
+#endif
 		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
+#ifdef UWSGI_ERLANG
 		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
 		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
+#endif
 		{"nagios", no_argument, &nagios, 1},
 		{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
+#ifdef UWSGI_PROXY
 		{"proxy", required_argument, 0, LONG_ARGS_PROXY},
 		{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
 		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
+#endif
 		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
+#ifdef UWSGI_ASYNC
 		{"async", required_argument, 0, LONG_ARGS_ASYNC},
+#endif
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -1055,6 +1066,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 
+#ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
 		uwsgi.async_queue = async_queue_init(uwsgi.serverfd);
 		if (uwsgi.async_queue < 0) {
@@ -1066,6 +1078,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 	}
+#endif
 
 
 
