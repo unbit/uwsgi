@@ -22,10 +22,10 @@ def application(env, start_response):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.setblocking(0)
 
-	env['x-wsgiorg.fdevent.readable'] = lambda fd,t: ""
-	env['x-wsgiorg.fdevent.writable'] = lambda fd,t: ""
+	#env['x-wsgiorg.fdevent.readable'] = lambda fd,t: ""
+	#env['x-wsgiorg.fdevent.writable'] = lambda fd,t: ""
 
-	yield ""
+	#yield ""
 
 	c = s.connect_ex(('www.google.it', 80))
 	if c == 115:
