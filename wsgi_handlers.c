@@ -60,11 +60,7 @@ static void wsgi_end(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 
 int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
-	char *ptrbuf;
-	char *bufferend;
-	uint16_t strsize = 0;
 	int i;
-
 	struct uwsgi_app *wi;
 
 	PyObject *zero, *wsgi_socket;
@@ -95,135 +91,10 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		return -1;
 	}
 
-	ptrbuf = &wsgi_req->buffer;
-	bufferend = ptrbuf + wsgi_req->size;
-
-	/* set an HTTP 500 status as default */
-	wsgi_req->status = 500;
-
-
-
-	while (ptrbuf < bufferend) {
-		if (ptrbuf + 2 < bufferend) {
-			memcpy(&strsize, ptrbuf, 2);
-#ifdef __BIG_ENDIAN__
-			strsize = uwsgi_swap16(strsize);
-#endif
-			ptrbuf += 2;
-			if (ptrbuf + strsize < bufferend) {
-				// var key
-				uwsgi->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
-				uwsgi->hvec[wsgi_req->var_cnt].iov_len = strsize;
-				ptrbuf += strsize;
-				if (ptrbuf + 2 < bufferend) {
-					memcpy(&strsize, ptrbuf, 2);
-#ifdef __BIG_ENDIAN__
-					strsize = uwsgi_swap16(strsize);
-#endif
-					ptrbuf += 2;
-					if (ptrbuf + strsize <= bufferend) {
-#ifdef UNBIT
-						if (single_app_mode == 0 && !strncmp("SCRIPT_NAME", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-#else
-						if (!strncmp("SCRIPT_NAME", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-#endif
-							// set the request app_id
-							// LOCKED SECTION
-							if (strsize > 0) {
-#ifdef UWSGI_THREADING
-								if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {
-									PyEval_RestoreThread(uwsgi->_save);
-									uwsgi->workers[uwsgi->mywid].i_have_gil = 1;
-								}
-#endif
-								zero = PyString_FromStringAndSize(ptrbuf, strsize);
-								if (PyDict_Contains(uwsgi->py_apps, zero)) {
-									wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
-								}
-								else {
-									/* unavailable app for this SCRIPT_NAME */
-									wsgi_req->app_id = -1;
-								}
-								Py_DECREF(zero);
-#ifdef UWSGI_THREADING
-								if (uwsgi->has_threads && uwsgi->shared->options[UWSGI_OPTION_THREADS] == 1) {
-									uwsgi->_save = PyEval_SaveThread();
-									uwsgi->workers[uwsgi->mywid].i_have_gil = 0;
-								}
-#endif
-							}
-							// UNLOCK
-						}
-						else if (!strncmp("SERVER_PROTOCOL", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->protocol = ptrbuf;
-							wsgi_req->protocol_len = strsize;
-						}
-						else if (!strncmp("REQUEST_URI", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->uri = ptrbuf;
-							wsgi_req->uri_len = strsize;
-						}
-						else if (!strncmp("QUERY_STRING", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->query_string = ptrbuf;
-							wsgi_req->query_string_len = strsize;
-						}
-						else if (!strncmp("REQUEST_METHOD", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->method = ptrbuf;
-							wsgi_req->method_len = strsize;
-						}
-						else if (!strncmp("REMOTE_ADDR", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->remote_addr = ptrbuf;
-							wsgi_req->remote_addr_len = strsize;
-						}
-						else if (!strncmp("REMOTE_USER", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->remote_user = ptrbuf;
-							wsgi_req->remote_user_len = strsize;
-						}
-						else if (!strncmp("UWSGI_SCHEME", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->scheme = ptrbuf;
-							wsgi_req->scheme_len = strsize;
-						}
-						else if (!strncmp("HTTPS", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->https = ptrbuf;
-							wsgi_req->https_len = strsize;
-						}
-#ifdef UNBIT
-						else if (!strncmp("UNBIT_FLAGS", uwsgi->hvec[wsgi_req->var_cnt].iov_base, uwsgi->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->unbit_flags = *(unsigned long long *) ptrbuf;
-						}
-#endif
-						if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
-							wsgi_req->var_cnt++;
-						}
-						else {
-							fprintf(stderr, "max vec size reached. skip this header.\n");
-							break;
-						}
-						// var value
-						uwsgi->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
-						uwsgi->hvec[wsgi_req->var_cnt].iov_len = strsize;
-						if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
-							wsgi_req->var_cnt++;
-						}
-						else {
-							fprintf(stderr, "max vec size reached. skip this header.\n");
-							break;
-						}
-						ptrbuf += strsize;
-					}
-					else {
-						break;
-					}
-				}
-				else {
-					break;
-				}
-			}
-		}
-		else {
-			break;
-		}
-	}
-
+	if (uwsgi_parse_vars(uwsgi, wsgi_req)) {
+                fprintf(stderr,"Invalid WSGI request. skip.\n");
+                return -1;
+        }
 
 
 #ifdef UWSGI_THREADING
@@ -234,42 +105,23 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 
 
-	wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
-
-
-#ifdef UWSGI_XML
-	if (wsgi_req->app_id == -1 && uwsgi->xml_config == NULL) {
-#else
-	if (wsgi_req->app_id == -1 && uwsgi->wsgi_config == NULL) {
-#endif
-		for (i = 0; i < wsgi_req->var_cnt; i += 2) {
-			if (!strncmp("SCRIPT_NAME", uwsgi->hvec[i].iov_base, uwsgi->hvec[i].iov_len)) {
-				wsgi_req->script_name = uwsgi->hvec[i + 1].iov_base;
-				wsgi_req->script_name_len = uwsgi->hvec[i + 1].iov_len;
+	if (wsgi_req->script_name_len > 0) {
+		zero = PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len);
+		if (PyDict_Contains(uwsgi->py_apps, zero)) {
+                	wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
+                }
+                else {
+                	/* unavailable app for this SCRIPT_NAME */
+                        wsgi_req->app_id = -1;
+			if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
+				if ((wsgi_req->app_id = init_uwsgi_app(NULL, NULL)) == -1) {
+					internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
+					wsgi_end(uwsgi, wsgi_req);
+				}
 			}
-			if (!strncmp("UWSGI_SCRIPT", uwsgi->hvec[i].iov_base, uwsgi->hvec[i].iov_len)) {
-				wsgi_req->wsgi_script = uwsgi->hvec[i + 1].iov_base;
-				wsgi_req->wsgi_script_len = uwsgi->hvec[i + 1].iov_len;
-			}
-			if (!strncmp("UWSGI_MODULE", uwsgi->hvec[i].iov_base, uwsgi->hvec[i].iov_len)) {
-				wsgi_req->wsgi_module = uwsgi->hvec[i + 1].iov_base;
-				wsgi_req->wsgi_module_len = uwsgi->hvec[i + 1].iov_len;
-			}
-			if (!strncmp("UWSGI_CALLABLE", uwsgi->hvec[i].iov_base, uwsgi->hvec[i].iov_len)) {
-				wsgi_req->wsgi_callable = uwsgi->hvec[i + 1].iov_base;
-				wsgi_req->wsgi_callable_len = uwsgi->hvec[i + 1].iov_len;
-			}
-		}
-
-
-
-		if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
-			if ((wsgi_req->app_id = init_uwsgi_app(NULL, NULL)) == -1) {
-				internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
-				wsgi_end(uwsgi, wsgi_req);
-			}
-		}
-	}
+                }
+                Py_DECREF(zero);
+	} 
 
 
 	if (wsgi_req->app_id == -1) {
@@ -277,7 +129,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		wsgi_end(uwsgi, wsgi_req);
 
 	}
-
 
 
 	wi = &uwsgi->wsgi_apps[wsgi_req->app_id];
@@ -337,6 +188,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	// set wsgi vars
+
+	wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 
 	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
@@ -445,6 +298,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 				}
 
 				while ( (wchunk = wsgi_response(wsgi_req->async_placeholder, wsgi_req)) ) {
+					wsgi_req->async_switches++;
 					Py_DECREF(wchunk);
 				}
 
@@ -469,6 +323,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 
 
+	wsgi_end(uwsgi, wsgi_req);
 
 	wi->requests++;
 
