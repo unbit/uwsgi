@@ -45,6 +45,68 @@ int async_add(int queuefd, int fd, int etype) {
 
 	return 0;
 }
+
+int async_del(int queuefd, int fd, int etype) {
+	struct epoll_event ee;
+
+	memset(&ee, 0, sizeof(struct epoll_event));
+	ee.events = etype;
+        ee.data.fd = fd;
+
+        if (epoll_ctl(queuefd, EPOLL_CTL_DEL, fd, &ee)) {
+                perror("epoll_ctl()");
+		return -1;
+        }
+
+	return 0;
+}
+
+#elif defined(__sun__)
+#else
+int async_queue_init(int serverfd) {
+	int kfd ;
+	struct kevent kev;
+
+	kfd = kqueue();	
+
+	if (kfd < 0) {
+		perror("kqueue()");
+		return -1 ;
+	}
+
+	EV_SET(&kev, serverfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
+        if (kevent(kfd, &kev, 1, NULL, 0, NULL) < 0) {
+                perror("kevent()");
+                return -1;
+        }
+
+	return kfd;
+}
+
+int async_add(int queuefd, int fd, int etype) {
+	struct kevent kev;
+
+
+	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, NULL);
+        if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
+                perror("kevent()");
+                return -1;
+        }
+	return 0;
+}
+
+int async_del(int queuefd, int fd, int etype) {
+	struct kevent kev;
+
+	EV_SET(&kev, fd, etype, EV_DELETE, 0, 0, NULL);
+        if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
+                perror("kevent()");
+                return -1;
+        }
+
+	return 0;
+}
+
 #endif
 
 struct wsgi_request *next_wsgi_req(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {

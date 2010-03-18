@@ -62,6 +62,10 @@
 
 #ifdef __linux__
 #include <sys/sendfile.h>
+#include <sys/epoll.h>
+#elif defined(__sun___)
+#else
+#include <sys/event.h>
 #endif
 
 #undef _XOPEN_SOURCE
@@ -357,8 +361,13 @@ struct uwsgi_server {
 	int async_running;
 	int async_queue ;
 	int async_nevents ;
+
 #ifdef __linux__
 	struct epoll_event *async_events;
+#elif defined(__sun__)
+#else
+	struct kevent *async_events;
+	struct timespec async_timeout;
 #endif
 
 	int max_vars;
@@ -626,5 +635,17 @@ struct http_status_codes {
 struct wsgi_request *async_loop(struct uwsgi_server *);
 struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *); 
 struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
+
+int async_add(int, int , int) ;
+int async_del(int, int , int) ;
 int async_queue_init(int);
+
+#ifdef __linux__
+#define ASYNC_FD data.fd
+#define ASYNC_EV events
+#elif defined(__sun__)
+#else
+#define ASYNC_FD ident
+#define ASYNC_EV filter
+#endif
 #endif

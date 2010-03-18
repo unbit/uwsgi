@@ -35,10 +35,6 @@ in particular)
 #define Py_ssize_t ssize_t
 #endif
 
-#ifdef __linux__
-#include <sys/epoll.h>
-#endif
-
 struct uwsgi_server uwsgi;
 
 static char *nl = "\r\n";
@@ -236,7 +232,12 @@ PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 
 	if (fd >= 0) {
 		uwsgi.wsgi_req->async_waiting_fd = fd ;
+#ifdef __linux__
 		uwsgi.wsgi_req->async_waiting_fd_type = EPOLLIN ;
+#elif defined(__sun__)
+#else
+		uwsgi.wsgi_req->async_waiting_fd_type = EVFILT_READ ;
+#endif
 		uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
 	}
 
@@ -253,7 +254,12 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 
 	if (fd >= 0) {
 		uwsgi.wsgi_req->async_waiting_fd = fd ;
+#ifdef __linux__
 		uwsgi.wsgi_req->async_waiting_fd_type = EPOLLOUT ;
+#elif defined(__sun__)
+#else
+		uwsgi.wsgi_req->async_waiting_fd_type = EVFILT_WRITE ;
+#endif
 		uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
 	}
 
@@ -1072,7 +1078,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (uwsgi.async_queue < 0) {
 			exit(1);
 		}
+#ifdef __linux__
 		uwsgi.async_events = malloc( sizeof(struct epoll_event) * uwsgi.async ) ;
+#elif defined(__sun__)
+#else
+		uwsgi.async_events = malloc( sizeof(struct kevent) * uwsgi.async ) ;
+#endif
 		if (!uwsgi.async_events) {
 			perror("malloc()");
 			exit(1);
@@ -1654,14 +1665,24 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_ASYNC
 	
 	if (uwsgi.async > 1) {
+#ifdef __linux__
 		uwsgi.async_nevents = epoll_wait(uwsgi.async_queue, uwsgi.async_events, uwsgi.async, uwsgi.async_running);
+#elif defined(__sun__)
+#else
+		if (uwsgi.async_running == 0) {
+			uwsgi.async_nevents = kevent(uwsgi.async_queue, NULL, 0, uwsgi.async_events, uwsgi.async, &uwsgi.async_timeout);
+		}
+		else {
+			uwsgi.async_nevents = kevent(uwsgi.async_queue, NULL, 0, uwsgi.async_events, uwsgi.async, NULL);
+		}	
+#endif
 		if (uwsgi.async_nevents < 0) {
 			perror("epoll_wait()");
 			continue;
 		}
 		for(i=0; i<uwsgi.async_nevents;i++) {
 
-			if (uwsgi.async_events[i].data.fd == uwsgi.serverfd) {
+			if (uwsgi.async_events[i].ASYNC_FD == uwsgi.serverfd) {
 
 				uwsgi.wsgi_req = find_first_available_wsgi_req(&uwsgi);
 				if (uwsgi.wsgi_req == NULL) {
@@ -1677,6 +1698,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 				uwsgi.wsgi_req->poll.fd = accept(uwsgi.serverfd, (struct sockaddr *) &c_addr, (socklen_t *) & c_len);
+				fprintf(stderr,"accepted request\n");
 
 				if (uwsgi.wsgi_req->poll.fd < 0) {
 					perror("accept()");
@@ -1701,16 +1723,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 			}
 			else {
-				uwsgi.wsgi_req = find_wsgi_req_by_fd(&uwsgi, uwsgi.async_events[i].data.fd, uwsgi.async_events[i].events);
+				uwsgi.wsgi_req = find_wsgi_req_by_fd(&uwsgi, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
 				if (uwsgi.wsgi_req) {
 					uwsgi.wsgi_req->async_status = UWSGI_AGAIN ;
 					uwsgi.wsgi_req->async_waiting_fd = -1 ;
 					uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
 				}
 
-				if (epoll_ctl(uwsgi.async_queue, EPOLL_CTL_DEL, uwsgi.async_events[i].data.fd, &uwsgi.async_events[i])) {
-					perror("epoll_ctl()");
-				}
+				async_del(uwsgi.async_queue, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
 			}
 		}
 
