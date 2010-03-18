@@ -315,7 +315,7 @@ static ssize_t build_snmp_response(uint8_t oid1, uint8_t oid2, uint8_t * buffer,
 	buffer[size - 2] = oid_type;
 	oid_sz = snmp_int_to_snmp(snmp_val, oid_type, buffer + (size - 1));
 
-	if (oid_sz < 1)
+	if (oid_sz < 0)
 		return -1;
 
 	oid_sz--;
