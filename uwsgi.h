@@ -207,6 +207,12 @@ struct uwsgi_app {
 
 	PyObject *wsgi_callable;
 	PyObject *wsgi_args;
+
+#ifdef UWSGI_ASYNC
+	PyObject **wsgi_environ;
+#else
+	PyObject *wsgi_environ;
+#endif
 	PyObject *wsgi_harakiri;
 
 	PyObject *wsgi_sendfile;
@@ -231,6 +237,8 @@ struct __attribute__ ((packed)) wsgi_request {
 
 	struct pollfd poll;
 
+	// iovec
+	struct iovec *hvec;
 
 	struct timeval start_of_request;
 	struct timeval end_of_request;
@@ -274,11 +282,15 @@ struct __attribute__ ((packed)) wsgi_request {
 	int response_size;
 	int headers_size;
 
+	int async_id;
 	int async_status ;
 	int async_waiting_fd;
 	int async_waiting_fd_type;
 	int async_waiting_fd_monitored;
 	int async_switches;
+
+	time_t async_timeout ;
+	int async_timeout_expired ;
 
 	void *async_app;
 	void *async_result;
@@ -317,6 +329,8 @@ struct uwsgi_server {
 	char *proxy_socket_name;
 #endif
 
+	struct iovec *async_hvec;
+
 	struct rlimit rl;
 
 	char *binary_path;
@@ -335,8 +349,6 @@ struct uwsgi_server {
 	char *snmp_community;
 #endif
 
-	// iovec
-	struct iovec *hvec;
 
 	int to_heaven;
 	int to_hell;
@@ -367,7 +379,6 @@ struct uwsgi_server {
 #elif defined(__sun__)
 #else
 	struct kevent *async_events;
-	struct timespec async_timeout;
 #endif
 
 	int max_vars;
@@ -637,8 +648,13 @@ struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *);
 struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
 
 int async_add(int, int , int) ;
+int async_wait(int, void *, int, int, int);
 int async_del(int, int , int) ;
 int async_queue_init(int);
+
+int async_get_timeout(struct uwsgi_server *);
+void async_set_timeout(struct wsgi_request *, time_t);
+void async_expire_timeouts(struct uwsgi_server *);
 
 #ifdef __linux__
 #define ASYNC_FD data.fd
@@ -649,3 +665,7 @@ int async_queue_init(int);
 #define ASYNC_EV filter
 #endif
 #endif
+
+int manage_python_response(struct uwsgi_server *, struct wsgi_request *);
+int uwsgi_python_call(struct uwsgi_server *, struct wsgi_request *, PyObject *, PyObject *);
+PyObject *python_call(PyObject *, PyObject *);

@@ -46,38 +46,27 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 		perror("write()");
 	}
 
-	return 0;
+	return UWSGI_OK;
 }
 
 /* uwsgi FASTFUNC|26 */
 int uwsgi_request_fastfunc(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
-	PyObject *zero, *func_result, *fchunk, *func_chunks;
+	PyObject *ffunc;
 
-	zero = PyList_GetItem(uwsgi->fastfuncslist, wsgi_req->modifier_arg);
-	if (zero) {
+#ifdef UWSGI_ASYNC
+        if (wsgi_req->async_status == UWSGI_AGAIN) {
+                return manage_python_response(uwsgi, wsgi_req);
+        }
+#endif
+
+	ffunc = PyList_GetItem(uwsgi->fastfuncslist, wsgi_req->modifier_arg);
+	if (ffunc) {
 		fprintf(stderr, "managing fastfunc %d\n", wsgi_req->modifier_arg);
-		func_result = PyEval_CallObject(zero, NULL);
-		if (PyErr_Occurred()) {
-			PyErr_Print();
-		}
-		if (func_result) {
-			func_chunks = PyObject_GetIter(func_result);
-			if (func_chunks) {
-				while ((fchunk = PyIter_Next(func_chunks))) {
-					if (PyString_Check(fchunk)) {
-						wsgi_req->response_size += write(wsgi_req->poll.fd, PyString_AsString(fchunk), PyString_Size(fchunk));
-					}
-					Py_DECREF(fchunk);
-				}
-				Py_DECREF(func_chunks);
-			}
-			Py_DECREF(func_result);
-		}
+		return uwsgi_python_call(uwsgi, wsgi_req, ffunc, NULL);
 	}
-	PyErr_Clear();
 
-	return 0;
+	return UWSGI_OK;
 }
 
 /* uwsgi MARSHAL|33 */

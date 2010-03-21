@@ -30,7 +30,7 @@ uwsgi_os = os.uname()[0]
 import sys
 import subprocess
 
-gcc_list = ['utils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'uwsgi_handlers', 'uwsgi']
+gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'uwsgi_handlers', 'uwsgi']
 
 # large file support
 cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64']

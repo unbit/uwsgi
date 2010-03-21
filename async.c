@@ -31,6 +31,25 @@ int async_queue_init(int serverfd) {
 	return epfd;
 }
 
+int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
+
+	int ret ;
+
+	if (timeout <= 0) {
+		timeout = block;
+	}
+	else {
+		timeout = timeout*1000;
+	}
+
+	//fprintf(stderr,"waiting with timeout %d nevents %d\n", timeout, nevents);
+	ret = epoll_wait(queuefd, (struct epoll_event *) events, nevents, timeout);
+	if (ret < 0) {
+		perror("epoll_wait()");
+	}
+	return ret ;
+}
+
 int async_add(int queuefd, int fd, int etype) {
 	struct epoll_event ee;
 
@@ -83,6 +102,10 @@ int async_queue_init(int serverfd) {
 	return kfd;
 }
 
+int async_wait() {
+	uwsgi.async_nevents = kevent(uwsgi.async_queue, NULL, 0, uwsgi.async_events, uwsgi.async, &uwsgi.async_timeout);
+}
+
 int async_add(int queuefd, int fd, int etype) {
 	struct kevent kev;
 
@@ -117,14 +140,66 @@ struct wsgi_request *next_wsgi_req(struct uwsgi_server *uwsgi, struct wsgi_reque
 
         return (struct wsgi_request *) ptr ;
 }
+
+int async_get_timeout(struct uwsgi_server *uwsgi) {
+
+
+        struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
+        int i ;
+	time_t curtime, tdelta = 0 ;
+	int ret = 0 ;
+
+	if (!uwsgi->async_running) return 0;
+
+        for(i=0;i<uwsgi->async;i++) {
+                if (wsgi_req->async_status == UWSGI_AGAIN) {
+			if (wsgi_req->async_timeout_expired) {
+				return 0;
+			}
+			if (wsgi_req->async_timeout > 0) {
+				if (tdelta <= 0 || tdelta > wsgi_req->async_timeout) {
+					tdelta = wsgi_req->async_timeout ;
+				}
+			}
+                }
+                wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
+        }
+
+	curtime = time(NULL);
+
+	ret = tdelta - curtime ;
+	if (ret > 0) {
+		return ret;
+	}
+	
+	return 0;
+}
+
+void async_expire_timeouts(struct uwsgi_server *uwsgi) {
+
+        struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
+        int i ;
+	time_t deadline = time(NULL);
+
+
+        for(i=0;i<uwsgi->async;i++) {
+                if (wsgi_req->async_status == UWSGI_AGAIN && wsgi_req->async_timeout > 0) {
+			if (wsgi_req->async_timeout <= deadline) {
+				wsgi_req->async_timeout = 0 ;
+				wsgi_req->async_timeout_expired = 1 ;
+			}	
+                }
+                wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
+        }
+}
+
 struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *uwsgi) {
 
         struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
         int i ;
 
         for(i=0;i<uwsgi->async;i++) {
-		//fprintf(stderr,"request %d fd %d switches %d\n", i, wsgi_req->poll.fd, wsgi_req->async_switches);
-                if (wsgi_req->async_status == 0) {
+                if (wsgi_req->async_status == UWSGI_OK) {
                         return wsgi_req ;
                 }
                 wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
@@ -149,6 +224,13 @@ struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *uwsgi, int fd, int
 
 }
 
+void async_set_timeout(struct wsgi_request *wsgi_req, time_t timeout) {
+
+	wsgi_req->async_timeout = time(NULL);
+	wsgi_req->async_timeout += timeout;
+	wsgi_req->async_timeout_expired = 0 ;
+	
+}
 
 struct wsgi_request * async_loop(struct uwsgi_server *uwsgi) {
 
@@ -173,11 +255,13 @@ struct wsgi_request * async_loop(struct uwsgi_server *uwsgi) {
 				wsgi_req->async_waiting_fd_monitored = 1;
 				wsgi_req->async_status = UWSGI_AGAIN;
 			}
-			else if (wsgi_req->async_waiting_fd == -1) {
+			else if (wsgi_req->async_waiting_fd == -1 && wsgi_req->async_timeout <= 0) {
                 		uwsgi->async_running = 0 ;
 				// st global wsgi_req for python functions
 				uwsgi->wsgi_req = wsgi_req ;
 				wsgi_req->async_status = (*uwsgi->shared->hooks[wsgi_req->modifier]) (uwsgi, wsgi_req);
+
+				wsgi_req->async_switches++;
 
 				if (wsgi_req->async_status < UWSGI_AGAIN) {
 					return wsgi_req;

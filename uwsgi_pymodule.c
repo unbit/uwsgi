@@ -19,6 +19,27 @@ extern struct uwsgi_server uwsgi;
 
 #define UWSGI_LOGBASE "[- uWSGI -"
 
+#ifdef UWSGI_ASYNC
+PyObject *py_uwsgi_async_sleep(PyObject * self, PyObject * args) {
+
+	float timeout ;
+	time_t sec_timeout ;
+
+	if (!PyArg_ParseTuple(args, "f:async_sleep", &timeout)) {
+                return NULL;
+        }
+
+	sec_timeout = (time_t) timeout ;
+
+	fprintf(stderr,"timeout sleep: %d\n", (int) sec_timeout);
+	if (sec_timeout > 0) {
+		async_set_timeout(uwsgi.wsgi_req, sec_timeout);
+	}
+
+	return PyString_FromString("") ;
+}
+#endif
+
 PyObject *py_uwsgi_warning(PyObject * self, PyObject * args) {
 	char *message;
 	int len;
@@ -831,6 +852,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 #ifdef UWSGI_MULTICAST
 	{"send_multicast_message", py_uwsgi_multicast, METH_VARARGS, ""},
+#endif
+#ifdef UWSGI_ASYNC
+	{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
 #endif
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 	{NULL, NULL},
