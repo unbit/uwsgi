@@ -65,6 +65,21 @@ int async_add(int queuefd, int fd, int etype) {
 	return 0;
 }
 
+int async_mod(int queuefd, int fd, int etype) {
+	struct epoll_event ee;
+
+	memset(&ee, 0, sizeof(struct epoll_event));
+	ee.events = etype;
+        ee.data.fd = fd;
+
+        if (epoll_ctl(queuefd, EPOLL_CTL_MOD, fd, &ee)) {
+                perror("epoll_ctl()");
+		return -1;
+        }
+
+	return 0;
+}
+
 int async_del(int queuefd, int fd, int etype) {
 	struct epoll_event ee;
 
@@ -134,6 +149,23 @@ int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
 int async_add(int queuefd, int fd, int etype) {
 	struct kevent kev;
 
+
+	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, NULL);
+        if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
+                perror("kevent()");
+                return -1;
+        }
+	return 0;
+}
+
+int async_mod(int queuefd, int fd, int etype) {
+	struct kevent kev;
+
+	EV_SET(&kev, fd, ASYNC_OUT, EV_DISABLE, 0, 0, NULL);
+        if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
+                perror("kevent()");
+                return -1;
+        }
 
 	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, NULL);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {

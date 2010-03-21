@@ -55,7 +55,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 #endif
 	}
 
-	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %lu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches)\n",
+	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches)\n",
 		first_part,
 		uwsgi.mypid,
 		wsgi_req->app_id,
@@ -68,7 +68,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 		24, time_request,
 		wsgi_req->method_len, wsgi_req->method,
 		wsgi_req->uri_len, wsgi_req->uri,
-		wsgi_req->response_size,
+		(uint64_t) wsgi_req->response_size,
 		(long int) (microseconds - microseconds2) / 1000,
 		via,
 		wsgi_req->protocol_len, wsgi_req->protocol,

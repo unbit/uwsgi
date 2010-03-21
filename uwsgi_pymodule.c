@@ -31,7 +31,6 @@ PyObject *py_uwsgi_async_sleep(PyObject * self, PyObject * args) {
 
 	sec_timeout = (time_t) timeout ;
 
-	fprintf(stderr,"timeout sleep: %d\n", (int) sec_timeout);
 	if (sec_timeout > 0) {
 		async_set_timeout(uwsgi.wsgi_req, sec_timeout);
 	}

@@ -60,6 +60,8 @@
 
 #define MAX_PYARGV 10
 
+#include <sys/ioctl.h>
+
 #ifdef __linux__
 #include <sys/sendfile.h>
 #include <sys/epoll.h>
@@ -651,6 +653,7 @@ struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *);
 struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
 
 int async_add(int, int , int) ;
+int async_mod(int, int , int) ;
 int async_wait(int, void *, int, int, int);
 int async_del(int, int , int) ;
 int async_queue_init(int);
@@ -662,10 +665,18 @@ void async_expire_timeouts(struct uwsgi_server *);
 #ifdef __linux__
 #define ASYNC_FD data.fd
 #define ASYNC_EV events
+#define ASYNC_IN EPOLLIN
+#define ASYNC_OUT EPOLLOUT
+#define ASYNC_IS_IN ASYNC_EV & ASYNC_IN
+#define ASYNC_IS_OUT ASYNC_EV & ASYNC_OUT
 #elif defined(__sun__)
 #else
 #define ASYNC_FD ident
 #define ASYNC_EV filter
+#define ASYNC_IN EVFILT_READ
+#define ASYNC_OUT EVFILT_WRITE
+#define ASYNC_IS_IN ASYNC_EV == ASYNC_IN
+#define ASYNC_IS_OUT ASYNC_EV == ASYNC_OUT
 #endif
 #endif
 
