@@ -44,6 +44,10 @@ static const char *app_slash = "/";
 
 extern char **environ;
 
+#ifdef UWSGI_SENDFILE
+PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
+#endif
+
 int find_worker_id(pid_t pid) {
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -438,37 +442,8 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
-#ifdef UWSGI_SENDFILE
-PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
-
-	//PyObject *zero ;
-
-	uwsgi.py_sendfile = PyTuple_GetItem(args, 0);
-
-#ifdef PYTHREE
-	if ((uwsgi.wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(uwsgi.py_sendfile)) >= 0) {
-		Py_INCREF(uwsgi.py_sendfile);
-	}
-#else
-	if (PyFile_Check(uwsgi.py_sendfile)) {
-		//zero = PyFile_Name(uwsgi.py_sendfile) ;
-		//fprintf(stderr,"->serving %s as static file...", PyString_AsString(zero));
-		uwsgi.wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(uwsgi.py_sendfile);
-		Py_INCREF(uwsgi.py_sendfile);
-	}
-#endif
-
-
-	return PyTuple_New(0);
-}
-#endif
-
 PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""} };
 PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""} };
-
-#ifdef UWSGI_SENDFILE
-PyMethodDef uwsgi_sendfile_method[] = { {"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
-#endif
 
 #ifdef UWSGI_ASYNC
 PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_read, METH_VARARGS, ""}};
@@ -1670,7 +1645,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.async > 1) {
 
 		current_async_timeout = async_get_timeout(&uwsgi) ;
-		fprintf(stderr,"sleeping for %d secs\n", current_async_timeout);
 		uwsgi.async_nevents = async_wait(uwsgi.async_queue, uwsgi.async_events, uwsgi.async, uwsgi.async_running, current_async_timeout);
 		async_expire_timeouts(&uwsgi);
 

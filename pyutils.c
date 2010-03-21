@@ -4,6 +4,9 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 
 	PyObject *pychunk ;
 	ssize_t wsize ;
+#ifdef UWSGI_SENDFILE
+	ssize_t sf_len = 0 ;
+#endif
 
 	// return or yield ?
 	if (PyString_Check(wsgi_req->async_result)) {
@@ -13,6 +16,20 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
                         goto clear;
                 }
                 wsgi_req->response_size += wsize;
+		goto clear;
+	}
+
+	if (wsgi_req->sendfile_fd != -1) {
+		sf_len = uwsgi_sendfile(uwsgi, wsgi_req);
+		if (sf_len < 1) goto clear;
+		wsgi_req->response_size += sf_len ;		
+#ifdef UWSGI_ASYNC
+		if (uwsgi->async > 1) {
+			if (wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
+				return UWSGI_AGAIN;
+			}
+		}
+#endif
 		goto clear;
 	}
 

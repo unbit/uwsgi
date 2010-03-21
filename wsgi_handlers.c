@@ -1,7 +1,5 @@
 #include "uwsgi.h"
 
-static int uwsgi_sendfile(struct uwsgi_server *, int, int);
-
 int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	int i;
@@ -219,34 +217,14 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	if (wsgi_req->async_result) {
 
-
-#ifdef UWSGI_SENDFILE
-		if (wsgi_req->sendfile_fd > -1) {
-			wsgi_req->response_size = uwsgi_sendfile(uwsgi, wsgi_req->sendfile_fd, wsgi_req->poll.fd);
-			if (wsgi_req->async_environ) {
-                		PyDict_Clear(wsgi_req->async_environ);
-        		}
-        		if (wsgi_req->async_post) {
-                		fclose(wsgi_req->async_post);
-        		}
-			Py_DECREF(wsgi_req->async_result);
-		}
-		else {
-
-#endif
-
-			while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
-				//fprintf(stderr,"WSGI CYCLE\n");
+		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
-				if (uwsgi->async > 1) {
-					return UWSGI_AGAIN;
-				}
-#endif
+			if (uwsgi->async > 1) {
+				return UWSGI_AGAIN;
 			}
-
-#ifdef UWSGI_SENDFILE
-		}
 #endif
+		}
+
 
 	}
 
@@ -268,66 +246,3 @@ void uwsgi_after_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *w
 	if (uwsgi->shared->options[UWSGI_OPTION_LOGGING])
 		log_request(wsgi_req);
 }
-
-#ifdef UWSGI_SENDFILE
-static int uwsgi_sendfile(struct uwsgi_server *uwsgi, int fd, int sockfd) {
-
-	off_t rlen;
-
-#ifdef __sun__
-	struct stat stat_buf;
-	if (fstat(fd, &stat_buf)) {
-		perror("fstat()");
-		return 0;
-	}
-	else {
-		rlen = stat_buf.st_size;
-	}
-#else
-	rlen = lseek(fd, 0, SEEK_END);
-#endif
-
-	if (rlen > 0) {
-		lseek(fd, 0, SEEK_SET);
-#if !defined(__linux__) && !defined(__sun__)
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-
-		if (sendfile(fd, sockfd, 0, 0, NULL, &rlen, 0)) {
-			perror("sendfile()");
-		}
-#elif __APPLE__
-		if (sendfile(fd, sockfd, 0, &rlen, NULL, 0)) {
-			perror("sendfile()");
-		}
-#else
-		ssize_t i = 0;
-		char *no_sendfile_buf[4096];
-		ssize_t jlen = 0;
-		rlen = 0;
-		i = 0;
-		while (i < rlen) {
-			jlen = read(fd, no_sendfile_buf, 4096);
-			if (jlen <= 0) {
-				perror("read()");
-				break;
-			}
-			i += jlen;
-			jlen = write(sockfd, no_sendfile_buf, jlen);
-			if (jlen <= 0) {
-				perror("write()");
-				break;
-			}
-			rlen += jlen;
-		}
-#endif
-#else
-		off_t sf_ot = 0;
-		rlen = sendfile(sockfd, fd, &sf_ot, rlen);
-#endif
-
-	}
-	Py_DECREF(uwsgi->py_sendfile);
-
-	return rlen;
-}
-#endif

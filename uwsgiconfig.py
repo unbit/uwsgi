@@ -142,6 +142,7 @@ def parse_vars():
 
 	if SENDFILE:
 		cflags.append("-DUWSGI_SENDFILE")
+		gcc_list.append('sendfile')
 
 	if XML:
 		xmlconf = spcall('xml2-config --libs')

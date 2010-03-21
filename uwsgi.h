@@ -274,12 +274,15 @@ struct __attribute__ ((packed)) wsgi_request {
 #endif
 
 	int sendfile_fd;
+	size_t sendfile_fd_chunk;
+	size_t sendfile_fd_size;
+	off_t sendfile_fd_pos;
 
 	uint16_t var_cnt;
 	uint16_t header_cnt;
 
 	int status;
-	int response_size;
+	size_t response_size;
 	int headers_size;
 
 	int async_id;
@@ -297,6 +300,7 @@ struct __attribute__ ((packed)) wsgi_request {
 	void *async_placeholder;
 	void *async_environ;
 	void *async_post;
+	void *async_sendfile;
 
 	// buffer MUST BE THE LAST VAR !!!
 	char buffer;
@@ -417,7 +421,6 @@ struct uwsgi_server {
 	int single_interpreter;
 	int py_optimize;
 
-	PyObject *py_sendfile;
 	PyObject *embedded_dict;
 	PyObject *embedded_args;
 	PyObject *fastfuncslist;
@@ -669,3 +672,8 @@ void async_expire_timeouts(struct uwsgi_server *);
 int manage_python_response(struct uwsgi_server *, struct wsgi_request *);
 int uwsgi_python_call(struct uwsgi_server *, struct wsgi_request *, PyObject *, PyObject *);
 PyObject *python_call(PyObject *, PyObject *);
+
+#ifdef UWSGI_SENDFILE
+PyObject *py_uwsgi_sendfile(PyObject *, PyObject *) ;
+ssize_t uwsgi_sendfile(struct uwsgi_server *, struct wsgi_request *);
+#endif
