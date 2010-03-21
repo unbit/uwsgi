@@ -74,7 +74,7 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
                 	sf_ret = sendfile(sockfd, fd, &wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_size);
 		}
 
-		if (sf_ret) {
+		if (sf_ret < 0) {
                        	perror("sendfile()");
 			return 0;
                 }
