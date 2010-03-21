@@ -512,7 +512,7 @@ static int uwsgi_handler(request_rec *r) {
 	return ap_pass_brigade(r->output_filters, bb) ;
 }
 
-static const char * cmd_uwsgi_force_wsgi_scheme(cmd_parms *cmd, void *cfg, const char *location) {
+static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const char *location) {
 	uwsgi_cfg *c = cfg;
 
 	if (strlen(location) <= 255 && location[0] == '/') {
@@ -526,7 +526,7 @@ static const char * cmd_uwsgi_force_wsgi_scheme(cmd_parms *cmd, void *cfg, const
 
 }
 
-static const char * cmd_uwsgi_force_script_name(cmd_parms *cmd, void *cfg, const char *scheme) {
+static const char * cmd_uwsgi_force_wsgi_scheme(cmd_parms *cmd, void *cfg, const char *scheme) {
 	uwsgi_cfg *c = cfg;
 
 	if (strlen(scheme) < 9 & strlen(scheme) > 0) {

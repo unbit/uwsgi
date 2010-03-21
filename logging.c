@@ -55,7 +55,27 @@ void log_request(struct wsgi_request *wsgi_req) {
 #endif
 	}
 
-	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %d bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches)\n", first_part, uwsgi.mypid, wsgi_req->app_id, app_req, uwsgi.workers[0].requests, wsgi_req->remote_addr_len, wsgi_req->remote_addr, wsgi_req->remote_user_len, wsgi_req->remote_user, wsgi_req->var_cnt, wsgi_req->size, 24, time_request, wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->response_size, (long int) (microseconds - microseconds2) / 1000, via, wsgi_req->protocol_len, wsgi_req->protocol, wsgi_req->status, wsgi_req->header_cnt, wsgi_req->headers_size, wsgi_req->async_switches);
+	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %lu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches)\n",
+		first_part,
+		uwsgi.mypid,
+		wsgi_req->app_id,
+		app_req,
+		uwsgi.workers[0].requests,
+		wsgi_req->remote_addr_len, wsgi_req->remote_addr,
+		wsgi_req->remote_user_len, wsgi_req->remote_user,
+		wsgi_req->var_cnt,
+		wsgi_req->size,
+		24, time_request,
+		wsgi_req->method_len, wsgi_req->method,
+		wsgi_req->uri_len, wsgi_req->uri,
+		wsgi_req->response_size,
+		(long int) (microseconds - microseconds2) / 1000,
+		via,
+		wsgi_req->protocol_len, wsgi_req->protocol,
+		wsgi_req->status,
+		wsgi_req->header_cnt,
+		wsgi_req->headers_size, 
+		wsgi_req->async_switches);
 
 
 }

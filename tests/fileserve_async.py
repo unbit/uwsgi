@@ -7,7 +7,6 @@ mimetypes.init()
 
 def application(environ, start_response):
 	
-	print environ['PATH_INFO']
 	filename = basedir + environ['PATH_INFO']
 	(content_type, encoding) = mimetypes.guess_type(filename)
 	if not content_type:

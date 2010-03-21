@@ -102,8 +102,33 @@ int async_queue_init(int serverfd) {
 	return kfd;
 }
 
-int async_wait() {
-	uwsgi.async_nevents = kevent(uwsgi.async_queue, NULL, 0, uwsgi.async_events, uwsgi.async, &uwsgi.async_timeout);
+int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
+
+        int ret;
+	struct timespec ts ;
+
+
+	if (timeout <= 0) {
+		if (!block) {
+			memset(&ts, 0, sizeof(struct timespec));
+			ts.tv_sec = timeout ;
+			ret = kevent(queuefd, NULL, 0, events, nevents, &ts);
+		}
+		else {
+			ret = kevent(queuefd, NULL, 0, events, nevents, NULL);
+		}
+	}
+	else {
+		memset(&ts, 0, sizeof(struct timespec));
+		ts.tv_sec = timeout ;
+		ret = kevent(queuefd, NULL, 0, events, nevents, &ts);
+	}
+
+	if (ret < 0) {
+		perror("kevent()");
+	}
+	
+	return ret;
 }
 
 int async_add(int queuefd, int fd, int etype) {

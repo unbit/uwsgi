@@ -24,10 +24,10 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 
 ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
-        off_t rlen;
 	int fd = wsgi_req->sendfile_fd ;
 	int sockfd = wsgi_req->poll.fd ;
         struct stat stat_buf;
+	int sf_ret;
 
 	if (!wsgi_req->sendfile_fd_size) {
 
@@ -48,16 +48,38 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
                         perror("sendfile()");
                 }
 #elif __APPLE__
-                if (sendfile(fd, sockfd, 0, &rlen, NULL, 0)) {
-                        perror("sendfile()");
-                }
-#elif defined(__linux__) || defined(__sun__)
+		off_t sf_len = wsgi_req->sendfile_fd_size ;
+
 		if (uwsgi->async > 1) {
-                	return sendfile(sockfd, fd, &wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_chunk);
+			sf_len = wsgi_req->sendfile_fd_chunk;
+                	sf_ret = sendfile(fd, sockfd, wsgi_req->sendfile_fd_pos, &sf_len, NULL, 0);
+			wsgi_req->sendfile_fd_pos += sf_len ;
 		}
 		else {
-                	return sendfile(sockfd, fd, &wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_size);
+                	sf_ret = sendfile(fd, sockfd, 0, &sf_len, NULL, 0);
 		}
+
+		if (sf_ret) {
+                       	perror("sendfile()");
+			return 0;
+                }
+
+		return sf_len;
+			
+#elif defined(__linux__) || defined(__sun__)
+		if (uwsgi->async > 1) {
+                	sf_ret = sendfile(sockfd, fd, &wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_chunk);
+		}
+		else {
+                	sf_ret = sendfile(sockfd, fd, &wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_size);
+		}
+
+		if (sf_ret) {
+                       	perror("sendfile()");
+			return 0;
+                }
+
+		return sf_ret ;
 #else
                 ssize_t i = 0;
                 char *no_sendfile_buf[4096];
