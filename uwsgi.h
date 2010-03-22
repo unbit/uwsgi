@@ -350,6 +350,10 @@ struct uwsgi_server {
 	char *erlang_cookie;
 #endif
 
+#ifdef UWSGI_NAGIOS
+	int nagios;
+#endif
+
 #ifdef UWSGI_SNMP
 	int snmp;
 	char *snmp_community;
@@ -699,3 +703,7 @@ PyObject *py_uwsgi_write(PyObject *, PyObject *) ;
 PyObject *py_uwsgi_spit(PyObject *, PyObject *) ;
 
 void uwsgi_as_root(void);
+
+#ifdef UWSGI_NAGIOS
+void nagios(struct uwsgi_server *);
+#endif

@@ -218,10 +218,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	int current_async_timeout = 0;
 #endif
 
-#ifdef UWSGI_NAGIOS
-	int nagios = 0;
-#endif
-
 
 	struct pollfd uwsgi_poll;
 	struct sockaddr_in udp_client;
@@ -348,7 +344,10 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
 		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
 #endif
-		{"nagios", no_argument, &nagios, 1},
+
+#ifdef UWSGI_NAGIOS
+		{"nagios", no_argument, &uwsgi.nagios, 1},
+#endif
 		{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
 #ifdef UWSGI_PROXY
 		{"proxy", required_argument, 0, LONG_ARGS_PROXY},
@@ -638,53 +637,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 #ifdef UWSGI_NAGIOS
-	if (nagios) {
-		// connect and send
-		if (uwsgi.socket_name == NULL) {
-			fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
-			exit(3);
-		}
-		char *tcp_port = strchr(uwsgi.socket_name, ':');
-		if (tcp_port == NULL) {
-			fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
-			exit(3);
-		}
-
-		tcp_port[0] = 0;
-
-		uwsgi_poll.fd = connect_to_tcp(uwsgi.socket_name, atoi(tcp_port + 1), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (uwsgi_poll.fd < 0) {
-			fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers\n");
-			exit(2);
-		}
-		uwsgi.wsgi_req->modifier = UWSGI_MODIFIER_PING;
-		uwsgi.wsgi_req->size = 0;
-		uwsgi.wsgi_req->modifier_arg = 0;
-		if (write(uwsgi_poll.fd, uwsgi.wsgi_req, 4) != 4) {
-			perror("write()");
-			fprintf(stdout, "UWSGI CRITICAL: could not send ping packet to workers\n");
-			exit(2);
-		}
-		uwsgi_poll.events = POLLIN;
-		if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) uwsgi.wsgi_req, &uwsgi.wsgi_req->buffer)) {
-			fprintf(stdout, "UWSGI CRITICAL: timed out waiting for response\n");
-			exit(2);
-		}
-		else {
-			if (uwsgi.wsgi_req->size > 0) {
-				fprintf(stdout, "UWSGI WARNING: %.*s\n", uwsgi.wsgi_req->size, &uwsgi.wsgi_req->buffer);
-				exit(1);
-			}
-			else {
-				fprintf(stdout, "UWSGI OK: armed and ready\n");
-				exit(0);
-			}
-		}
-
+	if (uwsgi.nagios) {
+		nagios(&uwsgi);
 		// never here
-		fprintf(stdout, "UWSGI UNKNOWN: probably you hit a bug of uWSGI !!!\n");
-		exit(3);
-
 	}
 #endif
 

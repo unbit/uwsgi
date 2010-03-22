@@ -125,6 +125,7 @@ def parse_vars():
 
 	if NAGIOS:
 		cflags.append("-DUWSGI_NAGIOS")
+		gcc_list.append('nagios')
 
 	if PROXY:
 		cflags.append("-DUWSGI_PROXY")
