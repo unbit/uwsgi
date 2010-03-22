@@ -108,7 +108,7 @@ int async_queue_init(int serverfd) {
 		return -1 ;
 	}
 
-	EV_SET(&kev, serverfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
+	EV_SET(&kev, serverfd, EVFILT_READ, EV_ADD, 0, 0, 0);
         if (kevent(kfd, &kev, 1, NULL, 0, NULL) < 0) {
                 perror("kevent()");
                 return -1;
@@ -150,7 +150,7 @@ int async_add(int queuefd, int fd, int etype) {
 	struct kevent kev;
 
 
-	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, NULL);
+	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
                 perror("kevent()");
                 return -1;
@@ -161,13 +161,13 @@ int async_add(int queuefd, int fd, int etype) {
 int async_mod(int queuefd, int fd, int etype) {
 	struct kevent kev;
 
-	EV_SET(&kev, fd, ASYNC_OUT, EV_DISABLE, 0, 0, NULL);
+	EV_SET(&kev, fd, ASYNC_OUT, EV_DISABLE, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
                 perror("kevent()");
                 return -1;
         }
 
-	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, NULL);
+	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
                 perror("kevent()");
                 return -1;
@@ -178,7 +178,7 @@ int async_mod(int queuefd, int fd, int etype) {
 int async_del(int queuefd, int fd, int etype) {
 	struct kevent kev;
 
-	EV_SET(&kev, fd, etype, EV_DELETE, 0, 0, NULL);
+	EV_SET(&kev, fd, etype, EV_DELETE, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
                 perror("kevent()");
                 return -1;

@@ -13,7 +13,7 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 #ifdef PYTHREE
         uwsgi.wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(uwsgi.wsgi_req->async_sendfile);
 #else
-        if (PyFile_Check(uwsgi.wsgi_req->async_sendfile)) {
+        if (PyFile_Check((PyObject *)uwsgi.wsgi_req->async_sendfile)) {
                 uwsgi.wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(uwsgi.wsgi_req->async_sendfile);
         }
 #endif
@@ -81,24 +81,53 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 		return sf_ret ;
 #else
-                ssize_t i = 0;
-                char *no_sendfile_buf[4096];
+		static nosf_buf_size = 0 ;
+		static char *nosf_buf ;
+
                 ssize_t jlen = 0;
-                rlen = 0;
-                i = 0;
-                while (i < rlen) {
-                        jlen = read(fd, no_sendfile_buf, 4096);
+                ssize_t rlen = 0;
+                ssize_t i = 0;
+
+		if (!wsgi_req->sendfile_fd_chunk) {
+			wsgi_req->sendfile_fd_chunk = 4096;
+		}
+
+		if (!nosf_buf) {
+			nosf_buf = malloc(wsgi_req->sendfile_fd_chunk);
+		}
+		else if (wsgi_req->sendfile_fd_chunk != nosf_buf_size) {
+			nosf_buf = realloc(nosf_buf, wsgi_req->sendfile_fd_chunk);
+		}
+
+		nosf_buf_size = wsgi_req->sendfile_fd_chunk ;
+
+		if (uwsgi->async > 1) {
+			jlen = read(fd, nosf_buf, wsgi_req->sendfile_fd_chunk);
+                        if (jlen <= 0) {
+                                perror("read()");
+				return 0;
+			}
+			jlen = write(sockfd, nosf_buf, jlen);
+                        if (jlen <= 0) {
+                                perror("write()");
+				return 0;
+			}
+			return jlen ;
+		}
+
+                while (i < wsgi_req->sendfile_fd_size) {
+                        jlen = read(fd, nosf_buf, wsgi_req->sendfile_fd_chunk);
                         if (jlen <= 0) {
                                 perror("read()");
                                 break;
                         }
                         i += jlen;
-                        jlen = write(sockfd, no_sendfile_buf, jlen);
+                        jlen = write(sockfd, nosf_buf, jlen);
                         if (jlen <= 0) {
                                 perror("write()");
                                 break;
                         }
-                        rlen += jlen;
+			rlen += jlen ;
                 }
 
 		return rlen;

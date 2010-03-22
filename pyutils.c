@@ -9,7 +9,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 #endif
 
 	// return or yield ?
-	if (PyString_Check(wsgi_req->async_result)) {
+	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		//fprintf(stderr,"DOH !!!\n");
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
                         perror("write()");
@@ -39,7 +39,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
                 if (!wsgi_req->async_placeholder) {
 			goto clear2;
 		}
-		Py_DECREF(wsgi_req->async_result);
+		Py_DECREF((PyObject *)wsgi_req->async_result);
 #ifdef UWSGI_ASYNC
 		if (uwsgi->async > 1) {
 			return UWSGI_AGAIN;
@@ -96,9 +96,9 @@ clear:
 	if (wsgi_req->async_post) {
 		fclose(wsgi_req->async_post);
 	}
-	Py_XDECREF(wsgi_req->async_placeholder);
+	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
 clear2:
-	Py_DECREF(wsgi_req->async_result);
+	Py_DECREF((PyObject *)wsgi_req->async_result);
 	//fprintf(stderr,"RESULT REFCNT: %d\n", ((PyObject *) wsgi_req->async_result)->ob_refcnt);
 	PyErr_Clear();
 	return UWSGI_OK;

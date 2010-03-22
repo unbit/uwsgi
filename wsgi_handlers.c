@@ -184,7 +184,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #else
 	wsgi_req->async_environ = wi->wsgi_environ;
 #endif
-	Py_INCREF(wsgi_req->async_environ);
+	Py_INCREF((PyObject *)wsgi_req->async_environ);
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 		/*fprintf(stderr,"%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base); */
@@ -278,8 +278,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		wsgi_req->async_result = python_call(wi->wsgi_cprofile_run, wi->wsgi_args);
 		if (wsgi_req->async_result) {
 			wsgi_req->async_result = PyDict_GetItemString(wi->pymain_dict, "uwsgi_out");
-			Py_INCREF(wsgi_req->async_result);
-			Py_INCREF(wsgi_req->async_result);
+			Py_INCREF((PyObject *)wsgi_req->async_result);
+			Py_INCREF((PyObject *)wsgi_req->async_result);
 		}
 	}
 	else {

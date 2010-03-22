@@ -593,7 +593,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef __APPLE__
 			memset(uwsgi.sharedareamutex, 0, sizeof(OSSpinLock));
 #else
-#ifndef __OpenBSD__
+#if !defined(__OpenBSD__) && !defined(__NetBSD__)
 			if (pthread_mutexattr_init((pthread_mutexattr_t *) uwsgi.sharedareamutex)) {
 				fprintf(stderr, "unable to allocate mutexattr structure\n");
 				exit(1);
