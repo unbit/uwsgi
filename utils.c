@@ -132,3 +132,71 @@ char *uwsgi_get_cwd() {
 	return cwd;
 
 }
+
+void internal_server_error(int fd, char *message) {
+#ifndef UNBIT
+        if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
+#endif
+                uwsgi.wsgi_req->headers_size = write(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
+#ifndef UNBIT
+        }
+        else {
+                uwsgi.wsgi_req->headers_size = write(fd, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
+        }
+        uwsgi.wsgi_req->header_cnt = 2;
+#endif
+        uwsgi.wsgi_req->response_size = write(fd, "<h1>uWSGI Error</h1>", 20);
+        uwsgi.wsgi_req->response_size += write(fd, message, strlen(message));
+}
+
+void uwsgi_as_root() {
+
+	if (!getuid()) {
+                fprintf(stderr, "uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+                if (uwsgi.chroot) {
+                        fprintf(stderr, "chroot() to %s\n", uwsgi.chroot);
+                        if (chroot(uwsgi.chroot)) {
+                                perror("chroot()");
+                                exit(1);
+                        }
+#ifdef __linux__
+                        if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
+                                fprintf(stderr, "*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
+                        }
+#endif
+                }
+                if (uwsgi.gid) {
+                        fprintf(stderr, "setgid() to %d\n", uwsgi.gid);
+                        if (setgid(uwsgi.gid)) {
+                                perror("setgid()");
+                                exit(1);
+                        }
+                }
+                if (uwsgi.uid) {
+                        fprintf(stderr, "setuid() to %d\n", uwsgi.uid);
+                        if (setuid(uwsgi.uid)) {
+                                perror("setuid()");
+                                exit(1);
+                        }
+                }
+
+                if (!getuid()) {
+                        fprintf(stderr, " *** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
+                }
+        }
+        else {
+                if (uwsgi.chroot) {
+                        fprintf(stderr, "cannot chroot() as non-root user\n");
+                        exit(1);
+                }
+                if (uwsgi.gid) {
+                        fprintf(stderr, "cannot setgid() as non-root user\n");
+                        exit(1);
+                }
+                if (uwsgi.uid) {
+                        fprintf(stderr, "cannot setuid() as non-root user\n");
+                        exit(1);
+                }
+        }
+}
+

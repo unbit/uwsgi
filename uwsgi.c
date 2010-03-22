@@ -37,12 +37,9 @@ in particular)
 
 struct uwsgi_server uwsgi;
 
-static char *nl = "\r\n";
-static char *h_sep = ": ";
-static const char *http_protocol = "HTTP/1.1";
-static const char *app_slash = "/";
-
 extern char **environ;
+
+static const char *app_slash = "/";
 
 #ifdef UWSGI_SENDFILE
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
@@ -71,8 +68,6 @@ char *tmp_filename;
 int uri_to_hex(void);
 int check_for_memory_errors = 0;
 #endif
-
-PyObject *wsgi_writeout;
 
 
 struct uwsgi_app *wi;
@@ -169,278 +164,7 @@ void stats() {
 }
 #endif
 
-void internal_server_error(int fd, char *message) {
-#ifndef UNBIT
-	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-#endif
-		uwsgi.wsgi_req->headers_size = write(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
-#ifndef UNBIT
-	}
-	else {
-		uwsgi.wsgi_req->headers_size = write(fd, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
-	}
-	uwsgi.wsgi_req->header_cnt = 2;
-#endif
-	uwsgi.wsgi_req->response_size = write(fd, "<h1>uWSGI Error</h1>", 20);
-	uwsgi.wsgi_req->response_size += write(fd, message, strlen(message));
-}
-
-PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
-	PyObject *data;
-	char *content;
-	int len;
-	data = PyTuple_GetItem(args, 0);
-	if (PyString_Check(data)) {
-		content = PyString_AsString(data);
-		len = PyString_Size(data);
-
-#ifdef UWSGI_THREADING
-		if (uwsgi.has_threads && uwsgi.shared->options[UWSGI_OPTION_THREADS] == 1) {
-			Py_BEGIN_ALLOW_THREADS uwsgi.wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
-		Py_END_ALLOW_THREADS}
-		else {
-#endif
-			uwsgi.wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
-#ifdef UNBIT
-			if (save_to_disk >= 0) {
-				if (write(save_to_disk, content, len) != len) {
-					perror("write()");
-					close(save_to_disk);
-					save_to_disk = -1;
-				}
-			}
-#endif
-#ifdef UWSGI_THREADING
-		}
-#endif
-	}
-#ifdef UNBIT
-	if (save_to_disk >= 0) {
-		close(save_to_disk);
-		save_to_disk = -1;
-		fprintf(stderr, "[uWSGI cacher] output of request %llu (%.*s) on pid %d written to cache file %s\n", uwsgi.workers[0].requests, uwsgi.wsgi_req->uri_len, uwsgi.wsgi_req->uri, uwsgi.mypid, tmp_filename);
-	}
-#endif
-	Py_INCREF(Py_None);
-	return Py_None;
-}
-
-#ifdef UWSGI_ASYNC
-PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
-	int fd, timeout;
-
-
-	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
-                return NULL;
-        }
-
-	if (fd >= 0) {
-		uwsgi.wsgi_req->async_waiting_fd = fd ;
-#ifdef __linux__
-		uwsgi.wsgi_req->async_waiting_fd_type = EPOLLIN ;
-#elif defined(__sun__)
-#else
-		uwsgi.wsgi_req->async_waiting_fd_type = EVFILT_READ ;
-#endif
-		uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
-	}
-
-	return PyString_FromString("") ;
-}
-
-
-PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
-	int fd, timeout;
-
-	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
-                return NULL;
-	}
-
-	if (fd >= 0) {
-		uwsgi.wsgi_req->async_waiting_fd = fd ;
-#ifdef __linux__
-		uwsgi.wsgi_req->async_waiting_fd_type = EPOLLOUT ;
-#elif defined(__sun__)
-#else
-		uwsgi.wsgi_req->async_waiting_fd_type = EVFILT_WRITE ;
-#endif
-		uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
-	}
-
-	return PyString_FromString("") ;
-}
-#endif
-
 PyObject *wsgi_spitout;
-
-PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
-	PyObject *headers, *head;
-	PyObject *h_key, *h_value;
-	int i, j;
-
-#ifndef UNBIT
-	int base = 0;
-#else
-	int base = 4;
-#endif
-
-	// use writev()
-
-
-	head = PyTuple_GetItem(args, 0);
-	if (!head) {
-		goto clear;
-	}
-
-	if (!PyString_Check(head)) {
-		fprintf(stderr, "http status must be a string !\n");
-		goto clear;
-	}
-
-
-#ifndef UNBIT
-	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-		base = 4;
-#endif
-
-
-		if (uwsgi.wsgi_req->protocol_len == 0) {
-			uwsgi.wsgi_req->hvec[0].iov_base = (char *) http_protocol;
-			uwsgi.wsgi_req->protocol_len = 8;
-		}
-		else {
-			uwsgi.wsgi_req->hvec[0].iov_base = uwsgi.wsgi_req->protocol;
-		}
-
-		uwsgi.wsgi_req->hvec[0].iov_len = uwsgi.wsgi_req->protocol_len;
-		uwsgi.wsgi_req->hvec[1].iov_base = " ";
-		uwsgi.wsgi_req->hvec[1].iov_len = 1;
-#ifdef PYTHREE
-		uwsgi.wsgi_req->hvec[2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
-		uwsgi.wsgi_req->hvec[2].iov_len = strlen(uwsgi.wsgi_req->hvec[2].iov_base);
-#else
-		uwsgi.wsgi_req->hvec[2].iov_base = PyString_AsString(head);
-		uwsgi.wsgi_req->hvec[2].iov_len = PyString_Size(head);
-#endif
-		uwsgi.wsgi_req->status = atoi(uwsgi.wsgi_req->hvec[2].iov_base);
-		uwsgi.wsgi_req->hvec[3].iov_base = nl;
-		uwsgi.wsgi_req->hvec[3].iov_len = NL_SIZE;
-#ifndef UNBIT
-	}
-	else {
-		// drop http status on cgi mode
-		base = 3;
-		uwsgi.wsgi_req->hvec[0].iov_base = "Status: ";
-		uwsgi.wsgi_req->hvec[0].iov_len = 8;
-#ifdef PYTHREE
-		uwsgi.wsgi_req->hvec[1].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
-		uwsgi.wsgi_req->hvec[1].iov_len = strlen(uwsgi.wsgi_req->hvec[1].iov_base);
-#else
-		uwsgi.wsgi_req->hvec[1].iov_base = PyString_AsString(head);
-		uwsgi.wsgi_req->hvec[1].iov_len = PyString_Size(head);
-#endif
-		uwsgi.wsgi_req->status = atoi(uwsgi.wsgi_req->hvec[1].iov_base);
-		uwsgi.wsgi_req->hvec[2].iov_base = nl;
-		uwsgi.wsgi_req->hvec[2].iov_len = NL_SIZE;
-	}
-#endif
-
-
-#ifdef UNBIT
-	if (uwsgi.wsgi_req->unbit_flags & (unsigned long long) 1) {
-		if (tmp_dir_fd >= 0 && tmp_filename[0] != 0 && uwsgi.wsgi_req->status == 200 && uwsgi.wsgi_req->method_len == 3 && uwsgi.wsgi_req->method[0] == 'G' && uwsgi.wsgi_req->method[1] == 'E' && uwsgi.wsgi_req->method[2] == 'T') {
-			save_to_disk = openat(tmp_dir_fd, tmp_filename, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP);
-		}
-	}
-#endif
-
-
-	headers = PyTuple_GetItem(args, 1);
-	if (!headers) {
-		goto clear;
-	}
-	if (!PyList_Check(headers)) {
-		fprintf(stderr, "http headers must be in a python list\n");
-		goto clear;
-	}
-	uwsgi.wsgi_req->header_cnt = PyList_Size(headers);
-
-
-
-	if (uwsgi.wsgi_req->header_cnt > uwsgi.max_vars) {
-		uwsgi.wsgi_req->header_cnt = uwsgi.max_vars;
-	}
-	for (i = 0; i < uwsgi.wsgi_req->header_cnt; i++) {
-		j = (i * 4) + base;
-		head = PyList_GetItem(headers, i);
-		if (!head) {
-			goto clear;
-		}
-		if (!PyTuple_Check(head)) {
-			fprintf(stderr, "http header must be defined in a tuple !\n");
-			goto clear;
-		}
-		h_key = PyTuple_GetItem(head, 0);
-		if (!h_key) {
-			goto clear;
-		}
-		h_value = PyTuple_GetItem(head, 1);
-		if (!h_value) {
-			goto clear;
-		}
-#ifdef PYTHREE
-		uwsgi.wsgi_req->hvec[j].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_key));
-		uwsgi.wsgi_req->hvec[j].iov_len = strlen(uwsgi.wsgi_req->hvec[j].iov_base);
-#else
-		uwsgi.wsgi_req->hvec[j].iov_base = PyString_AsString(h_key);
-		uwsgi.wsgi_req->hvec[j].iov_len = PyString_Size(h_key);
-#endif
-		uwsgi.wsgi_req->hvec[j + 1].iov_base = h_sep;
-		uwsgi.wsgi_req->hvec[j + 1].iov_len = H_SEP_SIZE;
-#ifdef PYTHREE
-		uwsgi.wsgi_req->hvec[j + 2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_value));
-		uwsgi.wsgi_req->hvec[j + 2].iov_len = strlen(uwsgi.wsgi_req->hvec[j + 2].iov_base);
-#else
-		uwsgi.wsgi_req->hvec[j + 2].iov_base = PyString_AsString(h_value);
-		uwsgi.wsgi_req->hvec[j + 2].iov_len = PyString_Size(h_value);
-#endif
-		uwsgi.wsgi_req->hvec[j + 3].iov_base = nl;
-		uwsgi.wsgi_req->hvec[j + 3].iov_len = NL_SIZE;
-		//fprintf(stderr, "%.*s: %.*s\n", uwsgi.wsgi_req->hvec[j].iov_len, (char *)uwsgi.wsgi_req->hvec[j].iov_base, uwsgi.wsgi_req->hvec[j+2].iov_len, (char *) uwsgi.wsgi_req->hvec[j+2].iov_base);
-	}
-
-
-#ifdef UNBIT
-	if (save_to_disk >= 0) {
-		for (j = 0; j < i; j += 4) {
-			if (!strncasecmp(uwsgi.wsgi_req->hvec[j].iov_base, "Set-Cookie", uwsgi.wsgi_req->hvec[j].iov_len)) {
-				close(save_to_disk);
-				save_to_disk = -1;
-				break;
-			}
-		}
-	}
-#endif
-
-	// \r\n
-	j = (i * 4) + base;
-	uwsgi.wsgi_req->hvec[j].iov_base = nl;
-	uwsgi.wsgi_req->hvec[j].iov_len = NL_SIZE;
-
-	uwsgi.wsgi_req->headers_size = writev(uwsgi.wsgi_req->poll.fd, uwsgi.wsgi_req->hvec, j + 1);
-	if (uwsgi.wsgi_req->headers_size < 0) {
-		perror("writev()");
-	}
-	Py_INCREF(wsgi_writeout);
-
-
-	return wsgi_writeout;
-
-      clear:
-
-	Py_INCREF(Py_None);
-	return Py_None;
-}
 
 PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""} };
 PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""} };
@@ -572,7 +296,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"socket", required_argument, 0, 's'},
 		{"processes", required_argument, 0, 'p'},
 		{"harakiri", required_argument, 0, 't'},
+#ifdef UWSGI_XML
 		{"xmlconfig", required_argument, 0, 'x'},
+#endif
 		{"daemonize", required_argument, 0, 'd'},
 		{"listen", required_argument, 0, 'l'},
 		{"optimize", required_argument, 0, 'O'},
@@ -582,7 +308,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"cgi-mode", no_argument, 0, 'c'},
 		{"abstract-socket", no_argument, 0, 'a'},
 		{"chmod-socket", no_argument, 0, 'C'},
+#ifdef UWSGI_THREADING
 		{"enable-threads", no_argument, 0, 'T'},
+#endif
 		{"profiler", no_argument, 0, 'P'},
 		{"single-interpreter", no_argument, 0, 'i'},
 		{"master", no_argument, 0, 'M'},
@@ -730,56 +458,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	fprintf(stderr, "Python version: %s\n", Py_GetVersion());
 
 #ifndef UNBIT
-	if (!getuid()) {
-		fprintf(stderr, "uWSGI running as root, you can use --uid/--gid/--chroot options\n");
-		if (uwsgi.chroot) {
-			fprintf(stderr, "chroot() to %s\n", uwsgi.chroot);
-			if (chroot(uwsgi.chroot)) {
-				perror("chroot()");
-				exit(1);
-			}
-#ifdef __linux__
-			if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
-				fprintf(stderr, "*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
-			}
-#endif
-		}
-		if (uwsgi.gid) {
-			fprintf(stderr, "setgid() to %d\n", uwsgi.gid);
-			if (setgid(uwsgi.gid)) {
-				perror("setgid()");
-				exit(1);
-			}
-		}
-		if (uwsgi.uid) {
-			fprintf(stderr, "setuid() to %d\n", uwsgi.uid);
-			if (setuid(uwsgi.uid)) {
-				perror("setuid()");
-				exit(1);
-			}
-		}
-
-		if (!getuid()) {
-			fprintf(stderr, " *** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
-		}
-	}
-	else {
-		if (uwsgi.chroot) {
-			fprintf(stderr, "cannot chroot() as non-root user\n");
-			exit(1);
-		}
-		if (uwsgi.gid) {
-			fprintf(stderr, "cannot setgid() as non-root user\n");
-			exit(1);
-		}
-		if (uwsgi.uid) {
-			fprintf(stderr, "cannot setuid() as non-root user\n");
-			exit(1);
-		}
-	}
-
-
-
+	uwsgi_as_root();
 #endif
 
 #ifndef UNBIT
@@ -821,7 +500,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	// by default set wsgi_req to the first slot
 	uwsgi.wsgi_req = uwsgi.wsgi_requests ;
 
-	fprintf(stderr, "allocated %d bytes for %d request's buffer.\n", uwsgi.buffer_size, uwsgi.async);
+	fprintf(stderr, "allocated %d bytes (%d KB) for %d request's buffer.\n", (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) ) * uwsgi.async, 
+								 ( (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) * uwsgi.async ) / 1024),
+								 uwsgi.async);
 
 	if (uwsgi.synclog) {
 		fprintf(stderr, "allocating a memory page for synced logging.\n");
@@ -888,7 +569,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
-	wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
+	uwsgi.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
 
 #ifdef UWSGI_EMBEDDED
 	uwsgi_module = Py_InitModule("uwsgi", null_methods);
@@ -2849,7 +2530,7 @@ void manage_opt(int i, char *optarg) {
 \t--pyargv <args>\t\t\tassign args to python sys.argv\n\
 \t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
 \t--udp <ip:port>\t\t\tbind master process to udp socket on ip:port\n\
-\t--snmp\t\t\tenable SNMP support in the UDP server\n\
+\t--snmp\t\t\t\tenable SNMP support in the UDP server\n\
 \t--erlang <name@ip>\t\tenable the Erlang server with node name <node@ip>\n\
 \t--erlang-cookie <cookie>\ttset the erlang cookie to <cookie>\n\
 \t--nagios\t\t\tdo a nagios check\n\
@@ -2858,6 +2539,7 @@ void manage_opt(int i, char *optarg) {
 \t--proxy-node <socket>\t\tadd the node <socket> to the proxy\n\
 \t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
 \t--wsgi-file <file>\t\tload the <file> wsgi file\n\
+\t--async <n>\t\t\tenable async mode with n core\n\
 \t--version\t\t\tprint server version\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", uwsgi.binary_path);
 		exit(1);

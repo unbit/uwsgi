@@ -1,5 +1,83 @@
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
+PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
+        PyObject *data;
+        char *content;
+        int len;
+        data = PyTuple_GetItem(args, 0);
+        if (PyString_Check(data)) {
+                content = PyString_AsString(data);
+                len = PyString_Size(data);
+
+#ifdef UWSGI_THREADING
+                if (uwsgi.has_threads && uwsgi.shared->options[UWSGI_OPTION_THREADS] == 1) {
+                        Py_BEGIN_ALLOW_THREADS uwsgi.wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
+                Py_END_ALLOW_THREADS}
+                else {
+#endif
+                        uwsgi.wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
+#ifdef UNBIT
+                        if (save_to_disk >= 0) {
+                                if (write(save_to_disk, content, len) != len) {
+                                        perror("write()");
+                                        close(save_to_disk);
+                                        save_to_disk = -1;
+                                }
+                        }
+#endif
+#ifdef UWSGI_THREADING
+                }
+#endif
+        }
+#ifdef UNBIT
+        if (save_to_disk >= 0) {
+                close(save_to_disk);
+                save_to_disk = -1;
+                fprintf(stderr, "[uWSGI cacher] output of request %llu (%.*s) on pid %d written to cache file %s\n", uwsgi.workers[0].requests, uwsgi.wsgi_req->uri_len, uwsgi.wsgi_req->uri, uwsgi.mypid, tmp_filename);
+        }
+#endif
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+#ifdef UWSGI_ASYNC
+PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
+        int fd, timeout;
+
+
+        if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
+                return NULL;
+        }
+
+        if (fd >= 0) {
+                uwsgi.wsgi_req->async_waiting_fd = fd ;
+                uwsgi.wsgi_req->async_waiting_fd_type = ASYNC_IN ;
+                uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
+        }
+
+        return PyString_FromString("") ;
+}
+
+
+PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
+        int fd, timeout;
+
+        if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
+                return NULL;
+        }
+
+        if (fd >= 0) {
+                uwsgi.wsgi_req->async_waiting_fd = fd ;
+                uwsgi.wsgi_req->async_waiting_fd_type = ASYNC_OUT ;
+                uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
+        }
+
+        return PyString_FromString("") ;
+}
+#endif
+
 int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	int i;

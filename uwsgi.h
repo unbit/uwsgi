@@ -427,6 +427,8 @@ struct uwsgi_server {
 	PyObject *embedded_args;
 	PyObject *fastfuncslist;
 
+	PyObject *wsgi_writeout;
+
 	PyObject *workers_tuple;
 
 	PyThreadState *main_thread;
@@ -678,6 +680,10 @@ void async_expire_timeouts(struct uwsgi_server *);
 #define ASYNC_IS_IN ASYNC_EV == ASYNC_IN
 #define ASYNC_IS_OUT ASYNC_EV == ASYNC_OUT
 #endif
+
+PyObject *py_eventfd_read(PyObject *, PyObject *) ;
+PyObject *py_eventfd_write(PyObject *, PyObject *) ;
+
 #endif
 
 int manage_python_response(struct uwsgi_server *, struct wsgi_request *);
@@ -688,3 +694,8 @@ PyObject *python_call(PyObject *, PyObject *);
 PyObject *py_uwsgi_sendfile(PyObject *, PyObject *) ;
 ssize_t uwsgi_sendfile(struct uwsgi_server *, struct wsgi_request *);
 #endif
+
+PyObject *py_uwsgi_write(PyObject *, PyObject *) ;
+PyObject *py_uwsgi_spit(PyObject *, PyObject *) ;
+
+void uwsgi_as_root(void);
