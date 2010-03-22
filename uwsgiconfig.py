@@ -23,6 +23,9 @@ GCC='gcc'
 XML_IMPLEMENTATION = 'libxml2'
 ERLANG_CFLAGS = ''
 ERLANG_LDFLAGS = '-lerl_interface -lei'
+# for source distribution installed in /usr/local
+#ERLANG_CFLAGS = '-I /usr/local/lib/erlang/lib/erl_interface-3.6.5/include/'
+#ERLANG_LDFLAGS = '-L/usr/local/lib/erlang/lib/erl_interface-3.6.5/lib -lerl_interface -lei'
 
 
 

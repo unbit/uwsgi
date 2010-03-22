@@ -499,8 +499,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	// by default set wsgi_req to the first slot
 	uwsgi.wsgi_req = uwsgi.wsgi_requests ;
 
-	fprintf(stderr, "allocated %d bytes (%d KB) for %d request's buffer.\n", (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) ) * uwsgi.async, 
-								 ( (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) * uwsgi.async ) / 1024),
+	fprintf(stderr, "allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) ) * uwsgi.async, 
+								 (uint64_t)( (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) * uwsgi.async ) / 1024),
 								 uwsgi.async);
 
 	if (uwsgi.synclog) {
