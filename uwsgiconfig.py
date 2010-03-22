@@ -19,6 +19,10 @@ PLUGINS = []
 UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
 
+# specific compilation flags
+XML_IMPLEMENTATION = 'libxml2'
+ERLANG_CFLAGS = ''
+ERLANG_LDFLAGS = '-lerl_interface -lei'
 
 
 
@@ -146,22 +150,30 @@ def parse_vars():
 		gcc_list.append('sendfile')
 
 	if XML:
-		xmlconf = spcall('xml2-config --libs')
-		if xmlconf is None:
-			print("libxml2 headers unavailable. XML support will be disabled")
-		else:
-			ldflags.append(xmlconf)
-			xmlconf = spcall("xml2-config --cflags")
+		if XML_IMPLEMENTATION == 'libxml2':
+			xmlconf = spcall('xml2-config --libs')
 			if xmlconf is None:
-                        	print("libxml2 headers unavailable. XML support will be disabled")
+				print("libxml2 headers unavailable. XML support will be disabled")
 			else:
-				cflags.append(xmlconf)
-				cflags.append("-DUWSGI_XML")
-				gcc_list.append('xmlconf')
+				ldflags.append(xmlconf)
+				xmlconf = spcall("xml2-config --cflags")
+				if xmlconf is None:
+                        		print("libxml2 headers unavailable. XML support will be disabled")
+				else:
+					cflags.append(xmlconf)
+					cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
+					gcc_list.append('xmlconf')
+		elif XML_IMPLEMENTATION == 'expat':
+			cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
+			ldflags.append('-lexpat')
+			gcc_list.append('xmlconf')
+			
 
 	if ERLANG:
 		cflags.append("-DUWSGI_ERLANG")
-		ldflags.append("-lerl_interface -lei")
+		ldflags.append(ERLANG_LDFLAGS)
+		if str(ERLANG_CFLAGS) != '':
+			cflags.append(ERLANG_CFLAGS)
 		gcc_list.append('erlang')
 
 	if SCTP:
