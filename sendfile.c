@@ -42,11 +42,27 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
         if (wsgi_req->sendfile_fd_size) {
 
+		 if (!wsgi_req->sendfile_fd_chunk) wsgi_req->sendfile_fd_chunk = 4096 ;
+
 #if defined(__FreeBSD__) || defined(__DragonFly__)
 
-                if (sendfile(fd, sockfd, 0, 0, NULL, &wsgi_req->sendfile_fd_size, 0)) {
+		off_t sf_len = wsgi_req->sendfile_fd_size ;
+
+		if (uwsgi->async > 1) {
+			sf_len = wsgi_req->sendfile_fd_chunk;
+			sf_ret = sendfile(fd, sockfd, wsgi_req->sendfile_fd_pos, 0, NULL, &sf_len, 0);
+			wsgi_req->sendfile_fd_pos += sf_len ;
+		}
+		else {
+			sf_ret = sendfile(fd, sockfd, 0, 0, NULL, &sf_len, 0);
+		}
+
+		 if (sf_ret) {
                         perror("sendfile()");
+                        return 0;
                 }
+
+		return sf_len;
 #elif __APPLE__
 		off_t sf_len = wsgi_req->sendfile_fd_size ;
 
@@ -87,10 +103,6 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
                 ssize_t jlen = 0;
                 ssize_t rlen = 0;
                 ssize_t i = 0;
-
-		if (!wsgi_req->sendfile_fd_chunk) {
-			wsgi_req->sendfile_fd_chunk = 4096;
-		}
 
 		if (!nosf_buf) {
 			nosf_buf = malloc(wsgi_req->sendfile_fd_chunk);
