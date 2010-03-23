@@ -1983,7 +1983,7 @@ void uwsgi_wsgi_config() {
 				}
 			}
 			else {
-				fprintf(stderr, "static applications not defined, you have to used the dynamic one...\n");
+				fprintf(stderr, "static applications not defined, you have to use the dynamic one...\n");
 				return;
 			}
 		}
