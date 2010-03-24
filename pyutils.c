@@ -12,7 +12,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		//fprintf(stderr,"DOH !!!\n");
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
-                        perror("write()");
+                        perror("STRING write()");
                         goto clear;
                 }
                 wsgi_req->response_size += wsize;
@@ -35,6 +35,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
+		//fprintf(stderr,"getting placeholder %d\n", wsgi_req->async_id);
 		wsgi_req->async_placeholder = PyObject_GetIter(wsgi_req->async_result);
                 if (!wsgi_req->async_placeholder) {
 			goto clear2;
@@ -46,6 +47,8 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 		}
 #endif
 	}
+
+		//fprintf(stderr,"running yield %d %p\n", wsgi_req->async_id, wsgi_req);
 
 	/*
 	boh = wsgi_req->async_placeholder; boh2 = wsgi_req->async_result ;
@@ -70,7 +73,8 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	//fprintf(stderr,"ob type %s\n", pychunk->ob_type->tp_name);
 	if (PyString_Check(pychunk)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
-			perror("write()");
+			fprintf(stderr,"ITER ID %d %d\n", wsgi_req->async_id, wsgi_req->poll.fd);
+			perror("ITER write()");
 			Py_DECREF(pychunk);
 			goto clear;
 		}

@@ -200,3 +200,41 @@ void uwsgi_as_root() {
         }
 }
 
+void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+
+	int waitpid_status ;
+
+        gettimeofday(&wsgi_req->end_of_request, NULL);
+        uwsgi->workers[uwsgi->mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
+
+
+	// get memory usage
+        if (uwsgi->shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1)
+        	get_memusage();
+
+        // close the connection with the webserver
+        //close(wsgi_req->poll.fd);
+        uwsgi->workers[0].requests++;
+        uwsgi->workers[uwsgi->mywid].requests++;
+
+	// after_request hook
+	(*uwsgi->shared->after_hooks[wsgi_req->modifier]) (uwsgi, wsgi_req);
+
+
+	// leave harakiri mode
+	if (uwsgi->workers[uwsgi->mywid].harakiri > 0) {
+        	set_harakiri(0);
+	}
+
+	// defunct process reaper
+        if (uwsgi->shared->options[UWSGI_OPTION_REAPER] == 1) {
+        	waitpid(-1, &waitpid_status, WNOHANG);
+	}
+        // reset request
+	memset(wsgi_req, 0, sizeof(struct wsgi_request));
+
+	if (uwsgi->shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi->workers[uwsgi->mywid].requests >= uwsgi->shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
+        	goodbye_cruel_world();
+	}
+
+}

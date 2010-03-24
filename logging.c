@@ -55,7 +55,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 #endif
 	}
 
-	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches)\n",
+	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches on async core %d)\n",
 		first_part,
 		uwsgi.mypid,
 		wsgi_req->app_id,
@@ -75,7 +75,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 		wsgi_req->status,
 		wsgi_req->header_cnt,
 		wsgi_req->headers_size, 
-		wsgi_req->async_switches);
+		wsgi_req->async_switches, wsgi_req->async_id);
 
 
 }

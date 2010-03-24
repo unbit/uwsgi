@@ -358,6 +358,9 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_ASYNC
 		{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
+#ifdef UWSGI_STACKLESS
+		{"stackless", no_argument, &uwsgi.stackless, 1},
+#endif
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -1269,6 +1272,14 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.async_running = -1 ;
 #endif
 
+
+#ifdef UWSGI_STACKLESS
+	if (uwsgi.stackless) {
+		stackless_loop(&uwsgi);
+		// never here
+	}
+#endif
+
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
@@ -1329,6 +1340,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
 				}
 
+				fprintf(stderr,"accepted connection on fd %d async_id %d\n", uwsgi.wsgi_req->poll.fd, uwsgi.wsgi_req->async_id);
 				uwsgi.wsgi_req->async_status = (*uwsgi.shared->hooks[uwsgi.wsgi_req->modifier]) (&uwsgi, uwsgi.wsgi_req);
 				if (uwsgi.wsgi_req->async_status == UWSGI_OK) {
 					goto reqclear;
@@ -1397,56 +1409,7 @@ cycle:
 
 reqclear:
 
-
-		gettimeofday(&uwsgi.wsgi_req->end_of_request, NULL);
-		uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (uwsgi.wsgi_req->end_of_request.tv_sec * 1000000 + uwsgi.wsgi_req->end_of_request.tv_usec) - (double) (uwsgi.wsgi_req->start_of_request.tv_sec * 1000000 + uwsgi.wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
-
-
-		// get memory usage
-		if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1)
-			get_memusage();
-
-		// close the connection with the webserver
-		close(uwsgi.wsgi_req->poll.fd);
-		uwsgi.workers[0].requests++;
-		uwsgi.workers[uwsgi.mywid].requests++;
-
-		// after_request hook
-		(*uwsgi.shared->after_hooks[uwsgi.wsgi_req->modifier]) (&uwsgi, uwsgi.wsgi_req);
-
-
-		// leave harakiri mode
-		if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
-			set_harakiri(0);
-		}
-
-		// defunct process reaper
-		if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1) {
-			waitpid(-1, &waitpid_status, WNOHANG);
-		}
-		// reset request
-		memset(uwsgi.wsgi_req, 0, sizeof(struct wsgi_request));
-#ifdef UNBIT
-		if (tmp_filename && tmp_dir_fd >= 0) {
-			tmp_filename[0] = 0;
-		}
-#endif
-
-		if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
-			goodbye_cruel_world();
-		}
-
-#ifdef UNBIT
-		if (check_for_memory_errors) {
-			if (syscall(357, &us, 0) > 0) {
-				if (us.memory_errors > 0) {
-					fprintf(stderr, "Unbit Kernel found a memory allocation error for process %d.\n", uwsgi.mypid);
-					goodbye_cruel_world();
-				}
-			}
-		}
-#endif
-
+		uwsgi_close_request(&uwsgi, uwsgi.wsgi_req);
 	}
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
@@ -1742,8 +1705,8 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 			exit(1);
 		}
 
-		wi->wsgi_args = PyTuple_New(1);
-		if (PyTuple_SetItem(wi->wsgi_args, 0, PyString_FromFormat("uwsgi_out = uwsgi_application__%d(uwsgi_environ__%d,uwsgi_spit__%d)", id, id, id))) {
+		wi->wsgi_args[0] = PyTuple_New(1);
+		if (PyTuple_SetItem(wi->wsgi_args[0], 0, PyString_FromFormat("uwsgi_out = uwsgi_application__%d(uwsgi_environ__%d,uwsgi_spit__%d)", id, id, id))) {
 			PyErr_Print();
 			if (uwsgi.single_interpreter == 0) {
 				Py_EndInterpreter(wi->interpreter);
@@ -1754,9 +1717,29 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	}
 	else {
 #endif
-		wi->wsgi_args = PyTuple_New(2);
-/*
-		if (PyTuple_SetItem(wi->wsgi_args, 0, wi->wsgi_environ)) {
+
+#ifdef UWSGI_ASYNC
+        wi->wsgi_args = malloc(sizeof(PyObject*)*uwsgi.async);
+        if (!wi->wsgi_args) {
+                perror("malloc()");
+                if (uwsgi.single_interpreter == 0) {
+                        Py_EndInterpreter(wi->interpreter);
+                        PyThreadState_Swap(uwsgi.main_thread) ;
+                }
+                return -1 ;
+        }
+
+        for(i=0;i<uwsgi.async;i++) {
+                wi->wsgi_args[i] = PyTuple_New(2);
+                // this will leak all the already allocated dictionary !!!
+                if (!wi->wsgi_args[i]) {
+                        if (uwsgi.single_interpreter == 0) {
+                                Py_EndInterpreter(wi->interpreter);
+                                PyThreadState_Swap(uwsgi.main_thread) ;
+                        }
+                        return -1 ;
+                }
+		if (PyTuple_SetItem(wi->wsgi_args[i], 1, wsgi_spitout)) {
 			PyErr_Print();
 			if (uwsgi.single_interpreter == 0) {
 				Py_EndInterpreter(wi->interpreter);
@@ -1764,7 +1747,10 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 			}
 			return -1;
 		}
-*/
+        }
+#else
+
+		wi->wsgi_args = PyTuple_New(2);
 		if (PyTuple_SetItem(wi->wsgi_args, 1, wsgi_spitout)) {
 			PyErr_Print();
 			if (uwsgi.single_interpreter == 0) {
@@ -1773,6 +1759,8 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 			}
 			return -1;
 		}
+#endif
+
 #ifdef UWSGI_PROFILER
 	}
 #endif

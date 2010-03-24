@@ -73,6 +73,10 @@
 #undef _XOPEN_SOURCE
 #include <Python.h>
 
+#ifdef UWSGI_STACKLESS
+#include <stackless_api.h>
+#endif
+
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
 #define Py_ssize_t int
 #endif
@@ -206,13 +210,14 @@ struct uwsgi_app {
 
 	PyThreadState *interpreter;
 	PyObject *pymain_dict;
-
 	PyObject *wsgi_callable;
-	PyObject *wsgi_args;
+
 
 #ifdef UWSGI_ASYNC
+	PyObject **wsgi_args;
 	PyObject **wsgi_environ;
 #else
+	PyObject *wsgi_args;
 	PyObject *wsgi_environ;
 #endif
 	PyObject *wsgi_harakiri;
@@ -300,9 +305,14 @@ struct __attribute__ ((packed)) wsgi_request {
 	void *async_app;
 	void *async_result;
 	void *async_placeholder;
+	void *async_args;
 	void *async_environ;
 	void *async_post;
 	void *async_sendfile;
+
+#ifdef UWSGI_STACKLESS
+	PyTaskletObject* tasklet;
+#endif
 
 	// buffer MUST BE THE LAST VAR !!!
 	char buffer;
@@ -384,6 +394,8 @@ struct uwsgi_server {
 	int async_queue ;
 	int async_nevents ;
 
+	int stackless;
+
 #ifdef __linux__
 	struct epoll_event *async_events;
 #elif defined(__sun__)
@@ -432,6 +444,11 @@ struct uwsgi_server {
 	PyObject *fastfuncslist;
 
 	PyObject *wsgi_writeout;
+
+#ifdef UWSGI_STACKLESS
+	PyObject *wsgi_stackless;
+	struct stackless_req **stackless_table;
+#endif
 
 	PyObject *workers_tuple;
 
@@ -658,6 +675,8 @@ struct wsgi_request *async_loop(struct uwsgi_server *);
 struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *); 
 struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
 
+struct wsgi_request *next_wsgi_req(struct uwsgi_server *, struct wsgi_request *);
+
 int async_add(int, int , int) ;
 int async_mod(int, int , int) ;
 int async_wait(int, void *, int, int, int);
@@ -688,6 +707,11 @@ void async_expire_timeouts(struct uwsgi_server *);
 PyObject *py_eventfd_read(PyObject *, PyObject *) ;
 PyObject *py_eventfd_write(PyObject *, PyObject *) ;
 
+
+#endif
+
+#ifdef UWSGI_STACKLESS
+PyObject *py_uwsgi_stackless(PyObject *, PyObject *) ;
 #endif
 
 int manage_python_response(struct uwsgi_server *, struct wsgi_request *);
@@ -707,3 +731,17 @@ void uwsgi_as_root(void);
 #ifdef UWSGI_NAGIOS
 void nagios(struct uwsgi_server *);
 #endif
+
+
+#ifdef UWSGI_STACKLESS
+struct stackless_req {
+	PyTaskletObject *tasklet;
+	struct wsgi_request *wsgi_req;
+	PyChannelObject *channel;
+};
+struct wsgi_request *find_request_by_tasklet(PyTaskletObject *);
+
+void stackless_loop(struct uwsgi_server *);
+#endif
+
+void uwsgi_close_request(struct uwsgi_server *, struct wsgi_request *) ;

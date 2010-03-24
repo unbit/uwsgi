@@ -15,12 +15,14 @@ NAGIOS=True
 PROXY=True
 MINTERPRETERS=True
 ASYNC=True
+STACKLESS=True
 PLUGINS = []
 UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
 
 # specific compilation flags
 XML_IMPLEMENTATION = 'libxml2'
+PYLIB_PATH = '/home/roberto/uwsgi/STACKLESS/slp/lib'
 ERLANG_CFLAGS = ''
 ERLANG_LDFLAGS = '-lerl_interface -lei'
 # for source distribution installed in /usr/local
@@ -105,6 +107,9 @@ def parse_vars():
 		sys.exit(1)
 	ldflags.insert(0,pyconf)
 
+	if str(PYLIB_PATH) != '':
+		ldflags.insert(0,'-L' + PYLIB_PATH)
+
 	kvm_list = ['SunOS', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
 	if uwsgi_os == 'SunOS':
@@ -126,6 +131,10 @@ def parse_vars():
 
 	if MULTICAST:
 		cflags.append("-DUWSGI_MULTICAST")
+
+	if STACKLESS:
+		cflags.append("-DUWSGI_STACKLESS")
+		gcc_list.append('stackless')
 
 	if MINTERPRETERS:
 		cflags.append("-DUWSGI_MINTERPRETERS")

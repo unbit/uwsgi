@@ -6,6 +6,16 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
         PyObject *data;
         char *content;
         int len;
+
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
+
+#ifdef UWSGI_STACKLESS
+	if (uwsgi.stackless) {
+		PyThreadState *ts = PyThreadState_GET();
+        	wsgi_req = find_request_by_tasklet(ts->st.current);
+	}
+#endif
+
         data = PyTuple_GetItem(args, 0);
         if (PyString_Check(data)) {
                 content = PyString_AsString(data);
@@ -13,31 +23,16 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 
 #ifdef UWSGI_THREADING
                 if (uwsgi.has_threads && uwsgi.shared->options[UWSGI_OPTION_THREADS] == 1) {
-                        Py_BEGIN_ALLOW_THREADS uwsgi.wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
+                        Py_BEGIN_ALLOW_THREADS wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
                 Py_END_ALLOW_THREADS}
                 else {
 #endif
-                        uwsgi.wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
-#ifdef UNBIT
-                        if (save_to_disk >= 0) {
-                                if (write(save_to_disk, content, len) != len) {
-                                        perror("write()");
-                                        close(save_to_disk);
-                                        save_to_disk = -1;
-                                }
-                        }
-#endif
+                        wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
 #ifdef UWSGI_THREADING
                 }
 #endif
         }
-#ifdef UNBIT
-        if (save_to_disk >= 0) {
-                close(save_to_disk);
-                save_to_disk = -1;
-                fprintf(stderr, "[uWSGI cacher] output of request %llu (%.*s) on pid %d written to cache file %s\n", uwsgi.workers[0].requests, uwsgi.wsgi_req->uri_len, uwsgi.wsgi_req->uri, uwsgi.mypid, tmp_filename);
-        }
-#endif
+
         Py_INCREF(Py_None);
         return Py_None;
 }
@@ -150,7 +145,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	}
 
-
 	wi = &uwsgi->wsgi_apps[wsgi_req->app_id];
 
 	if (uwsgi->single_interpreter == 0) {
@@ -179,21 +173,26 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 
 
+
 #ifdef UWSGI_ASYNC
 	wsgi_req->async_environ = wi->wsgi_environ[wsgi_req->async_id];
+	wsgi_req->async_args = wi->wsgi_args[wsgi_req->async_id];
 #else
 	wsgi_req->async_environ = wi->wsgi_environ;
+	wsgi_req->async_args = wi->wsgi_args;
 #endif
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
 
+
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
-		/*fprintf(stderr,"%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base); */
+		//fprintf(stderr,"%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 		pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
 		pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
-		PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
+		//PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
 		Py_DECREF(pydictkey);
 		Py_DECREF(pydictvalue);
 	}
+
 
 	if (wsgi_req->modifier == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
 		pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
@@ -209,6 +208,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 			}
 		}
 	}
+
 
 
 
@@ -269,13 +269,11 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
 	Py_DECREF(zero);
 
-
-
 	// call
 #ifdef UWSGI_PROFILER
 	if (uwsgi->enable_profiler == 1) {
 		PyDict_SetItem(wi->pymain_dict, PyString_FromFormat("uwsgi_environ__%d", wsgi_req->app_id), wsgi_req->async_environ);
-		wsgi_req->async_result = python_call(wi->wsgi_cprofile_run, wi->wsgi_args);
+		wsgi_req->async_result = python_call(wi->wsgi_cprofile_run, wsgi_req->async_args);
 		if (wsgi_req->async_result) {
 			wsgi_req->async_result = PyDict_GetItemString(wi->pymain_dict, "uwsgi_out");
 			Py_INCREF((PyObject *)wsgi_req->async_result);
@@ -285,8 +283,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	else {
 #endif
 
-		PyTuple_SetItem(wi->wsgi_args, 0, wsgi_req->async_environ);
-		wsgi_req->async_result = python_call(wi->wsgi_callable, wi->wsgi_args);
+		PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
+		wsgi_req->async_result = python_call(wi->wsgi_callable, wsgi_req->async_args);
 
 #ifdef UWSGI_PROFILER
 	}
@@ -297,7 +295,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
-			if (uwsgi->async > 1) {
+			if (uwsgi->async > 1 && !uwsgi->stackless) {
 				return UWSGI_AGAIN;
 			}
 #endif
