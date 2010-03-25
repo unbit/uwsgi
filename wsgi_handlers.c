@@ -41,15 +41,24 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
         int fd, timeout;
 
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
+
+#ifdef UWSGI_STACKLESS
+	if (uwsgi.stackless) {
+		PyThreadState *ts = PyThreadState_GET();
+        	wsgi_req = find_request_by_tasklet(ts->st.current);
+	}
+#endif
+
 
         if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
                 return NULL;
         }
 
         if (fd >= 0) {
-                uwsgi.wsgi_req->async_waiting_fd = fd ;
-                uwsgi.wsgi_req->async_waiting_fd_type = ASYNC_IN ;
-                uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
+                wsgi_req->async_waiting_fd = fd ;
+                wsgi_req->async_waiting_fd_type = ASYNC_IN ;
+                wsgi_req->async_waiting_fd_monitored = 0 ;
         }
 
         return PyString_FromString("") ;
@@ -59,14 +68,23 @@ PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
         int fd, timeout;
 
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
+
+#ifdef UWSGI_STACKLESS
+	if (uwsgi.stackless) {
+		PyThreadState *ts = PyThreadState_GET();
+        	wsgi_req = find_request_by_tasklet(ts->st.current);
+	}
+#endif
+
         if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
                 return NULL;
         }
 
         if (fd >= 0) {
-                uwsgi.wsgi_req->async_waiting_fd = fd ;
-                uwsgi.wsgi_req->async_waiting_fd_type = ASYNC_OUT ;
-                uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
+                wsgi_req->async_waiting_fd = fd ;
+                wsgi_req->async_waiting_fd_type = ASYNC_OUT ;
+                wsgi_req->async_waiting_fd_monitored = 0 ;
         }
 
         return PyString_FromString("") ;

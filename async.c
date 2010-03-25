@@ -271,7 +271,7 @@ struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *uwsgi, int fd, int
         int i ;
 
         for(i=0;i<uwsgi->async;i++) {
-                if (wsgi_req->async_waiting_fd == fd && wsgi_req->async_waiting_fd_type & etype) {
+                if (wsgi_req->async_waiting_fd == fd && wsgi_req->async_waiting_fd_type == etype) {
                         return wsgi_req ;
                 }
                 wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
