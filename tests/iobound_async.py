@@ -1,5 +1,6 @@
 import socket
 import select
+import errno
 
 def send_request(env, client):
 
@@ -28,11 +29,11 @@ def application(env, start_response):
 	#yield ""
 
 	c = s.connect_ex(('www.google.it', 80))
-	if c == 115:
+	if c in errno.EINPROGRESS:
 		yield env['x-wsgiorg.fdevent.writable'](s.fileno(), 10)
 		for r in send_request(env, s):
 			yield r
-	elif c == 0:
+	elif c in errno.EISCONN: 
 		for r in send_request(env, s):
 			yield r
 	else:
