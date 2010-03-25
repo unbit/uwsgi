@@ -29,11 +29,11 @@ def application(env, start_response):
 	#yield ""
 
 	c = s.connect_ex(('www.google.it', 80))
-	if c in errno.EINPROGRESS:
+	if c == errno.EINPROGRESS:
 		yield env['x-wsgiorg.fdevent.writable'](s.fileno(), 10)
 		for r in send_request(env, s):
 			yield r
-	elif c in errno.EISCONN: 
+	elif c == errno.EISCONN: 
 		for r in send_request(env, s):
 			yield r
 	else:
