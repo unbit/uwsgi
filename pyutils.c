@@ -99,6 +99,7 @@ clear:
 	}
 	if (wsgi_req->async_post) {
 		fclose(wsgi_req->async_post);
+		wsgi_req->fd_closed = 1 ;
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
 clear2:

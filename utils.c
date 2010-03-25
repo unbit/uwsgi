@@ -213,7 +213,7 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
         	get_memusage();
 
         // close the connection with the webserver
-        //close(wsgi_req->poll.fd);
+	if (!wsgi_req->fd_closed) close(wsgi_req->poll.fd);
         uwsgi->workers[0].requests++;
         uwsgi->workers[uwsgi->mywid].requests++;
 

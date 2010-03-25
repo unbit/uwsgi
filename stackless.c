@@ -52,8 +52,6 @@ PyObject *py_uwsgi_stackless_worker(PyObject * self, PyObject * args) {
                         continue;
                 }
 
-		fprintf(stderr,"tasklet %d received a request\n", wsgi_req->async_id);
-
                 UWSGI_SET_IN_REQUEST;
 
                 if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
@@ -116,7 +114,6 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 		//fprintf(stderr,"tasklet %d %p\n", i, wsgi_req->tasklet);
 		// put i in the python args
 		PyTasklet_Setup(wsgi_req->tasklet, PyTuple_New(0), NULL);
-		//PyTasklet_Run(wsgi_req->tasklet);
 		wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
 	}
 
@@ -124,7 +121,6 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 
 	// tasklets initialized, go to main loop
 	for(;;) {
-		//fprintf(stderr,"restarting loop\n");
 		uwsgi->async_running = 0 ;
 		uwsgi->async_nevents = async_wait(uwsgi->async_queue, uwsgi->async_events, uwsgi->async, uwsgi->async_running, 0);
 
@@ -140,6 +136,7 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 			}
 
 		}
+
 
 		if (PyStackless_GetRunCount() > 0) {
 			PyStackless_Schedule(Py_None, 0);

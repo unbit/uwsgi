@@ -280,6 +280,8 @@ struct __attribute__ ((packed)) wsgi_request {
 	unsigned long long unbit_flags;
 #endif
 
+	int fd_closed;
+
 	int sendfile_fd;
 	size_t sendfile_fd_chunk;
 	size_t sendfile_fd_size;
