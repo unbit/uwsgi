@@ -238,3 +238,48 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 	}
 
 }
+
+void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
+
+	wsgi_req->poll.events = POLLIN;
+        wsgi_req->app_id = uwsgi.default_app;
+        wsgi_req->async_id = async_id;
+#ifdef UWSGI_SENDFILE
+        wsgi_req->sendfile_fd = -1;
+#endif
+	wsgi_req->hvec = &uwsgi.async_hvec[wsgi_req->async_id];
+
+}
+
+int wsgi_req_recv(struct wsgi_request *wsgi_req) {
+
+	UWSGI_SET_IN_REQUEST;
+
+        if (uwsgi.shared->options[UWSGI_OPTION_LOGGING]) gettimeofday(&wsgi_req->start_of_request, NULL);
+
+	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, &wsgi_req->buffer)) {
+		return -1;
+	}
+
+	// enter harakiri mode
+	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+        	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+	}
+
+        wsgi_req->async_status = (*uwsgi.shared->hooks[wsgi_req->modifier]) (&uwsgi, wsgi_req);
+
+	return 0;
+}
+
+int wsgi_req_accept(int fd, struct wsgi_request *wsgi_req) {
+
+	wsgi_req->poll.fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
+
+	if (uwsgi.wsgi_req->poll.fd < 0) {
+        	perror("accept()");
+                return -1;
+	}
+
+	return 0;
+}
+

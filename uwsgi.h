@@ -244,6 +244,10 @@ struct __attribute__ ((packed)) wsgi_request {
 
 	struct pollfd poll;
 
+	// this is big enough to contain sockaddr_in
+	struct sockaddr_un c_addr;
+        int c_len;
+
 	// iovec
 	struct iovec *hvec;
 
@@ -449,6 +453,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_STACKLESS
 	PyObject *wsgi_stackless;
+	PyChannelObject *workers_channel;
 	struct stackless_req **stackless_table;
 #endif
 
@@ -743,7 +748,12 @@ struct stackless_req {
 };
 struct wsgi_request *find_request_by_tasklet(PyTaskletObject *);
 
+void stackless_init(struct uwsgi_server *);
 void stackless_loop(struct uwsgi_server *);
 #endif
 
 void uwsgi_close_request(struct uwsgi_server *, struct wsgi_request *) ;
+
+void wsgi_req_setup(struct wsgi_request *, int);
+int wsgi_req_recv(struct wsgi_request *);
+int wsgi_req_accept(int, struct wsgi_request *);

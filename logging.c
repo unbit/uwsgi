@@ -12,16 +12,16 @@ void log_request(struct wsgi_request *wsgi_req) {
 	char *time_request;
 	time_t microseconds, microseconds2;
 
+	static char *empty = "";
+	char *first_part = empty;
+	int app_req = -1;
+	char *msg2 = " ";
+	char *via = msg2;
 
 #ifdef UWSGI_SENDFILE
 	char *msg1 = " via sendfile() ";
-	char *msg2 = " ";
-	char *via;
-	static char *empty = "";
 
-	char *first_part = empty;
 	struct uwsgi_app *wi;
-	int app_req = -1;
 
 	if (wsgi_req->app_id >= 0) {
 		wi = &uwsgi.wsgi_apps[wsgi_req->app_id];

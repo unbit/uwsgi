@@ -208,8 +208,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	char *pyargv[MAX_PYARGV];
 	int pyargc = 1;
 
-	struct sockaddr_un c_addr;
-	int c_len = sizeof(struct sockaddr_un);
 	int i;
 
 	int rlen;
@@ -630,6 +628,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.main_thread = PyThreadState_Get();
 
 
+#ifdef UWSGI_NAGIOS
+	if (uwsgi.nagios) {
+		nagios(&uwsgi);
+		// never here
+	}
+#endif
+
 #ifdef UWSGI_THREADING
 	if (uwsgi.has_threads) {
 		PyEval_InitThreads();
@@ -638,13 +643,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
-
-#ifdef UWSGI_NAGIOS
-	if (uwsgi.nagios) {
-		nagios(&uwsgi);
-		// never here
-	}
-#endif
 
 	if (!no_server) {
 #ifndef UNBIT
@@ -864,6 +862,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+#ifdef UWSGI_STACKLESS
+	if (uwsgi.stackless) {
+		stackless_init(&uwsgi);
+	}
+#endif
+
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
@@ -927,6 +931,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		signal(SIGUSR1, (void *) &stats);
 #endif
 
+#ifdef UWSGI_SNMP
 		if (uwsgi.udp_socket) {
 			uwsgi_poll.fd = bind_to_udp(uwsgi.udp_socket);
 			if (uwsgi_poll.fd < 0) {
@@ -937,6 +942,8 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi_poll.events = POLLIN;
 			}
 		}
+#endif
+
 #ifdef UWSGI_SNMP
 		if (uwsgi.snmp) {
 			if (uwsgi.snmp_community) {
@@ -1308,40 +1315,16 @@ int main(int argc, char *argv[], char *envp[]) {
 					// async system is full !!!
 					goto cycle;
 				}
-				uwsgi.wsgi_req->poll.events = POLLIN;
-				uwsgi.wsgi_req->async_waiting_fd = -1;
 
-				uwsgi.wsgi_req->app_id = uwsgi.default_app;
-#ifdef UWSGI_SENDFILE
-				uwsgi.wsgi_req->sendfile_fd = -1;
-#endif
+				wsgi_req_setup(uwsgi.wsgi_req, ( (uint8_t *) uwsgi.wsgi_req - (uint8_t *) uwsgi.wsgi_requests)/(sizeof(struct wsgi_request)+(uwsgi.buffer_size-1))) ;
 
-				uwsgi.wsgi_req->async_id = ( (uint8_t *) uwsgi.wsgi_req - (uint8_t *) uwsgi.wsgi_requests)/(sizeof(struct wsgi_request)+(uwsgi.buffer_size-1)) ;
-
-				uwsgi.wsgi_req->hvec = &uwsgi.async_hvec[uwsgi.wsgi_req->async_id];
-				uwsgi.wsgi_req->poll.fd = accept(uwsgi.serverfd, (struct sockaddr *) &c_addr, (socklen_t *) & c_len);
-
-				if (uwsgi.wsgi_req->poll.fd < 0) {
-					perror("accept()");
+				if (wsgi_req_accept(uwsgi.serverfd, uwsgi.wsgi_req)) {
 					continue;
 				}
 
-				UWSGI_SET_IN_REQUEST;
-
-				if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
-					gettimeofday(&uwsgi.wsgi_req->start_of_request, NULL);
-
-				if (!uwsgi_parse_response(&uwsgi.wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) uwsgi.wsgi_req, &uwsgi.wsgi_req->buffer)) {
+				if (wsgi_req_recv(uwsgi.wsgi_req)) {
 					continue;
 				}
-
-				// enter harakiri mode
-				if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-					set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
-				}
-
-				fprintf(stderr,"accepted connection on fd %d async_id %d\n", uwsgi.wsgi_req->poll.fd, uwsgi.wsgi_req->async_id);
-				uwsgi.wsgi_req->async_status = (*uwsgi.shared->hooks[uwsgi.wsgi_req->modifier]) (&uwsgi, uwsgi.wsgi_req);
 				if (uwsgi.wsgi_req->async_status == UWSGI_OK) {
 					goto reqclear;
 				}
@@ -1360,7 +1343,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 
 cycle:
-	
 		uwsgi.wsgi_req = async_loop(&uwsgi);
 
 		if (uwsgi.wsgi_req == NULL)
@@ -1370,44 +1352,21 @@ cycle:
 	}
 	else {
 #endif
+		wsgi_req_setup(uwsgi.wsgi_req, 0);
 
-				uwsgi.wsgi_req->poll.events = POLLIN;
-                                uwsgi.wsgi_req->app_id = uwsgi.default_app;
-                                uwsgi.wsgi_req->async_id = 0;
-#ifdef UWSGI_SENDFILE
-                                uwsgi.wsgi_req->sendfile_fd = -1;
-#endif
-				uwsgi.wsgi_req->hvec = &uwsgi.async_hvec[uwsgi.wsgi_req->async_id];
+		if (wsgi_req_accept(uwsgi.serverfd, uwsgi.wsgi_req)) {
+			continue;
+		}
 
-
-		uwsgi.wsgi_req->poll.fd = accept(uwsgi.serverfd, (struct sockaddr *) &c_addr, (socklen_t *) & c_len);
-
-                if (uwsgi.wsgi_req->poll.fd < 0) {
-                	perror("accept()");
-                        continue;
-                }
-
-                UWSGI_SET_IN_REQUEST;
-
-                if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
-                	gettimeofday(&uwsgi.wsgi_req->start_of_request, NULL);
-
-                if (!uwsgi_parse_response(&uwsgi.wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) uwsgi.wsgi_req, &uwsgi.wsgi_req->buffer)) {
-                	continue;
-                }
-
-                // enter harakiri mode
-                if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
-                }
-
-                uwsgi.wsgi_req->async_status = (*uwsgi.shared->hooks[uwsgi.wsgi_req->modifier]) (&uwsgi, uwsgi.wsgi_req);
+		if (wsgi_req_recv(uwsgi.wsgi_req)) {
+			continue;
+		}
 
 #ifdef UWSGI_ASYNC
 	}
+reqclear:
 #endif
 
-reqclear:
 
 		uwsgi_close_request(&uwsgi, uwsgi.wsgi_req);
 	}
@@ -1461,8 +1420,10 @@ void init_uwsgi_vars() {
 
 int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	PyObject *wsgi_module, *wsgi_dict = NULL;
-	PyObject *pymain, *zero;
-	PyObject *pycprof, *pycprof_dict;
+	PyObject *zero;
+#ifdef UWSGI_PROFILER
+	PyObject *pymain, *pycprof, *pycprof_dict;
+#endif
 	char tmpstring[256];
 	int id;
 #ifdef UWSGI_ASYNC
@@ -1528,7 +1489,8 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 			exit(1);
 		}
 		PyThreadState_Swap(wi->interpreter);
-#ifndef PYTHREE
+
+#ifdef UWSGI_EMBEDDED
 		init_uwsgi_embedded_module();
 #endif
 		init_uwsgi_vars();
@@ -1912,7 +1874,7 @@ void uwsgi_wsgi_file_config() {
 void uwsgi_wsgi_config() {
 
 	PyObject *wsgi_module, *wsgi_dict;
-#ifndef PYTHREE
+#ifdef UWSGI_EMBEDDED
 	PyObject *uwsgi_module, *uwsgi_dict;
 #endif
 	PyObject *applications;
@@ -1935,7 +1897,7 @@ void uwsgi_wsgi_config() {
 
 	fprintf(stderr, "...getting the applications list from the '%s' module...\n", uwsgi.wsgi_config);
 
-#ifndef PYTHREE
+#ifdef UWSGI_EMBEDDED
 	uwsgi_module = PyImport_ImportModule("uwsgi");
 	if (!uwsgi_module) {
 		PyErr_Print();
@@ -1975,7 +1937,7 @@ void uwsgi_wsgi_config() {
 				return;
 			}
 		}
-#ifndef PYTHREE
+#ifdef UWSGI_EMBEDDED
 	}
 #endif
 
@@ -2240,6 +2202,7 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_VERSION:
 		fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);
 		exit(0);
+#ifdef UWSGI_SNMP
 	case LONG_ARGS_SNMP:
 		uwsgi.snmp = 1;
 		break;
@@ -2247,6 +2210,7 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.snmp = 1;
 		uwsgi.snmp_community = optarg;
 		break;
+#endif
 	case LONG_ARGS_PIDFILE:
 		uwsgi.pidfile = optarg;
 		break;
@@ -2483,6 +2447,7 @@ void manage_opt(int i, char *optarg) {
 \t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
 \t--wsgi-file <file>\t\tload the <file> wsgi file\n\
 \t--async <n>\t\t\tenable async mode with n core\n\
+\t--stackless\t\t\tenable usage of tasklet (only on Stackless Python)\n\
 \t--version\t\t\tprint server version\n\
 \t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", uwsgi.binary_path);
 		exit(1);

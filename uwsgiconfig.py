@@ -10,19 +10,20 @@ UDP=True
 MULTICAST=True
 THREADING=True
 SENDFILE=True
-PROFILER=True
+PROFILER=False
 NAGIOS=True
 PROXY=True
 MINTERPRETERS=True
 ASYNC=True
-STACKLESS=True
+STACKLESS=False
 PLUGINS = []
 UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
 
 # specific compilation flags
 XML_IMPLEMENTATION = 'libxml2'
-PYLIB_PATH = '/home/roberto/uwsgi/STACKLESS/slp/lib'
+# if you want to use alternative python lib, specifiy its path here
+PYLIB_PATH = ''
 ERLANG_CFLAGS = ''
 ERLANG_LDFLAGS = '-lerl_interface -lei'
 # for source distribution installed in /usr/local
@@ -39,11 +40,20 @@ uwsgi_os = os.uname()[0]
 import sys
 import subprocess
 
+from distutils import sysconfig
+
 gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'uwsgi']
 
 # large file support
-cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64']
-ldflags = ['-lpthread', '-rdynamic']
+cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + sysconfig.get_config_var('CFLAGS').split()
+cflags = cflags + ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ]
+ldflags = ['-lpthread', '-rdynamic'] + sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
+
+def depends_on(what, dep):
+	for d in dep:
+		if not globals()[d]:
+			print("%s needs %s support." % (what, d))
+			sys.exit(1)
 
 def spcall(cmd):
 	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
@@ -95,17 +105,7 @@ def parse_vars():
 	version = sys.version_info
 	uver = "%d.%d" % (version[0], version[1])
 
-	pyconf = spcall("python%s-config --cflags" % uver)
-	if pyconf is None:
-		print("python development headers unavailable !!!!")
-		sys.exit(1)
-	cflags.insert(0,pyconf)
-
-	pyconf = spcall("python%s-config --libs" % uver)
-	if pyconf is None:
-		print("python development headers unavailable !!!!")
-		sys.exit(1)
-	ldflags.insert(0,pyconf)
+	ldflags.append('-lpython' + uver)
 
 	if str(PYLIB_PATH) != '':
 		ldflags.insert(0,'-L' + PYLIB_PATH)
@@ -130,9 +130,13 @@ def parse_vars():
 		gcc_list.append('async')
 
 	if MULTICAST:
+		depends_on("MULTICAST", ['UDP'])
 		cflags.append("-DUWSGI_MULTICAST")
 
 	if STACKLESS:
+		if not cflags.__contains__('-DSTACKLESS_FRHACK=1'):
+			print("you need Stackless Python to use Tasklet")
+			sys.exit(1)
 		cflags.append("-DUWSGI_STACKLESS")
 		gcc_list.append('stackless')
 
@@ -144,10 +148,12 @@ def parse_vars():
 		gcc_list.append('nagios')
 
 	if PROXY:
+		depends_on("PROXY", ['ASYNC'])
 		cflags.append("-DUWSGI_PROXY")
 		gcc_list.append('proxy')
 
 	if SNMP:
+		depends_on("SNMP", ['UDP'])
 		cflags.append("-DUWSGI_SNMP")
 		gcc_list.append('snmp')
 
@@ -193,6 +199,7 @@ def parse_vars():
         	cflags.append("-DUWSGI_SCTP")
 
 	if SPOOLER:
+		depends_on("SPOOLER", ['EMBEDDED'])
 		cflags.append("-DUWSGI_SPOOLER")
 		gcc_list.append('spooler')
 

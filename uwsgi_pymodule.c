@@ -601,6 +601,7 @@ PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+#ifdef UWSGI_MULTICAST
 PyObject *py_uwsgi_multicast(PyObject * self, PyObject * args) {
 
 	char *host, *message ;
@@ -621,6 +622,7 @@ PyObject *py_uwsgi_multicast(PyObject * self, PyObject * args) {
 	return Py_True;
 	
 }
+#endif
 
 PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
@@ -815,8 +817,17 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	fprintf(stderr, "detaching uWSGI from current connection...\n");
-	// FIX HERE !!!
-	//close(uwsgi.poll.fd);
+
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
+#ifdef UWSGI_STACKLESS
+        if (uwsgi.stackless) {
+                PyThreadState *ts = PyThreadState_GET();
+                wsgi_req = find_request_by_tasklet(ts->st.current);
+        }
+#endif
+
+	fclose(wsgi_req->async_post);
+	wsgi_req->fd_closed = 1 ;
 
 	Py_INCREF(Py_True);
 	return Py_True;

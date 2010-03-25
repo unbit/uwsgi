@@ -19,6 +19,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 		goto clear;
 	}
 
+#ifdef UWSGI_SENDFILE
 	if (wsgi_req->sendfile_fd != -1) {
 		sf_len = uwsgi_sendfile(uwsgi, wsgi_req);
 		if (sf_len < 1) goto clear;
@@ -32,6 +33,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 #endif
 		goto clear;
 	}
+#endif
 
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
@@ -97,7 +99,7 @@ clear:
 	if (wsgi_req->async_environ) {
 		PyDict_Clear(wsgi_req->async_environ);
 	}
-	if (wsgi_req->async_post) {
+	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
 		fclose(wsgi_req->async_post);
 		wsgi_req->fd_closed = 1 ;
 	}
