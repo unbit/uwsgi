@@ -152,18 +152,6 @@ struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
 	}
 
 
-#ifdef UNBIT
-	if (save_to_disk >= 0) {
-		for (j = 0; j < i; j += 4) {
-			if (!strncasecmp(wsgi_req->hvec[j].iov_base, "Set-Cookie", wsgi_req->hvec[j].iov_len)) {
-				close(save_to_disk);
-				save_to_disk = -1;
-				break;
-			}
-		}
-	}
-#endif
-
 	// \r\n
 	j = (i * 4) + base;
 	wsgi_req->hvec[j].iov_base = nl;

@@ -300,7 +300,6 @@ struct wsgi_request * async_loop(struct uwsgi_server *uwsgi) {
 
 	for(i=0;i<uwsgi->async;i++) {
         	if (wsgi_req->async_status == UWSGI_AGAIN) {
-			//fprintf(stderr,"REQUEST MONITORED %d %d\n",wsgi_req->async_waiting_fd, wsgi_req->async_waiting_fd_monitored);
                 	if (wsgi_req->async_waiting_fd != -1 && !wsgi_req->async_waiting_fd_monitored) {
 				// add fd to monitoring
 				if (async_add(uwsgi->async_queue, wsgi_req->async_waiting_fd, wsgi_req->async_waiting_fd_type)) {

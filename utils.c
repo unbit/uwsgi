@@ -247,6 +247,10 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
 #ifdef UWSGI_SENDFILE
         wsgi_req->sendfile_fd = -1;
 #endif
+
+#ifdef UWSGI_ASYNC
+	wsgi_req->async_waiting_fd = -1;
+#endif
 	wsgi_req->hvec = &uwsgi.async_hvec[wsgi_req->async_id];
 
 }

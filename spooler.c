@@ -74,10 +74,10 @@ int spool_request(char *filename, int rn, char *buffer, int size) {
 	return 0;
 }
 
-void spooler(PyObject * uwsgi_module) {
+void spooler(PyObject * uwsgi_module_dict) {
 	DIR *sdir;
 	struct dirent *dp;
-	PyObject *uwsgi_module_dict, *spooler_callable, *spool_result, *spool_tuple, *spool_env;
+	PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
 	int spool_fd;
 	uint16_t uwstrlen;
 	int rlen = 0;
@@ -87,12 +87,6 @@ void spooler(PyObject * uwsgi_module) {
 
 	char *key;
 	char *val;
-
-	uwsgi_module_dict = PyModule_GetDict(uwsgi_module);
-	if (!uwsgi_module_dict) {
-		fprintf(stderr, "could not get uwsgi module __dict__\n");
-		exit(1);
-	}
 
 
 	spool_tuple = PyTuple_New(1);

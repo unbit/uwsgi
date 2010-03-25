@@ -12,12 +12,24 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		//fprintf(stderr,"DOH !!!\n");
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
-                        perror("STRING write()");
+                        perror("write()");
                         goto clear;
                 }
                 wsgi_req->response_size += wsize;
 		goto clear;
 	}
+
+#ifdef PYTHREE
+	if (PyBytes_Check((PyObject *)wsgi_req->async_result)) {
+		if ((wsize = write(wsgi_req->poll.fd, PyBytes_AsString(wsgi_req->async_result), PyBytes_Size(wsgi_req->async_result))) < 0) {
+			perror("write()");
+			Py_DECREF(wsgi_req->async_result);
+			goto clear;
+		}
+		wsgi_req->response_size += wsize;
+		goto clear;
+	}
+#endif
 
 #ifdef UWSGI_SENDFILE
 	if (wsgi_req->sendfile_fd != -1) {
@@ -75,13 +87,23 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	//fprintf(stderr,"ob type %s\n", pychunk->ob_type->tp_name);
 	if (PyString_Check(pychunk)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
-			fprintf(stderr,"ITER ID %d %d\n", wsgi_req->async_id, wsgi_req->poll.fd);
-			perror("ITER write()");
+			perror("write()");
 			Py_DECREF(pychunk);
 			goto clear;
 		}
 		wsgi_req->response_size += wsize;
 	}
+
+#ifdef PYTHREE
+	if (PyBytes_Check(pychunk)) {
+		if ((wsize = write(wsgi_req->poll.fd, PyBytes_AsString(pychunk), PyBytes_Size(pychunk))) < 0) {
+			perror("write()");
+			Py_DECREF(pychunk);
+			goto clear;
+		}
+		wsgi_req->response_size += wsize;
+	}
+#endif
 	
 	Py_DECREF(pychunk);
 	//Py_DECREF(wsgi_req->async_placeholder);

@@ -31,10 +31,6 @@ in particular)
 
 #include "uwsgi.h"
 
-#if PY_MINOR_VERSION < 5
-#define Py_ssize_t ssize_t
-#endif
-
 struct uwsgi_server uwsgi;
 
 extern char **environ;
@@ -201,11 +197,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	uint64_t master_cycles = 0;
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
-#ifdef UWSGI_EMBEDDED
-	PyObject *uwsgi_module;
-
-#endif
+#ifdef PYTHREE
+	wchar_t *pyargv[MAX_PYARGV];
+#else
 	char *pyargv[MAX_PYARGV];
+#endif
 	int pyargc = 1;
 
 	int i;
@@ -544,13 +540,32 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	Py_Initialize();
 
+#ifdef PYTHREE
+	mbstowcs(pname, "uwsgi", 6);
+	pyargv[0] = pname;
+#else
 	pyargv[0] = "uwsgi";
+#endif
 
 	if (uwsgi.pyargv != NULL) {
+#ifdef PYTHREE
+	wchar_t *wcargv = malloc( sizeof( wchar_t ) * strlen(uwsgi.pyargv));
+	if (!wcargv) {
+		perror("malloc()");
+		exit(1);
+	}
+	wchar_t *wa;
+#endif
 		char *ap;
 		while ((ap = strsep(&uwsgi.pyargv, " \t")) != NULL) {
 			if (*ap != '\0') {
+#ifdef PYTHREE
+				wa = (wchar_t *) ( (ap-uwsgi.pyargv) * sizeof(wchar_t) );
+				mbstowcs(wa, ap, strlen(ap));
+				pyargv[pyargc] = wa;
+#else
 				pyargv[pyargc] = ap;
+#endif
 				pyargc++;
 			}
 			if (pyargc + 1 > MAX_PYARGV)
@@ -572,11 +587,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
 
 #ifdef UWSGI_EMBEDDED
-	uwsgi_module = Py_InitModule("uwsgi", null_methods);
-	if (uwsgi_module == NULL) {
-		fprintf(stderr, "could not initialize the uwsgi python module\n");
-		exit(1);
-	}
 	if (uwsgi.sharedareasize > 0) {
 #ifndef __OpenBSD__
 		uwsgi.sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -858,7 +868,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_SPOOLER
 	if (spool_dir != NULL && uwsgi.numproc > 0) {
-		uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi_module);
+		uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi.embedded_dict);
 	}
 #endif
 
@@ -1143,7 +1153,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			if (spool_dir && uwsgi.shared->spooler_pid > 0) {
 				if (diedpid == uwsgi.shared->spooler_pid) {
 					fprintf(stderr, "OOOPS the spooler is no more...trying respawn...\n");
-					uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi_module);
+					uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi.embedded_dict);
 					continue;
 				}
 			}
@@ -1325,6 +1335,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				if (wsgi_req_recv(uwsgi.wsgi_req)) {
 					continue;
 				}
+
 				if (uwsgi.wsgi_req->async_status == UWSGI_OK) {
 					goto reqclear;
 				}
@@ -1491,6 +1502,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		PyThreadState_Swap(wi->interpreter);
 
 #ifdef UWSGI_EMBEDDED
+		// we need to inizialize an embedded module for every interpreter
 		init_uwsgi_embedded_module();
 #endif
 		init_uwsgi_vars();
@@ -2017,10 +2029,24 @@ int uri_to_hex() {
 }
 #endif
 
+#ifdef PYTHREE
+static PyModuleDef uwsgi_module3 = {
+	PyModuleDef_HEAD_INIT,
+	"uwsgi",
+	NULL,
+	-1,
+	null_methods,
+};
+PyObject *init_uwsgi3(void) {
+	return PyModule_Create(&uwsgi_module3);
+}
+#endif
+
 #ifdef UWSGI_EMBEDDED
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module, *zero;
 	int i;
+
 
 	/* initialize for stats */
 	uwsgi.workers_tuple = PyTuple_New(uwsgi.numproc);
@@ -2032,7 +2058,12 @@ void init_uwsgi_embedded_module() {
 
 
 
+#ifdef PYTHREE
+	PyImport_AppendInittab("uwsgi", init_uwsgi3);
+	new_uwsgi_module = PyImport_AddModule("uwsgi");
+#else
 	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);
+#endif
 	if (new_uwsgi_module == NULL) {
 		fprintf(stderr, "could not initialize the uwsgi python module\n");
 		exit(1);
@@ -2172,7 +2203,7 @@ pid_t proxy_start(has_master) {
 #endif
 
 #ifdef UWSGI_SPOOLER
-pid_t spooler_start(int serverfd, PyObject * uwsgi_module) {
+pid_t spooler_start(int serverfd, PyObject * uwsgi_module_dict) {
 	pid_t pid;
 
 	pid = fork();
@@ -2182,7 +2213,7 @@ pid_t spooler_start(int serverfd, PyObject * uwsgi_module) {
 	}
 	else if (pid == 0) {
 		close(serverfd);
-		spooler(uwsgi_module);
+		spooler(uwsgi_module_dict);
 	}
 	else if (pid > 0) {
 		fprintf(stderr, "spawned the uWSGI spooler on dir %s with pid %d\n", spool_dir, pid);

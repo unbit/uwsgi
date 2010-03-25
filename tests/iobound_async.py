@@ -5,8 +5,8 @@ def send_request(env, client):
 
 	client.setblocking(1)
 
-	client.send("GET /intl/it_it/images/logo.gif HTTP/1.0\r\n")
-	client.send("Host: www.google.it\r\n\r\n")
+	client.send(b"GET /intl/it_it/images/logo.gif HTTP/1.0\r\n")
+	client.send(b"Host: www.google.it\r\n\r\n")
 
 	while 1:
 		yield env['x-wsgiorg.fdevent.readable'](client.fileno(), 10)
