@@ -699,10 +699,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
-		uwsgi.async_queue = async_queue_init(uwsgi.serverfd);
-		if (uwsgi.async_queue < 0) {
-			exit(1);
-		}
 #ifdef __linux__
 		uwsgi.async_events = malloc( sizeof(struct epoll_event) * uwsgi.async ) ;
 #elif defined(__sun__)
@@ -1231,6 +1227,14 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
+
+	// postpone the queue initialization as kevent do not pass kfd after fork()
+	if (uwsgi.async > 1) {
+		uwsgi.async_queue = async_queue_init(uwsgi.serverfd);
+		if (uwsgi.async_queue < 0) {
+			exit(1);
+		}
+	}
 
 
 
