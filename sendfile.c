@@ -14,6 +14,7 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
         uwsgi.wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(uwsgi.wsgi_req->async_sendfile);
 #else
         if (PyFile_Check((PyObject *)uwsgi.wsgi_req->async_sendfile)) {
+		Py_INCREF(uwsgi.wsgi_req->async_sendfile);
                 uwsgi.wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(uwsgi.wsgi_req->async_sendfile);
         }
 #endif

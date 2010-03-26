@@ -30,7 +30,10 @@ PyObject *py_uwsgi_stackless_worker(PyObject * self, PyObject * args) {
 	for(;;) {
 
 		// wait for request
+		fprintf(stderr,"tasklet %d is waiting on %p\n", async_id, wsgi_req);
 		zero = PyChannel_Receive(uwsgi.workers_channel);
+
+		fprintf(stderr,"tasket %d start\n", async_id);
 
 		wsgi_req_setup(wsgi_req, async_id);
 		
@@ -43,6 +46,8 @@ PyObject *py_uwsgi_stackless_worker(PyObject * self, PyObject * args) {
 		}
 
 		uwsgi_close_request(&uwsgi, wsgi_req);
+
+		fprintf(stderr,"tasket %d ended\n", async_id);
 
 	}
 
@@ -85,6 +90,7 @@ void stackless_init(struct uwsgi_server *uwsgi) {
 		wsgi_req->async_id = i ;
 
 		PyTasklet_Setup(wsgi_req->tasklet, PyTuple_New(0), NULL);
+		PyTasklet_Run(wsgi_req->tasklet);
 		wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
 	}
 
@@ -94,10 +100,14 @@ void stackless_init(struct uwsgi_server *uwsgi) {
 void stackless_loop(struct uwsgi_server *uwsgi) {
 
 	int i;
+	PyTaskletObject *int_tasklet;
 
 	// tasklets main loop
 	for(;;) {
-		uwsgi->async_running = 0 ;
+		//uwsgi->async_running = -1 ;
+		//if (PyStackless_GetRunCount() > 0) {
+			uwsgi->async_running = 0 ;
+		//}
 		uwsgi->async_nevents = async_wait(uwsgi->async_queue, uwsgi->async_events, uwsgi->async, uwsgi->async_running, 0);
 
                 if (uwsgi->async_nevents < 0) {
@@ -108,6 +118,7 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 
                         if (uwsgi->async_events[i].ASYNC_FD == uwsgi->serverfd) {
 				//pass the connection to the first available tasklet
+				fprintf(stderr,"sending new connection...\n");
 				PyChannel_Send(uwsgi->workers_channel, Py_True);
 			}
 
@@ -116,6 +127,15 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 		if (PyStackless_GetRunCount() > 0) {
 			PyStackless_Schedule(Py_None, 0);
 		}
+		//PyStackless_RunWatchdogEx( 10, PY_WATCHDOG_TOTALTIMEOUT);
+		//int_tasklet = (PyTaskletObject *) PyStackless_RunWatchdog( 1000 );
+		/*
+		fprintf(stderr,"done watchdog %p\n", int_tasklet);
+		if (!PyTasklet_IsCurrent(int_tasklet)) {
+			fprintf(stderr,"re-insert: %d\n", 1);// PyTasklet_Insert(int_tasklet));
+		}
+		fprintf(stderr,"recycle\n");
+		*/
 	}
 
 }

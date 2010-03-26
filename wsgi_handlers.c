@@ -23,7 +23,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 
 #ifdef UWSGI_THREADING
                 if (uwsgi.has_threads && uwsgi.shared->options[UWSGI_OPTION_THREADS] == 1) {
-                        Py_BEGIN_ALLOW_THREADS wsgi_req->response_size = write(uwsgi.wsgi_req->poll.fd, content, len);
+                        Py_BEGIN_ALLOW_THREADS wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
                 Py_END_ALLOW_THREADS}
                 else {
 #endif
@@ -102,6 +102,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	char *path_info;
 	struct uwsgi_app *wi ;
 
+
+	fprintf(stderr,"starting\n");
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -311,10 +313,11 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	if (wsgi_req->async_result) {
 
+	fprintf(stderr,"looping\n");
 
 		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
-			if (uwsgi->async > 1 && !uwsgi->stackless) {
+			if (uwsgi->async > 1) {
 				return UWSGI_AGAIN;
 			}
 #endif

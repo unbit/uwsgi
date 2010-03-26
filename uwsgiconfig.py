@@ -23,6 +23,7 @@ GCC='gcc'
 # specific compilation flags
 XML_IMPLEMENTATION = 'libxml2'
 # if you want to use alternative python lib, specifiy its path here
+#PYLIB_PATH = '/home/roberto/uwsgi/STACKLESS/slp/lib'
 PYLIB_PATH = ''
 ERLANG_CFLAGS = ''
 ERLANG_LDFLAGS = '-lerl_interface -lei'

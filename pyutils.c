@@ -8,6 +8,9 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	ssize_t sf_len = 0 ;
 #endif
 
+	//fprintf(stderr,"managing response of tasklet %d on %p %s %d\n", wsgi_req->async_id, wsgi_req, ( (PyObject *) wsgi_req->async_result)->ob_type->tp_name, PyList_Size(wsgi_req->async_result));
+
+	fprintf(stderr,"managing request\n");
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		//fprintf(stderr,"DOH !!!\n");
@@ -56,11 +59,12 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 		}
 		Py_DECREF((PyObject *)wsgi_req->async_result);
 #ifdef UWSGI_ASYNC
-		if (uwsgi->async > 1) {
+		if (uwsgi->async > 1 && !uwsgi->stackless) {
 			return UWSGI_AGAIN;
 		}
 #endif
 	}
+
 
 		//fprintf(stderr,"running yield %d %p\n", wsgi_req->async_id, wsgi_req);
 
@@ -69,8 +73,8 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	fprintf(stderr,"placeholder refcnt %d: %d\n", wsgi_req->async_switches, boh->ob_refcnt);
 	*/
 
-	//fprintf(stderr,"NEXT CHUNK\n");
 	
+	fprintf(stderr,"placeholder: %p\n", wsgi_req->async_placeholder) ;
 	pychunk = PyIter_Next(wsgi_req->async_placeholder) ;
 
 	/*
@@ -79,10 +83,12 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	*/
 
 	if (!pychunk) {
-		//fprintf(stderr,"AIA\n");
 		if (PyErr_Occurred()) PyErr_Print();
 		goto clear;
 	}
+
+
+	fprintf(stderr,"checking pychunk\n");
 
 	//fprintf(stderr,"ob type %s\n", pychunk->ob_type->tp_name);
 	if (PyString_Check(pychunk)) {
@@ -117,6 +123,10 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	return UWSGI_AGAIN ;
 
 clear:
+	fprintf(stderr,"clearing request\n");
+	if (wsgi_req->sendfile_fd != -1) {
+		Py_DECREF(wsgi_req->async_sendfile);
+	}
 	//fprintf(stderr,"finito\n");
 	if (wsgi_req->async_environ) {
 		PyDict_Clear(wsgi_req->async_environ);

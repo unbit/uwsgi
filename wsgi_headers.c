@@ -28,7 +28,6 @@ struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
 
 	// use writev()
 
-
 	head = PyTuple_GetItem(args, 0);
 	if (!head) {
 		goto clear;
@@ -161,6 +160,7 @@ struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
 	if (wsgi_req->headers_size < 0) {
 		perror("writev()");
 	}
+
 	Py_INCREF(uwsgi.wsgi_writeout);
 
 
