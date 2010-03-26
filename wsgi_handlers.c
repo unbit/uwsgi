@@ -206,7 +206,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		//fprintf(stderr,"%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 		pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
 		pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
-		//PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
+		PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
 		Py_DECREF(pydictkey);
 		Py_DECREF(pydictvalue);
 	}
