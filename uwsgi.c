@@ -500,6 +500,9 @@ int main(int argc, char *argv[], char *envp[]) {
 						uwsgi.async = (int) tmp_nofile ;
 					}
 				}
+				else {
+					uwsgi.async = uwsgi.rl.rlim_cur;
+				}
 
 				fprintf(stderr,"- async cores set to %d -\n", uwsgi.async);
 			}
