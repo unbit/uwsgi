@@ -188,6 +188,7 @@ def parse_vars():
 			
 
 	if ERLANG:
+		depends_on("ERLANG", ['EMBEDDED'])
 		cflags.append("-DUWSGI_ERLANG")
 		ldflags.append(ERLANG_LDFLAGS)
 		if str(ERLANG_CFLAGS) != '':
