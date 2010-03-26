@@ -489,16 +489,18 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 			if (uwsgi.rl.rlim_cur < uwsgi.async) {
 				fprintf(stderr,"- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.rl.rlim_cur);
-				if (uwsgi.rl.rlim_cur < uwsgi.rl.rlim_max) {
-					uwsgi.rl.rlim_cur = uwsgi.rl.rlim_max;
+				if (uwsgi.rl.rlim_cur < uwsgi.rl.rlim_max && uwsgi.rl.rlim_max > uwsgi.async) {
+					unsigned long tmp_nofile = (unsigned long) uwsgi.rl.rlim_cur ;
+					uwsgi.rl.rlim_cur = uwsgi.async;
 					if (!setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-						fprintf(stderr,"max open files limit reset to %lu\n", (unsigned long) uwsgi.rl.rlim_max);
+						fprintf(stderr,"max open files limit reset to %lu\n", (unsigned long) uwsgi.rl.rlim_cur);
+						uwsgi.async = uwsgi.rl.rlim_cur;
+					}
+					else {
+						uwsgi.async = (int) tmp_nofile ;
 					}
 				}
 
-				if (uwsgi.async > uwsgi.rl.rlim_max) {
-					uwsgi.async = uwsgi.rl.rlim_max;
-				}
 				fprintf(stderr,"- async cores set to %d -\n", uwsgi.async);
 			}
 		}
