@@ -484,6 +484,16 @@ int main(int argc, char *argv[], char *envp[]) {
 		fprintf(stderr, "invalid buffer size.\n");
 		exit(1);
 	}
+	
+	if (uwsgi.async > 1) {
+		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
+			if (uwsgi.rl.rlim_max < uwsgi.async) {
+				fprintf(stderr,"- your max open file limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.rl.rlim_max);
+				uwsgi.async = uwsgi.rl.rlim_max;
+				fprintf(stderr,"- async cores set to %d -\n", uwsgi.async);
+			}
+		}
+	}
 
 	// allocate more wsgi_req for async mode
 	uwsgi.wsgi_requests = malloc((sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) ) * uwsgi.async);
