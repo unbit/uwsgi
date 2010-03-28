@@ -1,5 +1,17 @@
 #ifdef UWSGI_UGREEN
 
+/* uGreen -> uWSGI green threads */
+
+/* 
+
+TODO
+
+page-guards in stack
+configurable stack size
+io and sleep management
+
+*/
+
 #include "uwsgi.h"
 
 #define GREEN_STACK_SIZE 128 * 1024
@@ -59,21 +71,7 @@ PyObject *py_uwsgi_green_schedule(PyObject * self, PyObject * args) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
-	/*
-	int py_current_recursion_depth;
-	struct _frame* py_current_frame;
-
-	PyThreadState* tstate = PyThreadState_GET();	
-	py_current_recursion_depth = tstate->recursion_depth;
-	py_current_frame = tstate->frame;
-	*/
 	u_green_schedule_to_main(&uwsgi, wsgi_req->async_id);
-
-	/*
-	tstate = PyThreadState_GET();	
-	tstate->recursion_depth = py_current_recursion_depth;
-	tstate->frame = py_current_frame ;
-	*/
 
 	Py_INCREF(Py_True);
 	return Py_True;
@@ -144,7 +142,7 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
 
 	PyMethodDef *uwsgi_function;
 
-	fprintf(stderr,"initializing %d green threads with stack size of %lu (%lu KB)\n", uwsgi->async, (unsigned long) GREEN_STACK_SIZE,  (unsigned long) GREEN_STACK_SIZE/1024);
+	fprintf(stderr,"initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi->async, (unsigned long) GREEN_STACK_SIZE,  (unsigned long) GREEN_STACK_SIZE/1024);
 
 	uwsgi->green_stacks = malloc( sizeof(char*) * uwsgi->async);
 	if (!uwsgi->green_stacks) {
