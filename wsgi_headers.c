@@ -11,14 +11,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *h_key, *h_value;
 	int i, j;
 
-struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
-
-#ifdef UWSGI_STACKLESS
-	if (uwsgi.stackless) {
-        	PyThreadState *ts = PyThreadState_GET();
-        	wsgi_req = find_request_by_tasklet(ts->st.current);
-	}
-#endif
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
 #ifndef UNBIT
 	int base = 0;

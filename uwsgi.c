@@ -355,6 +355,9 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_STACKLESS
 		{"stackless", no_argument, &uwsgi.stackless, 1},
 #endif
+#ifdef UWSGI_UGREEN
+		{"ugreen", no_argument, &uwsgi.ugreen, 1},
+#endif
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -1317,6 +1320,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.async_running = -1 ;
 #endif
 
+#ifdef UWSGI_UGREEN
+	if (uwsgi.ugreen) {
+		u_green_loop(&uwsgi);
+	}
+#endif
 
 #ifdef UWSGI_STACKLESS
 	if (uwsgi.stackless) {

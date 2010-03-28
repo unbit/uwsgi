@@ -8,13 +8,14 @@ SPOOLER=True
 EMBEDDED=True
 UDP=True
 MULTICAST=True
-THREADING=True
+THREADING=False
 SENDFILE=True
 PROFILER=False
 NAGIOS=True
 PROXY=True
 MINTERPRETERS=True
 ASYNC=True
+UGREEN=True
 STACKLESS=False
 PLUGINS = []
 UWSGI_BIN_NAME = 'uwsgi'
@@ -152,6 +153,11 @@ def parse_vars():
 		depends_on("PROXY", ['ASYNC'])
 		cflags.append("-DUWSGI_PROXY")
 		gcc_list.append('proxy')
+
+	if UGREEN:
+		depends_on("UGREEN", ['ASYNC'])
+		cflags.append("-DUWSGI_UGREEN")
+		gcc_list.append('ugreen')
 
 	if SNMP:
 		depends_on("SNMP", ['UDP'])

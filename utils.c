@@ -281,7 +281,7 @@ int wsgi_req_accept(int fd, struct wsgi_request *wsgi_req) {
 
 	wsgi_req->poll.fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
 
-	if (uwsgi.wsgi_req->poll.fd < 0) {
+	if (wsgi_req->poll.fd < 0) {
         	perror("accept()");
                 return -1;
 	}
@@ -289,3 +289,17 @@ int wsgi_req_accept(int fd, struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
+struct wsgi_request *current_wsgi_req(struct uwsgi_server *uwsgi) {
+
+	struct wsgi_request *wsgi_req = uwsgi->wsgi_req;
+
+#ifdef UWSGI_STACKLESS
+        if (uwsgi->stackless && uwsgi->async >1) {
+                PyThreadState *ts = PyThreadState_GET();
+                wsgi_req = find_request_by_tasklet(ts->st.current);
+        }
+#endif
+
+	return wsgi_req;
+
+}

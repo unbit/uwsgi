@@ -16,6 +16,10 @@
 #include <netinet/sctp.h>
 #endif
 
+#ifdef UWSGI_UGREEN
+#include <ucontext.h>
+#endif
+
 #include <arpa/inet.h>
 #include <sys/mman.h>
 #include <sys/file.h>
@@ -124,6 +128,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
+#define UWSGI_ACCEPTING	2
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
@@ -401,6 +406,13 @@ struct uwsgi_server {
 	int async_nevents ;
 
 	int stackless;
+
+#ifdef UWSGI_UGREEN
+	int ugreen;
+	ucontext_t greenmain;
+	ucontext_t **green_contexts;
+	char **green_stacks;
+#endif
 
 #ifdef __linux__
 	struct epoll_event *async_events;
@@ -681,6 +693,7 @@ struct http_status_codes {
 struct wsgi_request *async_loop(struct uwsgi_server *);
 struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *); 
 struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
+struct wsgi_request *find_wsgi_req_by_id(struct uwsgi_server *, int); 
 
 struct wsgi_request *next_wsgi_req(struct uwsgi_server *, struct wsgi_request *);
 
@@ -757,3 +770,9 @@ void uwsgi_close_request(struct uwsgi_server *, struct wsgi_request *) ;
 void wsgi_req_setup(struct wsgi_request *, int);
 int wsgi_req_recv(struct wsgi_request *);
 int wsgi_req_accept(int, struct wsgi_request *);
+
+#ifdef UWSGI_UGREEN
+void u_green_loop(struct uwsgi_server *);
+#endif
+
+struct wsgi_request *current_wsgi_req(struct uwsgi_server *);

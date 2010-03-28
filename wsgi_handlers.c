@@ -7,14 +7,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
         char *content;
         int len;
 
-	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
-
-#ifdef UWSGI_STACKLESS
-	if (uwsgi.stackless) {
-		PyThreadState *ts = PyThreadState_GET();
-        	wsgi_req = find_request_by_tasklet(ts->st.current);
-	}
-#endif
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
         data = PyTuple_GetItem(args, 0);
         if (PyString_Check(data)) {
@@ -41,15 +34,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
         int fd, timeout;
 
-	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
-
-#ifdef UWSGI_STACKLESS
-	if (uwsgi.stackless) {
-		PyThreadState *ts = PyThreadState_GET();
-        	wsgi_req = find_request_by_tasklet(ts->st.current);
-	}
-#endif
-
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
         if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
                 return NULL;
@@ -68,14 +53,7 @@ PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
         int fd, timeout;
 
-	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
-
-#ifdef UWSGI_STACKLESS
-	if (uwsgi.stackless) {
-		PyThreadState *ts = PyThreadState_GET();
-        	wsgi_req = find_request_by_tasklet(ts->st.current);
-	}
-#endif
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
         if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
                 return NULL;
@@ -102,8 +80,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	char *path_info;
 	struct uwsgi_app *wi ;
 
-
-	fprintf(stderr,"starting\n");
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -202,6 +178,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	wsgi_req->async_args = wi->wsgi_args;
 #endif
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
+
 
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
@@ -303,6 +280,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	else {
 #endif
 
+
 		PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
 		wsgi_req->async_result = python_call(wi->wsgi_callable, wsgi_req->async_args);
 
@@ -313,7 +291,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	if (wsgi_req->async_result) {
 
-	fprintf(stderr,"looping\n");
 
 		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC

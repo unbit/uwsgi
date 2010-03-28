@@ -30,10 +30,7 @@ PyObject *py_uwsgi_stackless_worker(PyObject * self, PyObject * args) {
 	for(;;) {
 
 		// wait for request
-		fprintf(stderr,"tasklet %d is waiting on %p\n", async_id, wsgi_req);
 		zero = PyChannel_Receive(uwsgi.workers_channel);
-
-		fprintf(stderr,"tasket %d start\n", async_id);
 
 		wsgi_req_setup(wsgi_req, async_id);
 		
@@ -47,7 +44,6 @@ PyObject *py_uwsgi_stackless_worker(PyObject * self, PyObject * args) {
 
 		uwsgi_close_request(&uwsgi, wsgi_req);
 
-		fprintf(stderr,"tasket %d ended\n", async_id);
 
 	}
 
@@ -90,7 +86,7 @@ void stackless_init(struct uwsgi_server *uwsgi) {
 		wsgi_req->async_id = i ;
 
 		PyTasklet_Setup(wsgi_req->tasklet, PyTuple_New(0), NULL);
-		PyTasklet_Run(wsgi_req->tasklet);
+		//PyTasklet_Run(wsgi_req->tasklet);
 		wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
 	}
 
@@ -124,10 +120,14 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 
 		}
 
+		/*
 		if (PyStackless_GetRunCount() > 0) {
 			PyStackless_Schedule(Py_None, 0);
 		}
-		//PyStackless_RunWatchdogEx( 10, PY_WATCHDOG_TOTALTIMEOUT);
+		*/
+
+		PyStackless_RunWatchdogEx( 10, PY_WATCHDOG_TOTALTIMEOUT);
+
 		//int_tasklet = (PyTaskletObject *) PyStackless_RunWatchdog( 1000 );
 		/*
 		fprintf(stderr,"done watchdog %p\n", int_tasklet);
