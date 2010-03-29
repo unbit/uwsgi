@@ -672,6 +672,17 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+#ifdef UWSGI_UGREEN
+	if (uwsgi.ugreen) {
+		if (uwsgi.has_threads) {
+			fprintf(stderr,"--- python threads will be disabled in uGreen mode ---\n");
+			uwsgi.has_threads = 0;
+		}
+
+		u_green_init(&uwsgi);
+	}
+#endif
+
 #ifdef UWSGI_THREADING
 	if (uwsgi.has_threads) {
 		PyEval_InitThreads();
@@ -1323,6 +1334,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_UGREEN
 	if (uwsgi.ugreen) {
 		u_green_loop(&uwsgi);
+		// never here
 	}
 #endif
 

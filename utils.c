@@ -289,7 +289,7 @@ int wsgi_req_accept(int fd, struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
-struct wsgi_request *current_wsgi_req(struct uwsgi_server *uwsgi) {
+inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *uwsgi) {
 
 	struct wsgi_request *wsgi_req = uwsgi->wsgi_req;
 

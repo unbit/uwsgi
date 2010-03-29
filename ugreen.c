@@ -6,7 +6,6 @@
 
 TODO
 
-page-guards in stack
 configurable stack size
 io and sleep management
 
@@ -19,7 +18,7 @@ io and sleep management
 extern struct uwsgi_server uwsgi;
 
 
-static int green_blocking(struct uwsgi_server *uwsgi) {
+static int u_green_blocking(struct uwsgi_server *uwsgi) {
         struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
         int i ;
 
@@ -33,7 +32,7 @@ static int green_blocking(struct uwsgi_server *uwsgi) {
         return -1 ;
 }
 
-static void u_green_schedule_to_main(struct uwsgi_server *uwsgi, int async_id) {
+inline static void u_green_schedule_to_main(struct uwsgi_server *uwsgi, int async_id) {
 
 	int py_current_recursion_depth;
 	struct _frame* py_current_frame;
@@ -42,14 +41,14 @@ static void u_green_schedule_to_main(struct uwsgi_server *uwsgi, int async_id) {
 	py_current_recursion_depth = tstate->recursion_depth;
 	py_current_frame = tstate->frame;
 
-	swapcontext(uwsgi->green_contexts[async_id], &uwsgi->greenmain);
+	swapcontext(uwsgi->ugreen_contexts[async_id], &uwsgi->ugreenmain);
 
 	tstate = PyThreadState_GET();	
 	tstate->recursion_depth = py_current_recursion_depth;
 	tstate->frame = py_current_frame ;
 }
 
-static void u_green_schedule_to_req(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+inline static void u_green_schedule_to_req(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	int py_current_recursion_depth;
 	struct _frame* py_current_frame;
@@ -60,7 +59,7 @@ static void u_green_schedule_to_req(struct uwsgi_server *uwsgi, struct wsgi_requ
 
 	uwsgi->wsgi_req = wsgi_req;
 	wsgi_req->async_switches++;
-	swapcontext(&uwsgi->greenmain, uwsgi->green_contexts[wsgi_req->async_id] );
+	swapcontext(&uwsgi->ugreenmain, uwsgi->ugreen_contexts[wsgi_req->async_id] );
 
 	tstate = PyThreadState_GET();	
 	tstate->recursion_depth = py_current_recursion_depth;
@@ -133,51 +132,49 @@ static void u_green_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsg
 
 }
 
-void u_green_loop(struct uwsgi_server *uwsgi) {
+void u_green_init(struct uwsgi_server *uwsgi) {
 
 	struct wsgi_request *wsgi_req = uwsgi->wsgi_requests ;
 
-	int i, current = 0 ;
+	int i;
 
 
 	PyMethodDef *uwsgi_function;
 
 	fprintf(stderr,"initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi->async, (unsigned long) GREEN_STACK_SIZE,  (unsigned long) GREEN_STACK_SIZE/1024);
 
-	uwsgi->green_stacks = malloc( sizeof(char*) * uwsgi->async);
-	if (!uwsgi->green_stacks) {
-		perror("malloc()\n");
-		exit(1);
-	}
 
-	for(i=0;i<uwsgi->async;i++) {
-		//uwsgi->green_stacks[i] = malloc( 4096 * 256 );
-		uwsgi->green_stacks[i] = mmap(NULL, GREEN_STACK_SIZE , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
-		if (!uwsgi->green_stacks[i]) {
-			perror("mmap()");
-			exit(1);
-		}
-	}
-
-
-	uwsgi->green_contexts = malloc( sizeof(ucontext_t*) * uwsgi->async);
-	if (!uwsgi->green_contexts) {
+	uwsgi->ugreen_contexts = malloc( sizeof(ucontext_t*) * uwsgi->async);
+	if (!uwsgi->ugreen_contexts) {
 		perror("malloc()\n");
 		exit(1);
 	}
 
 
 	for(i=0;i<uwsgi->async;i++) {
-		uwsgi->green_contexts[i] = malloc( sizeof(ucontext_t) );
-		if (!uwsgi->green_contexts[i]) {
+		uwsgi->ugreen_contexts[i] = malloc( sizeof(ucontext_t) );
+		if (!uwsgi->ugreen_contexts[i]) {
 			perror("malloc()");
 			exit(1);
 		}
-		getcontext(uwsgi->green_contexts[i]);
-		uwsgi->green_contexts[i]->uc_stack.ss_sp = uwsgi->green_stacks[i];
-		uwsgi->green_contexts[i]->uc_stack.ss_size = GREEN_STACK_SIZE ;
-		uwsgi->green_contexts[i]->uc_link = NULL;
-		makecontext(uwsgi->green_contexts[i], (void (*) (void)) &u_green_request, 3, uwsgi, wsgi_req, i);
+		getcontext(uwsgi->ugreen_contexts[i]);
+		uwsgi->ugreen_contexts[i]->uc_stack.ss_sp = mmap(NULL, GREEN_STACK_SIZE + uwsgi->page_size*2 , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) + uwsgi->page_size;
+		if (!uwsgi->ugreen_contexts[i]->uc_stack.ss_sp) {
+			perror("mmap()");
+			exit(1);
+		}
+		// set guard pages for stack
+		if (mprotect(uwsgi->ugreen_contexts[i]->uc_stack.ss_sp - uwsgi->page_size, uwsgi->page_size, PROT_NONE)) {
+			perror("mprotect()");
+			exit(1);
+		}
+		if (mprotect(uwsgi->ugreen_contexts[i]->uc_stack.ss_sp + GREEN_STACK_SIZE, uwsgi->page_size, PROT_NONE)) {
+			perror("mprotect()");
+			exit(1);
+		}
+		uwsgi->ugreen_contexts[i]->uc_stack.ss_size = GREEN_STACK_SIZE ;
+		uwsgi->ugreen_contexts[i]->uc_link = NULL;
+		makecontext(uwsgi->ugreen_contexts[i], (void (*) (void)) &u_green_request, 3, uwsgi, wsgi_req, i);
 		wsgi_req->async_status = UWSGI_ACCEPTING;
 		wsgi_req->async_id = i;
 		wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
@@ -188,11 +185,18 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
                 PyDict_SetItemString(uwsgi->embedded_dict, uwsgi_function->ml_name, func);
                 Py_DECREF(func);
         }
+}
 
 
-	for(;;) {
+void u_green_loop(struct uwsgi_server *uwsgi) {
 
-		uwsgi->async_running = green_blocking(uwsgi) ;
+	struct wsgi_request *wsgi_req = uwsgi->wsgi_requests ;
+
+	int i, current = 0 ;
+
+	while(uwsgi->workers[uwsgi->mywid].manage_next_request) {
+
+		uwsgi->async_running = u_green_blocking(uwsgi) ;
 
                 uwsgi->async_nevents = async_wait(uwsgi->async_queue, uwsgi->async_events, uwsgi->async, uwsgi->async_running, 0);
 
@@ -200,7 +204,7 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
                         continue;
                 }
 
-		if (i > 0) {
+		if (uwsgi->async_nevents > 0) {
 			wsgi_req = find_first_accepting_wsgi_req(uwsgi);
 			if (!wsgi_req) goto cycle;
 		}
@@ -222,6 +226,13 @@ cycle:
 		if (current >= uwsgi->async) current = 0;
 
 	}
+
+	if (uwsgi->workers[uwsgi->mywid].manage_next_request == 0) {
+                reload_me();
+        }
+        else {
+                goodbye_cruel_world();
+        }
 
 	// never here
 	

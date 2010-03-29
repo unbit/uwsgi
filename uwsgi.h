@@ -409,9 +409,8 @@ struct uwsgi_server {
 
 #ifdef UWSGI_UGREEN
 	int ugreen;
-	ucontext_t greenmain;
-	ucontext_t **green_contexts;
-	char **green_stacks;
+	ucontext_t ugreenmain;
+	ucontext_t **ugreen_contexts;
 #endif
 
 #ifdef __linux__
@@ -772,7 +771,8 @@ int wsgi_req_recv(struct wsgi_request *);
 int wsgi_req_accept(int, struct wsgi_request *);
 
 #ifdef UWSGI_UGREEN
+void u_green_init(struct uwsgi_server *);
 void u_green_loop(struct uwsgi_server *);
 #endif
 
-struct wsgi_request *current_wsgi_req(struct uwsgi_server *);
+inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *);
