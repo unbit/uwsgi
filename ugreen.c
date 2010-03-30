@@ -6,14 +6,13 @@
 
 TODO
 
-configurable stack size
 io and sleep management
 
 */
 
 #include "uwsgi.h"
 
-#define GREEN_STACK_SIZE 128 * 1024
+#define UGREEN_DEFAULT_STACKSIZE 128*1024
 
 extern struct uwsgi_server uwsgi;
 
@@ -137,11 +136,16 @@ void u_green_init(struct uwsgi_server *uwsgi) {
 	struct wsgi_request *wsgi_req = uwsgi->wsgi_requests ;
 
 	int i;
+	size_t u_stack_size = UGREEN_DEFAULT_STACKSIZE ;
 
 
 	PyMethodDef *uwsgi_function;
 
-	fprintf(stderr,"initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi->async, (unsigned long) GREEN_STACK_SIZE,  (unsigned long) GREEN_STACK_SIZE/1024);
+	if (uwsgi->ugreen_stackpages > 0) {
+		u_stack_size = uwsgi->ugreen_stackpages * uwsgi->page_size ;
+	}
+
+	fprintf(stderr,"initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi->async, (unsigned long) u_stack_size,  (unsigned long) u_stack_size/1024);
 
 
 	uwsgi->ugreen_contexts = malloc( sizeof(ucontext_t*) * uwsgi->async);
@@ -158,7 +162,7 @@ void u_green_init(struct uwsgi_server *uwsgi) {
 			exit(1);
 		}
 		getcontext(uwsgi->ugreen_contexts[i]);
-		uwsgi->ugreen_contexts[i]->uc_stack.ss_sp = mmap(NULL, GREEN_STACK_SIZE + uwsgi->page_size*2 , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) + uwsgi->page_size;
+		uwsgi->ugreen_contexts[i]->uc_stack.ss_sp = mmap(NULL, u_stack_size + (uwsgi->page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) + uwsgi->page_size;
 		if (!uwsgi->ugreen_contexts[i]->uc_stack.ss_sp) {
 			perror("mmap()");
 			exit(1);
@@ -168,11 +172,11 @@ void u_green_init(struct uwsgi_server *uwsgi) {
 			perror("mprotect()");
 			exit(1);
 		}
-		if (mprotect(uwsgi->ugreen_contexts[i]->uc_stack.ss_sp + GREEN_STACK_SIZE, uwsgi->page_size, PROT_NONE)) {
+		if (mprotect(uwsgi->ugreen_contexts[i]->uc_stack.ss_sp + u_stack_size, uwsgi->page_size, PROT_NONE)) {
 			perror("mprotect()");
 			exit(1);
 		}
-		uwsgi->ugreen_contexts[i]->uc_stack.ss_size = GREEN_STACK_SIZE ;
+		uwsgi->ugreen_contexts[i]->uc_stack.ss_size = u_stack_size ;
 		uwsgi->ugreen_contexts[i]->uc_link = NULL;
 		makecontext(uwsgi->ugreen_contexts[i], (void (*) (void)) &u_green_request, 3, uwsgi, wsgi_req, i);
 		wsgi_req->async_status = UWSGI_ACCEPTING;

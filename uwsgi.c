@@ -357,6 +357,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #ifdef UWSGI_UGREEN
 		{"ugreen", no_argument, &uwsgi.ugreen, 1},
+		{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 #endif
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
@@ -2277,6 +2278,11 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_ASYNC:
 		uwsgi.async = atoi(optarg);
 		break;
+#ifdef UWSGI_UGREEN
+	case LONG_ARGS_UGREEN_PAGES:
+		uwsgi.ugreen_stackpages = atoi(optarg);
+		break;
+#endif
 #ifndef UNBIT
 	case LONG_ARGS_VERSION:
 		fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);

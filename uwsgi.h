@@ -125,6 +125,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_SNMP			17019
 #define LONG_ARGS_SNMP_COMMUNITY	17020
 #define LONG_ARGS_ASYNC			17021
+#define LONG_ARGS_UGREEN_PAGES		17022
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -409,6 +410,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_UGREEN
 	int ugreen;
+	int ugreen_stackpages;
 	ucontext_t ugreenmain;
 	ucontext_t **ugreen_contexts;
 #endif
