@@ -21,7 +21,7 @@ static int u_green_blocking(struct uwsgi_server *uwsgi) {
         int i ;
 
         for(i=0;i<uwsgi->async;i++) {
-                if (wsgi_req->async_status != UWSGI_ACCEPTING && wsgi_req->async_waiting_fd == -1) {
+                if (wsgi_req->async_status != UWSGI_ACCEPTING && wsgi_req->async_waiting_fd == -1 && !wsgi_req->async_timeout) {
                         return 0 ;
                 }
                 wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
@@ -72,7 +72,7 @@ static void u_green_wait_for_fd(struct uwsgi_server *uwsgi, struct wsgi_request 
 
         wsgi_req->async_waiting_fd = fd ;
         wsgi_req->async_waiting_fd_type = etype;
-        wsgi_req->async_timeout = timeout ;
+        wsgi_req->async_timeout = time(NULL) + timeout ;
 
         u_green_schedule_to_main(uwsgi, wsgi_req->async_id);
 
@@ -124,12 +124,30 @@ PyObject *py_uwsgi_green_wait_fdwrite(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+PyObject *py_uwsgi_green_sleep(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	int timeout;
+
+	if (!PyArg_ParseTuple(args, "i", &timeout)) {
+                return NULL;
+        }
+
+	wsgi_req->async_timeout = time(NULL) + timeout ;
+	u_green_schedule_to_main(&uwsgi, wsgi_req->async_id);
+	wsgi_req->async_timeout = 0 ;
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
 
 
 PyMethodDef uwsgi_green_methods[] = {
 	{"green_schedule", py_uwsgi_green_schedule, METH_VARARGS, ""},
 	{"green_wait_fdread", py_uwsgi_green_wait_fdread, METH_VARARGS, ""},
 	{"green_wait_fdwrite", py_uwsgi_green_wait_fdwrite, METH_VARARGS, ""},
+	{"green_sleep", py_uwsgi_green_sleep, METH_VARARGS, ""},
 	{ NULL, NULL }
 };
 
@@ -243,22 +261,71 @@ void u_green_init(struct uwsgi_server *uwsgi) {
         }
 }
 
+void u_green_expire_timeouts(struct uwsgi_server *uwsgi) {
+
+        struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
+        int i ;
+        time_t deadline = time(NULL);
+
+
+        for(i=0;i<uwsgi->async;i++) {
+                if (wsgi_req->async_timeout > 0) {
+                        if (wsgi_req->async_timeout <= deadline) {
+                                wsgi_req->async_timeout = 0 ;
+                        }
+                }
+                wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
+        }
+}
+
+static int u_green_get_timeout(struct uwsgi_server *uwsgi) {
+
+
+        struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
+        int i ;
+        time_t curtime, tdelta = 0 ;
+        int ret = 0 ;
+
+        if (!uwsgi->async_running) return 0;
+
+        for(i=0;i<uwsgi->async;i++) {
+                if (wsgi_req->async_timeout > 0) {
+                	if (tdelta <= 0 || tdelta > wsgi_req->async_timeout) {
+                        	tdelta = wsgi_req->async_timeout ;
+                       }
+                }
+                wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
+        }
+
+        curtime = time(NULL);
+
+        ret = tdelta - curtime ;
+        if (ret > 0) {
+                return ret;
+        }
+
+        return 0;
+}
+
 
 void u_green_loop(struct uwsgi_server *uwsgi) {
 
 	struct wsgi_request *wsgi_req = uwsgi->wsgi_requests ;
 
-	int i, current = 0 ;
+	int i, current = 0, timeout ;
 
 	while(uwsgi->workers[uwsgi->mywid].manage_next_request) {
 
 		uwsgi->async_running = u_green_blocking(uwsgi) ;
-
-                uwsgi->async_nevents = async_wait(uwsgi->async_queue, uwsgi->async_events, uwsgi->async, uwsgi->async_running, 0);
+		timeout = u_green_get_timeout(uwsgi);	
+                uwsgi->async_nevents = async_wait(uwsgi->async_queue, uwsgi->async_events, uwsgi->async, uwsgi->async_running, timeout);
+		
 
                 if (uwsgi->async_nevents < 0) {
                         continue;
                 }
+
+		u_green_expire_timeouts(uwsgi);
 
 		if (uwsgi->async_nevents > 0) {
 			wsgi_req = find_first_accepting_wsgi_req(uwsgi);
@@ -284,7 +351,7 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
 
 cycle:
 		wsgi_req = find_wsgi_req_by_id(uwsgi, current) ;
-		if (wsgi_req->async_status != UWSGI_ACCEPTING && wsgi_req->async_waiting_fd == -1) {
+		if (wsgi_req->async_status != UWSGI_ACCEPTING && wsgi_req->async_waiting_fd == -1 && !wsgi_req->async_timeout) {
 			u_green_schedule_to_req(uwsgi, wsgi_req);
 		}
 		current++;
