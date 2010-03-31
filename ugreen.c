@@ -214,7 +214,7 @@ void u_green_init(struct uwsgi_server *uwsgi) {
 			exit(1);
 		}
 		getcontext(uwsgi->ugreen_contexts[i]);
-		uwsgi->ugreen_contexts[i]->uc_stack.ss_sp = mmap(NULL, u_stack_size + (uwsgi->page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) + uwsgi->page_size;
+		uwsgi->ugreen_contexts[i]->uc_stack.ss_sp = mmap(NULL, u_stack_size + (uwsgi->page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + uwsgi->page_size;
 		if (!uwsgi->ugreen_contexts[i]->uc_stack.ss_sp) {
 			perror("mmap()");
 			exit(1);

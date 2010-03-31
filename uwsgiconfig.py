@@ -181,6 +181,8 @@ def parse_vars():
 		gcc_list.append('proxy')
 
 	if UGREEN:
+		if uwsgi_os == 'Darwin':
+			cflags.append("-D_XOPEN_SOURCE")
 		depends_on("UGREEN", ['ASYNC'])
 		cflags.append("-DUWSGI_UGREEN")
 		gcc_list.append('ugreen')
