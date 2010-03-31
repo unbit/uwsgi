@@ -2539,6 +2539,7 @@ void manage_opt(int i, char *optarg) {
 	case 0:
 		break;
 	default:
+		fprintf(stderr, "invalid argument -%c  exiting \n", i);
 		exit(1);
 #endif
 	}

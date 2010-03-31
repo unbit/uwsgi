@@ -1,6 +1,6 @@
 # uWSGI configuration
 
-XML=True
+XML=False
 SNMP=True
 SCTP=False
 ERLANG=False
