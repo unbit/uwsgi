@@ -6,23 +6,22 @@
 
 TODO
 
-io and sleep management
+io, timeout and sleep management
 
 */
 
 #include "uwsgi.h"
 
-#define UGREEN_DEFAULT_STACKSIZE 128*1024
+#define UGREEN_DEFAULT_STACKSIZE 256*1024
 
 extern struct uwsgi_server uwsgi;
-
 
 static int u_green_blocking(struct uwsgi_server *uwsgi) {
         struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
         int i ;
 
         for(i=0;i<uwsgi->async;i++) {
-                if (wsgi_req->async_status != UWSGI_ACCEPTING) {
+                if (wsgi_req->async_status != UWSGI_ACCEPTING && wsgi_req->async_waiting_fd == -1) {
                         return 0 ;
                 }
                 wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
@@ -65,6 +64,25 @@ inline static void u_green_schedule_to_req(struct uwsgi_server *uwsgi, struct ws
 	tstate->frame = py_current_frame ;
 }
 
+static void u_green_wait_for_fd(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, int fd, int etype, int timeout) {
+
+	if (fd < 0) return;
+
+        if (async_add(uwsgi->async_queue, fd, etype)) return ;
+
+        wsgi_req->async_waiting_fd = fd ;
+        wsgi_req->async_waiting_fd_type = etype;
+        wsgi_req->async_timeout = timeout ;
+
+        u_green_schedule_to_main(uwsgi, wsgi_req->async_id);
+
+        async_del(uwsgi->async_queue, wsgi_req->async_waiting_fd, wsgi_req->async_waiting_fd_type);
+
+        wsgi_req->async_waiting_fd = -1;
+        wsgi_req->async_timeout = 0 ;
+}
+
+
 PyObject *py_uwsgi_green_schedule(PyObject * self, PyObject * args) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
@@ -76,8 +94,42 @@ PyObject *py_uwsgi_green_schedule(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_green_wait_fdread(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	int fd,timeout;
+
+	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
+                return NULL;
+        }
+
+	u_green_wait_for_fd(&uwsgi, wsgi_req, fd, ASYNC_IN, timeout);
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
+PyObject *py_uwsgi_green_wait_fdwrite(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	int fd,timeout;
+
+	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
+                return NULL;
+        }
+
+	u_green_wait_for_fd(&uwsgi, wsgi_req, fd, ASYNC_OUT, timeout);
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
+
+
 PyMethodDef uwsgi_green_methods[] = {
 	{"green_schedule", py_uwsgi_green_schedule, METH_VARARGS, ""},
+	{"green_wait_fdread", py_uwsgi_green_wait_fdread, METH_VARARGS, ""},
+	{"green_wait_fdwrite", py_uwsgi_green_wait_fdwrite, METH_VARARGS, ""},
 	{ NULL, NULL }
 };
 
@@ -218,12 +270,21 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
                         if (uwsgi->async_events[i].ASYNC_FD == uwsgi->serverfd) {
 				u_green_schedule_to_req(uwsgi, wsgi_req);
                         }
+			else {
+				wsgi_req = find_wsgi_req_by_fd(uwsgi, uwsgi->async_events[i].ASYNC_FD, -1);
+				if (wsgi_req) {
+					u_green_schedule_to_req(uwsgi, wsgi_req);
+				}
+				else {
+					async_del(uwsgi->async_queue, uwsgi->async_events[i].ASYNC_FD, uwsgi->async_events[i].ASYNC_EV);
+				}
+			}
 
                 }
 
 cycle:
 		wsgi_req = find_wsgi_req_by_id(uwsgi, current) ;
-		if (wsgi_req->async_status != UWSGI_ACCEPTING) {
+		if (wsgi_req->async_status != UWSGI_ACCEPTING && wsgi_req->async_waiting_fd == -1) {
 			u_green_schedule_to_req(uwsgi, wsgi_req);
 		}
 		current++;

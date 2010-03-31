@@ -279,12 +279,22 @@ struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *uwsgi, int fd, int
         struct wsgi_request* wsgi_req = uwsgi->wsgi_requests ;
         int i ;
 
-        for(i=0;i<uwsgi->async;i++) {
-                if (wsgi_req->async_waiting_fd == fd && wsgi_req->async_waiting_fd_type == etype) {
-                        return wsgi_req ;
-                }
-                wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
-        }
+	if (etype != -1) {
+        	for(i=0;i<uwsgi->async;i++) {
+                	if (wsgi_req->async_waiting_fd == fd && wsgi_req->async_waiting_fd_type == etype) {
+                        	return wsgi_req ;
+                	}
+                	wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
+        	}
+	}
+	else {
+        	for(i=0;i<uwsgi->async;i++) {
+                	if (wsgi_req->async_waiting_fd == fd) {
+                        	return wsgi_req ;
+                	}
+                	wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
+        	}
+	}
 
         return NULL ;
 

@@ -18,6 +18,7 @@ ASYNC=True
 UGREEN=True
 STACKLESS=False
 PLUGINS = []
+UNBIT=False
 UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
 
@@ -100,6 +101,31 @@ def build_uwsgi(bin_name):
 	if bin_name.find("/") < 0:
 		bin_name = './' + bin_name
 	print("*** uWSGI is ready, launch it with %s ***" % bin_name)
+
+def unbit_setup():
+	global XML, SNMP, SCTP, ERLANG, SPOOLER
+	global EMBEDDED, UDP, MULTICAST, THREADING
+	global SENDFILE, PROFILER, NAGIOS, PROXY
+
+	global UWSGI_BIN_NAME
+
+	XML=False
+	SNMP=False
+	SCTP=False
+	ERLANG=False
+	UDP=False
+	MULTICAST=False
+	NAGIOS=False
+	PROXY=False
+
+	EMBEDDED=True
+	SPOOLER=True
+	THREADING=True
+	SENDFILE=True
+	PROFILER=True
+
+	UNBIT=True
+	UWSGI_BIN_NAME='/usr/share/unbit/uwsgi26'
 
 
 def parse_vars():
@@ -211,6 +237,9 @@ def parse_vars():
 		cflags.append("-DUWSGI_SPOOLER")
 		gcc_list.append('spooler')
 
+	if UNBIT:
+		cflags.append("-DUWSGI_UNBIT")
+
 def build_plugin(path):
 	path = path.rstrip('/')
 
@@ -253,6 +282,10 @@ if __name__ == "__main__":
 	if cmd == '--ldflags':
         	print(' '.join(ldflags))
 	elif cmd == '--build':
+		parse_vars()
+		build_uwsgi(UWSGI_BIN_NAME)
+	elif cmd == '--unbit':
+		unbit_setup()
 		parse_vars()
 		build_uwsgi(UWSGI_BIN_NAME)
 	elif cmd == '--plugin':
