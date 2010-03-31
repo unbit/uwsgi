@@ -1,6 +1,6 @@
 # uWSGI configuration
 
-XML=False
+XML=True
 SNMP=True
 SCTP=False
 ERLANG=False
@@ -204,14 +204,16 @@ def parse_vars():
 
 	if XML:
 		if XML_IMPLEMENTATION == 'libxml2':
-			xmlconf = spcall('xml2-config --libs')
+			xmlconf = spcall('ixml2-config --libs')
 			if xmlconf is None:
-				print("libxml2 headers unavailable. XML support will be disabled")
+				print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")
+				sys.exit(1)
 			else:
 				ldflags.append(xmlconf)
 				xmlconf = spcall("xml2-config --cflags")
 				if xmlconf is None:
-                        		print("libxml2 headers unavailable. XML support will be disabled")
+					print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")
+					sys.exit(1)
 				else:
 					cflags.append(xmlconf)
 					cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
