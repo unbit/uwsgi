@@ -240,12 +240,16 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	if (!uwsgi.no_defer_accept) {
 
-#ifdef TCP_DEFER_ACCEPT
+#ifdef __linux__
 		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
 			perror("setsockopt()");
 		}
-		else {
-			fprintf(stderr, "TCP_DEFER_ACCEPT enabled.\n");
+#elif defined(__apple__) || defined(__freebsd__)
+		struct  accept_filter_arg afa;
+		strcpy(afa.af_name, "dataready");
+		afa.af_arg[0] = 0;
+		if (setsockopt(serverfd, SOL_SOCKET, SO_ACCEPTFILTER, &afa, sizeof(struct  accept_filter_arg))) {
+			perror("setsockopt()");
 		}
 #endif
 

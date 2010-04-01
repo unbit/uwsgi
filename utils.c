@@ -303,3 +303,24 @@ inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *uwsgi) {
 	return wsgi_req;
 
 }
+
+void sanitize_args(struct uwsgi_server *uwsgi) {
+
+#ifdef UWSGI_PROFILER
+	if (uwsgi->enable_profiler) {
+		fprintf(stderr,"*** Profiler enabled, do not use it in production environment !!! ***\n");
+		uwsgi->async = 1;
+	}
+#endif
+
+#ifdef UWSGI_UGREEN
+#ifdef UWSGI_THREADING
+	if (uwsgi->ugreen) {
+                if (uwsgi->has_threads) {
+                        fprintf(stderr,"--- python threads will be disabled in uGreen mode ---\n");
+                        uwsgi->has_threads = 0;
+                }
+	}
+#endif
+#endif
+}

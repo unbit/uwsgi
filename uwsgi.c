@@ -418,6 +418,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	}
 
+
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
 		uwsgi_xml_config(uwsgi.wsgi_req, long_options);
@@ -488,6 +489,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		fprintf(stderr, "invalid buffer size.\n");
 		exit(1);
 	}
+
+	sanitize_args(&uwsgi);
 	
 	if (uwsgi.async > 1) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
@@ -675,11 +678,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_UGREEN
 	if (uwsgi.ugreen) {
-		if (uwsgi.has_threads) {
-			fprintf(stderr,"--- python threads will be disabled in uGreen mode ---\n");
-			uwsgi.has_threads = 0;
-		}
-
 		u_green_init(&uwsgi);
 	}
 #endif
@@ -1706,17 +1704,14 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		pycprof = PyImport_ImportModule("cProfile");
 		if (!pycprof) {
 			PyErr_Print();
-			fprintf(stderr, "trying old profile module... ");
+			fprintf(stderr, "trying old profile module...\n");
 			pycprof = PyImport_ImportModule("profile");
 			if (!pycprof) {
-				fprintf(stderr, "doh!!!\n");
 				PyErr_Print();
 				exit(1);
 			}
-			else {
-				fprintf(stderr, "ok and set stdout to linebuf mode.\n");
-			}
 		}
+
 		pycprof_dict = PyModule_GetDict(pycprof);
 		if (!pycprof_dict) {
 			PyErr_Print();
@@ -1728,8 +1723,22 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 			exit(1);
 		}
 
+#ifdef UWSGI_ASYNC
+		wi->wsgi_args = malloc(sizeof(PyObject*));
+		if (!wi->wsgi_args) {
+                	perror("malloc()");
+                	if (uwsgi.single_interpreter == 0) {
+                        	Py_EndInterpreter(wi->interpreter);
+                        	PyThreadState_Swap(uwsgi.main_thread) ;
+                	}
+                	return -1 ;
+        	}
 		wi->wsgi_args[0] = PyTuple_New(1);
 		if (PyTuple_SetItem(wi->wsgi_args[0], 0, PyString_FromFormat("uwsgi_out = uwsgi_application__%d(uwsgi_environ__%d,uwsgi_spit__%d)", id, id, id))) {
+#else
+		wi->wsgi_args = PyTuple_New(1);
+		if (PyTuple_SetItem(wi->wsgi_args, 0, PyString_FromFormat("uwsgi_out = uwsgi_application__%d(uwsgi_environ__%d,uwsgi_spit__%d)", id, id, id))) {
+#endif
 			PyErr_Print();
 			if (uwsgi.single_interpreter == 0) {
 				Py_EndInterpreter(wi->interpreter);
