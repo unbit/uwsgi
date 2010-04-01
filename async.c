@@ -96,6 +96,77 @@ int async_del(int queuefd, int fd, int etype) {
 }
 
 #elif defined(__sun__)
+
+int async_queue_init(int serverfd) {
+        int dpfd ;
+        struct pollfd dpev;
+
+        dpfd = open("/dev/poll", O_RDWR);
+
+        if (dpfd < 0) {
+                perror("open()");
+                return -1 ;
+        }
+
+	dpev.fd = serverfd;
+	dpev.events = POLLIN ;
+
+        if (write(dpfd, &dpev, sizeof(struct pollfd)) < 0) {
+                perror("write()");
+                return -1;
+        }
+
+        return dpfd;
+}
+
+int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
+
+	int ret ;
+	struct dvpoll dv ;
+
+	if (timeout <= 0) {
+		timeout = block;
+	}
+	else {
+		timeout = timeout*1000;
+	}
+
+	dv.dp_fds = (struct pollfd *) events;
+	dv.dp_nfds = nevents;
+	dv.dp_timeout = timeout;
+
+	//fprintf(stderr,"waiting with timeout %d nevents %d\n", timeout, nevents);
+	ret = ioctl(queuefd, DP_POLL, &dv);
+	if (ret < 0) {
+		perror("ioctl()");
+	}
+	return ret ;
+}
+
+int async_add(int queuefd, int fd, int etype) {
+	struct pollfd pl;
+
+	pl.fd = fd ;
+	pl.events = etype ;
+
+        if (write(queuefd, &pl, sizeof(struct pollfd))) {
+                perror("write()");
+		return -1;
+        }
+
+	return 0;
+}
+
+int async_mod(int queuefd, int fd, int etype) {
+	// using the same fd will overwrite existing rule
+	return async_add(queuefd, fd, etype);
+}
+
+int async_del(int queuefd, int fd, int etype) {
+	// to remove an fd from /dev/poll you have to simply close it
+	return 0;
+}
+
 #else
 int async_queue_init(int serverfd) {
 	int kfd ;

@@ -70,6 +70,7 @@
 #include <sys/sendfile.h>
 #include <sys/epoll.h>
 #elif defined(__sun___)
+#include <sys/devpoll.h>
 #else
 #include <sys/event.h>
 #endif

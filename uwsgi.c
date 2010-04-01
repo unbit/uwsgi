@@ -739,6 +739,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef __linux__
 		uwsgi.async_events = malloc( sizeof(struct epoll_event) * uwsgi.async ) ;
 #elif defined(__sun__)
+		uwsgi.async_events = malloc( sizeof(struct pollfd) * uwsgi.async ) ;
 #else
 		uwsgi.async_events = malloc( sizeof(struct kevent) * uwsgi.async ) ;
 #endif
