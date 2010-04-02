@@ -69,7 +69,7 @@
 #ifdef __linux__
 #include <sys/sendfile.h>
 #include <sys/epoll.h>
-#elif defined(__sun___)
+#elif defined(__sun__)
 #include <sys/devpoll.h>
 #else
 #include <sys/event.h>
@@ -717,6 +717,12 @@ void async_expire_timeouts(struct uwsgi_server *);
 #define ASYNC_IS_IN ASYNC_EV & ASYNC_IN
 #define ASYNC_IS_OUT ASYNC_EV & ASYNC_OUT
 #elif defined(__sun__)
+#define ASYNC_FD fd
+#define ASYNC_EV revents
+#define ASYNC_IN POLLIN
+#define ASYNC_OUT POLLOUT
+#define ASYNC_IS_IN ASYNC_EV & ASYNC_IN
+#define ASYNC_IS_OUT ASYNC_EV & ASYNC_OUT
 #else
 #define ASYNC_FD ident
 #define ASYNC_EV filter
