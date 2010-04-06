@@ -128,6 +128,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_ASYNC			17021
 #define LONG_ARGS_UGREEN_PAGES		17022
 #define LONG_ARGS_FILE_CONFIG		17023
+#define LONG_ARGS_MULTICAST		17024
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -368,7 +369,15 @@ struct uwsgi_server {
 	int is_a_reload;
 
 	char *socket_name;
+
+#ifdef UWSGI_UDP
 	char *udp_socket;
+#endif
+
+#ifdef UWSGI_MULTICAST
+	char *multicast_group;
+#endif
+
 #ifdef UWSGI_ERLANG
 	char *erlang_node;
 	char *erlang_cookie;

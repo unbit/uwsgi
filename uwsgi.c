@@ -330,7 +330,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-server", no_argument, &no_server, 1},
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
+#ifdef UWSGI_UDP
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
+#endif
+#ifdef UWSGI_MULTICAST
+		{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
+#endif
 #ifdef UWSGI_SNMP
 		{"snmp", no_argument, 0, LONG_ARGS_SNMP},
 		{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
@@ -1066,6 +1071,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 		}
 #endif
+
+#ifdef UWSGI_UDP
+		PyObject *udp_callable = PyDict_GetItemString(uwsgi.embedded_dict, "udp_callable");
+		PyObject *udp_callable_args = NULL;
+		if (udp_callable) {
+			udp_callable_args = PyTuple_New(3);
+		}
+#endif
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifdef UWSGI_SPOOLER
@@ -1200,8 +1213,21 @@ int main(int argc, char *argv[], char *envp[]) {
 								}
 #endif
 								else {
-									// a simple udp logger
-									fprintf(stderr, "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, &uwsgi.wsgi_req->buffer);
+									if (udp_callable && udp_callable_args) {
+										PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
+										PyTuple_SetItem(udp_callable_args, 1, PyInt_FromLong(ntohs(udp_client.sin_port)));
+										PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(&uwsgi.wsgi_req->buffer, rlen));
+										PyObject *udp_response = python_call(udp_callable, udp_callable_args);
+										if (udp_response) {
+											Py_DECREF(udp_response);
+										}
+										if (PyErr_Occurred())
+											PyErr_Print();
+									}
+									else {
+										// a simple udp logger
+										fprintf(stderr, "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, &uwsgi.wsgi_req->buffer);
+									}
 								}
 							}
 							else {
@@ -2435,10 +2461,18 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_PIDFILE:
 		uwsgi.pidfile = optarg;
 		break;
+#ifdef UWSGI_UDP
 	case LONG_ARGS_UDP:
 		uwsgi.udp_socket = optarg;
 		uwsgi.master_process = 1;
 		break;
+#endif
+#ifdef UWSGI_MULTICAST
+	case LONG_ARGS_MULTICAST:
+		uwsgi.multicast_group = optarg;
+		uwsgi.master_process = 1;
+		break;
+#endif
 	case LONG_ARGS_CHROOT:
 		uwsgi.chroot = optarg;
 		break;

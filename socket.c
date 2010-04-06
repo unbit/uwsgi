@@ -125,7 +125,9 @@ int bind_to_udp(char *socket_name) {
 	struct sockaddr_in uws_addr;
 	char *udp_port;
 
+#ifdef UWSGI_MULTICAST
 	struct ip_mreq mc;
+#endif
 
 	udp_port = strchr(socket_name, ':');
 	if (udp_port == NULL) {
@@ -136,8 +138,15 @@ int bind_to_udp(char *socket_name) {
 	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
 	uws_addr.sin_family = AF_INET;
 	uws_addr.sin_port = htons(atoi(udp_port + 1));
-	//uws_addr.sin_addr.s_addr = inet_addr(socket_name);
-	uws_addr.sin_addr.s_addr = INADDR_ANY;
+
+	if (socket_name[0] != 0) {
+		uws_addr.sin_addr.s_addr = inet_addr(socket_name);
+	}
+	else {
+		uws_addr.sin_addr.s_addr = INADDR_ANY;
+	}
+
+	
 
 	serverfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (serverfd < 0) {
@@ -145,14 +154,19 @@ int bind_to_udp(char *socket_name) {
 		return -1;
 	}
 
-	// if multicast is enabled remember to bind to INADDR_ANY
-	mc.imr_multiaddr.s_addr = inet_addr("225.0.0.1");
-	if (socket_name[0] == 0) {
-		mc.imr_interface.s_addr = INADDR_ANY;
+#ifdef UWSGI_MULTICAST
+	if (uwsgi.multicast_group) {
+		uws_addr.sin_addr.s_addr = INADDR_ANY;
+		// if multicast is enabled remember to bind to INADDR_ANY
+		mc.imr_multiaddr.s_addr = inet_addr(uwsgi.multicast_group);
+		if (socket_name[0] == 0) {
+			mc.imr_interface.s_addr = INADDR_ANY;
+		}
+		else {
+			mc.imr_interface.s_addr = inet_addr(socket_name);
+		}
 	}
-	else {
-		mc.imr_interface.s_addr = inet_addr(socket_name);
-	}
+#endif
 
 	fprintf(stderr, "binding on UDP port: %d\n", ntohs(uws_addr.sin_port));
 
@@ -162,10 +176,14 @@ int bind_to_udp(char *socket_name) {
 		return -1;
 	}
 
-	fprintf(stderr, "joining uWSGI multicast group: %s:%d\n", "225.0.0.1", ntohs(uws_addr.sin_port));
-	if (setsockopt(serverfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc, sizeof(mc))) {
-		perror("setsockopt()");
+#ifdef UWSGI_MULTICAST
+	if (uwsgi.multicast_group) {
+		fprintf(stderr, "joining uWSGI multicast group: %s:%d\n", uwsgi.multicast_group, ntohs(uws_addr.sin_port));
+		if (setsockopt(serverfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc, sizeof(mc))) {
+			perror("setsockopt()");
+		}
 	}
+#endif
 
 	return serverfd;
 
