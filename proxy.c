@@ -109,6 +109,9 @@ void uwsgi_proxy(int proxyfd) {
 #ifdef __linux__
 	struct epoll_event *eevents;
 	struct epoll_event ev;
+#elif defined(__sun__)
+	struct pollfd *eevents;
+	struct pollfd ev;
 #else
 	struct kevent *eevents;
 	struct kevent ev;
@@ -157,6 +160,9 @@ void uwsgi_proxy(int proxyfd) {
 #ifdef __linux__
 	eevents = malloc(sizeof(struct epoll_event) * max_events);
 	memset(&ev, 0, sizeof(struct epoll_event)); 
+#elif defined(__sun)
+	eevents = malloc(sizeof(struct pollfd) * max_events);
+	memset(&ev, 0, sizeof(struct pollfd)); 
 #else
 	eevents = malloc(sizeof(struct kevent) * max_events);
 	memset(&ev, 0, sizeof(struct kevent)); 

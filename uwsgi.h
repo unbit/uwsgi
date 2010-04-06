@@ -83,7 +83,7 @@
 #endif
 
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
-#define Py_ssize_t int
+#define Py_ssize_t ssize_t
 #endif
 
 #if PY_MAJOR_VERSION > 2
@@ -127,6 +127,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_SNMP_COMMUNITY	17020
 #define LONG_ARGS_ASYNC			17021
 #define LONG_ARGS_UGREEN_PAGES		17022
+#define LONG_ARGS_FILE_CONFIG		17023
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -419,6 +420,7 @@ struct uwsgi_server {
 #ifdef __linux__
 	struct epoll_event *async_events;
 #elif defined(__sun__)
+	struct pollfd *async_events;
 #else
 	struct kevent *async_events;
 #endif
@@ -446,6 +448,8 @@ struct uwsgi_server {
 #ifdef UWSGI_XML
 	char *xml_config;
 #endif
+	
+	char *file_config;
 
 	char *python_path[64];
 	int python_path_cnt;
@@ -609,7 +613,7 @@ void init_uwsgi_embedded_module(void);
 void uwsgi_xml_config(struct wsgi_request *, struct option *);
 #endif
 
-void uwsgi_wsgi_config(void);
+void uwsgi_wsgi_config(char *);
 void uwsgi_paste_config(void);
 void uwsgi_wsgi_file_config(void);
 

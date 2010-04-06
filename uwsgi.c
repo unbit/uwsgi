@@ -349,6 +349,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
 #endif
 		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
+		{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
 #ifdef UWSGI_ASYNC
 		{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
@@ -418,6 +419,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	}
 
+	if (optind < argc) {
+		char *lazy = argv[optind];
+		if (!strcmp(lazy+strlen(lazy)-3, ".py")) {
+			uwsgi.file_config = lazy;
+		}
+	}
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
@@ -830,9 +837,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
-
 	if (uwsgi.wsgi_config != NULL) {
-		uwsgi_wsgi_config();
+		uwsgi_wsgi_config(NULL);
+	}
+	else if (uwsgi.file_config != NULL) {
+		uwsgi_wsgi_config(uwsgi.file_config);
 	}
 	else if (uwsgi.wsgi_file != NULL) {
 		uwsgi_wsgi_file_config();
@@ -1835,6 +1844,8 @@ void uwsgi_paste_config() {
 	PyObject *paste_module, *paste_dict, *paste_loadapp;
 	PyObject *paste_arg, *paste_app;
 
+	uwsgi.single_interpreter = 1;
+
 	fprintf(stderr, "Loading paste environment: %s\n", uwsgi.paste);
 	paste_module = PyImport_ImportModule("paste.deploy");
 	if (!paste_module) {
@@ -1885,6 +1896,7 @@ void uwsgi_wsgi_file_config() {
 	PyObject *wsgi_file_callable;
 	int ret;
 
+	uwsgi.single_interpreter = 1;
 
 	wsgifile = fopen(uwsgi.wsgi_file, "r");
 	if (!wsgifile) {
@@ -1942,7 +1954,7 @@ void uwsgi_wsgi_file_config() {
 }
 
 
-void uwsgi_wsgi_config() {
+void uwsgi_wsgi_config(char *filename) {
 
 	PyObject *wsgi_module, *wsgi_dict;
 #ifdef UWSGI_EMBEDDED
@@ -1953,12 +1965,51 @@ void uwsgi_wsgi_config() {
 	int ret;
 	Py_ssize_t i;
 	PyObject *app_mnt, *app_app;
+	FILE *uwsgifile;
 
-	wsgi_module = PyImport_ImportModule(uwsgi.wsgi_config);
-	if (!wsgi_module) {
-		PyErr_Print();
-		exit(1);
+	uwsgi.single_interpreter = 1;
+
+	if (filename) {
+		uwsgifile = fopen(filename, "r");
+        	if (!uwsgifile) {
+                	perror("fopen()");
+                	exit(1);
+        	}
+
+        	struct _node *uwsgi_file_node = PyParser_SimpleParseFile(uwsgifile, filename, Py_file_input);
+        	if (!uwsgi_file_node) {
+                	PyErr_Print();
+                	fprintf(stderr, "failed to parse wsgi file %s\n", filename);
+                	exit(1);
+        	}
+
+        	fclose(uwsgifile);
+
+        	PyObject *uwsgi_compiled_node = (PyObject *) PyNode_Compile(uwsgi_file_node, filename);
+
+        	if (!uwsgi_compiled_node) {
+                	PyErr_Print();
+                	fprintf(stderr, "failed to compile wsgi file %s\n", filename);
+                	exit(1);
+        	}
+
+        	wsgi_module = PyImport_ExecCodeModule("uwsgi_config_file", uwsgi_compiled_node);
+        	if (!wsgi_module) {
+                	PyErr_Print();
+                	exit(1);
+        	}
+
+        	Py_DECREF(uwsgi_compiled_node);
+		uwsgi.wsgi_config = "uwsgi_config_file";
 	}
+	else {
+		wsgi_module = PyImport_ImportModule(uwsgi.wsgi_config);
+		if (!wsgi_module) {
+			PyErr_Print();
+			exit(1);
+		}
+	}
+	
 
 	wsgi_dict = PyModule_GetDict(wsgi_module);
 	if (!wsgi_dict) {
@@ -2326,8 +2377,10 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.binary_path = optarg;
 		break;
 	case LONG_ARGS_WSGI_FILE:
-		uwsgi.single_interpreter = 1;
 		uwsgi.wsgi_file = optarg;
+		break;
+	case LONG_ARGS_FILE_CONFIG:
+		uwsgi.file_config = optarg;
 		break;
 #ifdef UWSGI_PROXY
 	case LONG_ARGS_PROXY_NODE:
@@ -2359,7 +2412,6 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.rl.rlim_max = uwsgi.rl.rlim_cur;
 		break;
 	case LONG_ARGS_PASTE:
-		uwsgi.single_interpreter = 1;
 		uwsgi.paste = optarg;
 		break;
 	case LONG_ARGS_CHECK_INTERVAL:
@@ -2443,7 +2495,6 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.shared->options[UWSGI_OPTION_REAPER] = 1;
 		break;
 	case 'w':
-		uwsgi.single_interpreter = 1;
 		uwsgi.wsgi_config = optarg;
 		break;
 	case 'm':
