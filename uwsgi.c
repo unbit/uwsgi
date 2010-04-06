@@ -1171,7 +1171,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 								else {
 									// a simple udp logger
-									fprintf(stderr, "[udp:%s:%d] ", udp_client_addr, ntohs(udp_client.sin_port));
+									//fprintf(stderr, "[udp:%s:%d] ", udp_client_addr, ntohs(udp_client.sin_port));
 									fprintf(stderr, &uwsgi.wsgi_req->buffer, rlen);
 								}
 							}
