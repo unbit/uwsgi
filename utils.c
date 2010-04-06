@@ -29,6 +29,12 @@ void daemonize(char *logfile) {
 	pid_t pid;
 	int fd, fdin;
 
+#ifdef UWSGI_UDP
+	char *udp_port;
+	struct sockaddr_in udp_addr;
+#endif
+
+
 
 	pid = fork();
 	if (pid < 0) {
@@ -70,11 +76,43 @@ void daemonize(char *logfile) {
 		exit(1);
 	}
 
-	fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
-	if (fd < 0) {
-		perror("open()");
-		exit(1);
+	
+#ifdef UWSGI_UDP
+	udp_port = strchr(logfile, ':');
+	if (udp_port) {
+		udp_port[0] = 0 ;
+		if ( !udp_port[1] || !logfile[0] ) {
+			fprintf(stderr,"invalid udp address\n");
+			exit(1);
+		}
+
+		fd = socket(AF_INET,  SOCK_DGRAM, 0);
+		if (fd < 0) {
+			perror("socket()");
+			exit(1);
+		}
+
+        	memset(&udp_addr, 0, sizeof(struct sockaddr_in));
+
+        	udp_addr.sin_family = AF_INET;
+        	udp_addr.sin_port = htons(atoi(udp_port+1));
+                udp_addr.sin_addr.s_addr = inet_addr(logfile);
+			
+		if (connect(fd, (const struct sockaddr *) &udp_addr, sizeof(struct sockaddr_in)) < 0) {
+			perror("connect()");
+			exit(1);
+		}
 	}
+	else {
+#endif
+		fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+		if (fd < 0) {
+			perror("open()");
+			exit(1);
+		}
+#ifdef UWSGI_UDP
+	}
+#endif
 
 	/* stdin */
 	if (dup2(fdin, 0) < 0) {
@@ -323,4 +361,65 @@ void sanitize_args(struct uwsgi_server *uwsgi) {
 	}
 #endif
 #endif
+}
+
+void env_to_arg(char *src, char *dst) {
+	int i;
+
+	for(i=0;i<strlen(src);i++) {
+		dst[i] = tolower(src[i]);
+		if (dst[i] == '_') {
+			dst[i] = '-';
+		}
+	}
+
+	dst[strlen(src)] = 0;
+}
+
+void parse_sys_envs(char **envs, struct option *long_options) {
+
+	struct option *lopt, *aopt;
+
+	char **uenvs = envs;
+	char *earg, *eq_pos ;
+
+        while(*uenvs) {
+                if (!strncmp(*uenvs, "UWSGI_", 6)) {
+                        earg = malloc(strlen(*uenvs+6)+1);
+                        if (!earg) {
+                                perror("malloc()");
+                                exit(1);
+                        }
+                        env_to_arg(*uenvs+6, earg);
+                        eq_pos = strchr(earg, '=');
+                        if (!eq_pos) {
+                                break;
+                        }
+                        eq_pos[0] = 0 ;
+
+                        lopt = long_options;
+
+                        while ((aopt = lopt)) {
+                                if (!aopt->name)
+                                        break;
+                                if (!strcmp(earg, aopt->name)) {
+                                        if (aopt->flag) {
+                                                *aopt->flag = aopt->val;
+                                        }
+                                        else {
+                                                if (eq_pos[1] != 0) {
+                                                        manage_opt(aopt->val, eq_pos+1);
+                                                }
+                                                else {
+                                                        manage_opt(aopt->val, NULL);
+                                                }
+                                        }
+                                }
+                                lopt++;
+                        }
+
+                }
+                uenvs++;
+        }
+
 }

@@ -791,3 +791,6 @@ void u_green_loop(struct uwsgi_server *);
 inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *);
 
 void sanitize_args(struct uwsgi_server *);
+
+void env_to_arg(char *, char *);
+void parse_sys_envs(char **, struct option *);

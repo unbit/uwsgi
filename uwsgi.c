@@ -432,6 +432,48 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+//parse environ
+
+	parse_sys_envs(environ, long_options);
+	char **uenvs = environ;
+	while(*uenvs) {
+		if (!strncmp(*uenvs, "UWSGI_", 6)) {
+			char *earg = malloc(strlen(*uenvs+6)+1);
+			if (!earg) {
+				perror("malloc()");
+				exit(1);
+			}
+			env_to_arg(*uenvs+6, earg);
+			char *eq_pos = strchr(earg, '=');
+			if (!eq_pos) {
+				break;	
+			}
+			eq_pos[0] = 0 ;
+			struct option *lopt = long_options, *aopt;
+                        while ((aopt = lopt)) {
+                        	if (!aopt->name)
+                                	break;
+                        	if (!strcmp(earg, aopt->name)) {
+					if (aopt->flag) {
+                                        	*aopt->flag = aopt->val;
+                                        }
+                                        else {
+                                        	if (eq_pos[1] != 0) {
+                                                	manage_opt(aopt->val, eq_pos+1);
+                                                }
+                                                else {
+                                                	manage_opt(aopt->val, NULL);
+                                                }
+                                	}
+                                }
+                        	lopt++;
+			}
+			
+		}
+		uenvs++;
+	}
+
+
 	if (uwsgi.binary_path == argv[0]) {
 		cwd = uwsgi_get_cwd();
 		uwsgi.binary_path = malloc(strlen(argv[0]) + 1);
@@ -1120,7 +1162,6 @@ int main(int argc, char *argv[], char *envp[]) {
 						else if (rlen > 0) {
 							memset(udp_client_addr, 0, 16);
 							if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
-								fprintf(stderr, "received udp packet of %d bytes from %s:%d\n", rlen, udp_client_addr, ntohs(udp_client.sin_port));
 								if (uwsgi.wsgi_req->buffer == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
 								}
 #ifdef UWSGI_SNMP
@@ -1128,6 +1169,11 @@ int main(int argc, char *argv[], char *envp[]) {
 									manage_snmp(uwsgi_poll.fd, (uint8_t *) &uwsgi.wsgi_req->buffer, rlen, &udp_client);
 								}
 #endif
+								else {
+									// a simple udp logger
+									fprintf(stderr, "[udp:%s:%d] ", udp_client_addr, ntohs(udp_client.sin_port));
+									fprintf(stderr, &uwsgi.wsgi_req->buffer, rlen);
+								}
 							}
 							else {
 								perror("inet_ntop()");
