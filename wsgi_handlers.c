@@ -273,8 +273,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		wsgi_req->async_result = python_call(wi->wsgi_cprofile_run, wsgi_req->async_args);
 		if (wsgi_req->async_result) {
 			wsgi_req->async_result = PyDict_GetItemString(wi->pymain_dict, "uwsgi_out");
-			Py_INCREF(wsgi_req->async_result);
-			Py_INCREF(wsgi_req->async_result);
+			Py_INCREF((PyObject*)wsgi_req->async_result);
+			Py_INCREF((PyObject*)wsgi_req->async_result);
 		}
 	}
 	else {

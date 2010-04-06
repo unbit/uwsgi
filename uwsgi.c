@@ -208,6 +208,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	int rlen;
 
+	int uwsgi_will_starts = 0;
+
 #ifdef UWSGI_ASYNC
 	int current_async_timeout = 0;
 #endif
@@ -759,14 +761,23 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 		socket_type_len = sizeof(int);
-		if (getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
-			//perror ("getsockopt()");
-			uwsgi.numproc = 0;
+		if (!getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
+			uwsgi_will_starts = 1;
+		}
+		else {
+			uwsgi.numproc = 0 ;
 		}
 
 #ifdef UWSGI_PROXY
 		if (uwsgi.proxy_socket_name) {
 			uwsgi.shared->proxy_pid = proxy_start(uwsgi.master_process);
+			uwsgi_will_starts = 1;
+		}
+#endif
+
+#ifdef UWSGI_UDP
+		if (uwsgi.udp_socket) {
+			uwsgi_will_starts = 1;
 		}
 #endif
 
@@ -774,11 +785,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 
-#ifdef UWSGI_PROXY
-	if (uwsgi.numproc == 0 && (!uwsgi.proxy_socket_name || uwsgi.shared->proxy_pid <= 0)) {
-#else
-	if (uwsgi.numproc == 0) {
-#endif
+	if (!uwsgi_will_starts) {
 		fprintf(stderr, "The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
@@ -1125,15 +1132,38 @@ int main(int argc, char *argv[], char *envp[]) {
 				// never here
 				exit(1);
 			}
-			diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
-			if (diedpid == -1) {
-				perror("waitpid()");
-				/* here is better to reload all the uWSGI stack */
-				fprintf(stderr, "something horrible happened...\n");
-				reap_them_all();
-				exit(1);
+
+			int master_has_children = 0;
+
+			if (uwsgi.numproc > 0 ) {
+				master_has_children = 1;
 			}
-			else if (diedpid == 0) {
+#ifdef UWSGI_SPOOLER
+			if (spool_dir && uwsgi.shared->spooler_pid > 0) {
+				master_has_children = 1;
+			}
+#endif
+#ifdef UWSGI_PROXY
+			if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
+				master_has_children = 1;
+			}
+#endif
+
+			if (!master_has_children) {
+				diedpid = 0;
+			}
+			else {
+				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
+				if (diedpid == -1) {
+					perror("waitpid()");
+					/* here is better to reload all the uWSGI stack */
+					fprintf(stderr, "something horrible happened...\n");
+					reap_them_all();
+					exit(1);
+				}
+			}
+
+			if (diedpid == 0) {
 				/* PLEASE, do not run python threads in the master process, you can potentially destroy the world,
 				   we support this for hyperultramegagodprogrammer and systems
 				 */
@@ -2645,7 +2675,9 @@ void manage_opt(int i, char *optarg) {
 	case 0:
 		break;
 	default:
-		fprintf(stderr, "invalid argument -%c  exiting \n", i);
+		if (i != '?') {
+			fprintf(stderr, "invalid argument -%c  exiting \n", i);
+		}
 		exit(1);
 #endif
 	}
