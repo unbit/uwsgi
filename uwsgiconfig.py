@@ -23,7 +23,7 @@ UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
 
 # specific compilation flags
-XML_IMPLEMENTATION = 'libxml2'
+XML_IMPLEMENTATION = 'expat'
 # if you want to use alternative python lib, specifiy its path here
 #PYLIB_PATH = '/home/roberto/uwsgi/STACKLESS/slp/lib'
 PYLIB_PATH = ''
@@ -48,7 +48,12 @@ from distutils import sysconfig
 gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'uwsgi']
 
 # large file support
-cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + sysconfig.get_config_var('CFLAGS').split()
+try:
+	cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + sysconfig.get_config_var('CFLAGS').split()
+except:
+	print("You need python headers to build uWSGI.")
+	sys.exit(1)
+
 cflags = cflags + ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ]
 ldflags = ['-lpthread', '-rdynamic'] + sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
 
