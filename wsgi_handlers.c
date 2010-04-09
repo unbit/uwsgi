@@ -31,6 +31,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 }
 
 #ifdef UWSGI_ASYNC
+
 PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
         int fd, timeout;
 

@@ -379,6 +379,37 @@ void async_set_timeout(struct wsgi_request *wsgi_req, time_t timeout) {
 	
 }
 
+void async_write_all(struct uwsgi_server *uwsgi, char *data, size_t len) {
+	
+	struct wsgi_request *wsgi_req = uwsgi->wsgi_requests ;
+	int i;
+	ssize_t rlen ;
+
+	for(i=0;i<uwsgi->async;i++) {
+                if (wsgi_req->async_status == UWSGI_PAUSED) {
+			rlen = write(wsgi_req->poll.fd, data, len);
+			if (rlen < 0) {
+				perror("write()");
+			}
+			else {
+				wsgi_req->response_size += rlen ;
+			}
+		}
+	}
+}
+
+void async_unpause_all(struct uwsgi_server *uwsgi) {
+	
+	struct wsgi_request *wsgi_req = uwsgi->wsgi_requests ;
+	int i;
+
+	for(i=0;i<uwsgi->async;i++) {
+                if (wsgi_req->async_status == UWSGI_PAUSED) {
+			wsgi_req->async_status = UWSGI_AGAIN;
+		}
+	}
+}
+
 struct wsgi_request * async_loop(struct uwsgi_server *uwsgi) {
 
 	struct wsgi_request *wsgi_req ;

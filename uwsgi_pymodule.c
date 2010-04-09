@@ -20,6 +20,8 @@ extern struct uwsgi_server uwsgi;
 #define UWSGI_LOGBASE "[- uWSGI -"
 
 #ifdef UWSGI_ASYNC
+
+
 PyObject *py_uwsgi_async_sleep(PyObject * self, PyObject * args) {
 
 	float timeout ;
@@ -818,13 +820,7 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	fprintf(stderr, "detaching uWSGI from current connection...\n");
 
-	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
-#ifdef UWSGI_STACKLESS
-        if (uwsgi.stackless) {
-                PyThreadState *ts = PyThreadState_GET();
-                wsgi_req = find_request_by_tasklet(ts->st.current);
-        }
-#endif
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
 	fclose(wsgi_req->async_post);
 	wsgi_req->fd_closed = 1 ;

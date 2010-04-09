@@ -133,6 +133,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
 #define UWSGI_ACCEPTING	2
+#define UWSGI_PAUSED	3
 
 #define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
 
@@ -324,6 +325,8 @@ struct __attribute__ ((packed)) wsgi_request {
 	void *async_environ;
 	void *async_post;
 	void *async_sendfile;
+	
+	int async_plagued;
 
 #ifdef UWSGI_STACKLESS
 	PyTaskletObject* tasklet;
@@ -721,6 +724,8 @@ int async_queue_init(int);
 int async_get_timeout(struct uwsgi_server *);
 void async_set_timeout(struct wsgi_request *, time_t);
 void async_expire_timeouts(struct uwsgi_server *);
+void async_write_all(struct uwsgi_server *, char *, size_t);
+void async_unpause_all(struct uwsgi_server *);
 
 #ifdef __linux__
 #define ASYNC_FD data.fd
