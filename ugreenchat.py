@@ -1,5 +1,5 @@
+#!./uwsgi
 import uwsgi
-import time
 
 from bottle import route, default_app, request, response, redirect
 
