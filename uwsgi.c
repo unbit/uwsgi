@@ -181,7 +181,6 @@ time_t respawn_delta;
 int single_app_mode = 0;
 #endif
 
-char *spool_dir = NULL;
 
 static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	fprintf(stderr, "-- unavailable modifier requested: %d --\n", wsgi_req->modifier);
@@ -964,7 +963,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 #ifdef UWSGI_SPOOLER
-	if (spool_dir != NULL && uwsgi.numproc > 0) {
+	if (uwsgi.spool_dir != NULL && uwsgi.numproc > 0) {
 		uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi.embedded_dict);
 	}
 #endif
@@ -1082,7 +1081,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifdef UWSGI_SPOOLER
-				if (spool_dir && uwsgi.shared->spooler_pid > 0) {
+				if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 					kill(uwsgi.shared->spooler_pid, SIGKILL);
 					fprintf(stderr, "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
 				}
@@ -1100,7 +1099,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 			if (ready_to_reload >= uwsgi.numproc && uwsgi.to_heaven) {
 #ifdef UWSGI_SPOOLER
-				if (spool_dir && uwsgi.shared->spooler_pid > 0) {
+				if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 					kill(uwsgi.shared->spooler_pid, SIGKILL);
 					fprintf(stderr, "wait4() the spooler with pid %d...", uwsgi.shared->spooler_pid);
 					diedpid = waitpid(uwsgi.shared->spooler_pid, &waitpid_status, 0);
@@ -1152,7 +1151,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				master_has_children = 1;
 			}
 #ifdef UWSGI_SPOOLER
-			if (spool_dir && uwsgi.shared->spooler_pid > 0) {
+			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 				master_has_children = 1;
 			}
 #endif
@@ -1294,7 +1293,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 #ifdef UWSGI_SPOOLER
 			/* reload the spooler */
-			if (spool_dir && uwsgi.shared->spooler_pid > 0) {
+			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 				if (diedpid == uwsgi.shared->spooler_pid) {
 					fprintf(stderr, "OOOPS the spooler is no more...trying respawn...\n");
 					uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi.embedded_dict);
@@ -2356,7 +2355,7 @@ void init_uwsgi_embedded_module() {
 	init_uwsgi_module_advanced(new_uwsgi_module);
 
 #ifdef UWSGI_SPOOLER
-	if (spool_dir != NULL) {
+	if (uwsgi.spool_dir != NULL) {
 		init_uwsgi_module_spooler(new_uwsgi_module);
 	}
 #endif
@@ -2424,10 +2423,10 @@ pid_t spooler_start(int serverfd, PyObject * uwsgi_module_dict) {
 	}
 	else if (pid == 0) {
 		close(serverfd);
-		spooler(uwsgi_module_dict);
+		spooler(&uwsgi, uwsgi_module_dict);
 	}
 	else if (pid > 0) {
-		fprintf(stderr, "spawned the uWSGI spooler on dir %s with pid %d\n", spool_dir, pid);
+		fprintf(stderr, "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
 	}
 
 	return pid;
@@ -2544,9 +2543,17 @@ void manage_opt(int i, char *optarg) {
 		break;
 #ifdef UWSGI_SPOOLER
 	case 'Q':
-		spool_dir = optarg;
-		if (access(spool_dir, R_OK | W_OK | X_OK)) {
+		uwsgi.spool_dir = malloc(PATH_MAX);
+		if (!uwsgi.spool_dir) {
+			perror("malloc()");
+			exit(1);
+		}
+		if (access(optarg, R_OK | W_OK | X_OK)) {
 			perror("[spooler directory] access()");
+			exit(1);
+		}
+		if (!realpath(optarg, uwsgi.spool_dir)) {
+			perror("realpath()");
 			exit(1);
 		}
 		uwsgi.master_process = 1;

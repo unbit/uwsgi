@@ -381,6 +381,10 @@ struct uwsgi_server {
 	char *multicast_group;
 #endif
 
+#ifdef UWSGI_SPOOLER
+	char *spool_dir;
+#endif
+
 #ifdef UWSGI_ERLANG
 	char *erlang_node;
 	char *erlang_cookie;
@@ -541,6 +545,7 @@ struct uwsgi_shared {
 
 #ifdef UWSGI_SPOOLER
 	pid_t spooler_pid;
+	int spooler_frequency;
 #endif
 
 #ifdef UWSGI_PROXY
@@ -643,8 +648,8 @@ void snmp_init(void);
 #endif
 
 #ifdef UWSGI_SPOOLER
-int spool_request(char *, int, char *, int);
-void spooler(PyObject *);
+int spool_request(struct uwsgi_server *, char *, int, char *, int);
+void spooler(struct uwsgi_server *, PyObject *);
 pid_t spooler_start(int, PyObject *);
 #endif
 

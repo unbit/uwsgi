@@ -276,6 +276,18 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 }
 
 #ifdef UWSGI_SPOOLER
+PyObject *py_uwsgi_spooler_freq(PyObject * self, PyObject * args) {
+	
+	if (!PyArg_ParseTuple(args, "i", &uwsgi.shared->spooler_frequency)) {
+                return NULL;
+        }
+
+	Py_INCREF(Py_True);
+	return Py_True;
+	
+}
+
+
 PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 	PyObject *spool_dict, *spool_vars;
 	PyObject *zero, *key, *val;
@@ -357,7 +369,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 		}
 	}
 
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, spool_buffer, cur_buf - spool_buffer);
+	i = spool_request(&uwsgi, spool_filename, uwsgi.workers[0].requests + 1, spool_buffer, cur_buf - spool_buffer);
 	if (i > 0) {
 		return Py_True;
 	}
@@ -832,6 +844,7 @@ PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 #ifdef UWSGI_SPOOLER
 static PyMethodDef uwsgi_spooler_methods[] = {
 	{"send_to_spooler", py_uwsgi_send_spool, METH_VARARGS, ""},
+	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 #endif

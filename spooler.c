@@ -4,10 +4,8 @@
 #include <dirent.h>
 
 
-extern char *spool_dir;
 
-
-int spool_request(char *filename, int rn, char *buffer, int size) {
+int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buffer, int size) {
 
 	char hostname[256 + 1];
 	struct timeval tv;
@@ -23,7 +21,7 @@ int spool_request(char *filename, int rn, char *buffer, int size) {
 
 	hostname[256] = 0;
 
-	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", spool_dir, hostname, getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi->spool_dir, hostname, getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
 		return 0;
 	}
 
@@ -74,7 +72,7 @@ int spool_request(char *filename, int rn, char *buffer, int size) {
 	return 0;
 }
 
-void spooler(PyObject * uwsgi_module_dict) {
+void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	DIR *sdir;
 	struct dirent *dp;
 	PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
@@ -88,6 +86,8 @@ void spooler(PyObject * uwsgi_module_dict) {
 	char *key;
 	char *val;
 
+	// spool every 30 seconds by default
+	uwsgi->shared->spooler_frequency = 30 ;
 
 	spool_tuple = PyTuple_New(1);
 
@@ -107,8 +107,8 @@ void spooler(PyObject * uwsgi_module_dict) {
 		PyErr_Print();
 		exit(1);
 	}
-
-	if (chdir(spool_dir)) {
+	
+	if (chdir(uwsgi->spool_dir)) {
 		perror("chdir()");
 		exit(1);
 	}
@@ -118,7 +118,10 @@ void spooler(PyObject * uwsgi_module_dict) {
 	setpriority(PRIO_PROCESS, getpid(), PRIO_MAX);
 
 	for (;;) {
-		sdir = opendir(".");
+
+		sleep(uwsgi->shared->spooler_frequency);
+
+		sdir = opendir(uwsgi->spool_dir);
 		if (sdir) {
 			while ((dp = readdir(sdir)) != NULL) {
 				if (!strncmp("uwsgi_spoolfile_on_", dp->d_name, 19)) {
@@ -235,7 +238,7 @@ void spooler(PyObject * uwsgi_module_dict) {
 						}
 
 
-						spool_result = PyEval_CallObject(spooler_callable, spool_tuple);
+						spool_result = python_call(spooler_callable, spool_tuple);
 						if (!spool_result) {
 							PyErr_Print();
 							fprintf(stderr, "error detected. spool request canceled.\n");
@@ -271,8 +274,6 @@ void spooler(PyObject * uwsgi_module_dict) {
 			perror("opendir()");
 		}
 
-		/* TODO spooler frequency user-configurable */
-		sleep(5);
 	}
 }
 
@@ -281,7 +282,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	int i;
 	char spool_filename[1024];
 
-	if (spool_dir == NULL) {
+	if (uwsgi->spool_dir == NULL) {
 		fprintf(stderr, "the spooler is inactive !!!...skip\n");
 		wsgi_req->modifier = 255;
 		wsgi_req->size = 0;
@@ -294,7 +295,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	}
 
 	fprintf(stderr, "managing spool request...\n");
-	i = spool_request(spool_filename, uwsgi->workers[0].requests + 1, &wsgi_req->buffer, wsgi_req->size);
+	i = spool_request(uwsgi, spool_filename, uwsgi->workers[0].requests + 1, &wsgi_req->buffer, wsgi_req->size);
 	wsgi_req->modifier = 255;
 	wsgi_req->size = 0;
 	if (i > 0) {
