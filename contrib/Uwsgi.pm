@@ -17,11 +17,11 @@ sub new {
 sub run {
     my ($self, $app) = @_;
 
-    my $server = IO::Socket::INET->new(LocalPort => $self->{port}, Listen => 100);
+    my $server = IO::Socket::INET->new(LocalPort => $self->{port}, LocalAddr => $self->{host}, Listen => 100, ReuseAddr => 1);
 
-    while ( $client = $server->accept ) {
+    while ( my $client = $server->accept ) {
 
-	my $head = ''
+	my $head = '';
 	my $remains = 4 ;
 
 	while($remains) {
@@ -46,11 +46,12 @@ sub run {
 	$remains = $envsize ;
 	my $envbuf = '' ;
 	while($remains) {
+		my $buf ;
 		if ($remains >= 4096) {
-			$client->recv(my $buf, 4096);	
+			$client->recv($buf, 4096);	
 		}
 		else {
-			$client->recv(my $buf, $remains);	
+			$client->recv($buf, $remains);	
 		}
 
 		unless($buf) {
@@ -67,7 +68,7 @@ sub run {
 		next;
 	}
 
-	my %env = {};
+	my %env ;
 
 	my $i = 0;
 	while($i < $envsize) {
@@ -93,16 +94,18 @@ sub run {
         my $res = Plack::Util::run_app $app, $env;
 
         if (ref $res eq 'ARRAY') {
-            $self->_handle_response($client, $res);
+            $self->_handle_response($client, $env{'SERVER_PROTOCOL'}, $res);
         }
         elsif (ref $res eq 'CODE') {
             $res->(sub {
-                $self->_handle_response($client, $_[0]);
+                $self->_handle_response($client, $env{'SERVER_PROTOCOL'}, $_[0]);
             });
         }
         else {
             die "Bad response $res";
         }
+
+	$client->close ;
 
     }
 }
@@ -110,9 +113,10 @@ sub run {
 sub _handle_response {
 	my ($self, $client, $protocol, $res) = @_;
 
-	$client->send($protocol.' '.$res->[0].' '.HTTP::Status::status_message( $res->[0] )."\r\n";
+	$client->send($protocol.' '.$res->[0].' '.HTTP::Status::status_message( $res->[0] )."\r\n");
 
 	my $headers = $res->[1];
+	my $hdrs = '';
 	while (my ($k, $v) = splice @$headers, 0, 2) {
         	$hdrs .= "$k: $v\r\n";
 	}
