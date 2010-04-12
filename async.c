@@ -436,7 +436,7 @@ struct wsgi_request * async_loop(struct uwsgi_server *uwsgi) {
                 		uwsgi->async_running = 0 ;
 				// st global wsgi_req for python functions
 				uwsgi->wsgi_req = wsgi_req ;
-				wsgi_req->async_status = (*uwsgi->shared->hooks[wsgi_req->modifier]) (uwsgi, wsgi_req);
+				wsgi_req->async_status = (*uwsgi->shared->hooks[wsgi_req->uh.modifier1]) (uwsgi, wsgi_req);
 
 				wsgi_req->async_switches++;
 

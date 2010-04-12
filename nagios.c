@@ -21,9 +21,9 @@ void nagios(struct uwsgi_server *uwsgi) {
 		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers\n");
 		exit(2);
 	}
-	uwsgi->wsgi_req->modifier = UWSGI_MODIFIER_PING;
-	uwsgi->wsgi_req->size = 0;
-	uwsgi->wsgi_req->modifier_arg = 0;
+	uwsgi->wsgi_req->uh.modifier1 = UWSGI_MODIFIER_PING;
+	uwsgi->wsgi_req->uh.pktsize = 0;
+	uwsgi->wsgi_req->uh.modifier2 = 0;
 	if (write(nagios_poll.fd, uwsgi->wsgi_req, 4) != 4) {
 		perror("write()");
 		fprintf(stdout, "UWSGI CRITICAL: could not send ping packet to workers\n");
@@ -35,8 +35,8 @@ void nagios(struct uwsgi_server *uwsgi) {
 		exit(2);
 	}
 	else {
-		if (uwsgi->wsgi_req->size > 0) {
-			fprintf(stdout, "UWSGI WARNING: %.*s\n", uwsgi->wsgi_req->size, &uwsgi->wsgi_req->buffer);
+		if (uwsgi->wsgi_req->uh.pktsize > 0) {
+			fprintf(stdout, "UWSGI WARNING: %.*s\n", uwsgi->wsgi_req->uh.pktsize, &uwsgi->wsgi_req->buffer);
 			exit(1);
 		}
 		else {

@@ -64,7 +64,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 		wsgi_req->remote_addr_len, wsgi_req->remote_addr,
 		wsgi_req->remote_user_len, wsgi_req->remote_user,
 		wsgi_req->var_cnt,
-		wsgi_req->size,
+		wsgi_req->uh.pktsize,
 		24, time_request,
 		wsgi_req->method_len, wsgi_req->method,
 		wsgi_req->uri_len, wsgi_req->uri,

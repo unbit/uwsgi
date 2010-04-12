@@ -183,7 +183,7 @@ int single_app_mode = 0;
 
 
 static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
-	fprintf(stderr, "-- unavailable modifier requested: %d --\n", wsgi_req->modifier);
+	fprintf(stderr, "-- unavailable modifier requested: %d --\n", wsgi_req->uh.modifier1);
 	return -1;
 }
 

@@ -258,7 +258,7 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
         uwsgi->workers[uwsgi->mywid].requests++;
 
 	// after_request hook
-	(*uwsgi->shared->after_hooks[wsgi_req->modifier]) (uwsgi, wsgi_req);
+	(*uwsgi->shared->after_hooks[wsgi_req->uh.modifier1]) (uwsgi, wsgi_req);
 
 
 	// leave harakiri mode
@@ -310,7 +310,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
         	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
 	}
 
-        wsgi_req->async_status = (*uwsgi.shared->hooks[wsgi_req->modifier]) (&uwsgi, wsgi_req);
+        wsgi_req->async_status = (*uwsgi.shared->hooks[wsgi_req->uh.modifier1]) (&uwsgi, wsgi_req);
 
 	return 0;
 }

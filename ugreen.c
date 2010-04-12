@@ -270,7 +270,7 @@ static void u_green_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsg
 
 		while(wsgi_req->async_status == UWSGI_AGAIN) {
 			u_green_schedule_to_main(uwsgi, async_id);
-			wsgi_req->async_status = (*uwsgi->shared->hooks[wsgi_req->modifier]) (uwsgi, wsgi_req);
+			wsgi_req->async_status = (*uwsgi->shared->hooks[wsgi_req->uh.modifier1]) (uwsgi, wsgi_req);
 		}
 
 		u_green_schedule_to_main(uwsgi, async_id);

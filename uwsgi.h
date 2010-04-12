@@ -244,10 +244,15 @@ struct uwsgi_app {
 
 };
 
-struct __attribute__ ((packed)) wsgi_request {
-	uint8_t modifier;
-	uint16_t size;
-	uint8_t modifier_arg;
+struct __attribute__ ((packed)) uwsgi_header {
+	uint8_t modifier1;
+	uint16_t pktsize;
+	uint8_t modifier2;
+};
+
+
+struct wsgi_request {
+	struct uwsgi_header uh;
 	// temporary attr
 
 	int app_id;
@@ -588,12 +593,6 @@ struct uwsgi_worker {
 
 	int manage_next_request;
 
-};
-
-struct __attribute__ ((packed)) uwsgi_header {
-	uint8_t modifier1;
-	uint16_t pktsize;
-	uint8_t modifier2;
 };
 
 char *uwsgi_get_cwd(void);

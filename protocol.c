@@ -299,7 +299,7 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 	uint16_t strsize = 0;
 
 	ptrbuf = buffer;
-	bufferend = ptrbuf + wsgi_req->size;
+	bufferend = ptrbuf + wsgi_req->uh.pktsize;
 
 	/* set an HTTP 500 status as default */
 	wsgi_req->status = 500;
@@ -445,9 +445,9 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	wsgi_req->modifier = UWSGI_MODIFIER_PING;
-	wsgi_req->size = 0;
-	wsgi_req->modifier_arg = 0;
+	wsgi_req->uh.modifier1 = UWSGI_MODIFIER_PING;
+	wsgi_req->uh.pktsize = 0;
+	wsgi_req->uh.modifier2 = 0;
 	if (write(uwsgi_poll.fd, wsgi_req, 4) != 4) {
 		perror("write()");
 		return -1;

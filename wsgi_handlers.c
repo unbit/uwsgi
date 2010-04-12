@@ -97,7 +97,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 
 	/* Standard WSGI request */
-	if (!wsgi_req->size) {
+	if (!wsgi_req->uh.pktsize) {
 		fprintf(stderr, "Invalid WSGI request. skip.\n");
 		return -1;
 	}
@@ -192,7 +192,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 
 
-	if (wsgi_req->modifier == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
+	if (wsgi_req->uh.modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
 		pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
 		if (pydictkey) {
 			if (PyString_Check(pydictkey)) {
