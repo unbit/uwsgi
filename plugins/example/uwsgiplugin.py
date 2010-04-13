@@ -1,0 +1,3 @@
+NAME='example'
+CFLAGS = ''
+LDFLAGS = ''
