@@ -93,7 +93,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	char *ptrbuf;
 
 	/* Standard WSAPI request */
-	if (!wsgi_req->size) {
+	if (!wsgi_req->uh.pktsize) {
 		fprintf (stderr, "Invalid WSAPI request. skip.\n");
 		return -1;
 	}
