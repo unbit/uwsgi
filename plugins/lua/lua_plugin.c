@@ -208,5 +208,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 }
 
 void uwsgi_after_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
-	return;
+
+	if (uwsgi->shared->options[UWSGI_OPTION_LOGGING])
+                log_request(wsgi_req);
 }

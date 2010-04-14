@@ -1376,12 +1376,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	// postpone the queue initialization as kevent do not pass kfd after fork()
+#ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
 		uwsgi.async_queue = async_queue_init(uwsgi.serverfd);
 		if (uwsgi.async_queue < 0) {
 			exit(1);
 		}
 	}
+#endif
 
 
 

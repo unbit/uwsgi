@@ -23,7 +23,8 @@ UWSGI_BIN_NAME = 'uwsgi'
 GCC='gcc'
 
 # specific compilation flags
-XML_IMPLEMENTATION = 'expat'
+# libxml2 or expat
+XML_IMPLEMENTATION = 'libxml2'
 # if you want to use alternative python lib, specifiy its path here
 #PYLIB_PATH = '/home/roberto/uwsgi/STACKLESS/slp/lib'
 PYLIB_PATH = ''
