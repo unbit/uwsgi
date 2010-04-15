@@ -4,41 +4,22 @@
 $stdout.sync = true
 options = {}
 
-if Process.uid == 0
-        puts "Never run uRack as root !!!"
-        exit
-end
-
-$stderr.puts "[#{Time.new}] starting uRack"
-
 def human_round(float)
         (float * (10 ** 2)).round / (10 ** 2).to_f
 end
 
-unless ENV.has_key?('UNBIT_RACK_PATH')
-        if File.exists?("#{ARGV.last}/config/environment.rb")
-                RAILS_ROOT = String.new(ARGV.last)
-        else
-                RAILS_ROOT = String.new(Dir.getwd)
-        end
-        options[:sockname] = '/tmp/uwsgi.sock'
-        options[:sock_chmod] = 0
-        options[:stderr_logfile] = nil
-else
-        $domain = ARGV.last.gsub('[','').gsub(']','')   
-        $unbit_log_base = "[uRack/Unbit on #{$domain}]"
-        RAILS_ROOT = String.new(ENV['UNBIT_RACK_PATH'])
-        options[:unbit] = true
-        $limit_as = human_round(Process.getrlimit(Process::RLIMIT_AS)[1].to_f/1024/1024)
-        puts "#{$unbit_log_base} process address space limit is #{$limit_as} MB"
-        $uidsec_size = syscall(357,0,0)
-        puts "#{$unbit_log_base} need #{$uidsec_size} bytes to store uidsec_struct..."
-        $uidsec = '1' * $uidsec_size
-        puts "#{$unbit_log_base} uidsec_struct allocated."
-end
+$domain = ARGV.last.gsub('[','').gsub(']','')   
+$unbit_log_base = "[uRack/Unbit on #{$domain}]"
+
+$limit_as = human_round(Process.getrlimit(Process::RLIMIT_AS)[1].to_f/1024/1024)
+puts "#{$unbit_log_base} process address space limit is #{$limit_as} MB"
+
+$uidsec_size = syscall(357,0,0)
+puts "#{$unbit_log_base} need #{$uidsec_size} bytes to store uidsec_struct..."
+$uidsec = '1' * $uidsec_size
+puts "#{$unbit_log_base} uidsec_struct allocated."
 
 
-options[:environment] = (ENV['RAILS_ENV'] || "development").dup
 options[:processes] = 1
 options[:serve_file] = nil
 options[:max_input_size] = 8
@@ -46,50 +27,9 @@ options[:unbit_debug] = false
 options[:master] = true
 options[:gc_freq] = nil
 
-require 'optparse'
-
-ARGV.clone.options do |opts|
-        opts.on('-s', '--socket=socket', String, 'Unix socket path.', 'Default: /tmp/uwsgi.sock') { |v|
-                options[:sockname] = v
-        }
-        opts.on('-C','--chmod','chmod to 666 the unix socket.') {
-                options[:sock_chmod] = true
-        }
-        opts.on('-F','--serve-file','serve static file.') {
-                options[:serve_file] = true
-        }
-        opts.on('-p', '--processes=processes', Integer, 'Number of processes to spawn.', 'Default: 1') {|v|
-                options[:processes] = v
-        }
-        opts.on('-g', '--gc-freq=requests', Integer, 'Number of requests between GC.', 'Default: 1') {|v|
-                options[:gc_freq] = v
-        }
-        opts.on('-d', '--daemon=logfile', 'Put processes in background.', 'Default: all processes stay in foreground') {|v|
-                options[:stderr_logfile] = v
-        }
-        opts.on('-i', '--max-input-size=size', 'Max POST data size (in Kbyte). Bigger data goes into a temporary file.', 'Default: 8') {|v|
-                options[:max_input_size] = v
-        }
-        opts.on('-D', '--unbit-debug', 'Enable debug-level logging.', 'Default: disabled') {|v|
-                options[:unbit_debug] = true
-        }
-        opts.on('-M', '--master-process', 'Enable the master process manager.', 'Default: disabled') {|v|
-                options[:master] = true
-        }
-        opts.on("-e", '--environment=name', String, 'Specifies the environment to run this server under (test/development/production).','Default: development') { |v|
-                options[:environment] = v
-        }
-
-        opts.separator ""
-
-        opts.parse!
-end
-
 puts "[#{Time.new}] uRack: loading app [#{RAILS_ROOT}]..."
 starttime = Time.now
-require RAILS_ROOT + "/config/environment"
-
-options[:app_name] = RAILS_ROOT
+require "config/environment"
 
 require 'socket'
 require 'rubygems'
@@ -109,39 +49,10 @@ module Rack
                         end
                         def self.run(app, options={})
 
-                                # parse the socket options
-                                # note: on unbit we use the stdin as communication socket
-                                
-                                server = nil
                                 master_pid = Process.pid
                                 options[:processes] ||= 1
 
-                                unless options[:unbit]
-                                        begin
-                                                ::File.delete(options[:sockname])
-                                        rescue
-                                        end
-
-                                        server = UNIXServer.new(options[:sockname])
-                                        if options[:sock_chmod]
-                                                ::File.chmod(0666, options[:sockname])
-                                        end
-
-                                        if options[:stderr_logfile]
-                                                cwd = Dir.getwd
-                                                Process.daemon
-                                                Dir.chdir(cwd)
-                                                $stdout.reopen(options[:stderr_logfile],'a')
-                                                $stderr.reopen(options[:stderr_logfile],'a')
-                                                # log files need to be unbuffered !
-                                                $stdout.sync = true
-                                                $stderr.sync = true
-                                                # pid is changed after the .daemon call
-                                                master_pid = Process.pid
-                                        end
-                                else
-                                        server = UNIXServer.for_fd($stdin.fileno)
-                                end
+                                server = UNIXServer.for_fd(0)
 
                                 $workers = Array.new
 
@@ -334,17 +245,8 @@ module Rack
                                                 client.close
                                                 requests = requests+1
                                                 # logging 
-                                                begin
-                                                        # the syscall 356 is only available on unbit kernels
-                                                        # other systems need to use the proc file way
-                                                        # stat = ::File.open('/proc/self/stat', 'r')
-                                                        # procline = stat.readline
-                                                        # statd = procline.split /\s+/
-                                                        # stat.close
-                                                        $stderr.puts "[#{Time.new}] uRack: [#{options[:app_name]}] req: #{requests} ip: #{env['REMOTE_ADDR']} pid: #{Process.pid} as: #{human_round(syscall(356).to_f/1024/1024)} MB => #{env['REQUEST_METHOD']} #{env['REQUEST_URI']} in #{$speed} secs [#{status}]#{' TIMED OUT !!!' if timed_out}"
-                                                rescue
-                                                        $stderr.puts "[#{Time.new}] uRack: [#{options[:app_name]}] req: #{requests} unable to get /proc/self/stat or syscall 356"
-                                                end
+                                                $stderr.puts "[#{Time.new}] uRack: [#{options[:app_name]}] req: #{requests} ip: #{env['REMOTE_ADDR']} pid: #{Process.pid} as: #{human_round(syscall(356).to_f/1024/1024)} MB => #{env['REQUEST_METHOD']} #{env['REQUEST_URI']} in #{$speed} secs [#{status}]#{' TIMED OUT !!!' if timed_out}"
+
                                                 if syscall(357, $uidsec, 0) == $uidsec_size
                                                         if $uidsec[120..123].unpack('i')[0] > 0
                                                                 $stderr.puts "[#{Time.new}] uRack: found a memory allocation error for request #{requests} (pid: #{Process.pid}). Better to kill myself..."
@@ -352,6 +254,7 @@ module Rack
                                                         end
                                                 end
                                                 $uidsec = '1' * $uidsec_size
+
                                                 if options[:unbit_debug]
                                                         current_as = human_round( (syscall(356).to_f/1024/1024) - $last_as )
                                                         $stderr.puts "#{$unbit_log_base} resource status after request #{requests}: AS for this request: #{current_as} MB | OBJ for this request: #{ObjectSpace.each_object {} - $last_obj} | OBJ total: #{ObjectSpace.each_object {}}"
@@ -388,16 +291,13 @@ app = Rack::Builder.new {
         end
 }.to_app
 
-if options[:unbit]
 $after_spawn_used_as = human_round(syscall(356).to_f/1024/1024)
 $stderr.puts "#{$unbit_log_base} now you have #{$limit_as-$after_spawn_used_as} MB of address space available (used #{$after_spawn_used_as}MB after app startup)"
-end
+
 secs = Time.now-starttime
 puts "[#{Time.new}] uRack: ready to serve requests after #{secs.to_i} secs (pid: #{Process.pid})"
 
-if options[:unbit_debug]
-        $last_as = $after_spawn_used_as ;
-        $last_obj = ObjectSpace.each_object {}
-end
+$last_as = $after_spawn_used_as ;
+$last_obj = ObjectSpace.each_object {}
 
 server.run(app, options)
