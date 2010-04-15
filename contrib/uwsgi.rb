@@ -1,6 +1,7 @@
 require 'socket'
 require 'rack/content_length'
 require 'rack/rewindable_input'
+require 'stringio'
 
 module Rack
   module Handler
