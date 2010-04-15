@@ -17,7 +17,15 @@ sub new {
 sub run {
     my ($self, $app) = @_;
 
-    my $server = IO::Socket::INET->new(LocalPort => $self->{port}, LocalAddr => $self->{host}, Listen => 100, ReuseAddr => 1);
+    my $server ;
+
+
+    if ($ENV{'UWSGI_FD'}) {
+	$server = IO::Socket::UNIX->new_from_fd($ENV{'UWSGI_FD'});
+    }
+    else {	
+        $server = IO::Socket::INET->new(LocalPort => $self->{port}, LocalAddr => $self->{host}, Listen => 100, ReuseAddr => 1);
+    }
 
     while ( my $client = $server->accept ) {
 
