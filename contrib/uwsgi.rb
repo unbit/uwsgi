@@ -7,7 +7,11 @@ module Rack
     class Uwsgi
 
       def self.run(app, options={})
-        server = TCPServer.new(options[:Host], options[:Port])
+	if ENV['UWSGI_FD']
+          server = UNIXServer.for_fd(ENV['UWSGI_FD'].to_i)
+	else
+          server = TCPServer.new(options[:Host], options[:Port])
+	end
 	while client = server.accept
           serve client, app
 	end
