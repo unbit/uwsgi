@@ -3,7 +3,7 @@
 XML=True
 SNMP=True
 SCTP=False
-ERLANG=True
+ERLANG=False
 SPOOLER=True
 EMBEDDED=True
 UDP=True
