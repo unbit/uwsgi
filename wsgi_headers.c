@@ -151,7 +151,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, j + 1);
 	if (wsgi_req->headers_size < 0) {
-		perror("writev()");
+		uwsgi_error("writev()");
 	}
 
 	Py_INCREF(uwsgi.wsgi_writeout);

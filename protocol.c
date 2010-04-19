@@ -23,7 +23,7 @@ ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t 
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		return -1 ;
 	}
 
@@ -49,7 +49,7 @@ ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t 
 
 	ret = sendto(fd, udpbuff, message_size+4, 0, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
 	if (ret < 0) {
-		perror("sendto()");
+		uwsgi_error("sendto()");
 	}
 	close(fd);
 
@@ -75,7 +75,7 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (uwsgi_poll.fd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		return -1;
 	}
 
@@ -87,7 +87,7 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 	uwsgi_poll.events = POLLIN;
 
 	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
-		perror("connect()");
+		uwsgi_error("connect()");
 		close(uwsgi_poll.fd);
 		return -1;
 	}
@@ -98,14 +98,14 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 
 	cnt = write(uwsgi_poll.fd, &uh, 4);
 	if (cnt != 4) {
-		perror("write()");
+		uwsgi_error("write()");
 		close(uwsgi_poll.fd);
 		return -1;
 	}
 
 	cnt = write(uwsgi_poll.fd, message, size);
 	if (cnt != size) {
-		perror("write()");
+		uwsgi_error("write()");
 		close(uwsgi_poll.fd);
 		return -1;
 	}
@@ -136,7 +136,7 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 
 	uwsgi_mpoll.fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (uwsgi_mpoll.fd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
@@ -149,7 +149,7 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 	UWSGI_SET_BLOCKING;
 
 	if (timed_connect(&uwsgi_mpoll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
-		perror("connect()");
+		uwsgi_error("connect()");
 		close(uwsgi_mpoll.fd);
 		Py_INCREF(Py_None);
 		return Py_None;
@@ -161,7 +161,7 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 
 	cnt = write(uwsgi_mpoll.fd, &uh, 4);
 	if (cnt != 4) {
-		perror("write()");
+		uwsgi_error("write()");
 		close(uwsgi_mpoll.fd);
 		Py_INCREF(Py_None);
 		return Py_None;
@@ -169,7 +169,7 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 
 	cnt = write(uwsgi_mpoll.fd, message, size);
 	if (cnt != size) {
-		perror("write()");
+		uwsgi_error("write()");
 		close(uwsgi_mpoll.fd);
 		Py_INCREF(Py_None);
 		return Py_None;
@@ -208,7 +208,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 	/* first 4 byte header */
 	rlen = poll(upoll, 1, timeout * 1000);
 	if (rlen < 0) {
-		perror("poll()");
+		uwsgi_error("poll()");
 		exit(1);
 	}
 	else if (rlen == 0) {
@@ -222,7 +222,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		while (i < 4) {
 			rlen = poll(upoll, 1, timeout * 1000);
 			if (rlen < 0) {
-				perror("poll()");
+				uwsgi_error("poll()");
 				exit(1);
 			}
 			else if (rlen == 0) {
@@ -265,7 +265,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 	while (i < uh->pktsize) {
 		rlen = poll(upoll, 1, timeout * 1000);
 		if (rlen < 0) {
-			perror("poll()");
+			uwsgi_error("poll()");
 			exit(1);
 		}
 		else if (rlen == 0) {
@@ -437,7 +437,7 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (uwsgi_poll.fd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		return -1;
 	}
 
@@ -450,7 +450,7 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 	wsgi_req->uh.pktsize = 0;
 	wsgi_req->uh.modifier2 = 0;
 	if (write(uwsgi_poll.fd, wsgi_req, 4) != 4) {
-		perror("write()");
+		uwsgi_error("write()");
 		return -1;
 	}
 

@@ -14,13 +14,13 @@ int uwsgi_request_ping(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		wsgi_req->uh.pktsize = len;
 	}
 	if (write(wsgi_req->poll.fd, wsgi_req, 4) != 4) {
-		perror("write()");
+		uwsgi_error("write()");
 	}
 
 	if (len > 0) {
 		if (write(wsgi_req->poll.fd, uwsgi->shared->warning_message, len)
 		    != len) {
-			perror("write()");
+			uwsgi_error("write()");
 		}
 	}
 
@@ -43,7 +43,7 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 	wsgi_req->uh.modifier2 = 1;
 	i = write(wsgi_req->poll.fd, wsgi_req, 4);
 	if (i != 4) {
-		perror("write()");
+		uwsgi_error("write()");
 	}
 
 	return UWSGI_OK;
@@ -96,11 +96,11 @@ int uwsgi_request_marshal(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 									PyString_Size(marshalled);
 								if (write(wsgi_req->poll.fd, wsgi_req, 4) == 4) {
 									if (write(wsgi_req->poll.fd, PyString_AsString(marshalled), wsgi_req->uh.pktsize) != wsgi_req->uh.pktsize) {
-										perror("write()");
+										uwsgi_error("write()");
 									}
 								}
 								else {
-									perror("write()");
+									uwsgi_error("write()");
 								}
 							}
 							else {

@@ -17,19 +17,19 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	uws_addr = malloc(sizeof(struct sockaddr_un));
 	if (uws_addr == NULL) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 
 	memset(uws_addr, 0, sizeof(struct sockaddr_un));
 	serverfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (serverfd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		exit(1);
 	}
 	if (abstract_socket == 0) {
 		if (unlink(socket_name) != 0 && errno != ENOENT) {
-			perror("unlink()");
+			uwsgi_error("unlink()");
 		}
 	}
 
@@ -41,12 +41,12 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	strcpy(uws_addr->sun_path + abstract_socket, socket_name);
 
 	if (bind(serverfd, (struct sockaddr *) uws_addr, strlen(socket_name) + abstract_socket + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
-		perror("bind()");
+		uwsgi_error("bind()");
 		exit(1);
 	}
 
 	if (listen(serverfd, listen_queue) != 0) {
-		perror("listen()");
+		uwsgi_error("listen()");
 		exit(1);
 	}
 
@@ -54,7 +54,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	if (chmod_socket == 1 && abstract_socket == 0) {
 		fprintf(stderr, "chmod() socket to 666 for lazy and brave users\n");
 		if (chmod(socket_name, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
-			perror("chmod()");
+			uwsgi_error("chmod()");
 		}
 	}
 
@@ -91,7 +91,7 @@ int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
 
 	serverfd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if (serverfd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		exit(1);
 	}
 
@@ -99,7 +99,7 @@ int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
 
 
 	if (sctp_bindx(serverfd, (struct sockaddr *) uws_addr, num_ip, SCTP_BINDX_ADD_ADDR) != 0) {
-		perror("sctp_bindx()");
+		uwsgi_error("sctp_bindx()");
 		exit(1);
 	}
 
@@ -107,11 +107,11 @@ int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
 	sctp_im.sinit_num_ostreams = 0xFFFF;
 
 	if (setsockopt(serverfd, IPPROTO_SCTP, SCTP_INITMSG, &sctp_im, sizeof(sctp_im))) {
-		perror("setsockopt()");
+		uwsgi_error("setsockopt()");
 	}
 
 	if (listen(serverfd, listen_queue) != 0) {
-		perror("listen()");
+		uwsgi_error("listen()");
 		exit(1);
 	}
 
@@ -150,7 +150,7 @@ int bind_to_udp(char *socket_name) {
 
 	serverfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (serverfd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		return -1;
 	}
 
@@ -171,7 +171,7 @@ int bind_to_udp(char *socket_name) {
 	fprintf(stderr, "binding on UDP port: %d\n", ntohs(uws_addr.sin_port));
 
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
-		perror("bind()");
+		uwsgi_error("bind()");
 		close(serverfd);
 		return -1;
 	}
@@ -180,7 +180,7 @@ int bind_to_udp(char *socket_name) {
 	if (uwsgi.multicast_group) {
 		fprintf(stderr, "joining uWSGI multicast group: %s:%d\n", uwsgi.multicast_group, ntohs(uws_addr.sin_port));
 		if (setsockopt(serverfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc, sizeof(mc))) {
-			perror("setsockopt()");
+			uwsgi_error("setsockopt()");
 		}
 	}
 #endif
@@ -209,14 +209,14 @@ int connect_to_tcp(char *socket_name, int port, int timeout) {
 
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (uwsgi_poll.fd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		return -1;
 	}
 
 	uwsgi_poll.events = POLLIN;
 
 	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
-		perror("connect()");
+		uwsgi_error("connect()");
 		close(uwsgi_poll.fd);
 		return -1;
 	}
@@ -247,12 +247,12 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	serverfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (serverfd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		exit(1);
 	}
 
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
-		perror("setsockopt()");
+		uwsgi_error("setsockopt()");
 		exit(1);
 	}
 
@@ -260,14 +260,14 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 #ifdef __linux__
 		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
-			perror("setsockopt()");
+			uwsgi_error("setsockopt()");
 		}
 #elif defined(__apple__) || defined(__freebsd__)
 		struct  accept_filter_arg afa;
 		strcpy(afa.af_name, "dataready");
 		afa.af_arg[0] = 0;
 		if (setsockopt(serverfd, SOL_SOCKET, SO_ACCEPTFILTER, &afa, sizeof(struct  accept_filter_arg))) {
-			perror("setsockopt()");
+			uwsgi_error("setsockopt()");
 		}
 #endif
 
@@ -277,12 +277,12 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	fprintf(stderr, "binding on TCP port: %d\n", ntohs(uws_addr.sin_port));
 
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
-		perror("bind()");
+		uwsgi_error("bind()");
 		exit(1);
 	}
 
 	if (listen(serverfd, listen_queue) != 0) {
-		perror("listen()");
+		uwsgi_error("listen()");
 		exit(1);
 	}
 
@@ -300,12 +300,12 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 
 	arg = fcntl(fdpoll->fd, F_GETFL, NULL);
 	if (arg < 0) {
-		perror("fcntl()");
+		uwsgi_error("fcntl()");
 		return -1;
 	}
 	arg |= O_NONBLOCK;
 	if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
-		perror("fcntl()");
+		uwsgi_error("fcntl()");
 		return -1;
 	}
 
@@ -321,13 +321,13 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 			cnt = poll(fdpoll, 1, timeout * 1000);
 			/* check for errors */
 			if (cnt < 0 && errno != EINTR) {
-				perror("poll()");
+				uwsgi_error("poll()");
 				return -1;
 			}
 			/* something hapened on the socket ... */
 			else if (cnt > 0) {
 				if (getsockopt(fdpoll->fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
-					perror("getsockopt()");
+					uwsgi_error("getsockopt()");
 					return -1;
 				}
 				/* is something bad ? */
@@ -348,7 +348,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 	/* re-set blocking socket */
 	arg &= (~O_NONBLOCK);
 	if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
-		perror("fcntl()");
+		uwsgi_error("fcntl()");
 		return -1;
 	}
 

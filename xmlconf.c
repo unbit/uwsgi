@@ -249,24 +249,24 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 
 	xmlfd = open(uwsgi.xml_config, O_RDONLY);
 	if (xmlfd < 0) {
-		perror("open()");
+		uwsgi_error("open()");
 		exit(1);
 	}
 
 	if (fstat(xmlfd, &stat_buf)) {
-		perror("fstat()");
+		uwsgi_error("fstat()");
 		exit(1);
 	}
 
 	xmlbuf = malloc(stat_buf.st_size);
 	if (!xmlbuf) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 	
 	rlen = read(xmlfd, xmlbuf, stat_buf.st_size);
 	if (rlen != stat_buf.st_size) {
-		perror("read()");
+		uwsgi_error("read()");
 		exit(1);
 	}
 	close(xmlfd);

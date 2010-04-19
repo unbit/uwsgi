@@ -47,7 +47,7 @@ PyObject *py_erlang_recv_message(PyObject * self, PyObject * args) {
 	if (timeout > 0) {
 		eret = poll(&erpoll, 1, timeout * 1000);
 		if (eret < 0) {
-			perror("poll()");
+			uwsgi_error("poll()");
 			goto clear;
 		}
 		else if (eret == 0) {
@@ -331,7 +331,7 @@ int init_erlang(char *nodename, char *cookie) {
 		}
 		cookiefile = malloc(strlen(cookiehome) + 1 + strlen(".erlang.cookie") + 1);
 		if (!cookiefile) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 		}
 		cookiefile[0] = 0;
 		strcat(cookiefile, cookiehome);
@@ -339,7 +339,7 @@ int init_erlang(char *nodename, char *cookie) {
 
 		cookiefd = open(cookiefile, O_RDONLY);
 		if (cookiefd < 0) {
-			perror("open()");
+			uwsgi_error("open()");
 			free(cookiefile);
 			return -1;
 		}
@@ -358,7 +358,7 @@ int init_erlang(char *nodename, char *cookie) {
 
 	node = malloc((ip - nodename) + 1);
 	if (node == NULL) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		return -1;
 	}
 	memset(node, 0, (ip - nodename) + 1);
@@ -373,7 +373,7 @@ int init_erlang(char *nodename, char *cookie) {
 
 	efd = socket(AF_INET, SOCK_STREAM, 0);
 	if (efd < 0) {
-		perror("socket()");
+		uwsgi_error("socket()");
 		return -1;
 	}
 
@@ -384,26 +384,26 @@ int init_erlang(char *nodename, char *cookie) {
 
 	rlen = 1;
 	if (setsockopt(efd, SOL_SOCKET, SO_REUSEADDR, &rlen, sizeof(rlen))) {
-		perror("setsockopt()");
+		uwsgi_error("setsockopt()");
 		close(efd);
 		return -1;
 	}
 
 	if (bind(efd, (struct sockaddr *) &e_addr, sizeof(struct sockaddr_in)) < 0) {
-		perror("bind()");
+		uwsgi_error("bind()");
 		close(efd);
 		return -1;
 	}
 
 	rlen = sizeof(struct sockaddr_in);
 	if (getsockname(efd, (struct sockaddr *) &e_addr, (socklen_t *) & rlen)) {
-		perror("getsockname()");
+		uwsgi_error("getsockname()");
 		close(efd);
 		return -1;
 	}
 
 	if (listen(efd, uwsgi.listen_queue)) {
-		perror("listen()");
+		uwsgi_error("listen()");
 		close(efd);
 		return -1;
 	}

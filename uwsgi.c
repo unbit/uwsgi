@@ -254,7 +254,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* generic shared area */
 	uwsgi.shared = (struct uwsgi_shared *) mmap(NULL, sizeof(struct uwsgi_shared), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (!uwsgi.shared) {
-		perror("mmap()");
+		uwsgi_error("mmap()");
 		exit(1);
 	}
 	memset(uwsgi.shared, 0, sizeof(struct uwsgi_shared));
@@ -390,13 +390,13 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (rlen > 0) {
 			env_reload_buf[rlen] = 0;
 			if (setenv("UWSGI_RELOADS", env_reload_buf, 1)) {
-				perror("setenv()");
+				uwsgi_error("setenv()");
 			}
 		}
 	}
 	else {
 		if (setenv("UWSGI_RELOADS", "0", 1)) {
-			perror("setenv()");
+			uwsgi_error("setenv()");
 		}
 	}
 
@@ -446,7 +446,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (!strncmp(*uenvs, "UWSGI_", 6)) {
 			char *earg = malloc(strlen(*uenvs+6)+1);
 			if (!earg) {
-				perror("malloc()");
+				uwsgi_error("malloc()");
 				exit(1);
 			}
 			env_to_arg(*uenvs+6, earg);
@@ -484,7 +484,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		cwd = uwsgi_get_cwd();
 		uwsgi.binary_path = malloc(strlen(argv[0]) + 1);
 		if (uwsgi.binary_path == NULL) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 		strcpy(uwsgi.binary_path, argv[0]);
@@ -521,7 +521,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.rl.rlim_max > 0) {
 		fprintf(stderr, "limiting address space of processes...\n");
 		if (setrlimit(RLIMIT_AS, &uwsgi.rl)) {
-			perror("setrlimit()");
+			uwsgi_error("setrlimit()");
 		}
 	}
 #endif
@@ -581,14 +581,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.async_buf = malloc( sizeof(char *) * uwsgi.async);
 	if (!uwsgi.async_buf) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 
 	for(i=0;i<uwsgi.async;i++) {
 		uwsgi.async_buf[i] = malloc(uwsgi.buffer_size);
 		if (!uwsgi.async_buf[i]) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 	}
@@ -605,7 +605,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		fprintf(stderr, "allocating a memory page for synced logging.\n");
 		uwsgi.sync_page = malloc(uwsgi.page_size);
 		if (!uwsgi.sync_page) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 	}
@@ -617,7 +617,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		wchar_t *wpyhome;
 		wpyhome = malloc((sizeof(wchar_t) * strlen(uwsgi.pyhome)) + 2);
 		if (!wpyhome) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 		mbstowcs(wpyhome, uwsgi.pyhome, strlen(uwsgi.pyhome));
@@ -655,7 +655,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef PYTHREE
 	wchar_t *wcargv = malloc( sizeof( wchar_t ) * strlen(uwsgi.pyargv));
 	if (!wcargv) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 	wchar_t *wa;
@@ -701,7 +701,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifndef __OpenBSD__
 		uwsgi.sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (!uwsgi.sharedareamutex) {
-			perror("mmap()");
+			uwsgi_error("mmap()");
 			exit(1);
 		}
 #else
@@ -732,7 +732,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 		}
 		else {
-			perror("mmap()");
+			uwsgi_error("mmap()");
 			exit(1);
 		}
 
@@ -828,7 +828,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi.async_events = malloc( sizeof(struct kevent) * uwsgi.async ) ;
 #endif
 		if (!uwsgi.async_events) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 	}
@@ -855,7 +855,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* shared area for workers */
 	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (!uwsgi.workers) {
-		perror("mmap()");
+		uwsgi_error("mmap()");
 		exit(1);
 	}
 	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1);
@@ -868,7 +868,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		fprintf(stderr, "writing pidfile to %s\n", uwsgi.pidfile);
 		pidfile = fopen(uwsgi.pidfile, "w");
 		if (!pidfile) {
-			perror("fopen");
+			uwsgi_error("fopen");
 			exit(1);
 		}
 		if (fprintf(pidfile, "%d\n", masterpid) < 0) {
@@ -1039,7 +1039,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			break;
 		}
 		else if (pid < 1) {
-			perror("fork()");
+			uwsgi_error("fork()");
 			exit(1);
 		}
 		else {
@@ -1142,7 +1142,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				fprintf(stderr, "binary reloading uWSGI...\n");
 				if (cwd) {
 					if (chdir(cwd)) {
-						perror("chdir()");
+						uwsgi_error("chdir()");
 						exit(1);
 					}
 				}
@@ -1156,7 +1156,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 				if (uwsgi.serverfd != 3) {
 					if (dup2(uwsgi.serverfd, 3) < 0) {
-						perror("dup2()");
+						uwsgi_error("dup2()");
 						exit(1);
 					}
 				}
@@ -1164,7 +1164,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				argv[0] = uwsgi.binary_path;
 				//strcpy (argv[0], uwsgi.binary_path);
 				execve(uwsgi.binary_path, argv, environ);
-				perror("execve()");
+				uwsgi_error("execve()");
 				// never here
 				exit(1);
 			}
@@ -1191,7 +1191,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			else {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 				if (diedpid == -1) {
-					perror("waitpid()");
+					uwsgi_error("waitpid()");
 					/* here is better to reload all the uWSGI stack */
 					fprintf(stderr, "something horrible happened...\n");
 					reap_them_all();
@@ -1217,13 +1217,13 @@ int main(int argc, char *argv[], char *envp[]) {
 				if (uwsgi.udp_socket && uwsgi_poll.fd >= 0) {
 					rlen = poll(&uwsgi_poll, 1, check_interval.tv_sec * 1000);
 					if (rlen < 0) {
-						perror("poll()");
+						uwsgi_error("poll()");
 					}
 					else if (rlen > 0) {
 						udp_len = sizeof(udp_client);
 						rlen = recvfrom(uwsgi_poll.fd, &uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
 						if (rlen < 0) {
-							perror("recvfrom()");
+							uwsgi_error("recvfrom()");
 						}
 						else if (rlen > 0) {
 							memset(udp_client_addr, 0, 16);
@@ -1254,7 +1254,7 @@ int main(int argc, char *argv[], char *envp[]) {
 								}
 							}
 							else {
-								perror("inet_ntop()");
+								uwsgi_error("inet_ntop()");
 							}
 						}
 					}
@@ -1376,7 +1376,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				break;
 			}
 			else if (pid < 1) {
-				perror("fork()");
+				uwsgi_error("fork()");
 			}
 			else {
 				fprintf(stderr, "Respawned uWSGI worker (new pid: %d)\n", pid);
@@ -1774,7 +1774,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 #ifdef UWSGI_ASYNC
 	wi->wsgi_environ = malloc(sizeof(PyObject*)*uwsgi.async);
 	if (!wi->wsgi_environ) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
                 if (uwsgi.single_interpreter == 0) {
                         Py_EndInterpreter(wi->interpreter);
                         PyThreadState_Swap(uwsgi.main_thread) ;
@@ -1862,7 +1862,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 #ifdef UWSGI_ASYNC
 		wi->wsgi_args = malloc(sizeof(PyObject*));
 		if (!wi->wsgi_args) {
-                	perror("malloc()");
+                	uwsgi_error("malloc()");
                 	if (uwsgi.single_interpreter == 0) {
                         	Py_EndInterpreter(wi->interpreter);
                         	PyThreadState_Swap(uwsgi.main_thread) ;
@@ -1889,7 +1889,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 #ifdef UWSGI_ASYNC
         wi->wsgi_args = malloc(sizeof(PyObject*)*uwsgi.async);
         if (!wi->wsgi_args) {
-                perror("malloc()");
+                uwsgi_error("malloc()");
                 if (uwsgi.single_interpreter == 0) {
                         Py_EndInterpreter(wi->interpreter);
                         PyThreadState_Swap(uwsgi.main_thread) ;
@@ -2026,7 +2026,7 @@ void uwsgi_wsgi_file_config() {
 
 	wsgifile = fopen(uwsgi.wsgi_file, "r");
 	if (!wsgifile) {
-		perror("fopen()");
+		uwsgi_error("fopen()");
 		exit(1);
 	}
 
@@ -2098,7 +2098,7 @@ void uwsgi_wsgi_config(char *filename) {
 	if (filename) {
 		uwsgifile = fopen(filename, "r");
         	if (!uwsgifile) {
-                	perror("fopen()");
+                	uwsgi_error("fopen()");
                 	exit(1);
         	}
 
@@ -2421,7 +2421,7 @@ pid_t proxy_start(has_master) {
 	else {
 		pid = fork();
 		if (pid < 0) {
-			perror("fork()");
+			uwsgi_error("fork()");
 			exit(1);
 		}
 		else if (pid > 0) {
@@ -2444,7 +2444,7 @@ pid_t spooler_start(int serverfd, PyObject * uwsgi_module_dict) {
 
 	pid = fork();
 	if (pid < 0) {
-		perror("fork()");
+		uwsgi_error("fork()");
 		exit(1);
 	}
 	else if (pid == 0) {
@@ -2571,15 +2571,15 @@ void manage_opt(int i, char *optarg) {
 	case 'Q':
 		uwsgi.spool_dir = malloc(PATH_MAX);
 		if (!uwsgi.spool_dir) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 		if (access(optarg, R_OK | W_OK | X_OK)) {
-			perror("[spooler directory] access()");
+			uwsgi_error("[spooler directory] access()");
 			exit(1);
 		}
 		if (!realpath(optarg, uwsgi.spool_dir)) {
-			perror("realpath()");
+			uwsgi_error("realpath()");
 			exit(1);
 		}
 		uwsgi.master_process = 1;
@@ -2597,7 +2597,7 @@ void manage_opt(int i, char *optarg) {
 	case 'C':
 		tmp_dir_fd = open(optarg, O_DIRECTORY);
 		if (tmp_dir_fd < 0) {
-			perror("open()");
+			uwsgi_error("open()");
 			exit(1);
 		}
 		tmp_filename = malloc(8192);

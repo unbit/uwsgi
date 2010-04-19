@@ -8,11 +8,10 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	ssize_t sf_len = 0 ;
 #endif
 
-	//fprintf(stderr,"managing request for %d %p\n", wsgi_req->async_id, wsgi_req);
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
-                        perror("write()");
+                        uwsgi_error("write()");
                         goto clear;
                 }
                 wsgi_req->response_size += wsize;
@@ -22,8 +21,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 #ifdef PYTHREE
 	if (PyBytes_Check((PyObject *)wsgi_req->async_result)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyBytes_AsString(wsgi_req->async_result), PyBytes_Size(wsgi_req->async_result))) < 0) {
-			perror("write()");
-			Py_DECREF(wsgi_req->async_result);
+			uwsgi_error("write()");
 			goto clear;
 		}
 		wsgi_req->response_size += wsize;
@@ -47,19 +45,20 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	}
 #endif
 
+
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
 		wsgi_req->async_placeholder = PyObject_GetIter(wsgi_req->async_result);
                 if (!wsgi_req->async_placeholder) {
 			goto clear2;
 		}
-		Py_DECREF((PyObject *)wsgi_req->async_result);
 #ifdef UWSGI_ASYNC
 		if (uwsgi->async > 1) {
 			return UWSGI_AGAIN;
 		}
 #endif
 	}
+
 
 
 
@@ -74,7 +73,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 
 	if (PyString_Check(pychunk)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
-			perror("write()");
+			uwsgi_error("write()");
 			Py_DECREF(pychunk);
 			goto clear;
 		}
@@ -84,7 +83,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 #ifdef PYTHREE
 	if (PyBytes_Check(pychunk)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyBytes_AsString(pychunk), PyBytes_Size(pychunk))) < 0) {
-			perror("write()");
+			uwsgi_error("write()");
 			Py_DECREF(pychunk);
 			goto clear;
 		}

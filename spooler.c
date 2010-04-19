@@ -13,7 +13,7 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 	struct uwsgi_header uh;
 
 	if (gethostname(hostname, 256)) {
-		perror("gethostname()");
+		uwsgi_error("gethostname()");
 		return 0;
 	}
 
@@ -27,16 +27,16 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 
 	fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
-		perror("open()");
+		uwsgi_error("open()");
 		return 0;
 	}
 
 #ifdef __sun__
 	if (lockf(fd, F_LOCK, 0)) {
-		perror("lockf()");
+		uwsgi_error("lockf()");
 #else
 	if (flock(fd, LOCK_EX)) {
-		perror("flock()");
+		uwsgi_error("flock()");
 #endif
 		close(fd);
 		return 0;
@@ -66,7 +66,7 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 
       clear:
 
-	perror("write()");
+	uwsgi_error("write()");
 	unlink(filename);
 	close(fd);
 	return 0;
@@ -109,7 +109,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	}
 	
 	if (chdir(uwsgi->spool_dir)) {
-		perror("chdir()");
+		uwsgi_error("chdir()");
 		exit(1);
 	}
 
@@ -143,23 +143,23 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 
 						spool_fd = open(dp->d_name, O_RDONLY);
 						if (spool_fd < 0) {
-							perror("open()");
+							uwsgi_error("open()");
 							continue;
 						}
 
 #ifdef __sun__
 						if (lockf(spool_fd, F_LOCK, 0)) {
-							perror("lockf()");
+							uwsgi_error("lockf()");
 #else
 						if (flock(spool_fd, LOCK_EX)) {
-							perror("flock()");
+							uwsgi_error("flock()");
 #endif
 							close(spool_fd);
 							continue;
 						}
 
 						if (read(spool_fd, &uh, 4) != 4) {
-							perror("read()");
+							uwsgi_error("read()");
 							close(spool_fd);
 							continue;
 						}
@@ -173,7 +173,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 						while (datasize < uh.pktsize) {
 							rlen = read(spool_fd, &uwstrlen, 2);
 							if (rlen != 2) {
-								perror("read()");
+								uwsgi_error("read()");
 								goto next_spool;
 							}
 							datasize += rlen;
@@ -182,12 +182,12 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 							if (uwstrlen > 0) {
 								key = malloc(uwstrlen + 1);
 								if (!key) {
-									perror("malloc()");
+									uwsgi_error("malloc()");
 									goto retry_later;
 								}
 								rlen = read(spool_fd, key, uwstrlen);
 								if (rlen != uwstrlen) {
-									perror("read()");
+									uwsgi_error("read()");
 									free(key);
 									goto next_spool;
 								}
@@ -197,7 +197,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 
 								rlen = read(spool_fd, &uwstrlen, 2);
 								if (rlen != 2) {
-									perror("read()");
+									uwsgi_error("read()");
 									free(key);
 									goto next_spool;
 								}
@@ -207,13 +207,13 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 									val = malloc(uwstrlen + 1);
 									if (!val) {
 										free(key);
-										perror("malloc()");
+										uwsgi_error("malloc()");
 										goto retry_later;
 									}
 
 									rlen = read(spool_fd, val, uwstrlen);
 									if (rlen != uwstrlen) {
-										perror("read()");
+										uwsgi_error("read()");
 										free(key);
 										goto next_spool;
 									}
@@ -258,7 +258,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 					      next_spool:
 
 						if (unlink(dp->d_name)) {
-							perror("unlink");
+							uwsgi_error("unlink");
 							fprintf(stderr, "something horrible happened to the spooler. Better to kill it.\n");
 							exit(1);
 						}
@@ -271,7 +271,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 			closedir(sdir);
 		}
 		else {
-			perror("opendir()");
+			uwsgi_error("opendir()");
 		}
 
 	}
@@ -289,7 +289,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 		wsgi_req->uh.modifier2 = 0;
 		i = write(wsgi_req->poll.fd, wsgi_req, 4);
 		if (i != 4) {
-			perror("write()");
+			uwsgi_error("write()");
 		}
 		return -1;
 	}
@@ -304,7 +304,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 			fprintf(stderr, "disconnected client, remove spool file.\n");
 			/* client disconnect, remove spool file */
 			if (unlink(spool_filename)) {
-				perror("unlink()");
+				uwsgi_error("unlink()");
 				fprintf(stderr, "something horrible happened !!! check your spooler ASAP !!!\n");
 				goodbye_cruel_world();
 			}
@@ -316,7 +316,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 		wsgi_req->uh.modifier2 = 0;
 		i = write(wsgi_req->poll.fd, wsgi_req, 4);
 		if (i != 4) {
-			perror("write()");
+			uwsgi_error("write()");
 		}
 	}
 

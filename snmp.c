@@ -206,7 +206,7 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 
 	if (size > 0) {
 		if (sendto(fd, buffer, size, 0, (struct sockaddr *) client_addr, sizeof(struct sockaddr_in)) < 0) {
-			perror("sendto()");
+			uwsgi_error("sendto()");
 		}
 	}
 

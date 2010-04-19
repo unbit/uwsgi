@@ -25,7 +25,7 @@ void nagios(struct uwsgi_server *uwsgi) {
 	uwsgi->wsgi_req->uh.pktsize = 0;
 	uwsgi->wsgi_req->uh.modifier2 = 0;
 	if (write(nagios_poll.fd, uwsgi->wsgi_req, 4) != 4) {
-		perror("write()");
+		uwsgi_error("write()");
 		fprintf(stdout, "UWSGI CRITICAL: could not send ping packet to workers\n");
 		exit(2);
 	}

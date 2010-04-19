@@ -62,13 +62,13 @@ void stackless_init(struct uwsgi_server *uwsgi) {
 
 	uwsgi->stackless_table = malloc( sizeof(struct stackless_req*) * uwsgi->async);
         if (!uwsgi->stackless_table) {
-        	perror("malloc()");
+        	uwsgi_error("malloc()");
                 exit(1);
         }
         for(i=0;i<uwsgi->async;i++) {
         	uwsgi->stackless_table[i] = malloc(sizeof(struct stackless_req));
                 if (!uwsgi->stackless_table[i]) {
-                	perror("malloc()");
+                	uwsgi_error("malloc()");
                         exit(1);
                 }
 		memset(uwsgi->stackless_table[i], 0, sizeof(struct stackless_req));

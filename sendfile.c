@@ -35,7 +35,7 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	if (!wsgi_req->sendfile_fd_size) {
 
         	if (fstat(fd, &stat_buf)) {
-                	perror("fstat()");
+                	uwsgi_error("fstat()");
                 	return 0;
         	}
         	else {
@@ -61,7 +61,7 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		}
 
 		 if (sf_ret) {
-                        perror("sendfile()");
+                        uwsgi_error("sendfile()");
                         return 0;
                 }
 
@@ -79,7 +79,7 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		}
 
 		if (sf_ret) {
-                       	perror("sendfile()");
+                       	uwsgi_error("sendfile()");
 			return 0;
                 }
 
@@ -94,7 +94,7 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		}
 
 		if (sf_ret < 0) {
-                       	perror("sendfile()");
+                       	uwsgi_error("sendfile()");
 			return 0;
                 }
 
@@ -119,12 +119,12 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		if (uwsgi->async > 1) {
 			jlen = read(fd, nosf_buf, wsgi_req->sendfile_fd_chunk);
                         if (jlen <= 0) {
-                                perror("read()");
+                                uwsgi_error("read()");
 				return 0;
 			}
 			jlen = write(sockfd, nosf_buf, jlen);
                         if (jlen <= 0) {
-                                perror("write()");
+                                uwsgi_error("write()");
 				return 0;
 			}
 			return jlen ;
@@ -133,13 +133,13 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
                 while (i < wsgi_req->sendfile_fd_size) {
                         jlen = read(fd, nosf_buf, wsgi_req->sendfile_fd_chunk);
                         if (jlen <= 0) {
-                                perror("read()");
+                                uwsgi_error("read()");
                                 break;
                         }
                         i += jlen;
                         jlen = write(sockfd, nosf_buf, jlen);
                         if (jlen <= 0) {
-                                perror("write()");
+                                uwsgi_error("write()");
                                 break;
                         }
 			rlen += jlen ;

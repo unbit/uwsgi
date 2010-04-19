@@ -18,7 +18,7 @@ void u_green_write_all(struct uwsgi_server *uwsgi, char *data, size_t len) {
                 if (wsgi_req->async_status == UWSGI_PAUSED) {
                         rlen = write(wsgi_req->poll.fd, data, len);
                         if (rlen < 0) {
-                                perror("write()");
+                                uwsgi_error("write()");
 				// mark core as plagued
 				wsgi_req->async_plagued = 1 ;
                         }
@@ -262,6 +262,7 @@ static void u_green_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsg
                 }
 		wsgi_req->async_status = UWSGI_OK;
 
+
 		u_green_schedule_to_main(uwsgi, async_id);
 
                 if (wsgi_req_recv(wsgi_req)) {
@@ -300,7 +301,7 @@ void u_green_init(struct uwsgi_server *uwsgi) {
 
 	uwsgi->ugreen_contexts = malloc( sizeof(ucontext_t*) * uwsgi->async);
 	if (!uwsgi->ugreen_contexts) {
-		perror("malloc()\n");
+		uwsgi_error("malloc()\n");
 		exit(1);
 	}
 
@@ -308,23 +309,23 @@ void u_green_init(struct uwsgi_server *uwsgi) {
 	for(i=0;i<uwsgi->async;i++) {
 		uwsgi->ugreen_contexts[i] = malloc( sizeof(ucontext_t) );
 		if (!uwsgi->ugreen_contexts[i]) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 		getcontext(uwsgi->ugreen_contexts[i]);
 		uwsgi->ugreen_contexts[i]->uc_stack.ss_sp = mmap(NULL, u_stack_size + (uwsgi->page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + uwsgi->page_size;
 
 		if (!uwsgi->ugreen_contexts[i]->uc_stack.ss_sp) {
-			perror("mmap()");
+			uwsgi_error("mmap()");
 			exit(1);
 		}
 		// set guard pages for stack
 		if (mprotect(uwsgi->ugreen_contexts[i]->uc_stack.ss_sp - uwsgi->page_size, uwsgi->page_size, PROT_NONE)) {
-			perror("mprotect()");
+			uwsgi_error("mprotect()");
 			exit(1);
 		}
 		if (mprotect(uwsgi->ugreen_contexts[i]->uc_stack.ss_sp + u_stack_size, uwsgi->page_size, PROT_NONE)) {
-			perror("mprotect()");
+			uwsgi_error("mprotect()");
 			exit(1);
 		}
 
@@ -399,16 +400,17 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
 
 	while(uwsgi->workers[uwsgi->mywid].manage_next_request) {
 
+
 		uwsgi->async_running = u_green_blocking(uwsgi) ;
 		timeout = u_green_get_timeout(uwsgi);	
                 uwsgi->async_nevents = async_wait(uwsgi->async_queue, uwsgi->async_events, uwsgi->async, uwsgi->async_running, timeout);
-		
+		u_green_expire_timeouts(uwsgi);
+
 
                 if (uwsgi->async_nevents < 0) {
                         continue;
                 }
 
-		u_green_expire_timeouts(uwsgi);
 
                 for(i=0; i<uwsgi->async_nevents;i++) {
 
@@ -430,6 +432,7 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
                 }
 
 cycle:
+
 		wsgi_req = find_wsgi_req_by_id(uwsgi, current) ;
 		if (wsgi_req->async_status != UWSGI_ACCEPTING && wsgi_req->async_status != UWSGI_PAUSED && wsgi_req->async_waiting_fd == -1 && !wsgi_req->async_timeout) {
 			u_green_schedule_to_req(uwsgi, wsgi_req);

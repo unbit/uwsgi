@@ -146,7 +146,7 @@ void uwsgi_proxy(int proxyfd) {
 	// allocate memory for connections
 	upcs = malloc(sizeof(struct uwsgi_proxy_connection) * max_connections);
 	if (!upcs) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 	memset(upcs, 0, sizeof(struct uwsgi_proxy_connection) * max_connections);
@@ -169,7 +169,7 @@ void uwsgi_proxy(int proxyfd) {
 #endif
 
 	if (!eevents) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 
@@ -182,7 +182,7 @@ void uwsgi_proxy(int proxyfd) {
 
 		nevents = async_wait(efd, eevents, max_events, -1, 0);
 		if (nevents < 0) {
-			perror("epoll_wait()");
+			uwsgi_error("epoll_wait()");
 			continue;
 		}
 
@@ -195,7 +195,7 @@ void uwsgi_proxy(int proxyfd) {
 					// new connection, accept it
 					ev.ASYNC_FD = accept(proxyfd, (struct sockaddr *) &upc_addr, &upc_len);
 					if (ev.ASYNC_FD < 0) {
-						perror("accept()");
+						uwsgi_error("accept()");
 						continue;
 					}
 					upcs[ev.ASYNC_FD].node = -1;
@@ -204,7 +204,7 @@ void uwsgi_proxy(int proxyfd) {
 
 					upcs[ev.ASYNC_FD].dest_fd = socket(AF_INET, SOCK_STREAM, 0);
 					if (upcs[ev.ASYNC_FD].dest_fd < 0) {
-						perror("socket()");
+						uwsgi_error("socket()");
 						uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 						continue;
 					}
@@ -212,7 +212,7 @@ void uwsgi_proxy(int proxyfd) {
 
 					// set nonblocking
 					if (ioctl(upcs[ev.ASYNC_FD].dest_fd, FIONBIO, &nonblocking)) {
-						perror("ioctl()");
+						uwsgi_error("ioctl()");
 						uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 						continue;
 					}
@@ -250,7 +250,7 @@ void uwsgi_proxy(int proxyfd) {
 
 						// re-set blocking
 						if (ioctl(upcs[upcs[ev.ASYNC_FD].dest_fd].dest_fd, FIONBIO, &blocking)) {
-							perror("ioctl()");
+							uwsgi_error("ioctl()");
 							uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 							continue;
 						}
@@ -271,7 +271,7 @@ void uwsgi_proxy(int proxyfd) {
 					}
 					else {
 						// connection failed, retry with the next node ?
-						perror("connect()");
+						uwsgi_error("connect()");
 						// close only when all node are tried
 						uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 						continue;
@@ -296,7 +296,7 @@ void uwsgi_proxy(int proxyfd) {
 
 							rlen = read(eevents[i].ASYNC_FD, buffer, 4096);
 							if (rlen < 0) {
-								perror("read()");
+								uwsgi_error("read()");
 								uwsgi_proxy_close(upcs, eevents[i].ASYNC_FD);
 								continue;
 							}
@@ -307,7 +307,7 @@ void uwsgi_proxy(int proxyfd) {
 							else {
 								wlen = write(upcs[eevents[i].ASYNC_FD].dest_fd, buffer, rlen);
 								if (wlen != rlen) {
-									perror("write()");
+									uwsgi_error("write()");
 									uwsgi_proxy_close(upcs, eevents[i].ASYNC_FD);
 									continue;
 								}
@@ -333,7 +333,7 @@ void uwsgi_proxy(int proxyfd) {
 
 #ifdef UWSGI_PROXY_USE_KQUEUE
 						if (getsockopt(eevents[i].ASYNC_FD, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
-							perror("getsockopt()");
+							uwsgi_error("getsockopt()");
 							uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 							continue;
 						}
@@ -366,7 +366,7 @@ void uwsgi_proxy(int proxyfd) {
 						}
 						// re-set blocking
 						if (ioctl(ev.ASYNC_FD, FIONBIO, &blocking)) {
-							perror("ioctl()");
+							uwsgi_error("ioctl()");
 							uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 							continue;
 						}
@@ -378,7 +378,7 @@ void uwsgi_proxy(int proxyfd) {
 				else {
 					if (upcs[eevents[i].ASYNC_FD].status == UWSGI_PROXY_CONNECTING) {
 						if (getsockopt(eevents[i].ASYNC_FD, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
-							perror("getsockopt()");
+							uwsgi_error("getsockopt()");
 						}
 						/* is something bad ? */
 						if (soopt) {

@@ -13,8 +13,8 @@ extern struct uwsgi_server uwsgi;
 #define UWSGI_LOCK pthread_mutex_lock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #define UWSGI_UNLOCK pthread_mutex_unlock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #else
-#define UWSGI_LOCK if (flock(uwsgi.serverfd, LOCK_EX)) { perror("flock()"); }
-#define UWSGI_UNLOCK if (flock(uwsgi.serverfd, LOCK_UN)) { perror("flock()"); }
+#define UWSGI_LOCK if (flock(uwsgi.serverfd, LOCK_EX)) { uwsgi_error("flock()"); }
+#define UWSGI_UNLOCK if (flock(uwsgi.serverfd, LOCK_UN)) { uwsgi_error("flock()"); }
 #endif
 
 #define UWSGI_LOGBASE "[- uWSGI -"
@@ -430,7 +430,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 	clen = PyTuple_Size(arg_cluster);
 	multipoll = malloc(clen * sizeof(struct pollfd));
 	if (!multipoll) {
-		perror("malloc");
+		uwsgi_error("malloc");
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
@@ -438,7 +438,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 
 	buffer = malloc(uwsgi.buffer_size * clen);
 	if (!buffer) {
-		perror("malloc");
+		uwsgi_error("malloc");
 		free(multipoll);
 		Py_INCREF(Py_None);
 		return Py_None;
@@ -493,7 +493,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 	while (managed < clen) {
 		pret = poll(multipoll, clen, PyInt_AsLong(arg_timeout) * 1000);
 		if (pret < 0) {
-			perror("poll()");
+			uwsgi_error("poll()");
 			goto megamulticlear;
 		}
 		else if (pret == 0) {
@@ -797,7 +797,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_reload(PyObject * self, PyObject * args) {
 
 	if (kill(uwsgi.workers[0].pid, SIGHUP)) {
-		perror("kill()");
+		uwsgi_error("kill()");
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
@@ -906,7 +906,7 @@ void init_uwsgi_module_spooler(PyObject * current_uwsgi_module) {
 
 	spool_buffer = malloc(uwsgi.buffer_size);
 	if (!spool_buffer) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 

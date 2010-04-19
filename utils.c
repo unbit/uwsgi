@@ -38,7 +38,7 @@ void daemonize(char *logfile) {
 
 	pid = fork();
 	if (pid < 0) {
-		perror("fork()");
+		uwsgi_error("fork()");
 		exit(1);
 	}
 	if (pid != 0) {
@@ -46,7 +46,7 @@ void daemonize(char *logfile) {
 	}
 
 	if (setsid() < 0) {
-		perror("setsid()");
+		uwsgi_error("setsid()");
 		exit(1);
 	}
 
@@ -54,7 +54,7 @@ void daemonize(char *logfile) {
 	/* refork... */
 	pid = fork();
 	if (pid < 0) {
-		perror("fork()");
+		uwsgi_error("fork()");
 		exit(1);
 	}
 	if (pid != 0) {
@@ -65,14 +65,14 @@ void daemonize(char *logfile) {
 
 
 	/*if (chdir("/") != 0) {
-	   perror("chdir()");
+	   uwsgi_error("chdir()");
 	   exit(1);
 	   } */
 
 
 	fdin = open("/dev/null", O_RDWR);
 	if (fdin < 0) {
-		perror("open()");
+		uwsgi_error("open()");
 		exit(1);
 	}
 
@@ -88,7 +88,7 @@ void daemonize(char *logfile) {
 
 		fd = socket(AF_INET,  SOCK_DGRAM, 0);
 		if (fd < 0) {
-			perror("socket()");
+			uwsgi_error("socket()");
 			exit(1);
 		}
 
@@ -99,7 +99,7 @@ void daemonize(char *logfile) {
                 udp_addr.sin_addr.s_addr = inet_addr(logfile);
 			
 		if (connect(fd, (const struct sockaddr *) &udp_addr, sizeof(struct sockaddr_in)) < 0) {
-			perror("connect()");
+			uwsgi_error("connect()");
 			exit(1);
 		}
 	}
@@ -107,7 +107,7 @@ void daemonize(char *logfile) {
 #endif
 		fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
 		if (fd < 0) {
-			perror("open()");
+			uwsgi_error("open()");
 			exit(1);
 		}
 #ifdef UWSGI_UDP
@@ -116,20 +116,20 @@ void daemonize(char *logfile) {
 
 	/* stdin */
 	if (dup2(fdin, 0) < 0) {
-		perror("dup2()");
+		uwsgi_error("dup2()");
 		exit(1);
 	}
 
 
 	/* stdout */
 	if (dup2(fd, 1) < 0) {
-		perror("dup2()");
+		uwsgi_error("dup2()");
 		exit(1);
 	}
 
 	/* stderr */
 	if (dup2(fd, 2) < 0) {
-		perror("dup2()");
+		uwsgi_error("dup2()");
 		exit(1);
 	}
 
@@ -148,7 +148,7 @@ char *uwsgi_get_cwd() {
 
 	cwd = malloc(newsize);
 	if (cwd == NULL) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		exit(1);
 	}
 
@@ -158,11 +158,11 @@ char *uwsgi_get_cwd() {
 		free(cwd);
 		cwd = malloc(newsize);
 		if (cwd == NULL) {
-			perror("malloc()");
+			uwsgi_error("malloc()");
 			exit(1);
 		}
 		if (getcwd(cwd, newsize) == NULL) {
-			perror("getcwd()");
+			uwsgi_error("getcwd()");
 			exit(1);
 		}
 	}
@@ -194,7 +194,7 @@ void uwsgi_as_root() {
                 if (uwsgi.chroot) {
                         fprintf(stderr, "chroot() to %s\n", uwsgi.chroot);
                         if (chroot(uwsgi.chroot)) {
-                                perror("chroot()");
+                                uwsgi_error("chroot()");
                                 exit(1);
                         }
 #ifdef __linux__
@@ -206,14 +206,14 @@ void uwsgi_as_root() {
                 if (uwsgi.gid) {
                         fprintf(stderr, "setgid() to %d\n", uwsgi.gid);
                         if (setgid(uwsgi.gid)) {
-                                perror("setgid()");
+                                uwsgi_error("setgid()");
                                 exit(1);
                         }
                 }
                 if (uwsgi.uid) {
                         fprintf(stderr, "setuid() to %d\n", uwsgi.uid);
                         if (setuid(uwsgi.uid)) {
-                                perror("setuid()");
+                                uwsgi_error("setuid()");
                                 exit(1);
                         }
                 }
@@ -321,7 +321,7 @@ int wsgi_req_accept(int fd, struct wsgi_request *wsgi_req) {
 	wsgi_req->poll.fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
 
 	if (wsgi_req->poll.fd < 0) {
-        	perror("accept()");
+        	uwsgi_error("accept()");
                 return -1;
 	}
 
@@ -388,7 +388,7 @@ void parse_sys_envs(char **envs, struct option *long_options) {
                 if (!strncmp(*uenvs, "UWSGI_", 6)) {
                         earg = malloc(strlen(*uenvs+6)+1);
                         if (!earg) {
-                                perror("malloc()");
+                                uwsgi_error("malloc()");
                                 exit(1);
                         }
                         env_to_arg(*uenvs+6, earg);

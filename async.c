@@ -14,7 +14,7 @@ int async_queue_init(int serverfd) {
 	epfd = epoll_create(256);	
 
 	if (epfd < 0) {
-		perror("epoll_create()");
+		uwsgi_error("epoll_create()");
 		return -1 ;
 	}
 
@@ -23,7 +23,7 @@ int async_queue_init(int serverfd) {
         ee.data.fd = serverfd;
 
         if (epoll_ctl(epfd, EPOLL_CTL_ADD, serverfd, &ee)) {
-                perror("epoll_ctl()");
+                uwsgi_error("epoll_ctl()");
 		close(epfd);
 		return -1;
         }
@@ -45,7 +45,7 @@ int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
 	//fprintf(stderr,"waiting with timeout %d nevents %d\n", timeout, nevents);
 	ret = epoll_wait(queuefd, (struct epoll_event *) events, nevents, timeout);
 	if (ret < 0) {
-		perror("epoll_wait()");
+		uwsgi_error("epoll_wait()");
 	}
 	return ret ;
 }
@@ -58,7 +58,7 @@ int async_add(int queuefd, int fd, int etype) {
         ee.data.fd = fd;
 
         if (epoll_ctl(queuefd, EPOLL_CTL_ADD, fd, &ee)) {
-                perror("epoll_ctl()");
+                uwsgi_error("epoll_ctl()");
 		return -1;
         }
 
@@ -73,7 +73,7 @@ int async_mod(int queuefd, int fd, int etype) {
         ee.data.fd = fd;
 
         if (epoll_ctl(queuefd, EPOLL_CTL_MOD, fd, &ee)) {
-                perror("epoll_ctl()");
+                uwsgi_error("epoll_ctl()");
 		return -1;
         }
 
@@ -88,7 +88,7 @@ int async_del(int queuefd, int fd, int etype) {
         ee.data.fd = fd;
 
         if (epoll_ctl(queuefd, EPOLL_CTL_DEL, fd, &ee)) {
-                perror("epoll_ctl()");
+                uwsgi_error("epoll_ctl()");
 		return -1;
         }
 
@@ -180,13 +180,13 @@ int async_queue_init(int serverfd) {
 	kfd = kqueue();	
 
 	if (kfd < 0) {
-		perror("kqueue()");
+		uwsgi_error("kqueue()");
 		return -1 ;
 	}
 
 	EV_SET(&kev, serverfd, EVFILT_READ, EV_ADD, 0, 0, 0);
         if (kevent(kfd, &kev, 1, NULL, 0, NULL) < 0) {
-                perror("kevent()");
+                uwsgi_error("kevent()");
                 return -1;
         }
 
@@ -239,13 +239,13 @@ int async_mod(int queuefd, int fd, int etype) {
 
 	EV_SET(&kev, fd, ASYNC_OUT, EV_DISABLE, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
-                perror("kevent()");
+                uwsgi_error("kevent()");
                 return -1;
         }
 
 	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
-                perror("kevent()");
+                uwsgi_error("kevent()");
                 return -1;
         }
 	return 0;
@@ -394,7 +394,7 @@ void async_write_all(struct uwsgi_server *uwsgi, char *data, size_t len) {
                 if (wsgi_req->async_status == UWSGI_PAUSED) {
 			rlen = write(wsgi_req->poll.fd, data, len);
 			if (rlen < 0) {
-				perror("write()");
+				uwsgi_error("write()");
 			}
 			else {
 				wsgi_req->response_size += rlen ;
