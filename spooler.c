@@ -295,7 +295,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	}
 
 	fprintf(stderr, "managing spool request...\n");
-	i = spool_request(uwsgi, spool_filename, uwsgi->workers[0].requests + 1, &wsgi_req->buffer, wsgi_req->uh.pktsize);
+	i = spool_request(uwsgi, spool_filename, uwsgi->workers[0].requests + 1, wsgi_req->buffer, wsgi_req->uh.pktsize);
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
 	if (i > 0) {

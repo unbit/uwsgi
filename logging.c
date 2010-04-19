@@ -1,9 +1,15 @@
 #include "uwsgi.h"
 
-#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__sun__) || defined(__OpenBSD__)
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
 #include <kvm.h>
-#include <sys/sysctl.h>
 #include <sys/user.h>
+#elif defined(__sun__)
+/* Terrible Hack !!! */
+#ifndef _LP64
+#undef _FILE_OFFSET_BITS
+#endif
+#include <procfs.h>
+#define _FILE_OFFSET_BITS 64
 #endif
 
 extern struct uwsgi_server uwsgi;
@@ -96,6 +102,19 @@ void get_memusage() {
 		fclose(procfile);
 	}
 	uwsgi.workers[uwsgi.mywid].rss_size = uwsgi.workers[uwsgi.mywid].rss_size * uwsgi.page_size;
+#elif defined (__sun__)
+	psinfo_t info;
+	int procfd ;
+
+	procfd = open("/proc/self/psinfo", O_RDONLY);
+	if (procfd >= 0) {
+		if ( read(procfd, (char *) &info, sizeof(info)) > 0) {
+			uwsgi.workers[uwsgi.mywid].rss_size = (uint64_t) info.pr_rssize * 1024 ;
+			uwsgi.workers[uwsgi.mywid].vsz_size = (uint64_t) info.pr_size * 1024 ;
+		}
+		close(procfd);
+	}
+	
 #elif defined( __APPLE__)
 	/* darwin documentation says that the value are in pages, but they are bytes !!! */
 	struct task_basic_info t_info;
@@ -105,13 +124,14 @@ void get_memusage() {
 		uwsgi.workers[uwsgi.mywid].rss_size = t_info.resident_size;
 		uwsgi.workers[uwsgi.mywid].vsz_size = t_info.virtual_size;
 	}
-#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__sun__) || defined(__OpenBSD__)
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
 	kvm_t *kv;
 	int cnt;
 
 	kv = kvm_open(NULL, NULL, NULL, O_RDONLY, NULL);
 	if (kv) {
 #if defined(__FreeBSD__) || defined(__DragonFly__)
+
 		struct kinfo_proc *kproc;
 		kproc = kvm_getprocs(kv, KERN_PROC_PID, uwsgi.mypid, &cnt);
 		if (kproc && cnt > 0) {

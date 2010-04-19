@@ -101,12 +101,14 @@ int async_queue_init(int serverfd) {
         int dpfd ;
         struct pollfd dpev;
 
+
         dpfd = open("/dev/poll", O_RDWR);
 
         if (dpfd < 0) {
                 perror("open()");
                 return -1 ;
         }
+
 
 	dpev.fd = serverfd;
 	dpev.events = POLLIN ;
@@ -115,6 +117,7 @@ int async_queue_init(int serverfd) {
                 perror("write()");
                 return -1;
         }
+
 
         return dpfd;
 }
@@ -260,11 +263,11 @@ int async_del(int queuefd, int fd, int etype) {
 
 #endif
 
-struct wsgi_request *next_wsgi_req(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+inline struct wsgi_request *next_wsgi_req(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
         uint8_t *ptr = (uint8_t *) wsgi_req ;
 
-        ptr += sizeof(struct wsgi_request)+(uwsgi->buffer_size-1) ;
+        ptr += sizeof(struct wsgi_request) ;
 
         return (struct wsgi_request *) ptr ;
 }

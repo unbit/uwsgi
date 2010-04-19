@@ -292,6 +292,7 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
 	wsgi_req->async_waiting_fd = -1;
 #endif
 	wsgi_req->hvec = &uwsgi.async_hvec[wsgi_req->async_id];
+	wsgi_req->buffer = uwsgi.async_buf[wsgi_req->async_id];
 
 }
 
@@ -301,7 +302,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
         if (uwsgi.shared->options[UWSGI_OPTION_LOGGING]) gettimeofday(&wsgi_req->start_of_request, NULL);
 
-	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, &wsgi_req->buffer)) {
+	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer)) {
 		return -1;
 	}
 

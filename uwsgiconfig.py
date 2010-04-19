@@ -144,10 +144,11 @@ def parse_vars():
 	if str(PYLIB_PATH) != '':
 		ldflags.insert(0,'-L' + PYLIB_PATH)
 
-	kvm_list = ['SunOS', 'FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
+	kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
 	if uwsgi_os == 'SunOS':
         	ldflags.append('-lsendfile')
+		ldflags.remove('-rdynamic')
 
 	if uwsgi_os in kvm_list:
         	ldflags.append('-lkvm')

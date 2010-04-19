@@ -9,7 +9,7 @@ extern struct uwsgi_server uwsgi;
 #ifdef __APPLE__
 #define UWSGI_LOCK OSSpinLockLock((OSSpinLock *) uwsgi.sharedareamutex);
 #define UWSGI_UNLOCK OSSpinLockUnlock((OSSpinLock *) uwsgi.sharedareamutex);
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__sun__) || defined(__FreeBSD__)
 #define UWSGI_LOCK pthread_mutex_lock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #define UWSGI_UNLOCK pthread_mutex_unlock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #else

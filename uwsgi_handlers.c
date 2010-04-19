@@ -76,7 +76,7 @@ int uwsgi_request_marshal(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	PyObject *umm = PyDict_GetItemString(uwsgi->embedded_dict,
 					     "message_manager_marshal");
 	if (umm) {
-		PyObject *ummo = PyMarshal_ReadObjectFromString(&wsgi_req->buffer,
+		PyObject *ummo = PyMarshal_ReadObjectFromString(wsgi_req->buffer,
 								wsgi_req->uh.pktsize);
 		if (ummo) {
 			if (!PyTuple_SetItem(uwsgi->embedded_args, 0, ummo)) {

@@ -30,7 +30,7 @@ void nagios(struct uwsgi_server *uwsgi) {
 		exit(2);
 	}
 	nagios_poll.events = POLLIN;
-	if (!uwsgi_parse_response(&nagios_poll, uwsgi->shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) uwsgi->wsgi_req, &uwsgi->wsgi_req->buffer)) {
+	if (!uwsgi_parse_response(&nagios_poll, uwsgi->shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) uwsgi->wsgi_req, uwsgi->wsgi_req->buffer)) {
 		fprintf(stdout, "UWSGI CRITICAL: timed out waiting for response\n");
 		exit(2);
 	}

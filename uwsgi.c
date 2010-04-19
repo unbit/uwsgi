@@ -572,18 +572,33 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	// allocate more wsgi_req for async mode
-	uwsgi.wsgi_requests = malloc((sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) ) * uwsgi.async);
+	uwsgi.wsgi_requests = malloc(sizeof(struct wsgi_request) * uwsgi.async);
 	if (uwsgi.wsgi_requests == NULL) {
 		fprintf(stderr, "unable to allocate memory for requests.\n");
 		exit(1);
 	}
-	memset(uwsgi.wsgi_requests, 0, (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) ) * uwsgi.async);
+	memset(uwsgi.wsgi_requests, 0, sizeof(struct wsgi_request) * uwsgi.async);
+
+	uwsgi.async_buf = malloc( sizeof(char *) * uwsgi.async);
+	if (!uwsgi.async_buf) {
+		perror("malloc()");
+		exit(1);
+	}
+
+	for(i=0;i<uwsgi.async;i++) {
+		uwsgi.async_buf[i] = malloc(uwsgi.buffer_size);
+		if (!uwsgi.async_buf[i]) {
+			perror("malloc()");
+			exit(1);
+		}
+	}
+	
 
 	// by default set wsgi_req to the first slot
 	uwsgi.wsgi_req = uwsgi.wsgi_requests ;
 
-	fprintf(stderr, "allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) ) * uwsgi.async, 
-								 (uint64_t)( (sizeof(struct wsgi_request) + (uwsgi.buffer_size-1) * uwsgi.async ) / 1024),
+	fprintf(stderr, "allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.async), 
+								 (uint64_t)( (sizeof(struct wsgi_request) * uwsgi.async ) / 1024),
 								 uwsgi.async);
 
 	if (uwsgi.synclog) {
@@ -594,6 +609,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 	}
+
 
 	if (uwsgi.pyhome != NULL) {
 		fprintf(stderr, "Setting PythonHome to %s...\n", uwsgi.pyhome);
@@ -626,6 +642,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	Py_Initialize();
 
+
+
 #ifdef PYTHREE
 	mbstowcs(pname, "uwsgi", 6);
 	pyargv[0] = pname;
@@ -643,7 +661,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	wchar_t *wa;
 #endif
 		char *ap;
+#ifdef __sun__
+		// FIX THIS !!!
+		ap = strtok(uwsgi.pyargv, " ");
+		while ((ap = strtok(NULL, " ")) != NULL) {
+#else
 		while ((ap = strsep(&uwsgi.pyargv, " \t")) != NULL) {
+#endif
 			if (*ap != '\0') {
 #ifdef PYTHREE
 				wa = (wchar_t *) ( (ap-uwsgi.pyargv) * sizeof(wchar_t) );
@@ -1204,10 +1228,10 @@ int main(int argc, char *argv[], char *envp[]) {
 						else if (rlen > 0) {
 							memset(udp_client_addr, 0, 16);
 							if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
-								if (uwsgi.wsgi_req->buffer == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
+								if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
 								}
 #ifdef UWSGI_SNMP
-								else if (uwsgi.wsgi_req->buffer == 0x30 && uwsgi.snmp) {
+								else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
 									manage_snmp(uwsgi_poll.fd, (uint8_t *) &uwsgi.wsgi_req->buffer, rlen, &udp_client);
 								}
 #endif
@@ -1215,7 +1239,7 @@ int main(int argc, char *argv[], char *envp[]) {
 									if (udp_callable && udp_callable_args) {
 										PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
 										PyTuple_SetItem(udp_callable_args, 1, PyInt_FromLong(ntohs(udp_client.sin_port)));
-										PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(&uwsgi.wsgi_req->buffer, rlen));
+										PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(uwsgi.wsgi_req->buffer, rlen));
 										PyObject *udp_response = python_call(udp_callable, udp_callable_args);
 										if (udp_response) {
 											Py_DECREF(udp_response);
@@ -1485,7 +1509,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					goto cycle;
 				}
 
-				wsgi_req_setup(uwsgi.wsgi_req, ( (uint8_t *) uwsgi.wsgi_req - (uint8_t *) uwsgi.wsgi_requests)/(sizeof(struct wsgi_request)+(uwsgi.buffer_size-1))) ;
+				wsgi_req_setup(uwsgi.wsgi_req, ( (uint8_t *)uwsgi.wsgi_req - (uint8_t *)uwsgi.wsgi_requests)/sizeof(struct wsgi_request) );
 
 				if (wsgi_req_accept(uwsgi.serverfd, uwsgi.wsgi_req)) {
 					continue;

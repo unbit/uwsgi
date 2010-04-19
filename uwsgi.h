@@ -58,8 +58,9 @@
 #undef _POSIX_C_SOURCE
 #endif
 #ifdef __sun__
-#undef _FILE_OFFSET_BITS
 #define WAIT_ANY (-1)
+#include <sys/filio.h>
+#define PRIO_MAX  20
 #endif
 
 #define MAX_PYARGV 10
@@ -160,6 +161,10 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #ifdef __linux__
 #include <endian.h>
 #elif __sun__
+#include <sys/byteorder.h>
+#ifdef _BIG_ENDIAN
+#define __BIG_ENDIAN__ 1
+#endif
 #elif __apple__
 #include <libkern/OSByteOrder.h>
 #else
@@ -337,8 +342,7 @@ struct wsgi_request {
 	PyTaskletObject* tasklet;
 #endif
 
-	// buffer MUST BE THE LAST VAR !!!
-	char buffer;
+	char *buffer;
 };
 
 struct uwsgi_server {
@@ -369,6 +373,7 @@ struct uwsgi_server {
 #endif
 
 	struct iovec *async_hvec;
+	char **async_buf;
 
 	struct rlimit rl;
 
@@ -717,7 +722,7 @@ struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *);
 struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
 struct wsgi_request *find_wsgi_req_by_id(struct uwsgi_server *, int); 
 
-struct wsgi_request *next_wsgi_req(struct uwsgi_server *, struct wsgi_request *);
+inline struct wsgi_request *next_wsgi_req(struct uwsgi_server *, struct wsgi_request *);
 
 int async_add(int, int , int) ;
 int async_mod(int, int , int) ;
