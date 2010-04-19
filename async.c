@@ -105,16 +105,17 @@ int async_queue_init(int serverfd) {
         dpfd = open("/dev/poll", O_RDWR);
 
         if (dpfd < 0) {
-                perror("open()");
+                uwsgi_error("open()");
                 return -1 ;
         }
 
 
 	dpev.fd = serverfd;
 	dpev.events = POLLIN ;
+	dpev.revents = 0;
 
         if (write(dpfd, &dpev, sizeof(struct pollfd)) < 0) {
-                perror("write()");
+                uwsgi_error("write()");
                 return -1;
         }
 
@@ -141,7 +142,7 @@ int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
 	//fprintf(stderr,"waiting with timeout %d nevents %d\n", timeout, nevents);
 	ret = ioctl(queuefd, DP_POLL, &dv);
 	if (ret < 0) {
-		perror("ioctl()");
+		uwsgi_error("ioctl()");
 	}
 	return ret ;
 }
@@ -151,9 +152,10 @@ int async_add(int queuefd, int fd, int etype) {
 
 	pl.fd = fd ;
 	pl.events = etype ;
+	pl.revents = 0 ;
 
-        if (write(queuefd, &pl, sizeof(struct pollfd))) {
-                perror("write()");
+        if (write(queuefd, &pl, sizeof(struct pollfd)) < 0) {
+                uwsgi_error("write()");
 		return -1;
         }
 
@@ -166,8 +168,8 @@ int async_mod(int queuefd, int fd, int etype) {
 }
 
 int async_del(int queuefd, int fd, int etype) {
-	// to remove an fd from /dev/poll you have to simply close it
-	return 0;
+	// use POLLREMOVE to remove an fd
+	return async_add(queuefd, fd, POLLREMOVE);
 }
 
 #else
@@ -214,7 +216,7 @@ int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
 	}
 
 	if (ret < 0) {
-		perror("kevent()");
+		uwsgi_error("kevent()");
 	}
 	
 	return ret;
@@ -226,7 +228,7 @@ int async_add(int queuefd, int fd, int etype) {
 
 	EV_SET(&kev, fd, etype, EV_ADD, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
-                perror("kevent()");
+                uwsgi_error("kevent()");
                 return -1;
         }
 	return 0;
@@ -254,7 +256,7 @@ int async_del(int queuefd, int fd, int etype) {
 
 	EV_SET(&kev, fd, etype, EV_DELETE, 0, 0, 0);
         if (kevent(queuefd, &kev, 1, NULL, 0, NULL) < 0) {
-                perror("kevent()");
+                uwsgi_error("kevent()");
                 return -1;
         }
 

@@ -4,6 +4,8 @@
 
 #define UWSGI_VERSION	"0.9.5-dev"
 
+#define uwsgi_error(x)  fprintf(stderr, "%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
