@@ -343,7 +343,7 @@ struct wsgi_request *find_wsgi_req_by_id(struct uwsgi_server *uwsgi, int async_i
 
 	uint8_t *ptr = (uint8_t *) uwsgi->wsgi_requests ;
 
-        ptr += (sizeof(struct wsgi_request)+(uwsgi->buffer_size-1)) * async_id ;
+        ptr += sizeof(struct wsgi_request) * async_id ;
 
         return (struct wsgi_request *) ptr ;
 }

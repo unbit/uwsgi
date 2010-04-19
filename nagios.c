@@ -36,7 +36,7 @@ void nagios(struct uwsgi_server *uwsgi) {
 	}
 	else {
 		if (uwsgi->wsgi_req->uh.pktsize > 0) {
-			fprintf(stdout, "UWSGI WARNING: %.*s\n", uwsgi->wsgi_req->uh.pktsize, &uwsgi->wsgi_req->buffer);
+			fprintf(stdout, "UWSGI WARNING: %.*s\n", uwsgi->wsgi_req->uh.pktsize, uwsgi->wsgi_req->buffer);
 			exit(1);
 		}
 		else {

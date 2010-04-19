@@ -623,7 +623,7 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 
 			UWSGI_SET_ERLANGING;
 			for (;;) {
-				if (erl_receive_msg(wsgi_req->poll.fd, (unsigned char *) &wsgi_req->buffer, uwsgi.buffer_size, &em) == ERL_MSG) {
+				if (erl_receive_msg(wsgi_req->poll.fd, (unsigned char *) wsgi_req->buffer, uwsgi.buffer_size, &em) == ERL_MSG) {
 					if (em.type == ERL_TICK)
 						continue;
 

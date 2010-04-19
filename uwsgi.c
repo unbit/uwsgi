@@ -1249,7 +1249,7 @@ int main(int argc, char *argv[], char *envp[]) {
 									}
 									else {
 										// a simple udp logger
-										fprintf(stderr, "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, &uwsgi.wsgi_req->buffer);
+										fprintf(stderr, "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
 									}
 								}
 							}
