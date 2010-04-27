@@ -1,3 +1,14 @@
+*** april 2010 ***
+
+ * Fourth Maintenance release [20100427] *
+
+- backported non-yielding app optimization from 0.9.5
+- backported udp logging from 0.9.5
+- backported uwsgi_error() from 0.9.5 (no more dumb perror())
+- fix a rare (but possible) segmentation fault
+- added --version
+- updated apache2 module
+
 *** march 2010 ***
 
  * Third Maintenance release [20100310] *

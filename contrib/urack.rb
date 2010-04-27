@@ -1,303 +1,307 @@
-# Copyright 2009 Unbit S.a.s. <info@unbit.it>
-# see the COPYRIGHT file
+require 'rubygems'
+require 'socket'
+require 'rack'
+require 'rack/content_length'
+require 'rack/rewindable_input'
+require 'stringio'
 
-$stdout.sync = true
-options = {}
+require 'optparse'
+
+options = {
+        :processes => 1,
+        :master => false,
+        :logging => true,
+        :static => true,
+        :config => nil,
+        :cachehack => false
+}
+
+opts = OptionParser.new do |opts|
+
+        opts.on("-p", "--processes=nproc", Integer, '') { |p| options[:processes] = p }
+        opts.on("-M", "--master", '') { options[:master] = true }
+        opts.on("-L", "--no-logging", '') { options[:logging] = false }
+        opts.on("-S", "--no-static", '') { options[:static] = false }
+        opts.on("-C", "--cache-hack", '') { options[:cachehack] = true }
+        
+        opts.parse! ARGV
+end
+
+if ARGV[0]
+        options[:config] = ARGV[0]
+end
 
 def human_round(float)
         (float * (10 ** 2)).round / (10 ** 2).to_f
 end
 
-$domain = ARGV.last.gsub('[','').gsub(']','')   
-$unbit_log_base = "[uRack/Unbit on #{$domain}]"
-
-$limit_as = human_round(Process.getrlimit(Process::RLIMIT_AS)[1].to_f/1024/1024)
-puts "#{$unbit_log_base} process address space limit is #{$limit_as} MB"
-
-$uidsec_size = syscall(357,0,0)
-puts "#{$unbit_log_base} need #{$uidsec_size} bytes to store uidsec_struct..."
-$uidsec = '1' * $uidsec_size
-puts "#{$unbit_log_base} uidsec_struct allocated."
-
-
-options[:processes] = 1
-options[:serve_file] = nil
-options[:max_input_size] = 8
-options[:unbit_debug] = false
-options[:master] = true
-options[:gc_freq] = nil
-
-puts "[#{Time.new}] uRack: loading app [#{RAILS_ROOT}]..."
-starttime = Time.now
-require "config/environment"
-
-require 'socket'
-require 'rubygems'
-require 'rack'
-require 'rack/utils'
-require 'rack/content_length'
+$requests = 0
+$workers = Array.new
 
 module Rack
-        module Handler
-                class Unbit
-                        class Tempfile < ::Tempfile
-                                def _close
-                                        @tmpfile.close if @tmpfile
-                                        @data[1] = nil if @data
-                                        @tmpfile = nil
-                                end
-                        end
-                        def self.run(app, options={})
 
-                                master_pid = Process.pid
-                                options[:processes] ||= 1
+  class RailsCachingHack
+    def initialize app
+      @app = app
+    end
 
-                                server = UNIXServer.for_fd(0)
+    def stripuri(uri)
+      uri = uri.split('/')
+      uri.slice!(1)
+      val = uri.join('/')
+    end
+    def call env
+      env['PATH_INFO'] = stripuri(env['PATH_INFO']) if env['PATH_INFO']
+      env['REQUEST_URI'] = stripuri(env['REQUEST_URI']) if env['REQUEST_URI']
+      env['REQUEST_URI'] = '/' if env['REQUEST_URI'] == ''
+      @app.call env
+    end
+  end
 
-                                $workers = Array.new
+  module Handler
+    class Unbit
 
-                                if options[:master]
-                                        $0 = "uRack #{ARGV.last}"
-                                        pid = Process.fork
-                                        if pid.to_i > 0
-                                                puts "[#{Time.new}] uRack: spawned rack worker 1 (pid: #{pid})"
-                                                $workers[1] = pid ;
-                                        end
-                                end
+      def self.run(app, options={})
+        server = UNIXServer.for_fd(0)
 
-                                # the check on master pid is necessary
-                                # without it the first worker will execute this part
-                                if options[:processes] > 1 and Process.pid == master_pid
-                                        for p in 2..options[:processes]
-                                                pid = Process.fork
-                                                break if pid.to_i == 0
-                                                puts "[#{Time.new}] uRack: spawned rack worker #{p} (pid: #{pid})"
-                                                $workers[p] = pid ;
-                                        end
-                                end
+        can_spawn = true
+        if options[:master]
+                $0 = 'uRack master'
+                $workers[0] = Process.pid
+                ulog("master process enabled (pid: #{$workers[0]})")
+                $workers[1] = Process.fork
+                if $workers[1].to_i > 0
+                        ulog("spawned worker 1 (pid: #{$workers[1]})")
+                elsif $workers[1].to_i == 0
+                        $0 = "uRack worker 1"
+                        can_spawn = false
+                end
+        else
+                $0 = 'uRack worker 1'
+                $workers[0] = nil
+                $workers[1] = Process.pid
+                ulog("spawned worker 1 (pid: #{$workers[1]})")
+        end
 
-
-                                
-                                # am i the master ?
-                                if options[:master] and Process.pid == master_pid
-                                        Signal.trap('TERM') do
-                                                puts "[#{Time.new}] uRack: gracefully killing uRack"
-                                                for wid in 1..options[:processes]
-                                                        Process.kill('TERM', $workers[wid]);
-                                                end
-                                                exit 0;
-                                        end
-                                        Signal.trap('QUIT') do
-                                                puts "[#{Time.new}] uRack: brutally killing uRack"
-                                                for wid in 1..options[:processes]
-                                                        Process.kill('INT', $workers[wid]);
-                                                end
-                                                exit 0;
-                                        end
-                                        puts "[#{Time.new}] uRack: the master process manager is alive."
-                                        while 1
-                                                pid = Process.waitpid
-                                                puts "[#{Time.new}] uRack: worker died ! (pid: #{pid})"
-                                                newpid = Process.fork
-                                                break if newpid.to_i == 0
-                                                puts "[#{Time.new}] uRack: respawned rack worker (pid: #{newpid})"
-                                                for wid in 1..options[:processes]
-                                                        if $workers[wid] == pid
-                                                                $workers[wid] = newpid
-                                                                break
-                                                        end
-                                                end
-                                        end
-                                end
-
-                                if Process.pid != master_pid
-                                        $0 = $0.gsub(/^uRack/,'urack')
-                                        Signal.trap("TERM") do
-                                                puts "[#{Time.new}] uRack: grecefully killing process #{Process.pid}..."
-                                                if $in_request == 0
-                                                        puts "[#{Time.new}] uRack: goodbye to process #{Process.pid}"
-                                                        exit 0
-                                                end
-                                                $manage_next_request = nil
-                                        end
-                                        Signal.trap('INT') do
-                                                puts "[#{Time.new}] uRack: brutally killing process #{Process.pid}..."
-                                                exit 0
-                                        end
-                                        Signal.trap('PIPE') do
-                                                puts "[#{Time.new}] uRack: the webserver (or the client) has closed the connection with process #{Process.pid} !!!"
-                                        end
-                                end
-
-                                max_input_size = options[:max_input_size].to_i * 1024
-                                requests = 0
-
-                                null_post = StringIO.new('')
-
-                                options[:app_name] ||= Dir.getwd
-
-                                app = Rack::ContentLength.new(app)
-
-                                $manage_next_request = true
-
-                                if options[:gc_freq].to_i > 1
-                                        GC.disable
-                                end
-
-                                while $manage_next_request
-
-                                        $in_request = 0 
-                                        client = server.accept
-                                        $in_request = 1
-
-                                        timed_out = false
-                                                        
-                                        ver, size, arg1 = client.recvfrom(4)[0].unpack('CvC')
-
-                                        vars = client.recvfrom(size)[0]
-                                        env = Hash.new
-
-                                        i = 0
-                                        while i < size
-                                                kl = vars[i, 2].unpack('v')[0]
-                                                i = i + 2
-                                                key = vars[i, kl]
-                                                i = i + kl
-                                                vl = vars[i, 2].unpack('v')[0]
-                                                i = i + 2
-                                                value = vars[i, vl]
-                                                i = i + vl
-                                                env[key] = value
-                                        end
-
-                                        rack_input = null_post
-
-                                        env.delete 'CONTENT_LENGTH' if env['CONTENT_LENGTH'] == ''
-
-                                        if env['CONTENT_LENGTH'].to_i > 0
-                                                cl = env['CONTENT_LENGTH'].to_i
-
-                                                if cl <= max_input_size
-                                                        poststr = ''
-                                                        while poststr.size < cl
-                                                                poststr = poststr + client.recvfrom(cl-poststr.size)[0] ;
-                                                        end
-                                                        
-                                                        rack_input = StringIO.new(poststr)
-                                                else
-                                                        rack_input = Tempfile.new('UnbitRack')
-                                                        rack_input.chmod(0000)
-
-                                                        bytes_read = 0
-                                                        while bytes_read < cl
-                                                                buf = client.recvfrom(4096)[0]
-                                                                rack_input.write(buf)
-                                                                bytes_read += buf.size
-                                                        end
-                                                        rack_input.rewind
-                                                end
-                                        end
-
-                                        env["SCRIPT_NAME"] = ""
-                                        env.update({"rack.version" => [0,1],
-                                                "rack.input" => rack_input,
-                                                "rack.errors" => $stderr,
-                                                "rack.multithread" => false,
-                                                "rack.multiprocess" => true,
-                                                "rack.run_once" => false,
-                                                "rack.url_scheme" => "http"
-                                        })
-
-                                        env["QUERY_STRING"] ||= ""
-                                        env["HTTP_VERSION"] ||= env["SERVER_PROTOCOL"]
-                                        env["REQUEST_PATH"] ||= "/"
-
-
-                                        begin
-                                                #puts env.inspect
-                                                $start_of_request = Time.new
-                                                status, headers, body = app.call(env)
-                                                $speed = Time.new - $start_of_request
-                                        
-                                                client.print "#{env["HTTP_VERSION"]} #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
-                                                headers.each {|k,vs|
-                                                        vs.split("\n").each { |v|
-                                                                client.print "#{k}: #{v}\r\n"
-                                                        }
-                                                }
-                                                client.print "\r\n"
-                                                client.flush
-
-                                                body.each {|part|
-                                                        client.print part
-                                                        client.flush
-                                                }
-                                        rescue Errno::EPIPE
-                                                puts "[#{Time.new}] uRack: the webserver (or the client) has closed the connection with process #{Process.pid} !!!"
-                                                timed_out = true
-                                        ensure
-                                                if rack_input.respond_to? :unlink
-                                                        rack_input.unlink
-                                                end
-                                                unless rack_input.closed?
-                                                        rack_input.close
-                                                end
-                                                client.close
-                                                requests = requests+1
-                                                # logging 
-                                                $stderr.puts "[#{Time.new}] uRack: [#{options[:app_name]}] req: #{requests} ip: #{env['REMOTE_ADDR']} pid: #{Process.pid} as: #{human_round(syscall(356).to_f/1024/1024)} MB => #{env['REQUEST_METHOD']} #{env['REQUEST_URI']} in #{$speed} secs [#{status}]#{' TIMED OUT !!!' if timed_out}"
-
-                                                if syscall(357, $uidsec, 0) == $uidsec_size
-                                                        if $uidsec[120..123].unpack('i')[0] > 0
-                                                                $stderr.puts "[#{Time.new}] uRack: found a memory allocation error for request #{requests} (pid: #{Process.pid}). Better to kill myself..."
-                                                                $manage_next_request = nil
-                                                        end
-                                                end
-                                                $uidsec = '1' * $uidsec_size
-
-                                                if options[:unbit_debug]
-                                                        current_as = human_round( (syscall(356).to_f/1024/1024) - $last_as )
-                                                        $stderr.puts "#{$unbit_log_base} resource status after request #{requests}: AS for this request: #{current_as} MB | OBJ for this request: #{ObjectSpace.each_object {} - $last_obj} | OBJ total: #{ObjectSpace.each_object {}}"
-                                                        $last_as = human_round(syscall(356).to_f/1024/1024) ;
-                                                        $last_obj = ObjectSpace.each_object {}
-                                                end
-                                                if options[:gc_freq].to_i > 1
-                                                        if requests % options[:gc_freq].to_i == 0
-                                                                $stderr.puts "[#{Time.new}] uRack: [#{options[:app_name]}] calling GC for pid #{Process.pid} after #{requests} requests."
-                                                                GC.enable ; GC.start ; GC.disable
-                                                        end
-                                                end
-                                        end
-                                end
-
-                                puts "[#{Time.new}] uRack: goodbye to process #{Process.pid}"
+        if options[:processes] > 1 and can_spawn
+                for p in 2..options[:processes]
+                        $workers[p] = Process.fork
+                        if $workers[p].to_i == 0
+                                $0 = "uRack worker #{p}"
+                                break
+                        elsif $workers[p].to_i > 0
+                                ulog("spawned worker #{p} (pid: #{$workers[p]})")
                         end
                 end
         end
+
+        # am i the master ?
+        if options[:master] and Process.pid == $workers[0]
+                while 1
+                        i_am_a_child = false
+                        pid = Process.waitpid
+                        for wid in 1..options[:processes]
+                                if $workers[wid] == pid
+                                        ulog("worker #{wid} died ! (pid: #{pid})")
+                                        $workers[wid] = Process.fork
+                                        if $workers[wid].to_i == 0
+                                                $0 = "uRack worker #{wid}"
+                                                i_am_a_child = true
+                                                break
+                                        elsif $workers[wid].to_i > 0
+                                                ulog("respawned worker #{wid} (pid: #{$workers[wid]})")
+                                        end
+                                        
+                                end
+                        end
+                        break if i_am_a_child
+                end
+        end
+        
+        while client = server.accept
+          serve client, app, options
+        end
+      end
+
+      def self.serve(client, app, options)
+
+        speed = Time.now
+        head, sender = client.recvfrom(4)
+
+        unless head
+          client.close
+          return
+        end
+        
+        mod1, size, mod2 = head.unpack('CvC')
+
+        if size == 0 or size.nil?
+          client.close
+          return
+        end
+
+        vars, sender = client.recvfrom(size)
+
+        if vars.length != size
+          client.close
+          return
+        end
+
+        env = Hash.new
+
+        i = 0
+        while i < size
+          kl = vars[i, 2].unpack('v')[0]
+          i = i + 2
+          key = vars[i, kl]
+          i = i + kl
+          vl = vars[i, 2].unpack('v')[0]
+          i = i + 2
+          value = vars[i, vl]
+          i = i + vl
+          env[key] = value
+        end
+
+
+
+        env.delete "HTTP_CONTENT_LENGTH"
+        env.delete "HTTP_CONTENT_TYPE"
+
+        env["SCRIPT_NAME"] = ""  if env["SCRIPT_NAME"] == "/"
+        env["QUERY_STRING"] ||= ""
+        env["HTTP_VERSION"] ||= env["SERVER_PROTOCOL"]
+        env["REQUEST_PATH"] ||= "/"
+        env.delete "PATH_INFO"  if env["PATH_INFO"] == ""
+        env.delete "CONTENT_TYPE"  if env["CONTENT_TYPE"] == ""
+        env.delete "CONTENT_LENGTH"  if env["CONTENT_LENGTH"] == ""
+        
+        
+        if env["CONTENT_LENGTH"].to_i > 4096
+                rack_input = Rack::RewindableInput::Tempfile.new('Rack_unbit_Input')
+                rack_input.chmod(0000)
+                rack_input.set_encoding(Encoding::BINARY) if rack_input.respond_to?(:set_encoding)
+                rack_input.binmode
+                rack_input.unlink
+
+                remains = env["CONTENT_LENGTH"].to_i
+                while remains > 0
+                        if remains >= 4096
+                                buf, sender = client.recvfrom(4096)
+                        else
+                                buf, sender = client.recvfrom(remains)
+                        end
+
+                        rack_input.write( buf )
+                        remains -= buf.length
+                end
+
+        elsif env["CONTENT_LENGTH"].to_i > 0
+                rack_input =  StringIO.new(client.recvfrom(env["CONTENT_LENGTH"].to_i)[0])
+        else
+                rack_input = StringIO.new('')
+        end
+
+        rack_input.rewind
+
+        env.update({"rack.version" => [1,1],
+                     "rack.input" => rack_input,
+                     "rack.errors" => $stderr,
+
+                     "rack.multithread" => false,
+                     "rack.multiprocess" => true,
+                     "rack.run_once" => false,
+
+                     "rack.url_scheme" => ["yes", "on", "1"].include?(env["HTTPS"]) ? "https" : "http"
+                   })
+
+        app = Rack::ContentLength.new(app)
+
+        disconnected = false
+        begin
+          status, headers, body = app.call(env)
+          begin
+            send_headers client, env["HTTP_VERSION"] ,status, headers
+            send_body client, body
+          ensure
+            body.close  if body.respond_to? :close
+          end
+        rescue Errno::EPIPE, Errno::ECONNRESET
+          disconnected = true
+        ensure
+          rack_input.close
+          client.close
+        end
+        $requests = $requests+1
+        
+        ulog("req: #{$requests} ip: #{env['REMOTE_ADDR']} pid: #{Process.pid} as: #{human_round(syscall(356).to_f/1024/1024)} MB => #{env['REQUEST_METHOD']} #{env['REQUEST_URI']} in #{Time.now-speed} secs [#{status}]#{' DISCONNECTED !!!' if disconnected}") if options[:logging]
+      end
+
+      def self.send_headers(client, protocol, status, headers)
+        client.print "#{protocol} #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
+        headers.each { |k, vs|
+          vs.split("\n").each { |v|
+            client.print "#{k}: #{v}\r\n"
+          }
+        }
+        client.print "\r\n"
+        client.flush
+      end
+
+      def self.send_body(client, body)
+        body.each { |part|
+          client.print part
+          client.flush
+        }
+      end
+    end
+  end
 end
 
+def ulog(message)
+        $stderr.puts "[#{Time.new}] uRack: #{message}"
+end
+
+ulog("starting at #{Dir.getwd}")
+limit_as = human_round(Process.getrlimit(Process::RLIMIT_AS)[1].to_f/1024/1024)
+ulog("your process address space limit is #{limit_as} MB")
 server = Rack::Handler.get('Unbit')
 
-app = Rack::Builder.new {
-        if options[:serve_file]
-                puts "[#{Time.new}] uRack: file serving enabled."
-                use Rails::Rack::Static
+starttime = Time.now
+
+app = nil
+
+if options[:config]
+        cfgfile = File.read(options[:config])
+        if cfgfile[/^#\\(.*)/]
+                opts.parse! $1.split(/\s+/)
         end
-        if ActionController.const_defined?(:Dispatcher) && (ActionController::Dispatcher.instance_methods.include?(:call) || ActionController::Dispatcher.instance_methods.include?("call"))
-                run ActionController::Dispatcher.new
+        app = eval "Rack::Builder.new {( " + cfgfile + "\n )}.to_app", nil, options[:config]
+else
+        # falling back to rails
+        if Dir.getwd =~ /\/public\/?$/  
+                require '../config/environment'
         else
-                require 'thin'
-                run Rack::Adapter::Rails.new(:environment => ENV['RAILS_ENV'])
+                require 'config/environment'
         end
-}.to_app
+        app = Rack::Builder.new {
+                if options[:cachehack]
+                        use Rack::RailsCachingHack
+                end
+                if options[:static]
+                        use Rails::Rack::Static
+                end
+                if ActionController.const_defined?(:Dispatcher) && (ActionController::Dispatcher.instance_methods.include?(:call) || ActionController::Dispatcher.instance_methods.include?("call"))
+                        run ActionController::Dispatcher.new
+                else
+                        require 'thin'
+                        run Rack::Adapter::Rails.new(:environment => ENV['RAILS_ENV'])
+                end
+        }
+end
 
-$after_spawn_used_as = human_round(syscall(356).to_f/1024/1024)
-$stderr.puts "#{$unbit_log_base} now you have #{$limit_as-$after_spawn_used_as} MB of address space available (used #{$after_spawn_used_as}MB after app startup)"
 
-secs = Time.now-starttime
-puts "[#{Time.new}] uRack: ready to serve requests after #{secs.to_i} secs (pid: #{Process.pid})"
+ulog("your app is ready (in #{Time.now-starttime} seconds).")
 
-$last_as = $after_spawn_used_as ;
-$last_obj = ObjectSpace.each_object {}
 
 server.run(app, options)
+
