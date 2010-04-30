@@ -7,6 +7,24 @@ extern struct uwsgi_server uwsgi;
 uint16_t uwsgi_swap16(uint16_t x) {
 	return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
 }
+
+uint32_t uwsgi_swap32(uint32_t x) {
+	x = ( (x<<8) & 0xFF00FF00 ) | ( (x>>8) & 0x00FF00FF );
+	return (x>>16) | (x<<16);
+}
+
+// thanks to ffmpeg project for this idea :P
+uint64_t uwsgi_swap64(uint64_t x) {
+	union {
+        	uint64_t ll;
+        	uint32_t l[2];
+    	} w, r;
+    	w.ll = x;
+    	r.l[0] = uwsgi_swap32(w.l[1]);
+    	r.l[1] = uwsgi_swap32(w.l[0]);
+    	return r.ll;
+}
+
 #endif
 
 void set_harakiri(int sec) {

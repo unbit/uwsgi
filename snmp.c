@@ -271,7 +271,7 @@ static uint8_t snmp_int_to_snmp(uint64_t snmp_val, uint8_t oid_type, uint8_t * b
 
 	uint8_t tlen;
 	int i, j;
-	uint8_t *ptr = (uint8_t *) & snmp_val;
+	uint8_t *ptr = (uint8_t *) &snmp_val;
 
 
 	// check for counter, counter64 or gauge
@@ -339,7 +339,7 @@ PyObject *py_snmp_counter32(PyObject * self, PyObject * args) {
 	uint8_t oid_num;
 	uint32_t oid_val = 0;
 
-	if (!PyArg_ParseTuple(args, "bi:snmp_set_counter32", &oid_num, &oid_val)) {
+	if (!PyArg_ParseTuple(args, "bI:snmp_set_counter32", &oid_num, &oid_val)) {
 		return NULL;
 	}
 
@@ -363,7 +363,7 @@ PyObject *py_snmp_counter64(PyObject * self, PyObject * args) {
 	uint8_t oid_num;
 	uint64_t oid_val = 0;
 
-	if (!PyArg_ParseTuple(args, "bl:snmp_set_counter64", &oid_num, &oid_val)) {
+	if (!PyArg_ParseTuple(args, "bK:snmp_set_counter64", &oid_num, &oid_val)) {
 		return NULL;
 	}
 
@@ -387,7 +387,7 @@ PyObject *py_snmp_gauge(PyObject * self, PyObject * args) {
 	uint8_t oid_num;
 	uint32_t oid_val = 0;
 
-	if (!PyArg_ParseTuple(args, "bi:snmp_set_gauge", &oid_num, &oid_val)) {
+	if (!PyArg_ParseTuple(args, "bI:snmp_set_gauge", &oid_num, &oid_val)) {
 		return NULL;
 	}
 

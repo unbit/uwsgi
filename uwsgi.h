@@ -667,6 +667,8 @@ void set_harakiri(int);
 
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t);
+uint32_t uwsgi_swap32(uint32_t);
+uint64_t uwsgi_swap64(uint64_t);
 #endif
 
 int init_uwsgi_app(PyObject *, PyObject *);
