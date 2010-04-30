@@ -12,6 +12,10 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
+#ifdef __NetBSD__
+#include <sys/sysctl.h>
+#endif
+
 extern struct uwsgi_server uwsgi;
 
 void log_request(struct wsgi_request *wsgi_req) {
