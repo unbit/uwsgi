@@ -140,6 +140,12 @@ void harakiri() {
 		}
 */
 	}
+	else {
+		fprintf(stderr, "\nF*CK !!! i must kill myself (pid: %d app_id: %d) thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, _myself, _myself->frame);
+	}
+
+	fprintf(stderr,"*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
+
 	Py_FatalError("HARAKIRI !\n");
 }
 
@@ -516,6 +522,10 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifndef UNBIT
 	uwsgi_as_root();
 #endif
+
+	if (!uwsgi.master_process) {
+		fprintf(stderr, " *** WARNING: you are running uWSGI without its master process manager ***\n");
+	}
 
 #ifndef __OpenBSD__
 #ifndef UNBIT

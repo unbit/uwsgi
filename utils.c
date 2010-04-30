@@ -10,7 +10,7 @@ uint16_t uwsgi_swap16(uint16_t x) {
 #endif
 
 void set_harakiri(int sec) {
-	if (uwsgi.workers) {
+	if (uwsgi.master_process) {
 		if (sec == 0) {
 			uwsgi.workers[uwsgi.mywid].harakiri = 0;
 		}

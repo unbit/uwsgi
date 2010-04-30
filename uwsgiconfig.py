@@ -136,6 +136,8 @@ def unbit_setup():
 
 def parse_vars():
 
+	global UGREEN
+	
 	version = sys.version_info
 	uver = "%d.%d" % (version[0], version[1])
 
