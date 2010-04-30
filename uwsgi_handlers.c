@@ -33,7 +33,7 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 	int i;
 
 	if (wsgi_req->uh.pktsize >= 4) {
-		memcpy(&opt_value, &wsgi_req->buffer, 4);
+		memcpy(&opt_value, wsgi_req->buffer, 4);
 		// TODO: check endianess
 	}
 	uwsgi_log( "setting internal option %d to %d\n", wsgi_req->uh.modifier2, opt_value);
