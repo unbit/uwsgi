@@ -43,15 +43,19 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	uint64_t request_id;
 	uint64_t version;
 
+
 	// KISS for memory management
 	if (size > SNMP_WATERMARK)
 		return;
 	ptr++;
 
+
 	// check total sequence size
 	if (*ptr > SNMP_WATERMARK || *ptr < 13)
 		return;
 	ptr++;
+
+
 
 
 	// check snmp version   
@@ -63,6 +67,7 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	if (version > 2)
 		return;
 	ptr += ptrdelta;
+
 
 
 
