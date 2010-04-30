@@ -138,12 +138,16 @@ void get_memusage() {
 			uwsgi.workers[uwsgi.mywid].vsz_size = kproc->ki_size;
 			uwsgi.workers[uwsgi.mywid].rss_size = kproc->ki_rssize * uwsgi.page_size;
 		}
-#elif defined(__NetBSD__)
+#elif defined(__NetBSD__) || defined(__OpenBSD__)
 		struct kinfo_proc2 *kproc2;
 		
 		kproc2 = kvm_getproc2(kv, KERN_PROC_PID, uwsgi.mypid, sizeof(struct kinfo_proc2), &cnt);
 		if (kproc2 && cnt > 0) {
+#ifdef __OpenBSD__
+			uwsgi.workers[uwsgi.mywid].vsz_size = (kproc2->p_vm_dsize + kproc2->p_vm_ssize + kproc2->p_vm_tsize) * uwsgi.page_size;
+#else
 			uwsgi.workers[uwsgi.mywid].vsz_size = kproc2->p_vm_msize * uwsgi.page_size;
+#endif
 			uwsgi.workers[uwsgi.mywid].rss_size = kproc2->p_vm_rssize * uwsgi.page_size;
 		}
 #endif

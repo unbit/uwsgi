@@ -517,6 +517,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_as_root();
 #endif
 
+#ifndef __OpenBSD__
 #ifndef UNBIT
 	if (uwsgi.rl.rlim_max > 0) {
 		fprintf(stderr, "limiting address space of processes...\n");
@@ -536,6 +537,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 #endif
 	}
+#endif
 
 	uwsgi.page_size = getpagesize();
 	fprintf(stderr, "your memory page size is %d bytes\n", uwsgi.page_size);
@@ -1281,7 +1283,10 @@ int main(int argc, char *argv[], char *envp[]) {
 							/* first try to invoke the harakiri() custom handler */
 							/* TODO */
 							/* then brutally kill the worker */
+							fprintf(stderr,"*** HARAKIRI ON WORKER %d (pid: %d) ***\n", i, uwsgi.workers[i].pid);
 							kill(uwsgi.workers[i].pid, SIGKILL);
+							// to avoid races
+							uwsgi.workers[i].harakiri = 0;
 						}
 					}
 					/* load counters */

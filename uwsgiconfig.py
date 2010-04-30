@@ -153,6 +153,9 @@ def parse_vars():
 	if uwsgi_os in kvm_list:
         	ldflags.append('-lkvm')
 
+	if uwsgi_os == 'OpenBSD':
+		UGREEN = False
+
 	if EMBEDDED:
 		cflags.append('-DUWSGI_EMBEDDED')
 		gcc_list.append('uwsgi_pymodule')
