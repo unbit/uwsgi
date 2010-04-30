@@ -10,7 +10,7 @@ int uwsgi_request_ping(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	len = strlen(uwsgi->shared->warning_message);
 	if (len > 0) {
-		// endianess check is not needed as the warning message can be max 80 chars
+		// TODO: check endianess ?
 		wsgi_req->uh.pktsize = len;
 	}
 	if (write(wsgi_req->poll.fd, wsgi_req, 4) != 4) {
@@ -24,7 +24,7 @@ int uwsgi_request_ping(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		}
 	}
 
-	return 0;
+	return UWSGI_OK;
 }
 
 /* uwsgi ADMIN|10 */
@@ -34,17 +34,23 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 
 	if (wsgi_req->uh.pktsize >= 4) {
 		memcpy(&opt_value, wsgi_req->buffer, 4);
-		// TODO: check endianess
+		// TODO: check endianess ?
 	}
+
 	uwsgi_log( "setting internal option %d to %d\n", wsgi_req->uh.modifier2, opt_value);
 	uwsgi->shared->options[wsgi_req->uh.modifier2] = opt_value;
+
+	// ACK
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
 	wsgi_req->uh.modifier2 = 1;
+
 	i = write(wsgi_req->poll.fd, wsgi_req, 4);
 	if (i != 4) {
 		uwsgi_error("write()");
 	}
+
+
 
 	return UWSGI_OK;
 }

@@ -250,6 +250,7 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
         if (uwsgi->shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1)
         	get_memusage();
 
+
         // close the connection with the webserver
 	if (!wsgi_req->fd_closed) {
 		close(wsgi_req->poll.fd);
@@ -257,9 +258,9 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
         uwsgi->workers[0].requests++;
         uwsgi->workers[uwsgi->mywid].requests++;
 
+
 	// after_request hook
 	(*uwsgi->shared->after_hooks[wsgi_req->uh.modifier1]) (uwsgi, wsgi_req);
-
 
 	// leave harakiri mode
 	if (uwsgi->workers[uwsgi->mywid].harakiri > 0) {
@@ -276,6 +277,7 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 	if (uwsgi->shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi->workers[uwsgi->mywid].requests >= uwsgi->shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
         	goodbye_cruel_world();
 	}
+
 
 }
 

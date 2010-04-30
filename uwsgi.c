@@ -266,7 +266,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 	memset(uwsgi.shared, 0, sizeof(struct uwsgi_shared));
 
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i <= 0xFF; i++) {
 		uwsgi.shared->hooks[i] = unconfigured_hook;
 		uwsgi.shared->after_hooks[i] = unconfigured_after_hook;
 	}
