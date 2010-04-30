@@ -69,11 +69,11 @@ int check_for_memory_errors = 0;
 struct uwsgi_app *wi;
 
 void warn_pipe() {
-	fprintf(stderr, "writing to a closed pipe/socket/fd !!!\n");
+	uwsgi_log("SIGPIPE: writing to a closed pipe/socket/fd !!!\n");
 }
 
 void gracefully_kill() {
-	fprintf(stderr, "Gracefully killing worker %d...\n", uwsgi.mypid);
+	uwsgi_log("Gracefully killing worker %d...\n", uwsgi.mypid);
 	if (UWSGI_IS_IN_REQUEST) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	}
@@ -91,14 +91,14 @@ void end_me() {
 }
 
 void goodbye_cruel_world() {
-	fprintf(stderr, "...The work of process %d is done. Seeya!\n", getpid());
+	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
 	exit(0);
 }
 
 void kill_them_all() {
 	int i;
 	uwsgi.to_hell = 1;
-	fprintf(stderr, "SIGINT/SIGQUIT received...killing workers...\n");
+	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		kill(uwsgi.workers[i].pid, SIGINT);
 	}
@@ -107,7 +107,7 @@ void kill_them_all() {
 void grace_them_all() {
 	int i;
 	uwsgi.to_heaven = 1;
-	fprintf(stderr, "...gracefully killing workers...\n");
+	uwsgi_log("...gracefully killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		kill(uwsgi.workers[i].pid, SIGHUP);
 	}
@@ -115,7 +115,7 @@ void grace_them_all() {
 
 void reap_them_all() {
 	int i;
-	fprintf(stderr, "...brutally killing workers...\n");
+	uwsgi_log("...brutally killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		kill(uwsgi.workers[i].pid, SIGTERM);
 	}
@@ -128,7 +128,7 @@ void harakiri() {
 	PyGILState_Ensure();
 	_myself = PyThreadState_Get();
 	if (wi) {
-		fprintf(stderr, "\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame);
+		uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame);
 
 /*
 		// NEED TO FIND A SAFER WAY !!!
@@ -141,28 +141,29 @@ void harakiri() {
 */
 	}
 	else {
-		fprintf(stderr, "\nF*CK !!! i must kill myself (pid: %d app_id: %d) thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, _myself, _myself->frame);
+		uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d) thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, _myself, _myself->frame);
 	}
 
-	fprintf(stderr,"*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
+	uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
 
 	Py_FatalError("HARAKIRI !\n");
 }
 
 #ifndef UNBIT
 void stats() {
+	// fix this for better logging (this cause races)
 	struct uwsgi_app *ua = NULL;
 	int i;
 
-	fprintf(stderr, "*** pid %d stats ***\n", getpid());
-	fprintf(stderr, "\ttotal requests: %llu\n", uwsgi.workers[0].requests);
+	uwsgi_log("*** pid %d stats ***\n", getpid());
+	uwsgi_log("\ttotal requests: %llu\n", uwsgi.workers[0].requests);
 	for (i = 0; i < uwsgi.wsgi_cnt; i++) {
 		ua = &uwsgi.wsgi_apps[i];
 		if (ua) {
-			fprintf(stderr, "\tapp %d requests: %d\n", i, ua->requests);
+			uwsgi_log("\tapp %d requests: %d\n", i, ua->requests);
 		}
 	}
-	fprintf(stderr, "\n");
+	uwsgi_log("\n");
 }
 #endif
 
@@ -189,7 +190,7 @@ int single_app_mode = 0;
 
 
 static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
-	fprintf(stderr, "-- unavailable modifier requested: %d --\n", wsgi_req->uh.modifier1);
+	uwsgi_log("-- unavailable modifier requested: %d --\n", wsgi_req->uh.modifier1);
 	return -1;
 }
 
@@ -331,7 +332,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 		{"paste", required_argument, 0, LONG_ARGS_PASTE},
-		{"sync-log", no_argument, &uwsgi.synclog, 1},
 		{"no-server", no_argument, &no_server, 1},
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
@@ -409,7 +409,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	socket_type_len = sizeof(int);
 	if (!getsockopt(3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
 		if (socket_type == SOCK_STREAM && reloads > 0) {
-			fprintf(stderr, "...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
+			uwsgi_log("...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
 			uwsgi.is_a_reload = 1;
 #ifdef UNBIT
 			/* discard the 3'th fd as we will use the fd 0 */
@@ -500,37 +500,37 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
 #endif
 		if (uwsgi.test_module == NULL) {
-			fprintf(stderr, "*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
+			uwsgi_log("*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 		}
 #ifndef UNBIT
 	}
 	else {
-		fprintf(stderr, "*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
+		uwsgi_log("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 	}
 #endif
 
 #ifdef __BIG_ENDIAN__
-	fprintf(stderr, "*** big endian arch detected ***\n");
+	uwsgi_log("*** big endian arch detected ***\n");
 #endif
 
 #ifdef PYTHREE
-	fprintf(stderr, "*** Warning Python3.x support is experimental, do not use it in production environment ***\n");
+	uwsgi_log("*** Warning Python3.x support is experimental, do not use it in production environment ***\n");
 #endif
 
-	fprintf(stderr, "Python version: %s\n", Py_GetVersion());
+	uwsgi_log("Python version: %s\n", Py_GetVersion());
 
 #ifndef UNBIT
 	uwsgi_as_root();
 #endif
 
 	if (!uwsgi.master_process) {
-		fprintf(stderr, " *** WARNING: you are running uWSGI without its master process manager ***\n");
+		uwsgi_log(" *** WARNING: you are running uWSGI without its master process manager ***\n");
 	}
 
 #ifndef __OpenBSD__
 #ifndef UNBIT
 	if (uwsgi.rl.rlim_max > 0) {
-		fprintf(stderr, "limiting address space of processes...\n");
+		uwsgi_log("limiting address space of processes...\n");
 		if (setrlimit(RLIMIT_AS, &uwsgi.rl)) {
 			uwsgi_error("setrlimit()");
 		}
@@ -542,7 +542,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		// check for overflow
 		if ((sizeof(void *) == 4 && (uint32_t) uwsgi.rl.rlim_max < UINT32_MAX) || (sizeof(void *) == 8 && (uint64_t) uwsgi.rl.rlim_max < UINT64_MAX)) {
 #endif
-			fprintf(stderr, "your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
+			uwsgi_log("your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
 #ifndef UNBIT
 		}
 #endif
@@ -550,10 +550,10 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	uwsgi.page_size = getpagesize();
-	fprintf(stderr, "your memory page size is %d bytes\n", uwsgi.page_size);
+	uwsgi_log("your memory page size is %d bytes\n", uwsgi.page_size);
 
 	if (uwsgi.buffer_size > 65536) {
-		fprintf(stderr, "invalid buffer size.\n");
+		uwsgi_log("invalid buffer size.\n");
 		exit(1);
 	}
 
@@ -562,12 +562,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.async > 1) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 			if (uwsgi.rl.rlim_cur < uwsgi.async) {
-				fprintf(stderr,"- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.rl.rlim_cur);
+				uwsgi_log("- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.rl.rlim_cur);
 				if (uwsgi.rl.rlim_cur < uwsgi.rl.rlim_max && uwsgi.rl.rlim_max > uwsgi.async) {
 					unsigned long tmp_nofile = (unsigned long) uwsgi.rl.rlim_cur ;
 					uwsgi.rl.rlim_cur = uwsgi.async;
 					if (!setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-						fprintf(stderr,"max open files limit reset to %lu\n", (unsigned long) uwsgi.rl.rlim_cur);
+						uwsgi_log("max open files limit reset to %lu\n", (unsigned long) uwsgi.rl.rlim_cur);
 						uwsgi.async = uwsgi.rl.rlim_cur;
 					}
 					else {
@@ -578,7 +578,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					uwsgi.async = uwsgi.rl.rlim_cur;
 				}
 
-				fprintf(stderr,"- async cores set to %d -\n", uwsgi.async);
+				uwsgi_log("- async cores set to %d -\n", uwsgi.async);
 			}
 		}
 	}
@@ -586,7 +586,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	// allocate more wsgi_req for async mode
 	uwsgi.wsgi_requests = malloc(sizeof(struct wsgi_request) * uwsgi.async);
 	if (uwsgi.wsgi_requests == NULL) {
-		fprintf(stderr, "unable to allocate memory for requests.\n");
+		uwsgi_log("unable to allocate memory for requests.\n");
 		exit(1);
 	}
 	memset(uwsgi.wsgi_requests, 0, sizeof(struct wsgi_request) * uwsgi.async);
@@ -609,22 +609,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	// by default set wsgi_req to the first slot
 	uwsgi.wsgi_req = uwsgi.wsgi_requests ;
 
-	fprintf(stderr, "allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.async), 
+	uwsgi_log("allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.async), 
 								 (uint64_t)( (sizeof(struct wsgi_request) * uwsgi.async ) / 1024),
 								 uwsgi.async);
 
-	if (uwsgi.synclog) {
-		fprintf(stderr, "allocating a memory page for synced logging.\n");
-		uwsgi.sync_page = malloc(uwsgi.page_size);
-		if (!uwsgi.sync_page) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-	}
-
-
 	if (uwsgi.pyhome != NULL) {
-		fprintf(stderr, "Setting PythonHome to %s...\n", uwsgi.pyhome);
+		uwsgi_log("Setting PythonHome to %s...\n", uwsgi.pyhome);
 #ifdef PYTHREE
 		wchar_t *wpyhome;
 		wpyhome = malloc((sizeof(wchar_t) * strlen(uwsgi.pyhome)) + 2);
@@ -717,26 +707,26 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 #else
-		fprintf(stderr, "***WARNING*** the sharedarea on OpenBSD is not SMP-safe. Beware of race conditions !!!\n");
+		uwsgi_log("***WARNING*** the sharedarea on OpenBSD is not SMP-safe. Beware of race conditions !!!\n");
 #endif
 		uwsgi.sharedarea = mmap(NULL, uwsgi.page_size * uwsgi.sharedareasize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (uwsgi.sharedarea) {
-			fprintf(stderr, "shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
+			uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
 
 #ifdef __APPLE__
 			memset(uwsgi.sharedareamutex, 0, sizeof(OSSpinLock));
 #else
 #if !defined(__OpenBSD__) && !defined(__NetBSD__)
 			if (pthread_mutexattr_init((pthread_mutexattr_t *) uwsgi.sharedareamutex)) {
-				fprintf(stderr, "unable to allocate mutexattr structure\n");
+				uwsgi_log("unable to allocate mutexattr structure\n");
 				exit(1);
 			}
 			if (pthread_mutexattr_setpshared((pthread_mutexattr_t *) uwsgi.sharedareamutex, PTHREAD_PROCESS_SHARED)) {
-				fprintf(stderr, "unable to share mutex\n");
+				uwsgi_log("unable to share mutex\n");
 				exit(1);
 			}
 			if (pthread_mutex_init((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t), (pthread_mutexattr_t *) uwsgi.sharedareamutex)) {
-				fprintf(stderr, "unable to initialize mutex\n");
+				uwsgi_log("unable to initialize mutex\n");
 				exit(1);
 			}
 #endif
@@ -776,7 +766,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_THREADING
 	if (uwsgi.has_threads) {
 		PyEval_InitThreads();
-		fprintf(stderr, "threads support enabled\n");
+		uwsgi_log("threads support enabled\n");
 	}
 
 #endif
@@ -794,7 +784,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 
 				if (uwsgi.serverfd < 0) {
-					fprintf(stderr, "unable to create the server socket.\n");
+					uwsgi_log("unable to create the server socket.\n");
 					exit(1);
 				}
 		}
@@ -2732,7 +2722,6 @@ void manage_opt(int i, char *optarg) {
 \t--chroot <dir>\t\t\tchroot to directory <dir> (only root)\n\
 \t--gid <id>\t\t\tsetgid to <id> (only root)\n\
 \t--uid <id>\t\t\tsetuid to <id> (only root)\n\
-\t--sync-log\t\t\tlet uWSGI does its best to avoid logfile mess\n\
 \t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
 \t--no-defer-accept\t\tdisable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)\n\
 \t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\

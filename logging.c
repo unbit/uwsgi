@@ -17,12 +17,18 @@ extern struct uwsgi_server uwsgi;
 void log_request(struct wsgi_request *wsgi_req) {
 	char *time_request;
 	time_t microseconds, microseconds2;
-
+	int rlen;
 	static char *empty = "";
 	char *first_part = empty;
 	int app_req = -1;
 	char *msg2 = " ";
 	char *via = msg2;
+
+	char mempkt[4096];
+	char logpkt[4096];
+
+	struct iovec logvec[2] ;
+	int logvecpos = 0 ;
 
 #ifdef UWSGI_SENDFILE
 	char *msg1 = " via sendfile() ";
@@ -49,20 +55,23 @@ void log_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
 #ifndef UNBIT
-		if (uwsgi.synclog) {
-			snprintf(uwsgi.sync_page, uwsgi.page_size, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
-			first_part = uwsgi.sync_page;
-		}
-		else {
-			fprintf(stderr, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
-		}
+		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} {rss usage: %llu bytes/%lluMB} ",
+			uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024,
+			uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024);
 #else
-		fprintf(stderr, "{address space usage: %lld bytes/%lluMB} ", uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024);
+		rlen = snprintf(mempkt, 4096, "{address space usage: %lld bytes/%lluMB} ",
+			uwsgi.workers[uwsgi.mywid].vsz_size, uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024);
 #endif
+
+	
+		logvec[logvecpos].iov_base = mempkt ;
+		logvec[logvecpos].iov_len = rlen ;
+		logvecpos++;
+
+
 	}
 
-	fprintf(stderr, "%s[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches on async core %d)\n",
-		first_part,
+	rlen = snprintf(logpkt, 4096, "[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d async switches on async core %d)\n",
 		uwsgi.mypid,
 		wsgi_req->app_id,
 		app_req,
@@ -83,6 +92,11 @@ void log_request(struct wsgi_request *wsgi_req) {
 		wsgi_req->headers_size, 
 		wsgi_req->async_switches, wsgi_req->async_id);
 
+	logvec[logvecpos].iov_base = logpkt ;
+	logvec[logvecpos].iov_len = rlen ;
+
+	// do not check for errors
+	writev(2, logvec, logvecpos+1);
 
 }
 

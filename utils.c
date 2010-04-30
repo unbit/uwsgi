@@ -82,7 +82,7 @@ void daemonize(char *logfile) {
 	if (udp_port) {
 		udp_port[0] = 0 ;
 		if ( !udp_port[1] || !logfile[0] ) {
-			fprintf(stderr,"invalid udp address\n");
+			uwsgi_log("invalid udp address\n");
 			exit(1);
 		}
 
@@ -133,8 +133,6 @@ void daemonize(char *logfile) {
 		exit(1);
 	}
 
-	// avoid log mess
-	setlinebuf(stderr);
 	close(fd);
 
 
@@ -156,7 +154,7 @@ char *uwsgi_get_cwd() {
 
 	if (getcwd(cwd, newsize) == NULL) {
 		newsize = errno;
-		fprintf(stderr, "need a bigger buffer (%d bytes) for getcwd(). doing reallocation.\n", newsize);
+		uwsgi_log("need a bigger buffer (%d bytes) for getcwd(). doing reallocation.\n", newsize);
 		free(cwd);
 		cwd = malloc(newsize);
 		if (cwd == NULL) {
@@ -192,28 +190,28 @@ void internal_server_error(int fd, char *message) {
 void uwsgi_as_root() {
 
 	if (!getuid()) {
-                fprintf(stderr, "uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+                uwsgi_log("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
                 if (uwsgi.chroot) {
-                        fprintf(stderr, "chroot() to %s\n", uwsgi.chroot);
+                        uwsgi_log("chroot() to %s\n", uwsgi.chroot);
                         if (chroot(uwsgi.chroot)) {
                                 uwsgi_error("chroot()");
                                 exit(1);
                         }
 #ifdef __linux__
                         if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG]) {
-                                fprintf(stderr, "*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
+                                uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
                         }
 #endif
                 }
                 if (uwsgi.gid) {
-                        fprintf(stderr, "setgid() to %d\n", uwsgi.gid);
+                        uwsgi_log("setgid() to %d\n", uwsgi.gid);
                         if (setgid(uwsgi.gid)) {
                                 uwsgi_error("setgid()");
                                 exit(1);
                         }
                 }
                 if (uwsgi.uid) {
-                        fprintf(stderr, "setuid() to %d\n", uwsgi.uid);
+                        uwsgi_log("setuid() to %d\n", uwsgi.uid);
                         if (setuid(uwsgi.uid)) {
                                 uwsgi_error("setuid()");
                                 exit(1);
@@ -221,20 +219,20 @@ void uwsgi_as_root() {
                 }
 
                 if (!getuid()) {
-                        fprintf(stderr, " *** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
+                        uwsgi_log(" *** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
                 }
         }
         else {
                 if (uwsgi.chroot) {
-                        fprintf(stderr, "cannot chroot() as non-root user\n");
+                        uwsgi_log("cannot chroot() as non-root user\n");
                         exit(1);
                 }
                 if (uwsgi.gid) {
-                        fprintf(stderr, "cannot setgid() as non-root user\n");
+                        uwsgi_log("cannot setgid() as non-root user\n");
                         exit(1);
                 }
                 if (uwsgi.uid) {
-                        fprintf(stderr, "cannot setuid() as non-root user\n");
+                        uwsgi_log("cannot setuid() as non-root user\n");
                         exit(1);
                 }
         }
@@ -349,7 +347,7 @@ void sanitize_args(struct uwsgi_server *uwsgi) {
 
 #ifdef UWSGI_PROFILER
 	if (uwsgi->enable_profiler) {
-		fprintf(stderr,"*** Profiler enabled, do not use it in production environment !!! ***\n");
+		uwsgi_log("*** Profiler enabled, do not use it in production environment !!! ***\n");
 		uwsgi->async = 1;
 	}
 #endif
@@ -358,7 +356,7 @@ void sanitize_args(struct uwsgi_server *uwsgi) {
 #ifdef UWSGI_THREADING
 	if (uwsgi->ugreen) {
                 if (uwsgi->has_threads) {
-                        fprintf(stderr,"--- python threads will be disabled in uGreen mode ---\n");
+                        uwsgi_log("--- python threads will be disabled in uGreen mode ---\n");
                         uwsgi->has_threads = 0;
                 }
 	}
@@ -425,4 +423,18 @@ void parse_sys_envs(char **envs, struct option *long_options) {
                 uenvs++;
         }
 
+}
+
+//use this instead of fprintf to avoid buffering mess with udp logging
+void uwsgi_log(const char *fmt, ...) {
+	va_list ap;
+	char logpkt[4096];
+	int rlen;
+
+	va_start (ap, fmt);
+	rlen = vsnprintf(logpkt, 4096, fmt, ap );
+	va_end(ap);
+
+	// do not check for errors
+	write(2, logpkt, rlen);
 }

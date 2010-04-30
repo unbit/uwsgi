@@ -4,7 +4,7 @@
 
 #define UWSGI_VERSION	"0.9.5-dev"
 
-#define uwsgi_error(x)  fprintf(stderr, "%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <stdarg.h>
 
 #ifdef UWSGI_SCTP
 #include <netinet/sctp.h>
@@ -423,9 +424,6 @@ struct uwsgi_server {
 
 	int page_size;
 
-	char *sync_page;
-	int synclog;
-
 	char *test_module;
 
 	char *pidfile;
@@ -819,3 +817,5 @@ void sanitize_args(struct uwsgi_server *);
 
 void env_to_arg(char *, char *);
 void parse_sys_envs(char **, struct option *);
+
+void uwsgi_log(const char *, ...);
