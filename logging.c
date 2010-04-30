@@ -12,7 +12,7 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
-#ifdef __NetBSD__
+#if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
 #include <sys/sysctl.h>
 #endif
 
