@@ -815,7 +815,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 
-	if (!uwsgi_will_starts) {
+	if (!uwsgi_will_starts && !no_server) {
 		uwsgi_log( "The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
