@@ -51,7 +51,7 @@ PyObject *py_uwsgi_warning(PyObject * self, PyObject * args) {
 
 	len = strlen(message);
 	if (len > 80) {
-		fprintf(stderr, "- warning message must be max 80 chars, it will be truncated -");
+		uwsgi_log( "- warning message must be max 80 chars, it will be truncated -");
 		memcpy(uwsgi.shared->warning_message, message, 80);
 		uwsgi.shared->warning_message[80] = 0;
 	}
@@ -74,10 +74,10 @@ PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 
 	tt = time(NULL);
 	if (logline[strlen(logline)] != '\n') {
-		fprintf(stderr, UWSGI_LOGBASE " %.*s] %s\n", 24, ctime(&tt), logline);
+		uwsgi_log( UWSGI_LOGBASE " %.*s] %s\n", 24, ctime(&tt), logline);
 	}
 	else {
-		fprintf(stderr, UWSGI_LOGBASE " %.*s] %s", 24, ctime(&tt), logline);
+		uwsgi_log( UWSGI_LOGBASE " %.*s] %s", 24, ctime(&tt), logline);
 	}
 
 	Py_INCREF(Py_True);
@@ -497,7 +497,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 			goto megamulticlear;
 		}
 		else if (pret == 0) {
-			fprintf(stderr, "timeout on multiple send !\n");
+			uwsgi_log( "timeout on multiple send !\n");
 			goto megamulticlear;
 		}
 		else {
@@ -579,15 +579,15 @@ PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
 
 	plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
 	if (!plugin_handle) {
-		fprintf(stderr, "%s\n", dlerror());
+		uwsgi_log( "%s\n", dlerror());
 	}
 	else {
 		plugin_init = dlsym(plugin_handle, "uwsgi_init");
 		if (plugin_init) {
 			if ((*plugin_init) (&uwsgi, pargs)) {
-				fprintf(stderr, "plugin initialization returned error\n");
+				uwsgi_log( "plugin initialization returned error\n");
 				if (dlclose(plugin_handle)) {
-					fprintf(stderr, "unable to unload plugin\n");
+					uwsgi_log( "unable to unload plugin\n");
 				}
 
 				Py_INCREF(Py_None);
@@ -607,7 +607,7 @@ PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
 
 		}
 		else {
-			fprintf(stderr, "%s\n", dlerror());
+			uwsgi_log( "%s\n", dlerror());
 		}
 	}
 
@@ -830,7 +830,7 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
-	fprintf(stderr, "detaching uWSGI from current connection...\n");
+	uwsgi_log( "detaching uWSGI from current connection...\n");
 
 	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
@@ -900,7 +900,7 @@ void init_uwsgi_module_spooler(PyObject * current_uwsgi_module) {
 
 	uwsgi_module_dict = PyModule_GetDict(current_uwsgi_module);
 	if (!uwsgi_module_dict) {
-		fprintf(stderr, "could not get uwsgi module __dict__\n");
+		uwsgi_log( "could not get uwsgi module __dict__\n");
 		exit(1);
 	}
 
@@ -925,7 +925,7 @@ void init_uwsgi_module_advanced(PyObject * current_uwsgi_module) {
 
 	uwsgi_module_dict = PyModule_GetDict(current_uwsgi_module);
 	if (!uwsgi_module_dict) {
-		fprintf(stderr, "could not get uwsgi module __dict__\n");
+		uwsgi_log( "could not get uwsgi module __dict__\n");
 		exit(1);
 	}
 
@@ -942,7 +942,7 @@ void init_uwsgi_module_sharedarea(PyObject * current_uwsgi_module) {
 
 	uwsgi_module_dict = PyModule_GetDict(current_uwsgi_module);
 	if (!uwsgi_module_dict) {
-		fprintf(stderr, "could not get uwsgi module __dict__\n");
+		uwsgi_log( "could not get uwsgi module __dict__\n");
 		exit(1);
 	}
 

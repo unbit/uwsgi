@@ -296,7 +296,7 @@ void u_green_init(struct uwsgi_server *uwsgi) {
 		u_stack_size = uwsgi->ugreen_stackpages * uwsgi->page_size ;
 	}
 
-	fprintf(stderr,"initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi->async, (unsigned long) u_stack_size,  (unsigned long) u_stack_size/1024);
+	uwsgi_log("initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi->async, (unsigned long) u_stack_size,  (unsigned long) u_stack_size/1024);
 
 
 	uwsgi->ugreen_contexts = malloc( sizeof(ucontext_t*) * uwsgi->async);

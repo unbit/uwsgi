@@ -9,11 +9,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdarg.h>
+
+// linux has not strlcpy
+#ifdef __linux
+	#define strlcpy(x, y, z) strcpy(x, y)
+#endif
 
 #ifdef UWSGI_SCTP
 #include <netinet/sctp.h>

@@ -44,7 +44,7 @@ PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, MET
 int find_worker_id(pid_t pid) {
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
-		/* fprintf(stderr,"%d of %d\n", pid, uwsgi.workers[i].pid); */
+		/* uwsgi_log("%d of %d\n", pid, uwsgi.workers[i].pid); */
 		if (uwsgi.workers[i].pid == pid)
 			return i;
 	}
@@ -816,7 +816,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	if (!uwsgi_will_starts) {
-		fprintf(stderr, "The -s/--socket option is missing and stdin is not a socket.\n");
+		uwsgi_log( "The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
 
@@ -840,7 +840,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 #ifndef UNBIT
-	fprintf(stderr, "your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
+	uwsgi_log( "your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
 
 
@@ -867,14 +867,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifndef UNBIT
 	if (uwsgi.pidfile) {
-		fprintf(stderr, "writing pidfile to %s\n", uwsgi.pidfile);
+		uwsgi_log( "writing pidfile to %s\n", uwsgi.pidfile);
 		pidfile = fopen(uwsgi.pidfile, "w");
 		if (!pidfile) {
 			uwsgi_error("fopen");
 			exit(1);
 		}
 		if (fprintf(pidfile, "%d\n", masterpid) < 0) {
-			fprintf(stderr, "could not write pidfile.\n");
+			uwsgi_log( "could not write pidfile.\n");
 		}
 		fclose(pidfile);
 	}
@@ -884,7 +884,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* save the masterpid */
 	uwsgi.workers[0].pid = masterpid;
 
-	fprintf(stderr, "initializing hooks...");
+	uwsgi_log( "initializing hooks...");
 
 	uwsgi.shared->hooks[0] = uwsgi_request_wsgi;
 	uwsgi.shared->after_hooks[0] = uwsgi_after_request_wsgi;
@@ -901,7 +901,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->hooks[UWSGI_MODIFIER_MESSAGE_MARSHAL] = uwsgi_request_marshal;	//33
 	uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
-	fprintf(stderr, "done.\n");
+	uwsgi_log( "done.\n");
 
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_node) {
@@ -948,7 +948,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifndef UNBIT
 	if (no_server) {
-		fprintf(stderr, "no-server mode requested. Goodbye.\n");
+		uwsgi_log( "no-server mode requested. Goodbye.\n");
 		exit(0);
 	}
 #endif
@@ -960,16 +960,16 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (!uwsgi.single_interpreter) {
-		fprintf(stderr, "*** uWSGI is running in multiple interpreter mode !!! ***\n");
+		uwsgi_log( "*** uWSGI is running in multiple interpreter mode !!! ***\n");
 	}
 
 	/* preforking() */
 	if (uwsgi.master_process) {
 		if (uwsgi.is_a_reload) {
-			fprintf(stderr, "gracefully (RE)spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
+			uwsgi_log( "gracefully (RE)spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
 		}
 		else {
-			fprintf(stderr, "spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
+			uwsgi_log( "spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
 		}
 	}
 
@@ -980,7 +980,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi.wsgi_req->wsgi_script_len = strlen(uwsgi.wsgi_req->wsgi_script);
 		}
 		else {
-			fprintf(stderr, "UWSGI_SCRIPT env var not set !\n");
+			uwsgi_log( "UWSGI_SCRIPT env var not set !\n");
 			exit(1);
 		}
 
@@ -1003,10 +1003,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
-			fprintf(stderr, "spawned uWSGI worker 1 (and the only) (pid: %d)\n", masterpid);
+			uwsgi_log( "spawned uWSGI worker 1 (and the only) (pid: %d)\n", masterpid);
 		}
 		else {
-			fprintf(stderr, "spawned uWSGI worker 1 (pid: %d)\n", masterpid);
+			uwsgi_log( "spawned uWSGI worker 1 (pid: %d)\n", masterpid);
 		}
 		uwsgi.workers[1].pid = masterpid;
 		uwsgi.workers[1].id = 1;
@@ -1045,7 +1045,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 		else {
-			fprintf(stderr, "spawned uWSGI worker %d (pid: %d)\n", i, pid);
+			uwsgi_log( "spawned uWSGI worker %d (pid: %d)\n", i, pid);
 			gettimeofday(&last_respawn, NULL);
 			respawn_delta = last_respawn.tv_sec;
 		}
@@ -1068,10 +1068,10 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (uwsgi.udp_socket) {
 			uwsgi_poll.fd = bind_to_udp(uwsgi.udp_socket);
 			if (uwsgi_poll.fd < 0) {
-				fprintf(stderr, "unable to bind to udp socket. SNMP and cluster management services will be disabled.\n");
+				uwsgi_log( "unable to bind to udp socket. SNMP and cluster management services will be disabled.\n");
 			}
 			else {
-				fprintf(stderr, "UDP server enabled.\n");
+				uwsgi_log( "UDP server enabled.\n");
 				uwsgi_poll.events = POLLIN;
 			}
 		}
@@ -1081,19 +1081,19 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (uwsgi.snmp) {
 			if (uwsgi.snmp_community) {
 				if (strlen(uwsgi.snmp_community) > 72) {
-					fprintf(stderr, "*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
+					uwsgi_log( "*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
 					memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 72);
 				}
 				else {
 					strlcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 73);
 				}
 			}
-			fprintf(stderr, "filling SNMP table...");
+			uwsgi_log( "filling SNMP table...");
 
 			uwsgi.shared->snmp_gvalue[0].type = SNMP_COUNTER64;
 			uwsgi.shared->snmp_gvalue[0].val = &uwsgi.workers[0].requests;
 
-			fprintf(stderr, "done\n");
+			uwsgi_log( "done\n");
 
 		}
 #endif
@@ -1110,7 +1110,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_SPOOLER
 				if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 					kill(uwsgi.shared->spooler_pid, SIGKILL);
-					fprintf(stderr, "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+					uwsgi_log( "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
 				}
 
 #endif
@@ -1118,31 +1118,31 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_PROXY
 				if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
 					kill(uwsgi.shared->proxy_pid, SIGKILL);
-					fprintf(stderr, "killed proxy with pid %d\n", uwsgi.shared->proxy_pid);
+					uwsgi_log( "killed proxy with pid %d\n", uwsgi.shared->proxy_pid);
 				}
 #endif
-				fprintf(stderr, "goodbye to uWSGI.\n");
+				uwsgi_log( "goodbye to uWSGI.\n");
 				exit(0);
 			}
 			if (ready_to_reload >= uwsgi.numproc && uwsgi.to_heaven) {
 #ifdef UWSGI_SPOOLER
 				if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 					kill(uwsgi.shared->spooler_pid, SIGKILL);
-					fprintf(stderr, "wait4() the spooler with pid %d...", uwsgi.shared->spooler_pid);
+					uwsgi_log( "wait4() the spooler with pid %d...", uwsgi.shared->spooler_pid);
 					diedpid = waitpid(uwsgi.shared->spooler_pid, &waitpid_status, 0);
-					fprintf(stderr, "done.");
+					uwsgi_log( "done.");
 				}
 #endif
 
 #ifdef UWSGI_PROXY
 				if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
 					kill(uwsgi.shared->proxy_pid, SIGKILL);
-					fprintf(stderr, "wait4() the proxy with pid %d...", uwsgi.shared->proxy_pid);
+					uwsgi_log( "wait4() the proxy with pid %d...", uwsgi.shared->proxy_pid);
 					diedpid = waitpid(uwsgi.shared->proxy_pid, &waitpid_status, 0);
-					fprintf(stderr, "done.");
+					uwsgi_log( "done.");
 				}
 #endif
-				fprintf(stderr, "binary reloading uWSGI...\n");
+				uwsgi_log( "binary reloading uWSGI...\n");
 				if (cwd) {
 					if (chdir(cwd)) {
 						uwsgi_error("chdir()");
@@ -1150,7 +1150,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					}
 				}
 				/* check fd table (a module can obviosly open some fd on initialization...) */
-				fprintf(stderr, "closing all fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
+				uwsgi_log( "closing all fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
 				for (i = 3; i < sysconf(_SC_OPEN_MAX); i++) {
 					if (i == uwsgi.serverfd) {
 						continue;
@@ -1163,7 +1163,7 @@ int main(int argc, char *argv[], char *envp[]) {
 						exit(1);
 					}
 				}
-				fprintf(stderr, "running %s\n", uwsgi.binary_path);
+				uwsgi_log( "running %s\n", uwsgi.binary_path);
 				argv[0] = uwsgi.binary_path;
 				//strcpy (argv[0], uwsgi.binary_path);
 				execve(uwsgi.binary_path, argv, environ);
@@ -1196,7 +1196,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				if (diedpid == -1) {
 					uwsgi_error("waitpid()");
 					/* here is better to reload all the uWSGI stack */
-					fprintf(stderr, "something horrible happened...\n");
+					uwsgi_log( "something horrible happened...\n");
 					reap_them_all();
 					exit(1);
 				}
@@ -1252,7 +1252,7 @@ int main(int argc, char *argv[], char *envp[]) {
 									}
 									else {
 										// a simple udp logger
-										fprintf(stderr, "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
+										uwsgi_log( "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
 									}
 								}
 							}
@@ -1284,7 +1284,7 @@ int main(int argc, char *argv[], char *envp[]) {
 							/* first try to invoke the harakiri() custom handler */
 							/* TODO */
 							/* then brutally kill the worker */
-							fprintf(stderr,"*** HARAKIRI ON WORKER %d (pid: %d) ***\n", i, uwsgi.workers[i].pid);
+							uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d) ***\n", i, uwsgi.workers[i].pid);
 							kill(uwsgi.workers[i].pid, SIGKILL);
 							// to avoid races
 							uwsgi.workers[i].harakiri = 0;
@@ -1309,7 +1309,7 @@ int main(int argc, char *argv[], char *envp[]) {
 						if (master_cycles % ucn->errors == 0) {
 							if (!uwsgi_ping_node(i, uwsgi.wsgi_req)) {
 								ucn->status = UWSGI_NODE_OK;
-								fprintf(stderr, "re-enabled cluster node %d/%s\n", i, ucn->name);
+								uwsgi_log( "re-enabled cluster node %d/%s\n", i, ucn->name);
 							}
 							else {
 								ucn->errors++;
@@ -1325,7 +1325,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			/* reload the spooler */
 			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 				if (diedpid == uwsgi.shared->spooler_pid) {
-					fprintf(stderr, "OOOPS the spooler is no more...trying respawn...\n");
+					uwsgi_log( "OOOPS the spooler is no more...trying respawn...\n");
 					uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi.embedded_dict);
 					continue;
 				}
@@ -1338,7 +1338,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				if (diedpid == uwsgi.shared->proxy_pid) {
 					if (WIFEXITED(waitpid_status)) {
 						if (WEXITSTATUS(waitpid_status) != UWSGI_END_CODE) {
-							fprintf(stderr, "OOOPS the proxy is no more...trying respawn...\n");
+							uwsgi_log( "OOOPS the proxy is no more...trying respawn...\n");
 							uwsgi.shared->spooler_pid = proxy_start(1);
 							continue;
 						}
@@ -1358,10 +1358,10 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 			}
 
-			fprintf(stderr, "DAMN ! process %d died :( trying respawn ...\n", diedpid);
+			uwsgi_log( "DAMN ! process %d died :( trying respawn ...\n", diedpid);
 			gettimeofday(&last_respawn, NULL);
 			if (last_respawn.tv_sec == respawn_delta) {
-				fprintf(stderr, "worker respawning too fast !!! i have to sleep a bit...\n");
+				uwsgi_log( "worker respawning too fast !!! i have to sleep a bit...\n");
 				/* TODO, user configurable fork throttler */
 				sleep(2);
 			}
@@ -1385,7 +1385,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi_error("fork()");
 			}
 			else {
-				fprintf(stderr, "Respawned uWSGI worker (new pid: %d)\n", pid);
+				uwsgi_log( "Respawned uWSGI worker (new pid: %d)\n", pid);
 #ifdef UWSGI_SPOOLER
 				if (uwsgi.mywid <= 0 && diedpid != uwsgi.shared->spooler_pid) {
 #else
@@ -1395,7 +1395,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_PROXY
 					if (diedpid != uwsgi.shared->proxy_pid) {
 #endif
-						fprintf(stderr, "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
+						uwsgi_log( "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
 #ifdef UWSGI_PROXY
 					}
 #endif
@@ -1419,7 +1419,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.async_hvec = malloc((sizeof(struct iovec) * uwsgi.vec_size)*uwsgi.async);
 	if (uwsgi.async_hvec == NULL) {
-		fprintf(stderr, "unable to allocate memory for iovec.\n");
+		uwsgi_log( "unable to allocate memory for iovec.\n");
 		exit(1);
 	}
 
@@ -1446,10 +1446,10 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_nodes > 0) {
 		if (uwsgi.numproc <= uwsgi.erlang_nodes) {
-			fprintf(stderr, "You do not have enough worker for Erlang. Please respawn with at least %d processes.\n", uwsgi.erlang_nodes + 1);
+			uwsgi_log( "You do not have enough worker for Erlang. Please respawn with at least %d processes.\n", uwsgi.erlang_nodes + 1);
 		}
 		else if (uwsgi.mywid > (uwsgi.numproc - uwsgi.erlang_nodes)) {
-			fprintf(stderr, "Erlang mode enabled for worker %d.\n", uwsgi.mywid);
+			uwsgi_log( "Erlang mode enabled for worker %d.\n", uwsgi.mywid);
 			erlang_loop(uwsgi.wsgi_req);
 			// NEVER HERE
 			exit(1);
@@ -1611,7 +1611,7 @@ void init_uwsgi_vars() {
 			PyErr_Print();
 		}
 		else {
-			fprintf(stderr, "added %s to pythonpath.\n", uwsgi.python_path[i]);
+			uwsgi_log( "added %s to pythonpath.\n", uwsgi.python_path[i]);
 		}
 	}
 #endif
@@ -1636,17 +1636,17 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 
 	if (uwsgi.wsgi_req->wsgi_script_len == 0 && ((uwsgi.wsgi_req->wsgi_module_len == 0 || uwsgi.wsgi_req->wsgi_callable_len == 0) && uwsgi.wsgi_config == NULL && my_callable == NULL)) {
-		fprintf(stderr, "invalid application (%.*s). skip.\n", uwsgi.wsgi_req->script_name_len, uwsgi.wsgi_req->script_name);
+		uwsgi_log( "invalid application (%.*s). skip.\n", uwsgi.wsgi_req->script_name_len, uwsgi.wsgi_req->script_name);
 		return -1;
 	}
 
 	if (uwsgi.wsgi_config && uwsgi.wsgi_req->wsgi_callable_len == 0 && my_callable == NULL) {
-		fprintf(stderr, "invalid application (%.*s). skip.\n", uwsgi.wsgi_req->script_name_len, uwsgi.wsgi_req->script_name);
+		uwsgi_log( "invalid application (%.*s). skip.\n", uwsgi.wsgi_req->script_name_len, uwsgi.wsgi_req->script_name);
 		return -1;
 	}
 
 	if (uwsgi.wsgi_req->wsgi_script_len > 255 || uwsgi.wsgi_req->wsgi_module_len > 255 || uwsgi.wsgi_req->wsgi_callable_len > 255) {
-		fprintf(stderr, "invalid application's string size. skip.\n");
+		uwsgi_log( "invalid application's string size. skip.\n");
 		return -1;
 	}
 
@@ -1672,7 +1672,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 	if (PyDict_GetItem(uwsgi.py_apps, zero) != NULL) {
 		Py_DECREF(zero);
-		fprintf(stderr, "mountpoint %.*s already configured. skip.\n", uwsgi.wsgi_req->script_name_len, uwsgi.wsgi_req->script_name);
+		uwsgi_log( "mountpoint %.*s already configured. skip.\n", uwsgi.wsgi_req->script_name_len, uwsgi.wsgi_req->script_name);
 		return -1;
 	}
 
@@ -1685,7 +1685,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	if (uwsgi.single_interpreter == 0) {
 		wi->interpreter = Py_NewInterpreter();
 		if (!wi->interpreter) {
-			fprintf(stderr, "unable to initialize the new interpreter\n");
+			uwsgi_log( "unable to initialize the new interpreter\n");
 			exit(1);
 		}
 		PyThreadState_Swap(wi->interpreter);
@@ -1695,7 +1695,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		init_uwsgi_embedded_module();
 #endif
 		init_uwsgi_vars();
-		fprintf(stderr, "interpreter for app %d initialized.\n", id);
+		uwsgi_log( "interpreter for app %d initialized.\n", id);
 	}
 
 	if (uwsgi.paste) {
@@ -1815,7 +1815,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	if (wsgi_dict) {
 		wi->wsgi_harakiri = PyDict_GetItemString(wsgi_dict, "harakiri");
 		if (wi->wsgi_harakiri) {
-			fprintf(stderr, "initialized Harakiri custom handler: %p.\n", wi->wsgi_harakiri);
+			uwsgi_log( "initialized Harakiri custom handler: %p.\n", wi->wsgi_harakiri);
 		}
 	}
 
@@ -1846,7 +1846,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		pycprof = PyImport_ImportModule("cProfile");
 		if (!pycprof) {
 			PyErr_Print();
-			fprintf(stderr, "trying old profile module...\n");
+			uwsgi_log( "trying old profile module...\n");
 			pycprof = PyImport_ImportModule("profile");
 			if (!pycprof) {
 				PyErr_Print();
@@ -1958,10 +1958,10 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	PyDict_SetItemString(uwsgi.py_apps, tmpstring, PyInt_FromLong(id));
 	PyErr_Print();
 
-	fprintf(stderr, "application %d (%s) ready\n", id, tmpstring);
+	uwsgi_log( "application %d (%s) ready\n", id, tmpstring);
 
 	if (id == 0) {
-		fprintf(stderr, "setting default application to 0\n");
+		uwsgi_log( "setting default application to 0\n");
 		uwsgi.default_app = 0;
 	}
 	else {
@@ -1978,7 +1978,7 @@ void uwsgi_paste_config() {
 
 	uwsgi.single_interpreter = 1;
 
-	fprintf(stderr, "Loading paste environment: %s\n", uwsgi.paste);
+	uwsgi_log( "Loading paste environment: %s\n", uwsgi.paste);
 	paste_module = PyImport_ImportModule("paste.deploy");
 	if (!paste_module) {
 		PyErr_Print();
@@ -2039,7 +2039,7 @@ void uwsgi_wsgi_file_config() {
 	wsgi_file_node = PyParser_SimpleParseFile(wsgifile, uwsgi.wsgi_file, Py_file_input);
 	if (!wsgi_file_node) {
 		PyErr_Print();
-		fprintf(stderr, "failed to parse wsgi file %s\n", uwsgi.wsgi_file);
+		uwsgi_log( "failed to parse wsgi file %s\n", uwsgi.wsgi_file);
 		exit(1);
 	}
 
@@ -2049,7 +2049,7 @@ void uwsgi_wsgi_file_config() {
 
 	if (!wsgi_compiled_node) {
 		PyErr_Print();
-		fprintf(stderr, "failed to compile wsgi file %s\n", uwsgi.wsgi_file);
+		uwsgi_log( "failed to compile wsgi file %s\n", uwsgi.wsgi_file);
 		exit(1);
 	}
 
@@ -2071,12 +2071,12 @@ void uwsgi_wsgi_file_config() {
 	wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, "application");
 	if (!wsgi_file_callable) {
 		PyErr_Print();
-		fprintf(stderr, "unable to find \"application\" callable in wsgi file %s\n", uwsgi.wsgi_file);
+		uwsgi_log( "unable to find \"application\" callable in wsgi file %s\n", uwsgi.wsgi_file);
 		exit(1);
 	}
 
 	if (!PyFunction_Check(wsgi_file_callable) && !PyCallable_Check(wsgi_file_callable)) {
-		fprintf(stderr, "\"application\" must be a callable object in wsgi file %s\n", uwsgi.wsgi_file);
+		uwsgi_log( "\"application\" must be a callable object in wsgi file %s\n", uwsgi.wsgi_file);
 		exit(1);
 	}
 
@@ -2111,7 +2111,7 @@ void uwsgi_wsgi_config(char *filename) {
         	struct _node *uwsgi_file_node = PyParser_SimpleParseFile(uwsgifile, filename, Py_file_input);
         	if (!uwsgi_file_node) {
                 	PyErr_Print();
-                	fprintf(stderr, "failed to parse wsgi file %s\n", filename);
+                	uwsgi_log( "failed to parse wsgi file %s\n", filename);
                 	exit(1);
         	}
 
@@ -2121,7 +2121,7 @@ void uwsgi_wsgi_config(char *filename) {
 
         	if (!uwsgi_compiled_node) {
                 	PyErr_Print();
-                	fprintf(stderr, "failed to compile wsgi file %s\n", filename);
+                	uwsgi_log( "failed to compile wsgi file %s\n", filename);
                 	exit(1);
         	}
 
@@ -2149,7 +2149,7 @@ void uwsgi_wsgi_config(char *filename) {
 		exit(1);
 	}
 
-	fprintf(stderr, "...getting the applications list from the '%s' module...\n", uwsgi.wsgi_config);
+	uwsgi_log( "...getting the applications list from the '%s' module...\n", uwsgi.wsgi_config);
 
 #ifdef UWSGI_EMBEDDED
 	uwsgi_module = PyImport_ImportModule("uwsgi");
@@ -2168,26 +2168,26 @@ void uwsgi_wsgi_config(char *filename) {
 
 	applications = PyDict_GetItemString(uwsgi_dict, "applications");
 	if (!PyDict_Check(applications)) {
-		fprintf(stderr, "uwsgi.applications dictionary is not defined, trying with the \"applications\" one...\n");
+		uwsgi_log( "uwsgi.applications dictionary is not defined, trying with the \"applications\" one...\n");
 #endif
 		applications = PyDict_GetItemString(wsgi_dict, "applications");
 		if (!applications) {
-			fprintf(stderr, "applications dictionary is not defined, trying with the \"application\" callable.\n");
+			uwsgi_log( "applications dictionary is not defined, trying with the \"application\" callable.\n");
 			app_app = PyDict_GetItemString(wsgi_dict, "application");
 			if (app_app) {
 				applications = PyDict_New();
 				if (!applications) {
-					fprintf(stderr, "could not initialize applications dictionary\n");
+					uwsgi_log( "could not initialize applications dictionary\n");
 					exit(1);
 				}
 				if (PyDict_SetItemString(applications, "/", app_app)) {
 					PyErr_Print();
-					fprintf(stderr, "unable to set default application\n");
+					uwsgi_log( "unable to set default application\n");
 					exit(1);
 				}
 			}
 			else {
-				fprintf(stderr, "static applications not defined, you have to use the dynamic one...\n");
+				uwsgi_log( "static applications not defined, you have to use the dynamic one...\n");
 				return;
 			}
 		}
@@ -2196,7 +2196,7 @@ void uwsgi_wsgi_config(char *filename) {
 #endif
 
 	if (!PyDict_Check(applications)) {
-		fprintf(stderr, "The 'applications' object must be a dictionary.\n");
+		uwsgi_log( "The 'applications' object must be a dictionary.\n");
 		exit(1);
 	}
 
@@ -2206,7 +2206,7 @@ void uwsgi_wsgi_config(char *filename) {
 		exit(1);
 	}
 	if (PyList_Size(app_list) < 1) {
-		fprintf(stderr, "You must define an app.\n");
+		uwsgi_log( "You must define an app.\n");
 		exit(1);
 	}
 
@@ -2214,7 +2214,7 @@ void uwsgi_wsgi_config(char *filename) {
 		app_mnt = PyList_GetItem(app_list, i);
 
 		if (!PyString_Check(app_mnt)) {
-			fprintf(stderr, "the app mountpoint must be a string.\n");
+			uwsgi_log( "the app mountpoint must be a string.\n");
 			exit(1);
 		}
 
@@ -2224,23 +2224,23 @@ void uwsgi_wsgi_config(char *filename) {
 		app_app = PyDict_GetItem(applications, app_mnt);
 
 		if (!PyString_Check(app_app) && !PyFunction_Check(app_app) && !PyCallable_Check(app_app)) {
-			fprintf(stderr, "the app callable must be a string, a function or a callable. (found %s)\n", app_app->ob_type->tp_name);
+			uwsgi_log( "the app callable must be a string, a function or a callable. (found %s)\n", app_app->ob_type->tp_name);
 			exit(1);
 		}
 
 		if (PyString_Check(app_app)) {
 			uwsgi.wsgi_req->wsgi_callable = PyString_AsString(app_app);
 			uwsgi.wsgi_req->wsgi_callable_len = strlen(uwsgi.wsgi_req->wsgi_callable);
-			fprintf(stderr, "initializing [%s => %s] app...\n", uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->wsgi_callable);
+			uwsgi_log( "initializing [%s => %s] app...\n", uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->wsgi_callable);
 			ret = init_uwsgi_app(wsgi_dict, NULL);
 		}
 		else {
-			fprintf(stderr, "initializing [%s] app...\n", uwsgi.wsgi_req->script_name);
+			uwsgi_log( "initializing [%s] app...\n", uwsgi.wsgi_req->script_name);
 			ret = init_uwsgi_app(wsgi_dict, app_app);
 		}
 
 		if (ret < 0) {
-			fprintf(stderr, "...goodbye cruel world...\n");
+			uwsgi_log( "...goodbye cruel world...\n");
 			exit(1);
 		}
 		Py_DECREF(app_mnt);
@@ -2307,13 +2307,13 @@ void init_uwsgi_embedded_module() {
 	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);
 #endif
 	if (new_uwsgi_module == NULL) {
-		fprintf(stderr, "could not initialize the uwsgi python module\n");
+		uwsgi_log( "could not initialize the uwsgi python module\n");
 		exit(1);
 	}
 
 	uwsgi.embedded_dict = PyModule_GetDict(new_uwsgi_module);
 	if (!uwsgi.embedded_dict) {
-		fprintf(stderr, "could not get uwsgi module __dict__\n");
+		uwsgi_log( "could not get uwsgi module __dict__\n");
 		exit(1);
 	}
 
@@ -2415,7 +2415,7 @@ pid_t proxy_start(has_master) {
 	}
 
 	if (uwsgi.proxyfd < 0) {
-		fprintf(stderr, "unable to create the server socket.\n");
+		uwsgi_log( "unable to create the server socket.\n");
 		exit(1);
 	}
 
@@ -2458,7 +2458,7 @@ pid_t spooler_start(int serverfd, PyObject * uwsgi_module_dict) {
 		spooler(&uwsgi, uwsgi_module_dict);
 	}
 	else if (pid > 0) {
-		fprintf(stderr, "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
+		uwsgi_log( "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
 	}
 
 	return pid;
@@ -2544,7 +2544,7 @@ void manage_opt(int i, char *optarg) {
 			uwsgi.python_path_cnt++;
 		}
 		else {
-			fprintf(stderr, "you can specify at most 64 --pythonpath options\n");
+			uwsgi_log( "you can specify at most 64 --pythonpath options\n");
 		}
 		break;
 	case LONG_ARGS_LIMIT_AS:
@@ -2608,7 +2608,7 @@ void manage_opt(int i, char *optarg) {
 		}
 		tmp_filename = malloc(8192);
 		if (!tmp_filename) {
-			fprintf(stderr, "unable to allocate space (8k) for tmp_filename\n");
+			uwsgi_log( "unable to allocate space (8k) for tmp_filename\n");
 			exit(1);
 		}
 		memset(tmp_filename, 0, 8192);
@@ -2748,7 +2748,7 @@ void manage_opt(int i, char *optarg) {
 		break;
 	default:
 		if (i != '?') {
-			fprintf(stderr, "invalid argument -%c  exiting \n", i);
+			uwsgi_log( "invalid argument -%c  exiting \n", i);
 		}
 		exit(1);
 #endif
@@ -2763,7 +2763,7 @@ void uwsgi_cluster_add_node(char *nodename, int workers) {
 	char *tcp_port;
 
 	if (strlen(nodename) > 100) {
-		fprintf(stderr, "invalid cluster node name %s\n", nodename);
+		uwsgi_log( "invalid cluster node name %s\n", nodename);
 		return;
 	}
 
@@ -2786,7 +2786,7 @@ void uwsgi_cluster_add_node(char *nodename, int workers) {
 				ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY;
 			}
 			else {
-				fprintf(stderr, "%s\n", nodename);
+				uwsgi_log( "%s\n", nodename);
 				ucn->ucn_addr.sin_addr.s_addr = inet_addr(nodename);
 			}
 
@@ -2796,5 +2796,5 @@ void uwsgi_cluster_add_node(char *nodename, int workers) {
 		}
 	}
 
-	fprintf(stderr, "unable to add node %s\n", nodename);
+	uwsgi_log( "unable to add node %s\n", nodename);
 }

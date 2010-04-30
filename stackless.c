@@ -25,7 +25,7 @@ PyObject *py_uwsgi_stackless_worker(PyObject * self, PyObject * args) {
 
 	int async_id = wsgi_req->async_id;
 
-	//fprintf(stderr,"i am the tasklet worker\n");
+	//uwsgi_log("i am the tasklet worker\n");
 
 	for(;;) {
 
@@ -74,7 +74,7 @@ void stackless_init(struct uwsgi_server *uwsgi) {
 		memset(uwsgi->stackless_table[i], 0, sizeof(struct stackless_req));
 	}
 
-	fprintf(stderr,"initializing %d tasklet...", uwsgi->async);
+	uwsgi_log("initializing %d tasklet...", uwsgi->async);
 
 	// creating uwsgi->async tasklets
 	for(i=0;i<uwsgi->async;i++) {
@@ -90,7 +90,7 @@ void stackless_init(struct uwsgi_server *uwsgi) {
 		wsgi_req = next_wsgi_req(uwsgi, wsgi_req) ;
 	}
 
-	fprintf(stderr,"done\n");
+	uwsgi_log("done\n");
 }
 
 void stackless_loop(struct uwsgi_server *uwsgi) {
@@ -114,7 +114,7 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 
                         if (uwsgi->async_events[i].ASYNC_FD == uwsgi->serverfd) {
 				//pass the connection to the first available tasklet
-				fprintf(stderr,"sending new connection...\n");
+				uwsgi_log("sending new connection...\n");
 				PyChannel_Send(uwsgi->workers_channel, Py_True);
 			}
 
@@ -130,11 +130,11 @@ void stackless_loop(struct uwsgi_server *uwsgi) {
 
 		//int_tasklet = (PyTaskletObject *) PyStackless_RunWatchdog( 1000 );
 		/*
-		fprintf(stderr,"done watchdog %p\n", int_tasklet);
+		uwsgi_log("done watchdog %p\n", int_tasklet);
 		if (!PyTasklet_IsCurrent(int_tasklet)) {
-			fprintf(stderr,"re-insert: %d\n", 1);// PyTasklet_Insert(int_tasklet));
+			uwsgi_log("re-insert: %d\n", 1);// PyTasklet_Insert(int_tasklet));
 		}
-		fprintf(stderr,"recycle\n");
+		uwsgi_log("recycle\n");
 		*/
 	}
 

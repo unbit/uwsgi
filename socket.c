@@ -7,11 +7,11 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	int serverfd;
 	struct sockaddr_un *uws_addr;
 
-	fprintf(stderr, "binding on UNIX socket: %s\n", socket_name);
+	uwsgi_log( "binding on UNIX socket: %s\n", socket_name);
 
 	// leave 1 byte for abstract namespace (108 linux -> 104 bsd/mac)
 	if (strlen(socket_name) > 102) {
-		fprintf(stderr, "invalid socket name\n");
+		uwsgi_log( "invalid socket name\n");
 		exit(1);
 	}
 
@@ -34,7 +34,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 
 	if (abstract_socket == 1) {
-		fprintf(stderr, "setting abstract socket mode (warning: only Linux supports this)\n");
+		uwsgi_log( "setting abstract socket mode (warning: only Linux supports this)\n");
 	}
 
 	uws_addr->sun_family = AF_UNIX;
@@ -52,7 +52,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	// chmod unix socket for lazy users
 	if (chmod_socket == 1 && abstract_socket == 0) {
-		fprintf(stderr, "chmod() socket to 666 for lazy and brave users\n");
+		uwsgi_log( "chmod() socket to 666 for lazy and brave users\n");
 		if (chmod(socket_name, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0) {
 			uwsgi_error("chmod()");
 		}
@@ -95,7 +95,7 @@ int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
 		exit(1);
 	}
 
-	fprintf(stderr, "binding on %d SCTP interfaces on port: %d\n", num_ip, ntohs(uws_addr[0].sin_port));
+	uwsgi_log( "binding on %d SCTP interfaces on port: %d\n", num_ip, ntohs(uws_addr[0].sin_port));
 
 
 	if (sctp_bindx(serverfd, (struct sockaddr *) uws_addr, num_ip, SCTP_BINDX_ADD_ADDR) != 0) {
@@ -168,7 +168,7 @@ int bind_to_udp(char *socket_name) {
 	}
 #endif
 
-	fprintf(stderr, "binding on UDP port: %d\n", ntohs(uws_addr.sin_port));
+	uwsgi_log( "binding on UDP port: %d\n", ntohs(uws_addr.sin_port));
 
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
 		uwsgi_error("bind()");
@@ -178,7 +178,7 @@ int bind_to_udp(char *socket_name) {
 
 #ifdef UWSGI_MULTICAST
 	if (uwsgi.multicast_group) {
-		fprintf(stderr, "joining uWSGI multicast group: %s:%d\n", uwsgi.multicast_group, ntohs(uws_addr.sin_port));
+		uwsgi_log( "joining uWSGI multicast group: %s:%d\n", uwsgi.multicast_group, ntohs(uws_addr.sin_port));
 		if (setsockopt(serverfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc, sizeof(mc))) {
 			uwsgi_error("setsockopt()");
 		}
@@ -274,7 +274,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 
-	fprintf(stderr, "binding on TCP port: %d\n", ntohs(uws_addr.sin_port));
+	uwsgi_log( "binding on TCP port: %d\n", ntohs(uws_addr.sin_port));
 
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
 		uwsgi_error("bind()");

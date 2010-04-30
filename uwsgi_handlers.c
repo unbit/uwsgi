@@ -4,7 +4,7 @@
 int uwsgi_request_ping(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	char len;
 
-	fprintf(stderr, "PING\n");
+	uwsgi_log( "PING\n");
 	wsgi_req->uh.modifier2 = 1;
 	wsgi_req->uh.pktsize = 0;
 
@@ -36,7 +36,7 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 		memcpy(&opt_value, &wsgi_req->buffer, 4);
 		// TODO: check endianess
 	}
-	fprintf(stderr, "setting internal option %d to %d\n", wsgi_req->uh.modifier2, opt_value);
+	uwsgi_log( "setting internal option %d to %d\n", wsgi_req->uh.modifier2, opt_value);
 	uwsgi->shared->options[wsgi_req->uh.modifier2] = opt_value;
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
@@ -62,7 +62,7 @@ int uwsgi_request_fastfunc(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 
 	ffunc = PyList_GetItem(uwsgi->fastfuncslist, wsgi_req->uh.modifier2);
 	if (ffunc) {
-		fprintf(stderr, "managing fastfunc %d\n", wsgi_req->uh.modifier2);
+		uwsgi_log( "managing fastfunc %d\n", wsgi_req->uh.modifier2);
 		return uwsgi_python_call(uwsgi, wsgi_req, ffunc, NULL);
 	}
 
@@ -104,7 +104,7 @@ int uwsgi_request_marshal(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 								}
 							}
 							else {
-								fprintf(stderr, "marshalled object is too big. skip\n");
+								uwsgi_log( "marshalled object is too big. skip\n");
 							}
 							Py_DECREF(marshalled);
 						}

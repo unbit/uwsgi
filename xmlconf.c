@@ -23,21 +23,21 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 
 	doc = xmlReadFile(uwsgi.xml_config, NULL, 0);
 	if (doc == NULL) {
-		fprintf(stderr, "[uWSGI] could not parse file %s.\n", uwsgi.xml_config);
+		uwsgi_log( "[uWSGI] could not parse file %s.\n", uwsgi.xml_config);
 		exit(1);
 	}
 
 	if (long_options) {
-		fprintf(stderr, "[uWSGI] parsing config file %s\n", uwsgi.xml_config);
+		uwsgi_log( "[uWSGI] parsing config file %s\n", uwsgi.xml_config);
 	}
 
 	element = xmlDocGetRootElement(doc);
 	if (element == NULL) {
-		fprintf(stderr, "[uWSGI] invalid xml config file.\n");
+		uwsgi_log( "[uWSGI] invalid xml config file.\n");
 		exit(1);
 	}
 	if (strcmp((char *) element->name, "uwsgi")) {
-		fprintf(stderr, "[uWSGI] invalid xml root element, <uwsgi> expected.\n");
+		uwsgi_log( "[uWSGI] invalid xml root element, <uwsgi> expected.\n");
 		exit(1);
 	}
 
@@ -52,13 +52,13 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 						break;
 					if (!strcmp((char *) node->name, aopt->name)) {
 						if (!node->children && aopt->has_arg) {
-							fprintf(stderr, "[uWSGI] %s option need a value. skip.\n", aopt->name);
+							uwsgi_log( "[uWSGI] %s option need a value. skip.\n", aopt->name);
 							exit(1);
 						}
 
 						if (node->children) {
 							if (!node->children->content && aopt->has_arg) {
-								fprintf(stderr, "[uWSGI] %s option need a value. skip.\n", aopt->name);
+								uwsgi_log( "[uWSGI] %s option need a value. skip.\n", aopt->name);
 								exit(1);
 							}
 						}
@@ -89,7 +89,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 				if (!strcmp((char *) node->name, "app")) {
 					xml_uwsgi_mountpoint = xmlGetProp(node, (const xmlChar *) "mountpoint");
 					if (xml_uwsgi_mountpoint == NULL) {
-						fprintf(stderr, "no mountpoint defined for app. skip.\n");
+						uwsgi_log( "no mountpoint defined for app. skip.\n");
 						continue;
 					}
 					wsgi_req->script_name = (char *) xml_uwsgi_mountpoint;
@@ -99,12 +99,12 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 						if (node2->type == XML_ELEMENT_NODE) {
 							if (!strcmp((char *) node2->name, "script")) {
 								if (!node2->children) {
-									fprintf(stderr, "no wsgi script defined. skip.\n");
+									uwsgi_log( "no wsgi script defined. skip.\n");
 									continue;
 								}
 								xml_uwsgi_script = node2->children->content;
 								if (xml_uwsgi_script == NULL) {
-									fprintf(stderr, "no wsgi script defined. skip.\n");
+									uwsgi_log( "no wsgi script defined. skip.\n");
 									continue;
 								}
 								wsgi_req->wsgi_script = (char *) xml_uwsgi_script;
@@ -145,7 +145,7 @@ void uwsgi_endElement(void *userData, const char *name) {
 	}
 	else if (current_xmlnode_has_arg) {
 		if (!current_xmlnode_text_len) {
-			fprintf(stderr,"option %s requires an argument\n", name);
+			uwsgi_log("option %s requires an argument\n", name);
 			exit(1);
 		}
 		// HACK: use the first char of closing tag for nulling string
@@ -188,9 +188,9 @@ void uwsgi_startApp(void *userData, const char *name, const char **attrs) {
 
 	if (!strcmp(name, "app")) {
 		current_xmlnode = 0 ;
-		fprintf(stderr,"%s = %s\n", attrs[0], attrs[1]);
+		uwsgi_log("%s = %s\n", attrs[0], attrs[1]);
 		if (strcmp(attrs[0], "mountpoint")) {
-			fprintf(stderr,"invalid attribute for app tag. must be 'mountpoint'\n");
+			uwsgi_log("invalid attribute for app tag. must be 'mountpoint'\n");
 			exit(1);
 		}
 		if (attrs[1]) {
@@ -204,7 +204,7 @@ void uwsgi_startApp(void *userData, const char *name, const char **attrs) {
 	}
 	else if (!strcmp(name, "script")) {
 		if (!wsgi_req->script_name_len) {
-			fprintf(stderr,"you have not specified an app mountpoint.\n");
+			uwsgi_log("you have not specified an app mountpoint.\n");
 			exit(1);
 		}
 		current_xmlnode = 1 ;
@@ -283,7 +283,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	}
 
 	if (!XML_Parse(parser, xmlbuf, stat_buf.st_size, 1)) {
-		fprintf(stderr, "%s at line %d\n", XML_ErrorString(XML_GetErrorCode(parser)), (int) XML_GetCurrentLineNumber(parser));
+		uwsgi_log( "%s at line %d\n", XML_ErrorString(XML_GetErrorCode(parser)), (int) XML_GetCurrentLineNumber(parser));
 		exit(1);
 	}
 

@@ -410,7 +410,7 @@ PyObject *py_snmp_community(PyObject * self, PyObject * args) {
 	}
 
 	if (strlen(snmp_community) > 72) {
-		fprintf(stderr, "*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
+		uwsgi_log( "*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
 		memcpy(uwsgi.shared->snmp_community, snmp_community, 72);
 	}
 	else {
@@ -440,7 +440,7 @@ void snmp_init() {
 		Py_DECREF(func);
 	}
 
-	fprintf(stderr, "SNMP python functions initialized.\n");
+	uwsgi_log( "SNMP python functions initialized.\n");
 }
 
 

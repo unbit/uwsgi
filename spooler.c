@@ -59,7 +59,7 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 
 	close(fd);
 
-	fprintf(stderr, "written %d bytes to spool file %s.\n", size + 4, filename);
+	uwsgi_log( "written %d bytes to spool file %s.\n", size + 4, filename);
 
 	return 1;
 
@@ -92,14 +92,14 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	spool_tuple = PyTuple_New(1);
 
 	if (!spool_tuple) {
-		fprintf(stderr, "could not create spooler tuple.\n");
+		uwsgi_log( "could not create spooler tuple.\n");
 		exit(1);
 	}
 
 
 	spool_env = PyDict_New();
 	if (!spool_env) {
-		fprintf(stderr, "could not create spooler env.\n");
+		uwsgi_log( "could not create spooler env.\n");
 		exit(1);
 	}
 
@@ -114,7 +114,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	}
 
 	// asked by Marco Beri
-	fprintf(stderr, "lowering spooler priority to %d\n", PRIO_MAX);
+	uwsgi_log( "lowering spooler priority to %d\n", PRIO_MAX);
 	setpriority(PRIO_PROCESS, getpid(), PRIO_MAX);
 
 	for (;;) {
@@ -133,11 +133,11 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 						continue;
 					}
 					if (!access(dp->d_name, R_OK | W_OK)) {
-						fprintf(stderr, "managing spool request %s...\n", dp->d_name);
+						uwsgi_log( "managing spool request %s...\n", dp->d_name);
 
 						spooler_callable = PyDict_GetItemString(uwsgi_module_dict, "spooler");
 						if (!spooler_callable) {
-							fprintf(stderr, "you have to define uwsgi.spooler to use the spooler !!!\n");
+							uwsgi_log( "you have to define uwsgi.spooler to use the spooler !!!\n");
 							continue;
 						}
 
@@ -241,25 +241,25 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 						spool_result = python_call(spooler_callable, spool_tuple);
 						if (!spool_result) {
 							PyErr_Print();
-							fprintf(stderr, "error detected. spool request canceled.\n");
+							uwsgi_log( "error detected. spool request canceled.\n");
 							goto next_spool;
 						}
 						if (PyInt_Check(spool_result)) {
 							if (PyInt_AsLong(spool_result) == 17) {
 								Py_DECREF(spool_result);
-								fprintf(stderr, "retry this task later...\n");
+								uwsgi_log( "retry this task later...\n");
 								goto retry_later;
 							}
 						}
 
 						Py_DECREF(spool_result);
 
-						fprintf(stderr, "done with task/spool %s\n", dp->d_name);
+						uwsgi_log( "done with task/spool %s\n", dp->d_name);
 					      next_spool:
 
 						if (unlink(dp->d_name)) {
 							uwsgi_error("unlink");
-							fprintf(stderr, "something horrible happened to the spooler. Better to kill it.\n");
+							uwsgi_log( "something horrible happened to the spooler. Better to kill it.\n");
 							exit(1);
 						}
 					      retry_later:
@@ -283,7 +283,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	char spool_filename[1024];
 
 	if (uwsgi->spool_dir == NULL) {
-		fprintf(stderr, "the spooler is inactive !!!...skip\n");
+		uwsgi_log( "the spooler is inactive !!!...skip\n");
 		wsgi_req->uh.modifier1 = 255;
 		wsgi_req->uh.pktsize = 0;
 		wsgi_req->uh.modifier2 = 0;
@@ -294,18 +294,18 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 		return -1;
 	}
 
-	fprintf(stderr, "managing spool request...\n");
+	uwsgi_log( "managing spool request...\n");
 	i = spool_request(uwsgi, spool_filename, uwsgi->workers[0].requests + 1, wsgi_req->buffer, wsgi_req->uh.pktsize);
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
 	if (i > 0) {
 		wsgi_req->uh.modifier2 = 1;
 		if (write(wsgi_req->poll.fd, wsgi_req, 4) != 4) {
-			fprintf(stderr, "disconnected client, remove spool file.\n");
+			uwsgi_log( "disconnected client, remove spool file.\n");
 			/* client disconnect, remove spool file */
 			if (unlink(spool_filename)) {
 				uwsgi_error("unlink()");
-				fprintf(stderr, "something horrible happened !!! check your spooler ASAP !!!\n");
+				uwsgi_log( "something horrible happened !!! check your spooler ASAP !!!\n");
 				goodbye_cruel_world();
 			}
 		}

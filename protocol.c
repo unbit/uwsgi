@@ -69,7 +69,7 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 		timeout = 1;
 
 	if (size > 0xFFFF) {
-		fprintf(stderr, "invalid object (marshalled) size\n");
+		uwsgi_log( "invalid object (marshalled) size\n");
 		return -1;
 	}
 
@@ -127,7 +127,7 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 		timeout = 1;
 
 	if (size > 0xFFFF) {
-		fprintf(stderr, "invalid object (marshalled) size\n");
+		uwsgi_log( "invalid object (marshalled) size\n");
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
@@ -212,7 +212,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		exit(1);
 	}
 	else if (rlen == 0) {
-		fprintf(stderr, "timeout. skip request\n");
+		uwsgi_log( "timeout. skip request\n");
 		close(upoll->fd);
 		return 0;
 	}
@@ -226,13 +226,13 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 				exit(1);
 			}
 			else if (rlen == 0) {
-				fprintf(stderr, "timeout waiting for header. skip request.\n");
+				uwsgi_log( "timeout waiting for header. skip request.\n");
 				close(upoll->fd);
 				break;
 			}
 			rlen = read(upoll->fd, (char *) (uh) + i, 4 - i);
 			if (rlen <= 0) {
-				fprintf(stderr, "broken header. skip request.\n");
+				uwsgi_log( "broken header. skip request.\n");
 				close(upoll->fd);
 				break;
 			}
@@ -243,7 +243,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		}
 	}
 	else if (rlen <= 0) {
-		fprintf(stderr, "invalid request header size: %d...skip\n", rlen);
+		uwsgi_log( "invalid request header size: %d...skip\n", rlen);
 		close(upoll->fd);
 		return 0;
 	}
@@ -254,12 +254,12 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 
 	/* check for max buffer size */
 	if (uh->pktsize > uwsgi.buffer_size) {
-		fprintf(stderr, "invalid request block size: %d...skip\n", uh->pktsize);
+		uwsgi_log( "invalid request block size: %d...skip\n", uh->pktsize);
 		close(upoll->fd);
 		return 0;
 	}
 
-	//fprintf(stderr,"ready for reading %d bytes\n", wsgi_req.size);
+	//uwsgi_log("ready for reading %d bytes\n", wsgi_req.size);
 
 	i = 0;
 	while (i < uh->pktsize) {
@@ -269,13 +269,13 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 			exit(1);
 		}
 		else if (rlen == 0) {
-			fprintf(stderr, "timeout. skip request. (expecting %d bytes, got %d)\n", uh->pktsize, i);
+			uwsgi_log( "timeout. skip request. (expecting %d bytes, got %d)\n", uh->pktsize, i);
 			close(upoll->fd);
 			break;
 		}
 		rlen = read(upoll->fd, buffer + i, uh->pktsize - i);
 		if (rlen <= 0) {
-			fprintf(stderr, "broken vars. skip request.\n");
+			uwsgi_log( "broken vars. skip request.\n");
 			close(upoll->fd);
 			break;
 		}
@@ -312,7 +312,7 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 #endif
 			/* key cannot be null */
                         if (!strsize) {
-                                fprintf(stderr, "uwsgi key cannot be null. skip this request.\n");
+                                uwsgi_log( "uwsgi key cannot be null. skip this request.\n");
                                 return -1;
                         }
 			
@@ -386,18 +386,18 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 							wsgi_req->var_cnt++;
 						}
 						else {
-							fprintf(stderr, "max vec size reached. skip this header.\n");
+							uwsgi_log( "max vec size reached. skip this header.\n");
 							return -1;
 						}
 						// var value
 						wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
 						wsgi_req->hvec[wsgi_req->var_cnt].iov_len = strsize;
-						//fprintf(stderr,"%.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt-1].iov_len, wsgi_req->hvec[wsgi_req->var_cnt-1].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base);
+						//uwsgi_log("%.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt-1].iov_len, wsgi_req->hvec[wsgi_req->var_cnt-1].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base);
 						if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
 							wsgi_req->var_cnt++;
 						}
 						else {
-							fprintf(stderr, "max vec size reached. skip this header.\n");
+							uwsgi_log( "max vec size reached. skip this header.\n");
 							return -1;
 						}
 						ptrbuf += strsize;

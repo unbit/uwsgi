@@ -139,9 +139,9 @@ void uwsgi_proxy(int proxyfd) {
 
 	int next_node = -1;
 
-	fprintf(stderr, "spawned uWSGI proxy (pid: %d)\n", getpid());
+	uwsgi_log( "spawned uWSGI proxy (pid: %d)\n", getpid());
 
-	fprintf(stderr, "allocating space for %d concurrent proxy connections\n", max_connections);
+	uwsgi_log( "allocating space for %d concurrent proxy connections\n", max_connections);
 
 	// allocate memory for connections
 	upcs = malloc(sizeof(struct uwsgi_proxy_connection) * max_connections);
@@ -221,7 +221,7 @@ void uwsgi_proxy(int proxyfd) {
 					upcs[ev.ASYNC_FD].retry = 0;
 					next_node = uwsgi_proxy_find_next_node(next_node);
 					if (next_node == -1) {
-						fprintf(stderr, "unable to find an available worker in the cluster !\n");
+						uwsgi_log( "unable to find an available worker in the cluster !\n");
 						uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 						continue;
 					}
@@ -280,7 +280,7 @@ void uwsgi_proxy(int proxyfd) {
 
 				}
 				else {
-					fprintf(stderr, "!!! something horrible happened to the uWSGI proxy, reloading it !!!\n");
+					uwsgi_log( "!!! something horrible happened to the uWSGI proxy, reloading it !!!\n");
 					exit(1);
 				}
 			}
@@ -289,7 +289,7 @@ void uwsgi_proxy(int proxyfd) {
 				if (eevents[i].ASYNC_IS_IN) {
 
 					// is this a connected client/worker ?
-					//fprintf(stderr,"ready %d\n", upcs[eevents[i].data.fd].status);
+					//uwsgi_log("ready %d\n", upcs[eevents[i].data.fd].status);
 
 					if (!upcs[eevents[i].ASYNC_FD].status) {
 						if (upcs[eevents[i].ASYNC_FD].dest_fd >= 0) {
@@ -323,7 +323,7 @@ void uwsgi_proxy(int proxyfd) {
 						continue;
 					}
 					else {
-						fprintf(stderr, "UNKNOWN STATUS %d\n", upcs[eevents[i].ASYNC_FD].status);
+						uwsgi_log( "UNKNOWN STATUS %d\n", upcs[eevents[i].ASYNC_FD].status);
 						continue;
 					}
 				}
@@ -339,9 +339,9 @@ void uwsgi_proxy(int proxyfd) {
 						}
 						/* is something bad ? */
 						if (soopt) {
-							fprintf(stderr, "connect() %s\n", strerror(soopt));
+							uwsgi_log( "connect() %s\n", strerror(soopt));
 							// increase errors on node
-							fprintf(stderr, "*** marking cluster node %d/%s as failed ***\n", upcs[eevents[i].ASYNC_FD].node, uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name);
+							uwsgi_log( "*** marking cluster node %d/%s as failed ***\n", upcs[eevents[i].ASYNC_FD].node, uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name);
 							uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].errors++;
 							uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].status = UWSGI_NODE_FAILED;
 							uwsgi_proxy_close(upcs, ev.ASYNC_FD);
@@ -372,7 +372,7 @@ void uwsgi_proxy(int proxyfd) {
 						}
 					}
 					else {
-						fprintf(stderr, "strange event for %d\n", (int) eevents[i].ASYNC_FD);
+						uwsgi_log( "strange event for %d\n", (int) eevents[i].ASYNC_FD);
 					}
 				}
 				else {
@@ -382,16 +382,16 @@ void uwsgi_proxy(int proxyfd) {
 						}
 						/* is something bad ? */
 						if (soopt) {
-							fprintf(stderr, "connect() %s\n", strerror(soopt));
+							uwsgi_log( "connect() %s\n", strerror(soopt));
 						}
 
 						// increase errors on node
-						fprintf(stderr, "*** marking cluster node %d/%s as failed ***\n", upcs[eevents[i].ASYNC_FD].node, uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name);
+						uwsgi_log( "*** marking cluster node %d/%s as failed ***\n", upcs[eevents[i].ASYNC_FD].node, uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name);
 						uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].errors++;
 						uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].status = UWSGI_NODE_FAILED;
 					}
 					else {
-						fprintf(stderr, "STRANGE EVENT !!! %d %d %d\n", (int) eevents[i].ASYNC_FD, (int) eevents[i].ASYNC_EV, upcs[eevents[i].ASYNC_FD].status);
+						uwsgi_log( "STRANGE EVENT !!! %d %d %d\n", (int) eevents[i].ASYNC_FD, (int) eevents[i].ASYNC_EV, upcs[eevents[i].ASYNC_FD].status);
 					}
 					uwsgi_proxy_close(upcs, eevents[i].ASYNC_FD);
 					continue;

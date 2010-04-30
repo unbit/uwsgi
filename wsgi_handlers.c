@@ -98,12 +98,12 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	/* Standard WSGI request */
 	if (!wsgi_req->uh.pktsize) {
-		fprintf(stderr, "Invalid WSGI request. skip.\n");
+		uwsgi_log( "Invalid WSGI request. skip.\n");
 		return -1;
 	}
 
 	if (uwsgi_parse_vars(uwsgi, wsgi_req)) {
-                fprintf(stderr,"Invalid WSGI request. skip.\n");
+                uwsgi_log("Invalid WSGI request. skip.\n");
                 return -1;
         }
 
@@ -158,13 +158,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	if (wsgi_req->protocol_len < 5) {
-		fprintf(stderr, "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
+		uwsgi_log( "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
 		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
 		goto clear;
 
 	}
 	if (strncmp(wsgi_req->protocol, "HTTP/", 5)) {
-		fprintf(stderr, "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
+		uwsgi_log( "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
 		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
 		goto clear;
 	}
@@ -183,7 +183,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
-		//fprintf(stderr,"%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
+		//uwsgi_log("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 		pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
 		pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
 		PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);

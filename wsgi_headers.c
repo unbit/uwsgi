@@ -27,7 +27,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	}
 
 	if (!PyString_Check(head)) {
-		fprintf(stderr, "http status must be a string !\n");
+		uwsgi_log( "http status must be a string !\n");
 		goto clear;
 	}
 
@@ -94,7 +94,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		goto clear;
 	}
 	if (!PyList_Check(headers)) {
-		fprintf(stderr, "http headers must be in a python list\n");
+		uwsgi_log( "http headers must be in a python list\n");
 		goto clear;
 	}
 	wsgi_req->header_cnt = PyList_Size(headers);
@@ -111,7 +111,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 			goto clear;
 		}
 		if (!PyTuple_Check(head)) {
-			fprintf(stderr, "http header must be defined in a tuple !\n");
+			uwsgi_log( "http header must be defined in a tuple !\n");
 			goto clear;
 		}
 		h_key = PyTuple_GetItem(head, 0);
@@ -140,7 +140,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 #endif
 		wsgi_req->hvec[j + 3].iov_base = nl;
 		wsgi_req->hvec[j + 3].iov_len = NL_SIZE;
-		//fprintf(stderr, "%.*s: %.*s\n", wsgi_req->hvec[j].iov_len, (char *)wsgi_req->hvec[j].iov_base, wsgi_req->hvec[j+2].iov_len, (char *) wsgi_req->hvec[j+2].iov_base);
+		//uwsgi_log( "%.*s: %.*s\n", wsgi_req->hvec[j].iov_len, (char *)wsgi_req->hvec[j].iov_base, wsgi_req->hvec[j+2].iov_len, (char *) wsgi_req->hvec[j+2].iov_base);
 	}
 
 

@@ -318,7 +318,7 @@ int init_erlang(char *nodename, char *cookie) {
 	ip = strchr(nodename, '@');
 
 	if (ip == NULL) {
-		fprintf(stderr, "*** invalid erlang node name ***\n");
+		uwsgi_log( "*** invalid erlang node name ***\n");
 		return -1;
 	}
 
@@ -326,7 +326,7 @@ int init_erlang(char *nodename, char *cookie) {
 		// get the cookie from the home
 		cookiehome = getenv("HOME");
 		if (!cookiehome) {
-			fprintf(stderr, "unable to get erlang cookie from your home.\n");
+			uwsgi_log( "unable to get erlang cookie from your home.\n");
 			return -1;
 		}
 		cookiefile = malloc(strlen(cookiehome) + 1 + strlen(".erlang.cookie") + 1);
@@ -346,7 +346,7 @@ int init_erlang(char *nodename, char *cookie) {
 
 		memset(cookievalue, 0, 128);
 		if (read(cookiefd, cookievalue, 127) < 1) {
-			fprintf(stderr, "invalid cookie found in %s\n", cookiefile);
+			uwsgi_log( "invalid cookie found in %s\n", cookiefile);
 			close(cookiefd);
 			free(cookiefile);
 			return -1;
@@ -367,7 +367,7 @@ int init_erlang(char *nodename, char *cookie) {
 	erl_init(NULL, 0);
 
 	if (erl_connect_xinit(ip + 1, node, nodename, NULL, cookie, 0) == -1) {
-		fprintf(stderr, "*** unable to initialize erlang c-node ***\n");
+		uwsgi_log( "*** unable to initialize erlang c-node ***\n");
 		return -1;
 	}
 
@@ -409,12 +409,12 @@ int init_erlang(char *nodename, char *cookie) {
 	}
 
 	if (erl_publish(ntohs(e_addr.sin_port)) < 0) {
-		fprintf(stderr, "*** unable to subscribe with EPMD ***\n");
+		uwsgi_log( "*** unable to subscribe with EPMD ***\n");
 		close(efd);
 		return -1;
 	}
 
-	fprintf(stderr, "Erlang C-Node initialized on port %d you can access it with name %s\n", ntohs(e_addr.sin_port), nodename);
+	uwsgi_log( "Erlang C-Node initialized on port %d you can access it with name %s\n", ntohs(e_addr.sin_port), nodename);
 
 	for (uwsgi_function = uwsgi_erlang_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
 		PyObject *func = PyCFunction_New(uwsgi_function, NULL);
@@ -512,7 +512,7 @@ ETERM *py_to_eterm(PyObject * pobj) {
 		free(eobj3);
 	}
 	else {
-		fprintf(stderr, "UNMANAGED PYTHON TYPE: %s\n", pobj->ob_type->tp_name);
+		uwsgi_log( "UNMANAGED PYTHON TYPE: %s\n", pobj->ob_type->tp_name);
 	}
 
       clear:
@@ -560,7 +560,7 @@ PyObject *eterm_to_py(ETERM * obj) {
 		eobj = PyInt_FromLong(ERL_INT_VALUE(obj));
 		break;
 	case ERL_BINARY:
-		fprintf(stderr, "FOUND A BINARY %.*s\n", ERL_BIN_SIZE(obj), ERL_BIN_PTR(obj));
+		uwsgi_log( "FOUND A BINARY %.*s\n", ERL_BIN_SIZE(obj), ERL_BIN_PTR(obj));
 		break;
 	case ERL_PID:
 		eobj = PyDict_New();
@@ -581,7 +581,7 @@ PyObject *eterm_to_py(ETERM * obj) {
 			break;
 		}
 	default:
-		fprintf(stderr, "UNMANAGED ETERM TYPE: %d\n", ERL_TYPE(obj));
+		uwsgi_log( "UNMANAGED ETERM TYPE: %d\n", ERL_TYPE(obj));
 		break;
 
 	}
@@ -603,13 +603,13 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 	PyObject *callable = PyDict_GetItemString(uwsgi.embedded_dict, "erlang_func");
 	if (!callable) {
 		PyErr_Print();
-		fprintf(stderr, "- you have not defined a uwsgi.erlang_func callable, Erlang message manager will be disabled until you define it -\n");
+		uwsgi_log( "- you have not defined a uwsgi.erlang_func callable, Erlang message manager will be disabled until you define it -\n");
 	}
 
 	PyObject *pargs = PyTuple_New(1);
 	if (!pargs) {
 		PyErr_Print();
-		fprintf(stderr, "- error preparing arg tuple for uwsgi.erlang_func callable, Erlang message manager will be disabled -\n");
+		uwsgi_log( "- error preparing arg tuple for uwsgi.erlang_func callable, Erlang message manager will be disabled -\n");
 	}
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
@@ -632,7 +632,7 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 					}
 
 					if (!callable) {
-						fprintf(stderr, "- you still have not defined a uwsgi.erlang_func callable, Erlang message rejected -\n");
+						uwsgi_log( "- you still have not defined a uwsgi.erlang_func callable, Erlang message rejected -\n");
 					}
 
 					PyObject *zero = eterm_to_py(em.msg);
@@ -694,7 +694,7 @@ static void erlang_log() {
 		uwsgi.workers[uwsgi.mywid].rss_size = 0;
 		uwsgi.workers[uwsgi.mywid].vsz_size = 0;
 	}
-	fprintf(stderr, "[Erlang worker %d pid %d] request %llu done {rss: %llu vsz: %llu}\n", uwsgi.mywid, uwsgi.mypid, uwsgi.workers[uwsgi.mywid].requests, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].vsz_size);
+	uwsgi_log( "[Erlang worker %d pid %d] request %llu done {rss: %llu vsz: %llu}\n", uwsgi.mywid, uwsgi.mypid, uwsgi.workers[uwsgi.mywid].requests, uwsgi.workers[uwsgi.mywid].rss_size, uwsgi.workers[uwsgi.mywid].vsz_size);
 }
 
 #else

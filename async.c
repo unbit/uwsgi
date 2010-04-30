@@ -42,7 +42,7 @@ int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
 		timeout = timeout*1000;
 	}
 
-	//fprintf(stderr,"waiting with timeout %d nevents %d\n", timeout, nevents);
+	//uwsgi_log("waiting with timeout %d nevents %d\n", timeout, nevents);
 	ret = epoll_wait(queuefd, (struct epoll_event *) events, nevents, timeout);
 	if (ret < 0) {
 		uwsgi_error("epoll_wait()");
@@ -139,7 +139,7 @@ int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
 	dv.dp_nfds = nevents;
 	dv.dp_timeout = timeout;
 
-	//fprintf(stderr,"waiting with timeout %d nevents %d\n", timeout, nevents);
+	//uwsgi_log("waiting with timeout %d nevents %d\n", timeout, nevents);
 	ret = ioctl(queuefd, DP_POLL, &dv);
 	if (ret < 0) {
 		uwsgi_error("ioctl()");

@@ -436,5 +436,5 @@ void uwsgi_log(const char *fmt, ...) {
 	va_end(ap);
 
 	// do not check for errors
-	write(2, logpkt, rlen);
+	rlen = write(2, logpkt, rlen);
 }

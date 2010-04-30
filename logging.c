@@ -15,11 +15,11 @@
 extern struct uwsgi_server uwsgi;
 
 void log_request(struct wsgi_request *wsgi_req) {
+
+	// optimize this (please)
 	char *time_request;
 	time_t microseconds, microseconds2;
 	int rlen;
-	static char *empty = "";
-	char *first_part = empty;
 	int app_req = -1;
 	char *msg2 = " ";
 	char *via = msg2;
@@ -96,7 +96,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 	logvec[logvecpos].iov_len = rlen ;
 
 	// do not check for errors
-	writev(2, logvec, logvecpos+1);
+	rlen = writev(2, logvec, logvecpos+1);
 
 }
 
@@ -111,7 +111,7 @@ void get_memusage() {
 	if (procfile) {
 		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", &uwsgi.workers[uwsgi.mywid].vsz_size, &uwsgi.workers[uwsgi.mywid].rss_size);
 		if (i != 2) {
-			fprintf(stderr, "warning: invalid record in /proc/self/stat\n");
+			uwsgi_log( "warning: invalid record in /proc/self/stat\n");
 		}
 		fclose(procfile);
 	}
