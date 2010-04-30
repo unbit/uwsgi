@@ -493,7 +493,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi_error("malloc()");
 			exit(1);
 		}
-		strcpy(uwsgi.binary_path, argv[0]);
+		strlcpy(uwsgi.binary_path, argv[0], strlen(argv[0]) + 1);
 	}
 
 #ifndef UNBIT
@@ -1073,7 +1073,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		signal(SIGUSR1, (void *) &stats);
 #endif
 
-#ifdef UWSGI_SNMP
+		uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
+#ifdef UWSGI_UDP
 		if (uwsgi.udp_socket) {
 			uwsgi_poll.fd = bind_to_udp(uwsgi.udp_socket);
 			if (uwsgi_poll.fd < 0) {
@@ -1094,7 +1095,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 72);
 				}
 				else {
-					strcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community);
+					strlcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 73);
 				}
 			}
 			fprintf(stderr, "filling SNMP table...");
@@ -1233,7 +1234,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					}
 					else if (rlen > 0) {
 						udp_len = sizeof(udp_client);
-						rlen = recvfrom(uwsgi_poll.fd, &uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+						rlen = recvfrom(uwsgi_poll.fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
 						if (rlen < 0) {
 							uwsgi_error("recvfrom()");
 						}
@@ -2787,7 +2788,7 @@ void uwsgi_cluster_add_node(char *nodename, int workers) {
 		ucn = &uwsgi.shared->nodes[i];
 
 		if (ucn->name[0] == 0) {
-			strcpy(ucn->name, nodename);
+			strlcpy(ucn->name, nodename, 101);
 			ucn->workers = workers;
 			ucn->ucn_addr.sin_family = AF_INET;
 			ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));

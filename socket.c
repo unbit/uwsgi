@@ -38,7 +38,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 
 	uws_addr->sun_family = AF_UNIX;
-	strcpy(uws_addr->sun_path + abstract_socket, socket_name);
+	strlcpy(uws_addr->sun_path + abstract_socket, socket_name, 102+1);
 
 	if (bind(serverfd, (struct sockaddr *) uws_addr, strlen(socket_name) + abstract_socket + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
 		uwsgi_error("bind()");

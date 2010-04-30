@@ -133,6 +133,8 @@ void daemonize(char *logfile) {
 		exit(1);
 	}
 
+	// avoid log mess
+	setlinebuf(stderr);
 	close(fd);
 
 
