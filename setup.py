@@ -18,10 +18,9 @@ class uWSGIBuilder(build_ext):
 class uWSGIInstall(install):
 
 	def run(self):
+		# hack, hack and still hack. We need to find a solution for 0.9.6
 		if self.record:
 			record_file = open(self.record,'w')
-			sys.stdout = record_file
-			sys.stderr = record_file
 		uc.parse_vars()
 		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
 
