@@ -3,17 +3,10 @@ import sys
 import uwsgiconfig as uc
 import shutil
 
-from distutils.core import setup, Distribution
-from distutils.command.install import install
-from distutils.command.build_ext import build_ext
-
-# hack for distutils/pip
-try:
-	print sys.argv
-	sys.argv.remove('--single-version-externally-managed')
-	print sys.argv
-except:
-	pass
+from setuptools import setup
+from setuptools.dist import Distribution
+from setuptools.command.install import install
+from setuptools.command.build_ext import build_ext
 
 class uWSGIBuilder(build_ext):
 
