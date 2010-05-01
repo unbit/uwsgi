@@ -18,6 +18,7 @@ class uWSGIBuilder(build_ext):
 class uWSGIInstall(install):
 
 	def run(self):
+		self.distribution.cmdclass['orig_install'].run()
 		uc.parse_vars()
 		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
 
@@ -25,6 +26,7 @@ class uWSGIDistribution(Distribution):
 
 	def __init__(self, *attrs):
 		Distribution.__init__(self, *attrs)
+		self.cmdclass['orig_install'] = self.cmdclass['install']
 		self.cmdclass['install'] = uWSGIInstall
 		self.cmdclass['build_ext'] = uWSGIBuilder
 		
