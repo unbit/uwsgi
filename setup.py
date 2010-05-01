@@ -9,7 +9,9 @@ from distutils.command.build_ext import build_ext
 
 # hack for distutils/pip
 try:
+	print sys.argv
 	sys.argv.remove('--single-version-externally-managed')
+	print sys.argv
 except:
 	pass
 
