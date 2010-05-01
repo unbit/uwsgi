@@ -18,7 +18,10 @@ class uWSGIBuilder(build_ext):
 class uWSGIInstall(install):
 
 	def run(self):
-		print self.record
+		if self.record:
+			record_file = open(self.record,'w')
+			sys.stdout = record_file
+			sys.stderr = record_file
 		uc.parse_vars()
 		uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
 
