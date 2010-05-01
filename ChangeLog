@@ -1,3 +1,26 @@
+*** may 2010 ***
+
+ * 0.9.5 [20100501] *
+
+- hook based request/modifier management
+- plugin support via dlopen
+- on-the-fly management flag
+- integrated proxy
+- logging via udp
+- improved spooler for cron-like apps
+- async support
+- green thread platform (uGreen) on top of teh async mode
+- transparent Erlang integration
+- embedded snmp agent
+- nagios mode
+- improved python 3.x support
+- improved xml configuration
+- new build system
+- address space usage limiting
+- lot of portability fixes
+- lot of optimizations and code refactoring
+
+
 *** april 2010 ***
 
  * Fourth Maintenance release [20100427] *

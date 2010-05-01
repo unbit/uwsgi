@@ -7,6 +7,12 @@ from distutils.core import setup, Distribution
 from distutils.command.install import install
 from distutils.command.build_ext import build_ext
 
+# hack for distutils/pip
+try:
+	sys.argv.remove('--single-version-externally-managed')
+except:
+	pass
+
 class uWSGIBuilder(build_ext):
 
 	def run(self):
