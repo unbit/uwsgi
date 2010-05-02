@@ -2,7 +2,7 @@
 
 /* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs */
 
-#define UWSGI_VERSION	"0.9.5-dev"
+#define UWSGI_VERSION	"0.9.6-dev"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 
@@ -139,6 +139,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_UGREEN_PAGES		17022
 #define LONG_ARGS_FILE_CONFIG		17023
 #define LONG_ARGS_MULTICAST		17024
+#define LONG_ARGS_LOGTO			17025
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -626,6 +627,7 @@ int bind_to_sctp(char *, int, char *);
 #endif
 #ifndef UNBIT
 void daemonize(char *);
+void logto(char *);
 #endif
 void log_request(struct wsgi_request *);
 void get_memusage(void);

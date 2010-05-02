@@ -45,12 +45,8 @@ void set_harakiri(int sec) {
 
 void daemonize(char *logfile) {
 	pid_t pid;
-	int fd, fdin;
+	int fdin;
 
-#ifdef UWSGI_UDP
-	char *udp_port;
-	struct sockaddr_in udp_addr;
-#endif
 
 
 
@@ -94,8 +90,25 @@ void daemonize(char *logfile) {
 		exit(1);
 	}
 
-	
+	/* stdin */
+	if (dup2(fdin, 0) < 0) {
+		uwsgi_error("dup2()");
+		exit(1);
+	}
+
+
+	logto(logfile);
+
+}
+
+void logto(char *logfile) {
+
+	int fd ;
+
 #ifdef UWSGI_UDP
+	char *udp_port;
+	struct sockaddr_in udp_addr;
+
 	udp_port = strchr(logfile, ':');
 	if (udp_port) {
 		udp_port[0] = 0 ;
@@ -132,12 +145,6 @@ void daemonize(char *logfile) {
 	}
 #endif
 
-	/* stdin */
-	if (dup2(fdin, 0) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
-	}
-
 
 	/* stdout */
 	if (dup2(fd, 1) < 0) {
@@ -152,8 +159,6 @@ void daemonize(char *logfile) {
 	}
 
 	close(fd);
-
-
 }
 
 

@@ -372,6 +372,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"ugreen", no_argument, &uwsgi.ugreen, 1},
 		{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 #endif
+		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -2468,8 +2469,13 @@ pid_t spooler_start(int serverfd, PyObject * uwsgi_module_dict) {
 void manage_opt(int i, char *optarg) {
 
 	switch (i) {
+#ifdef UWSGI_ASYNC
 	case LONG_ARGS_ASYNC:
 		uwsgi.async = atoi(optarg);
+		break;
+#endif
+	case LONG_ARGS_LOGTO:
+		logto(optarg);
 		break;
 #ifdef UWSGI_UGREEN
 	case LONG_ARGS_UGREEN_PAGES:
