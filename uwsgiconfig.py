@@ -20,7 +20,6 @@ STACKLESS=False
 PLUGINS = []
 UNBIT=False
 UWSGI_BIN_NAME = 'uwsgi'
-GCC='gcc'
 
 # specific compilation flags
 # libxml2 or expat
@@ -46,17 +45,22 @@ import subprocess
 
 from distutils import sysconfig
 
+GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
+if not GCC:
+	GCC = 'gcc'
+
 gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'uwsgi']
 
 # large file support
 try:
-	cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + sysconfig.get_config_var('CFLAGS').split()
+	cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 except:
 	print("You need python headers to build uWSGI.")
 	sys.exit(1)
 
 cflags = cflags + ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ]
-ldflags = ['-lpthread', '-rdynamic'] + sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
+ldflags = os.environ.get("LDFLAGS", "").split()
+libs = ['-lpthread', '-rdynamic'] + sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
 
 def depends_on(what, dep):
 	for d in dep:
@@ -68,9 +72,9 @@ def spcall(cmd):
 	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
 
 	if p.wait() == 0:
-        	return p.stdout.read().rstrip().decode()
+		return p.stdout.read().rstrip().decode()
 	else:
-        	return None
+		return None
 
 def add_o(x):
 	if x == 'uwsgi':
@@ -97,7 +101,7 @@ def build_uwsgi(bin_name):
 			print(plugin)
 
 	print("*** uWSGI linking ***")
-	ldline = "%s -o %s %s %s" % (GCC, bin_name, ' '.join(map(add_o, gcc_list)), ' '.join(ldflags))
+	ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags), ' '.join(map(add_o, gcc_list)), ' '.join(libs))
 	print(ldline)
 	ret = os.system(ldline)
 	if ret != 0:
@@ -141,19 +145,19 @@ def parse_vars():
 	version = sys.version_info
 	uver = "%d.%d" % (version[0], version[1])
 
-	ldflags.append('-lpython' + uver)
+	libs.append('-lpython' + uver)
 
 	if str(PYLIB_PATH) != '':
-		ldflags.insert(0,'-L' + PYLIB_PATH)
+		libs.insert(0,'-L' + PYLIB_PATH)
 
 	kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
 	if uwsgi_os == 'SunOS':
-        	ldflags.append('-lsendfile')
-		ldflags.remove('-rdynamic')
+		libs.append('-lsendfile')
+		libs.remove('-rdynamic')
 
 	if uwsgi_os in kvm_list:
-        	ldflags.append('-lkvm')
+		libs.append('-lkvm')
 
 	if uwsgi_os == 'OpenBSD':
 		UGREEN = False
@@ -221,7 +225,7 @@ def parse_vars():
 				print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")
 				sys.exit(1)
 			else:
-				ldflags.append(xmlconf)
+				libs.append(xmlconf)
 				xmlconf = spcall("xml2-config --cflags")
 				if xmlconf is None:
 					print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")
@@ -232,21 +236,21 @@ def parse_vars():
 					gcc_list.append('xmlconf')
 		elif XML_IMPLEMENTATION == 'expat':
 			cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
-			ldflags.append('-lexpat')
+			libs.append('-lexpat')
 			gcc_list.append('xmlconf')
 			
 
 	if ERLANG:
 		depends_on("ERLANG", ['EMBEDDED'])
 		cflags.append("-DUWSGI_ERLANG")
-		ldflags.append(ERLANG_LDFLAGS)
+		libs.append(ERLANG_LDFLAGS)
 		if str(ERLANG_CFLAGS) != '':
 			cflags.append(ERLANG_CFLAGS)
 		gcc_list.append('erlang')
 
 	if SCTP:
-        	ldflags.append("-lsctp")
-        	cflags.append("-DUWSGI_SCTP")
+		libs.append("-lsctp")
+		cflags.append("-DUWSGI_SCTP")
 
 	if SPOOLER:
 		depends_on("SPOOLER", ['EMBEDDED'])
@@ -263,13 +267,13 @@ def build_plugin(path):
 	import uwsgiplugin as up
 
 	cflags.append(up.CFLAGS)
-	ldflags.append(up.LDFLAGS)
+	libs.append(up.LDFLAGS)
 
 	cflags.insert(0, '-I.')
 
 	plugin_base = path + '/' + up.NAME + '_plugin'
 
-	gccline = "%s -fPIC -shared -o %s.so %s %s.c %s" % (GCC, plugin_base, ' '.join(cflags), plugin_base, ' '.join(ldflags))
+	gccline = "%s -fPIC -shared -o %s.so %s %s %s.c %s" % (GCC, plugin_base, ' '.join(cflags), ' '.join(ldflags), plugin_base, ' '.join(libs))
 	print(gccline)
 
 	ret = os.system(gccline)
@@ -294,9 +298,11 @@ if __name__ == "__main__":
 		sys.exit(1)
 
 	if cmd == '--cflags':
-        	print(' '.join(cflags))
+		print(' '.join(cflags))
 	if cmd == '--ldflags':
-        	print(' '.join(ldflags))
+		print(' '.join(ldflags))
+	if cmd == '--libs':
+		print(' '.join(libs))
 	elif cmd == '--build':
 		parse_vars()
 		build_uwsgi(UWSGI_BIN_NAME)

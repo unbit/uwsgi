@@ -387,6 +387,10 @@ void sanitize_args(struct uwsgi_server *uwsgi) {
 	}
 #endif
 #endif
+
+	if (uwsgi->wsgi_config) {
+		uwsgi->single_interpreter = 1 ;
+	}
 }
 
 void env_to_arg(char *src, char *dst) {

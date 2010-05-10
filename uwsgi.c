@@ -330,6 +330,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"gid", required_argument, 0, LONG_ARGS_GID},
 		{"uid", required_argument, 0, LONG_ARGS_UID},
 		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
+		{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 		{"paste", required_argument, 0, LONG_ARGS_PASTE},
 		{"no-server", no_argument, &no_server, 1},
