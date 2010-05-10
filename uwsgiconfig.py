@@ -13,6 +13,7 @@ SENDFILE=True
 PROFILER=True
 NAGIOS=True
 PROXY=True
+PASTE=True
 MINTERPRETERS=True
 ASYNC=True
 UGREEN=True
@@ -213,6 +214,9 @@ def parse_vars():
 
 	if PROFILER:
 		cflags.append("-DUWSGI_PROFILER")
+
+	if PASTE:
+		cflags.append('-DUWSGI_PASTE')
 
 	if SENDFILE:
 		cflags.append("-DUWSGI_SENDFILE")
