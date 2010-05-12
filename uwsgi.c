@@ -336,6 +336,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-server", no_argument, &no_server, 1},
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
+		{"prio", required_argument, 0, LONG_ARGS_PRIO},
 #ifdef UWSGI_UDP
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
 #endif
@@ -538,6 +539,16 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 #endif
+
+	if (uwsgi.prio != 0) {
+		if (setpriority(PRIO_PROCESS, 0, uwsgi.prio)) {
+			uwsgi_error("setpriority()");
+		}
+		else {
+			uwsgi_log("scheduler priority set to %d\n", uwsgi.prio);
+		}
+	}
+	
 
 	if (!getrlimit(RLIMIT_AS, &uwsgi.rl)) {
 #ifndef UNBIT
@@ -2557,6 +2568,9 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_LIMIT_AS:
 		uwsgi.rl.rlim_cur = (atoi(optarg)) * 1024 * 1024;
 		uwsgi.rl.rlim_max = uwsgi.rl.rlim_cur;
+		break;
+	case LONG_ARGS_PRIO:
+		uwsgi.prio = (int) strtol(optarg, NULL, 10);
 		break;
 	case LONG_ARGS_PASTE:
 		uwsgi.paste = optarg;

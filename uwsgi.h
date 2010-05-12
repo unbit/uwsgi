@@ -140,6 +140,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_FILE_CONFIG		17023
 #define LONG_ARGS_MULTICAST		17024
 #define LONG_ARGS_LOGTO			17025
+#define LONG_ARGS_PRIO			17026
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -386,6 +387,7 @@ struct uwsgi_server {
 	char **async_buf;
 
 	struct rlimit rl;
+	int prio;
 
 	char *binary_path;
 
