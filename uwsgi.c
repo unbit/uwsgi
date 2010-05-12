@@ -2781,6 +2781,10 @@ void manage_opt(int i, char *optarg) {
 \t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
 \t--pyargv <args>\t\t\tassign args to python sys.argv\n\
 \t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
+\t--limit-post <bytes>\t\tlimit HTTP content_length size to <bytes>\n\
+\t--post-buffering <bytes>\tbuffer HTTP POST request higher than <bytes> to disk\n\
+\t--post-buffering-bufsize <b>\tset the buffer size to <b> bytes for post-buffering\n\
+\t--prio <N>\t\t\tset process priority/nice to N\n\
 \t--udp <ip:port>\t\t\tbind master process to udp socket on ip:port\n\
 \t--snmp\t\t\t\tenable SNMP support in the UDP server\n\
 \t--erlang <name@ip>\t\tenable the Erlang server with node name <node@ip>\n\
@@ -2792,9 +2796,10 @@ void manage_opt(int i, char *optarg) {
 \t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
 \t--wsgi-file <file>\t\tload the <file> wsgi file\n\
 \t--async <n>\t\t\tenable async mode with n core\n\
+\t--logto <logfile|addr>\t\tlog to file/udp\n\
 \t--stackless\t\t\tenable usage of tasklet (only on Stackless Python)\n\
 \t--version\t\t\tprint server version\n\
-\t-d|--daemonize <logfile>\tdaemonize and log into <logfile>\n", uwsgi.binary_path);
+\t-d|--daemonize <logfile|addr>\tdaemonize and log into <logfile> or udp <addr>\n", uwsgi.binary_path);
 		exit(1);
 	case 0:
 		break;
