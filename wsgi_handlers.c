@@ -212,7 +212,41 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	// set wsgi vars
 
-	wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+
+	if (uwsgi->post_buffering > 0 && wsgi_req->post_cl > uwsgi->post_buffering) {
+		wsgi_req->async_post = tmpfile();
+		if (!wsgi_req->async_post) {
+			uwsgi_error("tmpfile()");
+			goto clear;
+		}
+		size_t post_remains = wsgi_req->post_cl;
+		ssize_t post_chunk;
+
+		while(post_remains > 0) {
+			if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+				inc_harakiri(uwsgi->shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+			}
+			if (post_remains > uwsgi->post_buffering_bufsize) {
+				post_chunk = read(wsgi_req->poll.fd, wsgi_req->post_buffering_buf, uwsgi->post_buffering_bufsize);
+			}
+			else {
+				post_chunk = read(wsgi_req->poll.fd, wsgi_req->post_buffering_buf, post_remains);
+			}	
+			if (post_chunk < 0) {
+				uwsgi_error("read()");
+				goto clear;
+			}
+			if (fwrite(wsgi_req->post_buffering_buf, post_chunk, 1, wsgi_req->async_post) <0) {
+				uwsgi_error("fwrite()");
+				goto clear;
+			}
+			post_remains -= post_chunk;
+		}
+		rewind(wsgi_req->async_post);
+	} 
+	else {
+		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+	}
 
 	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);

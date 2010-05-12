@@ -337,6 +337,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 		{"prio", required_argument, 0, LONG_ARGS_PRIO},
+		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
+		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
 #ifdef UWSGI_UDP
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
 #endif
@@ -610,11 +612,30 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 
+	if (uwsgi.post_buffering > 0) {
+		uwsgi.async_post_buf = malloc( sizeof(char *) * uwsgi.async);
+		if (!uwsgi.async_post_buf) {
+			uwsgi_error("malloc()");
+			exit(1);
+		}
+
+		if (!uwsgi.post_buffering_bufsize) {
+			uwsgi.post_buffering_bufsize = 8192 ;
+		}
+	}
+
 	for(i=0;i<uwsgi.async;i++) {
 		uwsgi.async_buf[i] = malloc(uwsgi.buffer_size);
 		if (!uwsgi.async_buf[i]) {
 			uwsgi_error("malloc()");
 			exit(1);
+		}
+		if (uwsgi.post_buffering > 0) {
+			uwsgi.async_post_buf[i] = malloc(uwsgi.post_buffering_bufsize);
+			if (!uwsgi.async_post_buf[i]) {
+				uwsgi_error("malloc()");
+				exit(1);
+			}
 		}
 	}
 	
@@ -2571,6 +2592,12 @@ void manage_opt(int i, char *optarg) {
 		break;
 	case LONG_ARGS_PRIO:
 		uwsgi.prio = (int) strtol(optarg, NULL, 10);
+		break;
+	case LONG_ARGS_POST_BUFFERING:
+		uwsgi.post_buffering = atoi(optarg);
+		break;
+	case LONG_ARGS_POST_BUFFERING_SIZE:
+		uwsgi.post_buffering_bufsize = atoi(optarg);
 		break;
 	case LONG_ARGS_PASTE:
 		uwsgi.paste = optarg;

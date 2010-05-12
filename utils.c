@@ -27,6 +27,15 @@ uint64_t uwsgi_swap64(uint64_t x) {
 
 #endif
 
+void inc_harakiri(int sec) {
+	if (uwsgi.master_process) {
+		uwsgi.workers[uwsgi.mywid].harakiri += sec;
+	}
+	else {
+		alarm(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] + sec);
+	}
+}
+
 void set_harakiri(int sec) {
 	if (uwsgi.master_process) {
 		if (sec == 0) {
@@ -286,7 +295,7 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 	(*uwsgi->shared->after_hooks[wsgi_req->uh.modifier1]) (uwsgi, wsgi_req);
 
 	// leave harakiri mode
-	if (uwsgi->workers[uwsgi->mywid].harakiri > 0) {
+	if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
         	set_harakiri(0);
 	}
 
@@ -318,6 +327,10 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
 #endif
 	wsgi_req->hvec = &uwsgi.async_hvec[wsgi_req->async_id];
 	wsgi_req->buffer = uwsgi.async_buf[wsgi_req->async_id];
+
+	if (uwsgi.post_buffering > 0) {
+		wsgi_req->post_buffering_buf = uwsgi.async_post_buf[wsgi_req->async_id];
+	}
 
 }
 

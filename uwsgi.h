@@ -141,6 +141,8 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_MULTICAST		17024
 #define LONG_ARGS_LOGTO			17025
 #define LONG_ARGS_PRIO			17026
+#define LONG_ARGS_POST_BUFFERING	17027
+#define LONG_ARGS_POST_BUFFERING_SIZE	17028
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -349,6 +351,10 @@ struct wsgi_request {
 	
 	int async_plagued;
 
+	size_t post_cl;
+	char *post_buffering_buf;
+	uint64_t post_buffering_read;
+
 #ifdef UWSGI_STACKLESS
 	PyTaskletObject* tasklet;
 #endif
@@ -385,6 +391,7 @@ struct uwsgi_server {
 
 	struct iovec *async_hvec;
 	char **async_buf;
+	char **async_post_buf;
 
 	struct rlimit rl;
 	int prio;
@@ -426,6 +433,10 @@ struct uwsgi_server {
 	int to_hell;
 
 	int buffer_size;
+
+	int post_buffering;
+	int post_buffering_harakiri;
+	int post_buffering_bufsize;
 
 	int master_process;
 
@@ -668,6 +679,7 @@ pid_t spooler_start(int, PyObject *);
 #endif
 
 void set_harakiri(int);
+void inc_harakiri(int);
 
 #ifdef __BIG_ENDIAN__
 uint16_t uwsgi_swap16(uint16_t);

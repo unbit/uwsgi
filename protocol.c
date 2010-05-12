@@ -2,6 +2,20 @@
 
 extern struct uwsgi_server uwsgi;
 
+static size_t get_content_length(uint8_t *buf, uint16_t size) {
+	int i;
+	size_t val = 0 ;
+	for(i=0;i<size;i++) {
+		if (buf[i] >= '0' && buf[i] <= '9') {
+			val = (val*10) + (buf[i] - '0') ;
+			continue;
+		}
+		break;
+	}
+
+	return val;
+}
+
 #ifdef UWSGI_UDP
 ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t message_size) {
 
@@ -382,6 +396,9 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 							wsgi_req->unbit_flags = *(unsigned long long *) ptrbuf;
 						}
 #endif
+						else if (!strncmp("CONTENT_LENGTH", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
+						}
 						if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
 							wsgi_req->var_cnt++;
 						}
