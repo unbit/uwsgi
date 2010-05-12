@@ -107,6 +107,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
                 return -1;
         }
 
+	if (uwsgi->limit_post) {
+		if (wsgi_req->post_cl > uwsgi->limit_post) {
+                	uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
+                	return -1;
+		}
+	}
+
 
 #ifdef UWSGI_THREADING
 	if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {

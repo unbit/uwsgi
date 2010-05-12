@@ -336,6 +336,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-server", no_argument, &no_server, 1},
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
+		{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
 		{"prio", required_argument, 0, LONG_ARGS_PRIO},
 		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
 		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
@@ -2589,6 +2590,9 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_LIMIT_AS:
 		uwsgi.rl.rlim_cur = (atoi(optarg)) * 1024 * 1024;
 		uwsgi.rl.rlim_max = uwsgi.rl.rlim_cur;
+		break;
+	case LONG_ARGS_LIMIT_POST:
+		uwsgi.limit_post = (int) strtol(optarg, NULL, 10);
 		break;
 	case LONG_ARGS_PRIO:
 		uwsgi.prio = (int) strtol(optarg, NULL, 10);
