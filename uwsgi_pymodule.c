@@ -19,6 +19,25 @@ extern struct uwsgi_server uwsgi;
 
 #define UWSGI_LOGBASE "[- uWSGI -"
 
+PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
+	
+	char *data;
+
+	if (!PyArg_ParseTuple(args, "s:send", &data)) {
+                return NULL;
+        }
+
+	if (write(uwsgi.wsgi_req->poll.fd, data, strlen(data)) < 0) {
+		uwsgi_error("write()");
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+	
+}
+
 #ifdef UWSGI_ASYNC
 
 
@@ -868,6 +887,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
+	{"send", py_uwsgi_send, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 #ifdef UWSGI_MULTICAST
 	{"send_multicast_message", py_uwsgi_multicast, METH_VARARGS, ""},

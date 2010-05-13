@@ -48,6 +48,8 @@ typedef struct {
     ngx_array_t *uwsgi_lengths;
     ngx_array_t *uwsgi_values;
 
+    ngx_str_t	uwsgi_string ;
+
     u_char modifier1;
     u_char modifier2;
 
@@ -270,6 +272,14 @@ static ngx_command_t ngx_http_uwsgi_commands[] = {
      NGX_HTTP_LOC_CONF_OFFSET,
      offsetof (ngx_http_uwsgi_loc_conf_t, params_source),
      NULL},
+
+    { ngx_string("uwsgi_string"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
+      NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_uwsgi_loc_conf_t, uwsgi_string),
+      NULL },
 
     {ngx_string ("uwsgi_pass_header"),
      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
@@ -538,13 +548,18 @@ ngx_http_uwsgi_create_request (ngx_http_request_t * r)
 	}
     }
 
+    if (uwcf->uwsgi_string.data && uwcf->uwsgi_string.len) {
+		uwsgi_pkt_size += uwcf->uwsgi_string.len ;
+    }
 
-    // check here
+
+    /* allow custom uwsgi packet 
     if (uwsgi_pkt_size > 0 && uwsgi_pkt_size < 2) {
 	ngx_log_error (NGX_LOG_ALERT, r->connection->log, 0,
 		       "uwsgi request is too little: %uz", uwsgi_pkt_size);
 	return NGX_ERROR;
     }
+    */
 
     b = ngx_create_temp_buf (r->pool, uwsgi_pkt_size + 4);
     if (b == NULL) {
@@ -675,6 +690,11 @@ ngx_http_uwsgi_create_request (ngx_http_request_t * r)
 	}
     }
 
+
+
+    if (uwcf->uwsgi_string.data && uwcf->uwsgi_string.len) {
+	b->last = ngx_copy(b->last, uwcf->uwsgi_string.data, uwcf->uwsgi_string.len);
+    }
 
     if (uwcf->upstream.pass_request_body) {
 	body = r->upstream->request_bufs;
@@ -1380,6 +1400,8 @@ ngx_http_uwsgi_merge_loc_conf (ngx_conf_t * cf, void *parent, void *child)
 
     ngx_conf_merge_value (conf->upstream.intercept_errors,
 			  prev->upstream.intercept_errors, 0);
+
+    ngx_conf_merge_str_value(conf->uwsgi_string, prev->uwsgi_string, "");
 
     hash.max_size = 512;
     hash.bucket_size = ngx_align (64, ngx_cacheline_size);

@@ -1,4 +1,8 @@
+import uwsgi
 
+def ciao():
+	uwsgi.start_response('200 OK', [ ('Content-type', 'text/plain') ])
+	uwsgi.send(str(22+30))
 
 def application(env, start_response):
 

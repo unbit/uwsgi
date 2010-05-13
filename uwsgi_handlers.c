@@ -55,6 +55,33 @@ int uwsgi_request_admin(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_re
 	return UWSGI_OK;
 }
 
+int uwsgi_request_eval(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+
+	PyObject *code, *py_dict;
+
+	PyObject *m = PyImport_AddModule("__main__");
+	if (m == NULL) {
+		PyErr_Print();
+		return -1;
+	}
+
+	py_dict = PyModule_GetDict(m);
+	// make it a valid c string
+	wsgi_req->buffer[wsgi_req->uh.pktsize] = 0 ;
+	// need to find a way to cache compilations...
+	code = Py_CompileString(wsgi_req->buffer, "uWSGI", Py_file_input);
+	if (code == NULL) {
+		PyErr_Print();
+		return -1;
+	}
+	PyEval_EvalCode((PyCodeObject *)code, py_dict, py_dict );
+	if (PyErr_Occurred()) {
+		PyErr_Print();
+		return -1;
+	}
+	return UWSGI_OK;
+}
+
 /* uwsgi FASTFUNC|26 */
 int uwsgi_request_fastfunc(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 

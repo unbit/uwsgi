@@ -203,6 +203,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define UWSGI_MODIFIER_ADMIN_REQUEST		10
 #define UWSGI_MODIFIER_SPOOL_REQUEST		17
+#define UWSGI_MODIFIER_EVAL			22
 #define UWSGI_MODIFIER_FASTFUNC			26
 #define UWSGI_MODIFIER_MANAGE_PATH_INFO		30
 #define UWSGI_MODIFIER_MESSAGE			31
@@ -710,6 +711,7 @@ int uwsgi_request_admin(struct uwsgi_server *, struct wsgi_request *);
 #ifdef UWSGI_SPOOLER
 int uwsgi_request_spooler(struct uwsgi_server *, struct wsgi_request *);
 #endif
+int uwsgi_request_eval(struct uwsgi_server *, struct wsgi_request *);
 int uwsgi_request_fastfunc(struct uwsgi_server *, struct wsgi_request *);
 int uwsgi_request_marshal(struct uwsgi_server *, struct wsgi_request *);
 int uwsgi_request_ping(struct uwsgi_server *, struct wsgi_request *);
