@@ -19,6 +19,7 @@ ASYNC=True
 UGREEN=True
 STACKLESS=False
 PLUGINS = []
+USWALLOW=False
 UNBIT=False
 UWSGI_BIN_NAME = 'uwsgi'
 
@@ -62,6 +63,11 @@ except:
 cflags = cflags + ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ]
 ldflags = os.environ.get("LDFLAGS", "").split()
 libs = ['-lpthread', '-rdynamic'] + sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
+
+if USWALLOW:
+	cflags = cflags + sysconfig.get_config_var('LLVM_CXXFLAGS').split()
+	ldflags = ldflags + sysconfig.get_config_var('LLVM_LDFLAGS').split() + sysconfig.get_config_var('LINKFORSHARED').split()
+	GCC = 'clang'
 
 def depends_on(what, dep):
 	for d in dep:

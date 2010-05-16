@@ -515,6 +515,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+	uwsgi_log("compiled with version: %s\n", __VERSION__);
+
 #ifdef __BIG_ENDIAN__
 	uwsgi_log("*** big endian arch detected ***\n");
 #endif

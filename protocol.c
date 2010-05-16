@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-static size_t get_content_length(uint8_t *buf, uint16_t size) {
+static size_t get_content_length(char *buf, uint16_t size) {
 	int i;
 	size_t val = 0 ;
 	for(i=0;i<size;i++) {

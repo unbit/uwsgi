@@ -750,7 +750,12 @@ struct wsgi_request *find_first_available_wsgi_req(struct uwsgi_server *);
 struct wsgi_request *find_wsgi_req_by_fd(struct uwsgi_server *, int, int); 
 struct wsgi_request *find_wsgi_req_by_id(struct uwsgi_server *, int); 
 
+#ifdef __clang__
+struct wsgi_request *next_wsgi_req(struct uwsgi_server *, struct wsgi_request *);
+#else
 inline struct wsgi_request *next_wsgi_req(struct uwsgi_server *, struct wsgi_request *);
+#endif
+
 
 int async_add(int, int , int) ;
 int async_mod(int, int , int) ;
@@ -839,7 +844,11 @@ void u_green_init(struct uwsgi_server *);
 void u_green_loop(struct uwsgi_server *);
 #endif
 
+#ifdef __clang__
+struct wsgi_request *current_wsgi_req(struct uwsgi_server *);
+#else
 inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *);
+#endif
 
 void sanitize_args(struct uwsgi_server *);
 
