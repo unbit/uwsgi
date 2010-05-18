@@ -558,7 +558,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (!getrlimit(RLIMIT_AS, &uwsgi.rl)) {
 #ifndef UNBIT
 		// check for overflow
-		if ((sizeof(void *) == 4 && (uint32_t) uwsgi.rl.rlim_max < UINT32_MAX) || (sizeof(void *) == 8 && (uint64_t) uwsgi.rl.rlim_max < UINT64_MAX)) {
+		if (uwsgi.rl.rlim_max != RLIM_INFINITY) {
 #endif
 			uwsgi_log("your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
 #ifndef UNBIT
