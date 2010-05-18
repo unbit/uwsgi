@@ -490,7 +490,7 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 	if (hctx->path_info_offset > 1) {
 		uwsgi_add_var(b, "SCRIPT_NAME", 11, con->uri.path->ptr, hctx->path_info_offset);
 		if (strlen(con->uri.path->ptr + hctx->path_info_offset) > 0) {
-			uwsgi_add_var(b, "PATH_INFO", 9, con->request.orig_uri->ptr + hctx->path_info_offset, strlen(con->request.orig_uri->ptr + hctx->path_info_offset));
+			uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr + hctx->path_info_offset, strlen(con->uri.path->ptr + hctx->path_info_offset));
 		}
 		else {
 			uwsgi_add_var(b, "PATH_INFO", 9, "/", 1);
@@ -498,7 +498,7 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 	}
 	else {
 		uwsgi_add_var(b, "SCRIPT_NAME", 11, "", 0) ;
-		uwsgi_add_var(b, "PATH_INFO", 9, con->request.orig_uri->ptr, con->request.orig_uri->used-1) ;
+		uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr, strlen(con->uri.path->ptr)) ;
 	}
 	
 	
