@@ -453,44 +453,6 @@ int main(int argc, char *argv[], char *envp[]) {
 //parse environ
 
 	parse_sys_envs(environ, long_options);
-	char **uenvs = environ;
-	while(*uenvs) {
-		if (!strncmp(*uenvs, "UWSGI_", 6)) {
-			char *earg = malloc(strlen(*uenvs+6)+1);
-			if (!earg) {
-				uwsgi_error("malloc()");
-				exit(1);
-			}
-			env_to_arg(*uenvs+6, earg);
-			char *eq_pos = strchr(earg, '=');
-			if (!eq_pos) {
-				break;	
-			}
-			eq_pos[0] = 0 ;
-			struct option *lopt = long_options, *aopt;
-                        while ((aopt = lopt)) {
-                        	if (!aopt->name)
-                                	break;
-                        	if (!strcmp(earg, aopt->name)) {
-					if (aopt->flag) {
-                                        	*aopt->flag = aopt->val;
-                                        }
-                                        else {
-                                        	if (eq_pos[1] != 0) {
-                                                	manage_opt(aopt->val, eq_pos+1);
-                                                }
-                                                else {
-                                                	manage_opt(aopt->val, NULL);
-                                                }
-                                	}
-                                }
-                        	lopt++;
-			}
-			
-		}
-		uenvs++;
-	}
-
 
 	if (uwsgi.binary_path == argv[0]) {
 		cwd = uwsgi_get_cwd();

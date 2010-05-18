@@ -408,11 +408,20 @@ void sanitize_args(struct uwsgi_server *uwsgi) {
 
 void env_to_arg(char *src, char *dst) {
 	int i;
+	int val = 0 ;
 
 	for(i=0;i<strlen(src);i++) {
-		dst[i] = tolower(src[i]);
-		if (dst[i] == '_') {
-			dst[i] = '-';
+		if (src[i] == '=') {
+			val = 1 ;
+		}
+		if (val) {
+			dst[i] = src[i];
+		}
+		else {
+			dst[i] = tolower(src[i]);
+			if (dst[i] == '_') {
+				dst[i] = '-';
+			}
 		}
 	}
 
