@@ -1,5 +1,20 @@
 *** may 2010 ***
 
+ * 0.9.5.1 [20100519] *
+
+- fixed paste support
+- added a new modifier (22)
+- full support for configuration via environment variables
+- nginx_string option in nginx module
+- fix for harakiri without master
+- backported unladen swallow support for 0.9.6-dev
+- fixed address space limit detection via getrlimit()
+- http body buffering implementation
+- added --prio option (to set priority)
+- added --post-limit to limit the size of uploads
+- added --logto option to allow udp logging without daemonizing
+- applied Gentoo's packagers fixes for build system
+
  * 0.9.5 [20100501] *
 
 - hook based request/modifier management
