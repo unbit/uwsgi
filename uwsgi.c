@@ -337,6 +337,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 		{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
+		{"no-orphans", no_argument, &uwsgi.no_orphans, 1},
 		{"prio", required_argument, 0, LONG_ARGS_PRIO},
 		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
 		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
@@ -1442,6 +1443,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	signal(SIGPIPE, (void *) &warn_pipe);
 
+#ifdef __linux__
+	if (uwsgi.master_process && uwsgi.no_orphans) {
+		if (prctl(PR_SET_PDEATHSIG, SIGINT)) {
+			uwsgi_error("prctl()");
+		}
+	}
+#endif
+
 
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_nodes > 0) {
@@ -1489,6 +1498,15 @@ int main(int argc, char *argv[], char *envp[]) {
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
+#ifndef __linux__
+		if (uwsgi.no_orphans && uwsgi.master_process) {
+			// am i a son of init ?	
+			if (getppid() == 1) {
+				uwsgi_log("UAAAAAAH my parent died :( i will follow him...\n");
+				exit(1);
+			}
+		}
+#endif
 
 		// clear all status bits
 		UWSGI_CLEAR_STATUS;

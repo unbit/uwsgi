@@ -230,6 +230,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	int serverfd;
 	struct sockaddr_in uws_addr;
 	int reuse = 1;
+	int i, ret;
 
 	tcp_port[0] = 0;
 	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
@@ -277,6 +278,9 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	uwsgi_log( "binding on TCP port: %d\n", ntohs(uws_addr.sin_port));
 
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
+		if (errno == EADDRINUSE) {
+			uwsgi_log("probably another instance of uWSGI is running on the same address.\n");
+		}
 		uwsgi_error("bind()");
 		exit(1);
 	}
