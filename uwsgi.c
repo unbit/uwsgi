@@ -379,6 +379,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 #endif
 		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
+		{"grunt", no_argument, &uwsgi.grunt, 1},
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -855,7 +856,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	/* shared area for workers */
-	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (!uwsgi.workers) {
 		uwsgi_error("mmap()");
 		exit(1);

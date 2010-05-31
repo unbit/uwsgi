@@ -849,7 +849,7 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
-	uwsgi_log( "detaching uWSGI from current connection...\n");
+	uwsgi_log( "disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
 
 	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
@@ -858,6 +858,52 @@ PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 
 	Py_INCREF(Py_True);
 	return Py_True;
+}
+
+PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
+
+	pid_t grunt_pid ;
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+
+	if (uwsgi.grunt) {
+		uwsgi_log( "spawning a grunt from worker %d (pid :%d)...\n", uwsgi.mywid, uwsgi.mypid);
+	}
+	else {
+		uwsgi_log( "grunt support is disabled !!!\n" );
+		goto clear;
+	}
+
+	grunt_pid = fork();
+	if (grunt_pid < 0) {
+		uwsgi_error("fork()");
+		goto clear;
+	}
+	else if (grunt_pid == 0) {
+		close(uwsgi.serverfd);
+		// create a new session
+		setsid();
+		// exit on SIGPIPE
+		signal(SIGPIPE, (void *) &end_me);
+		uwsgi.mywid = uwsgi.numproc + 1;
+		uwsgi.mypid = getpid();
+		memset(&uwsgi.workers[uwsgi.mywid], 0, sizeof(struct uwsgi_worker));
+		// this is pratically useless...
+		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
+		// this field will be overwrite after each call
+		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
+		// take the gil to support threads in grunt (is this useful ?)
+                uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+
+	// close connection on the worker
+	fclose(wsgi_req->async_post);
+        wsgi_req->fd_closed = 1 ;
+
+clear:
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 #ifdef UWSGI_SPOOLER
@@ -884,6 +930,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 	{"log", py_uwsgi_log, METH_VARARGS, ""},
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
+	{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
 	{"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},

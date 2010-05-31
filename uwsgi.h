@@ -400,6 +400,8 @@ struct uwsgi_server {
 	size_t limit_post;
 	int prio;
 
+	int grunt;
+
 	char *binary_path;
 
 	int is_a_reload;

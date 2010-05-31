@@ -474,8 +474,19 @@ static int uwsgi_handler(request_rec *r) {
                                         	uwsgi_http_status_read+=cnt;
                                         }
                                 }
+				// check for client disconnect
+				if (r->connection->aborted) { 
+					close(uwsgi_poll.fd);
+					apr_brigade_destroy(bb);
+					return HTTP_INTERNAL_SERVER_ERROR;
+				}	
 				apr_brigade_write(bb, NULL, NULL, buf, cnt);
-					
+				hret = ap_fflush(r->output_filters, bb) ;
+				if (hret != APR_SUCCESS) {
+					close(uwsgi_poll.fd);
+					apr_brigade_destroy(bb);
+					return hret;
+				}
 			}
 			else {
 				break;
@@ -483,6 +494,7 @@ static int uwsgi_handler(request_rec *r) {
 		}
 		else {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: poll() %s", strerror(errno));
+			close(uwsgi_poll.fd);
 			apr_brigade_destroy(bb);
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
