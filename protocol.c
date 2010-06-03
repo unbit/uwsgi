@@ -336,7 +336,8 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_len = strsize;
 				ptrbuf += strsize;
-				if (ptrbuf + 2 < bufferend) {
+				// value can be null (even at the end) so use <=
+				if (ptrbuf + 2 <= bufferend) {
 					memcpy(&strsize, ptrbuf, 2);
 #ifdef __BIG_ENDIAN__
 					strsize = uwsgi_swap16(strsize);
