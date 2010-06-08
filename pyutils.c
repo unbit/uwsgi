@@ -45,6 +45,21 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	}
 #endif
 
+#ifdef UWSGI_WSGI2
+	// is it a tuple (WSGI2.0) ?
+	if (PyTuple_Check((PyObject *)wsgi_req->async_result)) {
+		if (PyTuple_Size((PyObject *)wsgi_req->async_result) != 3) {
+			uwsgi_log("invalid WSGI2.0 response.\n");
+			goto clear;
+		}
+		if (py_uwsgi_spit(NULL, (PyObject *)wsgi_req->async_result) == Py_None) {
+			goto clear;
+		}
+		wsgi_req->async_orig_result = wsgi_req->async_result ;
+		wsgi_req->async_result = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 2);
+		return UWSGI_AGAIN;
+	}	
+#endif
 
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
@@ -58,7 +73,6 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 		}
 #endif
 	}
-
 
 
 
@@ -108,6 +122,9 @@ clear:
 		}
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
+#ifdef UWSGI_WSGI2
+	Py_XDECREF((PyObject *)wsgi_req->async_orig_result);
+#endif
 clear2:
 	Py_DECREF((PyObject *)wsgi_req->async_result);
 	PyErr_Clear();

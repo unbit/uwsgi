@@ -266,6 +266,10 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 	uh->pktsize = uwsgi_swap16(uh->pktsize);
 #endif
 
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("uwsgi payload size: %d (%X) modifier1: %d modifier2: %d\n", uh->pktsize, uh->pktsize, uh->modifier1, uh->modifier2);
+#endif
+
 	/* check for max buffer size */
 	if (uh->pktsize > uwsgi.buffer_size) {
 		uwsgi_log( "invalid request block size: %d...skip\n", uh->pktsize);

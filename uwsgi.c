@@ -2336,6 +2336,11 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	if (PyDict_SetItemString(uwsgi.embedded_dict, "version", PyString_FromString(UWSGI_VERSION))) {
+		PyErr_Print();
+		exit(1);
+	}
+
 	if (PyDict_SetItemString(uwsgi.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
 		PyErr_Print();
 		exit(1);

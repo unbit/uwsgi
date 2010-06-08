@@ -5,6 +5,7 @@
 #define UWSGI_VERSION	"0.9.6-dev"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -346,6 +347,9 @@ struct wsgi_request {
 
 	void *async_app;
 	void *async_result;
+#ifdef UWSGI_WSGI2
+	void *async_orig_result;
+#endif
 	void *async_placeholder;
 	void *async_args;
 	void *async_environ;
@@ -861,3 +865,9 @@ void env_to_arg(char *, char *);
 void parse_sys_envs(char **, struct option *);
 
 void uwsgi_log(const char *, ...);
+
+
+#ifdef UWSGI_EVDIS
+#define EVDIS_TYPE_FILE
+#define EVDIS_TYPE_DNSSD
+#endif

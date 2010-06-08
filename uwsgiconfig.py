@@ -17,10 +17,13 @@ PASTE=True
 MINTERPRETERS=True
 ASYNC=True
 UGREEN=True
+EVDIS=True
+WSGI2=True
 STACKLESS=False
 PLUGINS = []
 USWALLOW=False
 UNBIT=False
+DEBUG=True
 UWSGI_BIN_NAME = 'uwsgi'
 
 # specific compilation flags
@@ -203,6 +206,11 @@ def parse_vars():
 		cflags.append("-DUWSGI_PROXY")
 		gcc_list.append('proxy')
 
+	if EVDIS:
+		cflags.append("-DUWSGI_EVDIS")
+		gcc_list.append('evdis')
+		
+
 	if UGREEN:
 		if uwsgi_os == 'Darwin':
 			cflags.append("-D_XOPEN_SOURCE")
@@ -266,6 +274,12 @@ def parse_vars():
 		depends_on("SPOOLER", ['EMBEDDED'])
 		cflags.append("-DUWSGI_SPOOLER")
 		gcc_list.append('spooler')
+
+	if WSGI2:
+		cflags.append("-DUWSGI_WSGI2")
+
+	if DEBUG:
+		cflags.append("-DUWSGI_DEBUG")
 
 	if UNBIT:
 		cflags.append("-DUWSGI_UNBIT")
