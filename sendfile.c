@@ -59,9 +59,10 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk, off_t *pos, int async) {
 
-	int sf_ret;
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)
+
+		int sf_ret;
 
 		off_t sf_len = filesize ;
 
@@ -81,6 +82,7 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 
 		return sf_len;
 #elif defined(__APPLE__)
+		int sf_ret;
 		off_t sf_len = filesize ;
 
 		if (async > 1) {
@@ -100,6 +102,8 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 		return sf_len;
 			
 #elif defined(__linux__) || defined(__sun__)
+		int sf_ret;
+
 		if (async > 1) {
                 	sf_ret = sendfile(sockfd, filefd, pos, chunk);
 		}
@@ -114,7 +118,7 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 
 		return sf_ret ;
 #else
-		static nosf_buf_size = 0 ;
+		static size_t nosf_buf_size = 0 ;
 		static char *nosf_buf ;
 
                 ssize_t jlen = 0;
