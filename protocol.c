@@ -267,7 +267,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 #endif
 
 #ifdef UWSGI_DEBUG
-	uwsgi_debug("uwsgi payload size: %d (%X) modifier1: %d modifier2: %d\n", uh->pktsize, uh->pktsize, uh->modifier1, uh->modifier2);
+	uwsgi_debug("uwsgi payload size: %d (0x%X) modifier1: %d modifier2: %d\n", uh->pktsize, uh->pktsize, uh->modifier1, uh->modifier2);
 #endif
 
 	/* check for max buffer size */
