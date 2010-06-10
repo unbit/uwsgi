@@ -31,7 +31,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 	char mempkt[4096];
 	char logpkt[4096];
 
-	struct iovec logvec[2] ;
+	struct iovec logvec[4] ;
 	int logvecpos = 0 ;
 
 #ifdef UWSGI_SENDFILE
@@ -56,6 +56,15 @@ void log_request(struct wsgi_request *wsgi_req) {
 	microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
 	microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
 
+	if (uwsgi.vhost) {
+		logvec[logvecpos].iov_base = wsgi_req->host ;
+                logvec[logvecpos].iov_len = wsgi_req->host_len ;
+                logvecpos++;
+
+		logvec[logvecpos].iov_base = " " ;
+                logvec[logvecpos].iov_len = 1 ;
+                logvecpos++;
+	}
 
 	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1) {
 #ifndef UNBIT

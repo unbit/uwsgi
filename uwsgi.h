@@ -17,6 +17,8 @@
 #include <netinet/tcp.h>
 #include <stdarg.h>
 
+#include <dirent.h>
+
 // linux has not strlcpy
 #ifdef __linux
 	#define strlcpy(x, y, z) strcpy(x, y)
@@ -310,12 +312,17 @@ struct wsgi_request {
 	char *script_name;
 	uint16_t script_name_len;
 
+	char *host;
+	uint16_t host_len;
+
 	char *wsgi_script;
 	uint16_t wsgi_script_len;
 	char *wsgi_module;
 	uint16_t wsgi_module_len;
 	char *wsgi_callable;
 	uint16_t wsgi_callable_len;
+	char *pyhome;
+	uint16_t pyhome_len;
 
 #ifdef UNBIT
 	unsigned long long unbit_flags;
@@ -395,6 +402,8 @@ struct uwsgi_server {
 	int proxyfd;
 	char *proxy_socket_name;
 #endif
+
+	int vhost;
 
 	struct iovec *async_hvec;
 	char **async_buf;

@@ -124,7 +124,15 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	if (wsgi_req->script_name_len > 0) {
-		zero = PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len);
+		if (uwsgi->vhost) {
+			zero = PyString_FromStringAndSize(wsgi_req->host, wsgi_req->host_len);
+			PyString_Concat(&zero, PyString_FromString("|"));
+			PyString_Concat(&zero, PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len));
+                }
+		else {
+			zero = PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len);
+		}
+
 		if (PyDict_Contains(uwsgi->py_apps, zero)) {
                 	wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
                 }

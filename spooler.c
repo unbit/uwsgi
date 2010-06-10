@@ -1,9 +1,6 @@
 #ifdef UWSGI_SPOOLER
 #include "uwsgi.h"
 
-#include <dirent.h>
-
-
 
 int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buffer, int size) {
 

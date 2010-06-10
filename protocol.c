@@ -392,6 +392,14 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 							wsgi_req->wsgi_callable = ptrbuf;
 							wsgi_req->wsgi_callable_len = strsize;
 						}
+						else if (!strncmp("UWSGI_PYHOME", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->pyhome = ptrbuf;
+							wsgi_req->pyhome_len = strsize;
+						}
+						else if (!strncmp("SERVER_NAME", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->host = ptrbuf;
+							wsgi_req->host_len = strsize;
+						}
 						else if (!strncmp("HTTPS", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->https = ptrbuf;
 							wsgi_req->https_len = strsize;
@@ -404,6 +412,7 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 						else if (!strncmp("CONTENT_LENGTH", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
 						}
+
 						if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
 							wsgi_req->var_cnt++;
 						}

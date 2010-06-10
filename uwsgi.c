@@ -380,6 +380,8 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
+		{"no-site", no_argument, &Py_NoSiteFlag, 1},
+		{"vhost", no_argument, &uwsgi.vhost, 1},
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -642,9 +644,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	Py_SetProgramName("uWSGI");
 #endif
 
-
 	Py_Initialize();
-
 
 
 #ifdef PYTHREE
@@ -688,6 +688,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	PySys_SetArgv(pyargc, pyargv);
 
+	if (uwsgi.vhost) {
+		uwsgi_log("VirtualHosting mode enabled.\n");
+		uwsgi.wsgi_cnt = 0 ;
+	}
 
 	uwsgi.py_apps = PyDict_New();
 	if (!uwsgi.py_apps) {
@@ -962,7 +966,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (!uwsgi.single_interpreter) {
-		uwsgi_log( "*** uWSGI is running in multiple interpreter mode !!! ***\n");
+		uwsgi_log( "*** uWSGI is running in multiple interpreter mode ***\n");
 	}
 
 	/* preforking() */
@@ -1607,6 +1611,9 @@ void init_uwsgi_vars() {
 	int i;
 #endif
 	PyObject *pysys, *pysys_dict, *pypath;
+	char venv_version[15] ;
+
+	PyObject *site_module;
 
 	/* add cwd to pythonpath */
 	pysys = PyImport_ImportModule("sys");
@@ -1620,6 +1627,38 @@ void init_uwsgi_vars() {
 		PyErr_Print();
 		exit(1);
 	}
+
+#ifdef UWSGI_MINTERPRETERS
+	// simulate a pythonhome directive
+	if (uwsgi.wsgi_req->pyhome_len > 0) {
+
+		PyObject *venv_path = PyString_FromStringAndSize(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len) ;
+
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("setting dynamic virtualenv to %s\n", PyString_AsString(venv_path));
+#endif
+
+		PyDict_SetItemString(pysys_dict, "prefix", venv_path);
+		PyDict_SetItemString(pysys_dict, "exec_prefix", venv_path);
+
+		venv_version[14] = 0 ;
+		if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
+			return ;
+		}
+		PyString_Concat( &venv_path, PyString_FromString(venv_version) );
+
+		if ( PyList_Insert(pypath, 0, venv_path) ) {
+			PyErr_Print();
+		}
+
+		site_module = PyImport_ImportModule("site");
+		if (site_module) {
+			PyImport_ReloadModule(site_module);
+		}
+
+	}
+#endif
+
 	if (PyList_Insert(pypath, 0, PyString_FromString(".")) != 0) {
 		PyErr_Print();
 	}
@@ -1675,16 +1714,28 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	if (uwsgi.wsgi_req->script_name_len == 0) {
 		uwsgi.wsgi_req->script_name_len = 1;
 		uwsgi.wsgi_req->script_name = (char *) app_slash;
-		id = 0;
+		if (!uwsgi.vhost) {
+			id = 0;
+		}
 	}
 	else if (uwsgi.wsgi_req->script_name_len == 1) {
 		if (uwsgi.wsgi_req->script_name[0] == '/') {
-			id = 0;
+			if (!uwsgi.vhost) {
+				id = 0;
+			}
 		}
 	}
 
 
-	zero = PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len);
+	if (uwsgi.vhost) {
+        	zero = PyString_FromStringAndSize(uwsgi.wsgi_req->host, uwsgi.wsgi_req->host_len);
+                PyString_Concat(&zero, PyString_FromString("|"));
+                PyString_Concat(&zero, PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len));
+        }
+        else {
+		zero = PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len);
+	}
+
 	if (!zero) {
 		Py_FatalError("cannot get mountpoint python object !\n");
 	}
@@ -1695,7 +1746,6 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		return -1;
 	}
 
-	Py_DECREF(zero);
 
 	wi = &uwsgi.wsgi_apps[id];
 
@@ -1972,16 +2022,19 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		PyThreadState_Swap(uwsgi.main_thread);
 	}
 
-	memset(tmpstring, 0, 256);
-	memcpy(tmpstring, uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len);
-	PyDict_SetItemString(uwsgi.py_apps, tmpstring, PyInt_FromLong(id));
+	PyDict_SetItem(uwsgi.py_apps, zero, PyInt_FromLong(id));
 	PyErr_Print();
 
-	uwsgi_log( "application %d (%s) ready\n", id, tmpstring);
+	uwsgi_log( "application %d (%s) ready\n", id, PyString_AsString(zero));
+
+	Py_DECREF(zero);
 
 	if (id == 0) {
 		uwsgi_log( "setting default application to 0\n");
 		uwsgi.default_app = 0;
+		if (uwsgi.vhost) {
+			uwsgi.wsgi_cnt++;
+		}
 	}
 	else {
 		uwsgi.wsgi_cnt++;
