@@ -44,6 +44,7 @@ ERLANG_LDFLAGS = '-lerl_interface -lei'
 
 import os
 uwsgi_os = os.uname()[0]
+uwsgi_cpu = os.uname()[4]
 
 import sys
 import subprocess
@@ -169,7 +170,7 @@ def parse_vars():
 	if uwsgi_os in kvm_list:
 		libs.append('-lkvm')
 
-	if uwsgi_os == 'OpenBSD':
+	if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm':
 		UGREEN = False
 
 	if EMBEDDED:
