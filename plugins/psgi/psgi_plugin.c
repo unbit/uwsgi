@@ -6,6 +6,8 @@
 static PerlInterpreter *my_perl;
 static SV *psgi_func ;
 
+extern char **environ;
+
 /* statistically ordered */
 static struct http_status_codes hsc[] = {
 
@@ -76,7 +78,6 @@ xs_init(pTHX)
 
 int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 
-	char *pargs[2] ;
 	char *psgibuffer ;
 	int fd ;
 
@@ -84,20 +85,20 @@ int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 
 	struct http_status_codes *http_sc ;
 
-	char *embedding[] = { "", "-e", "0" };
+	int argc = 4 ;
+	char *embedding[] = { "", args,  "-e", "0" };
+	char **argv = embedding ;
 
+	uwsgi_log("initializing Perl environment: %s\n", args);
 
-	fprintf(stderr,"initializing Perl environment: %s\n", args);
-
+	PERL_SYS_INIT3(&argc, &argv, &environ);
 	my_perl = perl_alloc();	
 	if (!my_perl) {
-		fprintf(stderr,"unable to allocate perl interpreter\n");
+		uwsgi_log("unable to allocate perl interpreter\n");
 		return -1;
 	}
 
-	pargs[0] =  "" ;
-	pargs[1] = args ;
-
+	PL_perl_destruct_level = 1;
 	perl_construct(my_perl);
 
 	// filling http status codes
@@ -106,31 +107,32 @@ int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 	}
 
 
-	perl_parse(my_perl, xs_init, 3, embedding, NULL);
+	PL_origalen = 1;
+	perl_parse(my_perl, xs_init, 4, embedding, NULL);
 
 	perl_eval_pv("use IO::Handle;", 0);
 
 	fd = open(args, O_RDONLY);
 	if (fd < 0) {
-		perror("open()");
+		uwsgi_error("open()");
 		goto clear ;
 	}
 
         if (fstat(fd, &stat_psgi)) {
-                perror("fstat()");
+                uwsgi_error("fstat()");
 		close(fd);
 		goto clear;
         }
 
 	psgibuffer = malloc(stat_psgi.st_size);
 	if (!psgibuffer) {
-		perror("malloc()");
+		uwsgi_error("malloc()");
 		close(fd);
 		goto clear;
 	}
 
 	if (read(fd, psgibuffer, stat_psgi.st_size) != stat_psgi.st_size) {
-		perror("read()");
+		uwsgi_error("read()");
 		close(fd);
 		free(psgibuffer);
 		goto clear;	
@@ -139,8 +141,9 @@ int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 	psgibuffer[stat_psgi.st_size] = 0 ;
 
 	psgi_func = perl_eval_pv(psgibuffer, 0);
+
 	if (!psgi_func) {
-		fprintf(stderr,"unable to find PSGI function entry point.\n");
+		uwsgi_log("unable to find PSGI function entry point.\n");
 		close(fd);
 		free(psgibuffer);
 		goto clear;
@@ -175,13 +178,13 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	/* Standard PSGI request */
         if (!wsgi_req->uh.pktsize) {
-                fprintf (stderr, "Invalid PSGI request. skip.\n");
+                uwsgi_log("Invalid PSGI request. skip.\n");
                 return -1;
         }
 
 
 	if (uwsgi_parse_vars(uwsgi, wsgi_req)) {
-		fprintf(stderr,"Invalid PSGI request. skip.\n");
+		uwsgi_log("Invalid PSGI request. skip.\n");
 		return -1;
 	}
 
@@ -259,7 +262,6 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	// dereference output
 	response = (AV *) SvRV( sv_2mortal(newSVsv(POPs)) ) ;
 
-
 	status_code = av_fetch(response, 0, 0);
 
 	wsgi_req->hvec[0].iov_base = "HTTP/1.1 ";
@@ -320,7 +322,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 
 	if ( (wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) < 0) {
-		perror("writev()");
+		uwsgi_error("writev()");
 	}
 
 
@@ -328,8 +330,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	io = *hitem;
 	
-	
-	if (SvTYPE(SvRV(io)) == SVt_PVGV) {
+	if (SvTYPE(SvRV(io)) == SVt_PVGV || SvTYPE(SvRV(io)) == SVt_PVHV) {
 
 		for(;;) {
 
@@ -359,6 +360,9 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 			wsgi_req->response_size += write(wsgi_req->poll.fd, chitem, hlen);
 		}
 
+	}
+	else {
+		uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(io)));
 	}
 	
 	FREETMPS;

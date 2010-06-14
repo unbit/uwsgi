@@ -8,6 +8,11 @@ def ciao():
 def ciao2():
 	print "nuovo uwsgi_server"
 
+#if uwsgi.load_plugin(0, 'plugins/example/example_plugin.so', 'ciao'):
+#	print "example plugin loaded"
+#else:
+#	print "unable to load example plugin"
+
 #uwsgi.event_add(uwsgi.EVENT_FILE, "/tmp", ciao)
 #uwsgi.event_add(uwsgi.EVENT_DNSSD, "_uwsgi._tcp", ciao2)
 #uwsgi.event_add(uwsgi.EVENT_TIMER, 1000, ciao2)

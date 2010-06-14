@@ -583,55 +583,21 @@ PyObject *py_uwsgi_set_option(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
-	uint8_t modifier;
+	int modifier;
 	char *plugin_name = NULL;
 	char *pargs = NULL;
-
-	void *plugin_handle;
-	int (*plugin_init) (struct uwsgi_server *, char *);
-	int (*plugin_request) (struct uwsgi_server *, struct wsgi_request *);
-	void (*plugin_after_request) (struct uwsgi_server *, struct wsgi_request *);
 
 	if (!PyArg_ParseTuple(args, "is|s:load_plugin", &modifier, &plugin_name, &pargs)) {
 		return NULL;
 	}
 
-	plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
-	if (!plugin_handle) {
-		uwsgi_log( "%s\n", dlerror());
-	}
-	else {
-		plugin_init = dlsym(plugin_handle, "uwsgi_init");
-		if (plugin_init) {
-			if ((*plugin_init) (&uwsgi, pargs)) {
-				uwsgi_log( "plugin initialization returned error\n");
-				if (dlclose(plugin_handle)) {
-					uwsgi_log( "unable to unload plugin\n");
-				}
-
-				Py_INCREF(Py_None);
-				return Py_None;
-			}
-		}
-
-		plugin_request = dlsym(plugin_handle, "uwsgi_request");
-		if (plugin_request) {
-			uwsgi.shared->hooks[modifier] = plugin_request;
-			plugin_after_request = dlsym(plugin_handle, "uwsgi_after_request");
-			if (plugin_after_request) {
-				uwsgi.shared->after_hooks[modifier] = plugin_after_request;
-			}
-			Py_INCREF(Py_True);
-			return Py_True;
-
-		}
-		else {
-			uwsgi_log( "%s\n", dlerror());
-		}
+	if (uwsgi_load_plugin(&uwsgi, modifier, plugin_name, pargs, 1)) {
+		Py_INCREF(Py_None);
+		return Py_None;
 	}
 
-	Py_INCREF(Py_None);
-	return Py_None;
+	Py_INCREF(Py_True);
+	return Py_True;
 }
 
 #ifdef UWSGI_MULTICAST

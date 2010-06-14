@@ -1,7 +1,7 @@
 #include "../../uwsgi.h"
 
 int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
-	fprintf(stderr,"i am the example plugin initialization function with arg: %s\n", args);
+	uwsgi_log("i am the example plugin initialization function with arg: %s\n", args);
 	return 0;
 }
 
@@ -16,5 +16,5 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 
 void uwsgi_after_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
-	fprintf(stderr,"i am the example plugin after request function\n");
+	uwsgi_log("i am the example plugin after request function\n");
 }

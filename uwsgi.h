@@ -33,6 +33,10 @@
 #include <ucontext.h>
 #endif
 
+#ifndef UWSGI_PLUGIN_BASE
+#define UWSGI_PLUGIN_BASE ""
+#endif
+
 #include <arpa/inet.h>
 #include <sys/mman.h>
 #include <sys/file.h>
@@ -556,6 +560,22 @@ struct uwsgi_server {
 #endif
 
 	int no_orphans;
+
+#ifdef UWSGI_EMBED_PLUGINS
+
+#ifdef UWSGI_EMBED_PLUGIN_PSGI
+	char *plugin_arg_psgi;
+#endif
+
+#ifdef UWSGI_EMBED_PLUGIN_LUA
+	char *plugin_arg_lua;
+#endif
+
+#ifdef UWSGI_EMBED_PLUGIN_RACK
+	char *plugin_arg_rack;
+#endif
+
+#endif
 };
 
 struct uwsgi_cluster_node {
@@ -879,4 +899,58 @@ void uwsgi_log(const char *, ...);
 #ifdef UWSGI_EVDIS
 #define EVDIS_TYPE_FILE
 #define EVDIS_TYPE_DNSSD
+#endif
+
+int uwsgi_load_plugin(struct uwsgi_server *, int, char *, char *, int);
+void embed_plugins(struct uwsgi_server *);
+
+
+// PLUGINS
+
+#define UWSGI_PLUGIN_LONGOPT_PSGI
+#define UWSGI_PLUGIN_LONGOPT_LUA
+#define UWSGI_PLUGIN_LONGOPT_RACK
+#define LONG_ARGS_PLUGIN_EMBED_PSGI
+#define LONG_ARGS_PLUGIN_EMBED_LUA
+#define LONG_ARGS_PLUGIN_EMBED_RACK
+
+
+
+#ifdef UWSGI_EMBED_PLUGINS
+
+
+#ifdef UWSGI_EMBED_PLUGIN_PSGI
+
+#undef UWSGI_PLUGIN_LONGOPT_PSGI
+#define UWSGI_PLUGIN_LONGOPT_PSGI {"psgi", required_argument, 0, 30005},
+
+#undef LONG_ARGS_PLUGIN_EMBED_PSGI
+#define LONG_ARGS_PLUGIN_EMBED_PSGI case 30005:\
+					uwsgi.plugin_arg_psgi = optarg;\
+					break;
+#endif
+
+#ifdef UWSGI_EMBED_PLUGIN_LUA
+
+#undef UWSGI_PLUGIN_LONGOPT_LUA
+#define UWSGI_PLUGIN_LONGOPT_LUA {"lua", required_argument, 0, 30006},
+
+#undef LONG_ARGS_PLUGIN_EMBED_LUA
+#define LONG_ARGS_PLUGIN_EMBED_LUA case 30006:\
+					uwsgi.plugin_arg_lua = optarg;\
+					break;
+#endif
+
+#ifdef UWSGI_EMBED_PLUGIN_RACK
+
+#undef UWSGI_PLUGIN_LONGOPT_RACK
+#define UWSGI_PLUGIN_LONGOPT_RACK {"rack", required_argument, 0, 30007},
+
+#undef LONG_ARGS_PLUGIN_EMBED_RACK
+#define LONG_ARGS_PLUGIN_EMBED_RACK case 30007:\
+					uwsgi.plugin_arg_rack = optarg;\
+					break;
+#endif
+
+
 #endif

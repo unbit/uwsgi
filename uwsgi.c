@@ -378,6 +378,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"ugreen", no_argument, &uwsgi.ugreen, 1},
 		{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 #endif
+		UWSGI_PLUGIN_LONGOPT_PSGI
+		UWSGI_PLUGIN_LONGOPT_LUA
+		UWSGI_PLUGIN_LONGOPT_RACK
 		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
 		{"no-site", no_argument, &Py_NoSiteFlag, 1},
@@ -479,6 +482,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	else {
 		uwsgi_log("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 	}
+#endif
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, plese disable DEBUG in uwsgiconfig.py and recompile it ***\n***\n");
 #endif
 
 	uwsgi_log("compiled with version: %s\n", __VERSION__);
@@ -909,6 +916,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log( "done.\n");
 
+#ifdef UWSGI_EMBED_PLUGINS
+	embed_plugins(&uwsgi);
+#endif
+
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_node) {
 		uwsgi.erlang_nodes = 1;
@@ -949,7 +960,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		exit(1);
 	}
-
 
 
 #ifndef UNBIT
@@ -2214,7 +2224,6 @@ void uwsgi_wsgi_config(char *filename) {
 		}
 	}
 	
-
 	wsgi_dict = PyModule_GetDict(wsgi_module);
 	if (!wsgi_dict) {
 		PyErr_Print();
@@ -2783,6 +2792,9 @@ void manage_opt(int i, char *optarg) {
 	case 'i':
 		uwsgi.single_interpreter = 1;
 		break;
+	LONG_ARGS_PLUGIN_EMBED_PSGI
+	LONG_ARGS_PLUGIN_EMBED_LUA
+	LONG_ARGS_PLUGIN_EMBED_RACK
 #ifndef UNBIT
 	case 'h':
 		fprintf(stdout, "Usage: %s [options...]\n\

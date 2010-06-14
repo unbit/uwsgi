@@ -20,11 +20,15 @@ UGREEN=True
 EVDIS=True
 WSGI2=True
 STACKLESS=False
+#PLUGINS = ['psgi']
 PLUGINS = []
 USWALLOW=False
 UNBIT=False
 DEBUG=True
+EMBED_PLUGINS=True
 UWSGI_BIN_NAME = 'uwsgi'
+UWSGI_PLUGIN_DIR = '.'
+
 
 # specific compilation flags
 # libxml2 or expat
@@ -55,7 +59,7 @@ GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
 	GCC = 'gcc'
 
-gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'uwsgi']
+gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
 
 # large file support
 try:
@@ -107,9 +111,10 @@ def build_uwsgi(bin_name):
 			sys.exit(1)
 
 	if len(PLUGINS) > 0:
-		print("*** uWSGI embedding plugin ***")
+		print("*** uWSGI building plugins ***")
 		for plugin in PLUGINS:
-			print(plugin)
+			print("*** building plugin: %s ***" % plugin)
+			build_plugin("plugins/%s" % plugin)
 
 	print("*** uWSGI linking ***")
 	ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags), ' '.join(map(add_o, gcc_list)), ' '.join(libs))
@@ -267,6 +272,14 @@ def parse_vars():
 			cflags.append(ERLANG_CFLAGS)
 		gcc_list.append('erlang')
 
+	if UWSGI_PLUGIN_DIR is not None:
+		cflags.append("-DUWSGI_PLUGIN_DIR=\\\"%s\\\"" % UWSGI_PLUGIN_DIR)
+
+	if len(PLUGINS) > 0 and EMBED_PLUGINS:
+		cflags.append("-DUWSGI_EMBED_PLUGINS")
+		for plugin in PLUGINS:
+			cflags.append("-DUWSGI_EMBED_PLUGIN_%s" % plugin.upper())
+
 	if SCTP:
 		libs.append("-lsctp")
 		cflags.append("-DUWSGI_SCTP")
@@ -281,6 +294,7 @@ def parse_vars():
 
 	if DEBUG:
 		cflags.append("-DUWSGI_DEBUG")
+		cflags.append("-g")
 
 	if UNBIT:
 		cflags.append("-DUWSGI_UNBIT")
@@ -291,14 +305,24 @@ def build_plugin(path):
 	sys.path.insert(0, path)
 	import uwsgiplugin as up
 
-	cflags.append(up.CFLAGS)
-	libs.append(up.LDFLAGS)
+	p_cflags = cflags[:]
+	p_libs = libs[:]
+	p_ldflags = ldflags[:]
 
-	cflags.insert(0, '-I.')
+	p_cflags.append(up.CFLAGS)
+	p_libs.append(up.LDFLAGS)
+
+	p_cflags.insert(0, '-I.')
 
 	plugin_base = path + '/' + up.NAME + '_plugin'
+	plugin_dest = UWSGI_PLUGIN_DIR + '/' + up.NAME + '_plugin'
 
-	gccline = "%s -fPIC -shared -o %s.so %s %s %s.c %s" % (GCC, plugin_base, ' '.join(cflags), ' '.join(ldflags), plugin_base, ' '.join(libs))
+	shared_flag = '-shared'
+
+	if uwsgi_os == 'Darwin':
+		shared_flag = '-dynamiclib -undefined dynamic_lookup'
+
+	gccline = "%s -fPIC %s -o %s.so %s %s %s.c %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), plugin_base, ' '.join(p_libs))
 	print(gccline)
 
 	ret = os.system(gccline)
@@ -306,7 +330,7 @@ def build_plugin(path):
 		print("*** unable to build %s plugin ***" % up.NAME)
 		sys.exit(1)
 
-	print("*** %s plugin built and available in %s ***" % (up.NAME, plugin_base + '.so'))
+	print("*** %s plugin built and available in %s ***" % (up.NAME, plugin_dest + '.so'))
 	
 	
 
