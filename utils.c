@@ -328,6 +328,10 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
 	wsgi_req->hvec = &uwsgi.async_hvec[wsgi_req->async_id];
 	wsgi_req->buffer = uwsgi.async_buf[wsgi_req->async_id];
 
+#ifdef UWSGI_ROUTING
+	wsgi_req->ovector = uwsgi.async_ovector[wsgi_req->async_id];
+#endif
+
 	if (uwsgi.post_buffering > 0) {
 		wsgi_req->post_buffering_buf = uwsgi.async_post_buf[wsgi_req->async_id];
 	}

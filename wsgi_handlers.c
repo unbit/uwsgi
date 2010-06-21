@@ -198,7 +198,11 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
-		//uwsgi_log("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
+/*
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
+#endif
+*/
 		pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
 		pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
 		PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
@@ -316,7 +320,79 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
 	Py_DECREF(zero);
 
+
+	wsgi_req->async_app = wi->wsgi_callable ;
+
+
+#ifdef UWSGI_ROUTING
+	uwsgi_log("routing %d routes %d\n", uwsgi->routing, uwsgi->routes);
+	if (uwsgi->routing && uwsgi->routes > 0) {
+		int route_id;
+		struct uwsgi_route *ur;
+		PyObject *route_py_callbase;
+		PyObject *route_py_dict = wi->wsgi_dict;
+
+		route_id = check_route(uwsgi, wsgi_req);
+
+		if (route_id >= 0) {
+			ur = &uwsgi->shared->routes[route_id];
+
+			/*
+				we have:
+					ovector -> allocated per wsgi_req		
+					ovector_size -> set per uwsgi_route
+					wsgi_req->async_args -> point to a tuple of env+(CAPTURECOUNT-1)
+					wsgi_req->async_callable -> cached callbase.call
+
+					all this part must be done on initialization to avoid races !!!
+			*/
+
+			uwsgi_log("setting route %d\n", route_id);
+			if (ur->callable == NULL) {
+				if (ur->callbase) {
+					route_py_callbase = PyImport_ImportModule(ur->callbase);
+					if (route_py_callbase == NULL) {
+						PyErr_Print();	
+					}
+					else {
+						uwsgi_log("callbase dict ok for %s\n", ur->call);
+						route_py_dict = PyModule_GetDict(route_py_callbase);
+					}
+				}
+
+				ur->callable = PyDict_GetItemString(route_py_dict, ur->call);
+				if (ur->callable == NULL) {
+					uwsgi_log("route_py_dict: %p call: %s\n", route_py_dict, ur->call);
+					PyErr_Print();
+				}
+
+				ur->callable_args = PyTuple_New(ur->args+1);
+			}
+
+			if (ur->callable) {
+				uwsgi_log("route callable dict ok: %d\n", ur->args);
+				wsgi_req->async_app = ur->callable;
+				wsgi_req->async_args = ur->callable_args;
+
+				for (i=1;i<=ur->args;i++) {
+					uwsgi_log("%d\n", i);
+					uwsgi_log("%d / %d\n", wsgi_req->ovector[i*2], wsgi_req->ovector[(i*2)+1]);
+					uwsgi_log("%d = %.*s\n", i,wsgi_req->ovector[(i*2)+1] - wsgi_req->ovector[i*2],
+											 wsgi_req->path_info + wsgi_req->ovector[i*2]);
+					PyTuple_SetItem(wsgi_req->async_args, i, PyString_FromStringAndSize(
+											wsgi_req->path_info + wsgi_req->ovector[i*2],
+											wsgi_req->ovector[(i*2)+1] - wsgi_req->ovector[i*2]
+											));
+				}
+				uwsgi_log("route callable built\n");
+			}
+		}
+	}
+#endif
+
+
 	// call
+
 #ifdef UWSGI_PROFILER
 	if (uwsgi->enable_profiler == 1) {
 		PyDict_SetItem(wi->pymain_dict, PyString_FromFormat("uwsgi_environ__%d", wsgi_req->app_id), wsgi_req->async_environ);
@@ -332,7 +408,9 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 		PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-		wsgi_req->async_result = python_call(wi->wsgi_callable, wsgi_req->async_args);
+		uwsgi_log("ready to call %p %p\n", wsgi_req->async_app, wsgi_req->async_environ);
+		wsgi_req->async_result = python_call(wsgi_req->async_app, wsgi_req->async_args);
+		uwsgi_log("called.\n");
 
 #ifdef UWSGI_PROFILER
 	}
@@ -342,6 +420,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	if (wsgi_req->async_result) {
 
 
+		uwsgi_log("managing response\n");
 		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
 			if (uwsgi->async > 1) {

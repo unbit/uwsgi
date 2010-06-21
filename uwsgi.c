@@ -385,6 +385,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"grunt", no_argument, &uwsgi.grunt, 1},
 		{"no-site", no_argument, &Py_NoSiteFlag, 1},
 		{"vhost", no_argument, &uwsgi.vhost, 1},
+#ifdef UWSGI_ROUTING
+		{"routing", no_argument, &uwsgi.routing, 1},
+#endif
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -942,17 +945,19 @@ int main(int argc, char *argv[], char *envp[]) {
 	else if (uwsgi.wsgi_file != NULL) {
 		uwsgi_wsgi_file_config();
 	}
-#ifdef UWSGI_XML
-	else if (uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.wsgi_req, NULL);
-	}
-#endif
-
 #ifdef UWSGI_PASTE
 	else if (uwsgi.paste != NULL) {
 		uwsgi_paste_config();
 	}
 #endif
+
+// parse xml anyway
+#ifdef UWSGI_XML
+	if (uwsgi.xml_config != NULL) {
+		uwsgi_xml_config(uwsgi.wsgi_req, NULL);
+	}
+#endif
+
 
 	if (uwsgi.test_module != NULL) {
 		if (PyImport_ImportModule(uwsgi.test_module)) {
@@ -1016,6 +1021,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+#ifdef UWSGI_ROUTING
+	routing_setup(&uwsgi);
+#endif
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
@@ -1846,6 +1854,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 	}
 
+	wi->wsgi_dict = wsgi_dict ;
 
 	if (!wi->wsgi_callable) {
 		PyErr_Print();

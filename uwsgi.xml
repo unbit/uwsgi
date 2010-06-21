@@ -1,5 +1,9 @@
 <uwsgi>
-	<app mountpoint="/test">
-		<script>myapp_wsgi</script>
-	</app>
+	<module>simple_app</module>
+
+	<routing mountpoint="/" base="myrouteapp.pippo" modifier1="17" modifier2="22">
+		<route method="GET" pattern="/pippo/(\d+)$" requires="REMOTE_USER">homepage</route>
+		<route method="GET|POST" pattern="/ciccia/(\d+)/(\w+)$">view1</route>
+		<route pattern="^/$">index</route>
+	</routing>
 </uwsgi>

@@ -351,6 +351,16 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 						if (!strncmp("SCRIPT_NAME", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->script_name = ptrbuf;
 							wsgi_req->script_name_len = strsize;
+#ifdef UWSGI_DEBUG
+							uwsgi_debug("SCRIPT_NAME=%.*s\n", wsgi_req->script_name_len, wsgi_req->script_name);
+#endif
+						}
+						else if (!strncmp("PATH_INFO", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->path_info = ptrbuf;
+							wsgi_req->path_info_len = strsize;
+#ifdef UWSGI_DEBUG
+							uwsgi_debug("PATH_INFO=%.*s\n", wsgi_req->path_info_len, wsgi_req->path_info);
+#endif
 						}
 						else if (!strncmp("SERVER_PROTOCOL", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->protocol = ptrbuf;

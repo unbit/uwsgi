@@ -52,11 +52,21 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 			uwsgi_log("invalid WSGI2.0 response.\n");
 			goto clear;
 		}
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("wsgi_req->async_result = %d\n", ((PyObject *)wsgi_req->async_result)->ob_refcnt);
+#endif
 		if (py_uwsgi_spit(NULL, (PyObject *)wsgi_req->async_result) == Py_None) {
 			goto clear;
 		}
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("wsgi_req->async_result = %d\n", ((PyObject *)wsgi_req->async_result)->ob_refcnt);
+#endif
 		wsgi_req->async_orig_result = wsgi_req->async_result ;
 		wsgi_req->async_result = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 2);
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("wsgi_req->async_orig_result = %d\n", ((PyObject *)wsgi_req->async_orig_result)->ob_refcnt);
+		uwsgi_debug("wsgi_req->async_result = %d\n", ((PyObject *)wsgi_req->async_result)->ob_refcnt);
+#endif
 		return UWSGI_AGAIN;
 	}	
 #endif
@@ -133,8 +143,14 @@ clear2:
 	if (wsgi_req->async_placeholder) {
 		uwsgi_debug("wsgi_req->async_placeholder: %d\n", ((PyObject *)wsgi_req->async_placeholder)->ob_refcnt);
 	}
+	if (wsgi_req->async_orig_result) {
+		uwsgi_debug("wsgi_req->async_orig_result: %d\n", ((PyObject *)wsgi_req->async_orig_result)->ob_refcnt);
+	}
 	if (wsgi_req->async_result) {
 		uwsgi_debug("wsgi_req->async_result: %d\n", ((PyObject *)wsgi_req->async_result)->ob_refcnt);
+	}
+	if (wsgi_req->async_app) {
+		uwsgi_debug("wsgi_req->async_app: %d\n", ((PyObject *)wsgi_req->async_app)->ob_refcnt);
 	}
 #endif
 	return UWSGI_OK;
@@ -146,10 +162,14 @@ PyObject *python_call(PyObject *callable, PyObject *args) {
 	PyObject *pyret;
 
 	pyret =  PyEval_CallObject(callable, args);
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("called %p %p %d\n", callable, args, pyret->ob_refcnt);
+#endif
 	if (PyErr_Occurred()) {
 		PyErr_Print();
 	}
 
+	Py_INCREF(pyret);
 	return pyret;
 }
 

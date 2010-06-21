@@ -37,6 +37,10 @@
 #define UWSGI_PLUGIN_BASE ""
 #endif
 
+#ifdef UWSGI_ROUTING
+#include <pcre.h>
+#endif
+
 #include <arpa/inet.h>
 #include <sys/mman.h>
 #include <sys/file.h>
@@ -248,6 +252,7 @@ struct uwsgi_app {
 
 	PyThreadState *interpreter;
 	PyObject *pymain_dict;
+	PyObject *wsgi_dict;
 	PyObject *wsgi_callable;
 
 
@@ -271,6 +276,28 @@ struct uwsgi_app {
 	int requests;
 
 };
+
+#ifdef UWSGI_ROUTING
+struct uwsgi_route {
+
+	const char *mountpoint;
+	const char *callbase;
+
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+	pcre *method;
+	pcre_extra *method_extra;
+
+	const char *call;
+
+	int modifier1;
+	int modifier2;
+
+	void *callable;
+	void *callable_args;
+	int args;
+};
+#endif
 
 struct __attribute__ ((packed)) uwsgi_header {
 	uint8_t modifier1;
@@ -318,6 +345,9 @@ struct wsgi_request {
 
 	char *host;
 	uint16_t host_len;
+
+	char *path_info;
+	uint16_t path_info_len;
 
 	char *wsgi_script;
 	uint16_t wsgi_script_len;
@@ -369,6 +399,7 @@ struct wsgi_request {
 	
 	int async_plagued;
 
+	int *ovector;
 	size_t post_cl;
 	char *post_buffering_buf;
 	uint64_t post_buffering_read;
@@ -412,6 +443,10 @@ struct uwsgi_server {
 	struct iovec *async_hvec;
 	char **async_buf;
 	char **async_post_buf;
+
+#ifdef UWSGI_ROUTING
+	int **async_ovector;
+#endif
 
 	struct rlimit rl;
 	size_t limit_post;
@@ -525,6 +560,11 @@ struct uwsgi_server {
 	char *pyargv;
 #endif
 
+#ifdef UWSGI_ROUTING
+	int routing;
+	int routes;
+#endif
+
 	char *wsgi_config;
 	char *paste;
 	char *wsgi_file;
@@ -632,6 +672,13 @@ struct uwsgi_shared {
 #define SNMP_GAUGE 0x42
 #define SNMP_COUNTER64 0x46
 
+#endif
+
+#ifdef UWSGI_ROUTING
+#ifndef MAX_UWSGI_ROUTES
+#define MAX_UWSGI_ROUTES 64
+#endif
+	struct uwsgi_route routes[MAX_UWSGI_ROUTES];
 #endif
 
 };
@@ -953,4 +1000,9 @@ void embed_plugins(struct uwsgi_server *);
 #endif
 
 
+#endif
+
+#ifdef UWSGI_ROUTING
+void routing_setup(struct uwsgi_server *);
+int check_route(struct uwsgi_server *, struct wsgi_request *);
 #endif

@@ -19,6 +19,7 @@ ASYNC=True
 UGREEN=True
 EVDIS=True
 WSGI2=True
+ROUTING=True
 STACKLESS=False
 #PLUGINS = ['psgi']
 PLUGINS = []
@@ -207,10 +208,19 @@ def parse_vars():
 		cflags.append("-DUWSGI_NAGIOS")
 		gcc_list.append('nagios')
 
+	if DEBUG:
+		cflags.append("-DUWSGI_DEBUG")
+
 	if PROXY:
 		depends_on("PROXY", ['ASYNC'])
 		cflags.append("-DUWSGI_PROXY")
 		gcc_list.append('proxy')
+
+	if ROUTING:
+		depends_on("ROUTING", ['WSGI2', 'XML'])
+		cflags.append("-DUWSGI_ROUTING")
+		gcc_list.append('routing')
+		libs.append('-lpcre')
 
 	if EVDIS:
 		cflags.append("-DUWSGI_EVDIS")
