@@ -248,6 +248,9 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define MAX_VARS 64
 
+struct wsgi_request;
+struct uwsgi_server;
+
 struct uwsgi_app {
 
 	PyThreadState *interpreter;
@@ -277,6 +280,7 @@ struct uwsgi_app {
 
 };
 
+
 #ifdef UWSGI_ROUTING
 struct uwsgi_route {
 
@@ -296,6 +300,8 @@ struct uwsgi_route {
 	void *callable;
 	void *callable_args;
 	int args;
+
+	void (*action)(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_route *);
 };
 #endif
 
@@ -561,8 +567,12 @@ struct uwsgi_server {
 #endif
 
 #ifdef UWSGI_ROUTING
+#ifndef MAX_UWSGI_ROUTES
+#define MAX_UWSGI_ROUTES 64
+#endif
 	int routing;
-	int routes;
+	int nroutes;
+	struct uwsgi_route routes[MAX_UWSGI_ROUTES];
 #endif
 
 	char *wsgi_config;
@@ -672,13 +682,6 @@ struct uwsgi_shared {
 #define SNMP_GAUGE 0x42
 #define SNMP_COUNTER64 0x46
 
-#endif
-
-#ifdef UWSGI_ROUTING
-#ifndef MAX_UWSGI_ROUTES
-#define MAX_UWSGI_ROUTES 64
-#endif
-	struct uwsgi_route routes[MAX_UWSGI_ROUTES];
 #endif
 
 };
@@ -1004,5 +1007,7 @@ void embed_plugins(struct uwsgi_server *);
 
 #ifdef UWSGI_ROUTING
 void routing_setup(struct uwsgi_server *);
-int check_route(struct uwsgi_server *, struct wsgi_request *);
+void check_route(struct uwsgi_server *, struct wsgi_request *);
+void uwsgi_route_action_uwsgi(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_route *);
+void uwsgi_route_action_wsgi(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_route *);
 #endif

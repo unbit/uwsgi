@@ -1,9 +1,15 @@
 <uwsgi>
-	<module>simple_app</module>
+	<module>rtmpt</module>
+	<socket>:3031</socket>
 
-	<routing mountpoint="/" base="myrouteapp.pippo" modifier1="17" modifier2="22">
-		<route method="GET" pattern="/pippo/(\d+)$" requires="REMOTE_USER">homepage</route>
-		<route method="GET|POST" pattern="/ciccia/(\d+)/(\w+)$">view1</route>
+
+	<routing base="rtmpt" modifier1="0" modifier2="0">
+		<route method="GET" pattern="^/pippo/(\d+)$" requires="REMOTE_USER">homepage</route>
+		<route method="GET|POST" pattern="^/ciccia/(\d+)/(\w+)$">view1</route>
+		<route action="wsgi" pattern="^/amf">amfapp</route>
+		<route pattern="^/open/">rtmpt_open</route>
+		<route pattern="^/idle/(\d+)/(\d+)$">rtmpt_idle</route>
+		<route pattern="^/send/(\d+)/(\d+)$">rtmpt_send</route>
 		<route pattern="^/$">index</route>
 	</routing>
 </uwsgi>

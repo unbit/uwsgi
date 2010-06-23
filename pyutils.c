@@ -162,14 +162,15 @@ PyObject *python_call(PyObject *callable, PyObject *args) {
 	PyObject *pyret;
 
 	pyret =  PyEval_CallObject(callable, args);
-#ifdef UWSGI_DEBUG
-	uwsgi_debug("called %p %p %d\n", callable, args, pyret->ob_refcnt);
-#endif
 	if (PyErr_Occurred()) {
 		PyErr_Print();
 	}
 
-	Py_INCREF(pyret);
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("called %p %p %d\n", callable, args, pyret ? pyret->ob_refcnt : NULL);
+#endif
+
+
 	return pyret;
 }
 

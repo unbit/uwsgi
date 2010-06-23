@@ -325,68 +325,9 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 #ifdef UWSGI_ROUTING
-	uwsgi_log("routing %d routes %d\n", uwsgi->routing, uwsgi->routes);
-	if (uwsgi->routing && uwsgi->routes > 0) {
-		int route_id;
-		struct uwsgi_route *ur;
-		PyObject *route_py_callbase;
-		PyObject *route_py_dict = wi->wsgi_dict;
-
-		route_id = check_route(uwsgi, wsgi_req);
-
-		if (route_id >= 0) {
-			ur = &uwsgi->shared->routes[route_id];
-
-			/*
-				we have:
-					ovector -> allocated per wsgi_req		
-					ovector_size -> set per uwsgi_route
-					wsgi_req->async_args -> point to a tuple of env+(CAPTURECOUNT-1)
-					wsgi_req->async_callable -> cached callbase.call
-
-					all this part must be done on initialization to avoid races !!!
-			*/
-
-			uwsgi_log("setting route %d\n", route_id);
-			if (ur->callable == NULL) {
-				if (ur->callbase) {
-					route_py_callbase = PyImport_ImportModule(ur->callbase);
-					if (route_py_callbase == NULL) {
-						PyErr_Print();	
-					}
-					else {
-						uwsgi_log("callbase dict ok for %s\n", ur->call);
-						route_py_dict = PyModule_GetDict(route_py_callbase);
-					}
-				}
-
-				ur->callable = PyDict_GetItemString(route_py_dict, ur->call);
-				if (ur->callable == NULL) {
-					uwsgi_log("route_py_dict: %p call: %s\n", route_py_dict, ur->call);
-					PyErr_Print();
-				}
-
-				ur->callable_args = PyTuple_New(ur->args+1);
-			}
-
-			if (ur->callable) {
-				uwsgi_log("route callable dict ok: %d\n", ur->args);
-				wsgi_req->async_app = ur->callable;
-				wsgi_req->async_args = ur->callable_args;
-
-				for (i=1;i<=ur->args;i++) {
-					uwsgi_log("%d\n", i);
-					uwsgi_log("%d / %d\n", wsgi_req->ovector[i*2], wsgi_req->ovector[(i*2)+1]);
-					uwsgi_log("%d = %.*s\n", i,wsgi_req->ovector[(i*2)+1] - wsgi_req->ovector[i*2],
-											 wsgi_req->path_info + wsgi_req->ovector[i*2]);
-					PyTuple_SetItem(wsgi_req->async_args, i, PyString_FromStringAndSize(
-											wsgi_req->path_info + wsgi_req->ovector[i*2],
-											wsgi_req->ovector[(i*2)+1] - wsgi_req->ovector[i*2]
-											));
-				}
-				uwsgi_log("route callable built\n");
-			}
-		}
+	uwsgi_log("routing %d routes %d\n", uwsgi->routing, uwsgi->nroutes);
+	if (uwsgi->routing && uwsgi->nroutes > 0) {
+		check_route(uwsgi, wsgi_req);
 	}
 #endif
 

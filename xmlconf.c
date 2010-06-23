@@ -140,17 +140,19 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 					
 					for (node2 = node->children; node2; node2 = node2->next) {
                                                 if (node2->type == XML_ELEMENT_NODE) {
-                                                        if (!strcmp((char *) node2->name, "route") && uwsgi.routes < MAX_UWSGI_ROUTES) {
+                                                        if (!strcmp((char *) node2->name, "route") && uwsgi.nroutes < MAX_UWSGI_ROUTES) {
                                                                 if (!node2->children) {
                                                                         uwsgi_log( "no route callable defined. skip.\n");
                                                                         continue;
                                                                 }
-								uwsgi.shared->routes[uwsgi.routes].mountpoint = default_route_mountpoint;
-								uwsgi.shared->routes[uwsgi.routes].callbase = default_route_callbase;
-								uwsgi.shared->routes[uwsgi.routes].modifier1 = default_route_modifier1;
-								uwsgi.shared->routes[uwsgi.routes].modifier2 = default_route_modifier2;
-                                                                uwsgi.shared->routes[uwsgi.routes].call = node2->children->content;
-                                                                if (uwsgi.shared->routes[uwsgi.routes].call == NULL) {
+								uwsgi.routes[uwsgi.nroutes].mountpoint = default_route_mountpoint;
+								uwsgi.routes[uwsgi.nroutes].callbase = default_route_callbase;
+								uwsgi.routes[uwsgi.nroutes].modifier1 = default_route_modifier1;
+								uwsgi.routes[uwsgi.nroutes].modifier2 = default_route_modifier2;
+								// TODO check for action
+								uwsgi.routes[uwsgi.nroutes].action = NULL;
+                                                                uwsgi.routes[uwsgi.nroutes].call = node2->children->content;
+                                                                if (uwsgi.routes[uwsgi.nroutes].call == NULL) {
                                                                         uwsgi_log( "no route callable defined. skip.\n");
                                                                         continue;
                                                                 }
@@ -161,15 +163,15 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
                                                                         continue;
 								}
 
-								uwsgi.shared->routes[uwsgi.routes].pattern = pcre_compile(tmp_val, 0, &errstr, &erroff, NULL);
-								uwsgi.shared->routes[uwsgi.routes].pattern_extra = pcre_study(uwsgi.shared->routes[uwsgi.routes].pattern, 0, &errstr);
+								uwsgi.routes[uwsgi.nroutes].pattern = pcre_compile(tmp_val, 0, &errstr, &erroff, NULL);
+								uwsgi.routes[uwsgi.nroutes].pattern_extra = pcre_study(uwsgi.routes[uwsgi.nroutes].pattern, 0, &errstr);
 
 				
-								pcre_fullinfo(uwsgi.shared->routes[uwsgi.routes].pattern, uwsgi.shared->routes[uwsgi.routes].pattern_extra, PCRE_INFO_CAPTURECOUNT, &uwsgi.shared->routes[uwsgi.routes].args);
+								pcre_fullinfo(uwsgi.routes[uwsgi.nroutes].pattern, uwsgi.routes[uwsgi.nroutes].pattern_extra, PCRE_INFO_CAPTURECOUNT, &uwsgi.routes[uwsgi.nroutes].args);
 
-								uwsgi_log("route call: %s %d\n", uwsgi.shared->routes[uwsgi.routes].call, uwsgi.shared->routes[uwsgi.routes].args);	
+								uwsgi_log("route call: %s %d\n", uwsgi.routes[uwsgi.nroutes].call, uwsgi.routes[uwsgi.nroutes].args);	
 								
-								uwsgi.routes++;
+								uwsgi.nroutes++;
                                                         }
                                                 }
                                         }
