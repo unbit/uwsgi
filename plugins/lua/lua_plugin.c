@@ -104,8 +104,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
         }
 
 	// put function in the stack
-	lua_pushvalue(ulua.L, -1);
-	lua_getfield(ulua.L, -1, "run");
+	lua_getfield(ulua.L, LUA_GLOBALSINDEX, "run");
 
 	// put cgi vars in the stack
 	lua_newtable(ulua.L);

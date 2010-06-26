@@ -45,7 +45,6 @@ void log_request(struct wsgi_request *wsgi_req) {
 			app_req = wi->requests;
 		}
 	}
-	via = msg2;
 
 	if (wsgi_req->sendfile_fd > -1) {
 		via = msg1;

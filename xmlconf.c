@@ -116,8 +116,8 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 				}
 #ifdef UWSGI_ROUTING
 				else if (!strcmp((char *) node->name, "routing")) {
-					char *default_route_mountpoint = NULL;
-					char *default_route_callbase = NULL ;
+					unsigned char *default_route_mountpoint = NULL;
+					unsigned char *default_route_callbase = NULL ;
 					xmlChar *tmp_val;
 					int default_route_modifier1 = 0;
 					int default_route_modifier2 = 0;
@@ -129,12 +129,12 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 
 					tmp_val = xmlGetProp(node, (const xmlChar *) "modifier1");
 					if (tmp_val) {
-						default_route_modifier1 = atoi(tmp_val);
+						default_route_modifier1 = atoi( (char *)tmp_val);
 					}
 
 					tmp_val = xmlGetProp(node, (const xmlChar *) "modifier2");
 					if (tmp_val) {
-						default_route_modifier2 = atoi(tmp_val);
+						default_route_modifier2 = atoi( (char *) tmp_val);
 					}
 					
 					
@@ -145,13 +145,13 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
                                                                         uwsgi_log( "no route callable defined. skip.\n");
                                                                         continue;
                                                                 }
-								uwsgi.routes[uwsgi.nroutes].mountpoint = default_route_mountpoint;
-								uwsgi.routes[uwsgi.nroutes].callbase = default_route_callbase;
+								uwsgi.routes[uwsgi.nroutes].mountpoint = (char *) default_route_mountpoint;
+								uwsgi.routes[uwsgi.nroutes].callbase = (char *) default_route_callbase;
 								uwsgi.routes[uwsgi.nroutes].modifier1 = default_route_modifier1;
 								uwsgi.routes[uwsgi.nroutes].modifier2 = default_route_modifier2;
 								// TODO check for action
 								uwsgi.routes[uwsgi.nroutes].action = NULL;
-                                                                uwsgi.routes[uwsgi.nroutes].call = node2->children->content;
+                                                                uwsgi.routes[uwsgi.nroutes].call = (char *) node2->children->content;
                                                                 if (uwsgi.routes[uwsgi.nroutes].call == NULL) {
                                                                         uwsgi_log( "no route callable defined. skip.\n");
                                                                         continue;
@@ -163,7 +163,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
                                                                         continue;
 								}
 
-								uwsgi.routes[uwsgi.nroutes].pattern = pcre_compile(tmp_val, 0, &errstr, &erroff, NULL);
+								uwsgi.routes[uwsgi.nroutes].pattern = pcre_compile( (char *) tmp_val, 0, &errstr, &erroff, NULL);
 								uwsgi.routes[uwsgi.nroutes].pattern_extra = pcre_study(uwsgi.routes[uwsgi.nroutes].pattern, 0, &errstr);
 
 				
@@ -184,7 +184,11 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	}
 
 	/* We cannot free xml resources on the first round (and with routing enabled) as the string pointer must be valid for all the server lifecycle */
+#ifdef UWSGI_ROUTING
 	if (!long_options && !uwsgi.routing) {
+#else
+	if (!long_options) {
+#endif
 		xmlFreeDoc (doc);
 		xmlCleanupParser ();
 	}

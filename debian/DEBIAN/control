@@ -1,6 +1,0 @@
-Package: uwsgi
-Version: 0.9.5
-Maintainer: Unbit
-Description: Fast, developer-friendly wsgi server
-Architecture: all
-Depends: python, libxml2

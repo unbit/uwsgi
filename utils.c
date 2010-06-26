@@ -255,15 +255,15 @@ void uwsgi_as_root() {
                 }
         }
         else {
-                if (uwsgi.chroot) {
+                if (uwsgi.chroot && !uwsgi.is_a_reload) {
                         uwsgi_log("cannot chroot() as non-root user\n");
                         exit(1);
                 }
-                if (uwsgi.gid) {
+                if (uwsgi.gid && getgid() != uwsgi.gid) {
                         uwsgi_log("cannot setgid() as non-root user\n");
                         exit(1);
                 }
-                if (uwsgi.uid) {
+                if (uwsgi.uid && getuid() != uwsgi.uid) {
                         uwsgi_log("cannot setuid() as non-root user\n");
                         exit(1);
                 }

@@ -49,6 +49,10 @@
 
 #include <sys/wait.h>
 
+#ifdef __APPLE__
+#define MAC_OS_X_VERSION_MIN_REQUIRED MAC_OS_X_VERSION_10_4
+#endif
+
 #include <dlfcn.h>
 
 #include <poll.h>
@@ -113,7 +117,7 @@
 #endif
 
 /* this value are taken from nginx */
-#if defined(__apple__) || defined(__freebsd__)
+#if defined(__APPLE__) || defined(__freebsd__)
 #define UWSGI_LISTEN_QUEUE -1
 #else
 #define UWSGI_LISTEN_QUEUE 511
@@ -191,7 +195,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #ifdef _BIG_ENDIAN
 #define __BIG_ENDIAN__ 1
 #endif
-#elif __apple__
+#elif __APPLE__
 #include <libkern/OSByteOrder.h>
 #else
 #include <machine/endian.h>
@@ -236,6 +240,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define	PyString_FromFormat	PyUnicode_FromFormat
 #define	PyString_FromString	PyUnicode_FromString
 #define	PyString_Size		PyUnicode_GET_DATA_SIZE
+#define	PyString_Concat		PyUnicode_Concat
 #define	PyString_AsString	(char *) PyUnicode_AS_UNICODE
 #define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), -1, NULL, NULL, NULL, 0)
 #endif
@@ -553,6 +558,7 @@ struct uwsgi_server {
 #ifndef UNBIT
 	int abstract_socket;
 	int chmod_socket;
+	mode_t chmod_socket_value;
 	int listen_queue;
 
 #ifdef UWSGI_XML
@@ -564,6 +570,13 @@ struct uwsgi_server {
 	char *python_path[64];
 	int python_path_cnt;
 	char *pyargv;
+
+	int pyargc;
+#ifdef PYTHREE
+        wchar_t *py_argv[MAX_PYARGV];
+#else
+        char *py_argv[MAX_PYARGV];
+#endif
 #endif
 
 #ifdef UWSGI_ROUTING
@@ -1011,3 +1024,5 @@ void check_route(struct uwsgi_server *, struct wsgi_request *);
 void uwsgi_route_action_uwsgi(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_route *);
 void uwsgi_route_action_wsgi(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_route *);
 #endif
+
+void init_pyargv(struct uwsgi_server *);

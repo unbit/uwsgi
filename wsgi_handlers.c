@@ -126,8 +126,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	if (wsgi_req->script_name_len > 0) {
 		if (uwsgi->vhost) {
 			zero = PyString_FromStringAndSize(wsgi_req->host, wsgi_req->host_len);
+#ifdef PYTHREE
+			zero = PyString_Concat(zero, PyString_FromString("|"));
+			zero = PyString_Concat(zero, PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len));
+#else
 			PyString_Concat(&zero, PyString_FromString("|"));
 			PyString_Concat(&zero, PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len));
+#endif
                 }
 		else {
 			zero = PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len);

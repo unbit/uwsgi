@@ -66,7 +66,7 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
                 }
 
 		return sf_len;
-#elif __APPLE__
+#elif defined(__APPLE__)
 		off_t sf_len = wsgi_req->sendfile_fd_size ;
 
 		if (uwsgi->async > 1) {

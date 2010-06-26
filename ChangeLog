@@ -1,3 +1,17 @@
+*** june 2010 ***
+
+ * 0.9.5.2 [20100626] *
+
+- fixed a request parsing bug
+- applied debian fixes
+- fixed multiple interpreter sys.argv
+- improved --chmod-socket
+- fixed uid 0 SIGHUP
+- updated nginx and apache modules
+- updated PSGI, lua and example plugin
+- fixed --pyargv with python 3.x
+- improved plugin build system
+
 *** may 2010 ***
 
  * 0.9.5.1 [20100519] *
@@ -24,7 +38,7 @@
 - logging via udp
 - improved spooler for cron-like apps
 - async support
-- green thread platform (uGreen) on top of teh async mode
+- green thread platform (uGreen) on top of the async mode
 - transparent Erlang integration
 - embedded snmp agent
 - nagios mode

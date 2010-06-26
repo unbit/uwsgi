@@ -203,13 +203,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uint64_t master_cycles = 0;
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
-#ifdef PYTHREE
-	wchar_t *pyargv[MAX_PYARGV];
-#else
-	char *pyargv[MAX_PYARGV];
-#endif
-	int pyargc = 1;
-
 	int i;
 
 	int rlen;
@@ -305,7 +298,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"memory-report", no_argument, 0, 'm'},
 		{"cgi-mode", no_argument, 0, 'c'},
 		{"abstract-socket", no_argument, 0, 'a'},
-		{"chmod-socket", no_argument, 0, 'C'},
+		{"chmod-socket", optional_argument , 0, 'C'},
 #ifdef UWSGI_THREADING
 		{"enable-threads", no_argument, 0, 'T'},
 #endif
@@ -656,47 +649,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	Py_Initialize();
 
-
-#ifdef PYTHREE
-	mbstowcs(pname, "uwsgi", 6);
-	pyargv[0] = pname;
-#else
-	pyargv[0] = "uwsgi";
-#endif
-
-	if (uwsgi.pyargv != NULL) {
-#ifdef PYTHREE
-	wchar_t *wcargv = malloc( sizeof( wchar_t ) * strlen(uwsgi.pyargv));
-	if (!wcargv) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
-	wchar_t *wa;
-#endif
-		char *ap;
-#ifdef __sun__
-		// FIX THIS !!!
-		ap = strtok(uwsgi.pyargv, " ");
-		while ((ap = strtok(NULL, " ")) != NULL) {
-#else
-		while ((ap = strsep(&uwsgi.pyargv, " \t")) != NULL) {
-#endif
-			if (*ap != '\0') {
-#ifdef PYTHREE
-				wa = (wchar_t *) ( (ap-uwsgi.pyargv) * sizeof(wchar_t) );
-				mbstowcs(wa, ap, strlen(ap));
-				pyargv[pyargc] = wa;
-#else
-				pyargv[pyargc] = ap;
-#endif
-				pyargc++;
-			}
-			if (pyargc + 1 > MAX_PYARGV)
-				break;
-		}
-	}
-
-	PySys_SetArgv(pyargc, pyargv);
+	init_pyargv(&uwsgi);
 
 	if (uwsgi.vhost) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
@@ -1663,7 +1616,11 @@ void init_uwsgi_vars() {
 		if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
 			return ;
 		}
+#ifdef PYTHREE
+		venv_path = PyString_Concat( venv_path, PyString_FromString(venv_version) );
+#else
 		PyString_Concat( &venv_path, PyString_FromString(venv_version) );
+#endif
 
 		if ( PyList_Insert(pypath, 0, venv_path) ) {
 			PyErr_Print();
@@ -1747,8 +1704,13 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 	if (uwsgi.vhost) {
         	zero = PyString_FromStringAndSize(uwsgi.wsgi_req->host, uwsgi.wsgi_req->host_len);
+#ifdef PYTHREE
+                zero = PyString_Concat(zero, PyString_FromString("|"));
+                zero = PyString_Concat(zero, PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len));
+#else
                 PyString_Concat(&zero, PyString_FromString("|"));
                 PyString_Concat(&zero, PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len));
+#endif
         }
         else {
 		zero = PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len);
@@ -1776,6 +1738,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 			exit(1);
 		}
 		PyThreadState_Swap(wi->interpreter);
+		init_pyargv(&uwsgi);
 
 #ifdef UWSGI_EMBEDDED
 		// we need to inizialize an embedded module for every interpreter
@@ -2778,6 +2741,22 @@ void manage_opt(int i, char *optarg) {
 		break;
 	case 'C':
 		uwsgi.chmod_socket = 1;
+		if (optarg) {
+			if (strlen(optarg) != 3) {
+				uwsgi_log("invalid chmod value: %s\n", optarg);
+				exit(1);
+			}
+			for(i=0;i<3;i++) {
+				if (optarg[i] < '0' || optarg[i] > '7') {
+					uwsgi_log("invalid chmod value: %s\n", optarg);
+					exit(1);
+				}
+			}
+
+			uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (optarg[0] - '0');
+			uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (optarg[1] - '0');
+			uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (optarg[2] - '0');
+		}
 		break;
 #endif
 	case 'M':

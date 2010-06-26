@@ -35,7 +35,9 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-#define NGX_HTTP_UWSGI_TEMP_PATH  "uwsgi_temp"
+#ifndef NGX_HTTP_UWSGI_TEMP_PATH
+	#define NGX_HTTP_UWSGI_TEMP_PATH  "uwsgi_temp"
+#endif
 
 typedef struct {
     ngx_http_upstream_conf_t upstream;

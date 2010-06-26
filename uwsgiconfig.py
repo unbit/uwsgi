@@ -19,7 +19,7 @@ ASYNC=True
 UGREEN=True
 EVDIS=True
 WSGI2=True
-ROUTING=True
+ROUTING=False
 STACKLESS=False
 #PLUGINS = ['psgi']
 PLUGINS = []
@@ -64,7 +64,7 @@ gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers'
 
 # large file support
 try:
-	cflags = ['-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
+	cflags = ['-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 except:
 	print("You need python headers to build uWSGI.")
 	sys.exit(1)
@@ -72,6 +72,9 @@ except:
 cflags = cflags + ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ]
 ldflags = os.environ.get("LDFLAGS", "").split()
 libs = ['-lpthread', '-rdynamic'] + sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
+if sysconfig.get_config_var('LIBPL'):
+	libs.append('-L' + sysconfig.get_config_var('LIBPL'))
+
 
 if USWALLOW:
 	cflags = cflags + sysconfig.get_config_var('LLVM_CXXFLAGS').split()
@@ -220,7 +223,20 @@ def parse_vars():
 		depends_on("ROUTING", ['WSGI2', 'XML'])
 		cflags.append("-DUWSGI_ROUTING")
 		gcc_list.append('routing')
-		libs.append('-lpcre')
+		pcreconf = spcall("pcre-config --cflags")
+		if pcreconf is None:
+			print ("*** Unable to locate pcre-config.  The uWSGI build has been interrupted.  You have to install pcre.")
+			sys.exit(1)
+		else:
+			cflags.append(pcreconf)
+
+		pcreconf = spcall("pcre-config --libs")
+		if pcreconf is None:
+			print ("*** Unable to locate pcre-config.  The uWSGI build has been interrupted.  You have to install pcre.")
+			sys.exit(1)
+		else:
+			libs.append(pcreconf)
+
 
 	if EVDIS:
 		cflags.append("-DUWSGI_EVDIS")
@@ -316,11 +332,9 @@ def build_plugin(path):
 	import uwsgiplugin as up
 
 	p_cflags = cflags[:]
-	p_libs = libs[:]
 	p_ldflags = ldflags[:]
 
 	p_cflags.append(up.CFLAGS)
-	p_libs.append(up.LDFLAGS)
 
 	p_cflags.insert(0, '-I.')
 
@@ -332,7 +346,7 @@ def build_plugin(path):
 	if uwsgi_os == 'Darwin':
 		shared_flag = '-dynamiclib -undefined dynamic_lookup'
 
-	gccline = "%s -fPIC %s -o %s.so %s %s %s.c %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), plugin_base, ' '.join(p_libs))
+	gccline = "%s -fPIC %s -o %s.so %s %s %s.c" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), plugin_base )
 	print(gccline)
 
 	ret = os.system(gccline)

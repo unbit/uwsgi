@@ -2,8 +2,6 @@
 
 void embed_plugins(struct uwsgi_server *uwsgi) {
 
-	int ret ;
-
 #ifdef UWSGI_EMBED_PLUGIN_PSGI
 	if (uwsgi->plugin_arg_psgi)
 		ret = uwsgi_load_plugin(uwsgi, 5, "psgi_plugin.so", uwsgi->plugin_arg_psgi, 0);

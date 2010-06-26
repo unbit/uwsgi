@@ -38,7 +38,7 @@
 #ifdef __linux__
 #include <endian.h>
 #elif __sun__
-#elif __apple__
+#elif __APPLE__
 #include <libkern/OSByteOrder.h>
 #else
 #include <machine/endian.h>
