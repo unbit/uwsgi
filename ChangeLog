@@ -1,5 +1,9 @@
 *** june 2010 ***
 
+ * 0.9.5.3 [20100628]
+
+- fixed linux x86_64 compilation (sorry)
+
  * 0.9.5.2 [20100626] *
 
 - fixed a request parsing bug
