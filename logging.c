@@ -121,7 +121,7 @@ void get_memusage() {
 	int i;
 	procfile = fopen("/proc/self/stat", "r");
 	if (procfile) {
-		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", &uwsgi.workers[uwsgi.mywid].vsz_size, &uwsgi.workers[uwsgi.mywid].rss_size);
+		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", (unsigned long long *) &uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long *) &uwsgi.workers[uwsgi.mywid].rss_size);
 		if (i != 2) {
 			uwsgi_log( "warning: invalid record in /proc/self/stat\n");
 		}
