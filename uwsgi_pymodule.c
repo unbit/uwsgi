@@ -317,6 +317,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 
 	spool_dict = PyTuple_GetItem(args, 0);
 	if (!PyDict_Check(spool_dict)) {
+		uwsgi_log("The argument of spooler callable must be a dictionary.\n");
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
@@ -371,6 +372,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 					}
 				}
 				else {
+					uwsgi_log("spooler callable dictionary must contains only strings.\n");
 					Py_DECREF(zero);
 					Py_INCREF(Py_None);
 					return Py_None;
