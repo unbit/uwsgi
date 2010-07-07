@@ -35,8 +35,6 @@ struct uwsgi_server uwsgi;
 
 extern char **environ;
 
-static const char *app_slash = "/";
-
 #ifdef UWSGI_SENDFILE
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
 #endif
@@ -1242,6 +1240,12 @@ int main(int argc, char *argv[], char *envp[]) {
 				else {
 					select(0, NULL, NULL, NULL, &check_interval);
 				}
+
+				// checking logsize
+				if (uwsgi.logfile) {
+					uwsgi_log("LOGSIZE: %d\n", lseek(2, 0, SEEK_CUR));
+				}
+				
 				master_cycles++;
 				working_workers = 0;
 				blocking_workers = 0;
@@ -1687,8 +1691,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 
 	if (uwsgi.wsgi_req->script_name_len == 0) {
-		uwsgi.wsgi_req->script_name_len = 1;
-		uwsgi.wsgi_req->script_name = (char *) app_slash;
+		uwsgi.wsgi_req->script_name = "";
 		if (!uwsgi.vhost) {
 			id = 0;
 		}

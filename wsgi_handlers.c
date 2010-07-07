@@ -123,8 +123,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 
 
-	if (wsgi_req->script_name_len > 0) {
-		if (uwsgi->vhost) {
+	if (uwsgi->vhost) {
 			zero = PyString_FromStringAndSize(wsgi_req->host, wsgi_req->host_len);
 #ifdef PYTHREE
 			zero = PyString_Concat(zero, PyString_FromString("|"));
@@ -133,27 +132,28 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 			PyString_Concat(&zero, PyString_FromString("|"));
 			PyString_Concat(&zero, PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len));
 #endif
-                }
-		else {
-			zero = PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len);
-		}
+	}
+	else {
+		zero = PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len);
+	}
 
-		if (PyDict_Contains(uwsgi->py_apps, zero)) {
-                	wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
-                }
-                else {
-                	/* unavailable app for this SCRIPT_NAME */
-                        wsgi_req->app_id = -1;
-			if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
-				if ((wsgi_req->app_id = init_uwsgi_app(NULL, NULL)) == -1) {
-					internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
-                			Py_DECREF(zero);
-					goto clear2;
-				}
+
+	if (PyDict_Contains(uwsgi->py_apps, zero)) {
+               	wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
+        }
+        else {
+        	/* unavailable app for this SCRIPT_NAME */
+                wsgi_req->app_id = -1;
+		if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
+			if ((wsgi_req->app_id = init_uwsgi_app(NULL, NULL)) == -1) {
+				internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
+                		Py_DECREF(zero);
+				goto clear2;
 			}
-                }
-                Py_DECREF(zero);
-	} 
+		}
+	}
+
+	Py_DECREF(zero);
 
 
 	if (wsgi_req->app_id == -1) {

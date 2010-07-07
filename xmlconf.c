@@ -266,15 +266,11 @@ void uwsgi_startApp(void *userData, const char *name, const char **attrs) {
 			wsgi_req->script_name_len = strlen(attrs[1]);
 		}
 		else {
-			wsgi_req->script_name = "/";
-			wsgi_req->script_name_len = 1;
+			wsgi_req->script_name = "";
+			wsgi_req->script_name_len = 0;
 		}
 	}
 	else if (!strcmp(name, "script")) {
-		if (!wsgi_req->script_name_len) {
-			uwsgi_log("you have not specified an app mountpoint.\n");
-			exit(1);
-		}
 		current_xmlnode = 1 ;
 	}
 }

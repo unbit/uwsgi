@@ -151,6 +151,7 @@ void logto(char *logfile) {
 			exit(1);
 		}
 #ifdef UWSGI_UDP
+		uwsgi.logfile = logfile;
 	}
 #endif
 

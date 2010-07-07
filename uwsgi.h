@@ -449,6 +449,8 @@ struct uwsgi_server {
 	char *proxy_socket_name;
 #endif
 
+	char *logfile;
+
 	int vhost;
 
 	struct iovec *async_hvec;
