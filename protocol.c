@@ -348,6 +348,7 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 #endif
 					ptrbuf += 2;
 					if (ptrbuf + strsize <= bufferend) {
+						//uwsgi_log("uwsgi %.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, strsize, ptrbuf);
 						if (!strncmp("SCRIPT_NAME", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->script_name = ptrbuf;
 							wsgi_req->script_name_len = strsize;

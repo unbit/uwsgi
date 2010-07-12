@@ -199,6 +199,45 @@ int bind_to_udp(char *socket_name) {
 }
 #endif
 
+int uwsgi_connect(char *socket_name, int timeout) {
+
+	char *tcp_port = strchr(socket_name, ':');	
+
+	if (tcp_port) {
+		return connect_to_tcp(socket_name, atoi(tcp_port), timeout);
+	}
+	
+	return connect_to_unix(socket_name, timeout);
+}
+
+int connect_to_unix(char *socket_name, int timeout) {
+
+	struct pollfd uwsgi_poll;
+        struct sockaddr_un uws_addr;
+
+        memset(&uws_addr, 0, sizeof(struct sockaddr_un));
+
+        uws_addr.sun_family = AF_UNIX;
+        strlcpy(uws_addr.sun_path, socket_name, 102+1);
+
+        uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (uwsgi_poll.fd < 0) {
+                uwsgi_error("socket()");
+                return -1;
+        }
+
+        uwsgi_poll.events = POLLIN;
+
+        if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_un), timeout)) {
+                uwsgi_error("connect()");
+                close(uwsgi_poll.fd);
+                return -1;
+        }
+
+        return uwsgi_poll.fd;
+	
+}
+
 int connect_to_tcp(char *socket_name, int port, int timeout) {
 
 	struct pollfd uwsgi_poll;

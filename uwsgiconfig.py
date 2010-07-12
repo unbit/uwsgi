@@ -60,7 +60,7 @@ GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
 	GCC = 'gcc'
 
-gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
+gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'http', 'plugins', 'uwsgi']
 
 # large file support
 try:

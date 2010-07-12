@@ -379,7 +379,9 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_ROUTING
 		{"routing", no_argument, &uwsgi.routing, 1},
 #endif
-		{"version", no_argument, 0, LONG_ARGS_VERSION},
+		{"http", required_argument, 0, LONG_ARGS_HTTP},
+		{"mode", required_argument, 0, LONG_ARGS_MODE},
+		{"version", no_argument, 0, LONG_ARGS_MODE},
 		{0, 0, 0, 0}
 	};
 #endif
@@ -737,6 +739,51 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
+	if (uwsgi.http) {
+		char *tcp_port = strchr(uwsgi.http, ':');
+		if (tcp_port) {
+			uwsgi.http_server_port = tcp_port+1;
+			uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
+		}
+		else {
+			uwsgi_log("invalid http address.\n");
+			exit(1);
+		}
+
+		if (uwsgi.http_fd < 0) {
+			uwsgi_log("unable to create http server socket.\n");
+			exit(1);
+		}
+
+		if (!uwsgi.socket_name) {
+			char *tmp_s = tmpnam(NULL);
+			if (!tmp_s) {
+				uwsgi_error("tmpnam()");
+				exit(1);	
+			}
+
+			uwsgi.socket_name = malloc(strlen(tmp_s) + 1);
+			if (!uwsgi.socket_name) {
+				uwsgi_error("malloc()");
+				exit(1);
+			}
+		
+			strcpy(uwsgi.socket_name, tmp_s);
+			uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
+
+			pid_t http_pid = fork();
+
+			if (http_pid == 0) {
+				http_loop(&uwsgi);
+				// never here
+				exit(1);
+			}
+			else if (http_pid < 0) {
+				uwsgi_error("fork()");
+				exit(1);
+			}
+		}	
+	}
 
 	if (!no_server) {
 #ifndef UNBIT
@@ -2236,7 +2283,7 @@ void uwsgi_wsgi_config(char *filename) {
 					uwsgi_log( "could not initialize applications dictionary\n");
 					exit(1);
 				}
-				if (PyDict_SetItemString(applications, "/", app_app)) {
+				if (PyDict_SetItemString(applications, "", app_app)) {
 					PyErr_Print();
 					uwsgi_log( "unable to set default application\n");
 					exit(1);
@@ -2287,11 +2334,9 @@ void uwsgi_wsgi_config(char *filename) {
 		if (PyString_Check(app_app)) {
 			uwsgi.wsgi_req->wsgi_callable = PyString_AsString(app_app);
 			uwsgi.wsgi_req->wsgi_callable_len = strlen(uwsgi.wsgi_req->wsgi_callable);
-			uwsgi_log( "initializing [%s => %s] app...\n", uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->wsgi_callable);
 			ret = init_uwsgi_app(wsgi_dict, NULL);
 		}
 		else {
-			uwsgi_log( "initializing [%s] app...\n", uwsgi.wsgi_req->script_name);
 			ret = init_uwsgi_app(wsgi_dict, app_app);
 		}
 
@@ -2376,6 +2421,13 @@ void init_uwsgi_embedded_module() {
 	if (PyDict_SetItemString(uwsgi.embedded_dict, "version", PyString_FromString(UWSGI_VERSION))) {
 		PyErr_Print();
 		exit(1);
+	}
+
+	if (uwsgi.mode) {
+		if (PyDict_SetItemString(uwsgi.embedded_dict, "mode", PyString_FromString(uwsgi.mode))) {
+			PyErr_Print();
+			exit(1);
+		}
 	}
 
 	if (PyDict_SetItemString(uwsgi.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
@@ -2529,6 +2581,13 @@ pid_t spooler_start(int serverfd, PyObject * uwsgi_module_dict) {
 void manage_opt(int i, char *optarg) {
 
 	switch (i) {
+
+	case LONG_ARGS_HTTP:
+		uwsgi.http = optarg;
+		break;
+	case LONG_ARGS_MODE:
+		uwsgi.mode = optarg;
+		break;
 #ifdef UWSGI_ASYNC
 	case LONG_ARGS_ASYNC:
 		uwsgi.async = atoi(optarg);

@@ -18,6 +18,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 
 	xmlChar *xml_uwsgi_mountpoint = NULL;
 	xmlChar *xml_uwsgi_script = NULL;
+	xmlChar *node_mode;
 	struct option *lopt, *aopt;
 
 
@@ -63,6 +64,13 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 							}
 						}
 
+						node_mode = xmlGetProp(node, (const xmlChar *) "mode") ;
+						if (uwsgi.mode && node_mode) {
+							if (strcmp(uwsgi.mode, (char *) node_mode)) {
+								goto next;	
+							}	
+						}
+
 						if (aopt->flag) {
 							*aopt->flag = aopt->val;
 						}
@@ -75,6 +83,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 							}
 						}
 					}
+next:
 					lopt++;
 				}
 			}

@@ -160,6 +160,10 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_POST_BUFFERING	17027
 #define LONG_ARGS_POST_BUFFERING_SIZE	17028
 #define LONG_ARGS_LIMIT_POST		17029
+#define LONG_ARGS_HTTP			17030
+#define LONG_ARGS_MODE			17031
+
+
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -442,6 +446,11 @@ struct uwsgi_server {
 	uid_t uid;
 #endif
 
+	char *mode;
+	char *http;
+	char *http_server_name;
+	char *http_server_port;
+	int http_fd;
 
 	int serverfd;
 #ifdef UWSGI_PROXY
@@ -740,7 +749,9 @@ int bind_to_unix(char *, int, int, int);
 int bind_to_tcp(char *, int, char *);
 int bind_to_udp(char *);
 int timed_connect(struct pollfd *, const struct sockaddr *, int, int);
+int uwsgi_connect(char *, int);
 int connect_to_tcp(char *, int, int);
+int connect_to_unix(char *, int);
 #ifdef UWSGI_SCTP
 int bind_to_sctp(char *, int, char *);
 #endif
@@ -1028,3 +1039,5 @@ void uwsgi_route_action_wsgi(struct uwsgi_server *, struct wsgi_request *, struc
 #endif
 
 void init_pyargv(struct uwsgi_server *);
+
+void http_loop(struct uwsgi_server *);

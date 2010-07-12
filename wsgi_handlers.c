@@ -122,6 +122,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 #endif
 
+	if (!wsgi_req->script_name)
+		wsgi_req->script_name = "";
 
 	if (uwsgi->vhost) {
 			zero = PyString_FromStringAndSize(wsgi_req->host, wsgi_req->host_len);
@@ -143,6 +145,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
         }
         else {
         	/* unavailable app for this SCRIPT_NAME */
+		uwsgi_log("NO SCRIPT_NAME AVAILABLE !!!\n");
                 wsgi_req->app_id = -1;
 		if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
 			if ((wsgi_req->app_id = init_uwsgi_app(NULL, NULL)) == -1) {
@@ -178,13 +181,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	if (wsgi_req->protocol_len < 5) {
-		uwsgi_log( "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
+		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
 		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
 		goto clear;
 
 	}
 	if (strncmp(wsgi_req->protocol, "HTTP/", 5)) {
-		uwsgi_log( "INVALID PROTOCOL: %.*s", wsgi_req->protocol_len, wsgi_req->protocol);
+		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
 		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
 		goto clear;
 	}
