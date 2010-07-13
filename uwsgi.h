@@ -1,6 +1,6 @@
 /* uWSGI */
 
-/* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs */
+/* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
 
 #define UWSGI_VERSION	"0.9.6-dev"
 
@@ -162,6 +162,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_LIMIT_POST		17029
 #define LONG_ARGS_HTTP			17030
 #define LONG_ARGS_MODE			17031
+#define LONG_ARGS_CHDIR			17032
 
 
 
@@ -451,6 +452,9 @@ struct uwsgi_server {
 	char *http_server_name;
 	char *http_server_port;
 	int http_fd;
+
+	int ignore_script_name;
+	int logdate;
 
 	int serverfd;
 #ifdef UWSGI_PROXY

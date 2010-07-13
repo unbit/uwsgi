@@ -485,10 +485,22 @@ void parse_sys_envs(char **envs, struct option *long_options) {
 void uwsgi_log(const char *fmt, ...) {
 	va_list ap;
 	char logpkt[4096];
-	int rlen;
+	int rlen = 0;
+
+	struct timeval tv;
+
+	if (uwsgi.logdate) {
+		gettimeofday(&tv, NULL);
+
+		memcpy( logpkt, ctime( (const time_t *) &tv.tv_sec), 24);
+		memcpy( logpkt + 24, " - ", 3);
+
+		rlen = 24 + 3 ;
+
+	}
 
 	va_start (ap, fmt);
-	rlen = vsnprintf(logpkt, 4096, fmt, ap );
+	rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap );
 	va_end(ap);
 
 	// do not check for errors

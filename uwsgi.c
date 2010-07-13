@@ -332,6 +332,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"prio", required_argument, 0, LONG_ARGS_PRIO},
 		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
 		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
+		{"ignore-script-name", no_argument, &uwsgi.ignore_script_name, 1},
 #ifdef UWSGI_UDP
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
 #endif
@@ -373,6 +374,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		UWSGI_PLUGIN_LONGOPT_LUA
 		UWSGI_PLUGIN_LONGOPT_RACK
 		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
+		{"logdate", no_argument, &uwsgi.logdate, 1},
+		{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
 		{"no-site", no_argument, &Py_NoSiteFlag, 1},
 		{"vhost", no_argument, &uwsgi.vhost, 1},
@@ -2203,6 +2206,8 @@ void uwsgi_wsgi_config(char *filename) {
 	PyObject *app_mnt, *app_app;
 	FILE *uwsgifile;
 
+	char *quick_callable = NULL;
+
 	uwsgi.single_interpreter = 1;
 
 	if (filename) {
@@ -2239,6 +2244,13 @@ void uwsgi_wsgi_config(char *filename) {
 		uwsgi.wsgi_config = "uwsgi_config_file";
 	}
 	else {
+
+		quick_callable = strchr(uwsgi.wsgi_config, ':');
+		if (quick_callable) {
+			quick_callable[0] = 0 ;
+			quick_callable++;
+		}
+
 		wsgi_module = PyImport_ImportModule(uwsgi.wsgi_config);
 		if (!wsgi_module) {
 			PyErr_Print();
@@ -2252,20 +2264,21 @@ void uwsgi_wsgi_config(char *filename) {
 		exit(1);
 	}
 
-	uwsgi_log( "...getting the applications list from the '%s' module...\n", uwsgi.wsgi_config);
+	if (!quick_callable) {
+		uwsgi_log( "...getting the applications list from the '%s' module...\n", uwsgi.wsgi_config);
 
 #ifdef UWSGI_EMBEDDED
-	uwsgi_module = PyImport_ImportModule("uwsgi");
-	if (!uwsgi_module) {
-		PyErr_Print();
-		exit(1);
-	}
+		uwsgi_module = PyImport_ImportModule("uwsgi");
+		if (!uwsgi_module) {
+			PyErr_Print();
+			exit(1);
+		}
 
-	uwsgi_dict = PyModule_GetDict(uwsgi_module);
-	if (!uwsgi_dict) {
-		PyErr_Print();
-		exit(1);
-	}
+		uwsgi_dict = PyModule_GetDict(uwsgi_module);
+		if (!uwsgi_dict) {
+			PyErr_Print();
+			exit(1);
+		}
 
 
 
@@ -2297,6 +2310,28 @@ void uwsgi_wsgi_config(char *filename) {
 #ifdef UWSGI_EMBEDDED
 	}
 #endif
+
+	}
+	else {
+		// quick callable -> thanks gunicorn for the idea
+		 app_app = PyDict_GetItemString(wsgi_dict, quick_callable);
+                 if (app_app) {
+                 	applications = PyDict_New();
+                        if (!applications) {
+                        	uwsgi_log( "could not initialize applications dictionary\n");
+                                exit(1);
+                        }
+                        if (PyDict_SetItemString(applications, "", app_app)) {
+                        	PyErr_Print();
+                                uwsgi_log( "unable to set default application\n");
+                                exit(1);
+                        }
+                  }
+                  else {
+                        uwsgi_log( "\"%s\" callable not found.\n", quick_callable);
+			exit(1);
+                  } 
+	}
 
 	if (!PyDict_Check(applications)) {
 		uwsgi_log( "The 'applications' object must be a dictionary.\n");
@@ -2582,6 +2617,12 @@ void manage_opt(int i, char *optarg) {
 
 	switch (i) {
 
+	case LONG_ARGS_CHDIR:
+		if (chdir(optarg)) {
+			uwsgi_error("chdir()");
+			exit(1);
+		}
+		break;
 	case LONG_ARGS_HTTP:
 		uwsgi.http = optarg;
 		break;
