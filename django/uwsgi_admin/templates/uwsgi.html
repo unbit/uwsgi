@@ -59,6 +59,7 @@
 {% if masterpid %}
 <br/>
 <form {% if has_file_field %}enctype="multipart/form-data" {% endif %}action="reload/" method="post">
+{% csrf_token %}
 <input type="submit" value="gracefully reload uWSGI" name="_reload"/>
 </form>
 {% endif %}

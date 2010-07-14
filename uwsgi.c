@@ -323,7 +323,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
+#ifdef UWSGI_PASTE
 		{"paste", required_argument, 0, LONG_ARGS_PASTE},
+#endif
 		{"no-server", no_argument, &no_server, 1},
 		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
@@ -1801,11 +1803,15 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		uwsgi_log( "interpreter for app %d initialized.\n", id);
 	}
 
+#ifdef UWSGI_PASTE
 	if (uwsgi.paste) {
 		wi->wsgi_callable = my_callable;
 		Py_INCREF(my_callable);
 	}
 	else if (uwsgi.wsgi_file) {
+#else
+	if (uwsgi.wsgi_file) {
+#endif
 		wi->wsgi_callable = my_callable;
 		Py_INCREF(my_callable);
 	}
@@ -2729,9 +2735,11 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_POST_BUFFERING_SIZE:
 		uwsgi.post_buffering_bufsize = atoi(optarg);
 		break;
+#ifdef UWSGI_PASTE
 	case LONG_ARGS_PASTE:
 		uwsgi.paste = optarg;
 		break;
+#endif
 	case LONG_ARGS_CHECK_INTERVAL:
 		uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = atoi(optarg);
 		break;
