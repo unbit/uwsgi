@@ -73,12 +73,17 @@ void http_loop(struct uwsgi_server * uwsgi)
 	struct sockaddr_in c_addr;
 	socklen_t c_len;
 
-	pthread_t a_new_thread;
+	pthread_t a_new_thread[200];
+	int c = 0 ;
 
 	while ((clientfd = accept(uwsgi->http_fd, (struct sockaddr *) & c_addr, &c_len)) >= 0) {
 
-		pthread_create(&a_new_thread, NULL, http_request, (void *) &clientfd);
+		uwsgi_log("!!! ACCEPTED !!!\n");
 
+		pthread_create(&a_new_thread[c], NULL, http_request, (void *) &clientfd);
+		c++;
+
+		uwsgi_log("READY TO ACCEPT\n");
 	}
 }
 

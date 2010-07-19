@@ -1,6 +1,7 @@
 <uwsgi>
 	<module>rtmpt</module>
-	<socket>:3031</socket>
+	<socket mode="dev">:3031</socket>
+	<socket mode="pippo">:3031</socket>
 
 
 	<routing base="rtmpt" modifier1="0" modifier2="0">

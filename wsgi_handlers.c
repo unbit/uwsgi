@@ -362,9 +362,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 		PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-		uwsgi_log("ready to call %p %p\n", wsgi_req->async_app, wsgi_req->async_environ);
 		wsgi_req->async_result = python_call(wsgi_req->async_app, wsgi_req->async_args);
-		uwsgi_log("called.\n");
 
 #ifdef UWSGI_PROFILER
 	}
@@ -374,7 +372,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	if (wsgi_req->async_result) {
 
 
-		uwsgi_log("managing response\n");
 		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
 			if (uwsgi->async > 1) {
