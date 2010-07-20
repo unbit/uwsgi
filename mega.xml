@@ -1,0 +1,22 @@
+<unbit>
+	<pippo/>
+
+	<pluto>
+		ciao
+		ciao
+	</pluto>
+
+
+	<uwsgi id="unbit.it">
+		<http>:3333</http>
+		<module>trac.web.main:dispatch_request</module>
+		<pluto>ciao</pluto>
+		<env>TRAC_ENV=/root/uwsgi/utrac</env>
+	</uwsgi>
+
+	<uwsgi id="projects.unbit.it">
+		<http>:4444</http>
+		<module>trac.web.main:dispatch_request</module>
+	</uwsgi>
+
+</unbit>
