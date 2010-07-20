@@ -8,7 +8,7 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
-	if (!PyArg_ParseTuple(args, "Oi:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
+	if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
                 return NULL;
         }
 
