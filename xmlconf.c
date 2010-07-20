@@ -21,6 +21,18 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	xmlChar *node_mode;
 	struct option *lopt, *aopt;
 
+	char *colon ;
+
+	colon = strchr(uwsgi.xml_config, ':');
+	if (colon) {
+		colon[0] = 0 ;
+		colon++;
+		if (*colon == 0) {
+			uwsgi_log("invalid xml id\n");
+			exit(1);
+		}
+		uwsgi_log( "[uWSGI] using xml uwsgi id: %s\n", colon);
+	}
 
 	doc = xmlReadFile(uwsgi.xml_config, NULL, 0);
 	if (doc == NULL) {
@@ -38,8 +50,25 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 		exit(1);
 	}
 	if (strcmp((char *) element->name, "uwsgi")) {
-		uwsgi_log( "[uWSGI] invalid xml root element, <uwsgi> expected.\n");
-		exit(1);
+		for (node = element->children; node; node = node->next) {
+			element = NULL ;
+			if (node->type == XML_ELEMENT_NODE) {
+				if (!strcmp((char *) node->name, "uwsgi")) {
+					if (colon) {
+						if (strcmp(colon, (char *)  xmlGetProp(node, (const xmlChar *) "id")) ) {
+							continue;
+						}
+					}
+					element = node ;
+					break;
+				}
+			}
+		}
+
+		if (!element) {
+			uwsgi_log( "[uWSGI] invalid xml root element, <uwsgi> expected.\n");
+			exit(1);
+		}
 	}
 
 

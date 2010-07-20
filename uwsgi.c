@@ -386,6 +386,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 		{"http", required_argument, 0, LONG_ARGS_HTTP},
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
+		{"env", required_argument, 0, LONG_ARGS_ENV},
 		{"version", no_argument, 0, LONG_ARGS_MODE},
 		{0, 0, 0, 0}
 	};
@@ -749,6 +750,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (tcp_port) {
 			uwsgi.http_server_port = tcp_port+1;
 			uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
+			uwsgi_log("HTTP FD: %d\n", uwsgi.http_fd);
 		}
 		else {
 			uwsgi_log("invalid http address.\n");
@@ -776,18 +778,21 @@ int main(int argc, char *argv[], char *envp[]) {
 			strcpy(uwsgi.socket_name, tmp_s);
 			uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
 
-			pid_t http_pid = fork();
-
-			if (http_pid == 0) {
-				http_loop(&uwsgi);
-				// never here
-				exit(1);
-			}
-			else if (http_pid < 0) {
-				uwsgi_error("fork()");
-				exit(1);
-			}
 		}	
+
+		pid_t http_pid = fork();
+
+		if (http_pid == 0) {
+			signal(SIGINT, (void *) &end_me);
+			http_loop(&uwsgi);
+			// never here
+			exit(1);
+		}
+		else if (http_pid < 0) {
+			uwsgi_error("fork()");
+			exit(1);
+		}
+		close(uwsgi.http_fd);
 	}
 
 	if (!no_server) {
@@ -2634,6 +2639,11 @@ void manage_opt(int i, char *optarg) {
 		break;
 	case LONG_ARGS_MODE:
 		uwsgi.mode = optarg;
+		break;
+	case LONG_ARGS_ENV:
+		if (putenv(optarg)) {
+			uwsgi_error("putenv()");
+		}
 		break;
 #ifdef UWSGI_ASYNC
 	case LONG_ARGS_ASYNC:

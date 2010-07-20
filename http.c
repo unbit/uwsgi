@@ -2,6 +2,14 @@
 
 struct uwsgi_server uwsgi;
 
+struct uwsgi_http_req {
+	
+	pthread_t a_new_thread;
+	int fd;
+	struct sockaddr_in c_addr;
+	socklen_t c_len;
+};
+
 enum {
 	uwsgi_http_method,
 	uwsgi_http_uri,
@@ -62,33 +70,58 @@ static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint
 	return up;
 }
 
-void *http_request(void *);
+static void *http_request(void *);
 
 void http_loop(struct uwsgi_server * uwsgi)
 {
 
 
-	int clientfd;
+	struct uwsgi_http_req *ur;
+	int ret;
+	pthread_attr_t pa;
 
-	struct sockaddr_in c_addr;
-	socklen_t c_len;
+	ret = pthread_attr_init(&pa);
+	if (ret) {
+		uwsgi_log("pthread_attr_init() = %d\n", ret);
+		exit(1);
+	}
 
-	pthread_t a_new_thread[200];
-	int c = 0 ;
+	ret = pthread_attr_setdetachstate(&pa, PTHREAD_CREATE_DETACHED);
+	if (ret) {
+		uwsgi_log("pthread_attr_setdetachstate() = %d\n", ret);
+		exit(1);
+	}
 
-	while ((clientfd = accept(uwsgi->http_fd, (struct sockaddr *) & c_addr, &c_len)) >= 0) {
 
-		uwsgi_log("!!! ACCEPTED !!!\n");
+	for(;;) {
 
-		pthread_create(&a_new_thread[c], NULL, http_request, (void *) &clientfd);
-		c++;
+		ur = malloc(sizeof(struct uwsgi_http_req));
+		if (!ur) {
+			uwsgi_error("malloc()");
+			sleep(1);
+			continue;
+		}
+		ur->c_len = sizeof(struct sockaddr_in) ;
+		ur->fd = accept(uwsgi->http_fd, (struct sockaddr *) &ur->c_addr, &ur->c_len);
 
-		uwsgi_log("READY TO ACCEPT\n");
+		if (ur->fd < 0) {
+			uwsgi_error("accept()");
+			free(ur);
+			continue;
+		}
+
+		ret = pthread_create(&ur->a_new_thread, &pa, http_request, (void *) ur);
+		if (ret) {
+			uwsgi_log("pthread_create() = %d\n", ret);
+			free(ur);
+			sleep(1);
+			continue;
+		}
 	}
 }
 
 
-void *http_request(void *fd)
+static void *http_request(void *u_h_r)
 {
 
 	char buf[4096];
@@ -99,9 +132,9 @@ void *http_request(void *fd)
 	char uwsgipkt[4096];
 	char *up;
 
-	int *clientfd_ptr = (int *) fd;
+	struct uwsgi_http_req *ur = (struct uwsgi_http_req *) u_h_r ;
 
-	int clientfd = *clientfd_ptr;
+	int clientfd = ur->fd;
 	int uwsgi_fd;
 
 	int need_to_read = 1;
@@ -118,9 +151,6 @@ void *http_request(void *fd)
 
 	uint16_t ulen;
 
-	struct sockaddr_in c_addr;
-	socklen_t c_len;
-
 	ptr = tmp_buf;
 
 	up = uwsgipkt;
@@ -130,10 +160,12 @@ void *http_request(void *fd)
 	up[3] = 0;
 	up += 4;
 
-	getpeername(clientfd, (struct sockaddr *) & c_addr, &c_len);
-
 	while (need_to_read) {
 		len = read(clientfd, buf, 4096);
+		if (len <= 0) {
+			uwsgi_error("read()");
+			break;
+		}
 		for (i = 0; i < len; i++) {
 
 			if (buf[i] == ' ') {
@@ -173,7 +205,7 @@ void *http_request(void *fd)
 					state = uwsgi_http_header_val;
 				} else {
 					//check for overflow
-						*ptr++ = buf[i];
+					*ptr++ = buf[i];
 				}
 
 			} else if (buf[i] == '\r') {
@@ -215,7 +247,7 @@ void *http_request(void *fd)
 					up = add_uwsgi_var(up, "SERVER_PORT", 11, uwsgi.http_server_port, strlen(uwsgi.http_server_port), 0);
 					up = add_uwsgi_var(up, "SCRIPT_NAME", 11, "", 0, 0);
 
-					char *ip = inet_ntoa(c_addr.sin_addr);
+					char *ip = inet_ntoa(ur->c_addr.sin_addr);
 					up = add_uwsgi_var(up, "REMOTE_ADDR", 11, ip, strlen(ip), 0);
 
 					uwsgi_fd = uwsgi_connect(uwsgi.socket_name, 10);
@@ -257,14 +289,12 @@ void *http_request(void *fd)
 					state = uwsgi_http_header_key_colon;
 				} else {
 					//check for overflow
-						*ptr++ = buf[i];
+					*ptr++ = buf[i];
 				}
 			} else {
 
 				//check for overflow
-					//uwsgi_log("CHAR: %d: %d\n", i, buf[i]);
 				*ptr++ = buf[i];
-				//uwsgi_log("PTR: %d\n", *ptr);
 			}
 
 		}
@@ -273,6 +303,6 @@ void *http_request(void *fd)
 
 	close(clientfd);
 
-	uwsgi_log("HTTP CONNECTION CLOSED WITH: %d\n", clientfd);
-	return NULL;
+	free(ur);
+	pthread_exit(NULL);
 }
