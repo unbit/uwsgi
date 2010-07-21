@@ -49,7 +49,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	// is it a tuple (WSGI2.0) ?
 	if (PyTuple_Check((PyObject *)wsgi_req->async_result)) {
 		if (PyTuple_Size((PyObject *)wsgi_req->async_result) != 3) {
-			uwsgi_log("invalid WSGI2.0 response.\n");
+			uwsgi_log("invalid WSGI2.0 response size: %d.\n", PyTuple_Size((PyObject *)wsgi_req->async_result));
 			goto clear;
 		}
 #ifdef UWSGI_DEBUG
