@@ -169,6 +169,7 @@ def parse_vars():
 
 	if str(PYLIB_PATH) != '':
 		libs.insert(0,'-L' + PYLIB_PATH)
+		os.environ['LD_RUN_PATH'] = PYLIB_PATH
 
 	kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
