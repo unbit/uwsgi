@@ -72,7 +72,7 @@ except:
 cflags = cflags + ['-I' + sysconfig.get_python_inc(), '-I' + sysconfig.get_python_inc(plat_specific=True) ]
 ldflags = os.environ.get("LDFLAGS", "").split()
 libs = ['-lpthread', '-rdynamic'] + sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
-if sysconfig.get_config_var('LIBPL'):
+if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
 	libs.append('-L' + sysconfig.get_config_var('LIBPL'))
 
 
