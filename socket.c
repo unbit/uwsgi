@@ -204,6 +204,8 @@ int uwsgi_connect(char *socket_name, int timeout) {
 	char *tcp_port = strchr(socket_name, ':');	
 
 	if (tcp_port) {
+		tcp_port[0] = 0;
+		tcp_port++;
 		return connect_to_tcp(socket_name, atoi(tcp_port), timeout);
 	}
 	
@@ -254,6 +256,8 @@ int connect_to_tcp(char *socket_name, int port, int timeout) {
 	else {
 		uws_addr.sin_addr.s_addr = inet_addr(socket_name);
 	}
+
+	socket_name[strlen(socket_name)] = ':' ;
 
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (uwsgi_poll.fd < 0) {

@@ -50,8 +50,6 @@ void set_harakiri(int sec) {
 	}
 }
 
-#ifndef UNBIT
-
 void daemonize(char *logfile) {
 	pid_t pid;
 	int fdin;
@@ -172,7 +170,6 @@ void logto(char *logfile) {
 }
 
 
-#endif
 
 char *uwsgi_get_cwd() {
 
@@ -205,17 +202,14 @@ char *uwsgi_get_cwd() {
 }
 
 void internal_server_error(int fd, char *message) {
-#ifndef UNBIT
         if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-#endif
                 uwsgi.wsgi_req->headers_size = write(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
-#ifndef UNBIT
         }
         else {
                 uwsgi.wsgi_req->headers_size = write(fd, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
         }
         uwsgi.wsgi_req->header_cnt = 2;
-#endif
+
         uwsgi.wsgi_req->response_size = write(fd, "<h1>uWSGI Error</h1>", 20);
         uwsgi.wsgi_req->response_size += write(fd, message, strlen(message));
 }

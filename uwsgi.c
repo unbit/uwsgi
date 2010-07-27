@@ -55,15 +55,6 @@ PyMethodDef null_methods[] = {
 	{NULL, NULL},
 };
 
-#ifdef UNBIT
-int save_to_disk = -1;
-int tmp_dir_fd = -1;
-char *tmp_filename;
-int uri_to_hex(void);
-int check_for_memory_errors = 0;
-#endif
-
-
 struct uwsgi_app *wi;
 
 void warn_pipe() {
@@ -147,7 +138,6 @@ void harakiri() {
 	Py_FatalError("HARAKIRI !\n");
 }
 
-#ifndef UNBIT
 void stats() {
 	// fix this for better logging (this cause races)
 	struct uwsgi_app *ua = NULL;
@@ -163,7 +153,6 @@ void stats() {
 	}
 	uwsgi_log("\n");
 }
-#endif
 
 PyObject *wsgi_spitout;
 
@@ -182,9 +171,6 @@ pid_t diedpid;
 int waitpid_status;
 struct timeval last_respawn;
 time_t respawn_delta;
-#ifdef UNBIT
-int single_app_mode = 0;
-#endif
 
 
 static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
@@ -220,9 +206,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	pid_t pid;
 	int no_server = 0;
 
-#ifndef UNBIT
 	FILE *pidfile;
-#endif
 
 	int working_workers = 0;
 	int blocking_workers = 0;
@@ -269,9 +253,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.numproc = 1;
 
 	uwsgi.async = 1;
-#ifndef UNBIT
 	uwsgi.listen_queue = 64;
-#endif
 
 	uwsgi.max_vars = MAX_VARS;
 	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);
@@ -279,7 +261,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
-#ifndef UNBIT
 	int option_index = 0;
 	struct option long_options[] = {
 		{"socket", required_argument, 0, 's'},
@@ -385,12 +366,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"routing", no_argument, &uwsgi.routing, 1},
 #endif
 		{"http", required_argument, 0, LONG_ARGS_HTTP},
+		{"http-only", no_argument, &uwsgi.http_only, 1},
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
 		{"env", required_argument, 0, LONG_ARGS_ENV},
 		{"version", no_argument, 0, LONG_ARGS_MODE},
 		{0, 0, 0, 0}
 	};
-#endif
 
 
 	gettimeofday(&uwsgi.start_tv, NULL);
@@ -437,13 +418,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.binary_path = argv[0];
 
-#ifndef UNBIT
 	while ((i = getopt_long(argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
-#else
-	while ((i = getopt(argc, argv, "p:t:mTPiv:b:rMR:Sz:w:C:j:H:A:EQ:L")) != -1) {
-#endif
 		manage_opt(i, optarg);
-
 	}
 
 	if (optind < argc) {
@@ -473,18 +449,14 @@ int main(int argc, char *argv[], char *envp[]) {
 		strlcpy(uwsgi.binary_path, argv[0], strlen(argv[0]) + 1);
 	}
 
-#ifndef UNBIT
 	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-#endif
 		if (uwsgi.test_module == NULL) {
 			uwsgi_log("*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 		}
-#ifndef UNBIT
 	}
 	else {
 		uwsgi_log("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 	}
-#endif
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, plese disable DEBUG in uwsgiconfig.py and recompile it ***\n***\n");
@@ -502,23 +474,20 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log("Python version: %s\n", Py_GetVersion());
 
-#ifndef UNBIT
 	uwsgi_as_root();
-#endif
 
 	if (!uwsgi.master_process) {
 		uwsgi_log(" *** WARNING: you are running uWSGI without its master process manager ***\n");
 	}
 
 #ifndef __OpenBSD__
-#ifndef UNBIT
+
 	if (uwsgi.rl.rlim_max > 0) {
 		uwsgi_log("limiting address space of processes...\n");
 		if (setrlimit(RLIMIT_AS, &uwsgi.rl)) {
 			uwsgi_error("setrlimit()");
 		}
 	}
-#endif
 
 	if (uwsgi.prio != 0) {
 		if (setpriority(PRIO_PROCESS, 0, uwsgi.prio)) {
@@ -531,14 +500,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 
 	if (!getrlimit(RLIMIT_AS, &uwsgi.rl)) {
-#ifndef UNBIT
 		// check for overflow
 		if (uwsgi.rl.rlim_max != RLIM_INFINITY) {
-#endif
 			uwsgi_log("your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
-#ifndef UNBIT
 		}
-#endif
 	}
 #endif
 
@@ -780,6 +745,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 		}	
 
+	
+		if (uwsgi.http_only) {
+			signal(SIGINT, (void *) &end_me);
+			http_loop(&uwsgi);
+			// never here
+			exit(1);
+		}
+
 		pid_t http_pid = fork();
 
 		if (http_pid == 0) {
@@ -796,7 +769,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (!no_server) {
-#ifndef UNBIT
 		if (uwsgi.socket_name != NULL && !uwsgi.is_a_reload) {
 				char *tcp_port = strchr(uwsgi.socket_name, ':');
 				if (tcp_port == NULL) {
@@ -811,7 +783,6 @@ int main(int argc, char *argv[], char *envp[]) {
 					exit(1);
 				}
 		}
-#endif
 
 		socket_type_len = sizeof(int);
 		if (!getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
@@ -888,7 +859,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid;
 
-#ifndef UNBIT
 	if (uwsgi.pidfile) {
 		uwsgi_log( "writing pidfile to %s\n", uwsgi.pidfile);
 		pidfile = fopen(uwsgi.pidfile, "w");
@@ -901,7 +871,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		fclose(pidfile);
 	}
-#endif
 
 
 	/* save the masterpid */
@@ -975,12 +944,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 
-#ifndef UNBIT
 	if (no_server) {
 		uwsgi_log( "no-server mode requested. Goodbye.\n");
 		exit(0);
 	}
-#endif
 
 // is this a proxy only worker ?
 
@@ -1001,21 +968,6 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi_log( "spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
 		}
 	}
-
-#ifdef UNBIT
-	if (single_app_mode == 1) {
-		uwsgi.wsgi_req->wsgi_script = getenv("UWSGI_SCRIPT");
-		if (uwsgi.wsgi_req->wsgi_script) {
-			uwsgi.wsgi_req->wsgi_script_len = strlen(uwsgi.wsgi_req->wsgi_script);
-		}
-		else {
-			uwsgi_log( "UWSGI_SCRIPT env var not set !\n");
-			exit(1);
-		}
-
-		init_uwsgi_app(NULL, NULL);
-	}
-#endif
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.numproc > 0) {
@@ -1091,9 +1043,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		signal(SIGINT, (void *) &kill_them_all);
 		signal(SIGQUIT, (void *) &kill_them_all);
 		/* used only to avoid human-errors */
-#ifndef UNBIT
+
 		signal(SIGUSR1, (void *) &stats);
-#endif
 
 		uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
 #ifdef UWSGI_UDP
@@ -1473,9 +1424,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	signal(SIGTERM, (void *) &reload_me);
 
 
-#ifndef UNBIT
 	signal(SIGUSR1, (void *) &stats);
-#endif
 
 
 	signal(SIGPIPE, (void *) &warn_pipe);
@@ -1639,9 +1588,7 @@ reqclear:
 
 void init_uwsgi_vars() {
 
-#ifndef UNBIT
 	int i;
-#endif
 	PyObject *pysys, *pysys_dict, *pypath;
 	char venv_version[15] ;
 
@@ -1699,7 +1646,6 @@ void init_uwsgi_vars() {
 		PyErr_Print();
 	}
 
-#ifndef UNBIT
 	for (i = 0; i < uwsgi.python_path_cnt; i++) {
 		if (PyList_Insert(pypath, 0, PyString_FromString(uwsgi.python_path[i])) != 0) {
 			PyErr_Print();
@@ -1708,7 +1654,6 @@ void init_uwsgi_vars() {
 			uwsgi_log( "added %s to pythonpath.\n", uwsgi.python_path[i]);
 		}
 	}
-#endif
 
 }
 
@@ -2397,27 +2342,6 @@ void uwsgi_wsgi_config(char *filename) {
 }
 
 
-#ifdef UNBIT
-int uri_to_hex() {
-	int i = 0, j = 0;
-
-	if (uwsgi.wsgi_req->uri_len < 1) {
-		return 0;
-	}
-
-	if (uwsgi.wsgi_req->uri_len * 2 > 8192) {
-		return 0;
-	}
-
-	for (i = 0; i < uwsgi.wsgi_req->uri_len; i++) {
-		sprintf(tmp_filename + j, "%02X", uwsgi.wsgi_req->uri[i]);
-		j += 2;
-	}
-
-	return j;
-}
-#endif
-
 #ifdef PYTHREE
 static PyModuleDef uwsgi_module3 = {
 	PyModuleDef_HEAD_INIT,
@@ -2658,7 +2582,6 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.ugreen_stackpages = atoi(optarg);
 		break;
 #endif
-#ifndef UNBIT
 	case LONG_ARGS_VERSION:
 		fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);
 		exit(0);
@@ -2756,7 +2679,6 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_PYARGV:
 		uwsgi.pyargv = optarg;
 		break;
-#endif
 	case 'j':
 		uwsgi.test_module = optarg;
 		break;
@@ -2787,30 +2709,7 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.master_process = 1;
 		break;
 #endif
-#ifdef UNBIT
-	case 'E':
-		check_for_memory_errors = 1;
-		break;
-	case 'S':
-		uwsgi.single_interpreter = 1;
-		single_app_mode = 1;
-		uwsgi.default_app = 0;
-		break;
-	case 'C':
-		tmp_dir_fd = open(optarg, O_DIRECTORY);
-		if (tmp_dir_fd < 0) {
-			uwsgi_error("open()");
-			exit(1);
-		}
-		tmp_filename = malloc(8192);
-		if (!tmp_filename) {
-			uwsgi_log( "unable to allocate space (8k) for tmp_filename\n");
-			exit(1);
-		}
-		memset(tmp_filename, 0, 8192);
-		break;
-#endif
-#ifndef UNBIT
+
 	case 'd':
 		if (!uwsgi.is_a_reload) {
 			daemonize(optarg);
@@ -2827,7 +2726,6 @@ void manage_opt(int i, char *optarg) {
 	case 'l':
 		uwsgi.listen_queue = atoi(optarg);
 		break;
-#endif
 	case 'v':
 		uwsgi.max_vars = atoi(optarg);
 		uwsgi.vec_size = 4 + 1 + (4 * uwsgi.max_vars);
@@ -2853,7 +2751,6 @@ void manage_opt(int i, char *optarg) {
 	case 'b':
 		uwsgi.buffer_size = atoi(optarg);
 		break;
-#ifndef UNBIT
 	case 'c':
 		uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
 		break;
@@ -2879,7 +2776,6 @@ void manage_opt(int i, char *optarg) {
 			uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (optarg[2] - '0');
 		}
 		break;
-#endif
 	case 'M':
 		uwsgi.master_process = 1;
 		break;
@@ -2904,7 +2800,6 @@ void manage_opt(int i, char *optarg) {
 	LONG_ARGS_PLUGIN_EMBED_PSGI
 	LONG_ARGS_PLUGIN_EMBED_LUA
 	LONG_ARGS_PLUGIN_EMBED_RACK
-#ifndef UNBIT
 	case 'h':
 		fprintf(stdout, "Usage: %s [options...]\n\
 \t-s|--socket <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
@@ -2971,7 +2866,6 @@ void manage_opt(int i, char *optarg) {
 			uwsgi_log( "invalid argument -%c  exiting \n", i);
 		}
 		exit(1);
-#endif
 	}
 }
 

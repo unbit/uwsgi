@@ -335,6 +335,7 @@ def build_plugin(path):
 	p_ldflags = ldflags[:]
 
 	p_cflags.append(up.CFLAGS)
+	p_ldflags.append(up.LDFLAGS)
 
 	p_cflags.insert(0, '-I.')
 

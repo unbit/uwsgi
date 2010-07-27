@@ -250,6 +250,8 @@ static void *http_request(void *u_h_r)
 					char *ip = inet_ntoa(ur->c_addr.sin_addr);
 					up = add_uwsgi_var(up, "REMOTE_ADDR", 11, ip, strlen(ip), 0);
 
+					up = add_uwsgi_var(up, "REMOTE_USER", 11, "roberto", 7, 0);
+
 					uwsgi_fd = uwsgi_connect(uwsgi.socket_name, 10);
 					if (uwsgi_fd >= 0) {
 						ulen = (up - uwsgipkt) - 4;

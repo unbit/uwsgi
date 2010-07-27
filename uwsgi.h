@@ -65,9 +65,7 @@
 
 #include <sys/resource.h>
 
-#ifndef UNBIT
 #include <getopt.h>
-#endif
 
 #ifdef __APPLE__
 #include <libkern/OSAtomic.h>
@@ -216,12 +214,6 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define UWSGI_OPTION_CGI_MODE		6
 #define UWSGI_OPTION_THREADS		7
 #define UWSGI_OPTION_REAPER		8
-
-#ifdef UNBIT
-#define UWSGI_MODIFIER_HT_S 1
-#define UWSGI_MODIFIER_HT_M 2
-#define UWSGI_MODIFIER_HT_H 3
-#endif
 
 #define UWSGI_MODIFIER_ADMIN_REQUEST		10
 #define UWSGI_MODIFIER_SPOOL_REQUEST		17
@@ -375,10 +367,6 @@ struct wsgi_request {
 	char *pyhome;
 	uint16_t pyhome_len;
 
-#ifdef UNBIT
-	unsigned long long unbit_flags;
-#endif
-
 	int fd_closed;
 
 	int sendfile_fd;
@@ -442,16 +430,15 @@ struct uwsgi_server {
 	struct wsgi_request *wsgi_req ;
 
 	PyThreadState *_save;
-#ifndef UNBIT
 	char *chroot;
 	gid_t gid;
 	uid_t uid;
-#endif
 
 	char *mode;
 	char *http;
 	char *http_server_name;
 	char *http_server_port;
+	int http_only;
 	int http_fd;
 
 	int ignore_script_name;
@@ -571,7 +558,6 @@ struct uwsgi_server {
 
 	struct timeval start_tv;
 
-#ifndef UNBIT
 	int abstract_socket;
 	int chmod_socket;
 	mode_t chmod_socket_value;
@@ -592,7 +578,6 @@ struct uwsgi_server {
         wchar_t *py_argv[MAX_PYARGV];
 #else
         char *py_argv[MAX_PYARGV];
-#endif
 #endif
 
 #ifdef UWSGI_ROUTING
@@ -760,16 +745,16 @@ int connect_to_unix(char *, int);
 #ifdef UWSGI_SCTP
 int bind_to_sctp(char *, int, char *);
 #endif
-#ifndef UNBIT
+
 void daemonize(char *);
 void logto(char *);
-#endif
+
 void log_request(struct wsgi_request *);
 void get_memusage(void);
 void harakiri(void);
-#ifndef UNBIT
+
 void stats(void);
-#endif
+
 void init_uwsgi_vars(void);
 void init_uwsgi_embedded_module(void);
 

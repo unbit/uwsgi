@@ -415,11 +415,6 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 							wsgi_req->https = ptrbuf;
 							wsgi_req->https_len = strsize;
 						}
-#ifdef UNBIT
-						else if (!strncmp("UNBIT_FLAGS", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->unbit_flags = *(unsigned long long *) ptrbuf;
-						}
-#endif
 						else if (!strncmp("CONTENT_LENGTH", wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
 						}

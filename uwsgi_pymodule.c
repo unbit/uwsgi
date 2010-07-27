@@ -816,6 +816,19 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(uwsgi.mywid);
 }
 
+PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
+
+	PyObject *ml = PyTuple_New(2);
+
+	get_memusage();
+	
+	PyTuple_SetItem(ml, 0, PyLong_FromLong(uwsgi.workers[uwsgi.mywid].rss_size));
+	PyTuple_SetItem(ml, 1, PyLong_FromLong(uwsgi.workers[uwsgi.mywid].vsz_size));
+
+	return ml;
+
+}
+
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	uwsgi_log( "disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
 
@@ -904,6 +917,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"send", py_uwsgi_send, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
+	{"mem", py_uwsgi_mem, METH_VARARGS, ""},
 #ifdef UWSGI_MULTICAST
 	{"send_multicast_message", py_uwsgi_multicast, METH_VARARGS, ""},
 #endif
