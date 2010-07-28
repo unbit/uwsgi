@@ -198,10 +198,12 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 
+#ifdef UWSGI_UDP
 	struct pollfd uwsgi_poll;
 	struct sockaddr_in udp_client;
 	socklen_t udp_len;
 	char udp_client_addr[16];
+#endif
 
 	pid_t pid;
 	int no_server = 0;
@@ -1613,9 +1615,11 @@ void init_uwsgi_vars() {
 
 	int i;
 	PyObject *pysys, *pysys_dict, *pypath;
-	char venv_version[15] ;
 
+#ifdef UWSGI_MINTERPRETERS
+	char venv_version[15] ;
 	PyObject *site_module;
+#endif
 
 	/* add cwd to pythonpath */
 	pysys = PyImport_ImportModule("sys");
