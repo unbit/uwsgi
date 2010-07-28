@@ -19,6 +19,8 @@
 
 #include <dirent.h>
 
+#include <sys/utsname.h>
+
 // linux has not strlcpy
 #ifdef __linux
 	#define strlcpy(x, y, z) strcpy(x, y)

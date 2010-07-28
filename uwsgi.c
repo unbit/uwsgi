@@ -224,6 +224,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	struct uidsec_struct us;
 #endif
 
+
 	int socket_type = 0;
 	socklen_t socket_type_len;
 
@@ -232,6 +233,24 @@ int main(int argc, char *argv[], char *envp[]) {
 	signal(SIGTERM, SIG_IGN);
 
 	memset(&uwsgi, 0, sizeof(struct uwsgi_server));
+
+
+#ifdef UWSGI_DEBUG
+	/* get system information */
+	struct utsname uuts;
+	if (uname(&uuts)) {
+		uwsgi_error("uname()");
+	}
+	else {
+		uwsgi_log("SYSNAME: %s\nNODENAME: %s\nRELEASE: %s\nVERSION: %s\nMACHINE: %s\n",
+			uuts.sysname,
+			uuts.nodename,
+			uuts.release,
+			uuts.version,
+			uuts.machine);
+	}
+#endif
+	
 
 	/* generic shared area */
 	uwsgi.shared = (struct uwsgi_shared *) mmap(NULL, sizeof(struct uwsgi_shared), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -1200,6 +1219,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				if (!check_interval.tv_sec)
 					check_interval.tv_sec = 1;
 
+#ifdef UWSGI_UDP
 				if (uwsgi.udp_socket && uwsgi_poll.fd >= 0) {
 					rlen = poll(&uwsgi_poll, 1, check_interval.tv_sec * 1000);
 					if (rlen < 0) {
@@ -1246,8 +1266,11 @@ int main(int argc, char *argv[], char *envp[]) {
 					}
 				}
 				else {
+#endif
 					select(0, NULL, NULL, NULL, &check_interval);
+#ifdef UWSGI_UDP
 				}
+#endif
 
 				// checking logsize
 				if (uwsgi.logfile) {

@@ -143,9 +143,11 @@ clear2:
 	if (wsgi_req->async_placeholder) {
 		uwsgi_debug("wsgi_req->async_placeholder: %d\n", ((PyObject *)wsgi_req->async_placeholder)->ob_refcnt);
 	}
+#ifdef UWSGI_WSGI2
 	if (wsgi_req->async_orig_result) {
 		uwsgi_debug("wsgi_req->async_orig_result: %d\n", ((PyObject *)wsgi_req->async_orig_result)->ob_refcnt);
 	}
+#endif
 	if (wsgi_req->async_result) {
 		uwsgi_debug("wsgi_req->async_result: %d\n", ((PyObject *)wsgi_req->async_result)->ob_refcnt);
 	}
