@@ -625,6 +625,22 @@ PyObject *py_uwsgi_multicast(PyObject * self, PyObject * args) {
 }
 #endif
 
+PyObject *py_uwsgi_has_hook(PyObject * self, PyObject * args) {
+	int modifier1;
+
+	if (!PyArg_ParseTuple(args, "i:has_hook", &modifier1)) {
+                return NULL;
+        }
+
+	if (uwsgi.shared->hooks[modifier1] != unconfigured_hook) {
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
 	PyObject *arg_message = NULL;
@@ -816,6 +832,10 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(uwsgi.mywid);
 }
 
+PyObject *py_uwsgi_logsize(PyObject * self, PyObject * args) {
+	return PyInt_FromLong(uwsgi.shared->logsize);
+}
+
 PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 
 	PyObject *ml = PyTuple_New(2);
@@ -918,6 +938,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"send", py_uwsgi_send, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 	{"mem", py_uwsgi_mem, METH_VARARGS, ""},
+	{"has_hook", py_uwsgi_has_hook, METH_VARARGS, ""},
+	{"logsize", py_uwsgi_logsize, METH_VARARGS, ""},
 #ifdef UWSGI_MULTICAST
 	{"send_multicast_message", py_uwsgi_multicast, METH_VARARGS, ""},
 #endif

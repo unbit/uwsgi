@@ -324,7 +324,7 @@ def parse_vars():
 		cflags.append("-g")
 
 	if UNBIT:
-		cflags.append("-DUWSGI_UNBIT")
+		cflags.append("-DUNBIT")
 
 def build_plugin(path):
 	path = path.rstrip('/')

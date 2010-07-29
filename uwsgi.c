@@ -173,7 +173,7 @@ struct timeval last_respawn;
 time_t respawn_delta;
 
 
-static int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	uwsgi_log("-- unavailable modifier requested: %d --\n", wsgi_req->uh.modifier1);
 	return -1;
 }
@@ -223,7 +223,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 #ifdef UNBIT
-	struct uidsec_struct us;
+	//struct uidsec_struct us;
 #endif
 
 
@@ -1276,7 +1276,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 				// checking logsize
 				if (uwsgi.logfile) {
-					uwsgi_log("LOGSIZE: %d\n", lseek(2, 0, SEEK_CUR));
+					uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
 				}
 				
 				master_cycles++;
@@ -2426,6 +2426,14 @@ void init_uwsgi_embedded_module() {
 			exit(1);
 		}
 	}
+
+	if (uwsgi.pidfile) {
+		if (PyDict_SetItemString(uwsgi.embedded_dict, "pidfile", PyString_FromString(uwsgi.pidfile))) {
+			PyErr_Print();
+			exit(1);
+		}
+	}
+	
 
 	if (PyDict_SetItemString(uwsgi.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
 		PyErr_Print();

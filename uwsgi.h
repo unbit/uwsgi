@@ -680,6 +680,8 @@ struct uwsgi_shared {
 
 	struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
 
+	off_t logsize;
+
 #ifdef UWSGI_SPOOLER
 	pid_t spooler_pid;
 	int spooler_frequency;
@@ -1033,3 +1035,5 @@ void uwsgi_route_action_wsgi(struct uwsgi_server *, struct wsgi_request *, struc
 void init_pyargv(struct uwsgi_server *);
 
 void http_loop(struct uwsgi_server *);
+
+int unconfigured_hook(struct uwsgi_server *, struct wsgi_request *);
