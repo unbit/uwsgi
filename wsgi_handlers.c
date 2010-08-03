@@ -336,6 +336,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	wsgi_req->async_app = wi->wsgi_callable ;
 
+	PyDict_SetItemString(uwsgi->embedded_dict, "env", wsgi_req->async_environ);
+
 
 #ifdef UWSGI_ROUTING
 	uwsgi_log("routing %d routes %d\n", uwsgi->routing, uwsgi->nroutes);
