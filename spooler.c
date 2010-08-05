@@ -78,6 +78,9 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	int rlen = 0;
 	int datasize;
 
+	// prevent process blindly reading stdin to make mess
+	int nullfd;
+
 	struct uwsgi_header uh;
 
 	char *key;
@@ -113,6 +116,17 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	// asked by Marco Beri
 	uwsgi_log( "lowering spooler priority to %d\n", PRIO_MAX);
 	setpriority(PRIO_PROCESS, getpid(), PRIO_MAX);
+
+	nullfd = open("/dev/null", O_RDONLY);
+        if (nullfd < 0) {
+                uwsgi_error("open()");
+                exit(1);
+        }
+
+        if (nullfd != 0) {
+                dup2(nullfd, 0);
+		close(nullfd);
+        }
 
 	for (;;) {
 
