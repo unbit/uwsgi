@@ -21,8 +21,9 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
         }
 #endif
 
+	wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
 
-        return PyTuple_New(0);
+        return (PyObject *) wsgi_req->sendfile_obj;
 }
 
 ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
@@ -30,7 +31,6 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	int fd = wsgi_req->sendfile_fd ;
 	int sockfd = wsgi_req->poll.fd ;
         struct stat stat_buf;
-	int sf_ret;
 
 	if (!wsgi_req->sendfile_fd_size) {
 
@@ -45,19 +45,31 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
         if (wsgi_req->sendfile_fd_size) {
 
-		 if (!wsgi_req->sendfile_fd_chunk) wsgi_req->sendfile_fd_chunk = 4096 ;
+		if (!wsgi_req->sendfile_fd_chunk) wsgi_req->sendfile_fd_chunk = 4096 ;
+
+		return uwsgi_do_sendfile(sockfd, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_size, wsgi_req->sendfile_fd_chunk, &wsgi_req->sendfile_fd_pos, uwsgi->async);
+
+	}
+
+	return 0;
+}
+
+
+ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk, off_t *pos, int async) {
+
+	int sf_ret;
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)
 
-		off_t sf_len = wsgi_req->sendfile_fd_size ;
+		off_t sf_len = filesize ;
 
-		if (uwsgi->async > 1) {
-			sf_len = wsgi_req->sendfile_fd_chunk;
-			sf_ret = sendfile(fd, sockfd, wsgi_req->sendfile_fd_pos, 0, NULL, &sf_len, 0);
-			wsgi_req->sendfile_fd_pos += sf_len ;
+		if (async > 1) {
+			sf_len = chunk;
+			sf_ret = sendfile(filefd, sockfd, *pos, 0, NULL, &sf_len, 0);
+			*pos += sf_len ;
 		}
 		else {
-			sf_ret = sendfile(fd, sockfd, 0, 0, NULL, &sf_len, 0);
+			sf_ret = sendfile(filefd, sockfd, 0, 0, NULL, &sf_len, 0);
 		}
 
 		 if (sf_ret) {
@@ -67,15 +79,15 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 		return sf_len;
 #elif defined(__APPLE__)
-		off_t sf_len = wsgi_req->sendfile_fd_size ;
+		off_t sf_len = filesize ;
 
-		if (uwsgi->async > 1) {
-			sf_len = wsgi_req->sendfile_fd_chunk;
-                	sf_ret = sendfile(fd, sockfd, wsgi_req->sendfile_fd_pos, &sf_len, NULL, 0);
-			wsgi_req->sendfile_fd_pos += sf_len ;
+		if (async > 1) {
+			sf_len = chunk;
+                	sf_ret = sendfile(filefd, sockfd, *pos, &sf_len, NULL, 0);
+			*pos += sf_len ;
 		}
 		else {
-                	sf_ret = sendfile(fd, sockfd, 0, &sf_len, NULL, 0);
+                	sf_ret = sendfile(filefd, sockfd, 0, &sf_len, NULL, 0);
 		}
 
 		if (sf_ret) {
@@ -86,11 +98,11 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		return sf_len;
 			
 #elif defined(__linux__) || defined(__sun__)
-		if (uwsgi->async > 1) {
-                	sf_ret = sendfile(sockfd, fd, &wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_chunk);
+		if (async > 1) {
+                	sf_ret = sendfile(sockfd, filefd, pos, chunk);
 		}
 		else {
-                	sf_ret = sendfile(sockfd, fd, &wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_size);
+                	sf_ret = sendfile(sockfd, filefd, pos, filesize);
 		}
 
 		if (sf_ret < 0) {
@@ -108,16 +120,16 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
                 ssize_t i = 0;
 
 		if (!nosf_buf) {
-			nosf_buf = malloc(wsgi_req->sendfile_fd_chunk);
+			nosf_buf = malloc(chunk);
 		}
-		else if (wsgi_req->sendfile_fd_chunk != nosf_buf_size) {
-			nosf_buf = realloc(nosf_buf, wsgi_req->sendfile_fd_chunk);
+		else if (chunk != nosf_buf_size) {
+			nosf_buf = realloc(nosf_buf, chunk);
 		}
 
-		nosf_buf_size = wsgi_req->sendfile_fd_chunk ;
+		nosf_buf_size = chunk ;
 
-		if (uwsgi->async > 1) {
-			jlen = read(fd, nosf_buf, wsgi_req->sendfile_fd_chunk);
+		if (async > 1) {
+			jlen = read(filefd, nosf_buf, chunk);
                         if (jlen <= 0) {
                                 uwsgi_error("read()");
 				return 0;
@@ -130,8 +142,8 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 			return jlen ;
 		}
 
-                while (i < wsgi_req->sendfile_fd_size) {
-                        jlen = read(fd, nosf_buf, wsgi_req->sendfile_fd_chunk);
+                while (i < filesize) {
+                        jlen = read(filefd, nosf_buf, chunk);
                         if (jlen <= 0) {
                                 uwsgi_error("read()");
                                 break;
@@ -148,10 +160,8 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		return rlen;
 #endif
 
-        }
-
-        return 0;
 }
+
 
 
 

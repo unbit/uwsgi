@@ -375,6 +375,7 @@ struct wsgi_request {
 	size_t sendfile_fd_chunk;
 	size_t sendfile_fd_size;
 	off_t sendfile_fd_pos;
+	void *sendfile_obj;
 
 	uint16_t var_cnt;
 	uint16_t header_cnt;
@@ -917,6 +918,7 @@ PyObject *python_call(PyObject *, PyObject *);
 #ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_sendfile(PyObject *, PyObject *) ;
 ssize_t uwsgi_sendfile(struct uwsgi_server *, struct wsgi_request *);
+ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t*, int);
 #endif
 
 PyObject *py_uwsgi_write(PyObject *, PyObject *) ;

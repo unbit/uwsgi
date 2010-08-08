@@ -38,6 +38,73 @@ PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 	
 }
 
+#ifdef UWSGI_SENDFILE
+PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
+	
+	PyObject *what;
+	char *filename;
+	size_t chunk;
+	off_t pos = 0;
+	size_t filesize = 0;
+	struct stat stat_buf;
+	
+	int fd = -1;
+
+	if (!PyArg_ParseTuple(args, "O|iii:sendfile", &what, &chunk, &pos, &filesize)) {
+                return NULL;
+        }
+
+	if (PyString_Check(what)) {
+		
+		filename = PyString_AsString(what);
+			
+		fd = open(filename, O_RDONLY);
+		if (fd < 0) {
+			uwsgi_error("open");
+			goto clear;	
+		}
+
+	}
+	else {
+        	fd = PyObject_AsFileDescriptor(what);
+		if (fd < 0) goto clear;
+
+		// check for mixing file_wrapper and sendfile
+		if (fd == uwsgi.wsgi_req->sendfile_fd) {
+			Py_INCREF(what);
+		}
+	}
+
+	if (!filesize) {
+		if (fstat(fd, &stat_buf)) {
+                        uwsgi_error("fstat()");
+                        goto clear2;
+                }
+                else {
+                	filesize = stat_buf.st_size;
+                }
+
+	}
+
+	if (!filesize) goto clear2;
+
+	if (!chunk) chunk = 4096;
+
+	uwsgi.wsgi_req->response_size += uwsgi_do_sendfile(uwsgi.wsgi_req->poll.fd, fd, filesize, chunk, &pos, 0);
+
+	close(fd);
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear2:
+	close(fd);
+clear:
+	Py_INCREF(Py_None);
+	return Py_None;
+	
+}
+#endif
+
 #ifdef UWSGI_ASYNC
 
 
@@ -936,6 +1003,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"send", py_uwsgi_send, METH_VARARGS, ""},
+#ifdef UWSGI_SENDFILE
+	{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
+#endif
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 	{"mem", py_uwsgi_mem, METH_VARARGS, ""},
 	{"has_hook", py_uwsgi_has_hook, METH_VARARGS, ""},

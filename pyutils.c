@@ -30,7 +30,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 #endif
 
 #ifdef UWSGI_SENDFILE
-	if (wsgi_req->sendfile_fd != -1) {
+	if (wsgi_req->sendfile_obj == wsgi_req->async_result && wsgi_req->sendfile_fd != -1) {
 		sf_len = uwsgi_sendfile(uwsgi, wsgi_req);
 		if (sf_len < 1) goto clear;
 		wsgi_req->response_size += sf_len ;		
@@ -47,6 +47,7 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 
 #ifdef UWSGI_WSGI2
 	// is it a tuple (WSGI2.0) ?
+	// move it to another hook !!!
 	if (PyTuple_Check((PyObject *)wsgi_req->async_result)) {
 		if (PyTuple_Size((PyObject *)wsgi_req->async_result) != 3) {
 			uwsgi_log("invalid WSGI2.0 response size: %d.\n", PyTuple_Size((PyObject *)wsgi_req->async_result));
