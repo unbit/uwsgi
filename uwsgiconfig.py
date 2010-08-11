@@ -223,6 +223,8 @@ def unbit_setup():
 	global UWSGI_PLUGIN_DIR
 	UWSGI_PLUGIN_DIR = '../bin'
 
+	global PYLIB_PATH
+	PYLIB_PATH = '/proc/unbit/opt/python26/lib'
 
 def parse_vars():
 
