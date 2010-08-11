@@ -133,29 +133,91 @@ def build_uwsgi(bin_name):
 	print("*** uWSGI is ready, launch it with %s ***" % bin_name)
 
 def unbit_setup():
-	global XML, SNMP, SCTP, ERLANG, SPOOLER
-	global EMBEDDED, UDP, MULTICAST, THREADING
-	global SENDFILE, PROFILER, NAGIOS, PROXY
 
-	global UWSGI_BIN_NAME
+	global XML
+	XML=True
 
-	XML=False
+	global SNMP
 	SNMP=False
+
+	global SCTP
 	SCTP=False
+
+	global ERLANG
 	ERLANG=False
+
+	global SPOOLER
+	SPOOLER=True
+
+	global EMBEDDED
+	EMBEDDED=True
+	
+	global UDP
 	UDP=False
+
+	global MULTICAST
 	MULTICAST=False
+
+	global THREADING
+	THREADING=False
+
+	global SENDFILE
+	SENDFILE=True
+
+	global PROFILER
+	PROFILER=False
+
+	global NAGIOS
 	NAGIOS=False
+
+	global PROXY
 	PROXY=False
 
-	EMBEDDED=True
-	SPOOLER=True
-	THREADING=True
-	SENDFILE=True
-	PROFILER=True
+	global PASTE
+	PASTE=False
 
+	global MINTERPRETERS
+	MINTERPRETERS=False
+	
+	global ASYNC
+	ASYNC=False
+
+	global UGREEN
+	UGREEN=False
+
+	global EVDIS
+	EVDIS=False
+
+	global WSGI2
+	WSGI2=False
+
+	global ROUTING
+	ROUTING=False
+
+	global STACKLESS
+	STACKLESS=False
+
+	global PLUGINS
+	#PLUGINS = ['psgi']
+	PLUGINS = []
+
+	global USWALLOW
+	USWALLOW=False
+
+	global UNBIT
 	UNBIT=True
-	UWSGI_BIN_NAME='/usr/share/unbit/uwsgi26'
+
+	global DEBUG
+	DEBUG=False
+
+	global EMBED_PLUGINS
+	EMBED_PLUGINS=True
+
+	global UWSGI_BIN_NAME
+	UWSGI_BIN_NAME = '../bin/uwsgi'
+
+	global UWSGI_PLUGIN_DIR
+	UWSGI_PLUGIN_DIR = '../bin'
 
 
 def parse_vars():
