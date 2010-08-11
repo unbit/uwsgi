@@ -164,6 +164,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_MODE			17031
 #define LONG_ARGS_CHDIR			17032
 #define LONG_ARGS_ENV			17033
+#define LONG_ARGS_CHDIR2		17034
 
 
 
@@ -643,6 +644,8 @@ struct uwsgi_server {
 #endif
 
 #endif
+
+	char *chdir2;
 };
 
 struct uwsgi_cluster_node {

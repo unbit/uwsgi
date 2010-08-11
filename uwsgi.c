@@ -380,6 +380,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 		{"logdate", no_argument, &uwsgi.logdate, 1},
 		{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
+		{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
 		{"no-site", no_argument, &Py_NoSiteFlag, 1},
 		{"vhost", no_argument, &uwsgi.vhost, 1},
@@ -1458,6 +1459,15 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	signal(SIGPIPE, (void *) &warn_pipe);
+
+// initialization done
+
+	if (uwsgi.chdir2) {
+		if (chdir(uwsgi.chdir2)) {
+			uwsgi_error("chdir()");
+			exit(1);
+		}
+	}
 
 #ifdef __linux__
 	if (uwsgi.master_process && uwsgi.no_orphans) {
@@ -2597,6 +2607,9 @@ void manage_opt(int i, char *optarg) {
 			uwsgi_error("chdir()");
 			exit(1);
 		}
+		break;
+	case LONG_ARGS_CHDIR2:
+		uwsgi.chdir2 = optarg;
 		break;
 #ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP:
