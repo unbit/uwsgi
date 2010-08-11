@@ -386,8 +386,11 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_ROUTING
 		{"routing", no_argument, &uwsgi.routing, 1},
 #endif
+
+#ifdef UWSGI_HTTP
 		{"http", required_argument, 0, LONG_ARGS_HTTP},
 		{"http-only", no_argument, &uwsgi.http_only, 1},
+#endif
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
 		{"env", required_argument, 0, LONG_ARGS_ENV},
 		{"version", no_argument, 0, LONG_ARGS_MODE},
@@ -731,6 +734,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
+#ifdef UWSGI_HTTP
 	if (uwsgi.http) {
 		char *tcp_port = strchr(uwsgi.http, ':');
 		if (tcp_port) {
@@ -788,6 +792,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		close(uwsgi.http_fd);
 	}
+#endif
 
 	if (!no_server) {
 		if (uwsgi.socket_name != NULL && !uwsgi.is_a_reload) {
@@ -2593,9 +2598,11 @@ void manage_opt(int i, char *optarg) {
 			exit(1);
 		}
 		break;
+#ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP:
 		uwsgi.http = optarg;
 		break;
+#endif
 	case LONG_ARGS_MODE:
 		uwsgi.mode = optarg;
 		break;

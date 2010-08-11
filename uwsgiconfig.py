@@ -17,6 +17,7 @@ PASTE=True
 MINTERPRETERS=True
 ASYNC=True
 UGREEN=True
+HTTP=True
 EVDIS=False
 WSGI2=False
 ROUTING=False
@@ -60,7 +61,7 @@ GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
 	GCC = 'gcc'
 
-gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'http', 'plugins', 'uwsgi']
+gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
 
 # large file support
 try:
@@ -185,6 +186,9 @@ def unbit_setup():
 	global UGREEN
 	UGREEN=False
 
+	global HTTP
+	HTTP=False
+
 	global EVDIS
 	EVDIS=False
 
@@ -300,6 +304,9 @@ def parse_vars():
 		else:
 			libs.append(pcreconf)
 
+	if EVDIS:
+		cflags.append("-DUWSGI_HTTP")
+		gcc_list.append('http')
 
 	if EVDIS:
 		cflags.append("-DUWSGI_EVDIS")
