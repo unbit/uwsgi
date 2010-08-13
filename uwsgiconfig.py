@@ -1,6 +1,7 @@
 # uWSGI configuration
 
 XML=True
+INI=True
 SNMP=True
 SCTP=False
 ERLANG=False
@@ -137,6 +138,9 @@ def unbit_setup():
 
 	global XML
 	XML=True
+
+	global INI
+	INI=False
 
 	global SNMP
 	SNMP=False
@@ -279,6 +283,10 @@ def parse_vars():
 	if NAGIOS:
 		cflags.append("-DUWSGI_NAGIOS")
 		gcc_list.append('nagios')
+
+	if INI:
+		cflags.append("-DUWSGI_INI")
+		gcc_list.append('ini')
 
 	if DEBUG:
 		cflags.append("-DUWSGI_DEBUG")

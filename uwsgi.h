@@ -165,6 +165,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_CHDIR			17032
 #define LONG_ARGS_ENV			17033
 #define LONG_ARGS_CHDIR2		17034
+#define LONG_ARGS_INI			17035
 
 
 
@@ -594,7 +595,13 @@ struct uwsgi_server {
 #endif
 
 	char *wsgi_config;
+
+#ifdef UWSGI_INI
+	char *ini;
+#endif
+#ifdef UWSGI_PASTE
 	char *paste;
+#endif
 	char *wsgi_file;
 
 	int single_interpreter;
@@ -1042,3 +1049,7 @@ void init_pyargv(struct uwsgi_server *);
 void http_loop(struct uwsgi_server *);
 
 int unconfigured_hook(struct uwsgi_server *, struct wsgi_request *);
+
+#ifdef UWSGI_INI
+void uwsgi_ini_config(char *, struct option*);
+#endif

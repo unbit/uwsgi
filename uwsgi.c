@@ -325,6 +325,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
+#ifdef UWSGI_INI
+		{"ini", required_argument, 0, LONG_ARGS_INI},
+#endif
 #ifdef UWSGI_PASTE
 		{"paste", required_argument, 0, LONG_ARGS_PASTE},
 #endif
@@ -457,6 +460,11 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
 		uwsgi_xml_config(uwsgi.wsgi_req, long_options);
+	}
+#endif
+#ifdef UWSGI_INI
+	if (uwsgi.ini != NULL) {
+		uwsgi_ini_config(uwsgi.ini, long_options);
 	}
 #endif
 
@@ -2723,6 +2731,11 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_POST_BUFFERING_SIZE:
 		uwsgi.post_buffering_bufsize = atoi(optarg);
 		break;
+#ifdef UWSGI_INI
+	case LONG_ARGS_INI:
+		uwsgi.ini = optarg;
+		break;
+#endif
 #ifdef UWSGI_PASTE
 	case LONG_ARGS_PASTE:
 		uwsgi.paste = optarg;
