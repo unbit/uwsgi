@@ -160,13 +160,15 @@ clear2:
 }
 
 
-PyObject *python_call(PyObject *callable, PyObject *args) {
+PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 	
 	PyObject *pyret;
 
 	pyret =  PyEval_CallObject(callable, args);
 	if (PyErr_Occurred()) {
-		PyErr_Print();
+		if (!catch) { 
+			PyErr_Print();
+		}
 	}
 
 #ifdef UWSGI_DEBUG
@@ -183,7 +185,7 @@ PyObject *python_call(PyObject *callable, PyObject *args) {
 
 int uwsgi_python_call(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, PyObject *callable, PyObject *args) {
 	
-	wsgi_req->async_result = python_call(callable, args);
+	wsgi_req->async_result = python_call(callable, args, 0);
 
 	if (wsgi_req->async_result) {
 		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {

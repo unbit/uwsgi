@@ -249,7 +249,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 						}
 
 
-						spool_result = python_call(spooler_callable, spool_tuple);
+						spool_result = python_call(spooler_callable, spool_tuple, 0);
 						if (!spool_result) {
 							PyErr_Print();
 							uwsgi_log( "error detected. spool request canceled.\n");

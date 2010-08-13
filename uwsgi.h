@@ -653,6 +653,7 @@ struct uwsgi_server {
 #endif
 
 	char *chdir2;
+	int catch_exceptions;
 };
 
 struct uwsgi_cluster_node {
@@ -923,7 +924,7 @@ PyObject *py_uwsgi_stackless(PyObject *, PyObject *) ;
 
 int manage_python_response(struct uwsgi_server *, struct wsgi_request *);
 int uwsgi_python_call(struct uwsgi_server *, struct wsgi_request *, PyObject *, PyObject *);
-PyObject *python_call(PyObject *, PyObject *);
+PyObject *python_call(PyObject *, PyObject *, int);
 
 #ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_sendfile(PyObject *, PyObject *) ;

@@ -131,7 +131,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 			if (key[0] == '[') {
 				section = key;
 			}
-			else if (key[0] == ';') {
+			else if (key[0] == ';' || key[0] == '#') {
 				// this is a comment
 			}
 			else {

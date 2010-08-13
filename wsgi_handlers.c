@@ -352,7 +352,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #ifdef UWSGI_PROFILER
 	if (uwsgi->enable_profiler == 1) {
 		PyDict_SetItem(wi->pymain_dict, PyString_FromFormat("uwsgi_environ__%d", wsgi_req->app_id), wsgi_req->async_environ);
-		wsgi_req->async_result = python_call(wi->wsgi_cprofile_run, wsgi_req->async_args);
+		wsgi_req->async_result = python_call(wi->wsgi_cprofile_run, wsgi_req->async_args, 0);
 		if (wsgi_req->async_result) {
 			wsgi_req->async_result = PyDict_GetItemString(wi->pymain_dict, "uwsgi_out");
 			Py_INCREF((PyObject*)wsgi_req->async_result);
@@ -364,7 +364,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 		PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-		wsgi_req->async_result = python_call(wsgi_req->async_app, wsgi_req->async_args);
+		wsgi_req->async_result = python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi->catch_exceptions);
 
 #ifdef UWSGI_PROFILER
 	}
@@ -383,6 +383,36 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		}
 
 
+	}
+	else if (uwsgi->catch_exceptions) {
+
+		wsgi_req->response_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
+		wsgi_req->response_size += write(wsgi_req->poll.fd, " 500 Internal Server Error\r\n", 28 );
+		wsgi_req->response_size += write(wsgi_req->poll.fd, "Content-type: text/plain\r\n\r\n", 28 );
+		wsgi_req->header_cnt = 1 ;
+		
+		/* 
+			sorry that is a hack to avoid the rewrite of PyErr_Print
+			temporarily map (using dup2) stderr to wsgi_req->poll.fd
+		*/
+		int tmp_stderr = dup(2);
+		if (tmp_stderr < 0) {
+			uwsgi_error("dup()");
+			goto clear;
+		}
+		// map 2 to wsgi_req
+		if (dup2(wsgi_req->poll.fd, 2) < 0) {
+			close(tmp_stderr);
+			uwsgi_error("dup2()");
+			goto clear;
+		}
+		// print the error
+		PyErr_Print();
+		// ...resume the original stderr, in case of error we are damaged forever !!!
+		if (dup2(tmp_stderr, 2) < 0) {
+			uwsgi_error("dup2()");
+		}
+		close(tmp_stderr);	
 	}
 
 clear:

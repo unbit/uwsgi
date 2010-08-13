@@ -314,7 +314,7 @@ def parse_vars():
 		else:
 			libs.append(pcreconf)
 
-	if EVDIS:
+	if HTTP:
 		cflags.append("-DUWSGI_HTTP")
 		gcc_list.append('http')
 

@@ -395,6 +395,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"http", required_argument, 0, LONG_ARGS_HTTP},
 		{"http-only", no_argument, &uwsgi.http_only, 1},
 #endif
+		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
 		{"env", required_argument, 0, LONG_ARGS_ENV},
 		{"version", no_argument, 0, LONG_ARGS_MODE},
@@ -1262,7 +1263,7 @@ int main(int argc, char *argv[], char *envp[]) {
 										PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
 										PyTuple_SetItem(udp_callable_args, 1, PyInt_FromLong(ntohs(udp_client.sin_port)));
 										PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(uwsgi.wsgi_req->buffer, rlen));
-										PyObject *udp_response = python_call(udp_callable, udp_callable_args);
+										PyObject *udp_response = python_call(udp_callable, udp_callable_args, 0);
 										if (udp_response) {
 											Py_DECREF(udp_response);
 										}
