@@ -127,6 +127,7 @@ clear:
 		PyDict_Clear(wsgi_req->async_environ);
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
+		/*
 		uwsgi_log("CHECK FOR PENDING DATA: %d\n", poll(&wsgi_req->poll, 1, 0));
 		while (poll(&wsgi_req->poll, 1, 0) > 0) {
 			uwsgi_log("data available\n");
@@ -138,6 +139,7 @@ clear:
 			}
 		}
 		uwsgi_error("poll()");
+		*/
 		fclose(wsgi_req->async_post);
 		if (!uwsgi->post_buffering || wsgi_req->post_cl <= uwsgi->post_buffering) {
 			wsgi_req->fd_closed = 1 ;
