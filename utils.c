@@ -280,7 +280,7 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 
         // close the connection with the webserver
 	if (!wsgi_req->fd_closed) {
-		// TODO discard pending data
+		// TODO find a way to discard pending data
 		close(wsgi_req->poll.fd);
 	}
         uwsgi->workers[0].requests++;

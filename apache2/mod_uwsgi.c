@@ -456,39 +456,45 @@ static int uwsgi_handler(request_rec *r) {
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 		else if (cnt > 0) {
-			cnt = recv(uwsgi_poll.fd, buf, 4096, 0) ;
-			if (cnt < 0) {
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
-				apr_brigade_destroy(bb);
-				return HTTP_INTERNAL_SERVER_ERROR;
-			}
-			else if (cnt > 0) {
-				if (!c->cgi_mode && uwsgi_http_status_read < 12) {
-	                        	if (uwsgi_http_status_read + cnt >= 12) {
-                                        	memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, 12-uwsgi_http_status_read);
-                                                r->status = atoi(uwsgi_http_status+8);
-                				uwsgi_http_status_read+=cnt;
-                                        }
-                                        else {
-	                                	memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, cnt);
-                                        	uwsgi_http_status_read+=cnt;
-                                        }
-                                }
-				// check for client disconnect
-				if (r->connection->aborted) { 
-					close(uwsgi_poll.fd);
+			if (uwsgi_poll.revents & POLLIN) {
+				cnt = recv(uwsgi_poll.fd, buf, 4096, 0) ;
+				if (cnt < 0) {
+					ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
 					apr_brigade_destroy(bb);
 					return HTTP_INTERNAL_SERVER_ERROR;
-				}	
-				apr_brigade_write(bb, NULL, NULL, buf, cnt);
-				hret = ap_fflush(r->output_filters, bb) ;
-				if (hret != APR_SUCCESS) {
-					close(uwsgi_poll.fd);
-					apr_brigade_destroy(bb);
-					return hret;
+				}
+				else if (cnt > 0) {
+					if (!c->cgi_mode && uwsgi_http_status_read < 12) {
+	                        		if (uwsgi_http_status_read + cnt >= 12) {
+                                        		memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, 12-uwsgi_http_status_read);
+                                                	r->status = atoi(uwsgi_http_status+8);
+                					uwsgi_http_status_read+=cnt;
+                                        	}
+                                        	else {
+	                                		memcpy(uwsgi_http_status+uwsgi_http_status_read, buf, cnt);
+                                        		uwsgi_http_status_read+=cnt;
+                                        	}
+                                	}
+					// check for client disconnect
+					if (r->connection->aborted) { 
+						close(uwsgi_poll.fd);
+						apr_brigade_destroy(bb);
+						return HTTP_INTERNAL_SERVER_ERROR;
+					}
+					apr_brigade_write(bb, NULL, NULL, buf, cnt);
+					hret = ap_fflush(r->output_filters, bb) ;
+					if (hret != APR_SUCCESS) {
+						close(uwsgi_poll.fd);
+						apr_brigade_destroy(bb);
+						return hret;
+					}
+				}
+				else {
+					break;
 				}
 			}
-			else {
+
+			if (uwsgi_poll.revents & POLLHUP || uwsgi_poll.revents & POLLERR || uwsgi_poll.revents & POLLNVAL) {
 				break;
 			}
 		}
