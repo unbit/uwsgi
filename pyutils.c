@@ -127,9 +127,21 @@ clear:
 		PyDict_Clear(wsgi_req->async_environ);
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
+		uwsgi_log("CHECK FOR PENDING DATA: %d\n", poll(&wsgi_req->poll, 1, 0));
+		while (poll(&wsgi_req->poll, 1, 0) > 0) {
+			uwsgi_log("data available\n");
+			if (wsgi_req->poll.revents & POLLIN) {
+				read(wsgi_req->poll.fd, wsgi_req->buffer, uwsgi->buffer_size);
+			}
+			else {
+				break;
+			}
+		}
+		uwsgi_error("poll()");
 		fclose(wsgi_req->async_post);
 		if (!uwsgi->post_buffering || wsgi_req->post_cl <= uwsgi->post_buffering) {
 			wsgi_req->fd_closed = 1 ;
+
 		}
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);

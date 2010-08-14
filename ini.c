@@ -90,6 +90,14 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 	int lines = 1 ;
 
 	struct option *lopt, *aopt;
+	char *section_asked = "uwsgi";
+	char *colon ;
+
+	colon = strchr(file, ':');
+	if (colon) {
+		colon[0] = 0;
+		section_asked = colon+1 ;
+	}
 
 	fd = open(file, O_RDONLY);
 	if (fd < 0) {
@@ -129,7 +137,8 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 		ini_rstrip(key);
 		if (key[0] != 0) {
 			if (key[0] == '[') {
-				section = key;
+				section = key+1;
+				section[strlen(section)-1] = 0;
 			}
 			else if (key[0] == ';' || key[0] == '#') {
 				// this is a comment
@@ -141,7 +150,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 					uwsgi_log("invalid INI record on line %d: %s\n", lines, key);
 				}
 				else {
-					if (!strcmp(section, "[uwsgi]")) {
+					if (!strcmp(section, section_asked)) {
 						ini_rstrip(key);
 						val = ini_lstrip(val);
 						ini_rstrip(val);

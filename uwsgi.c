@@ -850,6 +850,26 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 
+
+#ifdef UWSGI_DEBUG
+	int so_bufsize ;
+	socklen_t so_bufsize_len = sizeof(int) ;
+	if (getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_RCVBUF,  &so_bufsize, &so_bufsize_len)) {
+		uwsgi_error("getsockopt()");
+	}
+	else {
+		uwsgi_debug("uwsgi socket SO_RCVBUF size: %d\n", so_bufsize);
+	}
+
+	so_bufsize_len = sizeof(int) ;
+	if (getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_SNDBUF,  &so_bufsize, &so_bufsize_len)) {
+		uwsgi_error("getsockopt()");
+	}
+	else {
+		uwsgi_debug("uwsgi socket SO_SNDBUF size: %d\n", so_bufsize);
+	}
+#endif
+
 #ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
 #ifdef __linux__
