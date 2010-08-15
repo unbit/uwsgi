@@ -483,6 +483,12 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
                );	
 	uwsgi_add_var(b, "REMOTE_PORT", 11, buf, strlen(buf));
 
+	if (!buffer_is_empty(con->authed_user)) {
+                uwsgi_add_var(b, "REMOTE_USER", 11,
+                              CONST_BUF_LEN(con->authed_user));
+        }
+
+
 
 	s = inet_ntop_cache_get_ip(srv, &(con->dst_addr));
 	uwsgi_add_var(b, "REMOTE_ADDR", 11, (char *)s, strlen(s));
