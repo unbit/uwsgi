@@ -404,6 +404,12 @@ void sanitize_args(struct uwsgi_server *uwsgi) {
 	if (uwsgi->wsgi_config) {
 		uwsgi->single_interpreter = 1 ;
 	}
+
+	if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+		if (!uwsgi->post_buffering) {
+			 uwsgi_log(" *** WARNING: you have enabled harakiri without post buffering. Slow upload could be rejected on post-unbuffered webservers *** \n");
+		}
+	}
 }
 
 void env_to_arg(char *src, char *dst) {
