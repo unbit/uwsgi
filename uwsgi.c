@@ -508,6 +508,20 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log("Python version: %s\n", Py_GetVersion());
 
+	if (uwsgi.pidfile && !uwsgi.is_a_reload) {
+		uwsgi_log( "writing pidfile to %s\n", uwsgi.pidfile);
+		pidfile = fopen(uwsgi.pidfile, "w");
+		if (!pidfile) {
+			uwsgi_error("fopen");
+			exit(1);
+		}
+		if (fprintf(pidfile, "%d\n", getpid()) < 0) {
+			uwsgi_log( "could not write pidfile.\n");
+		}
+		fclose(pidfile);
+	}
+
+
 	uwsgi_as_root();
 
 	if (!uwsgi.master_process) {
@@ -914,19 +928,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid;
-
-	if (uwsgi.pidfile) {
-		uwsgi_log( "writing pidfile to %s\n", uwsgi.pidfile);
-		pidfile = fopen(uwsgi.pidfile, "w");
-		if (!pidfile) {
-			uwsgi_error("fopen");
-			exit(1);
-		}
-		if (fprintf(pidfile, "%d\n", masterpid) < 0) {
-			uwsgi_log( "could not write pidfile.\n");
-		}
-		fclose(pidfile);
-	}
 
 
 	/* save the masterpid */
