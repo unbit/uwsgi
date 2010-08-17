@@ -1454,8 +1454,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	PyObject *random_module = PyImport_ImportModule("random");
 	// reinitialize the random seed (thanks Jonas Borgström)
+	PyObject *random_module = PyImport_ImportModule("random");
 	if (random_module) {
 		PyObject *random_dict = PyModule_GetDict(random_module);
 		if (random_dict) {
