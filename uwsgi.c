@@ -1462,6 +1462,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			PyObject *random_seed = PyDict_GetItemString(random_dict, "seed");
 			if (random_seed) {
 				PyObject *random_args = PyTuple_New(1);
+				// pass no args
 				PyTuple_SetItem(random_args, 0, Py_None);
 				PyEval_CallObject( random_seed, random_args );
 				if (PyErr_Occurred()) {
