@@ -1454,6 +1454,23 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
+	// reinitialize the random seed (thanks Jonas Borgström)
+	PyObject *random_module = PyImport_ImportModule("random");
+	if (random_module) {
+		PyObject *random_dict = PyModule_GetDict(random_module);
+		if (random_dict) {
+			PyObject *random_seed = PyDict_GetItemString(random_dict, "seed");
+			if (random_seed) {
+				PyObject *random_args = PyTuple_New(1);
+				PyTuple_SetItem(random_args, 0, Py_None);
+				PyEval_CallObject( random_seed, random_args );
+				if (PyErr_Occurred()) {
+					PyErr_Print();
+				}
+			}
+		}
+	}
+
 
 	// postpone the queue initialization as kevent do not pass kfd after fork()
 #ifdef UWSGI_ASYNC
