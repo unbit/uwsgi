@@ -106,13 +106,21 @@ int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi
 	}
 
 #ifdef PYTHREE
-	if (PyBytes_Check(pychunk)) {
+	else if (PyBytes_Check(pychunk)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyBytes_AsString(pychunk), PyBytes_Size(pychunk))) < 0) {
 			uwsgi_error("write()");
 			Py_DECREF(pychunk);
 			goto clear;
 		}
 		wsgi_req->response_size += wsize;
+	}
+#endif
+
+#ifdef UWSGI_SENDFILE
+        else if (wsgi_req->sendfile_obj == pychunk && wsgi_req->sendfile_fd != -1) {
+                sf_len = uwsgi_sendfile(uwsgi, wsgi_req);
+                if (sf_len < 1) goto clear;
+                wsgi_req->response_size += sf_len ;
 	}
 #endif
 	

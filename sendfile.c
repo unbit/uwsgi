@@ -21,7 +21,9 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
         }
 #endif
 
-	wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
+	// PEP 333 hack
+	wsgi_req->sendfile_obj = wsgi_req->async_sendfile;
+	//wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
 
         return (PyObject *) wsgi_req->sendfile_obj;
 }
