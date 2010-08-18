@@ -25,6 +25,11 @@ enum {
 	uwsgi_http_end
 };
 
+void http_end() {
+	uwsgi_log("closing uWSGI embedded HTTP server.\n");
+	exit(0);
+}
+
 static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint16_t vallen, int header)
 {
 
@@ -79,6 +84,7 @@ void http_loop(struct uwsgi_server * uwsgi)
 	struct uwsgi_http_req *ur;
 	int ret;
 	pthread_attr_t pa;
+	int stat_loc ;
 
 	ret = pthread_attr_init(&pa);
 	if (ret) {
@@ -92,9 +98,13 @@ void http_loop(struct uwsgi_server * uwsgi)
 		exit(1);
 	}
 
+	signal(SIGCHLD, &http_end);
 
 	for(;;) {
 
+		if (waitpid(-1, &stat_loc, WNOHANG) != 0) {
+			http_end();
+		}
 		ur = malloc(sizeof(struct uwsgi_http_req));
 		if (!ur) {
 			uwsgi_error("malloc()");

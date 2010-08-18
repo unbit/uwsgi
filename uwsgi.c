@@ -564,6 +564,67 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	sanitize_args(&uwsgi);
+
+#ifdef UWSGI_HTTP
+        if (uwsgi.http) {
+                char *tcp_port = strchr(uwsgi.http, ':');
+                if (tcp_port) {
+                        uwsgi.http_server_port = tcp_port+1;
+                        uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
+                        uwsgi_log("HTTP FD: %d\n", uwsgi.http_fd);
+                }
+                else {
+                        uwsgi_log("invalid http address.\n");
+                        exit(1);
+                }
+
+                if (uwsgi.http_fd < 0) {
+                        uwsgi_log("unable to create http server socket.\n");
+                        exit(1);
+                }
+
+                if (!uwsgi.socket_name) {
+                        char *tmp_s = tmpnam(NULL);
+                        if (!tmp_s) {
+                                uwsgi_error("tmpnam()");
+                                exit(1);
+                        }
+
+                        uwsgi.socket_name = malloc(strlen(tmp_s) + 1);
+                        if (!uwsgi.socket_name) {
+                                uwsgi_error("malloc()");
+                                exit(1);
+                        }
+
+                        strcpy(uwsgi.socket_name, tmp_s);
+                        uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
+
+                }
+
+
+                if (uwsgi.http_only) {
+                        signal(SIGINT, (void *) &end_me);
+                        http_loop(&uwsgi);
+                        // never here
+                        exit(1);
+                }
+
+                pid_t http_pid = fork();
+
+                if (http_pid > 0) {
+                        signal(SIGINT, (void *) &end_me);
+                        http_loop(&uwsgi);
+                        // never here
+                        exit(1);
+                }
+                else if (http_pid < 0) {
+                        uwsgi_error("fork()");
+                        exit(1);
+                }
+                close(uwsgi.http_fd);
+        }
+#endif
+
 	
 	if (uwsgi.async > 1) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
@@ -756,66 +817,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_log("threads support enabled\n");
 	}
 
-#endif
-
-#ifdef UWSGI_HTTP
-	if (uwsgi.http) {
-		char *tcp_port = strchr(uwsgi.http, ':');
-		if (tcp_port) {
-			uwsgi.http_server_port = tcp_port+1;
-			uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
-			uwsgi_log("HTTP FD: %d\n", uwsgi.http_fd);
-		}
-		else {
-			uwsgi_log("invalid http address.\n");
-			exit(1);
-		}
-
-		if (uwsgi.http_fd < 0) {
-			uwsgi_log("unable to create http server socket.\n");
-			exit(1);
-		}
-
-		if (!uwsgi.socket_name) {
-			char *tmp_s = tmpnam(NULL);
-			if (!tmp_s) {
-				uwsgi_error("tmpnam()");
-				exit(1);	
-			}
-
-			uwsgi.socket_name = malloc(strlen(tmp_s) + 1);
-			if (!uwsgi.socket_name) {
-				uwsgi_error("malloc()");
-				exit(1);
-			}
-		
-			strcpy(uwsgi.socket_name, tmp_s);
-			uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
-
-		}	
-
-	
-		if (uwsgi.http_only) {
-			signal(SIGINT, (void *) &end_me);
-			http_loop(&uwsgi);
-			// never here
-			exit(1);
-		}
-
-		pid_t http_pid = fork();
-
-		if (http_pid == 0) {
-			signal(SIGINT, (void *) &end_me);
-			http_loop(&uwsgi);
-			// never here
-			exit(1);
-		}
-		else if (http_pid < 0) {
-			uwsgi_error("fork()");
-			exit(1);
-		}
-		close(uwsgi.http_fd);
-	}
 #endif
 
 	if (!no_server) {
