@@ -54,7 +54,7 @@ char *ini_get_key(char *key) {
 		}
 	}
 
-	return NULL;
+	return ptr;
 }
 
 char *ini_get_line(char *ini, off_t size) {
@@ -144,31 +144,27 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 				// this is a comment
 			}
 			else {
+				// val is always valid, but (obviously can be ignored)
 				val = ini_get_key(key);
-				// invalid ?
-				if (val == NULL) {
-					uwsgi_log("invalid INI record on line %d: %s\n", lines, key);
-				}
-				else {
-					if (!strcmp(section, section_asked)) {
-						ini_rstrip(key);
-						val = ini_lstrip(val);
-						ini_rstrip(val);
-						lopt = long_options;
-                                		while ((aopt = lopt)) {
-                                        		if (!aopt->name)
-                                                	break;
-                                        		if (!strcmp(key, aopt->name)) {
-                                                		if (aopt->flag) {
-                                                        		*aopt->flag = aopt->val;
-                                                		}
-                                                		else {
-                                                               		manage_opt(aopt->val, val);
-                                                		}
-                                        		}
-                                        		lopt++;
-                                		}
-					}
+
+				if (!strcmp(section, section_asked)) {
+					ini_rstrip(key);
+					val = ini_lstrip(val);
+					ini_rstrip(val);
+					lopt = long_options;
+                                	while ((aopt = lopt)) {
+                                       		if (!aopt->name)
+                                               	break;
+                                       		if (!strcmp(key, aopt->name)) {
+                                               		if (aopt->flag) {
+                                                       		*aopt->flag = aopt->val;
+                                              		}
+                                               		else {
+                                                              		manage_opt(aopt->val, val);
+                                               		}
+                                       		}
+                                       		lopt++;
+                                	}
 				}
 			}
 		}
