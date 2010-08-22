@@ -654,6 +654,9 @@ struct uwsgi_server {
 
 	char *chdir2;
 	int catch_exceptions;
+
+	int vacuum;
+	int bind_to_unix;
 };
 
 struct uwsgi_cluster_node {

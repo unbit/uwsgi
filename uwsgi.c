@@ -39,6 +39,7 @@ extern char **environ;
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
 #endif
 
+
 int find_worker_id(pid_t pid) {
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -182,6 +183,30 @@ static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_requ
 	return;
 }
 
+static void vacuum(void) {
+
+	if (uwsgi.vacuum) {
+		if (getpid() == masterpid) {
+			if (uwsgi.socket_name && uwsgi.bind_to_unix) {
+				if (unlink(uwsgi.socket_name)) {
+					uwsgi_error("unlink()");
+				}
+				else {
+					uwsgi_log("VACUUM: unix socket removed.\n");
+				}
+			}
+			if (uwsgi.pidfile && !uwsgi.uid) {
+				if (unlink(uwsgi.pidfile)) {
+					uwsgi_error("unlink()");
+				}
+				else {
+					uwsgi_log("VACUUM: pidfile removed.\n");
+				}
+			}
+		}
+	}
+}
+
 int main(int argc, char *argv[], char *envp[]) {
 
 	uint64_t master_cycles = 0;
@@ -233,6 +258,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* anti signal bombing */
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
+
+	atexit(vacuum);
 
 	memset(&uwsgi, 0, sizeof(struct uwsgi_server));
 
@@ -398,6 +425,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
 		{"env", required_argument, 0, LONG_ARGS_ENV},
+		{"vacuum", no_argument, &uwsgi.vacuum, 1},
 		{"version", no_argument, 0, LONG_ARGS_MODE},
 		{0, 0, 0, 0}
 	};
@@ -584,19 +612,13 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
 
                 if (!uwsgi.socket_name) {
-                        char *tmp_s = tmpnam(NULL);
-                        if (!tmp_s) {
-                                uwsgi_error("tmpnam()");
-                                exit(1);
-                        }
-
-                        uwsgi.socket_name = malloc(strlen(tmp_s) + 1);
+                        uwsgi.socket_name = malloc(64);
                         if (!uwsgi.socket_name) {
                                 uwsgi_error("malloc()");
                                 exit(1);
                         }
 
-                        strcpy(uwsgi.socket_name, tmp_s);
+			snprintf(uwsgi.socket_name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
                         uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
 
                 }
@@ -824,6 +846,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				char *tcp_port = strchr(uwsgi.socket_name, ':');
 				if (tcp_port == NULL) {
 					uwsgi.serverfd = bind_to_unix(uwsgi.socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+					uwsgi.bind_to_unix = 1;
 				}
 				else {
 					uwsgi.serverfd = bind_to_tcp(uwsgi.socket_name, uwsgi.listen_queue, tcp_port);
