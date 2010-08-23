@@ -28,6 +28,7 @@
 // linux has not strlcpy
 #ifdef __linux
 	#define strlcpy(x, y, z) strcpy(x, y)
+	#define strlcat(x, y, z) strcat(x, y)
 	#include <sys/prctl.h>
 #endif
 
