@@ -20,6 +20,7 @@ ASYNC=True
 UGREEN=True
 HTTP=True
 EVDIS=False
+LDAP=False
 WSGI2=False
 ROUTING=False
 STACKLESS=False
@@ -199,6 +200,9 @@ def unbit_setup():
 	global WSGI2
 	WSGI2=False
 
+	global LDAP
+	LDAP=False
+
 	global ROUTING
 	ROUTING=False
 
@@ -295,6 +299,11 @@ def parse_vars():
 		depends_on("PROXY", ['ASYNC'])
 		cflags.append("-DUWSGI_PROXY")
 		gcc_list.append('proxy')
+
+	if LDAP:
+		cflags.append("-DUWSGI_LDAP")
+		gcc_list.append('ldap')
+		libs.append('-lldap')
 
 	if ROUTING:
 		depends_on("ROUTING", ['WSGI2', 'XML'])

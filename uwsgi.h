@@ -170,6 +170,9 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_ENV			17033
 #define LONG_ARGS_CHDIR2		17034
 #define LONG_ARGS_INI			17035
+#define LONG_ARGS_LDAP_SCHEMA		17036
+#define LONG_ARGS_LDAP			17037
+#define LONG_ARGS_LDAP_SCHEMA_LDIF	17038
 
 
 
@@ -661,6 +664,11 @@ struct uwsgi_server {
 
 	int vacuum;
 	int bind_to_unix;
+	int no_server;
+
+#ifdef UWSGI_LDAP
+	char *ldap;
+#endif
 };
 
 struct uwsgi_cluster_node {
@@ -1060,4 +1068,11 @@ int unconfigured_hook(struct uwsgi_server *, struct wsgi_request *);
 
 #ifdef UWSGI_INI
 void uwsgi_ini_config(char *, struct option*);
+#endif
+
+
+#ifdef UWSGI_LDAP
+void uwsgi_ldap_schema_dump(struct option*);
+void uwsgi_ldap_schema_dump_ldif(struct option*);
+void uwsgi_ldap_config(struct uwsgi_server *, struct option*);
 #endif

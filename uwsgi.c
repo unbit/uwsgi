@@ -40,6 +40,131 @@ PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, MET
 #endif
 
 
+static struct option long_options[] = {
+		{"socket", required_argument, 0, 's'},
+		{"processes", required_argument, 0, 'p'},
+		{"harakiri", required_argument, 0, 't'},
+#ifdef UWSGI_XML
+		{"xmlconfig", required_argument, 0, 'x'},
+#endif
+		{"daemonize", required_argument, 0, 'd'},
+		{"listen", required_argument, 0, 'l'},
+		{"optimize", required_argument, 0, 'O'},
+		{"max-vars", required_argument, 0, 'v'},
+		{"buffer-size", required_argument, 0, 'b'},
+		{"memory-report", no_argument, 0, 'm'},
+		{"cgi-mode", no_argument, 0, 'c'},
+		{"abstract-socket", no_argument, 0, 'a'},
+		{"chmod-socket", optional_argument , 0, 'C'},
+#ifdef UWSGI_THREADING
+		{"enable-threads", no_argument, 0, 'T'},
+#endif
+		{"profiler", no_argument, 0, 'P'},
+		{"single-interpreter", no_argument, 0, 'i'},
+		{"master", no_argument, 0, 'M'},
+		{"help", no_argument, 0, 'h'},
+		{"reaper", no_argument, 0, 'r'},
+		{"max-requests", required_argument, 0, 'R'},
+		{"socket-timeout", required_argument, 0, 'z'},
+		{"module", required_argument, 0, 'w'},
+		{"test", required_argument, 0, 'j'},
+		{"home", required_argument, 0, 'H'},
+		{"sharedarea", required_argument, 0, 'A'},
+#ifdef UWSGI_SPOOLER
+		{"spooler", required_argument, 0, 'Q'},
+#endif
+		{"disable-logging", no_argument, 0, 'L'},
+
+		{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
+		{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
+		{"gid", required_argument, 0, LONG_ARGS_GID},
+		{"uid", required_argument, 0, LONG_ARGS_UID},
+		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
+		{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
+		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
+#ifdef UWSGI_INI
+		{"ini", required_argument, 0, LONG_ARGS_INI},
+#endif
+#ifdef UWSGI_PASTE
+		{"paste", required_argument, 0, LONG_ARGS_PASTE},
+#endif
+#ifdef UWSGI_LDAP
+		{"ldap", required_argument, 0, LONG_ARGS_LDAP},
+		{"ldap-schema", no_argument, 0, LONG_ARGS_LDAP_SCHEMA},
+		{"ldap-schema-ldif", no_argument, 0, LONG_ARGS_LDAP_SCHEMA_LDIF},
+#endif
+		{"no-server", no_argument, &uwsgi.no_server, 1},
+		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
+		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
+		{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
+		{"no-orphans", no_argument, &uwsgi.no_orphans, 1},
+		{"prio", required_argument, 0, LONG_ARGS_PRIO},
+		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
+		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
+		{"ignore-script-name", no_argument, &uwsgi.ignore_script_name, 1},
+#ifdef UWSGI_UDP
+		{"udp", required_argument, 0, LONG_ARGS_UDP},
+#endif
+#ifdef UWSGI_MULTICAST
+		{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
+#endif
+#ifdef UWSGI_SNMP
+		{"snmp", no_argument, 0, LONG_ARGS_SNMP},
+		{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
+#endif
+		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
+#ifdef UWSGI_ERLANG
+		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
+		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
+#endif
+
+#ifdef UWSGI_NAGIOS
+		{"nagios", no_argument, &uwsgi.nagios, 1},
+#endif
+		{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
+#ifdef UWSGI_PROXY
+		{"proxy", required_argument, 0, LONG_ARGS_PROXY},
+		{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
+		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
+#endif
+		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
+		{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
+#ifdef UWSGI_ASYNC
+		{"async", required_argument, 0, LONG_ARGS_ASYNC},
+#endif
+#ifdef UWSGI_STACKLESS
+		{"stackless", no_argument, &uwsgi.stackless, 1},
+#endif
+#ifdef UWSGI_UGREEN
+		{"ugreen", no_argument, &uwsgi.ugreen, 1},
+		{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
+#endif
+		UWSGI_PLUGIN_LONGOPT_PSGI
+		UWSGI_PLUGIN_LONGOPT_LUA
+		UWSGI_PLUGIN_LONGOPT_RACK
+		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
+		{"logdate", no_argument, &uwsgi.logdate, 1},
+		{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
+		{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
+		{"grunt", no_argument, &uwsgi.grunt, 1},
+		{"no-site", no_argument, &Py_NoSiteFlag, 1},
+		{"vhost", no_argument, &uwsgi.vhost, 1},
+#ifdef UWSGI_ROUTING
+		{"routing", no_argument, &uwsgi.routing, 1},
+#endif
+
+#ifdef UWSGI_HTTP
+		{"http", required_argument, 0, LONG_ARGS_HTTP},
+		{"http-only", no_argument, &uwsgi.http_only, 1},
+#endif
+		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
+		{"mode", required_argument, 0, LONG_ARGS_MODE},
+		{"env", required_argument, 0, LONG_ARGS_ENV},
+		{"vacuum", no_argument, &uwsgi.vacuum, 1},
+		{"version", no_argument, 0, LONG_ARGS_VERSION},
+		{0, 0, 0, 0}
+	};
+
 int find_worker_id(pid_t pid) {
 	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -231,7 +356,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	pid_t pid;
-	int no_server = 0;
 
 	FILE *pidfile;
 
@@ -250,7 +374,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UNBIT
 	//struct uidsec_struct us;
 #endif
-
 
 	int socket_type = 0;
 	socklen_t socket_type_len;
@@ -310,125 +433,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
 	int option_index = 0;
-	struct option long_options[] = {
-		{"socket", required_argument, 0, 's'},
-		{"processes", required_argument, 0, 'p'},
-		{"harakiri", required_argument, 0, 't'},
-#ifdef UWSGI_XML
-		{"xmlconfig", required_argument, 0, 'x'},
-#endif
-		{"daemonize", required_argument, 0, 'd'},
-		{"listen", required_argument, 0, 'l'},
-		{"optimize", required_argument, 0, 'O'},
-		{"max-vars", required_argument, 0, 'v'},
-		{"buffer-size", required_argument, 0, 'b'},
-		{"memory-report", no_argument, 0, 'm'},
-		{"cgi-mode", no_argument, 0, 'c'},
-		{"abstract-socket", no_argument, 0, 'a'},
-		{"chmod-socket", optional_argument , 0, 'C'},
-#ifdef UWSGI_THREADING
-		{"enable-threads", no_argument, 0, 'T'},
-#endif
-		{"profiler", no_argument, 0, 'P'},
-		{"single-interpreter", no_argument, 0, 'i'},
-		{"master", no_argument, 0, 'M'},
-		{"help", no_argument, 0, 'h'},
-		{"reaper", no_argument, 0, 'r'},
-		{"max-requests", required_argument, 0, 'R'},
-		{"socket-timeout", required_argument, 0, 'z'},
-		{"module", required_argument, 0, 'w'},
-		{"test", required_argument, 0, 'j'},
-		{"home", required_argument, 0, 'H'},
-		{"sharedarea", required_argument, 0, 'A'},
-#ifdef UWSGI_SPOOLER
-		{"spooler", required_argument, 0, 'Q'},
-#endif
-		{"disable-logging", no_argument, 0, 'L'},
-
-		{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
-		{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
-		{"gid", required_argument, 0, LONG_ARGS_GID},
-		{"uid", required_argument, 0, LONG_ARGS_UID},
-		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
-		{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
-		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
-#ifdef UWSGI_INI
-		{"ini", required_argument, 0, LONG_ARGS_INI},
-#endif
-#ifdef UWSGI_PASTE
-		{"paste", required_argument, 0, LONG_ARGS_PASTE},
-#endif
-		{"no-server", no_argument, &no_server, 1},
-		{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
-		{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
-		{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
-		{"no-orphans", no_argument, &uwsgi.no_orphans, 1},
-		{"prio", required_argument, 0, LONG_ARGS_PRIO},
-		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
-		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
-		{"ignore-script-name", no_argument, &uwsgi.ignore_script_name, 1},
-#ifdef UWSGI_UDP
-		{"udp", required_argument, 0, LONG_ARGS_UDP},
-#endif
-#ifdef UWSGI_MULTICAST
-		{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
-#endif
-#ifdef UWSGI_SNMP
-		{"snmp", no_argument, 0, LONG_ARGS_SNMP},
-		{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
-#endif
-		{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
-#ifdef UWSGI_ERLANG
-		{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
-		{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
-#endif
-
-#ifdef UWSGI_NAGIOS
-		{"nagios", no_argument, &uwsgi.nagios, 1},
-#endif
-		{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
-#ifdef UWSGI_PROXY
-		{"proxy", required_argument, 0, LONG_ARGS_PROXY},
-		{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
-		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
-#endif
-		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
-		{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
-#ifdef UWSGI_ASYNC
-		{"async", required_argument, 0, LONG_ARGS_ASYNC},
-#endif
-#ifdef UWSGI_STACKLESS
-		{"stackless", no_argument, &uwsgi.stackless, 1},
-#endif
-#ifdef UWSGI_UGREEN
-		{"ugreen", no_argument, &uwsgi.ugreen, 1},
-		{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
-#endif
-		UWSGI_PLUGIN_LONGOPT_PSGI
-		UWSGI_PLUGIN_LONGOPT_LUA
-		UWSGI_PLUGIN_LONGOPT_RACK
-		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
-		{"logdate", no_argument, &uwsgi.logdate, 1},
-		{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
-		{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
-		{"grunt", no_argument, &uwsgi.grunt, 1},
-		{"no-site", no_argument, &Py_NoSiteFlag, 1},
-		{"vhost", no_argument, &uwsgi.vhost, 1},
-#ifdef UWSGI_ROUTING
-		{"routing", no_argument, &uwsgi.routing, 1},
-#endif
-
-#ifdef UWSGI_HTTP
-		{"http", required_argument, 0, LONG_ARGS_HTTP},
-		{"http-only", no_argument, &uwsgi.http_only, 1},
-#endif
-		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
-		{"mode", required_argument, 0, LONG_ARGS_MODE},
-		{"env", required_argument, 0, LONG_ARGS_ENV},
-		{"vacuum", no_argument, &uwsgi.vacuum, 1},
-		{"version", no_argument, 0, LONG_ARGS_MODE},
-		{0, 0, 0, 0}
-	};
 
 
 	gettimeofday(&uwsgi.start_tv, NULL);
@@ -494,6 +498,11 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
 		uwsgi_ini_config(uwsgi.ini, long_options);
+	}
+#endif
+#ifdef UWSGI_LDAP
+	if (uwsgi.ldap != NULL) {
+		uwsgi_ldap_config(&uwsgi, long_options);
 	}
 #endif
 
@@ -841,7 +850,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
-	if (!no_server) {
+	if (!uwsgi.no_server) {
 		if (uwsgi.socket_name != NULL && !uwsgi.is_a_reload) {
 				char *tcp_port = strchr(uwsgi.socket_name, ':');
 				if (tcp_port == NULL) {
@@ -883,7 +892,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 
-	if (!uwsgi_will_starts && !no_server) {
+	if (!uwsgi_will_starts && !uwsgi.no_server) {
 		uwsgi_log( "The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
@@ -1025,7 +1034,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 
-	if (no_server) {
+	if (uwsgi.no_server) {
 		uwsgi_log( "no-server mode requested. Goodbye.\n");
 		exit(0);
 	}
@@ -2686,6 +2695,17 @@ void manage_opt(int i, char *optarg) {
 #ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP:
 		uwsgi.http = optarg;
+		break;
+#endif
+#ifdef UWSGI_LDAP
+	case LONG_ARGS_LDAP:
+		uwsgi.ldap = optarg;
+		break;
+	case LONG_ARGS_LDAP_SCHEMA:
+		uwsgi_ldap_schema_dump(long_options);
+		break;
+	case LONG_ARGS_LDAP_SCHEMA_LDIF:
+		uwsgi_ldap_schema_dump_ldif(long_options);
 		break;
 #endif
 	case LONG_ARGS_MODE:
