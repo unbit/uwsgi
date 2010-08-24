@@ -98,12 +98,16 @@ void http_loop(struct uwsgi_server * uwsgi)
 		exit(1);
 	}
 
-	signal(SIGCHLD, &http_end);
+	if (!uwsgi->http_only) {
+		signal(SIGCHLD, &http_end);
+	}
 
 	for(;;) {
 
-		if (waitpid(-1, &stat_loc, WNOHANG) != 0) {
-			http_end();
+		if (!uwsgi->http_only) {
+			if (waitpid(-1, &stat_loc, WNOHANG) != 0) {
+				http_end();
+			}
 		}
 		ur = malloc(sizeof(struct uwsgi_http_req));
 		if (!ur) {

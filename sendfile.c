@@ -25,6 +25,7 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 	wsgi_req->sendfile_obj = wsgi_req->async_sendfile;
 	//wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
 
+	Py_INCREF((PyObject *) wsgi_req->sendfile_obj);
         return (PyObject *) wsgi_req->sendfile_obj;
 }
 
