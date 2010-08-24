@@ -608,7 +608,9 @@ int main(int argc, char *argv[], char *envp[]) {
                 if (tcp_port) {
                         uwsgi.http_server_port = tcp_port+1;
                         uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
-                        uwsgi_log("HTTP FD: %d\n", uwsgi.http_fd);
+#ifdef UWSGI_DEBUG
+                        uwsgi_debug("HTTP FD: %d\n", uwsgi.http_fd);
+#endif
                 }
                 else {
                         uwsgi_log("invalid http address.\n");
