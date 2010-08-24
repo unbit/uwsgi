@@ -191,6 +191,10 @@ module Rack
                                 buf, sender = client.recvfrom(remains)
                         end
 
+			if buf.length == 0
+				break
+			end
+
                         rack_input.write( buf )
                         remains -= buf.length
                 end
