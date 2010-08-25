@@ -161,9 +161,47 @@ static struct option long_options[] = {
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
 		{"env", required_argument, 0, LONG_ARGS_ENV},
 		{"vacuum", no_argument, &uwsgi.vacuum, 1},
+		{"ping", required_argument, 0, LONG_ARGS_PING},
+		{"ping-timeout", required_argument, 0, LONG_ARGS_PING_TIMEOUT},
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
+
+void ping(struct uwsgi_server *uwsgi) {
+
+	struct uwsgi_header uh;
+	struct pollfd uwsgi_poll;
+	
+	// use a 3 secs timeout by default
+	if (!uwsgi->ping_timeout) uwsgi->ping_timeout = 3 ;
+
+        uwsgi_poll.fd = uwsgi_connect(uwsgi->ping, uwsgi->ping_timeout);
+	if (uwsgi_poll.fd < 0) {
+		exit(1);
+	}
+
+	uh.modifier1 = UWSGI_MODIFIER_PING;
+        uh.pktsize = 0;
+        uh.modifier2 = 0;
+        if (write(uwsgi_poll.fd, &uh, 4) != 4) {
+                uwsgi_error("write()");
+                exit(2);
+        }
+        uwsgi_poll.events = POLLIN;
+        if (!uwsgi_parse_response(&uwsgi_poll, uwsgi->ping_timeout, &uh, NULL)) {
+                exit(1);
+        }
+        else {
+                if (uh.pktsize > 0) {
+                        exit(2);
+                }
+                else {
+                        exit(0);
+                }
+        }
+
+}
+
 
 int find_worker_id(pid_t pid) {
 	int i;
@@ -509,6 +547,10 @@ int main(int argc, char *argv[], char *envp[]) {
 //parse environ
 
 	parse_sys_envs(environ, long_options);
+
+	if (uwsgi.ping) {
+		ping(&uwsgi);
+	}
 
 	if (uwsgi.binary_path == argv[0]) {
 		cwd = uwsgi_get_cwd();
@@ -2694,6 +2736,12 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_CHDIR2:
 		uwsgi.chdir2 = optarg;
 		break;
+	case LONG_ARGS_PING:
+		uwsgi.ping = optarg;
+		break;
+	case LONG_ARGS_PING_TIMEOUT:
+		uwsgi.ping_timeout = atoi(optarg);
+		break;
 #ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP:
 		uwsgi.http = optarg;
@@ -3086,3 +3134,4 @@ void uwsgi_cluster_add_node(char *nodename, int workers) {
 
 	uwsgi_log( "unable to add node %s\n", nodename);
 }
+

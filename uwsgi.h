@@ -174,6 +174,8 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_LDAP_SCHEMA		17036
 #define LONG_ARGS_LDAP			17037
 #define LONG_ARGS_LDAP_SCHEMA_LDIF	17038
+#define LONG_ARGS_PING			17039
+#define LONG_ARGS_PING_TIMEOUT		17040
 
 
 
@@ -670,6 +672,9 @@ struct uwsgi_server {
 #ifdef UWSGI_LDAP
 	char *ldap;
 #endif
+
+	char *ping;
+	int ping_timeout;
 };
 
 struct uwsgi_cluster_node {
