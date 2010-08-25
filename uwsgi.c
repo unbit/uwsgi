@@ -3037,7 +3037,7 @@ void manage_opt(int i, char *optarg) {
 \t-v|--max-vars <n>\t\tset maximum number of vars/headers to <n>\n\
 \t-A|--sharedarea <n>\t\tcreate a shared memory area of <n> pages\n\
 \t-c|--cgi-mode\t\t\tset cgi mode\n\
-\t-C|--chmod-socket\t\tchmod socket to 666\n\
+\t-C|--chmod-socket[=NNN]\t\tchmod socket to 666 or NNN\n\
 \t-P|--profiler\t\t\tenable profiler\n\
 \t-m|--memory-report\t\tenable memory usage report\n\
 \t-i|--single-interpreter\t\tsingle interpreter mode\n\
@@ -3052,8 +3052,10 @@ void manage_opt(int i, char *optarg) {
 \t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
 \t--pidfile <file>\t\twrite the masterpid to <file>\n\
 \t--chroot <dir>\t\t\tchroot to directory <dir> (only root)\n\
-\t--gid <id>\t\t\tsetgid to <id> (only root)\n\
-\t--uid <id>\t\t\tsetuid to <id> (only root)\n\
+\t--gid <id/groupname>\t\tsetgid to <id/groupname> (only root)\n\
+\t--uid <id/username>\t\tsetuid to <id/username> (only root)\n\
+\t--chdir <dir>\t\t\tchdir to <dir> before app loading\n\
+\t--chdir2 <dir>\t\t\tchdir to <dir> after module loading\n\
 \t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
 \t--no-defer-accept\t\tdisable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)\n\
 \t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\
@@ -3065,8 +3067,11 @@ void manage_opt(int i, char *optarg) {
 \t--post-buffering <bytes>\tbuffer HTTP POST request higher than <bytes> to disk\n\
 \t--post-buffering-bufsize <b>\tset the buffer size to <b> bytes for post-buffering\n\
 \t--prio <N>\t\t\tset process priority/nice to N\n\
+\t--no-orphans\t\t\tautomatically kill workers on master's dead\n\
 \t--udp <ip:port>\t\t\tbind master process to udp socket on ip:port\n\
+\t--multicast <group>\t\tset multicast group\n\
 \t--snmp\t\t\t\tenable SNMP support in the UDP server\n\
+\t--snmp-community <value>\tset SNMP community code to <value>\n\
 \t--erlang <name@ip>\t\tenable the Erlang server with node name <node@ip>\n\
 \t--erlang-cookie <cookie>\ttset the erlang cookie to <cookie>\n\
 \t--nagios\t\t\tdo a nagios check\n\
@@ -3075,9 +3080,30 @@ void manage_opt(int i, char *optarg) {
 \t--proxy-node <socket>\t\tadd the node <socket> to the proxy\n\
 \t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
 \t--wsgi-file <file>\t\tload the <file> wsgi file\n\
+\t--file <file>\t\t\tuse python file instead of python module for configuration\n\
 \t--async <n>\t\t\tenable async mode with n core\n\
 \t--logto <logfile|addr>\t\tlog to file/udp\n\
+\t--logdate\t\t\tadd timestamp to loglines\n\
+\t--ignore-script-name\t\tdisable uWSGI management of SCRIPT_NAME\n\
+\t--ini <inifile>\t\t\tpath of ini config file\n\
+\t--ldap <url>\t\t\turl of LDAP uWSGIConfig resource\n\
+\t--ldap-schema\t\t\tdump uWSGIConfig LDAP schema\n\
+\t--ldap-schema-ldif\t\tdump uWSGIConfig LDAP schema in LDIF format\n\
+\t--grunt\t\t\t\tenable grunt workers\n\
+\t--ugreen\t\t\tenable uGreen support\n\
+\t--ugreen-stacksize <n>\t\tset uGreen stacksize to <n>\n\
 \t--stackless\t\t\tenable usage of tasklet (only on Stackless Python)\n\
+\t--no-site\t\t\tdo not import site.py on startup\n\
+\t--vhost\t\t\t\tenable virtual hosting\n\
+\t--routing\t\t\tenable uWSGI advanced routing\n\
+\t--http <addr>\t\t\tstart embedded HTTP server on <addr>\n\
+\t--http-only\t\t\tstart only the embedded HTTP server\n\
+\t--catch-exceptions\t\tprint exceptions in the browser\n\
+\t--mode\t\t\t\tset configuration mode\n\
+\t--env KEY=VALUE\t\t\tset environment variable\n\
+\t--vacuum\t\t\tclear the environment on exit (remove UNIX sockets and pidfiles)\n\
+\t--ping <addr>\t\t\tping a uWSGI server (returns 1 on failure 0 on success)\n\
+\t--ping-timeout <n>\t\tset ping timeout to <n>\n\
 \t--version\t\t\tprint server version\n\
 \t-d|--daemonize <logfile|addr>\tdaemonize and log into <logfile> or udp <addr>\n", uwsgi.binary_path);
 		exit(1);
