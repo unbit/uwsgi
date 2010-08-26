@@ -419,7 +419,7 @@ PyObject *py_snmp_community(PyObject * self, PyObject * args) {
 		memcpy(uwsgi.shared->snmp_community, snmp_community, 72);
 	}
 	else {
-		strlcpy(uwsgi.shared->snmp_community, snmp_community, 73);
+		memcpy(uwsgi.shared->snmp_community, snmp_community, strlen(snmp_community) + 1);
 	}
 
 	Py_INCREF(Py_True);

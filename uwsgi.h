@@ -25,10 +25,7 @@
 
 #include <sys/utsname.h>
 
-// linux has not strlcpy
 #ifdef __linux
-	#define strlcpy(x, y, z) strcpy(x, y)
-	#define strlcat(x, y, z) strcat(x, y)
 	#include <sys/prctl.h>
 #endif
 
@@ -176,6 +173,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_LDAP_SCHEMA_LDIF	17038
 #define LONG_ARGS_PING			17039
 #define LONG_ARGS_PING_TIMEOUT		17040
+#define LONG_ARGS_INI_PASTE		17041
 
 
 

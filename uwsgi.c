@@ -84,6 +84,7 @@ static struct option long_options[] = {
 		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 #ifdef UWSGI_INI
 		{"ini", required_argument, 0, LONG_ARGS_INI},
+		{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
 #endif
 #ifdef UWSGI_PASTE
 		{"paste", required_argument, 0, LONG_ARGS_PASTE},
@@ -559,7 +560,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi_error("malloc()");
 			exit(1);
 		}
-		strlcpy(uwsgi.binary_path, argv[0], strlen(argv[0]) + 1);
+		memcpy(uwsgi.binary_path, argv[0], strlen(argv[0]) + 1);
 	}
 
 	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
@@ -1202,7 +1203,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 72);
 				}
 				else {
-					strlcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 73);
+					memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, strlen(uwsgi.snmp_community) + 1);
 				}
 			}
 			uwsgi_log( "filling SNMP table...");
@@ -2889,6 +2890,33 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_INI:
 		uwsgi.ini = optarg;
 		break;
+	case LONG_ARGS_INI_PASTE:
+		uwsgi.ini = optarg;
+		if (uwsgi.ini[0] != '/') {
+			char *paste_cwd = uwsgi_get_cwd();
+			uwsgi.paste = malloc( 7 + strlen(paste_cwd) + 1 + strlen(uwsgi.ini) + 1);
+			if (uwsgi.paste == NULL) {
+				uwsgi_error("malloc()");
+				exit(1);
+			}
+			memset(uwsgi.paste, 0, 7 + strlen(paste_cwd) + strlen(uwsgi.ini) + 1);
+			memcpy(uwsgi.paste, "config:", 7);
+			memcpy(uwsgi.paste + 7, paste_cwd, strlen(paste_cwd));
+			uwsgi.paste[7 + strlen(paste_cwd)] = '/';
+			memcpy(uwsgi.paste + 7 + strlen(paste_cwd) + 1, uwsgi.ini, strlen(uwsgi.ini));
+			free(paste_cwd);
+		}
+		else {
+			uwsgi.paste = malloc( 7 + strlen(uwsgi.ini) + 1);
+			if (uwsgi.paste == NULL) {
+				uwsgi_error("malloc()");
+				exit(1);
+			}
+			memset(uwsgi.paste, 0, 7 + strlen(uwsgi.ini) + 1);
+			memcpy(uwsgi.paste, "config:", 7);
+			memcpy(uwsgi.paste + 7, uwsgi.ini, strlen(uwsgi.ini));
+		}
+		break;
 #endif
 #ifdef UWSGI_PASTE
 	case LONG_ARGS_PASTE:
@@ -3086,6 +3114,7 @@ void manage_opt(int i, char *optarg) {
 \t--logdate\t\t\tadd timestamp to loglines\n\
 \t--ignore-script-name\t\tdisable uWSGI management of SCRIPT_NAME\n\
 \t--ini <inifile>\t\t\tpath of ini config file\n\
+\t--ini-paste <inifile>\t\t\tpath of ini config file that contains paste configuration\n\
 \t--ldap <url>\t\t\turl of LDAP uWSGIConfig resource\n\
 \t--ldap-schema\t\t\tdump uWSGIConfig LDAP schema\n\
 \t--ldap-schema-ldif\t\tdump uWSGIConfig LDAP schema in LDIF format\n\
@@ -3139,7 +3168,7 @@ void uwsgi_cluster_add_node(char *nodename, int workers) {
 		ucn = &uwsgi.shared->nodes[i];
 
 		if (ucn->name[0] == 0) {
-			strlcpy(ucn->name, nodename, 101);
+			memcpy(ucn->name, nodename, strlen(nodename) + 1);
 			ucn->workers = workers;
 			ucn->ucn_addr.sin_family = AF_INET;
 			ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));

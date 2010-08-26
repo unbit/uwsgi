@@ -38,7 +38,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 
 	uws_addr->sun_family = AF_UNIX;
-	strlcpy(uws_addr->sun_path + abstract_socket, socket_name, 102+1);
+	memcpy(uws_addr->sun_path + abstract_socket, socket_name, 102);
 
 	if (bind(serverfd, (struct sockaddr *) uws_addr, strlen(socket_name) + abstract_socket + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
 		uwsgi_error("bind()");
@@ -220,7 +220,7 @@ int connect_to_unix(char *socket_name, int timeout) {
         memset(&uws_addr, 0, sizeof(struct sockaddr_un));
 
         uws_addr.sun_family = AF_UNIX;
-        strlcpy(uws_addr.sun_path, socket_name, 102+1);
+        memcpy(uws_addr.sun_path, socket_name, 102);
 
         uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (uwsgi_poll.fd < 0) {

@@ -30,7 +30,7 @@ int uwsgi_load_plugin(struct uwsgi_server *uwsgi, int modifier, char *plugin, ch
 	
 	if (absolute) {
 		plugin_name = malloc(strlen(plugin) + 1);
-		strlcpy(plugin_name, plugin, strlen(plugin));
+		memcpy(plugin_name, plugin, strlen(plugin) + 1);
 	}	
 	else {
 		plugin_name = malloc(strlen(UWSGI_PLUGIN_DIR) + 1 + strlen(plugin) + 1);
@@ -38,9 +38,9 @@ int uwsgi_load_plugin(struct uwsgi_server *uwsgi, int modifier, char *plugin, ch
 			uwsgi_error("malloc()");
 			return -1 ;
 		}
-		strlcpy(plugin_name, UWSGI_PLUGIN_DIR, strlen(UWSGI_PLUGIN_DIR));
-		strlcat(plugin_name, "/", 1);
-		strlcat(plugin_name, plugin, strlen(plugin));
+		memcpy(plugin_name, UWSGI_PLUGIN_DIR, strlen(UWSGI_PLUGIN_DIR));
+		memcpy(plugin_name + strlen(UWSGI_PLUGIN_DIR) , "/", 1);
+		memcpy(plugin_name + strlen(UWSGI_PLUGIN_DIR) + 1, plugin, strlen(plugin) + 1);
 	}
 	plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
 	free(plugin_name);
