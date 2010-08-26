@@ -98,6 +98,7 @@
 #include <sys/sendfile.h>
 #include <sys/epoll.h>
 #elif defined(__sun__)
+#include <sys/sendfile.h>
 #include <sys/devpoll.h>
 #else
 #include <sys/event.h>

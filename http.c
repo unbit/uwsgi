@@ -298,6 +298,9 @@ static void *http_request(void *u_h_r)
 						}
 						close(uwsgi_fd);
 					}
+					else {
+						goto clear;
+					}
 				}
 			} else if (buf[i] == ':') {
 
@@ -317,6 +320,7 @@ static void *http_request(void *u_h_r)
 
 	}
 
+clear:
 	close(clientfd);
 
 	free(ur);

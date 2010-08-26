@@ -18,7 +18,7 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 
 	hostname[256] = 0;
 
-	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi->spool_dir, hostname, getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi->spool_dir, hostname, (int) getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
 		return 0;
 	}
 

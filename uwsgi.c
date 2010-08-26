@@ -595,7 +595,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi_error("fopen");
 			exit(1);
 		}
-		if (fprintf(pidfile, "%d\n", getpid()) < 0) {
+		if (fprintf(pidfile, "%d\n", (int) getpid()) < 0) {
 			uwsgi_log( "could not write pidfile.\n");
 		}
 		fclose(pidfile);
