@@ -1474,23 +1474,28 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 			}
 #endif
+			// TODO rewrite without using exit code (targeted at 0.9.7)
+
+#ifdef __sun__
+                        /* horrible hack... what the FU*K is doing Solaris ??? */
+                        if (WIFSIGNALED(waitpid_status)) {
+                                if (uwsgi.to_heaven) {
+                                        ready_to_reload++;
+                                        continue;
+                                }
+                                else if (uwsgi.to_hell) {
+                                        ready_to_die++;
+                                        continue;
+                                }
+                        }
+#endif
 			/* check for reloading */
 			if (WIFEXITED(waitpid_status)) {
-				// TODO rewrite without using exit code (targeted at 0.9.7)
-#ifdef __sun__
-				// do not check exit status on solaris as i have found it a bit unreliable
-				if (uwsgi.to_heaven) {
-#else
 				if (WEXITSTATUS(waitpid_status) == UWSGI_RELOAD_CODE && uwsgi.to_heaven) {
-#endif
 					ready_to_reload++;
 					continue;
 				}
-#ifdef __sun__
-				else if (uwsgi.to_hell) {
-#else
 				else if (WEXITSTATUS(waitpid_status) == UWSGI_END_CODE && uwsgi.to_hell) {
-#endif
 					ready_to_die++;
 					continue;
 				}
