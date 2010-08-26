@@ -299,6 +299,7 @@ static void *http_request(void *u_h_r)
 						close(uwsgi_fd);
 					}
 					else {
+						close(uwsgi_fd);
 						goto clear;
 					}
 				}
