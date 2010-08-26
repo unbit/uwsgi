@@ -657,6 +657,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_EMBED_PLUGIN_RACK
 	char *plugin_arg_rack;
+	char *plugin_arg_rails;
 #endif
 
 #endif
@@ -1047,11 +1048,15 @@ void embed_plugins(struct uwsgi_server *);
 #ifdef UWSGI_EMBED_PLUGIN_RACK
 
 #undef UWSGI_PLUGIN_LONGOPT_RACK
-#define UWSGI_PLUGIN_LONGOPT_RACK {"rack", required_argument, 0, 30007},
+#define UWSGI_PLUGIN_LONGOPT_RACK {"rack", required_argument, 0, 30007},\
+				  {"rails", required_argument, 0, 30008},
 
 #undef LONG_ARGS_PLUGIN_EMBED_RACK
 #define LONG_ARGS_PLUGIN_EMBED_RACK case 30007:\
 					uwsgi.plugin_arg_rack = optarg;\
+					break;\
+				    case 30008:\
+					uwsgi.plugin_arg_rails = optarg;\
 					break;
 #endif
 

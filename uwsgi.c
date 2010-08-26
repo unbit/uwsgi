@@ -3129,7 +3129,7 @@ void manage_opt(int i, char *optarg) {
 \t--logdate\t\t\tadd timestamp to loglines\n\
 \t--ignore-script-name\t\tdisable uWSGI management of SCRIPT_NAME\n\
 \t--ini <inifile>\t\t\tpath of ini config file\n\
-\t--ini-paste <inifile>\t\t\tpath of ini config file that contains paste configuration\n\
+\t--ini-paste <inifile>\t\tpath of ini config file that contains paste configuration\n\
 \t--ldap <url>\t\t\turl of LDAP uWSGIConfig resource\n\
 \t--ldap-schema\t\t\tdump uWSGIConfig LDAP schema\n\
 \t--ldap-schema-ldif\t\tdump uWSGIConfig LDAP schema in LDIF format\n\

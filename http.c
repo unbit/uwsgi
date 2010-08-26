@@ -30,12 +30,15 @@ void http_end() {
 	exit(0);
 }
 
-static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint16_t vallen, int header)
+static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint16_t vallen, int header, char *watermark)
 {
 
 	int i;
 
 	if (!header) {
+
+		if ( (up + 2 + keylen + 2 + vallen) > watermark ) return up ;
+
 		*up++ = (unsigned char) (keylen & 0xff);
 		*up++ = (unsigned char) ((keylen >> 8) & 0xff);
 
@@ -53,11 +56,13 @@ static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint
 		}
 
 		if (strncmp("CONTENT_TYPE", key, keylen) && strncmp("CONTENT_LENGTH", key, keylen)) {
+			if ( (up + 2 + keylen + 5 + 2 + vallen) > watermark ) return up ;
 			*up++ = (unsigned char) (((uint16_t) keylen + 5) & 0xff);
 			*up++ = (unsigned char) ((((uint16_t) keylen + 5) >> 8) & 0xff);
 			memcpy(up, "HTTP_", 5);
 			up += 5;
 		} else {
+			if ( (up + 2 + keylen + 2 + vallen) > watermark ) return up ;
 			*up++ = (unsigned char) (keylen & 0xff);
 			*up++ = (unsigned char) ((keylen >> 8) & 0xff);
 		}
@@ -169,6 +174,7 @@ static void *http_request(void *u_h_r)
 
 	up = uwsgipkt;
 
+	char *watermark = up + 4096 ;
 
 	up[0] = 0;
 	up[3] = 0;
@@ -186,25 +192,25 @@ static void *http_request(void *u_h_r)
 
 				if (state == uwsgi_http_method) {
 
-					up = add_uwsgi_var(up, "REQUEST_METHOD", 14, tmp_buf, ptr - tmp_buf, 0);
+					up = add_uwsgi_var(up, "REQUEST_METHOD", 14, tmp_buf, ptr - tmp_buf, 0, watermark);
 					ptr = tmp_buf;
 					state = uwsgi_http_uri;
 
 				} else if (state == uwsgi_http_uri) {
 
-					up = add_uwsgi_var(up, "REQUEST_URI", 11, tmp_buf, ptr - tmp_buf, 0);
+					up = add_uwsgi_var(up, "REQUEST_URI", 11, tmp_buf, ptr - tmp_buf, 0, watermark);
 
 					int path_info_len = ptr - tmp_buf;
 					for (j = 0; j < ptr - tmp_buf; j++) {
 						if (tmp_buf[j] == '?') {
 							path_info_len = j;
 							if (j + 1 < (ptr - tmp_buf)) {
-								up = add_uwsgi_var(up, "QUERY_STRING", 12, tmp_buf + j + 1, (ptr - tmp_buf) - (j + 1), 0);
+								up = add_uwsgi_var(up, "QUERY_STRING", 12, tmp_buf + j + 1, (ptr - tmp_buf) - (j + 1), 0, watermark);
 							}
 							break;
 						}
 					}
-					up = add_uwsgi_var(up, "PATH_INFO", 9, tmp_buf, path_info_len, 0);
+					up = add_uwsgi_var(up, "PATH_INFO", 9, tmp_buf, path_info_len, 0, watermark);
 
 					ptr = tmp_buf;
 					state = uwsgi_http_protocol;
@@ -236,7 +242,7 @@ static void *http_request(void *u_h_r)
 
 				if (state == uwsgi_http_header_val_r) {
 
-					up = add_uwsgi_var(up, HTTP_header_key, strlen(HTTP_header_key), tmp_buf, ptr - tmp_buf, 1);
+					up = add_uwsgi_var(up, HTTP_header_key, strlen(HTTP_header_key), tmp_buf, ptr - tmp_buf, 1, watermark);
 					if (!strcmp("CONTENT_LENGTH", HTTP_header_key)) {
 						*ptr++ = 0;
 						http_body_len = atoi(tmp_buf);
@@ -245,7 +251,7 @@ static void *http_request(void *u_h_r)
 					state = uwsgi_http_header_key;
 				} else if (state == uwsgi_http_protocol_r) {
 
-					up = add_uwsgi_var(up, "SERVER_PROTOCOL", 15, tmp_buf, ptr - tmp_buf, 0);
+					up = add_uwsgi_var(up, "SERVER_PROTOCOL", 15, tmp_buf, ptr - tmp_buf, 0, watermark);
 					ptr = tmp_buf;
 					state = uwsgi_http_header_key;
 				} else if (state == uwsgi_http_end) {
@@ -253,16 +259,16 @@ static void *http_request(void *u_h_r)
 
 
 					if (uwsgi.http_server_name) {
-						up = add_uwsgi_var(up, "SERVER_NAME", 11, uwsgi.http_server_name, strlen(uwsgi.http_server_name), 0);
+						up = add_uwsgi_var(up, "SERVER_NAME", 11, uwsgi.http_server_name, strlen(uwsgi.http_server_name), 0, watermark);
 					} else {
-						up = add_uwsgi_var(up, "SERVER_NAME", 11, "localhost", 9, 0);
+						up = add_uwsgi_var(up, "SERVER_NAME", 11, "localhost", 9, 0, watermark);
 					}
 
-					up = add_uwsgi_var(up, "SERVER_PORT", 11, uwsgi.http_server_port, strlen(uwsgi.http_server_port), 0);
-					up = add_uwsgi_var(up, "SCRIPT_NAME", 11, "", 0, 0);
+					up = add_uwsgi_var(up, "SERVER_PORT", 11, uwsgi.http_server_port, strlen(uwsgi.http_server_port), 0, watermark);
+					up = add_uwsgi_var(up, "SCRIPT_NAME", 11, "", 0, 0, watermark);
 
 					char *ip = inet_ntoa(ur->c_addr.sin_addr);
-					up = add_uwsgi_var(up, "REMOTE_ADDR", 11, ip, strlen(ip), 0);
+					up = add_uwsgi_var(up, "REMOTE_ADDR", 11, ip, strlen(ip), 0, watermark);
 
 					//up = add_uwsgi_var(up, "REMOTE_USER", 11, "unknown", 7, 0);
 
