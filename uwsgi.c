@@ -75,6 +75,8 @@ static struct option long_options[] = {
 #endif
 		{"disable-logging", no_argument, 0, 'L'},
 
+		{"callable", required_argument, 0, LONG_ARGS_CALLABLE},
+
 		{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
 		{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
 		{"gid", required_argument, 0, LONG_ARGS_GID},
@@ -2384,10 +2386,15 @@ void uwsgi_wsgi_config(char *filename) {
 	}
 	else {
 
-		quick_callable = strchr(uwsgi.wsgi_config, ':');
-		if (quick_callable) {
-			quick_callable[0] = 0 ;
-			quick_callable++;
+		if (uwsgi.callable) {
+			quick_callable = uwsgi.callable ;
+		}
+		else {
+			quick_callable = strchr(uwsgi.wsgi_config, ':');
+			if (quick_callable) {
+				quick_callable[0] = 0 ;
+				quick_callable++;
+			}
 		}
 
 		wsgi_module = PyImport_ImportModule(uwsgi.wsgi_config);
@@ -2453,8 +2460,18 @@ void uwsgi_wsgi_config(char *filename) {
 	}
 	else {
 		// quick callable -> thanks gunicorn for the idea
-		 app_app = PyDict_GetItemString(wsgi_dict, quick_callable);
-                 if (app_app) {
+		// we have extended the concept a bit...
+		if (quick_callable[strlen(quick_callable) -2 ] == '(' && quick_callable[strlen(quick_callable) -1] ==')') {
+			quick_callable[strlen(quick_callable) -2 ] = 0 ;
+			PyObject *tmp_callable = PyDict_GetItemString(wsgi_dict, quick_callable);
+			if (tmp_callable) {
+				app_app = python_call(tmp_callable, PyTuple_New(0), 0);
+			}
+		}
+		else {
+			app_app = PyDict_GetItemString(wsgi_dict, quick_callable);
+		}
+                if (app_app) {
                  	applications = PyDict_New();
                         if (!applications) {
                         	uwsgi_log( "could not initialize applications dictionary\n");
@@ -2465,11 +2482,11 @@ void uwsgi_wsgi_config(char *filename) {
                                 uwsgi_log( "unable to set default application\n");
                                 exit(1);
                         }
-                  }
-                  else {
+                 }
+                 else {
                         uwsgi_log( "\"%s\" callable not found.\n", quick_callable);
 			exit(1);
-                  } 
+                 } 
 	}
 
 	if (!PyDict_Check(applications)) {
@@ -2757,6 +2774,9 @@ void manage_opt(int i, char *optarg) {
 		break;
 	case LONG_ARGS_PING_TIMEOUT:
 		uwsgi.ping_timeout = atoi(optarg);
+		break;
+	case LONG_ARGS_CALLABLE:
+		uwsgi.callable = optarg;
 		break;
 #ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP:
@@ -3093,6 +3113,7 @@ void manage_opt(int i, char *optarg) {
 \t-R|--max-requests\t\tmaximum number of requests for each worker\n\
 \t-j|--test\t\t\ttest if uWSGI can import a module\n\
 \t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
+\t--callable <callable>\t\tset the callable (default 'application')\n\
 \t--pidfile <file>\t\twrite the masterpid to <file>\n\
 \t--chroot <dir>\t\t\tchroot to directory <dir> (only root)\n\
 \t--gid <id/groupname>\t\tsetgid to <id/groupname> (only root)\n\

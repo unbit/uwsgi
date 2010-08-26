@@ -175,6 +175,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_PING			17039
 #define LONG_ARGS_PING_TIMEOUT		17040
 #define LONG_ARGS_INI_PASTE		17041
+#define LONG_ARGS_CALLABLE		17042
 
 
 
@@ -675,6 +676,8 @@ struct uwsgi_server {
 
 	char *ping;
 	int ping_timeout;
+
+	char *callable;
 };
 
 struct uwsgi_cluster_node {
