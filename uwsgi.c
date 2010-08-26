@@ -1067,7 +1067,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 // parse xml anyway
 #ifdef UWSGI_XML
-	if (uwsgi.xml_config != NULL) {
+	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
 		uwsgi_xml_config(uwsgi.wsgi_req, NULL);
 	}
 #endif

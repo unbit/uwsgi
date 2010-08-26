@@ -678,6 +678,8 @@ struct uwsgi_server {
 	int ping_timeout;
 
 	char *callable;
+
+	int xml_round2;
 };
 
 struct uwsgi_cluster_node {

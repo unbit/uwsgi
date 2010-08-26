@@ -23,6 +23,8 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 
 	char *colon ;
 
+	char *xml_id ;
+
 	colon = strchr(uwsgi.xml_config, ':');
 	if (colon) {
 		colon[0] = 0 ;
@@ -54,8 +56,10 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 			element = NULL ;
 			if (node->type == XML_ELEMENT_NODE) {
 				if (!strcmp((char *) node->name, "uwsgi")) {
-					if (colon) {
-						if (strcmp(colon, (char *)  xmlGetProp(node, (const xmlChar *) "id")) ) {
+					xml_id = (char *) xmlGetProp(node, (const xmlChar *) "id");
+
+					if (colon && xml_id) {
+						if ( strcmp(colon, xml_id) ) {
 							continue;
 						}
 					}
@@ -76,6 +80,22 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 		// first check for options
 		for (node = element->children; node; node = node->next) {
 			if (node->type == XML_ELEMENT_NODE) {
+
+				if (!strcmp((char *) node->name, "app")) {
+					uwsgi.xml_round2 = 1 ;
+					continue;
+				}
+
+#ifdef UWSGI_ROUTING
+				if (!strcmp((char *) node->name, "route")) {
+					uwsgi.xml_round2 = 1 ;
+					continue;
+				}
+				if (!strcmp((char *) node->name, "routing")) {
+					uwsgi.xml_round2 = 1 ;
+					continue;
+				}
+#endif
 				lopt = long_options;
 				while ((aopt = lopt)) {
 					if (!aopt->name)
@@ -96,6 +116,13 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 						node_mode = xmlGetProp(node, (const xmlChar *) "mode") ;
 						if (uwsgi.mode && node_mode) {
 							if (strcmp(uwsgi.mode, (char *) node_mode)) {
+								goto next;	
+							}	
+						}
+
+						xml_id = (char *) xmlGetProp(node, (const xmlChar *) "id") ;
+						if (colon && xml_id) {
+							if (strcmp(colon, xml_id)) {
 								goto next;	
 							}	
 						}
