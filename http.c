@@ -172,6 +172,8 @@ static void *http_request(void *u_h_r)
 
 	ptr = tmp_buf;
 
+	int qs = 0;
+
 	up = uwsgipkt;
 
 	char *watermark = up + 4096 ;
@@ -206,9 +208,14 @@ static void *http_request(void *u_h_r)
 							path_info_len = j;
 							if (j + 1 < (ptr - tmp_buf)) {
 								up = add_uwsgi_var(up, "QUERY_STRING", 12, tmp_buf + j + 1, (ptr - tmp_buf) - (j + 1), 0, watermark);
+								qs = 1 ;
 							}
 							break;
 						}
+					}
+
+					if (!qs) {
+						up = add_uwsgi_var(up, "QUERY_STRING", 12, NULL, 0, 0, watermark);
 					}
 					up = add_uwsgi_var(up, "PATH_INFO", 9, tmp_buf, path_info_len, 0, watermark);
 
