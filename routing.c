@@ -1,3 +1,4 @@
+#ifdef UWSGI_ROUTING
 #include "uwsgi.h"
 
 void routing_setup(struct uwsgi_server *uwsgi) {
@@ -152,3 +153,5 @@ void uwsgi_route_action_uwsgi(struct uwsgi_server *uwsgi, struct wsgi_request *w
 	}
 
 }
+
+#endif
