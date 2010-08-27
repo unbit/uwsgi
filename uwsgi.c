@@ -526,6 +526,11 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (optind < argc) {
 		char *lazy = argv[optind];
+		char *qc = strchr(lazy, ':');
+		if (qc) {
+			qc[0] = 0 ;
+			uwsgi.callable = qc + 1;
+		}
 		if (!strcmp(lazy+strlen(lazy)-3, ".py")) {
 			uwsgi.file_config = lazy;
 		}
@@ -2352,6 +2357,11 @@ void uwsgi_wsgi_config(char *filename) {
 	uwsgi.single_interpreter = 1;
 
 	if (filename) {
+
+		if (uwsgi.callable) {
+			quick_callable = uwsgi.callable ;
+		}
+
 		uwsgifile = fopen(filename, "r");
         	if (!uwsgifile) {
                 	uwsgi_error("fopen()");
