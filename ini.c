@@ -176,6 +176,8 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 		sb.st_size -= (ini_line - ini);
 
 	}
+
+	close(fd);
 	
 }
 
