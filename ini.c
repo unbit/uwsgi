@@ -83,7 +83,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 
 	char *ini_line;
 
-	char *section;
+	char *section = "";
 	char *key;
 	char *val;
 
@@ -96,7 +96,9 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 	colon = strchr(file, ':');
 	if (colon) {
 		colon[0] = 0;
-		section_asked = colon+1 ;
+		if (colon[1] != 0) {
+			section_asked = colon+1 ;
+		}
 	}
 
 	fd = open(file, O_RDONLY);

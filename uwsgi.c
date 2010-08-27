@@ -2344,7 +2344,7 @@ void uwsgi_wsgi_config(char *filename) {
 	PyObject *app_list;
 	int ret;
 	Py_ssize_t i;
-	PyObject *app_mnt, *app_app;
+	PyObject *app_mnt, *app_app = NULL;
 	FILE *uwsgifile;
 
 	char *quick_callable = NULL;
