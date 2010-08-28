@@ -353,17 +353,23 @@ static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_requ
 
 static void vacuum(void) {
 
-	if (uwsgi.vacuum && getpid() == masterpid) {
+	struct sockaddr_un sa;
+	socklen_t sa_len = sizeof(struct sockaddr_un);
+
+	if (uwsgi.vacuum) {
 		if (getpid() == masterpid) {
 			if (chdir(uwsgi.cwd)) {
 				uwsgi_error("chdir()");
 			}
-			if (uwsgi.socket_name && uwsgi.bind_to_unix) {
-				if (unlink(uwsgi.socket_name)) {
-					uwsgi_error("unlink()");
-				}
-				else {
-					uwsgi_log("VACUUM: unix socket removed.\n");
+			memset(&sa, 0, sa_len);
+			if (!getsockname(uwsgi.serverfd, (struct sockaddr*)&sa, &sa_len)) {
+				if (sa.sun_family == AF_UNIX) {
+					if (unlink(sa.sun_path)) {
+						uwsgi_error("unlink()");
+					}
+					else {
+						uwsgi_log("VACUUM: unix socket removed.\n");
+					}
 				}
 			}
 			if (uwsgi.pidfile && !uwsgi.uid) {
@@ -913,7 +919,6 @@ int main(int argc, char *argv[], char *envp[]) {
 				char *tcp_port = strchr(uwsgi.socket_name, ':');
 				if (tcp_port == NULL) {
 					uwsgi.serverfd = bind_to_unix(uwsgi.socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-					uwsgi.bind_to_unix = 1;
 				}
 				else {
 					uwsgi.serverfd = bind_to_tcp(uwsgi.socket_name, uwsgi.listen_queue, tcp_port);

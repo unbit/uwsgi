@@ -673,7 +673,6 @@ struct uwsgi_server {
 	int catch_exceptions;
 
 	int vacuum;
-	int bind_to_unix;
 	int no_server;
 
 #ifdef UWSGI_LDAP
