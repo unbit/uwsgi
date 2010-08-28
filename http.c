@@ -121,6 +121,19 @@ void http_loop(struct uwsgi_server * uwsgi)
 		signal(SIGINT, &http_end);
 	}
 
+	uwsgi->http_server_name = malloc(256);
+	if (!uwsgi->http_server_name) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+
+	memset(uwsgi->http_server_name, 0, 256);
+	if (gethostname(uwsgi->http_server_name, 255)) {
+		uwsgi_error("gethostname()");
+		memcpy(uwsgi->http_server_name, "localhost", 9);
+	}
+
+	uwsgi_log("starting HTTP loop on %s (pid: %d)\n", uwsgi->http_server_name, (int) getpid());
 	for(;;) {
 
 		if (!uwsgi->http_only) {
@@ -283,13 +296,9 @@ static void *http_request(void *u_h_r)
 					need_to_read = 0;
 
 
-					if (uwsgi.http_server_name) {
-						up = add_uwsgi_var(up, "SERVER_NAME", 11, uwsgi.http_server_name, strlen(uwsgi.http_server_name), 0, watermark);
-					} else {
-						up = add_uwsgi_var(up, "SERVER_NAME", 11, "localhost", 9, 0, watermark);
-					}
-
+					up = add_uwsgi_var(up, "SERVER_NAME", 11, uwsgi.http_server_name, strlen(uwsgi.http_server_name), 0, watermark);
 					up = add_uwsgi_var(up, "SERVER_PORT", 11, uwsgi.http_server_port, strlen(uwsgi.http_server_port), 0, watermark);
+
 					up = add_uwsgi_var(up, "SCRIPT_NAME", 11, "", 0, 0, watermark);
 
 					char *ip = inet_ntoa(ur->c_addr.sin_addr);

@@ -707,7 +707,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 pid_t http_pid = fork();
 
                 if (http_pid > 0) {
-                        signal(SIGINT, (void *) &end_me);
+			masterpid = http_pid;
                         http_loop(&uwsgi);
                         // never here
                         exit(1);
@@ -716,6 +716,20 @@ int main(int argc, char *argv[], char *envp[]) {
                         uwsgi_error("fork()");
                         exit(1);
                 }
+
+		if (uwsgi.pidfile && !uwsgi.is_a_reload) {
+			uwsgi_log( "updating pidfile with pid %d\n", (int) getpid());
+			pidfile = fopen(uwsgi.pidfile, "w");
+			if (!pidfile) {
+				uwsgi_error("fopen");
+				exit(1);
+			}
+			if (fprintf(pidfile, "%d\n", (int) getpid()) < 0) {
+				uwsgi_log( "could not update pidfile.\n");
+			}
+			fclose(pidfile);
+		}
+
                 close(uwsgi.http_fd);
         }
 #endif
