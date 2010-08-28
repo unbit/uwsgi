@@ -30,6 +30,14 @@ void http_end() {
 	exit(0);
 }
 
+void http_wait_end() {
+	pid_t wp_p;
+	int wp_c;
+	wp_p = waitpid(-1, &wp_c, 0); 
+	uwsgi_log("closing uWSGI embedded HTTP server.\n");
+	exit(0);
+}
+
 static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint16_t vallen, int header, char *watermark)
 {
 
@@ -103,8 +111,14 @@ void http_loop(struct uwsgi_server * uwsgi)
 		exit(1);
 	}
 
+	// ignore broken pipes;
+	signal(SIGPIPE, SIG_IGN);
 	if (!uwsgi->http_only) {
 		signal(SIGCHLD, &http_end);
+		signal(SIGINT, &http_wait_end);
+	}
+	else {
+		signal(SIGINT, &http_end);
 	}
 
 	for(;;) {
@@ -133,6 +147,7 @@ void http_loop(struct uwsgi_server * uwsgi)
 		if (ret) {
 			uwsgi_log("pthread_create() = %d\n", ret);
 			free(ur);
+			// sleep a bit to allow some resource gaining
 			sleep(1);
 			continue;
 		}
@@ -163,8 +178,7 @@ static void *http_request(void *u_h_r)
 
 	size_t len;
 
-	int i,
-	 j;
+	int i, j;
 
 	char HTTP_header_key[1024];
 
@@ -177,6 +191,7 @@ static void *http_request(void *u_h_r)
 	up = uwsgipkt;
 
 	char *watermark = up + 4096 ;
+	char *watermark2 = tmp_buf + 4096 ;
 
 	up[0] = 0;
 	up[3] = 0;
@@ -224,6 +239,7 @@ static void *http_request(void *u_h_r)
 
 				} else if (state == uwsgi_http_header_key_colon) {
 
+					if (ptr+1 > watermark2) { close(uwsgi_fd); goto clear;}
 					*ptr++ = 0;
 
 					memset(HTTP_header_key, 0, sizeof(HTTP_header_key));
@@ -232,6 +248,7 @@ static void *http_request(void *u_h_r)
 					state = uwsgi_http_header_val;
 				} else {
 					//check for overflow
+					if (ptr+1 > watermark2) { close(uwsgi_fd); goto clear;}
 					*ptr++ = buf[i];
 				}
 
@@ -251,6 +268,7 @@ static void *http_request(void *u_h_r)
 
 					up = add_uwsgi_var(up, HTTP_header_key, strlen(HTTP_header_key), tmp_buf, ptr - tmp_buf, 1, watermark);
 					if (!strcmp("CONTENT_LENGTH", HTTP_header_key)) {
+						if (ptr+1 > watermark2) { close(uwsgi_fd); goto clear;}
 						*ptr++ = 0;
 						http_body_len = atoi(tmp_buf);
 					}
@@ -277,7 +295,20 @@ static void *http_request(void *u_h_r)
 					char *ip = inet_ntoa(ur->c_addr.sin_addr);
 					up = add_uwsgi_var(up, "REMOTE_ADDR", 11, ip, strlen(ip), 0, watermark);
 
+					//up = add_uwsgi_var(up, "REMOTE_ADDR", 11, "127.0.0.1", 9, 0, watermark);
 					//up = add_uwsgi_var(up, "REMOTE_USER", 11, "unknown", 7, 0);
+
+					for(j=0;j<uwsgi.http_vars_cnt;j++) {
+						char *separator;
+						
+						separator = strchr(uwsgi.http_vars[j], '=');
+						if (separator) {
+							up = add_uwsgi_var(up, uwsgi.http_vars[j], separator - uwsgi.http_vars[j], separator + 1, strlen(separator + 1), 0, watermark);
+						}
+						else {
+							up = add_uwsgi_var(up, uwsgi.http_vars[j], strlen(uwsgi.http_vars[j]), NULL, 0, 0, watermark);
+						}
+					}
 
 					uwsgi_fd = uwsgi_connect(uwsgi.socket_name, 10);
 					if (uwsgi_fd >= 0) {
@@ -322,11 +353,13 @@ static void *http_request(void *u_h_r)
 					state = uwsgi_http_header_key_colon;
 				} else {
 					//check for overflow
+					if (ptr+1 > watermark2) { close(uwsgi_fd); goto clear;}
 					*ptr++ = buf[i];
 				}
 			} else {
 
 				//check for overflow
+				if (ptr+1 > watermark2) { close(uwsgi_fd); goto clear;}
 				*ptr++ = buf[i];
 			}
 

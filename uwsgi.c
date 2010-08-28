@@ -159,6 +159,7 @@ static struct option long_options[] = {
 #ifdef UWSGI_HTTP
 		{"http", required_argument, 0, LONG_ARGS_HTTP},
 		{"http-only", no_argument, &uwsgi.http_only, 1},
+		{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
 #endif
 		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
@@ -271,6 +272,7 @@ void grace_them_all() {
 
 void reap_them_all() {
 	int i;
+	uwsgi.to_heaven = 1;
 	uwsgi_log("...brutally killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		kill(uwsgi.workers[i].pid, SIGTERM);
@@ -351,8 +353,11 @@ static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_requ
 
 static void vacuum(void) {
 
-	if (uwsgi.vacuum) {
+	if (uwsgi.vacuum && getpid() == masterpid) {
 		if (getpid() == masterpid) {
+			if (chdir(uwsgi.cwd)) {
+				uwsgi_error("chdir()");
+			}
 			if (uwsgi.socket_name && uwsgi.bind_to_unix) {
 				if (unlink(uwsgi.socket_name)) {
 					uwsgi_error("unlink()");
@@ -403,7 +408,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	int working_workers = 0;
 	int blocking_workers = 0;
 
-	char *cwd = NULL;
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
 
@@ -423,9 +427,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 
-	atexit(vacuum);
+	// initialize masterpid with a default value
+	masterpid = getpid();
 
 	memset(&uwsgi, 0, sizeof(struct uwsgi_server));
+	uwsgi.cwd = uwsgi_get_cwd();
+
+	atexit(vacuum);
 
 
 #ifdef UWSGI_DEBUG
@@ -561,7 +569,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (uwsgi.binary_path == argv[0]) {
-		cwd = uwsgi_get_cwd();
 		uwsgi.binary_path = malloc(strlen(argv[0]) + 1);
 		if (uwsgi.binary_path == NULL) {
 			uwsgi_error("malloc()");
@@ -653,7 +660,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	sanitize_args(&uwsgi);
 
 #ifdef UWSGI_HTTP
-        if (uwsgi.http) {
+        if (uwsgi.http && !uwsgi.is_a_reload) {
                 char *tcp_port = strchr(uwsgi.http, ':');
                 if (tcp_port) {
                         uwsgi.http_server_port = tcp_port+1;
@@ -686,7 +693,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
                 if (uwsgi.http_only) {
-                        signal(SIGINT, (void *) &end_me);
                         http_loop(&uwsgi);
                         // never here
                         exit(1);
@@ -1268,11 +1274,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 #endif
 				uwsgi_log( "binary reloading uWSGI...\n");
-				if (cwd) {
-					if (chdir(cwd)) {
-						uwsgi_error("chdir()");
-						exit(1);
-					}
+				if (chdir(uwsgi.cwd)) {
+					uwsgi_error("chdir()");
+					exit(1);
 				}
 				/* check fd table (a module can obviosly open some fd on initialization...) */
 				uwsgi_log( "closing all fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
@@ -2906,6 +2910,17 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.erlang_cookie = optarg;
 		break;
 #endif
+#ifdef UWSGI_HTTP
+	case LONG_ARGS_HTTP_VAR:
+		if (uwsgi.http_vars_cnt < 63) {
+			uwsgi.http_vars[uwsgi.http_vars_cnt] = optarg;
+			uwsgi.http_vars_cnt++;
+		}
+		else {
+			uwsgi_log( "you can specify at most 64 --http-var options\n");
+		}
+		break;
+#endif
 	case LONG_ARGS_PYTHONPATH:
 		if (uwsgi.python_path_cnt < 63) {
 			uwsgi.python_path[uwsgi.python_path_cnt] = optarg;
@@ -2938,18 +2953,16 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_INI_PASTE:
 		uwsgi.ini = optarg;
 		if (uwsgi.ini[0] != '/') {
-			char *paste_cwd = uwsgi_get_cwd();
-			uwsgi.paste = malloc( 7 + strlen(paste_cwd) + 1 + strlen(uwsgi.ini) + 1);
+			uwsgi.paste = malloc( 7 + strlen(uwsgi.cwd) + 1 + strlen(uwsgi.ini) + 1);
 			if (uwsgi.paste == NULL) {
 				uwsgi_error("malloc()");
 				exit(1);
 			}
-			memset(uwsgi.paste, 0, 7 + strlen(paste_cwd) + strlen(uwsgi.ini) + 1);
+			memset(uwsgi.paste, 0, 7 + strlen(uwsgi.cwd) + strlen(uwsgi.ini) + 1);
 			memcpy(uwsgi.paste, "config:", 7);
-			memcpy(uwsgi.paste + 7, paste_cwd, strlen(paste_cwd));
-			uwsgi.paste[7 + strlen(paste_cwd)] = '/';
-			memcpy(uwsgi.paste + 7 + strlen(paste_cwd) + 1, uwsgi.ini, strlen(uwsgi.ini));
-			free(paste_cwd);
+			memcpy(uwsgi.paste + 7, uwsgi.cwd, strlen(uwsgi.cwd));
+			uwsgi.paste[7 + strlen(uwsgi.cwd)] = '/';
+			memcpy(uwsgi.paste + 7 + strlen(uwsgi.cwd) + 1, uwsgi.ini, strlen(uwsgi.ini));
 		}
 		else {
 			uwsgi.paste = malloc( 7 + strlen(uwsgi.ini) + 1);
@@ -3173,6 +3186,7 @@ void manage_opt(int i, char *optarg) {
 \t--routing\t\t\tenable uWSGI advanced routing\n\
 \t--http <addr>\t\t\tstart embedded HTTP server on <addr>\n\
 \t--http-only\t\t\tstart only the embedded HTTP server\n\
+\t--http-var KEY[=VALUE]\t\tadd var KEY to uwsgi requests made by the embedded HTTP server\n\
 \t--catch-exceptions\t\tprint exceptions in the browser\n\
 \t--mode\t\t\t\tset configuration mode\n\
 \t--env KEY=VALUE\t\t\tset environment variable\n\

@@ -176,6 +176,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_PING_TIMEOUT		17040
 #define LONG_ARGS_INI_PASTE		17041
 #define LONG_ARGS_CALLABLE		17042
+#define LONG_ARGS_HTTP_VAR		17043
 
 
 
@@ -450,11 +451,16 @@ struct uwsgi_server {
 	uid_t uid;
 
 	char *mode;
+
+#ifdef UWSGI_HTTP
 	char *http;
 	char *http_server_name;
 	char *http_server_port;
 	int http_only;
 	int http_fd;
+	char *http_vars[64];
+	int http_vars_cnt;
+#endif
 
 	int ignore_script_name;
 	int logdate;
@@ -680,6 +686,8 @@ struct uwsgi_server {
 	char *callable;
 
 	int xml_round2;
+
+	char *cwd;
 };
 
 struct uwsgi_cluster_node {
