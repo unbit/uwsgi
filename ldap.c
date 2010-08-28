@@ -13,7 +13,7 @@ void ldap2uwsgi(char *ldapname, char *uwsginame) {
 	for(i=0;i<strlen(ldapname);i++) {
 		if (isupper(ldapname[i])) {
 			*ptr++= '-';
-			*ptr++= tolower(ldapname[i]);
+			*ptr++= tolower( (int) ldapname[i]);
 		}
 		else {
 			*ptr++= ldapname[i] ;
@@ -73,7 +73,7 @@ void uwsgi_ldap_schema_dump_ldif(struct option *lo) {
                 for(i=0;i<strlen(aopt->name);i++) {
                         if (aopt->name[i] == '-') {
                                 i++;
-                                uwsgi_log("%c", toupper(aopt->name[i]));
+                                uwsgi_log("%c", toupper( (int) aopt->name[i]));
                         }
                         else {
                                 uwsgi_log("%c", aopt->name[i]);
@@ -113,7 +113,7 @@ next:
                 for(i=0;i<strlen(aopt->name);i++) {
                         if (aopt->name[i] == '-') {
                                 i++;
-                                uwsgi_log("%c", toupper(aopt->name[i]));
+                                uwsgi_log("%c", toupper( (int) aopt->name[i]));
                         }
                         else {
                                 uwsgi_log("%c", aopt->name[i]);
@@ -163,7 +163,7 @@ void uwsgi_ldap_schema_dump(struct option *lo) {
 		for(i=0;i<strlen(aopt->name);i++) {
 			if (aopt->name[i] == '-') {
 				i++;
-				uwsgi_log("%c", toupper(aopt->name[i]));
+				uwsgi_log("%c", toupper( (int) aopt->name[i]));
 			}
 			else {
 				uwsgi_log("%c", aopt->name[i]);
@@ -203,7 +203,7 @@ next:
 		for(i=0;i<strlen(aopt->name);i++) {
 			if (aopt->name[i] == '-') {
 				i++;
-				uwsgi_log("%c", toupper(aopt->name[i]));
+				uwsgi_log("%c", toupper( (int) aopt->name[i]));
 			}
 			else {
 				uwsgi_log("%c", aopt->name[i]);

@@ -430,7 +430,7 @@ void env_to_arg(char *src, char *dst) {
 			dst[i] = src[i];
 		}
 		else {
-			dst[i] = tolower(src[i]);
+			dst[i] = tolower( (int) src[i]);
 			if (dst[i] == '_') {
 				dst[i] = '-';
 			}

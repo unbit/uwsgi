@@ -59,7 +59,7 @@ static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint
 			if (key[i] == '-') {
 				key[i] = '_';
 			} else {
-				key[i] = toupper(key[i]);
+				key[i] = toupper( (int) key[i]);
 			}
 		}
 
