@@ -1,7 +1,24 @@
 *** august 2010 ***
 
  * 0.9.6 [20100829]
--
+
+- better handling of SCRIPT_NAME
+- vacuum option for deleting unix sockets and pidfiles after usage
+- advanced XML configuration
+- new configuration systems: INI files and LDAP
+- embedded HTTP server for development/testing
+- better signal handling
+- PSGI plugin improved
+- usability fixes and new commodities options for root startup
+- grunt processes (detached workers)
+- preliminary integrated virtualhosting mode
+- new option catch-exceptions can redirect python exceptions to your browser
+- logging improvements (--logto and --logdate options)
+- Full PEP 333 compliant usage of wsgi.file_wrapper
+- re-initialize random seed after every fork() [security fix]
+- fix Spooler's usage of stdin
+- export WSGI environment in uwsgi.env (for doing evil things)
+- logsize tracking (uwsgi.logsize) for future embedded log rotation
 
 *** july 2010 ***
  

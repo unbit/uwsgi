@@ -11,7 +11,7 @@ void ldap2uwsgi(char *ldapname, char *uwsginame) {
 	int i;
 
 	for(i=0;i<strlen(ldapname);i++) {
-		if (isupper(ldapname[i])) {
+		if (isupper( (int)ldapname[i])) {
 			*ptr++= '-';
 			*ptr++= tolower( (int) ldapname[i]);
 		}
@@ -29,7 +29,7 @@ int calc_ldap_name(char *name) {
 	int counter = 0;
 
 	for(i=0;i<strlen(name);i++) {
-		if (isupper(name[i])) {
+		if (isupper( (int) name[i])) {
 			counter++;
 		}
 	}
