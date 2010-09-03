@@ -1127,6 +1127,23 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_log( "*** uWSGI is running in multiple interpreter mode ***\n");
 	}
 
+	/* check for eventually spawned subprocesses */
+	while( (diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG)) != 0 ) {
+		if (diedpid < 0) {
+			uwsgi_error("waitpid()");
+			continue;
+		}
+		if (WIFEXITED(waitpid_status)) {
+			uwsgi_log("subprocess %d exited with code %d\n", (int) diedpid, WEXITSTATUS(waitpid_status));
+		}
+		else if (WIFSIGNALED(waitpid_status)) {
+			uwsgi_log("subprocess %d exited by signal\n", (int) diedpid);
+		}
+		else if (WIFSTOPPED(waitpid_status)) {
+			uwsgi_log("subprocess %d stopped\n", (int) diedpid);
+		}
+	}
+
 	/* preforking() */
 	if (uwsgi.master_process) {
 		if (uwsgi.is_a_reload) {
@@ -1532,6 +1549,21 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 			}
 
+
+			uwsgi.mywid = find_worker_id(diedpid);
+			if (uwsgi.mywid <= 0) {
+				if (WIFEXITED(waitpid_status)) {
+                        		uwsgi_log("subprocess %d exited with code %d\n", (int) diedpid, WEXITSTATUS(waitpid_status));
+                		}
+                		else if (WIFSIGNALED(waitpid_status)) {
+                        		uwsgi_log("subprocess %d exited by signal %d\n", (int) diedpid, WTERMSIG(waitpid_status));
+                		}
+                		else if (WIFSTOPPED(waitpid_status)) {
+                        		uwsgi_log("subprocess %d stopped\n", (int) diedpid);
+                		}
+				continue;
+			}
+			
 			uwsgi_log( "DAMN ! process %d died :( trying respawn ...\n", diedpid);
 			gettimeofday(&last_respawn, NULL);
 			if (last_respawn.tv_sec == respawn_delta) {
@@ -1541,7 +1573,6 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 			gettimeofday(&last_respawn, NULL);
 			respawn_delta = last_respawn.tv_sec;
-			uwsgi.mywid = find_worker_id(diedpid);
 			pid = fork();
 			if (pid == 0) {
 				uwsgi.mypid = getpid();

@@ -297,7 +297,7 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 
 	// defunct process reaper
         if (uwsgi->shared->options[UWSGI_OPTION_REAPER] == 1 || uwsgi->grunt) {
-        	while( waitpid(-1, &waitpid_status, WNOHANG) > 0) ;
+        	while( waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0) ;
 	}
         // reset request
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
