@@ -165,7 +165,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	if (wsgi_req->app_id == -1) {
-		// TODO: use default app ?
+		// use default app ?
 		if (!uwsgi->no_default_app && uwsgi->default_app >= 0) {
 			wsgi_req->app_id = uwsgi->default_app ;
 		}
