@@ -105,6 +105,7 @@ static struct option long_options[] = {
 		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
 		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
 		{"ignore-script-name", no_argument, &uwsgi.ignore_script_name, 1},
+		{"no-default-app", no_argument, &uwsgi.no_default_app, 1},
 #ifdef UWSGI_UDP
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
 #endif
@@ -3191,6 +3192,7 @@ void manage_opt(int i, char *optarg) {
 \t--logto <logfile|addr>\t\tlog to file/udp\n\
 \t--logdate\t\t\tadd timestamp to loglines\n\
 \t--ignore-script-name\t\tdisable uWSGI management of SCRIPT_NAME\n\
+\t--no-default-app\t\tdo not fallback unknown SCRIPT_NAME requests\n\
 \t--ini <inifile>\t\t\tpath of ini config file\n\
 \t--ini-paste <inifile>\t\tpath of ini config file that contains paste configuration\n\
 \t--ldap <url>\t\t\turl of LDAP uWSGIConfig resource\n\

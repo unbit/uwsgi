@@ -165,8 +165,14 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	if (wsgi_req->app_id == -1) {
-		internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
-		goto clear2;
+		// TODO: use default app ?
+		if (!uwsgi->no_default_app && uwsgi->default_app >= 0) {
+			wsgi_req->app_id = uwsgi->default_app ;
+		}
+		else {
+			internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
+			goto clear2;
+		}
 
 	}
 

@@ -177,6 +177,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_INI_PASTE		17041
 #define LONG_ARGS_CALLABLE		17042
 #define LONG_ARGS_HTTP_VAR		17043
+#define LONG_ARGS_NO_DEFAULT_APP	17044
 
 
 
@@ -463,6 +464,7 @@ struct uwsgi_server {
 #endif
 
 	int ignore_script_name;
+	int no_default_app;
 	int logdate;
 
 	int serverfd;
