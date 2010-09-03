@@ -146,7 +146,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 				// this is a comment
 			}
 			else {
-				// val is always valid, but (obviously can be ignored)
+				// val is always valid, but (obviously) can be ignored
 				val = ini_get_key(key);
 
 				if (!strcmp(section, section_asked)) {
@@ -172,8 +172,8 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 		}
 		
 
-		ini += (ini_line - ini);
 		sb.st_size -= (ini_line - ini);
+		ini += (ini_line - ini);
 
 	}
 
