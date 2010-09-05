@@ -67,7 +67,7 @@ gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers'
 
 # large file support
 try:
-	cflags = ['-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
+	cflags = ['-Wall', '-Werror', '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 except:
 	print("You need python headers to build uWSGI.")
 	sys.exit(1)

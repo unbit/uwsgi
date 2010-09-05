@@ -258,7 +258,7 @@ PyObject *py_uwsgi_sharedarea_write(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if (pos + strlen(value) >= uwsgi.page_size * uwsgi.sharedareasize) {
+	if (pos + (int) strlen(value) >= uwsgi.page_size * uwsgi.sharedareasize) {
 		Py_INCREF(Py_None);
 		return Py_None;
 	}

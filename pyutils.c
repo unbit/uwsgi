@@ -136,7 +136,7 @@ clear:
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
 		fclose(wsgi_req->async_post);
-		if (!uwsgi->post_buffering || wsgi_req->post_cl <= uwsgi->post_buffering) {
+		if (!uwsgi->post_buffering || wsgi_req->post_cl <= (size_t) uwsgi->post_buffering) {
 			wsgi_req->fd_closed = 1 ;
 
 		}

@@ -216,7 +216,7 @@ static void *http_request(void *u_h_r)
 			uwsgi_error("read()");
 			break;
 		}
-		for (i = 0; i < len; i++) {
+		for (i = 0; i < (int) len; i++) {
 
 			if (buf[i] == ' ') {
 
@@ -328,7 +328,7 @@ static void *http_request(void *u_h_r)
 						write(uwsgi_fd, uwsgipkt, ulen + 4);
 
 						if (http_body_len > 0) {
-							if (http_body_len >= len - (i + 1)) {
+							if (http_body_len >= (int) len - (i + 1)) {
 								write(uwsgi_fd, buf + i + 1, len - (i + 1));
 								http_body_len -= len - (i + 1);
 							} else {

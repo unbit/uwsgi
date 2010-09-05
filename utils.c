@@ -422,7 +422,7 @@ void env_to_arg(char *src, char *dst) {
 	int i;
 	int val = 0 ;
 
-	for(i=0;i<strlen(src);i++) {
+	for(i=0;i< (int) strlen(src);i++) {
 		if (src[i] == '=') {
 			val = 1 ;
 		}

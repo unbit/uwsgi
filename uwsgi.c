@@ -221,7 +221,7 @@ int find_worker_id(pid_t pid) {
 
 
 PyMethodDef null_methods[] = {
-	{NULL, NULL},
+	{ NULL, NULL},
 };
 
 struct uwsgi_app *wi;
@@ -738,9 +738,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 	if (uwsgi.async > 1) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-			if (uwsgi.rl.rlim_cur < uwsgi.async) {
+			if ( (unsigned long) uwsgi.rl.rlim_cur < (unsigned long) uwsgi.async) {
 				uwsgi_log("- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.rl.rlim_cur);
-				if (uwsgi.rl.rlim_cur < uwsgi.rl.rlim_max && uwsgi.rl.rlim_max > uwsgi.async) {
+				if (uwsgi.rl.rlim_cur < uwsgi.rl.rlim_max && (unsigned long) uwsgi.rl.rlim_max > (unsigned long) uwsgi.async) {
 					unsigned long tmp_nofile = (unsigned long) uwsgi.rl.rlim_cur ;
 					uwsgi.rl.rlim_cur = uwsgi.async;
 					if (!setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
@@ -2609,7 +2609,6 @@ void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module, *zero;
 	int i;
 
-
 	/* initialize for stats */
 	uwsgi.workers_tuple = PyTuple_New(uwsgi.numproc);
 	for (i = 0; i < uwsgi.numproc; i++) {
@@ -2740,7 +2739,7 @@ void init_uwsgi_embedded_module() {
 #endif
 
 #ifdef UWSGI_PROXY
-pid_t proxy_start(has_master) {
+pid_t proxy_start(int has_master) {
 
 	pid_t pid;
 

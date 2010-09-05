@@ -39,9 +39,9 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 
 	uint8_t community_len;
 
-	uint64_t snmp_int;
-	uint64_t request_id;
-	uint64_t version;
+	uint64_t snmp_int = 0;
+	uint64_t request_id = 0;
+	uint64_t version = 0;
 
 
 	// KISS for memory management
@@ -122,9 +122,7 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 		return;
 	ptr++;
 
-uwsgi_log("oops %p\n", ptr);
 	ptrdelta = get_snmp_integer(ptr, &request_id);
-uwsgi_log("oops %p\n", ptr);
 
 
 	if (ptrdelta <= 0)
@@ -139,16 +137,15 @@ uwsgi_log("oops %p\n", ptr);
 		return;
 	ptr += ptrdelta;
 
-uwsgi_log("oops %d %p\n", ptrdelta, ptr);
 
 	// get error
 	if (*ptr != SNMP_INTEGER)
 		return;
 
-uwsgi_log("oops 2\n");
-
 	ptr++;
+	snmp_int = 0;
 	ptrdelta = get_snmp_integer(ptr, &snmp_int);
+
 	if (ptrdelta <= 0)
 		return;
 	if (ptr + ptrdelta >= buffer + size)
@@ -156,15 +153,13 @@ uwsgi_log("oops 2\n");
 	if (snmp_int != 0)
 		return;
 
-#ifdef UWSGI_DEBUG
-	uwsgi_debug("SNMP int [0]: %d\n", snmp_int);
-#endif
 	ptr += ptrdelta;
 
 	// get index
 	if (*ptr != SNMP_INTEGER)
 		return;
 	ptr++;
+	snmp_int = 0;
 	ptrdelta = get_snmp_integer(ptr, &snmp_int);
 	if (ptrdelta <= 0)
 		return;
@@ -283,13 +278,15 @@ static int get_snmp_integer(uint8_t * ptr, uint64_t * val) {
 	uint16_t tlen;
 	int i, j;
 
+	uint8_t *cval = (uint8_t *) val;
+
 	tlen = *ptr;
 
 	if (tlen > 4)
 		return -1;
 
 #ifdef UWSGI_DEBUG
-	uwsgi_debug("SNMP get integer TLEN %d\n", tlen);
+	uwsgi_debug("SNMP get integer TLEN %d %p\n", tlen, ptr);
 #endif
 
 	j = 0;
@@ -297,18 +294,10 @@ static int get_snmp_integer(uint8_t * ptr, uint64_t * val) {
 	for (i = 0; i < tlen; i++) {
 #else
 	for (i = tlen - 1; i >= 0; i--) {
-#ifdef UWSGI_DEBUG
-	uwsgi_debug("SNMP get integer iter %d %p\n", i, ptr);
 #endif
-		
-#endif
-		val[j] = ptr[1 + i];
+		cval[j] = ptr[1 + i];
 		j++;
 	}
-
-#ifdef UWSGI_DEBUG
-	uwsgi_debug("SNMP get integer iter %d %p\n", i, ptr);
-#endif
 
 	return tlen + 1;
 }
