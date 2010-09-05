@@ -1127,23 +1127,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_log( "*** uWSGI is running in multiple interpreter mode ***\n");
 	}
 
-	/* check for eventually spawned subprocesses */
-	while( (diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG)) != 0 ) {
-		if (diedpid < 0) {
-			uwsgi_error("waitpid()");
-			continue;
-		}
-		if (WIFEXITED(waitpid_status)) {
-			uwsgi_log("subprocess %d exited with code %d\n", (int) diedpid, WEXITSTATUS(waitpid_status));
-		}
-		else if (WIFSIGNALED(waitpid_status)) {
-			uwsgi_log("subprocess %d exited by signal\n", (int) diedpid);
-		}
-		else if (WIFSTOPPED(waitpid_status)) {
-			uwsgi_log("subprocess %d stopped\n", (int) diedpid);
-		}
-	}
-
 	/* preforking() */
 	if (uwsgi.master_process) {
 		if (uwsgi.is_a_reload) {
