@@ -189,12 +189,12 @@ void uwsgi_proxy(int proxyfd) {
 		for (i = 0; i < nevents; i++) {
 
 
-			if (eevents[i].ASYNC_FD == proxyfd) {
+			if ( (int)eevents[i].ASYNC_FD == proxyfd) {
 
 				if (eevents[i].ASYNC_IS_IN) {
 					// new connection, accept it
 					ev.ASYNC_FD = accept(proxyfd, (struct sockaddr *) &upc_addr, &upc_len);
-					if (ev.ASYNC_FD < 0) {
+					if ( (int) ev.ASYNC_FD < 0) {
 						uwsgi_error("accept()");
 						continue;
 					}

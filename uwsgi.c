@@ -1738,7 +1738,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 		for(i=0; i<uwsgi.async_nevents;i++) {
 
-			if (uwsgi.async_events[i].ASYNC_FD == uwsgi.serverfd) {
+			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.serverfd) {
 
 				uwsgi.wsgi_req = find_first_available_wsgi_req(&uwsgi);
 				if (uwsgi.wsgi_req == NULL) {
