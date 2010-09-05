@@ -55,6 +55,9 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 		return;
 	ptr++;
 
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP packet size: %d\n", size);
+#endif
 
 
 
@@ -68,6 +71,9 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 		return;
 	ptr += ptrdelta;
 
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP version: %d\n", version);
+#endif
 
 
 
@@ -90,11 +96,16 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	if (memcmp(ptr, uwsgi.shared->snmp_community, community_len))
 		return;
 
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP community: %.*s\n", community_len, ptr);
+#endif
+
 	ptr += community_len;
 
 	// check for get request
 	if (*ptr != SNMP_GET)
 		return;
+
 	*ptr = SNMP_RES;
 	ptr++;
 	seq1 = ptr;
@@ -110,20 +121,32 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	if (*ptr != SNMP_INTEGER)
 		return;
 	ptr++;
+
+uwsgi_log("oops %p\n", ptr);
 	ptrdelta = get_snmp_integer(ptr, &request_id);
+uwsgi_log("oops %p\n", ptr);
 
 
 	if (ptrdelta <= 0)
 		return;
+
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP request id: %d %p\n", request_id, ptr);
+#endif
 
 	// check here
 	if (ptr + ptrdelta >= buffer + size)
 		return;
 	ptr += ptrdelta;
 
+uwsgi_log("oops %d %p\n", ptrdelta, ptr);
+
 	// get error
 	if (*ptr != SNMP_INTEGER)
 		return;
+
+uwsgi_log("oops 2\n");
+
 	ptr++;
 	ptrdelta = get_snmp_integer(ptr, &snmp_int);
 	if (ptrdelta <= 0)
@@ -132,6 +155,10 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 		return;
 	if (snmp_int != 0)
 		return;
+
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP int [0]: %d\n", snmp_int);
+#endif
 	ptr += ptrdelta;
 
 	// get index
@@ -147,6 +174,10 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 	if (snmp_int != 0)
 		return;
 	ptr += ptrdelta;
+
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP int [1]: %d\n", snmp_int);
+#endif
 
 	// check for sequence
 	if (*ptr != SNMP_SEQUENCE)
@@ -172,6 +203,10 @@ void manage_snmp(int fd, uint8_t * buffer, int size, struct sockaddr_in *client_
 		return;
 	seq3 = ptr;
 	ptr++;
+
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP ASN len: %d\n", asnlen);
+#endif
 
 	// is it an OID ?
 	if (*ptr != SNMP_OID)
@@ -253,16 +288,27 @@ static int get_snmp_integer(uint8_t * ptr, uint64_t * val) {
 	if (tlen > 4)
 		return -1;
 
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP get integer TLEN %d\n", tlen);
+#endif
 
 	j = 0;
 #ifdef __BIG_ENDIAN__
 	for (i = 0; i < tlen; i++) {
 #else
 	for (i = tlen - 1; i >= 0; i--) {
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP get integer iter %d %p\n", i, ptr);
+#endif
+		
 #endif
 		val[j] = ptr[1 + i];
 		j++;
 	}
+
+#ifdef UWSGI_DEBUG
+	uwsgi_debug("SNMP get integer iter %d %p\n", i, ptr);
+#endif
 
 	return tlen + 1;
 }
