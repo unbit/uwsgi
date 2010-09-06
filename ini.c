@@ -30,7 +30,7 @@ char *ini_lstrip(char *line) {
 	off_t i ;
 	char *ptr = line;
 
-	for(i=0;i<strlen(line);i++) {
+	for(i=0;i< (int) strlen(line);i++) {
 		if (line[i] == ' ' || line[i] == '\t') {
 			ptr++;
 			continue;
@@ -46,7 +46,7 @@ char *ini_get_key(char *key) {
 	off_t i;
 	char *ptr = key ;
 
-	for(i=0;i<strlen(key);i++) {
+	for(i=0;i< (int) strlen(key);i++) {
 		ptr++ ;	
 		if (key[i] == '=') {
 			key[i] = 0;

@@ -10,7 +10,7 @@ void ldap2uwsgi(char *ldapname, char *uwsginame) {
 
 	int i;
 
-	for(i=0;i<strlen(ldapname);i++) {
+	for(i=0;i< (int) strlen(ldapname);i++) {
 		if (isupper( (int)ldapname[i])) {
 			*ptr++= '-';
 			*ptr++= tolower( (int) ldapname[i]);
@@ -28,7 +28,7 @@ int calc_ldap_name(char *name) {
 	int i;
 	int counter = 0;
 
-	for(i=0;i<strlen(name);i++) {
+	for(i=0;i< (int)strlen(name);i++) {
 		if (isupper( (int) name[i])) {
 			counter++;
 		}
@@ -70,7 +70,7 @@ void uwsgi_ldap_schema_dump_ldif(struct option *lo) {
                 else {
                         uwsgi_log("olcAttributeTypes: ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", aopt->val) ;
                 }
-                for(i=0;i<strlen(aopt->name);i++) {
+                for(i=0;i< (int)strlen(aopt->name);i++) {
                         if (aopt->name[i] == '-') {
                                 i++;
                                 uwsgi_log("%c", toupper( (int) aopt->name[i]));
@@ -110,7 +110,7 @@ next:
 
                 uwsgi_log("uWSGI");
 
-                for(i=0;i<strlen(aopt->name);i++) {
+                for(i=0;i< (int)strlen(aopt->name);i++) {
                         if (aopt->name[i] == '-') {
                                 i++;
                                 uwsgi_log("%c", toupper( (int) aopt->name[i]));
@@ -160,7 +160,7 @@ void uwsgi_ldap_schema_dump(struct option *lo) {
 		else {
 			uwsgi_log("attributetype ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", aopt->val) ;
 		}
-		for(i=0;i<strlen(aopt->name);i++) {
+		for(i=0;i< (int)strlen(aopt->name);i++) {
 			if (aopt->name[i] == '-') {
 				i++;
 				uwsgi_log("%c", toupper( (int) aopt->name[i]));
@@ -200,7 +200,7 @@ next:
 
 		uwsgi_log("uWSGI");
 
-		for(i=0;i<strlen(aopt->name);i++) {
+		for(i=0;i< (int)strlen(aopt->name);i++) {
 			if (aopt->name[i] == '-') {
 				i++;
 				uwsgi_log("%c", toupper( (int) aopt->name[i]));

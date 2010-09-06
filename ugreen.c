@@ -414,7 +414,7 @@ void u_green_loop(struct uwsgi_server *uwsgi) {
 
                 for(i=0; i<uwsgi->async_nevents;i++) {
 
-                        if (uwsgi->async_events[i].ASYNC_FD == uwsgi->serverfd) {
+                        if ( (int) uwsgi->async_events[i].ASYNC_FD == uwsgi->serverfd) {
 				wsgi_req = find_first_accepting_wsgi_req(uwsgi);
 				if (!wsgi_req) goto cycle;
 				u_green_schedule_to_req(uwsgi, wsgi_req);
