@@ -2706,6 +2706,19 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	if (uwsgi.is_a_reload) {
+		if (PyDict_SetItemString(uwsgi.embedded_dict, "is_a_reload", Py_True)) {
+			PyErr_Print();
+			exit(1);
+		}
+	}
+	else {
+		if (PyDict_SetItemString(uwsgi.embedded_dict, "is_a_reload", Py_False)) {
+			PyErr_Print();
+			exit(1);
+		}
+	}
+
 	uwsgi.embedded_args = PyTuple_New(2);
 	if (!uwsgi.embedded_args) {
 		PyErr_Print();
