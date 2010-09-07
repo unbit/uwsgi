@@ -5,6 +5,13 @@
 void evdis_loop(struct uwsgi_server *uwsgi) {
 
 	// populate event list
+
+	int kfd = kqueue();
+	if (kfd < 0) {
+		uwsgi_error("kqueue()");
+		exit(1);
+	}
+	
 	
 }
 

@@ -2984,6 +2984,7 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_INI:
 		uwsgi.ini = optarg;
 		break;
+#ifdef UWSGI_PASTE
 	case LONG_ARGS_INI_PASTE:
 		uwsgi.ini = optarg;
 		if (uwsgi.ini[0] != '/') {
@@ -3009,6 +3010,7 @@ void manage_opt(int i, char *optarg) {
 			memcpy(uwsgi.paste + 7, uwsgi.ini, strlen(uwsgi.ini));
 		}
 		break;
+#endif
 #endif
 #ifdef UWSGI_PASTE
 	case LONG_ARGS_PASTE:
