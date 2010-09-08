@@ -149,7 +149,7 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 			return jlen ;
 		}
 
-                while (i < filesize) {
+                while (i < (int) filesize) {
                         jlen = read(filefd, nosf_buf, chunk);
                         if (jlen <= 0) {
                                 uwsgi_error("read()");
