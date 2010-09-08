@@ -63,7 +63,7 @@ void check_route(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 void uwsgi_route_action_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	int i;
-	PyObject *route_py_callbase, *route_py_dict;
+	PyObject *route_py_callbase, *route_py_dict = NULL;
 
 	uwsgi_log("managing WSGI route...\n");
         if (ur->callable == NULL) {
@@ -106,7 +106,7 @@ void uwsgi_route_action_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *ws
 
 void uwsgi_route_action_uwsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-	PyObject *route_py_callbase, *route_py_dict;
+	PyObject *route_py_callbase, *route_py_dict = NULL ;
 	int i;
 
 	uwsgi_log("managing uwsgi route...\n");

@@ -182,7 +182,7 @@ static void *http_request(void *u_h_r)
 	struct uwsgi_http_req *ur = (struct uwsgi_http_req *) u_h_r ;
 
 	int clientfd = ur->fd;
-	int uwsgi_fd;
+	int uwsgi_fd = -1;
 
 	int need_to_read = 1;
 	int state = uwsgi_http_method;
