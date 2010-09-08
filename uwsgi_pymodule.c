@@ -373,6 +373,58 @@ PyObject *py_uwsgi_spooler_freq(PyObject * self, PyObject * args) {
 	
 }
 
+PyObject *py_uwsgi_spooler_jobs(PyObject * self, PyObject * args) {
+
+	DIR *sdir;
+        struct dirent *dp;
+	char *abs_path;
+        struct stat sf_lstat;
+
+	PyObject *jobslist = PyList_New(0);
+
+	sdir = opendir(uwsgi.spool_dir);
+
+                if (sdir) {
+                        while ((dp = readdir(sdir)) != NULL) {
+                                if (!strncmp("uwsgi_spoolfile_on_", dp->d_name, 19)) {
+					abs_path = malloc(strlen(uwsgi.spool_dir) + 1 + strlen(dp->d_name) + 1);
+					if (!abs_path) {
+						uwsgi_error("malloc()");
+						closedir(sdir);
+						goto clear;
+					}
+
+					memset(abs_path, 0 , strlen(uwsgi.spool_dir) + 1 + strlen(dp->d_name) + 1);
+
+					memcpy(abs_path, uwsgi.spool_dir, strlen(uwsgi.spool_dir));
+					memcpy(abs_path + strlen(uwsgi.spool_dir) , "/", 1);
+					memcpy(abs_path + strlen(uwsgi.spool_dir) + 1, dp->d_name, strlen(dp->d_name) );
+
+
+                                        if (lstat(abs_path, &sf_lstat)) {
+						free(abs_path);
+                                                continue;
+                                        }
+                                        if (!S_ISREG(sf_lstat.st_mode)) {
+						free(abs_path);
+                                                continue;
+                                        }
+                                        if (!access(abs_path, R_OK | W_OK)) {
+						if (PyList_Append(jobslist, PyString_FromString(abs_path))) {
+							PyErr_Print();
+						}
+					}
+					free(abs_path);
+				}
+			}
+			closedir(sdir);
+		}
+
+clear:
+	return jobslist;
+	
+}
+
 
 PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 	PyObject *spool_dict, *spool_vars;
@@ -928,6 +980,61 @@ PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
+
+	char *filename;
+	int fd;
+	ssize_t len;
+	char *buffer;
+
+	struct uwsgi_header uh;
+	PyObject *zero;
+
+	if (!PyArg_ParseTuple(args, "s:parsefile", &filename)) {
+                return NULL;
+        }
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error("open()");
+		goto clear;
+	}
+
+	len = read(fd, &uh, 4);
+	if (len != 4) {
+		uwsgi_error("read()");
+		goto clear2;
+	}
+	
+	if (!uh.modifier1 || uh.modifier1 == UWSGI_MODIFIER_SPOOL_REQUEST) {
+		zero = PyDict_New();
+		buffer = malloc(uh.size);
+		if (!buffer) {
+			uwsgi_error("malloc()");
+			Py_DECREF(zero);
+			goto clear2;
+		}
+		len = read(fd, buffer, uh.size);
+		if (len != uh.size) {
+			uwsgi_error("read()");
+			free(buffer);
+			Py_DECREF(zero);
+			goto clear2;
+		}
+
+
+
+		return zero;
+	}
+
+clear2:
+	close(fd);
+clear:
+	Py_INCREF(Py_None);
+	return Py_None;
+	
+}
+
 PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 
 	pid_t grunt_pid ;
@@ -978,6 +1085,7 @@ clear:
 static PyMethodDef uwsgi_spooler_methods[] = {
 	{"send_to_spooler", py_uwsgi_send_spool, METH_VARARGS, ""},
 	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
+	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 #endif
@@ -1016,6 +1124,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 #ifdef UWSGI_ASYNC
 	{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
 #endif
+	{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 	{NULL, NULL},
 };

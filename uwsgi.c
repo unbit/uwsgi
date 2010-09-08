@@ -468,6 +468,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 	memset(uwsgi.shared, 0, sizeof(struct uwsgi_shared));
 
+#ifdef UWSGI_SPOOLER
+	// set the spooler frequency to 30 seconds by default
+	uwsgi.shared->spooler_frequency = 30;
+#endif
+
 	for (i = 0; i <= 0xFF; i++) {
 		uwsgi.shared->hooks[i] = unconfigured_hook;
 		uwsgi.shared->after_hooks[i] = unconfigured_after_hook;

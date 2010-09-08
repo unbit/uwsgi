@@ -56,7 +56,7 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 
 	close(fd);
 
-	uwsgi_log( "written %d bytes to spool file %s.\n", size + 4, filename);
+	uwsgi_log( "written %d bytes to spool file %s\n", size + 4, filename);
 
 	return 1;
 
@@ -85,9 +85,6 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 
 	char *key;
 	char *val;
-
-	// spool every 30 seconds by default
-	uwsgi->shared->spooler_frequency = 30 ;
 
 	spool_tuple = PyTuple_New(1);
 
@@ -144,7 +141,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 						continue;
 					}
 					if (!access(dp->d_name, R_OK | W_OK)) {
-						uwsgi_log( "managing spool request %s...\n", dp->d_name);
+						uwsgi_log( "managing spool request %s ...\n", dp->d_name);
 
 						spooler_callable = PyDict_GetItemString(uwsgi_module_dict, "spooler");
 						if (!spooler_callable) {
