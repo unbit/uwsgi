@@ -985,7 +985,8 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 	char *filename;
 	int fd;
 	ssize_t len;
-	char *buffer;
+	char *buffer, *ptrbuf, *bufferend, *keybuf;
+	uint16_t strsize = 0, keysize = 0;
 
 	struct uwsgi_header uh;
 	PyObject *zero;
@@ -1006,27 +1007,75 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 		goto clear2;
 	}
 	
-	if (!uh.modifier1 || uh.modifier1 == UWSGI_MODIFIER_SPOOL_REQUEST) {
-		zero = PyDict_New();
-		buffer = malloc(uh.size);
-		if (!buffer) {
-			uwsgi_error("malloc()");
-			Py_DECREF(zero);
-			goto clear2;
-		}
-		len = read(fd, buffer, uh.size);
-		if (len != uh.size) {
-			uwsgi_error("read()");
-			free(buffer);
-			Py_DECREF(zero);
-			goto clear2;
-		}
-
-
-
-		return zero;
+	buffer = malloc(uh.pktsize);
+	if (!buffer) {
+		uwsgi_error("malloc()");
+		goto clear2;
+	}
+	len = read(fd, buffer, uh.pktsize);
+	if (len != uh.pktsize) {
+		uwsgi_error("read()");
+		free(buffer);
+		goto clear2;
 	}
 
+	ptrbuf = buffer ;
+	bufferend = ptrbuf + uh.pktsize ;
+
+	if (!uh.modifier1 || uh.modifier1 == UWSGI_MODIFIER_SPOOL_REQUEST) {
+		zero = PyDict_New();
+
+		while (ptrbuf < bufferend) {
+                	if (ptrbuf + 2 < bufferend) {
+                        	memcpy(&strsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                        	strsize = uwsgi_swap16(strsize);
+#endif
+                        	/* key cannot be null */
+                        	if (!strsize) {
+                                	uwsgi_log( "uwsgi key cannot be null.\n");
+					goto clear3;
+                        	}
+
+                        	ptrbuf += 2;
+                        	if (ptrbuf + strsize < bufferend) {
+                                	// var key
+                                	keybuf = ptrbuf;
+                                	keysize = strsize;
+                                	ptrbuf += strsize;
+                                	// value can be null (even at the end) so use <=
+                                	if (ptrbuf + 2 <= bufferend) {
+                                        	memcpy(&strsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                                        	strsize = uwsgi_swap16(strsize);
+#endif
+                                        	ptrbuf += 2;
+                                        	if (ptrbuf + strsize <= bufferend) {
+							PyDict_SetItem(zero, PyString_FromStringAndSize( keybuf, keysize ), PyString_FromStringAndSize( ptrbuf, strsize ));
+                                                	ptrbuf += strsize;
+                                        	}
+                                        	else {
+							goto clear3;
+                                        	}
+                                	}
+                                	else {
+						goto clear3;
+                                	}
+                        	}
+                	}
+                	else {
+				goto clear3;
+                	}
+        	}
+
+		return zero;
+
+	}
+
+	goto clear;
+
+clear3:
+	Py_DECREF(zero);
 clear2:
 	close(fd);
 clear:
