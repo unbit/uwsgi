@@ -89,6 +89,10 @@ gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers'
 
 cflags = ['-O2', '-fno-strict-aliasing', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 
+# add -fno-strict-aliasing only on python2 and gcc < 4.3
+if (sys.version_info[0] == 2) or (gcc_major < 4) or (gcc_major == 4 and gcc_minor < 3):
+	cflags = cflags + ['-fno-strict-aliasing']
+
 if gcc_major >= 4:
 	cflags = cflags + [ '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers' ]
 
