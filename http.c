@@ -325,14 +325,20 @@ static void *http_request(void *u_h_r)
 						uwsgipkt[1] = (unsigned char) (ulen & 0xff);
 						uwsgipkt[2] = (unsigned char) ((ulen >> 8) & 0xff);
 
-						write(uwsgi_fd, uwsgipkt, ulen + 4);
+						if (write(uwsgi_fd, uwsgipkt, ulen + 4) < 0) {
+							uwsgi_error("write()");
+						}
 
 						if (http_body_len > 0) {
 							if (http_body_len >= (int) len - (i + 1)) {
-								write(uwsgi_fd, buf + i + 1, len - (i + 1));
+								if (write(uwsgi_fd, buf + i + 1, len - (i + 1)) < 0) {
+									uwsgi_error("write()");
+								}
 								http_body_len -= len - (i + 1);
 							} else {
-								write(uwsgi_fd, buf + i, http_body_len);
+								if (write(uwsgi_fd, buf + i, http_body_len) < 0) {
+									uwsgi_error("write()");
+								}
 								http_body_len = 0;
 							}
 
@@ -342,12 +348,16 @@ static void *http_request(void *u_h_r)
 									to_read = http_body_len;
 								}
 								len = read(clientfd, uwsgipkt, to_read);
-								write(uwsgi_fd, uwsgipkt, len);
+								if (write(uwsgi_fd, uwsgipkt, len) < 0) {
+									uwsgi_error("write()");
+								}
 								http_body_len -= len;
 							}
 						}
 						while ((len = read(uwsgi_fd, uwsgipkt, 4096)) > 0) {
-							write(clientfd, uwsgipkt, len);
+							if (write(clientfd, uwsgipkt, len) < 0) {
+								uwsgi_error("write()");
+							}
 						}
 						close(uwsgi_fd);
 					}
