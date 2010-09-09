@@ -83,6 +83,7 @@ static struct option long_options[] = {
 		{"uid", required_argument, 0, LONG_ARGS_UID},
 		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
+		{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
 		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 #ifdef UWSGI_INI
 		{"ini", required_argument, 0, LONG_ARGS_INI},
@@ -3202,6 +3203,8 @@ void manage_opt(int i, char *optarg) {
 \t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\
 \t--check-interval <sec>\t\tset the check interval (in seconds) of the master process\n\
 \t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
+\t--python-path <dir>\t\tadd <dir> to PYTHONPATH\n\
+\t--pp <dir>\t\t\tadd <dir> to PYTHONPATH\n\
 \t--pyargv <args>\t\t\tassign args to python sys.argv\n\
 \t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
 \t--limit-post <bytes>\t\tlimit HTTP content_length size to <bytes>\n\
