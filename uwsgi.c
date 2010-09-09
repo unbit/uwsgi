@@ -134,6 +134,7 @@ static struct option long_options[] = {
 #endif
 		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
 		{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
+		{"eval", required_argument, 0, LONG_ARGS_EVAL_CONFIG},
 #ifdef UWSGI_ASYNC
 		{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
@@ -1101,6 +1102,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_paste_config();
 	}
 #endif
+	else if (uwsgi.eval != NULL) {
+		uwsgi_eval_config(uwsgi.eval);
+	}
 
 // parse xml anyway
 #ifdef UWSGI_XML
@@ -1988,15 +1992,17 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		uwsgi_log( "interpreter for app %d initialized.\n", id);
 	}
 
-#ifdef UWSGI_PASTE
-	if (uwsgi.paste) {
+	if (uwsgi.eval) {
 		wi->wsgi_callable = my_callable;
 		Py_INCREF(my_callable);
 	}
-	else if (uwsgi.wsgi_file) {
-#else
-	if (uwsgi.wsgi_file) {
+#ifdef UWSGI_PASTE
+	else if (uwsgi.paste) {
+		wi->wsgi_callable = my_callable;
+		Py_INCREF(my_callable);
+	}
 #endif
+	else if (uwsgi.wsgi_file) {
 		wi->wsgi_callable = my_callable;
 		Py_INCREF(my_callable);
 	}
@@ -2316,6 +2322,72 @@ void uwsgi_paste_config() {
 }
 
 #endif
+
+void uwsgi_eval_config(char *code) {
+
+	int ret;
+
+	PyObject *wsgi_eval_dict, *wsgi_eval_module, *wsgi_eval_callable;
+
+	struct _node *wsgi_eval_node = NULL;
+	PyObject *wsgi_compiled_node ;
+
+	uwsgi.single_interpreter = 1;
+
+	wsgi_eval_node = PyParser_SimpleParseString(code, Py_file_input);
+	if (!wsgi_eval_node) {
+                PyErr_Print();
+                uwsgi_log( "failed to parse <eval> code\n");
+                exit(1);
+        }
+
+	wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_eval_node, "uwsgi_eval_config");
+
+	if (!wsgi_compiled_node) {
+		PyErr_Print();
+		uwsgi_log( "failed to compile eval code\n");
+		exit(1);
+	}
+
+
+	wsgi_eval_module = PyImport_ExecCodeModule("uwsgi_eval_config", wsgi_compiled_node);
+        if (!wsgi_eval_module) {
+                PyErr_Print();
+                exit(1);
+        }
+
+
+        Py_DECREF(wsgi_compiled_node);
+
+        wsgi_eval_dict = PyModule_GetDict(wsgi_eval_module);
+        if (!wsgi_eval_dict) {
+                PyErr_Print();
+                exit(1);
+        }
+
+
+	if (uwsgi.callable) {
+        	wsgi_eval_callable = PyDict_GetItemString(wsgi_eval_dict, uwsgi.callable);
+	}
+	else {
+        	wsgi_eval_callable = PyDict_GetItemString(wsgi_eval_dict, "application");
+	}
+
+        if (!wsgi_eval_callable) {
+                PyErr_Print();
+                uwsgi_log( "unable to find wsgi callable in your code\n");
+                exit(1);
+        }
+
+        if (!PyFunction_Check(wsgi_eval_callable) && !PyCallable_Check(wsgi_eval_callable)) {
+                uwsgi_log( "you must define a callable object in your code\n");
+                exit(1);
+        }
+
+
+        ret = init_uwsgi_app(NULL, wsgi_eval_callable);
+	
+}
 
 /* trying to emulate Graham's mod_wsgi, this will allows easy and fast migrations */
 void uwsgi_wsgi_file_config() {
@@ -3003,6 +3075,9 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_INI:
 		uwsgi.ini = optarg;
 		break;
+	case LONG_ARGS_EVAL_CONFIG:
+		uwsgi.eval = optarg;
+		break;
 #ifdef UWSGI_PASTE
 	case LONG_ARGS_INI_PASTE:
 		uwsgi.ini = optarg;
@@ -3225,6 +3300,7 @@ void manage_opt(int i, char *optarg) {
 \t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
 \t--wsgi-file <file>\t\tload the <file> wsgi file\n\
 \t--file <file>\t\t\tuse python file instead of python module for configuration\n\
+\t--eval <code>\t\t\tevaluate code for app configuration\n\
 \t--async <n>\t\t\tenable async mode with n core\n\
 \t--logto <logfile|addr>\t\tlog to file/udp\n\
 \t--logdate\t\t\tadd timestamp to loglines\n\

@@ -178,6 +178,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_CALLABLE		17042
 #define LONG_ARGS_HTTP_VAR		17043
 #define LONG_ARGS_NO_DEFAULT_APP	17044
+#define LONG_ARGS_EVAL_CONFIG		17045
 
 
 
@@ -689,6 +690,8 @@ struct uwsgi_server {
 	int xml_round2;
 
 	char *cwd;
+
+	char *eval;
 };
 
 struct uwsgi_cluster_node {
@@ -814,8 +817,11 @@ void uwsgi_xml_config(struct wsgi_request *, struct option *);
 #endif
 
 void uwsgi_wsgi_config(char *);
+#ifdef UWSGI_PASTE
 void uwsgi_paste_config(void);
+#endif
 void uwsgi_wsgi_file_config(void);
+void uwsgi_eval_config(char *);
 
 void internal_server_error(int, char *);
 

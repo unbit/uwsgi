@@ -79,8 +79,14 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	if (long_options) {
 		// first check for options
 		for (node = element->children; node; node = node->next) {
-			if (node->type == XML_ELEMENT_NODE) {
+			if (node->type == XML_CDATA_SECTION_NODE) {
+				if (node->content) {
+					manage_opt(LONG_ARGS_EVAL_CONFIG, (char *) node->content);
+				}
+			}
+			else if (node->type == XML_ELEMENT_NODE) {
 
+				uwsgi_log("%s\n", node->name);
 				if (!strcmp((char *) node->name, "app")) {
 					uwsgi.xml_round2 = 1 ;
 					continue;
