@@ -68,7 +68,9 @@ def spcall(cmd):
 	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
 
 	if p.wait() == 0:
-		return p.stdout.read().rstrip().decode()
+		if sys.version_info[0] > 2:
+			return p.stdout.read().rstrip().decode()
+		return p.stdout.read().rstrip()
 	else:
 		return None
 
@@ -76,13 +78,16 @@ def spcall2(cmd):
 	p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
 
 	if p.wait() == 0:
-		return p.stderr.read().rstrip().decode()
+		if sys.version_info[0] > 2:
+			return p.stderr.read().rstrip().decode()
+		return p.stderr.read().rstrip()
 	else:
 		return None
 
 gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
 
 gcc_major = int(gcc_version.split('.')[0])
+gcc_minor = int(gcc_version.split('.')[1])
 
 
 gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
