@@ -692,6 +692,11 @@ struct uwsgi_server {
 	char *cwd;
 
 	char *eval;
+
+	int log_slow_requests;
+	int log_zero_headers;
+	int log_empty_body;
+	int log_high_memory;
 };
 
 struct uwsgi_cluster_node {
@@ -782,6 +787,7 @@ struct uwsgi_worker {
 char *uwsgi_get_cwd(void);
 
 void warn_pipe(void);
+void what_i_am_doing(void);
 void goodbye_cruel_world(void);
 void gracefully_kill(void);
 void reap_them_all(void);

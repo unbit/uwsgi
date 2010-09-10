@@ -229,7 +229,14 @@ PyMethodDef null_methods[] = {
 struct uwsgi_app *wi;
 
 void warn_pipe() {
-	uwsgi_log("SIGPIPE: writing to a closed pipe/socket/fd !!!\n");
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+
+	if (uwsgi.async < 2 && wsgi_req->uri_len > 0) {
+		uwsgi_log("SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request %.*s !!!\n", wsgi_req->uri_len, wsgi_req->uri );
+	}
+	else {
+		uwsgi_log("SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) !!!\n");
+	}
 }
 
 void gracefully_kill() {
@@ -324,6 +331,22 @@ void stats() {
 		}
 	}
 	uwsgi_log("\n");
+}
+
+void what_i_am_doing() {
+	
+	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+
+        if (uwsgi.async < 2 && wsgi_req->uri_len > 0) {
+
+		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL)) {
+                	uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) &wsgi_req->start_of_request.tv_sec) );
+		}
+		else {
+                	uwsgi_log("SIGUSR2: --- uWSGI worker %d (pid: %d) is managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) &wsgi_req->start_of_request.tv_sec) );
+		}
+        }
+
 }
 
 PyObject *wsgi_spitout;
@@ -1455,6 +1478,9 @@ int main(int argc, char *argv[], char *envp[]) {
 							/* TODO */
 							/* then brutally kill the worker */
 							uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d) ***\n", i, uwsgi.workers[i].pid);
+							kill(uwsgi.workers[i].pid, SIGUSR2);
+							// allow SIGUSR2 to be delivered
+							sleep(1);
 							kill(uwsgi.workers[i].pid, SIGKILL);
 							// to avoid races
 							uwsgi.workers[i].harakiri = 0;
@@ -1653,6 +1679,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	signal(SIGUSR1, (void *) &stats);
+
+	signal(SIGUSR2, (void *) &what_i_am_doing);
 
 
 	signal(SIGPIPE, (void *) &warn_pipe);
