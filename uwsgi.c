@@ -1419,7 +1419,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_SNMP
 								else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
 									manage_snmp(uwsgi_poll.fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
-									uwsgi_log("done\n");
 								}
 #endif
 								else {
