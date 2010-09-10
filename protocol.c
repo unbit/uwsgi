@@ -631,6 +631,10 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 	uh = (struct uwsgi_header *) buffer;
 
 	wsgi_req->uh.modifier1 = uh->modifier1;
+	/* big endian ? */
+#ifdef __BIG_ENDIAN__
+	uh->pktsize = uwsgi_swap16(uh->pktsize);
+#endif
 	wsgi_req->uh.pktsize = uh->pktsize;
 	wsgi_req->uh.modifier2 = uh->modifier2;
 
@@ -685,6 +689,11 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 	}
 
         ptrbuf = buffer + 4;
+
+	/* big endian ? */
+#ifdef __BIG_ENDIAN__
+	uh->pktsize = uwsgi_swap16(uh->pktsize);
+#endif
 
 	if (uh->pktsize > len) {
 		uwsgi_log("* WARNING * the uwsgi dictionary received is too big, data will be truncated\n");
