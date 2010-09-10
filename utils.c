@@ -155,18 +155,20 @@ void logto(char *logfile) {
 
 
 	/* stdout */
-	if (dup2(fd, 1) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
+	if (fd != 1) {
+		if (dup2(fd, 1) < 0) {
+			uwsgi_error("dup2()");
+			exit(1);
+		}
+		close(fd);
 	}
 
 	/* stderr */
-	if (dup2(fd, 2) < 0) {
+	if (dup2(1, 2) < 0) {
 		uwsgi_error("dup2()");
 		exit(1);
 	}
 
-	close(fd);
 }
 
 

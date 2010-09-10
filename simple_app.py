@@ -1,6 +1,6 @@
 import uwsgi
 
-print "uWSGI version:", uwsgi.version
+print "!!! uWSGI version:", uwsgi.version
 
 def ciao():
 	print "modifica su /tmp"

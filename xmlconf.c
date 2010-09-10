@@ -86,7 +86,6 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 			}
 			else if (node->type == XML_ELEMENT_NODE) {
 
-				uwsgi_log("%s\n", node->name);
 				if (!strcmp((char *) node->name, "app")) {
 					uwsgi.xml_round2 = 1 ;
 					continue;
