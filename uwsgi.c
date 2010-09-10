@@ -3319,7 +3319,7 @@ void manage_opt(int i, char *optarg) {
 \t--snmp\t\t\t\tenable SNMP support in the UDP server\n\
 \t--snmp-community <value>\tset SNMP community code to <value>\n\
 \t--erlang <name@ip>\t\tenable the Erlang server with node name <node@ip>\n\
-\t--erlang-cookie <cookie>\ttset the erlang cookie to <cookie>\n\
+\t--erlang-cookie <cookie>\tset the erlang cookie to <cookie>\n\
 \t--nagios\t\t\tdo a nagios check\n\
 \t--binary-path <bin-path>\ttset the path for the next reload of uWSGI (needed for chroot environments)\n\
 \t--proxy <socket>\t\trun the uwsgi proxy on socket <socket>\n\
