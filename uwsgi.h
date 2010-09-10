@@ -1106,3 +1106,9 @@ void uwsgi_ldap_schema_dump(struct option*);
 void uwsgi_ldap_schema_dump_ldif(struct option*);
 void uwsgi_ldap_config(struct uwsgi_server *, struct option*);
 #endif
+
+#ifdef __clang__
+int uwsgi_strncmp(char *, int , char *, int );
+#else
+inline int uwsgi_strncmp(char *, int , char *, int );
+#endif

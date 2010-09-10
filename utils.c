@@ -515,3 +515,11 @@ void uwsgi_log(const char *fmt, ...) {
 	// do not check for errors
 	rlen = write(2, logpkt, rlen);
 }
+
+inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
+
+	if (slen != dlen) return 1;
+
+	return memcmp(src, dst, dlen);
+
+}
