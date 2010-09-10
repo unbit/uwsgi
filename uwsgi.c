@@ -3321,7 +3321,7 @@ void manage_opt(int i, char *optarg) {
 \t--erlang <name@ip>\t\tenable the Erlang server with node name <node@ip>\n\
 \t--erlang-cookie <cookie>\tset the erlang cookie to <cookie>\n\
 \t--nagios\t\t\tdo a nagios check\n\
-\t--binary-path <bin-path>\ttset the path for the next reload of uWSGI (needed for chroot environments)\n\
+\t--binary-path <bin-path>\tset the path for the next reload of uWSGI (needed for chroot environments)\n\
 \t--proxy <socket>\t\trun the uwsgi proxy on socket <socket>\n\
 \t--proxy-node <socket>\t\tadd the node <socket> to the proxy\n\
 \t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
