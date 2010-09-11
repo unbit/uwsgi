@@ -81,10 +81,16 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	PyObject *pydictkey, *pydictvalue;
 
+	static PyObject *uwsgi_version = NULL;
+
 	char *path_info;
 	struct uwsgi_app *wi ;
 
 	int tmp_stderr;
+
+	if (uwsgi_version == NULL) {
+		uwsgi_version = PyString_FromString(UWSGI_VERSION);
+	}
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -346,6 +352,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	wsgi_req->async_app = wi->wsgi_callable ;
 
 	PyDict_SetItemString(uwsgi->embedded_dict, "env", wsgi_req->async_environ);
+
+	PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.uwsgi.version", uwsgi_version);
 
 
 #ifdef UWSGI_ROUTING

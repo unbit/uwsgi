@@ -2593,6 +2593,7 @@ void uwsgi_wsgi_config(char *filename) {
 		}
 	}
 	
+
 	wsgi_dict = PyModule_GetDict(wsgi_module);
 	if (!wsgi_dict) {
 		PyErr_Print();
@@ -2658,6 +2659,7 @@ void uwsgi_wsgi_config(char *filename) {
 			}
 		}
 		else {
+
 			app_app = PyDict_GetItemString(wsgi_dict, quick_callable);
 		}
                 if (app_app) {
