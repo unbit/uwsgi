@@ -73,6 +73,9 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
 	int i;
+	
+	size_t post_remains = wsgi_req->post_cl;
+	ssize_t post_chunk;
 
 	PyObject *zero, *wsgi_socket;
 
@@ -81,6 +84,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	char *path_info;
 	struct uwsgi_app *wi ;
 
+	int tmp_stderr;
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -257,8 +261,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 			uwsgi_error("tmpfile()");
 			goto clear;
 		}
-		size_t post_remains = wsgi_req->post_cl;
-		ssize_t post_chunk;
+		
 
 		while(post_remains > 0) {
 			if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
@@ -401,7 +404,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 			sorry that is a hack to avoid the rewrite of PyErr_Print
 			temporarily map (using dup2) stderr to wsgi_req->poll.fd
 		*/
-		int tmp_stderr = dup(2);
+		tmp_stderr = dup(2);
 		if (tmp_stderr < 0) {
 			uwsgi_error("dup()");
 			goto clear;

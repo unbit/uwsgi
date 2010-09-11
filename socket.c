@@ -39,11 +39,13 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	uws_addr->sun_family = AF_UNIX;
 	memcpy(uws_addr->sun_path + abstract_socket, socket_name, 102);
+	
 
 	if (bind(serverfd, (struct sockaddr *) uws_addr, strlen(socket_name) + abstract_socket + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
 		uwsgi_error("bind()");
 		exit(1);
 	}
+	
 
 	if (listen(serverfd, listen_queue) != 0) {
 		uwsgi_error("listen()");

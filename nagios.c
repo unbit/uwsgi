@@ -2,13 +2,14 @@
 
 void nagios(struct uwsgi_server *uwsgi) {
 
+	char *tcp_port;
 	struct pollfd nagios_poll;
 // connect and send
 	if (uwsgi->socket_name == NULL) {
 		fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
 		exit(3);
 	}
-	char *tcp_port = strchr(uwsgi->socket_name, ':');
+	tcp_port = strchr(uwsgi->socket_name, ':');
 	if (tcp_port == NULL) {
 		fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
 		exit(3);

@@ -447,6 +447,18 @@ int main(int argc, char *argv[], char *envp[]) {
 	unsigned int reloads = 0;
 	char env_reload_buf[11];
 
+	int option_index = 0;
+	
+#ifdef UWSGI_UDP
+	PyObject *udp_callable;
+	PyObject *udp_callable_args = NULL;
+	PyObject *udp_response;
+#endif
+	
+	
+#ifdef UWSGI_HTTP
+	pid_t http_pid;
+#endif
 
 #ifdef UNBIT
 	//struct uidsec_struct us;
@@ -454,6 +466,16 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	int socket_type = 0;
 	socklen_t socket_type_len;
+	
+	PyObject *random_module, *random_dict, *random_seed;
+	
+	int master_has_children = 0;
+	
+#ifdef UWSGI_DEBUG
+	struct utsname uuts;
+	int so_bufsize ;
+	socklen_t so_bufsize_len;
+#endif
 
 	/* anti signal bombing */
 	signal(SIGHUP, SIG_IGN);
@@ -470,7 +492,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_DEBUG
 	/* get system information */
-	struct utsname uuts;
+	
 	if (uname(&uuts)) {
 		uwsgi_error("uname()");
 	}
@@ -518,7 +540,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
-	int option_index = 0;
+	
 
 
 	gettimeofday(&uwsgi.start_tv, NULL);
@@ -669,8 +691,14 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (uwsgi.prio != 0) {
+#ifdef __HAIKU__
+		if (set_thread_priority(find_thread(NULL),uwsgi.prio) == B_BAD_THREAD_ID) {
+			uwsgi_error("set_thread_priority()");
+#else
 		if (setpriority(PRIO_PROCESS, 0, uwsgi.prio)) {
 			uwsgi_error("setpriority()");
+#endif		
+			
 		}
 		else {
 			uwsgi_log("scheduler priority set to %d\n", uwsgi.prio);
@@ -717,15 +745,20 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
 
                 if (!uwsgi.socket_name) {
+
                         uwsgi.socket_name = malloc(64);
                         if (!uwsgi.socket_name) {
                                 uwsgi_error("malloc()");
                                 exit(1);
                         }
 
-			snprintf(uwsgi.socket_name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
-                        uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
 
+
+			snprintf(uwsgi.socket_name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
+                        
+
+
+					uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
                 }
 
 
@@ -735,10 +768,10 @@ int main(int argc, char *argv[], char *envp[]) {
                         exit(1);
                 }
 
-                pid_t http_pid = fork();
+                http_pid = fork();
 
                 if (http_pid > 0) {
-			masterpid = http_pid;
+						masterpid = http_pid;
                         http_loop(&uwsgi);
                         // never here
                         exit(1);
@@ -1007,8 +1040,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 #ifdef UWSGI_DEBUG
-	int so_bufsize ;
-	socklen_t so_bufsize_len = sizeof(int) ;
+	so_bufsize_len = sizeof(int) ;
 	if (getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_RCVBUF,  &so_bufsize, &so_bufsize_len)) {
 		uwsgi_error("getsockopt()");
 	}
@@ -1283,8 +1315,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 #ifdef UWSGI_UDP
-		PyObject *udp_callable = PyDict_GetItemString(uwsgi.embedded_dict, "udp_callable");
-		PyObject *udp_callable_args = NULL;
+		udp_callable = PyDict_GetItemString(uwsgi.embedded_dict, "udp_callable");
 		if (udp_callable) {
 			udp_callable_args = PyTuple_New(3);
 		}
@@ -1354,7 +1385,7 @@ int main(int argc, char *argv[], char *envp[]) {
 				exit(1);
 			}
 
-			int master_has_children = 0;
+			
 
 			if (uwsgi.numproc > 0 ) {
 				master_has_children = 1;
@@ -1426,7 +1457,7 @@ int main(int argc, char *argv[], char *envp[]) {
 										PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
 										PyTuple_SetItem(udp_callable_args, 1, PyInt_FromLong(ntohs(udp_client.sin_port)));
 										PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(uwsgi.wsgi_req->buffer, rlen));
-										PyObject *udp_response = python_call(udp_callable, udp_callable_args, 0);
+										udp_response = python_call(udp_callable, udp_callable_args, 0);
 										if (udp_response) {
 											Py_DECREF(udp_response);
 										}
@@ -1629,11 +1660,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	// reinitialize the random seed (thanks Jonas Borgström)
-	PyObject *random_module = PyImport_ImportModule("random");
+	random_module = PyImport_ImportModule("random");
 	if (random_module) {
-		PyObject *random_dict = PyModule_GetDict(random_module);
+		random_dict = PyModule_GetDict(random_module);
 		if (random_dict) {
-			PyObject *random_seed = PyDict_GetItemString(random_dict, "seed");
+			random_seed = PyDict_GetItemString(random_dict, "seed");
 			if (random_seed) {
 				PyObject *random_args = PyTuple_New(1);
 				// pass no args
@@ -2498,6 +2529,10 @@ void uwsgi_wsgi_config(char *filename) {
 
 	char *quick_callable = NULL;
 
+	PyObject *uwsgi_compiled_node;
+	struct _node *uwsgi_file_node;
+	PyObject *tmp_callable;
+	
 	uwsgi.single_interpreter = 1;
 
 	if (filename) {
@@ -2512,7 +2547,7 @@ void uwsgi_wsgi_config(char *filename) {
                 	exit(1);
         	}
 
-        	struct _node *uwsgi_file_node = PyParser_SimpleParseFile(uwsgifile, filename, Py_file_input);
+        	uwsgi_file_node = PyParser_SimpleParseFile(uwsgifile, filename, Py_file_input);
         	if (!uwsgi_file_node) {
                 	PyErr_Print();
                 	uwsgi_log( "failed to parse wsgi file %s\n", filename);
@@ -2521,7 +2556,7 @@ void uwsgi_wsgi_config(char *filename) {
 
         	fclose(uwsgifile);
 
-        	PyObject *uwsgi_compiled_node = (PyObject *) PyNode_Compile(uwsgi_file_node, filename);
+        	uwsgi_compiled_node = (PyObject *) PyNode_Compile(uwsgi_file_node, filename);
 
         	if (!uwsgi_compiled_node) {
                 	PyErr_Print();
@@ -2617,7 +2652,7 @@ void uwsgi_wsgi_config(char *filename) {
 		// we have extended the concept a bit...
 		if (quick_callable[strlen(quick_callable) -2 ] == '(' && quick_callable[strlen(quick_callable) -1] ==')') {
 			quick_callable[strlen(quick_callable) -2 ] = 0 ;
-			PyObject *tmp_callable = PyDict_GetItemString(wsgi_dict, quick_callable);
+			tmp_callable = PyDict_GetItemString(wsgi_dict, quick_callable);
 			if (tmp_callable) {
 				app_app = python_call(tmp_callable, PyTuple_New(0), 0);
 			}

@@ -531,6 +531,8 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 	char *buffer;
 	struct uwsgi_header uh;
 	PyObject *arg_cluster;
+	
+	PyObject *cluster_node;
 
 	PyObject *arg_host, *arg_port, *arg_message;
 
@@ -588,7 +590,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 	for (i = 0; i < clen; i++) {
 		multipoll[i].events = POLLIN;
 
-		PyObject *cluster_node = PyTuple_GetItem(arg_cluster, i);
+		cluster_node = PyTuple_GetItem(arg_cluster, i);
 		arg_host = PyTuple_GetItem(cluster_node, 0);
 		if (!PyString_Check(arg_host)) {
 			goto clear;
@@ -969,9 +971,10 @@ PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
-	uwsgi_log( "disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
-
+	
 	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	
+	uwsgi_log( "disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
 
 	fclose(wsgi_req->async_post);
 	wsgi_req->fd_closed = 1 ;

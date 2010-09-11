@@ -111,8 +111,14 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	}
 
 	// asked by Marco Beri
+	
+#ifdef __HAIKU__
+	uwsgi_log( "lowering spooler priority to %d\n", B_LOW_PRIORITY);
+	set_thread_priority(find_thread(NULL), B_LOW_PRIORITY);
+#else
 	uwsgi_log( "lowering spooler priority to %d\n", PRIO_MAX);
 	setpriority(PRIO_PROCESS, getpid(), PRIO_MAX);
+#endif
 
 	nullfd = open("/dev/null", O_RDONLY);
         if (nullfd < 0) {

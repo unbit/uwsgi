@@ -90,6 +90,10 @@
 #define PRIO_MAX  20
 #endif
 
+#ifdef __HAIKU__
+#define WAIT_ANY (-1)
+#endif
+
 #define MAX_PYARGV 10
 
 #include <sys/ioctl.h>
@@ -100,8 +104,13 @@
 #elif defined(__sun__)
 #include <sys/sendfile.h>
 #include <sys/devpoll.h>
+#elif defined(__HAIKU__)
 #else
 #include <sys/event.h>
+#endif
+
+#ifdef __HAIKU__
+#include <kernel/OS.h>
 #endif
 
 #undef _XOPEN_SOURCE
@@ -218,6 +227,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #endif
 #elif __APPLE__
 #include <libkern/OSByteOrder.h>
+#elif defined(__HAIKU__)
 #else
 #include <machine/endian.h>
 #endif

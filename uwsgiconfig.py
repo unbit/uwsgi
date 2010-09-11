@@ -279,8 +279,15 @@ def parse_vars():
 	if uwsgi_os in kvm_list:
 		libs.append('-lkvm')
 
-	if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm':
+	if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
 		UGREEN = False
+
+	if uwsgi_os == 'Haiku':
+		ASYNC = False
+		PROXY = False
+		libs.remove('-rdynamic')
+		libs.remove('-lpthread')
+		libs.append('-lroot')
 
 	if EMBEDDED:
 		cflags.append('-DUWSGI_EMBEDDED')
