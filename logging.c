@@ -180,6 +180,17 @@ void get_memusage() {
 
 		kvm_close(kv);
 	}
-
+#elif defined(__HAIKU__)
+	area_info ai;
+	int32 cookie;
+	
+	uwsgi.workers[uwsgi.mywid].vsz_size = 0 ;
+	uwsgi.workers[uwsgi.mywid].rss_size = 0 ;
+	while(get_next_area_info(0, &cookie, &ai) == B_OK) {
+		uwsgi.workers[uwsgi.mywid].vsz_size += ai.ram_size;
+		if ( (ai.protection & B_WRITE_AREA) != 0) {
+			uwsgi.workers[uwsgi.mywid].rss_size += ai.ram_size;
+		}
+	}
 #endif
 }
