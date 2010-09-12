@@ -1776,6 +1776,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 
+	// re-initialize wsgi_req (can be full of init_uwsgi_app data)
+	memset(uwsgi.wsgi_requests, 0, sizeof(struct wsgi_request) * uwsgi.async);
+
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
@@ -2068,6 +2071,17 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 		if (uwsgi.wsgi_config == NULL) {
 			if (uwsgi.wsgi_req->wsgi_script_len > 0) {
+				uwsgi.wsgi_req->wsgi_callable = strchr(uwsgi.wsgi_req->wsgi_script, ':');
+				if (uwsgi.wsgi_req->wsgi_callable) {
+					uwsgi.wsgi_req->wsgi_callable[0] = 0;
+					uwsgi.wsgi_req->wsgi_callable++;
+					uwsgi.wsgi_req->wsgi_callable_len = uwsgi.wsgi_req->wsgi_script_len - strlen(uwsgi.wsgi_req->wsgi_script) - 1;
+					uwsgi.wsgi_req->wsgi_script_len = strlen(uwsgi.wsgi_req->wsgi_script);
+				}
+				else {
+					uwsgi.wsgi_req->wsgi_callable = "application";
+					uwsgi.wsgi_req->wsgi_callable_len = 11;
+				}
 				memcpy(tmpstring, uwsgi.wsgi_req->wsgi_script, uwsgi.wsgi_req->wsgi_script_len);
 				wsgi_module = PyImport_ImportModule(tmpstring);
 				if (!wsgi_module) {
@@ -2078,8 +2092,6 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 					}
 					return -1;
 				}
-				uwsgi.wsgi_req->wsgi_callable = "application";
-				uwsgi.wsgi_req->wsgi_callable_len = 11;
 			}
 			else {
 				memcpy(tmpstring, uwsgi.wsgi_req->wsgi_module, uwsgi.wsgi_req->wsgi_module_len);

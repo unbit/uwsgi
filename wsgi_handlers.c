@@ -155,15 +155,11 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		if (PyDict_Contains(uwsgi->py_apps, zero)) {
                		wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
         	}
-        	else {
+        	else if (wsgi_req->script_name_len > 1 || uwsgi->default_app < 0) {
         		/* unavailable app for this SCRIPT_NAME */
                 	wsgi_req->app_id = -1;
 			if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
-				if ((wsgi_req->app_id = init_uwsgi_app(NULL, NULL)) == -1) {
-					internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
-                			Py_DECREF(zero);
-					goto clear2;
-				}
+				wsgi_req->app_id = init_uwsgi_app(NULL, NULL);
 			}
 		}
 
