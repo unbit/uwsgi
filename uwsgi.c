@@ -2141,6 +2141,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 	if (!wi->wsgi_callable) {
 		PyErr_Print();
+		uwsgi_log("unable to find \"%s\" callable\n", tmpstring);
 		if (uwsgi.single_interpreter == 0) {
 			Py_EndInterpreter(wi->interpreter);
 			PyThreadState_Swap(uwsgi.main_thread);
