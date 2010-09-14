@@ -2036,6 +2036,23 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 	memset(wi, 0, sizeof(struct uwsgi_app));
 
+// dynamic chdir ?
+
+	if (uwsgi.wsgi_req->chdir_len > 0) {
+		wi->chdir = malloc(uwsgi.wsgi_req->chdir_len + 1);
+		if (wi->chdir == NULL) {
+			uwsgi_error("malloc()");
+		}
+		memcpy(wi->chdir, uwsgi.wsgi_req->chdir, uwsgi.wsgi_req->chdir_len);
+		wi->chdir[uwsgi.wsgi_req->chdir_len] = 0;
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("chdir to %s\n", wi->chdir);
+#endif
+		if (chdir(wi->chdir)) {
+			uwsgi_error("chdir()");
+		}
+	}
+
 	if (uwsgi.single_interpreter == 0) {
 		wi->interpreter = Py_NewInterpreter();
 		if (!wi->interpreter) {

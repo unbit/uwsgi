@@ -307,6 +307,7 @@ struct uwsgi_app {
 #endif
 
 	int requests;
+	char *chdir;
 
 };
 
@@ -393,6 +394,9 @@ struct wsgi_request {
 	uint16_t wsgi_callable_len;
 	char *pyhome;
 	uint16_t pyhome_len;
+
+	char *chdir;
+	uint16_t chdir_len;
 
 	int fd_closed;
 
