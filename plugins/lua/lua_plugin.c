@@ -144,7 +144,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 			perror("write()");
 			return -1 ;
 		}
-		if (write(wsgi_req->poll.fd, http, slen) != slen) {
+		if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
 			perror("write()");
 			return -1 ;
 		}
@@ -159,7 +159,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	lua_pushnil(ulua.L);
         while(lua_next(ulua.L, -3) != 0) {
 		http = lua_tolstring(ulua.L, -2, &slen);
-		if (write(wsgi_req->poll.fd, http, slen) != slen) {
+		if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
 			perror("write()");
 			return -1 ;
 		}
@@ -168,7 +168,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 			return -1 ;
 		}
 		http = lua_tolstring(ulua.L, -1, &slen);
-		if (write(wsgi_req->poll.fd, http, slen) != slen) {
+		if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
 			perror("write()");
 			return -1 ;
 		}
@@ -190,7 +190,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
         while ( (i = lua_pcall(ulua.L, 0, 1, 0)) == 0) {
                 if (lua_type(ulua.L, -1) == LUA_TSTRING) {
 			http = lua_tolstring(ulua.L, -1, &slen);
-			if (write(wsgi_req->poll.fd, http, slen) != slen) {
+			if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
 				perror("write()");
 				return -1 ;
 			}

@@ -1,5 +1,11 @@
 *** september 2010 ***
 
+ * 0.9.6.2 [20100915]
+
+- fix a regression in virtual hosting mode
+- fix pythonpath usage in --ini and --ini-paste
+- new uwsgi packet var: UWSGI_CHDIR
+
  * 0.9.6.1 [20100912]
 
 - print the request uri during SIGPIPE or HARAKIRI
