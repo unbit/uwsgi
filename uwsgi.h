@@ -2,7 +2,7 @@
 
 /* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
 
-#define UWSGI_VERSION	"0.9.6.1"
+#define UWSGI_VERSION	"0.9.7-dev"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
@@ -188,6 +188,8 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_HTTP_VAR		17043
 #define LONG_ARGS_NO_DEFAULT_APP	17044
 #define LONG_ARGS_EVAL_CONFIG		17045
+#define LONG_ARGS_CGROUP		17046
+#define LONG_ARGS_CGROUP_OPT		17047
 
 
 
@@ -257,17 +259,21 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define UWSGI_MODIFIER_RESPONSE		255
 
 #ifdef PYTHREE
+#define UWSGI_PYFROMSTRING(x) PyUnicode_FromString(x)
 #define PyInt_FromLong	PyLong_FromLong
 #define PyInt_AsLong	PyLong_AsLong
 #define PyInt_Check	PyLong_Check
-#define PyString_Check	PyUnicode_Check
-#define	PyString_FromStringAndSize	PyUnicode_FromStringAndSize
-#define	PyString_FromFormat	PyUnicode_FromFormat
-#define	PyString_FromString	PyUnicode_FromString
-#define	PyString_Size		PyUnicode_GET_DATA_SIZE
-#define	PyString_Concat		PyUnicode_Concat
-#define	PyString_AsString	(char *) PyUnicode_AS_UNICODE
+#define PyString_Check	PyBytes_Check
+#define	PyString_FromStringAndSize	PyBytes_FromStringAndSize
+#define	PyString_FromFormat	PyBytes_FromFormat
+#define	PyString_FromString	PyBytes_FromString
+#define	PyString_Size		PyBytes_Size
+#define	PyString_Concat		PyBytes_Concat
+#define	PyString_AsString	(char *) PyBytes_AsString
 #define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), -1, NULL, NULL, NULL, 0)
+
+#else
+#define UWSGI_PYFROMSTRING(x) PyString_FromString(x)
 #endif
 
 #define NL_SIZE 2
@@ -282,6 +288,9 @@ struct wsgi_request;
 struct uwsgi_server;
 
 struct uwsgi_app {
+
+	char *mountpoint;
+	int mountpoint_len;
 
 	PyThreadState *interpreter;
 	PyObject *pymain_dict;
@@ -306,6 +315,10 @@ struct uwsgi_app {
 	PyObject *wsgi_eventfd_write;
 #endif
 
+	void* (*request_subhandler)(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_app *);
+	int (*response_subhandler)(struct uwsgi_server *, struct wsgi_request *);
+
+	int argc;
 	int requests;
 	char *chdir;
 
@@ -425,9 +438,6 @@ struct wsgi_request {
 
 	void *async_app;
 	void *async_result;
-#ifdef UWSGI_WSGI2
-	void *async_orig_result;
-#endif
 	void *async_placeholder;
 	void *async_args;
 	void *async_environ;
@@ -453,7 +463,7 @@ struct uwsgi_server {
 	char *pyhome;
 
 	int has_threads;
-	int wsgi_cnt;
+	int apps_cnt;
 	int default_app;
 	int enable_profiler;
 
@@ -659,8 +669,7 @@ struct uwsgi_server {
 
 	struct uwsgi_shared *shared;
 
-	struct uwsgi_app wsgi_apps[64];
-	PyObject *py_apps;
+	struct uwsgi_app apps[64];
 
 #ifdef UWSGI_ERLANG
 	int erlang_nodes;
@@ -711,6 +720,12 @@ struct uwsgi_server {
 	int log_zero_headers;
 	int log_empty_body;
 	int log_high_memory;
+
+#ifdef __linux__
+	char *cgroup;
+	char *cgroup_opt[64];
+	int cgroup_opt_cnt;
+#endif
 };
 
 struct uwsgi_cluster_node {
@@ -1132,3 +1147,21 @@ int uwsgi_strncmp(char *, int , char *, int );
 #else
 inline int uwsgi_strncmp(char *, int , char *, int );
 #endif
+
+
+char *uwsgi_concat(int, ...);
+char *uwsgi_concatn(int, ...);
+char *uwsgi_concat3(char *, char *, char *);
+char *uwsgi_concat3n(char *, int, char *, int, char *, int);
+
+
+void *uwsgi_request_subhandler_wsgi(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_app *);
+int uwsgi_response_subhandler_wsgi(struct uwsgi_server *, struct wsgi_request *);
+
+#ifdef UWSGI_WEB3
+void *uwsgi_request_subhandler_web3(struct uwsgi_server *, struct wsgi_request *, struct uwsgi_app *);
+int uwsgi_response_subhandler_web3(struct uwsgi_server *, struct wsgi_request *);
+#endif
+
+int uwsgi_get_app_id(struct uwsgi_server *, char *, int);
+char *uwsgi_strncopy(char *, int );

@@ -77,7 +77,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	size_t post_remains = wsgi_req->post_cl;
 	ssize_t post_chunk;
 
-	PyObject *zero, *wsgi_socket;
+	PyObject *zero;
 
 	PyObject *pydictkey, *pydictvalue;
 
@@ -139,15 +139,10 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 		if (uwsgi->vhost) {
 			zero = PyString_FromStringAndSize(wsgi_req->host, wsgi_req->host_len);
-#ifdef PYTHREE
-			zero = PyString_Concat(zero, PyString_FromString("|"));
-			zero = PyString_Concat(zero, PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len));
-#else
 			PyString_Concat(&zero, PyString_FromString("|"));
 			PyString_Concat(&zero, PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len));
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("VirtualHost SCRIPT_NAME=%s\n", PyString_AsString(zero)); 
-#endif
 #endif
 		}
 		else {
@@ -155,14 +150,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		}
 
 
-		if (PyDict_Contains(uwsgi->py_apps, zero)) {
-               		wsgi_req->app_id = PyInt_AsLong(PyDict_GetItem(uwsgi->py_apps, zero));
-        	}
-        	else if (wsgi_req->script_name_len > 1 || uwsgi->default_app < 0 || uwsgi->vhost) {
-        		/* unavailable app for this SCRIPT_NAME */
-                	wsgi_req->app_id = -1;
-			if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
-				wsgi_req->app_id = init_uwsgi_app(NULL, NULL);
+		if ( (wsgi_req->app_id = uwsgi_get_app_id(uwsgi, wsgi_req->script_name, wsgi_req->script_name_len))  == -1) {
+        		if (wsgi_req->script_name_len > 1 || uwsgi->default_app < 0 || uwsgi->vhost) {
+        			/* unavailable app for this SCRIPT_NAME */
+                		wsgi_req->app_id = -1;
+				if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
+					wsgi_req->app_id = init_uwsgi_app(NULL, NULL);
+				}
 			}
 		}
 
@@ -185,7 +179,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	}
 
-	wi = &uwsgi->wsgi_apps[wsgi_req->app_id];
+	wi = &uwsgi->apps[wsgi_req->app_id];
 
 	if (uwsgi->single_interpreter == 0) {
 		if (!wi->interpreter) {
@@ -302,103 +296,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 	}
 
-	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
-	Py_DECREF(wsgi_socket);
 
-#ifdef UWSGI_SENDFILE
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->wsgi_sendfile);
-#endif
-
-#ifdef UWSGI_ASYNC
-	if (uwsgi->async > 1) {
-		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.readable", wi->wsgi_eventfd_read);
-		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.writable", wi->wsgi_eventfd_write);
-		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
-	}
-#endif
-
-	zero = PyTuple_New(2);
-	PyTuple_SetItem(zero, 0, PyInt_FromLong(1));
-	PyTuple_SetItem(zero, 1, PyInt_FromLong(0));
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", zero);
-	Py_DECREF(zero);
-
-	zero = PyFile_FromFile(stderr, "wsgi_input", "w", NULL);
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.errors", zero);
-	Py_DECREF(zero);
-
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.run_once", Py_False);
-
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multithread", Py_False);
-	if (uwsgi->numproc == 1) {
-		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_False);
-	}
-	else {
-		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_True);
-	}
-
-	if (wsgi_req->scheme_len > 0) {
-		zero = PyString_FromStringAndSize(wsgi_req->scheme, wsgi_req->scheme_len);
-	}
-	else if (wsgi_req->https_len > 0) {
-		if (!strncasecmp(wsgi_req->https, "on", 2) || wsgi_req->https[0] == '1') {
-			zero = PyString_FromString("https");
-		}
-		else {
-			zero = PyString_FromString("http");
-		}
-	}
-	else {
-		zero = PyString_FromString("http");
-	}
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
-	Py_DECREF(zero);
-
-
-	wsgi_req->async_app = wi->wsgi_callable ;
-
-	PyDict_SetItemString(uwsgi->embedded_dict, "env", wsgi_req->async_environ);
-
-	PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.uwsgi.version", uwsgi_version);
-
-
-#ifdef UWSGI_ROUTING
-	uwsgi_log("routing %d routes %d\n", uwsgi->routing, uwsgi->nroutes);
-	if (uwsgi->routing && uwsgi->nroutes > 0) {
-		check_route(uwsgi, wsgi_req);
-	}
-#endif
-
-
-	// call
-
-#ifdef UWSGI_PROFILER
-	if (uwsgi->enable_profiler == 1) {
-		PyDict_SetItem(wi->pymain_dict, PyString_FromFormat("uwsgi_environ__%d", wsgi_req->app_id), wsgi_req->async_environ);
-		wsgi_req->async_result = python_call(wi->wsgi_cprofile_run, wsgi_req->async_args, 0);
-		if (wsgi_req->async_result) {
-			wsgi_req->async_result = PyDict_GetItemString(wi->pymain_dict, "uwsgi_out");
-			Py_INCREF((PyObject*)wsgi_req->async_result);
-			Py_INCREF((PyObject*)wsgi_req->async_result);
-		}
-	}
-	else {
-#endif
-
-
-		PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-		wsgi_req->async_result = python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi->catch_exceptions);
-
-#ifdef UWSGI_PROFILER
-	}
-#endif
-
+	wsgi_req->async_result = (*wi->request_subhandler)(uwsgi, wsgi_req, wi);
 
 	if (wsgi_req->async_result) {
 
 
-		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
+		while ( (*wi->response_subhandler)(uwsgi, wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
 			if (uwsgi->async > 1) {
 				return UWSGI_AGAIN;

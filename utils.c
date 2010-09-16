@@ -535,3 +535,178 @@ inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 	return memcmp(src, dst, dlen);
 
 }
+
+char *uwsgi_concatn(int c, ...) {
+
+	va_list s;
+	char *item;
+	int j = c;
+	char *buf;
+	size_t len = 1;
+	size_t tlen = 1;
+
+	va_start( s, c);
+        while(j>0) {
+                item = va_arg( s, char *);
+                if (item == NULL) {
+                        break;
+                }
+                len += va_arg( s, int);
+                j--;
+        }
+        va_end( s );
+
+
+	buf = malloc(len);
+	if (buf == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+	memset( buf, 0, len);
+
+	j = c ;
+
+	len = 0;
+
+	va_start( s, c);
+        while(j>0) {
+                item = va_arg( s, char *);
+                if (item == NULL) {
+                        break;
+                }
+		tlen = va_arg( s, int);
+                memcpy(buf + len, item, tlen);
+                len += tlen;
+                j--;
+        }
+        va_end( s );
+
+
+        return buf;
+	
+}
+
+char *uwsgi_concat3(char *one, char *two, char *three) {
+
+	char *buf;
+	size_t len = strlen(one) + strlen(two) + strlen(three) + 1;
+
+
+	buf = malloc(len);
+	if (buf == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+        buf[len-1] = 0;
+	
+	memcpy( buf, one, strlen(one));
+	memcpy( buf + strlen(one) , two, strlen(two));
+	memcpy( buf + strlen(one) + strlen(two) , three, strlen(three));
+
+	return buf;
+	
+}
+
+char *uwsgi_concat3n(char *one, int s1, char *two, int s2, char *three, int s3) {
+
+        char *buf;
+        size_t len = s1 + s2 + s3 + 1;
+
+
+        buf = malloc(len);
+        if (buf == NULL) {
+                uwsgi_error("malloc()");
+                exit(1);
+        }
+        buf[len-1] = 0;
+
+        memcpy( buf, one, s1);
+        memcpy( buf + s1, two, s2);
+        memcpy( buf + s1 + s2, three, s3);
+
+        return buf;
+
+}
+
+
+char *uwsgi_concat(int c, ... ) {
+
+        va_list s;
+        char *item;
+        size_t len = 1;
+	int j = c;
+	char *buf ;
+
+        va_start( s, c);
+	while(j>0) {
+		item = va_arg( s, char *);
+		if (item == NULL) {
+			break;
+		}
+		len += (int) strlen(item);
+		j--;
+	}
+        va_end( s );
+
+	
+	buf = malloc(len);
+	if (buf == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+	memset( buf, 0, len);
+
+	j = c ;
+
+	len = 0;
+
+        va_start( s, c);
+	while(j>0) {
+		item = va_arg( s, char *);
+		if (item == NULL) {
+			break;
+		}
+		memcpy(buf + len, item, strlen(item));
+		len += strlen(item);	
+		j--;
+	}
+        va_end( s );
+	
+
+        return buf;
+
+}
+
+char *uwsgi_strncopy(char *s, int len) {
+
+	char *buf ;
+
+	buf = malloc(len + 1);
+	if (buf == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+	buf[len] = 0;
+
+	memcpy(buf, s, len);
+
+	return buf;
+	
+}
+
+
+int uwsgi_get_app_id(struct uwsgi_server *uwsgi, char *script_name, int script_name_len) {
+	
+	int i;
+
+	for(i=0;i<uwsgi->apps_cnt;i++) {
+		if (!uwsgi->apps[i].mountpoint_len) {
+			continue;
+		}	
+		if (!uwsgi_strncmp(uwsgi->apps[i].mountpoint, uwsgi->apps[i].mountpoint_len, script_name, script_name_len)) {
+			return i;
+		}
+	}
+
+	return -1;
+}

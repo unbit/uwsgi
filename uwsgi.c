@@ -170,6 +170,10 @@ static struct option long_options[] = {
 		{"vacuum", no_argument, &uwsgi.vacuum, 1},
 		{"ping", required_argument, 0, LONG_ARGS_PING},
 		{"ping-timeout", required_argument, 0, LONG_ARGS_PING_TIMEOUT},
+#ifdef __linux__
+		{"cgroup", required_argument, 0, LONG_ARGS_CGROUP},
+		{"cgroup-opt", required_argument, 0, LONG_ARGS_CGROUP_OPT},
+#endif
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -324,8 +328,8 @@ void stats() {
 
 	uwsgi_log("*** pid %d stats ***\n", getpid());
 	uwsgi_log("\ttotal requests: %llu\n", uwsgi.workers[0].requests);
-	for (i = 0; i < uwsgi.wsgi_cnt; i++) {
-		ua = &uwsgi.wsgi_apps[i];
+	for (i = 0; i < uwsgi.apps_cnt; i++) {
+		ua = &uwsgi.apps[i];
 		if (ua) {
 			uwsgi_log("\tapp %d requests: %d\n", i, ua->requests);
 		}
@@ -525,7 +529,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi.shared->after_hooks[i] = unconfigured_after_hook;
 	}
 
-	uwsgi.wsgi_cnt = 1;
+	uwsgi.apps_cnt = 1;
 	uwsgi.default_app = -1;
 
 	uwsgi.buffer_size = 4096;
@@ -906,15 +910,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (uwsgi.vhost) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
-		uwsgi.wsgi_cnt = 0 ;
+		uwsgi.apps_cnt = 0 ;
 	}
-
-	uwsgi.py_apps = PyDict_New();
-	if (!uwsgi.py_apps) {
-		PyErr_Print();
-		exit(1);
-	}
-
 
 	wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
 	uwsgi.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
@@ -1085,7 +1082,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		init_uwsgi_vars();
 	}
 
-	memset(uwsgi.wsgi_apps, 0, sizeof(uwsgi.wsgi_apps));
+	memset(uwsgi.apps, 0, sizeof(uwsgi.apps));
 
 
 
@@ -1500,6 +1497,19 @@ int main(int argc, char *argv[], char *envp[]) {
 				check_interval.tv_sec = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
 				if (!check_interval.tv_sec)
 					check_interval.tv_sec = 1;
+
+				
+#ifdef __linux__
+				struct tcp_info ti;
+				socklen_t tis = sizeof(struct tcp_info) ;
+				if (getsockopt(uwsgi.serverfd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
+					uwsgi_error("getsockopt()");
+				}
+				else {
+					uwsgi_log("socket status: %d %d\n", ti.tcpi_unacked, ti.tcpi_sacked);
+				}
+#endif
+
 				for (i = 1; i <= uwsgi.numproc; i++) {
 					/* first check for harakiri */
 					if (uwsgi.workers[i].harakiri > 0) {
@@ -1924,11 +1934,8 @@ void init_uwsgi_vars() {
 		if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
 			return ;
 		}
-#ifdef PYTHREE
-		venv_path = PyString_Concat( venv_path, PyString_FromString(venv_version) );
-#else
+
 		PyString_Concat( &venv_path, PyString_FromString(venv_version) );
-#endif
 
 		if ( PyList_Insert(pypath, 0, venv_path) ) {
 			PyErr_Print();
@@ -1942,12 +1949,12 @@ void init_uwsgi_vars() {
 	}
 #endif
 
-	if (PyList_Insert(pypath, 0, PyString_FromString(".")) != 0) {
+	if (PyList_Insert(pypath, 0, UWSGI_PYFROMSTRING(".") ) != 0) {
 		PyErr_Print();
 	}
 
 	for (i = 0; i < uwsgi.python_path_cnt; i++) {
-		if (PyList_Insert(pypath, 0, PyString_FromString(uwsgi.python_path[i])) != 0) {
+		if (PyList_Insert(pypath, 0, UWSGI_PYFROMSTRING(uwsgi.python_path[i]) ) != 0) {
 			PyErr_Print();
 		}
 		else {
@@ -1969,6 +1976,8 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	int i;
 #endif
 
+	char *mountpoint;
+
 	struct uwsgi_app *wi;
 
 	memset(tmpstring, 0, 256);
@@ -1989,7 +1998,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		return -1;
 	}
 
-	id = uwsgi.wsgi_cnt;
+	id = uwsgi.apps_cnt;
 
 
 	if (uwsgi.wsgi_req->script_name_len == 0) {
@@ -2006,37 +2015,29 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		}
 	}
 
-
+	
 	if (uwsgi.vhost) {
-        	zero = PyString_FromStringAndSize(uwsgi.wsgi_req->host, uwsgi.wsgi_req->host_len);
-#ifdef PYTHREE
-                zero = PyString_Concat(zero, PyString_FromString("|"));
-                zero = PyString_Concat(zero, PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len));
-#else
-                PyString_Concat(&zero, PyString_FromString("|"));
-                PyString_Concat(&zero, PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len));
-#endif
+		mountpoint = uwsgi_concat3n(uwsgi.wsgi_req->host, uwsgi.wsgi_req->host_len, "|", 1, uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len);
         }
         else {
-		zero = PyString_FromStringAndSize(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len);
+		mountpoint = uwsgi_strncopy(uwsgi.wsgi_req->script_name, uwsgi.wsgi_req->script_name_len);
 	}
 
-	if (!zero) {
-		Py_FatalError("cannot get mountpoint python object !\n");
-	}
-
-	if (PyDict_GetItem(uwsgi.py_apps, zero) != NULL) {
-		Py_DECREF(zero);
-		uwsgi_log( "mountpoint %.*s already configured. skip.\n", uwsgi.wsgi_req->script_name_len, uwsgi.wsgi_req->script_name);
+	if (uwsgi_get_app_id(&uwsgi, mountpoint, strlen(mountpoint)) != -1) {
+		uwsgi_log( "mountpoint %.*s already configured. skip.\n", strlen(mountpoint), mountpoint);
 		return -1;
 	}
 
 
-	wi = &uwsgi.wsgi_apps[id];
+	wi = &uwsgi.apps[id];
 
 	memset(wi, 0, sizeof(struct uwsgi_app));
 
+	wi->mountpoint = mountpoint;
+	wi->mountpoint_len = strlen(mountpoint);
+
 // dynamic chdir ?
+
 
 	if (uwsgi.wsgi_req->chdir_len > 0) {
 		wi->chdir = malloc(uwsgi.wsgi_req->chdir_len + 1);
@@ -2054,6 +2055,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	}
 
 	if (uwsgi.single_interpreter == 0) {
+
 		wi->interpreter = Py_NewInterpreter();
 		if (!wi->interpreter) {
 			uwsgi_log( "unable to initialize the new interpreter\n");
@@ -2281,6 +2283,32 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 	else {
 #endif
 
+#ifdef UWSGI_WEB3
+	// heck function args
+	zero = PyObject_GetAttrString(wi->wsgi_callable, "__code__");
+	zero = PyObject_GetAttrString(zero, "co_argcount");
+	wi->argc = (int) PyInt_AsLong(zero);
+
+	if (wi->argc == 1) {
+		uwsgi_log("-- Web3 callable detected --\n");
+		wi->request_subhandler = uwsgi_request_subhandler_web3;
+		wi->response_subhandler = uwsgi_response_subhandler_web3;
+	}
+	else if (wi->argc == 2) {
+		uwsgi_log("-- WSGI callable detected --\n");
+		wi->request_subhandler = uwsgi_request_subhandler_wsgi;
+		wi->response_subhandler = uwsgi_response_subhandler_wsgi;
+	}
+	else {
+		uwsgi_log("-- INVALID callable detected --\n");
+                if (uwsgi.single_interpreter == 0) {
+                        Py_EndInterpreter(wi->interpreter);
+                        PyThreadState_Swap(uwsgi.main_thread) ;
+                }
+		return -1;
+	}
+#endif
+
 #ifdef UWSGI_ASYNC
         wi->wsgi_args = malloc(sizeof(PyObject*)*uwsgi.async);
         if (!wi->wsgi_args) {
@@ -2293,7 +2321,7 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
         }
 
         for(i=0;i<uwsgi.async;i++) {
-                wi->wsgi_args[i] = PyTuple_New(2);
+                wi->wsgi_args[i] = PyTuple_New(wi->argc);
                 // this will leak all the already allocated dictionary !!!
                 if (!wi->wsgi_args[i]) {
                         if (uwsgi.single_interpreter == 0) {
@@ -2302,25 +2330,30 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
                         }
                         return -1 ;
                 }
-		if (PyTuple_SetItem(wi->wsgi_args[i], 1, wsgi_spitout)) {
-			PyErr_Print();
-			if (uwsgi.single_interpreter == 0) {
-				Py_EndInterpreter(wi->interpreter);
-				PyThreadState_Swap(uwsgi.main_thread);
+
+		if (wi->argc > 1) {
+			if (PyTuple_SetItem(wi->wsgi_args[i], 1, wsgi_spitout)) {
+				PyErr_Print();
+				if (uwsgi.single_interpreter == 0) {
+					Py_EndInterpreter(wi->interpreter);
+					PyThreadState_Swap(uwsgi.main_thread);
+				}
+				return -1;
 			}
-			return -1;
 		}
         }
 #else
 
-		wi->wsgi_args = PyTuple_New(2);
-		if (PyTuple_SetItem(wi->wsgi_args, 1, wsgi_spitout)) {
-			PyErr_Print();
-			if (uwsgi.single_interpreter == 0) {
-				Py_EndInterpreter(wi->interpreter);
-				PyThreadState_Swap(uwsgi.main_thread);
+		wi->wsgi_args = PyTuple_New(wi->argc);
+		if (wi->argc > 1) {
+			if (PyTuple_SetItem(wi->wsgi_args, 1, wsgi_spitout)) {
+				PyErr_Print();
+				if (uwsgi.single_interpreter == 0) {
+					Py_EndInterpreter(wi->interpreter);
+					PyThreadState_Swap(uwsgi.main_thread);
+				}
+				return -1;
 			}
-			return -1;
 		}
 #endif
 
@@ -2342,10 +2375,8 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		PyThreadState_Swap(uwsgi.main_thread);
 	}
 
-	PyDict_SetItem(uwsgi.py_apps, zero, PyInt_FromLong(id));
-	PyErr_Print();
 
-	uwsgi_log( "application %d (%s) ready\n", id, PyString_AsString(zero));
+	uwsgi_log( "application %d (%.*s) ready\n", id, wi->mountpoint_len, wi->mountpoint);
 
 	Py_DECREF(zero);
 
@@ -2353,11 +2384,11 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 		uwsgi_log( "setting default application to 0\n");
 		uwsgi.default_app = 0;
 		if (uwsgi.vhost) {
-			uwsgi.wsgi_cnt++;
+			uwsgi.apps_cnt++;
 		}
 	}
 	else {
-		uwsgi.wsgi_cnt++;
+		uwsgi.apps_cnt++;
 	}
 
 	return id;
@@ -2616,6 +2647,7 @@ void uwsgi_wsgi_config(char *filename) {
 			}
 		}
 
+
 		wsgi_module = PyImport_ImportModule(uwsgi.wsgi_config);
 		if (!wsgi_module) {
 			PyErr_Print();
@@ -2629,6 +2661,7 @@ void uwsgi_wsgi_config(char *filename) {
 		PyErr_Print();
 		exit(1);
 	}
+
 
 	if (!quick_callable) {
 		uwsgi_log( "...getting the applications list from the '%s' module...\n", uwsgi.wsgi_config);
@@ -2728,15 +2761,26 @@ void uwsgi_wsgi_config(char *filename) {
 	for (i = 0; i < PyList_Size(app_list); i++) {
 		app_mnt = PyList_GetItem(app_list, i);
 
+#ifdef PYTHREE
+		if (!PyUnicode_Check(app_mnt)) {
+#else
 		if (!PyString_Check(app_mnt)) {
+#endif
 			uwsgi_log( "the app mountpoint must be a string.\n");
 			exit(1);
 		}
 
+
+#ifdef PYTHREE
+		uwsgi.wsgi_req->script_name = (char *) PyUnicode_AS_DATA(app_mnt);
+#else
 		uwsgi.wsgi_req->script_name = PyString_AsString(app_mnt);
+#endif
 		uwsgi.wsgi_req->script_name_len = strlen(uwsgi.wsgi_req->script_name);
 
+
 		app_app = PyDict_GetItem(applications, app_mnt);
+
 
 		if (!PyString_Check(app_app) && !PyFunction_Check(app_app) && !PyCallable_Check(app_app)) {
 			uwsgi_log( "the app callable must be a string, a function or a callable. (found %s)\n", app_app->ob_type->tp_name);
@@ -2867,11 +2911,6 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "applist", uwsgi.py_apps)) {
-		PyErr_Print();
-		exit(1);
-	}
 
 	if (PyDict_SetItemString(uwsgi.embedded_dict, "applications", Py_None)) {
 		PyErr_Print();
@@ -3137,6 +3176,20 @@ void manage_opt(int i, char *optarg) {
 		}
 		else {
 			uwsgi_log( "you can specify at most 64 --http-var options\n");
+		}
+		break;
+#endif
+#ifdef __linux__
+	case LONG_ARGS_CGROUP:
+		uwsgi.cgroup = optarg;
+		break;
+	case LONG_ARGS_CGROUP_OPT:
+		if (uwsgi.cgroup_opt_cnt < 63) {
+			uwsgi.cgroup_opt[uwsgi.cgroup_opt_cnt] = optarg;
+			uwsgi.cgroup_opt_cnt++;
+		}
+		else {
+			uwsgi_log( "you can specify at most 64 --cgroup_opt options\n");
 		}
 		break;
 #endif
@@ -3421,6 +3474,8 @@ void manage_opt(int i, char *optarg) {
 \t--vacuum\t\t\tclear the environment on exit (remove UNIX sockets and pidfiles)\n\
 \t--ping <addr>\t\t\tping a uWSGI server (returns 1 on failure 0 on success)\n\
 \t--ping-timeout <n>\t\tset ping timeout to <n>\n\
+\t--cgroup <group>\t\trun the server in <group> cgroup (Linux only)\n\
+\t--cgroup-opt KEY=VAL\t\tset cgroup option (Linux only)\n\
 \t--version\t\t\tprint server version\n\
 \t-d|--daemonize <logfile|addr>\tdaemonize and log into <logfile> or udp <addr>\n", uwsgi.binary_path);
 		exit(1);

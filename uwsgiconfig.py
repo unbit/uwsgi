@@ -21,7 +21,7 @@ UGREEN=False
 HTTP=True
 EVDIS=False
 LDAP=False
-WSGI2=False
+WEB3=True
 ROUTING=False
 STACKLESS=False
 #PLUGINS = ['psgi']
@@ -90,7 +90,7 @@ gcc_major = int(gcc_version.split('.')[0])
 gcc_minor = int(gcc_version.split('.')[1])
 
 
-gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
+gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_subhandler', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
 
 cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 
@@ -220,8 +220,8 @@ def unbit_setup():
 	global EVDIS
 	EVDIS=False
 
-	global WSGI2
-	WSGI2=False
+	global WEB3
+	WEB3=False
 
 	global LDAP
 	LDAP=False
@@ -336,7 +336,7 @@ def parse_vars():
 		libs.append('-lldap')
 
 	if ROUTING:
-		depends_on("ROUTING", ['WSGI2', 'XML'])
+		depends_on("ROUTING", ['WEB3', 'XML'])
 		cflags.append("-DUWSGI_ROUTING")
 		gcc_list.append('routing')
 		pcreconf = spcall("pcre-config --cflags")
@@ -434,8 +434,9 @@ def parse_vars():
 		cflags.append("-DUWSGI_SPOOLER")
 		gcc_list.append('spooler')
 
-	if WSGI2:
-		cflags.append("-DUWSGI_WSGI2")
+	if WEB3:
+		cflags.append("-DUWSGI_WEB3")
+		gcc_list.append('web3_subhandler')
 
 	if DEBUG:
 		cflags.append("-DUWSGI_DEBUG")
