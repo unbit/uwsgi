@@ -124,7 +124,7 @@ int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
 		goto clear;
         }
 
-	psgibuffer = malloc(stat_psgi.st_size);
+	psgibuffer = malloc(stat_psgi.st_size + 1);
 	if (!psgibuffer) {
 		uwsgi_error("malloc()");
 		close(fd);
@@ -321,7 +321,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	wsgi_req->hvec[vi].iov_base = "\r\n" ; wsgi_req->hvec[vi].iov_len = 2 ;
 
 
-	if ( (wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) < 0) {
+	if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) ) {
 		uwsgi_error("writev()");
 	}
 
