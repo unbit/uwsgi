@@ -14,10 +14,16 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
 	int base = 0;
+	int shift = 0;
+
+	// if self is NULL than it is called by Web3 handler
+	if (self == NULL) {
+		shift = 1 ;
+	}
 
 	// use writev()
 
-	head = PyTuple_GetItem(args, 0);
+	head = PyTuple_GetItem(args, 0+shift);
 	if (!head) {
 		goto clear;
 	}
@@ -71,7 +77,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	}
 
 
-	headers = PyTuple_GetItem(args, 1);
+	headers = PyTuple_GetItem(args, 1+shift);
 	if (!headers) {
 		goto clear;
 	}

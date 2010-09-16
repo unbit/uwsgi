@@ -1500,13 +1500,15 @@ int main(int argc, char *argv[], char *envp[]) {
 
 				
 #ifdef __linux__
-				struct tcp_info ti;
-				socklen_t tis = sizeof(struct tcp_info) ;
-				if (getsockopt(uwsgi.serverfd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
-					uwsgi_error("getsockopt()");
-				}
-				else {
-					uwsgi_log("socket status: %d %d\n", ti.tcpi_unacked, ti.tcpi_sacked);
+				if (uwsgi.get_tcp_info) {
+					struct tcp_info ti;
+					socklen_t tis = sizeof(struct tcp_info) ;
+					if (getsockopt(uwsgi.serverfd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
+						uwsgi_error("getsockopt()");
+					}
+					else {
+						uwsgi_log("socket status: %d %d\n", ti.tcpi_unacked, ti.tcpi_sacked);
+					}
 				}
 #endif
 

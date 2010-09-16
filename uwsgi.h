@@ -725,7 +725,9 @@ struct uwsgi_server {
 	char *cgroup;
 	char *cgroup_opt[64];
 	int cgroup_opt_cnt;
+	int get_tcp_info;
 #endif
+
 };
 
 struct uwsgi_cluster_node {
