@@ -218,8 +218,59 @@ void internal_server_error(int fd, char *message) {
 
 void uwsgi_as_root() {
 
+#ifdef __linux__
+	char *cgroup_taskfile;
+	int i;
+	FILE *cgroup;
+	char *cgroup_opt;
+#endif
+
 	if (!getuid()) {
                 uwsgi_log("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+
+#ifdef __linux__
+		if (uwsgi.cgroup) {
+			cgroup_taskfile = uwsgi_concat2(uwsgi.cgroup, "/tasks");	
+			cgroup = fopen(cgroup_taskfile, "w");
+                	if (!cgroup) {
+                        	uwsgi_error("fopen");
+                        	exit(1);
+                	}
+                	if (fprintf(cgroup, "%d\n", (int) getpid()) < 0) {
+                        	uwsgi_log( "could not set cgroup\n");
+				exit(1);
+                	}
+                	fclose(cgroup);
+			free(cgroup_taskfile);
+
+			for(i=0;i<uwsgi.cgroup_opt_cnt;i++) {
+				cgroup_opt = strchr( uwsgi.cgroup_opt[i], '=' );
+				if (!cgroup_opt) {
+					cgroup_opt = strchr( uwsgi.cgroup_opt[i], ':' );
+					if (!cgroup_opt) {
+						uwsgi_log("invalid cgroup-opt syntax\n");
+						exit(1);
+					}
+				}
+
+				cgroup_opt[0] = 0;
+				cgroup_opt++;
+
+				cgroup_taskfile = uwsgi_concat3(uwsgi.cgroup, "/", uwsgi.cgroup_opt[i]);
+				cgroup = fopen(cgroup_taskfile, "w");
+                		if (!cgroup) {
+                        		uwsgi_error("fopen");
+                        		exit(1);
+                		}
+                		if (fprintf(cgroup, "%s\n", cgroup_opt) < 0) {
+                        		uwsgi_log( "could not set cgroup option %s to %s\n", uwsgi.cgroup_opt[i], cgroup_opt);
+					exit(1);
+                		}
+                		fclose(cgroup);
+				free(cgroup_taskfile);
+			}
+		}
+#endif
                 if (uwsgi.chroot) {
                         uwsgi_log("chroot() to %s\n", uwsgi.chroot);
                         if (chroot(uwsgi.chroot)) {
@@ -585,6 +636,27 @@ char *uwsgi_concatn(int c, ...) {
         return buf;
 	
 }
+
+char *uwsgi_concat2(char *one, char *two) {
+
+        char *buf;
+        size_t len = strlen(one) + strlen(two) + 1;
+
+
+        buf = malloc(len);
+        if (buf == NULL) {
+                uwsgi_error("malloc()");
+                exit(1);
+        }
+        buf[len-1] = 0;
+
+        memcpy( buf, one, strlen(one));
+        memcpy( buf + strlen(one) , two, strlen(two));
+
+        return buf;
+
+}
+
 
 char *uwsgi_concat3(char *one, char *two, char *three) {
 

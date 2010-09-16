@@ -16,12 +16,12 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	int base = 0;
 	int shift = 0;
 
-	// if self is NULL than it is called by Web3 handler
-	if (self == NULL) {
-		shift = 1 ;
-	}
-
 	// use writev()
+
+	// is a Web3 response ?
+	if (PyTuple_Size(args) == 3) {
+		shift = 1;
+	}
 
 	head = PyTuple_GetItem(args, 0+shift);
 	if (!head) {

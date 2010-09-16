@@ -1153,6 +1153,7 @@ inline int uwsgi_strncmp(char *, int , char *, int );
 
 char *uwsgi_concat(int, ...);
 char *uwsgi_concatn(int, ...);
+char *uwsgi_concat2(char *, char *);
 char *uwsgi_concat3(char *, char *, char *);
 char *uwsgi_concat3n(char *, int, char *, int, char *, int);
 
