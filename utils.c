@@ -230,6 +230,12 @@ void uwsgi_as_root() {
 
 #ifdef __linux__
 		if (uwsgi.cgroup) {
+			if (mkdir(uwsgi.cgroup, S_IRWXU | S_IROTH | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
+				uwsgi_log("using Linux cgroup %s\n", uwsgi.cgroup);
+			}
+			else {
+				uwsgi_log("created Linux cgroup %s\n", uwsgi.cgroup);
+			}
 			cgroup_taskfile = uwsgi_concat2(uwsgi.cgroup, "/tasks");	
 			cgroup = fopen(cgroup_taskfile, "w");
                 	if (!cgroup) {
