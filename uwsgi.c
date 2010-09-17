@@ -997,6 +997,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 				else {
 					uwsgi.serverfd = bind_to_tcp(uwsgi.socket_name, uwsgi.listen_queue, tcp_port);
+#ifdef __linux__
+					uwsgi.get_tcp_info = 1;
+#endif
 				}
 
 				if (uwsgi.serverfd < 0) {
@@ -1505,9 +1508,13 @@ int main(int argc, char *argv[], char *envp[]) {
 					socklen_t tis = sizeof(struct tcp_info) ;
 					if (getsockopt(uwsgi.serverfd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
 						uwsgi_error("getsockopt()");
+						// unsupported ? disable it
+						uwsgi.get_tcp_info = 0;
 					}
 					else {
-						uwsgi_log("socket status: %d %d\n", ti.tcpi_unacked, ti.tcpi_sacked);
+						if (ti.tcpi_unacked >= ti.tcpi_sacked) {
+							uwsgi_log_verbose("*** uWSGI listen queue full !!! (%d/%d) ***\n", ti.tcpi_unacked, ti.tcpi_sacked);
+						}
 					}
 				}
 #endif

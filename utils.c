@@ -585,6 +585,29 @@ void uwsgi_log(const char *fmt, ...) {
 	rlen = write(2, logpkt, rlen);
 }
 
+void uwsgi_log_verbose(const char *fmt, ...) {
+	
+	va_list ap;
+        char logpkt[4096];
+        int rlen = 0;
+
+        struct timeval tv;
+
+        gettimeofday(&tv, NULL);
+
+        memcpy( logpkt, ctime( (const time_t *) &tv.tv_sec), 24);
+        memcpy( logpkt + 24, " - ", 3);
+
+        rlen = 24 + 3 ;
+
+        va_start (ap, fmt);
+        rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap );
+        va_end(ap);
+
+        // do not check for errors
+        rlen = write(2, logpkt, rlen);
+}
+
 inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 
 	if (slen != dlen) return 1;

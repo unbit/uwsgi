@@ -1055,6 +1055,7 @@ void env_to_arg(char *, char *);
 void parse_sys_envs(char **, struct option *);
 
 void uwsgi_log(const char *, ...);
+void uwsgi_log_verbose(const char *, ...);
 
 
 #ifdef UWSGI_EVDIS
