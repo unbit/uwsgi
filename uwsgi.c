@@ -2293,10 +2293,26 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 #endif
 
 #ifdef UWSGI_WEB3
-	// heck function args
+
+	
+	// check function args
+	// by defaut is a WSGI app
+	wi->argc = 2;
 	zero = PyObject_GetAttrString(wi->wsgi_callable, "__code__");
-	zero = PyObject_GetAttrString(zero, "co_argcount");
-	wi->argc = (int) PyInt_AsLong(zero);
+	if (!zero) {
+		zero = PyObject_GetAttrString(wi->wsgi_callable, "__call__");
+		if (zero) {
+			zero = PyObject_GetAttrString(wi->wsgi_callable, "__code__");
+		}
+		else {
+			uwsgi_log("WARNING: unable to get the number of callable args. Fallback to WSGI\n");
+		}
+	}
+
+	if (zero) {
+		zero = PyObject_GetAttrString(zero, "co_argcount");
+		wi->argc = (int) PyInt_AsLong(zero);
+	}
 
 	if (wi->argc == 1) {
 		uwsgi_log("-- Web3 callable detected --\n");
@@ -2386,8 +2402,6 @@ int init_uwsgi_app(PyObject * force_wsgi_dict, PyObject * my_callable) {
 
 
 	uwsgi_log( "application %d (%.*s) ready\n", id, wi->mountpoint_len, wi->mountpoint);
-
-	Py_DECREF(zero);
 
 	if (id == 0) {
 		uwsgi_log( "setting default application to 0\n");
