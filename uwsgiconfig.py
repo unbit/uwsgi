@@ -11,7 +11,6 @@ UDP=True
 MULTICAST=True
 THREADING=True
 SENDFILE=True
-PROFILER=False
 NAGIOS=True
 PROXY=True
 PASTE=True
@@ -90,7 +89,7 @@ gcc_major = int(gcc_version.split('.')[0])
 gcc_minor = int(gcc_version.split('.')[1])
 
 
-gcc_list = ['utils', 'pyutils', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_subhandler', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
+gcc_list = ['utils', 'pyutils', 'pyloader', 'protocol', 'socket', 'logging', 'wsgi_handlers', 'wsgi_subhandler', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'uwsgi']
 
 cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 
@@ -192,9 +191,6 @@ def unbit_setup():
 
 	global SENDFILE
 	SENDFILE=True
-
-	global PROFILER
-	PROFILER=False
 
 	global NAGIOS
 	NAGIOS=False
@@ -376,9 +372,6 @@ def parse_vars():
 
 	if THREADING:
 		cflags.append("-DUWSGI_THREADING")
-
-	if PROFILER:
-		cflags.append("-DUWSGI_PROFILER")
 
 	if PASTE:
 		cflags.append('-DUWSGI_PASTE')

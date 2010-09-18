@@ -294,7 +294,7 @@ struct uwsgi_app {
 
 	PyThreadState *interpreter;
 	PyObject *pymain_dict;
-	PyObject *wsgi_dict;
+	//PyObject *wsgi_dict;
 	PyObject *wsgi_callable;
 
 
@@ -728,6 +728,8 @@ struct uwsgi_server {
 	int get_tcp_info;
 #endif
 
+	PyObject *wsgi_spitout;
+
 };
 
 struct uwsgi_cluster_node {
@@ -888,7 +890,7 @@ uint32_t uwsgi_swap32(uint32_t);
 uint64_t uwsgi_swap64(uint64_t);
 #endif
 
-int init_uwsgi_app(PyObject *, PyObject *);
+int init_uwsgi_app(struct uwsgi_server *, PyObject *);
 
 PyObject *uwsgi_send_message(const char *, int, uint8_t, uint8_t, char *, int, int);
 

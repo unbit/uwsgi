@@ -179,7 +179,7 @@ next:
 								}
 								wsgi_req->wsgi_script = (char *) xml_uwsgi_script;
 								wsgi_req->wsgi_script_len = strlen(wsgi_req->wsgi_script);
-								init_uwsgi_app(NULL, NULL);
+								init_uwsgi_app(&uwsgi, NULL);
 							}
 						}
 					}
@@ -314,7 +314,7 @@ void uwsgi_textApp(void *userData, const char *s, int len) {
 	if (current_xmlnode) {
 		wsgi_req->wsgi_script = (char *) s;
                 wsgi_req->wsgi_script_len = len;
-                init_uwsgi_app(NULL, NULL);
+                init_uwsgi_app(&uwsgi, NULL);
 		current_xmlnode = 0;
 	}
 };

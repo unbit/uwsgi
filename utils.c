@@ -442,13 +442,6 @@ inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *uwsgi) {
 
 void sanitize_args(struct uwsgi_server *uwsgi) {
 
-#ifdef UWSGI_PROFILER
-	if (uwsgi->enable_profiler) {
-		uwsgi_log("*** Profiler enabled, do not use it in production environment !!! ***\n");
-		uwsgi->async = 1;
-	}
-#endif
-
 #ifdef UWSGI_UGREEN
 #ifdef UWSGI_THREADING
 	if (uwsgi->ugreen) {

@@ -155,7 +155,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
         			/* unavailable app for this SCRIPT_NAME */
                 		wsgi_req->app_id = -1;
 				if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
-					wsgi_req->app_id = init_uwsgi_app(NULL, NULL);
+					wsgi_req->app_id = init_uwsgi_app(uwsgi, NULL);
 				}
 			}
 		}
