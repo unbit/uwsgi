@@ -54,7 +54,6 @@ static struct option long_options[] = {
 #ifdef UWSGI_THREADING
 		{"enable-threads", no_argument, 0, 'T'},
 #endif
-		{"profiler", no_argument, 0, 'P'},
 		{"single-interpreter", no_argument, 0, 'i'},
 		{"master", no_argument, 0, 'M'},
 		{"help", no_argument, 0, 'h'},
@@ -578,7 +577,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.binary_path = argv[0];
 
-	while ((i = getopt_long(argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTPiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
+	while ((i = getopt_long(argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
 		manage_opt(i, optarg);
 	}
 
@@ -2942,9 +2941,6 @@ void manage_opt(int i, char *optarg) {
 		uwsgi.has_threads = 1;
 		uwsgi.shared->options[UWSGI_OPTION_THREADS] = 1;
 		break;
-	case 'P':
-		uwsgi.enable_profiler = 1;
-		break;
 	case 'i':
 		uwsgi.single_interpreter = 1;
 		break;
@@ -2967,7 +2963,6 @@ void manage_opt(int i, char *optarg) {
 \t-A|--sharedarea <n>\t\tcreate a shared memory area of <n> pages\n\
 \t-c|--cgi-mode\t\t\tset cgi mode\n\
 \t-C|--chmod-socket[=NNN]\t\tchmod socket to 666 or NNN\n\
-\t-P|--profiler\t\t\tenable profiler\n\
 \t-m|--memory-report\t\tenable memory usage report\n\
 \t-i|--single-interpreter\t\tsingle interpreter mode\n\
 \t-a|--abstract-socket\t\tset socket in the abstract namespace (Linux only)\n\
