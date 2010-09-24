@@ -284,6 +284,14 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define MAX_VARS 64
 
+struct uwsgi_socket {
+	int fd;
+	char *name;
+	int family;
+	int bound;
+	void *ctx;
+};
+
 struct wsgi_request;
 struct uwsgi_server;
 
@@ -492,7 +500,6 @@ struct uwsgi_server {
 	int no_default_app;
 	int logdate;
 
-	int serverfd;
 #ifdef UWSGI_PROXY
 	int proxyfd;
 	char *proxy_socket_name;
@@ -520,7 +527,6 @@ struct uwsgi_server {
 
 	int is_a_reload;
 
-	char *socket_name;
 
 #ifdef UWSGI_UDP
 	char *udp_socket;
@@ -725,10 +731,13 @@ struct uwsgi_server {
 	char *cgroup;
 	char *cgroup_opt[64];
 	int cgroup_opt_cnt;
-	int get_tcp_info;
 #endif
 
 	PyObject *wsgi_spitout;
+
+	int sockets_cnt;
+	struct uwsgi_socket sockets[8];
+	struct pollfd sockets_poll[8];
 
 };
 
@@ -878,7 +887,7 @@ void snmp_init(void);
 #ifdef UWSGI_SPOOLER
 int spool_request(struct uwsgi_server *, char *, int, char *, int);
 void spooler(struct uwsgi_server *, PyObject *);
-pid_t spooler_start(int, PyObject *);
+pid_t spooler_start(struct uwsgi_server *, PyObject *);
 #endif
 
 void set_harakiri(int);
@@ -1038,7 +1047,7 @@ void uwsgi_close_request(struct uwsgi_server *, struct wsgi_request *) ;
 
 void wsgi_req_setup(struct wsgi_request *, int);
 int wsgi_req_recv(struct wsgi_request *);
-int wsgi_req_accept(int, struct wsgi_request *);
+int wsgi_req_accept(struct uwsgi_server *, struct wsgi_request *);
 
 #ifdef UWSGI_UGREEN
 void u_green_init(struct uwsgi_server *);

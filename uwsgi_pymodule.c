@@ -13,8 +13,8 @@ extern struct uwsgi_server uwsgi;
 #define UWSGI_LOCK pthread_mutex_lock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #define UWSGI_UNLOCK pthread_mutex_unlock((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t));
 #else
-#define UWSGI_LOCK if (flock(uwsgi.serverfd, LOCK_EX)) { uwsgi_error("flock()"); }
-#define UWSGI_UNLOCK if (flock(uwsgi.serverfd, LOCK_UN)) { uwsgi_error("flock()"); }
+#define UWSGI_LOCK if (flock(uwsgi.sockets[0].fd, LOCK_EX)) { uwsgi_error("flock()"); }
+#define UWSGI_UNLOCK if (flock(uwsgi.sockets[0].fd, LOCK_UN)) { uwsgi_error("flock()"); }
 #endif
 
 #define UWSGI_LOGBASE "[- uWSGI -"
@@ -1090,6 +1090,7 @@ clear:
 PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 
 	pid_t grunt_pid ;
+	int i;
 	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
 	if (uwsgi.grunt) {
@@ -1106,7 +1107,9 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 		goto clear;
 	}
 	else if (grunt_pid == 0) {
-		close(uwsgi.serverfd);
+		for(i=0;i<uwsgi.sockets_cnt;i++) {
+			close(uwsgi.sockets[i].fd);
+		}
 		// create a new session
 		setsid();
 		// exit on SIGPIPE

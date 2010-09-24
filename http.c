@@ -320,7 +320,7 @@ static void *http_request(void *u_h_r)
 						}
 					}
 
-					uwsgi_fd = uwsgi_connect(uwsgi.socket_name, 10);
+					uwsgi_fd = uwsgi_connect(uwsgi.sockets[0].name, 10);
 					if (uwsgi_fd >= 0) {
 						ulen = (up - uwsgipkt) - 4;
 						uwsgipkt[1] = (unsigned char) (ulen & 0xff);

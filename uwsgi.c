@@ -369,22 +369,21 @@ static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_requ
 
 static void vacuum(void) {
 
-	struct sockaddr_un sa;
-	socklen_t sa_len = sizeof(struct sockaddr_un);
+	int i;
 
 	if (uwsgi.vacuum) {
 		if (getpid() == masterpid) {
 			if (chdir(uwsgi.cwd)) {
 				uwsgi_error("chdir()");
 			}
-			memset(&sa, 0, sa_len);
-			if (!getsockname(uwsgi.serverfd, (struct sockaddr*)&sa, &sa_len)) {
-				if (sa.sun_family == AF_UNIX) {
-					if (unlink(sa.sun_path)) {
+
+			for(i=0;i<uwsgi.sockets_cnt;i++) {
+				if (uwsgi.sockets[i].family == AF_UNIX) {
+					if (unlink(uwsgi.sockets[i].name)) {
 						uwsgi_error("unlink()");
 					}
 					else {
-						uwsgi_log("VACUUM: unix socket removed.\n");
+						uwsgi_log("VACUUM: unix socket %s removed.\n", uwsgi.sockets[i].name);
 					}
 				}
 			}
@@ -405,7 +404,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uint64_t master_cycles = 0;
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
-	int i;
+	int i,j;
 
 	int rlen;
 
@@ -422,6 +421,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	socklen_t udp_len;
 	char udp_client_addr[16];
 #endif
+
+	
 
 	pid_t pid;
 
@@ -454,7 +455,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	//struct uidsec_struct us;
 #endif
 
-	int socket_type = 0;
+	struct sockaddr_un usa;
+	struct sockaddr *gsa;
+	struct sockaddr_in *isa;
 	socklen_t socket_type_len;
 	
 	PyObject *random_module, *random_dict, *random_seed;
@@ -554,24 +557,11 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi_error("setenv()");
 			}
 		}
+		uwsgi.is_a_reload = 1;
 	}
 	else {
 		if (setenv("UWSGI_RELOADS", "0", 1)) {
 			uwsgi_error("setenv()");
-		}
-	}
-
-	socket_type_len = sizeof(int);
-	if (!getsockopt(3, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
-		if (socket_type == SOCK_STREAM && reloads > 0) {
-			uwsgi_log("...fd 3 is a socket, i suppose this is a graceful reload of uWSGI, i will try to do my best...\n");
-			uwsgi.is_a_reload = 1;
-#ifdef UNBIT
-			/* discard the 3'th fd as we will use the fd 0 */
-			close(3);
-#else
-			uwsgi.serverfd = 3;
-#endif
 		}
 	}
 
@@ -734,21 +724,21 @@ int main(int argc, char *argv[], char *envp[]) {
                         exit(1);
                 }
 
-                if (!uwsgi.socket_name) {
+                if (!uwsgi.sockets[0].name) {
 
-                        uwsgi.socket_name = malloc(64);
-                        if (!uwsgi.socket_name) {
+                        uwsgi.sockets[0].name = malloc(64);
+                        if (!uwsgi.sockets[0].name) {
                                 uwsgi_error("malloc()");
                                 exit(1);
                         }
 
 
 
-			snprintf(uwsgi.socket_name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
+			snprintf(uwsgi.sockets[0].name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
                         
 
 
-					uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.socket_name);
+					uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.sockets[0].name);
                 }
 
 
@@ -887,10 +877,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	mbstowcs(pname, "uWSGI", 6);
 	Py_SetProgramName(pname);
 #else
+
 	Py_SetProgramName("uWSGI");
 #endif
 
+
 	Py_Initialize();
+
 
 	init_pyargv(&uwsgi);
 
@@ -901,6 +894,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
 	uwsgi.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
+
 
 #ifdef UWSGI_EMBEDDED
 	if (uwsgi.sharedareasize > 0) {
@@ -954,6 +948,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.main_thread = PyThreadState_Get();
 
 
+
 #ifdef UWSGI_NAGIOS
 	if (uwsgi.nagios) {
 		nagios(&uwsgi);
@@ -976,30 +971,106 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	if (!uwsgi.no_server) {
-		if (uwsgi.socket_name != NULL && !uwsgi.is_a_reload) {
-				char *tcp_port = strchr(uwsgi.socket_name, ':');
+
+		// check for inherited sockets
+		if (uwsgi.is_a_reload) {
+			for(i=0;i<uwsgi.sockets_cnt;i++) {
+				// a bit overengineering
+				if (uwsgi.sockets[i].name != NULL) {
+
+					for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
+                                        	socket_type_len = sizeof(struct sockaddr_un);
+                                        	gsa = (struct sockaddr *) &usa;
+                                        	if (!getsockname(j, gsa, &socket_type_len)) {
+                                                	if ( gsa->sa_family == AF_UNIX) {
+                                                        	if (!strcmp( usa.sun_path, uwsgi.sockets[i].name)) {
+                                                                	uwsgi.sockets[i].fd = j;
+                                                                	uwsgi.sockets[i].family = AF_UNIX;
+									uwsgi.sockets[i].bound = 1;
+									uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
+									uwsgi.sockets_poll[i].events = POLLIN;
+									uwsgi_will_starts = 1;
+									uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
+                                                        	}
+                                               		}	 
+                                                	else if ( gsa->sa_family == AF_INET ) {
+                                                        	char *computed_addr;
+                                                        	char computed_port[6];
+                                                        	isa = (struct sockaddr_in *) &usa;
+                                                        	char ipv4a[INET_ADDRSTRLEN+1];
+                                                        	memset(ipv4a, 0, INET_ADDRSTRLEN+1);
+                                                        	memset(computed_port, 0, 6);
+
+                                                        	if (snprintf( computed_port, 6, "%d", ntohs(isa->sin_port)) > 0) {
+                                                                	if (inet_ntop(AF_INET, (const void * __restrict__) &isa->sin_addr.s_addr, ipv4a, INET_ADDRSTRLEN)) {
+                                                                        	if (!strcmp("0.0.0.0", ipv4a)) {
+                                                                                	computed_addr = uwsgi_concat2(":", computed_port);
+                                                                        	}
+                                                                        	else {
+                                                                                	computed_addr = uwsgi_concat3(ipv4a, ":", computed_port);
+                                                                        	}
+                                                                        	if (!strcmp(computed_addr, uwsgi.sockets[i].name)) {
+                                                                                	uwsgi.sockets[i].fd = j;
+                                                                                	uwsgi.sockets[i].family = AF_INET;
+											uwsgi.sockets[i].bound = 1;
+											uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
+											uwsgi.sockets_poll[i].events = POLLIN;
+											uwsgi_will_starts = 1;
+											uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
+                                                                        	}
+										free(computed_addr);
+                                                                	}
+                                                        	}
+                                                	}
+                                        	}
+					}
+                                }
+			}
+
+			// now close all the unbound fd
+			for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
+				int useless = 1;
+				socket_type_len = sizeof(struct sockaddr_un);
+                                gsa = (struct sockaddr *) &usa;
+                                if (!getsockname(j, gsa, &socket_type_len)) {
+					for(i=0;i<uwsgi.sockets_cnt;i++) {
+						if (uwsgi.sockets[i].fd == j && uwsgi.sockets[i].bound) {
+							useless = 0;
+							break;
+						}
+					}
+				}
+				if (useless) close(j);
+			}
+		}
+
+
+		// now bind all the unbound sockets
+		for(i=0;i<uwsgi.sockets_cnt;i++) {
+			if (!uwsgi.sockets[i].bound) {
+				char *tcp_port = strchr(uwsgi.sockets[i].name, ':');
 				if (tcp_port == NULL) {
-					uwsgi.serverfd = bind_to_unix(uwsgi.socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+					uwsgi.sockets[i].fd = bind_to_unix(uwsgi.sockets[i].name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+					uwsgi.sockets[i].family = AF_UNIX;
+					uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				}
 				else {
-					uwsgi.serverfd = bind_to_tcp(uwsgi.socket_name, uwsgi.listen_queue, tcp_port);
-#ifdef __linux__
-					uwsgi.get_tcp_info = 1;
-#endif
+					uwsgi.sockets[i].fd = bind_to_tcp(uwsgi.sockets[i].name, uwsgi.listen_queue, tcp_port);
+					uwsgi.sockets[i].family = AF_INET;
+					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				}
 
-				if (uwsgi.serverfd < 0) {
-					uwsgi_log("unable to create the server socket.\n");
+				if (uwsgi.sockets[i].fd < 0) {
+					uwsgi_log("unable to create server socket on: %s\n", uwsgi.sockets[i].name);
 					exit(1);
 				}
-		}
+		
+			}
 
-		socket_type_len = sizeof(int);
-		if (!getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_len)) {
+			uwsgi.sockets[i].bound = 1;
+			uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
+			uwsgi.sockets_poll[i].events = POLLIN;
 			uwsgi_will_starts = 1;
-		}
-		else {
-			uwsgi.numproc = 0 ;
 		}
 
 #ifdef UWSGI_PROXY
@@ -1026,20 +1097,22 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 #ifdef UWSGI_DEBUG
-	so_bufsize_len = sizeof(int) ;
-	if (getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_RCVBUF,  &so_bufsize, &so_bufsize_len)) {
-		uwsgi_error("getsockopt()");
-	}
-	else {
-		uwsgi_debug("uwsgi socket SO_RCVBUF size: %d\n", so_bufsize);
-	}
+	for(i=0;i<uwsgi.sockets_cnt;i++) {
+		so_bufsize_len = sizeof(int) ;
+		if (getsockopt(uwsgi.sockets[i].fd, SOL_SOCKET, SO_RCVBUF,  &so_bufsize, &so_bufsize_len)) {
+			uwsgi_error("getsockopt()");
+		}
+		else {
+			uwsgi_debug("uwsgi socket %d SO_RCVBUF size: %d\n", i, so_bufsize);
+		}
 
-	so_bufsize_len = sizeof(int) ;
-	if (getsockopt(uwsgi.serverfd, SOL_SOCKET, SO_SNDBUF,  &so_bufsize, &so_bufsize_len)) {
-		uwsgi_error("getsockopt()");
-	}
-	else {
-		uwsgi_debug("uwsgi socket SO_SNDBUF size: %d\n", so_bufsize);
+		so_bufsize_len = sizeof(int) ;
+		if (getsockopt(uwsgi.sockets[i].fd, SOL_SOCKET, SO_SNDBUF,  &so_bufsize, &so_bufsize_len)) {
+			uwsgi_error("getsockopt()");
+		}
+		else {
+			uwsgi_debug("uwsgi socket %d SO_SNDBUF size: %d\n", i, so_bufsize);
+		}
 	}
 #endif
 
@@ -1190,7 +1263,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.numproc > 0) {
-		uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi.embedded_dict);
+		uwsgi.shared->spooler_pid = spooler_start(&uwsgi, uwsgi.embedded_dict);
 	}
 #endif
 
@@ -1237,10 +1310,12 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi.workers[i].i_have_gil = 1;
 #endif
 			uwsgi.mywid = i;
+/* check this part
 			if (uwsgi.serverfd != 0 && uwsgi.master_process == 1) {
-				/* close STDIN for workers */
+				//close STDIN for workers 
 				close(0);
 			}
+*/
 			break;
 		}
 		else if (pid < 1) {
@@ -1349,19 +1424,18 @@ int main(int argc, char *argv[], char *envp[]) {
 					exit(1);
 				}
 				/* check fd table (a module can obviosly open some fd on initialization...) */
-				uwsgi_log( "closing all fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
+				uwsgi_log( "closing all non-uwsgi socket fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
 				for (i = 3; i < sysconf(_SC_OPEN_MAX); i++) {
-					if (i == uwsgi.serverfd) {
-						continue;
+					int found = 0;
+					for(j=0;j<uwsgi.sockets_cnt;j++) {
+						if (i == uwsgi.sockets[j].fd) {
+							found = 1;
+							break;
+						}
 					}
-					close(i);
+					if (!found) close(i);
 				}
-				if (uwsgi.serverfd != 3) {
-					if (dup2(uwsgi.serverfd, 3) < 0) {
-						uwsgi_error("dup2()");
-						exit(1);
-					}
-				}
+
 				uwsgi_log( "running %s\n", uwsgi.binary_path);
 				argv[0] = uwsgi.binary_path;
 				//strcpy (argv[0], uwsgi.binary_path);
@@ -1489,17 +1563,13 @@ int main(int argc, char *argv[], char *envp[]) {
 
 				
 #ifdef __linux__
-				if (uwsgi.get_tcp_info) {
+				for(i=0;i<uwsgi.sockets_cnt;i++) {
 					struct tcp_info ti;
 					socklen_t tis = sizeof(struct tcp_info) ;
-					if (getsockopt(uwsgi.serverfd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
-						uwsgi_error("getsockopt()");
-						// unsupported ? disable it
-						uwsgi.get_tcp_info = 0;
-					}
-					else {
+					if (uwsgi.sockets[i].family != AF_INET) continue;
+					if (!getsockopt(uwsgi.sockets[i].fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
 						if (ti.tcpi_unacked >= ti.tcpi_sacked) {
-							uwsgi_log_verbose("*** uWSGI listen queue full !!! (%d/%d) ***\n", ti.tcpi_unacked, ti.tcpi_sacked);
+							uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", uwsgi.sockets[i].fd, ti.tcpi_unacked, ti.tcpi_sacked);
 						}
 					}
 				}
@@ -1557,7 +1627,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 				if (diedpid == uwsgi.shared->spooler_pid) {
 					uwsgi_log( "OOOPS the spooler is no more...trying respawn...\n");
-					uwsgi.shared->spooler_pid = spooler_start(uwsgi.serverfd, uwsgi.embedded_dict);
+					uwsgi.shared->spooler_pid = spooler_start(&uwsgi, uwsgi.embedded_dict);
 					continue;
 				}
 			}
@@ -1686,7 +1756,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	// postpone the queue initialization as kevent do not pass kfd after fork()
 #ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
-		uwsgi.async_queue = async_queue_init(uwsgi.serverfd);
+		uwsgi.async_queue = async_queue_init(uwsgi.sockets[0].fd);
 		if (uwsgi.async_queue < 0) {
 			exit(1);
 		}
@@ -1814,7 +1884,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 		for(i=0; i<uwsgi.async_nevents;i++) {
 
-			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.serverfd) {
+			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
 
 				uwsgi.wsgi_req = find_first_available_wsgi_req(&uwsgi);
 				if (uwsgi.wsgi_req == NULL) {
@@ -1824,7 +1894,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 				wsgi_req_setup(uwsgi.wsgi_req, ( (uint8_t *)uwsgi.wsgi_req - (uint8_t *)uwsgi.wsgi_requests)/sizeof(struct wsgi_request) );
 
-				if (wsgi_req_accept(uwsgi.serverfd, uwsgi.wsgi_req)) {
+				if (wsgi_req_accept(&uwsgi, uwsgi.wsgi_req)) {
 					continue;
 				}
 
@@ -1861,7 +1931,7 @@ cycle:
 #endif
 		wsgi_req_setup(uwsgi.wsgi_req, 0);
 
-		if (wsgi_req_accept(uwsgi.serverfd, uwsgi.wsgi_req)) {
+		if (wsgi_req_accept(&uwsgi, uwsgi.wsgi_req)) {
 			continue;
 		}
 
@@ -2572,27 +2642,6 @@ pid_t proxy_start(int has_master) {
 }
 #endif
 
-#ifdef UWSGI_SPOOLER
-pid_t spooler_start(int serverfd, PyObject * uwsgi_module_dict) {
-	pid_t pid;
-
-	pid = fork();
-	if (pid < 0) {
-		uwsgi_error("fork()");
-		exit(1);
-	}
-	else if (pid == 0) {
-		close(serverfd);
-		spooler(&uwsgi, uwsgi_module_dict);
-	}
-	else if (pid > 0) {
-		uwsgi_log( "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
-	}
-
-	return pid;
-}
-#endif
-
 void manage_opt(int i, char *optarg) {
 
 	switch (i) {
@@ -2866,7 +2915,13 @@ void manage_opt(int i, char *optarg) {
 		}
 		break;
 	case 's':
-		uwsgi.socket_name = optarg;
+		if (uwsgi.sockets_cnt < 8) {
+			uwsgi.sockets[uwsgi.sockets_cnt].name = optarg;
+			uwsgi.sockets_cnt++;
+		}
+		else {
+			uwsgi_log( "you can specify at most 8 --socket options\n");
+		}
 		break;
 #ifdef UWSGI_XML
 	case 'x':

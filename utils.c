@@ -413,16 +413,34 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
-int wsgi_req_accept(int fd, struct wsgi_request *wsgi_req) {
+int wsgi_req_accept(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
-	wsgi_req->poll.fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
+	int i;
+	int ret;
 
-	if (wsgi_req->poll.fd < 0) {
-        	uwsgi_error("accept()");
-                return -1;
+	ret = poll(uwsgi->sockets_poll, uwsgi->sockets_cnt, -1);
+
+	if (ret < 0) {
+		uwsgi_error("poll()");
+		return -1;
 	}
 
-	return 0;
+	
+	for(i=0;i<uwsgi->sockets_cnt;i++) {
+
+		if (uwsgi->sockets_poll[i].revents & POLLIN) {
+			wsgi_req->poll.fd = accept(uwsgi->sockets_poll[i].fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
+
+			if (wsgi_req->poll.fd < 0) {
+        			uwsgi_error("accept()");
+                		return -1;
+			}
+
+			return 0;
+		}
+	}
+
+	return -1;
 }
 
 inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *uwsgi) {

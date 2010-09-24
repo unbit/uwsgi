@@ -1,6 +1,28 @@
 #ifdef UWSGI_SPOOLER
 #include "uwsgi.h"
 
+pid_t spooler_start(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
+        int i;
+        pid_t pid;
+
+        pid = fork();
+        if (pid < 0) {
+                uwsgi_error("fork()");
+                exit(1);
+        }
+        else if (pid == 0) {
+                for(i=0;i<uwsgi->sockets_cnt;i++) {
+                        close(uwsgi->sockets[i].fd);
+                }
+                spooler(uwsgi, uwsgi_module_dict);
+        }
+        else if (pid > 0) {
+                uwsgi_log( "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi->spool_dir, pid);
+        }
+
+        return pid;
+}
+
 
 int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buffer, int size) {
 

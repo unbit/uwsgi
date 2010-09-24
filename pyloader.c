@@ -256,7 +256,7 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
 
-	uwsgi_log( "application %d (%.*s) ready\n", id, wi->mountpoint_len, wi->mountpoint);
+	uwsgi_log( "application %d (SCRIPT_NAME=%.*s) ready\n", id, wi->mountpoint_len, wi->mountpoint);
 
 	if (id == 0) {
 		uwsgi_log( "setting default application to 0\n");

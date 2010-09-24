@@ -112,6 +112,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 		exit(1);
 	}
 
+
 	ini = malloc(sb.st_size+1);
 
 	if (!ini) {
@@ -119,13 +120,14 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 		exit(1);
 	}
 
+
 	len = read(fd, ini, sb.st_size);
 	if (len != sb.st_size) {
 		uwsgi_error("read()");
 		exit(1);
 	}
 
-	ini[sb.st_size+1] = 0 ;
+	ini[sb.st_size] = 0 ;
 
 	while(sb.st_size) {
 		ini_line = ini_get_line(ini, sb.st_size);

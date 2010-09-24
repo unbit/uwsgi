@@ -7,8 +7,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	int serverfd;
 	struct sockaddr_un *uws_addr;
 
-	uwsgi_log( "binding on UNIX socket: %s\n", socket_name);
-
 	// leave 1 byte for abstract namespace (108 linux -> 104 bsd/mac)
 	if (strlen(socket_name) > 102) {
 		uwsgi_log( "invalid socket name\n");
@@ -332,8 +330,6 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 
-	uwsgi_log( "binding on TCP port: %d\n", ntohs(uws_addr.sin_port));
-
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
 		if (errno == EADDRINUSE) {
 			uwsgi_log("probably another instance of uWSGI is running on the same address.\n");
@@ -347,6 +343,8 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		exit(1);
 	}
 
+
+	tcp_port[0] = ':';
 
 	return serverfd;
 }

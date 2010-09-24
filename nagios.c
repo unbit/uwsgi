@@ -5,11 +5,11 @@ void nagios(struct uwsgi_server *uwsgi) {
 	char *tcp_port;
 	struct pollfd nagios_poll;
 // connect and send
-	if (uwsgi->socket_name == NULL) {
+	if (uwsgi->sockets[0].name == NULL) {
 		fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
 		exit(3);
 	}
-	tcp_port = strchr(uwsgi->socket_name, ':');
+	tcp_port = strchr(uwsgi->sockets[0].name, ':');
 	if (tcp_port == NULL) {
 		fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
 		exit(3);
@@ -17,7 +17,7 @@ void nagios(struct uwsgi_server *uwsgi) {
 
 	tcp_port[0] = 0;
 
-	nagios_poll.fd = connect_to_tcp(uwsgi->socket_name, atoi(tcp_port + 1), uwsgi->shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	nagios_poll.fd = connect_to_tcp(uwsgi->sockets[0].name, atoi(tcp_port + 1), uwsgi->shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	if (nagios_poll.fd < 0) {
 		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers\n");
 		exit(2);
