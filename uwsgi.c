@@ -177,6 +177,19 @@ static struct option long_options[] = {
 		{0, 0, 0, 0}
 	};
 
+#ifdef __linux__
+void get_linux_tcp_info(int fd) {
+	struct tcp_info ti;
+        socklen_t tis = sizeof(struct tcp_info) ;
+
+        if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
+        	if (ti.tcpi_unacked >= ti.tcpi_sacked) {
+                	uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, ti.tcpi_unacked, ti.tcpi_sacked);
+                }
+	}
+}
+#endif
+
 void ping(struct uwsgi_server *uwsgi) {
 
 	struct uwsgi_header uh;
@@ -1571,14 +1584,8 @@ int main(int argc, char *argv[], char *envp[]) {
 				
 #ifdef __linux__
 				for(i=0;i<uwsgi.sockets_cnt;i++) {
-					struct tcp_info ti;
-					socklen_t tis = sizeof(struct tcp_info) ;
 					if (uwsgi.sockets[i].family != AF_INET) continue;
-					if (!getsockopt(uwsgi.sockets[i].fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
-						if (ti.tcpi_unacked >= ti.tcpi_sacked) {
-							uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", uwsgi.sockets[i].fd, ti.tcpi_unacked, ti.tcpi_sacked);
-						}
-					}
+					get_linux_tcp_info(uwsgi.sockets[i].fd);
 				}
 #endif
 
