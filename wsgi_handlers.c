@@ -359,6 +359,24 @@ clear2:
 
 void uwsgi_after_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 
-	if (uwsgi->shared->options[UWSGI_OPTION_LOGGING])
+	if (uwsgi->shared->options[UWSGI_OPTION_LOGGING]) {
 		log_request(wsgi_req);
+	}
+	else {
+		if (uwsgi->shared->options[UWSGI_OPTION_LOG_ZERO]) {
+			if (wsgi_req->response_size == 0) { log_request(wsgi_req); return; }
+		}
+		if (uwsgi->shared->options[UWSGI_OPTION_LOG_SLOW]) {
+			if ((uint32_t) wsgi_req_time >= uwsgi->shared->options[UWSGI_OPTION_LOG_SLOW]) { log_request(wsgi_req); return; }
+		}
+		if (uwsgi->shared->options[UWSGI_OPTION_LOG_4xx]) {
+			if (wsgi_req->status >= 400 && wsgi_req->status <= 499) { log_request(wsgi_req); return; }
+		}
+		if (uwsgi->shared->options[UWSGI_OPTION_LOG_5xx]) {
+			if (wsgi_req->status >= 500 && wsgi_req->status <= 599) { log_request(wsgi_req); return; }
+		}
+		if (uwsgi->shared->options[UWSGI_OPTION_LOG_BIG]) {
+			if (wsgi_req->response_size >= uwsgi->shared->options[UWSGI_OPTION_LOG_BIG]) { log_request(wsgi_req); return; }
+		}
+	}
 }

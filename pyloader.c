@@ -191,13 +191,17 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
 	}
 
 	if (wi->argc == 2) {
+#ifdef UWSGI_DEBUG
 		uwsgi_log("-- WSGI callable detected --\n");
+#endif
 		wi->request_subhandler = uwsgi_request_subhandler_wsgi;
 		wi->response_subhandler = uwsgi_response_subhandler_wsgi;
 	}
 #ifdef UWSGI_WEB3
 	else if (wi->argc == 1) {
+#ifdef UWSGI_DEBUG
 		uwsgi_log("-- Web3 callable detected --\n");
+#endif
 		wi->request_subhandler = uwsgi_request_subhandler_web3;
 		wi->response_subhandler = uwsgi_response_subhandler_web3;
 	}
@@ -256,16 +260,23 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
 
-	uwsgi_log( "application %d (SCRIPT_NAME=%.*s) ready\n", id, wi->mountpoint_len, wi->mountpoint);
+	if (wi->argc == 1) {
+		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready", id, wi->mountpoint_len, wi->mountpoint);
+	}
+	else {
+		uwsgi_log( "WSGI application %d (SCRIPT_NAME=%.*s) ready", id, wi->mountpoint_len, wi->mountpoint);
+	}
 
 	if (id == 0) {
-		uwsgi_log( "setting default application to 0\n");
+		uwsgi_log(" (default app)");
 		uwsgi->default_app = 0;
 		if (uwsgi->vhost) uwsgi->apps_cnt++;
 	}
 	else {
 		uwsgi->apps_cnt++;
 	}
+
+	uwsgi_log("\n");
 
 	return id;
 

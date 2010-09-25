@@ -36,6 +36,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 
 #ifdef UWSGI_SENDFILE
 	char *msg1 = " via sendfile() ";
+#endif
 
 	struct uwsgi_app *wi;
 
@@ -46,6 +47,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+#ifdef UWSGI_SENDFILE
 	if (wsgi_req->sendfile_fd > -1 && wsgi_req->sendfile_obj == wsgi_req->async_result) { //wsgi_req->sendfile_fd_size > 0 ) {
 		via = msg1;
 	}

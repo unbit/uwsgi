@@ -397,7 +397,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 	UWSGI_SET_IN_REQUEST;
 
-        if (uwsgi.shared->options[UWSGI_OPTION_LOGGING]) gettimeofday(&wsgi_req->start_of_request, NULL);
+        gettimeofday(&wsgi_req->start_of_request, NULL);
 
 	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer)) {
 		return -1;

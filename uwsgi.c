@@ -144,6 +144,11 @@ static struct option long_options[] = {
 		UWSGI_PLUGIN_LONGOPT_RACK
 		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 		{"logdate", no_argument, &uwsgi.logdate, 1},
+		{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO},
+		{"log-slow", required_argument, 0, LONG_ARGS_LOG_SLOW},
+		{"log-4xx", no_argument, 0, LONG_ARGS_LOG_4xx},
+		{"log-5xx", no_argument, 0, LONG_ARGS_LOG_5xx},
+		{"log-big", required_argument, 0, LONG_ARGS_LOG_BIG},
 		{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 		{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
@@ -848,9 +853,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	// by default set wsgi_req to the first slot
 	uwsgi.wsgi_req = uwsgi.wsgi_requests ;
 
-	uwsgi_log("allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.async), 
+	if (uwsgi.async > 1) {
+		uwsgi_log("allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.async), 
 								 (uint64_t)( (sizeof(struct wsgi_request) * uwsgi.async ) / 1024),
 								 uwsgi.async);
+	}
 
 	if (uwsgi.pyhome != NULL) {
 		uwsgi_log("Setting PythonHome to %s...\n", uwsgi.pyhome);
@@ -2890,6 +2897,21 @@ void manage_opt(int i, char *optarg) {
 	case 'L':
 		uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 0;
 		break;
+	case LONG_ARGS_LOG_ZERO:
+		uwsgi.shared->options[UWSGI_OPTION_LOG_ZERO] = 1;
+		break;
+	case LONG_ARGS_LOG_SLOW:
+		uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW] = atoi(optarg);
+		break;
+	case LONG_ARGS_LOG_4xx:
+		uwsgi.shared->options[UWSGI_OPTION_LOG_4xx] = 1;
+		break;
+	case LONG_ARGS_LOG_5xx:
+		uwsgi.shared->options[UWSGI_OPTION_LOG_5xx] = 1;
+		break;
+	case LONG_ARGS_LOG_BIG:
+		uwsgi.shared->options[UWSGI_OPTION_LOG_BIG] = atoi(optarg);
+		break;
 #ifdef UWSGI_SPOOLER
 	case 'Q':
 		uwsgi.spool_dir = malloc(PATH_MAX);
@@ -3067,6 +3089,11 @@ void manage_opt(int i, char *optarg) {
 \t--async <n>\t\t\tenable async mode with n core\n\
 \t--logto <logfile|addr>\t\tlog to file/udp\n\
 \t--logdate\t\t\tadd timestamp to loglines\n\
+\t--log-zero\t\t\tlog requests with 0 response size\n\
+\t--log-slow <t>\t\t\tlog requests slower than <t> milliseconds\n\
+\t--log-4xx\t\t\tlog requests with status code 4xx\n\
+\t--log-5xx\t\t\tlog requests with status code 5xx\n\
+\t--log-big <n>\t\t\tlog requests bigger than <n> bytes\n\
 \t--ignore-script-name\t\tdisable uWSGI management of SCRIPT_NAME\n\
 \t--no-default-app\t\tdo not fallback unknown SCRIPT_NAME requests\n\
 \t--ini <inifile>\t\t\tpath of ini config file\n\
