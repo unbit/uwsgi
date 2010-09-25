@@ -751,12 +751,9 @@ int main(int argc, char *argv[], char *envp[]) {
                         }
 
 
-
+			uwsgi.sockets_cnt++;
 			snprintf(uwsgi.sockets[0].name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
-                        
-
-
-					uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.sockets[0].name);
+			uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.sockets[0].name);
                 }
 
 
