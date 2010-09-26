@@ -751,6 +751,8 @@ struct uwsgi_server {
 	struct uwsgi_socket sockets[8];
 	struct pollfd sockets_poll[8];
 
+	time_t respawn_delta;
+
 };
 
 struct uwsgi_cluster_node {
@@ -1192,3 +1194,8 @@ int uwsgi_response_subhandler_web3(struct uwsgi_server *, struct wsgi_request *)
 
 int uwsgi_get_app_id(struct uwsgi_server *, char *, int);
 char *uwsgi_strncopy(char *, int );
+
+void master_loop(struct uwsgi_server *, char **, char **);
+
+
+int find_worker_id(pid_t);
