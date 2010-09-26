@@ -242,8 +242,6 @@ PyMethodDef null_methods[] = {
 	{ NULL, NULL},
 };
 
-struct uwsgi_app *wi;
-
 void warn_pipe() {
 	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
 
@@ -311,24 +309,13 @@ void harakiri() {
 
 	PyGILState_Ensure();
 	_myself = PyThreadState_Get();
-	if (wi) {
-		uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d) wi: %p wi->wsgi_harakiri: %p thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, wi, wi->wsgi_harakiri, _myself, _myself->frame);
 
-/*
-		// NEED TO FIND A SAFER WAY !!!
-		if (wi->wsgi_harakiri) {
-			PyEval_CallObject(wi->wsgi_harakiri, wi->wsgi_args);
-			if (PyErr_Occurred()) {
-				PyErr_Print();
-			}
-		}
-*/
-	}
-	else {
-		uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d) thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, _myself, _myself->frame);
-	}
+	uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d) thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, _myself, _myself->frame);
 
-	uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
+
+	if (!uwsgi.master_process) {
+		uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
+	}
 
 	Py_FatalError("HARAKIRI !\n");
 }
