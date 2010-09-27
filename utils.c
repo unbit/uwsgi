@@ -475,6 +475,10 @@ void sanitize_args(struct uwsgi_server *uwsgi) {
 		uwsgi->single_interpreter = 1 ;
 	}
 
+	if (uwsgi->wsgi_file) {
+		uwsgi->single_interpreter = 1 ;
+	}
+
 #ifdef UWSGI_INI
 	if (uwsgi->ini) {
 		uwsgi->single_interpreter = 1 ;

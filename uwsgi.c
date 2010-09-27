@@ -177,19 +177,6 @@ static struct option long_options[] = {
 		{0, 0, 0, 0}
 	};
 
-#ifdef __linux__
-void get_linux_tcp_info(int fd) {
-	struct tcp_info ti;
-        socklen_t tis = sizeof(struct tcp_info) ;
-
-        if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
-        	if (ti.tcpi_unacked >= ti.tcpi_sacked) {
-                	uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, ti.tcpi_unacked, ti.tcpi_sacked);
-                }
-	}
-}
-#endif
-
 void ping(struct uwsgi_server *uwsgi) {
 
 	struct uwsgi_header uh;

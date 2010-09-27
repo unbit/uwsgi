@@ -1,5 +1,19 @@
 #include "uwsgi.h"
 
+#ifdef __linux__
+void get_linux_tcp_info(int fd) {
+        struct tcp_info ti;
+        socklen_t tis = sizeof(struct tcp_info) ;
+
+        if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
+                if (ti.tcpi_unacked >= ti.tcpi_sacked) {
+                        uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, ti.tcpi_unacked, ti.tcpi_sacked);
+                }
+        }
+}
+#endif
+
+
 void master_loop(struct uwsgi_server *uwsgi, char **argv, char **environ) {
 
 	uint64_t master_cycles = 0;
