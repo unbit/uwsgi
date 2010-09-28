@@ -539,12 +539,29 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (optind < argc) {
 		char *lazy = argv[optind];
 		char *qc = strchr(lazy, ':');
-		if (qc) {
-			qc[0] = 0 ;
-			uwsgi.callable = qc + 1;
-		}
-		if (!strcmp(lazy+strlen(lazy)-3, ".py")) {
-			uwsgi.file_config = lazy;
+		// ignore last arg if it starts with [
+		if (lazy[0] != '[') {
+			if (qc) {
+				qc[0] = 0 ;
+				uwsgi.callable = qc + 1;
+			}
+			if (!strcmp(lazy+strlen(lazy)-3, ".py")) {
+				uwsgi.file_config = lazy;
+			}
+			else if (!strcmp(lazy+strlen(lazy)-4, ".xml")) {
+				if (qc) { uwsgi.callable = NULL ; qc[0] = ':';}
+				uwsgi.xml_config = lazy;
+			}
+			else if (!strcmp(lazy+strlen(lazy)-4, ".ini")) {
+				if (qc) { uwsgi.callable = NULL ; qc[0] = ':';}
+				uwsgi.ini = lazy;
+			}
+			else if (!strcmp(lazy+strlen(lazy)-5, ".wsgi")) {
+				uwsgi.wsgi_file = lazy;
+			}
+			else {
+				uwsgi.wsgi_config = lazy;
+			}
 		}
 	}
 
