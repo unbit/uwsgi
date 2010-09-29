@@ -6,6 +6,8 @@ static char *nl = "\r\n";
 static char *h_sep = ": ";
 static const char *http_protocol = "HTTP/1.1";
 
+// check here
+
 PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *headers, *head;
 	PyObject *h_key, *h_value;
@@ -20,7 +22,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	// is a Web3 response ?
 	if (PyTuple_Size(args) == 3) {
-		shift = 1;
+		shift = 0;
 	}
 
 	head = PyTuple_GetItem(args, 0+shift);

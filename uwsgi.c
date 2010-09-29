@@ -1612,20 +1612,21 @@ void init_uwsgi_vars() {
 	// simulate a pythonhome directive
 	if (uwsgi.wsgi_req->pyhome_len > 0) {
 
-		PyObject *venv_path = PyString_FromStringAndSize(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len) ;
+		PyObject *venv_path = UWSGI_PYFROMSTRINGSIZE(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len) ;
 
 #ifdef UWSGI_DEBUG
-		uwsgi_debug("setting dynamic virtualenv to %s\n", PyString_AsString(venv_path));
+		uwsgi_debug("setting dynamic virtualenv to %.*s\n", uwsgi.wsgi_req->pyhome_len, uwsgi.wsgi_req->pyhome);
 #endif
 
 		PyDict_SetItemString(pysys_dict, "prefix", venv_path);
 		PyDict_SetItemString(pysys_dict, "exec_prefix", venv_path);
 
 		venv_version[14] = 0 ;
-		if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
+		if (snprintf(venv_version, 15, "%.*s/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
 			return ;
 		}
 
+		// check here
 		PyString_Concat( &venv_path, PyString_FromString(venv_version) );
 
 		if ( PyList_Insert(pypath, 0, venv_path) ) {

@@ -1,5 +1,21 @@
 *** september 2010 ***
 
+ * 0.9.6.5 [20100929]
+
+- PEP 3333 support
+- fix --pythonpath with --wsgi-file
+- x-wsgiorg.uwsgi.version renamed to uwsgi.version
+
+ * 0.9.6.4 [20100925]
+
+- fix a stupid bug in conditional logging backport
+
+ * 0.9.6.3 [20100925]
+
+- fix a buffer overflow in .ini parsing (it throws a glibc error on malloc)
+- backport of conditional logging from 0.9.7-dev
+- backport of backlog queue monitor from 0.9.7-dev (only Linux)
+
  * 0.9.6.2 [20100915]
 
 - fix a regression in virtual hosting mode

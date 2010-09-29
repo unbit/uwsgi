@@ -77,8 +77,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	size_t post_remains = wsgi_req->post_cl;
 	ssize_t post_chunk;
 
-	PyObject *zero;
-
 	PyObject *pydictkey, *pydictvalue;
 
 	static PyObject *uwsgi_version = NULL;
@@ -91,6 +89,9 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	if (uwsgi_version == NULL) {
 		uwsgi_version = PyString_FromString(UWSGI_VERSION);
 	}
+
+	char *what;
+	int what_len;
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -138,19 +139,19 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 			wsgi_req->script_name = "";
 
 		if (uwsgi->vhost) {
-			zero = PyString_FromStringAndSize(wsgi_req->host, wsgi_req->host_len);
-			PyString_Concat(&zero, PyString_FromString("|"));
-			PyString_Concat(&zero, PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len));
+			what = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
+			what_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len ;
 #ifdef UWSGI_DEBUG
-			uwsgi_debug("VirtualHost SCRIPT_NAME=%s\n", PyString_AsString(zero)); 
+			uwsgi_debug("VirtualHost SCRIPT_NAME=%s\n", what); 
 #endif
 		}
 		else {
-			zero = PyString_FromStringAndSize(wsgi_req->script_name, wsgi_req->script_name_len);
+			what = wsgi_req->script_name;
+			what_len = wsgi_req->script_name_len ;
 		}
 
 
-		if ( (wsgi_req->app_id = uwsgi_get_app_id(uwsgi, wsgi_req->script_name, wsgi_req->script_name_len))  == -1) {
+		if ( (wsgi_req->app_id = uwsgi_get_app_id(uwsgi, what, what_len))  == -1) {
         		if (wsgi_req->script_name_len > 1 || uwsgi->default_app < 0 || uwsgi->vhost) {
         			/* unavailable app for this SCRIPT_NAME */
                 		wsgi_req->app_id = -1;
@@ -160,7 +161,6 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 			}
 		}
 
-		Py_DECREF(zero);
 	}
 	else {
 		wsgi_req->app_id = 0;
@@ -233,8 +233,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		uwsgi_debug("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 #endif
 */
+#ifdef PYTHREE
+		pydictkey = PyUnicode_DecodeLatin1(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, "ignore");
+		pydictvalue = PyUnicode_DecodeLatin1(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len, "ignore");
+#else
 		pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
 		pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
+#endif
 		PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
 		Py_DECREF(pydictkey);
 		Py_DECREF(pydictvalue);

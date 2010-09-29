@@ -272,6 +272,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #ifdef PYTHREE
 #define UWSGI_PYFROMSTRING(x) PyUnicode_FromString(x)
+#define UWSGI_PYFROMSTRINGSIZE(x, y) PyUnicode_FromStringAndSize(x, y)
 #define PyInt_FromLong	PyLong_FromLong
 #define PyInt_AsLong	PyLong_AsLong
 #define PyInt_Check	PyLong_Check
@@ -286,6 +287,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #else
 #define UWSGI_PYFROMSTRING(x) PyString_FromString(x)
+#define UWSGI_PYFROMSTRINGSIZE(x, y) PyString_FromStringAndSize(x, y)
 #endif
 
 #define NL_SIZE 2
