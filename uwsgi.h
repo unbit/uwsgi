@@ -665,7 +665,6 @@ struct uwsgi_server {
 #ifdef UWSGI_PASTE
 	char *paste;
 #endif
-	char *wsgi_file;
 
 	int single_interpreter;
 	int py_optimize;
@@ -755,6 +754,7 @@ struct uwsgi_server {
 
 	time_t respawn_delta;
 
+	PyObject *pyloader_dict;
 };
 
 struct uwsgi_cluster_node {
@@ -882,9 +882,9 @@ void uwsgi_xml_config(struct wsgi_request *, struct option *);
 
 void uwsgi_wsgi_config(char *);
 #ifdef UWSGI_PASTE
-void uwsgi_paste_config(void);
+void uwsgi_paste_config(char *);
 #endif
-void uwsgi_wsgi_file_config(void);
+void uwsgi_file_config(char *);
 void uwsgi_eval_config(char *);
 
 void internal_server_error(int, char *);
@@ -915,7 +915,7 @@ uint32_t uwsgi_swap32(uint32_t);
 uint64_t uwsgi_swap64(uint64_t);
 #endif
 
-int init_uwsgi_app(struct uwsgi_server *, PyObject *);
+int init_uwsgi_app(struct uwsgi_server *, PyObject *, int);
 
 PyObject *uwsgi_send_message(const char *, int, uint8_t, uint8_t, char *, int, int);
 
@@ -1201,3 +1201,14 @@ void master_loop(struct uwsgi_server *, char **, char **);
 
 
 int find_worker_id(pid_t);
+void init_uwsgi_py_interpreter(struct uwsgi_server *, struct wsgi_request *);
+
+
+#define LOADER_DYNAMIC	0
+#define LOADER_UWSGI	1
+#define LOADER_FILE	2
+#define LOADER_XML	3
+#define LOADER_PASTE	4
+#define LOADER_EVAL	5
+
+#define LOADER_MAX	6

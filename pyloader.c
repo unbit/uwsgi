@@ -18,8 +18,28 @@ PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_re
 PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_write, METH_VARARGS, ""}};
 #endif
 
+void init_uwsgi_py_interpreter(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+	
+        // Initialize a new environment for the new interpreter
 
-int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
+        uwsgi_log("setting new interpreter\n");
+        wi->interpreter = Py_NewInterpreter();
+        if (!wi->interpreter) {
+        	uwsgi_log( "unable to initialize the new python interpreter\n");
+                exit(1);
+        }
+        PyThreadState_Swap(wi->interpreter);
+        init_pyargv(uwsgi);
+
+#ifdef UWSGI_EMBEDDED
+        // we need to inizialize an embedded module for every interpreter
+        init_uwsgi_embedded_module();
+#endif
+        init_uwsgi_vars();
+}
+
+
+int init_uwsgi_app(int loader, char *arg1, struct uwsgi_server *uwsgi, PyObject *my_callable, int new_interpreter) {
 
 	PyObject *wsgi_module, *wsgi_dict;
 	PyObject *zero;
@@ -77,30 +97,28 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
 			uwsgi_error("chdir()");
 		}
 	}
-
-
-
+	
 	// Initialize a new environment for the new interpreter
-	if (uwsgi->single_interpreter == 0) {
 
-		wi->interpreter = Py_NewInterpreter();
-		if (!wi->interpreter) {
-			uwsgi_log( "unable to initialize the new python interpreter\n");
-			exit(1);
-		}
-		PyThreadState_Swap(wi->interpreter);
-		init_pyargv(uwsgi);
+	if (new_interpreter) {
+        	uwsgi_log("setting new interpreter\n");
+        	wi->interpreter = Py_NewInterpreter();
+        	if (!wi->interpreter) {
+                	uwsgi_log( "unable to initialize the new python interpreter\n");
+                	exit(1);
+        	}
+        	PyThreadState_Swap(wi->interpreter);
+        	init_pyargv(uwsgi);
 
 #ifdef UWSGI_EMBEDDED
-		// we need to inizialize an embedded module for every interpreter
-		init_uwsgi_embedded_module();
+        	// we need to inizialize an embedded module for every interpreter
+        	init_uwsgi_embedded_module();
 #endif
-		init_uwsgi_vars();
-		uwsgi_log( "interpreter for app %d initialized.\n", id);
+        	init_uwsgi_vars();
 	}
 
 
-
+	wi->wsgi_callable = uwsgi->loaders[loader](arg1)
 
 	if (my_callable) {
 		wi->wsgi_callable = my_callable;
@@ -260,7 +278,7 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
 #endif
 	}
 
-	if (uwsgi->single_interpreter == 0) {
+	if (new_interpreter) {
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
 
@@ -286,10 +304,75 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
 
 doh:
 	PyErr_Print();
-	if (uwsgi->single_interpreter == 0) {
+	if (new_interpreter) {
 		Py_EndInterpreter(wi->interpreter);
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
 	return -1;
+}
+
+
+/* trying to emulate Graham's mod_wsgi, this will allows easy and fast migrations */
+PyObject *uwsgi_file_loader(char *filename) {
+
+        FILE *wsgifile;
+        struct _node *wsgi_file_node = NULL;
+        PyObject *wsgi_compiled_node, *wsgi_file_module, *wsgi_file_dict;
+        PyObject *wsgi_file_callable;
+        int ret;
+
+        wsgifile = fopen(filename, "r");
+        if (!wsgifile) {
+                uwsgi_error("fopen()");
+                exit(1);
+        }
+
+        wsgi_file_node = PyParser_SimpleParseFile(wsgifile, filename, Py_file_input);
+        if (!wsgi_file_node) {
+                PyErr_Print();
+                uwsgi_log( "failed to parse file %s\n", filename);
+                exit(1);
+        }
+
+        fclose(wsgifile);
+
+        wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_file_node, filename);
+
+        if (!wsgi_compiled_node) {
+                PyErr_Print();
+                uwsgi_log( "failed to compile wsgi file %s\n", filename);
+                exit(1);
+        }
+
+        wsgi_file_module = PyImport_ExecCodeModule("uwsgi_wsgi_file", wsgi_compiled_node);
+        if (!wsgi_file_module) {
+                PyErr_Print();
+                exit(1);
+        }
+
+        Py_DECREF(wsgi_compiled_node);
+
+        wsgi_file_dict = PyModule_GetDict(wsgi_file_module);
+        if (!wsgi_file_dict) {
+                PyErr_Print();
+                exit(1);
+        }
+
+
+        wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, "application");
+        if (!wsgi_file_callable) {
+                PyErr_Print();
+                uwsgi_log( "unable to find \"application\" callable in file %s\n", filename);
+                exit(1);
+        }
+
+        if (!PyFunction_Check(wsgi_file_callable) && !PyCallable_Check(wsgi_file_callable)) {
+                uwsgi_log( "\"application\" must be a callable object in file %s\n", filename);
+                exit(1);
+        }
+
+
+	return wsgi_file_callable;
+
 }
 

@@ -167,14 +167,83 @@ next:
 
 					for (node2 = node->children; node2; node2 = node2->next) {
 						if (node2->type == XML_ELEMENT_NODE) {
-							if (!strcmp((char *) node2->name, "script")) {
+							if (!strcmp((char *) node2->name, "pyhome")) {
 								if (!node2->children) {
-									uwsgi_log( "no wsgi script defined. skip.\n");
+									uwsgi_log( "no virtualenv defined. skip.\n");
+									continue;
+								}
+								if (node2->children->content == NULL) {
+									uwsgi_log( "no virtualenv defined. skip.\n");
+									continue;
+								}
+
+								wsgi_req->pyhome = (char *) node2->children->content;
+								wsgi_req->pyhome_len = strlen((char *) node2->children->content);
+								uwsgi_log("fatto\n");
+
+							}
+							else if (!strcmp((char *) node2->name, "callable")) {
+								if (!uwsgi.pyloader_dict) {
+									uwsgi_log( "no module loaded in memory. skip.\n");
+									continue;
+								}
+								if (!node2->children) {
+									uwsgi_log( "no callable defined. skip.\n");
+									continue;
+								}
+								if (node2->children->content == NULL) {
+									uwsgi_log( "no callable defined. skip.\n");
+									continue;
+								}
+								
+								//init_uwsgi_app(&uwsgi, PyDict_GetItemString(uwsgi.pyloader_dict, (char *) node2->children->content) );
+							}
+							else if (!strcmp((char *) node2->name, "eval")) {
+								if (!node2->children) {
+									uwsgi_log( "no code defined. skip.\n");
+									continue;
+								}
+								if (node2->children->content == NULL) {
+									uwsgi_log( "no code defined. skip.\n");
+									continue;
+								}
+
+								uwsgi_eval_config((char *)node2->children->content);
+								
+							}
+							else if (!strcmp((char *) node2->name, "file")) {
+								if (!node2->children) {
+									uwsgi_log( "no file defined. skip.\n");
+									continue;
+								}
+								if (node2->children->content == NULL) {
+									uwsgi_log( "no file defined. skip.\n");
+									continue;
+								}
+
+								uwsgi_file_config((char *)node2->children->content);
+								
+							}
+							else if (!strcmp((char *) node2->name, "module")) {
+								if (!node2->children) {
+									uwsgi_log( "no module defined. skip.\n");
+									continue;
+								}
+								if (node2->children->content == NULL) {
+									uwsgi_log( "no module defined. skip.\n");
+									continue;
+								}
+
+								uwsgi_wsgi_config((char *)node2->children->content);
+							}
+							else if (!strcmp((char *) node2->name, "script")) {
+								if (!node2->children) {
+									uwsgi_log( "no script defined. skip.\n");
 									continue;
 								}
 								xml_uwsgi_script = node2->children->content;
 								if (xml_uwsgi_script == NULL) {
-									uwsgi_log( "no wsgi script defined. skip.\n");
+									uwsgi_log( "no script defined. skip.\n");
 									continue;
 								}
 								wsgi_req->wsgi_script = (char *) xml_uwsgi_script;
