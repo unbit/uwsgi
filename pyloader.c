@@ -107,6 +107,9 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
                 Py_INCREF(my_callable);
 	}
 	else {
+		// put dynamic loading handlers here
+		
+		// MANAGE UWSGI_SCRIPT
 		if (wsgi_req->wsgi_script_len > 0) {
 			wsgi_req->wsgi_callable = strchr(wsgi_req->wsgi_script, ':');
 			if (wsgi_req->wsgi_callable) {
@@ -118,6 +121,7 @@ int init_uwsgi_app(struct uwsgi_server *uwsgi, PyObject *my_callable) {
 
 			tmpstr = uwsgi_strncopy(wsgi_req->wsgi_script, wsgi_req->wsgi_script_len);
 		}
+		// MANAGE UWSGI_MODULE
 		else if (wsgi_req->wsgi_module_len > 0) {
 			tmpstr = uwsgi_strncopy(wsgi_req->wsgi_module, wsgi_req->wsgi_module_len);
 		}
