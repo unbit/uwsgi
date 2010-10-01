@@ -188,8 +188,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	wi = &uwsgi->apps[wsgi_req->app_id];
 
-	if (uwsgi->single_interpreter == 0 && wsgi_req->app_id) {
-		uwsgi_log("SWAPPING INTERPRETER\n");
+	if (uwsgi->single_interpreter == 0 && wsgi_req->app_id > 0) {
 		if (!wi->interpreter) {
 			internal_server_error(wsgi_req->poll.fd, "wsgi application's %d interpreter not found");
 			goto clear2;
@@ -358,7 +357,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 clear:
 
-	if (uwsgi->single_interpreter == 0 && wsgi_req->app_id) {
+	if (uwsgi->single_interpreter == 0 && wsgi_req->app_id > 0) {
 		// restoring main interpreter
 		PyThreadState_Swap(uwsgi->main_thread);
 	}

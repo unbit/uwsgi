@@ -194,7 +194,7 @@ next:
 									continue;
 								}
 								
-								//init_uwsgi_app(&uwsgi, PyDict_GetItemString(uwsgi.pyloader_dict, (char *) node2->children->content) );
+								init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
 							}
 							else if (!strcmp((char *) node2->name, "eval")) {
 								if (!node2->children) {

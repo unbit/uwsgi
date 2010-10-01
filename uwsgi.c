@@ -1609,8 +1609,6 @@ void init_uwsgi_vars() {
 	PyObject *site_module;
 #endif
 
-	uwsgi_log("AAAAAAA\n");
-
 	/* add cwd to pythonpath */
 	pysys = PyImport_ImportModule("sys");
 	if (!pysys) {
@@ -1627,8 +1625,6 @@ void init_uwsgi_vars() {
 #ifdef UWSGI_MINTERPRETERS
 	// simulate a pythonhome directive
 	if (uwsgi.wsgi_req->pyhome_len > 0) {
-
-		uwsgi_log("TEST000\n");
 
 		PyObject *venv_path = UWSGI_PYFROMSTRINGSIZE(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len) ;
 

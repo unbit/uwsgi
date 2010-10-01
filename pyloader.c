@@ -79,7 +79,6 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 	// Initialize a new environment for the new interpreter
 
 	if (new_interpreter && id) {
-        	uwsgi_log("setting new interpreter\n");
         	wi->interpreter = Py_NewInterpreter();
         	if (!wi->interpreter) {
                 	uwsgi_log( "unable to initialize the new python interpreter\n");
@@ -94,12 +93,15 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 #endif
         	init_uwsgi_vars();
 	}
+	else {
+		wi->interpreter = uwsgi->main_thread;
+	}
 
 
 	wi->wsgi_callable = uwsgi->loaders[loader](arg1);
 
 	if (!wi->wsgi_callable) {
-		uwsgi_log("unable to find \"%.*s\" callable\n", wsgi_req->wsgi_callable_len, wsgi_req->wsgi_callable);
+		uwsgi_log("unable to load app SCRIPT_NAME=%s\n", mountpoint);
 		goto doh;
 	}
 
@@ -139,6 +141,9 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 			uwsgi_log("WARNING: unable to get the number of callable args. Fallback to WSGI\n");
 		}
 	}
+
+	// avoid __code__ attr error propagation
+	PyErr_Clear();
 
 	if (zero) {
 		zero = PyObject_GetAttrString(zero, "co_argcount");
@@ -216,10 +221,10 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 	}
 
 	if (wi->argc == 1) {
-		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready", id, wi->mountpoint_len, wi->mountpoint);
+		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready on interpreter %p", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter);
 	}
 	else {
-		uwsgi_log( "WSGI application %d (SCRIPT_NAME=%.*s) ready", id, wi->mountpoint_len, wi->mountpoint);
+		uwsgi_log( "WSGI application %d (SCRIPT_NAME=%.*s) ready on interpreter %p", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter);
 	}
 
 	if (id == 0) {
