@@ -486,13 +486,15 @@ struct wsgi_request {
 	char *buffer;
 };
 
-#define LOADER_DYN	0
-#define LOADER_UWSGI	1
-#define LOADER_FILE	2
-#define LOADER_PASTE	3
-#define LOADER_EVAL	4
+#define LOADER_DYN		0
+#define LOADER_UWSGI		1
+#define LOADER_FILE		2
+#define LOADER_PASTE		3
+#define LOADER_EVAL		4
+#define LOADER_CALLABLE		5
+#define LOADER_STRING_CALLABLE	6
 
-#define LOADER_MAX	5
+#define LOADER_MAX		7	
 
 struct uwsgi_server {
 
@@ -1226,3 +1228,8 @@ PyObject *uwsgi_dyn_loader(void *);
 PyObject *uwsgi_file_loader(void *);
 PyObject *uwsgi_eval_loader(void *);
 PyObject *uwsgi_paste_loader(void *);
+PyObject *uwsgi_callable_loader(void *);
+PyObject *uwsgi_string_callable_loader(void *);
+
+char *get_uwsgi_pymodule(char *);
+PyObject *get_uwsgi_pydict(char *);

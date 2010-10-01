@@ -493,8 +493,7 @@ static int uwsgi_handler(request_rec *r) {
 					break;
 				}
 			}
-
-			if (uwsgi_poll.revents & POLLHUP || uwsgi_poll.revents & POLLERR || uwsgi_poll.revents & POLLNVAL) {
+			else if (uwsgi_poll.revents & POLLHUP || uwsgi_poll.revents & POLLERR || uwsgi_poll.revents & POLLNVAL) {
 				break;
 			}
 		}

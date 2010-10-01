@@ -17,7 +17,6 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	xmlNode *node2 = NULL;
 
 	xmlChar *xml_uwsgi_mountpoint = NULL;
-	xmlChar *xml_uwsgi_script = NULL;
 	xmlChar *node_mode;
 	struct option *lopt, *aopt;
 
@@ -179,7 +178,6 @@ next:
 
 								wsgi_req->pyhome = (char *) node2->children->content;
 								wsgi_req->pyhome_len = strlen((char *) node2->children->content);
-								uwsgi_log("fatto\n");
 
 							}
 							else if (!strcmp((char *) node2->name, "callable")) {
@@ -208,7 +206,7 @@ next:
 									continue;
 								}
 
-								uwsgi_eval_config((char *)node2->children->content);
+								init_uwsgi_app(LOADER_EVAL, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
 								
 							}
 							else if (!strcmp((char *) node2->name, "file")) {
@@ -221,7 +219,7 @@ next:
 									continue;
 								}
 
-								uwsgi_file_config((char *)node2->children->content);
+								init_uwsgi_app(LOADER_FILE, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
 								
 							}
 							else if (!strcmp((char *) node2->name, "module")) {
@@ -234,21 +232,18 @@ next:
 									continue;
 								}
 
-								uwsgi_wsgi_config((char *)node2->children->content);
+								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
 							}
 							else if (!strcmp((char *) node2->name, "script")) {
 								if (!node2->children) {
 									uwsgi_log( "no script defined. skip.\n");
 									continue;
 								}
-								xml_uwsgi_script = node2->children->content;
-								if (xml_uwsgi_script == NULL) {
+								if (node2->children->content == NULL) {
 									uwsgi_log( "no script defined. skip.\n");
 									continue;
 								}
-								wsgi_req->wsgi_script = (char *) xml_uwsgi_script;
-								wsgi_req->wsgi_script_len = strlen(wsgi_req->wsgi_script);
-								init_uwsgi_app(&uwsgi, NULL);
+								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
 							}
 						}
 					}

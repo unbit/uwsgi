@@ -140,7 +140,6 @@ clear:
 		fclose(wsgi_req->async_post);
 		if (!uwsgi->post_buffering || wsgi_req->post_cl <= (size_t) uwsgi->post_buffering) {
 			wsgi_req->fd_closed = 1 ;
-
 		}
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);

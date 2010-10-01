@@ -1165,9 +1165,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 
-	if (uwsgi.single_interpreter == 1) {
-		init_uwsgi_vars();
-	}
+	init_uwsgi_vars();
 
 	memset(uwsgi.apps, 0, sizeof(uwsgi.apps));
 
@@ -1238,6 +1236,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.loaders[LOADER_PASTE] = uwsgi_paste_loader;
 #endif
 	uwsgi.loaders[LOADER_EVAL] = uwsgi_eval_loader;
+	uwsgi.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
+	uwsgi.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
 
 
@@ -1676,18 +1676,29 @@ void init_uwsgi_vars() {
 
 void uwsgi_uwsgi_config(char *module) {
 
-	PyObject *wsgi_module, *wsgi_dict;
 #ifdef UWSGI_EMBEDDED
 	PyObject *uwsgi_module, *uwsgi_dict;
 #endif
 	PyObject *applications;
 	PyObject *app_list;
-	int ret;
 	Py_ssize_t i;
 	PyObject *app_mnt, *app_app = NULL;
+	char *quick_callable ;
 
-	module = uwsgi_get_pymodule(module);
-	wsgi_dict = uwsgi_get_pydict(module);
+	quick_callable = get_uwsgi_pymodule(module);
+	if (quick_callable == NULL) {
+                if (uwsgi.callable) {
+                        quick_callable = uwsgi.callable ;
+                }
+                else {
+                        quick_callable = "application";
+                }
+        }
+
+	uwsgi.pyloader_dict = get_uwsgi_pydict(module);
+	if (!uwsgi.pyloader_dict) {
+		exit(1);
+	}
 
 	uwsgi_log( "...getting the applications list from the '%s' module...\n", module);
 
@@ -1708,26 +1719,16 @@ void uwsgi_uwsgi_config(char *module) {
 	if (!PyDict_Check(applications)) {
 		uwsgi_log( "uwsgi.applications dictionary is not defined, trying with the \"applications\" one...\n");
 #endif
-		applications = PyDict_GetItemString(wsgi_dict, "applications");
+		applications = PyDict_GetItemString(uwsgi.pyloader_dict, "applications");
 		if (!applications) {
 			uwsgi_log( "applications dictionary is not defined, trying with the \"application\" callable.\n");
-			app_app = PyDict_GetItemString(wsgi_dict, "application");
-			if (app_app) {
-				applications = PyDict_New();
-				if (!applications) {
-					uwsgi_log( "could not initialize applications dictionary\n");
-					exit(1);
-				}
-				if (PyDict_SetItemString(applications, "", app_app)) {
-					PyErr_Print();
-					uwsgi_log( "unable to set default application\n");
-					exit(1);
-				}
-			}
-			else {
-				uwsgi_log( "static applications not defined, you have to use the dynamic one...\n");
-				return;
-			}
+			quick_callable = uwsgi_concat3(module, ":", quick_callable);
+			if (init_uwsgi_app(LOADER_UWSGI, (void *) quick_callable, &uwsgi, 0)  < 0) {
+                                uwsgi_log( "...goodbye cruel world...\n");
+                                exit(1);
+                        }
+			free(quick_callable);
+			return;
 		}
 #ifdef UWSGI_EMBEDDED
 	}
@@ -1767,15 +1768,25 @@ void uwsgi_uwsgi_config(char *module) {
 			exit(1);
 		}
 
+#ifdef PYTHREE
+		if (PyUnicode_Check(app_app)) {
+#else
 		if (PyString_Check(app_app)) {
-			uwsgi.wsgi_req->wsgi_callable = PyString_AsString(app_app);
-			uwsgi.wsgi_req->wsgi_callable_len = strlen(uwsgi.wsgi_req->wsgi_callable);
+#endif
+			if (init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) PyString_AsString(app_app), &uwsgi, 0)  < 0) {
+                        	uwsgi_log( "...goodbye cruel world...\n");
+                        	exit(1);
+                	}
+
+			
+		}
+		else {
+			if (init_uwsgi_app(LOADER_CALLABLE, (void *) app_app, &uwsgi, 0)  < 0) {
+                        	uwsgi_log( "...goodbye cruel world...\n");
+                        	exit(1);
+                	}
 		}
 
-		if (init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, &uwsgi, 0)  < 0) {
-			uwsgi_log( "...goodbye cruel world...\n");
-			exit(1);
-		}
 		Py_DECREF(app_mnt);
 		Py_DECREF(app_app);
 	}

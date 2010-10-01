@@ -78,7 +78,7 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 	
 	// Initialize a new environment for the new interpreter
 
-	if (new_interpreter) {
+	if (new_interpreter && id) {
         	uwsgi_log("setting new interpreter\n");
         	wi->interpreter = Py_NewInterpreter();
         	if (!wi->interpreter) {
@@ -211,7 +211,7 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 #endif
 	}
 
-	if (new_interpreter) {
+	if (new_interpreter && id) {
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
 
@@ -237,43 +237,67 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 
 doh:
 	PyErr_Print();
-	if (new_interpreter) {
+	if (new_interpreter && id) {
 		Py_EndInterpreter(wi->interpreter);
 		PyThreadState_Swap(uwsgi->main_thread);
 	}
 	return -1;
 }
 
-PyObject *uwsgi_uwsgi_loader(void *arg1) {
+char *get_uwsgi_pymodule(char *module) {
 
-        PyObject *wsgi_module, *wsgi_dict;
+	char *quick_callable;
 
-        char *quick_callable = "application";
-
-        PyObject *tmp_callable;
-
-        char *module = (char *) arg1 ;
-
-        if ( (quick_callable = strchr(module, ':')) ) {
-        	quick_callable[0] = 0 ;
-                quick_callable++;
+	if ( (quick_callable = strchr(module, ':')) ) {
+                quick_callable[0] = 0 ;
+		quick_callable++;
+		return quick_callable;
         }
-	else if (uwsgi.callable) {
-                quick_callable = uwsgi.callable ;
-	}
 
-        wsgi_module = PyImport_ImportModule(module);
+	return NULL;
+}
+
+PyObject *get_uwsgi_pydict(char *module) {
+
+	PyObject *wsgi_module, *wsgi_dict;
+	
+	wsgi_module = PyImport_ImportModule(module);
         if (!wsgi_module) {
                 PyErr_Print();
-                exit(1);
+		return NULL;
         }
 
         wsgi_dict = PyModule_GetDict(wsgi_module);
         if (!wsgi_dict) {
                 PyErr_Print();
-                exit(1);
+		return NULL;
         }
 
+	return wsgi_dict;
+
+}
+
+PyObject *uwsgi_uwsgi_loader(void *arg1) {
+
+        PyObject *wsgi_dict;
+
+        char *quick_callable;
+
+        PyObject *tmp_callable;
+
+        char *module = (char *) arg1 ;
+
+        quick_callable = get_uwsgi_pymodule(module) ;
+	if (quick_callable == NULL) {
+		if (uwsgi.callable) {
+                	quick_callable = uwsgi.callable ;
+		}
+		else {
+			quick_callable = "application";
+		}
+	}
+
+	wsgi_dict = get_uwsgi_pydict(module);
 
         // quick callable -> thanks gunicorn for the idea
         // we have extended the concept a bit...
@@ -508,3 +532,12 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 
 }
 
+PyObject *uwsgi_callable_loader(void *arg1) {
+	return (PyObject *) arg1;
+}
+
+PyObject *uwsgi_string_callable_loader(void *arg1) {
+	char *callable = (char *) arg1;
+
+	return PyDict_GetItem(uwsgi.pyloader_dict, UWSGI_PYFROMSTRING(callable));
+}
