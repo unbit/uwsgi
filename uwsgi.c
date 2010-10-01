@@ -1230,13 +1230,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 // setup app loaders
 #ifdef UWSGI_MINTERPRETERS
-	uwsgi.loaders[LOADER_DYNAMIC] = uwsgi_dynamic_loader;
+	uwsgi.loaders[LOADER_DYN] = uwsgi_dyn_loader;
 #endif
 	uwsgi.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
 	uwsgi.loaders[LOADER_FILE] = uwsgi_file_loader;
-#ifdef UWSGI_XML
-	uwsgi.loaders[LOADER_XML] = uwsgi_xml_loader;
-#endif
 #ifdef UWSGI_PASTE
 	uwsgi.loaders[LOADER_PASTE] = uwsgi_paste_loader;
 #endif
@@ -1245,25 +1242,27 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
+	// the command line app loaders will be loaded in the main interpreter
+	// (for performance reason, as this will avoid context switch)
 	if (uwsgi.wsgi_config != NULL) {
-		init_uwsgi_app(LOADER_UWSGI, uwsgi.wsgi_config, &uwsgi, uwsgi.wsgi_req, 0);
+		init_uwsgi_app(LOADER_UWSGI, uwsgi.wsgi_config, &uwsgi, 0);
 	}
 	else if (uwsgi.file_config != NULL) {
-		init_uwsgi_app(LOADER_FILE, uwsgi.file_config, &uwsgi, uwsgi.wsgi_req, 0);
+		init_uwsgi_app(LOADER_FILE, uwsgi.file_config, &uwsgi, 0);
 	}
 #ifdef UWSGI_PASTE
 	else if (uwsgi.paste != NULL) {
-		init_uwsgi_app(LOADER_PASTE, uwsgi.paste, &uwsgi, uwsgi.wsgi_req, 0);
+		init_uwsgi_app(LOADER_PASTE, uwsgi.paste, &uwsgi, 0);
 	}
 #endif
 	else if (uwsgi.eval != NULL) {
-		init_uwsgi_app(LOADER_EVAL, uwsgi.eval, &uwsgi, uwsgi.wsgi_req, 0);
+		init_uwsgi_app(LOADER_EVAL, uwsgi.eval, &uwsgi, 0);
 	}
 
-// parse xml anyway
+// parse xml for <app> tags
 #ifdef UWSGI_XML
 	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-		init_uwsgi_app(LOADER_XML, uwsgi.xml_config, &uwsgi, uwsgi.wsgi_req, 0);
+		uwsgi_xml_config(uwsgi.wsgi_req, NULL);
 	}
 #endif
 
@@ -1675,180 +1674,7 @@ void init_uwsgi_vars() {
 
 }
 
-#ifdef UWSGI_PASTE
-void uwsgi_paste_config(char *paste) {
-	PyObject *paste_module, *paste_dict, *paste_loadapp;
-	PyObject *paste_arg, *paste_app;
-
-	uwsgi_log( "Loading paste environment: %s\n", paste);
-	paste_module = PyImport_ImportModule("paste.deploy");
-	if (!paste_module) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	paste_dict = PyModule_GetDict(paste_module);
-	if (!paste_dict) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	paste_loadapp = PyDict_GetItemString(paste_dict, "loadapp");
-	if (!paste_loadapp) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	paste_arg = PyTuple_New(1);
-	if (!paste_arg) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (PyTuple_SetItem(paste_arg, 0, PyString_FromString(paste))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	paste_app = PyEval_CallObject(paste_loadapp, paste_arg);
-	if (!paste_app) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	init_uwsgi_app(&uwsgi, paste_app);
-}
-
-#endif
-
-void uwsgi_eval_config(char *code) {
-
-	int ret;
-
-	PyObject *wsgi_eval_module, *wsgi_eval_callable;
-
-	struct _node *wsgi_eval_node = NULL;
-	PyObject *wsgi_compiled_node ;
-
-	uwsgi_log("parsing code\n");
-
-	wsgi_eval_node = PyParser_SimpleParseString(code, Py_file_input);
-	if (!wsgi_eval_node) {
-                PyErr_Print();
-                uwsgi_log( "failed to parse <eval> code\n");
-                exit(1);
-        }
-
-	wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_eval_node, "uwsgi_eval_config");
-
-	if (!wsgi_compiled_node) {
-		PyErr_Print();
-		uwsgi_log( "failed to compile eval code\n");
-		exit(1);
-	}
-
-
-	wsgi_eval_module = PyImport_ExecCodeModule("uwsgi_eval_config", wsgi_compiled_node);
-        if (!wsgi_eval_module) {
-                PyErr_Print();
-                exit(1);
-        }
-
-
-        Py_DECREF(wsgi_compiled_node);
-
-        uwsgi.pyloader_dict = PyModule_GetDict(wsgi_eval_module);
-        if (!uwsgi.pyloader_dict) {
-                PyErr_Print();
-                exit(1);
-        }
-
-
-	if (uwsgi.callable) {
-        	wsgi_eval_callable = PyDict_GetItemString(uwsgi.pyloader_dict, uwsgi.callable);
-	}
-	else {
-        	wsgi_eval_callable = PyDict_GetItemString(uwsgi.pyloader_dict, "application");
-	}
-
-	if (wsgi_eval_callable) {
-		uwsgi_log( "found the \"%s\" callable\n", uwsgi.callable);
-        	if (!PyFunction_Check(wsgi_eval_callable) && !PyCallable_Check(wsgi_eval_callable)) {
-                	uwsgi_log( "you must define a callable object in your code\n");
-                	exit(1);
-        	}
-		ret = init_uwsgi_app(&uwsgi, wsgi_eval_callable);
-	}
-
-	uwsgi_log("oops\n");
-}
-
-/* trying to emulate Graham's mod_wsgi, this will allows easy and fast migrations */
-void uwsgi_file_config(char *filename) {
-
-	FILE *wsgifile;
-	struct _node *wsgi_file_node = NULL;
-	PyObject *wsgi_compiled_node, *wsgi_file_module, *wsgi_file_dict;
-	PyObject *wsgi_file_callable;
-	int ret;
-
-	wsgifile = fopen(filename, "r");
-	if (!wsgifile) {
-		uwsgi_error("fopen()");
-		exit(1);
-	}
-
-	wsgi_file_node = PyParser_SimpleParseFile(wsgifile, filename, Py_file_input);
-	if (!wsgi_file_node) {
-		PyErr_Print();
-		uwsgi_log( "failed to parse file %s\n", filename);
-		exit(1);
-	}
-
-	fclose(wsgifile);
-
-	wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_file_node, filename);
-
-	if (!wsgi_compiled_node) {
-		PyErr_Print();
-		uwsgi_log( "failed to compile wsgi file %s\n", filename);
-		exit(1);
-	}
-
-	wsgi_file_module = PyImport_ExecCodeModule("uwsgi_wsgi_file", wsgi_compiled_node);
-	if (!wsgi_file_module) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	Py_DECREF(wsgi_compiled_node);
-
-	wsgi_file_dict = PyModule_GetDict(wsgi_file_module);
-	if (!wsgi_file_dict) {
-		PyErr_Print();
-		exit(1);
-	}
-
-
-	wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, "application");
-	if (!wsgi_file_callable) {
-		PyErr_Print();
-		uwsgi_log( "unable to find \"application\" callable in file %s\n", filename);
-		exit(1);
-	}
-
-	if (!PyFunction_Check(wsgi_file_callable) && !PyCallable_Check(wsgi_file_callable)) {
-		uwsgi_log( "\"application\" must be a callable object in file %s\n", filename);
-		exit(1);
-	}
-
-
-	ret = init_uwsgi_app(&uwsgi, wsgi_file_callable);
-
-}
-
-
-void uwsgi_wsgi_config(char *module) {
+void uwsgi_uwsgi_config(char *module) {
 
 	PyObject *wsgi_module, *wsgi_dict;
 #ifdef UWSGI_EMBEDDED
@@ -1860,58 +1686,23 @@ void uwsgi_wsgi_config(char *module) {
 	Py_ssize_t i;
 	PyObject *app_mnt, *app_app = NULL;
 
-	char *quick_callable = NULL;
+	module = uwsgi_get_pymodule(module);
+	wsgi_dict = uwsgi_get_pydict(module);
 
-	PyObject *tmp_callable;
-	
-	char *the_module = module ;
-
-	if (!the_module) {
-		the_module = uwsgi.wsgi_config;
-	}
-
-	if (uwsgi.callable) {
-		quick_callable = uwsgi.callable ;
-	}
-	else {
-		quick_callable = strchr(the_module, ':');
-		if (quick_callable) {
-			quick_callable[0] = 0 ;
-			quick_callable++;
-		}
-	}
-
-
-	wsgi_module = PyImport_ImportModule(the_module);
-	if (!wsgi_module) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	wsgi_dict = PyModule_GetDict(wsgi_module);
-	if (!wsgi_dict) {
-		PyErr_Print();
-		exit(1);
-	}
-
-
-	if (!quick_callable) {
-		uwsgi_log( "...getting the applications list from the '%s' module...\n", the_module);
+	uwsgi_log( "...getting the applications list from the '%s' module...\n", module);
 
 #ifdef UWSGI_EMBEDDED
-		uwsgi_module = PyImport_ImportModule("uwsgi");
-		if (!uwsgi_module) {
-			PyErr_Print();
-			exit(1);
-		}
+	uwsgi_module = PyImport_ImportModule("uwsgi");
+	if (!uwsgi_module) {
+		PyErr_Print();
+		exit(1);
+	}
 
-		uwsgi_dict = PyModule_GetDict(uwsgi_module);
-		if (!uwsgi_dict) {
-			PyErr_Print();
-			exit(1);
-		}
-
-
+	uwsgi_dict = PyModule_GetDict(uwsgi_module);
+	if (!uwsgi_dict) {
+		PyErr_Print();
+		exit(1);
+	}
 
 	applications = PyDict_GetItemString(uwsgi_dict, "applications");
 	if (!PyDict_Check(applications)) {
@@ -1942,39 +1733,6 @@ void uwsgi_wsgi_config(char *module) {
 	}
 #endif
 
-	}
-	else {
-		// quick callable -> thanks gunicorn for the idea
-		// we have extended the concept a bit...
-		if (quick_callable[strlen(quick_callable) -2 ] == '(' && quick_callable[strlen(quick_callable) -1] ==')') {
-			quick_callable[strlen(quick_callable) -2 ] = 0 ;
-			tmp_callable = PyDict_GetItemString(wsgi_dict, quick_callable);
-			if (tmp_callable) {
-				app_app = python_call(tmp_callable, PyTuple_New(0), 0);
-			}
-		}
-		else {
-
-			app_app = PyDict_GetItemString(wsgi_dict, quick_callable);
-		}
-                if (app_app) {
-                 	applications = PyDict_New();
-                        if (!applications) {
-                        	uwsgi_log( "could not initialize applications dictionary\n");
-                                exit(1);
-                        }
-                        if (PyDict_SetItemString(applications, "", app_app)) {
-                        	PyErr_Print();
-                                uwsgi_log( "unable to set default application\n");
-                                exit(1);
-                        }
-                 }
-                 else {
-                        uwsgi_log( "\"%s\" callable not found.\n", quick_callable);
-			exit(1);
-                 } 
-	}
-
 	if (!PyDict_Check(applications)) {
 		uwsgi_log( "The 'applications' object must be a dictionary.\n");
 		exit(1);
@@ -1993,26 +1751,16 @@ void uwsgi_wsgi_config(char *module) {
 	for (i = 0; i < PyList_Size(app_list); i++) {
 		app_mnt = PyList_GetItem(app_list, i);
 
-#ifdef PYTHREE
-		if (!PyUnicode_Check(app_mnt)) {
-#else
 		if (!PyString_Check(app_mnt)) {
-#endif
-			uwsgi_log( "the app mountpoint must be a string.\n");
+			uwsgi_log( "the app mountpoint must be a bytestring.\n");
 			exit(1);
 		}
 
 
-#ifdef PYTHREE
-		uwsgi.wsgi_req->script_name = (char *) PyUnicode_AS_DATA(app_mnt);
-#else
 		uwsgi.wsgi_req->script_name = PyString_AsString(app_mnt);
-#endif
 		uwsgi.wsgi_req->script_name_len = strlen(uwsgi.wsgi_req->script_name);
 
-
 		app_app = PyDict_GetItem(applications, app_mnt);
-
 
 		if (!PyString_Check(app_app) && !PyFunction_Check(app_app) && !PyCallable_Check(app_app)) {
 			uwsgi_log( "the app callable must be a string, a function or a callable. (found %s)\n", app_app->ob_type->tp_name);
@@ -2022,13 +1770,9 @@ void uwsgi_wsgi_config(char *module) {
 		if (PyString_Check(app_app)) {
 			uwsgi.wsgi_req->wsgi_callable = PyString_AsString(app_app);
 			uwsgi.wsgi_req->wsgi_callable_len = strlen(uwsgi.wsgi_req->wsgi_callable);
-			ret = init_uwsgi_app(&uwsgi, NULL);
-		}
-		else {
-			ret = init_uwsgi_app(&uwsgi, app_app);
 		}
 
-		if (ret < 0) {
+		if (init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, &uwsgi, 0)  < 0) {
 			uwsgi_log( "...goodbye cruel world...\n");
 			exit(1);
 		}

@@ -155,8 +155,15 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
         		if (wsgi_req->script_name_len > 1 || uwsgi->default_app < 0 || uwsgi->vhost) {
         			/* unavailable app for this SCRIPT_NAME */
                 		wsgi_req->app_id = -1;
-				if (wsgi_req->wsgi_script_len > 0 || (wsgi_req->wsgi_callable_len > 0 && wsgi_req->wsgi_module_len > 0)) {
-					wsgi_req->app_id = init_uwsgi_app(uwsgi, NULL);
+				if (wsgi_req->wsgi_script_len > 0
+						|| wsgi_req->wsgi_module_len > 0
+						|| wsgi_req->wsgi_file_len > 0
+#ifdef UWSGI_PASTE
+						|| wsgi_req->wsgi_paste_len > 0
+#endif
+				) {
+					// a bit of magic: 1-1 = 0 / 0-1 = -1
+					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, uwsgi, uwsgi->single_interpreter-1);
 				}
 			}
 		}
