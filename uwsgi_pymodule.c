@@ -509,7 +509,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 		}
 	}
 
-	i = spool_request(&uwsgi, spool_filename, uwsgi.workers[0].requests + 1, spool_buffer, cur_buf - spool_buffer);
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, spool_buffer, cur_buf - spool_buffer);
 	if (i > 0) {
 		return Py_True;
 	}
@@ -714,7 +714,7 @@ PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if (uwsgi_load_plugin(&uwsgi, modifier, plugin_name, pargs, 1)) {
+	if (uwsgi_load_plugin(modifier, plugin_name, pargs, 1)) {
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
@@ -972,7 +972,7 @@ PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 	
 	uwsgi_log( "disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
 
@@ -1091,7 +1091,7 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 
 	pid_t grunt_pid ;
 	int i;
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	if (uwsgi.grunt) {
 		uwsgi_log( "spawning a grunt from worker %d (pid :%d)...\n", uwsgi.mywid, uwsgi.mypid);

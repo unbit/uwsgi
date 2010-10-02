@@ -1,9 +1,10 @@
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
 
-int manage_python_response(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int manage_python_response(struct wsgi_request *wsgi_req) {
 	// use standard WSGI response parse
-	return uwsgi_response_subhandler_wsgi(uwsgi, wsgi_req);
+	return uwsgi_response_subhandler_wsgi(wsgi_req);
 }
 
 PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
@@ -29,14 +30,14 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 
 
 
-int uwsgi_python_call(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, PyObject *callable, PyObject *args) {
+int uwsgi_python_call(struct wsgi_request *wsgi_req, PyObject *callable, PyObject *args) {
 	
 	wsgi_req->async_result = python_call(callable, args, 0);
 
 	if (wsgi_req->async_result) {
-		while ( manage_python_response(uwsgi, wsgi_req) != UWSGI_OK) {
+		while ( manage_python_response(wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
-			if (uwsgi->async > 1) {
+			if (uwsgi.async > 1) {
 				return UWSGI_AGAIN;
 			}
 #endif
@@ -46,49 +47,49 @@ int uwsgi_python_call(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req,
 	return UWSGI_OK;
 }
 
-void init_pyargv(struct uwsgi_server *uwsgi) {
+void init_pyargv() {
 	
     char *ap;
 
 #ifdef PYTHREE
 	wchar_t pname[6];
         mbstowcs(pname, "uwsgi", 6);
-        uwsgi->py_argv[0] = pname;
+        uwsgi.py_argv[0] = pname;
 #else
-        uwsgi->py_argv[0] = "uwsgi";
+        uwsgi.py_argv[0] = "uwsgi";
 #endif
 
-        if (uwsgi->pyargv != NULL && !uwsgi->pyargc) {
-		uwsgi->pyargc++;
+        if (uwsgi.pyargv != NULL && !uwsgi.pyargc) {
+		uwsgi.pyargc++;
 #ifdef PYTHREE
-        	wchar_t *wcargv = malloc( sizeof( wchar_t ) * (strlen(uwsgi->pyargv)+1));
+        	wchar_t *wcargv = malloc( sizeof( wchar_t ) * (strlen(uwsgi.pyargv)+1));
         	if (!wcargv) {
                 	uwsgi_error("malloc()");
                 	exit(1);
         	}
-        	memset(wcargv, 0, sizeof( wchar_t ) * (strlen(uwsgi->pyargv)+1));
+        	memset(wcargv, 0, sizeof( wchar_t ) * (strlen(uwsgi.pyargv)+1));
 #endif
                 
 #ifdef __sun__
                 // FIX THIS !!!
-                ap = strtok(uwsgi->pyargv, " ");
+                ap = strtok(uwsgi.pyargv, " ");
                 while ((ap = strtok(NULL, " ")) != NULL) {
 #else
-                while ((ap = strsep(&uwsgi->pyargv, " \t")) != NULL) {
+                while ((ap = strsep(&uwsgi.pyargv, " \t")) != NULL) {
 #endif
                         if (*ap != '\0') {
 #ifdef PYTHREE
                                 mbstowcs( wcargv + strlen(ap), ap, strlen(ap));
-                                uwsgi->py_argv[uwsgi->pyargc] = wcargv + strlen(ap);
+                                uwsgi.py_argv[uwsgi.pyargc] = wcargv + strlen(ap);
 #else
-                                uwsgi->py_argv[uwsgi->pyargc] = ap;
+                                uwsgi.py_argv[uwsgi.pyargc] = ap;
 #endif
-                                uwsgi->pyargc++;
+                                uwsgi.pyargc++;
                         }
-                        if (uwsgi->pyargc + 1 > MAX_PYARGV)
+                        if (uwsgi.pyargc + 1 > MAX_PYARGV)
                                 break;
                 }
         }
 
-        PySys_SetArgv(uwsgi->pyargc, uwsgi->py_argv);
+        PySys_SetArgv(uwsgi.pyargc, uwsgi.py_argv);
 }

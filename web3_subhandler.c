@@ -1,6 +1,8 @@
 #include "uwsgi.h"
 
-void *uwsgi_request_subhandler_web3(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+extern struct uwsgi_server uwsgi;
+
+void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
 	PyObject *zero, *wsgi_socket;
 
@@ -22,7 +24,7 @@ void *uwsgi_request_subhandler_web3(struct uwsgi_server *uwsgi, struct wsgi_requ
 	PyDict_SetItemString(wsgi_req->async_environ, "web3.run_once", Py_False);
 
 	PyDict_SetItemString(wsgi_req->async_environ, "web3.multithread", Py_False);
-	if (uwsgi->numproc == 1) {
+	if (uwsgi.numproc == 1) {
 		PyDict_SetItemString(wsgi_req->async_environ, "web3.multiprocess", Py_False);
 	}
 	else {
@@ -49,7 +51,7 @@ void *uwsgi_request_subhandler_web3(struct uwsgi_server *uwsgi, struct wsgi_requ
 
 	wsgi_req->async_app = wi->wsgi_callable ;
 
-	PyDict_SetItemString(uwsgi->embedded_dict, "env", wsgi_req->async_environ);
+	PyDict_SetItemString(uwsgi.embedded_dict, "env", wsgi_req->async_environ);
 
 	// TODO: fix this
 	//PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", uwsgi_version);
@@ -58,11 +60,11 @@ void *uwsgi_request_subhandler_web3(struct uwsgi_server *uwsgi, struct wsgi_requ
 	// call
 
 	PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-	return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi->catch_exceptions);
+	return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi.catch_exceptions);
 }
 
 
-int uwsgi_response_subhandler_web3(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 
 	PyObject *pychunk ;
 	ssize_t wsize ;
@@ -97,7 +99,7 @@ int uwsgi_response_subhandler_web3(struct uwsgi_server *uwsgi, struct wsgi_reque
 				goto clear2;
 			}
 #ifdef UWSGI_ASYNC
-			if (uwsgi->async > 1) {
+			if (uwsgi.async > 1) {
 				return UWSGI_AGAIN;
 			}
 		}
@@ -138,7 +140,7 @@ clear:
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
 		fclose(wsgi_req->async_post);
-		if (!uwsgi->post_buffering || wsgi_req->post_cl <= (size_t) uwsgi->post_buffering) {
+		if (!uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
 			wsgi_req->fd_closed = 1 ;
 		}
 	}

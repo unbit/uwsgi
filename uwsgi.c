@@ -151,6 +151,7 @@ static struct option long_options[] = {
 		{"log-big", required_argument, 0, LONG_ARGS_LOG_BIG},
 		{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 		{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
+		{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
 		{"no-site", no_argument, &Py_NoSiteFlag, 1},
 		{"vhost", no_argument, &uwsgi.vhost, 1},
@@ -177,15 +178,15 @@ static struct option long_options[] = {
 		{0, 0, 0, 0}
 	};
 
-void ping(struct uwsgi_server *uwsgi) {
+void ping() {
 
 	struct uwsgi_header uh;
 	struct pollfd uwsgi_poll;
 	
 	// use a 3 secs timeout by default
-	if (!uwsgi->ping_timeout) uwsgi->ping_timeout = 3 ;
+	if (!uwsgi.ping_timeout) uwsgi.ping_timeout = 3 ;
 
-        uwsgi_poll.fd = uwsgi_connect(uwsgi->ping, uwsgi->ping_timeout);
+        uwsgi_poll.fd = uwsgi_connect(uwsgi.ping, uwsgi.ping_timeout);
 	if (uwsgi_poll.fd < 0) {
 		exit(1);
 	}
@@ -198,7 +199,7 @@ void ping(struct uwsgi_server *uwsgi) {
                 exit(2);
         }
         uwsgi_poll.events = POLLIN;
-        if (!uwsgi_parse_response(&uwsgi_poll, uwsgi->ping_timeout, &uh, NULL)) {
+        if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.ping_timeout, &uh, NULL)) {
                 exit(1);
         }
         else {
@@ -230,7 +231,7 @@ PyMethodDef null_methods[] = {
 };
 
 void warn_pipe() {
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	if (uwsgi.async < 2 && wsgi_req->uri_len > 0) {
 		uwsgi_log("SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request %.*s !!!\n", wsgi_req->uri_len, wsgi_req->uri );
@@ -325,7 +326,7 @@ void stats() {
 
 void what_i_am_doing() {
 	
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
         if (uwsgi.async < 2 && wsgi_req->uri_len > 0) {
 
@@ -349,12 +350,12 @@ int waitpid_status;
 struct timeval last_respawn;
 
 
-int unconfigured_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int unconfigured_hook(struct wsgi_request *wsgi_req) {
 	uwsgi_log("-- unavailable modifier requested: %d --\n", wsgi_req->uh.modifier1);
 	return -1;
 }
 
-static void unconfigured_after_hook(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+static void unconfigured_after_hook(struct wsgi_request *wsgi_req) {
 	return;
 }
 
@@ -559,6 +560,15 @@ int main(int argc, char *argv[], char *envp[]) {
 			else if (!strcmp(lazy+strlen(lazy)-5, ".wsgi")) {
 				uwsgi.file_config = lazy;
 			}
+			else if (lazy[0] == '/' && strchr(lazy,'=')) {
+				if (uwsgi.mounts_cnt < MAX_MOUNTPOINTS) {
+					uwsgi.mounts[uwsgi.mounts_cnt] = lazy ;
+					uwsgi.mounts_cnt++;
+				}
+				else {
+					uwsgi_log("unable to add more that %d mountpoints\n", MAX_MOUNTPOINTS);
+				}
+			}
 			else {
 				uwsgi.wsgi_config = lazy;
 			}
@@ -577,7 +587,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #ifdef UWSGI_LDAP
 	if (uwsgi.ldap != NULL) {
-		uwsgi_ldap_config(&uwsgi, long_options);
+		uwsgi_ldap_config(long_options);
 	}
 #endif
 
@@ -684,7 +694,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(1);
 	}
 
-	sanitize_args(&uwsgi);
+	sanitize_args();
 
 #ifdef UWSGI_HTTP
         if (uwsgi.http && !uwsgi.is_a_reload) {
@@ -722,7 +732,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
                 if (uwsgi.http_only) {
-                        http_loop(&uwsgi);
+                        http_loop();
                         // never here
                         exit(1);
                 }
@@ -731,7 +741,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
                 if (http_pid > 0) {
 			masterpid = http_pid;
-                        http_loop(&uwsgi);
+                        http_loop();
                         // never here
                         exit(1);
                 }
@@ -866,7 +876,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	Py_Initialize();
 
 
-	init_pyargv(&uwsgi);
+	init_pyargv();
 
 	if (uwsgi.vhost) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
@@ -932,14 +942,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_NAGIOS
 	if (uwsgi.nagios) {
-		nagios(&uwsgi);
+		nagios();
 		// never here
 	}
 #endif
 
 #ifdef UWSGI_UGREEN
 	if (uwsgi.ugreen) {
-		u_green_init(&uwsgi);
+		u_green_init();
 	}
 #endif
 
@@ -1209,7 +1219,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_log( "done.\n");
 
 #ifdef UWSGI_EMBED_PLUGINS
-	embed_plugins(&uwsgi);
+	embed_plugins();
 #endif
 
 #ifdef UWSGI_ERLANG
@@ -1236,6 +1246,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.loaders[LOADER_PASTE] = uwsgi_paste_loader;
 #endif
 	uwsgi.loaders[LOADER_EVAL] = uwsgi_eval_loader;
+	uwsgi.loaders[LOADER_MOUNT] = uwsgi_mount_loader;
 	uwsgi.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
 	uwsgi.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
@@ -1245,18 +1256,19 @@ int main(int argc, char *argv[], char *envp[]) {
 	// the command line app loaders will be loaded in the main interpreter
 	// (for performance reason, as this will avoid context switch)
 	if (uwsgi.wsgi_config != NULL) {
-		init_uwsgi_app(LOADER_UWSGI, uwsgi.wsgi_config, &uwsgi, 0);
+		init_uwsgi_app(LOADER_UWSGI, uwsgi.wsgi_config, uwsgi.wsgi_req, 0);
 	}
-	else if (uwsgi.file_config != NULL) {
-		init_uwsgi_app(LOADER_FILE, uwsgi.file_config, &uwsgi, 0);
+
+	if (uwsgi.file_config != NULL) {
+		init_uwsgi_app(LOADER_FILE, uwsgi.file_config, uwsgi.wsgi_req, 0);
 	}
 #ifdef UWSGI_PASTE
-	else if (uwsgi.paste != NULL) {
-		init_uwsgi_app(LOADER_PASTE, uwsgi.paste, &uwsgi, 0);
+	if (uwsgi.paste != NULL) {
+		init_uwsgi_app(LOADER_PASTE, uwsgi.paste, uwsgi.wsgi_req, 0);
 	}
 #endif
-	else if (uwsgi.eval != NULL) {
-		init_uwsgi_app(LOADER_EVAL, uwsgi.eval, &uwsgi, 0);
+	if (uwsgi.eval != NULL) {
+		init_uwsgi_app(LOADER_EVAL, uwsgi.eval, uwsgi.wsgi_req, 0);
 	}
 
 // parse xml for <app> tags
@@ -1265,6 +1277,21 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_xml_config(uwsgi.wsgi_req, NULL);
 	}
 #endif
+
+	for(i=0;i<uwsgi.mounts_cnt;i++) {
+		char *what = strchr(uwsgi.mounts[i], '=');
+		if (what) {
+			what[0] = 0;
+			what++;
+			uwsgi.wsgi_req->script_name = uwsgi.mounts[i];
+			uwsgi.wsgi_req->script_name_len = strlen(uwsgi.mounts[i]);
+			init_uwsgi_app(LOADER_MOUNT, what, uwsgi.wsgi_req, 0);
+		}
+		else {
+			uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
+			exit(1);
+		}
+	}
 
 
 	if (uwsgi.test_module != NULL) {
@@ -1302,18 +1329,18 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.numproc > 0) {
-		uwsgi.shared->spooler_pid = spooler_start(&uwsgi, uwsgi.embedded_dict);
+		uwsgi.shared->spooler_pid = spooler_start();
 	}
 #endif
 
 #ifdef UWSGI_STACKLESS
 	if (uwsgi.stackless) {
-		stackless_init(&uwsgi);
+		stackless_init();
 	}
 #endif
 
 #ifdef UWSGI_ROUTING
-	routing_setup(&uwsgi);
+	routing_setup();
 #endif
 
 	if (!uwsgi.master_process) {
@@ -1370,7 +1397,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
-		master_loop(&uwsgi, argv, environ);
+		master_loop(argv, environ);
 		// from now on the process is a real worker
 	}
 
@@ -1479,14 +1506,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_UGREEN
 	if (uwsgi.ugreen) {
-		u_green_loop(&uwsgi);
+		u_green_loop();
 		// never here
 	}
 #endif
 
 #ifdef UWSGI_STACKLESS
 	if (uwsgi.stackless) {
-		stackless_loop(&uwsgi);
+		stackless_loop();
 		// never here
 	}
 #endif
@@ -1514,9 +1541,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 	if (uwsgi.async > 1) {
 
-		current_async_timeout = async_get_timeout(&uwsgi) ;
+		current_async_timeout = async_get_timeout() ;
 		uwsgi.async_nevents = async_wait(uwsgi.async_queue, uwsgi.async_events, uwsgi.async, uwsgi.async_running, current_async_timeout);
-		async_expire_timeouts(&uwsgi);
+		async_expire_timeouts();
 
 		if (uwsgi.async_nevents < 0) {
 			continue;
@@ -1526,7 +1553,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
 
-				uwsgi.wsgi_req = find_first_available_wsgi_req(&uwsgi);
+				uwsgi.wsgi_req = find_first_available_wsgi_req();
 				if (uwsgi.wsgi_req == NULL) {
 					// async system is full !!!
 					goto cycle;
@@ -1534,7 +1561,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 				wsgi_req_setup(uwsgi.wsgi_req, ( (uint8_t *)uwsgi.wsgi_req - (uint8_t *)uwsgi.wsgi_requests)/sizeof(struct wsgi_request) );
 
-				if (wsgi_req_accept(&uwsgi, uwsgi.wsgi_req)) {
+				if (wsgi_req_accept(uwsgi.wsgi_req)) {
 					continue;
 				}
 
@@ -1548,7 +1575,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 			}
 			else {
-				uwsgi.wsgi_req = find_wsgi_req_by_fd(&uwsgi, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
+				uwsgi.wsgi_req = find_wsgi_req_by_fd(uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
 				if (uwsgi.wsgi_req) {
 					uwsgi.wsgi_req->async_status = UWSGI_AGAIN ;
 					uwsgi.wsgi_req->async_waiting_fd = -1 ;
@@ -1560,7 +1587,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 
 cycle:
-		uwsgi.wsgi_req = async_loop(&uwsgi);
+		uwsgi.wsgi_req = async_loop();
 
 		if (uwsgi.wsgi_req == NULL)
 			continue ;
@@ -1571,7 +1598,7 @@ cycle:
 #endif
 		wsgi_req_setup(uwsgi.wsgi_req, 0);
 
-		if (wsgi_req_accept(&uwsgi, uwsgi.wsgi_req)) {
+		if (wsgi_req_accept(uwsgi.wsgi_req)) {
 			continue;
 		}
 
@@ -1585,7 +1612,7 @@ reqclear:
 #endif
 
 
-		uwsgi_close_request(&uwsgi, uwsgi.wsgi_req);
+		uwsgi_close_request(uwsgi.wsgi_req);
 	}
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
@@ -1719,7 +1746,7 @@ void uwsgi_uwsgi_config(char *module) {
 		if (!applications) {
 			uwsgi_log( "applications dictionary is not defined, trying with the \"application\" callable.\n");
 			quick_callable = uwsgi_concat3(module, ":", quick_callable);
-			if (init_uwsgi_app(LOADER_UWSGI, (void *) quick_callable, &uwsgi, 0)  < 0) {
+			if (init_uwsgi_app(LOADER_UWSGI, (void *) quick_callable, uwsgi.wsgi_req, 0)  < 0) {
                                 uwsgi_log( "...goodbye cruel world...\n");
                                 exit(1);
                         }
@@ -1769,7 +1796,7 @@ void uwsgi_uwsgi_config(char *module) {
 #else
 		if (PyString_Check(app_app)) {
 #endif
-			if (init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) PyString_AsString(app_app), &uwsgi, 0)  < 0) {
+			if (init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) PyString_AsString(app_app), uwsgi.wsgi_req, 0)  < 0) {
                         	uwsgi_log( "...goodbye cruel world...\n");
                         	exit(1);
                 	}
@@ -1777,7 +1804,7 @@ void uwsgi_uwsgi_config(char *module) {
 			
 		}
 		else {
-			if (init_uwsgi_app(LOADER_CALLABLE, (void *) app_app, &uwsgi, 0)  < 0) {
+			if (init_uwsgi_app(LOADER_CALLABLE, (void *) app_app, uwsgi.wsgi_req, 0)  < 0) {
                         	uwsgi_log( "...goodbye cruel world...\n");
                         	exit(1);
                 	}
@@ -2154,12 +2181,12 @@ void manage_opt(int i, char *optarg) {
 		break;
 #endif
 	case LONG_ARGS_PYTHONPATH:
-		if (uwsgi.python_path_cnt < 63) {
+		if (uwsgi.python_path_cnt < MAX_PYTHONPATH) {
 			uwsgi.python_path[uwsgi.python_path_cnt] = optarg;
 			uwsgi.python_path_cnt++;
 		}
 		else {
-			uwsgi_log( "you can specify at most 64 --pythonpath options\n");
+			uwsgi_log( "you can specify at most %d --pythonpath options\n", MAX_PYTHONPATH);
 		}
 		break;
 	case LONG_ARGS_LIMIT_AS:
@@ -2250,6 +2277,15 @@ void manage_opt(int i, char *optarg) {
 		break;
 	case LONG_ARGS_LOG_BIG:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_BIG] = atoi(optarg);
+		break;
+	case LONG_ARGS_MOUNT:
+		if (uwsgi.mounts_cnt < MAX_MOUNTPOINTS) {
+			uwsgi.mounts[uwsgi.mounts_cnt] = optarg;
+			uwsgi.mounts_cnt++;
+		}
+		else {
+			uwsgi_log( "you can specify at most %d --mount options\n", MAX_MOUNTPOINTS);
+		}
 		break;
 #ifdef UWSGI_SPOOLER
 	case 'Q':
@@ -2446,6 +2482,7 @@ void manage_opt(int i, char *optarg) {
 \t--stackless\t\t\tenable usage of tasklet (only on Stackless Python)\n\
 \t--no-site\t\t\tdo not import site.py on startup\n\
 \t--vhost\t\t\t\tenable virtual hosting\n\
+\t--mount MOUNTPOINT=app\t\tadda new app under MOUNTPOINT\n\
 \t--routing\t\t\tenable uWSGI advanced routing\n\
 \t--http <addr>\t\t\tstart embedded HTTP server on <addr>\n\
 \t--http-only\t\t\tstart only the embedded HTTP server\n\

@@ -194,7 +194,7 @@ next:
 									continue;
 								}
 								
-								init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
+								init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 							}
 							else if (!strcmp((char *) node2->name, "eval")) {
 								if (!node2->children) {
@@ -206,7 +206,7 @@ next:
 									continue;
 								}
 
-								init_uwsgi_app(LOADER_EVAL, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
+								init_uwsgi_app(LOADER_EVAL, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 								
 							}
 							else if (!strcmp((char *) node2->name, "file")) {
@@ -219,7 +219,7 @@ next:
 									continue;
 								}
 
-								init_uwsgi_app(LOADER_FILE, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
+								init_uwsgi_app(LOADER_FILE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 								
 							}
 							else if (!strcmp((char *) node2->name, "module")) {
@@ -232,7 +232,7 @@ next:
 									continue;
 								}
 
-								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
+								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 							}
 							else if (!strcmp((char *) node2->name, "script")) {
 								if (!node2->children) {
@@ -243,7 +243,7 @@ next:
 									uwsgi_log( "no script defined. skip.\n");
 									continue;
 								}
-								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, &uwsgi, uwsgi.single_interpreter-1);
+								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 							}
 						}
 					}

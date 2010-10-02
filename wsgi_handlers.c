@@ -7,7 +7,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
         char *content;
         int len;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
         data = PyTuple_GetItem(args, 0);
         if (PyString_Check(data)) {
@@ -35,7 +35,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
         int fd, timeout;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
         if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
                 return NULL;
@@ -54,7 +54,7 @@ PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
         int fd, timeout;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
         if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
                 return NULL;
@@ -70,7 +70,7 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 }
 #endif
 
-int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	int i;
 	
@@ -103,7 +103,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		else {
 			PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
 		}
-		return manage_python_response(uwsgi, wsgi_req);
+		return manage_python_response(wsgi_req);
 	}
 #endif
 
@@ -113,13 +113,13 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		return -1;
 	}
 
-	if (uwsgi_parse_vars(uwsgi, wsgi_req)) {
+	if (uwsgi_parse_vars(wsgi_req)) {
                 uwsgi_log("Invalid WSGI request. skip.\n");
                 return -1;
         }
 
-	if (uwsgi->limit_post) {
-		if (wsgi_req->post_cl > uwsgi->limit_post) {
+	if (uwsgi.limit_post) {
+		if (wsgi_req->post_cl > uwsgi.limit_post) {
                 	uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
                 	return -1;
 		}
@@ -127,18 +127,18 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 #ifdef UWSGI_THREADING
-	if (uwsgi->has_threads && !uwsgi->workers[uwsgi->mywid].i_have_gil) {
-		PyEval_RestoreThread(uwsgi->_save);
-		uwsgi->workers[uwsgi->mywid].i_have_gil = 1;
+	if (uwsgi.has_threads && !uwsgi.workers[uwsgi.mywid].i_have_gil) {
+		PyEval_RestoreThread(uwsgi._save);
+		uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
 	}
 #endif
 
-	if (!uwsgi->ignore_script_name) {
+	if (!uwsgi.ignore_script_name) {
 
 		if (!wsgi_req->script_name)
 			wsgi_req->script_name = "";
 
-		if (uwsgi->vhost) {
+		if (uwsgi.vhost) {
 			what = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
 			what_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len ;
 #ifdef UWSGI_DEBUG
@@ -151,8 +151,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		}
 
 
-		if ( (wsgi_req->app_id = uwsgi_get_app_id(uwsgi, what, what_len))  == -1) {
-        		if (wsgi_req->script_name_len > 1 || uwsgi->default_app < 0 || uwsgi->vhost) {
+		if ( (wsgi_req->app_id = uwsgi_get_app_id(what, what_len))  == -1) {
+        		if (wsgi_req->script_name_len > 1 || uwsgi.default_app < 0 || uwsgi.vhost) {
         			/* unavailable app for this SCRIPT_NAME */
                 		wsgi_req->app_id = -1;
 				if (wsgi_req->wsgi_script_len > 0
@@ -163,7 +163,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 #endif
 				) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
-					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, uwsgi, uwsgi->single_interpreter-1);
+					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
 				}
 			}
 		}
@@ -176,8 +176,8 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	if (wsgi_req->app_id == -1) {
 		// use default app ?
-		if (!uwsgi->no_default_app && uwsgi->default_app >= 0) {
-			wsgi_req->app_id = uwsgi->default_app ;
+		if (!uwsgi.no_default_app && uwsgi.default_app >= 0) {
+			wsgi_req->app_id = uwsgi.default_app ;
 		}
 		else {
 			internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
@@ -186,9 +186,9 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 	}
 
-	wi = &uwsgi->apps[wsgi_req->app_id];
+	wi = &uwsgi.apps[wsgi_req->app_id];
 
-	if (uwsgi->single_interpreter == 0 && wsgi_req->app_id > 0) {
+	if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
 		if (!wi->interpreter) {
 			internal_server_error(wsgi_req->poll.fd, "wsgi application's %d interpreter not found");
 			goto clear2;
@@ -274,7 +274,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	// set wsgi vars
 
 
-	if (uwsgi->post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi->post_buffering) {
+	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 		wsgi_req->async_post = tmpfile();
 		if (!wsgi_req->async_post) {
 			uwsgi_error("tmpfile()");
@@ -283,11 +283,11 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 		
 
 		while(post_remains > 0) {
-			if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-				inc_harakiri(uwsgi->shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+				inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 			}
-			if (post_remains > (size_t) uwsgi->post_buffering_bufsize) {
-				post_chunk = read(wsgi_req->poll.fd, wsgi_req->post_buffering_buf, uwsgi->post_buffering_bufsize);
+			if (post_remains > (size_t) uwsgi.post_buffering_bufsize) {
+				post_chunk = read(wsgi_req->poll.fd, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize);
 			}
 			else {
 				post_chunk = read(wsgi_req->poll.fd, wsgi_req->post_buffering_buf, post_remains);
@@ -309,14 +309,14 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 	}
 
 
-	wsgi_req->async_result = (*wi->request_subhandler)(uwsgi, wsgi_req, wi);
+	wsgi_req->async_result = (*wi->request_subhandler)(wsgi_req, wi);
 
 	if (wsgi_req->async_result) {
 
 
-		while ( (*wi->response_subhandler)(uwsgi, wsgi_req) != UWSGI_OK) {
+		while ( (*wi->response_subhandler)(wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
-			if (uwsgi->async > 1) {
+			if (uwsgi.async > 1) {
 				return UWSGI_AGAIN;
 			}
 #endif
@@ -324,7 +324,7 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 
 	}
-	else if (uwsgi->catch_exceptions) {
+	else if (uwsgi.catch_exceptions) {
 
 		wsgi_req->response_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
 		wsgi_req->response_size += write(wsgi_req->poll.fd, " 500 Internal Server Error\r\n", 28 );
@@ -357,9 +357,9 @@ int uwsgi_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 clear:
 
-	if (uwsgi->single_interpreter == 0 && wsgi_req->app_id > 0) {
+	if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
 		// restoring main interpreter
-		PyThreadState_Swap(uwsgi->main_thread);
+		PyThreadState_Swap(uwsgi.main_thread);
 	}
 
 clear2:
@@ -369,26 +369,26 @@ clear2:
 
 }
 
-void uwsgi_after_request_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 
-	if (uwsgi->shared->options[UWSGI_OPTION_LOGGING]) {
+	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING]) {
 		log_request(wsgi_req);
 	}
 	else {
-		if (uwsgi->shared->options[UWSGI_OPTION_LOG_ZERO]) {
+		if (uwsgi.shared->options[UWSGI_OPTION_LOG_ZERO]) {
 			if (wsgi_req->response_size == 0) { log_request(wsgi_req); return; }
 		}
-		if (uwsgi->shared->options[UWSGI_OPTION_LOG_SLOW]) {
-			if ((uint32_t) wsgi_req_time >= uwsgi->shared->options[UWSGI_OPTION_LOG_SLOW]) { log_request(wsgi_req); return; }
+		if (uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW]) {
+			if ((uint32_t) wsgi_req_time >= uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW]) { log_request(wsgi_req); return; }
 		}
-		if (uwsgi->shared->options[UWSGI_OPTION_LOG_4xx]) {
+		if (uwsgi.shared->options[UWSGI_OPTION_LOG_4xx]) {
 			if (wsgi_req->status >= 400 && wsgi_req->status <= 499) { log_request(wsgi_req); return; }
 		}
-		if (uwsgi->shared->options[UWSGI_OPTION_LOG_5xx]) {
+		if (uwsgi.shared->options[UWSGI_OPTION_LOG_5xx]) {
 			if (wsgi_req->status >= 500 && wsgi_req->status <= 599) { log_request(wsgi_req); return; }
 		}
-		if (uwsgi->shared->options[UWSGI_OPTION_LOG_BIG]) {
-			if (wsgi_req->response_size >= uwsgi->shared->options[UWSGI_OPTION_LOG_BIG]) { log_request(wsgi_req); return; }
+		if (uwsgi.shared->options[UWSGI_OPTION_LOG_BIG]) {
+			if (wsgi_req->response_size >= uwsgi.shared->options[UWSGI_OPTION_LOG_BIG]) { log_request(wsgi_req); return; }
 		}
 	}
 }

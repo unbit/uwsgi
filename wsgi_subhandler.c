@@ -1,6 +1,8 @@
 #include "uwsgi.h"
 
-void *uwsgi_request_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+extern struct uwsgi_server uwsgi;
+
+void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
 	PyObject *wsgi_socket, *zero;
 
@@ -13,7 +15,7 @@ void *uwsgi_request_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_requ
 #endif
 
 #ifdef UWSGI_ASYNC
-        if (uwsgi->async > 1) {
+        if (uwsgi.async > 1) {
                 PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.readable", wi->wsgi_eventfd_read);
                 PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.writable", wi->wsgi_eventfd_write);
                 PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
@@ -33,7 +35,7 @@ void *uwsgi_request_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_requ
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.run_once", Py_False);
 
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multithread", Py_False);
-        if (uwsgi->numproc == 1) {
+        if (uwsgi.numproc == 1) {
                 PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_False);
         }
         else {
@@ -60,15 +62,15 @@ void *uwsgi_request_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_requ
 
         wsgi_req->async_app = wi->wsgi_callable ;
 
-        PyDict_SetItemString(uwsgi->embedded_dict, "env", wsgi_req->async_environ);
+        PyDict_SetItemString(uwsgi.embedded_dict, "env", wsgi_req->async_environ);
 
 	// TODO: fix here
         //PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.uwsgi.version", uwsgi_version);
 
 
 #ifdef UWSGI_ROUTING
-        uwsgi_log("routing %d routes %d\n", uwsgi->routing, uwsgi->nroutes);
-        if (uwsgi->routing && uwsgi->nroutes > 0) {
+        uwsgi_log("routing %d routes %d\n", uwsgi.routing, uwsgi.nroutes);
+        if (uwsgi.routing && uwsgi.nroutes > 0) {
                 check_route(uwsgi, wsgi_req);
         }
 #endif
@@ -78,10 +80,10 @@ void *uwsgi_request_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_requ
 
 
         PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-        return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi->catch_exceptions);
+        return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi.catch_exceptions);
 }
 
-int uwsgi_response_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	PyObject *pychunk ;
 	ssize_t wsize ;
@@ -101,11 +103,11 @@ int uwsgi_response_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_reque
 
 #ifdef UWSGI_SENDFILE
 	if (wsgi_req->sendfile_obj == wsgi_req->async_result && wsgi_req->sendfile_fd != -1) {
-		sf_len = uwsgi_sendfile(uwsgi, wsgi_req);
+		sf_len = uwsgi_sendfile(wsgi_req);
 		if (sf_len < 1) goto clear;
 		wsgi_req->response_size += sf_len ;		
 #ifdef UWSGI_ASYNC
-		if (uwsgi->async > 1) {
+		if (uwsgi.async > 1) {
 			if (wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
 				return UWSGI_AGAIN;
 			}
@@ -122,7 +124,7 @@ int uwsgi_response_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_reque
 			goto clear2;
 		}
 #ifdef UWSGI_ASYNC
-		if (uwsgi->async > 1) {
+		if (uwsgi.async > 1) {
 			return UWSGI_AGAIN;
 		}
 #endif
@@ -150,7 +152,7 @@ int uwsgi_response_subhandler_wsgi(struct uwsgi_server *uwsgi, struct wsgi_reque
 
 #ifdef UWSGI_SENDFILE
         else if (wsgi_req->sendfile_obj == pychunk && wsgi_req->sendfile_fd != -1) {
-                sf_len = uwsgi_sendfile(uwsgi, wsgi_req);
+                sf_len = uwsgi_sendfile(wsgi_req);
                 if (sf_len < 1) goto clear;
                 wsgi_req->response_size += sf_len ;
 	}
@@ -168,7 +170,7 @@ clear:
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
 		fclose(wsgi_req->async_post);
-		if (!uwsgi->post_buffering || wsgi_req->post_cl <= (size_t) uwsgi->post_buffering) {
+		if (!uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
 			wsgi_req->fd_closed = 1 ;
 
 		}

@@ -308,7 +308,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 	return 1;
 }
 
-int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	char *buffer = wsgi_req->buffer;
 
@@ -426,7 +426,7 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
 						}
 
-						if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
+						if (wsgi_req->var_cnt < uwsgi.vec_size - (4 + 1)) {
 							wsgi_req->var_cnt++;
 						}
 						else {
@@ -437,7 +437,7 @@ int uwsgi_parse_vars(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) 
 						wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
 						wsgi_req->hvec[wsgi_req->var_cnt].iov_len = strsize;
 						//uwsgi_log("%.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt-1].iov_len, wsgi_req->hvec[wsgi_req->var_cnt-1].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base);
-						if (wsgi_req->var_cnt < uwsgi->vec_size - (4 + 1)) {
+						if (wsgi_req->var_cnt < uwsgi.vec_size - (4 + 1)) {
 							wsgi_req->var_cnt++;
 						}
 						else {

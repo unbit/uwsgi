@@ -20,11 +20,11 @@ PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_re
 PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_write, METH_VARARGS, ""}};
 #endif
 
-int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_interpreter) {
+int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int new_interpreter) {
 
 	PyObject *zero;
 
-	int id = uwsgi->apps_cnt;
+	int id = uwsgi.apps_cnt;
 
 #ifdef UWSGI_ASYNC
 	int i;
@@ -33,33 +33,32 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 	char *mountpoint;
 
 	struct uwsgi_app *wi;
-	struct wsgi_request *wsgi_req = uwsgi->wsgi_req;
 
 	if (wsgi_req->script_name_len == 0) {
 		wsgi_req->script_name = "";
-		if (!uwsgi->vhost) id = 0;
+		if (!uwsgi.vhost) id = 0;
 	}
 	else if (wsgi_req->script_name_len == 1) {
 		if (wsgi_req->script_name[0] == '/') {
-			if (!uwsgi->vhost) id = 0;
+			if (!uwsgi.vhost) id = 0;
 		}
 	}
 
 	
-	if (uwsgi->vhost && wsgi_req->host_len > 0) {
+	if (uwsgi.vhost && wsgi_req->host_len > 0) {
 		mountpoint = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|", 1, wsgi_req->script_name, wsgi_req->script_name_len);
         }
         else {
 		mountpoint = uwsgi_strncopy(wsgi_req->script_name, wsgi_req->script_name_len);
 	}
 
-	if (uwsgi_get_app_id(uwsgi, mountpoint, strlen(mountpoint)) != -1) {
+	if (uwsgi_get_app_id(mountpoint, strlen(mountpoint)) != -1) {
 		uwsgi_log( "mountpoint %.*s already configured. skip.\n", strlen(mountpoint), mountpoint);
 		return -1;
 	}
 
 
-	wi = &uwsgi->apps[id];
+	wi = &uwsgi.apps[id];
 
 	memset(wi, 0, sizeof(struct uwsgi_app));
 	wi->mountpoint = mountpoint;
@@ -85,7 +84,7 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
                 	exit(1);
         	}
         	PyThreadState_Swap(wi->interpreter);
-        	init_pyargv(uwsgi);
+        	init_pyargv();
 
 #ifdef UWSGI_EMBEDDED
         	// we need to inizialize an embedded module for every interpreter
@@ -94,11 +93,11 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
         	init_uwsgi_vars();
 	}
 	else {
-		wi->interpreter = uwsgi->main_thread;
+		wi->interpreter = uwsgi.main_thread;
 	}
 
 
-	wi->wsgi_callable = uwsgi->loaders[loader](arg1);
+	wi->wsgi_callable = uwsgi.loaders[loader](arg1);
 
 	if (!wi->wsgi_callable) {
 		uwsgi_log("unable to load app SCRIPT_NAME=%s\n", mountpoint);
@@ -106,13 +105,13 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 	}
 
 #ifdef UWSGI_ASYNC
-	wi->wsgi_environ = malloc(sizeof(PyObject*)*uwsgi->async);
+	wi->wsgi_environ = malloc(sizeof(PyObject*)*uwsgi.async);
 	if (!wi->wsgi_environ) {
 		uwsgi_error("malloc()");
 		exit(1);
 	}
 
-	for(i=0;i<uwsgi->async;i++) {
+	for(i=0;i<uwsgi.async;i++) {
 		wi->wsgi_environ[i] = PyDict_New();
 		if (!wi->wsgi_environ[i]) {
 			uwsgi_log("unable to allocate new env dictionary for app\n");
@@ -172,13 +171,13 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 	}
 
 #ifdef UWSGI_ASYNC
-        wi->wsgi_args = malloc(sizeof(PyObject*)*uwsgi->async);
+        wi->wsgi_args = malloc(sizeof(PyObject*)*uwsgi.async);
         if (!wi->wsgi_args) {
                 uwsgi_error("malloc()");
 		exit(1);
         }
 
-        for(i=0;i<uwsgi->async;i++) {
+        for(i=0;i<uwsgi.async;i++) {
                 wi->wsgi_args[i] = PyTuple_New(wi->argc);
                 if (!wi->wsgi_args[i]) {
 			uwsgi_log("unable to allocate new tuple for app args\n");
@@ -187,7 +186,7 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 
 		// add start_response on WSGI app
 		if (wi->argc == 2) {
-			if (PyTuple_SetItem(wi->wsgi_args[i], 1, uwsgi->wsgi_spitout)) {
+			if (PyTuple_SetItem(wi->wsgi_args[i], 1, uwsgi.wsgi_spitout)) {
 				uwsgi_log("unable to set start_response in args tuple\n");
 				exit(1);
 			}
@@ -197,7 +196,7 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 
 	wi->wsgi_args = PyTuple_New(wi->argc);
 	if (wi->argc == 2) {
-		if (PyTuple_SetItem(wi->wsgi_args, 1, uwsgi->wsgi_spitout)) {
+		if (PyTuple_SetItem(wi->wsgi_args, 1, uwsgi.wsgi_spitout)) {
 			uwsgi_log("unable to set start_response in args tuple\n");
 			exit(1);
 		}
@@ -217,7 +216,7 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 	}
 
 	if (new_interpreter && id) {
-		PyThreadState_Swap(uwsgi->main_thread);
+		PyThreadState_Swap(uwsgi.main_thread);
 	}
 
 	if (wi->argc == 1) {
@@ -229,11 +228,11 @@ int init_uwsgi_app(int loader, void *arg1, struct uwsgi_server *uwsgi, int new_i
 
 	if (id == 0) {
 		uwsgi_log(" (default app)");
-		uwsgi->default_app = 0;
-		if (uwsgi->vhost) uwsgi->apps_cnt++;
+		uwsgi.default_app = 0;
+		if (uwsgi.vhost) uwsgi.apps_cnt++;
 	}
 	else {
-		uwsgi->apps_cnt++;
+		uwsgi.apps_cnt++;
 	}
 
 	uwsgi_log("\n");
@@ -244,7 +243,7 @@ doh:
 	PyErr_Print();
 	if (new_interpreter && id) {
 		Py_EndInterpreter(wi->interpreter);
-		PyThreadState_Swap(uwsgi->main_thread);
+		PyThreadState_Swap(uwsgi.main_thread);
 	}
 	return -1;
 }
@@ -318,6 +317,26 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 
 }
 
+/* this is the mount loader, it loads app on mountpoint automagically */
+PyObject *uwsgi_mount_loader(void *arg1) {
+
+        PyObject *callable = NULL ;
+        char *what = (char *) arg1;
+
+	if ( !strcmp(what+strlen(what)-3, ".py") || !strcmp(what+strlen(what)-3, ".wsgi")) {
+		callable = uwsgi_file_loader((void *)what);
+	}
+#ifdef UWSGI_PASTE
+	else if (!strcmp(what+strlen(what)-4, ".ini")) {
+		callable = uwsgi_paste_loader((void *)what);
+	}
+#endif
+        else {
+                callable = uwsgi_uwsgi_loader((void *)what);
+        }
+
+        return callable;
+}
 
 
 /* this is the dynamic loader, it loads app ireading nformation from a wsgi_request */

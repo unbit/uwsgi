@@ -6,7 +6,7 @@ extern struct uwsgi_server uwsgi;
 
 PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
                 return NULL;
@@ -29,7 +29,7 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
         return (PyObject *) wsgi_req->sendfile_obj;
 }
 
-ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 
 	int fd = wsgi_req->sendfile_fd ;
 	int sockfd = wsgi_req->poll.fd ;
@@ -50,7 +50,7 @@ ssize_t uwsgi_sendfile(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req
 
 		if (!wsgi_req->sendfile_fd_chunk) wsgi_req->sendfile_fd_chunk = 4096 ;
 
-		return uwsgi_do_sendfile(sockfd, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_size, wsgi_req->sendfile_fd_chunk, &wsgi_req->sendfile_fd_pos, uwsgi->async);
+		return uwsgi_do_sendfile(sockfd, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_size, wsgi_req->sendfile_fd_chunk, &wsgi_req->sendfile_fd_pos, uwsgi.async);
 
 	}
 

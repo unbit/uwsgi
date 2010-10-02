@@ -1,7 +1,9 @@
 #ifdef UWSGI_SPOOLER
 #include "uwsgi.h"
 
-pid_t spooler_start(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
+extern struct uwsgi_server uwsgi;
+
+pid_t spooler_start() {
         int i;
         pid_t pid;
 
@@ -11,20 +13,20 @@ pid_t spooler_start(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
                 exit(1);
         }
         else if (pid == 0) {
-                for(i=0;i<uwsgi->sockets_cnt;i++) {
-                        close(uwsgi->sockets[i].fd);
+                for(i=0;i<uwsgi.sockets_cnt;i++) {
+                        close(uwsgi.sockets[i].fd);
                 }
-                spooler(uwsgi, uwsgi_module_dict);
+                spooler(uwsgi.embedded_dict);
         }
         else if (pid > 0) {
-                uwsgi_log( "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi->spool_dir, pid);
+                uwsgi_log( "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
         }
 
         return pid;
 }
 
 
-int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buffer, int size) {
+int spool_request(char *filename, int rn, char *buffer, int size) {
 
 	char hostname[256 + 1];
 	struct timeval tv;
@@ -40,7 +42,7 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 
 	hostname[256] = 0;
 
-	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi->spool_dir, hostname, (int) getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi.spool_dir, hostname, (int) getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
 		return 0;
 	}
 
@@ -91,7 +93,7 @@ int spool_request(struct uwsgi_server *uwsgi, char *filename, int rn, char *buff
 	return 0;
 }
 
-void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
+void spooler() {
 	DIR *sdir;
 	struct dirent *dp;
 	PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
@@ -127,7 +129,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 		exit(1);
 	}
 	
-	if (chdir(uwsgi->spool_dir)) {
+	if (chdir(uwsgi.spool_dir)) {
 		uwsgi_error("chdir()");
 		exit(1);
 	}
@@ -155,9 +157,9 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 
 	for (;;) {
 
-		sleep(uwsgi->shared->spooler_frequency);
+		sleep(uwsgi.shared->spooler_frequency);
 
-		sdir = opendir(uwsgi->spool_dir);
+		sdir = opendir(uwsgi.spool_dir);
 		if (sdir) {
 			while ((dp = readdir(sdir)) != NULL) {
 				if (!strncmp("uwsgi_spoolfile_on_", dp->d_name, 19)) {
@@ -171,7 +173,7 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 					if (!access(dp->d_name, R_OK | W_OK)) {
 						uwsgi_log( "managing spool request %s ...\n", dp->d_name);
 
-						spooler_callable = PyDict_GetItemString(uwsgi_module_dict, "spooler");
+						spooler_callable = PyDict_GetItemString(uwsgi.embedded_dict, "spooler");
 						if (!spooler_callable) {
 							uwsgi_log( "you have to define uwsgi.spooler to use the spooler !!!\n");
 							continue;
@@ -313,12 +315,12 @@ void spooler(struct uwsgi_server *uwsgi, PyObject * uwsgi_module_dict) {
 	}
 }
 
-int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 
 	int i;
 	char spool_filename[1024];
 
-	if (uwsgi->spool_dir == NULL) {
+	if (uwsgi.spool_dir == NULL) {
 		uwsgi_log( "the spooler is inactive !!!...skip\n");
 		wsgi_req->uh.modifier1 = 255;
 		wsgi_req->uh.pktsize = 0;
@@ -331,7 +333,7 @@ int uwsgi_request_spooler(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_
 	}
 
 	uwsgi_log( "managing spool request...\n");
-	i = spool_request(uwsgi, spool_filename, uwsgi->workers[0].requests + 1, wsgi_req->buffer, wsgi_req->uh.pktsize);
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->buffer, wsgi_req->uh.pktsize);
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
 	if (i > 0) {

@@ -90,7 +90,7 @@ static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint
 
 static void *http_request(void *);
 
-void http_loop(struct uwsgi_server * uwsgi)
+void http_loop()
 {
 
 
@@ -113,7 +113,7 @@ void http_loop(struct uwsgi_server * uwsgi)
 
 	// ignore broken pipes;
 	signal(SIGPIPE, SIG_IGN);
-	if (!uwsgi->http_only) {
+	if (!uwsgi.http_only) {
 		signal(SIGCHLD, &http_end);
 		signal(SIGINT, &http_wait_end);
 	}
@@ -121,22 +121,22 @@ void http_loop(struct uwsgi_server * uwsgi)
 		signal(SIGINT, &http_end);
 	}
 
-	uwsgi->http_server_name = malloc(256);
-	if (!uwsgi->http_server_name) {
+	uwsgi.http_server_name = malloc(256);
+	if (!uwsgi.http_server_name) {
 		uwsgi_error("malloc()");
 		exit(1);
 	}
 
-	memset(uwsgi->http_server_name, 0, 256);
-	if (gethostname(uwsgi->http_server_name, 255)) {
+	memset(uwsgi.http_server_name, 0, 256);
+	if (gethostname(uwsgi.http_server_name, 255)) {
 		uwsgi_error("gethostname()");
-		memcpy(uwsgi->http_server_name, "localhost", 9);
+		memcpy(uwsgi.http_server_name, "localhost", 9);
 	}
 
-	uwsgi_log("starting HTTP loop on %s (pid: %d)\n", uwsgi->http_server_name, (int) getpid());
+	uwsgi_log("starting HTTP loop on %s (pid: %d)\n", uwsgi.http_server_name, (int) getpid());
 	for(;;) {
 
-		if (!uwsgi->http_only) {
+		if (!uwsgi.http_only) {
 			if (waitpid(-1, &stat_loc, WNOHANG) != 0) {
 				http_end();
 			}
@@ -148,7 +148,7 @@ void http_loop(struct uwsgi_server * uwsgi)
 			continue;
 		}
 		ur->c_len = sizeof(struct sockaddr_in) ;
-		ur->fd = accept(uwsgi->http_fd, (struct sockaddr *) &ur->c_addr, &ur->c_len);
+		ur->fd = accept(uwsgi.http_fd, (struct sockaddr *) &ur->c_addr, &ur->c_len);
 
 		if (ur->fd < 0) {
 			uwsgi_error("accept()");

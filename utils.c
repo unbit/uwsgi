@@ -324,16 +324,16 @@ void uwsgi_as_root() {
         }
 }
 
-void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status ;
 
         gettimeofday(&wsgi_req->end_of_request, NULL);
-        uwsgi->workers[uwsgi->mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
+        uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
 
 
 	// get memory usage
-        if (uwsgi->shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1)
+        if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1)
         	get_memusage();
 
 
@@ -342,26 +342,26 @@ void uwsgi_close_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_r
 		// TODO find a way to discard pending data
 		close(wsgi_req->poll.fd);
 	}
-        uwsgi->workers[0].requests++;
-        uwsgi->workers[uwsgi->mywid].requests++;
+        uwsgi.workers[0].requests++;
+        uwsgi.workers[uwsgi.mywid].requests++;
 
 
 	// after_request hook
-	(*uwsgi->shared->after_hooks[wsgi_req->uh.modifier1]) (uwsgi, wsgi_req);
+	(*uwsgi.shared->after_hooks[wsgi_req->uh.modifier1]) (wsgi_req);
 
 	// leave harakiri mode
-	if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
         	set_harakiri(0);
 	}
 
 	// defunct process reaper
-        if (uwsgi->shared->options[UWSGI_OPTION_REAPER] == 1 || uwsgi->grunt) {
+        if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1 || uwsgi.grunt) {
         	while( waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0) ;
 	}
         // reset request
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 
-	if (uwsgi->shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi->workers[uwsgi->mywid].requests >= uwsgi->shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
+	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
         	goodbye_cruel_world();
 	}
 
@@ -408,17 +408,17 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
         	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
 	}
 
-        wsgi_req->async_status = (*uwsgi.shared->hooks[wsgi_req->uh.modifier1]) (&uwsgi, wsgi_req);
+        wsgi_req->async_status = (*uwsgi.shared->hooks[wsgi_req->uh.modifier1]) (wsgi_req);
 
 	return 0;
 }
 
-int wsgi_req_accept(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
 	int i;
 	int ret;
 
-	ret = poll(uwsgi->sockets_poll, uwsgi->sockets_cnt, -1);
+	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt, -1);
 
 	if (ret < 0) {
 		uwsgi_error("poll()");
@@ -426,10 +426,10 @@ int wsgi_req_accept(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	}
 
 	
-	for(i=0;i<uwsgi->sockets_cnt;i++) {
+	for(i=0;i<uwsgi.sockets_cnt;i++) {
 
-		if (uwsgi->sockets_poll[i].revents & POLLIN) {
-			wsgi_req->poll.fd = accept(uwsgi->sockets_poll[i].fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
+		if (uwsgi.sockets_poll[i].revents & POLLIN) {
+			wsgi_req->poll.fd = accept(uwsgi.sockets_poll[i].fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
 
 			if (wsgi_req->poll.fd < 0) {
         			uwsgi_error("accept()");
@@ -443,43 +443,43 @@ int wsgi_req_accept(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 	return -1;
 }
 
-inline struct wsgi_request *current_wsgi_req(struct uwsgi_server *uwsgi) {
-
-	struct wsgi_request *wsgi_req = uwsgi->wsgi_req;
-
 #ifdef UWSGI_STACKLESS
-        if (uwsgi->stackless && uwsgi->async >1) {
+inline struct wsgi_request *current_wsgi_req() {
+
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
+
+        if (uwsgi.stackless && uwsgi.async >1) {
                 PyThreadState *ts = PyThreadState_GET();
                 wsgi_req = find_request_by_tasklet(ts->st.current);
         }
-#endif
 
 	return wsgi_req;
 
 }
+#endif
 
-void sanitize_args(struct uwsgi_server *uwsgi) {
+void sanitize_args() {
 
 #ifdef UWSGI_UGREEN
 #ifdef UWSGI_THREADING
-	if (uwsgi->ugreen) {
-                if (uwsgi->has_threads) {
+	if (uwsgi.ugreen) {
+                if (uwsgi.has_threads) {
                         uwsgi_log("--- python threads will be disabled in uGreen mode ---\n");
-                        uwsgi->has_threads = 0;
+                        uwsgi.has_threads = 0;
                 }
 	}
 #endif
 #endif
 
-	if (uwsgi->shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-		if (!uwsgi->post_buffering) {
+	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+		if (!uwsgi.post_buffering) {
 			 uwsgi_log(" *** WARNING: you have enabled harakiri without post buffering. Slow upload could be rejected on post-unbuffered webservers *** \n");
 		}
 	}
 
 #ifdef UWSGI_HTTP
-	if (uwsgi->http && !uwsgi->http_only) {
-		uwsgi->vacuum = 1;
+	if (uwsgi.http && !uwsgi.http_only) {
+		uwsgi.vacuum = 1;
 	}
 #endif
 }
@@ -791,15 +791,15 @@ char *uwsgi_strncopy(char *s, int len) {
 }
 
 
-int uwsgi_get_app_id(struct uwsgi_server *uwsgi, char *script_name, int script_name_len) {
+int uwsgi_get_app_id(char *script_name, int script_name_len) {
 	
 	int i;
 
-	for(i=0;i<uwsgi->apps_cnt;i++) {
-		if (!uwsgi->apps[i].mountpoint_len) {
+	for(i=0;i<uwsgi.apps_cnt;i++) {
+		if (!uwsgi.apps[i].mountpoint_len) {
 			continue;
 		}	
-		if (!uwsgi_strncmp(uwsgi->apps[i].mountpoint, uwsgi->apps[i].mountpoint_len, script_name, script_name_len)) {
+		if (!uwsgi_strncmp(uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len, script_name, script_name_len)) {
 			return i;
 		}
 	}

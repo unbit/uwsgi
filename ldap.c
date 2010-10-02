@@ -2,6 +2,8 @@
 
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
 #include <ldap.h>
 
 void ldap2uwsgi(char *ldapname, char *uwsginame) {
@@ -219,7 +221,7 @@ next2:
 	exit(0);
 }
 
-void uwsgi_ldap_config(struct uwsgi_server *uwsgi, struct option *long_options) {
+void uwsgi_ldap_config(struct option *long_options) {
 
 	LDAP *ldp;
 	LDAPMessage *results, *entry;
@@ -238,8 +240,8 @@ void uwsgi_ldap_config(struct uwsgi_server *uwsgi, struct option *long_options) 
 
 	LDAPURLDesc *ldap_url;
 
-	if (uwsgi->ldap) {
-		url = uwsgi->ldap;
+	if (uwsgi.ldap) {
+		url = uwsgi.ldap;
 	}
 
 	if (!ldap_is_ldap_url(url)) {

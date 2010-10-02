@@ -13,7 +13,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *h_key, *h_value;
 	int i, j;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req(&uwsgi);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	int base = 0;
 	int shift = 0;
