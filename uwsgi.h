@@ -13,6 +13,14 @@
 #define MAX_MOUNTPOINTS 64
 #define MAX_PYTHONPATH 64
 
+#ifdef UWSGI_THREADING
+#define uwsgi_get_gil() if (uwsgi.has_threads) PyEval_AcquireLock()
+#define uwsgi_release_gil() if (uwsgi.has_threads) PyEval_ReleaseLock()
+#else
+#define uwsgi_get_gil()
+#define uwsgi_release_gil()
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -202,6 +210,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_LOG_5xx		17051
 #define LONG_ARGS_LOG_BIG		17052
 #define LONG_ARGS_MOUNT			17053
+#define LONG_ARGS_THREADS		17054
 
 
 
@@ -512,7 +521,7 @@ struct uwsgi_server {
 	int enable_profiler;
 
 	// base for all the requests (even on async mode)
-	struct wsgi_request *wsgi_requests ;
+	struct wsgi_request **wsgi_requests ;
 	struct wsgi_request *wsgi_req ;
 
 	PyThreadState *_save;
@@ -782,6 +791,10 @@ struct uwsgi_server {
 
 	char *mounts[MAX_MOUNTPOINTS];
 	int mounts_cnt;
+
+	int cores;
+	int threads;
+	pthread_key_t ut_key;
 };
 
 struct uwsgi_cluster_node {
@@ -848,8 +861,6 @@ struct uwsgi_worker {
 	int id;
 	pid_t pid;
 	uint64_t status;
-
-	int i_have_gil;
 
 	time_t last_spawn;
 	uint64_t respawn_count;
@@ -1247,3 +1258,5 @@ PyObject *uwsgi_mount_loader(void *);
 
 char *get_uwsgi_pymodule(char *);
 PyObject *get_uwsgi_pydict(char *);
+
+void *simple_loop(void *);

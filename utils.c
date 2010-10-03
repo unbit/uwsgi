@@ -460,6 +460,14 @@ inline struct wsgi_request *current_wsgi_req() {
 
 void sanitize_args() {
 
+	if (uwsgi.async > 0) {
+		uwsgi.cores = uwsgi.async;
+	}
+
+	if (uwsgi.threads > 0) {
+		uwsgi.cores = uwsgi.threads;
+	}
+
 #ifdef UWSGI_UGREEN
 #ifdef UWSGI_THREADING
 	if (uwsgi.ugreen) {

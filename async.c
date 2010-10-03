@@ -267,19 +267,10 @@ int async_del(int queuefd, int fd, int etype) {
 
 #endif
 
-inline struct wsgi_request *next_wsgi_req(struct wsgi_request *wsgi_req) {
-
-        uint8_t *ptr = (uint8_t *) wsgi_req ;
-
-        ptr += sizeof(struct wsgi_request) ;
-
-        return (struct wsgi_request *) ptr ;
-}
-
 int async_get_timeout() {
 
 
-        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests ;
+        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests[0] ;
         int i ;
 	time_t curtime, tdelta = 0 ;
 	int ret = 0 ;
@@ -297,7 +288,7 @@ int async_get_timeout() {
 				}
 			}
                 }
-                wsgi_req = next_wsgi_req(wsgi_req) ;
+                wsgi_req = uwsgi.wsgi_requests[i+1];
         }
 
 	curtime = time(NULL);
@@ -312,7 +303,7 @@ int async_get_timeout() {
 
 void async_expire_timeouts() {
 
-        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests ;
+        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests[0] ;
         int i ;
 	time_t deadline = time(NULL);
 
@@ -324,20 +315,20 @@ void async_expire_timeouts() {
 				wsgi_req->async_timeout_expired = 1 ;
 			}	
                 }
-                wsgi_req = next_wsgi_req(wsgi_req) ;
+                wsgi_req = uwsgi.wsgi_requests[i+1];
         }
 }
 
 struct wsgi_request *find_first_available_wsgi_req() {
 
-        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests ;
+        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests[0] ;
         int i ;
 
         for(i=0;i<uwsgi.async;i++) {
                 if (wsgi_req->async_status == UWSGI_OK) {
                         return wsgi_req ;
                 }
-                wsgi_req = next_wsgi_req(wsgi_req) ;
+                wsgi_req = uwsgi.wsgi_requests[i+1];
         }
 
         return NULL ;
@@ -354,7 +345,7 @@ struct wsgi_request *find_wsgi_req_by_id(int async_id) {
 
 struct wsgi_request *find_wsgi_req_by_fd(int fd, int etype) {
 
-        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests ;
+        struct wsgi_request* wsgi_req = uwsgi.wsgi_requests[0] ;
         int i ;
 
 	if (etype != -1) {
@@ -362,7 +353,7 @@ struct wsgi_request *find_wsgi_req_by_fd(int fd, int etype) {
                 	if (wsgi_req->async_waiting_fd == fd && wsgi_req->async_waiting_fd_type == etype) {
                         	return wsgi_req ;
                 	}
-                	wsgi_req = next_wsgi_req(wsgi_req) ;
+                	wsgi_req = uwsgi.wsgi_requests[i+1];
         	}
 	}
 	else {
@@ -370,7 +361,7 @@ struct wsgi_request *find_wsgi_req_by_fd(int fd, int etype) {
                 	if (wsgi_req->async_waiting_fd == fd) {
                         	return wsgi_req ;
                 	}
-                	wsgi_req = next_wsgi_req(wsgi_req) ;
+                	wsgi_req = uwsgi.wsgi_requests[i+1] ;
         	}
 	}
 
@@ -388,7 +379,7 @@ void async_set_timeout(struct wsgi_request *wsgi_req, time_t timeout) {
 
 void async_write_all(char *data, size_t len) {
 	
-	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests ;
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[0] ;
 	int i;
 	ssize_t rlen ;
 
@@ -402,18 +393,20 @@ void async_write_all(char *data, size_t len) {
 				wsgi_req->response_size += rlen ;
 			}
 		}
+		wsgi_req = uwsgi.wsgi_requests[i+1] ;
 	}
 }
 
 void async_unpause_all() {
 	
-	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests ;
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[0] ;
 	int i;
 
 	for(i=0;i<uwsgi.async;i++) {
                 if (wsgi_req->async_status == UWSGI_PAUSED) {
 			wsgi_req->async_status = UWSGI_AGAIN;
 		}
+		wsgi_req = uwsgi.wsgi_requests[i+1] ;
 	}
 }
 
@@ -423,7 +416,7 @@ struct wsgi_request * async_loop() {
 	int i ;
 
 	uwsgi.async_running = -1 ;
-        wsgi_req = uwsgi.wsgi_requests ;
+        wsgi_req = uwsgi.wsgi_requests[0] ;
 
 
 	for(i=0;i<uwsgi.async;i++) {
@@ -452,7 +445,7 @@ struct wsgi_request * async_loop() {
 				}
 			}
 		}
-		wsgi_req = next_wsgi_req(wsgi_req) ;
+		wsgi_req = uwsgi.wsgi_requests[i+1];
 	}
 
 	return NULL;

@@ -153,6 +153,7 @@ static struct option long_options[] = {
 		{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 		{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
+		{"threads", required_argument, 0, LONG_ARGS_THREADS},
 		{"no-site", no_argument, &Py_NoSiteFlag, 1},
 		{"vhost", no_argument, &uwsgi.vhost, 1},
 #ifdef UWSGI_ROUTING
@@ -484,6 +485,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi.shared->after_hooks[i] = unconfigured_after_hook;
 	}
 
+	uwsgi.cores = 1;
+
 	uwsgi.apps_cnt = 1;
 	uwsgi.default_app = -1;
 
@@ -792,22 +795,30 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	// allocate more wsgi_req for async mode
-	uwsgi.wsgi_requests = malloc(sizeof(struct wsgi_request) * uwsgi.async);
+	// allocate more wsgi_req for async/thread modes
+	uwsgi.wsgi_requests = malloc(sizeof(struct wsgi_request *) * uwsgi.cores);
 	if (uwsgi.wsgi_requests == NULL) {
 		uwsgi_log("unable to allocate memory for requests.\n");
 		exit(1);
 	}
-	memset(uwsgi.wsgi_requests, 0, sizeof(struct wsgi_request) * uwsgi.async);
 
-	uwsgi.async_buf = malloc( sizeof(char *) * uwsgi.async);
+	for(i=0;i<uwsgi.cores;i++) {
+		uwsgi.wsgi_requests[i] = malloc(sizeof(struct wsgi_request));
+		if (uwsgi.wsgi_requests[i] == NULL) {
+			uwsgi_log("unable to allocate memory for requests.\n");
+			exit(1);
+		}
+		memset(uwsgi.wsgi_requests[i], 0, sizeof(struct wsgi_request));
+	}
+
+	uwsgi.async_buf = malloc( sizeof(char *) * uwsgi.cores);
 	if (!uwsgi.async_buf) {
 		uwsgi_error("malloc()");
 		exit(1);
 	}
 
 	if (uwsgi.post_buffering > 0) {
-		uwsgi.async_post_buf = malloc( sizeof(char *) * uwsgi.async);
+		uwsgi.async_post_buf = malloc( sizeof(char *) * uwsgi.cores);
 		if (!uwsgi.async_post_buf) {
 			uwsgi_error("malloc()");
 			exit(1);
@@ -818,7 +829,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	for(i=0;i<uwsgi.async;i++) {
+	for(i=0;i<uwsgi.cores;i++) {
 		uwsgi.async_buf[i] = malloc(uwsgi.buffer_size);
 		if (!uwsgi.async_buf[i]) {
 			uwsgi_error("malloc()");
@@ -835,12 +846,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	
 
 	// by default set wsgi_req to the first slot
-	uwsgi.wsgi_req = uwsgi.wsgi_requests ;
+	uwsgi.wsgi_req = uwsgi.wsgi_requests[0] ;
 
-	if (uwsgi.async > 1) {
-		uwsgi_log("allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.async), 
-								 (uint64_t)( (sizeof(struct wsgi_request) * uwsgi.async ) / 1024),
-								 uwsgi.async);
+	if (uwsgi.cores > 1) {
+		uwsgi_log("allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.cores), 
+								 (uint64_t)( (sizeof(struct wsgi_request) * uwsgi.cores ) / 1024),
+								 uwsgi.cores);
 	}
 
 	if (uwsgi.pyhome != NULL) {
@@ -1354,9 +1365,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi.workers[1].id = 1;
 		uwsgi.workers[1].last_spawn = time(NULL);
 		uwsgi.workers[1].manage_next_request = 1;
-#ifdef UWSGI_THREADING
-		uwsgi.workers[1].i_have_gil = 1;
-#endif
 		uwsgi.mywid = 1;
 		gettimeofday(&last_respawn, NULL);
 		uwsgi.respawn_delta = last_respawn.tv_sec;
@@ -1372,9 +1380,6 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi.workers[i].id = i;
 			uwsgi.workers[i].last_spawn = time(NULL);
 			uwsgi.workers[i].manage_next_request = 1;
-#ifdef UWSGI_THREADING
-			uwsgi.workers[i].i_have_gil = 1;
-#endif
 			uwsgi.mywid = i;
 /* check this part
 			if (uwsgi.serverfd != 0 && uwsgi.master_process == 1) {
@@ -1491,13 +1496,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	close(uwsgi.erlangfd);
 #endif
 
-#ifdef UWSGI_THREADING
 	// release the GIL
-	if (uwsgi.has_threads) {
-		uwsgi._save = PyEval_SaveThread();
-		uwsgi.workers[uwsgi.mywid].i_have_gil = 0;
-	}
-#endif
+	uwsgi_release_gil();
 
 
 #ifdef UWSGI_ASYNC
@@ -1519,7 +1519,37 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	// re-initialize wsgi_req (can be full of init_uwsgi_app data)
-	memset(uwsgi.wsgi_requests, 0, sizeof(struct wsgi_request) * uwsgi.async);
+	for(i=0;i<uwsgi.cores;i++) {
+		memset(uwsgi.wsgi_requests[i], 0, sizeof(struct wsgi_request));
+	}
+
+	if (uwsgi.threads > 1) {
+		pthread_attr_t pa;
+		pthread_t *a_thread;
+		int ret;
+
+        	ret = pthread_attr_init(&pa);
+        	if (ret) {
+                	uwsgi_log("pthread_attr_init() = %d\n", ret);
+                	exit(1);
+        	}
+
+        	ret = pthread_attr_setdetachstate(&pa, PTHREAD_CREATE_DETACHED);
+        	if (ret) {
+                	uwsgi_log("pthread_attr_setdetachstate() = %d\n", ret);
+                	exit(1);
+        	}
+
+		if (pthread_key_create(&uwsgi.ut_key, NULL)) {
+			uwsgi_error("pthread_key_create()");
+			exit(1);
+		}
+		for(i=0;i<uwsgi.threads-1;i++) {
+			a_thread = malloc(sizeof(pthread_t));
+			pthread_create(a_thread, &pa, simple_loop, (void *) &i);
+			uwsgi_log("started thread %d\n", i);
+		}
+	}
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
@@ -1610,7 +1640,6 @@ cycle:
 	}
 reqclear:
 #endif
-
 
 		uwsgi_close_request(uwsgi.wsgi_req);
 	}
@@ -2063,6 +2092,11 @@ void manage_opt(int i, char *optarg) {
 			uwsgi_error("putenv()");
 		}
 		break;
+#ifdef UWSGI_THREADING
+	case LONG_ARGS_THREADS:
+		uwsgi.threads = atoi(optarg);
+		break;
+#endif
 #ifdef UWSGI_ASYNC
 	case LONG_ARGS_ASYNC:
 		uwsgi.async = atoi(optarg);

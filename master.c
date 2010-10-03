@@ -50,6 +50,8 @@ void master_loop(char **argv, char **environ) {
 
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
+	// release the GIL
+	uwsgi_release_gil();
 
 	/* route signals to workers... */
 	signal(SIGHUP, (void *) &grace_them_all);
@@ -96,10 +98,12 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 #ifdef UWSGI_UDP
+		uwsgi_get_gil();
 		udp_callable = PyDict_GetItemString(uwsgi.embedded_dict, "udp_callable");
 		if (udp_callable) {
 			udp_callable_args = PyTuple_New(3);
 		}
+		uwsgi_release_gil();
 #endif
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
@@ -196,15 +200,7 @@ void master_loop(char **argv, char **environ) {
 			}
 
 			if (diedpid == 0) {
-				/* PLEASE, do not run python threads in the master process, you can potentially destroy the world,
-				   we support this for hyperultramegagodprogrammer and systems
-				 */
-#ifdef UWSGI_THREADING
-				if (uwsgi.has_threads && uwsgi.shared->options[UWSGI_OPTION_THREADS] == 1) {
-					uwsgi._save = PyEval_SaveThread();
-					uwsgi.workers[uwsgi.mywid].i_have_gil = 0;
-				}
-#endif
+
 				/* all processes ok, doing status scan after N seconds */
 				check_interval.tv_sec = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
 				if (!check_interval.tv_sec)
@@ -234,6 +230,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 								else {
 									if (udp_callable && udp_callable_args) {
+										uwsgi_get_gil();
 										PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
 										PyTuple_SetItem(udp_callable_args, 1, PyInt_FromLong(ntohs(udp_client.sin_port)));
 										PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(uwsgi.wsgi_req->buffer, rlen));
@@ -243,6 +240,8 @@ void master_loop(char **argv, char **environ) {
 										}
 										if (PyErr_Occurred())
 											PyErr_Print();
+
+										uwsgi_release_gil();
 									}
 									else {
 										// a simple udp logger
@@ -271,12 +270,7 @@ void master_loop(char **argv, char **environ) {
 				master_cycles++;
 				working_workers = 0;
 				blocking_workers = 0;
-#ifdef UWSGI_THREADING
-				if (uwsgi.has_threads && !uwsgi.workers[uwsgi.mywid].i_have_gil) {
-					PyEval_RestoreThread(uwsgi._save);
-					uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
-				}
-#endif
+
 				check_interval.tv_sec = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
 				if (!check_interval.tv_sec)
 					check_interval.tv_sec = 1;
@@ -422,7 +416,6 @@ void master_loop(char **argv, char **environ) {
 				uwsgi.workers[uwsgi.mywid].respawn_count++;
 				uwsgi.workers[uwsgi.mywid].last_spawn = time(NULL);
 				uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
-				uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
 				break;
 			}
 			else if (pid < 1) {

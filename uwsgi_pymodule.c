@@ -1121,8 +1121,8 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
 		// this field will be overwrite after each call
 		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
-		// take the gil to support threads in grunt (is this useful ?)
-                uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
+		// TODO
+              	// manage thread in grunt processes 
 		Py_INCREF(Py_True);
 		return Py_True;
 	}

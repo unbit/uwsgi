@@ -13,17 +13,9 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
         if (PyString_Check(data)) {
                 content = PyString_AsString(data);
                 len = PyString_Size(data);
-
-#ifdef UWSGI_THREADING
-                if (uwsgi.has_threads && uwsgi.shared->options[UWSGI_OPTION_THREADS] == 1) {
-                        Py_BEGIN_ALLOW_THREADS wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
-                Py_END_ALLOW_THREADS}
-                else {
-#endif
-                        wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
-#ifdef UWSGI_THREADING
-                }
-#endif
+		uwsgi_release_gil();
+                wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
+		uwsgi_get_gil();
         }
 
         Py_INCREF(Py_None);
@@ -87,7 +79,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	int tmp_stderr;
 
 	if (uwsgi_version == NULL) {
-		uwsgi_version = PyString_FromString(UWSGI_VERSION);
+		//uwsgi_version = PyString_FromString(UWSGI_VERSION);
 	}
 
 	char *what;
@@ -125,14 +117,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-
-#ifdef UWSGI_THREADING
-	if (uwsgi.has_threads && !uwsgi.workers[uwsgi.mywid].i_have_gil) {
-		PyEval_RestoreThread(uwsgi._save);
-		uwsgi.workers[uwsgi.mywid].i_have_gil = 1;
-	}
-#endif
-
 	if (!uwsgi.ignore_script_name) {
 
 		if (!wsgi_req->script_name)
@@ -163,7 +147,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 				) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
+					uwsgi_get_gil();
 					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
+					uwsgi_release_gil();
 				}
 			}
 		}
@@ -195,7 +181,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 
 		// set the interpreter
+		uwsgi_get_gil();
 		PyThreadState_Swap(wi->interpreter);
+		uwsgi_release_gil();
 		if (wi->chdir) {
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("chdir to %s\n", wi->chdir);
@@ -230,6 +218,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_environ = wi->wsgi_environ;
 	wsgi_req->async_args = wi->wsgi_args;
 #endif
+
+	uwsgi_get_gil();
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
 
 
@@ -273,6 +263,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	// set wsgi vars
 
+	uwsgi_release_gil();
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 		wsgi_req->async_post = tmpfile();
@@ -308,6 +299,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 	}
 
+	uwsgi_get_gil();
 
 	wsgi_req->async_result = (*wi->request_subhandler)(wsgi_req, wi);
 
@@ -324,6 +316,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	}
+
 	else if (uwsgi.catch_exceptions) {
 
 		wsgi_req->response_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
@@ -355,12 +348,15 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		close(tmp_stderr);	
 	}
 
+
 clear:
 
 	if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
 		// restoring main interpreter
 		PyThreadState_Swap(uwsgi.main_thread);
 	}
+
+	uwsgi_release_gil();
 
 clear2:
 
