@@ -104,7 +104,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 		wsgi_req->status,
 		wsgi_req->header_cnt,
 		wsgi_req->headers_size, 
-		wsgi_req->async_switches, wsgi_req->async_id);
+		wsgi_req->switches, wsgi_req->async_id);
 
 	logvec[logvecpos].iov_base = logpkt ;
 	logvec[logvecpos].iov_len = rlen ;

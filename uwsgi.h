@@ -473,7 +473,8 @@ struct wsgi_request {
 	int async_waiting_fd;
 	int async_waiting_fd_type;
 	int async_waiting_fd_monitored;
-	int async_switches;
+
+	int switches;
 
 	time_t async_timeout ;
 	int async_timeout_expired ;

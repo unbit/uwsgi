@@ -85,7 +85,7 @@ inline static void u_green_schedule_to_req(struct uwsgi_server *uwsgi, struct ws
 	py_current_frame = tstate->frame;
 
 	uwsgi->wsgi_req = wsgi_req;
-	wsgi_req->async_switches++;
+	//wsgi_req->async_switches++;
 	swapcontext(&uwsgi->ugreenmain, uwsgi->ugreen_contexts[wsgi_req->async_id] );
 
 	tstate = PyThreadState_GET();	

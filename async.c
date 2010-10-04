@@ -438,8 +438,6 @@ struct wsgi_request * async_loop() {
 				uwsgi.wsgi_req = wsgi_req ;
 				wsgi_req->async_status = (*uwsgi.shared->hooks[wsgi_req->uh.modifier1]) (wsgi_req);
 
-				wsgi_req->async_switches++;
-
 				if (wsgi_req->async_status < UWSGI_AGAIN) {
 					return wsgi_req;
 				}
