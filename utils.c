@@ -465,6 +465,7 @@ void sanitize_args() {
 	}
 
 	if (uwsgi.threads > 0) {
+		uwsgi.has_threads = 1;
 		uwsgi.cores = uwsgi.threads;
 	}
 

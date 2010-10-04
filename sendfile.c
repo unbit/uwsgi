@@ -34,12 +34,15 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 	int fd = wsgi_req->sendfile_fd ;
 	int sockfd = wsgi_req->poll.fd ;
         struct stat stat_buf;
+	ssize_t sst = 0;
+
+	uwsgi_release_gil();
 
 	if (!wsgi_req->sendfile_fd_size) {
 
         	if (fstat(fd, &stat_buf)) {
                 	uwsgi_error("fstat()");
-                	return 0;
+			goto end;
         	}
         	else {
                 	wsgi_req->sendfile_fd_size = stat_buf.st_size;
@@ -49,12 +52,13 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
         if (wsgi_req->sendfile_fd_size) {
 
 		if (!wsgi_req->sendfile_fd_chunk) wsgi_req->sendfile_fd_chunk = 4096 ;
-
-		return uwsgi_do_sendfile(sockfd, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_size, wsgi_req->sendfile_fd_chunk, &wsgi_req->sendfile_fd_pos, uwsgi.async);
+		sst = uwsgi_do_sendfile(sockfd, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_size, wsgi_req->sendfile_fd_chunk, &wsgi_req->sendfile_fd_pos, uwsgi.async);
 
 	}
 
-	return 0;
+end:
+	uwsgi_get_gil();
+	return sst;
 }
 
 

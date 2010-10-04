@@ -6,6 +6,13 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyObject *wsgi_socket, *zero;
 
+	static PyObject *uwsgi_version = NULL;
+
+	if (uwsgi_version == NULL) {
+                uwsgi_version = PyString_FromString(UWSGI_VERSION);
+        }
+	
+
 	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
         Py_DECREF(wsgi_socket);
@@ -34,7 +41,12 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.run_once", Py_False);
 
-        PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multithread", Py_False);
+	if (uwsgi.threads > 1) {
+        	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multithread", Py_True);
+	}
+	else {
+        	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multithread", Py_False);
+	}
         if (uwsgi.numproc == 1) {
                 PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_False);
         }
@@ -64,8 +76,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         //PyDict_SetItemString(uwsgi.embedded_dict, "env", wsgi_req->async_environ);
 
-	// TODO: fix here
-        //PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.uwsgi.version", uwsgi_version);
+        PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", uwsgi_version);
 
 
 #ifdef UWSGI_ROUTING
@@ -77,7 +88,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 
         // call
-
 
 
         PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);

@@ -71,17 +71,10 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	PyObject *pydictkey, *pydictvalue;
 
-	static PyObject *uwsgi_version = NULL;
-
 	char *path_info;
 	struct uwsgi_app *wi ;
 
 	int tmp_stderr;
-
-	if (uwsgi_version == NULL) {
-		//uwsgi_version = PyString_FromString(UWSGI_VERSION);
-	}
-
 	char *what;
 	int what_len;
 
@@ -149,9 +142,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 				) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
-					//uwsgi_get_gil();
+					uwsgi_get_gil();
 					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
-					//uwsgi_release_gil();
+					uwsgi_release_gil();
 				}
 			}
 		}
@@ -183,9 +176,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 
 		// set the interpreter
-		//uwsgi_get_gil();
+		uwsgi_get_gil();
 		PyThreadState_Swap(wi->interpreter);
-		//uwsgi_release_gil();
+		uwsgi_release_gil();
 		if (wi->chdir) {
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("chdir to %s\n", wi->chdir);
@@ -222,11 +215,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_args = wi->wsgi_args;
 #endif
 
-	//uwsgi_get_gil();
+	uwsgi_get_gil();
 
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
-
-
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 #ifdef UWSGI_DEBUG
@@ -262,11 +253,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 
-	// set wsgi vars
-
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-		//uwsgi_release_gil();
+		uwsgi_release_gil();
 		wsgi_req->async_post = tmpfile();
 		if (!wsgi_req->async_post) {
 			uwsgi_error("tmpfile()");
@@ -295,7 +284,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			post_remains -= post_chunk;
 		}
 		rewind(wsgi_req->async_post);
-		//uwsgi_get_gil();
+		uwsgi_get_gil();
 	} 
 	else {
 		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
@@ -303,6 +292,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	wsgi_req->async_result = (*wi->request_subhandler)(wsgi_req, wi);
+
 
 
 	if (wsgi_req->async_result) {
@@ -320,6 +310,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	else if (uwsgi.catch_exceptions) {
+
+		// LOCK THIS PART
 
 		wsgi_req->response_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
 		wsgi_req->response_size += write(wsgi_req->poll.fd, " 500 Internal Server Error\r\n", 28 );
@@ -358,7 +350,7 @@ clear:
 		PyThreadState_Swap(uwsgi.main_thread);
 	}
 
-	//uwsgi_release_gil();
+	uwsgi_release_gil();
 
 clear2:
 

@@ -61,6 +61,7 @@ int uwsgi_request_eval(struct wsgi_request *wsgi_req) {
 
 	PyObject *code, *py_dict;
 
+	uwsgi_get_gil();
 	PyObject *m = PyImport_AddModule("__main__");
 	if (m == NULL) {
 		PyErr_Print();
@@ -74,14 +75,18 @@ int uwsgi_request_eval(struct wsgi_request *wsgi_req) {
 	code = Py_CompileString(wsgi_req->buffer, "uWSGI", Py_file_input);
 	if (code == NULL) {
 		PyErr_Print();
+		uwsgi_release_gil();
 		return -1;
 	}
 	PyEval_EvalCode((PyCodeObject *)code, py_dict, py_dict );
 	Py_DECREF(code);
 	if (PyErr_Occurred()) {
 		PyErr_Print();
+		uwsgi_release_gil();
 		return -1;
 	}
+
+	uwsgi_release_gil();
 	return UWSGI_OK;
 }
 
@@ -89,25 +94,26 @@ int uwsgi_request_eval(struct wsgi_request *wsgi_req) {
 int uwsgi_request_fastfunc(struct wsgi_request *wsgi_req) {
 
 	PyObject *ffunc;
+	int ret = UWSGI_OK ;
 
-#ifdef UWSGI_ASYNC
-        if (wsgi_req->async_status == UWSGI_AGAIN) {
-                return manage_python_response(wsgi_req);
-        }
-#endif
+	uwsgi_get_gil();
 
+	// CHECK HERE
 	ffunc = PyList_GetItem(uwsgi.fastfuncslist, wsgi_req->uh.modifier2);
 	if (ffunc) {
 		uwsgi_log( "managing fastfunc %d\n", wsgi_req->uh.modifier2);
-		return uwsgi_python_call(wsgi_req, ffunc, NULL);
+		ret = uwsgi_python_call(wsgi_req, ffunc, NULL);
 	}
 
-	return UWSGI_OK;
+	uwsgi_release_gil();
+	return ret;
 }
 
 /* uwsgi MARSHAL|33 */
 int uwsgi_request_marshal(struct wsgi_request *wsgi_req) {
 	PyObject *func_result;
+
+	uwsgi_get_gil();
 
 	PyObject *umm = PyDict_GetItemString(uwsgi.embedded_dict,
 					     "message_manager_marshal");
@@ -153,5 +159,6 @@ int uwsgi_request_marshal(struct wsgi_request *wsgi_req) {
 	}
 	PyErr_Clear();
 
+	uwsgi_release_gil();
 	return 0;
 }
