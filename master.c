@@ -46,7 +46,9 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 	int i,j;
+#ifdef UWSGI_UDP
 	int rlen;
+#endif
 
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 

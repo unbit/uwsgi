@@ -99,6 +99,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 #endif
 
+
 	/* Standard WSGI request */
 	if (!wsgi_req->uh.pktsize) {
 		uwsgi_log( "Invalid WSGI request. skip.\n");
@@ -116,6 +117,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
                 	return -1;
 		}
 	}
+
 
 	if (!uwsgi.ignore_script_name) {
 
@@ -147,9 +149,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 				) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
-					uwsgi_get_gil();
+					//uwsgi_get_gil();
 					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
-					uwsgi_release_gil();
+					//uwsgi_release_gil();
 				}
 			}
 		}
@@ -181,9 +183,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 
 		// set the interpreter
-		uwsgi_get_gil();
+		//uwsgi_get_gil();
 		PyThreadState_Swap(wi->interpreter);
-		uwsgi_release_gil();
+		//uwsgi_release_gil();
 		if (wi->chdir) {
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("chdir to %s\n", wi->chdir);
@@ -195,6 +197,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	wi->requests++;
+
 
 
 	if (wsgi_req->protocol_len < 5) {
@@ -219,17 +222,16 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_args = wi->wsgi_args;
 #endif
 
-	uwsgi_get_gil();
+	//uwsgi_get_gil();
+
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
 
 
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
-/*
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 #endif
-*/
 #ifdef PYTHREE
 		pydictkey = PyUnicode_DecodeLatin1(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, "ignore");
 		pydictvalue = PyUnicode_DecodeLatin1(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len, "ignore");
@@ -241,7 +243,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		Py_DECREF(pydictkey);
 		Py_DECREF(pydictvalue);
 	}
-
 
 	if (wsgi_req->uh.modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
 		pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
@@ -263,9 +264,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	// set wsgi vars
 
-	uwsgi_release_gil();
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
+		//uwsgi_release_gil();
 		wsgi_req->async_post = tmpfile();
 		if (!wsgi_req->async_post) {
 			uwsgi_error("tmpfile()");
@@ -294,14 +295,15 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			post_remains -= post_chunk;
 		}
 		rewind(wsgi_req->async_post);
+		//uwsgi_get_gil();
 	} 
 	else {
 		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 	}
 
-	uwsgi_get_gil();
 
 	wsgi_req->async_result = (*wi->request_subhandler)(wsgi_req, wi);
+
 
 	if (wsgi_req->async_result) {
 
@@ -356,7 +358,7 @@ clear:
 		PyThreadState_Swap(uwsgi.main_thread);
 	}
 
-	uwsgi_release_gil();
+	//uwsgi_release_gil();
 
 clear2:
 

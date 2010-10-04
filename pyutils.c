@@ -12,6 +12,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 	PyObject *pyret;
 
 	pyret =  PyEval_CallObject(callable, args);
+
 	if (PyErr_Occurred()) {
 		if (!catch) { 
 			PyErr_Print();

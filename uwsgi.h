@@ -14,8 +14,8 @@
 #define MAX_PYTHONPATH 64
 
 #ifdef UWSGI_THREADING
-#define uwsgi_get_gil() if (uwsgi.has_threads) PyEval_AcquireLock()
-#define uwsgi_release_gil() if (uwsgi.has_threads) PyEval_ReleaseLock()
+#define uwsgi_get_gil() if (uwsgi.has_threads) { PyEval_AcquireLock(); PyThreadState_Swap((PyThreadState *) pthread_getspecific(uwsgi.ut_save_key)); }
+#define uwsgi_release_gil() if (uwsgi.has_threads) { pthread_setspecific(uwsgi.ut_save_key, (void *) PyThreadState_Swap(NULL)); PyEval_ReleaseLock();}
 #else
 #define uwsgi_get_gil()
 #define uwsgi_release_gil()
@@ -554,7 +554,7 @@ struct uwsgi_server {
 
 	int vhost;
 
-	struct iovec *async_hvec;
+	struct iovec **async_hvec;
 	char **async_buf;
 	char **async_post_buf;
 
@@ -795,6 +795,7 @@ struct uwsgi_server {
 	int cores;
 	int threads;
 	pthread_key_t ut_key;
+	pthread_key_t ut_save_key;
 };
 
 struct uwsgi_cluster_node {
@@ -1115,7 +1116,7 @@ struct wsgi_request *current_wsgi_req(void);
 inline struct wsgi_request *current_wsgi_req(void);
 #endif
 #else
-#define current_wsgi_req() uwsgi.wsgi_req
+#define current_wsgi_req() pthread_getspecific(uwsgi.ut_key)
 #endif
 
 void sanitize_args(void);

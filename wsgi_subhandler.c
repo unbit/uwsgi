@@ -62,7 +62,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         wsgi_req->async_app = wi->wsgi_callable ;
 
-        PyDict_SetItemString(uwsgi.embedded_dict, "env", wsgi_req->async_environ);
+        //PyDict_SetItemString(uwsgi.embedded_dict, "env", wsgi_req->async_environ);
 
 	// TODO: fix here
         //PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.uwsgi.version", uwsgi_version);
@@ -77,6 +77,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 
         // call
+
 
 
         PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);

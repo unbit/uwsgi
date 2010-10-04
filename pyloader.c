@@ -105,13 +105,13 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 	}
 
 #ifdef UWSGI_ASYNC
-	wi->wsgi_environ = malloc(sizeof(PyObject*)*uwsgi.async);
+	wi->wsgi_environ = malloc(sizeof(PyObject*)*uwsgi.cores);
 	if (!wi->wsgi_environ) {
 		uwsgi_error("malloc()");
 		exit(1);
 	}
 
-	for(i=0;i<uwsgi.async;i++) {
+	for(i=0;i<uwsgi.cores;i++) {
 		wi->wsgi_environ[i] = PyDict_New();
 		if (!wi->wsgi_environ[i]) {
 			uwsgi_log("unable to allocate new env dictionary for app\n");
@@ -171,13 +171,13 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 	}
 
 #ifdef UWSGI_ASYNC
-        wi->wsgi_args = malloc(sizeof(PyObject*)*uwsgi.async);
+        wi->wsgi_args = malloc(sizeof(PyObject*)*uwsgi.cores);
         if (!wi->wsgi_args) {
                 uwsgi_error("malloc()");
 		exit(1);
         }
 
-        for(i=0;i<uwsgi.async;i++) {
+        for(i=0;i<uwsgi.cores;i++) {
                 wi->wsgi_args[i] = PyTuple_New(wi->argc);
                 if (!wi->wsgi_args[i]) {
 			uwsgi_log("unable to allocate new tuple for app args\n");

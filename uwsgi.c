@@ -968,6 +968,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.has_threads) {
 		PyEval_InitThreads();
 		uwsgi_log("threads support enabled\n");
+		if (pthread_key_create(&uwsgi.ut_save_key, NULL)) {
+                        uwsgi_error("pthread_key_create()");
+                        exit(1);
+                }
+		pthread_setspecific(uwsgi.ut_save_key, (void *) PyThreadState_Get());
 	}
 
 #endif
@@ -1437,10 +1442,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 
-	uwsgi.async_hvec = malloc((sizeof(struct iovec) * uwsgi.vec_size)*uwsgi.async);
+	uwsgi.async_hvec = malloc(sizeof(struct iovec*)*uwsgi.cores);
 	if (uwsgi.async_hvec == NULL) {
 		uwsgi_log( "unable to allocate memory for iovec.\n");
 		exit(1);
+	}
+
+	for(i=0;i<uwsgi.cores;i++) {
+		uwsgi.async_hvec[i] = malloc(sizeof(struct iovec) * uwsgi.vec_size);
 	}
 
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && !uwsgi.master_process) {
@@ -1544,10 +1553,10 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi_error("pthread_key_create()");
 			exit(1);
 		}
-		for(i=0;i<uwsgi.threads-1;i++) {
+		for(i=1;i<uwsgi.threads;i++) {
+			int j = i;
 			a_thread = malloc(sizeof(pthread_t));
-			pthread_create(a_thread, &pa, simple_loop, (void *) &i);
-			uwsgi_log("started thread %d\n", i);
+			pthread_create(a_thread, &pa, simple_loop, (void *) j);
 		}
 	}
 
@@ -1626,15 +1635,8 @@ cycle:
 	}
 	else {
 #endif
-		wsgi_req_setup(uwsgi.wsgi_req, 0);
-
-		if (wsgi_req_accept(uwsgi.wsgi_req)) {
-			continue;
-		}
-
-		if (wsgi_req_recv(uwsgi.wsgi_req)) {
-			continue;
-		}
+		int y = 0;
+		simple_loop((void *) y);
 
 #ifdef UWSGI_ASYNC
 	}
