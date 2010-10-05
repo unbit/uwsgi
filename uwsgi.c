@@ -344,10 +344,7 @@ void what_i_am_doing() {
 PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""} };
 PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""} };
 
-// process manager is now (20090725) available on Unbit
 pid_t masterpid;
-pid_t diedpid;
-int waitpid_status;
 struct timeval last_respawn;
 
 
@@ -399,11 +396,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	int rlen;
 
 	int uwsgi_will_starts = 0;
-
-#ifdef UWSGI_ASYNC
-	int current_async_timeout = 0;
-#endif
-
 
 	pid_t pid;
 
@@ -849,7 +841,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.wsgi_req = uwsgi.wsgi_requests[0] ;
 
 	if (uwsgi.cores > 1) {
-		uwsgi_log("allocated %llu bytes (%llu KB) for %d request's buffer.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.cores), 
+		uwsgi_log("allocated %llu bytes (%llu KB) for %d cores per worker.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.cores), 
 								 (uint64_t)( (sizeof(struct wsgi_request) * uwsgi.cores ) / 1024),
 								 uwsgi.cores);
 	}
@@ -949,6 +941,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.main_thread = PyThreadState_Get();
 
+	uwsgi.gil_get = gil_fake_get;
+        uwsgi.gil_release = gil_fake_release;
+	uwsgi.current_wsgi_req = simple_current_wsgi_req;
 
 
 #ifdef UWSGI_NAGIOS
@@ -973,6 +968,9 @@ int main(int argc, char *argv[], char *envp[]) {
                         exit(1);
                 }
 		pthread_setspecific(uwsgi.ut_save_key, (void *) PyThreadState_Get());
+		uwsgi.gil_get = gil_real_get; 
+		uwsgi.gil_release = gil_real_release; 
+		uwsgi.current_wsgi_req = threaded_current_wsgi_req;
 	}
 
 #endif
@@ -1234,6 +1232,34 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log( "done.\n");
 
+	uwsgi_log("*** Operational MODE: ");
+	if (uwsgi.threads > 1) {
+		uwsgi_log("threaded");
+	}
+#ifdef UWSGI_UGREEN
+	else if (uwsgi.ugreen) {
+		uwsgi_log("uGreen");
+	}
+#endif
+#ifdef UWSGI_STACKLESS
+	else if (uwsgi.stackless) {
+		uwsgi_log("stackless");
+	}
+#endif
+#ifdef UWSGI_ASYNC
+	else if (uwsgi.async > 1) {
+		uwsgi_log("async");
+	}
+#endif
+	else if (uwsgi.numproc > 1) {
+		uwsgi_log("preforking");
+	}
+	else {
+		uwsgi_log("single process");
+	}
+
+	uwsgi_log(" ***\n");
+
 #ifdef UWSGI_EMBED_PLUGINS
 	embed_plugins();
 #endif
@@ -1361,10 +1387,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
-			uwsgi_log( "spawned uWSGI worker 1 (and the only) (pid: %d)\n", masterpid);
+			uwsgi_log( "spawned uWSGI worker 1 (and the only) (pid: %d, cores: %d)\n", masterpid, uwsgi.cores);
 		}
 		else {
-			uwsgi_log( "spawned uWSGI worker 1 (pid: %d)\n", masterpid);
+			uwsgi_log( "spawned uWSGI worker 1 (pid: %d, cores: %d)\n", masterpid, uwsgi.cores);
 		}
 		uwsgi.workers[1].pid = masterpid;
 		uwsgi.workers[1].id = 1;
@@ -1399,7 +1425,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 		else {
-			uwsgi_log( "spawned uWSGI worker %d (pid: %d)\n", i, pid);
+			uwsgi_log( "spawned uWSGI worker %d (pid: %d, cores: %d)\n", i, pid, uwsgi.cores);
 			gettimeofday(&last_respawn, NULL);
 			uwsgi.respawn_delta = last_respawn.tv_sec;
 		}
@@ -1506,7 +1532,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	// release the GIL
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 
 
 #ifdef UWSGI_ASYNC
@@ -1554,96 +1580,18 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 		for(i=1;i<uwsgi.threads;i++) {
-			int j = i;
+			long j = i;
 			a_thread = malloc(sizeof(pthread_t));
 			pthread_create(a_thread, &pa, simple_loop, (void *) j);
 		}
 	}
 
-	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
-
-
-#ifndef __linux__
-		if (uwsgi.no_orphans && uwsgi.master_process) {
-			// am i a son of init ?	
-			if (getppid() == 1) {
-				uwsgi_log("UAAAAAAH my parent died :( i will follow him...\n");
-				exit(1);
-			}
-		}
-#endif
-
-		// clear all status bits
-		UWSGI_CLEAR_STATUS;
-
-#ifdef UWSGI_ASYNC
-	
-	if (uwsgi.async > 1) {
-
-		current_async_timeout = async_get_timeout() ;
-		uwsgi.async_nevents = async_wait(uwsgi.async_queue, uwsgi.async_events, uwsgi.async, uwsgi.async_running, current_async_timeout);
-		async_expire_timeouts();
-
-		if (uwsgi.async_nevents < 0) {
-			continue;
-		}
-	
-		for(i=0; i<uwsgi.async_nevents;i++) {
-
-			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
-
-				uwsgi.wsgi_req = find_first_available_wsgi_req();
-				if (uwsgi.wsgi_req == NULL) {
-					// async system is full !!!
-					goto cycle;
-				}
-
-				wsgi_req_setup(uwsgi.wsgi_req, ( (uint8_t *)uwsgi.wsgi_req - (uint8_t *)uwsgi.wsgi_requests)/sizeof(struct wsgi_request) );
-
-				if (wsgi_req_accept(uwsgi.wsgi_req)) {
-					continue;
-				}
-
-				if (wsgi_req_recv(uwsgi.wsgi_req)) {
-					continue;
-				}
-
-				if (uwsgi.wsgi_req->async_status == UWSGI_OK) {
-					goto reqclear;
-				}
-
-			}
-			else {
-				uwsgi.wsgi_req = find_wsgi_req_by_fd(uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
-				if (uwsgi.wsgi_req) {
-					uwsgi.wsgi_req->async_status = UWSGI_AGAIN ;
-					uwsgi.wsgi_req->async_waiting_fd = -1 ;
-					uwsgi.wsgi_req->async_waiting_fd_monitored = 0 ;
-				}
-
-				async_del(uwsgi.async_queue, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
-			}
-		}
-
-cycle:
-		uwsgi.wsgi_req = async_loop();
-
-		if (uwsgi.wsgi_req == NULL)
-			continue ;
-		uwsgi.wsgi_req->async_status = UWSGI_OK ;
-
+	if (uwsgi.async < 2) {
+		long y = 0;
+		simple_loop((void *) y);
 	}
 	else {
-#endif
-		int y = 0;
-		simple_loop((void *) y);
-
-#ifdef UWSGI_ASYNC
-	}
-reqclear:
-#endif
-
-		uwsgi_close_request(uwsgi.wsgi_req);
+		complex_loop();
 	}
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {

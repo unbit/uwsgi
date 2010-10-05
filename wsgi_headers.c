@@ -141,9 +141,9 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	wsgi_req->hvec[j].iov_base = nl;
 	wsgi_req->hvec[j].iov_len = NL_SIZE;
 
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 	wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, j + 1);
-	uwsgi_get_gil();
+	UWSGI_GET_GIL
 	if (wsgi_req->headers_size < 0) {
 		uwsgi_error("writev()");
 	}

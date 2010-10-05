@@ -53,7 +53,7 @@ void master_loop(char **argv, char **environ) {
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
 	// release the GIL
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 
 	/* route signals to workers... */
 	signal(SIGHUP, (void *) &grace_them_all);
@@ -100,12 +100,12 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 #ifdef UWSGI_UDP
-		uwsgi_get_gil();
+		UWSGI_GET_GIL	
 		udp_callable = PyDict_GetItemString(uwsgi.embedded_dict, "udp_callable");
 		if (udp_callable) {
 			udp_callable_args = PyTuple_New(3);
 		}
-		uwsgi_release_gil();
+		UWSGI_RELEASE_GIL
 #endif
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
@@ -232,7 +232,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 								else {
 									if (udp_callable && udp_callable_args) {
-										uwsgi_get_gil();
+										UWSGI_GET_GIL
 										PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
 										PyTuple_SetItem(udp_callable_args, 1, PyInt_FromLong(ntohs(udp_client.sin_port)));
 										PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(uwsgi.wsgi_req->buffer, rlen));
@@ -243,7 +243,7 @@ void master_loop(char **argv, char **environ) {
 										if (PyErr_Occurred())
 											PyErr_Print();
 
-										uwsgi_release_gil();
+										UWSGI_RELEASE_GIL
 									}
 									else {
 										// a simple udp logger

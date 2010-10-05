@@ -14,11 +14,11 @@
 #define MAX_PYTHONPATH 64
 
 #ifdef UWSGI_THREADING
-#define uwsgi_get_gil() if (uwsgi.has_threads) { PyEval_AcquireLock(); PyThreadState_Swap((PyThreadState *) pthread_getspecific(uwsgi.ut_save_key)); }
-#define uwsgi_release_gil() if (uwsgi.has_threads) { pthread_setspecific(uwsgi.ut_save_key, (void *) PyThreadState_Swap(NULL)); PyEval_ReleaseLock();}
+#define UWSGI_GET_GIL (*uwsgi.gil_get)();
+#define UWSGI_RELEASE_GIL (*uwsgi.gil_release)();
 #else
-#define uwsgi_get_gil()
-#define uwsgi_release_gil()
+#define UWSGI_GET_GIL
+#define UWSGI_RELEASE_GIL
 #endif
 
 #include <stdio.h>
@@ -797,6 +797,14 @@ struct uwsgi_server {
 	int threads;
 	pthread_key_t ut_key;
 	pthread_key_t ut_save_key;
+
+
+#ifdef UWSGI_THREADING
+	void (*gil_get) (void);
+	void (*gil_release) (void);
+#endif
+
+	struct wsgi_request* (*current_wsgi_req)(void);
 };
 
 struct uwsgi_cluster_node {
@@ -1117,7 +1125,7 @@ struct wsgi_request *current_wsgi_req(void);
 inline struct wsgi_request *current_wsgi_req(void);
 #endif
 #else
-#define current_wsgi_req() pthread_getspecific(uwsgi.ut_key)
+#define current_wsgi_req() (*uwsgi.current_wsgi_req)()
 #endif
 
 void sanitize_args(void);
@@ -1262,3 +1270,14 @@ char *get_uwsgi_pymodule(char *);
 PyObject *get_uwsgi_pydict(char *);
 
 void *simple_loop(void *);
+void complex_loop(void);
+
+
+
+void gil_real_get(void);
+void gil_real_release(void);
+void gil_fake_get(void);
+void gil_fake_release(void);
+
+struct wsgi_request* threaded_current_wsgi_req(void);
+struct wsgi_request* simple_current_wsgi_req(void);

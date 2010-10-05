@@ -13,9 +13,9 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
         if (PyString_Check(data)) {
                 content = PyString_AsString(data);
                 len = PyString_Size(data);
-		uwsgi_release_gil();
+		UWSGI_RELEASE_GIL
                 wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
-		uwsgi_get_gil();
+		UWSGI_GET_GIL
         }
 
         Py_INCREF(Py_None);
@@ -142,9 +142,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 				) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
-					uwsgi_get_gil();
+					UWSGI_GET_GIL
 					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
-					uwsgi_release_gil();
+					UWSGI_RELEASE_GIL
 				}
 			}
 		}
@@ -176,9 +176,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 
 		// set the interpreter
-		uwsgi_get_gil();
+		UWSGI_GET_GIL
 		PyThreadState_Swap(wi->interpreter);
-		uwsgi_release_gil();
+		UWSGI_RELEASE_GIL
 		if (wi->chdir) {
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("chdir to %s\n", wi->chdir);
@@ -215,7 +215,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_args = wi->wsgi_args;
 #endif
 
-	uwsgi_get_gil();
+	UWSGI_GET_GIL
 
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
 
@@ -255,7 +255,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-		uwsgi_release_gil();
+		UWSGI_RELEASE_GIL
 		wsgi_req->async_post = tmpfile();
 		if (!wsgi_req->async_post) {
 			uwsgi_error("tmpfile()");
@@ -284,7 +284,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			post_remains -= post_chunk;
 		}
 		rewind(wsgi_req->async_post);
-		uwsgi_get_gil();
+		UWSGI_GET_GIL
 	} 
 	else {
 		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
@@ -351,7 +351,7 @@ clear:
 		PyThreadState_Swap(uwsgi.main_thread);
 	}
 
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 
 clear2:
 

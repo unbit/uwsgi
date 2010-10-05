@@ -36,7 +36,7 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
         struct stat stat_buf;
 	ssize_t sst = 0;
 
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 
 	if (!wsgi_req->sendfile_fd_size) {
 
@@ -57,7 +57,7 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 	}
 
 end:
-	uwsgi_get_gil();
+	UWSGI_GET_GIL
 	return sst;
 }
 

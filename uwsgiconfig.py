@@ -89,7 +89,7 @@ gcc_major = int(gcc_version.split('.')[0])
 gcc_minor = int(gcc_version.split('.')[1])
 
 
-gcc_list = ['utils', 'pyutils', 'pyloader', 'protocol', 'socket', 'logging', 'master', 'wsgi_handlers', 'wsgi_subhandler', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'loop', 'uwsgi']
+gcc_list = ['utils', 'pyutils', 'pyloader', 'protocol', 'socket', 'logging', 'master', 'wsgi_handlers', 'wsgi_subhandler', 'wsgi_headers', 'uwsgi_handlers', 'plugins', 'loop', 'gil', 'uwsgi']
 
 cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 

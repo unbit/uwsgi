@@ -61,7 +61,7 @@ int uwsgi_request_eval(struct wsgi_request *wsgi_req) {
 
 	PyObject *code, *py_dict;
 
-	uwsgi_get_gil();
+	UWSGI_GET_GIL
 	PyObject *m = PyImport_AddModule("__main__");
 	if (m == NULL) {
 		PyErr_Print();
@@ -75,18 +75,18 @@ int uwsgi_request_eval(struct wsgi_request *wsgi_req) {
 	code = Py_CompileString(wsgi_req->buffer, "uWSGI", Py_file_input);
 	if (code == NULL) {
 		PyErr_Print();
-		uwsgi_release_gil();
+		UWSGI_RELEASE_GIL
 		return -1;
 	}
 	PyEval_EvalCode((PyCodeObject *)code, py_dict, py_dict );
 	Py_DECREF(code);
 	if (PyErr_Occurred()) {
 		PyErr_Print();
-		uwsgi_release_gil();
+		UWSGI_RELEASE_GIL
 		return -1;
 	}
 
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 	return UWSGI_OK;
 }
 
@@ -96,7 +96,7 @@ int uwsgi_request_fastfunc(struct wsgi_request *wsgi_req) {
 	PyObject *ffunc;
 	int ret = UWSGI_OK ;
 
-	uwsgi_get_gil();
+	UWSGI_GET_GIL
 
 	// CHECK HERE
 	ffunc = PyList_GetItem(uwsgi.fastfuncslist, wsgi_req->uh.modifier2);
@@ -105,7 +105,7 @@ int uwsgi_request_fastfunc(struct wsgi_request *wsgi_req) {
 		ret = uwsgi_python_call(wsgi_req, ffunc, NULL);
 	}
 
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 	return ret;
 }
 
@@ -113,7 +113,7 @@ int uwsgi_request_fastfunc(struct wsgi_request *wsgi_req) {
 int uwsgi_request_marshal(struct wsgi_request *wsgi_req) {
 	PyObject *func_result;
 
-	uwsgi_get_gil();
+	UWSGI_GET_GIL
 
 	PyObject *umm = PyDict_GetItemString(uwsgi.embedded_dict,
 					     "message_manager_marshal");
@@ -159,6 +159,6 @@ int uwsgi_request_marshal(struct wsgi_request *wsgi_req) {
 	}
 	PyErr_Clear();
 
-	uwsgi_release_gil();
+	UWSGI_RELEASE_GIL
 	return 0;
 }
