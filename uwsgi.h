@@ -805,6 +805,8 @@ struct uwsgi_server {
 #endif
 
 	struct wsgi_request* (*current_wsgi_req)(void);
+
+	int close_on_exec;
 };
 
 struct uwsgi_cluster_node {

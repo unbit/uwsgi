@@ -166,6 +166,7 @@ static struct option long_options[] = {
 		{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
 #endif
 		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
+		{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
 		{"env", required_argument, 0, LONG_ARGS_ENV},
 		{"vacuum", no_argument, &uwsgi.vacuum, 1},

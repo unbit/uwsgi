@@ -436,6 +436,10 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
                 		return -1;
 			}
 
+			if (uwsgi.close_on_exec) {
+				fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
+			}
+
 			return 0;
 		}
 	}
