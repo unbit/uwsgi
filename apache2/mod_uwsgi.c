@@ -264,7 +264,6 @@ static int uwsgi_handler(request_rec *r) {
 	char uwsgi_http_status[13] ;
 	int uwsgi_http_status_read = 0;
 	
-
 	apr_bucket_brigade *bb;
 
 	if (strcmp(r->handler, "uwsgi-handler"))
@@ -286,7 +285,6 @@ static int uwsgi_handler(request_rec *r) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: unable to create socket: %s", strerror(errno));
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
-
 
 	if ( (ret = timed_connect(&uwsgi_poll, (struct sockaddr *) &c->s_addr, c->addr_size, c->socket_timeout, r) ) != 0) {
 
@@ -456,12 +454,17 @@ static int uwsgi_handler(request_rec *r) {
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 		else if (cnt > 0) {
-			if (uwsgi_poll.revents & POLLIN) {
+			if (uwsgi_poll.revents & POLLIN || uwsgi_poll.revents & POLLHUP) {
 				cnt = recv(uwsgi_poll.fd, buf, 4096, 0) ;
 				if (cnt < 0) {
-					ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
-					apr_brigade_destroy(bb);
-					return HTTP_INTERNAL_SERVER_ERROR;
+					if (errno != ECONNRESET) {
+						ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
+						apr_brigade_destroy(bb);
+						return HTTP_INTERNAL_SERVER_ERROR;
+					}
+					else {
+						break;
+					}
 				}
 				else if (cnt > 0) {
 					if (!c->cgi_mode && uwsgi_http_status_read < 12) {
@@ -490,12 +493,15 @@ static int uwsgi_handler(request_rec *r) {
 					}
 				}
 				else {
+					// EOF
 					break;
 				}
 			}
-			else if (uwsgi_poll.revents & POLLHUP || uwsgi_poll.revents & POLLERR || uwsgi_poll.revents & POLLNVAL) {
-				break;
-			}
+
+			// error
+			if (uwsgi_poll.revents & POLLERR || uwsgi_poll.revents & POLLNVAL) {
+                                break;
+                        }
 		}
 		else {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: poll() %s", strerror(errno));
