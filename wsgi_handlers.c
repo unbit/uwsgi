@@ -294,10 +294,10 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_result = (*wi->request_subhandler)(wsgi_req, wi);
 
 
-
 	if (wsgi_req->async_result) {
 
 
+		UWSGI_RELEASE_GIL
 		while ( (*wi->response_subhandler)(wsgi_req) != UWSGI_OK) {
 			wsgi_req->switches++;
 #ifdef UWSGI_ASYNC
@@ -345,6 +345,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 clear:
+
+	UWSGI_GET_GIL
 
 	if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
 		// restoring main interpreter

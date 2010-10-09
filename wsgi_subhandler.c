@@ -102,6 +102,8 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	ssize_t sf_len = 0 ;
 #endif
 
+	UWSGI_GET_GIL
+
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
@@ -120,6 +122,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
 			if (wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
+				UWSGI_RELEASE_GIL
 				return UWSGI_AGAIN;
 			}
 		}
@@ -136,6 +139,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		}
 #ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
+			UWSGI_RELEASE_GIL
 			return UWSGI_AGAIN;
 		}
 #endif
@@ -170,6 +174,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 	
 	Py_DECREF(pychunk);
+	UWSGI_RELEASE_GIL	
 	return UWSGI_AGAIN ;
 
 clear:
@@ -202,6 +207,8 @@ clear2:
 		uwsgi_debug("wsgi_req->async_app: %d\n", ((PyObject *)wsgi_req->async_app)->ob_refcnt);
 	}
 #endif
+
+	UWSGI_RELEASE_GIL	
 	return UWSGI_OK;
 }
 
