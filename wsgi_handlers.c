@@ -189,7 +189,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-	wi->requests++;
 
 
 
@@ -216,6 +215,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 
 	UWSGI_GET_GIL
+
+	// no fear of race conditions for this counter as it is already protected by the GIL
+	wi->requests++;
 
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
 

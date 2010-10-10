@@ -869,6 +869,18 @@ struct uwsgi_shared {
 
 };
 
+struct uwsgi_core {
+
+	int id;
+	int worker_id;
+
+	time_t harakiri;
+
+	uint64_t requests;
+	uint64_t failed_requests;
+	
+};
+
 struct uwsgi_worker {
 	int id;
 	pid_t pid;
@@ -889,6 +901,8 @@ struct uwsgi_worker {
 	double last_running_time;
 
 	int manage_next_request;
+
+	struct uwsgi_core **cores;
 
 };
 

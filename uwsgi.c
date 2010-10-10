@@ -1209,6 +1209,28 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid;
 
+	if (uwsgi.cores > 1) {
+		/* shared area for cores */
+		for(i=1;i<uwsgi.numproc+1;i++) {
+			uwsgi.workers[i].cores = (struct uwsgi_core **) mmap(NULL, sizeof(struct uwsgi_core*) * uwsgi.cores, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+			if (!uwsgi.workers[i].cores) {
+				uwsgi_error("mmap()");
+				exit(1);
+			}
+			memset(uwsgi.workers[i].cores, 0, sizeof(struct uwsgi_core*) * uwsgi.cores);
+
+			for(j=0;j<uwsgi.cores;j++) {
+				uwsgi.workers[i].cores[j] = (struct uwsgi_core *) mmap(NULL, sizeof(struct uwsgi_core), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+				if (!uwsgi.workers[i].cores[j]) {
+					uwsgi_error("mmap()");
+					exit(1);
+				}
+				memset(uwsgi.workers[i].cores[j], 0, sizeof(struct uwsgi_core));
+			}
+		}
+	}
+
+
 
 	/* save the masterpid */
 	uwsgi.workers[0].pid = masterpid;

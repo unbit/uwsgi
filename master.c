@@ -19,6 +19,7 @@ void get_linux_tcp_info(int fd) {
 void master_loop(char **argv, char **environ) {
 
 	uint64_t master_cycles = 0;
+	uint64_t tmp_counter;
 
 	struct timeval last_respawn;
 
@@ -272,6 +273,27 @@ void master_loop(char **argv, char **environ) {
 				master_cycles++;
 				working_workers = 0;
 				blocking_workers = 0;
+
+				// recalculate requests counter on race conditions risky configurations
+				// a bit of inaccuracy is better than locking ;)
+
+				if (uwsgi.cores > 1) {
+					for(i=1;i<uwsgi.numproc+1;i++) {
+						tmp_counter = 0;
+						for(j=0;j<uwsgi.cores;j++) {
+							tmp_counter += uwsgi.workers[i].cores[j]->requests ;
+						}
+						uwsgi.workers[i].requests = tmp_counter;
+					}
+				}
+
+				if (uwsgi.numproc > 1) {
+					tmp_counter = 0;
+					for(i=1;i<uwsgi.numproc+1;i++) {
+						tmp_counter += uwsgi.workers[i].requests;
+					}
+					uwsgi.workers[0].requests = tmp_counter;
+				}
 
 				check_interval.tv_sec = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
 				if (!check_interval.tv_sec)

@@ -339,12 +339,15 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
         // close the connection with the webserver
 	if (!wsgi_req->fd_closed) {
-		// TODO find a way to discard pending data
+		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
 		close(wsgi_req->poll.fd);
 	}
         uwsgi.workers[0].requests++;
         uwsgi.workers[uwsgi.mywid].requests++;
 
+	if (uwsgi.cores > 1) {
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id]->requests++;
+	}
 
 	// after_request hook
 	(*uwsgi.shared->after_hooks[wsgi_req->uh.modifier1]) (wsgi_req);
