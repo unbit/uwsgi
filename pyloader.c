@@ -54,6 +54,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 
 	if (uwsgi_get_app_id(mountpoint, strlen(mountpoint)) != -1) {
 		uwsgi_log( "mountpoint %.*s already configured. skip.\n", strlen(mountpoint), mountpoint);
+		free(mountpoint);
 		return -1;
 	}
 
@@ -91,6 +92,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
         	init_uwsgi_embedded_module();
 #endif
         	init_uwsgi_vars();
+
 	}
 	else {
 		wi->interpreter = uwsgi.main_thread;
@@ -216,7 +218,20 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 	}
 
 	if (new_interpreter && id) {
-		PyThreadState_Swap(uwsgi.main_thread);
+		// if we have multiple threads we need to initialize a PyThreadState for each one
+		if (uwsgi.threads > 1) {
+			for(i=0;i<uwsgi.threads;i++) {
+				uwsgi.workers[uwsgi.mywid].cores[i]->ts[id] = PyThreadState_New(wi->interpreter->interp);
+				if (!uwsgi.workers[uwsgi.mywid].cores[i]->ts[id]) {
+					uwsgi_log("unable to allocate new PyThreadState structure for app %s", mountpoint);
+					goto doh;
+				}
+			}
+			PyThreadState_Swap((PyThreadState *) pthread_getspecific(uwsgi.ut_save_key));
+		}
+		else {
+			PyThreadState_Swap(uwsgi.main_thread);
+		}
 	}
 
 	if (wi->argc == 1) {
@@ -240,10 +255,16 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 	return id;
 
 doh:
+	free(mountpoint);
 	PyErr_Print();
 	if (new_interpreter && id) {
 		Py_EndInterpreter(wi->interpreter);
-		PyThreadState_Swap(uwsgi.main_thread);
+		if (uwsgi.threads > 1) {
+			PyThreadState_Swap((PyThreadState *) pthread_getspecific(uwsgi.ut_save_key));
+		}
+		else {
+			PyThreadState_Swap(uwsgi.main_thread);
+		}
 	}
 	return -1;
 }
@@ -302,6 +323,9 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 	}
 
 	wsgi_dict = get_uwsgi_pydict(module);
+	if (!wsgi_dict) {
+		return NULL;
+	}
 
         // quick callable -> thanks gunicorn for the idea
         // we have extended the concept a bit...

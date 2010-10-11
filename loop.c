@@ -10,11 +10,16 @@ void *simple_loop(void *arg1) {
 
 #ifdef UWSGI_THREADING
 	PyThreadState *pts;
+	sigset_t smask;
 
 	if (uwsgi.threads > 1) {
+	
 		pthread_setspecific(uwsgi.ut_key, (void *) wsgi_req);
 
 		if (core_id > 0) {
+			// block all signals on new threads
+			sigfillset(&smask);
+			pthread_sigmask(SIG_BLOCK, &smask, NULL);
 			pts = PyThreadState_New(uwsgi.main_thread->interp);
 			pthread_setspecific(uwsgi.ut_save_key, (void *) pts);
 		}

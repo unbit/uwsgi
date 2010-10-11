@@ -1257,7 +1257,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log("*** Operational MODE: ");
 	if (uwsgi.threads > 1) {
-		uwsgi_log("threaded");
+		if (uwsgi.numproc > 1) {
+			uwsgi_log("preforking+threaded");
+		}
+		else {
+			uwsgi_log("threaded");
+		}
 	}
 #ifdef UWSGI_UGREEN
 	else if (uwsgi.ugreen) {
@@ -1271,7 +1276,12 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #ifdef UWSGI_ASYNC
 	else if (uwsgi.async > 1) {
-		uwsgi_log("async");
+		if (uwsgi.numproc > 1) {
+			uwsgi_log("preforking+async");
+		}
+		else {
+			uwsgi_log("async");
+		}
 	}
 #endif
 	else if (uwsgi.numproc > 1) {

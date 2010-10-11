@@ -149,6 +149,10 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			}
 		}
 
+		if (uwsgi.vhost) {
+			free(what);
+		}
+
 	}
 	else {
 		wsgi_req->app_id = 0;
@@ -177,7 +181,12 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 		// set the interpreter
 		UWSGI_GET_GIL
-		PyThreadState_Swap(wi->interpreter);
+		if (uwsgi.threads > 1) {
+			PyThreadState_Swap(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id]->ts[wsgi_req->app_id]);
+		}
+		else {
+			PyThreadState_Swap(wi->interpreter);
+		}
 		UWSGI_RELEASE_GIL
 		if (wi->chdir) {
 #ifdef UWSGI_DEBUG
@@ -352,7 +361,12 @@ clear:
 
 	if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
 		// restoring main interpreter
-		PyThreadState_Swap(uwsgi.main_thread);
+		if (uwsgi.threads > 1) {
+			PyThreadState_Swap((PyThreadState *) pthread_getspecific(uwsgi.ut_save_key));
+		}
+		else {
+			PyThreadState_Swap(uwsgi.main_thread);
+		}
 	}
 
 	UWSGI_RELEASE_GIL

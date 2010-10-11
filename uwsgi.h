@@ -878,6 +878,9 @@ struct uwsgi_core {
 
 	uint64_t requests;
 	uint64_t failed_requests;
+
+	// multiple ts per-core are needed only with multiple_interpreter + threads
+	PyThreadState *ts[MAX_APPS];
 	
 };
 
