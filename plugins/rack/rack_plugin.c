@@ -259,7 +259,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-        if (uwsgi_parse_vars(uwsgi, wsgi_req)) {
+        if (uwsgi_parse_vars(wsgi_req)) {
                 uwsgi_log("Invalid RACK request. skip.\n");
                 return -1;
         }

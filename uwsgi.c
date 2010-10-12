@@ -969,6 +969,8 @@ int main(int argc, char *argv[], char *envp[]) {
                         exit(1);
                 }
 		pthread_setspecific(uwsgi.ut_save_key, (void *) PyThreadState_Get());
+		// initialize the mutexes
+		pthread_mutex_init(&uwsgi.lock_pyloaders, NULL);
 		uwsgi.gil_get = gil_real_get; 
 		uwsgi.gil_release = gil_real_release; 
 		uwsgi.current_wsgi_req = threaded_current_wsgi_req;

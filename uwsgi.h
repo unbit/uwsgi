@@ -807,6 +807,10 @@ struct uwsgi_server {
 	struct wsgi_request* (*current_wsgi_req)(void);
 
 	int close_on_exec;
+
+#ifdef UWSGI_THREADING
+	pthread_mutex_t lock_pyloaders;
+#endif
 };
 
 struct uwsgi_cluster_node {
