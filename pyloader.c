@@ -34,9 +34,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 
 	struct uwsgi_app *wi;
 
-	if (uwsgi.threads > 1) {
-		pthread_mutex_lock(&uwsgi.lock_pyloaders);
-	}
 
 	if (wsgi_req->script_name_len == 0) {
 		wsgi_req->script_name = "";
@@ -59,9 +56,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 	if (uwsgi_get_app_id(mountpoint, strlen(mountpoint)) != -1) {
 		uwsgi_log( "mountpoint %.*s already configured. skip.\n", strlen(mountpoint), mountpoint);
 		free(mountpoint);
-		if (uwsgi.threads > 1) {
-			pthread_mutex_unlock(&uwsgi.lock_pyloaders);
-		}
 		return -1;
 	}
 
@@ -258,9 +252,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 	}
 
 	uwsgi_log("\n");
-	if (uwsgi.threads > 1) {
-		pthread_mutex_unlock(&uwsgi.lock_pyloaders);
-	}
 
 	return id;
 
@@ -275,9 +266,6 @@ doh:
 		else {
 			PyThreadState_Swap(uwsgi.main_thread);
 		}
-	}
-	if (uwsgi.threads > 1) {
-		pthread_mutex_unlock(&uwsgi.lock_pyloaders);
 	}
 	return -1;
 }

@@ -142,9 +142,16 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 				) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
+					// this part must be heavy locked in threaded modes
+					if (uwsgi.threads > 1) {
+						pthread_mutex_lock(&uwsgi.lock_pyloaders);
+					}
 					UWSGI_GET_GIL
 					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
 					UWSGI_RELEASE_GIL
+					if (uwsgi.threads > 1) {
+						pthread_mutex_unlock(&uwsgi.lock_pyloaders);
+					}
 				}
 			}
 		}
