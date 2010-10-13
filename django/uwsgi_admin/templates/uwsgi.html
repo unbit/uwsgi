@@ -56,6 +56,26 @@
 </table>
 </div>
 
+<div class="module" style="width:860px">
+<table>
+	<caption style="width:860px">spooler jobs</caption>
+	<thead>
+		<tr>
+			<th scope="row">job filename</th>
+			<th scope="row">environment</th>
+		</tr>
+	</thead>
+	<tbody>
+{% for j in jobs %}
+	<tr>
+		<td align="left">{{j.file}}</td>
+		<td align="left">{{j.env}}</td>
+	</tr>
+{% endfor %}
+	</tbody>
+</table>
+</div>
+
 {% if masterpid %}
 <br/>
 <form {% if has_file_field %}enctype="multipart/form-data" {% endif %}action="reload/" method="post">
