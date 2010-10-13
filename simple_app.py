@@ -1,4 +1,5 @@
 import uwsgi
+import os
 
 print("!!! uWSGI version:", uwsgi.version)
 
@@ -7,6 +8,7 @@ def ciao():
 
 def ciao2():
 	print("nuovo uwsgi_server")
+	print os.getpid()
 
 counter = 0
 
@@ -18,6 +20,8 @@ counter = 0
 #uwsgi.event_add(uwsgi.EVENT_FILE, "/tmp", ciao)
 #uwsgi.event_add(uwsgi.EVENT_DNSSD, "_uwsgi._tcp", ciao2)
 #uwsgi.event_add(uwsgi.EVENT_TIMER, 1000, ciao2)
+
+uwsgi.post_fork_hook = ciao2
 
 def application(env, start_response):
 

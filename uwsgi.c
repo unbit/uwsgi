@@ -1502,6 +1502,19 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
+#ifdef UWSGI_EMBEDDED
+	// call the post_fork_hook
+	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+	if (uwsgi_dict) {
+		PyObject *pfh = PyDict_GetItemString(uwsgi_dict, "post_fork_hook");
+		if (pfh) {
+			python_call(pfh, PyTuple_New(0), 0);
+		}
+	}
+	PyErr_Clear();
+#endif
+	
+
 
 	// postpone the queue initialization as kevent do not pass kfd after fork()
 #ifdef UWSGI_ASYNC
