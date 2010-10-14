@@ -150,6 +150,11 @@ int uwsgi_init(char *args){
 		goto clear;
 	}
 
+	if(SvTRUE(ERRSV)) {
+		goto clear;
+	}
+
+
 	free(psgibuffer);
 	close(fd);
 
@@ -169,7 +174,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	
 	AV *response, *headers, *body ;
 
-	SV **status_code, **hitem, *io_new, *io_err, *io, *chunk;
+	SV **status_code, **hitem, *io_new, *io_err;
 	char *chitem ;
 	STRLEN hlen ;
 
@@ -196,7 +201,8 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	SAVETMPS;
 
 
-	env = (HV*)sv_2mortal((SV*)newHV());
+	env = (HV*) sv_2mortal((SV*)newHV());
+
 
 	// fill perl hash
 	for(i=0;i<wsgi_req->var_cnt;i++) {
@@ -211,45 +217,56 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 		i++;
 	}
 
-	item = hv_store(env, "psgi.url_scheme", 15, newSVpv("http", 4), 0);
+
+	SV *us = newSVpv("http", 4);
+
+	item = hv_store(env, "psgi.url_scheme", 15, us, 0);
+
+
+
+	SV* iohandle = newSVpv( "IO::Handle", 10 );
 
 
 	PUSHMARK(SP);
-	XPUSHs( sv_2mortal( newSVpv( "IO::Handle", 10 )));
+	XPUSHs( sv_2mortal(iohandle));
 	PUTBACK;
 	perl_call_method( "new", G_SCALAR);
 	SPAGAIN;
-	io_new = newSVsv(POPs);
-
+	io_new = POPs;
 
 	PUSHMARK(SP);
-	XPUSHs( sv_2mortal(io_new) );
-	XPUSHs( sv_2mortal( newSViv( wsgi_req->poll.fd)));
-	XPUSHs( sv_2mortal( newSVpv( "r", 1)));
+	XPUSHs( io_new );
+	XPUSHs( sv_2mortal(newSViv( wsgi_req->poll.fd)));
+	XPUSHs( sv_2mortal(newSVpv( "r", 1)));
 	PUTBACK;
 	perl_call_method( "fdopen", G_SCALAR);
 	SPAGAIN;
 
 
-	item = hv_store(env, "psgi.input", 10, newSVsv(POPs), 0);
+	SV *pi = SvREFCNT_inc(POPs);
+	item = hv_store(env, "psgi.input", 10, pi, 0);
+
+
+
 
 	PUSHMARK(SP);
-	XPUSHs( sv_2mortal( newSVpv( "IO::Handle", 10 )));
+	XPUSHs( newSVpv( "IO::Handle", 10 ));
 	PUTBACK;
 	perl_call_method( "new", G_SCALAR);
 	SPAGAIN;
-	io_err = newSVsv(POPs);
+	io_err = POPs;
 
 	PUSHMARK(SP);
-	XPUSHs( sv_2mortal(io_err) );
+	XPUSHs( io_err );
 	XPUSHs( sv_2mortal( newSViv( 2 )));
 	XPUSHs( sv_2mortal( newSVpv( "w", 1)));
 	PUTBACK;
 	perl_call_method( "fdopen", G_SCALAR);
 	SPAGAIN;
 
+	SV *pe = SvREFCNT_inc(POPs);
 
-	item = hv_store(env, "psgi.errors", 11, newSVsv(POPs), 0);
+	item = hv_store(env, "psgi.errors", 11, pe, 0);
 
 
 	PUSHMARK(SP);
@@ -257,11 +274,14 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	PUTBACK;
 
 
+
 	perl_call_sv(psgi_func, G_SCALAR);
 	SPAGAIN;
 
+	// no leaks to here
+
 	// dereference output
-	response = (AV *) SvRV( sv_2mortal(newSVsv(POPs)) ) ;
+	response = (AV *) SvRV( POPs ) ;
 
 	status_code = av_fetch(response, 0, 0);
 
@@ -270,6 +290,8 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->hvec[1].iov_base = SvPV(*status_code, hlen);
 	wsgi_req->hvec[1].iov_len = 3 ;
+
+	wsgi_req->status = atoi(wsgi_req->hvec[1].iov_base);
 
 	wsgi_req->hvec[2].iov_base = " ";
 	wsgi_req->hvec[2].iov_len = 1 ;
@@ -299,6 +321,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 
 	base = 5 ;
 
+
 	// put them in hvec
 	for(i=0; i<=av_len(headers); i++) {
 
@@ -318,6 +341,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 		i++;
 	}
 
+
 	vi = (i*2)+base ;
 	wsgi_req->hvec[vi].iov_base = "\r\n" ; wsgi_req->hvec[vi].iov_len = 2 ;
 
@@ -327,22 +351,26 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	}
 
 
+
 	hitem = av_fetch(response, 2, 0) ;
 
-	io = *hitem;
-	
-	if (SvTYPE(SvRV(io)) == SVt_PVGV || SvTYPE(SvRV(io)) == SVt_PVHV) {
+
+	if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV) {
 
 		for(;;) {
-
 			PUSHMARK(SP);
-			XPUSHs(io) ;
+			XPUSHs(*hitem) ;
 			PUTBACK;
 			perl_call_method("getline", G_SCALAR);	
 			SPAGAIN;
-			chunk = sv_2mortal(newSVsv(POPs));
 
-			chitem = SvPV(chunk, hlen);
+			if(SvTRUE(ERRSV)) {
+				uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+				break;
+			}
+
+			SV *chunk = POPs;
+			chitem = SvPV( chunk, hlen);
 			if (hlen <= 0) {
 				break;
 			}
@@ -351,9 +379,9 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 
 
 	}
-	else if (SvTYPE(SvRV(io)) == SVt_PVAV)  {
+	else if (SvTYPE(SvRV(*hitem)) == SVt_PVAV)  {
 
-		body = (AV *) SvRV(io);
+		body = (AV *) SvRV(*hitem);
 
 		for(i=0; i<=av_len(body); i++) {
 			hitem = av_fetch(body,i,0);
@@ -363,11 +391,13 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 
 	}
 	else {
-		uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(io)));
+		uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(*hitem)));
 	}
+
 	
 	FREETMPS;
 	LEAVE;
+
 
 	return 0;
 }

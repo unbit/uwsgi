@@ -1,11 +1,13 @@
 #include "../../uwsgi.h"
 
-int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
+extern struct uwsgi_server uwsgi;
+
+int uwsgi_init(char *args){
 	uwsgi_log("i am the example plugin initialization function with arg: %s\n", args);
 	return 0;
 }
 
-int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int uwsgi_request(struct wsgi_request *wsgi_req) {
 
 	char *http = "HTTP/1.1 200 Ok\r\nContent-type: text/html\r\n\r\n<h1>Hello World</h1>" ;
 
@@ -15,6 +17,6 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 }
 
 
-void uwsgi_after_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+void uwsgi_after_request(struct wsgi_request *wsgi_req) {
 	uwsgi_log("i am the example plugin after request function\n");
 }
