@@ -7,6 +7,7 @@ static PerlInterpreter *my_perl;
 static SV *psgi_func ;
 
 extern char **environ;
+extern struct uwsgi_server uwsgi;
 
 /* statistically ordered */
 static struct http_status_codes hsc[] = {
@@ -76,7 +77,7 @@ xs_init(pTHX)
 /* end of automagically generated part */
 
 
-int uwsgi_init(struct uwsgi_server *uwsgi, char *args){
+int uwsgi_init(char *args){
 
 	char *psgibuffer ;
 	int fd ;
@@ -161,7 +162,7 @@ clear:
 
 }
 
-int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+int uwsgi_request(struct wsgi_request *wsgi_req) {
 	
 	HV *env ;
 	SV **item ;
@@ -183,7 +184,7 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
         }
 
 
-	if (uwsgi_parse_vars(uwsgi, wsgi_req)) {
+	if (uwsgi_parse_vars(wsgi_req)) {
 		uwsgi_log("Invalid PSGI request. skip.\n");
 		return -1;
 	}
@@ -372,8 +373,8 @@ int uwsgi_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
 }
 
 
-void uwsgi_after_request(struct uwsgi_server *uwsgi, struct wsgi_request *wsgi_req) {
+void uwsgi_after_request(struct wsgi_request *wsgi_req) {
 
-	if (uwsgi->shared->options[UWSGI_OPTION_LOGGING])
+	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
                 log_request(wsgi_req);
 }

@@ -6,17 +6,17 @@ void embed_plugins() {
 
 #ifdef UWSGI_EMBED_PLUGIN_PSGI
 	if (uwsgi.plugin_arg_psgi)
-		ret = uwsgi_load_plugin(uwsgi, 5, "psgi_plugin.so", uwsgi.plugin_arg_psgi, 0);
+		uwsgi_load_plugin(5, "psgi_plugin.so", uwsgi.plugin_arg_psgi, 0);
 #endif
 
 #ifdef UWSGI_EMBED_PLUGIN_LUA
 	if (uwsgi.plugin_arg_lua)
-		ret = uwsgi_load_plugin(uwsgi, 6, "lua_plugin.so", uwsgi.plugin_arg_lua, 0);
+		uwsgi_load_plugin(6, "lua_plugin.so", uwsgi.plugin_arg_lua, 0);
 #endif
 
 #ifdef UWSGI_EMBED_PLUGIN_RACK
 	if (uwsgi.plugin_arg_rack)
-		ret = uwsgi_load_plugin(uwsgi, 7, "rack_plugin.so", uwsgi.plugin_arg_rack, 0);
+		uwsgi_load_plugin(7, "rack_plugin.so", uwsgi.plugin_arg_rack, 0);
 #endif
 
 }
