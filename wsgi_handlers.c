@@ -406,5 +406,8 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 		if (uwsgi.shared->options[UWSGI_OPTION_LOG_BIG]) {
 			if (wsgi_req->response_size >= uwsgi.shared->options[UWSGI_OPTION_LOG_BIG]) { log_request(wsgi_req); return; }
 		}
+		if (uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE]) {
+			if (wsgi_req->sendfile_fd > -1 && wsgi_req->sendfile_obj == wsgi_req->async_result) { log_request(wsgi_req); return; }
+		}
 	}
 }

@@ -149,6 +149,7 @@ static struct option long_options[] = {
 		{"log-4xx", no_argument, 0, LONG_ARGS_LOG_4xx},
 		{"log-5xx", no_argument, 0, LONG_ARGS_LOG_5xx},
 		{"log-big", required_argument, 0, LONG_ARGS_LOG_BIG},
+		{"log-sendfile", required_argument, 0, LONG_ARGS_LOG_SENDFILE},
 		{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 		{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 		{"mount", required_argument, 0, LONG_ARGS_MOUNT},
@@ -2322,6 +2323,9 @@ void manage_opt(int i, char *optarg) {
 	case LONG_ARGS_LOG_BIG:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_BIG] = atoi(optarg);
 		break;
+	case LONG_ARGS_LOG_SENDFILE:
+		uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] = 1;
+		break;
 	case LONG_ARGS_MOUNT:
 		if (uwsgi.mounts_cnt < MAX_MOUNTPOINTS) {
 			uwsgi.mounts[uwsgi.mounts_cnt] = optarg;
@@ -2513,6 +2517,7 @@ void manage_opt(int i, char *optarg) {
 \t--log-4xx\t\t\tlog requests with status code 4xx\n\
 \t--log-5xx\t\t\tlog requests with status code 5xx\n\
 \t--log-big <n>\t\t\tlog requests bigger than <n> bytes\n\
+\t--log-sendfile\t\t\tlog sendfile() requests\n\
 \t--ignore-script-name\t\tdisable uWSGI management of SCRIPT_NAME\n\
 \t--no-default-app\t\tdo not fallback unknown SCRIPT_NAME requests\n\
 \t--ini <inifile>\t\t\tpath of ini config file\n\

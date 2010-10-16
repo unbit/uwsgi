@@ -8,6 +8,10 @@ void get_linux_tcp_info(int fd) {
         socklen_t tis = sizeof(struct tcp_info) ;
 
         if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
+		// a check for older linux kernels
+		if (!ti.tcpi_sacked) {
+			return 0;
+		}
                 if (ti.tcpi_unacked >= ti.tcpi_sacked) {
                         uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, ti.tcpi_unacked, ti.tcpi_sacked);
                 }

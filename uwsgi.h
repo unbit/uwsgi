@@ -211,6 +211,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_LOG_BIG		17052
 #define LONG_ARGS_MOUNT			17053
 #define LONG_ARGS_THREADS		17054
+#define LONG_ARGS_LOG_SENDFILE		17055
 
 
 
@@ -269,6 +270,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define UWSGI_OPTION_LOG_4xx		11
 #define UWSGI_OPTION_LOG_5xx		12
 #define UWSGI_OPTION_LOG_BIG		13
+#define UWSGI_OPTION_LOG_SENDFILE	14
 
 #define UWSGI_MODIFIER_ADMIN_REQUEST		10
 #define UWSGI_MODIFIER_SPOOL_REQUEST		17
