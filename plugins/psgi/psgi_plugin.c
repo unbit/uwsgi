@@ -6,6 +6,10 @@
 static PerlInterpreter *my_perl;
 static SV *psgi_func ;
 
+#ifdef UWSGI_THREADING
+pthread_key_t uwsgi_perl_interpreter;
+#endif
+
 extern char **environ;
 extern struct uwsgi_server uwsgi;
 
@@ -107,6 +111,14 @@ int uwsgi_init(char *args){
 		http_sc->message_size = strlen(http_sc->message);
 	}
 
+#ifdef UWSGI_THREADING
+	if (uwsgi.threads > 1) {
+		if (pthread_key_create(&uwsgi_perl_interpreter, NULL)) {
+                        uwsgi_error("pthread_key_create()");
+                        exit(1);
+                }
+	}
+#endif
 
 	PL_origalen = 1;
 	perl_parse(my_perl, xs_init, 4, embedding, NULL);

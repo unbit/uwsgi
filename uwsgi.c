@@ -165,6 +165,7 @@ static struct option long_options[] = {
 		{"http", required_argument, 0, LONG_ARGS_HTTP},
 		{"http-only", no_argument, &uwsgi.http_only, 1},
 		{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
+		{"http-modifier1", required_argument, 0, LONG_ARGS_HTTP_MODIFIER1},
 #endif
 		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
 		{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
@@ -2209,6 +2210,9 @@ void manage_opt(int i, char *optarg) {
 		else {
 			uwsgi_log( "you can specify at most 64 --http-var options\n");
 		}
+		break;
+	case LONG_ARGS_HTTP_MODIFIER1:
+		uwsgi.http_modifier1 = (uint8_t) atoi(optarg);
 		break;
 #endif
 #ifdef __linux__

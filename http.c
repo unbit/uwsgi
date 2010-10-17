@@ -207,7 +207,7 @@ static void *http_request(void *u_h_r)
 	int path_info_len;
 	char *ip;
 
-	up[0] = 5;
+	up[0] = uwsgi.http_modifier1;
 	up[3] = 0;
 	up += 4;
 

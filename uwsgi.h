@@ -212,6 +212,7 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define LONG_ARGS_MOUNT			17053
 #define LONG_ARGS_THREADS		17054
 #define LONG_ARGS_LOG_SENDFILE		17055
+#define LONG_ARGS_HTTP_MODIFIER1	17056
 
 
 
@@ -542,6 +543,7 @@ struct uwsgi_server {
 	int http_fd;
 	char *http_vars[64];
 	int http_vars_cnt;
+	uint8_t http_modifier1;
 #endif
 
 	int ignore_script_name;
