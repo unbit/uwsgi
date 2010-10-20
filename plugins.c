@@ -23,26 +23,18 @@ void embed_plugins() {
 
 int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
 
-	char *plugin_name ;
-
 	void *plugin_handle;
-        int (*plugin_init) (char *);
-        int (*plugin_request) (struct wsgi_request *);
-        void (*plugin_after_request) (struct wsgi_request *);
-	
+
+	char *plugin_name ;
+	char *plugin_entry_symbol;
+	struct uwsgi_plugin *up;
+
 	if (absolute) {
 		plugin_name = malloc(strlen(plugin) + 1);
 		memcpy(plugin_name, plugin, strlen(plugin) + 1);
 	}	
 	else {
-		plugin_name = malloc(strlen(UWSGI_PLUGIN_DIR) + 1 + strlen(plugin) + 1);
-		if (!plugin_name) {
-			uwsgi_error("malloc()");
-			return -1 ;
-		}
-		memcpy(plugin_name, UWSGI_PLUGIN_DIR, strlen(UWSGI_PLUGIN_DIR));
-		memcpy(plugin_name + strlen(UWSGI_PLUGIN_DIR) , "/", 1);
-		memcpy(plugin_name + strlen(UWSGI_PLUGIN_DIR) + 1, plugin, strlen(plugin) + 1);
+		plugin_name = uwsgi_concat4(UWSGI_PLUGIN_DIR, "/", plugin, "_plugin.so");
 	}
 	plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
 	free(plugin_name);
@@ -51,32 +43,16 @@ int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
                 uwsgi_log( "%s\n", dlerror());
         }
         else {
-                plugin_init = dlsym(plugin_handle, "uwsgi_init");
-                if (plugin_init) {
-                        if ((*plugin_init) (pargs)) {
-                                uwsgi_log( "plugin initialization returned error\n");
-                                if (dlclose(plugin_handle)) {
-                                        uwsgi_log( "unable to unload plugin\n");
-                                }
-
-				return -1;
-                        }
+		plugin_entry_symbol = uwsgi_concat2(plugin, "_plugin");
+                up = dlsym(plugin_handle, plugin_entry_symbol);
+                if (up) {
+			fill_plugin_table(up->modifier1, up);			
+			return 1;
                 }
-
-                plugin_request = dlsym(plugin_handle, "uwsgi_request");
-                if (plugin_request) {
-                        uwsgi.shared->hooks[modifier] = plugin_request;
-                        plugin_after_request = dlsym(plugin_handle, "uwsgi_after_request");
-                        if (plugin_after_request) {
-                                uwsgi.shared->after_hooks[modifier] = plugin_after_request;
-                        }
-			return 0;
-
-                }
-                else {
-                        uwsgi_log( "%s\n", dlerror());
-                }
+                uwsgi_log( "%s\n", dlerror());
         }
+
+	return 0;
 
 
 	return -1;

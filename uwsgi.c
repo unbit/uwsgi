@@ -18,14 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-********* Note for Linux users *********
-uWSGI supports UNIX socket on abstract namespace.
-Use them if you have filesystem permission problems.
-
-********* Note for Unbit users *********
-Try to keep the same configuration on your unbit account (threading mode
-in particular)
-
 */
 
 
@@ -35,7 +27,9 @@ struct uwsgi_server uwsgi;
 
 extern char **environ;
 
-static struct option long_options[] = {
+static struct option *long_options;
+
+static struct option long_base_options[] = {
 		{"socket", required_argument, 0, 's'},
 		{"processes", required_argument, 0, 'p'},
 		{"harakiri", required_argument, 0, 't'},
@@ -44,7 +38,6 @@ static struct option long_options[] = {
 #endif
 		{"daemonize", required_argument, 0, 'd'},
 		{"listen", required_argument, 0, 'l'},
-		{"optimize", required_argument, 0, 'O'},
 		{"max-vars", required_argument, 0, 'v'},
 		{"buffer-size", required_argument, 0, 'b'},
 		{"memory-report", no_argument, 0, 'm'},
@@ -60,31 +53,18 @@ static struct option long_options[] = {
 		{"reaper", no_argument, 0, 'r'},
 		{"max-requests", required_argument, 0, 'R'},
 		{"socket-timeout", required_argument, 0, 'z'},
-		{"module", required_argument, 0, 'w'},
-		{"test", required_argument, 0, 'j'},
-		{"home", required_argument, 0, 'H'},
 		{"sharedarea", required_argument, 0, 'A'},
 #ifdef UWSGI_SPOOLER
 		{"spooler", required_argument, 0, 'Q'},
 #endif
 		{"disable-logging", no_argument, 0, 'L'},
 
-		{"callable", required_argument, 0, LONG_ARGS_CALLABLE},
-
 		{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
 		{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
 		{"gid", required_argument, 0, LONG_ARGS_GID},
 		{"uid", required_argument, 0, LONG_ARGS_UID},
-		{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
-		{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
-		{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
-		{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 #ifdef UWSGI_INI
 		{"ini", required_argument, 0, LONG_ARGS_INI},
-		{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
-#endif
-#ifdef UWSGI_PASTE
-		{"paste", required_argument, 0, LONG_ARGS_PASTE},
 #endif
 #ifdef UWSGI_LDAP
 		{"ldap", required_argument, 0, LONG_ARGS_LDAP},
@@ -99,7 +79,6 @@ static struct option long_options[] = {
 		{"prio", required_argument, 0, LONG_ARGS_PRIO},
 		{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
 		{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
-		{"ignore-script-name", no_argument, &uwsgi.ignore_script_name, 1},
 		{"no-default-app", no_argument, &uwsgi.no_default_app, 1},
 #ifdef UWSGI_UDP
 		{"udp", required_argument, 0, LONG_ARGS_UDP},
@@ -126,22 +105,13 @@ static struct option long_options[] = {
 		{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
 		{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
 #endif
-		{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
-		{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
-		{"eval", required_argument, 0, LONG_ARGS_EVAL_CONFIG},
 #ifdef UWSGI_ASYNC
 		{"async", required_argument, 0, LONG_ARGS_ASYNC},
-#endif
-#ifdef UWSGI_STACKLESS
-		{"stackless", no_argument, &uwsgi.stackless, 1},
 #endif
 #ifdef UWSGI_UGREEN
 		{"ugreen", no_argument, &uwsgi.ugreen, 1},
 		{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 #endif
-		UWSGI_PLUGIN_LONGOPT_PSGI
-		UWSGI_PLUGIN_LONGOPT_LUA
-		UWSGI_PLUGIN_LONGOPT_RACK
 		{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 		{"logdate", no_argument, &uwsgi.logdate, 1},
 		{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO},
@@ -155,7 +125,6 @@ static struct option long_options[] = {
 		{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 		{"grunt", no_argument, &uwsgi.grunt, 1},
 		{"threads", required_argument, 0, LONG_ARGS_THREADS},
-		{"no-site", no_argument, &Py_NoSiteFlag, 1},
 		{"vhost", no_argument, &uwsgi.vhost, 1},
 #ifdef UWSGI_ROUTING
 		{"routing", no_argument, &uwsgi.routing, 1},
@@ -167,13 +136,10 @@ static struct option long_options[] = {
 		{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
 		{"http-modifier1", required_argument, 0, LONG_ARGS_HTTP_MODIFIER1},
 #endif
-		{"catch-exceptions", no_argument, &uwsgi.catch_exceptions, 1},
 		{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
 		{"mode", required_argument, 0, LONG_ARGS_MODE},
 		{"env", required_argument, 0, LONG_ARGS_ENV},
 		{"vacuum", no_argument, &uwsgi.vacuum, 1},
-		{"ping", required_argument, 0, LONG_ARGS_PING},
-		{"ping-timeout", required_argument, 0, LONG_ARGS_PING_TIMEOUT},
 #ifdef __linux__
 		{"cgroup", required_argument, 0, LONG_ARGS_CGROUP},
 		{"cgroup-opt", required_argument, 0, LONG_ARGS_CGROUP_OPT},
@@ -181,54 +147,6 @@ static struct option long_options[] = {
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
-
-void uwsgi_pthread_prepare(void) {
-	pthread_mutex_lock(&uwsgi.lock_pyloaders);
-}
-
-void uwsgi_pthread_parent(void) {
-	pthread_mutex_unlock(&uwsgi.lock_pyloaders);
-}
-
-void uwsgi_pthread_child(void) {
-	pthread_mutex_init(&uwsgi.lock_pyloaders, NULL);
-}
-
-void ping() {
-
-	struct uwsgi_header uh;
-	struct pollfd uwsgi_poll;
-	
-	// use a 3 secs timeout by default
-	if (!uwsgi.ping_timeout) uwsgi.ping_timeout = 3 ;
-
-        uwsgi_poll.fd = uwsgi_connect(uwsgi.ping, uwsgi.ping_timeout);
-	if (uwsgi_poll.fd < 0) {
-		exit(1);
-	}
-
-	uh.modifier1 = UWSGI_MODIFIER_PING;
-        uh.pktsize = 0;
-        uh.modifier2 = 0;
-        if (write(uwsgi_poll.fd, &uh, 4) != 4) {
-                uwsgi_error("write()");
-                exit(2);
-        }
-        uwsgi_poll.events = POLLIN;
-        if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.ping_timeout, &uh, NULL)) {
-                exit(1);
-        }
-        else {
-                if (uh.pktsize > 0) {
-                        exit(2);
-                }
-                else {
-                        exit(0);
-                }
-        }
-
-}
-
 
 int find_worker_id(pid_t pid) {
 	int i;
@@ -241,10 +159,6 @@ int find_worker_id(pid_t pid) {
 	return -1;
 }
 
-
-PyMethodDef null_methods[] = {
-	{ NULL, NULL},
-};
 
 void warn_pipe() {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -309,19 +223,13 @@ void reap_them_all() {
 
 void harakiri() {
 
-	PyThreadState *_myself;
-
-	PyGILState_Ensure();
-	_myself = PyThreadState_Get();
-
-	uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d) thread_state: %p frame: %p...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id, _myself, _myself->frame);
-
+	uwsgi_log("\nF*CK !!! i must kill myself (pid: %d app_id: %d)...\n", uwsgi.mypid, uwsgi.wsgi_req->app_id);
 
 	if (!uwsgi.master_process) {
 		uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
 	}
 
-	Py_FatalError("HARAKIRI !\n");
+	exit(0);
 }
 
 void stats() {
@@ -356,8 +264,6 @@ void what_i_am_doing() {
 
 }
 
-PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""} };
-PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""} };
 
 pid_t masterpid;
 struct timeval last_respawn;
@@ -436,8 +342,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	struct sockaddr_in *isa;
 	socklen_t socket_type_len;
 	
-	PyObject *random_module, *random_dict, *random_seed;
-	
 #ifdef UWSGI_DEBUG
 	struct utsname uuts;
 	int so_bufsize ;
@@ -488,8 +392,8 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	for (i = 0; i <= 0xFF; i++) {
-		uwsgi.shared->hooks[i] = unconfigured_hook;
-		uwsgi.shared->after_hooks[i] = unconfigured_after_hook;
+		uwsgi.shared->hook_request[i] = unconfigured_hook;
+		uwsgi.shared->hook_after_request[i] = unconfigured_after_hook;
 	}
 
 	uwsgi.cores = 1;
@@ -543,9 +447,74 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.binary_path = argv[0];
 
+	// initialize embedded plugins
+	//LEP(python)
+
+	char *plugins_requested = getenv("UWSGI_PLUGINS");
+	if (plugins_requested) {
+		char *p = strtok(plugins_requested, ",");
+		while(p != NULL) {
+			uwsgi_load_plugin(0, p, NULL, 0);
+			p = strtok(NULL, ",");
+		}
+	}
+
+	int opt_count = count_options(long_base_options);
+	uwsgi_log("count base %d\n", opt_count);
+	for(i=0;i<0xFF;i++) {
+		if (uwsgi.shared->hook_options[i]) {
+			opt_count += count_options(uwsgi.shared->hook_options[i]);
+		}
+	}
+	uwsgi_log("count new base %d\n", opt_count);
+
+	long_options = malloc( sizeof(struct option) * (opt_count+1));
+	if (!long_options) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+
+	struct option *lopt, *aopt;
+
+	opt_count = 0;
+	lopt = long_base_options;
+	while ((aopt = lopt)) {
+		if (!aopt->name) break;
+		long_options[opt_count].name = aopt->name;
+		long_options[opt_count].has_arg = aopt->has_arg;
+		long_options[opt_count].flag = aopt->flag;
+		long_options[opt_count].val = aopt->val;
+		opt_count++;
+		lopt++;
+	}
+
+	for(i=0;i<0xFF;i++) {
+		lopt = uwsgi.shared->hook_options[i];
+		if (!lopt) continue;
+
+		while ((aopt = lopt)) {
+                	if (!aopt->name) break;
+                	long_options[opt_count].name = aopt->name;
+                	long_options[opt_count].has_arg = aopt->has_arg;
+                	long_options[opt_count].flag = aopt->flag;
+                	long_options[opt_count].val = aopt->val;
+                	opt_count++;
+                	lopt++;
+        	}
+
+	}
+
+	long_options[opt_count].name = 0;
+	long_options[opt_count].has_arg = 0;
+	long_options[opt_count].flag = 0;
+	long_options[opt_count].val = 0;
+
 	while ((i = getopt_long(argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
 		manage_opt(i, optarg);
 	}
+
+
+/*
 
 	if (optind < argc) {
 		char *lazy = argv[optind];
@@ -571,12 +540,12 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi.file_config = lazy;
 			}
 			else if (lazy[0] == '/' && strchr(lazy,'=')) {
-				if (uwsgi.mounts_cnt < MAX_MOUNTPOINTS) {
+				if (uwsgi.mounts_cnt < MAX_APPS) {
 					uwsgi.mounts[uwsgi.mounts_cnt] = lazy ;
 					uwsgi.mounts_cnt++;
 				}
 				else {
-					uwsgi_log("unable to add more that %d mountpoints\n", MAX_MOUNTPOINTS);
+					uwsgi_log("unable to add more that %d mountpoints\n", MAX_APPS);
 				}
 			}
 			else {
@@ -584,6 +553,8 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 		}
 	}
+
+*/
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
@@ -605,9 +576,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	parse_sys_envs(environ, long_options);
 
-	if (uwsgi.ping) {
-		ping(&uwsgi);
-	}
+	// call after_opt hooks
 
 	if (uwsgi.binary_path == argv[0]) {
 		uwsgi.binary_path = malloc(strlen(argv[0]) + 1);
@@ -636,12 +605,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef __BIG_ENDIAN__
 	uwsgi_log("*** big endian arch detected ***\n");
 #endif
-
-#ifdef PYTHREE
-	uwsgi_log("*** Warning Python3.x support is experimental, do not use it in production environment ***\n");
-#endif
-
-	uwsgi_log("Python version: %s\n", Py_GetVersion());
 
 	if (uwsgi.pidfile && !uwsgi.is_a_reload) {
 		uwsgi_log( "writing pidfile to %s\n", uwsgi.pidfile);
@@ -861,49 +824,24 @@ int main(int argc, char *argv[], char *envp[]) {
 								 uwsgi.cores);
 	}
 
-	if (uwsgi.pyhome != NULL) {
-		uwsgi_log("Setting PythonHome to %s...\n", uwsgi.pyhome);
-#ifdef PYTHREE
-		wchar_t *wpyhome;
-		wpyhome = malloc((sizeof(wchar_t) * strlen(uwsgi.pyhome)) + 2);
-		if (!wpyhome) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-		mbstowcs(wpyhome, uwsgi.pyhome, strlen(uwsgi.pyhome));
-		Py_SetPythonHome(wpyhome);
-		free(wpyhome);
-#else
-		Py_SetPythonHome(uwsgi.pyhome);
-#endif
-	}
-
-
-
-
-#ifdef PYTHREE
-	wchar_t pname[6];
-	mbstowcs(pname, "uWSGI", 6);
-	Py_SetProgramName(pname);
-#else
-
-	Py_SetProgramName("uWSGI");
-#endif
-
-
-	Py_Initialize();
-
-
-	init_pyargv();
-
 	if (uwsgi.vhost) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
 		uwsgi.apps_cnt = 0 ;
 	}
 
-	uwsgi.wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
-	uwsgi.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
+	// fill the hook table for embedded plugins
+	//UWSGI_FILL_HOOK_TABLE_EMBEDDED
 
+	// fill the hook table for dynamic plugins
+	//getenv("UWSGI_PLUGINS");
+
+
+	/* run the plugins initialization routine */
+	for(i=0;i<0xFF;i++) {
+		if (uwsgi.shared->hook_init[i]) {
+			(*uwsgi.shared->hook_init[i])();
+		}
+	}
 
 #ifdef UWSGI_EMBEDDED
 	if (uwsgi.sharedareasize > 0) {
@@ -947,17 +885,14 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	}
 
-	init_uwsgi_embedded_module();
 #endif
 
 
 
-	Py_OptimizeFlag = uwsgi.py_optimize;
-
-	uwsgi.main_thread = PyThreadState_Get();
-
+/*
 	uwsgi.gil_get = gil_fake_get;
         uwsgi.gil_release = gil_fake_release;
+*/
 	uwsgi.current_wsgi_req = simple_current_wsgi_req;
 
 
@@ -976,18 +911,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_THREADING
 	if (uwsgi.has_threads) {
-		PyEval_InitThreads();
-		uwsgi_log("threads support enabled\n");
-		if (pthread_key_create(&uwsgi.ut_save_key, NULL)) {
-                        uwsgi_error("pthread_key_create()");
-                        exit(1);
-                }
-		pthread_setspecific(uwsgi.ut_save_key, (void *) PyThreadState_Get());
-		pthread_mutex_init(&uwsgi.lock_pyloaders, NULL);
-		pthread_atfork(uwsgi_pthread_prepare, uwsgi_pthread_parent, uwsgi_pthread_child);
-		uwsgi.gil_get = gil_real_get; 
-		uwsgi.gil_release = gil_real_release; 
 		uwsgi.current_wsgi_req = threaded_current_wsgi_req;
+		for(i=0;i<0xFF;i++) {
+			if (uwsgi.shared->hook_enable_threads[i]) uwsgi.shared->hook_enable_threads[i]();
+		}
 	}
 
 #endif
@@ -1206,13 +1133,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 
-	init_uwsgi_vars();
-
 	memset(uwsgi.apps, 0, sizeof(uwsgi.apps));
-
-
-
-
 
 	/* shared area for workers */
 	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -1251,7 +1172,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* save the masterpid */
 	uwsgi.workers[0].pid = masterpid;
 
-	uwsgi_log( "initializing hooks...");
+	uwsgi_log( "initializing hooks..." );
+
+/*
 
 	uwsgi.shared->hooks[0] = uwsgi_request_wsgi;
 	uwsgi.shared->after_hooks[0] = uwsgi_after_request_wsgi;
@@ -1268,6 +1191,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.shared->hooks[UWSGI_MODIFIER_MESSAGE_MARSHAL] = uwsgi_request_marshal;	//33
 	uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
+*/
 
 	uwsgi_log( "done.\n");
 
@@ -1322,44 +1246,16 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_SNMP
 	if (uwsgi.snmp) {
-		snmp_init();
+		//snmp_init();
 	}
 #endif
 
 
-// setup app loaders
-#ifdef UWSGI_MINTERPRETERS
-	uwsgi.loaders[LOADER_DYN] = uwsgi_dyn_loader;
-#endif
-	uwsgi.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
-	uwsgi.loaders[LOADER_FILE] = uwsgi_file_loader;
-#ifdef UWSGI_PASTE
-	uwsgi.loaders[LOADER_PASTE] = uwsgi_paste_loader;
-#endif
-	uwsgi.loaders[LOADER_EVAL] = uwsgi_eval_loader;
-	uwsgi.loaders[LOADER_MOUNT] = uwsgi_mount_loader;
-	uwsgi.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
-	uwsgi.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
-
-
-
-
-	// the command line app loaders will be loaded in the main interpreter
-	// (for performance reason, as this will avoid context switch)
-	if (uwsgi.wsgi_config != NULL) {
-		init_uwsgi_app(LOADER_UWSGI, uwsgi.wsgi_config, uwsgi.wsgi_req, 0);
-	}
-
-	if (uwsgi.file_config != NULL) {
-		init_uwsgi_app(LOADER_FILE, uwsgi.file_config, uwsgi.wsgi_req, 0);
-	}
-#ifdef UWSGI_PASTE
-	if (uwsgi.paste != NULL) {
-		init_uwsgi_app(LOADER_PASTE, uwsgi.paste, uwsgi.wsgi_req, 0);
-	}
-#endif
-	if (uwsgi.eval != NULL) {
-		init_uwsgi_app(LOADER_EVAL, uwsgi.eval, uwsgi.wsgi_req, 0);
+	// init apps hook
+	for(i=0;i<0xFF;i++) {
+		if (uwsgi.shared->hook_init_apps[i]) {
+			uwsgi.shared->hook_init_apps[i]();
+		}
 	}
 
 // parse xml for <app> tags
@@ -1376,20 +1272,12 @@ int main(int argc, char *argv[], char *envp[]) {
 			what++;
 			uwsgi.wsgi_req->script_name = uwsgi.mounts[i];
 			uwsgi.wsgi_req->script_name_len = strlen(uwsgi.mounts[i]);
-			init_uwsgi_app(LOADER_MOUNT, what, uwsgi.wsgi_req, 0);
+			//init_uwsgi_app(LOADER_MOUNT, what, uwsgi.wsgi_req, 0);
 		}
 		else {
 			uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
 			exit(1);
 		}
-	}
-
-
-	if (uwsgi.test_module != NULL) {
-		if (PyImport_ImportModule(uwsgi.test_module)) {
-			exit(0);
-		}
-		exit(1);
 	}
 
 
@@ -1486,37 +1374,11 @@ int main(int argc, char *argv[], char *envp[]) {
 		// from now on the process is a real worker
 	}
 
-	// reinitialize the random seed (thanks Jonas Borgström)
-	random_module = PyImport_ImportModule("random");
-	if (random_module) {
-		random_dict = PyModule_GetDict(random_module);
-		if (random_dict) {
-			random_seed = PyDict_GetItemString(random_dict, "seed");
-			if (random_seed) {
-				PyObject *random_args = PyTuple_New(1);
-				// pass no args
-				PyTuple_SetItem(random_args, 0, Py_None);
-				PyEval_CallObject( random_seed, random_args );
-				if (PyErr_Occurred()) {
-					PyErr_Print();
-				}
-			}
+	for(i=0;i<0xFF;i++) {
+		if (uwsgi.shared->hook_post_fork[i]) {
+			uwsgi.shared->hook_post_fork[i]();
 		}
 	}
-
-#ifdef UWSGI_EMBEDDED
-	// call the post_fork_hook
-	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
-	if (uwsgi_dict) {
-		PyObject *pfh = PyDict_GetItemString(uwsgi_dict, "post_fork_hook");
-		if (pfh) {
-			python_call(pfh, PyTuple_New(0), 0);
-		}
-	}
-	PyErr_Clear();
-#endif
-	
-
 
 	// postpone the queue initialization as kevent do not pass kfd after fork()
 #ifdef UWSGI_ASYNC
@@ -1594,7 +1456,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	// release the GIL
-	UWSGI_RELEASE_GIL
+	//UWSGI_RELEASE_GIL
 
 
 #ifdef UWSGI_ASYNC
@@ -1637,7 +1499,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 	exit(1);
         	}
 
-		if (pthread_key_create(&uwsgi.ut_key, NULL)) {
+		if (pthread_key_create(&uwsgi.tur_key, NULL)) {
 			uwsgi_error("pthread_key_create()");
 			exit(1);
 		}
@@ -1666,352 +1528,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* never here */
 	return 0;
 }
-
-void init_uwsgi_vars() {
-
-	int i;
-	PyObject *pysys, *pysys_dict, *pypath;
-
-#ifdef UWSGI_MINTERPRETERS
-	char venv_version[15] ;
-	PyObject *site_module;
-#endif
-
-	/* add cwd to pythonpath */
-	pysys = PyImport_ImportModule("sys");
-	if (!pysys) {
-		PyErr_Print();
-		exit(1);
-	}
-	pysys_dict = PyModule_GetDict(pysys);
-	pypath = PyDict_GetItemString(pysys_dict, "path");
-	if (!pypath) {
-		PyErr_Print();
-		exit(1);
-	}
-
-#ifdef UWSGI_MINTERPRETERS
-	// simulate a pythonhome directive
-	if (uwsgi.wsgi_req->pyhome_len > 0) {
-
-		PyObject *venv_path = UWSGI_PYFROMSTRINGSIZE(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len) ;
-
-#ifdef UWSGI_DEBUG
-		uwsgi_debug("setting dynamic virtualenv to %.*s\n", uwsgi.wsgi_req->pyhome_len, uwsgi.wsgi_req->pyhome);
-#endif
-
-		PyDict_SetItemString(pysys_dict, "prefix", venv_path);
-		PyDict_SetItemString(pysys_dict, "exec_prefix", venv_path);
-
-		venv_version[14] = 0 ;
-		if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
-			return ;
-		}
-
-		// check here
-		PyString_Concat( &venv_path, PyString_FromString(venv_version) );
-
-		if ( PyList_Insert(pypath, 0, venv_path) ) {
-			PyErr_Print();
-		}
-
-		site_module = PyImport_ImportModule("site");
-		if (site_module) {
-			PyImport_ReloadModule(site_module);
-		}
-
-	}
-#endif
-
-	if (PyList_Insert(pypath, 0, UWSGI_PYFROMSTRING(".") ) != 0) {
-		PyErr_Print();
-	}
-
-	for (i = 0; i < uwsgi.python_path_cnt; i++) {
-		if (PyList_Insert(pypath, 0, UWSGI_PYFROMSTRING(uwsgi.python_path[i]) ) != 0) {
-			PyErr_Print();
-		}
-		else {
-			uwsgi_log( "added %s to pythonpath.\n", uwsgi.python_path[i]);
-		}
-	}
-
-}
-
-void uwsgi_uwsgi_config(char *module) {
-
-#ifdef UWSGI_EMBEDDED
-	PyObject *uwsgi_module, *uwsgi_dict;
-#endif
-	PyObject *applications;
-	PyObject *app_list;
-	Py_ssize_t i;
-	PyObject *app_mnt, *app_app = NULL;
-	char *quick_callable ;
-
-	quick_callable = get_uwsgi_pymodule(module);
-	if (quick_callable == NULL) {
-                if (uwsgi.callable) {
-                        quick_callable = uwsgi.callable ;
-                }
-                else {
-                        quick_callable = "application";
-                }
-        }
-
-	uwsgi.pyloader_dict = get_uwsgi_pydict(module);
-	if (!uwsgi.pyloader_dict) {
-		exit(1);
-	}
-
-	uwsgi_log( "...getting the applications list from the '%s' module...\n", module);
-
-#ifdef UWSGI_EMBEDDED
-	uwsgi_module = PyImport_ImportModule("uwsgi");
-	if (!uwsgi_module) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	uwsgi_dict = PyModule_GetDict(uwsgi_module);
-	if (!uwsgi_dict) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	applications = PyDict_GetItemString(uwsgi_dict, "applications");
-	if (!PyDict_Check(applications)) {
-		uwsgi_log( "uwsgi.applications dictionary is not defined, trying with the \"applications\" one...\n");
-#endif
-		applications = PyDict_GetItemString(uwsgi.pyloader_dict, "applications");
-		if (!applications) {
-			uwsgi_log( "applications dictionary is not defined, trying with the \"application\" callable.\n");
-			quick_callable = uwsgi_concat3(module, ":", quick_callable);
-			if (init_uwsgi_app(LOADER_UWSGI, (void *) quick_callable, uwsgi.wsgi_req, 0)  < 0) {
-                                uwsgi_log( "...goodbye cruel world...\n");
-                                exit(1);
-                        }
-			free(quick_callable);
-			return;
-		}
-#ifdef UWSGI_EMBEDDED
-	}
-#endif
-
-	if (!PyDict_Check(applications)) {
-		uwsgi_log( "The 'applications' object must be a dictionary.\n");
-		exit(1);
-	}
-
-	app_list = PyDict_Keys(applications);
-	if (!app_list) {
-		PyErr_Print();
-		exit(1);
-	}
-	if (PyList_Size(app_list) < 1) {
-		uwsgi_log( "You must define an app.\n");
-		exit(1);
-	}
-
-	for (i = 0; i < PyList_Size(app_list); i++) {
-		app_mnt = PyList_GetItem(app_list, i);
-
-		if (!PyString_Check(app_mnt)) {
-			uwsgi_log( "the app mountpoint must be a bytestring.\n");
-			exit(1);
-		}
-
-
-		uwsgi.wsgi_req->script_name = PyString_AsString(app_mnt);
-		uwsgi.wsgi_req->script_name_len = strlen(uwsgi.wsgi_req->script_name);
-
-		app_app = PyDict_GetItem(applications, app_mnt);
-
-		if (!PyString_Check(app_app) && !PyFunction_Check(app_app) && !PyCallable_Check(app_app)) {
-			uwsgi_log( "the app callable must be a string, a function or a callable. (found %s)\n", app_app->ob_type->tp_name);
-			exit(1);
-		}
-
-#ifdef PYTHREE
-		if (PyUnicode_Check(app_app)) {
-#else
-		if (PyString_Check(app_app)) {
-#endif
-			if (init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) PyString_AsString(app_app), uwsgi.wsgi_req, 0)  < 0) {
-                        	uwsgi_log( "...goodbye cruel world...\n");
-                        	exit(1);
-                	}
-
-			
-		}
-		else {
-			if (init_uwsgi_app(LOADER_CALLABLE, (void *) app_app, uwsgi.wsgi_req, 0)  < 0) {
-                        	uwsgi_log( "...goodbye cruel world...\n");
-                        	exit(1);
-                	}
-		}
-
-		Py_DECREF(app_mnt);
-		Py_DECREF(app_app);
-	}
-
-}
-
-
-#ifdef PYTHREE
-static PyModuleDef uwsgi_module3 = {
-	PyModuleDef_HEAD_INIT,
-	"uwsgi",
-	NULL,
-	-1,
-	null_methods,
-};
-PyObject *init_uwsgi3(void) {
-	return PyModule_Create(&uwsgi_module3);
-}
-#endif
-
-#ifdef UWSGI_EMBEDDED
-void init_uwsgi_embedded_module() {
-	PyObject *new_uwsgi_module, *zero;
-	int i;
-
-	/* initialize for stats */
-	uwsgi.workers_tuple = PyTuple_New(uwsgi.numproc);
-	for (i = 0; i < uwsgi.numproc; i++) {
-		zero = PyDict_New();
-		Py_INCREF(zero);
-		PyTuple_SetItem(uwsgi.workers_tuple, i, zero);
-	}
-
-
-
-#ifdef PYTHREE
-	PyImport_AppendInittab("uwsgi", init_uwsgi3);
-	new_uwsgi_module = PyImport_AddModule("uwsgi");
-#else
-	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);
-#endif
-	if (new_uwsgi_module == NULL) {
-		uwsgi_log( "could not initialize the uwsgi python module\n");
-		exit(1);
-	}
-
-	uwsgi.embedded_dict = PyModule_GetDict(new_uwsgi_module);
-	if (!uwsgi.embedded_dict) {
-		uwsgi_log( "could not get uwsgi module __dict__\n");
-		exit(1);
-	}
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "version", PyString_FromString(UWSGI_VERSION))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (uwsgi.mode) {
-		if (PyDict_SetItemString(uwsgi.embedded_dict, "mode", PyString_FromString(uwsgi.mode))) {
-			PyErr_Print();
-			exit(1);
-		}
-	}
-
-	if (uwsgi.pidfile) {
-		if (PyDict_SetItemString(uwsgi.embedded_dict, "pidfile", PyString_FromString(uwsgi.pidfile))) {
-			PyErr_Print();
-			exit(1);
-		}
-	}
-	
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "numproc", PyInt_FromLong(uwsgi.numproc))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-#ifdef UNBIT
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "unbit", Py_True)) {
-#else
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "unbit", Py_None)) {
-#endif
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "buffer_size", PyInt_FromLong(uwsgi.buffer_size))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "started_on", PyInt_FromLong(uwsgi.start_tv.tv_sec))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "start_response", uwsgi.wsgi_spitout)) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "fastfuncs", PyList_New(256))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "applications", Py_None)) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (uwsgi.is_a_reload) {
-		if (PyDict_SetItemString(uwsgi.embedded_dict, "is_a_reload", Py_True)) {
-			PyErr_Print();
-			exit(1);
-		}
-	}
-	else {
-		if (PyDict_SetItemString(uwsgi.embedded_dict, "is_a_reload", Py_False)) {
-			PyErr_Print();
-			exit(1);
-		}
-	}
-
-	uwsgi.embedded_args = PyTuple_New(2);
-	if (!uwsgi.embedded_args) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	if (PyDict_SetItemString(uwsgi.embedded_dict, "message_manager_marshal", Py_None)) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	uwsgi.fastfuncslist = PyDict_GetItemString(uwsgi.embedded_dict, "fastfuncs");
-	if (!uwsgi.fastfuncslist) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	init_uwsgi_module_advanced(new_uwsgi_module);
-
-#ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir != NULL) {
-		init_uwsgi_module_spooler(new_uwsgi_module);
-	}
-#endif
-
-
-	if (uwsgi.sharedareasize > 0 && uwsgi.sharedarea) {
-		init_uwsgi_module_sharedarea(new_uwsgi_module);
-	}
-}
-#endif
 
 #ifdef UWSGI_PROXY
 pid_t proxy_start(int has_master) {
@@ -2058,7 +1574,8 @@ pid_t proxy_start(int has_master) {
 }
 #endif
 
-void manage_opt(int i, char *optarg) {
+static int manage_base_opt(int i, char *optarg) {
+
 
 	switch (i) {
 
@@ -2067,60 +1584,57 @@ void manage_opt(int i, char *optarg) {
 			uwsgi_error("chdir()");
 			exit(1);
 		}
-		break;
+		return 1;
 	case LONG_ARGS_CHDIR2:
 		uwsgi.chdir2 = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_PING:
 		uwsgi.ping = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_PING_TIMEOUT:
 		uwsgi.ping_timeout = atoi(optarg);
-		break;
-	case LONG_ARGS_CALLABLE:
-		uwsgi.callable = optarg;
-		break;
+		return 1;
 #ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP:
 		uwsgi.http = optarg;
-		break;
+		return 1;
 #endif
 #ifdef UWSGI_LDAP
 	case LONG_ARGS_LDAP:
 		uwsgi.ldap = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_LDAP_SCHEMA:
 		uwsgi_ldap_schema_dump(long_options);
-		break;
+		return 1;
 	case LONG_ARGS_LDAP_SCHEMA_LDIF:
 		uwsgi_ldap_schema_dump_ldif(long_options);
-		break;
+		return 1;
 #endif
 	case LONG_ARGS_MODE:
 		uwsgi.mode = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_ENV:
 		if (putenv(optarg)) {
 			uwsgi_error("putenv()");
 		}
-		break;
+		return 1;
 #ifdef UWSGI_THREADING
 	case LONG_ARGS_THREADS:
 		uwsgi.threads = atoi(optarg);
-		break;
+		return 1;
 #endif
 #ifdef UWSGI_ASYNC
 	case LONG_ARGS_ASYNC:
 		uwsgi.async = atoi(optarg);
-		break;
+		return 1;
 #endif
 	case LONG_ARGS_LOGTO:
 		logto(optarg);
-		break;
+		return 1;
 #ifdef UWSGI_UGREEN
 	case LONG_ARGS_UGREEN_PAGES:
 		uwsgi.ugreen_stackpages = atoi(optarg);
-		break;
+		return 1;
 #endif
 	case LONG_ARGS_VERSION:
 		fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);
@@ -2128,30 +1642,30 @@ void manage_opt(int i, char *optarg) {
 #ifdef UWSGI_SNMP
 	case LONG_ARGS_SNMP:
 		uwsgi.snmp = 1;
-		break;
+		return 1;
 	case LONG_ARGS_SNMP_COMMUNITY:
 		uwsgi.snmp = 1;
 		uwsgi.snmp_community = optarg;
-		break;
+		return 1;
 #endif
 	case LONG_ARGS_PIDFILE:
 		uwsgi.pidfile = optarg;
-		break;
+		return 1;
 #ifdef UWSGI_UDP
 	case LONG_ARGS_UDP:
 		uwsgi.udp_socket = optarg;
 		uwsgi.master_process = 1;
-		break;
+		return 1;
 #endif
 #ifdef UWSGI_MULTICAST
 	case LONG_ARGS_MULTICAST:
 		uwsgi.multicast_group = optarg;
 		uwsgi.master_process = 1;
-		break;
+		return 1;
 #endif
 	case LONG_ARGS_CHROOT:
 		uwsgi.chroot = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_GID:
 		uwsgi.gid = atoi(optarg);
 		if (!uwsgi.gid) {
@@ -2164,7 +1678,7 @@ void manage_opt(int i, char *optarg) {
 				exit(1);
 			}
 		}
-		break;
+		return 1;
 	case LONG_ARGS_UID:
 		uwsgi.uid = atoi(optarg);
 		if (!uwsgi.uid) {
@@ -2177,29 +1691,29 @@ void manage_opt(int i, char *optarg) {
 				exit(1);
 			}
 		}
-		break;
+		return 1;
 	case LONG_ARGS_BINARY_PATH:
 		uwsgi.binary_path = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_WSGI_FILE:
 	case LONG_ARGS_FILE_CONFIG:
 		uwsgi.file_config = optarg;
-		break;
+		return 1;
 #ifdef UWSGI_PROXY
 	case LONG_ARGS_PROXY_NODE:
 		uwsgi_cluster_add_node(optarg, 1);
-		break;
+		return 1;
 	case LONG_ARGS_PROXY:
 		uwsgi.proxy_socket_name = optarg;
-		break;
+		return 1;
 #endif
 #ifdef UWSGI_ERLANG
 	case LONG_ARGS_ERLANG:
 		uwsgi.erlang_node = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_ERLANG_COOKIE:
 		uwsgi.erlang_cookie = optarg;
-		break;
+		return 1;
 #endif
 #ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP_VAR:
@@ -2210,15 +1724,15 @@ void manage_opt(int i, char *optarg) {
 		else {
 			uwsgi_log( "you can specify at most 64 --http-var options\n");
 		}
-		break;
+		return 1;
 	case LONG_ARGS_HTTP_MODIFIER1:
 		uwsgi.http_modifier1 = (uint8_t) atoi(optarg);
-		break;
+		return 1;
 #endif
 #ifdef __linux__
 	case LONG_ARGS_CGROUP:
 		uwsgi.cgroup = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_CGROUP_OPT:
 		if (uwsgi.cgroup_opt_cnt < 63) {
 			uwsgi.cgroup_opt[uwsgi.cgroup_opt_cnt] = optarg;
@@ -2227,40 +1741,31 @@ void manage_opt(int i, char *optarg) {
 		else {
 			uwsgi_log( "you can specify at most 64 --cgroup_opt options\n");
 		}
-		break;
+		return 1;
 #endif
-	case LONG_ARGS_PYTHONPATH:
-		if (uwsgi.python_path_cnt < MAX_PYTHONPATH) {
-			uwsgi.python_path[uwsgi.python_path_cnt] = optarg;
-			uwsgi.python_path_cnt++;
-		}
-		else {
-			uwsgi_log( "you can specify at most %d --pythonpath options\n", MAX_PYTHONPATH);
-		}
-		break;
 	case LONG_ARGS_LIMIT_AS:
 		uwsgi.rl.rlim_cur = (atoi(optarg)) * 1024 * 1024;
 		uwsgi.rl.rlim_max = uwsgi.rl.rlim_cur;
-		break;
+		return 1;
 	case LONG_ARGS_LIMIT_POST:
 		uwsgi.limit_post = (int) strtol(optarg, NULL, 10);
-		break;
+		return 1;
 	case LONG_ARGS_PRIO:
 		uwsgi.prio = (int) strtol(optarg, NULL, 10);
-		break;
+		return 1;
 	case LONG_ARGS_POST_BUFFERING:
 		uwsgi.post_buffering = atoi(optarg);
-		break;
+		return 1;
 	case LONG_ARGS_POST_BUFFERING_SIZE:
 		uwsgi.post_buffering_bufsize = atoi(optarg);
-		break;
+		return 1;
 #ifdef UWSGI_INI
 	case LONG_ARGS_INI:
 		uwsgi.ini = optarg;
-		break;
+		return 1;
 	case LONG_ARGS_EVAL_CONFIG:
 		uwsgi.eval = optarg;
-		break;
+		return 1;
 #ifdef UWSGI_PASTE
 	case LONG_ARGS_INI_PASTE:
 		uwsgi.ini = optarg;
@@ -2286,59 +1791,50 @@ void manage_opt(int i, char *optarg) {
 			memcpy(uwsgi.paste, "config:", 7);
 			memcpy(uwsgi.paste + 7, uwsgi.ini, strlen(uwsgi.ini));
 		}
-		break;
+		return 1;
 #endif
 #endif
 #ifdef UWSGI_PASTE
 	case LONG_ARGS_PASTE:
 		uwsgi.paste = optarg;
-		break;
+		return 1;
 #endif
 	case LONG_ARGS_CHECK_INTERVAL:
 		uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = atoi(optarg);
-		break;
-	case LONG_ARGS_PYARGV:
-		uwsgi.pyargv = optarg;
-		break;
-	case 'j':
-		uwsgi.test_module = optarg;
-		break;
-	case 'H':
-		uwsgi.pyhome = optarg;
-		break;
+		return 1;
 	case 'A':
 		uwsgi.sharedareasize = atoi(optarg);
-		break;
+		return 1;
 	case 'L':
 		uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 0;
-		break;
+		return 1;
 	case LONG_ARGS_LOG_ZERO:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_ZERO] = 1;
-		break;
+		return 1;
 	case LONG_ARGS_LOG_SLOW:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW] = atoi(optarg);
-		break;
+		return 1;
 	case LONG_ARGS_LOG_4xx:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_4xx] = 1;
-		break;
+		return 1;
 	case LONG_ARGS_LOG_5xx:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_5xx] = 1;
-		break;
+		return 1;
 	case LONG_ARGS_LOG_BIG:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_BIG] = atoi(optarg);
-		break;
+		return 1;
 	case LONG_ARGS_LOG_SENDFILE:
 		uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] = 1;
-		break;
+		return 1;
 	case LONG_ARGS_MOUNT:
-		if (uwsgi.mounts_cnt < MAX_MOUNTPOINTS) {
+		if (uwsgi.mounts_cnt < MAX_APPS) {
 			uwsgi.mounts[uwsgi.mounts_cnt] = optarg;
 			uwsgi.mounts_cnt++;
 		}
 		else {
-			uwsgi_log( "you can specify at most %d --mount options\n", MAX_MOUNTPOINTS);
+			uwsgi_log( "you can specify at most %d --mount options\n", MAX_APPS);
 		}
-		break;
+		return 1;
 #ifdef UWSGI_SPOOLER
 	case 'Q':
 		uwsgi.spool_dir = malloc(PATH_MAX);
@@ -2355,14 +1851,14 @@ void manage_opt(int i, char *optarg) {
 			exit(1);
 		}
 		uwsgi.master_process = 1;
-		break;
+		return 1;
 #endif
 
 	case 'd':
 		if (!uwsgi.is_a_reload) {
 			daemonize(optarg);
 		}
-		break;
+		return 1;
 	case 's':
 		if (uwsgi.sockets_cnt < 8) {
 			uwsgi.sockets[uwsgi.sockets_cnt].name = optarg;
@@ -2371,46 +1867,43 @@ void manage_opt(int i, char *optarg) {
 		else {
 			uwsgi_log( "you can specify at most 8 --socket options\n");
 		}
-		break;
+		return 1;
 #ifdef UWSGI_XML
 	case 'x':
 		uwsgi.xml_config = optarg;
-		break;
+		return 1;
 #endif
 	case 'l':
 		uwsgi.listen_queue = atoi(optarg);
-		break;
+		return 1;
 	case 'v':
 		uwsgi.max_vars = atoi(optarg);
 		uwsgi.vec_size = 4 + 1 + (4 * uwsgi.max_vars);
-		break;
+		return 1;
 	case 'p':
 		uwsgi.numproc = atoi(optarg);
-		break;
+		return 1;
 	case 'r':
 		uwsgi.shared->options[UWSGI_OPTION_REAPER] = 1;
-		break;
-	case 'w':
-		uwsgi.wsgi_config = optarg;
-		break;
+		return 1;
 	case 'm':
 		uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] = 1;
-		break;
+		return 1;
 	case 'O':
 		uwsgi.py_optimize = atoi(optarg);
-		break;
+		return 1;
 	case 't':
 		uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] = atoi(optarg);
-		break;
+		return 1;
 	case 'b':
 		uwsgi.buffer_size = atoi(optarg);
-		break;
+		return 1;
 	case 'c':
 		uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
-		break;
+		return 1;
 	case 'a':
 		uwsgi.abstract_socket = 1;
-		break;
+		return 1;
 	case 'C':
 		uwsgi.chmod_socket = 1;
 		if (optarg) {
@@ -2429,28 +1922,25 @@ void manage_opt(int i, char *optarg) {
 			uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (optarg[1] - '0');
 			uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (optarg[2] - '0');
 		}
-		break;
+		return 1;
 	case 'M':
 		uwsgi.master_process = 1;
-		break;
+		return 1;
 	case 'R':
 		uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] = atoi(optarg);
-		break;
+		return 1;
 	case 'z':
 		if (atoi(optarg) > 0) {
 			uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = atoi(optarg);
 		}
-		break;
+		return 1;
 	case 'T':
 		uwsgi.has_threads = 1;
 		uwsgi.shared->options[UWSGI_OPTION_THREADS] = 1;
-		break;
+		return 1;
 	case 'i':
 		uwsgi.single_interpreter = 1;
-		break;
-	LONG_ARGS_PLUGIN_EMBED_PSGI
-	LONG_ARGS_PLUGIN_EMBED_LUA
-	LONG_ARGS_PLUGIN_EMBED_RACK
+		return 1;
 	case 'h':
 		fprintf(stdout, "Usage: %s [options...]\n\
 \t-s|--socket <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
@@ -2550,17 +2040,33 @@ void manage_opt(int i, char *optarg) {
 \t--cgroup-opt KEY=VAL\t\tset cgroup option (Linux only)\n\
 \t--version\t\t\tprint server version\n\
 \t-d|--daemonize <logfile|addr>\tdaemonize and log into <logfile> or udp <addr>\n", uwsgi.binary_path);
-		exit(1);
-	case 0:
-		break;
-	default:
-		if (i != '?') {
-			uwsgi_log( "invalid argument -%c  exiting \n", i);
-		}
-		exit(1);
+		return 0;
 	}
+
+	return 0;
 }
 
+void manage_opt(int i, char *optarg) {
+
+	int j;
+
+	if (manage_base_opt(i, optarg)) {
+		return;
+	}
+
+	for(j=0;j<0xFF;j++) {
+		if (uwsgi.shared->hook_manage_opt[j]) {
+			uwsgi_log("MANAGE_OPT\n");
+			if (uwsgi.shared->hook_manage_opt[j](i, optarg)) {
+				return;
+			}
+		}
+	}
+
+	// never here
+	exit(1);
+
+}
 
 void uwsgi_cluster_add_node(char *nodename, int workers) {
 

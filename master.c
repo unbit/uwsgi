@@ -45,20 +45,16 @@ void master_loop(char **argv, char **environ) {
         struct sockaddr_in udp_client;
         socklen_t udp_len;
         char udp_client_addr[16];
-        PyObject *udp_callable;
-        PyObject *udp_callable_args = NULL;
-        PyObject *udp_response;
+	int udp_managed = 0 ;
+	int rlen;
 #endif
 
 	int i,j;
-#ifdef UWSGI_UDP
-	int rlen;
-#endif
 
 	struct timeval check_interval = {.tv_sec = 1,.tv_usec = 0 };
 
 	// release the GIL
-	UWSGI_RELEASE_GIL
+	//UWSGI_RELEASE_GIL
 
 	/* route signals to workers... */
 	signal(SIGHUP, (void *) &grace_them_all);
@@ -104,14 +100,6 @@ void master_loop(char **argv, char **environ) {
 	}
 #endif
 
-#ifdef UWSGI_UDP
-		UWSGI_GET_GIL	
-		udp_callable = PyDict_GetItemString(uwsgi.embedded_dict, "udp_callable");
-		if (udp_callable) {
-			udp_callable_args = PyTuple_New(3);
-		}
-		UWSGI_RELEASE_GIL
-#endif
 		for (;;) {
 			if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifdef UWSGI_SPOOLER
@@ -236,6 +224,18 @@ void master_loop(char **argv, char **environ) {
 								}
 #endif
 								else {
+									
+									// loop the various udp manager until one returns true
+									udp_managed = 0;
+									for(i=0;i<0xFF;i++) {
+										if (uwsgi.shared->hook_manage_udp[i]) {
+											if (uwsgi.shared->hook_manage_udp[i](udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
+												udp_managed = 1;
+												break;
+											}
+										}
+									}
+									/*
 									if (udp_callable && udp_callable_args) {
 										UWSGI_GET_GIL
 										PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
@@ -252,8 +252,12 @@ void master_loop(char **argv, char **environ) {
 									}
 									else {
 										// a simple udp logger
+									*/
+									
+									if (!udp_managed) {
 										uwsgi_log( "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
 									}
+									//}
 								}
 							}
 							else {
@@ -376,7 +380,7 @@ void master_loop(char **argv, char **environ) {
 					if (WIFEXITED(waitpid_status)) {
 						if (WEXITSTATUS(waitpid_status) != UWSGI_END_CODE) {
 							uwsgi_log( "OOOPS the proxy is no more...trying respawn...\n");
-							uwsgi.shared->spooler_pid = proxy_start(1);
+							uwsgi.shared->proxy_pid = proxy_start(1);
 							continue;
 						}
 					}

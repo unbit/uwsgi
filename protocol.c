@@ -127,6 +127,7 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 	return uwsgi_poll.fd;
 }
 
+/*
 PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
 
 	struct pollfd uwsgi_mpoll;
@@ -213,6 +214,8 @@ PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint
 
 	return PyMarshal_ReadObjectFromString(buffer, uh.pktsize);
 }
+
+*/
 
 int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header *uh, char *buffer) {
 	int rlen, i;

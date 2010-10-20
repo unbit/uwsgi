@@ -181,10 +181,12 @@ next:
 
 							}
 							else if (!strcmp((char *) node2->name, "callable")) {
+								/*
 								if (!uwsgi.pyloader_dict) {
 									uwsgi_log( "no module loaded in memory. skip.\n");
 									continue;
 								}
+								*/
 								if (!node2->children) {
 									uwsgi_log( "no callable defined. skip.\n");
 									continue;
@@ -194,7 +196,7 @@ next:
 									continue;
 								}
 								
-								init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
+								//init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 							}
 							else if (!strcmp((char *) node2->name, "eval")) {
 								if (!node2->children) {
@@ -206,7 +208,7 @@ next:
 									continue;
 								}
 
-								init_uwsgi_app(LOADER_EVAL, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
+								//init_uwsgi_app(LOADER_EVAL, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 								
 							}
 							else if (!strcmp((char *) node2->name, "file")) {
@@ -219,7 +221,7 @@ next:
 									continue;
 								}
 
-								init_uwsgi_app(LOADER_FILE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
+								//init_uwsgi_app(LOADER_FILE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 								
 							}
 							else if (!strcmp((char *) node2->name, "module")) {
@@ -232,7 +234,7 @@ next:
 									continue;
 								}
 
-								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
+								//init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 							}
 							else if (!strcmp((char *) node2->name, "script")) {
 								if (!node2->children) {
@@ -243,7 +245,7 @@ next:
 									uwsgi_log( "no script defined. skip.\n");
 									continue;
 								}
-								init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
+								//init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 							}
 						}
 					}
@@ -378,7 +380,7 @@ void uwsgi_textApp(void *userData, const char *s, int len) {
 	if (current_xmlnode) {
 		wsgi_req->wsgi_script = (char *) s;
                 wsgi_req->wsgi_script_len = len;
-                init_uwsgi_app(&uwsgi, NULL);
+                //init_uwsgi_app(&uwsgi, NULL);
 		current_xmlnode = 0;
 	}
 };

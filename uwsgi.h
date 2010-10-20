@@ -10,16 +10,25 @@
 #define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
 
 #define MAX_APPS 64
-#define MAX_MOUNTPOINTS 64
-#define MAX_PYTHONPATH 64
 
-#ifdef UWSGI_THREADING
-#define UWSGI_GET_GIL (*uwsgi.gil_get)();
-#define UWSGI_RELEASE_GIL (*uwsgi.gil_release)();
-#else
-#define UWSGI_GET_GIL
-#define UWSGI_RELEASE_GIL
-#endif
+#define LEP(lepname) \
+	extern struct uwsgi_plugin lepname##_plugin;\
+	fill_plugin_table(lepup->modifier1, lepname);
+
+#define fill_plugin_table(x, up)\
+	uwsgi.shared->hook_init[x] = up->init;\
+	uwsgi.shared->hook_post_fork[x] = up->post_fork;\
+	uwsgi.shared->hook_options[x] = up->options;\
+	uwsgi.shared->hook_manage_opt[x] = up->manage_opt;\
+	uwsgi.shared->hook_request[x] = up->request;\
+	uwsgi.shared->hook_after_request[x] = up->after_request;\
+	uwsgi.shared->hook_init_apps[x] = up->init_apps;\
+	uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
+	uwsgi.shared->hook_init_thread[x] = up->init_thread;\
+	uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
+
+	
+	
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +39,10 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdarg.h>
+#include <errno.h>
+#include <ctype.h>
+#include <sys/time.h>
+
 
 #include <dirent.h>
 
@@ -128,19 +141,6 @@
 #endif
 
 #undef _XOPEN_SOURCE
-#include <Python.h>
-
-#ifdef UWSGI_STACKLESS
-#include <stackless_api.h>
-#endif
-
-#if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
-#define Py_ssize_t ssize_t
-#endif
-
-#if PY_MAJOR_VERSION > 2
-#define PYTHREE
-#endif
 
 /* this value are taken from nginx */
 #if defined(__APPLE__) || defined(__freebsd__)
@@ -149,8 +149,6 @@
 #define UWSGI_LISTEN_QUEUE 511
 #endif
 
-PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
-PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define MAX_CLUSTER_NODES	100
 
@@ -287,26 +285,6 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define UWSGI_MODIFIER_RESPONSE		255
 
-#ifdef PYTHREE
-#define UWSGI_PYFROMSTRING(x) PyUnicode_FromString(x)
-#define UWSGI_PYFROMSTRINGSIZE(x, y) PyUnicode_FromStringAndSize(x, y)
-#define PyInt_FromLong	PyLong_FromLong
-#define PyInt_AsLong	PyLong_AsLong
-#define PyInt_Check	PyLong_Check
-#define PyString_Check	PyBytes_Check
-#define	PyString_FromStringAndSize	PyBytes_FromStringAndSize
-#define	PyString_FromFormat	PyBytes_FromFormat
-#define	PyString_FromString	PyBytes_FromString
-#define	PyString_Size		PyBytes_Size
-#define	PyString_Concat		PyBytes_Concat
-#define	PyString_AsString	(char *) PyBytes_AsString
-#define PyFile_FromFile(A,B,C,D) PyFile_FromFd(fileno((A)), (B), (C), -1, NULL, NULL, NULL, 0)
-
-#else
-#define UWSGI_PYFROMSTRING(x) PyString_FromString(x)
-#define UWSGI_PYFROMSTRINGSIZE(x, y) PyString_FromStringAndSize(x, y)
-#endif
-
 #define NL_SIZE 2
 #define H_SEP_SIZE 2
 
@@ -328,30 +306,30 @@ struct uwsgi_server;
 
 struct uwsgi_app {
 
+	uint8_t modifier1;
+
 	char *mountpoint;
 	int mountpoint_len;
 
-	PyThreadState *interpreter;
-	PyObject *pymain_dict;
+	void *interpreter;
+	//PyObject *pymain_dict;
 	//PyObject *wsgi_dict;
-	PyObject *wsgi_callable;
+	void *callable;
 
 
 #ifdef UWSGI_ASYNC
-	PyObject **wsgi_args;
-	PyObject **wsgi_environ;
+	void **args;
+	void **environ;
 #else
-	PyObject *wsgi_args;
-	PyObject *wsgi_environ;
+	void *args;
+	void *environ;
 #endif
-	PyObject *wsgi_harakiri;
 
-	PyObject *wsgi_sendfile;
-	PyObject *wsgi_cprofile_run;
+	void *sendfile;
 
 #ifdef UWSGI_ASYNC
-	PyObject *wsgi_eventfd_read;
-	PyObject *wsgi_eventfd_write;
+	void *eventfd_read;
+	void *eventfd_write;
 #endif
 
 	void* (*request_subhandler)(struct wsgi_request *, struct uwsgi_app *);
@@ -497,10 +475,6 @@ struct wsgi_request {
 	char *post_buffering_buf;
 	uint64_t post_buffering_read;
 
-#ifdef UWSGI_STACKLESS
-	PyTaskletObject* tasklet;
-#endif
-
 	char *buffer;
 };
 
@@ -528,7 +502,6 @@ struct uwsgi_server {
 	struct wsgi_request **wsgi_requests ;
 	struct wsgi_request *wsgi_req ;
 
-	PyThreadState *_save;
 	char *chroot;
 	gid_t gid;
 	uid_t uid;
@@ -673,11 +646,9 @@ struct uwsgi_server {
 	
 	char *file_config;
 
-	char *python_path[MAX_PYTHONPATH];
+	//char *python_path[MAX_PYTHONPATH];
 	int python_path_cnt;
-	char *pyargv;
 
-	int pyargc;
 #ifdef PYTHREE
         wchar_t *py_argv[MAX_PYARGV];
 #else
@@ -705,23 +676,6 @@ struct uwsgi_server {
 	int single_interpreter;
 	int py_optimize;
 
-	PyObject *embedded_dict;
-	PyObject *embedded_args;
-	PyObject *fastfuncslist;
-
-	PyObject *wsgi_writeout;
-
-#ifdef UWSGI_STACKLESS
-	PyObject *wsgi_stackless;
-	PyChannelObject *workers_channel;
-	struct stackless_req **stackless_table;
-#endif
-
-	PyObject *workers_tuple;
-
-	PyThreadState *main_thread;
-
-
 	struct uwsgi_shared *shared;
 
 	struct uwsgi_app apps[MAX_APPS];
@@ -732,23 +686,6 @@ struct uwsgi_server {
 #endif
 
 	int no_orphans;
-
-#ifdef UWSGI_EMBED_PLUGINS
-
-#ifdef UWSGI_EMBED_PLUGIN_PSGI
-	char *plugin_arg_psgi;
-#endif
-
-#ifdef UWSGI_EMBED_PLUGIN_LUA
-	char *plugin_arg_lua;
-#endif
-
-#ifdef UWSGI_EMBED_PLUGIN_RACK
-	char *plugin_arg_rack;
-	char *plugin_arg_rails;
-#endif
-
-#endif
 
 	char *chdir2;
 	int catch_exceptions;
@@ -762,8 +699,6 @@ struct uwsgi_server {
 
 	char *ping;
 	int ping_timeout;
-
-	char *callable;
 
 	int xml_round2;
 
@@ -782,39 +717,26 @@ struct uwsgi_server {
 	int cgroup_opt_cnt;
 #endif
 
-	PyObject *wsgi_spitout;
-
 	int sockets_cnt;
 	struct uwsgi_socket sockets[8];
 	struct pollfd sockets_poll[8];
 
 	time_t respawn_delta;
 
-	PyObject *pyloader_dict;
-
-	PyObject* (*loaders[LOADER_MAX]) (void *);
-
-	char *mounts[MAX_MOUNTPOINTS];
+	char *mounts[MAX_APPS];
 	int mounts_cnt;
 
 	int cores;
 	int threads;
-	pthread_key_t ut_key;
-	pthread_key_t ut_save_key;
+	
+	// this key old the u_request structure per core/thread
+	pthread_key_t tur_key;
 
-
-#ifdef UWSGI_THREADING
-	void (*gil_get) (void);
-	void (*gil_release) (void);
-#endif
 
 	struct wsgi_request* (*current_wsgi_req)(void);
 
 	int close_on_exec;
 
-#ifdef UWSGI_THREADING
-	pthread_mutex_t lock_pyloaders;
-#endif
 };
 
 struct uwsgi_cluster_node {
@@ -847,8 +769,16 @@ struct uwsgi_shared {
 	// vga 80x25 specific !
 	char warning_message[81];
 
-	int (*hooks[256]) (struct wsgi_request *);
-	void (*after_hooks[256]) (struct wsgi_request *);
+	int (*hook_init[0xFF]) (void);
+	void (*hook_post_fork[0xFF]) (void);
+	void (*hook_enable_threads[0xFF]) (void);
+	int (*hook_request[0xFF]) (struct wsgi_request *);
+	void (*hook_after_request[0xFF]) (struct wsgi_request *);
+	void (*hook_init_thread[0xFF]) (void);
+	void (*hook_init_apps[0xFF]) (void);
+	struct option *hook_options[0xFF];
+	int (*hook_manage_opt[0xFF]) (int, char*);
+	int (*hook_manage_udp[0xFF]) (char *, int, char*, int);
 	uint32_t options[256];
 
 	struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
@@ -888,7 +818,7 @@ struct uwsgi_core {
 	uint64_t failed_requests;
 
 	// multiple ts per-core are needed only with multiple_interpreter + threads
-	PyThreadState *ts[MAX_APPS];
+	void *ts[MAX_APPS];
 	
 };
 
@@ -948,27 +878,11 @@ void harakiri(void);
 
 void stats(void);
 
-void init_uwsgi_vars(void);
-void init_uwsgi_embedded_module(void);
-
 #ifdef UWSGI_XML
 void uwsgi_xml_config(struct wsgi_request *, struct option *);
 #endif
 
-void uwsgi_wsgi_config(char *);
-#ifdef UWSGI_PASTE
-void uwsgi_paste_config(char *);
-#endif
-void uwsgi_file_config(char *);
-void uwsgi_eval_config(char *);
-
 void internal_server_error(int, char *);
-
-void init_uwsgi_module_sharedarea(PyObject *);
-void init_uwsgi_module_advanced(PyObject *);
-#ifdef UWSGI_SPOOLER
-void init_uwsgi_module_spooler(PyObject *);
-#endif
 
 #ifdef UWSGI_SNMP
 void manage_snmp(int, uint8_t *, int, struct sockaddr_in *);
@@ -990,10 +904,6 @@ uint32_t uwsgi_swap32(uint32_t);
 uint64_t uwsgi_swap64(uint64_t);
 #endif
 
-int init_uwsgi_app(int, void *, struct wsgi_request *wsgi_req, int);
-
-PyObject *uwsgi_send_message(const char *, int, uint8_t, uint8_t, char *, int, int);
-
 #ifdef UWSGI_UDP
 ssize_t send_udp_message(uint8_t, char *, char *, uint16_t); 
 #endif
@@ -1003,19 +913,6 @@ int uwsgi_parse_vars(struct wsgi_request *);
 
 int uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
 
-/* included HOOKS */
-int uwsgi_request_wsgi(struct wsgi_request *);
-void uwsgi_after_request_wsgi(struct wsgi_request *);
-
-int uwsgi_request_admin(struct wsgi_request *);
-#ifdef UWSGI_SPOOLER
-int uwsgi_request_spooler(struct wsgi_request *);
-#endif
-int uwsgi_request_eval(struct wsgi_request *);
-int uwsgi_request_fastfunc(struct wsgi_request *);
-int uwsgi_request_marshal(struct wsgi_request *);
-int uwsgi_request_ping(struct wsgi_request *);
-
 #ifdef UWSGI_ERLANG
 
 #include <erl_interface.h>
@@ -1023,8 +920,6 @@ int uwsgi_request_ping(struct wsgi_request *);
 
 int init_erlang(char *, char *);
 void erlang_loop(struct wsgi_request *);
-PyObject *eterm_to_py(ETERM *);
-ETERM *py_to_eterm(PyObject *);
 
 #endif
 
@@ -1092,28 +987,7 @@ void async_unpause_all(void);
 #define ASYNC_IS_OUT ASYNC_EV == ASYNC_OUT
 #endif
 
-PyObject *py_eventfd_read(PyObject *, PyObject *) ;
-PyObject *py_eventfd_write(PyObject *, PyObject *) ;
-
-
 #endif
-
-#ifdef UWSGI_STACKLESS
-PyObject *py_uwsgi_stackless(PyObject *, PyObject *) ;
-#endif
-
-int manage_python_response(struct wsgi_request *);
-int uwsgi_python_call(struct wsgi_request *, PyObject *, PyObject *);
-PyObject *python_call(PyObject *, PyObject *, int);
-
-#ifdef UWSGI_SENDFILE
-PyObject *py_uwsgi_sendfile(PyObject *, PyObject *) ;
-ssize_t uwsgi_sendfile(struct wsgi_request *);
-ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t*, int);
-#endif
-
-PyObject *py_uwsgi_write(PyObject *, PyObject *) ;
-PyObject *py_uwsgi_spit(PyObject *, PyObject *) ;
 
 void uwsgi_as_root(void);
 
@@ -1121,18 +995,6 @@ void uwsgi_as_root(void);
 void nagios(void);
 #endif
 
-
-#ifdef UWSGI_STACKLESS
-struct stackless_req {
-	PyTaskletObject *tasklet;
-	struct wsgi_request *wsgi_req;
-	PyChannelObject *channel;
-};
-struct wsgi_request *find_request_by_tasklet(PyTaskletObject *);
-
-void stackless_init(void);
-void stackless_loop(void);
-#endif
 
 void uwsgi_close_request(struct wsgi_request *) ;
 
@@ -1164,77 +1026,9 @@ void uwsgi_log(const char *, ...);
 void uwsgi_log_verbose(const char *, ...);
 
 
-#ifdef UWSGI_EVDIS
-#define EVDIS_TYPE_FILE
-#define EVDIS_TYPE_DNSSD
-#endif
-
 int uwsgi_load_plugin(int, char *, char *, int);
 void embed_plugins(void);
 
-
-// PLUGINS
-
-#define UWSGI_PLUGIN_LONGOPT_PSGI
-#define UWSGI_PLUGIN_LONGOPT_LUA
-#define UWSGI_PLUGIN_LONGOPT_RACK
-#define LONG_ARGS_PLUGIN_EMBED_PSGI
-#define LONG_ARGS_PLUGIN_EMBED_LUA
-#define LONG_ARGS_PLUGIN_EMBED_RACK
-
-
-
-#ifdef UWSGI_EMBED_PLUGINS
-
-
-#ifdef UWSGI_EMBED_PLUGIN_PSGI
-
-#undef UWSGI_PLUGIN_LONGOPT_PSGI
-#define UWSGI_PLUGIN_LONGOPT_PSGI {"psgi", required_argument, 0, 30005},
-
-#undef LONG_ARGS_PLUGIN_EMBED_PSGI
-#define LONG_ARGS_PLUGIN_EMBED_PSGI case 30005:\
-					uwsgi.plugin_arg_psgi = optarg;\
-					break;
-#endif
-
-#ifdef UWSGI_EMBED_PLUGIN_LUA
-
-#undef UWSGI_PLUGIN_LONGOPT_LUA
-#define UWSGI_PLUGIN_LONGOPT_LUA {"lua", required_argument, 0, 30006},
-
-#undef LONG_ARGS_PLUGIN_EMBED_LUA
-#define LONG_ARGS_PLUGIN_EMBED_LUA case 30006:\
-					uwsgi.plugin_arg_lua = optarg;\
-					break;
-#endif
-
-#ifdef UWSGI_EMBED_PLUGIN_RACK
-
-#undef UWSGI_PLUGIN_LONGOPT_RACK
-#define UWSGI_PLUGIN_LONGOPT_RACK {"rack", required_argument, 0, 30007},\
-				  {"rails", required_argument, 0, 30008},
-
-#undef LONG_ARGS_PLUGIN_EMBED_RACK
-#define LONG_ARGS_PLUGIN_EMBED_RACK case 30007:\
-					uwsgi.plugin_arg_rack = optarg;\
-					break;\
-				    case 30008:\
-					uwsgi.plugin_arg_rails = optarg;\
-					break;
-#endif
-
-
-#endif
-
-#ifdef UWSGI_ROUTING
-void routing_setup(void);
-void check_route(struct wsgi_request *);
-void uwsgi_route_action_uwsgi(struct wsgi_request *, struct uwsgi_route *);
-void uwsgi_route_action_wsgi(struct wsgi_request *, struct uwsgi_route *);
-#endif
-
-void init_pyargv(void);
 
 void http_loop();
 
@@ -1263,15 +1057,8 @@ char *uwsgi_concatn(int, ...);
 char *uwsgi_concat2(char *, char *);
 char *uwsgi_concat3(char *, char *, char *);
 char *uwsgi_concat3n(char *, int, char *, int, char *, int);
+char *uwsgi_concat4(char *, char *, char *, char *);
 
-
-void *uwsgi_request_subhandler_wsgi(struct wsgi_request *, struct uwsgi_app *);
-int uwsgi_response_subhandler_wsgi(struct wsgi_request *);
-
-#ifdef UWSGI_WEB3
-void *uwsgi_request_subhandler_web3(struct wsgi_request *, struct uwsgi_app *);
-int uwsgi_response_subhandler_web3(struct wsgi_request *);
-#endif
 
 int uwsgi_get_app_id(char *, int);
 char *uwsgi_strncopy(char *, int );
@@ -1280,31 +1067,36 @@ void master_loop(char **, char **);
 
 
 int find_worker_id(pid_t);
-void init_uwsgi_py_interpreter(struct wsgi_request *);
 
-
-
-PyObject *uwsgi_uwsgi_loader(void *);
-PyObject *uwsgi_dyn_loader(void *);
-PyObject *uwsgi_file_loader(void *);
-PyObject *uwsgi_eval_loader(void *);
-PyObject *uwsgi_paste_loader(void *);
-PyObject *uwsgi_callable_loader(void *);
-PyObject *uwsgi_string_callable_loader(void *);
-PyObject *uwsgi_mount_loader(void *);
-
-char *get_uwsgi_pymodule(char *);
-PyObject *get_uwsgi_pydict(char *);
 
 void *simple_loop(void *);
 void complex_loop(void);
 
+struct uwsgi_plugin {
+
+        char *name; 
+        uint8_t modifier1;
+        void *data;
+	int (*init)(void);
+        void (*post_fork)(void);
+        struct option *options;
+        int (*manage_opt)(int, char*);
+        void (*magic)(char *);
+        void (*enable_threads)(void);
+        void (*init_thread)(void);
+        int (*request)(struct wsgi_request*);
+        void (*after_request)(struct wsgi_request*);
+        void (*init_apps)(void);
+	int (*manage_udp)(char *, int, char *, int);
+
+};
+
+int count_options(struct option*);
+
+#ifdef UWSGI_SENDFILE
+ssize_t uwsgi_do_sendfile(int , int , size_t , size_t , off_t *, int );
+#endif
 
 
-void gil_real_get(void);
-void gil_real_release(void);
-void gil_fake_get(void);
-void gil_fake_release(void);
-
-struct wsgi_request* threaded_current_wsgi_req(void);
 struct wsgi_request* simple_current_wsgi_req(void);
+struct wsgi_request* threaded_current_wsgi_req(void);

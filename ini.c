@@ -164,7 +164,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
                                                        		*aopt->flag = aopt->val;
                                               		}
                                                		else {
-                                                              		manage_opt(aopt->val, val);
+                                                        	manage_opt(aopt->val, val);
                                                		}
                                        		}
                                        		lopt++;

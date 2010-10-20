@@ -420,3 +420,16 @@ void uwsgi_after_request(struct wsgi_request *wsgi_req) {
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
                 log_request(wsgi_req);
 }
+
+struct uwsgi_plugin psgi_plugin = {
+
+	.init = uwsgi_init;
+	.post_fork = uwsgi_post_fork;
+	.options = uwsgi_perl_options;
+	.magic = uwsgi_perl_magic;
+	.help = uwsgi_perl_help;
+	.init_thread = uwsgi_init_thread;
+	.request = uwsgi_request;
+	.post_request = uwsgi_post_request;
+	.init_app = uwsgi_init_app;
+};

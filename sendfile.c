@@ -4,31 +4,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
-
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-
-	if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
-                return NULL;
-        }
-
-#ifdef PYTHREE
-        wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
-#else
-        if (PyFile_Check((PyObject *)wsgi_req->async_sendfile)) {
-		Py_INCREF((PyObject *)wsgi_req->async_sendfile);
-                wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
-        }
-#endif
-
-	// PEP 333 hack
-	wsgi_req->sendfile_obj = wsgi_req->async_sendfile;
-	//wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
-
-	Py_INCREF((PyObject *) wsgi_req->sendfile_obj);
-        return (PyObject *) wsgi_req->sendfile_obj;
-}
-
 ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 
 	int fd = wsgi_req->sendfile_fd ;
@@ -36,7 +11,7 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
         struct stat stat_buf;
 	ssize_t sst = 0;
 
-	UWSGI_RELEASE_GIL
+	//UWSGI_RELEASE_GIL
 
 	if (!wsgi_req->sendfile_fd_size) {
 
@@ -57,7 +32,7 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 	}
 
 end:
-	UWSGI_GET_GIL
+	//UWSGI_GET_GIL
 	return sst;
 }
 

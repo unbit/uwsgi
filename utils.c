@@ -350,7 +350,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// after_request hook
-	(*uwsgi.shared->after_hooks[wsgi_req->uh.modifier1]) (wsgi_req);
+	uwsgi_log("CALL LOG %p\n", uwsgi.shared->hook_after_request[wsgi_req->uh.modifier1]);
+	uwsgi.shared->hook_after_request[wsgi_req->uh.modifier1](wsgi_req);
 
 	// leave harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
@@ -411,7 +412,10 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
         	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
 	}
 
-        wsgi_req->async_status = (*uwsgi.shared->hooks[wsgi_req->uh.modifier1]) (wsgi_req);
+	uwsgi_log("oooops %p\n", uwsgi.shared->hook_request[wsgi_req->uh.modifier1]);
+        wsgi_req->async_status = uwsgi.shared->hook_request[wsgi_req->uh.modifier1] (wsgi_req);
+
+	uwsgi_log("done\n");
 
 	return 0;
 }
@@ -697,6 +701,28 @@ char *uwsgi_concat2(char *one, char *two) {
 
 }
 
+char *uwsgi_concat4(char *one, char *two, char *three, char *four) {
+
+	char *buf;
+	size_t len = strlen(one) + strlen(two) + strlen(three) + strlen(four) + 1;
+
+
+	buf = malloc(len);
+	if (buf == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+        buf[len-1] = 0;
+	
+	memcpy( buf, one, strlen(one));
+	memcpy( buf + strlen(one) , two, strlen(two));
+	memcpy( buf + strlen(one) + strlen(two) , three, strlen(three));
+	memcpy( buf + strlen(one) + strlen(two) + strlen(three) , four, strlen(four));
+
+	return buf;
+	
+}
+
 
 char *uwsgi_concat3(char *one, char *two, char *three) {
 
@@ -821,4 +847,17 @@ int uwsgi_get_app_id(char *script_name, int script_name_len) {
 	}
 
 	return -1;
+}
+
+int count_options(struct option *lopt) {
+	struct option *aopt;
+	int count = 0;
+
+	while ( (aopt = lopt) ) {
+		if (!aopt->name) break;
+		count++;
+		lopt++;
+	}
+
+	return count;
 }

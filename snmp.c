@@ -369,6 +369,7 @@ static ssize_t build_snmp_response(uint8_t oid1, uint8_t oid2, uint8_t * buffer,
 
 }
 
+/*
 PyObject *py_snmp_counter32(PyObject * self, PyObject * args) {
 
 	uint8_t oid_num;
@@ -484,6 +485,7 @@ void snmp_init() {
 }
 
 
+*/
 
 #else
 #warning "*** SNMP support is disabled ***"

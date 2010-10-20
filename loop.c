@@ -2,26 +2,37 @@
 
 extern struct uwsgi_server uwsgi;
 
+struct wsgi_request* threaded_current_wsgi_req() { return pthread_getspecific(uwsgi.tur_key); }
+struct wsgi_request* simple_current_wsgi_req() { return uwsgi.wsgi_req ; }
+
 void *simple_loop(void *arg1) {
 
 	long core_id = (long) arg1;
 
 	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
+	int i;
 
 #ifdef UWSGI_THREADING
-	PyThreadState *pts;
+	//PyThreadState *pts;
 	sigset_t smask;
 
 	if (uwsgi.threads > 1) {
 	
-		pthread_setspecific(uwsgi.ut_key, (void *) wsgi_req);
+		pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
 
 		if (core_id > 0) {
 			// block all signals on new threads
 			sigfillset(&smask);
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
+			for(i=0;i<0xFF;i++) {
+				if (uwsgi.shared->hook_init_thread[i]) {
+					uwsgi.shared->hook_init_thread[i]();
+				}
+			}
+			/*
 			pts = PyThreadState_New(uwsgi.main_thread->interp);
 			pthread_setspecific(uwsgi.ut_save_key, (void *) pts);
+			*/
 		}
 	}
 #endif
