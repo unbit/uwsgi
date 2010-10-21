@@ -350,7 +350,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// after_request hook
-	uwsgi_log("CALL LOG %p\n", uwsgi.shared->hook_after_request[wsgi_req->uh.modifier1]);
 	uwsgi.shared->hook_after_request[wsgi_req->uh.modifier1](wsgi_req);
 
 	// leave harakiri mode
@@ -412,10 +411,8 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
         	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
 	}
 
-	uwsgi_log("oooops %p\n", uwsgi.shared->hook_request[wsgi_req->uh.modifier1]);
         wsgi_req->async_status = uwsgi.shared->hook_request[wsgi_req->uh.modifier1] (wsgi_req);
 
-	uwsgi_log("done\n");
 
 	return 0;
 }

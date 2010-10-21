@@ -12,9 +12,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 	
 	PyObject *pyret;
 
-	uwsgi_log("CALLING %p %p\n", callable, args);
 	pyret =  PyEval_CallObject(callable, args);
-	uwsgi_log("CALLED\n");
 
 	if (PyErr_Occurred()) {
 		if (!catch) { 
@@ -27,8 +25,6 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 		uwsgi_debug("called %p %p %d\n", callable, args, pyret->ob_refcnt);
 	}
 #endif
-
-	uwsgi_log("called\n");
 
 	return pyret;
 }

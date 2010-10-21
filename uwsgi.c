@@ -144,6 +144,7 @@ static struct option long_base_options[] = {
 		{"cgroup", required_argument, 0, LONG_ARGS_CGROUP},
 		{"cgroup-opt", required_argument, 0, LONG_ARGS_CGROUP_OPT},
 #endif
+		{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
 		{"version", no_argument, 0, LONG_ARGS_VERSION},
 		{0, 0, 0, 0}
 	};
@@ -459,55 +460,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	int opt_count = count_options(long_base_options);
-	uwsgi_log("count base %d\n", opt_count);
-	for(i=0;i<0xFF;i++) {
-		if (uwsgi.shared->hook_options[i]) {
-			opt_count += count_options(uwsgi.shared->hook_options[i]);
-		}
-	}
-	uwsgi_log("count new base %d\n", opt_count);
-
-	long_options = malloc( sizeof(struct option) * (opt_count+1));
-	if (!long_options) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
-
-	struct option *lopt, *aopt;
-
-	opt_count = 0;
-	lopt = long_base_options;
-	while ((aopt = lopt)) {
-		if (!aopt->name) break;
-		long_options[opt_count].name = aopt->name;
-		long_options[opt_count].has_arg = aopt->has_arg;
-		long_options[opt_count].flag = aopt->flag;
-		long_options[opt_count].val = aopt->val;
-		opt_count++;
-		lopt++;
-	}
-
-	for(i=0;i<0xFF;i++) {
-		lopt = uwsgi.shared->hook_options[i];
-		if (!lopt) continue;
-
-		while ((aopt = lopt)) {
-                	if (!aopt->name) break;
-                	long_options[opt_count].name = aopt->name;
-                	long_options[opt_count].has_arg = aopt->has_arg;
-                	long_options[opt_count].flag = aopt->flag;
-                	long_options[opt_count].val = aopt->val;
-                	opt_count++;
-                	lopt++;
-        	}
-
-	}
-
-	long_options[opt_count].name = 0;
-	long_options[opt_count].has_arg = 0;
-	long_options[opt_count].flag = 0;
-	long_options[opt_count].val = 0;
+	build_options();
 
 	while ((i = getopt_long(argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
 		manage_opt(i, optarg);
@@ -1233,10 +1186,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log(" ***\n");
 
-#ifdef UWSGI_EMBED_PLUGINS
-	embed_plugins();
-#endif
-
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_node) {
 		uwsgi.erlang_nodes = 1;
@@ -1576,9 +1525,19 @@ pid_t proxy_start(int has_master) {
 
 static int manage_base_opt(int i, char *optarg) {
 
+	char *p;
 
 	switch (i) {
 
+	case LONG_ARGS_PLUGINS:
+		p = strtok(optarg, ",");
+                while(p != NULL) {
+			uwsgi_log("loading plugin %s\n", p);
+                        uwsgi_load_plugin(0, p, NULL, 0);
+                        p = strtok(NULL, ",");
+                }
+		build_options();
+		return 1;
 	case LONG_ARGS_CHDIR:
 		if (chdir(optarg)) {
 			uwsgi_error("chdir()");
@@ -2056,7 +2015,6 @@ void manage_opt(int i, char *optarg) {
 
 	for(j=0;j<0xFF;j++) {
 		if (uwsgi.shared->hook_manage_opt[j]) {
-			uwsgi_log("MANAGE_OPT\n");
 			if (uwsgi.shared->hook_manage_opt[j](i, optarg)) {
 				return;
 			}
@@ -2111,3 +2069,59 @@ void uwsgi_cluster_add_node(char *nodename, int workers) {
 	uwsgi_log( "unable to add node %s\n", nodename);
 }
 
+
+void build_options() {
+
+	int i;
+        struct option *lopt, *aopt;
+	int opt_count = count_options(long_base_options);
+
+        for(i=0;i<0xFF;i++) {
+                if (uwsgi.shared->hook_options[i]) {
+                        opt_count += count_options(uwsgi.shared->hook_options[i]);
+                }
+        }
+
+	if (long_options) {
+		free(long_options);
+	}
+
+        long_options = malloc( sizeof(struct option) * (opt_count+1));
+        if (!long_options) {
+                uwsgi_error("malloc()");
+                exit(1);
+        }
+
+        opt_count = 0;
+        lopt = long_base_options;
+        while ((aopt = lopt)) {
+                if (!aopt->name) break;
+                long_options[opt_count].name = aopt->name;
+                long_options[opt_count].has_arg = aopt->has_arg;
+                long_options[opt_count].flag = aopt->flag;
+                long_options[opt_count].val = aopt->val;
+                opt_count++;
+                lopt++;
+        }
+
+        for(i=0;i<0xFF;i++) {
+                lopt = uwsgi.shared->hook_options[i];
+                if (!lopt) continue;
+
+                while ((aopt = lopt)) {
+                        if (!aopt->name) break;
+                        long_options[opt_count].name = aopt->name;
+                        long_options[opt_count].has_arg = aopt->has_arg;
+                        long_options[opt_count].flag = aopt->flag;
+                        long_options[opt_count].val = aopt->val;
+                        opt_count++;
+                        lopt++;
+                }
+
+        }
+
+        long_options[opt_count].name = 0;
+        long_options[opt_count].has_arg = 0;
+        long_options[opt_count].flag = 0;
+        long_options[opt_count].val = 0;
+}

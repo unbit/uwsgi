@@ -28,8 +28,6 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	}
 	*/
 
-	uwsgi_log("HEADERS !!!!\n");
-
 	head = PyTuple_GetItem(args, 0+shift);
 	if (!head) {
 		goto clear;

@@ -395,16 +395,16 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->scheme_len = strsize;
 						}
 						else if (!uwsgi_strncmp("UWSGI_SCRIPT", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len )) {
-							wsgi_req->wsgi_script = ptrbuf;
-							wsgi_req->wsgi_script_len = strsize;
+							wsgi_req->script = ptrbuf;
+							wsgi_req->script_len = strsize;
 						}
 						else if (!uwsgi_strncmp("UWSGI_MODULE", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->wsgi_module = ptrbuf;
-							wsgi_req->wsgi_module_len = strsize;
+							wsgi_req->module = ptrbuf;
+							wsgi_req->module_len = strsize;
 						}
 						else if (!uwsgi_strncmp("UWSGI_CALLABLE", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->wsgi_callable = ptrbuf;
-							wsgi_req->wsgi_callable_len = strsize;
+							wsgi_req->callable = ptrbuf;
+							wsgi_req->callable_len = strsize;
 						}
 						else if (!uwsgi_strncmp("UWSGI_PYHOME", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->pyhome = ptrbuf;

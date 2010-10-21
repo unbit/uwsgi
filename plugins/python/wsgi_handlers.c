@@ -106,7 +106,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-	uwsgi_log("uno\n");
 
 	if (uwsgi.limit_post) {
 		if (wsgi_req->post_cl > uwsgi.limit_post) {
@@ -138,11 +137,11 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
         		if (wsgi_req->script_name_len > 1 || uwsgi.default_app < 0 || uwsgi.vhost) {
         			/* unavailable app for this SCRIPT_NAME */
                 		wsgi_req->app_id = -1;
-				if (wsgi_req->wsgi_script_len > 0
-						|| wsgi_req->wsgi_module_len > 0
-						|| wsgi_req->wsgi_file_len > 0
+				if (wsgi_req->script_len > 0
+						|| wsgi_req->module_len > 0
+						|| wsgi_req->file_len > 0
 #ifdef UWSGI_PASTE
-						|| wsgi_req->wsgi_paste_len > 0
+						|| wsgi_req->paste_len > 0
 #endif
 				) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
@@ -275,7 +274,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 
-	uwsgi_log("OOOOOPS000\n");
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 		UWSGI_RELEASE_GIL
@@ -317,15 +315,12 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
 
 
-	uwsgi_log("fase2\n");
-
 	if (wsgi_req->async_result) {
 
 
 		UWSGI_RELEASE_GIL
 		while ( (*wi->response_subhandler)(wsgi_req) != UWSGI_OK) {
 			wsgi_req->switches++;
-			uwsgi_log("again...\n");
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
 				return UWSGI_AGAIN;
@@ -369,7 +364,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		close(tmp_stderr);	
 	}
 
-	uwsgi_log("opps\n");
 
 clear:
 
@@ -396,7 +390,6 @@ clear2:
 
 void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 	
-	uwsgi_log("LOGGING\n");
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING]) {
 		log_request(wsgi_req);

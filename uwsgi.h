@@ -26,6 +26,7 @@
 	uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
 	uwsgi.shared->hook_init_thread[x] = up->init_thread;\
 	uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
+	uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
 
 	
 	
@@ -211,6 +212,7 @@
 #define LONG_ARGS_THREADS		17054
 #define LONG_ARGS_LOG_SENDFILE		17055
 #define LONG_ARGS_HTTP_MODIFIER1	17056
+#define LONG_ARGS_PLUGINS		17057
 
 
 
@@ -416,20 +418,20 @@ struct wsgi_request {
 	char *path_info;
 	uint16_t path_info_len;
 
-	char *wsgi_script;
-	uint16_t wsgi_script_len;
-	char *wsgi_module;
-	uint16_t wsgi_module_len;
-	char *wsgi_callable;
-	uint16_t wsgi_callable_len;
+	char *script;
+	uint16_t script_len;
+	char *module;
+	uint16_t module_len;
+	char *callable;
+	uint16_t callable_len;
 	char *pyhome;
 	uint16_t pyhome_len;
 
-	char *wsgi_file;
-	uint16_t wsgi_file_len;
+	char *file;
+	uint16_t file_len;
 
-	char *wsgi_paste;
-	uint16_t wsgi_paste_len;
+	char *paste;
+	uint16_t paste_len;
 
 	char *chdir;
 	uint16_t chdir_len;
@@ -779,6 +781,7 @@ struct uwsgi_shared {
 	struct option *hook_options[0xFF];
 	int (*hook_manage_opt[0xFF]) (int, char*);
 	int (*hook_manage_udp[0xFF]) (char *, int, char*, int);
+	int (*hook_manage_xml[0xFF]) (char *, char *);
 	uint32_t options[256];
 
 	struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
@@ -1088,6 +1091,7 @@ struct uwsgi_plugin {
         void (*after_request)(struct wsgi_request*);
         void (*init_apps)(void);
 	int (*manage_udp)(char *, int, char *, int);
+	int (*manage_xml)(char *, char *);
 
 };
 
@@ -1100,3 +1104,5 @@ ssize_t uwsgi_do_sendfile(int , int , size_t , size_t , off_t *, int );
 
 struct wsgi_request* simple_current_wsgi_req(void);
 struct wsgi_request* threaded_current_wsgi_req(void);
+
+void build_options(void);

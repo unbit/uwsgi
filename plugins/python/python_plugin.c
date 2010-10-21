@@ -592,6 +592,36 @@ void uwsgi_python_init_thread() {
 
 }
 
+int uwsgi_python_xml(char *node, char *content) {
+
+	if (!strcmp("script", node)) {
+		return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+	else if (!strcmp("file", node)) {
+		return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+	else if (!strcmp("eval", node)) {
+		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+	else if (!strcmp("module", node)) {
+		uwsgi.wsgi_req->module = content;
+		uwsgi.wsgi_req->module_len = strlen(content);
+		return 1;
+	}
+	else if (!strcmp("pyhome", node)) {
+		uwsgi.wsgi_req->pyhome = content;
+		uwsgi.wsgi_req->pyhome_len = strlen(content);
+		return 1;
+	}
+	else if (!strcmp("callable", node)) {
+		uwsgi.wsgi_req->callable = content;
+		uwsgi.wsgi_req->callable_len = strlen(content);
+		return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+
+	return 0;
+}
+
 struct uwsgi_plugin python_plugin = {
 
 	.name = "python",
@@ -605,6 +635,7 @@ struct uwsgi_plugin python_plugin = {
         .init_apps = uwsgi_python_init_app,
         .enable_threads = uwsgi_python_enable_threads,
         .init_thread = uwsgi_python_init_thread,
+	.manage_xml = uwsgi_python_xml,
 	/*
         .magic = uwsgi_python_magic,
         .help = uwsgi_python_help,

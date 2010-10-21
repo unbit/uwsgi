@@ -75,7 +75,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
         Py_DECREF(zero);
 
-	uwsgi_log("subhandler ok\n");
 
         wsgi_req->async_app = wi->callable ;
 
@@ -98,7 +97,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 
         PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-	uwsgi_log("subhandler2 ok %p %p %p\n", wsgi_req->async_app, wsgi_req->async_args, wsgi_req->async_environ );
         return python_call(wsgi_req->async_app, wsgi_req->async_args, up.catch_exceptions);
 }
 

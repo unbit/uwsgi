@@ -23,6 +23,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	char *colon ;
 
 	char *xml_id ;
+	int i;
 
 	colon = strchr(uwsgi.xml_config, ':');
 	if (colon) {
@@ -166,86 +167,15 @@ next:
 
 					for (node2 = node->children; node2; node2 = node2->next) {
 						if (node2->type == XML_ELEMENT_NODE) {
-							if (!strcmp((char *) node2->name, "pyhome")) {
-								if (!node2->children) {
-									uwsgi_log( "no virtualenv defined. skip.\n");
-									continue;
+							//we have a mountpoint now pass every node to the xml handler of each plugin
+							if (node2->children) {
+								if (node2->children->content) {
+									for(i=0;i<0xFF;i++) {
+										if (uwsgi.shared->hook_manage_xml[i]) {
+											if (uwsgi.shared->hook_manage_xml[i]( (char *)node2->name, (char *) node2->children->content)) break;
+										}
+									}		
 								}
-								if (node2->children->content == NULL) {
-									uwsgi_log( "no virtualenv defined. skip.\n");
-									continue;
-								}
-
-								wsgi_req->pyhome = (char *) node2->children->content;
-								wsgi_req->pyhome_len = strlen((char *) node2->children->content);
-
-							}
-							else if (!strcmp((char *) node2->name, "callable")) {
-								/*
-								if (!uwsgi.pyloader_dict) {
-									uwsgi_log( "no module loaded in memory. skip.\n");
-									continue;
-								}
-								*/
-								if (!node2->children) {
-									uwsgi_log( "no callable defined. skip.\n");
-									continue;
-								}
-								if (node2->children->content == NULL) {
-									uwsgi_log( "no callable defined. skip.\n");
-									continue;
-								}
-								
-								//init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
-							}
-							else if (!strcmp((char *) node2->name, "eval")) {
-								if (!node2->children) {
-									uwsgi_log( "no code defined. skip.\n");
-									continue;
-								}
-								if (node2->children->content == NULL) {
-									uwsgi_log( "no code defined. skip.\n");
-									continue;
-								}
-
-								//init_uwsgi_app(LOADER_EVAL, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
-								
-							}
-							else if (!strcmp((char *) node2->name, "file")) {
-								if (!node2->children) {
-									uwsgi_log( "no file defined. skip.\n");
-									continue;
-								}
-								if (node2->children->content == NULL) {
-									uwsgi_log( "no file defined. skip.\n");
-									continue;
-								}
-
-								//init_uwsgi_app(LOADER_FILE, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
-								
-							}
-							else if (!strcmp((char *) node2->name, "module")) {
-								if (!node2->children) {
-									uwsgi_log( "no module defined. skip.\n");
-									continue;
-								}
-								if (node2->children->content == NULL) {
-									uwsgi_log( "no module defined. skip.\n");
-									continue;
-								}
-
-								//init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
-							}
-							else if (!strcmp((char *) node2->name, "script")) {
-								if (!node2->children) {
-									uwsgi_log( "no script defined. skip.\n");
-									continue;
-								}
-								if (node2->children->content == NULL) {
-									uwsgi_log( "no script defined. skip.\n");
-									continue;
-								}
-								//init_uwsgi_app(LOADER_UWSGI, (void *) node2->children->content, wsgi_req, uwsgi.single_interpreter-1);
 							}
 						}
 					}

@@ -374,32 +374,32 @@ PyObject *uwsgi_dyn_loader(void *arg1) {
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) arg1;
 
 	// MANAGE UWSGI_SCRIPT
-        if (wsgi_req->wsgi_script_len > 0) {
-		tmpstr = uwsgi_strncopy(wsgi_req->wsgi_script, wsgi_req->wsgi_script_len);
+        if (wsgi_req->script_len > 0) {
+		tmpstr = uwsgi_strncopy(wsgi_req->script, wsgi_req->script_len);
 		callable = uwsgi_uwsgi_loader((void *)tmpstr);
 		free(tmpstr);
         }
         // MANAGE UWSGI_MODULE
-        else if (wsgi_req->wsgi_module_len > 0) {
-		if (wsgi_req->wsgi_callable_len > 0) {
-        		tmpstr = uwsgi_concat3n(wsgi_req->wsgi_module, wsgi_req->wsgi_module_len, ":", 1, wsgi_req->wsgi_callable, wsgi_req->wsgi_callable_len);
+        else if (wsgi_req->module_len > 0) {
+		if (wsgi_req->callable_len > 0) {
+        		tmpstr = uwsgi_concat3n(wsgi_req->module, wsgi_req->module_len, ":", 1, wsgi_req->callable, wsgi_req->callable_len);
 		}
 		else {
-        		tmpstr = uwsgi_strncopy(wsgi_req->wsgi_module, wsgi_req->wsgi_module_len);
+        		tmpstr = uwsgi_strncopy(wsgi_req->module, wsgi_req->module_len);
 		}
 		callable = uwsgi_uwsgi_loader((void *)tmpstr);
 		free(tmpstr);
 	}
 	// MANAGE UWSGI_FILE
-        else if (wsgi_req->wsgi_file_len > 0) {
-		tmpstr = uwsgi_strncopy(wsgi_req->wsgi_file, wsgi_req->wsgi_file_len);
+        else if (wsgi_req->file_len > 0) {
+		tmpstr = uwsgi_strncopy(wsgi_req->file, wsgi_req->file_len);
 		callable = uwsgi_file_loader((void *)tmpstr);
 		free(tmpstr);
 	}
 #ifdef UWSGI_PASTE
 	// MANAGE UWSGI_PASTE
         else if (wsgi_req->wsgi_paste_len > 0) {
-		tmpstr = uwsgi_strncopy(wsgi_req->wsgi_paste, wsgi_req->wsgi_paste_len);
+		tmpstr = uwsgi_strncopy(wsgi_req->paste, wsgi_req->paste_len);
 		callable = uwsgi_paste_loader((void *)tmpstr);
 		free(tmpstr);
 	}
