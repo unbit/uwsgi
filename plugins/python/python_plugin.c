@@ -630,6 +630,7 @@ struct uwsgi_plugin python_plugin = {
         .post_fork = uwsgi_python_post_fork,
         .options = uwsgi_python_options,
         .manage_opt = uwsgi_python_manage_options,
+	.short_options = "w:O:H:j:", 
         .request = uwsgi_request_wsgi,
         .after_request = uwsgi_after_request_wsgi,
         .init_apps = uwsgi_python_init_app,

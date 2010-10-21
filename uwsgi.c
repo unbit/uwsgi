@@ -27,7 +27,10 @@ struct uwsgi_server uwsgi;
 
 extern char **environ;
 
-static struct option *long_options;
+static struct option *long_options = NULL;
+static char *short_options = NULL;
+
+static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:L";
 
 static struct option long_base_options[] = {
 		{"socket", required_argument, 0, 's'},
@@ -462,7 +465,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	build_options();
 
-	while ((i = getopt_long(argc, argv, "s:p:t:x:d:l:O:v:b:mcaCTiMhrR:z:w:j:H:A:Q:L", long_options, &option_index)) != -1) {
+	while ((i = getopt_long(argc, argv, short_options, long_options, &option_index)) != -1) {
 		manage_opt(i, optarg);
 	}
 
@@ -2075,6 +2078,35 @@ void build_options() {
 	int i;
         struct option *lopt, *aopt;
 	int opt_count = count_options(long_base_options);
+	int short_opt_size = strlen(base_short_options);
+	char *so_ptr;
+
+        for(i=0;i<0xFF;i++) {
+                if (uwsgi.shared->hook_short_options[i]) {
+                        short_opt_size += strlen(uwsgi.shared->hook_short_options[i]);
+                }
+        }
+
+	if (short_options) {
+		free(short_options);
+	}
+
+	short_options = malloc(short_opt_size+1);
+        if (!short_options) {
+                uwsgi_error("malloc()");
+                exit(1);
+        }
+	memcpy(short_options, base_short_options, strlen(base_short_options));
+	so_ptr = short_options+strlen(base_short_options) ;
+
+        for(i=0;i<0xFF;i++) {
+                if (uwsgi.shared->hook_short_options[i]) {
+			memcpy(so_ptr, uwsgi.shared->hook_short_options[i], strlen(uwsgi.shared->hook_short_options[i]));
+			so_ptr+=strlen(uwsgi.shared->hook_short_options[i]) ;
+                }
+        }
+
+	*so_ptr = 0;
 
         for(i=0;i<0xFF;i++) {
                 if (uwsgi.shared->hook_options[i]) {

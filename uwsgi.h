@@ -20,6 +20,7 @@
 	uwsgi.shared->hook_post_fork[x] = up->post_fork;\
 	uwsgi.shared->hook_options[x] = up->options;\
 	uwsgi.shared->hook_manage_opt[x] = up->manage_opt;\
+	uwsgi.shared->hook_short_options[x] = up->short_options;\
 	uwsgi.shared->hook_request[x] = up->request;\
 	uwsgi.shared->hook_after_request[x] = up->after_request;\
 	uwsgi.shared->hook_init_apps[x] = up->init_apps;\
@@ -43,6 +44,8 @@
 #include <errno.h>
 #include <ctype.h>
 #include <sys/time.h>
+#include <unistd.h>
+
 
 
 #include <dirent.h>
@@ -779,6 +782,7 @@ struct uwsgi_shared {
 	void (*hook_init_thread[0xFF]) (void);
 	void (*hook_init_apps[0xFF]) (void);
 	struct option *hook_options[0xFF];
+	const char *hook_short_options[0xFF];
 	int (*hook_manage_opt[0xFF]) (int, char*);
 	int (*hook_manage_udp[0xFF]) (char *, int, char*, int);
 	int (*hook_manage_xml[0xFF]) (char *, char *);
@@ -1083,6 +1087,7 @@ struct uwsgi_plugin {
 	int (*init)(void);
         void (*post_fork)(void);
         struct option *options;
+        const char *short_options;
         int (*manage_opt)(int, char*);
         void (*magic)(char *);
         void (*enable_threads)(void);
