@@ -32,6 +32,8 @@ static char *short_options = NULL;
 
 static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:L";
 
+UWSGI_DECLARE_EMBEDDED_PLUGINS
+
 static struct option long_base_options[] = {
 		{"socket", required_argument, 0, 's'},
 		{"processes", required_argument, 0, 'p'},
@@ -452,7 +454,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.binary_path = argv[0];
 
 	// initialize embedded plugins
-	//LEP(python)
+	UWSGI_LOAD_EMBEDDED_PLUGINS
 
 	char *plugins_requested = getenv("UWSGI_PLUGINS");
 	if (plugins_requested) {
@@ -1550,12 +1552,6 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_CHDIR2:
 		uwsgi.chdir2 = optarg;
 		return 1;
-	case LONG_ARGS_PING:
-		uwsgi.ping = optarg;
-		return 1;
-	case LONG_ARGS_PING_TIMEOUT:
-		uwsgi.ping_timeout = atoi(optarg);
-		return 1;
 #ifdef UWSGI_HTTP
 	case LONG_ARGS_HTTP:
 		uwsgi.http = optarg;
@@ -1656,10 +1652,6 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_BINARY_PATH:
 		uwsgi.binary_path = optarg;
-		return 1;
-	case LONG_ARGS_WSGI_FILE:
-	case LONG_ARGS_FILE_CONFIG:
-		uwsgi.file_config = optarg;
 		return 1;
 #ifdef UWSGI_PROXY
 	case LONG_ARGS_PROXY_NODE:

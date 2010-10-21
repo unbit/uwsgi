@@ -1,17 +1,29 @@
+#include "../../uwsgi.h"
 
-{"ping", required_argument, 0, LONG_ARGS_PING},
-{"ping-timeout", required_argument, 0, LONG_ARGS_PING_TIMEOUT},
+extern struct uwsgi_server uwsgi;
 
+struct uwsgi_ping {
+	char *ping;
+	int ping_timeout;
+} uping;
 
-void ping() {
+struct option uwsgi_ping_options[] = {
+	{"ping", required_argument, 0, LONG_ARGS_PING},
+	{"ping-timeout", required_argument, 0, LONG_ARGS_PING_TIMEOUT},
+	{ 0, 0, 0, 0 }
+};
+
+static void ping() {
 
         struct uwsgi_header uh;
         struct pollfd uwsgi_poll;
 
         // use a 3 secs timeout by default
-        if (!uwsgi.ping_timeout) uwsgi.ping_timeout = 3 ;
+        if (!uping.ping_timeout) uping.ping_timeout = 3 ;
 
-        uwsgi_poll.fd = uwsgi_connect(uwsgi.ping, uwsgi.ping_timeout);
+	uwsgi_log("PING uwsgi host %s (timeout: %d)\n", uping.ping, uping.ping_timeout);
+
+        uwsgi_poll.fd = uwsgi_connect(uping.ping, uping.ping_timeout);
         if (uwsgi_poll.fd < 0) {
                 exit(1);
         }
@@ -24,7 +36,7 @@ void ping() {
                 exit(2);
         }
         uwsgi_poll.events = POLLIN;
-        if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.ping_timeout, &uh, NULL)) {
+        if (!uwsgi_parse_response(&uwsgi_poll, uping.ping_timeout, &uh, NULL)) {
                 exit(1);
         }
         else {
@@ -38,6 +50,16 @@ void ping() {
 
 }
 
+
+int ping_init() {
+
+	if (uping.ping) {
+		ping();
+		//never here
+	}
+
+	return 1;
+}
 
 /* uwsgi PING|100 */
 int uwsgi_request_ping(struct wsgi_request *wsgi_req) {
@@ -66,3 +88,26 @@ int uwsgi_request_ping(struct wsgi_request *wsgi_req) {
         return UWSGI_OK;
 }
 
+int uwsgi_ping_manage_options(int i, char *optarg) {
+
+	switch(i) {
+		case LONG_ARGS_PING:
+                	uping.ping = optarg;
+                	return 1;
+        	case LONG_ARGS_PING_TIMEOUT:
+                	uping.ping_timeout = atoi(optarg);
+                	return 1;
+	}
+
+	return 0;
+}
+
+struct uwsgi_plugin ping_plugin = {
+
+	.name = "ping",
+	.modifier1 = 100,
+	.options = uwsgi_ping_options,
+	.manage_opt = uwsgi_ping_manage_options,
+	.request = uwsgi_request_ping,
+	.init = ping_init,
+};

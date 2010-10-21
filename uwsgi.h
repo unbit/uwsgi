@@ -11,9 +11,22 @@
 
 #define MAX_APPS 64
 
-#define LEP(lepname) \
-	extern struct uwsgi_plugin lepname##_plugin;\
-	fill_plugin_table(lepup->modifier1, lepname);
+#define UDEP(pname) extern struct uwsgi_plugin pname##_plugin;
+
+#define ULEP(pname)\
+	uwsgi.shared->hook_init[pname##_plugin.modifier1] = pname##_plugin.init;\
+        uwsgi.shared->hook_post_fork[pname##_plugin.modifier1] = pname##_plugin.post_fork;\
+        uwsgi.shared->hook_options[pname##_plugin.modifier1] = pname##_plugin.options;\
+        uwsgi.shared->hook_manage_opt[pname##_plugin.modifier1] = pname##_plugin.manage_opt;\
+        uwsgi.shared->hook_short_options[pname##_plugin.modifier1] = pname##_plugin.short_options;\
+        uwsgi.shared->hook_request[pname##_plugin.modifier1] = pname##_plugin.request;\
+        uwsgi.shared->hook_after_request[pname##_plugin.modifier1] = pname##_plugin.after_request;\
+        uwsgi.shared->hook_init_apps[pname##_plugin.modifier1] = pname##_plugin.init_apps;\
+        uwsgi.shared->hook_enable_threads[pname##_plugin.modifier1] = pname##_plugin.enable_threads;\
+        uwsgi.shared->hook_init_thread[pname##_plugin.modifier1] = pname##_plugin.init_thread;\
+        uwsgi.shared->hook_manage_udp[pname##_plugin.modifier1] = pname##_plugin.manage_udp;\
+        uwsgi.shared->hook_manage_xml[pname##_plugin.modifier1] = pname##_plugin.manage_xml;\
+	
 
 #define fill_plugin_table(x, up)\
 	uwsgi.shared->hook_init[x] = up->init;\
@@ -701,9 +714,6 @@ struct uwsgi_server {
 #ifdef UWSGI_LDAP
 	char *ldap;
 #endif
-
-	char *ping;
-	int ping_timeout;
 
 	int xml_round2;
 

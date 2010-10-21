@@ -54,6 +54,21 @@ def build_uwsgi(uc):
 
 	gcc_list, cflags, ldflags, libs = uc.get_gcll()
 
+	if uc.get('embedded_plugins'):
+                ep = uc.get('embedded_plugins').split(',')
+		epc = "-DUWSGI_DECLARE_EMBEDDED_PLUGINS=\""
+		eplc = "-DUWSGI_LOAD_EMBEDDED_PLUGINS=\""
+		for p in ep:
+			p = p.rstrip().lstrip()
+			epc += "UDEP(%s);" % p
+			eplc += "ULEP(%s);" % p
+		epc += "\""
+		eplc += "\""
+
+		cflags.append(epc)
+		cflags.append(eplc)
+			
+
 	print("*** uWSGI compiling server core ***")
 	for file in gcc_list:
 		objfile = file
@@ -67,6 +82,7 @@ def build_uwsgi(uc):
 		if len(ep) > 0:
 			print("*** uWSGI compiling embedded plugins ***")
 			for p in ep:
+				p = p.rstrip().lstrip()
 				path = 'plugins/%s' % p
 				path = path.rstrip('/')
 
@@ -98,6 +114,7 @@ def build_uwsgi(uc):
 			print("*** uWSGI building plugins ***")
 
 			for p in plugins:
+				p = p.rstrip().lstrip()
 				print("*** building plugin: %s ***" % p)
 				build_plugin("plugins/%s" % p, uc, cflags, ldflags, libs)
 

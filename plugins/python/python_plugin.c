@@ -520,6 +520,10 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 		case 'w':
                 	up.wsgi_config = optarg;
                 	return 1;
+		case LONG_ARGS_WSGI_FILE:
+        	case LONG_ARGS_FILE_CONFIG:
+                	up.file_config = optarg;
+                	return 1;
 		case LONG_ARGS_PYTHONPATH:
 			uwsgi_log("found PYTHONPATH\n");
                 	if (up.python_path_cnt < MAX_PYTHONPATH) {
