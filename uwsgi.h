@@ -493,6 +493,9 @@ struct wsgi_request {
 	char *post_buffering_buf;
 	uint64_t post_buffering_read;
 
+	// for generic use
+	off_t buf_pos;
+
 	char *buffer;
 };
 
@@ -1121,3 +1124,5 @@ struct wsgi_request* simple_current_wsgi_req(void);
 struct wsgi_request* threaded_current_wsgi_req(void);
 
 void build_options(void);
+
+int uwsgi_read_whole_body(struct wsgi_request *, char *, size_t);

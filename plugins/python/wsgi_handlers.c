@@ -277,34 +277,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 		UWSGI_RELEASE_GIL
-		wsgi_req->async_post = tmpfile();
-		if (!wsgi_req->async_post) {
-			uwsgi_error("tmpfile()");
+		if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
 			goto clear;
 		}
-		
-
-		while(post_remains > 0) {
-			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-				inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-			}
-			if (post_remains > (size_t) uwsgi.post_buffering_bufsize) {
-				post_chunk = read(wsgi_req->poll.fd, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize);
-			}
-			else {
-				post_chunk = read(wsgi_req->poll.fd, wsgi_req->post_buffering_buf, post_remains);
-			}	
-			if (post_chunk < 0) {
-				uwsgi_error("read()");
-				goto clear;
-			}
-			if (!fwrite(wsgi_req->post_buffering_buf, post_chunk, 1, wsgi_req->async_post)) {
-				uwsgi_error("fwrite()");
-				goto clear;
-			}
-			post_remains -= post_chunk;
-		}
-		rewind(wsgi_req->async_post);
 		UWSGI_GET_GIL
 	} 
 	else {

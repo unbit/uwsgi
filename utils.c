@@ -858,3 +858,43 @@ int count_options(struct option *lopt) {
 
 	return count;
 }
+
+int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+
+	size_t post_remains = wsgi_req->post_cl;
+	ssize_t post_chunk;
+
+	wsgi_req->async_post = tmpfile();
+        if (!wsgi_req->async_post) {
+        	uwsgi_error("tmpfile()");
+                return 0;
+        }
+
+
+	// putting a timeout on this cycle would be a good idea...
+	while(post_remains > 0) {
+        	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+        		inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        	}
+                if (post_remains > len) {
+                	post_chunk = read(wsgi_req->poll.fd, buf, len);
+                }
+                else {
+                	post_chunk = read(wsgi_req->poll.fd, buf, post_remains);
+                } 
+                if (post_chunk < 0) {
+                	uwsgi_error("read()");
+                        return 0;
+                }
+                if (!fwrite(buf, post_chunk, 1, wsgi_req->async_post)) {
+                	uwsgi_error("fwrite()");
+                        return 0;
+                }
+                post_remains -= post_chunk;
+        }
+	rewind(wsgi_req->async_post);
+
+	return 1;
+}
+	
+	

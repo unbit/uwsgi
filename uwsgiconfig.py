@@ -381,11 +381,15 @@ if __name__ == "__main__":
 	if cmd == '--libs':
 		print(' '.join(libs))
 	elif cmd == '--build':
-		build_uwsgi(uConf('buildconf/default.ini'))
+		bconf = 'default.ini'
+		try:
+			bconf = sys.argv[2]
+		except:
+			pass
+		build_uwsgi(uConf('buildconf/%s' % bconf))
 	elif cmd == '--unbit':
 		build_uwsgi(uConf('buildconf/unbit.ini'))
 	elif cmd == '--plugin':
-		parse_vars()
 		build_plugin(sys.argv[2], uConf('buildconf/unbit.ini'))
 	else:
 		print("unknown uwsgiconfig command")
