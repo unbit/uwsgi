@@ -165,7 +165,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	}
 	
 	if (RARRAY(args)->len == 0) {
-		uwsgi_log("reading the whole post data\n" ) ;
+		//uwsgi_log("reading the whole post data\n" ) ;
 		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 			char *post_body = malloc(wsgi_req->post_cl);
 			if (post_body) {
@@ -185,7 +185,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	}
 	else if (RARRAY(args)->len > 0) {
 		chunk_size = NUM2INT(RARRAY(args)->ptr[0]);
-		uwsgi_log("chunk reading of %d bytes\n", chunk_size ) ;
+		//uwsgi_log("chunk reading of %d bytes\n", chunk_size ) ;
 		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 			char *post_body = malloc( chunk_size ) ;
 			if (post_body) {	
@@ -390,7 +390,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	if (error) {
 		uwsgi_ruby_exception();
-		return -1;
+		//return -1;
 	}
 
 	if (TYPE(ret) == T_ARRAY) {
@@ -436,7 +436,9 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			rb_iterate( rb_each, headers, send_header, INT2NUM(wsgi_req->poll.fd)); 
 		}
 
-		write(wsgi_req->poll.fd, "\r\n", 2);
+		if (write(wsgi_req->poll.fd, "\r\n", 2) != 2) {
+			uwsgi_error("write()");
+		}
 
 		VALUE body = RARRAY(ret)->ptr[2] ;
 
@@ -450,7 +452,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		}
 
 		if (rb_respond_to( body, rb_intern("close") )) {
-			uwsgi_log("BODY respond_to 'close'\n");
+			rb_funcall( body, rb_intern("close"), 0);
 		}
 
 	}
