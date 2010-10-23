@@ -1126,3 +1126,5 @@ struct wsgi_request* threaded_current_wsgi_req(void);
 void build_options(void);
 
 int uwsgi_read_whole_body(struct wsgi_request *, char *, size_t);
+
+ssize_t uwsgi_sendfile(struct wsgi_request *);

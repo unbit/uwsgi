@@ -5,21 +5,27 @@
 extern char **environ;
 extern struct uwsgi_server uwsgi;
 
-#define LONG_ARGS_RAILS 18001
+#define LONG_ARGS_RAILS		18001
+#define LONG_ARGS_RUBY_GC_FREQ	18002
+
+struct uwsgi_rack {
+	
+	char *rails;
+	int gc_freq;
+	uint64_t cycles;
+
+} ur;
 
 struct option uwsgi_rack_options[] = {
 
         {"rails", required_argument, 0, LONG_ARGS_RAILS},
+        {"ruby-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
 
         {0, 0, 0, 0},
 
 };
 
 
-struct uwsgi_rack {
-	
-	char *rails;
-} ur;
 
 /* statistically ordered */
 static struct http_status_codes hsc[] = {
@@ -263,15 +269,15 @@ int uwsgi_rack_init(){
 			exit(1);
 		}
 
-		//rb_gc_register_address(&dispatcher);
+		rb_gc_register_address(&dispatcher);
 
 		call = rb_intern("call");
-		//rb_gc_register_address(&call);
+		rb_gc_register_address(&call);
 
 
 		rb_uwsgi_io_class = rb_define_class("Uwsgi_IO", rb_cObject);
 
-		//rb_gc_register_address(&rb_uwsgi_io_class);
+		rb_gc_register_address(&rb_uwsgi_io_class);
 	
 		rb_define_singleton_method(rb_uwsgi_io_class, "new", rb_uwsgi_io_new, 1);
 		rb_define_method(rb_uwsgi_io_class, "initialize", rb_uwsgi_io_init, -1);
@@ -309,6 +315,8 @@ VALUE send_body(VALUE obj, VALUE fd) {
 
 VALUE send_header(VALUE obj, VALUE fd) {
 
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
 	size_t len;
 	
 	if (TYPE(obj) == T_ARRAY) {
@@ -322,6 +330,11 @@ VALUE send_header(VALUE obj, VALUE fd) {
 
 			len = write( NUM2INT(fd), RSTRING(hval)->ptr, RSTRING(hval)->len);
 			len = write( NUM2INT(fd), "\r\n", 2);
+
+			wsgi_req->header_cnt++;
+
+			rb_gc_unregister_address(&hkey);
+			rb_gc_unregister_address(&hval);
 		}
 	}
 	
@@ -411,6 +424,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	wsgi_req->hvec[1].iov_base = RSTRING(status)->ptr;
         	wsgi_req->hvec[1].iov_len = 3 ;
 
+		wsgi_req->status = atoi(RSTRING(status)->ptr);
+
         	wsgi_req->hvec[2].iov_base = " ";
         	wsgi_req->hvec[2].iov_len = 1 ;
 
@@ -442,10 +457,14 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		VALUE body = RARRAY(ret)->ptr[2] ;
 
-		//rb_gc_register_address(&body);
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
-			uwsgi_log("BODY respond_to 'to_path' !!!\n");
+			VALUE sendfile_path = rb_funcall( body, rb_intern("to_path"), 0);
+			uwsgi_log("BODY respond_to 'to_path' %s !!!\n", RSTRING_PTR(sendfile_path));
+			wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
+			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
+			rb_gc_unregister_address(&sendfile_path);
+			
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {
 			rb_iterate( rb_each, body, send_body, INT2NUM(wsgi_req->poll.fd));
@@ -455,7 +474,26 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			rb_funcall( body, rb_intern("close"), 0);
 		}
 
+		/* unregister all the objects created */
+		rb_gc_unregister_address(&status);
+		rb_gc_unregister_address(&headers);
+		rb_gc_unregister_address(&body);
+
+
+
+		
+
 	}
+
+	rb_gc_unregister_address(&ret);
+
+	rb_gc_unregister_address(&env);
+
+	if (ur.gc_freq <= 1 || ur.cycles%ur.gc_freq == 0) {
+		rb_gc();
+	}
+
+	ur.cycles++;
 
 	//rb_gc_disable();
 
@@ -474,6 +512,9 @@ int uwsgi_rack_manage_options(int i, char *optarg) {
 	switch(i) {
 		case LONG_ARGS_RAILS:
 			ur.rails = optarg;
+			return 1;
+		case LONG_ARGS_RUBY_GC_FREQ:
+			ur.gc_freq = atoi(optarg);
 			return 1;
 	}
 
