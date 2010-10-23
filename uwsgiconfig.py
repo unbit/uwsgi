@@ -384,6 +384,8 @@ if __name__ == "__main__":
 		bconf = 'default.ini'
 		try:
 			bconf = sys.argv[2]
+			if not bconf.endswith('.ini'):
+				bconf += '.ini'
 		except:
 			pass
 		build_uwsgi(uConf('buildconf/%s' % bconf))

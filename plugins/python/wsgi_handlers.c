@@ -67,9 +67,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	int i;
 	
-	size_t post_remains = wsgi_req->post_cl;
-	ssize_t post_chunk;
-
 	PyObject *pydictkey, *pydictvalue;
 
 	char *path_info;
