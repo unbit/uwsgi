@@ -11,6 +11,14 @@
 
 #define MAX_APPS 64
 
+#ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
+#define UWSGI_LOAD_EMBEDDED_PLUGINS
+#endif
+
+#ifndef UWSGI_DECLARE_EMBEDDED_PLUGINS
+#define UWSGI_DECLARE_EMBEDDED_PLUGINS
+#endif
+
 #define UDEP(pname) extern struct uwsgi_plugin pname##_plugin;
 
 #define ULEP(pname)\
