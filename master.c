@@ -368,7 +368,7 @@ void master_loop(char **argv, char **environ) {
 			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 				if (diedpid == uwsgi.shared->spooler_pid) {
 					uwsgi_log( "OOOPS the spooler is no more...trying respawn...\n");
-					uwsgi.shared->spooler_pid = spooler_start(uwsgi.embedded_dict);
+					uwsgi.shared->spooler_pid = spooler_start();
 					continue;
 				}
 			}

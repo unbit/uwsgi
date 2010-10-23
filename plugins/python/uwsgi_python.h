@@ -87,6 +87,11 @@ struct uwsgi_python {
         void (*gil_get) (void);
         void (*gil_release) (void);
 #endif
+
+	PyObject *workers_tuple;
+	PyObject *embedded_dict;
+	PyObject *embedded_args;
+	PyObject *fastfuncslist;
 };
 
 
@@ -167,3 +172,7 @@ void gil_real_get(void);
 void gil_real_release(void);
 void gil_fake_get(void);
 void gil_fake_release(void);
+
+void init_uwsgi_module_advanced(PyObject *);
+void init_uwsgi_module_spooler(PyObject *);
+void init_uwsgi_module_sharedarea(PyObject *);

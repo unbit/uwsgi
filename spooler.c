@@ -16,7 +16,7 @@ pid_t spooler_start() {
                 for(i=0;i<uwsgi.sockets_cnt;i++) {
                         close(uwsgi.sockets[i].fd);
                 }
-                spooler(uwsgi.embedded_dict);
+                spooler();
         }
         else if (pid > 0) {
                 uwsgi_log( "spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
@@ -96,7 +96,9 @@ int spool_request(char *filename, int rn, char *buffer, int size) {
 void spooler() {
 	DIR *sdir;
 	struct dirent *dp;
-	PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
+
+	//PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
+
 	int spool_fd;
 	uint16_t uwstrlen;
 	int rlen = 0;
@@ -110,6 +112,7 @@ void spooler() {
 	char *key;
 	char *val;
 
+	/*
 	spool_tuple = PyTuple_New(1);
 
 	if (!spool_tuple) {
@@ -128,6 +131,7 @@ void spooler() {
 		PyErr_Print();
 		exit(1);
 	}
+	*/
 	
 	if (chdir(uwsgi.spool_dir)) {
 		uwsgi_error("chdir()");
@@ -173,11 +177,13 @@ void spooler() {
 					if (!access(dp->d_name, R_OK | W_OK)) {
 						uwsgi_log( "managing spool request %s ...\n", dp->d_name);
 
+						/*
 						spooler_callable = PyDict_GetItemString(uwsgi.embedded_dict, "spooler");
 						if (!spooler_callable) {
 							uwsgi_log( "you have to define uwsgi.spooler to use the spooler !!!\n");
 							continue;
 						}
+						*/
 
 						spool_fd = open(dp->d_name, O_RDONLY);
 						if (spool_fd < 0) {
@@ -260,12 +266,14 @@ void spooler() {
 									/* ready to add item to the dict */
 								}
 
+								/*
 								if (PyDict_SetItemString(spool_env, key, PyString_FromStringAndSize(val, uwstrlen))) {
 									PyErr_Print();
 									free(key);
 									free(val);
 									goto retry_later;
 								}
+								*/	
 
 								free(key);
 								free(val);
@@ -276,6 +284,7 @@ void spooler() {
 						}
 
 
+						/*
 						spool_result = python_call(spooler_callable, spool_tuple, 0);
 						if (!spool_result) {
 							PyErr_Print();
@@ -291,6 +300,7 @@ void spooler() {
 						}
 
 						Py_DECREF(spool_result);
+						*/
 
 						uwsgi_log( "done with task/spool %s\n", dp->d_name);
 					      next_spool:
@@ -301,7 +311,7 @@ void spooler() {
 							exit(1);
 						}
 					      retry_later:
-						PyDict_Clear(spool_env);
+						//PyDict_Clear(spool_env);
 						close(spool_fd);
 					}
 				}

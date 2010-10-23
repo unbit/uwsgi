@@ -191,7 +191,6 @@ class uConf():
 
 		if self.get('embedded'):
 			self.cflags.append('-DUWSGI_EMBEDDED')
-			self.gcc_list.append('uwsgi_pymodule')
 
 		if self.get('udp'):
 			self.cflags.append("-DUWSGI_UDP")

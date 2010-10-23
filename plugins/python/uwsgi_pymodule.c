@@ -1,10 +1,11 @@
 #ifdef UWSGI_EMBEDDED
 
-#include "uwsgi.h"
+#include "uwsgi_python.h"
 
 char *spool_buffer = NULL;
 
 extern struct uwsgi_server uwsgi;
+extern struct uwsgi_python up;
 
 #ifdef __APPLE__
 #define UWSGI_LOCK OSSpinLockLock((OSSpinLock *) uwsgi.sharedareamutex);
@@ -753,10 +754,12 @@ PyObject *py_uwsgi_has_hook(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
+	/*
 	if (uwsgi.shared->hooks[modifier1] != unconfigured_hook) {
 		Py_INCREF(Py_True);
 		return Py_True;
 	}
+	*/
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -772,13 +775,14 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 	int arg_modifier2 = 0;
 	int arg_timeout = 0;
 
-	PyObject *marshalled;
-	PyObject *retobject;
+	//PyObject *marshalled;
+	//PyObject *retobject;
 
 	if (!PyArg_ParseTuple(args, "siiiO|i:send_uwsgi_message", &arg_host, &arg_port, &arg_modifier1, &arg_modifier2, &arg_message, &arg_timeout)) {
 		return NULL;
 	}
 
+	/*
 	switch (arg_modifier1) {
 	case UWSGI_MODIFIER_MESSAGE_MARSHAL:
 		marshalled = PyMarshal_WriteObjectToString(arg_message, 1);
@@ -813,6 +817,7 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 		break;
 	}
 
+	*/
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -839,7 +844,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 	int i;
 
 	for (i = 0; i < uwsgi.numproc; i++) {
-		worker_dict = PyTuple_GetItem(uwsgi.workers_tuple, i);
+		worker_dict = PyTuple_GetItem(up.workers_tuple, i);
 		if (!worker_dict) {
 			goto clear;
 		}
@@ -906,8 +911,8 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 	}
 
 
-	Py_INCREF(uwsgi.workers_tuple);
-	return uwsgi.workers_tuple;
+	Py_INCREF(up.workers_tuple);
+	return up.workers_tuple;
 
       clear:
 	PyErr_Print();

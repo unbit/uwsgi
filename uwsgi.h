@@ -79,6 +79,9 @@
 
 #ifdef __linux
 	#include <sys/prctl.h>
+	#include <linux/limits.h>
+#else
+	#include <limits.h>
 #endif
 
 #ifdef UWSGI_SCTP

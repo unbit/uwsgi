@@ -94,6 +94,11 @@ int uwsgi_python_init() {
 
 	up.main_thread = PyThreadState_Get();
 
+
+#ifdef UWSGI_MINTERPRETERS
+	init_uwsgi_embedded_module();
+#endif
+
 	if (up.test_module != NULL) {
                 if (PyImport_ImportModule(up.test_module)) {
                         exit(0);
@@ -375,11 +380,11 @@ void init_uwsgi_embedded_module() {
         int i;
 
         /* initialize for stats */
-        uwsgi.workers_tuple = PyTuple_New(uwsgi.numproc);
+        up.workers_tuple = PyTuple_New(uwsgi.numproc);
         for (i = 0; i < uwsgi.numproc; i++) {
                 zero = PyDict_New();
                 Py_INCREF(zero);
-                PyTuple_SetItem(uwsgi.workers_tuple, i, zero);
+                PyTuple_SetItem(up.workers_tuple, i, zero);
         }
 
 
@@ -395,103 +400,103 @@ void init_uwsgi_embedded_module() {
                 exit(1);
         }
 
-        uwsgi.embedded_dict = PyModule_GetDict(new_uwsgi_module);
-        if (!uwsgi.embedded_dict) {
+        up.embedded_dict = PyModule_GetDict(new_uwsgi_module);
+        if (!up.embedded_dict) {
                 uwsgi_log( "could not get uwsgi module __dict__\n");
                 exit(1);
         }
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "version", PyString_FromString(UWSGI_VERSION))) {
+        if (PyDict_SetItemString(up.embedded_dict, "version", PyString_FromString(UWSGI_VERSION))) {
                 PyErr_Print();
                 exit(1);
         }
 
         if (uwsgi.mode) {
-                if (PyDict_SetItemString(uwsgi.embedded_dict, "mode", PyString_FromString(uwsgi.mode))) {
+                if (PyDict_SetItemString(up.embedded_dict, "mode", PyString_FromString(uwsgi.mode))) {
                         PyErr_Print();
                         exit(1);
                 }
         }
 
         if (uwsgi.pidfile) {
-                if (PyDict_SetItemString(uwsgi.embedded_dict, "pidfile", PyString_FromString(uwsgi.pidfile))) {
+                if (PyDict_SetItemString(up.embedded_dict, "pidfile", PyString_FromString(uwsgi.pidfile))) {
                         PyErr_Print();
                         exit(1);
                 }
         }
 
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
+        if (PyDict_SetItemString(up.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(17))) {
                 PyErr_Print();
                 exit(1);
         }
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "numproc", PyInt_FromLong(uwsgi.numproc))) {
+        if (PyDict_SetItemString(up.embedded_dict, "numproc", PyInt_FromLong(uwsgi.numproc))) {
                 PyErr_Print();
                 exit(1);
         }
 
 #ifdef UNBIT
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "unbit", Py_True)) {
+        if (PyDict_SetItemString(up.embedded_dict, "unbit", Py_True)) {
 #else
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "unbit", Py_None)) {
+        if (PyDict_SetItemString(up.embedded_dict, "unbit", Py_None)) {
 #endif
                 PyErr_Print();
                 exit(1);
         }
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "buffer_size", PyInt_FromLong(uwsgi.buffer_size))) {
+        if (PyDict_SetItemString(up.embedded_dict, "buffer_size", PyInt_FromLong(uwsgi.buffer_size))) {
                 PyErr_Print();
                 exit(1);
         }
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "started_on", PyInt_FromLong(uwsgi.start_tv.tv_sec))) {
+        if (PyDict_SetItemString(up.embedded_dict, "started_on", PyInt_FromLong(uwsgi.start_tv.tv_sec))) {
                 PyErr_Print();
                 exit(1);
         }
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "start_response", up.wsgi_spitout)) {
+        if (PyDict_SetItemString(up.embedded_dict, "start_response", up.wsgi_spitout)) {
                 PyErr_Print();
                 exit(1);
         }
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "fastfuncs", PyList_New(256))) {
+        if (PyDict_SetItemString(up.embedded_dict, "fastfuncs", PyList_New(256))) {
                 PyErr_Print();
                 exit(1);
         }
 
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "applications", Py_None)) {
+        if (PyDict_SetItemString(up.embedded_dict, "applications", Py_None)) {
                 PyErr_Print();
                 exit(1);
         }
 
         if (uwsgi.is_a_reload) {
-                if (PyDict_SetItemString(uwsgi.embedded_dict, "is_a_reload", Py_True)) {
+                if (PyDict_SetItemString(up.embedded_dict, "is_a_reload", Py_True)) {
                         PyErr_Print();
                         exit(1);
                 }
         }
         else {
-                if (PyDict_SetItemString(uwsgi.embedded_dict, "is_a_reload", Py_False)) {
+                if (PyDict_SetItemString(up.embedded_dict, "is_a_reload", Py_False)) {
                         PyErr_Print();
                         exit(1);
                 }
         }
 
-        uwsgi.embedded_args = PyTuple_New(2);
-        if (!uwsgi.embedded_args) {
+        up.embedded_args = PyTuple_New(2);
+        if (!up.embedded_args) {
                 PyErr_Print();
                 exit(1);
         }
 
-        if (PyDict_SetItemString(uwsgi.embedded_dict, "message_manager_marshal", Py_None)) {
+        if (PyDict_SetItemString(up.embedded_dict, "message_manager_marshal", Py_None)) {
                 PyErr_Print();
                 exit(1);
         }
 
-        uwsgi.fastfuncslist = PyDict_GetItemString(uwsgi.embedded_dict, "fastfuncs");
-        if (!uwsgi.fastfuncslist) {
+        up.fastfuncslist = PyDict_GetItemString(up.embedded_dict, "fastfuncs");
+        if (!up.fastfuncslist) {
                 PyErr_Print();
                 exit(1);
         }
@@ -641,6 +646,7 @@ struct uwsgi_plugin python_plugin = {
         .enable_threads = uwsgi_python_enable_threads,
         .init_thread = uwsgi_python_init_thread,
 	.manage_xml = uwsgi_python_xml,
+	//.spooler = uwsgi_python_spooler,
 	/*
         .magic = uwsgi_python_magic,
         .help = uwsgi_python_help,

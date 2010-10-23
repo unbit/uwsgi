@@ -7,18 +7,25 @@ extern struct uwsgi_server uwsgi;
 
 #define LONG_ARGS_RAILS		18001
 #define LONG_ARGS_RUBY_GC_FREQ	18002
+#define LONG_ARGS_RACK		18003
 
 struct uwsgi_rack {
 	
 	char *rails;
+	char *rack;
 	int gc_freq;
 	uint64_t cycles;
+
+	VALUE dispatcher;
+	VALUE rb_uwsgi_io_class;
+	ID call;
 
 } ur;
 
 struct option uwsgi_rack_options[] = {
 
         {"rails", required_argument, 0, LONG_ARGS_RAILS},
+        {"rack", required_argument, 0, LONG_ARGS_RACK},
         {"ruby-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
 
         {0, 0, 0, 0},
@@ -75,9 +82,6 @@ static struct http_status_codes hsc[] = {
 };
 
 
-VALUE dispatcher;
-VALUE rb_uwsgi_io_class;
-ID call;
 
 VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
 
@@ -248,10 +252,33 @@ int uwsgi_rack_init(){
         }
 
 	ruby_init();
-	ruby_init_loadpath();
 	ruby_script("uwsgi");
+	ruby_init_loadpath();
 
-	if (ur.rails) {
+	if (ur.rack) {
+		rb_require("rubygems");	
+		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
+
+		VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack")) ;
+		VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, rb_str_new2(ur.rack));
+		if (TYPE(rackup) != T_ARRAY) {
+			uwsgi_log("unable to parse %s file\n", ur.rack);
+			exit(1);
+		}
+
+		if (RARRAY(rackup)->len < 1) {
+			uwsgi_log("invalid rack config file: %s\n", ur.rack);
+			exit(1);
+		}
+
+		ur.dispatcher = RARRAY(rackup)->ptr[0] ;
+
+		if (ur.dispatcher == Qnil) {
+			exit(1);
+		}
+		
+	}
+	else if (ur.rails) {
 		if (chdir(ur.rails)) {
 			uwsgi_error("chdir()");
 			exit(1);
@@ -262,32 +289,32 @@ int uwsgi_rack_init(){
 		uwsgi_log("rails app %s ready\n", ur.rails);
 		VALUE ac = rb_const_get(rb_cObject, rb_intern("ActionController")) ;
 
-		dispatcher = rb_funcall( rb_const_get(ac, rb_intern("Dispatcher")), rb_intern("new"), 0);
+		ur.dispatcher = rb_funcall( rb_const_get(ac, rb_intern("Dispatcher")), rb_intern("new"), 0);
 
-		if (dispatcher == Qnil) {
+		if (ur.dispatcher == Qnil) {
 			uwsgi_log("unable to load rails dispatcher\n");
 			exit(1);
 		}
-
-		rb_gc_register_address(&dispatcher);
-
-		call = rb_intern("call");
-		rb_gc_register_address(&call);
-
-
-		rb_uwsgi_io_class = rb_define_class("Uwsgi_IO", rb_cObject);
-
-		rb_gc_register_address(&rb_uwsgi_io_class);
-	
-		rb_define_singleton_method(rb_uwsgi_io_class, "new", rb_uwsgi_io_new, 1);
-		rb_define_method(rb_uwsgi_io_class, "initialize", rb_uwsgi_io_init, -1);
-		rb_define_method(rb_uwsgi_io_class, "gets", rb_uwsgi_io_gets, 0);
-		rb_define_method(rb_uwsgi_io_class, "each", rb_uwsgi_io_each, 0);
-		rb_define_method(rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
-		rb_define_method(rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
-
-		//rb_gc_disable();
 	}
+
+	rb_gc_register_address(&ur.dispatcher);
+
+	ur.call = rb_intern("call");
+	rb_gc_register_address(&ur.call);
+
+
+	ur.rb_uwsgi_io_class = rb_define_class("Uwsgi_IO", rb_cObject);
+
+	rb_gc_register_address(&ur.rb_uwsgi_io_class);
+	
+	rb_define_singleton_method(ur.rb_uwsgi_io_class, "new", rb_uwsgi_io_new, 1);
+	rb_define_method(ur.rb_uwsgi_io_class, "initialize", rb_uwsgi_io_init, -1);
+	rb_define_method(ur.rb_uwsgi_io_class, "gets", rb_uwsgi_io_gets, 0);
+	rb_define_method(ur.rb_uwsgi_io_class, "each", rb_uwsgi_io_each, 0);
+	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
+	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
+
+	//rb_gc_disable();
 
 	return 0;
 
@@ -295,7 +322,7 @@ int uwsgi_rack_init(){
 
 VALUE call_dispatch(VALUE env) {
 
-	return rb_funcall(dispatcher, call, 1, env);
+	return rb_funcall(ur.dispatcher, ur.call, 1, env);
 
 }
 
@@ -379,8 +406,18 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         // fill ruby hash
         for(i=0;i<wsgi_req->var_cnt;i++) {
 
-		rb_hash_aset(env, rb_str_new(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len),
-				rb_str_new(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len));
+		// put the var only if it is not 0 size or required (rack requirement... very inefficient)
+		if (wsgi_req->hvec[i+1].iov_len > 0 || 
+					!uwsgi_strncmp("REQUEST_METHOD", 14, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp("SCRIPT_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp("PATH_INFO", 10, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp("QUERY_STRING", 12, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp("SERVER_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp("SERVER_PORT", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)
+							) {
+			rb_hash_aset(env, rb_str_new(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len),
+					rb_str_new(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len));
+		}
                 i++;
         }
 
@@ -395,8 +432,10 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	rb_hash_aset(env, rb_str_new2("rack.multiprocess"), Qtrue);
 	rb_hash_aset(env, rb_str_new2("rack.run_once"), Qfalse);
 
-	VALUE dws_wr = Data_Wrap_Struct(rb_uwsgi_io_class, 0, 0, wsgi_req);
-	rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall(rb_uwsgi_io_class, rb_intern("new"), 1, dws_wr ));
+	VALUE dws_wr = Data_Wrap_Struct(ur.rb_uwsgi_io_class, 0, 0, wsgi_req);
+	rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall(ur.rb_uwsgi_io_class, rb_intern("new"), 1, dws_wr ));
+
+	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
 	
 	VALUE ret = rb_protect( call_dispatch, env, &error);
@@ -460,7 +499,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
 			VALUE sendfile_path = rb_funcall( body, rb_intern("to_path"), 0);
-			uwsgi_log("BODY respond_to 'to_path' %s !!!\n", RSTRING_PTR(sendfile_path));
 			wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
 			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
 			rb_gc_unregister_address(&sendfile_path);
@@ -512,6 +550,9 @@ int uwsgi_rack_manage_options(int i, char *optarg) {
 	switch(i) {
 		case LONG_ARGS_RAILS:
 			ur.rails = optarg;
+			return 1;
+		case LONG_ARGS_RACK:
+			ur.rack = optarg;
 			return 1;
 		case LONG_ARGS_RUBY_GC_FREQ:
 			ur.gc_freq = atoi(optarg);
