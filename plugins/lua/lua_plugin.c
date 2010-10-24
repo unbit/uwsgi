@@ -110,6 +110,7 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	int i;
 	const char *http ;
 	size_t slen ;
+	ssize_t rlen;
 	char *ptrbuf;
 	lua_State *L = ulua.L[wsgi_req->async_id];
 
@@ -118,10 +119,11 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		if ((i = lua_pcall(L, 0, 1, 0)) == 0) {
                 	if (lua_type(L, -1) == LUA_TSTRING) {
                         	http = lua_tolstring(L, -1, &slen);
-                        	if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
+                        	if ( (rlen = write(wsgi_req->poll.fd, http, slen)) != (ssize_t) slen) {
                                 	perror("write()");
                                 	return UWSGI_OK ;
                         	}
+				wsgi_req->response_size += rlen;
                 	}
                 	lua_pop(L, 1);
                 	lua_pushvalue(L, -1);
@@ -239,10 +241,11 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
         while ( (i = lua_pcall(L, 0, 1, 0)) == 0) {
                 if (lua_type(L, -1) == LUA_TSTRING) {
 			http = lua_tolstring(L, -1, &slen);
-			if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
+			if ( (rlen = write(wsgi_req->poll.fd, http, slen)) != (ssize_t) slen) {
 				perror("write()");
 				goto clear;
 			}
+			wsgi_req->response_size += rlen;
                 }
                 lua_pop(L, 1);
                 lua_pushvalue(L, -1);
