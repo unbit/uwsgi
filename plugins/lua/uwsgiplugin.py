@@ -1,5 +1,7 @@
 import os,sys
 
 NAME='lua'
-CFLAGS = '-I /usr/include/lua5.1'
-LDFLAGS = '-llua5.1'
+CFLAGS = []
+LDFLAGS = []
+GCC_LIST = ['lua_plugin']
+LIBS = ['-llua']
