@@ -36,22 +36,38 @@ static void *uwsgi_lua_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
 static int uwsgi_lua_input(lua_State *L) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	ssize_t sum;
+	ssize_t sum, len, total;
+	char *buf, *ptr ;
 
         int n = lua_gettop(L);
 
-	char *buf ;
+	if (!wsgi_req->post_cl) {
+		lua_pushlstring(L, "", 0);
+		return 1;
+	}
 
-	uwsgi_log("requested %d bytes\n", n);
+	sum = lua_tonumber(L, 2) ;
 
-	buf = malloc(n);
+	if (n > 1) {
+		uwsgi_log("requested %d bytes\n", sum);
+	}
+
+	buf = malloc(sum);
 	if (!buf) {
 		uwsgi_error("malloc()");
 	}
 
-	sum = read(wsgi_req->poll.fd, buf, n); 
+	total = sum;
 
-        lua_pushlstring(L, buf, 0);
+	ptr = buf;
+	while(total) {
+		len = read(wsgi_req->poll.fd, ptr, total); 
+		ptr += len;
+		total -= len;
+	}
+
+        lua_pushlstring(L, buf, sum);
+	free(buf);
 
         return 1;
 }
@@ -76,7 +92,11 @@ int uwsgi_lua_init(){
 			exit(1);
 		}
 		// use a pcall
-		lua_call(ulua.L[i], 0, 1);
+		//lua_call(ulua.L[i], 0, 1);
+		if (lua_pcall(ulua.L[i], 0, 1, 0) != 0) {
+                	uwsgi_log("%s\n", lua_tostring(ulua.L[i], -1));
+			exit(1);
+		}
 	}
 
 	// ok the lua engine is ready
@@ -161,7 +181,11 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	// send status
 	if (lua_type(L, -3) == LUA_TSTRING || lua_type(L, -3) == LUA_TNUMBER) {
 		http = lua_tolstring(L, -3, &slen);
-		if (write(wsgi_req->poll.fd, "HTTP/1.1 ", 9) != 9) {
+		if (write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len) != wsgi_req->protocol_len) {
+			perror("write()");
+			goto clear;
+		}
+		if (write(wsgi_req->poll.fd, " ", 1) != 1) {
 			perror("write()");
 			goto clear;
 		}
@@ -169,6 +193,10 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 			perror("write()");
 			goto clear;
 		}
+		// a performance hack
+		ptrbuf = (char *) http;
+		ptrbuf[3] = 0;
+		wsgi_req->status = atoi(ptrbuf);
 		if (write(wsgi_req->poll.fd, "\r\n", 2) != 2) {
 			perror("write()");
 			goto clear;
