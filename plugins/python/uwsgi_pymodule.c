@@ -433,7 +433,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 	uint16_t keysize, valsize;
 	char *cur_buf;
 	int i;
-	char spool_filename[1024];
+	//char spool_filename[1024];
 
 	spool_dict = PyTuple_GetItem(args, 0);
 	if (!PyDict_Check(spool_dict)) {
@@ -510,7 +510,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args) {
 		}
 	}
 
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, spool_buffer, cur_buf - spool_buffer);
+	//i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, spool_buffer, cur_buf - spool_buffer);
 	if (i > 0) {
 		return Py_True;
 	}

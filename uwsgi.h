@@ -922,8 +922,8 @@ void snmp_init(void);
 
 #ifdef UWSGI_SPOOLER
 int spool_request(char *, int, char *, int);
-void spooler();
-pid_t spooler_start();
+void spooler(void);
+pid_t spooler_start(void);
 #endif
 
 void set_harakiri(int);
@@ -1061,7 +1061,7 @@ int uwsgi_load_plugin(int, char *, char *, int);
 void embed_plugins(void);
 
 
-void http_loop();
+void http_loop(void);
 
 int unconfigured_hook(struct wsgi_request *);
 
