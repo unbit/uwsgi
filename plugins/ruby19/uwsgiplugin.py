@@ -1,8 +1,8 @@
 import os,sys
 
-NAME='rack'
+NAME='ruby19'
 
-RUBYPATH = 'ruby'
+RUBYPATH = '/opt/ruby19/bin/ruby'
 CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['CFLAGS']\"").read().rstrip().split()
 
 version = os.popen(RUBYPATH + " -e \"print RUBY_VERSION\"").read().rstrip()
@@ -23,8 +23,10 @@ else:
 	CFLAGS.append('-I' + archdir + '/' + arch)
 	CFLAGS.append('-I' + includedir + '/' + arch)
 
+CFLAGS.append('-Drack_plugin=ruby19_plugin')
+
 LDFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['LDFLAGS']\"").read().rstrip().split()
 LDFLAGS.append('-L' + os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['libdir']\"").read().rstrip() )
 LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + Config::CONFIG['RUBY_SO_NAME']\"").read().rstrip().split()
-GCC_LIST = ['rack_plugin']
+GCC_LIST = ['../rack/rack_plugin']
 
