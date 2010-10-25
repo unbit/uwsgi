@@ -1843,9 +1843,6 @@ static int manage_base_opt(int i, char *optarg) {
 	case 'm':
 		uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] = 1;
 		return 1;
-	case 'O':
-		uwsgi.py_optimize = atoi(optarg);
-		return 1;
 	case 't':
 		uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] = atoi(optarg);
 		return 1;

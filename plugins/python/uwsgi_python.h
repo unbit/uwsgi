@@ -56,6 +56,12 @@ struct uwsgi_python {
 	char *argv;
 	int argc;
 
+#ifdef PYTHREE
+        wchar_t *py_argv[MAX_PYARGV];
+#else
+        char *py_argv[MAX_PYARGV];
+#endif
+
         PyObject *wsgi_spitout;
         PyObject *wsgi_writeout;
 

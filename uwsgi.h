@@ -523,7 +523,6 @@ struct wsgi_request {
 
 struct uwsgi_server {
 
-	char *pyhome;
 
 	int has_threads;
 	int apps_cnt;
@@ -679,13 +678,7 @@ struct uwsgi_server {
 	char *file_config;
 
 	//char *python_path[MAX_PYTHONPATH];
-	int python_path_cnt;
-
-#ifdef PYTHREE
-        wchar_t *py_argv[MAX_PYARGV];
-#else
-        char *py_argv[MAX_PYARGV];
-#endif
+	//int python_path_cnt;
 
 #ifdef UWSGI_ROUTING
 #ifndef MAX_UWSGI_ROUTES
@@ -706,7 +699,6 @@ struct uwsgi_server {
 #endif
 
 	int single_interpreter;
-	int py_optimize;
 
 	struct uwsgi_shared *shared;
 

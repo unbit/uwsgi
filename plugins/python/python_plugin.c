@@ -548,6 +548,9 @@ int uwsgi_python_manage_options(int i, char *optarg) {
         	case 'H':
                 	up.home = optarg;
                 	return 1;
+		case 'O':
+                	up.optimize = atoi(optarg);
+                	return 1;
 		case LONG_ARGS_CALLABLE:
                 	up.callable = optarg;
                 	return 1;

@@ -55,9 +55,9 @@ void init_pyargv() {
 #ifdef PYTHREE
 	wchar_t pname[6];
         mbstowcs(pname, "uwsgi", 6);
-        uwsgi.py_argv[0] = pname;
+        up.py_argv[0] = pname;
 #else
-        uwsgi.py_argv[0] = "uwsgi";
+        up.py_argv[0] = "uwsgi";
 #endif
 
         if (up.argv != NULL && !up.argc) {
@@ -81,9 +81,9 @@ void init_pyargv() {
                         if (*ap != '\0') {
 #ifdef PYTHREE
                                 mbstowcs( wcargv + strlen(ap), ap, strlen(ap));
-                                uwsgi.py_argv[up.argc] = wcargv + strlen(ap);
+                                up.py_argv[up.argc] = wcargv + strlen(ap);
 #else
-                                uwsgi.py_argv[up.argc] = ap;
+                                up.py_argv[up.argc] = ap;
 #endif
                                 up.argc++;
                         }
@@ -92,5 +92,5 @@ void init_pyargv() {
                 }
         }
 
-        PySys_SetArgv(up.argc, &up.argv);
+        PySys_SetArgv(up.argc, up.py_argv);
 }
