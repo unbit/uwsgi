@@ -957,8 +957,8 @@ void uwsgi_cluster_add_node(char *, int);
 int uwsgi_ping_node(int, struct wsgi_request *);
 
 struct http_status_codes {
-	char key[3];
-	char *message;
+	const char key[3];
+	const char *message;
 	int message_size;
 };
 
@@ -1096,7 +1096,7 @@ void complex_loop(void);
 
 struct uwsgi_plugin {
 
-        char *name; 
+        const char *name; 
         uint8_t modifier1;
         void *data;
 	int (*init)(void);

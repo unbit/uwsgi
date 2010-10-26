@@ -10,6 +10,28 @@ extern struct uwsgi_server uwsgi;
 #define LONG_ARGS_RUBY_GC_FREQ	LONG_ARGS_RACK_BASE + 2
 #define LONG_ARGS_RACK		LONG_ARGS_RACK_BASE + 3
 
+#ifndef RUBY19
+#define rb_errinfo() ruby_errinfo
+#else
+void Init_prelude(void);
+#endif
+
+#ifndef RARRAY_LEN
+#define RARRAY_LEN(x) RARRAY(x)->len
+#endif
+
+#ifndef RARRAY_PTR
+#define RARRAY_PTR(x) RARRAY(x)->ptr
+#endif
+
+#ifndef RSTRING_PTR
+#define RSTRING_PTR(x) RSTRING(x)->ptr
+#endif
+
+#ifndef RSTRING_LEN
+#define RSTRING_LEN(x) RSTRING(x)->len
+#endif
+
 struct uwsgi_rack {
 
 	char *rails;
@@ -32,6 +54,22 @@ struct option uwsgi_rack_options[] = {
         {0, 0, 0, 0},
 
 };
+
+static void uwsgi_ruby_exception(void) {
+
+        VALUE lasterr = rb_gv_get("$!");
+        VALUE message = rb_obj_as_string(lasterr);
+
+        uwsgi_log("%s\n", RSTRING_PTR(message));
+        if(!NIL_P(rb_errinfo())) {
+                VALUE ary = rb_funcall(rb_errinfo(), rb_intern("backtrace"), 0);
+                int i;
+                for (i=0; i<RARRAY_LEN(ary); i++) {
+                        uwsgi_log("%s\n", RSTRING_PTR(RARRAY_PTR(ary)[i]));
+                }
+        }
+}
+
 
 
 
@@ -175,7 +213,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		return Qnil;
 	}
 	
-	if (RARRAY(args)->len == 0) {
+	if (RARRAY_LEN(args) == 0) {
 		//uwsgi_log("reading the whole post data\n" ) ;
 		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 			char *post_body = malloc(wsgi_req->post_cl);
@@ -194,8 +232,8 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		}
 		return chunk;
 	}
-	else if (RARRAY(args)->len > 0) {
-		chunk_size = NUM2INT(RARRAY(args)->ptr[0]);
+	else if (RARRAY_LEN(args) > 0) {
+		chunk_size = NUM2INT(RARRAY_PTR(args)[0]);
 		//uwsgi_log("chunk reading of %d bytes\n", chunk_size ) ;
 		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 			char *post_body = malloc( chunk_size ) ;
@@ -210,8 +248,8 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 			}
 		}
 		else {	
-			if (RARRAY(args)->len > 1) {
-				rb_str_cat(RARRAY(args)->ptr[1], wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
+			if (RARRAY_LEN(args) > 1) {
+				rb_str_cat(RARRAY_PTR(args)[1], wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
 			}
 			chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
 			wsgi_req->buf_pos+=chunk_size;
@@ -243,22 +281,45 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 	return Qnil;
 }
 
+#ifdef RUBY19
+RUBY_GLOBAL_SETUP
+#endif
+
 int uwsgi_rack_init(){
 
 	struct http_status_codes *http_sc;
+#ifdef RUBY19
+	int argc = 1;
+	char *fargv = (char *) "uwsgi" ;
+	char **argv = &fargv;
+#endif
 
 	// filling http status codes
         for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
                 http_sc->message_size = strlen(http_sc->message);
         }
 
+
+#ifdef RUBY19
+	ruby_sysinit(&argc, &argv);
+	RUBY_INIT_STACK
+	VALUE gem;
+#endif
+
 	ruby_init();
 	ruby_script("uwsgi");
 	ruby_init_loadpath();
 
 	if (ur.rack) {
+#ifndef RUBY19
 		rb_require("rubygems");	
 		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
+#else
+		gem = rb_define_module("Gem");
+		rb_const_set(gem, rb_intern("Enable"), Qtrue);
+		Init_prelude();
+		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
+#endif
 
 		VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
 		VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, rb_str_new2(ur.rack));
@@ -267,12 +328,12 @@ int uwsgi_rack_init(){
 			exit(1);
 		}
 
-		if (RARRAY(rackup)->len < 1) {
+		if (RARRAY_LEN(rackup) < 1) {
 			uwsgi_log("invalid rack config file: %s\n", ur.rack);
 			exit(1);
 		}
 
-		ur.dispatcher = RARRAY(rackup)->ptr[0] ;
+		ur.dispatcher = RARRAY_PTR(rackup)[0] ;
 
 		if (ur.dispatcher == Qnil) {
 			exit(1);
@@ -332,7 +393,7 @@ VALUE send_body(VALUE obj, VALUE fd) {
 	size_t len;
 
 	if (TYPE(obj) == T_STRING) {
-		len = write( NUM2INT(fd), RSTRING(obj)->ptr, RSTRING(obj)->len);
+		len = write( NUM2INT(fd), RSTRING_PTR(obj), RSTRING_LEN(obj));
 	}
 	else {
 		uwsgi_log("UNMANAGED BODY TYPE %d\n", TYPE(obj));
@@ -349,14 +410,14 @@ VALUE send_header(VALUE obj, VALUE fd) {
 	
 	if (TYPE(obj) == T_ARRAY) {
 	
-		if (RARRAY(obj)->len == 2) {
-			VALUE hkey = rb_obj_as_string( RARRAY(obj)->ptr[0]);
-			VALUE hval = rb_obj_as_string( RARRAY(obj)->ptr[1]);
+		if (RARRAY_LEN(obj) == 2) {
+			VALUE hkey = rb_obj_as_string( RARRAY_PTR(obj)[0]);
+			VALUE hval = rb_obj_as_string( RARRAY_PTR(obj)[1]);
 
-			len = write( NUM2INT(fd), RSTRING(hkey)->ptr, RSTRING(hkey)->len);
+			len = write( NUM2INT(fd), RSTRING_PTR(hkey), RSTRING_LEN(hkey));
 			len = write( NUM2INT(fd), ": ", 2);
 
-			len = write( NUM2INT(fd), RSTRING(hval)->ptr, RSTRING(hval)->len);
+			len = write( NUM2INT(fd), RSTRING_PTR(hval), RSTRING_LEN(hval));
 			len = write( NUM2INT(fd), "\r\n", 2);
 
 			wsgi_req->header_cnt++;
@@ -367,21 +428,6 @@ VALUE send_header(VALUE obj, VALUE fd) {
 	}
 
 	return Qnil;
-}
-
-static void uwsgi_ruby_exception(void) {
-	
-	VALUE lasterr = rb_gv_get("$!");
-	VALUE message = rb_obj_as_string(lasterr);
-
-	uwsgi_log("%s\n", RSTRING(message)->ptr);
-	if(!NIL_P(ruby_errinfo)) {
-		VALUE ary = rb_funcall(ruby_errinfo, rb_intern("backtrace"), 0);
-		int i;
-		for (i=0; i<RARRAY(ary)->len; i++) {
-			uwsgi_log("%s\n", RSTRING(RARRAY(ary)->ptr[i])->ptr);
-		}
-	}
 }
 
 int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
@@ -409,12 +455,12 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		// put the var only if it is not 0 size or required (rack requirement... very inefficient)
 		if (wsgi_req->hvec[i+1].iov_len > 0 || 
-					!uwsgi_strncmp("REQUEST_METHOD", 14, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp("SCRIPT_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp("PATH_INFO", 10, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp("QUERY_STRING", 12, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp("SERVER_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp("SERVER_PORT", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)
+					!uwsgi_strncmp((char *)"REQUEST_METHOD", 14, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"SCRIPT_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"PATH_INFO", 10, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"QUERY_STRING", 12, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"SERVER_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"SERVER_PORT", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)
 							) {
 			rb_hash_aset(env, rb_str_new(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len),
 					rb_str_new(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len));
@@ -447,46 +493,49 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (TYPE(ret) == T_ARRAY) {
-		if (RARRAY(ret)->len != 3) {
-			uwsgi_log("Invalid RACK response size: %d\n", RARRAY(ret)->len);
+		if (RARRAY_LEN(ret) != 3) {
+			uwsgi_log("Invalid RACK response size: %d\n", RARRAY_LEN(ret));
 			return -1;
 		}
 
 		// manage Status
 
 
-		VALUE status = rb_obj_as_string(RARRAY(ret)->ptr[0]);
+		VALUE status = rb_obj_as_string(RARRAY_PTR(ret)[0]);
 		// get the status code
 
-		wsgi_req->hvec[0].iov_base = "HTTP/1.1 ";
-        	wsgi_req->hvec[0].iov_len = 9 ;
+		wsgi_req->hvec[0].iov_base = wsgi_req->protocol;
+        	wsgi_req->hvec[0].iov_len = wsgi_req->protocol_len ;
 
-        	wsgi_req->hvec[1].iov_base = RSTRING(status)->ptr;
-        	wsgi_req->hvec[1].iov_len = 3 ;
+		wsgi_req->hvec[1].iov_base = (char *) " ";
+        	wsgi_req->hvec[1].iov_len = 1 ;
 
-		wsgi_req->status = atoi(RSTRING(status)->ptr);
+        	wsgi_req->hvec[2].iov_base = RSTRING_PTR(status);
+        	wsgi_req->hvec[2].iov_len = 3 ;
 
-        	wsgi_req->hvec[2].iov_base = " ";
-        	wsgi_req->hvec[2].iov_len = 1 ;
+		wsgi_req->status = atoi(RSTRING_PTR(status));
 
-        	wsgi_req->hvec[3].iov_len = 0 ;
+        	wsgi_req->hvec[3].iov_base = (char *) " ";
+        	wsgi_req->hvec[3].iov_len = 1 ;
+
+        	wsgi_req->hvec[4].iov_len = 0 ;
 
         	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                	if (!strncmp(http_sc->key, RSTRING(status)->ptr, 3)) {
-                        	wsgi_req->hvec[3].iov_base = http_sc->message ;
-                        	wsgi_req->hvec[3].iov_len = http_sc->message_size ;
+                	if (!strncmp(http_sc->key, RSTRING_PTR(status), 3)) {
+                        	wsgi_req->hvec[4].iov_base = (char *) http_sc->message ;
+                        	wsgi_req->hvec[4].iov_len = http_sc->message_size ;
                         	break;
                 	}
         	}
 
-        	wsgi_req->hvec[4].iov_base = "\r\n";
-        	wsgi_req->hvec[4].iov_len = 2 ;
+        	wsgi_req->hvec[5].iov_base = (char *) "\r\n";
+        	wsgi_req->hvec[5].iov_len = 2 ;
 
-		if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, 5)) ) {
+		if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, 6)) ) {
                 	uwsgi_error("writev()");
         	}
 
-		VALUE headers = RARRAY(ret)->ptr[1] ;
+		VALUE headers = RARRAY_PTR(ret)[1] ;
 		if (rb_respond_to( headers, rb_intern("each") )) {
 			rb_iterate( rb_each, headers, send_header, INT2NUM(wsgi_req->poll.fd)); 
 		}
@@ -495,7 +544,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			uwsgi_error("write()");
 		}
 
-		VALUE body = RARRAY(ret)->ptr[2] ;
+		VALUE body = RARRAY_PTR(ret)[2] ;
 
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
