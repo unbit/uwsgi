@@ -25,7 +25,7 @@ int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
 
 	void *plugin_handle;
 
-	char *plugin_name ;
+	char *plugin_name;
 	char *plugin_entry_symbol;
 	struct uwsgi_plugin *up;
 

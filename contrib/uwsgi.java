@@ -6,7 +6,6 @@ import java.util.Enumeration;
 import org.apache.catalina.util.IOTools;
 
 public class uwsgi extends HttpServlet {
-
 	private String mountpoint = null;
 
 	public void init(ServletConfig config) throws ServletException {
@@ -22,34 +21,34 @@ public class uwsgi extends HttpServlet {
 		if (getServletConfig().getInitParameter("mountpoint") != null) {
 			mountpoint = getServletConfig().getInitParameter("mountpoint");
 			if (mountpoint.length() <= 1) {
-				mountpoint = null ;
+				mountpoint = null;
 			}
 		}
 	}
 
-	
+
 	public void doPost(HttpServletRequest request, HttpServletResponse response)
-	throws IOException, ServletException {
+		throws IOException, ServletException {
 		uWSGIHandler(request, response);
 	}
 
 	public void doGet(HttpServletRequest request, HttpServletResponse response)
-	throws IOException, ServletException {
+		throws IOException, ServletException {
 		uWSGIHandler(request, response);
 	}
 
-	
+
 	private void uWSGIHandler(HttpServletRequest request, HttpServletResponse response)
-	throws IOException, ServletException {
+		throws IOException, ServletException {
 
 		Socket client = new Socket("localhost",3017);
-		ByteArrayOutputStream uwsgi_request = new ByteArrayOutputStream() ;
+		ByteArrayOutputStream uwsgi_request = new ByteArrayOutputStream();
 		DataOutputStream wos = new DataOutputStream(uwsgi_request); 
 
 		DataOutputStream os = new DataOutputStream(client.getOutputStream());
 		DataInputStream is = new DataInputStream( client.getInputStream() );
 
-	
+
 		ServletOutputStream out = response.getOutputStream();
 
 		boolean hasBody = false;
@@ -104,14 +103,14 @@ public class uwsgi extends HttpServlet {
 
 		if (mountpoint != null) {
 			wos.writeShort(swapShort( (short) 11));
-                	wos.writeBytes("SCRIPT_NAME");
-			wos.writeShort(swapShort( (short) mountpoint.length() ) ) ;
-			wos.writeBytes( mountpoint ) ;
+			wos.writeBytes("SCRIPT_NAME");
+			wos.writeShort(swapShort( (short) mountpoint.length() ) );
+			wos.writeBytes( mountpoint );
 		}
-		
+
 
 		wos.writeShort(swapShort( (short) 9));
-                wos.writeBytes("PATH_INFO");
+		wos.writeBytes("PATH_INFO");
 		if (mountpoint != null) {
 			wos.writeShort(swapShort( (short) (request.getRequestURI().length() - mountpoint.length()) ) );
 			wos.writeBytes( request.getRequestURI().substring(mountpoint.length())  );
@@ -149,14 +148,14 @@ public class uwsgi extends HttpServlet {
 			hasBody = true;
 		}
 
-		
+
 		// taken from CGI servlet
 
 		Enumeration headers = request.getHeaderNames();
 		String header = null;
 		while (headers.hasMoreElements()) {
-                	header = null;
-                	header = ((String) headers.nextElement()).toUpperCase();
+			header = null;
+			header = ((String) headers.nextElement()).toUpperCase();
 			wos.writeShort(swapShort( (short) ("HTTP_" + header.replace('-', '_')).length() ));
 			wos.writeBytes("HTTP_" + header.replace('-', '_'));
 			wos.writeShort(swapShort( (short) request.getHeader(header).length() ));
@@ -175,16 +174,16 @@ public class uwsgi extends HttpServlet {
 			IOTools.flow(request.getInputStream(), os);
 		}
 
-		boolean statusParsed = false ;
+		boolean statusParsed = false;
 		for(;;) {
-			String line = byte_readline(is) ;
+			String line = byte_readline(is);
 			if (line == "") {
 				break;
 			}
 			if (statusParsed == false) {
 				String[] status = line.split(" ",3);
 				response.setStatus( Integer.parseInt(status[1]) );
-				statusParsed = true ;
+				statusParsed = true;
 			}
 			else {
 				String[] keyval = line.split(": ",2);
@@ -200,7 +199,7 @@ public class uwsgi extends HttpServlet {
 		byte cb[] = new byte[4096];
 		int len = 0;
 		for(;;) {
-			len = is.read(cb,0,4096) ;
+			len = is.read(cb,0,4096);
 			if ( len > 0) {
 				out.write(cb,0,len);	
 			}
@@ -208,7 +207,7 @@ public class uwsgi extends HttpServlet {
 				break;
 			}
 		}
-		
+
 
 	}
 
@@ -218,19 +217,19 @@ public class uwsgi extends HttpServlet {
 		for(;;) {
 			byte b = is.readByte();
 			if (b == 10) {
-				break ;
+				break;
 			}
-			line.write(b) ;
+			line.write(b);
 		}
 
 		return line.toString("ASCII").replaceAll("\\n","").replaceAll("\\r","");
 	}
 
 	private short swapShort(short x) {
-	
-		short tmp1 = (short) (x>>8) ;
-		short tmp2 = (short) (x<<8) ;
-		return (short) (tmp1 | tmp2)  ;
+
+		short tmp1 = (short) (x>>8);
+		short tmp2 = (short) (x<<8);
+		return (short) (tmp1 | tmp2);
 	}	
 
 }

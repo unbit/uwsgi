@@ -3,12 +3,12 @@ import time
 
 
 def application(env, start_response):
-	sleepvalue = 5 ;
-	if env.has_key('QUERY_STRING'):
-		if env['QUERY_STRING'] != '':
-			sleepvalue = int(env['QUERY_STRING'])
+    sleepvalue = 5
+    if env.has_key('QUERY_STRING'):
+        if env['QUERY_STRING'] != '':
+            sleepvalue = int(env['QUERY_STRING'])
         start_response('200 Ok', [('Content-type', 'text/html')])
-	start_at = time.time()	
-	uwsgi.green_sleep(sleepvalue)
-	#print "TIMEOUT: ", env['x-wsgiorg.fdevent.timeout']
-	yield "<h1>Hello World after %s seconds</h1>" % str(time.time() - start_at)
+    start_at = time.time()
+    uwsgi.green_sleep(sleepvalue)
+    #print "TIMEOUT: ", env['x-wsgiorg.fdevent.timeout']
+    yield "<h1>Hello World after %s seconds</h1>" % str(time.time() - start_at)

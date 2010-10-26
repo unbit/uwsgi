@@ -4,10 +4,10 @@ extern struct uwsgi_server uwsgi;
 
 static size_t get_content_length(char *buf, uint16_t size) {
 	int i;
-	size_t val = 0 ;
+	size_t val = 0;
 	for(i=0;i<size;i++) {
 		if (buf[i] >= '0' && buf[i] <= '9') {
-			val = (val*10) + (buf[i] - '0') ;
+			val = (val*10) + (buf[i] - '0');
 			continue;
 		}
 		break;
@@ -19,9 +19,9 @@ static size_t get_content_length(char *buf, uint16_t size) {
 #ifdef UWSGI_UDP
 ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t message_size) {
 
-	int fd ;
+	int fd;
 	struct sockaddr_in udp_addr;
-	char *udp_port ;
+	char *udp_port;
 	ssize_t ret;
 	char udpbuff[1024];
 
@@ -30,15 +30,15 @@ ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t 
 
 	udp_port = strchr(host, ':');
 	if (udp_port == NULL) {
-		return -1 ;
+		return -1;
 	}
 
-	udp_port[0] = 0 ; 
+	udp_port[0] = 0; 
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd < 0) {
 		uwsgi_error("socket()");
-		return -1 ;
+		return -1;
 	}
 
 	memset(&udp_addr, 0, sizeof(struct sockaddr_in));
@@ -46,14 +46,14 @@ ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t 
 	udp_addr.sin_port = htons(atoi(udp_port));
 	udp_addr.sin_addr.s_addr = inet_addr(host);
 
-	udpbuff[0] = modifier1 ;
+	udpbuff[0] = modifier1;
 #ifdef __BIG_ENDIAN__
 	message_size = uwsgi_swap16(message_size);
 #endif
 
 	memcpy(udpbuff+1, &message_size, 2);
 
-	udpbuff[3] = 0 ;
+	udpbuff[3] = 0;
 
 #ifdef __BIG_ENDIAN__
 	message_size = uwsgi_swap16(message_size);

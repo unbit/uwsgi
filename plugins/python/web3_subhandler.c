@@ -6,7 +6,6 @@ void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyObject *zero, *wsgi_socket;
 
-
 	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "web3_input", "r", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "web3.input", wsgi_socket);
 	Py_DECREF(wsgi_socket);
@@ -49,7 +48,7 @@ void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_
 	Py_DECREF(zero);
 
 
-	wsgi_req->async_app = wi->wsgi_callable ;
+	wsgi_req->async_app = wi->wsgi_callable;
 
 	PyDict_SetItemString(uwsgi.embedded_dict, "env", wsgi_req->async_environ);
 
@@ -66,16 +65,16 @@ void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_
 
 int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 
-	PyObject *pychunk ;
-	ssize_t wsize ;
+	PyObject *pychunk;
+	ssize_t wsize;
 
 	// return or yield ? (PyString on python2 PyBytes on python3)
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
-                        uwsgi_error("write()");
-                        goto clear;
-                }
-                wsgi_req->response_size += wsize;
+			uwsgi_error("write()");
+			goto clear;
+		}
+		wsgi_req->response_size += wsize;
 		goto clear;
 	}
 
@@ -84,18 +83,18 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 	if (!wsgi_req->async_placeholder) {
 		if (PyTuple_Check((PyObject *)wsgi_req->async_result)) {
 			if (PyTuple_Size((PyObject *)wsgi_req->async_result) != 3) { 
- 		        	uwsgi_log("invalid Web3 response.\n"); 
- 	                        goto clear; 
- 		        } 
- 		        if (py_uwsgi_spit(NULL, (PyObject *)wsgi_req->async_result) == Py_None) { 
- 		        	goto clear; 
- 		        } 
+				uwsgi_log("invalid Web3 response.\n"); 
+				goto clear; 
+			} 
+			if (py_uwsgi_spit(NULL, (PyObject *)wsgi_req->async_result) == Py_None) { 
+				goto clear; 
+			} 
 
- 		        wsgi_req->async_result = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 0); 
+			wsgi_req->async_result = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 0); 
 
 			wsgi_req->async_placeholder = PyObject_GetIter( (PyObject *)wsgi_req->async_result );
 
-                	if (!wsgi_req->async_placeholder) {
+			if (!wsgi_req->async_placeholder) {
 				goto clear2;
 			}
 #ifdef UWSGI_ASYNC
@@ -104,15 +103,15 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 			}
 		}
 		else {
- 		        uwsgi_log("invalid Web3 response.\n"); 
- 	                goto clear; 
+			uwsgi_log("invalid Web3 response.\n"); 
+			goto clear; 
 		}
 #endif
 	}
 
 
 
-	pychunk = PyIter_Next(wsgi_req->async_placeholder) ;
+	pychunk = PyIter_Next(wsgi_req->async_placeholder);
 
 	if (!pychunk) {
 		if (PyErr_Occurred()) PyErr_Print();
@@ -130,9 +129,9 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 		wsgi_req->response_size += wsize;
 	}
 
-	
+
 	Py_DECREF(pychunk);
-	return UWSGI_AGAIN ;
+	return UWSGI_AGAIN;
 
 clear:
 	if (wsgi_req->async_environ) {
@@ -141,7 +140,7 @@ clear:
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
 		fclose(wsgi_req->async_post);
 		if (!uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
-			wsgi_req->fd_closed = 1 ;
+			wsgi_req->fd_closed = 1;
 		}
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);

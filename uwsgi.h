@@ -23,35 +23,35 @@
 
 #define ULEP(pname)\
 	uwsgi.shared->hook_init[pname##_plugin.modifier1] = pname##_plugin.init;\
-        uwsgi.shared->hook_post_fork[pname##_plugin.modifier1] = pname##_plugin.post_fork;\
-        uwsgi.shared->hook_options[pname##_plugin.modifier1] = pname##_plugin.options;\
-        uwsgi.shared->hook_manage_opt[pname##_plugin.modifier1] = pname##_plugin.manage_opt;\
-        uwsgi.shared->hook_short_options[pname##_plugin.modifier1] = pname##_plugin.short_options;\
-        uwsgi.shared->hook_request[pname##_plugin.modifier1] = pname##_plugin.request;\
-        uwsgi.shared->hook_after_request[pname##_plugin.modifier1] = pname##_plugin.after_request;\
-        uwsgi.shared->hook_init_apps[pname##_plugin.modifier1] = pname##_plugin.init_apps;\
-        uwsgi.shared->hook_enable_threads[pname##_plugin.modifier1] = pname##_plugin.enable_threads;\
-        uwsgi.shared->hook_init_thread[pname##_plugin.modifier1] = pname##_plugin.init_thread;\
-        uwsgi.shared->hook_manage_udp[pname##_plugin.modifier1] = pname##_plugin.manage_udp;\
-        uwsgi.shared->hook_manage_xml[pname##_plugin.modifier1] = pname##_plugin.manage_xml;\
-	
+uwsgi.shared->hook_post_fork[pname##_plugin.modifier1] = pname##_plugin.post_fork;\
+uwsgi.shared->hook_options[pname##_plugin.modifier1] = pname##_plugin.options;\
+uwsgi.shared->hook_manage_opt[pname##_plugin.modifier1] = pname##_plugin.manage_opt;\
+uwsgi.shared->hook_short_options[pname##_plugin.modifier1] = pname##_plugin.short_options;\
+uwsgi.shared->hook_request[pname##_plugin.modifier1] = pname##_plugin.request;\
+uwsgi.shared->hook_after_request[pname##_plugin.modifier1] = pname##_plugin.after_request;\
+uwsgi.shared->hook_init_apps[pname##_plugin.modifier1] = pname##_plugin.init_apps;\
+uwsgi.shared->hook_enable_threads[pname##_plugin.modifier1] = pname##_plugin.enable_threads;\
+uwsgi.shared->hook_init_thread[pname##_plugin.modifier1] = pname##_plugin.init_thread;\
+uwsgi.shared->hook_manage_udp[pname##_plugin.modifier1] = pname##_plugin.manage_udp;\
+uwsgi.shared->hook_manage_xml[pname##_plugin.modifier1] = pname##_plugin.manage_xml;\
+
 
 #define fill_plugin_table(x, up)\
 	uwsgi.shared->hook_init[x] = up->init;\
-	uwsgi.shared->hook_post_fork[x] = up->post_fork;\
-	uwsgi.shared->hook_options[x] = up->options;\
-	uwsgi.shared->hook_manage_opt[x] = up->manage_opt;\
-	uwsgi.shared->hook_short_options[x] = up->short_options;\
-	uwsgi.shared->hook_request[x] = up->request;\
-	uwsgi.shared->hook_after_request[x] = up->after_request;\
-	uwsgi.shared->hook_init_apps[x] = up->init_apps;\
-	uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
-	uwsgi.shared->hook_init_thread[x] = up->init_thread;\
-	uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
-	uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
+uwsgi.shared->hook_post_fork[x] = up->post_fork;\
+uwsgi.shared->hook_options[x] = up->options;\
+uwsgi.shared->hook_manage_opt[x] = up->manage_opt;\
+uwsgi.shared->hook_short_options[x] = up->short_options;\
+uwsgi.shared->hook_request[x] = up->request;\
+uwsgi.shared->hook_after_request[x] = up->after_request;\
+uwsgi.shared->hook_init_apps[x] = up->init_apps;\
+uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
+uwsgi.shared->hook_init_thread[x] = up->init_thread;\
+uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
+uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
 
-	
-	
+
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,10 +78,10 @@
 #include <sys/utsname.h>
 
 #ifdef __linux
-	#include <sys/prctl.h>
-	#include <linux/limits.h>
+#include <sys/prctl.h>
+#include <linux/limits.h>
 #else
-	#include <limits.h>
+#include <limits.h>
 #endif
 
 #ifdef UWSGI_SCTP
@@ -412,7 +412,7 @@ struct wsgi_request {
 
 	// this is big enough to contain sockaddr_in
 	struct sockaddr_un c_addr;
-        int c_len;
+	int c_len;
 
 	// iovec
 	struct iovec *hvec;
@@ -479,15 +479,15 @@ struct wsgi_request {
 	int headers_size;
 
 	int async_id;
-	int async_status ;
+	int async_status;
 	int async_waiting_fd;
 	int async_waiting_fd_type;
 	int async_waiting_fd_monitored;
 
 	int switches;
 
-	time_t async_timeout ;
-	int async_timeout_expired ;
+	time_t async_timeout;
+	int async_timeout_expired;
 
 	void *async_app;
 	void *async_result;
@@ -496,7 +496,7 @@ struct wsgi_request {
 	void *async_environ;
 	void *async_post;
 	void *async_sendfile;
-	
+
 	int async_plagued;
 
 	int *ovector;
@@ -530,8 +530,8 @@ struct uwsgi_server {
 	int enable_profiler;
 
 	// base for all the requests (even on async mode)
-	struct wsgi_request **wsgi_requests ;
-	struct wsgi_request *wsgi_req ;
+	struct wsgi_request **wsgi_requests;
+	struct wsgi_request *wsgi_req;
 
 	char *chroot;
 	gid_t gid;
@@ -631,8 +631,8 @@ struct uwsgi_server {
 	int numproc;
 	int async;
 	int async_running;
-	int async_queue ;
-	int async_nevents ;
+	int async_queue;
+	int async_nevents;
 
 	int stackless;
 
@@ -674,7 +674,7 @@ struct uwsgi_server {
 #ifdef UWSGI_XML
 	char *xml_config;
 #endif
-	
+
 	char *file_config;
 
 	//char *python_path[MAX_PYTHONPATH];
@@ -749,7 +749,7 @@ struct uwsgi_server {
 
 	int cores;
 	int threads;
-	
+
 	// this key old the u_request structure per core/thread
 	pthread_key_t tur_key;
 
@@ -842,7 +842,7 @@ struct uwsgi_core {
 
 	// multiple ts per-core are needed only with multiple_interpreter + threads
 	void *ts[MAX_APPS];
-	
+
 };
 
 struct uwsgi_worker {
@@ -928,7 +928,7 @@ uint64_t uwsgi_swap64(uint64_t);
 #endif
 
 #ifdef UWSGI_UDP
-ssize_t send_udp_message(uint8_t, char *, char *, uint16_t); 
+ssize_t send_udp_message(uint8_t, char *, char *, uint16_t);
 #endif
 
 int uwsgi_parse_response(struct pollfd *, int, struct uwsgi_header *, char *);
@@ -964,9 +964,9 @@ struct http_status_codes {
 
 #ifdef UWSGI_ASYNC
 struct wsgi_request *async_loop(void);
-struct wsgi_request *find_first_available_wsgi_req(void); 
-struct wsgi_request *find_wsgi_req_by_fd(int, int); 
-struct wsgi_request *find_wsgi_req_by_id(int); 
+struct wsgi_request *find_first_available_wsgi_req(void);
+struct wsgi_request *find_wsgi_req_by_fd(int, int);
+struct wsgi_request *find_wsgi_req_by_id(int);
 
 #ifdef __clang__
 struct wsgi_request *next_wsgi_req(struct wsgi_request *);
@@ -975,10 +975,10 @@ inline struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 #endif
 
 
-int async_add(int, int , int) ;
-int async_mod(int, int , int) ;
+int async_add(int, int , int);
+int async_mod(int, int , int);
 int async_wait(int, void *, int, int, int);
-int async_del(int, int , int) ;
+int async_del(int, int , int);
 int async_queue_init(int);
 
 int async_get_timeout(void);
@@ -1018,8 +1018,7 @@ void uwsgi_as_root(void);
 void nagios(void);
 #endif
 
-
-void uwsgi_close_request(struct wsgi_request *) ;
+void uwsgi_close_request(struct wsgi_request *);
 
 void wsgi_req_setup(struct wsgi_request *, int);
 int wsgi_req_recv(struct wsgi_request *);
@@ -1121,7 +1120,6 @@ int count_options(struct option*);
 #ifdef UWSGI_SENDFILE
 ssize_t uwsgi_do_sendfile(int , int , size_t , size_t , off_t *, int );
 #endif
-
 
 struct wsgi_request* simple_current_wsgi_req(void);
 struct wsgi_request* threaded_current_wsgi_req(void);

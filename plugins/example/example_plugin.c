@@ -9,7 +9,7 @@ int uwsgi_init(char *args){
 
 int uwsgi_request(struct wsgi_request *wsgi_req) {
 
-	char *http = "HTTP/1.1 200 Ok\r\nContent-type: text/html\r\n\r\n<h1>Hello World</h1>" ;
+	char *http = "HTTP/1.1 200 Ok\r\nContent-type: text/html\r\n\r\n<h1>Hello World</h1>";
 
 	wsgi_req->response_size += write(wsgi_req->poll.fd, http, strlen(http));
 

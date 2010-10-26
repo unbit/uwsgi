@@ -47,7 +47,7 @@
 
 #ifdef __BIG_ENDIAN__
 static uint16_t uwsgi_swap16(uint16_t x) {
-        return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
+	return (uint16_t) ((x & 0xff) << 8 | (x & 0xff00) >> 8);
 }
 #endif
 
@@ -64,7 +64,7 @@ typedef struct __attribute__((packed)) {
 	uint8_t		modifier1;
 	uint16_t	pktsize;
 	uint8_t		modifier2;
-} uwsgi_header ;
+} uwsgi_header;
 
 typedef struct {
 	array *extensions;
@@ -394,7 +394,7 @@ static int uwsgi_establish_connection(server *srv, handler_ctx *hctx) {
 static void uwsgi_add_var(buffer *b, char * key, uint16_t keylen, char *val, uint16_t vallen) {
 
 #ifdef __BIG_ENDIAN__
-	uint16_t uwlen ;
+	uint16_t uwlen;
 
 	uwlen = uwsgi_swap16(keylen);
 	buffer_append_memory(b, (char *) &uwlen, 2); buffer_append_memory(b, key, keylen);
@@ -405,19 +405,19 @@ static void uwsgi_add_var(buffer *b, char * key, uint16_t keylen, char *val, uin
 	buffer_append_memory(b, (char *) &vallen, 2); buffer_append_memory(b, val, vallen);
 #endif
 
-	
+
 }
 
 static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 	size_t i;
 
 	char buf[32];
-	uwsgi_header *uh ;
+	uwsgi_header *uh;
 	const char *s;
 #ifdef HAVE_IPV6
 	char b2[INET6_ADDRSTRLEN + 1];
 #endif
-	
+
 
 	connection *con   = hctx->remote_conn;
 	server_socket *srv_sock = con->srv_socket;
@@ -436,57 +436,57 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 
 	if (!buffer_is_empty(con->uri.query)) {
 		uwsgi_add_var(b, "QUERY_STRING", 12, con->uri.query->ptr, con->uri.query->used-1);
-        } else {
+	} else {
 		uwsgi_add_var(b, "QUERY_STRING", 12, "", 0);
-        }
+	}
 
 	s = get_http_version_name(con->request.http_version);
 	uwsgi_add_var(b, "SERVER_PROTOCOL", 15, (char *) s, strlen(s));
 
 
 	if (con->server_name->used) {
-                size_t len = con->server_name->used - 1;
-                char *colon = strchr(con->server_name->ptr, ':');
-                if (colon) len = colon - con->server_name->ptr;
+		size_t len = con->server_name->used - 1;
+		char *colon = strchr(con->server_name->ptr, ':');
+		if (colon) len = colon - con->server_name->ptr;
 		uwsgi_add_var(b, "SERVER_NAME", 11, con->server_name->ptr, len);
 
-        } else {
+	} else {
 #ifdef HAVE_IPV6
-                s = inet_ntop(srv_sock->addr.plain.sa_family,
-                              srv_sock->addr.plain.sa_family == AF_INET6 ?
-                              (const void *) &(srv_sock->addr.ipv6.sin6_addr) :
-                              (const void *) &(srv_sock->addr.ipv4.sin_addr),
-                              b2, sizeof(b2)-1);
+		s = inet_ntop(srv_sock->addr.plain.sa_family,
+				srv_sock->addr.plain.sa_family == AF_INET6 ?
+				(const void *) &(srv_sock->addr.ipv6.sin6_addr) :
+				(const void *) &(srv_sock->addr.ipv4.sin_addr),
+				b2, sizeof(b2)-1);
 #else
-                s = inet_ntoa(srv_sock->addr.ipv4.sin_addr);
+		s = inet_ntoa(srv_sock->addr.ipv4.sin_addr);
 #endif
 		uwsgi_add_var(b, "SERVER_NAME", 11, (char *)s, strlen(s));
-        }	
+	}
 
 	LI_ltostr(buf,
 #ifdef HAVE_IPV6
-               ntohs(srv_sock->addr.plain.sa_family ? srv_sock->addr.ipv6.sin6_port : srv_sock->addr.ipv4.sin_port)
+			ntohs(srv_sock->addr.plain.sa_family ? srv_sock->addr.ipv6.sin6_port : srv_sock->addr.ipv4.sin_port)
 #else
-               ntohs(srv_sock->addr.ipv4.sin_port)
+			ntohs(srv_sock->addr.ipv4.sin_port)
 #endif
-               );
+			);
 
 	uwsgi_add_var(b, "SERVER_PORT", 11, buf, strlen(buf));
 	uwsgi_add_var(b, "REQUEST_URI", 11, con->request.orig_uri->ptr, con->request.orig_uri->used-1);
 
 	LI_ltostr(buf,
 #ifdef HAVE_IPV6
-               ntohs(con->dst_addr.plain.sa_family ? con->dst_addr.ipv6.sin6_port : con->dst_addr.ipv4.sin_port)
+			ntohs(con->dst_addr.plain.sa_family ? con->dst_addr.ipv6.sin6_port : con->dst_addr.ipv4.sin_port)
 #else
-               ntohs(con->dst_addr.ipv4.sin_port)
+			ntohs(con->dst_addr.ipv4.sin_port)
 #endif
-               );	
+			);
 	uwsgi_add_var(b, "REMOTE_PORT", 11, buf, strlen(buf));
 
 	if (!buffer_is_empty(con->authed_user)) {
-                uwsgi_add_var(b, "REMOTE_USER", 11,
-                              CONST_BUF_LEN(con->authed_user));
-        }
+		uwsgi_add_var(b, "REMOTE_USER", 11,
+				CONST_BUF_LEN(con->authed_user));
+	}
 
 
 
@@ -503,11 +503,11 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 		}
 	}
 	else {
-		uwsgi_add_var(b, "SCRIPT_NAME", 11, "", 0) ;
-		uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr, strlen(con->uri.path->ptr)) ;
+		uwsgi_add_var(b, "SCRIPT_NAME", 11, "", 0);
+		uwsgi_add_var(b, "PATH_INFO", 9, con->uri.path->ptr, strlen(con->uri.path->ptr));
 	}
-	
-	
+
+
 	for (i = 0; i < con->request.headers->used; i++) {
 		data_string *ds;
 		ds = (data_string *)con->request.headers->data[i];
@@ -524,7 +524,7 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 			}
 			for (j = 0; j < ds->key->used - 1; j++) {
 				srv->tmp_buf->ptr[srv->tmp_buf->used++] = light_isalpha(ds->key->ptr[j]) ? ds->key->ptr[j] & ~32 : '_';
-			}	
+			}
 			srv->tmp_buf->ptr[srv->tmp_buf->used++] = '\0';
 			uwsgi_add_var(b, srv->tmp_buf->ptr, srv->tmp_buf->used-1, ds->value->ptr, ds->value->used-1);
 		}
@@ -546,19 +546,19 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 		}
 	}
 
-	
-	uh = (uwsgi_header *) b->ptr ;
-	uh->modifier1 = (uint8_t) 0 ;
+
+	uh = (uwsgi_header *) b->ptr;
+	uh->modifier1 = (uint8_t) 0;
 #ifdef __BIG_ENDIAN__
-	uh->pktsize = uwsgi_swap16((uint16_t) b->used - 4) ;
+	uh->pktsize = uwsgi_swap16((uint16_t) b->used - 4);
 #else
-	uh->pktsize = b->used - 4 ;
+	uh->pktsize = b->used - 4;
 #endif
-	uh->modifier2 = (uint8_t) 0 ;
+	uh->modifier2 = (uint8_t) 0;
 
 	b->used++; /* fix size */
 
-	hctx->wb->bytes_in += b->used -1   ;
+	hctx->wb->bytes_in += b->used -1;
 	/* body */
 
 	if (con->request.content_length) {
@@ -576,37 +576,37 @@ static int uwsgi_create_env(server *srv, handler_ctx *hctx) {
 			 * */
 
 			switch (req_c->type) {
-			case FILE_CHUNK:
-				weHave = req_c->file.length - req_c->offset;
+				case FILE_CHUNK:
+					weHave = req_c->file.length - req_c->offset;
 
-				if (weHave > weWant) weHave = weWant;
+					if (weHave > weWant) weHave = weWant;
 
-				chunkqueue_append_file(hctx->wb, req_c->file.name, req_c->offset, weHave);
+					chunkqueue_append_file(hctx->wb, req_c->file.name, req_c->offset, weHave);
 
-				req_c->offset += weHave;
-				req_cq->bytes_out += weHave;
+					req_c->offset += weHave;
+					req_cq->bytes_out += weHave;
 
-				hctx->wb->bytes_in += weHave;
+					hctx->wb->bytes_in += weHave;
 
-				break;
-			case MEM_CHUNK:
-				/* append to the buffer */
-				weHave = req_c->mem->used - 1 - req_c->offset;
+					break;
+				case MEM_CHUNK:
+					/* append to the buffer */
+					weHave = req_c->mem->used - 1 - req_c->offset;
 
-				if (weHave > weWant) weHave = weWant;
+					if (weHave > weWant) weHave = weWant;
 
-				b = chunkqueue_get_append_buffer(hctx->wb);
-				buffer_append_memory(b, req_c->mem->ptr + req_c->offset, weHave);
-				b->used++; /* add virtual \0 */
+					b = chunkqueue_get_append_buffer(hctx->wb);
+					buffer_append_memory(b, req_c->mem->ptr + req_c->offset, weHave);
+					b->used++; /* add virtual \0 */
 
-				req_c->offset += weHave;
-				req_cq->bytes_out += weHave;
+					req_c->offset += weHave;
+					req_cq->bytes_out += weHave;
 
-				hctx->wb->bytes_in += weHave;
+					hctx->wb->bytes_in += weHave;
 
-				break;
-			default:
-				break;
+					break;
+				default:
+					break;
 			}
 
 			offset += weHave;
@@ -677,29 +677,29 @@ static int uwsgi_response_parse(server *srv, connection *con, plugin_data *p, bu
 		copy_header = 1;
 
 		switch(key_len) {
-		case 4:
-			if (0 == strncasecmp(key, "Date", key_len)) {
-				con->parsed_response |= HTTP_DATE;
-			}
-			break;
-		case 8:
-			if (0 == strncasecmp(key, "Location", key_len)) {
-				con->parsed_response |= HTTP_LOCATION;
-			}
-			break;
-		case 10:
-			if (0 == strncasecmp(key, "Connection", key_len)) {
-				copy_header = 0;
-			}
-			break;
-		case 14:
-			if (0 == strncasecmp(key, "Content-Length", key_len)) {
-				con->response.content_length = strtol(value, NULL, 10);
-				con->parsed_response |= HTTP_CONTENT_LENGTH;
-			}
-			break;
-		default:
-			break;
+			case 4:
+				if (0 == strncasecmp(key, "Date", key_len)) {
+					con->parsed_response |= HTTP_DATE;
+				}
+				break;
+			case 8:
+				if (0 == strncasecmp(key, "Location", key_len)) {
+					con->parsed_response |= HTTP_LOCATION;
+				}
+				break;
+			case 10:
+				if (0 == strncasecmp(key, "Connection", key_len)) {
+					copy_header = 0;
+				}
+				break;
+			case 14:
+				if (0 == strncasecmp(key, "Content-Length", key_len)) {
+					con->response.content_length = strtol(value, NULL, 10);
+					con->parsed_response |= HTTP_CONTENT_LENGTH;
+				}
+				break;
+			default:
+				break;
 		}
 
 		if (copy_header) {
@@ -737,7 +737,7 @@ static int uwsgi_demux_response(server *srv, handler_ctx *hctx) {
 
 	if (p->conf.debug) {
 		log_error_write(srv, __FILE__, __LINE__, "sd",
-			       "uwsgi - have to read:", b);
+				"uwsgi - have to read:", b);
 	}
 
 	if (b > 0) {
@@ -791,7 +791,7 @@ static int uwsgi_demux_response(server *srv, handler_ctx *hctx) {
 
 				/* enable chunked-transfer-encoding */
 				if (con->request.http_version == HTTP_VERSION_1_1 &&
-				    !(con->parsed_response & HTTP_CONTENT_LENGTH)) {
+						!(con->parsed_response & HTTP_CONTENT_LENGTH)) {
 					con->response.transfer_encoding = HTTP_TRANSFER_ENCODING_CHUNKED;
 				}
 
@@ -830,127 +830,127 @@ static handler_t uwsgi_write_request(server *srv, handler_ctx *hctx) {
 	int ret;
 
 	if (!host ||
-	    (!host->host->used || !host->port)) return -1;
+			(!host->host->used || !host->port)) return -1;
 
 	switch(hctx->state) {
-	case UWSGI_STATE_INIT:
+		case UWSGI_STATE_INIT:
 #if defined(HAVE_IPV6) && defined(HAVE_INET_PTON)
-		if (strstr(host->host->ptr,":")) {
-		    if (-1 == (hctx->fd = socket(AF_INET6, SOCK_STREAM, 0))) {
-			log_error_write(srv, __FILE__, __LINE__, "ss", "socket failed: ", strerror(errno));
-			return HANDLER_ERROR;
-		    }
-		} else
+			if (strstr(host->host->ptr,":")) {
+				if (-1 == (hctx->fd = socket(AF_INET6, SOCK_STREAM, 0))) {
+					log_error_write(srv, __FILE__, __LINE__, "ss", "socket failed: ", strerror(errno));
+					return HANDLER_ERROR;
+				}
+			} else
 #endif
-		{
-		    if (-1 == (hctx->fd = socket(AF_INET, SOCK_STREAM, 0))) {
-			log_error_write(srv, __FILE__, __LINE__, "ss", "socket failed: ", strerror(errno));
-			return HANDLER_ERROR;
-		    }
-		}
-		hctx->fde_ndx = -1;
+			{
+				if (-1 == (hctx->fd = socket(AF_INET, SOCK_STREAM, 0))) {
+					log_error_write(srv, __FILE__, __LINE__, "ss", "socket failed: ", strerror(errno));
+					return HANDLER_ERROR;
+				}
+			}
+			hctx->fde_ndx = -1;
 
-		srv->cur_fds++;
+			srv->cur_fds++;
 
-		fdevent_register(srv->ev, hctx->fd, uwsgi_handle_fdevent, hctx);
+			fdevent_register(srv->ev, hctx->fd, uwsgi_handle_fdevent, hctx);
 
-		if (-1 == fdevent_fcntl_set(srv->ev, hctx->fd)) {
-			log_error_write(srv, __FILE__, __LINE__, "ss", "fcntl failed: ", strerror(errno));
-
-			return HANDLER_ERROR;
-		}
-
-		/* fall through */
-
-	case UWSGI_STATE_CONNECT:
-		/* try to finish the connect() */
-		if (hctx->state == UWSGI_STATE_INIT) {
-			/* first round */
-			switch (uwsgi_establish_connection(srv, hctx)) {
-			case 1:
-				uwsgi_set_state(srv, hctx, UWSGI_STATE_CONNECT);
-
-				/* connection is in progress, wait for an event and call getsockopt() below */
-
-				fdevent_event_add(srv->ev, &(hctx->fde_ndx), hctx->fd, FDEVENT_OUT);
-
-				return HANDLER_WAIT_FOR_EVENT;
-			case -1:
-				/* if ECONNREFUSED choose another connection -> FIXME */
-				hctx->fde_ndx = -1;
+			if (-1 == fdevent_fcntl_set(srv->ev, hctx->fd)) {
+				log_error_write(srv, __FILE__, __LINE__, "ss", "fcntl failed: ", strerror(errno));
 
 				return HANDLER_ERROR;
-			default:
-				/* everything is ok, go on */
-				break;
 			}
-		} else {
-			int socket_error;
-			socklen_t socket_error_len = sizeof(socket_error);
 
-			/* we don't need it anymore */
-			fdevent_event_del(srv->ev, &(hctx->fde_ndx), hctx->fd);
+			/* fall through */
 
+		case UWSGI_STATE_CONNECT:
 			/* try to finish the connect() */
-			if (0 != getsockopt(hctx->fd, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len)) {
-				log_error_write(srv, __FILE__, __LINE__, "ss",
-						"getsockopt failed:", strerror(errno));
+			if (hctx->state == UWSGI_STATE_INIT) {
+				/* first round */
+				switch (uwsgi_establish_connection(srv, hctx)) {
+					case 1:
+						uwsgi_set_state(srv, hctx, UWSGI_STATE_CONNECT);
 
-				return HANDLER_ERROR;
+						/* connection is in progress, wait for an event and call getsockopt() below */
+
+						fdevent_event_add(srv->ev, &(hctx->fde_ndx), hctx->fd, FDEVENT_OUT);
+
+						return HANDLER_WAIT_FOR_EVENT;
+					case -1:
+						/* if ECONNREFUSED choose another connection -> FIXME */
+						hctx->fde_ndx = -1;
+
+						return HANDLER_ERROR;
+					default:
+						/* everything is ok, go on */
+						break;
+				}
+			} else {
+				int socket_error;
+				socklen_t socket_error_len = sizeof(socket_error);
+
+				/* we don't need it anymore */
+				fdevent_event_del(srv->ev, &(hctx->fde_ndx), hctx->fd);
+
+				/* try to finish the connect() */
+				if (0 != getsockopt(hctx->fd, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_len)) {
+					log_error_write(srv, __FILE__, __LINE__, "ss",
+							"getsockopt failed:", strerror(errno));
+
+					return HANDLER_ERROR;
+				}
+				if (socket_error != 0) {
+					log_error_write(srv, __FILE__, __LINE__, "ss",
+							"establishing connection failed:", strerror(socket_error),
+							"port:", hctx->host->port);
+
+					return HANDLER_ERROR;
+				}
+				if (p->conf.debug) {
+					log_error_write(srv, __FILE__, __LINE__,  "s", "uwsgi - connect - delayed success");
+				}
 			}
-			if (socket_error != 0) {
-				log_error_write(srv, __FILE__, __LINE__, "ss",
-						"establishing connection failed:", strerror(socket_error),
-						"port:", hctx->host->port);
 
-				return HANDLER_ERROR;
-			}
-			if (p->conf.debug) {
-				log_error_write(srv, __FILE__, __LINE__,  "s", "uwsgi - connect - delayed success");
-			}
-		}
+			uwsgi_set_state(srv, hctx, UWSGI_STATE_PREPARE_WRITE);
+			/* fall through */
+		case UWSGI_STATE_PREPARE_WRITE:
+			uwsgi_create_env(srv, hctx);
 
-		uwsgi_set_state(srv, hctx, UWSGI_STATE_PREPARE_WRITE);
-		/* fall through */
-	case UWSGI_STATE_PREPARE_WRITE:
-		uwsgi_create_env(srv, hctx);
+			uwsgi_set_state(srv, hctx, UWSGI_STATE_WRITE);
 
-		uwsgi_set_state(srv, hctx, UWSGI_STATE_WRITE);
+			/* fall through */
+		case UWSGI_STATE_WRITE:;
+							   ret = srv->network_backend_write(srv, con, hctx->fd, hctx->wb);
 
-		/* fall through */
-	case UWSGI_STATE_WRITE:;
-		ret = srv->network_backend_write(srv, con, hctx->fd, hctx->wb);
+							   chunkqueue_remove_finished_chunks(hctx->wb);
 
-		chunkqueue_remove_finished_chunks(hctx->wb);
+							   if (-1 == ret) { /* error on our side */
+								   log_error_write(srv, __FILE__, __LINE__, "ssd", "write failed:", strerror(errno), errno);
 
-		if (-1 == ret) { /* error on our side */
-			log_error_write(srv, __FILE__, __LINE__, "ssd", "write failed:", strerror(errno), errno);
+								   return HANDLER_WAIT_FOR_EVENT;
+							   } else if (-2 == ret) { /* remote close */
+								   log_error_write(srv, __FILE__, __LINE__, "ssd", "write failed, remote connection close:", strerror(errno), errno);
 
-			return HANDLER_WAIT_FOR_EVENT;
-		} else if (-2 == ret) { /* remote close */
-			log_error_write(srv, __FILE__, __LINE__, "ssd", "write failed, remote connection close:", strerror(errno), errno);
+								   return HANDLER_WAIT_FOR_EVENT;
+							   }
 
-			return HANDLER_WAIT_FOR_EVENT;
-		}
+							   if (hctx->wb->bytes_out == hctx->wb->bytes_in) {
+								   uwsgi_set_state(srv, hctx, UWSGI_STATE_READ);
 
-		if (hctx->wb->bytes_out == hctx->wb->bytes_in) {
-			uwsgi_set_state(srv, hctx, UWSGI_STATE_READ);
+								   fdevent_event_del(srv->ev, &(hctx->fde_ndx), hctx->fd);
+								   fdevent_event_add(srv->ev, &(hctx->fde_ndx), hctx->fd, FDEVENT_IN);
+							   } else {
+								   fdevent_event_add(srv->ev, &(hctx->fde_ndx), hctx->fd, FDEVENT_OUT);
 
-			fdevent_event_del(srv->ev, &(hctx->fde_ndx), hctx->fd);
-			fdevent_event_add(srv->ev, &(hctx->fde_ndx), hctx->fd, FDEVENT_IN);
-		} else {
-			fdevent_event_add(srv->ev, &(hctx->fde_ndx), hctx->fd, FDEVENT_OUT);
+								   return HANDLER_WAIT_FOR_EVENT;
+							   }
 
-			return HANDLER_WAIT_FOR_EVENT;
-		}
-
-		return HANDLER_WAIT_FOR_EVENT;
-	case UWSGI_STATE_READ:
-		/* waiting for a response */
-		return HANDLER_WAIT_FOR_EVENT;
-	default:
-		log_error_write(srv, __FILE__, __LINE__, "s", "(debug) unknown state");
-		return HANDLER_ERROR;
+							   return HANDLER_WAIT_FOR_EVENT;
+		case UWSGI_STATE_READ:
+							   /* waiting for a response */
+							   return HANDLER_WAIT_FOR_EVENT;
+		default:
+							   log_error_write(srv, __FILE__, __LINE__, "s", "(debug) unknown state");
+							   return HANDLER_ERROR;
 	}
 
 	return HANDLER_GO_ON;
@@ -1006,36 +1006,36 @@ SUBREQUEST_FUNC(mod_uwsgi_handle_subrequest) {
 
 	/* ok, create the request */
 	switch(uwsgi_write_request(srv, hctx)) {
-	case HANDLER_ERROR:
-		log_error_write(srv, __FILE__, __LINE__,  "sbdd", "uwsgi-server disabled:",
-				host->host,
-				host->port,
-				hctx->fd);
+		case HANDLER_ERROR:
+			log_error_write(srv, __FILE__, __LINE__,  "sbdd", "uwsgi-server disabled:",
+					host->host,
+					host->port,
+					hctx->fd);
 
-		/* disable this server */
-		host->is_disabled = 1;
-		host->disable_ts = srv->cur_ts;
+			/* disable this server */
+			host->is_disabled = 1;
+			host->disable_ts = srv->cur_ts;
 
-		uwsgi_connection_close(srv, hctx);
+			uwsgi_connection_close(srv, hctx);
 
-		/* reset the enviroment and restart the sub-request */
-		buffer_reset(con->physical.path);
-		con->mode = DIRECT;
+			/* reset the enviroment and restart the sub-request */
+			buffer_reset(con->physical.path);
+			con->mode = DIRECT;
 
-		joblist_append(srv, con);
+			joblist_append(srv, con);
 
-		/* mis-using HANDLER_WAIT_FOR_FD to break out of the loop
-		 * and hope that the childs will be restarted
-		 *
-		 */
+			/* mis-using HANDLER_WAIT_FOR_FD to break out of the loop
+			 * and hope that the childs will be restarted
+			 *
+			 */
 
-		return HANDLER_WAIT_FOR_FD;
-	case HANDLER_WAIT_FOR_EVENT:
-		return HANDLER_WAIT_FOR_EVENT;
-	case HANDLER_WAIT_FOR_FD:
-		return HANDLER_WAIT_FOR_FD;
-	default:
-		break;
+			return HANDLER_WAIT_FOR_FD;
+		case HANDLER_WAIT_FOR_EVENT:
+			return HANDLER_WAIT_FOR_EVENT;
+		case HANDLER_WAIT_FOR_FD:
+			return HANDLER_WAIT_FOR_FD;
+		default:
+			break;
 	}
 
 	if (con->file_started == 1) {
@@ -1053,7 +1053,7 @@ static handler_t uwsgi_handle_fdevent(void *s, void *ctx, int revents) {
 
 
 	if ((revents & FDEVENT_IN) &&
-	    hctx->state == UWSGI_STATE_READ) {
+			hctx->state == UWSGI_STATE_READ) {
 
 		if (p->conf.debug) {
 			log_error_write(srv, __FILE__, __LINE__, "sd",
@@ -1061,29 +1061,29 @@ static handler_t uwsgi_handle_fdevent(void *s, void *ctx, int revents) {
 		}
 
 		switch (uwsgi_demux_response(srv, hctx)) {
-		case 0:
-			break;
-		case 1:
-			hctx->host->usage--;
+			case 0:
+				break;
+			case 1:
+				hctx->host->usage--;
 
-			/* we are done */
-			uwsgi_connection_close(srv, hctx);
+				/* we are done */
+				uwsgi_connection_close(srv, hctx);
 
-			joblist_append(srv, con);
-			return HANDLER_FINISHED;
-		case -1:
-			if (con->file_started == 0) {
-				/* nothing has been send out yet, send a 500 */
-				connection_set_state(srv, con, CON_STATE_HANDLE_REQUEST);
-				con->http_status = 500;
-				con->mode = DIRECT;
-			} else {
-				/* response might have been already started, kill the connection */
-				connection_set_state(srv, con, CON_STATE_ERROR);
-			}
+				joblist_append(srv, con);
+				return HANDLER_FINISHED;
+			case -1:
+				if (con->file_started == 0) {
+					/* nothing has been send out yet, send a 500 */
+					connection_set_state(srv, con, CON_STATE_HANDLE_REQUEST);
+					con->http_status = 500;
+					con->mode = DIRECT;
+				} else {
+					/* response might have been already started, kill the connection */
+					connection_set_state(srv, con, CON_STATE_ERROR);
+				}
 
-			joblist_append(srv, con);
-			return HANDLER_FINISHED;
+				joblist_append(srv, con);
+				return HANDLER_FINISHED;
 		}
 	}
 
@@ -1094,7 +1094,7 @@ static handler_t uwsgi_handle_fdevent(void *s, void *ctx, int revents) {
 		}
 
 		if (hctx->state == UWSGI_STATE_CONNECT ||
-		    hctx->state == UWSGI_STATE_WRITE) {
+				hctx->state == UWSGI_STATE_WRITE) {
 			/* we are allowed to send something out
 			 *
 			 * 1. in a unfinished connect() call
@@ -1195,7 +1195,7 @@ static handler_t mod_uwsgi_check_extension(server *srv, connection *con, void *p
 		/* check extension in the form "/uwsgi_pattern" */
 		if (*(ext->key->ptr) == '/') {
 			if (strncmp(fn->ptr, ext->key->ptr, ct_len) == 0) {
-				path_info_offset = ct_len ;
+				path_info_offset = ct_len;
 				extension = ext;
 				break;
 			}
@@ -1320,7 +1320,7 @@ TRIGGER_FUNC(mod_uwsgi_trigger) {
 					data_uwsgi *host = (data_uwsgi *)extension->value->data[n];
 
 					if (!host->is_disabled ||
-					    srv->cur_ts - host->disable_ts < 5) continue;
+							srv->cur_ts - host->disable_ts < 5) continue;
 
 					log_error_write(srv, __FILE__, __LINE__,  "sbd",
 							"uwsgi - re-enabled:",

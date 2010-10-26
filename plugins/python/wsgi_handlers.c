@@ -4,85 +4,85 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
 PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
-        PyObject *data;
-        char *content;
-        int len;
+	PyObject *data;
+	char *content;
+	int len;
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-        data = PyTuple_GetItem(args, 0);
-        if (PyString_Check(data)) {
-                content = PyString_AsString(data);
-                len = PyString_Size(data);
+	data = PyTuple_GetItem(args, 0);
+	if (PyString_Check(data)) {
+		content = PyString_AsString(data);
+		len = PyString_Size(data);
 		UWSGI_RELEASE_GIL
-                wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
+			wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
 		UWSGI_GET_GIL
-        }
+	}
 
-        Py_INCREF(Py_None);
-        return Py_None;
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 #ifdef UWSGI_ASYNC
 
 PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
-        int fd, timeout;
+	int fd, timeout;
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-        if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
-                return NULL;
-        }
+	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
+		return NULL;
+	}
 
-        if (fd >= 0) {
-                wsgi_req->async_waiting_fd = fd ;
-                wsgi_req->async_waiting_fd_type = ASYNC_IN ;
-                wsgi_req->async_waiting_fd_monitored = 0 ;
-        }
+	if (fd >= 0) {
+		wsgi_req->async_waiting_fd = fd;
+		wsgi_req->async_waiting_fd_type = ASYNC_IN;
+		wsgi_req->async_waiting_fd_monitored = 0;
+	}
 
-        return PyString_FromString("") ;
+	return PyString_FromString("");
 }
 
 
 PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
-        int fd, timeout;
+	int fd, timeout;
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-        if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
-                return NULL;
-        }
+	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
+		return NULL;
+	}
 
-        if (fd >= 0) {
-                wsgi_req->async_waiting_fd = fd ;
-                wsgi_req->async_waiting_fd_type = ASYNC_OUT ;
-                wsgi_req->async_waiting_fd_monitored = 0 ;
-        }
+	if (fd >= 0) {
+		wsgi_req->async_waiting_fd = fd;
+		wsgi_req->async_waiting_fd_type = ASYNC_OUT;
+		wsgi_req->async_waiting_fd_monitored = 0;
+	}
 
-        return PyString_FromString("") ;
+	return PyString_FromString("");
 }
 #endif
 
 int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	int i;
-	
+
 	PyObject *pydictkey, *pydictvalue;
 
 	char *path_info;
-	struct uwsgi_app *wi ;
+	struct uwsgi_app *wi;
 
 	int tmp_stderr;
 	char *what;
 	int what_len;
-	
+
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		// get rid of timeout
 		if (wsgi_req->async_timeout_expired) {
 			PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_True);
-			wsgi_req->async_timeout_expired = 0 ;
+			wsgi_req->async_timeout_expired = 0;
 		}
 		else {
 			PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
@@ -99,15 +99,15 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	if (uwsgi_parse_vars(wsgi_req)) {
-                uwsgi_log("Invalid WSGI request. skip.\n");
-                return -1;
-        }
+		uwsgi_log("Invalid WSGI request. skip.\n");
+		return -1;
+	}
 
 
 	if (uwsgi.limit_post) {
 		if (wsgi_req->post_cl > uwsgi.limit_post) {
-                	uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
-                	return -1;
+			uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
+			return -1;
 		}
 	}
 
@@ -119,39 +119,39 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 		if (uwsgi.vhost) {
 			what = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
-			what_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len ;
+			what_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
 #ifdef UWSGI_DEBUG
-			uwsgi_debug("VirtualHost SCRIPT_NAME=%s\n", what); 
+			uwsgi_debug("VirtualHost SCRIPT_NAME=%s\n", what);
 #endif
 		}
 		else {
 			what = wsgi_req->script_name;
-			what_len = wsgi_req->script_name_len ;
+			what_len = wsgi_req->script_name_len;
 		}
 
 
 		if ( (wsgi_req->app_id = uwsgi_get_app_id(what, what_len))  == -1) {
-        		if (wsgi_req->script_name_len > 1 || uwsgi.default_app < 0 || uwsgi.vhost) {
-        			/* unavailable app for this SCRIPT_NAME */
-                		wsgi_req->app_id = -1;
+			if (wsgi_req->script_name_len > 1 || uwsgi.default_app < 0 || uwsgi.vhost) {
+				/* unavailable app for this SCRIPT_NAME */
+				wsgi_req->app_id = -1;
 				if (wsgi_req->script_len > 0
 						|| wsgi_req->module_len > 0
 						|| wsgi_req->file_len > 0
 #ifdef UWSGI_PASTE
 						|| wsgi_req->paste_len > 0
 #endif
-				) {
+				   ) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
 					// this part must be heavy locked in threaded modes
 					if (uwsgi.threads > 1) {
 						pthread_mutex_lock(&up.lock_pyloaders);
 					}
 					UWSGI_GET_GIL
-					wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
+						wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
 					UWSGI_RELEASE_GIL
-					if (uwsgi.threads > 1) {
-						pthread_mutex_unlock(&up.lock_pyloaders);
-					}
+						if (uwsgi.threads > 1) {
+							pthread_mutex_unlock(&up.lock_pyloaders);
+						}
 				}
 			}
 		}
@@ -169,7 +169,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->app_id == -1) {
 		// use default app ?
 		if (!uwsgi.no_default_app && uwsgi.default_app >= 0) {
-			wsgi_req->app_id = uwsgi.default_app ;
+			wsgi_req->app_id = uwsgi.default_app;
 		}
 		else {
 			internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
@@ -188,21 +188,21 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 		// set the interpreter
 		UWSGI_GET_GIL
-		if (uwsgi.threads > 1) {
-			PyThreadState_Swap(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id]->ts[wsgi_req->app_id]);
-		}
-		else {
-			PyThreadState_Swap(wi->interpreter);
-		}
-		UWSGI_RELEASE_GIL
-		if (wi->chdir) {
-#ifdef UWSGI_DEBUG
-			uwsgi_debug("chdir to %s\n", wi->chdir);
-#endif
-			if (chdir(wi->chdir)) {
-				uwsgi_error("chdir()");
+			if (uwsgi.threads > 1) {
+				PyThreadState_Swap(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id]->ts[wsgi_req->app_id]);
 			}
-		}
+			else {
+				PyThreadState_Swap(wi->interpreter);
+			}
+		UWSGI_RELEASE_GIL
+			if (wi->chdir) {
+#ifdef UWSGI_DEBUG
+				uwsgi_debug("chdir to %s\n", wi->chdir);
+#endif
+				if (chdir(wi->chdir)) {
+					uwsgi_error("chdir()");
+				}
+			}
 	}
 
 
@@ -232,8 +232,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	UWSGI_GET_GIL
 
-	// no fear of race conditions for this counter as it is already protected by the GIL
-	wi->requests++;
+		// no fear of race conditions for this counter as it is already protected by the GIL
+		wi->requests++;
 
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
 
@@ -274,11 +274,11 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 		UWSGI_RELEASE_GIL
-		if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
-			goto clear;
-		}
+			if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
+				goto clear;
+			}
 		UWSGI_GET_GIL
-	} 
+	}
 	else {
 		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 	}
@@ -291,14 +291,14 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 		UWSGI_RELEASE_GIL
-		while ( (*wi->response_subhandler)(wsgi_req) != UWSGI_OK) {
-			wsgi_req->switches++;
+			while ( (*wi->response_subhandler)(wsgi_req) != UWSGI_OK) {
+				wsgi_req->switches++;
 #ifdef UWSGI_ASYNC
-			if (uwsgi.async > 1) {
-				return UWSGI_AGAIN;
-			}
+				if (uwsgi.async > 1) {
+					return UWSGI_AGAIN;
+				}
 #endif
-		}
+			}
 
 
 	}
@@ -310,12 +310,12 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		wsgi_req->response_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
 		wsgi_req->response_size += write(wsgi_req->poll.fd, " 500 Internal Server Error\r\n", 28 );
 		wsgi_req->response_size += write(wsgi_req->poll.fd, "Content-type: text/plain\r\n\r\n", 28 );
-		wsgi_req->header_cnt = 1 ;
-		
-		/* 
-			sorry that is a hack to avoid the rewrite of PyErr_Print
-			temporarily map (using dup2) stderr to wsgi_req->poll.fd
-		*/
+		wsgi_req->header_cnt = 1;
+
+		/*
+		   sorry that is a hack to avoid the rewrite of PyErr_Print
+		   temporarily map (using dup2) stderr to wsgi_req->poll.fd
+		   */
 		tmp_stderr = dup(2);
 		if (tmp_stderr < 0) {
 			uwsgi_error("dup()");
@@ -333,7 +333,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		if (dup2(tmp_stderr, 2) < 0) {
 			uwsgi_error("dup2()");
 		}
-		close(tmp_stderr);	
+		close(tmp_stderr);
 	}
 
 
@@ -341,27 +341,27 @@ clear:
 
 	UWSGI_GET_GIL
 
-	if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
-		// restoring main interpreter
-		if (uwsgi.threads > 1) {
-			PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key));
+		if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
+			// restoring main interpreter
+			if (uwsgi.threads > 1) {
+				PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key));
+			}
+			else {
+				PyThreadState_Swap(up.main_thread);
+			}
 		}
-		else {
-			PyThreadState_Swap(up.main_thread);
-		}
-	}
 
 	UWSGI_RELEASE_GIL
 
-clear2:
+		clear2:
 
 
-	return UWSGI_OK;
+		return UWSGI_OK;
 
 }
 
 void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
-	
+
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING]) {
 		log_request(wsgi_req);
@@ -391,26 +391,26 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 
-        struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-        if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
-                return NULL;
-        }
+	if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
+		return NULL;
+	}
 
 #ifdef PYTHREE
-        wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
+	wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
 #else
-        if (PyFile_Check((PyObject *)wsgi_req->async_sendfile)) {
-                Py_INCREF((PyObject *)wsgi_req->async_sendfile);
-                wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
-        }
+	if (PyFile_Check((PyObject *)wsgi_req->async_sendfile)) {
+		Py_INCREF((PyObject *)wsgi_req->async_sendfile);
+		wsgi_req->sendfile_fd = PyObject_AsFileDescriptor(wsgi_req->async_sendfile);
+	}
 #endif
 
-        // PEP 333 hack
-        wsgi_req->sendfile_obj = wsgi_req->async_sendfile;
-        //wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
+	// PEP 333 hack
+	wsgi_req->sendfile_obj = wsgi_req->async_sendfile;
+	//wsgi_req->sendfile_obj = (void *) PyTuple_New(0);
 
-        Py_INCREF((PyObject *) wsgi_req->sendfile_obj);
-        return (PyObject *) wsgi_req->sendfile_obj;
+	Py_INCREF((PyObject *) wsgi_req->sendfile_obj);
+	return (PyObject *) wsgi_req->sendfile_obj;
 }
 #endif

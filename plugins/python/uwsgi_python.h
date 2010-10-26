@@ -50,24 +50,24 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 struct uwsgi_python {
 
-        char *home;
-        int optimize;
+	char *home;
+	int optimize;
 
 	char *argv;
 	int argc;
 
 #ifdef PYTHREE
-        wchar_t *py_argv[MAX_PYARGV];
+	wchar_t *py_argv[MAX_PYARGV];
 #else
-        char *py_argv[MAX_PYARGV];
+	char *py_argv[MAX_PYARGV];
 #endif
 
-        PyObject *wsgi_spitout;
-        PyObject *wsgi_writeout;
+	PyObject *wsgi_spitout;
+	PyObject *wsgi_writeout;
 
-        PyThreadState *main_thread;
+	PyThreadState *main_thread;
 
-        char *test_module;
+	char *test_module;
 
 	char *python_path[MAX_PYTHONPATH];
 	int python_path_cnt;
@@ -90,8 +90,8 @@ struct uwsgi_python {
 #ifdef UWSGI_THREADING
 	pthread_key_t upt_save_key;
 	pthread_mutex_t lock_pyloaders;
-        void (*gil_get) (void);
-        void (*gil_release) (void);
+	void (*gil_get) (void);
+	void (*gil_release) (void);
 #endif
 
 	PyObject *workers_tuple;
@@ -116,12 +116,12 @@ void uwsgi_eval_config(char *);
 int init_uwsgi_app(int, void *, struct wsgi_request *wsgi_req, int);
 
 
-PyObject *py_eventfd_read(PyObject *, PyObject *) ;
-PyObject *py_eventfd_write(PyObject *, PyObject *) ;
+PyObject *py_eventfd_read(PyObject *, PyObject *);
+PyObject *py_eventfd_write(PyObject *, PyObject *);
 
 
 #ifdef UWSGI_STACKLESS
-PyObject *py_uwsgi_stackless(PyObject *, PyObject *) ;
+PyObject *py_uwsgi_stackless(PyObject *, PyObject *);
 #endif
 
 int manage_python_response(struct wsgi_request *);
@@ -129,13 +129,13 @@ int uwsgi_python_call(struct wsgi_request *, PyObject *, PyObject *);
 PyObject *python_call(PyObject *, PyObject *, int);
 
 #ifdef UWSGI_SENDFILE
-PyObject *py_uwsgi_sendfile(PyObject *, PyObject *) ;
+PyObject *py_uwsgi_sendfile(PyObject *, PyObject *);
 ssize_t uwsgi_sendfile(struct wsgi_request *);
 ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t*, int);
 #endif
 
-PyObject *py_uwsgi_write(PyObject *, PyObject *) ;
-PyObject *py_uwsgi_spit(PyObject *, PyObject *) ;
+PyObject *py_uwsgi_write(PyObject *, PyObject *);
+PyObject *py_uwsgi_spit(PyObject *, PyObject *);
 
 #ifdef UWSGI_STACKLESS
 struct stackless_req {

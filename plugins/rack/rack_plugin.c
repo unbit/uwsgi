@@ -11,7 +11,7 @@ extern struct uwsgi_server uwsgi;
 #define LONG_ARGS_RACK		LONG_ARGS_RACK_BASE + 3
 
 struct uwsgi_rack {
-	
+
 	char *rails;
 	char *rack;
 	int gc_freq;
@@ -38,48 +38,48 @@ struct option uwsgi_rack_options[] = {
 /* statistically ordered */
 static struct http_status_codes hsc[] = {
 
-        {"200", "OK"},
-        {"302", "Found"},
-        {"404", "Not Found"},
-        {"500", "Internal Server Error"},
-        {"301", "Moved Permanently"},
-        {"304", "Not Modified"},
-        {"303", "See Other"},
-        {"403", "Forbidden"},
-        {"307", "Temporary Redirect"},
-        {"401", "Unauthorized"},
-        {"400", "Bad Request"},
-        {"405", "Method Not Allowed"},
-        {"408", "Request Timeout"},
+	{"200", "OK"},
+	{"302", "Found"},
+	{"404", "Not Found"},
+	{"500", "Internal Server Error"},
+	{"301", "Moved Permanently"},
+	{"304", "Not Modified"},
+	{"303", "See Other"},
+	{"403", "Forbidden"},
+	{"307", "Temporary Redirect"},
+	{"401", "Unauthorized"},
+	{"400", "Bad Request"},
+	{"405", "Method Not Allowed"},
+	{"408", "Request Timeout"},
 
-        {"100", "Continue"},
-        {"101", "Switching Protocols"},
-        {"201", "Created"},
-        {"202", "Accepted"},
-        {"203", "Non-Authoritative Information"},
-        {"204", "No Content"},
-        {"205", "Reset Content"},
-        {"206", "Partial Content"},
-        {"300", "Multiple Choices"},
-        {"305", "Use Proxy"},
-        {"402", "Payment Required"},
-        {"406", "Not Acceptable"},
-        {"407", "Proxy Authentication Required"},
-        {"409", "Conflict"},
-        {"410", "Gone"},
-        {"411", "Length Required"},
-        {"412", "Precondition Failed"},
-        {"413", "Request Entity Too Large"},
-        {"414", "Request-URI Too Long"},
-        {"415", "Unsupported Media Type"},
-        {"416", "Requested Range Not Satisfiable"},
-        {"417", "Expectation Failed"},
-        {"501", "Not Implemented"},
-        {"502", "Bad Gateway"},
-        {"503", "Service Unavailable"},
-        {"504", "Gateway Timeout"},
-        {"505", "HTTP Version Not Supported"},
-	{ "", NULL }, 
+	{"100", "Continue"},
+	{"101", "Switching Protocols"},
+	{"201", "Created"},
+	{"202", "Accepted"},
+	{"203", "Non-Authoritative Information"},
+	{"204", "No Content"},
+	{"205", "Reset Content"},
+	{"206", "Partial Content"},
+	{"300", "Multiple Choices"},
+	{"305", "Use Proxy"},
+	{"402", "Payment Required"},
+	{"406", "Not Acceptable"},
+	{"407", "Proxy Authentication Required"},
+	{"409", "Conflict"},
+	{"410", "Gone"},
+	{"411", "Length Required"},
+	{"412", "Precondition Failed"},
+	{"413", "Request Entity Too Large"},
+	{"414", "Request-URI Too Long"},
+	{"415", "Unsupported Media Type"},
+	{"416", "Requested Range Not Satisfiable"},
+	{"417", "Expectation Failed"},
+	{"501", "Not Implemented"},
+	{"502", "Bad Gateway"},
+	{"503", "Service Unavailable"},
+	{"504", "Gateway Timeout"},
+	{"505", "HTTP Version Not Supported"},
+	{ "", NULL },
 };
 
 
@@ -96,46 +96,46 @@ VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
 
 	/* now the fun part:
 
-        We will try to emulate a StringIO ruby object if http body is littler than uwsgi.post_buffering_bufsize
-        otherwise we will map a *FILE object
+	   We will try to emulate a StringIO ruby object if http body is littler than uwsgi.post_buffering_bufsize
+	   otherwise we will map a *FILE object
 
-        */
+*/
 
 	if (!wsgi_req->post_cl) {
-                return self;
+		return self;
 	}
 
-        if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
-                uwsgi_log("using file for http body storage %d\n", wsgi_req->post_cl);
-                uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize);
-        }
-        else {
-                uwsgi_log("using memory for http body storage %d\n", wsgi_req->post_cl);
-                ptr = wsgi_req->post_buffering_buf;
-                while(post_remains > 0) {
-                        if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-                                inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-                        }
-                        if (post_remains > (size_t) uwsgi.post_buffering_bufsize) {
-                                len = read(wsgi_req->poll.fd, ptr, len);
-                        }
-                        else {
-                                len = read(wsgi_req->poll.fd, ptr, post_remains);
-                        }
-                        if (len < 0) {
-                                uwsgi_error("read()");
-                                return Qnil;
-                        }
-                        ptr += len;
-                        post_remains -= len;
-                }
-                wsgi_req->buf_pos = 0;
-        }
+	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
+		uwsgi_log("using file for http body storage %d\n", wsgi_req->post_cl);
+		uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize);
+	}
+	else {
+		uwsgi_log("using memory for http body storage %d\n", wsgi_req->post_cl);
+		ptr = wsgi_req->post_buffering_buf;
+		while(post_remains > 0) {
+			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+				inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+			}
+			if (post_remains > (size_t) uwsgi.post_buffering_bufsize) {
+				len = read(wsgi_req->poll.fd, ptr, len);
+			}
+			else {
+				len = read(wsgi_req->poll.fd, ptr, post_remains);
+			}
+			if (len < 0) {
+				uwsgi_error("read()");
+				return Qnil;
+			}
+			ptr += len;
+			post_remains -= len;
+		}
+		wsgi_req->buf_pos = 0;
+	}
 
 	rb_obj_call_init(self, 0, NULL);
 
 	return self;
-	
+
 }
 
 VALUE rb_uwsgi_io_init(int argc, VALUE *argv, VALUE self) {
@@ -147,7 +147,7 @@ VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
-	
+
 	// return the whole body as string
 	return Qnil;
 }
@@ -156,7 +156,7 @@ VALUE rb_uwsgi_io_each(VALUE obj, VALUE args) {
 
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
-	
+
 	// yield strings chunks
 
 	return Qnil;
@@ -218,7 +218,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		}
 
 		return chunk;
-	
+
 	}
 
 	return Qnil;
@@ -232,14 +232,14 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 	if (!wsgi_req->post_cl) {
 		return Qnil;
 	}
-	
+
 	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 		rewind(wsgi_req->async_post);
 	}
 	else {
 		wsgi_req->buf_pos = 0;
 	}
-	
+
 	return Qnil;
 }
 
@@ -260,7 +260,7 @@ int uwsgi_rack_init(){
 		rb_require("rubygems");	
 		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
 
-		VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack")) ;
+		VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
 		VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, rb_str_new2(ur.rack));
 		if (TYPE(rackup) != T_ARRAY) {
 			uwsgi_log("unable to parse %s file\n", ur.rack);
@@ -288,7 +288,7 @@ int uwsgi_rack_init(){
 		uwsgi_log("loading rails app %s\n", ur.rails);
 		rb_require("config/environment");
 		uwsgi_log("rails app %s ready\n", ur.rails);
-		VALUE ac = rb_const_get(rb_cObject, rb_intern("ActionController")) ;
+		VALUE ac = rb_const_get(rb_cObject, rb_intern("ActionController"));
 
 		ur.dispatcher = rb_funcall( rb_const_get(ac, rb_intern("Dispatcher")), rb_intern("new"), 0);
 
@@ -307,7 +307,7 @@ int uwsgi_rack_init(){
 	ur.rb_uwsgi_io_class = rb_define_class("Uwsgi_IO", rb_cObject);
 
 	rb_gc_register_address(&ur.rb_uwsgi_io_class);
-	
+
 	rb_define_singleton_method(ur.rb_uwsgi_io_class, "new", rb_uwsgi_io_new, 1);
 	rb_define_method(ur.rb_uwsgi_io_class, "initialize", rb_uwsgi_io_init, -1);
 	rb_define_method(ur.rb_uwsgi_io_class, "gets", rb_uwsgi_io_gets, 0);
@@ -365,7 +365,7 @@ VALUE send_header(VALUE obj, VALUE fd) {
 			rb_gc_unregister_address(&hval);
 		}
 	}
-	
+
 	return Qnil;
 }
 
@@ -438,7 +438,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
-	
+
 	VALUE ret = rb_protect( call_dispatch, env, &error);
 
 	if (error) {
@@ -503,7 +503,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
 			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
 			rb_gc_unregister_address(&sendfile_path);
-			
+
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {
 			rb_iterate( rb_each, body, send_body, INT2NUM(wsgi_req->poll.fd));
@@ -517,10 +517,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		rb_gc_unregister_address(&status);
 		rb_gc_unregister_address(&headers);
 		rb_gc_unregister_address(&body);
-
-
-
-		
 
 	}
 
@@ -539,11 +535,10 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
-
 void uwsgi_rack_after_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
-                log_request(wsgi_req);
+		log_request(wsgi_req);
 }
 
 int uwsgi_rack_manage_options(int i, char *optarg) {
@@ -565,13 +560,13 @@ int uwsgi_rack_manage_options(int i, char *optarg) {
 
 struct uwsgi_plugin rack_plugin = {
 
-        .name = "rack",
-        .modifier1 = 7,
-        .init = uwsgi_rack_init,
-        .options = uwsgi_rack_options,
-        .manage_opt = uwsgi_rack_manage_options,
-        .request = uwsgi_rack_request,
-        .after_request = uwsgi_rack_after_request,
+	.name = "rack",
+	.modifier1 = 7,
+	.init = uwsgi_rack_init,
+	.options = uwsgi_rack_options,
+	.manage_opt = uwsgi_rack_manage_options,
+	.request = uwsgi_rack_request,
+	.after_request = uwsgi_rack_after_request,
 
 };
 

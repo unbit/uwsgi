@@ -1,14 +1,14 @@
 #ifdef UWSGI_PROXY
 
-/* 
+/*
 
-	uWSGI proxy
+   uWSGI proxy
 
-	it needs one of this tecnology to work:
+   it needs one of this tecnology to work:
 
-	- epoll (linux 2.6)
-	- kqueue (various BSD and Darwin)
-	- /dev/poll (Solaris)
+   - epoll (linux 2.6)
+   - kqueue (various BSD and Darwin)
+   - /dev/poll (Solaris)
 
 */
 
@@ -38,7 +38,6 @@ static void reload_proxy(void) {
 
 static void uwsgi_proxy_close(struct uwsgi_proxy_connection *upcs, int fd) {
 
-
 	if (upcs[fd].dest_fd >= 0) {
 		close(upcs[fd].dest_fd);
 		upcs[upcs[fd].dest_fd].dest_fd = -1;
@@ -60,11 +59,9 @@ static void uwsgi_proxy_close(struct uwsgi_proxy_connection *upcs, int fd) {
 				uwsgi.shared->nodes[upcs[fd].node].connections--;
 		}
 	}
-
 }
 
 static int uwsgi_proxy_find_next_node(int current_node) {
-
 	int i;
 
 	current_node++;
@@ -99,12 +96,10 @@ static int uwsgi_proxy_find_next_node(int current_node) {
 	}
 
 	return -1;
-
 }
 
 void uwsgi_proxy(int proxyfd) {
-
-	int efd ;
+	int efd;
 
 #ifdef __linux__
 	struct epoll_event *eevents;
@@ -151,7 +146,6 @@ void uwsgi_proxy(int proxyfd) {
 	}
 	memset(upcs, 0, sizeof(struct uwsgi_proxy_connection) * max_connections);
 
-
 	efd = async_queue_init(proxyfd);
 	if (efd < 0) {
 		exit(1);
@@ -159,13 +153,13 @@ void uwsgi_proxy(int proxyfd) {
 
 #ifdef __linux__
 	eevents = malloc(sizeof(struct epoll_event) * max_events);
-	memset(&ev, 0, sizeof(struct epoll_event)); 
+	memset(&ev, 0, sizeof(struct epoll_event));
 #elif defined(__sun)
 	eevents = malloc(sizeof(struct pollfd) * max_events);
-	memset(&ev, 0, sizeof(struct pollfd)); 
+	memset(&ev, 0, sizeof(struct pollfd));
 #else
 	eevents = malloc(sizeof(struct kevent) * max_events);
-	memset(&ev, 0, sizeof(struct kevent)); 
+	memset(&ev, 0, sizeof(struct kevent));
 #endif
 
 	if (!eevents) {
@@ -187,7 +181,6 @@ void uwsgi_proxy(int proxyfd) {
 		}
 
 		for (i = 0; i < nevents; i++) {
-
 
 			if ( (int)eevents[i].ASYNC_FD == proxyfd) {
 

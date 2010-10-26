@@ -23,10 +23,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	// is a Web3 response ?
 	/*
-	if (PyTuple_Size(args) == 3) {
-		shift = 0;
-	}
-	*/
+	   if (PyTuple_Size(args) == 3) {
+	   shift = 0;
+	   }
+	   */
 
 	head = PyTuple_GetItem(args, 0+shift);
 	if (!head) {
@@ -143,18 +143,18 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	wsgi_req->hvec[j].iov_len = NL_SIZE;
 
 	UWSGI_RELEASE_GIL
-	wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, j + 1);
+		wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, j + 1);
 	UWSGI_GET_GIL
-	if (wsgi_req->headers_size < 0) {
-		uwsgi_error("writev()");
-	}
+		if (wsgi_req->headers_size < 0) {
+			uwsgi_error("writev()");
+		}
 
 	Py_INCREF(up.wsgi_writeout);
 
 
 	return up.wsgi_writeout;
 
-      clear:
+clear:
 
 	Py_INCREF(Py_None);
 	return Py_None;

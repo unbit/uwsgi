@@ -3,7 +3,6 @@
 struct uwsgi_server uwsgi;
 
 struct uwsgi_http_req {
-	
 	pthread_t a_new_thread;
 	int fd;
 	struct sockaddr_in c_addr;
@@ -33,19 +32,17 @@ void http_end() {
 void http_wait_end() {
 	pid_t wp_p;
 	int wp_c;
-	wp_p = waitpid(-1, &wp_c, 0); 
+	wp_p = waitpid(-1, &wp_c, 0);
 	uwsgi_log("closing uWSGI embedded HTTP server.\n");
 	exit(0);
 }
 
-static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint16_t vallen, int header, char *watermark)
-{
-
+static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint16_t vallen, int header, char *watermark) {
 	int i;
 
 	if (!header) {
 
-		if ( (up + 2 + keylen + 2 + vallen) > watermark ) return up ;
+		if ( (up + 2 + keylen + 2 + vallen) > watermark ) return up;
 
 		*up++ = (unsigned char) (keylen & 0xff);
 		*up++ = (unsigned char) ((keylen >> 8) & 0xff);
@@ -53,7 +50,6 @@ static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint
 		memcpy(up, key, keylen);
 		up += keylen;
 	} else {
-
 
 		for (i = 0; i < keylen; i++) {
 			if (key[i] == '-') {
@@ -64,13 +60,13 @@ static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint
 		}
 
 		if (strncmp("CONTENT_TYPE", key, keylen) && strncmp("CONTENT_LENGTH", key, keylen)) {
-			if ( (up + 2 + keylen + 5 + 2 + vallen) > watermark ) return up ;
+			if ( (up + 2 + keylen + 5 + 2 + vallen) > watermark ) return up;
 			*up++ = (unsigned char) (((uint16_t) keylen + 5) & 0xff);
 			*up++ = (unsigned char) ((((uint16_t) keylen + 5) >> 8) & 0xff);
 			memcpy(up, "HTTP_", 5);
 			up += 5;
 		} else {
-			if ( (up + 2 + keylen + 2 + vallen) > watermark ) return up ;
+			if ( (up + 2 + keylen + 2 + vallen) > watermark ) return up;
 			*up++ = (unsigned char) (keylen & 0xff);
 			*up++ = (unsigned char) ((keylen >> 8) & 0xff);
 		}
@@ -90,14 +86,11 @@ static char *add_uwsgi_var(char *up, char *key, uint16_t keylen, char *val, uint
 
 static void *http_request(void *);
 
-void http_loop()
-{
-
-
+void http_loop() {
 	struct uwsgi_http_req *ur;
 	int ret;
 	pthread_attr_t pa;
-	int stat_loc ;
+	int stat_loc;
 
 	ret = pthread_attr_init(&pa);
 	if (ret) {
@@ -147,7 +140,7 @@ void http_loop()
 			sleep(1);
 			continue;
 		}
-		ur->c_len = sizeof(struct sockaddr_in) ;
+		ur->c_len = sizeof(struct sockaddr_in);
 		ur->fd = accept(uwsgi.http_fd, (struct sockaddr *) &ur->c_addr, &ur->c_len);
 
 		if (ur->fd < 0) {
@@ -167,17 +160,14 @@ void http_loop()
 	}
 }
 
-
-static void *http_request(void *u_h_r)
-{
-
+static void *http_request(void *u_h_r) {
 	char buf[4096];
 
 	char tmp_buf[4096];
 
 	char uwsgipkt[4096];
 
-	struct uwsgi_http_req *ur = (struct uwsgi_http_req *) u_h_r ;
+	struct uwsgi_http_req *ur = (struct uwsgi_http_req *) u_h_r;
 
 	int clientfd = ur->fd;
 	int uwsgi_fd = -1;
@@ -201,9 +191,9 @@ static void *http_request(void *u_h_r)
 
 	char *up = uwsgipkt;
 
-	char *watermark = up + 4096 ;
-	char *watermark2 = tmp_buf + 4096 ;
-	
+	char *watermark = up + 4096;
+	char *watermark2 = tmp_buf + 4096;
+
 	int path_info_len;
 	char *ip;
 
@@ -237,7 +227,7 @@ static void *http_request(void *u_h_r)
 							path_info_len = j;
 							if (j + 1 < (ptr - tmp_buf)) {
 								up = add_uwsgi_var(up, "QUERY_STRING", 12, tmp_buf + j + 1, (ptr - tmp_buf) - (j + 1), 0, watermark);
-								qs = 1 ;
+								qs = 1;
 							}
 							break;
 						}
@@ -310,7 +300,7 @@ static void *http_request(void *u_h_r)
 
 					for(j=0;j<uwsgi.http_vars_cnt;j++) {
 						char *separator;
-						
+
 						separator = strchr(uwsgi.http_vars[j], '=');
 						if (separator) {
 							up = add_uwsgi_var(up, uwsgi.http_vars[j], separator - uwsgi.http_vars[j], separator + 1, strlen(separator + 1), 0, watermark);
@@ -392,6 +382,6 @@ clear:
 
 	free(ur);
 	pthread_exit(NULL);
-	
+
 	return NULL;
 }

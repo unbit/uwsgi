@@ -13,7 +13,5 @@ void gil_real_release() {
 	PyEval_ReleaseLock();
 }
 
-
-
 void gil_fake_get() {}
 void gil_fake_release() {}

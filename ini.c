@@ -3,9 +3,9 @@
 #include "uwsgi.h"
 
 /*
-	ini file must be read ALL into memory.
-	This memory must not be freed for all the server lifecycle
-*/
+   ini file must be read ALL into memory.
+   This memory must not be freed for all the server lifecycle
+   */
 
 enum {
 	ini_key_start,
@@ -14,7 +14,7 @@ enum {
 
 void ini_rstrip(char *line) {
 
-	off_t i ;
+	off_t i;
 
 	for(i = strlen(line)-1;i>=0; i--) {
 		if (line[i] == ' ' || line[i] == '\t') {
@@ -22,12 +22,12 @@ void ini_rstrip(char *line) {
 			continue;
 		}
 		break;
-	} 
+	}
 }
 
 char *ini_lstrip(char *line) {
-	
-	off_t i ;
+
+	off_t i;
 	char *ptr = line;
 
 	for(i=0;i< (int) strlen(line);i++) {
@@ -44,10 +44,10 @@ char *ini_lstrip(char *line) {
 char *ini_get_key(char *key) {
 
 	off_t i;
-	char *ptr = key ;
+	char *ptr = key;
 
 	for(i=0;i< (int) strlen(key);i++) {
-		ptr++ ;	
+		ptr++;
 		if (key[i] == '=') {
 			key[i] = 0;
 			return ptr;
@@ -59,9 +59,9 @@ char *ini_get_key(char *key) {
 
 char *ini_get_line(char *ini, off_t size) {
 
-	off_t i ;
+	off_t i;
 	char *ptr = ini;
-	
+
 	for(i=0;i<size;i++) {
 		ptr++;
 		if (ini[i] == '\n') {
@@ -71,7 +71,7 @@ char *ini_get_line(char *ini, off_t size) {
 	}
 
 	return NULL;
-	
+
 }
 
 void uwsgi_ini_config(char *file, struct option *long_options) {
@@ -87,17 +87,17 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 	char *key;
 	char *val;
 
-	int lines = 1 ;
+	int lines = 1;
 
 	struct option *lopt, *aopt;
 	char *section_asked = "uwsgi";
-	char *colon ;
+	char *colon;
 
 	colon = strchr(file, ':');
 	if (colon) {
 		colon[0] = 0;
 		if (colon[1] != 0) {
-			section_asked = colon+1 ;
+			section_asked = colon+1;
 		}
 	}
 
@@ -106,7 +106,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 		uwsgi_error("open()");
 		exit(1);
 	}
-	
+
 	if (fstat(fd, &sb)) {
 		uwsgi_error("fstat()");
 		exit(1);
@@ -127,7 +127,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 		exit(1);
 	}
 
-	ini[sb.st_size] = 0 ;
+	ini[sb.st_size] = 0;
 
 	while(sb.st_size) {
 		ini_line = ini_get_line(ini, sb.st_size);
@@ -156,23 +156,23 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 					val = ini_lstrip(val);
 					ini_rstrip(val);
 					lopt = long_options;
-                                	while ((aopt = lopt)) {
-                                       		if (!aopt->name)
-                                               	break;
-                                       		if (!strcmp(key, aopt->name)) {
-                                               		if (aopt->flag) {
-                                                       		*aopt->flag = aopt->val;
-                                              		}
-                                               		else {
-                                                        	manage_opt(aopt->val, val);
-                                               		}
-                                       		}
-                                       		lopt++;
-                                	}
+					while ((aopt = lopt)) {
+						if (!aopt->name)
+							break;
+						if (!strcmp(key, aopt->name)) {
+							if (aopt->flag) {
+								*aopt->flag = aopt->val;
+							}
+							else {
+								manage_opt(aopt->val, val);
+							}
+						}
+						lopt++;
+					}
 				}
 			}
 		}
-		
+
 
 		sb.st_size -= (ini_line - ini);
 		ini += (ini_line - ini);
@@ -180,8 +180,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 	}
 
 	close(fd);
-	
-}
 
+}
 
 #endif

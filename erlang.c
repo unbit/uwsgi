@@ -7,7 +7,6 @@ extern struct uwsgi_server uwsgi;
 static void erlang_log(void);
 
 PyObject *py_erlang_connect(PyObject * self, PyObject * args) {
-
 	char *erlang_node;
 	int fd;
 
@@ -41,7 +40,7 @@ PyObject *py_erlang_recv_message(PyObject * self, PyObject * args) {
 
 	erpoll.fd = erfd;
 	erpoll.events = POLLIN;
-      cycle:
+cycle:
 	memset(&emsg, 0, sizeof(ErlMessage));
 	UWSGI_SET_BLOCKING;
 	if (timeout > 0) {
@@ -77,15 +76,13 @@ PyObject *py_erlang_recv_message(PyObject * self, PyObject * args) {
 		return pyer;
 	}
 
-      clear:
+clear:
 	UWSGI_UNSET_BLOCKING;
 	Py_INCREF(Py_None);
 	return Py_None;
-
 }
 
 PyObject *py_erlang_send_message(PyObject * self, PyObject * args) {
-
 	ETERM *pymessage;
 	ETERM *pid;
 	int erfd;
@@ -178,9 +175,9 @@ PyObject *py_erlang_send_message(PyObject * self, PyObject * args) {
 	Py_INCREF(Py_True);
 	return Py_True;
 
-      clear2:
+clear2:
 	erl_free_compound(pymessage);
-      clear:
+clear:
 	PyErr_Print();
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -215,7 +212,7 @@ PyObject *py_erlang_rpc(PyObject * self, PyObject * args) {
 	}
 
 
-      cycle:
+cycle:
 	memset(&emsg, 0, sizeof(ErlMessage));
 	UWSGI_SET_BLOCKING;
 	eret = erl_rpc_from(fd, timeout * 1000, &emsg);
@@ -263,17 +260,16 @@ PyObject *py_erlang_rpc(PyObject * self, PyObject * args) {
 		erl_err_msg("erl_rpc_from()");
 	}
 
-      clear2:
+clear2:
 	UWSGI_UNSET_BLOCKING;
 	erl_free_compound(pyargs);
 
-      clear:
+clear:
 	Py_INCREF(Py_None);
 	return Py_None;
 }
 
 PyObject *py_erlang_close(PyObject * self, PyObject * args) {
-
 	int fd;
 
 	if (!PyArg_ParseTuple(args, "i:erlang_close", &fd)) {
@@ -298,9 +294,7 @@ static PyMethodDef uwsgi_erlang_methods[] = {
 	{NULL, NULL},
 };
 
-
 int init_erlang(char *nodename, char *cookie) {
-
 	struct sockaddr_in e_addr;
 
 	char *ip;
@@ -313,7 +307,6 @@ int init_erlang(char *nodename, char *cookie) {
 	int cookiefd;
 
 	PyMethodDef *uwsgi_function;
-
 
 	ip = strchr(nodename, '@');
 
@@ -377,7 +370,6 @@ int init_erlang(char *nodename, char *cookie) {
 		return -1;
 	}
 
-
 	memset(&e_addr, 0, sizeof(struct sockaddr_in));
 	e_addr.sin_family = AF_INET;
 	e_addr.sin_addr.s_addr = inet_addr(ip + 1);
@@ -423,7 +415,6 @@ int init_erlang(char *nodename, char *cookie) {
 	}
 
 	return efd;
-
 }
 
 ETERM *py_to_eterm(PyObject * pobj) {
@@ -515,7 +506,7 @@ ETERM *py_to_eterm(PyObject * pobj) {
 		uwsgi_log( "UNMANAGED PYTHON TYPE: %s\n", pobj->ob_type->tp_name);
 	}
 
-      clear:
+clear:
 	if (eobj == NULL) {
 		return erl_mk_empty_list();
 	}
@@ -536,53 +527,53 @@ PyObject *eterm_to_py(ETERM * obj) {
 
 	switch (ERL_TYPE(obj)) {
 
-	case ERL_CONS:
-	case ERL_NIL:
-		count = erl_length(obj);
-		eobj = PyList_New(0);
-		for (i = 0; i < count; i++) {
-			obj2 = erl_hd(obj);
-			PyList_Append(eobj, eterm_to_py(obj2));
-			obj = erl_tl(obj);
-		}
-		break;
-	case ERL_TUPLE:
-		eobj = PyTuple_New(erl_size(obj));
-		for (i = 1; i <= erl_size(obj); i++) {
-			obj2 = erl_element(i, obj);
-			PyTuple_SetItem(eobj, i - 1, eterm_to_py(obj2));
-		}
-		break;
-	case ERL_ATOM:
-		eobj = PyString_FromStringAndSize(ERL_ATOM_PTR(obj), ERL_ATOM_SIZE(obj));
-		break;
-	case ERL_INTEGER:
-		eobj = PyInt_FromLong(ERL_INT_VALUE(obj));
-		break;
-	case ERL_BINARY:
-		uwsgi_log( "FOUND A BINARY %.*s\n", ERL_BIN_SIZE(obj), ERL_BIN_PTR(obj));
-		break;
-	case ERL_PID:
-		eobj = PyDict_New();
-		if (PyDict_SetItemString(eobj, "node", PyString_FromString(ERL_PID_NODE(obj)))) {
-			PyErr_Print();
+		case ERL_CONS:
+		case ERL_NIL:
+			count = erl_length(obj);
+			eobj = PyList_New(0);
+			for (i = 0; i < count; i++) {
+				obj2 = erl_hd(obj);
+				PyList_Append(eobj, eterm_to_py(obj2));
+				obj = erl_tl(obj);
+			}
 			break;
-		}
-		if (PyDict_SetItemString(eobj, "number", PyInt_FromLong(ERL_PID_NUMBER(obj)))) {
-			PyErr_Print();
+		case ERL_TUPLE:
+			eobj = PyTuple_New(erl_size(obj));
+			for (i = 1; i <= erl_size(obj); i++) {
+				obj2 = erl_element(i, obj);
+				PyTuple_SetItem(eobj, i - 1, eterm_to_py(obj2));
+			}
 			break;
-		}
-		if (PyDict_SetItemString(eobj, "serial", PyInt_FromLong(ERL_PID_SERIAL(obj)))) {
-			PyErr_Print();
+		case ERL_ATOM:
+			eobj = PyString_FromStringAndSize(ERL_ATOM_PTR(obj), ERL_ATOM_SIZE(obj));
 			break;
-		}
-		if (PyDict_SetItemString(eobj, "creation", PyInt_FromLong(ERL_PID_CREATION(obj)))) {
-			PyErr_Print();
+		case ERL_INTEGER:
+			eobj = PyInt_FromLong(ERL_INT_VALUE(obj));
 			break;
-		}
-	default:
-		uwsgi_log( "UNMANAGED ETERM TYPE: %d\n", ERL_TYPE(obj));
-		break;
+		case ERL_BINARY:
+			uwsgi_log( "FOUND A BINARY %.*s\n", ERL_BIN_SIZE(obj), ERL_BIN_PTR(obj));
+			break;
+		case ERL_PID:
+			eobj = PyDict_New();
+			if (PyDict_SetItemString(eobj, "node", PyString_FromString(ERL_PID_NODE(obj)))) {
+				PyErr_Print();
+				break;
+			}
+			if (PyDict_SetItemString(eobj, "number", PyInt_FromLong(ERL_PID_NUMBER(obj)))) {
+				PyErr_Print();
+				break;
+			}
+			if (PyDict_SetItemString(eobj, "serial", PyInt_FromLong(ERL_PID_SERIAL(obj)))) {
+				PyErr_Print();
+				break;
+			}
+			if (PyDict_SetItemString(eobj, "creation", PyInt_FromLong(ERL_PID_CREATION(obj)))) {
+				PyErr_Print();
+				break;
+			}
+		default:
+			uwsgi_log( "UNMANAGED ETERM TYPE: %d\n", ERL_TYPE(obj));
+			break;
 
 	}
 
@@ -595,7 +586,6 @@ PyObject *eterm_to_py(ETERM * obj) {
 }
 
 void erlang_loop(struct wsgi_request *wsgi_req) {
-
 	ErlConnect econn;
 	ErlMessage em;
 	ETERM *eresponse;
@@ -613,8 +603,6 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 	}
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
-
-
 		UWSGI_CLEAR_STATUS;
 
 		wsgi_req->poll.fd = erl_accept(uwsgi.erlangfd, &econn);

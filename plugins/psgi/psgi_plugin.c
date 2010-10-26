@@ -4,7 +4,7 @@
 #include <perl.h>
 
 static PerlInterpreter *my_perl;
-static SV *psgi_func ;
+static SV *psgi_func;
 
 #ifdef UWSGI_THREADING
 pthread_key_t uwsgi_perl_interpreter;
@@ -15,52 +15,49 @@ extern struct uwsgi_server uwsgi;
 
 /* statistically ordered */
 static struct http_status_codes hsc[] = {
+	{"200", "OK"},
+	{"302", "Found"},
+	{"404", "Not Found"},
+	{"500", "Internal Server Error"},
+	{"301", "Moved Permanently"},
+	{"304", "Not Modified"},
+	{"303", "See Other"},
+	{"403", "Forbidden"},
+	{"307", "Temporary Redirect"},
+	{"401", "Unauthorized"},
+	{"400", "Bad Request"},
+	{"405", "Method Not Allowed"},
+	{"408", "Request Timeout"},
 
-        {"200", "OK"},
-        {"302", "Found"},
-        {"404", "Not Found"},
-        {"500", "Internal Server Error"},
-        {"301", "Moved Permanently"},
-        {"304", "Not Modified"},
-        {"303", "See Other"},
-        {"403", "Forbidden"},
-        {"307", "Temporary Redirect"},
-        {"401", "Unauthorized"},
-        {"400", "Bad Request"},
-        {"405", "Method Not Allowed"},
-        {"408", "Request Timeout"},
-
-        {"100", "Continue"},
-        {"101", "Switching Protocols"},
-        {"201", "Created"},
-        {"202", "Accepted"},
-        {"203", "Non-Authoritative Information"},
-        {"204", "No Content"},
-        {"205", "Reset Content"},
-        {"206", "Partial Content"},
-        {"300", "Multiple Choices"},
-        {"305", "Use Proxy"},
-        {"402", "Payment Required"},
-        {"406", "Not Acceptable"},
-        {"407", "Proxy Authentication Required"},
-        {"409", "Conflict"},
-        {"410", "Gone"},
-        {"411", "Length Required"},
-        {"412", "Precondition Failed"},
-        {"413", "Request Entity Too Large"},
-        {"414", "Request-URI Too Long"},
-        {"415", "Unsupported Media Type"},
-        {"416", "Requested Range Not Satisfiable"},
-        {"417", "Expectation Failed"},
-        {"501", "Not Implemented"},
-        {"502", "Bad Gateway"},
-        {"503", "Service Unavailable"},
-        {"504", "Gateway Timeout"},
-        {"505", "HTTP Version Not Supported"},
-	{ "", NULL }, 
+	{"100", "Continue"},
+	{"101", "Switching Protocols"},
+	{"201", "Created"},
+	{"202", "Accepted"},
+	{"203", "Non-Authoritative Information"},
+	{"204", "No Content"},
+	{"205", "Reset Content"},
+	{"206", "Partial Content"},
+	{"300", "Multiple Choices"},
+	{"305", "Use Proxy"},
+	{"402", "Payment Required"},
+	{"406", "Not Acceptable"},
+	{"407", "Proxy Authentication Required"},
+	{"409", "Conflict"},
+	{"410", "Gone"},
+	{"411", "Length Required"},
+	{"412", "Precondition Failed"},
+	{"413", "Request Entity Too Large"},
+	{"414", "Request-URI Too Long"},
+	{"415", "Unsupported Media Type"},
+	{"416", "Requested Range Not Satisfiable"},
+	{"417", "Expectation Failed"},
+	{"501", "Not Implemented"},
+	{"502", "Bad Gateway"},
+	{"503", "Service Unavailable"},
+	{"504", "Gateway Timeout"},
+	{"505", "HTTP Version Not Supported"},
+	{ "", NULL },
 };
-
-
 
 /* automatically generated */
 
@@ -68,14 +65,14 @@ EXTERN_C void xs_init (pTHX);
 
 EXTERN_C void boot_DynaLoader (pTHX_ CV* cv);
 
-EXTERN_C void
+	EXTERN_C void
 xs_init(pTHX)
 {
-        char *file = __FILE__;
-        dXSUB_SYS;
+	char *file = __FILE__;
+	dXSUB_SYS;
 
-        /* DynaLoader is a special case */
-        newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
+	/* DynaLoader is a special case */
+	newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
 }
 
 /* end of automagically generated part */
@@ -83,21 +80,21 @@ xs_init(pTHX)
 
 int uwsgi_init(char *args){
 
-	char *psgibuffer ;
-	int fd ;
+	char *psgibuffer;
+	int fd;
 
 	struct stat stat_psgi;
 
-	struct http_status_codes *http_sc ;
+	struct http_status_codes *http_sc;
 
-	int argc = 4 ;
+	int argc = 4;
 	char *embedding[] = { "", args,  "-e", "0" };
-	char **argv = embedding ;
+	char **argv = embedding;
 
 	uwsgi_log("initializing Perl environment: %s\n", args);
 
 	PERL_SYS_INIT3(&argc, &argv, &environ);
-	my_perl = perl_alloc();	
+	my_perl = perl_alloc();
 	if (!my_perl) {
 		uwsgi_log("unable to allocate perl interpreter\n");
 		return -1;
@@ -114,9 +111,9 @@ int uwsgi_init(char *args){
 #ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1) {
 		if (pthread_key_create(&uwsgi_perl_interpreter, NULL)) {
-                        uwsgi_error("pthread_key_create()");
-                        exit(1);
-                }
+			uwsgi_error("pthread_key_create()");
+			exit(1);
+		}
 	}
 #endif
 
@@ -128,14 +125,14 @@ int uwsgi_init(char *args){
 	fd = open(args, O_RDONLY);
 	if (fd < 0) {
 		uwsgi_error("open()");
-		goto clear ;
+		goto clear;
 	}
 
-        if (fstat(fd, &stat_psgi)) {
-                uwsgi_error("fstat()");
+	if (fstat(fd, &stat_psgi)) {
+		uwsgi_error("fstat()");
 		close(fd);
 		goto clear;
-        }
+	}
 
 	psgibuffer = malloc(stat_psgi.st_size + 1);
 	if (!psgibuffer) {
@@ -148,10 +145,10 @@ int uwsgi_init(char *args){
 		uwsgi_error("read()");
 		close(fd);
 		free(psgibuffer);
-		goto clear;	
+		goto clear;
 	}
 
-	psgibuffer[stat_psgi.st_size] = 0 ;
+	psgibuffer[stat_psgi.st_size] = 0;
 
 	psgi_func = perl_eval_pv(psgibuffer, 0);
 
@@ -174,31 +171,31 @@ int uwsgi_init(char *args){
 
 clear:
 	perl_destruct(my_perl);
-        perl_free(my_perl);
+	perl_free(my_perl);
 	return -1;
 
 }
 
 int uwsgi_request(struct wsgi_request *wsgi_req) {
-	
-	HV *env ;
-	SV **item ;
-	
-	AV *response, *headers, *body ;
+
+	HV *env;
+	SV **item;
+
+	AV *response, *headers, *body;
 
 	SV **status_code, **hitem, *io_new, *io_err;
-	char *chitem ;
-	STRLEN hlen ;
+	char *chitem;
+	STRLEN hlen;
 
 	struct http_status_codes *http_sc;
 
-	int i,vi, base ;
+	int i,vi, base;
 
 	/* Standard PSGI request */
-        if (!wsgi_req->uh.pktsize) {
-                uwsgi_log("Invalid PSGI request. skip.\n");
-                return -1;
-        }
+	if (!wsgi_req->uh.pktsize) {
+		uwsgi_log("Invalid PSGI request. skip.\n");
+		return -1;
+	}
 
 
 	if (uwsgi_parse_vars(wsgi_req)) {
@@ -219,9 +216,9 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	// fill perl hash
 	for(i=0;i<wsgi_req->var_cnt;i++) {
 		if (wsgi_req->hvec[i+1].iov_len > 0) {
-		
-		item = hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, 
-			newSVpv(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len), 0);
+
+			item = hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
+					newSVpv(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len), 0);
 		}
 		else {
 			item = hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, newSVpv("", 0), 0);
@@ -293,69 +290,69 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	// no leaks to here
 
 	// dereference output
-	response = (AV *) SvRV( POPs ) ;
+	response = (AV *) SvRV( POPs );
 
 	status_code = av_fetch(response, 0, 0);
 
 	wsgi_req->hvec[0].iov_base = "HTTP/1.1 ";
-	wsgi_req->hvec[0].iov_len = 9 ;
+	wsgi_req->hvec[0].iov_len = 9;
 
 	wsgi_req->hvec[1].iov_base = SvPV(*status_code, hlen);
-	wsgi_req->hvec[1].iov_len = 3 ;
+	wsgi_req->hvec[1].iov_len = 3;
 
 	wsgi_req->status = atoi(wsgi_req->hvec[1].iov_base);
 
 	wsgi_req->hvec[2].iov_base = " ";
-	wsgi_req->hvec[2].iov_len = 1 ;
+	wsgi_req->hvec[2].iov_len = 1;
 
-	wsgi_req->hvec[3].iov_len = 0 ;
+	wsgi_req->hvec[3].iov_len = 0;
 
 	// get the status code
 	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
 		if (!strncmp(http_sc->key, wsgi_req->hvec[1].iov_base, 3)) {
-			wsgi_req->hvec[3].iov_base = http_sc->message ;
-			wsgi_req->hvec[3].iov_len = http_sc->message_size ;
+			wsgi_req->hvec[3].iov_base = http_sc->message;
+			wsgi_req->hvec[3].iov_len = http_sc->message_size;
 			break;
 		}
-        }
+	}
 
 	if (wsgi_req->hvec[3].iov_len == 0) {
-		wsgi_req->hvec[3].iov_base = "Unknown" ;
+		wsgi_req->hvec[3].iov_base = "Unknown";
 		wsgi_req->hvec[3].iov_len =  7;
 	}
 
 	wsgi_req->hvec[4].iov_base = "\r\n";
-	wsgi_req->hvec[4].iov_len = 2 ;
-	
-	hitem = av_fetch(response, 1, 0) ;
+	wsgi_req->hvec[4].iov_len = 2;
+
+	hitem = av_fetch(response, 1, 0);
 
 	headers = (AV *) SvRV(*hitem);
 
-	base = 5 ;
+	base = 5;
 
 
 	// put them in hvec
 	for(i=0; i<=av_len(headers); i++) {
 
-		vi = (i*2)+base ;
+		vi = (i*2)+base;
 		hitem = av_fetch(headers,i,0);
 		chitem = SvPV(*hitem, hlen);
-		wsgi_req->hvec[vi].iov_base = chitem ; wsgi_req->hvec[vi].iov_len = hlen ;
+		wsgi_req->hvec[vi].iov_base = chitem; wsgi_req->hvec[vi].iov_len = hlen;
 
-		wsgi_req->hvec[vi+1].iov_base = ": " ; wsgi_req->hvec[vi+1].iov_len = 2 ;
+		wsgi_req->hvec[vi+1].iov_base = ": "; wsgi_req->hvec[vi+1].iov_len = 2;
 
 		hitem = av_fetch(headers,i+1,0);
 		chitem = SvPV(*hitem, hlen);
-		wsgi_req->hvec[vi+2].iov_base = chitem ; wsgi_req->hvec[vi+2].iov_len = hlen ;
+		wsgi_req->hvec[vi+2].iov_base = chitem; wsgi_req->hvec[vi+2].iov_len = hlen;
 
-		wsgi_req->hvec[vi+3].iov_base = "\r\n" ; wsgi_req->hvec[vi+3].iov_len = 2 ;
+		wsgi_req->hvec[vi+3].iov_base = "\r\n"; wsgi_req->hvec[vi+3].iov_len = 2;
 
 		i++;
 	}
 
 
-	vi = (i*2)+base ;
-	wsgi_req->hvec[vi].iov_base = "\r\n" ; wsgi_req->hvec[vi].iov_len = 2 ;
+	vi = (i*2)+base;
+	wsgi_req->hvec[vi].iov_base = "\r\n"; wsgi_req->hvec[vi].iov_len = 2;
 
 
 	if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) ) {
@@ -364,16 +361,16 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 
 
 
-	hitem = av_fetch(response, 2, 0) ;
+	hitem = av_fetch(response, 2, 0);
 
 
 	if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV) {
 
 		for(;;) {
 			PUSHMARK(SP);
-			XPUSHs(*hitem) ;
+			XPUSHs(*hitem);
 			PUTBACK;
-			perl_call_method("getline", G_SCALAR);	
+			perl_call_method("getline", G_SCALAR);
 			SPAGAIN;
 
 			if(SvTRUE(ERRSV)) {
@@ -406,10 +403,9 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 		uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(*hitem)));
 	}
 
-	
+
 	FREETMPS;
 	LEAVE;
-
 
 	return 0;
 }
@@ -418,7 +414,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 void uwsgi_after_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
-                log_request(wsgi_req);
+		log_request(wsgi_req);
 }
 
 struct uwsgi_plugin psgi_plugin = {

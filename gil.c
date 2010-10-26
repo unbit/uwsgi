@@ -13,8 +13,7 @@ void gil_real_release() {
 }
 
 struct wsgi_request* threaded_current_wsgi_req() { return pthread_getspecific(uwsgi.ut_key); }
-struct wsgi_request* simple_current_wsgi_req() { return uwsgi.wsgi_req ; }
-
+struct wsgi_request* simple_current_wsgi_req() { return uwsgi.wsgi_req; }
 
 void gil_fake_get() {}
 void gil_fake_release() {}
