@@ -2,7 +2,8 @@ import os,sys
 
 NAME='ruby19'
 
-RUBYPATH = '/opt/ruby19/bin/ruby'
+#RUBYPATH = '/opt/ruby19/bin/ruby'
+RUBYPATH = '/Users/roberto/RUBY/bin/ruby'
 CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['CFLAGS']\"").read().rstrip().split()
 
 version = os.popen(RUBYPATH + " -e \"print RUBY_VERSION\"").read().rstrip()

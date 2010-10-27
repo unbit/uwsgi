@@ -334,15 +334,6 @@ struct wsgi_request *find_first_available_wsgi_req() {
 	return NULL;
 }
 
-struct wsgi_request *find_wsgi_req_by_id(int async_id) {
-
-	uint8_t *ptr = (uint8_t *) uwsgi.wsgi_requests;
-
-	ptr += sizeof(struct wsgi_request) * async_id;
-
-	return (struct wsgi_request *) ptr;
-}
-
 struct wsgi_request *find_wsgi_req_by_fd(int fd, int etype) {
 
 	struct wsgi_request* wsgi_req = uwsgi.wsgi_requests[0];

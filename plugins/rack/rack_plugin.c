@@ -2,7 +2,6 @@
 
 #include <ruby.h>
 
-extern char **environ;
 extern struct uwsgi_server uwsgi;
 
 #define LONG_ARGS_RACK_BASE	17000 + (7 * 100)
@@ -11,9 +10,23 @@ extern struct uwsgi_server uwsgi;
 #define LONG_ARGS_RACK		LONG_ARGS_RACK_BASE + 3
 
 #ifndef RUBY19
-#define rb_errinfo() ruby_errinfo
+	#define rb_errinfo() ruby_errinfo
+	#define RUBY_GVL_LOCK
+	#define RUBY_GVL_UNLOCK
 #else
-void Init_prelude(void);
+
+	#ifdef UWSGI_THREADING
+		#define RUBY_GVL_LOCK if (uwsgi.threads > 1) {\
+			pthread_mutex_lock(&ur.gvl);\
+			}
+
+		#define RUBY_GVL_UNLOCK if (uwsgi.threads > 1) {\
+                        pthread_mutex_unlock(&ur.gvl);\
+                        }
+	#else
+		#define RUBY_GVL_LOCK
+		#define RUBY_GVL_UNLOCK
+	#endif
 #endif
 
 #ifndef RARRAY_LEN
@@ -39,9 +52,13 @@ struct uwsgi_rack {
 	int gc_freq;
 	uint64_t cycles;
 
+	int call_gc;
 	VALUE dispatcher;
 	VALUE rb_uwsgi_io_class;
 	ID call;
+	VALUE fibers[200];
+
+	pthread_mutex_t gvl;
 
 } ur;
 
@@ -145,9 +162,12 @@ VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
 
 	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 		uwsgi_log("using file for http body storage %d\n", wsgi_req->post_cl);
+		//RUBY_GVL_UNLOCK
 		uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize);
+		//RUBY_GVL_LOCK
 	}
 	else {
+		//RUBY_GVL_UNLOCK
 		uwsgi_log("using memory for http body storage %d\n", wsgi_req->post_cl);
 		ptr = wsgi_req->post_buffering_buf;
 		while(post_remains > 0) {
@@ -168,6 +188,7 @@ VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
 			post_remains -= len;
 		}
 		wsgi_req->buf_pos = 0;
+		//RUBY_GVL_LOCK
 	}
 
 	rb_obj_call_init(self, 0, NULL);
@@ -218,7 +239,9 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 			char *post_body = malloc(wsgi_req->post_cl);
 			if (post_body) {
+				//RUBY_GVL_UNLOCK
 				len = fread( post_body, wsgi_req->post_cl, 1, wsgi_req->async_post);
+				//RUBY_GVL_LOCK
 				chunk = rb_str_new(post_body, wsgi_req->post_cl);
 				free(post_body);
 			}
@@ -238,7 +261,9 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
 			char *post_body = malloc( chunk_size ) ;
 			if (post_body) {	
+				//RUBY_GVL_UNLOCK
 				len = fread( post_body, chunk_size, 1, wsgi_req->async_post );
+				//RUBY_GVL_LOCK
 				chunk = rb_str_new(post_body, chunk_size);
 				free(post_body);
 			}
@@ -272,7 +297,9 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 	}
 
 	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
+		//RUBY_GVL_LOCK
 		rewind(wsgi_req->async_post);
+		//RUBY_GVL_UNLOCK
 	}
 	else {
 		wsgi_req->buf_pos = 0;
@@ -289,35 +316,41 @@ int uwsgi_rack_init(){
 
 	struct http_status_codes *http_sc;
 #ifdef RUBY19
-	int argc = 1;
-	char *fargv = (char *) "uwsgi" ;
-	char **argv = &fargv;
+	int argc = 2;
+	char *sargv[] = { (char *) "uwsgi", (char *) "-e0" };
+	char **argv = sargv;
 #endif
 
 	// filling http status codes
         for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                http_sc->message_size = strlen(http_sc->message);
+                http_sc->message_size = (int) strlen(http_sc->message);
         }
 
 
 #ifdef RUBY19
 	ruby_sysinit(&argc, &argv);
 	RUBY_INIT_STACK
-	VALUE gem;
-#endif
+	ruby_init();
+	ruby_process_options(argc, argv);
+#else
 
 	ruby_init();
 	ruby_script("uwsgi");
 	ruby_init_loadpath();
+#endif
 
 	if (ur.rack) {
 #ifndef RUBY19
 		rb_require("rubygems");	
 		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
 #else
+		/*
 		gem = rb_define_module("Gem");
 		rb_const_set(gem, rb_intern("Enable"), Qtrue);
 		Init_prelude();
+		*/
+		//ruby_process_options(argc, argv);
+		//ruby_options(argc, argv);
 		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
 #endif
 
@@ -376,7 +409,13 @@ int uwsgi_rack_init(){
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
 
-	//rb_gc_disable();
+#ifdef RUBY19
+#ifdef UWSGI_THREADING
+	if (uwsgi.threads > 1) {
+		rb_gc_disable();
+	}
+#endif
+#endif
 
 	return 0;
 
@@ -434,6 +473,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	int error;
 	int i;
+	VALUE env, ret, status, headers, body;
 
 	struct http_status_codes *http_sc;
 
@@ -448,25 +488,29 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-        VALUE env = rb_hash_new();
+
+	RUBY_GVL_LOCK
+
+        env = rb_hash_new();
 
         // fill ruby hash
         for(i=0;i<wsgi_req->var_cnt;i++) {
 
 		// put the var only if it is not 0 size or required (rack requirement... very inefficient)
 		if (wsgi_req->hvec[i+1].iov_len > 0 || 
-					!uwsgi_strncmp((char *)"REQUEST_METHOD", 14, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp((char *)"SCRIPT_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp((char *)"PATH_INFO", 10, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp((char *)"QUERY_STRING", 12, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp((char *)"SERVER_NAME", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len) ||
-					!uwsgi_strncmp((char *)"SERVER_PORT", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)
+					!uwsgi_strncmp((char *)"REQUEST_METHOD", 14, wsgi_req->hvec[i].iov_base, (int) wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"SCRIPT_NAME", 11, wsgi_req->hvec[i].iov_base, (int) wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"PATH_INFO", 10, wsgi_req->hvec[i].iov_base, (int) wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"QUERY_STRING", 12, wsgi_req->hvec[i].iov_base, (int) wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"SERVER_NAME", 11, wsgi_req->hvec[i].iov_base, (int) wsgi_req->hvec[i].iov_len) ||
+					!uwsgi_strncmp((char *)"SERVER_PORT", 11, wsgi_req->hvec[i].iov_base, (int) wsgi_req->hvec[i].iov_len)
 							) {
 			rb_hash_aset(env, rb_str_new(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len),
 					rb_str_new(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len));
 		}
                 i++;
         }
+
 
 	VALUE rbv = rb_ary_new();
 	rb_ary_store(rbv, 0, INT2NUM(1));
@@ -485,8 +529,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
 
-	VALUE ret = rb_protect( call_dispatch, env, &error);
-
+	ret = rb_protect( call_dispatch, env, &error);
+	
 	if (error) {
 		uwsgi_ruby_exception();
 		//return -1;
@@ -500,8 +544,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		// manage Status
 
-
-		VALUE status = rb_obj_as_string(RARRAY_PTR(ret)[0]);
+		status = rb_obj_as_string(RARRAY_PTR(ret)[0]);
 		// get the status code
 
 		wsgi_req->hvec[0].iov_base = wsgi_req->protocol;
@@ -531,26 +574,37 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	wsgi_req->hvec[5].iov_base = (char *) "\r\n";
         	wsgi_req->hvec[5].iov_len = 2 ;
 
+		RUBY_GVL_UNLOCK
 		if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, 6)) ) {
                 	uwsgi_error("writev()");
         	}
+		RUBY_GVL_LOCK
 
-		VALUE headers = RARRAY_PTR(ret)[1] ;
+		headers = RARRAY_PTR(ret)[1] ;
+		uwsgi_log("%p headers\n", headers);
 		if (rb_respond_to( headers, rb_intern("each") )) {
 			rb_iterate( rb_each, headers, send_header, INT2NUM(wsgi_req->poll.fd)); 
 		}
 
+		//RUBY_GVL_UNLOCK
 		if (write(wsgi_req->poll.fd, "\r\n", 2) != 2) {
 			uwsgi_error("write()");
 		}
+		//RUBY_GVL_LOCK
 
-		VALUE body = RARRAY_PTR(ret)[2] ;
-
+		body = RARRAY_PTR(ret)[2] ;
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
 			VALUE sendfile_path = rb_funcall( body, rb_intern("to_path"), 0);
 			wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
+			uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
+			//RUBY_GVL_UNLOCK
 			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
+			while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
+				uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
+				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+			}
+			//RUBY_GVL_LOCK;
 			rb_gc_unregister_address(&sendfile_path);
 
 		}
@@ -569,17 +623,37 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	}
 
+
 	rb_gc_unregister_address(&ret);
 
 	rb_gc_unregister_address(&env);
 
 	if (ur.gc_freq <= 1 || ur.cycles%ur.gc_freq == 0) {
-		rb_gc();
+#ifdef RUBY19
+#ifdef UWSGI_THREADING
+		if (uwsgi.threads > 1) {
+			if (wsgi_req->async_id == 0) {
+				rb_gc_enable();
+				rb_gc();
+				rb_gc_disable();
+			}
+		}
+		else {
+#endif
+#endif
+			rb_gc();
+#ifdef RUBY19
+#ifdef UWSGI_THREADING
+		}
+#endif
+#endif
 	}
+
+	RUBY_GVL_UNLOCK
 
 	ur.cycles++;
 
-	//rb_gc_disable();
+
 
 	return 0;
 }
@@ -607,6 +681,24 @@ int uwsgi_rack_manage_options(int i, char *optarg) {
 	return 0;
 }
 
+void uwsgi_rack_suspend(struct wsgi_request *wsgi_req) {
+
+	uwsgi_log("SUSPENDING RUBY\n");
+}
+
+void uwsgi_rack_resume(struct wsgi_request *wsgi_req) {
+
+	uwsgi_log("RESUMING RUBY\n");
+}
+
+void uwsgi_rack_enable_threads(void) {
+
+	pthread_mutex_init(&ur.gvl, NULL);
+}
+
+void uwsgi_rack_init_thread(void) {
+	RUBY_INIT_STACK;
+}
 struct uwsgi_plugin rack_plugin = {
 
 	.name = "rack",
@@ -617,5 +709,13 @@ struct uwsgi_plugin rack_plugin = {
 	.request = uwsgi_rack_request,
 	.after_request = uwsgi_rack_after_request,
 
+#ifdef RUBY19
+	.suspend = uwsgi_rack_suspend,
+	.resume = uwsgi_rack_resume,
+#ifdef UWSGI_THREADING
+	.enable_threads = uwsgi_rack_enable_threads,
+	.init_thread = uwsgi_rack_init_thread,
+#endif
+#endif
 };
 

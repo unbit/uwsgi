@@ -34,6 +34,8 @@ uwsgi.shared->hook_enable_threads[pname##_plugin.modifier1] = pname##_plugin.ena
 uwsgi.shared->hook_init_thread[pname##_plugin.modifier1] = pname##_plugin.init_thread;\
 uwsgi.shared->hook_manage_udp[pname##_plugin.modifier1] = pname##_plugin.manage_udp;\
 uwsgi.shared->hook_manage_xml[pname##_plugin.modifier1] = pname##_plugin.manage_xml;\
+uwsgi.shared->hook_suspend[pname##_plugin.modifier1] = pname##_plugin.suspend;\
+uwsgi.shared->hook_resume[pname##_plugin.modifier1] = pname##_plugin.resume;\
 
 
 #define fill_plugin_table(x, up)\
@@ -49,6 +51,8 @@ uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
 uwsgi.shared->hook_init_thread[x] = up->init_thread;\
 uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
 uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
+uwsgi.shared->hook_suspend[x] = up->suspend;\
+uwsgi.shared->hook_resume[x] = up->resume;\
 
 
 
@@ -321,6 +325,12 @@ uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
 #define UWSGI_END_CODE 30
 
 #define MAX_VARS 64
+#define MAX_LOOPS 60
+
+struct uwsgi_loop {
+	char *name;
+	void (*loop)(void);
+};
 
 struct uwsgi_socket {
 	int fd;
@@ -641,6 +651,7 @@ struct uwsgi_server {
 	int ugreen_stackpages;
 	ucontext_t ugreenmain;
 	ucontext_t **ugreen_contexts;
+	size_t u_stack_size;
 #endif
 
 #ifdef __linux__
@@ -758,6 +769,10 @@ struct uwsgi_server {
 
 	int close_on_exec;
 
+	char *loop;
+	struct uwsgi_loop loops[MAX_LOOPS];
+	int loops_cnt;
+
 };
 
 struct uwsgi_cluster_node {
@@ -802,6 +817,8 @@ struct uwsgi_shared {
 	int (*hook_manage_opt[0xFF]) (int, char*);
 	int (*hook_manage_udp[0xFF]) (char *, int, char*, int);
 	int (*hook_manage_xml[0xFF]) (char *, char *);
+	void (*hook_suspend[0xFF]) (struct wsgi_request *);
+	void (*hook_resume[0xFF]) (struct wsgi_request *);
 	uint32_t options[256];
 
 	struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
@@ -1112,6 +1129,8 @@ struct uwsgi_plugin {
         void (*init_apps)(void);
 	int (*manage_udp)(char *, int, char *, int);
 	int (*manage_xml)(char *, char *);
+        void (*suspend)(struct wsgi_request*);
+        void (*resume)(struct wsgi_request*);
 
 };
 
@@ -1129,3 +1148,6 @@ void build_options(void);
 int uwsgi_read_whole_body(struct wsgi_request *, char *, size_t);
 
 ssize_t uwsgi_sendfile(struct wsgi_request *);
+
+void uwsgi_register_loop(char *, void *);
+void *uwsgi_get_loop(char *);

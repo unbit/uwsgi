@@ -5,6 +5,31 @@ extern struct uwsgi_server uwsgi;
 struct wsgi_request* threaded_current_wsgi_req() { return pthread_getspecific(uwsgi.tur_key); }
 struct wsgi_request* simple_current_wsgi_req() { return uwsgi.wsgi_req; }
 
+
+void uwsgi_register_loop(char *name, void *loop) {
+	
+	if (uwsgi.loops_cnt >= MAX_LOOPS) {
+		uwsgi_log("you can define %d loops at max\n", MAX_LOOPS);
+		exit(1);
+	}
+
+	uwsgi.loops[uwsgi.loops_cnt].name = name;
+	uwsgi.loops[uwsgi.loops_cnt].loop = loop;
+}
+
+void *uwsgi_get_loop(char *name) {
+
+	int i;
+	
+	for(i=0;i<uwsgi.loops_cnt;i++) {
+		if (!strcmp(name, uwsgi.loops[i].name)) {
+			return uwsgi.loops[i].loop;
+		}
+	}
+
+	return NULL;
+}
+
 void *simple_loop(void *arg1) {
 
 	long core_id = (long) arg1;

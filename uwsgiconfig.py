@@ -253,9 +253,9 @@ class uConf():
         if self.get('ugreen'):
             if uwsgi_os == 'Darwin':
                 self.cflags.append("-D_XOPEN_SOURCE")
-                self.depends_on("ugreen", ['async'])
-                self.cflags.append("-DUWSGI_UGREEN")
-                self.gcc_list.append('ugreen')
+            self.depends_on("ugreen", ['async'])
+            self.cflags.append("-DUWSGI_UGREEN")
+            self.gcc_list.append('ugreen')
 
         if self.get('snmp'):
             self.depends_on("snmp", ['udp'])
