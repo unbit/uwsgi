@@ -244,6 +244,7 @@ uwsgi.shared->hook_resume[x] = up->resume;\
 #define LONG_ARGS_LOG_SENDFILE		17055
 #define LONG_ARGS_HTTP_MODIFIER1	17056
 #define LONG_ARGS_PLUGINS		17057
+#define LONG_ARGS_LOOP			17058
 
 
 

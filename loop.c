@@ -15,6 +15,7 @@ void uwsgi_register_loop(char *name, void *loop) {
 
 	uwsgi.loops[uwsgi.loops_cnt].name = name;
 	uwsgi.loops[uwsgi.loops_cnt].loop = loop;
+	uwsgi.loops_cnt++;
 }
 
 void *uwsgi_get_loop(char *name) {

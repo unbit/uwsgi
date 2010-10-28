@@ -14,7 +14,7 @@ extern struct uwsgi_server uwsgi;
 	#define RUBY_GVL_LOCK
 	#define RUBY_GVL_UNLOCK
 #else
-
+	void fiber_loop(void);
 	#ifdef UWSGI_THREADING
 		#define RUBY_GVL_LOCK if (uwsgi.threads > 1) {\
 			pthread_mutex_lock(&ur.gvl);\
@@ -337,6 +337,10 @@ int uwsgi_rack_init(){
 	ruby_init();
 	ruby_script("uwsgi");
 	ruby_init_loadpath();
+#endif
+
+#ifdef RUBY19
+	uwsgi_register_loop( (char *) "fiber", fiber_loop);
 #endif
 
 	if (ur.rack) {
@@ -697,7 +701,7 @@ void uwsgi_rack_enable_threads(void) {
 }
 
 void uwsgi_rack_init_thread(void) {
-	RUBY_INIT_STACK;
+	// thread initialization
 }
 struct uwsgi_plugin rack_plugin = {
 

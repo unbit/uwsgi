@@ -149,6 +149,7 @@ static struct option long_base_options[] = {
 	{"cgroup", required_argument, 0, LONG_ARGS_CGROUP},
 	{"cgroup-opt", required_argument, 0, LONG_ARGS_CGROUP_OPT},
 #endif
+	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
 	{"version", no_argument, 0, LONG_ARGS_VERSION},
 	{0, 0, 0, 0}
@@ -1338,6 +1339,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
+		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
 		u_loop();
 		goto end;
 	} else {
@@ -1447,6 +1449,9 @@ end:
 		switch (i) {
 
 		case 0:
+			return 1;
+		case LONG_ARGS_LOOP:
+			uwsgi.loop = optarg;
 			return 1;
 		case LONG_ARGS_PLUGINS:
 			p = strtok(optarg, ",");
