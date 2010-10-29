@@ -51,8 +51,8 @@ void *simple_loop(void *arg1) {
 			sigfillset(&smask);
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
 			for(i=0;i<0xFF;i++) {
-				if (uwsgi.shared->hook_init_thread[i]) {
-					uwsgi.shared->hook_init_thread[i]();
+				if (uwsgi.p[i]->init_thread) {
+					uwsgi.p[i]->init_thread();
 				}
 			}
 			/*
@@ -64,6 +64,7 @@ void *simple_loop(void *arg1) {
 #endif
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
+
 
 #ifndef __linux__
 		if (uwsgi.no_orphans && uwsgi.master_process) {

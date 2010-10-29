@@ -286,12 +286,11 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
 
-
 	if (wsgi_req->async_result) {
 
 
 		UWSGI_RELEASE_GIL
-			while ( (*wi->response_subhandler)(wsgi_req) != UWSGI_OK) {
+			while ( wi->response_subhandler(wsgi_req) != UWSGI_OK) {
 				wsgi_req->switches++;
 #ifdef UWSGI_ASYNC
 				if (uwsgi.async > 1) {
@@ -336,7 +335,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		close(tmp_stderr);
 	}
 
-
 clear:
 
 	UWSGI_GET_GIL
@@ -353,10 +351,9 @@ clear:
 
 	UWSGI_RELEASE_GIL
 
-		clear2:
+clear2:
 
-
-		return UWSGI_OK;
+	return UWSGI_OK;
 
 }
 

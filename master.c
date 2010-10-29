@@ -225,8 +225,8 @@ void master_loop(char **argv, char **environ) {
 								// loop the various udp manager until one returns true
 								udp_managed = 0;
 								for(i=0;i<0xFF;i++) {
-									if (uwsgi.shared->hook_manage_udp[i]) {
-										if (uwsgi.shared->hook_manage_udp[i](udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
+									if (uwsgi.p[i]->manage_udp) {
+										if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
 											udp_managed = 1;
 											break;
 										}

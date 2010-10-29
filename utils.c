@@ -341,7 +341,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// after_request hook
-	uwsgi.shared->hook_after_request[wsgi_req->uh.modifier1](wsgi_req);
+	uwsgi.p[wsgi_req->uh.modifier1]->after_request(wsgi_req);
 
 	// leave harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
@@ -402,8 +402,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 		set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
 	}
 
-	wsgi_req->async_status = uwsgi.shared->hook_request[wsgi_req->uh.modifier1] (wsgi_req);
-
+	wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
 
 	return 0;
 }
@@ -467,17 +466,6 @@ void sanitize_args() {
 		uwsgi.has_threads = 1;
 		uwsgi.cores = uwsgi.threads;
 	}
-
-#ifdef UWSGI_UGREEN
-#ifdef UWSGI_THREADING
-	if (uwsgi.ugreen) {
-		if (uwsgi.has_threads) {
-			uwsgi_log("--- python threads will be disabled in uGreen mode ---\n");
-			uwsgi.has_threads = 0;
-		}
-	}
-#endif
-#endif
 
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 		if (!uwsgi.post_buffering) {

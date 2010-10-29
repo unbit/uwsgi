@@ -282,6 +282,13 @@ static void unconfigured_after_hook(struct wsgi_request * wsgi_req)
 	return;
 }
 
+struct uwsgi_plugin unconfigured_plugin = {
+
+	.name = "unconfigured",
+	.request = unconfigured_hook,
+	.after_request = unconfigured_after_hook,
+};
+
 static void vacuum(void)
 {
 
@@ -391,8 +398,7 @@ int main(int argc, char *argv[], char *envp[])
 #endif
 
 	for (i = 0; i <= 0xFF; i++) {
-		uwsgi.shared->hook_request[i] = unconfigured_hook;
-		uwsgi.shared->hook_after_request[i] = unconfigured_after_hook;
+		uwsgi.p[i] = &unconfigured_plugin;
 	}
 
 	uwsgi.cores = 1;
@@ -764,8 +770,8 @@ uwsgi.wsgi_config = lazy;
 		}
 	}
 	for (i = 0; i < 0xFF; i++) {
-		if (uwsgi.shared->hook_init[i]) {
-			(*uwsgi.shared->hook_init[i]) ();
+		if (uwsgi.p[i]->init) {
+			uwsgi.p[i]->init();
 		}
 	}
 
@@ -822,8 +828,8 @@ uwsgi.wsgi_config = lazy;
 	if (uwsgi.has_threads) {
 		uwsgi.current_wsgi_req = threaded_current_wsgi_req;
 		for (i = 0; i < 0xFF; i++) {
-			if (uwsgi.shared->hook_enable_threads[i])
-				uwsgi.shared->hook_enable_threads[i] ();
+			if (uwsgi.p[i]->enable_threads)
+				uwsgi.p[i]->enable_threads();
 		}
 	}
 #endif
@@ -1128,8 +1134,8 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
 	//init apps hook
 	for (i = 0; i < 0xFF; i++) {
-		if (uwsgi.shared->hook_init_apps[i]) {
-			uwsgi.shared->hook_init_apps[i] ();
+		if (uwsgi.p[i]->init_apps) {
+			uwsgi.p[i]->init_apps();
 		}
 	}
 
@@ -1231,8 +1237,8 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		//from now on the process is a real worker
 	}
 	for (i = 0; i < 0xFF; i++) {
-		if (uwsgi.shared->hook_post_fork[i]) {
-			uwsgi.shared->hook_post_fork[i] ();
+		if (uwsgi.p[i]->post_fork) {
+			uwsgi.p[i]->post_fork();
 		}
 	}
 
@@ -1890,8 +1896,8 @@ end:
 		}
 
 		for (j = 0; j < 0xFF; j++) {
-			if (uwsgi.shared->hook_manage_opt[j]) {
-				if (uwsgi.shared->hook_manage_opt[j] (i, optarg)) {
+			if (uwsgi.p[j]->manage_opt) {
+				if (uwsgi.p[j]->manage_opt(i, optarg)) {
 					return;
 				}
 			}
@@ -1960,8 +1966,8 @@ void build_options() {
 		char *so_ptr;
 
 		for (i = 0; i < 0xFF; i++) {
-			if (uwsgi.shared->hook_short_options[i]) {
-				short_opt_size += strlen(uwsgi.shared->hook_short_options[i]);
+			if (uwsgi.p[i]->short_options) {
+				short_opt_size += strlen(uwsgi.p[i]->short_options);
 			}
 		}
 
@@ -1983,9 +1989,9 @@ void build_options() {
 		so_ptr = short_options + strlen(base_short_options);
 
 		for (i = 0; i < 0xFF; i++) {
-			if (uwsgi.shared->hook_short_options[i]) {
-				memcpy(so_ptr, uwsgi.shared->hook_short_options[i], strlen(uwsgi.shared->hook_short_options[i]));
-				so_ptr += strlen(uwsgi.shared->hook_short_options[i]);
+			if (uwsgi.p[i]->short_options) {
+				memcpy(so_ptr, uwsgi.p[i]->short_options, strlen(uwsgi.p[i]->short_options));
+				so_ptr += strlen(uwsgi.p[i]->short_options);
 			}
 		}
 
@@ -1999,8 +2005,8 @@ void build_options() {
 		*so_ptr = 0;
 
 		for (i = 0; i < 0xFF; i++) {
-			if (uwsgi.shared->hook_options[i]) {
-				opt_count += count_options(uwsgi.shared->hook_options[i]);
+			if (uwsgi.p[i]->options) {
+				opt_count += count_options(uwsgi.p[i]->options);
 			}
 		}
 
@@ -2032,7 +2038,7 @@ void build_options() {
 		}
 
 		for (i = 0; i < 0xFF; i++) {
-			lopt = uwsgi.shared->hook_options[i];
+			lopt = uwsgi.p[i]->options;
 			if (!lopt)
 				continue;
 

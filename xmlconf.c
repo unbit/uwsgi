@@ -170,8 +170,8 @@ next:
 							if (node2->children) {
 								if (node2->children->content) {
 									for(i=0;i<0xFF;i++) {
-										if (uwsgi.shared->hook_manage_xml[i]) {
-											if (uwsgi.shared->hook_manage_xml[i]( (char *)node2->name, (char *) node2->children->content)) break;
+										if (uwsgi.p[i]->manage_xml) {
+											if (uwsgi.p[i]->manage_xml( (char *)node2->name, (char *) node2->children->content)) break;
 										}
 									}		
 								}

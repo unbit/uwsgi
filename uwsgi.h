@@ -24,47 +24,21 @@
 
 #define ULEP(pname)\
 	if (pname##_plugin.request) {\
-		uwsgi.shared->hook_init[pname##_plugin.modifier1] = pname##_plugin.init;\
-		uwsgi.shared->hook_post_fork[pname##_plugin.modifier1] = pname##_plugin.post_fork;\
-		uwsgi.shared->hook_options[pname##_plugin.modifier1] = pname##_plugin.options;\
-		uwsgi.shared->hook_manage_opt[pname##_plugin.modifier1] = pname##_plugin.manage_opt;\
-		uwsgi.shared->hook_short_options[pname##_plugin.modifier1] = pname##_plugin.short_options;\
-		uwsgi.shared->hook_request[pname##_plugin.modifier1] = pname##_plugin.request;\
-		uwsgi.shared->hook_after_request[pname##_plugin.modifier1] = pname##_plugin.after_request;\
-		uwsgi.shared->hook_init_apps[pname##_plugin.modifier1] = pname##_plugin.init_apps;\
-		uwsgi.shared->hook_enable_threads[pname##_plugin.modifier1] = pname##_plugin.enable_threads;\
-		uwsgi.shared->hook_init_thread[pname##_plugin.modifier1] = pname##_plugin.init_thread;\
-		uwsgi.shared->hook_manage_udp[pname##_plugin.modifier1] = pname##_plugin.manage_udp;\
-		uwsgi.shared->hook_manage_xml[pname##_plugin.modifier1] = pname##_plugin.manage_xml;\
-		uwsgi.shared->hook_suspend[pname##_plugin.modifier1] = pname##_plugin.suspend;\
-		uwsgi.shared->hook_resume[pname##_plugin.modifier1] = pname##_plugin.resume;\
+		uwsgi.p[pname##_plugin.modifier1] = &pname##_plugin;\
 	}\
 	else {\
 		if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
-			uwsgi_log("you have embedded to much generic plugins !!!\n");\
+			uwsgi_log("you have embedded too much generic plugins !!!\n");\
 			exit(1);\
 		}\
-		uwsgi.gp[uwsgi.gp_cnt] = pname##_plugin;\
+		uwsgi.gp[uwsgi.gp_cnt] = &pname##_plugin;\
 		uwsgi.gp_cnt++;\
 	}\
 
 
 #define fill_plugin_table(x, up)\
 	if (up->request) {\
-		uwsgi.shared->hook_init[x] = up->init;\
-		uwsgi.shared->hook_post_fork[x] = up->post_fork;\
-		uwsgi.shared->hook_options[x] = up->options;\
-		uwsgi.shared->hook_manage_opt[x] = up->manage_opt;\
-		uwsgi.shared->hook_short_options[x] = up->short_options;\
-		uwsgi.shared->hook_request[x] = up->request;\
-		uwsgi.shared->hook_after_request[x] = up->after_request;\
-		uwsgi.shared->hook_init_apps[x] = up->init_apps;\
-		uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
-		uwsgi.shared->hook_init_thread[x] = up->init_thread;\
-		uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
-		uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
-		uwsgi.shared->hook_suspend[x] = up->suspend;\
-		uwsgi.shared->hook_resume[x] = up->resume;\
+		uwsgi.p[x] = up;\
 	}\
 	else {\
 		if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
@@ -797,6 +771,7 @@ struct uwsgi_server {
 	struct uwsgi_loop loops[MAX_LOOPS];
 	int             loops_cnt;
 
+	struct uwsgi_plugin *p[0xFF];
 	struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
 	int gp_cnt;
 
@@ -832,21 +807,7 @@ struct uwsgi_shared {
 	//vga 80 x25 specific !
 	char            warning_message[81];
 
-	int             (*hook_init[0xFF]) (void);
-	void            (*hook_post_fork[0xFF]) (void);
-	void            (*hook_enable_threads[0xFF]) (void);
-	int             (*hook_request[0xFF]) (struct wsgi_request *);
-	void            (*hook_after_request[0xFF]) (struct wsgi_request *);
-	void            (*hook_init_thread[0xFF]) (void);
-	void            (*hook_init_apps[0xFF]) (void);
-	struct option  *hook_options[0xFF];
-	const char     *hook_short_options[0xFF];
-	int             (*hook_manage_opt[0xFF]) (int, char *);
-	int             (*hook_manage_udp[0xFF]) (char *, int, char *, int);
-	int             (*hook_manage_xml[0xFF]) (char *, char *);
-	void            (*hook_suspend[0xFF]) (struct wsgi_request *);
-	void            (*hook_resume[0xFF]) (struct wsgi_request *);
-	uint32_t        options[256];
+	uint32_t        options[0xFF];
 
 	struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
 

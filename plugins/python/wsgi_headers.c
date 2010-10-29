@@ -149,6 +149,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 			uwsgi_error("writev()");
 		}
 
+	//uwsgi_log("%d %p\n", wsgi_req->poll.fd, up.wsgi_writeout);
 	Py_INCREF(up.wsgi_writeout);
 
 
