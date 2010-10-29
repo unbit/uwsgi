@@ -10,6 +10,7 @@
 #define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
 
 #define MAX_APPS 64
+#define MAX_GENERIC_PLUGINS 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
 #define UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -22,37 +23,57 @@
 #define UDEP(pname) extern struct uwsgi_plugin pname##_plugin;
 
 #define ULEP(pname)\
-	uwsgi.shared->hook_init[pname##_plugin.modifier1] = pname##_plugin.init;\
-uwsgi.shared->hook_post_fork[pname##_plugin.modifier1] = pname##_plugin.post_fork;\
-uwsgi.shared->hook_options[pname##_plugin.modifier1] = pname##_plugin.options;\
-uwsgi.shared->hook_manage_opt[pname##_plugin.modifier1] = pname##_plugin.manage_opt;\
-uwsgi.shared->hook_short_options[pname##_plugin.modifier1] = pname##_plugin.short_options;\
-uwsgi.shared->hook_request[pname##_plugin.modifier1] = pname##_plugin.request;\
-uwsgi.shared->hook_after_request[pname##_plugin.modifier1] = pname##_plugin.after_request;\
-uwsgi.shared->hook_init_apps[pname##_plugin.modifier1] = pname##_plugin.init_apps;\
-uwsgi.shared->hook_enable_threads[pname##_plugin.modifier1] = pname##_plugin.enable_threads;\
-uwsgi.shared->hook_init_thread[pname##_plugin.modifier1] = pname##_plugin.init_thread;\
-uwsgi.shared->hook_manage_udp[pname##_plugin.modifier1] = pname##_plugin.manage_udp;\
-uwsgi.shared->hook_manage_xml[pname##_plugin.modifier1] = pname##_plugin.manage_xml;\
-uwsgi.shared->hook_suspend[pname##_plugin.modifier1] = pname##_plugin.suspend;\
-uwsgi.shared->hook_resume[pname##_plugin.modifier1] = pname##_plugin.resume;\
+	if (pname##_plugin.request) {\
+		uwsgi.shared->hook_init[pname##_plugin.modifier1] = pname##_plugin.init;\
+		uwsgi.shared->hook_post_fork[pname##_plugin.modifier1] = pname##_plugin.post_fork;\
+		uwsgi.shared->hook_options[pname##_plugin.modifier1] = pname##_plugin.options;\
+		uwsgi.shared->hook_manage_opt[pname##_plugin.modifier1] = pname##_plugin.manage_opt;\
+		uwsgi.shared->hook_short_options[pname##_plugin.modifier1] = pname##_plugin.short_options;\
+		uwsgi.shared->hook_request[pname##_plugin.modifier1] = pname##_plugin.request;\
+		uwsgi.shared->hook_after_request[pname##_plugin.modifier1] = pname##_plugin.after_request;\
+		uwsgi.shared->hook_init_apps[pname##_plugin.modifier1] = pname##_plugin.init_apps;\
+		uwsgi.shared->hook_enable_threads[pname##_plugin.modifier1] = pname##_plugin.enable_threads;\
+		uwsgi.shared->hook_init_thread[pname##_plugin.modifier1] = pname##_plugin.init_thread;\
+		uwsgi.shared->hook_manage_udp[pname##_plugin.modifier1] = pname##_plugin.manage_udp;\
+		uwsgi.shared->hook_manage_xml[pname##_plugin.modifier1] = pname##_plugin.manage_xml;\
+		uwsgi.shared->hook_suspend[pname##_plugin.modifier1] = pname##_plugin.suspend;\
+		uwsgi.shared->hook_resume[pname##_plugin.modifier1] = pname##_plugin.resume;\
+	}\
+	else {\
+		if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
+			uwsgi_log("you have embedded to much generic plugins !!!\n");\
+			exit(1);\
+		}\
+		uwsgi.gp[uwsgi.gp_cnt] = pname##_plugin;\
+		uwsgi.gp_cnt++;\
+	}\
 
 
 #define fill_plugin_table(x, up)\
-	uwsgi.shared->hook_init[x] = up->init;\
-uwsgi.shared->hook_post_fork[x] = up->post_fork;\
-uwsgi.shared->hook_options[x] = up->options;\
-uwsgi.shared->hook_manage_opt[x] = up->manage_opt;\
-uwsgi.shared->hook_short_options[x] = up->short_options;\
-uwsgi.shared->hook_request[x] = up->request;\
-uwsgi.shared->hook_after_request[x] = up->after_request;\
-uwsgi.shared->hook_init_apps[x] = up->init_apps;\
-uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
-uwsgi.shared->hook_init_thread[x] = up->init_thread;\
-uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
-uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
-uwsgi.shared->hook_suspend[x] = up->suspend;\
-uwsgi.shared->hook_resume[x] = up->resume;\
+	if (up->request) {\
+		uwsgi.shared->hook_init[x] = up->init;\
+		uwsgi.shared->hook_post_fork[x] = up->post_fork;\
+		uwsgi.shared->hook_options[x] = up->options;\
+		uwsgi.shared->hook_manage_opt[x] = up->manage_opt;\
+		uwsgi.shared->hook_short_options[x] = up->short_options;\
+		uwsgi.shared->hook_request[x] = up->request;\
+		uwsgi.shared->hook_after_request[x] = up->after_request;\
+		uwsgi.shared->hook_init_apps[x] = up->init_apps;\
+		uwsgi.shared->hook_enable_threads[x] = up->enable_threads;\
+		uwsgi.shared->hook_init_thread[x] = up->init_thread;\
+		uwsgi.shared->hook_manage_udp[x] = up->manage_udp;\
+		uwsgi.shared->hook_manage_xml[x] = up->manage_xml;\
+		uwsgi.shared->hook_suspend[x] = up->suspend;\
+		uwsgi.shared->hook_resume[x] = up->resume;\
+	}\
+	else {\
+		if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
+			uwsgi_log("you have embedded to much generic plugins !!!\n");\
+			exit(1);\
+		}\
+		uwsgi.gp[uwsgi.gp_cnt] = up;\
+		uwsgi.gp_cnt++;\
+	}\
 
 
 
@@ -90,10 +111,6 @@ uwsgi.shared->hook_resume[x] = up->resume;\
 
 #ifdef UWSGI_SCTP
 #include <netinet/sctp.h>
-#endif
-
-#ifdef UWSGI_UGREEN
-#include <ucontext.h>
 #endif
 
 #ifndef UWSGI_PLUGIN_BASE
@@ -344,6 +361,30 @@ struct uwsgi_socket {
 struct wsgi_request;
 struct uwsgi_server;
 
+struct uwsgi_plugin {
+
+        const char     *name;
+        uint8_t         modifier1;
+        void           *data;
+        int             (*init) (void);
+        void            (*post_fork) (void);
+        struct option  *options;
+        const char     *short_options;
+        int             (*manage_opt) (int, char *);
+        void            (*magic) (char *);
+        void            (*enable_threads) (void);
+        void            (*init_thread) (void);
+        int             (*request) (struct wsgi_request *);
+        void            (*after_request) (struct wsgi_request *);
+        void            (*init_apps) (void);
+        int             (*manage_udp) (char *, int, char *, int);
+        int             (*manage_xml) (char *, char *);
+        void            (*suspend) (struct wsgi_request *);
+        void            (*resume) (struct wsgi_request *);
+
+};
+
+
 struct uwsgi_app {
 
 	uint8_t         modifier1;
@@ -535,13 +576,13 @@ struct wsgi_request {
 struct uwsgi_server {
 
 
+	int		no_initial_output;
 	int             has_threads;
 	int             apps_cnt;
 	int             default_app;
-	int             enable_profiler;
 
-	              //base for all the requests(even on async mode)
-		struct wsgi_request **wsgi_requests;
+	//base for all the requests(even on async mode)
+	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;
 
 	char           *chroot;
@@ -635,8 +676,6 @@ struct uwsgi_server {
 
 	int             page_size;
 
-	char           *test_module;
-
 	char           *pidfile;
 
 	int             numproc;
@@ -644,16 +683,6 @@ struct uwsgi_server {
 	int             async_running;
 	int             async_queue;
 	int             async_nevents;
-
-	int             stackless;
-
-#ifdef UWSGI_UGREEN
-	int             ugreen;
-	int             ugreen_stackpages;
-	ucontext_t      ugreenmain;
-	ucontext_t    **ugreen_contexts;
-	size_t          u_stack_size;
-#endif
 
 #ifdef __linux__
 	struct epoll_event *async_events;
@@ -689,8 +718,6 @@ struct uwsgi_server {
 
 	char           *file_config;
 
-	              //char *python_path[MAX_PYTHONPATH];
-	              //int python_path_cnt;
 
 #ifdef UWSGI_ROUTING
 #ifndef MAX_UWSGI_ROUTES
@@ -700,8 +727,6 @@ struct uwsgi_server {
 	int             nroutes;
 	struct uwsgi_route routes[MAX_UWSGI_ROUTES];
 #endif
-
-	char           *wsgi_config;
 
 #ifdef UWSGI_INI
 	char           *ini;
@@ -737,8 +762,6 @@ struct uwsgi_server {
 
 	char           *cwd;
 
-	char           *eval;
-
 	int             log_slow_requests;
 	int             log_zero_headers;
 	int             log_empty_body;
@@ -762,17 +785,20 @@ struct uwsgi_server {
 	int             cores;
 	int             threads;
 
-	              //this key old the u_request structure per core / thread
-	                pthread_key_t tur_key;
+	//this key old the u_request structure per core / thread
+	pthread_key_t tur_key;
 
 
 	struct wsgi_request *(*current_wsgi_req) (void);
 
-	int             close_on_exec;
+	int close_on_exec;
 
 	char           *loop;
 	struct uwsgi_loop loops[MAX_LOOPS];
 	int             loops_cnt;
+
+	struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
+	int gp_cnt;
 
 };
 
@@ -1042,11 +1068,6 @@ void            wsgi_req_setup(struct wsgi_request *, int);
 int             wsgi_req_recv(struct wsgi_request *);
 int             wsgi_req_accept(struct wsgi_request *);
 
-#ifdef UWSGI_UGREEN
-void            u_green_init(void);
-void            u_green_loop(void);
-#endif
-
 #ifdef UWSGI_STACKLESS
 #ifdef __clang__
 struct wsgi_request *current_wsgi_req(void);
@@ -1111,29 +1132,6 @@ int             find_worker_id(pid_t);
 
 void           *simple_loop(void *);
 void            complex_loop(void);
-
-struct uwsgi_plugin {
-
-	const char     *name;
-	uint8_t         modifier1;
-	void           *data;
-	int             (*init) (void);
-	void            (*post_fork) (void);
-	struct option  *options;
-	const char     *short_options;
-	int             (*manage_opt) (int, char *);
-	void            (*magic) (char *);
-	void            (*enable_threads) (void);
-	void            (*init_thread) (void);
-	int             (*request) (struct wsgi_request *);
-	void            (*after_request) (struct wsgi_request *);
-	void            (*init_apps) (void);
-	int             (*manage_udp) (char *, int, char *, int);
-	int             (*manage_xml) (char *, char *);
-	void            (*suspend) (struct wsgi_request *);
-	void            (*resume) (struct wsgi_request *);
-
-};
 
 int             count_options(struct option *);
 

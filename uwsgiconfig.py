@@ -176,9 +176,6 @@ class uConf():
         if uwsgi_os in kvm_list:
             self.libs.append('-lkvm')
 
-        if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
-            self.set('ugreen', 'false')
-
         if uwsgi_os == 'Haiku':
             self.set('async', 'false')
             self.set('proxy', 'false')
@@ -202,10 +199,6 @@ class uConf():
 
         if self.get('minterpreters'):
             self.cflags.append("-DUWSGI_MINTERPRETERS")
-
-        if self.get('nagios'):
-            self.cflags.append("-DUWSGI_NAGIOS")
-            self.gcc_list.append('nagios')
 
         if self.get('ini'):
             self.cflags.append("-DUWSGI_INI")
@@ -248,14 +241,6 @@ class uConf():
         if self.get('evdis'):
             self.cflags.append("-DUWSGI_EVDIS")
             self.gcc_list.append('evdis')
-
-
-        if self.get('ugreen'):
-            if uwsgi_os == 'Darwin':
-                self.cflags.append("-D_XOPEN_SOURCE")
-            self.depends_on("ugreen", ['async'])
-            self.cflags.append("-DUWSGI_UGREEN")
-            self.gcc_list.append('ugreen')
 
         if self.get('snmp'):
             self.depends_on("snmp", ['udp'])

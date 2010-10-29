@@ -1,4 +1,4 @@
-require 'fiber'
+#require 'fiber'
 require 'sinatra'
 
 get '/hi' do

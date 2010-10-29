@@ -1,12 +1,27 @@
-#include "uwsgi.h"
+#include "../../uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
+int use_nagios = 0;
 
-void nagios() {
+#define LONG_ARGS_NAGIOS 40000
+
+struct option nagios_options[] = {
+
+	{"nagios", no_argument, 0, LONG_ARGS_NAGIOS},
+        {0, 0, 0, 0},
+
+};
+
+
+int nagios() {
 
 	char *tcp_port;
 	struct pollfd nagios_poll;
 // connect and send
+
+	if (!use_nagios) {
+		return 1;
+	}
 	if (uwsgi.sockets[0].name == NULL) {
 		fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
 		exit(3);
@@ -52,3 +67,22 @@ void nagios() {
 	fprintf(stdout, "UWSGI UNKNOWN: probably you hit a bug of uWSGI !!!\n");
 	exit(3);
 }
+
+int nagios_opt(int i, char *optarg) {
+
+	switch(i) {
+		case LONG_ARGS_NAGIOS:
+			uwsgi.no_initial_output = 1;
+			use_nagios = 1;
+			return 1;
+	}
+
+	return 0;
+}
+
+struct uwsgi_plugin nagios_plugin = {
+	
+	.options = nagios_options,
+	.manage_opt = nagios_opt,
+	.init = nagios,
+};

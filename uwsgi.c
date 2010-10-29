@@ -96,14 +96,7 @@ static struct option long_base_options[] = {
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
 #endif
 	{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
-#ifdef UWSGI_ERLANG
-	{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
-	{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
-#endif
 
-#ifdef UWSGI_NAGIOS
-	{"nagios", no_argument, &uwsgi.nagios, 1},
-#endif
 	{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
 #ifdef UWSGI_PROXY
 	{"proxy", required_argument, 0, LONG_ARGS_PROXY},
@@ -112,10 +105,6 @@ static struct option long_base_options[] = {
 #endif
 #ifdef UWSGI_ASYNC
 	{"async", required_argument, 0, LONG_ARGS_ASYNC},
-#endif
-#ifdef UWSGI_UGREEN
-	{"ugreen", no_argument, &uwsgi.ugreen, 1},
-	{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 #endif
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 	{"logdate", no_argument, &uwsgi.logdate, 1},
@@ -456,9 +445,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	uwsgi_register_loop("simple", simple_loop);
 	uwsgi_register_loop("async", complex_loop);
-#ifdef UWSGI_UGREEN
-	uwsgi_register_loop("ugreen", u_green_loop);
-#endif
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -474,7 +460,6 @@ int main(int argc, char *argv[], char *envp[])
 	build_options();
 
 	while ((i = getopt_long(argc, argv, short_options, long_options, &option_index)) != -1) {
-		uwsgi_log("i = %d\n", i);
 		manage_opt(i, optarg);
 	}
 
@@ -550,13 +535,13 @@ uwsgi.wsgi_config = lazy;
 		}
 		memcpy(uwsgi.binary_path, argv[0], strlen(argv[0]) + 1);
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-		if (uwsgi.test_module == NULL) {
+
+	if (!uwsgi.no_initial_output) {
+		if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
 			uwsgi_log("*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
+		} else {
+			uwsgi_log("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 		}
-	} else {
-		uwsgi_log("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
-	}
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, plese disable DEBUG in uwsgiconfig.py and recompile it ***\n***\n");
@@ -567,6 +552,8 @@ uwsgi.wsgi_config = lazy;
 #ifdef __BIG_ENDIAN__
 	uwsgi_log("*** big endian arch detected ***\n");
 #endif
+
+	}
 
 	if (uwsgi.pidfile && !uwsgi.is_a_reload) {
 		uwsgi_log("writing pidfile to %s\n", uwsgi.pidfile);
@@ -582,8 +569,10 @@ uwsgi.wsgi_config = lazy;
 	}
 	uwsgi_as_root();
 
-	if (!uwsgi.master_process) {
-		uwsgi_log(" *** WARNING: you are running uWSGI without its master process manager ***\n");
+	if (!uwsgi.no_initial_output) {
+		if (!uwsgi.master_process) {
+			uwsgi_log(" *** WARNING: you are running uWSGI without its master process manager ***\n");
+		}
 	}
 #ifndef __OpenBSD__
 
@@ -608,14 +597,17 @@ uwsgi.wsgi_config = lazy;
 	}
 	if (!getrlimit(RLIMIT_AS, &uwsgi.rl)) {
 		//check for overflow
-		if (uwsgi.rl.rlim_max != RLIM_INFINITY) {
+		if (uwsgi.rl.rlim_max != RLIM_INFINITY && !uwsgi.no_initial_output) {
 			uwsgi_log("your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
 		}
 	}
 #endif
 
 	uwsgi.page_size = getpagesize();
-	uwsgi_log("your memory page size is %d bytes\n", uwsgi.page_size);
+
+	if (!uwsgi.no_initial_output) {
+		uwsgi_log("your memory page size is %d bytes\n", uwsgi.page_size);
+	}
 
 	if (uwsgi.buffer_size > 65536) {
 		uwsgi_log("invalid buffer size.\n");
@@ -766,6 +758,11 @@ uwsgi.wsgi_config = lazy;
 	}
 
 	/* plugin initialization */
+	for(i =0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->init) {
+			uwsgi.gp[i]->init();
+		}
+	}
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.shared->hook_init[i]) {
 			(*uwsgi.shared->hook_init[i]) ();
@@ -819,20 +816,7 @@ uwsgi.wsgi_config = lazy;
 	uwsgi.current_wsgi_req = simple_current_wsgi_req;
 
 
-#ifdef UWSGI_NAGIOS
-	if (uwsgi.nagios) {
-		nagios();
-		//never here
-	}
-#endif
-
-#ifdef UWSGI_UGREEN
-	if (uwsgi.ugreen) {
-		uwsgi_log("init ugreen\n");
-		u_green_init();
-		uwsgi_log("done with ugreen\n");
-	}
-#endif
+	// call nagios here
 
 #ifdef UWSGI_THREADING
 	if (uwsgi.has_threads) {
@@ -1106,11 +1090,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			uwsgi_log("threaded");
 		}
 	}
-#ifdef UWSGI_UGREEN
-	else if (uwsgi.ugreen) {
-		uwsgi_log("uGreen");
-	}
-#endif
 #ifdef UWSGI_STACKLESS
 	else if (uwsgi.stackless) {
 		uwsgi_log("stackless");
@@ -1368,12 +1347,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 				pthread_create(a_thread, &pa, simple_loop, (void *) j);
 			}
 		}
-#ifdef UWSGI_UGREEN
-		if (uwsgi.ugreen) {
-			u_green_loop();
-			goto end;
-		}
-#endif
 
 #ifdef UWSGI_STACKLESS
 		if (uwsgi.stackless) {
@@ -1456,7 +1429,9 @@ end:
 		case LONG_ARGS_PLUGINS:
 			p = strtok(optarg, ",");
 			while (p != NULL) {
-				uwsgi_log("loading plugin %s\n", p);
+#ifdef UWSGI_DEBUG
+				uwsgi_debug("loading plugin %s\n", p);
+#endif
 				uwsgi_load_plugin(0, p, NULL, 0);
 				p = strtok(NULL, ",");
 			}
@@ -1508,11 +1483,6 @@ end:
 		case LONG_ARGS_LOGTO:
 			logto(optarg);
 			return 1;
-#ifdef UWSGI_UGREEN
-		case LONG_ARGS_UGREEN_PAGES:
-			uwsgi.ugreen_stackpages = atoi(optarg);
-			return 1;
-#endif
 		case LONG_ARGS_VERSION:
 			fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);
 			exit(0);
@@ -1632,9 +1602,11 @@ end:
 		case LONG_ARGS_INI:
 			uwsgi.ini = optarg;
 			return 1;
+/*
 		case LONG_ARGS_EVAL_CONFIG:
 			uwsgi.eval = optarg;
 			return 1;
+*/
 #ifdef UWSGI_PASTE
 		case LONG_ARGS_INI_PASTE:
 			uwsgi.ini = optarg;
@@ -1916,6 +1888,7 @@ end:
 		if (manage_base_opt(i, optarg)) {
 			return;
 		}
+
 		for (j = 0; j < 0xFF; j++) {
 			if (uwsgi.shared->hook_manage_opt[j]) {
 				if (uwsgi.shared->hook_manage_opt[j] (i, optarg)) {
@@ -1924,8 +1897,16 @@ end:
 			}
 		}
 
+		for (j = 0; j < uwsgi.gp_cnt; j++) {
+			if (uwsgi.gp[j]->manage_opt) {
+				if (uwsgi.gp[j]->manage_opt(i, optarg)) {
+					return;
+				}
+			}
+		}
+
 		//never here
-			exit(1);
+		exit(1);
 
 	}
 
@@ -1984,6 +1965,12 @@ void build_options() {
 			}
 		}
 
+		for(i=0;i<uwsgi.gp_cnt;i++) {
+			if (uwsgi.gp[i]->short_options) {
+				short_opt_size += strlen(uwsgi.gp[i]->short_options);
+			}
+		}
+
 		if (short_options) {
 			free(short_options);
 		}
@@ -2002,11 +1989,24 @@ void build_options() {
 			}
 		}
 
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+			if (uwsgi.gp[i]->short_options) {
+				memcpy(so_ptr, uwsgi.gp[i]->short_options, strlen(uwsgi.gp[i]->short_options));
+				so_ptr += strlen(uwsgi.gp[i]->short_options);
+			}
+		}
+
 		*so_ptr = 0;
 
 		for (i = 0; i < 0xFF; i++) {
 			if (uwsgi.shared->hook_options[i]) {
 				opt_count += count_options(uwsgi.shared->hook_options[i]);
+			}
+		}
+
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+			if (uwsgi.gp[i]->options) {
+				opt_count += count_options(uwsgi.gp[i]->options);
 			}
 		}
 
@@ -2033,6 +2033,24 @@ void build_options() {
 
 		for (i = 0; i < 0xFF; i++) {
 			lopt = uwsgi.shared->hook_options[i];
+			if (!lopt)
+				continue;
+
+			while ((aopt = lopt)) {
+				if (!aopt->name)
+					break;
+				long_options[opt_count].name = aopt->name;
+				long_options[opt_count].has_arg = aopt->has_arg;
+				long_options[opt_count].flag = aopt->flag;
+				long_options[opt_count].val = aopt->val;
+				opt_count++;
+				lopt++;
+			}
+
+		}
+
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+			lopt = uwsgi.gp[i]->options;
 			if (!lopt)
 				continue;
 

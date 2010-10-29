@@ -1,10 +1,19 @@
-#ifdef UWSGI_UGREEN
-
 /* uGreen -> uWSGI green threads */
 
-#include "uwsgi.h"
+#include "../uwsgi.h"
+
+#include <ucontext.h>
+
+int             ugreen;
+        int             ugreen_stackpages;
+        ucontext_t      ugreenmain;
+        ucontext_t    **ugreen_contexts;
+        size_t          u_stack_size;
 
 #define UGREEN_DEFAULT_STACKSIZE 256*1024
+
+{"ugreen", no_argument, &uwsgi.ugreen, 1},
+        {"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 
 extern struct uwsgi_server uwsgi;
 
@@ -227,6 +236,8 @@ void u_green_init() {
 		uwsgi_log("wsgi_req %d %d\n", wsgi_req->async_id, wsgi_req->async_status);
 	}
 
+	uwsgi_register_loop("ugreen", u_green_loop);
+
 }
 
 void u_green_expire_timeouts() {
@@ -334,4 +345,12 @@ cycle:
 
 }
 
-#endif
+case LONG_ARGS_UGREEN_PAGES:
+                        uwsgi.ugreen_stackpages = atoi(optarg);
+                        return 1;
+
+struct uwsgi_plugin ugreen_plugin {
+
+	.name = "ugreen",
+	.init = u_green_init,
+}
