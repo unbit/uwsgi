@@ -336,6 +336,8 @@ int main(int argc, char *argv[], char *envp[])
 	char *env_reloads;
 	unsigned int reloads = 0;
 	char env_reload_buf[11];
+	
+	char *plugins_requested;
 
 	int option_index = 0;
 
@@ -455,7 +457,7 @@ int main(int argc, char *argv[], char *envp[])
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
 
-	char *plugins_requested = getenv("UWSGI_PLUGINS");
+	plugins_requested = getenv("UWSGI_PLUGINS");
 	if (plugins_requested) {
 		char *p = strtok(plugins_requested, ",");
 		while (p != NULL) {

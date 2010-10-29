@@ -93,8 +93,12 @@ void *simple_loop(void *arg1) {
 	}
 
 	pthread_exit(NULL);
+	
+	//never here
+	return NULL;
 }
 
+#ifdef UWSGI_ASYNC
 void complex_loop() {
 	int current_async_timeout = 0;
 	int i;
@@ -158,3 +162,4 @@ reqclear:
 
 	}
 }
+#endif

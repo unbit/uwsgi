@@ -151,6 +151,9 @@ class uConf():
         self.ldflags = os.environ.get("LDFLAGS", "").split()
         self.libs = ['-lpthread', '-rdynamic']
 
+    def set(self, key, value):
+    	self.config.set('uwsgi',key, value)
+
     def get(self,key):
         try:
             value = self.config.get('uwsgi', key)
