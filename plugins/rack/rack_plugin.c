@@ -14,7 +14,7 @@ extern struct uwsgi_server uwsgi;
 	#define RUBY_GVL_LOCK
 	#define RUBY_GVL_UNLOCK
 #else
-	void fiber_loop(void);
+	//void fiber_loop(void);
 	#ifdef UWSGI_THREADING
 		#define RUBY_GVL_LOCK if (uwsgi.threads > 1) {\
 			pthread_mutex_lock(&ur.gvl);\
@@ -312,6 +312,19 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 RUBY_GLOBAL_SETUP
 #endif
 
+VALUE require_rack(VALUE arg) {
+    return rb_require("rack");
+}
+
+VALUE require_rails(VALUE arg) {
+#ifdef RUBY19
+    return rb_require("./config/environment");
+#else
+    return rb_require("config/environment");
+#endif
+}
+
+
 int uwsgi_rack_init(){
 
 	struct http_status_codes *http_sc;
@@ -320,6 +333,8 @@ int uwsgi_rack_init(){
 	char *sargv[] = { (char *) "uwsgi", (char *) "-e0" };
 	char **argv = sargv;
 #endif
+
+	int error;
 
 	// filling http status codes
         for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
@@ -340,23 +355,18 @@ int uwsgi_rack_init(){
 #endif
 
 #ifdef RUBY19
-	uwsgi_register_loop( (char *) "fiber", fiber_loop);
+	//uwsgi_register_loop( (char *) "fiber", fiber_loop);
 #endif
 
 	if (ur.rack) {
 #ifndef RUBY19
 		rb_require("rubygems");	
-		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
-#else
-		/*
-		gem = rb_define_module("Gem");
-		rb_const_set(gem, rb_intern("Enable"), Qtrue);
-		Init_prelude();
-		*/
-		//ruby_process_options(argc, argv);
-		//ruby_options(argc, argv);
-		rb_funcall( rb_cObject, rb_intern("require"), 1, rb_str_new2("rack") );
 #endif
+		rb_protect( require_rack, 0, &error ) ;
+		if (error) {
+                	uwsgi_ruby_exception();
+			exit(1);
+                }
 
 		VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
 		VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, rb_str_new2(ur.rack));
@@ -384,7 +394,11 @@ int uwsgi_rack_init(){
 		}
 
 		uwsgi_log("loading rails app %s\n", ur.rails);
-		rb_require("config/environment");
+		rb_protect( require_rails, 0, &error ) ;
+		if (error) {
+                	uwsgi_ruby_exception();
+			exit(1);
+                }
 		uwsgi_log("rails app %s ready\n", ur.rails);
 		VALUE ac = rb_const_get(rb_cObject, rb_intern("ActionController"));
 
@@ -431,12 +445,15 @@ VALUE call_dispatch(VALUE env) {
 
 }
 
-VALUE send_body(VALUE obj, VALUE fd) {
+VALUE send_body(VALUE obj) {
 
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 	size_t len;
+	int fd = wsgi_req->poll.fd;
 
+	//uwsgi_log("sending body\n");
 	if (TYPE(obj) == T_STRING) {
-		len = write( NUM2INT(fd), RSTRING_PTR(obj), RSTRING_LEN(obj));
+		len = write( fd, RSTRING_PTR(obj), RSTRING_LEN(obj));
 	}
 	else {
 		uwsgi_log("UNMANAGED BODY TYPE %d\n", TYPE(obj));
@@ -445,30 +462,74 @@ VALUE send_body(VALUE obj, VALUE fd) {
 	return Qnil;
 }
 
-VALUE send_header(VALUE obj, VALUE fd) {
+VALUE safe_each(VALUE arg) {
+
+	int error = 0;
+	VALUE result;
+
+	result = rb_protect(rb_each, arg, &error);
+	if (error) {
+		uwsgi_ruby_exception();
+		return Qnil;
+	}
+	return result;
+}
+
+VALUE iterate_body(VALUE body) {
+
+#ifdef RUBY19
+	return rb_block_call(body, rb_intern("each"), 0, 0, send_body, 0);
+#else
+	return rb_iterate(rb_each, body, send_body, 0);
+#endif
+}
+
+VALUE send_header(VALUE obj, VALUE headers) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	size_t len;
+	int fd = wsgi_req->poll.fd;
+	VALUE hkey, hval;
 	
+	//uwsgi_log("HEADERS %d\n", TYPE(obj));
 	if (TYPE(obj) == T_ARRAY) {
-	
-		if (RARRAY_LEN(obj) == 2) {
-			VALUE hkey = rb_obj_as_string( RARRAY_PTR(obj)[0]);
-			VALUE hval = rb_obj_as_string( RARRAY_PTR(obj)[1]);
+		if (RARRAY_LEN(obj) >= 2) {
+			hkey = rb_obj_as_string( RARRAY_PTR(obj)[0]);
+			hval = rb_obj_as_string( RARRAY_PTR(obj)[1]);
 
-			len = write( NUM2INT(fd), RSTRING_PTR(hkey), RSTRING_LEN(hkey));
-			len = write( NUM2INT(fd), ": ", 2);
-
-			len = write( NUM2INT(fd), RSTRING_PTR(hval), RSTRING_LEN(hval));
-			len = write( NUM2INT(fd), "\r\n", 2);
-
-			wsgi_req->header_cnt++;
-
-			rb_gc_unregister_address(&hkey);
-			rb_gc_unregister_address(&hval);
+		}
+		else {
+			goto clear;
 		}
 	}
+	else if (TYPE(obj) == T_STRING) {
+		hkey = obj;
+		hval = rb_hash_lookup(headers, obj);
+	}
+	else {
+		goto clear;
+	}
+
+	if (TYPE(hkey) != T_STRING || TYPE(hval) != T_STRING) {
+		goto clear2;
+	}
+
+	//uwsgi_log("%.*s: %.*s\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), RSTRING_LEN(hval), RSTRING_PTR(hval));
+
+	len = write( fd, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
+	len = write( fd, ": ", 2);
+
+	len = write( fd, RSTRING_PTR(hval), RSTRING_LEN(hval));
+	len = write( fd, "\r\n", 2);
+
+	wsgi_req->header_cnt++;
+
+clear2:
+	rb_gc_unregister_address(&hkey);
+	rb_gc_unregister_address(&hval);
+
+clear:
 
 	return Qnil;
 }
@@ -578,16 +639,15 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	wsgi_req->hvec[5].iov_base = (char *) "\r\n";
         	wsgi_req->hvec[5].iov_len = 2 ;
 
-		RUBY_GVL_UNLOCK
+		//RUBY_GVL_UNLOCK
 		if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, 6)) ) {
                 	uwsgi_error("writev()");
         	}
-		RUBY_GVL_LOCK
+		//RUBY_GVL_LOCK
 
 		headers = RARRAY_PTR(ret)[1] ;
-		uwsgi_log("%p headers\n", headers);
 		if (rb_respond_to( headers, rb_intern("each") )) {
-			rb_iterate( rb_each, headers, send_header, INT2NUM(wsgi_req->poll.fd)); 
+			rb_iterate( rb_each, headers, send_header, headers); 
 		}
 
 		//RUBY_GVL_UNLOCK
@@ -613,13 +673,18 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {
-			rb_iterate( rb_each, body, send_body, INT2NUM(wsgi_req->poll.fd));
+			rb_protect( iterate_body, body, &error);
+			if (error) {
+				uwsgi_ruby_exception();
+			}
 		}
 
 		if (rb_respond_to( body, rb_intern("close") )) {
+			//uwsgi_log("calling close\n");
 			rb_funcall( body, rb_intern("close"), 0);
 		}
 
+//fine:
 		/* unregister all the objects created */
 		rb_gc_unregister_address(&status);
 		rb_gc_unregister_address(&headers);
@@ -645,6 +710,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		else {
 #endif
 #endif
+			//uwsgi_log("calling ruby GC\n");
 			rb_gc();
 #ifdef RUBY19
 #ifdef UWSGI_THREADING

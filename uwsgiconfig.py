@@ -91,16 +91,14 @@ def build_uwsgi(uc):
                 reload(up)
 
                 p_cflags = cflags[:]
-                p_ldflags = ldflags[:]
-
                 p_cflags += up.CFLAGS
-                p_ldflags += up.LDFLAGS
 
                 for cfile in up.GCC_LIST:
                     compile(' '.join(p_cflags), path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                     gcc_list.append('%s/%s' % (path, cfile))
 
                 libs += up.LIBS
+                ldflags += up.LDFLAGS
 
                 up.CFLAGS = None
                 up.LDFLAGS = None
