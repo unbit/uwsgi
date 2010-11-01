@@ -241,6 +241,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		else {
 			item = hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, newSVpv("", 0), 0);
 		}
+		//uwsgi_log("%.*s = %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 		i++;
 	}
 
@@ -373,7 +374,6 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	vi = (i*2)+base;
 	wsgi_req->hvec[vi].iov_base = "\r\n"; wsgi_req->hvec[vi].iov_len = 2;
-
 
 	if ( !(wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) ) {
 		uwsgi_error("writev()");
