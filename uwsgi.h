@@ -236,6 +236,7 @@
 #define LONG_ARGS_HTTP_MODIFIER1	17056
 #define LONG_ARGS_PLUGINS		17057
 #define LONG_ARGS_LOOP			17058
+#define LONG_ARGS_VHOSTHOST		17059
 
 
 
@@ -588,6 +589,7 @@ struct uwsgi_server {
 	char           *logfile;
 
 	int             vhost;
+	int             vhost_host;
 
 	struct iovec  **async_hvec;
 	char          **async_buf;

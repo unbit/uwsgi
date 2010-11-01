@@ -120,6 +120,7 @@ static struct option long_base_options[] = {
 	{"grunt", no_argument, &uwsgi.grunt, 1},
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
 	{"vhost", no_argument, &uwsgi.vhost, 1},
+	{"vhost-host", no_argument, 0, LONG_ARGS_VHOSTHOST},
 #ifdef UWSGI_ROUTING
 	{"routing", no_argument, &uwsgi.routing, 1},
 #endif
@@ -1430,6 +1431,10 @@ end:
 		switch (i) {
 
 		case 0:
+			return 1;
+		case LONG_ARGS_VHOSTHOST:
+			uwsgi.vhost = 1;
+			uwsgi.vhost_host = 1;
 			return 1;
 		case LONG_ARGS_LOOP:
 			uwsgi.loop = optarg;

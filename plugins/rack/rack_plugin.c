@@ -313,7 +313,11 @@ RUBY_GLOBAL_SETUP
 #endif
 
 VALUE require_rack(VALUE arg) {
+#ifdef RUBY19
     return rb_require("rack");
+#else
+    return rb_funcall(rb_cObject, rb_intern("require"), 1, rb_str_new2("rack"));
+#endif
 }
 
 VALUE require_rails(VALUE arg) {
@@ -324,6 +328,7 @@ VALUE require_rails(VALUE arg) {
 #endif
 }
 
+VALUE init_rack_app(char *);
 
 int uwsgi_rack_init(){
 
@@ -359,33 +364,11 @@ int uwsgi_rack_init(){
 #endif
 
 	if (ur.rack) {
-#ifndef RUBY19
-		rb_require("rubygems");	
-#endif
-		rb_protect( require_rack, 0, &error ) ;
-		if (error) {
-                	uwsgi_ruby_exception();
-			exit(1);
-                }
-
-		VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
-		VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, rb_str_new2(ur.rack));
-		if (TYPE(rackup) != T_ARRAY) {
-			uwsgi_log("unable to parse %s file\n", ur.rack);
-			exit(1);
-		}
-
-		if (RARRAY_LEN(rackup) < 1) {
-			uwsgi_log("invalid rack config file: %s\n", ur.rack);
-			exit(1);
-		}
-
-		ur.dispatcher = RARRAY_PTR(rackup)[0] ;
-
+		ur.dispatcher = init_rack_app(ur.rack);
 		if (ur.dispatcher == Qnil) {
 			exit(1);
 		}
-		
+		rb_gc_register_address(&ur.dispatcher);
 	}
 	else if (ur.rails) {
 		if (chdir(ur.rails)) {
@@ -410,7 +393,6 @@ int uwsgi_rack_init(){
 		}
 	}
 
-	rb_gc_register_address(&ur.dispatcher);
 
 	ur.call = rb_intern("call");
 	rb_gc_register_address(&ur.call);
@@ -769,6 +751,48 @@ void uwsgi_rack_enable_threads(void) {
 void uwsgi_rack_init_thread(void) {
 	// thread initialization
 }
+
+VALUE init_rack_app( char *script ) {
+
+	int error;
+
+#ifndef RUBY19
+	rb_require("rubygems");
+#endif
+        rb_protect( require_rack, 0, &error ) ;
+        if (error) {
+        	uwsgi_ruby_exception();
+		return Qnil;
+        }
+
+        VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
+        VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, rb_str_new2(script));
+        if (TYPE(rackup) != T_ARRAY) {
+        	uwsgi_log("unable to parse %s file\n", script);
+                return Qnil;
+        }
+
+        if (RARRAY_LEN(rackup) < 1) {
+        	uwsgi_log("invalid rack config file: %s\n", script);
+		return Qnil;
+        }
+
+        return RARRAY_PTR(rackup)[0] ;
+}
+
+int uwsgi_rack_xml(char *node, char *content) {
+
+	if (!strcmp("rack", node)) {
+		ur.dispatcher = init_rack_app(content);
+		if (ur.dispatcher != Qnil) {
+			rb_gc_register_address(&ur.dispatcher);
+			uwsgi_log("Rack application ready\n");
+			return 1;
+		}
+        }
+
+	return 0;
+}
 struct uwsgi_plugin rack_plugin = {
 
 	.name = "rack",
@@ -778,6 +802,8 @@ struct uwsgi_plugin rack_plugin = {
 	.manage_opt = uwsgi_rack_manage_options,
 	.request = uwsgi_rack_request,
 	.after_request = uwsgi_rack_after_request,
+
+	.manage_xml = uwsgi_rack_xml,
 
 #ifdef RUBY19
 	.suspend = uwsgi_rack_suspend,

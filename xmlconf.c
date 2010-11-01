@@ -16,6 +16,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	xmlNode *node2 = NULL;
 
 	xmlChar *xml_uwsgi_mountpoint = NULL;
+	xmlChar *xml_uwsgi_domain = NULL;
 	xmlChar *node_mode;
 	struct option *lopt, *aopt;
 
@@ -156,13 +157,19 @@ next:
 			if (node->type == XML_ELEMENT_NODE) {
 
 				if (!strcmp((char *) node->name, "app")) {
+					wsgi_req->script_name_len = 0;
+					wsgi_req->host_len = 0;
 					xml_uwsgi_mountpoint = xmlGetProp(node, (const xmlChar *) "mountpoint");
-					if (xml_uwsgi_mountpoint == NULL) {
-						uwsgi_log( "no mountpoint defined for app. skip.\n");
-						continue;
+					if (xml_uwsgi_mountpoint) {
+						wsgi_req->script_name = (char *) xml_uwsgi_mountpoint;
+						wsgi_req->script_name_len = strlen(wsgi_req->script_name);
 					}
-					wsgi_req->script_name = (char *) xml_uwsgi_mountpoint;
-					wsgi_req->script_name_len = strlen(wsgi_req->script_name);
+
+					xml_uwsgi_domain = xmlGetProp(node, (const xmlChar *) "domain");
+					if (xml_uwsgi_domain) {
+						wsgi_req->host = (char *) xml_uwsgi_domain;
+						wsgi_req->host_len = strlen(wsgi_req->host);
+					}
 
 					for (node2 = node->children; node2; node2 = node2->next) {
 						if (node2->type == XML_ELEMENT_NODE) {

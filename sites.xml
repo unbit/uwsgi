@@ -1,0 +1,22 @@
+<uwsgi>
+	
+	<socket>:3031</socket>
+	<master/>
+	<processes>4</processes>
+	<memory-debug/>
+	
+	<vhost-host/>
+
+	<app domain="sirius.local">
+		<script>werkzeug.testapp:test_app</script>
+	</app>
+
+	<env>TRAC_ENV=/Users/roberto/uapps/utrac</env>
+	<app domain="192.168.173.8:8080">
+		<script>trac.web.main:dispatch_request</script>
+	</app>
+
+	<app domain="192.168.173.8:8080" mountpoint="/sinatra">
+		<rack>/Users/roberto/uwsgi/config.ru</rack>
+	</app>
+</uwsgi>
