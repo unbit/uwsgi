@@ -500,10 +500,14 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	//uwsgi_log("%.*s: %.*s\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), RSTRING_LEN(hval), RSTRING_PTR(hval));
 
 	len = write( fd, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
+	wsgi_req->headers_size += len;
 	len = write( fd, ": ", 2);
+	wsgi_req->headers_size += len;
 
 	len = write( fd, RSTRING_PTR(hval), RSTRING_LEN(hval));
+	wsgi_req->headers_size += len;
 	len = write( fd, "\r\n", 2);
+	wsgi_req->headers_size += len;
 
 	wsgi_req->header_cnt++;
 

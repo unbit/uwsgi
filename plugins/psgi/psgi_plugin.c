@@ -13,6 +13,23 @@ pthread_key_t uwsgi_perl_interpreter;
 extern char **environ;
 extern struct uwsgi_server uwsgi;
 
+struct uwsgi_perl {
+
+	char *psgi;
+
+} uperl;
+
+#define LONG_ARGS_PERL_BASE      17000 + (5 * 100)
+#define LONG_ARGS_PSGI           LONG_ARGS_PERL_BASE + 1
+
+struct option uwsgi_perl_options[] = {
+
+        {"psgi", required_argument, 0, LONG_ARGS_PSGI},
+        {0, 0, 0, 0},
+
+};
+
+
 /* statistically ordered */
 static struct http_status_codes hsc[] = {
 	{"200", "OK"},
@@ -78,7 +95,7 @@ xs_init(pTHX)
 /* end of automagically generated part */
 
 
-int uwsgi_init(char *args){
+int uwsgi_perl_init(){
 
 	char *psgibuffer;
 	int fd;
@@ -88,12 +105,10 @@ int uwsgi_init(char *args){
 	struct http_status_codes *http_sc;
 
 	int argc = 4;
-	char *embedding[] = { "", args,  "-e", "0" };
-	char **argv = embedding;
+	char *embedding[] = { "", "-e", "-e", "0" };
 
-	uwsgi_log("initializing Perl environment: %s\n", args);
-
-	PERL_SYS_INIT3(&argc, &argv, &environ);
+	uwsgi_log("initializing Perl environment\n");
+	PERL_SYS_INIT3(&argc, (char ***) &embedding, &environ);
 	my_perl = perl_alloc();
 	if (!my_perl) {
 		uwsgi_log("unable to allocate perl interpreter\n");
@@ -122,7 +137,7 @@ int uwsgi_init(char *args){
 
 	perl_eval_pv("use IO::Handle;", 0);
 
-	fd = open(args, O_RDONLY);
+	fd = open(uperl.psgi, O_RDONLY);
 	if (fd < 0) {
 		uwsgi_error("open()");
 		goto clear;
@@ -160,9 +175,11 @@ int uwsgi_init(char *args){
 	}
 
 	if(SvTRUE(ERRSV)) {
+		uwsgi_log("%s\n", SvPV_nolen(ERRSV));
 		goto clear;
 	}
 
+	uwsgi_log("PSGI_FUNC %p\n", psgi_func);
 
 	free(psgibuffer);
 	close(fd);
@@ -170,13 +187,14 @@ int uwsgi_init(char *args){
 	return 0;
 
 clear:
+	uwsgi_log("error initializing the perl engine\n");
 	perl_destruct(my_perl);
 	perl_free(my_perl);
 	return -1;
 
 }
 
-int uwsgi_request(struct wsgi_request *wsgi_req) {
+int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	HV *env;
 	SV **item;
@@ -310,7 +328,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	// get the status code
 	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
 		if (!strncmp(http_sc->key, wsgi_req->hvec[1].iov_base, 3)) {
-			wsgi_req->hvec[3].iov_base = http_sc->message;
+			wsgi_req->hvec[3].iov_base = (char *) http_sc->message;
 			wsgi_req->hvec[3].iov_len = http_sc->message_size;
 			break;
 		}
@@ -347,6 +365,8 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 
 		wsgi_req->hvec[vi+3].iov_base = "\r\n"; wsgi_req->hvec[vi+3].iov_len = 2;
 
+		wsgi_req->header_cnt++;
+
 		i++;
 	}
 
@@ -355,7 +375,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->hvec[vi].iov_base = "\r\n"; wsgi_req->hvec[vi].iov_len = 2;
 
 
-	if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) ) {
+	if ( !(wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) ) {
 		uwsgi_error("writev()");
 	}
 
@@ -383,7 +403,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 			if (hlen <= 0) {
 				break;
 			}
-			wsgi_req->response_size += write(wsgi_req->poll.fd, chitem, hlen);
+			wsgi_req->response_size = write(wsgi_req->poll.fd, chitem, hlen);
 		}
 
 
@@ -395,7 +415,7 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 		for(i=0; i<=av_len(body); i++) {
 			hitem = av_fetch(body,i,0);
 			chitem = SvPV(*hitem, hlen);
-			wsgi_req->response_size += write(wsgi_req->poll.fd, chitem, hlen);
+			wsgi_req->response_size = write(wsgi_req->poll.fd, chitem, hlen);
 		}
 
 	}
@@ -411,21 +431,37 @@ int uwsgi_request(struct wsgi_request *wsgi_req) {
 }
 
 
-void uwsgi_after_request(struct wsgi_request *wsgi_req) {
+void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
 		log_request(wsgi_req);
 }
 
+void uwsgi_perl_init_thread() {
+}
+
+int uwsgi_perl_manage_options(int i, char *optarg) {
+
+        switch(i) {
+                case LONG_ARGS_PSGI:
+                        uperl.psgi = optarg;
+                        return 1;
+        }
+
+        return 0;
+}
+
+
 struct uwsgi_plugin psgi_plugin = {
 
-	.init = uwsgi_init;
-	.post_fork = uwsgi_post_fork;
-	.options = uwsgi_perl_options;
-	.magic = uwsgi_perl_magic;
-	.help = uwsgi_perl_help;
-	.init_thread = uwsgi_init_thread;
-	.request = uwsgi_request;
-	.post_request = uwsgi_post_request;
-	.init_app = uwsgi_init_app;
+	.name = "psgi",
+	.modifier1 = 5,
+	.init = uwsgi_perl_init,
+	.options = uwsgi_perl_options,
+	//.magic = uwsgi_perl_magic,
+	//.help = uwsgi_perl_help,
+	.manage_opt = uwsgi_perl_manage_options,
+	.init_thread = uwsgi_perl_init_thread,
+	.request = uwsgi_perl_request,
+	.after_request = uwsgi_perl_after_request,
 };
