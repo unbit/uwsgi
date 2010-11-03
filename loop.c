@@ -52,7 +52,7 @@ void *simple_loop(void *arg1) {
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
 			for(i=0;i<0xFF;i++) {
 				if (uwsgi.p[i]->init_thread) {
-					uwsgi.p[i]->init_thread();
+					uwsgi.p[i]->init_thread(core_id);
 				}
 			}
 			/*

@@ -752,7 +752,7 @@ void uwsgi_rack_enable_threads(void) {
 	pthread_mutex_init(&ur.gvl, NULL);
 }
 
-void uwsgi_rack_init_thread(void) {
+void uwsgi_rack_init_thread(int core_id) {
 	// thread initialization
 }
 

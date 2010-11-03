@@ -348,7 +348,7 @@ struct uwsgi_plugin {
         int             (*manage_opt) (int, char *);
         void            (*magic) (char *);
         void            (*enable_threads) (void);
-        void            (*init_thread) (void);
+        void            (*init_thread) (int);
         int             (*request) (struct wsgi_request *);
         void            (*after_request) (struct wsgi_request *);
         void            (*init_apps) (void);

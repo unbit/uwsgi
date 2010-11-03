@@ -591,7 +591,7 @@ void uwsgi_uwsgi_config(char *module) {
 			uwsgi_log("threads support enabled\n");
 		}
 
-		void uwsgi_python_init_thread() {
+		void uwsgi_python_init_thread(int core_id) {
 
 			// set a new ThreadState for each thread
 			PyThreadState *pts;

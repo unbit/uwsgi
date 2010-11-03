@@ -1,21 +1,22 @@
-#include <uwsgi.h>
+#include "../../uwsgi.h"
 
 #include <EXTERN.h>
 #include <perl.h>
 
-static PerlInterpreter *my_perl;
-static SV *psgi_func;
-
-#ifdef UWSGI_THREADING
-pthread_key_t uwsgi_perl_interpreter;
-#endif
 
 extern char **environ;
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_perl {
 
+	int fd;
+	char *psgibuffer;
 	char *psgi;
+	PerlInterpreter *main;
+	pthread_key_t u_interpreter;
+	PerlInterpreter **interp;
+	SV *psgi_main;
+	SV **psgi_func;
 
 } uperl;
 
@@ -97,8 +98,6 @@ xs_init(pTHX)
 
 int uwsgi_perl_init(){
 
-	char *psgibuffer;
-	int fd;
 
 	struct stat stat_psgi;
 
@@ -109,88 +108,128 @@ int uwsgi_perl_init(){
 
 	uwsgi_log("initializing Perl environment\n");
 	PERL_SYS_INIT3(&argc, (char ***) &embedding, &environ);
-	my_perl = perl_alloc();
-	if (!my_perl) {
+	uperl.main = perl_alloc();
+	if (!uperl.main) {
 		uwsgi_log("unable to allocate perl interpreter\n");
 		return -1;
 	}
 
-	PL_perl_destruct_level = 1;
-	perl_construct(my_perl);
+	dTHXa(uperl.main);
+	PERL_SET_CONTEXT(uperl.main);
+
+	PL_perl_destruct_level = 2;
+	perl_construct(uperl.main);
 
 	// filling http status codes
 	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
 		http_sc->message_size = strlen(http_sc->message);
 	}
 
-#ifdef UWSGI_THREADING
-	if (uwsgi.threads > 1) {
-		if (pthread_key_create(&uwsgi_perl_interpreter, NULL)) {
-			uwsgi_error("pthread_key_create()");
-			exit(1);
-		}
-	}
-#endif
-
 	PL_origalen = 1;
-	perl_parse(my_perl, xs_init, 4, embedding, NULL);
+	perl_parse(uperl.main, xs_init, 4, embedding, NULL);
 
 	perl_eval_pv("use IO::Handle;", 0);
 
-	fd = open(uperl.psgi, O_RDONLY);
-	if (fd < 0) {
+	uperl.fd = open(uperl.psgi, O_RDONLY);
+	if (uperl.fd < 0) {
 		uwsgi_error("open()");
 		goto clear;
 	}
 
-	if (fstat(fd, &stat_psgi)) {
+	if (fstat(uperl.fd, &stat_psgi)) {
 		uwsgi_error("fstat()");
-		close(fd);
+		close(uperl.fd);
 		goto clear;
 	}
 
-	psgibuffer = malloc(stat_psgi.st_size + 1);
-	if (!psgibuffer) {
+	uperl.psgibuffer = malloc(stat_psgi.st_size + 1);
+	if (!uperl.psgibuffer) {
 		uwsgi_error("malloc()");
-		close(fd);
+		close(uperl.fd);
 		goto clear;
 	}
 
-	if (read(fd, psgibuffer, stat_psgi.st_size) != stat_psgi.st_size) {
+	if (read(uperl.fd, uperl.psgibuffer, stat_psgi.st_size) != stat_psgi.st_size) {
 		uwsgi_error("read()");
-		close(fd);
-		free(psgibuffer);
+		close(uperl.fd);
+		free(uperl.psgibuffer);
 		goto clear;
 	}
 
-	psgibuffer[stat_psgi.st_size] = 0;
+	uperl.psgibuffer[stat_psgi.st_size] = 0;
 
-	psgi_func = perl_eval_pv(psgibuffer, 0);
+	if (uwsgi.threads < 2) {
+		uperl.psgi_main = perl_eval_pv(uperl.psgibuffer, 0);
+		if (!uperl.psgi_main) {
+			uwsgi_log("unable to find PSGI function entry point.\n");
+			close(uperl.fd);
+			free(uperl.psgibuffer);
+			goto clear;
+		}
 
-	if (!psgi_func) {
-		uwsgi_log("unable to find PSGI function entry point.\n");
-		close(fd);
-		free(psgibuffer);
-		goto clear;
+		if(SvTRUE(ERRSV)) {
+			uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+			goto clear;
+		}
+
+		free(uperl.psgibuffer);
+		close(uperl.fd);
 	}
-
-	if(SvTRUE(ERRSV)) {
-		uwsgi_log("%s\n", SvPV_nolen(ERRSV));
-		goto clear;
-	}
-
-	uwsgi_log("PSGI_FUNC %p\n", psgi_func);
-
-	free(psgibuffer);
-	close(fd);
 
 	return 0;
 
 clear:
 	uwsgi_log("error initializing the perl engine\n");
-	perl_destruct(my_perl);
-	perl_free(my_perl);
+	perl_destruct(uperl.main);
+	perl_free(uperl.main);
 	return -1;
+
+}
+
+void uwsgi_perl_enable_threads() {
+	
+	int i;
+
+	if (pthread_key_create(&uperl.u_interpreter, NULL)) {
+        	uwsgi_error("pthread_key_create()");
+                exit(1);
+	}
+
+	uperl.interp = malloc( sizeof(PerlInterpreter*) * uwsgi.threads );
+	if (!uperl.interp) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+
+	for(i=1;i<uwsgi.threads;i++) {
+		uperl.interp[i] = perl_clone(uperl.main, CLONEf_KEEP_PTR_TABLE);
+		if (!uperl.interp[i]) {
+			uwsgi_log("unable to create new perl interpreter\n");
+			exit(1);
+		}
+	}
+
+	uperl.psgi_func = malloc( sizeof(SV*) * uwsgi.threads );
+	if (!uperl.psgi_func) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+	
+
+	dTHXa(uperl.main);
+	PERL_SET_CONTEXT(uperl.main);
+
+	uperl.psgi_main = perl_eval_pv(uperl.psgibuffer, 0);
+	if (!uperl.psgi_main) {
+		uwsgi_log("unable to find PSGI function entry point.\n");
+		exit(1);
+	}
+
+	if(SvTRUE(ERRSV)) {
+		uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+		exit(1);
+	}
+	
 
 }
 
@@ -209,6 +248,11 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	int i,vi, base;
 
+	SV *psgi_func = uperl.psgi_main;
+	// ugly hack
+	register PerlInterpreter *my_perl = uperl.main;
+
+
 	/* Standard PSGI request */
 	if (!wsgi_req->uh.pktsize) {
 		uwsgi_log("Invalid PSGI request. skip.\n");
@@ -221,6 +265,13 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
+
+#ifdef UWSGI_THREADING
+	if (uwsgi.threads > 1 && wsgi_req->async_id > 0) {
+		psgi_func = uperl.psgi_func[wsgi_req->async_id];
+		my_perl = pthread_getspecific(uperl.u_interpreter);
+	}
+#endif
 
 	dSP;
 
@@ -271,8 +322,10 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	SPAGAIN;
 
 
+
 	SV *pi = SvREFCNT_inc(POPs);
 	item = hv_store(env, "psgi.input", 10, pi, 0);
+
 
 
 
@@ -295,6 +348,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	SV *pe = SvREFCNT_inc(POPs);
 
 	item = hv_store(env, "psgi.errors", 11, pe, 0);
+
 
 
 	PUSHMARK(SP);
@@ -437,7 +491,25 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 		log_request(wsgi_req);
 }
 
-void uwsgi_perl_init_thread() {
+void uwsgi_perl_init_thread(int core_id) {
+
+
+	pthread_setspecific(uperl.u_interpreter, uperl.interp[core_id]);
+	dTHXa(uperl.interp[core_id]);
+	PERL_SET_CONTEXT(uperl.interp[core_id]);
+
+	uperl.psgi_func[core_id] = perl_eval_pv(uperl.psgibuffer, 0);
+        if (!uperl.psgi_func[core_id]) {
+        	uwsgi_log("unable to find PSGI function entry point.\n");
+		exit(1);
+        }
+
+        if(SvTRUE(ERRSV)) {
+        	uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+		exit(1);
+        }
+
+
 }
 
 int uwsgi_perl_manage_options(int i, char *optarg) {
@@ -460,6 +532,7 @@ struct uwsgi_plugin psgi_plugin = {
 	.options = uwsgi_perl_options,
 	//.magic = uwsgi_perl_magic,
 	//.help = uwsgi_perl_help,
+	.enable_threads = uwsgi_perl_enable_threads,
 	.manage_opt = uwsgi_perl_manage_options,
 	.init_thread = uwsgi_perl_init_thread,
 	.request = uwsgi_perl_request,
