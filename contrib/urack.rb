@@ -9,6 +9,7 @@ require 'optparse'
 
 options = {
         :processes => 1,
+        :threads => 1,
         :master => false,
         :logging => true,
         :static => true,
@@ -19,6 +20,7 @@ options = {
 opts = OptionParser.new do |opts|
 
         opts.on("-p", "--processes=nproc", Integer, '') { |p| options[:processes] = p }
+        opts.on("-t", "--threads=nthreads", Integer, '') { |t| options[:threads] = t }
         opts.on("-M", "--master", '') { options[:master] = true }
         opts.on("-L", "--no-logging", '') { options[:logging] = false }
         opts.on("-S", "--no-static", '') { options[:static] = false }
@@ -37,6 +39,7 @@ end
 
 $requests = 0
 $workers = Array.new
+$mywid = 0
 
 module Rack
 
@@ -74,12 +77,14 @@ module Rack
                         ulog("spawned worker 1 (pid: #{$workers[1]})")
                 elsif $workers[1].to_i == 0
                         $0 = "uRack worker 1"
+			$mywid = 1
                         can_spawn = false
                 end
         else
                 $0 = 'uRack worker 1'
                 $workers[0] = nil
                 $workers[1] = Process.pid
+		$mywid = 1
                 ulog("spawned worker 1 (pid: #{$workers[1]})")
         end
 
@@ -88,6 +93,7 @@ module Rack
                         $workers[p] = Process.fork
                         if $workers[p].to_i == 0
                                 $0 = "uRack worker #{p}"
+				$mywid = p
                                 break
                         elsif $workers[p].to_i > 0
                                 ulog("spawned worker #{p} (pid: #{$workers[p]})")
@@ -107,6 +113,7 @@ module Rack
                                         if $workers[wid].to_i == 0
                                                 $0 = "uRack worker #{wid}"
                                                 i_am_a_child = true
+						$mywid = wid
                                                 break
                                         elsif $workers[wid].to_i > 0
                                                 ulog("respawned worker #{wid} (pid: #{$workers[wid]})")
@@ -118,9 +125,20 @@ module Rack
                 end
         end
         
-        while client = server.accept
-          serve client, app, options
-        end
+	if options[:threads] > 1
+		for t in 1..options[:threads]
+			Thread.new do
+			    ulog("spawning thread #{t} on worker #{$mywid}")
+            		    while client = server.accept
+                		serve client, app, options
+            		    end
+			end
+		end
+	else
+            while client = server.accept
+                serve client, app, options
+            end
+	end
       end
 
       def self.serve(client, app, options)
