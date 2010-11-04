@@ -325,6 +325,7 @@ void uwsgi_ldap_config(struct option *long_options) {
 					if (!strcmp(uwsgi_attr, aopt->name)) {
 						if (aopt->flag) {
 							*aopt->flag = aopt->val;
+							add_exported_option(0, (char*) uwsgi_attr);
 						}
 						else {
 							manage_opt(aopt->val, uwsgi_val);

@@ -432,6 +432,42 @@ void uwsgi_uwsgi_config(char *module) {
 			exit(1);
 		}
 
+		PyObject *py_opt_dict = PyDict_New();
+		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
+			if (PyDict_Contains(py_opt_dict, PyString_FromString(uwsgi.exported_opts[i]->key)) ) {
+				// if there is already a key, the value must be a list of values
+				PyObject *py_opt_item = PyDict_GetItemString(py_opt_dict, uwsgi.exported_opts[i]->key);
+				if (PyList_Check(py_opt_item)) {
+					PyList_Append(py_opt_item, PyString_FromString( uwsgi.exported_opts[i]->value ));
+				}
+				else {
+					PyObject *py_opt_list = PyList_New(0);
+					PyList_Append(py_opt_list, py_opt_item);
+					if (uwsgi.exported_opts[i]->value == NULL) {
+						PyList_Append(py_opt_list, Py_True);
+					}
+					else {
+						PyList_Append(py_opt_list, PyString_FromString(uwsgi.exported_opts[i]->value));
+					}
+
+					PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, py_opt_list);
+				}
+			}
+			else {	
+				if (uwsgi.exported_opts[i]->value == NULL) {
+					PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, Py_True);
+				}
+				else {
+					PyDict_SetItemString(py_opt_dict, uwsgi.exported_opts[i]->key, PyString_FromString(uwsgi.exported_opts[i]->value));
+				}
+			}
+		}
+
+		if (PyDict_SetItemString(up.embedded_dict, "opt", py_opt_dict)) {
+                       	PyErr_Print();
+                       	exit(1);
+                }
+
 #ifdef UNBIT
 		if (PyDict_SetItemString(up.embedded_dict, "unbit", Py_True)) {
 #else

@@ -27,7 +27,6 @@ struct uwsgi_server uwsgi;
 
 extern char **environ;
 
-static struct option *long_options = NULL;
 static char *short_options = NULL;
 
 static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:L";
@@ -340,8 +339,6 @@ int main(int argc, char *argv[], char *envp[])
 	
 	char *plugins_requested;
 
-	int option_index = 0;
-
 
 #ifdef UWSGI_HTTP
 	pid_t http_pid;
@@ -468,8 +465,13 @@ int main(int argc, char *argv[], char *envp[])
 	}
 	build_options();
 
-	while ((i = getopt_long(argc, argv, short_options, long_options, &option_index)) != -1) {
-		manage_opt(i, optarg);
+	while ((i = getopt_long(argc, argv, short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
+		if (i == 0) {
+			add_exported_option(0, (char *)uwsgi.long_options[uwsgi.option_index].name);
+		}
+		else {
+			manage_opt(i, optarg);
+		}
 	}
 
 
@@ -517,22 +519,22 @@ uwsgi.wsgi_config = lazy;
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.wsgi_req, long_options);
+		uwsgi_xml_config(uwsgi.wsgi_req, uwsgi.long_options);
 	}
 #endif
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
-		uwsgi_ini_config(uwsgi.ini, long_options);
+		uwsgi_ini_config(uwsgi.ini, uwsgi.long_options);
 	}
 #endif
 #ifdef UWSGI_LDAP
 	if (uwsgi.ldap != NULL) {
-		uwsgi_ldap_config(long_options);
+		uwsgi_ldap_config(uwsgi.long_options);
 	}
 #endif
 
 	//parse environ
-	parse_sys_envs(environ, long_options);
+	parse_sys_envs(environ, uwsgi.long_options);
 
 	//call after_opt hooks
 
@@ -1469,10 +1471,10 @@ end:
 			uwsgi.ldap = optarg;
 			return 1;
 		case LONG_ARGS_LDAP_SCHEMA:
-			uwsgi_ldap_schema_dump(long_options);
+			uwsgi_ldap_schema_dump(uwsgi.long_options);
 			return 1;
 		case LONG_ARGS_LDAP_SCHEMA_LDIF:
-			uwsgi_ldap_schema_dump_ldif(long_options);
+			uwsgi_ldap_schema_dump_ldif(uwsgi.long_options);
 			return 1;
 #endif
 		case LONG_ARGS_MODE:
@@ -1899,12 +1901,14 @@ end:
 		int j;
 
 		if (manage_base_opt(i, optarg)) {
+			add_exported_option( i, optarg );
 			return;
 		}
 
 		for (j = 0; j < 0xFF; j++) {
 			if (uwsgi.p[j]->manage_opt) {
 				if (uwsgi.p[j]->manage_opt(i, optarg)) {
+					add_exported_option( i, optarg );
 					return;
 				}
 			}
@@ -1913,6 +1917,7 @@ end:
 		for (j = 0; j < uwsgi.gp_cnt; j++) {
 			if (uwsgi.gp[j]->manage_opt) {
 				if (uwsgi.gp[j]->manage_opt(i, optarg)) {
+					add_exported_option( i, optarg );
 					return;
 				}
 			}
@@ -2023,11 +2028,11 @@ void build_options() {
 			}
 		}
 
-		if (long_options) {
-			free(long_options);
+		if (uwsgi.long_options) {
+			free(uwsgi.long_options);
 		}
-		long_options = malloc(sizeof(struct option) * (opt_count + 1));
-		if (!long_options) {
+		uwsgi.long_options = malloc(sizeof(struct option) * (opt_count + 1));
+		if (!uwsgi.long_options) {
 			uwsgi_error("malloc()");
 			exit(1);
 		}
@@ -2036,10 +2041,10 @@ void build_options() {
 		while ((aopt = lopt)) {
 			if (!aopt->name)
 				break;
-			long_options[opt_count].name = aopt->name;
-			long_options[opt_count].has_arg = aopt->has_arg;
-			long_options[opt_count].flag = aopt->flag;
-			long_options[opt_count].val = aopt->val;
+			uwsgi.long_options[opt_count].name = aopt->name;
+			uwsgi.long_options[opt_count].has_arg = aopt->has_arg;
+			uwsgi.long_options[opt_count].flag = aopt->flag;
+			uwsgi.long_options[opt_count].val = aopt->val;
 			opt_count++;
 			lopt++;
 		}
@@ -2052,10 +2057,10 @@ void build_options() {
 			while ((aopt = lopt)) {
 				if (!aopt->name)
 					break;
-				long_options[opt_count].name = aopt->name;
-				long_options[opt_count].has_arg = aopt->has_arg;
-				long_options[opt_count].flag = aopt->flag;
-				long_options[opt_count].val = aopt->val;
+				uwsgi.long_options[opt_count].name = aopt->name;
+				uwsgi.long_options[opt_count].has_arg = aopt->has_arg;
+				uwsgi.long_options[opt_count].flag = aopt->flag;
+				uwsgi.long_options[opt_count].val = aopt->val;
 				opt_count++;
 				lopt++;
 			}
@@ -2070,18 +2075,18 @@ void build_options() {
 			while ((aopt = lopt)) {
 				if (!aopt->name)
 					break;
-				long_options[opt_count].name = aopt->name;
-				long_options[opt_count].has_arg = aopt->has_arg;
-				long_options[opt_count].flag = aopt->flag;
-				long_options[opt_count].val = aopt->val;
+				uwsgi.long_options[opt_count].name = aopt->name;
+				uwsgi.long_options[opt_count].has_arg = aopt->has_arg;
+				uwsgi.long_options[opt_count].flag = aopt->flag;
+				uwsgi.long_options[opt_count].val = aopt->val;
 				opt_count++;
 				lopt++;
 			}
 
 		}
 
-		long_options[opt_count].name = 0;
-		long_options[opt_count].has_arg = 0;
-		long_options[opt_count].flag = 0;
-		long_options[opt_count].val = 0;
+		uwsgi.long_options[opt_count].name = 0;
+		uwsgi.long_options[opt_count].has_arg = 0;
+		uwsgi.long_options[opt_count].flag = 0;
+		uwsgi.long_options[opt_count].val = 0;
 }

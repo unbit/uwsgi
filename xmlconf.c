@@ -134,6 +134,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 
 						if (aopt->flag) {
 							*aopt->flag = aopt->val;
+							add_exported_option(0, (char *) node->name);
 						}
 						else {
 							if (node->children) {

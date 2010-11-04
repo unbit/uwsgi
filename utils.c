@@ -876,3 +876,62 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 	return 1;
 }
 
+void add_exported_option(int i, char *value) {
+
+	char *key = NULL;
+	struct option *lopt, *aopt;
+
+	if (i == 0) {
+		key = value;
+		value = NULL;
+	}
+	else {
+		lopt = uwsgi.long_options;
+        	while ((aopt = lopt)) {
+			if (!aopt->name)
+                		break;
+			if (aopt->val == 0 && *aopt->flag == i) {
+				key = (char *) aopt->name;
+				break;
+			}
+			if (aopt->val == i) {
+				key = (char *) aopt->name;
+				break;
+			}
+			lopt++;
+		}
+	}
+
+
+	if (!key) return;
+
+
+
+	if (!uwsgi.exported_opts) {
+		uwsgi.exported_opts = malloc(sizeof(struct uwsgi_opt*));
+		if (!uwsgi.exported_opts) {
+			uwsgi_error("malloc()");
+			exit(1);
+		}
+		memset(uwsgi.exported_opts, 0, sizeof(struct uwsgi_opt*));
+	}
+	else {
+		uwsgi.exported_opts = realloc(uwsgi.exported_opts, sizeof(struct uwsgi_opt*) * (uwsgi.exported_opts_cnt+1));
+		if (!uwsgi.exported_opts) {
+			uwsgi_error("realloc()");
+			exit(1);
+		}
+		memset(uwsgi.exported_opts + (sizeof(struct uwsgi_opt*) * uwsgi.exported_opts_cnt) , 0, sizeof(struct uwsgi_opt*));
+	}
+
+
+	uwsgi.exported_opts[uwsgi.exported_opts_cnt] = malloc(sizeof(struct uwsgi_opt));
+	if (!uwsgi.exported_opts[uwsgi.exported_opts_cnt]) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+	uwsgi.exported_opts[uwsgi.exported_opts_cnt]->key = key;
+	uwsgi.exported_opts[uwsgi.exported_opts_cnt]->value = value;
+	uwsgi.exported_opts_cnt++;
+
+}

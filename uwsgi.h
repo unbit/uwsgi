@@ -172,6 +172,10 @@
 #define UWSGI_LISTEN_QUEUE 511
 #endif
 
+struct uwsgi_opt {
+	char *key;
+	char *value;
+};
 
 #define MAX_CLUSTER_NODES	100
 
@@ -556,6 +560,10 @@ struct uwsgi_server {
 	int             apps_cnt;
 	int             default_app;
 
+	int option_index;
+	struct option *long_options;
+	struct uwsgi_opt **exported_opts;
+	int exported_opts_cnt;
 	//base for all the requests(even on async mode)
 	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;
@@ -1113,3 +1121,5 @@ ssize_t         uwsgi_sendfile(struct wsgi_request *);
 
 void            uwsgi_register_loop(char *, void *);
 void           *uwsgi_get_loop(char *);
+
+void add_exported_option(int, char *);

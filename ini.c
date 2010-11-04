@@ -162,6 +162,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 						if (!strcmp(key, aopt->name)) {
 							if (aopt->flag) {
 								*aopt->flag = aopt->val;
+								add_exported_option(0, (char *)key);
 							}
 							else {
 								manage_opt(aopt->val, val);
