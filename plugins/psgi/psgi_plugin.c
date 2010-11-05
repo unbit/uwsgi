@@ -1,27 +1,9 @@
-#include "../../uwsgi.h"
-
-#include <EXTERN.h>
-#include <perl.h>
-
+#include "psgi.h"
 
 extern char **environ;
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_perl {
-
-	int fd;
-	char *psgibuffer;
-	char *psgi;
-	PerlInterpreter *main;
-	pthread_key_t u_interpreter;
-	PerlInterpreter **interp;
-	SV *psgi_main;
-	SV **psgi_func;
-
-} uperl;
-
-#define LONG_ARGS_PERL_BASE      17000 + (5 * 100)
-#define LONG_ARGS_PSGI           LONG_ARGS_PERL_BASE + 1
+struct uwsgi_perl uperl;
 
 struct option uwsgi_perl_options[] = {
 
@@ -30,52 +12,27 @@ struct option uwsgi_perl_options[] = {
 
 };
 
+extern struct http_status_codes hsc[];
 
-/* statistically ordered */
-static struct http_status_codes hsc[] = {
-	{"200", "OK"},
-	{"302", "Found"},
-	{"404", "Not Found"},
-	{"500", "Internal Server Error"},
-	{"301", "Moved Permanently"},
-	{"304", "Not Modified"},
-	{"303", "See Other"},
-	{"403", "Forbidden"},
-	{"307", "Temporary Redirect"},
-	{"401", "Unauthorized"},
-	{"400", "Bad Request"},
-	{"405", "Method Not Allowed"},
-	{"408", "Request Timeout"},
+XS(XS_hello)
+{
+    dXSARGS;
+    struct wsgi_request *wsgi_req = current_wsgi_req();
+    SV *stack;
+    AV *response;
 
-	{"100", "Continue"},
-	{"101", "Switching Protocols"},
-	{"201", "Created"},
-	{"202", "Accepted"},
-	{"203", "Non-Authoritative Information"},
-	{"204", "No Content"},
-	{"205", "Reset Content"},
-	{"206", "Partial Content"},
-	{"300", "Multiple Choices"},
-	{"305", "Use Proxy"},
-	{"402", "Payment Required"},
-	{"406", "Not Acceptable"},
-	{"407", "Proxy Authentication Required"},
-	{"409", "Conflict"},
-	{"410", "Gone"},
-	{"411", "Length Required"},
-	{"412", "Precondition Failed"},
-	{"413", "Request Entity Too Large"},
-	{"414", "Request-URI Too Long"},
-	{"415", "Unsupported Media Type"},
-	{"416", "Requested Range Not Satisfiable"},
-	{"417", "Expectation Failed"},
-	{"501", "Not Implemented"},
-	{"502", "Bad Gateway"},
-	{"503", "Service Unavailable"},
-	{"504", "Gateway Timeout"},
-	{"505", "HTTP Version Not Supported"},
-	{ "", NULL },
-};
+    uwsgi_log("args: %d %p\n", items, wsgi_req);
+    stack = ST(0);
+    uwsgi_log("type %d\n", SvTYPE(stack));
+    response = (AV* ) SvRV(stack) ;
+
+
+    psgi_response(wsgi_req, my_perl, response);
+
+    //mXPUSHp("x", 1);
+    XSRETURN(0);
+
+}
 
 /* automatically generated */
 
@@ -91,6 +48,8 @@ xs_init(pTHX)
 
 	/* DynaLoader is a special case */
 	newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
+
+	uperl.stream_responder = newXS("uwsgi::hello", XS_hello, "uwsgi");
 }
 
 /* end of automagically generated part */
@@ -130,59 +89,57 @@ int uwsgi_perl_init(){
 
 	perl_eval_pv("use IO::Handle;", 0);
 
-	uperl.fd = open(uperl.psgi, O_RDONLY);
-	if (uperl.fd < 0) {
-		uwsgi_error("open()");
-		goto clear;
-	}
+	if (uperl.psgi) {
+		uperl.fd = open(uperl.psgi, O_RDONLY);
+		if (uperl.fd < 0) {
+			uwsgi_error("open()");
+			exit(1);
+		}
 
-	if (fstat(uperl.fd, &stat_psgi)) {
-		uwsgi_error("fstat()");
-		close(uperl.fd);
-		goto clear;
-	}
+		if (fstat(uperl.fd, &stat_psgi)) {
+			uwsgi_error("fstat()");
+			exit(1);
+		}
 
-	uperl.psgibuffer = malloc(stat_psgi.st_size + 1);
-	if (!uperl.psgibuffer) {
-		uwsgi_error("malloc()");
-		close(uperl.fd);
-		goto clear;
-	}
+		uperl.psgibuffer = malloc(stat_psgi.st_size + 1);
+		if (!uperl.psgibuffer) {
+			uwsgi_error("malloc()");
+			exit(1);
+		}
 
-	if (read(uperl.fd, uperl.psgibuffer, stat_psgi.st_size) != stat_psgi.st_size) {
-		uwsgi_error("read()");
-		close(uperl.fd);
-		free(uperl.psgibuffer);
-		goto clear;
-	}
+		if (read(uperl.fd, uperl.psgibuffer, stat_psgi.st_size) != stat_psgi.st_size) {
+			uwsgi_error("read()");
+			exit(1);
+		}
 
-	uperl.psgibuffer[stat_psgi.st_size] = 0;
+		uperl.psgibuffer[stat_psgi.st_size] = 0;
 
-	if (uwsgi.threads < 2) {
-		uperl.psgi_main = perl_eval_pv(uperl.psgibuffer, 0);
-		if (!uperl.psgi_main) {
-			uwsgi_log("unable to find PSGI function entry point.\n");
-			close(uperl.fd);
+		if (uwsgi.threads < 2) {
+			uperl.psgi_main = perl_eval_pv(uperl.psgibuffer, 0);
+			if (!uperl.psgi_main) {
+				uwsgi_log("unable to find PSGI function entry point.\n");
+				exit(1);
+			}
+
+			if(SvTRUE(ERRSV)) {
+				uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+				exit(1);
+			}
+
 			free(uperl.psgibuffer);
-			goto clear;
+			close(uperl.fd);
 		}
-
-		if(SvTRUE(ERRSV)) {
-			uwsgi_log("%s\n", SvPV_nolen(ERRSV));
-			goto clear;
-		}
-
-		free(uperl.psgibuffer);
-		close(uperl.fd);
 	}
 
 	return 0;
 
+/*
 clear:
 	uwsgi_log("error initializing the perl engine\n");
 	perl_destruct(uperl.main);
 	perl_free(uperl.main);
 	return -1;
+*/
 
 }
 
@@ -233,24 +190,22 @@ void uwsgi_perl_enable_threads() {
 
 }
 
+
+
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	HV *env;
 	SV **item;
 
-	AV *response, *headers, *body;
+	AV *response;
 
-	SV **status_code, **hitem, *io_new, *io_err;
-	char *chitem;
-	STRLEN hlen;
-
-	struct http_status_codes *http_sc;
-
-	int i,vi, base;
+	SV *io_new, *io_err;
+	int i;
 
 	SV *psgi_func = uperl.psgi_main;
 	// ugly hack
 	register PerlInterpreter *my_perl = uperl.main;
+	dSP;
 
 
 	/* Standard PSGI request */
@@ -273,7 +228,6 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	}
 #endif
 
-	dSP;
 
 	ENTER;
 	SAVETMPS;
@@ -298,9 +252,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 
 	SV *us = newSVpv("http", 4);
-
 	item = hv_store(env, "psgi.url_scheme", 15, us, 0);
-
 
 
 	SV* iohandle = newSVpv( "IO::Handle", 10 );
@@ -323,11 +275,9 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 
 
+
 	SV *pi = SvREFCNT_inc(POPs);
 	item = hv_store(env, "psgi.input", 10, pi, 0);
-
-
-
 
 
 	PUSHMARK(SP);
@@ -346,9 +296,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	SPAGAIN;
 
 	SV *pe = SvREFCNT_inc(POPs);
-
 	item = hv_store(env, "psgi.errors", 11, pe, 0);
-
 
 
 	PUSHMARK(SP);
@@ -356,127 +304,40 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	PUTBACK;
 
 
-
 	perl_call_sv(psgi_func, G_SCALAR);
-	SPAGAIN;
 
+	
+	if(SvTRUE(ERRSV)) {
+		uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+		goto clear;
+	}
+	SPAGAIN;
 	// no leaks to here
 
 	// dereference output
 	response = (AV *) SvRV( POPs );
 
-	status_code = av_fetch(response, 0, 0);
+	//uwsgi_log("response: %p %d\n", response, SvTYPE(response));
 
-	wsgi_req->hvec[0].iov_base = "HTTP/1.1 ";
-	wsgi_req->hvec[0].iov_len = 9;
+	if (SvTYPE(response) == SVt_PVCV) {
+		uwsgi_log("streaming response\n");
+			
+		PUSHMARK(SP);
+        	XPUSHs( newRV((SV*) uperl.stream_responder));
+        	PUTBACK;
 
-	wsgi_req->hvec[1].iov_base = SvPV(*status_code, hlen);
-	wsgi_req->hvec[1].iov_len = 3;
+        	perl_call_sv( (SV*)response, G_SCALAR);
 
-	wsgi_req->status = atoi(wsgi_req->hvec[1].iov_base);
-
-	wsgi_req->hvec[2].iov_base = " ";
-	wsgi_req->hvec[2].iov_len = 1;
-
-	wsgi_req->hvec[3].iov_len = 0;
-
-	// get the status code
-	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-		if (!strncmp(http_sc->key, wsgi_req->hvec[1].iov_base, 3)) {
-			wsgi_req->hvec[3].iov_base = (char *) http_sc->message;
-			wsgi_req->hvec[3].iov_len = http_sc->message_size;
-			break;
-		}
-	}
-
-	if (wsgi_req->hvec[3].iov_len == 0) {
-		wsgi_req->hvec[3].iov_base = "Unknown";
-		wsgi_req->hvec[3].iov_len =  7;
-	}
-
-	wsgi_req->hvec[4].iov_base = "\r\n";
-	wsgi_req->hvec[4].iov_len = 2;
-
-	hitem = av_fetch(response, 1, 0);
-
-	headers = (AV *) SvRV(*hitem);
-
-	base = 5;
-
-
-	// put them in hvec
-	for(i=0; i<=av_len(headers); i++) {
-
-		vi = (i*2)+base;
-		hitem = av_fetch(headers,i,0);
-		chitem = SvPV(*hitem, hlen);
-		wsgi_req->hvec[vi].iov_base = chitem; wsgi_req->hvec[vi].iov_len = hlen;
-
-		wsgi_req->hvec[vi+1].iov_base = ": "; wsgi_req->hvec[vi+1].iov_len = 2;
-
-		hitem = av_fetch(headers,i+1,0);
-		chitem = SvPV(*hitem, hlen);
-		wsgi_req->hvec[vi+2].iov_base = chitem; wsgi_req->hvec[vi+2].iov_len = hlen;
-
-		wsgi_req->hvec[vi+3].iov_base = "\r\n"; wsgi_req->hvec[vi+3].iov_len = 2;
-
-		wsgi_req->header_cnt++;
-
-		i++;
-	}
-
-
-	vi = (i*2)+base;
-	wsgi_req->hvec[vi].iov_base = "\r\n"; wsgi_req->hvec[vi].iov_len = 2;
-
-	if ( !(wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) ) {
-		uwsgi_error("writev()");
-	}
-
-
-
-	hitem = av_fetch(response, 2, 0);
-
-
-	if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV) {
-
-		for(;;) {
-			PUSHMARK(SP);
-			XPUSHs(*hitem);
-			PUTBACK;
-			perl_call_method("getline", G_SCALAR);
-			SPAGAIN;
-
-			if(SvTRUE(ERRSV)) {
-				uwsgi_log("%s\n", SvPV_nolen(ERRSV));
-				break;
-			}
-
-			SV *chunk = POPs;
-			chitem = SvPV( chunk, hlen);
-			if (hlen <= 0) {
-				break;
-			}
-			wsgi_req->response_size = write(wsgi_req->poll.fd, chitem, hlen);
+		if(SvTRUE(ERRSV)) {
+			uwsgi_log("%s\n", SvPV_nolen(ERRSV));
 		}
 
-
-	}
-	else if (SvTYPE(SvRV(*hitem)) == SVt_PVAV)  {
-
-		body = (AV *) SvRV(*hitem);
-
-		for(i=0; i<=av_len(body); i++) {
-			hitem = av_fetch(body,i,0);
-			chitem = SvPV(*hitem, hlen);
-			wsgi_req->response_size = write(wsgi_req->poll.fd, chitem, hlen);
-		}
-
-	}
-	else {
-		uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(*hitem)));
+		goto clear;
 	}
 
+	psgi_response(wsgi_req, my_perl, response);
+
+clear:
 
 	FREETMPS;
 	LEAVE;

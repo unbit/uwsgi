@@ -435,7 +435,6 @@ void uwsgi_uwsgi_config(char *module) {
 		PyObject *py_opt_dict = PyDict_New();
 		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
 			if (PyDict_Contains(py_opt_dict, PyString_FromString(uwsgi.exported_opts[i]->key)) ) {
-				// if there is already a key, the value must be a list of values
 				PyObject *py_opt_item = PyDict_GetItemString(py_opt_dict, uwsgi.exported_opts[i]->key);
 				if (PyList_Check(py_opt_item)) {
 					PyList_Append(py_opt_item, PyString_FromString( uwsgi.exported_opts[i]->value ));

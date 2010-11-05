@@ -902,6 +902,7 @@ void add_exported_option(int i, char *value) {
 		}
 	}
 
+	uwsgi_log("%s = %s\n", key, value);
 
 	if (!key) return;
 
@@ -913,7 +914,6 @@ void add_exported_option(int i, char *value) {
 			uwsgi_error("malloc()");
 			exit(1);
 		}
-		memset(uwsgi.exported_opts, 0, sizeof(struct uwsgi_opt*));
 	}
 	else {
 		uwsgi.exported_opts = realloc(uwsgi.exported_opts, sizeof(struct uwsgi_opt*) * (uwsgi.exported_opts_cnt+1));
@@ -921,7 +921,6 @@ void add_exported_option(int i, char *value) {
 			uwsgi_error("realloc()");
 			exit(1);
 		}
-		memset(uwsgi.exported_opts + (sizeof(struct uwsgi_opt*) * uwsgi.exported_opts_cnt) , 0, sizeof(struct uwsgi_opt*));
 	}
 
 
