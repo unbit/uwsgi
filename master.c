@@ -100,6 +100,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 	for (;;) {
+		uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 		if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifdef UWSGI_SPOOLER
 			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
@@ -386,6 +387,8 @@ void master_loop(char **argv, char **environ) {
 #endif
 		// TODO rewrite without using exit code (targeted at 0.9.7)
 
+
+		uwsgi_log("CHECK FOR DIED PROCESS %d\n", WEXITSTATUS(waitpid_status));
 #ifdef __sun__
 		/* horrible hack... what the FU*K is doing Solaris ??? */
 		if (WIFSIGNALED(waitpid_status)) {

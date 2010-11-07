@@ -176,6 +176,10 @@ class uConf():
             self.cflags.append('-arch x86_64') 	
             self.cflags.append('-arch ppc') 	
 
+            self.ldflags.append('-arch i386') 	
+            self.ldflags.append('-arch x86_64') 	
+            self.ldflags.append('-arch ppc') 	
+
         if uwsgi_os == 'SunOS':
             self.libs.append('-lsendfile')
             self.libs.remove('-rdynamic')

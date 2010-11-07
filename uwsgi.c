@@ -1070,8 +1070,6 @@ uwsgi.wsgi_config = lazy;
 	}
 	uwsgi.workers[0].pid = masterpid;
 
-	uwsgi_log("initializing hooks...");
-
 	/*
 
 	   uwsgi.shared->hooks[0] = uwsgi_request_wsgi;
@@ -1091,8 +1089,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_MESSAGE_MARSHAL] = uwsgi_request_marshal;	//3
 uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 */
 
-	uwsgi_log("done.\n");
-
 	uwsgi_log("*** Operational MODE: ");
 	if (uwsgi.threads > 1) {
 		if (uwsgi.numproc > 1) {
@@ -1101,11 +1097,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			uwsgi_log("threaded");
 		}
 	}
-#ifdef UWSGI_STACKLESS
-	else if (uwsgi.stackless) {
-		uwsgi_log("stackless");
-	}
-#endif
 #ifdef UWSGI_ASYNC
 	else if (uwsgi.async > 1) {
 		if (uwsgi.numproc > 1) {
@@ -1146,9 +1137,9 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
 	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
-		if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-			uwsgi_xml_config(uwsgi.wsgi_req, NULL);
-		}
+	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
+		uwsgi_xml_config(uwsgi.wsgi_req, NULL);
+	}
 #endif
 
 	for (i = 0; i < uwsgi.mounts_cnt; i++) {
@@ -1189,12 +1180,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.numproc > 0) {
 		uwsgi.shared->spooler_pid = spooler_start();
-	}
-#endif
-
-#ifdef UWSGI_STACKLESS
-	if (uwsgi.stackless) {
-		stackless_init();
 	}
 #endif
 
@@ -1250,12 +1235,12 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	//postpone the queue initialization as kevent
 	//do not pass kfd after fork()
 #ifdef UWSGI_ASYNC
-			if (uwsgi.async > 1) {
-			uwsgi.async_queue = async_queue_init(uwsgi.sockets[0].fd);
-			if (uwsgi.async_queue < 0) {
-				exit(1);
-			}
+	if (uwsgi.async > 1) {
+		uwsgi.async_queue = async_queue_init(uwsgi.sockets[0].fd);
+		if (uwsgi.async_queue < 0) {
+			exit(1);
 		}
+	}
 #endif
 
 
@@ -1358,13 +1343,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 				pthread_create(a_thread, &pa, simple_loop, (void *) j);
 			}
 		}
-
-#ifdef UWSGI_STACKLESS
-		if (uwsgi.stackless) {
-			stackless_loop();
-			goto end;
-		}
-#endif
 
 		if (uwsgi.async < 2) {
 			long y = 0;

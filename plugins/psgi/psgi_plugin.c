@@ -14,7 +14,7 @@ struct option uwsgi_perl_options[] = {
 
 extern struct http_status_codes hsc[];
 
-XS(XS_hello)
+XS(XS_stream)
 {
     dXSARGS;
     struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -49,7 +49,11 @@ xs_init(pTHX)
 	/* DynaLoader is a special case */
 	newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
 
-	uperl.stream_responder = newXS("uwsgi::hello", XS_hello, "uwsgi");
+	uperl.stream_responder = newXS("uwsgi::stream", XS_stream, "uwsgi");
+
+#ifdef UWSGI_EMBEDDED
+	init_perl_embedded_module();
+#endif
 }
 
 /* end of automagically generated part */

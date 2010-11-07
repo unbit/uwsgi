@@ -361,6 +361,9 @@ struct uwsgi_plugin {
         void            (*suspend) (struct wsgi_request *);
         void            (*resume) (struct wsgi_request *);
 
+	void*		(*encode_string)(char *);
+	char*		(*decode_string)(void *);
+
 };
 
 
