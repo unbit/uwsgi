@@ -2,8 +2,13 @@ import os,sys
 
 NAME='jvm'
 
-JVM_INCPATH = "/Developer/SDKs/MacOSX10.6.sdk//System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Headers/"
-JVM_LIBPATH = "/Developer/SDKs/MacOSX10.6.sdk//System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Libraries/ -framework JavaVM"
+# Snow Leopard
+#JVM_INCPATH = "/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Headers/"
+#JVM_LIBPATH = "/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Libraries/ -framework JavaVM"
+
+# Ubuntu
+JVM_INCPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/include/ -I/usr/lib/jvm/java-6-sun-1.6.0.15/include/linux"
+JVM_LIBPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/jre/lib/i386/server/"
 
 
 CFLAGS = ['-I' + JVM_INCPATH]

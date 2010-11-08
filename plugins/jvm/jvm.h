@@ -1,4 +1,4 @@
-#include "../../uwsgi.h";
+#include "../../uwsgi.h"
 #include <jni.h>
 
 #define MAX_CLASSPATH 64

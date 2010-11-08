@@ -18,13 +18,16 @@ public class utest {
 	public static Object[] jwsgi(Hashtable env) throws java.io.IOException {
 
 		if (env.containsKey("CONTENT_LENGTH")) {
-			Integer cl = Integer.parseInt( (String) env.get("CONTENT_LENGTH") );
-			FileInputStream f = new FileInputStream( (FileDescriptor) env.get("jwsgi.input") );	
-			byte[] b = new byte[cl];
+			String s = (String) env.get("CONTENT_LENGTH");
+			if (s.length() > 0) {
+				Integer cl = Integer.parseInt( s );
+				FileInputStream f = new FileInputStream( (FileDescriptor) env.get("jwsgi.input") );	
+				byte[] b = new byte[cl];
 		
-			if (f.read(b) > 0) {
-				String postdata = new String(b);
-				System.out.println( postdata );
+				if (f.read(b) > 0) {
+					String postdata = new String(b);
+					System.out.println( postdata );
+				}
 			}
 		}
 		

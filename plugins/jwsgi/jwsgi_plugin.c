@@ -42,6 +42,7 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
 	uwsgi_log("jwsgi method id = %d\n", jmid);
 
 	env = uwsgi_jvm_ht_new();
+	uwsgi_jvm_exception();
 
 	for(i=0;i<wsgi_req->var_cnt;i++) {
 		
@@ -56,20 +57,24 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
                 i++;
         }
 
+	uwsgi_log("env created\n");
 	
 	uwsgi_jvm_ht_put(env, uwsgi_jvm_str("jwsgi.input"), uwsgi_jvm_fd(wsgi_req->poll.fd));
+
+	uwsgi_log("jwsgi.input created\n");
 	
 	response = (*ujvm.env)->CallObjectMethod(ujvm.env, ujvm.main_class, jmid, env);
+	uwsgi_jvm_exception();
 
 	uwsgi_log("RESPONSE SIZE %d\n", (*ujvm.env)->GetArrayLength(ujvm.env, response));
 
 	status = uwsgi_jvm_array_get(response, 0);
 	uwsgi_jvm_exception();
 
-	write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-	write(wsgi_req->poll.fd, " ", 1);
-	write(wsgi_req->poll.fd, uwsgi_jvm_str2c(status), uwsgi_jvm_strlen2c(status));
-	write(wsgi_req->poll.fd, "\r\n", 2);
+	wsgi_req->headers_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
+	wsgi_req->headers_size += write(wsgi_req->poll.fd, " ", 1);
+	wsgi_req->headers_size += write(wsgi_req->poll.fd, uwsgi_jvm_str2c(status), uwsgi_jvm_strlen2c(status));
+	wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
 
 	
 	headers = uwsgi_jvm_array_get(response, 1);
@@ -84,13 +89,13 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
 		hkey = uwsgi_jvm_array_get(header, 0);		
 		hval = uwsgi_jvm_array_get(header, 1);		
 
-		write(wsgi_req->poll.fd, uwsgi_jvm_str2c(hkey), uwsgi_jvm_strlen2c(hkey));
-		write(wsgi_req->poll.fd, ": ", 2);
-		write(wsgi_req->poll.fd, uwsgi_jvm_str2c(hval), uwsgi_jvm_strlen2c(hval));
-		write(wsgi_req->poll.fd, "\r\n", 2);
+		wsgi_req->headers_size += write(wsgi_req->poll.fd, uwsgi_jvm_str2c(hkey), uwsgi_jvm_strlen2c(hkey));
+		wsgi_req->headers_size += write(wsgi_req->poll.fd, ": ", 2);
+		wsgi_req->headers_size += write(wsgi_req->poll.fd, uwsgi_jvm_str2c(hval), uwsgi_jvm_strlen2c(hval));
+		wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
 	}
 
-	write(wsgi_req->poll.fd, "\r\n", 2);
+	wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
 
 	body = uwsgi_jvm_array_get(response, 2);
 
