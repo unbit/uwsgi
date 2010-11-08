@@ -1,22 +1,13 @@
-#include "../../uwsgi.h";
-#include <jni.h>
+#include "jvm.h";
 
-#define MAX_CLASSPATH 64
+/*
 
-#define LONG_ARGS_JVM_BASE      17000 + (300 * 100)
-#define LONG_ARGS_JVM_CLASS     LONG_ARGS_JVM_BASE + 1
-#define LONG_ARGS_JVM_CLASSPATH LONG_ARGS_JVM_BASE + 2
+with javap -s -p <class>
+you can get method signatures
 
-struct uwsgi_jvm {
+*/
 
-	char *classpath[MAX_CLASSPATH];
-	int classpath_cnt;
-
-	JNIEnv	*env;
-	char *class;
-	jclass main_class;
-
-} ujvm;
+struct uwsgi_jvm ujvm;
 
 struct option uwsgi_jvm_options[] = {
         {"jvm-main-class", required_argument, 0, LONG_ARGS_JVM_CLASS},
@@ -33,6 +24,10 @@ int uwsgi_jvm_exception(void) {
         }
 	
 	return 0;
+}
+
+jclass uwsgi_jvm_get_object_class(jobject obj) {
+	return (*ujvm.env)->GetObjectClass(ujvm.env, obj);
 }
 
 jclass uwsgi_jvm_get_class(char *name) {
@@ -63,6 +58,26 @@ jmethodID uwsgi_jvm_get_static_method_id(jclass cls, char *name, char *signature
 
 	return mid;
 }
+
+jobject uwsgi_jvm_str_new(char *str, int len) {
+
+	jbyteArray ba;
+	static jmethodID str_new_mid = 0;
+
+	if (!str_new_mid) {
+		str_new_mid = uwsgi_jvm_get_method_id(ujvm.str_class, "<init>", "([BLjava/lang/String;)V");
+	}
+
+	ba = (*ujvm.env)->NewByteArray(ujvm.env, len);
+        (*ujvm.env)->SetByteArrayRegion(ujvm.env, ba, 0, len, (jbyte *) str);
+        return (*ujvm.env)->NewObject(ujvm.env, ujvm.str_class, str_new_mid, ba,
+        		(*ujvm.env)->NewStringUTF(ujvm.env, "UTF-8"));
+}
+
+jobject uwsgi_jvm_str(char *str) {
+	return (*ujvm.env)->NewStringUTF(ujvm.env, str);
+}
+
 
 int jvm_init(void) {
 
@@ -120,10 +135,69 @@ int jvm_init(void) {
 		}
 	}
 
+	ujvm.str_class = uwsgi_jvm_get_class("java/lang/String");
+	ujvm.ht_class = uwsgi_jvm_get_class("java/util/Hashtable");
+	ujvm.fd_class = uwsgi_jvm_get_class("java/io/FileDescriptor");
+
 	return 1;
 
 }
 
+jobject uwsgi_jvm_array_get(jobject obj, int index) {
+	return (*ujvm.env)->GetObjectArrayElement(ujvm.env, obj, index);
+}
+
+jobject uwsgi_jvm_ht_new() {
+	static jmethodID htimid = 0;
+
+	if (!htimid) {
+		htimid = uwsgi_jvm_get_method_id(ujvm.ht_class, "<init>", "()V");
+	}
+
+	return (*ujvm.env)->NewObject(ujvm.env, ujvm.ht_class, htimid);
+}
+
+jobject uwsgi_jvm_ht_put(jobject obj, jobject key, jobject val) {
+	
+	static jmethodID htpmid = 0 ;
+
+	if (!htpmid) {
+		htpmid = uwsgi_jvm_get_method_id(ujvm.ht_class, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+	}
+
+        return (*ujvm.env)->CallObjectMethod(ujvm.env, obj, htpmid, key, val);
+}
+
+jobject uwsgi_jvm_fd(int fd) {
+
+	jobject fd_obj;
+	static jmethodID fd_mid = 0;
+	static jfieldID fd_field = 0 ;
+
+	if (!fd_mid) {
+		fd_mid = uwsgi_jvm_get_method_id( ujvm.fd_class, "<init>", "()V");	
+	}
+
+        fd_obj = (*ujvm.env)->NewObject(ujvm.env, ujvm.fd_class, fd_mid);
+
+	if (!fd_field) {
+        	fd_field = (*ujvm.env)->GetFieldID(ujvm.env, ujvm.fd_class, "fd", "I");
+	}
+
+        (*ujvm.env)->SetIntField(ujvm.env, fd_obj, fd_field, fd);
+
+	return fd_obj;
+}
+
+char *uwsgi_jvm_str2c(jobject obj) {
+
+	return (char *) (*ujvm.env)->GetStringUTFChars(ujvm.env, obj, NULL);
+}
+
+int uwsgi_jvm_strlen2c(jobject obj) {
+
+	return (*ujvm.env)->GetStringUTFLength(ujvm.env, obj);
+}
 
 int uwsgi_jvm_manage_opt(int i, char *optarg) {
 
