@@ -312,7 +312,7 @@ class uConf():
 
         return self.gcc_list, self.cflags, self.ldflags, self.libs
 
-def build_plugin(path, uc, cflags, ldflags, libs):
+def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     path = path.rstrip('/')
 
     sys.path.insert(0, path)
@@ -329,7 +329,12 @@ def build_plugin(path, uc, cflags, ldflags, libs):
 
     p_cflags.insert(0, '-I.')
 
-    plugin_dest = uc.get('plugin_dir') + '/' + up.NAME + '_plugin'
+    if name is None:
+	name = up.NAME
+    else:
+	p_cflags.append("-D%s_plugin=%s_plugin" % (up.NAME, name))
+
+    plugin_dest = uc.get('plugin_dir') + '/' + name + '_plugin'
 
     shared_flag = '-shared'
 
@@ -347,10 +352,10 @@ def build_plugin(path, uc, cflags, ldflags, libs):
 
     ret = os.system(gccline)
     if ret != 0:
-        print("*** unable to build %s plugin ***" % up.NAME)
+        print("*** unable to build %s plugin ***" % name)
         sys.exit(1)
 
-    print("*** %s plugin built and available in %s ***" % (up.NAME, plugin_dest + '.so'))
+    print("*** %s plugin built and available in %s ***" % (name, plugin_dest + '.so'))
 
 if __name__ == "__main__":
     try:
@@ -387,7 +392,11 @@ if __name__ == "__main__":
 
         uc = uConf('buildconf/%s' % bconf)
         gcc_list, cflags, ldflags, libs = uc.get_gcll()
-        build_plugin(sys.argv[2], uc, cflags, ldflags, libs)
+	try:
+		name = sys.argv[4]
+	except:
+		name = None
+        build_plugin(sys.argv[2], uc, cflags, ldflags, libs, name)
     else:
         print("unknown uwsgiconfig command")
         sys.exit(1)
