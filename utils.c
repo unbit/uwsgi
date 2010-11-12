@@ -27,6 +27,22 @@ uint64_t uwsgi_swap64(uint64_t x) {
 
 #endif
 
+int check_hex(char *str, int len) {
+	int i;
+	for(i=0;i<len;i++) {
+        	if (
+                	(str[i] < '0' && str[i] > '9') &&
+                	(str[i] < 'a' && str[i] > 'f') &&
+                	(str[i] < 'A' && str[i] > 'F')
+		) {
+			return 0;
+		}
+        }
+
+	return 1;
+
+}
+
 void inc_harakiri(int sec) {
 	if (uwsgi.master_process) {
 		uwsgi.workers[uwsgi.mywid].harakiri += sec;
@@ -742,6 +758,29 @@ char *uwsgi_concat3n(char *one, int s1, char *two, int s2, char *three, int s3) 
 
 }
 
+char *uwsgi_concat4n(char *one, int s1, char *two, int s2, char *three, int s3, char *four, int s4) {
+
+	char *buf;
+	size_t len = s1 + s2 + s3 + s4 + 1;
+
+
+	buf = malloc(len);
+	if (buf == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+	buf[len-1] = 0;
+
+	memcpy( buf, one, s1);
+	memcpy( buf + s1, two, s2);
+	memcpy( buf + s1 + s2, three, s3);
+	memcpy( buf + s1 + s2 + s3, four, s4);
+
+	return buf;
+
+}
+
+
 
 char *uwsgi_concat(int c, ... ) {
 
@@ -842,6 +881,12 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 
 	size_t post_remains = wsgi_req->post_cl;
 	ssize_t post_chunk;
+	int ret,i;
+	int upload_progress_fd = -1;
+	char *upload_progress_filename = NULL;
+	const char *x_progress_id = "X-Progress-ID=";
+	char *xpi_ptr = (char *) x_progress_id ;
+	
 
 	wsgi_req->async_post = tmpfile();
 	if (!wsgi_req->async_post) {
@@ -849,12 +894,75 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 		return 0;
 	}
 
+	if (uwsgi.upload_progress) {
+		// first check for X-Progress-ID size
+		// separator + 'X-Progress-ID' + '=' + uuid	
+		if (wsgi_req->uri_len > 51) {
+			for(i=0;i<wsgi_req->uri_len;i++) {
+				if (wsgi_req->uri[i] == xpi_ptr[0]) {
+					if (xpi_ptr[0] == '=') {
+						if (wsgi_req->uri+i+36 <= wsgi_req->uri+wsgi_req->uri_len) {
+							upload_progress_filename = wsgi_req->uri+i+1 ;
+						}
+						break;
+					}
+					xpi_ptr++;
+				}
+				else {
+					xpi_ptr = (char *) x_progress_id ;
+				}
+			}
 
-	// putting a timeout on this cycle would be a good idea...
+			// now check for valid uuid (from spec available at http://en.wikipedia.org/wiki/Universally_unique_identifier)
+			if (upload_progress_filename) {
+
+				uwsgi_log("upload progress uuid = %.*s\n", 36, upload_progress_filename);
+				if (!check_hex(upload_progress_filename, 8)) goto cycle;
+				if (upload_progress_filename[8] != '-') goto cycle;
+
+				if (!check_hex(upload_progress_filename+9, 4)) goto cycle;
+				if (upload_progress_filename[13] != '-') goto cycle;
+
+				if (!check_hex(upload_progress_filename+14, 4)) goto cycle;
+				if (upload_progress_filename[18] != '-') goto cycle;
+
+				if (!check_hex(upload_progress_filename+19, 4)) goto cycle;
+				if (upload_progress_filename[23] != '-') goto cycle;
+
+				if (!check_hex(upload_progress_filename+24, 12)) goto cycle;
+
+				upload_progress_filename = uwsgi_concat4n(uwsgi.upload_progress, strlen(uwsgi.upload_progress), "/",1,upload_progress_filename, 36, ".js", 3);
+				// here we use O_EXCL to avoid eventual application bug in uuid generation/using
+				upload_progress_fd = open(upload_progress_filename, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP);	
+				if (upload_progress_fd < 0) {
+					uwsgi_error("open()");
+					free(upload_progress_filename);
+				}
+			}
+		}
+	}
+
+cycle:
+	if (upload_progress_filename && upload_progress_fd == -1) {
+		uwsgi_log("invalid X-Progress-ID value: must be a UUID\n");
+	}
+	// manage buffered data and upload progress
 	while(post_remains > 0) {
 		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 			inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		}
+
+		ret = poll(&wsgi_req->poll, 1, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] * 1000);
+        	if (ret < 0) {
+                	uwsgi_error("poll()");
+			goto end;		
+        	}
+
+		if (!ret) {
+			uwsgi_log("buffering POST data timedout !!!\n");
+			goto end;		
+		}
+
 		if (post_remains > len) {
 			post_chunk = read(wsgi_req->poll.fd, buf, len);
 		}
@@ -863,17 +971,57 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 		} 
 		if (post_chunk < 0) {
 			uwsgi_error("read()");
-			return 0;
+			goto end;		
 		}
 		if (!fwrite(buf, post_chunk, 1, wsgi_req->async_post)) {
 			uwsgi_error("fwrite()");
-			return 0;
+			goto end;		
+		}
+		if (upload_progress_fd > -1) {
+			//write json data to the upload progress file
+			if (lseek(upload_progress_fd, 0, SEEK_SET)) {
+				uwsgi_error("lseek()");
+				goto end;		
+			}
+			
+			// resue buf for json buffer
+			ret = snprintf(buf, len, "{ \"state\" : \"uploading\", \"received\" : %d, \"size\" : %d }\r\n", wsgi_req->post_cl - post_remains, wsgi_req->post_cl);
+			if (ret < 0) {
+				uwsgi_log("unable to write JSON data in upload progress file %s\n", upload_progress_filename);
+				goto end;
+			}
+			if (write(upload_progress_fd, buf, ret) < 0) {
+				uwsgi_error("write()");
+				goto end;
+			}
+
+			if (fsync(upload_progress_fd)) {
+				uwsgi_error("fsync()");
+			}
 		}
 		post_remains -= post_chunk;
 	}
 	rewind(wsgi_req->async_post);
 
+	if (upload_progress_fd > -1) {
+		close(upload_progress_fd);
+		if (unlink(upload_progress_filename)) {
+			uwsgi_error("unlink()");
+		}
+		free(upload_progress_filename);
+	}
+
 	return 1;
+
+end:
+	if (upload_progress_fd > -1) {
+		close(upload_progress_fd);
+		if (unlink(upload_progress_filename)) {
+			uwsgi_error("unlink()");
+		}
+		free(upload_progress_filename);
+	}
+	return 0;
 }
 
 void add_exported_option(int i, char *value) {

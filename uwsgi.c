@@ -83,6 +83,7 @@ static struct option long_base_options[] = {
 	{"prio", required_argument, 0, LONG_ARGS_PRIO},
 	{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
 	{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
+	{"upload-progress", required_argument, 0, LONG_ARGS_UPLOAD_PROGRESS},
 	{"no-default-app", no_argument, &uwsgi.no_default_app, 1},
 #ifdef UWSGI_UDP
 	{"udp", required_argument, 0, LONG_ARGS_UDP},
@@ -1604,6 +1605,9 @@ end:
 			return 1;
 		case LONG_ARGS_POST_BUFFERING_SIZE:
 			uwsgi.post_buffering_bufsize = atoi(optarg);
+			return 1;
+		case LONG_ARGS_UPLOAD_PROGRESS:
+			uwsgi.upload_progress = optarg;
 			return 1;
 #ifdef UWSGI_INI
 		case LONG_ARGS_INI:

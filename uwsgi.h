@@ -241,6 +241,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_PLUGINS		17057
 #define LONG_ARGS_LOOP			17058
 #define LONG_ARGS_VHOSTHOST		17059
+#define LONG_ARGS_UPLOAD_PROGRESS	17060
 
 
 
@@ -788,6 +789,8 @@ struct uwsgi_server {
 	struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
 	int gp_cnt;
 
+	char *upload_progress;
+
 };
 
 struct uwsgi_cluster_node {
@@ -1093,6 +1096,7 @@ char           *uwsgi_concat2(char *, char *);
 char           *uwsgi_concat3(char *, char *, char *);
 char           *uwsgi_concat3n(char *, int, char *, int, char *, int);
 char           *uwsgi_concat4(char *, char *, char *, char *);
+char           *uwsgi_concat4n(char *, int, char *, int, char *, int, char *, int);
 
 
 int             uwsgi_get_app_id(char *, int);
