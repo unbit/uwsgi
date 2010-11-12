@@ -2,7 +2,11 @@ import os,sys
 
 NAME='rack'
 
-RUBYPATH = 'ruby'
+try:
+	RUBYPATH = os.environ['UWSGICONFIG_RUBYPATH']
+except:
+	RUBYPATH = 'ruby'
+
 CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['CFLAGS']\"").read().rstrip().split()
 
 version = os.popen(RUBYPATH + " -e \"print RUBY_VERSION\"").read().rstrip()

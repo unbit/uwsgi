@@ -46,7 +46,12 @@ int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
 		plugin_entry_symbol = uwsgi_concat2(plugin, "_plugin");
                 up = dlsym(plugin_handle, plugin_entry_symbol);
                 if (up) {
-			fill_plugin_table(up->modifier1, up);			
+			if (modifier != -1) {
+				fill_plugin_table(modifier, up);			
+			}
+			else {
+				fill_plugin_table(up->modifier1, up);			
+			}
 			return 1;
                 }
                 uwsgi_log( "%s\n", dlerror());

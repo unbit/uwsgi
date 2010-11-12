@@ -11,6 +11,10 @@ LDFLAGS = []
 LIBS = sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
 if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
         LIBS.append('-L' + sysconfig.get_config_var('LIBPL'))
+else:
+	LDFLAGS.append("-L%s/lib" % sysconfig.PREFIX)
+	os.environ['LD_RUN_PATH'] = "%s/lib" % sysconfig.PREFIX
+	
 
 version = sys.version_info
 uver = "%d.%d" % (version[0], version[1])

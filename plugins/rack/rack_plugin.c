@@ -328,7 +328,7 @@ VALUE require_rails(VALUE arg) {
 #endif
 }
 
-VALUE init_rack_app(char *);
+VALUE init_rack_app(VALUE);
 
 int uwsgi_rack_init(){
 
@@ -364,7 +364,11 @@ int uwsgi_rack_init(){
 #endif
 
 	if (ur.rack) {
-		ur.dispatcher = init_rack_app(ur.rack);
+		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
+		if (error) {
+                        uwsgi_ruby_exception();
+                        exit(1);
+                }
 		if (ur.dispatcher == Qnil) {
 			exit(1);
 		}
@@ -487,7 +491,11 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	}
 	else if (TYPE(obj) == T_STRING) {
 		hkey = obj;
+#ifdef RUBY19
 		hval = rb_hash_lookup(headers, obj);
+#else
+		hval = rb_hash_aref(headers, obj);
+#endif
 	}
 	else {
 		goto clear;
@@ -756,7 +764,7 @@ void uwsgi_rack_init_thread(int core_id) {
 	// thread initialization
 }
 
-VALUE init_rack_app( char *script ) {
+VALUE init_rack_app( VALUE script ) {
 
 	int error;
 
@@ -770,14 +778,14 @@ VALUE init_rack_app( char *script ) {
         }
 
         VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
-        VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, rb_str_new2(script));
+        VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, script);
         if (TYPE(rackup) != T_ARRAY) {
-        	uwsgi_log("unable to parse %s file\n", script);
+        	uwsgi_log("unable to parse %s file\n", RSTRING(script)->ptr);
                 return Qnil;
         }
 
         if (RARRAY_LEN(rackup) < 1) {
-        	uwsgi_log("invalid rack config file: %s\n", script);
+        	uwsgi_log("invalid rack config file: %s\n", RSTRING(script)->ptr);
 		return Qnil;
         }
 
@@ -786,8 +794,10 @@ VALUE init_rack_app( char *script ) {
 
 int uwsgi_rack_xml(char *node, char *content) {
 
+	int error;
+
 	if (!strcmp("rack", node)) {
-		ur.dispatcher = init_rack_app(content);
+		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(content), &error);
 		if (ur.dispatcher != Qnil) {
 			rb_gc_register_address(&ur.dispatcher);
 			uwsgi_log("Rack application ready\n");

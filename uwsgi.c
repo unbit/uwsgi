@@ -458,19 +458,22 @@ int main(int argc, char *argv[], char *envp[])
 	// now a bit of magic, if the argv[0] contains a _ try to automatically load a plugin
 	uwsgi_log("executable name: %s\n", argv[0]);
 	char *p = strtok(argv[0], "_");
-	plugins_requested = p;
+	plugins_requested = NULL;
 	while (p != NULL) {
 		p = strtok(NULL, "_");
 		if (p) plugins_requested = p;
 	}
-	uwsgi_log("plugin = %s\n", plugins_requested);
-	uwsgi_load_plugin(0, plugins_requested, NULL, 0);
+	
+	if (plugins_requested) {
+		uwsgi_log("plugin = %s\n", plugins_requested);
+		uwsgi_load_plugin(0, plugins_requested, NULL, 0);
+	}
 
 	plugins_requested = getenv("UWSGI_PLUGINS");
 	if (plugins_requested) {
 		char *p = strtok(plugins_requested, ",");
 		while (p != NULL) {
-			uwsgi_load_plugin(0, p, NULL, 0);
+			uwsgi_load_plugin(-1, p, NULL, 0);
 			p = strtok(NULL, ",");
 		}
 	}
@@ -1436,7 +1439,7 @@ end:
 #ifdef UWSGI_DEBUG
 				uwsgi_debug("loading plugin %s\n", p);
 #endif
-				uwsgi_load_plugin(0, p, NULL, 0);
+				uwsgi_load_plugin(-1, p, NULL, 0);
 				p = strtok(NULL, ",");
 			}
 			 build_options();

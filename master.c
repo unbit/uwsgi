@@ -100,7 +100,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 	for (;;) {
-		uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
+		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 		if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifdef UWSGI_SPOOLER
 			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
