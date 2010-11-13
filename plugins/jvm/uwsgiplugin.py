@@ -6,10 +6,22 @@ NAME='jvm'
 #JVM_INCPATH = "/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Headers/"
 #JVM_LIBPATH = "/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/JavaVM.framework/Versions/1.6.0/Libraries/ -framework JavaVM"
 
+# FreeBSD openjdk7 example
+# env UWSGICONFIG_JVM_INCPATH="/usr/local/openjdk7/include -I/usr/local/openjdk7/include/freebsd/" UWSGICONFIG_JVM_LIBPATH="/usr/local/openjdk7/jre/lib/amd64/server" python uwsgiconfig.py --plugin plugins/jvm
+
 # Ubuntu
 JVM_INCPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/include/ -I/usr/lib/jvm/java-6-sun-1.6.0.15/include/linux"
 JVM_LIBPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/jre/lib/i386/server/"
 
+try:
+    JVM_INCPATH = os.environ['UWSGICONFIG_JVM_INCPATH']
+except:
+    pass
+
+try:
+    JVM_LIBPATH = os.environ['UWSGICONFIG_JVM_LIBPATH']
+except:
+    pass
 
 CFLAGS = ['-I' + JVM_INCPATH]
 LDFLAGS = ['-L' + JVM_LIBPATH]
