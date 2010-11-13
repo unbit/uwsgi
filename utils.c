@@ -985,7 +985,7 @@ cycle:
 			}
 			
 			// resue buf for json buffer
-			ret = snprintf(buf, len, "{ \"state\" : \"uploading\", \"received\" : %d, \"size\" : %d }\r\n", wsgi_req->post_cl - post_remains, wsgi_req->post_cl);
+			ret = snprintf(buf, len, "{ \"state\" : \"uploading\", \"received\" : %d, \"size\" : %d }\r\n", (int) (wsgi_req->post_cl - post_remains), (int) wsgi_req->post_cl);
 			if (ret < 0) {
 				uwsgi_log("unable to write JSON data in upload progress file %s\n", upload_progress_filename);
 				goto end;
