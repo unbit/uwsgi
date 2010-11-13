@@ -494,47 +494,42 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 
-	/*
 
 	   if (optind < argc) {
-	   char *lazy = argv[optind];
-	   char *qc = strchr(lazy, ':');
-// ignore last arg if it starts with [
-if (lazy[0] != '[') {
-if (qc) {
-qc[0] = 0;
-uwsgi.callable = qc + 1;
-}
-if (!strcmp(lazy+strlen(lazy)-3, ".py")) {
-uwsgi.file_config = lazy;
-}
-else if (!strcmp(lazy+strlen(lazy)-4, ".xml")) {
-if (qc) { uwsgi.callable = NULL; qc[0] = ':';}
-uwsgi.xml_config = lazy;
-}
-else if (!strcmp(lazy+strlen(lazy)-4, ".ini")) {
-if (qc) { uwsgi.callable = NULL; qc[0] = ':';}
-uwsgi.ini = lazy;
-}
-else if (!strcmp(lazy+strlen(lazy)-5, ".wsgi")) {
-uwsgi.file_config = lazy;
-}
-else if (lazy[0] == '/' && strchr(lazy,'=')) {
-if (uwsgi.mounts_cnt < MAX_APPS) {
-uwsgi.mounts[uwsgi.mounts_cnt] = lazy;
-uwsgi.mounts_cnt++;
-}
-else {
-uwsgi_log("unable to add more that %d mountpoints\n", MAX_APPS);
-}
-}
-else {
-uwsgi.wsgi_config = lazy;
-}
-}
-}
-
-*/
+	   	char *lazy = argv[optind];
+		if (lazy[0] != '[') {
+			if (!strcmp(lazy+strlen(lazy)-4, ".xml")) {
+				uwsgi.xml_config = lazy;
+			}
+			else if (!strcmp(lazy+strlen(lazy)-4, ".ini")) {
+				uwsgi.ini = lazy;
+			}
+			// manage magic mountpoint
+			else if (lazy[0] == '/' && strchr(lazy,'=')) {
+			}
+			else {
+				int magic = 0;
+				for(i =0; i < uwsgi.gp_cnt; i++) {
+                			if (uwsgi.gp[i]->magic) {
+                        			if (uwsgi.gp[i]->magic(NULL, lazy)) {
+							magic = 1;
+							break;
+						}
+                			}
+				}
+				if (!magic) {
+        				for (i = 0; i < 0xFF; i++) {
+                				if (uwsgi.p[i]->magic) {
+                        				if (uwsgi.p[i]->magic(NULL, lazy)) {
+								magic = 1;
+								break;
+							}
+                				}
+        				}
+				}
+			}
+		}
+	}
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {

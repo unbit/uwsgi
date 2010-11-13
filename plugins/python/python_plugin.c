@@ -549,6 +549,34 @@ void uwsgi_uwsgi_config(char *module) {
 
 
 
+int uwsgi_python_magic(char *mountpoint, char *lazy) {
+
+	char *qc = strchr(lazy, ':');
+	if (qc) {
+		qc[0] = 0;
+		up.callable = qc + 1;
+	}
+
+	if (!strcmp(lazy+strlen(lazy)-3, ".py")) {
+		up.file_config = lazy;
+		return 1;
+	}
+	else if (!strcmp(lazy+strlen(lazy)-5, ".wsgi")) {
+		up.file_config = lazy;
+		return 1;
+	}
+	else if (qc && strchr(lazy,'.')) {
+		up.wsgi_config = lazy;
+		return 1;
+	}	
+
+	// reset lazy
+	if (qc) {
+		qc[0] = ':';
+	}
+	return 0;
+
+}
 
 		int uwsgi_python_manage_options(int i, char *optarg) {
 
@@ -680,9 +708,10 @@ void uwsgi_uwsgi_config(char *module) {
 			.enable_threads = uwsgi_python_enable_threads,
 			.init_thread = uwsgi_python_init_thread,
 			.manage_xml = uwsgi_python_xml,
+
+			.magic = uwsgi_python_magic,
 			//.spooler = uwsgi_python_spooler,
 			/*
-			   .magic = uwsgi_python_magic,
 			   .help = uwsgi_python_help,
 			   */
 

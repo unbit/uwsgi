@@ -351,7 +351,6 @@ struct uwsgi_plugin {
         struct option  *options;
         const char     *short_options;
         int             (*manage_opt) (int, char *);
-        void            (*magic) (char *);
         void            (*enable_threads) (void);
         void            (*init_thread) (int);
         int             (*request) (struct wsgi_request *);
@@ -361,6 +360,8 @@ struct uwsgi_plugin {
         int             (*manage_xml) (char *, char *);
         void            (*suspend) (struct wsgi_request *);
         void            (*resume) (struct wsgi_request *);
+
+        int             (*magic) (char *, char *);
 
 	void*		(*encode_string)(char *);
 	char*		(*decode_string)(void *);
