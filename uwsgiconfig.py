@@ -2,6 +2,7 @@
 
 import os
 uwsgi_os = os.uname()[0]
+uwsgi_os_v = os.uname()[3]
 uwsgi_cpu = os.uname()[4]
 
 import sys
@@ -182,7 +183,8 @@ class uConf():
 
         if uwsgi_os == 'SunOS':
             self.libs.append('-lsendfile')
-            self.libs.remove('-rdynamic')
+	    if not uwsgi_os_v.startswith('Nexenta'):
+            	self.libs.remove('-rdynamic')
 
         if uwsgi_os in kvm_list:
             self.libs.append('-lkvm')

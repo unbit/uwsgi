@@ -9,6 +9,9 @@ NAME='jvm'
 # FreeBSD openjdk7 example
 # env UWSGICONFIG_JVM_INCPATH="/usr/local/openjdk7/include -I/usr/local/openjdk7/include/freebsd/" UWSGICONFIG_JVM_LIBPATH="/usr/local/openjdk7/jre/lib/amd64/server" python uwsgiconfig.py --plugin plugins/jvm
 
+# NexentaOS example
+# UWSGICONFIG_JVM_INCPATH="/usr/java/include -I /usr/java/include/solaris" UWSGICONFIG_JVM_LIBPATH="/usr/java/jre/lib/i386/" python uwsgiconfig.py --plugin plugins/jvm
+
 # Ubuntu
 JVM_INCPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/include/ -I/usr/lib/jvm/java-6-sun-1.6.0.15/include/linux"
 JVM_LIBPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/jre/lib/i386/server/"

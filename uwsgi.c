@@ -373,7 +373,11 @@ int main(int argc, char *argv[], char *envp[])
 
 
 #ifdef UWSGI_DEBUG
+#ifdef __sun__
+	if (uname(&uuts) < 0) {
+#else
 	if (uname(&uuts)) {
+#endif
 		uwsgi_error("uname()");
 	} else {
 		uwsgi_log("SYSNAME: %s\nNODENAME: %s\nRELEASE: %s\nVERSION: %s\nMACHINE: %s\n",
