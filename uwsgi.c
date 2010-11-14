@@ -29,7 +29,7 @@ extern char **environ;
 
 static char *short_options = NULL;
 
-static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:L";
+static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:L:y:";
 
 UWSGI_DECLARE_EMBEDDED_PLUGINS
 
@@ -69,6 +69,10 @@ static struct option long_base_options[] = {
 	{"uid", required_argument, 0, LONG_ARGS_UID},
 #ifdef UWSGI_INI
 	{"ini", required_argument, 0, LONG_ARGS_INI},
+#endif
+#ifdef UWSGI_YAML
+	{"yaml", required_argument, 0, 'y'},
+	{"yml", required_argument, 0, 'y'},
 #endif
 #ifdef UWSGI_LDAP
 	{"ldap", required_argument, 0, LONG_ARGS_LDAP},
@@ -462,7 +466,7 @@ int main(int argc, char *argv[], char *envp[])
 	UWSGI_LOAD_EMBEDDED_PLUGINS
 
 	// now a bit of magic, if the argv[0] contains a _ try to automatically load a plugin
-	uwsgi_log("executable name: %s\n", argv[0]);
+	//uwsgi_log("executable name: %s\n", argv[0]);
 	char *p = strtok(argv[0], "_");
 	plugins_requested = NULL;
 	while (p != NULL) {
@@ -502,9 +506,16 @@ int main(int argc, char *argv[], char *envp[])
 			if (!strcmp(lazy+strlen(lazy)-4, ".xml")) {
 				uwsgi.xml_config = lazy;
 			}
+#ifdef UWSGI_INI
 			else if (!strcmp(lazy+strlen(lazy)-4, ".ini")) {
 				uwsgi.ini = lazy;
 			}
+#endif
+#ifdef UWSGI_YAML
+			else if (!strcmp(lazy+strlen(lazy)-4, ".yml")) {
+				uwsgi.yaml = lazy;
+			}
+#endif
 			// manage magic mountpoint
 			else if (lazy[0] == '/' && strchr(lazy,'=')) {
 			}
@@ -534,22 +545,27 @@ int main(int argc, char *argv[], char *envp[])
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.wsgi_req, uwsgi.long_options);
+		uwsgi_xml_config(uwsgi.wsgi_req, 0);
 	}
 #endif
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
-		uwsgi_ini_config(uwsgi.ini, uwsgi.long_options);
+		uwsgi_ini_config(uwsgi.ini);
+	}
+#endif
+#ifdef UWSGI_YAML
+	if (uwsgi.yaml != NULL) {
+		uwsgi_yaml_config(uwsgi.yaml);
 	}
 #endif
 #ifdef UWSGI_LDAP
 	if (uwsgi.ldap != NULL) {
-		uwsgi_ldap_config(uwsgi.long_options);
+		uwsgi_ldap_config();
 	}
 #endif
 
 	//parse environ
-	parse_sys_envs(environ, uwsgi.long_options);
+	parse_sys_envs(environ);
 
 	//call after_opt hooks
 
@@ -1153,7 +1169,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
 	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.wsgi_req, NULL);
+		uwsgi_xml_config(uwsgi.wsgi_req, 1);
 	}
 #endif
 
@@ -1482,10 +1498,10 @@ end:
 			uwsgi.ldap = optarg;
 			return 1;
 		case LONG_ARGS_LDAP_SCHEMA:
-			uwsgi_ldap_schema_dump(uwsgi.long_options);
+			uwsgi_ldap_schema_dump();
 			return 1;
 		case LONG_ARGS_LDAP_SCHEMA_LDIF:
-			uwsgi_ldap_schema_dump_ldif(uwsgi.long_options);
+			uwsgi_ldap_schema_dump_ldif();
 			return 1;
 #endif
 		case LONG_ARGS_MODE:
@@ -1627,6 +1643,11 @@ end:
 		case LONG_ARGS_UPLOAD_PROGRESS:
 			uwsgi.upload_progress = optarg;
 			return 1;
+#ifdef UWSGI_YAML
+		case 'y':
+			uwsgi.yaml = optarg;
+			return 1;
+#endif
 #ifdef UWSGI_INI
 		case LONG_ARGS_INI:
 			uwsgi.ini = optarg;

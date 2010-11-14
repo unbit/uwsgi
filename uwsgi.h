@@ -720,11 +720,12 @@ struct uwsgi_server {
 	struct uwsgi_route routes[MAX_UWSGI_ROUTES];
 #endif
 
+#ifdef UWSGI_YAML
+	char		*yaml;
+#endif
+
 #ifdef UWSGI_INI
 	char           *ini;
-#endif
-#ifdef UWSGI_PASTE
-	char           *paste;
 #endif
 
 	int             single_interpreter;
@@ -927,7 +928,7 @@ void            harakiri(void);
 void            stats(void);
 
 #ifdef UWSGI_XML
-void            uwsgi_xml_config(struct wsgi_request *, struct option *);
+void            uwsgi_xml_config(struct wsgi_request *, int);
 #endif
 
 void            internal_server_error(int, char *);
@@ -1062,7 +1063,7 @@ inline struct wsgi_request *current_wsgi_req(void);
 void            sanitize_args(void);
 
 void            env_to_arg(char *, char *);
-void            parse_sys_envs(char **, struct option *);
+void            parse_sys_envs(char **);
 
 void            uwsgi_log(const char *,...);
 void            uwsgi_log_verbose(const char *,...);
@@ -1077,14 +1078,18 @@ void            http_loop(void);
 int             unconfigured_hook(struct wsgi_request *);
 
 #ifdef UWSGI_INI
-void            uwsgi_ini_config(char *, struct option *);
+void            uwsgi_ini_config(char *);
+#endif
+
+#ifdef UWSGI_YAML
+void            uwsgi_yaml_config(char *);
 #endif
 
 
 #ifdef UWSGI_LDAP
-void            uwsgi_ldap_schema_dump(struct option *);
-void            uwsgi_ldap_schema_dump_ldif(struct option *);
-void            uwsgi_ldap_config(struct option *);
+void            uwsgi_ldap_schema_dump(void);
+void            uwsgi_ldap_schema_dump_ldif(void);
+void            uwsgi_ldap_config(void);
 #endif
 
 #ifdef __clang__

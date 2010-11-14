@@ -388,7 +388,6 @@ void master_loop(char **argv, char **environ) {
 		// TODO rewrite without using exit code (targeted at 0.9.7)
 
 
-		uwsgi_log("CHECK FOR DIED PROCESS %d\n", WEXITSTATUS(waitpid_status));
 #ifdef __sun__
 		/* horrible hack... what the FU*K is doing Solaris ??? */
 		if (WIFSIGNALED(waitpid_status)) {

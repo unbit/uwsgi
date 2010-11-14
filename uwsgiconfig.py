@@ -217,6 +217,10 @@ class uConf():
             self.cflags.append("-DUWSGI_INI")
             self.gcc_list.append('ini')
 
+        if self.get('yaml'):
+            self.cflags.append("-DUWSGI_YAML")
+            self.gcc_list.append('yaml')
+
         if self.get('proxy'):
             self.depends_on('proxy', ['async'])
             self.cflags.append("-DUWSGI_PROXY")

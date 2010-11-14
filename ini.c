@@ -2,15 +2,12 @@
 
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
 /*
    ini file must be read ALL into memory.
    This memory must not be freed for all the server lifecycle
    */
-
-enum {
-	ini_key_start,
-	ini_val_start,
-};
 
 void ini_rstrip(char *line) {
 
@@ -74,7 +71,7 @@ char *ini_get_line(char *ini, off_t size) {
 
 }
 
-void uwsgi_ini_config(char *file, struct option *long_options) {
+void uwsgi_ini_config(char *file) {
 
 	int fd;
 	ssize_t len;
@@ -100,6 +97,8 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 			section_asked = colon+1;
 		}
 	}
+
+	uwsgi_log("[uWSGI] getting INI configuration from %s\n", file);
 
 	fd = open(file, O_RDONLY);
 	if (fd < 0) {
@@ -155,7 +154,7 @@ void uwsgi_ini_config(char *file, struct option *long_options) {
 					ini_rstrip(key);
 					val = ini_lstrip(val);
 					ini_rstrip(val);
-					lopt = long_options;
+					lopt = uwsgi.long_options;
 					while ((aopt = lopt)) {
 						if (!aopt->name)
 							break;

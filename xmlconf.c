@@ -9,7 +9,7 @@ extern struct uwsgi_server uwsgi;
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
-void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options) {
+void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag) {
 	xmlDoc *doc = NULL;
 	xmlNode *element = NULL;
 	xmlNode *node = NULL;
@@ -42,7 +42,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 		exit(1);
 	}
 
-	if (long_options) {
+	if (!app_tag) {
 		uwsgi_log( "[uWSGI] parsing config file %s\n", uwsgi.xml_config);
 	}
 
@@ -76,7 +76,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 	}
 
 
-	if (long_options) {
+	if (!app_tag) {
 		// first check for options
 		for (node = element->children; node; node = node->next) {
 			if (node->type == XML_CDATA_SECTION_NODE) {
@@ -101,7 +101,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 					continue;
 				}
 #endif
-				lopt = long_options;
+				lopt = uwsgi.long_options;
 				while ((aopt = lopt)) {
 					if (!aopt->name)
 						break;
@@ -258,9 +258,9 @@ next:
 
 	/* We cannot free xml resources on the first round (and with routing enabled) as the string pointer must be valid for all the server lifecycle */
 #ifdef UWSGI_ROUTING
-	if (!long_options && !uwsgi.routing) {
+	if (app_tag && !uwsgi.routing) {
 #else
-		if (!long_options) {
+		if (app_tag) {
 #endif
 			xmlFreeDoc (doc);
 			xmlCleanupParser ();
@@ -352,7 +352,7 @@ void uwsgi_startElement(void *userData, const char *name, const char **attrs) {
 	struct option *lopt, *aopt;
 
 
-	lopt = long_options;
+	lopt = uwsgi.long_options;
 	while ((aopt = lopt)) {
 		if (!aopt->name)
 			break;

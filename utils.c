@@ -518,7 +518,7 @@ void env_to_arg(char *src, char *dst) {
 	dst[strlen(src)] = 0;
 }
 
-void parse_sys_envs(char **envs, struct option *long_options) {
+void parse_sys_envs(char **envs) {
 
 	struct option *lopt, *aopt;
 
@@ -539,7 +539,7 @@ void parse_sys_envs(char **envs, struct option *long_options) {
 			}
 			eq_pos[0] = 0;
 
-			lopt = long_options;
+			lopt = uwsgi.long_options;
 
 			while ((aopt = lopt)) {
 				if (!aopt->name)
@@ -1050,7 +1050,7 @@ void add_exported_option(int i, char *value) {
 		}
 	}
 
-	uwsgi_log("%s = %s\n", key, value);
+	//uwsgi_log("%s = %s\n", key, value);
 
 	if (!key) return;
 

@@ -37,10 +37,10 @@ int calc_ldap_name(char *name) {
 	return strlen(name) + counter;
 }
 
-void uwsgi_ldap_schema_dump_ldif(struct option *lo) {
+void uwsgi_ldap_schema_dump_ldif() {
 	struct option *aopt, *lopt;
 
-	lopt = lo;
+	lopt = uwsgi.long_options;
 	int i;
 	int counter = 30000;
 
@@ -91,7 +91,7 @@ next:
 
 	uwsgi_log("olcAttributeTypes: ( 1.3.6.1.4.1.35156.17.4.50000 NAME 'uWSGInull' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
 
-	lopt = lo;
+	lopt = uwsgi.long_options;
 
 	uwsgi_log("olcObjectClasses: ( 1.3.6.1.4.1.35156.17.3.1 NAME 'uWSGIConfig' SUP top AUXILIARY DESC 'uWSGI configuration' MAY ( ");
 
@@ -130,10 +130,10 @@ next2:
 	exit(0);
 }
 
-void uwsgi_ldap_schema_dump(struct option *lo) {
+void uwsgi_ldap_schema_dump() {
 	struct option *aopt, *lopt;
 
-	lopt = lo;
+	lopt = uwsgi.long_options;
 	int i;
 	int counter = 30000;
 	int pythonpath_found = 0;
@@ -179,7 +179,7 @@ next:
 
 	uwsgi_log("attributetype ( 1.3.6.1.4.1.35156.17.4.50000 NAME 'uWSGInull' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
 
-	lopt = lo;
+	lopt = uwsgi.long_options;
 
 	uwsgi_log("objectclass ( 1.3.6.1.4.1.35156.17.3.1 NAME 'uWSGIConfig' SUP top AUXILIARY DESC 'uWSGI configuration' MAY ( ");
 
@@ -216,7 +216,7 @@ next2:
 	exit(0);
 }
 
-void uwsgi_ldap_config(struct option *long_options) {
+void uwsgi_ldap_config() {
 
 	LDAP *ldp;
 	LDAPMessage *results, *entry;
@@ -318,7 +318,7 @@ void uwsgi_ldap_config(struct option *long_options) {
 				memcpy(uwsgi_val, bervalues[0]->bv_val, bervalues[0]->bv_len);
 				uwsgi_val[bervalues[0]->bv_len] = 0;
 
-				lopt = long_options;
+				lopt = uwsgi.long_options;
 				while ((aopt = lopt)) {
 					if (!aopt->name)
 						break;
