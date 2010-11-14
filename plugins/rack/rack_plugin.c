@@ -807,6 +807,22 @@ int uwsgi_rack_xml(char *node, char *content) {
 
 	return 0;
 }
+
+int uwsgi_rack_magic(char *mountpoint, char *lazy) {
+
+	if (!strcmp(lazy+strlen(lazy)-3, ".ru")) {
+                ur.rack = lazy;
+                return 1;
+        }
+        else if (!strcmp(lazy+strlen(lazy)-3, ".rb")) {
+                ur.rack = lazy;
+                return 1;
+        }
+
+
+	return 0;
+}
+
 struct uwsgi_plugin rack_plugin = {
 
 	.name = "rack",
@@ -819,6 +835,7 @@ struct uwsgi_plugin rack_plugin = {
 
 	.manage_xml = uwsgi_rack_xml,
 
+	.magic = uwsgi_rack_magic,
 #ifdef RUBY19
 	.suspend = uwsgi_rack_suspend,
 	.resume = uwsgi_rack_resume,

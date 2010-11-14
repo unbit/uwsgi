@@ -242,6 +242,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOOP			17058
 #define LONG_ARGS_VHOSTHOST		17059
 #define LONG_ARGS_UPLOAD_PROGRESS	17060
+#define LONG_ARGS_REMAP_MODIFIER	17061
 
 
 
@@ -572,6 +573,8 @@ struct uwsgi_server {
 	//base for all the requests(even on async mode)
 	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;
+
+	char *remap_modifier;
 
 	char           *chroot;
 	gid_t           gid;

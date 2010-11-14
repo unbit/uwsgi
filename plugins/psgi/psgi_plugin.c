@@ -62,8 +62,6 @@ xs_init(pTHX)
 int uwsgi_perl_init(){
 
 
-	struct stat stat_psgi;
-
 	struct http_status_codes *http_sc;
 
 	int argc = 4;
@@ -92,6 +90,14 @@ int uwsgi_perl_init(){
 	perl_parse(uperl.main, xs_init, 4, embedding, NULL);
 
 	perl_eval_pv("use IO::Handle;", 0);
+
+	return 1;
+
+}
+
+void uwsgi_psgi_app() {
+
+	struct stat stat_psgi;
 
 	if (uperl.psgi) {
 		uperl.fd = open(uperl.psgi, O_RDONLY);
@@ -133,17 +139,10 @@ int uwsgi_perl_init(){
 			free(uperl.psgibuffer);
 			close(uperl.fd);
 		}
+
+		uwsgi_log("PSGI app (%s) loaded at %p\n", uperl.psgi, uperl.psgi_main);
 	}
 
-	return 0;
-
-/*
-clear:
-	uwsgi_log("error initializing the perl engine\n");
-	perl_destruct(uperl.main);
-	perl_free(uperl.main);
-	return -1;
-*/
 
 }
 
@@ -388,6 +387,21 @@ int uwsgi_perl_manage_options(int i, char *optarg) {
         return 0;
 }
 
+int uwsgi_perl_magic(char *mountpoint, char *lazy) {
+
+        if (!strcmp(lazy+strlen(lazy)-5, ".psgi")) {
+                uperl.psgi = lazy;
+                return 1;
+        }
+        else if (!strcmp(lazy+strlen(lazy)-3, ".pl")) {
+                uperl.psgi = lazy;
+                return 1;
+        }
+
+        return 0;
+
+}
+
 
 struct uwsgi_plugin psgi_plugin = {
 
@@ -395,6 +409,7 @@ struct uwsgi_plugin psgi_plugin = {
 	.modifier1 = 5,
 	.init = uwsgi_perl_init,
 	.options = uwsgi_perl_options,
+	.init_apps = uwsgi_psgi_app,
 	//.magic = uwsgi_perl_magic,
 	//.help = uwsgi_perl_help,
 	.enable_threads = uwsgi_perl_enable_threads,
@@ -402,4 +417,6 @@ struct uwsgi_plugin psgi_plugin = {
 	.init_thread = uwsgi_perl_init_thread,
 	.request = uwsgi_perl_request,
 	.after_request = uwsgi_perl_after_request,
+
+	.magic = uwsgi_perl_magic,
 };

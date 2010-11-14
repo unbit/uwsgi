@@ -141,6 +141,7 @@ static struct option long_base_options[] = {
 #endif
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
+	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
 	{"version", no_argument, 0, LONG_ARGS_VERSION},
 	{0, 0, 0, 0}
 };
@@ -1326,6 +1327,21 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	}
 
 
+	// eventually remap plugins
+	if (uwsgi.remap_modifier) {
+		char *map = strtok(uwsgi.remap_modifier, ",");
+                while (map != NULL) {
+			char *colon = strchr(map, ':');
+			if (colon) {
+				colon[0] = 0;
+				int rm_src = atoi(map);
+				int rm_dst = atoi(colon+1);
+				uwsgi.p[rm_dst] = uwsgi.p[rm_src]; 
+			}	
+                        map = strtok(NULL, ",");
+                }
+	}
+
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
 		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
@@ -1432,6 +1448,9 @@ end:
 			return 1;
 		case LONG_ARGS_LOOP:
 			uwsgi.loop = optarg;
+			return 1;
+		case LONG_ARGS_REMAP_MODIFIER:
+			uwsgi.remap_modifier = optarg;
 			return 1;
 		case LONG_ARGS_PLUGINS:
 			p = strtok(optarg, ",");

@@ -3,7 +3,7 @@ use warnings;
 
 my $app = sub {
       my $env = shift;
-      uwsgi::reload;
+      #uwsgi::reload;
       return [
           '200',
           [ 'Content-Type' => 'text/plain' ],

@@ -74,8 +74,6 @@ static int uwsgi_lua_input(lua_State *L) {
 
 int uwsgi_lua_init(){
 
-	int i;
-
 	uwsgi_log("Initializing Lua environment... (%d cores)\n", uwsgi.cores);
 
 	ulua.L = malloc( sizeof(lua_State*) * uwsgi.cores );
@@ -84,25 +82,32 @@ int uwsgi_lua_init(){
 		exit(1);
 	}
 
-	for(i=0;i<uwsgi.cores;i++) {
-		ulua.L[i] = lua_newstate(uwsgi_lua_alloc, NULL);
-		luaL_openlibs(ulua.L[i]);
-		if (luaL_loadfile(ulua.L[i], ulua.filename)) {
-			uwsgi_log("unable to load file %s\n", ulua.filename);
-			exit(1);
-		}
-		// use a pcall
-		//lua_call(ulua.L[i], 0, 1);
-		if (lua_pcall(ulua.L[i], 0, 1, 0) != 0) {
-			uwsgi_log("%s\n", lua_tostring(ulua.L[i], -1));
-			exit(1);
-		}
-	}
-
 	// ok the lua engine is ready
 	return 0;
 
 
+}
+
+void uwsgi_lua_app() {
+	int i;
+
+	if (ulua.filename) {
+		for(i=0;i<uwsgi.cores;i++) {
+			ulua.L[i] = lua_newstate(uwsgi_lua_alloc, NULL);
+			luaL_openlibs(ulua.L[i]);
+			if (luaL_loadfile(ulua.L[i], ulua.filename)) {
+				uwsgi_log("unable to load file %s\n", ulua.filename);
+				exit(1);
+			}
+			// use a pcall
+			//lua_call(ulua.L[i], 0, 1);
+			if (lua_pcall(ulua.L[i], 0, 1, 0) != 0) {
+				uwsgi_log("%s\n", lua_tostring(ulua.L[i], -1));
+				exit(1);
+			}
+		}
+
+	}
 }
 
 int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
@@ -284,6 +289,20 @@ int uwsgi_lua_manage_options(int i, char *optarg) {
 	return 0;
 }
 
+int uwsgi_lua_magic(char *mountpoint, char *lazy) {
+
+	if (!strcmp(lazy+strlen(lazy)-4, ".lua")) {
+                ulua.filename = lazy;
+                return 1;
+        }
+        else if (!strcmp(lazy+strlen(lazy)-3, ".ws")) {
+                ulua.filename = lazy;
+                return 1;
+        }
+
+
+	return 0;
+}
 
 struct uwsgi_plugin lua_plugin = {
 
@@ -294,6 +313,8 @@ struct uwsgi_plugin lua_plugin = {
 	.manage_opt = uwsgi_lua_manage_options,
 	.request = uwsgi_lua_request,
 	.after_request = uwsgi_lua_after_request,
+	.init_apps = uwsgi_lua_app,
+	.magic = uwsgi_lua_magic,
 
 };
 
