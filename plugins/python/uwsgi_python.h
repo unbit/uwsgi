@@ -86,6 +86,8 @@ struct uwsgi_python {
 	int ignore_script_name;
 	int catch_exceptions;
 
+	int current_recursion_depth;
+	struct _frame* current_frame;
 
 #ifdef UWSGI_THREADING
 	pthread_key_t upt_save_key;

@@ -1362,6 +1362,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
 		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
 		u_loop();
+		uwsgi_log("done\n");
 		goto end;
 	} else {
 		if (uwsgi.threads > 1) {

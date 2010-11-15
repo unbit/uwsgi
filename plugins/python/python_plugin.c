@@ -693,6 +693,26 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 			return 0;
 		}
 
+void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
+
+	PyThreadState* tstate = PyThreadState_GET();
+
+	uwsgi_log("suspending python\n");
+        up.current_recursion_depth = tstate->recursion_depth;
+        up.current_frame = tstate->frame;
+
+}
+
+void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
+
+	PyThreadState* tstate = PyThreadState_GET();
+
+	uwsgi_log("resuming python\n");
+	tstate->recursion_depth = up.current_recursion_depth;
+        tstate->frame = up.current_frame;
+
+}
+
 		struct uwsgi_plugin python_plugin = {
 
 			.name = "python",
@@ -710,6 +730,9 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 			.manage_xml = uwsgi_python_xml,
 
 			.magic = uwsgi_python_magic,
+
+			.suspend = uwsgi_python_suspend,
+			.resume = uwsgi_python_resume,	
 			//.spooler = uwsgi_python_spooler,
 			/*
 			   .help = uwsgi_python_help,

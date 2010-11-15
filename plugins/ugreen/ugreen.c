@@ -1,21 +1,33 @@
 /* uGreen -> uWSGI green threads */
 
-#include "../uwsgi.h"
+#include "../../uwsgi.h"
+
+#ifdef __APPLE__
+#define _XOPEN_SOURCE
+#endif
 
 #include <ucontext.h>
 
-int             ugreen;
-        int             ugreen_stackpages;
-        ucontext_t      ugreenmain;
-        ucontext_t    **ugreen_contexts;
+struct uwsgi_ugreen {
+	int             ugreen;
+        int             stackpages;
+        ucontext_t      main;
+        ucontext_t    **contexts;
         size_t          u_stack_size;
+} ug;
 
 #define UGREEN_DEFAULT_STACKSIZE 256*1024
 
-{"ugreen", no_argument, &uwsgi.ugreen, 1},
-        {"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
 
 extern struct uwsgi_server uwsgi;
+
+struct option ugreen_options[] = {
+	{"ugreen", no_argument, &ug.ugreen, 1},
+	{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
+	{ 0, 0, 0, 0 }
+};
+
+void u_green_loop(void);
 
 void u_green_write_all(char *data, size_t len) {
 
@@ -73,16 +85,16 @@ inline static void u_green_schedule_to_main(int async_id) {
 	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[async_id];
 
 	if (wsgi_req->async_status != UWSGI_ACCEPTING) {
-		if (uwsgi.shared->hook_suspend[wsgi_req->uh.modifier1]) {
-			uwsgi.shared->hook_suspend[wsgi_req->uh.modifier1](wsgi_req);
+		if (uwsgi.p[wsgi_req->uh.modifier1]->suspend) {
+			uwsgi.p[wsgi_req->uh.modifier1]->suspend(wsgi_req);
 		}
 	}
 
-	swapcontext(uwsgi.ugreen_contexts[async_id], &uwsgi.ugreenmain);
+	swapcontext(ug.contexts[async_id], &ug.main);
 
 	if (wsgi_req->async_status != UWSGI_ACCEPTING) {
-		if (uwsgi.shared->hook_resume[wsgi_req->uh.modifier1]) {
-			uwsgi.shared->hook_resume[wsgi_req->uh.modifier1](wsgi_req);
+		if (uwsgi.p[wsgi_req->uh.modifier1]->resume) {
+			uwsgi.p[wsgi_req->uh.modifier1]->resume(wsgi_req);
 		}
 	}
 }
@@ -91,21 +103,21 @@ inline static void u_green_schedule_to_req(struct wsgi_request *wsgi_req) {
 
 	
 	if (wsgi_req->async_status != UWSGI_ACCEPTING) {
-		if (uwsgi.shared->hook_suspend[wsgi_req->uh.modifier1]) {
-			uwsgi.shared->hook_suspend[wsgi_req->uh.modifier1](wsgi_req);
+		if (uwsgi.p[wsgi_req->uh.modifier1]->suspend) {
+			uwsgi.p[wsgi_req->uh.modifier1]->suspend(wsgi_req);
 		}
 	}
 
 	uwsgi.wsgi_req = wsgi_req;
-	uwsgi_log("SWAPCONTEXT\n");
+	uwsgi_log("SWAPCONTEXT to %p\n", ug.contexts[wsgi_req->async_id]);
 	//wsgi_req->async_switches++;
-	swapcontext(&uwsgi.ugreenmain, uwsgi.ugreen_contexts[wsgi_req->async_id] );
+	swapcontext(&ug.main, ug.contexts[wsgi_req->async_id] );
 
 	uwsgi_log("RESUMED\n");
 
 	if (wsgi_req->async_status != UWSGI_ACCEPTING) {
-		if (uwsgi.shared->hook_resume[wsgi_req->uh.modifier1]) {
-			uwsgi.shared->hook_resume[wsgi_req->uh.modifier1](wsgi_req);
+		if (uwsgi.p[wsgi_req->uh.modifier1]->resume) {
+			uwsgi.p[wsgi_req->uh.modifier1]->resume(wsgi_req);
 		}
 	}
 
@@ -134,9 +146,9 @@ static struct wsgi_request *find_first_accepting_wsgi_req() {
 	struct wsgi_request* wsgi_req;
 	int i;
 
-	uwsgi_log("FFAR\n");
 	for(i=0;i<uwsgi.async;i++) {
 		wsgi_req = uwsgi.wsgi_requests[i];
+		uwsgi_log("req status: %d\n",wsgi_req->async_status);
 		if (wsgi_req->async_status == UWSGI_ACCEPTING) {
 			return wsgi_req;
 		}
@@ -148,6 +160,7 @@ static struct wsgi_request *find_first_accepting_wsgi_req() {
 
 static void u_green_request(struct wsgi_request *wsgi_req, int async_id) {
 
+	uwsgi_log("request handler args %p %d\n", wsgi_req, async_id);
 
 	for(;;) {
 		uwsgi_log("accept()\n");
@@ -160,6 +173,8 @@ static void u_green_request(struct wsgi_request *wsgi_req, int async_id) {
 		if (wsgi_req_accept(wsgi_req)) {
 			continue;
 		}
+
+		uwsgi_log("REQUEST ACCEPTED\n");
 		wsgi_req->async_status = UWSGI_OK;
 
 		// check here
@@ -171,7 +186,7 @@ static void u_green_request(struct wsgi_request *wsgi_req, int async_id) {
 
 		while(wsgi_req->async_status == UWSGI_AGAIN) {
 			u_green_schedule_to_main(async_id);
-			wsgi_req->async_status = uwsgi.shared->hook_request[wsgi_req->uh.modifier1](wsgi_req);
+			wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
 		}
 
 		u_green_schedule_to_main(async_id);
@@ -182,23 +197,23 @@ static void u_green_request(struct wsgi_request *wsgi_req, int async_id) {
 
 }
 
-void u_green_init() {
+int u_green_init() {
 
 	struct wsgi_request *wsgi_req;
 
 	volatile int i;
 
-	uwsgi.u_stack_size = UGREEN_DEFAULT_STACKSIZE;
+	ug.u_stack_size = UGREEN_DEFAULT_STACKSIZE;
 
-	if (uwsgi.ugreen_stackpages > 0) {
-		uwsgi.u_stack_size = uwsgi.ugreen_stackpages * uwsgi.page_size;
+	if (ug.stackpages > 0) {
+		ug.u_stack_size = ug.stackpages * uwsgi.page_size;
 	}
 
-	uwsgi_log("initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi.async, (unsigned long) uwsgi.u_stack_size,  (unsigned long) uwsgi.u_stack_size/1024);
+	uwsgi_log("initializing %d uGreen threads with stack size of %lu (%lu KB)\n", uwsgi.async, (unsigned long) ug.u_stack_size,  (unsigned long) ug.u_stack_size/1024);
 
 
-	uwsgi.ugreen_contexts = malloc( sizeof(ucontext_t*) * uwsgi.async);
-	if (!uwsgi.ugreen_contexts) {
+	ug.contexts = malloc( sizeof(ucontext_t*) * uwsgi.async);
+	if (!ug.contexts) {
 		uwsgi_error("malloc()\n");
 		exit(1);
 	}
@@ -206,37 +221,39 @@ void u_green_init() {
 
 	for(i=0;i<uwsgi.async;i++) {
 		wsgi_req = uwsgi.wsgi_requests[i];
-		uwsgi.ugreen_contexts[i] = malloc( sizeof(ucontext_t) );
-		if (!uwsgi.ugreen_contexts[i]) {
+		ug.contexts[i] = malloc( sizeof(ucontext_t) );
+		if (!ug.contexts[i]) {
 			uwsgi_error("malloc()");
 			exit(1);
 		}
-		getcontext(uwsgi.ugreen_contexts[i]);
-		uwsgi.ugreen_contexts[i]->uc_stack.ss_sp = mmap(NULL, uwsgi.u_stack_size + (uwsgi.page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + uwsgi.page_size;
+		getcontext(ug.contexts[i]);
+		ug.contexts[i]->uc_stack.ss_sp = mmap(NULL, ug.u_stack_size + (uwsgi.page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + uwsgi.page_size;
 
-		if (!uwsgi.ugreen_contexts[i]->uc_stack.ss_sp) {
+		if (!ug.contexts[i]->uc_stack.ss_sp) {
 			uwsgi_error("mmap()");
 			exit(1);
 		}
 		// set guard pages for stack
-		if (mprotect(uwsgi.ugreen_contexts[i]->uc_stack.ss_sp - uwsgi.page_size, uwsgi.page_size, PROT_NONE)) {
+		if (mprotect(ug.contexts[i]->uc_stack.ss_sp - uwsgi.page_size, uwsgi.page_size, PROT_NONE)) {
 			uwsgi_error("mprotect()");
 			exit(1);
 		}
-		if (mprotect(uwsgi.ugreen_contexts[i]->uc_stack.ss_sp + uwsgi.u_stack_size, uwsgi.page_size, PROT_NONE)) {
+		if (mprotect(ug.contexts[i]->uc_stack.ss_sp + ug.u_stack_size, uwsgi.page_size, PROT_NONE)) {
 			uwsgi_error("mprotect()");
 			exit(1);
 		}
 
-		uwsgi.ugreen_contexts[i]->uc_stack.ss_size = uwsgi.u_stack_size;
-		uwsgi.ugreen_contexts[i]->uc_link = NULL;
-		makecontext(uwsgi.ugreen_contexts[i], (void (*) (void)) &u_green_request, 2, wsgi_req, i);
+		ug.contexts[i]->uc_stack.ss_size = ug.u_stack_size;
+		ug.contexts[i]->uc_link = NULL;
+		makecontext(ug.contexts[i], u_green_request, 2, wsgi_req, i);
 		wsgi_req->async_status = UWSGI_ACCEPTING;
 		wsgi_req->async_id = i;
-		uwsgi_log("wsgi_req %d %d\n", wsgi_req->async_id, wsgi_req->async_status);
+		uwsgi_log("wsgi_req %d %d %p\n", wsgi_req->async_id, wsgi_req->async_status, ug.contexts[i]);
 	}
 
 	uwsgi_register_loop("ugreen", u_green_loop);
+
+	return 0;
 
 }
 
@@ -294,8 +311,17 @@ void u_green_loop() {
 
 	int i, current = 0, timeout;
 
+	for(i=0;i<uwsgi.async;i++){
+		wsgi_req = uwsgi.wsgi_requests[i];
+		wsgi_req->async_status = UWSGI_ACCEPTING;
+                wsgi_req->async_id = i;
+	}
+
+	uwsgi_log("FFAR: %p\n", find_first_accepting_wsgi_req());
+
 	while(uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
+		//uwsgi_log("i am uGreen...\n");
 
 		uwsgi.async_running = u_green_blocking();
 		timeout = u_green_get_timeout();
@@ -309,8 +335,10 @@ void u_green_loop() {
 
 		for(i=0; i<uwsgi.async_nevents;i++) {
 
+			uwsgi_log("received I/O event on fd %d\n", uwsgi.async_events[i].ASYNC_FD);
 			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
 				wsgi_req = find_first_accepting_wsgi_req();
+				uwsgi_log("found wsgireq at %p\n", wsgi_req);
 				if (!wsgi_req) goto cycle;
 				uwsgi_log("found %d\n", wsgi_req->async_id);
 				u_green_schedule_to_req(wsgi_req);
@@ -345,12 +373,19 @@ cycle:
 
 }
 
-case LONG_ARGS_UGREEN_PAGES:
-                        uwsgi.ugreen_stackpages = atoi(optarg);
-                        return 1;
+int uwsgi_ugreen_manage_opt(int i, char *optarg) {
 
-struct uwsgi_plugin ugreen_plugin {
+	switch(i) {
+		case LONG_ARGS_UGREEN_PAGES:
+                        ug.stackpages = atoi(optarg);
+                        return 1;
+	}
+
+	return 0;
+}
+
+struct uwsgi_plugin ugreen_plugin = {
 
 	.name = "ugreen",
 	.init = u_green_init,
-}
+};

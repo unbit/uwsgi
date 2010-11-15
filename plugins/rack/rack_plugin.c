@@ -60,6 +60,8 @@ struct uwsgi_rack {
 
 	pthread_mutex_t gvl;
 
+	rb_thread_t context;
+
 } ur;
 
 struct option uwsgi_rack_options[] = {
@@ -748,11 +750,13 @@ int uwsgi_rack_manage_options(int i, char *optarg) {
 void uwsgi_rack_suspend(struct wsgi_request *wsgi_req) {
 
 	uwsgi_log("SUSPENDING RUBY\n");
+	rb_thread_save_context(ur.context);
 }
 
 void uwsgi_rack_resume(struct wsgi_request *wsgi_req) {
 
 	uwsgi_log("RESUMING RUBY\n");
+	rb_thread_restore_context(ur.context, RESTORE_NORMAL);
 }
 
 void uwsgi_rack_enable_threads(void) {

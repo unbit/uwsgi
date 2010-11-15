@@ -1,6 +1,7 @@
 
 NAME='ugreen'
-CFLAGS = ['-D_XOPEN_SOURCE']
+CFLAGS = []
 LDFLAGS = []
+LIBS = []
 
 GCC_LIST = ['ugreen']
