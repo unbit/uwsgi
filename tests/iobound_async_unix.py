@@ -40,6 +40,7 @@ def application(env, start_response):
 		for r in send_request(env, s):
 			yield r
 	elif c == errno.EISCONN or c == 0: 
+		start_response('200 Ok', [ ('Content-Type', 'text/plain')])
 		for r in send_request(env, s):
 			yield r
 	else:
