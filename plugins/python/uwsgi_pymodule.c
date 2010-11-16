@@ -1150,6 +1150,19 @@ clear:
 	};
 #endif
 
+
+PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        uwsgi.schedule_to_main(wsgi_req);
+
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+
 	static PyMethodDef uwsgi_advanced_methods[] = {
 		{"send_uwsgi_message", py_uwsgi_send_message, METH_VARARGS, ""},
 		{"send_multi_uwsgi_message", py_uwsgi_send_multi_message, METH_VARARGS, ""},
@@ -1183,9 +1196,13 @@ clear:
 #endif
 #ifdef UWSGI_ASYNC
 		{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
+
+		{"green_schedule", py_uwsgi_suspend, METH_VARARGS, ""},
+		{"suspend", py_uwsgi_suspend, METH_VARARGS, ""},
 #endif
 		{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},
 		//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
+		
 		{NULL, NULL},
 	};
 

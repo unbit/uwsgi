@@ -60,8 +60,6 @@ struct uwsgi_rack {
 
 	pthread_mutex_t gvl;
 
-	rb_thread_t context;
-
 } ur;
 
 struct option uwsgi_rack_options[] = {
@@ -332,6 +330,16 @@ VALUE require_rails(VALUE arg) {
 
 VALUE init_rack_app(VALUE);
 
+VALUE uwsgi_ruby_suspend(VALUE *arg) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	uwsgi.schedule_to_main(wsgi_req);
+
+	return Qtrue;
+	
+}
+
 int uwsgi_rack_init(){
 
 	struct http_status_codes *http_sc;
@@ -364,6 +372,10 @@ int uwsgi_rack_init(){
 #ifdef RUBY19
 	//uwsgi_register_loop( (char *) "fiber", fiber_loop);
 #endif
+
+	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
+	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
+
 
 	if (ur.rack) {
 		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
@@ -750,13 +762,11 @@ int uwsgi_rack_manage_options(int i, char *optarg) {
 void uwsgi_rack_suspend(struct wsgi_request *wsgi_req) {
 
 	uwsgi_log("SUSPENDING RUBY\n");
-	rb_thread_save_context(ur.context);
 }
 
 void uwsgi_rack_resume(struct wsgi_request *wsgi_req) {
 
 	uwsgi_log("RESUMING RUBY\n");
-	rb_thread_restore_context(ur.context, RESTORE_NORMAL);
 }
 
 void uwsgi_rack_enable_threads(void) {
@@ -840,9 +850,10 @@ struct uwsgi_plugin rack_plugin = {
 	.manage_xml = uwsgi_rack_xml,
 
 	.magic = uwsgi_rack_magic,
-#ifdef RUBY19
+
 	.suspend = uwsgi_rack_suspend,
 	.resume = uwsgi_rack_resume,
+#ifdef RUBY19
 #ifdef UWSGI_THREADING
 	.enable_threads = uwsgi_rack_enable_threads,
 	.init_thread = uwsgi_rack_init_thread,

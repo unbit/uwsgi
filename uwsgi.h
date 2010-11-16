@@ -784,6 +784,9 @@ struct uwsgi_server {
 
 	struct wsgi_request *(*current_wsgi_req) (void);
 
+	// usedby suspend/resume loops
+	void (*schedule_to_main) (struct wsgi_request *);
+
 	int close_on_exec;
 
 	char           *loop;
