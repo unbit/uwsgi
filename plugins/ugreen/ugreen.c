@@ -88,7 +88,10 @@ inline static void u_green_schedule_to_main(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	uwsgi_log("uGreen EXITING TO MAIN\n");
 	swapcontext(ug.contexts[wsgi_req->async_id], &ug.main);
+
+	uwsgi_log("uGreen RETURNED FROM MAIN\n");
 
 	if (wsgi_req->async_status != UWSGI_ACCEPTING) {
 		if (uwsgi.p[wsgi_req->uh.modifier1]->resume) {
@@ -225,6 +228,7 @@ int u_green_init() {
 			exit(1);
 		}
 		getcontext(ug.contexts[i]);
+
 		ug.contexts[i]->uc_stack.ss_sp = mmap(NULL, ug.u_stack_size + (uwsgi.page_size*2) , PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + uwsgi.page_size;
 
 		if (!ug.contexts[i]->uc_stack.ss_sp) {
@@ -242,6 +246,7 @@ int u_green_init() {
 		}
 
 		ug.contexts[i]->uc_stack.ss_size = ug.u_stack_size;
+
 		ug.contexts[i]->uc_link = NULL;
 		makecontext(ug.contexts[i], (void(*)(void)) u_green_request, 2, wsgi_req, i);
 		wsgi_req->async_status = UWSGI_ACCEPTING;
