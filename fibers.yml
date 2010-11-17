@@ -1,0 +1,8 @@
+uwsgi:
+  plugins:		rack
+  socket:		127.0.0.1:3031
+  rack:			fibers.ru
+  post-buffering:	4096
+  async:		10
+  loop:			fiber
+  

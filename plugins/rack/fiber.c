@@ -75,7 +75,7 @@ VALUE protected_fiber_loop() {
 	for(;;) {
 
 		//uwsgi.async_running = u_green_blocking();
-		uwsgi.async_running = 1;
+		uwsgi.async_running = 0;
                 //timeout = u_green_get_timeout();
 		int timeout = 0;
                 uwsgi.async_nevents = async_wait(uwsgi.async_queue, uwsgi.async_events, uwsgi.async, uwsgi.async_running, timeout);
@@ -88,7 +88,7 @@ VALUE protected_fiber_loop() {
 
                 for(i=0; i<uwsgi.async_nevents;i++) {
 
-                        uwsgi_log("received I/O event on fd %d\n", uwsgi.async_events[i].ASYNC_FD);
+                        uwsgi_log("received I/O event on fd %d\n", (int) uwsgi.async_events[i].ASYNC_FD);
                         if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
                                 wsgi_req = find_first_accepting_wsgi_req();
                                 if (!wsgi_req) goto cycle;
@@ -98,14 +98,14 @@ VALUE protected_fiber_loop() {
                         	rb_fiber_resume(fiber_list[wsgi_req->async_id], 0, NULL);
                         }
                         else {
-                                wsgi_req = find_wsgi_req_by_fd(uwsgi.async_events[i].ASYNC_FD, -1);
+                                wsgi_req = find_wsgi_req_by_fd((int)uwsgi.async_events[i].ASYNC_FD, -1);
                                 if (wsgi_req) {
 					uwsgi.wsgi_req = wsgi_req;
 					uwsgi.wsgi_req->switches++;
                         		rb_fiber_resume(fiber_list[wsgi_req->async_id], 0, NULL);
                                 }
                                 else {
-                                        async_del(uwsgi.async_queue, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
+                                        async_del(uwsgi.async_queue, (int)  uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
                                 }
                         }
 
@@ -118,7 +118,9 @@ cycle:
 		uwsgi.wsgi_req = uwsgi.wsgi_requests[current];
 		uwsgi.wsgi_req->switches++;
 		if (uwsgi.wsgi_req->async_status != UWSGI_ACCEPTING) {
+			uwsgi_log("passing control to fiber %d\n", current);
 			rb_fiber_resume(fiber_list[current], 0, NULL);
+			uwsgi_log("returned to main fiber\n");
 		}
 		current++;
 		if (current >= uwsgi.async) current = 0;
