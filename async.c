@@ -401,6 +401,22 @@ void async_unpause_all() {
 	}
 }
 
+struct wsgi_request *find_first_accepting_wsgi_req() {
+
+        struct wsgi_request* wsgi_req;
+        int i;
+
+        for(i=0;i<uwsgi.async;i++) {
+                wsgi_req = uwsgi.wsgi_requests[i];
+                if (wsgi_req->async_status == UWSGI_ACCEPTING) {
+                        return wsgi_req;
+                }
+        }
+
+        return NULL;
+}
+
+
 struct wsgi_request * async_loop() {
 
 	struct wsgi_request *wsgi_req;

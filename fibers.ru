@@ -3,7 +3,7 @@ class SuspendingBody
 
 	def each
 		for i in 1..10
-			yield "numero: #{i}\n"
+			yield "number: #{i}\n"
 			Fiber.yield
 		end
 	end

@@ -423,6 +423,23 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
+
+int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
+
+	wsgi_req->poll.fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
+
+	if (wsgi_req->poll.fd < 0) {
+		uwsgi_error("accept()");
+		return -1;
+	}
+
+	if (uwsgi.close_on_exec) {
+		fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
+	}
+
+	return 0;
+}
+
 int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
 	int i;

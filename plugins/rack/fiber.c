@@ -7,33 +7,26 @@ VALUE fiber_list[200];
 
 void uwsgi_ruby_exception(void);
 
-VALUE fiber_request(VALUE core_id) {
+VALUE fiber_request() {
 
-	uwsgi_log("i am the fiber\n");
+	struct wsgi_request *wsgi_req  = uwsgi.wsgi_req;
+	int async_id = wsgi_req->async_id;
 
-	int async_id = NUM2INT(core_id);	
-
-	uwsgi_log("i am the fiber %d\n", async_id);
-
-	struct wsgi_request *wsgi_req  = uwsgi.wsgi_requests[async_id];
-
-
-	uwsgi_log("INSIDE FIBER\n");
 
         for(;;) {
-                uwsgi_log("accept()\n");
                 wsgi_req_setup(wsgi_req, async_id);
 
                 wsgi_req->async_status = UWSGI_ACCEPTING;
 
 		rb_fiber_yield(0, NULL);
 
-                if (wsgi_req_accept(wsgi_req)) {
+                if (wsgi_req_simple_accept(wsgi_req, uwsgi.sockets_poll[0].fd)) {
                         continue;
                 }
 
-		uwsgi_log("request on fiber %d accepted\n", async_id);
                 wsgi_req->async_status = UWSGI_OK;
+
+		rb_fiber_yield(0, NULL);
 
 		// reinitialize switches counter
 
@@ -42,19 +35,15 @@ VALUE fiber_request(VALUE core_id) {
                         continue;
                 }
 
-		uwsgi_log("FIBER %d HAS DONE\n", async_id);
                 while(wsgi_req->async_status == UWSGI_AGAIN) {
-			uwsgi_log("ASYNC APP DETECTED\n");
 			rb_fiber_yield(0, NULL);
                         wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
                 }
 
 
 
-		uwsgi_log("A LAST YIELD FOR %d\n", async_id);
 		rb_fiber_yield(0, NULL);
 
-		uwsgi_log("CLOSING REQUEST\n");
                 uwsgi_close_request(wsgi_req);
 
         }
@@ -66,25 +55,71 @@ VALUE fiber_request(VALUE core_id) {
 VALUE protected_fiber_loop() {
 
 	int i, current = 0;
-	VALUE core_id;
+
+	struct wsgi_request *wsgi_req;
 
 	// create a ruby fiber for each async core
 
 	uwsgi_log("create a fiber for each async core...\n");
 	for(i=0;i<uwsgi.async;i++) {
-		uwsgi_log("creating fiber %d\n", i);
-		fiber_list[i] = rb_fiber_new(fiber_request, INT2NUM(i));
+		fiber_list[i] = rb_fiber_new(fiber_request, Qnil);
+		rb_gc_register_address(&fiber_list[i]);
+		uwsgi.wsgi_requests[i]->async_status = UWSGI_ACCEPTING;
+		uwsgi.wsgi_requests[i]->async_id = i;
+		uwsgi.wsgi_req = uwsgi.wsgi_requests[i];
+		rb_fiber_resume(fiber_list[i], 0, NULL);
 		uwsgi_log("fiber %d ready\n", i);
 	}
 
 
 	for(;;) {
-		uwsgi_log("resuming fiber %d %p\n", current, fiber_list[current]);
-		core_id = INT2NUM(current);
-		uwsgi_log("go resume %p!!\n", core_id);
+
+		//uwsgi.async_running = u_green_blocking();
+		uwsgi.async_running = 1;
+                //timeout = u_green_get_timeout();
+		int timeout = 0;
+                uwsgi.async_nevents = async_wait(uwsgi.async_queue, uwsgi.async_events, uwsgi.async, uwsgi.async_running, timeout);
+                //u_green_expire_timeouts();
+
+                if (uwsgi.async_nevents < 0) {
+                        continue;
+                }
+
+
+                for(i=0; i<uwsgi.async_nevents;i++) {
+
+                        uwsgi_log("received I/O event on fd %d\n", uwsgi.async_events[i].ASYNC_FD);
+                        if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
+                                wsgi_req = find_first_accepting_wsgi_req();
+                                if (!wsgi_req) goto cycle;
+                                uwsgi_log("request passed to fiber core %d\n", wsgi_req->async_id);
+				uwsgi.wsgi_req = wsgi_req;
+				uwsgi.wsgi_req->switches++;
+                        	rb_fiber_resume(fiber_list[wsgi_req->async_id], 0, NULL);
+                        }
+                        else {
+                                wsgi_req = find_wsgi_req_by_fd(uwsgi.async_events[i].ASYNC_FD, -1);
+                                if (wsgi_req) {
+					uwsgi.wsgi_req = wsgi_req;
+					uwsgi.wsgi_req->switches++;
+                        		rb_fiber_resume(fiber_list[wsgi_req->async_id], 0, NULL);
+                                }
+                                else {
+                                        async_del(uwsgi.async_queue, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
+                                }
+                        }
+
+                }
+
+
+cycle:
+
+		//uwsgi_log("resuming fiber %d %p\n", current, fiber_list[current]);
 		uwsgi.wsgi_req = uwsgi.wsgi_requests[current];
 		uwsgi.wsgi_req->switches++;
-		rb_fiber_resume(fiber_list[current], 1, &core_id);
+		if (uwsgi.wsgi_req->async_status != UWSGI_ACCEPTING) {
+			rb_fiber_resume(fiber_list[current], 0, NULL);
+		}
 		current++;
 		if (current >= uwsgi.async) current = 0;
 	}

@@ -994,6 +994,7 @@ struct http_status_codes {
 #ifdef UWSGI_ASYNC
 struct wsgi_request *async_loop(void);
 struct wsgi_request *find_first_available_wsgi_req(void);
+struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int, int);
 struct wsgi_request *find_wsgi_req_by_id(int);
 
@@ -1052,6 +1053,7 @@ void            uwsgi_close_request(struct wsgi_request *);
 void            wsgi_req_setup(struct wsgi_request *, int);
 int             wsgi_req_recv(struct wsgi_request *);
 int             wsgi_req_accept(struct wsgi_request *);
+int             wsgi_req_simple_accept(struct wsgi_request *, int);
 
 #ifdef UWSGI_STACKLESS
 #ifdef __clang__

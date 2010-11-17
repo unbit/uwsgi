@@ -409,8 +409,6 @@ VALUE send_body(VALUE obj) {
 
 	wsgi_req->response_size += len;
 
-	uwsgi_log("body sent forcore %d\n", wsgi_req->async_id);
-
 	return Qnil;
 }
 
@@ -421,6 +419,7 @@ VALUE iterate_body(VALUE body) {
 #else
 	return rb_iterate(rb_each, body, send_body, 0);
 #endif
+
 }
 
 VALUE send_header(VALUE obj, VALUE headers) {
@@ -553,7 +552,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		//return -1;
 	}
 
-	uwsgi_log("ready to manage response\n");
 	if (TYPE(ret) == T_ARRAY) {
 		if (RARRAY_LEN(ret) != 3) {
 			uwsgi_log("Invalid RACK response size: %d\n", RARRAY_LEN(ret));
@@ -629,7 +627,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			if (ur.unprotected) {
 #ifdef RUBY19
         			rb_block_call(body, rb_intern("each"), 0, 0, send_body, 0);
-				uwsgi_log("CORE %d HAS FINISHED LOOPING BODY\n", wsgi_req->async_id);
 #else
         			rb_iterate(rb_each, body, send_body, 0);
 #endif
@@ -644,14 +641,13 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		if (rb_respond_to( body, rb_intern("close") )) {
 			//uwsgi_log("calling close\n");
-			uwsgi_log("CALLING CLOSE ON CORE %d\n", wsgi_req->async_id);
 			rb_funcall( body, rb_intern("close"), 0);
 		}
 
 //fine:
 
-		uwsgi_log("UNREGISTERING OBJECTS ON CORE %d\n", wsgi_req->async_id);
 		/* unregister all the objects created */
+	
 		rb_gc_unregister_address(&status);
 		rb_gc_unregister_address(&headers);
 		rb_gc_unregister_address(&body);

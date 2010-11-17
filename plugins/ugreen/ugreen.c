@@ -142,23 +142,6 @@ void u_green_wait_for_fd(struct wsgi_request *wsgi_req, int fd, int etype, int t
 	wsgi_req->async_timeout = 0;
 }
 
-static struct wsgi_request *find_first_accepting_wsgi_req() {
-
-	struct wsgi_request* wsgi_req;
-	int i;
-
-	for(i=0;i<uwsgi.async;i++) {
-		wsgi_req = uwsgi.wsgi_requests[i];
-		uwsgi_log("req status: %d\n",wsgi_req->async_status);
-		if (wsgi_req->async_status == UWSGI_ACCEPTING) {
-			return wsgi_req;
-		}
-	}
-
-	return NULL;
-}
-
-
 static void u_green_request(struct wsgi_request *wsgi_req, int async_id) {
 
 	uwsgi_log("request handler args %p %d\n", wsgi_req, async_id);
