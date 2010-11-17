@@ -513,7 +513,7 @@ struct wsgi_request {
 
 	int             status;
 	size_t          response_size;
-	int             headers_size;
+	ssize_t          headers_size;
 
 	int             async_id;
 	int             async_status;

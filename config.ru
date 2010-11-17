@@ -1,12 +1,13 @@
-#require 'fiber'
+require 'fiber'
 require 'sinatra'
 
 get '/hi' do
 
    for i in 1..10
 	puts "ruby"
-	#UWSGI.suspend()
+	#Fiber.yield
    end
+
 
   "Hello World!"
 end

@@ -1,8 +1,10 @@
+require 'fiber'
 class SuspendingBody
 
 	def each
-		for i in 1..100
+		for i in 1..10
 			yield "numero: #{i}\n"
+			Fiber.yield
 		end
 	end
 

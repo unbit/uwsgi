@@ -12,9 +12,12 @@ CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['CFL
 version = os.popen(RUBYPATH + " -e \"print RUBY_VERSION\"").read().rstrip()
 v = version.split('.')
 
+GCC_LIST = ['rack_plugin']
+
 if v[0] == '1' and v[1] == '9':
 	CFLAGS.append('-DRUBY19')
 	CFLAGS.append('-Wno-unused-parameter')
+	GCC_LIST.append('fiber')
 
 includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['rubyhdrdir']\"").read().rstrip()
 if includedir == 'nil':
@@ -34,5 +37,4 @@ libpath = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['li
 LDFLAGS.append('-L' + libpath )
 os.environ['LD_RUN_PATH'] = libpath
 LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + Config::CONFIG['RUBY_SO_NAME']\"").read().rstrip().split()
-GCC_LIST = ['rack_plugin']
 

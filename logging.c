@@ -83,7 +83,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 
 	}
 
-	rlen = snprintf(logpkt, 4096, "[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %d bytes (%d switches on core %d)\n",
+	rlen = snprintf(logpkt, 4096, "[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %llu bytes (%d switches on core %d)\n",
 			(int) uwsgi.mypid,
 			wsgi_req->app_id,
 			app_req,
@@ -101,7 +101,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 			wsgi_req->protocol_len, wsgi_req->protocol,
 			wsgi_req->status,
 			wsgi_req->header_cnt,
-			wsgi_req->headers_size,
+			(unsigned long long) wsgi_req->headers_size,
 			wsgi_req->switches, wsgi_req->async_id);
 
 	logvec[logvecpos].iov_base = logpkt;

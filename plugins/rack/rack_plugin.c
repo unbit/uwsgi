@@ -1,66 +1,8 @@
-#include "../../uwsgi.h"
-
-#include <ruby.h>
+#include "uwsgi_rack.h"
 
 extern struct uwsgi_server uwsgi;
 
-#define LONG_ARGS_RACK_BASE	17000 + (7 * 100)
-#define LONG_ARGS_RAILS		LONG_ARGS_RACK_BASE + 1
-#define LONG_ARGS_RUBY_GC_FREQ	LONG_ARGS_RACK_BASE + 2
-#define LONG_ARGS_RACK		LONG_ARGS_RACK_BASE + 3
-
-#ifndef RUBY19
-	#define rb_errinfo() ruby_errinfo
-	#define RUBY_GVL_LOCK
-	#define RUBY_GVL_UNLOCK
-#else
-	//void fiber_loop(void);
-	#ifdef UWSGI_THREADING
-		#define RUBY_GVL_LOCK if (uwsgi.threads > 1) {\
-			pthread_mutex_lock(&ur.gvl);\
-			}
-
-		#define RUBY_GVL_UNLOCK if (uwsgi.threads > 1) {\
-                        pthread_mutex_unlock(&ur.gvl);\
-                        }
-	#else
-		#define RUBY_GVL_LOCK
-		#define RUBY_GVL_UNLOCK
-	#endif
-#endif
-
-#ifndef RARRAY_LEN
-#define RARRAY_LEN(x) RARRAY(x)->len
-#endif
-
-#ifndef RARRAY_PTR
-#define RARRAY_PTR(x) RARRAY(x)->ptr
-#endif
-
-#ifndef RSTRING_PTR
-#define RSTRING_PTR(x) RSTRING(x)->ptr
-#endif
-
-#ifndef RSTRING_LEN
-#define RSTRING_LEN(x) RSTRING(x)->len
-#endif
-
-struct uwsgi_rack {
-
-	char *rails;
-	char *rack;
-	int gc_freq;
-	uint64_t cycles;
-
-	int call_gc;
-	VALUE dispatcher;
-	VALUE rb_uwsgi_io_class;
-	ID call;
-	VALUE fibers[200];
-
-	pthread_mutex_t gvl;
-
-} ur;
+struct uwsgi_rack ur;
 
 struct option uwsgi_rack_options[] = {
 
@@ -72,7 +14,7 @@ struct option uwsgi_rack_options[] = {
 
 };
 
-static void uwsgi_ruby_exception(void) {
+void uwsgi_ruby_exception(void) {
 
         VALUE lasterr = rb_gv_get("$!");
         VALUE message = rb_obj_as_string(lasterr);
@@ -313,11 +255,7 @@ RUBY_GLOBAL_SETUP
 #endif
 
 VALUE require_rack(VALUE arg) {
-#ifdef RUBY19
-    return rb_require("rack");
-#else
     return rb_funcall(rb_cObject, rb_intern("require"), 1, rb_str_new2("rack"));
-#endif
 }
 
 VALUE require_rails(VALUE arg) {
@@ -329,6 +267,12 @@ VALUE require_rails(VALUE arg) {
 }
 
 VALUE init_rack_app(VALUE);
+
+#ifdef RUBY19
+VALUE uwsgi_ruby_fiber_yield() {
+	return rb_fiber_yield(0, NULL);
+}
+#endif
 
 VALUE uwsgi_ruby_suspend(VALUE *arg) {
 
@@ -365,16 +309,20 @@ int uwsgi_rack_init(){
 #else
 
 	ruby_init();
-	ruby_script("uwsgi");
 	ruby_init_loadpath();
 #endif
 
+	ruby_script("uwsgi");
+
 #ifdef RUBY19
-	//uwsgi_register_loop( (char *) "fiber", fiber_loop);
+	uwsgi_register_loop( (char *) "fiber", fiber_loop);
 #endif
 
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
 	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
+#ifdef RUBY19
+	rb_define_module_function(rb_uwsgi_embedded, "fiber_yield", uwsgi_ruby_fiber_yield, 0);
+#endif
 
 
 	if (ur.rack) {
@@ -448,7 +396,7 @@ VALUE call_dispatch(VALUE env) {
 VALUE send_body(VALUE obj) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	size_t len;
+	ssize_t len = 0;
 	int fd = wsgi_req->poll.fd;
 
 	//uwsgi_log("sending body\n");
@@ -459,20 +407,11 @@ VALUE send_body(VALUE obj) {
 		uwsgi_log("UNMANAGED BODY TYPE %d\n", TYPE(obj));
 	}
 
+	wsgi_req->response_size += len;
+
+	uwsgi_log("body sent forcore %d\n", wsgi_req->async_id);
+
 	return Qnil;
-}
-
-VALUE safe_each(VALUE arg) {
-
-	int error = 0;
-	VALUE result;
-
-	result = rb_protect(rb_each, arg, &error);
-	if (error) {
-		uwsgi_ruby_exception();
-		return Qnil;
-	}
-	return result;
 }
 
 VALUE iterate_body(VALUE body) {
@@ -562,7 +501,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         }
 
 
-	RUBY_GVL_LOCK
+	//RUBY_GVL_LOCK
 
         env = rb_hash_new();
 
@@ -602,13 +541,19 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
 
-	ret = rb_protect( call_dispatch, env, &error);
+	if (ur.unprotected) {
+		ret = rb_funcall(ur.dispatcher, ur.call, 1, env);
+	}
+	else {
+		ret = rb_protect( call_dispatch, env, &error);
+	}
 	
 	if (error) {
 		uwsgi_ruby_exception();
 		//return -1;
 	}
 
+	uwsgi_log("ready to manage response\n");
 	if (TYPE(ret) == T_ARRAY) {
 		if (RARRAY_LEN(ret) != 3) {
 			uwsgi_log("Invalid RACK response size: %d\n", RARRAY_LEN(ret));
@@ -648,7 +593,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	wsgi_req->hvec[5].iov_len = 2 ;
 
 		//RUBY_GVL_UNLOCK
-		if ( !(wsgi_req->response_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, 6)) ) {
+		if ( !(wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, 6)) ) {
                 	uwsgi_error("writev()");
         	}
 		//RUBY_GVL_LOCK
@@ -681,18 +626,31 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {
-			rb_protect( iterate_body, body, &error);
-			if (error) {
-				uwsgi_ruby_exception();
+			if (ur.unprotected) {
+#ifdef RUBY19
+        			rb_block_call(body, rb_intern("each"), 0, 0, send_body, 0);
+				uwsgi_log("CORE %d HAS FINISHED LOOPING BODY\n", wsgi_req->async_id);
+#else
+        			rb_iterate(rb_each, body, send_body, 0);
+#endif
+			}
+			else {
+				rb_protect( iterate_body, body, &error);
+				if (error) {
+					uwsgi_ruby_exception();
+				}
 			}
 		}
 
 		if (rb_respond_to( body, rb_intern("close") )) {
 			//uwsgi_log("calling close\n");
+			uwsgi_log("CALLING CLOSE ON CORE %d\n", wsgi_req->async_id);
 			rb_funcall( body, rb_intern("close"), 0);
 		}
 
 //fine:
+
+		uwsgi_log("UNREGISTERING OBJECTS ON CORE %d\n", wsgi_req->async_id);
 		/* unregister all the objects created */
 		rb_gc_unregister_address(&status);
 		rb_gc_unregister_address(&headers);
@@ -727,7 +685,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 #endif
 	}
 
-	RUBY_GVL_UNLOCK
+	//RUBY_GVL_UNLOCK
 
 	ur.cycles++;
 
@@ -794,12 +752,12 @@ VALUE init_rack_app( VALUE script ) {
         VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
         VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, script);
         if (TYPE(rackup) != T_ARRAY) {
-        	uwsgi_log("unable to parse %s file\n", RSTRING(script)->ptr);
+        	uwsgi_log("unable to parse %s file\n", RSTRING_PTR(script));
                 return Qnil;
         }
 
         if (RARRAY_LEN(rackup) < 1) {
-        	uwsgi_log("invalid rack config file: %s\n", RSTRING(script)->ptr);
+        	uwsgi_log("invalid rack config file: %s\n", RSTRING_PTR(script));
 		return Qnil;
         }
 
