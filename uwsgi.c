@@ -407,7 +407,7 @@ int main(int argc, char *argv[], char *envp[])
 	uwsgi.shared->spooler_frequency = 30;
 #endif
 
-	for (i = 0; i <= 0xFF; i++) {
+	for (i = 0; i < 0xFF; i++) {
 		uwsgi.p[i] = &unconfigured_plugin;
 	}
 
