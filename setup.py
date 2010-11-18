@@ -11,8 +11,10 @@ from setuptools.command.build_ext import build_ext
 class uWSGIBuilder(build_ext):
 
     def run(self):
-        uc.parse_vars()
-        uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
+	conf = uc.uConf('buildconf/default.ini')
+	bin_name = conf.get('bin_name')
+	conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
+        uc.build_uwsgi( conf )
 
 
 class uWSGIInstall(install):
@@ -21,8 +23,11 @@ class uWSGIInstall(install):
         # hack, hack and still hack. We need to find a solution for 0.9.6
         if self.record:
             record_file = open(self.record,'w')
-        uc.parse_vars()
-        uc.build_uwsgi(sys.prefix + '/bin/' + uc.UWSGI_BIN_NAME)
+
+	conf = uc.uConf('buildconf/default.ini')
+	bin_name = conf.get('bin_name')
+	conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
+        uc.build_uwsgi( conf )
 
 class uWSGIDistribution(Distribution):
 

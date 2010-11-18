@@ -3,13 +3,16 @@ require 'sinatra'
 
 get '/hi' do
 
-   for i in 1..10
-	puts "ruby"
-	#Fiber.yield
+   class Response
+	def each
+		for i in 1..10
+			yield "ciao<br/>"
+			Fiber.yield
+		end
+	end
    end
 
-
-  "Hello World!"
+   Response.new
 end
 
 run Sinatra::Application
