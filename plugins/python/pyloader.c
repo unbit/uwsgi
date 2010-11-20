@@ -410,48 +410,17 @@ PyObject *uwsgi_dyn_loader(void *arg1) {
 PyObject *uwsgi_file_loader(void *arg1) {
 
 	char *filename = (char *) arg1;
-	FILE *wsgifile;
-	struct _node *wsgi_file_node = NULL;
-	PyObject *wsgi_compiled_node, *wsgi_file_module, *wsgi_file_dict;
+	PyObject *wsgi_file_module, *wsgi_file_dict;
 	PyObject *wsgi_file_callable;
 
-	wsgifile = fopen(filename, "r");
-	if (!wsgifile) {
-		uwsgi_error("fopen()");
-		exit(1);
-	}
-
-	wsgi_file_node = PyParser_SimpleParseFile(wsgifile, filename, Py_file_input);
-	if (!wsgi_file_node) {
-		PyErr_Print();
-		uwsgi_log( "failed to parse file %s\n", filename);
-		exit(1);
-	}
-
-	fclose(wsgifile);
-
-	wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_file_node, filename);
-
-	if (!wsgi_compiled_node) {
-		PyErr_Print();
-		uwsgi_log( "failed to compile wsgi file %s\n", filename);
-		exit(1);
-	}
-
-	wsgi_file_module = PyImport_ExecCodeModule("uwsgi_wsgi_file", wsgi_compiled_node);
-	if (!wsgi_file_module) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	Py_DECREF(wsgi_compiled_node);
+	wsgi_file_module = uwsgi_pyimport_by_filename("uwsgi_wsgi_file", filename);
+	// no need to check here for module import as it is already done by uwsgi_pyimport_by_file
 
 	wsgi_file_dict = PyModule_GetDict(wsgi_file_module);
 	if (!wsgi_file_dict) {
 		PyErr_Print();
 		exit(1);
 	}
-
 
 	wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, "application");
 	if (!wsgi_file_callable) {
@@ -464,7 +433,6 @@ PyObject *uwsgi_file_loader(void *arg1) {
 		uwsgi_log( "\"application\" must be a callable object in file %s\n", filename);
 		exit(1);
 	}
-
 
 	return wsgi_file_callable;
 

@@ -3,6 +3,14 @@
 
 
 #define MAX_PYTHONPATH 64
+#define MAX_PYMODULE_ALIAS 64
+
+#define LONG_ARGS_PYTHON_BASE      17000 + ((0 + 1) * 100)
+
+#define LONG_ARGS_PYTHONPATH            LONG_ARGS_PYTHON_BASE + 1
+#define LONG_ARGS_PASTE                 LONG_ARGS_PYTHON_BASE + 2
+#define LONG_ARGS_PYARGV                LONG_ARGS_PYTHON_BASE + 3
+#define LONG_ARGS_PYMODULE_ALIAS        LONG_ARGS_PYTHON_BASE + 4
 
 #ifdef UWSGI_STACKLESS
 #include <stackless_api.h>
@@ -100,6 +108,9 @@ struct uwsgi_python {
 	PyObject *embedded_dict;
 	PyObject *embedded_args;
 	PyObject *fastfuncslist;
+
+	char *pymodule_alias[MAX_PYMODULE_ALIAS];
+	int pymodule_alias_cnt;
 };
 
 
@@ -184,3 +195,5 @@ void gil_fake_release(void);
 void init_uwsgi_module_advanced(PyObject *);
 void init_uwsgi_module_spooler(PyObject *);
 void init_uwsgi_module_sharedarea(PyObject *);
+
+PyObject *uwsgi_pyimport_by_filename(char *, char *);

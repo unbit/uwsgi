@@ -13,6 +13,7 @@ struct option uwsgi_python_options[] = {
 	{"home", required_argument, 0, 'H'},
 	{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
+	{"pymodule-alias", required_argument, 0, LONG_ARGS_PYMODULE_ALIAS},
 	{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 	{"optimize", required_argument, 0, 'O'},
@@ -164,10 +165,55 @@ void uwsgi_python_post_fork() {
 
 }
 
+PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
+
+        FILE *pyfile;
+        struct _node *py_file_node = NULL;
+        PyObject *py_compiled_node, *py_file_module;
+
+        pyfile = fopen(filename, "r");
+        if (!pyfile) {
+                uwsgi_error("fopen()");
+                exit(1);
+        }
+
+        py_file_node = PyParser_SimpleParseFile(pyfile, filename, Py_file_input);
+        if (!py_file_node) {
+                PyErr_Print();
+                uwsgi_log( "failed to parse file %s\n", filename);
+                exit(1);
+        }
+
+        fclose(pyfile);
+
+        py_compiled_node = (PyObject *) PyNode_Compile(py_file_node, filename);
+
+        if (!py_compiled_node) {
+                PyErr_Print();
+                uwsgi_log( "failed to compile python file %s\n", filename);
+                exit(1);
+        }
+
+        py_file_module = PyImport_ExecCodeModule(name, py_compiled_node);
+        if (!py_file_module) {
+                PyErr_Print();
+                exit(1);
+        }
+
+        Py_DECREF(py_compiled_node);
+
+	return py_file_module;
+
+}
+
+
 void init_uwsgi_vars() {
 
 	int i;
 	PyObject *pysys, *pysys_dict, *pypath;
+
+	PyObject *modules = PyImport_GetModuleDict();
+	PyObject *tmp_module;
 
 #ifdef UWSGI_MINTERPRETERS
 	char venv_version[15];
@@ -231,6 +277,33 @@ void init_uwsgi_vars() {
 		else {
 			uwsgi_log( "added %s to pythonpath.\n", up.python_path[i]);
 		}
+	}
+
+	for(i=0;i<up.pymodule_alias_cnt;i++) {
+		// split key=value
+		char *value = strchr(up.pymodule_alias[i], '=');
+		if (!value) {
+			uwsgi_log("invalid pymodule-alias syntax\n");
+			continue;
+		}
+		value[0] = 0;
+		if (!strchr(value+1, '/')) {
+			// this is a standard pymodule
+			tmp_module = PyImport_ImportModule(value+1);
+			if (!tmp_module) {
+				PyErr_Print();
+				exit(1);
+			}
+
+			PyDict_SetItemString(modules, up.pymodule_alias[i], tmp_module);
+		}
+		else {
+			// this is a filepath that need to be mapped
+			tmp_module = uwsgi_pyimport_by_filename(up.pymodule_alias[i], value+1);
+		}
+		uwsgi_log("mapped virtual pymodule \"%s\" to real pymodule \"%s\"\n", up.pymodule_alias[i], value+1);
+		// reset original value
+		value[0] = '=';
 	}
 
 }
@@ -588,8 +661,16 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 				case LONG_ARGS_FILE_CONFIG:
 					up.file_config = optarg;
 					return 1;
+				case LONG_ARGS_PYMODULE_ALIAS:
+					if (up.pymodule_alias_cnt < MAX_PYMODULE_ALIAS) {
+						up.pymodule_alias[up.pymodule_alias_cnt] = optarg;
+						up.pymodule_alias_cnt++;
+					}
+					else {
+						uwsgi_log( "you can specify at most %d --pymodule-alias options\n", MAX_PYMODULE_ALIAS);
+					}
+					return 1;
 				case LONG_ARGS_PYTHONPATH:
-					uwsgi_log("found PYTHONPATH\n");
 					if (up.python_path_cnt < MAX_PYTHONPATH) {
 						up.python_path[up.python_path_cnt] = optarg;
 						up.python_path_cnt++;
