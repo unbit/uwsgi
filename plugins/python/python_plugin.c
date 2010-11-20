@@ -170,6 +170,10 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
         FILE *pyfile;
         struct _node *py_file_node = NULL;
         PyObject *py_compiled_node, *py_file_module;
+	int is_a_package = 0;
+	struct stat pystat;
+	char *real_filename = filename;
+	
 
         pyfile = fopen(filename, "r");
         if (!pyfile) {
@@ -177,20 +181,36 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
                 exit(1);
         }
 
-        py_file_node = PyParser_SimpleParseFile(pyfile, filename, Py_file_input);
+	if (fstat(fileno(pyfile), &pystat)) {
+		uwsgi_error("fstat()");
+		exit(1);
+	}
+
+	if (S_ISDIR(pystat.st_mode)) {
+		is_a_package = 1;
+		fclose(pyfile);
+		real_filename = uwsgi_concat2(filename, "/__init__.py");
+		pyfile = fopen(real_filename, "r");
+        	if (!pyfile) {
+                	uwsgi_error("fopen()");
+                	exit(1);
+        	}
+	}
+
+        py_file_node = PyParser_SimpleParseFile(pyfile, real_filename, Py_file_input);
         if (!py_file_node) {
                 PyErr_Print();
-                uwsgi_log( "failed to parse file %s\n", filename);
+                uwsgi_log( "failed to parse file %s\n", real_filename);
                 exit(1);
         }
 
         fclose(pyfile);
 
-        py_compiled_node = (PyObject *) PyNode_Compile(py_file_node, filename);
+        py_compiled_node = (PyObject *) PyNode_Compile(py_file_node, real_filename);
 
         if (!py_compiled_node) {
                 PyErr_Print();
-                uwsgi_log( "failed to compile python file %s\n", filename);
+                uwsgi_log( "failed to compile python file %s\n", real_filename);
                 exit(1);
         }
 
@@ -201,6 +221,14 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
         }
 
         Py_DECREF(py_compiled_node);
+
+	if( is_a_package) {
+		PyObject *py_file_module_dict = PyModule_GetDict(py_file_module);
+		if (py_file_module_dict) {
+			PyDict_SetItemString(py_file_module_dict, "__path__", Py_BuildValue("[O]",PyString_FromString(filename)));
+		}
+		free(real_filename);
+	}
 
 	return py_file_module;
 
