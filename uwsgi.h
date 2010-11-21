@@ -591,6 +591,7 @@ struct uwsgi_server {
 #endif
 
 	int             ignore_script_name;
+	int             manage_script_name;
 	int             no_default_app;
 	int             logdate;
 
@@ -1096,8 +1097,10 @@ void            uwsgi_ldap_config(void);
 
 #ifdef __clang__
 int             uwsgi_strncmp(char *, int, char *, int);
+int             uwsgi_startswith(char *, char *, int);
 #else
 inline int      uwsgi_strncmp(char *, int, char *, int);
+inline int      uwsgi_startswith(char *, char *, int);
 #endif
 
 

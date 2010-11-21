@@ -89,6 +89,7 @@ static struct option long_base_options[] = {
 	{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
 	{"upload-progress", required_argument, 0, LONG_ARGS_UPLOAD_PROGRESS},
 	{"no-default-app", no_argument, &uwsgi.no_default_app, 1},
+	{"manage-script-name", no_argument, &uwsgi.manage_script_name, 1},
 #ifdef UWSGI_UDP
 	{"udp", required_argument, 0, LONG_ARGS_UDP},
 #endif

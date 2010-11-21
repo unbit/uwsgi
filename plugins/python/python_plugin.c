@@ -772,35 +772,46 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 
 		}
 
-		int uwsgi_python_xml(char *node, char *content) {
+int uwsgi_python_xml(char *node, char *content) {
 
-			if (!strcmp("script", node)) {
-				return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
-			}
-			else if (!strcmp("file", node)) {
-				return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
-			}
-			else if (!strcmp("eval", node)) {
-				return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
-			}
-			else if (!strcmp("module", node)) {
-				uwsgi.wsgi_req->module = content;
-				uwsgi.wsgi_req->module_len = strlen(content);
-				return 1;
-			}
-			else if (!strcmp("pyhome", node)) {
-				uwsgi.wsgi_req->pyhome = content;
-				uwsgi.wsgi_req->pyhome_len = strlen(content);
-				return 1;
-			}
-			else if (!strcmp("callable", node)) {
-				uwsgi.wsgi_req->callable = content;
-				uwsgi.wsgi_req->callable_len = strlen(content);
-				return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
-			}
-
-			return 0;
+	if (!strcmp("script", node)) {
+		return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+	else if (!strcmp("file", node)) {
+		return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+	else if (!strcmp("eval", node)) {
+		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+	else if (!strcmp("wsgi", node)) {
+		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+	else if (!strcmp("module", node)) {
+		uwsgi.wsgi_req->module = content;
+		uwsgi.wsgi_req->module_len = strlen(content);
+		uwsgi.wsgi_req->callable = strchr(uwsgi.wsgi_req->module, ':');
+		if (uwsgi.wsgi_req->callable) {
+			uwsgi.wsgi_req->callable[0] = 0;
+			uwsgi.wsgi_req->callable++;
+			uwsgi.wsgi_req->callable_len = strlen(uwsgi.wsgi_req->callable);
+			uwsgi.wsgi_req->module_len = strlen(uwsgi.wsgi_req->module);
+			return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
 		}
+		return 1;
+	}
+	else if (!strcmp("pyhome", node)) {
+		uwsgi.wsgi_req->pyhome = content;
+		uwsgi.wsgi_req->pyhome_len = strlen(content);
+		return 1;
+	}
+	else if (!strcmp("callable", node)) {
+		uwsgi.wsgi_req->callable = content;
+		uwsgi.wsgi_req->callable_len = strlen(content);
+		return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	}
+
+	return 0;
+}
 
 void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 

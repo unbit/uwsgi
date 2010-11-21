@@ -640,6 +640,17 @@ inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 
 }
 
+inline int uwsgi_startswith(char *src, char *what, int wlen) {
+
+	int i;
+
+	for(i=0;i<wlen;i++) {
+		if (src[i] != what[i]) return -1;
+	}
+	
+	return 0;
+}
+
 char *uwsgi_concatn(int c, ...) {
 
 	va_list s;

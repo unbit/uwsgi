@@ -321,6 +321,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	ptrbuf = buffer;
 	bufferend = ptrbuf + wsgi_req->uh.pktsize;
+	int i, script_name= -1, path_info= -1;
 
 	/* set an HTTP 500 status as default */
 	wsgi_req->status = 500;
@@ -355,6 +356,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						if (!uwsgi_strncmp("SCRIPT_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->script_name = ptrbuf;
 							wsgi_req->script_name_len = strsize;
+							script_name = wsgi_req->var_cnt + 1;
 #ifdef UWSGI_DEBUG
 							uwsgi_debug("SCRIPT_NAME=%.*s\n", wsgi_req->script_name_len, wsgi_req->script_name);
 #endif
@@ -362,6 +364,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						else if (!uwsgi_strncmp("PATH_INFO", 9, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->path_info = ptrbuf;
 							wsgi_req->path_info_len = strsize;
+							path_info = wsgi_req->var_cnt + 1;
 #ifdef UWSGI_DEBUG
 							uwsgi_debug("PATH_INFO=%.*s\n", wsgi_req->path_info_len, wsgi_req->path_info);
 #endif
@@ -470,6 +473,46 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+
+	if (uwsgi.manage_script_name) {
+		if (uwsgi.apps_cnt > 0 && wsgi_req->path_info_len > 1) {
+			// starts with 1 as the 0 app is the default (/) one
+			int best_found = 0;
+			char *orig_path_info = wsgi_req->path_info;
+			int orig_path_info_len = wsgi_req->path_info_len;
+			// if SCRIPT_NAME is not allocated, add a slot for it
+			if (script_name == -1) {
+				if (wsgi_req->var_cnt >= uwsgi.vec_size - (4 + 2)) {
+					uwsgi_log( "max vec size reached. skip this header.\n");
+                                        return -1;
+				}
+				wsgi_req->var_cnt++;
+				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = "SCRIPT_NAME";
+                                wsgi_req->hvec[wsgi_req->var_cnt].iov_len = 11;
+				wsgi_req->var_cnt++;
+				script_name = wsgi_req->var_cnt;
+			}
+			for(i=1;i<uwsgi.apps_cnt;i++) {
+				uwsgi_log("app mountpoint = %.*s\n", uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint);
+				if (orig_path_info_len >= uwsgi.apps[i].mountpoint_len) {
+					if (!uwsgi_startswith(orig_path_info, uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len) && uwsgi.apps[i].mountpoint_len > best_found) {
+						best_found = uwsgi.apps[i].mountpoint_len;
+						wsgi_req->script_name = uwsgi.apps[i].mountpoint;
+						wsgi_req->script_name_len = uwsgi.apps[i].mountpoint_len;
+						wsgi_req->path_info = orig_path_info+wsgi_req->script_name_len;
+						wsgi_req->path_info_len = orig_path_info_len-wsgi_req->script_name_len;
+
+						wsgi_req->hvec[script_name].iov_base = wsgi_req->script_name;
+						wsgi_req->hvec[script_name].iov_len = wsgi_req->script_name_len;
+
+						wsgi_req->hvec[path_info].iov_base = wsgi_req->path_info;
+						wsgi_req->hvec[path_info].iov_len = wsgi_req->path_info_len;
+						uwsgi_log("managed SCRIPT_NAME = %.*s PATH_INFO = %.*s\n", wsgi_req->script_name_len, wsgi_req->script_name, wsgi_req->path_info_len, wsgi_req->path_info);
+					} 
+				}
+			}
+		}
+	}
 
 	return 0;
 }

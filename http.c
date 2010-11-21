@@ -236,7 +236,10 @@ static void *http_request(void *u_h_r) {
 					if (!qs) {
 						up = add_uwsgi_var(up, "QUERY_STRING", 12, NULL, 0, 0, watermark);
 					}
+
+					up = add_uwsgi_var(up, "SCRIPT_NAME", 11, "", 0, 0, watermark);
 					up = add_uwsgi_var(up, "PATH_INFO", 9, tmp_buf, path_info_len, 0, watermark);
+
 
 					ptr = tmp_buf;
 					state = uwsgi_http_protocol;
@@ -290,7 +293,6 @@ static void *http_request(void *u_h_r) {
 					up = add_uwsgi_var(up, "SERVER_NAME", 11, uwsgi.http_server_name, strlen(uwsgi.http_server_name), 0, watermark);
 					up = add_uwsgi_var(up, "SERVER_PORT", 11, uwsgi.http_server_port, strlen(uwsgi.http_server_port), 0, watermark);
 
-					up = add_uwsgi_var(up, "SCRIPT_NAME", 11, "", 0, 0, watermark);
 
 					ip = inet_ntoa(ur->c_addr.sin_addr);
 					up = add_uwsgi_var(up, "REMOTE_ADDR", 11, ip, strlen(ip), 0, watermark);
