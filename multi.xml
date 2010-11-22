@@ -1,0 +1,45 @@
+<uwsgi>
+
+	<plugins>rack</plugins>
+
+	<http>:9090</http>
+
+	<manage-script-name/>
+	
+	<master/>
+	<processes>4</processes>
+
+	<vhost/>
+	<vhost-host/>
+
+	<env>TRAC_ENV=utrac</env>
+
+
+	<app mountpoint="/">
+		<module>werkzeug.testapp:test_app</module>
+	</app>
+
+	<app mountpoint="/trac">
+		<module>trac.web.main:dispatch_request</module>
+	</app>
+
+	<app mountpoint="/trac/foo">
+		<module>werkzeug.testapp:test_app</module>
+	</app>
+
+	<app mountpoint="/bzr">
+<eval>
+from bzrlib.transport.http import wsgi
+application = wsgi.make_app("mybzr", "/bzr", readonly=False)
+</eval>
+	</app>
+
+	<app domain="sirius002:9090">
+		<module>trac.web.main:dispatch_request</module>
+	</app>
+
+	<app domain="sirius003:9090">
+		<rack>config2.ru</rack>
+	</app>
+
+</uwsgi>

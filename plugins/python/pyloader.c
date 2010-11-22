@@ -532,11 +532,11 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 		wsgi_eval_callable = PyDict_GetItemString(up.loader_dict, up.callable);
 	}
 	else {
+		
 		wsgi_eval_callable = PyDict_GetItemString(up.loader_dict, "application");
 	}
 
 	if (wsgi_eval_callable) {
-		uwsgi_log( "found the \"%s\" callable\n", up.callable);
 		if (!PyFunction_Check(wsgi_eval_callable) && !PyCallable_Check(wsgi_eval_callable)) {
 			uwsgi_log( "you must define a callable object in your code\n");
 			exit(1);
