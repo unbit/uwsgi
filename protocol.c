@@ -596,6 +596,52 @@ ssize_t uwsgi_send_empty_pkt(int fd, char *socket_name, uint8_t modifier1, uint8
 	return ret;
 }
 
+int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
+
+	ssize_t rlen;
+	struct uwsgi_header *uh;
+	static char *buffer = NULL;
+
+	if (!buffer) {
+		buffer = malloc(uwsgi.buffer_size + 4);
+		if (!buffer) {
+			uwsgi_error("malloc()");
+			exit(1);
+		}
+	}
+		
+
+	rlen = read(fd, buffer, uwsgi.buffer_size + 4);
+
+        if (rlen < 0) {
+                uwsgi_error("read()");
+                return -1;
+        }
+
+        if (rlen < 4) {
+                uwsgi_log("invalid uwsgi packet\n");
+                return -1;
+        }
+
+	uh = (struct uwsgi_header *) buffer;
+
+	wsgi_req->uh.modifier1 = uh->modifier1;
+	wsgi_req->uh.pktsize = uh->pktsize;
+	wsgi_req->uh.modifier2 = uh->modifier2;
+
+	if (wsgi_req->uh.pktsize > uwsgi.buffer_size) {
+		uwsgi_log("invalid uwsgi packet size, probably you need to increase buffer size\n");
+		return -1;
+	}
+
+	wsgi_req->buffer = buffer+4;
+
+	uwsgi_log("request received %d %d\n", wsgi_req->uh.modifier1, wsgi_req->uh.modifier2);
+
+	return 0;
+
+}
+
 int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modifier1, uint8_t modifier2, void (*hook)()) {
 
 	struct uwsgi_header *uh;

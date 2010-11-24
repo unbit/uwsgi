@@ -1155,3 +1155,5 @@ int uwsgi_waitfd(int, int);
 
 int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)());
 void manage_string_opt(char *, int, char*, int);
+
+int uwsgi_get_dgram(int, struct wsgi_request *);

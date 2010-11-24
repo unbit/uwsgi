@@ -48,6 +48,12 @@ void master_loop(char **argv, char **environ) {
 	int udp_managed = 0;
 	int rlen;
 	int udp_fd = -1 ;
+
+	char *cluster_opt_buf = NULL;
+	int cluster_opt_size = 4;
+	char *cptrbuf;
+	uint16_t ustrlen;
+	struct uwsgi_header *uh;
 #endif
 
 	int i,j;
@@ -85,6 +91,35 @@ void master_loop(char **argv, char **environ) {
 		uwsgi_poll[uwsgi_poll_size].fd = uwsgi.cluster_fd;
 		uwsgi_poll[uwsgi_poll_size].events = POLLIN;
 		uwsgi_poll_size++;
+
+		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
+                	cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->key);
+                        cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->value);
+                }
+
+		cluster_opt_buf = malloc(cluster_opt_size);
+
+		uh = (struct uwsgi_header *) cluster_opt_buf;
+
+		uh->modifier1 = 99;
+		uh->pktsize = cluster_opt_size - 4;
+		uh->modifier2 = 1;
+	
+		cptrbuf = cluster_opt_buf+4;
+
+		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
+			ustrlen = strlen(uwsgi.exported_opts[i]->key);
+			*cptrbuf++ = (uint8_t) (ustrlen	 & 0xff);
+			*cptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+			memcpy(cptrbuf, uwsgi.exported_opts[i]->key, ustrlen);
+			cptrbuf+=ustrlen;
+
+			ustrlen = strlen(uwsgi.exported_opts[i]->value);
+			*cptrbuf++ = (uint8_t) (ustrlen	 & 0xff);
+			*cptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+			memcpy(cptrbuf, uwsgi.exported_opts[i]->value, ustrlen);
+			cptrbuf+=ustrlen;
+		}
 	}
 #endif
 #endif
@@ -284,7 +319,15 @@ void master_loop(char **argv, char **environ) {
 							}
 
 							if (uwsgi_poll[i].fd == uwsgi.cluster_fd) {
-								uwsgi_log("received a cluster message\n");
+
+								if (uwsgi_get_dgram(uwsgi.cluster_fd, uwsgi.wsgi_requests[0])) {
+									continue;
+								}
+
+								if (uwsgi.wsgi_requests[0]->uh.modifier1 == 99) {
+									uwsgi_log("requested configuration data\n");
+									send(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0);
+								}
 							}	
 						}
 					}
