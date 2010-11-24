@@ -93,11 +93,22 @@ void master_loop(char **argv, char **environ) {
 		uwsgi_poll_size++;
 
 		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
+			uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
                 	cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->key);
-                        cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->value);
+			if (uwsgi.exported_opts[i]->value) {
+                        	cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->value);
+			}
+			else {
+				cluster_opt_size += 2 + 1;
+			}
                 }
 
+		uwsgi_log("cluster opts size: %d\n", cluster_opt_size);
 		cluster_opt_buf = malloc(cluster_opt_size);
+		if (!cluster_opt_buf) {
+			uwsgi_error("malloc()");
+			exit(1);
+		}
 
 		uh = (struct uwsgi_header *) cluster_opt_buf;
 
@@ -108,18 +119,34 @@ void master_loop(char **argv, char **environ) {
 		cptrbuf = cluster_opt_buf+4;
 
 		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
+			uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
 			ustrlen = strlen(uwsgi.exported_opts[i]->key);
 			*cptrbuf++ = (uint8_t) (ustrlen	 & 0xff);
 			*cptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
 			memcpy(cptrbuf, uwsgi.exported_opts[i]->key, ustrlen);
 			cptrbuf+=ustrlen;
 
-			ustrlen = strlen(uwsgi.exported_opts[i]->value);
-			*cptrbuf++ = (uint8_t) (ustrlen	 & 0xff);
-			*cptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
-			memcpy(cptrbuf, uwsgi.exported_opts[i]->value, ustrlen);
+			if (uwsgi.exported_opts[i]->value) {
+				ustrlen = strlen(uwsgi.exported_opts[i]->value);
+				*cptrbuf++ = (uint8_t) (ustrlen	 & 0xff);
+				*cptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+				memcpy(cptrbuf, uwsgi.exported_opts[i]->value, ustrlen);
+			}
+			else {
+				ustrlen = 1;
+				*cptrbuf++ = (uint8_t) (ustrlen	 & 0xff);
+				*cptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+				*cptrbuf = '1' ;
+			}
 			cptrbuf+=ustrlen;
 		}
+
+		char *cp = strchr(uwsgi.cluster,':');
+		cp[0] = 0;
+		uwsgi.mc_cluster_addr.sin_family=AF_INET;
+     		uwsgi.mc_cluster_addr.sin_addr.s_addr=inet_addr(uwsgi.cluster);
+    		uwsgi.mc_cluster_addr.sin_port=htons(atoi(cp+1));
+		cp[0] = ':';
 	}
 #endif
 #endif
@@ -325,8 +352,8 @@ void master_loop(char **argv, char **environ) {
 								}
 
 								if (uwsgi.wsgi_requests[0]->uh.modifier1 == 99) {
-									uwsgi_log("requested configuration data\n");
-									send(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0);
+									uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
+									sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
 								}
 							}	
 						}

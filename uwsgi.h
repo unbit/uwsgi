@@ -801,6 +801,7 @@ struct uwsgi_server {
 
 	char *cluster;
 	int cluster_fd;
+	struct sockaddr_in mc_cluster_addr;
 };
 
 struct uwsgi_cluster_node {
