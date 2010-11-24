@@ -40,12 +40,14 @@ void master_loop(char **argv, char **environ) {
 	int master_has_children = 0;
 
 #ifdef UWSGI_UDP
-	struct pollfd uwsgi_poll;
+	struct pollfd uwsgi_poll[2];
+	int uwsgi_poll_size = 0;
 	struct sockaddr_in udp_client;
 	socklen_t udp_len;
 	char udp_client_addr[16];
 	int udp_managed = 0;
 	int rlen;
+	int udp_fd = -1 ;
 #endif
 
 	int i,j;
@@ -67,15 +69,24 @@ void master_loop(char **argv, char **environ) {
 	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
-		uwsgi_poll.fd = bind_to_udp(uwsgi.udp_socket);
-		if (uwsgi_poll.fd < 0) {
+		udp_fd = bind_to_udp(uwsgi.udp_socket, 0);
+		uwsgi_poll[uwsgi_poll_size].fd = udp_fd;
+		if (uwsgi_poll[uwsgi_poll_size].fd < 0) {
 			uwsgi_log( "unable to bind to udp socket. SNMP and cluster management services will be disabled.\n");
 		}
 		else {
 			uwsgi_log( "UDP server enabled.\n");
-			uwsgi_poll.events = POLLIN;
+			uwsgi_poll[uwsgi_poll_size].events = POLLIN;
+			uwsgi_poll_size++;
 		}
 	}
+#ifdef UWSGI_MULTICAST
+	if (uwsgi.cluster) {
+		uwsgi_poll[uwsgi_poll_size].fd = uwsgi.cluster_fd;
+		uwsgi_poll[uwsgi_poll_size].events = POLLIN;
+		uwsgi_poll_size++;
+	}
+#endif
 #endif
 
 #ifdef UWSGI_SNMP
@@ -200,39 +211,49 @@ void master_loop(char **argv, char **environ) {
 				check_interval.tv_sec = 1;
 
 #ifdef UWSGI_UDP
-			if (uwsgi.udp_socket && uwsgi_poll.fd >= 0) {
-				rlen = poll(&uwsgi_poll, 1, check_interval.tv_sec * 1000);
+#ifdef UWSGI_MULTICAST
+			if ( (uwsgi.udp_socket && udp_fd >= 0) || (uwsgi.cluster && uwsgi.cluster_fd >= 0)) {
+#else
+			if ((uwsgi.udp_socket && udp_fd >= 0)) {
+#endif
+				rlen = poll(uwsgi_poll, uwsgi_poll_size, check_interval.tv_sec * 1000);
 				if (rlen < 0) {
 					uwsgi_error("poll()");
 				}
 				else if (rlen > 0) {
-					udp_len = sizeof(udp_client);
-					rlen = recvfrom(uwsgi_poll.fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
-					if (rlen < 0) {
-						uwsgi_error("recvfrom()");
-					}
-					else if (rlen > 0) {
-						memset(udp_client_addr, 0, 16);
-						if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
-							if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
-							}
-#ifdef UWSGI_SNMP
-							else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
-								manage_snmp(uwsgi_poll.fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
-							}
-#endif
-							else {
 
-								// loop the various udp manager until one returns true
-								udp_managed = 0;
-								for(i=0;i<0xFF;i++) {
-									if (uwsgi.p[i]->manage_udp) {
-										if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
-											udp_managed = 1;
-											break;
-										}
-									}
+					for(i=0;i<uwsgi_poll_size;i++) {
+
+						if (uwsgi_poll[i].revents & POLLIN) {
+
+							if (uwsgi_poll[i].fd == udp_fd) {
+								udp_len = sizeof(udp_client);
+								rlen = recvfrom(udp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+								if (rlen < 0) {
+									uwsgi_error("recvfrom()");
 								}
+								else if (rlen > 0) {
+									memset(udp_client_addr, 0, 16);
+									if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
+										if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
+										}
+#ifdef UWSGI_SNMP
+										else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
+											manage_snmp(udp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+										}
+#endif
+										else {
+
+											// loop the various udp manager until one returns true
+											udp_managed = 0;
+											for(i=0;i<0xFF;i++) {
+												if (uwsgi.p[i]->manage_udp) {
+													if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
+														udp_managed = 1;
+														break;
+													}
+												}
+											}
 								/*
 								   if (udp_callable && udp_callable_args) {
 								   UWSGI_GET_GIL
@@ -251,15 +272,20 @@ void master_loop(char **argv, char **environ) {
 								   else {
 								// a simple udp logger
 								*/
-
-								if (!udp_managed) {
-									uwsgi_log( "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
+											if (!udp_managed) {
+												uwsgi_log( "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
+											}
+										}
+									}
+									else {
+										uwsgi_error("inet_ntop()");
+									}
 								}
-								//}
 							}
-						}
-						else {
-							uwsgi_error("inet_ntop()");
+
+							if (uwsgi_poll[i].fd == uwsgi.cluster_fd) {
+								uwsgi_log("received a cluster message\n");
+							}	
 						}
 					}
 				}

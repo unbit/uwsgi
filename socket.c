@@ -132,13 +132,14 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 #endif
 
 #ifdef UWSGI_UDP
-	int bind_to_udp(char *socket_name) {
+	int bind_to_udp(char *socket_name, int multicast) {
 		int serverfd;
 		struct sockaddr_in uws_addr;
 		char *udp_port;
 
 #ifdef UWSGI_MULTICAST
 		struct ip_mreq mc;
+		uint8_t loop = 0;
 #endif
 
 		udp_port = strchr(socket_name, ':');
@@ -147,6 +148,11 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		}
 
 		udp_port[0] = 0;
+
+		if (socket_name[0] == 0 && multicast) {
+			uwsgi_log("invalid multicast address\n");
+			return -1;
+		}
 		memset(&uws_addr, 0, sizeof(struct sockaddr_in));
 		uws_addr.sin_family = AF_INET;
 		uws_addr.sin_port = htons(atoi(udp_port + 1));
@@ -167,20 +173,13 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		}
 
 #ifdef UWSGI_MULTICAST
-		if (uwsgi.multicast_group) {
-			uws_addr.sin_addr.s_addr = INADDR_ANY;
+		if (multicast) {
 			// if multicast is enabled remember to bind to INADDR_ANY
-			mc.imr_multiaddr.s_addr = inet_addr(uwsgi.multicast_group);
-			if (socket_name[0] == 0) {
-				mc.imr_interface.s_addr = INADDR_ANY;
-			}
-			else {
-				mc.imr_interface.s_addr = inet_addr(socket_name);
-			}
+			uws_addr.sin_addr.s_addr = INADDR_ANY;
+			mc.imr_multiaddr.s_addr = inet_addr(socket_name);
+			mc.imr_interface.s_addr = INADDR_ANY;
 		}
 #endif
-
-		uwsgi_log( "binding on UDP port: %d\n", ntohs(uws_addr.sin_port));
 
 		if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
 			uwsgi_error("bind()");
@@ -189,14 +188,19 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		}
 
 #ifdef UWSGI_MULTICAST
-		if (uwsgi.multicast_group) {
-			uwsgi_log( "joining uWSGI multicast group: %s:%d\n", uwsgi.multicast_group, ntohs(uws_addr.sin_port));
+		if (multicast) {
+			uwsgi_log( "[uWSGI] joining multicast group: %s:%d\n", socket_name, ntohs(uws_addr.sin_port));
+			if (setsockopt(serverfd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop))) {
+				uwsgi_error("setsockopt()");
+			}
+
 			if (setsockopt(serverfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc, sizeof(mc))) {
 				uwsgi_error("setsockopt()");
 			}
 		}
 #endif
 
+		udp_port[0] = ':';
 		return serverfd;
 
 	}
@@ -280,11 +284,12 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	}
 
-	int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
+	int bind_to_tcp(char **socket_name, int listen_queue, char *tcp_port) {
 
 		int serverfd;
 		struct sockaddr_in uws_addr;
 		int reuse = 1;
+		int i;
 
 		tcp_port[0] = 0;
 		memset(&uws_addr, 0, sizeof(struct sockaddr_in));
@@ -292,19 +297,71 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		uws_addr.sin_family = AF_INET;
 		uws_addr.sin_port = htons(atoi(tcp_port + 1));
 
-
-		if (socket_name[0] == 0) {
-			uws_addr.sin_addr.s_addr = INADDR_ANY;
-		}
-		else {
-			uws_addr.sin_addr.s_addr = inet_addr(socket_name);
-		}
-
 		serverfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (serverfd < 0) {
 			uwsgi_error("socket()");
 			exit(1);
 		}
+
+		if (*socket_name[0] == 0) {
+			uws_addr.sin_addr.s_addr = INADDR_ANY;
+		}
+		else {
+			char *asterisk = strchr(*socket_name, '*');
+			if (asterisk) {
+				struct ifconf ifc;
+				struct ifreq *ifr, *aifr;
+				// get all the AF_INET addresses available
+
+				ifc.ifc_len = 0;
+				ifc.ifc_req = NULL;
+				if (ioctl(serverfd, SIOCGIFCONF, &ifc)) {
+					uwsgi_error("ioctl()");
+					exit(1);
+				}
+
+				if (ifc.ifc_len <= 0) {
+					uwsgi_log("unable to get ip address list\n");
+					exit(1);
+				}
+
+				ifr = malloc(ifc.ifc_len);
+				if (!ifr) {
+					uwsgi_error("malloc()");
+				}
+				memset(ifr, 0, ifc.ifc_len);
+
+				ifc.ifc_req = ifr;
+
+				if (ioctl(serverfd, SIOCGIFCONF, &ifc)) {
+					uwsgi_error("ioctl()");
+					exit(1);
+				}
+
+				// here socket_name will be truncated
+				asterisk[0] = 0;
+
+				char new_addr[16];
+				struct sockaddr_in *sin;
+				for(i=0;i< (int)(ifc.ifc_len/sizeof(struct ifreq));i++) {
+					aifr = ifr + i ;
+					memset(new_addr, 0, 16);
+					sin = (struct sockaddr_in *) &aifr->ifr_addr;
+					if (inet_ntop(AF_INET, (void *) &sin->sin_addr.s_addr, new_addr, 16)) {
+						if (!strncmp( *socket_name, new_addr, strlen(*socket_name)) ) {
+							asterisk[0] = '*';
+							uwsgi_log("found %s for %s on interface %s\n", new_addr, *socket_name, aifr->ifr_name);
+							*socket_name = uwsgi_concat3(new_addr, ":", tcp_port+1);
+							break;
+						}
+					}
+				}
+			}
+			else {
+				uws_addr.sin_addr.s_addr = inet_addr(*socket_name);
+			}
+		}
+
 
 		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 			uwsgi_error("setsockopt()");

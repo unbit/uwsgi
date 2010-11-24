@@ -95,6 +95,7 @@ static struct option long_base_options[] = {
 #endif
 #ifdef UWSGI_MULTICAST
 	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
+	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER},
 #endif
 #ifdef UWSGI_SNMP
 	{"snmp", no_argument, 0, LONG_ARGS_SNMP},
@@ -568,6 +569,34 @@ int main(int argc, char *argv[], char *envp[])
 	//parse environ
 	parse_sys_envs(environ);
 
+        // get cluster configuration
+	if (uwsgi.cluster != NULL) {
+		// get multicast socket
+		uwsgi.cluster_fd = bind_to_udp(uwsgi.cluster, 1);
+	
+		// ask for cluster options only if bot pre-existent options are set
+		if (uwsgi.exported_opts_cnt == 1) {
+			// now wait max 60 seconds and resend multicast request every 10 seconds
+			for(i=0;i<6;i++) {
+				uwsgi_log("asking \"%s\" uWSGI cluster for configuration data:\n", uwsgi.cluster);
+				if (uwsgi_send_empty_pkt(uwsgi.cluster_fd, uwsgi.cluster, 99, 0) < 0) {
+					uwsgi_log("unable to send multicast message to %s\n", uwsgi.cluster);	
+					continue;
+				}
+				rlen = uwsgi_waitfd(uwsgi.cluster_fd, 10);
+				if (rlen < 0) {
+					break;	
+				}
+				else if (rlen > 0) {
+					// receive the packet
+					char clusterbuf[4096];
+					uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, manage_string_opt);
+					break;
+				}
+			}
+		}
+	}
+
 	//call after_opt hooks
 
 	if (uwsgi.binary_path == argv[0]) {
@@ -663,7 +692,7 @@ int main(int argc, char *argv[], char *envp[])
 		char *tcp_port = strchr(uwsgi.http, ':');
 		if (tcp_port) {
 			uwsgi.http_server_port = tcp_port + 1;
-			uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
+			uwsgi.http_fd = bind_to_tcp(&uwsgi.http, uwsgi.listen_queue, tcp_port);
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("HTTP FD: %d\n", uwsgi.http_fd);
 #endif
@@ -952,7 +981,7 @@ int main(int argc, char *argv[], char *envp[])
 					uwsgi.sockets[i].family = AF_UNIX;
 					uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				} else {
-					uwsgi.sockets[i].fd = bind_to_tcp(uwsgi.sockets[i].name, uwsgi.listen_queue, tcp_port);
+					uwsgi.sockets[i].fd = bind_to_tcp(&uwsgi.sockets[i].name, uwsgi.listen_queue, tcp_port);
 					uwsgi.sockets[i].family = AF_INET;
 					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				}
@@ -1422,7 +1451,7 @@ end:
 		if (tcp_port == NULL) {
 			uwsgi.proxyfd = bind_to_unix(uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, uwsgi.chmod_socket, uwsgi.abstract_socket);
 		} else {
-			uwsgi.proxyfd = bind_to_tcp(uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, tcp_port);
+			uwsgi.proxyfd = bind_to_tcp(&uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, tcp_port);
 			tcp_port[0] = ':';
 		}
 
@@ -1552,6 +1581,9 @@ end:
 		case LONG_ARGS_MULTICAST:
 			uwsgi.multicast_group = optarg;
 			uwsgi.master_process = 1;
+			return 1;
+		case LONG_ARGS_CLUSTER:
+			uwsgi.cluster = optarg;
 			return 1;
 #endif
 		case LONG_ARGS_CHROOT:
@@ -2126,4 +2158,29 @@ void build_options() {
 		uwsgi.long_options[opt_count].has_arg = 0;
 		uwsgi.long_options[opt_count].flag = 0;
 		uwsgi.long_options[opt_count].val = 0;
+}
+
+
+void manage_string_opt(char *key, int keylen, char *val, int vallen) {
+
+	struct option *lopt, *aopt;
+
+	// never free this value
+	char *key2 = uwsgi_concat2(key, "");
+	char *val2 = uwsgi_concat2(val, "");
+
+	lopt = uwsgi.long_options;
+        while ((aopt = lopt)) {
+        	if (!aopt->name) break;
+                if (!strcmp(key2, aopt->name)) {
+                	if (aopt->flag) {
+                        	*aopt->flag = aopt->val;
+                                add_exported_option(0, key2);
+                        }
+                        else {
+                        	manage_opt(aopt->val, val2);
+                        }
+                }
+                lopt++;
+	}
 }

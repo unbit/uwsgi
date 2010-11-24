@@ -1110,3 +1110,20 @@ void add_exported_option(int i, char *value) {
 	uwsgi.exported_opts_cnt++;
 
 }
+
+int uwsgi_waitfd(int fd, int timeout) {
+
+	int ret;
+	struct pollfd upoll[1];
+
+	upoll[0].fd = fd;
+	upoll[0].events = POLLIN;
+
+	ret = poll(upoll, 1, timeout*1000);
+
+	if (ret < 0) {
+		uwsgi_error("poll()");
+	}
+
+	return ret;
+}

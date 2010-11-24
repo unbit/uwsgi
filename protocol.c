@@ -558,3 +558,114 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 
 	return 0;
 }
+
+ssize_t uwsgi_send_empty_pkt(int fd, char *socket_name, uint8_t modifier1, uint8_t modifier2) {
+
+	struct uwsgi_header uh;
+	char *port;
+	uint16_t s_port;
+	struct sockaddr_in uaddr;
+	int ret;
+
+	uh.modifier1 = modifier1;
+	uh.pktsize = 0;
+	uh.modifier2 = modifier2;
+
+	if (socket_name) {
+		port = strchr(socket_name, ':');
+		if (!port) return -1;
+		s_port = atoi(port+1);
+		port[0] = 0;
+		memset(&uaddr, 0, sizeof(struct sockaddr_in));
+		uaddr.sin_family = AF_INET;
+		uaddr.sin_addr.s_addr = inet_addr(socket_name);
+		uaddr.sin_port = htons(s_port);
+
+		port[0] = ':';
+
+		ret = sendto(fd, &uh, 4, 0, (struct sockaddr *) &uaddr, sizeof(struct sockaddr_in));
+	}
+	else {
+		ret = send(fd, &uh, 4, 0);
+	}
+
+	if (ret < 0) {
+		uwsgi_error("sendto()");
+	}
+
+	return ret;
+}
+
+int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modifier1, uint8_t modifier2, void (*hook)()) {
+
+	struct uwsgi_header *uh;
+	ssize_t rlen;
+
+	char *ptrbuf, *bufferend;
+        uint16_t keysize = 0, valsize = 0;
+	char *key;
+
+        ptrbuf = buffer;
+
+	rlen = read(fd, buffer, len);
+
+	if (rlen < 0) {
+		uwsgi_error("read()");
+		return -1;
+	}
+
+	// check for valid dict 4(header) 2(non-zero key)+1 2(value)
+	if (rlen < (4+2+1+2)) {
+		uwsgi_log("invalid uwsgi dictionary\n");
+		return -1;
+	}
+	
+	uh = (struct uwsgi_header *) buffer;
+
+	if (uh->modifier1 != modifier1 || uh->modifier2 != modifier2) {
+		uwsgi_log("invalid uwsgi dictionary received, modifier1: %d modifier2: %d\n", uh->modifier1, uh->modifier2);
+		return -1;
+	}
+
+	if (uh->pktsize > len) {
+		uwsgi_log("* WARNING * the uwsgi dictionary received is too big, data will be truncated\n");
+		bufferend = ptrbuf + len;
+	}
+	else {
+        	bufferend = ptrbuf + uh->pktsize;
+	}
+
+	
+        while (ptrbuf < bufferend) {
+                if (ptrbuf + 2 >= bufferend) return -1;
+                memcpy(&keysize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                keysize = uwsgi_swap16(keysize);
+#endif
+                /* key cannot be null */
+                if (!keysize)  return -1;
+
+                ptrbuf += 2;
+                if (ptrbuf + keysize > bufferend) return -1;
+
+                // key
+                key = ptrbuf;
+                ptrbuf += keysize;
+                // value can be null
+                if (ptrbuf + 2 > bufferend) return -1;
+
+                memcpy(&valsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+		valsize = uwsgi_swap16(valsize);
+#endif
+		ptrbuf += 2;
+                if (ptrbuf + valsize > bufferend) return -1;
+
+		// now call the hook
+		hook(key, keysize, ptrbuf, valsize);
+                ptrbuf += valsize;
+	}
+
+	return 0;
+
+}
