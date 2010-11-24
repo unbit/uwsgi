@@ -651,7 +651,6 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
         uint16_t keysize = 0, valsize = 0;
 	char *key;
 
-        ptrbuf = buffer;
 
 	rlen = read(fd, buffer, len);
 
@@ -659,6 +658,8 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 		uwsgi_error("read()");
 		return -1;
 	}
+
+	uwsgi_log("RLEN: %d\n", rlen);
 
 	// check for valid dict 4(header) 2(non-zero key)+1 2(value)
 	if (rlen < (4+2+1+2)) {
@@ -673,6 +674,8 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 		return -1;
 	}
 
+        ptrbuf = buffer + 4;
+
 	if (uh->pktsize > len) {
 		uwsgi_log("* WARNING * the uwsgi dictionary received is too big, data will be truncated\n");
 		bufferend = ptrbuf + len;
@@ -682,6 +685,7 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 	}
 
 	
+	uwsgi_log("%p %p %d\n", ptrbuf, bufferend, bufferend-ptrbuf);
         while (ptrbuf < bufferend) {
                 if (ptrbuf + 2 >= bufferend) return -1;
                 memcpy(&keysize, ptrbuf, 2);

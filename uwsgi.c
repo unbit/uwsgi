@@ -583,6 +583,7 @@ int main(int argc, char *argv[], char *envp[])
 					uwsgi_log("unable to send multicast message to %s\n", uwsgi.cluster);	
 					continue;
 				}
+waitfd:
 				rlen = uwsgi_waitfd(uwsgi.cluster_fd, 10);
 				if (rlen < 0) {
 					break;	
@@ -590,12 +591,18 @@ int main(int argc, char *argv[], char *envp[])
 				else if (rlen > 0) {
 					// receive the packet
 					char clusterbuf[4096];
-					uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, manage_string_opt);
-					break;
+					if (!uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, manage_string_opt)) {
+						goto options_parsed;
+					}
+					else {
+						goto waitfd;
+					}
 				}
 			}
 		}
 	}
+
+options_parsed:
 
 	//call after_opt hooks
 
@@ -2166,9 +2173,10 @@ void manage_string_opt(char *key, int keylen, char *val, int vallen) {
 	struct option *lopt, *aopt;
 
 	// never free this value
-	char *key2 = uwsgi_concat2(key, "");
-	char *val2 = uwsgi_concat2(val, "");
+	char *key2 = uwsgi_concat2n(key, keylen, "", 0);
+	char *val2 = uwsgi_concat2n(val, vallen, "", 0);
 
+	uwsgi_log("%s = %s\n", key2, val2);
 	lopt = uwsgi.long_options;
         while ((aopt = lopt)) {
         	if (!aopt->name) break;

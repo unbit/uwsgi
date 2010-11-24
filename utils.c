@@ -765,6 +765,26 @@ char *uwsgi_concat3(char *one, char *two, char *three) {
 
 }
 
+char *uwsgi_concat2n(char *one, int s1, char *two, int s2) {
+
+	char *buf;
+	size_t len = s1 + s2 + 1;
+
+
+	buf = malloc(len);
+	if (buf == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+	buf[len-1] = 0;
+
+	memcpy( buf, one, s1);
+	memcpy( buf + s1, two, s2);
+
+	return buf;
+
+}
+
 char *uwsgi_concat3n(char *one, int s1, char *two, int s2, char *three, int s3) {
 
 	char *buf;
