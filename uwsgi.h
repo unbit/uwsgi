@@ -1159,3 +1159,7 @@ int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*
 void manage_string_opt(char *, int, char*, int);
 
 int uwsgi_get_dgram(int, struct wsgi_request *);
+
+int uwsgi_cluster_join(char *);
+
+int uwsgi_string_sendto(int, uint8_t, uint8_t, struct sockaddr *, socklen_t, char *, size_t);

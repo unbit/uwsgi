@@ -719,3 +719,32 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 	return 0;
 
 }
+
+int uwsgi_string_sendto(int fd, uint8_t modifier1, uint8_t modifier2, struct sockaddr *sa, socklen_t sa_len, char *message, size_t len) {
+
+	ssize_t rlen ;
+	struct uwsgi_header *uh;
+	char *upkt = malloc(len + 4);
+	if (!upkt) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+
+	uh = (struct uwsgi_header *) upkt;
+
+	uh->modifier1 = modifier1;
+	uh->pktsize = len;
+	uh->modifier2 = modifier2;
+
+	memcpy(upkt+4, message, len);
+
+	rlen = sendto(fd, upkt, len+4, 0, sa, sa_len);
+
+	if (rlen < 0) {
+		uwsgi_error("sendto()");
+	}
+
+	free(upkt);
+
+	return rlen;
+}

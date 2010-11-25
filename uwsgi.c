@@ -572,7 +572,7 @@ int main(int argc, char *argv[], char *envp[])
         // get cluster configuration
 	if (uwsgi.cluster != NULL) {
 		// get multicast socket
-		uwsgi.cluster_fd = bind_to_udp(uwsgi.cluster, 1);
+		uwsgi.cluster_fd = uwsgi_cluster_join(uwsgi.cluster);
 	
 		// ask for cluster options only if bot pre-existent options are set
 		if (uwsgi.exported_opts_cnt == 1) {
@@ -2191,4 +2191,35 @@ void manage_string_opt(char *key, int keylen, char *val, int vallen) {
                 }
                 lopt++;
 	}
+}
+
+int uwsgi_cluster_join(char *name) {
+
+	int fd ;
+	char *cp;
+	char hostname[256];
+
+	memset(hostname, 0, 256);
+
+	fd = bind_to_udp(name, 1);
+
+	if (fd >= 0) {
+		cp = strchr(name,':');
+                cp[0] = 0;
+                uwsgi.mc_cluster_addr.sin_family=AF_INET;
+                uwsgi.mc_cluster_addr.sin_addr.s_addr=inet_addr(name);
+                uwsgi.mc_cluster_addr.sin_port=htons(atoi(cp+1));
+                cp[0] = ':';
+
+		if (gethostname(hostname, 255)) {
+			uwsgi_error("gethostname()");
+		}
+
+		// announce my presence to all the nodes
+		uwsgi_string_sendto(fd, 73, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr), hostname, strlen(hostname));
+	}
+
+	
+	return fd;
+
 }

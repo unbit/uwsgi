@@ -141,12 +141,6 @@ void master_loop(char **argv, char **environ) {
 			cptrbuf+=ustrlen;
 		}
 
-		char *cp = strchr(uwsgi.cluster,':');
-		cp[0] = 0;
-		uwsgi.mc_cluster_addr.sin_family=AF_INET;
-     		uwsgi.mc_cluster_addr.sin_addr.s_addr=inet_addr(uwsgi.cluster);
-    		uwsgi.mc_cluster_addr.sin_port=htons(atoi(cp+1));
-		cp[0] = ':';
 	}
 #endif
 #endif
@@ -351,9 +345,14 @@ void master_loop(char **argv, char **environ) {
 									continue;
 								}
 
-								if (uwsgi.wsgi_requests[0]->uh.modifier1 == 99) {
-									uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
-									sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
+								switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
+									case 99:
+										uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
+										sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
+										break;
+									case 73:
+										uwsgi_log_verbose("[uWSGI cluster %s] new node available: %.*s\n", uwsgi.cluster, uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
+										break;
 								}
 							}	
 						}
