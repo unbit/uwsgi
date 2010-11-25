@@ -319,9 +319,13 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 		else {
 			quick_callable = "application";
 		}
+		wsgi_dict = get_uwsgi_pydict(module);
+	}
+	else {
+		wsgi_dict = get_uwsgi_pydict(module);
+		module[strlen(module)] = ':';
 	}
 
-	wsgi_dict = get_uwsgi_pydict(module);
 	if (!wsgi_dict) {
 		return NULL;
 	}

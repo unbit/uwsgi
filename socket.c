@@ -140,7 +140,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 #ifdef UWSGI_MULTICAST
 		struct ip_mreq mc;
 		uint8_t loop = 0;
-		int ttl = 1;
 #endif
 
 		udp_port = strchr(socket_name, ':');
@@ -199,9 +198,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 				uwsgi_error("setsockopt()");
 			}
 
-			if (setsockopt(serverfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl))) {
-				uwsgi_error("setsockopt()");
-			}
 		}
 #endif
 
