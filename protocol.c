@@ -602,6 +602,9 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 	struct uwsgi_header *uh;
 	static char *buffer = NULL;
 
+	struct sockaddr_in sin;
+	socklen_t sin_len = sizeof(struct sockaddr_in);
+
 	if (!buffer) {
 		buffer = malloc(uwsgi.buffer_size + 4);
 		if (!buffer) {
@@ -611,12 +614,14 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 	}
 		
 
-	rlen = read(fd, buffer, uwsgi.buffer_size + 4);
+	rlen = recvfrom(fd, buffer, uwsgi.buffer_size + 4, 0, (struct sockaddr *) &sin, &sin_len);
 
         if (rlen < 0) {
-                uwsgi_error("read()");
+                uwsgi_error("recvfrom");
                 return -1;
         }
+
+	uwsgi_log("recevied request from %s\n", inet_ntoa(sin.sin_addr));
 
         if (rlen < 4) {
                 uwsgi_log("invalid uwsgi packet\n");
@@ -651,13 +656,18 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
         uint16_t keysize = 0, valsize = 0;
 	char *key;
 
+	struct sockaddr_in sin;
+	socklen_t sin_len = sizeof(struct sockaddr_in);
 
-	rlen = read(fd, buffer, len);
+
+	rlen = recvfrom(fd, buffer, len, 0, (struct sockaddr *) &sin, &sin_len);
 
 	if (rlen < 0) {
-		uwsgi_error("read()");
+		uwsgi_error("recvfrom()");
 		return -1;
 	}
+
+	uwsgi_log("recevied request from %s\n", inet_ntoa(sin.sin_addr));
 
 	uwsgi_log("RLEN: %d\n", rlen);
 
