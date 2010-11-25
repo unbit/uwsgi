@@ -289,7 +289,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		int serverfd;
 		struct sockaddr_in uws_addr;
 		int reuse = 1;
-		int i;
 
 		tcp_port[0] = 0;
 		memset(&uws_addr, 0, sizeof(struct sockaddr_in));
@@ -309,32 +308,10 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		else {
 			char *asterisk = strchr(*socket_name, '*');
 			if (asterisk) {
-				struct ifconf ifc;
-				struct ifreq *ifr, *aifr;
 				// get all the AF_INET addresses available
-
-				ifc.ifc_len = 0;
-				ifc.ifc_req = NULL;
-				if (ioctl(serverfd, SIOCGIFCONF, &ifc)) {
-					uwsgi_error("ioctl()");
-					exit(1);
-				}
-
-				if (ifc.ifc_len <= 0) {
-					uwsgi_log("unable to get ip address list\n");
-					exit(1);
-				}
-
-				ifr = malloc(ifc.ifc_len);
-				if (!ifr) {
-					uwsgi_error("malloc()");
-				}
-				memset(ifr, 0, ifc.ifc_len);
-
-				ifc.ifc_req = ifr;
-
-				if (ioctl(serverfd, SIOCGIFCONF, &ifc)) {
-					uwsgi_error("ioctl()");
+				struct ifaddrs *ifap = NULL, *ifa, *ifaf;
+				if (getifaddrs(&ifap)) {
+					uwsgi_error("getifaddrs()");
 					exit(1);
 				}
 
@@ -343,19 +320,25 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 				char new_addr[16];
 				struct sockaddr_in *sin;
-				for(i=0;i< (int)(ifc.ifc_len/sizeof(struct ifreq));i++) {
-					aifr = ifr + i ;
+				ifa = ifap ;
+				while(ifa) {
 					memset(new_addr, 0, 16);
-					sin = (struct sockaddr_in *) &aifr->ifr_addr;
+					sin = (struct sockaddr_in *) ifa->ifa_addr;
 					if (inet_ntop(AF_INET, (void *) &sin->sin_addr.s_addr, new_addr, 16)) {
 						if (!strncmp( *socket_name, new_addr, strlen(*socket_name)) ) {
 							asterisk[0] = '*';
-							uwsgi_log("found %s for %s on interface %s\n", new_addr, *socket_name, aifr->ifr_name);
+							uwsgi_log("found %s for %s on interface %s\n", new_addr, *socket_name, ifa->ifa_name);
 							*socket_name = uwsgi_concat3(new_addr, ":", tcp_port+1);
 							break;
 						}
 					}
+					ifaf = ifa;	
+					ifa = ifaf->ifa_next;
 				}
+
+				freeifaddrs(ifap);
+
+				
 			}
 			else {
 				uws_addr.sin_addr.s_addr = inet_addr(*socket_name);

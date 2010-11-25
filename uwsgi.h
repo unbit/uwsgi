@@ -66,8 +66,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include <net/if.h>
 
+#include <ifaddrs.h>
 
 #include <dirent.h>
 
