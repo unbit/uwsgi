@@ -572,6 +572,7 @@ int main(int argc, char *argv[], char *envp[])
 	parse_sys_envs(environ);
 
         // get cluster configuration
+	uwsgi_log("CLUSTER: %s\n", uwsgi.cluster);
 	if (uwsgi.cluster != NULL) {
 		// get multicast socket
 		uwsgi.cluster_fd = uwsgi_cluster_join(uwsgi.cluster);
@@ -919,7 +920,7 @@ options_parsed:
 
 						for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
 							socket_type_len = sizeof(struct sockaddr_un);
-							gsa = (struct sockaddr *) & usa;
+							gsa = (struct sockaddr *) &usa;
 							if (!getsockname(j, gsa, &socket_type_len)) {
 								if (gsa->sa_family == AF_UNIX) {
 									if (!strcmp(usa.sun_path, uwsgi.sockets[i].name)) {
@@ -934,19 +935,31 @@ options_parsed:
 								} else if (gsa->sa_family == AF_INET) {
 									char *computed_addr;
 									char computed_port[6];
-									isa = (struct sockaddr_in *) & usa;
+									isa = (struct sockaddr_in *) &usa;
 									char ipv4a[INET_ADDRSTRLEN + 1];
 									memset(ipv4a, 0, INET_ADDRSTRLEN + 1);
 									memset(computed_port, 0, 6);
 
+
 									if (snprintf(computed_port, 6, "%d", ntohs(isa->sin_port)) > 0) {
-										if (inet_ntop(AF_INET, (const void *__restrict__) &isa->sin_addr.s_addr, ipv4a, INET_ADDRSTRLEN)) {
+										if (inet_ntop(AF_INET, (const void *) &isa->sin_addr.s_addr, ipv4a, INET_ADDRSTRLEN)) {
+
 											if (!strcmp("0.0.0.0", ipv4a)) {
 												computed_addr = uwsgi_concat2(":", computed_port);
 											} else {
 												computed_addr = uwsgi_concat3(ipv4a, ":", computed_port);
 											}
-											if (!strcmp(computed_addr, uwsgi.sockets[i].name)) {
+											char *asterisk = strchr(uwsgi.sockets[i].name, '*');
+											int match = 1;
+											if (asterisk) {
+												asterisk[0] = 0;
+												match = strncmp(computed_addr, uwsgi.sockets[i].name, strlen(uwsgi.sockets[i].name));
+												asterisk[0] = '*';	
+											}
+											else {
+												match = strcmp(computed_addr, uwsgi.sockets[i].name);
+											}
+											if (!match) {
 												uwsgi.sockets[i].fd = j;
 												uwsgi.sockets[i].family = AF_INET;
 												uwsgi.sockets[i].bound = 1;
@@ -965,8 +978,11 @@ options_parsed:
 				}
 
 				//now close all the unbound fd
-					for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
+				for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
 					int useless = 1;
+#ifdef UWSGI_MULTICAST
+					if (j == uwsgi.cluster_fd) continue;
+#endif
 					socket_type_len = sizeof(struct sockaddr_un);
 					gsa = (struct sockaddr *) & usa;
 					if (!getsockname(j, gsa, &socket_type_len)) {
@@ -982,7 +998,7 @@ options_parsed:
 				}
 			}
 		//now bind all the unbound sockets
-			for (i = 0; i < uwsgi.sockets_cnt; i++) {
+		for (i = 0; i < uwsgi.sockets_cnt; i++) {
 			if (!uwsgi.sockets[i].bound) {
 				char *tcp_port = strchr(uwsgi.sockets[i].name, ':');
 				if (tcp_port == NULL) {

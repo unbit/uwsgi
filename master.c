@@ -93,7 +93,7 @@ void master_loop(char **argv, char **environ) {
 		uwsgi_poll_size++;
 
 		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
-			uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
+			//uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
                 	cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->key);
 			if (uwsgi.exported_opts[i]->value) {
                         	cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->value);
@@ -103,7 +103,7 @@ void master_loop(char **argv, char **environ) {
 			}
                 }
 
-		uwsgi_log("cluster opts size: %d\n", cluster_opt_size);
+		//uwsgi_log("cluster opts size: %d\n", cluster_opt_size);
 		cluster_opt_buf = malloc(cluster_opt_size);
 		if (!cluster_opt_buf) {
 			uwsgi_error("malloc()");
@@ -119,7 +119,7 @@ void master_loop(char **argv, char **environ) {
 		cptrbuf = cluster_opt_buf+4;
 
 		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
-			uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
+			//uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
 			ustrlen = strlen(uwsgi.exported_opts[i]->key);
 			*cptrbuf++ = (uint8_t) (ustrlen	 & 0xff);
 			*cptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
@@ -215,11 +215,14 @@ void master_loop(char **argv, char **environ) {
 				int found = 0;
 				for(j=0;j<uwsgi.sockets_cnt;j++) {
 					if (i == uwsgi.sockets[j].fd) {
+						uwsgi_log("found fd %d\n", i);
 						found = 1;
 						break;
 					}
 				}
-				if (!found) close(i);
+				if (!found) {
+					close(i);
+				}
 			}
 
 			uwsgi_log( "running %s\n", uwsgi.binary_path);

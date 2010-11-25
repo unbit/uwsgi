@@ -330,6 +330,9 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 							asterisk[0] = '*';
 							uwsgi_log("found %s for %s on interface %s\n", new_addr, *socket_name, ifa->ifa_name);
 							*socket_name = uwsgi_concat3(new_addr, ":", tcp_port+1);
+							tcp_port = strchr(*socket_name, ':');
+							tcp_port[0] = 0;
+							tcp_port++;
 							break;
 						}
 					}
@@ -341,9 +344,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 				
 			}
-			else {
-				uws_addr.sin_addr.s_addr = inet_addr(*socket_name);
-			}
+			uws_addr.sin_addr.s_addr = inet_addr(*socket_name);
 		}
 
 
