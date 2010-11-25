@@ -43,7 +43,7 @@ ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t 
 
 	memset(&udp_addr, 0, sizeof(struct sockaddr_in));
 	udp_addr.sin_family = AF_INET;
-	udp_addr.sin_port = htons(atoi(udp_port));
+	udp_addr.sin_port = htons(atoi(udp_port+1));
 	udp_addr.sin_addr.s_addr = inet_addr(host);
 
 	udpbuff[0] = modifier1;

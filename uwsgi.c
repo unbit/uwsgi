@@ -97,6 +97,8 @@ static struct option long_base_options[] = {
 	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
 	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER},
 #endif
+	{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD},
+	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG},
 #ifdef UWSGI_SNMP
 	{"snmp", no_argument, 0, LONG_ARGS_SNMP},
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
@@ -1496,6 +1498,12 @@ end:
 
 		case 0:
 			return 1;
+		case LONG_ARGS_CLUSTER_RELOAD:
+			send_udp_message(98, optarg, "", 0);
+			break;
+		case LONG_ARGS_CLUSTER_LOG:
+			uwsgi_stdin_sendto(optarg, 96, 0);
+			break;
 		case LONG_ARGS_VHOSTHOST:
 			uwsgi.vhost = 1;
 			uwsgi.vhost_host = 1;
@@ -2222,4 +2230,25 @@ int uwsgi_cluster_join(char *name) {
 	
 	return fd;
 
+}
+
+void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2) {
+
+	char buf[4096];
+	ssize_t rlen ;
+	size_t delta = 4096;
+	char *ptr = buf;
+
+	rlen = read(0, ptr, delta);
+	while(rlen > 0) {
+		ptr += rlen;
+		delta-=rlen;
+		if (delta <= 0) break;
+		rlen = read(0, ptr, delta);
+	}
+	
+	if (ptr > buf) {
+		send_udp_message(modifier1, socket_name, ptr, ptr-buf);
+	}
+	
 }

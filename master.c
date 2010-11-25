@@ -346,6 +346,13 @@ void master_loop(char **argv, char **environ) {
 								}
 
 								switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
+									case 96:
+										uwsgi_log_verbose("%.*s", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
+									case 98:
+										if (kill(getpid(), SIGHUP)) {
+											uwsgi_error("kill()");
+										}
+										break;
 									case 99:
 										if (uwsgi.wsgi_requests[0]->uh.modifier2 == 0) {
 											uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);

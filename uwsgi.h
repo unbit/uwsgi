@@ -242,6 +242,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_UPLOAD_PROGRESS	17060
 #define LONG_ARGS_REMAP_MODIFIER	17061
 #define LONG_ARGS_CLUSTER		17062
+#define LONG_ARGS_CLUSTER_RELOAD	17063
+#define LONG_ARGS_CLUSTER_LOG		17064
 
 
 
@@ -1163,3 +1165,5 @@ int uwsgi_get_dgram(int, struct wsgi_request *);
 int uwsgi_cluster_join(char *);
 
 int uwsgi_string_sendto(int, uint8_t, uint8_t, struct sockaddr *, socklen_t, char *, size_t);
+
+void uwsgi_stdin_sendto(char *, uint8_t, uint8_t);
