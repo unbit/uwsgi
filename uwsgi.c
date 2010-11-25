@@ -2241,6 +2241,7 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 
 	rlen = read(0, ptr, delta);
 	while(rlen > 0) {
+		uwsgi_log("%.*s\n", rlen, ptr);
 		ptr += rlen;
 		delta-=rlen;
 		if (delta <= 0) break;
@@ -2248,7 +2249,8 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 	}
 	
 	if (ptr > buf) {
-		send_udp_message(modifier1, socket_name, ptr, ptr-buf);
+		send_udp_message(modifier1, socket_name, buf, ptr-buf);
+		uwsgi_log("sent string \"%.*s\" to cluster node %s", ptr-buf, buf, socket_name);
 	}
 	
 }

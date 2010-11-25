@@ -347,7 +347,7 @@ void master_loop(char **argv, char **environ) {
 
 								switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
 									case 96:
-										uwsgi_log_verbose("%.*s", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
+										uwsgi_log_verbose("%.*s\n", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
 										break;
 									case 98:
 										if (kill(getpid(), SIGHUP)) {
