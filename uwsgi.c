@@ -580,7 +580,7 @@ int main(int argc, char *argv[], char *envp[])
 		// ask for cluster options only if bot pre-existent options are set
 		if (uwsgi.exported_opts_cnt == 1) {
 			// now wait max 60 seconds and resend multicast request every 10 seconds
-			for(i=0;i<6;i++) {
+			for(;;) {
 				uwsgi_log("asking \"%s\" uWSGI cluster for configuration data:\n", uwsgi.cluster);
 				if (uwsgi_send_empty_pkt(uwsgi.cluster_fd, uwsgi.cluster, 99, 0) < 0) {
 					uwsgi_log("unable to send multicast message to %s\n", uwsgi.cluster);	
