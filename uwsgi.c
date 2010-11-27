@@ -603,9 +603,12 @@ waitfd:
 				}
 			}
 		}
+options_parsed:
+
+		uwsgi_cluster_add_me();
+	
 	}
 
-options_parsed:
 
 	//call after_opt hooks
 
@@ -1649,7 +1652,7 @@ end:
 			return 1;
 #ifdef UWSGI_PROXY
 		case LONG_ARGS_PROXY_NODE:
-			uwsgi_cluster_add_node(optarg, 1);
+			uwsgi_cluster_add_node(optarg, 1, CLUSTER_NODE_STATIC);
 			return 1;
 		case LONG_ARGS_PROXY:
 			uwsgi.proxy_socket_name = optarg;
@@ -2028,45 +2031,47 @@ end:
 
 	}
 
-	void uwsgi_cluster_add_node(char *nodename, int workers) {
+void uwsgi_cluster_add_node(char *nodename, int workers, int type) {
 
-		int i;
-		struct uwsgi_cluster_node *ucn;
-		char *tcp_port;
+	int i;
+	struct uwsgi_cluster_node *ucn;
+	char *tcp_port;
 
-		if (strlen(nodename) > 100) {
-			uwsgi_log("invalid cluster node name %s\n", nodename);
-			return;
-		}
-		 tcp_port = strchr(nodename, ':');
-		if (tcp_port == NULL) {
-			fprintf(stdout, "invalid cluster node name %s\n", nodename);
-			return;
-		}
-		for (i = 0; i < MAX_CLUSTER_NODES; i++) {
-			ucn = &uwsgi.shared->nodes[i];
-
-			if (ucn->name[0] == 0) {
-				memcpy(ucn->name, nodename, strlen(nodename) + 1);
-				ucn->workers = workers;
-				ucn->ucn_addr.sin_family = AF_INET;
-				ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));
-				tcp_port[0] = 0;
-				if (nodename[0] == 0) {
-					ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY;
-				} else {
-					uwsgi_log("%s\n", nodename);
-					ucn->ucn_addr.sin_addr.s_addr = inet_addr(nodename);
-				}
-
-				ucn->last_seen = time(NULL);
-
-				return;
-			}
-		}
-
-		uwsgi_log("unable to add node %s\n", nodename);
+	if (strlen(nodename) > 100) {
+		uwsgi_log("invalid cluster node name %s\n", nodename);
+		return;
 	}
+
+	tcp_port = strchr(nodename, ':');
+	if (tcp_port == NULL) {
+		fprintf(stdout, "invalid cluster node name %s\n", nodename);
+		return;
+	}
+	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
+		ucn = &uwsgi.shared->nodes[i];
+
+		if (ucn->name[0] == 0) {
+			memcpy(ucn->name, nodename, strlen(nodename) + 1);
+			ucn->workers = workers;
+			ucn->ucn_addr.sin_family = AF_INET;
+			ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));
+			tcp_port[0] = 0;
+			if (nodename[0] == 0) {
+				ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY;
+			} else {
+			uwsgi_log("%s\n", nodename);
+				ucn->ucn_addr.sin_addr.s_addr = inet_addr(nodename);
+			}
+
+			ucn->type = type;
+			ucn->last_seen = time(NULL);
+
+			return;
+		}
+	}
+
+	uwsgi_log("unable to add node %s\n", nodename);
+}
 
 
 void build_options() {
@@ -2217,13 +2222,70 @@ void manage_string_opt(char *key, int keylen, char *val, int vallen) {
 	}
 }
 
+int uwsgi_cluster_add_me() {
+
+	const char *key1 = "hostname";
+	const char *key2 = "address";
+	const char *key3 = "workers";
+	char *ptrbuf ;
+	uint16_t ustrlen;
+	char numproc[6];
+
+	snprintf(numproc, 6, "%d", uwsgi.numproc);
+
+	size_t len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.sockets[0].name) + 2 + strlen(key3) + 2 + strlen(numproc);
+	char *buf = malloc( len );
+	if (!buf) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}
+
+	ptrbuf = buf;
+
+	ustrlen = strlen(key1);
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, key1, strlen(key1)); ptrbuf+=strlen(key1);
+
+	ustrlen = strlen(uwsgi.hostname);
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, uwsgi.hostname, strlen(uwsgi.hostname)); ptrbuf+=strlen(uwsgi.hostname);
+
+	ustrlen = strlen(key2);
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, key2, strlen(key2)); ptrbuf+=strlen(key2);
+
+	ustrlen = strlen(uwsgi.sockets[0].name);
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, uwsgi.sockets[0].name, strlen(uwsgi.sockets[0].name)); ptrbuf+=strlen(uwsgi.sockets[0].name);
+
+
+	ustrlen = strlen(key3);
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, key3, strlen(key3)); ptrbuf+=strlen(key3);
+
+	ustrlen = strlen(numproc);
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, numproc, strlen(numproc)); ptrbuf+=strlen(numproc);
+
+
+	uwsgi_string_sendto(uwsgi.cluster_fd, 95, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr), buf, len);
+
+	free(buf);
+
+	return 0;
+}
+
 int uwsgi_cluster_join(char *name) {
 
 	int fd ;
 	char *cp;
-	char hostname[256];
 
-	memset(hostname, 0, 256);
 
 	fd = bind_to_udp(name, 1);
 
@@ -2235,12 +2297,12 @@ int uwsgi_cluster_join(char *name) {
                 uwsgi.mc_cluster_addr.sin_port=htons(atoi(cp+1));
                 cp[0] = ':';
 
-		if (gethostname(hostname, 255)) {
+		if (gethostname(uwsgi.hostname, 255)) {
 			uwsgi_error("gethostname()");
 		}
 
 		// announce my presence to all the nodes
-		uwsgi_string_sendto(fd, 73, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr), hostname, strlen(hostname));
+		uwsgi_string_sendto(fd, 73, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr), uwsgi.hostname, strlen(uwsgi.hostname));
 	}
 
 	

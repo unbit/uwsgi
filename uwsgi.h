@@ -562,6 +562,7 @@ struct wsgi_request {
 struct uwsgi_server {
 
 
+	char		hostname[256];
 	int		no_initial_output;
 	int             has_threads;
 	int             apps_cnt;
@@ -806,10 +807,15 @@ struct uwsgi_server {
 	struct sockaddr_in mc_cluster_addr;
 };
 
+#define CLUSTER_NODE_STATIC	0
+#define CLUSTER_NODE_DYNAMIC	1
+
 struct uwsgi_cluster_node {
 	char            name[101];
 
 	struct sockaddr_in ucn_addr;
+
+	int		type;
 
 	int             workers;
 	int             connections;
@@ -987,7 +993,7 @@ void            uwsgi_proxy(int);
 pid_t           proxy_start(int);
 #endif
 
-void            uwsgi_cluster_add_node(char *, int);
+void            uwsgi_cluster_add_node(char *, int, int);
 int             uwsgi_ping_node(int, struct wsgi_request *);
 
 struct http_status_codes {
@@ -1167,3 +1173,5 @@ int uwsgi_cluster_join(char *);
 int uwsgi_string_sendto(int, uint8_t, uint8_t, struct sockaddr *, socklen_t, char *, size_t);
 
 void uwsgi_stdin_sendto(char *, uint8_t, uint8_t);
+
+int uwsgi_cluster_add_me(void);

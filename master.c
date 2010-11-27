@@ -451,7 +451,7 @@ void master_loop(char **argv, char **environ) {
 			for (i = 0; i < MAX_CLUSTER_NODES; i++) {
 				struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[i];
 
-				if (ucn->name[0] != 0 && ucn->status == UWSGI_NODE_FAILED) {
+				if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_STATIC && ucn->status == UWSGI_NODE_FAILED) {
 					// should i retry ?
 					if (master_cycles % ucn->errors == 0) {
 						if (!uwsgi_ping_node(i, uwsgi.wsgi_req)) {
