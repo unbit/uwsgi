@@ -2047,6 +2047,18 @@ void uwsgi_cluster_add_node(char *nodename, int workers, int type) {
 		fprintf(stdout, "invalid cluster node name %s\n", nodename);
 		return;
 	}
+
+	// first check for already present node
+	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
+                ucn = &uwsgi.shared->nodes[i];
+		if (ucn->name[0] != 0) {
+			if (!strcmp(ucn->name, nodename)) {
+				ucn->status = UWSGI_NODE_OK;			
+				return;
+			}
+		}
+	}
+
 	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
 		ucn = &uwsgi.shared->nodes[i];
 
@@ -2064,6 +2076,10 @@ void uwsgi_cluster_add_node(char *nodename, int workers, int type) {
 			}
 
 			ucn->type = type;
+			// here memory can be freed, as it is allocated by uwsgi_concat2n
+			if (type == CLUSTER_NODE_DYNAMIC) {
+				free(nodename);
+			}
 			ucn->last_seen = time(NULL);
 
 			return;

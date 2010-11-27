@@ -19,8 +19,24 @@ void get_linux_tcp_info(int fd) {
 }
 #endif
 
+char *new_cluster_hostname;
+char *new_cluster_address;
+char *new_cluster_workers;
+
 void print_dict(char *key, uint16_t keylen, char *val, uint16_t vallen) {
 	uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
+
+	if (!uwsgi_strncmp("hostname", 8, key, keylen)) {
+		new_cluster_hostname = uwsgi_concat2n(val, vallen, "", 0);		
+	}
+
+	if (!uwsgi_strncmp("address", 7, key, keylen)) {
+		new_cluster_address = uwsgi_concat2n(val, vallen, "", 0);		
+	}
+
+	if (!uwsgi_strncmp("workers", 7, key, keylen)) {
+		new_cluster_workers = uwsgi_concat2n(val, vallen, "", 0);		
+	}
 }
 
 void master_loop(char **argv, char **environ) {
@@ -354,7 +370,13 @@ void master_loop(char **argv, char **environ) {
 
 								switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
 									case 95:
+										new_cluster_hostname = NULL;
+										new_cluster_address = NULL;
+										new_cluster_workers = NULL;
 										uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, print_dict);
+										if (new_cluster_hostname && new_cluster_address && new_cluster_workers) {
+											uwsgi_cluster_add_node(new_cluster_address, atoi(new_cluster_workers), CLUSTER_NODE_DYNAMIC);
+										}
 										break;
 									case 96:
 										uwsgi_log_verbose("%.*s\n", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
@@ -470,6 +492,11 @@ void master_loop(char **argv, char **environ) {
 						}
 					}
 				}
+			}
+
+			// reannounce myself every 10 cycles
+			if (uwsgi.cluster && uwsgi.cluster_fd >= 0 && (master_cycles % 10) == 0) {
+				uwsgi_cluster_add_me();
 			}
 
 			continue;

@@ -335,8 +335,13 @@ void uwsgi_proxy(int proxyfd) {
 							uwsgi_log( "connect() %s\n", strerror(soopt));
 							// increase errors on node
 							uwsgi_log( "*** marking cluster node %d/%s as failed ***\n", upcs[eevents[i].ASYNC_FD].node, uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name);
-							uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].errors++;
-							uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].status = UWSGI_NODE_FAILED;
+							if (uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].type == CLUSTER_NODE_DYNAMIC) {
+								uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name[0] = 0 ;	
+							}
+							else {
+								uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].errors++;
+								uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].status = UWSGI_NODE_FAILED;
+							}
 							uwsgi_proxy_close(upcs, ev.ASYNC_FD);
 							continue;
 						}
@@ -380,8 +385,13 @@ void uwsgi_proxy(int proxyfd) {
 
 						// increase errors on node
 						uwsgi_log( "*** marking cluster node %d/%s as failed ***\n", upcs[eevents[i].ASYNC_FD].node, uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name);
-						uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].errors++;
-						uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].status = UWSGI_NODE_FAILED;
+							if (uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].type == CLUSTER_NODE_DYNAMIC) {
+								uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].name[0] = 0;
+							}
+							else {
+								uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].errors++;
+								uwsgi.shared->nodes[upcs[eevents[i].ASYNC_FD].node].status = UWSGI_NODE_FAILED;
+							}
 					}
 					else {
 						uwsgi_log( "STRANGE EVENT !!! %d %d %d\n", (int) eevents[i].ASYNC_FD, (int) eevents[i].ASYNC_EV, upcs[eevents[i].ASYNC_FD].status);
