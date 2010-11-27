@@ -80,9 +80,15 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	//PyDict_SetItemString(uwsgi.embedded_dict, "env", wsgi_req->async_environ);
 
-	//PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", uwsgi_version);
+	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", PyString_FromString(UWSGI_VERSION));
+	if (uwsgi.cores > 1) {
+		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.core", PyInt_FromLong(wsgi_req->async_id));
+	}
 
-	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.core", PyInt_FromLong(wsgi_req->async_id));
+	if (uwsgi.cluster_fd >= 0) {
+		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster", PyString_FromString(uwsgi.cluster));
+		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster_node", PyString_FromString(uwsgi.hostname));
+	}
 
 
 #ifdef UWSGI_ROUTING

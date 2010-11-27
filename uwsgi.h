@@ -603,6 +603,7 @@ struct uwsgi_server {
 #ifdef UWSGI_PROXY
 	int             proxyfd;
 	char           *proxy_socket_name;
+	int		proxy_add_me;
 #endif
 
 	char           *logfile;

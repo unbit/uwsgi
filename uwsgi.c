@@ -609,6 +609,12 @@ options_parsed:
 	
 	}
 
+#ifdef UWSGI_PROXY
+	if (uwsgi.proxy_add_me) {
+		uwsgi_cluster_add_node(uwsgi.sockets[0].name, 1, CLUSTER_NODE_STATIC);
+	}
+#endif
+
 
 	//call after_opt hooks
 
@@ -1652,7 +1658,12 @@ end:
 			return 1;
 #ifdef UWSGI_PROXY
 		case LONG_ARGS_PROXY_NODE:
-			uwsgi_cluster_add_node(optarg, 1, CLUSTER_NODE_STATIC);
+			if (uwsgi.cluster_fd >= 0 && !strcmp(optarg, "@self")) {
+				uwsgi.proxy_add_me = 1;
+			}
+			else {
+				uwsgi_cluster_add_node(optarg, 1, CLUSTER_NODE_STATIC);
+			}
 			return 1;
 		case LONG_ARGS_PROXY:
 			uwsgi.proxy_socket_name = optarg;
@@ -2080,8 +2091,11 @@ void uwsgi_cluster_add_node(char *nodename, int workers, int type) {
 			if (type == CLUSTER_NODE_DYNAMIC) {
 				free(nodename);
 			}
+			else {
+				tcp_port[0] = ':';
+			}
 			ucn->last_seen = time(NULL);
-
+			uwsgi_log("[uWSGI cluster] added node %s\n", ucn->name);
 			return;
 		}
 	}

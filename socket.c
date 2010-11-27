@@ -319,8 +319,8 @@ char *generate_socket_name(char *socket_name) {
                         if (inet_ntop(AF_INET, (void *) &sin->sin_addr.s_addr, new_addr, 16)) {
                         	if (!strncmp( socket_name, new_addr, strlen(socket_name)) ) {
                                 	asterisk[0] = '*';
-                                        uwsgi_log("found %s for %s on interface %s\n", new_addr, socket_name, ifa->ifa_name);
                                         new_socket = uwsgi_concat3(new_addr, ":", tcp_port+1);
+                                        uwsgi_log("found %s for %s on interface %s\n", new_socket, socket_name, ifa->ifa_name);
                                 	freeifaddrs(ifap);
 					return new_socket;
 				}
