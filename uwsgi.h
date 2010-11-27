@@ -922,7 +922,7 @@ void            grace_them_all(void);
 void            reload_me(void);
 void            end_me(void);
 int             bind_to_unix(char *, int, int, int);
-int             bind_to_tcp(char **, int, char *);
+int             bind_to_tcp(char *, int, char *);
 int             bind_to_udp(char *, int);
 int             timed_connect(struct pollfd *, const struct sockaddr *, int, int);
 int             uwsgi_connect(char *, int);
@@ -1163,8 +1163,9 @@ ssize_t uwsgi_send_empty_pkt(int , char *, uint8_t , uint8_t);
 
 int uwsgi_waitfd(int, int);
 
-int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)());
-void manage_string_opt(char *, int, char*, int);
+int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t));
+int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t));
+void manage_string_opt(char *, uint16_t, char*, uint16_t);
 
 int uwsgi_get_dgram(int, struct wsgi_request *);
 
@@ -1175,3 +1176,5 @@ int uwsgi_string_sendto(int, uint8_t, uint8_t, struct sockaddr *, socklen_t, cha
 void uwsgi_stdin_sendto(char *, uint8_t, uint8_t);
 
 int uwsgi_cluster_add_me(void);
+
+char *generate_socket_name(char *);

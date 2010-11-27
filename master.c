@@ -19,6 +19,10 @@ void get_linux_tcp_info(int fd) {
 }
 #endif
 
+void print_dict(char *key, uint16_t keylen, char *val, uint16_t vallen) {
+	uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
+}
+
 void master_loop(char **argv, char **environ) {
 
 	uint64_t master_cycles = 0;
@@ -349,6 +353,9 @@ void master_loop(char **argv, char **environ) {
 								}
 
 								switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
+									case 95:
+										uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, print_dict);
+										break;
 									case 96:
 										uwsgi_log_verbose("%.*s\n", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
 										break;

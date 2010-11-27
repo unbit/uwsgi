@@ -285,7 +285,60 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	}
 
-	int bind_to_tcp(char **socket_name, int listen_queue, char *tcp_port) {
+char *generate_socket_name(char *socket_name) {
+
+	char *asterisk = strchr(socket_name, '*');
+
+	char *new_socket;
+	char *tcp_port;
+
+        tcp_port = strchr(socket_name, ':');
+	if (!tcp_port) return socket_name;
+
+	if (asterisk) {
+
+		uwsgi_log("generate_socket_name(%s)\n", socket_name);
+		// get all the AF_INET addresses available
+                struct ifaddrs *ifap = NULL, *ifa, *ifaf;
+                if (getifaddrs(&ifap)) {
+                	uwsgi_error("getifaddrs()");
+                        exit(1);
+                }
+
+                // here socket_name will be truncated
+                asterisk[0] = 0;
+
+		uwsgi_log("asterisk found\n");
+
+                char new_addr[16];
+                struct sockaddr_in *sin;
+                ifa = ifap ;
+                while(ifa) {
+                	memset(new_addr, 0, 16);
+                        sin = (struct sockaddr_in *) ifa->ifa_addr;
+                        if (inet_ntop(AF_INET, (void *) &sin->sin_addr.s_addr, new_addr, 16)) {
+                        	if (!strncmp( socket_name, new_addr, strlen(socket_name)) ) {
+                                	asterisk[0] = '*';
+                                        uwsgi_log("found %s for %s on interface %s\n", new_addr, socket_name, ifa->ifa_name);
+                                        new_socket = uwsgi_concat3(new_addr, ":", tcp_port+1);
+                                	freeifaddrs(ifap);
+					return new_socket;
+				}
+				
+			}
+
+                        ifaf = ifa;
+                        ifa = ifaf->ifa_next;
+
+		}	
+
+		uwsgi_log("unable to find avalid socket address\n");
+		exit(1);
+	}
+	return socket_name ;
+}
+
+int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 		int serverfd;
 		struct sockaddr_in uws_addr;
@@ -303,48 +356,11 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 			exit(1);
 		}
 
-		if (*socket_name[0] == 0) {
+		if (socket_name[0] == 0) {
 			uws_addr.sin_addr.s_addr = INADDR_ANY;
 		}
 		else {
-			char *asterisk = strchr(*socket_name, '*');
-			if (asterisk) {
-				// get all the AF_INET addresses available
-				struct ifaddrs *ifap = NULL, *ifa, *ifaf;
-				if (getifaddrs(&ifap)) {
-					uwsgi_error("getifaddrs()");
-					exit(1);
-				}
-
-				// here socket_name will be truncated
-				asterisk[0] = 0;
-
-				char new_addr[16];
-				struct sockaddr_in *sin;
-				ifa = ifap ;
-				while(ifa) {
-					memset(new_addr, 0, 16);
-					sin = (struct sockaddr_in *) ifa->ifa_addr;
-					if (inet_ntop(AF_INET, (void *) &sin->sin_addr.s_addr, new_addr, 16)) {
-						if (!strncmp( *socket_name, new_addr, strlen(*socket_name)) ) {
-							asterisk[0] = '*';
-							uwsgi_log("found %s for %s on interface %s\n", new_addr, *socket_name, ifa->ifa_name);
-							*socket_name = uwsgi_concat3(new_addr, ":", tcp_port+1);
-							tcp_port = strchr(*socket_name, ':');
-							tcp_port[0] = 0;
-							tcp_port++;
-							break;
-						}
-					}
-					ifaf = ifa;	
-					ifa = ifaf->ifa_next;
-				}
-
-				freeifaddrs(ifap);
-
-				
-			}
-			uws_addr.sin_addr.s_addr = inet_addr(*socket_name);
+			uws_addr.sin_addr.s_addr = inet_addr(socket_name);
 		}
 
 

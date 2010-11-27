@@ -705,7 +705,7 @@ options_parsed:
 		char *tcp_port = strchr(uwsgi.http, ':');
 		if (tcp_port) {
 			uwsgi.http_server_port = tcp_port + 1;
-			uwsgi.http_fd = bind_to_tcp(&uwsgi.http, uwsgi.listen_queue, tcp_port);
+			uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("HTTP FD: %d\n", uwsgi.http_fd);
 #endif
@@ -1009,7 +1009,7 @@ options_parsed:
 					uwsgi.sockets[i].family = AF_UNIX;
 					uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				} else {
-					uwsgi.sockets[i].fd = bind_to_tcp(&uwsgi.sockets[i].name, uwsgi.listen_queue, tcp_port);
+					uwsgi.sockets[i].fd = bind_to_tcp(uwsgi.sockets[i].name, uwsgi.listen_queue, tcp_port);
 					uwsgi.sockets[i].family = AF_INET;
 					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				}
@@ -1479,7 +1479,7 @@ end:
 		if (tcp_port == NULL) {
 			uwsgi.proxyfd = bind_to_unix(uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, uwsgi.chmod_socket, uwsgi.abstract_socket);
 		} else {
-			uwsgi.proxyfd = bind_to_tcp(&uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, tcp_port);
+			uwsgi.proxyfd = bind_to_tcp(uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, tcp_port);
 			tcp_port[0] = ':';
 		}
 
@@ -1818,7 +1818,7 @@ end:
 			return 1;
 		case 's':
 			if (uwsgi.sockets_cnt < 8) {
-				uwsgi.sockets[uwsgi.sockets_cnt].name = optarg;
+				uwsgi.sockets[uwsgi.sockets_cnt].name = generate_socket_name(optarg);
 				uwsgi.sockets_cnt++;
 			} else {
 				uwsgi_log("you can specify at most 8 --socket options\n");
@@ -2197,7 +2197,7 @@ void build_options() {
 }
 
 
-void manage_string_opt(char *key, int keylen, char *val, int vallen) {
+void manage_string_opt(char *key, uint16_t keylen, char *val, uint16_t vallen) {
 
 	struct option *lopt, *aopt;
 
