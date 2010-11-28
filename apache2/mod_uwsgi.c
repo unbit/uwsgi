@@ -392,6 +392,13 @@ static int uwsgi_handler(request_rec *r) {
 			}
 		}
 	}
+
+	/* environment variables */
+	headers = apr_table_elts(r->subprocess_env);
+	h = (apr_table_entry_t*) headers->elts;
+	for (i = 0; i < headers->nelts; ++i) {
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, h[i].key, h[i].val, &pkt_size) ;
+	}	
 	
 
 	uwsgi_vars[0].iov_base = pkt_header;
