@@ -415,6 +415,7 @@ int main(int argc, char *argv[], char *envp[])
 		uwsgi.p[i] = &unconfigured_plugin;
 	}
 
+	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
 
 	uwsgi.apps_cnt = 1;
