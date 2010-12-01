@@ -1,0 +1,7 @@
+# werkzeug test module via YAML
+uwsgi:
+  module: werkzeug.testapp:test_app # a comment
+  socket: :3032 # another comment
+  master: 1
+  processes: 8 # the number of processes
+  memory-report: 1
