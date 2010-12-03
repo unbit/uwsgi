@@ -4,6 +4,9 @@
 
 	<http>:9090</http>
 
+	<socket>:3031</socket>
+	<socket>127.0.0.1:3032</socket>
+
 	<manage-script-name/>
 	
 	<master/>

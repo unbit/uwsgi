@@ -71,9 +71,11 @@ void master_loop(char **argv, char **environ) {
 
 	char *cluster_opt_buf = NULL;
 	int cluster_opt_size = 4;
+#ifdef UWSGI_MULTICAST
 	char *cptrbuf;
 	uint16_t ustrlen;
 	struct uwsgi_header *uh;
+#endif
 #endif
 
 	int i,j;
