@@ -177,10 +177,14 @@ PyObject *py_uwsgi_recv(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
+	UWSGI_RELEASE_GIL
 	// security check
 	if (max_size > 4096) max_size = 4096;
 
 	rlen = read(fd,  buf, max_size) ;
+
+	UWSGI_GET_GIL
+
 	if ( rlen > 0) {
 		return PyString_FromStringAndSize(buf, rlen);
 	}
@@ -208,12 +212,16 @@ PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 		data = arg1;
 	}
 
+	UWSGI_RELEASE_GIL
+
 	if (write(uwsgi_fd, PyString_AsString(data), PyString_Size(data)) < 0) {
 		uwsgi_error("write()");
+		UWSGI_GET_GIL
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
 
+	UWSGI_GET_GIL
 	Py_INCREF(Py_True);
 	return Py_True;
 
@@ -962,6 +970,7 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 	uwsgi_Iter *ui = (uwsgi_Iter *)self;
 	char buf[4096];
 
+	UWSGI_RELEASE_GIL
 	rlen = uwsgi_waitfd(ui->fd, ui->timeout);
 	if (rlen > 0) {
 		rlen = read(ui->fd, buf, 4096);
@@ -969,6 +978,7 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 			uwsgi_error("read()");
 		}
 		else if (rlen > 0) {
+			UWSGI_GET_GIL
 			return PyString_FromStringAndSize(buf, rlen);
 		}
 	}
@@ -976,6 +986,7 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 		uwsgi_log("uwsgi request timed out waiting for response\n");
 	}
 
+	UWSGI_GET_GIL
 	PyErr_SetNone(PyExc_StopIteration);
 
 	return NULL;
@@ -1046,12 +1057,16 @@ PyObject *py_uwsgi_async_send_message(PyObject * self, PyObject * args) {
         if (PyDict_Check(pyobj)) {
                 encoded = uwsgi_encode_pydict(pyobj, &esize);
                 if (esize > 0) {
+			UWSGI_RELEASE_GIL
                         ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
                         free(encoded);
                 }
         }
         else if (PyString_Check(pyobj)) {
-                ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, PyString_AsString(pyobj), PyString_Size(pyobj), -1, 0, 0);
+		encoded = PyString_AsString(pyobj);
+		esize = PyString_Size(pyobj) ;
+		UWSGI_RELEASE_GIL
+                ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
         }
         else {
                 marshalled = PyMarshal_WriteObjectToString(pyobj, 1);
@@ -1059,8 +1074,14 @@ PyObject *py_uwsgi_async_send_message(PyObject * self, PyObject * args) {
                         PyErr_Print();
                         goto clear;
                 }
-                ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, PyString_AsString(marshalled), PyString_Size(marshalled), -1, 0, 0);
+	
+		encoded = PyString_AsString(marshalled);
+		esize = PyString_Size(marshalled);
+		UWSGI_RELEASE_GIL
+                ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
         }
+
+	UWSGI_GET_GIL
 
 clear:
 
@@ -1106,23 +1127,33 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
 	// now check for the type of object to send (fallback to marshal)
 	if (PyDict_Check(pyobj)) {
-		encoded = uwsgi_encode_pydict(pyobj, &esize);
-		if (esize > 0) {
-			ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
-			free(encoded);
-		}
-	}
-	else if (PyString_Check(pyobj)) {
-		ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, PyString_AsString(pyobj), PyString_Size(pyobj), fd, cl, timeout);
-	}
-	else {
-		marshalled = PyMarshal_WriteObjectToString(pyobj, 1);
-		if (!marshalled) {
-			PyErr_Print();
-			goto clear2;
-		}
-		ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, PyString_AsString(marshalled), PyString_Size(marshalled), fd, cl, timeout);
-	}
+                encoded = uwsgi_encode_pydict(pyobj, &esize);
+                if (esize > 0) {
+                        UWSGI_RELEASE_GIL
+                	ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
+                        free(encoded);
+                }
+        }
+        else if (PyString_Check(pyobj)) {
+                encoded = PyString_AsString(pyobj);
+                esize = PyString_Size(pyobj) ;
+                UWSGI_RELEASE_GIL
+                ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
+        }
+        else {
+                marshalled = PyMarshal_WriteObjectToString(pyobj, 1);
+                if (!marshalled) {
+                        PyErr_Print();
+                        goto clear;
+                }
+
+                encoded = PyString_AsString(marshalled);
+                esize = PyString_Size(marshalled);
+                UWSGI_RELEASE_GIL
+                ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
+        }
+
+        UWSGI_GET_GIL
 
 	// request sent, return the iterator response
 	ui = PyObject_New(uwsgi_Iter, &uwsgi_IterType);

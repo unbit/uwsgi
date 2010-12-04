@@ -296,7 +296,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 		UWSGI_RELEASE_GIL
-		if (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
+		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
 			wsgi_req->switches++;
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
