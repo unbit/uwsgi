@@ -100,7 +100,7 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 
 	uwsgi_poll.events = POLLIN;
 
-	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
+	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout, 0)) {
 		uwsgi_error("connect()");
 		close(uwsgi_poll.fd);
 		return -1;
@@ -127,95 +127,77 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 	return uwsgi_poll.fd;
 }
 
-/*
-PyObject *uwsgi_send_message(const char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
+ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *message, uint16_t size, int pfd, size_t plen, int timeout) {
 
 	struct pollfd uwsgi_mpoll;
-	struct sockaddr_in uws_addr;
-	int cnt;
+	ssize_t cnt;
 	struct uwsgi_header uh;
-	char buffer[0xFFFF];
+	char buffer[4096];
+	ssize_t ret = 0;
+	int pret;
 
 
-
-	if (!timeout)
-		timeout = 1;
-
-	if (size > 0xFFFF) {
-		uwsgi_log( "invalid object (marshalled) size\n");
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	uwsgi_mpoll.events = POLLIN;
-
-	uwsgi_mpoll.fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (uwsgi_mpoll.fd < 0) {
-		uwsgi_error("socket()");
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
-	uws_addr.sin_family = AF_INET;
-	uws_addr.sin_port = htons(port);
-	uws_addr.sin_addr.s_addr = inet_addr(host);
-
-	UWSGI_SET_BLOCKING;
-
-	if (timed_connect(&uwsgi_mpoll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
-		uwsgi_error("connect()");
-		close(uwsgi_mpoll.fd);
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
+	if (!timeout) timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
 
 	uh.modifier1 = modifier1;
-	uh.pktsize = (uint16_t) size;
+	uh.pktsize = size;
 	uh.modifier2 = modifier2;
 
-	cnt = write(uwsgi_mpoll.fd, &uh, 4);
+	cnt = write(fd, &uh, 4);
 	if (cnt != 4) {
 		uwsgi_error("write()");
-		close(uwsgi_mpoll.fd);
-		Py_INCREF(Py_None);
-		return Py_None;
+		return -1;
 	}
 
-	cnt = write(uwsgi_mpoll.fd, message, size);
+	ret += cnt;
+
+	cnt = write(fd, message, size);
 	if (cnt != size) {
 		uwsgi_error("write()");
-		close(uwsgi_mpoll.fd);
-		Py_INCREF(Py_None);
-		return Py_None;
+		return -1;
 	}
 
+	ret += cnt;
 
-	if (!uwsgi_parse_response(&uwsgi_mpoll, timeout, &uh, buffer)) {
-		UWSGI_UNSET_BLOCKING;
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	UWSGI_UNSET_BLOCKING;
-
-	close(uwsgi_mpoll.fd);
-
-	if (uh.modifier1 == UWSGI_MODIFIER_RESPONSE) {
-		if (!uh.modifier2) {
-			Py_INCREF(Py_None);
-			return Py_None;
+	// transfer data from one socket to another
+	if (pfd >= 0 && plen > 0) {
+		uwsgi_mpoll.fd = pfd;
+		uwsgi_mpoll.events = POLLIN;
+		
+		while(plen > 0) {
+			pret = poll(&uwsgi_mpoll, 1, timeout*1000);
+			if (pret < 0) {
+				uwsgi_error("poll()");
+				return -1;
+			}
+			else if (pret == 0) {
+				uwsgi_log("timeout waiting for socket data\n");
+				return -1;
+			}
+			else {
+				cnt = read(pfd, buffer, UMIN(4096, plen));
+				if (cnt < 0) {
+					uwsgi_error("read()");
+					return -1;
+				}
+				else if (cnt == 0) {
+					return ret;
+				}	
+				// send to peer
+				if (write(fd, buffer, cnt) != cnt) {
+					uwsgi_error("write()");
+					return -1;
+				}
+				ret += cnt;
+				plen -= cnt;	
+			}
 		}
-		else {
-			Py_INCREF(Py_True);
-			return Py_True;
-		}
 	}
 
-	return PyMarshal_ReadObjectFromString(buffer, uh.pktsize);
+
+	return ret;
 }
 
-*/
 
 int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header *uh, char *buffer) {
 	int rlen, i;
@@ -538,7 +520,7 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &ucn->ucn_addr, sizeof(struct sockaddr_in), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &ucn->ucn_addr, sizeof(struct sockaddr_in), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0)) {
 		close(uwsgi_poll.fd);
 		return -1;
 	}

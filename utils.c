@@ -1139,6 +1139,8 @@ int uwsgi_waitfd(int fd, int timeout) {
 	upoll[0].fd = fd;
 	upoll[0].events = POLLIN;
 
+	if (!timeout) timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+
 	ret = poll(upoll, 1, timeout*1000);
 
 	if (ret < 0) {

@@ -135,7 +135,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		if (uwsgi.async > 1) {
 			if (wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
 				UWSGI_RELEASE_GIL
-					return UWSGI_AGAIN;
+				return UWSGI_AGAIN;
 			}
 		}
 #endif
@@ -152,7 +152,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
 			UWSGI_RELEASE_GIL
-				return UWSGI_AGAIN;
+			return UWSGI_AGAIN;
 		}
 #endif
 	}

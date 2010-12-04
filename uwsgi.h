@@ -925,10 +925,10 @@ void            end_me(void);
 int             bind_to_unix(char *, int, int, int);
 int             bind_to_tcp(char *, int, char *);
 int             bind_to_udp(char *, int);
-int             timed_connect(struct pollfd *, const struct sockaddr *, int, int);
-int             uwsgi_connect(char *, int);
-int             connect_to_tcp(char *, int, int);
-int             connect_to_unix(char *, int);
+int             timed_connect(struct pollfd *, const struct sockaddr *, int, int, int);
+int             uwsgi_connect(char *, int, int);
+int             connect_to_tcp(char *, int, int, int);
+int             connect_to_unix(char *, int, int);
 #ifdef UWSGI_SCTP
 int             bind_to_sctp(char *, int, char *);
 #endif
@@ -1179,3 +1179,7 @@ void uwsgi_stdin_sendto(char *, uint8_t, uint8_t);
 int uwsgi_cluster_add_me(void);
 
 char *generate_socket_name(char *);
+
+#define UMIN(a,b) ((a)>(b)?(b):(a))
+
+ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, size_t, int);

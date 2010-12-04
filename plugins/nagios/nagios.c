@@ -34,7 +34,7 @@ int nagios() {
 
 	tcp_port[0] = 0;
 
-	nagios_poll.fd = connect_to_tcp(uwsgi.sockets[0].name, atoi(tcp_port + 1), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	nagios_poll.fd = connect_to_tcp(uwsgi.sockets[0].name, atoi(tcp_port + 1), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (nagios_poll.fd < 0) {
 		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers\n");
 		exit(2);

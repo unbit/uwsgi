@@ -29,7 +29,7 @@ extern char **environ;
 
 static char *short_options = NULL;
 
-static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:L:y:";
+static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:Ly:";
 
 UWSGI_DECLARE_EMBEDDED_PLUGINS
 

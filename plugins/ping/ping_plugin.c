@@ -23,7 +23,7 @@ static void ping() {
 
 	uwsgi_log("PING uwsgi host %s (timeout: %d)\n", uping.ping, uping.ping_timeout);
 
-	uwsgi_poll.fd = uwsgi_connect(uping.ping, uping.ping_timeout);
+	uwsgi_poll.fd = uwsgi_connect(uping.ping, uping.ping_timeout, 0);
 	if (uwsgi_poll.fd < 0) {
 		exit(1);
 	}

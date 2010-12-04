@@ -207,20 +207,24 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 #endif
 
-	int uwsgi_connect(char *socket_name, int timeout) {
+int uwsgi_connect(char *socket_name, int timeout, int async) {
 
-		char *tcp_port = strchr(socket_name, ':');
+	int ret;
+	char *tcp_port = strchr(socket_name, ':');
 
-		if (tcp_port) {
-			tcp_port[0] = 0;
-			tcp_port++;
-			return connect_to_tcp(socket_name, atoi(tcp_port), timeout);
-		}
-
-		return connect_to_unix(socket_name, timeout);
+	if (tcp_port) {
+		tcp_port[0] = 0;
+		tcp_port++;
+		ret = connect_to_tcp(socket_name, atoi(tcp_port), timeout, async);
+		// reset the socket name
+		tcp_port--; tcp_port[0] = ':';
+		return ret;
 	}
 
-	int connect_to_unix(char *socket_name, int timeout) {
+	return connect_to_unix(socket_name, timeout, async);
+}
+
+	int connect_to_unix(char *socket_name, int timeout, int async) {
 
 		struct pollfd uwsgi_poll;
 		struct sockaddr_un uws_addr;
@@ -238,7 +242,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 		uwsgi_poll.events = POLLIN;
 
-		if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_un), timeout)) {
+		if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_un), timeout, async)) {
 			uwsgi_error("connect()");
 			close(uwsgi_poll.fd);
 			return -1;
@@ -248,7 +252,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	}
 
-	int connect_to_tcp(char *socket_name, int port, int timeout) {
+	int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
 
 		struct pollfd uwsgi_poll;
 		struct sockaddr_in uws_addr;
@@ -275,8 +279,8 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 		uwsgi_poll.events = POLLIN;
 
-		if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout)) {
-			uwsgi_error("connect()");
+		if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_in), timeout, async)) {
+			//uwsgi_error("connect()");
 			close(uwsgi_poll.fd);
 			return -1;
 		}
@@ -407,7 +411,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		return serverfd;
 	}
 
-	int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_size, int timeout) {
+int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_size, int timeout, int async) {
 
 		int arg, ret;
 		int soopt;
@@ -427,6 +431,17 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		}
 
 		ret = connect(fdpoll->fd, addr, addr_size);
+
+
+		/* re-set blocking socket */
+		arg &= (~O_NONBLOCK);
+		if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
+			uwsgi_error("fcntl()");
+			return -1;
+		}
+
+		if (async) return 0;
+
 		if (ret < 0) {
 			/* check what happened */
 
@@ -462,12 +477,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 			}
 		}
 
-		/* re-set blocking socket */
-		arg &= (~O_NONBLOCK);
-		if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
-			uwsgi_error("fcntl()");
-			return -1;
-		}
+
 
 		return 0;
 

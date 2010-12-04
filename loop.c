@@ -113,6 +113,8 @@ void complex_loop() {
 			continue;
 		}
 
+
+		
 		for(i=0; i<uwsgi.async_nevents;i++) {
 
 			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
@@ -144,6 +146,7 @@ void complex_loop() {
 					uwsgi.wsgi_req->async_status = UWSGI_AGAIN;
 					uwsgi.wsgi_req->async_waiting_fd = -1;
 					uwsgi.wsgi_req->async_waiting_fd_monitored = 0;
+					uwsgi.wsgi_req->async_timeout = 0;
 				}
 
 				async_del(uwsgi.async_queue, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);

@@ -270,7 +270,7 @@ int async_del(int queuefd, int fd, int etype) {
 int async_get_timeout() {
 
 
-	struct wsgi_request* wsgi_req = uwsgi.wsgi_requests[0];
+	struct wsgi_request* wsgi_req;
 	int i;
 	time_t curtime, tdelta = 0;
 	int ret = 0;
@@ -278,6 +278,7 @@ int async_get_timeout() {
 	if (!uwsgi.async_running) return 0;
 
 	for(i=0;i<uwsgi.async;i++) {
+		wsgi_req = uwsgi.wsgi_requests[i];
 		if (wsgi_req->async_status == UWSGI_AGAIN) {
 			if (wsgi_req->async_timeout_expired) {
 				return 0;
@@ -288,7 +289,6 @@ int async_get_timeout() {
 				}
 			}
 		}
-		wsgi_req = uwsgi.wsgi_requests[i+1];
 	}
 
 	curtime = time(NULL);
@@ -303,19 +303,24 @@ int async_get_timeout() {
 
 void async_expire_timeouts() {
 
-	struct wsgi_request* wsgi_req = uwsgi.wsgi_requests[0];
+	struct wsgi_request* wsgi_req;
 	int i;
 	time_t deadline = time(NULL);
 
 
 	for(i=0;i<uwsgi.async;i++) {
+		wsgi_req = uwsgi.wsgi_requests[i];
 		if (wsgi_req->async_status == UWSGI_AGAIN && wsgi_req->async_timeout > 0) {
 			if (wsgi_req->async_timeout <= deadline) {
 				wsgi_req->async_timeout = 0;
 				wsgi_req->async_timeout_expired = 1;
+				if (wsgi_req->async_waiting_fd != -1) {
+					async_del(uwsgi.async_queue, wsgi_req->async_waiting_fd, wsgi_req->async_waiting_fd_type);
+					wsgi_req->async_waiting_fd = -1;
+                                        wsgi_req->async_waiting_fd_monitored = 0;
+				}
 			}
 		}
-		wsgi_req = uwsgi.wsgi_requests[i+1];
 	}
 }
 
