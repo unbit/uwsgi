@@ -14,7 +14,7 @@ def application(env, start_response):
 		raise StopIteration
 
 	# connection refused ?
-	if fd < 0:
+	if not uwsgi.is_connected(fd):
 		print "unable to connect"
 		raise StopIteration
 	

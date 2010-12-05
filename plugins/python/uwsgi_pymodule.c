@@ -193,6 +193,32 @@ PyObject *py_uwsgi_recv(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_is_connected(PyObject * self, PyObject * args) {
+
+	int fd, soopt;
+        socklen_t solen = sizeof(int);
+
+	if (!PyArg_ParseTuple(args, "i:is_connected", &fd)) {
+                return NULL;
+        }
+
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
+                uwsgi_error("getsockopt()");
+		goto clear;
+        }
+        /* is something bad ? */
+        if (soopt) goto clear;
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
 PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 
 	PyObject *data;
@@ -1556,6 +1582,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"wait_fd_read", py_eventfd_read, METH_VARARGS, ""},
 		{"wait_fd_write", py_eventfd_write, METH_VARARGS, ""},
 #endif
+		{"is_connected", py_uwsgi_is_connected, METH_VARARGS, ""},
 		{"send", py_uwsgi_send, METH_VARARGS, ""},
 		{"recv", py_uwsgi_recv, METH_VARARGS, ""},
 		{"close", py_uwsgi_close, METH_VARARGS, ""},
