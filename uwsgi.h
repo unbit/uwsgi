@@ -824,6 +824,9 @@ struct uwsgi_cluster_node {
 
 	time_t          last_seen;
 	int             errors;
+
+	time_t          last_choosen;
+	
 };
 
 #ifdef UWSGI_SNMP
@@ -1183,3 +1186,5 @@ char *generate_socket_name(char *);
 #define UMIN(a,b) ((a)>(b)?(b):(a))
 
 ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, size_t, int);
+
+char *uwsgi_cluster_best_node(void);

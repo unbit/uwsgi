@@ -2066,6 +2066,7 @@ void uwsgi_cluster_add_node(char *nodename, int workers, int type) {
 		if (ucn->name[0] != 0) {
 			if (!strcmp(ucn->name, nodename)) {
 				ucn->status = UWSGI_NODE_OK;			
+				ucn->last_seen = time(NULL);
 				return;
 			}
 		}
@@ -2362,4 +2363,33 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 		uwsgi_log("sent string \"%.*s\" to cluster node %s", ptr-buf, buf, socket_name);
 	}
 	
+}
+
+
+char *uwsgi_cluster_best_node() {
+	
+	int i;
+	int best_node = -1;
+	struct uwsgi_cluster_node *ucn;
+
+	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
+                ucn = &uwsgi.shared->nodes[i];
+                if (ucn->name[0] != 0 && ucn->status == UWSGI_NODE_OK) {
+			if (best_node == -1) {
+				best_node = i;
+			}
+			else {
+				if (ucn->last_choosen < uwsgi.shared->nodes[best_node].last_choosen) {
+					best_node = i;
+				}
+			}
+                }
+        }
+
+	if (best_node == -1) {
+		return NULL;
+	}
+
+	uwsgi.shared->nodes[best_node].last_choosen = time(NULL);
+	return uwsgi.shared->nodes[best_node].name;
 }

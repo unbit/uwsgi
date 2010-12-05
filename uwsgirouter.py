@@ -29,9 +29,7 @@ def application(env, start_response):
 	# uwsgi.recv will use always an internal buffer of 4096, but can be limited in the number of bytes to read
 
 	# does thir request has a body ?
-	cl = 0
-	if env.has_key('CONTENT_LENGTH'):
-		cl = int(env['CONTENT_LENGTH'])
+	cl = uwsgi.cl()
 
 	if cl > 0:
 		# get the input fd

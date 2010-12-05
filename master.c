@@ -494,6 +494,13 @@ void master_loop(char **argv, char **environ) {
 						}
 					}
 				}
+				else if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_DYNAMIC) {
+					// if the last_seen attr is higher than 30 secs ago, mark the node as dead
+					if ( (time(NULL) - ucn->last_seen) > 30) {
+						uwsgi_log_verbose("no presence announce in the last 30 seconds by node %s, i assume it is dead.\n", ucn->name);
+						ucn->name[0] = 0 ;
+					}
+				}
 			}
 
 			// reannounce myself every 10 cycles

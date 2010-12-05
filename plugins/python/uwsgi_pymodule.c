@@ -983,6 +983,7 @@ typedef struct {
 	PyObject_HEAD
 	int fd;
 	int timeout;
+	int close;
 } uwsgi_Iter;
 
 
@@ -1012,6 +1013,10 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 		uwsgi_log("uwsgi request timed out waiting for response\n");
 	}
 
+	if (ui->close) {
+		close(ui->fd);
+	}
+	
 	UWSGI_GET_GIL
 	PyErr_SetNone(PyExc_StopIteration);
 
@@ -1190,6 +1195,7 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
 	ui->fd = uwsgi_fd;
 	ui->timeout = timeout;
+	ui->close = close_fd;
 	
 	return (PyObject *) ui;
 
@@ -1352,6 +1358,14 @@ clear:
 		return ml;
 
 	}
+
+PyObject *py_uwsgi_cl(PyObject * self, PyObject * args) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	return PyLong_FromLong(wsgi_req->post_cl);
+
+}
 
 	PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 
@@ -1540,6 +1554,43 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 
 }
 
+#ifdef UWSGI_MULTICAST
+PyObject *py_uwsgi_cluster_nodes(PyObject * self, PyObject * args) {
+
+	struct uwsgi_cluster_node *ucn;
+	int i;
+
+	PyObject *clist = PyList_New(0);
+
+	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
+                ucn = &uwsgi.shared->nodes[i];
+                if (ucn->name[0] != 0) {
+			if (ucn->status == UWSGI_NODE_OK) {
+				PyList_Append(clist, PyString_FromString(ucn->name));
+			}
+                }
+        }
+
+	return clist;
+
+}
+
+PyObject *py_uwsgi_cluster_best_node(PyObject * self, PyObject * args) {
+
+	char *node = uwsgi_cluster_best_node() ;
+	if (node == NULL) goto clear;
+	if (node[0] == 0) goto clear;
+	return PyString_FromString(node);
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
+#endif
+
 
 static PyMethodDef uwsgi_advanced_methods[] = {
 		{"send_message", py_uwsgi_send_message, METH_VARARGS, ""},
@@ -1562,6 +1613,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 		{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 		{"send", py_uwsgi_send, METH_VARARGS, ""},
+		{"cl", py_uwsgi_cl, METH_VARARGS, ""},
 #ifdef UWSGI_SENDFILE
 		{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
 #endif
@@ -1571,6 +1623,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"logsize", py_uwsgi_logsize, METH_VARARGS, ""},
 #ifdef UWSGI_MULTICAST
 		{"send_multicast_message", py_uwsgi_multicast, METH_VARARGS, ""},
+		{"cluster_nodes", py_uwsgi_cluster_nodes, METH_VARARGS, ""},
+		{"cluster_best_node", py_uwsgi_cluster_best_node, METH_VARARGS, ""},
 #endif
 #ifdef UWSGI_ASYNC
 		{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
