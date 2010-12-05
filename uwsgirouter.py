@@ -64,6 +64,9 @@ def application(env, start_response):
 		yield data
 		# wait for response
 		yield uwsgi.wait_fd_read(fd, 30)
+		if env['x-wsgiorg.fdevent.timeout']:
+			print "connection timed out !!!"
+			raise StopIteration
 		data = uwsgi.recv(fd)
 
 	uwsgi.close(fd)
