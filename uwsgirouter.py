@@ -11,11 +11,13 @@ def application(env, start_response):
 	# has timed out ?
 	if env['x-wsgiorg.fdevent.timeout']:
 		print "connection timed out !!!"
+		uwsgi.close(fd)
 		raise StopIteration
 
 	# connection refused ?
 	if not uwsgi.is_connected(fd):
 		print "unable to connect"
+		uwsgi.close(fd)
 		raise StopIteration
 	
 
@@ -28,7 +30,7 @@ def application(env, start_response):
 	# ready body in async mode and resend to fd	
 	# uwsgi.recv will use always an internal buffer of 4096, but can be limited in the number of bytes to read
 
-	# does thir request has a body ?
+	# does this request has a body ?
 	cl = uwsgi.cl()
 
 	if cl > 0:
@@ -41,6 +43,7 @@ def application(env, start_response):
 			yield uwsgi.wait_fd_read(input, 30)
 			if env['x-wsgiorg.fdevent.timeout']:
 				print "connection timed out !!!"
+				uwsgi.close(fd)
 				raise StopIteration
 			body = uwsgi.recv(input, bufsize)
 			if body:
@@ -56,6 +59,7 @@ def application(env, start_response):
 	# has timed out ?
 	if env['x-wsgiorg.fdevent.timeout']:
 		print "connection timed out !!!"
+		uwsgi.close(fd)
 		raise StopIteration
 
 	data = uwsgi.recv(fd)
@@ -66,6 +70,7 @@ def application(env, start_response):
 		yield uwsgi.wait_fd_read(fd, 30)
 		if env['x-wsgiorg.fdevent.timeout']:
 			print "connection timed out !!!"
+			uwsgi.close(fd)
 			raise StopIteration
 		data = uwsgi.recv(fd)
 
