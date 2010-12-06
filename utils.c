@@ -1141,7 +1141,10 @@ int uwsgi_waitfd(int fd, int timeout) {
 
 	if (!timeout) timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
 
-	ret = poll(upoll, 1, timeout*1000);
+	timeout = timeout*1000;
+	if (timeout < 0) timeout = -1;
+
+	ret = poll(upoll, 1, timeout);
 
 	if (ret < 0) {
 		uwsgi_error("poll()");

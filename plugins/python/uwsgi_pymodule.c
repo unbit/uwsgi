@@ -166,6 +166,59 @@ PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 	
 }
 
+PyObject *py_uwsgi_recv_block(PyObject * self, PyObject * args) {
+	
+	char buf[4096];
+	char *bufptr;
+	ssize_t rlen = 0, len ;
+	int fd, size, remains, ret, timeout = -1;
+	
+
+	if (!PyArg_ParseTuple(args, "ii|i:recv_block", &fd, &size, &timeout)) {
+                return NULL;
+        }
+
+	if (fd < 0) goto clear;
+
+	UWSGI_RELEASE_GIL
+	// security check
+	if (size > 4096) size = 4096;
+	
+	remains = size;
+
+	bufptr = buf;
+	while(remains > 0) {
+		uwsgi_log("%d %d %d\n", remains, size, timeout);
+		ret = uwsgi_waitfd(fd, timeout);
+		if (ret > 0) {
+			len = read(fd,  bufptr, UMIN(remains, size)) ;
+			if (len > 0) {
+				bufptr+=len;
+				rlen += len;
+				remains -= len;	
+			}
+			else {
+				break;
+			}
+		}
+		else {
+			uwsgi_log("error waiting for block data\n");
+			break;
+		}
+	}
+
+	UWSGI_GET_GIL
+
+	if ( rlen == size) {
+		return PyString_FromStringAndSize(buf, rlen);
+	}
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_recv(PyObject * self, PyObject * args) {
 	
 	int fd, max_size = 4096;
@@ -1639,6 +1692,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"is_connected", py_uwsgi_is_connected, METH_VARARGS, ""},
 		{"send", py_uwsgi_send, METH_VARARGS, ""},
 		{"recv", py_uwsgi_recv, METH_VARARGS, ""},
+		{"recv_block", py_uwsgi_recv_block, METH_VARARGS, ""},
 		{"close", py_uwsgi_close, METH_VARARGS, ""},
 		
 		{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},

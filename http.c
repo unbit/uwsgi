@@ -176,10 +176,13 @@ static void *http_request(void *u_h_r) {
 	int state = uwsgi_http_method;
 
 	int http_body_len = 0;
+	int http_upgrade = 0;
+
+	struct pollfd http_poll[2];
 
 	size_t len;
 
-	int i, j;
+	int i, j, rlen;
 
 	char HTTP_header_key[1024];
 
@@ -279,6 +282,13 @@ static void *http_request(void *u_h_r) {
 						*ptr++ = 0;
 						http_body_len = atoi(tmp_buf);
 					}
+					else if (!strcmp("CONNECTION", HTTP_header_key)) {
+						if (ptr+1 > watermark2) { close(uwsgi_fd); goto clear;}
+						*ptr++ = 0;
+						if (!strcmp(tmp_buf, "Upgrade")) {
+							http_upgrade = 1;
+						}
+					}
 					ptr = tmp_buf;
 					state = uwsgi_http_header_key;
 				} else if (state == uwsgi_http_protocol_r) {
@@ -322,31 +332,96 @@ static void *http_request(void *u_h_r) {
 							uwsgi_error("write()");
 						}
 
-						if (http_body_len > 0) {
-							if (http_body_len >= (int) len - (i + 1)) {
+						if (http_upgrade) {
+							// send already available data
+							if ( (len - (i + 1)) > 0) {
 								if (write(uwsgi_fd, buf + i + 1, len - (i + 1)) < 0) {
-									uwsgi_error("write()");
-								}
-								http_body_len -= len - (i + 1);
-							} else {
-								if (write(uwsgi_fd, buf + i, http_body_len) < 0) {
-									uwsgi_error("write()");
-								}
-								http_body_len = 0;
+                                                        		uwsgi_error("write()");
+									close(uwsgi_fd);
+									goto clear;
+                                                        	}
 							}
 
-							while (http_body_len > 0) {
-								int to_read = 4096;
-								if (http_body_len < to_read) {
-									to_read = http_body_len;
+							http_poll[0].fd = clientfd;
+							http_poll[0].events = POLLIN;
+							http_poll[1].fd = uwsgi_fd;
+							http_poll[1].events = POLLIN;
+
+							for(;;) {
+								rlen = poll(http_poll, 2, -1);
+								if (rlen < 0) {
+									uwsgi_error("poll()");
+									close(uwsgi_fd);
+									goto clear;
 								}
-								len = read(clientfd, uwsgipkt, to_read);
-								if (write(uwsgi_fd, uwsgipkt, len) < 0) {
-									uwsgi_error("write()");
+								else if (rlen > 0) {
+									if (http_poll[0].revents & POLLIN) {
+										len = read(clientfd, uwsgipkt, 4096);
+										if (len > 0) {
+											if (write(uwsgi_fd, uwsgipkt, len) < 0) {
+												uwsgi_error("write()");
+												close(uwsgi_fd);
+												goto clear;
+											}
+										}
+										else {
+											// client disconnected
+											close(uwsgi_fd);
+											goto clear;
+										}
+									}
+									else if (http_poll[1].revents & POLLIN) {
+										len = read(uwsgi_fd, uwsgipkt, 4096);
+										if (len > 0) {
+											if (write(clientfd, uwsgipkt, len) < 0) {
+												uwsgi_error("write()");
+												close(uwsgi_fd);
+												goto clear;
+											}
+										}
+										else {
+											// client disconnected
+											close(uwsgi_fd);
+											goto clear;
+										}
+									}
 								}
-								http_body_len -= len;
+								else {
+									// timeout
+									close(uwsgi_fd);
+									goto clear;
+								}
+							}	
+							
+						}
+						else {
+							if (http_body_len > 0) {
+								if (http_body_len >= (int) len - (i + 1)) {
+									if (write(uwsgi_fd, buf + i + 1, len - (i + 1)) < 0) {
+										uwsgi_error("write()");
+									}
+									http_body_len -= len - (i + 1);
+								} else {
+									if (write(uwsgi_fd, buf + i, http_body_len) < 0) {
+										uwsgi_error("write()");
+									}
+									http_body_len = 0;
+								}
+
+								while (http_body_len > 0) {
+									int to_read = 4096;
+									if (http_body_len < to_read) {
+										to_read = http_body_len;
+									}
+									len = read(clientfd, uwsgipkt, to_read);
+									if (write(uwsgi_fd, uwsgipkt, len) < 0) {
+										uwsgi_error("write()");
+									}
+									http_body_len -= len;
+								}
 							}
 						}
+
 						while ((len = read(uwsgi_fd, uwsgipkt, 4096)) > 0) {
 							if (write(clientfd, uwsgipkt, len) < 0) {
 								uwsgi_error("write()");
