@@ -166,6 +166,105 @@ PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 	
 }
 
+PyObject *py_uwsgi_recv_frame(PyObject * self, PyObject * args) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	char *bufptr;
+	char prefix = 0x00;
+	char suffix = 0xff;
+	int i;
+	char frame[4096];
+	char *frame_ptr;
+	int frame_size = 0;
+	int fd;
+	int rlen;
+
+	int found_start = 0;
+	char *null1, *null2;
+
+
+	if (!PyArg_ParseTuple(args, "icc:recv_frame", &fd, &null1, &null2)) {
+                return NULL;
+        }
+
+get_data:
+	frame_ptr = frame;
+	if (wsgi_req->frame_len > 0) {
+		// we have already some data buffered
+		// search for the prefix and adjust frame_pos
+		bufptr = wsgi_req->buffer+wsgi_req->frame_pos;
+		for(i=0;i<wsgi_req->frame_len;i++) {
+			if (bufptr[i] == prefix) {
+				bufptr++;
+				found_start = 1;
+				break;
+			}	
+			bufptr++;
+			wsgi_req->frame_pos++;
+		}
+
+		wsgi_req->frame_len -= i;
+		if (found_start) {
+			// we have found the prefix, copy it in the frame area until suffix or end of the buffer
+			for(i=0;i<wsgi_req->frame_len;i++) {
+				uwsgi_log("%d %d\n", bufptr[i], frame_size);
+				if (bufptr[i] == suffix) {
+					wsgi_req->frame_len -= i;
+					goto return_a_frame;
+				}
+				*frame_ptr++= bufptr[i];
+				frame_size++;	
+				wsgi_req->frame_pos++;
+			}
+		}
+	}
+	
+	// we have already get the prefix ?
+	if (found_start) {
+
+		// wait for more data
+read_more_data:
+		rlen = uwsgi_waitfd(fd, -1);
+		if (rlen > 0) {
+			wsgi_req->frame_pos = 0;
+			wsgi_req->frame_len = read(fd, wsgi_req->buffer, uwsgi.buffer_size);
+			bufptr = wsgi_req->buffer;
+			for(i=0;i<wsgi_req->frame_len;i++) {
+				if (bufptr[i] == suffix) {
+                                        goto return_a_frame;
+                                }
+                                *frame_ptr++= bufptr[i];
+                                frame_size++;
+			}
+			goto read_more_data;
+		}
+		else if (rlen == 0) {
+			uwsgi_log("timeout waiting for frame\n");
+		}
+
+	}
+	else {
+		// read a whole frame directly from the socket
+		rlen = uwsgi_waitfd(fd, -1);
+                if (rlen > 0) {
+                        wsgi_req->frame_pos = 0;
+                        wsgi_req->frame_len = read(fd, wsgi_req->buffer, uwsgi.buffer_size);
+			uwsgi_log("read %d bytes %.*s\n", wsgi_req->frame_len, wsgi_req->frame_len, wsgi_req->buffer);
+			if (wsgi_req->frame_len == 0) goto return_a_frame;
+                        goto get_data;
+                }
+                else if (rlen == 0) {
+                        uwsgi_log("timeout waiting for frame\n");
+                }
+
+	}
+return_a_frame:
+	uwsgi_log("returning a frame\n");
+	return PyString_FromStringAndSize(frame, frame_size);
+	
+}
+
 PyObject *py_uwsgi_recv_block(PyObject * self, PyObject * args) {
 	
 	char buf[4096];
@@ -1693,6 +1792,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"send", py_uwsgi_send, METH_VARARGS, ""},
 		{"recv", py_uwsgi_recv, METH_VARARGS, ""},
 		{"recv_block", py_uwsgi_recv_block, METH_VARARGS, ""},
+		{"recv_frame", py_uwsgi_recv_frame, METH_VARARGS, ""},
 		{"close", py_uwsgi_close, METH_VARARGS, ""},
 		
 		{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},

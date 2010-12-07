@@ -542,10 +542,13 @@ struct wsgi_request {
 	char           *post_buffering_buf;
 	uint64_t        post_buffering_read;
 
-	              //for generic use
-	                off_t buf_pos;
+	//for generic use
+	off_t buf_pos;
 
 	char           *buffer;
+
+	off_t frame_pos;
+	int frame_len;
 };
 
 #define LOADER_DYN		0
