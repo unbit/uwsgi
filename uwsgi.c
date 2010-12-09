@@ -58,6 +58,7 @@ static struct option long_base_options[] = {
 	{"max-requests", required_argument, 0, 'R'},
 	{"socket-timeout", required_argument, 0, 'z'},
 	{"sharedarea", required_argument, 0, 'A'},
+	{"cache", required_argument, 0, LONG_ARGS_CACHE},
 #ifdef UWSGI_SPOOLER
 	{"spooler", required_argument, 0, 'Q'},
 #endif
@@ -861,40 +862,24 @@ options_parsed:
 		}
 	}
 
+	uwsgi.user_lock = uwsgi_mmap_shared_lock();
+	if (!uwsgi.user_lock) {
+		uwsgi_error("mmap()");
+		exit(1);
+	}
+	uwsgi_lock_init(uwsgi.user_lock);
+
 #ifdef UWSGI_EMBEDDED
 	if (uwsgi.sharedareasize > 0) {
-#ifndef __OpenBSD__
-		uwsgi.sharedareamutex = mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		uwsgi.sharedareamutex = uwsgi_mmap_shared_lock();
 		if (!uwsgi.sharedareamutex) {
 			uwsgi_error("mmap()");
 			exit(1);
 		}
-#else
-		uwsgi_log("***WARNING*** the sharedarea on OpenBSD is not SMP-safe. Beware of race conditions !!!\n");
-#endif
 		uwsgi.sharedarea = mmap(NULL, uwsgi.page_size * uwsgi.sharedareasize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (uwsgi.sharedarea) {
 			uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
-
-#ifdef __APPLE__
-			memset(uwsgi.sharedareamutex, 0, sizeof(OSSpinLock));
-#else
-#if !defined(__OpenBSD__) && !defined(__NetBSD__)
-			if (pthread_mutexattr_init((pthread_mutexattr_t *) uwsgi.sharedareamutex)) {
-				uwsgi_log("unable to allocate mutexattr structure\n");
-				exit(1);
-			}
-			if (pthread_mutexattr_setpshared((pthread_mutexattr_t *) uwsgi.sharedareamutex, PTHREAD_PROCESS_SHARED)) {
-				uwsgi_log("unable to share mutex\n");
-				exit(1);
-			}
-			if (pthread_mutex_init((pthread_mutex_t *) uwsgi.sharedareamutex + sizeof(pthread_mutexattr_t), (pthread_mutexattr_t *) uwsgi.sharedareamutex)) {
-				uwsgi_log("unable to initialize mutex\n");
-				exit(1);
-			}
-#endif
-#endif
-
+			uwsgi_lock_init(uwsgi.sharedareamutex);
 		} else {
 			uwsgi_error("mmap()");
 			exit(1);
@@ -903,6 +888,33 @@ options_parsed:
 	}
 #endif
 
+	if (uwsgi.cache_max_items > 0) {
+		uwsgi.cache_items = mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (!uwsgi.cache_items) {
+			uwsgi_error("mmap()");
+                        exit(1);
+		}
+
+		uwsgi.cache = mmap(NULL, 32768 * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (!uwsgi.cache) {
+			uwsgi_error("mmap()");
+                        exit(1);
+		}
+		
+		for(i=0;i<uwsgi.cache_max_items;i++) {
+			memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
+		}
+
+		// the first cache item is always zero
+		uwsgi.shared->cache_first_available_item = 1;
+
+		uwsgi.cache_lock = uwsgi_mmap_shared_lock();
+        	if (!uwsgi.cache_lock) {
+                	uwsgi_error("mmap()");
+                	exit(1);
+        	}
+        	uwsgi_lock_init(uwsgi.cache_lock);
+	}
 
 
 	uwsgi.current_wsgi_req = simple_current_wsgi_req;
@@ -1298,8 +1310,14 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		uwsgi.respawn_delta = last_respawn.tv_sec;
 	}
 	for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
+		// setup internal signalling system
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[i].pipe)) {
+                        uwsgi_error("socketpair()\n");
+			exit(1);
+                }
 		pid = fork();
 		if (pid == 0) {
+			close(uwsgi.workers[i].pipe[0]);
 			uwsgi.mypid = getpid();
 			uwsgi.workers[i].pid = uwsgi.mypid;
 			uwsgi.workers[i].id = i;
@@ -1312,6 +1330,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			exit(1);
 		} else {
 			uwsgi_log("spawned uWSGI worker %d (pid: %d, cores: %d)\n", i, pid, uwsgi.cores);
+			close(uwsgi.workers[i].pipe[1]);
 			gettimeofday(&last_respawn, NULL);
 			uwsgi.respawn_delta = last_respawn.tv_sec;
 		}
@@ -1771,6 +1790,9 @@ end:
 #endif
 		case LONG_ARGS_CHECK_INTERVAL:
 			uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = atoi(optarg);
+			return 1;
+		case LONG_ARGS_CACHE:
+			uwsgi.cache_max_items = atoi(optarg);
 			return 1;
 		case 'A':
 			uwsgi.sharedareasize = atoi(optarg);

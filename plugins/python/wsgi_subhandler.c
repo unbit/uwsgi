@@ -15,7 +15,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	   }
 	   */
 
-
 	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
 	Py_DECREF(wsgi_socket);

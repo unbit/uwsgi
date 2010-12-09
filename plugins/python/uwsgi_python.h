@@ -195,5 +195,6 @@ void gil_fake_release(void);
 void init_uwsgi_module_advanced(PyObject *);
 void init_uwsgi_module_spooler(PyObject *);
 void init_uwsgi_module_sharedarea(PyObject *);
+void init_uwsgi_module_cache(PyObject *);
 
 PyObject *uwsgi_pyimport_by_filename(char *, char *);

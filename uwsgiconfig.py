@@ -136,7 +136,7 @@ class uConf():
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'loop', 'uwsgi']
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
         gcc_major = int(gcc_version.split('.')[0])
@@ -153,13 +153,15 @@ class uConf():
     def set(self, key, value):
     	self.config.set('uwsgi',key, value)
 
-    def get(self,key):
+    def get(self,key,default=None):
         try:
             value = self.config.get('uwsgi', key)
             if value == "" or value == "false":
                     return None
             return value
         except:
+	    if default:
+		return default
             return None
 
     def depends_on(self, what, dep):
@@ -185,6 +187,24 @@ class uConf():
             self.libs.remove('-rdynamic')
             self.libs.remove('-lpthread')
             self.libs.append('-lroot')
+
+	# set locking subsystem
+	locking_mode = self.get('locking','auto')
+	
+	print locking_mode, uwsgi_os
+	if locking_mode == 'auto':
+		if uwsgi_os == 'Linux':
+			locking_mode = 'pthread_mutex'
+		elif uwsgi_os == 'Darwin':
+			locking_mode = 'osx_spinlock'
+
+	if locking_mode == 'pthread_mutex':
+            self.cflags.append('-DUWSGI_LOCK_USE_MUTEX')
+	elif locking_mode == 'osx_spinlock':
+            self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
+	else:
+            self.cflags.append('-DUWSGI_LOCK_USE_FLOCK')
+	
 
         if self.get('embedded'):
             self.cflags.append('-DUWSGI_EMBEDDED')

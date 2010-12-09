@@ -173,6 +173,27 @@
 #define UWSGI_LISTEN_QUEUE 511
 #endif
 
+#define UWSGI_CACHE_MAX_KEY_SIZE 4071
+
+// maintain alignment here !!!
+struct uwsgi_cache_item {
+
+	// size of the key
+	uint16_t	keysize;
+	// djb hash of the key
+	uint32_t	djbhash;
+	// size of the value (max 64KB)
+	uint16_t	valsize;
+	// 64bit expiration (0 for immortal)
+	uint64_t	expires;
+	// 64bit hits
+	uint64_t	hits;
+	// mark the end of the table
+	char		used;
+	// key chracters follows...
+	char		key[UWSGI_CACHE_MAX_KEY_SIZE];
+} __attribute__((__packed__));
+
 struct uwsgi_opt {
 	char *key;
 	char *value;
@@ -244,6 +265,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CLUSTER		17062
 #define LONG_ARGS_CLUSTER_RELOAD	17063
 #define LONG_ARGS_CLUSTER_LOG		17064
+#define LONG_ARGS_CACHE			17065
 
 
 
@@ -809,6 +831,13 @@ struct uwsgi_server {
 	char *cluster;
 	int cluster_fd;
 	struct sockaddr_in mc_cluster_addr;
+
+	uint16_t 	cache_max_items;
+	struct uwsgi_cache_item	*cache_items;
+	void		*cache;
+	void *cache_lock;
+
+	void *user_lock;
 };
 
 #define CLUSTER_NODE_STATIC	0
@@ -875,6 +904,9 @@ struct uwsgi_shared {
 
 #endif
 
+	uint16_t	cache_first_available_item;
+	uint16_t	cache_first_available_item_tmp;
+
 };
 
 struct uwsgi_core {
@@ -912,6 +944,9 @@ struct uwsgi_worker {
 	double          last_running_time;
 
 	int             manage_next_request;
+
+	// this is used for the internal signalling system
+	int		pipe[2];
 
 	struct uwsgi_core **cores;
 
@@ -1191,3 +1226,13 @@ char *generate_socket_name(char *);
 ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, size_t, int);
 
 char *uwsgi_cluster_best_node(void);
+
+int uwsgi_cache_set(char *, uint16_t, char *, uint16_t, uint64_t);
+int uwsgi_cache_del(char *, uint16_t);
+char *uwsgi_cache_get(char *, uint16_t, uint16_t *);
+
+#define uwsgi_mmap_shared_lock() mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0)
+
+void uwsgi_lock_init(void *);
+void uwsgi_lock(void *);
+void uwsgi_unlock(void *);

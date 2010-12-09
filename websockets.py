@@ -48,6 +48,7 @@ def application(e, start_response):
 	message = uwsgi.recv_frame(client, '\x00', '\xff')
 	while message:
 		print message
+		uwsgi.signal(-17)
 		yield '\x00' + message + '\xff'
 		if len(message) == 0:
 			raise StopIteration

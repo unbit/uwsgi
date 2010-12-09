@@ -85,9 +85,11 @@ void *simple_loop(void *arg1) {
 			continue;
 		}
 
+
 		if (wsgi_req_recv(wsgi_req)) {
 			continue;
 		}
+
 
 		uwsgi_close_request(wsgi_req);
 	}
