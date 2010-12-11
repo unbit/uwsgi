@@ -4,6 +4,8 @@
 
 #define UWSGI_VERSION	"0.9.7-dev"
 
+#define UWSGI_LOGBASE "[- uWSGI -"
+
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 
@@ -571,6 +573,8 @@ struct wsgi_request {
 
 	off_t frame_pos;
 	int frame_len;
+
+	int leave_open;
 };
 
 #define LOADER_DYN		0

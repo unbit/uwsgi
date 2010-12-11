@@ -15,6 +15,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	   }
 	   */
 
+
 	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
 	Py_DECREF(wsgi_socket);
@@ -125,6 +126,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		goto clear;
 	}
 
+
 #ifdef UWSGI_SENDFILE
 	if (wsgi_req->sendfile_obj == wsgi_req->async_result && wsgi_req->sendfile_fd != -1) {
 		sf_len = uwsgi_sendfile(wsgi_req);
@@ -142,6 +144,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	}
 #endif
 
+
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
 		wsgi_req->async_placeholder = PyObject_GetIter(wsgi_req->async_result);
@@ -158,12 +161,14 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 
 
+
 	pychunk = PyIter_Next(wsgi_req->async_placeholder);
 
 	if (!pychunk) {
 		if (PyErr_Occurred()) PyErr_Print();
 		goto clear;
 	}
+
 
 
 
@@ -184,11 +189,13 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	}
 #endif
 
+
 	Py_DECREF(pychunk);
 	UWSGI_RELEASE_GIL
 	return UWSGI_AGAIN;
 
 clear:
+
 	if (wsgi_req->sendfile_fd != -1) {
 		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
 	}
@@ -196,7 +203,9 @@ clear:
 		PyDict_Clear(wsgi_req->async_environ);
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
-		fclose(wsgi_req->async_post);
+		if (!wsgi_req->leave_open) {
+			fclose(wsgi_req->async_post);
+		}
 		if (!uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
 			wsgi_req->fd_closed = 1;
 		}

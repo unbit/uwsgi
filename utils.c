@@ -334,7 +334,11 @@ void uwsgi_as_root() {
 void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
+	int leave_open = 0 ;
+	int tmp_fd = -1;
+	void *async_post = NULL;
 
+	uwsgi_log("ending request\n");
 	gettimeofday(&wsgi_req->end_of_request, NULL);
 	uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
 
@@ -345,7 +349,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 
 	// close the connection with the webserver
-	if (!wsgi_req->fd_closed) {
+	if (!wsgi_req->fd_closed && !wsgi_req->leave_open) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
 		close(wsgi_req->poll.fd);
 	}
@@ -368,9 +372,20 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1 || uwsgi.grunt) {
 		while( waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0);
 	}
+
+	if (wsgi_req->leave_open) {
+		tmp_fd = wsgi_req->poll.fd;
+		leave_open = 1;
+		async_post = wsgi_req->async_post;
+	}
 	// reset request
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 
+	if (leave_open) {
+		wsgi_req->leave_open = leave_open;
+		wsgi_req->poll.fd = tmp_fd;
+		wsgi_req->async_post = async_post;
+	}
 	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
 		goodbye_cruel_world();
 	}
@@ -410,6 +425,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
+
 	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer)) {
 		return -1;
 	}
@@ -427,6 +443,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
+	if (wsgi_req->leave_open) return 0;
 	wsgi_req->poll.fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
 
 	if (wsgi_req->poll.fd < 0) {
@@ -445,6 +462,8 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
 	int i;
 	int ret;
+
+	if (wsgi_req->leave_open) return 0;
 
 	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt, -1);
 

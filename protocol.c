@@ -205,6 +205,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 	if (!timeout)
 		timeout = 1;
 	/* first 4 byte header */
+	uwsgi_log("poll()\n");
 	rlen = poll(upoll, 1, timeout * 1000);
 	if (rlen < 0) {
 		uwsgi_error("poll()");
@@ -334,7 +335,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 #endif
 					ptrbuf += 2;
 					if (ptrbuf + strsize <= bufferend) {
-						//uwsgi_log("uwsgi %.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, strsize, ptrbuf);
+						uwsgi_log("uwsgi %.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, strsize, ptrbuf);
 						if (!uwsgi_strncmp("SCRIPT_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->script_name = ptrbuf;
 							wsgi_req->script_name_len = strsize;

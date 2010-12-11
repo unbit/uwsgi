@@ -27,6 +27,8 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 	}
 #endif
 
+	uwsgi_log("python called\n");
+
 	return pyret;
 }
 

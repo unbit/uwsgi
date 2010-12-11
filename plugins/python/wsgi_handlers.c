@@ -274,8 +274,10 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-
-
+	if (wsgi_req->uh.modifier2 == 4) {
+		// for persistent connections
+		wsgi_req->leave_open = 1;
+	}
 
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
@@ -285,7 +287,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			}
 		UWSGI_GET_GIL
 	}
-	else {
+	else if (!wsgi_req->leave_open) {
 		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 	}
 

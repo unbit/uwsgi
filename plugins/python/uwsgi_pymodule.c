@@ -7,8 +7,6 @@ char *spool_buffer = NULL;
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
-#define UWSGI_LOGBASE "[- uWSGI -"
-
 char *uwsgi_encode_pydict(PyObject *pydict, uint16_t *size) {
 
 	int i;
@@ -38,20 +36,17 @@ char *uwsgi_encode_pydict(PyObject *pydict, uint16_t *size) {
 
                 if (!PyTuple_Check(zero)) {
 			uwsgi_log("invalid python dictionary item\n");
-			Py_DECREF(zero);
 			continue;
 		}
 
 		if (PyTuple_Size(zero) < 2) {
 			uwsgi_log("invalid python dictionary item\n");
-			Py_DECREF(zero);
 			continue;
 		}
                 key = PyTuple_GetItem(zero, 0);
                 val = PyTuple_GetItem(zero, 1);
 
                 if (!PyString_Check(key) || !PyString_Check(val)) {
-			Py_DECREF(zero);
 			continue;
 		}
 
@@ -99,6 +94,11 @@ char *uwsgi_encode_pydict(PyObject *pydict, uint16_t *size) {
                 }
                 key = PyTuple_GetItem(zero, 0);
                 val = PyTuple_GetItem(zero, 1);
+
+
+		if (!key || !val) {
+			PyErr_Print();
+		}
 
                 if (!PyString_Check(key) || !PyString_Check(val)) {
                         Py_DECREF(zero);
@@ -1155,6 +1155,7 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 	char buf[4096];
 
 	UWSGI_RELEASE_GIL
+	uwsgi_log("waiting for data\n");
 	rlen = uwsgi_waitfd(ui->fd, ui->timeout);
 	if (rlen > 0) {
 		rlen = read(ui->fd, buf, 4096);
@@ -1211,6 +1212,16 @@ static PyTypeObject uwsgi_IterType = {
     uwsgi_Iter_next		/* tp_iternext: next() method */
 };
 
+
+PyObject *py_uwsgi_connect(PyObject * self, PyObject * args) {
+
+	char *socket_name = NULL;
+	if (!PyArg_ParseTuple(args, "s:connect", &socket_name)) {
+                return NULL;
+        }
+
+	return PyInt_FromLong(uwsgi_connect(socket_name, 0, 0));
+}
 
 PyObject *py_uwsgi_async_connect(PyObject * self, PyObject * args) {
 
@@ -1795,6 +1806,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"wait_fd_read", py_eventfd_read, METH_VARARGS, ""},
 		{"wait_fd_write", py_eventfd_write, METH_VARARGS, ""},
 #endif
+
+		{"connect", py_uwsgi_connect, METH_VARARGS, ""},
 		{"is_connected", py_uwsgi_is_connected, METH_VARARGS, ""},
 		{"send", py_uwsgi_send, METH_VARARGS, ""},
 		{"recv", py_uwsgi_recv, METH_VARARGS, ""},
