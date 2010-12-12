@@ -202,15 +202,6 @@ static const luaL_reg uwsgi_api[] = {
 
 
 
-static void *uwsgi_lua_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
-	if(nsize == 0) {
-		free(ptr);
-		return NULL;
-	}
-
-	return realloc(ptr, nsize);
-}
-
 static int uwsgi_lua_input(lua_State *L) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -271,7 +262,7 @@ void uwsgi_lua_app() {
 
 	if (ulua.filename) {
 		for(i=0;i<uwsgi.cores;i++) {
-			ulua.L[i] = lua_newstate(uwsgi_lua_alloc, NULL);
+			ulua.L[i] = luaL_newstate();
 			luaL_openlibs(ulua.L[i]);
 			luaL_register(ulua.L[i], "uwsgi", uwsgi_api);
 			if (luaL_loadfile(ulua.L[i], ulua.filename)) {
