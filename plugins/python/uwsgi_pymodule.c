@@ -158,13 +158,14 @@ PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
 
 	char uwsgi_signal;
+	ssize_t rlen;
 
 	if (!PyArg_ParseTuple(args, "B:signal", &uwsgi_signal)) {
                 return NULL;
         }
 
 	uwsgi_log("sending %d to master\n", uwsgi_signal);
-	write(uwsgi.workers[uwsgi.mywid].pipe[1], &uwsgi_signal, 1);
+	rlen = write(uwsgi.workers[uwsgi.mywid].pipe[1], &uwsgi_signal, 1);
 
 	Py_INCREF(Py_None);
 	return Py_None;

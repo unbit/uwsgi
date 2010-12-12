@@ -212,6 +212,12 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
+	if (wsgi_req->uh.modifier2 == 4) {
+		// for persistent connections
+		uwsgi_log("LEAVE OPEN\n");
+		wsgi_req->leave_open = 1;
+	}
+
 
 
 	if (wsgi_req->protocol_len < 5) {
@@ -274,10 +280,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-	if (wsgi_req->uh.modifier2 == 4) {
-		// for persistent connections
-		wsgi_req->leave_open = 1;
-	}
 
 
 	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
@@ -292,7 +294,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
+	uwsgi_log("before subhandler %d\n", wsgi_req->leave_open);
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
+	uwsgi_log("after subhandler %d\n", wsgi_req->leave_open);
 
 	if (wsgi_req->async_result) {
 

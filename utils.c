@@ -348,10 +348,16 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		get_memusage();
 
 
+	uwsgi_log("LEAVE_OPEN: %d\n", wsgi_req->leave_open);
 	// close the connection with the webserver
 	if (!wsgi_req->fd_closed && !wsgi_req->leave_open) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
+		uwsgi_log("CLOSE()\n");
 		close(wsgi_req->poll.fd);
+	}
+	else if (wsgi_req->leave_open) {
+		// send OOB data to signal peer of EOS
+		send(wsgi_req->poll.fd, "\0", 1, MSG_OOB);		
 	}
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
@@ -436,6 +442,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	}
 
 	wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
+	uwsgi_log("leave_open after request %d\n", wsgi_req->leave_open);
 
 	return 0;
 }

@@ -10,10 +10,12 @@
 	<manage-script-name/>
 	
 	<master/>
-	<processes>4</processes>
+	<processes>8</processes>
 
+<!--
 	<vhost/>
 	<vhost-host/>
+-->
 
 	<env>TRAC_ENV=utrac</env>
 
