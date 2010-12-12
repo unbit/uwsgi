@@ -357,7 +357,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 	else if (wsgi_req->leave_open) {
 		// send OOB data to signal peer of EOS
-		send(wsgi_req->poll.fd, "\0", 1, MSG_OOB);		
+		//send(wsgi_req->poll.fd, "\0", 1, MSG_OOB);		
 	}
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
@@ -1182,13 +1182,19 @@ int uwsgi_waitfd(int fd, int timeout) {
 		uwsgi_error("poll()");
 	}
 	else if (ret > 0) {
+		if (upoll[0].revents & POLLIN) {
+			uwsgi_log("DETECTED DATA\n");
+			return ret;
+		}
+
 		if (upoll[0].revents & POLLPRI) {
+			uwsgi_log("DETECTED PRI DATA\n");
 			rlen = recv(fd, &oob, 1, MSG_OOB);
 			uwsgi_log("RECEIVE OOB DATA %d !!!\n", rlen);
+			if (rlen < 0) {
+				return -1;	
+			}
 			return 0;
-		}
-		else {
-			return ret;
 		}
 	}
 

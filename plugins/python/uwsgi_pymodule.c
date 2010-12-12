@@ -1142,6 +1142,12 @@ typedef struct {
 	int fd;
 	int timeout;
 	int close;
+	int started ;
+	int has_cl;
+	uint16_t size;
+	uint16_t sent;
+	uint8_t modifier1;
+	uint8_t modifier2;
 } uwsgi_Iter;
 
 
@@ -1154,16 +1160,64 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 	int rlen;
 	uwsgi_Iter *ui = (uwsgi_Iter *)self;
 	char buf[4096];
+	int i = 4;
+	struct uwsgi_header uh;
+	char *ub = (char *) &uh ;
 
 	UWSGI_RELEASE_GIL
 	uwsgi_log("waiting for data\n");
+
+	if (!ui->started) {
+		memset(&uh, 0, 4);
+		while(i) {
+			rlen = uwsgi_waitfd(ui->fd, ui->timeout);
+			if (rlen > 0) {
+				rlen = read(ui->fd, ub , i);
+				if (rlen <= 0) {
+					goto clear;
+				}
+				else {
+					i -= rlen;
+					ub += rlen;
+				}
+			}
+			else {
+				goto clear;
+			}
+		}
+
+		ui->started = 1;
+
+		if (uh.modifier1 == 'H') {
+			ui->size = 0;
+			UWSGI_GET_GIL
+			return PyString_FromStringAndSize((char *)  &uh, 4);
+		}
+		else {
+			ui->has_cl = 1;
+			ui->size = uh.pktsize;
+			ui->sent = 0;
+			uwsgi_log("NEED TO READ %d\n", uh.pktsize);
+		}
+	}
+
+	if (ui->sent >= ui->size && ui->has_cl) {
+		goto clear;
+	} 
+	
 	rlen = uwsgi_waitfd(ui->fd, ui->timeout);
 	if (rlen > 0) {
-		rlen = read(ui->fd, buf, 4096);
+		if (ui->has_cl) {
+			rlen = read(ui->fd, buf, UMIN((ui->size-ui->sent), 4096));
+		}
+		else {
+			rlen = read(ui->fd, buf, 4096);
+		}
 		if (rlen < 0) {
 			uwsgi_error("read()");
 		}
 		else if (rlen > 0) {
+			ui->sent+=rlen;
 			UWSGI_GET_GIL
 			return PyString_FromStringAndSize(buf, rlen);
 		}
@@ -1176,6 +1230,7 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 		close(ui->fd);
 	}
 	
+clear:
 	UWSGI_GET_GIL
 	PyErr_SetNone(PyExc_StopIteration);
 
@@ -1365,6 +1420,10 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 	ui->fd = uwsgi_fd;
 	ui->timeout = timeout;
 	ui->close = close_fd;
+	ui->started = 0;
+	ui->has_cl = 0;
+	ui->sent = 0;
+	ui->size = 0;
 	
 	return (PyObject *) ui;
 

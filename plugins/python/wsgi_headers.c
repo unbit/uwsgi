@@ -13,11 +13,13 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *headers, *head;
 	PyObject *h_key, *h_value;
 	int i, j;
+	struct uwsgi_header uh;
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	int base = 0;
 	int shift = 0;
+	int cl = -1;
 
 	// use writev()
 
@@ -51,8 +53,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		}
 
 		wsgi_req->hvec[0].iov_len = wsgi_req->protocol_len;
+		uh.pktsize = wsgi_req->hvec[0].iov_len;
 		wsgi_req->hvec[1].iov_base = " ";
 		wsgi_req->hvec[1].iov_len = 1;
+		uh.pktsize += wsgi_req->hvec[1].iov_len;
 #ifdef PYTHREE
 		wsgi_req->hvec[2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
 		wsgi_req->hvec[2].iov_len = strlen(wsgi_req->hvec[2].iov_base);
@@ -60,15 +64,18 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[2].iov_base = PyString_AsString(head);
 		wsgi_req->hvec[2].iov_len = PyString_Size(head);
 #endif
+		uh.pktsize += wsgi_req->hvec[2].iov_len;
 		wsgi_req->status = atoi(wsgi_req->hvec[2].iov_base);
 		wsgi_req->hvec[3].iov_base = nl;
 		wsgi_req->hvec[3].iov_len = NL_SIZE;
+		uh.pktsize += wsgi_req->hvec[3].iov_len;
 	}
 	else {
 		// drop http status on cgi mode
 		base = 3;
 		wsgi_req->hvec[0].iov_base = "Status: ";
 		wsgi_req->hvec[0].iov_len = 8;
+		uh.pktsize = wsgi_req->hvec[0].iov_len;
 #ifdef PYTHREE
 		wsgi_req->hvec[1].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
 		wsgi_req->hvec[1].iov_len = strlen(wsgi_req->hvec[1].iov_base);
@@ -76,9 +83,11 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[1].iov_base = PyString_AsString(head);
 		wsgi_req->hvec[1].iov_len = PyString_Size(head);
 #endif
+		uh.pktsize += wsgi_req->hvec[1].iov_len;
 		wsgi_req->status = atoi(wsgi_req->hvec[1].iov_base);
 		wsgi_req->hvec[2].iov_base = nl;
 		wsgi_req->hvec[2].iov_len = NL_SIZE;
+		uh.pktsize += wsgi_req->hvec[2].iov_len;
 	}
 
 
@@ -115,6 +124,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		if (!h_value) {
 			goto clear;
 		}
+
 #ifdef PYTHREE
 		wsgi_req->hvec[j].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_key));
 		wsgi_req->hvec[j].iov_len = strlen(wsgi_req->hvec[j].iov_base);
@@ -122,8 +132,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[j].iov_base = PyString_AsString(h_key);
 		wsgi_req->hvec[j].iov_len = PyString_Size(h_key);
 #endif
+		uh.pktsize += wsgi_req->hvec[j].iov_len;
 		wsgi_req->hvec[j + 1].iov_base = h_sep;
 		wsgi_req->hvec[j + 1].iov_len = H_SEP_SIZE;
+		uh.pktsize += wsgi_req->hvec[j+1].iov_len;
 #ifdef PYTHREE
 		wsgi_req->hvec[j + 2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_value));
 		wsgi_req->hvec[j + 2].iov_len = strlen(wsgi_req->hvec[j + 2].iov_base);
@@ -131,8 +143,19 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[j + 2].iov_base = PyString_AsString(h_value);
 		wsgi_req->hvec[j + 2].iov_len = PyString_Size(h_value);
 #endif
+
+		uh.pktsize += wsgi_req->hvec[j+2].iov_len;
+
+		if (wsgi_req->leave_open && cl == -1) {
+			if (!uwsgi_strncmp(wsgi_req->hvec[j].iov_base, wsgi_req->hvec[j].iov_len, "Content-Length", 14)) {
+				cl = atoi(wsgi_req->hvec[j + 2].iov_base);
+				uwsgi_log("DETECTED CL OF %d\n", cl);
+			}
+		}
 		wsgi_req->hvec[j + 3].iov_base = nl;
 		wsgi_req->hvec[j + 3].iov_len = NL_SIZE;
+
+		uh.pktsize += wsgi_req->hvec[j+3].iov_len;
 		//uwsgi_log( "%.*s: %.*s\n", wsgi_req->hvec[j].iov_len, (char *)wsgi_req->hvec[j].iov_base, wsgi_req->hvec[j+2].iov_len, (char *) wsgi_req->hvec[j+2].iov_base);
 	}
 
@@ -141,6 +164,22 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	j = (i * 4) + base;
 	wsgi_req->hvec[j].iov_base = nl;
 	wsgi_req->hvec[j].iov_len = NL_SIZE;
+
+	uh.pktsize += wsgi_req->hvec[j].iov_len;
+
+	if (cl != -1) {
+		// send uwsgi header only if response size is lower than 0xFFFF
+		if (cl <= 0xffff) {
+			uh.modifier1 = 0;
+			uh.modifier2 = 0;
+			uint16_t pktsize = cl;
+			uh.pktsize += pktsize;
+			write(wsgi_req->poll.fd, &uh, 4);
+		}
+		else {
+			wsgi_req->leave_open = 0;
+		}
+	}
 
 	UWSGI_RELEASE_GIL
 		wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, j + 1);
