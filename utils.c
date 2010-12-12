@@ -1162,19 +1162,34 @@ int uwsgi_waitfd(int fd, int timeout) {
 
 	int ret;
 	struct pollfd upoll[1];
+	char oob ;
+	ssize_t rlen;
 
-	upoll[0].fd = fd;
-	upoll[0].events = POLLIN;
 
 	if (!timeout) timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
 
 	timeout = timeout*1000;
 	if (timeout < 0) timeout = -1;
 
+	uwsgi_log("waiting for max %d secs\n", timeout);
+
+	upoll[0].fd = fd;
+	upoll[0].events = POLLIN | POLLPRI;
+	upoll[0].revents = 0;
 	ret = poll(upoll, 1, timeout);
 
 	if (ret < 0) {
 		uwsgi_error("poll()");
+	}
+	else if (ret > 0) {
+		if (upoll[0].revents & POLLPRI) {
+			rlen = recv(fd, &oob, 1, MSG_OOB);
+			uwsgi_log("RECEIVE OOB DATA %d !!!\n", rlen);
+			return 0;
+		}
+		else {
+			return ret;
+		}
 	}
 
 	return ret;
