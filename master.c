@@ -23,7 +23,7 @@ char *new_cluster_hostname;
 char *new_cluster_address;
 char *new_cluster_workers;
 
-void print_dict(char *key, uint16_t keylen, char *val, uint16_t vallen) {
+void print_dict(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 	uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
 
 	if (!uwsgi_strncmp("hostname", 8, key, keylen)) {
@@ -393,7 +393,7 @@ void master_loop(char **argv, char **environ) {
 										new_cluster_hostname = NULL;
 										new_cluster_address = NULL;
 										new_cluster_workers = NULL;
-										uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, print_dict);
+										uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, print_dict, NULL);
 										if (new_cluster_hostname && new_cluster_address && new_cluster_workers) {
 											uwsgi_cluster_add_node(new_cluster_address, atoi(new_cluster_workers), CLUSTER_NODE_DYNAMIC);
 										}

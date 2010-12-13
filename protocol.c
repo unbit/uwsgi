@@ -343,7 +343,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 #endif
 					ptrbuf += 2;
 					if (ptrbuf + strsize <= bufferend) {
-						uwsgi_log("uwsgi %.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, strsize, ptrbuf);
+						//uwsgi_log("uwsgi %.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, strsize, ptrbuf);
 						if (!uwsgi_strncmp("SCRIPT_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->script_name = ptrbuf;
 							wsgi_req->script_name_len = strsize;
@@ -642,7 +642,7 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 
 }
 
-int uwsgi_hooked_parse(char *buffer, size_t len, void (*hook)(char *, uint16_t, char *, uint16_t)) {
+int uwsgi_hooked_parse(char *buffer, size_t len, void (*hook)(char *, uint16_t, char *, uint16_t, void*), void *data) {
 
 	char *ptrbuf, *bufferend;
         uint16_t keysize = 0, valsize = 0;
@@ -677,7 +677,7 @@ int uwsgi_hooked_parse(char *buffer, size_t len, void (*hook)(char *, uint16_t, 
                 if (ptrbuf + valsize > bufferend) return -1;
 
                 // now call the hook
-                hook(key, keysize, ptrbuf, valsize);
+                hook(key, keysize, ptrbuf, valsize, data);
                 ptrbuf += valsize;
         }
 
@@ -685,7 +685,7 @@ int uwsgi_hooked_parse(char *buffer, size_t len, void (*hook)(char *, uint16_t, 
 
 }
 
-int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modifier1, uint8_t modifier2, void (*hook)(char *, uint16_t, char *, uint16_t)) {
+int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modifier1, uint8_t modifier2, void (*hook)(char *, uint16_t, char *, uint16_t, void *), void *data) {
 
 	struct uwsgi_header *uh;
 	ssize_t rlen;
@@ -737,7 +737,7 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 	
 	uwsgi_log("%p %p %d\n", ptrbuf, bufferend, bufferend-ptrbuf);
 
-	uwsgi_hooked_parse(ptrbuf, bufferend-ptrbuf, hook);
+	uwsgi_hooked_parse(ptrbuf, bufferend-ptrbuf, hook, data);
 
 	return 0;
 

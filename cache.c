@@ -94,6 +94,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint16_t vallen, uint
 	uwsgi_lock(uwsgi.cache_lock);
 	if (uwsgi.shared->cache_first_available_item >= uwsgi.cache_max_items) goto end;
 
+	uwsgi_log("putting cache data in key %.*s\n", keylen, key);
 	index = uwsgi_cache_get_index(key, keylen);
 	if (!index) {
 		index = uwsgi.shared->cache_first_available_item;	
@@ -123,3 +124,62 @@ end:
 	return ret;
 	
 }
+
+void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+
+	struct wsgi_request *wsgi_req = (struct wsgi_request *) data;
+
+	if (vallen > 0) {
+		if (!uwsgi_strncmp(key, keylen, "key", 3)) {
+			val = uwsgi_cache_get(val, vallen, &vallen);
+                        if (val && vallen > 0) {
+                        	wsgi_req->response_size = write(wsgi_req->poll.fd, val, vallen);
+                        }
+
+		}		
+	}
+}
+
+int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
+
+	uint16_t vallen = 0;
+	char *value;
+
+	switch(wsgi_req->uh.modifier2) {
+		case 0:
+			// get
+			if (wsgi_req->uh.pktsize > 0) {
+				value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh.pktsize, &vallen);
+				if (value && vallen > 0) {
+					wsgi_req->response_size = write(wsgi_req->poll.fd, value, vallen);
+				}
+			}
+			break;		
+		case 1:
+			// set
+			break;
+		case 2:
+			// del
+			if (wsgi_req->uh.pktsize > 0) {
+				uwsgi_cache_del(wsgi_req->buffer, wsgi_req->uh.pktsize);
+			}
+			break;
+		case 4:
+			// dict
+			if (wsgi_req->uh.pktsize > 0) {
+				uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh.pktsize, cache_command, (void *) wsgi_req);
+			}
+			break;
+	}
+
+	return 0;
+}
+
+struct uwsgi_plugin uwsgi_cache_plugin = {
+
+        .name = "cache",
+        .modifier1 = 111, 
+        .request = uwsgi_cache_request,
+
+};
+

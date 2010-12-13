@@ -111,6 +111,60 @@ static char *encode_lua_table(lua_State *L, int index, uint16_t *size) {
 	return buf;
 }
 
+static int uwsgi_api_cache_set(lua_State *L) {
+
+	int args = lua_gettop(L);
+        const char *key ;
+        const char *value ;
+        uint64_t expires = 0;
+	size_t vallen;
+
+
+	if (args > 1) {
+
+		key = lua_tolstring(L, 1, NULL);
+		value = lua_tolstring(L, 2, &vallen);
+		if (args > 2) {
+			expires = lua_tonumber(L, 3);
+		}
+
+        	uwsgi_cache_set((char *)key, strlen(key), (char *)value, (uint16_t) vallen, expires);
+		
+	}
+
+	lua_pushnil(L);
+	return 1;
+
+}
+
+
+static int uwsgi_api_cache_get(lua_State *L) {
+
+        char *value ;
+        uint16_t valsize;
+	const char *key ;
+
+        lca(L, 1);
+
+	if (lua_isstring(L, 1)) {
+
+		key = lua_tolstring(L, 1, NULL);
+        	value = uwsgi_cache_get((char *)key, strlen(key), &valsize);
+
+        	if (value) {
+                	lua_pushlstring(L, value, valsize);
+			return 1;
+        	}
+
+	}
+
+	lua_pushnil(L);
+
+        return 1;
+
+}
+
+
 static int uwsgi_api_send_message(lua_State *L) {
 
 	int args = lua_gettop(L);
@@ -144,7 +198,11 @@ static int uwsgi_api_send_message(lua_State *L) {
 			// passed a table
 			pkt = encode_lua_table(L, 4, &pktsize);
 		}
-		uwsgi_send_message(uwsgi_fd, modifier1, modifier2, pkt, pktsize, input_fd, input_size, timeout);
+	 	if (uwsgi_send_message(uwsgi_fd, modifier1, modifier2, pkt, pktsize, input_fd, input_size, timeout) == -1) {
+			free(pkt);
+			lua_pushnil(L);
+			return 1;
+		}
 		free(pkt);
 
 		for(;;) {
@@ -197,6 +255,8 @@ static const luaL_reg uwsgi_api[] = {
   {"cl", uwsgi_api_cl},
   {"req_fd", uwsgi_api_req_fd},
   {"send_message", uwsgi_api_send_message},
+  {"cache_get", uwsgi_api_cache_get},
+  {"cache_set", uwsgi_api_cache_set},
   {NULL, NULL}
 };
 

@@ -31,6 +31,8 @@ static char *short_options = NULL;
 
 static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:Ly:";
 
+extern struct uwsgi_plugin uwsgi_cache_plugin;
+
 UWSGI_DECLARE_EMBEDDED_PLUGINS
 
 static struct option long_base_options[] = {
@@ -596,7 +598,7 @@ waitfd:
 				else if (rlen > 0) {
 					// receive the packet
 					char clusterbuf[4096];
-					if (!uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, manage_string_opt)) {
+					if (!uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, manage_string_opt, NULL)) {
 						goto options_parsed;
 					}
 					else {
@@ -914,6 +916,8 @@ options_parsed:
                 	exit(1);
         	}
         	uwsgi_lock_init(uwsgi.cache_lock);
+
+		uwsgi.p[111] = &uwsgi_cache_plugin;
 	}
 
 
@@ -2251,7 +2255,7 @@ void build_options() {
 }
 
 
-void manage_string_opt(char *key, uint16_t keylen, char *val, uint16_t vallen) {
+void manage_string_opt(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
 	struct option *lopt, *aopt;
 

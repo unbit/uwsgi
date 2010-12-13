@@ -321,7 +321,7 @@ static int uwsgi_handler(request_rec *r) {
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SERVER_NAME", (char *) ap_get_server_name(r), &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SERVER_PORT", apr_psprintf(r->pool, "%u",ap_get_server_port(r)), &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SERVER_PROTOCOL", r->protocol, &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REQUEST_URI", r->uri, &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REQUEST_URI", r->unparsed_uri, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_ADDR", r->connection->remote_ip, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_USER", r->user ? r->user : "", &pkt_size) ;
 	if (r->user) {

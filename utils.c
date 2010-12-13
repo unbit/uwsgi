@@ -338,7 +338,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_fd = -1;
 	void *async_post = NULL;
 
-	uwsgi_log("ending request\n");
 	gettimeofday(&wsgi_req->end_of_request, NULL);
 	uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
 
@@ -348,11 +347,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		get_memusage();
 
 
-	uwsgi_log("LEAVE_OPEN: %d\n", wsgi_req->leave_open);
 	// close the connection with the webserver
 	if (!wsgi_req->fd_closed && !wsgi_req->leave_open) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
-		uwsgi_log("CLOSE()\n");
 		close(wsgi_req->poll.fd);
 	}
 	else if (wsgi_req->leave_open) {
@@ -1171,8 +1168,6 @@ int uwsgi_waitfd(int fd, int timeout) {
 	timeout = timeout*1000;
 	if (timeout < 0) timeout = -1;
 
-	uwsgi_log("waiting for max %d secs\n", timeout);
-
 	upoll[0].fd = fd;
 	upoll[0].events = POLLIN | POLLPRI;
 	upoll[0].revents = 0;
@@ -1183,7 +1178,6 @@ int uwsgi_waitfd(int fd, int timeout) {
 	}
 	else if (ret > 0) {
 		if (upoll[0].revents & POLLIN) {
-			uwsgi_log("DETECTED DATA\n");
 			return ret;
 		}
 

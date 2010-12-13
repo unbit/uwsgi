@@ -1209,9 +1209,9 @@ ssize_t uwsgi_send_empty_pkt(int , char *, uint8_t , uint8_t);
 
 int uwsgi_waitfd(int, int);
 
-int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t));
-int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t));
-void manage_string_opt(char *, uint16_t, char*, uint16_t);
+int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t, void*), void *);
+int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
+void manage_string_opt(char *, uint16_t, char*, uint16_t, void *);
 
 int uwsgi_get_dgram(int, struct wsgi_request *);
 
