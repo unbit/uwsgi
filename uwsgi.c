@@ -575,10 +575,12 @@ int main(int argc, char *argv[], char *envp[])
 	//parse environ
 	parse_sys_envs(environ);
 
+#ifdef UWSGI_UDP
         // get cluster configuration
-	uwsgi_log("CLUSTER: %s\n", uwsgi.cluster);
 	if (uwsgi.cluster != NULL) {
 		// get multicast socket
+
+		uwsgi_log("CLUSTER: %s\n", uwsgi.cluster);
 		uwsgi.cluster_fd = uwsgi_cluster_join(uwsgi.cluster);
 	
 		// ask for cluster options only if bot pre-existent options are set
@@ -612,6 +614,7 @@ options_parsed:
 		uwsgi_cluster_add_me();
 	
 	}
+#endif
 
 #ifdef UWSGI_PROXY
 	if (uwsgi.proxy_add_me) {
@@ -1547,12 +1550,14 @@ end:
 
 		case 0:
 			return 1;
+#ifdef UWSGI_UDP
 		case LONG_ARGS_CLUSTER_RELOAD:
 			send_udp_message(98, optarg, "", 0);
 			break;
 		case LONG_ARGS_CLUSTER_LOG:
 			uwsgi_stdin_sendto(optarg, 96, 0);
 			break;
+#endif
 		case LONG_ARGS_VHOSTHOST:
 			uwsgi.vhost = 1;
 			uwsgi.vhost_host = 1;
@@ -2280,6 +2285,7 @@ void manage_string_opt(char *key, uint16_t keylen, char *val, uint16_t vallen, v
 	}
 }
 
+#ifdef UWSGI_UDP
 int uwsgi_cluster_add_me() {
 
 	const char *key1 = "hostname";
@@ -2390,6 +2396,7 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 	}
 	
 }
+#endif
 
 
 char *uwsgi_cluster_best_node() {

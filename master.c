@@ -71,7 +71,6 @@ void master_loop(char **argv, char **environ) {
 	socklen_t udp_len;
 	char udp_client_addr[16];
 	int udp_managed = 0;
-	int rlen;
 	int udp_fd = -1 ;
 
 	char *cluster_opt_buf = NULL;
@@ -84,6 +83,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 	int i,j;
+	int rlen;
 
 	int check_interval = 1;
 
@@ -529,6 +529,7 @@ void master_loop(char **argv, char **environ) {
 				uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
 			}
 
+#ifdef UWSGI_UDP
 			// check for cluster nodes
 			for (i = 0; i < MAX_CLUSTER_NODES; i++) {
 				struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[i];
@@ -560,6 +561,8 @@ void master_loop(char **argv, char **environ) {
 			}
 
 			continue;
+
+#endif
 
 		}
 #ifdef UWSGI_SPOOLER
