@@ -14,12 +14,12 @@ uint32_t djb33x_hash(char *key, int keylen) {
 	return hash;
 }
 
-inline uint16_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
+inline uint32_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
 
 	uint32_t hash = djb33x_hash(key, keylen);
-	int i;
+	uint32_t i;
 
-	for(i=1;i<uwsgi.cache_max_items;i++) {
+	for(i=1;i< uwsgi.cache_max_items;i++) {
 		// end of table ?
 		//uwsgi_log("cache item %d -> %d %d %d %.*s %d\n", i, uwsgi.cache_items[i].used, uwsgi.cache_items[i].djbhash, uwsgi.cache_items[i].keysize, uwsgi.cache_items[i].keysize, uwsgi.cache_items[i].key, uwsgi.cache_items[i].valsize);
 		if (uwsgi.cache_items[i].used == 0) break;
@@ -38,10 +38,14 @@ inline uint16_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
 	return 0;
 }
 
+uint32_t uwsgi_cache_exists(char *key, uint16_t keylen) {
+
+	return uwsgi_cache_get_index(key, keylen);
+}
 
 char *uwsgi_cache_get(char *key, uint16_t keylen, uint16_t *valsize) {
 
-	uint16_t index = uwsgi_cache_get_index(key, keylen);
+	uint32_t index = uwsgi_cache_get_index(key, keylen);
 
 	/* is locking needed for reading ?
 	   I do not think so:
@@ -63,7 +67,7 @@ char *uwsgi_cache_get(char *key, uint16_t keylen, uint16_t *valsize) {
 
 int uwsgi_cache_del(char *key, uint16_t keylen) {
 
-	uint16_t index = 0;
+	uint32_t index = 0;
 	struct uwsgi_cache_item *uci;
 	int ret = -1;
 
@@ -85,7 +89,7 @@ int uwsgi_cache_del(char *key, uint16_t keylen) {
 
 int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint16_t vallen, uint64_t expires) {
 
-	uint16_t index = 0 ;
+	uint32_t index = 0 ;
 	struct uwsgi_cache_item *uci;
 	int ret = -1;
 	if (!keylen || !vallen) return -1;

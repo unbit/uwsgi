@@ -836,7 +836,7 @@ struct uwsgi_server {
 	int cluster_fd;
 	struct sockaddr_in mc_cluster_addr;
 
-	uint16_t 	cache_max_items;
+	uint32_t 	cache_max_items;
 	struct uwsgi_cache_item	*cache_items;
 	void		*cache;
 	void *cache_lock;
@@ -1234,6 +1234,7 @@ char *uwsgi_cluster_best_node(void);
 int uwsgi_cache_set(char *, uint16_t, char *, uint16_t, uint64_t);
 int uwsgi_cache_del(char *, uint16_t);
 char *uwsgi_cache_get(char *, uint16_t, uint16_t *);
+uint32_t uwsgi_cache_exists(char *, uint16_t);
 
 #define uwsgi_mmap_shared_lock() mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0)
 

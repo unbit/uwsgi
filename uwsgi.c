@@ -903,7 +903,7 @@ options_parsed:
                         exit(1);
 		}
 		
-		for(i=0;i<uwsgi.cache_max_items;i++) {
+		for(i=0;i< (int) uwsgi.cache_max_items;i++) {
 			memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
 		}
 

@@ -1936,6 +1936,24 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 }
 
 
+PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
+
+	char *key ;
+
+	if (!PyArg_ParseTuple(args, "s:cache_exists", &key)) {
+                return NULL;
+        }
+
+	if (uwsgi_cache_exists(key, strlen(key))) {
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+	
+}
+
 PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	char *key ;
@@ -1961,6 +1979,7 @@ static PyMethodDef uwsgi_cache_methods[] = {
 	{"cache_get", py_uwsgi_cache_get, METH_VARARGS, ""},
 	{"cache_set", py_uwsgi_cache_set, METH_VARARGS, ""},
 	{"cache_del", py_uwsgi_cache_del, METH_VARARGS, ""},
+	{"cache_exists", py_uwsgi_cache_exists, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
