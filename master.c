@@ -245,6 +245,10 @@ void master_loop(char **argv, char **environ) {
 		uh->modifier1 = 99;
 		uh->pktsize = cluster_opt_size - 4;
 		uh->modifier2 = 1;
+
+#ifdef __BIG_ENDIAN__
+               uh->pktsize = uwsgi_swap16(uh->pktsize);
+#endif
 	
 		cptrbuf = cluster_opt_buf+4;
 
@@ -593,12 +597,19 @@ void master_loop(char **argv, char **environ) {
 						switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
 							case 95:
 								memset(&nucn, 0, sizeof(struct uwsgi_cluster_node));
+
+#ifdef __BIG_ENDIAN__
+                                                        	uwsgi.wsgi_requests[0]->uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+#endif
 								uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, manage_cluster_announce, &nucn);
 								if (nucn.name[0] != 0) {
 									uwsgi_cluster_add_node(&nucn, CLUSTER_NODE_DYNAMIC);
 								}
 								break;
 							case 96:
+#ifdef __BIG_ENDIAN__
+                                                        	uwsgi.wsgi_requests[0]->uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+#endif
 								uwsgi_log_verbose("%.*s\n", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
 								break;
 							case 98:
@@ -614,6 +625,9 @@ void master_loop(char **argv, char **environ) {
 								}
 								break;
 							case 73:
+#ifdef __BIG_ENDIAN__
+                                                        	uwsgi.wsgi_requests[0]->uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+#endif
 								uwsgi_log_verbose("[uWSGI cluster %s] new node available: %.*s\n", uwsgi.cluster, uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
 								break;
 						}

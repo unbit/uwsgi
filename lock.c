@@ -134,14 +134,36 @@ void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 #define UWSGI_LOCK_SIZE 8
 #define UWSGI_RWLOCK_SIZE 8
 
-void uwsgi_lock_init(void *lock) {}
+static int lock_counter = 0;
+
+void uwsgi_lock_init(void *lock) {
+
+	char filename[17];
+
+	if (snprintf(filename, 17, ".uwsgiflock%d", lock_counter) < 0) {
+		uwsgi_log("unable to create lock %d\n", lock_counter);
+	}
+	
+	int fd = open(filename, O_CREAT|O_RDWR|O_TRUNC);
+	if (fd < 0) {
+		uwsgi_error("open()");
+		exit(1);
+	}
+
+	memcpy(lock, &fd, sizeof(int));
+}
 
 void uwsgi_lock(void *lock) {
-	//if (flock((int) *lock, LOCK_EX)) { uwsgi_error("flock()"); }
+
+	int fd;
+	memcpy(&fd, lock, sizeof(int));
+	if (flock(fd, LOCK_EX)) { uwsgi_error("flock()"); }
 }
 
 void uwsgi_unlock(void *lock) {
-	//if (flock((int) *lock, LOCK_UN)) { uwsgi_error("flock()"); }
+	int fd;
+	memcpy(&fd, lock, sizeof(int));
+	if (flock(fd, LOCK_UN)) { uwsgi_error("flock()"); }
 }
 
 void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}

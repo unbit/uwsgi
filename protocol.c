@@ -893,6 +893,9 @@ int uwsgi_string_sendto(int fd, uint8_t modifier1, uint8_t modifier2, struct soc
 
 	uh->modifier1 = modifier1;
 	uh->pktsize = len;
+#ifdef __BIG_ENDIAN__
+	uh->pktsize = uwsgi_swap16(uh->pktsize);
+#endif
 	uh->modifier2 = modifier2;
 
 	memcpy(upkt+4, message, len);

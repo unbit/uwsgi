@@ -1954,10 +1954,12 @@ end:
 			return 1;
 		case LONG_ARGS_CLUSTER:
 			uwsgi.cluster = optarg;
+			uwsgi.master_process = 1;
 			return 1;
 		case LONG_ARGS_CLUSTER_NODES:
 			uwsgi.cluster = optarg;
 			uwsgi.cluster_nodes = 1;
+			uwsgi.master_process = 1;
 			return 1;
 #endif
 		case LONG_ARGS_CHROOT:
@@ -2151,7 +2153,11 @@ end:
 							uwsgi.numproc = rl.rlim_max;
 						}
 						else {
+#ifdef _SC_NPROCESSORS_ONLN
 							uwsgi.numproc = (sysconf(_SC_NPROCESSORS_ONLN))*2;	
+#else
+							uwsgi.numproc = 1;
+#endif
 						}
 					}
 					else {

@@ -548,9 +548,10 @@ void http_loop() {
 					continue;
 				}
 
+				uhttp_session->timeout = reset_timeout(uhttp_session);
+
 				switch(uhttp_session->status) {
 
-					uhttp_session->timeout = reset_timeout(uhttp_session);
 
 					case HTTP_STATUS_RECV:
 						len = recv(uhttp_session->fd, uhttp_session->buffer + uhttp_session->h_pos, UMAX16-uhttp_session->h_pos, 0);
@@ -680,6 +681,10 @@ void http_loop() {
 								close_session(uhttp_table, uhttp_session);
                                                         	break;
 							}
+
+#ifdef __BIG_ENDIAN__
+        						uhttp_session->uh.pktsize = uwsgi_swap16(uhttp_session->uh.pktsize);
+#endif
 
 							uhttp_session->iov[0].iov_base = &uhttp_session->uh;
 							uhttp_session->iov[0].iov_len = 4;
