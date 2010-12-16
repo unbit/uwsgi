@@ -492,12 +492,6 @@ static int uwsgi_handler(request_rec *r) {
 						return HTTP_INTERNAL_SERVER_ERROR;
 					}
 					apr_brigade_write(bb, NULL, NULL, buf, cnt);
-					hret = ap_fflush(r->output_filters, bb) ;
-					if (hret != APR_SUCCESS) {
-						close(uwsgi_poll.fd);
-						apr_brigade_destroy(bb);
-						return hret;
-					}
 				}
 				else {
 					// EOF
