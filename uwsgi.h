@@ -844,6 +844,20 @@ struct uwsgi_server {
 	void *user_lock;
 };
 
+struct uwsgi_lb_group {
+	char name[101];
+	int kind;
+}
+
+struct uwsgi_lb_node {
+
+	char            name[101];
+	int		group;
+	uint64_t	hits;
+	time_t          last_choosen;
+	
+}
+
 #define CLUSTER_NODE_STATIC	0
 #define CLUSTER_NODE_DYNAMIC	1
 

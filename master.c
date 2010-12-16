@@ -423,7 +423,7 @@ void master_loop(char **argv, char **environ) {
 			}
 			else {
 #endif
-				rlen = poll(uwsgi_signal_poll, uwsgi.numproc, check_interval);
+				rlen = poll(uwsgi_signal_poll, uwsgi.numproc, check_interval*1000);
 				if (rlen < 0) {
 					uwsgi_error("poll()");
 					continue;
@@ -560,9 +560,13 @@ void master_loop(char **argv, char **environ) {
 				uwsgi_cluster_add_me();
 			}
 
-			continue;
 
 #endif
+
+			// now check for lb pool
+			
+			
+			continue;
 
 		}
 #ifdef UWSGI_SPOOLER
