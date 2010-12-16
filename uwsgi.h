@@ -847,7 +847,7 @@ struct uwsgi_server {
 struct uwsgi_lb_group {
 	char name[101];
 	int kind;
-}
+};
 
 struct uwsgi_lb_node {
 
@@ -856,7 +856,7 @@ struct uwsgi_lb_node {
 	uint64_t	hits;
 	time_t          last_choosen;
 	
-}
+};
 
 #define CLUSTER_NODE_STATIC	0
 #define CLUSTER_NODE_DYNAMIC	1
