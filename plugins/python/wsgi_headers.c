@@ -167,6 +167,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	uh.pktsize += wsgi_req->hvec[j].iov_len;
 
+/*
 	if (cl != -1) {
 		// send uwsgi header only if response size is lower than 0xFFFF
 		if (cl <= 0xffff) {
@@ -180,6 +181,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 			wsgi_req->leave_open = 0;
 		}
 	}
+*/
 
 	UWSGI_RELEASE_GIL
 		wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, j + 1);
