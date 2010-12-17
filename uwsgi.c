@@ -626,11 +626,7 @@ options_parsed:
 	//call after_opt hooks
 
 	if (uwsgi.binary_path == argv[0]) {
-		uwsgi.binary_path = malloc(strlen(argv[0]) + 1);
-		if (uwsgi.binary_path == NULL) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		uwsgi.binary_path = uwsgi_malloc(strlen(argv[0]) + 1);
 		memcpy(uwsgi.binary_path, argv[0], strlen(argv[0]) + 1);
 	}
 
@@ -733,11 +729,7 @@ options_parsed:
 		}
 		if (!uwsgi.sockets[0].name) {
 
-			uwsgi.sockets[0].name = malloc(64);
-			if (!uwsgi.sockets[0].name) {
-				uwsgi_error("malloc()");
-				exit(1);
-			}
+			uwsgi.sockets[0].name = uwsgi_malloc(64);
 			uwsgi.sockets_cnt++;
 			snprintf(uwsgi.sockets[0].name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
 			uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.sockets[0].name);
@@ -797,47 +789,25 @@ options_parsed:
 		}
 	}
 
-	uwsgi.wsgi_requests = malloc(sizeof(struct wsgi_request *) * uwsgi.cores);
-	if (uwsgi.wsgi_requests == NULL) {
-		uwsgi_log("unable to allocate memory for requests.\n");
-		exit(1);
-	}
+	uwsgi.wsgi_requests = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.cores);
+
 	for (i = 0; i < uwsgi.cores; i++) {
-		uwsgi.wsgi_requests[i] = malloc(sizeof(struct wsgi_request));
-		if (uwsgi.wsgi_requests[i] == NULL) {
-			uwsgi_log("unable to allocate memory for requests.\n");
-			exit(1);
-		}
+		uwsgi.wsgi_requests[i] = uwsgi_malloc(sizeof(struct wsgi_request));
 		memset(uwsgi.wsgi_requests[i], 0, sizeof(struct wsgi_request));
 	}
 
-	uwsgi.async_buf = malloc(sizeof(char *) * uwsgi.cores);
-	if (!uwsgi.async_buf) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	uwsgi.async_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
+
 	if (uwsgi.post_buffering > 0) {
-		uwsgi.async_post_buf = malloc(sizeof(char *) * uwsgi.cores);
-		if (!uwsgi.async_post_buf) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 		if (!uwsgi.post_buffering_bufsize) {
 			uwsgi.post_buffering_bufsize = 8192;
 		}
 	}
 	for (i = 0; i < uwsgi.cores; i++) {
-		uwsgi.async_buf[i] = malloc(uwsgi.buffer_size);
-		if (!uwsgi.async_buf[i]) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		uwsgi.async_buf[i] = uwsgi_malloc(uwsgi.buffer_size);
 		if (uwsgi.post_buffering > 0) {
-			uwsgi.async_post_buf[i] = malloc(uwsgi.post_buffering_bufsize);
-			if (!uwsgi.async_post_buf[i]) {
-				uwsgi_error("malloc()");
-				exit(1);
-			}
+			uwsgi.async_post_buf[i] = uwsgi_malloc(uwsgi.post_buffering_bufsize);
 		}
 	}
 
@@ -1091,6 +1061,7 @@ options_parsed:
 			}
 
 		}
+	
 #ifdef UWSGI_PROXY
 		if (uwsgi.proxy_socket_name) {
 			uwsgi.shared->proxy_pid = proxy_start(uwsgi.master_process);
@@ -1131,16 +1102,12 @@ options_parsed:
 #ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
 #ifdef __linux__
-		uwsgi.async_events = malloc(sizeof(struct epoll_event) * uwsgi.async);
+		uwsgi.async_events = uwsgi_malloc(sizeof(struct epoll_event) * uwsgi.async);
 #elif defined(__sun__)
-		uwsgi.async_events = malloc(sizeof(struct pollfd) * uwsgi.async);
+		uwsgi.async_events = uwsgi_malloc(sizeof(struct pollfd) * uwsgi.async);
 #else
-		uwsgi.async_events = malloc(sizeof(struct kevent) * uwsgi.async);
+		uwsgi.async_events = uwsgi_malloc(sizeof(struct kevent) * uwsgi.async);
 #endif
-		if (!uwsgi.async_events) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
 	}
 #endif
 
@@ -1367,13 +1334,9 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
 
 
-	uwsgi.async_hvec = malloc(sizeof(struct iovec *) * uwsgi.cores);
-	if (uwsgi.async_hvec == NULL) {
-		uwsgi_log("unable to allocate memory for iovec.\n");
-		exit(1);
-	}
+	uwsgi.async_hvec = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
 	for (i = 0; i < uwsgi.cores; i++) {
-		uwsgi.async_hvec[i] = malloc(sizeof(struct iovec) * uwsgi.vec_size);
+		uwsgi.async_hvec[i] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.vec_size);
 	}
 
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && !uwsgi.master_process) {
@@ -1399,14 +1362,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			exit(1);
 		}
 	}
-#ifdef __linux__
-	if (uwsgi.master_process && uwsgi.no_orphans) {
-		if (prctl(PR_SET_PDEATHSIG, SIGINT)) {
-			uwsgi_error("prctl()");
-		}
-	}
-#endif
-
 
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_nodes > 0) {
@@ -1449,6 +1404,13 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
                 }
 	}
 
+
+	if (uwsgi.no_orphans) {
+        	uwsgi.sockets_poll[uwsgi.sockets_cnt].fd = uwsgi.workers[uwsgi.mywid].pipe[1];
+                uwsgi.sockets_poll[uwsgi.sockets_cnt].events = POLLIN;
+	}
+
+
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
 		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
@@ -1477,7 +1439,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			}
 			for (i = 1; i < uwsgi.threads; i++) {
 				long j = i;
-				a_thread = malloc(sizeof(pthread_t));
+				a_thread = uwsgi_malloc(sizeof(pthread_t));
 				pthread_create(a_thread, &pa, simple_loop, (void *) j);
 			}
 		}
@@ -1769,22 +1731,14 @@ end:
 		case LONG_ARGS_INI_PASTE:
 			uwsgi.ini = optarg;
 			if (uwsgi.ini[0] != '/') {
-				uwsgi.paste = malloc(7 + strlen(uwsgi.cwd) + 1 + strlen(uwsgi.ini) + 1);
-				if (uwsgi.paste == NULL) {
-					uwsgi_error("malloc()");
-					exit(1);
-				}
+				uwsgi.paste = uwsgi_malloc(7 + strlen(uwsgi.cwd) + 1 + strlen(uwsgi.ini) + 1);
 				memset(uwsgi.paste, 0, 7 + strlen(uwsgi.cwd) + strlen(uwsgi.ini) + 1);
 				memcpy(uwsgi.paste, "config:", 7);
 				memcpy(uwsgi.paste + 7, uwsgi.cwd, strlen(uwsgi.cwd));
 				uwsgi.paste[7 + strlen(uwsgi.cwd)] = '/';
 				memcpy(uwsgi.paste + 7 + strlen(uwsgi.cwd) + 1, uwsgi.ini, strlen(uwsgi.ini));
 			} else {
-				uwsgi.paste = malloc(7 + strlen(uwsgi.ini) + 1);
-				if (uwsgi.paste == NULL) {
-					uwsgi_error("malloc()");
-					exit(1);
-				}
+				uwsgi.paste = uwsgi_malloc(7 + strlen(uwsgi.ini) + 1);
 				memset(uwsgi.paste, 0, 7 + strlen(uwsgi.ini) + 1);
 				memcpy(uwsgi.paste, "config:", 7);
 				memcpy(uwsgi.paste + 7, uwsgi.ini, strlen(uwsgi.ini));
@@ -1837,11 +1791,7 @@ end:
 			return 1;
 #ifdef UWSGI_SPOOLER
 		case 'Q':
-			uwsgi.spool_dir = malloc(PATH_MAX);
-			if (!uwsgi.spool_dir) {
-				uwsgi_error("malloc()");
-				exit(1);
-			}
+			uwsgi.spool_dir = uwsgi_malloc(PATH_MAX);
 			if (access(optarg, R_OK | W_OK | X_OK)) {
 				uwsgi_error("[spooler directory] access()");
 				exit(1);
@@ -2160,11 +2110,7 @@ void build_options() {
 		if (short_options) {
 			free(short_options);
 		}
-		short_options = malloc(short_opt_size + 1);
-		if (!short_options) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		short_options = uwsgi_malloc(short_opt_size + 1);
 		memcpy(short_options, base_short_options, strlen(base_short_options));
 		so_ptr = short_options + strlen(base_short_options);
 
@@ -2199,11 +2145,7 @@ void build_options() {
 		if (uwsgi.long_options) {
 			free(uwsgi.long_options);
 		}
-		uwsgi.long_options = malloc(sizeof(struct option) * (opt_count + 1));
-		if (!uwsgi.long_options) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		uwsgi.long_options = uwsgi_malloc(sizeof(struct option) * (opt_count + 1));
 		opt_count = 0;
 		lopt = long_base_options;
 		while ((aopt = lopt)) {
@@ -2298,11 +2240,7 @@ int uwsgi_cluster_add_me() {
 	snprintf(numproc, 6, "%d", uwsgi.numproc);
 
 	size_t len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.sockets[0].name) + 2 + strlen(key3) + 2 + strlen(numproc);
-	char *buf = malloc( len );
-	if (!buf) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	char *buf = uwsgi_malloc( len );
 
 	ptrbuf = buf;
 

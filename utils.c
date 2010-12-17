@@ -185,21 +185,13 @@ char *uwsgi_get_cwd() {
 	int newsize = 256;
 	char *cwd;
 
-	cwd = malloc(newsize);
-	if (cwd == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	cwd = uwsgi_malloc(newsize);
 
 	if (getcwd(cwd, newsize) == NULL) {
 		newsize = errno;
 		uwsgi_log("need a bigger buffer (%d bytes) for getcwd(). doing reallocation.\n", newsize);
 		free(cwd);
-		cwd = malloc(newsize);
-		if (cwd == NULL) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		cwd = uwsgi_malloc(newsize);
 		if (getcwd(cwd, newsize) == NULL) {
 			uwsgi_error("getcwd()");
 			exit(1);
@@ -465,16 +457,27 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
 	int i;
 	int ret;
+	char uwsgi_signal;
+
 
 	if (wsgi_req->leave_open) return 0;
 
-	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt, -1);
+	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.no_orphans, -1);
 
 	if (ret < 0) {
 		uwsgi_error("poll()");
 		return -1;
 	}
 
+	if (uwsgi.sockets_poll[uwsgi.sockets_cnt].revents) {
+		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0 && uwsgi.no_orphans) {
+			uwsgi_log_verbose("UAAAAAAH my master died, i will follow him...\n");
+                	end_me();
+		}
+                else {
+                	uwsgi_log_verbose("master sent signal %b to worker %d\n", uwsgi_signal, uwsgi.mywid);
+		}
+	}
 
 	for(i=0;i<uwsgi.sockets_cnt;i++) {
 
@@ -567,11 +570,7 @@ void parse_sys_envs(char **envs) {
 
 	while(*uenvs) {
 		if (!strncmp(*uenvs, "UWSGI_", 6)) {
-			earg = malloc(strlen(*uenvs+6)+1);
-			if (!earg) {
-				uwsgi_error("malloc()");
-				exit(1);
-			}
+			earg = uwsgi_malloc(strlen(*uenvs+6)+1);
 			env_to_arg(*uenvs+6, earg);
 			eq_pos = strchr(earg, '=');
 			if (!eq_pos) {
@@ -695,11 +694,7 @@ char *uwsgi_concatn(int c, ...) {
 	va_end( s );
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	memset( buf, 0, len);
 
 	j = c;
@@ -730,11 +725,7 @@ char *uwsgi_concat2(char *one, char *two) {
 	size_t len = strlen(one) + strlen(two) + 1;
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	buf[len-1] = 0;
 
 	memcpy( buf, one, strlen(one));
@@ -750,11 +741,7 @@ char *uwsgi_concat4(char *one, char *two, char *three, char *four) {
 	size_t len = strlen(one) + strlen(two) + strlen(three) + strlen(four) + 1;
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	buf[len-1] = 0;
 
 	memcpy( buf, one, strlen(one));
@@ -773,11 +760,7 @@ char *uwsgi_concat3(char *one, char *two, char *three) {
 	size_t len = strlen(one) + strlen(two) + strlen(three) + 1;
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	buf[len-1] = 0;
 
 	memcpy( buf, one, strlen(one));
@@ -794,11 +777,7 @@ char *uwsgi_concat2n(char *one, int s1, char *two, int s2) {
 	size_t len = s1 + s2 + 1;
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	buf[len-1] = 0;
 
 	memcpy( buf, one, s1);
@@ -814,11 +793,7 @@ char *uwsgi_concat3n(char *one, int s1, char *two, int s2, char *three, int s3) 
 	size_t len = s1 + s2 + s3 + 1;
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	buf[len-1] = 0;
 
 	memcpy( buf, one, s1);
@@ -835,11 +810,7 @@ char *uwsgi_concat4n(char *one, int s1, char *two, int s2, char *three, int s3, 
 	size_t len = s1 + s2 + s3 + s4 + 1;
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	buf[len-1] = 0;
 
 	memcpy( buf, one, s1);
@@ -873,11 +844,7 @@ char *uwsgi_concat(int c, ... ) {
 	va_end( s );
 
 
-	buf = malloc(len);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len);
 	memset( buf, 0, len);
 
 	j = c;
@@ -905,11 +872,7 @@ char *uwsgi_strncopy(char *s, int len) {
 
 	char *buf;
 
-	buf = malloc(len + 1);
-	if (buf == NULL) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(len + 1);
 	buf[len] = 0;
 
 	memcpy(buf, s, len);
@@ -1128,11 +1091,7 @@ void add_exported_option(int i, char *value) {
 
 
 	if (!uwsgi.exported_opts) {
-		uwsgi.exported_opts = malloc(sizeof(struct uwsgi_opt*));
-		if (!uwsgi.exported_opts) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		uwsgi.exported_opts = uwsgi_malloc(sizeof(struct uwsgi_opt*));
 	}
 	else {
 		uwsgi.exported_opts = realloc(uwsgi.exported_opts, sizeof(struct uwsgi_opt*) * (uwsgi.exported_opts_cnt+1));
@@ -1143,11 +1102,7 @@ void add_exported_option(int i, char *value) {
 	}
 
 
-	uwsgi.exported_opts[uwsgi.exported_opts_cnt] = malloc(sizeof(struct uwsgi_opt));
-	if (!uwsgi.exported_opts[uwsgi.exported_opts_cnt]) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	uwsgi.exported_opts[uwsgi.exported_opts_cnt] = uwsgi_malloc(sizeof(struct uwsgi_opt));
 	uwsgi.exported_opts[uwsgi.exported_opts_cnt]->key = key;
 	uwsgi.exported_opts[uwsgi.exported_opts_cnt]->value = value;
 	uwsgi.exported_opts_cnt++;
@@ -1192,4 +1147,16 @@ int uwsgi_waitfd(int fd, int timeout) {
 	}
 
 	return ret;
+}
+
+
+inline void *uwsgi_malloc(size_t size) {
+
+	char *ptr = malloc(size);
+	if (ptr == NULL) {
+		uwsgi_error("malloc()");
+		exit(1);
+	}	
+
+	return ptr;
 }

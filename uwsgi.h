@@ -801,7 +801,8 @@ struct uwsgi_server {
 
 	int             sockets_cnt;
 	struct uwsgi_socket sockets[8];
-	struct pollfd   sockets_poll[8];
+	// leave a slot for no-orphan mode
+	struct pollfd   sockets_poll[9];
 
 	time_t          respawn_delta;
 
@@ -1255,3 +1256,5 @@ uint32_t uwsgi_cache_exists(char *, uint16_t);
 void uwsgi_lock_init(void *);
 void uwsgi_lock(void *);
 void uwsgi_unlock(void *);
+
+inline void *uwsgi_malloc(size_t);

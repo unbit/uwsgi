@@ -440,6 +440,7 @@ void master_loop(char **argv, char **environ) {
 							}
 							else {
 								uwsgi_log_verbose("lost connection with worker %d\n", i+1);
+								close(uwsgi_signal_poll[i].fd);
 							}
 						}
 					}

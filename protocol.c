@@ -597,11 +597,7 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 	socklen_t sin_len = sizeof(struct sockaddr_in);
 
 	if (!buffer) {
-		buffer = malloc(uwsgi.buffer_size + 4);
-		if (!buffer) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		buffer = uwsgi_malloc(uwsgi.buffer_size + 4);
 	}
 		
 
@@ -747,11 +743,7 @@ int uwsgi_string_sendto(int fd, uint8_t modifier1, uint8_t modifier2, struct soc
 
 	ssize_t rlen ;
 	struct uwsgi_header *uh;
-	char *upkt = malloc(len + 4);
-	if (!upkt) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	char *upkt = uwsgi_malloc(len + 4);
 
 	uh = (struct uwsgi_header *) upkt;
 
