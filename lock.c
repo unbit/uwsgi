@@ -36,6 +36,25 @@ void uwsgi_unlock(void *lock) {
 
 #endif
 
+#ifdef UWSGI_LOCK_USE_UMTX
+
+#include <machine/atomic.h>
+#include <sys/umtx.h>
+
+void uwsgi_lock_init(void *lock) {
+	umtx_init((struct umtx*) lock);
+}
+
+void uwsgi_lock(void *lock) {
+	umtx_lock(lock, 1);
+}
+
+void uwsgi_unlock(void *lock) {
+	umtx_unlock(lock, 1);
+}
+
+#endif
+
 
 #ifdef UWSGI_LOCK_USE_OSX_SPINLOCK
 
