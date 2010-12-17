@@ -462,9 +462,9 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
 	if (wsgi_req->leave_open) return 0;
 
+polling:
 	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.no_orphans, -1);
 
-	uwsgi_log("poll returned %d events\n", ret);
 	if (ret < 0) {
 		uwsgi_error("poll()");
 		return -1;
@@ -472,7 +472,7 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.sockets_poll[uwsgi.sockets_cnt].revents && uwsgi.master_process) {
 		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0 && uwsgi.no_orphans) {
-			uwsgi_log_verbose("UAAAAAAH my master died, i will follow him...\n");
+			uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
                 	end_me();
 		}
                 else {
@@ -480,12 +480,15 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+
 	for(i=0;i<uwsgi.sockets_cnt;i++) {
 
 		if (uwsgi.sockets_poll[i].revents & POLLIN) {
 			wsgi_req->poll.fd = accept(uwsgi.sockets_poll[i].fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
 
 			if (wsgi_req->poll.fd < 0) {
+
+				if (errno == EWOULDBLOCK) goto polling;
 				uwsgi_error("accept()");
 				return -1;
 			}
