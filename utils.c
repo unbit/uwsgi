@@ -464,12 +464,13 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
 	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.no_orphans, -1);
 
+	uwsgi_log("poll returned %d events\n", ret);
 	if (ret < 0) {
 		uwsgi_error("poll()");
 		return -1;
 	}
 
-	if (uwsgi.sockets_poll[uwsgi.sockets_cnt].revents) {
+	if (uwsgi.sockets_poll[uwsgi.sockets_cnt].revents && uwsgi.master_process) {
 		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0 && uwsgi.no_orphans) {
 			uwsgi_log_verbose("UAAAAAAH my master died, i will follow him...\n");
                 	end_me();
