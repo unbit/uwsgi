@@ -214,7 +214,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (wsgi_req->uh.modifier2 == 4) {
 		// for persistent connections
-		uwsgi_log("LEAVE OPEN\n");
+		// TODO move it to a generic modifier (WSGI independent)
 		wsgi_req->leave_open = 1;
 	}
 
@@ -294,9 +294,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
-	uwsgi_log("before subhandler %d\n", wsgi_req->leave_open);
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
-	uwsgi_log("after subhandler %d\n", wsgi_req->leave_open);
 
 	if (wsgi_req->async_result) {
 

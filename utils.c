@@ -439,7 +439,6 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	}
 
 	wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
-	uwsgi_log("leave_open after request %d\n", wsgi_req->leave_open);
 
 	return 0;
 }
