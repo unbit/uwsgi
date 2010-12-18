@@ -50,3 +50,4 @@ sharedarea_writebyte
 sharedarea_readlong
 sharedarea_writelong
 sharedarea_inclong
+register_signal(num, handler)

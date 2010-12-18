@@ -61,7 +61,6 @@ void master_loop(char **argv, char **environ) {
 
 	int master_has_children = 0;
 
-	struct pollfd *uwsgi_signal_poll;
 	char uwsgi_signal;
 
 #ifdef UWSGI_UDP
@@ -99,17 +98,11 @@ void master_loop(char **argv, char **environ) {
 
 	signal(SIGUSR1, (void *) &stats);
 
-	uwsgi_signal_poll = malloc(sizeof(struct pollfd) * uwsgi.numproc);
-	if (!uwsgi_signal_poll) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
-	memset(uwsgi_signal_poll, 0, sizeof(struct pollfd) * uwsgi.numproc);
+	int master_queue = event_queue_init();
 
 	for(i=1;i<=uwsgi.numproc;i++) {
 		uwsgi_log("adding %d to signal poll\n", uwsgi.workers[i].pipe[0]);
-		uwsgi_signal_poll[i-1].fd = uwsgi.workers[i].pipe[0];
-		uwsgi_signal_poll[i-1].events = POLLIN;
+		event_queue_add_fd_read(master_queue, uwsgi.workers[i].pipe[0]);
 	}
 
 	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
@@ -144,11 +137,7 @@ void master_loop(char **argv, char **environ) {
                 }
 
 		//uwsgi_log("cluster opts size: %d\n", cluster_opt_size);
-		cluster_opt_buf = malloc(cluster_opt_size);
-		if (!cluster_opt_buf) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
+		cluster_opt_buf = uwsgi_malloc(cluster_opt_size);
 
 		uh = (struct uwsgi_header *) cluster_opt_buf;
 
@@ -205,6 +194,17 @@ void master_loop(char **argv, char **environ) {
 
 	}
 #endif
+
+	// add a fake timer
+	event_queue_add_timer(master_queue, 0xFFFF, 5);
+	
+	int fd_mon = open("/tmp/topolino", O_RDONLY);
+	if (fd_mon < 0) {
+		uwsgi_error("open()");
+		exit(1);
+	}
+
+	event_queue_add_file_monitor(master_queue, fd_mon);
 
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
@@ -309,145 +309,123 @@ void master_loop(char **argv, char **environ) {
 			if (!check_interval)
 				check_interval = 1;
 
-#ifdef UWSGI_UDP
-#ifdef UWSGI_MULTICAST
-			if ( (uwsgi.udp_socket && udp_fd >= 0) || (uwsgi.cluster && uwsgi.cluster_fd >= 0)) {
-#else
-			if ((uwsgi.udp_socket && udp_fd >= 0)) {
-#endif
-				rlen = poll(uwsgi_poll, uwsgi_poll_size, check_interval * 1000);
+				int interesting_fd = -1;
+				rlen = event_queue_wait(master_queue, check_interval, &interesting_fd);
+
 				if (rlen < 0) {
 					uwsgi_error("poll()");
 				}
 				else if (rlen > 0) {
 
-					for(i=0;i<uwsgi_poll_size;i++) {
+					if (uwsgi.udp_socket && interesting_fd == udp_fd) {
+						udp_len = sizeof(udp_client);
+						rlen = recvfrom(udp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
 
-						if (uwsgi_poll[i].revents & POLLIN) {
+						if (rlen < 0) {
+							uwsgi_error("recvfrom()");
+						}
+						else if (rlen > 0) {
 
-							if (uwsgi_poll[i].fd == udp_fd) {
-								udp_len = sizeof(udp_client);
-								rlen = recvfrom(udp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
-								if (rlen < 0) {
-									uwsgi_error("recvfrom()");
+							memset(udp_client_addr, 0, 16);
+							if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
+								if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
 								}
-								else if (rlen > 0) {
-									memset(udp_client_addr, 0, 16);
-									if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
-										if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
-										}
 #ifdef UWSGI_SNMP
-										else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
-											manage_snmp(udp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
-										}
+								else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
+									manage_snmp(udp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+								}
 #endif
-										else {
+								else {
 
-											// loop the various udp manager until one returns true
-											udp_managed = 0;
-											for(i=0;i<0xFF;i++) {
-												if (uwsgi.p[i]->manage_udp) {
-													if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
-														udp_managed = 1;
-														break;
-													}
-												}
-											}
-								/*
-								   if (udp_callable && udp_callable_args) {
-								   UWSGI_GET_GIL
-								   PyTuple_SetItem(udp_callable_args, 0, PyString_FromString(udp_client_addr));
-								   PyTuple_SetItem(udp_callable_args, 1, PyInt_FromLong(ntohs(udp_client.sin_port)));
-								   PyTuple_SetItem(udp_callable_args, 2, PyString_FromStringAndSize(uwsgi.wsgi_req->buffer, rlen));
-								   udp_response = python_call(udp_callable, udp_callable_args, 0);
-								   if (udp_response) {
-								   Py_DECREF(udp_response);
-								   }
-								   if (PyErr_Occurred())
-								   PyErr_Print();
-
-								   UWSGI_RELEASE_GIL
-								   }
-								   else {
-								// a simple udp logger
-								*/
-											if (!udp_managed) {
-												uwsgi_log( "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
+									// loop the various udp manager until one returns true
+									udp_managed = 0;
+									for(i=0;i<0xFF;i++) {
+										if (uwsgi.p[i]->manage_udp) {
+											if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
+												udp_managed = 1;
+												break;
 											}
 										}
 									}
-									else {
-										uwsgi_error("inet_ntop()");
+
+									// else a simple udp logger
+									if (!udp_managed) {
+										uwsgi_log( "[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
 									}
 								}
 							}
-
-							if (uwsgi_poll[i].fd == uwsgi.cluster_fd) {
-					
-								if (uwsgi_get_dgram(uwsgi.cluster_fd, uwsgi.wsgi_requests[0])) {
-									continue;
-								}
-
-								switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
-									case 95:
-										new_cluster_hostname = NULL;
-										new_cluster_address = NULL;
-										new_cluster_workers = NULL;
-										uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, print_dict, NULL);
-										if (new_cluster_hostname && new_cluster_address && new_cluster_workers) {
-											uwsgi_cluster_add_node(new_cluster_address, atoi(new_cluster_workers), CLUSTER_NODE_DYNAMIC);
-										}
-										break;
-									case 96:
-										uwsgi_log_verbose("%.*s\n", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
-										break;
-									case 98:
-										if (kill(getpid(), SIGHUP)) {
-											uwsgi_error("kill()");
-										}
-										break;
-									case 99:
-										if (uwsgi.wsgi_requests[0]->uh.modifier2 == 0) {
-											uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
-											sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
-										}
-										break;
-									case 73:
-										uwsgi_log_verbose("[uWSGI cluster %s] new node available: %.*s\n", uwsgi.cluster, uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
-										break;
-								}
-							}	
+							else {
+								uwsgi_error("inet_ntop()");
+							}
 						}
+
+						continue;
 					}
-				}
-			}
-			else {
-#endif
-				rlen = poll(uwsgi_signal_poll, uwsgi.numproc, check_interval*1000);
-				if (rlen < 0) {
-					uwsgi_error("poll()");
-					continue;
-				}
-				else if (rlen > 0) {
-					for(i=0;i<uwsgi.numproc;i++) {
-						if (uwsgi_signal_poll[i].revents & POLLIN) {
-							rlen = read(uwsgi_signal_poll[i].fd, &uwsgi_signal, 1);
+
+					if (interesting_fd == uwsgi.cluster_fd) {
+					
+						if (uwsgi_get_dgram(uwsgi.cluster_fd, uwsgi.wsgi_requests[0])) {
+							continue;
+						}
+
+						switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
+							case 95:
+								new_cluster_hostname = NULL;
+								new_cluster_address = NULL;
+								new_cluster_workers = NULL;
+								uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, print_dict, NULL);
+								if (new_cluster_hostname && new_cluster_address && new_cluster_workers) {
+									uwsgi_cluster_add_node(new_cluster_address, atoi(new_cluster_workers), CLUSTER_NODE_DYNAMIC);
+								}
+								break;
+							case 96:
+								uwsgi_log_verbose("%.*s\n", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
+								break;
+							case 98:
+								if (kill(getpid(), SIGHUP)) {
+									uwsgi_error("kill()");
+								}
+								break;
+							case 99:
+								if (uwsgi.wsgi_requests[0]->uh.modifier2 == 0) {
+									uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
+									sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
+								}
+								break;
+							case 73:
+								uwsgi_log_verbose("[uWSGI cluster %s] new node available: %.*s\n", uwsgi.cluster, uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
+								break;
+						}
+						continue;
+					}
+
+					if (interesting_fd == fd_mon) {
+						uwsgi_log("FileSystem event !!!\n");
+						continue;
+					}
+
+					if (interesting_fd == 0xFFFF) {
+						uwsgi_log("timer elapsed !!!\n");
+						continue;
+					}
+
+					// finally check for uwsgi_signal
+					for(i=1;i<=uwsgi.numproc;i++) {
+						if (interesting_fd == uwsgi.workers[i].pipe[0]) {
+							rlen = read(interesting_fd, &uwsgi_signal, 1);
 							if (rlen < 0) {
 								uwsgi_error("read()");
 							}	
 							else if (rlen > 0) {
-								uwsgi_log("received uwsgi signal %d from worker %d\n", uwsgi_signal, i+1);
+								uwsgi_log("received uwsgi signal %d from worker %d\n", uwsgi_signal, i);
 							}
 							else {
-								uwsgi_log_verbose("lost connection with worker %d\n", i+1);
-								close(uwsgi_signal_poll[i].fd);
+								uwsgi_log_verbose("lost connection with worker %d\n", i);
+								close(interesting_fd);
 							}
 						}
 					}
 				}
-#ifdef UWSGI_UDP
-			}
-#endif
 
 			current_time = time(NULL);	
 			// checking logsize
@@ -673,7 +651,7 @@ void master_loop(char **argv, char **environ) {
 		else {
 			uwsgi_log( "Respawned uWSGI worker (new pid: %d)\n", pid);
 			close(uwsgi.workers[uwsgi.mywid].pipe[1]);
-			uwsgi_signal_poll[uwsgi.mywid-1].fd = uwsgi.workers[uwsgi.mywid].pipe[0];
+			event_queue_add_fd_read(master_queue, uwsgi.workers[uwsgi.mywid].pipe[0]);
 #ifdef UWSGI_SPOOLER
 			if (uwsgi.mywid <= 0 && diedpid != uwsgi.shared->spooler_pid) {
 #else

@@ -1258,3 +1258,12 @@ void uwsgi_lock(void *);
 void uwsgi_unlock(void *);
 
 inline void *uwsgi_malloc(size_t);
+
+
+int event_queue_init(void);
+int event_queue_add_fd_read(int, int);
+int event_queue_wait(int, int, int *);
+
+int event_queue_add_timer(int, int, int);
+
+int event_queue_add_file_monitor(int, int);

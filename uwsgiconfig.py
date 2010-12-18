@@ -136,7 +136,7 @@ class uConf():
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'loop', 'uwsgi']
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
         gcc_major = int(gcc_version.split('.')[0])
@@ -191,7 +191,6 @@ class uConf():
 	# set locking subsystem
 	locking_mode = self.get('locking','auto')
 	
-	print locking_mode, uwsgi_os
 	if locking_mode == 'auto':
 		if uwsgi_os == 'Linux':
 			locking_mode = 'pthread_mutex'
@@ -208,6 +207,48 @@ class uConf():
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
 	else:
             self.cflags.append('-DUWSGI_LOCK_USE_FLOCK')
+
+	# set event subsystem
+	event_mode = self.get('event','auto')
+
+	if event_mode == 'auto':
+		if uwsgi_os == 'Linux':
+			event_mode = 'epoll'
+		elif uwsgi_os in ('Darwin', 'FreeBSD'):
+			event_mode = 'kqueue'
+
+	if event_mode == 'epoll':
+            self.cflags.append('-DUWSGI_EVENT_USE_EPOLL')
+	elif event_mode == 'kqueue':
+            self.cflags.append('-DUWSGI_EVENT_USE_KQUEUE')
+
+	# set timer subsystem
+	timer_mode = self.get('timer','auto')
+
+	if timer_mode == 'auto':
+		if uwsgi_os == 'Linux':
+			timer_mode = 'timerfd'
+		elif uwsgi_os in ('Darwin', 'FreeBSD'):
+			timer_mode = 'kqueue'
+
+	if timer_mode == 'timerfd':
+            self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD')
+	elif timer_mode == 'kqueue':
+            self.cflags.append('-DUWSGI_EVENT_TIMER_USE_KQUEUE')
+
+	# set timer subsystem
+	filemonitor_mode = self.get('filemonitor','auto')
+
+	if filemonitor_mode == 'auto':
+		if uwsgi_os == 'Linux':
+			filemonitor_mode = 'inotify'
+		elif uwsgi_os in ('Darwin', 'FreeBSD'):
+			filemonitor_mode = 'kqueue'
+
+	if filemonitor_mode == 'inotify':
+            self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_INOTIFY')
+	elif filemonitor_mode == 'kqueue':
+            self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_KQUEUE')
 	
 
         if self.get('embedded'):

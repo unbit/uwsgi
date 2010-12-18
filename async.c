@@ -176,23 +176,17 @@ int async_del(int queuefd, int fd, int etype) {
 
 #else
 int async_queue_init(int serverfd) {
-	int kfd;
-	struct kevent kev;
 
-	kfd = kqueue();
+	int eqfd = event_queue_init();
+	if (eqfd < 0) {
+		exit(1);
+	} 
 
-	if (kfd < 0) {
-		uwsgi_error("kqueue()");
-		return -1;
+	if (event_queue_add_fd_read(eqfd, serverfd) < 0) {
+		exit(1);
 	}
 
-	EV_SET(&kev, serverfd, EVFILT_READ, EV_ADD, 0, 0, 0);
-	if (kevent(kfd, &kev, 1, NULL, 0, NULL) < 0) {
-		uwsgi_error("kevent()");
-		return -1;
-	}
-
-	return kfd;
+	return eqfd ;
 }
 
 int async_wait(int queuefd, void *events, int nevents, int block, int timeout) {
