@@ -196,15 +196,14 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 	// add a fake timer
-	event_queue_add_timer(master_queue, 0xFFFF, 5);
-	
-	int fd_mon = open("/tmp/topolino", O_RDONLY);
-	if (fd_mon < 0) {
-		uwsgi_error("open()");
-		exit(1);
-	}
 
-	event_queue_add_file_monitor(master_queue, fd_mon);
+	/*
+	int fake_timer = 0xFFFF;
+	event_queue_add_timer(master_queue, &fake_timer, 5);
+	
+	int fd_mon = -1;
+	event_queue_add_file_monitor(master_queue, "/tmp/topolino", &fd_mon);
+	*/
 
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
@@ -312,10 +311,7 @@ void master_loop(char **argv, char **environ) {
 				int interesting_fd = -1;
 				rlen = event_queue_wait(master_queue, check_interval, &interesting_fd);
 
-				if (rlen < 0) {
-					uwsgi_error("poll()");
-				}
-				else if (rlen > 0) {
+				if (rlen > 0) {
 
 					if (uwsgi.udp_socket && interesting_fd == udp_fd) {
 						udp_len = sizeof(udp_client);
@@ -399,15 +395,19 @@ void master_loop(char **argv, char **environ) {
 						continue;
 					}
 
+					/*
 					if (interesting_fd == fd_mon) {
 						uwsgi_log("FileSystem event !!!\n");
+						event_queue_ack_file_monitor(fd_mon);
 						continue;
 					}
 
-					if (interesting_fd == 0xFFFF) {
+					if (interesting_fd == fake_timer) {
 						uwsgi_log("timer elapsed !!!\n");
+						event_queue_ack_timer(fake_timer);
 						continue;
 					}
+					*/
 
 					// finally check for uwsgi_signal
 					for(i=1;i<=uwsgi.numproc;i++) {
@@ -422,6 +422,7 @@ void master_loop(char **argv, char **environ) {
 							else {
 								uwsgi_log_verbose("lost connection with worker %d\n", i);
 								close(interesting_fd);
+								uwsgi.workers[i].pipe[0] = -1;
 							}
 						}
 					}

@@ -1264,6 +1264,9 @@ int event_queue_init(void);
 int event_queue_add_fd_read(int, int);
 int event_queue_wait(int, int, int *);
 
-int event_queue_add_timer(int, int, int);
+int event_queue_add_timer(int, int *, int);
+void event_queue_ack_timer(int);
 
-int event_queue_add_file_monitor(int, int);
+int event_queue_add_file_monitor(int, char *, int *);
+void event_queue_ack_file_monitor(int);
+
