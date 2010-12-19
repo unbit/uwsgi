@@ -217,6 +217,11 @@ void event_queue_ack_timer(int id) {
 }
 #endif
 
+#ifdef UWSGI_EVENT_TIMER_USE_NONE
+int event_queue_add_timer(int eq, int *id, int sec) { return -1; }
+void event_queue_ack_timer(int id) {}
+#endif
+
 #ifdef UWSGI_EVENT_TIMER_USE_KQUEUE
 int event_queue_add_timer(int eq, int *id, int sec) {
 

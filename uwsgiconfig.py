@@ -2,6 +2,7 @@
 
 import os
 uwsgi_os = os.uname()[0]
+uwsgi_os_k = os.uname()[2].split('-')[0]
 uwsgi_os_v = os.uname()[3]
 uwsgi_cpu = os.uname()[4]
 
@@ -131,7 +132,7 @@ def build_uwsgi(uc):
         bin_name = './' + bin_name
     print("*** uWSGI is ready, launch it with %s ***" % bin_name)
 
-class uConf():
+class uConf(object):
 
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
@@ -227,7 +228,12 @@ class uConf():
 
 	if timer_mode == 'auto':
 		if uwsgi_os == 'Linux':
-			timer_mode = 'timerfd'
+			(k_base, k_major, k_minor) = uwsgi_os_k.split('.')
+			if int(k_minor) >= 25:
+				timer_mode = 'timerfd'
+			else:
+				timer_mode = 'none'
+				
 		elif uwsgi_os in ('Darwin', 'FreeBSD'):
 			timer_mode = 'kqueue'
 
@@ -235,8 +241,10 @@ class uConf():
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD')
 	elif timer_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_KQUEUE')
+	else:
+	    self.cflags.append('-DUWSGI_EVENT_TIMER_USE_NONE')	
 
-	# set timer subsystem
+	# set filemonitor subsystem
 	filemonitor_mode = self.get('filemonitor','auto')
 
 	if filemonitor_mode == 'auto':
