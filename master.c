@@ -425,6 +425,7 @@ void master_loop(char **argv, char **environ) {
 
 					for(i=0;i<uwsgi.timers_cnt;i++) {
                                                 if (uwsgi.timers[i].registered) {
+							uwsgi_log("%d = %d\n", interesting_fd, uwsgi.timers[i].fd);
                                                         if (interesting_fd == uwsgi.timers[i].fd) {
                                                                 struct uwsgi_timer *ut = event_queue_ack_timer(interesting_fd, NULL);
                                                                 // now call the file_monitor handler

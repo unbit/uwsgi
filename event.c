@@ -342,6 +342,8 @@ int event_queue_add_timer(int eq, int *id, int sec) {
 
 	*id = timer_id ;
 	timer_id++;	
+
+	uwsgi_log("registering timer %d\n", sec);
 	
         EV_SET(&kev, *id, EVFILT_TIMER, EV_ADD, 0, sec*1000, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {

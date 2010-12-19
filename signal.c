@@ -20,7 +20,7 @@ int register_signal(uint8_t sig, char *payload) {
 			else {
 				uwsgi_log("you can register max 64 file monitors !!!\n");
 			}
-
+			break;
 		case 11:
 			if (uwsgi.timers_cnt < 64) {
 				uwsgi.timers[uwsgi.timers_cnt].value = atoi(payload);
@@ -35,6 +35,7 @@ int register_signal(uint8_t sig, char *payload) {
 			else {
 				uwsgi_log("you can register max 64 timers !!!\n");
 			}
+			break;
 	}
 
 	return 0;
