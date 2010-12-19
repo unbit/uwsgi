@@ -4,8 +4,6 @@ extern struct uwsgi_server uwsgi;
 
 int register_signal(uint8_t sig, char *payload) {
 
-	uwsgi_log("SIGNAL %d %s\n", sig, payload);
-
 	switch(sig) {
 
 		case 10:

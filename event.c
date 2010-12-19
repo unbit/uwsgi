@@ -128,18 +128,49 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 #endif
 
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_KQUEUE
-int event_queue_add_file_monitor(int eq, int fd) {
+int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 
 	struct kevent kev;
+
+	int fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error("open()");
+		return -1;
+	}
 	
         EV_SET(&kev, fd, EVFILT_VNODE, EV_ADD|EV_CLEAR, NOTE_WRITE|NOTE_DELETE|NOTE_EXTEND|NOTE_ATTRIB|NOTE_RENAME|NOTE_REVOKE, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
                 uwsgi_error("kevent()");
                 return -1;
         }
+
+	*id = fd;
 	
-	return 0;
+	return fd;
 }
+
+struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32_t, char *)) {
+
+	int i;
+	struct uwsgi_fmon *uf = NULL;
+
+        for(i=0;i<uwsgi.files_monitored_cnt;i++) {
+        	if (uwsgi.files_monitored[i].registered) {
+                	if (uwsgi.files_monitored[i].fd == id) {
+                        	if (hook) {
+                                	hook(uwsgi.files_monitored[i].filename, 0, NULL);
+                                }
+                                else {
+                                	uf = &uwsgi.files_monitored[i];
+                                }
+			}
+		}
+        }
+
+        return uf;
+
+}
+
 #endif
 
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_INOTIFY
@@ -306,7 +337,11 @@ struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int ,int)) { return 
 #ifdef UWSGI_EVENT_TIMER_USE_KQUEUE
 int event_queue_add_timer(int eq, int *id, int sec) {
 
+	static int timer_id = 0xffffff00;
 	struct kevent kev;
+
+	*id = timer_id ;
+	timer_id++;	
 	
         EV_SET(&kev, *id, EVFILT_TIMER, EV_ADD, 0, sec*1000, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
@@ -314,8 +349,27 @@ int event_queue_add_timer(int eq, int *id, int sec) {
                 return -1;
         }
 	
-	return 0;
+	return *id;
 }
 
-void event_queue_ack_timer(int id) {}
+struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int ,int)) {
+
+	int i;
+	struct uwsgi_timer *ut = NULL;
+
+	for(i=0;i<uwsgi.timers_cnt;i++) {
+		if (uwsgi.timers[i].registered) {
+			if (uwsgi.timers[i].id == id) {
+				ut = &uwsgi.timers[i];
+			}
+		}
+	}
+
+	if (hook) {
+		hook(ut->value, ut->id);
+	}
+
+	return ut;
+
+}
 #endif

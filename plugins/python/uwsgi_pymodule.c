@@ -168,7 +168,6 @@ PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
 
 	// am i the master ?
 	if (uwsgi.mywid == 0) {
-		uwsgi_log("i am the master !!!\n");
 		register_signal(uwsgi_signal, payload);
 		goto done;
 	}

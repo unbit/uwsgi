@@ -195,13 +195,6 @@ void master_loop(char **argv, char **environ) {
 	}
 #endif
 
-	// add a fake timer
-
-	/*
-	int fake_timer = 0xFFFF;
-	event_queue_add_timer(master_queue, &fake_timer, 5);
-	*/
-	
 	
 	// add unregistered file monitors
 	for(i=0;i<uwsgi.files_monitored_cnt;i++) {
