@@ -98,11 +98,11 @@ void master_loop(char **argv, char **environ) {
 
 	signal(SIGUSR1, (void *) &stats);
 
-	int master_queue = event_queue_init();
+	uwsgi.master_queue = event_queue_init();
 
 	for(i=1;i<=uwsgi.numproc;i++) {
 		uwsgi_log("adding %d to signal poll\n", uwsgi.workers[i].pipe[0]);
-		event_queue_add_fd_read(master_queue, uwsgi.workers[i].pipe[0]);
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.workers[i].pipe[0]);
 	}
 
 	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
@@ -200,10 +200,24 @@ void master_loop(char **argv, char **environ) {
 	/*
 	int fake_timer = 0xFFFF;
 	event_queue_add_timer(master_queue, &fake_timer, 5);
-	
-	int fd_mon = -1;
-	event_queue_add_file_monitor(master_queue, "/tmp/topolino", &fd_mon);
 	*/
+	
+	
+	// add unregistered file monitors
+	for(i=0;i<uwsgi.files_monitored_cnt;i++) {
+		if (!uwsgi.files_monitored[i].registered) {
+			uwsgi.files_monitored[i].fd = event_queue_add_file_monitor(uwsgi.master_queue, uwsgi.files_monitored[i].filename, &uwsgi.files_monitored[i].id);
+			uwsgi.files_monitored[i].registered = 1;		
+		}
+	}
+
+	// add unregistered timers
+	for(i=0;i<uwsgi.timers_cnt;i++) {
+		if (!uwsgi.timers[i].registered) {
+			uwsgi.timers[i].fd = event_queue_add_timer(uwsgi.master_queue, &uwsgi.timers[i].id, uwsgi.timers[i].value);
+			uwsgi.timers[i].registered = 1;		
+		}
+	}
 
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
@@ -309,7 +323,7 @@ void master_loop(char **argv, char **environ) {
 				check_interval = 1;
 
 				int interesting_fd = -1;
-				rlen = event_queue_wait(master_queue, check_interval, &interesting_fd);
+				rlen = event_queue_wait(uwsgi.master_queue, check_interval, &interesting_fd);
 
 				if (rlen > 0) {
 
@@ -395,19 +409,41 @@ void master_loop(char **argv, char **environ) {
 						continue;
 					}
 
-					/*
-					if (interesting_fd == fd_mon) {
-						uwsgi_log("FileSystem event !!!\n");
-						event_queue_ack_file_monitor(fd_mon);
-						continue;
-					}
+					
+					//event_queue_ack_timer(fake_timer);
 
-					if (interesting_fd == fake_timer) {
-						uwsgi_log("timer elapsed !!!\n");
-						event_queue_ack_timer(fake_timer);
-						continue;
+					int next_iteration = 0;
+
+					for(i=0;i<uwsgi.files_monitored_cnt;i++) {
+						if (uwsgi.files_monitored[i].registered) {
+							if (interesting_fd == uwsgi.files_monitored[i].fd) {
+								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(interesting_fd, NULL);
+								// now call the file_monitor handler
+								if (uf) {
+									uwsgi_log("fd event for %s\n", uf->filename);
+								}
+								break;
+							}
+						}
 					}
-					*/
+					if (next_iteration) continue;
+
+					next_iteration = 0;
+
+					for(i=0;i<uwsgi.timers_cnt;i++) {
+                                                if (uwsgi.timers[i].registered) {
+                                                        if (interesting_fd == uwsgi.timers[i].fd) {
+                                                                struct uwsgi_timer *ut = event_queue_ack_timer(interesting_fd, NULL);
+                                                                // now call the file_monitor handler
+                                                                if (ut) {
+                                                                        uwsgi_log("fd event for timer %d\n", ut->value);
+                                                                }
+                                                                break;
+                                                        }
+                                                }
+                                        }
+                                        if (next_iteration) continue;
+
 
 					// finally check for uwsgi_signal
 					for(i=1;i<=uwsgi.numproc;i++) {
@@ -652,7 +688,7 @@ void master_loop(char **argv, char **environ) {
 		else {
 			uwsgi_log( "Respawned uWSGI worker (new pid: %d)\n", pid);
 			close(uwsgi.workers[uwsgi.mywid].pipe[1]);
-			event_queue_add_fd_read(master_queue, uwsgi.workers[uwsgi.mywid].pipe[0]);
+			event_queue_add_fd_read(uwsgi.master_queue, uwsgi.workers[uwsgi.mywid].pipe[0]);
 #ifdef UWSGI_SPOOLER
 			if (uwsgi.mywid <= 0 && diedpid != uwsgi.shared->spooler_pid) {
 #else

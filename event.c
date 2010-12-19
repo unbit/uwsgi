@@ -1,5 +1,7 @@
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
 #ifdef UWSGI_EVENT_USE_EPOLL
 
 #include <sys/epoll.h>
@@ -32,7 +34,7 @@ int event_queue_add_fd_read(int eq, int fd) {
                 return -1;
         }
 
-        return 0;
+        return fd;
 }
 
 int event_queue_wait(int eq, int timeout, int *interesting_fd) {
@@ -81,7 +83,7 @@ int event_queue_add_fd_read(int eq, int fd) {
                 return -1;
         }
 	
-	return 0;
+	return fd;
 }
 
 int event_queue_add_fd_write(int eq, int fd) {
@@ -145,30 +147,93 @@ int event_queue_add_file_monitor(int eq, int fd) {
 
 int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 
-	int ifd = inotify_init();
-	if (ifd < 0) {
-		uwsgi_error("inotify_init()");
-		return -1;
-	}	
+	int ifd = -1;
+	int i;
+	int add_to_queue = 0;
 
-	*id = ifd;
+	for (i=0;i<uwsgi.files_monitored_cnt;i++) {
+		if (uwsgi.files_monitored[i].registered) {
+			ifd = uwsgi.files_monitored[0].fd;
+			break;
+		}
+	}
+
+	if (ifd == -1) {
+		ifd = inotify_init();
+		if (ifd < 0) {
+			uwsgi_error("inotify_init()");
+			return -1;
+		}		
+		add_to_queue = 1;
+	}
+
+	*id = inotify_add_watch(ifd, filename, IN_ATTRIB|IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MODIFY|IN_MOVE_SELF|IN_MOVED_FROM|IN_MOVED_TO);
 		
-	uwsgi_log("added watch %d for filename %s\n", inotify_add_watch(ifd, filename, IN_ATTRIB|IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MODIFY|IN_MOVE_SELF|IN_MOVED_FROM|IN_MOVED_TO), filename);
+	uwsgi_log("added watch %d for filename %s\n", *id, filename);
 
-	
-	return event_queue_add_fd_read(eq, ifd);
+	if (add_to_queue) {
+		return event_queue_add_fd_read(eq, ifd);
+	}
+	else {
+		return ifd;
+	}
 }
 
-void event_queue_ack_file_monitor(int id) {
+struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32_t, char *)) {
 
 	ssize_t rlen = 0;
-	struct inotify_event ie;
+	struct inotify_event ie, *bie, *iie;
+	int i,j;
+	int items = 0;
 
-	rlen = read(id, &ie, sizeof(struct inotify_event));
+	unsigned int isize = sizeof(struct inotify_event);
+	struct uwsgi_fmon *uf = NULL;
+
+	if (ioctl(id, FIONREAD, &isize) < 0) {
+		uwsgi_error("ioctl()");
+		return NULL;
+	}
+
+	if (isize > sizeof(struct inotify_event)) {
+		bie = uwsgi_malloc(isize);
+		rlen = read(id, bie, isize);
+	}
+	else {
+		rlen = read(id, &ie, sizeof(struct inotify_event));
+		bie = &ie;
+	}
 
 	if (rlen < 0) {
 		uwsgi_error("read()");
 	}
+	else {
+		items = isize/(sizeof(struct inotify_event));
+		uwsgi_log("inotify returned %d items\n", items);
+		for(j=0;j<items;j++) {	
+			iie = &bie[j];
+			for(i=0;i<uwsgi.files_monitored_cnt;i++) {
+				if (uwsgi.files_monitored[i].registered) {
+					if (uwsgi.files_monitored[i].fd == id && uwsgi.files_monitored[i].id == iie->wd) {
+						if (hook) {
+							hook(uwsgi.files_monitored[i].filename, iie->mask, iie->name);
+						}
+						else {
+							uf = &uwsgi.files_monitored[i];
+						}
+					}
+				}
+			}
+
+		}	
+
+		if (items > 1) {
+			free(bie);
+		}
+
+		return uf;
+	}
+	
+	return NULL;
 	
 }
 #endif
@@ -203,17 +268,33 @@ int event_queue_add_timer(int eq, int *id, int sec) {
 	return event_queue_add_fd_read(eq, tfd);
 }
 
-void event_queue_ack_timer(int id) {
+struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int, int)) {
 	
+	int i;
 	ssize_t rlen;
 	uint64_t counter;
+	struct uwsgi_timer *ut = NULL;
+
+	for(i=0;i<uwsgi.timers_cnt;i++) {
+		if (uwsgi.timers[i].registered) {
+			if (uwsgi.timers[i].id == id) {
+				ut = &uwsgi.timers[i];
+			}
+		}
+	}
 
 	rlen = read(id, &counter, sizeof(uint64_t));
 
 	if (rlen < 0) {
 		uwsgi_error("read()");
 	}
+	else {
+		if (hook && ut) {
+			hook(ut->value, ut->id);
+		}
+	}
 	
+	return ut;
 }
 #endif
 

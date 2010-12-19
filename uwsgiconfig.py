@@ -137,7 +137,7 @@ class uConf(object):
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'loop', 'uwsgi']
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
         gcc_major = int(gcc_version.split('.')[0])

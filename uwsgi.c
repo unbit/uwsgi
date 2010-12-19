@@ -418,6 +418,8 @@ int main(int argc, char *argv[], char *envp[])
 		uwsgi.p[i] = &unconfigured_plugin;
 	}
 
+	uwsgi.master_queue = -1;
+
 	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
 

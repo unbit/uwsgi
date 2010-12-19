@@ -159,13 +159,40 @@ PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
 
 	char uwsgi_signal;
 	ssize_t rlen;
+	char *payload = NULL;
+	struct uwsgi_header uh;
 
-	if (!PyArg_ParseTuple(args, "B:signal", &uwsgi_signal)) {
+	if (!PyArg_ParseTuple(args, "B|s:signal", &uwsgi_signal, &payload)) {
                 return NULL;
         }
 
+	// am i the master ?
+	if (uwsgi.mywid == 0) {
+		uwsgi_log("i am the master !!!\n");
+		register_signal(uwsgi_signal, payload);
+		goto done;
+	}
+
 	uwsgi_log("sending %d to master\n", uwsgi_signal);
-	rlen = write(uwsgi.workers[uwsgi.mywid].pipe[1], &uwsgi_signal, 1);
+	uh.modifier1 = 110;
+	if (payload) {
+		uh.pktsize = strlen(payload);
+	}
+	else {
+		uh.pktsize = 0;
+	}
+	uh.modifier2 = uwsgi_signal;
+	
+	rlen = write(uwsgi.workers[uwsgi.mywid].pipe[1], &uh, 4);
+	if (rlen == 4) {
+		if (uh.pktsize) {
+			if (write(uwsgi.workers[uwsgi.mywid].pipe[1], payload, uh.pktsize) < 0) {
+				uwsgi_error("write()");
+			}	
+		}
+	}
+
+done:
 
 	Py_INCREF(Py_None);
 	return Py_None;

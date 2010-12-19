@@ -588,6 +588,20 @@ struct wsgi_request {
 
 #define LOADER_MAX		8
 
+struct uwsgi_fmon {
+	char *filename;
+	int fd;
+	int id;
+	int registered;
+};
+
+struct uwsgi_timer {
+	int value;
+	int fd;
+	int id;
+	int registered;
+};
+
 struct uwsgi_server {
 
 
@@ -696,6 +710,7 @@ struct uwsgi_server {
 	int             post_buffering_bufsize;
 
 	int             master_process;
+	int		master_queue;
 
 	int             no_defer_accept;
 
@@ -843,6 +858,12 @@ struct uwsgi_server {
 	void *cache_lock;
 
 	void *user_lock;
+
+	struct uwsgi_fmon files_monitored[64];
+	int files_monitored_cnt;
+
+	struct uwsgi_timer timers[64];
+	int timers_cnt;
 };
 
 struct uwsgi_lb_group {
@@ -1265,8 +1286,10 @@ int event_queue_add_fd_read(int, int);
 int event_queue_wait(int, int, int *);
 
 int event_queue_add_timer(int, int *, int);
-void event_queue_ack_timer(int);
+struct uwsgi_timer *event_queue_ack_timer(int, void (*)(int, int));
 
 int event_queue_add_file_monitor(int, char *, int *);
-void event_queue_ack_file_monitor(int);
+struct uwsgi_fmon *event_queue_ack_file_monitor(int, void (*)(char *, uint32_t, char *));
 
+
+int register_signal(uint8_t, char *);
