@@ -239,7 +239,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32
 	}
 	else {
 		items = isize/(sizeof(struct inotify_event));
-		uwsgi_log("inotify returned %d items\n", items);
+		//uwsgi_log("inotify returned %d items\n", items);
 		for(j=0;j<items;j++) {	
 			iie = &bie[j];
 			for(i=0;i<uwsgi.files_monitored_cnt;i++) {
@@ -271,7 +271,19 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32
 
 #ifdef UWSGI_EVENT_TIMER_USE_TIMERFD
 
+#ifndef UNBIT
 #include <sys/timerfd.h>
+#else
+static int timerfd_create (clockid_t __clock_id, int __flags) {
+	return syscall(322, __clock_id, __flags);
+}
+
+static int timerfd_settime (int __ufd, int __flags,
+                            __const struct itimerspec *__utmr,
+                            struct itimerspec *__otmr) {
+	return syscall(325, __ufd, __flags, __utmr, __otmr);
+}
+#endif
 
 int event_queue_add_timer(int eq, int *id, int sec) {
 

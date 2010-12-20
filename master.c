@@ -320,6 +320,7 @@ void master_loop(char **argv, char **environ) {
 
 				if (rlen > 0) {
 
+#ifdef UWSGI_UDP
 					if (uwsgi.udp_socket && interesting_fd == udp_fd) {
 						udp_len = sizeof(udp_client);
 						rlen = recvfrom(udp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
@@ -402,6 +403,8 @@ void master_loop(char **argv, char **environ) {
 						continue;
 					}
 
+#endif
+
 					
 					//event_queue_ack_timer(fake_timer);
 
@@ -425,7 +428,7 @@ void master_loop(char **argv, char **environ) {
 
 					for(i=0;i<uwsgi.timers_cnt;i++) {
                                                 if (uwsgi.timers[i].registered) {
-							uwsgi_log("%d = %d\n", interesting_fd, uwsgi.timers[i].fd);
+							//uwsgi_log("%d = %d\n", interesting_fd, uwsgi.timers[i].fd);
                                                         if (interesting_fd == uwsgi.timers[i].fd) {
                                                                 struct uwsgi_timer *ut = event_queue_ack_timer(interesting_fd, NULL);
                                                                 // now call the file_monitor handler

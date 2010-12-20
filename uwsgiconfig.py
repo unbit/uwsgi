@@ -151,6 +151,16 @@ class uConf(object):
         self.ldflags = os.environ.get("LDFLAGS", "").split()
         self.libs = ['-lpthread', '-rdynamic']
 
+	# check for inherit option
+	inherit = self.get('inherit')
+	if inherit:
+		iconfig = ConfigParser.ConfigParser()
+		iconfig.read('buildconf/%s.ini' % inherit)
+		for opt in iconfig.options('uwsgi'):
+			if not self.get(opt):
+				self.set(opt, iconfig.get('uwsgi', opt))
+	
+
     def set(self, key, value):
     	self.config.set('uwsgi',key, value)
 
@@ -228,7 +238,10 @@ class uConf(object):
 
 	if timer_mode == 'auto':
 		if uwsgi_os == 'Linux':
-			(k_base, k_major, k_minor) = uwsgi_os_k.split('.')
+			k_all = uwsgi_os_k.split('.')
+			k_base = k_all[0]
+			k_major = k_all[1]
+			k_minor = k_all[2]
 			if int(k_minor) >= 25:
 				timer_mode = 'timerfd'
 			else:
