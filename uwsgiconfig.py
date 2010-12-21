@@ -1,8 +1,9 @@
 # uWSGI build system
 
 import os
+import re
 uwsgi_os = os.uname()[0]
-uwsgi_os_k = os.uname()[2].split('-')[0]
+uwsgi_os_k = re.split('[-+]', os.uname()[2])[0]
 uwsgi_os_v = os.uname()[3]
 uwsgi_cpu = os.uname()[4]
 
