@@ -11,8 +11,6 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 	struct stat stat_buf;
 	ssize_t sst = 0;
 
-	//UWSGI_RELEASE_GIL
-
 	if (!wsgi_req->sendfile_fd_size) {
 
 		if (fstat(fd, &stat_buf)) {
@@ -32,7 +30,6 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 	}
 
 end:
-	//UWSGI_GET_GIL
 	return sst;
 }
 
@@ -73,6 +70,7 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 	}
 
 	if (sf_ret) {
+		uwsgi_log("sf_len = %d\n", sf_len);
 		uwsgi_error("sendfile()");
 		return 0;
 	}

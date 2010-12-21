@@ -361,6 +361,7 @@ struct uwsgi_socket {
 	char           *name;
 	int             family;
 	int             bound;
+	int		arg;
 	void           *ctx;
 };
 

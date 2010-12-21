@@ -1066,15 +1066,14 @@ options_parsed:
 
 	
 		// put listening socket i non-blocking state
-		int arg;
 		for (i = 0; i < uwsgi.sockets_cnt; i++) {
-			arg = fcntl(uwsgi.sockets[i].fd, F_GETFL, NULL);
-                	if (arg < 0) {
+			uwsgi.sockets[i].arg = fcntl(uwsgi.sockets[i].fd, F_GETFL, NULL);
+                	if (uwsgi.sockets[i].arg < 0) {
                         	uwsgi_error("fcntl()");
 				exit(1);
                 	}
-                	arg |= O_NONBLOCK;
-                	if (fcntl(uwsgi.sockets[i].fd, F_SETFL, arg) < 0) {
+                	uwsgi.sockets[i].arg |= O_NONBLOCK;
+                	if (fcntl(uwsgi.sockets[i].fd, F_SETFL, uwsgi.sockets[i].arg) < 0) {
                         	uwsgi_error("fcntl()");
                         	exit(1);
                 	}

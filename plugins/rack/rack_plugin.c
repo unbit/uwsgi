@@ -102,15 +102,15 @@ VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
 		return self;
 	}
 
-	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
-		uwsgi_log("using file for http body storage %d\n", wsgi_req->post_cl);
+	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
+		//uwsgi_log("using file for http body storage %d\n", wsgi_req->post_cl);
 		//RUBY_GVL_UNLOCK
 		uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize);
 		//RUBY_GVL_LOCK
 	}
 	else {
 		//RUBY_GVL_UNLOCK
-		uwsgi_log("using memory for http body storage %d\n", wsgi_req->post_cl);
+		//uwsgi_log("using memory for http body storage %d\n", wsgi_req->post_cl);
 		ptr = wsgi_req->post_buffering_buf;
 		while(post_remains > 0) {
 			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
@@ -612,12 +612,13 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		if (rb_respond_to( body, rb_intern("to_path") )) {
 			VALUE sendfile_path = rb_funcall( body, rb_intern("to_path"), 0);
 			wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
-			uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
 			//RUBY_GVL_UNLOCK
 			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
-			while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
-				uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
-				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+			if (wsgi_req->response_size > 0) {
+				while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
+					uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
+					wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+				}
 			}
 			//RUBY_GVL_LOCK;
 			rb_gc_unregister_address(&sendfile_path);

@@ -366,7 +366,7 @@ PyObject *uwsgi_mount_loader(void *arg1) {
 }
 
 
-/* this is the dynamic loader, it loads app ireading nformation from a wsgi_request */
+/* this is the dynamic loader, it loads app reading information from a wsgi_request */
 PyObject *uwsgi_dyn_loader(void *arg1) {
 
 	PyObject *callable = NULL;

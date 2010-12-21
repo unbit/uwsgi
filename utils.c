@@ -493,6 +493,18 @@ polling:
 				return -1;
 			}
 
+// in Linux, new sockets do not inherit attributes
+#ifndef __linux__
+                	/* re-set blocking socket */
+			int arg = uwsgi.sockets[i].arg ;
+                	arg &= (~O_NONBLOCK);
+                	if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
+                        	uwsgi_error("fcntl()");
+                        	return -1;
+                	}
+
+#endif
+
 			if (uwsgi.close_on_exec) {
 				fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
 			}
