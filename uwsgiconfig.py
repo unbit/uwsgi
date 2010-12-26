@@ -137,6 +137,7 @@ class uConf(object):
 
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
+	print("using profile: %s" % filename)
         self.config.read(filename)
         self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
@@ -155,8 +156,14 @@ class uConf(object):
 	# check for inherit option
 	inherit = self.get('inherit')
 	if inherit:
+		if not '/' in inherit:
+			inherit = 'buildconf/%s' % inherit
+
+		if not inherit.endswith('.ini'):
+			inherit = '%s.ini' % inherit
+
 		iconfig = ConfigParser.ConfigParser()
-		iconfig.read('buildconf/%s.ini' % inherit)
+		iconfig.read(inherit)
 		for opt in iconfig.options('uwsgi'):
 			if not self.get(opt):
 				self.set(opt, iconfig.get('uwsgi', opt))
@@ -461,7 +468,9 @@ if __name__ == "__main__":
                 bconf += '.ini'
         except:
             pass
-        build_uwsgi(uConf('buildconf/%s' % bconf))
+        if not '/' in bconf:
+            bconf = 'buildconf/%s' % bconf
+        build_uwsgi(uConf(bconf))
     elif cmd == '--unbit':
         build_uwsgi(uConf('buildconf/unbit.ini'))
     elif cmd == '--plugin':
@@ -472,8 +481,10 @@ if __name__ == "__main__":
                 bconf += '.ini'
         except:
             pass
+        if not '/' in bconf:
+            bconf = 'buildconf/%s' % bconf
 
-        uc = uConf('buildconf/%s' % bconf)
+        uc = uConf(bconf)
         gcc_list, cflags, ldflags, libs = uc.get_gcll()
 	try:
 		name = sys.argv[4]
