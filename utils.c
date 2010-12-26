@@ -463,7 +463,7 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->leave_open) return 0;
 
 polling:
-	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.no_orphans, -1);
+	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.master_process, -1);
 
 	if (ret < 0) {
 		uwsgi_error("poll()");
@@ -471,9 +471,11 @@ polling:
 	}
 
 	if (uwsgi.master_process && uwsgi.sockets_poll[uwsgi.sockets_cnt].revents) {
-		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0 && uwsgi.no_orphans) {
-			uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
-                	end_me();
+		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0) {
+			if (uwsgi.no_orphans) {
+				uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
+                		end_me();
+			}
 		}
                 else {
                 	uwsgi_log_verbose("master sent signal %b to worker %d\n", uwsgi_signal, uwsgi.mywid);

@@ -155,6 +155,26 @@ PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 	
 }
 
+PyObject *py_uwsgi_register_timer(PyObject * self, PyObject * args) {
+
+        uint8_t uwsgi_signal;
+        uint8_t signal_kind;
+        PyObject *handler;
+        int secs;
+
+        if (!PyArg_ParseTuple(args, "BiBO:register_timer", &uwsgi_signal, &secs, &signal_kind, &handler)) {
+                return NULL;
+        }
+
+        uwsgi_log("signal_kind %d\n", signal_kind);
+
+        uwsgi_register_timer(uwsgi_signal, secs, signal_kind, handler, 0);
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
 PyObject *py_uwsgi_register_file_monitor(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
@@ -1893,7 +1913,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"register_signal", py_uwsgi_register_signal, METH_VARARGS, ""},
 		{"signal", py_uwsgi_signal, METH_VARARGS, ""},
 		{"register_file_monitor", py_uwsgi_register_file_monitor, METH_VARARGS, ""},
-		//{"register_timer", py_uwsgi_register_timer, METH_VARARGS, ""},
+		{"register_timer", py_uwsgi_register_timer, METH_VARARGS, ""},
 #ifdef UWSGI_SENDFILE
 		{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
 #endif

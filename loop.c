@@ -66,16 +66,6 @@ void *simple_loop(void *arg1) {
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
-#ifndef __linux__
-		if (uwsgi.no_orphans && uwsgi.master_process) {
-			// am i a son of init ?
-			if (getppid() == 1) {
-				uwsgi_log("UAAAAAAH my parent died :( i will follow him...\n");
-				exit(1);
-			}
-		}
-#endif
-
 		UWSGI_CLEAR_STATUS;
 
 

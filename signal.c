@@ -93,13 +93,35 @@ void uwsgi_register_file_monitor(uint8_t sig, char *filename, uint8_t kind, void
 		memcpy(ushared->files_monitored[ushared->files_monitored_cnt].filename, filename, strlen(filename));
                 ushared->files_monitored[ushared->files_monitored_cnt].registered = 0;
 		ushared->files_monitored[ushared->files_monitored_cnt].sig = sig;
-		ushared->files_monitored_cnt++;
 		uwsgi_register_signal(sig, kind, handler, modifier1, filename, strlen(filename));
+		ushared->files_monitored_cnt++;
 	}
 	else {
 		uwsgi_log("you can register max 64 file monitors !!!\n");
 	}
 
 	uwsgi_unlock(uwsgi.fmon_table_lock);
+
+}
+
+void uwsgi_register_timer(uint8_t sig, int secs, uint8_t kind, void *handler, uint8_t modifier1) {
+
+	uwsgi_lock(uwsgi.timer_table_lock);
+
+	if (ushared->timers_cnt < 64) {
+
+		// fill the timer table, the master will use it to add items to the event queue
+		ushared->timers[ushared->timers_cnt].value = secs;
+		snprintf(ushared->timers[ushared->timers_cnt].svalue, 0xff, "%d", secs);
+		ushared->timers[ushared->timers_cnt].registered = 0;
+		ushared->timers[ushared->timers_cnt].sig = sig;
+		uwsgi_register_signal(sig, kind, handler, modifier1, ushared->timers[ushared->timers_cnt].svalue, strlen(ushared->timers[ushared->timers_cnt].svalue));
+		ushared->timers_cnt++;
+	}
+	else {
+		uwsgi_log("you can register max 64 timers !!!\n");
+	}
+
+	uwsgi_unlock(uwsgi.timer_table_lock);
 
 }

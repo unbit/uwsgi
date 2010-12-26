@@ -151,25 +151,19 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 	return fd;
 }
 
-struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32_t, char *)) {
+struct uwsgi_fmon *event_queue_ack_file_monitor(int id) {
 
 	int i;
-	struct uwsgi_fmon *uf = NULL;
 
-        for(i=0;i<uwsgi.shared->files_monitored_cnt;i++) {
-        	if (uwsgi.shared->files_monitored[i].registered) {
-                	if (uwsgi.shared->files_monitored[i].fd == id) {
-                        	if (hook) {
-                                	hook(uwsgi.shared->files_monitored[i].filename, 0, NULL);
-                                }
-                                else {
-                                	uf = &uwsgi.shared->files_monitored[i];
-                                }
+        for(i=0;i<ushared->files_monitored_cnt;i++) {
+        	if (ushared->files_monitored[i].registered) {
+                	if (ushared->files_monitored[i].fd == id) {
+                        	return &ushared->files_monitored[i];
 			}
 		}
         }
 
-        return uf;
+        return NULL
 
 }
 
@@ -184,9 +178,9 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 	int i;
 	int add_to_queue = 0;
 
-	for (i=0;i<uwsgi.files_monitored_cnt;i++) {
-		if (uwsgi.files_monitored[i].registered) {
-			ifd = uwsgi.files_monitored[0].fd;
+	for (i=0;i<ushared->files_monitored_cnt;i++) {
+		if (ushared->files_monitored[i].registered) {
+			ifd = ushared->files_monitored[0].fd;
 			break;
 		}
 	}
@@ -212,7 +206,7 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 	}
 }
 
-struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32_t, char *)) {
+struct uwsgi_fmon *event_queue_ack_file_monitor(int id) {
 
 	ssize_t rlen = 0;
 	struct inotify_event ie, *bie, *iie;
@@ -241,18 +235,13 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32
 	}
 	else {
 		items = isize/(sizeof(struct inotify_event));
-		//uwsgi_log("inotify returned %d items\n", items);
+		uwsgi_log("inotify returned %d items\n", items);
 		for(j=0;j<items;j++) {	
 			iie = &bie[j];
-			for(i=0;i<uwsgi.files_monitored_cnt;i++) {
-				if (uwsgi.files_monitored[i].registered) {
-					if (uwsgi.files_monitored[i].fd == id && uwsgi.files_monitored[i].id == iie->wd) {
-						if (hook) {
-							hook(uwsgi.files_monitored[i].filename, iie->mask, iie->name);
-						}
-						else {
-							uf = &uwsgi.files_monitored[i];
-						}
+			for(i=0;i<ushared->files_monitored_cnt;i++) {
+				if (ushared->files_monitored[i].registered) {
+					if (ushared->files_monitored[i].fd == id && ushared->files_monitored[i].id == iie->wd) {
+						uf = &ushared->files_monitored[i];
 					}
 				}
 			}
@@ -313,17 +302,17 @@ int event_queue_add_timer(int eq, int *id, int sec) {
 	return event_queue_add_fd_read(eq, tfd);
 }
 
-struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int, int)) {
+struct uwsgi_timer *event_queue_ack_timer(int id) {
 	
 	int i;
 	ssize_t rlen;
 	uint64_t counter;
 	struct uwsgi_timer *ut = NULL;
 
-	for(i=0;i<uwsgi.timers_cnt;i++) {
-		if (uwsgi.timers[i].registered) {
-			if (uwsgi.timers[i].id == id) {
-				ut = &uwsgi.timers[i];
+	for(i=0;i<ushared->timers_cnt;i++) {
+		if (ushared->timers[i].registered) {
+			if (ushared->timers[i].id == id) {
+				ut = &ushared->timers[i];
 			}
 		}
 	}
@@ -333,11 +322,6 @@ struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int, int)) {
 	if (rlen < 0) {
 		uwsgi_error("read()");
 	}
-	else {
-		if (hook && ut) {
-			hook(ut->value, ut->id);
-		}
-	}
 	
 	return ut;
 }
@@ -345,7 +329,7 @@ struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int, int)) {
 
 #ifdef UWSGI_EVENT_TIMER_USE_NONE
 int event_queue_add_timer(int eq, int *id, int sec) { return -1; }
-struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int ,int)) { return NULL;}
+struct uwsgi_timer *event_queue_ack_timer(int id) { return NULL;}
 #endif
 
 #ifdef UWSGI_EVENT_TIMER_USE_KQUEUE
@@ -368,7 +352,7 @@ int event_queue_add_timer(int eq, int *id, int sec) {
 	return *id;
 }
 
-struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int ,int)) {
+struct uwsgi_timer *event_queue_ack_timer(int id) {
 
 	int i;
 	struct uwsgi_timer *ut = NULL;
@@ -379,10 +363,6 @@ struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int ,int)) {
 				ut = &uwsgi.shared->timers[i];
 			}
 		}
-	}
-
-	if (hook) {
-		hook(ut->value, ut->id);
 	}
 
 	return ut;

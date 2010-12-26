@@ -196,13 +196,6 @@ void master_loop(char **argv, char **environ) {
 	
 /*
 
-	// add unregistered timers
-	for(i=0;i<uwsgi.timers_cnt;i++) {
-		if (!uwsgi.timers[i].registered) {
-			uwsgi.timers[i].fd = event_queue_add_timer(uwsgi.master_queue, &uwsgi.timers[i].id, uwsgi.timers[i].value);
-			uwsgi.timers[i].registered = 1;		
-		}
-	}
 
 */
 
@@ -311,14 +304,23 @@ void master_loop(char **argv, char **environ) {
 
 
 			// add unregistered file monitors
-			uwsgi_lock(uwsgi.fmon_table_lock);
+			// locking is not needed as monitors can only increase
 			for(i=0;i<ushared->files_monitored_cnt;i++) {
 				if (!ushared->files_monitored[i].registered) {
 					ushared->files_monitored[i].fd = event_queue_add_file_monitor(uwsgi.master_queue, ushared->files_monitored[i].filename, &ushared->files_monitored[i].id);
 					ushared->files_monitored[i].registered = 1;		
 				}
 			}
-			uwsgi_unlock(uwsgi.fmon_table_lock);
+
+
+			// add unregistered timers
+			// locking is not needed as monitors can only increase
+			for(i=0;i<ushared->timers_cnt;i++) {
+                                if (!ushared->timers[i].registered) {
+					ushared->timers[i].fd = event_queue_add_timer(uwsgi.master_queue, &ushared->timers[i].id, ushared->timers[i].value);
+					ushared->timers[i].registered = 1;
+				}
+			}
 
 				int interesting_fd = -1;
 				rlen = event_queue_wait(uwsgi.master_queue, check_interval, &interesting_fd);
@@ -411,15 +413,13 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 					
-					//event_queue_ack_timer(fake_timer);
-
 					int next_iteration = 0;
 
 					uwsgi_lock(uwsgi.fmon_table_lock);
 					for(i=0;i<ushared->files_monitored_cnt;i++) {
 						if (ushared->files_monitored[i].registered) {
 							if (interesting_fd == ushared->files_monitored[i].fd) {
-								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(interesting_fd, NULL);
+								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(interesting_fd);
 								// now call the file_monitor handler
 								if (uf) {
 									uwsgi_log("fd event for %s (signal %d)\n", uf->filename, uf->sig);
@@ -437,24 +437,26 @@ void master_loop(char **argv, char **environ) {
 					uwsgi_unlock(uwsgi.fmon_table_lock);
 					if (next_iteration) continue;
 
-					/*
 					next_iteration = 0;
 
-					for(i=0;i<uwsgi.timers_cnt;i++) {
-                                                if (uwsgi.timers[i].registered) {
+					for(i=0;i<ushared->timers_cnt;i++) {
+                                                if (ushared->timers[i].registered) {
 							//uwsgi_log("%d = %d\n", interesting_fd, uwsgi.timers[i].fd);
-                                                        if (interesting_fd == uwsgi.timers[i].fd) {
-                                                                struct uwsgi_timer *ut = event_queue_ack_timer(interesting_fd, NULL);
+                                                        if (interesting_fd == ushared->timers[i].fd) {
+                                                                struct uwsgi_timer *ut = event_queue_ack_timer(interesting_fd);
                                                                 // now call the file_monitor handler
                                                                 if (ut) {
                                                                         uwsgi_log("fd event for timer %d\n", ut->value);
+									struct uwsgi_signal_entry *use = &ushared->signal_table[ut->sig];
+									if (use->kind == SIGNAL_KIND_WORKER) {
+										uwsgi_log("write signal returned %d\n", write(ushared->worker_signal_pipe[0], &ut->sig, 1));	
+									}
                                                                 }
                                                                 break;
                                                         }
                                                 }
                                         }
                                         if (next_iteration) continue;
-					*/
 
 
 					// check for worker signal

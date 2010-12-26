@@ -601,10 +601,12 @@ struct uwsgi_fmon {
 };
 
 struct uwsgi_timer {
+	char svalue[0xff];
 	int value;
 	int fd;
 	int id;
 	int registered;
+	uint8_t sig;
 };
 
 struct uwsgi_server {
@@ -1309,15 +1311,15 @@ int event_queue_add_fd_read(int, int);
 int event_queue_wait(int, int, int *);
 
 int event_queue_add_timer(int, int *, int);
-struct uwsgi_timer *event_queue_ack_timer(int, void (*)(int, int));
+struct uwsgi_timer *event_queue_ack_timer(int);
 
 int event_queue_add_file_monitor(int, char *, int *);
-struct uwsgi_fmon *event_queue_ack_file_monitor(int, void (*)(char *, uint32_t, char *));
+struct uwsgi_fmon *event_queue_ack_file_monitor(int);
 
 
 void *uwsgi_mmap_shared_lock(void);
 
 void uwsgi_register_signal(uint8_t, uint8_t, void *, uint8_t, char *, uint8_t);
-int uwsgi_signal_handler(uint8_t);
-
 void uwsgi_register_file_monitor(uint8_t, char *, uint8_t, void *, uint8_t);
+void uwsgi_register_timer(uint8_t, int, uint8_t, void *, uint8_t);
+int uwsgi_signal_handler(uint8_t);
