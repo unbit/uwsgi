@@ -35,42 +35,6 @@ void uwsgi_register_signal(uint8_t sig, uint8_t kind, void *handler, uint8_t mod
 
 	use->payload_size = payload_size;
 
-	/*
-	switch(sig) {
-
-		case 10:
-			if (uwsgi.files_monitored_cnt < 64) {
-				uwsgi.files_monitored[uwsgi.files_monitored_cnt].filename = uwsgi_concat2(payload,"");
-				uwsgi.files_monitored[uwsgi.files_monitored_cnt].registered = 0;
-				// master is not running
-				if (uwsgi.master_queue != -1) {
-					uwsgi.files_monitored[uwsgi.files_monitored_cnt].fd = event_queue_add_file_monitor(uwsgi.master_queue, payload, &uwsgi.files_monitored[uwsgi.files_monitored_cnt].id);
-					uwsgi.files_monitored[uwsgi.files_monitored_cnt].registered = 1;
-				}
-				uwsgi.files_monitored_cnt++;
-			}
-			else {
-				uwsgi_log("you can register max 64 file monitors !!!\n");
-			}
-			break;
-		case 11:
-			if (uwsgi.timers_cnt < 64) {
-				uwsgi.timers[uwsgi.timers_cnt].value = atoi(payload);
-				uwsgi.timers[uwsgi.timers_cnt].registered = 0;
-				// master is not running
-				if (uwsgi.master_queue != -1) {
-					uwsgi.timers[uwsgi.timers_cnt].fd = event_queue_add_timer(uwsgi.master_queue, &uwsgi.timers[uwsgi.timers_cnt].id, uwsgi.timers[uwsgi.timers_cnt].value);
-					uwsgi.timers[uwsgi.timers_cnt].registered = 1;
-				}
-				uwsgi.timers_cnt++;
-			}
-			else {
-				uwsgi_log("you can register max 64 timers !!!\n");
-			}
-			break;
-	}
-	*/
-
 	uwsgi_log("registered signal %d\n", sig);
 
 	uwsgi_unlock(uwsgi.signal_table_lock);
@@ -124,4 +88,18 @@ void uwsgi_register_timer(uint8_t sig, int secs, uint8_t kind, void *handler, ui
 
 	uwsgi_unlock(uwsgi.timer_table_lock);
 
+}
+
+
+void uwsgi_route_signal(uint8_t sig) {
+
+	struct uwsgi_signal_entry *use = &ushared->signal_table[sig];
+	switch(use->kind) {
+		case KIND_WORKER:
+			if (write(ushared->worker_signal_pipe[0], &sig, 1) != 1) {
+				uwsgi_error("write()");
+				uwsgi_log("could not deliver signal %d to workers pool\n", sig);
+			}
+			break;
+	};
 }

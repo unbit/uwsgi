@@ -166,8 +166,6 @@ PyObject *py_uwsgi_register_timer(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-        uwsgi_log("signal_kind %d\n", signal_kind);
-
         uwsgi_register_timer(uwsgi_signal, secs, signal_kind, handler, 0);
 
         Py_INCREF(Py_None);
@@ -186,8 +184,6 @@ PyObject *py_uwsgi_register_file_monitor(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-	uwsgi_log("signal_kind %d\n", signal_kind);
-
 	uwsgi_register_file_monitor(uwsgi_signal, filename, signal_kind, handler, 0);
 
 	Py_INCREF(Py_None);
@@ -205,7 +201,6 @@ PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-	uwsgi_log("REGISTER SIGNAL %d\n", uwsgi_signal);
 	if (payload == NULL) {
 		uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, NULL, 0);
 	}

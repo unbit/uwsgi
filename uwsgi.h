@@ -876,13 +876,13 @@ struct uwsgi_lb_group {
 	int kind;
 };
 
-#define SIGNAL_KIND_NULL 0
-#define SIGNAL_KIND_WORKER 1
-#define SIGNAL_KIND_EVENT 2
-#define SIGNAL_KIND_SPOOLER 3
-#define SIGNAL_KIND_ERLANG 4
-#define SIGNAL_KIND_PROXY 5
-#define SIGNAL_KIND_MASTER 6
+#define KIND_NULL 0
+#define KIND_WORKER 1
+#define KIND_EVENT 2
+#define KIND_SPOOLER 3
+#define KIND_ERLANG 4
+#define KIND_PROXY 5
+#define KIND_MASTER 6
 
 struct uwsgi_signal_entry {
 	uint8_t kind;
@@ -1323,3 +1323,5 @@ void uwsgi_register_signal(uint8_t, uint8_t, void *, uint8_t, char *, uint8_t);
 void uwsgi_register_file_monitor(uint8_t, char *, uint8_t, void *, uint8_t);
 void uwsgi_register_timer(uint8_t, int, uint8_t, void *, uint8_t);
 int uwsgi_signal_handler(uint8_t);
+
+void uwsgi_route_signal(uint8_t);

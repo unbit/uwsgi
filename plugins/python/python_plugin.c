@@ -533,6 +533,14 @@ void uwsgi_uwsgi_config(char *module) {
 			exit(1);
 		}
 
+		if (PyDict_SetItemString(up.embedded_dict, "KIND_NULL", PyInt_FromLong(KIND_NULL))) { PyErr_Print(); exit(1);}
+		if (PyDict_SetItemString(up.embedded_dict, "KIND_WORKER", PyInt_FromLong(KIND_WORKER))) { PyErr_Print(); exit(1);}
+		if (PyDict_SetItemString(up.embedded_dict, "KIND_EVENT", PyInt_FromLong(KIND_EVENT))) { PyErr_Print(); exit(1);}
+		if (PyDict_SetItemString(up.embedded_dict, "KIND_SPOOLER", PyInt_FromLong(KIND_SPOOLER))) { PyErr_Print(); exit(1);}
+		if (PyDict_SetItemString(up.embedded_dict, "KIND_ERLANG", PyInt_FromLong(KIND_ERLANG))) { PyErr_Print(); exit(1);}
+		if (PyDict_SetItemString(up.embedded_dict, "KIND_PROXY", PyInt_FromLong(KIND_PROXY))) { PyErr_Print(); exit(1);}
+		if (PyDict_SetItemString(up.embedded_dict, "KIND_MASTER", PyInt_FromLong(KIND_MASTER))) { PyErr_Print(); exit(1);}
+
 		PyObject *py_opt_dict = PyDict_New();
 		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
 			if (PyDict_Contains(py_opt_dict, PyString_FromString(uwsgi.exported_opts[i]->key)) ) {

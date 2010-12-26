@@ -137,6 +137,34 @@ static int uwsgi_api_cache_set(lua_State *L) {
 
 }
 
+static int uwsgi_api_register_signal(lua_State *L) {
+
+	int args = lua_gettop(L);
+	uint8_t sig, kind;
+	const void *handler;
+	const char *payload;
+	size_t payload_size;
+	
+	if (args >= 3) {
+
+		sig = lua_tonumber(L, 1);
+		kind = lua_tonumber(L, 2);
+		lua_pushvalue(L, 3);
+		handler = (void *) luaL_ref(L, LUA_REGISTRYINDEX);
+
+		if (args > 3) {
+			payload = lua_tolstring(L, 4, &payload_size);
+			uwsgi_register_signal(sig, kind, (void *) handler, 6, (char *) payload, payload_size);
+		}
+		else {
+			uwsgi_register_signal(sig, kind, (void *) handler, 6, NULL, 0);
+		}
+	}
+
+	lua_pushnil(L);
+        return 1;
+}
+
 
 static int uwsgi_api_cache_get(lua_State *L) {
 
@@ -257,6 +285,7 @@ static const luaL_reg uwsgi_api[] = {
   {"send_message", uwsgi_api_send_message},
   {"cache_get", uwsgi_api_cache_get},
   {"cache_set", uwsgi_api_cache_set},
+  {"register_signal", uwsgi_api_register_signal},
   {NULL, NULL}
 };
 
@@ -542,6 +571,37 @@ int uwsgi_lua_magic(char *mountpoint, char *lazy) {
 	return 0;
 }
 
+int uwsgi_lua_signal_handler(uint8_t sig, void *handler, char *payload, uint8_t payload_size) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	
+	lua_State *L = ulua.L[wsgi_req->async_id];
+
+	uwsgi_log("managing signal handler on core %d\n", wsgi_req->async_id);
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, (int) handler);
+
+	lua_pushnumber(L, sig);
+	if (!payload_size) {
+		lua_pushlstring(L, "", 0);
+	}
+	else {
+		lua_pushlstring(L, payload, payload_size);
+	}
+
+
+	if (lua_pcall(L, 2, 1, 0) != 0) {
+		uwsgi_log("error running function `f': %s",
+                 lua_tostring(L, -1));
+
+		return -1;
+
+	}
+
+	return 0;
+	
+}
+
 struct uwsgi_plugin lua_plugin = {
 
 	.name = "lua",
@@ -553,6 +613,7 @@ struct uwsgi_plugin lua_plugin = {
 	.after_request = uwsgi_lua_after_request,
 	.init_apps = uwsgi_lua_app,
 	.magic = uwsgi_lua_magic,
+	.signal_handler = uwsgi_lua_signal_handler,
 
 };
 

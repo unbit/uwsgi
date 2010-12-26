@@ -421,14 +421,7 @@ void master_loop(char **argv, char **environ) {
 							if (interesting_fd == ushared->files_monitored[i].fd) {
 								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(interesting_fd);
 								// now call the file_monitor handler
-								if (uf) {
-									uwsgi_log("fd event for %s (signal %d)\n", uf->filename, uf->sig);
-
-									struct uwsgi_signal_entry *use = &ushared->signal_table[uf->sig];
-									if (use->kind == SIGNAL_KIND_WORKER) {
-										uwsgi_log("write signal returned %d\n", write(ushared->worker_signal_pipe[0], &uf->sig, 1));	
-									}
-								}
+								if (uf) uwsgi_route_signal(uf->sig);
 								break;
 							}
 						}
@@ -445,13 +438,7 @@ void master_loop(char **argv, char **environ) {
                                                         if (interesting_fd == ushared->timers[i].fd) {
                                                                 struct uwsgi_timer *ut = event_queue_ack_timer(interesting_fd);
                                                                 // now call the file_monitor handler
-                                                                if (ut) {
-                                                                        uwsgi_log("fd event for timer %d\n", ut->value);
-									struct uwsgi_signal_entry *use = &ushared->signal_table[ut->sig];
-									if (use->kind == SIGNAL_KIND_WORKER) {
-										uwsgi_log("write signal returned %d\n", write(ushared->worker_signal_pipe[0], &ut->sig, 1));	
-									}
-                                                                }
+                                                                if (ut) uwsgi_route_signal(ut->sig);
                                                                 break;
                                                         }
                                                 }
@@ -467,11 +454,7 @@ void master_loop(char **argv, char **environ) {
 						}	
 						else if (rlen > 0) {
 							uwsgi_log("received uwsgi signal %d from workers\n", uwsgi_signal);
-							// use uwsgi_route_signal()
-							struct uwsgi_signal_entry *use = &uwsgi.shared->signal_table[uwsgi_signal];
-							if (use->kind == SIGNAL_KIND_WORKER) {
-								uwsgi_log("write signal returned %d\n", write(uwsgi.shared->worker_signal_pipe[0], &uwsgi_signal, 1));	
-							}
+							uwsgi_route_signal(uwsgi_signal);
 						}
 						else {
 							uwsgi_log_verbose("lost connection with worker %d\n", i);

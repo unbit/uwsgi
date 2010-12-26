@@ -478,9 +478,9 @@ polling:
 			}
 		}
                 else {
-                	uwsgi_log_verbose("master sent signal %b to worker %d\n", uwsgi_signal, uwsgi.mywid);
+                	uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
 			if (uwsgi_signal_handler(uwsgi_signal)) {
-				uwsgi_log_verbose("error managing signal %b on worker %d\n", uwsgi_signal, uwsgi.mywid);
+				uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
 			}
 		}
 	}
