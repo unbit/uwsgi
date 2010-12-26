@@ -11,6 +11,8 @@
 
 #define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
 
+#define ushared uwsgi.shared
+
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
 
@@ -392,6 +394,7 @@ struct uwsgi_plugin {
 
 	void*		(*encode_string)(char *);
 	char*		(*decode_string)(void *);
+	int		(*signal_handler)(uint8_t, void *, char *, uint8_t);
 
 };
 
@@ -590,10 +593,11 @@ struct wsgi_request {
 #define LOADER_MAX		8
 
 struct uwsgi_fmon {
-	char *filename;
+	char filename[0xff];
 	int fd;
 	int id;
 	int registered;
+	uint8_t sig;
 };
 
 struct uwsgi_timer {
@@ -856,20 +860,34 @@ struct uwsgi_server {
 	uint32_t 	cache_max_items;
 	struct uwsgi_cache_item	*cache_items;
 	void		*cache;
+
 	void *cache_lock;
-
 	void *user_lock;
+	void *signal_table_lock;
+	void *fmon_table_lock;
+	void *timer_table_lock;
 
-	struct uwsgi_fmon files_monitored[64];
-	int files_monitored_cnt;
-
-	struct uwsgi_timer timers[64];
-	int timers_cnt;
 };
 
 struct uwsgi_lb_group {
 	char name[101];
 	int kind;
+};
+
+#define SIGNAL_KIND_NULL 0
+#define SIGNAL_KIND_WORKER 1
+#define SIGNAL_KIND_EVENT 2
+#define SIGNAL_KIND_SPOOLER 3
+#define SIGNAL_KIND_ERLANG 4
+#define SIGNAL_KIND_PROXY 5
+#define SIGNAL_KIND_MASTER 6
+
+struct uwsgi_signal_entry {
+	uint8_t kind;
+	uint8_t modifier1;
+	uint8_t	payload_size;
+	void *handler;
+	char payload[0xff];
 };
 
 struct uwsgi_lb_node {
@@ -948,6 +966,15 @@ struct uwsgi_shared {
 	uint16_t	cache_first_available_item;
 	uint16_t	cache_first_available_item_tmp;
 
+
+	int		worker_signal_pipe[2];
+	struct uwsgi_signal_entry signal_table[0xff];
+
+	struct uwsgi_fmon files_monitored[64];
+	int files_monitored_cnt;
+
+	struct uwsgi_timer timers[64];
+	int timers_cnt;
 };
 
 struct uwsgi_core {
@@ -985,9 +1012,6 @@ struct uwsgi_worker {
 	double          last_running_time;
 
 	int             manage_next_request;
-
-	// this is used for the internal signalling system
-	int		pipe[2];
 
 	struct uwsgi_core **cores;
 
@@ -1273,8 +1297,6 @@ int uwsgi_cache_del(char *, uint16_t);
 char *uwsgi_cache_get(char *, uint16_t, uint16_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
-#define uwsgi_mmap_shared_lock() mmap(NULL, sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0)
-
 void uwsgi_lock_init(void *);
 void uwsgi_lock(void *);
 void uwsgi_unlock(void *);
@@ -1293,4 +1315,9 @@ int event_queue_add_file_monitor(int, char *, int *);
 struct uwsgi_fmon *event_queue_ack_file_monitor(int, void (*)(char *, uint32_t, char *));
 
 
-int register_signal(uint8_t, char *);
+void *uwsgi_mmap_shared_lock(void);
+
+void uwsgi_register_signal(uint8_t, uint8_t, void *, uint8_t, char *, uint8_t);
+int uwsgi_signal_handler(uint8_t);
+
+void uwsgi_register_file_monitor(uint8_t, char *, uint8_t, void *, uint8_t);

@@ -61,7 +61,7 @@ void master_loop(char **argv, char **environ) {
 
 	int master_has_children = 0;
 
-	char uwsgi_signal;
+	uint8_t uwsgi_signal;
 
 #ifdef UWSGI_UDP
 	struct pollfd uwsgi_poll[2];
@@ -81,7 +81,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 #endif
 
-	int i,j;
+	int i=0,j;
 	int rlen;
 
 	int check_interval = 1;
@@ -100,10 +100,8 @@ void master_loop(char **argv, char **environ) {
 
 	uwsgi.master_queue = event_queue_init();
 
-	for(i=1;i<=uwsgi.numproc;i++) {
-		uwsgi_log("adding %d to signal poll\n", uwsgi.workers[i].pipe[0]);
-		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.workers[i].pipe[0]);
-	}
+	uwsgi_log("adding %d to signal poll\n", uwsgi.shared->worker_signal_pipe[0]);
+	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
 	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
 #ifdef UWSGI_UDP
@@ -196,13 +194,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 	
-	// add unregistered file monitors
-	for(i=0;i<uwsgi.files_monitored_cnt;i++) {
-		if (!uwsgi.files_monitored[i].registered) {
-			uwsgi.files_monitored[i].fd = event_queue_add_file_monitor(uwsgi.master_queue, uwsgi.files_monitored[i].filename, &uwsgi.files_monitored[i].id);
-			uwsgi.files_monitored[i].registered = 1;		
-		}
-	}
+/*
 
 	// add unregistered timers
 	for(i=0;i<uwsgi.timers_cnt;i++) {
@@ -211,6 +203,8 @@ void master_loop(char **argv, char **environ) {
 			uwsgi.timers[i].registered = 1;		
 		}
 	}
+
+*/
 
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
@@ -315,6 +309,17 @@ void master_loop(char **argv, char **environ) {
 			if (!check_interval)
 				check_interval = 1;
 
+
+			// add unregistered file monitors
+			uwsgi_lock(uwsgi.fmon_table_lock);
+			for(i=0;i<ushared->files_monitored_cnt;i++) {
+				if (!ushared->files_monitored[i].registered) {
+					ushared->files_monitored[i].fd = event_queue_add_file_monitor(uwsgi.master_queue, ushared->files_monitored[i].filename, &ushared->files_monitored[i].id);
+					ushared->files_monitored[i].registered = 1;		
+				}
+			}
+			uwsgi_unlock(uwsgi.fmon_table_lock);
+
 				int interesting_fd = -1;
 				rlen = event_queue_wait(uwsgi.master_queue, check_interval, &interesting_fd);
 
@@ -410,20 +415,29 @@ void master_loop(char **argv, char **environ) {
 
 					int next_iteration = 0;
 
-					for(i=0;i<uwsgi.files_monitored_cnt;i++) {
-						if (uwsgi.files_monitored[i].registered) {
-							if (interesting_fd == uwsgi.files_monitored[i].fd) {
+					uwsgi_lock(uwsgi.fmon_table_lock);
+					for(i=0;i<ushared->files_monitored_cnt;i++) {
+						if (ushared->files_monitored[i].registered) {
+							if (interesting_fd == ushared->files_monitored[i].fd) {
 								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(interesting_fd, NULL);
 								// now call the file_monitor handler
 								if (uf) {
-									uwsgi_log("fd event for %s\n", uf->filename);
+									uwsgi_log("fd event for %s (signal %d)\n", uf->filename, uf->sig);
+
+									struct uwsgi_signal_entry *use = &ushared->signal_table[uf->sig];
+									if (use->kind == SIGNAL_KIND_WORKER) {
+										uwsgi_log("write signal returned %d\n", write(ushared->worker_signal_pipe[0], &uf->sig, 1));	
+									}
 								}
 								break;
 							}
 						}
 					}
+
+					uwsgi_unlock(uwsgi.fmon_table_lock);
 					if (next_iteration) continue;
 
+					/*
 					next_iteration = 0;
 
 					for(i=0;i<uwsgi.timers_cnt;i++) {
@@ -440,23 +454,27 @@ void master_loop(char **argv, char **environ) {
                                                 }
                                         }
                                         if (next_iteration) continue;
+					*/
 
 
-					// finally check for uwsgi_signal
-					for(i=1;i<=uwsgi.numproc;i++) {
-						if (interesting_fd == uwsgi.workers[i].pipe[0]) {
-							rlen = read(interesting_fd, &uwsgi_signal, 1);
-							if (rlen < 0) {
-								uwsgi_error("read()");
-							}	
-							else if (rlen > 0) {
-								uwsgi_log("received uwsgi signal %d from worker %d\n", uwsgi_signal, i);
+					// check for worker signal
+					if (interesting_fd == uwsgi.shared->worker_signal_pipe[0]) {
+						rlen = read(interesting_fd, &uwsgi_signal, 1);
+						if (rlen < 0) {
+							uwsgi_error("read()");
+						}	
+						else if (rlen > 0) {
+							uwsgi_log("received uwsgi signal %d from workers\n", uwsgi_signal);
+							// use uwsgi_route_signal()
+							struct uwsgi_signal_entry *use = &uwsgi.shared->signal_table[uwsgi_signal];
+							if (use->kind == SIGNAL_KIND_WORKER) {
+								uwsgi_log("write signal returned %d\n", write(uwsgi.shared->worker_signal_pipe[0], &uwsgi_signal, 1));	
 							}
-							else {
-								uwsgi_log_verbose("lost connection with worker %d\n", i);
-								close(interesting_fd);
-								uwsgi.workers[i].pipe[0] = -1;
-							}
+						}
+						else {
+							uwsgi_log_verbose("lost connection with worker %d\n", i);
+							close(interesting_fd);
+							//uwsgi.workers[i].pipe[0] = -1;
 						}
 					}
 				}
@@ -660,15 +678,17 @@ void master_loop(char **argv, char **environ) {
 		gettimeofday(&last_respawn, NULL);
 		uwsgi.respawn_delta = last_respawn.tv_sec;
 		// close the communication pipe
+		/*
 		close(uwsgi.workers[uwsgi.mywid].pipe[0]);
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[uwsgi.mywid].pipe)) {
 			uwsgi_error("socketpair()\n");
 			continue;
 		}
+		*/
 		pid = fork();
 		if (pid == 0) {
 			// fix the communication pipe
-			close(uwsgi.workers[uwsgi.mywid].pipe[0]);
+			close(uwsgi.shared->worker_signal_pipe[1]);
 			uwsgi.mypid = getpid();
 			uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
 			uwsgi.workers[uwsgi.mywid].harakiri = 0;
@@ -684,8 +704,8 @@ void master_loop(char **argv, char **environ) {
 		}
 		else {
 			uwsgi_log( "Respawned uWSGI worker (new pid: %d)\n", pid);
-			close(uwsgi.workers[uwsgi.mywid].pipe[1]);
-			event_queue_add_fd_read(uwsgi.master_queue, uwsgi.workers[uwsgi.mywid].pipe[0]);
+			//close(uwsgi.workers[uwsgi.mywid].pipe[1]);
+			//event_queue_add_fd_read(uwsgi.master_queue, uwsgi.workers[uwsgi.mywid].pipe[0]);
 #ifdef UWSGI_SPOOLER
 			if (uwsgi.mywid <= 0 && diedpid != uwsgi.shared->spooler_pid) {
 #else

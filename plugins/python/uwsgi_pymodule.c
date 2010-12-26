@@ -155,43 +155,64 @@ PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 	
 }
 
-PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_register_file_monitor(PyObject * self, PyObject * args) {
 
-	char uwsgi_signal;
-	ssize_t rlen;
-	char *payload = NULL;
-	struct uwsgi_header uh;
+	uint8_t uwsgi_signal;
+        uint8_t signal_kind;
+        PyObject *handler;
+	char *filename;
 
-	if (!PyArg_ParseTuple(args, "B|s:signal", &uwsgi_signal, &payload)) {
+	if (!PyArg_ParseTuple(args, "BsBO:register_file_monitor", &uwsgi_signal, &filename, &signal_kind, &handler)) {
                 return NULL;
         }
 
-	// am i the master ?
-	if (uwsgi.mywid == 0) {
-		register_signal(uwsgi_signal, payload);
-		goto done;
-	}
+	uwsgi_log("signal_kind %d\n", signal_kind);
 
-	uwsgi_log("sending %d to master\n", uwsgi_signal);
-	uh.modifier1 = 110;
-	if (payload) {
-		uh.pktsize = strlen(payload);
+	uwsgi_register_file_monitor(uwsgi_signal, filename, signal_kind, handler, 0);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
+
+	uint8_t uwsgi_signal;
+	uint8_t signal_kind;
+	PyObject *handler;
+	char *payload = NULL;
+
+	if (!PyArg_ParseTuple(args, "BBO|s:register_signal", &uwsgi_signal, &signal_kind, &handler, &payload)) {
+                return NULL;
+        }
+
+	uwsgi_log("REGISTER SIGNAL %d\n", uwsgi_signal);
+	if (payload == NULL) {
+		uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, NULL, 0);
 	}
 	else {
-		uh.pktsize = 0;
-	}
-	uh.modifier2 = uwsgi_signal;
-	
-	rlen = write(uwsgi.workers[uwsgi.mywid].pipe[1], &uh, 4);
-	if (rlen == 4) {
-		if (uh.pktsize) {
-			if (write(uwsgi.workers[uwsgi.mywid].pipe[1], payload, uh.pktsize) < 0) {
-				uwsgi_error("write()");
-			}	
-		}
+		uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, payload, strlen(payload));
 	}
 
-done:
+	Py_INCREF(Py_None);
+        return Py_None;	
+}
+
+PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
+
+	uint8_t uwsgi_signal;
+	ssize_t rlen;
+
+	if (!PyArg_ParseTuple(args, "B:signal", &uwsgi_signal)) {
+                return NULL;
+        }
+
+	uwsgi_log("sending %d to master\n", uwsgi_signal);
+	
+	rlen = write(uwsgi.shared->worker_signal_pipe[1], &uwsgi_signal, 1);
+	if (rlen != 1) {
+		uwsgi_error("write()");
+	}
+
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -1869,7 +1890,10 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"send", py_uwsgi_send, METH_VARARGS, ""},
 		{"cl", py_uwsgi_cl, METH_VARARGS, ""},
 
+		{"register_signal", py_uwsgi_register_signal, METH_VARARGS, ""},
 		{"signal", py_uwsgi_signal, METH_VARARGS, ""},
+		{"register_file_monitor", py_uwsgi_register_file_monitor, METH_VARARGS, ""},
+		//{"register_timer", py_uwsgi_register_timer, METH_VARARGS, ""},
 #ifdef UWSGI_SENDFILE
 		{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
 #endif

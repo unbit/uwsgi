@@ -3,6 +3,8 @@
 
 #ifdef UWSGI_LOCK_USE_MUTEX
 
+#define UWSGI_LOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)
+
 // REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!! 
 void uwsgi_lock_init(void *lock) {
 
@@ -41,6 +43,8 @@ void uwsgi_unlock(void *lock) {
 #include <machine/atomic.h>
 #include <sys/umtx.h>
 
+#define UWSGI_LOCK_SIZE	sizeof(struct umtx)
+
 void uwsgi_lock_init(void *lock) {
 	umtx_init((struct umtx*) lock);
 }
@@ -57,6 +61,8 @@ void uwsgi_unlock(void *lock) {
 
 
 #ifdef UWSGI_LOCK_USE_OSX_SPINLOCK
+
+#define UWSGI_LOCK_SIZE	sizeof(OSSpinLock)
 
 void uwsgi_lock_init(void *lock) {
 
@@ -90,3 +96,16 @@ void uwsgi_unlock(void *lock) {
 }
 
 #endif
+
+
+void *uwsgi_mmap_shared_lock() {
+	void *addr = NULL;
+	addr = mmap(NULL, UWSGI_LOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+
+	if (addr == NULL) {
+		uwsgi_error("mmap()");
+		exit(1);
+	}
+
+	return addr;
+}

@@ -839,20 +839,27 @@ options_parsed:
 		}
 	}
 
+	// application generic lock
 	uwsgi.user_lock = uwsgi_mmap_shared_lock();
-	if (!uwsgi.user_lock) {
-		uwsgi_error("mmap()");
-		exit(1);
-	}
 	uwsgi_lock_init(uwsgi.user_lock);
 
-#ifdef UWSGI_EMBEDDED
+	if (uwsgi.master_process) {
+		// signal table lock
+		uwsgi.signal_table_lock = uwsgi_mmap_shared_lock();
+		uwsgi_lock_init(uwsgi.signal_table_lock);
+
+		// fmon table lock
+		uwsgi.fmon_table_lock = uwsgi_mmap_shared_lock();
+		uwsgi_lock_init(uwsgi.fmon_table_lock);
+
+		// timer table lock
+		uwsgi.timer_table_lock = uwsgi_mmap_shared_lock();
+		uwsgi_lock_init(uwsgi.timer_table_lock);
+	}
+
 	if (uwsgi.sharedareasize > 0) {
 		uwsgi.sharedareamutex = uwsgi_mmap_shared_lock();
-		if (!uwsgi.sharedareamutex) {
-			uwsgi_error("mmap()");
-			exit(1);
-		}
+
 		uwsgi.sharedarea = mmap(NULL, uwsgi.page_size * uwsgi.sharedareasize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (uwsgi.sharedarea) {
 			uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
@@ -863,7 +870,6 @@ options_parsed:
 		}
 
 	}
-#endif
 
 	if (uwsgi.cache_max_items > 0) {
 		uwsgi.cache_items = mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -886,10 +892,6 @@ options_parsed:
 		uwsgi.shared->cache_first_available_item = 1;
 
 		uwsgi.cache_lock = uwsgi_mmap_shared_lock();
-        	if (!uwsgi.cache_lock) {
-                	uwsgi_error("mmap()");
-                	exit(1);
-        	}
         	uwsgi_lock_init(uwsgi.cache_lock);
 
 		uwsgi.p[111] = &uwsgi_cache_plugin;
@@ -1300,15 +1302,17 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		gettimeofday(&last_respawn, NULL);
 		uwsgi.respawn_delta = last_respawn.tv_sec;
 	}
-	for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
+	else {
 		// setup internal signalling system
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[i].pipe)) {
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->worker_signal_pipe)) {
                         uwsgi_error("socketpair()\n");
 			exit(1);
                 }
+	}
+	for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
 		pid = fork();
 		if (pid == 0) {
-			close(uwsgi.workers[i].pipe[0]);
+			close(uwsgi.shared->worker_signal_pipe[0]);
 			uwsgi.mypid = getpid();
 			uwsgi.workers[i].pid = uwsgi.mypid;
 			uwsgi.workers[i].id = i;
@@ -1321,7 +1325,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			exit(1);
 		} else {
 			uwsgi_log("spawned uWSGI worker %d (pid: %d, cores: %d)\n", i, pid, uwsgi.cores);
-			close(uwsgi.workers[i].pipe[1]);
+			//close(uwsgi.workers[i].pipe[1]);
 			gettimeofday(&last_respawn, NULL);
 			uwsgi.respawn_delta = last_respawn.tv_sec;
 		}
@@ -1422,9 +1426,9 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	}
 
 
-	if (uwsgi.no_orphans) {
-        	uwsgi.sockets_poll[uwsgi.sockets_cnt].fd = uwsgi.workers[uwsgi.mywid].pipe[1];
-                uwsgi.sockets_poll[uwsgi.sockets_cnt].events = POLLIN;
+	if (uwsgi.master_process) {
+       		uwsgi.sockets_poll[uwsgi.sockets_cnt].fd = uwsgi.shared->worker_signal_pipe[1];
+        	uwsgi.sockets_poll[uwsgi.sockets_cnt].events = POLLIN;
 	}
 
 

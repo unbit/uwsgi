@@ -470,13 +470,16 @@ polling:
 		return -1;
 	}
 
-	if (uwsgi.sockets_poll[uwsgi.sockets_cnt].revents && uwsgi.master_process) {
+	if (uwsgi.master_process && uwsgi.sockets_poll[uwsgi.sockets_cnt].revents) {
 		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0 && uwsgi.no_orphans) {
 			uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
                 	end_me();
 		}
                 else {
                 	uwsgi_log_verbose("master sent signal %b to worker %d\n", uwsgi_signal, uwsgi.mywid);
+			if (uwsgi_signal_handler(uwsgi_signal)) {
+				uwsgi_log_verbose("error managing signal %b on worker %d\n", uwsgi_signal, uwsgi.mywid);
+			}
 		}
 	}
 

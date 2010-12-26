@@ -145,6 +145,8 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
         }
 
 	*id = fd;
+
+	uwsgi_log("added new file to monitor %s\n", filename);
 	
 	return fd;
 }
@@ -154,14 +156,14 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int id, void hook(char *, uint32
 	int i;
 	struct uwsgi_fmon *uf = NULL;
 
-        for(i=0;i<uwsgi.files_monitored_cnt;i++) {
-        	if (uwsgi.files_monitored[i].registered) {
-                	if (uwsgi.files_monitored[i].fd == id) {
+        for(i=0;i<uwsgi.shared->files_monitored_cnt;i++) {
+        	if (uwsgi.shared->files_monitored[i].registered) {
+                	if (uwsgi.shared->files_monitored[i].fd == id) {
                         	if (hook) {
-                                	hook(uwsgi.files_monitored[i].filename, 0, NULL);
+                                	hook(uwsgi.shared->files_monitored[i].filename, 0, NULL);
                                 }
                                 else {
-                                	uf = &uwsgi.files_monitored[i];
+                                	uf = &uwsgi.shared->files_monitored[i];
                                 }
 			}
 		}
@@ -371,10 +373,10 @@ struct uwsgi_timer *event_queue_ack_timer(int id, void hook(int ,int)) {
 	int i;
 	struct uwsgi_timer *ut = NULL;
 
-	for(i=0;i<uwsgi.timers_cnt;i++) {
-		if (uwsgi.timers[i].registered) {
-			if (uwsgi.timers[i].id == id) {
-				ut = &uwsgi.timers[i];
+	for(i=0;i<uwsgi.shared->timers_cnt;i++) {
+		if (uwsgi.shared->timers[i].registered) {
+			if (uwsgi.shared->timers[i].id == id) {
+				ut = &uwsgi.shared->timers[i];
 			}
 		}
 	}

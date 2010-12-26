@@ -827,6 +827,25 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
 }
 
+int uwsgi_python_signal_handler(uint8_t sig, void *handler, char *payload, uint8_t payload_size) {
+
+	PyObject *args = PyTuple_New(2);
+	PyObject *ret;
+
+	if (!args) return -1;
+
+	PyTuple_SetItem(args, 0, PyInt_FromLong(sig));
+	PyTuple_SetItem(args, 1, PyString_FromStringAndSize(payload, payload_size));
+
+	ret = python_call(handler, args, 0);
+	
+	if (ret) {
+		return 0;
+	}
+
+	return -1;
+}
+
 void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 	PyThreadState* tstate = PyThreadState_GET();
@@ -857,6 +876,8 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 			.suspend = uwsgi_python_suspend,
 			.resume = uwsgi_python_resume,	
+
+			.signal_handler = uwsgi_python_signal_handler,
 			//.spooler = uwsgi_python_spooler,
 			/*
 			   .help = uwsgi_python_help,
