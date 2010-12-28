@@ -163,7 +163,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int id) {
 		}
         }
 
-        return NULL
+        return NULL;
 
 }
 
