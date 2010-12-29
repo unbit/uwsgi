@@ -3078,7 +3078,7 @@ void uwsgi_help(void) {
 	struct option *lopt;
 	int found;
 	char *space;
-	char *tmp_option;
+	char *tmp_option = NULL;
 	int i;
 
 	all_help = main_help;
