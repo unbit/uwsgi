@@ -123,6 +123,8 @@ void master_loop(char **argv, char **environ) {
 		uwsgi_poll[uwsgi_poll_size].events = POLLIN;
 		uwsgi_poll_size++;
 
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.cluster_fd);
+
 		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
 			//uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
                 	cluster_opt_size += 2+strlen(uwsgi.exported_opts[i]->key);
@@ -468,6 +470,9 @@ void master_loop(char **argv, char **environ) {
 			// checking logsize
 			if (uwsgi.logfile) {
 				uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
+				if (uwsgi.shared->logsize > 4096) {
+					uwsgi_log("logsize: %d\n", uwsgi.shared->logsize);
+				}	
 			}
 
 				
