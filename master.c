@@ -19,23 +19,31 @@ void get_linux_tcp_info(int fd) {
 }
 #endif
 
-char *new_cluster_hostname;
-char *new_cluster_address;
-char *new_cluster_workers;
 
-void print_dict(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+void manage_cluster_announce(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+
+	char *tmpstr;
+	struct uwsgi_cluster_node *ucn = (struct uwsgi_cluster_node *) data;
 	uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
 
 	if (!uwsgi_strncmp("hostname", 8, key, keylen)) {
-		new_cluster_hostname = uwsgi_concat2n(val, vallen, "", 0);		
+		strncpy(ucn->nodename, val, UMIN(vallen, 255));
 	}
 
 	if (!uwsgi_strncmp("address", 7, key, keylen)) {
-		new_cluster_address = uwsgi_concat2n(val, vallen, "", 0);		
+		strncpy(ucn->name, val, UMIN(vallen, 100));
 	}
 
 	if (!uwsgi_strncmp("workers", 7, key, keylen)) {
-		new_cluster_workers = uwsgi_concat2n(val, vallen, "", 0);		
+		tmpstr = uwsgi_concat2n(val, vallen, "", 0);
+		ucn->workers = atoi(tmpstr);
+		free(tmpstr);
+	}
+
+	if (!uwsgi_strncmp("requests", 8, key, keylen)) {
+		tmpstr = uwsgi_concat2n(val, vallen, "", 0);
+		ucn->requests = strtoul(tmpstr, NULL, 0);
+		free(tmpstr);
 	}
 }
 
@@ -78,6 +86,7 @@ void master_loop(char **argv, char **environ) {
 	char *cptrbuf;
 	uint16_t ustrlen;
 	struct uwsgi_header *uh;
+	struct uwsgi_cluster_node nucn;
 #endif
 #endif
 
@@ -383,12 +392,10 @@ void master_loop(char **argv, char **environ) {
 
 						switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
 							case 95:
-								new_cluster_hostname = NULL;
-								new_cluster_address = NULL;
-								new_cluster_workers = NULL;
-								uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, print_dict, NULL);
-								if (new_cluster_hostname && new_cluster_address && new_cluster_workers) {
-									uwsgi_cluster_add_node(new_cluster_address, atoi(new_cluster_workers), CLUSTER_NODE_DYNAMIC);
+								memset(&nucn, 0, sizeof(struct uwsgi_cluster_node));
+								uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, manage_cluster_announce, &nucn);
+								if (nucn.name[0] != 0) {
+									uwsgi_cluster_add_node(&nucn, CLUSTER_NODE_DYNAMIC);
 								}
 								break;
 							case 96:

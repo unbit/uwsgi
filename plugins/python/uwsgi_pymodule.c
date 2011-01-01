@@ -1845,6 +1845,43 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 }
 
 #ifdef UWSGI_MULTICAST
+PyObject *py_uwsgi_cluster(PyObject * self, PyObject * args) {
+
+	if (uwsgi.cluster) {
+		return PyString_FromString(uwsgi.cluster);
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_uwsgi_cluster_node_name(PyObject * self, PyObject * args) {
+
+	struct uwsgi_cluster_node *ucn;
+	int i;
+	char *node = NULL;
+
+	if (!PyArg_ParseTuple(args, "s:cluster_node_name", &node)) {
+                return NULL;
+        }
+
+	if (node == NULL) {
+		return PyString_FromString(uwsgi.hostname);
+	}
+
+	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
+                ucn = &uwsgi.shared->nodes[i];
+                if (ucn->name[0] != 0) {
+			if (!strcmp(ucn->name, node)) {
+				return PyString_FromString(ucn->nodename);
+			}
+                }
+        }
+
+	Py_INCREF(Py_None);
+	return Py_None;
+
+}
 PyObject *py_uwsgi_cluster_nodes(PyObject * self, PyObject * args) {
 
 	struct uwsgi_cluster_node *ucn;
@@ -1919,6 +1956,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 #ifdef UWSGI_MULTICAST
 		{"send_multicast_message", py_uwsgi_multicast, METH_VARARGS, ""},
 		{"cluster_nodes", py_uwsgi_cluster_nodes, METH_VARARGS, ""},
+		{"cluster_node_name", py_uwsgi_cluster_node_name, METH_VARARGS, ""},
+		{"cluster", py_uwsgi_cluster, METH_VARARGS, ""},
 		{"cluster_best_node", py_uwsgi_cluster_best_node, METH_VARARGS, ""},
 #endif
 #ifdef UWSGI_ASYNC

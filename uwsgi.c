@@ -620,7 +620,7 @@ options_parsed:
 
 #ifdef UWSGI_PROXY
 	if (uwsgi.proxy_add_me) {
-		uwsgi_cluster_add_node(uwsgi.sockets[0].name, 1, CLUSTER_NODE_STATIC);
+		uwsgi_cluster_simple_add_node(uwsgi.sockets[0].name, 1, CLUSTER_NODE_STATIC);
 	}
 #endif
 
@@ -1674,7 +1674,7 @@ end:
 				uwsgi.proxy_add_me = 1;
 			}
 			else {
-				uwsgi_cluster_add_node(optarg, 1, CLUSTER_NODE_STATIC);
+				uwsgi_cluster_simple_add_node(optarg, 1, CLUSTER_NODE_STATIC);
 			}
 			return 1;
 		case LONG_ARGS_PROXY:
@@ -2045,7 +2045,7 @@ end:
 
 	}
 
-void uwsgi_cluster_add_node(char *nodename, int workers, int type) {
+void uwsgi_cluster_simple_add_node(char *nodename, int workers, int type) {
 
 	int i;
 	struct uwsgi_cluster_node *ucn;
@@ -2106,6 +2106,66 @@ void uwsgi_cluster_add_node(char *nodename, int workers, int type) {
 
 	uwsgi_log("unable to add node %s\n", nodename);
 }
+
+void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
+
+        int i;
+        struct uwsgi_cluster_node *ucn;
+        char *tcp_port;
+
+	uwsgi_log("adding node\n");
+
+        tcp_port = strchr(nucn->name, ':');
+        if (tcp_port == NULL) {
+                fprintf(stdout, "invalid cluster node name %s\n", nucn->name);
+                return;
+        }
+
+        // first check for already present node
+        for (i = 0; i < MAX_CLUSTER_NODES; i++) {
+                ucn = &uwsgi.shared->nodes[i];
+                if (ucn->name[0] != 0) {
+                        if (!strcmp(ucn->name, nucn->name)) {
+                                ucn->status = UWSGI_NODE_OK;
+                                ucn->last_seen = time(NULL);
+				// update requests
+				ucn->requests = nucn->requests;
+                                return;
+                        }
+                }
+        }
+
+        for (i = 0; i < MAX_CLUSTER_NODES; i++) {
+                ucn = &uwsgi.shared->nodes[i];
+
+                if (ucn->name[0] == 0) {
+                        memcpy(ucn->name, nucn->name, strlen(nucn->name) + 1);
+                        ucn->workers = nucn->workers;
+                        ucn->ucn_addr.sin_family = AF_INET;
+                        ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));
+                        tcp_port[0] = 0;
+                        if (nucn->name[0] == 0) {
+                                ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY;
+                        } else {
+                        uwsgi_log("%s\n", nucn->name);
+                                ucn->ucn_addr.sin_addr.s_addr = inet_addr(nucn->name);
+                        }
+
+                        ucn->type = type;
+                        // here memory can be freed, as it is allocated by uwsgi_concat2n
+                        if (type != CLUSTER_NODE_DYNAMIC) {
+                                tcp_port[0] = ':';
+                        }
+                        ucn->last_seen = time(NULL);
+			ucn->requests = nucn->requests;
+                        uwsgi_log("[uWSGI cluster] added node %s\n", ucn->name);
+                        return;
+                }
+        }
+
+        uwsgi_log("unable to add node %s\n", nucn->name);
+}
+
 
 
 void build_options() {
@@ -2254,13 +2314,15 @@ int uwsgi_cluster_add_me() {
 	const char *key1 = "hostname";
 	const char *key2 = "address";
 	const char *key3 = "workers";
+	const char *key4 = "requests";
+
 	char *ptrbuf ;
 	uint16_t ustrlen;
 	char numproc[6];
 
 	snprintf(numproc, 6, "%d", uwsgi.numproc);
 
-	size_t len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.sockets[0].name) + 2 + strlen(key3) + 2 + strlen(numproc);
+	size_t len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.sockets[0].name) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
 	char *buf = uwsgi_malloc( len );
 
 	ptrbuf = buf;
@@ -2296,10 +2358,22 @@ int uwsgi_cluster_add_me() {
         *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
 	memcpy(ptrbuf, numproc, strlen(numproc)); ptrbuf+=strlen(numproc);
 
+	ustrlen = strlen(key4);
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, key4, strlen(key4)); ptrbuf+=strlen(key4);
+
+	ustrlen = 1;
+        *ptrbuf++ = (uint8_t) (ustrlen  & 0xff);
+        *ptrbuf++ = (uint8_t) ((ustrlen >>8) & 0xff);
+	memcpy(ptrbuf, "0", 1); ptrbuf+=1;
+
 
 	uwsgi_string_sendto(uwsgi.cluster_fd, 95, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr), buf, len);
 
 	free(buf);
+
+	uwsgi_log("add_me() successfull\n");
 
 	return 0;
 }

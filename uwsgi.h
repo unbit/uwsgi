@@ -907,6 +907,8 @@ struct uwsgi_lb_node {
 struct uwsgi_cluster_node {
 	char            name[101];
 
+	char		nodename[0xff];
+
 	struct sockaddr_in ucn_addr;
 
 	int		type;
@@ -919,6 +921,8 @@ struct uwsgi_cluster_node {
 	int             errors;
 
 	time_t          last_choosen;
+
+	int             requests;
 	
 };
 
@@ -1102,7 +1106,8 @@ void            uwsgi_proxy(int);
 pid_t           proxy_start(int);
 #endif
 
-void            uwsgi_cluster_add_node(char *, int, int);
+void            uwsgi_cluster_add_node(struct uwsgi_cluster_node *, int);
+void            uwsgi_cluster_simple_add_node(char *, int, int);
 int             uwsgi_ping_node(int, struct wsgi_request *);
 
 struct http_status_codes {
