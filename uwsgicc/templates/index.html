@@ -1,0 +1,74 @@
+<h1>uWSGI {{uwsgi.version}} Control Center</h1>
+
+<b>nodename:</b> {{uwsgi.cluster_node_name()}}<br/>
+<b>mode:</b> {{uwsgi.mode}}<br/>
+<b>started_on:</b> {{uwsgi.started_on|unixtime}}<br/>
+<b>workers:</b> {{uwsgi.numproc}}<br/>
+<b>masterpid:</b> {{uwsgi.masterpid()}}<br/>
+<b>cluster:</b> {{uwsgi.cluster()}}<br/>
+
+<h3>options</h3>
+{% for k in uwsgi.opt.keys() %}
+	{{k}}={{uwsgi.opt[k]}}<br/>
+{% endfor %}
+
+<h3>workers</h3>
+<table border="1">
+{% for w in uwsgi.workers() %}
+	<tr>
+		<td>{{w.id}}</td>
+		<td>{{w.pid}}</td>
+		<td>{{w.requests}}</td>
+		<td>{{w.respawn_count}}</td>
+	</tr>
+{% endfor %}
+</table>
+
+<h3>cluster nodes</h3>
+<i>best is {{ uwsgi.cluster_best_node() }}</i><br/><br/>
+<form method="POST">
+	<input type="submit" value="reload cluster" />
+</form>
+<form method="POST">
+	<input type="text" size="3" name="signal" />
+        <input type="submit" value="send signal to all nodes" />
+</form>
+
+<form method="POST">
+	<input type="text" size="72" name="message" /> 
+	<input type="submit" value="send log message to all nodes" />
+</form>
+<br/>
+<table border="1">
+{% for ucn in uwsgi.cluster_nodes() %}
+	<tr>
+		<td>{{ uwsgi.cluster_node_name(ucn) }}</td>
+		<td>{{ ucn }}</td>
+		<form method="POST">
+		<td>
+			<input type="hidden" name="node" value="{{ucn}}"/>
+			<input type="text" size="3" name="signal" /> 
+			<input type="submit" value="send signal" />
+		</td>
+		</form>
+
+		<form method="POST">
+		<td>
+			<input type="hidden" name="node" value="{{ucn}}"/>
+			<input type="text" size="72" name="message" /> 
+			<input type="submit" value="send log message" />
+		</td>
+		</form>
+
+		<form method="POST">
+		<td>
+			<input type="hidden" name="node" value="{{ucn}}"/>
+			<input type="submit" value="reload node" />
+		</td>
+		</form>
+	</tr>
+{% endfor %}
+</table>
+
+
+<h3>
