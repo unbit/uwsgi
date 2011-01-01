@@ -2140,6 +2140,7 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
 
                 if (ucn->name[0] == 0) {
                         memcpy(ucn->name, nucn->name, strlen(nucn->name) + 1);
+                        memcpy(ucn->nodename, nucn->nodename, strlen(nucn->nodename) + 1);
                         ucn->workers = nucn->workers;
                         ucn->ucn_addr.sin_family = AF_INET;
                         ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));
