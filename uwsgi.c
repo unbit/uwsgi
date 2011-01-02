@@ -961,7 +961,7 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (uwsgi.cache_max_items > 0) {
-		uwsgi.cache_items = mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (!uwsgi.cache_items) {
 			uwsgi_error("mmap()");
                         exit(1);

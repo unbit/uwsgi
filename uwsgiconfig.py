@@ -215,7 +215,7 @@ class uConf(object):
 	locking_mode = self.get('locking','auto')
 	
 	if locking_mode == 'auto':
-		if uwsgi_os == 'Linux':
+		if uwsgi_os == 'Linux' or uwsgi_os == 'SunOS':
 			locking_mode = 'pthread_mutex'
 		elif uwsgi_os == 'FreeBSD':
 			locking_mode = 'umtx'
@@ -237,6 +237,12 @@ class uConf(object):
 	if event_mode == 'auto':
 		if uwsgi_os == 'Linux':
 			event_mode = 'epoll'
+		if uwsgi_os == 'SunOS':
+			event_mode = 'devpoll'
+			sun_major, sun_minor = uwsgi_os_k.split('.')
+			if int(sun_major) >= 5:
+				if int(sun_minor) >= 10:
+					event_mode = 'port'
 		elif uwsgi_os in ('Darwin', 'FreeBSD'):
 			event_mode = 'kqueue'
 
@@ -244,6 +250,10 @@ class uConf(object):
             self.cflags.append('-DUWSGI_EVENT_USE_EPOLL')
 	elif event_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_USE_KQUEUE')
+	elif event_mode == 'devpoll':
+            self.cflags.append('-DUWSGI_EVENT_USE_DEVPOLL')
+	elif event_mode == 'port':
+            self.cflags.append('-DUWSGI_EVENT_USE_PORT')
 
 	# set timer subsystem
 	timer_mode = self.get('timer','auto')
@@ -258,6 +268,12 @@ class uConf(object):
 				timer_mode = 'timerfd'
 			else:
 				timer_mode = 'none'
+
+		elif uwsgi_os == 'SunOS':
+			sun_major, sun_minor = uwsgi_os_k.split('.')
+			if int(sun_major) >= 5:
+				if int(sun_minor) >= 10:
+					timer_mode = 'port'
 				
 		elif uwsgi_os in ('Darwin', 'FreeBSD'):
 			timer_mode = 'kqueue'
@@ -268,6 +284,8 @@ class uConf(object):
             	self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD_NOINC')
 	elif timer_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_KQUEUE')
+	elif timer_mode == 'port':
+            self.cflags.append('-DUWSGI_EVENT_TIMER_USE_PORT')
 	else:
 	    self.cflags.append('-DUWSGI_EVENT_TIMER_USE_NONE')	
 
@@ -277,6 +295,11 @@ class uConf(object):
 	if filemonitor_mode == 'auto':
 		if uwsgi_os == 'Linux':
 			filemonitor_mode = 'inotify'
+		elif uwsgi_os == 'SunOS':
+			sun_major, sun_minor = uwsgi_os_k.split('.')
+			if int(sun_major) >= 5:
+				if int(sun_minor) >= 10:
+					filemonitor_mode = 'port'
 		elif uwsgi_os in ('Darwin', 'FreeBSD'):
 			filemonitor_mode = 'kqueue'
 
@@ -284,6 +307,10 @@ class uConf(object):
             self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_INOTIFY')
 	elif filemonitor_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_KQUEUE')
+	elif filemonitor_mode == 'port':
+            self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_PORT')
+	else:
+	    self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_NONE')	
 	
 
         if self.get('embedded'):

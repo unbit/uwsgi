@@ -1323,7 +1323,7 @@ int event_queue_add_timer(int, int *, int);
 struct uwsgi_timer *event_queue_ack_timer(int);
 
 int event_queue_add_file_monitor(int, char *, int *);
-struct uwsgi_fmon *event_queue_ack_file_monitor(int);
+struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 
 
 void *uwsgi_mmap_shared_lock(void);

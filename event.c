@@ -2,6 +2,87 @@
 
 extern struct uwsgi_server uwsgi;
 
+#ifdef UWSGI_EVENT_USE_PORT
+
+#include <port.h>
+
+int event_queue_init() {
+
+        int port = port_create();
+
+        if (port < 0) {
+                uwsgi_error("port_create()");
+                return -1;
+        }
+
+        return port;
+}
+
+
+int event_queue_add_fd_read(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return fd;
+}
+
+int event_queue_add_fd_write(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return fd;
+}
+
+int event_queue_wait(int eq, int timeout, int *interesting_fd) {
+
+        int ret;
+	port_event_t pe;
+	timespec_t ts;
+
+        if (timeout > 0) {
+		ts.tv_sec = timeout;
+		ts.tv_nsec = 0;
+        	ret = port_get(eq, &pe, &ts);
+        }
+	else {
+        	ret = port_get(eq, &pe, NULL);
+	}
+        if (ret < 0) {
+		if (errno != ETIME) {
+                	uwsgi_error("port_get()");
+			return -1;
+		}
+		return 0;
+        }
+
+	if (pe.portev_source == PORT_SOURCE_FD) {
+		// event must be readded (damn Oracle/Sun why the fu*k you made such a horrible choice ???? why not adding a ONESHOT flag ???)
+		if (port_associate(eq, pe.portev_source, pe.portev_object, pe.portev_events, NULL)) {
+                	uwsgi_error("port_associate");
+        	}
+	}
+
+
+	if (pe.portev_source == PORT_SOURCE_FILE || pe.portev_source == PORT_SOURCE_TIMER) {
+        	*interesting_fd = (int) pe.portev_user;
+		uwsgi_log("port event interesting_fd: %d\n", *interesting_fd);
+	}
+	else {
+		*interesting_fd = (int) pe.portev_object;
+	}
+
+        return 1;
+}
+
+#endif
+
+
 #ifdef UWSGI_EVENT_USE_EPOLL
 
 #include <sys/epoll.h>
@@ -127,6 +208,75 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 }
 #endif
 
+#ifdef UWSGI_EVENT_FILEMONITOR_USE_NONE
+int event_queue_add_file_monitor(int eq, char *filename, int *id) { return -1;}
+struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {return NULL;}
+#endif
+
+#ifdef UWSGI_EVENT_FILEMONITOR_USE_PORT
+int event_queue_add_file_monitor(int eq, char *filename, int *id) {
+
+	struct file_obj fo;
+	struct stat st;
+	static int fmon_id = 0xffffee00;
+
+	if (stat(filename, &st)) {
+		uwsgi_error("stat()");
+		return -1;
+	}
+
+	fo.fo_name = filename;
+	fo.fo_atime = st.st_atim;
+	fo.fo_mtime = st.st_mtim;
+	fo.fo_ctime = st.st_ctim;
+	
+	fmon_id++;
+	if (port_associate(eq, PORT_SOURCE_FILE, (uintptr_t) &fo, FILE_MODIFIED|FILE_ATTRIB, (void *) fmon_id)) {
+		uwsgi_error("port_associate()");
+		return -1;
+	}
+
+
+	*id = fmon_id;
+
+        uwsgi_log("added new file to monitor %s [%d]\n", filename, *id);
+
+        return *id;
+}
+
+struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
+
+        int i;
+	struct file_obj fo;
+        struct stat st;
+
+        for(i=0;i<ushared->files_monitored_cnt;i++) {
+                if (ushared->files_monitored[i].registered) {
+                        if (ushared->files_monitored[i].fd == id) {
+				if (stat(ushared->files_monitored[i].filename, &st)) {
+                			uwsgi_error("stat()");
+                			return NULL;
+        			}			
+				fo.fo_name = ushared->files_monitored[i].filename;
+        			fo.fo_atime = st.st_atim;
+        			fo.fo_mtime = st.st_mtim;
+        			fo.fo_ctime = st.st_ctim;
+				if (port_associate(eq, PORT_SOURCE_FILE, (uintptr_t) &fo, FILE_MODIFIED|FILE_ATTRIB, (void *)id)) {
+                			uwsgi_error("port_associate()");
+                			return NULL;
+        			}
+                                return &ushared->files_monitored[i];
+                        }
+                }
+        }
+
+        return NULL;
+
+}
+
+#endif
+
+
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_KQUEUE
 int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 
@@ -151,7 +301,7 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 	return fd;
 }
 
-struct uwsgi_fmon *event_queue_ack_file_monitor(int id) {
+struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 
 	int i;
 
@@ -206,7 +356,7 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 	}
 }
 
-struct uwsgi_fmon *event_queue_ack_file_monitor(int id) {
+struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 
 	ssize_t rlen = 0;
 	struct inotify_event ie, *bie, *iie;
@@ -353,6 +503,64 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 int event_queue_add_timer(int eq, int *id, int sec) { return -1; }
 struct uwsgi_timer *event_queue_ack_timer(int id) { return NULL;}
 #endif
+
+#ifdef UWSGI_EVENT_TIMER_USE_PORT
+int event_queue_add_timer(int eq, int *id, int sec) {
+
+	static int timer_id = 0xffffff00;
+	port_notify_t		pnotif;
+	struct sigevent		sigev;
+	itimerspec_t it;
+	timer_t tid;
+
+	timer_id++;
+
+	pnotif.portnfy_port = eq;
+	pnotif.portnfy_user = (void *) timer_id;
+
+	sigev.sigev_notify = SIGEV_PORT;
+	sigev.sigev_value.sival_ptr = &pnotif;
+
+	if (timer_create(CLOCK_REALTIME, &sigev, &tid) < 0) {
+		uwsgi_error("timer_create()");
+		return -1;
+	}
+
+	
+	it.it_value.tv_sec = sec;
+        it.it_value.tv_nsec = 0;
+
+        it.it_interval.tv_sec = sec;
+        it.it_interval.tv_nsec = 0;
+
+	if (timer_settime(tid, 0, &it, NULL) < 0) {
+		uwsgi_error("timer_settime()");
+		return -1;
+	}
+
+	*id = timer_id;
+
+	return *id;
+
+}
+
+struct uwsgi_timer *event_queue_ack_timer(int id) {
+
+	int i;
+	struct uwsgi_timer *ut = NULL;
+
+	for(i=0;i<uwsgi.shared->timers_cnt;i++) {
+		if (uwsgi.shared->timers[i].registered) {
+			if (uwsgi.shared->timers[i].id == id) {
+				ut = &uwsgi.shared->timers[i];
+			}
+		}
+	}
+
+	return ut;
+}
+#endif
+
 
 #ifdef UWSGI_EVENT_TIMER_USE_KQUEUE
 int event_queue_add_timer(int eq, int *id, int sec) {

@@ -427,8 +427,9 @@ void master_loop(char **argv, char **environ) {
 					uwsgi_lock(uwsgi.fmon_table_lock);
 					for(i=0;i<ushared->files_monitored_cnt;i++) {
 						if (ushared->files_monitored[i].registered) {
+							uwsgi_log("fmon check %d == %d\n", interesting_fd, ushared->files_monitored[i].fd) ;
 							if (interesting_fd == ushared->files_monitored[i].fd) {
-								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(interesting_fd);
+								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(uwsgi.master_queue, interesting_fd);
 								// now call the file_monitor handler
 								if (uf) uwsgi_route_signal(uf->sig);
 								break;
@@ -443,7 +444,6 @@ void master_loop(char **argv, char **environ) {
 
 					for(i=0;i<ushared->timers_cnt;i++) {
                                                 if (ushared->timers[i].registered) {
-							//uwsgi_log("%d = %d\n", interesting_fd, uwsgi.timers[i].fd);
                                                         if (interesting_fd == ushared->timers[i].fd) {
                                                                 struct uwsgi_timer *ut = event_queue_ack_timer(interesting_fd);
                                                                 // now call the file_monitor handler
