@@ -666,7 +666,7 @@ options_parsed:
 	uwsgi.ns = "/ns/001";
 	if (uwsgi.ns) {
 		void *linux_clone_stack = alloca(uwsgi.page_size);
-		pid_t pid = clone(uwsgi_start, linux_clone_stack+uwsgi.page_size, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC, (void *)argv);
+		pid_t pid = clone(uwsgi_start, linux_clone_stack+uwsgi.page_size, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
 		if (pid == -1) {
 			uwsgi_error("clone()");
 			exit(1);
@@ -708,6 +708,43 @@ int uwsgi_start(void *v_argv) {
 	int uwsgi_will_starts = 0;
 
 	uwsgi_log("my PID is %d\n", (int) getpid());
+
+	if (getpid() == 1) {
+		uwsgi_log("unmounting /proc\n");
+		if (umount("/proc/bus/usb")) {
+			uwsgi_error("umount()");
+		}
+		if (umount("/proc/sys/fs/binfmt_misc")) {
+			uwsgi_error("umount()");
+		}
+		if (umount("/proc")) {
+			uwsgi_error("umount()");
+		}
+		umount("/dev/pts");
+		umount("/dev/shm");
+		umount("/dev");
+		umount("/dev");
+		umount("/sys/fs/fuse/connections");
+		umount("/sys");
+		umount("/boot");
+		umount("/selinux");
+		umount("/home/roberto/.gvfs");
+		umount("/sys");
+		umount("/");
+		if (mount("/ns/001", "/ns/001_", "none", MS_BIND| MS_REC, NULL)) {
+			uwsgi_error("mount()");
+		}
+		if (chdir("/ns/001_")) {
+			uwsgi_error("chdir()");
+		}
+		if (pivot_root(".", "/ns/001_/mnt2")) {
+			uwsgi_error("pivot_root()");
+		}
+		
+		if (mount("proc","/proc", "proc", 0, NULL)) {
+			uwsgi_error("mount()");
+		}
+	}
 
 	uwsgi_as_root();
 

@@ -84,6 +84,8 @@
 #ifdef __linux
 #include <sys/prctl.h>
 #include <linux/limits.h>
+#include <sys/mount.h>
+extern int pivot_root(const char * new_root, const char * put_old);
 #else
 #include <limits.h>
 #endif

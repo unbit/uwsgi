@@ -141,7 +141,11 @@ class uConf(object):
         self.config.read(filename)
         self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
-        gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
+	try:
+            gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
+	except:
+	    print("*** you need a c compiler to build uWSGI ***")
+	    sys.exit(1)
         gcc_major = int(gcc_version.split('.')[0])
         gcc_minor = int(gcc_version.split('.')[1])
         if (sys.version_info[0] == 2) or (gcc_major < 4) or (gcc_major == 4 and gcc_minor < 3):
