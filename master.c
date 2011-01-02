@@ -477,8 +477,14 @@ void master_loop(char **argv, char **environ) {
 			// checking logsize
 			if (uwsgi.logfile) {
 				uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
-				if (uwsgi.shared->logsize > 4096) {
+				if (uwsgi.shared->logsize > 8192) {
 					uwsgi_log("logsize: %d\n", uwsgi.shared->logsize);
+					char *new_logfile = uwsgi_malloc(strlen(uwsgi.logfile) + 14 + 1);
+					memset(new_logfile, 0, strlen(uwsgi.logfile) + 14 + 1);    
+					if (!rename(uwsgi.logfile, new_logfile)) {
+						// close 2, reopen logfile dup'it and gracefully reload workers;
+					}
+					free(new_logfile);
 				}	
 			}
 
