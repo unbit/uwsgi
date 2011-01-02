@@ -708,7 +708,8 @@ int uwsgi_start(void *v_argv) {
 
 	uwsgi_log("my PID is %d\n", (int) getpid());
 
-	if (getpid() == 1) {
+#ifdef __linux__
+	if (uwsgi.ns && getpid() == 1) {
 		if (sethostname("uwsgifakehost", strlen("uwsgifakehost"))) {
 			uwsgi_error("sethostname()");
 		}
@@ -749,6 +750,7 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_error("mount()");
 		}
 	}
+#endif
 
 	uwsgi_as_root();
 
