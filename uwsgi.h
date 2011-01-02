@@ -819,6 +819,7 @@ struct uwsgi_server {
 	char           *cgroup;
 	char           *cgroup_opt[64];
 	int             cgroup_opt_cnt;
+	char		*ns;
 #endif
 
 	int             sockets_cnt;
@@ -1330,3 +1331,5 @@ void uwsgi_register_timer(uint8_t, int, uint8_t, void *, uint8_t);
 int uwsgi_signal_handler(uint8_t);
 
 void uwsgi_route_signal(uint8_t);
+
+int uwsgi_start(void *);

@@ -335,14 +335,8 @@ static void vacuum(void)
 int main(int argc, char *argv[], char *envp[])
 {
 
-	int i,
-	 j;
-
+	int i;
 	int rlen;
-
-	int uwsgi_will_starts = 0;
-
-	pid_t pid;
 
 	FILE *pidfile;
 
@@ -353,18 +347,10 @@ int main(int argc, char *argv[], char *envp[])
 	char *plugins_requested;
 
 
-#ifdef UWSGI_HTTP
-	pid_t http_pid;
-#endif
 
 #ifdef UNBIT
 	//struct uidsec_struct us;
 #endif
-
-	struct sockaddr_un usa;
-	struct sockaddr *gsa;
-	struct sockaddr_in *isa;
-	socklen_t socket_type_len;
 
 #ifdef UWSGI_DEBUG
 	struct utsname uuts;
@@ -663,6 +649,54 @@ options_parsed:
 		}
 		fclose(pidfile);
 	}
+
+#ifdef __linux__
+	uwsgi.ns = "/ns/001";
+	if (uwsgi.ns) {
+		void *linux_clone_stack = alloca(uwsgi.page_size);
+		pid_t pid = clone(uwsgi_start, linux_clone_stack+uwsgi.page_size, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC, (void *)argv);
+		if (pid == -1) {
+			uwsgi_error("clone()");
+			exit(1);
+		}
+		uwsgi_log("waiting for uwsgi end...\n");
+		pid = waitpid(pid, NULL, 0);
+		uwsgi_log("pid %d ended\n", (int) pid);	
+	}
+	else {
+#endif
+		uwsgi_start((void *)argv);
+#ifdef __linux__
+	}
+#endif
+
+
+	// never here
+	return 0;
+}
+
+int uwsgi_start(void *v_argv) {
+
+	char **argv = v_argv;
+
+#ifdef UWSGI_HTTP
+	pid_t http_pid;
+#endif
+
+	pid_t pid;
+	int i, j;
+
+	struct sockaddr_un usa;
+        struct sockaddr *gsa;
+        struct sockaddr_in *isa;
+        socklen_t socket_type_len;
+
+	FILE *pidfile;
+
+	int uwsgi_will_starts = 0;
+
+	uwsgi_log("my PID is %d\n", (int) getpid());
+
 	uwsgi_as_root();
 
 	if (!uwsgi.no_initial_output) {
@@ -1483,7 +1517,7 @@ end:
 
 	// never here
 	return 0;
-	}
+}
 
 #ifdef UWSGI_PROXY
 	pid_t proxy_start(int has_master) {
