@@ -663,7 +663,6 @@ options_parsed:
 #ifndef CLONE_NEWIPC
 #define CLONE_NEWIPC 0x08000000
 #endif
-	uwsgi.ns = "/ns/001";
 	if (uwsgi.ns) {
 		void *linux_clone_stack = alloca(uwsgi.page_size);
 		pid_t pid = clone(uwsgi_start, linux_clone_stack+uwsgi.page_size, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
@@ -710,6 +709,9 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_log("my PID is %d\n", (int) getpid());
 
 	if (getpid() == 1) {
+		if (sethostname("uwsgifakehost", strlen("uwsgifakehost"))) {
+			uwsgi_error("sethostname()");
+		}
 		uwsgi_log("unmounting /proc\n");
 		if (umount("/proc/bus/usb")) {
 			uwsgi_error("umount()");
@@ -731,7 +733,7 @@ int uwsgi_start(void *v_argv) {
 		umount("/home/roberto/.gvfs");
 		umount("/sys");
 		umount("/");
-		if (mount("/ns/001", "/ns/001_", "none", MS_BIND| MS_REC, NULL)) {
+		if (mount(uwsgi.ns, "/ns/001_", "none", MS_BIND, NULL)) {
 			uwsgi_error("mount()");
 		}
 		if (chdir("/ns/001_")) {
@@ -740,6 +742,8 @@ int uwsgi_start(void *v_argv) {
 		if (pivot_root(".", "/ns/001_/mnt2")) {
 			uwsgi_error("pivot_root()");
 		}
+
+		umount("/ns/001_/mnt2");
 		
 		if (mount("proc","/proc", "proc", 0, NULL)) {
 			uwsgi_error("mount()");

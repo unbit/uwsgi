@@ -272,6 +272,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CLUSTER_RELOAD	17063
 #define LONG_ARGS_CLUSTER_LOG		17064
 #define LONG_ARGS_CACHE			17065
+#define LONG_ARGS_NS			17066
 
 
 
