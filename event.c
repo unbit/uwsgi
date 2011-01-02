@@ -416,7 +416,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 #include <sys/timerfd.h>
 #endif
 
-#ifndef timerfd_create
+#ifndef TFD_CLOEXEC
 
 // timerfd support
 
