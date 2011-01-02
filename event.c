@@ -262,9 +262,31 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int id) {
 
 #ifdef UWSGI_EVENT_TIMER_USE_TIMERFD
 
-#ifndef UNBIT
+#ifndef UWSGI_EVENT_TIMER_USE_TIMERFD_NOINC
 #include <sys/timerfd.h>
-#else
+#endif
+
+#ifndef timerfd_create
+
+// timerfd support
+
+enum
+  {
+    TFD_CLOEXEC = 02000000,
+#define TFD_CLOEXEC TFD_CLOEXEC
+    TFD_NONBLOCK = 04000
+#define TFD_NONBLOCK TFD_NONBLOCK
+  };
+
+
+/* Bits to be set in the FLAGS parameter of `timerfd_settime'.  */
+enum
+  {
+    TFD_TIMER_ABSTIME = 1 << 0
+#define TFD_TIMER_ABSTIME TFD_TIMER_ABSTIME
+  };
+
+
 static int timerfd_create (clockid_t __clock_id, int __flags) {
 	return syscall(322, __clock_id, __flags);
 }

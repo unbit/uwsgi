@@ -49,22 +49,3 @@ struct uidsec_struct {
 
 };
 
-
-// timerfd support
-
-enum
-  {
-    TFD_CLOEXEC = 02000000,
-#define TFD_CLOEXEC TFD_CLOEXEC
-    TFD_NONBLOCK = 04000
-#define TFD_NONBLOCK TFD_NONBLOCK
-  };
-
-
-/* Bits to be set in the FLAGS parameter of `timerfd_settime'.  */
-enum
-  {
-    TFD_TIMER_ABSTIME = 1 << 0
-#define TFD_TIMER_ABSTIME TFD_TIMER_ABSTIME
-  };
-

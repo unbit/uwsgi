@@ -260,6 +260,8 @@ class uConf(object):
 
 	if timer_mode == 'timerfd':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD')
+	    if not os.path.exists('/usr/include/sys/timerfd.h') and not os.path.exists('/usr/local/include/sys/timerfd.h'):
+            	self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD_NOINC')
 	elif timer_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_KQUEUE')
 	else:

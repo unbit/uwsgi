@@ -651,6 +651,18 @@ options_parsed:
 	}
 
 #ifdef __linux__
+
+#ifndef CLONE_NEWUTS
+#define CLONE_NEWUTS 0x04000000
+#endif
+
+#ifndef CLONE_NEWPID
+#define CLONE_NEWPID 0x20000000
+#endif
+
+#ifndef CLONE_NEWIPC
+#define CLONE_NEWIPC 0x08000000
+#endif
 	uwsgi.ns = "/ns/001";
 	if (uwsgi.ns) {
 		void *linux_clone_stack = alloca(uwsgi.page_size);
