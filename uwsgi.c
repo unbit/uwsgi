@@ -946,6 +946,9 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_lock_init(uwsgi.timer_table_lock);
 	}
 
+	uwsgi.rpc_table_lock = uwsgi_mmap_shared_lock();
+	uwsgi_lock_init(uwsgi.rpc_table_lock);
+
 	if (uwsgi.sharedareasize > 0) {
 		uwsgi.sharedareamutex = uwsgi_mmap_shared_lock();
 

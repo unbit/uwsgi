@@ -15,6 +15,7 @@
 
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
+#define MAX_RPC 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
 #define UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -398,6 +399,8 @@ struct uwsgi_plugin {
 	void*		(*encode_string)(char *);
 	char*		(*decode_string)(void *);
 	int		(*signal_handler)(uint8_t, void *, char *, uint8_t);
+
+	uint16_t	(*rpc)(void *, uint8_t argc, char **, char *);
 
 };
 
@@ -872,6 +875,7 @@ struct uwsgi_server {
 	void *signal_table_lock;
 	void *fmon_table_lock;
 	void *timer_table_lock;
+	void *rpc_table_lock;
 
 };
 
@@ -879,8 +883,8 @@ struct uwsgi_rpc {
 	char name[0xff];
 	void *func;
 	uint8_t args;
-	uint8_t modifier;
-}
+	uint8_t modifier1;
+};
 
 struct uwsgi_lb_group {
 	char name[101];
@@ -992,6 +996,9 @@ struct uwsgi_shared {
 
 	struct uwsgi_timer timers[64];
 	int timers_cnt;
+
+	struct uwsgi_rpc rpc_table[MAX_RPC];
+	int rpc_count;
 };
 
 struct uwsgi_core {
@@ -1343,3 +1350,6 @@ int uwsgi_signal_handler(uint8_t);
 void uwsgi_route_signal(uint8_t);
 
 int uwsgi_start(void *);
+
+int uwsgi_register_rpc(char *, uint8_t, uint8_t, void *);
+uint16_t uwsgi_rpc(char *, uint8_t, char **, char *);

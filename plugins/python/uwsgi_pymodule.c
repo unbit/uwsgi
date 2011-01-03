@@ -190,6 +190,26 @@ PyObject *py_uwsgi_register_file_monitor(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
+
+	uint8_t argc = 0;
+	char *name;
+	PyObject *func;
+
+	if (!PyArg_ParseTuple(args, "sO|B:register_signal", &name, &func, &argc)) {
+                return NULL;
+        }
+
+
+	if (uwsgi_register_rpc(name, 0, argc, func)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
@@ -1947,6 +1967,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"signal", py_uwsgi_signal, METH_VARARGS, ""},
 		{"register_file_monitor", py_uwsgi_register_file_monitor, METH_VARARGS, ""},
 		{"register_timer", py_uwsgi_register_timer, METH_VARARGS, ""},
+
+		{"register_rpc", py_uwsgi_register_rpc, METH_VARARGS, ""},
 #ifdef UWSGI_SENDFILE
 		{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
 #endif

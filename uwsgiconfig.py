@@ -139,7 +139,7 @@ class uConf(object):
         self.config = ConfigParser.ConfigParser()
 	print("using profile: %s" % filename)
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'loop', 'uwsgi']
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 	try:
             gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
