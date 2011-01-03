@@ -51,3 +51,5 @@ sharedarea_readlong
 sharedarea_writelong
 sharedarea_inclong
 register_signal(num, handler)
+register_rpc(name, func[,args])
+rpc(node, name[,args,...])

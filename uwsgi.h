@@ -875,6 +875,13 @@ struct uwsgi_server {
 
 };
 
+struct uwsgi_rpc {
+	char name[0xff];
+	void *func;
+	uint8_t args;
+	uint8_t modifier;
+}
+
 struct uwsgi_lb_group {
 	char name[101];
 	int kind;

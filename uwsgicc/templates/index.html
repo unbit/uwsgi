@@ -186,7 +186,7 @@ a:hover{
 </div>
 
 <a name="logs"></a>
-<h3>Logs</h3>
+<h3>Logs (size: {{ uwsgi.logsize() }} bytes)</h3>
 <div class="info">
 <form action="/log" method="POST">
 	<input type="text" size="72" name="message" /> 
@@ -244,7 +244,7 @@ a:hover{
 		<td>
 			<input type="hidden" name="node" value="{{ucn}}"/>
 			<input type="text" size="3" name="signal" /> 
-			<input type="submit" value="send signal" />
+			<input type="submit" value="send uwsgi signal" />
 		</td>
 		</form>
 
@@ -269,7 +269,7 @@ a:hover{
     <td>
         <form method="POST">
     	    <input type="text" size="3" name="signal" />
-            <input type="submit" value="send signal" />
+            <input type="submit" value="send uwsgi signal" />
         </form>
     </td>
     <td>
