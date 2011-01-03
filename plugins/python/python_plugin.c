@@ -533,6 +533,18 @@ void uwsgi_uwsgi_config(char *module) {
 			exit(1);
 		}
 
+		if (PyDict_SetItemString(up.embedded_dict, "cores", PyInt_FromLong(uwsgi.cores))) {
+			PyErr_Print();
+			exit(1);
+		}
+
+		if (uwsgi.loop) {
+			if (PyDict_SetItemString(up.embedded_dict, "loop", PyString_FromString(uwsgi.loop))) {
+				PyErr_Print();
+				exit(1);
+			}
+		}
+
 		if (PyDict_SetItemString(up.embedded_dict, "KIND_NULL", PyInt_FromLong(KIND_NULL))) { PyErr_Print(); exit(1);}
 		if (PyDict_SetItemString(up.embedded_dict, "KIND_WORKER", PyInt_FromLong(KIND_WORKER))) { PyErr_Print(); exit(1);}
 		if (PyDict_SetItemString(up.embedded_dict, "KIND_EVENT", PyInt_FromLong(KIND_EVENT))) { PyErr_Print(); exit(1);}

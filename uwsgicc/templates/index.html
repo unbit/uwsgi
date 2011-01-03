@@ -1,9 +1,21 @@
 <h1>uWSGI {{uwsgi.version}} Control Center</h1>
 
+{% with messages = get_flashed_messages() %}
+	{% if messages %}
+		<div class="flash">
+    			{% for message in messages %}
+      				<li>{{ message }}</li>
+    			{% endfor %}
+		</div>
+	{% endif %}
+{% endwith %}
+
 <b>nodename:</b> {{uwsgi.cluster_node_name()}}<br/>
 <b>mode:</b> {{uwsgi.mode}}<br/>
+<b>loop:</b> {{uwsgi.loop}}<br/>
 <b>started_on:</b> {{uwsgi.started_on|unixtime}}<br/>
 <b>workers:</b> {{uwsgi.numproc}}<br/>
+<b>cores:</b> {{ uwsgi.cores }}<br/>
 <b>masterpid:</b> {{uwsgi.masterpid()}}<br/>
 <b>cluster:</b> {{uwsgi.cluster()}}<br/>
 
@@ -11,6 +23,13 @@
 {% for k in uwsgi.opt.keys() %}
 	{{k}}={{uwsgi.opt[k]}}<br/>
 {% endfor %}
+
+<br/>
+<form action="/log" method="POST">
+	<input type="text" size="72" name="message" /> 
+	<input type="submit" value="write message to the log" />
+</form>
+<br/>
 
 <h3>workers</h3>
 <table border="1">
@@ -24,6 +43,8 @@
 {% endfor %}
 </table>
 
+
+{% if uwsgi.cluster() %}
 <h3>cluster nodes</h3>
 <i>best is {{ uwsgi.cluster_best_node() }}</i><br/><br/>
 <form method="POST">
@@ -71,4 +92,4 @@
 </table>
 
 
-<h3>
+{% endif %}
