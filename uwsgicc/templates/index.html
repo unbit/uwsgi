@@ -207,7 +207,7 @@ a:hover{
     <th>#</th>
     <th>pid</th>
     <th>requests</th>
-    <th># count</th>
+    <th># respawn</th>
 </tr>
 {% for w in uwsgi.workers() %}
 	<tr class="{{ loop.cycle('odd', 'even') }}">
