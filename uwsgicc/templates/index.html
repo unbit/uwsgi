@@ -1,15 +1,161 @@
-<h1>uWSGI {{uwsgi.version}} Control Center</h1>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>uWSGI {{uwsgi.version}} Control Center</title>
+<style type="text/css"> 
+body {
+  background: #fff;
+  font-family: 'Lucida Sans','Arial',sans;
+  font-size: 12px;
+  line-height: 20px;
+  margin: 0px;
+  padding: 0px;
+}
+
+h1{
+    border-bottom: 2px solid #B0D534;
+    font-size: 24px;
+    line-height: 24px;
+    margin-bottom: 5px;
+    padding: 10px;
+    background-color: #000;    
+    color: #fff;
+    margin-top: 0;
+    font-weight: normal;
+}
+
+h3{
+    font-size: 14px;
+    margin-left: 10px;  
+    color: #666;
+    font-weight: normal;
+    margin-bottom: 10px;
+    margin-right: 10px;
+    border-bottom: 2px solid #B0D534;
+}
+
+.small{
+    font-size: 12px;
+    color: #999;
+    margin-right:10px;
+    margin-left:-5px;
+}
+
+
+
+.info{
+    margin-left: 10px;
+    padding-left: 20px;
+    margin-bottom: 40px;
+}
+
+input{
+    margin: 10px 0px;
+}
+
+input[type=submit]{
+    border: none;
+    padding: 3px 10px;
+    color: #fff;
+    background-color: #444444;
+    background-image: -moz-linear-gradient(top, #444444, #999999); /* FF3.6 */
+    background-image: -webkit-gradient(linear,left top,left bottom,color-stop(0, #444444),color-stop(1, #999999)); /* Saf4+, Chrome */
+    -ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorStr='#444444', EndColorStr='#999999')"; /* IE8 */
+    
+    -moz-border-radius: 7px; /* FF1+ */
+    -webkit-border-radius: 7px; /* Saf3-4 */
+    border-radius: 7px; /* Opera 10.5, IE 9, Saf5, Chrome */
+    
+    -moz-box-shadow: 0px 0px 1px #000; /* FF3.5+ */
+    -webkit-box-shadow: 0px 0px 1px #000; /* Saf3.0+, Chrome */
+    box-shadow: 0px 0px 1px #000; /* Opera 10.5, IE 9 */
+    
+    text-shadow: 0px 1px 1px #000;
+    
+}
+
+input[type=text].wide{
+    width: 350px;
+}
+
+table{
+    border-collapse:collapse;
+    padding: 5px;
+}
+
+td{
+    border: 1px solid #999;
+    text-align: center;
+    padding: 0px 5px;
+    border-right:1px solid #999;
+    border-left:1px solid #999;
+    
+}
+
+.odd {
+    background-color:#fff;
+}
+
+.even{
+    background-color:#eeeeee;
+}
+
+tr.last{
+    font-size: bold;
+    background: #222;
+    color: #fff;
+}
+
+.anchor{
+    text-align: right;
+    margin-right: 10px;
+}
+
+.flash{
+    background-color: #de211f;
+    color: #fff;
+    margin: 10px;
+    padding: 5px;
+}
+
+a, a:link, a:focus, a:active, a:visited{
+    font-size: 10px;
+    color: #999;
+    text-decoration: none;
+    border-bottom: 1px dotted #999;
+}
+
+a:hover{
+    color: #000;
+}
+
+</style>
+</head>
+
+<body>
+<a name="top"></a>
+<h1>uWSGI <span class="small">{{uwsgi.version}}</span> Control Center</h1>
+
+<div class="anchor">
+<a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#workers">workers</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
+</div>
 
 {% with messages = get_flashed_messages() %}
 	{% if messages %}
 		<div class="flash">
+		        <ul>
     			{% for message in messages %}
       				<li>{{ message }}</li>
     			{% endfor %}
+    			</ul>
 		</div>
 	{% endif %}
 {% endwith %}
 
+<a name="information"></a>
+<h3>Information</h3>
+<div class="info">
 <b>nodename:</b> {{uwsgi.cluster_node_name()}}<br/>
 <b>mode:</b> {{uwsgi.mode}}<br/>
 <b>loop:</b> {{uwsgi.loop}}<br/>
@@ -19,22 +165,52 @@
 <b>masterpid:</b> {{uwsgi.masterpid()}}<br/>
 <b>cluster:</b> {{uwsgi.cluster()}}<br/>
 
-<h3>options</h3>
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
+
+
+<a name="options"></a>
+<h3>Options</h3>
+<div class="info">
 {% for k in uwsgi.opt.keys() %}
-	{{k}}={{uwsgi.opt[k]}}<br/>
+	<b>{{k}}</b>: {{uwsgi.opt[k]}}<br/>
 {% endfor %}
 
-<br/>
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
+
+<a name="logs"></a>
+<h3>Logs</h3>
+<div class="info">
 <form action="/log" method="POST">
 	<input type="text" size="72" name="message" /> 
 	<input type="submit" value="write message to the log" />
 </form>
-<br/>
 
-<h3>workers</h3>
-<table border="1">
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
+
+<a name="workers"></a>
+<h3>Workers</h3>
+<div class="info">
+<table width="400">
+<tr>
+    <th>#</th>
+    <th>pid</th>
+    <th>requests</th>
+    <th># count</th>
+</tr>
 {% for w in uwsgi.workers() %}
-	<tr>
+	<tr class="{{ loop.cycle('odd', 'even') }}">
 		<td>{{w.id}}</td>
 		<td>{{w.pid}}</td>
 		<td>{{w.requests}}</td>
@@ -42,27 +218,26 @@
 	</tr>
 {% endfor %}
 </table>
+<br/>
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
 
 
 {% if uwsgi.cluster() %}
-<h3>cluster nodes</h3>
-<i>best is {{ uwsgi.cluster_best_node() }}</i><br/><br/>
-<form method="POST">
-	<input type="submit" value="reload cluster" />
-</form>
-<form method="POST">
-	<input type="text" size="3" name="signal" />
-        <input type="submit" value="send signal to all nodes" />
-</form>
-
-<form method="POST">
-	<input type="text" size="72" name="message" /> 
-	<input type="submit" value="send log message to all nodes" />
-</form>
-<br/>
-<table border="1">
+<a name="cluster"></a>
+<h3>Cluster nodes</h3>
+<div class="info">
+<i>best is <b>{{ uwsgi.cluster_best_node() }}</b></i><br/><br/>
+<table>
+<tr>
+    <th>hostname</th>
+    <th>socket</th>
+</tr>
 {% for ucn in uwsgi.cluster_nodes() %}
-	<tr>
+	<tr class="{{ loop.cycle('odd', 'even') }}">
 		<td>{{ uwsgi.cluster_node_name(ucn) }}</td>
 		<td>{{ ucn }}</td>
 		<form method="POST">
@@ -76,7 +251,7 @@
 		<form method="POST">
 		<td>
 			<input type="hidden" name="node" value="{{ucn}}"/>
-			<input type="text" size="72" name="message" /> 
+			<input type="text" class="wide" size="72" name="message" /> 
 			<input type="submit" value="send log message" />
 		</td>
 		</form>
@@ -89,7 +264,35 @@
 		</form>
 	</tr>
 {% endfor %}
-</table>
+    <tr class="last">
+    <td colspan="2">All cluster nodes</td>
+    <td>
+        <form method="POST">
+    	    <input type="text" size="3" name="signal" />
+            <input type="submit" value="send signal" />
+        </form>
+    </td>
+    <td>
+        <form method="POST">
+        	<input type="text" class="wide" size="72" name="message" /> 
+        	<input type="submit" value="send log message" />
+        </form>
+    </td>
+    <td>
+        <form method="POST">
+    	    <input type="submit" value="reload cluster" />
+        </form>
+    </td>
+    </tr>
 
+</table>
+<br/>
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
 
 {% endif %}
+</body>
+</html>
