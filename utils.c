@@ -1181,3 +1181,24 @@ inline void *uwsgi_malloc(size_t size) {
 
 	return ptr;
 }
+
+
+char *uwsgi_cheap_string(char *buf, int len) {
+
+	int i;
+	char *cheap_buf = buf-1;
+
+
+	uwsgi_log("original buf: %.*s\n", len ,buf);
+
+	for(i=0;i<len;i++) {
+		*cheap_buf++= buf[i];
+	}
+
+	
+	buf[len-1] = 0;
+
+	uwsgi_log("cheap buf: %s\n", buf-1);
+
+	return buf-1;
+}

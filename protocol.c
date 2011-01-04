@@ -302,6 +302,56 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 	return 1;
 }
 
+int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
+
+	char *ptrbuf, *bufferend;
+	uint16_t strsize = 0;
+	int i;
+	
+	*argc = 0;
+
+        ptrbuf = buffer;
+        bufferend = ptrbuf + size;
+
+	for(i=0;i<size;i++) {
+		uwsgi_log("%x %c\n", buffer[i], buffer[i]);
+	}
+
+	while (ptrbuf < bufferend) {
+                if (ptrbuf + 2 < bufferend) {
+                        memcpy(&strsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                        strsize = uwsgi_swap16(strsize);
+#endif
+			uwsgi_log("found %d array strsize\n", strsize);
+                        /* item cannot be null */
+                        if (!strsize) {
+                                uwsgi_log( "uwsgi array item cannot be null. skip this request.\n");
+                                return -1;
+                        }
+
+                        ptrbuf += 2;
+                        if (ptrbuf + strsize <= bufferend) {
+                                // item
+				argv[*argc] = uwsgi_cheap_string(ptrbuf, strsize);
+                                ptrbuf += strsize;
+				*argc = *argc + 1;
+			}
+			else {
+				uwsgi_log( "invalid uwsgi array. skip this request.\n");
+                        	return -1;
+			}
+		}
+		else {
+			uwsgi_log( "invalid uwsgi array. skip this request.\n");
+                        return -1;
+		}
+	}
+	
+
+	return 0;
+}
+
 int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	char *buffer = wsgi_req->buffer;
