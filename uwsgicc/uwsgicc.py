@@ -21,3 +21,21 @@ def log():
     uwsgi.log(request.form['message'])
     flash("log message written")
     return redirect(url_for('index'))
+
+@app.route("/rpc", methods=['POST'])
+def log():
+    node = str(request.form['node'])
+    if node == '':
+	node = None
+
+    fargs = str(request.form['args'])
+
+    args = fargs.split()
+
+    if len(args) > 0:
+        ret = uwsgi.rpc(str(node), str(request.form['func']), *map(str, args))
+    else:
+        ret = uwsgi.rpc(str(node), str(request.form['func']))
+
+    flash("rpc \"%s\" returned: %s" % (request.form['func'], ret) )
+    return redirect(url_for('index'))

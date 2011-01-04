@@ -138,7 +138,7 @@ a:hover{
 <h1>uWSGI <span class="small">{{uwsgi.version}}</span> Control Center</h1>
 
 <div class="anchor">
-<a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#workers">workers</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
+<a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#workers">workers</a> | <a href="#rpc">rpc</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
 </div>
 
 {% with messages = get_flashed_messages() %}
@@ -218,6 +218,21 @@ a:hover{
 	</tr>
 {% endfor %}
 </table>
+<br/>
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
+
+<a name="rpc"></a>
+<h3>RPC</h3>
+<div class="info">
+
+<form method="POST" action="/rpc">
+<b>node address (leave empty for local rpc):</b> <input type="text" name="node" /> <b>function:</b> <input type="text" name="func" /> <b>args (separated by space, optional):</b> <input type="text" name="args" /> <input type="submit" value="call" /><br/>
+</form>
+
 <br/>
     <div class="anchor">
     <a href="#top">back to top</a>
