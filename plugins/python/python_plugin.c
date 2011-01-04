@@ -866,6 +866,38 @@ int uwsgi_python_signal_handler(uint8_t sig, void *handler, char *payload, uint8
 	return -1;
 }
 
+uint16_t uwsgi_python_rpc(void * func, uint8_t argc, char **argv, char *buffer) {
+
+	uint8_t i;
+	PyObject *pyargs = PyTuple_New(argc);
+	PyObject *ret;
+	char *rv;
+	size_t rl;
+
+	if (!pyargs) return 0;
+
+	for(i=0;i<argc;i++) {
+		PyTuple_SetItem(pyargs, i, PyString_FromString(argv[i]));
+	}
+
+	ret = python_call((PyObject *) func, pyargs, 0);
+
+	if (ret) {
+		if (PyString_Check(ret)) {
+			rv = PyString_AsString(ret);	
+			rl = strlen(rv);
+			if (rl <= 0xffff) {
+				memcpy(buffer, rv, rl);
+				Py_DECREF(ret);
+				return rl;
+			}
+		}
+	}
+
+	return 0;
+
+}
+
 void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 	PyThreadState* tstate = PyThreadState_GET();
@@ -898,6 +930,7 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 			.resume = uwsgi_python_resume,	
 
 			.signal_handler = uwsgi_python_signal_handler,
+			.rpc = uwsgi_python_rpc,
 			//.spooler = uwsgi_python_spooler,
 			/*
 			   .help = uwsgi_python_help,

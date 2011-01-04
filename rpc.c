@@ -20,6 +20,7 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 		uwsgi.shared->rpc_count++;
 
 		ret = 0;
+		uwsgi_log("registered RPC function %s\n", name);
 	}
 
 	uwsgi_unlock(uwsgi.rpc_table_lock);

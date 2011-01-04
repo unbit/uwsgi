@@ -190,6 +190,148 @@ PyObject *py_uwsgi_register_file_monitor(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
+
+        char buffer[0xffff];
+        char *func;
+        uint16_t size = 0;
+        PyObject *py_func;
+	int argc = PyTuple_Size(args) ;
+	int i;
+	char *argv[0xff];
+
+        // TODO better error reporting
+        if (argc < 1) goto clear;
+
+        py_func = PyTuple_GetItem(args, 0);
+
+        if (!PyString_Check(py_func)) goto clear;
+
+        func = PyString_AsString(py_func);
+
+	for(i=0;i<(argc-1);i++) {
+		argv[i] = PyString_AsString( PyTuple_GetItem(args, i+1) );
+	}
+
+        size = uwsgi_rpc(func, argc-1, argv, buffer);
+
+        if (size > 0) {
+                return PyString_FromStringAndSize(buffer, size);
+        }
+
+clear:
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
+PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
+
+	char buffer[0xffff];
+	char *node, *func;
+	uint16_t size = 0;
+	PyObject *py_node, *py_func;
+	struct uwsgi_header uh;
+	int argc = PyTuple_Size(args) ;
+	char *argv[0xff];
+	int i, fd;
+	uint16_t pktsize = 0, ulen;
+	char *bufptr;
+	int rlen;
+
+	struct pollfd upoll;
+
+	// TODO better error reporting
+	if (argc < 2) goto clear;
+
+	py_node = PyTuple_GetItem(args, 0);
+
+	if (PyString_Check(py_node)) {
+		node = PyString_AsString(py_node);
+	}
+	else {
+		node = "";
+	}
+
+	py_func = PyTuple_GetItem(args, 1);
+		
+	if (!PyString_Check(py_func)) goto clear;
+	
+	func = PyString_AsString(py_func);
+
+	for(i=0;i<(argc-2);i++) {
+		argv[i] = PyString_AsString( PyTuple_GetItem(args, i+2) );
+	}
+
+	if (node == (char *) "") {
+		size = uwsgi_rpc(func, 0, NULL, buffer);
+	}
+	else {
+
+		
+		// connect to node
+		fd  = uwsgi_connect(node, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+
+		if (fd < 0) goto clear;
+		// prepare a uwsgi array
+
+		pktsize = 2 + strlen(func);
+		for(i=0;i<argc-2;i++) {
+			pktsize += 2 + strlen(argv[i]);
+		}
+
+		uh.modifier1 = 173;
+		uh.pktsize = pktsize;
+		uh.modifier2 = 0;
+
+		bufptr = buffer;
+		
+		ulen = strlen(func);
+		*bufptr++ = (uint8_t) (ulen  & 0xff);
+                *bufptr++ = (uint8_t) ((ulen >>8) & 0xff);
+		memcpy(bufptr, func, ulen); bufptr += ulen;
+
+		for(i=0;i<argc-2;i++) {
+			ulen = strlen(argv[i]);
+			*bufptr++ = (uint8_t) (ulen  & 0xff);
+                	*bufptr++ = (uint8_t) ((ulen >>8) & 0xff);
+			memcpy(bufptr, argv[i], ulen); bufptr += ulen;
+		}
+
+		if (write(fd, &uh, 4) != 4) {
+			uwsgi_error("write()");
+			close(fd);
+			goto clear;
+		}
+
+		if (write(fd, buffer, pktsize) != pktsize) {
+			uwsgi_error("write()");
+			close(fd);
+			goto clear;
+		}
+
+		rlen = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (rlen > 0) {
+			upoll.fd = fd;
+			upoll.events = POLLIN;
+			if (uwsgi_parse_response(&upoll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &uh, buffer)) {
+				size = uh.pktsize;
+			}
+		}
+		
+	}
+
+	if (size > 0) {
+		return PyString_FromStringAndSize(buffer, size);
+	}
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
 
 	uint8_t argc = 0;
@@ -1969,6 +2111,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"register_timer", py_uwsgi_register_timer, METH_VARARGS, ""},
 
 		{"register_rpc", py_uwsgi_register_rpc, METH_VARARGS, ""},
+		{"rpc", py_uwsgi_rpc, METH_VARARGS, ""},
+		{"call", py_uwsgi_call, METH_VARARGS, ""},
 #ifdef UWSGI_SENDFILE
 		{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
 #endif

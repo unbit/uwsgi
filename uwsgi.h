@@ -400,7 +400,7 @@ struct uwsgi_plugin {
 	char*		(*decode_string)(void *);
 	int		(*signal_handler)(uint8_t, void *, char *, uint8_t);
 
-	uint16_t	(*rpc)(void *, uint8_t argc, char **, char *);
+	uint16_t	(*rpc)(void *, uint8_t, char **, char *);
 
 };
 

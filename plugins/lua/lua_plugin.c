@@ -61,6 +61,38 @@ static int uwsgi_api_log(lua_State *L) {
 	return 0;
 }
 
+static int uwsgi_api_register_rpc(lua_State *L) {
+
+        uint8_t argc = lua_gettop(L);
+	const char *name;
+	// a hack for 64bit;
+	int func;
+	long lfunc;
+
+	if (argc < 2) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	name = lua_tolstring(L, 1, NULL);
+
+	lua_pushvalue(L, 2);
+        func = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	uwsgi_log("registered function %d in global table\n", func);
+	lfunc = func;
+
+        if (uwsgi_register_rpc((char *)name, 6, 0, (void *) lfunc)) {
+		lua_pushnil(L);
+        }
+	else {
+		lua_pushboolean(L, 1);
+	}
+
+	return 1;
+}
+
+
 
 static char *encode_lua_table(lua_State *L, int index, uint16_t *size) {
 
@@ -141,7 +173,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 
 	int args = lua_gettop(L);
 	uint8_t sig, kind;
-	const void *handler;
+	long lhandler;
 	const char *payload;
 	size_t payload_size;
 	
@@ -150,14 +182,14 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		sig = lua_tonumber(L, 1);
 		kind = lua_tonumber(L, 2);
 		lua_pushvalue(L, 3);
-		handler = (void *) luaL_ref(L, LUA_REGISTRYINDEX);
+		lhandler = luaL_ref(L, LUA_REGISTRYINDEX);
 
 		if (args > 3) {
 			payload = lua_tolstring(L, 4, &payload_size);
-			uwsgi_register_signal(sig, kind, (void *) handler, 6, (char *) payload, payload_size);
+			uwsgi_register_signal(sig, kind, (void *) lhandler, 6, (char *) payload, payload_size);
 		}
 		else {
-			uwsgi_register_signal(sig, kind, (void *) handler, 6, NULL, 0);
+			uwsgi_register_signal(sig, kind, (void *) lhandler, 6, NULL, 0);
 		}
 	}
 
@@ -286,6 +318,7 @@ static const luaL_reg uwsgi_api[] = {
   {"cache_get", uwsgi_api_cache_get},
   {"cache_set", uwsgi_api_cache_set},
   {"register_signal", uwsgi_api_register_signal},
+  {"register_rpc", uwsgi_api_register_rpc},
   {NULL, NULL}
 };
 
@@ -579,7 +612,7 @@ int uwsgi_lua_signal_handler(uint8_t sig, void *handler, char *payload, uint8_t 
 
 	uwsgi_log("managing signal handler on core %d\n", wsgi_req->async_id);
 
-	lua_rawgeti(L, LUA_REGISTRYINDEX, (int) handler);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, (long) handler);
 
 	lua_pushnumber(L, sig);
 	if (!payload_size) {
@@ -602,6 +635,44 @@ int uwsgi_lua_signal_handler(uint8_t sig, void *handler, char *payload, uint8_t 
 	
 }
 
+uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, char *buffer) {
+
+        uint8_t i;
+        const char *sv;
+        size_t sl;
+	long lfunc = (long) func;
+	int ifunc = lfunc;
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	
+	lua_State *L = ulua.L[wsgi_req->async_id];
+
+	uwsgi_log("get function %d\n", ifunc);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ifunc);
+
+        for(i=0;i<argc;i++) {
+		lua_pushstring(L, argv[i]);
+        }
+
+        if (lua_pcall(L, argc, 1, 0) != 0) {
+		uwsgi_log("error running function `f': %s", lua_tostring(L, -1));
+		return 0;
+        }
+
+	
+	sv = lua_tolstring(L, -1, &sl);
+
+	uwsgi_log("sv = %s sl = %d\n", sv, sl);
+	if (sl <= 0xffff) {
+		memcpy(buffer, sv, sl);
+		return sl;
+	}
+
+        return 0;
+
+}
+
+
 struct uwsgi_plugin lua_plugin = {
 
 	.name = "lua",
@@ -614,6 +685,7 @@ struct uwsgi_plugin lua_plugin = {
 	.init_apps = uwsgi_lua_app,
 	.magic = uwsgi_lua_magic,
 	.signal_handler = uwsgi_lua_signal_handler,
+	.rpc = uwsgi_lua_rpc,
 
 };
 
