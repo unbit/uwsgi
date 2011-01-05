@@ -273,7 +273,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CLUSTER_RELOAD	17063
 #define LONG_ARGS_CLUSTER_LOG		17064
 #define LONG_ARGS_CACHE			17065
-#define LONG_ARGS_NS			17066
+#define LONG_ARGS_LINUX_NS		17066
 
 
 
@@ -802,6 +802,7 @@ struct uwsgi_server {
 
 	int             no_orphans;
 
+	char		*chdir;
 	char           *chdir2;
 	int             catch_exceptions;
 

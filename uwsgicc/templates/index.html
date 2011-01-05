@@ -3,6 +3,11 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <title>uWSGI {{uwsgi.version}} Control Center</title>
+
+<link href="{{ url_for('static', filename='css/ui-lightness/jquery-ui-1.8.7.custom.css') }}" rel="stylesheet" type="text/css"/>
+<script src="{{ url_for('static', filename='js/jquery-1.4.4.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/jquery-ui-1.8.7.custom.min.js') }}"></script>
+
 <style type="text/css"> 
 body {
   background: #fff;
@@ -131,12 +136,43 @@ a:hover{
 }
 
 </style>
+
+<script>
+
+$(document).ready(function() {
+
+	$('#rpc_tabs').tabs();
+
+	$("input#rpc_func").autocomplete({
+		source: [
+				{% for r in uwsgi.rpc_list() %}
+					"{{r}}",
+				{% endfor %}
+			]
+	});
+
+	$('#rpc_form').submit(function() {
+		$.post('{{url_for('rpc')}}', { node: '192.168.173.100:3031', func: 'hello', args: ''}, function(data) {
+			$('#dialog-modal').html(data);
+			$('#dialog-modal').attr('title', 'RPC "hello" returned:');
+			$('#dialog-modal').dialog({
+				modal: true
+			});
+		});
+		return false;
+	});
+});
+
+</script>
 </head>
 
 <body>
+
+<div id="dialog-modal">
+</div>
+
 <a name="top"></a>
 <h1>uWSGI <span class="small">{{uwsgi.version}}</span> Control Center</h1>
-
 <div class="anchor">
 <a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#workers">workers</a> | <a href="#rpc">rpc</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
 </div>
@@ -156,7 +192,11 @@ a:hover{
 <a name="information"></a>
 <h3>Information</h3>
 <div class="info">
+<b>hostname:</b> {{ hostname }}<br/>
 <b>nodename:</b> {{uwsgi.cluster_node_name()}}<br/>
+<b>uid:</b> {{ uid }}<br/>
+<b>gid:</b> {{ gid }}<br/>
+<b>cwd:</b> {{ cwd }}<br/>
 <b>mode:</b> {{uwsgi.mode}}<br/>
 <b>loop:</b> {{uwsgi.loop}}<br/>
 <b>started_on:</b> {{uwsgi.started_on|unixtime}}<br/>
@@ -226,19 +266,35 @@ a:hover{
 </div>
 
 <a name="rpc"></a>
-<h3>RPC</h3>
-<div class="info">
+<div id="rpc_tabs" class="info">
 
-<form method="POST" action="/rpc">
-<b>node address (leave empty for local rpc):</b> <input type="text" name="node" /> <b>function:</b> <input type="text" name="func" /> <b>args (separated by space, optional):</b> <input type="text" name="args" /> <input type="submit" value="call" /><br/>
+<ul>
+	<li><a href="#rpc_tabs-1">RPC</a></li>
+	<li><a href="#rpc_tabs-2">RPC List</a></li>
+</ul>
+
+
+<div id="rpc_tabs-1">
+<form id="rpc_form">
+<b>node address (leave empty for local rpc):</b> <input type="text" name="node" /> <b>function:</b> <input id="rpc_func" type="text" name="func" /> <b>args (separated by space, optional):</b> <input type="text" name="args" /> <input type="submit" value="call" /><br/>
 </form>
+</div>
+
+<div id="rpc_tabs-2">
+	<ul>
+		{% for r in uwsgi.rpc_list() %}
+			<li>{{ r }}</li>
+		{% endfor %}
+	</ul>
+</div>
+
+</div>
 
 <br/>
     <div class="anchor">
     <a href="#top">back to top</a>
     </div>
 
-</div>
 
 
 {% if uwsgi.cluster() %}

@@ -225,6 +225,20 @@ clear:
         return Py_None;
 }
 
+PyObject *py_uwsgi_rpc_list(PyObject * self, PyObject * args) {
+
+	int i;
+	PyObject *rpc_list = PyTuple_New(uwsgi.shared->rpc_count);
+
+	for(i=0;i<uwsgi.shared->rpc_count;i++) {
+                if (uwsgi.shared->rpc_table[i].name[0] != 0) {
+			PyTuple_SetItem(rpc_list, i, PyString_FromString(uwsgi.shared->rpc_table[i].name));
+                }
+        }
+
+	return rpc_list;
+
+}
 
 PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 
@@ -2112,6 +2126,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 		{"register_rpc", py_uwsgi_register_rpc, METH_VARARGS, ""},
 		{"rpc", py_uwsgi_rpc, METH_VARARGS, ""},
+		{"rpc_list", py_uwsgi_rpc_list, METH_VARARGS, ""},
 		{"call", py_uwsgi_call, METH_VARARGS, ""},
 #ifdef UWSGI_SENDFILE
 		{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},

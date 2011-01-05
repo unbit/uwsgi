@@ -2,6 +2,7 @@ import uwsgi
 from flask import Flask, render_template, request, url_for, redirect, flash
 import time
 import os
+import socket
 
 app = Flask(__name__)
 app.debug = True
@@ -14,7 +15,7 @@ def unixtime(s):
 
 @app.route("/")
 def index():
-    return render_template("index.html", uwsgi=uwsgi)
+    return render_template("index.html", uwsgi=uwsgi, hostname=socket.gethostname(), uid=os.getuid(), gid=os.getgid(), cwd=os.getcwd())
 
 @app.route("/log", methods=['POST'])
 def log():
@@ -23,7 +24,7 @@ def log():
     return redirect(url_for('index'))
 
 @app.route("/rpc", methods=['POST'])
-def log():
+def rpc():
     node = str(request.form['node'])
     if node == '':
 	node = None
@@ -37,5 +38,7 @@ def log():
     else:
         ret = uwsgi.rpc(str(node), str(request.form['func']))
 
-    flash("rpc \"%s\" returned: %s" % (request.form['func'], ret) )
-    return redirect(url_for('index'))
+    #flash("rpc \"%s\" returned: %s" % (request.form['func'], ret) )
+
+    return ret
+    #return redirect(url_for('index'))

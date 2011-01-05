@@ -139,7 +139,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 #ifdef UWSGI_MULTICAST
 		struct ip_mreq mc;
-		uint8_t loop = 0;
+		uint8_t loop = 1;
 #endif
 
 		udp_port = strchr(socket_name, ':');

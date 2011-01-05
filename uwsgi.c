@@ -149,6 +149,8 @@ static struct option long_base_options[] = {
 #ifdef __linux__
 	{"cgroup", required_argument, 0, LONG_ARGS_CGROUP},
 	{"cgroup-opt", required_argument, 0, LONG_ARGS_CGROUP_OPT},
+	{"namespace", required_argument, 0, LONG_ARGS_LINUX_NS},
+	{"ns", required_argument, 0, LONG_ARGS_LINUX_NS},
 #endif
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
@@ -563,6 +565,10 @@ int main(int argc, char *argv[], char *envp[])
 	//parse environ
 	parse_sys_envs(environ);
 
+	if (gethostname(uwsgi.hostname, 255)) {
+		uwsgi_error("gethostname()");
+	}
+
 #ifdef UWSGI_UDP
         // get cluster configuration
 	if (uwsgi.cluster != NULL) {
@@ -599,8 +605,7 @@ waitfd:
 		}
 options_parsed:
 
-		uwsgi_cluster_add_me();
-	
+		uwsgi_cluster_add_me();	
 	}
 #endif
 
@@ -665,14 +670,16 @@ options_parsed:
 #endif
 	if (uwsgi.ns) {
 		void *linux_clone_stack = alloca(uwsgi.page_size);
-		pid_t pid = clone(uwsgi_start, linux_clone_stack+uwsgi.page_size, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
-		if (pid == -1) {
-			uwsgi_error("clone()");
-			exit(1);
+		for(;;) {
+			pid_t pid = clone(uwsgi_start, linux_clone_stack+uwsgi.page_size, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
+			if (pid == -1) {
+				uwsgi_error("clone()");
+				exit(1);
+			}
+			uwsgi_log("waiting for jailed master dead...\n");
+			pid = waitpid(pid, NULL, 0);
+			uwsgi_log("pid %d ended. Respawning...\n", (int) pid);	
 		}
-		uwsgi_log("waiting for uwsgi end...\n");
-		pid = waitpid(pid, NULL, 0);
-		uwsgi_log("pid %d ended\n", (int) pid);	
 	}
 	else {
 #endif
@@ -713,46 +720,75 @@ int uwsgi_start(void *v_argv) {
 		if (sethostname("uwsgifakehost", strlen("uwsgifakehost"))) {
 			uwsgi_error("sethostname()");
 		}
+
+		FILE *procmounts;
+		char line[1024];
+		int unmounted = 1;
+		char *delim0, *delim1;
+
+		while(unmounted) {
+
+			unmounted = 0;
+			procmounts = fopen("/proc/self/mounts", "r");
+			while(fgets(line,1024,procmounts) != NULL) {
+				delim0 = strchr(line, ' ');
+				delim0++;
+				delim1 = strchr(delim0, ' ');
+				*delim1 = 0;
+				if (!umount(delim0)) {
+					unmounted++;
+				}
+			}
+			fclose(procmounts);
+		}
+
 		uwsgi_log("unmounting /proc\n");
-		if (umount("/proc/bus/usb")) {
-			uwsgi_error("umount()");
-		}
-		if (umount("/proc/sys/fs/binfmt_misc")) {
-			uwsgi_error("umount()");
-		}
 		if (umount("/proc")) {
 			uwsgi_error("umount()");
 		}
-		umount("/dev/pts");
-		umount("/dev/shm");
-		umount("/dev");
-		umount("/dev");
-		umount("/sys/fs/fuse/connections");
-		umount("/sys");
-		umount("/boot");
-		umount("/selinux");
-		umount("/home/roberto/.gvfs");
-		umount("/sys");
-		umount("/");
-		if (mount(uwsgi.ns, "/ns/001_", "none", MS_BIND, NULL)) {
+
+		char *ns_tmp_mountpoint = uwsgi_concat2(uwsgi.ns, "/.uwsgi_ns_tmp_mountpoint");
+		mkdir(ns_tmp_mountpoint, S_IRWXU);
+
+		char *ns_tmp_mountpoint2 = uwsgi_concat2(ns_tmp_mountpoint, "/.uwsgi_ns_tmp_mountpoint");
+		mkdir(ns_tmp_mountpoint2, S_IRWXU);
+
+		if (mount(uwsgi.ns, ns_tmp_mountpoint, "none", MS_BIND, NULL)) {
 			uwsgi_error("mount()");
 		}
-		if (chdir("/ns/001_")) {
+		if (chdir(ns_tmp_mountpoint)) {
 			uwsgi_error("chdir()");
 		}
-		if (pivot_root(".", "/ns/001_/mnt2")) {
+		if (pivot_root(".", ns_tmp_mountpoint2)) {
 			uwsgi_error("pivot_root()");
 		}
 
-		umount("/ns/001_/mnt2");
+		if (umount("/.uwsgi_ns_tmp_mountpoint")) {
+			uwsgi_error("umount tmp()");
+		}
+
+		rmdir("/.uwsgi_ns_tmp_mountpoint/.uwsgi_ns_tmp_mountpoint");
+		rmdir("/.uwsgi_ns_tmp_mountpoint");
+
+		free(ns_tmp_mountpoint2);
+		free(ns_tmp_mountpoint);
 		
+		uwsgi_log("remounting /proc\n");
 		if (mount("proc","/proc", "proc", 0, NULL)) {
 			uwsgi_error("mount()");
 		}
+
 	}
 #endif
 
 	uwsgi_as_root();
+
+	if (uwsgi.chdir) {
+		if (chdir(uwsgi.chdir)) {
+			uwsgi_error("chdir()");
+			exit(1);
+		}
+	}
 
 	if (!uwsgi.no_initial_output) {
 		if (!uwsgi.master_process) {
@@ -1655,10 +1691,7 @@ end:
 			 build_options();
 			return 1;
 		case LONG_ARGS_CHDIR:
-			if (chdir(optarg)) {
-				uwsgi_error("chdir()");
-				exit(1);
-			}
+			uwsgi.chdir = optarg;
 			return 1;
 		case LONG_ARGS_CHDIR2:
 			uwsgi.chdir2 = optarg;
@@ -1805,6 +1838,9 @@ end:
 			} else {
 				uwsgi_log("you can specify at most 64 --cgroup_opt options\n");
 			}
+			return 1;
+		case LONG_ARGS_LINUX_NS:
+			uwsgi.ns = optarg;
 			return 1;
 #endif
 		case LONG_ARGS_LIMIT_AS:
@@ -2487,9 +2523,6 @@ int uwsgi_cluster_join(char *name) {
                 uwsgi.mc_cluster_addr.sin_port=htons(atoi(cp+1));
                 cp[0] = ':';
 
-		if (gethostname(uwsgi.hostname, 255)) {
-			uwsgi_error("gethostname()");
-		}
 
 		// announce my presence to all the nodes
 		uwsgi_string_sendto(fd, 73, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr), uwsgi.hostname, strlen(uwsgi.hostname));
