@@ -288,6 +288,25 @@ void uwsgi_as_root() {
 			}
 #endif
 		}
+
+		if (uwsgi.gidname) {
+			struct group *ugroup = getgrnam(uwsgi.gidname);
+                        if (ugroup) {
+                        	uwsgi.gid = ugroup->gr_gid;
+                        } else {
+                        	uwsgi_log("group %s not found.\n", uwsgi.gidname);
+                                exit(1);
+                        }
+		}
+		if (uwsgi.uidname) {
+			struct passwd *upasswd = getpwnam(uwsgi.uidname);
+                        if (upasswd) {
+                        	uwsgi.uid = upasswd->pw_uid;
+                        } else {
+                        	uwsgi_log("user %s not found.\n", uwsgi.uidname);
+                                exit(1);
+                        }
+		}
 		if (uwsgi.gid) {
 			uwsgi_log("setgid() to %d\n", uwsgi.gid);
 			if (setgid(uwsgi.gid)) {

@@ -717,8 +717,14 @@ int uwsgi_start(void *v_argv) {
 
 #ifdef __linux__
 	if (uwsgi.ns && getpid() == 1) {
-		if (sethostname("uwsgifakehost", strlen("uwsgifakehost"))) {
-			uwsgi_error("sethostname()");
+			
+		char *ns_hostname = strchr(uwsgi.ns, ':');
+		if (ns_hostname) {
+			ns_hostname[0] = 0;
+			ns_hostname++;
+			if (sethostname(ns_hostname, strlen(ns_hostname))) {
+				uwsgi_error("sethostname()");
+			}
 		}
 
 		FILE *procmounts;
@@ -1769,25 +1775,13 @@ end:
 		case LONG_ARGS_GID:
 			uwsgi.gid = atoi(optarg);
 			if (!uwsgi.gid) {
-				struct group *ugroup = getgrnam(optarg);
-				if (ugroup) {
-					uwsgi.gid = ugroup->gr_gid;
-				} else {
-					uwsgi_log("group %s not found.\n", optarg);
-					exit(1);
-				}
+				uwsgi.gidname = optarg;
 			}
 			return 1;
 		case LONG_ARGS_UID:
 			uwsgi.uid = atoi(optarg);
 			if (!uwsgi.uid) {
-				struct passwd *upasswd = getpwnam(optarg);
-				if (upasswd) {
-					uwsgi.uid = upasswd->pw_uid;
-				} else {
-					uwsgi_log("user %s not found.\n", optarg);
-					exit(1);
-				}
+				uwsgi.uidname = optarg;
 			}
 			return 1;
 		case LONG_ARGS_BINARY_PATH:

@@ -637,6 +637,8 @@ struct uwsgi_server {
 	char           *chroot;
 	gid_t           gid;
 	uid_t           uid;
+	char		*uidname;
+	char		*gidname;
 
 	char           *mode;
 
