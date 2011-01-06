@@ -751,7 +751,15 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 			return 0;
 		}
 
-		void uwsgi_python_init_app() {
+int uwsgi_python_mount_app(char *mountpoint, char *app) {
+	
+	uwsgi.wsgi_req->script_name = mountpoint;
+	uwsgi.wsgi_req->script_name_len = strlen(mountpoint);
+	return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+
+}
+
+		void uwsgi_python_init_apps() {
 
 			if (up.wsgi_config != NULL) {
 				init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, 0);
@@ -919,7 +927,10 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 			.short_options = "w:O:H:j:",
 			.request = uwsgi_request_wsgi,
 			.after_request = uwsgi_after_request_wsgi,
-			.init_apps = uwsgi_python_init_app,
+			.init_apps = uwsgi_python_init_apps,
+
+			.mount_app = uwsgi_python_mount_app,
+
 			.enable_threads = uwsgi_python_enable_threads,
 			.init_thread = uwsgi_python_init_thread,
 			.manage_xml = uwsgi_python_xml,

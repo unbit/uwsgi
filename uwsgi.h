@@ -389,6 +389,7 @@ struct uwsgi_plugin {
         int             (*request) (struct wsgi_request *);
         void            (*after_request) (struct wsgi_request *);
         void            (*init_apps) (void);
+        int		(*mount_app) (char *, char *);
         int             (*manage_udp) (char *, int, char *, int);
         int             (*manage_xml) (char *, char *);
         void            (*suspend) (struct wsgi_request *);
@@ -413,8 +414,6 @@ struct uwsgi_app {
 	int             mountpoint_len;
 
 	void           *interpreter;
-	              //PyObject * pymain_dict;
-	              //PyObject * wsgi_dict;
 	void           *callable;
 
 
@@ -586,17 +585,6 @@ struct wsgi_request {
 
 	int leave_open;
 };
-
-#define LOADER_DYN		0
-#define LOADER_UWSGI		1
-#define LOADER_FILE		2
-#define LOADER_PASTE		3
-#define LOADER_EVAL		4
-#define LOADER_CALLABLE		5
-#define LOADER_STRING_CALLABLE	6
-#define LOADER_MOUNT		7
-
-#define LOADER_MAX		8
 
 struct uwsgi_fmon {
 	char filename[0xff];
@@ -1262,7 +1250,7 @@ char           *uwsgi_concat4(char *, char *, char *, char *);
 char           *uwsgi_concat4n(char *, int, char *, int, char *, int, char *, int);
 
 
-int             uwsgi_get_app_id(char *, int);
+int             uwsgi_get_app_id(char *, int, int);
 char           *uwsgi_strncopy(char *, int);
 
 void            master_loop(char **, char **);

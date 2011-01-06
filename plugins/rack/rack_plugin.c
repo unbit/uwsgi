@@ -792,6 +792,18 @@ int uwsgi_rack_magic(char *mountpoint, char *lazy) {
 	return 0;
 }
 
+/*
+int uwsgi_rack_mount_app(char *mountpoint, char *app) {
+
+	
+        if ( !strcmp(what+strlen(what)-3, ".ru") || !strcmp(what+strlen(what)-3, ".rb")) {
+                return = uwsgi_rack_load(mountpoint, what);
+        }
+
+        return -1;
+}
+*/
+
 struct uwsgi_plugin rack_plugin = {
 
 	.name = "rack",
@@ -802,6 +814,7 @@ struct uwsgi_plugin rack_plugin = {
 	.request = uwsgi_rack_request,
 	.after_request = uwsgi_rack_after_request,
 
+	//.mount_app = uwsgi_rack_mount_app,
 	.manage_xml = uwsgi_rack_xml,
 
 	.magic = uwsgi_rack_magic,

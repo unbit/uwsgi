@@ -136,7 +136,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 
 
-		if ( (wsgi_req->app_id = uwsgi_get_app_id(what, what_len))  == -1) {
+		if ( (wsgi_req->app_id = uwsgi_get_app_id(what, what_len, 0))  == -1) {
 			if (wsgi_req->script_name_len > 1 || uwsgi.default_app < 0 || uwsgi.vhost) {
 				/* unavailable app for this SCRIPT_NAME */
 				wsgi_req->app_id = -1;

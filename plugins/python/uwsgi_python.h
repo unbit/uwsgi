@@ -56,6 +56,17 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 #define UWSGI_PYFROMSTRINGSIZE(x, y) PyString_FromStringAndSize(x, y)
 #endif
 
+#define LOADER_DYN              0
+#define LOADER_UWSGI            1
+#define LOADER_FILE             2
+#define LOADER_PASTE            3
+#define LOADER_EVAL             4
+#define LOADER_CALLABLE         5
+#define LOADER_STRING_CALLABLE  6
+#define LOADER_MOUNT            7
+
+#define LOADER_MAX              8
+
 struct uwsgi_python {
 
 	char *home;

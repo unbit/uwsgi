@@ -228,7 +228,7 @@ $(document).ready(function() {
 <a name="logs"></a>
 <h3>Logs (size: {{ uwsgi.logsize() }} bytes)</h3>
 <div class="info">
-<form action="/log" method="POST">
+<form action="{{url_for('log')}}" method="POST">
 	<input type="text" size="72" name="message" /> 
 	<input type="submit" value="write message to the log" />
 </form>

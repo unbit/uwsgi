@@ -51,7 +51,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 		mountpoint = uwsgi_strncopy(wsgi_req->script_name, wsgi_req->script_name_len);
 	}
 
-	if (uwsgi_get_app_id(mountpoint, strlen(mountpoint)) != -1) {
+	if (uwsgi_get_app_id(mountpoint, strlen(mountpoint), -1) != -1) {
 		uwsgi_log( "mountpoint %.*s already configured. skip.\n", strlen(mountpoint), mountpoint);
 		free(mountpoint);
 		return -1;
@@ -350,7 +350,7 @@ PyObject *uwsgi_mount_loader(void *arg1) {
 	PyObject *callable = NULL;
 	char *what = (char *) arg1;
 
-	if ( !strcmp(what+strlen(what)-3, ".py") || !strcmp(what+strlen(what)-3, ".wsgi")) {
+	if ( !strcmp(what+strlen(what)-3, ".py") || !strcmp(what+strlen(what)-5, ".wsgi")) {
 		callable = uwsgi_file_loader((void *)what);
 	}
 #ifdef UWSGI_PASTE
@@ -358,7 +358,7 @@ PyObject *uwsgi_mount_loader(void *arg1) {
 		callable = uwsgi_paste_loader((void *)what);
 	}
 #endif
-	else {
+	else if (strchr(what, ':')) {
 		callable = uwsgi_uwsgi_loader((void *)what);
 	}
 

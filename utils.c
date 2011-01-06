@@ -922,7 +922,7 @@ char *uwsgi_strncopy(char *s, int len) {
 }
 
 
-int uwsgi_get_app_id(char *script_name, int script_name_len) {
+int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 
 	int i;
 
@@ -931,7 +931,8 @@ int uwsgi_get_app_id(char *script_name, int script_name_len) {
 			continue;
 		}	
 		if (!uwsgi_strncmp(uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len, script_name, script_name_len)) {
-			return i;
+			if (modifier1 == -1) return i;
+			if (modifier1 == uwsgi.apps[i].modifier1) return i;
 		}
 	}
 

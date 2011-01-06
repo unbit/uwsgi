@@ -515,7 +515,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 #endif
 			// manage magic mountpoint
-			else if (lazy[0] == '/' && strchr(lazy,'=')) {
+			else if ( (lazy[0] == '/' || strchr(lazy, '|')) && strchr(lazy,'=')) {
 			}
 			else {
 				int magic = 0;
@@ -1382,9 +1382,13 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		if (what) {
 			what[0] = 0;
 			what++;
-			uwsgi.wsgi_req->script_name = uwsgi.mounts[i];
-			uwsgi.wsgi_req->script_name_len = strlen(uwsgi.mounts[i]);
-			//init_uwsgi_app(LOADER_MOUNT, what, uwsgi.wsgi_req, 0);
+			uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
+			for (j = 0; j < 0xFF; j++) {
+                		if (uwsgi.p[j]->mount_app) {
+                        		if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what) != -1) break;
+                		}
+        		}
+			what--; what[0] = '=';
 		} else {
 			uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
 			exit(1);
