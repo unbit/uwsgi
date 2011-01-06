@@ -345,9 +345,6 @@ void uwsgi_as_root() {
 void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
-	int leave_open = 0 ;
-	int tmp_fd = -1;
-	void *async_post = NULL;
 
 	gettimeofday(&wsgi_req->end_of_request, NULL);
 	uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
@@ -359,13 +356,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 
 	// close the connection with the webserver
-	if (!wsgi_req->fd_closed && !wsgi_req->leave_open) {
+	if (!wsgi_req->fd_closed) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
 		close(wsgi_req->poll.fd);
-	}
-	else if (wsgi_req->leave_open) {
-		// send OOB data to signal peer of EOS
-		//send(wsgi_req->poll.fd, "\0", 1, MSG_OOB);		
 	}
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
@@ -387,19 +380,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		while( waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0);
 	}
 
-	if (wsgi_req->leave_open) {
-		tmp_fd = wsgi_req->poll.fd;
-		leave_open = 1;
-		async_post = wsgi_req->async_post;
-	}
 	// reset request
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 
-	if (leave_open) {
-		wsgi_req->leave_open = leave_open;
-		wsgi_req->poll.fd = tmp_fd;
-		wsgi_req->async_post = async_post;
-	}
 	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
 		goodbye_cruel_world();
 	}
@@ -457,7 +440,6 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
-	if (wsgi_req->leave_open) return 0;
 	wsgi_req->poll.fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) &wsgi_req->c_len);
 
 	if (wsgi_req->poll.fd < 0) {
@@ -478,8 +460,6 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 	int ret;
 	char uwsgi_signal;
 
-
-	if (wsgi_req->leave_open) return 0;
 
 polling:
 	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.master_process, -1);

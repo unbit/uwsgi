@@ -212,14 +212,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
-	if (wsgi_req->uh.modifier2 == 4) {
-		// for persistent connections
-		// TODO move it to a generic modifier (WSGI independent)
-		wsgi_req->leave_open = 1;
-	}
-
-
-
 	if (wsgi_req->protocol_len < 5) {
 		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
 		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
@@ -289,10 +281,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			}
 		UWSGI_GET_GIL
 	}
-	else if (!wsgi_req->leave_open) {
-		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
-	}
 
+	wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
 

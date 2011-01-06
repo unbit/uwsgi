@@ -202,18 +202,11 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header *uh, char *buffer) {
 	int rlen, i;
 
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) uh;
 	if (!timeout)
 		timeout = 1;
 	/* first 4 byte header */
-	if (wsgi_req->leave_open) {
-		// wait for max 1 hour for the first request
-		uwsgi_log("ready to accept a new request on connection %d\n", wsgi_req->poll.fd);
-		rlen = poll(upoll, 1, 3600 * 1000);
-	}
-	else {
-		rlen = poll(upoll, 1, timeout * 1000);
-	}
+	rlen = poll(upoll, 1, timeout * 1000);
+
 	if (rlen < 0) {
 		uwsgi_error("poll()");
 		exit(1);
@@ -252,7 +245,6 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 	else if (rlen <= 0) {
 		uwsgi_log( "invalid request header size: %d...skip\n", rlen);
 		close(upoll->fd);
-		wsgi_req->leave_open = 0;
 		return 0;
 	}
 	/* big endian ? */

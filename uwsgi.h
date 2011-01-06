@@ -583,7 +583,6 @@ struct wsgi_request {
 	off_t frame_pos;
 	int frame_len;
 
-	int leave_open;
 };
 
 struct uwsgi_fmon {

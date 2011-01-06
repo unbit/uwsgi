@@ -19,7 +19,6 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	int base = 0;
 	int shift = 0;
-	int cl = -1;
 
 	// use writev()
 
@@ -146,12 +145,6 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 		uh.pktsize += wsgi_req->hvec[j+2].iov_len;
 
-		if (wsgi_req->leave_open && cl == -1) {
-			if (!uwsgi_strncmp(wsgi_req->hvec[j].iov_base, wsgi_req->hvec[j].iov_len, "Content-Length", 14)) {
-				cl = atoi(wsgi_req->hvec[j + 2].iov_base);
-				uwsgi_log("DETECTED CL OF %d\n", cl);
-			}
-		}
 		wsgi_req->hvec[j + 3].iov_base = nl;
 		wsgi_req->hvec[j + 3].iov_len = NL_SIZE;
 
@@ -166,22 +159,6 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	wsgi_req->hvec[j].iov_len = NL_SIZE;
 
 	uh.pktsize += wsgi_req->hvec[j].iov_len;
-
-/*
-	if (cl != -1) {
-		// send uwsgi header only if response size is lower than 0xFFFF
-		if (cl <= 0xffff) {
-			uh.modifier1 = 0;
-			uh.modifier2 = 0;
-			uint16_t pktsize = cl;
-			uh.pktsize += pktsize;
-			write(wsgi_req->poll.fd, &uh, 4);
-		}
-		else {
-			wsgi_req->leave_open = 0;
-		}
-	}
-*/
 
 	UWSGI_RELEASE_GIL
 		wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, j + 1);

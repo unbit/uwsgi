@@ -203,9 +203,7 @@ clear:
 		PyDict_Clear(wsgi_req->async_environ);
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
-		if (!wsgi_req->leave_open) {
-			fclose(wsgi_req->async_post);
-		}
+		fclose(wsgi_req->async_post);
 		if (!uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
 			wsgi_req->fd_closed = 1;
 		}
