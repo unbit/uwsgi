@@ -91,6 +91,7 @@ int uwsgi_python_init() {
 
 	up.main_thread = PyThreadState_Get();
 
+	uwsgi_log("Python main interpreter initialized at %p\n", up.main_thread);
 
 #ifdef UWSGI_MINTERPRETERS
 	init_uwsgi_embedded_module();
@@ -336,125 +337,6 @@ void init_uwsgi_vars() {
 
 }
 
-
-void uwsgi_uwsgi_config(char *module) {
-
-#ifdef UWSGI_EMBEDDED
-	PyObject *uwsgi_module, *uwsgi_dict;
-#endif
-	PyObject *applications;
-	PyObject *app_list;
-	Py_ssize_t i;
-	PyObject *app_mnt, *app_app = NULL;
-	char *quick_callable;
-
-	quick_callable = get_uwsgi_pymodule(module);
-	if (quick_callable == NULL) {
-		if (up.callable) {
-			quick_callable = up.callable;
-		}
-		else {
-			quick_callable = "application";
-		}
-	}
-
-	up.loader_dict = get_uwsgi_pydict(module);
-	if (!up.loader_dict) {
-		exit(1);
-	}
-
-	uwsgi_log( "...getting the applications list from the '%s' module...\n", module);
-
-#ifdef UWSGI_EMBEDDED
-	uwsgi_module = PyImport_ImportModule("uwsgi");
-	if (!uwsgi_module) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	uwsgi_dict = PyModule_GetDict(uwsgi_module);
-	if (!uwsgi_dict) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	applications = PyDict_GetItemString(uwsgi_dict, "applications");
-	if (!PyDict_Check(applications)) {
-		uwsgi_log( "uwsgi.applications dictionary is not defined, trying with the \"applications\" one...\n");
-#endif
-		applications = PyDict_GetItemString(up.loader_dict, "applications");
-		if (!applications) {
-			uwsgi_log( "applications dictionary is not defined, trying with the \"application\" callable.\n");
-			quick_callable = uwsgi_concat3(module, ":", quick_callable);
-			if (init_uwsgi_app(LOADER_UWSGI, (void *) quick_callable, uwsgi.wsgi_req, 0)  < 0) {
-				uwsgi_log( "...goodbye cruel world...\n");
-				exit(1);
-			}
-			free(quick_callable);
-			return;
-		}
-#ifdef UWSGI_EMBEDDED
-	}
-#endif
-
-	if (!PyDict_Check(applications)) {
-		uwsgi_log( "The 'applications' object must be a dictionary.\n");
-		exit(1);
-	}
-
-	app_list = PyDict_Keys(applications);
-	if (!app_list) {
-		PyErr_Print();
-		exit(1);
-	}
-	if (PyList_Size(app_list) < 1) {
-		uwsgi_log( "You must define an app.\n");
-		exit(1);
-	}
-
-	for (i = 0; i < PyList_Size(app_list); i++) {
-		app_mnt = PyList_GetItem(app_list, i);
-
-		if (!PyString_Check(app_mnt)) {
-			uwsgi_log( "the app mountpoint must be a bytestring.\n");
-			exit(1);
-		}
-
-
-		uwsgi.wsgi_req->script_name = PyString_AsString(app_mnt);
-		uwsgi.wsgi_req->script_name_len = strlen(uwsgi.wsgi_req->script_name);
-
-		app_app = PyDict_GetItem(applications, app_mnt);
-
-		if (!PyString_Check(app_app) && !PyFunction_Check(app_app) && !PyCallable_Check(app_app)) {
-			uwsgi_log( "the app callable must be a string, a function or a callable. (found %s)\n", app_app->ob_type->tp_name);
-			exit(1);
-		}
-
-#ifdef PYTHREE
-		if (PyUnicode_Check(app_app)) {
-#else
-			if (PyString_Check(app_app)) {
-#endif
-				if (init_uwsgi_app(LOADER_STRING_CALLABLE, (void *) PyString_AsString(app_app), uwsgi.wsgi_req, 0)  < 0) {
-					uwsgi_log( "...goodbye cruel world...\n");
-					exit(1);
-				}
-
-
-			}
-			else {
-				if (init_uwsgi_app(LOADER_CALLABLE, (void *) app_app, uwsgi.wsgi_req, 0)  < 0) {
-					uwsgi_log( "...goodbye cruel world...\n");
-					exit(1);
-				}
-			}
-
-			Py_DECREF(app_mnt);
-			Py_DECREF(app_app);
-		}
-
-	}
 
 
 #ifdef PYTHREE
@@ -755,26 +637,29 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 	
 	uwsgi.wsgi_req->script_name = mountpoint;
 	uwsgi.wsgi_req->script_name_len = strlen(mountpoint);
-	return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+	if (uwsgi.single_interpreter) {
+		return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread);
+	}
+	return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL);
 
 }
 
 		void uwsgi_python_init_apps() {
 
 			if (up.wsgi_config != NULL) {
-				init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, 0);
+				init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread);
 			}
 
 			if (up.file_config != NULL) {
-				init_uwsgi_app(LOADER_FILE, up.file_config, uwsgi.wsgi_req, 0);
+				init_uwsgi_app(LOADER_FILE, up.file_config, uwsgi.wsgi_req, up.main_thread);
 			}
 #ifdef UWSGI_PASTE
 			if (up.paste != NULL) {
-				init_uwsgi_app(LOADER_PASTE, up.paste, uwsgi.wsgi_req, 0);
+				init_uwsgi_app(LOADER_PASTE, up.paste, uwsgi.wsgi_req, up.main_thread);
 			}
 #endif
 			if (up.eval != NULL) {
-				init_uwsgi_app(LOADER_EVAL, up.eval, uwsgi.wsgi_req, 0);
+				init_uwsgi_app(LOADER_EVAL, up.eval, uwsgi.wsgi_req, up.main_thread);
 			}
 
 		}
@@ -806,17 +691,23 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 
 int uwsgi_python_xml(char *node, char *content) {
 
+	PyThreadState *interpreter = NULL;
+
+	if (uwsgi.single_interpreter) {
+		interpreter = up.main_thread;
+	}
+
 	if (!strcmp("script", node)) {
-		return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+		return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter);
 	}
 	else if (!strcmp("file", node)) {
-		return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+		return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, interpreter);
 	}
 	else if (!strcmp("eval", node)) {
-		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter);
 	}
 	else if (!strcmp("wsgi", node)) {
-		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter);
 	}
 	else if (!strcmp("module", node)) {
 		uwsgi.wsgi_req->module = content;
@@ -827,7 +718,7 @@ int uwsgi_python_xml(char *node, char *content) {
 			uwsgi.wsgi_req->callable++;
 			uwsgi.wsgi_req->callable_len = strlen(uwsgi.wsgi_req->callable);
 			uwsgi.wsgi_req->module_len = strlen(uwsgi.wsgi_req->module);
-			return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+			return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter);
 		}
 		return 1;
 	}
@@ -839,7 +730,7 @@ int uwsgi_python_xml(char *node, char *content) {
 	else if (!strcmp("callable", node)) {
 		uwsgi.wsgi_req->callable = content;
 		uwsgi.wsgi_req->callable_len = strlen(content);
-		return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, uwsgi.single_interpreter-1);
+		return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter);
 	}
 
 	return 0;

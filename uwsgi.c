@@ -411,7 +411,7 @@ int main(int argc, char *argv[], char *envp[])
 	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
 
-	uwsgi.apps_cnt = 1;
+	uwsgi.apps_cnt = 0;
 	uwsgi.default_app = -1;
 
 	uwsgi.buffer_size = 4096;

@@ -153,7 +153,12 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 						pthread_mutex_lock(&up.lock_pyloaders);
 					}
 					UWSGI_GET_GIL
-						wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, uwsgi.single_interpreter-1);
+						if (uwsgi.single_interpreter) {
+							wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, up.main_thread);
+						}
+						else {
+							wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, NULL);
+						}
 					UWSGI_RELEASE_GIL
 						if (uwsgi.threads > 1) {
 							pthread_mutex_unlock(&up.lock_pyloaders);
@@ -186,7 +191,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	wi = &uwsgi.apps[wsgi_req->app_id];
 
-	if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
+	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
 		if (!wi->interpreter) {
 			internal_server_error(wsgi_req->poll.fd, "wsgi application's %d interpreter not found");
 			goto clear2;
@@ -339,7 +344,7 @@ clear:
 
 	UWSGI_GET_GIL
 
-		if (uwsgi.single_interpreter == 0 && wsgi_req->app_id > 0) {
+		if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
 			// restoring main interpreter
 			if (uwsgi.threads > 1) {
 				PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key));

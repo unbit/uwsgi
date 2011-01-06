@@ -137,7 +137,7 @@ void uwsgi_paste_config(char *);
 void uwsgi_file_config(char *);
 void uwsgi_eval_config(char *);
 
-int init_uwsgi_app(int, void *, struct wsgi_request *wsgi_req, int);
+int init_uwsgi_app(int, void *, struct wsgi_request *wsgi_req, PyThreadState *);
 
 
 PyObject *py_eventfd_read(PyObject *, PyObject *);

@@ -18,11 +18,13 @@ PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_re
 PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_write, METH_VARARGS, ""}};
 #endif
 
-int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int new_interpreter) {
+int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThreadState *interpreter) {
 
 	PyObject *zero;
+	PyObject *app_list = NULL, *applications = NULL;
 
 	int id = uwsgi.apps_cnt;
+	int multiapp = 0;
 
 #ifdef UWSGI_ASYNC
 	int i;
@@ -35,11 +37,11 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 
 	if (wsgi_req->script_name_len == 0) {
 		wsgi_req->script_name = "";
-		if (!uwsgi.vhost) id = 0;
 	}
 	else if (wsgi_req->script_name_len == 1) {
 		if (wsgi_req->script_name[0] == '/') {
-			if (!uwsgi.vhost) id = 0;
+			wsgi_req->script_name = "";
+			wsgi_req->script_name_len = 0;
 		}
 	}
 
@@ -77,7 +79,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 
 	// Initialize a new environment for the new interpreter
 
-	if (new_interpreter && id) {
+	if (interpreter == NULL && id) {
 		wi->interpreter = Py_NewInterpreter();
 		if (!wi->interpreter) {
 			uwsgi_log( "unable to initialize the new python interpreter\n");
@@ -93,6 +95,9 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 		init_uwsgi_vars();
 
 	}
+	else if (interpreter) {
+		wi->interpreter = interpreter;
+	}
 	else {
 		wi->interpreter = up.main_thread;
 	}
@@ -103,6 +108,32 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 	if (!wi->callable) {
 		uwsgi_log("unable to load app SCRIPT_NAME=%s\n", mountpoint);
 		goto doh;
+	}
+
+
+	
+	// the module contains multiple apps
+	if (PyDict_Check(wi->callable)) {
+		applications = wi->callable;
+		uwsgi_log("found a multiapp module...\n");
+		app_list = PyDict_Keys(applications);
+		multiapp = PyList_Size(app_list);
+		if (multiapp < 1) {
+			uwsgi_log("you have to define at least one app in the apllications dictionary\n");
+			goto doh;
+		}		
+
+		PyObject *app_mnt = PyList_GetItem(app_list, 0);
+		if (!PyString_Check(app_mnt)) {
+			uwsgi_log("the app mountpoint must be a string\n");
+			goto doh;
+		}
+		wi->mountpoint = PyString_AsString(app_mnt);
+		wi->mountpoint_len = strlen(wi->mountpoint);
+		wsgi_req->script_name = wi->mountpoint;
+		wsgi_req->script_name_len = wi->mountpoint_len;
+		uwsgi_log("main mountpoint = %s\n", wi->mountpoint);
+		wi->callable = PyDict_GetItem(applications, app_mnt);
 	}
 
 #ifdef UWSGI_ASYNC
@@ -216,7 +247,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 #endif
 	}
 
-	if (new_interpreter && id) {
+	if (interpreter == NULL && id) {
 		// if we have multiple threads we need to initialize a PyThreadState for each one
 		if (uwsgi.threads > 1) {
 			for(i=0;i<uwsgi.threads;i++) {
@@ -240,23 +271,35 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, int ne
 		uwsgi_log( "WSGI application %d (SCRIPT_NAME=%.*s) ready on interpreter %p", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter);
 	}
 
-	if (id == 0) {
+	if (!wsgi_req->script_name_len) {
 		uwsgi_log(" (default app)");
-		uwsgi.default_app = 0;
-		if (uwsgi.vhost) uwsgi.apps_cnt++;
-	}
-	else {
-		uwsgi.apps_cnt++;
+		uwsgi.default_app = id;
 	}
 
+	uwsgi.apps_cnt++;
+
 	uwsgi_log("\n");
+
+	if (multiapp > 1) {
+		for(i=1;i<multiapp;i++) {
+			PyObject *app_mnt = PyList_GetItem(app_list, i);		
+			if (!PyString_Check(app_mnt)) {
+				uwsgi_log("applications dictionary key must be a string, skipping.\n");
+				continue;
+			}
+
+			wsgi_req->script_name = PyString_AsString(app_mnt);
+			wsgi_req->script_name_len = strlen(wsgi_req->script_name);
+			init_uwsgi_app(LOADER_CALLABLE, PyDict_GetItem(applications, app_mnt), wsgi_req, wi->interpreter);
+		}
+	}
 
 	return id;
 
 doh:
 	free(mountpoint);
 	PyErr_Print();
-	if (new_interpreter && id) {
+	if (interpreter == NULL && id) {
 		Py_EndInterpreter(wi->interpreter);
 		if (uwsgi.threads > 1) {
 			PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key));
@@ -308,6 +351,8 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 	char *quick_callable;
 
 	PyObject *tmp_callable;
+	PyObject *applications;
+	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
 
 	char *module = (char *) arg1;
 
@@ -329,6 +374,12 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 	if (!wsgi_dict) {
 		return NULL;
 	}
+
+	applications = PyDict_GetItemString(uwsgi_dict, "applications");
+	if (applications) return applications;
+
+	applications = PyDict_GetItemString(wsgi_dict, "applications");
+	if (applications) return applications;
 
 	// quick callable -> thanks gunicorn for the idea
 	// we have extended the concept a bit...

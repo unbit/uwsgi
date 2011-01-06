@@ -525,7 +525,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 				wsgi_req->var_cnt++;
 				script_name = wsgi_req->var_cnt;
 			}
-			for(i=1;i<uwsgi.apps_cnt;i++) {
+			for(i=0;i<uwsgi.apps_cnt;i++) {
 				uwsgi_log("app mountpoint = %.*s\n", uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint);
 				if (orig_path_info_len >= uwsgi.apps[i].mountpoint_len) {
 					if (!uwsgi_startswith(orig_path_info, uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len) && uwsgi.apps[i].mountpoint_len > best_found) {
