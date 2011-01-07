@@ -272,13 +272,13 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 
 	if (!wsgi_req->script_name_len) {
-		uwsgi_log(" (default app)");
+		uwsgi_rawlog(" (default app)");
 		uwsgi.default_app = id;
 	}
 
 	uwsgi.apps_cnt++;
 
-	uwsgi_log("\n");
+	uwsgi_rawlog("\n");
 
 	if (multiapp > 1) {
 		for(i=1;i<multiapp;i++) {

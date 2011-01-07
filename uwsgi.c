@@ -1331,27 +1331,27 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	uwsgi_log("*** Operational MODE: ");
 	if (uwsgi.threads > 1) {
 		if (uwsgi.numproc > 1) {
-			uwsgi_log("preforking+threaded");
+			uwsgi_rawlog("preforking+threaded");
 		} else {
-			uwsgi_log("threaded");
+			uwsgi_rawlog("threaded");
 		}
 	}
 #ifdef UWSGI_ASYNC
 	else if (uwsgi.async > 1) {
 		if (uwsgi.numproc > 1) {
-			uwsgi_log("preforking+async");
+			uwsgi_rawlog("preforking+async");
 		} else {
-			uwsgi_log("async");
+			uwsgi_rawlog("async");
 		}
 	}
 #endif
 	else if (uwsgi.numproc > 1) {
-		uwsgi_log("preforking");
+		uwsgi_rawlog("preforking");
 	} else {
-		uwsgi_log("single process");
+		uwsgi_rawlog("single process");
 	}
 
-	uwsgi_log(" ***\n");
+	uwsgi_rawlog(" ***\n");
 
 #ifdef UWSGI_ERLANG
 	if (uwsgi.erlang_node) {
