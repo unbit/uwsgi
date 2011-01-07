@@ -118,7 +118,7 @@ static struct option long_base_options[] = {
 	{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
-	{"logdate", no_argument, &uwsgi.logdate, 1},
+	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE},
 	{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO},
 	{"log-slow", required_argument, 0, LONG_ARGS_LOG_SLOW},
 	{"log-4xx", no_argument, 0, LONG_ARGS_LOG_4xx},
@@ -2000,6 +2000,12 @@ end:
 			return 1;
 		case 'a':
 			uwsgi.abstract_socket = 1;
+			return 1;
+		case LONG_ARGS_LOG_DATE:
+			uwsgi.logdate = 1;
+			if (optarg) {
+				uwsgi.log_strftime = optarg;
+			}
 			return 1;
 		case 'C':
 			uwsgi.chmod_socket = 1;

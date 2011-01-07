@@ -274,6 +274,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CLUSTER_LOG		17064
 #define LONG_ARGS_CACHE			17065
 #define LONG_ARGS_LINUX_NS		17066
+#define LONG_ARGS_LOG_DATE		17067
 
 
 
@@ -644,6 +645,7 @@ struct uwsgi_server {
 	int             manage_script_name;
 	int             no_default_app;
 	int             logdate;
+	char		*log_strftime;
 
 #ifdef UWSGI_PROXY
 	int             proxyfd;
