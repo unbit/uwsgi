@@ -315,14 +315,11 @@ int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
 #ifdef __BIG_ENDIAN__
                         strsize = uwsgi_swap16(strsize);
 #endif
-			uwsgi_log("found %d array strsize\n", strsize);
-                        /* item cannot be null */
-                        if (!strsize) {
-                                uwsgi_log( "uwsgi array item cannot be null. skip this request.\n");
-                                return -1;
-                        }
 
                         ptrbuf += 2;
+                        /* item cannot be null */
+                        if (!strsize) continue;
+
                         if (ptrbuf + strsize <= bufferend) {
                                 // item
 				argv[*argc] = uwsgi_cheap_string(ptrbuf, strsize);
