@@ -356,8 +356,6 @@ int main(int argc, char *argv[], char *envp[])
 
 #ifdef UWSGI_DEBUG
 	struct utsname uuts;
-	int so_bufsize;
-	socklen_t so_bufsize_len;
 #endif
 
 	signal(SIGHUP, SIG_IGN);
@@ -696,6 +694,12 @@ options_parsed:
 int uwsgi_start(void *v_argv) {
 
 	char **argv = v_argv;
+
+#ifdef UWSGI_DEBUG
+        int so_bufsize;
+        socklen_t so_bufsize_len;
+#endif
+
 
 #ifdef UWSGI_HTTP
 	pid_t http_pid;

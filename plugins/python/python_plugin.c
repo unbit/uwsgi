@@ -178,7 +178,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
         pyfile = fopen(filename, "r");
         if (!pyfile) {
-                uwsgi_error("fopen()");
+                uwsgi_log("failed to open python file %s\n", filename);
                 exit(1);
         }
 
