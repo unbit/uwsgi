@@ -113,7 +113,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	
 	// the module contains multiple apps
-	if (PyDict_Check(wi->callable)) {
+	if (PyDict_Check((PyObject *)wi->callable)) {
 		applications = wi->callable;
 		uwsgi_log("found a multiapp module...\n");
 		app_list = PyDict_Keys(applications);
