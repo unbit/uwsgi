@@ -137,54 +137,54 @@ class uConf(object):
 
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
-	print("using profile: %s" % filename)
+        print("using profile: %s" % filename)
         self.config.read(filename)
         self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
-	try:
+        try:
             gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
-	except:
-	    print("*** you need a c compiler to build uWSGI ***")
-	    sys.exit(1)
+        except:
+            print("*** you need a c compiler to build uWSGI ***")
+            sys.exit(1)
         gcc_major = int(gcc_version.split('.')[0])
         gcc_minor = int(gcc_version.split('.')[1])
         if (sys.version_info[0] == 2) or (gcc_major < 4) or (gcc_major == 4 and gcc_minor < 3):
-                self.cflags = self.cflags + ['-fno-strict-aliasing']
+            self.cflags = self.cflags + ['-fno-strict-aliasing']
         # add -fno-strict-aliasing only on python2 and gcc < 4.3
         if gcc_major >= 4:
-                self.cflags = self.cflags + [ '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers' ]
+            self.cflags = self.cflags + [ '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers' ]
 
         self.ldflags = os.environ.get("LDFLAGS", "").split()
         self.libs = ['-lpthread', '-rdynamic']
 
-	# check for inherit option
-	inherit = self.get('inherit')
-	if inherit:
-		if not '/' in inherit:
-			inherit = 'buildconf/%s' % inherit
+        # check for inherit option
+        inherit = self.get('inherit')
+        if inherit:
+            if not '/' in inherit:
+                inherit = 'buildconf/%s' % inherit
 
-		if not inherit.endswith('.ini'):
-			inherit = '%s.ini' % inherit
+            if not inherit.endswith('.ini'):
+                inherit = '%s.ini' % inherit
 
-		iconfig = ConfigParser.ConfigParser()
-		iconfig.read(inherit)
-		for opt in iconfig.options('uwsgi'):
-			if not self.get(opt):
-				self.set(opt, iconfig.get('uwsgi', opt))
-	
+            iconfig = ConfigParser.ConfigParser()
+            iconfig.read(inherit)
+            for opt in iconfig.options('uwsgi'):
+                if not self.get(opt):
+                    self.set(opt, iconfig.get('uwsgi', opt))
+
 
     def set(self, key, value):
-    	self.config.set('uwsgi',key, value)
+        self.config.set('uwsgi',key, value)
 
     def get(self,key,default=None):
         try:
             value = self.config.get('uwsgi', key)
             if value == "" or value == "false":
-                    return None
+                return None
             return value
         except:
-	    if default:
-		return default
+            if default:
+                return default
             return None
 
     def depends_on(self, what, dep):
@@ -198,8 +198,8 @@ class uConf(object):
 
         if uwsgi_os == 'SunOS':
             self.libs.append('-lsendfile')
-	    if not uwsgi_os_v.startswith('Nexenta'):
-            	self.libs.remove('-rdynamic')
+            if not uwsgi_os_v.startswith('Nexenta'):
+                self.libs.remove('-rdynamic')
 
         if uwsgi_os in kvm_list:
             self.libs.append('-lkvm')
@@ -211,107 +211,107 @@ class uConf(object):
             self.libs.remove('-lpthread')
             self.libs.append('-lroot')
 
-	# set locking subsystem
-	locking_mode = self.get('locking','auto')
-	
-	if locking_mode == 'auto':
-		if uwsgi_os == 'Linux' or uwsgi_os == 'SunOS':
-			locking_mode = 'pthread_mutex'
-		elif uwsgi_os == 'FreeBSD':
-			locking_mode = 'umtx'
-		elif uwsgi_os == 'Darwin':
-			locking_mode = 'osx_spinlock'
+        # set locking subsystem
+        locking_mode = self.get('locking','auto')
 
-	if locking_mode == 'pthread_mutex':
+        if locking_mode == 'auto':
+            if uwsgi_os == 'Linux' or uwsgi_os == 'SunOS':
+                locking_mode = 'pthread_mutex'
+            elif uwsgi_os == 'FreeBSD':
+                locking_mode = 'umtx'
+            elif uwsgi_os == 'Darwin':
+                locking_mode = 'osx_spinlock'
+
+        if locking_mode == 'pthread_mutex':
             self.cflags.append('-DUWSGI_LOCK_USE_MUTEX')
-	elif locking_mode == 'umtx':
+        elif locking_mode == 'umtx':
             self.cflags.append('-DUWSGI_LOCK_USE_UMTX')
-	elif locking_mode == 'osx_spinlock':
+        elif locking_mode == 'osx_spinlock':
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
-	else:
+        else:
             self.cflags.append('-DUWSGI_LOCK_USE_FLOCK')
 
-	# set event subsystem
-	event_mode = self.get('event','auto')
+        # set event subsystem
+        event_mode = self.get('event','auto')
 
-	if event_mode == 'auto':
-		if uwsgi_os == 'Linux':
-			event_mode = 'epoll'
-		if uwsgi_os == 'SunOS':
-			event_mode = 'devpoll'
-			sun_major, sun_minor = uwsgi_os_k.split('.')
-			if int(sun_major) >= 5:
-				if int(sun_minor) >= 10:
-					event_mode = 'port'
-		elif uwsgi_os in ('Darwin', 'FreeBSD'):
-			event_mode = 'kqueue'
+        if event_mode == 'auto':
+            if uwsgi_os == 'Linux':
+                event_mode = 'epoll'
+            if uwsgi_os == 'SunOS':
+                event_mode = 'devpoll'
+                sun_major, sun_minor = uwsgi_os_k.split('.')
+                if int(sun_major) >= 5:
+                    if int(sun_minor) >= 10:
+                        event_mode = 'port'
+            elif uwsgi_os in ('Darwin', 'FreeBSD'):
+                event_mode = 'kqueue'
 
-	if event_mode == 'epoll':
+        if event_mode == 'epoll':
             self.cflags.append('-DUWSGI_EVENT_USE_EPOLL')
-	elif event_mode == 'kqueue':
+        elif event_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_USE_KQUEUE')
-	elif event_mode == 'devpoll':
+        elif event_mode == 'devpoll':
             self.cflags.append('-DUWSGI_EVENT_USE_DEVPOLL')
-	elif event_mode == 'port':
+        elif event_mode == 'port':
             self.cflags.append('-DUWSGI_EVENT_USE_PORT')
 
-	# set timer subsystem
-	timer_mode = self.get('timer','auto')
+        # set timer subsystem
+        timer_mode = self.get('timer','auto')
 
-	if timer_mode == 'auto':
-		if uwsgi_os == 'Linux':
-			k_all = uwsgi_os_k.split('.')
-			k_base = k_all[0]
-			k_major = k_all[1]
-			k_minor = k_all[2]
-			if int(k_minor) >= 25:
-				timer_mode = 'timerfd'
-			else:
-				timer_mode = 'none'
+        if timer_mode == 'auto':
+            if uwsgi_os == 'Linux':
+                k_all = uwsgi_os_k.split('.')
+                k_base = k_all[0]
+                k_major = k_all[1]
+                k_minor = k_all[2]
+                if int(k_minor) >= 25:
+                    timer_mode = 'timerfd'
+                else:
+                    timer_mode = 'none'
 
-		elif uwsgi_os == 'SunOS':
-			sun_major, sun_minor = uwsgi_os_k.split('.')
-			if int(sun_major) >= 5:
-				if int(sun_minor) >= 10:
-					timer_mode = 'port'
-				
-		elif uwsgi_os in ('Darwin', 'FreeBSD'):
-			timer_mode = 'kqueue'
+            elif uwsgi_os == 'SunOS':
+                sun_major, sun_minor = uwsgi_os_k.split('.')
+                if int(sun_major) >= 5:
+                    if int(sun_minor) >= 10:
+                        timer_mode = 'port'
 
-	if timer_mode == 'timerfd':
+            elif uwsgi_os in ('Darwin', 'FreeBSD'):
+                timer_mode = 'kqueue'
+
+        if timer_mode == 'timerfd':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD')
-	    if not os.path.exists('/usr/include/sys/timerfd.h') and not os.path.exists('/usr/local/include/sys/timerfd.h'):
-            	self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD_NOINC')
-	elif timer_mode == 'kqueue':
+            if not os.path.exists('/usr/include/sys/timerfd.h') and not os.path.exists('/usr/local/include/sys/timerfd.h'):
+                self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD_NOINC')
+        elif timer_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_KQUEUE')
-	elif timer_mode == 'port':
+        elif timer_mode == 'port':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_PORT')
-	else:
-	    self.cflags.append('-DUWSGI_EVENT_TIMER_USE_NONE')	
+        else:
+            self.cflags.append('-DUWSGI_EVENT_TIMER_USE_NONE')
 
-	# set filemonitor subsystem
-	filemonitor_mode = self.get('filemonitor','auto')
+        # set filemonitor subsystem
+        filemonitor_mode = self.get('filemonitor','auto')
 
-	if filemonitor_mode == 'auto':
-		if uwsgi_os == 'Linux':
-			filemonitor_mode = 'inotify'
-		elif uwsgi_os == 'SunOS':
-			sun_major, sun_minor = uwsgi_os_k.split('.')
-			if int(sun_major) >= 5:
-				if int(sun_minor) >= 10:
-					filemonitor_mode = 'port'
-		elif uwsgi_os in ('Darwin', 'FreeBSD'):
-			filemonitor_mode = 'kqueue'
+        if filemonitor_mode == 'auto':
+            if uwsgi_os == 'Linux':
+                filemonitor_mode = 'inotify'
+            elif uwsgi_os == 'SunOS':
+                sun_major, sun_minor = uwsgi_os_k.split('.')
+                if int(sun_major) >= 5:
+                    if int(sun_minor) >= 10:
+                        filemonitor_mode = 'port'
+            elif uwsgi_os in ('Darwin', 'FreeBSD'):
+                filemonitor_mode = 'kqueue'
 
-	if filemonitor_mode == 'inotify':
+        if filemonitor_mode == 'inotify':
             self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_INOTIFY')
-	elif filemonitor_mode == 'kqueue':
+        elif filemonitor_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_KQUEUE')
-	elif filemonitor_mode == 'port':
+        elif filemonitor_mode == 'port':
             self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_PORT')
-	else:
-	    self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_NONE')	
-	
+        else:
+            self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_NONE')
+
 
         if self.get('embedded'):
             self.cflags.append('-DUWSGI_EMBEDDED')
@@ -453,9 +453,9 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     p_cflags.insert(0, '-I.')
 
     if name is None:
-	name = up.NAME
+        name = up.NAME
     else:
-	p_cflags.append("-D%s_plugin=%s_plugin" % (up.NAME, name))
+        p_cflags.append("-D%s_plugin=%s_plugin" % (up.NAME, name))
 
     plugin_dest = uc.get('plugin_dir') + '/' + name + '_plugin'
 
@@ -519,12 +519,11 @@ if __name__ == "__main__":
 
         uc = uConf(bconf)
         gcc_list, cflags, ldflags, libs = uc.get_gcll()
-	try:
-		name = sys.argv[4]
-	except:
-		name = None
+        try:
+            name = sys.argv[4]
+        except:
+            name = None
         build_plugin(sys.argv[2], uc, cflags, ldflags, libs, name)
     else:
         print("unknown uwsgiconfig command")
         sys.exit(1)
-
