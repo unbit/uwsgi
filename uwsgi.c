@@ -118,6 +118,7 @@ static struct option long_base_options[] = {
 	{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
+	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE},
 	{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO},
 	{"log-slow", required_argument, 0, LONG_ARGS_LOG_SLOW},
@@ -1450,6 +1451,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
                         uwsgi_error("socketpair()\n");
 			exit(1);
                 }
+
 	}
 	for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
 		pid = fork();
@@ -1746,6 +1748,10 @@ end:
 #endif
 		case LONG_ARGS_LOGTO:
 			logto(optarg);
+			return 1;
+		case LONG_ARGS_LOG_SYSLOG:
+			log_syslog(optarg);
+			uwsgi.log_master = 1;
 			return 1;
 		case LONG_ARGS_VERSION:
 			fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);

@@ -72,6 +72,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <syslog.h>
 
 #include <ifaddrs.h>
 
@@ -276,6 +277,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CACHE			17065
 #define LONG_ARGS_LINUX_NS		17066
 #define LONG_ARGS_LOG_DATE		17067
+#define LONG_ARGS_LOG_SYSLOG		17068
 
 
 
@@ -654,6 +656,8 @@ struct uwsgi_server {
 	int		proxy_add_me;
 #endif
 
+	int log_master;
+
 	char           *logfile;
 
 	int             vhost;
@@ -992,6 +996,8 @@ struct uwsgi_shared {
 
 	struct uwsgi_rpc rpc_table[MAX_RPC];
 	int rpc_count;
+
+	int worker_log_pipe[2];
 };
 
 struct uwsgi_core {
@@ -1350,3 +1356,5 @@ uint16_t uwsgi_rpc(char *, uint8_t, char **, char *);
 char *uwsgi_cheap_string(char *, int);
 
 int uwsgi_parse_array(char *, uint16_t, char **, uint8_t *);
+
+void log_syslog(char *);

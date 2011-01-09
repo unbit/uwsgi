@@ -52,6 +52,8 @@ void master_loop(char **argv, char **environ) {
 	uint64_t master_cycles = 0;
 	uint64_t tmp_counter;
 
+	char log_buf[4096];
+
 	uint64_t current_time = time(NULL);
 
 	struct timeval last_respawn;
@@ -111,6 +113,12 @@ void master_loop(char **argv, char **environ) {
 
 	uwsgi_log("adding %d to signal poll\n", uwsgi.shared->worker_signal_pipe[0]);
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
+
+	if (uwsgi.log_master) {
+		uwsgi_log("adding %d to master logging\n", uwsgi.shared->worker_log_pipe[0]);
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_log_pipe[0]);
+	}
+	
 
 	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
 #ifdef UWSGI_UDP
@@ -337,6 +345,15 @@ void master_loop(char **argv, char **environ) {
 				rlen = event_queue_wait(uwsgi.master_queue, check_interval, &interesting_fd);
 
 				if (rlen > 0) {
+
+					if (uwsgi.log_master) {
+						if (interesting_fd == uwsgi.shared->worker_log_pipe[0]) {
+							rlen = read(uwsgi.shared->worker_log_pipe[0], log_buf, 4096);
+							if (rlen > 0) {
+								syslog(LOG_INFO, "%.*s", rlen, log_buf);
+							}	
+						}
+					}
 
 #ifdef UWSGI_UDP
 					if (uwsgi.udp_socket && interesting_fd == udp_fd) {

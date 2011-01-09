@@ -180,6 +180,35 @@ void logto(char *logfile) {
 	}
 }
 
+void log_syslog(char *syslog_opts) {
+
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
+		uwsgi_error("socketpair()\n");
+		exit(1);
+	}
+
+	uwsgi_log("log pipe %d %d\n", uwsgi.shared->worker_log_pipe[0], uwsgi.shared->worker_log_pipe[1]);
+
+	if (uwsgi.shared->worker_log_pipe[1] != 1) {
+		if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
+			uwsgi_error("dup2()");
+			exit(1);
+		}
+	}
+		
+
+	uwsgi_log("opening syslog\n");
+
+	if (dup2(1, 2) < 0) {
+		uwsgi_error("dup2()");
+		exit(1);
+	}
+
+	openlog("uwsgi", 0, LOG_DAEMON );
+
+			
+}
+
 char *uwsgi_get_cwd() {
 
 	int newsize = 256;
@@ -1213,3 +1242,4 @@ char *uwsgi_cheap_string(char *buf, int len) {
 
 	return buf-1;
 }
+
