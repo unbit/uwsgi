@@ -16,6 +16,9 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 	pyret =  PyEval_CallObject(callable, args);
 
 	if (PyErr_Occurred()) {
+		if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
+			uwsgi_log("Memory Error detected !!!\n");
+		}
 		if (!catch) {
 			PyErr_Print();
 		}

@@ -165,7 +165,12 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	pychunk = PyIter_Next(wsgi_req->async_placeholder);
 
 	if (!pychunk) {
-		if (PyErr_Occurred()) PyErr_Print();
+		if (PyErr_Occurred()) { 
+		        if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
+				uwsgi_log("Memory Error detected !!!\n");	
+			}		
+			PyErr_Print();
+		}	
 		goto clear;
 	}
 
