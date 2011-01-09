@@ -119,6 +119,7 @@ static struct option long_base_options[] = {
 #endif
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
+	{"log-master", no_argument, 0, LONG_ARGS_LOG_MASTER},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE},
 	{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO},
 	{"log-slow", required_argument, 0, LONG_ARGS_LOG_SLOW},
@@ -143,6 +144,7 @@ static struct option long_base_options[] = {
 	{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
 	{"http-modifier1", required_argument, 0, LONG_ARGS_HTTP_MODIFIER1},
 #endif
+	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
 	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
 	{"mode", required_argument, 0, LONG_ARGS_MODE},
 	{"env", required_argument, 0, LONG_ARGS_ENV},
@@ -1749,8 +1751,12 @@ end:
 		case LONG_ARGS_LOGTO:
 			logto(optarg);
 			return 1;
+		case LONG_ARGS_LOG_MASTER:
+			uwsgi.log_master = 1;
+			return 1;
 		case LONG_ARGS_LOG_SYSLOG:
 			log_syslog(optarg);
+			uwsgi.log_syslog = 1;
 			uwsgi.log_master = 1;
 			return 1;
 		case LONG_ARGS_VERSION:
@@ -1835,6 +1841,10 @@ end:
 			uwsgi.http_modifier1 = (uint8_t) atoi(optarg);
 			return 1;
 #endif
+		case LONG_ARGS_CHECK_STATIC:
+			uwsgi.check_static = optarg;
+			uwsgi.check_static_len = strlen(uwsgi.check_static);
+			return 1;
 #ifdef __linux__
 		case LONG_ARGS_CGROUP:
 			uwsgi.cgroup = optarg;

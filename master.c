@@ -350,7 +350,10 @@ void master_loop(char **argv, char **environ) {
 						if (interesting_fd == uwsgi.shared->worker_log_pipe[0]) {
 							rlen = read(uwsgi.shared->worker_log_pipe[0], log_buf, 4096);
 							if (rlen > 0) {
-								syslog(LOG_INFO, "%.*s", rlen, log_buf);
+								if (uwsgi.log_syslog) {
+									syslog(LOG_INFO, "%.*s", rlen, log_buf);
+								}
+								// TODO allow uwsgi.logger = func
 							}	
 						}
 					}

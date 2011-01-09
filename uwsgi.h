@@ -278,6 +278,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_LINUX_NS		17066
 #define LONG_ARGS_LOG_DATE		17067
 #define LONG_ARGS_LOG_SYSLOG		17068
+#define LONG_ARGS_LOG_MASTER		17069
+#define LONG_ARGS_CHECK_STATIC		17070
 
 
 
@@ -657,6 +659,9 @@ struct uwsgi_server {
 #endif
 
 	int log_master;
+	int log_syslog;
+	char *check_static;
+	size_t check_static_len;
 
 	char           *logfile;
 
