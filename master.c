@@ -520,7 +520,7 @@ void master_loop(char **argv, char **environ) {
 				for(i=1;i<uwsgi.numproc+1;i++) {
 					tmp_counter = 0;
 					for(j=0;j<uwsgi.cores;j++) {
-						tmp_counter += uwsgi.workers[i].cores[j]->requests;
+						tmp_counter += uwsgi.core[j]->requests;
 					}
 					uwsgi.workers[i].requests = tmp_counter;
 				}

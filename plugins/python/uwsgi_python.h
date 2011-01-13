@@ -108,8 +108,12 @@ struct uwsgi_python {
 	int current_recursion_depth;
 	struct _frame* current_frame;
 
+	void (*swap_ts)(struct wsgi_request *, struct uwsgi_app *);
+	void (*reset_ts)(struct wsgi_request *, struct uwsgi_app *);
+
 #ifdef UWSGI_THREADING
 	pthread_key_t upt_save_key;
+	pthread_key_t upt_gil_key;
 	pthread_mutex_t lock_pyloaders;
 	void (*gil_get) (void);
 	void (*gil_release) (void);
@@ -209,3 +213,8 @@ void init_uwsgi_module_sharedarea(PyObject *);
 void init_uwsgi_module_cache(PyObject *);
 
 PyObject *uwsgi_pyimport_by_filename(char *, char *);
+
+void threaded_swap_ts(struct wsgi_request *, struct uwsgi_app *);
+void simple_swap_ts(struct wsgi_request *, struct uwsgi_app *);
+void threaded_reset_ts(struct wsgi_request *, struct uwsgi_app *);
+void simple_reset_ts(struct wsgi_request *, struct uwsgi_app *);

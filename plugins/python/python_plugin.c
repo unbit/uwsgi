@@ -124,6 +124,9 @@ int uwsgi_python_init() {
 	up.gil_get = gil_fake_get;
 	up.gil_release = gil_fake_release;
 
+	up.swap_ts = simple_swap_ts;
+	up.reset_ts = simple_reset_ts;
+
 	return 1;
 
 }
@@ -671,12 +674,19 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 				uwsgi_error("pthread_key_create()");
 				exit(1);
 			}
+			if (pthread_key_create(&up.upt_gil_key, NULL)) {
+				uwsgi_error("pthread_key_create()");
+				exit(1);
+			}
 			pthread_setspecific(up.upt_save_key, (void *) PyThreadState_Get());
+			pthread_setspecific(up.upt_gil_key, (void *) PyThreadState_Get());
 			pthread_mutex_init(&up.lock_pyloaders, NULL);
 			pthread_atfork(uwsgi_python_pthread_prepare, uwsgi_python_pthread_parent, uwsgi_python_pthread_child);
 			up.gil_get = gil_real_get;
 			up.gil_release = gil_real_release;
 
+			up.swap_ts = threaded_swap_ts;
+			up.reset_ts = threaded_reset_ts;
 			uwsgi_log("threads support enabled\n");
 		}
 
@@ -686,6 +696,7 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 			PyThreadState *pts;
 			pts = PyThreadState_New(up.main_thread->interp);
 			pthread_setspecific(up.upt_save_key, (void *) pts);
+			pthread_setspecific(up.upt_gil_key, (void *) pts);
 
 		}
 

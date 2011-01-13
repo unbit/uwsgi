@@ -4,8 +4,6 @@
 
 #define UWSGI_VERSION	"0.9.7-dev"
 
-#define UWSGI_LOGBASE "[- uWSGI -"
-
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
@@ -589,6 +587,8 @@ struct wsgi_request {
 	off_t frame_pos;
 	int frame_len;
 
+	int log_this;
+
 };
 
 struct uwsgi_fmon {
@@ -650,6 +650,7 @@ struct uwsgi_server {
 	int             manage_script_name;
 	int             no_default_app;
 	int             logdate;
+	int		log_micros;
 	char		*log_strftime;
 
 #ifdef UWSGI_PROXY
@@ -841,6 +842,9 @@ struct uwsgi_server {
 	int             mounts_cnt;
 
 	int             cores;
+
+	struct uwsgi_core **core;
+
 	int             threads;
 
 	//this key old the u_request structure per core / thread
@@ -1041,7 +1045,6 @@ struct uwsgi_worker {
 
 	int             manage_next_request;
 
-	struct uwsgi_core **cores;
 
 };
 

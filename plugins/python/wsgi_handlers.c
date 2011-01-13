@@ -191,29 +191,15 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	wi = &uwsgi.apps[wsgi_req->app_id];
 
-	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
-		if (!wi->interpreter) {
-			internal_server_error(wsgi_req->poll.fd, "wsgi application's %d interpreter not found");
-			goto clear2;
-		}
-
-		// set the interpreter
-		UWSGI_GET_GIL
-			if (uwsgi.threads > 1) {
-				PyThreadState_Swap(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id]->ts[wsgi_req->app_id]);
-			}
-			else {
-				PyThreadState_Swap(wi->interpreter);
-			}
-		UWSGI_RELEASE_GIL
-			if (wi->chdir) {
+	up.swap_ts(wsgi_req, wi);
+	
+	if (wi->chdir) {
 #ifdef UWSGI_DEBUG
-				uwsgi_debug("chdir to %s\n", wi->chdir);
+		uwsgi_debug("chdir to %s\n", wi->chdir);
 #endif
-				if (chdir(wi->chdir)) {
-					uwsgi_error("chdir()");
-				}
-			}
+		if (chdir(wi->chdir)) {
+			uwsgi_error("chdir()");
+		}
 	}
 
 
@@ -241,8 +227,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	UWSGI_GET_GIL
 
-		// no fear of race conditions for this counter as it is already protected by the GIL
-		wi->requests++;
+	// no fear of race conditions for this counter as it is already protected by the GIL
+	wi->requests++;
 
 	Py_INCREF((PyObject *)wsgi_req->async_environ);
 
@@ -291,10 +277,11 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
 
+	UWSGI_RELEASE_GIL
+
 	if (wsgi_req->async_result) {
 
 
-		UWSGI_RELEASE_GIL
 		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
 			wsgi_req->switches++;
 #ifdef UWSGI_ASYNC
@@ -332,7 +319,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			goto clear;
 		}
 		// print the error
+		UWSGI_GET_GIL
 		PyErr_Print();
+		UWSGI_RELEASE_GIL
 		// ...resume the original stderr, in case of error we are damaged forever !!!
 		if (dup2(tmp_stderr, 2) < 0) {
 			uwsgi_error("dup2()");
@@ -342,19 +331,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 clear:
 
-	UWSGI_GET_GIL
-
-		if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
-			// restoring main interpreter
-			if (uwsgi.threads > 1) {
-				PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key));
-			}
-			else {
-				PyThreadState_Swap(up.main_thread);
-			}
-		}
-
-	UWSGI_RELEASE_GIL
+	up.reset_ts(wsgi_req, wi);
 
 clear2:
 
@@ -365,7 +342,7 @@ clear2:
 void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
-	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING]) {
+	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING] || wsgi_req->log_this) {
 		log_request(wsgi_req);
 	}
 	else {
@@ -416,3 +393,38 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 	return (PyObject *) wsgi_req->sendfile_obj;
 }
 #endif
+
+void threaded_swap_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+
+	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
+		UWSGI_GET_GIL
+                PyThreadState_Swap(uwsgi.core[wsgi_req->async_id]->ts[wsgi_req->app_id]);
+		UWSGI_RELEASE_GIL
+	}
+
+}
+
+void threaded_reset_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
+		UWSGI_GET_GIL
+        	PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key));
+        	UWSGI_RELEASE_GIL
+	}
+}
+
+
+void simple_reset_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
+        	// restoring main interpreter
+                PyThreadState_Swap(up.main_thread);
+	}
+}
+
+
+void simple_swap_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+
+	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
+                // set the interpreter
+                PyThreadState_Swap(wi->interpreter);
+	}
+}

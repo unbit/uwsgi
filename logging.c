@@ -34,6 +34,12 @@ void log_request(struct wsgi_request *wsgi_req) {
 	struct iovec logvec[4];
 	int logvecpos = 0;
 
+	const char *msecs = "msecs";
+	const char *micros = "micros";
+
+	long int rt;
+	char *tsize = (char *) msecs;
+
 #ifdef UWSGI_SENDFILE
 	char *msg1 = " via sendfile() ";
 #endif
@@ -56,6 +62,15 @@ void log_request(struct wsgi_request *wsgi_req) {
 	time_request = ctime((const time_t *) &wsgi_req->start_of_request.tv_sec);
 	microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
 	microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
+
+	rt = (long int) (microseconds - microseconds2);
+
+	if (uwsgi.log_micros) {
+		tsize = (char *) micros;
+	}
+	else {
+		rt /= 1000;
+	}
 
 	if (uwsgi.vhost) {
 		logvec[logvecpos].iov_base = wsgi_req->host;
@@ -83,7 +98,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 
 	}
 
-	rlen = snprintf(logpkt, 4096, "[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld msecs%s(%.*s %d) %d headers in %llu bytes (%d switches on core %d)\n",
+	rlen = snprintf(logpkt, 4096, "[pid: %d|app: %d|req: %d/%llu] %.*s (%.*s) {%d vars in %d bytes} [%.*s] %.*s %.*s => generated %llu bytes in %ld %s%s(%.*s %d) %d headers in %llu bytes (%d switches on core %d)\n",
 			(int) uwsgi.mypid,
 			wsgi_req->app_id,
 			app_req,
@@ -96,7 +111,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 			wsgi_req->method_len, wsgi_req->method,
 			wsgi_req->uri_len, wsgi_req->uri,
 			(unsigned long long) wsgi_req->response_size,
-			(long int) (microseconds - microseconds2) / 1000,
+			rt, tsize,
 			via,
 			wsgi_req->protocol_len, wsgi_req->protocol,
 			wsgi_req->status,

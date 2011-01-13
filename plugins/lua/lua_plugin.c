@@ -42,20 +42,13 @@ static void ulua_check_args(lua_State *L, const char *func, int n) {
 
 static int uwsgi_api_log(lua_State *L) {
 	
-	time_t tt;
 	const char *logline ;
 
 	lca(L, 1);
 
 	if (lua_isstring(L, 1)) {
 		logline = lua_tolstring(L, 1, NULL);
-		tt = time(NULL);
-        	if (logline[strlen(logline)] != '\n') {
-                	uwsgi_log( UWSGI_LOGBASE " %.*s] %s\n", 24, ctime(&tt), logline);
-        	}
-        	else {
-                	uwsgi_log( UWSGI_LOGBASE " %.*s] %s", 24, ctime(&tt), logline);
-        	}
+                uwsgi_log( "%s\n", logline);
 	}
 
 	return 0;

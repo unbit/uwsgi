@@ -410,6 +410,16 @@ PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
 	
 }
 
+PyObject *py_uwsgi_log_this(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	wsgi_req->log_this = 1;
+
+	Py_INCREF(Py_None);
+        return Py_None;
+}
+
 PyObject *py_uwsgi_recv_frame(PyObject * self, PyObject * args) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -763,19 +773,12 @@ PyObject *py_uwsgi_warning(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 	char *logline;
-	time_t tt;
 
 	if (!PyArg_ParseTuple(args, "s:log", &logline)) {
 		return NULL;
 	}
 
-	tt = time(NULL);
-	if (logline[strlen(logline)] != '\n') {
-		uwsgi_log( UWSGI_LOGBASE " %.*s] %s\n", 24, ctime(&tt), logline);
-	}
-	else {
-		uwsgi_log( UWSGI_LOGBASE " %.*s] %s", 24, ctime(&tt), logline);
-	}
+	uwsgi_log( "%s\n", logline);
 
 	Py_INCREF(Py_True);
 	return Py_True;
@@ -1837,7 +1840,9 @@ PyObject *py_uwsgi_cl(PyObject * self, PyObject * args) {
 
 		struct wsgi_request *wsgi_req = current_wsgi_req();
 
+#ifdef UWSGI_DEBUG
 		uwsgi_log( "disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
+#endif
 
 		fclose(wsgi_req->async_post);
 		wsgi_req->fd_closed = 1;
@@ -2111,6 +2116,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
 		{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
 		{"log", py_uwsgi_log, METH_VARARGS, ""},
+		{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 		{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
 		{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
 		{"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},

@@ -393,7 +393,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].requests++;
 
 	if (uwsgi.cores > 1) {
-		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id]->requests++;
+		uwsgi.core[wsgi_req->async_id]->requests++;
 	}
 
 	// after_request hook
@@ -946,7 +946,7 @@ int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 	int i;
 
 	for(i=0;i<uwsgi.apps_cnt;i++) {
-		uwsgi_log("searching for %.*s in %.*s %p\n", script_name_len, script_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
+		//uwsgi_log("searching for %.*s in %.*s %p\n", script_name_len, script_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
 		if (!uwsgi.apps[i].mountpoint_len) {
 			continue;
 		}	

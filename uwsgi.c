@@ -127,6 +127,7 @@ static struct option long_base_options[] = {
 	{"log-5xx", no_argument, 0, LONG_ARGS_LOG_5xx},
 	{"log-big", required_argument, 0, LONG_ARGS_LOG_BIG},
 	{"log-sendfile", required_argument, 0, LONG_ARGS_LOG_SENDFILE},
+	{"log-micros", no_argument, &uwsgi.log_micros, 1},
 	{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 	{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
@@ -1292,21 +1293,21 @@ int uwsgi_start(void *v_argv) {
 	masterpid = uwsgi.mypid;
 
 	if (uwsgi.cores > 1) {
-		for (i = 1; i < uwsgi.numproc + 1; i++) {
-			uwsgi.workers[i].cores = (struct uwsgi_core **) mmap(NULL, sizeof(struct uwsgi_core *) * uwsgi.cores, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-			if (!uwsgi.workers[i].cores) {
+		for (i = 0; i < uwsgi.numproc+1; i++) {
+			uwsgi.core = (struct uwsgi_core **) mmap(NULL, sizeof(struct uwsgi_core *) * uwsgi.cores, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+			if (!uwsgi.core) {
 				uwsgi_error("mmap()");
 				exit(1);
 			}
-			memset(uwsgi.workers[i].cores, 0, sizeof(struct uwsgi_core *) * uwsgi.cores);
+			memset(uwsgi.core, 0, sizeof(struct uwsgi_core *) * uwsgi.cores);
 
 			for (j = 0; j < uwsgi.cores; j++) {
-				uwsgi.workers[i].cores[j] = (struct uwsgi_core *) mmap(NULL, sizeof(struct uwsgi_core), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-				if (!uwsgi.workers[i].cores[j]) {
+				uwsgi.core[j] = (struct uwsgi_core *) mmap(NULL, sizeof(struct uwsgi_core), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+				if (!uwsgi.core[j]) {
 					uwsgi_error("mmap()");
 					exit(1);
 				}
-				memset(uwsgi.workers[i].cores[j], 0, sizeof(struct uwsgi_core));
+				memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
 			}
 		}
 	}

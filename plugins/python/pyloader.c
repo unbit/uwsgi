@@ -158,7 +158,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 #endif
 
-
 	// check function args
 	// by defaut it is a WSGI app
 	wi->argc = 2;
@@ -247,22 +246,22 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 #endif
 	}
 
-	if (interpreter == NULL && id) {
+	if (uwsgi.threads > 1 && id) {
 		// if we have multiple threads we need to initialize a PyThreadState for each one
-		if (uwsgi.threads > 1) {
-			for(i=0;i<uwsgi.threads;i++) {
-				uwsgi.workers[uwsgi.mywid].cores[i]->ts[id] = PyThreadState_New( ((PyThreadState *)wi->interpreter)->interp);
-				if (!uwsgi.workers[uwsgi.mywid].cores[i]->ts[id]) {
-					uwsgi_log("unable to allocate new PyThreadState structure for app %s", mountpoint);
-					goto doh;
-				}
+		for(i=0;i<uwsgi.threads;i++) {
+			uwsgi.core[i]->ts[id] = PyThreadState_New( ((PyThreadState *)wi->interpreter)->interp);
+			if (!uwsgi.core[i]->ts[id]) {
+				uwsgi_log("unable to allocate new PyThreadState structure for app %s", mountpoint);
+				goto doh;
 			}
-			PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key));
 		}
-		else {
-			PyThreadState_Swap(up.main_thread);
-		}
+		PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_save_key) );
 	}
+	else if (interpreter == NULL && id) {
+		PyThreadState_Swap(up.main_thread);
+	}
+
+	uwsgi_log("done\n");
 
 	if (wi->argc == 1) {
 		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready on interpreter %p", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter);
