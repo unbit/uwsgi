@@ -17,11 +17,9 @@ struct option uwsgi_python_options[] = {
 	{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 	{"optimize", required_argument, 0, 'O'},
-#ifdef UWSGI_PASTE
 	{"paste", required_argument, 0, LONG_ARGS_PASTE},
 #ifdef UWSGI_INI
 	{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
-#endif
 #endif
 	{"catch-exceptions", no_argument, &up.catch_exceptions, 1},
 	{"ignore-script-name", no_argument, &up.ignore_script_name, 1},
@@ -112,9 +110,7 @@ int uwsgi_python_init() {
 #endif
 	up.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
 	up.loaders[LOADER_FILE] = uwsgi_file_loader;
-#ifdef UWSGI_PASTE
 	up.loaders[LOADER_PASTE] = uwsgi_paste_loader;
-#endif
 	up.loaders[LOADER_EVAL] = uwsgi_eval_loader;
 	up.loaders[LOADER_MOUNT] = uwsgi_mount_loader;
 	up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
@@ -631,6 +627,22 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 				case LONG_ARGS_CALLABLE:
 					up.callable = optarg;
 					return 1;
+				
+					
+				case LONG_ARGS_INI_PASTE:
+                        		uwsgi.ini = optarg;
+                        		if (uwsgi.ini[0] != '/') {
+                                		up.paste = uwsgi_concat4("config:", uwsgi.cwd, "/", uwsgi.ini);
+                        		} else {
+                                		up.paste = uwsgi_concat2("config:", uwsgi.ini);
+                        		}
+                        		return 1;
+                		case LONG_ARGS_PASTE:
+                        		up.paste = optarg;
+                        		return 1;
+
+				
+
 			}
 
 			return 0;
@@ -656,11 +668,9 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 			if (up.file_config != NULL) {
 				init_uwsgi_app(LOADER_FILE, up.file_config, uwsgi.wsgi_req, up.main_thread);
 			}
-#ifdef UWSGI_PASTE
 			if (up.paste != NULL) {
 				init_uwsgi_app(LOADER_PASTE, up.paste, uwsgi.wsgi_req, up.main_thread);
 			}
-#endif
 			if (up.eval != NULL) {
 				init_uwsgi_app(LOADER_EVAL, up.eval, uwsgi.wsgi_req, up.main_thread);
 			}

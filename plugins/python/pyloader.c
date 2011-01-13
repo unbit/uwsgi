@@ -407,11 +407,9 @@ PyObject *uwsgi_mount_loader(void *arg1) {
 	if ( !strcmp(what+strlen(what)-3, ".py") || !strcmp(what+strlen(what)-5, ".wsgi")) {
 		callable = uwsgi_file_loader((void *)what);
 	}
-#ifdef UWSGI_PASTE
 	else if (!strcmp(what+strlen(what)-4, ".ini")) {
 		callable = uwsgi_paste_loader((void *)what);
 	}
-#endif
 	else if (strchr(what, ':')) {
 		callable = uwsgi_uwsgi_loader((void *)what);
 	}
@@ -451,14 +449,14 @@ PyObject *uwsgi_dyn_loader(void *arg1) {
 		callable = uwsgi_file_loader((void *)tmpstr);
 		free(tmpstr);
 	}
-#ifdef UWSGI_PASTE
-	// MANAGE UWSGI_PASTE
+	// TODO MANAGE UWSGI_PASTE
+/*
 	else if (wsgi_req->wsgi_paste_len > 0) {
 		tmpstr = uwsgi_strncopy(wsgi_req->paste, wsgi_req->paste_len);
 		callable = uwsgi_paste_loader((void *)tmpstr);
 		free(tmpstr);
 	}
-#endif
+*/
 
 	return callable;
 }
@@ -496,7 +494,6 @@ PyObject *uwsgi_file_loader(void *arg1) {
 
 }
 
-#ifdef UWSGI_PASTE
 PyObject *uwsgi_paste_loader(void *arg1) {
 
 	char *paste = (char *) arg1;
@@ -542,8 +539,6 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 
 	return paste_app;
 }
-
-#endif
 
 PyObject *uwsgi_eval_loader(void *arg1) {
 

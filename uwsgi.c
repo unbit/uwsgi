@@ -1890,34 +1890,6 @@ end:
 		case LONG_ARGS_INI:
 			uwsgi.ini = optarg;
 			return 1;
-/*
-		case LONG_ARGS_EVAL_CONFIG:
-			uwsgi.eval = optarg;
-			return 1;
-*/
-#ifdef UWSGI_PASTE
-		case LONG_ARGS_INI_PASTE:
-			uwsgi.ini = optarg;
-			if (uwsgi.ini[0] != '/') {
-				uwsgi.paste = uwsgi_malloc(7 + strlen(uwsgi.cwd) + 1 + strlen(uwsgi.ini) + 1);
-				memset(uwsgi.paste, 0, 7 + strlen(uwsgi.cwd) + strlen(uwsgi.ini) + 1);
-				memcpy(uwsgi.paste, "config:", 7);
-				memcpy(uwsgi.paste + 7, uwsgi.cwd, strlen(uwsgi.cwd));
-				uwsgi.paste[7 + strlen(uwsgi.cwd)] = '/';
-				memcpy(uwsgi.paste + 7 + strlen(uwsgi.cwd) + 1, uwsgi.ini, strlen(uwsgi.ini));
-			} else {
-				uwsgi.paste = uwsgi_malloc(7 + strlen(uwsgi.ini) + 1);
-				memset(uwsgi.paste, 0, 7 + strlen(uwsgi.ini) + 1);
-				memcpy(uwsgi.paste, "config:", 7);
-				memcpy(uwsgi.paste + 7, uwsgi.ini, strlen(uwsgi.ini));
-			}
-			return 1;
-#endif
-#endif
-#ifdef UWSGI_PASTE
-		case LONG_ARGS_PASTE:
-			uwsgi.paste = optarg;
-			return 1;
 #endif
 		case LONG_ARGS_CHECK_INTERVAL:
 			uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = atoi(optarg);

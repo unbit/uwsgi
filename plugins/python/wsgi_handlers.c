@@ -143,9 +143,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 				if (wsgi_req->script_len > 0
 						|| wsgi_req->module_len > 0
 						|| wsgi_req->file_len > 0
-#ifdef UWSGI_PASTE
 						|| wsgi_req->paste_len > 0
-#endif
 				   ) {
 					// a bit of magic: 1-1 = 0 / 0-1 = -1
 					// this part must be heavy locked in threaded modes

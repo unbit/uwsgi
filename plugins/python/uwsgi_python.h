@@ -135,9 +135,7 @@ void init_uwsgi_embedded_module(void);
 
 
 void uwsgi_wsgi_config(char *);
-#ifdef UWSGI_PASTE
 void uwsgi_paste_config(char *);
-#endif
 void uwsgi_file_config(char *);
 void uwsgi_eval_config(char *);
 
