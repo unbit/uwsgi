@@ -1722,6 +1722,12 @@ clear:
 			}
 			Py_DECREF(zero);
 
+			zero = PyInt_FromLong(uwsgi.workers[i + 1].exceptions);
+			if (PyDict_SetItemString(worker_dict, "exceptions", zero)) {
+				goto clear;
+			}
+			Py_DECREF(zero);
+
 			zero = PyInt_FromLong(uwsgi.workers[i + 1].rss_size);
 			if (PyDict_SetItemString(worker_dict, "rss", zero)) {
 				goto clear;

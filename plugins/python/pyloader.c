@@ -378,11 +378,8 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 	if (applications && PyDict_Check(applications)) return applications;
 
 
-	uwsgi_log("QUICK CALLABLE = %s\n", quick_callable);
 	applications = PyDict_GetItemString(wsgi_dict, "applications");
 	if (applications && PyDict_Check(applications)) return applications;
-
-	uwsgi_log("QUICK CALLABLE = %s\n", quick_callable);
 
 	// quick callable -> thanks gunicorn for the idea
 	// we have extended the concept a bit...

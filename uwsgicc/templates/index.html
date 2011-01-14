@@ -247,6 +247,7 @@ $(document).ready(function() {
     <th>#</th>
     <th>pid</th>
     <th>requests</th>
+    <th>exceptions</th>
     <th># respawn</th>
 </tr>
 {% for w in uwsgi.workers() %}
@@ -254,6 +255,7 @@ $(document).ready(function() {
 		<td>{{w.id}}</td>
 		<td>{{w.pid}}</td>
 		<td>{{w.requests}}</td>
+		<td>{{w.exceptions}}</td>
 		<td>{{w.respawn_count}}</td>
 	</tr>
 {% endfor %}

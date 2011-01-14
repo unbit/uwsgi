@@ -169,6 +169,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		        if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
 				uwsgi_log("Memory Error detected !!!\n");	
 			}		
+			uwsgi.workers[uwsgi.mywid].exceptions++;
 			PyErr_Print();
 		}	
 		goto clear;

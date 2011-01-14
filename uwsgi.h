@@ -589,6 +589,7 @@ struct wsgi_request {
 
 	int log_this;
 
+
 };
 
 struct uwsgi_fmon {
@@ -883,6 +884,7 @@ struct uwsgi_server {
 	void *timer_table_lock;
 	void *rpc_table_lock;
 
+
 };
 
 struct uwsgi_rpc {
@@ -1044,6 +1046,8 @@ struct uwsgi_worker {
 	double          last_running_time;
 
 	int             manage_next_request;
+
+	uint64_t	exceptions;
 
 
 };

@@ -19,6 +19,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 		if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
 			uwsgi_log("Memory Error detected !!!\n");
 		}
+		uwsgi.workers[uwsgi.mywid].exceptions++;
 		if (!catch) {
 			PyErr_Print();
 		}
