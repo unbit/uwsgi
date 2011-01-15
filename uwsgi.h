@@ -635,6 +635,7 @@ struct uwsgi_server {
 	struct option *long_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
+	int dump_options;
 	//base for all the requests(even on async mode)
 	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;

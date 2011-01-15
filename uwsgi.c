@@ -159,6 +159,7 @@ static struct option long_base_options[] = {
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
 	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
+	{"dump-options", no_argument, &uwsgi.dump_options, 1},
 	{"version", no_argument, 0, LONG_ARGS_VERSION},
 	{0, 0, 0, 0}
 };
@@ -496,6 +497,14 @@ int main(int argc, char *argv[], char *envp[])
 		else {
 			manage_opt(i, optarg);
 		}
+	}
+
+	if (uwsgi.dump_options) {
+		struct option *lopt = uwsgi.long_options;
+		while(lopt->name) {
+			uwsgi_log("--%s\n", lopt->name);
+			lopt++;
+		}	
 	}
 
 
