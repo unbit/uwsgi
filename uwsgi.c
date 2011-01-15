@@ -1555,13 +1555,21 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	// eventually remap plugins
 	if (uwsgi.remap_modifier) {
 		char *map = strtok(uwsgi.remap_modifier, ",");
+		struct uwsgi_plugin *up_tmp;
                 while (map != NULL) {
 			char *colon = strchr(map, ':');
 			if (colon) {
 				colon[0] = 0;
 				int rm_src = atoi(map);
 				int rm_dst = atoi(colon+1);
+				up_tmp = uwsgi.p[rm_dst] ;
 				uwsgi.p[rm_dst] = uwsgi.p[rm_src]; 
+				uwsgi.p[rm_src] = up_tmp ;
+				// fix rpc
+				for(i=0;i<uwsgi.shared->rpc_count;i++) {
+					if (uwsgi.shared->rpc_table[i].modifier1 == rm_src) uwsgi.shared->rpc_table[i].modifier1 = rm_dst;
+					else if (uwsgi.shared->rpc_table[i].modifier1 == rm_dst) uwsgi.shared->rpc_table[i].modifier1 = rm_src;
+				}
 			}	
                         map = strtok(NULL, ",");
                 }

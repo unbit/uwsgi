@@ -814,6 +814,10 @@ uint16_t uwsgi_python_rpc(void * func, uint8_t argc, char **argv, char *buffer) 
 		}
 	}
 
+	if (PyErr_Occurred())
+		PyErr_Print();
+
+
 	return 0;
 
 }
