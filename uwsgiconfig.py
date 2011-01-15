@@ -171,6 +171,8 @@ class uConf(object):
             for opt in iconfig.options('uwsgi'):
                 if not self.get(opt):
                     self.set(opt, iconfig.get('uwsgi', opt))
+		elif self.get(opt).startswith('+'):
+                    self.set(opt, iconfig.get('uwsgi', opt) + self.get(opt)[1:])
 
 
     def set(self, key, value):
