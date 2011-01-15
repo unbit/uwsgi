@@ -59,6 +59,7 @@ void master_loop(char **argv, char **environ) {
 	struct timeval last_respawn;
 
 	pid_t pid;
+	int pid_found = 0;
 
 	pid_t diedpid;
 	int waitpid_status;
@@ -229,12 +230,7 @@ void master_loop(char **argv, char **environ) {
 
 #endif
 
-#ifdef UWSGI_PROXY
-			if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
-				kill(uwsgi.shared->proxy_pid, SIGKILL);
-				uwsgi_log( "killed proxy with pid %d\n", uwsgi.shared->proxy_pid);
-			}
-#endif
+			// TODO kill all the gateways
 			uwsgi_log( "goodbye to uWSGI.\n");
 			exit(0);
 		}
@@ -249,12 +245,7 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 #ifdef UWSGI_PROXY
-			if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
-				kill(uwsgi.shared->proxy_pid, SIGKILL);
-				uwsgi_log( "wait4() the proxy with pid %d...", uwsgi.shared->proxy_pid);
-				diedpid = waitpid(uwsgi.shared->proxy_pid, &waitpid_status, 0);
-				uwsgi_log( "done.");
-			}
+			// TODO gracefully kill all the gateways (wait4 them) [see the spooler]
 #endif
 			uwsgi_log( "binary reloading uWSGI...\n");
 			if (chdir(uwsgi.cwd)) {
@@ -286,7 +277,7 @@ void master_loop(char **argv, char **environ) {
 			exit(1);
 		}
 
-		if (uwsgi.numproc > 0 ) {
+		if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0) {
 			master_has_children = 1;
 		}
 #ifdef UWSGI_SPOOLER
@@ -298,6 +289,7 @@ void master_loop(char **argv, char **environ) {
 		if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
 			master_has_children = 1;
 		}
+		// TODO if gateways > 0 master_has_children == 1
 #endif
 
 		if (!master_has_children) {
@@ -634,8 +626,19 @@ void master_loop(char **argv, char **environ) {
 		}
 #endif
 
+		/* reload the gateways */
+		// TODO reload_gateway(diedpid);
+		pid_found = 0;
+		for(i=0;i<uwsgi.gateways_cnt;i++) {
+			if (uwsgi.gateways[i].pid == diedpid) {
+				gateway_respawn(i);
+				pid_found = 1;
+				break;
+			}
+		}
+
+		if (pid_found) continue;
 #ifdef UWSGI_PROXY
-		/* reload the proxy (can be the only process running) */
 		if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
 			if (diedpid == uwsgi.shared->proxy_pid) {
 				if (WIFEXITED(waitpid_status)) {
@@ -736,7 +739,8 @@ void master_loop(char **argv, char **environ) {
 #endif
 
 #ifdef UWSGI_PROXY
-					if (diedpid != uwsgi.shared->proxy_pid) {
+			// TODO if no gateway span the error !!!
+			if (diedpid != uwsgi.shared->proxy_pid) {
 #endif
 						uwsgi_log( "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
 #ifdef UWSGI_PROXY

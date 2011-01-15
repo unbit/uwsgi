@@ -139,7 +139,7 @@ class uConf(object):
         self.config = ConfigParser.ConfigParser()
         print("using profile: %s" % filename)
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'loop', 'uwsgi']
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'gateway', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:
             gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
@@ -206,7 +206,6 @@ class uConf(object):
 
         if uwsgi_os == 'Haiku':
             self.set('async', 'false')
-            self.set('proxy', 'false')
             self.libs.remove('-rdynamic')
             self.libs.remove('-lpthread')
             self.libs.append('-lroot')
@@ -338,11 +337,6 @@ class uConf(object):
             self.cflags.append("-DUWSGI_YAML")
             self.gcc_list.append('yaml')
 
-        if self.get('proxy'):
-            self.depends_on('proxy', ['async'])
-            self.cflags.append("-DUWSGI_PROXY")
-            self.gcc_list.append('proxy')
-
         if self.get('ldap'):
             self.cflags.append("-DUWSGI_LDAP")
             self.gcc_list.append('ldap')
@@ -411,11 +405,9 @@ class uConf(object):
 
 
         if self.get('erlang'):
-            self.depends_on("ERLANG", ['EMBEDDED'])
+            self.depends_on("erlang", ['embedded'])
             self.cflags.append("-DUWSGI_ERLANG")
-            self.libs.append(ERLANG_LDFLAGS)
-            if str(ERLANG_CFLAGS) != '':
-                self.cflags.append(ERLANG_CFLAGS)
+            self.libs.append(os.environ['ERLANG_LDFLAGS'])
             self.gcc_list.append('erlang')
 
         if self.get('plugin_dir'):

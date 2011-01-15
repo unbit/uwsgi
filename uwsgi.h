@@ -15,6 +15,7 @@
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
+#define MAX_GATEWAYS 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
 #define UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -181,6 +182,18 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #endif
 
 #define UWSGI_CACHE_MAX_KEY_SIZE 4071
+
+// Gateways are processes (managed by the master) that extends the
+// server core features
+// -- Gateways can prefork --
+
+struct uwsgi_gateway {
+	
+	char *name;
+	void (*loop)(void);
+	pid_t pid;
+	int num;
+};
 
 // maintain alignment here !!!
 struct uwsgi_cache_item {
@@ -636,6 +649,9 @@ struct uwsgi_server {
 
 	char           *mode;
 
+	struct uwsgi_gateway gateways[MAX_GATEWAYS];
+	int		gateways_cnt;
+
 #ifdef UWSGI_HTTP
 	char           *http;
 	char           *http_server_name;
@@ -653,12 +669,6 @@ struct uwsgi_server {
 	int             logdate;
 	int		log_micros;
 	char		*log_strftime;
-
-#ifdef UWSGI_PROXY
-	int             proxyfd;
-	char           *proxy_socket_name;
-	int		proxy_add_me;
-#endif
 
 	int log_master;
 	int log_syslog;
@@ -977,10 +987,6 @@ struct uwsgi_shared {
 	int             spooler_frequency;
 #endif
 
-#ifdef UWSGI_PROXY
-	pid_t           proxy_pid;
-#endif
-
 #ifdef UWSGI_SNMP
 	char            snmp_community[72 + 1];
 	struct uwsgi_snmp_server_value snmp_gvalue[100];
@@ -1129,11 +1135,6 @@ void            erlang_loop(struct wsgi_request *);
 #endif
 
 void            manage_opt(int, char *);
-
-#ifdef UWSGI_PROXY
-void            uwsgi_proxy(int);
-pid_t           proxy_start(int);
-#endif
 
 void            uwsgi_cluster_add_node(struct uwsgi_cluster_node *, int);
 void            uwsgi_cluster_simple_add_node(char *, int, int);
@@ -1370,3 +1371,6 @@ char *uwsgi_cheap_string(char *, int);
 int uwsgi_parse_array(char *, uint16_t, char **, uint8_t *);
 
 void log_syslog(char *);
+
+struct uwsgi_gateway *register_gateway(char *, void (*)(void));
+void gateway_respawn(int);

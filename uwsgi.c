@@ -38,6 +38,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS
 static struct option long_base_options[] = {
 	{"socket", required_argument, 0, 's'},
 	{"processes", required_argument, 0, 'p'},
+	{"workers", required_argument, 0, 'p'},
 	{"harakiri", required_argument, 0, 't'},
 #ifdef UWSGI_XML
 	{"xmlconfig", required_argument, 0, 'x'},
@@ -109,11 +110,6 @@ static struct option long_base_options[] = {
 	{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
 
 	{"binary-path", required_argument, 0, LONG_ARGS_BINARY_PATH},
-#ifdef UWSGI_PROXY
-	{"proxy", required_argument, 0, LONG_ARGS_PROXY},
-	{"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
-	{"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
-#endif
 #ifdef UWSGI_ASYNC
 	{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
@@ -144,6 +140,10 @@ static struct option long_base_options[] = {
 	{"http-only", no_argument, &uwsgi.http_only, 1},
 	{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
 	{"http-modifier1", required_argument, 0, LONG_ARGS_HTTP_MODIFIER1},
+#endif
+#ifdef UWSGI_ERLANG
+	{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
+	{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
 #endif
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
 	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
@@ -611,13 +611,6 @@ options_parsed:
 	}
 #endif
 
-#ifdef UWSGI_PROXY
-	if (uwsgi.proxy_add_me) {
-		uwsgi_cluster_simple_add_node(uwsgi.sockets[0].name, 1, CLUSTER_NODE_STATIC);
-	}
-#endif
-
-
 	//call after_opt hooks
 
 	if (uwsgi.binary_path == argv[0]) {
@@ -718,8 +711,6 @@ int uwsgi_start(void *v_argv) {
         socklen_t socket_type_len;
 
 	FILE *pidfile;
-
-	int uwsgi_will_starts = 0;
 
 	uwsgi_log("my PID is %d\n", (int) getpid());
 
@@ -966,17 +957,6 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.apps_cnt = 0;
 	}
 
-	/* plugin initialization */
-	for(i =0; i < uwsgi.gp_cnt; i++) {
-		if (uwsgi.gp[i]->init) {
-			uwsgi.gp[i]->init();
-		}
-	}
-	for (i = 0; i < 0xFF; i++) {
-		if (uwsgi.p[i]->init) {
-			uwsgi.p[i]->init();
-		}
-	}
 
 	// application generic lock
 	uwsgi.user_lock = uwsgi_mmap_shared_lock();
@@ -1039,11 +1019,25 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.p[111] = &uwsgi_cache_plugin;
 	}
 
+	/* plugin initialization */
+	for(i =0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->init) {
+			uwsgi.gp[i]->init();
+		}
+	}
+
+	// initialize request plugin only if workers are available
+	if (uwsgi.sockets_cnt) {
+		for (i = 0; i < 0xFF; i++) {
+			if (uwsgi.p[i]->init) {
+				uwsgi.p[i]->init();
+			}
+		}
+	}
+
 
 	uwsgi.current_wsgi_req = simple_current_wsgi_req;
 
-
-	// call nagios here
 
 #ifdef UWSGI_THREADING
 	if (uwsgi.has_threads) {
@@ -1074,7 +1068,6 @@ int uwsgi_start(void *v_argv) {
 										uwsgi.sockets[i].bound = 1;
 										uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
 										uwsgi.sockets_poll[i].events = POLLIN;
-										uwsgi_will_starts = 1;
 										uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 									}
 								} else if (gsa->sa_family == AF_INET) {
@@ -1110,7 +1103,6 @@ int uwsgi_start(void *v_argv) {
 												uwsgi.sockets[i].bound = 1;
 												uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
 												uwsgi.sockets_poll[i].events = POLLIN;
-												uwsgi_will_starts = 1;
 												uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 											}
 											free(computed_addr);
@@ -1164,7 +1156,6 @@ int uwsgi_start(void *v_argv) {
 			uwsgi.sockets[i].bound = 1;
 			uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
 			uwsgi.sockets_poll[i].events = POLLIN;
-			uwsgi_will_starts = 1;
 		}
 
 		int zero_used = 0;
@@ -1187,7 +1178,6 @@ int uwsgi_start(void *v_argv) {
 					//uwsgi.sockets[uwsgi.sockets_cnt - 1].name = uwsgi_get_socket_name(gsa->sa_family, gsa);
 					uwsgi.sockets_poll[uwsgi.sockets_cnt - 1].fd = 0;
 					uwsgi.sockets_poll[uwsgi.sockets_cnt - 1].events = POLLIN;
-					uwsgi_will_starts = 1;
 					uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				} else {
 					uwsgi_log("too many socket defined, i cannot map fd 0\n");
@@ -1223,25 +1213,18 @@ int uwsgi_start(void *v_argv) {
                 	}
 		}
 	
-#ifdef UWSGI_PROXY
-		if (uwsgi.proxy_socket_name) {
-			uwsgi.shared->proxy_pid = proxy_start(uwsgi.master_process);
-			uwsgi_will_starts = 1;
-		}
-#endif
-
-#ifdef UWSGI_UDP
-		if (uwsgi.udp_socket) {
-			uwsgi_will_starts = 1;
-		}
-#endif
-
-
 	}
-	if (!uwsgi_will_starts && !uwsgi.no_server) {
+
+	if (!uwsgi.sockets_cnt && !uwsgi.gateways_cnt && !uwsgi.no_server) {
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
+	else if (!uwsgi.sockets_cnt && uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.master_process) {
+		exit(0);
+	}
+
+	if (!uwsgi.sockets_cnt) uwsgi.numproc = 0;
+
 #ifdef UWSGI_DEBUG
 	for (i = 0; i < uwsgi.sockets_cnt; i++) {
 		so_bufsize_len = sizeof(int);
@@ -1333,7 +1316,10 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 */
 
 	uwsgi_log("*** Operational MODE: ");
-	if (uwsgi.threads > 1) {
+	if (!uwsgi.numproc) {
+		uwsgi_rawlog("no-workers");
+	}
+	else if (uwsgi.threads > 1) {
 		if (uwsgi.numproc > 1) {
 			uwsgi_rawlog("preforking+threaded");
 		} else {
@@ -1632,46 +1618,6 @@ end:
 	return 0;
 }
 
-#ifdef UWSGI_PROXY
-	pid_t proxy_start(int has_master) {
-
-		pid_t pid;
-
-		char *tcp_port = strchr(uwsgi.proxy_socket_name, ':');
-
-		if (tcp_port == NULL) {
-			uwsgi.proxyfd = bind_to_unix(uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, uwsgi.chmod_socket, uwsgi.abstract_socket);
-		} else {
-			uwsgi.proxyfd = bind_to_tcp(uwsgi.proxy_socket_name, UWSGI_LISTEN_QUEUE, tcp_port);
-			tcp_port[0] = ':';
-		}
-
-		if (uwsgi.proxyfd < 0) {
-			uwsgi_log("unable to create the server socket.\n");
-			exit(1);
-		}
-		if (!has_master && uwsgi.numproc == 0) {
-			uwsgi_proxy(uwsgi.proxyfd);
-			//never here
-				exit(1);
-		} else {
-			pid = fork();
-			if (pid < 0) {
-				uwsgi_error("fork()");
-				exit(1);
-			} else if (pid > 0) {
-				close(uwsgi.proxyfd);
-				return pid;
-				//continue with uWSGI spawn...
-			} else {
-				uwsgi_proxy(uwsgi.proxyfd);
-				//never here
-					exit(1);
-			}
-		}
-	}
-#endif
-
 	static int manage_base_opt(int i, char *optarg) {
 
 		char *p;
@@ -1808,19 +1754,6 @@ end:
 		case LONG_ARGS_BINARY_PATH:
 			uwsgi.binary_path = optarg;
 			return 1;
-#ifdef UWSGI_PROXY
-		case LONG_ARGS_PROXY_NODE:
-			if (uwsgi.cluster_fd >= 0 && !strcmp(optarg, "@self")) {
-				uwsgi.proxy_add_me = 1;
-			}
-			else {
-				uwsgi_cluster_simple_add_node(optarg, 1, CLUSTER_NODE_STATIC);
-			}
-			return 1;
-		case LONG_ARGS_PROXY:
-			uwsgi.proxy_socket_name = optarg;
-			return 1;
-#endif
 #ifdef UWSGI_ERLANG
 		case LONG_ARGS_ERLANG:
 			uwsgi.erlang_node = optarg;

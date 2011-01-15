@@ -6,6 +6,7 @@ extern struct uwsgi_server uwsgi;
 
 static void erlang_log(void);
 
+/*
 PyObject *py_erlang_connect(PyObject * self, PyObject * args) {
 
 	char *erlang_node;
@@ -298,6 +299,7 @@ static PyMethodDef uwsgi_erlang_methods[] = {
 	{NULL, NULL},
 };
 
+*/
 
 int init_erlang(char *nodename, char *cookie) {
 
@@ -312,7 +314,8 @@ int init_erlang(char *nodename, char *cookie) {
 	char cookievalue[128];
 	int cookiefd;
 
-	PyMethodDef *uwsgi_function;
+	
+	//PyMethodDef *uwsgi_function;
 
 
 	ip = strchr(nodename, '@');
@@ -322,6 +325,7 @@ int init_erlang(char *nodename, char *cookie) {
 		return -1;
 	}
 
+	uwsgi_log("using cookie %s\n", cookie);
 	if (cookie == NULL) {
 		// get the cookie from the home
 		cookiehome = getenv("HOME");
@@ -416,16 +420,19 @@ int init_erlang(char *nodename, char *cookie) {
 
 	uwsgi_log( "Erlang C-Node initialized on port %d you can access it with name %s\n", ntohs(e_addr.sin_port), nodename);
 
+/*
 	for (uwsgi_function = uwsgi_erlang_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
 		PyObject *func = PyCFunction_New(uwsgi_function, NULL);
 		PyDict_SetItemString(uwsgi.embedded_dict, uwsgi_function->ml_name, func);
 		Py_DECREF(func);
 	}
+*/
 
 	return efd;
 
 }
 
+/*
 ETERM *py_to_eterm(PyObject * pobj) {
 	int i;
 	int count;
@@ -593,13 +600,16 @@ PyObject *eterm_to_py(ETERM * obj) {
 
 	return eobj;
 }
+*/
 
 void erlang_loop(struct wsgi_request *wsgi_req) {
 
 	ErlConnect econn;
 	ErlMessage em;
-	ETERM *eresponse;
+	unsigned char buffer[4096];
+	//ETERM *eresponse;
 
+/*
 	PyObject *callable = PyDict_GetItemString(uwsgi.embedded_dict, "erlang_func");
 	if (!callable) {
 		PyErr_Print();
@@ -612,21 +622,30 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 		uwsgi_log( "- error preparing arg tuple for uwsgi.erlang_func callable, Erlang message manager will be disabled -\n");
 	}
 
+*/
+
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
+		uwsgi_log("entering erlang cycle\n");
 
 		UWSGI_CLEAR_STATUS;
 
 		wsgi_req->poll.fd = erl_accept(uwsgi.erlangfd, &econn);
 
+		uwsgi_log("accepted %d\n", wsgi_req->poll.fd);
+
 		if (wsgi_req->poll.fd >= 0) {
 
 			UWSGI_SET_ERLANGING;
 			for (;;) {
-				if (erl_receive_msg(wsgi_req->poll.fd, (unsigned char *) wsgi_req->buffer, uwsgi.buffer_size, &em) == ERL_MSG) {
+				uwsgi_log("receive message\n");
+				if (erl_receive_msg(wsgi_req->poll.fd, buffer, 4096, &em) == ERL_MSG) {
+
+					uwsgi_log("message received\n");
 					if (em.type == ERL_TICK)
 						continue;
 
+					/*
 					if (!callable) {
 						callable = PyDict_GetItemString(uwsgi.embedded_dict, "erlang_func");
 					}
@@ -636,6 +655,9 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 					}
 
 					PyObject *zero = eterm_to_py(em.msg);
+
+					*/	
+					uwsgi_log("received object %d\n", ERL_TYPE(em.msg));
 					if (em.msg) {
 						erl_free_compound(em.msg);
 					}
@@ -643,6 +665,7 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 						erl_free_compound(em.to);
 					}
 
+					/*
 					if (!zero) {
 						PyErr_Print();
 						continue;
@@ -666,6 +689,7 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 						Py_DECREF(erlang_result);
 					}
 
+					*/
 					if (em.from) {
 						erl_free_compound(em.from);
 					}
@@ -676,6 +700,7 @@ void erlang_loop(struct wsgi_request *wsgi_req) {
 						erlang_log();
 				}
 				else {
+					uwsgi_log("oooops\n");
 					break;
 				}
 			}

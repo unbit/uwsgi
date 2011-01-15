@@ -1,5 +1,3 @@
-#ifdef UWSGI_PROXY
-
 /*
 
    uWSGI proxy
@@ -12,7 +10,24 @@
 
 */
 
-#include "uwsgi.h"
+#include "../../uwsgi.h"
+
+#define LONG_ARGS_PROXY_WORKERS 50000
+
+struct uwsgi_proxy {
+	char *socket_name;
+	int add_me;
+	int workers;
+	int fd;
+} uproxy;
+
+struct option proxy_options[] = {
+	{"proxy", required_argument, 0, LONG_ARGS_PROXY},
+        {"proxy-node", required_argument, 0, LONG_ARGS_PROXY_NODE},
+        {"proxy-max-connections", required_argument, 0, LONG_ARGS_PROXY_MAX_CONNECTIONS},
+        {"proxy-workers", required_argument, 0, LONG_ARGS_PROXY_WORKERS},
+	{0, 0, 0, 0},	
+};
 
 #define UWSGI_PROXY_CONNECTING	1
 #define UWSGI_PROXY_WAITING	2
@@ -98,7 +113,8 @@ static int uwsgi_proxy_find_next_node(int current_node) {
 	return -1;
 }
 
-void uwsgi_proxy(int proxyfd) {
+void proxy_loop() {
+
 	int efd;
 
 #ifdef __linux__
@@ -134,9 +150,9 @@ void uwsgi_proxy(int proxyfd) {
 
 	int next_node = -1;
 
-	uwsgi_log( "spawned uWSGI proxy (pid: %d)\n", getpid());
-
+#ifdef UWSGI_DEBUG
 	uwsgi_log( "allocating space for %d concurrent proxy connections\n", max_connections);
+#endif
 
 	// allocate memory for connections
 	upcs = malloc(sizeof(struct uwsgi_proxy_connection) * max_connections);
@@ -146,7 +162,11 @@ void uwsgi_proxy(int proxyfd) {
 	}
 	memset(upcs, 0, sizeof(struct uwsgi_proxy_connection) * max_connections);
 
-	efd = async_queue_init(proxyfd);
+	if (uproxy.add_me) {
+                uwsgi_cluster_simple_add_node(uwsgi.sockets[0].name, 1, CLUSTER_NODE_STATIC);
+        }
+
+	efd = async_queue_init(uproxy.fd);
 	if (efd < 0) {
 		exit(1);
 	}
@@ -182,11 +202,11 @@ void uwsgi_proxy(int proxyfd) {
 
 		for (i = 0; i < nevents; i++) {
 
-			if ( (int)eevents[i].ASYNC_FD == proxyfd) {
+			if ( (int)eevents[i].ASYNC_FD == uproxy.fd) {
 
 				if (eevents[i].ASYNC_IS_IN) {
 					// new connection, accept it
-					ev.ASYNC_FD = accept(proxyfd, (struct sockaddr *) &upc_addr, &upc_len);
+					ev.ASYNC_FD = accept(uproxy.fd, (struct sockaddr *) &upc_addr, &upc_len);
 					if ( (int) ev.ASYNC_FD < 0) {
 						uwsgi_error("accept()");
 						continue;
@@ -404,6 +424,67 @@ void uwsgi_proxy(int proxyfd) {
 	}
 }
 
-#else
-#warning "*** PROXY support is disabled ***"
-#endif
+int proxy_init() {
+	int i;
+	char *tcp_port;
+
+	if (!uproxy.workers) uproxy.workers = 1 ;
+
+	if (uproxy.socket_name) {
+
+		tcp_port = strchr(uproxy.socket_name, ':');
+
+        	if (tcp_port == NULL) {
+                	uproxy.fd = bind_to_unix(uproxy.socket_name, UWSGI_LISTEN_QUEUE, uwsgi.chmod_socket, uwsgi.abstract_socket);
+        	}
+        	else {
+                	uproxy.fd = bind_to_tcp(uproxy.socket_name, UWSGI_LISTEN_QUEUE, tcp_port);
+                	tcp_port[0] = ':';
+        	}
+
+        	if (uproxy.fd < 0) {
+                	uwsgi_log( "unable to create the proxy server socket.\n");
+                	exit(1);
+        	}
+
+		for(i=0;i<uproxy.workers;i++) {
+			if (register_gateway("proxy", proxy_loop) == NULL) {
+				uwsgi_log("unable to register the proxy gateway\n");
+			}
+		}
+	}
+
+	return 0;
+}
+	
+int proxy_opt(int i, char *optarg) {
+
+        switch(i) {
+
+		case LONG_ARGS_PROXY_NODE:
+                        if (uwsgi.cluster_fd >= 0 && !strcmp(optarg, "@self")) {
+                                uproxy.add_me = 1;
+                        }
+                        else {
+                                uwsgi_cluster_simple_add_node(optarg, 1, CLUSTER_NODE_STATIC);
+                        }
+                        return 1;
+                case LONG_ARGS_PROXY:
+                        uproxy.socket_name = optarg;
+                        return 1;
+		case LONG_ARGS_PROXY_WORKERS:
+			uproxy.workers = atoi(optarg);
+			return 1;
+	}
+
+	return 0;
+}
+
+
+struct uwsgi_plugin proxy_plugin = {
+
+        .options = proxy_options,
+        .manage_opt = proxy_opt,
+        .init = proxy_init,
+};
+
