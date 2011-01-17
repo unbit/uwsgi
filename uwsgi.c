@@ -1208,7 +1208,7 @@ int uwsgi_start(void *v_argv) {
 		}
 
 	
-		// put listening socket i non-blocking state
+		// put listening socket in non-blocking state
 		for (i = 0; i < uwsgi.sockets_cnt; i++) {
 			uwsgi.sockets[i].arg = fcntl(uwsgi.sockets[i].fd, F_GETFL, NULL);
                 	if (uwsgi.sockets[i].arg < 0) {

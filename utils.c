@@ -1243,3 +1243,163 @@ char *uwsgi_cheap_string(char *buf, int len) {
 	return buf-1;
 }
 
+
+char *uwsgi_open_and_read(char *url, int *size, int add_zero) {
+
+	int fd;
+	struct stat sb;
+	char *buffer = NULL;
+	char byte;
+	ssize_t len;
+	char *uri, *colon;
+	char *domain ;
+	char *ip ;
+	struct hostent *he;
+	int body = 0;
+
+	// http url ?
+	if (!strncmp("http://", url, 7)) {
+		domain = url+7;
+		uri = strchr(domain, '/');
+		if (!uri) {
+			uwsgi_log("invalid http url\n");
+			exit(1);
+		}	
+		uri[0] = 0;
+		uwsgi_log("domain: %s\n", domain);
+
+		colon = uwsgi_get_last_char(domain, ':');
+
+		if (colon) {
+			colon[0] = 0;
+		}
+
+
+		he = gethostbyname(domain);
+		if (!he || !*he->h_addr_list || he->h_addrtype != AF_INET) {
+			uwsgi_log("unable to resolve address %s\n", domain);
+			exit(1);
+		}
+
+		ip = inet_ntoa( *( struct in_addr*) he->h_addr_list[0]);
+		if (!ip) {
+			uwsgi_log("unable to resolve address %s\n", domain);
+			exit(1);
+		}
+
+		if (colon) {
+			colon[0] = ':';
+			ip = uwsgi_concat2(ip, colon);
+		}
+		else {
+			ip = uwsgi_concat2(ip, ":80");
+		}
+
+		fd = uwsgi_connect(ip, 0, 0);
+	
+		if (fd < 0) {
+			exit(1);
+		}
+
+		uri[0] = '/';
+
+		len = write(fd, "GET ", 4);
+		len = write(fd, uri, strlen(uri));
+		len = write(fd, " HTTP/1.0\r\n", 11 );
+		len = write(fd, "Host: ", 6);
+
+		uri[0] = 0;
+		len = write(fd, domain, strlen(domain));
+		uri[0] = '/';
+
+		len = write(fd, "\r\n\r\n", 4);
+
+		while( read(fd, &byte, 1) == 1) {
+			if (byte == '\r' && body == 0) {
+				body = 1;
+			}
+			else if (byte == '\n' && body == 1) {
+				body = 2;
+			}
+			else if (byte == '\r' && body == 2) {
+				body = 3;
+			}
+			else if (byte == '\n' && body == 3) {
+				body = 4;
+			}
+			else if (body == 4) {
+				*size = *size+1;
+				buffer = realloc(buffer, *size);
+				if (!buffer) {
+					uwsgi_error("realloc()");
+					exit(1);
+				}
+				buffer[*size-1] = byte;
+			}
+			else {
+				body = 0;
+			}
+		}
+
+		close(fd);
+
+		if (add_zero) {
+			*size = *size + 1;
+			buffer = realloc(buffer, *size);
+			buffer[*size] = 0;
+		}
+
+	}
+	// fallback to file
+	else {
+		fd = open(url, O_RDONLY);
+        	if (fd < 0) {
+                	uwsgi_error("open()");
+                	exit(1);
+        	}
+
+        	if (fstat(fd, &sb)) {
+                	uwsgi_error("fstat()");
+                	exit(1);
+        	}
+
+
+        	buffer = malloc(sb.st_size+add_zero);
+
+        	if (!buffer) {
+                	uwsgi_error("malloc()");
+                	exit(1);
+        	}
+
+
+        	len = read(fd, buffer, sb.st_size);
+        	if (len != sb.st_size) {
+                	uwsgi_error("read()");
+                	exit(1);
+        	}
+
+		close(fd);
+
+		*size = sb.st_size+add_zero;
+
+		if (add_zero)
+        		buffer[sb.st_size] = 0;
+	}
+
+	return buffer;
+}
+
+char *uwsgi_get_last_char(char *what, char c) {
+	int i,j=0;
+	char *ptr = NULL;
+
+	if (!strncmp("http://", what, 7)) j = 7;
+
+	for(i=j;i<(int)strlen(what);i++) {
+		if (what[i] == c) {
+			ptr = what+i;
+		}
+	}
+
+	return ptr;
+}

@@ -73,10 +73,8 @@ char *ini_get_line(char *ini, off_t size) {
 
 void uwsgi_ini_config(char *file) {
 
-	int fd;
-	ssize_t len;
+	int len = 0;
 	char *ini;
-	struct stat sb;
 
 	char *ini_line;
 
@@ -90,7 +88,7 @@ void uwsgi_ini_config(char *file) {
 	char *section_asked = "uwsgi";
 	char *colon;
 
-	colon = strchr(file, ':');
+	colon = uwsgi_get_last_char(file, ':');
 	if (colon) {
 		colon[0] = 0;
 		if (colon[1] != 0) {
@@ -100,36 +98,10 @@ void uwsgi_ini_config(char *file) {
 
 	uwsgi_log("[uWSGI] getting INI configuration from %s\n", file);
 
-	fd = open(file, O_RDONLY);
-	if (fd < 0) {
-		uwsgi_error("open()");
-		exit(1);
-	}
+	ini = uwsgi_open_and_read(file, &len, 1);
 
-	if (fstat(fd, &sb)) {
-		uwsgi_error("fstat()");
-		exit(1);
-	}
-
-
-	ini = malloc(sb.st_size+1);
-
-	if (!ini) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
-
-
-	len = read(fd, ini, sb.st_size);
-	if (len != sb.st_size) {
-		uwsgi_error("read()");
-		exit(1);
-	}
-
-	ini[sb.st_size] = 0;
-
-	while(sb.st_size) {
-		ini_line = ini_get_line(ini, sb.st_size);
+	while(len) {
+		ini_line = ini_get_line(ini, len);
 		if (ini_line == NULL) {
 			break;
 		}
@@ -174,12 +146,10 @@ void uwsgi_ini_config(char *file) {
 		}
 
 
-		sb.st_size -= (ini_line - ini);
+		len -= (ini_line - ini);
 		ini += (ini_line - ini);
 
 	}
-
-	close(fd);
 
 }
 

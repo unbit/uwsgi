@@ -86,10 +86,8 @@ char *yaml_get_line(char *yaml, off_t size) {
 
 void uwsgi_yaml_config(char *file) {
 
-	int fd;
-	ssize_t len;
+	int len = 0;
 	char *yaml;
-	struct stat sb;
 
 	int depth;
 	int current_depth = 0;
@@ -107,7 +105,7 @@ void uwsgi_yaml_config(char *file) {
 	char *section_asked = "uwsgi";
 	char *colon;
 
-	colon = strchr(file, ':');
+	colon = uwsgi_get_last_char(file, ':');
 	if (colon) {
 		colon[0] = 0;
 		if (colon[1] != 0) {
@@ -117,36 +115,10 @@ void uwsgi_yaml_config(char *file) {
 
 	uwsgi_log("[uWSGI] getting YAML configuration from %s\n", file);
 
-	fd = open(file, O_RDONLY);
-	if (fd < 0) {
-		uwsgi_error("open()");
-		exit(1);
-	}
+	yaml = uwsgi_open_and_read(file, &len, 1);
 
-	if (fstat(fd, &sb)) {
-		uwsgi_error("fstat()");
-		exit(1);
-	}
-
-
-	yaml = malloc(sb.st_size+1);
-
-	if (!yaml) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
-
-
-	len = read(fd, yaml, sb.st_size);
-	if (len != sb.st_size) {
-		uwsgi_error("read()");
-		exit(1);
-	}
-
-	yaml[sb.st_size] = 0;
-
-	while(sb.st_size) {
-		yaml_line = yaml_get_line(yaml, sb.st_size);
+	while(len) {
+		yaml_line = yaml_get_line(yaml, len);
 		if (yaml_line == NULL) {
 			break;
 		}
@@ -158,7 +130,7 @@ void uwsgi_yaml_config(char *file) {
 		if (depth <= current_depth) {
 			current_depth = depth;
 			// end the parsing cycle
-			if (in_uwsgi_section) goto end;
+			if (in_uwsgi_section) return;
 		}
 		else if (depth > current_depth && !in_uwsgi_section) {
 			goto next;
@@ -170,7 +142,7 @@ void uwsgi_yaml_config(char *file) {
 
 		// skip list and {} defined dict
 		if (key[0] == '-' || key[0] == '[' || key[0] == '{') {
-			if (in_uwsgi_section) goto end;
+			if (in_uwsgi_section) return;
 			goto next;
 		}
 		
@@ -188,7 +160,7 @@ void uwsgi_yaml_config(char *file) {
 			if (!val) {
 				val = strstr(key, ":\t");
 			}
-			if (!val) goto end;
+			if (!val) return; 
 			// get the right key
 			val[0] = 0;
 			// yeah overengeneering....
@@ -216,14 +188,11 @@ void uwsgi_yaml_config(char *file) {
 			}
 		}
 next:
-		sb.st_size -= (yaml_line - yaml);
+		len -= (yaml_line - yaml);
 		yaml += (yaml_line - yaml);
 
 	}
 
-end:
-
-	close(fd);
 
 }
 

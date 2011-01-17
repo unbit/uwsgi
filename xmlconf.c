@@ -24,8 +24,10 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag) {
 
 	char *xml_id;
 	int i;
+	char *xml_content;
+	int xml_size = 0;
 
-	colon = strchr(uwsgi.xml_config, ':');
+	colon = uwsgi_get_last_char(uwsgi.xml_config, ':');
 	if (colon) {
 		colon[0] = 0;
 		colon++;
@@ -36,7 +38,9 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag) {
 		uwsgi_log( "[uWSGI] using xml uwsgi id: %s\n", colon);
 	}
 
-	doc = xmlReadFile(uwsgi.xml_config, NULL, 0);
+	xml_content = uwsgi_open_and_read(uwsgi.xml_config, &xml_size, 0);
+
+	doc = xmlReadMemory(xml_content, xml_size, uwsgi.xml_config, NULL, 0);
 	if (doc == NULL) {
 		uwsgi_log( "[uWSGI] could not parse file %s.\n", uwsgi.xml_config);
 		exit(1);

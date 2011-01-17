@@ -65,6 +65,8 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <netdb.h>
+
 #include <stdarg.h>
 #include <errno.h>
 #include <ctype.h>
@@ -1375,3 +1377,6 @@ void log_syslog(char *);
 
 struct uwsgi_gateway *register_gateway(char *, void (*)(void));
 void gateway_respawn(int);
+
+char *uwsgi_open_and_read(char *, int *, int);
+char *uwsgi_get_last_char(char *, char);
