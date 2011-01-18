@@ -271,8 +271,8 @@ void master_loop(char **argv, char **environ) {
 			uwsgi_log( "running %s\n", uwsgi.binary_path);
 			argv[0] = uwsgi.binary_path;
 			//strcpy (argv[0], uwsgi.binary_path);
-			execve(uwsgi.binary_path, argv, environ);
-			uwsgi_error("execve()");
+			execv(uwsgi.binary_path, argv);
+			uwsgi_error("execv()");
 			// never here
 			exit(1);
 		}
@@ -714,7 +714,7 @@ void master_loop(char **argv, char **environ) {
 		pid = fork();
 		if (pid == 0) {
 			// fix the communication pipe
-			close(uwsgi.shared->worker_signal_pipe[1]);
+			close(uwsgi.shared->worker_signal_pipe[0]);
 			uwsgi.mypid = getpid();
 			uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
 			uwsgi.workers[uwsgi.mywid].harakiri = 0;
