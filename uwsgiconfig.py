@@ -12,7 +12,11 @@ import subprocess
 
 from distutils import sysconfig
 
-import ConfigParser
+try:
+    import ConfigParser
+except:
+    import configparser as ConfigParser
+    from imp import reload
 
 GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
@@ -28,6 +32,7 @@ def spcall(cmd):
         return p.stdout.read().rstrip()
     else:
         return None
+
 
 def spcall2(cmd):
     p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
@@ -46,12 +51,14 @@ def add_o(x):
     x = x + '.o'
     return x
 
+
 def compile(file, objfile, cflags):
     cmdline = "%s -c %s -o %s %s" % (GCC, cflags, objfile, file)
     print(cmdline)
     ret = os.system(cmdline)
     if ret != 0:
         sys.exit(1)
+
 
 def build_uwsgi(uc):
 
@@ -70,7 +77,6 @@ def build_uwsgi(uc):
 
         cflags.append(epc)
         cflags.append(eplc)
-
 
     print("*** uWSGI compiling server core ***")
     for file in gcc_list:
@@ -97,7 +103,8 @@ def build_uwsgi(uc):
                 p_cflags += up.CFLAGS
 
                 for cfile in up.GCC_LIST:
-                    compile(' '.join(p_cflags), path + '/' + cfile + '.o', path + '/' + cfile + '.c')
+                    compile(' '.join(p_cflags),
+                        path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                     gcc_list.append('%s/%s' % (path, cfile))
 
                 libs += up.LIBS
@@ -122,7 +129,8 @@ def build_uwsgi(uc):
     bin_name = uc.get('bin_name')
 
     print("*** uWSGI linking ***")
-    ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags), ' '.join(map(add_o, gcc_list)), ' '.join(libs))
+    ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags),
+        ' '.join(map(add_o, gcc_list)), ' '.join(libs))
     print(ldline)
     ret = os.system(ldline)
     if ret != 0:
@@ -133,13 +141,15 @@ def build_uwsgi(uc):
         bin_name = './' + bin_name
     print("*** uWSGI is ready, launch it with %s ***" % bin_name)
 
+
 class uConf(object):
 
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
         print("using profile: %s" % filename)
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'gateway', 'loop', 'uwsgi']
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master',
+            'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'gateway', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:
             gcc_version = str(spcall2("%s -v" % GCC)).split('\n')[-1].split()[2]
@@ -171,10 +181,10 @@ class uConf(object):
             for opt in iconfig.options('uwsgi'):
                 if not self.get(opt):
                     self.set(opt, iconfig.get('uwsgi', opt))
-		elif self.get(opt).startswith('+'):
+                elif self.get(opt).startswith('+'):
                     self.set(opt, iconfig.get('uwsgi', opt) + self.get(opt)[1:])
-		elif self.get(opt) == 'null':
-		    self.config.remove_option('uwsgi', opt)
+                elif self.get(opt) == 'null':
+                    self.config.remove_option('uwsgi', opt)
 
 
     def set(self, key, value):

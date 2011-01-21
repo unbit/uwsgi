@@ -1479,8 +1479,7 @@ clear:
 }
 
 static PyTypeObject uwsgi_IterType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                          /*ob_size*/
+    PyVarObject_HEAD_INIT(NULL, 0)
     "uwsgi._Iter",              /*tp_name*/
     sizeof(uwsgi_Iter),         /*tp_basicsize*/
     0,                          /*tp_itemsize*/
@@ -1499,7 +1498,11 @@ static PyTypeObject uwsgi_IterType = {
     0,                         	/*tp_getattro*/
     0,                         	/*tp_setattro*/
     0,                         	/*tp_as_buffer*/
+#if defined(Py_TPFLAGS_HAVE_ITER)
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_ITER,
+#else
+    Py_TPFLAGS_DEFAULT,
+#endif
     "uwsgi response iterator object.",           /* tp_doc */
     0,				/* tp_traverse */
     0,  			/* tp_clear */

@@ -34,7 +34,11 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		goto clear;
 	}
 
+#ifdef PYTHREE
+        if (!PyUnicode_Check(head)) {
+#else
 	if (!PyString_Check(head)) {
+#endif
 		uwsgi_log( "http status must be a string !\n");
 		goto clear;
 	}

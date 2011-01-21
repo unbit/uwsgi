@@ -714,9 +714,8 @@ int uwsgi_start(void *v_argv) {
 	pid_t pid;
 	int i, j;
 
-	struct sockaddr_un usa;
-        struct sockaddr *gsa;
-        struct sockaddr_in *isa;
+	union uwsgi_sockaddr usa;
+        union uwsgi_sockaddr_ptr gsa, isa;
         socklen_t socket_type_len;
 
 	FILE *pidfile;
@@ -1070,10 +1069,10 @@ int uwsgi_start(void *v_argv) {
 
 						for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
 							socket_type_len = sizeof(struct sockaddr_un);
-							gsa = (struct sockaddr *) &usa;
-							if (!getsockname(j, gsa, &socket_type_len)) {
-								if (gsa->sa_family == AF_UNIX) {
-									if (!strcmp(usa.sun_path, uwsgi.sockets[i].name)) {
+							gsa.sa = &usa.sa;
+							if (!getsockname(j, gsa.sa, &socket_type_len)) {
+								if (gsa.sa->sa_family == AF_UNIX) {
+									if (!strcmp(usa.sa_un.sun_path, uwsgi.sockets[i].name)) {
 										uwsgi.sockets[i].fd = j;
 										uwsgi.sockets[i].family = AF_UNIX;
 										uwsgi.sockets[i].bound = 1;
@@ -1081,17 +1080,17 @@ int uwsgi_start(void *v_argv) {
 										uwsgi.sockets_poll[i].events = POLLIN;
 										uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 									}
-								} else if (gsa->sa_family == AF_INET) {
+								} else if (gsa.sa->sa_family == AF_INET) {
 									char *computed_addr;
 									char computed_port[6];
-									isa = (struct sockaddr_in *) &usa;
+									isa.sa_in = (struct sockaddr_in *) &usa;
 									char ipv4a[INET_ADDRSTRLEN + 1];
 									memset(ipv4a, 0, INET_ADDRSTRLEN + 1);
 									memset(computed_port, 0, 6);
 
 
-									if (snprintf(computed_port, 6, "%d", ntohs(isa->sin_port)) > 0) {
-										if (inet_ntop(AF_INET, (const void *) &isa->sin_addr.s_addr, ipv4a, INET_ADDRSTRLEN)) {
+									if (snprintf(computed_port, 6, "%d", ntohs(isa.sa_in->sin_port)) > 0) {
+										if (inet_ntop(AF_INET, (const void *) &isa.sa_in->sin_addr.s_addr, ipv4a, INET_ADDRSTRLEN)) {
 
 											if (!strcmp("0.0.0.0", ipv4a)) {
 												computed_addr = uwsgi_concat2(":", computed_port);
@@ -1132,8 +1131,8 @@ int uwsgi_start(void *v_argv) {
 					if (j == uwsgi.cluster_fd) continue;
 #endif
 					socket_type_len = sizeof(struct sockaddr_un);
-					gsa = (struct sockaddr *) & usa;
-					if (!getsockname(j, gsa, &socket_type_len)) {
+					gsa.sa = (struct sockaddr *) & usa;
+					if (!getsockname(j, gsa.sa, &socket_type_len)) {
 						for (i = 0; i < uwsgi.sockets_cnt; i++) {
 							if (uwsgi.sockets[i].fd == j && uwsgi.sockets[i].bound) {
 								useless = 0;
@@ -1179,13 +1178,13 @@ int uwsgi_start(void *v_argv) {
 
 		if (!zero_used) {
 			socket_type_len = sizeof(struct sockaddr_un);
-			gsa = (struct sockaddr *) & usa;
-			if (!getsockname(0, gsa, &socket_type_len)) {
+			gsa.sa = (struct sockaddr *) & usa;
+			if (!getsockname(0, gsa.sa, &socket_type_len)) {
 				if (uwsgi.sockets_cnt < 8) {
 					uwsgi.sockets_cnt++;
 					uwsgi.sockets[uwsgi.sockets_cnt - 1].fd = 0;
 					uwsgi.sockets[uwsgi.sockets_cnt - 1].bound = 1;
-					uwsgi.sockets[uwsgi.sockets_cnt - 1].family = gsa->sa_family;
+					uwsgi.sockets[uwsgi.sockets_cnt - 1].family = gsa.sa->sa_family;
 					//uwsgi.sockets[uwsgi.sockets_cnt - 1].name = uwsgi_get_socket_name(gsa->sa_family, gsa);
 					uwsgi.sockets_poll[uwsgi.sockets_cnt - 1].fd = 0;
 					uwsgi.sockets_poll[uwsgi.sockets_cnt - 1].events = POLLIN;

@@ -85,6 +85,7 @@
 
 #include <sys/utsname.h>
 
+
 #ifdef __linux
 #include <sys/prctl.h>
 #include <linux/limits.h>
@@ -184,6 +185,18 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #endif
 
 #define UWSGI_CACHE_MAX_KEY_SIZE 4071
+
+union uwsgi_sockaddr {
+	struct sockaddr     sa;
+	struct sockaddr_in  sa_in;
+	struct sockaddr_un  sa_un;
+};
+
+union uwsgi_sockaddr_ptr {
+	struct sockaddr     *sa;
+	struct sockaddr_in  *sa_in;
+	struct sockaddr_un  *sa_un;
+};
 
 // Gateways are processes (managed by the master) that extends the
 // server core features
