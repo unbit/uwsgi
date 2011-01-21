@@ -101,5 +101,8 @@ void uwsgi_route_signal(uint8_t sig) {
 				uwsgi_log("could not deliver signal %d to workers pool\n", sig);
 			}
 			break;
+		case KIND_NULL:
+			// unmanaged signal, pass to all the children
+			break;	
 	};
 }

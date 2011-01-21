@@ -200,7 +200,7 @@ union uwsgi_sockaddr_ptr {
 
 // Gateways are processes (managed by the master) that extends the
 // server core features
-// -- Gateways can prefork --
+// -- Gateways can prefork or spawn threads --
 
 struct uwsgi_gateway {
 	
@@ -208,6 +208,7 @@ struct uwsgi_gateway {
 	void (*loop)(void);
 	pid_t pid;
 	int num;
+	int use_signals;
 };
 
 // maintain alignment here !!!
@@ -586,6 +587,7 @@ struct wsgi_request {
 	int             async_waiting_fd;
 	int             async_waiting_fd_type;
 	int             async_waiting_fd_monitored;
+	int		async_waiting_signal;
 
 	int             switches;
 
@@ -1070,7 +1072,6 @@ struct uwsgi_worker {
 	int             manage_next_request;
 
 	uint64_t	exceptions;
-
 
 };
 

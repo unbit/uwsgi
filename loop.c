@@ -130,11 +130,19 @@ void complex_loop() {
 				}
 
 			}
+			else if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[uwsgi.sockets_cnt].fd) {
+				// wake up cores waiting for signal
+				char byte;
+				if (read(uwsgi.sockets[uwsgi.sockets_cnt].fd, &byte, 1) == 1) {
+					uwsgi_log("signal %c received\n", byte);
+				}
+			}
 			else {
 				uwsgi.wsgi_req = find_wsgi_req_by_fd(uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
 				if (uwsgi.wsgi_req) {
 					uwsgi.wsgi_req->async_status = UWSGI_AGAIN;
 					uwsgi.wsgi_req->async_waiting_fd = -1;
+					uwsgi.wsgi_req->async_waiting_signal = -1;
 					uwsgi.wsgi_req->async_waiting_fd_monitored = 0;
 					uwsgi.wsgi_req->async_timeout = 0;
 				}

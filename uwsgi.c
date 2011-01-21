@@ -274,14 +274,34 @@ void stats()
 void what_i_am_doing()
 {
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req;
+	int i;
 
-	if (uwsgi.async < 2 && wsgi_req->uri_len > 0) {
-
-		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL)) {
-			uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) & wsgi_req->start_of_request.tv_sec));
-		} else {
-			uwsgi_log("SIGUSR2: --- uWSGI worker %d (pid: %d) is managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) & wsgi_req->start_of_request.tv_sec));
+	if (uwsgi.cores > 1) {
+		for(i=0;i<uwsgi.cores;i++) {
+			wsgi_req = uwsgi.wsgi_requests[i];
+			if (wsgi_req->uri_len > 0) {
+				if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL)) {
+					uwsgi_log("HARAKIRI: --- uWSGI worker %d core %d (pid: %d) WAS managing request %.*s since %.*s ---\n",
+						(int) uwsgi.mywid, i, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) & wsgi_req->start_of_request.tv_sec));
+				}
+				else {
+					uwsgi_log("SIGUSR2: --- uWSGI worker %d core %d (pid: %d) is managing request %.*s since %.*s ---\n",
+						(int) uwsgi.mywid, i, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) & wsgi_req->start_of_request.tv_sec));
+				}
+			}
+		}
+	}
+	else {
+		wsgi_req = uwsgi.wsgi_requests[0];
+		if (wsgi_req->uri_len > 0) {
+			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL)) {
+				uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS managing request %.*s since %.*s ---\n",
+					(int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) & wsgi_req->start_of_request.tv_sec));
+			} else {
+				uwsgi_log("SIGUSR2: --- uWSGI worker %d (pid: %d) is managing request %.*s since %.*s ---\n",
+					(int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) & wsgi_req->start_of_request.tv_sec));
+			}
 		}
 	}
 }
@@ -1421,7 +1441,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		}
 	}
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir != NULL && uwsgi.numproc > 0) {
+	if (uwsgi.spool_dir != NULL && uwsgi.sockets_cnt > 0) {
 		uwsgi.shared->spooler_pid = spooler_start();
 	}
 #endif
@@ -1580,6 +1600,11 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	if (uwsgi.master_process) {
        		uwsgi.sockets_poll[uwsgi.sockets_cnt].fd = uwsgi.shared->worker_signal_pipe[1];
         	uwsgi.sockets_poll[uwsgi.sockets_cnt].events = POLLIN;
+#ifdef UWSGI_ASYNC
+		if (uwsgi.async > 1) {
+			async_add(uwsgi.async_queue, uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, ASYNC_IN);
+		}
+#endif
 	}
 
 

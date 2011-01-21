@@ -28,21 +28,13 @@ pid_t spooler_start() {
 
 int spool_request(char *filename, int rn, char *buffer, int size) {
 
-	char hostname[256 + 1];
 	struct timeval tv;
 	int fd;
 	struct uwsgi_header uh;
 
-	if (gethostname(hostname, 256)) {
-		uwsgi_error("gethostname()");
-		return 0;
-	}
-
 	gettimeofday(&tv, NULL);
 
-	hostname[256] = 0;
-
-	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi.spool_dir, hostname, (int) getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi.spool_dir, uwsgi.hostname, (int) getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
 		return 0;
 	}
 
@@ -90,18 +82,20 @@ clear:
 		unlink(filename);
 		close(fd);
 		return 0;
-	}
+}
 
-	void spooler() {
-		DIR *sdir;
-		struct dirent *dp;
 
-		//PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
 
-		int spool_fd;
-		uint16_t uwstrlen;
-		int rlen = 0;
-		int datasize;
+void spooler() {
+	DIR *sdir;
+	struct dirent *dp;
+
+	//PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
+
+	int spool_fd;
+	uint16_t uwstrlen;
+	int rlen = 0;
+	int datasize;
 
 		// prevent process blindly reading stdin to make mess
 		int nullfd;
@@ -111,34 +105,12 @@ clear:
 		char *key;
 		char *val;
 
-		/*
-		   spool_tuple = PyTuple_New(1);
-
-		   if (!spool_tuple) {
-		   uwsgi_log( "could not create spooler tuple.\n");
-		   exit(1);
-		   }
-
-
-		   spool_env = PyDict_New();
-		   if (!spool_env) {
-		   uwsgi_log( "could not create spooler env.\n");
-		   exit(1);
-		   }
-
-		   if (PyTuple_SetItem(spool_tuple, 0, spool_env)) {
-		   PyErr_Print();
-		   exit(1);
-		   }
-		   */
-
 		if (chdir(uwsgi.spool_dir)) {
 			uwsgi_error("chdir()");
 			exit(1);
 		}
 
 		// asked by Marco Beri
-
 #ifdef __HAIKU__
 		uwsgi_log( "lowering spooler priority to %d\n", B_LOW_PRIORITY);
 		set_thread_priority(find_thread(NULL), B_LOW_PRIORITY);
