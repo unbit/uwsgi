@@ -1394,3 +1394,20 @@ void gateway_respawn(int);
 
 char *uwsgi_open_and_read(char *, int *, int);
 char *uwsgi_get_last_char(char *, char);
+
+
+struct fcgi_record {
+	uint8_t version;
+	uint8_t type;
+	uint8_t req1;
+	uint8_t req0;
+	uint8_t cl1;
+	uint8_t cl0;
+	uint8_t pad;
+	uint8_t reserved;
+};
+
+#define FCGI_BEGIN_REQUEST "\0\1\0\0\0\0\0\0"
+ssize_t fcgi_send_record(int, uint8_t, uint16_t, char *);
+ssize_t fcgi_send_param(int, char *, uint16_t, char *, uint16_t);
+uint16_t fcgi_get_record(int, char *);

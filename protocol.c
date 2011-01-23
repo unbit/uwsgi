@@ -820,3 +820,120 @@ int uwsgi_string_sendto(int fd, uint8_t modifier1, uint8_t modifier2, struct soc
 
 	return rlen;
 }
+
+ssize_t fcgi_send_param(int fd, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+
+	struct fcgi_record fr;
+	struct iovec iv[5];
+
+	uint8_t ks1 = 0;
+	uint32_t ks4 = 0;
+
+	uint8_t vs1 = 0;
+	uint32_t vs4 = 0;
+
+	uint16_t size = keylen+vallen;
+
+	if (keylen > 127) {
+		size += 4;
+		ks4 = htonl(keylen) | 0x80000000;
+		iv[1].iov_base = &ks4;
+		iv[1].iov_len = 4;
+	}
+	else {
+		size += 1;
+		ks1 = keylen;
+		iv[1].iov_base = &ks1;
+		iv[1].iov_len = 1;
+	}
+
+	if (vallen > 127) {
+		size += 4;
+		vs4 = htonl(vallen) | 0x80000000;
+		iv[2].iov_base = &vs4;
+		iv[2].iov_len = 4;
+	}
+	else {
+		size += 1;
+		vs1 = vallen;
+		iv[2].iov_base = &vs1;
+		iv[2].iov_len = 1;
+	}
+
+	iv[3].iov_base = key;
+	iv[3].iov_len = keylen;
+	iv[4].iov_base = val;
+	iv[4].iov_len = vallen;
+
+	fr.version = 1;
+	fr.type = 4;
+	fr.req1 = 0;
+	fr.req0 = 1;
+	fr.cl1 = (uint8_t) ((size >> 8) & 0xff);
+	fr.cl0 = (uint8_t) (size &0xff);
+	fr.pad = 0;
+	fr.reserved = 0;
+
+	iv[0].iov_base = &fr;
+	iv[0].iov_len = 8;
+
+	return writev(fd, iv, 5);
+	
+}
+
+ssize_t fcgi_send_record(int fd, uint8_t type, uint16_t size, char *buffer) {
+
+	struct fcgi_record fr;
+	struct iovec iv[2];
+
+	fr.version = 1;
+	fr.type = type;
+	fr.req1 = 0;
+	fr.req0 = 1;
+	fr.cl1 = (uint8_t) ((size >> 8) & 0xff);
+	fr.cl0 = (uint8_t) (size &0xff);
+	fr.pad = 0;
+	fr.reserved = 0;
+
+	iv[0].iov_base = &fr;
+	iv[0].iov_len = 8;
+
+	iv[1].iov_base = buffer;
+	iv[1].iov_len = size;
+
+	return writev(fd, iv, 2);
+
+}
+
+uint16_t fcgi_get_record(int fd, char *buf) {
+
+	struct fcgi_record fr;
+	uint16_t remains = 8;
+	char *ptr = (char *) &fr;
+	ssize_t len;
+	uint16_t *rs;
+
+        while(remains) {
+        	uwsgi_waitfd(fd, -1);
+                len = read(fd, ptr, remains);
+                if (len <= 0) return 0;
+                remains -= len;
+                ptr += len;
+        }
+
+        rs = (uint16_t *) &fr.cl1;
+
+        remains = ntohs(*rs) + fr.pad;
+        ptr = buf;
+
+        while(remains) {
+        	uwsgi_waitfd(fd, -1);
+                len = read(fd, ptr, remains);
+                if (len <= 0) return 0;
+                remains -= len;
+                ptr += len;
+        }
+
+	return ntohs(*rs);
+
+}

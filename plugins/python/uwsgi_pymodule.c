@@ -1378,7 +1378,9 @@ clear:
 		return Py_None;
 	}
 
-typedef struct {
+struct uwsgi_Iter;
+
+typedef struct uwsgi_Iter{
 	PyObject_HEAD
 	int fd;
 	int timeout;
@@ -1389,12 +1391,26 @@ typedef struct {
 	uint16_t sent;
 	uint8_t modifier1;
 	uint8_t modifier2;
+	PyObject* (*func)(struct uwsgi_Iter *);
 } uwsgi_Iter;
 
 
 PyObject* uwsgi_Iter_iter(PyObject *self) {
 	Py_INCREF(self);
 	return self;
+}
+
+PyObject* py_fcgi_iterator(uwsgi_Iter *ui) {
+
+	uint16_t size = 0;
+	char body[0xffff];
+	size = fcgi_get_record(ui->fd, body);
+
+	if (size) {
+		return PyString_FromStringAndSize(body, size);	
+	}
+
+	return NULL;
 }
 
 PyObject* uwsgi_Iter_next(PyObject *self) {
@@ -1404,9 +1420,20 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 	int i = 4;
 	struct uwsgi_header uh;
 	char *ub = (char *) &uh ;
+	PyObject *ptr;
 
 	UWSGI_RELEASE_GIL
-	uwsgi_log("waiting for data\n");
+
+	if (ui->func) {
+
+		ptr = ui->func(ui);
+		if (ptr) {
+			return ptr;	
+		}
+	}
+
+
+	else {
 
 	if (!ui->started) {
 		memset(&uh, 0, 4);
@@ -1465,6 +1492,7 @@ PyObject* uwsgi_Iter_next(PyObject *self) {
 	}
 	else if (rlen == 0) {
 		uwsgi_log("uwsgi request timed out waiting for response\n");
+	}
 	}
 
 	if (ui->close) {
@@ -1589,6 +1617,94 @@ clear:
 
 }
 
+PyObject *py_uwsgi_fcgi(PyObject * self, PyObject * args) {
+
+	char *node;
+	PyObject *dict;
+	int fd;
+	int i;
+	int stdin_fd = -1;
+	int stdin_size = 0;
+	ssize_t len;
+	char stdin_buf[0xffff];
+	uwsgi_Iter *ui;
+	PyObject *zero, *key, *val;
+
+	if (!PyArg_ParseTuple(args, "sO|ii:fcgi", &node, &dict, &stdin_fd, &stdin_size)) {
+                return NULL;
+        }
+
+	fd = uwsgi_connect(node, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+	
+	if (fd < 0) goto clear2;
+
+	if (!PyDict_Check(dict)) goto clear;
+
+	fcgi_send_record(fd, 1, 8, FCGI_BEGIN_REQUEST);
+
+	PyObject *vars = PyDict_Items(dict);
+
+        if (!vars) goto clear;
+       
+        for (i = 0; i < PyList_Size(vars); i++) {
+                zero = PyList_GetItem(vars, i);
+                if (!zero) {
+                        PyErr_Print();
+                        continue;
+                }
+
+		key = PyTuple_GetItem(zero, 0);
+		val = PyTuple_GetItem(zero, 1);
+
+		if (!PyString_Check(key) || !PyString_Check(val)) continue;
+		
+		fcgi_send_param(fd,
+				PyString_AsString(key), PyString_Size(key),
+				PyString_AsString(val), PyString_Size(val));
+	}
+
+	fcgi_send_record(fd, 4, 0, "");
+
+	if (stdin_fd > -1 && stdin_size) {
+		while(stdin_size) {
+			len = read(stdin_fd, stdin_buf, UMIN(0xffff, stdin_size));
+			if (len < 0) {
+				uwsgi_error("read()");
+				break;
+			}
+			fcgi_send_record(fd, 5, len, stdin_buf);
+			stdin_size-=len;
+		}
+	}
+	fcgi_send_record(fd, 5, 0, "");
+
+	// request sent, return the iterator response
+        ui = PyObject_New(uwsgi_Iter, &uwsgi_IterType);
+        if (!ui) {
+                PyErr_Print();
+                goto clear;
+        }
+
+        ui->fd = fd;
+        ui->timeout = -1;
+        ui->close = 1;
+        ui->started = 0;
+        ui->has_cl = 0;
+        ui->sent = 0;
+        ui->size = 0;
+	ui->func = py_fcgi_iterator;
+
+        return (PyObject *) ui;
+	
+clear:
+	close(fd);
+
+clear2:
+	Py_INCREF(Py_None);
+	return Py_None;
+	
+}
+
 PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
 	PyObject *destination = NULL, *pyobj = NULL, *marshalled = NULL;
@@ -1668,6 +1784,7 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 	ui->has_cl = 0;
 	ui->sent = 0;
 	ui->size = 0;
+	ui->func = NULL;
 	
 	return (PyObject *) ui;
 
@@ -2175,6 +2292,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"recv_block", py_uwsgi_recv_block, METH_VARARGS, ""},
 		{"recv_frame", py_uwsgi_recv_frame, METH_VARARGS, ""},
 		{"close", py_uwsgi_close, METH_VARARGS, ""},
+
+		{"fcgi", py_uwsgi_fcgi, METH_VARARGS, ""},
 		
 		{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},
 		//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
