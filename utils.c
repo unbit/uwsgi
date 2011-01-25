@@ -1403,3 +1403,64 @@ char *uwsgi_get_last_char(char *what, char c) {
 
 	return ptr;
 }
+
+int uwsgi_attach_daemon(char *command) {
+
+	struct uwsgi_daemon *d;
+        int ret = -1;
+
+        uwsgi_lock(uwsgi.daemon_table_lock);
+
+        if (uwsgi.shared->daemons_cnt < MAX_DAEMONS) {
+                d = &uwsgi.shared->daemons[uwsgi.shared->daemons_cnt];
+
+                memcpy(d->command, command, UMIN(strlen(command), 0xff-1));
+		d->registered = 0;
+		d->status = 0;
+
+                uwsgi.shared->daemons_cnt++;
+
+                ret = 0;
+                uwsgi_log("registered daemon %s\n", command);
+        }
+
+        uwsgi_unlock(uwsgi.daemon_table_lock);
+
+        return ret;
+	
+}
+
+void spawn_daemon(struct uwsgi_daemon *ud) {
+
+	char *argv[2];
+	pid_t pid = fork();
+	if (pid < 0) {
+		uwsgi_error("fork()");
+		return;
+	}
+
+	if (pid > 0) {
+		ud->pid = pid;
+		ud->status = 1;
+		if (ud->respawns == 0) {
+			ud->born = time(NULL);
+		}
+
+		ud->respawns++;
+		ud->last_spawn = time(NULL);
+	
+	}
+	else {
+		argv[0] = ud->command;
+		argv[1] = NULL;
+		
+		if (execvp(argv[0], argv)) {
+			uwsgi_error("execvp()");
+		}
+	
+		// never here;
+		exit(1);
+	}
+
+	return;
+}

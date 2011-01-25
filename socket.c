@@ -132,10 +132,11 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 #endif
 
 #ifdef UWSGI_UDP
-	int bind_to_udp(char *socket_name, int multicast) {
+	int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 		int serverfd;
 		struct sockaddr_in uws_addr;
 		char *udp_port;
+		int bcast = 1;
 
 #ifdef UWSGI_MULTICAST
 		struct ip_mreq mc;
@@ -157,13 +158,15 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		uws_addr.sin_family = AF_INET;
 		uws_addr.sin_port = htons(atoi(udp_port + 1));
 
-		if (socket_name[0] != 0) {
+		if (broadcast) {
+			uws_addr.sin_addr.s_addr = INADDR_BROADCAST;
+		}
+		else if (socket_name[0] != 0) {
 			uws_addr.sin_addr.s_addr = inet_addr(socket_name);
 		}
 		else {
 			uws_addr.sin_addr.s_addr = INADDR_ANY;
 		}
-
 
 
 		serverfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -180,6 +183,14 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 			mc.imr_interface.s_addr = INADDR_ANY;
 		}
 #endif
+
+		if (broadcast) {
+			if (setsockopt(serverfd, SOL_SOCKET, SO_BROADCAST, &bcast, sizeof(bcast))) {
+  				perror("setsockopt");
+				close(serverfd);
+				return -1;
+			}
+		}
 
 		if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
 			uwsgi_error("bind()");

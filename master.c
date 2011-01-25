@@ -124,7 +124,7 @@ void master_loop(char **argv, char **environ) {
 	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
-		udp_fd = bind_to_udp(uwsgi.udp_socket, 0);
+		udp_fd = bind_to_udp(uwsgi.udp_socket, 0, 0);
 		uwsgi_poll[uwsgi_poll_size].fd = udp_fd;
 		if (uwsgi_poll[uwsgi_poll_size].fd < 0) {
 			uwsgi_log( "unable to bind to udp socket. SNMP and cluster management services will be disabled.\n");
@@ -271,13 +271,13 @@ void master_loop(char **argv, char **environ) {
 			uwsgi_log( "running %s\n", uwsgi.binary_path);
 			argv[0] = uwsgi.binary_path;
 			//strcpy (argv[0], uwsgi.binary_path);
-			execv(uwsgi.binary_path, argv);
-			uwsgi_error("execv()");
+			execvp(uwsgi.binary_path, argv);
+			uwsgi_error("execvp()");
 			// never here
 			exit(1);
 		}
 
-		if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0) {
+		if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0 || ushared->daemons_cnt > 0) {
 			master_has_children = 1;
 		}
 #ifdef UWSGI_SPOOLER
@@ -320,6 +320,16 @@ void master_loop(char **argv, char **environ) {
 				if (!ushared->files_monitored[i].registered) {
 					ushared->files_monitored[i].fd = event_queue_add_file_monitor(uwsgi.master_queue, ushared->files_monitored[i].filename, &ushared->files_monitored[i].id);
 					ushared->files_monitored[i].registered = 1;		
+				}
+			}
+
+			// add unregistered daemons
+			// locking is not needed as daemons can only increase (for now)
+			for(i=0;i<ushared->daemons_cnt;i++) {
+				if (!ushared->daemons[i].registered) {
+					uwsgi_log("running daemon %s\n", ushared->daemons[i].command);
+					spawn_daemon(&ushared->daemons[i]);
+					ushared->daemons[i].registered = 1;		
 				}
 			}
 

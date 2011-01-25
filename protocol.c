@@ -934,6 +934,8 @@ uint16_t fcgi_get_record(int fd, char *buf) {
                 ptr += len;
         }
 
+	if (fr.type != 6) return 0;
+
 	return ntohs(*rs);
 
 }

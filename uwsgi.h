@@ -16,6 +16,7 @@
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
 #define MAX_GATEWAYS 64
+#define MAX_DAEMONS 8
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
 #define UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -211,6 +212,19 @@ struct uwsgi_gateway {
 	int use_signals;
 };
 
+
+// Daemons are external processes maintained by the master
+
+struct uwsgi_daemon {
+	char command[0xff];
+	pid_t pid;
+	uint64_t respawns;
+	time_t born;
+	time_t last_spawn;	
+	int status;
+	int registered;
+};
+
 // maintain alignment here !!!
 struct uwsgi_cache_item {
 
@@ -307,6 +321,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOG_SYSLOG		17068
 #define LONG_ARGS_LOG_MASTER		17069
 #define LONG_ARGS_CHECK_STATIC		17070
+#define LONG_ARGS_WORKER_EXEC		17071
 
 
 
@@ -667,8 +682,10 @@ struct uwsgi_server {
 
 	char           *mode;
 
+	char *worker_exec;
 	struct uwsgi_gateway gateways[MAX_GATEWAYS];
 	int		gateways_cnt;
+
 
 #ifdef UWSGI_HTTP
 	char           *http;
@@ -905,12 +922,15 @@ struct uwsgi_server {
 	struct uwsgi_cache_item	*cache_items;
 	void		*cache;
 
+
 	void *cache_lock;
 	void *user_lock;
 	void *signal_table_lock;
 	void *fmon_table_lock;
 	void *timer_table_lock;
 	void *rpc_table_lock;
+
+	void *daemon_table_lock;
 
 
 };
@@ -1033,6 +1053,9 @@ struct uwsgi_shared {
 	int rpc_count;
 
 	int worker_log_pipe[2];
+
+	struct uwsgi_daemon daemons[MAX_DAEMONS];
+	int daemons_cnt;
 };
 
 struct uwsgi_core {
@@ -1088,7 +1111,7 @@ void            reload_me(void);
 void            end_me(void);
 int             bind_to_unix(char *, int, int, int);
 int             bind_to_tcp(char *, int, char *);
-int             bind_to_udp(char *, int);
+int             bind_to_udp(char *, int, int);
 int             timed_connect(struct pollfd *, const struct sockaddr *, int, int, int);
 int             uwsgi_connect(char *, int, int);
 int             connect_to_tcp(char *, int, int, int);
@@ -1411,3 +1434,6 @@ struct fcgi_record {
 ssize_t fcgi_send_record(int, uint8_t, uint16_t, char *);
 ssize_t fcgi_send_param(int, char *, uint16_t, char *, uint16_t);
 uint16_t fcgi_get_record(int, char *);
+
+int uwsgi_attach_daemon(char *);
+void spawn_daemon(struct uwsgi_daemon *);

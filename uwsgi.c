@@ -157,6 +157,7 @@ static struct option long_base_options[] = {
 	{"ns", required_argument, 0, LONG_ARGS_LINUX_NS},
 #endif
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
+	{"worker-exec", required_argument, 0, LONG_ARGS_WORKER_EXEC},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
 	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
 	{"dump-options", no_argument, &uwsgi.dump_options, 1},
@@ -605,8 +606,9 @@ int main(int argc, char *argv[], char *envp[])
 	if (uwsgi.cluster != NULL) {
 		// get multicast socket
 
-		uwsgi_log("CLUSTER: %s\n", uwsgi.cluster);
 		uwsgi.cluster_fd = uwsgi_cluster_join(uwsgi.cluster);
+
+		uwsgi_log("JOINED CLUSTER: %s\n", uwsgi.cluster);
 	
 		// ask for cluster options only if bot pre-existent options are set
 		if (uwsgi.exported_opts_cnt == 1) {
@@ -1002,6 +1004,10 @@ int uwsgi_start(void *v_argv) {
 		// timer table lock
 		uwsgi.timer_table_lock = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.timer_table_lock);
+
+		// daemons table lock
+		uwsgi.daemon_table_lock = uwsgi_mmap_shared_lock();
+		uwsgi_lock_init(uwsgi.daemon_table_lock);
 	}
 
 	uwsgi.rpc_table_lock = uwsgi_mmap_shared_lock();
@@ -1499,6 +1505,29 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		master_loop(argv, environ);
 		//from now on the process is a real worker
 	}
+
+	if (uwsgi.worker_exec) {
+		char *w_argv[2];
+		w_argv[0] = uwsgi.worker_exec;
+		w_argv[1] = NULL;
+
+                uwsgi.sockets[0].arg &= (~O_NONBLOCK);
+                if (fcntl(uwsgi.sockets[i].fd, F_SETFL, uwsgi.sockets[i].arg) < 0) {
+                       	uwsgi_error("fcntl()");
+                       	exit(1);
+                }
+
+		if (uwsgi.sockets[0].fd != 0) {
+			if (dup2(uwsgi.sockets[0].fd, 0)) {
+				uwsgi_error("dup2()");
+			}
+		}
+		execvp(w_argv[0], w_argv);
+		// never here
+		uwsgi_error("execvp()");
+		exit(1);
+	}
+
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->post_fork) {
 			uwsgi.p[i]->post_fork();
@@ -1683,6 +1712,9 @@ end:
 			return 1;
 		case LONG_ARGS_LOOP:
 			uwsgi.loop = optarg;
+			return 1;
+		case LONG_ARGS_WORKER_EXEC:
+			uwsgi.worker_exec = optarg;
 			return 1;
 		case LONG_ARGS_REMAP_MODIFIER:
 			uwsgi.remap_modifier = optarg;
@@ -2484,15 +2516,27 @@ int uwsgi_cluster_join(char *name) {
 
 	int fd ;
 	char *cp;
+	int broadcast = 0;
 
 
-	fd = bind_to_udp(name, 1);
+	if (name[0] == ':') {
+		fd = bind_to_udp(name, 0, 1);
+		broadcast = 1;
+	}
+	else {
+		fd = bind_to_udp(name, 1, 0);
+	}
 
 	if (fd >= 0) {
 		cp = strchr(name,':');
                 cp[0] = 0;
                 uwsgi.mc_cluster_addr.sin_family=AF_INET;
-                uwsgi.mc_cluster_addr.sin_addr.s_addr=inet_addr(name);
+		if (broadcast) {
+                	uwsgi.mc_cluster_addr.sin_addr.s_addr=INADDR_BROADCAST;
+		}
+		else {
+                	uwsgi.mc_cluster_addr.sin_addr.s_addr=inet_addr(name);
+		}
                 uwsgi.mc_cluster_addr.sin_port=htons(atoi(cp+1));
                 cp[0] = ':';
 

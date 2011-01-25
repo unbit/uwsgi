@@ -352,12 +352,29 @@ PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
 	char *name;
 	PyObject *func;
 
-	if (!PyArg_ParseTuple(args, "sO|B:register_signal", &name, &func, &argc)) {
+	if (!PyArg_ParseTuple(args, "sO|B:register_rpc", &name, &func, &argc)) {
                 return NULL;
         }
 
 
 	if (uwsgi_register_rpc(name, 0, argc, func)) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	Py_INCREF(Py_True);
+	return Py_True;
+}
+
+PyObject *py_uwsgi_attach_daemon(PyObject * self, PyObject * args) {
+
+	char *command = NULL;
+
+	if (!PyArg_ParseTuple(args, "s:attach_daemon", &command)) {
+                return NULL;
+        }
+
+	if (uwsgi_attach_daemon(command)) {
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
@@ -2250,6 +2267,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 		{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 		{"send", py_uwsgi_send, METH_VARARGS, ""},
 		{"cl", py_uwsgi_cl, METH_VARARGS, ""},
+
+		{"attach_daemon", py_uwsgi_attach_daemon, METH_VARARGS, ""},
 
 		{"register_signal", py_uwsgi_register_signal, METH_VARARGS, ""},
 		{"signal", py_uwsgi_signal, METH_VARARGS, ""},
