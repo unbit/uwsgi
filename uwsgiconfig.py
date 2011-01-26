@@ -148,7 +148,7 @@ class uConf(object):
         self.config = ConfigParser.ConfigParser()
         print("using profile: %s" % filename)
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master',
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'emperor',
             'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'gateway', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:

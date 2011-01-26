@@ -322,6 +322,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOG_MASTER		17069
 #define LONG_ARGS_CHECK_STATIC		17070
 #define LONG_ARGS_WORKER_EXEC		17071
+#define LONG_ARGS_EMPEROR		17072
 
 
 
@@ -662,6 +663,11 @@ struct uwsgi_server {
 	int             has_threads;
 	int             apps_cnt;
 	int             default_app;
+
+	int		has_emperor;
+	int emperor_fd;
+	char *emperor_dir;
+	pid_t emperor_pid;
 
 	int option_index;
 	struct option *long_options;
@@ -1437,3 +1443,6 @@ uint16_t fcgi_get_record(int, char *);
 
 int uwsgi_attach_daemon(char *);
 void spawn_daemon(struct uwsgi_daemon *);
+
+void emperor_loop(void);
+char *uwsgi_num2str(int);

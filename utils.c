@@ -1464,3 +1464,11 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 
 	return;
 }
+
+char *uwsgi_num2str(int num) {
+	
+	char *str = uwsgi_malloc(11);	
+
+	snprintf(str, 11, "%d", num);
+	return str;
+}

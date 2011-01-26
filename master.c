@@ -122,6 +122,10 @@ void master_loop(char **argv, char **environ) {
 	
 
 	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
+
+	if (uwsgi.has_emperor) {
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.emperor_fd);
+	}
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
 		udp_fd = bind_to_udp(uwsgi.udp_socket, 0, 0);
@@ -263,6 +267,14 @@ void master_loop(char **argv, char **environ) {
 						break;
 					}
 				}
+
+				if (!found) {
+					if (uwsgi.has_emperor) {
+						if (i == uwsgi.emperor_fd) {
+							found = 1;
+						}
+					}
+				}
 				if (!found) {
 					close(i);
 				}
@@ -357,6 +369,30 @@ void master_loop(char **argv, char **environ) {
 								}
 								// TODO allow uwsgi.logger = func
 							}	
+						}
+					}
+
+					if (uwsgi.has_emperor) {
+						if (interesting_fd == uwsgi.emperor_fd) {
+							char byte;
+							rlen = read(uwsgi.emperor_fd, &byte, 1);
+                                                        if (rlen > 0) {
+								uwsgi_log("received message %d from emperor\n", byte);
+								// remove me
+								if (byte == 0) {
+									close(uwsgi.emperor_fd);
+									kill_them_all();
+								}
+								// reload me
+								else if (byte == 1) {
+									grace_them_all();
+								}
+                                                        }
+							else {
+								uwsgi_log("lost connection with my emperor !!!\n");
+								close(uwsgi.emperor_fd);
+								kill_them_all();
+							}
 						}
 					}
 
@@ -500,7 +536,7 @@ void master_loop(char **argv, char **environ) {
 			if (uwsgi.logfile) {
 				uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
 				if (uwsgi.shared->logsize > 8192) {
-					uwsgi_log("logsize: %d\n", uwsgi.shared->logsize);
+					//uwsgi_log("logsize: %d\n", uwsgi.shared->logsize);
 					char *new_logfile = uwsgi_malloc(strlen(uwsgi.logfile) + 14 + 1);
 					memset(new_logfile, 0, strlen(uwsgi.logfile) + 14 + 1);    
 					if (!rename(uwsgi.logfile, new_logfile)) {

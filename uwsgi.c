@@ -56,6 +56,7 @@ static struct option long_base_options[] = {
 #endif
 	{"single-interpreter", no_argument, 0, 'i'},
 	{"master", no_argument, 0, 'M'},
+	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
 	{"help", no_argument, 0, 'h'},
 	{"reaper", no_argument, 0, 'r'},
 	{"max-requests", required_argument, 0, 'R'},
@@ -384,6 +385,8 @@ int main(int argc, char *argv[], char *envp[])
 	struct utsname uuts;
 #endif
 
+	char *emperor_env;
+
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 
@@ -458,6 +461,14 @@ int main(int argc, char *argv[], char *envp[])
 	uwsgi.rl.rlim_cur = 0;
 	uwsgi.rl.rlim_max = 0;
 
+	emperor_env = getenv("UWSGI_EMPEROR_FD");
+	if (emperor_env) {
+		uwsgi.has_emperor = 1;
+		uwsgi.emperor_fd = atoi(emperor_env);
+		uwsgi.master_process = 1;
+		uwsgi.no_orphans = 1;
+		uwsgi_log("*** has_emperor mode detected (fd: %d) ***\n", uwsgi.emperor_fd);
+	}
 
 	env_reloads = getenv("UWSGI_RELOADS");
 	if (env_reloads) {
@@ -480,9 +491,6 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	uwsgi.binary_path = argv[0];
-
-	uwsgi_register_loop("simple", simple_loop);
-	uwsgi_register_loop("async", complex_loop);
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -527,7 +535,6 @@ int main(int argc, char *argv[], char *envp[])
 			lopt++;
 		}	
 	}
-
 
 
 	   if (optind < argc) {
@@ -600,6 +607,9 @@ int main(int argc, char *argv[], char *envp[])
 	if (gethostname(uwsgi.hostname, 255)) {
 		uwsgi_error("gethostname()");
 	}
+
+
+
 
 #ifdef UWSGI_UDP
         // get cluster configuration
@@ -928,6 +938,25 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
+	// end of generic initialization
+
+	// start the Emperor if needed
+	if (uwsgi.emperor_dir) {
+		uwsgi.emperor_pid = fork();
+		if (uwsgi.emperor_pid < 0) {
+			uwsgi_error("pid()");
+			exit(1);
+		}
+		else if (uwsgi.emperor_pid > 0) {
+			emperor_loop();
+			// never here
+			exit(1);
+		}
+	}
+
+
+	uwsgi_register_loop("simple", simple_loop);
+	uwsgi_register_loop("async", complex_loop);
 
 	if (uwsgi.async > 1) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
@@ -1156,6 +1185,7 @@ int uwsgi_start(void *v_argv) {
 #ifdef UWSGI_MULTICAST
 					if (j == uwsgi.cluster_fd) continue;
 #endif
+					if (uwsgi.has_emperor) { if (j == uwsgi.emperor_fd) continue; }
 					socket_type_len = sizeof(struct sockaddr_un);
 					gsa.sa = (struct sockaddr *) & usa;
 					if (!getsockname(j, gsa.sa, &socket_type_len)) {
@@ -1772,6 +1802,9 @@ end:
 #endif
 		case LONG_ARGS_LOGTO:
 			logto(optarg);
+			return 1;
+		case LONG_ARGS_EMPEROR:
+			uwsgi.emperor_dir = optarg;
 			return 1;
 		case LONG_ARGS_LOG_MASTER:
 			uwsgi.log_master = 1;
