@@ -59,7 +59,7 @@ char *uwsgi_cache_get(char *key, uint16_t keylen, uint16_t *valsize) {
 		*valsize = uwsgi.cache_items[index].valsize;
 		// no locking needed, as this is only an hint
 		uwsgi.cache_items[index].hits++;
-		return uwsgi.cache+(index*32768);
+		return uwsgi.cache+(index*0xffff);
 	}
 
 	return NULL;
@@ -98,7 +98,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint16_t vallen, uint
 	uwsgi_lock(uwsgi.cache_lock);
 	if (uwsgi.shared->cache_first_available_item >= uwsgi.cache_max_items) goto end;
 
-	uwsgi_log("putting cache data in key %.*s\n", keylen, key);
+	//uwsgi_log("putting cache data in key %.*s %d\n", keylen, key, vallen);
 	index = uwsgi_cache_get_index(key, keylen);
 	if (!index) {
 		index = uwsgi.shared->cache_first_available_item;	
@@ -108,7 +108,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint16_t vallen, uint
 		uci->hits = 0;
 		uci->used = 1;
 		memcpy(uci->key, key, keylen);
-		memcpy(uwsgi.cache+(index*32768), val, vallen);
+		memcpy(uwsgi.cache+(index*0xffff), val, vallen);
 		// set this as late as possibile (to minimize locking)
 		uci->valsize = vallen;
 		uci->keysize = keylen;	

@@ -1097,7 +1097,7 @@ int uwsgi_start(void *v_argv) {
                         exit(1);
 		}
 
-		uwsgi.cache = mmap(NULL, 32768 * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		uwsgi.cache = mmap(NULL, 0xffff * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (!uwsgi.cache) {
 			uwsgi_error("mmap()");
                         exit(1);

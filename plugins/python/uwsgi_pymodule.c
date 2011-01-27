@@ -2357,14 +2357,19 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 
         char *key ;
         char *value ;
+	Py_ssize_t vallen;
+
 	uint64_t expires = 0;
 
-        if (!PyArg_ParseTuple(args, "ss|i:cache_set", &key, &value, &expires)) {
+        if (!PyArg_ParseTuple(args, "ss#|i:cache_set", &key, &value, &vallen, &expires)) {
                 return NULL;
         }
 
+	if (vallen > 0xffff) {
+		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < 64K, requested %d bytes", (int )vallen);
+	}
 
-        if (uwsgi_cache_set(key, strlen(key), value, strlen(value), expires)) {
+        if (uwsgi_cache_set(key, strlen(key), value, vallen, expires)) {
         	Py_INCREF(Py_None);
         	return Py_None;
         }
