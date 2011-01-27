@@ -84,7 +84,7 @@ char *yaml_get_line(char *yaml, off_t size) {
 
 }
 
-void uwsgi_yaml_config(char *file) {
+void uwsgi_yaml_config(char *file, char *magic_table[]) {
 
 	int len = 0;
 	char *yaml;
@@ -115,7 +115,7 @@ void uwsgi_yaml_config(char *file) {
 
 	uwsgi_log("[uWSGI] getting YAML configuration from %s\n", file);
 
-	yaml = uwsgi_open_and_read(file, &len, 1);
+	yaml = uwsgi_open_and_read(file, &len, 1, magic_table);
 
 	while(len) {
 		yaml_line = yaml_get_line(yaml, len);

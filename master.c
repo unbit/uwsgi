@@ -381,6 +381,7 @@ void master_loop(char **argv, char **environ) {
 								// remove me
 								if (byte == 0) {
 									close(uwsgi.emperor_fd);
+									uwsgi.has_emperor = 0;
 									kill_them_all();
 								}
 								// reload me
@@ -391,6 +392,7 @@ void master_loop(char **argv, char **environ) {
 							else {
 								uwsgi_log("lost connection with my emperor !!!\n");
 								close(uwsgi.emperor_fd);
+								uwsgi.has_emperor = 0;
 								kill_them_all();
 							}
 						}

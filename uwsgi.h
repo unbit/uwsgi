@@ -323,6 +323,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CHECK_STATIC		17070
 #define LONG_ARGS_WORKER_EXEC		17071
 #define LONG_ARGS_EMPEROR		17072
+#define LONG_ARGS_PRINT			17073
 
 
 
@@ -1136,7 +1137,7 @@ void            harakiri(void);
 void            stats(void);
 
 #ifdef UWSGI_XML
-void            uwsgi_xml_config(struct wsgi_request *, int);
+void            uwsgi_xml_config(struct wsgi_request *, int, char *[]);
 #endif
 
 void            internal_server_error(int, char *);
@@ -1284,11 +1285,11 @@ void            http_loop(void);
 int             unconfigured_hook(struct wsgi_request *);
 
 #ifdef UWSGI_INI
-void            uwsgi_ini_config(char *);
+void            uwsgi_ini_config(char *, char*[]);
 #endif
 
 #ifdef UWSGI_YAML
-void            uwsgi_yaml_config(char *);
+void            uwsgi_yaml_config(char *, char*[]);
 #endif
 
 
@@ -1421,7 +1422,7 @@ void log_syslog(char *);
 struct uwsgi_gateway *register_gateway(char *, void (*)(void));
 void gateway_respawn(int);
 
-char *uwsgi_open_and_read(char *, int *, int);
+char *uwsgi_open_and_read(char *, int *, int, char *[]);
 char *uwsgi_get_last_char(char *, char);
 
 
@@ -1446,3 +1447,6 @@ void spawn_daemon(struct uwsgi_daemon *);
 
 void emperor_loop(void);
 char *uwsgi_num2str(int);
+
+char *magic_sub(char *, int, int *, char *[]);
+void init_magic_table(char *[]);

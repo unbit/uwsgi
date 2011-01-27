@@ -1,6 +1,7 @@
 #include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
+extern char **environ;
 
 struct uwsgi_instance {
 	struct uwsgi_instance *ui_prev;
@@ -85,6 +86,7 @@ void emperor_add(char *name, time_t born) {
 	pid_t pid ;
 	char *argv[4];
 	char *uef ;
+	char **uenvs;
 
         while(c_ui->ui_next) {
                 c_ui = c_ui->ui_next;
@@ -124,8 +126,32 @@ void emperor_add(char *name, time_t born) {
 		}
 		free(uef);
 
+		uenvs = environ;
+		while(*uenvs) {
+			if (!strncmp(*uenvs, "UWSGI_VASSAL_", 13)) {
+				char *ne = uwsgi_concat2("UWSGI_", *uenvs+13);
+				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0);
+				if (unsetenv(oe)) {
+					uwsgi_error("unsetenv()");
+					break;
+				}
+				free(oe);
+				uwsgi_log("putenv %s\n", ne);
+
+				if (putenv(ne)) {
+					uwsgi_error("putenv()");
+				}
+				// do not free ne as putenv will add it to the environ
+				uenvs = environ;
+				continue;
+			}
+			uenvs++;
+		}
+
+		uwsgi_log("OK\n");
 		// close the left side of the pipe
 		close(n_ui->pipe[0]);
+
 
 		// set args
 		argv[0] = uwsgi.binary_path;

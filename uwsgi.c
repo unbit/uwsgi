@@ -162,6 +162,7 @@ static struct option long_base_options[] = {
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
 	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
 	{"dump-options", no_argument, &uwsgi.dump_options, 1},
+	{"print", required_argument, 0, LONG_ARGS_PRINT},
 	{"version", no_argument, 0, LONG_ARGS_VERSION},
 	{0, 0, 0, 0}
 };
@@ -386,10 +387,12 @@ int main(int argc, char *argv[], char *envp[])
 #endif
 
 	char *emperor_env;
+	char *magic_table[0xff];
 
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 
+	init_magic_table(magic_table);
 	//initialize masterpid with a default value
 	masterpid = getpid();
 
@@ -582,17 +585,48 @@ int main(int argc, char *argv[], char *envp[])
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.wsgi_req, 0);
+		magic_table['o'] = uwsgi.xml_config;
+		if (uwsgi.xml_config[0] == '/') {
+			magic_table['p'] = uwsgi.xml_config;
+		}
+		else {
+			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.xml_config);
+		}
+		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+		if (uwsgi_get_last_char(uwsgi.ini, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.xml_config, '.')+1;
+		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+		uwsgi_xml_config(uwsgi.wsgi_req, 0, magic_table);
 	}
 #endif
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
-		uwsgi_ini_config(uwsgi.ini);
+		magic_table['o'] = uwsgi.ini;
+		if (uwsgi.ini[0] == '/') {
+			magic_table['p'] = uwsgi.ini;
+		}
+		else {
+			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.ini);
+		}
+
+		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+		if (uwsgi_get_last_char(uwsgi.ini, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.ini, '.')+1;
+		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+		uwsgi_ini_config(uwsgi.ini, magic_table);
 	}
 #endif
 #ifdef UWSGI_YAML
 	if (uwsgi.yaml != NULL) {
-		uwsgi_yaml_config(uwsgi.yaml);
+		magic_table['o'] = uwsgi.yaml;
+		if (uwsgi.yaml[0] == '/') {
+			magic_table['p'] = uwsgi.yaml;
+		}
+		else {
+			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.yaml);
+		}
+		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+		if (uwsgi_get_last_char(uwsgi.ini, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.yaml, '.')+1;
+		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+		uwsgi_yaml_config(uwsgi.yaml, magic_table);
 	}
 #endif
 #ifdef UWSGI_LDAP
@@ -1433,7 +1467,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
 	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.wsgi_req, 1);
+		uwsgi_xml_config(uwsgi.wsgi_req, 1, NULL);
 	}
 #endif
 
@@ -1813,6 +1847,9 @@ end:
 			log_syslog(optarg);
 			uwsgi.log_syslog = 1;
 			uwsgi.log_master = 1;
+			return 1;
+		case LONG_ARGS_PRINT:
+			uwsgi_log("%s\n", optarg);
 			return 1;
 		case LONG_ARGS_VERSION:
 			fprintf(stdout, "uWSGI %s\n", UWSGI_VERSION);

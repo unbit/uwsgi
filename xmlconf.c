@@ -9,7 +9,7 @@ extern struct uwsgi_server uwsgi;
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
-void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag) {
+void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag, char *magic_table[]) {
 	xmlDoc *doc = NULL;
 	xmlNode *element = NULL;
 	xmlNode *node = NULL;
@@ -38,7 +38,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag) {
 		uwsgi_log( "[uWSGI] using xml uwsgi id: %s\n", colon);
 	}
 
-	xml_content = uwsgi_open_and_read(uwsgi.xml_config, &xml_size, 0);
+	xml_content = uwsgi_open_and_read(uwsgi.xml_config, &xml_size, 0, magic_table);
 
 	doc = xmlReadMemory(xml_content, xml_size, uwsgi.xml_config, NULL, 0);
 	if (doc == NULL) {

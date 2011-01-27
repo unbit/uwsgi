@@ -1244,7 +1244,7 @@ char *uwsgi_cheap_string(char *buf, int len) {
 }
 
 
-char *uwsgi_open_and_read(char *url, int *size, int add_zero) {
+char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[]) {
 
 	int fd;
 	struct stat sb;
@@ -1256,6 +1256,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero) {
 	char *ip ;
 	struct hostent *he;
 	int body = 0;
+	char *magic_buf;
 
 	// http url ?
 	if (!strncmp("http://", url, 7)) {
@@ -1386,7 +1387,54 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero) {
         		buffer[sb.st_size] = 0;
 	}
 
+	if (magic_table) {
+
+		magic_buf = magic_sub(buffer, *size, size, magic_table);
+		free(buffer);
+		return magic_buf;
+	}
+
 	return buffer;
+}
+
+char *magic_sub(char *buffer, int len, int *size, char *magic_table[]) {
+
+	int i;
+	size_t magic_len = 0;
+	char *magic_buf = uwsgi_malloc(len);
+	char *magic_ptr = magic_buf;
+	char *old_magic_buf;
+
+	for(i=0;i<len;i++) {
+		if (buffer[i] == '%' && (i+1) < len && magic_table[(int)buffer[i+1]]) {
+			old_magic_buf = magic_buf;
+			magic_buf = uwsgi_concat3n(old_magic_buf, magic_len, magic_table[(int)buffer[i+1]], strlen(magic_table[(int)buffer[i+1]]), buffer+i+2, len-i);
+			free(old_magic_buf);
+			magic_len+= strlen(magic_table[(int)buffer[i+1]]);
+			magic_ptr = magic_buf + magic_len;
+			i++;
+		}
+		else {
+			*magic_ptr = buffer[i];
+			magic_ptr++;
+			magic_len++;
+		}
+	}
+
+	*size = magic_len;
+
+	return magic_buf;
+
+}
+
+void init_magic_table(char *magic_table[]) {
+
+	int i;
+	for(i=0;i<0xff;i++) {
+		magic_table[i] = "";
+	}
+
+	magic_table['%'] = "%";
 }
 
 char *uwsgi_get_last_char(char *what, char c) {

@@ -71,7 +71,7 @@ char *ini_get_line(char *ini, off_t size) {
 
 }
 
-void uwsgi_ini_config(char *file) {
+void uwsgi_ini_config(char *file, char *magic_table[]) {
 
 	int len = 0;
 	char *ini;
@@ -98,7 +98,7 @@ void uwsgi_ini_config(char *file) {
 
 	uwsgi_log("[uWSGI] getting INI configuration from %s\n", file);
 
-	ini = uwsgi_open_and_read(file, &len, 1);
+	ini = uwsgi_open_and_read(file, &len, 1, magic_table);
 
 	while(len) {
 		ini_line = ini_get_line(ini, len);
