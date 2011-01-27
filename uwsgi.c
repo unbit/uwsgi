@@ -543,9 +543,13 @@ int main(int argc, char *argv[], char *envp[])
 	   if (optind < argc) {
 	   	char *lazy = argv[optind];
 		if (lazy[0] != '[') {
-			if (!strcmp(lazy+strlen(lazy)-4, ".xml")) {
+			if (0) {}
+
+#ifdef UWSGI_XML
+			else if (!strcmp(lazy+strlen(lazy)-4, ".xml")) {
 				uwsgi.xml_config = lazy;
 			}
+#endif
 #ifdef UWSGI_INI
 			else if (!strcmp(lazy+strlen(lazy)-4, ".ini")) {
 				uwsgi.ini = lazy;
