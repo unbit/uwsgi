@@ -91,6 +91,7 @@ int uwsgi_python_init() {
 
 	uwsgi_log("Python main interpreter initialized at %p\n", up.main_thread);
 
+	init_pyargv();
 #ifdef UWSGI_MINTERPRETERS
 	init_uwsgi_embedded_module();
 #endif
