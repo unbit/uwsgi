@@ -1123,30 +1123,6 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-	// initialize request plugin only if workers are available
-	if (uwsgi.sockets_cnt) {
-		for (i = 0; i < 0xFF; i++) {
-			if (uwsgi.p[i]->init) {
-				uwsgi.p[i]->init();
-			}
-		}
-	}
-
-
-	uwsgi.current_wsgi_req = simple_current_wsgi_req;
-
-
-#ifdef UWSGI_THREADING
-	if (uwsgi.sockets_cnt) {
-		if (uwsgi.has_threads) {
-			uwsgi.current_wsgi_req = threaded_current_wsgi_req;
-			for (i = 0; i < 0xFF; i++) {
-				if (uwsgi.p[i]->enable_threads)
-					uwsgi.p[i]->enable_threads();
-			}
-		}
-	}
-#endif
 
 	if (!uwsgi.no_server) {
 
@@ -1275,10 +1251,15 @@ int uwsgi_start(void *v_argv) {
 					uwsgi.sockets[uwsgi.sockets_cnt - 1].fd = 0;
 					uwsgi.sockets[uwsgi.sockets_cnt - 1].bound = 1;
 					uwsgi.sockets[uwsgi.sockets_cnt - 1].family = gsa.sa->sa_family;
-					//uwsgi.sockets[uwsgi.sockets_cnt - 1].name = uwsgi_get_socket_name(gsa->sa_family, gsa);
+					if (uwsgi.sockets[uwsgi.sockets_cnt - 1].family == AF_UNIX) {	
+						uwsgi.sockets[uwsgi.sockets_cnt - 1].name = usa.sa_un.sun_path;
+						uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi.sockets_cnt - 1, uwsgi.sockets[uwsgi.sockets_cnt - 1].name);
+					}
+					else {
+						uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi.sockets_cnt - 1, uwsgi.sockets[uwsgi.sockets_cnt - 1].name);
+					}
 					uwsgi.sockets_poll[uwsgi.sockets_cnt - 1].fd = 0;
 					uwsgi.sockets_poll[uwsgi.sockets_cnt - 1].events = POLLIN;
-					uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
 				} else {
 					uwsgi_log("too many socket defined, i cannot map fd 0\n");
 				}
@@ -1314,6 +1295,32 @@ int uwsgi_start(void *v_argv) {
 		}
 	
 	}
+
+	
+	// initialize request plugin only if workers are available
+	if (uwsgi.sockets_cnt) {
+		for (i = 0; i < 0xFF; i++) {
+			if (uwsgi.p[i]->init) {
+				uwsgi.p[i]->init();
+			}
+		}
+	}
+
+
+	uwsgi.current_wsgi_req = simple_current_wsgi_req;
+
+
+#ifdef UWSGI_THREADING
+	if (uwsgi.sockets_cnt) {
+		if (uwsgi.has_threads) {
+			uwsgi.current_wsgi_req = threaded_current_wsgi_req;
+			for (i = 0; i < 0xFF; i++) {
+				if (uwsgi.p[i]->enable_threads)
+					uwsgi.p[i]->enable_threads();
+			}
+		}
+	}
+#endif
 
 	if (!uwsgi.sockets_cnt && !uwsgi.gateways_cnt && !uwsgi.no_server) {
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
@@ -1456,13 +1463,13 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	}
 #endif
 
-
 	//init apps hook
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->init_apps) {
 			uwsgi.p[i]->init_apps();
 		}
 	}
+
 
 	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
