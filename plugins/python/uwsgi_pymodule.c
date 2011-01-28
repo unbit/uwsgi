@@ -2357,7 +2357,7 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 
         char *key ;
         char *value ;
-	Py_ssize_t vallen;
+	Py_ssize_t vallen = 0;
 
 	uint64_t expires = 0;
 
