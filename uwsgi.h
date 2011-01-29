@@ -451,6 +451,8 @@ struct uwsgi_plugin {
 	char*		(*decode_string)(void *);
 	int		(*signal_handler)(uint8_t, void *, char *, uint8_t);
 
+	int		(*spooler)(char *, uint16_t);
+
 	uint16_t	(*rpc)(void *, uint8_t, char **, char *);
 
 };
@@ -936,6 +938,7 @@ struct uwsgi_server {
 	void *fmon_table_lock;
 	void *timer_table_lock;
 	void *rpc_table_lock;
+	void *spooler_lock;
 
 	void *daemon_table_lock;
 
@@ -1148,7 +1151,7 @@ void            snmp_init(void);
 #endif
 
 #ifdef UWSGI_SPOOLER
-int             spool_request(char *, int, char *, int);
+int             spool_request(char *, int, int, char *, int);
 void            spooler(void);
 pid_t           spooler_start(void);
 #endif
