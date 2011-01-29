@@ -823,6 +823,11 @@ uint16_t uwsgi_python_rpc(void * func, uint8_t argc, char **argv, char *buffer) 
 
 }
 
+int uwsgi_python_spooler(int argc, char *argv[]) {
+
+	return 0;
+}
+
 void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 	PyThreadState* tstate = PyThreadState_GET();
@@ -859,7 +864,8 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 			.signal_handler = uwsgi_python_signal_handler,
 			.rpc = uwsgi_python_rpc,
-			//.spooler = uwsgi_python_spooler,
+
+			.spooler = uwsgi_python_spooler,
 			/*
 			   .help = uwsgi_python_help,
 			   */

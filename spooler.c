@@ -26,7 +26,7 @@ pid_t spooler_start() {
 }
 
 
-int spool_request(char *filename, int rn, char *buffer, int size) {
+int spool_request(char *filename, int rn, int core_id, char *buffer, int size) {
 
 	struct timeval tv;
 	int fd;
@@ -34,7 +34,7 @@ int spool_request(char *filename, int rn, char *buffer, int size) {
 
 	gettimeofday(&tv, NULL);
 
-	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%llu_%llu", uwsgi.spool_dir, uwsgi.hostname, (int) getpid(), rn, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uwsgi.spool_dir, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
 		return 0;
 	}
 
@@ -90,27 +90,26 @@ void spooler() {
 	DIR *sdir;
 	struct dirent *dp;
 
-	//PyObject *spooler_callable, *spool_result, *spool_tuple, *spool_env;
 
 	int spool_fd;
 	uint16_t uwstrlen;
 	int rlen = 0;
 	int datasize;
 
-		// prevent process blindly reading stdin to make mess
-		int nullfd;
+	// prevent process blindly reading stdin to make mess
+	int nullfd;
 
-		struct uwsgi_header uh;
+	struct uwsgi_header uh;
 
-		char *key;
-		char *val;
+	char *key;
+	char *val;
 
-		if (chdir(uwsgi.spool_dir)) {
-			uwsgi_error("chdir()");
-			exit(1);
-		}
+	if (chdir(uwsgi.spool_dir)) {
+		uwsgi_error("chdir()");
+		exit(1);
+	}
 
-		// asked by Marco Beri
+	// asked by Marco Beri
 #ifdef __HAIKU__
 		uwsgi_log( "lowering spooler priority to %d\n", B_LOW_PRIORITY);
 		set_thread_priority(find_thread(NULL), B_LOW_PRIORITY);
@@ -119,11 +118,11 @@ void spooler() {
 		setpriority(PRIO_PROCESS, getpid(), PRIO_MAX);
 #endif
 
-		nullfd = open("/dev/null", O_RDONLY);
-		if (nullfd < 0) {
-			uwsgi_error("open()");
-			exit(1);
-		}
+	nullfd = open("/dev/null", O_RDONLY);
+	if (nullfd < 0) {
+		uwsgi_error("open()");
+		exit(1);
+	}
 
 		if (nullfd != 0) {
 			dup2(nullfd, 0);
@@ -147,14 +146,6 @@ void spooler() {
 						}
 						if (!access(dp->d_name, R_OK | W_OK)) {
 							uwsgi_log( "managing spool request %s ...\n", dp->d_name);
-
-							/*
-							   spooler_callable = PyDict_GetItemString(uwsgi.embedded_dict, "spooler");
-							   if (!spooler_callable) {
-							   uwsgi_log( "you have to define uwsgi.spooler to use the spooler !!!\n");
-							   continue;
-							   }
-							   */
 
 							spool_fd = open(dp->d_name, O_RDONLY);
 							if (spool_fd < 0) {
@@ -234,7 +225,6 @@ void spooler() {
 											}
 											datasize += rlen;
 											val[rlen] = 0;
-											/* ready to add item to the dict */
 										}
 
 										/*
@@ -256,21 +246,7 @@ void spooler() {
 
 
 								/*
-									spool_result = python_call(spooler_callable, spool_tuple, 0);
-									if (!spool_result) {
-										PyErr_Print();
-										uwsgi_log( "error detected. spool request canceled.\n");
-										goto next_spool;
-									}
-									if (PyInt_Check(spool_result)) {
-										if (PyInt_AsLong(spool_result) == 17) {
-											Py_DECREF(spool_result);
-											uwsgi_log( "retry this task later...\n");
-											goto retry_later;
-										}
-									}
-
-									Py_DECREF(spool_result);
+									pass request to plugins
 								*/
 
 								uwsgi_log( "done with task/spool %s\n", dp->d_name);
@@ -282,7 +258,6 @@ next_spool:
 									exit(1);
 								}
 retry_later:
-								//PyDict_Clear(spool_env);
 								close(spool_fd);
 							}
 						}
@@ -296,20 +271,15 @@ retry_later:
 			}
 		}
 
-		int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
+
+int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 
 			int i;
 			char spool_filename[1024];
 
 			if (uwsgi.spool_dir == NULL) {
 				uwsgi_log( "the spooler is inactive !!!...skip\n");
-				wsgi_req->uh.modifier1 = 255;
-				wsgi_req->uh.pktsize = 0;
-				wsgi_req->uh.modifier2 = 0;
-				i = write(wsgi_req->poll.fd, wsgi_req, 4);
-				if (i != 4) {
-					uwsgi_error("write()");
-				}
+				uwsgi_send_empty_pkt(wsgi_req->poll.fd, NULL, 255, 0);
 				return -1;
 			}
 
