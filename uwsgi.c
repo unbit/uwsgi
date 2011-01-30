@@ -448,7 +448,7 @@ int main(int argc, char *argv[], char *envp[])
 	uwsgi.numproc = 1;
 
 	uwsgi.async = 1;
-	uwsgi.listen_queue = 64;
+	uwsgi.listen_queue = 100;
 
 	uwsgi.max_vars = MAX_VARS;
 	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);
