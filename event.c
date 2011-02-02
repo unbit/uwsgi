@@ -185,6 +185,19 @@ int event_queue_init() {
 	return kfd;
 }
 
+int event_queue_del_fd(int eq, int fd) {
+
+	struct kevent kev;
+
+        EV_SET(&kev, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+	
+	return fd;
+}
+
 int event_queue_add_fd_read(int eq, int fd) {
 
 	struct kevent kev;
