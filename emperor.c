@@ -1,4 +1,6 @@
 #include "uwsgi.h"
+#include <glob.h>
+
 
 extern struct uwsgi_server uwsgi;
 extern char **environ;
@@ -148,7 +150,6 @@ void emperor_add(char *name, time_t born) {
 			uenvs++;
 		}
 
-		uwsgi_log("OK\n");
 		// close the left side of the pipe
 		close(n_ui->pipe[0]);
 
@@ -188,16 +189,28 @@ void emperor_loop() {
 	int waitpid_status;
 	int has_children = 0;
 	int i_am_alone = 0;
+	int simple_mode = 0;
+	glob_t g;
+	int i;
+	struct dirent *de;
 
 	memset(&ui_base, 0, sizeof(struct uwsgi_instance));
 
 	uwsgi_log("*** starting uWSGI Emperor ***\n");
 
-	if (chdir(uwsgi.emperor_dir)) {
-		uwsgi_error("chdir()");
+	if (!glob(uwsgi.emperor_dir, GLOB_MARK, NULL, &g)) {
+		if (g.gl_pathc == 1 && g.gl_pathv[0][strlen(g.gl_pathv[0])-1] == '/' ) {
+			simple_mode = 1;
+			if (chdir(uwsgi.emperor_dir)) {
+				uwsgi_error("chdir()");
+				exit(1);
+			}
+		}
+	}
+	else {
+		uwsgi_error("glob()");
 		exit(1);
 	}
-	struct dirent *de;
 
 	ui = &ui_base;
 
@@ -214,35 +227,72 @@ void emperor_loop() {
 			}
 		}
 
-		DIR *dir = opendir(".");
-		while((de = readdir(dir)) != NULL) {
-			if (!strcmp(de->d_name+(strlen(de->d_name)-4), ".xml") ||
-				!strcmp(de->d_name+(strlen(de->d_name)-4), ".ini") ||
-				!strcmp(de->d_name+(strlen(de->d_name)-4), ".yml") ||
-				!strcmp(de->d_name+(strlen(de->d_name)-5), ".yaml")
-				) {
+		if (simple_mode) {
+			DIR *dir = opendir(".");
+			while((de = readdir(dir)) != NULL) {
+				if (!strcmp(de->d_name+(strlen(de->d_name)-4), ".xml") ||
+					!strcmp(de->d_name+(strlen(de->d_name)-4), ".ini") ||
+					!strcmp(de->d_name+(strlen(de->d_name)-4), ".yml") ||
+					!strcmp(de->d_name+(strlen(de->d_name)-5), ".yaml")
+					) {
 
 				
-				if (strlen(de->d_name) >= 0xff) continue;
+					if (strlen(de->d_name) >= 0xff) continue;
 
-				if (stat(de->d_name, &st)) continue;
+					if (stat(de->d_name, &st)) continue;
 
-				if (!S_ISREG(st.st_mode)) continue;
+					if (!S_ISREG(st.st_mode)) continue;
 		
-				ui_current = emperor_get(de->d_name);
+					ui_current = emperor_get(de->d_name);
 
-				if (ui_current) {
-					// check if mtime is changed and the uWSGI instance must be reloaded
-					if (st.st_mtime > ui_current->last_mod) {
-						emperor_respawn(ui_current, st.st_mtime);
+					if (ui_current) {
+						// check if mtime is changed and the uWSGI instance must be reloaded
+						if (st.st_mtime > ui_current->last_mod) {
+							emperor_respawn(ui_current, st.st_mtime);
+						}
+					}
+					else {
+						emperor_add(de->d_name, st.st_mtime);
 					}
 				}
-				else {
-					emperor_add(de->d_name, st.st_mtime);
-				}	
+			}
+			closedir(dir);
+		}
+		else {
+			if (glob(uwsgi.emperor_dir, GLOB_MARK, NULL, &g)) {
+				uwsgi_error("glob()");
+				continue;
+			}
+
+			for(i=0;i<(int)g.gl_pathc;i++) {
+				if (!strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-4), ".xml") ||
+                                        !strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-4), ".ini") ||
+                                        !strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-4), ".yml") ||
+                                        !strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-5), ".yaml")
+                                        ) {
+
+
+                                        if (strlen(g.gl_pathv[i]) >= 0xff) continue;
+
+                                        if (stat(g.gl_pathv[i], &st)) continue;
+
+                                        if (!S_ISREG(st.st_mode)) continue;
+
+                                        ui_current = emperor_get(g.gl_pathv[i]);
+
+                                        if (ui_current) {
+                                                // check if mtime is changed and the uWSGI instance must be reloaded
+                                                if (st.st_mtime > ui_current->last_mod) {
+                                                        emperor_respawn(ui_current, st.st_mtime);
+                                                }
+                                        }
+                                        else {
+                                                emperor_add(g.gl_pathv[i], st.st_mtime);
+                                        }
+                                }
+	
 			}
 		}
-		closedir(dir);
 
 		// check for removed instances
 

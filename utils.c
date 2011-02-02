@@ -1229,16 +1229,12 @@ char *uwsgi_cheap_string(char *buf, int len) {
 	char *cheap_buf = buf-1;
 
 
-	uwsgi_log("original buf: %.*s\n", len ,buf);
-
 	for(i=0;i<len;i++) {
 		*cheap_buf++= buf[i];
 	}
 
 	
 	buf[len-1] = 0;
-
-	uwsgi_log("cheap buf: %s\n", buf-1);
 
 	return buf-1;
 }
@@ -1519,4 +1515,13 @@ char *uwsgi_num2str(int num) {
 
 	snprintf(str, 11, "%d", num);
 	return str;
+}
+
+int is_unix(char *socket_name, int len) {
+	int i;
+	for(i=0;i<len;i++) {
+		if (socket_name[i] == ':') return 0;
+	}
+
+	return 1;
 }

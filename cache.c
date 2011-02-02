@@ -148,6 +148,8 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 
 	uint16_t vallen = 0;
 	char *value;
+	char *argv[3];
+	uint8_t argc = 0;
 
 	switch(wsgi_req->uh.modifier2) {
 		case 0:
@@ -155,12 +157,22 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 			if (wsgi_req->uh.pktsize > 0) {
 				value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh.pktsize, &vallen);
 				if (value && vallen > 0) {
-					wsgi_req->response_size = write(wsgi_req->poll.fd, value, vallen);
+					wsgi_req->uh.pktsize = vallen;
+					wsgi_req->response_size = write(wsgi_req->poll.fd, &wsgi_req->uh, 4);
+					wsgi_req->response_size += write(wsgi_req->poll.fd, value, vallen);
 				}
 			}
 			break;		
 		case 1:
 			// set
+			if (wsgi_req->uh.pktsize > 0) {
+				argc = 3;
+				if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh.pktsize, argv, &argc)) {
+					if (argc > 1) {
+						uwsgi_cache_set(argv[0], strlen(argv[0]), argv[1], strlen(argv[1]), 0);
+					}
+				}
+			}
 			break;
 		case 2:
 			// del

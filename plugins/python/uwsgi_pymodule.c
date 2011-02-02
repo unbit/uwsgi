@@ -1796,6 +1796,12 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 	}
 
 	UWSGI_GET_GIL
+
+	// if it is a fd passing request, return None
+	if (fd >=0 && cl == -1) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 		// request sent, return the iterator response
 		ui = PyObject_New(uwsgi_Iter, &uwsgi_IterType);
 	if (!ui) {
@@ -2348,16 +2354,21 @@ static PyMethodDef uwsgi_sa_methods[] = {
 PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 
 	char *key;
-	char *value;
+	Py_ssize_t keylen = 0;
+	char *remote = NULL;
 
-	if (!PyArg_ParseTuple(args, "s:cache_del", &key, &value)) {
+	if (!PyArg_ParseTuple(args, "s#|s:cache_del", &key, &keylen, &remote)) {
 		return NULL;
 	}
 
-
-	if (uwsgi_cache_del(key, strlen(key))) {
-		Py_INCREF(Py_None);
-		return Py_None;
+	if (remote) {
+		uwsgi_simple_send_string(remote, 111, 2, key, keylen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
+	}
+	else if (uwsgi.cache_max_items) {
+		if (uwsgi_cache_del(key, strlen(key))) {
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
 	}
 
 	Py_INCREF(Py_True);
@@ -2371,10 +2382,12 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 	char *key;
 	char *value;
 	Py_ssize_t vallen = 0;
+	Py_ssize_t keylen = 0;
+	char *remote = NULL;
 
 	uint64_t expires = 0;
 
-	if (!PyArg_ParseTuple(args, "ss#|i:cache_set", &key, &value, &vallen, &expires)) {
+	if (!PyArg_ParseTuple(args, "s#s#|is:cache_set", &key, &keylen, &value, &vallen, &expires, &remote)) {
 		return NULL;
 	}
 
@@ -2382,9 +2395,14 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < 64K, requested %d bytes", (int) vallen);
 	}
 
-	if (uwsgi_cache_set(key, strlen(key), value, vallen, expires)) {
-		Py_INCREF(Py_None);
-		return Py_None;
+	if (remote) {
+		uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
+	}
+	else if (uwsgi.cache_max_items) {
+		if (uwsgi_cache_set(key, strlen(key), value, vallen, expires)) {
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
 	}
 
 	Py_INCREF(Py_True);
@@ -2415,13 +2433,24 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	char *key;
 	uint16_t valsize;
-	char *value;
+	Py_ssize_t keylen = 0;
+	char *value = NULL;
+	char *remote = NULL;
+	char buffer[0xffff];
 
-	if (!PyArg_ParseTuple(args, "s:cache_get", &key)) {
+	if (!PyArg_ParseTuple(args, "s#|s:cache_get", &key, &keylen, &remote)) {
 		return NULL;
 	}
 
-	value = uwsgi_cache_get(key, strlen(key), &valsize);
+	if (remote) {
+		uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (valsize > 0) {
+			value = buffer;
+		}
+	}
+	else if (uwsgi.cache_max_items) {
+		value = uwsgi_cache_get(key, strlen(key), &valsize);
+	}
 
 	if (value) {
 		return PyString_FromStringAndSize(value, valsize);

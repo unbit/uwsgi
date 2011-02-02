@@ -218,6 +218,17 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 #endif
 
+int uwsgi_connectn(char *socket_name, uint16_t len, int timeout, int async) {
+
+	int fd ;
+
+	char *zeroed_socket_name = uwsgi_concat2n(socket_name, len, "", 0);
+	fd = uwsgi_connect(zeroed_socket_name, timeout, async);
+
+	free(zeroed_socket_name);
+	return fd;
+}
+
 int uwsgi_connect(char *socket_name, int timeout, int async) {
 
 	int ret;

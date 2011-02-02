@@ -118,6 +118,37 @@ int event_queue_add_fd_read(int eq, int fd) {
         return fd;
 }
 
+int event_queue_del_fd(int eq, int fd) {
+
+        struct epoll_event ee;
+
+        memset(&ee, 0, sizeof(struct epoll_event));
+        ee.data.fd = fd;
+
+        if (epoll_ctl(eq, EPOLL_CTL_DEL, fd, &ee)) {
+                uwsgi_error("epoll_ctl()");
+                return -1;
+        }
+
+        return fd;
+}
+
+int event_queue_add_fd_write(int eq, int fd) {
+
+        struct epoll_event ee;
+
+        memset(&ee, 0, sizeof(struct epoll_event));
+        ee.events = EPOLLOUT;
+        ee.data.fd = fd;
+
+        if (epoll_ctl(eq, EPOLL_CTL_ADD, fd, &ee)) {
+                uwsgi_error("epoll_ctl()");
+                return -1;
+        }
+
+        return fd;
+}
+
 int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 
         int ret;

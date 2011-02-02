@@ -332,6 +332,28 @@ class uConf(object):
         if self.get('udp'):
             self.cflags.append("-DUWSGI_UDP")
 
+        if self.get('pcre'):
+	    if self.get('pcre') == 'auto':
+		pcreconf = spcall('pcre-config --libs')
+                if pcreconf:
+                    self.libs.append(pcreconf)
+                    pcreconf = spcall("pcre-config --cflags")
+                    self.cflags.append(pcreconf)
+                    self.gcc_list.append('regexp')
+                    self.cflags.append("-DUWSGI_PCRE")
+
+	    else:
+		pcreconf = spcall('pcre-config --libs')
+		if pcreconf is None:
+                    print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
+                    sys.exit(1)
+                else:
+                    self.libs.append(pcreconf)
+                    pcreconf = spcall("pcre-config --cflags")
+                    self.cflags.append(pcreconf)
+                    self.gcc_list.append('regexp')
+                    self.cflags.append("-DUWSGI_PCRE")
+
         if self.get('async'):
             self.cflags.append("-DUWSGI_ASYNC")
             self.gcc_list.append('async')
@@ -355,26 +377,6 @@ class uConf(object):
             self.cflags.append("-DUWSGI_LDAP")
             self.gcc_list.append('ldap')
             self.libs.append('-lldap')
-
-        """
-    if ROUTING:
-        depends_on("ROUTING", ['WEB3', 'XML'])
-        cflags.append("-DUWSGI_ROUTING")
-        gcc_list.append('routing')
-        pcreconf = spcall("pcre-config --cflags")
-        if pcreconf is None:
-            print ("*** Unable to locate pcre-config.  The uWSGI build has been interrupted.  You have to install pcre.")
-            sys.exit(1)
-        else:
-            cflags.append(pcreconf)
-
-        pcreconf = spcall("pcre-config --libs")
-        if pcreconf is None:
-            print ("*** Unable to locate pcre-config.  The uWSGI build has been interrupted.  You have to install pcre.")
-            sys.exit(1)
-        else:
-            libs.append(pcreconf)
-        """
 
         if self.get('http'):
             self.cflags.append("-DUWSGI_HTTP")

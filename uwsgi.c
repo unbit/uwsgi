@@ -996,6 +996,7 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_register_loop("simple", simple_loop);
 	uwsgi_register_loop("async", complex_loop);
 
+
 	if (uwsgi.async > 1) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 			if ((unsigned long) uwsgi.rl.rlim_cur < (unsigned long) uwsgi.async) {
@@ -1016,6 +1017,10 @@ int uwsgi_start(void *v_argv) {
 				uwsgi_log("- async cores set to %d -\n", uwsgi.async);
 			}
 		}
+	}
+
+	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
+		uwsgi.max_fd = uwsgi.rl.rlim_max;	
 	}
 
 	uwsgi.wsgi_requests = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.cores);

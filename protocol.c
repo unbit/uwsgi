@@ -127,7 +127,9 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 	return uwsgi_poll.fd;
 }
 
-ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *message, uint16_t size, int pfd, size_t plen, int timeout) {
+
+
+ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *message, uint16_t size, int pfd, ssize_t plen, int timeout) {
 
 	struct pollfd uwsgi_mpoll;
 	ssize_t cnt;
@@ -135,7 +137,13 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 	char buffer[4096];
 	ssize_t ret = 0;
 	int pret;
-
+	struct msghdr msg;
+	struct iovec  iov [1];
+	union {
+		struct cmsghdr cmsg;
+		char control [CMSG_SPACE (sizeof (int))];
+	} msg_control;
+	struct cmsghdr *cmsg;
 
 	if (!timeout) timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
 
@@ -143,7 +151,33 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 	uh.pktsize = size;
 	uh.modifier2 = modifier2;
 
-	cnt = write(fd, &uh, 4);
+	if (pfd >= 0 && plen == -1) {
+		// pass the fd
+		iov[0].iov_base = &uh;
+		iov[0].iov_len = 4;
+		
+		msg.msg_name    = NULL;
+		msg.msg_namelen = 0;
+		msg.msg_iov     = iov;
+		msg.msg_iovlen  = 1;
+		msg.msg_flags   = 0;
+
+		msg.msg_control    = &msg_control;
+		msg.msg_controllen = sizeof (msg_control);
+
+		cmsg = CMSG_FIRSTHDR (&msg);
+		cmsg->cmsg_len   = CMSG_LEN (sizeof (int));
+		cmsg->cmsg_level = SOL_SOCKET;
+		cmsg->cmsg_type  = SCM_RIGHTS;
+
+		*((int *) CMSG_DATA (cmsg)) = pfd;
+		
+		uwsgi_log("passing fd\n");
+		cnt = sendmsg(fd, &msg, 0);	
+	}
+	else {
+		cnt = write(fd, &uh, 4);
+	}
 	if (cnt != 4) {
 		uwsgi_error("write()");
 		return -1;
@@ -201,6 +235,13 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 
 int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header *uh, char *buffer) {
 	int rlen, i;
+	struct msghdr   msg;
+	struct iovec    iov [1];
+	struct cmsghdr *cmsg;
+	union {
+		struct cmsghdr cmsg;
+		char control [CMSG_SPACE (sizeof (int))];
+	} msg_control;
 
 	if (!timeout)
 		timeout = 1;
@@ -216,7 +257,20 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		close(upoll->fd);
 		return 0;
 	}
-	rlen = read(upoll->fd, uh, 4);
+
+	iov [0].iov_base = uh;
+	iov [0].iov_len  = 4;
+
+	msg.msg_name       = NULL;
+	msg.msg_namelen    = 0;
+	msg.msg_iov        = iov;
+	msg.msg_iovlen     = 1;
+	msg.msg_control    = &msg_control;
+	msg.msg_controllen = sizeof (msg_control);
+	msg.msg_flags      = 0;
+
+	//rlen = read(upoll->fd, uh, 4);
+	rlen = recvmsg(upoll->fd, &msg, 0);
 	if (rlen > 0 && rlen < 4) {
 		i = rlen;
 		while (i < 4) {
@@ -263,6 +317,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		return 0;
 	}
 
+
 	//uwsgi_log("ready for reading %d bytes\n", wsgi_req.size);
 
 	i = 0;
@@ -291,6 +346,20 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		return 0;
 	}
 
+	cmsg = CMSG_FIRSTHDR (&msg);
+	while(cmsg != NULL) {
+		if (cmsg->cmsg_len   != CMSG_LEN (sizeof (int)) ||
+			cmsg->cmsg_level != SOL_SOCKET ||
+			cmsg->cmsg_type  != SCM_RIGHTS) continue;
+
+		// upgrade connection to the new socket
+		uwsgi_log("upgrading fd %d to ", upoll->fd);	
+		close(upoll->fd);
+		upoll->fd = *((int *) CMSG_DATA (cmsg));
+		uwsgi_log("%d\n", upoll->fd);	
+		cmsg = CMSG_NXTHDR (&msg, cmsg);
+	}
+
 	return 1;
 }
 
@@ -298,18 +367,14 @@ int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
 
 	char *ptrbuf, *bufferend;
 	uint16_t strsize = 0;
-	int i;
 	
+	uint8_t max = *argc;
 	*argc = 0;
 
         ptrbuf = buffer;
         bufferend = ptrbuf + size;
 
-	for(i=0;i<size;i++) {
-		uwsgi_log("%x %c\n", buffer[i], buffer[i]);
-	}
-
-	while (ptrbuf < bufferend) {
+	while (ptrbuf < bufferend && *argc < max) {
                 if (ptrbuf + 2 < bufferend) {
                         memcpy(&strsize, ptrbuf, 2);
 #ifdef __BIG_ENDIAN__
@@ -939,3 +1004,123 @@ uint16_t fcgi_get_record(int fd, char *buf) {
 	return ntohs(*rs);
 
 }
+
+char *uwsgi_simple_message_string(char *socket_name, uint8_t modifier1, uint8_t modifier2, char *what, uint16_t what_len, char *buffer, uint16_t *response_len, int timeout) {
+
+	struct uwsgi_header uh;
+	struct pollfd upoll;
+
+	int fd = uwsgi_connect(socket_name, timeout, 0);
+
+	if (fd < 0) {
+		if (response_len) *response_len = 0;
+		return NULL;
+	}
+
+	if (uwsgi_send_message(fd, modifier1, modifier2, what, what_len, -1, 0, timeout) <= 0) {
+		close(fd);
+		if (response_len) *response_len = 0;
+		return NULL;
+	}
+
+	upoll.fd = fd;
+	upoll.events = POLLIN;
+
+	if (buffer) {
+		if (!uwsgi_parse_response(&upoll, timeout, &uh, buffer)) {
+			close(fd);
+			if (response_len) *response_len = 0;
+			return NULL;
+		}
+	}
+
+	close(fd);
+	if (response_len) *response_len = uh.pktsize;
+	return buffer;
+}
+
+int uwsgi_simple_send_string2(char *socket_name, uint8_t modifier1, uint8_t modifier2, char *item1, uint16_t item1_len, char *item2, uint16_t item2_len, int timeout) {
+
+	struct uwsgi_header uh;
+	char strsize1[2], strsize2[2];
+
+	struct iovec iov[5];
+
+	int fd = uwsgi_connect(socket_name, timeout, 0);
+
+        if (fd < 0) {
+                return -1;
+        }
+
+	uh.modifier1 = modifier1;
+	uh.pktsize = 2+item1_len+2+item2_len;
+	uh.modifier2 = modifier2;
+
+        strsize1[0] = (uint8_t) (item1_len & 0xff);
+	strsize1[1] = (uint8_t) ((item1_len >> 8) & 0xff);
+
+        strsize2[0] = (uint8_t) (item2_len & 0xff);
+	strsize2[1] = (uint8_t) ((item2_len >> 8) & 0xff);
+
+	iov[0].iov_base = &uh;
+	iov[0].iov_len = 4;
+
+	iov[1].iov_base = strsize1;
+	iov[1].iov_len = 2;
+
+	iov[2].iov_base = item1;
+	iov[2].iov_len = item1_len;
+
+	iov[3].iov_base = strsize2;
+	iov[3].iov_len = 2;
+
+	iov[4].iov_base = item2;
+	iov[4].iov_len = item2_len;
+
+	if (writev(fd, iov, 5) < 0) {
+		uwsgi_error("writev()");
+	}
+
+	close(fd);
+	
+	return 0;
+}
+
+int uwsgi_simple_send_string(char *socket_name, uint8_t modifier1, uint8_t modifier2, char *item1, uint16_t item1_len, int timeout) {
+
+        struct uwsgi_header uh;
+        char strsize1[2];
+
+        struct iovec iov[3];
+
+        int fd = uwsgi_connect(socket_name, timeout, 0);
+
+        if (fd < 0) {
+                return -1;
+        }
+
+        uh.modifier1 = modifier1;
+        uh.pktsize = 2+item1_len;
+        uh.modifier2 = modifier2;
+
+        strsize1[0] = (uint8_t) (item1_len & 0xff);
+        strsize1[1] = (uint8_t) ((item1_len >> 8) & 0xff);
+
+        iov[0].iov_base = &uh;
+        iov[0].iov_len = 4;
+
+        iov[1].iov_base = strsize1;
+        iov[1].iov_len = 2;
+
+        iov[2].iov_base = item1;
+        iov[2].iov_len = item1_len;
+
+        if (writev(fd, iov, 3) < 0) {
+                uwsgi_error("writev()");
+        }
+
+        close(fd);
+
+        return 0;
+}
+
