@@ -224,6 +224,10 @@ void kill_them_all()
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		kill(uwsgi.workers[i].pid, SIGINT);
 	}
+
+	for (i = 0; i <= uwsgi.gateways_cnt; i++) {
+		kill(uwsgi.gateways[i].pid, SIGKILL);
+	}
 }
 
 void grace_them_all()
@@ -791,6 +795,8 @@ int uwsgi_start(void *v_argv) {
         union uwsgi_sockaddr_ptr gsa, isa;
         socklen_t socket_type_len;
 
+	int emperor_pipe[2];
+
 	FILE *pidfile;
 
 	uwsgi_log("my PID is %d\n", (int) getpid());
@@ -983,16 +989,28 @@ int uwsgi_start(void *v_argv) {
 
 	// start the Emperor if needed
 	if (uwsgi.emperor_dir) {
+
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, emperor_pipe)) {
+                	uwsgi_error("socketpair()");
+			exit(1);
+        	}
+
 		uwsgi.emperor_pid = fork();
 		if (uwsgi.emperor_pid < 0) {
 			uwsgi_error("pid()");
 			exit(1);
 		}
 		else if (uwsgi.emperor_pid > 0) {
+			close(emperor_pipe[1]);
 			emperor_loop();
 			// never here
 			exit(1);
 		}
+		close(emperor_pipe[0]);
+		uwsgi.has_emperor = 1;
+        	uwsgi.emperor_fd = emperor_pipe[1];
+        	uwsgi.master_process = 1;
+        	uwsgi.no_orphans = 1;
 	}
 
 
