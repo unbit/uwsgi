@@ -597,6 +597,7 @@ int main(int argc, char *argv[], char *envp[])
 			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.xml_config);
 		}
 		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+		magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
 		if (uwsgi_get_last_char(uwsgi.xml_config, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.xml_config, '.')+1;
 		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
 		uwsgi_xml_config(uwsgi.wsgi_req, 0, magic_table);
@@ -613,6 +614,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+		magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
 		if (uwsgi_get_last_char(uwsgi.ini, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.ini, '.')+1;
 		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
 		uwsgi_ini_config(uwsgi.ini, magic_table);
@@ -628,6 +630,7 @@ int main(int argc, char *argv[], char *envp[])
 			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.yaml);
 		}
 		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+		magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
 		if (uwsgi_get_last_char(uwsgi.yaml, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.yaml, '.')+1;
 		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
 		uwsgi_yaml_config(uwsgi.yaml, magic_table);
