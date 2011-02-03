@@ -1312,6 +1312,8 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 		}
 	}
 
+	free(buffer);
+
 	return retobject;
 
       megamulticlear:
@@ -2098,6 +2100,7 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 			}
 		}
 
+		close(fd);
 		return zero;
 
 	}
