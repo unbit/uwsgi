@@ -454,6 +454,11 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 
 		ret = connect(fdpoll->fd, addr, addr_size);
 
+		if (async) {
+			if (ret < 0 && errno != EINPROGRESS) {
+				return -1;
+			}
+		}
 
 		/* re-set blocking socket */
 		arg &= (~O_NONBLOCK);

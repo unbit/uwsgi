@@ -12,7 +12,10 @@
 
 #include "../../uwsgi.h"
 
-#define LONG_ARGS_FASTROUTER		150001
+#define LONG_ARGS_FASTROUTER			150001
+#define LONG_ARGS_FASTROUTER_EVENTS		150002
+#define LONG_ARGS_FASTROUTER_USE_PATTERN	150003
+#define LONG_ARGS_FASTROUTER_USE_BASE		150004
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -23,11 +26,21 @@
 struct uwsgi_fastrouter {
 	char *socket_name;
 	int use_cache;
+	int nevents;
+
+	char *pattern;
+	int pattern_len;
+
+	char *base;
+	int base_len;
 } ufr;
 
 struct option fastrouter_options[] = {
 	{"fastrouter", required_argument, 0, LONG_ARGS_FASTROUTER},
 	{"fastrouter-use-cache", no_argument, &ufr.use_cache, 1},
+	{"fastrouter-use-pattern", required_argument, 0, LONG_ARGS_FASTROUTER_USE_PATTERN},
+	{"fastrouter-use-base", required_argument, 0, LONG_ARGS_FASTROUTER_USE_BASE},
+	{"fastrouter-events", required_argument, 0, LONG_ARGS_FASTROUTER_EVENTS},
 	{0, 0, 0, 0},	
 };
 
@@ -85,6 +98,12 @@ void fastrouter_loop() {
 	ssize_t len;
 	int i;
 
+	char *tmp_socket_name;
+	int tmp_socket_name_len;
+
+	char *magic_table[0xff];
+
+	void *events;
 	struct msghdr msg;
 	union {
                 struct cmsghdr cmsg;
@@ -111,15 +130,24 @@ void fastrouter_loop() {
 	fr_server = bind_to_tcp(ufr.socket_name, uwsgi.listen_queue, ufr.socket_name);
 
 	fr_queue = event_queue_init();
+
+	events = event_queue_alloc(ufr.nevents);
+
 	event_queue_add_fd_read(fr_queue, fr_server);
+
+	if (ufr.pattern) {
+		init_magic_table(magic_table);
+	}
 
 	for (;;) {
 
-		nevents = event_queue_wait(fr_queue, -1, &interesting_fd);
+		nevents = event_queue_wait_multi(fr_queue, -1, events, ufr.nevents);
 
-		if (nevents > 0) {
+		for (i=0;i<nevents;i++) {
 
-			//uwsgi_log("interesting_fd: %d\n", interesting_fd);
+			tmp_socket_name = NULL;
+			interesting_fd = event_queue_interesting_fd(events, i);
+
 
 			if (interesting_fd == fr_server) {
 				new_connection = accept(fr_server, (struct sockaddr *) &fr_addr, &fr_addr_len);
@@ -143,6 +171,17 @@ void fastrouter_loop() {
 
 				// something is going wrong...
 				if (fr_session == NULL) continue;
+
+				if (event_queue_interesting_fd_has_error(events, i)) {
+					close(fr_session->fd);
+                                        fr_table[fr_session->fd] = NULL;
+                                        if (fr_session->instance_fd != -1) {
+                                        	close(fr_session->instance_fd);
+                                                fr_table[fr_session->instance_fd] = NULL;
+                                        }
+                                        free(fr_session);
+					continue;
+				}
 
 				switch(fr_session->status) {
 
@@ -194,6 +233,18 @@ void fastrouter_loop() {
 							if (ufr.use_cache) {
 								fr_session->instance_address = uwsgi_cache_get(fr_session->hostname, fr_session->hostname_len, &fr_session->instance_address_len);
 							}
+							else if (ufr.pattern) {
+								magic_table['s'] = uwsgi_concat2n(fr_session->hostname, fr_session->hostname_len, "", 0);	
+								tmp_socket_name = magic_sub(ufr.pattern, ufr.pattern_len, &tmp_socket_name_len, magic_table);
+								free(magic_table['s']);
+								fr_session->instance_address_len = tmp_socket_name_len;
+								fr_session->instance_address = tmp_socket_name;
+							}
+							else if (ufr.base) {
+								tmp_socket_name = uwsgi_concat2nn(ufr.base, ufr.base_len, fr_session->hostname, fr_session->hostname_len, &tmp_socket_name_len);
+								fr_session->instance_address_len = tmp_socket_name_len;
+								fr_session->instance_address = tmp_socket_name;
+							}
 
 							// no address found
 							if (!fr_session->instance_address_len) {
@@ -207,6 +258,9 @@ void fastrouter_loop() {
 							fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
 
 							fr_session->instance_fd = uwsgi_connectn(fr_session->instance_address, fr_session->instance_address_len, 0, 1);
+
+							if (tmp_socket_name) free(tmp_socket_name);
+
 							if (fr_session->instance_fd < 0) {
 								close(fr_session->fd);
 								fr_table[fr_session->fd] = NULL;
@@ -386,6 +440,8 @@ int fastrouter_init() {
 			exit(1);
 		}
 
+		if (!ufr.nevents) ufr.nevents = 64;
+
 		if (register_gateway("fastrouter", fastrouter_loop) == NULL) {
 			uwsgi_log("unable to register the fastrouter gateway\n");
 			exit(1);
@@ -400,6 +456,19 @@ int fastrouter_opt(int i, char *optarg) {
 	switch(i) {
 		case LONG_ARGS_FASTROUTER:
 			ufr.socket_name = optarg;
+			return 1;
+		case LONG_ARGS_FASTROUTER_EVENTS:
+			ufr.nevents = atoi(optarg);
+			return 1;
+		case LONG_ARGS_FASTROUTER_USE_PATTERN:
+			ufr.pattern = optarg;
+			// optimization
+			ufr.pattern_len = strlen(ufr.pattern);
+			return 1;
+		case LONG_ARGS_FASTROUTER_USE_BASE:
+			ufr.base = optarg;
+			// optimization
+			ufr.base_len = strlen(ufr.base);
 			return 1;
 	}
 	return 0;

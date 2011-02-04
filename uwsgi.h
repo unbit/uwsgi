@@ -1314,6 +1314,7 @@ char           *uwsgi_concat(int,...);
 char           *uwsgi_concatn(int,...);
 char           *uwsgi_concat2(char *, char *);
 char           *uwsgi_concat2n(char *, int, char *, int);
+char           *uwsgi_concat2nn(char *, int, char *, int, int*);
 char           *uwsgi_concat3(char *, char *, char *);
 char           *uwsgi_concat3n(char *, int, char *, int, char *, int);
 char           *uwsgi_concat4(char *, char *, char *, char *);
@@ -1391,10 +1392,14 @@ inline void *uwsgi_malloc(size_t);
 
 
 int event_queue_init(void);
+void *event_queue_alloc(int);
 int event_queue_add_fd_read(int, int);
 int event_queue_add_fd_write(int, int);
 int event_queue_del_fd(int, int);
 int event_queue_wait(int, int, int *);
+int event_queue_wait_multi(int, int, void *, int);
+int event_queue_interesting_fd(void *, int);
+int event_queue_interesting_fd_has_error(void *, int);
 
 int event_queue_add_timer(int, int *, int);
 struct uwsgi_timer *event_queue_ack_timer(int);

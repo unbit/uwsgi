@@ -149,6 +149,40 @@ int event_queue_add_fd_write(int eq, int fd) {
         return fd;
 }
 
+void *event_queue_alloc(int nevents) {
+
+	return uwsgi_malloc(sizeof(struct epoll_event) * nevents);
+}
+
+int event_queue_interesting_fd(void *events, int id) {
+	struct epoll_event *ee = (struct epoll_event *) events;
+	return ee[id].data.fd;
+}
+
+int event_queue_interesting_fd_has_error(void *events, int id) {
+	struct epoll_event *ee = (struct epoll_event *) events;
+	if (ee[id].events & EPOLLHUP || ee[id].events & EPOLLERR) {
+		return 1;
+	}
+	return 0;
+}
+
+int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
+
+	int ret;
+
+	if (timeout > 0) {
+                timeout = timeout*1000;
+        }
+
+        ret = epoll_wait(eq, (struct epoll_event *) events, nevents, timeout);
+        if (ret < 0) {
+                uwsgi_error("epoll_wait()");
+        }
+
+        return ret;
+}
+
 int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 
         int ret;
