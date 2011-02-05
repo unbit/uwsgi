@@ -223,6 +223,13 @@ void master_loop(char **argv, char **environ) {
 
 */
 
+	// spawn fat gateways
+	for(i=0;i<uwsgi.gateways_cnt;i++) {
+        	if (uwsgi.gateways[i].pid == 0) {
+                	gateway_respawn(i);
+                }
+        }
+
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 		if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {

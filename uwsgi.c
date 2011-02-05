@@ -1333,8 +1333,8 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	
-	// initialize request plugin only if workers are available
-	if (uwsgi.sockets_cnt) {
+	// initialize request plugin only if workers or master are available
+	if (uwsgi.sockets_cnt || uwsgi.master_process) {
 		for (i = 0; i < 0xFF; i++) {
 			if (uwsgi.p[i]->init) {
 				uwsgi.p[i]->init();
@@ -1342,6 +1342,19 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
+
+	/* gp/plugin initialization */
+	for(i =0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->post_init) {
+			uwsgi.gp[i]->post_init();
+		}
+	}
+
+	for(i =0; i < 0xff; i++) {
+		if (uwsgi.p[i]->post_init) {
+			uwsgi.p[i]->post_init();
+		}
+	}
 
 	uwsgi.current_wsgi_req = simple_current_wsgi_req;
 
@@ -1486,13 +1499,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
 	uwsgi_rawlog(" ***\n");
 
-#ifdef UWSGI_ERLANG
-	if (uwsgi.erlang_node) {
-		uwsgi.erlang_nodes = 1;
-		uwsgi.erlangfd = init_erlang(uwsgi.erlang_node, uwsgi.erlang_cookie);
-	}
-#endif
-
 #ifdef UWSGI_SNMP
 	if (uwsgi.snmp) {
 		//snmp_init();
@@ -1505,7 +1511,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			uwsgi.p[i]->init_apps();
 		}
 	}
-
 
 	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
@@ -1682,20 +1687,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			exit(1);
 		}
 	}
-
-#ifdef UWSGI_ERLANG
-	if (uwsgi.erlang_nodes > 0) {
-		if (uwsgi.numproc <= uwsgi.erlang_nodes) {
-			uwsgi_log("You do not have enough worker for Erlang. Please respawn with at least %d processes.\n", uwsgi.erlang_nodes + 1);
-		} else if (uwsgi.mywid > (uwsgi.numproc - uwsgi.erlang_nodes)) {
-			uwsgi_log("Erlang mode enabled for worker %d.\n", uwsgi.mywid);
-			erlang_loop(uwsgi.wsgi_req);
-			//NEVER HERE
-				exit(1);
-		}
-	}
-	close(uwsgi.erlangfd);
-#endif
 
 #ifdef UWSGI_ASYNC
 		uwsgi.async_running = -1;

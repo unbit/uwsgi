@@ -258,8 +258,6 @@ struct uwsgi_opt {
 #define LONG_ARGS_LIMIT_AS		17009
 #define LONG_ARGS_UDP			17010
 #define LONG_ARGS_WSGI_FILE             17011
-#define LONG_ARGS_ERLANG		17012
-#define LONG_ARGS_ERLANG_COOKIE		17013
 #define LONG_ARGS_BINARY_PATH		17014
 #define LONG_ARGS_PROXY			17015
 #define LONG_ARGS_PROXY_NODE		17016
@@ -345,11 +343,6 @@ struct uwsgi_opt {
 #define UWSGI_SET_LOCKING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_LOCKING
 #define UWSGI_UNSET_LOCKING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_LOCKING
 
-#define UWSGI_STATUS_ERLANGING		1 << 3
-#define UWSGI_IS_ERLANGING		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_ERLANGING
-#define UWSGI_SET_ERLANGING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_ERLANGING
-#define UWSGI_UNSET_ERLANGING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_ERLANGING
-
 #ifdef __linux__
 #include <endian.h>
 #elif __sun__
@@ -426,6 +419,7 @@ struct uwsgi_plugin {
         uint8_t         modifier1;
         void           *data;
         int             (*init) (void);
+        void            (*post_init) (void);
         void            (*post_fork) (void);
         struct option  *options;
         const char     *short_options;
@@ -751,11 +745,6 @@ struct uwsgi_server {
 	char           *spool_dir;
 #endif
 
-#ifdef UWSGI_ERLANG
-	char           *erlang_node;
-	char           *erlang_cookie;
-#endif
-
 #ifdef UWSGI_NAGIOS
 	int             nagios;
 #endif
@@ -849,11 +838,6 @@ struct uwsgi_server {
 	struct uwsgi_shared *shared;
 
 	struct uwsgi_app apps[MAX_APPS];
-
-#ifdef UWSGI_ERLANG
-	int             erlang_nodes;
-	int             erlangfd;
-#endif
 
 	int             no_orphans;
 
@@ -959,7 +943,6 @@ struct uwsgi_lb_group {
 #define KIND_WORKER 1
 #define KIND_EVENT 2
 #define KIND_SPOOLER 3
-#define KIND_ERLANG 4
 #define KIND_PROXY 5
 #define KIND_MASTER 6
 
@@ -1172,16 +1155,6 @@ int             uwsgi_parse_response(struct pollfd *, int, struct uwsgi_header *
 int             uwsgi_parse_vars(struct wsgi_request *);
 
 int             uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
-
-#ifdef UWSGI_ERLANG
-
-#include <erl_interface.h>
-#include <ei.h>
-
-int             init_erlang(char *, char *);
-void            erlang_loop(struct wsgi_request *);
-
-#endif
 
 void            manage_opt(int, char *);
 
@@ -1429,6 +1402,7 @@ int uwsgi_parse_array(char *, uint16_t, char **, uint8_t *);
 void log_syslog(char *);
 
 struct uwsgi_gateway *register_gateway(char *, void (*)(void));
+struct uwsgi_gateway *register_fat_gateway(char *, void (*)(void));
 void gateway_respawn(int);
 
 char *uwsgi_open_and_read(char *, int *, int, char *[]);
@@ -1465,3 +1439,4 @@ int uwsgi_simple_send_string2(char *, uint8_t, uint8_t, char *, uint16_t, char *
 int uwsgi_simple_send_string(char *, uint8_t, uint8_t, char *, uint16_t, int);
 
 int is_unix(char *, int);
+int is_a_number(char *);

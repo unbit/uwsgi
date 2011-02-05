@@ -2,6 +2,33 @@
 
 extern struct uwsgi_server uwsgi;
 
+struct uwsgi_gateway *register_fat_gateway(char *name, void (*loop)(void)) {
+
+        struct uwsgi_gateway *ug;
+        int num=1,i;
+
+        if (uwsgi.gateways_cnt >= MAX_GATEWAYS) {
+                uwsgi_log("you can register max %d gateways\n", MAX_GATEWAYS);
+                return NULL;
+        }
+
+        for(i=0;i<uwsgi.gateways_cnt;i++) {
+                if (!strcmp(name, uwsgi.gateways[i].name)) {
+                        num++;
+                }
+        }
+
+        ug = &uwsgi.gateways[uwsgi.gateways_cnt];
+        ug->pid = 0;
+        ug->name = name;
+        ug->loop = loop;
+        ug->num = num;
+
+        uwsgi.gateways_cnt++;
+
+        return ug;
+}
+
 struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 
 	pid_t gw_pid;

@@ -370,11 +370,13 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		struct sockaddr_in uws_addr;
 		int reuse = 1;
 
-		tcp_port[0] = 0;
 		memset(&uws_addr, 0, sizeof(struct sockaddr_in));
 
 		uws_addr.sin_family = AF_INET;
-		uws_addr.sin_port = htons(atoi(tcp_port + 1));
+		if (tcp_port) {
+			tcp_port[0] = 0;
+			uws_addr.sin_port = htons(atoi(tcp_port + 1));
+		}
 
 		serverfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (serverfd < 0) {
@@ -427,8 +429,8 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 			exit(1);
 		}
 
-
-		tcp_port[0] = ':';
+		
+		if (tcp_port) tcp_port[0] = ':';
 
 		return serverfd;
 	}

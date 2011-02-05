@@ -1542,3 +1542,13 @@ int is_unix(char *socket_name, int len) {
 
 	return 1;
 }
+
+int is_a_number(char *what) {
+	int i;
+
+	for(i=0;i<(int)strlen(what);i++) {
+		if (!isdigit(what[i])) return 0;
+	}
+
+	return 1;
+}

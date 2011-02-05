@@ -420,12 +420,6 @@ class uConf(object):
                 self.gcc_list.append('xmlconf')
 
 
-        if self.get('erlang'):
-            self.depends_on("erlang", ['embedded'])
-            self.cflags.append("-DUWSGI_ERLANG")
-            self.libs.append(os.environ['ERLANG_LDFLAGS'])
-            self.gcc_list.append('erlang')
-
         if self.get('plugin_dir'):
             self.cflags.append('-DUWSGI_PLUGIN_DIR=\\"%s\\"' % self.get('plugin_dir'))
 

@@ -126,6 +126,8 @@ struct uwsgi_python {
 
 	char *pymodule_alias[MAX_PYMODULE_ALIAS];
 	int pymodule_alias_cnt;
+
+	void (*extension)(void);
 };
 
 

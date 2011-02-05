@@ -91,39 +91,6 @@ int uwsgi_python_init() {
 
 	uwsgi_log("Python main interpreter initialized at %p\n", up.main_thread);
 
-	init_pyargv();
-#ifdef UWSGI_MINTERPRETERS
-	init_uwsgi_embedded_module();
-#endif
-
-	if (up.test_module != NULL) {
-		if (PyImport_ImportModule(up.test_module)) {
-			exit(0);
-		}
-		exit(1);
-	}
-
-	init_uwsgi_vars();
-
-	// setup app loaders
-#ifdef UWSGI_MINTERPRETERS
-	up.loaders[LOADER_DYN] = uwsgi_dyn_loader;
-#endif
-	up.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
-	up.loaders[LOADER_FILE] = uwsgi_file_loader;
-	up.loaders[LOADER_PASTE] = uwsgi_paste_loader;
-	up.loaders[LOADER_EVAL] = uwsgi_eval_loader;
-	up.loaders[LOADER_MOUNT] = uwsgi_mount_loader;
-	up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
-	up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
-
-	// by default set a fake GIL (little impact on performance)
-	up.gil_get = gil_fake_get;
-	up.gil_release = gil_fake_release;
-
-	up.swap_ts = simple_swap_ts;
-	up.reset_ts = simple_reset_ts;
-
 	return 1;
 
 }
@@ -451,10 +418,14 @@ void init_uwsgi_embedded_module() {
 		PyErr_Print();
 		exit(1);
 	}
+
+/*
 	if (PyDict_SetItemString(up.embedded_dict, "KIND_ERLANG", PyInt_FromLong(KIND_ERLANG))) {
 		PyErr_Print();
 		exit(1);
 	}
+*/
+
 	if (PyDict_SetItemString(up.embedded_dict, "KIND_PROXY", PyInt_FromLong(KIND_PROXY))) {
 		PyErr_Print();
 		exit(1);
@@ -578,6 +549,10 @@ void init_uwsgi_embedded_module() {
 	}
 
 	init_uwsgi_module_cache(new_uwsgi_module);
+
+	if (up.extension) {
+		up.extension();
+	}
 }
 #endif
 
@@ -689,6 +664,40 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 }
 
 void uwsgi_python_init_apps() {
+
+	init_pyargv();
+#ifdef UWSGI_MINTERPRETERS
+        init_uwsgi_embedded_module();
+#endif
+
+        if (up.test_module != NULL) {
+                if (PyImport_ImportModule(up.test_module)) {
+                        exit(0);
+                }
+                exit(1);
+        }
+
+        init_uwsgi_vars();
+
+        // setup app loaders
+#ifdef UWSGI_MINTERPRETERS
+        up.loaders[LOADER_DYN] = uwsgi_dyn_loader;
+#endif
+        up.loaders[LOADER_UWSGI] = uwsgi_uwsgi_loader;
+        up.loaders[LOADER_FILE] = uwsgi_file_loader;
+        up.loaders[LOADER_PASTE] = uwsgi_paste_loader;
+        up.loaders[LOADER_EVAL] = uwsgi_eval_loader;
+        up.loaders[LOADER_MOUNT] = uwsgi_mount_loader;
+        up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
+        up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
+
+        // by default set a fake GIL (little impact on performance)
+        up.gil_get = gil_fake_get;
+        up.gil_release = gil_fake_release;
+
+        up.swap_ts = simple_swap_ts;
+        up.reset_ts = simple_reset_ts;
+	
 
 	if (up.wsgi_config != NULL) {
 		init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread);
