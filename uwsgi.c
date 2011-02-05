@@ -2648,6 +2648,9 @@ int uwsgi_cluster_join(char *name) {
 		// announce my presence to all the nodes
 		uwsgi_string_sendto(fd, 73, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr), uwsgi.hostname, strlen(uwsgi.hostname));
 	}
+	else {
+		exit(1);
+	}
 
 	
 	return fd;

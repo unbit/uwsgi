@@ -258,6 +258,50 @@ int event_queue_add_fd_write(int eq, int fd) {
 	return 0;
 }
 
+void *event_queue_alloc(int nevents) {
+
+        return uwsgi_malloc(sizeof(struct kevent) * nevents);
+}
+
+int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
+
+        int ret;
+        struct timespec ts;
+
+        if (timeout <= 0) {
+                ret = kevent(eq, NULL, 0, events, nevents, NULL);
+        }
+        else {
+                memset(&ts, 0, sizeof(struct timespec));
+                ts.tv_sec = timeout;
+                ret = kevent(eq, NULL, 0, (struct kevent *)events, nevents, &ts);
+        }
+
+        if (ret < 0) {
+                uwsgi_error("kevent()");
+        }
+
+        return ret;
+
+}
+
+int event_queue_interesting_fd(void *events, int id) {
+
+	struct kevent *ev = (struct kevent *) events;
+	return ev[id].ident;
+}
+
+int event_queue_interesting_fd_has_error(void *events, int id) {
+	struct kevent *ev = (struct kevent *) events;
+
+        if (ev[id].flags & EV_ERROR || ev[id].flags & EV_EOF) {
+                return 1;
+        }
+        return 0;
+}
+
+
+
 int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 
 	int ret;
