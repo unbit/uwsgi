@@ -61,10 +61,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <netinet/in.h>
+
+#ifdef __sun__
+#define _XPG4_2
+#define __EXTENSIONS__
+#endif
+
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
 
@@ -173,6 +179,9 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #endif
 
 #undef _XOPEN_SOURCE
+#ifdef __sun__
+#undef __EXTENSIONS__
+#endif
 
 /* this value are taken from nginx */
 #if defined(__APPLE__) || defined(__freebsd__)

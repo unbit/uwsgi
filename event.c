@@ -18,6 +18,26 @@ int event_queue_init() {
         return port;
 }
 
+int event_queue_del_fd(int eq, int fd) {
+
+        if (port_dissociate(eq, PORT_SOURCE_FD, fd)) {
+                uwsgi_error("port_disassociate");
+                return -1;
+        }
+
+        return fd;
+}
+
+
+int event_queue_interesting_fd_has_error(void *events, int id) {
+	port_event_t *pe = (port_event_t *) events;
+	if (pe[id].portev_events == POLLHUP || pe[id].portev_events == POLLERR) {
+                return 1;
+        }
+        return 0;
+}
+
+
 
 int event_queue_add_fd_read(int eq, int fd) {
 
@@ -38,6 +58,59 @@ int event_queue_add_fd_write(int eq, int fd) {
 
         return fd;
 }
+
+void *event_queue_alloc(int nevents) {
+
+        return uwsgi_malloc(sizeof(port_event_t) * nevents);
+}
+
+int event_queue_interesting_fd(void *events, int id) {
+	port_event_t *pe = (port_event_t *) events;
+	if (pe[id].portev_source == PORT_SOURCE_FILE || pe[id].portev_source == PORT_SOURCE_TIMER) {
+                return (int) pe[id].portev_user;
+        }
+
+	return (int) pe[id].portev_object;
+}
+
+int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
+
+        int ret;
+	uint_t nget;
+	int i;
+	timespec_t ts;
+	port_event_t *pe;
+
+	if (timeout > 0) {
+                ts.tv_sec = timeout;
+                ts.tv_nsec = 0;
+                ret = port_getn(eq, events, nevents, &nget, &ts);
+        }
+        else {
+                ret = port_getn(eq, events, nevents, &nget, NULL);
+        }
+
+	if (ret < 0) {
+                if (errno != ETIME) {
+                        uwsgi_error("port_getn()");
+                        return -1;
+                }
+                return 0;
+        }
+
+	pe = (port_event_t *) events;
+	for(i=0;i<nget;i++) {
+		if (pe[i].portev_source == PORT_SOURCE_FD) {
+			if (port_associate(eq, pe[i].portev_source, pe[i].portev_object, pe[i].portev_events, NULL)) {
+                		uwsgi_error("port_associate");
+        		}
+		}
+	}
+
+        return nget;
+}
+
+
 
 int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 
