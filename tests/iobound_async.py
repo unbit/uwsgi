@@ -28,9 +28,13 @@ def application(env, start_response):
 
 	#yield ""
 
+	print "opening socket"
+
 	c = s.connect_ex(('www.google.it', 80))
 	if c == errno.EINPROGRESS:
+		print "yielding"
 		yield env['x-wsgiorg.fdevent.writable'](s.fileno(), 10)
+		print "waiting for fd write"
 		for r in send_request(env, s):
 			yield r
 	elif c == errno.EISCONN: 

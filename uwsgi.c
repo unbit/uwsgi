@@ -1053,6 +1053,14 @@ int uwsgi_start(void *v_argv) {
 
 	uwsgi.async_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 
+	if (uwsgi.async > 1) {
+		uwsgi.async_waiting_fd_table = malloc( sizeof(int) * uwsgi.max_fd);
+        	if (!uwsgi.async_waiting_fd_table) {
+                	uwsgi_error("malloc()");
+                	exit(1);
+        	}
+	}
+
 	if (uwsgi.post_buffering > 0) {
 		uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 		if (!uwsgi.post_buffering_bufsize) {
@@ -1650,9 +1658,13 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	//do not pass kfd after fork()
 #ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
-		uwsgi.async_queue = async_queue_init(uwsgi.sockets[0].fd);
+		uwsgi.async_queue = event_queue_init();
 		if (uwsgi.async_queue < 0) {
 			exit(1);
+		}
+
+		for(i=0;i<uwsgi.sockets_cnt;i++) {
+			event_queue_add_fd_read(uwsgi.async_queue, uwsgi.sockets[i].fd);
 		}
 	}
 #endif
@@ -1729,7 +1741,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
         	uwsgi.sockets_poll[uwsgi.sockets_cnt].events = POLLIN;
 #ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
-			async_add(uwsgi.async_queue, uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, ASYNC_IN);
+			event_queue_add_fd_read(uwsgi.async_queue, uwsgi.sockets_poll[uwsgi.sockets_cnt].fd);
 		}
 #endif
 	}

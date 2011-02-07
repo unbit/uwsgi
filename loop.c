@@ -92,11 +92,14 @@ void *simple_loop(void *arg1) {
 void complex_loop() {
 	int current_async_timeout = 0;
 	int i;
+	int interesting_fd;
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 		current_async_timeout = async_get_timeout();
-		uwsgi.async_nevents = async_wait(uwsgi.async_queue, uwsgi.async_events, uwsgi.async, uwsgi.async_running, current_async_timeout);
+
+		current_async_timeout = 0;
+		uwsgi.async_nevents = event_queue_wait_multi(uwsgi.async_queue, current_async_timeout, uwsgi.async_events, 64);
 		async_expire_timeouts();
 
 		if (uwsgi.async_nevents < 0) {
@@ -107,7 +110,9 @@ void complex_loop() {
 		
 		for(i=0; i<uwsgi.async_nevents;i++) {
 
-			if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[0].fd) {
+			interesting_fd = event_queue_interesting_fd(uwsgi.async_events, i);
+
+			if ( interesting_fd == uwsgi.sockets[0].fd) {
 
 				uwsgi.wsgi_req = find_first_available_wsgi_req();
 				if (uwsgi.wsgi_req == NULL) {
@@ -115,11 +120,22 @@ void complex_loop() {
 					goto cycle;
 				}
 
-				wsgi_req_setup(uwsgi.wsgi_req, ( (uint8_t *)uwsgi.wsgi_req - (uint8_t *)uwsgi.wsgi_requests)/sizeof(struct wsgi_request) );
+				wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id );
 
-				if (wsgi_req_accept(uwsgi.wsgi_req)) {
-					continue;
-				}
+                                if (wsgi_req_simple_accept(uwsgi.wsgi_req, interesting_fd)) {
+                                        continue;
+                                }
+
+// on linux we do not need to reset the socket to blocking state
+#ifndef __linux__
+                                if (uwsgi.numproc > 1) {
+                                        /* re-set blocking socket */
+                                        if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi.fcntl_arg) < 0) {
+                                                uwsgi_error("fcntl()");
+                                                return -1;
+                                        }
+                                }
+#endif
 
 				if (wsgi_req_recv(uwsgi.wsgi_req)) {
 					continue;
@@ -130,7 +146,7 @@ void complex_loop() {
 				}
 
 			}
-			else if ( (int) uwsgi.async_events[i].ASYNC_FD == uwsgi.sockets[uwsgi.sockets_cnt].fd) {
+			else if (  interesting_fd == uwsgi.sockets[uwsgi.sockets_cnt].fd) {
 				// wake up cores waiting for signal
 				char byte;
 				if (read(uwsgi.sockets[uwsgi.sockets_cnt].fd, &byte, 1) == 1) {
@@ -138,7 +154,7 @@ void complex_loop() {
 				}
 			}
 			else {
-				uwsgi.wsgi_req = find_wsgi_req_by_fd(uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
+				uwsgi.wsgi_req = find_wsgi_req_by_fd(interesting_fd);
 				if (uwsgi.wsgi_req) {
 					uwsgi.wsgi_req->async_status = UWSGI_AGAIN;
 					uwsgi.wsgi_req->async_waiting_fd = -1;
@@ -147,7 +163,7 @@ void complex_loop() {
 					uwsgi.wsgi_req->async_timeout = 0;
 				}
 
-				async_del(uwsgi.async_queue, uwsgi.async_events[i].ASYNC_FD, uwsgi.async_events[i].ASYNC_EV);
+				event_queue_del_fd(uwsgi.async_queue, interesting_fd);
 			}
 		}
 

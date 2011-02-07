@@ -727,6 +727,9 @@ struct uwsgi_server {
 	char          **async_buf;
 	char          **async_post_buf;
 
+	int *async_waiting_fd_table;
+        int async_current_max;
+
 #ifdef UWSGI_ROUTING
 	int           **async_ovector;
 #endif
@@ -1178,10 +1181,13 @@ struct http_status_codes {
 };
 
 #ifdef UWSGI_ASYNC
+
+#define ASYNC_IN	1
+#define ASYNC_OUT	2
 struct wsgi_request *async_loop(void);
 struct wsgi_request *find_first_available_wsgi_req(void);
 struct wsgi_request *find_first_accepting_wsgi_req(void);
-struct wsgi_request *find_wsgi_req_by_fd(int, int);
+struct wsgi_request *find_wsgi_req_by_fd(int);
 struct wsgi_request *find_wsgi_req_by_id(int);
 
 #ifdef __clang__
@@ -1191,40 +1197,12 @@ inline struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 #endif
 
 
-int             async_add(int, int, int);
-int             async_mod(int, int, int);
-int             async_wait(int, void *, int, int, int);
-int             async_del(int, int, int);
-int             async_queue_init(int);
+int async_get_timeout(void);
+void async_set_timeout(struct wsgi_request*, time_t);
+void async_expire_timeouts(void);
+void async_write_all(char *, size_t);
+void async_unpause_all(void);
 
-int             async_get_timeout(void);
-void            async_set_timeout(struct wsgi_request *, time_t);
-void            async_expire_timeouts(void);
-void            async_write_all(char *, size_t);
-void            async_unpause_all(void);
-
-#ifdef __linux__
-#define ASYNC_FD data.fd
-#define ASYNC_EV events
-#define ASYNC_IN EPOLLIN
-#define ASYNC_OUT EPOLLOUT
-#define ASYNC_IS_IN ASYNC_EV & ASYNC_IN
-#define ASYNC_IS_OUT ASYNC_EV & ASYNC_OUT
-#elif defined(__sun__)
-#define ASYNC_FD fd
-#define ASYNC_EV revents
-#define ASYNC_IN POLLIN
-#define ASYNC_OUT POLLOUT
-#define ASYNC_IS_IN ASYNC_EV & ASYNC_IN
-#define ASYNC_IS_OUT ASYNC_EV & ASYNC_OUT
-#else
-#define ASYNC_FD ident
-#define ASYNC_EV filter
-#define ASYNC_IN EVFILT_READ
-#define ASYNC_OUT EVFILT_WRITE
-#define ASYNC_IS_IN ASYNC_EV == ASYNC_IN
-#define ASYNC_IS_OUT ASYNC_EV == ASYNC_OUT
-#endif
 
 #endif
 

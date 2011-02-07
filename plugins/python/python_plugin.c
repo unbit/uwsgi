@@ -51,7 +51,8 @@ PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARG
 
 int uwsgi_python_init() {
 
-	uwsgi_log("Python version: %s\n", Py_GetVersion());
+	char *pyversion = strchr(Py_GetVersion(), '\n');
+        uwsgi_log("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
 
 	if (up.home != NULL) {
 		uwsgi_log("Setting PythonHome to %s...\n", up.home);
