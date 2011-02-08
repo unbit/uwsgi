@@ -135,17 +135,6 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_ROUTING
 	{"routing", no_argument, &uwsgi.routing, 1},
 #endif
-
-#ifdef UWSGI_HTTP
-	{"http", required_argument, 0, LONG_ARGS_HTTP},
-	{"http-only", no_argument, &uwsgi.http_only, 1},
-	{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
-	{"http-modifier1", required_argument, 0, LONG_ARGS_HTTP_MODIFIER1},
-#endif
-#ifdef UWSGI_ERLANG
-	{"erlang", required_argument, 0, LONG_ARGS_ERLANG},
-	{"erlang-cookie", required_argument, 0, LONG_ARGS_ERLANG_COOKIE},
-#endif
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
 	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
 	{"mode", required_argument, 0, LONG_ARGS_MODE},
@@ -784,10 +773,6 @@ int uwsgi_start(void *v_argv) {
 #endif
 
 
-#ifdef UWSGI_HTTP
-	pid_t http_pid;
-#endif
-
 	pid_t pid;
 	int i, j;
 
@@ -796,8 +781,6 @@ int uwsgi_start(void *v_argv) {
         socklen_t socket_type_len;
 
 	int emperor_pipe[2];
-
-	FILE *pidfile;
 
 	uwsgi_log("my PID is %d\n", (int) getpid());
 
@@ -927,63 +910,6 @@ int uwsgi_start(void *v_argv) {
 		exit(1);
 	}
 	sanitize_args();
-
-#ifdef UWSGI_HTTP
-	if (uwsgi.http && !uwsgi.is_a_reload) {
-		char *tcp_port = strchr(uwsgi.http, ':');
-		if (tcp_port) {
-			uwsgi.http_server_port = tcp_port + 1;
-			uwsgi.http_fd = bind_to_tcp(uwsgi.http, uwsgi.listen_queue, tcp_port);
-#ifdef UWSGI_DEBUG
-			uwsgi_debug("HTTP FD: %d\n", uwsgi.http_fd);
-#endif
-		} else {
-			uwsgi_log("invalid http address.\n");
-			exit(1);
-		}
-
-		if (uwsgi.http_fd < 0) {
-			uwsgi_log("unable to create http server socket.\n");
-			exit(1);
-		}
-		if (!uwsgi.sockets[0].name) {
-
-			uwsgi.sockets[0].name = uwsgi_malloc(64);
-			uwsgi.sockets_cnt++;
-			snprintf(uwsgi.sockets[0].name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
-			uwsgi_log("using %s as uwsgi protocol socket\n", uwsgi.sockets[0].name);
-		}
-		if (uwsgi.http_only) {
-			http_loop();
-			//never here
-			exit(1);
-		}
-		http_pid = fork();
-
-		if (http_pid > 0) {
-			masterpid = http_pid;
-			http_loop();
-			//never here
-			exit(1);
-		} else if (http_pid < 0) {
-			uwsgi_error("fork()");
-			exit(1);
-		}
-		if (uwsgi.pidfile && !uwsgi.is_a_reload) {
-			uwsgi_log("updating pidfile with pid %d\n", (int) getpid());
-			pidfile = fopen(uwsgi.pidfile, "w");
-			if (!pidfile) {
-				uwsgi_error("fopen");
-				exit(1);
-			}
-			if (fprintf(pidfile, "%d\n", (int) getpid()) < 0) {
-				uwsgi_log("could not update pidfile.\n");
-			}
-			fclose(pidfile);
-		}
-		close(uwsgi.http_fd);
-	}
-#endif
 
 	// end of generic initialization
 
@@ -1846,11 +1772,6 @@ end:
 		case LONG_ARGS_CHDIR2:
 			uwsgi.chdir2 = optarg;
 			return 1;
-#ifdef UWSGI_HTTP
-		case LONG_ARGS_HTTP:
-			uwsgi.http = optarg;
-			return 1;
-#endif
 #ifdef UWSGI_LDAP
 		case LONG_ARGS_LDAP:
 			uwsgi.ldap = optarg;
@@ -1951,19 +1872,6 @@ end:
 			return 1;
 		case LONG_ARGS_ERLANG_COOKIE:
 			uwsgi.erlang_cookie = optarg;
-			return 1;
-#endif
-#ifdef UWSGI_HTTP
-		case LONG_ARGS_HTTP_VAR:
-			if (uwsgi.http_vars_cnt < 63) {
-				uwsgi.http_vars[uwsgi.http_vars_cnt] = optarg;
-				uwsgi.http_vars_cnt++;
-			} else {
-				uwsgi_log("you can specify at most 64 --http-var options\n");
-			}
-			return 1;
-		case LONG_ARGS_HTTP_MODIFIER1:
-			uwsgi.http_modifier1 = (uint8_t) atoi(optarg);
 			return 1;
 #endif
 		case LONG_ARGS_CHECK_STATIC:

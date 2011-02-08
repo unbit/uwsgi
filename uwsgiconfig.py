@@ -378,10 +378,6 @@ class uConf(object):
             self.gcc_list.append('ldap')
             self.libs.append('-lldap')
 
-        if self.get('http'):
-            self.cflags.append("-DUWSGI_HTTP")
-            self.gcc_list.append('http')
-
         if self.get('evdis'):
             self.cflags.append("-DUWSGI_EVDIS")
             self.gcc_list.append('evdis')

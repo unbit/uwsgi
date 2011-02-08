@@ -413,6 +413,7 @@ struct uwsgi_loop {
 struct uwsgi_socket {
 	int             fd;
 	char           *name;
+	int		name_len;
 	int             family;
 	int             bound;
 	int		arg;
@@ -661,6 +662,7 @@ struct uwsgi_server {
 
 
 	char		hostname[256];
+	int		hostname_len;
 	int		no_initial_output;
 	int             has_threads;
 	int             apps_cnt;
@@ -694,17 +696,6 @@ struct uwsgi_server {
 	struct uwsgi_gateway gateways[MAX_GATEWAYS];
 	int		gateways_cnt;
 
-
-#ifdef UWSGI_HTTP
-	char           *http;
-	char           *http_server_name;
-	char           *http_server_port;
-	int             http_only;
-	int             http_fd;
-	char           *http_vars[64];
-	int             http_vars_cnt;
-	uint8_t         http_modifier1;
-#endif
 
 	int             ignore_script_name;
 	int             manage_script_name;
@@ -1241,8 +1232,6 @@ void            uwsgi_log_verbose(const char *,...);
 int             uwsgi_load_plugin(int, char *, char *, int);
 void            embed_plugins(void);
 
-
-void            http_loop(void);
 
 int             unconfigured_hook(struct wsgi_request *);
 
