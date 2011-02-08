@@ -130,9 +130,9 @@ void complex_loop() {
 #ifndef __linux__
                                 if (uwsgi.numproc > 1) {
                                         /* re-set blocking socket */
-                                        if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi.fcntl_arg) < 0) {
+                                        if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi.sockets[0].arg) < 0) {
                                                 uwsgi_error("fcntl()");
-                                                return -1;
+						continue;
                                         }
                                 }
 #endif
