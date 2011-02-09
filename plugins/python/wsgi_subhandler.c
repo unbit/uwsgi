@@ -83,14 +83,21 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		PyDict_SetItemString(up.embedded_dict, "env", wsgi_req->async_environ);
 	}
 
-	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", PyString_FromString(UWSGI_VERSION));
+	zero = PyString_FromString(UWSGI_VERSION);
+	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", zero);
+	Py_DECREF(zero);
+
 	if (uwsgi.cores > 1) {
 		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.core", PyInt_FromLong(wsgi_req->async_id));
 	}
 
 	if (uwsgi.cluster_fd >= 0) {
-		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster", PyString_FromString(uwsgi.cluster));
-		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster_node", PyString_FromString(uwsgi.hostname));
+		zero = PyString_FromString(uwsgi.cluster);
+		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster", zero);
+		Py_DECREF(zero);
+		zero = PyString_FromString(uwsgi.hostname);
+		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster_node", zero);
+		Py_DECREF(zero);
 	}
 
 

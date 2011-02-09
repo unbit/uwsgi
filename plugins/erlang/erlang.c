@@ -338,6 +338,9 @@ int erlang_init() {
 	char *host;
 	struct sockaddr_in sin;
 	socklen_t slen = sizeof(struct sockaddr_in);
+	char *ip = NULL;
+	char *nodename;
+	struct in_addr addr;
 
         if (uerl.name) {
 
@@ -351,8 +354,35 @@ int erlang_init() {
 				exit(1);
 			}
 		}
+		else {
+			nodename = uwsgi_concat2n(uerl.name, host-uerl.name, "",0);
+			ip = uwsgi_resolve_ip(host+1);
+			if (ip) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("ip: %s\n", ip);
+#endif
+				addr.s_addr = inet_addr(ip);
+				if (ei_connect_xinit(&uerl.cnode, host+1, nodename, uerl.name, &addr, uerl.cookie, 0) < 0) {
+					uwsgi_log("unable to initialize erlang connection\n");
+					exit(1);
+				}
+			}
+			else {
+				if (ei_connect_init(&uerl.cnode, nodename, uerl.cookie, 0) < 0) {
+					uwsgi_log("unable to initialize erlang connection\n");
+					exit(1);
+				}
+			}
+			free(nodename);
+		}
 
-		uerl.fd = bind_to_tcp("", uwsgi.listen_queue, NULL);
+		if (ip) {
+			uerl.fd = bind_to_tcp(ip, uwsgi.listen_queue, NULL);
+		}
+		else {
+			uerl.fd = bind_to_tcp("", uwsgi.listen_queue, NULL);
+		}
+
 		if (uerl.fd < 0) {
 			exit(1);
 		}

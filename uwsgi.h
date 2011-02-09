@@ -1416,3 +1416,5 @@ int uwsgi_simple_send_string(char *, uint8_t, uint8_t, char *, uint16_t, int);
 
 int is_unix(char *, int);
 int is_a_number(char *);
+
+char *uwsgi_resolve_ip(char *);

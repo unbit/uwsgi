@@ -1256,6 +1256,17 @@ char *uwsgi_cheap_string(char *buf, int len) {
 	return buf-1;
 }
 
+char *uwsgi_resolve_ip(char *domain) {
+
+	struct hostent *he;
+	
+	he = gethostbyname(domain);
+	if (!he || !*he->h_addr_list || he->h_addrtype != AF_INET) {
+		return NULL;
+	}
+
+	return inet_ntoa( *( struct in_addr*) he->h_addr_list[0]);
+}
 
 char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[]) {
 
@@ -1267,7 +1278,6 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 	char *uri, *colon;
 	char *domain ;
 	char *ip ;
-	struct hostent *he;
 	int body = 0;
 	char *magic_buf;
 
@@ -1289,13 +1299,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		}
 
 
-		he = gethostbyname(domain);
-		if (!he || !*he->h_addr_list || he->h_addrtype != AF_INET) {
-			uwsgi_log("unable to resolve address %s\n", domain);
-			exit(1);
-		}
-
-		ip = inet_ntoa( *( struct in_addr*) he->h_addr_list[0]);
+		ip = uwsgi_resolve_ip(domain);
 		if (!ip) {
 			uwsgi_log("unable to resolve address %s\n", domain);
 			exit(1);
