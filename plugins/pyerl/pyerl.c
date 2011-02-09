@@ -9,8 +9,21 @@ ei_cnode *pyerl_cnode;
 
 PyObject *pyerl_connect(PyObject * self, PyObject * args) {
 
-	Py_INCREF(Py_None);
-	return Py_None;
+	char *node = NULL;
+	int fd;
+
+	if (!PyArg_ParseTuple(args, "s:erlang_connect", &node)) {
+                return NULL;
+        }
+
+	fd = ei_connect(pyerl_cnode, node); 	
+
+	if (fd < 0) {
+		return PyErr_Format(PyExc_ValueError, "Unable to connect to erlang node");
+	}
+
+	return PyInt_FromLong(fd);
+
 }
 
 int py_to_erl(PyObject *, ei_x_buff*);
@@ -99,20 +112,37 @@ PyObject *erl_to_py(ei_x_buff* x) {
 	
 }
 
+PyObject *pyerl_lock(PyObject * self, PyObject * args) {
+
+	uwsgi_lock(uerl.lock);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *pyerl_unlock(PyObject * self, PyObject * args) {
+
+	uwsgi_unlock(uerl.lock);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *pyerl_sr(PyObject * self, PyObject * args) {
 
 	PyObject *node;
-	char *reg;
+	PyObject *reg;
 	char *cnode;
 	PyObject *pobj;
 	ei_x_buff x;
 	int fd;
 	int close_fd = 0;
 	erlang_msg em;
+	erlang_pid epid;
 	int eversion;
 	PyObject *res;
 
-	if (!PyArg_ParseTuple(args, "OsO:erlang_sr", &node, &reg, &pobj)) {
+	if (!PyArg_ParseTuple(args, "OOO:erlang_sr", &node, &reg, &pobj)) {
                 return NULL;
         }
 
@@ -132,6 +162,8 @@ PyObject *pyerl_sr(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_ValueError, "Unable to connect to erlang node");
 	}
 
+	
+
 	ei_x_new_with_version(&x);
 
 	if (py_to_erl(pobj, &x) < 0) {
@@ -141,7 +173,22 @@ PyObject *pyerl_sr(PyObject * self, PyObject * args) {
 	}
 
 	
-	ei_reg_send(pyerl_cnode, fd, reg, x.buff, x.index);
+	if (PyTuple_Check(reg) && PyTuple_Size(reg) == 3) {
+		epid.num = PyInt_AsLong( PyTuple_GetItem(reg, 0) );
+		epid.serial = PyInt_AsLong( PyTuple_GetItem(reg, 1) );
+		epid.creation = PyInt_AsLong( PyTuple_GetItem(reg, 2) );
+
+		uwsgi_log("%d %d %d\n", epid.num, epid.serial, epid.creation);
+		ei_send(fd, &epid, x.buff, x.index);
+	}
+	else if (PyString_Check(reg)) {
+		ei_reg_send(pyerl_cnode, fd, PyString_AsString(reg), x.buff, x.index);
+	}
+	else {
+		ei_x_free(&x);
+                if (close_fd) close(fd);
+                return PyErr_Format(PyExc_ValueError, "Invalid Erlang process");
+	}
 
 	ei_x_free(&x);
 
@@ -233,6 +280,8 @@ static PyMethodDef uwsgi_pyerl_methods[] = {
         //{"erlang_recv_message", pyerl_recv, METH_VARARGS, ""},
         {"erlang_sr", pyerl_sr, METH_VARARGS, ""},
         {"erlang_rpc", pyerl_rpc, METH_VARARGS, ""},
+        {"erlang_lock", pyerl_lock, METH_VARARGS, ""},
+        {"erlang_unlock", pyerl_unlock, METH_VARARGS, ""},
         {NULL, NULL},
 };
 

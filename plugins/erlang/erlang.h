@@ -12,6 +12,7 @@ struct uwsgi_erlang {
 
         int fd;
 
+	void *lock;
 };
 
 
