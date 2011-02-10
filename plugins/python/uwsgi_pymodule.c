@@ -2417,12 +2417,24 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 
 	char *key;
+	Py_ssize_t keylen = 0;
+	char *remote = NULL;
+	uint16_t valsize;
+	// TODO remove this
+	char buffer[0xffff];
 
-	if (!PyArg_ParseTuple(args, "s:cache_exists", &key)) {
+	if (!PyArg_ParseTuple(args, "s#|s:cache_exists", &key, &keylen, &remote)) {
 		return NULL;
 	}
-
-	if (uwsgi_cache_exists(key, strlen(key))) {
+	
+	if (remote && strlen(remote) > 0) {
+		uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (valsize > 0) {
+			Py_INCREF(Py_True);
+			return Py_True;
+		}	
+        }
+	else if (uwsgi_cache_exists(key, strlen(key))) {
 		Py_INCREF(Py_True);
 		return Py_True;
 	}
