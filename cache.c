@@ -103,7 +103,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint16_t vallen, uint
 	if (!index) {
 		index = uwsgi.shared->cache_first_available_item;	
 		uci = &uwsgi.cache_items[index] ;
-		uci->expires = expires;
+		uci->expires = time(NULL) + expires;
 		uci->djbhash = djb33x_hash(key, keylen);
 		uci->hits = 0;
 		uci->used = 1;
