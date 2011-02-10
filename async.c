@@ -68,7 +68,7 @@ struct wsgi_request *find_first_available_wsgi_req() {
 	// optimization
 	if (uwsgi.async_current_max > 1) {
 		if (uwsgi.wsgi_requests[uwsgi.async_current_max-1]->async_status == UWSGI_OK) {
-			uwsgi_log("decreasing current max cores\n");
+			//uwsgi_log("decreasing current max cores\n");
 			uwsgi.async_current_max--;
 		}
 	}

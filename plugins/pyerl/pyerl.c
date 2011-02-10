@@ -7,6 +7,21 @@ extern struct uwsgi_python up;
 
 ei_cnode *pyerl_cnode;
 
+PyObject *pyerl_close(PyObject * self, PyObject * args) {
+
+	int fd;
+
+	if (!PyArg_ParseTuple(args, "i:erlang_close", &fd)) {
+                return NULL;
+        }
+
+	if (fd >= 0)
+		close(fd);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *pyerl_connect(PyObject * self, PyObject * args) {
 
 	char *node = NULL;
@@ -128,6 +143,64 @@ PyObject *pyerl_unlock(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *pyerl_send(PyObject * self, PyObject * args) {
+	PyObject *node;
+        PyObject *reg;
+        char *cnode;
+        PyObject *pobj;
+        ei_x_buff x;
+        int fd;
+        int close_fd = 0;
+        erlang_pid epid;
+
+        if (!PyArg_ParseTuple(args, "OOO:erlang_send", &node, &reg, &pobj)) {
+                return NULL;
+        }
+
+        if (PyString_Check(node)) {
+                cnode = PyString_AsString(node);
+                fd = ei_connect(pyerl_cnode, cnode);
+                close_fd = 1;
+        }
+        else if (PyInt_Check(node)) {
+                fd = PyInt_AsLong(node);
+        }
+        else {
+                return PyErr_Format(PyExc_ValueError, "invalid erlang node/descriptor");
+        }
+
+        if (fd < 0) {
+                return PyErr_Format(PyExc_ValueError, "Unable to connect to erlang node");
+        }
+
+
+        ei_x_new_with_version(&x);
+
+        if (py_to_erl(pobj, &x) < 0) {
+                ei_x_free(&x);
+                if (close_fd) close(fd);
+                return PyErr_Format(PyExc_ValueError, "Unsupported object in Python->Erlang translation");
+        }
+
+
+        if (PyTuple_Check(reg) && PyTuple_Size(reg) == 3) {
+                epid.num = PyInt_AsLong( PyTuple_GetItem(reg, 0) );
+                epid.serial = PyInt_AsLong( PyTuple_GetItem(reg, 1) );
+                epid.creation = PyInt_AsLong( PyTuple_GetItem(reg, 2) );
+                ei_send(fd, &epid, x.buff, x.index);
+        }
+        else if (PyString_Check(reg)) {
+                ei_reg_send(pyerl_cnode, fd, PyString_AsString(reg), x.buff, x.index);
+        }
+        else {
+                ei_x_free(&x);
+                if (close_fd) close(fd);
+                return PyErr_Format(PyExc_ValueError, "Invalid Erlang process");
+        }
+
+	return PyInt_FromLong(fd);
+}
+
 PyObject *pyerl_sr(PyObject * self, PyObject * args) {
 
 	PyObject *node;
@@ -177,8 +250,6 @@ PyObject *pyerl_sr(PyObject * self, PyObject * args) {
 		epid.num = PyInt_AsLong( PyTuple_GetItem(reg, 0) );
 		epid.serial = PyInt_AsLong( PyTuple_GetItem(reg, 1) );
 		epid.creation = PyInt_AsLong( PyTuple_GetItem(reg, 2) );
-
-		uwsgi_log("%d %d %d\n", epid.num, epid.serial, epid.creation);
 		ei_send(fd, &epid, x.buff, x.index);
 	}
 	else if (PyString_Check(reg)) {
@@ -190,11 +261,16 @@ PyObject *pyerl_sr(PyObject * self, PyObject * args) {
                 return PyErr_Format(PyExc_ValueError, "Invalid Erlang process");
 	}
 
+recv:
 	ei_x_free(&x);
 
 	ei_x_new(&x);
 
 	if (ei_xreceive_msg(fd, &em, &x) == ERL_MSG) {
+
+		if (em.msgtype == ERL_TICK) {
+			goto recv;			
+		}
 		x.index = 0;
 		ei_decode_version(x.buff, &x.index, &eversion);
 		res = erl_to_py(&x);
@@ -207,6 +283,40 @@ PyObject *pyerl_sr(PyObject * self, PyObject * args) {
 	if (close_fd) close(fd);
 
         Py_INCREF(Py_None);
+        return Py_None;
+}
+
+PyObject *pyerl_recv(PyObject * self, PyObject * args) {
+
+	ei_x_buff x;
+	erlang_msg em;
+	PyObject *res;
+	int eversion;
+	int fd;
+
+	if (!PyArg_ParseTuple(args, "i:erlang_recv", &fd)) {
+                return NULL;
+        }
+
+recv:
+	ei_x_new(&x);
+
+	if (ei_xreceive_msg(fd, &em, &x) == ERL_MSG) {
+
+		if (em.msgtype == ERL_TICK) {
+			ei_x_free(&x);
+			goto recv;
+		}
+                x.index = 0;
+                ei_decode_version(x.buff, &x.index, &eversion);
+                res = erl_to_py(&x);
+                ei_x_free(&x);
+                return res;
+        }
+
+        ei_x_free(&x);
+
+	Py_INCREF(Py_None);
         return Py_None;
 }
 
@@ -276,8 +386,11 @@ PyObject *pyerl_rpc(PyObject * self, PyObject * args) {
 
 static PyMethodDef uwsgi_pyerl_methods[] = {
         {"erlang_connect", pyerl_connect, METH_VARARGS, ""},
-        //{"erlang_send_message", pyerl_send, METH_VARARGS, ""},
-        //{"erlang_recv_message", pyerl_recv, METH_VARARGS, ""},
+        {"erlang_close", pyerl_close, METH_VARARGS, ""},
+        {"erlang_send_message", pyerl_send, METH_VARARGS, ""},
+        {"erlang_send", pyerl_send, METH_VARARGS, ""},
+        {"erlang_recv_message", pyerl_recv, METH_VARARGS, ""},
+        {"erlang_recv", pyerl_recv, METH_VARARGS, ""},
         {"erlang_sr", pyerl_sr, METH_VARARGS, ""},
         {"erlang_rpc", pyerl_rpc, METH_VARARGS, ""},
         {"erlang_lock", pyerl_lock, METH_VARARGS, ""},
