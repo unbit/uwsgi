@@ -2364,7 +2364,7 @@ PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if (remote) {
+	if (remote && strlen(remote) > 0) {
 		uwsgi_simple_send_string(remote, 111, 2, key, keylen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 	}
 	else if (uwsgi.cache_max_items) {
@@ -2398,7 +2398,7 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < 64K, requested %d bytes", (int) vallen);
 	}
 
-	if (remote) {
+	if (remote && strlen(remote) > 0) {
 		uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 	}
 	else if (uwsgi.cache_max_items) {
@@ -2445,7 +2445,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if (remote) {
+	if (remote && strlen(remote) > 0) {
 		uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (valsize > 0) {
 			value = buffer;
