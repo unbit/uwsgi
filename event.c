@@ -250,7 +250,8 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 
         ret = epoll_wait(eq, (struct epoll_event *) events, nevents, timeout);
         if (ret < 0) {
-                uwsgi_error("epoll_wait()");
+		if (errno != EINTR)
+                	uwsgi_error("epoll_wait()");
         }
 
         return ret;
@@ -267,7 +268,8 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 
         ret = epoll_wait(eq, &ee, 1, timeout);
         if (ret < 0) {
-                uwsgi_error("epoll_wait()");
+		if (errno != EINTR)
+                	uwsgi_error("epoll_wait()");
         }
 
 	if (ret > 0) {
