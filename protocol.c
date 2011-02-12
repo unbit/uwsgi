@@ -82,7 +82,7 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 	if (!timeout)
 		timeout = 1;
 
-	if (size > 0xFFFF) {
+	if (size > 0xffff) {
 		uwsgi_log( "invalid object (marshalled) size\n");
 		return -1;
 	}

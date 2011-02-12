@@ -1063,15 +1063,20 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.cache_max_items > 0) {
 
-		if (!uwsgi.cache_blocksize) uwsgi.cache_blocksize = 0xffff;
+		if (!uwsgi.cache_blocksize) uwsgi.cache_blocksize = UMAX16;
 
-		uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * 0xffff, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (uwsgi.cache_blocksize % uwsgi.page_size != 0) {
+			uwsgi_log("invalid cache blocksize %llu: must be a multiple of memory page size (%d bytes)\n", (unsigned long long) uwsgi.cache_blocksize, uwsgi.page_size);
+			exit(1);
+		}
+
+		uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * UMAX16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (!uwsgi.cache_hashtable) {
 			uwsgi_error("mmap()");
                         exit(1);
 		}
 
-		memset(uwsgi.cache_hashtable, 0, sizeof(uint64_t) * 0xffff);
+		memset(uwsgi.cache_hashtable, 0, sizeof(uint64_t) * UMAX16);
 
 		uwsgi.cache_unused_stack = (uint64_t *) mmap(NULL, sizeof(uint64_t) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
                 if (!uwsgi.cache_unused_stack) {
@@ -1105,6 +1110,8 @@ int uwsgi_start(void *v_argv) {
         	uwsgi_lock_init(uwsgi.cache_lock);
 
 		uwsgi.p[111] = &uwsgi_cache_plugin;
+
+		uwsgi_log("*** Cache subsystem initialized: %dMB preallocated ***\n", ((sizeof(uint64_t) * UMAX16) + (sizeof(uint64_t) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024*1024));
 	}
 
 	/* plugin initialization */

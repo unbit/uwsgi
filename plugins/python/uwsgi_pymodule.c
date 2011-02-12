@@ -2460,7 +2460,9 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 	char buffer[0xffff];
 	PyObject *res;
 
+#ifdef UWSGI_DEBUG
 	struct timeval tv, tv2;
+#endif
 
 	if (!PyArg_ParseTuple(args, "s#|s:cache_get", &key, &keylen, &remote)) {
 		return NULL;
@@ -2473,14 +2475,18 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 		}
 	}
 	else if (uwsgi.cache_max_items) {
+#ifdef UWSGI_DEBUG
 		gettimeofday(&tv, NULL); 
+#endif
 		uwsgi_lock(uwsgi.cache_lock);
 		value = uwsgi_cache_get(key, keylen, &valsize);
 		res = PyString_FromStringAndSize(value, valsize);
+#ifdef UWSGI_DEBUG
 		gettimeofday(&tv2, NULL); 
 		if ((tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec) > 30000) {
 			uwsgi_log("[slow] cache get done in %d microseconds (%llu bytes value)\n", (tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec), (unsigned long long) valsize);
 		}
+#endif
 		uwsgi_unlock(uwsgi.cache_lock);
 		return res;
 	}
