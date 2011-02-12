@@ -14,25 +14,34 @@ uint32_t djb33x_hash(char *key, int keylen) {
 	return hash;
 }
 
-inline uint32_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
+inline uint64_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
 
 	uint32_t hash = djb33x_hash(key, keylen);
-	uint32_t i;
+	
+	int hash_key = hash % 0xffff;
 
-	for(i=1;i< uwsgi.cache_max_items;i++) {
-		// end of table ?
-		//uwsgi_log("cache item %d -> %d %d %d %.*s %d\n", i, uwsgi.cache_items[i].used, uwsgi.cache_items[i].djbhash, uwsgi.cache_items[i].keysize, uwsgi.cache_items[i].keysize, uwsgi.cache_items[i].key, uwsgi.cache_items[i].valsize);
-		if (uwsgi.cache_items[i].used == 0) break;
+	uint64_t slot = uwsgi.cache_hashtable[hash_key];
 
-		// hash comparison
-		if (uwsgi.cache_items[i].djbhash != hash) continue;
+	struct uwsgi_cache_item *uci;
 
-		// keysize comparison
-		if (uwsgi.cache_items[i].keysize != keylen) continue ;
+	//uwsgi_log("found slot %d for key %d\n", slot, hash_key);
 
-		// key comparison
-		if (!memcmp(uwsgi.cache_items[i].key, key, keylen)) return i;
+	uci = &uwsgi.cache_items[slot];
 
+	// first round
+	if (uci->djbhash != hash) goto cycle;
+	if (uci->keysize != keylen) goto cycle;
+	if (memcmp(uci->key, key, keylen)) goto cycle;
+
+	return slot;
+
+cycle:
+	while(uci->next) {
+		slot = uci->next;
+		uci = &uwsgi.cache_items[slot];
+		if (uci->djbhash != hash) continue;
+		if (uci->keysize != keylen) continue;
+		if (!memcmp(uci->key, key, keylen)) return slot;
 	}
 
 	return 0;
@@ -43,23 +52,14 @@ uint32_t uwsgi_cache_exists(char *key, uint16_t keylen) {
 	return uwsgi_cache_get_index(key, keylen);
 }
 
-char *uwsgi_cache_get(char *key, uint16_t keylen, uint16_t *valsize) {
+char *uwsgi_cache_get(char *key, uint16_t keylen, uint64_t *valsize) {
 
-	uint32_t index = uwsgi_cache_get_index(key, keylen);
+	uint64_t index = uwsgi_cache_get_index(key, keylen);
 
-	/* is locking needed for reading ?
-	   I do not think so:
-
-	   case1 => reading during delete -> the worst case is receiving corrupted data for a item that must not exists
-	   case2 => reading during set -> the worst case is receiving corrupted data for an incomplete item
-
-	*/
-	
 	if (index) {
 		*valsize = uwsgi.cache_items[index].valsize;
-		// no locking needed, as this is only an hint
 		uwsgi.cache_items[index].hits++;
-		return uwsgi.cache+(index*0xffff);
+		return uwsgi.cache+(index*uwsgi.cache_blocksize);
 	}
 
 	return NULL;
@@ -67,70 +67,114 @@ char *uwsgi_cache_get(char *key, uint16_t keylen, uint16_t *valsize) {
 
 int uwsgi_cache_del(char *key, uint16_t keylen) {
 
-	uint32_t index = 0;
+	uint64_t index = 0;
 	struct uwsgi_cache_item *uci;
 	int ret = -1;
-
-	uwsgi_lock(uwsgi.cache_lock);
 
 	index = uwsgi_cache_get_index(key, keylen);
 	if (index) {
 		uci = &uwsgi.cache_items[index] ;
 		uci->keysize = 0;
-		uwsgi.shared->cache_first_available_item_tmp = uwsgi.shared->cache_first_available_item;
-		uwsgi.shared->cache_first_available_item = index;
+		uci->valsize = 0;
+		uwsgi.shared->cache_unused_stack_ptr++;
+		uwsgi.cache_unused_stack[uwsgi.shared->cache_unused_stack_ptr] = index;
+		// try to return to initial condition...
+		if (index == uwsgi.shared->cache_first_available_item-1) {
+			uwsgi.shared->cache_first_available_item--;
+			//uwsgi_log("FACI: %llu STACK PTR: %llu\n", (unsigned long long) uwsgi.shared->cache_first_available_item, (unsigned long long) uwsgi.shared->cache_unused_stack_ptr);
+		}
 		ret = 0;
+		// relink collisioned entry
+		if (uci->prev) {
+			uwsgi.cache_items[uci->prev].next = uci->next;	
+		}
+		if (uci->next) {
+			uwsgi.cache_items[uci->next].prev = uci->prev;	
+		}
+		if (!uci->prev && !uci->next) {
+			// reset hashtable entry
+			//uwsgi_log("!!! resetted hashtable entry !!!\n");
+			uwsgi.cache_hashtable[uci->djbhash % 0xffff] = 0;
+		}
+		uci->djbhash = 0;
+		uci->prev = 0;
+		uci->next = 0;
 	}
-
-	uwsgi_unlock(uwsgi.cache_lock);
 
 	return ret;
 }
 
-int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint16_t vallen, uint64_t expires) {
+int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint64_t expires) {
 
-	uint32_t index = 0 ;
-	struct uwsgi_cache_item *uci;
+	uint64_t index = 0, last_index = 0 ;
+
+	struct uwsgi_cache_item *uci, *ucii;
+
 	int ret = -1;
+	int slot;
+
 	if (!keylen || !vallen) return -1;
+
 	if (keylen > UWSGI_CACHE_MAX_KEY_SIZE) return -1;	
 
-	uwsgi_lock(uwsgi.cache_lock);
-	if (uwsgi.shared->cache_first_available_item >= uwsgi.cache_max_items) goto end;
+	if (uwsgi.shared->cache_first_available_item >= uwsgi.cache_max_items && !uwsgi.shared->cache_unused_stack_ptr) {
+		uwsgi_log("*** DANGER cache is FULL !!! ***\n");
+		goto end;
+	}
 
 	//uwsgi_log("putting cache data in key %.*s %d\n", keylen, key, vallen);
 	index = uwsgi_cache_get_index(key, keylen);
 	if (!index) {
-		index = uwsgi.shared->cache_first_available_item;	
+		if (uwsgi.shared->cache_unused_stack_ptr) {
+			//uwsgi_log("!!! REUSING CACHE SLOT !!! (faci: %llu)\n", (unsigned long long) uwsgi.shared->cache_first_available_item);
+			index = uwsgi.cache_unused_stack[uwsgi.shared->cache_unused_stack_ptr];
+			uwsgi.shared->cache_unused_stack_ptr--;
+		}
+		else {
+			index = uwsgi.shared->cache_first_available_item;	
+			if (uwsgi.shared->cache_first_available_item < uwsgi.cache_max_items) {
+				uwsgi.shared->cache_first_available_item++;
+			}
+		}
 		uci = &uwsgi.cache_items[index] ;
 		if (expires) expires += time(NULL);
 		uci->expires = expires;
 		uci->djbhash = djb33x_hash(key, keylen);
 		uci->hits = 0;
-		uci->used = 1;
 		memcpy(uci->key, key, keylen);
-		memcpy(uwsgi.cache+(index*0xffff), val, vallen);
-		// set this as late as possibile (to minimize locking)
+		memcpy(uwsgi.cache+(index*uwsgi.cache_blocksize), val, vallen);
+
+		// set this as late as possibile (to reduce races risk)
+
 		uci->valsize = vallen;
 		uci->keysize = keylen;	
 		ret = 0;
-		if (uwsgi.shared->cache_first_available_item_tmp) {
-			uwsgi.shared->cache_first_available_item = uwsgi.shared->cache_first_available_item_tmp ;
-			uwsgi.shared->cache_first_available_item_tmp = 0;
+		// now put the value in the 16bit hashtable
+		slot = uci->djbhash % 0xffff;
+
+		if (uwsgi.cache_hashtable[slot] == 0) {
+			uwsgi.cache_hashtable[slot] = index;
 		}
 		else {
-			uwsgi.shared->cache_first_available_item++;
+			//uwsgi_log("HASH COLLISION !!!!\n");
+			// append to first available next
+			last_index = uwsgi.cache_hashtable[slot];
+			ucii = &uwsgi.cache_items[ last_index ];
+			while(ucii->next) {
+				last_index = ucii->next;
+				ucii = &uwsgi.cache_items[ last_index ];
+			}
+			ucii->next = index;
+			uci->prev = last_index;
 		}
 	}
 
 end:
-	uwsgi_unlock(uwsgi.cache_lock);
-
 	return ret;
 	
 }
 
-void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+void cache_command(char *key, uint16_t keylen, char *val, uint64_t vallen, void *data) {
 
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) data;
 
@@ -147,7 +191,7 @@ void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void 
 
 int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 
-	uint16_t vallen = 0;
+	uint64_t vallen = 0;
 	char *value;
 	char *argv[3];
 	uint8_t argc = 0;
@@ -184,7 +228,7 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 		case 4:
 			// dict
 			if (wsgi_req->uh.pktsize > 0) {
-				uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh.pktsize, cache_command, (void *) wsgi_req);
+				//uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh.pktsize, cache_command, (void *) wsgi_req);
 			}
 			break;
 	}

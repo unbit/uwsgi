@@ -2368,10 +2368,13 @@ PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 		uwsgi_simple_send_string(remote, 111, 2, key, keylen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 	}
 	else if (uwsgi.cache_max_items) {
+		uwsgi_lock(uwsgi.cache_lock);
 		if (uwsgi_cache_del(key, strlen(key))) {
+			uwsgi_unlock(uwsgi.cache_lock);
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
+		uwsgi_unlock(uwsgi.cache_lock);
 	}
 
 	Py_INCREF(Py_True);
@@ -2394,18 +2397,21 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if (vallen > 0xffff) {
-		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < 64K, requested %d bytes", (int) vallen);
+	if ((uint64_t)vallen > uwsgi.cache_blocksize) {
+		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %d bytes", (unsigned long long)uwsgi.cache_blocksize, (int) vallen);
 	}
 
 	if (remote && strlen(remote) > 0) {
 		uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 	}
 	else if (uwsgi.cache_max_items) {
-		if (uwsgi_cache_set(key, strlen(key), value, vallen, expires)) {
+		uwsgi_lock(uwsgi.cache_lock);
+		if (uwsgi_cache_set(key, keylen, value, vallen, expires)) {
+			uwsgi_unlock(uwsgi.cache_lock);
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
+		uwsgi_unlock(uwsgi.cache_lock);
 	}
 
 	Py_INCREF(Py_True);
@@ -2447,24 +2453,36 @@ PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	char *key;
-	uint16_t valsize;
+	uint64_t valsize;
 	Py_ssize_t keylen = 0;
 	char *value = NULL;
 	char *remote = NULL;
 	char buffer[0xffff];
+	PyObject *res;
+
+	struct timeval tv, tv2;
 
 	if (!PyArg_ParseTuple(args, "s#|s:cache_get", &key, &keylen, &remote)) {
 		return NULL;
 	}
 
 	if (remote && strlen(remote) > 0) {
-		uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		//uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (valsize > 0) {
 			value = buffer;
 		}
 	}
 	else if (uwsgi.cache_max_items) {
-		value = uwsgi_cache_get(key, strlen(key), &valsize);
+		gettimeofday(&tv, NULL); 
+		uwsgi_lock(uwsgi.cache_lock);
+		value = uwsgi_cache_get(key, keylen, &valsize);
+		res = PyString_FromStringAndSize(value, valsize);
+		gettimeofday(&tv2, NULL); 
+		if ((tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec) > 30000) {
+			uwsgi_log("[slow] cache get done in %d microseconds (%llu bytes value)\n", (tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec), (unsigned long long) valsize);
+		}
+		uwsgi_unlock(uwsgi.cache_lock);
+		return res;
 	}
 
 	if (value) {

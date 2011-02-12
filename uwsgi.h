@@ -190,7 +190,7 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #define UWSGI_LISTEN_QUEUE 511
 #endif
 
-#define UWSGI_CACHE_MAX_KEY_SIZE 4071
+#define UWSGI_CACHE_MAX_KEY_SIZE 2048
 
 union uwsgi_sockaddr {
 	struct sockaddr     sa;
@@ -232,19 +232,22 @@ struct uwsgi_daemon {
 
 // maintain alignment here !!!
 struct uwsgi_cache_item {
-
+	// unused
+	uint16_t	unused;
 	// size of the key
 	uint16_t	keysize;
 	// djb hash of the key
 	uint32_t	djbhash;
-	// size of the value (max 64KB)
-	uint16_t	valsize;
+	// size of the value (64bit)
+	uint64_t	valsize;
 	// 64bit expiration (0 for immortal)
 	uint64_t	expires;
 	// 64bit hits
 	uint64_t	hits;
-	// mark the end of the table
-	char		used;
+	// previous same-hash item
+	uint64_t	prev;
+	// next same-hash item
+	uint64_t	next;
 	// key chracters follows...
 	char		key[UWSGI_CACHE_MAX_KEY_SIZE];
 } __attribute__((__packed__));
@@ -327,6 +330,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_WORKER_EXEC		17071
 #define LONG_ARGS_EMPEROR		17072
 #define LONG_ARGS_PRINT			17073
+#define LONG_ARGS_CACHE_BLOCKSIZE	17074
 
 
 
@@ -913,6 +917,9 @@ struct uwsgi_server {
 	struct sockaddr_in mc_cluster_addr;
 
 	uint32_t 	cache_max_items;
+	uint64_t 	*cache_hashtable;
+	uint64_t 	*cache_unused_stack;
+	uint64_t	cache_blocksize;
 	struct uwsgi_cache_item	*cache_items;
 	void		*cache;
 
@@ -1030,8 +1037,8 @@ struct uwsgi_shared {
 
 #endif
 
-	uint16_t	cache_first_available_item;
-	uint16_t	cache_first_available_item_tmp;
+	uint64_t	cache_first_available_item;
+	uint64_t	cache_unused_stack_ptr;
 
 
 	int		worker_signal_pipe[2];
@@ -1328,9 +1335,9 @@ ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t
 
 char *uwsgi_cluster_best_node(void);
 
-int uwsgi_cache_set(char *, uint16_t, char *, uint16_t, uint64_t);
+int uwsgi_cache_set(char *, uint16_t, char *, uint64_t, uint64_t);
 int uwsgi_cache_del(char *, uint16_t);
-char *uwsgi_cache_get(char *, uint16_t, uint16_t *);
+char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
 void uwsgi_lock_init(void *);

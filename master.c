@@ -584,11 +584,13 @@ void master_loop(char **argv, char **environ) {
 			// remove expired cache items
 			if (uwsgi.cache_max_items > 0) {
 				for(i=0;i< (int)uwsgi.cache_max_items;i++) {
+					uwsgi_lock(uwsgi.cache_lock);
 					if (uwsgi.cache_items[i].expires) {
 						if (uwsgi.cache_items[i].expires < current_time) {
 							uwsgi_cache_del(uwsgi.cache_items[i].key, uwsgi.cache_items[i].keysize);
 						}
 					}
+					uwsgi_unlock(uwsgi.cache_lock);
 				}
 			}
 

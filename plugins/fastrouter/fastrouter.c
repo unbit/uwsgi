@@ -60,7 +60,7 @@ struct fastrouter_session {
 	uint16_t hostname_len;
 
 	char *instance_address;
-	uint16_t instance_address_len;
+	uint64_t instance_address_len;
 
 	int pass_fd;
 };

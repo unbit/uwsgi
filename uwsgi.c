@@ -63,6 +63,7 @@ static struct option long_base_options[] = {
 	{"socket-timeout", required_argument, 0, 'z'},
 	{"sharedarea", required_argument, 0, 'A'},
 	{"cache", required_argument, 0, LONG_ARGS_CACHE},
+	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE},
 #ifdef UWSGI_SPOOLER
 	{"spooler", required_argument, 0, 'Q'},
 #endif
@@ -1061,13 +1062,32 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (uwsgi.cache_max_items > 0) {
+
+		if (!uwsgi.cache_blocksize) uwsgi.cache_blocksize = 0xffff;
+
+		uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * 0xffff, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (!uwsgi.cache_hashtable) {
+			uwsgi_error("mmap()");
+                        exit(1);
+		}
+
+		memset(uwsgi.cache_hashtable, 0, sizeof(uint64_t) * 0xffff);
+
+		uwsgi.cache_unused_stack = (uint64_t *) mmap(NULL, sizeof(uint64_t) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+                if (!uwsgi.cache_unused_stack) {
+                        uwsgi_error("mmap()");
+                        exit(1);
+                }
+
+                memset(uwsgi.cache_unused_stack, 0, sizeof(uint64_t) * uwsgi.cache_max_items);
+
 		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (!uwsgi.cache_items) {
 			uwsgi_error("mmap()");
                         exit(1);
 		}
 
-		uwsgi.cache = mmap(NULL, 0xffff * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		uwsgi.cache = mmap(NULL, uwsgi.cache_blocksize * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (!uwsgi.cache) {
 			uwsgi_error("mmap()");
                         exit(1);
@@ -1079,6 +1099,7 @@ int uwsgi_start(void *v_argv) {
 
 		// the first cache item is always zero
 		uwsgi.shared->cache_first_available_item = 1;
+		uwsgi.shared->cache_unused_stack_ptr = 0;
 
 		uwsgi.cache_lock = uwsgi_mmap_shared_lock();
         	uwsgi_lock_init(uwsgi.cache_lock);
@@ -1928,6 +1949,9 @@ end:
 			return 1;
 		case LONG_ARGS_CACHE:
 			uwsgi.cache_max_items = atoi(optarg);
+			return 1;
+		case LONG_ARGS_CACHE_BLOCKSIZE:
+			uwsgi.cache_blocksize = atoi(optarg);
 			return 1;
 		case 'A':
 			uwsgi.sharedareasize = atoi(optarg);
