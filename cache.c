@@ -174,18 +174,28 @@ end:
 	
 }
 
-void cache_command(char *key, uint16_t keylen, char *val, uint64_t vallen, void *data) {
+void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) data;
+	uint64_t tmp_vallen = 0;
 
 	if (vallen > 0) {
 		if (!uwsgi_strncmp(key, keylen, "key", 3)) {
-			val = uwsgi_cache_get(val, vallen, &vallen);
-                        if (val && vallen > 0) {
+			val = uwsgi_cache_get(val, vallen, &tmp_vallen);
+                        if (val && tmp_vallen > 0) {
                         	wsgi_req->response_size = write(wsgi_req->poll.fd, val, vallen);
                         }
 
 		}		
+		else if (!uwsgi_strncmp(key, keylen, "get", 3)) {
+			val = uwsgi_cache_get(val, vallen, &tmp_vallen);
+			if (val && vallen > 0) {
+                        	wsgi_req->response_size = write(wsgi_req->poll.fd, val, tmp_vallen);
+			}
+			else {
+				wsgi_req->response_size = write(wsgi_req->poll.fd, "HTTP/1.0 404 Not Found\r\n\r\n<h1>Not Found</h1>", 44);
+			}
+		}
 	}
 }
 
@@ -228,7 +238,7 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 		case 4:
 			// dict
 			if (wsgi_req->uh.pktsize > 0) {
-				//uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh.pktsize, cache_command, (void *) wsgi_req);
+				uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh.pktsize, cache_command, (void *) wsgi_req);
 			}
 			break;
 	}

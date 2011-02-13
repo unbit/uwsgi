@@ -1346,6 +1346,11 @@ void uwsgi_lock_init(void *);
 void uwsgi_lock(void *);
 void uwsgi_unlock(void *);
 
+void uwsgi_rwlock_init(void *);
+void uwsgi_rlock(void *);
+void uwsgi_wlock(void *);
+void uwsgi_rwunlock(void *);
+
 inline void *uwsgi_malloc(size_t);
 
 
@@ -1367,6 +1372,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 
 
 void *uwsgi_mmap_shared_lock(void);
+void *uwsgi_mmap_shared_rwlock(void);
 
 void uwsgi_register_signal(uint8_t, uint8_t, void *, uint8_t, char *, uint8_t);
 void uwsgi_register_file_monitor(uint8_t, char *, uint8_t, void *, uint8_t);

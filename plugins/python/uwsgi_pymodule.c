@@ -2368,13 +2368,13 @@ PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 		uwsgi_simple_send_string(remote, 111, 2, key, keylen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 	}
 	else if (uwsgi.cache_max_items) {
-		uwsgi_lock(uwsgi.cache_lock);
+		uwsgi_wlock(uwsgi.cache_lock);
 		if (uwsgi_cache_del(key, strlen(key))) {
-			uwsgi_unlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.cache_lock);
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
-		uwsgi_unlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.cache_lock);
 	}
 
 	Py_INCREF(Py_True);
@@ -2405,13 +2405,13 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 		uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 	}
 	else if (uwsgi.cache_max_items) {
-		uwsgi_lock(uwsgi.cache_lock);
+		uwsgi_wlock(uwsgi.cache_lock);
 		if (uwsgi_cache_set(key, keylen, value, vallen, expires)) {
-			uwsgi_unlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.cache_lock);
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
-		uwsgi_unlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.cache_lock);
 	}
 
 	Py_INCREF(Py_True);
@@ -2478,7 +2478,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 #ifdef UWSGI_DEBUG
 		gettimeofday(&tv, NULL); 
 #endif
-		uwsgi_lock(uwsgi.cache_lock);
+		uwsgi_rlock(uwsgi.cache_lock);
 		value = uwsgi_cache_get(key, keylen, &valsize);
 		res = PyString_FromStringAndSize(value, valsize);
 #ifdef UWSGI_DEBUG
@@ -2487,7 +2487,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 			uwsgi_log("[slow] cache get done in %d microseconds (%llu bytes value)\n", (tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec), (unsigned long long) valsize);
 		}
 #endif
-		uwsgi_unlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.cache_lock);
 		return res;
 	}
 

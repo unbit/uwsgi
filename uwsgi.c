@@ -1106,8 +1106,8 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.shared->cache_first_available_item = 1;
 		uwsgi.shared->cache_unused_stack_ptr = 0;
 
-		uwsgi.cache_lock = uwsgi_mmap_shared_lock();
-        	uwsgi_lock_init(uwsgi.cache_lock);
+		uwsgi.cache_lock = uwsgi_mmap_shared_rwlock();
+        	uwsgi_rwlock_init(uwsgi.cache_lock);
 
 		uwsgi.p[111] = &uwsgi_cache_plugin;
 
