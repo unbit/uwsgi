@@ -5,7 +5,7 @@ extern struct uwsgi_python up;
 
 void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
-	PyObject *wsgi_socket, *zero;
+	PyObject *zero;
 
 	//static PyObject *uwsgi_version = NULL;
 
@@ -15,10 +15,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	   }
 	   */
 
-
-	wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
-	Py_DECREF(wsgi_socket);
 
 #ifdef UWSGI_SENDFILE
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);

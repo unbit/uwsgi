@@ -3,6 +3,8 @@
 extern struct uwsgi_server uwsgi;
 struct uwsgi_python up;
 
+extern PyTypeObject uwsgi_InputType;
+
 struct option uwsgi_python_options[] = {
 	{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
 	{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
@@ -23,6 +25,7 @@ struct option uwsgi_python_options[] = {
 #endif
 	{"catch-exceptions", no_argument, &up.catch_exceptions, 1},
 	{"ignore-script-name", no_argument, &up.ignore_script_name, 1},
+	{"pep3333-input", no_argument, &up.pep3333_input, 1},
 	{"no-site", no_argument, &Py_NoSiteFlag, 1},
 
 	{0, 0, 0, 0},
@@ -323,6 +326,8 @@ PyObject *init_uwsgi3(void) {
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module, *zero;
 	int i;
+
+	PyType_Ready(&uwsgi_InputType);
 
 	/* initialize for stats */
 	up.workers_tuple = PyTuple_New(uwsgi.numproc);

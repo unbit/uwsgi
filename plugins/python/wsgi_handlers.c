@@ -3,6 +3,166 @@
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
+
+typedef struct uwsgi_Input {
+        PyObject_HEAD
+	off_t pos;
+	struct wsgi_request *wsgi_req;
+} uwsgi_Input;
+
+PyObject *uwsgi_Input_iter(PyObject * self) {
+        Py_INCREF(self);
+        return self;
+}
+
+PyObject *uwsgi_Input_next(PyObject * self) {
+
+	PyErr_SetNone(PyExc_StopIteration);
+
+	return NULL;
+}
+
+static void uwsgi_Input_free(uwsgi_Input *self) {
+    	PyObject_Del(self);
+}
+
+static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
+
+	long len = 0;
+	size_t remains, chunk_size;
+	ssize_t rlen;
+	char *tmp_buf;
+	int fd;
+	PyObject *res;
+
+	if (!PyArg_ParseTuple(args, "|l:read", &len)) {
+		return NULL;
+	}
+
+	// return empty string if no post_cl or pos >= post_cl
+	if (!self->wsgi_req->post_cl || (size_t) self->pos >= self->wsgi_req->post_cl) {
+		return PyString_FromString("");
+	}
+
+	if (uwsgi.post_buffering > 0) {
+		fd = -1;
+		if (self->wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
+			fd = fileno(self->wsgi_req->async_post);
+		}
+	}
+	else {
+		fd = self->wsgi_req->poll.fd;
+	}
+	// return the whole input
+	if (len <= 0) {
+		remains = self->wsgi_req->post_cl;
+	}
+	else {
+		remains = len ;
+	}
+
+	if (remains + self->pos > self->wsgi_req->post_cl) {
+		remains = self->wsgi_req->post_cl - self->pos;
+	} 
+
+	if (remains <= 0) {
+		return PyString_FromString("");
+	}
+
+	if (fd == -1) {
+		res = PyString_FromStringAndSize( self->wsgi_req->post_buffering_buf, remains);
+		self->pos += remains;	
+		return res;
+	}
+
+	chunk_size = remains;
+	tmp_buf = uwsgi_malloc(remains);	
+	while(remains) {
+		if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
+			free(tmp_buf);
+			return PyErr_Format(PyExc_ValueError, "error waiting for wsgi.input data");
+		}
+
+		rlen = read(fd, tmp_buf + self->pos, remains);
+		if (rlen < 0) {
+			free(tmp_buf);
+			return PyErr_Format(PyExc_ValueError, "error reading wsgi.input data");
+		}
+
+		if (!rlen) break;
+
+		self->pos += rlen;
+		remains -= rlen;
+	}
+
+	res = PyString_FromStringAndSize(tmp_buf, chunk_size);
+	free(tmp_buf);
+	return res;
+		
+}
+
+static PyObject *uwsgi_Input_readline(uwsgi_Input *self, PyObject *args) {
+
+	return NULL;
+}
+
+static PyObject *uwsgi_Input_readlines(uwsgi_Input *self, PyObject *args) {
+
+	return NULL;
+}
+
+static PyObject *uwsgi_Input_close(uwsgi_Input *self, PyObject *args) {
+
+	return NULL;
+}
+
+static PyMethodDef uwsgi_Input_methods[] = {
+	{ "read",      (PyCFunction)uwsgi_Input_read,      METH_VARARGS, 0 },
+	{ "readline",  (PyCFunction)uwsgi_Input_readline,  METH_VARARGS, 0 },
+	{ "readlines", (PyCFunction)uwsgi_Input_readlines, METH_VARARGS, 0 },
+// add close to allow mod_wsgi compatibility
+	{ "close",     (PyCFunction)uwsgi_Input_close,     METH_VARARGS, 0 },
+	{ NULL, NULL}
+};
+
+
+PyTypeObject uwsgi_InputType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+                "uwsgi._Input",  /*tp_name */
+        sizeof(uwsgi_Input),     /*tp_basicsize */
+        0,                      /*tp_itemsize */
+        (destructor) uwsgi_Input_free,	/*tp_dealloc */
+        0,                      /*tp_print */
+        0,                      /*tp_getattr */
+        0,                      /*tp_setattr */
+        0,                      /*tp_compare */
+        0,                      /*tp_repr */
+        0,                      /*tp_as_number */
+        0,                      /*tp_as_sequence */
+        0,                      /*tp_as_mapping */
+        0,                      /*tp_hash */
+        0,                      /*tp_call */
+        0,                      /*tp_str */
+        0,                      /*tp_getattr */
+        0,                      /*tp_setattr */
+        0,                      /*tp_as_buffer */
+#if defined(Py_TPFLAGS_HAVE_ITER)
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_ITER,
+#else
+        Py_TPFLAGS_DEFAULT,
+#endif
+        "uwsgi input object.",      /* tp_doc */
+        0,                      /* tp_traverse */
+        0,                      /* tp_clear */
+        0,                      /* tp_richcompare */
+        0,                      /* tp_weaklistoffset */
+        uwsgi_Input_iter,        /* tp_iter: __iter__() method */
+        uwsgi_Input_next,         /* tp_iternext: next() method */
+	uwsgi_Input_methods,
+	0,0,0,0,0,0,0,0,0,0,0,0
+};
+
+
 PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 	PyObject *data;
 	char *content;
@@ -81,6 +241,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	int tmp_stderr;
 	char *what;
 	int what_len;
+
+	PyObject *wsgi_socket;
 
 
 #ifdef UWSGI_ASYNC
@@ -263,15 +425,38 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 
-	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
+	if (uwsgi.post_buffering > 0) {
 		UWSGI_RELEASE_GIL
+		// read to disk
+		if (wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
 			if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
 				goto clear;
 			}
+		}
+		else {
+			if (!uwsgi_read_whole_body_in_mem(wsgi_req, wsgi_req->post_buffering_buf)) {
+				goto clear;
+			}
+		}
 		UWSGI_GET_GIL
 	}
+	else {
+		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+	}
 
-	wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+	if (!up.pep3333_input) {
+		wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
+		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
+		Py_DECREF(wsgi_socket);
+	}
+	else {
+		wsgi_socket = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
+		((uwsgi_Input*)wsgi_socket)->wsgi_req = wsgi_req; 
+		((uwsgi_Input*)wsgi_socket)->pos = 0;
+		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
+	}
+
+	
 
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
 
@@ -327,6 +512,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		close(tmp_stderr);
 	}
 
+	if (up.pep3333_input) {
+		Py_DECREF(wsgi_socket);
+	}
 clear:
 
 	up.reset_ts(wsgi_req, wi);

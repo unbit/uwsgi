@@ -989,6 +989,41 @@ int count_options(struct option *lopt) {
 	return count;
 }
 
+int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
+
+	size_t post_remains = wsgi_req->post_cl;
+	int ret;
+	ssize_t len;
+	char *ptr = buf;
+
+	while(post_remains) {
+                if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+                        inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                }
+
+                ret = uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret < 0) {
+                        return 0;
+                }
+
+                if (!ret) {
+                        uwsgi_log("buffering POST data timedout !!!\n");
+			return 0;
+                }
+
+                len = read(wsgi_req->poll.fd, ptr, post_remains);
+                if (len <= 0) {
+                        uwsgi_error("read()");
+			return 0;
+                }
+		ptr += len;
+                post_remains -= len;
+        }
+
+	return 1;
+	
+}
+
 int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 
 	size_t post_remains = wsgi_req->post_cl;

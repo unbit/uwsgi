@@ -959,9 +959,9 @@ struct uwsgi_lb_group {
 #define KIND_MASTER 6
 
 struct uwsgi_signal_entry {
-	uint8_t kind;
 	uint8_t modifier1;
 	uint8_t	payload_size;
+	char receiver[0xff];
 	void *handler;
 	char payload[0xff];
 };
@@ -1303,6 +1303,7 @@ struct wsgi_request *threaded_current_wsgi_req(void);
 void            build_options(void);
 
 int             uwsgi_read_whole_body(struct wsgi_request *, char *, size_t);
+int		uwsgi_read_whole_body_in_mem(struct wsgi_request *, char *);
 
 ssize_t         uwsgi_sendfile(struct wsgi_request *);
 
@@ -1374,7 +1375,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 void *uwsgi_mmap_shared_lock(void);
 void *uwsgi_mmap_shared_rwlock(void);
 
-void uwsgi_register_signal(uint8_t, uint8_t, void *, uint8_t, char *, uint8_t);
+void uwsgi_register_signal(uint8_t, char *, void *, uint8_t, char *, uint8_t);
 void uwsgi_register_file_monitor(uint8_t, char *, uint8_t, void *, uint8_t);
 void uwsgi_register_timer(uint8_t, int, uint8_t, void *, uint8_t);
 int uwsgi_signal_handler(uint8_t);

@@ -14,13 +14,13 @@ def hello_timer(num, secs):
 	print "%s seconds elapsed" % secs
 
 #uwsgi.register_signal(30, uwsgi.SIGNAL_KIND_WORKER, hello_signal)
-uwsgi.register_signal(30, uwsgi.KIND_WORKER, hello_signal)
-uwsgi.register_signal(22, uwsgi.KIND_WORKER, hello_signal2, "*** PAYLOAD FOO ***")
+uwsgi.register_signal(30, "workers", hello_signal)
+uwsgi.register_signal(22, "worker", hello_signal2, "*** PAYLOAD FOO ***")
 
-uwsgi.register_file_monitor(3, "/tmp", uwsgi.KIND_WORKER, hello_file)
-uwsgi.register_timer(26, 2, uwsgi.KIND_WORKER, hello_timer)
-uwsgi.register_timer(17, 4, uwsgi.KIND_WORKER, hello_timer)
-uwsgi.register_timer(5, 8, uwsgi.KIND_WORKER, hello_timer)
+uwsgi.register_file_monitor(3, "/tmp", "workers", hello_file)
+uwsgi.register_timer(26, 2, "worker", hello_timer)
+uwsgi.register_timer(17, 4, "worker2", hello_timer)
+uwsgi.register_timer(5, 8, "worker3", hello_timer)
 
 
 def application(env, start_response):

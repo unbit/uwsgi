@@ -402,10 +402,10 @@ PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 	}
 
 	if (payload == NULL) {
-		uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, NULL, 0);
+		//uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, NULL, 0);
 	}
 	else {
-		uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, payload, strlen(payload));
+		//uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, payload, strlen(payload));
 	}
 
 	Py_INCREF(Py_None);

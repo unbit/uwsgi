@@ -8,9 +8,11 @@ int uwsgi_signal_handler(uint8_t sig) {
 
 	use = &uwsgi.shared->signal_table[sig];
 
+	/*
 	if (!use->kind) {
 		return -1;
 	}
+	*/
 
 	if (!uwsgi.p[use->modifier1]->signal_handler) {
 		return -1;
@@ -19,7 +21,7 @@ int uwsgi_signal_handler(uint8_t sig) {
 	return uwsgi.p[use->modifier1]->signal_handler(sig, use->handler, use->payload, use->payload_size);
 }
 
-void uwsgi_register_signal(uint8_t sig, uint8_t kind, void *handler, uint8_t modifier1, char *payload, uint8_t payload_size) {
+void uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t modifier1, char *payload, uint8_t payload_size) {
 
 	struct uwsgi_signal_entry *use = NULL;
 
@@ -27,7 +29,7 @@ void uwsgi_register_signal(uint8_t sig, uint8_t kind, void *handler, uint8_t mod
 
 	use = &uwsgi.shared->signal_table[sig];
 
-	use->kind = kind;
+	strcpy(use->receiver, receiver);
 	use->handler = handler;
 	use->modifier1 = modifier1;
 	
@@ -57,7 +59,9 @@ void uwsgi_register_file_monitor(uint8_t sig, char *filename, uint8_t kind, void
 		memcpy(ushared->files_monitored[ushared->files_monitored_cnt].filename, filename, strlen(filename));
                 ushared->files_monitored[ushared->files_monitored_cnt].registered = 0;
 		ushared->files_monitored[ushared->files_monitored_cnt].sig = sig;
-		uwsgi_register_signal(sig, kind, handler, modifier1, filename, strlen(filename));
+	
+		//uwsgi_register_signal(sig, kind, handler, modifier1, filename, strlen(filename));
+
 		ushared->files_monitored_cnt++;
 	}
 	else {
@@ -79,7 +83,7 @@ void uwsgi_register_timer(uint8_t sig, int secs, uint8_t kind, void *handler, ui
 		snprintf(ushared->timers[ushared->timers_cnt].svalue, 0xff, "%d", secs);
 		ushared->timers[ushared->timers_cnt].registered = 0;
 		ushared->timers[ushared->timers_cnt].sig = sig;
-		uwsgi_register_signal(sig, kind, handler, modifier1, ushared->timers[ushared->timers_cnt].svalue, strlen(ushared->timers[ushared->timers_cnt].svalue));
+		//uwsgi_register_signal(sig, kind, handler, modifier1, ushared->timers[ushared->timers_cnt].svalue, strlen(ushared->timers[ushared->timers_cnt].svalue));
 		ushared->timers_cnt++;
 	}
 	else {
@@ -94,15 +98,20 @@ void uwsgi_register_timer(uint8_t sig, int secs, uint8_t kind, void *handler, ui
 void uwsgi_route_signal(uint8_t sig) {
 
 	struct uwsgi_signal_entry *use = &ushared->signal_table[sig];
-	switch(use->kind) {
-		case KIND_WORKER:
-			if (write(ushared->worker_signal_pipe[0], &sig, 1) != 1) {
-				uwsgi_error("write()");
-				uwsgi_log("could not deliver signal %d to workers pool\n", sig);
-			}
-			break;
-		case KIND_NULL:
-			// unmanaged signal, pass to all the children
-			break;	
-	};
+	// send to all workers
+	if (!strcmp(use->receiver, "workers")) {
+		if (write(ushared->worker_signal_pipe[0], &sig, 1) != 1) {
+			uwsgi_error("write()");
+			uwsgi_log("could not deliver signal %d to workers pool\n", sig);
+		}
+	}
+	// send to first available worker
+	else if (!strcmp(use->receiver, "worker")) {
+	}
+	// loop back to master
+	else if (!strcmp(use->receiver, "master")) {
+	}
+	// route to subscribed
+	else if (!strcmp(use->receiver, "master")) {
+	}
 }
