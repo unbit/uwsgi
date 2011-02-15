@@ -152,7 +152,7 @@ class uConf(object):
             'plugins', 'lock', 'cache', 'event', 'signal', 'rpc', 'gateway', 'loop', 'uwsgi']
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:
-            gcc_version = str(spcall("%s --version" % GCC)).split('\n')[0].split()[2]
+            gcc_version = str(spcall("%s -dumpversion" % GCC))
         except:
             print("*** you need a c compiler to build uWSGI ***")
             sys.exit(1)
