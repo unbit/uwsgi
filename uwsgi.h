@@ -1364,6 +1364,7 @@ int event_queue_wait(int, int, int *);
 int event_queue_wait_multi(int, int, void *, int);
 int event_queue_interesting_fd(void *, int);
 int event_queue_interesting_fd_has_error(void *, int);
+int event_queue_fd_write_to_read(int, int);
 
 int event_queue_add_timer(int, int *, int);
 struct uwsgi_timer *event_queue_ack_timer(int);

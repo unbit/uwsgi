@@ -88,7 +88,7 @@ struct http_session {
 
 	char uss[MAX_HTTP_VEC*2];
 
-	char buffer[0xffff];
+	char buffer[UMAX16];
 };
 
 struct http_session *alloc_uhttp_session() {
@@ -302,7 +302,7 @@ void http_loop() {
 
 	char *magic_table[0xff];
 
-	char bbuf[0xffff];
+	char bbuf[UMAX16];
 
 	void *events;
 	struct msghdr msg;
@@ -394,7 +394,7 @@ void http_loop() {
 				switch(uhttp_session->status) {
 
 					case HTTP_STATUS_RECV:
-						len = recv(uhttp_session->fd, uhttp_session->buffer + uhttp_session->h_pos, 0xffff-uhttp_session->h_pos, 0);
+						len = recv(uhttp_session->fd, uhttp_session->buffer + uhttp_session->h_pos, UMAX16-uhttp_session->h_pos, 0);
 						if (len <= 0) {
 							uwsgi_error("recv()");
 							close(uhttp_session->fd);
@@ -558,8 +558,7 @@ void http_loop() {
                                                         	break;
 							}
 
-							event_queue_del_fd(uhttp_queue, uhttp_session->instance_fd);
-							event_queue_add_fd_read(uhttp_queue, uhttp_session->instance_fd);
+							event_queue_fd_write_to_read(uhttp_queue, uhttp_session->instance_fd);
 							uhttp_session->status = HTTP_STATUS_RESPONSE;
 						}
 
@@ -569,7 +568,7 @@ void http_loop() {
 						
 						// data from instance
 						if (interesting_fd == uhttp_session->instance_fd) {
-							len = recv(uhttp_session->instance_fd, bbuf, 0xffff, 0);
+							len = recv(uhttp_session->instance_fd, bbuf, UMAX16, 0);
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("recv()");
 								close(uhttp_session->fd);
@@ -598,7 +597,7 @@ void http_loop() {
 						else if (interesting_fd == uhttp_session->fd) {
 
 							//uwsgi_log("receiving body...\n");
-							len = recv(uhttp_session->fd, bbuf, 0xffff, 0);
+							len = recv(uhttp_session->fd, bbuf, UMAX16, 0);
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("recv()");
 								close(uhttp_session->fd);
