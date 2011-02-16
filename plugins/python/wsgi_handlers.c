@@ -47,7 +47,7 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 	if (uwsgi.post_buffering > 0) {
 		fd = -1;
 		if (self->wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
-			fd = fileno(self->wsgi_req->async_post);
+			fd = fileno((FILE *)self->wsgi_req->async_post);
 		}
 	}
 	else {

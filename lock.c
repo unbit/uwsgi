@@ -79,10 +79,10 @@ void uwsgi_rwlock_init(void *lock) {
 #define UWSGI_LOCK_SIZE		sizeof(struct umtx)
 #define UWSGI_RWLOCK_SIZE	sizeof(struct umtx)
 
-#define uwsgi_rwlock_init uwsgi_lock_init
-#define uwsgi_rlock uwsgi_lock
-#define uwsgi_wlock uwsgi_lock
-#define uwsgi_rwunlock uwsgi_lock
+void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
+void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
+void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
+void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 
 void uwsgi_lock_init(void *lock) {
 	umtx_init((struct umtx*) lock);
@@ -131,15 +131,23 @@ void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 
 #ifdef UWSGI_LOCK_USE_FLOCK
 
+#define UWSGI_LOCK_SIZE 8
+#define UWSGI_RWLOCK_SIZE 8
+
 void uwsgi_lock_init(void *lock) {}
 
 void uwsgi_lock(void *lock) {
-	if (flock((int) *lock, LOCK_EX)) { uwsgi_error("flock()"); }
+	//if (flock((int) *lock, LOCK_EX)) { uwsgi_error("flock()"); }
 }
 
 void uwsgi_unlock(void *lock) {
-	if (flock((int) *lock, LOCK_UN)) { uwsgi_error("flock()"); }
+	//if (flock((int) *lock, LOCK_UN)) { uwsgi_error("flock()"); }
 }
+
+void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
+void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
+void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
+void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 
 #endif
 
