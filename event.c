@@ -250,7 +250,7 @@ int event_queue_interesting_fd(void *events, int id) {
 
 int event_queue_interesting_fd_has_error(void *events, int id) {
 	struct epoll_event *ee = (struct epoll_event *) events;
-	if (ee[id].events & EPOLLHUP || ee[id].events & EPOLLERR) {
+	if (ee[id].events == EPOLLHUP || ee[id].events == EPOLLERR || (ee[id].events == (EPOLLERR|EPOLLHUP))) {
 		return 1;
 	}
 	return 0;
@@ -404,7 +404,7 @@ int event_queue_interesting_fd(void *events, int id) {
 int event_queue_interesting_fd_has_error(void *events, int id) {
 	struct kevent *ev = (struct kevent *) events;
 
-        if (ev[id].flags == EV_ERROR || ev[id].flags == EV_EOF) {
+        if (  ( (ev[id].flags == EV_ERROR) || (ev[id].flags == EV_EOF) || (ev[id].flags == (EV_EOF|EV_ERROR))) ) {
                 return 1;
         }
         return 0;
