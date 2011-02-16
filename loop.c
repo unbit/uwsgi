@@ -91,15 +91,18 @@ void *simple_loop(void *arg1) {
 #ifdef UWSGI_ASYNC
 void complex_loop() {
 	int current_async_timeout = 0;
-	int i;
+	int i, j;
 	int interesting_fd;
+
+	struct wsgi_request *wsgi_req;
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 		current_async_timeout = async_get_timeout();
 
-		current_async_timeout = 0;
+		uwsgi_log("waiting multi %d\n", current_async_timeout);
 		uwsgi.async_nevents = event_queue_wait_multi(uwsgi.async_queue, current_async_timeout, uwsgi.async_events, 64);
+		uwsgi_log("waiting done\n");
 		async_expire_timeouts();
 
 		if (uwsgi.async_nevents < 0) {
@@ -111,6 +114,8 @@ void complex_loop() {
 		for(i=0; i<uwsgi.async_nevents;i++) {
 
 			interesting_fd = event_queue_interesting_fd(uwsgi.async_events, i);
+
+			uwsgi_log("interesting_fd: %d\n", interesting_fd);
 
 			if ( interesting_fd == uwsgi.sockets[0].fd) {
 
@@ -146,11 +151,22 @@ void complex_loop() {
 				}
 
 			}
-			else if (  interesting_fd == uwsgi.sockets[uwsgi.sockets_cnt].fd) {
+			else if (  interesting_fd == uwsgi.sockets_poll[uwsgi.sockets_cnt].fd) {
 				// wake up cores waiting for signal
 				char byte;
-				if (read(uwsgi.sockets[uwsgi.sockets_cnt].fd, &byte, 1) == 1) {
-					uwsgi_log("signal %c received\n", byte);
+				uwsgi_log("*** READING SIGNAL ***\n");
+				if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &byte, 1) == 1) {
+					uwsgi_log("signal %d received\n", byte);
+				}
+				else {
+					uwsgi_error("read()");
+				}
+				for(j=0;j<uwsgi.async_current_max;j++) {
+                			wsgi_req = uwsgi.wsgi_requests[j] ;
+                			if (wsgi_req->sigwait) {
+						wsgi_req->signal_received = byte;
+						wsgi_req->sigwait = 0;
+					}
 				}
 			}
 			else {
@@ -158,7 +174,6 @@ void complex_loop() {
 				if (uwsgi.wsgi_req) {
 					uwsgi.wsgi_req->async_status = UWSGI_AGAIN;
 					uwsgi.wsgi_req->async_waiting_fd = -1;
-					uwsgi.wsgi_req->async_waiting_signal = -1;
 					uwsgi.wsgi_req->async_waiting_fd_monitored = 0;
 					uwsgi.wsgi_req->async_timeout = 0;
 				}
@@ -168,6 +183,8 @@ void complex_loop() {
 		}
 
 cycle:
+
+		uwsgi_log("async_loop\n");
 		uwsgi.wsgi_req = async_loop();
 
 		if (uwsgi.wsgi_req == NULL)

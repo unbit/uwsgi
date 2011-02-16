@@ -114,4 +114,13 @@ void uwsgi_route_signal(uint8_t sig) {
 	// route to subscribed
 	else if (!strcmp(use->receiver, "subscribed")) {
 	}
+	else {
+		// unregistered signal, sending it to all the workers
+		uwsgi_log("^^^ ROUTING UNREGISTERED SIGNAL ^^^\n");
+		if (write(ushared->worker_signal_pipe[0], &sig, 1) != 1) {
+                        uwsgi_error("write()");
+                        uwsgi_log("could not deliver signal %d to workers pool\n", sig);
+                }
+
+	}
 }

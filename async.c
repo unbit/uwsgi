@@ -9,12 +9,14 @@ int async_get_timeout() {
 	time_t curtime, tdelta = 0 ;
 	int ret = 0 ;
 
+	// do not wait if there are cores running
 	if (!uwsgi.async_running) return 0;
 
         for(i=0;i<uwsgi.async_current_max;i++) {
 		wsgi_req = uwsgi.wsgi_requests[i];
                 if (wsgi_req->async_status == UWSGI_AGAIN) {
 			if (wsgi_req->async_timeout_expired) {
+				// do not wait if there are timeout expired
 				return 0;
 			}
 			if (wsgi_req->async_timeout > 0) {
@@ -32,7 +34,7 @@ int async_get_timeout() {
 		return ret;
 	}
 	
-	return 0;
+	return -1;
 }
 
 void async_expire_timeouts() {
@@ -153,7 +155,11 @@ struct wsgi_request * async_loop() {
 	for(i=0;i<uwsgi.async_current_max;i++) {
 		wsgi_req = uwsgi.wsgi_requests[i];
         	if (wsgi_req->async_status == UWSGI_AGAIN) {
-                	if (wsgi_req->async_waiting_fd != -1 && !wsgi_req->async_waiting_fd_monitored) {
+			if (wsgi_req->sigwait) {
+				uwsgi_log("waiting for signal\n");
+				continue;
+			}
+                	else if (wsgi_req->async_waiting_fd != -1 && !wsgi_req->async_waiting_fd_monitored) {
 				// add fd to monitoring
 				ret = -1;
 				if (wsgi_req->async_waiting_fd_type == ASYNC_IN) {
@@ -177,6 +183,8 @@ struct wsgi_request * async_loop() {
                 		uwsgi.async_running = 0 ;
 				// st global wsgi_req
 				uwsgi.wsgi_req = wsgi_req ;
+
+				uwsgi_log("!!! getting new part\n");
 				wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);;
 
 				wsgi_req->switches++;

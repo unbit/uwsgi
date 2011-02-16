@@ -619,7 +619,6 @@ struct wsgi_request {
 	int             async_waiting_fd;
 	int             async_waiting_fd_type;
 	int             async_waiting_fd_monitored;
-	int		async_waiting_signal;
 
 	int             switches;
 
@@ -651,6 +650,8 @@ struct wsgi_request {
 
 	int log_this;
 
+	int sigwait;
+	uint8_t signal_received;
 
 };
 

@@ -7,6 +7,23 @@ char *spool_buffer = NULL;
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
+PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        wsgi_req->sigwait = 1;
+
+        return PyString_FromString("");
+}
+
+PyObject *py_uwsgi_signal_received(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        return PyInt_FromLong(wsgi_req->signal_received);
+}
+
+
 char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 	int i;
@@ -2294,6 +2311,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"register_signal", py_uwsgi_register_signal, METH_VARARGS, ""},
 	{"signal", py_uwsgi_signal, METH_VARARGS, ""},
+	{"signal_wait", py_uwsgi_signal_wait, METH_VARARGS, ""},
+	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
 	{"register_file_monitor", py_uwsgi_register_file_monitor, METH_VARARGS, ""},
 	{"register_timer", py_uwsgi_register_timer, METH_VARARGS, ""},
 
@@ -2481,6 +2500,11 @@ PyObject *py_uwsgi_queue_push(PyObject * self, PyObject * args) {
 	
 }
 
+PyObject *py_uwsgi_queue_slot(PyObject * self, PyObject * args) {
+
+	return PyInt_FromLong(uwsgi.shared->queue_pos);
+}
+
 PyObject *py_uwsgi_queue_pull(PyObject * self, PyObject * args) {
 
 	char *message;
@@ -2601,6 +2625,7 @@ static PyMethodDef uwsgi_queue_methods[] = {
 	{"queue_get", py_uwsgi_queue_get, METH_VARARGS, ""},
 	{"queue_push", py_uwsgi_queue_push, METH_VARARGS, ""},
 	{"queue_pull", py_uwsgi_queue_pull, METH_VARARGS, ""},
+	{"queue_slot", py_uwsgi_queue_slot, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 

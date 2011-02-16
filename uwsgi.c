@@ -970,7 +970,7 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-		uwsgi.max_fd = uwsgi.rl.rlim_max;	
+		uwsgi.max_fd = uwsgi.rl.rlim_cur;	
 	}
 
 	uwsgi.wsgi_requests = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.cores);
@@ -983,6 +983,7 @@ int uwsgi_start(void *v_argv) {
 	uwsgi.async_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 
 	if (uwsgi.async > 1) {
+		uwsgi_log("%d\n", uwsgi.max_fd);
 		uwsgi.async_waiting_fd_table = malloc( sizeof(int) * uwsgi.max_fd);
         	if (!uwsgi.async_waiting_fd_table) {
                 	uwsgi_error("malloc()");
@@ -1679,11 +1680,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			exit(1);
 		}
 	}
-
-#ifdef UWSGI_ASYNC
-		uwsgi.async_running = -1;
-#endif
-
 
 
 	//re - initialize wsgi_req(can be full of init_uwsgi_app data)
