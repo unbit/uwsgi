@@ -333,8 +333,8 @@ class uConf(object):
             self.cflags.append("-DUWSGI_UDP")
 
         if self.get('pcre'):
-	    if self.get('pcre') == 'auto':
-		pcreconf = spcall('pcre-config --libs')
+            if self.get('pcre') == 'auto':
+                pcreconf = spcall('pcre-config --libs')
                 if pcreconf:
                     self.libs.append(pcreconf)
                     pcreconf = spcall("pcre-config --cflags")
@@ -342,9 +342,9 @@ class uConf(object):
                     self.gcc_list.append('regexp')
                     self.cflags.append("-DUWSGI_PCRE")
 
-	    else:
-		pcreconf = spcall('pcre-config --libs')
-		if pcreconf is None:
+            else:
+                pcreconf = spcall('pcre-config --libs')
+                if pcreconf is None:
                     print("*** libpcre headers unavailable. uWSGI build is interrupted. You have to install pcre development package or disable pcre")
                     sys.exit(1)
                 else:

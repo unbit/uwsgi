@@ -170,7 +170,7 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 		cmsg->cmsg_level = SOL_SOCKET;
 		cmsg->cmsg_type  = SCM_RIGHTS;
 
-		*((int *) CMSG_DATA (cmsg)) = pfd;
+		memcpy(CMSG_DATA(cmsg), &pfd, sizeof(int));
 		
 		uwsgi_log("passing fd\n");
 		cnt = sendmsg(fd, &msg, 0);	
@@ -355,7 +355,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		// upgrade connection to the new socket
 		uwsgi_log("upgrading fd %d to ", upoll->fd);	
 		close(upoll->fd);
-		upoll->fd = *((int *) CMSG_DATA (cmsg));
+		memcpy(CMSG_DATA(cmsg), &upoll->fd, sizeof(int));
 		uwsgi_log("%d\n", upoll->fd);	
 		cmsg = CMSG_NXTHDR (&msg, cmsg);
 	}

@@ -321,7 +321,7 @@ void fastrouter_loop() {
                 						cmsg->cmsg_level = SOL_SOCKET;
                 						cmsg->cmsg_type  = SCM_RIGHTS;
 
-                						*((int *) CMSG_DATA (cmsg)) = fr_session->fd;
+								memcpy(CMSG_DATA(cmsg), &fr_session->fd, sizeof(int));
 
                 						if (sendmsg(fr_session->instance_fd, &msg, 0) < 0) {
 									uwsgi_error("sendmsg()");
