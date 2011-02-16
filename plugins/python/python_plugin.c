@@ -93,6 +93,14 @@ int uwsgi_python_init() {
 
 	up.main_thread = PyThreadState_Get();
 
+        // by default set a fake GIL (little impact on performance)
+        up.gil_get = gil_fake_get;
+        up.gil_release = gil_fake_release;
+
+        up.swap_ts = simple_swap_ts;
+        up.reset_ts = simple_reset_ts;
+	
+
 	uwsgi_log("Python main interpreter initialized at %p\n", up.main_thread);
 
 	return 1;
@@ -133,7 +141,9 @@ void uwsgi_python_post_fork() {
 	PyErr_Clear();
 #endif
 
-UWSGI_RELEASE_GIL}
+UWSGI_RELEASE_GIL
+
+}
 
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
@@ -556,6 +566,8 @@ void init_uwsgi_embedded_module() {
 
 	init_uwsgi_module_cache(new_uwsgi_module);
 
+	init_uwsgi_module_queue(new_uwsgi_module);
+
 	if (up.extension) {
 		up.extension();
 	}
@@ -697,13 +709,6 @@ void uwsgi_python_init_apps() {
         up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
         up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
-        // by default set a fake GIL (little impact on performance)
-        up.gil_get = gil_fake_get;
-        up.gil_release = gil_fake_release;
-
-        up.swap_ts = simple_swap_ts;
-        up.reset_ts = simple_reset_ts;
-	
 
 	if (up.wsgi_config != NULL) {
 		init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread);
@@ -736,6 +741,7 @@ void uwsgi_python_enable_threads() {
 	pthread_setspecific(up.upt_gil_key, (void *) PyThreadState_Get());
 	pthread_mutex_init(&up.lock_pyloaders, NULL);
 	pthread_atfork(uwsgi_python_pthread_prepare, uwsgi_python_pthread_parent, uwsgi_python_pthread_child);
+
 	up.gil_get = gil_real_get;
 	up.gil_release = gil_real_release;
 

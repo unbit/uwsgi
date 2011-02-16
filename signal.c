@@ -112,6 +112,6 @@ void uwsgi_route_signal(uint8_t sig) {
 	else if (!strcmp(use->receiver, "master")) {
 	}
 	// route to subscribed
-	else if (!strcmp(use->receiver, "master")) {
+	else if (!strcmp(use->receiver, "subscribed")) {
 	}
 }

@@ -232,6 +232,11 @@ struct uwsgi_daemon {
 	int registered;
 };
 
+struct uwsgi_queue_item {
+	uint64_t size;
+	time_t	ts;
+};
+
 // maintain alignment here !!!
 struct uwsgi_cache_item {
 	// unused
@@ -333,6 +338,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_EMPEROR		17072
 #define LONG_ARGS_PRINT			17073
 #define LONG_ARGS_CACHE_BLOCKSIZE	17074
+#define LONG_ARGS_QUEUE			17075
+#define LONG_ARGS_QUEUE_BLOCKSIZE	17076
 
 
 
@@ -925,8 +932,12 @@ struct uwsgi_server {
 	struct uwsgi_cache_item	*cache_items;
 	void		*cache;
 
+	uint64_t	queue_size;
+	uint64_t	queue_blocksize;
+	void		*queue;
 
 	void *cache_lock;
+	void *queue_lock;
 	void *user_lock;
 	void *signal_table_lock;
 	void *fmon_table_lock;
@@ -1042,6 +1053,8 @@ struct uwsgi_shared {
 	uint64_t	cache_first_available_item;
 	uint64_t	cache_unused_stack_ptr;
 
+	uint64_t	queue_pos;
+	uint64_t	queue_pull_pos;
 
 	int		worker_signal_pipe[2];
 	struct uwsgi_signal_entry signal_table[0xff];
@@ -1435,3 +1448,7 @@ int is_unix(char *, int);
 int is_a_number(char *);
 
 char *uwsgi_resolve_ip(char *);
+
+char *uwsgi_queue_get(uint64_t, uint64_t *);
+char *uwsgi_queue_pull(uint64_t *);
+int uwsgi_queue_push(char *, uint64_t);

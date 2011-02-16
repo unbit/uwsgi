@@ -64,6 +64,8 @@ static struct option long_base_options[] = {
 	{"sharedarea", required_argument, 0, 'A'},
 	{"cache", required_argument, 0, LONG_ARGS_CACHE},
 	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE},
+	{"queue", required_argument, 0, LONG_ARGS_QUEUE},
+	{"queue-blocksize", required_argument, 0, LONG_ARGS_QUEUE_BLOCKSIZE},
 #ifdef UWSGI_SPOOLER
 	{"spooler", required_argument, 0, 'Q'},
 #endif
@@ -1061,6 +1063,30 @@ int uwsgi_start(void *v_argv) {
 
 	}
 
+	if (uwsgi.queue_size > 0) {
+		if (!uwsgi.queue_blocksize) uwsgi.queue_blocksize = 8192;
+
+		if (uwsgi.queue_blocksize % uwsgi.page_size != 0) {
+                        uwsgi_log("invalid queue blocksize %llu: must be a multiple of memory page size (%d bytes)\n", (unsigned long long) uwsgi.queue_blocksize, uwsgi.page_size);
+                        exit(1);
+                }
+
+		uwsgi.queue = mmap(NULL, uwsgi.queue_blocksize * uwsgi.queue_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (!uwsgi.queue) {
+                        uwsgi_error("mmap()");
+                        exit(1);
+                }
+
+		uwsgi.shared->queue_pos = 0;
+                uwsgi.shared->queue_pull_pos = 0;
+
+                uwsgi.queue_lock = uwsgi_mmap_shared_rwlock();
+                uwsgi_rwlock_init(uwsgi.queue_lock);
+
+		uwsgi_log("*** Queue subsystem initialized: %dMB preallocated ***\n", (uwsgi.queue_blocksize * uwsgi.queue_size)  / (1024*1024));
+
+	}
+
 	if (uwsgi.cache_max_items > 0) {
 
 		if (!uwsgi.cache_blocksize) uwsgi.cache_blocksize = UMAX16;
@@ -1959,6 +1985,12 @@ end:
 			return 1;
 		case LONG_ARGS_CACHE_BLOCKSIZE:
 			uwsgi.cache_blocksize = atoi(optarg);
+			return 1;
+		case LONG_ARGS_QUEUE:
+			uwsgi.queue_size = atoi(optarg);
+			return 1;
+		case LONG_ARGS_QUEUE_BLOCKSIZE:
+			uwsgi.queue_blocksize = atoi(optarg);
 			return 1;
 		case 'A':
 			uwsgi.sharedareasize = atoi(optarg);

@@ -25,8 +25,8 @@
 #endif
 
 #ifdef UWSGI_THREADING
-#define UWSGI_GET_GIL (*up.gil_get)();
-#define UWSGI_RELEASE_GIL (*up.gil_release)();
+#define UWSGI_GET_GIL up.gil_get();
+#define UWSGI_RELEASE_GIL up.gil_release();
 #else
 #define UWSGI_GET_GIL
 #define UWSGI_RELEASE_GIL
@@ -213,6 +213,7 @@ void init_uwsgi_module_advanced(PyObject *);
 void init_uwsgi_module_spooler(PyObject *);
 void init_uwsgi_module_sharedarea(PyObject *);
 void init_uwsgi_module_cache(PyObject *);
+void init_uwsgi_module_queue(PyObject *);
 
 PyObject *uwsgi_pyimport_by_filename(char *, char *);
 

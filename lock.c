@@ -104,10 +104,6 @@ void uwsgi_unlock(void *lock) {
 #define UWSGI_LOCK_SIZE		sizeof(OSSpinLock)
 #define UWSGI_RWLOCK_SIZE	sizeof(OSSpinLock)
 
-void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
-void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
-void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
-void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 
 void uwsgi_lock_init(void *lock) {
 
@@ -123,6 +119,11 @@ void uwsgi_unlock(void *lock) {
 
 	OSSpinLockUnlock((OSSpinLock *) lock);
 }
+
+void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
+void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
+void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
+void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 
 
 #endif
