@@ -19,6 +19,26 @@ char *uwsgi_queue_get(uint64_t index, uint64_t *size) {
 	
 }
 
+char *uwsgi_queue_pop(uint64_t *size) {
+
+        struct uwsgi_queue_item *uqi;
+        char *ptr = (char *) uwsgi.queue;
+
+	if (uwsgi.shared->queue_pos > 0) uwsgi.shared->queue_pos--;
+
+        ptr = ptr + (uwsgi.queue_blocksize*uwsgi.shared->queue_pos);
+        uqi = (struct uwsgi_queue_item *) ptr;
+
+        if (!uqi->size) return NULL;
+
+        *size = uqi->size;
+	// remove item
+	uqi->size = 0;
+
+        return ptr + sizeof(struct uwsgi_queue_item);
+}
+
+
 char *uwsgi_queue_pull(uint64_t *size) {
 
 	struct uwsgi_queue_item *uqi;
@@ -34,6 +54,9 @@ char *uwsgi_queue_pull(uint64_t *size) {
 	uwsgi.shared->queue_pull_pos++;
 
 	if (uwsgi.shared->queue_pull_pos >= uwsgi.queue_size) uwsgi.shared->queue_pull_pos = 0;
+
+	// remove item
+	uqi->size = 0;
 	
 	return ptr + sizeof(struct uwsgi_queue_item);
 
