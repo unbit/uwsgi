@@ -751,6 +751,10 @@ options_parsed:
 			}
 			uwsgi_log("waiting for jailed master dead...\n");
 			pid = waitpid(pid, NULL, 0);
+			if (pid < 0) {
+				uwsgi_error("waitpid()");
+				exit(1);
+			}
 			uwsgi_log("pid %d ended. Respawning...\n", (int) pid);	
 		}
 	}
@@ -785,10 +789,13 @@ int uwsgi_start(void *v_argv) {
 
 	int emperor_pipe[2];
 
-	uwsgi_log("my PID is %d\n", (int) getpid());
-
 #ifdef __linux__
-	if (uwsgi.ns && getpid() == 1) {
+	if (uwsgi.ns) {
+
+		if (getpid() != 1) { 
+			uwsgi_log("your kernel does not support linux pid namespace\n");
+			exit(1);
+		}
 			
 		char *ns_hostname = strchr(uwsgi.ns, ':');
 		if (ns_hostname) {
