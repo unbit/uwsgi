@@ -57,6 +57,7 @@ char *uwsgi_cache_get(char *key, uint16_t keylen, uint64_t *valsize) {
 	uint64_t index = uwsgi_cache_get_index(key, keylen);
 
 	if (index) {
+		if (uwsgi.cache_items[index].flags & UWSGI_CACHE_FLAG_UNGETTABLE) return NULL;
 		*valsize = uwsgi.cache_items[index].valsize;
 		uwsgi.cache_items[index].hits++;
 		return uwsgi.cache+(index*uwsgi.cache_blocksize);
@@ -104,7 +105,7 @@ int uwsgi_cache_del(char *key, uint16_t keylen) {
 	return ret;
 }
 
-int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint64_t expires) {
+int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint64_t expires, uint16_t flags) {
 
 	uint64_t index = 0, last_index = 0 ;
 
@@ -141,6 +142,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		uci->expires = expires;
 		uci->djbhash = djb33x_hash(key, keylen);
 		uci->hits = 0;
+		uci->flags = flags;
 		memcpy(uci->key, key, keylen);
 		memcpy(uwsgi.cache+(index*uwsgi.cache_blocksize), val, vallen);
 

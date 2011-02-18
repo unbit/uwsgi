@@ -193,6 +193,9 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #endif
 
 #define UWSGI_CACHE_MAX_KEY_SIZE 2048
+#define UWSGI_CACHE_FLAG_UNGETTABLE	0x0001
+
+#define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
 union uwsgi_sockaddr {
 	struct sockaddr     sa;
@@ -242,7 +245,7 @@ struct uwsgi_queue_item {
 // maintain alignment here !!!
 struct uwsgi_cache_item {
 	// unused
-	uint16_t	unused;
+	uint16_t	flags;
 	// size of the key
 	uint16_t	keysize;
 	// djb hash of the key
