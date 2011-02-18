@@ -2425,7 +2425,7 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 	}
 	else if (uwsgi.cache_max_items) {
 		uwsgi_wlock(uwsgi.cache_lock);
-		if (uwsgi_cache_set(key, keylen, value, vallen, expires)) {
+		if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
 			uwsgi_rwunlock(uwsgi.cache_lock);
 			Py_INCREF(Py_None);
 			return Py_None;

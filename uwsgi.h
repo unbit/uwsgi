@@ -1360,7 +1360,7 @@ ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t
 
 char *uwsgi_cluster_best_node(void);
 
-int uwsgi_cache_set(char *, uint16_t, char *, uint64_t, uint64_t);
+int uwsgi_cache_set(char *, uint16_t, char *, uint64_t, uint64_t, uint16_t);
 int uwsgi_cache_del(char *, uint16_t);
 char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);

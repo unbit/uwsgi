@@ -226,7 +226,7 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 				argc = 3;
 				if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh.pktsize, argv, &argc)) {
 					if (argc > 1) {
-						uwsgi_cache_set(argv[0], strlen(argv[0]), argv[1], strlen(argv[1]), 0);
+						uwsgi_cache_set(argv[0], strlen(argv[0]), argv[1], strlen(argv[1]), 0, 0);
 					}
 				}
 			}
