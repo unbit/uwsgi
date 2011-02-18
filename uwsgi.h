@@ -224,12 +224,14 @@ struct uwsgi_gateway {
 
 struct uwsgi_daemon {
 	char command[0xff];
+	char tmp_command[0xff];
 	pid_t pid;
 	uint64_t respawns;
 	time_t born;
 	time_t last_spawn;	
 	int status;
 	int registered;
+	int pipe[2];
 };
 
 struct uwsgi_queue_item {
@@ -340,6 +342,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CACHE_BLOCKSIZE	17074
 #define LONG_ARGS_QUEUE			17075
 #define LONG_ARGS_QUEUE_BLOCKSIZE	17076
+#define LONG_ARGS_ATTACH_DAEMON		17077
 
 
 
@@ -948,6 +951,8 @@ struct uwsgi_server {
 
 	void *daemon_table_lock;
 
+	char *startup_daemons[MAX_DAEMONS];
+	int startup_daemons_cnt;
 
 };
 

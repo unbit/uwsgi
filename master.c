@@ -346,7 +346,7 @@ void master_loop(char **argv, char **environ) {
 			// locking is not needed as daemons can only increase (for now)
 			for(i=0;i<ushared->daemons_cnt;i++) {
 				if (!ushared->daemons[i].registered) {
-					uwsgi_log("running daemon %s\n", ushared->daemons[i].command);
+					uwsgi_log("spawning daemon %s\n", ushared->daemons[i].command);
 					spawn_daemon(&ushared->daemons[i]);
 					ushared->daemons[i].registered = 1;		
 				}
@@ -695,6 +695,20 @@ void master_loop(char **argv, char **environ) {
 		}
 
 		if (pid_found) continue;
+
+		/* reload the daemons */
+                // TODO reload_gateway(diedpid);
+                pid_found = 0;
+                for(i=0;i<uwsgi.shared->daemons_cnt;i++) {
+                        if (uwsgi.shared->daemons[i].pid == diedpid) {
+                                spawn_daemon(&uwsgi.shared->daemons[i]);
+                                pid_found = 1;
+                                break;
+                        }
+                }
+
+		if (pid_found) continue;
+
 #ifdef UWSGI_PROXY
 		if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
 			if (diedpid == uwsgi.shared->proxy_pid) {

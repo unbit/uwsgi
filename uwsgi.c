@@ -151,6 +151,7 @@ static struct option long_base_options[] = {
 #endif
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"worker-exec", required_argument, 0, LONG_ARGS_WORKER_EXEC},
+	{"attach-daemon", required_argument, 0, LONG_ARGS_ATTACH_DAEMON},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
 	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
 	{"dump-options", no_argument, &uwsgi.dump_options, 1},
@@ -220,6 +221,10 @@ void kill_them_all()
 	for (i = 0; i <= uwsgi.gateways_cnt; i++) {
 		kill(uwsgi.gateways[i].pid, SIGKILL);
 	}
+
+	for (i = 0; i <= uwsgi.shared->daemons_cnt; i++) {
+		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+	}
 }
 
 void grace_them_all()
@@ -230,6 +235,10 @@ void grace_them_all()
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		kill(uwsgi.workers[i].pid, SIGHUP);
 	}
+
+	for (i = 0; i <= uwsgi.shared->daemons_cnt; i++) {
+		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+	}
 }
 
 void reap_them_all()
@@ -239,6 +248,10 @@ void reap_them_all()
 	uwsgi_log("...brutally killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		kill(uwsgi.workers[i].pid, SIGTERM);
+	}
+
+	for (i = 0; i <= uwsgi.shared->daemons_cnt; i++) {
+		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
 }
 
@@ -1148,6 +1161,15 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log("*** Cache subsystem initialized: %dMB preallocated ***\n", ((sizeof(uint64_t) * UMAX16) + (sizeof(uint64_t) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024*1024));
 	}
 
+	// attach startup daemons
+	if (uwsgi.master_process) {
+		for(i=0;i<uwsgi.startup_daemons_cnt;i++) {
+			if (uwsgi_attach_daemon(uwsgi.startup_daemons[i])) {
+				uwsgi_log("!!! unable to attach daemon %s !!!\n", uwsgi.startup_daemons[i]);
+			}
+		}
+	}
+
 	/* plugin initialization */
 	for(i =0; i < uwsgi.gp_cnt; i++) {
 		if (uwsgi.gp[i]->init) {
@@ -1934,6 +1956,14 @@ end:
 		case LONG_ARGS_CHECK_STATIC:
 			uwsgi.check_static = optarg;
 			uwsgi.check_static_len = strlen(uwsgi.check_static);
+			return 1;
+		case LONG_ARGS_ATTACH_DAEMON:
+			if (uwsgi.startup_daemons_cnt < 63) {
+				uwsgi.startup_daemons[uwsgi.startup_daemons_cnt] = optarg;
+				uwsgi.startup_daemons_cnt++;
+			} else {
+				uwsgi_log("you can specify at most %d --attach-daemons options\n", MAX_DAEMONS);
+			}
 			return 1;
 #ifdef __linux__
 		case LONG_ARGS_CGROUP:

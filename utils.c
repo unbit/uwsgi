@@ -1532,7 +1532,16 @@ int uwsgi_attach_daemon(char *command) {
 
 void spawn_daemon(struct uwsgi_daemon *ud) {
 
-	char *argv[2];
+	int i;
+	char *argv[64];
+	char *a;
+	int cnt = 1;
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ud->pipe)) {
+		uwsgi_error("socketpair()");
+		return;
+	}
+
 	pid_t pid = fork();
 	if (pid < 0) {
 		uwsgi_error("fork()");
@@ -1540,6 +1549,7 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 	}
 
 	if (pid > 0) {
+		close(ud->pipe[1]);
 		ud->pid = pid;
 		ud->status = 1;
 		if (ud->respawns == 0) {
@@ -1551,8 +1561,44 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 	
 	}
 	else {
-		argv[0] = ud->command;
-		argv[1] = NULL;
+
+		// close uwsgi sockets
+		for(i=0;i<uwsgi.sockets_cnt;i++) {
+			close(uwsgi.sockets[i].fd);
+		}
+		close(ud->pipe[0]);
+
+		// stdin will become the pipe
+		if (ud->pipe[1] != 0) {
+			if (dup2(ud->pipe[1], 0)) {
+				uwsgi_error("dup2()");
+				exit(1);
+			}
+		}
+
+#ifdef __linux__
+		if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0,0,0)) {
+                        uwsgi_error("prctl()");
+                }
+#endif
+		memcpy(ud->tmp_command, ud->command, 0xff);
+
+		a = strtok(ud->tmp_command, " ");
+		if (a) {
+			argv[0] = a;
+        		while (a != NULL) {
+                		a = strtok(NULL, " ");
+				if (a) {
+					argv[cnt] = a;
+					cnt++;
+				}
+        		}
+		}
+		else {
+			argv[0] = ud->tmp_command;
+		}
+
+		argv[cnt] = NULL;
 		
 		if (execvp(argv[0], argv)) {
 			uwsgi_error("execvp()");
