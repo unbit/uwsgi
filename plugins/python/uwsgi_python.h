@@ -32,6 +32,10 @@
 #define UWSGI_RELEASE_GIL
 #endif
 
+#ifndef PyVarObject_HEAD_INIT
+#define PyVarObject_HEAD_INIT(x, y) PyObject_HEAD_INIT(x) y,
+#endif
+
 
 PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
 PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
