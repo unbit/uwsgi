@@ -243,6 +243,23 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 				uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh.pktsize, cache_command, (void *) wsgi_req);
 			}
 			break;
+		case 5:
+			// get (uwsgi + stream)
+			if (wsgi_req->uh.pktsize > 0) {
+				value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh.pktsize, &vallen);
+				if (value && vallen > 0) {
+					wsgi_req->uh.pktsize = 0;
+					wsgi_req->uh.modifier2 = 1;
+					wsgi_req->response_size = write(wsgi_req->poll.fd, &wsgi_req->uh, 4);
+					wsgi_req->response_size += write(wsgi_req->poll.fd, value, vallen);
+				}
+				else {
+					wsgi_req->uh.pktsize = 0;
+					wsgi_req->uh.modifier2 = 0;
+					wsgi_req->response_size = write(wsgi_req->poll.fd, &wsgi_req->uh, 4);
+				}
+			}
+			break;		
 	}
 
 	return 0;
