@@ -107,6 +107,7 @@ static struct option long_base_options[] = {
 #endif
 	{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD},
 	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG},
+	{"subscribe-to", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
 #ifdef UWSGI_SNMP
 	{"snmp", no_argument, 0, LONG_ARGS_SNMP},
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
@@ -1958,11 +1959,19 @@ end:
 			uwsgi.check_static_len = strlen(uwsgi.check_static);
 			return 1;
 		case LONG_ARGS_ATTACH_DAEMON:
-			if (uwsgi.startup_daemons_cnt < 63) {
+			if (uwsgi.startup_daemons_cnt < MAX_DAEMONS) {
 				uwsgi.startup_daemons[uwsgi.startup_daemons_cnt] = optarg;
 				uwsgi.startup_daemons_cnt++;
 			} else {
 				uwsgi_log("you can specify at most %d --attach-daemons options\n", MAX_DAEMONS);
+			}
+			return 1;
+		case LONG_ARGS_SUBSCRIBE_TO:
+			if (uwsgi.subscriptions_cnt < MAX_SUBSCRIPTIONS) {
+				uwsgi.subscriptions[uwsgi.subscriptions_cnt] = optarg;
+				uwsgi.subscriptions_cnt++;
+			} else {
+				uwsgi_log("you can specify at most %d --attach-daemons options\n", MAX_SUBSCRIPTIONS);
 			}
 			return 1;
 #ifdef __linux__

@@ -15,10 +15,11 @@
 #define MAX_HTTP_VEC 128
 #define MAX_HTTP_EXTRA_VARS 64
 
-#define LONG_ARGS_HTTP_EVENTS		300001
-#define LONG_ARGS_HTTP_USE_PATTERN	300002
-#define LONG_ARGS_HTTP_USE_BASE		300003
-#define LONG_ARGS_HTTP_USE_TO		300004
+#define LONG_ARGS_HTTP_EVENTS			300001
+#define LONG_ARGS_HTTP_USE_PATTERN		300002
+#define LONG_ARGS_HTTP_USE_BASE			300003
+#define LONG_ARGS_HTTP_USE_TO			300004
+#define LONG_ARGS_HTTP_SUBSCRIPTION_SERVER	300005
 
 #define HTTP_STATUS_FREE 0
 #define HTTP_STATUS_CONNECTING 1
@@ -29,6 +30,8 @@ struct uwsgi_http {
 	char *socket_name;
 	int use_cache;
 	int nevents;
+
+	char *subscription_server;
 
 	char *pattern;
 	int pattern_len;
@@ -44,6 +47,8 @@ struct uwsgi_http {
 
 	uint8_t modifier1;
 	int load;
+
+	struct uwsgi_dict *subscription_dict;
 } uhttp;
 
 struct option http_options[] = {
@@ -55,10 +60,33 @@ struct option http_options[] = {
 	{"http-use-pattern", required_argument, 0, LONG_ARGS_HTTP_USE_PATTERN},
 	{"http-use-base", required_argument, 0, LONG_ARGS_HTTP_USE_BASE},
 	{"http-events", required_argument, 0, LONG_ARGS_HTTP_EVENTS},
+	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
 	{0, 0, 0, 0},	
 };
 
 extern struct uwsgi_server uwsgi;
+
+void http_manage_subscription(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+
+	struct uwsgi_subscribe_req *usr = (struct uwsgi_subscribe_req *) data;
+
+        if (!uwsgi_strncmp("key", 3, key, keylen)) {
+		usr->key = val;
+		usr->keylen = vallen;
+        }
+
+        else if (!uwsgi_strncmp("auth", 4, key, keylen)) {
+		usr->auth = val;
+		usr->auth_len = vallen;
+        }
+
+        else if (!uwsgi_strncmp("address", 7, key, keylen)) {
+		usr->address = val;
+		usr->address_len = vallen;
+        }
+
+}
+
 
 struct http_session {
 
@@ -129,14 +157,14 @@ uint16_t http_add_uwsgi_header(struct http_session *h_session, struct iovec *iov
 
 	if ((*c) + 4  >= MAX_HTTP_VEC) return 0;
 
-	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
+	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
+                h_session->hostname = val;
+                h_session->hostname_len = vallen;
+        }
+	else if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		keylen += 5;	
 		prefix = 1;
 		if ((*c) + 5  >= MAX_HTTP_VEC) return 0;
-	}
-	else if (uwsgi_strncmp("HOST", 4, hh, keylen)) {
-		h_session->hostname = val;
-		h_session->hostname_len = vallen;	
 	}
 
         strsize1[0] = (uint8_t) (keylen & 0xff);
@@ -294,6 +322,7 @@ void http_loop() {
 
 	int uhttp_queue;
 	int uhttp_server;
+	int uhttp_subserver = -1;
 	int nevents;
 	int interesting_fd;
 	int new_connection;
@@ -318,6 +347,7 @@ void http_loop() {
 	struct http_session *uhttp_session;
 
 	struct http_session *uhttp_table[2048];
+	struct uwsgi_subscribe_req usr;
 
 	int soopt;
         socklen_t solen = sizeof(int);
@@ -328,11 +358,18 @@ void http_loop() {
 
 	uhttp_server = bind_to_tcp(uhttp.socket_name, uwsgi.listen_queue, strchr(uhttp.socket_name,':'));
 
+
 	uhttp_queue = event_queue_init();
 
 	events = event_queue_alloc(uhttp.nevents);
 
 	event_queue_add_fd_read(uhttp_queue, uhttp_server);
+
+	if (uhttp.subscription_server) {
+		uhttp_subserver = bind_to_udp(uhttp.subscription_server, 0, 0);
+		event_queue_add_fd_read(uhttp_queue, uhttp_subserver);
+		uhttp.subscription_dict = uwsgi_dict_create(100, 0);
+	}
 
 	if (uhttp.pattern) {
 		init_magic_table(magic_table);
@@ -373,6 +410,14 @@ void http_loop() {
 				event_queue_add_fd_read(uhttp_queue, new_connection);
 				
 			}	
+			else if (interesting_fd == uhttp_subserver) {
+				len = recv(uhttp_subserver, bbuf, 4096, 0);
+				if (len > 0) {
+					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
+					uwsgi_hooked_parse(bbuf+4, len-4, http_manage_subscription, &usr);
+					uwsgi_add_subscriber(uhttp.subscription_dict, usr.key, usr.keylen, usr.address, usr.address_len);
+				}
+			}
 			else {
 				uhttp_session = uhttp_table[interesting_fd];
 
@@ -431,8 +476,12 @@ void http_loop() {
 								}
 
 
-								if (uhttp.base) {
+								if (uhttp.use_cache) {
 									uhttp_session->instance_address = uwsgi_cache_get(uhttp_session->hostname, uhttp_session->hostname_len, &uhttp_session->instance_address_len);
+								}
+								else if (uhttp.base) {
+									uhttp_session->instance_address = uwsgi_concat2n(uhttp.base, uhttp.base_len, uhttp_session->hostname, uhttp_session->hostname_len);
+									uhttp_session->instance_address_len = uhttp.base_len + uhttp_session->hostname_len;
 								}
 								else if (uhttp.pattern) {
 									magic_table['s'] = uwsgi_concat2n(uhttp_session->hostname, uhttp_session->hostname_len, "", 0);       
@@ -445,16 +494,27 @@ void http_loop() {
 									uhttp_session->instance_address = uhttp.to;
 									uhttp_session->instance_address_len = uhttp.to_len;
 								}
+								else if (uhttp.subscription_server) {
+									uhttp_session->instance_address = uwsgi_get_subscriber(uhttp.subscription_dict, uhttp_session->hostname, uhttp_session->hostname_len, &uhttp_session->instance_address_len);
+								}
 								else if (uwsgi.sockets_cnt > 0) {
 									uhttp_session->instance_address = uwsgi.sockets[0].name;
 									uhttp_session->instance_address_len = strlen(uwsgi.sockets[0].name);
+								}
+
+								if (!uhttp_session->instance_address_len) {
+                                                                	close(uhttp_session->fd);
+                                                                	uhttp_table[uhttp_session->fd] = NULL;
+									uhttp.load--;
+                                                                	free(uhttp_session);
+                                                                	break;
 								}
 
 								uhttp_session->pass_fd = is_unix(uhttp_session->instance_address, uhttp_session->instance_address_len);
 
 								uhttp_session->instance_fd = uwsgi_connectn(uhttp_session->instance_address, uhttp_session->instance_address_len, 0, 1);
 
-								if (uhttp.pattern) {
+								if (uhttp.pattern || uhttp.base ) {
 									free(uhttp_session->instance_address);
 								}
 
@@ -488,6 +548,9 @@ void http_loop() {
 
 							if (getsockopt(uhttp_session->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
                                                 		uwsgi_error("getsockopt()");
+								if (uhttp.subscription_server) {
+									uhttp_session->instance_address[0] = 0;
+								}
 								close(uhttp_session->fd);
 								close(uhttp_session->instance_fd);
 								uhttp_table[uhttp_session->fd] = NULL;
@@ -499,6 +562,9 @@ void http_loop() {
 
 							if (soopt) {
 								uwsgi_log("unable to connect() to uwsgi instance: %s\n", strerror(soopt));
+								if (uhttp.subscription_server) {
+									uhttp_session->instance_address[0] = 0;
+								}
 								close(uhttp_session->fd);
 								close(uhttp_session->instance_fd);
 								uhttp_table[uhttp_session->fd] = NULL;
@@ -679,6 +745,9 @@ int http_opt(int i, char *optarg) {
 	switch(i) {
 		case LONG_ARGS_HTTP:
 			uhttp.socket_name = optarg;
+			return 1;
+		case LONG_ARGS_HTTP_SUBSCRIPTION_SERVER:
+			uhttp.subscription_server = optarg;
 			return 1;
 		case LONG_ARGS_HTTP_EVENTS:
 			uhttp.nevents = atoi(optarg);

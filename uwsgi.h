@@ -19,6 +19,7 @@
 #define MAX_RPC 64
 #define MAX_GATEWAYS 64
 #define MAX_DAEMONS 8
+#define MAX_SUBSCRIPTIONS 8
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
 #define UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -346,6 +347,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_QUEUE			17075
 #define LONG_ARGS_QUEUE_BLOCKSIZE	17076
 #define LONG_ARGS_ATTACH_DAEMON		17077
+#define LONG_ARGS_SUBSCRIBE_TO		17078
 
 
 
@@ -957,6 +959,9 @@ struct uwsgi_server {
 	char *startup_daemons[MAX_DAEMONS];
 	int startup_daemons_cnt;
 
+	char *subscriptions[MAX_SUBSCRIPTIONS];
+	int subscriptions_cnt;
+
 };
 
 struct uwsgi_rpc {
@@ -970,6 +975,7 @@ struct uwsgi_lb_group {
 	char name[101];
 	int kind;
 };
+
 
 #define KIND_NULL 0
 #define KIND_WORKER 1
@@ -1461,3 +1467,66 @@ char *uwsgi_resolve_ip(char *);
 char *uwsgi_queue_get(uint64_t, uint64_t *);
 char *uwsgi_queue_pull(uint64_t *);
 int uwsgi_queue_push(char *, uint64_t);
+
+// maintain alignment here !!!
+struct uwsgi_dict_item {
+        // size of the value (64bit)
+        uint64_t        valsize;
+        // 64bit hits
+        uint64_t        hits;
+        // previous same-hash item
+        uint64_t        prev;
+        // next same-hash item
+        uint64_t        next;
+        // djb hash of the key
+        uint32_t        djbhash;
+        // size of the key
+        uint16_t        keysize;
+        // key chracters follows...
+        char            key[UWSGI_CACHE_MAX_KEY_SIZE];
+} __attribute__((__packed__));
+
+struct uwsgi_dict {
+        uint64_t blocksize;
+        uint64_t max_items;
+
+        uint64_t *hashtable;
+        uint64_t *unused_stack;
+
+
+        uint64_t first_available_item;
+        uint64_t unused_stack_ptr;
+
+        void *data;
+        void *lock;
+        struct uwsgi_dict_item *items;
+};
+
+#define SUBSCRIBER_PAGESIZE 4096
+#define SUBSCRIBER_NODES (SUBSCRIBER_PAGESIZE/128)-1
+
+struct uwsgi_subscriber {
+	uint64_t nodes;
+	uint64_t current;
+	// support upto md5
+	char auth[32];
+	char name[128][SUBSCRIBER_NODES];
+};
+
+struct uwsgi_subscribe_req {
+	char *key;
+	uint16_t keylen;
+
+	char *address;
+	uint16_t address_len;
+
+	char *auth;
+	uint16_t auth_len;
+};
+
+struct uwsgi_dict *uwsgi_dict_create(uint64_t, uint64_t);
+void uwsgi_add_subscriber(struct uwsgi_dict *, char *, uint16_t, char *, uint64_t);
+char *uwsgi_dict_get(struct uwsgi_dict *, char *, uint16_t, uint64_t *);
+int uwsgi_dict_set(struct uwsgi_dict *, char *, uint16_t, char *, uint64_t);
+
+char *uwsgi_get_subscriber(struct uwsgi_dict *, char *, uint16_t, uint64_t *);

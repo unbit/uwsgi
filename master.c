@@ -19,7 +19,6 @@ void get_linux_tcp_info(int fd) {
 }
 #endif
 
-
 void manage_cluster_announce(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
 	char *tmpstr;
@@ -85,6 +84,9 @@ void master_loop(char **argv, char **environ) {
 
 	char *cluster_opt_buf = NULL;
 	int cluster_opt_size = 4;
+
+	char subscrbuf[4096];
+	char *ssb;
 #ifdef UWSGI_MULTICAST
 	char *cptrbuf;
 	uint16_t ustrlen;
@@ -661,6 +663,45 @@ void master_loop(char **argv, char **environ) {
 			// reannounce myself every 10 cycles
 			if (uwsgi.cluster && uwsgi.cluster_fd >= 0 && (master_cycles % 10) == 0) {
 				uwsgi_cluster_add_me();
+			}
+
+			// resubscribe every 10 cycles
+			if (uwsgi.subscriptions_cnt > 0 && (master_cycles % 10) == 0) {
+				for(i=0;i<uwsgi.subscriptions_cnt;i++) {
+					char *udp_address = strchr(uwsgi.subscriptions[i],':');
+					if (!udp_address) continue;
+					char *subscription_key = strchr(udp_address+1, ':');
+					udp_address = uwsgi_concat2n(uwsgi.subscriptions[i], subscription_key-uwsgi.subscriptions[i], "", 0);	
+					uwsgi_log("subscribe to %s with key %s\n", udp_address, subscription_key+1);
+					ssb = subscrbuf;
+
+					ustrlen = 3;
+                        		*ssb++ = (uint8_t) (ustrlen  & 0xff);
+                        		*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                        		memcpy(ssb, "key", ustrlen);
+                        		ssb+=ustrlen;
+
+					ustrlen = strlen(subscription_key+1);
+                        		*ssb++ = (uint8_t) (ustrlen  & 0xff);
+                        		*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                        		memcpy(ssb, subscription_key+1, ustrlen);
+                        		ssb+=ustrlen;
+
+					ustrlen = 7;
+                        		*ssb++ = (uint8_t) (ustrlen  & 0xff);
+                        		*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                        		memcpy(ssb, "address", ustrlen);
+                        		ssb+=ustrlen;
+
+					ustrlen = strlen(uwsgi.sockets[0].name);
+                        		*ssb++ = (uint8_t) (ustrlen  & 0xff);
+                        		*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                        		memcpy(ssb, uwsgi.sockets[0].name, ustrlen);
+                        		ssb+=ustrlen;
+
+					uwsgi_log("sent %d bytes\n", send_udp_message(224, udp_address, subscrbuf, ssb-subscrbuf));
+					free(udp_address);
+				}
 			}
 
 
