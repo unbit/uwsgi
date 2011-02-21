@@ -438,6 +438,10 @@ void http_loop() {
 					close(uhttp_session->fd);
                                         uhttp_table[uhttp_session->fd] = NULL;
                                         if (uhttp_session->instance_fd != -1) {
+						if (uhttp.subscription_server) {
+							uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
+							uhttp_session->instance_address[0] = 0;
+						}
                                         	close(uhttp_session->instance_fd);
                                                 uhttp_table[uhttp_session->instance_fd] = NULL;
                                         }
@@ -520,15 +524,22 @@ void http_loop() {
                                                                 	break;
 								}
 
+
 								uhttp_session->pass_fd = is_unix(uhttp_session->instance_address, uhttp_session->instance_address_len);
 
 								uhttp_session->instance_fd = uwsgi_connectn(uhttp_session->instance_address, uhttp_session->instance_address_len, 0, 1);
+
+								uwsgi_log("backend: %d %.*s\n", uhttp_session->instance_fd, (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
 
 								if (uhttp.pattern || uhttp.base ) {
 									free(uhttp_session->instance_address);
 								}
 
 								if (uhttp_session->instance_fd < 0) {
+									if (uhttp.subscription_server) {
+										uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
+										uhttp_session->instance_address[0] = 0;
+									}
                                                                 	close(uhttp_session->fd);
                                                                 	uhttp_table[uhttp_session->fd] = NULL;
 									uhttp.load--;
@@ -559,6 +570,7 @@ void http_loop() {
 							if (getsockopt(uhttp_session->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
                                                 		uwsgi_error("getsockopt()");
 								if (uhttp.subscription_server) {
+									uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
 									uhttp_session->instance_address[0] = 0;
 								}
 								close(uhttp_session->fd);
@@ -573,6 +585,7 @@ void http_loop() {
 							if (soopt) {
 								uwsgi_log("unable to connect() to uwsgi instance: %s\n", strerror(soopt));
 								if (uhttp.subscription_server) {
+									uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
 									uhttp_session->instance_address[0] = 0;
 								}
 								close(uhttp_session->fd);
