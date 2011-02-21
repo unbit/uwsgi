@@ -39,6 +39,9 @@ struct uwsgi_http {
 	char *base;
 	int base_len;
 
+	char *port;
+	int port_len;
+
 	char *to;
 	int to_len;
 
@@ -289,6 +292,11 @@ int http_parse(struct http_session *h_session) {
 	h_session->hostname = uwsgi.hostname;
 	h_session->hostname_len = uwsgi.hostname_len;
 
+	// SERVER_PORT
+	h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "SERVER_PORT", 11, uhttp.port, uhttp.port_len, &c);
+	h_session->hostname = uwsgi.hostname;
+	h_session->hostname_len = uwsgi.hostname_len;
+
 
 	//HEADERS
 
@@ -358,6 +366,8 @@ void http_loop() {
 
 	uhttp_server = bind_to_tcp(uhttp.socket_name, uwsgi.listen_queue, strchr(uhttp.socket_name,':'));
 
+	uhttp.port = strchr(uhttp.socket_name,':')+1;
+	uhttp.port_len = strlen(uhttp.port);
 
 	uhttp_queue = event_queue_init();
 
