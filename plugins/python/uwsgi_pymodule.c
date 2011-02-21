@@ -2132,6 +2132,7 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 	}
 
+	free(buffer);
 	goto clear2;
 
       clear3:
