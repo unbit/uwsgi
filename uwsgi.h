@@ -690,6 +690,9 @@ struct uwsgi_server {
 	int             apps_cnt;
 	int             default_app;
 
+	unsigned int reloads;
+	int master_as_root;
+
 	int		has_emperor;
 	int emperor_fd;
 	char *emperor_dir;

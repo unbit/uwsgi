@@ -31,6 +31,8 @@ struct uwsgi_http {
 	int use_cache;
 	int nevents;
 
+	int server;
+
 	char *subscription_server;
 
 	char *pattern;
@@ -329,7 +331,6 @@ int http_parse(struct http_session *h_session) {
 void http_loop() {
 
 	int uhttp_queue;
-	int uhttp_server;
 	int uhttp_subserver = -1;
 	int nevents;
 	int interesting_fd;
@@ -364,7 +365,6 @@ void http_loop() {
 		uhttp_table[i] = NULL;
 	}
 
-	uhttp_server = bind_to_tcp(uhttp.socket_name, uwsgi.listen_queue, strchr(uhttp.socket_name,':'));
 
 	uhttp.port = strchr(uhttp.socket_name,':')+1;
 	uhttp.port_len = strlen(uhttp.port);
@@ -373,7 +373,7 @@ void http_loop() {
 
 	events = event_queue_alloc(uhttp.nevents);
 
-	event_queue_add_fd_read(uhttp_queue, uhttp_server);
+	event_queue_add_fd_read(uhttp_queue, uhttp.server);
 
 	if (uhttp.subscription_server) {
 		uhttp_subserver = bind_to_udp(uhttp.subscription_server, 0, 0);
@@ -394,8 +394,8 @@ void http_loop() {
 			interesting_fd = event_queue_interesting_fd(events, i);
 
 
-			if (interesting_fd == uhttp_server) {
-				new_connection = accept(uhttp_server, (struct sockaddr *) &uhttp_addr, &uhttp_addr_len);
+			if (interesting_fd == uhttp.server) {
+				new_connection = accept(uhttp.server, (struct sockaddr *) &uhttp_addr, &uhttp_addr_len);
 				if (new_connection < 0) {
 					continue;
 				}
@@ -735,11 +735,13 @@ int http_init() {
 
 		if (!uhttp.nevents) uhttp.nevents = 64;
 
-		if (!uhttp.base && !uhttp.use_cache && !uhttp.to && !uwsgi.sockets_cnt) {
+		if (!uhttp.base && !uhttp.use_cache && !uhttp.to && !uwsgi.sockets_cnt && !uhttp.subscription_server) {
 			uwsgi.sockets[0].name = uwsgi_malloc(64);
 			uwsgi.sockets_cnt++;
 			snprintf(uwsgi.sockets[0].name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
 		}
+
+		uhttp.server = bind_to_tcp(uhttp.socket_name, uwsgi.listen_queue, strchr(uhttp.socket_name,':'));
 
 		if (register_gateway("http", http_loop) == NULL) {
 			uwsgi_log("unable to register the http gateway\n");

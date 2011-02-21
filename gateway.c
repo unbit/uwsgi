@@ -65,6 +65,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 	}
 	else {
 		if (gw_pid == 0) {
+			if (uwsgi.master_as_root) uwsgi_as_root();
 			loop();
 			// never here !!! (i hope)
 			exit(1);	
@@ -99,6 +100,7 @@ void gateway_respawn(int id) {
 	}
 
 	if (gw_pid == 0) {
+		if (uwsgi.master_as_root) uwsgi_as_root();
 		ug->loop();
 		// never here !!! (i hope)
 		exit(1);	

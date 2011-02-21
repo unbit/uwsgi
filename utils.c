@@ -254,7 +254,9 @@ void uwsgi_as_root() {
 #endif
 
 	if (!getuid()) {
-		uwsgi_log("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+		if (!uwsgi.master_as_root) {
+			uwsgi_log("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+		}
 
 #ifdef __linux__
 		if (uwsgi.cgroup) {
@@ -305,8 +307,8 @@ void uwsgi_as_root() {
 			}
 		}
 #endif
-		if (uwsgi.chroot) {
-			uwsgi_log("chroot() to %s\n", uwsgi.chroot);
+		if (uwsgi.chroot && !uwsgi.reloads) {
+			if (!uwsgi.master_as_root) uwsgi_log("chroot() to %s\n", uwsgi.chroot);
 			if (chroot(uwsgi.chroot)) {
 				uwsgi_error("chroot()");
 				exit(1);
@@ -337,14 +339,14 @@ void uwsgi_as_root() {
                         }
 		}
 		if (uwsgi.gid) {
-			uwsgi_log("setgid() to %d\n", uwsgi.gid);
+			if (!uwsgi.master_as_root) uwsgi_log("setgid() to %d\n", uwsgi.gid);
 			if (setgid(uwsgi.gid)) {
 				uwsgi_error("setgid()");
 				exit(1);
 			}
 		}
 		if (uwsgi.uid) {
-			uwsgi_log("setuid() to %d\n", uwsgi.uid);
+			if (!uwsgi.master_as_root) uwsgi_log("setuid() to %d\n", uwsgi.uid);
 			if (setuid(uwsgi.uid)) {
 				uwsgi_error("setuid()");
 				exit(1);

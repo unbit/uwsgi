@@ -129,6 +129,7 @@ static struct option long_base_options[] = {
 	{"log-big", required_argument, 0, LONG_ARGS_LOG_BIG},
 	{"log-sendfile", required_argument, 0, LONG_ARGS_LOG_SENDFILE},
 	{"log-micros", no_argument, &uwsgi.log_micros, 1},
+	{"master-as-root", no_argument, &uwsgi.master_as_root, 1},
 	{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 	{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
@@ -381,7 +382,6 @@ int main(int argc, char *argv[], char *envp[])
 	FILE *pidfile;
 
 	char *env_reloads;
-	unsigned int reloads = 0;
 	char env_reload_buf[11];
 	
 	char *plugins_requested;
@@ -486,10 +486,10 @@ int main(int argc, char *argv[], char *envp[])
 	env_reloads = getenv("UWSGI_RELOADS");
 	if (env_reloads) {
 		//convert env value to int
-		reloads = atoi(env_reloads);
-		reloads++;
+		uwsgi.reloads = atoi(env_reloads);
+		uwsgi.reloads++;
 		//convert reloads to string
-		rlen = snprintf(env_reload_buf, 10, "%u", reloads);
+		rlen = snprintf(env_reload_buf, 10, "%u", uwsgi.reloads);
 		if (rlen > 0) {
 			env_reload_buf[rlen] = 0;
 			if (setenv("UWSGI_RELOADS", env_reload_buf, 1)) {
@@ -880,7 +880,9 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
-	uwsgi_as_root();
+	if (!uwsgi.master_as_root) {
+		uwsgi_as_root();
+	}
 
 	if (uwsgi.chdir) {
 		if (chdir(uwsgi.chdir)) {
@@ -1658,6 +1660,10 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		uwsgi_error("execvp()");
 		exit(1);
 	}
+
+	if (uwsgi.master_as_root) {
+                uwsgi_as_root();
+        }
 
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->post_fork) {
