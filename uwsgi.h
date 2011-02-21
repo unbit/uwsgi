@@ -1090,6 +1090,9 @@ struct uwsgi_shared {
 
 	struct uwsgi_daemon daemons[MAX_DAEMONS];
 	int daemons_cnt;
+#ifdef __linux__
+	struct tcp_info ti;
+#endif
 };
 
 struct uwsgi_core {

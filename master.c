@@ -4,16 +4,15 @@ extern struct uwsgi_server uwsgi;
 
 #ifdef __linux__
 void get_linux_tcp_info(int fd) {
-	struct tcp_info ti;
 	socklen_t tis = sizeof(struct tcp_info);
 
-	if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &ti, &tis)) {
+	if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &uwsgi.shared->ti, &tis)) {
 		// a check for older linux kernels
-		if (!ti.tcpi_sacked) {
+		if (!uwsgi.shared->ti.tcpi_sacked) {
 			return;
 		}
-		if (ti.tcpi_unacked >= ti.tcpi_sacked) {
-			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, ti.tcpi_unacked, ti.tcpi_sacked);
+		if (uwsgi.shared->ti.tcpi_unacked >= uwsgi.shared->ti.tcpi_sacked) {
+			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, uwsgi.shared->ti.tcpi_unacked, uwsgi.shared->ti.tcpi_sacked);
 		}
 	}
 }

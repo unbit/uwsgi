@@ -156,6 +156,15 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 }
 
+PyObject *py_uwsgi_listen_queue(PyObject * self, PyObject * args) {
+
+#ifdef __linux__
+	return PyInt_FromLong(uwsgi.shared->ti.tcpi_unacked);
+#else
+	return NULL
+#endif
+}
+
 PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 
 	int fd;
@@ -2122,9 +2131,10 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 	}
 
-	goto clear;
+	goto clear2;
 
       clear3:
+	free(buffer);
 	Py_DECREF(zero);
       clear2:
 	close(fd);
@@ -2306,6 +2316,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"send", py_uwsgi_send, METH_VARARGS, ""},
 	{"cl", py_uwsgi_cl, METH_VARARGS, ""},
+
+	{"listen_queue", py_uwsgi_listen_queue, METH_VARARGS, ""},
 
 	{"attach_daemon", py_uwsgi_attach_daemon, METH_VARARGS, ""},
 
