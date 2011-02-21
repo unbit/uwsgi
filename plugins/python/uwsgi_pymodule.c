@@ -161,7 +161,7 @@ PyObject *py_uwsgi_listen_queue(PyObject * self, PyObject * args) {
 #ifdef __linux__
 	return PyInt_FromLong(uwsgi.shared->ti.tcpi_unacked);
 #else
-	return NULL
+	return NULL;
 #endif
 }
 
@@ -2127,6 +2127,7 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 		}
 
 		close(fd);
+		free(buffer);
 		return zero;
 
 	}
@@ -2134,8 +2135,8 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 	goto clear2;
 
       clear3:
-	free(buffer);
 	Py_DECREF(zero);
+	free(buffer);
       clear2:
 	close(fd);
       clear:
