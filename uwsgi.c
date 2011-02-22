@@ -238,9 +238,10 @@ void grace_them_all()
 		kill(uwsgi.workers[i].pid, SIGHUP);
 	}
 
-	for (i = 0; i <= uwsgi.shared->daemons_cnt; i++) {
+	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
+
 }
 
 void reap_them_all()
@@ -252,7 +253,7 @@ void reap_them_all()
 		kill(uwsgi.workers[i].pid, SIGTERM);
 	}
 
-	for (i = 0; i <= uwsgi.shared->daemons_cnt; i++) {
+	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
 }
