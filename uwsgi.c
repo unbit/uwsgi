@@ -659,6 +659,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (gethostname(uwsgi.hostname, 255)) {
 		uwsgi_error("gethostname()");
 	}
+	uwsgi.hostname_len = strlen(uwsgi.hostname);
 
 
 

@@ -1509,14 +1509,19 @@ struct uwsgi_dict {
 };
 
 #define SUBSCRIBER_PAGESIZE 4096
-#define SUBSCRIBER_NODES (SUBSCRIBER_PAGESIZE/128)-1
+#define SUBSCRIBER_NODES (SUBSCRIBER_PAGESIZE/128)-4
+
+struct uwsgi_subscriber_name {
+	uint16_t len;
+	char name[128];
+};
 
 struct uwsgi_subscriber {
 	uint64_t nodes;
 	uint64_t current;
 	// support upto md5
 	char auth[32];
-	char name[128][SUBSCRIBER_NODES];
+	struct uwsgi_subscriber_name names[SUBSCRIBER_NODES];
 };
 
 struct uwsgi_subscribe_req {
@@ -1535,4 +1540,4 @@ void uwsgi_add_subscriber(struct uwsgi_dict *, char *, uint16_t, char *, uint64_
 char *uwsgi_dict_get(struct uwsgi_dict *, char *, uint16_t, uint64_t *);
 int uwsgi_dict_set(struct uwsgi_dict *, char *, uint16_t, char *, uint64_t);
 
-char *uwsgi_get_subscriber(struct uwsgi_dict *, char *, uint16_t, uint64_t *);
+struct uwsgi_subscriber_name *uwsgi_get_subscriber(struct uwsgi_dict *, char *, uint16_t);

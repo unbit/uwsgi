@@ -2,14 +2,12 @@
 
 extern struct uwsgi_server uwsgi;
 
-char *uwsgi_get_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, uint64_t *vallen) {
+struct uwsgi_subscriber_name *uwsgi_get_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen) {
 
 	uint64_t ovl;
 	struct uwsgi_subscriber *usub;
-	char *ret = NULL;
+	struct uwsgi_subscriber_name *ret = NULL;
 	
-	*vallen = 0;
-
 	usub = (struct uwsgi_subscriber *) uwsgi_dict_get(udict, key, keylen, &ovl);
 
 	if (usub == NULL || !ovl) return NULL;
@@ -17,9 +15,9 @@ char *uwsgi_get_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen,
 	if (!usub->nodes) return NULL;
 
 	if (usub && ovl) {
-		ret = usub->name[usub->current];
+		ret = &usub->names[usub->current];
 		// dead node
-		if (ret[0] == 0) {
+		if (ret->len == 0) {
 			if (usub->current == usub->nodes-1) {
 				usub->nodes--;
 			}
@@ -27,17 +25,15 @@ char *uwsgi_get_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen,
 			if (usub->nodes > 0) {
 				usub->current++;
 				if (usub->current >= usub->nodes) usub->current = 0;
-				return uwsgi_get_subscriber(udict, key, keylen, vallen);
+				return uwsgi_get_subscriber(udict, key, keylen);
 			}
-		}
-		else {
-			*vallen = strlen(ret);
 		}
 
 		if (usub->nodes > 1) {
 			usub->current++;
 			if (usub->current >= usub->nodes) usub->current = 0;
 		}
+
 	}
 
 	return ret;
@@ -55,7 +51,7 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, 
 	if (ptr && vallen) {
 		usub = (struct uwsgi_subscriber *) ptr;
 		for(i=0;i<(int)usub->nodes;i++) {
-			if (!uwsgi_strncmp(usub->name[i], strlen(usub->name[i]), address, address_len)) {
+			if (!uwsgi_strncmp(usub->names[i].name, usub->names[i].len, address, address_len)) {
 				found = 1;
 				break;
 			}
@@ -64,12 +60,13 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, 
 			found = usub->nodes;
 			// check for unallocated slot
 			for(i=0;i<(int)usub->nodes;i++) {
-				if (usub->name[i][0] == 0) {
+				if (usub->names[i].len == 0) {
 					found = i;
 					break;
 				}
 			}
-			memcpy(usub->name[found], address, address_len);
+			usub->names[found].len = address_len;
+			memcpy(usub->names[found].name, address, address_len);
 			if (found == (int) usub->nodes) {
 				usub->nodes++;
 			}
@@ -79,7 +76,7 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, 
 	else {
 		nusub.nodes = 1;
 		nusub.current = 0;
-		memcpy(nusub.name[0], address, address_len);
+		memcpy(nusub.names[0].name, address, address_len);
 		uwsgi_dict_set(udict, key, keylen, (char *) &nusub, sizeof(struct uwsgi_subscriber));
 	}
 

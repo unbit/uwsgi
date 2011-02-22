@@ -122,6 +122,8 @@ struct http_session {
 	char uss[MAX_HTTP_VEC*2];
 
 	char buffer[UMAX16];
+
+	struct uwsgi_subscriber_name *un;
 };
 
 struct http_session *alloc_uhttp_session() {
@@ -166,7 +168,8 @@ uint16_t http_add_uwsgi_header(struct http_session *h_session, struct iovec *iov
                 h_session->hostname = val;
                 h_session->hostname_len = vallen;
         }
-	else if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
+
+	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		keylen += 5;	
 		prefix = 1;
 		if ((*c) + 5  >= MAX_HTTP_VEC) return 0;
@@ -298,6 +301,9 @@ int http_parse(struct http_session *h_session) {
 	h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "SERVER_PORT", 11, uhttp.port, uhttp.port_len, &c);
 	h_session->hostname = uwsgi.hostname;
 	h_session->hostname_len = uwsgi.hostname_len;
+
+	// UWSGI_ROUTER
+	h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "UWSGI_ROUTER", 12, "http", 4, &c);
 
 
 	//HEADERS
@@ -440,7 +446,7 @@ void http_loop() {
                                         if (uhttp_session->instance_fd != -1) {
 						if (uhttp.subscription_server) {
 							uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-							uhttp_session->instance_address[0] = 0;
+							uhttp_session->un->len = 0;
 						}
                                         	close(uhttp_session->instance_fd);
                                                 uhttp_table[uhttp_session->instance_fd] = NULL;
@@ -509,7 +515,11 @@ void http_loop() {
 									uhttp_session->instance_address_len = uhttp.to_len;
 								}
 								else if (uhttp.subscription_server) {
-									uhttp_session->instance_address = uwsgi_get_subscriber(uhttp.subscription_dict, uhttp_session->hostname, uhttp_session->hostname_len, &uhttp_session->instance_address_len);
+									uhttp_session->un = uwsgi_get_subscriber(uhttp.subscription_dict, uhttp_session->hostname, uhttp_session->hostname_len);
+									if (uhttp_session->un && uhttp_session->un->len) {
+										uhttp_session->instance_address = uhttp_session->un->name;
+										uhttp_session->instance_address_len = uhttp_session->un->len;
+									}
 								}
 								else if (uwsgi.sockets_cnt > 0) {
 									uhttp_session->instance_address = uwsgi.sockets[0].name;
@@ -538,7 +548,7 @@ void http_loop() {
 								if (uhttp_session->instance_fd < 0) {
 									if (uhttp.subscription_server) {
 										uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-										uhttp_session->instance_address[0] = 0;
+										uhttp_session->un->len = 0;
 									}
                                                                 	close(uhttp_session->fd);
                                                                 	uhttp_table[uhttp_session->fd] = NULL;
@@ -571,7 +581,7 @@ void http_loop() {
                                                 		uwsgi_error("getsockopt()");
 								if (uhttp.subscription_server) {
 									uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-									uhttp_session->instance_address[0] = 0;
+									uhttp_session->un->len = 0;
 								}
 								close(uhttp_session->fd);
 								close(uhttp_session->instance_fd);
@@ -586,7 +596,7 @@ void http_loop() {
 								uwsgi_log("unable to connect() to uwsgi instance: %s\n", strerror(soopt));
 								if (uhttp.subscription_server) {
 									uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-									uhttp_session->instance_address[0] = 0;
+									uhttp_session->un->len = 0;
 								}
 								close(uhttp_session->fd);
 								close(uhttp_session->instance_fd);
