@@ -266,6 +266,7 @@ int http_parse(struct http_session *h_session) {
 			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REQUEST_URI", 11, base, ptr-base, &c);
 			if (!query_string) {
 				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "PATH_INFO", 9, base, ptr-base, &c);
+				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "QUERY_STRING", 12, "", 0, &c);
 			}	
 			else {
 				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "QUERY_STRING", 12, query_string, ptr-query_string, &c);
