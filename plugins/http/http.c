@@ -138,6 +138,7 @@ struct http_session {
 	struct uwsgi_subscriber_name *un;
 	
 	in_addr_t ip_addr;
+	char ip[INET_ADDRSTRLEN];
 
 	struct uwsgi_rb_timer *timeout;
 };
@@ -307,7 +308,6 @@ int http_parse(struct http_session *h_session) {
 	// leave a slot for uwsgi header
 	int c = 1;
 	char *query_string = NULL;
-	char ip[INET_ADDRSTRLEN];
 
 	// REQUEST_METHOD 
 	while(ptr < watermark) {
@@ -371,8 +371,8 @@ int http_parse(struct http_session *h_session) {
 	h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "UWSGI_ROUTER", 12, "http", 4, &c);
 
 	// REMOTE_ADDR
-	if (inet_ntop(AF_INET, &h_session->ip_addr, ip, INET_ADDRSTRLEN)) {
-		h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REMOTE_ADDR", 11, ip, strlen(ip), &c);
+	if (inet_ntop(AF_INET, &h_session->ip_addr, h_session->ip, INET_ADDRSTRLEN)) {
+		h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REMOTE_ADDR", 11, h_session->ip, strlen(h_session->ip), &c);
 	}
 	else {
 		uwsgi_error("inet_ntop()");
