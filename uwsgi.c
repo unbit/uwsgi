@@ -400,6 +400,7 @@ int main(int argc, char *argv[], char *envp[])
 	char *emperor_env;
 	char *magic_table[0xff];
 
+	
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 

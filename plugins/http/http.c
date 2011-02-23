@@ -20,11 +20,15 @@
 #define LONG_ARGS_HTTP_USE_BASE			300003
 #define LONG_ARGS_HTTP_USE_TO			300004
 #define LONG_ARGS_HTTP_SUBSCRIPTION_SERVER	300005
+#define LONG_ARGS_HTTP_TIMEOUT			300006
 
 #define HTTP_STATUS_FREE 0
 #define HTTP_STATUS_CONNECTING 1
 #define HTTP_STATUS_RECV 2
 #define HTTP_STATUS_RESPONSE 4
+
+#define add_timeout(x) uwsgi_add_rb_timer(uhttp.timeouts, time(NULL)+uhttp.socket_timeout, x)
+#define del_timeout(x) rb_erase(&x->timeout->rbt, uhttp.timeouts); free(x->timeout);
 
 struct uwsgi_http {
 	char *socket_name;
@@ -53,7 +57,11 @@ struct uwsgi_http {
 	uint8_t modifier1;
 	int load;
 
+	int socket_timeout;
+
 	struct uwsgi_dict *subscription_dict;
+
+	struct rb_root *timeouts;
 } uhttp;
 
 struct option http_options[] = {
@@ -66,10 +74,12 @@ struct option http_options[] = {
 	{"http-use-base", required_argument, 0, LONG_ARGS_HTTP_USE_BASE},
 	{"http-events", required_argument, 0, LONG_ARGS_HTTP_EVENTS},
 	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
+	{"http-timeout", required_argument, 0, LONG_ARGS_HTTP_TIMEOUT},
 	{0, 0, 0, 0},	
 };
 
 extern struct uwsgi_server uwsgi;
+
 
 void http_manage_subscription(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
@@ -126,7 +136,54 @@ struct http_session {
 	struct uwsgi_subscriber_name *un;
 	
 	in_addr_t ip_addr;
+
+	struct uwsgi_rb_timer *timeout;
 };
+
+struct uwsgi_rb_timer *reset_timeout(struct http_session *uhttp_session) {
+
+	del_timeout(uhttp_session);
+	return add_timeout(uhttp_session);
+}
+
+void close_session(struct http_session **uhttp_table, struct http_session *uhttp_session) {
+
+	close(uhttp_session->fd);
+        uhttp_table[uhttp_session->fd] = NULL;
+        if (uhttp_session->instance_fd != -1) {
+        	if (uhttp.subscription_server) {
+                	uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
+                        uhttp_session->un->len = 0;
+                }
+                close(uhttp_session->instance_fd);
+                uhttp_table[uhttp_session->instance_fd] = NULL;
+	}
+
+        uhttp.load--;
+	del_timeout(uhttp_session);	
+	free(uhttp_session);
+
+}
+
+void expire_timeouts(struct http_session **uhttp_table) {
+
+        time_t current = time(NULL);
+        struct uwsgi_rb_timer *urbt;
+
+        for(;;) {
+
+                urbt = uwsgi_min_rb_timer(uhttp.timeouts);
+
+                if (urbt->key <= current) {
+			uwsgi_log("timeout !!!\n");
+                        close_session(uhttp_table, (struct http_session *)urbt->data);
+			continue;
+                }
+
+		break;
+        }
+}
+
 
 struct http_session *alloc_uhttp_session() {
 	
@@ -360,6 +417,9 @@ void http_loop() {
 
 	char bbuf[UMAX16];
 
+	time_t delta;
+
+	struct uwsgi_rb_timer *min_timeout;
 	void *events;
 	struct msghdr msg;
 	union {
@@ -403,9 +463,28 @@ void http_loop() {
 		init_magic_table(magic_table);
 	}
 
+	uhttp.timeouts = uwsgi_init_rb_timer();
+	if (!uhttp.socket_timeout) uhttp.socket_timeout = 30;
+
 	for (;;) {
 
-		nevents = event_queue_wait_multi(uhttp_queue, -1, events, uhttp.nevents);
+		min_timeout = uwsgi_min_rb_timer(uhttp.timeouts);
+		if (min_timeout == NULL ) {
+			delta = -1;
+		}
+		else {
+			delta = min_timeout->key - time(NULL);
+			if (delta <= 0) {
+				expire_timeouts(uhttp_table);
+				delta = 0;
+			}
+		}
+		nevents = event_queue_wait_multi(uhttp_queue, delta, events, uhttp.nevents);
+
+		if (nevents == 0) {
+			// manage timeout
+			expire_timeouts(uhttp_table);
+		}
 
 		for (i=0;i<nevents;i++) {
 
@@ -434,6 +513,8 @@ void http_loop() {
 				uhttp_table[new_connection]->uh.modifier2 = 0;
 				uhttp_table[new_connection]->ip_addr = ((struct sockaddr_in *) &uhttp_addr)->sin_addr.s_addr;
 
+				uhttp_table[new_connection]->timeout = add_timeout(uhttp_table[new_connection]);
+
 				uhttp.load++;
 
 				event_queue_add_fd_read(uhttp_queue, new_connection);
@@ -454,31 +535,19 @@ void http_loop() {
 				if (uhttp_session == NULL) continue;
 
 				if (event_queue_interesting_fd_has_error(events, i)) {
-					close(uhttp_session->fd);
-                                        uhttp_table[uhttp_session->fd] = NULL;
-                                        if (uhttp_session->instance_fd != -1) {
-						if (uhttp.subscription_server) {
-							uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-							uhttp_session->un->len = 0;
-						}
-                                        	close(uhttp_session->instance_fd);
-                                                uhttp_table[uhttp_session->instance_fd] = NULL;
-                                        }
-					uhttp.load--;
-                                        free(uhttp_session);
+					close_session(uhttp_table, uhttp_session);
 					continue;
 				}
 
 				switch(uhttp_session->status) {
 
+					uhttp_session->timeout = reset_timeout(uhttp_session);
+
 					case HTTP_STATUS_RECV:
 						len = recv(uhttp_session->fd, uhttp_session->buffer + uhttp_session->h_pos, UMAX16-uhttp_session->h_pos, 0);
 						if (len <= 0) {
 							uwsgi_error("recv()");
-							close(uhttp_session->fd);
-							uhttp_table[uhttp_session->fd] = NULL;
-							uhttp.load--;
-							free(uhttp_session);
+							close_session(uhttp_table, uhttp_session);
 							break;
 						}
 
@@ -501,10 +570,7 @@ void http_loop() {
 								uhttp_session->iov_len = http_parse(uhttp_session);
 
 								if (uhttp_session->iov_len == 0) {
-                                                                	close(uhttp_session->fd);
-                                                                	uhttp_table[uhttp_session->fd] = NULL;
-									uhttp.load--;
-                                                                	free(uhttp_session);
+									close_session(uhttp_table, uhttp_session);
                                                                 	break;
 								}
 
@@ -540,10 +606,7 @@ void http_loop() {
 								}
 
 								if (!uhttp_session->instance_address_len) {
-                                                                	close(uhttp_session->fd);
-                                                                	uhttp_table[uhttp_session->fd] = NULL;
-									uhttp.load--;
-                                                                	free(uhttp_session);
+									close_session(uhttp_table, uhttp_session);
                                                                 	break;
 								}
 
@@ -563,10 +626,7 @@ void http_loop() {
 										uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
 										uhttp_session->un->len = 0;
 									}
-                                                                	close(uhttp_session->fd);
-                                                                	uhttp_table[uhttp_session->fd] = NULL;
-									uhttp.load--;
-                                                                	free(uhttp_session);
+									close_session(uhttp_table, uhttp_session);
                                                                 	break;
                                                         	}
 
@@ -592,31 +652,13 @@ void http_loop() {
 
 							if (getsockopt(uhttp_session->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
                                                 		uwsgi_error("getsockopt()");
-								if (uhttp.subscription_server) {
-									uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-									uhttp_session->un->len = 0;
-								}
-								close(uhttp_session->fd);
-								close(uhttp_session->instance_fd);
-								uhttp_table[uhttp_session->fd] = NULL;
-								uhttp_table[uhttp_session->instance_fd] = NULL;
-								uhttp.load--;
-								free(uhttp_session);
+								close_session(uhttp_table, uhttp_session);
                                                         	break;
                                         		}
 
 							if (soopt) {
 								uwsgi_log("unable to connect() to uwsgi instance: %s\n", strerror(soopt));
-								if (uhttp.subscription_server) {
-									uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-									uhttp_session->un->len = 0;
-								}
-								close(uhttp_session->fd);
-								close(uhttp_session->instance_fd);
-								uhttp_table[uhttp_session->fd] = NULL;
-								uhttp_table[uhttp_session->instance_fd] = NULL;
-								uhttp.load--;
-								free(uhttp_session);
+								close_session(uhttp_table, uhttp_session);
                                                         	break;
 							}
 
@@ -655,18 +697,14 @@ void http_loop() {
                                                                 uhttp_table[uhttp_session->fd] = NULL;
                                                                 uhttp_table[uhttp_session->instance_fd] = NULL;
 								uhttp.load--;
+								del_timeout(uhttp_session);
                                                                 free(uhttp_session);
                                                                 break;
 							}
 
 							if (writev(uhttp_session->instance_fd, uhttp_session->iov, uhttp_session->iov_len) <= 0) {
 								uwsgi_error("writev()");
-								close(uhttp_session->fd);
-								close(uhttp_session->instance_fd);
-								uhttp_table[uhttp_session->fd] = NULL;
-								uhttp_table[uhttp_session->instance_fd] = NULL;
-								uhttp.load--;
-								free(uhttp_session);
+								close_session(uhttp_table, uhttp_session);
                                                         	break;
 							}
 
@@ -683,12 +721,7 @@ void http_loop() {
 							len = recv(uhttp_session->instance_fd, bbuf, UMAX16, 0);
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("recv()");
-								close(uhttp_session->fd);
-								close(uhttp_session->instance_fd);
-								uhttp_table[uhttp_session->fd] = NULL;
-								uhttp_table[uhttp_session->instance_fd] = NULL;
-								uhttp.load--;
-								free(uhttp_session);
+								close_session(uhttp_table, uhttp_session);
                                                         	break;
 							}
 
@@ -701,6 +734,7 @@ void http_loop() {
 								uhttp_table[uhttp_session->fd] = NULL;
 								uhttp_table[uhttp_session->instance_fd] = NULL;
 								uhttp.load--;
+								del_timeout(uhttp_session);
 								free(uhttp_session);
                                                         	break;
 							}
@@ -717,6 +751,7 @@ void http_loop() {
 								uhttp_table[uhttp_session->fd] = NULL;
 								uhttp_table[uhttp_session->instance_fd] = NULL;
 								uhttp.load--;
+								del_timeout(uhttp_session);
 								free(uhttp_session);
                                                         	break;
 							}
@@ -726,12 +761,7 @@ void http_loop() {
 							
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("send()");
-								close(uhttp_session->fd);
-								close(uhttp_session->instance_fd);
-								uhttp_table[uhttp_session->fd] = NULL;
-								uhttp_table[uhttp_session->instance_fd] = NULL;
-								uhttp.load--;
-								free(uhttp_session);
+								close_session(uhttp_table, uhttp_session);
                                                         	break;
 							}
 						}
@@ -750,6 +780,7 @@ void http_loop() {
 							uhttp_table[uhttp_session->instance_fd] = NULL;
 						}
 						uhttp.load--;
+						del_timeout(uhttp_session);
 						free(uhttp_session);
 						break;
 					
@@ -825,6 +856,9 @@ int http_opt(int i, char *optarg) {
                         return 1;
                 case LONG_ARGS_HTTP_MODIFIER1:
                         uhttp.modifier1 = (uint8_t) atoi(optarg);
+                        return 1;
+                case LONG_ARGS_HTTP_TIMEOUT:
+                        uhttp.socket_timeout = atoi(optarg);
                         return 1;
 	}
 	return 0;

@@ -125,20 +125,21 @@ module Rack
                 end
         end
         
-	if options[:threads] > 1
-		for t in 1..options[:threads]
+	if options[:threads] > 2
+		for t in 2..options[:threads]
 			wt = Thread.new do
 			    ulog("spawning thread #{t} on worker #{$mywid}")
             		    while client = server.accept
                 		serve client, app, options
             		    end
 			end
-			wt.join()
 		end
-	else
-            while client = server.accept
-                serve client, app, options
-            end
+	end
+
+        while client = server.accept
+        	serve client, app, options
+        end
+
 	end
       end
 
