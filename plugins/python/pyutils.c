@@ -96,4 +96,6 @@ void init_pyargv() {
 		}
 
 		PySys_SetArgv(up.argc, up.py_argv);
-	}
+
+
+}

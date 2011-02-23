@@ -9,6 +9,8 @@
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
+extern char **environ;
+
 #ifdef UWSGI_SENDFILE
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
 #endif
@@ -78,6 +80,51 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 
 	// Initialize a new environment for the new interpreter
+
+	// reload "os" environ to allow dynamic setenv()
+	if (up.reload_os_env) {
+
+                char **e, *p;
+                PyObject *k, *env_value;
+
+        	PyObject *os_module = PyImport_ImportModule("os");
+        	if (os_module) {
+                	PyObject *os_module_dict = PyModule_GetDict(os_module);
+                	PyObject *py_environ = PyDict_GetItemString(os_module_dict, "environ");
+			if (py_environ) {
+                		for (e = environ; *e != NULL; e++) {
+                        		p = strchr(*e, '=');
+                        		if (p == NULL) continue;
+
+					k = PyString_FromStringAndSize(*e, (int)(p-*e));
+					if (k == NULL) {
+                                		PyErr_Print();
+                                		continue;
+					}
+
+                        		env_value = PyString_FromString(p+1);
+                        		if (env_value == NULL) {
+                                		PyErr_Print();
+						Py_DECREF(k);
+                                		continue;
+                        		}
+	
+					uwsgi_log("%s = %s\n", PyString_AsString(k), PyString_AsString(env_value));
+
+                        		if (PyObject_SetItem(py_environ, k, env_value)) {
+						uwsgi_log("cazzo\n");
+                                		PyErr_Print();
+                        		}
+
+                        		Py_DECREF(k);
+                        		Py_DECREF(env_value);
+
+                	}
+
+		}
+        	}
+	}
+
 
 	if (interpreter == NULL && id) {
 		wi->interpreter = Py_NewInterpreter();

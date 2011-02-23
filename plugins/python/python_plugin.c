@@ -26,6 +26,7 @@ struct option uwsgi_python_options[] = {
 	{"catch-exceptions", no_argument, &up.catch_exceptions, 1},
 	{"ignore-script-name", no_argument, &up.ignore_script_name, 1},
 	{"pep3333-input", no_argument, &up.pep3333_input, 1},
+	{"reload-os-env", no_argument, &up.reload_os_env, 1},
 	{"no-site", no_argument, &Py_NoSiteFlag, 1},
 
 	{0, 0, 0, 0},

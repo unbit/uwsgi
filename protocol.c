@@ -512,6 +512,17 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->chdir = ptrbuf;
 							wsgi_req->chdir_len = strsize;
 						}
+						else if (!uwsgi_strncmp("UWSGI_SETENV", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							char *env_value = memchr(ptrbuf, '=', strsize);
+							if (env_value) {
+								env_value[0] = 0;
+								env_value = uwsgi_concat2n(env_value+1, strsize-((env_value+1)-ptrbuf), "", 0);
+								if (setenv(ptrbuf, env_value, 1)) {
+									uwsgi_error("setenv()");
+								}
+								free(env_value);
+							}
+						}
 						else if (!uwsgi_strncmp("SERVER_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len) && !uwsgi.vhost_host) {
 							wsgi_req->host = ptrbuf;
 							wsgi_req->host_len = strsize;

@@ -11,6 +11,7 @@
 #define LONG_ARGS_PASTE                 LONG_ARGS_PYTHON_BASE + 2
 #define LONG_ARGS_PYARGV                LONG_ARGS_PYTHON_BASE + 3
 #define LONG_ARGS_PYMODULE_ALIAS        LONG_ARGS_PYTHON_BASE + 4
+#define LONG_ARGS_RELOAD_OS_ENV		LONG_ARGS_PYTHON_BASE + 5
 
 #ifdef UWSGI_STACKLESS
 #include <stackless_api.h>
@@ -134,6 +135,8 @@ struct uwsgi_python {
 	int pep3333_input;
 
 	void (*extension)(void);
+
+	int reload_os_env;
 };
 
 

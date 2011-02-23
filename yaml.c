@@ -181,6 +181,11 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 						add_exported_option(0, (char *)key);
 					}
 					else {
+						if (aopt->has_arg == optional_argument) {
+                                                        if (!strcmp("true", val)) {
+                                                        	val = NULL;
+                                                	}
+                                                }
 						manage_opt(aopt->val, val);
 					}
 				}
