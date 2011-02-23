@@ -124,6 +124,8 @@ struct http_session {
 	char buffer[UMAX16];
 
 	struct uwsgi_subscriber_name *un;
+	
+	in_addr_t ip_addr;
 };
 
 struct http_session *alloc_uhttp_session() {
@@ -244,6 +246,7 @@ int http_parse(struct http_session *h_session) {
 	// leave a slot for uwsgi header
 	int c = 1;
 	char *query_string = NULL;
+	char ip[INET_ADDRSTRLEN];
 
 	// REQUEST_METHOD 
 	while(ptr < watermark) {
@@ -305,6 +308,14 @@ int http_parse(struct http_session *h_session) {
 
 	// UWSGI_ROUTER
 	h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "UWSGI_ROUTER", 12, "http", 4, &c);
+
+	// REMOTE_ADDR
+	if (inet_ntop(AF_INET, &h_session->ip_addr, ip, INET_ADDRSTRLEN)) {
+		h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REMOTE_ADDR", 11, ip, strlen(ip), &c);
+	}
+	else {
+		uwsgi_error("inet_ntop()");
+	}
 
 
 	//HEADERS
@@ -421,6 +432,7 @@ void http_loop() {
 				uhttp_table[new_connection]->uh.modifier1 = uhttp.modifier1;
 				uhttp_table[new_connection]->uh.pktsize = 0;
 				uhttp_table[new_connection]->uh.modifier2 = 0;
+				uhttp_table[new_connection]->ip_addr = ((struct sockaddr_in *) &uhttp_addr)->sin_addr.s_addr;
 
 				uhttp.load++;
 
