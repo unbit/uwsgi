@@ -122,6 +122,8 @@ struct http_session {
 	char *instance_address;
 	uint64_t instance_address_len;
 
+	int instance_failed;
+
 	int pass_fd;
 
 	int remains;
@@ -151,7 +153,7 @@ void close_session(struct http_session **uhttp_table, struct http_session *uhttp
 	close(uhttp_session->fd);
         uhttp_table[uhttp_session->fd] = NULL;
         if (uhttp_session->instance_fd != -1) {
-        	if (uhttp.subscription_server) {
+        	if (uhttp.subscription_server && (uhttp_session->instance_failed || uhttp_session->status == HTTP_STATUS_CONNECTING)) {
                 	uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
                         uhttp_session->un->len = 0;
                 }
@@ -174,9 +176,11 @@ void expire_timeouts(struct http_session **uhttp_table) {
 
                 urbt = uwsgi_min_rb_timer(uhttp.timeouts);
 
+		if (urbt == NULL) return;
+
                 if (urbt->key <= current) {
-			uwsgi_log("timeout !!!\n");
                         close_session(uhttp_table, (struct http_session *)urbt->data);
+			uwsgi_log("timeout !!!\n");
 			continue;
                 }
 
@@ -512,6 +516,7 @@ void http_loop() {
 				uhttp_table[new_connection]->uh.pktsize = 0;
 				uhttp_table[new_connection]->uh.modifier2 = 0;
 				uhttp_table[new_connection]->ip_addr = ((struct sockaddr_in *) &uhttp_addr)->sin_addr.s_addr;
+				uhttp_table[new_connection]->instance_failed = 0; 
 
 				uhttp_table[new_connection]->timeout = add_timeout(uhttp_table[new_connection]);
 
@@ -652,12 +657,14 @@ void http_loop() {
 
 							if (getsockopt(uhttp_session->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
                                                 		uwsgi_error("getsockopt()");
+								uhttp_session->instance_failed = 1;
 								close_session(uhttp_table, uhttp_session);
                                                         	break;
                                         		}
 
 							if (soopt) {
 								uwsgi_log("unable to connect() to uwsgi instance: %s\n", strerror(soopt));
+								uhttp_session->instance_failed = 1;
 								close_session(uhttp_table, uhttp_session);
                                                         	break;
 							}
