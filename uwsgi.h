@@ -470,7 +470,7 @@ struct uwsgi_plugin {
 
 	void*		(*encode_string)(char *);
 	char*		(*decode_string)(void *);
-	int		(*signal_handler)(uint8_t, void *, char *, uint8_t);
+	int		(*signal_handler)(uint8_t, void *);
 
 	int		(*spooler)(char *, uint16_t);
 
@@ -989,10 +989,8 @@ struct uwsgi_lb_group {
 
 struct uwsgi_signal_entry {
 	uint8_t modifier1;
-	uint8_t	payload_size;
-	char receiver[0xff];
+	char receiver[64];
 	void *handler;
-	char payload[0xff];
 };
 
 struct uwsgi_lb_node {
@@ -1410,9 +1408,9 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 void *uwsgi_mmap_shared_lock(void);
 void *uwsgi_mmap_shared_rwlock(void);
 
-void uwsgi_register_signal(uint8_t, char *, void *, uint8_t, char *, uint8_t);
-void uwsgi_register_file_monitor(uint8_t, char *, uint8_t, void *, uint8_t);
-void uwsgi_register_timer(uint8_t, int, uint8_t, void *, uint8_t);
+int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
+int uwsgi_add_file_monitor(uint8_t, char *);
+int uwsgi_add_timer(uint8_t, int);
 int uwsgi_signal_handler(uint8_t);
 
 void uwsgi_route_signal(uint8_t);

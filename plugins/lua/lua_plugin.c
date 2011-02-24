@@ -165,25 +165,18 @@ static int uwsgi_api_cache_set(lua_State *L) {
 static int uwsgi_api_register_signal(lua_State *L) {
 
 	int args = lua_gettop(L);
-	uint8_t sig, kind;
+	uint8_t sig;
 	long lhandler;
-	const char *payload;
-	size_t payload_size;
+	const char *who;
 	
 	if (args >= 3) {
 
 		sig = lua_tonumber(L, 1);
-		kind = lua_tonumber(L, 2);
+		who = lua_tostring(L, 2);
 		lua_pushvalue(L, 3);
 		lhandler = luaL_ref(L, LUA_REGISTRYINDEX);
 
-		if (args > 3) {
-			payload = lua_tolstring(L, 4, &payload_size);
-			uwsgi_register_signal(sig, kind, (void *) lhandler, 6, (char *) payload, payload_size);
-		}
-		else {
-			uwsgi_register_signal(sig, kind, (void *) lhandler, 6, NULL, 0);
-		}
+		uwsgi_register_signal(sig, kind, (void *) lhandler, 6);
 	}
 
 	lua_pushnil(L);
@@ -597,7 +590,7 @@ int uwsgi_lua_magic(char *mountpoint, char *lazy) {
 	return 0;
 }
 
-int uwsgi_lua_signal_handler(uint8_t sig, void *handler, char *payload, uint8_t payload_size) {
+int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	

@@ -181,36 +181,34 @@ PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
 
 }
 
-PyObject *py_uwsgi_register_timer(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
-	uint8_t signal_kind;
-	PyObject *handler;
 	int secs;
 
-	if (!PyArg_ParseTuple(args, "BiBO:register_timer", &uwsgi_signal, &secs, &signal_kind, &handler)) {
+	if (!PyArg_ParseTuple(args, "Bi:add_timer", &uwsgi_signal, &secs)) {
 		return NULL;
 	}
 
-	uwsgi_register_timer(uwsgi_signal, secs, signal_kind, handler, 0);
+	if (uwsgi_add_timer(uwsgi_signal, secs))
+		return PyErr_Format(PyExc_ValueError, "unable to add timer");
 
 	Py_INCREF(Py_None);
 	return Py_None;
 }
 
 
-PyObject *py_uwsgi_register_file_monitor(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_add_file_monitor(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
-	uint8_t signal_kind;
-	PyObject *handler;
 	char *filename;
 
-	if (!PyArg_ParseTuple(args, "BsBO:register_file_monitor", &uwsgi_signal, &filename, &signal_kind, &handler)) {
+	if (!PyArg_ParseTuple(args, "Bs:add_file_monitor", &uwsgi_signal, &filename)) {
 		return NULL;
 	}
 
-	uwsgi_register_file_monitor(uwsgi_signal, filename, signal_kind, handler, 0);
+	if (uwsgi_add_file_monitor(uwsgi_signal, filename))
+		return PyErr_Format(PyExc_ValueError, "unable to add file monitor");
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -419,19 +417,15 @@ PyObject *py_uwsgi_attach_daemon(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
-	uint8_t signal_kind;
+	char *signal_kind;
 	PyObject *handler;
-	char *payload = NULL;
 
-	if (!PyArg_ParseTuple(args, "BBO|s:register_signal", &uwsgi_signal, &signal_kind, &handler, &payload)) {
+	if (!PyArg_ParseTuple(args, "BsO:register_signal", &uwsgi_signal, &signal_kind, &handler)) {
 		return NULL;
 	}
 
-	if (payload == NULL) {
-		//uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, NULL, 0);
-	}
-	else {
-		//uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0, payload, strlen(payload));
+	if (uwsgi_register_signal(uwsgi_signal, signal_kind, handler, 0)) {
+		return PyErr_Format(PyExc_ValueError, "unable to register signal");
 	}
 
 	Py_INCREF(Py_None);
@@ -2327,8 +2321,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"signal", py_uwsgi_signal, METH_VARARGS, ""},
 	{"signal_wait", py_uwsgi_signal_wait, METH_VARARGS, ""},
 	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
-	{"register_file_monitor", py_uwsgi_register_file_monitor, METH_VARARGS, ""},
-	{"register_timer", py_uwsgi_register_timer, METH_VARARGS, ""},
+	{"add_file_monitor", py_uwsgi_add_file_monitor, METH_VARARGS, ""},
+	{"add_timer", py_uwsgi_add_timer, METH_VARARGS, ""},
+	//{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 
 	{"register_rpc", py_uwsgi_register_rpc, METH_VARARGS, ""},
 	{"rpc", py_uwsgi_rpc, METH_VARARGS, ""},

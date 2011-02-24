@@ -818,16 +818,15 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
 }
 
-int uwsgi_python_signal_handler(uint8_t sig, void *handler, char *payload, uint8_t payload_size) {
+int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 
-	PyObject *args = PyTuple_New(2);
+	PyObject *args = PyTuple_New(1);
 	PyObject *ret;
 
 	if (!args)
 		return -1;
 
 	PyTuple_SetItem(args, 0, PyInt_FromLong(sig));
-	PyTuple_SetItem(args, 1, PyString_FromStringAndSize(payload, payload_size));
 
 	ret = python_call(handler, args, 0);
 
