@@ -355,7 +355,7 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		// upgrade connection to the new socket
 		uwsgi_log("upgrading fd %d to ", upoll->fd);	
 		close(upoll->fd);
-		memcpy(CMSG_DATA(cmsg), &upoll->fd, sizeof(int));
+		memcpy(&upoll->fd, CMSG_DATA(cmsg), sizeof(int));
 		uwsgi_log("%d\n", upoll->fd);	
 		cmsg = CMSG_NXTHDR (&msg, cmsg);
 	}
