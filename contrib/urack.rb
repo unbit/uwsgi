@@ -140,7 +140,6 @@ module Rack
         	serve client, app, options
         end
 
-	end
       end
 
       def self.serve(client, app, options)
