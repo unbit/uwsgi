@@ -91,6 +91,31 @@ int uwsgi_add_timer(uint8_t sig, int secs) {
 
 }
 
+int uwsgi_signal_add_rb_timer(uint8_t sig, int secs) {
+
+        uwsgi_lock(uwsgi.rb_timer_table_lock);
+
+        if (ushared->rb_timers_cnt < 64) {
+
+                // fill the timer table, the master will use it to add items to the event queue
+                ushared->rb_timers[ushared->rb_timers_cnt].value = secs;
+                ushared->rb_timers[ushared->rb_timers_cnt].registered = 0;
+                ushared->rb_timers[ushared->rb_timers_cnt].sig = sig;
+                ushared->rb_timers_cnt++;
+        }
+        else {
+                uwsgi_log("you can register max 64 rb_timers !!!\n");
+                uwsgi_unlock(uwsgi.rb_timer_table_lock);
+                return -1;
+        }
+
+        uwsgi_unlock(uwsgi.rb_timer_table_lock);
+
+        return 0;
+
+}
+
+
 
 void uwsgi_route_signal(uint8_t sig) {
 

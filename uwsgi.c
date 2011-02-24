@@ -1062,6 +1062,10 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.timer_table_lock = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.timer_table_lock);
 
+		// rb_timer table lock
+		uwsgi.rb_timer_table_lock = uwsgi_mmap_shared_lock();
+		uwsgi_lock_init(uwsgi.rb_timer_table_lock);
+
 		// daemons table lock
 		uwsgi.daemon_table_lock = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.daemon_table_lock);

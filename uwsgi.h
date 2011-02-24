@@ -672,12 +672,18 @@ struct uwsgi_fmon {
 };
 
 struct uwsgi_timer {
-	char svalue[0xff];
 	int value;
 	int fd;
 	int id;
 	int registered;
 	uint8_t sig;
+};
+
+struct uwsgi_signal_rb_timer {
+	int value;
+	int registered;
+	uint8_t sig;
+	struct uwsgi_rb_timer *uwsgi_rb_timer;
 };
 
 struct uwsgi_server {
@@ -954,6 +960,7 @@ struct uwsgi_server {
 	void *signal_table_lock;
 	void *fmon_table_lock;
 	void *timer_table_lock;
+	void *rb_timer_table_lock;
 	void *rpc_table_lock;
 	void *spooler_lock;
 
@@ -1080,6 +1087,9 @@ struct uwsgi_shared {
 
 	struct uwsgi_timer timers[64];
 	int timers_cnt;
+
+	struct uwsgi_signal_rb_timer rb_timers[64];
+	int rb_timers_cnt;
 
 	struct uwsgi_rpc rpc_table[MAX_RPC];
 	int rpc_count;
@@ -1411,6 +1421,7 @@ void *uwsgi_mmap_shared_rwlock(void);
 int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
 int uwsgi_add_file_monitor(uint8_t, char *);
 int uwsgi_add_timer(uint8_t, int);
+int uwsgi_signal_add_rb_timer(uint8_t, int);
 int uwsgi_signal_handler(uint8_t);
 
 void uwsgi_route_signal(uint8_t);

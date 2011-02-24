@@ -2,6 +2,33 @@
 
 extern struct uwsgi_server uwsgi;
 
+void expire_rb_timeouts(struct rb_root *root) {
+
+        time_t current = time(NULL);
+        struct uwsgi_rb_timer *urbt;
+        struct uwsgi_signal_rb_timer *usrbt;
+
+        for(;;) {
+
+                urbt = uwsgi_min_rb_timer(root);
+
+                if (urbt == NULL) return;
+
+                if (urbt->key <= current) {
+			// remove the timeout and add another
+			usrbt = (struct uwsgi_signal_rb_timer *) urbt->data;
+			rb_erase(&usrbt->uwsgi_rb_timer->rbt, root);
+			free(usrbt->uwsgi_rb_timer);
+			uwsgi_route_signal(usrbt->sig);
+			usrbt->uwsgi_rb_timer = uwsgi_add_rb_timer(root, time(NULL) + usrbt->value, usrbt);
+                        continue;
+                }
+
+                break;
+        }
+}
+
+
 void uwsgi_subscribe(char *subscription) {
 
 	char *ssb;
@@ -139,6 +166,9 @@ void master_loop(char **argv, char **environ) {
 	int rlen;
 
 	int check_interval = 1;
+
+	struct uwsgi_rb_timer *min_timeout;
+	struct rb_root *rb_timers = uwsgi_init_rb_timer();
 
 	// release the GIL
 	//UWSGI_RELEASE_GIL
@@ -402,7 +432,7 @@ void master_loop(char **argv, char **environ) {
 
 
 			// add unregistered timers
-			// locking is not needed as monitors can only increase
+			// locking is not needed as timers can only increase
 			for(i=0;i<ushared->timers_cnt;i++) {
                                 if (!ushared->timers[i].registered) {
 					ushared->timers[i].fd = event_queue_add_timer(uwsgi.master_queue, &ushared->timers[i].id, ushared->timers[i].value);
@@ -410,8 +440,37 @@ void master_loop(char **argv, char **environ) {
 				}
 			}
 
+			// add unregistered rb_timers
+			// locking is not needed as rb_timers can only increase
+			for(i=0;i<ushared->rb_timers_cnt;i++) {
+                                if (!ushared->rb_timers[i].registered) {
+					ushared->rb_timers[i].uwsgi_rb_timer = uwsgi_add_rb_timer(rb_timers, time(NULL) + ushared->rb_timers[i].value, &ushared->rb_timers[i]);
+					ushared->rb_timers[i].registered = 1;
+				}
+			}
+
 				int interesting_fd = -1;
+
+				if (ushared->rb_timers_cnt>0) {
+					min_timeout = uwsgi_min_rb_timer(rb_timers);
+                			if (min_timeout == NULL ) {
+                        			check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
+                			}
+                			else {
+                        			check_interval = min_timeout->key - time(NULL);
+                        			if (check_interval <= 0) {
+                                			expire_rb_timeouts(rb_timers);
+                                			check_interval = 0;
+                        			}
+                			}
+				}
 				rlen = event_queue_wait(uwsgi.master_queue, check_interval, &interesting_fd);
+
+				if (rlen == 0) {
+					if (ushared->rb_timers_cnt>0) {
+						expire_rb_timeouts(rb_timers);
+					}
+				}
 
 				if (rlen > 0) {
 

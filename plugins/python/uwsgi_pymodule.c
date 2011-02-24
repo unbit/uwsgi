@@ -197,6 +197,23 @@ PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_add_rb_timer(PyObject * self, PyObject * args) {
+
+        uint8_t uwsgi_signal;
+        int secs;
+
+        if (!PyArg_ParseTuple(args, "Bi:add_rb_timer", &uwsgi_signal, &secs)) {
+                return NULL;
+        }
+
+        if (uwsgi_signal_add_rb_timer(uwsgi_signal, secs))
+                return PyErr_Format(PyExc_ValueError, "unable to add rb_timer");
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
 
 PyObject *py_uwsgi_add_file_monitor(PyObject * self, PyObject * args) {
 
@@ -2323,7 +2340,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
 	{"add_file_monitor", py_uwsgi_add_file_monitor, METH_VARARGS, ""},
 	{"add_timer", py_uwsgi_add_timer, METH_VARARGS, ""},
-	//{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
+	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 
 	{"register_rpc", py_uwsgi_register_rpc, METH_VARARGS, ""},
 	{"rpc", py_uwsgi_rpc, METH_VARARGS, ""},
