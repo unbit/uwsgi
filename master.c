@@ -19,8 +19,11 @@ void expire_rb_timeouts(struct rb_root *root) {
 			usrbt = (struct uwsgi_signal_rb_timer *) urbt->data;
 			rb_erase(&usrbt->uwsgi_rb_timer->rbt, root);
 			free(usrbt->uwsgi_rb_timer);
+			usrbt->iterations_done++;
 			uwsgi_route_signal(usrbt->sig);
-			usrbt->uwsgi_rb_timer = uwsgi_add_rb_timer(root, time(NULL) + usrbt->value, usrbt);
+			if (!usrbt->iterations || usrbt->iterations_done < usrbt->iterations) {
+				usrbt->uwsgi_rb_timer = uwsgi_add_rb_timer(root, time(NULL) + usrbt->value, usrbt);
+			}
                         continue;
                 }
 

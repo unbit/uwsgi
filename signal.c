@@ -91,7 +91,7 @@ int uwsgi_add_timer(uint8_t sig, int secs) {
 
 }
 
-int uwsgi_signal_add_rb_timer(uint8_t sig, int secs) {
+int uwsgi_signal_add_rb_timer(uint8_t sig, int secs, int iterations) {
 
         uwsgi_lock(uwsgi.rb_timer_table_lock);
 
@@ -100,6 +100,8 @@ int uwsgi_signal_add_rb_timer(uint8_t sig, int secs) {
                 // fill the timer table, the master will use it to add items to the event queue
                 ushared->rb_timers[ushared->rb_timers_cnt].value = secs;
                 ushared->rb_timers[ushared->rb_timers_cnt].registered = 0;
+                ushared->rb_timers[ushared->rb_timers_cnt].iterations = iterations;
+                ushared->rb_timers[ushared->rb_timers_cnt].iterations_done = 0;
                 ushared->rb_timers[ushared->rb_timers_cnt].sig = sig;
                 ushared->rb_timers_cnt++;
         }

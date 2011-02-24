@@ -682,6 +682,8 @@ struct uwsgi_timer {
 struct uwsgi_signal_rb_timer {
 	int value;
 	int registered;
+	int iterations;
+	int iterations_done;
 	uint8_t sig;
 	struct uwsgi_rb_timer *uwsgi_rb_timer;
 };
@@ -1421,7 +1423,7 @@ void *uwsgi_mmap_shared_rwlock(void);
 int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
 int uwsgi_add_file_monitor(uint8_t, char *);
 int uwsgi_add_timer(uint8_t, int);
-int uwsgi_signal_add_rb_timer(uint8_t, int);
+int uwsgi_signal_add_rb_timer(uint8_t, int, int);
 int uwsgi_signal_handler(uint8_t);
 
 void uwsgi_route_signal(uint8_t);
