@@ -1,4 +1,4 @@
-#include "uwsgi.h"
+#include "../../uwsgi.h"
 #include "erlang.h"
 
 extern struct uwsgi_server uwsgi;
