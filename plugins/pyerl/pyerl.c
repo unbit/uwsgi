@@ -76,7 +76,13 @@ PyObject *erl_to_py(ei_x_buff* x) {
 		case ERL_ATOM_EXT:
 			atom = uwsgi_malloc(esize+1);
 			ei_decode_atom(x->buff, &x->index, atom);
+#ifndef PyUnicode_FromString
+			zero = PyString_FromString(atom);
+			pobj = PyUnicode_FromObject(zero);
+			Py_DECREF(zero);
+#else
 			pobj = PyUnicode_FromString(atom);
+#endif
 			free(atom);
 			return pobj;
 		case ERL_SMALL_TUPLE_EXT:
