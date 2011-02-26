@@ -33,6 +33,7 @@
 struct uwsgi_http {
 	char *socket_name;
 	int use_cache;
+	int use_cluster;
 	int nevents;
 
 	int server;
@@ -72,6 +73,7 @@ struct option http_options[] = {
 	{"http-use-cache", no_argument, &uhttp.use_cache, 1},
 	{"http-use-pattern", required_argument, 0, LONG_ARGS_HTTP_USE_PATTERN},
 	{"http-use-base", required_argument, 0, LONG_ARGS_HTTP_USE_BASE},
+	{"http-use-cluster", no_argument, &uhttp.use_cluster, 1},
 	{"http-events", required_argument, 0, LONG_ARGS_HTTP_EVENTS},
 	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
 	{"http-timeout", required_argument, 0, LONG_ARGS_HTTP_TIMEOUT},
@@ -580,7 +582,13 @@ void http_loop() {
 								}
 
 
-								if (uhttp.use_cache) {
+								if (uhttp.use_cluster) {
+									uhttp_session->instance_address = uwsgi_cluster_best_node();
+									if (uhttp_session->instance_address) {
+										uhttp_session->instance_address_len = strlen(uhttp_session->instance_address);
+									}
+								}
+								else if (uhttp.use_cache) {
 									uhttp_session->instance_address = uwsgi_cache_get(uhttp_session->hostname, uhttp_session->hostname_len, &uhttp_session->instance_address_len);
 								}
 								else if (uhttp.base) {
