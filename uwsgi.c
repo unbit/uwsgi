@@ -40,6 +40,7 @@ static struct option long_base_options[] = {
 	{"processes", required_argument, 0, 'p'},
 	{"workers", required_argument, 0, 'p'},
 	{"harakiri", required_argument, 0, 't'},
+	{"harakiri-verbose", no_argument, &uwsgi.harakiri_verbose, 1},
 #ifdef UWSGI_XML
 	{"xmlconfig", required_argument, 0, 'x'},
 #endif

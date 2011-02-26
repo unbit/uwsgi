@@ -1615,11 +1615,12 @@ static PyTypeObject uwsgi_IterType = {
 PyObject *py_uwsgi_connect(PyObject * self, PyObject * args) {
 
 	char *socket_name = NULL;
-	if (!PyArg_ParseTuple(args, "s:connect", &socket_name)) {
+	int timeout = 0;
+	if (!PyArg_ParseTuple(args, "s|i:connect", &socket_name, &timeout)) {
 		return NULL;
 	}
 
-	return PyInt_FromLong(uwsgi_connect(socket_name, 0, 0));
+	return PyInt_FromLong(uwsgi_connect(socket_name, timeout, 0));
 }
 
 PyObject *py_uwsgi_async_connect(PyObject * self, PyObject * args) {
