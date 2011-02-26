@@ -105,6 +105,7 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_MULTICAST
 	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
 	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER},
+	{"cluster-nodes", required_argument, 0, LONG_ARGS_CLUSTER_NODES},
 #endif
 	{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD},
 	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG},
@@ -676,7 +677,7 @@ int main(int argc, char *argv[], char *envp[])
 		uwsgi_log("JOINED CLUSTER: %s\n", uwsgi.cluster);
 	
 		// ask for cluster options only if bot pre-existent options are set
-		if (uwsgi.exported_opts_cnt == 1) {
+		if (uwsgi.exported_opts_cnt == 1 && !uwsgi.cluster_nodes) {
 			// now wait max 60 seconds and resend multicast request every 10 seconds
 			for(;;) {
 				uwsgi_log("asking \"%s\" uWSGI cluster for configuration data:\n", uwsgi.cluster);
@@ -703,7 +704,7 @@ waitfd:
 		}
 options_parsed:
 
-		uwsgi_cluster_add_me();	
+		if (!uwsgi.cluster_nodes) uwsgi_cluster_add_me();	
 	}
 #endif
 
@@ -1940,6 +1941,10 @@ end:
 			return 1;
 		case LONG_ARGS_CLUSTER:
 			uwsgi.cluster = optarg;
+			return 1;
+		case LONG_ARGS_CLUSTER_NODES:
+			uwsgi.cluster = optarg;
+			uwsgi.cluster_nodes = 1;
 			return 1;
 #endif
 		case LONG_ARGS_CHROOT:

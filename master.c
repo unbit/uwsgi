@@ -584,6 +584,7 @@ void master_loop(char **argv, char **environ) {
 								}
 								break;
 							case 99:
+								if (uwsgi.cluster_nodes) break;
 								if (uwsgi.wsgi_requests[0]->uh.modifier2 == 0) {
 									uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
 									sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
@@ -803,7 +804,7 @@ void master_loop(char **argv, char **environ) {
 			}
 
 			// reannounce myself every 10 cycles
-			if (uwsgi.cluster && uwsgi.cluster_fd >= 0 && (master_cycles % 10) == 0) {
+			if (uwsgi.cluster && uwsgi.cluster_fd >= 0 && !uwsgi.cluster_nodes && (master_cycles % 10) == 0) {
 				uwsgi_cluster_add_me();
 			}
 

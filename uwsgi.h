@@ -353,6 +353,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_QUEUE_BLOCKSIZE	17076
 #define LONG_ARGS_ATTACH_DAEMON		17077
 #define LONG_ARGS_SUBSCRIBE_TO		17078
+#define LONG_ARGS_CLUSTER_NODES		17079
 
 
 
@@ -949,6 +950,7 @@ struct uwsgi_server {
 	char *upload_progress;
 
 	char *cluster;
+	int cluster_nodes;
 	int cluster_fd;
 	struct sockaddr_in mc_cluster_addr;
 

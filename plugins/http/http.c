@@ -817,7 +817,7 @@ int http_init() {
 
 		if (!uhttp.nevents) uhttp.nevents = 64;
 
-		if (!uhttp.base && !uhttp.use_cache && !uhttp.to && !uwsgi.sockets_cnt && !uhttp.subscription_server) {
+		if (!uhttp.base && !uhttp.use_cache && !uhttp.to && !uwsgi.sockets_cnt && !uhttp.subscription_server && !uhttp.use_cluster) {
 			uwsgi.sockets[0].name = uwsgi_malloc(64);
 			uwsgi.sockets_cnt++;
 			snprintf(uwsgi.sockets[0].name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
