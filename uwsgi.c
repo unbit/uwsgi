@@ -2126,7 +2126,28 @@ end:
 			uwsgi.vec_size = 4 + 1 + (4 * uwsgi.max_vars);
 			return 1;
 		case 'p':
-			uwsgi.numproc = atoi(optarg);
+			if (!strcmp(optarg, "auto")) {
+				struct rlimit rl;
+				if (getrlimit(RLIMIT_NPROC, &rl)) {
+					uwsgi_error("getrlimit()");
+					uwsgi.numproc = 1;
+				}
+				else {
+					if (rl.rlim_cur == RLIM_INFINITY || rl.rlim_cur > 64) {
+						uwsgi.numproc = (sysconf(_SC_NPROCESSORS_ONLN))*2;	
+					}
+					else {
+						uwsgi.numproc = rl.rlim_cur;
+						if (uwsgi.numproc > 1) {
+							uwsgi.numproc--;
+							uwsgi.master_process = 1;
+						}
+					}
+				}
+			}
+			else {
+				uwsgi.numproc = atoi(optarg);
+			}
 			return 1;
 		case 'r':
 			uwsgi.shared->options[UWSGI_OPTION_REAPER] = 1;

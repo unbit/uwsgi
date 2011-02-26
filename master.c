@@ -154,10 +154,10 @@ void master_loop(char **argv, char **environ) {
 	int udp_managed = 0;
 	int udp_fd = -1 ;
 
+#ifdef UWSGI_MULTICAST
 	char *cluster_opt_buf = NULL;
 	int cluster_opt_size = 4;
 
-#ifdef UWSGI_MULTICAST
 	char *cptrbuf;
 	uint16_t ustrlen;
 	struct uwsgi_header *uh;
@@ -561,6 +561,7 @@ void master_loop(char **argv, char **environ) {
 						continue;
 					}
 
+#ifdef UWSGI_MULTICAST
 					if (interesting_fd == uwsgi.cluster_fd) {
 					
 						if (uwsgi_get_dgram(uwsgi.cluster_fd, uwsgi.wsgi_requests[0])) {
@@ -596,6 +597,7 @@ void master_loop(char **argv, char **environ) {
 						}
 						continue;
 					}
+#endif
 
 #endif
 

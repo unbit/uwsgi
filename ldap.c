@@ -44,8 +44,6 @@ void uwsgi_ldap_schema_dump_ldif() {
 	int i;
 	int counter = 30000;
 
-	int pythonpath_found = 0;
-
 	uwsgi_log("\n");
 	uwsgi_log("dn: cn=uwsgi,cn=schema,cn=config\n");
 	uwsgi_log("objectClass: olcSchemaConfig\n");
@@ -54,13 +52,6 @@ void uwsgi_ldap_schema_dump_ldif() {
 	while( (aopt = lopt) ) {
 		if (!aopt->name)
 			break;
-
-		if (aopt->val == LONG_ARGS_PYTHONPATH) {
-			if (pythonpath_found) {
-				goto next;
-			}
-			pythonpath_found = 1;
-		}
 
 		if (aopt->flag) {
 			uwsgi_log("olcAttributeTypes: ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", counter);
@@ -85,7 +76,6 @@ void uwsgi_ldap_schema_dump_ldif() {
 		else {
 			uwsgi_log("' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
 		}
-next:
 		lopt++;
 	}
 
@@ -95,17 +85,9 @@ next:
 
 	uwsgi_log("olcObjectClasses: ( 1.3.6.1.4.1.35156.17.3.1 NAME 'uWSGIConfig' SUP top AUXILIARY DESC 'uWSGI configuration' MAY ( ");
 
-	pythonpath_found = 0;
 	while( (aopt = lopt) ) {
 		if (!aopt->name)
 			break;
-
-		if (aopt->val == LONG_ARGS_PYTHONPATH) {
-			if (pythonpath_found) {
-				goto next2;
-			}
-			pythonpath_found = 1;
-		}
 
 		uwsgi_log("uWSGI");
 
@@ -119,7 +101,6 @@ next:
 			}
 		}
 		uwsgi_log(" $ ");
-next2:
 		lopt++;
 	}
 
@@ -136,19 +117,11 @@ void uwsgi_ldap_schema_dump() {
 	lopt = uwsgi.long_options;
 	int i;
 	int counter = 30000;
-	int pythonpath_found = 0;
 
 	while( (aopt = lopt) ) {
 		if (!aopt->name)
 			break;
 
-
-		if (aopt->val == LONG_ARGS_PYTHONPATH) {
-			if (pythonpath_found) {
-				goto next;
-			}
-			pythonpath_found = 1;
-		}
 
 		if (aopt->flag) {
 			uwsgi_log("attributetype ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", counter);
@@ -173,7 +146,6 @@ void uwsgi_ldap_schema_dump() {
 		else {
 			uwsgi_log("' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
 		}
-next:
 		lopt++;
 	}
 
@@ -183,17 +155,9 @@ next:
 
 	uwsgi_log("objectclass ( 1.3.6.1.4.1.35156.17.3.1 NAME 'uWSGIConfig' SUP top AUXILIARY DESC 'uWSGI configuration' MAY ( ");
 
-	pythonpath_found = 0;
 	while( (aopt = lopt) ) {
 		if (!aopt->name)
 			break;
-
-		if (aopt->val == LONG_ARGS_PYTHONPATH) {
-			if (pythonpath_found) {
-				goto next2;
-			}
-			pythonpath_found = 1;
-		}
 
 		uwsgi_log("uWSGI");
 
@@ -207,7 +171,6 @@ next:
 			}
 		}
 		uwsgi_log(" $ ");
-next2:
 		lopt++;
 	}
 
