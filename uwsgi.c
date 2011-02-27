@@ -2134,14 +2134,19 @@ end:
 				}
 				else {
 					if (rl.rlim_cur == RLIM_INFINITY || rl.rlim_cur > 64) {
-						uwsgi.numproc = (sysconf(_SC_NPROCESSORS_ONLN))*2;	
+						if (rl.rlim_max != RLIM_INFINITY && rl.rlim_max < 64) {
+							uwsgi.numproc = rl.rlim_max;
+						}
+						else {
+							uwsgi.numproc = (sysconf(_SC_NPROCESSORS_ONLN))*2;	
+						}
 					}
 					else {
 						uwsgi.numproc = rl.rlim_cur;
-						if (uwsgi.numproc > 1) {
-							uwsgi.numproc--;
-							uwsgi.master_process = 1;
-						}
+					}
+					if (uwsgi.numproc > 1) {
+						uwsgi.numproc--;
+						uwsgi.master_process = 1;
 					}
 				}
 			}
