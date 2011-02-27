@@ -178,7 +178,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	
 	if (RARRAY_LEN(args) == 0) {
 		//uwsgi_log("reading the whole post data\n" ) ;
-		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
+		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 			char *post_body = malloc(wsgi_req->post_cl);
 			if (post_body) {
 				//RUBY_GVL_UNLOCK
@@ -199,12 +199,13 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	}
 	else if (RARRAY_LEN(args) > 0) {
 		chunk_size = NUM2INT(RARRAY_PTR(args)[0]);
-		//uwsgi_log("chunk reading of %d bytes\n", chunk_size ) ;
-		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
+		//uwsgi_log("chunk reading of %d bytes (post_cl: %d bufsize: %d)\n", chunk_size, wsgi_req->post_cl, uwsgi.post_buffering_bufsize ) ;
+		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 			char *post_body = malloc( chunk_size ) ;
 			if (post_body) {	
 				//RUBY_GVL_UNLOCK
 				len = fread( post_body, chunk_size, 1, wsgi_req->async_post );
+				//uwsgi_log("read %d items\n", len);
 				//RUBY_GVL_LOCK
 				chunk = rb_str_new(post_body, chunk_size);
 				free(post_body);
@@ -238,7 +239,7 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 		return Qnil;
 	}
 
-	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering_bufsize) {
+	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
 		//RUBY_GVL_LOCK
 		rewind(wsgi_req->async_post);
 		//RUBY_GVL_UNLOCK
@@ -531,7 +532,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         }
 
         if (uwsgi_parse_vars(wsgi_req)) {
-                uwsgi_log("Invalid RACK request. skip.\n");
+                if (wsgi_req->status != 200) uwsgi_log("Invalid RACK request. skip.\n");
                 return -1;
         }
 

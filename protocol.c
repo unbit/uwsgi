@@ -625,14 +625,19 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	if (uwsgi.check_static && wsgi_req->path_info_len > 1) {
 		struct stat st;
 		char *filename = uwsgi_concat2n(uwsgi.check_static, uwsgi.check_static_len, wsgi_req->path_info, wsgi_req->path_info_len);
+#ifdef UWSGI_DEBUG
 		uwsgi_log("checking for %s\n", filename);
+#endif
 		if (!stat(filename, &st)) {
 			if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
+#ifdef UWSGI_DEBUG
 				uwsgi_log("file %s found\n", filename);
+#endif
 				wsgi_req->sendfile_fd = open(filename, O_RDONLY);
 				wsgi_req->response_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
 				wsgi_req->response_size += write(wsgi_req->poll.fd, " 200 OK\r\n\r\n", 11);
 				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+				wsgi_req->status = 200;
 				free(filename);
 				return -1;
 			}
