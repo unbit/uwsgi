@@ -616,6 +616,9 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 	case LONG_ARGS_FILE_CONFIG:
 		up.file_config = optarg;
 		return 1;
+	case LONG_ARGS_EVAL_CONFIG:
+		up.eval = optarg;
+		return 1;
 	case LONG_ARGS_PYMODULE_ALIAS:
 		if (up.pymodule_alias_cnt < MAX_PYMODULE_ALIAS) {
 			up.pymodule_alias[up.pymodule_alias_cnt] = optarg;
