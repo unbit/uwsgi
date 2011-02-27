@@ -457,19 +457,55 @@ VALUE send_header(VALUE obj, VALUE headers) {
 		goto clear2;
 	}
 
-	//uwsgi_log("%.*s: %.*s\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), RSTRING_LEN(hval), RSTRING_PTR(hval));
+	//uwsgi_log("header: %.*s: %.*s\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), RSTRING_LEN(hval), RSTRING_PTR(hval));
 
 	len = write( fd, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
 	wsgi_req->headers_size += len;
 	len = write( fd, ": ", 2);
 	wsgi_req->headers_size += len;
 
-	len = write( fd, RSTRING_PTR(hval), RSTRING_LEN(hval));
-	wsgi_req->headers_size += len;
-	len = write( fd, "\r\n", 2);
-	wsgi_req->headers_size += len;
+	char *header_value = RSTRING_PTR(hval);
+	int header_value_len = RSTRING_LEN(hval);
 
-	wsgi_req->header_cnt++;
+	char *header_value_splitted = memchr(header_value, '\n', header_value_len);
+
+	if (!header_value_splitted) {
+		len = write( fd, header_value, header_value_len);
+		wsgi_req->headers_size += len;
+		len = write( fd, "\r\n", 2);
+		wsgi_req->headers_size += len;
+		wsgi_req->header_cnt++;
+	}
+	else {
+		header_value_splitted[0] = 0;
+		len = write( fd, header_value, header_value_splitted-header_value);
+		wsgi_req->headers_size += len;
+		len = write( fd, "\r\n", 2);
+                wsgi_req->headers_size += len;
+		wsgi_req->header_cnt++;
+
+		header_value = header_value_splitted+1;
+		header_value_len -= header_value_splitted-header_value;
+
+		while(header_value_len && (header_value_splitted = memchr(header_value, '\n', header_value_len))) {
+			header_value_splitted[0] = 0;
+
+			len = write( fd, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
+        		wsgi_req->headers_size += len;
+        		len = write( fd, ": ", 2);
+        		wsgi_req->headers_size += len;
+
+			len = write( fd, header_value, header_value_splitted-header_value);
+			wsgi_req->headers_size += len;
+			len = write( fd, "\r\n", 2);
+                	wsgi_req->headers_size += len;		
+                	wsgi_req->header_cnt++;
+
+                	header_value = header_value_splitted+1;
+                	header_value_len -= header_value_splitted-header_value;	
+		}
+	}
+
 
 clear2:
 	rb_gc_unregister_address(&hkey);
