@@ -153,7 +153,7 @@ static int uwsgi_api_cache_set(lua_State *L) {
 			expires = lua_tonumber(L, 3);
 		}
 
-        	uwsgi_cache_set((char *)key, strlen(key), (char *)value, (uint16_t) vallen, expires);
+        	uwsgi_cache_set((char *)key, strlen(key), (char *)value, (uint16_t) vallen, expires, 0);
 		
 	}
 
@@ -176,7 +176,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 		lua_pushvalue(L, 3);
 		lhandler = luaL_ref(L, LUA_REGISTRYINDEX);
 
-		uwsgi_register_signal(sig, kind, (void *) lhandler, 6);
+		uwsgi_register_signal(sig, (char *)who, (void *) lhandler, 6);
 	}
 
 	lua_pushnil(L);
@@ -187,7 +187,7 @@ static int uwsgi_api_register_signal(lua_State *L) {
 static int uwsgi_api_cache_get(lua_State *L) {
 
         char *value ;
-        uint16_t valsize;
+        uint64_t valsize;
 	const char *key ;
 
         lca(L, 1);
@@ -601,15 +601,8 @@ int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 	lua_rawgeti(L, LUA_REGISTRYINDEX, (long) handler);
 
 	lua_pushnumber(L, sig);
-	if (!payload_size) {
-		lua_pushlstring(L, "", 0);
-	}
-	else {
-		lua_pushlstring(L, payload, payload_size);
-	}
 
-
-	if (lua_pcall(L, 2, 1, 0) != 0) {
+	if (lua_pcall(L, 1, 1, 0) != 0) {
 		uwsgi_log("error running function `f': %s",
                  lua_tostring(L, -1));
 

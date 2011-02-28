@@ -29,7 +29,7 @@ XS(XS_cache_set) {
 	key = SvPV(ST(0), keylen);
 	val = SvPV(ST(1), vallen);
 
-	uwsgi_cache_set(key, (uint16_t) keylen, val, (uint16_t) vallen, 0);
+	uwsgi_cache_set(key, (uint16_t) keylen, val, (uint64_t) vallen, 0, 0);
 
 	XSRETURN_UNDEF;
 }
@@ -39,7 +39,7 @@ XS(XS_cache_get) {
 
 	char *key, *val;
 	STRLEN keylen;
-	uint16_t vallen;
+	uint64_t vallen;
 	
 	psgi_check_args(1);
 
