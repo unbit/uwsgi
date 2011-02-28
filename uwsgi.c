@@ -235,13 +235,15 @@ void grace_them_all()
 {
 	int i;
 	uwsgi.to_heaven = 1;
-	uwsgi_log("...gracefully killing workers...\n");
-	for (i = 1; i <= uwsgi.numproc; i++) {
-		kill(uwsgi.workers[i].pid, SIGHUP);
-	}
+
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+	}
+
+	uwsgi_log("...gracefully killing workers...\n");
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		kill(uwsgi.workers[i].pid, SIGHUP);
 	}
 
 }
@@ -250,13 +252,14 @@ void reap_them_all()
 {
 	int i;
 	uwsgi.to_heaven = 1;
-	uwsgi_log("...brutally killing workers...\n");
-	for (i = 1; i <= uwsgi.numproc; i++) {
-		kill(uwsgi.workers[i].pid, SIGTERM);
-	}
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+	}
+
+	uwsgi_log("...brutally killing workers...\n");
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		kill(uwsgi.workers[i].pid, SIGTERM);
 	}
 }
 

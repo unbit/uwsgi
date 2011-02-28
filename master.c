@@ -837,6 +837,8 @@ void master_loop(char **argv, char **environ) {
 		}
 #endif
 
+		// reload gateways and daemons only on normal workflow
+		if (!uwsgi.to_heaven && !uwsgi.to_hell) {
 		/* reload the gateways */
 		// TODO reload_gateway(diedpid);
 		pid_found = 0;
@@ -862,6 +864,7 @@ void master_loop(char **argv, char **environ) {
                 }
 
 		if (pid_found) continue;
+		}
 
 #ifdef UWSGI_PROXY
 		if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
