@@ -336,9 +336,6 @@ void master_loop(char **argv, char **environ) {
 			}
 #endif
 
-#ifdef UWSGI_PROXY
-			// TODO gracefully kill all the gateways (wait4 them) [see the spooler]
-#endif
 			uwsgi_log( "binary reloading uWSGI...\n");
 			if (chdir(uwsgi.cwd)) {
 				uwsgi_error("chdir()");
@@ -866,47 +863,15 @@ void master_loop(char **argv, char **environ) {
 		if (pid_found) continue;
 		}
 
-#ifdef UWSGI_PROXY
-		if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
-			if (diedpid == uwsgi.shared->proxy_pid) {
-				if (WIFEXITED(waitpid_status)) {
-					if (WEXITSTATUS(waitpid_status) != UWSGI_END_CODE) {
-						uwsgi_log( "OOOPS the proxy is no more...trying respawn...\n");
-						uwsgi.shared->proxy_pid = proxy_start(1);
-						continue;
-					}
-				}
-			}
-		}
-#endif
-		// TODO rewrite without using exit code (targeted at 0.9.7)
+		/* What happens here ?
 
+			case 1) the diedpid is not a worker, report it and continue
+			case 2) the diedpid is a worker and we are not in a reload procedure -> reload it
+			case 3) the diedpid is a worker and we are in graceful reload -> ready_to_reload++ and continue
+			case 3) the diedpid is a worker and we are in brutal reload -> ready_to_die++ and continue
+		
 
-#ifdef __sun__
-		/* horrible hack... what the FU*K is doing Solaris ??? */
-		if (WIFSIGNALED(waitpid_status)) {
-			if (uwsgi.to_heaven) {
-				ready_to_reload++;
-				continue;
-			}
-			else if (uwsgi.to_hell) {
-				ready_to_die++;
-				continue;
-			}
-		}
-#endif
-		/* check for reloading */
-		if (WIFEXITED(waitpid_status)) {
-			if (WEXITSTATUS(waitpid_status) == UWSGI_RELOAD_CODE && uwsgi.to_heaven) {
-				ready_to_reload++;
-				continue;
-			}
-			else if (WEXITSTATUS(waitpid_status) == UWSGI_END_CODE && uwsgi.to_hell) {
-				ready_to_die++;
-				continue;
-			}
-		}
-
+		*/
 
 		uwsgi.mywid = find_worker_id(diedpid);
 		if (uwsgi.mywid <= 0) {
@@ -921,6 +886,23 @@ void master_loop(char **argv, char **environ) {
 			}
 			continue;
 		}
+		else {
+
+			if (uwsgi.to_heaven) {
+                                ready_to_reload++;
+				uwsgi.workers[uwsgi.mywid].pid = -1;
+				// only to be safe :P
+				uwsgi.workers[uwsgi.mywid].harakiri = 0;	
+                                continue;
+                        }
+                        else if (uwsgi.to_hell) {
+                                ready_to_die++;
+				uwsgi.workers[uwsgi.mywid].pid = -1;
+				// only to be safe :P
+				uwsgi.workers[uwsgi.mywid].harakiri = 0;	
+                                continue;
+                        }
+
 
 		uwsgi_log( "DAMN ! process %d died :( trying respawn ...\n", diedpid);
 		gettimeofday(&last_respawn, NULL);
@@ -976,6 +958,9 @@ void master_loop(char **argv, char **environ) {
 #endif
 				}
 			}
+		}
+
+
 		}
 
 	}
