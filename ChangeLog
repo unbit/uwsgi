@@ -1,3 +1,73 @@
+*** march 2011 ***
+
+ * 0.9.7-beta1 [20110301]
+
+- fully modular re-design
+- threading support
+- emperor mode for massive auto-hosting
+- caching subsystem
+- message queue (even stacked) support
+- improved server reloading system
+- support for Linux Cgroups and Namespaces
+- integrated upload progress
+- Clustering infrastructure via multicast, broadcast or subscriptions
+- support for attaching/monitoring external apps to the master process
+- improved virtualhosting mode
+- extremely improved Python support with better usage of multiple interpreters
+- improved multiple apps support
+- Production ready, evented HTTP router/proxy/load-balancer
+- Production ready, evented uwsgi router/proxy/load-balancer
+- new Erlang stack
+- Internal signal subsystem
+- support for RubyOnRails and Rack apps
+- A huge series of fixes and optimizations
+
+*** february 2011 ***
+
+ * 0.9.6.8 [20110207]
+
+- fixed a bug when using --limit-as
+- fixed a erlang buffer initialization
+- added --ignore-sigpipe
+- added --master-as-root
+
+*** january 2011 ***
+
+ * 0.9.6.7 [20110130]
+
+- a huge amount of async optimizations and fixes
+- --logdate takes an optional strftime-like value
+- follow $PATH on reloading
+- uwsgi.core is exported in WSGI env
+- uwsgi.log() respect for --logdate
+- initial banner respect for --logdate
+- fixed --post-buffering
+- default listen backlog queue is now 100
+- Python 3 support is no more marked as experimental
+- Python 3.2 support
+- new option --chroot-reload will force a reload of the uWSGI stack after a chroot
+- fixed a typo in INI parsing
+
+*** december 2010 ***
+
+ * 0.9.6.6 [20101230]
+
+- support for YAML configuration files
+- backported python module aliasing from 0.9.7-dev
+- better apache2 module (support for SetEnv directive, fixed REQUEST_URI and improved connection handling)
+- uwsgi.post_fork_hook implementation (to execute function after fork()) (thanks George Kollias)
+- option --gid calls setgroups() after setgid() (thanks Jorge Cardona)
+- fixed uGreen compilation (and uGreen is now built by default)
+- fixed timeout and thundering herd problem in async modes (many thanks to Test157 for giving us a good async-test-app)
+- disable TCP_INFO in older Linux kernels (thanks Bo Shi)
+- enable TCP_INFO in FreeBSD (limited usage due to FreeBSD kernel support)
+- fixed static virtualhosting mode using xml files (thanks Guido Notari of Link I.T. spa)
+- new option --close-on-exec (thanks Jean-Baptiste Quenot)
+- use HTTP_HOST var (and fallback to SERVER_NAME) in virtual hosting mode
+- fixed a buffer overflow in automatic socket_name allocation (spotted by Riccardo Magliocchetti)
+- Official support for Nexenta
+
+
 *** september 2010 ***
 
  * 0.9.6.5 [20100929]
