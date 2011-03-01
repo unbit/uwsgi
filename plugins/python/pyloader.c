@@ -308,8 +308,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		PyThreadState_Swap(up.main_thread);
 	}
 
-	uwsgi_log("done\n");
-
 	if (wi->argc == 1) {
 		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready on interpreter %p", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter);
 	}

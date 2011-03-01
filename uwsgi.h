@@ -354,6 +354,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_ATTACH_DAEMON		17077
 #define LONG_ARGS_SUBSCRIBE_TO		17078
 #define LONG_ARGS_CLUSTER_NODES		17079
+#define LONG_ARGS_RELOAD_MERCY		17080
 
 
 
@@ -712,6 +713,9 @@ struct uwsgi_server {
 	char *emperor_dir;
 	pid_t emperor_pid;
 
+	time_t master_mercy;
+
+	int reload_mercy;
 	int option_index;
 	struct option *long_options;
 	struct uwsgi_opt **exported_opts;

@@ -187,11 +187,15 @@ void master_loop(char **argv, char **environ) {
 
 	uwsgi.master_queue = event_queue_init();
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("adding %d to signal poll\n", uwsgi.shared->worker_signal_pipe[0]);
+#endif
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
 	if (uwsgi.log_master) {
+#ifdef UWSGI_DEBUG
 		uwsgi_log("adding %d to master logging\n", uwsgi.shared->worker_log_pipe[0]);
+#endif
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_log_pipe[0]);
 	}
 	
@@ -313,6 +317,27 @@ void master_loop(char **argv, char **environ) {
 
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
+
+		if (uwsgi.master_mercy) {
+			if (uwsgi.master_mercy < time(NULL)) {
+				for(i=1;i<=uwsgi.numproc;i++) {
+					if (uwsgi.workers[i].pid > 0) {
+						uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
+						if (!kill(uwsgi.workers[i].pid, SIGKILL)) {
+							if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+								uwsgi_error("waitpid()");
+							}
+							uwsgi.workers[i].pid = 0;
+							if (uwsgi.to_hell) { ready_to_die++;}
+							else if (uwsgi.to_heaven) { ready_to_reload++;}
+						}
+						else {
+							uwsgi_error("kill()");
+						}
+					}
+				}
+			}
+		}
 		if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
 #ifdef UWSGI_SPOOLER
 			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
@@ -890,14 +915,14 @@ void master_loop(char **argv, char **environ) {
 
 			if (uwsgi.to_heaven) {
                                 ready_to_reload++;
-				uwsgi.workers[uwsgi.mywid].pid = -1;
+				uwsgi.workers[uwsgi.mywid].pid = 0;
 				// only to be safe :P
 				uwsgi.workers[uwsgi.mywid].harakiri = 0;	
                                 continue;
                         }
                         else if (uwsgi.to_hell) {
                                 ready_to_die++;
-				uwsgi.workers[uwsgi.mywid].pid = -1;
+				uwsgi.workers[uwsgi.mywid].pid = 0;
 				// only to be safe :P
 				uwsgi.workers[uwsgi.mywid].harakiri = 0;	
                                 continue;

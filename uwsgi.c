@@ -58,6 +58,7 @@ static struct option long_base_options[] = {
 	{"single-interpreter", no_argument, 0, 'i'},
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
+	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"help", no_argument, 0, 'h'},
 	{"reaper", no_argument, 0, 'r'},
 	{"max-requests", required_argument, 0, 'R'},
@@ -189,7 +190,7 @@ void warn_pipe()
 
 void gracefully_kill()
 {
-	uwsgi_log("Gracefully killing worker %d...\n", uwsgi.mypid);
+	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	if (UWSGI_IS_IN_REQUEST) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	} else {
@@ -219,6 +220,7 @@ void kill_them_all()
 	uwsgi.to_hell = 1;
 	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].pid > 0)
 		kill(uwsgi.workers[i].pid, SIGINT);
 	}
 
@@ -236,6 +238,9 @@ void grace_them_all()
 	int i;
 	uwsgi.to_heaven = 1;
 
+	if (uwsgi.reload_mercy > 0) {
+		uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
+	}
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
@@ -243,6 +248,7 @@ void grace_them_all()
 
 	uwsgi_log("...gracefully killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].pid > 0)
 		kill(uwsgi.workers[i].pid, SIGHUP);
 	}
 
@@ -259,6 +265,7 @@ void reap_them_all()
 
 	uwsgi_log("...brutally killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].pid > 0)
 		kill(uwsgi.workers[i].pid, SIGTERM);
 	}
 }
@@ -1904,6 +1911,9 @@ end:
 			return 1;
 		case LONG_ARGS_EMPEROR:
 			uwsgi.emperor_dir = optarg;
+			return 1;
+		case LONG_ARGS_RELOAD_MERCY:
+			uwsgi.reload_mercy = atoi(optarg);
 			return 1;
 		case LONG_ARGS_LOG_MASTER:
 			uwsgi.log_master = 1;
