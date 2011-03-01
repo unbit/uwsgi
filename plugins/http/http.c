@@ -403,7 +403,9 @@ int http_parse(struct http_session *h_session) {
 		ptr++;
 	}
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("vec size: %d pkt size: %d load %d\n", c, h_session->uh.pktsize, uhttp.load);
+#endif
 
 	return c;
 	
@@ -434,7 +436,7 @@ void http_loop() {
         } msg_control;
         struct cmsghdr *cmsg;
 
-	struct sockaddr_un uhttp_addr;
+	union uwsgi_sockaddr uhttp_addr;
         socklen_t uhttp_addr_len = sizeof(struct sockaddr_un);
 	
 	struct http_session *uhttp_session;
@@ -628,7 +630,9 @@ void http_loop() {
 
 								uhttp_session->instance_fd = uwsgi_connectn(uhttp_session->instance_address, uhttp_session->instance_address_len, 0, 1);
 
-								uwsgi_log("backend: %d %.*s\n", uhttp_session->instance_fd, (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
+#ifdef UWSGI_DEBUG
+								uwsgi_log("uwsgi backend: %.*s\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
+#endif
 
 								if (uhttp.pattern || uhttp.base ) {
 									free(uhttp_session->instance_address);

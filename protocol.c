@@ -353,10 +353,14 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 			cmsg->cmsg_type  != SCM_RIGHTS) continue;
 
 		// upgrade connection to the new socket
+#ifdef UWSGI_DEBUG
 		uwsgi_log("upgrading fd %d to ", upoll->fd);	
+#endif
 		close(upoll->fd);
 		memcpy(&upoll->fd, CMSG_DATA(cmsg), sizeof(int));
+#ifdef UWSGI_DEBUG
 		uwsgi_log("%d\n", upoll->fd);	
+#endif
 		cmsg = CMSG_NXTHDR (&msg, cmsg);
 	}
 
@@ -994,7 +998,7 @@ uint16_t fcgi_get_record(int fd, char *buf) {
 	uint16_t remains = 8;
 	char *ptr = (char *) &fr;
 	ssize_t len;
-	uint16_t *rs;
+	uint16_t rs;
 
         while(remains) {
         	uwsgi_waitfd(fd, -1);
@@ -1004,9 +1008,9 @@ uint16_t fcgi_get_record(int fd, char *buf) {
                 ptr += len;
         }
 
-        rs = (uint16_t *) &fr.cl1;
+        rs = (uint16_t) fr.cl1;
 
-        remains = ntohs(*rs) + fr.pad;
+        remains = ntohs(rs) + fr.pad;
         ptr = buf;
 
         while(remains) {
@@ -1019,7 +1023,7 @@ uint16_t fcgi_get_record(int fd, char *buf) {
 
 	if (fr.type != 6) return 0;
 
-	return ntohs(*rs);
+	return ntohs(rs);
 
 }
 
