@@ -186,6 +186,12 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
                                                         	val = NULL;
                                                 	}
                                                 }
+						if (aopt->has_arg == no_argument) {
+                                                                        if (!strcmp("false", val) || val[0] == '0') {
+                                                                                lopt++;
+                                                                                continue;
+                                                                        }
+                                                                }
 						manage_opt(aopt->val, val);
 					}
 				}
