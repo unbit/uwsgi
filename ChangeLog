@@ -3,6 +3,7 @@
  * 0.9.7-beta1 [20110301]
 
 - fully modular re-design
+- advanced build system with presets
 - threading support
 - emperor mode for massive auto-hosting
 - caching subsystem
