@@ -72,6 +72,7 @@ PyObject *erl_to_py(ei_x_buff* x) {
 			ei_decode_string(x->buff, &x->index, atom);
 			pobj = PyString_FromString(atom);
 			free(atom);
+			Py_INCREF(pobj);
 			return pobj;
 		case ERL_ATOM_EXT:
 			atom = uwsgi_malloc(esize+1);
@@ -84,6 +85,7 @@ PyObject *erl_to_py(ei_x_buff* x) {
 			pobj = PyUnicode_FromString(atom);
 #endif
 			free(atom);
+			Py_INCREF(pobj);
 			return pobj;
 		case ERL_SMALL_TUPLE_EXT:
                 case ERL_LARGE_TUPLE_EXT:
@@ -94,6 +96,7 @@ PyObject *erl_to_py(ei_x_buff* x) {
 				PyTuple_SetItem(pobj, i, zero);
 				Py_DECREF(zero);
 			}		
+			Py_INCREF(pobj);
 			return pobj;
 		case ERL_LIST_EXT:
 		case ERL_NIL_EXT:
@@ -108,12 +111,14 @@ PyObject *erl_to_py(ei_x_buff* x) {
 				PyList_Append(pobj, zero);
 				Py_DECREF(zero);
 			}
+			Py_INCREF(pobj);
 			return pobj;	
 		case ERL_BINARY_EXT:
 			binary = uwsgi_malloc(esize);
 			ei_decode_binary(x->buff, &x->index, binary, &bin_size);
 			pobj = PyString_FromStringAndSize(binary, bin_size);
 			free(binary);
+			Py_INCREF(pobj);
 			return pobj;
 		case ERL_PID_EXT:
 			ei_decode_pid(x->buff, &x->index, &epid);	
@@ -121,6 +126,7 @@ PyObject *erl_to_py(ei_x_buff* x) {
 			PyTuple_SetItem(pobj, 0, PyInt_FromLong(epid.num));
 			PyTuple_SetItem(pobj, 1, PyInt_FromLong(epid.serial));
 			PyTuple_SetItem(pobj, 2, PyInt_FromLong(epid.creation));
+			Py_INCREF(pobj);
 			return pobj;
 		default:
 			ei_skip_term(x->buff, &x->index);
