@@ -428,15 +428,26 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.post_buffering > 0) {
 		UWSGI_RELEASE_GIL
-		// read to disk
-		if (wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
-			if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
-				goto clear;
+		// read to disk if post_cl > post_buffering
+		if (!up.pep3333_input) {
+			if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
+				if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
+					goto clear;
+				}
 			}
 		}
 		else {
-			if (!uwsgi_read_whole_body_in_mem(wsgi_req, wsgi_req->post_buffering_buf)) {
-				goto clear;
+			// read to disk if post_cl > post_buffering
+			if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
+				if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
+					goto clear;
+				}
+			}
+			// on tiny post use memory
+			else {		
+				if (!uwsgi_read_whole_body_in_mem(wsgi_req, wsgi_req->post_buffering_buf)) {
+					goto clear;
+				}
 			}
 		}
 		UWSGI_GET_GIL
