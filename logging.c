@@ -1,3 +1,4 @@
+#define _NO_UWSGI_RB
 #include "uwsgi.h"
 
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)

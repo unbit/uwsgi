@@ -1566,6 +1566,7 @@ int uwsgi_dict_set(struct uwsgi_dict *, char *, uint16_t, char *, uint64_t);
 
 struct uwsgi_subscriber_name *uwsgi_get_subscriber(struct uwsgi_dict *, char *, uint16_t);
 
+#ifndef _NO_UWSGI_RB
 #include "lib/rbtree.h"
 
 struct uwsgi_rb_timer {
@@ -1579,3 +1580,5 @@ struct uwsgi_rb_timer {
 struct rb_root *uwsgi_init_rb_timer(void);
 struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct rb_root *, time_t, void *);
 struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct rb_root *);
+
+#endif

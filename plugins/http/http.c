@@ -209,7 +209,7 @@ uint16_t http_add_uwsgi_header(struct http_session *h_session, struct iovec *iov
 
 	for(i=0;i<hhlen;i++) {
 		if (!status) {
-			hh[i] = toupper(hh[i]);
+			hh[i] = toupper((int)hh[i]);
 			if (hh[i] == '-') hh[i] = '_';
 			if (hh[i] == ':') {
 				status = 1;

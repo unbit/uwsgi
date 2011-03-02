@@ -1634,7 +1634,7 @@ int is_a_number(char *what) {
 	int i;
 
 	for(i=0;i<(int)strlen(what);i++) {
-		if (!isdigit(what[i])) return 0;
+		if (!isdigit((int)what[i])) return 0;
 	}
 
 	return 1;
