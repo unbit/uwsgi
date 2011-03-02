@@ -432,7 +432,7 @@ int py_to_erl(PyObject *pobj, ei_x_buff *x) {
 		ei_x_encode_empty_list(x);
         }
         else if (PyString_Check(pobj)) {
-                ei_x_encode_string(x, PyString_AsString(pobj));
+                ei_x_encode_binary(x, PyString_AsString(pobj), PyString_Size(pobj));
         }
 	else if (PyUnicode_Check(pobj)) {
                 ei_x_encode_atom(x, PyString_AsString(pobj));
