@@ -4,13 +4,20 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
 void gil_real_get() {
+	/*
 	PyEval_AcquireLock();
 	PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_gil_key));
+	*/
+	PyEval_RestoreThread((PyThreadState *) pthread_getspecific(up.upt_gil_key));
 }
 
 void gil_real_release() {
+	/*
 	pthread_setspecific(up.upt_gil_key, (void *) PyThreadState_Swap(NULL));
-	PyEval_ReleaseLock();
+	PyEval_ReleaseLock();	
+	*/
+	pthread_setspecific(up.upt_gil_key, (void *) PyThreadState_Get());
+	PyEval_SaveThread();
 }
 
 void gil_fake_get() {}
