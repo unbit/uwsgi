@@ -121,6 +121,9 @@ void emperor_add(char *name, time_t born) {
 		return;
 	}
 	else {
+
+		unsetenv("UWSGI_RELOADS");
+
 		uef = uwsgi_num2str(n_ui->pipe[1]);
 		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
 			uwsgi_error("setenv()");

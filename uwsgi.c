@@ -772,7 +772,7 @@ options_parsed:
 	uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, plese disable DEBUG in uwsgiconfig.py and recompile it ***\n***\n");
 #endif
 
-	uwsgi_log("compiled with version: %s\n", __VERSION__);
+	uwsgi_log("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
 
 #ifdef __BIG_ENDIAN__
 	uwsgi_log("*** big endian arch detected ***\n");

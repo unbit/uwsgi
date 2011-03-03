@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 uwsgi_os = os.uname()[0]
 uwsgi_os_k = re.split('[-+]', os.uname()[2])[0]
 uwsgi_os_v = os.uname()[3]
@@ -208,6 +209,8 @@ class uConf(object):
                 sys.exit(1)
 
     def get_gcll(self):
+
+        self.cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
         kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
         if uwsgi_os == 'SunOS':
