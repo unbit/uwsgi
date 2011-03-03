@@ -1582,3 +1582,5 @@ struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct rb_root *, time_t, void *);
 struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct rb_root *);
 
 #endif
+
+void uwsgi_nuclear_blast();

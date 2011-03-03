@@ -263,6 +263,20 @@ void grace_them_all()
 
 }
 
+void uwsgi_nuclear_blast() {
+	
+	if (!uwsgi.workers) {
+		reap_them_all();	
+	}
+	else if (uwsgi.master_process) {
+		if (getpid() == uwsgi.workers[0].pid) {
+			reap_them_all();	
+		}
+	}
+
+	exit(1);
+}
+
 void reap_them_all()
 {
 	int i;
@@ -277,6 +291,8 @@ void reap_them_all()
 		if (uwsgi.gateways[i].pid > 0)
 		kill(uwsgi.gateways[i].pid, SIGKILL);
 	}
+
+	if (!uwsgi.workers) return;
 
 	uwsgi_log("...brutally killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {

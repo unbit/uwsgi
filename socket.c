@@ -10,20 +10,20 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	// leave 1 byte for abstract namespace (108 linux -> 104 bsd/mac)
 	if (strlen(socket_name) > 102) {
 		uwsgi_log( "invalid socket name\n");
-		exit(1);
+		uwsgi_nuclear_blast();
 	}
 
 	uws_addr = malloc(sizeof(struct sockaddr_un));
 	if (uws_addr == NULL) {
 		uwsgi_error("malloc()");
-		exit(1);
+		uwsgi_nuclear_blast();
 	}
 
 	memset(uws_addr, 0, sizeof(struct sockaddr_un));
 	serverfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (serverfd < 0) {
 		uwsgi_error("socket()");
-		exit(1);
+		uwsgi_nuclear_blast();
 	}
 	if (abstract_socket == 0) {
 		if (unlink(socket_name) != 0 && errno != ENOENT) {
@@ -44,13 +44,13 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		if (bind(serverfd, (struct sockaddr *) uws_addr, strlen(socket_name) + abstract_socket + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
 #endif
 			uwsgi_error("bind()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 
 		if (listen(serverfd, listen_queue) != 0) {
 			uwsgi_error("listen()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		// chmod unix socket for lazy users
@@ -104,7 +104,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		serverfd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 		if (serverfd < 0) {
 			uwsgi_error("socket()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		uwsgi_log( "binding on %d SCTP interfaces on port: %d\n", num_ip, ntohs(uws_addr[0].sin_port));
@@ -112,7 +112,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 		if (sctp_bindx(serverfd, (struct sockaddr *) uws_addr, num_ip, SCTP_BINDX_ADD_ADDR) != 0) {
 			uwsgi_error("sctp_bindx()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		sctp_im.sinit_max_instreams = 0xFFFF;
@@ -124,7 +124,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 		if (listen(serverfd, listen_queue) != 0) {
 			uwsgi_error("listen()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		return serverfd;
@@ -328,7 +328,7 @@ char *generate_socket_name(char *socket_name) {
                 struct ifaddrs *ifap = NULL, *ifa, *ifaf;
                 if (getifaddrs(&ifap)) {
                 	uwsgi_error("getifaddrs()");
-                        exit(1);
+                        uwsgi_nuclear_blast();
                 }
 
                 // here socket_name will be truncated
@@ -359,7 +359,7 @@ char *generate_socket_name(char *socket_name) {
 		}	
 
 		uwsgi_log("unable to find avalid socket address\n");
-		exit(1);
+		uwsgi_nuclear_blast();
 	}
 	return socket_name ;
 }
@@ -381,7 +381,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		serverfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (serverfd < 0) {
 			uwsgi_error("socket()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		if (socket_name[0] == 0) {
@@ -394,7 +394,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 			uwsgi_error("setsockopt()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		if (!uwsgi.no_defer_accept) {
@@ -421,12 +421,12 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 				uwsgi_log("probably another instance of uWSGI is running on the same address.\n");
 			}
 			uwsgi_error("bind()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		if (listen(serverfd, listen_queue) != 0) {
 			uwsgi_error("listen()");
-			exit(1);
+			uwsgi_nuclear_blast();
 		}
 
 		

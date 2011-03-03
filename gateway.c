@@ -55,6 +55,11 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 
 	if (!uwsgi.master_process) {
 		if (gw_pid > 0) {
+#ifdef __linux__
+                if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0,0,0)) {
+                        uwsgi_error("prctl()");
+                }
+#endif
 			loop();
 			// never here !!! (i hope)
 			exit(1);	
@@ -101,6 +106,11 @@ void gateway_respawn(int id) {
 
 	if (gw_pid == 0) {
 		if (uwsgi.master_as_root) uwsgi_as_root();
+#ifdef __linux__
+                if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0,0,0)) {
+                        uwsgi_error("prctl()");
+                }
+#endif
 		ug->loop();
 		// never here !!! (i hope)
 		exit(1);	
