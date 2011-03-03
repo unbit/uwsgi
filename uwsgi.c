@@ -366,6 +366,18 @@ static void vacuum(void)
 			if (chdir(uwsgi.cwd)) {
 				uwsgi_error("chdir()");
 			}
+			if (uwsgi.pidfile && !uwsgi.uid) {
+				if (unlink(uwsgi.pidfile)) {
+					uwsgi_error("unlink()");
+				} else {
+					uwsgi_log("VACUUM: pidfile removed.\n");
+				}
+			}
+			if (uwsgi.chdir) {
+				if (chdir(uwsgi.chdir)) {
+					uwsgi_error("chdir()");
+				}
+			}
 			for (i = 0; i < uwsgi.sockets_cnt; i++) {
 				if (uwsgi.sockets[i].family == AF_UNIX) {
 					if (unlink(uwsgi.sockets[i].name)) {
@@ -373,13 +385,6 @@ static void vacuum(void)
 					} else {
 						uwsgi_log("VACUUM: unix socket %s removed.\n", uwsgi.sockets[i].name);
 					}
-				}
-			}
-			if (uwsgi.pidfile && !uwsgi.uid) {
-				if (unlink(uwsgi.pidfile)) {
-					uwsgi_error("unlink()");
-				} else {
-					uwsgi_log("VACUUM: pidfile removed.\n");
 				}
 			}
 		}
