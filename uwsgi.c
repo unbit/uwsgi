@@ -224,12 +224,14 @@ void kill_them_all()
 		kill(uwsgi.workers[i].pid, SIGINT);
 	}
 
-	for (i = 0; i <= uwsgi.gateways_cnt; i++) {
-		kill(uwsgi.gateways[i].pid, SIGKILL);
+	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
+		if (uwsgi.shared->daemons[i].pid > 0)
+		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
 
-	for (i = 0; i <= uwsgi.shared->daemons_cnt; i++) {
-		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+	for (i = 0; i < uwsgi.gateways_cnt; i++) {
+		if (uwsgi.gateways[i].pid > 0)
+		kill(uwsgi.gateways[i].pid, SIGKILL);
 	}
 }
 
@@ -243,8 +245,15 @@ void grace_them_all()
 	}
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
+		if (uwsgi.shared->daemons[i].pid > 0)
 		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
+
+	for (i = 0; i < uwsgi.gateways_cnt; i++) {
+		if (uwsgi.gateways[i].pid > 0)
+		kill(uwsgi.gateways[i].pid, SIGKILL);
+	}
+
 
 	uwsgi_log("...gracefully killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -260,7 +269,13 @@ void reap_them_all()
 	uwsgi.to_heaven = 1;
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
+		if (uwsgi.shared->daemons[i].pid > 0)
 		kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+	}
+
+	for (i = 0; i < uwsgi.gateways_cnt; i++) {
+		if (uwsgi.gateways[i].pid > 0)
+		kill(uwsgi.gateways[i].pid, SIGKILL);
 	}
 
 	uwsgi_log("...brutally killing workers...\n");

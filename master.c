@@ -365,6 +365,11 @@ void master_loop(char **argv, char **environ) {
 			}
 #endif
 
+			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
+			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
+				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
+			}
+
 			uwsgi_log( "binary reloading uWSGI...\n");
 			if (chdir(uwsgi.cwd)) {
 				uwsgi_error("chdir()");
@@ -410,12 +415,6 @@ void master_loop(char **argv, char **environ) {
 		if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 			master_has_children = 1;
 		}
-#endif
-#ifdef UWSGI_PROXY
-		if (uwsgi.proxy_socket_name && uwsgi.shared->proxy_pid > 0) {
-			master_has_children = 1;
-		}
-		// TODO if gateways > 0 master_has_children == 1
 #endif
 
 		if (!master_has_children) {
@@ -732,7 +731,7 @@ void master_loop(char **argv, char **environ) {
 				uwsgi.workers[0].requests = tmp_counter;
 			}
 
-			// remove expired cache items
+			// remove expired cache items TODO use rb_tree timeouts
 			if (uwsgi.cache_max_items > 0) {
 				for(i=0;i< (int)uwsgi.cache_max_items;i++) {
 					uwsgi_wlock(uwsgi.cache_lock);
