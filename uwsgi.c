@@ -1010,6 +1010,11 @@ int uwsgi_start(void *v_argv) {
 			// never here
 			exit(1);
 		}
+
+		// do not go on if no socket or gateway is defined
+		if (!uwsgi.sockets_cnt && !uwsgi.gateways_cnt) {
+			exit(0);
+		}
 		close(emperor_pipe[0]);
 		uwsgi.has_emperor = 1;
         	uwsgi.emperor_fd = emperor_pipe[1];
@@ -1249,6 +1254,10 @@ int uwsgi_start(void *v_argv) {
 							socket_type_len = sizeof(struct sockaddr_un);
 							gsa.sa = &usa.sa;
 							if (!getsockname(j, gsa.sa, &socket_type_len)) {
+								if (socket_type_len <= 2) {
+									// unbound socket
+									continue;
+								}
 								if (gsa.sa->sa_family == AF_UNIX) {
 									if (!strcmp(usa.sa_un.sun_path, uwsgi.sockets[i].name)) {
 										uwsgi.sockets[i].fd = j;
