@@ -832,6 +832,9 @@ int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 	if (!args)
 		return -1;
 
+	if (!handler) return -1;
+
+
 	PyTuple_SetItem(args, 0, PyInt_FromLong(sig));
 
 	ret = python_call(handler, args, 0);

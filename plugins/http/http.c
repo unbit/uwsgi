@@ -696,7 +696,7 @@ void http_loop() {
 							}
 
 							// fd passing: PERFORMANCE EXTREME BOOST !!!
-							if (uhttp_session->pass_fd) {
+							if (uhttp_session->pass_fd && !uhttp_session->remains) {
 								msg.msg_name    = NULL;
                 						msg.msg_namelen = 0;
                 						msg.msg_iov     = uhttp_session->iov;
