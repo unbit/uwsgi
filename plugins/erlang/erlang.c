@@ -247,6 +247,7 @@ void erlang_loop() {
 	int fd;
 
 	int eversion;
+	int i;
 
 	ei_x_buff x, xr;
 
@@ -291,13 +292,31 @@ void erlang_loop() {
 					
 					x.index = 0;
 					ei_decode_version(x.buff, &x.index, &eversion);
+#ifdef UWSGI_DEBUG
 					uwsgi_log("eversion: %d\n", eversion);
+#endif
 
 					if (!strcmp(em.toname, "rex")) {
 						uwsgi_erlang_rpc(fd, &em.from, &x);
 					}
 					else {
-						dump_eterm(&x);
+						int uep = -1;
+						for(i=0;i<uerl.uep_cnt;i++) {
+							if (!strcmp(uerl.uep[i].name, em.toname)) {
+								uep = i;
+								break;
+							}
+						}
+
+						if (uep > -1) {
+							if (uerl.uep[uep].plugin) {
+								uerl.uep[uep].plugin( uerl.uep[uep].func, &x );
+							}
+						}
+						else {
+							uwsgi_log("!!! unregistered erlang process requested, dumping it !!!\n");
+							dump_eterm(&x);
+						}
 					}
 					
 					

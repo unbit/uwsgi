@@ -298,6 +298,42 @@ recv:
         return Py_None;
 }
 
+void pyerl_call_registered(void *func, ei_x_buff *x) {
+
+	PyObject *pyargs = PyTuple_New(1);
+        PyObject *ret;
+
+	PyTuple_SetItem(pyargs, 0, erl_to_py(x));
+	
+        ret = python_call((PyObject *) func, pyargs, 0);
+}
+
+PyObject *pyerl_register_process(PyObject * self, PyObject * args) {
+
+	char *name;
+	PyObject *callable;
+
+	if (!PyArg_ParseTuple(args, "sO:erlang_register_process", &name, &callable)) {
+                return NULL;
+        }
+
+	if (uerl.uep_cnt >= MAX_UWSGI_ERLANG_PROCESSES)
+	return PyErr_Format(PyExc_ValueError, "You can define max %d erlang registered processes", MAX_UWSGI_ERLANG_PROCESSES);
+
+	if (strlen(name) > 0xff-1)
+	return PyErr_Format(PyExc_ValueError, "Invalid erlang process name");
+
+	strcpy(uerl.uep[uerl.uep_cnt].name, name);
+	uerl.uep[uerl.uep_cnt].plugin = pyerl_call_registered;
+	uerl.uep[uerl.uep_cnt].func = callable;
+
+	uerl.uep_cnt++;
+
+	Py_INCREF(Py_None);
+	return Py_None;
+	
+}
+
 PyObject *pyerl_recv(PyObject * self, PyObject * args) {
 
 	ei_x_buff x;
@@ -407,6 +443,7 @@ static PyMethodDef uwsgi_pyerl_methods[] = {
         {"erlang_rpc", pyerl_rpc, METH_VARARGS, ""},
         {"erlang_lock", pyerl_lock, METH_VARARGS, ""},
         {"erlang_unlock", pyerl_unlock, METH_VARARGS, ""},
+        {"erlang_register_process", pyerl_register_process, METH_VARARGS, ""},
         {NULL, NULL},
 };
 
