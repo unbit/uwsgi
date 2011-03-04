@@ -807,14 +807,15 @@ options_parsed:
 #define CLONE_NEWIPC 0x08000000
 #endif
 	if (uwsgi.ns) {
-		void *linux_clone_stack = alloca(uwsgi.page_size);
 		for(;;) {
-			pid_t pid = clone(uwsgi_start, linux_clone_stack+uwsgi.page_size, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
+			char stack[PTHREAD_STACK_MIN];
+			uwsgi_log("*** jailing uWSGI in %s ***\n", uwsgi.ns);
+			pid_t pid = clone(uwsgi_start, stack+PTHREAD_STACK_MIN, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
 			if (pid == -1) {
 				uwsgi_error("clone()");
 				exit(1);
 			}
-			uwsgi_log("waiting for jailed master dead...\n");
+			uwsgi_log("waiting for jailed master (pid: %d) death...\n", (int) pid);
 			pid = waitpid(pid, NULL, 0);
 			if (pid < 0) {
 				uwsgi_error("waitpid()");
@@ -856,7 +857,7 @@ int uwsgi_start(void *v_argv) {
 
 #ifdef __linux__
 	if (uwsgi.ns) {
-
+	
 		if (getpid() != 1) { 
 			uwsgi_log("your kernel does not support linux pid namespace\n");
 			exit(1);
