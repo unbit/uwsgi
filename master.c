@@ -177,7 +177,7 @@ void master_loop(char **argv, char **environ) {
 	//UWSGI_RELEASE_GIL
 
 	/* route signals to workers... */
-	signal(SIGHUP, (void *) &grace_them_all);
+	uwsgi_unix_signal(SIGHUP, grace_them_all);
 	signal(SIGTERM, (void *) &reap_them_all);
 	signal(SIGINT, (void *) &kill_them_all);
 	signal(SIGQUIT, (void *) &kill_them_all);
@@ -528,7 +528,7 @@ void master_loop(char **argv, char **environ) {
 								}
 								// reload me
 								else if (byte == 1) {
-									grace_them_all();
+									grace_them_all(0);
 								}
                                                         }
 							else {

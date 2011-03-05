@@ -1163,10 +1163,10 @@ char           *uwsgi_get_cwd(void);
 void            warn_pipe(void);
 void            what_i_am_doing(void);
 void            goodbye_cruel_world(void);
-void            gracefully_kill(void);
+void            gracefully_kill(int);
 void            reap_them_all(void);
 void            kill_them_all(void);
-void            grace_them_all(void);
+void            grace_them_all(int);
 void            reload_me(void);
 void            end_me(void);
 int             bind_to_unix(char *, int, int, int);
@@ -1584,3 +1584,5 @@ struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct rb_root *);
 #endif
 
 void uwsgi_nuclear_blast();
+
+void uwsgi_unix_signal(int, void (*)(int));

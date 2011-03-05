@@ -1639,3 +1639,18 @@ int is_a_number(char *what) {
 
 	return 1;
 }
+
+void uwsgi_unix_signal(int signum, void (*func)(int)) {
+		
+	struct sigaction   sa;
+
+	memset(&sa, 0, sizeof(struct sigaction));
+
+	sa.sa_handler = func;
+
+	sigemptyset(&sa.sa_mask);
+
+	if (sigaction(signum, &sa, NULL) < 0) {
+		uwsgi_error("sigaction()");
+	}
+}

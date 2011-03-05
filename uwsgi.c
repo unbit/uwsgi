@@ -188,7 +188,7 @@ void warn_pipe()
 	}
 }
 
-void gracefully_kill()
+void gracefully_kill(int signum)
 {
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	if (UWSGI_IS_IN_REQUEST) {
@@ -235,7 +235,7 @@ void kill_them_all()
 	}
 }
 
-void grace_them_all()
+void grace_them_all(int signum)
 {
 	int i;
 	uwsgi.to_heaven = 1;
@@ -1761,7 +1761,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && !uwsgi.master_process) {
 		signal(SIGALRM, (void *) &harakiri);
 	}
-	signal(SIGHUP, (void *) &gracefully_kill);
+	uwsgi_unix_signal(SIGHUP, gracefully_kill);
 	signal(SIGINT, (void *) &end_me);
 	signal(SIGTERM, (void *) &reload_me);
 
