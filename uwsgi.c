@@ -650,6 +650,7 @@ int main(int argc, char *argv[], char *envp[])
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
 		magic_table['o'] = uwsgi.xml_config;
+		magic_table['v'] = uwsgi.emperor_dir;
 		if (uwsgi.xml_config[0] == '/') {
 			magic_table['p'] = uwsgi.xml_config;
 		}
@@ -666,6 +667,7 @@ int main(int argc, char *argv[], char *envp[])
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
 		magic_table['o'] = uwsgi.ini;
+		magic_table['v'] = uwsgi.emperor_dir;
 		if (uwsgi.ini[0] == '/') {
 			magic_table['p'] = uwsgi.ini;
 		}
@@ -683,6 +685,7 @@ int main(int argc, char *argv[], char *envp[])
 #ifdef UWSGI_YAML
 	if (uwsgi.yaml != NULL) {
 		magic_table['o'] = uwsgi.yaml;
+		magic_table['v'] = uwsgi.emperor_dir;
 		if (uwsgi.yaml[0] == '/') {
 			magic_table['p'] = uwsgi.yaml;
 		}
