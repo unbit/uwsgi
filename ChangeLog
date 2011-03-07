@@ -1,5 +1,26 @@
 *** march 2011 ***
 
+ * 0.9.7-rc1 [20110307]
+
+- export %v in emperor mode
+- fixed signal race condition in server reload
+- fixed http router post handling bug
+- added uwsgi.erlang_register_process in pyerl plugin
+- fixed unix socket inherit
+- fixed linux namespace support in recent kernel/gcc
+- ported threading to python 3.2
+- add build date to uWSGI startup info
+- do not allow clustering without defining a socket
+- kill all the gateways/daemons on startup errors
+- fixed vacuum after chdir()
+- fixed gateways reload
+- re-added support for OpenBSD and NetBSD
+- fixed post-buffering in python
+- use erlang binary for python string
+- fixed memory leak in pyerl plugin
+- removed broken log rotation (post-poned)
+- fixed no_argument options in ini and yaml parsing
+
  * 0.9.7-beta1 [20110301]
 
 - fully modular re-design
