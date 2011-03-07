@@ -18,12 +18,11 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag, char *magic_ta
 	xmlChar *xml_uwsgi_mountpoint = NULL;
 	xmlChar *xml_uwsgi_domain = NULL;
 	xmlChar *node_mode;
-	struct option *lopt, *aopt;
 
 	char *colon;
 
-	char *xml_id;
 	int i;
+	char *xml_id;
 	char *xml_content;
 	int xml_size = 0;
 
@@ -105,52 +104,26 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag, char *magic_ta
 					continue;
 				}
 #endif
-				lopt = uwsgi.long_options;
-				while ((aopt = lopt)) {
-					if (!aopt->name)
-						break;
-					if (!strcmp((char *) node->name, aopt->name)) {
-						if (!node->children && aopt->has_arg) {
-							uwsgi_log( "[uWSGI] %s option need a value. skip.\n", aopt->name);
-							exit(1);
-						}
 
-						if (node->children) {
-							if (!node->children->content && aopt->has_arg) {
-								uwsgi_log( "[uWSGI] %s option need a value. skip.\n", aopt->name);
-								exit(1);
-							}
-						}
+				node_mode = xmlGetProp(node, (const xmlChar *) "mode");
+				if (uwsgi.mode && node_mode) {
+					if (strcmp(uwsgi.mode, (char *) node_mode)) {
+						continue;	
+					}	
+				}
 
-						node_mode = xmlGetProp(node, (const xmlChar *) "mode");
-						if (uwsgi.mode && node_mode) {
-							if (strcmp(uwsgi.mode, (char *) node_mode)) {
-								goto next;	
-							}	
-						}
+				xml_id = (char *) xmlGetProp(node, (const xmlChar *) "id");
+				if (colon && xml_id) {
+					if (strcmp(colon, xml_id)) {
+						continue;	
+					}	
+				}
 
-						xml_id = (char *) xmlGetProp(node, (const xmlChar *) "id");
-						if (colon && xml_id) {
-							if (strcmp(colon, xml_id)) {
-								goto next;	
-							}	
-						}
-
-						if (aopt->flag) {
-							*aopt->flag = aopt->val;
-							add_exported_option(0, (char *) node->name);
-						}
-						else {
-							if (node->children) {
-								manage_opt(aopt->val, (char *) node->children->content);
-							}
-							else {
-								manage_opt(aopt->val, NULL);
-							}
-						}
-					}
-next:
-					lopt++;
+				if (node->children) {
+					add_exported_option((char *) node->name, (char *) node->children->content, 0);
+				}
+				else {
+					add_exported_option((char *) node->name, "1", 0);
 				}
 			}
 		}

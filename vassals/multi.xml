@@ -1,0 +1,31 @@
+<uwsgi>
+
+	<id>app001</id>
+
+	<print>starting dir is %v</print>
+
+	<chdir>%v/../</chdir>
+	<localhost>127.0.0.1</localhost>
+
+	<socket>%(localhost):3031</socket>
+	<socket>/tmp/%(id).sock</socket>
+
+	<cpus>4</cpus>
+	<werkzeug>werkzeug.testapp:test_app</werkzeug>
+
+	<master/>
+
+	<vhost/>
+	<vhost-host/>
+
+	<processes>%(cpus)</processes>
+
+	<app domain="sirius001:9090">
+		<script>werkzeug.testapp:test_app</script>
+	</app>
+
+	<app domain="sirius002:9090">
+		<script>uwsgicc</script>
+	</app>
+
+</uwsgi>

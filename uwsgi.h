@@ -273,6 +273,7 @@ struct uwsgi_cache_item {
 struct uwsgi_opt {
 	char *key;
 	char *value;
+	int configured;
 };
 
 #define MAX_CLUSTER_NODES	100
@@ -721,6 +722,7 @@ struct uwsgi_server {
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
 	int dump_options;
+	int show_config;
 	//base for all the requests(even on async mode)
 	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;
@@ -1367,7 +1369,7 @@ ssize_t         uwsgi_sendfile(struct wsgi_request *);
 void            uwsgi_register_loop(char *, void *);
 void           *uwsgi_get_loop(char *);
 
-void add_exported_option(int, char *);
+void add_exported_option(char *, char *, int);
 
 ssize_t uwsgi_send_empty_pkt(int , char *, uint8_t , uint8_t);
 
@@ -1586,3 +1588,5 @@ struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct rb_root *);
 void uwsgi_nuclear_blast();
 
 void uwsgi_unix_signal(int, void (*)(int));
+
+char *uwsgi_get_exported_opt(char *);

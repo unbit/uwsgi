@@ -160,6 +160,7 @@ static struct option long_base_options[] = {
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
 	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
 	{"dump-options", no_argument, &uwsgi.dump_options, 1},
+	{"show-config", no_argument, &uwsgi.show_config, 1},
 	{"print", required_argument, 0, LONG_ARGS_PRINT},
 	{"version", no_argument, 0, LONG_ARGS_VERSION},
 	{0, 0, 0, 0}
@@ -425,7 +426,7 @@ static void vacuum(void)
 int main(int argc, char *argv[], char *envp[])
 {
 
-	int i;
+	int i, j;
 	int rlen;
 
 	FILE *pidfile;
@@ -584,19 +585,12 @@ int main(int argc, char *argv[], char *envp[])
 
 	while ((i = getopt_long(argc, argv, short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
 		if (i == 0) {
-			add_exported_option(0, (char *)uwsgi.long_options[uwsgi.option_index].name);
+			add_exported_option((char *)uwsgi.long_options[uwsgi.option_index].name, "1", 0);
 		}
 		else {
+			add_exported_option((char *)uwsgi.long_options[uwsgi.option_index].name, optarg, 1);
 			manage_opt(i, optarg);
 		}
-	}
-
-	if (uwsgi.dump_options) {
-		struct option *lopt = uwsgi.long_options;
-		while(lopt->name) {
-			uwsgi_log("--%s\n", lopt->name);
-			lopt++;
-		}	
 	}
 
 
@@ -647,10 +641,18 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
+	if (gethostname(uwsgi.hostname, 255)) {
+		uwsgi_error("gethostname()");
+	}
+	uwsgi.hostname_len = strlen(uwsgi.hostname);
+
+
+	magic_table['v'] = uwsgi.cwd;
+	magic_table['h'] = uwsgi.hostname;
+
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
 		magic_table['o'] = uwsgi.xml_config;
-		magic_table['v'] = uwsgi.cwd;
 		if (uwsgi.xml_config[0] == '/') {
 			magic_table['p'] = uwsgi.xml_config;
 		}
@@ -662,12 +664,12 @@ int main(int argc, char *argv[], char *envp[])
 		if (uwsgi_get_last_char(uwsgi.xml_config, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.xml_config, '.')+1;
 		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
 		uwsgi_xml_config(uwsgi.wsgi_req, 0, magic_table);
+		uwsgi.xml_config = magic_table['p'];
 	}
 #endif
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
 		magic_table['o'] = uwsgi.ini;
-		magic_table['v'] = uwsgi.cwd;
 		if (uwsgi.ini[0] == '/') {
 			magic_table['p'] = uwsgi.ini;
 		}
@@ -685,7 +687,6 @@ int main(int argc, char *argv[], char *envp[])
 #ifdef UWSGI_YAML
 	if (uwsgi.yaml != NULL) {
 		magic_table['o'] = uwsgi.yaml;
-		magic_table['v'] = uwsgi.cwd;
 		if (uwsgi.yaml[0] == '/') {
 			magic_table['p'] = uwsgi.yaml;
 		}
@@ -708,12 +709,121 @@ int main(int argc, char *argv[], char *envp[])
 	//parse environ
 	parse_sys_envs(environ);
 
-	if (gethostname(uwsgi.hostname, 255)) {
-		uwsgi_error("gethostname()");
+
+	// second pass
+	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+		int has_percent = 0;
+		char *magic_key = NULL;
+		char *magic_val = NULL;
+		if (uwsgi.exported_opts[i]->value && !uwsgi.exported_opts[i]->configured) {
+			for(j=0;j<(int)strlen(uwsgi.exported_opts[i]->value);j++) {
+				if (uwsgi.exported_opts[i]->value[j] == '%') {
+					has_percent = 1;
+				}
+				else if (uwsgi.exported_opts[i]->value[j] == '(' && has_percent == 1) {
+					has_percent = 2;
+					magic_key = uwsgi.exported_opts[i]->value + j + 1;
+				}
+				else if (has_percent > 1) {
+					if (uwsgi.exported_opts[i]->value[j] == ')') {
+						if (has_percent <= 2) {
+							magic_key = NULL;
+							has_percent = 0;
+							continue;
+						}
+#ifdef UWSGI_DEBUG
+						uwsgi_log("need to interpret the %.*s tag\n", has_percent-2, magic_key);
+#endif
+						char *tmp_magic_key = uwsgi_concat2n(magic_key, has_percent-2, "", 0);
+						magic_val = uwsgi_get_exported_opt(tmp_magic_key);
+						free(tmp_magic_key);
+						if (!magic_val) {
+							magic_key = NULL;
+							has_percent = 0;
+							continue;
+						}
+						uwsgi.exported_opts[i]->value = uwsgi_concat4n(
+									uwsgi.exported_opts[i]->value, (magic_key-2) - uwsgi.exported_opts[i]->value, 
+									magic_val, strlen(magic_val),
+									magic_key + (has_percent-1),
+									strlen(magic_key + (has_percent-1)), "", 0);
+#ifdef UWSGI_DEBUG
+						uwsgi_log("computed new value = %s\n", uwsgi.exported_opts[i]->value);
+#endif
+						magic_key = NULL;
+						has_percent = 0;
+					}
+					else {
+						has_percent++;
+					}
+				}
+				else {
+					has_percent = 0;
+				}
+			}
+		}
 	}
-	uwsgi.hostname_len = strlen(uwsgi.hostname);
 
 
+	// ok, the options dictionary is available, lets manage it
+
+        struct option *lopt = uwsgi.long_options;
+        struct option *aopt;
+        char *val;
+
+	for(i=0;i<uwsgi.exported_opts_cnt;i++) {
+
+		if (uwsgi.exported_opts[i]->configured) continue;
+		lopt = uwsgi.long_options;;
+        	while ((aopt = lopt)) {
+                	if (!aopt->name) break;
+
+			if (!strcmp(aopt->name, uwsgi.exported_opts[i]->key)) {
+                		val = uwsgi.exported_opts[i]->value;
+
+                        	if (aopt->flag) *aopt->flag = aopt->val;
+                        	else if (val) {
+                                	if (aopt->has_arg == optional_argument) {
+                                        	if (!strcasecmp("true", val)) {
+                                                	val = NULL;
+                                        	}
+                                	}
+                                	if (aopt->has_arg == no_argument) {
+                                        	if (!strcasecmp("false", val) || val[0] == '0') {
+                                                	lopt++;
+                                                	continue;
+                                        	}
+                                	}
+                                	manage_opt(aopt->val, val);
+                       		}
+			}
+                	lopt++;
+		}
+        }
+
+
+	/* uWSGI IS CONFIGURED !!! */
+
+	if (uwsgi.dump_options) {
+		struct option *lopt = uwsgi.long_options;
+		while(lopt->name) {
+			uwsgi_log("--%s\n", lopt->name);
+			lopt++;
+		}	
+	}
+
+	if (uwsgi.show_config) {
+		fprintf(stdout, "\n;uWSGI instance configuration\n[uwsgi]\n");
+		for(i=0;i<uwsgi.exported_opts_cnt;i++) {
+			if (uwsgi.exported_opts[i]->value) {
+				fprintf(stdout,"%s = %s\n", uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
+			}
+			else {
+				fprintf(stdout,"%s = true\n", uwsgi.exported_opts[i]->key);
+			}
+		}
+		fprintf(stdout, ";end of configuration\n\n");
+	}
 
 
 #ifdef UWSGI_UDP
@@ -2393,14 +2503,12 @@ end:
 		int j;
 
 		if (manage_base_opt(i, optarg)) {
-			add_exported_option( i, optarg );
 			return;
 		}
 
 		for (j = 0; j < 0xFF; j++) {
 			if (uwsgi.p[j]->manage_opt) {
 				if (uwsgi.p[j]->manage_opt(i, optarg)) {
-					add_exported_option( i, optarg );
 					return;
 				}
 			}
@@ -2409,7 +2517,6 @@ end:
 		for (j = 0; j < uwsgi.gp_cnt; j++) {
 			if (uwsgi.gp[j]->manage_opt) {
 				if (uwsgi.gp[j]->manage_opt(i, optarg)) {
-					add_exported_option( i, optarg );
 					return;
 				}
 			}
@@ -2661,27 +2768,12 @@ void build_options() {
 
 void manage_string_opt(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
-	struct option *lopt, *aopt;
-
 	// never free this value
 	char *key2 = uwsgi_concat2n(key, keylen, "", 0);
 	char *val2 = uwsgi_concat2n(val, vallen, "", 0);
 
 	uwsgi_log("%s = %s\n", key2, val2);
-	lopt = uwsgi.long_options;
-        while ((aopt = lopt)) {
-        	if (!aopt->name) break;
-                if (!strcmp(key2, aopt->name)) {
-                	if (aopt->flag) {
-                        	*aopt->flag = aopt->val;
-                                add_exported_option(0, key2);
-                        }
-                        else {
-                        	manage_opt(aopt->val, val2);
-                        }
-                }
-                lopt++;
-	}
+	add_exported_option(key2, val2, 0);
 }
 
 #ifdef UWSGI_UDP

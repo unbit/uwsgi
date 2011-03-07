@@ -798,6 +798,9 @@ int uwsgi_python_xml(char *node, char *content) {
 			uwsgi.wsgi_req->module_len = strlen(uwsgi.wsgi_req->module);
 			return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter);
 		}
+		else {
+			return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter);
+		}
 		return 1;
 	}
 	else if (!strcmp("pyhome", node)) {

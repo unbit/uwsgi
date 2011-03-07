@@ -84,7 +84,6 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 
 	int lines = 1;
 
-	struct option *lopt, *aopt;
 	char *section_asked = "uwsgi";
 	char *colon;
 
@@ -126,32 +125,7 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 					ini_rstrip(key);
 					val = ini_lstrip(val);
 					ini_rstrip(val);
-					lopt = uwsgi.long_options;
-					while ((aopt = lopt)) {
-						if (!aopt->name)
-							break;
-						if (!strcmp(key, aopt->name)) {
-							if (aopt->flag) {
-								*aopt->flag = aopt->val;
-								add_exported_option(0, (char *)key);
-							}
-							else {
-								if (aopt->has_arg == optional_argument) {
-									if (!strcmp("true", val)) {
-										val = NULL;
-									}
-								}
-								if (aopt->has_arg == no_argument) {
-									if (!strcmp("false", val) || val[0] == '0') {
-										lopt++;
-										continue;
-									}
-								}
-								manage_opt(aopt->val, val);
-							}
-						}
-						lopt++;
-					}
+					add_exported_option((char *)key, val, 0);
 				}
 			}
 		}
