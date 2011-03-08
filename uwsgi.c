@@ -1002,27 +1002,6 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 
-		while(unmounted) {
-
-			unmounted = 0;
-			procmounts = fopen("/proc/self/mounts", "r");
-			while(fgets(line,1024,procmounts) != NULL) {
-				delim0 = strchr(line, ' ');
-				delim0++;
-				delim1 = strchr(delim0, ' ');
-				*delim1 = 0;
-				if (!umount(delim0)) {
-					unmounted++;
-				}
-			}
-			fclose(procmounts);
-		}
-
-		uwsgi_log("unmounting /proc\n");
-		if (umount("/proc")) {
-			uwsgi_error("umount()");
-		}
-
 		char *ns_tmp_mountpoint = uwsgi_concat2(uwsgi.ns, "/.uwsgi_ns_tmp_mountpoint");
 		mkdir(ns_tmp_mountpoint, S_IRWXU);
 
@@ -1036,7 +1015,6 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_error("chdir()");
 		}
 
-		
 		if (pivot_root(".", ns_tmp_mountpoint2)) {
 			uwsgi_error("pivot_root()");
 			exit(1);
@@ -1047,9 +1025,27 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 
-		if (umount("/.uwsgi_ns_tmp_mountpoint")) {
-			uwsgi_error("umount /.uwsgi_ns_tmp_mountpoint");
+		uwsgi_log("remounting /proc\n");
+		if (mount("proc","/proc", "proc", 0, NULL)) {
+			uwsgi_error("mount()");
 		}
+
+		while(unmounted) {
+
+                        unmounted = 0;
+                        procmounts = fopen("/proc/self/mounts", "r");
+                        while(fgets(line,1024,procmounts) != NULL) {
+                                delim0 = strchr(line, ' ');
+                                delim0++;
+                                delim1 = strchr(delim0, ' ');
+                                *delim1 = 0;
+				if (!strcmp(delim0,"/") || !strcmp(delim0,"/proc")) continue;
+                                if (!umount(delim0)) {
+                                        unmounted++;
+                                }
+                        }
+                        fclose(procmounts);
+                }
 
 		if (rmdir("/.uwsgi_ns_tmp_mountpoint/.uwsgi_ns_tmp_mountpoint")) {
 			uwsgi_error("rmdir()");
@@ -1060,11 +1056,6 @@ int uwsgi_start(void *v_argv) {
 
 		free(ns_tmp_mountpoint2);
 		free(ns_tmp_mountpoint);
-		
-		uwsgi_log("remounting /proc\n");
-		if (mount("proc","/proc", "proc", 0, NULL)) {
-			uwsgi_error("mount()");
-		}
 
 	}
 #endif
