@@ -394,10 +394,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
 
-	if (uwsgi.cores > 1) {
-		uwsgi.core[wsgi_req->async_id]->requests++;
-	}
-
 	// after_request hook
 	if (uwsgi.p[wsgi_req->uh.modifier1]->after_request) uwsgi.p[wsgi_req->uh.modifier1]->after_request(wsgi_req);
 
@@ -504,7 +500,7 @@ polling:
 		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0) {
 			if (uwsgi.no_orphans) {
 				uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
-                		end_me();
+                		end_me(0);
 			}
 		}
                 else {

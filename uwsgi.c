@@ -195,16 +195,16 @@ void gracefully_kill(int signum)
 	if (UWSGI_IS_IN_REQUEST) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	} else {
-		reload_me();
+		reload_me(0);
 	}
 }
 
-void reload_me()
+void reload_me(int signum)
 {
 	exit(UWSGI_RELOAD_CODE);
 }
 
-void end_me()
+void end_me(int signum)
 {
 	exit(UWSGI_END_CODE);
 }
@@ -215,7 +215,7 @@ void goodbye_cruel_world()
 	exit(0);
 }
 
-void kill_them_all()
+void kill_them_all(int signum)
 {
 	int i;
 	uwsgi.to_hell = 1;
@@ -267,18 +267,18 @@ void grace_them_all(int signum)
 void uwsgi_nuclear_blast() {
 	
 	if (!uwsgi.workers) {
-		reap_them_all();	
+		reap_them_all(0);	
 	}
 	else if (uwsgi.master_process) {
 		if (getpid() == uwsgi.workers[0].pid) {
-			reap_them_all();	
+			reap_them_all(0);	
 		}
 	}
 
 	exit(1);
 }
 
-void reap_them_all()
+void reap_them_all(int signum)
 {
 	int i;
 	uwsgi.to_heaven = 1;
@@ -313,7 +313,7 @@ void harakiri()
 	exit(0);
 }
 
-void stats()
+void stats(int signum)
 {
 	//fix this for better logging(this cause races)
 	struct uwsgi_app *ua = NULL;
@@ -922,6 +922,7 @@ options_parsed:
 	if (uwsgi.ns) {
 		for(;;) {
 			char stack[PTHREAD_STACK_MIN];
+			int waitpid_status;
 			uwsgi_log("*** jailing uWSGI in %s ***\n", uwsgi.ns);
 			pid_t pid = clone(uwsgi_start, stack+PTHREAD_STACK_MIN, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
 			if (pid == -1) {
@@ -929,11 +930,17 @@ options_parsed:
 				exit(1);
 			}
 			uwsgi_log("waiting for jailed master (pid: %d) death...\n", (int) pid);
-			pid = waitpid(pid, NULL, 0);
+			pid = waitpid(pid, &waitpid_status, 0);
 			if (pid < 0) {
 				uwsgi_error("waitpid()");
 				exit(1);
 			}
+
+			// in Linux this is reliable
+			if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == 1) {
+				exit(1);
+			}
+
 			uwsgi_log("pid %d ended. Respawning...\n", (int) pid);	
 		}
 	}
@@ -990,6 +997,11 @@ int uwsgi_start(void *v_argv) {
 		int unmounted = 1;
 		char *delim0, *delim1;
 
+		if (chdir(uwsgi.ns)) {
+			uwsgi_error("chdir()");
+			exit(1);
+		}
+
 		while(unmounted) {
 
 			unmounted = 0;
@@ -1023,16 +1035,28 @@ int uwsgi_start(void *v_argv) {
 		if (chdir(ns_tmp_mountpoint)) {
 			uwsgi_error("chdir()");
 		}
+
+		
 		if (pivot_root(".", ns_tmp_mountpoint2)) {
 			uwsgi_error("pivot_root()");
+			exit(1);
+		}
+
+		if (chdir("/")) {
+			uwsgi_error("chdir()");
+			exit(1);
 		}
 
 		if (umount("/.uwsgi_ns_tmp_mountpoint")) {
-			uwsgi_error("umount tmp()");
+			uwsgi_error("umount /.uwsgi_ns_tmp_mountpoint");
 		}
 
-		rmdir("/.uwsgi_ns_tmp_mountpoint/.uwsgi_ns_tmp_mountpoint");
-		rmdir("/.uwsgi_ns_tmp_mountpoint");
+		if (rmdir("/.uwsgi_ns_tmp_mountpoint/.uwsgi_ns_tmp_mountpoint")) {
+			uwsgi_error("rmdir()");
+		}
+		if (rmdir("/.uwsgi_ns_tmp_mountpoint")) {
+			uwsgi_error("rmdir()");
+		}
 
 		free(ns_tmp_mountpoint2);
 		free(ns_tmp_mountpoint);
@@ -1875,11 +1899,11 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		signal(SIGALRM, (void *) &harakiri);
 	}
 	uwsgi_unix_signal(SIGHUP, gracefully_kill);
-	signal(SIGINT, (void *) &end_me);
-	signal(SIGTERM, (void *) &reload_me);
+	uwsgi_unix_signal(SIGINT, end_me);
+	uwsgi_unix_signal(SIGTERM, reload_me);
 
 
-	signal(SIGUSR1, (void *) &stats);
+	uwsgi_unix_signal(SIGUSR1, stats);
 
 	signal(SIGUSR2, (void *) &what_i_am_doing);
 
@@ -1981,7 +2005,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
 end:
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
-		reload_me();
+		reload_me(0);
 	} else {
 		goodbye_cruel_world();
 	}

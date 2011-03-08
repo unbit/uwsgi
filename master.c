@@ -178,12 +178,12 @@ void master_loop(char **argv, char **environ) {
 
 	/* route signals to workers... */
 	uwsgi_unix_signal(SIGHUP, grace_them_all);
-	signal(SIGTERM, (void *) &reap_them_all);
-	signal(SIGINT, (void *) &kill_them_all);
-	signal(SIGQUIT, (void *) &kill_them_all);
+	uwsgi_unix_signal(SIGTERM, reap_them_all);
+	uwsgi_unix_signal(SIGINT, kill_them_all);
+	uwsgi_unix_signal(SIGQUIT, kill_them_all);
 	/* used only to avoid human-errors */
 
-	signal(SIGUSR1, (void *) &stats);
+	uwsgi_unix_signal(SIGUSR1, stats);
 
 	uwsgi.master_queue = event_queue_init();
 
@@ -426,7 +426,7 @@ void master_loop(char **argv, char **environ) {
 				uwsgi_error("waitpid()");
 				/* here is better to reload all the uWSGI stack */
 				uwsgi_log( "something horrible happened...\n");
-				reap_them_all();
+				reap_them_all(0);
 				exit(1);
 			}
 		}
@@ -524,7 +524,7 @@ void master_loop(char **argv, char **environ) {
 								if (byte == 0) {
 									close(uwsgi.emperor_fd);
 									uwsgi.has_emperor = 0;
-									kill_them_all();
+									kill_them_all(0);
 								}
 								// reload me
 								else if (byte == 1) {
@@ -535,7 +535,7 @@ void master_loop(char **argv, char **environ) {
 								uwsgi_log("lost connection with my emperor !!!\n");
 								close(uwsgi.emperor_fd);
 								uwsgi.has_emperor = 0;
-								kill_them_all();
+								kill_them_all(0);
 							}
 						}
 					}
@@ -712,16 +712,6 @@ void master_loop(char **argv, char **environ) {
 
 			// recalculate requests counter on race conditions risky configurations
 			// a bit of inaccuracy is better than locking;)
-
-			if (uwsgi.cores > 1) {
-				for(i=1;i<uwsgi.numproc+1;i++) {
-					tmp_counter = 0;
-					for(j=0;j<uwsgi.cores;j++) {
-						tmp_counter += uwsgi.core[j]->requests;
-					}
-					uwsgi.workers[i].requests = tmp_counter;
-				}
-			}
 
 			if (uwsgi.numproc > 1) {
 				tmp_counter = 0;

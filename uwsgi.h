@@ -1127,7 +1127,7 @@ struct uwsgi_core {
 
 	time_t          harakiri;
 
-	uint64_t        requests;
+	//uint64_t        requests;
 	uint64_t        failed_requests;
 
 	              //multiple ts per - core are needed only with multiple_interpreter + threads
@@ -1166,11 +1166,11 @@ void            warn_pipe(void);
 void            what_i_am_doing(void);
 void            goodbye_cruel_world(void);
 void            gracefully_kill(int);
-void            reap_them_all(void);
-void            kill_them_all(void);
+void            reap_them_all(int);
+void            kill_them_all(int);
 void            grace_them_all(int);
-void            reload_me(void);
-void            end_me(void);
+void            reload_me(int);
+void            end_me(int);
 int             bind_to_unix(char *, int, int, int);
 int             bind_to_tcp(char *, int, char *);
 int             bind_to_udp(char *, int, int);
@@ -1190,7 +1190,7 @@ void            log_request(struct wsgi_request *);
 void            get_memusage(void);
 void            harakiri(void);
 
-void            stats(void);
+void            stats(int);
 
 #ifdef UWSGI_XML
 void            uwsgi_xml_config(struct wsgi_request *, int, char *[]);
