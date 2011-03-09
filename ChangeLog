@@ -1,5 +1,12 @@
 *** march 2011 ***
 
+ * 0.9.7-rc2 [20010309]
+
+- added cron-like interface to signal framework
+- improved Linux namespaces support
+- fixed multithreading + --max-requests
+- added support for reference in configuration files
+
  * 0.9.7-rc1 [20110307]
 
 - export %v in emperor mode
