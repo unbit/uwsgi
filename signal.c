@@ -91,6 +91,31 @@ int uwsgi_add_timer(uint8_t sig, int secs) {
 
 }
 
+int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month, int week) {
+
+	uwsgi_lock(uwsgi.cron_table_lock);
+
+        if (ushared->cron_cnt < MAX_CRONS) {
+
+                ushared->cron[ushared->cron_cnt].sig = sig;
+                ushared->cron[ushared->cron_cnt].minute = minute;
+                ushared->cron[ushared->cron_cnt].hour = hour;
+                ushared->cron[ushared->cron_cnt].day = day;
+                ushared->cron[ushared->cron_cnt].month = month;
+                ushared->cron[ushared->cron_cnt].week = week;
+                ushared->cron_cnt++;
+        }
+        else {
+                uwsgi_log("you can register max %d cron !!!\n", MAX_CRONS);
+                uwsgi_unlock(uwsgi.cron_table_lock);
+                return -1;
+        }
+
+        uwsgi_unlock(uwsgi.cron_table_lock);
+
+        return 0;
+}
+
 int uwsgi_signal_add_rb_timer(uint8_t sig, int secs, int iterations) {
 
         uwsgi_lock(uwsgi.rb_timer_table_lock);

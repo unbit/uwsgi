@@ -20,6 +20,7 @@
 #define MAX_GATEWAYS 64
 #define MAX_DAEMONS 8
 #define MAX_SUBSCRIPTIONS 8
+#define MAX_CRONS 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
 #define UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -978,6 +979,7 @@ struct uwsgi_server {
 	void *fmon_table_lock;
 	void *timer_table_lock;
 	void *rb_timer_table_lock;
+	void *cron_table_lock;
 	void *rpc_table_lock;
 	void *spooler_lock;
 
@@ -1063,6 +1065,18 @@ struct uwsgi_snmp_server_value {
 };
 #endif
 
+struct uwsgi_cron {
+
+        int minute;
+        int hour;
+        int day;
+        int month;
+        int week;
+
+        time_t last_job;
+        uint8_t sig;
+};
+
 struct uwsgi_shared {
 
 	//vga 80 x25 specific !
@@ -1118,6 +1132,9 @@ struct uwsgi_shared {
 #ifdef __linux__
 	struct tcp_info ti;
 #endif
+
+	struct uwsgi_cron cron[MAX_CRONS];
+	int cron_cnt;
 };
 
 struct uwsgi_core {
@@ -1590,3 +1607,5 @@ void uwsgi_nuclear_blast();
 void uwsgi_unix_signal(int, void (*)(int));
 
 char *uwsgi_get_exported_opt(char *);
+
+int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);

@@ -125,7 +125,7 @@ void master_loop(char **argv, char **environ) {
 
 	char log_buf[4096];
 
-	uint64_t current_time = time(NULL);
+	time_t current_time = time(NULL);
 
 	struct timeval last_respawn;
 
@@ -172,21 +172,19 @@ void master_loop(char **argv, char **environ) {
 
 	struct uwsgi_rb_timer *min_timeout;
 	struct rb_root *rb_timers = uwsgi_init_rb_timer();
+	struct tm *uwsgi_cron_delta;
 
-	// release the GIL
-	//UWSGI_RELEASE_GIL
 
-	/* route signals to workers... */
 	uwsgi_unix_signal(SIGHUP, grace_them_all);
 	uwsgi_unix_signal(SIGTERM, reap_them_all);
 	uwsgi_unix_signal(SIGINT, kill_them_all);
 	uwsgi_unix_signal(SIGQUIT, kill_them_all);
-	/* used only to avoid human-errors */
-
 	uwsgi_unix_signal(SIGUSR1, stats);
+
 
 	uwsgi.master_queue = event_queue_init();
 
+	/* route signals to workers... */
 #ifdef UWSGI_DEBUG
 	uwsgi_log("adding %d to signal poll\n", uwsgi.shared->worker_signal_pipe[0]);
 #endif
@@ -500,6 +498,75 @@ void master_loop(char **argv, char **environ) {
 					}
 				}
 
+			
+				// check uwsgi-cron table
+				if (ushared->cron_cnt) {
+					current_time = time(NULL);
+					uwsgi_cron_delta = localtime( &current_time );
+
+					if (uwsgi_cron_delta) {
+
+						// fix month
+						uwsgi_cron_delta->tm_mon++;
+
+						uwsgi_lock(uwsgi.cron_table_lock);
+						for(i=0;i<ushared->cron_cnt;i++) {
+	
+							struct uwsgi_cron *ucron = &ushared->cron[i];
+							int uc_minute, uc_hour, uc_day, uc_month, uc_week;
+
+							uc_minute = ucron->minute;
+							uc_hour = ucron->hour;
+							uc_day = ucron->day;
+							uc_month = ucron->month;
+							uc_week = ucron->week;
+	
+							if (ucron->minute == -1) uc_minute = uwsgi_cron_delta->tm_min;
+							if (ucron->hour == -1) uc_hour = uwsgi_cron_delta->tm_hour;
+							if (ucron->month == -1) uc_month = uwsgi_cron_delta->tm_mon;
+
+							// mday and wday are ORed
+							if (ucron->day == -1 && ucron->week == -1) {
+								if (ucron->day == -1) uc_day = uwsgi_cron_delta->tm_mday;
+								if (ucron->week == -1) uc_week = uwsgi_cron_delta->tm_wday;
+							}
+							else if (ucron->day == -1) {
+								ucron->day = uwsgi_cron_delta->tm_mday;
+							}
+							else if (ucron->week == -1) {
+								ucron->week = uwsgi_cron_delta->tm_wday;
+							}
+							else {
+								if (ucron->day == uwsgi_cron_delta->tm_mday) {
+									ucron->week = uwsgi_cron_delta->tm_wday;
+								}
+								else if (ucron->week == uwsgi_cron_delta->tm_wday) {
+									ucron->day = uwsgi_cron_delta->tm_mday;
+								}
+							}
+							
+							if (uwsgi_cron_delta->tm_min == uc_minute &&
+								uwsgi_cron_delta->tm_hour == uc_hour &&
+								uwsgi_cron_delta->tm_mon == uc_month &&
+								uwsgi_cron_delta->tm_mday == uc_day &&
+								uwsgi_cron_delta->tm_wday == uc_week) {
+
+
+								// date match, signal it ?
+								if (current_time - ucron->last_job > 60) {
+									uwsgi_route_signal(ucron->sig);
+									ucron->last_job = current_time;
+								}
+							}
+					
+						}
+						uwsgi_unlock(uwsgi.cron_table_lock);
+					}
+					else {
+						uwsgi_error("localtime()");
+					}
+				}
+
 				if (rlen > 0) {
 
 					if (uwsgi.log_master) {
@@ -726,7 +793,7 @@ void master_loop(char **argv, char **environ) {
 				for(i=0;i< (int)uwsgi.cache_max_items;i++) {
 					uwsgi_wlock(uwsgi.cache_lock);
 					if (uwsgi.cache_items[i].expires) {
-						if (uwsgi.cache_items[i].expires < current_time) {
+						if (uwsgi.cache_items[i].expires < (uint64_t) current_time) {
 							uwsgi_cache_del(uwsgi.cache_items[i].key, uwsgi.cache_items[i].keysize);
 						}
 					}
