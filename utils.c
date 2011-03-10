@@ -1612,3 +1612,19 @@ char *uwsgi_get_exported_opt(char *key) {
 
 	return NULL;
 }
+
+char *uwsgi_get_optname_by_index(int index) {
+
+        struct option *aopt;
+	struct option *lopt = uwsgi.long_options;
+
+        while ( (aopt = lopt) ) {
+                if (!aopt->name) break;
+		if (aopt->val == index) {
+			return (char *) aopt->name;
+		}
+                lopt++;
+        }
+
+        return NULL;
+}

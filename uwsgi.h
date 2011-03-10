@@ -357,6 +357,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_SUBSCRIBE_TO		17078
 #define LONG_ARGS_CLUSTER_NODES		17079
 #define LONG_ARGS_RELOAD_MERCY		17080
+#define LONG_ARGS_LINUX_NS_NET		17081
 
 
 
@@ -1609,3 +1610,5 @@ void uwsgi_unix_signal(int, void (*)(int));
 char *uwsgi_get_exported_opt(char *);
 
 int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
+
+char *uwsgi_get_optname_by_index(int);

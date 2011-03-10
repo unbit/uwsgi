@@ -153,6 +153,8 @@ static struct option long_base_options[] = {
 	{"cgroup-opt", required_argument, 0, LONG_ARGS_CGROUP_OPT},
 	{"namespace", required_argument, 0, LONG_ARGS_LINUX_NS},
 	{"ns", required_argument, 0, LONG_ARGS_LINUX_NS},
+	{"namespace-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET},
+	{"ns-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET},
 #endif
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"worker-exec", required_argument, 0, LONG_ARGS_WORKER_EXEC},
@@ -448,6 +450,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	char *emperor_env;
 	char *magic_table[0xff];
+	char *optname;
 
 	
 	signal(SIGHUP, SIG_IGN);
@@ -583,16 +586,25 @@ int main(int argc, char *argv[], char *envp[])
 	}
 	build_options();
 
+	uwsgi.option_index = -1;
 	while ((i = getopt_long(argc, argv, short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
-		if (i == 0) {
-			add_exported_option((char *)uwsgi.long_options[uwsgi.option_index].name, "1", 0);
+
+		if (uwsgi.option_index > -1) {
+			optname = (char *)uwsgi.long_options[uwsgi.option_index].name;
 		}
 		else {
-			add_exported_option((char *)uwsgi.long_options[uwsgi.option_index].name, optarg, 1);
+			optname = uwsgi_get_optname_by_index(i);
+		}
+		// is this a flagged option ?
+		if (i == 0) {
+			add_exported_option(optname, "1", 0);
+		}
+		else {
+			add_exported_option(optname, optarg, 1);
 			manage_opt(i, optarg);
 		}
+		uwsgi.option_index = -1;
 	}
-
 
 	   if (optind < argc) {
 	   	char *lazy = argv[optind];
@@ -924,7 +936,9 @@ options_parsed:
 			char stack[PTHREAD_STACK_MIN];
 			int waitpid_status;
 			uwsgi_log("*** jailing uWSGI in %s ***\n", uwsgi.ns);
-			pid_t pid = clone(uwsgi_start, stack+PTHREAD_STACK_MIN, SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS, (void *)argv);
+			int clone_flags = SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS;
+			//clone_flags |= CLONE_NEWNET;
+			pid_t pid = clone(uwsgi_start, stack+PTHREAD_STACK_MIN, clone_flags, (void *)argv);
 			if (pid == -1) {
 				uwsgi_error("clone()");
 				exit(1);
