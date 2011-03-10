@@ -1616,3 +1616,5 @@ int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
 char *uwsgi_get_optname_by_index(int);
 
 int uwsgi_list_has_num(char *, int);
+
+int uwsgi_list_has_str(char *, char *);

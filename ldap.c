@@ -37,71 +37,162 @@ int calc_ldap_name(char *name) {
 	return strlen(name) + counter;
 }
 
-void uwsgi_ldap_schema_dump_ldif() {
-	struct option *aopt, *lopt;
+struct uwsgi_ldap_entry {
+	int num;
+	char names[1024];
+	int has_arg;
+};
 
-	lopt = uwsgi.long_options;
+
+void uwsgi_name_to_ldap(char *src, char *dst) {	
+
 	int i;
-	int counter = 30000;
+	char *ptr = dst;
+
+	memset(dst, 0, 1024);
+
+	strcat(dst, " 'uWSGI");
+
+	ptr+= 7;
+
+	for(i=0;i< (int)strlen(src);i++) {
+        	if (src[i] == '-') {
+                	i++;
+                        *ptr++= toupper( (int) src[i]);
+                }
+                else {
+                	*ptr++= src[i];
+                }
+	}
+
+	strcat(dst, "'");
+
+}
+
+struct uwsgi_ldap_entry *get_ldap_by_num(struct uwsgi_ldap_entry *root, int num, int count) {
+
+	int i;
+	struct uwsgi_ldap_entry *ule;
+
+	for(i=0;i<count;i++) {
+		ule = &root[i];
+		if (ule->num == num) {
+			return ule;
+		}
+	}
+
+	return NULL;
+}
+
+struct uwsgi_ldap_entry *search_ldap_cache(struct uwsgi_ldap_entry *root, char *name, int count) {
+	int i;
+	struct uwsgi_ldap_entry *ule;
+
+	for(i=0;i<count;i++) {
+		ule = &root[i];
+		if (uwsgi_list_has_str(ule->names, name+1)) {
+			return ule;
+		}
+	}
+
+	return NULL;
+}
+
+struct uwsgi_ldap_entry *get_ldap_names(int *count) {
+
+	struct option *aopt, *lopt;
+	struct uwsgi_ldap_entry *ule, *entry;
+	char ldap_name[1024];
+	static int counter = 30000000;
+
+	*count = 0;
+	lopt = uwsgi.long_options;
+
+	ule = uwsgi_malloc(sizeof(struct uwsgi_ldap_entry)*count_options(lopt));
+
+	while( (aopt = lopt) ) {
+                if (!aopt->name)
+                        break;
+
+		uwsgi_name_to_ldap((char *)aopt->name, ldap_name);
+
+		entry = search_ldap_cache(ule, ldap_name, *count);
+
+		if (entry) goto next;
+
+		if (aopt->flag) {
+			entry = &ule[*count] ;
+			entry->num = counter;
+			strcpy(entry->names, ldap_name);
+			counter++;
+			*count = *count+1;
+		}
+		else {
+			entry = get_ldap_by_num(ule, aopt->val, *count);
+			if (entry) {
+				strcat(entry->names, ldap_name);
+			}
+			else {
+				entry = &ule[*count] ;
+				entry->num = aopt->val;
+				strcpy(entry->names, ldap_name);
+				*count = *count+1;
+			}
+		}
+
+		entry->has_arg = aopt->has_arg;
+		
+next:
+		lopt++;
+	}
+
+	return ule;
+}
+
+void uwsgi_ldap_schema_dump_ldif() {
+
+	int i;
+	int items;
 
 	uwsgi_log("\n");
 	uwsgi_log("dn: cn=uwsgi,cn=schema,cn=config\n");
 	uwsgi_log("objectClass: olcSchemaConfig\n");
 	uwsgi_log("cn: uwsgi\n");
 
-	while( (aopt = lopt) ) {
-		if (!aopt->name)
-			break;
+	struct uwsgi_ldap_entry *entry, *ule = get_ldap_names(&items);
 
-		if (aopt->flag) {
-			uwsgi_log("olcAttributeTypes: ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", counter);
-			counter++;
+	for(i=0;i<items;i++) {
+
+		entry = &ule[i];
+		uwsgi_log("olcAttributeTypes: ( 1.3.6.1.4.1.35156.17.4.%d NAME (%s", entry->num, entry->names);
+
+		if (entry->has_arg) {
+			uwsgi_log(" ) SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )\n");
 		}
 		else {
-			uwsgi_log("olcAttributeTypes: ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", aopt->val);
+			uwsgi_log(" ) SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
 		}
-		for(i=0;i< (int)strlen(aopt->name);i++) {
-			if (aopt->name[i] == '-') {
-				i++;
-				uwsgi_log("%c", toupper( (int) aopt->name[i]));
-			}
-			else {
-				uwsgi_log("%c", aopt->name[i]);
-			}
-		}
-
-		if (aopt->has_arg) {
-			uwsgi_log("' SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )\n");
-		}
-		else {
-			uwsgi_log("' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
-		}
-		lopt++;
 	}
 
 	uwsgi_log("olcAttributeTypes: ( 1.3.6.1.4.1.35156.17.4.50000 NAME 'uWSGInull' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
 
-	lopt = uwsgi.long_options;
 
 	uwsgi_log("olcObjectClasses: ( 1.3.6.1.4.1.35156.17.3.1 NAME 'uWSGIConfig' SUP top AUXILIARY DESC 'uWSGI configuration' MAY ( ");
 
-	while( (aopt = lopt) ) {
-		if (!aopt->name)
-			break;
+	
+	for(i=0;i<items;i++) {
 
-		uwsgi_log("uWSGI");
+                entry = &ule[i];
 
-		for(i=0;i< (int)strlen(aopt->name);i++) {
-			if (aopt->name[i] == '-') {
-				i++;
-				uwsgi_log("%c", toupper( (int) aopt->name[i]));
-			}
-			else {
-				uwsgi_log("%c", aopt->name[i]);
-			}
-		}
-		uwsgi_log(" $ ");
-		lopt++;
+		char *list2 = uwsgi_concat2(entry->names+1, "");
+		char *p = strtok(list2, " ");
+        	while (p != NULL) {
+			uwsgi_log("%.*s $ ", strlen(p)-2, p+1);
+                	p = strtok(NULL, " ");
+        	}
+
+        	free(list2);
+
 	}
 
 	uwsgi_log("uWSGInull ))\n");
@@ -112,67 +203,47 @@ void uwsgi_ldap_schema_dump_ldif() {
 }
 
 void uwsgi_ldap_schema_dump() {
-	struct option *aopt, *lopt;
 
-	lopt = uwsgi.long_options;
 	int i;
-	int counter = 30000;
+	int items;
 
-	while( (aopt = lopt) ) {
-		if (!aopt->name)
-			break;
+	struct uwsgi_ldap_entry *entry, *ule = get_ldap_names(&items);
 
+        for(i=0;i<items;i++) {
 
-		if (aopt->flag) {
-			uwsgi_log("attributetype ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", counter);
-			counter++;
-		}
-		else {
-			uwsgi_log("attributetype ( 1.3.6.1.4.1.35156.17.4.%d NAME 'uWSGI", aopt->val);
-		}
-		for(i=0;i< (int)strlen(aopt->name);i++) {
-			if (aopt->name[i] == '-') {
-				i++;
-				uwsgi_log("%c", toupper( (int) aopt->name[i]));
-			}
-			else {
-				uwsgi_log("%c", aopt->name[i]);
-			}
-		}
+                entry = &ule[i];
+                uwsgi_log("attributetype ( 1.3.6.1.4.1.35156.17.4.%d NAME (%s", entry->num, entry->names);
 
-		if (aopt->has_arg) {
-			uwsgi_log("' SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )\n");
-		}
-		else {
-			uwsgi_log("' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
-		}
-		lopt++;
-	}
+                if (entry->has_arg) {
+                        uwsgi_log(" ) SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )\n");
+                }
+                else {
+                        uwsgi_log(" ) SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
+                }
+        }
+
 
 	uwsgi_log("attributetype ( 1.3.6.1.4.1.35156.17.4.50000 NAME 'uWSGInull' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )\n");
 
-	lopt = uwsgi.long_options;
-
 	uwsgi_log("objectclass ( 1.3.6.1.4.1.35156.17.3.1 NAME 'uWSGIConfig' SUP top AUXILIARY DESC 'uWSGI configuration' MAY ( ");
 
-	while( (aopt = lopt) ) {
-		if (!aopt->name)
-			break;
+	for(i=0;i<items;i++) {
 
-		uwsgi_log("uWSGI");
+                entry = &ule[i];
 
-		for(i=0;i< (int)strlen(aopt->name);i++) {
-			if (aopt->name[i] == '-') {
-				i++;
-				uwsgi_log("%c", toupper( (int) aopt->name[i]));
-			}
-			else {
-				uwsgi_log("%c", aopt->name[i]);
-			}
-		}
-		uwsgi_log(" $ ");
-		lopt++;
-	}
+                char *list2 = uwsgi_concat2(entry->names+1, "");
+                char *p = strtok(list2, " ");
+                while (p != NULL) {
+                        uwsgi_log("%.*s $ ", strlen(p)-2, p+1);
+                        p = strtok(NULL, " ");
+                }
+
+                free(list2);
+
+        }
+
+
+
 
 	uwsgi_log("uWSGInull ))\n");
 
@@ -209,6 +280,8 @@ void uwsgi_ldap_config() {
 		uwsgi_log("unable to parse LDAP url.\n");
 		exit(1);
 	}
+	
+	uwsgi_log("[uWSGI] getting LDAP configuration from %s\n", url);
 
 	url_slash = strchr(url, '/');
 	url_slash = strchr(url_slash + 1, '/');
@@ -253,9 +326,11 @@ void uwsgi_ldap_config() {
 
 	entry = ldap_first_entry(ldp, results);
 
+	int found = 0;
 	for( attr = ldap_first_attribute(ldp, entry, &ber); attr != NULL; attr = ldap_next_attribute(ldp, entry, ber)) {
 		if (!strncmp(attr,"uWSGI",5)) {
 
+			found = 1;
 			uwsgi_attr = malloc( calc_ldap_name(attr) + 1 );
 			if (!uwsgi_attr) {
 				uwsgi_error("malloc()");
@@ -269,7 +344,7 @@ void uwsgi_ldap_config() {
 #endif
 			bervalues = ldap_get_values_len(ldp, entry, attr);
 			if (bervalues) {
-				// do not free uwsgi_val;
+				// do not free uwsgi_attr/uwsgi_val;
 				char *uwsgi_val = malloc( bervalues[0]->bv_len + 1 );
 				if (!uwsgi_val) {
 					uwsgi_error("malloc()");
@@ -280,12 +355,18 @@ void uwsgi_ldap_config() {
 				uwsgi_val[bervalues[0]->bv_len] = 0;
 
 				add_exported_option((char*) uwsgi_attr, uwsgi_val, 0);
+				free(bervalues);
 			}
-
-			free(bervalues);
-			free(uwsgi_attr);
+			else {
+				free(uwsgi_attr);
+			}
 		}
 		free(attr);
+	}
+
+	if (!found) {
+		uwsgi_log("no uWSGI LDAP entry found\n");
+		exit(1);
 	}
 
 	free(ber);

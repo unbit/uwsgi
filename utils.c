@@ -1645,3 +1645,20 @@ int uwsgi_list_has_num(char *list, int num) {
 	free(list2);
 	return 0;
 }
+
+int uwsgi_list_has_str(char *list, char *str) {
+	
+	char *list2 = uwsgi_concat2(list+1, "");
+
+	char *p = strtok(list2, " ");
+        while (p != NULL) {
+		if (!strcasecmp(p, str)) {
+			free(list2);
+			return 1;
+		}
+                p = strtok(NULL, " ");
+	}
+
+	free(list2);
+	return 0;
+}
