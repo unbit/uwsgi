@@ -194,8 +194,6 @@ void uwsgi_ldap_config() {
 	int desired_version = LDAP_VERSION3;
 	int ret;
 
-	struct option *aopt, *lopt;
-
 	LDAPURLDesc *ldap_url;
 
 	if (uwsgi.ldap) {
@@ -281,21 +279,7 @@ void uwsgi_ldap_config() {
 				memcpy(uwsgi_val, bervalues[0]->bv_val, bervalues[0]->bv_len);
 				uwsgi_val[bervalues[0]->bv_len] = 0;
 
-				lopt = uwsgi.long_options;
-				while ((aopt = lopt)) {
-					if (!aopt->name)
-						break;
-					if (!strcmp(uwsgi_attr, aopt->name)) {
-						if (aopt->flag) {
-							*aopt->flag = aopt->val;
-							add_exported_option(0, (char*) uwsgi_attr);
-						}
-						else {
-							manage_opt(aopt->val, uwsgi_val);
-						}
-					}
-					lopt++;
-				}
+				add_exported_option((char*) uwsgi_attr, uwsgi_val, 0);
 			}
 
 			free(bervalues);

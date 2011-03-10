@@ -377,9 +377,15 @@ class uConf(object):
             self.gcc_list.append('yaml')
 
         if self.get('ldap'):
-            self.cflags.append("-DUWSGI_LDAP")
-            self.gcc_list.append('ldap')
-            self.libs.append('-lldap')
+            if self.get('ldap') == 'auto':
+                if os.path.exists('/usr/include/ldap.h'):
+                    self.cflags.append("-DUWSGI_LDAP")
+                    self.gcc_list.append('ldap')
+                    self.libs.append('-lldap')
+            else:
+                self.cflags.append("-DUWSGI_LDAP")
+                self.gcc_list.append('ldap')
+                self.libs.append('-lldap')
 
         if self.get('evdis'):
             self.cflags.append("-DUWSGI_EVDIS")
