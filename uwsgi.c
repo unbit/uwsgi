@@ -160,6 +160,7 @@ static struct option long_base_options[] = {
 	{"worker-exec", required_argument, 0, LONG_ARGS_WORKER_EXEC},
 	{"attach-daemon", required_argument, 0, LONG_ARGS_ATTACH_DAEMON},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
+	{"allowed-modifiers", required_argument, 0, LONG_ARGS_ALLOWED_MODIFIERS},
 	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
 	{"dump-options", no_argument, &uwsgi.dump_options, 1},
 	{"show-config", no_argument, &uwsgi.show_config, 1},
@@ -1790,6 +1791,20 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			uwsgi_log("spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
 		}
 	}
+
+
+
+	// security in multiuser environment: allow only a subset of modifiers
+	if (uwsgi.allowed_modifiers) {
+		for (i = 0; i < 0xFF; i++) {
+			if (!uwsgi_list_has_num(uwsgi.allowed_modifiers, i)) {
+                        	uwsgi.p[i]->request = unconfigured_hook;
+                        	uwsgi.p[i]->after_request = unconfigured_after_hook;
+                	}
+        	}
+	}
+
+
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.sockets_cnt > 0) {
 		uwsgi.shared->spooler_pid = spooler_start();
@@ -2051,6 +2066,9 @@ end:
 			return 1;
 		case LONG_ARGS_REMAP_MODIFIER:
 			uwsgi.remap_modifier = optarg;
+			return 1;
+		case LONG_ARGS_ALLOWED_MODIFIERS:
+			uwsgi.allowed_modifiers = optarg;
 			return 1;
 		case LONG_ARGS_PLUGINS:
 			p = strtok(optarg, ",");

@@ -357,8 +357,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_SUBSCRIBE_TO		17078
 #define LONG_ARGS_CLUSTER_NODES		17079
 #define LONG_ARGS_RELOAD_MERCY		17080
-#define LONG_ARGS_LINUX_NS_NET		17081
-
+#define LONG_ARGS_ALLOWED_MODIFIERS	17081
+#define LONG_ARGS_LINUX_NS_NET		17082
 
 
 #define UWSGI_OK	0
@@ -954,6 +954,8 @@ struct uwsgi_server {
 	struct uwsgi_plugin *p[0xFF];
 	struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
 	int gp_cnt;
+	
+	char *allowed_modifiers;
 
 	char *upload_progress;
 
@@ -1612,3 +1614,5 @@ char *uwsgi_get_exported_opt(char *);
 int uwsgi_signal_add_cron(uint8_t, int, int, int, int, int);
 
 char *uwsgi_get_optname_by_index(int);
+
+int uwsgi_list_has_num(char *, int);

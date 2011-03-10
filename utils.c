@@ -1628,3 +1628,20 @@ char *uwsgi_get_optname_by_index(int index) {
 
         return NULL;
 }
+
+int uwsgi_list_has_num(char *list, int num) {
+	
+	char *list2 = uwsgi_concat2(list, "");
+
+	char *p = strtok(list2, ",");
+        while (p != NULL) {
+		if (atoi(p) == num) {
+			free(list2);
+			return 1;
+		}
+                p = strtok(NULL, ",");
+	}
+
+	free(list2);
+	return 0;
+}
