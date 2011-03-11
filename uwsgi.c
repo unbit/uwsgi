@@ -113,7 +113,7 @@ static struct option long_base_options[] = {
 	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG},
 	{"subscribe-to", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
 #ifdef UWSGI_SNMP
-	{"snmp", no_argument, 0, LONG_ARGS_SNMP},
+	{"snmp", optional_argument, 0, LONG_ARGS_SNMP},
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
 #endif
 	{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL},
@@ -1733,12 +1733,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 
 	uwsgi_rawlog(" ***\n");
 
-#ifdef UWSGI_SNMP
-	if (uwsgi.snmp) {
-		//snmp_init();
-	}
-#endif
-
 	//init apps hook
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->init_apps) {
@@ -2166,6 +2160,10 @@ end:
 #ifdef UWSGI_SNMP
 		case LONG_ARGS_SNMP:
 			uwsgi.snmp = 1;
+			if (optarg) {
+				uwsgi.snmp_addr = optarg;
+				uwsgi.master_process = 1;
+			}
 			return 1;
 		case LONG_ARGS_SNMP_COMMUNITY:
 			uwsgi.snmp = 1;

@@ -476,7 +476,7 @@ void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void 
 		if (!uwsgi_strncmp(key, keylen, "key", 3)) {
 			val = uwsgi_cache_get(val, vallen, &tmp_vallen);
                         if (val && tmp_vallen > 0) {
-                        	wsgi_req->response_size = write(wsgi_req->poll.fd, val, vallen);
+                        	wsgi_req->response_size = write(wsgi_req->poll.fd, val, tmp_vallen);
                         }
 
 		}		

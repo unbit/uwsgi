@@ -146,8 +146,6 @@ void master_loop(char **argv, char **environ) {
 	uint8_t uwsgi_signal;
 
 #ifdef UWSGI_UDP
-	struct pollfd uwsgi_poll[2];
-	int uwsgi_poll_size = 0;
 	struct sockaddr_in udp_client;
 	socklen_t udp_len;
 	char udp_client_addr[16];
@@ -163,6 +161,10 @@ void master_loop(char **argv, char **environ) {
 	struct uwsgi_header *uh;
 	struct uwsgi_cluster_node nucn;
 #endif
+#endif
+
+#ifdef UWSGI_SNMP
+	int snmp_fd = -1;
 #endif
 
 	int i=0,j;
@@ -206,21 +208,16 @@ void master_loop(char **argv, char **environ) {
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
 		udp_fd = bind_to_udp(uwsgi.udp_socket, 0, 0);
-		uwsgi_poll[uwsgi_poll_size].fd = udp_fd;
-		if (uwsgi_poll[uwsgi_poll_size].fd < 0) {
+		if (udp_fd < 0) {
 			uwsgi_log( "unable to bind to udp socket. SNMP and cluster management services will be disabled.\n");
 		}
 		else {
 			uwsgi_log( "UDP server enabled.\n");
-			uwsgi_poll[uwsgi_poll_size].events = POLLIN;
-			uwsgi_poll_size++;
+			event_queue_add_fd_read(uwsgi.master_queue, udp_fd);
 		}
 	}
 #ifdef UWSGI_MULTICAST
 	if (uwsgi.cluster) {
-		uwsgi_poll[uwsgi_poll_size].fd = uwsgi.cluster_fd;
-		uwsgi_poll[uwsgi_poll_size].events = POLLIN;
-		uwsgi_poll_size++;
 
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.cluster_fd);
 
@@ -288,12 +285,28 @@ void master_loop(char **argv, char **environ) {
 				memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, strlen(uwsgi.snmp_community) + 1);
 			}
 		}
-		uwsgi_log( "filling SNMP table...");
 
 		uwsgi.shared->snmp_gvalue[0].type = SNMP_COUNTER64;
 		uwsgi.shared->snmp_gvalue[0].val = &uwsgi.workers[0].requests;
 
-		uwsgi_log( "done\n");
+		for(i=0;i<uwsgi.numproc;i++) {
+			uwsgi.shared->snmp_gvalue[30+i].type = SNMP_COUNTER64;
+			uwsgi.shared->snmp_gvalue[30+i].val = &uwsgi.workers[i+1].requests;
+		}
+
+		if (uwsgi.snmp_addr) {
+			snmp_fd = bind_to_udp(uwsgi.snmp_addr, 0, 0);
+                	if (snmp_fd < 0) {
+                        	uwsgi_log( "unable to bind to udp socket. SNMP service will be disabled.\n");
+                	}
+                	else {
+                        	uwsgi_log( "SNMP server enabled on %s\n", uwsgi.snmp_addr);
+                        	event_queue_add_fd_read(uwsgi.master_queue, snmp_fd);
+                	}
+		}
+		else {
+			uwsgi_log( "SNMP agent enabled.\n");
+		}
 
 	}
 #endif
@@ -606,6 +619,20 @@ void master_loop(char **argv, char **environ) {
 							}
 						}
 					}
+#ifdef UWSGI_SNMP
+					if (uwsgi.snmp_addr && interesting_fd == snmp_fd) {
+						udp_len = sizeof(udp_client);
+						rlen = recvfrom(snmp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+
+						if (rlen < 0) {
+							uwsgi_error("recvfrom()");
+						}
+						else if (rlen > 0) {
+							manage_snmp(snmp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+						}
+						continue;
+					}
+#endif
 
 #ifdef UWSGI_UDP
 					if (uwsgi.udp_socket && interesting_fd == udp_fd) {

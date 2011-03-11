@@ -800,13 +800,10 @@ struct uwsgi_server {
 	char           *spool_dir;
 #endif
 
-#ifdef UWSGI_NAGIOS
-	int             nagios;
-#endif
-
 #ifdef UWSGI_SNMP
 	int             snmp;
-	char           *snmp_community;
+	char		*snmp_addr;
+	char		*snmp_community;
 #endif
 
 
