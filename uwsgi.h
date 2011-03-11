@@ -98,6 +98,8 @@
 
 
 #ifdef __linux
+#define __USE_GNU
+#include <sched.h>
 #include <sys/prctl.h>
 #include <linux/limits.h>
 #include <sys/mount.h>
@@ -359,6 +361,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_RELOAD_MERCY		17080
 #define LONG_ARGS_ALLOWED_MODIFIERS	17081
 #define LONG_ARGS_LINUX_NS_NET		17082
+#define LONG_ARGS_CPU_AFFINITY		17083
 
 
 #define UWSGI_OK	0
@@ -717,6 +720,8 @@ struct uwsgi_server {
 	pid_t emperor_pid;
 
 	time_t master_mercy;
+
+	int cpu_affinity;
 
 	int reload_mercy;
 	int option_index;

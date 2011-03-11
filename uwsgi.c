@@ -95,6 +95,7 @@ static struct option long_base_options[] = {
 	{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
 	{"no-orphans", no_argument, &uwsgi.no_orphans, 1},
 	{"prio", required_argument, 0, LONG_ARGS_PRIO},
+	{"cpu-affinity", required_argument, 0, LONG_ARGS_CPU_AFFINITY},
 	{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING},
 	{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE},
 	{"upload-progress", required_argument, 0, LONG_ARGS_UPLOAD_PROGRESS},
@@ -1865,6 +1866,29 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		//from now on the process is a real worker
 	}
 
+	if (uwsgi.cpu_affinity) {
+#ifdef __linux__
+		cpu_set_t cpuset;
+		CPU_ZERO(&cpuset);
+		int ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+		int base_cpu = (uwsgi.mywid-1)*uwsgi.cpu_affinity;
+		if (base_cpu >= ncpu) {
+			base_cpu = base_cpu % ncpu;
+		}
+		uwsgi_log("set cpu affinity for worker %d to", uwsgi.mywid);
+		for(i=0;i<uwsgi.cpu_affinity;i++) {
+			if (base_cpu >= ncpu) base_cpu = 0 ;
+			CPU_SET(base_cpu, &cpuset);
+			uwsgi_log(" %d", base_cpu);
+			base_cpu++; 
+		}	
+		if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
+			uwsgi_error("sched_setaffinity()");
+		}
+		uwsgi_log("\n");
+#endif
+	}
+
 	if (uwsgi.worker_exec) {
 		char *w_argv[2];
 		w_argv[0] = uwsgi.worker_exec;
@@ -2243,6 +2267,9 @@ end:
 			return 1;
 		case LONG_ARGS_PRIO:
 			uwsgi.prio = (int) strtol(optarg, NULL, 10);
+			return 1;
+		case LONG_ARGS_CPU_AFFINITY:
+			uwsgi.cpu_affinity = (int) strtol(optarg, NULL, 10);
 			return 1;
 		case LONG_ARGS_POST_BUFFERING:
 			uwsgi.post_buffering = atoi(optarg);
