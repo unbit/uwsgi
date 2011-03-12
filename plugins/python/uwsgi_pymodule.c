@@ -2641,6 +2641,11 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 #endif
 		uwsgi_rlock(uwsgi.cache_lock);
 		value = uwsgi_cache_get(key, keylen, &valsize);
+		if (!value) {
+			uwsgi_rwunlock(uwsgi.cache_lock);
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
 		res = PyString_FromStringAndSize(value, valsize);
 #ifdef UWSGI_DEBUG
 		gettimeofday(&tv2, NULL); 
