@@ -736,7 +736,6 @@ void master_loop(char **argv, char **environ) {
 					uwsgi_lock(uwsgi.fmon_table_lock);
 					for(i=0;i<ushared->files_monitored_cnt;i++) {
 						if (ushared->files_monitored[i].registered) {
-							uwsgi_log("fmon check %d == %d\n", interesting_fd, ushared->files_monitored[i].fd) ;
 							if (interesting_fd == ushared->files_monitored[i].fd) {
 								struct uwsgi_fmon *uf = event_queue_ack_file_monitor(uwsgi.master_queue, interesting_fd);
 								// now call the file_monitor handler
