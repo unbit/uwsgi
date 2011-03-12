@@ -478,11 +478,13 @@ int py_to_erl(PyObject *pobj, ei_x_buff *x) {
                 ei_x_encode_long(x, PyInt_AsLong(pobj));
         }
         else if (PyList_Check(pobj)) {
-		ei_x_encode_list_header(x, PyList_Size(pobj));
-                for (i = 0; i < PyList_Size(pobj); i++) {
-                        pobj2 = PyList_GetItem(pobj, i);
-			if (py_to_erl(pobj2, x) < 0) return -1;
-                }
+		if (PyList_Size(pobj) > 0) {
+			ei_x_encode_list_header(x, PyList_Size(pobj));
+                	for (i = 0; i < PyList_Size(pobj); i++) {
+                        	pobj2 = PyList_GetItem(pobj, i);
+				if (py_to_erl(pobj2, x) < 0) return -1;
+                	}
+		}
 		ei_x_encode_empty_list(x);
         }
 	else if (PyTuple_Check(pobj)) {

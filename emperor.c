@@ -222,10 +222,7 @@ void emperor_loop() {
 
 		if (!i_am_alone) {
 			diedpid = waitpid(uwsgi.emperor_pid, &waitpid_status, WNOHANG);
-			if (diedpid < 0) {
-				uwsgi_error("waitpid()");
-			}
-			else if (diedpid > 0) {
+			if (diedpid < 0 || diedpid > 0) {
 				i_am_alone = 1;
 			}
 		}
