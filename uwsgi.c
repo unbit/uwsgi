@@ -66,6 +66,8 @@ static struct option long_base_options[] = {
 	{"sharedarea", required_argument, 0, 'A'},
 	{"cache", required_argument, 0, LONG_ARGS_CACHE},
 	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE},
+	{"cache-store", required_argument, 0, LONG_ARGS_CACHE_STORE},
+	{"cache-store-sync", required_argument, 0, LONG_ARGS_CACHE_STORE_SYNC},
 	{"queue", required_argument, 0, LONG_ARGS_QUEUE},
 	{"queue-blocksize", required_argument, 0, LONG_ARGS_QUEUE_BLOCKSIZE},
 #ifdef UWSGI_SPOOLER
@@ -1345,26 +1347,65 @@ int uwsgi_start(void *v_argv) {
 
                 memset(uwsgi.cache_unused_stack, 0, sizeof(uint64_t) * uwsgi.cache_max_items);
 
-		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		// the first cache item is always zero
+		uwsgi.shared->cache_first_available_item = 1;
+		uwsgi.shared->cache_unused_stack_ptr = 0;
+
+		//uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (uwsgi.cache_store) {
+			uwsgi.cache_filesize = (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items);
+			int cache_fd;
+			struct stat cst;
+
+			if (stat(uwsgi.cache_store, &cst)) {
+				uwsgi_log("creating a new cache store file: %s\n", uwsgi.cache_store);
+				cache_fd = open(uwsgi.cache_store, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR );
+				if (cache_fd >= 0) {
+					// fill the caching store
+					if (ftruncate(cache_fd, uwsgi.cache_filesize)) {
+						uwsgi_log("ftruncate()");
+						exit(1);
+					}
+				}
+			}
+			else {
+				if (cst.st_size != uwsgi.cache_filesize || !S_ISREG(cst.st_mode)) {
+					uwsgi_log("invalid cache store file. Please remove it or fix cache blocksize/items to match its size\n");
+					exit(1);
+				}
+				cache_fd = open(uwsgi.cache_store, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR );
+				uwsgi_log("recovered cache from backing store file: %s\n", uwsgi.cache_store);
+			}
+			
+			if (cache_fd < 0) {
+				uwsgi_error("open()");
+				exit(1);
+			}
+			uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, uwsgi.cache_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, cache_fd, 0);
+			uwsgi_cache_fix();
+			
+		}
+		else {
+			uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+			for(i=0;i< (int) uwsgi.cache_max_items;i++) {
+				memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
+			}
+		}
 		if (!uwsgi.cache_items) {
 			uwsgi_error("mmap()");
                         exit(1);
 		}
 
+		/*
 		uwsgi.cache = mmap(NULL, uwsgi.cache_blocksize * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (!uwsgi.cache) {
 			uwsgi_error("mmap()");
                         exit(1);
 		}
+		*/
+
+		uwsgi.cache = ((void *) uwsgi.cache_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) ;
 		
-		for(i=0;i< (int) uwsgi.cache_max_items;i++) {
-			memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
-		}
-
-		// the first cache item is always zero
-		uwsgi.shared->cache_first_available_item = 1;
-		uwsgi.shared->cache_unused_stack_ptr = 0;
-
 		uwsgi.cache_lock = uwsgi_mmap_shared_rwlock();
         	uwsgi_rwlock_init(uwsgi.cache_lock);
 
@@ -2293,6 +2334,13 @@ end:
 			return 1;
 		case LONG_ARGS_CACHE:
 			uwsgi.cache_max_items = atoi(optarg);
+			return 1;
+		case LONG_ARGS_CACHE_STORE:
+			uwsgi.cache_store = optarg;
+			uwsgi.master_process = 1;
+			return 1;
+		case LONG_ARGS_CACHE_STORE_SYNC:
+			uwsgi.cache_store_sync = atoi(optarg);
 			return 1;
 		case LONG_ARGS_CACHE_BLOCKSIZE:
 			uwsgi.cache_blocksize = atoi(optarg);

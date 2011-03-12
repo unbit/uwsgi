@@ -330,6 +330,27 @@ int uwsgi_cache_del(char *key, uint16_t keylen) {
 	return ret;
 }
 
+void uwsgi_cache_fix() {
+
+	uint64_t i;
+
+	for(i=0;i< uwsgi.cache_max_items;i++) {
+		// valid record ?
+		if (uwsgi.cache_items[i].keysize) {
+			if (!uwsgi.cache_items[i].prev) {
+				// put value in hash_table
+				uwsgi.cache_hashtable[ uwsgi.cache_items[i].djbhash % 0xffff] = i;
+			}
+		}
+		else {
+			// put this record in unused stack
+			uwsgi.shared->cache_first_available_item = i;
+			uwsgi.shared->cache_unused_stack_ptr++;
+			uwsgi.cache_unused_stack[uwsgi.shared->cache_unused_stack_ptr] = i;
+		}
+	}
+}
+
 int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint64_t expires, uint16_t flags) {
 
 	uint64_t index = 0, last_index = 0 ;

@@ -330,6 +330,13 @@ void master_loop(char **argv, char **environ) {
 		uwsgi_subscribe(uwsgi.subscriptions[i]);
 	}
 
+	// sync the cache store if needed
+	if (uwsgi.cache_store && uwsgi.cache_filesize) {
+		if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
+			uwsgi_error("msync()");
+		}
+	}
+
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 
@@ -935,6 +942,12 @@ void master_loop(char **argv, char **environ) {
 				for(i=0;i<uwsgi.subscriptions_cnt;i++) {
 					uwsgi_subscribe(uwsgi.subscriptions[i]);
 				}
+			}
+
+			if (uwsgi.cache_store && uwsgi.cache_filesize && uwsgi.cache_store_sync && ((master_cycles % uwsgi.cache_store_sync) == 0)) {
+				if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
+                        		uwsgi_error("msync()");
+                		}
 			}
 
 

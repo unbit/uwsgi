@@ -362,6 +362,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_ALLOWED_MODIFIERS	17081
 #define LONG_ARGS_LINUX_NS_NET		17082
 #define LONG_ARGS_CPU_AFFINITY		17083
+#define LONG_ARGS_CACHE_STORE		17084
+#define LONG_ARGS_CACHE_STORE_SYNC	17085
 
 
 #define UWSGI_OK	0
@@ -972,6 +974,9 @@ struct uwsgi_server {
 	uint64_t	cache_blocksize;
 	struct uwsgi_cache_item	*cache_items;
 	void		*cache;
+	char 		*cache_store;
+	size_t 		cache_filesize;
+	int		cache_store_sync;
 
 	uint64_t	queue_size;
 	uint64_t	queue_blocksize;
@@ -1620,3 +1625,5 @@ char *uwsgi_get_optname_by_index(int);
 int uwsgi_list_has_num(char *, int);
 
 int uwsgi_list_has_str(char *, char *);
+
+void uwsgi_cache_fix(void);
