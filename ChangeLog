@@ -1,6 +1,20 @@
 *** march 2011 ***
 
- * 0.9.7-rc2 [20010309]
+ * 0.9.7-rc3 [20110312]
+
+- added support for persistent cache (--cache-store <filename>)
+- less verbose file monitoring
+- fixed a race condition in emperor startup
+- fixed erlang empty list encoding
+- improved snmp support
+- fixed cache modifier 111 for 3 and 4
+- preliminary cpu-affinity support (Linux only)
+- fixed ldap support
+- auto-configure ldap compilation
+- added --allowed-modifiers (allow only a subset of modifiers)
+- fixed a bug with getopt_long
+
+ * 0.9.7-rc2 [20110309]
 
 - added cron-like interface to signal framework
 - improved Linux namespaces support
