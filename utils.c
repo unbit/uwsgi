@@ -376,6 +376,7 @@ void uwsgi_as_root() {
 void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
+	int tmp_id;
 
 	gettimeofday(&wsgi_req->end_of_request, NULL);
 	uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
@@ -408,7 +409,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 	// reset request
+	tmp_id = wsgi_req->async_id;
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
+	wsgi_req->async_id = tmp_id;
 
 	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
 		goodbye_cruel_world();
@@ -426,9 +429,6 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
 	wsgi_req->sendfile_fd = -1;
 #endif
 
-#ifdef UWSGI_ASYNC
-	wsgi_req->async_waiting_fd = -1;
-#endif
 	wsgi_req->hvec = uwsgi.async_hvec[wsgi_req->async_id];
 	wsgi_req->buffer = uwsgi.async_buf[wsgi_req->async_id];
 

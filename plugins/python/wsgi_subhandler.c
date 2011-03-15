@@ -225,18 +225,6 @@ clear2:
 	Py_DECREF((PyObject *)wsgi_req->async_result);
 	PyErr_Clear();
 
-#ifdef UWSGI_DEBUG
-	if (wsgi_req->async_placeholder) {
-		uwsgi_debug("wsgi_req->async_placeholder: %d\n", ((PyObject *)wsgi_req->async_placeholder)->ob_refcnt);
-	}
-	if (wsgi_req->async_result) {
-		uwsgi_debug("wsgi_req->async_result: %d\n", ((PyObject *)wsgi_req->async_result)->ob_refcnt);
-	}
-	if (wsgi_req->async_app) {
-		uwsgi_debug("wsgi_req->async_app: %d\n", ((PyObject *)wsgi_req->async_app)->ob_refcnt);
-	}
-#endif
-
 	UWSGI_RELEASE_GIL
 	return UWSGI_OK;
 }

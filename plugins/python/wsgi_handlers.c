@@ -196,12 +196,7 @@ PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 	}
 
 	if (fd >= 0) {
-		wsgi_req->async_waiting_fd = fd;
-		wsgi_req->async_waiting_fd_type = ASYNC_IN;
-		wsgi_req->async_waiting_fd_monitored = 0;
-		if (timeout > 0) {
-			wsgi_req->async_timeout = time(NULL) + timeout;
-		}
+		async_add_fd_read(wsgi_req, fd, timeout);
 	}
 
 	return PyString_FromString("");
@@ -218,12 +213,7 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 	}
 
 	if (fd >= 0) {
-		wsgi_req->async_waiting_fd = fd;
-		wsgi_req->async_waiting_fd_type = ASYNC_OUT;
-		wsgi_req->async_waiting_fd_monitored = 0;
-		if (timeout > 0) {
-			wsgi_req->async_timeout = time(NULL) + timeout;
-		}
+		async_add_fd_write(wsgi_req, fd, timeout);
 	}
 
 	return PyString_FromString("");
@@ -249,12 +239,20 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		// get rid of timeout
-		if (wsgi_req->async_timeout_expired) {
+		if (wsgi_req->async_timed_out) {
 			PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_True);
-			wsgi_req->async_timeout_expired = 0;
+			wsgi_req->async_timed_out = 0;
 		}
 		else {
 			PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
+		}
+
+		if (wsgi_req->async_ready_fd) {
+			PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", PyInt_FromLong(wsgi_req->async_last_ready_fd));
+			wsgi_req->async_ready_fd = 0;
+		}
+		else {
+			PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", Py_None);
 		}
 		return manage_python_response(wsgi_req);
 	}

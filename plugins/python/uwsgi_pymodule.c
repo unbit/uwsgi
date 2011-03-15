@@ -813,16 +813,16 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_async_sleep(PyObject * self, PyObject * args) {
 
 	float timeout;
-	time_t sec_timeout;
+	int sec_timeout;
 
 	if (!PyArg_ParseTuple(args, "f:async_sleep", &timeout)) {
 		return NULL;
 	}
 
-	sec_timeout = (time_t) timeout;
+	sec_timeout = (int) timeout;
 
 	if (sec_timeout > 0) {
-		async_set_timeout(uwsgi.wsgi_req, sec_timeout);
+		async_add_timeout(uwsgi.wsgi_req, sec_timeout);
 	}
 
 	return PyString_FromString("");

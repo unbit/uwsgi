@@ -560,6 +560,13 @@ struct __attribute__ ((packed)) uwsgi_header {
 	uint8_t         modifier2;
 };
 
+struct uwsgi_async_fd {
+        int fd;
+	int event;
+        struct uwsgi_async_fd* prev;
+        struct uwsgi_async_fd* next;
+};
+
 
 struct wsgi_request {
 	struct uwsgi_header uh;
@@ -639,14 +646,14 @@ struct wsgi_request {
 
 	int             async_id;
 	int             async_status;
-	int             async_waiting_fd;
-	int             async_waiting_fd_type;
-	int             async_waiting_fd_monitored;
 
 	int             switches;
 
-	time_t          async_timeout;
-	int             async_timeout_expired;
+	int		async_timed_out;
+	int		async_ready_fd;
+	int		async_last_ready_fd;
+	struct uwsgi_rb_timer *async_timeout;
+	struct uwsgi_async_fd *waiting_fds;
 
 	void           *async_app;
 	void           *async_result;
@@ -772,8 +779,16 @@ struct uwsgi_server {
 	char          **async_buf;
 	char          **async_post_buf;
 
-	int *async_waiting_fd_table;
-        int async_current_max;
+	struct wsgi_request **async_waiting_fd_table;
+	struct uwsgi_async_request *async_runqueue;
+	struct uwsgi_async_request *async_runqueue_last;
+	int	async_runqueue_cnt;
+
+	struct rb_root *rb_async_timeouts;
+
+	int		async_queue_unused_ptr;
+	struct wsgi_request **async_queue_unused;
+
 
 #ifdef UWSGI_ROUTING
 	int           **async_ovector;
@@ -834,14 +849,6 @@ struct uwsgi_server {
 	int             async_running;
 	int             async_queue;
 	int             async_nevents;
-
-#ifdef __linux__
-	struct epoll_event *async_events;
-#elif defined(__sun__)
-	struct pollfd  *async_events;
-#else
-	struct kevent  *async_events;
-#endif
 
 	int             max_vars;
 	int             vec_size;
@@ -1268,13 +1275,14 @@ struct http_status_codes {
 
 #ifdef UWSGI_ASYNC
 
-#define ASYNC_IN	1
-#define ASYNC_OUT	2
-struct wsgi_request *async_loop(void);
+void *async_loop(void *);
 struct wsgi_request *find_first_available_wsgi_req(void);
 struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int);
 struct wsgi_request *find_wsgi_req_by_id(int);
+
+void async_add_fd_write(struct wsgi_request *, int, int);
+void async_add_fd_read(struct wsgi_request *, int, int);
 
 #ifdef __clang__
 struct wsgi_request *next_wsgi_req(struct wsgi_request *);
@@ -1283,11 +1291,8 @@ inline struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 #endif
 
 
-int async_get_timeout(void);
-void async_set_timeout(struct wsgi_request*, time_t);
+void async_add_timeout(struct wsgi_request*, int);
 void async_expire_timeouts(void);
-void async_write_all(char *, size_t);
-void async_unpause_all(void);
 
 
 #endif
@@ -1375,7 +1380,6 @@ int             find_worker_id(pid_t);
 
 
 void           *simple_loop(void *);
-void            complex_loop(void);
 
 int             count_options(struct option *);
 
@@ -1445,7 +1449,7 @@ int event_queue_init(void);
 void *event_queue_alloc(int);
 int event_queue_add_fd_read(int, int);
 int event_queue_add_fd_write(int, int);
-int event_queue_del_fd(int, int);
+int event_queue_del_fd(int, int, int);
 int event_queue_wait(int, int, int *);
 int event_queue_wait_multi(int, int, void *, int);
 int event_queue_interesting_fd(void *, int);
@@ -1627,3 +1631,21 @@ int uwsgi_list_has_num(char *, int);
 int uwsgi_list_has_str(char *, char *);
 
 void uwsgi_cache_fix(void);
+
+struct uwsgi_async_request {
+
+	struct wsgi_request *wsgi_req;
+	struct uwsgi_async_request *prev;
+	struct uwsgi_async_request *next;
+};
+
+inline int event_queue_read(void);
+inline int event_queue_write(void);
+
+struct uwsgi_help_item {
+
+	char *key;
+	char *value;
+};
+
+void uwsgi_help(void);

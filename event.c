@@ -6,6 +6,9 @@ extern struct uwsgi_server uwsgi;
 
 #include <port.h>
 
+#define UWSGI_EVENT_IN POLLIN
+#define UWSGI_EVENT_OUT POLLOUT
+
 int event_queue_init() {
 
         int port = port_create();
@@ -18,7 +21,7 @@ int event_queue_init() {
         return port;
 }
 
-int event_queue_del_fd(int eq, int fd) {
+int event_queue_del_fd(int eq, int fd, int event) {
 
         if (port_dissociate(eq, PORT_SOURCE_FD, fd)) {
                 uwsgi_error("port_disassociate");
@@ -160,6 +163,9 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 
 #include <sys/epoll.h>
 
+#define UWSGI_EVENT_IN EPOLLIN
+#define UWSGI_EVENT_OUT EPOLLOUT
+
 int event_queue_init() {
 
         int epfd;
@@ -207,12 +213,13 @@ int event_queue_fd_write_to_read(int eq, int fd) {
         return fd;
 }
 
-int event_queue_del_fd(int eq, int fd) {
+int event_queue_del_fd(int eq, int fd, int event) {
 
         struct epoll_event ee;
 
         memset(&ee, 0, sizeof(struct epoll_event));
         ee.data.fd = fd;
+	ee.events = event;
 
         if (epoll_ctl(eq, EPOLL_CTL_DEL, fd, &ee)) {
                 uwsgi_error("epoll_ctl()");
@@ -298,6 +305,10 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 #endif
 
 #ifdef UWSGI_EVENT_USE_KQUEUE
+
+#define UWSGI_EVENT_IN EVFILT_READ
+#define UWSGI_EVENT_OUT EVFILT_WRITE
+
 int event_queue_init() {
 
 	int kfd = kqueue();
@@ -329,11 +340,11 @@ int event_queue_fd_write_to_read(int eq, int fd) {
 	return fd;
 }
 
-int event_queue_del_fd(int eq, int fd) {
+int event_queue_del_fd(int eq, int fd, int event) {
 
 	struct kevent kev;
 
-        EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
+        EV_SET(&kev, fd, event, EV_DELETE, 0, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
                 uwsgi_error("kevent()");
                 return -1;
@@ -831,3 +842,11 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 
 }
 #endif
+
+inline int event_queue_read() {
+	return UWSGI_EVENT_IN;
+}
+
+inline int event_queue_write() {
+	return UWSGI_EVENT_OUT;
+}

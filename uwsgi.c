@@ -188,7 +188,7 @@ void warn_pipe()
 {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-	if (uwsgi.async < 2 && wsgi_req->uri_len > 0) {
+	if (uwsgi.threads < 2 && wsgi_req->uri_len > 0) {
 		uwsgi_log("SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request %.*s (ip %.*s) !!!\n", wsgi_req->uri_len, wsgi_req->uri, wsgi_req->remote_addr_len, wsgi_req->remote_addr);
 	} else {
 		uwsgi_log("SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) !!!\n");
@@ -1170,9 +1170,10 @@ int uwsgi_start(void *v_argv) {
 
 
 	uwsgi_register_loop("simple", simple_loop);
-	uwsgi_register_loop("async", complex_loop);
+	uwsgi_register_loop("async", async_loop);
 
 
+	// TODO rewrite to use uwsgi.max_fd
 	if (uwsgi.async > 1) {
 		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 			if ((unsigned long) uwsgi.rl.rlim_cur < (unsigned long) uwsgi.async) {
@@ -1209,8 +1210,8 @@ int uwsgi_start(void *v_argv) {
 	uwsgi.async_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 
 	if (uwsgi.async > 1) {
-		uwsgi_log("%d\n", uwsgi.max_fd);
-		uwsgi.async_waiting_fd_table = malloc( sizeof(int) * uwsgi.max_fd);
+		uwsgi_log("async fd table size: %d\n", uwsgi.max_fd);
+		uwsgi.async_waiting_fd_table = malloc( sizeof(struct wsgi_request *) * uwsgi.max_fd);
         	if (!uwsgi.async_waiting_fd_table) {
                 	uwsgi_error("malloc()");
                 	exit(1);
@@ -1674,20 +1675,6 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
-#ifdef UWSGI_ASYNC
-	if (uwsgi.async > 1) {
-#ifdef __linux__
-		uwsgi.async_events = uwsgi_malloc(sizeof(struct epoll_event) * uwsgi.async);
-#elif defined(__sun__)
-		uwsgi.async_events = uwsgi_malloc(sizeof(struct pollfd) * uwsgi.async);
-#else
-		uwsgi.async_events = uwsgi_malloc(sizeof(struct kevent) * uwsgi.async);
-#endif
-	}
-#endif
-
-
-
 
 #ifndef UNBIT
 	uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
@@ -1969,6 +1956,16 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			event_queue_add_fd_read(uwsgi.async_queue, uwsgi.sockets[i].fd);
 		}
 	}
+
+	uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();
+
+        uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request*) * uwsgi.async);
+
+        for(i=0;i<uwsgi.async;i++) {
+                uwsgi.async_queue_unused[i] = uwsgi.wsgi_requests[i];
+        }
+
+        uwsgi.async_queue_unused_ptr = uwsgi.async-1;
 #endif
 
 
@@ -2006,6 +2003,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	//re - initialize wsgi_req(can be full of init_uwsgi_app data)
 	for (i = 0; i < uwsgi.cores; i++) {
 		memset(uwsgi.wsgi_requests[i], 0, sizeof(struct wsgi_request));
+		uwsgi.wsgi_requests[i]->async_id = i;
 	}
 
 
@@ -2037,6 +2035,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
        		uwsgi.sockets_poll[uwsgi.sockets_cnt].fd = uwsgi.shared->worker_signal_pipe[1];
         	uwsgi.sockets_poll[uwsgi.sockets_cnt].events = POLLIN;
 #ifdef UWSGI_ASYNC
+		// add uwsgi signal fd to async queue
 		if (uwsgi.async > 1) {
 			event_queue_add_fd_read(uwsgi.async_queue, uwsgi.sockets_poll[uwsgi.sockets_cnt].fd);
 		}
@@ -2081,7 +2080,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			long y = 0;
 			simple_loop((void *) y);
 		} else {
-			complex_loop();
+			async_loop(NULL);
 		}
 
 	}
@@ -2518,104 +2517,11 @@ end:
 			uwsgi.single_interpreter = 1;
 			return 1;
 		case 'h':
+			uwsgi_help();
+/*
 			fprintf(stdout, "Usage: %s [options...]\n\
-\t-s|--socket <name>\t\tpath (or name) of UNIX/TCP socket to bind to\n\
-\t-l|--listen <num>\t\tset socket listen queue to <n> (default 64, maximum is system dependent)\n\
-\t-z|--socket-timeout <sec>\tset socket timeout to <sec> seconds (default 4 seconds)\n\
-\t-b|--buffer-size <n>\t\tset buffer size to <n> bytes\n\
-\t-L|--disable-logging\t\tdisable request logging (only errors or server messages will be logged)\n\
-\t-x|--xmlconfig <path>\t\tpath of xml config file\n\
-\t-w|--module <module>\t\tname of python config module\n\
-\t-t|--harakiri <sec>\t\tset harakiri timeout to <sec> seconds\n\
-\t-p|--processes <n>\t\tspawn <n> uwsgi worker processes\n\
-\t-O|--optimize <n>\t\tset python optimization level to <n>\n\
-\t-v|--max-vars <n>\t\tset maximum number of vars/headers to <n>\n\
-\t-A|--sharedarea <n>\t\tcreate a shared memory area of <n> pages\n\
-\t-c|--cgi-mode\t\t\tset cgi mode\n\
-\t-C|--chmod-socket[=NNN]\t\tchmod socket to 666 or NNN\n\
-\t-m|--memory-report\t\tenable memory usage report\n\
-\t-i|--single-interpreter\t\tsingle interpreter mode\n\
-\t-a|--abstract-socket\t\tset socket in the abstract namespace (Linux only)\n\
-\t-T|--enable-threads\t\tenable threads support\n\
-\t-M|--master\t\t\tenable master process manager\n\
-\t-H|--home <path>\t\tset python home/virtualenv\n\
-\t-h|--help\t\t\tthis help\n\
-\t-r|--reaper\t\t\tprocess reaper (call waitpid(-1,...) after each request)\n\
-\t-R|--max-requests\t\tmaximum number of requests for each worker\n\
-\t-j|--test\t\t\ttest if uWSGI can import a module\n\
-\t-Q|--spooler <dir>\t\trun the spooler on directory <dir>\n\
-\t--callable <callable>\t\tset the callable (default 'application')\n\
-\t--pidfile <file>\t\twrite the masterpid to <file>\n\
-\t--chroot <dir>\t\t\tchroot to directory <dir> (only root)\n\
-\t--gid <id/groupname>\t\tsetgid to <id/groupname> (only root)\n\
-\t--uid <id/username>\t\tsetuid to <id/username> (only root)\n\
-\t--chdir <dir>\t\t\tchdir to <dir> before app loading\n\
-\t--chdir2 <dir>\t\t\tchdir to <dir> after module loading\n\
-\t--no-server\t\t\tinitialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module\n\
-\t--no-defer-accept\t\tdisable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)\n\
-\t--paste <config:/egg:>\t\tload applications using paste.deploy.loadapp()\n\
-\t--check-interval <sec>\t\tset the check interval (in seconds) of the master process\n\
-\t--pythonpath <dir>\t\tadd <dir> to PYTHONPATH\n\
-\t--python-path <dir>\t\tadd <dir> to PYTHONPATH\n\
-\t--pp <dir>\t\t\tadd <dir> to PYTHONPATH\n\
-\t--pyargv <args>\t\t\tassign args to python sys.argv\n\
-\t--limit-as <MB>\t\t\tlimit the address space of processes to MB megabytes\n\
-\t--limit-post <bytes>\t\tlimit HTTP content_length size to <bytes>\n\
-\t--post-buffering <bytes>\tbuffer HTTP POST request higher than <bytes> to disk\n\
-\t--post-buffering-bufsize <b>\tset the buffer size to <b> bytes for post-buffering\n\
-\t--prio <N>\t\t\tset process priority/nice to N\n\
-\t--no-orphans\t\t\tautomatically kill workers on master's dead\n\
-\t--udp <ip:port>\t\t\tbind master process to udp socket on ip:port\n\
-\t--multicast <group>\t\tset multicast group\n\
-\t--snmp\t\t\t\tenable SNMP support in the UDP server\n\
-\t--snmp-community <value>\tset SNMP community code to <value>\n\
-\t--erlang <name@ip>\t\tenable the Erlang server with node name <node@ip>\n\
-\t--erlang-cookie <cookie>\tset the erlang cookie to <cookie>\n\
-\t--nagios\t\t\tdo a nagios check\n\
-\t--binary-path <bin-path>\tset the path for the next reload of uWSGI (needed for chroot environments)\n\
-\t--proxy <socket>\t\trun the uwsgi proxy on socket <socket>\n\
-\t--proxy-node <socket>\t\tadd the node <socket> to the proxy\n\
-\t--proxy-max-connections <n>\tset the max number of concurrent connections mnaged by the proxy\n\
-\t--wsgi-file <file>\t\tload the <file> wsgi file\n\
-\t--file <file>\t\t\tuse python file instead of python module for configuration\n\
-\t--eval <code>\t\t\tevaluate code for app configuration\n\
-\t--async <n>\t\t\tenable async mode with n core\n\
-\t--logto <logfile|addr>\t\tlog to file/udp\n\
-\t--logdate\t\t\tadd timestamp to loglines\n\
-\t--log-zero\t\t\tlog requests with 0 response size\n\
-\t--log-slow <t>\t\t\tlog requests slower than <t> milliseconds\n\
-\t--log-4xx\t\t\tlog requests with status code 4xx\n\
-\t--log-5xx\t\t\tlog requests with status code 5xx\n\
-\t--log-big <n>\t\t\tlog requests bigger than <n> bytes\n\
-\t--log-sendfile\t\t\tlog sendfile() requests\n\
-\t--ignore-script-name\t\tdisable uWSGI management of SCRIPT_NAME\n\
-\t--no-default-app\t\tdo not fallback unknown SCRIPT_NAME requests\n\
-\t--ini <inifile>\t\t\tpath of ini config file\n\
-\t--ini-paste <inifile>\t\tpath of ini config file that contains paste configuration\n\
-\t--ldap <url>\t\t\turl of LDAP uWSGIConfig resource\n\
-\t--ldap-schema\t\t\tdump uWSGIConfig LDAP schema\n\
-\t--ldap-schema-ldif\t\tdump uWSGIConfig LDAP schema in LDIF format\n\
-\t--grunt\t\t\t\tenable grunt workers\n\
-\t--ugreen\t\t\tenable uGreen support\n\
-\t--ugreen-stacksize <n>\t\tset uGreen stacksize to <n>\n\
-\t--stackless\t\t\tenable usage of tasklet (only on Stackless Python)\n\
-\t--no-site\t\t\tdo not import site.py on startup\n\
-\t--vhost\t\t\t\tenable virtual hosting\n\
-\t--mount MOUNTPOINT=app\t\tadda new app under MOUNTPOINT\n\
-\t--routing\t\t\tenable uWSGI advanced routing\n\
-\t--http <addr>\t\t\tstart embedded HTTP server on <addr>\n\
-\t--http-only\t\t\tstart only the embedded HTTP server\n\
-\t--http-var KEY[=VALUE]\t\tadd var KEY to uwsgi requests made by the embedded HTTP server\n\
-\t--catch-exceptions\t\tprint exceptions in the browser\n\
-\t--mode\t\t\t\tset configuration mode\n\
-\t--env KEY=VALUE\t\t\tset environment variable\n\
-\t--vacuum\t\t\tclear the environment on exit (remove UNIX sockets and pidfiles)\n\
-\t--ping <addr>\t\t\tping a uWSGI server (returns 1 on failure 0 on success)\n\
-\t--ping-timeout <n>\t\tset ping timeout to <n>\n\
-\t--cgroup <group>\t\trun the server in <group> cgroup (Linux only)\n\
-\t--cgroup-opt KEY=VAL\t\tset cgroup option (Linux only)\n\
-\t--version\t\t\tprint server version\n\
 \t-d|--daemonize <logfile|addr>\tdaemonize and log into <logfile> or udp <addr>\n", uwsgi.binary_path);
+*/
 			return 0;
 		}
 
@@ -3067,4 +2973,112 @@ char *uwsgi_cluster_best_node() {
 
 	uwsgi.shared->nodes[best_node].last_choosen = time(NULL);
 	return uwsgi.shared->nodes[best_node].name;
+}
+
+
+struct uwsgi_help_item main_help[] = {
+
+{"socket <name>", "path (or name) of UNIX/TCP socket to bind to"},
+{"listen <num>", "set socket listen queue to <n> (default 100, maximum is system dependent)"},
+{"socket-timeout <sec>", "set socket timeout to <sec> seconds (default 4 seconds)"},
+{"buffer-size <n>", "set buffer size to <n> bytes"},
+{"disable-logging", "disable request logging (only errors or server messages will be logged)"},
+{"xmlconfig <path>", "path of xml config file"},
+{"module <module>" ,"name of python config module"},
+{"harakiri <sec>", "set harakiri timeout to <sec> seconds"},
+{"processes <n>", "spawn <n> uwsgi worker processes"},
+{"optimize <n>", "set python optimization level to <n>"},
+{"max-vars <n>", "set maximum number of vars/headers to <n>"},
+{"sharedarea <n>", "create a shared memory area of <n> pages"},
+{"cgi-mode", "set cgi mode"},
+{"chmod-socket[=NNN]", "chmod socket to 666 or NNN"},
+{"memory-report",  "enable memory usage report"},
+{"single-interpreter", "single interpreter mode"},
+{"abstract-socket", "set socket in the abstract namespace (Linux only)"},
+{"enable-threads", "enable threads support"},
+{"master", "enable master process manager"},
+{"home <path>", "set python home/virtualenv"},
+{"help", "this help"},
+{"reaper", "process reaper (call waitpid(-1,...) after each request)"},
+{"max-requests", "maximum number of requests for each worker"},
+{"test", "test if uWSGI can import a module"},
+{"spooler <dir>", "run the spooler on directory <dir>"},
+{"callable <callable>", "set the callable (default 'application')"},
+{"pidfile <file>", "write the masterpid to <file>"},
+{"chroot <dir>", "chroot to directory <dir> (only root)"},
+{"gid <id/groupname>", "setgid to <id/groupname> (only root)"},
+{"uid <id/username>", "setuid to <id/username> (only root)"},
+{"chdir <dir>", "chdir to <dir> before app loading"},
+{"chdir2 <dir>", "chdir to <dir> after module loading"},
+{"no-server", "initialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module"},
+{"no-defer-accept", "disable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)"},
+{"paste <config:/egg:>", "load applications using paste.deploy.loadapp()"},
+{"check-interval <sec>", "set the check interval (in seconds) of the master process"},
+{"pythonpath <dir>", "add <dir> to PYTHONPATH"},
+{"python-path <dir>", "add <dir> to PYTHONPATH"},
+{"pp <dir>", "add <dir> to PYTHONPATH"},
+{"pyargv <args>", "assign args to python sys.argv"},
+{"limit-as <MB>", "limit the address space of processes to MB megabytes"},
+{"limit-post <bytes>", "limit HTTP content_length size to <bytes>"},
+{"post-buffering <bytes>", "buffer HTTP POST request higher than <bytes> to disk"},
+{"post-buffering-bufsize <b>", "set the buffer size to <b> bytes for post-buffering"},
+{"prio <N>", "set process priority/nice to N"},
+{"no-orphans", "automatically kill workers on master's dead"},
+{"udp <ip:port>", "bind master process to udp socket on ip:port"},
+{"multicast <group>", "set multicast group"},
+{"snmp", "enable SNMP support in the UDP server"},
+{"snmp-community <value>", "set SNMP community code to <value>"},
+{"erlang <name|address>", "enable the Erlang server with node name <name@address>"},
+{"erlang-cookie <cookie>", "set the erlang cookie to <cookie>"},
+{"nagios", "do a nagios check"},
+{"binary-path <bin-path>", "set the path for the next reload of uWSGI (needed for chroot environments)"},
+{"proxy <socket>", "run the uwsgi proxy on socket <socket>"},
+{"proxy-node <socket>", "add the node <socket> to the proxy"},
+{"proxy-max-connections <n>", "set the max number of concurrent connections mnaged by the proxy"},
+{"wsgi-file <file>", "load the <file> wsgi file"},
+{"file <file>", "use python file instead of python module for configuration"},
+{"eval <code>", "evaluate code for app configuration"},
+{"async <n>", "enable async mode with n core"},
+{"logto <logfile|addr>", "log to file/udp"},
+{"logdate", "add timestamp to loglines"},
+{"log-zero", "log requests with 0 response size"},
+{"log-slow <t>", "log requests slower than <t> milliseconds"},
+{"log-4xx", "log requests with status code 4xx"},
+{"log-5xx", "log requests with status code 5xx"},
+{"log-big <n>", "log requests bigger than <n> bytes"},
+{"log-sendfile", "log sendfile() requests"},
+{"ignore-script-name", "disable uWSGI management of SCRIPT_NAME"},
+{"no-default-app", "do not fallback unknown SCRIPT_NAME requests"},
+{"ini <inifile>", "path of ini config file"},
+{"ini-paste <inifile>", "path of ini config file that contains paste configuration"},
+{"ldap <url>", "url of LDAP uWSGIConfig resource"},
+{"ldap-schema", "dump uWSGIConfig LDAP schema"},
+{"ldap-schema-ldif", "dump uWSGIConfig LDAP schema in LDIF format"},
+{"grunt", "enable grunt workers"},
+{"ugreen", "enable uGreen support"},
+{"ugreen-stacksize <n>", "set uGreen stacksize to <n>"},
+{"no-site", "do not import site.py on startup"},
+{"vhost", "enable virtual hosting"},
+{"mount MOUNTPOINT=app", "adda new app under MOUNTPOINT"},
+{"routing", "enable uWSGI advanced routing"},
+{"http <addr>", "start embedded HTTP server on <addr>"},
+{"http-only", "start only the embedded HTTP server"},
+{"http-var KEY[=VALUE]", "add var KEY to uwsgi requests made by the embedded HTTP server"},
+{"catch-exceptions", "print exceptions in the browser"},
+{"mode", "set configuration mode"},
+{"env KEY=VALUE", "set environment variable"},
+{"vacuum", "clear the environment on exit (remove UNIX sockets and pidfiles)"},
+{"ping <addr>", "ping a uWSGI server (returns 1 on failure 0 on success)"},
+{"ping-timeout <n>", "set ping timeout to <n>"},
+{"cgroup <group>", "run the server in <group> cgroup (Linux only)"},
+{"cgroup-opt KEY=VAL", "set cgroup option (Linux only)"},
+{"version", "print server version"},
+{"daemonize <logfile|addr>", "daemonize and log into <logfile> or udp <addr>"},
+
+{ 0, 0 },
+
+};
+
+
+void uwsgi_help(void) {
 }

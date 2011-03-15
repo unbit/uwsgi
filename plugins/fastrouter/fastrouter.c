@@ -345,8 +345,7 @@ void fastrouter_loop() {
                                                         	break;
 							}
 
-							event_queue_del_fd(fr_queue, fr_session->instance_fd);
-							event_queue_add_fd_read(fr_queue, fr_session->instance_fd);
+							event_queue_fd_write_to_read(fr_queue, fr_session->instance_fd);
 							fr_session->status = FASTROUTER_STATUS_RESPONSE;
 						}
 
