@@ -335,7 +335,8 @@ class uConf(object):
         if self.get('udp'):
             self.cflags.append("-DUWSGI_UDP")
 
-        if self.get('pcre'):
+        # re-enable after pcre fix
+        if self.get('pcreOFF'):
             if self.get('pcre') == 'auto':
                 pcreconf = spcall('pcre-config --libs')
                 if pcreconf:

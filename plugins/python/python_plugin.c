@@ -35,6 +35,26 @@ struct option uwsgi_python_options[] = {
 	{0, 0, 0, 0},
 };
 
+struct uwsgi_help_item uwsgi_python_help[] = {
+
+{"module <module>" ,"name of python config module"},
+{"optimize <n>", "set python optimization level to <n>"},
+{"home <path>", "set python home/virtualenv"},
+{"callable <callable>", "set the callable (default 'application')"},
+{"paste <config:/egg:>", "load applications using paste.deploy.loadapp()"},
+{"pythonpath <dir>", "add <dir> to PYTHONPATH"},
+{"python-path <dir>", "add <dir> to PYTHONPATH"},
+{"pp <dir>", "add <dir> to PYTHONPATH"},
+{"pyargv <args>", "assign args to python sys.argv"},
+{"wsgi-file <file>", "load the <file> wsgi file"},
+{"file <file>", "use python file instead of python module for configuration"},
+{"eval <code>", "evaluate code for app configuration"},
+{"ini-paste <inifile>", "path of ini config file that contains paste configuration"},
+
+
+ { 0, 0},
+};
+
 /* this routine will be called after each fork to reinitialize the various locks */
 void uwsgi_python_pthread_prepare(void) {
 	pthread_mutex_lock(&up.lock_pyloaders);
@@ -972,8 +992,7 @@ struct uwsgi_plugin python_plugin = {
 	.rpc = uwsgi_python_rpc,
 
 	.spooler = uwsgi_python_spooler,
-	/*
-	   .help = uwsgi_python_help,
-	 */
+
+	.help = uwsgi_python_help,
 
 };

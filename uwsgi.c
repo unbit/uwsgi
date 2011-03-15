@@ -2137,7 +2137,7 @@ end:
 				uwsgi_load_plugin(-1, p, NULL, 0);
 				p = strtok(NULL, ",");
 			}
-			 build_options();
+			build_options();
 			return 1;
 		case LONG_ARGS_CHDIR:
 			uwsgi.chdir = optarg;
@@ -2984,10 +2984,8 @@ struct uwsgi_help_item main_help[] = {
 {"buffer-size <n>", "set buffer size to <n> bytes"},
 {"disable-logging", "disable request logging (only errors or server messages will be logged)"},
 {"xmlconfig <path>", "path of xml config file"},
-{"module <module>" ,"name of python config module"},
 {"harakiri <sec>", "set harakiri timeout to <sec> seconds"},
 {"processes <n>", "spawn <n> uwsgi worker processes"},
-{"optimize <n>", "set python optimization level to <n>"},
 {"max-vars <n>", "set maximum number of vars/headers to <n>"},
 {"sharedarea <n>", "create a shared memory area of <n> pages"},
 {"cgi-mode", "set cgi mode"},
@@ -2997,13 +2995,11 @@ struct uwsgi_help_item main_help[] = {
 {"abstract-socket", "set socket in the abstract namespace (Linux only)"},
 {"enable-threads", "enable threads support"},
 {"master", "enable master process manager"},
-{"home <path>", "set python home/virtualenv"},
 {"help", "this help"},
 {"reaper", "process reaper (call waitpid(-1,...) after each request)"},
 {"max-requests", "maximum number of requests for each worker"},
 {"test", "test if uWSGI can import a module"},
 {"spooler <dir>", "run the spooler on directory <dir>"},
-{"callable <callable>", "set the callable (default 'application')"},
 {"pidfile <file>", "write the masterpid to <file>"},
 {"chroot <dir>", "chroot to directory <dir> (only root)"},
 {"gid <id/groupname>", "setgid to <id/groupname> (only root)"},
@@ -3012,12 +3008,7 @@ struct uwsgi_help_item main_help[] = {
 {"chdir2 <dir>", "chdir to <dir> after module loading"},
 {"no-server", "initialize the uWSGI server then exit. Useful for testing and using uwsgi embedded module"},
 {"no-defer-accept", "disable the no-standard way to defer the accept() call (TCP_DEFER_ACCEPT, SO_ACCEPTFILTER...)"},
-{"paste <config:/egg:>", "load applications using paste.deploy.loadapp()"},
 {"check-interval <sec>", "set the check interval (in seconds) of the master process"},
-{"pythonpath <dir>", "add <dir> to PYTHONPATH"},
-{"python-path <dir>", "add <dir> to PYTHONPATH"},
-{"pp <dir>", "add <dir> to PYTHONPATH"},
-{"pyargv <args>", "assign args to python sys.argv"},
 {"limit-as <MB>", "limit the address space of processes to MB megabytes"},
 {"limit-post <bytes>", "limit HTTP content_length size to <bytes>"},
 {"post-buffering <bytes>", "buffer HTTP POST request higher than <bytes> to disk"},
@@ -3035,9 +3026,6 @@ struct uwsgi_help_item main_help[] = {
 {"proxy <socket>", "run the uwsgi proxy on socket <socket>"},
 {"proxy-node <socket>", "add the node <socket> to the proxy"},
 {"proxy-max-connections <n>", "set the max number of concurrent connections mnaged by the proxy"},
-{"wsgi-file <file>", "load the <file> wsgi file"},
-{"file <file>", "use python file instead of python module for configuration"},
-{"eval <code>", "evaluate code for app configuration"},
 {"async <n>", "enable async mode with n core"},
 {"logto <logfile|addr>", "log to file/udp"},
 {"logdate", "add timestamp to loglines"},
@@ -3050,7 +3038,6 @@ struct uwsgi_help_item main_help[] = {
 {"ignore-script-name", "disable uWSGI management of SCRIPT_NAME"},
 {"no-default-app", "do not fallback unknown SCRIPT_NAME requests"},
 {"ini <inifile>", "path of ini config file"},
-{"ini-paste <inifile>", "path of ini config file that contains paste configuration"},
 {"ldap <url>", "url of LDAP uWSGIConfig resource"},
 {"ldap-schema", "dump uWSGIConfig LDAP schema"},
 {"ldap-schema-ldif", "dump uWSGIConfig LDAP schema in LDIF format"},
@@ -3059,7 +3046,7 @@ struct uwsgi_help_item main_help[] = {
 {"ugreen-stacksize <n>", "set uGreen stacksize to <n>"},
 {"no-site", "do not import site.py on startup"},
 {"vhost", "enable virtual hosting"},
-{"mount MOUNTPOINT=app", "adda new app under MOUNTPOINT"},
+{"mount MOUNTPOINT=app", "add a new app under MOUNTPOINT"},
 {"routing", "enable uWSGI advanced routing"},
 {"http <addr>", "start embedded HTTP server on <addr>"},
 {"http-only", "start only the embedded HTTP server"},
@@ -3081,4 +3068,151 @@ struct uwsgi_help_item main_help[] = {
 
 
 void uwsgi_help(void) {
+
+	struct uwsgi_help_item *uhi, *all_help;
+	int max_size = 0;
+	struct option *lopt;
+	int found;
+	char *space;
+	char *tmp_option;
+	int i;
+
+	all_help = main_help;
+
+	build_options();
+
+	while( (uhi = all_help) ) {
+
+		if (uhi->key == 0)
+			break;
+
+		if ((int)strlen(uhi->key) > max_size) {
+			max_size = (int)strlen(uhi->key);
+		}
+
+		all_help++;
+	}
+
+
+	for (i = 0; i < 0xFF; i++) {
+        	if (uwsgi.p[i]->help) {
+
+			all_help = uwsgi.p[i]->help;
+			while( (uhi = all_help) ) {
+				if (uhi->key == 0) break;
+				if ((int)strlen(uhi->key) > max_size)
+					max_size = (int)strlen(uhi->key);
+				all_help++;	
+			}
+
+                }
+	}
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+        	if (uwsgi.gp[i]->help) {
+
+			all_help = uwsgi.gp[i]->help ;
+			while( (uhi = all_help) ) {
+				if (uhi->key == 0) break;
+				if ((int)strlen(uhi->key) > max_size)
+					max_size = (int)strlen(uhi->key);
+				all_help++;	
+			}
+			
+                }
+	}	
+
+	fprintf(stdout, "Usage: %s [options...]\n", uwsgi.binary_path);
+
+	lopt = uwsgi.long_options;
+
+	max_size+=4;
+
+        while(lopt->name) {
+
+		found = 0;
+
+		all_help = main_help;
+		while( (uhi = all_help) ) {
+			if (uhi->key == 0) break;
+
+			tmp_option = uwsgi_concat2(uhi->key, "");
+			space = strchr(tmp_option, ' ');
+			if (space) space[0] = 0;
+
+			if (!strcmp(tmp_option, lopt->name)) {
+				found = 1;
+				break;
+			}
+
+			free(tmp_option);
+			all_help++;
+		}
+
+		if (!found) {
+			for (i = 0; i < 0xFF; i++) {
+				if (uwsgi.p[i]->help) {
+					all_help = uwsgi.p[i]->help;
+					while( (uhi = all_help) ) {
+						if (uhi->key == 0) break;
+						tmp_option = uwsgi_concat2(uhi->key, "");
+						space = strchr(tmp_option, ' ');
+						if (space) space[0] = 0;
+
+						if (!strcmp(tmp_option, lopt->name)) {
+							found = 1;
+							break;
+						}
+	
+						free(tmp_option);
+						all_help++;
+					}
+				}
+				if (found) break;
+			}	
+		}
+
+		if (!found) {
+			for (i = 0; i < uwsgi.gp_cnt; i++) {
+				if (uwsgi.gp[i]->help) {
+					all_help = uwsgi.gp[i]->help;
+					while( (uhi = all_help) ) {
+						if (uhi->key == 0) break;
+						tmp_option = uwsgi_concat2(uhi->key, "");
+						space = strchr(tmp_option, ' ');
+						if (space) space[0] = 0;
+
+						if (!strcmp(tmp_option, lopt->name)) {
+							found = 1;
+							break;
+						}
+	
+						free(tmp_option);
+						all_help++;
+					}
+				}
+				if (found) break;
+			}	
+		}
+
+
+		if (found) {
+			if (!lopt->flag && ( (lopt->val >= 'a' && lopt->val <= 'z') || (lopt->val >= 'A' && lopt->val <= 'Z'))) {
+				fprintf(stdout, "    -%c|--%-*s %s\n", lopt->val,  max_size-3, uhi->key, uhi->value);
+			}
+			else {
+				fprintf(stdout, "    --%-*s %s\n", max_size, uhi->key, uhi->value);
+			}
+			if (tmp_option) free(tmp_option);
+		}
+		else {
+			fprintf(stdout, "    --%-*s *** UNDOCUMENTED OPTION ***\n", max_size, lopt->name);
+		}
+			
+                lopt++;
+        }
+
+	exit(0);
 }
+
+

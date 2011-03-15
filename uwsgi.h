@@ -206,6 +206,13 @@ extern int pivot_root(const char * new_root, const char * put_old);
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
+struct uwsgi_help_item {
+
+        char *key;
+        char *value;
+};
+
+
 union uwsgi_sockaddr {
 	struct sockaddr     sa;
 	struct sockaddr_in  sa_in;
@@ -490,6 +497,8 @@ struct uwsgi_plugin {
 	int		(*spooler)(char *, uint16_t);
 
 	uint16_t	(*rpc)(void *, uint8_t, char **, char *);
+
+        struct uwsgi_help_item  *help;
 
 };
 
@@ -1641,11 +1650,5 @@ struct uwsgi_async_request {
 
 inline int event_queue_read(void);
 inline int event_queue_write(void);
-
-struct uwsgi_help_item {
-
-	char *key;
-	char *value;
-};
 
 void uwsgi_help(void);
