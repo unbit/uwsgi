@@ -6,6 +6,14 @@ extern struct uwsgi_server uwsgi;
 
 #include <ldap.h>
 
+#ifndef LDAP_OPT_SUCCESS
+#define LDAP_OPT_SUCCESS LDAP_SUCCESS
+#endif
+
+#ifndef ldap_unbind_ext_s
+#define ldap_unbind_ext_s ldap_unbind_ext
+#endif
+
 void ldap2uwsgi(char *ldapname, char *uwsginame) {
 	char *ptr = uwsginame;
 
@@ -296,10 +304,17 @@ void uwsgi_ldap_config() {
 	uwsgi_debug("LDAP BASE DN: %s\n", ldap_url->lud_dn);
 #endif
 
+#ifdef ldap_initialize
 	if ( (ret = ldap_initialize( &ldp, url)) != LDAP_SUCCESS) {
 		uwsgi_log("LDAP: %s\n", ldap_err2string(ret));
 		exit(1);
 	}
+#else
+	if ( (ldp = ldap_init( ldap_url->lud_host, ldap_url->lud_port)) == NULL) {
+		uwsgi_error("ldap_init()");
+		exit(1);
+	}
+#endif
 
 
 	if ( (ret = ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &desired_version)) != LDAP_OPT_SUCCESS) {

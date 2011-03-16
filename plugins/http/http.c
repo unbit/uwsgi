@@ -501,6 +501,9 @@ void http_loop() {
 
 			if (interesting_fd == uhttp.server) {
 				new_connection = accept(uhttp.server, (struct sockaddr *) &uhttp_addr, &uhttp_addr_len);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(uhttp_queue, uhttp.server);
+#endif
 				if (new_connection < 0) {
 					continue;
 				}
@@ -531,6 +534,9 @@ void http_loop() {
 			}	
 			else if (interesting_fd == uhttp_subserver) {
 				len = recv(uhttp_subserver, bbuf, 4096, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(uhttp_queue, uhttp_subserver);
+#endif
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, http_manage_subscription, &usr);
@@ -555,11 +561,15 @@ void http_loop() {
 
 					case HTTP_STATUS_RECV:
 						len = recv(uhttp_session->fd, uhttp_session->buffer + uhttp_session->h_pos, UMAX16-uhttp_session->h_pos, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+						event_queue_add_fd_read(uhttp_queue, uhttp_session->fd);
+#endif
 						if (len <= 0) {
 							uwsgi_error("recv()");
 							close_session(uhttp_table, uhttp_session);
 							break;
 						}
+
 
 						uhttp_session->h_pos += len;
 
@@ -726,11 +736,32 @@ void http_loop() {
                                                                 break;
 							}
 
+#ifdef __sun__
+							if (uhttp_session->iov_len > IOV_MAX) {
+								int remains = uhttp_session->iov_len;
+								int iov_len;
+								while(remains) {
+									if (remains > IOV_MAX) {
+										iov_len = IOV_MAX;
+									}
+									else {
+										iov_len = remains;
+									}
+									if (writev(uhttp_session->instance_fd, uhttp_session->iov + (uhttp_session->iov_len-remains), iov_len) <= 0) {
+										uwsgi_error("writev()");
+										close_session(uhttp_table, uhttp_session);
+                                                        			break;
+									}
+									remains -= iov_len;
+								}
+							}
+#else
 							if (writev(uhttp_session->instance_fd, uhttp_session->iov, uhttp_session->iov_len) <= 0) {
 								uwsgi_error("writev()");
 								close_session(uhttp_table, uhttp_session);
                                                         	break;
 							}
+#endif
 
 							event_queue_fd_write_to_read(uhttp_queue, uhttp_session->instance_fd);
 							uhttp_session->status = HTTP_STATUS_RESPONSE;
@@ -743,6 +774,9 @@ void http_loop() {
 						// data from instance
 						if (interesting_fd == uhttp_session->instance_fd) {
 							len = recv(uhttp_session->instance_fd, bbuf, UMAX16, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                                	event_queue_add_fd_read(uhttp_queue, uhttp_session->instance_fd);
+#endif
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("recv()");
 								close_session(uhttp_table, uhttp_session);
@@ -768,6 +802,9 @@ void http_loop() {
 
 							//uwsgi_log("receiving body...\n");
 							len = recv(uhttp_session->fd, bbuf, UMAX16, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                                        event_queue_add_fd_read(uhttp_queue, uhttp_session->fd);
+#endif
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("recv()");
 								close(uhttp_session->fd);

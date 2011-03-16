@@ -249,9 +249,14 @@ void *async_loop(void *arg1) {
 
 				wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id );
 				if (wsgi_req_simple_accept(uwsgi.wsgi_req, interesting_fd)) {
+#ifdef UWSGI_EVENT_USE_PORT
+                                	event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
+#endif
 					continue;
 				}
-
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
+#endif
 
 // on linux we do not need to reset the socket to blocking state
 #ifndef __linux__
@@ -283,7 +288,9 @@ void *async_loop(void *arg1) {
 
 				// remove all the fd monitors and timeout
 				while(uwsgi.wsgi_req->waiting_fds) {
+#ifndef UWSGI_EVENT_USE_PORT
                                         event_queue_del_fd(uwsgi.async_queue, uwsgi.wsgi_req->waiting_fds->fd, uwsgi.wsgi_req->waiting_fds->event);
+#endif
                                         tmp_uaf = uwsgi.wsgi_req->waiting_fds;
                                         uwsgi.async_waiting_fd_table[tmp_uaf->fd] = NULL;
                                         uwsgi.wsgi_req->waiting_fds = tmp_uaf->next;
@@ -319,7 +326,9 @@ void *async_loop(void *arg1) {
 			if (uwsgi.wsgi_req->async_status == UWSGI_OK) {
 				// remove all the monitored fds and timeout
 				while(uwsgi.wsgi_req->waiting_fds) {
+#ifndef UWSGI_EVENT_USE_PORT
 					event_queue_del_fd(uwsgi.async_queue, uwsgi.wsgi_req->waiting_fds->fd, uwsgi.wsgi_req->waiting_fds->event);
+#endif
 					tmp_uaf = uwsgi.wsgi_req->waiting_fds;
 					uwsgi.async_waiting_fd_table[tmp_uaf->fd] = NULL;
 					uwsgi.wsgi_req->waiting_fds = tmp_uaf->next;

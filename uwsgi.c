@@ -2424,6 +2424,7 @@ end:
 			return 1;
 		case 'p':
 			if (!strcmp(optarg, "auto")) {
+#ifndef __sun__
 				struct rlimit rl;
 				if (getrlimit(RLIMIT_NPROC, &rl)) {
 					uwsgi_error("getrlimit()");
@@ -2450,6 +2451,9 @@ end:
 						uwsgi.master_process = 1;
 					}
 				}
+#else
+				uwsgi.numproc = 4;
+#endif
 			}
 			else {
 				uwsgi.numproc = atoi(optarg);

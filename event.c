@@ -31,6 +31,17 @@ int event_queue_del_fd(int eq, int fd, int event) {
         return fd;
 }
 
+int event_queue_fd_write_to_read(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return fd;
+
+}
+
 
 int event_queue_interesting_fd_has_error(void *events, int id) {
 	port_event_t *pe = (port_event_t *) events;
@@ -79,12 +90,11 @@ int event_queue_interesting_fd(void *events, int id) {
 int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 
         int ret;
-	uint_t nget;
-	int i;
+	uint_t nget = 1;
 	timespec_t ts;
 	port_event_t *pe;
 
-	if (timeout > 0) {
+	if (timeout >= 0) {
                 ts.tv_sec = timeout;
                 ts.tv_nsec = 0;
                 ret = port_getn(eq, events, nevents, &nget, &ts);
@@ -102,13 +112,6 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
         }
 
 	pe = (port_event_t *) events;
-	for(i=0;i<nget;i++) {
-		if (pe[i].portev_source == PORT_SOURCE_FD) {
-			if (port_associate(eq, pe[i].portev_source, pe[i].portev_object, pe[i].portev_events, NULL)) {
-                		uwsgi_error("port_associate");
-        		}
-		}
-	}
 
         return nget;
 }
@@ -147,7 +150,6 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 
 	if (pe.portev_source == PORT_SOURCE_FILE || pe.portev_source == PORT_SOURCE_TIMER) {
         	*interesting_fd = (int) pe.portev_user;
-		uwsgi_log("port event interesting_fd: %d\n", *interesting_fd);
 	}
 	else {
 		*interesting_fd = (int) pe.portev_object;
