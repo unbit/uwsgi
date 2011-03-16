@@ -1370,7 +1370,7 @@ int uwsgi_start(void *v_argv) {
 				}
 			}
 			else {
-				if (cst.st_size != uwsgi.cache_filesize || !S_ISREG(cst.st_mode)) {
+				if ((size_t)cst.st_size != uwsgi.cache_filesize || !S_ISREG(cst.st_mode)) {
 					uwsgi_log("invalid cache store file. Please remove it or fix cache blocksize/items to match its size\n");
 					exit(1);
 				}

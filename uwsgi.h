@@ -66,9 +66,6 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <netinet/in.h>
-#ifdef UWSGI_ASYNC
-#include <setjmp.h>
-#endif
 
 #ifdef __sun__
 #define _XPG4_2
@@ -678,7 +675,6 @@ struct wsgi_request {
 	int             async_plagued;
 
 	int		suspended;
-	jmp_buf		async_jmp_buf;
 
 	int            *ovector;
 	size_t          post_cl;
@@ -967,8 +963,6 @@ struct uwsgi_server {
 
 
 	struct wsgi_request *(*current_wsgi_req) (void);
-
-	jmp_buf async_jmp_buf;
 
 	// usedby suspend/resume loops
 	void (*schedule_to_main) (struct wsgi_request *);
