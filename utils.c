@@ -566,21 +566,6 @@ polling:
 	return -1;
 }
 
-#ifdef UWSGI_STACKLESS
-inline struct wsgi_request *current_wsgi_req() {
-
-	struct wsgi_request *wsgi_req = uwsgi.wsgi_req;
-
-	if (uwsgi.stackless && uwsgi.async >1) {
-		PyThreadState *ts = PyThreadState_GET();
-		wsgi_req = find_request_by_tasklet(ts->st.current);
-	}
-
-	return wsgi_req;
-
-}
-#endif
-
 void sanitize_args() {
 
 	if (uwsgi.async > 1) {

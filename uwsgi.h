@@ -1324,15 +1324,7 @@ int             wsgi_req_simple_recv(struct wsgi_request *);
 int             wsgi_req_accept(struct wsgi_request *);
 int             wsgi_req_simple_accept(struct wsgi_request *, int);
 
-#ifdef UWSGI_STACKLESS
-#ifdef __clang__
-struct wsgi_request *current_wsgi_req(void);
-#else
-inline struct wsgi_request *current_wsgi_req(void);
-#endif
-#else
 #define current_wsgi_req() (*uwsgi.current_wsgi_req)()
-#endif
 
 void            sanitize_args(void);
 

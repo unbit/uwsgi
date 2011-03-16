@@ -14,10 +14,6 @@
 #define LONG_ARGS_PYMODULE_ALIAS        LONG_ARGS_PYTHON_BASE + 4
 #define LONG_ARGS_RELOAD_OS_ENV		LONG_ARGS_PYTHON_BASE + 5
 
-#ifdef UWSGI_STACKLESS
-#include <stackless_api.h>
-#endif
-
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
 #define Py_ssize_t ssize_t
 #endif
@@ -161,10 +157,6 @@ PyObject *py_eventfd_read(PyObject *, PyObject *);
 PyObject *py_eventfd_write(PyObject *, PyObject *);
 
 
-#ifdef UWSGI_STACKLESS
-PyObject *py_uwsgi_stackless(PyObject *, PyObject *);
-#endif
-
 int manage_python_response(struct wsgi_request *);
 int uwsgi_python_call(struct wsgi_request *, PyObject *, PyObject *);
 PyObject *python_call(PyObject *, PyObject *, int);
@@ -177,18 +169,6 @@ ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t*, int);
 
 PyObject *py_uwsgi_write(PyObject *, PyObject *);
 PyObject *py_uwsgi_spit(PyObject *, PyObject *);
-
-#ifdef UWSGI_STACKLESS
-struct stackless_req {
-	PyTaskletObject *tasklet;
-	struct wsgi_request *wsgi_req;
-	PyChannelObject *channel;
-};
-struct wsgi_request *find_request_by_tasklet(PyTaskletObject *);
-
-void stackless_init(void);
-void stackless_loop(void);
-#endif
 
 void init_pyargv(void);
 

@@ -2,6 +2,11 @@
 
 #include "uwsgi.h"
 
+#ifdef UWSGI_STACKLESS
+#include <stackless_api.h>
+#endif
+
+
 extern struct uwsgi_server uwsgi;
 
 struct wsgi_request* find_request_by_tasklet(PyTaskletObject *tasklet) {
