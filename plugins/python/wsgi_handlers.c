@@ -17,9 +17,8 @@ PyObject *uwsgi_Input_iter(PyObject * self) {
 
 PyObject *uwsgi_Input_next(PyObject * self) {
 
-	PyErr_SetNone(PyExc_StopIteration);
+	return PyErr_Format(PyExc_NotImplementedError, "wsgi.input __iter__() is not implemented");
 
-	return NULL;
 }
 
 static void uwsgi_Input_free(uwsgi_Input *self) {
@@ -29,7 +28,7 @@ static void uwsgi_Input_free(uwsgi_Input *self) {
 static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 	long len = 0;
-	size_t remains, chunk_size;
+	size_t remains;
 	ssize_t rlen;
 	char *tmp_buf;
 	int fd;
@@ -75,27 +74,22 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 		return res;
 	}
 
-	chunk_size = remains;
 	tmp_buf = uwsgi_malloc(remains);	
-	while(remains) {
-		if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-			free(tmp_buf);
-			return PyErr_Format(PyExc_ValueError, "error waiting for wsgi.input data");
-		}
 
-		rlen = read(fd, tmp_buf + self->pos, remains);
-		if (rlen < 0) {
-			free(tmp_buf);
-			return PyErr_Format(PyExc_ValueError, "error reading wsgi.input data");
-		}
-
-		if (!rlen) break;
-
-		self->pos += rlen;
-		remains -= rlen;
+	if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
+		free(tmp_buf);
+		return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data");
 	}
 
-	res = PyString_FromStringAndSize(tmp_buf, chunk_size);
+	rlen = read(fd, tmp_buf, remains);
+	if (rlen < 0) {
+		free(tmp_buf);
+		return PyErr_Format(PyExc_IOError, "error reading wsgi.input data");
+	}
+
+	self->pos += rlen;
+	res = PyString_FromStringAndSize(tmp_buf, rlen);
+
 	free(tmp_buf);
 	return res;
 		
@@ -103,17 +97,19 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 static PyObject *uwsgi_Input_readline(uwsgi_Input *self, PyObject *args) {
 
-	return NULL;
+	return PyErr_Format(PyExc_NotImplementedError, "wsgi.input readline() is not implemented");
+
 }
 
 static PyObject *uwsgi_Input_readlines(uwsgi_Input *self, PyObject *args) {
 
-	return NULL;
+	return PyErr_Format(PyExc_NotImplementedError, "wsgi.input readlines() is not implemented");
 }
 
 static PyObject *uwsgi_Input_close(uwsgi_Input *self, PyObject *args) {
 
-	return NULL;
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 static PyMethodDef uwsgi_Input_methods[] = {
