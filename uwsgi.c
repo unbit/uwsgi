@@ -1768,6 +1768,12 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		}
 	}
 
+	for (i = 0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->init_apps) {
+			uwsgi.gp[i]->init_apps();
+		}
+	}
+
 	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
 	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
