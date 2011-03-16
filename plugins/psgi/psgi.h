@@ -1,3 +1,4 @@
+#undef __USE_GNU
 #include "../../uwsgi.h"
 
 #include <EXTERN.h>

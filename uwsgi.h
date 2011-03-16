@@ -99,7 +99,9 @@
 
 
 #ifdef __linux
+#ifndef __USE_GNU
 #define __USE_GNU
+#endif
 #include <sched.h>
 #include <sys/prctl.h>
 #include <linux/limits.h>
