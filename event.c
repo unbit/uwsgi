@@ -529,7 +529,7 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 
 	int fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		uwsgi_error("open()");
+		uwsgi_error_open(filename);
 		return -1;
 	}
 	

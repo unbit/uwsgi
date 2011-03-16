@@ -146,7 +146,7 @@ void uwsgi_lock_init(void *lock) {
 	
 	int fd = open(filename, O_CREAT|O_RDWR|O_TRUNC);
 	if (fd < 0) {
-		uwsgi_error("open()");
+		uwsgi_error_open(filename);
 		exit(1);
 	}
 

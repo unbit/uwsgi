@@ -104,7 +104,7 @@ void daemonize(char *logfile) {
 
 	fdin = open("/dev/null", O_RDWR);
 	if (fdin < 0) {
-		uwsgi_error("open()");
+		uwsgi_error_open("/dev/null");
 		exit(1);
 	}
 
@@ -155,7 +155,7 @@ void logto(char *logfile) {
 #endif
 		fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
 		if (fd < 0) {
-			uwsgi_error("open()");
+			uwsgi_error_open(logfile);
 			exit(1);
 		}
 #ifdef UWSGI_UDP
@@ -269,7 +269,7 @@ void uwsgi_as_root() {
 			cgroup_taskfile = uwsgi_concat2(uwsgi.cgroup, "/tasks");	
 			cgroup = fopen(cgroup_taskfile, "w");
 			if (!cgroup) {
-				uwsgi_error("fopen");
+				uwsgi_error_open(cgroup_taskfile);
 				exit(1);
 			}
 			if (fprintf(cgroup, "%d\n", (int) getpid()) < 0) {
@@ -295,7 +295,7 @@ void uwsgi_as_root() {
 				cgroup_taskfile = uwsgi_concat3(uwsgi.cgroup, "/", uwsgi.cgroup_opt[i]);
 				cgroup = fopen(cgroup_taskfile, "w");
 				if (!cgroup) {
-					uwsgi_error("fopen");
+					uwsgi_error_open(cgroup_taskfile);
 					exit(1);
 				}
 				if (fprintf(cgroup, "%s\n", cgroup_opt) < 0) {
@@ -1077,7 +1077,7 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 				// here we use O_EXCL to avoid eventual application bug in uuid generation/using
 				upload_progress_fd = open(upload_progress_filename, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP);	
 				if (upload_progress_fd < 0) {
-					uwsgi_error("open()");
+					uwsgi_error_open(upload_progress_filename);
 					free(upload_progress_filename);
 				}
 			}
@@ -1372,7 +1372,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 	else {
 		fd = open(url, O_RDONLY);
         	if (fd < 0) {
-                	uwsgi_error("open()");
+                	uwsgi_error_open(url);
                 	exit(1);
         	}
 

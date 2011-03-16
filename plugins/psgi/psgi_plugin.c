@@ -102,7 +102,7 @@ void uwsgi_psgi_app() {
 	if (uperl.psgi) {
 		uperl.fd = open(uperl.psgi, O_RDONLY);
 		if (uperl.fd < 0) {
-			uwsgi_error("open()");
+			uwsgi_error_open(uperl.psgi);
 			exit(1);
 		}
 

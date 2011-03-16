@@ -913,7 +913,7 @@ options_parsed:
 		uwsgi_log("writing pidfile to %s\n", uwsgi.pidfile);
 		pidfile = fopen(uwsgi.pidfile, "w");
 		if (!pidfile) {
-			uwsgi_error("fopen");
+			uwsgi_error_open(uwsgi.pidfile);
 			exit(1);
 		}
 		if (fprintf(pidfile, "%d\n", (int) getpid()) < 0) {
@@ -1379,7 +1379,7 @@ int uwsgi_start(void *v_argv) {
 			}
 			
 			if (cache_fd < 0) {
-				uwsgi_error("open()");
+				uwsgi_error_open(uwsgi.cache_store);
 				exit(1);
 			}
 			uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, uwsgi.cache_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, cache_fd, 0);
@@ -1578,7 +1578,7 @@ int uwsgi_start(void *v_argv) {
 			} else {
 				int fd = open("/dev/null", O_RDONLY);
 				if (fd < 0) {
-					uwsgi_error("open()");
+					uwsgi_error_open("/dev/null");
 					exit(1);
 				}
 				if (fd != 0) {

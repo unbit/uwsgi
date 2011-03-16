@@ -53,7 +53,7 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size) {
 
 	fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
-		uwsgi_error("open()");
+		uwsgi_error_open(filename);
 		uwsgi_unlock(uwsgi.spooler_lock);
 		return 0;
 	}
@@ -135,7 +135,7 @@ void spooler() {
 
 	nullfd = open("/dev/null", O_RDONLY);
 	if (nullfd < 0) {
-		uwsgi_error("open()");
+		uwsgi_error_open("/dev/null");
 		exit(1);
 	}
 
@@ -164,7 +164,7 @@ void spooler() {
 
 						spool_fd = open(dp->d_name, O_RDONLY);
 						if (spool_fd < 0) {
-							uwsgi_error("open()");
+							uwsgi_error_open(dp->d_name);
 							continue;
 						}
 

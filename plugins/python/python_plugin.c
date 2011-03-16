@@ -196,7 +196,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 		real_filename = uwsgi_concat2(filename, "/__init__.py");
 		pyfile = fopen(real_filename, "r");
 		if (!pyfile) {
-			uwsgi_error("fopen()");
+			uwsgi_error_open(real_filename);
 			exit(1);
 		}
 	}

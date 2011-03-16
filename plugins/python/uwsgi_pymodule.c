@@ -2087,7 +2087,7 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		uwsgi_error("open()");
+		uwsgi_error_open(filename);
 		goto clear;
 	}
 

@@ -358,7 +358,7 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, struct option *long_options
 
 	xmlfd = open(uwsgi.xml_config, O_RDONLY);
 	if (xmlfd < 0) {
-		uwsgi_error("open()");
+		uwsgi_error_open(uwsgi.xml_config);
 		exit(1);
 	}
 
