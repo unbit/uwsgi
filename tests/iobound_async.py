@@ -7,6 +7,8 @@ def send_request(env, client):
 
 	client.setblocking(1)
 
+	# test for suspend/resume
+	uwsgi.suspend()
 
 	yield env['x-wsgiorg.fdevent.writable'](client.fileno(), 2)
 	if env['x-wsgiorg.fdevent.timeout']:

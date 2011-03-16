@@ -2242,7 +2242,7 @@ PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-	uwsgi.schedule_to_main(wsgi_req);
+	if (uwsgi.schedule_to_main) uwsgi.schedule_to_main(wsgi_req);
 
 	Py_INCREF(Py_True);
 	return Py_True;

@@ -443,6 +443,25 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
 
 }
 
+int wsgi_req_simple_recv(struct wsgi_request *wsgi_req) {
+
+	UWSGI_SET_IN_REQUEST;
+
+	gettimeofday(&wsgi_req->start_of_request, NULL);
+
+
+	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer)) {
+		return -1;
+	}
+
+	// enter harakiri mode
+	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+		set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+	}
+
+	return 0;
+}
+
 int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 	UWSGI_SET_IN_REQUEST;

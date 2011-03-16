@@ -710,6 +710,11 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 
 void uwsgi_python_init_apps() {
 
+	if (uwsgi.async > 1) {
+		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
+        	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
+	}
+
 	init_pyargv();
 #ifdef UWSGI_MINTERPRETERS
         init_uwsgi_embedded_module();
@@ -841,9 +846,14 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
 	PyThreadState *tstate = PyThreadState_GET();
 
-	uwsgi_log("suspending python\n");
-	up.current_recursion_depth = tstate->recursion_depth;
-	up.current_frame = tstate->frame;
+	if (wsgi_req) {
+		up.current_recursion_depth[wsgi_req->async_id] = tstate->recursion_depth;
+		up.current_frame[wsgi_req->async_id] = tstate->frame;
+	}
+	else {
+		up.current_main_recursion_depth = tstate->recursion_depth;
+		up.current_main_frame = tstate->frame;
+	}
 
 }
 
@@ -958,9 +968,14 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 	PyThreadState *tstate = PyThreadState_GET();
 
-	uwsgi_log("resuming python\n");
-	tstate->recursion_depth = up.current_recursion_depth;
-	tstate->frame = up.current_frame;
+	if (wsgi_req) {
+		tstate->recursion_depth = up.current_recursion_depth[wsgi_req->async_id];
+		tstate->frame = up.current_frame[wsgi_req->async_id];
+	}
+	else {
+		tstate->recursion_depth = up.current_main_recursion_depth;
+		tstate->frame = up.current_main_frame;
+	}
 
 }
 

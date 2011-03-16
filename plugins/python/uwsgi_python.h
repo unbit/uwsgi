@@ -1,6 +1,7 @@
 #include "../../uwsgi.h"
 #include <Python.h>
 
+#include <frameobject.h>
 
 #define MAX_PYTHONPATH 64
 #define MAX_PYMODULE_ALIAS 64
@@ -110,8 +111,11 @@ struct uwsgi_python {
 	int ignore_script_name;
 	int catch_exceptions;
 
-	int current_recursion_depth;
-	struct _frame* current_frame;
+	int *current_recursion_depth;
+	struct _frame **current_frame;
+
+	int current_main_recursion_depth;
+	struct _frame *current_main_frame;
 
 	void (*swap_ts)(struct wsgi_request *, struct uwsgi_app *);
 	void (*reset_ts)(struct wsgi_request *, struct uwsgi_app *);

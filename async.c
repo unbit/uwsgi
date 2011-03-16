@@ -185,6 +185,9 @@ void async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
 }
 
+void async_schedule_to_req(void) {
+	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);
+}
 
 void *async_loop(void *arg1) {
 
@@ -193,12 +196,15 @@ void *async_loop(void *arg1) {
 	struct uwsgi_rb_timer *min_timeout;
 	int timeout;
 
-	struct uwsgi_async_request *current_request = NULL, *next_async_request = NULL;
+	static struct uwsgi_async_request *current_request = NULL, *next_async_request = NULL;
 
 	void *events = event_queue_alloc(64);
 
 	uwsgi.async_runqueue = NULL;
 	uwsgi.async_runqueue_cnt = 0;
+
+	// set a default request manager
+        if (!uwsgi.schedule_to_req) uwsgi.schedule_to_req = async_schedule_to_req;
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
@@ -259,35 +265,12 @@ void *async_loop(void *arg1) {
 #endif
 
 
-				if (wsgi_req_recv(uwsgi.wsgi_req)) {
+				if (wsgi_req_simple_recv(uwsgi.wsgi_req)) {
 					continue;
 				}
 
-				if (uwsgi.wsgi_req->async_status == UWSGI_OK) {
-					// fast request, close it
-					// remove all the monitored fds and timeout
-                                	while(uwsgi.wsgi_req->waiting_fds) {
-                                        	event_queue_del_fd(uwsgi.async_queue, uwsgi.wsgi_req->waiting_fds->fd, uwsgi.wsgi_req->waiting_fds->event);
-                                        	tmp_uaf = uwsgi.wsgi_req->waiting_fds;
-                                        	uwsgi.async_waiting_fd_table[tmp_uaf->fd] = NULL;
-                                        	uwsgi.wsgi_req->waiting_fds = tmp_uaf->next;
-                                        	free(tmp_uaf);
-                                	}
-                                	uwsgi.wsgi_req->waiting_fds = NULL;
-                                	if (uwsgi.wsgi_req->async_timeout) {
-                                        	rb_erase(&uwsgi.wsgi_req->async_timeout->rbt, uwsgi.rb_async_timeouts);
-                                        	free(uwsgi.wsgi_req->async_timeout);
-                                        	uwsgi.wsgi_req->async_timeout = NULL;
-                                	}
-					uwsgi_close_request(uwsgi.wsgi_req);
-					// push the wsgi_request in the unused stack
-					uwsgi.async_queue_unused_ptr++;
-					uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
-				}
-				else if (!uwsgi.wsgi_req->waiting_fds && !uwsgi.wsgi_req->async_timeout) {
-					// suspended request put it in the runqueue
-					runqueue_push(uwsgi.wsgi_req);
-				}
+				// put request in the runqueue
+				runqueue_push(uwsgi.wsgi_req);
 			}
 			else {
 				// app event
@@ -322,15 +305,14 @@ void *async_loop(void *arg1) {
 		}
 
 		// event queue managed, give cpu to runqueue
-
 		if (!current_request)
 			current_request = uwsgi.async_runqueue;
 
 		if (uwsgi.async_runqueue_cnt) {
 
-
 			uwsgi.wsgi_req = current_request->wsgi_req;
-			uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);			
+
+			uwsgi.schedule_to_req();
 
 			next_async_request = current_request->next;
 			// request ended ?
