@@ -52,6 +52,7 @@ static struct option long_base_options[] = {
 	{"cgi-mode", no_argument, 0, 'c'},
 	{"abstract-socket", no_argument, 0, 'a'},
 	{"chmod-socket", optional_argument, 0, 'C'},
+	{"chmod", optional_argument, 0, 'C'},
 #ifdef UWSGI_THREADING
 	{"enable-threads", no_argument, 0, 'T'},
 #endif
@@ -823,9 +824,10 @@ int main(int argc, char *argv[], char *envp[])
 	if (uwsgi.dump_options) {
 		struct option *lopt = uwsgi.long_options;
 		while(lopt->name) {
-			uwsgi_log("--%s\n", lopt->name);
+			fprintf(stdout, "%s\n", lopt->name);
 			lopt++;
 		}	
+		exit(0);
 	}
 
 	if (uwsgi.show_config) {
@@ -2995,11 +2997,14 @@ struct uwsgi_help_item main_help[] = {
 {"disable-logging", "disable request logging (only errors or server messages will be logged)"},
 {"xmlconfig <path>", "path of xml config file"},
 {"harakiri <sec>", "set harakiri timeout to <sec> seconds"},
+{"harakiri-verbose", "report additional info during harakiri"},
 {"processes <n>", "spawn <n> uwsgi worker processes"},
+{"workers <n>", "spawn <n> uwsgi worker processes"},
 {"max-vars <n>", "set maximum number of vars/headers to <n>"},
 {"sharedarea <n>", "create a shared memory area of <n> pages"},
 {"cgi-mode", "set cgi mode"},
 {"chmod-socket[=NNN]", "chmod socket to 666 or NNN"},
+{"chmod[=NNN]", "chmod socket to 666 or NNN"},
 {"memory-report",  "enable memory usage report"},
 {"single-interpreter", "single interpreter mode"},
 {"abstract-socket", "set socket in the abstract namespace (Linux only)"},
@@ -3027,7 +3032,7 @@ struct uwsgi_help_item main_help[] = {
 {"no-orphans", "automatically kill workers on master's dead"},
 {"udp <ip:port>", "bind master process to udp socket on ip:port"},
 {"multicast <group>", "set multicast group"},
-{"snmp", "enable SNMP support in the UDP server"},
+{"snmp[=<addr>]", "enable SNMP support in the UDP server or bind it to <addr>"},
 {"snmp-community <value>", "set SNMP community code to <value>"},
 {"erlang <name|address>", "enable the Erlang server with node name <name@address>"},
 {"erlang-cookie <cookie>", "set the erlang cookie to <cookie>"},
@@ -3037,6 +3042,7 @@ struct uwsgi_help_item main_help[] = {
 {"proxy-node <socket>", "add the node <socket> to the proxy"},
 {"proxy-max-connections <n>", "set the max number of concurrent connections mnaged by the proxy"},
 {"async <n>", "enable async mode with n core"},
+{"threads <n>", "spawn <n> threads core"},
 {"logto <logfile|addr>", "log to file/udp"},
 {"logdate", "add timestamp to loglines"},
 {"log-zero", "log requests with 0 response size"},
@@ -3056,6 +3062,7 @@ struct uwsgi_help_item main_help[] = {
 {"ugreen-stacksize <n>", "set uGreen stacksize to <n>"},
 {"no-site", "do not import site.py on startup"},
 {"vhost", "enable virtual hosting"},
+{"vhost-host", "use the Host header as the key for virtual hosting"},
 {"mount MOUNTPOINT=app", "add a new app under MOUNTPOINT"},
 {"routing", "enable uWSGI advanced routing"},
 {"http <addr>", "start embedded HTTP server on <addr>"},
@@ -3070,6 +3077,7 @@ struct uwsgi_help_item main_help[] = {
 {"cgroup <group>", "run the server in <group> cgroup (Linux only)"},
 {"cgroup-opt KEY=VAL", "set cgroup option (Linux only)"},
 {"version", "print server version"},
+{"attach-daemon <command>", "run <command> under the control of master process"},
 {"daemonize <logfile|addr>", "daemonize and log into <logfile> or udp <addr>"},
 
 { 0, 0 },
@@ -3148,6 +3156,7 @@ void uwsgi_help(void) {
 
 			tmp_option = uwsgi_concat2(uhi->key, "");
 			space = strchr(tmp_option, ' ');
+			if (!space) space = strstr(tmp_option, "[=");
 			if (space) space[0] = 0;
 
 			if (!strcmp(tmp_option, lopt->name)) {
@@ -3167,6 +3176,7 @@ void uwsgi_help(void) {
 						if (uhi->key == 0) break;
 						tmp_option = uwsgi_concat2(uhi->key, "");
 						space = strchr(tmp_option, ' ');
+						if (!space) space = strstr(tmp_option, "[=");
 						if (space) space[0] = 0;
 
 						if (!strcmp(tmp_option, lopt->name)) {
@@ -3190,6 +3200,7 @@ void uwsgi_help(void) {
 						if (uhi->key == 0) break;
 						tmp_option = uwsgi_concat2(uhi->key, "");
 						space = strchr(tmp_option, ' ');
+						if (!space) space = strstr(tmp_option, "[=");
 						if (space) space[0] = 0;
 
 						if (!strcmp(tmp_option, lopt->name)) {

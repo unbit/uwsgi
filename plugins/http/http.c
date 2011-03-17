@@ -879,6 +879,11 @@ int http_init() {
 
 	return 0;
 }
+
+struct uwsgi_help_item http_help[] = {
+	{ "http-to <addr>", "forward http requests to uwsgi instance bound at <addr>"},
+	{ 0, 0 }
+};
 	
 int http_opt(int i, char *optarg) {
 
@@ -931,6 +936,7 @@ struct uwsgi_plugin http_plugin = {
 
         .options = http_options,
         .manage_opt = http_opt,
+	.help = http_help,
         .init = http_init,
 };
 

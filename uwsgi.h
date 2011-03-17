@@ -2,7 +2,7 @@
 
 /* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
 
-#define UWSGI_VERSION	"0.9.7-dev"
+#define UWSGI_VERSION	"0.9.7"
 
 #define UMAX16	65536
 

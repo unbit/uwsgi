@@ -1,5 +1,17 @@
 *** march 2011 ***
 
+ * 0.9.7 [20110317]
+
+- fixed psgi compilation on GNU systems
+- improved --pep3333-input
+- better error reporting on failed open/fopen
+- fixed uGreen
+- added greenlet support
+- various solaris fixes
+- new help system
+- updated async support
+- fixed uwsgi.cache_get in python
+
  * 0.9.7-rc3 [20110312]
 
 - added support for persistent cache (--cache-store <filename>)
