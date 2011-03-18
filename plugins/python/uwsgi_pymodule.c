@@ -2528,7 +2528,6 @@ PyObject *py_uwsgi_queue_push(PyObject * self, PyObject * args) {
         }
 	
 	if (uwsgi.queue_size) {
-		uwsgi_log("locking queue\n");
                 uwsgi_wlock(uwsgi.queue_lock);
                 if (uwsgi_queue_push(message, msglen)) {
 			Py_INCREF(Py_True);
@@ -2539,7 +2538,6 @@ PyObject *py_uwsgi_queue_push(PyObject * self, PyObject * args) {
                         res = Py_None;
                 }
                 uwsgi_rwunlock(uwsgi.queue_lock);
-		uwsgi_log("unlocked queue\n");
                 return res;
         }
 
@@ -2611,6 +2609,56 @@ PyObject *py_uwsgi_queue_get(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
+
+        long num = 0;
+        uint64_t size = 0;
+        char *message;
+        PyObject *res, *zero;
+	uint64_t base;
+
+        if (!PyArg_ParseTuple(args, "l:queue_last", &num)) {
+                return NULL;
+        }
+
+        if (uwsgi.queue_size) {
+		res = PyList_New(0);
+                uwsgi_rlock(uwsgi.queue_lock);
+		if (uwsgi.shared->queue_pos > 0) {
+			base = uwsgi.shared->queue_pos-1;
+		}
+		else {
+			base = uwsgi.queue_size-1;
+		}
+		if (num > (long)uwsgi.queue_size) num = uwsgi.queue_size;
+		while(num) {
+                	message = uwsgi_queue_get(base, &size);
+                	if (message && size) {
+                        	zero = PyString_FromStringAndSize(message, size);
+				PyList_Append(res, zero);
+				Py_DECREF(zero);
+                	}
+                	else {
+                		uwsgi_rwunlock(uwsgi.queue_lock);
+				return res;
+                	}
+			if (base > 0) {
+				base--;
+			}
+			else {
+				base = uwsgi.queue_size-1;
+			}
+			num--;
+		}
+                uwsgi_rwunlock(uwsgi.queue_lock);
+                return res;
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
 PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	char *key;
@@ -2676,6 +2724,7 @@ static PyMethodDef uwsgi_cache_methods[] = {
 
 static PyMethodDef uwsgi_queue_methods[] = {
 	{"queue_get", py_uwsgi_queue_get, METH_VARARGS, ""},
+	{"queue_last", py_uwsgi_queue_last, METH_VARARGS, ""},
 	{"queue_push", py_uwsgi_queue_push, METH_VARARGS, ""},
 	{"queue_pull", py_uwsgi_queue_pull, METH_VARARGS, ""},
 	{"queue_slot", py_uwsgi_queue_slot, METH_VARARGS, ""},

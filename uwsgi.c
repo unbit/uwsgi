@@ -71,6 +71,8 @@ static struct option long_base_options[] = {
 	{"cache-store-sync", required_argument, 0, LONG_ARGS_CACHE_STORE_SYNC},
 	{"queue", required_argument, 0, LONG_ARGS_QUEUE},
 	{"queue-blocksize", required_argument, 0, LONG_ARGS_QUEUE_BLOCKSIZE},
+	{"queue-store", required_argument, 0, LONG_ARGS_QUEUE_STORE},
+	{"queue-store-sync", required_argument, 0, LONG_ARGS_QUEUE_STORE_SYNC},
 #ifdef UWSGI_SPOOLER
 	{"spooler", required_argument, 0, 'Q'},
 #endif
@@ -1309,14 +1311,49 @@ int uwsgi_start(void *v_argv) {
                         exit(1);
                 }
 
-		uwsgi.queue = mmap(NULL, uwsgi.queue_blocksize * uwsgi.queue_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+
+		uwsgi.shared->queue_pos = 0;
+                uwsgi.shared->queue_pull_pos = 0;
+
+		if (uwsgi.queue_store) {
+			uwsgi.queue_filesize = uwsgi.queue_blocksize * uwsgi.queue_size;
+			int queue_fd;
+			struct stat qst;
+
+			if (stat(uwsgi.queue_store, &qst)) {
+                                uwsgi_log("creating a new queue store file: %s\n", uwsgi.queue_store);
+                                queue_fd = open(uwsgi.queue_store, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR );
+                                if (queue_fd >= 0) {
+                                        // fill the queue store
+                                        if (ftruncate(queue_fd, uwsgi.queue_filesize)) {
+                                                uwsgi_log("ftruncate()");
+                                                exit(1);
+                                        }
+                                }
+                        }
+                        else {
+                                if ((size_t)qst.st_size != uwsgi.queue_filesize || !S_ISREG(qst.st_mode)) {
+                                        uwsgi_log("invalid queue store file. Please remove it or fix queue blocksize/items to match its size\n");
+                                        exit(1);
+                                }
+                                queue_fd = open(uwsgi.queue_store, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR );
+                                uwsgi_log("recovered queue from backing store file: %s\n", uwsgi.queue_store);
+                        }
+
+                        if (queue_fd < 0) {
+                                uwsgi_error_open(uwsgi.queue_store);
+                                exit(1);
+                        }
+                        uwsgi.queue = mmap(NULL, uwsgi.queue_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, queue_fd, 0);
+			uwsgi_queue_fix();		
+		}
+		else {
+			uwsgi.queue = mmap(NULL, uwsgi.queue_blocksize * uwsgi.queue_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		}
 		if (!uwsgi.queue) {
                         uwsgi_error("mmap()");
                         exit(1);
                 }
-
-		uwsgi.shared->queue_pos = 0;
-                uwsgi.shared->queue_pull_pos = 0;
 
                 uwsgi.queue_lock = uwsgi_mmap_shared_rwlock();
                 uwsgi_rwlock_init(uwsgi.queue_lock);
@@ -2351,6 +2388,13 @@ end:
 			return 1;
 		case LONG_ARGS_CACHE_BLOCKSIZE:
 			uwsgi.cache_blocksize = atoi(optarg);
+			return 1;
+		case LONG_ARGS_QUEUE_STORE:
+			uwsgi.queue_store = optarg;
+			uwsgi.master_process = 1;
+			return 1;
+		case LONG_ARGS_QUEUE_STORE_SYNC:
+			uwsgi.queue_store_sync = atoi(optarg);
 			return 1;
 		case LONG_ARGS_QUEUE:
 			uwsgi.queue_size = atoi(optarg);

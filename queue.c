@@ -19,6 +19,25 @@ char *uwsgi_queue_get(uint64_t index, uint64_t *size) {
 	
 }
 
+void uwsgi_queue_fix() {
+
+        uint64_t i;
+	char *value;
+	uint64_t size;
+
+        for(i=0;i< uwsgi.queue_size;i++) {
+                // valid record ?
+		value = uwsgi_queue_get(i, &size);
+		if (value && size) {
+			uwsgi.shared->queue_pos++;
+		}
+		else {
+			return;
+		}
+        }
+}
+
+
 char *uwsgi_queue_pop(uint64_t *size) {
 
         struct uwsgi_queue_item *uqi;
@@ -69,6 +88,8 @@ int uwsgi_queue_push(char *message, uint64_t size) {
 
 	if (size > uwsgi.queue_blocksize + sizeof(struct uwsgi_queue_item))
 		return 0;
+
+	if (!size) return 0;
 
 	ptr = ptr + (uwsgi.queue_blocksize*uwsgi.shared->queue_pos);
 	uqi = (struct uwsgi_queue_item *) ptr;

@@ -374,6 +374,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_CPU_AFFINITY		17083
 #define LONG_ARGS_CACHE_STORE		17084
 #define LONG_ARGS_CACHE_STORE_SYNC	17085
+#define LONG_ARGS_QUEUE_STORE		17086
+#define LONG_ARGS_QUEUE_STORE_SYNC	17087
 
 
 #define UWSGI_OK	0
@@ -1003,6 +1005,9 @@ struct uwsgi_server {
 	uint64_t	queue_size;
 	uint64_t	queue_blocksize;
 	void		*queue;
+	char 		*queue_store;
+	size_t 		queue_filesize;
+	int		queue_store_sync;
 
 	void *cache_lock;
 	void *queue_lock;
@@ -1651,3 +1656,5 @@ inline int event_queue_read(void);
 inline int event_queue_write(void);
 
 void uwsgi_help(void);
+
+void uwsgi_queue_fix(void);
