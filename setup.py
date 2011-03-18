@@ -8,12 +8,21 @@ from setuptools.dist import Distribution
 from setuptools.command.install import install
 from setuptools.command.build_ext import build_ext
 
+
+def patch_bin_path(cmd, conf):
+    if not os.path.exists(cmd.install_scripts):
+        os.makedirs(cmd.install_scripts)
+    bin_name = conf.get('bin_name')
+    if not os.path.isabs(bin_name):
+        print('Patching "bin_name" to properly install_scripts dir')
+        conf.set('bin_name', os.path.join(cmd.install_scripts, conf.get('bin_name')))
+
+
 class uWSGIBuilder(build_ext):
 
     def run(self):
-	conf = uc.uConf('buildconf/default.ini')
-	bin_name = conf.get('bin_name')
-	conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
+        conf = uc.uConf('buildconf/default.ini')
+        patch_bin_path(self, conf)
         uc.build_uwsgi( conf )
 
 
@@ -24,9 +33,8 @@ class uWSGIInstall(install):
         if self.record:
             record_file = open(self.record,'w')
 
-	conf = uc.uConf('buildconf/default.ini')
-	bin_name = conf.get('bin_name')
-	conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
+        conf = uc.uConf('buildconf/default.ini')
+        patch_bin_path(self, conf)
         uc.build_uwsgi( conf )
 
 class uWSGIDistribution(Distribution):
