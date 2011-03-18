@@ -5,7 +5,6 @@ extern struct uwsgi_python up;
 
 int manage_python_response(struct wsgi_request *wsgi_req) {
 	// use standard WSGI response parse
-	wsgi_req->switches++;
 	return uwsgi_response_subhandler_wsgi(wsgi_req);
 }
 

@@ -94,14 +94,12 @@ VALUE protected_fiber_loop() {
                                 if (!wsgi_req) goto cycle;
                                 uwsgi_log("request passed to fiber core %d\n", wsgi_req->async_id);
 				uwsgi.wsgi_req = wsgi_req;
-				uwsgi.wsgi_req->switches++;
                         	rb_fiber_resume(fiber_list[wsgi_req->async_id], 0, NULL);
                         }
                         else {
                                 wsgi_req = find_wsgi_req_by_fd((int)uwsgi.async_events[i].ASYNC_FD, -1);
                                 if (wsgi_req) {
 					uwsgi.wsgi_req = wsgi_req;
-					uwsgi.wsgi_req->switches++;
                         		rb_fiber_resume(fiber_list[wsgi_req->async_id], 0, NULL);
                                 }
                                 else {
@@ -116,7 +114,6 @@ cycle:
 
 		//uwsgi_log("resuming fiber %d %p\n", current, fiber_list[current]);
 		uwsgi.wsgi_req = uwsgi.wsgi_requests[current];
-		uwsgi.wsgi_req->switches++;
 		if (uwsgi.wsgi_req->async_status != UWSGI_ACCEPTING) {
 			uwsgi_log("passing control to fiber %d\n", current);
 			rb_fiber_resume(fiber_list[current], 0, NULL);

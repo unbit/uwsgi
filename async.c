@@ -320,6 +320,7 @@ void *async_loop(void *arg1) {
 			uwsgi.wsgi_req = current_request->wsgi_req;
 
 			uwsgi.schedule_to_req();
+			uwsgi.wsgi_req->switches++;
 
 			next_async_request = current_request->next;
 			// request ended ?

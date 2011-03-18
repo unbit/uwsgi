@@ -472,10 +472,14 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
-			wsgi_req->switches++;
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
 				return UWSGI_AGAIN;
+			}
+			else {
+#endif
+				wsgi_req->switches++;
+#ifdef UWSGI_ASYNC
 			}
 #endif
 		}

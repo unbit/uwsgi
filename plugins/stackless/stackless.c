@@ -6,7 +6,6 @@ extern struct uwsgi_server uwsgi;
 struct ustackless {
 	int enabled;
 	PyObject *callable;
-	PyTaskletObject *main;
 	PyTaskletObject **sl;
 } usl;
 
@@ -40,9 +39,7 @@ inline static void stackless_schedule_to_req() {
 		uwsgi.wsgi_req->suspended = 1;
 	}
 
-	uwsgi_log("running tasklet\n");
 	PyTasklet_Run(usl.sl[id]);
-	uwsgi_log("running tasklet 2\n");
 
 	if (uwsgi.wsgi_req->suspended) {
 		uwsgi.wsgi_req->async_status = UWSGI_AGAIN;
@@ -52,9 +49,7 @@ inline static void stackless_schedule_to_req() {
 
 inline static void stackless_schedule_to_main(struct wsgi_request *wsgi_req) {
 
-	uwsgi_log("suspending tasklet\n");
-	PyTasklet_Run(usl.main);
-	uwsgi_log("tasklet suspended\n");
+	PyStackless_Schedule(Py_None, 1);
 	uwsgi.wsgi_req = wsgi_req;
 }
 
@@ -71,13 +66,8 @@ void stackless_init_apps(void) {
 
 
 	usl.sl = uwsgi_malloc( sizeof(PyTaskletObject *) * uwsgi.async );
-	PyThreadState *ts = PyThreadState_GET();
-	usl.main = ts->st.current;
-	uwsgi_log("%p\n", usl.main);
-	Py_INCREF(ts);
 	usl.callable = PyCFunction_New(uwsgi_stackless_request_method, NULL);
 	uwsgi_log("enabled stackless engine\n");
-
 	uwsgi.schedule_to_main = stackless_schedule_to_main;
 	uwsgi.schedule_to_req = stackless_schedule_to_req;
 
