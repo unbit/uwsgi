@@ -70,6 +70,12 @@ void daemonize(char *logfile) {
 	pid_t pid;
 	int fdin;
 
+	// do not daemonize under emperor
+	if (uwsgi.has_emperor) {
+		logto(logfile);
+		return;
+	}
+
 	pid = fork();
 	if (pid < 0) {
 		uwsgi_error("fork()");
