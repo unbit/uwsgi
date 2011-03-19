@@ -130,6 +130,9 @@ int uwsgi_python_init() {
 
 	uwsgi_log("Python main interpreter initialized at %p\n", up.main_thread);
 
+	// add the hacky modifier1 30
+	uwsgi.p[30]->request = uwsgi.p[0]->request;
+
 	return 1;
 
 }
