@@ -541,6 +541,9 @@ struct uwsgi_app {
 	int             requests;
 	char           *chdir;
 
+	char		*touch_reload;
+	time_t		touch_reload_mtime;
+
 };
 
 
@@ -642,6 +645,9 @@ struct wsgi_request {
 
 	char           *chdir;
 	uint16_t        chdir_len;
+
+	char           *touch_reload;
+	uint16_t        touch_reload_len;
 
 	int             fd_closed;
 

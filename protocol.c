@@ -516,6 +516,14 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->chdir = ptrbuf;
 							wsgi_req->chdir_len = strsize;
 						}
+						else if (!uwsgi_strncmp("UWSGI_FILE", 10, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->file = ptrbuf;
+							wsgi_req->file_len = strsize;
+						}
+						else if (!uwsgi_strncmp("UWSGI_TOUCH_RELOAD", 18, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->touch_reload = ptrbuf;
+							wsgi_req->touch_reload_len = strsize;
+						}
 						else if (!uwsgi_strncmp("UWSGI_SETENV", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							char *env_value = memchr(ptrbuf, '=', strsize);
 							if (env_value) {

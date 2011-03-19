@@ -941,6 +941,7 @@ char *uwsgi_strncopy(char *s, int len) {
 int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 
 	int i;
+	struct stat st;
 
 	for(i=0;i<uwsgi.apps_cnt;i++) {
 		//uwsgi_log("searching for %.*s in %.*s %p\n", script_name_len, script_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
@@ -948,6 +949,15 @@ int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 			continue;
 		}	
 		if (!uwsgi_strncmp(uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len, script_name, script_name_len)) {
+			if (uwsgi.apps[i].touch_reload) {
+				if (!stat(uwsgi.apps[i].touch_reload, &st)) {
+					if (st.st_mtime != uwsgi.apps[i].touch_reload_mtime) {
+						// serve the new request and reload
+						uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+						return -1;	
+					}
+				}
+			}
 			if (modifier1 == -1) return i;
 			if (modifier1 == uwsgi.apps[i].modifier1) return i;
 		}

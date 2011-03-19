@@ -149,6 +149,14 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->interpreter = up.main_thread;
 	}
 
+	if (wsgi_req->touch_reload_len) {
+		struct stat trst;
+		char *touch_reload = uwsgi_strncopy(wsgi_req->touch_reload, wsgi_req->touch_reload_len);
+		if (!stat(touch_reload, &trst)) {
+			wi->touch_reload = touch_reload;
+			wi->touch_reload_mtime = trst.st_mtime;
+		}
+	}
 
 	wi->callable = up.loaders[loader](arg1);
 

@@ -1052,7 +1052,9 @@ void master_loop(char **argv, char **environ) {
                         }
 
 
-		uwsgi_log( "DAMN ! process %d died :( trying respawn ...\n", diedpid);
+		if (uwsgi.workers[uwsgi.mywid].manage_next_request) {
+			uwsgi_log( "DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int)diedpid);
+		}
 		gettimeofday(&last_respawn, NULL);
 		if (last_respawn.tv_sec == uwsgi.respawn_delta) {
 			uwsgi_log( "worker respawning too fast !!! i have to sleep a bit...\n");
@@ -1087,28 +1089,9 @@ void master_loop(char **argv, char **environ) {
 			uwsgi_error("fork()");
 		}
 		else {
-			uwsgi_log( "Respawned uWSGI worker (new pid: %d)\n", pid);
-			//close(uwsgi.workers[uwsgi.mywid].pipe[1]);
-			//event_queue_add_fd_read(uwsgi.master_queue, uwsgi.workers[uwsgi.mywid].pipe[0]);
-#ifdef UWSGI_SPOOLER
-			if (uwsgi.mywid <= 0 && diedpid != uwsgi.shared->spooler_pid) {
-#else
-				if (uwsgi.mywid <= 0) {
-#endif
-
-#ifdef UWSGI_PROXY
-			// TODO if no gateway span the error !!!
-			if (diedpid != uwsgi.shared->proxy_pid) {
-#endif
-						uwsgi_log( "warning the died pid was not in the workers list. Probably you hit a BUG of uWSGI\n");
-#ifdef UWSGI_PROXY
-					}
-#endif
-				}
-			}
-		}
-
-
+			uwsgi_log( "Respawned uWSGI worker %d (new pid: %d)\n", uwsgi.mywid, (int) pid);
 		}
 
 	}
+}
+}
