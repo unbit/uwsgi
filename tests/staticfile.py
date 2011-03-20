@@ -1,4 +1,5 @@
 import sys
+import uwsgi
 
 content_type = 'image/png'
 filename = 'logo_uWSGI.png'

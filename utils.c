@@ -1365,7 +1365,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		if (add_zero) {
 			*size = *size + 1;
 			buffer = realloc(buffer, *size);
-			buffer[*size] = 0;
+			buffer[*size-1] = 0;
 		}
 
 	}

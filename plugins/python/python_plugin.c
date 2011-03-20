@@ -185,36 +185,52 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 	char *real_filename = filename;
 
 
-	pyfile = fopen(filename, "r");
-	if (!pyfile) {
-		uwsgi_log("failed to open python file %s\n", filename);
-		exit(1);
-	}
+	if (strncmp(filename, "http://", 7)) {
 
-	if (fstat(fileno(pyfile), &pystat)) {
-		uwsgi_error("fstat()");
-		exit(1);
-	}
-
-	if (S_ISDIR(pystat.st_mode)) {
-		is_a_package = 1;
-		fclose(pyfile);
-		real_filename = uwsgi_concat2(filename, "/__init__.py");
-		pyfile = fopen(real_filename, "r");
+		pyfile = fopen(filename, "r");
 		if (!pyfile) {
-			uwsgi_error_open(real_filename);
+			uwsgi_log("failed to open python file %s\n", filename);
 			exit(1);
 		}
-	}
 
-	py_file_node = PyParser_SimpleParseFile(pyfile, real_filename, Py_file_input);
-	if (!py_file_node) {
-		PyErr_Print();
-		uwsgi_log("failed to parse file %s\n", real_filename);
-		exit(1);
-	}
+		if (fstat(fileno(pyfile), &pystat)) {
+			uwsgi_error("fstat()");
+			exit(1);
+		}
 
-	fclose(pyfile);
+		if (S_ISDIR(pystat.st_mode)) {
+			is_a_package = 1;
+			fclose(pyfile);
+			real_filename = uwsgi_concat2(filename, "/__init__.py");
+			pyfile = fopen(real_filename, "r");
+			if (!pyfile) {
+				uwsgi_error_open(real_filename);
+				exit(1);
+			}
+		}
+
+		py_file_node = PyParser_SimpleParseFile(pyfile, real_filename, Py_file_input);
+		if (!py_file_node) {
+			PyErr_Print();
+			uwsgi_log("failed to parse file %s\n", real_filename);
+			exit(1);
+		}
+
+		fclose(pyfile);
+	}
+	else {
+		int pycontent_size = 0;
+		char *pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
+
+		if (pycontent) {
+			py_file_node = PyParser_SimpleParseString(pycontent, Py_file_input);
+			if (!py_file_node) {
+				PyErr_Print();
+				uwsgi_log("failed to parse url %s\n", real_filename);
+				exit(1);
+			}
+		}
+	}
 
 	py_compiled_node = (PyObject *) PyNode_Compile(py_file_node, real_filename);
 
