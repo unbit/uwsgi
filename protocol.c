@@ -524,6 +524,10 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->touch_reload = ptrbuf;
 							wsgi_req->touch_reload_len = strsize;
 						}
+						else if (uwsgi.cache_max_items > 0 && !uwsgi_strncmp("UWSGI_CACHE_GET", 15, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->cache_get = ptrbuf;
+							wsgi_req->cache_get_len = strsize;
+						}
 						else if (!uwsgi_strncmp("UWSGI_SETENV", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							char *env_value = memchr(ptrbuf, '=', strsize);
 							if (env_value) {
@@ -578,19 +582,32 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						ptrbuf += strsize;
 					}
 					else {
+						uwsgi_log("Invalid uwsgi request. skip.\n");
 						return -1;
 					}
 				}
 				else {
+					uwsgi_log("Invalid uwsgi request. skip.\n");
 					return -1;
 				}
 			}
 		}
 		else {
+			uwsgi_log("Invalid uwsgi request. skip.\n");
 			return -1;
 		}
 	}
 
+	// check if data are available in the local cache
+	if (wsgi_req->cache_get_len > 0) {
+		uint64_t cache_value_size;
+		char *cache_value = uwsgi_cache_get(wsgi_req->cache_get, wsgi_req->cache_get_len, &cache_value_size);
+		if (cache_value && cache_value_size > 0) {
+			wsgi_req->response_size = write(wsgi_req->poll.fd, cache_value, cache_value_size);
+			wsgi_req->status = -1;
+			return -1;
+		}
+	}
 
 	if (uwsgi.manage_script_name) {
 		if (uwsgi.apps_cnt > 0 && wsgi_req->path_info_len > 1) {
@@ -634,6 +651,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	// check i fa file name uwsgi.check_static+env['PATH_INFO'] exists
 	if (uwsgi.check_static && wsgi_req->path_info_len > 1) {
 		struct stat st;
 		char *filename = uwsgi_concat2n(uwsgi.check_static, uwsgi.check_static_len, wsgi_req->path_info, wsgi_req->path_info_len);

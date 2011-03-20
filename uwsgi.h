@@ -650,6 +650,9 @@ struct wsgi_request {
 	char           *touch_reload;
 	uint16_t        touch_reload_len;
 
+	char           *cache_get;
+	uint16_t        cache_get_len;
+
 	int             fd_closed;
 
 	int             sendfile_fd;

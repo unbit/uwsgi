@@ -262,7 +262,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	if (uwsgi_parse_vars(wsgi_req)) {
-		uwsgi_log("Invalid WSGI request. skip.\n");
 		return -1;
 	}
 
