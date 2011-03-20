@@ -79,6 +79,7 @@ static struct option long_base_options[] = {
 	{"disable-logging", no_argument, 0, 'L'},
 
 	{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
+	{"pidfile2", required_argument, 0, LONG_ARGS_PIDFILE2},
 	{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
 	{"gid", required_argument, 0, LONG_ARGS_GID},
 	{"uid", required_argument, 0, LONG_ARGS_UID},
@@ -128,6 +129,7 @@ static struct option long_base_options[] = {
 	{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
+	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
 	{"log-master", no_argument, 0, LONG_ARGS_LOG_MASTER},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE},
@@ -412,6 +414,13 @@ static void vacuum(void)
 					uwsgi_error("unlink()");
 				} else {
 					uwsgi_log("VACUUM: pidfile removed.\n");
+				}
+			}
+			if (uwsgi.pidfile2) {
+				if (unlink(uwsgi.pidfile2)) {
+					uwsgi_error("unlink()");
+				} else {
+					uwsgi_log("VACUUM: pidfile2 removed.\n");
 				}
 			}
 			if (uwsgi.chdir) {
@@ -1092,6 +1101,19 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 	}
+
+	if (uwsgi.pidfile2 && !uwsgi.is_a_reload) {
+                uwsgi_log("writing pidfile2 to %s\n", uwsgi.pidfile2);
+                FILE *pidfile2 = fopen(uwsgi.pidfile2, "w");
+                if (!pidfile2) {
+                        uwsgi_error_open(uwsgi.pidfile2);
+                        exit(1);
+                }
+                if (fprintf(pidfile2, "%d\n", (int) getpid()) < 0) {
+                        uwsgi_log("could not write pidfile2.\n");
+                }
+                fclose(pidfile2);
+        }
 
 	if (!uwsgi.no_initial_output) {
 		if (!uwsgi.master_process) {
@@ -2257,6 +2279,9 @@ end:
 #endif
 		case LONG_ARGS_PIDFILE:
 			uwsgi.pidfile = optarg;
+			return 1;
+		case LONG_ARGS_PIDFILE2:
+			uwsgi.pidfile2 = optarg;
 			return 1;
 #ifdef UWSGI_UDP
 		case LONG_ARGS_UDP:

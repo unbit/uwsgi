@@ -344,6 +344,13 @@ void uwsgi_as_root() {
                                 exit(1);
                         }
 		}
+
+		if (uwsgi.logfile_chown) {
+			if (fchown(2, uwsgi.uid, uwsgi.gid)) {
+				uwsgi_error("fchown()");
+				exit(1);
+			}
+		}
 		if (uwsgi.gid) {
 			if (!uwsgi.master_as_root) uwsgi_log("setgid() to %d\n", uwsgi.gid);
 			if (setgid(uwsgi.gid)) {

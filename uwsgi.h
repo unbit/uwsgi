@@ -376,6 +376,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CACHE_STORE_SYNC	17085
 #define LONG_ARGS_QUEUE_STORE		17086
 #define LONG_ARGS_QUEUE_STORE_SYNC	17087
+#define LONG_ARGS_PIDFILE2		17088
 
 
 #define UWSGI_OK	0
@@ -793,6 +794,7 @@ struct uwsgi_server {
 	size_t check_static_len;
 
 	char           *logfile;
+	int		logfile_chown;
 
 	int             vhost;
 	int             vhost_host;
@@ -863,6 +865,7 @@ struct uwsgi_server {
 	int             page_size;
 
 	char           *pidfile;
+	char           *pidfile2;
 
 	int harakiri_verbose;
 
