@@ -1689,3 +1689,37 @@ int uwsgi_list_has_str(char *list, char *str) {
 	free(list2);
 	return 0;
 }
+
+int uwsgi_str2_num(char *str) {
+
+	int num = 0;
+
+	num = 10 * (str[0] - 48);
+	num += str[1] - 48;
+
+	return num;
+}
+
+int uwsgi_str3_num(char *str) {
+
+        int num = 0;
+
+        num = 100 * (str[0] - 48);
+        num += 10 * (str[1] - 48);
+        num += str[2] - 48;
+
+        return num;
+}
+
+
+int uwsgi_str4_num(char *str) {
+
+	int num = 0;
+
+	num = 1000 * (str[0] - 48);
+	num += 100 * (str[1] - 48);
+	num += 10 * (str[2] - 48);
+	num += str[3] - 48;
+
+	return num;
+}

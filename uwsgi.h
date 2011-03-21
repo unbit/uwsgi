@@ -653,6 +653,9 @@ struct wsgi_request {
 	char           *cache_get;
 	uint16_t        cache_get_len;
 
+	char           *if_modified_since;
+	uint16_t        if_modified_since_len;
+
 	int             fd_closed;
 
 	int             sendfile_fd;
@@ -1670,3 +1673,7 @@ inline int event_queue_write(void);
 void uwsgi_help(void);
 
 void uwsgi_queue_fix(void);
+
+int uwsgi_str2_num(char *);
+int uwsgi_str3_num(char *);
+int uwsgi_str4_num(char *);

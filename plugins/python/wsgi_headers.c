@@ -68,7 +68,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[2].iov_len = PyString_Size(head);
 #endif
 		uh.pktsize += wsgi_req->hvec[2].iov_len;
-		wsgi_req->status = atoi(wsgi_req->hvec[2].iov_base);
+		wsgi_req->status = uwsgi_str3_num(wsgi_req->hvec[2].iov_base);
 		wsgi_req->hvec[3].iov_base = nl;
 		wsgi_req->hvec[3].iov_len = NL_SIZE;
 		uh.pktsize += wsgi_req->hvec[3].iov_len;
@@ -87,7 +87,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[1].iov_len = PyString_Size(head);
 #endif
 		uh.pktsize += wsgi_req->hvec[1].iov_len;
-		wsgi_req->status = atoi(wsgi_req->hvec[1].iov_base);
+		wsgi_req->status = uwsgi_str3_num(wsgi_req->hvec[1].iov_base);
 		wsgi_req->hvec[2].iov_base = nl;
 		wsgi_req->hvec[2].iov_len = NL_SIZE;
 		uh.pktsize += wsgi_req->hvec[2].iov_len;

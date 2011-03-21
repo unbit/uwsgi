@@ -16,6 +16,112 @@ static size_t get_content_length(char *buf, uint16_t size) {
 	return val;
 }
 
+void set_http_date(time_t t, char *dst) {
+
+	static char  *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+	static char  *months[] = {
+				"Jan", "Feb", "Mar", "Apr",
+				"May", "Jun", "Jul", "Aug",
+				"Sep", "Oct", "Nov", "Dec"
+			};
+
+	struct tm *hdtm = gmtime(&t);
+	snprintf(dst, 49, "Last-Modified: %s, %02d %s %4d %02d:%02d:%02d GMT\r\n\r\n",
+		week[hdtm->tm_wday], hdtm->tm_mday,
+		months[hdtm->tm_mon], hdtm->tm_year+1900,
+		hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
+}
+
+// only RFC 1123 is supported
+time_t parse_http_date(char *date, uint16_t len) {
+
+	struct tm hdtm;
+
+	if (len != 29 && date[3] != ',') return 0;
+
+	hdtm.tm_mday = uwsgi_str2_num(date+5);
+
+	switch(date[8]) {
+		case 'J':
+			if (date[9] == 'a') {
+				hdtm.tm_mon = 0;
+				break;
+			}
+
+			if (date[9] == 'u') {
+				if (date[10] == 'n') {
+					hdtm.tm_mon = 5;
+					break;
+				}
+
+				if (date[10] == 'l') {
+					hdtm.tm_mon = 6;
+					break;
+				}
+
+				return 0;
+			}
+
+			return 0;
+
+		case 'F':
+			hdtm.tm_mon = 1;
+			break;
+
+		case 'M':
+			if (date[9] != 'a') return 0;
+
+			if (date[10] == 'r') {
+				hdtm.tm_mon = 2;
+				break;
+			}
+
+			if (date[10] == 'y') {
+				hdtm.tm_mon = 4;
+				break;
+			}
+
+			return 0;
+
+		case 'A':
+			if (date[10] == 'r') {
+				hdtm.tm_mon = 3;
+				break;
+			}
+			if (date[10] == 'g') {
+				hdtm.tm_mon = 7;
+				break;
+			}
+			return 0;
+
+		case 'S':
+			hdtm.tm_mon = 8;
+			break;
+
+		case 'O':
+			hdtm.tm_mon = 9;
+			break;
+
+		case 'N':
+			hdtm.tm_mon = 10;
+
+		case 'D':
+			hdtm.tm_mon = 11;
+			break;
+		default:
+			return 0;
+	}
+
+	hdtm.tm_year = uwsgi_str4_num(date+12)-1900;
+
+	hdtm.tm_hour = uwsgi_str2_num(date+17);
+	hdtm.tm_min = uwsgi_str2_num(date+20);
+	hdtm.tm_sec = uwsgi_str2_num(date+23);
+
+	return timegm(&hdtm);
+	
+}
+
 #ifdef UWSGI_UDP
 ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t message_size) {
 
@@ -557,6 +663,10 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->https = ptrbuf;
 							wsgi_req->https_len = strsize;
 						}
+						else if (!uwsgi_strncmp("HTTP_IF_MODIFIED_SINCE", 22, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->if_modified_since = ptrbuf;
+							wsgi_req->if_modified_since_len = strsize;
+						}
 						else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
 						}
@@ -659,13 +769,27 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		uwsgi_log("checking for %s\n", filename);
 #endif
 		if (!stat(filename, &st)) {
+			if (wsgi_req->if_modified_since_len) {
+				time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
+				if (st.st_mtime <= ims) {
+					wsgi_req->status = 304;
+					wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
+					wsgi_req->headers_size += write(wsgi_req->poll.fd, " 304 Not Modified\r\n\r\n", 21);
+					return -1;
+				}
+			}
 			if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
+				char http_last_modified[49];
 #ifdef UWSGI_DEBUG
 				uwsgi_log("file %s found\n", filename);
 #endif
+				// no need to set content-type/content-length, they will be fixed by the http server/router
 				wsgi_req->sendfile_fd = open(filename, O_RDONLY);
-				wsgi_req->response_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-				wsgi_req->response_size += write(wsgi_req->poll.fd, " 200 OK\r\n\r\n", 11);
+				wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, " 200 OK\r\n", 9);
+				set_http_date(st.st_mtime, http_last_modified);
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
+				wsgi_req->header_cnt = 1;
 				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 				wsgi_req->status = 200;
 				free(filename);
