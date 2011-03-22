@@ -452,6 +452,11 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		return 0;
 	}
 
+	// older OSX versions make mess with CMSG_FIRSTHDR
+#ifdef __APPLE__
+	if (!msg.msg_controllen) return 1;
+#endif
+
 	cmsg = CMSG_FIRSTHDR (&msg);
 	while(cmsg != NULL) {
 		if (cmsg->cmsg_len == CMSG_LEN(sizeof(int)) &&
