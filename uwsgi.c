@@ -913,7 +913,7 @@ options_parsed:
 		}
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, plese disable DEBUG in uwsgiconfig.py and recompile it ***\n***\n");
+	uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, please disable debug in your build profile and recompile it ***\n***\n");
 #endif
 
 	uwsgi_log("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
