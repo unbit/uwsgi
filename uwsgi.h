@@ -1006,6 +1006,8 @@ struct uwsgi_server {
 	int cluster_nodes;
 	int cluster_fd;
 	struct sockaddr_in mc_cluster_addr;
+	
+	int		check_cache;
 
 	uint32_t 	cache_max_items;
 	uint64_t 	*cache_hashtable;

@@ -152,6 +152,7 @@ static struct option long_base_options[] = {
 	{"routing", no_argument, &uwsgi.routing, 1},
 #endif
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
+	{"check-cache", no_argument, &uwsgi.check_cache, 1},
 	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
 	{"mode", required_argument, 0, LONG_ARGS_MODE},
 	{"env", required_argument, 0, LONG_ARGS_ENV},

@@ -719,6 +719,18 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		}
 	}
 
+	if (uwsgi.check_cache && wsgi_req->uri_len && wsgi_req->method_len == 3 &&
+		wsgi_req->method[0] == 'G' && wsgi_req->method[1] == 'E' && wsgi_req->method[2] == 'T') {
+
+		uint64_t cache_value_size;
+		char *cache_value = uwsgi_cache_get(wsgi_req->uri, wsgi_req->uri_len, &cache_value_size);
+		if (cache_value && cache_value_size > 0) {
+			wsgi_req->response_size = write(wsgi_req->poll.fd, cache_value, cache_value_size);
+			wsgi_req->status = -1;
+			return -1;
+		}
+	}
+
 	if (uwsgi.manage_script_name) {
 		if (uwsgi.apps_cnt > 0 && wsgi_req->path_info_len > 1) {
 			// starts with 1 as the 0 app is the default (/) one
