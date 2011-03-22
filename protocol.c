@@ -454,19 +454,20 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 
 	cmsg = CMSG_FIRSTHDR (&msg);
 	while(cmsg != NULL) {
-		if (cmsg->cmsg_len   != CMSG_LEN (sizeof (int)) ||
-			cmsg->cmsg_level != SOL_SOCKET ||
-			cmsg->cmsg_type  != SCM_RIGHTS) continue;
+		if (cmsg->cmsg_len == CMSG_LEN(sizeof(int)) &&
+			cmsg->cmsg_level == SOL_SOCKET &&
+			cmsg->cmsg_type && SCM_RIGHTS) {
 
 		// upgrade connection to the new socket
 #ifdef UWSGI_DEBUG
-		uwsgi_log("upgrading fd %d to ", upoll->fd);	
+			uwsgi_log("upgrading fd %d to ", upoll->fd);	
 #endif
-		close(upoll->fd);
-		memcpy(&upoll->fd, CMSG_DATA(cmsg), sizeof(int));
+			close(upoll->fd);
+			memcpy(&upoll->fd, CMSG_DATA(cmsg), sizeof(int));
 #ifdef UWSGI_DEBUG
-		uwsgi_log("%d\n", upoll->fd);	
+			uwsgi_log("%d\n", upoll->fd);	
 #endif
+		}
 		cmsg = CMSG_NXTHDR (&msg, cmsg);
 	}
 
