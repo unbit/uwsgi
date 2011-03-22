@@ -234,6 +234,9 @@ class uConf(object):
             self.libs.remove('-lpthread')
             self.libs.append('-lroot')
 
+        if uwsgi_os == 'Darwin':
+            self.cflags.append('-mmacosx-version-min=10.5')
+
         # set locking subsystem
         locking_mode = self.get('locking','auto')
 

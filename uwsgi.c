@@ -52,6 +52,7 @@ static struct option long_base_options[] = {
 	{"cgi-mode", no_argument, 0, 'c'},
 	{"abstract-socket", no_argument, 0, 'a'},
 	{"chmod-socket", optional_argument, 0, 'C'},
+	{"map-socket", required_argument, 0, LONG_ARGS_MAP_SOCKET},
 	{"chmod", optional_argument, 0, 'C'},
 #ifdef UWSGI_THREADING
 	{"enable-threads", no_argument, 0, 'T'},
@@ -1752,6 +1753,22 @@ int uwsgi_start(void *v_argv) {
 	}
 	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1);
 
+	for(i=0;i<MAX_SOCKETS;i++) {
+		if (!uwsgi.map_socket[i]) continue;
+		char *p = strtok(uwsgi.map_socket[i], ",");
+                while (p != NULL) {
+			int w = atoi(p);
+			if (w < 1 || w > uwsgi.numproc) {
+				uwsgi_log("invalid worker num: %d\n", w);
+				exit(1);
+			}
+			uwsgi.workers[w].sockets_mask[i] = 1;
+			uwsgi_log("mapped socket %d (%s) to worker %d\n", i, uwsgi.sockets[i].name, w);
+                        p = strtok(NULL, ",");
+                }
+	
+	}
+
 	uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid;
 
@@ -1954,6 +1971,31 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 		master_loop(argv, environ);
 		//from now on the process is a real worker
+	}
+
+	for(i=0;i<uwsgi.sockets_cnt;i++) {
+		if (uwsgi.workers[uwsgi.mywid].sockets_mask[i]) {
+			// disable the socket for this worker
+#ifdef UWSGI_DEBUG
+			uwsgi_log("switching off socket %d (%d) on worker %d\n", i, uwsgi.sockets[i].fd, uwsgi.mywid);
+#endif
+			int fd = uwsgi.sockets[i].fd;
+			close(fd);
+			fd = open("/dev/null", O_RDONLY);
+			if (fd < 0) {
+				uwsgi_error_open("/dev/null");
+				exit(1);
+			}
+			if (fd != uwsgi.sockets[i].fd) {
+				if (dup2(fd, uwsgi.sockets[i].fd)) {
+					uwsgi_error("dup2()");
+					exit(1);
+				}
+				close(fd);
+			}
+			uwsgi.sockets_poll[i].fd = -1;
+			uwsgi.sockets_poll[i].events = 0;
+		}
 	}
 
 	if (uwsgi.cpu_affinity) {
@@ -2399,6 +2441,21 @@ end:
 			uwsgi.ini = optarg;
 			return 1;
 #endif
+		case LONG_ARGS_MAP_SOCKET:
+			p = strchr(optarg, ':');
+			if (!p) {
+				uwsgi_log("invalid map-socket syntax, must be socketnum:workerN[,workerN...]\n");
+				exit(1);
+			}
+			p[0] = 0;
+			int sn = atoi(optarg);
+			if (sn < 0 || sn >= MAX_SOCKETS) {
+				uwsgi_log("invalid socket number in map-socket\n");
+				exit(1);
+			}
+			uwsgi.map_socket[sn] = p+1;
+			p[0] = ':';
+			return 1;
 		case LONG_ARGS_CHECK_INTERVAL:
 			uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = atoi(optarg);
 			return 1;

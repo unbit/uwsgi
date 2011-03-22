@@ -15,6 +15,7 @@
 
 #define ushared uwsgi.shared
 
+#define MAX_SOCKETS 8
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
@@ -377,6 +378,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_QUEUE_STORE		17086
 #define LONG_ARGS_QUEUE_STORE_SYNC	17087
 #define LONG_ARGS_PIDFILE2		17088
+#define LONG_ARGS_MAP_SOCKET		17089
 
 
 #define UWSGI_OK	0
@@ -963,9 +965,11 @@ struct uwsgi_server {
 #endif
 
 	int             sockets_cnt;
-	struct uwsgi_socket sockets[8];
+	struct uwsgi_socket sockets[MAX_SOCKETS];
 	// leave a slot for no-orphan mode
 	struct pollfd   sockets_poll[9];
+
+	char		*map_socket[MAX_SOCKETS];
 
 	time_t          respawn_delta;
 
@@ -1228,6 +1232,8 @@ struct uwsgi_worker {
 	int             manage_next_request;
 
 	uint64_t	exceptions;
+
+	char		sockets_mask[MAX_SOCKETS];
 
 };
 
