@@ -1701,7 +1701,8 @@ int uwsgi_start(void *v_argv) {
 #ifdef UWSGI_THREADING
 	if (uwsgi.sockets_cnt) {
 		if (uwsgi.has_threads) {
-			uwsgi.current_wsgi_req = threaded_current_wsgi_req;
+			if (uwsgi.threads > 1)
+				uwsgi.current_wsgi_req = threaded_current_wsgi_req;
 			for (i = 0; i < 0xFF; i++) {
 				if (uwsgi.p[i]->enable_threads)
 					uwsgi.p[i]->enable_threads();
