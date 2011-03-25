@@ -428,6 +428,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 					goto clear;
 				}
 			}
+			else {
+				wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+			}
 		}
 		else {
 			// read to disk if post_cl > post_buffering
