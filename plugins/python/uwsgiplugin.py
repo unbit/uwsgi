@@ -21,6 +21,10 @@ else:
 
 
 version = sysconfig.get_config_var('VERSION')
+try:
+    version = version + sys.abiflags
+except:
+    pass
 LIBS.append('-lpython' + version)
 
 #if str(PYLIB_PATH) != '':
