@@ -1,6 +1,6 @@
 *** march 2011 ***
 
- * 0.9.7.1 [20010326]
+ * 0.9.7.1 [20110326]
 
 - fixed python stackless support
 - added persistence for queue
