@@ -962,6 +962,7 @@ struct uwsgi_server {
 	char           *cgroup_opt[64];
 	int             cgroup_opt_cnt;
 	char		*ns;
+	char		*ns_net;
 #endif
 
 	int             sockets_cnt;

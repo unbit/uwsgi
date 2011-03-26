@@ -956,7 +956,9 @@ options_parsed:
 			int waitpid_status;
 			uwsgi_log("*** jailing uWSGI in %s ***\n", uwsgi.ns);
 			int clone_flags = SIGCHLD|CLONE_NEWUTS|CLONE_NEWPID|CLONE_NEWIPC|CLONE_NEWNS;
-			//clone_flags |= CLONE_NEWNET;
+			if (uwsgi.ns_net) {
+				clone_flags |= CLONE_NEWNET;
+			}
 			pid_t pid = clone(uwsgi_start, stack+PTHREAD_STACK_MIN, clone_flags, (void *)argv);
 			if (pid == -1) {
 				uwsgi_error("clone()");
@@ -2408,6 +2410,9 @@ end:
 			return 1;
 		case LONG_ARGS_LINUX_NS:
 			uwsgi.ns = optarg;
+			return 1;
+		case LONG_ARGS_LINUX_NS_NET:
+			uwsgi.ns_net = optarg;
 			return 1;
 #endif
 		case LONG_ARGS_LIMIT_AS:

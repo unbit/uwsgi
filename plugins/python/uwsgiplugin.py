@@ -20,10 +20,8 @@ else:
 		os.environ['LD_RUN_PATH'] = "%s/lib" % sysconfig.PREFIX
 
 
-version = sys.version_info
-uver = "%d.%d" % (version[0], version[1])
-
-LIBS.append('-lpython' + uver)
+version = sysconfig.get_config_var('VERSION')
+LIBS.append('-lpython' + version)
 
 #if str(PYLIB_PATH) != '':
 #                libs.insert(0,'-L' + PYLIB_PATH)
