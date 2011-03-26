@@ -1,5 +1,24 @@
 *** march 2011 ***
 
+ * 0.9.7.1 [20010326]
+
+- fixed python stackless support
+- added persistence for queue
+- forbid daemonizing in vassal mode
+- modifier1 30 is available again
+- allow python modules to be mapped/aliased via http
+- added --pidfile2 and --logfile-chown
+- added UWSGI_CACHE_GET dynamic variable
+- 304/If-Modified-Since support for --check-static
+- option --check-cache for integrated caching
+- option --map-socket to assign specific workers to socket
+- fixed unix fd passing on older OSX versions
+- fixed post-buffering without pep3333-input
+- fixed python threading without uwsgi cores
+- support for Linux network namespace
+- build with sys.abiflags if necessary
+
+
  * 0.9.7 [20110317]
 
 - fixed psgi compilation on GNU systems
