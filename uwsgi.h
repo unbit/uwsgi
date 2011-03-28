@@ -1695,7 +1695,7 @@ int uwsgi_str4_num(char *);
 int uwsgi_netlink_veth(char *, char *);
 int uwsgi_netlink_veth_attach(char *, pid_t);
 int uwsgi_netlink_ifup(char *);
-int uwsgi_netlink_ip(char *, char *);
+int uwsgi_netlink_ip(char *, char *, int);
 int uwsgi_netlink_gw(char *, char *);
 #endif
 

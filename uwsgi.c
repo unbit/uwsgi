@@ -37,6 +37,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS
 
 static struct option long_base_options[] = {
 	{"socket", required_argument, 0, 's'},
+	{"shared-socket", required_argument, 0, LONG_ARGS_SHARED_SOCKET},
 	{"processes", required_argument, 0, 'p'},
 	{"workers", required_argument, 0, 'p'},
 	{"harakiri", required_argument, 0, 't'},
@@ -937,6 +938,26 @@ options_parsed:
 		fclose(pidfile);
 	}
 
+	for (i = 0; i < uwsgi.shared_sockets_cnt; i++) {
+        	char *tcp_port = strchr(uwsgi.shared_sockets[i].name, ':');
+                if (tcp_port == NULL) {
+                	uwsgi.shared_sockets[i].fd = bind_to_unix(uwsgi.shared_sockets[i].name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                        uwsgi.shared_sockets[i].family = AF_UNIX;
+                        uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", i, uwsgi.shared_sockets[i].name, uwsgi.shared_sockets[i].fd);
+                } else {
+                	uwsgi.shared_sockets[i].fd = bind_to_tcp(uwsgi.shared_sockets[i].name, uwsgi.listen_queue, tcp_port);
+                        uwsgi.shared_sockets[i].family = AF_INET;
+                	uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", i, uwsgi.shared_sockets[i].name, uwsgi.shared_sockets[i].fd);
+		}
+
+		if (uwsgi.shared_sockets[i].fd < 0) {
+			uwsgi_log("unable to create shared socket on: %s\n", uwsgi.shared_sockets[i].name);
+			exit(1);
+		}
+		uwsgi.shared_sockets[i].bound = 1;
+	}
+
+
 #ifdef __linux__
 
 #ifndef CLONE_NEWUTS
@@ -950,6 +971,11 @@ options_parsed:
 #ifndef CLONE_NEWIPC
 #define CLONE_NEWIPC 0x08000000
 #endif
+
+#ifndef CLONE_NEWNET
+#define CLONE_NEWNET 0x40000000
+#endif
+
 	if (uwsgi.ns) {
 		for(;;) {
 			char stack[PTHREAD_STACK_MIN];
@@ -1011,13 +1037,14 @@ int uwsgi_start(void *v_argv) {
 	int emperor_pipe[2];
 
 #ifdef __linux__
+	char *ns_tmp_mountpoint=NULL, *ns_tmp_mountpoint2=NULL;
 	if (uwsgi.ns) {
 	
 		if (getpid() != 1) { 
 			uwsgi_log("your kernel does not support linux pid namespace\n");
 			exit(1);
 		}
-			
+
 		char *ns_hostname = strchr(uwsgi.ns, ':');
 		if (ns_hostname) {
 			ns_hostname[0] = 0;
@@ -1037,27 +1064,32 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 
-		char *ns_tmp_mountpoint = uwsgi_concat2(uwsgi.ns, "/.uwsgi_ns_tmp_mountpoint");
-		mkdir(ns_tmp_mountpoint, S_IRWXU);
+		if (strcmp(uwsgi.ns, "/")) {
+			ns_tmp_mountpoint = uwsgi_concat2(uwsgi.ns, "/.uwsgi_ns_tmp_mountpoint");
+			mkdir(ns_tmp_mountpoint, S_IRWXU);
 
-		char *ns_tmp_mountpoint2 = uwsgi_concat2(ns_tmp_mountpoint, "/.uwsgi_ns_tmp_mountpoint");
-		mkdir(ns_tmp_mountpoint2, S_IRWXU);
+			ns_tmp_mountpoint2 = uwsgi_concat2(ns_tmp_mountpoint, "/.uwsgi_ns_tmp_mountpoint");
+			mkdir(ns_tmp_mountpoint2, S_IRWXU);
 
-		if (mount(uwsgi.ns, ns_tmp_mountpoint, "none", MS_BIND, NULL)) {
-			uwsgi_error("mount()");
-		}
-		if (chdir(ns_tmp_mountpoint)) {
-			uwsgi_error("chdir()");
-		}
+			if (mount(uwsgi.ns, ns_tmp_mountpoint, "none", MS_BIND, NULL)) {
+				uwsgi_error("mount()");
+			}
+			if (chdir(ns_tmp_mountpoint)) {
+				uwsgi_error("chdir()");
+			}
 
-		if (pivot_root(".", ns_tmp_mountpoint2)) {
-			uwsgi_error("pivot_root()");
-			exit(1);
-		}
+			if (pivot_root(".", ns_tmp_mountpoint2)) {
+				uwsgi_error("pivot_root()");
+				exit(1);
+			}
 
-		if (chdir("/")) {
-			uwsgi_error("chdir()");
-			exit(1);
+
+
+			if (chdir("/")) {
+				uwsgi_error("chdir()");
+				exit(1);
+			}
+
 		}
 
 		uwsgi_log("remounting /proc\n");
@@ -1089,8 +1121,11 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_error("rmdir()");
 		}
 
-		free(ns_tmp_mountpoint2);
-		free(ns_tmp_mountpoint);
+		if (strcmp(uwsgi.ns, "/")) {
+			free(ns_tmp_mountpoint2);
+			free(ns_tmp_mountpoint);
+		}
+
 
 	}
 #endif
@@ -1166,6 +1201,7 @@ int uwsgi_start(void *v_argv) {
 	sanitize_args();
 
 	// end of generic initialization
+
 
 	// start the Emperor if needed
 	if (uwsgi.emperor_dir) {
@@ -2547,6 +2583,14 @@ end:
 			if (uwsgi.sockets_cnt < 8) {
 				uwsgi.sockets[uwsgi.sockets_cnt].name = generate_socket_name(optarg);
 				uwsgi.sockets_cnt++;
+			} else {
+				uwsgi_log("you can specify at most 8 --socket options\n");
+			}
+			return 1;
+		case LONG_ARGS_SHARED_SOCKET:
+			if (uwsgi.shared_sockets_cnt < MAX_SOCKETS) {
+				uwsgi.shared_sockets[uwsgi.shared_sockets_cnt].name = generate_socket_name(optarg);
+				uwsgi.shared_sockets_cnt++;
 			} else {
 				uwsgi_log("you can specify at most 8 --socket options\n");
 			}

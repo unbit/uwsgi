@@ -42,6 +42,7 @@ void uwsgi_subscribe(char *subscription) {
         if (!udp_address) return;
 
         char *subscription_key = strchr(udp_address+1, ':');
+	if (!subscription_key) return;
         udp_address = uwsgi_concat2n(subscription, subscription_key-subscription, "", 0);
 
         ssb = subscrbuf;
