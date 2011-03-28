@@ -145,13 +145,13 @@ struct http_session {
 	struct uwsgi_rb_timer *timeout;
 };
 
-struct uwsgi_rb_timer *reset_timeout(struct http_session *uhttp_session) {
+static struct uwsgi_rb_timer *reset_timeout(struct http_session *uhttp_session) {
 
 	del_timeout(uhttp_session);
 	return add_timeout(uhttp_session);
 }
 
-void close_session(struct http_session **uhttp_table, struct http_session *uhttp_session) {
+static void close_session(struct http_session **uhttp_table, struct http_session *uhttp_session) {
 
 	close(uhttp_session->fd);
         uhttp_table[uhttp_session->fd] = NULL;
@@ -170,7 +170,7 @@ void close_session(struct http_session **uhttp_table, struct http_session *uhttp
 
 }
 
-void expire_timeouts(struct http_session **uhttp_table) {
+static void expire_timeouts(struct http_session **uhttp_table) {
 
         time_t current = time(NULL);
         struct uwsgi_rb_timer *urbt;

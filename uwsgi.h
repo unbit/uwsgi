@@ -99,7 +99,7 @@
 #include <sys/utsname.h>
 
 
-#ifdef __linux
+#ifdef __linux__
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
@@ -379,6 +379,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_QUEUE_STORE_SYNC	17087
 #define LONG_ARGS_PIDFILE2		17088
 #define LONG_ARGS_MAP_SOCKET		17089
+#define LONG_ARGS_SHARED_SOCKET		17090
 
 
 #define UWSGI_OK	0
@@ -969,6 +970,9 @@ struct uwsgi_server {
 	struct uwsgi_socket sockets[MAX_SOCKETS];
 	// leave a slot for no-orphan mode
 	struct pollfd   sockets_poll[9];
+
+	int             shared_sockets_cnt;
+	struct uwsgi_socket shared_sockets[MAX_SOCKETS];
 
 	char		*map_socket[MAX_SOCKETS];
 
@@ -1686,3 +1690,12 @@ void uwsgi_queue_fix(void);
 int uwsgi_str2_num(char *);
 int uwsgi_str3_num(char *);
 int uwsgi_str4_num(char *);
+
+#ifdef __linux__
+int uwsgi_netlink_veth(char *, char *);
+int uwsgi_netlink_veth_attach(char *, pid_t);
+int uwsgi_netlink_ifup(char *);
+int uwsgi_netlink_ip(char *, char *);
+int uwsgi_netlink_gw(char *, char *);
+#endif
+
