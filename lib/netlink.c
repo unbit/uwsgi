@@ -91,6 +91,65 @@ struct nlmsghdr *uwsgi_netlink_rt_alloc() {
         return nlmsg;
 }
 
+int uwsgi_netlink_rt(char *iface, char *src, int src_prefix, char *dst, int dst_prefix, char *gw) {
+
+	struct nlmsghdr *nlmsg = uwsgi_netlink_rt_alloc();
+        struct rtattr *rta;
+        struct in_addr ia;
+        struct in_addr oa;
+        struct in_addr ga;
+	struct uwsgi_nl_rtreq *unr = (struct uwsgi_nl_rtreq *)nlmsg;
+
+        int index = if_nametoindex(iface);
+        if (!index) return -1;
+
+        if (inet_pton(AF_INET, src, &ia) <= 0) {
+                uwsgi_error("inet_pton()");
+                free(nlmsg);
+                return -1;
+        }
+
+        if (inet_pton(AF_INET, dst, &oa) <= 0) {
+                uwsgi_error("inet_pton()");
+                free(nlmsg);
+                return -1;
+        }
+
+        if (inet_pton(AF_INET, gw, &ga) <= 0) {
+                uwsgi_error("inet_pton()");
+                free(nlmsg);
+                return -1;
+        }
+
+	unr->rtmsg.rtm_src_len = src_prefix;
+	unr->rtmsg.rtm_dst_len = dst_prefix;
+
+        rta = NLMSG_TAIL(nlmsg);
+        rta->rta_type = RTA_SRC;
+        rta->rta_len = RTA_LENGTH(4);
+        memcpy(RTA_DATA(rta), &ia.s_addr, 4);
+        nlmsg->nlmsg_len = NLMSG_ALIGN(nlmsg->nlmsg_len) + RTA_ALIGN(rta->rta_len);
+
+        rta = NLMSG_TAIL(nlmsg);
+        rta->rta_type = RTA_DST;
+        rta->rta_len = RTA_LENGTH(4);
+        memcpy(RTA_DATA(rta), &oa.s_addr, 4);
+        nlmsg->nlmsg_len = NLMSG_ALIGN(nlmsg->nlmsg_len) + RTA_ALIGN(rta->rta_len);
+
+        rta = NLMSG_TAIL(nlmsg);
+        rta->rta_type = RTA_GATEWAY;
+        rta->rta_len = RTA_LENGTH(4);
+        memcpy(RTA_DATA(rta), &ga.s_addr, 4);
+        nlmsg->nlmsg_len = NLMSG_ALIGN(nlmsg->nlmsg_len) + RTA_ALIGN(rta->rta_len);
+
+        rta = NLMSG_TAIL(nlmsg);
+        rta->rta_type = RTA_OIF;
+        rta->rta_len = RTA_LENGTH(sizeof(int));
+        memcpy(RTA_DATA(rta), &index, sizeof(int));
+        nlmsg->nlmsg_len = NLMSG_ALIGN(nlmsg->nlmsg_len) + RTA_ALIGN(rta->rta_len);
+
+        return uwsgi_nl_send(nlmsg);
+}
 
 int uwsgi_netlink_gw(char *iface, char *ip) {
 

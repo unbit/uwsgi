@@ -315,7 +315,14 @@ void emperor_loop() {
 		ui_current = ui;
         	while(ui_current->ui_next) {
                 	ui_current = ui_current->ui_next;
-			if (ui_current->pid == diedpid) {
+			if (ui_current->status == 1) {
+                                emperor_del(ui_current);
+                                break;
+                        }
+                        else if (stat(ui_current->name, &st)) {
+                                emperor_stop(ui_current);
+                        }
+			else if (ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
 					// respawn an accidentally dead instance
 					emperor_add(ui_current->name, ui_current->last_mod);
@@ -327,13 +334,6 @@ void emperor_loop() {
 					emperor_del(ui_current);
 					break;
 				}
-			}
-			else if (ui_current->status == 1) {
-				emperor_del(ui_current);
-				break;
-			}
-			else if (stat(ui_current->name, &st)) {
-				emperor_stop(ui_current);
 			}
         	}
 
