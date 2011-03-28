@@ -395,11 +395,17 @@ void master_loop(char **argv, char **environ) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			}
 
+			if (uwsgi.exit_on_reload) {
+				uwsgi_log("uWSGI: GAME OVER (insert coin)\n");
+				exit(0);
+			}
+
 			uwsgi_log( "binary reloading uWSGI...\n");
 			if (chdir(uwsgi.cwd)) {
 				uwsgi_error("chdir()");
 				exit(1);
 			}
+
 			/* check fd table (a module can obviosly open some fd on initialization...) */
 			uwsgi_log( "closing all non-uwsgi socket fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
 			for (i = 3; i < sysconf(_SC_OPEN_MAX); i++) {

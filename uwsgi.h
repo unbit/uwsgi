@@ -767,6 +767,7 @@ struct uwsgi_server {
 	int cpu_affinity;
 
 	int reload_mercy;
+	int exit_on_reload;
 	int option_index;
 	struct option *long_options;
 	struct uwsgi_opt **exported_opts;

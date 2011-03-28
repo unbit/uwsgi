@@ -62,6 +62,7 @@ static struct option long_base_options[] = {
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
+	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
 	{"help", no_argument, 0, 'h'},
 	{"reaper", no_argument, 0, 'r'},
 	{"max-requests", required_argument, 0, 'R'},
