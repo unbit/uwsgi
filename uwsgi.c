@@ -957,6 +957,13 @@ options_parsed:
 		uwsgi.shared_sockets[i].bound = 1;
 	}
 
+	// call jail systems
+	for(i =0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->jail) {
+                        uwsgi.gp[i]->jail(uwsgi_start, argv);
+                }
+        }
+
 
 #ifdef __linux__
 

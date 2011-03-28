@@ -507,6 +507,8 @@ struct uwsgi_plugin {
 
 	uint16_t	(*rpc)(void *, uint8_t, char **, char *);
 
+        void            (*jail) (int (*)(void *), char**);
+
         struct uwsgi_help_item  *help;
 
 };

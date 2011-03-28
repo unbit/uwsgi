@@ -357,6 +357,10 @@ void uwsgi_as_root() {
 				uwsgi_error("setgid()");
 				exit(1);
 			}
+			if (setgroups(0, NULL)) {
+                                uwsgi_error("setgroups()");
+                                exit(1);
+                        }
 		}
 		if (uwsgi.uid) {
 			if (!uwsgi.master_as_root) uwsgi_log("setuid() to %d\n", uwsgi.uid);
