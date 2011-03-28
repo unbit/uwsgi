@@ -784,6 +784,7 @@ int main(int argc, char *argv[], char *envp[])
 #endif
 						magic_key = NULL;
 						has_percent = 0;
+						j = 0;
 					}
 					else {
 						has_percent++;

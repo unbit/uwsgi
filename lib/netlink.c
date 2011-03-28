@@ -91,7 +91,7 @@ struct nlmsghdr *uwsgi_netlink_rt_alloc() {
         return nlmsg;
 }
 
-int uwsgi_netlink_rt(char *iface, char *src, int src_prefix, char *dst, int dst_prefix, char *gw) {
+int uwsgi_netlink_rt(char *src, char *dst, int dst_prefix, char *gw) {
 
 	struct nlmsghdr *nlmsg = uwsgi_netlink_rt_alloc();
         struct rtattr *rta;
@@ -99,9 +99,6 @@ int uwsgi_netlink_rt(char *iface, char *src, int src_prefix, char *dst, int dst_
         struct in_addr oa;
         struct in_addr ga;
 	struct uwsgi_nl_rtreq *unr = (struct uwsgi_nl_rtreq *)nlmsg;
-
-        int index = if_nametoindex(iface);
-        if (!index) return -1;
 
         if (inet_pton(AF_INET, src, &ia) <= 0) {
                 uwsgi_error("inet_pton()");
@@ -121,11 +118,8 @@ int uwsgi_netlink_rt(char *iface, char *src, int src_prefix, char *dst, int dst_
                 return -1;
         }
 
-	unr->rtmsg.rtm_src_len = src_prefix;
-	unr->rtmsg.rtm_dst_len = dst_prefix;
-
         rta = NLMSG_TAIL(nlmsg);
-        rta->rta_type = RTA_SRC;
+        rta->rta_type = RTA_PREFSRC;
         rta->rta_len = RTA_LENGTH(4);
         memcpy(RTA_DATA(rta), &ia.s_addr, 4);
         nlmsg->nlmsg_len = NLMSG_ALIGN(nlmsg->nlmsg_len) + RTA_ALIGN(rta->rta_len);
@@ -142,11 +136,8 @@ int uwsgi_netlink_rt(char *iface, char *src, int src_prefix, char *dst, int dst_
         memcpy(RTA_DATA(rta), &ga.s_addr, 4);
         nlmsg->nlmsg_len = NLMSG_ALIGN(nlmsg->nlmsg_len) + RTA_ALIGN(rta->rta_len);
 
-        rta = NLMSG_TAIL(nlmsg);
-        rta->rta_type = RTA_OIF;
-        rta->rta_len = RTA_LENGTH(sizeof(int));
-        memcpy(RTA_DATA(rta), &index, sizeof(int));
-        nlmsg->nlmsg_len = NLMSG_ALIGN(nlmsg->nlmsg_len) + RTA_ALIGN(rta->rta_len);
+	unr->rtmsg.rtm_src_len = 0; 
+	unr->rtmsg.rtm_dst_len = dst_prefix;
 
         return uwsgi_nl_send(nlmsg);
 }
@@ -259,6 +250,21 @@ int uwsgi_netlink_ifup(char *iface) {
         return uwsgi_nl_send(nlmsg);
 
 }
+
+int uwsgi_netlink_del(char *iface) {
+
+        struct nlmsghdr *nlmsg = uwsgi_netlink_alloc();
+        struct uwsgi_nl_req *unr = (struct uwsgi_nl_req *)nlmsg;
+
+        int index = if_nametoindex(iface);
+        if (!index) return -1;
+
+	nlmsg->nlmsg_type = RTM_DELLINK;
+        unr->ifinfomsg.ifi_index = index;
+        return uwsgi_nl_send(nlmsg);
+
+}
+
 
 
 int uwsgi_netlink_veth(char *veth0, char *veth1) {

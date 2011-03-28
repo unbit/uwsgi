@@ -951,7 +951,7 @@ void master_loop(char **argv, char **environ) {
 			}
 
 			// resubscribe every 10 cycles
-			if (uwsgi.subscriptions_cnt > 0 && (master_cycles % 10) == 0) {
+			if (uwsgi.subscriptions_cnt > 0 && ((master_cycles % 10) == 0 || master_cycles == 1)) {
 				for(i=0;i<uwsgi.subscriptions_cnt;i++) {
 					uwsgi_subscribe(uwsgi.subscriptions[i]);
 				}

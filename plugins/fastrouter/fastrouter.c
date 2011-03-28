@@ -240,7 +240,7 @@ void fastrouter_loop() {
 	if (ufr.subscription_server) {
 		ufr_subserver = bind_to_udp(ufr.subscription_server, 0, 0);
 		event_queue_add_fd_read(fr_queue, ufr_subserver);
-		ufr.subscription_dict = uwsgi_dict_create(100, 0);
+		ufr.subscription_dict = uwsgi_dict_create(30, 0);
 	}
 
 	if (ufr.pattern) {

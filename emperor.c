@@ -197,6 +197,8 @@ void emperor_loop() {
 	int i;
 	struct dirent *de;
 
+	signal(SIGPIPE, SIG_IGN);
+
 	memset(&ui_base, 0, sizeof(struct uwsgi_instance));
 
 	uwsgi_log("*** starting uWSGI Emperor ***\n");
