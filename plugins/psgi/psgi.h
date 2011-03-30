@@ -1,6 +1,7 @@
 #undef __USE_GNU
 #include "../../uwsgi.h"
 
+#define HAS_BOOL 1
 #include <EXTERN.h>
 #include <perl.h>
 #include "XSUB.h"

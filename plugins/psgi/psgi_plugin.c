@@ -26,8 +26,11 @@ XS(XS_stream)
     uwsgi_log("type %d\n", SvTYPE(stack));
     response = (AV* ) SvRV(stack) ;
 
-
+#ifdef my_perl
     psgi_response(wsgi_req, my_perl, response);
+#else
+    psgi_response(wsgi_req, uperl.main, response);
+#endif
 
     //mXPUSHp("x", 1);
     XSRETURN(0);
@@ -146,6 +149,7 @@ void uwsgi_psgi_app() {
 
 }
 
+#ifdef my_perl
 void uwsgi_perl_enable_threads() {
 	
 	int i;
@@ -192,6 +196,7 @@ void uwsgi_perl_enable_threads() {
 	
 
 }
+#endif
 
 
 
@@ -412,7 +417,9 @@ struct uwsgi_plugin psgi_plugin = {
 	.init_apps = uwsgi_psgi_app,
 	//.magic = uwsgi_perl_magic,
 	//.help = uwsgi_perl_help,
+#ifdef my_perl
 	.enable_threads = uwsgi_perl_enable_threads,
+#endif
 	.manage_opt = uwsgi_perl_manage_options,
 	.init_thread = uwsgi_perl_init_thread,
 	.request = uwsgi_perl_request,
