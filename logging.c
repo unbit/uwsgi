@@ -169,7 +169,11 @@ void get_memusage() {
 	kvm_t *kv;
 	int cnt;
 
+#if defined(__FreeBSD__)
+	kv = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, NULL);
+#else
 	kv = kvm_open(NULL, NULL, NULL, O_RDONLY, NULL);
+#endif
 	if (kv) {
 #if defined(__FreeBSD__) || defined(__DragonFly__)
 
