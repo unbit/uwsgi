@@ -24,8 +24,10 @@ struct amqp_frame_method {
 	uint16_t method_id;
 } __attribute__((__packed__));
 
-static char *amqp_simple_get_frame(int, struct amqp_frame_header *, uint32_t *);
+static char *amqp_simple_get_frame(int, struct amqp_frame_header *);
+static char *amqp_get_method(int, uint16_t, uint16_t, uint32_t *);
 
+/*
 static char *amqp_get_longstr(char *ptr, char *watermark) {
 
         uint32_t longstr_size;
@@ -39,6 +41,7 @@ static char *amqp_get_longstr(char *ptr, char *watermark) {
 
         return ptr+4+longstr_size;
 }
+*/
 
 static char *amqp_get_str(char *ptr, char *watermark) {
 
@@ -57,6 +60,7 @@ static char *amqp_get_str(char *ptr, char *watermark) {
 }
 
 
+/*
 static char *amqp_get_table(char *ptr, char *watermark) {
 
 	uint32_t table_size;
@@ -71,6 +75,7 @@ static char *amqp_get_table(char *ptr, char *watermark) {
 
 	return ptr+4+table_size;
 }
+*/
 
 static char *amqp_get_short(char *ptr, char *watermark, uint16_t *sv) {
 
@@ -110,9 +115,6 @@ static char *amqp_get_longlong(char *ptr, char *watermark, uint64_t *llv) {
 }
 
 
-static int amqp_send_queue_declare(int, char *);
-
-static char *amqp_get_frame(int, int *, char *, char *,uint32_t *);
 
 static int amqp_send_ack(int fd, uint64_t delivery_tag) {
 
@@ -144,39 +146,22 @@ char *uwsgi_amqp_consume(int fd, uint64_t *msgsize) {
 
 	uint32_t size;
 	struct amqp_frame_header fh;
-	struct amqp_frame_method *fm;
 	uint64_t delivery_tag;
 	uint64_t current_size = 0;
 	char *ptr;
 	char *watermark;
 	uint16_t sv;
 
-	char *frame = amqp_simple_get_frame(fd, &fh, &size);
-
+	char *frame = amqp_get_method(fd, 60, 60, &size);
 	if (!frame) return NULL;
 
-	if (fh.type != 1) goto clear;
-
-        fm = (struct amqp_frame_method *) frame;
-        fm->class_id = ntohs(fm->class_id);
-        fm->method_id = ntohs(fm->method_id);
-
-	uwsgi_log("getting frame %d %d %d %d\n", fm->class_id, fm->method_id, fh.size, size);
-
-	if (fm->class_id != 60 || fm->method_id != 60) goto clear;
-
 	ptr = frame+4;
-	watermark = frame+fh.size;
-
-	uwsgi_log("ok0 %p\n", watermark);
+	watermark = frame+size;
 
 	ptr = amqp_get_str(ptr, watermark); if (!ptr) goto clear;
-	uwsgi_log("ok1 %p %p\n", ptr, watermark);
         ptr = amqp_get_longlong(ptr, watermark, &delivery_tag); if (!ptr) goto clear;
-	uwsgi_log("ok2\n");
-        uwsgi_log("delivery_tag %llu\n", delivery_tag);
 
-	char *header = amqp_simple_get_frame(fd, &fh, &size);
+	char *header = amqp_simple_get_frame(fd, &fh);
 	if (!header) goto clear;
 
 	if (fh.type != 2) goto clear2;
@@ -188,6 +173,7 @@ char *uwsgi_amqp_consume(int fd, uint64_t *msgsize) {
         ptr = amqp_get_short(ptr, watermark, &sv); if (!ptr) goto clear2;
         // header weight
         ptr = amqp_get_short(ptr, watermark, &sv); if (!ptr) goto clear2;
+	// message size;
         ptr = amqp_get_longlong(ptr, watermark, msgsize); if (!ptr) goto clear2;
 
 	free(frame);
@@ -197,7 +183,7 @@ char *uwsgi_amqp_consume(int fd, uint64_t *msgsize) {
 	char *message;
 
 	while(current_size < *msgsize) {
-		message = amqp_simple_get_frame(fd, &fh, &size);
+		message = amqp_simple_get_frame(fd, &fh);
 		if (!message) goto clear;
 
 		if (fh.type != 3) {
@@ -205,17 +191,16 @@ char *uwsgi_amqp_consume(int fd, uint64_t *msgsize) {
 			goto clear3;
 		}
 
-		if (size+current_size > *msgsize) {
+		if (fh.size+current_size > *msgsize) {
 			free(message);
 			goto clear3;
 		}
 
-		memcpy(fullbody+current_size, message, size);
-		current_size+=size;
+		memcpy(fullbody+current_size, message, fh.size);
+		current_size+=fh.size;
 		free(message);
 	}
 
-	uwsgi_log("ack\n");
 	if (amqp_send_ack(fd, delivery_tag) < 0) {
 		goto clear3;
 	}
@@ -234,24 +219,50 @@ clear:
 	
 }
 
-static int amqp_manage_channel(int fd, int *status, char *queue, char *consumer, uint16_t method_id, char *frame, uint32_t size) {
+static int amqp_send_queue_bind( int fd, char *queue, char *exchange) {
 
-	if (method_id == 11) {
-		uwsgi_log("Channel.open-ok\n");
-		uwsgi_log("sending Queue.declare\n");
-		if (amqp_send_queue_declare(fd, queue) < 0) {
-			return -1;
-		}
+        uint32_t size = 4 + 2 + (1 +strlen(queue)) + (1 +strlen(exchange)) + 1 + 1 + 4;
+        uint8_t shortsize = strlen(queue) ;
 
-		*status = 4;	
-	}
+        size = htonl(size);
+        // send type and channel
+        amqp_send(fd, "\1\0\1", 3);
+        // send size
+        amqp_send(fd, &size, 4);
 
-	return 0;
+        // send class 50 method 20
+        amqp_send(fd, "\x00\x32\x00\x14", 4);
+
+        // send empty reserved
+        amqp_send(fd, "\0\0", 2);
+
+        // set queue name
+        amqp_send(fd, &shortsize, 1);
+        amqp_send(fd, queue, shortsize);
+
+        // set exchange name
+        shortsize = strlen(exchange);
+        amqp_send(fd, &shortsize, 1);
+        amqp_send(fd, exchange, shortsize);
+
+	// set empty routing-key
+        amqp_send(fd, "\0", 1);
+
+        // empty bits
+        amqp_send(fd, "\0", 1);
+        // empty table
+        amqp_send(fd, "\0\0\0\0", 4);
+
+        // send frame-end
+        amqp_send(fd, "\xCE", 1);
+
+        return 0;
 }
 
-static int amqp_send_queue_consume( int fd, int *status, char *queue, char *tag) {
 
-	uint32_t size = 4 + 2 + (1 +strlen(queue)) + (1 +strlen(tag)) + 1 + 4;
+static int amqp_send_queue_consume( int fd, char *queue) {
+
+	uint32_t size = 4 + 2 + (1 +strlen(queue)) + 1 + 1 + 4;
         uint8_t shortsize = strlen(queue) ;
 
         size = htonl(size);
@@ -271,9 +282,7 @@ static int amqp_send_queue_consume( int fd, int *status, char *queue, char *tag)
         amqp_send(fd, queue, shortsize);
 
         // set tag name
-	shortsize = strlen(tag);
-        amqp_send(fd, &shortsize, 1);
-        amqp_send(fd, tag, shortsize);
+        amqp_send(fd, "\0", 1);
 
         // empty bits
         amqp_send(fd, "\0", 1);
@@ -283,90 +292,125 @@ static int amqp_send_queue_consume( int fd, int *status, char *queue, char *tag)
         // send frame-end
         amqp_send(fd, "\xCE", 1);
 
-	*status = 5;
-
 	return 0;
 }
 
-static int amqp_manage_queue(int fd, int *status, char *queue, char *consumer, uint16_t method_id, char *frame, uint32_t size) {
+static int amqp_wait_connection_start(int fd) {
+	uint32_t size;
+	char *frame = amqp_get_method(fd, 10, 10, &size);
 
-	struct amqp_frame_header fh;
-	struct amqp_frame_method *fm;
-
-        if (method_id == 11 && *status == 4) {
-                printf("Queue.declare-ok\n");
-		// ok start the consumer !!!
-		if (amqp_send_queue_consume(fd, status, queue, consumer)) {
-			return -1;
-		}
-
-		char *frame = amqp_simple_get_frame(fd, &fh, &size);
-
-        	if (!frame) return -1;
-
-        	if (fh.type != 1) goto clear;
-
-        	fm = (struct amqp_frame_method *) frame;
-        	fm->class_id = ntohs(fm->class_id);
-        	fm->method_id = ntohs(fm->method_id);
-
-        	uwsgi_log("getting frame %d %d %d %d\n", fm->class_id, fm->method_id, fh.size, size);
-
-        	if (fm->class_id != 60 || fm->method_id != 21) return -1;
-
+	if (frame) {
 		free(frame);
-                *status = 5;
-        }
+		return 0;
+	}
 
-	return 0;
-
-clear:
-	free(frame);
 	return -1;
 }
 
+static int amqp_wait_basic_consume_ok(int fd) {
+        uint32_t size;
+        char *frame = amqp_get_method(fd, 60, 21, &size);
 
-static int amqp_manage_connection(int fd, int *status, char *queue, char *consumer, uint16_t method_id, char *frame, uint32_t size) {
+        if (frame) {
+                free(frame);
+                return 0;
+        }
 
-	char *ptr = frame;
-	uint16_t sv;
-	uint32_t lv;
-
-	char *watermark = frame+size;
-
-	if (method_id == 10) {
-		printf("Connection.start\n");
-
-		printf("version major: %d\n", *ptr); ptr++;
-		printf("version minor: %d\n", *ptr); ptr++;
-
-		ptr = amqp_get_table(ptr, watermark); if (!ptr) return -1;
-		ptr = amqp_get_longstr(ptr, watermark); if (!ptr) return -1;
-		ptr = amqp_get_longstr(ptr, watermark); if (!ptr) return -1;
-		
-		*status = 1;
-	}
-	else if (method_id == 30) {
-		printf("Connection.tune\n");
-
-		ptr = amqp_get_short(ptr, watermark, &sv); if (!ptr) return -1;
-		printf("max channels: %d\n", sv);
-		ptr = amqp_get_long(ptr, watermark, &lv); if (!ptr) return -1;
-		printf("max frame size: %d\n", lv);
-		ptr = amqp_get_short(ptr, watermark, &sv); if (!ptr) return -1;
-		printf("heartbeath: %d\n", sv);
-
-		*status = 2;
-	}
-	else if (method_id == 41) {
-		printf("Connection.open-ok\n");
-		*status = 3;
-	}
-
-	return 0;
+        return -1;
 }
 
-static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh, uint32_t *size) {
+
+static int amqp_wait_channel_open_ok(int fd) {
+        uint32_t size;
+        char *frame = amqp_get_method(fd, 20, 11, &size);
+
+        if (frame) {
+                free(frame);
+                return 0;
+        }
+
+        return -1;
+}
+
+static int amqp_wait_queue_bind_ok(int fd) {
+        uint32_t size;
+        char *frame = amqp_get_method(fd, 50, 21, &size);
+
+        if (frame) {
+                free(frame);
+                return 0;
+        }
+
+        return -1;
+}
+
+
+static char *amqp_wait_queue_declare_ok(int fd) {
+        uint32_t size;
+        char *frame = amqp_get_method(fd, 50, 11, &size);
+	char *queue = NULL;
+	char *ptr;
+	char *watermark;
+
+        if (frame) {
+
+		ptr = frame+4;
+		watermark = frame+size;
+
+		ptr = amqp_get_str(ptr, watermark); if (!ptr) { free(frame); return NULL; }
+
+                queue = uwsgi_concat2n(frame+5, *(frame+4), "", 0);
+		
+                free(frame);
+                return queue;
+        }
+
+        return NULL;
+}
+
+
+static int amqp_wait_connection_open_ok(int fd) {
+        uint32_t size;
+        char *frame = amqp_get_method(fd, 10, 41, &size);
+
+        if (frame) {
+                free(frame);
+                return 0;
+        }
+
+        return -1;
+}
+
+
+static int amqp_wait_connection_tune(int fd) {
+
+	uint32_t size;
+	char *frame = amqp_get_method(fd, 10, 30, &size);
+
+	uint16_t sv;
+	uint32_t lv;
+	char *watermark ;
+	char *ptr;
+
+
+	if (frame) {
+		ptr = frame+4;
+		watermark = frame+size;
+		ptr = amqp_get_short(ptr, watermark, &sv); if (!ptr) { free(frame); return -1; }
+        	uwsgi_log("AMQP max channels: %d\n", sv);
+        	ptr = amqp_get_long(ptr, watermark, &lv); if (!ptr) { free(frame); return -1; }
+        	uwsgi_log("AMQP max frame size: %d\n", lv);
+        	ptr = amqp_get_short(ptr, watermark, &sv); if (!ptr) { free(frame); return -1; }
+        	uwsgi_log("AMQP heartbeath: %d\n", sv);
+
+		free(frame);
+		return 0;
+	}
+
+	return -1;
+}
+
+static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh) {
 
 	char *ptr = (char *) fh;
         size_t len = 0, rlen;
@@ -384,7 +428,6 @@ static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh, uint32_
         fh->channel = ntohs(fh->channel);
         fh->size = ntohl(fh->size);
 
-	uwsgi_log("fh->size %d\n", fh->size);
         len = 0;
 
         char *frame = malloc(fh->size+1);
@@ -400,41 +443,33 @@ static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh, uint32_
                 ptr += rlen;
         }
 
-        *size = fh->size;
-
 	return frame;
 }
 
-static char *amqp_get_frame(int fd, int *status, char *queue, char *consumer, uint32_t *size) {
+static char *amqp_get_method(int fd, uint16_t class_id, uint16_t method_id, uint32_t *size) {
 
 	struct amqp_frame_header fh;
-	struct amqp_frame_method *fm;
+        struct amqp_frame_method *fm;
 
-	char *frame = amqp_simple_get_frame(fd, &fh, size);
-	if (!frame) return NULL;
+        char *frame = amqp_simple_get_frame(fd, &fh);
+        if (!frame) return NULL;
 
-	if (fh.type == 1) {
-		fm = (struct amqp_frame_method *) frame;
-		fm->class_id = ntohs(fm->class_id);
-		fm->method_id = ntohs(fm->method_id);
+	if (fh.type != 1) goto clear;
 
-		if (fm->class_id == 10) {
-			amqp_manage_connection(fd, status, queue, consumer, fm->method_id, frame+4, fh.size-4);
-		}		
-		else if (fm->class_id == 20) {
-			amqp_manage_channel(fd, status, queue, consumer, fm->method_id, frame+4, fh.size-4);
-		}
-		else if (fm->class_id == 50) {
-			amqp_manage_queue(fd, status, queue, consumer, fm->method_id, frame+4, fh.size-4);
-		}
-		else {
-			printf("AMQP UNMANAGED class_id %d method_id %d\n", fm->class_id, fm->method_id);
-		}
-	}
-	else {
-		printf("AMQP UNMANAGED message type %d\n", fh.type);
-	}
+	fm = (struct amqp_frame_method *) frame;
+	fm->class_id = ntohs(fm->class_id);
+	fm->method_id = ntohs(fm->method_id);
+
+	if (fm->class_id != class_id) goto clear;
+	if (fm->method_id != method_id) goto clear;
+
+	*size = fh.size;
 	return frame;
+
+clear:
+
+	free(frame);
+	return NULL;
 }
 
 static int amqp_send_channel_open(int fd, uint16_t id) {
@@ -544,6 +579,15 @@ static int amqp_send_queue_declare(int fd, char *queue) {
 	return 0;
 }
 
+static char *amqp_get_queue(int fd, char *queue) {
+
+	if (amqp_send_queue_declare(fd, queue) < 0) {
+		return NULL;
+	}
+
+	return amqp_wait_queue_declare_ok(fd);
+}
+
 
 static int amqp_send_connection_start_ok(int fd, char *mech, char *sasl_response, int sasl_response_size, char *locale) {
 
@@ -584,53 +628,89 @@ static int amqp_send_connection_start_ok(int fd, char *mech, char *sasl_response
 	
 }
 
-int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *consumer) {
-
-	uint32_t size;
-	int status = 0;
-	char *frame;
+int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *exchange) {
 
 	if (send(fd, AMQP_CONNECTION_HEADER, 8, 0) < 0) {
 		uwsgi_error("send()");
 		return -1;
 	}
 
-	for(;;) {
+	if (amqp_wait_connection_start(fd) < 0) {
+		uwsgi_log("AMQP error waiting for Connection.start\n");
+		return -1;
+	}
 
-		if (status == 6) return 0;
+	uwsgi_log("sending Connection.start-ok\n");
+	if (amqp_send_connection_start_ok(fd, "PLAIN", "\0guest\0guest", 12, "en_US") < 0) {
+		uwsgi_log("AMQP error sending Connection.start-ok\n");
+		return -1;
+	}
 
-		frame = amqp_get_frame(fd, &status, queue, consumer, &size);
-		//uwsgi_log("received a frame of %d bytes on %p\n", size, frame);
-		if (frame == NULL) {
-			return -1;
-		}
+	if (amqp_wait_connection_tune(fd) < 0) {
+		uwsgi_log("AMQP error waiting for Connection.tune\n");
+		return -1;
+	}
 
-		if (status == 1) {
-			uwsgi_log("sending Connection.start-ok\n");
-			if (amqp_send_connection_start_ok(fd, "PLAIN", "\0guest\0guest", 12, "en_US") < 0) goto clear;
-		}
-		else if (status == 2) {
-			uwsgi_log("sending Connection.tune-ok\n");
-			if (amqp_send_connection_tune_ok(fd, 0, 0xffff, 0) < 0) goto clear;
-			uwsgi_log("sending Connection.open\n");
-			if (amqp_send_connection_open(fd, vhost) < 0) goto clear;
-		}
-		else if (status == 3) {
-			uwsgi_log("sending Channel.open\n");
-			amqp_send_channel_open(fd, 1);
-		}
-		else if (status == 5) {
-			uwsgi_log("Consumer setup\n");
-			status = 6;
-		}
+	uwsgi_log("sending Connection.tune-ok\n");
+	if (amqp_send_connection_tune_ok(fd, 0, 0xffff, 0) < 0) {
+		uwsgi_log("AMQP error sending Connection.tune-ok\n");
+		return -1;
+	}
 
-		free(frame);
+	uwsgi_log("sending Connection.open\n");
+	if (amqp_send_connection_open(fd, vhost) < 0) {
+		uwsgi_log("AMQP error sending Connection.open\n");
+		return -1;
+	}
+
+	if (amqp_wait_connection_open_ok(fd) < 0) {
+		uwsgi_log("AMQP error waiting for Connection.open-ok\n");
+		return -1;
+	}
+
+	uwsgi_log("sending Channel.open\n");
+	if (amqp_send_channel_open(fd, 1) < 0) {
+		uwsgi_log("AMQP error sending Channel.open\n");
+		return -1;
+	}
+
+	if (amqp_wait_channel_open_ok(fd) < 0) {
+		uwsgi_log("AMQP error waiting for Channel.open-ok\n");
+		return -1;
+	}
+
+	queue = amqp_get_queue(fd, queue);
+	if (!queue) {
+		uwsgi_log("AMQP error sending Queue.declare\n");
+		return -1;
+	}
+
+	if (exchange) {
+		if (amqp_send_queue_bind(fd, queue, exchange) < 0) {
+			uwsgi_log("AMQP error sending Queue.bind\n");
+			free(queue);
+                        return -1;
+                }
+
+		if (amqp_wait_queue_bind_ok(fd) < 0) {
+			uwsgi_log("AMQP error waiting for Queue.bind-ok\n");
+			free(queue);
+                        return -1;
+		}
+	}
+
+	if (amqp_send_queue_consume(fd, queue) < 0) {
+		uwsgi_log("AMQP error sending Basic.consume\n");
+        	free(queue);
+                return -1;
+	}
+
+	if (amqp_wait_basic_consume_ok(fd) < 0) {
+		uwsgi_log("AMQP error waiting for Basic.consume-ok\n");
+        	free(queue);
+                return -1;
 	}
 	
-
-clear:
-	free(frame);
-	return -1;
-
-	
+	free(queue);
+	return 0;
 }
