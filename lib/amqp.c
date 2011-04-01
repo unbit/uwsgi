@@ -54,8 +54,6 @@ static char *amqp_get_str(char *ptr, char *watermark) {
 
 	if (ptr+1+str_size > watermark) return NULL;
 
-	uwsgi_log("%.*s\n", str_size, ptr+1);
-
         return ptr+1+str_size;
 }
 
@@ -241,6 +239,44 @@ clear:
 	
 }
 
+static int amqp_send_exchange_declare( int fd, char *exchange, char *exchange_type) {
+
+        uint32_t size = 4 + 2 + (1 +strlen(exchange)) + (1 +strlen(exchange_type)) + 1 + 4;
+        uint8_t shortsize = strlen(exchange) ;
+
+        size = htonl(size);
+        // send type and channel
+        amqp_send(fd, "\1\0\1", 3);
+        // send size
+        amqp_send(fd, &size, 4);
+
+        // send class 40 method 10
+        amqp_send(fd, "\x00\x28\x00\x0A", 4);
+
+        // send empty reserved
+        amqp_send(fd, "\0\0", 2);
+
+        // set exchange name
+        amqp_send(fd, &shortsize, 1);
+        amqp_send(fd, exchange, shortsize);
+
+        // set exchange type
+        shortsize = strlen(exchange_type);
+        amqp_send(fd, &shortsize, 1);
+        amqp_send(fd, exchange_type, shortsize);
+
+        // empty bits
+        amqp_send(fd, "\0", 1);
+        // empty table
+        amqp_send(fd, "\0\0\0\0", 4);
+
+        // send frame-end
+        amqp_send(fd, "\xCE", 1);
+
+        return 0;
+}
+
+
 static int amqp_send_queue_bind( int fd, char *queue, char *exchange) {
 
         uint32_t size = 4 + 2 + (1 +strlen(queue)) + (1 +strlen(exchange)) + 1 + 1 + 4;
@@ -328,6 +364,19 @@ static int amqp_wait_connection_start(int fd) {
 
 	return -1;
 }
+
+static int amqp_wait_exchange_declare_ok(int fd) {
+        uint32_t size;
+        char *frame = amqp_get_method(fd, 40, 11, &size);
+
+        if (frame) {
+                free(frame);
+                return 0;
+        }
+
+        return -1;
+}
+
 
 static int amqp_wait_basic_consume_ok(int fd) {
         uint32_t size;
@@ -650,7 +699,7 @@ static int amqp_send_connection_start_ok(int fd, char *mech, char *sasl_response
 	
 }
 
-int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *exchange) {
+int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *exchange, char *exchange_type) {
 
 	if (send(fd, AMQP_CONNECTION_HEADER, 8, 0) < 0) {
 		uwsgi_error("send()");
@@ -708,6 +757,18 @@ int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *exchange) {
 	}
 
 	if (exchange) {
+		if (amqp_send_exchange_declare(fd, exchange, exchange_type) < 0) {
+			uwsgi_log("AMQP error sending Exchange.declare\n");
+			free(queue);
+                        return -1;
+		}
+
+		if (amqp_wait_exchange_declare_ok(fd) < 0) {
+			uwsgi_log("AMQP error waiting for Exchange.declare-ok\n");
+			free(queue);
+                        return -1;
+		}
+
 		if (amqp_send_queue_bind(fd, queue, exchange) < 0) {
 			uwsgi_log("AMQP error sending Queue.bind\n");
 			free(queue);

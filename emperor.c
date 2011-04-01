@@ -272,7 +272,7 @@ reconnect:
 		}
 
 		uwsgi_log("subscribing to queue...\n");
-		if (uwsgi_amqp_consume_queue(amqp_fd, "/", "", "uwsgi.emperor") < 0) {
+		if (uwsgi_amqp_consume_queue(amqp_fd, "/", "", "uwsgi.emperor", "fanout") < 0) {
 			close(amqp_fd);
 			amqp_fd = -1;
 			goto reconnect;

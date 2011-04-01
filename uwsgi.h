@@ -1706,5 +1706,5 @@ int uwsgi_netlink_del(char *);
 #endif
 
 
-int uwsgi_amqp_consume_queue(int, char *, char *, char *);
+int uwsgi_amqp_consume_queue(int, char *, char *, char *, char *);
 char *uwsgi_amqp_consume(int, uint64_t *, char **);
