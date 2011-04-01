@@ -21,6 +21,9 @@ struct uwsgi_instance {
 
 	int pipe[2];
 	int pipe_config[2];
+
+	char *config;
+	uint32_t config_len;
 };
 
 struct uwsgi_instance *ui;
@@ -77,8 +80,15 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
 	// reload the uWSGI instance
-	if (write(c_ui->pipe[0], "\1", 1) != 1) {
-		uwsgi_error("write()");
+	if (c_ui->use_config) {
+		if (write(c_ui->pipe[0], "\0", 1) != 1) {
+			uwsgi_error("write()");
+		}
+	}
+	else {
+		if (write(c_ui->pipe[0], "\1", 1) != 1) {
+			uwsgi_error("write()");
+		}
 	}
 
 	c_ui->respawns++;
@@ -87,7 +97,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	uwsgi_log("reload the uwsgi instance %s\n", c_ui->name);
 }
 
-void emperor_add(char *name, time_t born) {
+void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 
 	struct uwsgi_instance *c_ui = ui;
 	struct uwsgi_instance *n_ui = NULL;
@@ -103,6 +113,12 @@ void emperor_add(char *name, time_t born) {
 	n_ui = uwsgi_malloc(sizeof(struct uwsgi_instance));
 	memset(n_ui, 0, sizeof(struct uwsgi_instance));
 
+	if (config) {
+		n_ui->use_config = 1;	
+		n_ui->config = config;
+		n_ui->config_len = config_size;
+	}
+
 	c_ui->ui_next = n_ui;
 	uwsgi_log("c_ui->ui_next = %p\n", c_ui->ui_next);
 	n_ui->ui_prev = c_ui;
@@ -115,7 +131,7 @@ void emperor_add(char *name, time_t born) {
 		goto clear;
 	}
 
-	if (c_ui->use_config) {
+	if (n_ui->use_config) {
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, n_ui->pipe_config)) {
 			uwsgi_error("socketpair()");
 			goto clear;
@@ -131,8 +147,15 @@ void emperor_add(char *name, time_t born) {
 		n_ui->pid = pid;
 		// close the right side of the pipe
 		close(n_ui->pipe[1]);
-		if (c_ui->use_config) {
+		if (n_ui->use_config) {
 			close(n_ui->pipe_config[1]);
+		}
+
+		if (n_ui->use_config) {
+			if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) <= 0) {
+				uwsgi_error("write()");
+			}
+			close(n_ui->pipe_config[0]);
 		}
 		return;
 	}
@@ -147,7 +170,7 @@ void emperor_add(char *name, time_t born) {
 		}
 		free(uef);
 
-		if (c_ui->use_config) {
+		if (n_ui->use_config) {
 			uef = uwsgi_num2str(n_ui->pipe_config[1]);
 			if (setenv("UWSGI_EMPEROR_FD_CONFIG", uef, 1)) {
 				uwsgi_error("setenv()");
@@ -181,7 +204,7 @@ void emperor_add(char *name, time_t born) {
 		// close the left side of the pipe
 		close(n_ui->pipe[0]);
 
-		if (c_ui->use_config) {
+		if (n_ui->use_config) {
 			close(n_ui->pipe_config[0]);
 		}
 
@@ -231,6 +254,7 @@ void emperor_loop() {
 	struct dirent *de;
 	char *amqp_port;
 	int amqp_fd = -1;
+	char *amqp_routing_key;
 
 	signal(SIGPIPE, SIG_IGN);
 
@@ -285,8 +309,39 @@ reconnect:
 		if (amqp_fd > -1) {
 			uint64_t msgsize;
 			if (uwsgi_waitfd(amqp_fd, 3)) {
-				char *config = uwsgi_amqp_consume(amqp_fd, &msgsize);
-				if (config && msgsize) {
+				char *config = uwsgi_amqp_consume(amqp_fd, &msgsize, &amqp_routing_key);
+				
+				if (!config) continue;
+
+				if (amqp_routing_key) {
+					uwsgi_log("AMQP routing_key = %s\n", amqp_routing_key);
+					char *config_file = uwsgi_concat2("emperor://", amqp_routing_key);
+					free(amqp_routing_key);
+
+					ui_current = emperor_get(config_file);
+
+                                        if (ui_current) {
+						free(ui_current->config);
+						ui_current->config = config;
+						ui_current->config_len = msgsize;
+						if (!msgsize) {
+							emperor_del(ui_current);
+						}
+						else {
+                                                	emperor_respawn(ui_current, time(NULL));
+						}
+                                        }
+                                        else {
+						if (msgsize > 0) {
+                                                	emperor_add(config_file, time(NULL), config, msgsize);
+						}
+                                        }
+
+					
+                                        free(config_file);
+				}
+				else {
+				if (msgsize) {
 					if (msgsize >= 0xff) { free(config); continue; }
 
 					uwsgi_log("%.*s\n", (int)msgsize, config);
@@ -309,10 +364,11 @@ reconnect:
 						emperor_respawn(ui_current, time(NULL));
 					}
 					else {
-						emperor_add(config_file, time(NULL));
+						emperor_add(config_file, time(NULL), NULL, 0);
 					}
 
 					free(config_file);
+				}
 				}
 			}
 		}
@@ -341,7 +397,7 @@ reconnect:
 						}
 					}
 					else {
-						emperor_add(de->d_name, st.st_mtime);
+						emperor_add(de->d_name, st.st_mtime, NULL, 0);
 					}
 				}
 			}
@@ -379,7 +435,7 @@ reconnect:
 						}
 					}
 					else {
-						emperor_add(g.gl_pathv[i], st.st_mtime);
+						emperor_add(g.gl_pathv[i], st.st_mtime, NULL, 0);
 					}
 				}
 
@@ -399,6 +455,8 @@ reconnect:
 			diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 		}
 		else {
+			// vacuum
+			waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			diedpid = 0;
 		}
 		if (diedpid < 0) {
@@ -408,21 +466,23 @@ reconnect:
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
 			if (ui_current->status == 1) {
+				if (ui_current->config) free(ui_current->config);
 				emperor_del(ui_current);
 				break;
 			}
-			else if (stat(ui_current->name, &st)) {
+			else if (!ui_current->use_config && stat(ui_current->name, &st)) {
 				emperor_stop(ui_current);
 			}
 			else if (ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
 					// respawn an accidentally dead instance
-					emperor_add(ui_current->name, ui_current->last_mod);
+					emperor_add(ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len);
 					emperor_del(ui_current);
 					break;
 				}
 				else if (ui_current->status == 1) {
 					// remove 'marked for dead' instance
+					if (ui_current->config) free(ui_current->config);
 					emperor_del(ui_current);
 					break;
 				}

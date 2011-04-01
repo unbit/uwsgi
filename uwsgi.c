@@ -558,6 +558,10 @@ int main(int argc, char *argv[], char *envp[])
 		uwsgi.master_process = 1;
 		uwsgi.no_orphans = 1;
 		uwsgi_log("*** has_emperor mode detected (fd: %d) ***\n", uwsgi.emperor_fd);
+
+		if (getenv("UWSGI_EMPEROR_FD_CONFIG")) {
+			uwsgi.emperor_fd_config = atoi(getenv("UWSGI_EMPEROR_FD_CONFIG"));
+		}
 	}
 
 	env_reloads = getenv("UWSGI_RELOADS");

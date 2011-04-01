@@ -1403,6 +1403,12 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		}
 		close(uwsgi.emperor_fd_config);
 		uwsgi.emperor_fd_config = -1;
+
+		if (add_zero) {
+			*size = *size + 1;
+			buffer = realloc(buffer, *size);
+			buffer[*size-1] = 0;
+		}
 	}
 	// fallback to file
 	else {

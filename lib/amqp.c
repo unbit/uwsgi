@@ -142,7 +142,7 @@ static int amqp_send_ack(int fd, uint64_t delivery_tag) {
 	return 0;
 }
 
-char *uwsgi_amqp_consume(int fd, uint64_t *msgsize) {
+char *uwsgi_amqp_consume(int fd, uint64_t *msgsize, char **routing_key) {
 
 	uint32_t size;
 	struct amqp_frame_header fh;
@@ -158,9 +158,31 @@ char *uwsgi_amqp_consume(int fd, uint64_t *msgsize) {
 	ptr = frame+4;
 	watermark = frame+size;
 
+	// consumer_tag
 	ptr = amqp_get_str(ptr, watermark); if (!ptr) goto clear;
+	// delivery_tag (needed for ack)
         ptr = amqp_get_longlong(ptr, watermark, &delivery_tag); if (!ptr) goto clear;
+	// redelivered
+	if (ptr+1 > watermark) goto clear;
+	ptr++;
+	// exchange
+	ptr = amqp_get_str(ptr, watermark); if (!ptr) goto clear;
+	// routing_key
+	if (ptr+1 > watermark) goto clear;
+	uint8_t rk_size = (uint8_t) *ptr;
+	ptr++;
+	if (ptr+rk_size > watermark) goto clear;
 
+	if (rk_size > 0) {
+		char *rkey = uwsgi_concat2n(ptr, rk_size, "", 0);
+		ptr+=rk_size;
+
+		*routing_key = rkey;	
+	}
+	else {
+		*routing_key = NULL;
+	}
+	
 	char *header = amqp_simple_get_frame(fd, &fh);
 	if (!header) goto clear;
 
