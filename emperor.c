@@ -348,14 +348,16 @@ reconnect:
 					char *config_file = uwsgi_concat2n(config, msgsize, "", 0);
 					free(config);
 
-					if (stat(config_file, &st)) {
-						free(config_file);
-						continue;
-					}	
+					if (strncmp(config_file, "http://", 7)) {
+						if (stat(config_file, &st)) {
+							free(config_file);
+							continue;
+						}
 
-					if (!S_ISREG(st.st_mode)) {
-						free(config_file);
-						continue;
+						if (!S_ISREG(st.st_mode)) {
+							free(config_file);
+							continue;
+						}
 					}
 
 					ui_current = emperor_get(config_file);
@@ -470,7 +472,7 @@ reconnect:
 				emperor_del(ui_current);
 				break;
 			}
-			else if (!ui_current->use_config && stat(ui_current->name, &st)) {
+			else if (!ui_current->use_config && strncmp(ui_current->name, "http://",7) && stat(ui_current->name, &st)) {
 				emperor_stop(ui_current);
 			}
 			else if (ui_current->pid == diedpid) {
