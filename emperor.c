@@ -269,6 +269,9 @@ reconnect:
 		while(amqp_fd == -1) {	
 			uwsgi_log("connecting to AMQP server...\n");
 			amqp_fd = uwsgi_connect(uwsgi.emperor_dir, -1, 0);
+			if (amqp_fd < 0) {
+				sleep(1);
+			}
 		}
 
 		uwsgi_log("subscribing to queue...\n");
@@ -311,7 +314,12 @@ reconnect:
 			if (uwsgi_waitfd(amqp_fd, 3)) {
 				char *config = uwsgi_amqp_consume(amqp_fd, &msgsize, &amqp_routing_key);
 				
-				if (!config) continue;
+				if (!config) {
+					uwsgi_log("problem with RabbitMQ server, trying reconnection...\n");
+					close(amqp_fd);
+					amqp_fd = -1;
+					goto reconnect;
+				}
 
 				if (amqp_routing_key) {
 					uwsgi_log("AMQP routing_key = %s\n", amqp_routing_key);
