@@ -759,6 +759,7 @@ struct uwsgi_server {
 
 	int		has_emperor;
 	int emperor_fd;
+	int emperor_fd_config;
 	char *emperor_dir;
 	pid_t emperor_pid;
 
@@ -1704,3 +1705,6 @@ int uwsgi_netlink_rt(char *, char *, int, char *);
 int uwsgi_netlink_del(char *);
 #endif
 
+
+int uwsgi_amqp_consume_queue(int, char *, char *, char *);
+char *uwsgi_amqp_consume(int, uint64_t *);

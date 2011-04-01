@@ -44,6 +44,7 @@ static struct option long_base_options[] = {
 	{"harakiri-verbose", no_argument, &uwsgi.harakiri_verbose, 1},
 #ifdef UWSGI_XML
 	{"xmlconfig", required_argument, 0, 'x'},
+	{"xml", required_argument, 0, 'x'},
 #endif
 	{"daemonize", required_argument, 0, 'd'},
 	{"listen", required_argument, 0, 'l'},
@@ -521,6 +522,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	uwsgi.master_queue = -1;
+
+	uwsgi.emperor_fd_config = -1;
 
 	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;

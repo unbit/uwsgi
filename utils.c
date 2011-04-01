@@ -1294,6 +1294,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 	char *magic_buf;
 
 	// http url ?
+
 	if (!strncmp("http://", url, 7)) {
 		domain = url+7;
 		uri = strchr(domain, '/');
@@ -1379,6 +1380,29 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			buffer[*size-1] = 0;
 		}
 
+	}
+	else if (!strncmp("emperor://", url, 10)) {
+		if (uwsgi.emperor_fd_config < 0) {
+			uwsgi_log("this is not a vassal instance\n");
+			exit(1);
+		}
+		char *tmp_buffer[4096];
+		ssize_t rlen = 1;
+		*size = 0;
+		while(rlen > 0) {
+			rlen = read(uwsgi.emperor_fd_config, tmp_buffer, 4096);
+			if (rlen > 0) {
+				*size += rlen;
+				buffer = realloc(buffer, *size);
+				if (!buffer) {
+					uwsgi_error("realloc()");
+					exit(1);
+				}
+				memcpy(buffer+(*size-rlen), tmp_buffer, rlen);
+			}
+		}
+		close(uwsgi.emperor_fd_config);
+		uwsgi.emperor_fd_config = -1;
 	}
 	// fallback to file
 	else {
@@ -1472,6 +1496,7 @@ char *uwsgi_get_last_char(char *what, char c) {
 	char *ptr = NULL;
 
 	if (!strncmp("http://", what, 7)) j = 7;
+	if (!strncmp("emperor://", what, 10)) j = 10;
 
 	for(i=j;i<(int)strlen(what);i++) {
 		if (what[i] == c) {

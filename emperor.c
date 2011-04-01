@@ -10,24 +10,26 @@ struct uwsgi_instance {
 	struct uwsgi_instance *ui_next;
 
 	char name[0xff];
-	pid_t pid ;
+	pid_t pid;
 
 	int status;
 	time_t born;
 	time_t last_mod;
 
 	uint64_t respawns;
+	int use_config;
 
 	int pipe[2];
+	int pipe_config[2];
 };
 
 struct uwsgi_instance *ui;
 
 struct uwsgi_instance *emperor_get(char *name) {
-	
+
 	struct uwsgi_instance *c_ui = ui;
-	
-	while(c_ui->ui_next) {
+
+	while (c_ui->ui_next) {
 		c_ui = c_ui->ui_next;
 
 		if (!strcmp(c_ui->name, name)) {
@@ -49,6 +51,10 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 
 	// this will destroy the whole uWSGI instance (and workers)
 	close(c_ui->pipe[0]);
+
+	if (c_ui->use_config) {
+		close(c_ui->pipe_config[0]);
+	}
 
 	uwsgi_log("removed uwsgi instance %s\n", c_ui->name);
 
@@ -72,27 +78,27 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
 	// reload the uWSGI instance
 	if (write(c_ui->pipe[0], "\1", 1) != 1) {
-                uwsgi_error("write()");
-        }
+		uwsgi_error("write()");
+	}
 
-        c_ui->respawns++;
+	c_ui->respawns++;
 	c_ui->last_mod = mod;
 
-        uwsgi_log("reload the uwsgi instance %s\n", c_ui->name);
+	uwsgi_log("reload the uwsgi instance %s\n", c_ui->name);
 }
 
 void emperor_add(char *name, time_t born) {
 
 	struct uwsgi_instance *c_ui = ui;
 	struct uwsgi_instance *n_ui = NULL;
-	pid_t pid ;
+	pid_t pid;
 	char *argv[4];
-	char *uef ;
+	char *uef;
 	char **uenvs;
 
-        while(c_ui->ui_next) {
-                c_ui = c_ui->ui_next;
-        }
+	while (c_ui->ui_next) {
+		c_ui = c_ui->ui_next;
+	}
 
 	n_ui = uwsgi_malloc(sizeof(struct uwsgi_instance));
 	memset(n_ui, 0, sizeof(struct uwsgi_instance));
@@ -109,6 +115,13 @@ void emperor_add(char *name, time_t born) {
 		goto clear;
 	}
 
+	if (c_ui->use_config) {
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, n_ui->pipe_config)) {
+			uwsgi_error("socketpair()");
+			goto clear;
+		}
+	}
+
 	// a new uWSGI instance will start 
 	pid = fork();
 	if (pid < 0) {
@@ -118,6 +131,9 @@ void emperor_add(char *name, time_t born) {
 		n_ui->pid = pid;
 		// close the right side of the pipe
 		close(n_ui->pipe[1]);
+		if (c_ui->use_config) {
+			close(n_ui->pipe_config[1]);
+		}
 		return;
 	}
 	else {
@@ -131,10 +147,19 @@ void emperor_add(char *name, time_t born) {
 		}
 		free(uef);
 
+		if (c_ui->use_config) {
+			uef = uwsgi_num2str(n_ui->pipe_config[1]);
+			if (setenv("UWSGI_EMPEROR_FD_CONFIG", uef, 1)) {
+				uwsgi_error("setenv()");
+				exit(1);
+			}
+			free(uef);
+		}
+
 		uenvs = environ;
-		while(*uenvs) {
+		while (*uenvs) {
 			if (!strncmp(*uenvs, "UWSGI_VASSAL_", 13)) {
-				char *ne = uwsgi_concat2("UWSGI_", *uenvs+13);
+				char *ne = uwsgi_concat2("UWSGI_", *uenvs + 13);
 				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0);
 				if (unsetenv(oe)) {
 					uwsgi_error("unsetenv()");
@@ -156,13 +181,21 @@ void emperor_add(char *name, time_t born) {
 		// close the left side of the pipe
 		close(n_ui->pipe[0]);
 
+		if (c_ui->use_config) {
+			close(n_ui->pipe_config[0]);
+		}
+
 
 		// set args
 		argv[0] = uwsgi.binary_path;
-		if (!strcmp(name+(strlen(name)-4), ".xml")) argv[1] = "--xml";
-		if (!strcmp(name+(strlen(name)-4), ".ini")) argv[1] = "--ini";
-		if (!strcmp(name+(strlen(name)-4), ".yml")) argv[1] = "--yaml";
-		if (!strcmp(name+(strlen(name)-5), ".yaml")) argv[1] = "--yaml";
+		if (!strcmp(name + (strlen(name) - 4), ".xml"))
+			argv[1] = "--xml";
+		if (!strcmp(name + (strlen(name) - 4), ".ini"))
+			argv[1] = "--ini";
+		if (!strcmp(name + (strlen(name) - 4), ".yml"))
+			argv[1] = "--yaml";
+		if (!strcmp(name + (strlen(name) - 5), ".yaml"))
+			argv[1] = "--yaml";
 		argv[2] = name;
 		argv[3] = NULL;
 		// start !!!
@@ -173,7 +206,7 @@ void emperor_add(char *name, time_t born) {
 		exit(1);
 	}
 
-clear:
+      clear:
 
 	free(n_ui);
 	c_ui->ui_next = NULL;
@@ -196,6 +229,8 @@ void emperor_loop() {
 	glob_t g;
 	int i;
 	struct dirent *de;
+	char *amqp_port;
+	int amqp_fd = -1;
 
 	signal(SIGPIPE, SIG_IGN);
 
@@ -203,23 +238,40 @@ void emperor_loop() {
 
 	uwsgi_log("*** starting uWSGI Emperor ***\n");
 
-	if (!glob(uwsgi.emperor_dir, GLOB_MARK, NULL, &g)) {
-		if (g.gl_pathc == 1 && g.gl_pathv[0][strlen(g.gl_pathv[0])-1] == '/' ) {
-			simple_mode = 1;
-			if (chdir(uwsgi.emperor_dir)) {
-				uwsgi_error("chdir()");
-				exit(1);
-			}
+	amqp_port = strchr(uwsgi.emperor_dir, ':');
+
+	if (amqp_port) {
+reconnect:
+		while(amqp_fd == -1) {	
+			uwsgi_log("connecting to AMQP server...\n");
+			amqp_fd = uwsgi_connect(uwsgi.emperor_dir, -1, 0);
+		}
+
+		uwsgi_log("subscribing to queue...\n");
+		if (uwsgi_amqp_consume_queue(amqp_fd, "/", "uwsgi.emperor", "emperor") < 0) {
+			close(amqp_fd);
+			goto reconnect;
 		}
 	}
 	else {
-		uwsgi_error("glob()");
-		exit(1);
+		if (!glob(uwsgi.emperor_dir, GLOB_MARK, NULL, &g)) {
+			if (g.gl_pathc == 1 && g.gl_pathv[0][strlen(g.gl_pathv[0]) - 1] == '/') {
+				simple_mode = 1;
+				if (chdir(uwsgi.emperor_dir)) {
+					uwsgi_error("chdir()");
+					exit(1);
+				}
+			}
+		}
+		else {
+			uwsgi_error("glob()");
+			exit(1);
+		}
 	}
 
 	ui = &ui_base;
 
-	for(;;) {
+	for (;;) {
 
 
 		if (!i_am_alone) {
@@ -229,22 +281,56 @@ void emperor_loop() {
 			}
 		}
 
-		if (simple_mode) {
+		if (amqp_fd > -1) {
+			uint64_t msgsize;
+			if (uwsgi_waitfd(amqp_fd, 3)) {
+				char *config = uwsgi_amqp_consume(amqp_fd, &msgsize);
+				if (config && msgsize) {
+					if (msgsize >= 0xff) { free(config); continue; }
+
+					uwsgi_log("%.*s\n", (int)msgsize, config);
+					char *config_file = uwsgi_concat2n(config, msgsize, "", 0);
+					free(config);
+
+					if (stat(config_file, &st)) {
+						free(config_file);
+						continue;
+					}	
+
+					if (!S_ISREG(st.st_mode)) {
+						free(config_file);
+						continue;
+					}
+
+					ui_current = emperor_get(config_file);
+
+					if (ui_current) {
+						emperor_respawn(ui_current, time(NULL));
+					}
+					else {
+						emperor_add(config_file, time(NULL));
+					}
+
+					free(config_file);
+				}
+			}
+		}
+		else if (simple_mode) {
 			DIR *dir = opendir(".");
-			while((de = readdir(dir)) != NULL) {
-				if (!strcmp(de->d_name+(strlen(de->d_name)-4), ".xml") ||
-					!strcmp(de->d_name+(strlen(de->d_name)-4), ".ini") ||
-					!strcmp(de->d_name+(strlen(de->d_name)-4), ".yml") ||
-					!strcmp(de->d_name+(strlen(de->d_name)-5), ".yaml")
+			while ((de = readdir(dir)) != NULL) {
+				if (!strcmp(de->d_name + (strlen(de->d_name) - 4), ".xml") || !strcmp(de->d_name + (strlen(de->d_name) - 4), ".ini") || !strcmp(de->d_name + (strlen(de->d_name) - 4), ".yml") || !strcmp(de->d_name + (strlen(de->d_name) - 5), ".yaml")
 					) {
 
-				
-					if (strlen(de->d_name) >= 0xff) continue;
 
-					if (stat(de->d_name, &st)) continue;
+					if (strlen(de->d_name) >= 0xff)
+						continue;
 
-					if (!S_ISREG(st.st_mode)) continue;
-		
+					if (stat(de->d_name, &st))
+						continue;
+
+					if (!S_ISREG(st.st_mode))
+						continue;
+
 					ui_current = emperor_get(de->d_name);
 
 					if (ui_current) {
@@ -266,33 +352,36 @@ void emperor_loop() {
 				continue;
 			}
 
-			for(i=0;i<(int)g.gl_pathc;i++) {
-				if (!strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-4), ".xml") ||
-                                        !strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-4), ".ini") ||
-                                        !strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-4), ".yml") ||
-                                        !strcmp(g.gl_pathv[i]+(strlen(g.gl_pathv[i])-5), ".yaml")
-                                        ) {
+			for (i = 0; i < (int) g.gl_pathc; i++) {
+				if (!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".xml") ||
+					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".ini") ||
+					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".yml") ||
+					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 5), ".yaml")
+					) {
 
 
-                                        if (strlen(g.gl_pathv[i]) >= 0xff) continue;
+					if (strlen(g.gl_pathv[i]) >= 0xff)
+						continue;
 
-                                        if (stat(g.gl_pathv[i], &st)) continue;
+					if (stat(g.gl_pathv[i], &st))
+						continue;
 
-                                        if (!S_ISREG(st.st_mode)) continue;
+					if (!S_ISREG(st.st_mode))
+						continue;
 
-                                        ui_current = emperor_get(g.gl_pathv[i]);
+					ui_current = emperor_get(g.gl_pathv[i]);
 
-                                        if (ui_current) {
-                                                // check if mtime is changed and the uWSGI instance must be reloaded
-                                                if (st.st_mtime > ui_current->last_mod) {
-                                                        emperor_respawn(ui_current, st.st_mtime);
-                                                }
-                                        }
-                                        else {
-                                                emperor_add(g.gl_pathv[i], st.st_mtime);
-                                        }
-                                }
-	
+					if (ui_current) {
+						// check if mtime is changed and the uWSGI instance must be reloaded
+						if (st.st_mtime > ui_current->last_mod) {
+							emperor_respawn(ui_current, st.st_mtime);
+						}
+					}
+					else {
+						emperor_add(g.gl_pathv[i], st.st_mtime);
+					}
+				}
+
 			}
 		}
 
@@ -300,8 +389,8 @@ void emperor_loop() {
 
 		ui_current = ui;
 		has_children = 0;
-                while(ui_current->ui_next) {
-                	ui_current = ui_current->ui_next;
+		while (ui_current->ui_next) {
+			ui_current = ui_current->ui_next;
 			has_children++;
 		}
 
@@ -315,15 +404,15 @@ void emperor_loop() {
 			uwsgi_error("waitpid()");
 		}
 		ui_current = ui;
-        	while(ui_current->ui_next) {
-                	ui_current = ui_current->ui_next;
+		while (ui_current->ui_next) {
+			ui_current = ui_current->ui_next;
 			if (ui_current->status == 1) {
-                                emperor_del(ui_current);
-                                break;
-                        }
-                        else if (stat(ui_current->name, &st)) {
-                                emperor_stop(ui_current);
-                        }
+				emperor_del(ui_current);
+				break;
+			}
+			else if (stat(ui_current->name, &st)) {
+				emperor_stop(ui_current);
+			}
 			else if (ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
 					// respawn an accidentally dead instance
@@ -337,14 +426,11 @@ void emperor_loop() {
 					break;
 				}
 			}
-        	}
+		}
 
+		if (amqp_fd < 0)
 		sleep(3);
-		
+
 	}
-	
+
 }
-
-
-
-
