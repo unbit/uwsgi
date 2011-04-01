@@ -1345,6 +1345,8 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 
 		len = write(fd, "\r\n\r\n", 4);
 
+		int http_status_code_ptr = 0;
+
 		while( read(fd, &byte, 1) == 1) {
 			if (byte == '\r' && body == 0) {
 				body = 1;
@@ -1369,6 +1371,18 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			}
 			else {
 				body = 0;
+				http_status_code_ptr++;
+				if (http_status_code_ptr == 10) {
+					if (byte != '2') {
+						uwsgi_log("Not usable HTTP response: %cxx\n", byte);
+						if (uwsgi.has_emperor) {
+							exit(UWSGI_EXILE_CODE);
+						}
+						else {
+							exit(1);
+						}
+					}
+				}
 			}
 		}
 

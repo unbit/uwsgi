@@ -453,6 +453,7 @@ struct uwsgi_opt {
 
 #define UWSGI_RELOAD_CODE 17
 #define UWSGI_END_CODE 30
+#define UWSGI_EXILE_CODE 26
 
 #define MAX_VARS 64
 #define MAX_LOOPS 60

@@ -477,9 +477,14 @@ reconnect:
 			}
 			else if (ui_current->pid == diedpid) {
 				if (ui_current->status == 0) {
-					// respawn an accidentally dead instance
-					emperor_add(ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len);
-					emperor_del(ui_current);
+					// respawn an accidentally dead instance if its exit code is not UWSGI_EXILE_CODE
+					if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXILE_CODE) {
+						emperor_del(ui_current);
+					}
+					else {
+						emperor_add(ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len);
+						emperor_del(ui_current);
+					}
 					break;
 				}
 				else if (ui_current->status == 1) {
