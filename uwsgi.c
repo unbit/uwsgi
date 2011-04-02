@@ -1358,11 +1358,13 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_lock_init(uwsgi.cron_table_lock);
 	}
 
+#ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir) {
 		// spooler lock
 		uwsgi.spooler_lock = uwsgi_mmap_shared_lock();
                 uwsgi_lock_init(uwsgi.spooler_lock);
 	}
+#endif
 
 	uwsgi.rpc_table_lock = uwsgi_mmap_shared_lock();
 	uwsgi_lock_init(uwsgi.rpc_table_lock);

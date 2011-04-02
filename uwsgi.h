@@ -1049,7 +1049,9 @@ struct uwsgi_server {
 	void *rb_timer_table_lock;
 	void *cron_table_lock;
 	void *rpc_table_lock;
+#ifdef UWSGI_SPOOLER
 	void *spooler_lock;
+#endif
 
 	void *daemon_table_lock;
 
