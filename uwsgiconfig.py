@@ -175,7 +175,9 @@ class uConf(object):
             self.cflags = self.cflags + [ '-Wextra', '-Wno-unused-parameter', '-Wno-missing-field-initializers' ]
 
         self.ldflags = os.environ.get("LDFLAGS", "").split()
-        self.libs = ['-lpthread', '-rdynamic', '-ldl']
+        self.libs = ['-lpthread', '-rdynamic']
+        if uwsgi_os == 'Linux':
+            self.libs.append('-ldl')
 
         # check for inherit option
         inherit = self.get('inherit')
