@@ -479,6 +479,7 @@ struct uwsgi_server;
 struct uwsgi_plugin {
 
         const char     *name;
+        const char     *alias;
         uint8_t         modifier1;
         void           *data;
         int             (*init) (void);
@@ -1378,8 +1379,6 @@ void            uwsgi_log_verbose(const char *,...);
 
 
 int             uwsgi_load_plugin(int, char *, char *, int);
-void            embed_plugins(void);
-
 
 int             unconfigured_hook(struct wsgi_request *);
 

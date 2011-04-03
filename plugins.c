@@ -2,25 +2,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-void embed_plugins() {
-
-#ifdef UWSGI_EMBED_PLUGIN_PSGI
-	if (uwsgi.plugin_arg_psgi)
-		uwsgi_load_plugin(5, "psgi_plugin.so", uwsgi.plugin_arg_psgi, 0);
-#endif
-
-#ifdef UWSGI_EMBED_PLUGIN_LUA
-	if (uwsgi.plugin_arg_lua)
-		uwsgi_load_plugin(6, "lua_plugin.so", uwsgi.plugin_arg_lua, 0);
-#endif
-
-#ifdef UWSGI_EMBED_PLUGIN_RACK
-	if (uwsgi.plugin_arg_rack)
-		uwsgi_load_plugin(7, "rack_plugin.so", uwsgi.plugin_arg_rack, 0);
-#endif
-
-}
-
 int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
 
 	void *plugin_handle;
@@ -28,6 +9,38 @@ int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
 	char *plugin_name;
 	char *plugin_entry_symbol;
 	struct uwsgi_plugin *up;
+	int i;
+
+	for (i = 0; i < 0xFF; i++) {
+		if (uwsgi.p[i]->name) {
+			if (!strcmp(plugin, uwsgi.p[i]->name)) {
+				uwsgi_log("%s plugin already available\n", plugin);
+				return 0;
+			}	
+		}
+		if (uwsgi.p[i]->alias) {
+			if (!strcmp(plugin, uwsgi.p[i]->alias)) {
+				uwsgi_log("%s plugin already available\n", plugin);
+				return 0;
+			}	
+		}
+	}
+
+	for(i=0;i<uwsgi.gp_cnt;i++) {
+
+		if (uwsgi.gp[i]->name) {
+                        if (!strcmp(plugin, uwsgi.gp[i]->name)) {
+                                uwsgi_log("%s plugin already available\n", plugin);
+                                return 0;
+                        }       
+                }
+                if (uwsgi.gp[i]->alias) {
+                        if (!strcmp(plugin, uwsgi.gp[i]->alias)) {
+                                uwsgi_log("%s plugin already available\n", plugin);
+                                return 0;
+                        }
+                }
+        }
 
 	if (absolute) {
 		plugin_name = malloc(strlen(plugin) + 1);
@@ -58,7 +71,4 @@ int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
         }
 
 	return 0;
-
-
-	return -1;
 }

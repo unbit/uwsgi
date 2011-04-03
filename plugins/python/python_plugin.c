@@ -85,7 +85,6 @@ int uwsgi_python_init() {
         uwsgi_log("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
 
 	if (up.home != NULL) {
-		uwsgi_log("Setting PythonHome to %s...\n", up.home);
 #ifdef PYTHREE
 		wchar_t *wpyhome;
 		wpyhome = malloc((sizeof(wchar_t) * strlen(up.home)) + 2);
@@ -99,6 +98,7 @@ int uwsgi_python_init() {
 #else
 		Py_SetPythonHome(up.home);
 #endif
+		uwsgi_log("Set PythonHome to %s\n", up.home);
 	}
 
 #ifdef PYTHREE
@@ -1004,6 +1004,7 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 struct uwsgi_plugin python_plugin = {
 
 	.name = "python",
+	.alias = "python",
 	.modifier1 = 0,
 	.init = uwsgi_python_init,
 	.post_fork = uwsgi_python_post_fork,

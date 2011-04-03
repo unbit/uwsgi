@@ -447,6 +447,7 @@ int erlang_opt(int i, char *optarg) {
 
 struct uwsgi_plugin erlang_plugin = {
 
+	.name = "erlang",
         .options = erlang_options,
         .manage_opt = erlang_opt,
         .init = erlang_init,

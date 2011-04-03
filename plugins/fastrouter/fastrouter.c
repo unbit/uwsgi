@@ -582,6 +582,7 @@ int fastrouter_opt(int i, char *optarg) {
 
 struct uwsgi_plugin fastrouter_plugin = {
 
+	.name = "fastrouter",
         .options = fastrouter_options,
         .manage_opt = fastrouter_opt,
         .init = fastrouter_init,
