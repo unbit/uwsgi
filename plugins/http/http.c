@@ -875,6 +875,8 @@ int http_init() {
 			uwsgi_log("unable to register the http gateway\n");
 			exit(1);
 		}
+
+		uwsgi_log("HTTP router/proxy bound on %s\n", uhttp.socket_name);
 	}
 
 	return 0;

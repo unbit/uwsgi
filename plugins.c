@@ -11,16 +11,26 @@ int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
 	struct uwsgi_plugin *up;
 	int i;
 
+	char *colon = strchr(plugin, ':');
+	if (colon) {
+		colon[0] = 0;
+	}
+
+check:
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->name) {
 			if (!strcmp(plugin, uwsgi.p[i]->name)) {
+#ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
+#endif
 				return 0;
 			}	
 		}
 		if (uwsgi.p[i]->alias) {
 			if (!strcmp(plugin, uwsgi.p[i]->alias)) {
+#ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
+#endif
 				return 0;
 			}	
 		}
@@ -30,17 +40,28 @@ int uwsgi_load_plugin(int modifier, char *plugin, char *pargs, int absolute) {
 
 		if (uwsgi.gp[i]->name) {
                         if (!strcmp(plugin, uwsgi.gp[i]->name)) {
+#ifdef UWSGI_DEBUG
                                 uwsgi_log("%s plugin already available\n", plugin);
+#endif
                                 return 0;
                         }       
                 }
                 if (uwsgi.gp[i]->alias) {
                         if (!strcmp(plugin, uwsgi.gp[i]->alias)) {
+#ifdef UWSGI_DEBUG
                                 uwsgi_log("%s plugin already available\n", plugin);
+#endif
                                 return 0;
                         }
                 }
         }
+
+	if (colon) {
+		plugin = colon+1;
+		colon[0] = ':';
+		colon = NULL;
+		goto check;
+	}
 
 	if (absolute) {
 		plugin_name = malloc(strlen(plugin) + 1);
