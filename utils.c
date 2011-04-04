@@ -188,12 +188,18 @@ void logto(char *logfile) {
 
 void log_syslog(char *syslog_opts) {
 
+	if (syslog_opts == NULL) {
+		syslog_opts= "uwsgi";
+	}
+
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
 		uwsgi_error("socketpair()\n");
 		exit(1);
 	}
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("log pipe %d %d\n", uwsgi.shared->worker_log_pipe[0], uwsgi.shared->worker_log_pipe[1]);
+#endif
 
 	if (uwsgi.shared->worker_log_pipe[1] != 1) {
 		if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
@@ -203,14 +209,16 @@ void log_syslog(char *syslog_opts) {
 	}
 		
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("opening syslog\n");
+#endif
 
 	if (dup2(1, 2) < 0) {
 		uwsgi_error("dup2()");
 		exit(1);
 	}
 
-	openlog("uwsgi", 0, LOG_DAEMON );
+	openlog(syslog_opts, 0, LOG_DAEMON );
 
 			
 }

@@ -2360,6 +2360,7 @@ end:
 			log_syslog(optarg);
 			uwsgi.log_syslog = 1;
 			uwsgi.log_master = 1;
+			uwsgi.master_process = 1;
 			return 1;
 		case LONG_ARGS_PRINT:
 			uwsgi_log("%s\n", optarg);
