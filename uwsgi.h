@@ -216,6 +216,17 @@ struct uwsgi_help_item {
         char *value;
 };
 
+struct uwsgi_static_map {
+
+	char *mountpoint;
+	int mountpoint_len;
+
+	char *document_root;
+	int document_root_len;
+
+	struct uwsgi_static_map *next;
+};
+
 
 union uwsgi_sockaddr {
 	struct sockaddr     sa;
@@ -380,6 +391,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_PIDFILE2		17088
 #define LONG_ARGS_MAP_SOCKET		17089
 #define LONG_ARGS_SHARED_SOCKET		17090
+#define LONG_ARGS_STATIC_MAP		17091
+#define LONG_ARGS_FILE_SERVE_MODE	17092
 
 
 #define UWSGI_OK	0
@@ -807,6 +820,9 @@ struct uwsgi_server {
 	int log_syslog;
 	char *check_static;
 	size_t check_static_len;
+	int file_serve_mode;
+
+	struct uwsgi_static_map *static_maps;
 
 	char           *logfile;
 	int		logfile_chown;
@@ -1710,3 +1726,6 @@ int uwsgi_netlink_del(char *);
 
 int uwsgi_amqp_consume_queue(int, char *, char *, char *, char *);
 char *uwsgi_amqp_consume(int, uint64_t *, char **);
+
+int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+inline int uwsgi_starts_with(char *, int, char *, int);

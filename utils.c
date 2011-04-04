@@ -718,6 +718,13 @@ inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 
 }
 
+inline int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
+
+	if (slen < dlen) return -1;
+
+	return memcmp(src, dst, dlen);
+}
+
 inline int uwsgi_startswith(char *src, char *what, int wlen) {
 
 	int i;

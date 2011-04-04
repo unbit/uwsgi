@@ -156,6 +156,8 @@ static struct option long_base_options[] = {
 	{"routing", no_argument, &uwsgi.routing, 1},
 #endif
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
+	{"static-map", required_argument, 0, LONG_ARGS_STATIC_MAP},
+	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE},
 	{"check-cache", no_argument, &uwsgi.check_cache, 1},
 	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
 	{"mode", required_argument, 0, LONG_ARGS_MODE},
@@ -2266,6 +2268,7 @@ end:
 	static int manage_base_opt(int i, char *optarg) {
 
 		char *p;
+		struct uwsgi_static_map *usm;
 
 		switch (i) {
 
@@ -2433,6 +2436,55 @@ end:
 		case LONG_ARGS_CHECK_STATIC:
 			uwsgi.check_static = optarg;
 			uwsgi.check_static_len = strlen(uwsgi.check_static);
+			return 1;
+		case LONG_ARGS_FILE_SERVE_MODE:
+			if (!strcasecmp("x-sendfile", optarg)) {
+				uwsgi.file_serve_mode = 2;
+			}
+			else if (!strcasecmp("xsendfile", optarg)) {
+				uwsgi.file_serve_mode = 2;
+			}
+			else if (!strcasecmp("x-accel-redirect", optarg)) {
+				uwsgi.file_serve_mode = 1;
+			}
+			else if (!strcasecmp("xaccelredirect", optarg)) {
+				uwsgi.file_serve_mode = 1;
+			}
+			else if (!strcasecmp("nginx", optarg)) {
+				uwsgi.file_serve_mode = 1;
+			}
+			return 1;
+		case LONG_ARGS_STATIC_MAP:
+			usm = uwsgi.static_maps;
+			if (!usm) {
+				usm = uwsgi_malloc(sizeof(struct uwsgi_static_map));
+				uwsgi.static_maps = usm;
+			}
+			else {
+				while(usm->next) {
+					if (!usm->next) {
+						usm->next = uwsgi_malloc(sizeof(struct uwsgi_static_map));
+						usm = usm->next;
+						break;
+					}
+				}
+			}
+
+			char *docroot = strchr(optarg, '=');
+			if (!docroot) {
+				uwsgi_log("invalid document root in static map\n");
+				exit(1);
+			}
+
+			usm->mountpoint = optarg;
+			usm->mountpoint_len = docroot-usm->mountpoint;
+
+			usm->document_root = docroot+1;
+			usm->document_root_len = strlen(usm->document_root);
+
+			uwsgi_log("static-mapped %.*s to %.*s\n", usm->mountpoint_len, usm->mountpoint, usm->document_root_len, usm->document_root);
+
+			usm->next = NULL;
 			return 1;
 		case LONG_ARGS_ATTACH_DAEMON:
 			if (uwsgi.startup_daemons_cnt < MAX_DAEMONS) {

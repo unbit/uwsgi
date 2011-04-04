@@ -779,42 +779,25 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-	// check i fa file name uwsgi.check_static+env['PATH_INFO'] exists
+	// check if a file named uwsgi.check_static+env['PATH_INFO'] exists
 	if (uwsgi.check_static && wsgi_req->path_info_len > 1) {
-		struct stat st;
-		char *filename = uwsgi_concat2n(uwsgi.check_static, uwsgi.check_static_len, wsgi_req->path_info, wsgi_req->path_info_len);
+		if (!uwsgi_file_serve(wsgi_req, uwsgi.check_static, uwsgi.check_static_len, wsgi_req->path_info, wsgi_req->path_info_len)) {
+			return -1;
+		}
+	}
+
+	// check static-map
+	struct uwsgi_static_map *usm = uwsgi.static_maps;
+	while(usm) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("checking for %s\n", filename);
+		uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, usm->mountpoint_len, usm->mountpoint);
 #endif
-		if (!stat(filename, &st)) {
-			if (wsgi_req->if_modified_since_len) {
-				time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
-				if (st.st_mtime <= ims) {
-					wsgi_req->status = 304;
-					wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-					wsgi_req->headers_size += write(wsgi_req->poll.fd, " 304 Not Modified\r\n\r\n", 21);
-					return -1;
-				}
-			}
-			if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
-				char http_last_modified[49];
-#ifdef UWSGI_DEBUG
-				uwsgi_log("file %s found\n", filename);
-#endif
-				// no need to set content-type/content-length, they will be fixed by the http server/router
-				wsgi_req->sendfile_fd = open(filename, O_RDONLY);
-				wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, " 200 OK\r\n", 9);
-				set_http_date(st.st_mtime, http_last_modified);
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
-				wsgi_req->header_cnt = 1;
-				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
-				wsgi_req->status = 200;
-				free(filename);
+		if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, usm->mountpoint, usm->mountpoint_len)) {
+			if (!uwsgi_file_serve(wsgi_req, usm->document_root, usm->document_root_len, wsgi_req->path_info+usm->mountpoint_len, wsgi_req->path_info_len-usm->mountpoint_len)) {
 				return -1;
 			}
 		}
-		free(filename);
+		usm = usm->next;
 	}
 
 	return 0;
@@ -1315,5 +1298,82 @@ int uwsgi_simple_send_string(char *socket_name, uint8_t modifier1, uint8_t modif
         close(fd);
 
         return 0;
+}
+
+
+int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len) {
+
+        struct stat st;
+        char real_filename[PATH_MAX];
+        char *filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
+#ifdef UWSGI_DEBUG
+        uwsgi_log("checking for %s\n", filename);
+#endif
+        if (!realpath(filename, real_filename)) {
+#ifdef UWSGI_DEBUG
+                uwsgi_log("unable to get realpath() of the static file\n");
+#endif
+                free(filename);
+                return -1;
+        }
+
+        free(filename);
+
+        if (uwsgi_starts_with(real_filename, strlen(real_filename), document_root, document_root_len)) {
+                uwsgi_log("security error: %s is not under %.*s\n", real_filename, document_root_len, document_root);
+                return -1;
+        }
+        if (!stat(real_filename, &st)) {
+                if (wsgi_req->if_modified_since_len) {
+                        time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
+                        if (st.st_mtime <= ims) {
+                                wsgi_req->status = 304;
+                                wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
+                                wsgi_req->headers_size += write(wsgi_req->poll.fd, " 304 Not Modified\r\n\r\n", 21);
+                                return 0;
+                        }
+                }
+                if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
+                        char http_last_modified[49];
+#ifdef UWSGI_DEBUG
+                        uwsgi_log("file %s found\n", real_filename);
+#endif
+                        // no need to set content-type/content-length, they will be fixed by the http server/router
+
+                        wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
+                        wsgi_req->headers_size += write(wsgi_req->poll.fd, " 200 OK\r\n", 9);
+
+			if (uwsgi.file_serve_mode == 1) {
+                                wsgi_req->header_cnt = 2;
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, "X-Accel-Redirect: ", 18);
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, path_info, path_info_len);
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+                        	set_http_date(st.st_mtime, http_last_modified);
+                        	wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
+			}
+			else if (uwsgi.file_serve_mode == 2) {
+                                wsgi_req->header_cnt = 2;
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, "X-Sendfile: ", 12);
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, real_filename, strlen(real_filename));
+				wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+                        	set_http_date(st.st_mtime, http_last_modified);
+                        	wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
+			}
+			else {
+                                wsgi_req->header_cnt = 1;
+                        	set_http_date(st.st_mtime, http_last_modified);
+                        	wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
+                                wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);
+                                wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+			}
+
+
+                        wsgi_req->status = 200;
+                        return 0;
+                }
+        }
+
+        return -1;
+
 }
 
