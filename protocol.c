@@ -675,6 +675,13 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						}
 						else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
+							if (uwsgi.limit_post) {
+                						if (wsgi_req->post_cl > uwsgi.limit_post) {
+                        						uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
+                        						return -1;
+                						}
+        						}
+
 						}
 
 						if (wsgi_req->var_cnt < uwsgi.vec_size - (4 + 1)) {

@@ -266,14 +266,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
-	if (uwsgi.limit_post) {
-		if (wsgi_req->post_cl > uwsgi.limit_post) {
-			uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
-			return -1;
-		}
-	}
-
-
 	if (!up.ignore_script_name) {
 
 		if (!wsgi_req->script_name)
