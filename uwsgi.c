@@ -102,6 +102,8 @@ static struct option long_base_options[] = {
 	{"no-server", no_argument, &uwsgi.no_server, 1},
 	{"no-defer-accept", no_argument, &uwsgi.no_defer_accept, 1},
 	{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
+	{"reload-on-as", required_argument, 0, LONG_ARGS_RELOAD_ON_AS},
+	{"reload-on-rss", required_argument, 0, LONG_ARGS_RELOAD_ON_RSS},
 	{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
 	{"no-orphans", no_argument, &uwsgi.no_orphans, 1},
 	{"prio", required_argument, 0, LONG_ARGS_PRIO},
@@ -229,6 +231,7 @@ void end_me(int signum)
 
 void goodbye_cruel_world()
 {
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
 	exit(0);
 }
@@ -2528,6 +2531,12 @@ end:
 			return 1;
 		case LONG_ARGS_LIMIT_POST:
 			uwsgi.limit_post = (int) strtol(optarg, NULL, 10);
+			return 1;
+		case LONG_ARGS_RELOAD_ON_AS:
+			uwsgi.reload_on_as = atoi(optarg);
+			return 1;
+		case LONG_ARGS_RELOAD_ON_RSS:
+			uwsgi.reload_on_rss = atoi(optarg);
 			return 1;
 		case LONG_ARGS_PRIO:
 			uwsgi.prio = (int) strtol(optarg, NULL, 10);

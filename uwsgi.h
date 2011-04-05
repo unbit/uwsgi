@@ -393,6 +393,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_SHARED_SOCKET		17090
 #define LONG_ARGS_STATIC_MAP		17091
 #define LONG_ARGS_FILE_SERVE_MODE	17092
+#define LONG_ARGS_RELOAD_ON_AS		17093
+#define LONG_ARGS_RELOAD_ON_RSS		17094
 
 
 #define UWSGI_OK	0
@@ -852,6 +854,9 @@ struct uwsgi_server {
 	struct rlimit   rl;
 	size_t          limit_post;
 	int             prio;
+
+	int		reload_on_as;
+	int		reload_on_rss;
 
 	int             grunt;
 

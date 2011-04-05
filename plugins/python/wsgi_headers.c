@@ -14,22 +14,36 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *h_key, *h_value;
 	int i, j;
 	struct uwsgi_header uh;
+	PyObject *exc_info = NULL;
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	int base = 0;
-	int shift = 0;
 
-	// use writev()
+	// this must be done before headers management
+	if (PyTuple_Size(args) > 2) {
+		exc_info = PyTuple_GetItem(args, 2);
+		if (exc_info && exc_info != Py_None) {
+			PyObject *exc_type = PyTuple_GetItem(exc_info, 0);	
+			PyObject *exc_val = PyTuple_GetItem(exc_info, 1);
+			PyObject *exc_tb = PyTuple_GetItem(exc_info, 2);
 
-	// is a Web3 response ?
-	/*
-	   if (PyTuple_Size(args) == 3) {
-	   shift = 0;
-	   }
-	   */
+			if (!exc_type || !exc_val || !exc_tb) {
+				PyErr_Print();
+				goto clear;
+			}
 
-	head = PyTuple_GetItem(args, 0+shift);
+			Py_INCREF(exc_type);
+			Py_INCREF(exc_val);
+			Py_INCREF(exc_tb);
+			// in this way, error will be reported to the log
+			PyErr_Restore(exc_type, exc_val, exc_tb);
+
+			goto clear;	
+		}
+	}
+
+	head = PyTuple_GetItem(args, 0);
 	if (!head) {
 		goto clear;
 	}
@@ -93,18 +107,15 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		uh.pktsize += wsgi_req->hvec[2].iov_len;
 	}
 
+	headers = PyTuple_GetItem(args, 1);
+	if (!headers) goto clear;
 
-	headers = PyTuple_GetItem(args, 1+shift);
-	if (!headers) {
-		goto clear;
-	}
+
 	if (!PyList_Check(headers)) {
 		uwsgi_log( "http headers must be in a python list\n");
 		goto clear;
 	}
 	wsgi_req->header_cnt = PyList_Size(headers);
-
-
 
 	if (wsgi_req->header_cnt > uwsgi.max_vars) {
 		wsgi_req->header_cnt = uwsgi.max_vars;
@@ -173,7 +184,6 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	//uwsgi_log("%d %p\n", wsgi_req->poll.fd, up.wsgi_writeout);
 	Py_INCREF(up.wsgi_writeout);
-
 
 	return up.wsgi_writeout;
 
