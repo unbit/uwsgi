@@ -2483,7 +2483,7 @@ end:
 			usm->mountpoint = optarg;
 			usm->mountpoint_len = docroot-usm->mountpoint;
 
-			usm->document_root = docroot+1;
+			usm->document_root = realpath(docroot+1, NULL);
 			usm->document_root_len = strlen(usm->document_root);
 
 			uwsgi_log("static-mapped %.*s to %.*s\n", usm->mountpoint_len, usm->mountpoint, usm->document_root_len, usm->document_root);
