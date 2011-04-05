@@ -250,7 +250,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 			if (unlink(spool_filename)) {
 				uwsgi_error("unlink()");
 				uwsgi_log("something horrible happened !!! check your spooler ASAP !!!\n");
-				goodbye_cruel_world();
+				exit(1);
 			}
 		}
 		return 0;

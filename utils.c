@@ -268,7 +268,7 @@ void uwsgi_as_root() {
 #endif
 
 	if (!getuid()) {
-		if (!uwsgi.master_as_root) {
+		if (!uwsgi.master_as_root && !uwsgi.uidname) {
 			uwsgi_log("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
 		}
 

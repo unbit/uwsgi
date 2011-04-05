@@ -317,6 +317,26 @@ char *generate_socket_name(char *socket_name) {
 
 	char *new_socket;
 	char *tcp_port;
+	int i;
+	char *ptr = socket_name;
+
+	// ltrim spaces
+
+	for(i=0;i<(int)strlen(socket_name);i++) {
+		if (isspace(socket_name[i])) {
+			ptr++;	
+		}
+		else {
+			break;
+		}
+	}
+	
+	socket_name = ptr;
+
+	if (socket_name[0] == 0) {
+		uwsgi_log("invalid/empty uwsgi socket name\n");
+		exit(1);
+	}
 
         tcp_port = strchr(socket_name, ':');
 	if (!tcp_port) return socket_name;
