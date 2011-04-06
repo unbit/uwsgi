@@ -1737,3 +1737,7 @@ char *uwsgi_amqp_consume(int, uint64_t *, char **);
 
 int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 inline int uwsgi_starts_with(char *, int, char *, int);
+
+#ifdef __sun__
+time_t timegm(struct tm *);
+#endif

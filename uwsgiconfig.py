@@ -226,6 +226,7 @@ class uConf(object):
 
         if uwsgi_os == 'SunOS':
             self.libs.append('-lsendfile')
+            self.gcc_list.append('lib/sun_fixes')
             if not uwsgi_os_v.startswith('Nexenta'):
                 self.libs.remove('-rdynamic')
 

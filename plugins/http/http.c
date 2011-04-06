@@ -429,12 +429,14 @@ void http_loop() {
 
 	struct uwsgi_rb_timer *min_timeout;
 	void *events;
+#ifndef __sun__
 	struct msghdr msg;
 	union {
                 struct cmsghdr cmsg;
                 char control [CMSG_SPACE (sizeof (int))];
         } msg_control;
         struct cmsghdr *cmsg;
+#endif
 
 	union uwsgi_sockaddr uhttp_addr;
         socklen_t uhttp_addr_len = sizeof(struct sockaddr_un);
@@ -705,6 +707,8 @@ void http_loop() {
 								uhttp_session->iov_len++;
 							}
 
+
+#ifndef __sun__
 							// fd passing: PERFORMANCE EXTREME BOOST !!!
 							if (uhttp_session->pass_fd && !uhttp_session->remains) {
 								msg.msg_name    = NULL;
@@ -736,6 +740,7 @@ void http_loop() {
                                                                 break;
 							}
 
+#endif
 #ifdef __sun__
 							if (uhttp_session->iov_len > IOV_MAX) {
 								int remains = uhttp_session->iov_len;
