@@ -323,7 +323,7 @@ char *generate_socket_name(char *socket_name) {
 	// ltrim spaces
 
 	for(i=0;i<(int)strlen(socket_name);i++) {
-		if (isspace(socket_name[i])) {
+		if (isspace((int)socket_name[i])) {
 			ptr++;	
 		}
 		else {

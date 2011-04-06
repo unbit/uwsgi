@@ -134,21 +134,17 @@ void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 #define UWSGI_LOCK_SIZE 8
 #define UWSGI_RWLOCK_SIZE 8
 
-static int lock_counter = 0;
-
 void uwsgi_lock_init(void *lock) {
 
-	char filename[17];
+	FILE *tf = tmpfile();
+	int fd;
 
-	if (snprintf(filename, 17, ".uwsgiflock%d", lock_counter) < 0) {
-		uwsgi_log("unable to create lock %d\n", lock_counter);
-	}
-	
-	int fd = open(filename, O_CREAT|O_RDWR|O_TRUNC);
-	if (fd < 0) {
-		uwsgi_error_open(filename);
+	if (!tf) {
+		uwsgi_error_open("temp lock file");
 		exit(1);
 	}
+	
+	fd = fileno(tf);
 
 	memcpy(lock, &fd, sizeof(int));
 }
