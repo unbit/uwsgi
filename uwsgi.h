@@ -2,7 +2,7 @@
 
 /* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
 
-#define UWSGI_VERSION	"0.9.7.1"
+#define UWSGI_VERSION	"0.9.7.2"
 
 #define UMAX16	65536
 
@@ -395,6 +395,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_FILE_SERVE_MODE	17092
 #define LONG_ARGS_RELOAD_ON_AS		17093
 #define LONG_ARGS_RELOAD_ON_RSS		17094
+#define LONG_ARGS_TOUCH_RELOAD		17095
 
 
 #define UWSGI_OK	0
@@ -857,6 +858,8 @@ struct uwsgi_server {
 
 	int		reload_on_as;
 	int		reload_on_rss;
+	char		*touch_reload;
+	time_t		last_touch_reload_mtime;
 
 	int             grunt;
 

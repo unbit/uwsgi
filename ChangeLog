@@ -1,3 +1,23 @@
+*** april 2011 ***
+
+ * 0.9.7.2 [20110406]
+
+- new option --touch-reload <file> to reload the stack on <file> modification
+- --static-map <mountpoint=documentroot> allows to serve static files
+- fixed post limit management
+- disallow empty socket names
+- implemented exc_info WSGI support
+- new options --reload-on-as <n> and --reload-on-rss <n> allows
+to recycle workers when their memory usage is higher than <n>
+- fixed syslog support
+- improved plugin loading system
+- added support for RabbitMQ as event dispatcher for the Emperor
+- fixed FreeBSD memory report
+- PSGI plugin can be built without ithreads
+- various emperor fixes
+- fixed a regression with setgroups()
+- support for shared sockets (used in jails within network namespace)
+
 *** march 2011 ***
 
  * 0.9.7.1 [20110326]

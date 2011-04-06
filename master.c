@@ -344,6 +344,18 @@ void master_loop(char **argv, char **environ) {
 		}
 	}
 
+	if (uwsgi.touch_reload) {
+		struct stat tr_st;
+		if (stat(uwsgi.touch_reload, &tr_st)) {
+			uwsgi_error("stat()");
+			uwsgi_log("unable to stat() %s, touch-reload will be disabled\n", uwsgi.touch_reload);
+			uwsgi.touch_reload = NULL;
+		}
+		else {
+			uwsgi.last_touch_reload_mtime = tr_st.st_mtime;
+		}
+	}
+
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 
@@ -412,7 +424,7 @@ void master_loop(char **argv, char **environ) {
 				int found = 0;
 				for(j=0;j<uwsgi.sockets_cnt;j++) {
 					if (i == uwsgi.sockets[j].fd) {
-						uwsgi_log("found fd %d\n", i);
+						uwsgi_log("found fd %d mapped to socket %d (%s)\n", i, j, uwsgi.sockets[j].name);
 						found = 1;
 						break;
 					}
@@ -957,6 +969,8 @@ void master_loop(char **argv, char **environ) {
 				}
 			}
 
+#endif
+
 			if (uwsgi.cache_store && uwsgi.cache_filesize && uwsgi.cache_store_sync && ((master_cycles % uwsgi.cache_store_sync) == 0)) {
 				if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
                         		uwsgi_error("msync()");
@@ -969,8 +983,22 @@ void master_loop(char **argv, char **environ) {
                 		}
 			}
 
+			// check touch_reload
+			if (uwsgi.touch_reload && !uwsgi.to_heaven && !uwsgi.to_hell) {
+                		struct stat tr_st;
+                		if (stat(uwsgi.touch_reload, &tr_st)) {
+                        		uwsgi_error("stat()");
+                        		uwsgi_log("unable to stat() %s, touch-reload will be disabled\n", uwsgi.touch_reload);
+                        		uwsgi.touch_reload = NULL;
+                		}
+                		else {
+					if (tr_st.st_mtime > uwsgi.last_touch_reload_mtime) {
+						uwsgi_log("*** %s has been touched... grace them all !!! ***\n");
+						grace_them_all(0);
+					}
+                		}
+			}
 
-#endif
 
 			// now check for lb pool
 			

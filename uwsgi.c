@@ -104,6 +104,7 @@ static struct option long_base_options[] = {
 	{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS},
 	{"reload-on-as", required_argument, 0, LONG_ARGS_RELOAD_ON_AS},
 	{"reload-on-rss", required_argument, 0, LONG_ARGS_RELOAD_ON_RSS},
+	{"touch-reload", required_argument, 0, LONG_ARGS_TOUCH_RELOAD},
 	{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
 	{"no-orphans", no_argument, &uwsgi.no_orphans, 1},
 	{"prio", required_argument, 0, LONG_ARGS_PRIO},
@@ -2537,6 +2538,10 @@ end:
 			return 1;
 		case LONG_ARGS_RELOAD_ON_RSS:
 			uwsgi.reload_on_rss = atoi(optarg);
+			return 1;
+		case LONG_ARGS_TOUCH_RELOAD:
+			uwsgi.touch_reload = optarg;
+			uwsgi.master_process = 1;
 			return 1;
 		case LONG_ARGS_PRIO:
 			uwsgi.prio = (int) strtol(optarg, NULL, 10);
