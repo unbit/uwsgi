@@ -445,7 +445,11 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	if (!up.pep3333_input) {
+#ifdef PYTHREE
+		wsgi_socket = PyFile_FromFd(fileno(wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
+#else
 		wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
+#endif
 		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
 		Py_DECREF(wsgi_socket);
 	}
