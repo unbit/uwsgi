@@ -448,6 +448,7 @@ reconnect:
 				}
 				else {
 					uwsgi_log("unrecognized event on fd %d\n", interesting_fd);
+					close(interesting_fd);
 				}
 			}
 		}
@@ -583,9 +584,6 @@ reconnect:
 				}
 			}
 		}
-
-		if (amqp_fd < 0)
-		sleep(3);
 
 	}
 
