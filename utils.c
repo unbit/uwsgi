@@ -451,6 +451,16 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 
+	// ready to accept request, if i am a vassal signal Emperor about my loyalty
+        if (uwsgi.has_emperor && !uwsgi.loyal) {
+                uwsgi_log("announcing my loyalty to the Emperor...\n");
+                char byte = 17;
+                if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+                        uwsgi_error("write()");
+                }
+		uwsgi.loyal = 1;
+        }
+
 }
 
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
@@ -1366,6 +1376,8 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		len = write(fd, domain, strlen(domain));
 		uri[0] = '/';
 
+		len = write(fd, "\r\nUser-Agent: uWSGI on ", 23);
+		len = write(fd, uwsgi.hostname, uwsgi.hostname_len);
 		len = write(fd, "\r\n\r\n", 4);
 
 		int http_status_code_ptr = 0;

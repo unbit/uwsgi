@@ -699,7 +699,9 @@ static int amqp_send_connection_start_ok(int fd, char *mech, char *sasl_response
 	
 }
 
-int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *exchange, char *exchange_type) {
+int uwsgi_amqp_consume_queue(int fd, char *vhost, char *username, char *password, char *queue, char *exchange, char *exchange_type) {
+
+	char *auth = uwsgi_concat4n("\0",1, username, strlen(username), "\0",1, password, strlen(password));
 
 	if (send(fd, AMQP_CONNECTION_HEADER, 8, 0) < 0) {
 		uwsgi_error("send()");
@@ -712,10 +714,13 @@ int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *exchange, c
 	}
 
 	uwsgi_log("sending Connection.start-ok\n");
-	if (amqp_send_connection_start_ok(fd, "PLAIN", "\0guest\0guest", 12, "en_US") < 0) {
+	if (amqp_send_connection_start_ok(fd, "PLAIN", auth, strlen(username)+strlen(password)+2, "en_US") < 0) {
+		free(auth);
 		uwsgi_log("AMQP error sending Connection.start-ok\n");
 		return -1;
 	}
+
+	free(auth);
 
 	if (amqp_wait_connection_tune(fd) < 0) {
 		uwsgi_log("AMQP error waiting for Connection.tune\n");
@@ -795,5 +800,7 @@ int uwsgi_amqp_consume_queue(int fd, char *vhost, char *queue, char *exchange, c
 	}
 	
 	free(queue);
+
+	uwsgi_log("AMQP subscription done, waiting for events...\n");
 	return 0;
 }

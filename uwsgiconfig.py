@@ -158,8 +158,8 @@ class uConf(object):
         self.config.read(filename)
         self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'emperor',
             'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
-        #if uwsgi_os == 'Linux':
-        #    self.gcc_list.append('lib/netlink')
+        if uwsgi_os == 'Linux':
+            self.gcc_list.append('lib/netlink')
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:
             gcc_version = str(spcall("%s -dumpversion" % GCC))

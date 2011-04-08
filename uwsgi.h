@@ -224,6 +224,9 @@ struct uwsgi_static_map {
 	char *document_root;
 	int document_root_len;
 
+	char *orig_document_root;
+	int orig_document_root_len;
+
 	struct uwsgi_static_map *next;
 };
 
@@ -396,6 +399,9 @@ struct uwsgi_opt {
 #define LONG_ARGS_RELOAD_ON_AS		17093
 #define LONG_ARGS_RELOAD_ON_RSS		17094
 #define LONG_ARGS_TOUCH_RELOAD		17095
+#define LONG_ARGS_EMPEROR_AMQP_VHOST	17096
+#define LONG_ARGS_EMPEROR_AMQP_USERNAME	17097
+#define LONG_ARGS_EMPEROR_AMQP_PASSWORD	17098
 
 
 #define UWSGI_OK	0
@@ -780,6 +786,11 @@ struct uwsgi_server {
 	int emperor_fd_config;
 	char *emperor_dir;
 	pid_t emperor_pid;
+	int loyal;
+
+	char *emperor_amqp_vhost;
+	char *emperor_amqp_username;
+	char *emperor_amqp_password;
 
 	time_t master_mercy;
 
@@ -1732,10 +1743,10 @@ int uwsgi_netlink_del(char *);
 #endif
 
 
-int uwsgi_amqp_consume_queue(int, char *, char *, char *, char *);
+int uwsgi_amqp_consume_queue(int, char *, char *, char *, char *, char *, char *);
 char *uwsgi_amqp_consume(int, uint64_t *, char **);
 
-int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t, char *, uint16_t);
 inline int uwsgi_starts_with(char *, int, char *, int);
 
 #ifdef __sun__

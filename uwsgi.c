@@ -62,6 +62,9 @@ static struct option long_base_options[] = {
 	{"single-interpreter", no_argument, 0, 'i'},
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
+	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
+	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
+	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
 	{"help", no_argument, 0, 'h'},
@@ -2215,7 +2218,6 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 #endif
 	}
 
-
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
 		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
@@ -2272,7 +2274,7 @@ end:
 	static int manage_base_opt(int i, char *optarg) {
 
 		char *p;
-		struct uwsgi_static_map *usm;
+		struct uwsgi_static_map *usm, *old_usm;
 
 		switch (i) {
 
@@ -2353,6 +2355,15 @@ end:
 			return 1;
 		case LONG_ARGS_EMPEROR:
 			uwsgi.emperor_dir = optarg;
+			return 1;
+		case LONG_ARGS_EMPEROR_AMQP_VHOST:
+			uwsgi.emperor_amqp_vhost = optarg;
+			return 1;
+		case LONG_ARGS_EMPEROR_AMQP_USERNAME:
+			uwsgi.emperor_amqp_username = optarg;
+			return 1;
+		case LONG_ARGS_EMPEROR_AMQP_PASSWORD:
+			uwsgi.emperor_amqp_password = optarg;
 			return 1;
 		case LONG_ARGS_RELOAD_MERCY:
 			uwsgi.reload_mercy = atoi(optarg);
@@ -2466,13 +2477,14 @@ end:
 				uwsgi.static_maps = usm;
 			}
 			else {
+				old_usm = usm;
 				while(usm->next) {
-					if (!usm->next) {
-						usm->next = uwsgi_malloc(sizeof(struct uwsgi_static_map));
-						usm = usm->next;
-						break;
-					}
+					usm = usm->next;
+					old_usm = usm;
 				}
+
+				old_usm->next = uwsgi_malloc(sizeof(struct uwsgi_static_map));
+				usm = old_usm->next;
 			}
 
 			char *docroot = strchr(optarg, '=');
@@ -2486,6 +2498,9 @@ end:
 
 			usm->document_root = realpath(docroot+1, NULL);
 			usm->document_root_len = strlen(usm->document_root);
+
+			usm->orig_document_root = usm->document_root;
+			usm->orig_document_root_len = usm->document_root_len;
 
 			uwsgi_log("static-mapped %.*s to %.*s\n", usm->mountpoint_len, usm->mountpoint, usm->document_root_len, usm->document_root);
 
@@ -2756,6 +2771,9 @@ end:
 		case 'C':
 			uwsgi.chmod_socket = 1;
 			if (optarg) {
+				if (strlen(optarg) == 1 && *optarg == '1') {
+					return 1;
+				}
 				if (strlen(optarg) != 3) {
 					uwsgi_log("invalid chmod value: %s\n", optarg);
 					exit(1);

@@ -26,7 +26,13 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag, char *magic_ta
 	char *xml_content;
 	int xml_size = 0;
 
-	colon = uwsgi_get_last_char(uwsgi.xml_config, ':');
+	if (!uwsgi_startswith(uwsgi.xml_config, "http://", 7)) {
+		colon = uwsgi_get_last_char(uwsgi.xml_config, '/');
+		colon = uwsgi_get_last_char(colon, ':');
+	}
+	else {
+		colon = uwsgi_get_last_char(uwsgi.xml_config, ':');
+	}
 	if (colon) {
 		colon[0] = 0;
 		colon++;

@@ -5,6 +5,8 @@
 extern struct uwsgi_server uwsgi;
 extern char **environ;
 
+int emperor_queue;
+
 struct uwsgi_instance {
 	struct uwsgi_instance *ui_prev;
 	struct uwsgi_instance *ui_next;
@@ -15,6 +17,7 @@ struct uwsgi_instance {
 	int status;
 	time_t born;
 	time_t last_mod;
+	time_t last_loyal;
 
 	uint64_t respawns;
 	int use_config;
@@ -24,9 +27,26 @@ struct uwsgi_instance {
 
 	char *config;
 	uint32_t config_len;
+
+	int loyal;
 };
 
 struct uwsgi_instance *ui;
+
+struct uwsgi_instance *emperor_get_by_fd(int fd) {
+
+        struct uwsgi_instance *c_ui = ui;
+
+        while (c_ui->ui_next) {
+                c_ui = c_ui->ui_next;
+
+                if (c_ui->pipe[0] == fd) {
+                        return c_ui;
+                }
+        }
+        return NULL;
+}
+
 
 struct uwsgi_instance *emperor_get(char *name) {
 
@@ -125,11 +145,16 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	memcpy(n_ui->name, name, strlen(name));
 	n_ui->born = born;
 	n_ui->last_mod = born;
+	// start without loyalty
+	n_ui->last_loyal = born;
+	n_ui->loyal = 0;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, n_ui->pipe)) {
 		uwsgi_error("socketpair()");
 		goto clear;
 	}
+
+	event_queue_add_fd_read(emperor_queue, n_ui->pipe[0]);
 
 	if (n_ui->use_config) {
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, n_ui->pipe_config)) {
@@ -256,15 +281,27 @@ void emperor_loop() {
 	int amqp_fd = -1;
 	char *amqp_routing_key;
 
+	void *events;
+	int nevents;
+	int interesting_fd;
+
 	signal(SIGPIPE, SIG_IGN);
 
 	memset(&ui_base, 0, sizeof(struct uwsgi_instance));
+
+
+	emperor_queue = event_queue_init();
+
+        events = event_queue_alloc(64);
 
 	uwsgi_log("*** starting uWSGI Emperor ***\n");
 
 	amqp_port = strchr(uwsgi.emperor_dir, ':');
 
 	if (amqp_port) {
+		if (uwsgi.emperor_amqp_vhost == NULL) uwsgi.emperor_amqp_vhost = "/";
+		if (uwsgi.emperor_amqp_username == NULL) uwsgi.emperor_amqp_username = "guest";
+		if (uwsgi.emperor_amqp_password == NULL) uwsgi.emperor_amqp_password = "guest";
 reconnect:
 		while(amqp_fd == -1) {	
 			uwsgi_log("connecting to AMQP server...\n");
@@ -275,11 +312,14 @@ reconnect:
 		}
 
 		uwsgi_log("subscribing to queue...\n");
-		if (uwsgi_amqp_consume_queue(amqp_fd, "/", "", "uwsgi.emperor", "fanout") < 0) {
+		if (uwsgi_amqp_consume_queue(amqp_fd, uwsgi.emperor_amqp_vhost, uwsgi.emperor_amqp_username, uwsgi.emperor_amqp_password, "", "uwsgi.emperor", "fanout") < 0) {
 			close(amqp_fd);
 			amqp_fd = -1;
+			sleep(1);
 			goto reconnect;
 		}
+
+		event_queue_add_fd_read(emperor_queue, amqp_fd);
 	}
 	else {
 		if (!glob(uwsgi.emperor_dir, GLOB_MARK, NULL, &g)) {
@@ -309,9 +349,13 @@ reconnect:
 			}
 		}
 
-		if (amqp_fd > -1) {
-			uint64_t msgsize;
-			if (uwsgi_waitfd(amqp_fd, 3)) {
+		nevents = event_queue_wait_multi(emperor_queue, 3, events, 64);
+
+		for (i = 0; i<nevents;i++) {
+			interesting_fd = event_queue_interesting_fd(events, i);
+
+			if (amqp_fd > -1 && interesting_fd == amqp_fd ) {
+				uint64_t msgsize;
 				char *config = uwsgi_amqp_consume(amqp_fd, &msgsize, &amqp_routing_key);
 				
 				if (!config) {
@@ -329,6 +373,8 @@ reconnect:
 					ui_current = emperor_get(config_file);
 
                                         if (ui_current) {
+						// ignore event if i am not loyal
+						if (!ui_current->loyal) continue;
 						free(ui_current->config);
 						ui_current->config = config;
 						ui_current->config_len = msgsize;
@@ -352,7 +398,9 @@ reconnect:
 				if (msgsize) {
 					if (msgsize >= 0xff) { free(config); continue; }
 
+#ifdef UWSGI_DEBUG
 					uwsgi_log("%.*s\n", (int)msgsize, config);
+#endif
 					char *config_file = uwsgi_concat2n(config, msgsize, "", 0);
 					free(config);
 
@@ -371,6 +419,8 @@ reconnect:
 					ui_current = emperor_get(config_file);
 
 					if (ui_current) {
+						// ignore event if i am not loyal
+						if (!ui_current->loyal) continue;
 						emperor_respawn(ui_current, time(NULL));
 					}
 					else {
@@ -381,8 +431,29 @@ reconnect:
 				}
 				}
 			}
+			else {
+				ui_current = emperor_get_by_fd(interesting_fd);
+				if (ui_current) {
+					char byte;
+					ssize_t rlen = read(interesting_fd, &byte, 1);
+					if (rlen <= 0) {
+						emperor_del(ui_current);
+					}
+					else {
+						if (byte == 17) {
+							ui_current->loyal = 1;
+							uwsgi_log("*** vassal %s is now loyal ***\n", ui_current->name);
+						}
+					}
+				}
+				else {
+					uwsgi_log("unrecognized event on fd %d\n", interesting_fd);
+				}
+			}
 		}
-		else if (simple_mode) {
+
+		if (amqp_fd == -1) {
+		if (simple_mode) {
 			DIR *dir = opendir(".");
 			while ((de = readdir(dir)) != NULL) {
 				if (!strcmp(de->d_name + (strlen(de->d_name) - 4), ".xml") || !strcmp(de->d_name + (strlen(de->d_name) - 4), ".ini") || !strcmp(de->d_name + (strlen(de->d_name) - 4), ".yml") || !strcmp(de->d_name + (strlen(de->d_name) - 5), ".yaml")
@@ -451,6 +522,7 @@ reconnect:
 
 			}
 		}
+		}
 
 		// check for removed instances
 
@@ -475,6 +547,14 @@ reconnect:
 		ui_current = ui;
 		while (ui_current->ui_next) {
 			ui_current = ui_current->ui_next;
+			// check loyalty if not in simple/glob mode
+			if (amqp_fd > -1) {
+				if (!ui_current->loyal && (time(NULL)-ui_current->last_loyal) > 60) {
+					uwsgi_log("!!! no loyalty showed by instance %s !!!\n", ui_current->name);
+					emperor_del(ui_current);
+					break;
+				}
+			}
 			if (ui_current->status == 1) {
 				if (ui_current->config) free(ui_current->config);
 				emperor_del(ui_current);
