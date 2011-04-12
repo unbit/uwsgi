@@ -125,7 +125,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
         	}
 	}
 
-
 	if (interpreter == NULL && id) {
 		wi->interpreter = Py_NewInterpreter();
 		if (!wi->interpreter) {

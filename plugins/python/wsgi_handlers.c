@@ -293,7 +293,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 						|| wsgi_req->file_len > 0
 						|| wsgi_req->paste_len > 0
 				   ) {
-					// a bit of magic: 1-1 = 0 / 0-1 = -1
 					// this part must be heavy locked in threaded modes
 					if (uwsgi.threads > 1) {
 						pthread_mutex_lock(&up.lock_pyloaders);

@@ -778,6 +778,7 @@ void uwsgi_python_init_apps() {
 		init_uwsgi_app(LOADER_EVAL, up.eval, uwsgi.wsgi_req, up.main_thread);
 	}
 
+
 }
 
 void uwsgi_python_enable_threads() {

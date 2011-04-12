@@ -1944,6 +1944,10 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		}
 	}
 
+	// no app initialized and virtualhosting enabled
+        if (uwsgi.apps_cnt == 0 && uwsgi.vhost) {
+                uwsgi.apps_cnt = 1;
+        }
 
 	if (uwsgi.no_server) {
 		uwsgi_log("no-server mode requested. Goodbye.\n");
