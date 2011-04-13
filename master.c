@@ -438,7 +438,11 @@ void master_loop(char **argv, char **environ) {
 					}
 				}
 				if (!found) {
+#ifdef __APPLE__
+					fcntl(i, F_SETFD, FD_CLOEXEC);	
+#else
 					close(i);
+#endif
 				}
 			}
 
