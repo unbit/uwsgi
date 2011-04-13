@@ -1,7 +1,9 @@
 #undef __USE_GNU
 #include "../../uwsgi.h"
 
+#ifdef __APPLE__
 #define HAS_BOOL 1
+#endif
 #include <EXTERN.h>
 #include <perl.h>
 #include "XSUB.h"
