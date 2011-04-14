@@ -87,7 +87,14 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 	char *section_asked = "uwsgi";
 	char *colon;
 
-	colon = uwsgi_get_last_char(file, ':');
+	if (!uwsgi_startswith(file, "http://", 7)) {
+                colon = uwsgi_get_last_char(file, '/');
+                colon = uwsgi_get_last_char(colon, ':');
+        }
+        else {
+                colon = uwsgi_get_last_char(file, ':');
+        }
+
 	if (colon) {
 		colon[0] = 0;
 		if (colon[1] != 0) {
