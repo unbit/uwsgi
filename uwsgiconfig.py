@@ -397,6 +397,7 @@ class uConf(object):
                 jsonconf = spcall("pkg-config --cflags jansson")
                 if jsonconf:
                     self.cflags.append(jsonconf)
+                    self.cflags.append("-DUWSGI_JSON")
                     self.gcc_list.append('json')
                     self.libs.append(spcall("pkg-config --libs jansson"))
                 elif os.path.exists('/usr/include/jansson.h') or os.path.exists('/usr/local/include/jansson.h'):
