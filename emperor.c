@@ -244,6 +244,8 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 			argv[1] = "--yaml";
 		if (!strcmp(name + (strlen(name) - 5), ".yaml"))
 			argv[1] = "--yaml";
+		if (!strcmp(name + (strlen(name) - 3), ".js"))
+			argv[1] = "--json";
 		argv[2] = name;
 		argv[3] = NULL;
 		// start !!!
@@ -457,7 +459,11 @@ reconnect:
 		if (simple_mode) {
 			DIR *dir = opendir(".");
 			while ((de = readdir(dir)) != NULL) {
-				if (!strcmp(de->d_name + (strlen(de->d_name) - 4), ".xml") || !strcmp(de->d_name + (strlen(de->d_name) - 4), ".ini") || !strcmp(de->d_name + (strlen(de->d_name) - 4), ".yml") || !strcmp(de->d_name + (strlen(de->d_name) - 5), ".yaml")
+				if (!strcmp(de->d_name + (strlen(de->d_name) - 4), ".xml") ||
+					!strcmp(de->d_name + (strlen(de->d_name) - 4), ".ini") ||
+					!strcmp(de->d_name + (strlen(de->d_name) - 4), ".yml") ||
+					!strcmp(de->d_name + (strlen(de->d_name) - 5), ".yaml") ||
+					!strcmp(de->d_name + (strlen(de->d_name) - 3), ".js")
 					) {
 
 
@@ -495,6 +501,7 @@ reconnect:
 				if (!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".xml") ||
 					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".ini") ||
 					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".yml") ||
+					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 3), ".js") ||
 					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 5), ".yaml")
 					) {
 
