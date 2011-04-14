@@ -967,6 +967,10 @@ struct uwsgi_server {
 	char		*yaml;
 #endif
 
+#ifdef UWSGI_JSON
+	char		*json;
+#endif
+
 #ifdef UWSGI_INI
 	char           *ini;
 #endif
@@ -1423,6 +1427,10 @@ void            uwsgi_ini_config(char *, char*[]);
 
 #ifdef UWSGI_YAML
 void            uwsgi_yaml_config(char *, char*[]);
+#endif
+
+#ifdef UWSGI_JSON
+void            uwsgi_json_config(char *, char*[]);
 #endif
 
 

@@ -68,6 +68,7 @@ static struct option long_base_options[] = {
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
 	{"help", no_argument, 0, 'h'},
+	{"usage", no_argument, 0, 'h'},
 	{"reaper", no_argument, 0, 'r'},
 	{"max-requests", required_argument, 0, 'R'},
 	{"socket-timeout", required_argument, 0, 'z'},
@@ -96,6 +97,9 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_YAML
 	{"yaml", required_argument, 0, 'y'},
 	{"yml", required_argument, 0, 'y'},
+#endif
+#ifdef UWSGI_JSON
+	{"json", required_argument, 0, 'j'},
 #endif
 #ifdef UWSGI_LDAP
 	{"ldap", required_argument, 0, LONG_ARGS_LDAP},
@@ -662,6 +666,11 @@ int main(int argc, char *argv[], char *envp[])
 				uwsgi.yaml = lazy;
 			}
 #endif
+#ifdef UWSGI_JSON
+			else if (!strcmp(lazy+strlen(lazy)-3, ".js")) {
+				uwsgi.json = lazy;
+			}
+#endif
 			// manage magic mountpoint
 			else if ( (lazy[0] == '/' || strchr(lazy, '|')) && strchr(lazy,'=')) {
 			}
@@ -747,6 +756,22 @@ int main(int argc, char *argv[], char *envp[])
 		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
 		uwsgi_yaml_config(uwsgi.yaml, magic_table);
 	}
+#endif
+#ifdef UWSGI_JSON
+        if (uwsgi.json != NULL) {
+                magic_table['o'] = uwsgi.json;
+                if (uwsgi.json[0] == '/') {
+                        magic_table['p'] = uwsgi.json;
+                }
+                else {
+                        magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.json);
+                }
+                magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+                magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
+                if (uwsgi_get_last_char(uwsgi.json, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.json, '.')+1;
+                if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+                uwsgi_json_config(uwsgi.json, magic_table);
+        }
 #endif
 #ifdef UWSGI_LDAP
 	if (uwsgi.ldap != NULL) {
@@ -2580,6 +2605,11 @@ end:
 #ifdef UWSGI_YAML
 		case 'y':
 			uwsgi.yaml = optarg;
+			return 1;
+#endif
+#ifdef UWSGI_JSON
+		case 'j':
+			uwsgi.json = optarg;
 			return 1;
 #endif
 #ifdef UWSGI_INI

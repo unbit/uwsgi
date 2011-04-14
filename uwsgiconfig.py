@@ -25,7 +25,7 @@ if not GCC:
 
 
 def spcall(cmd):
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('/dev/null','w'))
 
     if p.wait() == 0:
         if sys.version_info[0] > 2:
@@ -391,6 +391,22 @@ class uConf(object):
         if self.get('yaml'):
             self.cflags.append("-DUWSGI_YAML")
             self.gcc_list.append('yaml')
+
+        if self.get('json'):
+            if self.get('json') == 'auto':
+                jsonconf = spcall("pkg-config --cflags jansson")
+                if jsonconf:
+                    self.cflags.append(jsonconf)
+                    self.gcc_list.append('json')
+                    self.libs.append(spcall("pkg-config --libs jansson"))
+                elif os.path.exists('/usr/include/jansson.h') or os.path.exists('/usr/local/include/jansson.h'):
+                    self.cflags.append("-DUWSGI_JSON")
+                    self.gcc_list.append('json')
+                    self.libs.append('-ljansson')
+            else:
+                self.cflags.append("-DUWSGI_JSON")
+                self.gcc_list.append('json')
+                self.libs.append('-ljansson')
 
         if self.get('ldap'):
             if self.get('ldap') == 'auto':
