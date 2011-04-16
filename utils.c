@@ -486,16 +486,23 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id) {
 
 }
 
-int wsgi_req_simple_recv(struct wsgi_request *wsgi_req) {
+int wsgi_req_async_recv(struct wsgi_request *wsgi_req, int socket_id) {
 
 	UWSGI_SET_IN_REQUEST;
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
+	if (event_queue_add_fd_read( uwsgi.async_queue, wsgi_req->poll.fd ) < 0) return -1;
 
-	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer)) {
-		return -1;
-	}
+	async_add_timeout(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+
+	uwsgi.async_proto_fd_table[wsgi_req->poll.fd] = wsgi_req;
+
+	wsgi_req->socket_proto = uwsgi.sockets[socket_id].proto;
+	wsgi_req->socket_proto_write = uwsgi.sockets[socket_id].proto_write;
+	wsgi_req->socket_proto_writev = uwsgi.sockets[socket_id].proto_writev;
+	wsgi_req->socket_proto_write_header = uwsgi.sockets[socket_id].proto_write_header;
+	wsgi_req->socket_proto_writev_header = uwsgi.sockets[socket_id].proto_writev_header;
 
 	// enter harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
@@ -512,7 +519,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
 
-	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer)) {
+	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer, wsgi_req->socket_proto)) {
 		return -1;
 	}
 
@@ -602,6 +609,12 @@ polling:
 				fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
 			}
 
+			// set socket protocol
+			wsgi_req->socket_proto = uwsgi.sockets[i].proto;
+			wsgi_req->socket_proto_write = uwsgi.sockets[i].proto_write;
+			wsgi_req->socket_proto_writev = uwsgi.sockets[i].proto_writev;
+			wsgi_req->socket_proto_write_header = uwsgi.sockets[i].proto_write_header;
+			wsgi_req->socket_proto_writev_header = uwsgi.sockets[i].proto_writev_header;
 			return 0;
 		}
 	}
@@ -1804,6 +1817,21 @@ int uwsgi_str4_num(char *str) {
 	num += 100 * (str[1] - 48);
 	num += 10 * (str[2] - 48);
 	num += str[3] - 48;
+
+	return num;
+}
+
+int uwsgi_str_num(char *str, int len) {
+	
+	int i;
+	int num = 0;
+
+	int delta = pow(10, len);
+
+	for(i=0;i<len;i++) {
+		delta = delta/10;
+		num += delta * (str[i] - 48);
+	}
 
 	return num;
 }

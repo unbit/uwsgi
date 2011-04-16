@@ -2,6 +2,10 @@
 
 extern struct uwsgi_server uwsgi;
 
+struct wsgi_request *find_wsgi_req_proto_by_fd(int fd) {
+	return uwsgi.async_proto_fd_table[fd];
+}
+
 struct wsgi_request *find_wsgi_req_by_fd(int fd) {
 	return uwsgi.async_waiting_fd_table[fd];
 }
@@ -195,6 +199,9 @@ void *async_loop(void *arg1) {
 	int interesting_fd, i;
 	struct uwsgi_rb_timer *min_timeout;
 	int timeout;
+	int j;
+	int is_a_new_connection;
+	int proto_parser_status;
 
 	static struct uwsgi_async_request *current_request = NULL, *next_async_request = NULL;
 
@@ -235,49 +242,86 @@ void *async_loop(void *arg1) {
                 	async_expire_timeouts();
 		}
 
+
 		for(i=0;i<uwsgi.async_nevents;i++) {
 			// manage events
 			interesting_fd = event_queue_interesting_fd(events, i);
 
-			// new request coming in
-			if (interesting_fd == uwsgi.sockets[0].fd) {
-				uwsgi.wsgi_req = find_first_available_wsgi_req();
-				if (uwsgi.wsgi_req == NULL) {
-					uwsgi_log("async queue is full !!!\n");
-					continue;
-				}
+			is_a_new_connection = 0;
 
-				wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id );
-				if (wsgi_req_simple_accept(uwsgi.wsgi_req, interesting_fd)) {
+			// new request coming in ?
+
+			for(j=0;j<uwsgi.sockets_cnt;j++) {	
+
+				if (interesting_fd == uwsgi.sockets[j].fd) {
+
+					is_a_new_connection = 1;	
+
+					uwsgi.wsgi_req = find_first_available_wsgi_req();
+					if (uwsgi.wsgi_req == NULL) {
+						uwsgi_log("async queue is full !!!\n");
+						break;;
+					}
+
+					wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id );
+					if (wsgi_req_simple_accept(uwsgi.wsgi_req, interesting_fd)) {
+#ifdef UWSGI_EVENT_USE_PORT
+                                		event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
+#endif
+						break;
+					}
 #ifdef UWSGI_EVENT_USE_PORT
                                 	event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
-#endif
-					continue;
-				}
-#ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
 #endif
 
 // on linux we do not need to reset the socket to blocking state
 #ifndef __linux__
-				if (uwsgi.numproc > 1) {
-	                                /* re-set blocking socket */
-	                                if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi.sockets[0].arg) < 0) {
-	                                        uwsgi_error("fcntl()");
-	                                	continue;
+					if (uwsgi.numproc > 1) {
+	                                	/* re-set blocking socket */
+	                                	if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi.sockets[j].arg) < 0) {
+	                                        	uwsgi_error("fcntl()");
+	                                		break;
+						}
 					}
-				}
 #endif
 
+					if (wsgi_req_async_recv(uwsgi.wsgi_req, j)) {
+						break;
+					}
 
-				if (wsgi_req_simple_recv(uwsgi.wsgi_req)) {
+					break;
+				}
+			}
+
+			if (!is_a_new_connection) {
+				// proto event
+				uwsgi.wsgi_req = find_wsgi_req_proto_by_fd(interesting_fd);
+				if (uwsgi.wsgi_req) {
+					proto_parser_status = uwsgi.wsgi_req->socket_proto(uwsgi.wsgi_req);
+					// reset timeout
+					rb_erase(&uwsgi.wsgi_req->async_timeout->rbt, uwsgi.rb_async_timeouts);
+					free(uwsgi.wsgi_req->async_timeout);
+					uwsgi.wsgi_req->async_timeout = NULL;
+					// parsing complete
+					if (!proto_parser_status) {
+						// remove fd from event poll and fd proto table	
+						event_queue_del_fd(uwsgi.async_queue, interesting_fd, event_queue_read());
+						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
+						// put request in the runqueue
+						runqueue_push(uwsgi.wsgi_req);
+						continue;
+					}
+					else if (proto_parser_status == -1) {
+						uwsgi_log("error parsing request\n");
+						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
+						close(interesting_fd);
+						continue;
+					}
+					// re-add timer
+					async_add_timeout(uwsgi.wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 					continue;
 				}
 
-				// put request in the runqueue
-				runqueue_push(uwsgi.wsgi_req);
-			}
-			else {
 				// app event
 				uwsgi.wsgi_req = find_wsgi_req_by_fd(interesting_fd);
 				// unknown fd, remove it (for safety)
@@ -324,7 +368,7 @@ void *async_loop(void *arg1) {
 
 			next_async_request = current_request->next;
 			// request ended ?
-			if (uwsgi.wsgi_req->async_status == UWSGI_OK) {
+			if (uwsgi.wsgi_req->async_status <= UWSGI_OK) {
 				// remove all the monitored fds and timeout
 				while(uwsgi.wsgi_req->waiting_fds) {
 #ifndef UWSGI_EVENT_USE_PORT

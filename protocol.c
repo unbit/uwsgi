@@ -339,141 +339,29 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 }
 
 
-int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header *uh, char *buffer) {
-	int rlen, i;
-	struct msghdr   msg;
-	struct iovec    iov [1];
-	struct cmsghdr *cmsg;
-	union {
-		struct cmsghdr cmsg;
-		char control [CMSG_SPACE (sizeof (int))];
-	} msg_control;
+int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header *uh, char *buffer, int (*socket_proto)(struct wsgi_request *)) {
+	int rlen;
+	int status = UWSGI_AGAIN;
 
 	if (!timeout)
 		timeout = 1;
-	/* first 4 byte header */
-	rlen = poll(upoll, 1, timeout * 1000);
 
-	if (rlen < 0) {
-		uwsgi_error("poll()");
-		exit(1);
-	}
-	else if (rlen == 0) {
-		uwsgi_log( "timeout. skip request\n");
-		close(upoll->fd);
-		return 0;
-	}
-
-	iov [0].iov_base = uh;
-	iov [0].iov_len  = 4;
-
-	msg.msg_name       = NULL;
-	msg.msg_namelen    = 0;
-	msg.msg_iov        = iov;
-	msg.msg_iovlen     = 1;
-	msg.msg_control    = &msg_control;
-	msg.msg_controllen = sizeof (msg_control);
-	msg.msg_flags      = 0;
-
-	//rlen = read(upoll->fd, uh, 4);
-	rlen = recvmsg(upoll->fd, &msg, 0);
-	if (rlen > 0 && rlen < 4) {
-		i = rlen;
-		while (i < 4) {
-			rlen = poll(upoll, 1, timeout * 1000);
-			if (rlen < 0) {
-				uwsgi_error("poll()");
-				exit(1);
-			}
-			else if (rlen == 0) {
-				uwsgi_log( "timeout waiting for header. skip request.\n");
-				close(upoll->fd);
-				break;
-			}
-			rlen = read(upoll->fd, (char *) (uh) + i, 4 - i);
-			if (rlen <= 0) {
-				uwsgi_log( "broken header. skip request.\n");
-				close(upoll->fd);
-				break;
-			}
-			i += rlen;
-		}
-		if (i < 4) {
-			return 0;
-		}
-	}
-	else if (rlen <= 0) {
-		uwsgi_log( "invalid request header size: %d...skip\n", rlen);
-		close(upoll->fd);
-		return 0;
-	}
-	/* big endian ? */
-#ifdef __BIG_ENDIAN__
-	uh->pktsize = uwsgi_swap16(uh->pktsize);
-#endif
-
-#ifdef UWSGI_DEBUG
-	uwsgi_debug("uwsgi payload size: %d (0x%X) modifier1: %d modifier2: %d\n", uh->pktsize, uh->pktsize, uh->modifier1, uh->modifier2);
-#endif
-
-	/* check for max buffer size */
-	if (uh->pktsize > uwsgi.buffer_size) {
-		uwsgi_log( "invalid request block size: %d...skip\n", uh->pktsize);
-		close(upoll->fd);
-		return 0;
-	}
-
-
-	//uwsgi_log("ready for reading %d bytes\n", wsgi_req.size);
-
-	i = 0;
-	while (i < uh->pktsize) {
+	while(status == UWSGI_AGAIN) {
 		rlen = poll(upoll, 1, timeout * 1000);
 		if (rlen < 0) {
 			uwsgi_error("poll()");
 			exit(1);
 		}
 		else if (rlen == 0) {
-			uwsgi_log( "timeout. skip request. (expecting %d bytes, got %d)\n", uh->pktsize, i);
+			uwsgi_log( "timeout waiting for header. skip request.\n");
 			close(upoll->fd);
-			break;
+			return 0;
 		}
-		rlen = read(upoll->fd, buffer + i, uh->pktsize - i);
-		if (rlen <= 0) {
-			uwsgi_log( "broken vars. skip request.\n");
+		status = socket_proto((struct wsgi_request *) uh);
+		if (status < 0) {
 			close(upoll->fd);
-			break;
+			return 0;
 		}
-		i += rlen;
-	}
-
-
-	if (i < uh->pktsize) {
-		return 0;
-	}
-
-	// older OSX versions make mess with CMSG_FIRSTHDR
-#ifdef __APPLE__
-	if (!msg.msg_controllen) return 1;
-#endif
-
-	cmsg = CMSG_FIRSTHDR (&msg);
-	while(cmsg != NULL) {
-		if (cmsg->cmsg_len == CMSG_LEN(sizeof(int)) &&
-			cmsg->cmsg_level == SOL_SOCKET &&
-			cmsg->cmsg_type && SCM_RIGHTS) {
-
-		// upgrade connection to the new socket
-#ifdef UWSGI_DEBUG
-			uwsgi_log("upgrading fd %d to ", upoll->fd);	
-#endif
-			close(upoll->fd);
-			memcpy(&upoll->fd, CMSG_DATA(cmsg), sizeof(int));
-#ifdef UWSGI_DEBUG
-			uwsgi_log("%d\n", upoll->fd);	
-#endif
-		}
-		cmsg = CMSG_NXTHDR (&msg, cmsg);
 	}
 
 	return 1;
@@ -705,18 +593,18 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						ptrbuf += strsize;
 					}
 					else {
-						uwsgi_log("Invalid uwsgi request. skip.\n");
+						uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
 						return -1;
 					}
 				}
 				else {
-					uwsgi_log("Invalid uwsgi request. skip.\n");
+					uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
 					return -1;
 				}
 			}
 		}
 		else {
-			uwsgi_log("Invalid uwsgi request. skip.\n");
+			uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
 			return -1;
 		}
 	}
@@ -846,7 +734,7 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 	}
 
 	uwsgi_poll.events = POLLIN;
-	if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer)) {
+	if (!uwsgi_parse_response(&uwsgi_poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer, uwsgi_proto_uwsgi_parser)) {
 		return -1;
 	}
 
@@ -1211,7 +1099,7 @@ char *uwsgi_simple_message_string(char *socket_name, uint8_t modifier1, uint8_t 
 	upoll.events = POLLIN;
 
 	if (buffer) {
-		if (!uwsgi_parse_response(&upoll, timeout, &uh, buffer)) {
+		if (!uwsgi_parse_response(&upoll, timeout, &uh, buffer, uwsgi_proto_uwsgi_parser)) {
 			close(fd);
 			if (response_len) *response_len = 0;
 			return NULL;

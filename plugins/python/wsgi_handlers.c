@@ -171,7 +171,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 		content = PyString_AsString(data);
 		len = PyString_Size(data);
 		UWSGI_RELEASE_GIL
-			wsgi_req->response_size = write(wsgi_req->poll.fd, content, len);
+			wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, content, len);
 		UWSGI_GET_GIL
 	}
 
@@ -354,6 +354,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		goto clear;
 
 	}
+
 	if (strncmp(wsgi_req->protocol, "HTTP/", 5)) {
 		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
 		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
@@ -410,37 +411,40 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 
-	if (uwsgi.post_buffering > 0) {
-		UWSGI_RELEASE_GIL
-		// read to disk if post_cl > post_buffering
-		if (!up.pep3333_input) {
-			if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
-				if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
-					goto clear;
+	// some protocol (http included) pass the body directly as a FILE object
+	if (!wsgi_req->async_post) {
+		if (uwsgi.post_buffering > 0) {
+			UWSGI_RELEASE_GIL
+			// read to disk if post_cl > post_buffering
+			if (!up.pep3333_input) {
+				if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
+					if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
+						goto clear;
+					}
+				}
+				else {
+					wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 				}
 			}
 			else {
-				wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+				// read to disk if post_cl > post_buffering
+				if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
+					if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
+						goto clear;
+					}
+				}
+				// on tiny post use memory
+				else {		
+					if (!uwsgi_read_whole_body_in_mem(wsgi_req, wsgi_req->post_buffering_buf)) {
+						goto clear;
+					}
+				}
 			}
+			UWSGI_GET_GIL
 		}
 		else {
-			// read to disk if post_cl > post_buffering
-			if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
-				if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
-					goto clear;
-				}
-			}
-			// on tiny post use memory
-			else {		
-				if (!uwsgi_read_whole_body_in_mem(wsgi_req, wsgi_req->post_buffering_buf)) {
-					goto clear;
-				}
-			}
+			wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 		}
-		UWSGI_GET_GIL
-	}
-	else {
-		wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
 	}
 
 	if (!up.pep3333_input) {
@@ -488,9 +492,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 		// LOCK THIS PART
 
-		wsgi_req->response_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-		wsgi_req->response_size += write(wsgi_req->poll.fd, " 500 Internal Server Error\r\n", 28 );
-		wsgi_req->response_size += write(wsgi_req->poll.fd, "Content-type: text/plain\r\n\r\n", 28 );
+		wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
+		wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, " 500 Internal Server Error\r\n", 28 );
+		wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, "Content-type: text/plain\r\n\r\n", 28 );
 		wsgi_req->header_cnt = 1;
 
 		/*

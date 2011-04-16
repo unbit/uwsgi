@@ -122,7 +122,7 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
 	vi = (i*2)+base;
         wsgi_req->hvec[vi].iov_base = "\r\n"; wsgi_req->hvec[vi].iov_len = 2;
 
-        if ( !(wsgi_req->headers_size = writev(wsgi_req->poll.fd, wsgi_req->hvec, vi+1)) ) {
+        if ( !(wsgi_req->headers_size = wsgi_req->socket_proto_writev_header(wsgi_req, wsgi_req->hvec, vi+1)) ) {
                 uwsgi_error("writev()");
         }
 
@@ -147,7 +147,7 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
                         if (hlen <= 0) {
                                 break;
                         }
-                        wsgi_req->response_size = write(wsgi_req->poll.fd, chitem, hlen);
+                        wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, chitem, hlen);
                 }
 
 
@@ -159,7 +159,7 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
                 for(i=0; i<=av_len(body); i++) {
                         hitem = av_fetch(body,i,0);
                         chitem = SvPV(*hitem, hlen);
-                        wsgi_req->response_size = write(wsgi_req->poll.fd, chitem, hlen);
+                        wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, chitem, hlen);
                 }
 
         }

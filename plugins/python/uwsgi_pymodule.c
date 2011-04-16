@@ -397,7 +397,7 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 		if (rlen > 0) {
 			upoll.fd = fd;
 			upoll.events = POLLIN;
-			if (uwsgi_parse_response(&upoll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &uh, buffer)) {
+			if (uwsgi_parse_response(&upoll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &uh, buffer, uwsgi_proto_uwsgi_parser)) {
 				size = uh.pktsize;
 			}
 		}
@@ -1353,7 +1353,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 		else {
 			for (i = 0; i < clen; i++) {
 				if (multipoll[i].revents & POLLIN) {
-					if (!uwsgi_parse_response(&multipoll[i], PyInt_AsLong(arg_timeout), &uh, &buffer[i])) {
+					if (!uwsgi_parse_response(&multipoll[i], PyInt_AsLong(arg_timeout), &uh, &buffer[i], uwsgi_proto_uwsgi_parser)) {
 						goto megamulticlear;
 					}
 					else {

@@ -2,7 +2,7 @@
 
 /* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
 
-#define UWSGI_VERSION	"0.9.7.2"
+#define UWSGI_VERSION	"0.9.8-dev"
 
 #define UMAX16	65536
 
@@ -67,6 +67,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <math.h>
 #include <netinet/in.h>
 
 #ifdef __sun__
@@ -402,6 +403,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_EMPEROR_AMQP_VHOST	17096
 #define LONG_ARGS_EMPEROR_AMQP_USERNAME	17097
 #define LONG_ARGS_EMPEROR_AMQP_PASSWORD	17098
+#define LONG_ARGS_PROTOCOL		17099
 
 
 #define UWSGI_OK	0
@@ -485,6 +487,8 @@ struct uwsgi_loop {
 	void            (*loop) (void);
 };
 
+struct wsgi_request;
+
 struct uwsgi_socket {
 	int             fd;
 	char           *name;
@@ -493,9 +497,14 @@ struct uwsgi_socket {
 	int             bound;
 	int		arg;
 	void           *ctx;
+
+	int		(*proto)(struct wsgi_request *);
+	ssize_t		(*proto_write)(struct wsgi_request *, char *, size_t);
+	ssize_t		(*proto_writev)(struct wsgi_request *, struct iovec *, size_t);
+	ssize_t		(*proto_write_header)(struct wsgi_request *, char *, size_t);
+	ssize_t		(*proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
 };
 
-struct wsgi_request;
 struct uwsgi_server;
 
 struct uwsgi_plugin {
@@ -630,6 +639,12 @@ struct wsgi_request {
 	              //iovec
 	struct iovec   *hvec;
 
+	struct msghdr   msg;
+	union {
+                struct cmsghdr cmsg;
+                char control [CMSG_SPACE (sizeof (int))];
+        } msg_control;
+
 	struct timeval  start_of_request;
 	struct timeval  end_of_request;
 
@@ -728,8 +743,19 @@ struct wsgi_request {
 	char           *post_buffering_buf;
 	uint64_t        post_buffering_read;
 
+	int             (*socket_proto)(struct wsgi_request *);
+	ssize_t             (*socket_proto_write)(struct wsgi_request *, char *, size_t);
+	ssize_t             (*socket_proto_writev)(struct wsgi_request *, struct iovec *, size_t);
+	ssize_t             (*socket_proto_write_header)(struct wsgi_request *, char *, size_t);
+	ssize_t             (*socket_proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
+
+	int body_as_file;
 	//for generic use
 	off_t buf_pos;
+
+	uint64_t proto_parser_pos;
+	int proto_parser_status;
+	void *proto_parser_buf;
 
 	char           *buffer;
 
@@ -849,6 +875,7 @@ struct uwsgi_server {
 	char          **async_post_buf;
 
 	struct wsgi_request **async_waiting_fd_table;
+	struct wsgi_request **async_proto_fd_table;
 	struct uwsgi_async_request *async_runqueue;
 	struct uwsgi_async_request *async_runqueue_last;
 	int	async_runqueue_cnt;
@@ -1010,6 +1037,8 @@ struct uwsgi_server {
 	char		*ns;
 	char		*ns_net;
 #endif
+	
+	char *protocol;
 
 	int             sockets_cnt;
 	struct uwsgi_socket sockets[MAX_SOCKETS];
@@ -1351,7 +1380,7 @@ uint64_t        uwsgi_swap64(uint64_t);
 ssize_t         send_udp_message(uint8_t, char *, char *, uint16_t);
 #endif
 
-int             uwsgi_parse_response(struct pollfd *, int, struct uwsgi_header *, char *);
+int             uwsgi_parse_response(struct pollfd *, int, struct uwsgi_header *, char *, int (*)(struct wsgi_request *));
 int             uwsgi_parse_vars(struct wsgi_request *);
 
 int             uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
@@ -1402,7 +1431,7 @@ void            uwsgi_close_request(struct wsgi_request *);
 
 void            wsgi_req_setup(struct wsgi_request *, int);
 int             wsgi_req_recv(struct wsgi_request *);
-int             wsgi_req_simple_recv(struct wsgi_request *);
+int             wsgi_req_async_recv(struct wsgi_request *, int);
 int             wsgi_req_accept(struct wsgi_request *);
 int             wsgi_req_simple_accept(struct wsgi_request *, int);
 
@@ -1760,3 +1789,21 @@ inline int uwsgi_starts_with(char *, int, char *, int);
 #ifdef __sun__
 time_t timegm(struct tm *);
 #endif
+
+
+int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
+int uwsgi_proto_http_parser(struct wsgi_request *);
+
+int uwsgi_str_num(char *, int);
+
+
+ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
+
+ssize_t uwsgi_proto_http_writev_header(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_http_writev(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_http_write(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_http_write_header(struct wsgi_request *, char *, size_t);
+

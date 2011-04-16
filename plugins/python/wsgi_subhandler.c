@@ -124,7 +124,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
-		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
+		if ((wsize = wsgi_req->socket_proto_write(wsgi_req, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
 			uwsgi_error("write()");
 			goto clear;
 		}
@@ -185,7 +185,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	if (PyString_Check(pychunk)) {
-		if ((wsize = write(wsgi_req->poll.fd, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
+		if ((wsize = wsgi_req->socket_proto_write(wsgi_req, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
 			uwsgi_error("write()");
 			Py_DECREF(pychunk);
 			goto clear;
@@ -216,7 +216,7 @@ clear:
 	}
 	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
 		fclose(wsgi_req->async_post);
-		if (!uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
+		if ( (!uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) && !wsgi_req->body_as_file) {
 			wsgi_req->fd_closed = 1;
 		}
 	}

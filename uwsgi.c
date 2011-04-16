@@ -37,6 +37,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS
 
 static struct option long_base_options[] = {
 	{"socket", required_argument, 0, 's'},
+	{"protocol", required_argument, 0, LONG_ARGS_PROTOCOL},
 	{"shared-socket", required_argument, 0, LONG_ARGS_SHARED_SOCKET},
 	{"processes", required_argument, 0, 'p'},
 	{"workers", required_argument, 0, 'p'},
@@ -1332,6 +1333,13 @@ int uwsgi_start(void *v_argv) {
                 	uwsgi_error("malloc()");
                 	exit(1);
         	}
+		memset(uwsgi.async_waiting_fd_table, 0, sizeof(struct wsgi_request *) * uwsgi.max_fd);
+		uwsgi.async_proto_fd_table = malloc( sizeof(struct wsgi_request *) * uwsgi.max_fd);
+        	if (!uwsgi.async_proto_fd_table) {
+                	uwsgi_error("malloc()");
+                	exit(1);
+        	}
+		memset(uwsgi.async_proto_fd_table, 0, sizeof(struct wsgi_request *) * uwsgi.max_fd);
 	}
 
 	if (uwsgi.post_buffering > 0) {
@@ -1745,7 +1753,7 @@ int uwsgi_start(void *v_argv) {
 		}
 
 	
-		// put listening socket in non-blocking state
+		// put listening socket in non-blocking state and set the protocol
 		for (i = 0; i < uwsgi.sockets_cnt; i++) {
 			uwsgi.sockets[i].arg = fcntl(uwsgi.sockets[i].fd, F_GETFL, NULL);
                 	if (uwsgi.sockets[i].arg < 0) {
@@ -1757,6 +1765,21 @@ int uwsgi_start(void *v_argv) {
                         	uwsgi_error("fcntl()");
                         	exit(1);
                 	}
+
+			if (!strcmp("http", uwsgi.protocol)) {
+				uwsgi.sockets[i].proto = uwsgi_proto_http_parser;
+				uwsgi.sockets[i].proto_write = uwsgi_proto_http_write;
+				uwsgi.sockets[i].proto_writev = uwsgi_proto_http_writev;
+				uwsgi.sockets[i].proto_write_header = uwsgi_proto_http_write_header;
+				uwsgi.sockets[i].proto_writev_header = uwsgi_proto_http_writev_header;
+			}
+			else {
+				uwsgi.sockets[i].proto = uwsgi_proto_uwsgi_parser;
+				uwsgi.sockets[i].proto_write = uwsgi_proto_uwsgi_write;
+				uwsgi.sockets[i].proto_writev = uwsgi_proto_uwsgi_writev;
+				uwsgi.sockets[i].proto_write_header = uwsgi_proto_uwsgi_write_header;
+				uwsgi.sockets[i].proto_writev_header = uwsgi_proto_uwsgi_writev_header;
+			}
 		}
 	
 	}
@@ -1801,7 +1824,7 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
-	if (!uwsgi.sockets_cnt && !uwsgi.gateways_cnt && !uwsgi.no_server) {
+	if (!uwsgi.sockets_cnt && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket) {
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
@@ -2374,6 +2397,9 @@ end:
 			uwsgi.threads = atoi(optarg);
 			return 1;
 #endif
+		case LONG_ARGS_PROTOCOL:
+			uwsgi.protocol = optarg;
+			return 1;
 #ifdef UWSGI_ASYNC
 		case LONG_ARGS_ASYNC:
 			uwsgi.async = atoi(optarg);

@@ -36,7 +36,7 @@ static void ping() {
 		exit(2);
 	}
 	uwsgi_poll.events = POLLIN;
-	if (!uwsgi_parse_response(&uwsgi_poll, uping.ping_timeout, &uh, NULL)) {
+	if (!uwsgi_parse_response(&uwsgi_poll, uping.ping_timeout, &uh, NULL, uwsgi_proto_uwsgi_parser)) {
 		exit(1);
 	}
 	else {

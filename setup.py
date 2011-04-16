@@ -51,7 +51,7 @@ class uWSGIDistribution(Distribution):
 
 
 setup(name='uWSGI',
-      version='0.9.7.2',
+      version='0.9.8-dev',
       description='The uWSGI server',
       author='Unbit',
       author_email='info@unbit.it',
