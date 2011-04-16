@@ -1,4 +1,4 @@
-/* async http protocol parser */
+/* async fastcgi protocol parser */
 
 #include "../uwsgi.h"
 
@@ -310,19 +310,19 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	return UWSGI_AGAIN;
 }
 
-ssize_t uwsgi_proto_http_writev_header(struct wsgi_request *wsgi_req, struct iovec *iovec, size_t iov_len) {
+ssize_t uwsgi_proto_fastcgi_writev_header(struct wsgi_request *wsgi_req, struct iovec *iovec, size_t iov_len) {
         return writev(wsgi_req->poll.fd, iovec, iov_len);
 }
 
-ssize_t uwsgi_proto_http_writev(struct wsgi_request *wsgi_req, struct iovec *iovec, size_t iov_len) {
+ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request *wsgi_req, struct iovec *iovec, size_t iov_len) {
         return writev(wsgi_req->poll.fd, iovec, iov_len);
 }       
 
-ssize_t uwsgi_proto_http_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
         return write(wsgi_req->poll.fd, buf, len);
 }
 
-ssize_t uwsgi_proto_http_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
         return write(wsgi_req->poll.fd, buf, len);
 }
 

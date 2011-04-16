@@ -1766,7 +1766,7 @@ int uwsgi_start(void *v_argv) {
                         	exit(1);
                 	}
 
-			if (!strcmp("http", uwsgi.protocol)) {
+			if (uwsgi.protocol && !strcmp("http", uwsgi.protocol)) {
 				uwsgi.sockets[i].proto = uwsgi_proto_http_parser;
 				uwsgi.sockets[i].proto_write = uwsgi_proto_http_write;
 				uwsgi.sockets[i].proto_writev = uwsgi_proto_http_writev;
