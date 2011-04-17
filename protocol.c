@@ -1006,8 +1006,8 @@ ssize_t fcgi_send_param(int fd, char *key, uint16_t keylen, char *val, uint16_t 
 	fr.type = 4;
 	fr.req1 = 0;
 	fr.req0 = 1;
-	fr.cl1 = (uint8_t) ((size >> 8) & 0xff);
-	fr.cl0 = (uint8_t) (size &0xff);
+	fr.cl8.cl1 = (uint8_t) ((size >> 8) & 0xff);
+	fr.cl8.cl0 = (uint8_t) (size &0xff);
 	fr.pad = 0;
 	fr.reserved = 0;
 
@@ -1027,8 +1027,8 @@ ssize_t fcgi_send_record(int fd, uint8_t type, uint16_t size, char *buffer) {
 	fr.type = type;
 	fr.req1 = 0;
 	fr.req0 = 1;
-	fr.cl1 = (uint8_t) ((size >> 8) & 0xff);
-	fr.cl0 = (uint8_t) (size &0xff);
+	fr.cl8.cl1 = (uint8_t) ((size >> 8) & 0xff);
+	fr.cl8.cl0 = (uint8_t) (size &0xff);
 	fr.pad = 0;
 	fr.reserved = 0;
 
@@ -1048,7 +1048,6 @@ uint16_t fcgi_get_record(int fd, char *buf) {
 	uint16_t remains = 8;
 	char *ptr = (char *) &fr;
 	ssize_t len;
-	uint16_t rs;
 
         while(remains) {
         	uwsgi_waitfd(fd, -1);
@@ -1058,9 +1057,7 @@ uint16_t fcgi_get_record(int fd, char *buf) {
                 ptr += len;
         }
 
-        rs = (uint16_t) fr.cl1;
-
-        remains = ntohs(rs) + fr.pad;
+        remains = ntohs(fr.cl) + fr.pad;
         ptr = buf;
 
         while(remains) {
@@ -1073,7 +1070,7 @@ uint16_t fcgi_get_record(int fd, char *buf) {
 
 	if (fr.type != 6) return 0;
 
-	return ntohs(rs);
+	return ntohs(fr.cl);
 
 }
 

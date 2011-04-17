@@ -415,7 +415,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// close the connection with the webserver
 	if (!wsgi_req->fd_closed) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
-		close(wsgi_req->poll.fd);
+		wsgi_req->socket_proto_close(wsgi_req);
 	}
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
@@ -503,6 +503,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req, int socket_id) {
 	wsgi_req->socket_proto_writev = uwsgi.sockets[socket_id].proto_writev;
 	wsgi_req->socket_proto_write_header = uwsgi.sockets[socket_id].proto_write_header;
 	wsgi_req->socket_proto_writev_header = uwsgi.sockets[socket_id].proto_writev_header;
+	wsgi_req->socket_proto_close = uwsgi.sockets[socket_id].proto_close;
 
 	// enter harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
@@ -615,6 +616,7 @@ polling:
 			wsgi_req->socket_proto_writev = uwsgi.sockets[i].proto_writev;
 			wsgi_req->socket_proto_write_header = uwsgi.sockets[i].proto_write_header;
 			wsgi_req->socket_proto_writev_header = uwsgi.sockets[i].proto_writev_header;
+			wsgi_req->socket_proto_close = uwsgi.sockets[i].proto_close;
 			return 0;
 		}
 	}

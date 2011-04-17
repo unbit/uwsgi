@@ -176,7 +176,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	uh.pktsize += wsgi_req->hvec[j].iov_len;
 
 	UWSGI_RELEASE_GIL
-		wsgi_req->headers_size = wsgi_req->socket_proto_writev(wsgi_req, wsgi_req->hvec, j + 1);
+		wsgi_req->headers_size = wsgi_req->socket_proto_writev_header(wsgi_req, wsgi_req->hvec, j + 1);
 	UWSGI_GET_GIL
 		if (wsgi_req->headers_size < 0) {
 			uwsgi_error("writev()");

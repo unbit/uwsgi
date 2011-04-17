@@ -503,6 +503,7 @@ struct uwsgi_socket {
 	ssize_t		(*proto_writev)(struct wsgi_request *, struct iovec *, size_t);
 	ssize_t		(*proto_write_header)(struct wsgi_request *, char *, size_t);
 	ssize_t		(*proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
+	void		(*proto_close)(struct wsgi_request *);
 };
 
 struct uwsgi_server;
@@ -748,6 +749,7 @@ struct wsgi_request {
 	ssize_t             (*socket_proto_writev)(struct wsgi_request *, struct iovec *, size_t);
 	ssize_t             (*socket_proto_write_header)(struct wsgi_request *, char *, size_t);
 	ssize_t             (*socket_proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
+	void			(*socket_proto_close)(struct wsgi_request *);
 
 	int body_as_file;
 	//for generic use
@@ -1611,19 +1613,26 @@ void gateway_respawn(int);
 char *uwsgi_open_and_read(char *, int *, int, char *[]);
 char *uwsgi_get_last_char(char *, char);
 
+struct uwsgi_twobytes {
+	uint8_t cl1;	
+	uint8_t cl0;	
+};
 
 struct fcgi_record {
 	uint8_t version;
 	uint8_t type;
 	uint8_t req1;
 	uint8_t req0;
-	uint8_t cl1;
-	uint8_t cl0;
+	union {
+		uint16_t cl;
+		struct uwsgi_twobytes cl8;
+	};
 	uint8_t pad;
 	uint8_t reserved;
-};
+} __attribute__((__packed__));
 
 #define FCGI_BEGIN_REQUEST "\0\1\0\0\0\0\0\0"
+#define FCGI_END_REQUEST "\0\3\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 ssize_t fcgi_send_record(int, uint8_t, uint16_t, char *);
 ssize_t fcgi_send_param(int, char *, uint16_t, char *, uint16_t);
 uint16_t fcgi_get_record(int, char *);
@@ -1791,19 +1800,28 @@ time_t timegm(struct tm *);
 #endif
 
 
-int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
-int uwsgi_proto_http_parser(struct wsgi_request *);
 
 int uwsgi_str_num(char *, int);
 
 
+int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
 ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
+void uwsgi_proto_uwsgi_close(struct wsgi_request *);
 
+int uwsgi_proto_http_parser(struct wsgi_request *);
 ssize_t uwsgi_proto_http_writev_header(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_http_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_http_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_http_write_header(struct wsgi_request *, char *, size_t);
+void uwsgi_proto_http_close(struct wsgi_request *);
+
+int uwsgi_proto_fastcgi_parser(struct wsgi_request *);
+ssize_t uwsgi_proto_fastcgi_writev_header(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
+void uwsgi_proto_fastcgi_close(struct wsgi_request *);
 
