@@ -218,6 +218,7 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	// first round ? this memory area will be freed by async_loop
 	if (!wsgi_req->proto_parser_buf) {
 		wsgi_req->proto_parser_buf = uwsgi_malloc(uwsgi.buffer_size);
+		wsgi_req->body_as_file = 1;
 	}
 
 	if (wsgi_req->post_cl) {
@@ -273,7 +274,6 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
       			ret = http_parse(wsgi_req, ptr);
 			//is there a Content_Length ?
 			if (wsgi_req->post_cl) {
-				wsgi_req->body_as_file = 1;
 				wsgi_req->async_post = tmpfile();
 				if (!wsgi_req->async_post) {
 					free(wsgi_req->proto_parser_buf);

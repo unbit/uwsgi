@@ -102,6 +102,10 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_JSON
 	{"json", required_argument, 0, 'j'},
 #endif
+#ifdef UWSGI_ZEROMQ
+	{"zeromq", required_argument, 0, LONG_ARGS_ZEROMQ},
+	{"zmq", required_argument, 0, LONG_ARGS_ZEROMQ},
+#endif
 #ifdef UWSGI_LDAP
 	{"ldap", required_argument, 0, LONG_ARGS_LDAP},
 	{"ldap-schema", no_argument, 0, LONG_ARGS_LDAP_SCHEMA},
@@ -1768,6 +1772,7 @@ int uwsgi_start(void *v_argv) {
 
 			if (uwsgi.protocol && !strcmp("http", uwsgi.protocol)) {
 				uwsgi.sockets[i].proto = uwsgi_proto_http_parser;
+				uwsgi.sockets[i].proto_accept = uwsgi_proto_base_accept;
 				uwsgi.sockets[i].proto_write = uwsgi_proto_http_write;
 				uwsgi.sockets[i].proto_writev = uwsgi_proto_http_writev;
 				uwsgi.sockets[i].proto_write_header = uwsgi_proto_http_write_header;
@@ -1778,6 +1783,7 @@ int uwsgi_start(void *v_argv) {
 			else if (uwsgi.protocol && (!strcmp("fastcgi", uwsgi.protocol) || !strcmp("fcgi", uwsgi.protocol))) {
 				uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
 				uwsgi.sockets[i].proto = uwsgi_proto_fastcgi_parser;
+				uwsgi.sockets[i].proto_accept = uwsgi_proto_base_accept;
 				uwsgi.sockets[i].proto_write = uwsgi_proto_fastcgi_write;
 				uwsgi.sockets[i].proto_writev = uwsgi_proto_fastcgi_writev;
 				uwsgi.sockets[i].proto_write_header = uwsgi_proto_fastcgi_write_header;
@@ -1787,6 +1793,7 @@ int uwsgi_start(void *v_argv) {
 			}
 			else {
 				uwsgi.sockets[i].proto = uwsgi_proto_uwsgi_parser;
+				uwsgi.sockets[i].proto_accept = uwsgi_proto_base_accept;
 				uwsgi.sockets[i].proto_write = uwsgi_proto_uwsgi_write;
 				uwsgi.sockets[i].proto_writev = uwsgi_proto_uwsgi_writev;
 				uwsgi.sockets[i].proto_write_header = uwsgi_proto_uwsgi_write_header;
@@ -1795,6 +1802,25 @@ int uwsgi_start(void *v_argv) {
 				uwsgi.sockets[i].proto_close = uwsgi_proto_uwsgi_close;
 			}
 		}
+
+#ifdef UWSGI_ZEROMQ
+		if (uwsgi.zeromq) {
+			if (uwsgi.sockets_cnt+1 > MAX_SOCKETS) {
+				uwsgi_log("too much sockets defined, cannot add a zeromq receiver\n");
+				exit(1);
+			}
+			uwsgi.zmq_responder = strchr(uwsgi.zeromq,',');
+			if (!uwsgi.zmq_responder) {
+				uwsgi_log("invalid zeromq address\n");
+				exit(1);
+			}
+			uwsgi.zmq_receiver = uwsgi_concat2n(uwsgi.zeromq, uwsgi.zmq_responder-uwsgi.zeromq, "", 0);
+			uwsgi.zmq_responder++;
+			uwsgi_log("zmq receiver: %s\n", uwsgi.zmq_receiver);
+			uwsgi_log("zmq responder: %s\n", uwsgi.zmq_responder);
+			uwsgi.zmq_socket = uwsgi.sockets_cnt++;	
+		}
+#endif
 	
 	}
 
@@ -2185,6 +2211,66 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		}
 	}
 
+#ifdef UWSGI_ZEROMQ
+	if (uwsgi.zmq_receiver && uwsgi.zmq_responder) {
+		uwsgi.zmq_context = zmq_init(1);
+		if (uwsgi.zmq_context == NULL) {
+			uwsgi_error("zmq_init()");
+			exit(1);
+		}
+		uwsgi.zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
+		if (uwsgi.zmq_pull == NULL) {
+			uwsgi_error("zmq_socket()");
+			exit(1);
+		}
+		if (zmq_connect(uwsgi.zmq_pull, uwsgi.zmq_receiver) < 0) {
+			uwsgi_error("zmq_connect()");
+			exit(1);
+		}
+
+		uwsgi.zmq_pub = zmq_socket(uwsgi.zmq_context, ZMQ_PUB);
+		if (uwsgi.zmq_pub == NULL) {
+			uwsgi_error("zmq_socket()");
+			exit(1);
+		}
+		if (zmq_setsockopt(uwsgi.zmq_pub, ZMQ_IDENTITY, "550e8400-e29b-41d4-a716-446655440000", strlen("550e8400-e29b-41d4-a716-446655440000")) < 0) {
+			uwsgi_error("zmq_setsockopt()");
+			exit(1);
+		}
+		
+		if (zmq_connect(uwsgi.zmq_pub, uwsgi.zmq_responder) < 0) {
+			uwsgi_error("zmq_connect()");
+			exit(1);
+		}
+		
+		uwsgi.sockets[uwsgi.zmq_socket].name = uwsgi.zmq_receiver;
+		uwsgi.sockets[uwsgi.zmq_socket].name_len = strlen(uwsgi.zmq_receiver);
+
+		uwsgi.sockets[uwsgi.zmq_socket].proto = uwsgi_proto_zeromq_parser;
+
+		uwsgi.sockets[uwsgi.zmq_socket].proto_accept = uwsgi_proto_zeromq_accept;
+		uwsgi.sockets[uwsgi.zmq_socket].proto_close = uwsgi_proto_zeromq_close;
+
+		uwsgi.sockets[uwsgi.zmq_socket].proto_write = uwsgi_proto_zeromq_write;
+		uwsgi.sockets[uwsgi.zmq_socket].proto_writev = uwsgi_proto_zeromq_writev;
+		uwsgi.sockets[uwsgi.zmq_socket].proto_write_header = uwsgi_proto_zeromq_write_header;
+		uwsgi.sockets[uwsgi.zmq_socket].proto_writev_header = uwsgi_proto_zeromq_writev_header;
+
+		uwsgi.sockets[uwsgi.zmq_socket].proto_sendfile = uwsgi_proto_zeromq_sendfile;
+
+		uwsgi.sockets[uwsgi.zmq_socket].edge_trigger = 1;
+		size_t zmq_socket_len = sizeof(int);
+		if (zmq_getsockopt(uwsgi.zmq_pull, ZMQ_FD, &uwsgi.sockets[uwsgi.zmq_socket].fd, &zmq_socket_len) < 0) {
+			uwsgi_error("zmq_getsockopt()");
+			exit(1);
+		}
+
+		uwsgi.sockets_poll[uwsgi.zmq_socket].fd = uwsgi.sockets[uwsgi.zmq_socket].fd;
+                uwsgi.sockets_poll[uwsgi.zmq_socket].events = POLLIN;
+		uwsgi.sockets[uwsgi.zmq_socket].bound = 1;
+	}
+#endif
+
 	//postpone the queue initialization as kevent
 	//do not pass kfd after fork()
 #ifdef UWSGI_ASYNC
@@ -2364,6 +2450,11 @@ end:
 		case LONG_ARGS_WORKER_EXEC:
 			uwsgi.worker_exec = optarg;
 			return 1;
+#ifdef UWSGI_ZEROMQ
+		case LONG_ARGS_ZEROMQ:
+			uwsgi.zeromq = optarg;
+			return 1;
+#endif
 		case LONG_ARGS_REMAP_MODIFIER:
 			uwsgi.remap_modifier = optarg;
 			return 1;

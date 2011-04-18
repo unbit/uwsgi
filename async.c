@@ -263,11 +263,13 @@ void *async_loop(void *arg1) {
 						break;;
 					}
 
-					wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id );
+					wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id, j );
 					if (wsgi_req_simple_accept(uwsgi.wsgi_req, interesting_fd)) {
 #ifdef UWSGI_EVENT_USE_PORT
                                 		event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
 #endif
+						uwsgi.async_queue_unused_ptr++;
+						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 						break;
 					}
 #ifdef UWSGI_EVENT_USE_PORT
@@ -280,13 +282,21 @@ void *async_loop(void *arg1) {
 	                                	/* re-set blocking socket */
 	                                	if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi.sockets[j].arg) < 0) {
 	                                        	uwsgi_error("fcntl()");
+							uwsgi.async_queue_unused_ptr++;
+							uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 	                                		break;
 						}
 					}
 #endif
 
-					if (wsgi_req_async_recv(uwsgi.wsgi_req, j)) {
+					if (wsgi_req_async_recv(uwsgi.wsgi_req)) {
+						uwsgi.async_queue_unused_ptr++;
+						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 						break;
+					}
+
+					if (uwsgi.wsgi_req->do_not_add_to_async_queue) {
+						runqueue_push(uwsgi.wsgi_req);
 					}
 
 					break;

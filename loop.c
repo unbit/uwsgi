@@ -69,7 +69,7 @@ void *simple_loop(void *arg1) {
 		UWSGI_CLEAR_STATUS;
 
 
-		wsgi_req_setup(wsgi_req, core_id);
+		wsgi_req_setup(wsgi_req, core_id, -1);
 
 		if (wsgi_req_accept(wsgi_req)) {
 			continue;

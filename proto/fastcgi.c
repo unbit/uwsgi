@@ -50,6 +50,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 	// allocate space for a fastcgi record
 	if (!wsgi_req->proto_parser_buf) {
 		wsgi_req->proto_parser_buf = uwsgi_malloc(8 + 65536);
+		wsgi_req->body_as_file = 1;
 	}
 
 	if (wsgi_req->proto_parser_status == PROTO_STATUS_RECV_HDR) {
@@ -142,7 +143,6 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 			}
 			// stdin
 			else if (fr->type == 5) {
-				wsgi_req->body_as_file = 1;
 				if (!wsgi_req->async_post) {
                                 	wsgi_req->async_post = tmpfile();
                                 	if (!wsgi_req->async_post) {

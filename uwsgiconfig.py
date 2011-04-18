@@ -159,6 +159,7 @@ class uConf(object):
         self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'emperor',
             'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
         # add protocols
+        self.gcc_list.append('proto/base')
         self.gcc_list.append('proto/uwsgi')
         self.gcc_list.append('proto/http')
         self.gcc_list.append('proto/fastcgi')
@@ -377,6 +378,8 @@ class uConf(object):
                     self.gcc_list.append('regexp')
                     self.cflags.append("-DUWSGI_PCRE")
 
+        has_json = False
+
         if self.get('async'):
             self.cflags.append("-DUWSGI_ASYNC")
             self.gcc_list.append('async')
@@ -404,14 +407,17 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_JSON")
                     self.gcc_list.append('json')
                     self.libs.append(spcall("pkg-config --libs jansson"))
+                    has_json = True
                 elif os.path.exists('/usr/include/jansson.h') or os.path.exists('/usr/local/include/jansson.h'):
                     self.cflags.append("-DUWSGI_JSON")
                     self.gcc_list.append('json')
                     self.libs.append('-ljansson')
+                    has_json = True
             else:
                 self.cflags.append("-DUWSGI_JSON")
                 self.gcc_list.append('json')
                 self.libs.append('-ljansson')
+                has_json = True
 
         if self.get('ldap'):
             if self.get('ldap') == 'auto':
@@ -423,6 +429,17 @@ class uConf(object):
                 self.cflags.append("-DUWSGI_LDAP")
                 self.gcc_list.append('ldap')
                 self.libs.append('-lldap')
+
+        if has_json and self.get('zeromq'):
+            if self.get('zeromq') == 'auto':
+                if os.path.exists('/usr/include/zmq.h') or os.path.exists('/usr/local/include/zmq.h'):
+                    self.cflags.append("-DUWSGI_ZEROMQ")
+                    self.gcc_list.append('proto/zeromq')
+                    self.libs.append('-lzmq')
+            else:
+                self.cflags.append("-DUWSGI_ZEROMQ")
+                self.gcc_list.append('proto/zeromq')
+                self.libs.append('-lzmq')
 
         if self.get('evdis'):
             self.cflags.append("-DUWSGI_EVDIS")

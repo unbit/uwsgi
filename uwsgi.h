@@ -199,6 +199,10 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #undef __EXTENSIONS__
 #endif
 
+#ifdef UWSGI_ZEROMQ
+#include <zmq.h>
+#endif
+
 /* this value are taken from nginx */
 #if defined(__APPLE__) || defined(__freebsd__)
 #define UWSGI_LISTEN_QUEUE -1
@@ -210,6 +214,7 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x0001
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
+
 
 struct uwsgi_help_item {
 
@@ -404,6 +409,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_EMPEROR_AMQP_USERNAME	17097
 #define LONG_ARGS_EMPEROR_AMQP_PASSWORD	17098
 #define LONG_ARGS_PROTOCOL		17099
+#define LONG_ARGS_ZEROMQ		17100
 
 
 #define UWSGI_OK	0
@@ -499,12 +505,14 @@ struct uwsgi_socket {
 	void           *ctx;
 
 	int		(*proto)(struct wsgi_request *);
+	int		(*proto_accept)(struct wsgi_request *, int);
 	ssize_t		(*proto_write)(struct wsgi_request *, char *, size_t);
 	ssize_t		(*proto_writev)(struct wsgi_request *, struct iovec *, size_t);
 	ssize_t		(*proto_write_header)(struct wsgi_request *, char *, size_t);
 	ssize_t		(*proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
 	ssize_t		(*proto_sendfile)(struct wsgi_request *);
 	void		(*proto_close)(struct wsgi_request *);
+	int		edge_trigger;
 };
 
 struct uwsgi_server;
@@ -713,6 +721,8 @@ struct wsgi_request {
 	uint16_t        var_cnt;
 	uint16_t        header_cnt;
 
+	int do_not_add_to_async_queue;
+
 	int             status;
 	size_t          response_size;
 	ssize_t          headers_size;
@@ -746,6 +756,7 @@ struct wsgi_request {
 	uint64_t        post_buffering_read;
 
 	int             (*socket_proto)(struct wsgi_request *);
+	int             (*socket_proto_accept)(struct wsgi_request *, int);
 	ssize_t             (*socket_proto_write)(struct wsgi_request *, char *, size_t);
 	ssize_t             (*socket_proto_writev)(struct wsgi_request *, struct iovec *, size_t);
 	ssize_t             (*socket_proto_write_header)(struct wsgi_request *, char *, size_t);
@@ -956,6 +967,8 @@ struct uwsgi_server {
 	int             async_queue;
 	int             async_nevents;
 
+	int		edge_triggered;
+
 	int             max_vars;
 	int             vec_size;
 
@@ -1045,6 +1058,16 @@ struct uwsgi_server {
 	char *protocol;
 
 	int             sockets_cnt;
+
+#ifdef UWSGI_ZEROMQ
+	char *zeromq;
+	char *zmq_receiver;
+	char *zmq_responder;
+	int zmq_socket;
+	void *zmq_context;
+	void *zmq_pull;
+	void *zmq_pub;
+#endif
 	struct uwsgi_socket sockets[MAX_SOCKETS];
 	// leave a slot for no-orphan mode
 	struct pollfd   sockets_poll[9];
@@ -1433,9 +1456,9 @@ void            nagios(void);
 
 void            uwsgi_close_request(struct wsgi_request *);
 
-void            wsgi_req_setup(struct wsgi_request *, int);
+void            wsgi_req_setup(struct wsgi_request *, int, int);
 int             wsgi_req_recv(struct wsgi_request *);
-int             wsgi_req_async_recv(struct wsgi_request *, int);
+int             wsgi_req_async_recv(struct wsgi_request *);
 int             wsgi_req_accept(struct wsgi_request *);
 int             wsgi_req_simple_accept(struct wsgi_request *, int);
 
@@ -1828,3 +1851,19 @@ ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *);
 void uwsgi_proto_fastcgi_close(struct wsgi_request *);
 
+
+int uwsgi_proto_base_accept(struct wsgi_request *, int);
+
+#ifdef UWSGI_ZEROMQ
+int uwsgi_proto_zeromq_accept(struct wsgi_request *, int);
+void uwsgi_proto_zeromq_close(struct wsgi_request *);
+ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_zeromq_writev(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_zeromq_write(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_zeromq_write_header(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_zeromq_sendfile(struct wsgi_request *);
+ssize_t uwsgi_proto_zeromq_parser(struct wsgi_request *);
+int uwsgi_proto_zeromq_parser(struct wsgi_request *);
+#endif
+
+int uwsgi_num2str2(int, char *);
