@@ -503,6 +503,7 @@ struct uwsgi_socket {
 	ssize_t		(*proto_writev)(struct wsgi_request *, struct iovec *, size_t);
 	ssize_t		(*proto_write_header)(struct wsgi_request *, char *, size_t);
 	ssize_t		(*proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
+	ssize_t		(*proto_sendfile)(struct wsgi_request *);
 	void		(*proto_close)(struct wsgi_request *);
 };
 
@@ -749,6 +750,7 @@ struct wsgi_request {
 	ssize_t             (*socket_proto_writev)(struct wsgi_request *, struct iovec *, size_t);
 	ssize_t             (*socket_proto_write_header)(struct wsgi_request *, char *, size_t);
 	ssize_t             (*socket_proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
+	ssize_t             (*socket_proto_sendfile)(struct wsgi_request *);
 	void			(*socket_proto_close)(struct wsgi_request *);
 
 	int body_as_file;
@@ -1823,5 +1825,6 @@ ssize_t uwsgi_proto_fastcgi_writev_header(struct wsgi_request *, struct iovec *,
 ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *);
 void uwsgi_proto_fastcgi_close(struct wsgi_request *);
 

@@ -503,6 +503,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req, int socket_id) {
 	wsgi_req->socket_proto_writev = uwsgi.sockets[socket_id].proto_writev;
 	wsgi_req->socket_proto_write_header = uwsgi.sockets[socket_id].proto_write_header;
 	wsgi_req->socket_proto_writev_header = uwsgi.sockets[socket_id].proto_writev_header;
+	wsgi_req->socket_proto_sendfile = uwsgi.sockets[socket_id].proto_sendfile;
 	wsgi_req->socket_proto_close = uwsgi.sockets[socket_id].proto_close;
 
 	// enter harakiri mode
@@ -616,6 +617,7 @@ polling:
 			wsgi_req->socket_proto_writev = uwsgi.sockets[i].proto_writev;
 			wsgi_req->socket_proto_write_header = uwsgi.sockets[i].proto_write_header;
 			wsgi_req->socket_proto_writev_header = uwsgi.sockets[i].proto_writev_header;
+			wsgi_req->socket_proto_sendfile = uwsgi.sockets[i].proto_sendfile;
 			wsgi_req->socket_proto_close = uwsgi.sockets[i].proto_close;
 			return 0;
 		}

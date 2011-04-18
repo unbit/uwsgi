@@ -109,7 +109,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 					if (octet > 127) {
 						if (j+4 >= rs) { free(wsgi_req->proto_parser_buf);return -1; }
 						memcpy(&keylen, wsgi_req->proto_parser_buf+8+j, 4);
-						keylen = ntohl(keylen) | 0x80000000;
+						keylen = ntohl(keylen) ^ 0x80000000;
 						j+=4;
 					}
 					else {
@@ -121,7 +121,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 					if (octet > 127) {
 						if (j+4 > rs) { free(wsgi_req->proto_parser_buf);return -1; }
                                                 memcpy(&vallen, wsgi_req->proto_parser_buf+8+j, 4);
-                                                vallen = ntohl(vallen) | 0x80000000;
+                                                vallen = ntohl(vallen) ^ 0x80000000;
                                                 j+=4;
                                         }
                                         else {
@@ -130,7 +130,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 						j++;
                                         }
 
-					if (j+(keylen+vallen)-1 > rs) {free(wsgi_req->proto_parser_buf);return -1;}
+					if (j+(keylen+vallen) > rs) { free(wsgi_req->proto_parser_buf);return -1;}
 					if (keylen <= 0xffff && vallen <= 0xffff) {
 #ifdef UWSGI_DEBUG
 						uwsgi_log("keylen %d %.*s vallen %d %.*s\n", keylen, keylen, wsgi_req->proto_parser_buf+8+j, vallen, vallen, wsgi_req->proto_parser_buf+8+j+keylen);
@@ -168,23 +168,10 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 ssize_t uwsgi_proto_fastcgi_writev_header(struct wsgi_request *wsgi_req, struct iovec *iovec, size_t iov_len) {
 	int i;
 	ssize_t len;
-	struct fcgi_record fr;
 	ssize_t ret = 0;
 
-	fr.version = 1;
-	fr.type = 6;
-        fr.req1 = 0;
-        fr.req0 = 1;
-        fr.pad = 0;
-        fr.reserved = 0;
-
 	for(i=0;i<(int)iov_len;i++) {
-		fr.cl = htons(iovec[i].iov_len);
-		len = write(wsgi_req->poll.fd, &fr, 8);	
-		if (len <= 0) {
-			return len;
-		}
-		len = write(wsgi_req->poll.fd, iovec[i].iov_base, iovec[i].iov_len);	
+		len = uwsgi_proto_fastcgi_write(wsgi_req, iovec[i].iov_base, iovec[i].iov_len);	
 		if (len <= 0) {
 			return len;
 		}
@@ -201,6 +188,9 @@ ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request *wsgi_req, struct iovec *
 ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	struct fcgi_record fr;
 	size_t rlen;
+	
+	// in fastcgi we need to not send 0 size frames
+	if (!len) return 0;
 
 	fr.version = 1;
         fr.type = 6;
@@ -243,3 +233,58 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
         close(wsgi_req->poll.fd);
 }
 
+ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req) {
+
+	ssize_t len;
+	struct fcgi_record fr;
+	char buf[65536];
+	size_t remains = wsgi_req->sendfile_fd_size-wsgi_req->sendfile_fd_pos;
+
+	wsgi_req->sendfile_fd_chunk = 65536;
+
+        fr.version = 1;
+        fr.type = 6;
+        fr.req1 = 0;
+        fr.req0 = 1;
+        fr.pad = 0;
+        fr.reserved = 0;
+
+	if (uwsgi.async > 1) {
+        	fr.cl = htons(UMIN(remains, wsgi_req->sendfile_fd_chunk));
+		len = write(wsgi_req->poll.fd, &fr, 8);
+		if (len != 8) {
+			uwsgi_error("write()");
+			return -1;
+		}
+		len = read(wsgi_req->sendfile_fd, buf, ntohs(fr.cl));
+		if (len != ntohs(fr.cl)) {
+			uwsgi_error("read()");
+			return -1;
+		}
+		wsgi_req->sendfile_fd_pos+=len;
+		return write(wsgi_req->poll.fd, buf, len);
+	}
+
+	while(remains) {
+		fr.cl = htons(UMIN(remains, wsgi_req->sendfile_fd_chunk));
+		len = write(wsgi_req->poll.fd, &fr, 8);
+                if (len != 8) {
+                        uwsgi_error("write()");
+                        return -1;
+                }
+                len = read(wsgi_req->sendfile_fd, buf, ntohs(fr.cl));
+                if (len != ntohs(fr.cl)) {
+                        uwsgi_error("read()");
+                        return -1;
+                }
+                wsgi_req->sendfile_fd_pos+=len;
+		if (write(wsgi_req->poll.fd, buf, len) != len) {
+			uwsgi_error("write()");
+			return -1;
+		}
+		remains = wsgi_req->sendfile_fd_size-wsgi_req->sendfile_fd_pos;
+	}
+
+	return wsgi_req->sendfile_fd_pos;
+
+}
