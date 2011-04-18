@@ -55,6 +55,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->proto_parser_status == PROTO_STATUS_RECV_HDR) {
 		len = read(wsgi_req->poll.fd, wsgi_req->proto_parser_buf+wsgi_req->proto_parser_pos, 8-wsgi_req->proto_parser_pos);
 		if (len <= 0) {
+			free(wsgi_req->proto_parser_buf);
                         uwsgi_error("read()");
                         return -1;
                 }
@@ -69,6 +70,10 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 			// empty STDIN ?
 			if (fr->type == 5 && rs == 0) {
 				wsgi_req->proto_parser_status = 0;
+				if (wsgi_req->async_post) {
+					rewind(wsgi_req->async_post);
+				}
+				free(wsgi_req->proto_parser_buf);
 				return UWSGI_OK;
 			}
 			wsgi_req->proto_parser_pos = 0;	
@@ -86,6 +91,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 
 		len = read(wsgi_req->poll.fd, wsgi_req->proto_parser_buf+8+wsgi_req->proto_parser_pos, (rs+fr->pad)-wsgi_req->proto_parser_pos);
 		if (len <= 0) {
+			free(wsgi_req->proto_parser_buf);
                         uwsgi_error("read()");
                         return -1;
                 }
@@ -101,30 +107,30 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 				for(j=0;j<rs;j++) {
 					octet = ((uint8_t *) wsgi_req->proto_parser_buf)[8+j];
 					if (octet > 127) {
-						if (j+4 >= rs) { return -1; }
+						if (j+4 >= rs) { free(wsgi_req->proto_parser_buf);return -1; }
 						memcpy(&keylen, wsgi_req->proto_parser_buf+8+j, 4);
 						keylen = ntohl(keylen) | 0x80000000;
 						j+=4;
 					}
 					else {
-						if (j+1 >= rs) { return -1; }
+						if (j+1 >= rs) { free(wsgi_req->proto_parser_buf);return -1; }
 						keylen = octet;
 						j++;
 					}
 					octet = ((uint8_t *)wsgi_req->proto_parser_buf)[8+j];
 					if (octet > 127) {
-						if (j+4 > rs) { return -1; }
+						if (j+4 > rs) { free(wsgi_req->proto_parser_buf);return -1; }
                                                 memcpy(&vallen, wsgi_req->proto_parser_buf+8+j, 4);
                                                 vallen = ntohl(vallen) | 0x80000000;
                                                 j+=4;
                                         }
                                         else {
-						if (j+1 > rs) { return -1; }
+						if (j+1 > rs) { free(wsgi_req->proto_parser_buf);return -1; }
                                                 vallen = octet;
 						j++;
                                         }
 
-					if (j+(keylen+vallen)-1 > rs) {return -1;}
+					if (j+(keylen+vallen)-1 > rs) {free(wsgi_req->proto_parser_buf);return -1;}
 					if (keylen <= 0xffff && vallen <= 0xffff) {
 #ifdef UWSGI_DEBUG
 						uwsgi_log("keylen %d %.*s vallen %d %.*s\n", keylen, keylen, wsgi_req->proto_parser_buf+8+j, vallen, vallen, wsgi_req->proto_parser_buf+8+j+keylen);
@@ -132,6 +138,23 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 						wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, wsgi_req->proto_parser_buf+8+j, keylen, wsgi_req->proto_parser_buf+8+j+keylen, vallen);
 					}
 					j+= (keylen+vallen)-1;
+				}
+			}
+			// stdin
+			else if (fr->type == 5) {
+				wsgi_req->body_as_file = 1;
+				if (!wsgi_req->async_post) {
+                                	wsgi_req->async_post = tmpfile();
+                                	if (!wsgi_req->async_post) {
+                                        	free(wsgi_req->proto_parser_buf);
+                                        	uwsgi_error("tmpfile()");
+                                        	return -1;
+                                	}
+				}	
+				if (!fwrite(wsgi_req->proto_parser_buf+8, rs, 1, wsgi_req->async_post)) {
+					free(wsgi_req->proto_parser_buf);
+                                        uwsgi_error("fwrite()");
+                                        return -1;
 				}
 			}
 			wsgi_req->proto_parser_status = PROTO_STATUS_RECV_HDR;

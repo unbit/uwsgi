@@ -1774,7 +1774,7 @@ int uwsgi_start(void *v_argv) {
 				uwsgi.sockets[i].proto_writev_header = uwsgi_proto_http_writev_header;
 				uwsgi.sockets[i].proto_close = uwsgi_proto_http_close;
 			}
-			if (uwsgi.protocol && (!strcmp("fastcgi", uwsgi.protocol) || !strcmp("fcgi", uwsgi.protocol))) {
+			else if (uwsgi.protocol && (!strcmp("fastcgi", uwsgi.protocol) || !strcmp("fcgi", uwsgi.protocol))) {
 				uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
 				uwsgi.sockets[i].proto = uwsgi_proto_fastcgi_parser;
 				uwsgi.sockets[i].proto_write = uwsgi_proto_fastcgi_write;
