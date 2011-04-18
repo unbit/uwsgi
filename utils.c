@@ -525,8 +525,10 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
 
-	if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer, wsgi_req->socket_proto)) {
-		return -1;
+	if (!uwsgi.edge_triggered) {
+		if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer, wsgi_req->socket_proto)) {
+			return -1;
+		}
 	}
 
 	// enter harakiri mode
@@ -564,7 +566,12 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 	if (uwsgi.edge_triggered) {
 		uwsgi_log("EDGE TRIGGERED\n");
 		for(i=0;i<uwsgi.sockets_cnt;i++) {
-			uwsgi.sockets_poll[i].revents = 0;
+			if (uwsgi.sockets[i].edge_trigger) {
+				uwsgi.sockets_poll[i].revents = POLLIN;
+			}
+			else {
+				uwsgi.sockets_poll[i].revents = 0;
+			}
 		}
 		goto edgetrigger;
 	}
@@ -594,9 +601,10 @@ polling:
 
 
 edgetrigger:
+	uwsgi_log("scanning...\n");
 	for(i=0;i<uwsgi.sockets_cnt;i++) {
 
-		if (uwsgi.sockets_poll[i].revents & POLLIN || (uwsgi.edge_triggered && uwsgi.sockets[i].edge_trigger)) {
+		if (uwsgi.sockets_poll[i].revents & POLLIN) {
 			int socket_id = i;
 			wsgi_req->socket_proto = uwsgi.sockets[socket_id].proto;
 			wsgi_req->socket_proto_accept = uwsgi.sockets[socket_id].proto_accept;
@@ -606,10 +614,13 @@ edgetrigger:
         		wsgi_req->socket_proto_writev_header = uwsgi.sockets[socket_id].proto_writev_header;
         		wsgi_req->socket_proto_sendfile = uwsgi.sockets[socket_id].proto_sendfile;
         		wsgi_req->socket_proto_close = uwsgi.sockets[socket_id].proto_close;
+
 			wsgi_req->poll.fd = wsgi_req->socket_proto_accept(wsgi_req, uwsgi.sockets_poll[i].fd);
 
 			if (wsgi_req->poll.fd < 0) {
 
+				return -1;
+				if (uwsgi.sockets[i].edge_trigger) { return -1 ;}
 				if (errno == EWOULDBLOCK) { uwsgi_log("GOTO polling\n"); goto polling;}
 				uwsgi_error("accept()");
 				return -1;

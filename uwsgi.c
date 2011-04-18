@@ -2233,7 +2233,13 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 			uwsgi_error("zmq_socket()");
 			exit(1);
 		}
-		if (zmq_setsockopt(uwsgi.zmq_pub, ZMQ_IDENTITY, "550e8400-e29b-41d4-a716-446655440000", strlen("550e8400-e29b-41d4-a716-446655440000")) < 0) {
+
+		uuid_t uuid_zmq;
+		char uuid_zmq_str[37];
+		uuid_generate(uuid_zmq);
+		uuid_unparse(uuid_zmq, uuid_zmq_str);
+
+		if (zmq_setsockopt(uwsgi.zmq_pub, ZMQ_IDENTITY, uuid_zmq_str, 36) < 0) {
 			uwsgi_error("zmq_setsockopt()");
 			exit(1);
 		}
@@ -2377,6 +2383,10 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		uwsgi_log("done\n");
 		goto end;
 	} else {
+		if (uwsgi.zeromq) {
+			long y = 0;
+                        zeromq_loop((void *) y);
+		}
 		if (uwsgi.threads > 1) {
 			pthread_attr_t pa;
 			pthread_t *a_thread;

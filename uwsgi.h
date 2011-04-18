@@ -70,6 +70,8 @@
 #include <math.h>
 #include <netinet/in.h>
 
+#include <uuid/uuid.h>
+
 #ifdef __sun__
 #define _XPG4_2
 #define __EXTENSIONS__
@@ -1526,6 +1528,7 @@ int             find_worker_id(pid_t);
 
 
 void           *simple_loop(void *);
+void *zeromq_loop(void *);
 
 int             count_options(struct option *);
 
