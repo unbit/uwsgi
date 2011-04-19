@@ -415,7 +415,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// close the connection with the webserver
 	if (!wsgi_req->fd_closed || wsgi_req->body_as_file) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
-		wsgi_req->socket_proto_close(wsgi_req);
+		wsgi_req->socket->proto_close(wsgi_req);
 	}
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
@@ -484,14 +484,7 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, int socket_id) 
 	}
 
 	if (socket_id > -1) {
-	wsgi_req->socket_proto = uwsgi.sockets[socket_id].proto;
-	wsgi_req->socket_proto_accept = uwsgi.sockets[socket_id].proto_accept;
-        wsgi_req->socket_proto_write = uwsgi.sockets[socket_id].proto_write;
-        wsgi_req->socket_proto_writev = uwsgi.sockets[socket_id].proto_writev;
-        wsgi_req->socket_proto_write_header = uwsgi.sockets[socket_id].proto_write_header;
-        wsgi_req->socket_proto_writev_header = uwsgi.sockets[socket_id].proto_writev_header;
-        wsgi_req->socket_proto_sendfile = uwsgi.sockets[socket_id].proto_sendfile;
-        wsgi_req->socket_proto_close = uwsgi.sockets[socket_id].proto_close;
+		wsgi_req->socket = &uwsgi.sockets[socket_id];
 	}
 
 }
@@ -524,9 +517,8 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
-
-	if (!uwsgi.edge_triggered) {
-		if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer, wsgi_req->socket_proto)) {
+	if (!wsgi_req->socket->edge_trigger) {
+		if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer, wsgi_req->socket->proto)) {
 			return -1;
 		}
 	}
@@ -544,13 +536,13 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
-	wsgi_req->poll.fd = wsgi_req->socket_proto_accept(wsgi_req, fd);
+	wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, fd);
 
 	if (wsgi_req->poll.fd < 0) {
 		return -1;
 	}
 
-	if (uwsgi.close_on_exec) {
+	if (wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
 		fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
 	}
 
@@ -563,8 +555,8 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 	int ret;
 	char uwsgi_signal;
 
+	/*
 	if (uwsgi.edge_triggered) {
-		uwsgi_log("EDGE TRIGGERED\n");
 		for(i=0;i<uwsgi.sockets_cnt;i++) {
 			if (uwsgi.sockets[i].edge_trigger) {
 				uwsgi.sockets_poll[i].revents = POLLIN;
@@ -575,9 +567,10 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 		}
 		goto edgetrigger;
 	}
+	*/
 
 polling:
-	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.master_process, -1);
+	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt+uwsgi.master_process, uwsgi.edge_triggered-1);
 
 	if (ret < 0) {
 		uwsgi_error("poll()");
@@ -600,49 +593,42 @@ polling:
 	}
 
 
-edgetrigger:
-	uwsgi_log("scanning...\n");
+//edgetrigger:
 	for(i=0;i<uwsgi.sockets_cnt;i++) {
 
-		if (uwsgi.sockets_poll[i].revents & POLLIN) {
+		if (uwsgi.sockets_poll[i].revents & POLLIN || (uwsgi.edge_triggered && uwsgi.sockets[i].edge_trigger)) {
 			int socket_id = i;
-			wsgi_req->socket_proto = uwsgi.sockets[socket_id].proto;
-			wsgi_req->socket_proto_accept = uwsgi.sockets[socket_id].proto_accept;
-        		wsgi_req->socket_proto_write = uwsgi.sockets[socket_id].proto_write;
-        		wsgi_req->socket_proto_writev = uwsgi.sockets[socket_id].proto_writev;
-        		wsgi_req->socket_proto_write_header = uwsgi.sockets[socket_id].proto_write_header;
-        		wsgi_req->socket_proto_writev_header = uwsgi.sockets[socket_id].proto_writev_header;
-        		wsgi_req->socket_proto_sendfile = uwsgi.sockets[socket_id].proto_sendfile;
-        		wsgi_req->socket_proto_close = uwsgi.sockets[socket_id].proto_close;
+			wsgi_req->socket = &uwsgi.sockets[socket_id];
 
-			wsgi_req->poll.fd = wsgi_req->socket_proto_accept(wsgi_req, uwsgi.sockets_poll[i].fd);
+			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.sockets_poll[i].fd);
 
 			if (wsgi_req->poll.fd < 0) {
 
 				return -1;
 				if (uwsgi.sockets[i].edge_trigger) { return -1 ;}
-				if (errno == EWOULDBLOCK) { uwsgi_log("GOTO polling\n"); goto polling;}
+				if (errno == EWOULDBLOCK) { goto polling;}
 				uwsgi_error("accept()");
 				return -1;
 			}
 
+			if (!uwsgi.sockets[socket_id].edge_trigger) {
 // in Linux, new sockets do not inherit attributes
 #ifndef __linux__
-                	/* re-set blocking socket */
-			int arg = uwsgi.sockets[i].arg ;
-                	arg &= (~O_NONBLOCK);
-                	if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
-                        	uwsgi_error("fcntl()");
-                        	return -1;
-                	}
+                		/* re-set blocking socket */
+				int arg = uwsgi.sockets[i].arg ;
+                		arg &= (~O_NONBLOCK);
+                		if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
+                        		uwsgi_error("fcntl()");
+                        		return -1;
+                		}
 
 #endif
 
-			if (uwsgi.close_on_exec) {
-				fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
-			}
+				if (uwsgi.close_on_exec) {
+					fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
+				}
 
-			// set socket protocol
+			}
 
 			return 0;
 		}

@@ -497,17 +497,17 @@ void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void 
 		if (!uwsgi_strncmp(key, keylen, "key", 3)) {
 			val = uwsgi_cache_get(val, vallen, &tmp_vallen);
                         if (val && tmp_vallen > 0) {
-                        	wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, val, tmp_vallen);
+                        	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, val, tmp_vallen);
                         }
 
 		}		
 		else if (!uwsgi_strncmp(key, keylen, "get", 3)) {
 			val = uwsgi_cache_get(val, vallen, &tmp_vallen);
 			if (val && vallen > 0) {
-                        	wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, val, tmp_vallen);
+                        	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, val, tmp_vallen);
 			}
 			else {
-				wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\n\r\n<h1>Not Found</h1>", 44);
+				wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\n\r\n<h1>Not Found</h1>", 44);
 			}
 		}
 	}
@@ -527,8 +527,8 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 				value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh.pktsize, &vallen);
 				if (value && vallen > 0) {
 					wsgi_req->uh.pktsize = vallen;
-					wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
-					wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, value, vallen);
+					wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
+					wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, value, vallen);
 				}
 			}
 			break;		
@@ -563,13 +563,13 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 				if (value && vallen > 0) {
 					wsgi_req->uh.pktsize = 0;
 					wsgi_req->uh.modifier2 = 1;
-					wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
-					wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, value, vallen);
+					wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
+					wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, value, vallen);
 				}
 				else {
 					wsgi_req->uh.pktsize = 0;
 					wsgi_req->uh.modifier2 = 0;
-					wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
+					wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
 				}
 			}
 			break;		

@@ -124,7 +124,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
-		if ((wsize = wsgi_req->socket_proto_write(wsgi_req, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
+		if ((wsize = wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
 			uwsgi_error("write()");
 			goto clear;
 		}
@@ -185,7 +185,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	if (PyString_Check(pychunk)) {
-		if ((wsize = wsgi_req->socket_proto_write(wsgi_req, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
+		if ((wsize = wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
 			uwsgi_error("write()");
 			Py_DECREF(pychunk);
 			goto clear;

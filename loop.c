@@ -82,7 +82,9 @@ void *simple_loop(void *arg1) {
 		uwsgi_close_request(wsgi_req);
 	}
 
+#ifdef UWSGI_THREADING
 	pthread_exit(NULL);
+#endif
 	
 	//never here
 	return NULL;
@@ -93,34 +95,22 @@ void *zeromq_loop(void *arg1) {
 	long core_id = (long) arg1;
 
         struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
+	uwsgi.zeromq_recv_flag = 0;
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
                 UWSGI_CLEAR_STATUS;
 
-
                 wsgi_req_setup(wsgi_req, core_id, -1);
 
 		uwsgi.edge_triggered = 1;
 		int socket_id = uwsgi.zmq_socket;
-		wsgi_req->socket_proto = uwsgi.sockets[socket_id].proto;
-                wsgi_req->socket_proto_accept = uwsgi.sockets[socket_id].proto_accept;
-                wsgi_req->socket_proto_write = uwsgi.sockets[socket_id].proto_write;
-                wsgi_req->socket_proto_writev = uwsgi.sockets[socket_id].proto_writev;
-                wsgi_req->socket_proto_write_header = uwsgi.sockets[socket_id].proto_write_header;
-                wsgi_req->socket_proto_writev_header = uwsgi.sockets[socket_id].proto_writev_header;
-                wsgi_req->socket_proto_sendfile = uwsgi.sockets[socket_id].proto_sendfile;
-                wsgi_req->socket_proto_close = uwsgi.sockets[socket_id].proto_close;
+		wsgi_req->socket = &uwsgi.sockets[socket_id];
+                wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.sockets[socket_id].fd);
 
-                wsgi_req->poll.fd = wsgi_req->socket_proto_accept(wsgi_req, uwsgi.sockets[socket_id].fd);
-
-                if (wsgi_req->poll.fd < 0) {
-			continue;
-                }
-
-                if (wsgi_req_recv(wsgi_req)) {
-                        continue;
+                if (wsgi_req->poll.fd >= 0) {
+                	wsgi_req_recv(wsgi_req);
                 }
 
                 uwsgi_close_request(wsgi_req);

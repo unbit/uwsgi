@@ -26,8 +26,8 @@ ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 
 		if (!wsgi_req->sendfile_fd_chunk) wsgi_req->sendfile_fd_chunk = 4096;
 
-		if (wsgi_req->socket_proto_sendfile) {
-			sst = wsgi_req->socket_proto_sendfile(wsgi_req);			
+		if (wsgi_req->socket->proto_sendfile) {
+			sst = wsgi_req->socket->proto_sendfile(wsgi_req);			
 		}
 		else {
 			sst = uwsgi_do_sendfile(sockfd, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_size, wsgi_req->sendfile_fd_chunk, &wsgi_req->sendfile_fd_pos, uwsgi.async);

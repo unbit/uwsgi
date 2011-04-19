@@ -29,10 +29,10 @@ int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->uh.pktsize = uwsgi_rpc(argv[0], argc-1, argv+1, wsgi_req->buffer);
 
 	if (wsgi_req->uh.modifier2 == 0) {
-		wsgi_req->headers_size = wsgi_req->socket_proto_write_header(wsgi_req, (char *)&wsgi_req->uh, 4);
+		wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, (char *)&wsgi_req->uh, 4);
 	}
 
-	wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, wsgi_req->buffer, wsgi_req->uh.pktsize);
+	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, wsgi_req->buffer, wsgi_req->uh.pktsize);
 	wsgi_req->status = 0;
 	
 	return 0;

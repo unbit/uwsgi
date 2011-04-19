@@ -171,7 +171,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 		content = PyString_AsString(data);
 		len = PyString_Size(data);
 		UWSGI_RELEASE_GIL
-			wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, content, len);
+			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, content, len);
 		UWSGI_GET_GIL
 	}
 
@@ -492,9 +492,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 		// LOCK THIS PART
 
-		wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
-		wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, " 500 Internal Server Error\r\n", 28 );
-		wsgi_req->response_size += wsgi_req->socket_proto_write(wsgi_req, "Content-type: text/plain\r\n\r\n", 28 );
+		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
+		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, " 500 Internal Server Error\r\n", 28 );
+		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, "Content-type: text/plain\r\n\r\n", 28 );
 		wsgi_req->header_cnt = 1;
 
 		/*

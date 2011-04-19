@@ -723,6 +723,8 @@ struct wsgi_request {
 	uint16_t        var_cnt;
 	uint16_t        header_cnt;
 
+	int		do_not_log;
+
 	int do_not_add_to_async_queue;
 
 	int             status;
@@ -757,14 +759,8 @@ struct wsgi_request {
 	char           *post_buffering_buf;
 	uint64_t        post_buffering_read;
 
-	int             (*socket_proto)(struct wsgi_request *);
-	int             (*socket_proto_accept)(struct wsgi_request *, int);
-	ssize_t             (*socket_proto_write)(struct wsgi_request *, char *, size_t);
-	ssize_t             (*socket_proto_writev)(struct wsgi_request *, struct iovec *, size_t);
-	ssize_t             (*socket_proto_write_header)(struct wsgi_request *, char *, size_t);
-	ssize_t             (*socket_proto_writev_header)(struct wsgi_request *, struct iovec *, size_t);
-	ssize_t             (*socket_proto_sendfile)(struct wsgi_request *);
-	void			(*socket_proto_close)(struct wsgi_request *);
+	// current socket mapped to request
+	struct uwsgi_socket	*socket;
 
 	int body_as_file;
 	//for generic use
@@ -1069,6 +1065,7 @@ struct uwsgi_server {
 	void *zmq_context;
 	void *zmq_pull;
 	void *zmq_pub;
+	int zeromq_recv_flag;
 #endif
 	struct uwsgi_socket sockets[MAX_SOCKETS];
 	// leave a slot for no-orphan mode

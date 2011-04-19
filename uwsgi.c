@@ -2239,6 +2239,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		uuid_generate(uuid_zmq);
 		uuid_unparse(uuid_zmq, uuid_zmq_str);
 
+		uwsgi_log("%.*s\n", 36, uuid_zmq_str);
 		if (zmq_setsockopt(uwsgi.zmq_pub, ZMQ_IDENTITY, uuid_zmq_str, 36) < 0) {
 			uwsgi_error("zmq_setsockopt()");
 			exit(1);
@@ -2274,6 +2275,8 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		uwsgi.sockets_poll[uwsgi.zmq_socket].fd = uwsgi.sockets[uwsgi.zmq_socket].fd;
                 uwsgi.sockets_poll[uwsgi.zmq_socket].events = POLLIN;
 		uwsgi.sockets[uwsgi.zmq_socket].bound = 1;
+
+		uwsgi.zeromq_recv_flag = ZMQ_NOBLOCK;
 	}
 #endif
 
@@ -2383,11 +2386,11 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		uwsgi_log("done\n");
 		goto end;
 	} else {
-		if (uwsgi.zeromq) {
+		if (uwsgi.zeromq && uwsgi.cores < 2 && uwsgi.sockets_cnt == 1) {
 			long y = 0;
                         zeromq_loop((void *) y);
 		}
-		if (uwsgi.threads > 1) {
+		else if (uwsgi.threads > 1) {
 			pthread_attr_t pa;
 			pthread_t *a_thread;
 			int ret;
@@ -2412,8 +2415,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 				pthread_create(a_thread, &pa, simple_loop, (void *) j);
 			}
 		}
-
-		if (uwsgi.async < 2) {
+		else if (uwsgi.async < 2) {
 			long y = 0;
 			simple_loop((void *) y);
 		} else {

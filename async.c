@@ -307,7 +307,7 @@ void *async_loop(void *arg1) {
 				// proto event
 				uwsgi.wsgi_req = find_wsgi_req_proto_by_fd(interesting_fd);
 				if (uwsgi.wsgi_req) {
-					proto_parser_status = uwsgi.wsgi_req->socket_proto(uwsgi.wsgi_req);
+					proto_parser_status = uwsgi.wsgi_req->socket->proto(uwsgi.wsgi_req);
 					// reset timeout
 					rb_erase(&uwsgi.wsgi_req->async_timeout->rbt, uwsgi.rb_async_timeouts);
 					free(uwsgi.wsgi_req->async_timeout);

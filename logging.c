@@ -47,6 +47,8 @@ void log_request(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_app *wi;
 
+	if (wsgi_req->do_not_log) return ;
+
 	if (wsgi_req->app_id >= 0) {
 		wi = &uwsgi.apps[wsgi_req->app_id];
 		if (wi->requests > 0) {
