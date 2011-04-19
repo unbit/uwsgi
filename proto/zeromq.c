@@ -118,7 +118,6 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 	}
 	
 	if (events & ZMQ_POLLIN || uwsgi.edge_triggered) {
-		wsgi_req->body_as_file = 1;
 		wsgi_req->do_not_add_to_async_queue = 1;
 		wsgi_req->proto_parser_status = 0;
 		zmq_msg_init(&message);
@@ -332,6 +331,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 					wsgi_req->async_post = tmpfile();
 					fwrite(ptr+i+1, wsgi_req->post_cl, 1, wsgi_req->async_post);
 					rewind(wsgi_req->async_post);
+					wsgi_req->body_as_file = 1;
 					//uwsgi_log("%.*s\n", wsgi_req->post_cl, ptr+i+1);
 				}
 			}

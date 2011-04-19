@@ -126,7 +126,3 @@ ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *wsgi_req, char *buf, size_t
 ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	return write(wsgi_req->poll.fd, buf, len);
 }
-
-void uwsgi_proto_uwsgi_close(struct wsgi_request *wsgi_req) {
-	close(wsgi_req->poll.fd);
-}

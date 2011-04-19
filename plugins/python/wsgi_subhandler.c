@@ -214,12 +214,6 @@ clear:
 	if (wsgi_req->async_environ) {
 		PyDict_Clear(wsgi_req->async_environ);
 	}
-	if (wsgi_req->async_post && !wsgi_req->fd_closed) {
-		fclose(wsgi_req->async_post);
-		if ( !uwsgi.post_buffering || wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
-			wsgi_req->fd_closed = 1;
-		}
-	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
 clear2:
 	Py_DECREF((PyObject *)wsgi_req->async_result);

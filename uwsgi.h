@@ -1836,14 +1836,12 @@ ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request *, struct iovec *, s
 ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
-void uwsgi_proto_uwsgi_close(struct wsgi_request *);
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
 ssize_t uwsgi_proto_http_writev_header(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_http_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_http_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_http_write_header(struct wsgi_request *, char *, size_t);
-void uwsgi_proto_http_close(struct wsgi_request *);
 
 int uwsgi_proto_fastcgi_parser(struct wsgi_request *);
 ssize_t uwsgi_proto_fastcgi_writev_header(struct wsgi_request *, struct iovec *, size_t);
@@ -1855,6 +1853,7 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *);
 
 
 int uwsgi_proto_base_accept(struct wsgi_request *, int);
+void uwsgi_proto_base_close(struct wsgi_request *);
 
 #ifdef UWSGI_ZEROMQ
 int uwsgi_proto_zeromq_accept(struct wsgi_request *, int);

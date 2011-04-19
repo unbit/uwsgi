@@ -1778,7 +1778,7 @@ int uwsgi_start(void *v_argv) {
 				uwsgi.sockets[i].proto_write_header = uwsgi_proto_http_write_header;
 				uwsgi.sockets[i].proto_writev_header = uwsgi_proto_http_writev_header;
 				uwsgi.sockets[i].proto_sendfile = NULL;
-				uwsgi.sockets[i].proto_close = uwsgi_proto_http_close;
+				uwsgi.sockets[i].proto_close = uwsgi_proto_base_close;
 			}
 			else if (uwsgi.protocol && (!strcmp("fastcgi", uwsgi.protocol) || !strcmp("fcgi", uwsgi.protocol))) {
 				uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
@@ -1799,7 +1799,7 @@ int uwsgi_start(void *v_argv) {
 				uwsgi.sockets[i].proto_write_header = uwsgi_proto_uwsgi_write_header;
 				uwsgi.sockets[i].proto_writev_header = uwsgi_proto_uwsgi_writev_header;
 				uwsgi.sockets[i].proto_sendfile = NULL;
-				uwsgi.sockets[i].proto_close = uwsgi_proto_uwsgi_close;
+				uwsgi.sockets[i].proto_close = uwsgi_proto_base_close;
 			}
 		}
 
