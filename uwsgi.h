@@ -70,7 +70,9 @@
 #include <math.h>
 #include <netinet/in.h>
 
+#ifdef UWSGI_UUID
 #include <uuid/uuid.h>
+#endif
 
 #ifdef __sun__
 #define _XPG4_2

@@ -379,6 +379,11 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_PCRE")
 
         has_json = False
+        has_uuid = False
+
+        if os.path.exists('/usr/include/uuid/uuid.h') or os.path.exists('/usr/local/include/uuid/uuid.h'):
+            has_uuid = True
+            self.cflags.append("-DUWSGI_UUID")
 
         if self.get('async'):
             self.cflags.append("-DUWSGI_ASYNC")
@@ -430,7 +435,7 @@ class uConf(object):
                 self.gcc_list.append('ldap')
                 self.libs.append('-lldap')
 
-        if has_json and self.get('zeromq'):
+        if has_json and has_uuid and self.get('zeromq'):
             if self.get('zeromq') == 'auto':
                 if os.path.exists('/usr/include/zmq.h') or os.path.exists('/usr/local/include/zmq.h'):
                     self.cflags.append("-DUWSGI_ZEROMQ")
