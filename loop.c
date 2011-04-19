@@ -90,6 +90,7 @@ void *simple_loop(void *arg1) {
 	return NULL;
 }
 
+#ifdef UWSGI_ZEROMQ
 void *zeromq_loop(void *arg1) {
 
 	long core_id = (long) arg1;
@@ -118,3 +119,4 @@ void *zeromq_loop(void *arg1) {
 
 	exit(0);
 }
+#endif

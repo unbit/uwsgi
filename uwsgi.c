@@ -2386,11 +2386,15 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 		uwsgi_log("done\n");
 		goto end;
 	} else {
+#ifdef UWSGI_ZEROMQ
 		if (uwsgi.zeromq && uwsgi.cores < 2 && uwsgi.sockets_cnt == 1) {
 			long y = 0;
                         zeromq_loop((void *) y);
 		}
 		else if (uwsgi.threads > 1) {
+#else
+		if (uwsgi.threads > 1) {
+#endif
 			pthread_attr_t pa;
 			pthread_t *a_thread;
 			int ret;
