@@ -363,6 +363,10 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 	}
 	zmq_msg_close(&reply);
 
+	if (wsgi_req->async_post && wsgi_req->body_as_file) {
+		fclose(wsgi_req->async_post);
+	}
+
 }
 
 
