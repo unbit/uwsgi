@@ -47,6 +47,7 @@ static struct option long_base_options[] = {
 	{"xmlconfig", required_argument, 0, 'x'},
 	{"xml", required_argument, 0, 'x'},
 #endif
+	{"inherit", required_argument, 0, LONG_ARGS_INHERIT},
 	{"daemonize", required_argument, 0, 'd'},
 	{"listen", required_argument, 0, 'l'},
 	{"max-vars", required_argument, 0, 'v'},
@@ -66,6 +67,7 @@ static struct option long_base_options[] = {
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
 	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
+	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
 	{"help", no_argument, 0, 'h'},
@@ -198,6 +200,21 @@ static struct option long_base_options[] = {
 	{"version", no_argument, 0, LONG_ARGS_VERSION},
 	{0, 0, 0, 0}
 };
+
+void config_magic_table_fill(char *filename, char **magic_table) {
+
+	magic_table['o'] = filename;
+                if (filename[0] == '/') {
+                        magic_table['p'] = filename;
+                }
+                else {
+                        magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",filename);
+                }
+                magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
+                magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
+                if (uwsgi_get_last_char(filename, '.')) magic_table['e'] = uwsgi_get_last_char(filename, '.')+1;
+                if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+}
 
 int find_worker_id(pid_t pid)
 {
@@ -714,67 +731,26 @@ int main(int argc, char *argv[], char *envp[])
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
-		magic_table['o'] = uwsgi.xml_config;
-		if (uwsgi.xml_config[0] == '/') {
-			magic_table['p'] = uwsgi.xml_config;
-		}
-		else {
-			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.xml_config);
-		}
-		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
-		magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
-		if (uwsgi_get_last_char(uwsgi.xml_config, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.xml_config, '.')+1;
-		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
-		uwsgi_xml_config(uwsgi.wsgi_req, 0, magic_table);
+		config_magic_table_fill(uwsgi.xml_config, magic_table);
+		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 0, magic_table);
 		uwsgi.xml_config = magic_table['p'];
 	}
 #endif
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
-		magic_table['o'] = uwsgi.ini;
-		if (uwsgi.ini[0] == '/') {
-			magic_table['p'] = uwsgi.ini;
-		}
-		else {
-			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.ini);
-		}
-
-		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
-		magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
-		if (uwsgi_get_last_char(uwsgi.ini, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.ini, '.')+1;
-		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+		config_magic_table_fill(uwsgi.ini, magic_table);
 		uwsgi_ini_config(uwsgi.ini, magic_table);
 	}
 #endif
 #ifdef UWSGI_YAML
 	if (uwsgi.yaml != NULL) {
-		magic_table['o'] = uwsgi.yaml;
-		if (uwsgi.yaml[0] == '/') {
-			magic_table['p'] = uwsgi.yaml;
-		}
-		else {
-			magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.yaml);
-		}
-		magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
-		magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
-		if (uwsgi_get_last_char(uwsgi.yaml, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.yaml, '.')+1;
-		if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+		config_magic_table_fill(uwsgi.yaml, magic_table);
 		uwsgi_yaml_config(uwsgi.yaml, magic_table);
 	}
 #endif
 #ifdef UWSGI_JSON
         if (uwsgi.json != NULL) {
-                magic_table['o'] = uwsgi.json;
-                if (uwsgi.json[0] == '/') {
-                        magic_table['p'] = uwsgi.json;
-                }
-                else {
-                        magic_table['p'] = uwsgi_concat3(uwsgi.cwd,"/",uwsgi.json);
-                }
-                magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/')+1;
-                magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s']-magic_table['p'], "", 0);
-                if (uwsgi_get_last_char(uwsgi.json, '.')) magic_table['e'] = uwsgi_get_last_char(uwsgi.json, '.')+1;
-                if (uwsgi_get_last_char(magic_table['s'], '.')) magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.')-magic_table['s'], "", 0) ;
+		config_magic_table_fill(uwsgi.json, magic_table);
                 uwsgi_json_config(uwsgi.json, magic_table);
         }
 #endif
@@ -787,6 +763,34 @@ int main(int argc, char *argv[], char *envp[])
 	//parse environ
 	parse_sys_envs(environ);
 
+	struct uwsgi_config_template *uct = uwsgi.config_templates;
+	while(uct) {
+		uwsgi_log("using %s as config template\n", uct->filename);
+#ifdef UWSGI_XML
+		if (!strcmp(uct->filename+strlen(uct->filename)-4, ".xml")) {
+			uwsgi_xml_config(uct->filename, uwsgi.wsgi_req, 0, magic_table);
+                }
+#endif
+#ifdef UWSGI_INI
+		if (!strcmp(uct->filename+strlen(uct->filename)-4, ".ini")) {
+			uwsgi_ini_config(uct->filename, magic_table);
+		}
+#endif
+#ifdef UWSGI_YAML
+		if (!strcmp(uct->filename+strlen(uct->filename)-4, ".yml")) {
+			uwsgi_yaml_config(uct->filename, magic_table);
+		}
+		if (!strcmp(uct->filename+strlen(uct->filename)-5, ".yaml")) {
+			uwsgi_yaml_config(uct->filename, magic_table);
+		}
+#endif
+#ifdef UWSGI_JSON
+		if (!strcmp(uct->filename+strlen(uct->filename)-3, ".js")) {
+			uwsgi_json_config(uct->filename, magic_table);
+		}
+#endif
+		uct = uct->next;
+	}
 
 	// second pass
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
@@ -2010,7 +2014,7 @@ uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;	//100
 	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
 	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.wsgi_req, 1, NULL);
+		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 1, NULL);
 	}
 #endif
 
@@ -2443,6 +2447,7 @@ end:
 
 		char *p;
 		struct uwsgi_static_map *usm, *old_usm;
+		struct uwsgi_config_template *uct, *old_uct;
 
 		switch (i) {
 
@@ -2646,6 +2651,48 @@ end:
 				uwsgi.file_serve_mode = 1;
 			}
 			return 1;
+		case LONG_ARGS_INHERIT:
+			uct = uwsgi.config_templates;	
+			if (!uct) {
+				uct = uwsgi_malloc(sizeof(struct uwsgi_config_template));
+				uwsgi.config_templates = uct;
+			}
+			else {
+				old_uct = uct;
+				while(uct->next) {
+                                        uct = uct->next;
+                                        old_uct = uct;
+                                }
+
+                                old_uct->next = uwsgi_malloc(sizeof(struct uwsgi_config_template));
+                                uct = old_uct->next;
+			}
+
+			uct->filename = optarg;
+			uct->next = NULL;
+	
+			return 1;
+		case LONG_ARGS_VASSALS_INHERIT:
+                        uct = uwsgi.vassals_templates;
+                        if (!uct) {
+                                uct = uwsgi_malloc(sizeof(struct uwsgi_config_template));
+                                uwsgi.vassals_templates = uct;
+                        }
+                        else {
+                                old_uct = uct;
+                                while(uct->next) {
+                                        uct = uct->next;
+                                        old_uct = uct;
+                                }
+
+                                old_uct->next = uwsgi_malloc(sizeof(struct uwsgi_config_template));
+                                uct = old_uct->next;
+                        }
+
+                        uct->filename = optarg;
+                        uct->next = NULL;
+
+                        return 1;
 		case LONG_ARGS_STATIC_MAP:
 			usm = uwsgi.static_maps;
 			if (!usm) {

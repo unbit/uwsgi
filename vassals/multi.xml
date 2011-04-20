@@ -7,8 +7,8 @@
 	<chdir>%v/../</chdir>
 	<localhost>127.0.0.1</localhost>
 
-	<socket>%(localhost):3031</socket>
-	<socket>/tmp/%(id).sock</socket>
+	<socket>%(localhost):3039</socket>
+	<socket>/tmp/%(id).sock2</socket>
 
 	<cpus>4</cpus>
 	<werkzeug>werkzeug.testapp:test_app</werkzeug>

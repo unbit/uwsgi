@@ -9,7 +9,7 @@ extern struct uwsgi_server uwsgi;
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
-void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag, char *magic_table[]) {
+void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, int app_tag, char *magic_table[]) {
 	xmlDoc *doc = NULL;
 	xmlNode *element = NULL;
 	xmlNode *node = NULL;
@@ -26,12 +26,12 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag, char *magic_ta
 	char *xml_content;
 	int xml_size = 0;
 
-	if (!uwsgi_startswith(uwsgi.xml_config, "http://", 7)) {
-		colon = uwsgi_get_last_char(uwsgi.xml_config, '/');
+	if (!uwsgi_startswith(filename, "http://", 7)) {
+		colon = uwsgi_get_last_char(filename, '/');
 		colon = uwsgi_get_last_char(colon, ':');
 	}
 	else {
-		colon = uwsgi_get_last_char(uwsgi.xml_config, ':');
+		colon = uwsgi_get_last_char(filename, ':');
 	}
 	if (colon) {
 		colon[0] = 0;
@@ -43,16 +43,16 @@ void uwsgi_xml_config(struct wsgi_request *wsgi_req, int app_tag, char *magic_ta
 		uwsgi_log( "[uWSGI] using xml uwsgi id: %s\n", colon);
 	}
 
-	xml_content = uwsgi_open_and_read(uwsgi.xml_config, &xml_size, 0, magic_table);
+	xml_content = uwsgi_open_and_read(filename, &xml_size, 0, magic_table);
 
-	doc = xmlReadMemory(xml_content, xml_size, uwsgi.xml_config, NULL, 0);
+	doc = xmlReadMemory(xml_content, xml_size, filename, NULL, 0);
 	if (doc == NULL) {
-		uwsgi_log( "[uWSGI] could not parse file %s.\n", uwsgi.xml_config);
+		uwsgi_log( "[uWSGI] could not parse file %s.\n", filename);
 		exit(1);
 	}
 
 	if (!app_tag) {
-		uwsgi_log( "[uWSGI] parsing config file %s\n", uwsgi.xml_config);
+		uwsgi_log( "[uWSGI] parsing config file %s\n", filename);
 	}
 
 	element = xmlDocGetRootElement(doc);

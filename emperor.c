@@ -122,9 +122,10 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	struct uwsgi_instance *c_ui = ui;
 	struct uwsgi_instance *n_ui = NULL;
 	pid_t pid;
-	char *argv[4];
+	char **argv;
 	char *uef;
 	char **uenvs;
+	int counter;
 
 	while (c_ui->ui_next) {
 		c_ui = c_ui->ui_next;
@@ -233,7 +234,14 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 			close(n_ui->pipe_config[0]);
 		}
 
+		counter = 4;
+		struct uwsgi_config_template *uct = uwsgi.vassals_templates;
+                while(uct) {
+			counter+=2;
+			uct = uct->next;
+		}
 
+		argv = uwsgi_malloc(sizeof(char *) * counter);
 		// set args
 		argv[0] = uwsgi.binary_path;
 		if (!strcmp(name + (strlen(name) - 4), ".xml"))
@@ -247,7 +255,15 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 		if (!strcmp(name + (strlen(name) - 3), ".js"))
 			argv[1] = "--json";
 		argv[2] = name;
-		argv[3] = NULL;
+		counter = 3;
+		uct = uwsgi.vassals_templates;
+        	while(uct) {
+			argv[counter] = "--inherit";
+			argv[counter+1] = uct->filename;
+			counter+=2;
+			uct = uct->next;
+		}
+		argv[counter] = NULL;
 		// start !!!
 		if (execvp(argv[0], argv)) {
 			uwsgi_error("execvp()");
@@ -341,6 +357,8 @@ reconnect:
 
 	ui = &ui_base;
 
+	int freq = 0 ;
+
 	for (;;) {
 
 
@@ -351,7 +369,8 @@ reconnect:
 			}
 		}
 
-		nevents = event_queue_wait_multi(emperor_queue, 3, events, 64);
+		nevents = event_queue_wait_multi(emperor_queue, freq, events, 64);
+		freq = 3;
 
 		for (i = 0; i<nevents;i++) {
 			interesting_fd = event_queue_interesting_fd(events, i);

@@ -226,6 +226,11 @@ struct uwsgi_help_item {
         char *value;
 };
 
+struct uwsgi_config_template {
+	char *filename;
+	struct uwsgi_config_template *next;
+};
+
 struct uwsgi_static_map {
 
 	char *mountpoint;
@@ -414,6 +419,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_EMPEROR_AMQP_PASSWORD	17098
 #define LONG_ARGS_PROTOCOL		17099
 #define LONG_ARGS_ZEROMQ		17100
+#define LONG_ARGS_INHERIT		17101
+#define LONG_ARGS_VASSALS_INHERIT	17102
 
 
 #define UWSGI_OK	0
@@ -827,6 +834,7 @@ struct uwsgi_server {
 	int emperor_fd_config;
 	char *emperor_dir;
 	pid_t emperor_pid;
+	struct uwsgi_config_template *vassals_templates;
 	int loyal;
 
 	char *emperor_amqp_vhost;
@@ -1018,6 +1026,8 @@ struct uwsgi_server {
 #ifdef UWSGI_INI
 	char           *ini;
 #endif
+
+	struct uwsgi_config_template *config_templates;
 
 	int             single_interpreter;
 
@@ -1379,7 +1389,7 @@ void            harakiri(void);
 void            stats(int);
 
 #ifdef UWSGI_XML
-void            uwsgi_xml_config(struct wsgi_request *, int, char *[]);
+void            uwsgi_xml_config(char *, struct wsgi_request *, int, char *[]);
 #endif
 
 void            internal_server_error(int, char *);
