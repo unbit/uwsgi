@@ -10,12 +10,16 @@ typedef struct uwsgi_Input {
 	struct wsgi_request *wsgi_req;
 } uwsgi_Input;
 
-PyObject *uwsgi_Input_iter(PyObject * self) {
+PyObject *uwsgi_Input_iter(PyObject *self) {
         Py_INCREF(self);
         return self;
 }
 
-PyObject *uwsgi_Input_next(PyObject * self) {
+PyObject *uwsgi_Input_next(PyObject* self) {
+
+	if (!((uwsgi_Input *)self)->wsgi_req->post_cl) {
+		return PyString_FromString("");
+	}
 
 	return PyErr_Format(PyExc_NotImplementedError, "wsgi.input __iter__() is not implemented");
 
@@ -97,12 +101,18 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 static PyObject *uwsgi_Input_readline(uwsgi_Input *self, PyObject *args) {
 
+	if (!self->wsgi_req->post_cl) {
+		return PyString_FromString("");
+	}
 	return PyErr_Format(PyExc_NotImplementedError, "wsgi.input readline() is not implemented");
 
 }
 
 static PyObject *uwsgi_Input_readlines(uwsgi_Input *self, PyObject *args) {
 
+	if (!self->wsgi_req->post_cl) {
+		return PyString_FromString("");
+	}
 	return PyErr_Format(PyExc_NotImplementedError, "wsgi.input readlines() is not implemented");
 }
 
@@ -443,25 +453,27 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			UWSGI_GET_GIL
 		}
 		else {
-			wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+			if (wsgi_req->post_cl > 0) {
+				wsgi_req->async_post = fdopen(wsgi_req->poll.fd, "r");
+			}
 		}
 	}
 
-	if (!up.pep3333_input) {
+	if (up.pep3333_input || !wsgi_req->post_cl) {
+		wsgi_socket = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
+		((uwsgi_Input*)wsgi_socket)->wsgi_req = wsgi_req; 
+		((uwsgi_Input*)wsgi_socket)->pos = 0;
+	}
+	else {
 #ifdef PYTHREE
 		wsgi_socket = PyFile_FromFd(fileno(wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
 #else
 		wsgi_socket = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
 #endif
-		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
-		Py_DECREF(wsgi_socket);
 	}
-	else {
-		wsgi_socket = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
-		((uwsgi_Input*)wsgi_socket)->wsgi_req = wsgi_req; 
-		((uwsgi_Input*)wsgi_socket)->pos = 0;
-		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
-	}
+
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_socket);
+	Py_DECREF(wsgi_socket);
 
 	
 

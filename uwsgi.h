@@ -1643,7 +1643,7 @@ char *uwsgi_get_last_char(char *, char);
 struct uwsgi_twobytes {
 	uint8_t cl1;	
 	uint8_t cl0;	
-};
+} __attribute__((__packed__));
 
 struct fcgi_record {
 	uint8_t version;
@@ -1659,7 +1659,7 @@ struct fcgi_record {
 } __attribute__((__packed__));
 
 #define FCGI_BEGIN_REQUEST "\0\1\0\0\0\0\0\0"
-#define FCGI_END_REQUEST "\0\3\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+#define FCGI_END_REQUEST "\1\x06\0\1\0\0\0\0\1\3\0\1\0\x08\0\0\0\0\0\0\0\0\0\0"
 ssize_t fcgi_send_record(int, uint8_t, uint16_t, char *);
 ssize_t fcgi_send_param(int, char *, uint16_t, char *, uint16_t);
 uint16_t fcgi_get_record(int, char *);

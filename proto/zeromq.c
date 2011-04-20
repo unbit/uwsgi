@@ -2,7 +2,9 @@
 
 extern struct uwsgi_server uwsgi;
 
+#ifdef UWSGI_JSON
 #include <jansson.h>
+#endif
 
 static uint16_t http_add_uwsgi_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
 
@@ -364,6 +366,7 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 	zmq_msg_close(&reply);
 
 	if (wsgi_req->async_post && wsgi_req->body_as_file) {
+		uwsgi_log("closing...\n");
 		fclose(wsgi_req->async_post);
 	}
 

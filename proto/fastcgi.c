@@ -212,25 +212,12 @@ ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request *wsgi_req, char *bu
 }
 
 void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
-	struct fcgi_record fr;
 
-        fr.version = 1;
-        fr.type = 6;
-        fr.req1 = 0;
-        fr.req0 = 1;
-        fr.pad = 0;
-        fr.reserved = 0;
-        fr.cl = 0;
-
-        if (write(wsgi_req->poll.fd, &fr, 8) <= 0) {
+        if (write(wsgi_req->poll.fd, FCGI_END_REQUEST, 24) <= 0) {
 		uwsgi_error("write()");
 	}
 
-        if (write(wsgi_req->poll.fd, FCGI_END_REQUEST, 16) <= 0) {
-		uwsgi_error("write()");
-	}
-
-        close(wsgi_req->poll.fd);
+        uwsgi_proto_base_close(wsgi_req);
 }
 
 ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req) {
