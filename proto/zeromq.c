@@ -26,7 +26,7 @@ static uint16_t http_add_uwsgi_var(struct wsgi_request *wsgi_req, char *key, uin
         *ptr++= (uint8_t) (vallen & 0xff);
         *ptr++= (uint8_t) ((vallen >> 8) & 0xff);
         memcpy(ptr, val, vallen);
-
+	
 #ifdef UWSGI_DEBUG
         uwsgi_log("add uwsgi var: %.*s = %.*s\n", keylen, key, vallen, val);
 #endif
@@ -84,6 +84,114 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, 
         return keylen+vallen+2+2;
 }
 
+// dumb/fake tnetstring implementation...all is a string
+static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *buf, int len) {
+
+	char *ptr = buf;
+	char *watermark = buf+len;
+	char *base;
+	char *key = NULL; uint16_t keylen = 0;
+	char *val = NULL; uint16_t vallen = 0;
+	uint16_t script_name_len = 0;
+	char *query_string = NULL; uint16_t query_string_len = 0;
+	int async_upload = 0;
+
+	while(ptr < watermark) {
+
+		base = ptr;
+
+		while (ptr < watermark) { if (*ptr == ':') break; ptr++; }
+		// end of stream
+		if (*ptr != ':') break;
+
+		keylen = uwsgi_str_num(base, (ptr-base)); 
+
+		// empty keys are not allowed
+		if (!keylen) break;
+
+		ptr++;
+		key = ptr;
+		ptr+=keylen+1;
+
+		base = ptr;
+
+		while (ptr < watermark) { if (*ptr == ':') break; ptr++; }
+		// end of stream
+		if (*ptr != ':') break;
+
+		vallen = uwsgi_str_num(base, (ptr-base)); 
+		ptr++;
+		val = ptr;
+		ptr+=vallen+1;
+
+		if (key[0] < 97) {
+			if (!uwsgi_strncmp("METHOD", 6, key, keylen)) {
+				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, val, vallen);
+			}
+			else if (!uwsgi_strncmp("VERSION", 7, key, keylen)) {
+				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SERVER_PROTOCOL", 15, val, vallen);
+			}
+			else if (!uwsgi_strncmp("QUERY", 5, key, keylen)) {
+				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, val, vallen);
+				query_string = val;
+				query_string_len = vallen;
+			}
+			else if (!uwsgi_strncmp("PATTERN", 7, key, keylen)) {
+				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, val, vallen);
+				script_name_len = vallen-1;
+			}
+			else if (!uwsgi_strncmp("PATH", 4, key, keylen)) {
+				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, val+script_name_len, vallen-script_name_len);
+				if (query_string_len) {
+					char *request_uri = uwsgi_concat3n(val, vallen, "?", 1, query_string, query_string_len);
+					wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11 , request_uri, vallen+1+query_string_len );
+					free(request_uri);
+				}
+				else {
+					wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, val, vallen);
+				}
+			}
+		}
+		else {
+			// add header
+			if (!uwsgi_strncmp("host", 4, key, keylen)) {
+				char *colon = strchr(val, ':');
+				if (colon) {
+					wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon+1, (colon+1)-val);
+				}
+				else {
+					wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
+				}
+			}
+			else if (!uwsgi_strncmp("content-length", 14, key, keylen)) {
+				wsgi_req->post_cl = uwsgi_str_num(val, vallen);
+			}
+			else if (!uwsgi_strncmp("x-mongrel2-upload-done", 22, key, keylen)) {
+				char *post_filename = uwsgi_concat2n(val, vallen, "", 0);
+				wsgi_req->async_post = fopen(post_filename, "r");
+				if (!wsgi_req->async_post) {
+					uwsgi_error_open(post_filename);
+					free(post_filename);
+					wsgi_req->do_not_log = 1;	
+				}
+				async_upload += 2;
+				free(post_filename);
+			}
+			else if (!uwsgi_strncmp("x-mongrel2-upload-start", 23, key, keylen)) {
+				async_upload += 1;
+			}
+			wsgi_req->uh.pktsize += http_add_uwsgi_header(wsgi_req, key, keylen, val, vallen);
+		}	
+	}
+	
+	wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
+
+	// reject uncomplete upload
+	if (async_upload == 1) {
+		return -1;
+	}
+	return 0;
+}
 
 int uwsgi_proto_zeromq_parser(struct wsgi_request *wsgi_req) {
 
@@ -98,11 +206,13 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 	char *req_id = NULL; int req_id_len = 0;
 	char *req_path = NULL; int req_path_len = 0;
 	char *req_body_size = NULL; int req_body_size_len = 0;
+#ifdef UWSGI_JSON
 	json_t *root;
         json_error_t error;
 	void *json_iter;
 	json_t *json_value;
 	char *json_key, *json_val;
+#endif
 	char *query_string = NULL; int query_string_len = 0;
 	int script_name_len = 0;
 	int i;
@@ -182,13 +292,24 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 
 		if (wsgi_req->proto_parser_status >= 4) {
 			// ok ready to parse json data and build uwsgi request
-			uwsgi_log("JSON: %s\n", wsgi_req->proto_parser_buf);
+			if (ptr[i+uwsgi_str_num(req_body_size, req_body_size_len)+1] == '}') {
+				if (uwsgi_mongrel2_tnetstring_parse(wsgi_req, wsgi_req->proto_parser_buf, uwsgi_str_num(req_body_size, req_body_size_len))) {
+					zmq_msg_close(&message);
+					free(wsgi_req->proto_parser_buf);
+					wsgi_req->do_not_log = 1;
+					return -1;
+				}
+			}
+			else {
+#ifdef UWSGI_JSON
+#ifdef UWSGI_DEBUG
+			uwsgi_log("JSON %c: %s\n", ptr[i+uwsgi_str_num(req_body_size, req_body_size_len)+1], wsgi_req->proto_parser_buf);
+#endif
 			root = json_loads(wsgi_req->proto_parser_buf, 0, &error);
 			if (!root) {
                 		uwsgi_log("error parsing JSON data: line %d %s\n", error.line, error.text);
 				zmq_msg_close(&message);
 				free(wsgi_req->proto_parser_buf);
-				wsgi_req->proto_parser_pos = 0;
 				wsgi_req->do_not_log = 1;
                 		return -1;
         		}
@@ -200,7 +321,6 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 					json_decref(root);
 					zmq_msg_close(&message);
 					free(wsgi_req->proto_parser_buf);
-					wsgi_req->proto_parser_pos = 0;
 					wsgi_req->do_not_log = 1;
                 			return -1;
 				}
@@ -215,7 +335,6 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 					json_decref(root);
 					zmq_msg_close(&message);
 					free(wsgi_req->proto_parser_buf);
-					wsgi_req->proto_parser_pos = 0;
 					wsgi_req->do_not_log = 1;
                 			return -1;
 				}
@@ -226,7 +345,6 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 					json_decref(root);
 					zmq_msg_close(&message);
 					free(wsgi_req->proto_parser_buf);
-					wsgi_req->proto_parser_pos = 0;
 					wsgi_req->do_not_log = 1;
                 			return -1;
 				}
@@ -303,7 +421,11 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 				json_iter = json_object_iter_next(root, json_iter);
 			}
 
-			json_decref(root);
+				json_decref(root);
+#else
+				uwsgi_log("JSON support not enabled. skip request\n");
+#endif
+			}
 
 			memcpy(wsgi_req->proto_parser_buf, req_uuid, req_uuid_len);
 			((char *)wsgi_req->proto_parser_buf)[req_uuid_len] = ' ';
@@ -366,7 +488,6 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 	zmq_msg_close(&reply);
 
 	if (wsgi_req->async_post && wsgi_req->body_as_file) {
-		uwsgi_log("closing...\n");
 		fclose(wsgi_req->async_post);
 	}
 
