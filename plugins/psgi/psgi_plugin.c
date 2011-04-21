@@ -14,6 +14,29 @@ struct option uwsgi_perl_options[] = {
 
 extern struct http_status_codes hsc[];
 
+XS(XS_streaming_close) {
+
+	dXSARGS;
+	psgi_check_args(0);
+	XSRETURN(0);
+}
+
+XS(XS_streaming_write) {
+
+	dXSARGS;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	STRLEN blen;
+	char *body;
+
+	psgi_check_args(2);
+
+	body = SvPV(ST(1), blen);
+
+	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, body, blen);	
+
+	XSRETURN(0);
+}
+
 XS(XS_stream)
 {
     dXSARGS;
@@ -21,16 +44,33 @@ XS(XS_stream)
     SV *stack;
     AV *response;
 
-    uwsgi_log("args: %d %p\n", items, wsgi_req);
+    psgi_check_args(1);
     stack = ST(0);
-    uwsgi_log("type %d\n", SvTYPE(stack));
-    response = (AV* ) SvRV(stack) ;
+
+	if (items == 2) {
+		response = (AV* ) SvRV(stack) ;
 
 #ifdef my_perl
-    psgi_response(wsgi_req, my_perl, response);
+		psgi_response(wsgi_req, my_perl, response);
 #else
-    psgi_response(wsgi_req, uperl.main, response);
+		psgi_response(wsgi_req, uperl.main, response);
 #endif
+	}
+ 	else if (items == 1) {
+		response = (AV* ) SvRV(stack) ;
+
+#ifdef my_perl
+		psgi_response(wsgi_req, my_perl, response);
+#else
+		psgi_response(wsgi_req, uperl.main, response);
+#endif
+		ST(0) = sv_bless(newRV(sv_newmortal()), uperl.streaming_stash);
+		XSRETURN(1);
+		
+	}
+	else {
+    		uwsgi_log("invalid PSGI response: array size %d\n", items+1);
+	}
 
     //mXPUSHp("x", 1);
     XSRETURN(0);
@@ -57,6 +97,11 @@ xs_init(pTHX)
 #ifdef UWSGI_EMBEDDED
 	init_perl_embedded_module();
 #endif
+
+	newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
+	newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
+
+	uperl.streaming_stash = gv_stashpv("uwsgi::streaming", 0);
 }
 
 /* end of automagically generated part */
@@ -328,7 +373,6 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	//uwsgi_log("response: %p %d\n", response, SvTYPE(response));
 
 	if (SvTYPE(response) == SVt_PVCV) {
-		uwsgi_log("streaming response\n");
 			
 		PUSHMARK(SP);
         	XPUSHs( newRV((SV*) uperl.stream_responder));

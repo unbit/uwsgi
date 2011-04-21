@@ -128,6 +128,10 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
 
         hitem = av_fetch(response, 2, 0);
 
+	if (!hitem) {
+		return 1;
+	}
+	
         if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV) {
 
                 for(;;) {

@@ -2,9 +2,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-#define psgi_xs(func) newXS("uwsgi::" #func, XS_##func, "uwsgi")
-#define psgi_check_args(x) if (items < x) Perl_croak(aTHX_ "Usage: uwsgi::%s takes %d arguments", __FUNCTION__ + 3, x)
-
 XS(XS_reload) {
     dXSARGS;
     items = 0;

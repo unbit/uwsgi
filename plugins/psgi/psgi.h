@@ -20,6 +20,7 @@ struct uwsgi_perl {
         SV *psgi_main;
         SV **psgi_func;
         CV *stream_responder;
+	HV *streaming_stash;
 
 };
 
@@ -28,3 +29,6 @@ struct uwsgi_perl {
 
 void init_perl_embedded_module(void);
 int psgi_response(struct wsgi_request *, PerlInterpreter *, AV*);
+
+#define psgi_xs(func) newXS("uwsgi::" #func, XS_##func, "uwsgi")
+#define psgi_check_args(x) if (items < x) Perl_croak(aTHX_ "Usage: uwsgi::%s takes %d arguments", __FUNCTION__ + 3, x)
