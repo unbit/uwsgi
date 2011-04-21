@@ -164,6 +164,8 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 		}
 	}
 
+	// TODO pre-start hook
+
 	// a new uWSGI instance will start 
 	pid = fork();
 	if (pid < 0) {
@@ -464,6 +466,8 @@ reconnect:
 						if (byte == 17) {
 							ui_current->loyal = 1;
 							uwsgi_log("*** vassal %s is now loyal ***\n", ui_current->name);
+							
+							// TODO post-start hook
 						}
 					}
 				}

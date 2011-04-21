@@ -200,6 +200,8 @@ ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request *wsgi_req, char *buf, size
         fr.reserved = 0;
 	fr.cl = htons(len);
 
+	// TODO split response in 64k chunks...
+
 	rlen = write(wsgi_req->poll.fd, &fr, 8);
         if (rlen <= 0) {
         	return rlen;
