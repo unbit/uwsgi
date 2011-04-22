@@ -34,6 +34,7 @@ static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:Ly:";
 UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"socket", required_argument, 0, 's'},
 	{"protocol", required_argument, 0, LONG_ARGS_PROTOCOL},
+	{"socket-protocol", required_argument, 0, LONG_ARGS_SOCKET_PROTOCOL},
 	{"shared-socket", required_argument, 0, LONG_ARGS_SHARED_SOCKET},
 	{"processes", required_argument, 0, 'p'},
 	{"workers", required_argument, 0, 'p'},
@@ -2505,6 +2506,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.ini = optarg;
 		return 1;
 #endif
+	case LONG_ARGS_SOCKET_PROTOCOL:
+		// TODO map each socket to a specific protocol
+		return 1;
 	case LONG_ARGS_MAP_SOCKET:
 		p = strchr(optarg, ':');
 		if (!p) {

@@ -421,6 +421,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_ZEROMQ		17100
 #define LONG_ARGS_INHERIT		17101
 #define LONG_ARGS_VASSALS_INHERIT	17102
+#define LONG_ARGS_SOCKET_PROTOCOL	17103
 
 
 #define UWSGI_OK	0
@@ -514,6 +515,8 @@ struct uwsgi_socket {
 	int             bound;
 	int		arg;
 	void           *ctx;
+
+	char		*proto_name;
 
 	int		(*proto)(struct wsgi_request *);
 	int		(*proto_accept)(struct wsgi_request *, int);

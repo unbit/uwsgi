@@ -4,6 +4,8 @@
 
    exit(1) on every malloc error: apps can be dinamically loaded so on memory problem
    it is better to let the master process manager respawn the worker.
+
+   TODO dynamic loading on prefork+thread looks flaky... NEED TO FIX IT
    */
 
 extern struct uwsgi_server uwsgi;
