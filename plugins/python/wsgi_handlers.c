@@ -307,17 +307,18 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 					if (uwsgi.threads > 1) {
 						pthread_mutex_lock(&up.lock_pyloaders);
 					}
+
 					UWSGI_GET_GIL
-						if (uwsgi.single_interpreter) {
-							wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, up.main_thread);
-						}
-						else {
-							wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, NULL);
-						}
+					if (uwsgi.single_interpreter) {
+						wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, up.main_thread);
+					}
+					else {
+						wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, NULL);
+					}
 					UWSGI_RELEASE_GIL
-						if (uwsgi.threads > 1) {
-							pthread_mutex_unlock(&up.lock_pyloaders);
-						}
+					if (uwsgi.threads > 1) {
+						pthread_mutex_unlock(&up.lock_pyloaders);
+					}
 				}
 			}
 		}
@@ -405,6 +406,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	if (wsgi_req->uh.modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
+		wsgi_req->uh.modifier1 = 0;
 		pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
 		if (pydictkey) {
 			if (PyString_Check(pydictkey)) {
@@ -549,7 +551,6 @@ clear2:
 }
 
 void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
-
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING] || wsgi_req->log_this) {
 		log_request(wsgi_req);
