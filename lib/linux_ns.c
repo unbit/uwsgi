@@ -1,0 +1,149 @@
+#include "../uwsgi.h"
+
+
+extern struct uwsgi_server uwsgi;
+
+#ifndef CLONE_NEWUTS
+#define CLONE_NEWUTS 0x04000000
+#endif
+
+#ifndef CLONE_NEWPID
+#define CLONE_NEWPID 0x20000000
+#endif
+
+#ifndef CLONE_NEWIPC
+#define CLONE_NEWIPC 0x08000000
+#endif
+
+#ifndef CLONE_NEWNET
+#define CLONE_NEWNET 0x40000000
+#endif
+
+void linux_namespace_start(void *argv) {
+	for (;;) {
+		char stack[PTHREAD_STACK_MIN];
+		int waitpid_status;
+		uwsgi_log("*** jailing uWSGI in %s ***\n", uwsgi.ns);
+		int clone_flags = SIGCHLD | CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNS;
+		if (uwsgi.ns_net) {
+			clone_flags |= CLONE_NEWNET;
+		}
+		pid_t pid = clone(uwsgi_start, stack + PTHREAD_STACK_MIN, clone_flags, (void *) argv);
+		if (pid == -1) {
+			uwsgi_error("clone()");
+			exit(1);
+		}
+		uwsgi_log("waiting for jailed master (pid: %d) death...\n", (int) pid);
+		pid = waitpid(pid, &waitpid_status, 0);
+		if (pid < 0) {
+			uwsgi_error("waitpid()");
+			exit(1);
+		}
+
+		// in Linux this is reliable
+		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == 1) {
+			exit(1);
+		}
+
+		uwsgi_log("pid %d ended. Respawning...\n", (int) pid);
+	}
+
+	// never here
+}
+
+
+
+void linux_namespace_jail() {
+
+	char *ns_tmp_mountpoint = NULL, *ns_tmp_mountpoint2 = NULL;
+
+	if (getpid() != 1) {
+		uwsgi_log("your kernel does not support linux pid namespace\n");
+		exit(1);
+	}
+
+	char *ns_hostname = strchr(uwsgi.ns, ':');
+	if (ns_hostname) {
+		ns_hostname[0] = 0;
+		ns_hostname++;
+		if (sethostname(ns_hostname, strlen(ns_hostname))) {
+			uwsgi_error("sethostname()");
+		}
+	}
+
+	FILE *procmounts;
+	char line[1024];
+	int unmounted = 1;
+	char *delim0, *delim1;
+
+	if (chdir(uwsgi.ns)) {
+		uwsgi_error("chdir()");
+		exit(1);
+	}
+
+	if (strcmp(uwsgi.ns, "/")) {
+		ns_tmp_mountpoint = uwsgi_concat2(uwsgi.ns, "/.uwsgi_ns_tmp_mountpoint");
+		mkdir(ns_tmp_mountpoint, S_IRWXU);
+
+		ns_tmp_mountpoint2 = uwsgi_concat2(ns_tmp_mountpoint, "/.uwsgi_ns_tmp_mountpoint");
+		mkdir(ns_tmp_mountpoint2, S_IRWXU);
+
+		if (mount(uwsgi.ns, ns_tmp_mountpoint, "none", MS_BIND, NULL)) {
+			uwsgi_error("mount()");
+		}
+		if (chdir(ns_tmp_mountpoint)) {
+			uwsgi_error("chdir()");
+		}
+
+		if (pivot_root(".", ns_tmp_mountpoint2)) {
+			uwsgi_error("pivot_root()");
+			exit(1);
+		}
+
+
+
+		if (chdir("/")) {
+			uwsgi_error("chdir()");
+			exit(1);
+		}
+
+	}
+
+	uwsgi_log("remounting /proc\n");
+	if (mount("proc", "/proc", "proc", 0, NULL)) {
+		uwsgi_error("mount()");
+	}
+
+	while (unmounted) {
+
+		unmounted = 0;
+		procmounts = fopen("/proc/self/mounts", "r");
+		while (fgets(line, 1024, procmounts) != NULL) {
+			delim0 = strchr(line, ' ');
+			delim0++;
+			delim1 = strchr(delim0, ' ');
+			*delim1 = 0;
+			if (!strcmp(delim0, "/") || !strcmp(delim0, "/proc"))
+				continue;
+			if (!umount(delim0)) {
+				unmounted++;
+			}
+		}
+		fclose(procmounts);
+	}
+
+	if (rmdir("/.uwsgi_ns_tmp_mountpoint/.uwsgi_ns_tmp_mountpoint")) {
+		uwsgi_error("rmdir()");
+	}
+	if (rmdir("/.uwsgi_ns_tmp_mountpoint")) {
+		uwsgi_error("rmdir()");
+	}
+
+	if (strcmp(uwsgi.ns, "/")) {
+		free(ns_tmp_mountpoint2);
+		free(ns_tmp_mountpoint);
+	}
+
+
+
+}

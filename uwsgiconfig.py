@@ -164,6 +164,7 @@ class uConf(object):
         self.gcc_list.append('proto/http')
         self.gcc_list.append('proto/fastcgi')
         if uwsgi_os == 'Linux':
+            self.gcc_list.append('lib/linux_ns')
             self.gcc_list.append('lib/netlink')
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:

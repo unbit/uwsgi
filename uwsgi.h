@@ -1603,6 +1603,7 @@ void uwsgi_rwunlock(void *);
 inline void *uwsgi_malloc(size_t);
 
 
+
 int event_queue_init(void);
 void *event_queue_alloc(int);
 int event_queue_add_fd_read(int, int);
@@ -1692,6 +1693,8 @@ int is_a_number(char *);
 
 char *uwsgi_resolve_ip(char *);
 
+void uwsgi_init_queue(void);
+void uwsgi_init_cache(void);
 char *uwsgi_queue_get(uint64_t, uint64_t *);
 char *uwsgi_queue_pull(uint64_t *);
 int uwsgi_queue_push(char *, uint64_t);
@@ -1816,6 +1819,8 @@ int uwsgi_str3_num(char *);
 int uwsgi_str4_num(char *);
 
 #ifdef __linux__
+void linux_namespace_start(void *);
+void linux_namespace_jail(void);
 int uwsgi_netlink_veth(char *, char *);
 int uwsgi_netlink_veth_attach(char *, pid_t);
 int uwsgi_netlink_ifup(char *);
@@ -1878,3 +1883,6 @@ int uwsgi_proto_zeromq_parser(struct wsgi_request *);
 #endif
 
 int uwsgi_num2str2(int, char *);
+
+
+void uwsgi_add_socket_from_fd(int, int);

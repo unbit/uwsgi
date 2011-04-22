@@ -2,6 +2,98 @@
 
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_init_cache() {
+	int i;
+
+	if (!uwsgi.cache_blocksize)
+                        uwsgi.cache_blocksize = UMAX16;
+
+                if (uwsgi.cache_blocksize % uwsgi.page_size != 0) {
+                        uwsgi_log("invalid cache blocksize %llu: must be a multiple of memory page size (%d bytes)\n", (unsigned long long) uwsgi.cache_blocksize, uwsgi.page_size);
+                        exit(1);
+                }
+
+                uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * UMAX16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+                if (!uwsgi.cache_hashtable) {
+                        uwsgi_error("mmap()");
+                        exit(1);
+                }
+
+                memset(uwsgi.cache_hashtable, 0, sizeof(uint64_t) * UMAX16);
+
+                uwsgi.cache_unused_stack = (uint64_t *) mmap(NULL, sizeof(uint64_t) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+                if (!uwsgi.cache_unused_stack) {
+                        uwsgi_error("mmap()");
+                        exit(1);
+                }
+
+                memset(uwsgi.cache_unused_stack, 0, sizeof(uint64_t) * uwsgi.cache_max_items);
+
+                // the first cache item is always zero
+                uwsgi.shared->cache_first_available_item = 1;
+                uwsgi.shared->cache_unused_stack_ptr = 0;
+
+                //uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+                if (uwsgi.cache_store) {
+                        uwsgi.cache_filesize = (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items);
+                        int cache_fd;
+                        struct stat cst;
+
+                        if (stat(uwsgi.cache_store, &cst)) {
+                                uwsgi_log("creating a new cache store file: %s\n", uwsgi.cache_store);
+                                cache_fd = open(uwsgi.cache_store, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+                                if (cache_fd >= 0) {
+                                        // fill the caching store
+                                        if (ftruncate(cache_fd, uwsgi.cache_filesize)) {
+                                                uwsgi_log("ftruncate()");
+                                                exit(1);
+                                        }
+                                }
+                        }
+                        else {
+                                if ((size_t) cst.st_size != uwsgi.cache_filesize || !S_ISREG(cst.st_mode)) {
+                                        uwsgi_log("invalid cache store file. Please remove it or fix cache blocksize/items to match its size\n");
+                                        exit(1);
+                                }
+                                cache_fd = open(uwsgi.cache_store, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+                                uwsgi_log("recovered cache from backing store file: %s\n", uwsgi.cache_store);
+                        }
+
+                        if (cache_fd < 0) {
+                                uwsgi_error_open(uwsgi.cache_store);
+                                exit(1);
+                        }
+                        uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, uwsgi.cache_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, cache_fd, 0);
+                        uwsgi_cache_fix();
+
+                }
+                else {
+                        uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+                        for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
+                                memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
+                        }
+                }
+                if (!uwsgi.cache_items) {
+                        uwsgi_error("mmap()");
+                        exit(1);
+                }
+
+                /*
+                   uwsgi.cache = mmap(NULL, uwsgi.cache_blocksize * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+                   if (!uwsgi.cache) {
+                   uwsgi_error("mmap()");
+                   exit(1);
+                   }
+                 */
+
+                uwsgi.cache = ((void *) uwsgi.cache_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items);
+
+                uwsgi.cache_lock = uwsgi_mmap_shared_rwlock();
+                uwsgi_rwlock_init(uwsgi.cache_lock);
+
+                uwsgi_log("*** Cache subsystem initialized: %dMB preallocated ***\n", ((sizeof(uint64_t) * UMAX16) + (sizeof(uint64_t) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024 * 1024));
+}
+
 struct uwsgi_subscriber_name *uwsgi_get_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen) {
 
 	uint64_t ovl;
@@ -486,103 +578,3 @@ end:
         return ret;
 
 }
-
-
-void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
-
-	struct wsgi_request *wsgi_req = (struct wsgi_request *) data;
-	uint64_t tmp_vallen = 0;
-
-	if (vallen > 0) {
-		if (!uwsgi_strncmp(key, keylen, "key", 3)) {
-			val = uwsgi_cache_get(val, vallen, &tmp_vallen);
-                        if (val && tmp_vallen > 0) {
-                        	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, val, tmp_vallen);
-                        }
-
-		}		
-		else if (!uwsgi_strncmp(key, keylen, "get", 3)) {
-			val = uwsgi_cache_get(val, vallen, &tmp_vallen);
-			if (val && vallen > 0) {
-                        	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, val, tmp_vallen);
-			}
-			else {
-				wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\n\r\n<h1>Not Found</h1>", 44);
-			}
-		}
-	}
-}
-
-int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
-
-	uint64_t vallen = 0;
-	char *value;
-	char *argv[3];
-	uint8_t argc = 0;
-
-	switch(wsgi_req->uh.modifier2) {
-		case 0:
-			// get
-			if (wsgi_req->uh.pktsize > 0) {
-				value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh.pktsize, &vallen);
-				if (value && vallen > 0) {
-					wsgi_req->uh.pktsize = vallen;
-					wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
-					wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, value, vallen);
-				}
-			}
-			break;		
-		case 1:
-			// set
-			if (wsgi_req->uh.pktsize > 0) {
-				argc = 3;
-				if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh.pktsize, argv, &argc)) {
-					if (argc > 1) {
-						uwsgi_cache_set(argv[0], strlen(argv[0]), argv[1], strlen(argv[1]), 0, 0);
-					}
-				}
-			}
-			break;
-		case 2:
-			// del
-			if (wsgi_req->uh.pktsize > 0) {
-				uwsgi_cache_del(wsgi_req->buffer, wsgi_req->uh.pktsize);
-			}
-			break;
-		case 3:
-		case 4:
-			// dict
-			if (wsgi_req->uh.pktsize > 0) {
-				uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh.pktsize, cache_command, (void *) wsgi_req);
-			}
-			break;
-		case 5:
-			// get (uwsgi + stream)
-			if (wsgi_req->uh.pktsize > 0) {
-				value = uwsgi_cache_get(wsgi_req->buffer, wsgi_req->uh.pktsize, &vallen);
-				if (value && vallen > 0) {
-					wsgi_req->uh.pktsize = 0;
-					wsgi_req->uh.modifier2 = 1;
-					wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
-					wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, value, vallen);
-				}
-				else {
-					wsgi_req->uh.pktsize = 0;
-					wsgi_req->uh.modifier2 = 0;
-					wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
-				}
-			}
-			break;		
-	}
-
-	return 0;
-}
-
-struct uwsgi_plugin uwsgi_cache_plugin = {
-
-        .name = "cache",
-        .modifier1 = 111, 
-        .request = uwsgi_cache_request,
-
-};
-
