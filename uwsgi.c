@@ -1903,11 +1903,16 @@ int uwsgi_start(void *v_argv) {
 
 #ifdef UWSGI_ZEROMQ
 	if (uwsgi.zmq_receiver && uwsgi.zmq_responder) {
-		uwsgi.zmq_context = zmq_init(1);
+		uwsgi.zmq_context = zmq_init(4);
 		if (uwsgi.zmq_context == NULL) {
 			uwsgi_error("zmq_init()");
 			exit(1);
 		}
+
+		if (uwsgi.threads > 1) {
+			pthread_mutex_init(&uwsgi.zmq_lock, NULL);
+		}
+
 		uwsgi.zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
 		if (uwsgi.zmq_pull == NULL) {
 			uwsgi_error("zmq_socket()");

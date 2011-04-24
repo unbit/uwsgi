@@ -1079,6 +1079,7 @@ struct uwsgi_server {
 	void *zmq_pull;
 	void *zmq_pub;
 	int zeromq_recv_flag;
+	pthread_mutex_t zmq_lock;
 #endif
 	struct uwsgi_socket sockets[MAX_SOCKETS];
 	// leave a slot for no-orphan mode
@@ -1870,6 +1871,8 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *);
 
 int uwsgi_proto_base_accept(struct wsgi_request *, int);
 void uwsgi_proto_base_close(struct wsgi_request *);
+uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 #ifdef UWSGI_ZEROMQ
 int uwsgi_proto_zeromq_accept(struct wsgi_request *, int);
@@ -1879,7 +1882,6 @@ ssize_t uwsgi_proto_zeromq_writev(struct wsgi_request *, struct iovec *, size_t)
 ssize_t uwsgi_proto_zeromq_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_zeromq_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_zeromq_sendfile(struct wsgi_request *);
-ssize_t uwsgi_proto_zeromq_parser(struct wsgi_request *);
 int uwsgi_proto_zeromq_parser(struct wsgi_request *);
 #endif
 
@@ -1887,3 +1889,8 @@ int uwsgi_num2str2(int, char *);
 
 
 void uwsgi_add_socket_from_fd(int, int);
+
+
+char *uwsgi_split3(char *, size_t, char, char **, size_t *, char **, size_t *, char **, size_t *);
+char *uwsgi_split4(char *, size_t, char, char **, size_t *, char **, size_t *, char **, size_t *, char **, size_t *);
+char *uwsgi_netstring(char *, size_t, char **, size_t *);

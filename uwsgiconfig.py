@@ -436,7 +436,7 @@ class uConf(object):
                 self.gcc_list.append('ldap')
                 self.libs.append('-lldap')
 
-        if has_json and has_uuid and self.get('zeromq'):
+        if has_uuid and self.get('zeromq'):
             if self.get('zeromq') == 'auto':
                 if os.path.exists('/usr/include/zmq.h') or os.path.exists('/usr/local/include/zmq.h'):
                     self.cflags.append("-DUWSGI_ZEROMQ")
