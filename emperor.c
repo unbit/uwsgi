@@ -127,6 +127,8 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	char **uenvs;
 	int counter;
 
+	sleep(1);
+
 	while (c_ui->ui_next) {
 		c_ui = c_ui->ui_next;
 	}
@@ -141,7 +143,9 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	}
 
 	c_ui->ui_next = n_ui;
+#ifdef UWSGI_DEBUG
 	uwsgi_log("c_ui->ui_next = %p\n", c_ui->ui_next);
+#endif
 	n_ui->ui_prev = c_ui;
 	memcpy(n_ui->name, name, strlen(name));
 	n_ui->born = born;
@@ -270,8 +274,9 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 		if (execvp(argv[0], argv)) {
 			uwsgi_error("execvp()");
 		}
+		uwsgi_log("is the uwsgi binary in your system PATH ?\n");
 		// never here
-		exit(1);
+		exit(UWSGI_EXILE_CODE);
 	}
 
       clear:

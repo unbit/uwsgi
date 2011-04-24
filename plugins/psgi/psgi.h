@@ -24,7 +24,7 @@ struct uwsgi_perl {
 
 };
 
-#define LONG_ARGS_PERL_BASE      17000 + ((5 + 1) * 100)
+#define LONG_ARGS_PERL_BASE      17000 + ((5 + 1) * 1000)
 #define LONG_ARGS_PSGI           LONG_ARGS_PERL_BASE + 1
 
 void init_perl_embedded_module(void);

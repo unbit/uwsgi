@@ -5,8 +5,9 @@
 
 #define MAX_PYTHONPATH 64
 #define MAX_PYMODULE_ALIAS 64
+#define MAX_PYARGV 10
 
-#define LONG_ARGS_PYTHON_BASE      17000 + ((0 + 1) * 100)
+#define LONG_ARGS_PYTHON_BASE      17000 + ((0 + 1) * 1000)
 
 #define LONG_ARGS_PYTHONPATH            LONG_ARGS_PYTHON_BASE + 1
 #define LONG_ARGS_PASTE                 LONG_ARGS_PYTHON_BASE + 2

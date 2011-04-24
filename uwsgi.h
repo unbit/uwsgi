@@ -179,8 +179,6 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #define WAIT_ANY (-1)
 #endif
 
-#define MAX_PYARGV 10
-
 #include <sys/ioctl.h>
 
 #ifdef __linux__

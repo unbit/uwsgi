@@ -132,9 +132,9 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
 	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER},
 	{"cluster-nodes", required_argument, 0, LONG_ARGS_CLUSTER_NODES},
-#endif
 	{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD},
 	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG},
+#endif
 	{"subscribe-to", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
 #ifdef UWSGI_SNMP
 	{"snmp", optional_argument, 0, LONG_ARGS_SNMP},
