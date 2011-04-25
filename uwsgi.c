@@ -198,6 +198,48 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{0, 0, 0, 0}
 };
 
+void uwsgi_configure(void) {
+
+	struct option *lopt = uwsgi.long_options;
+        struct option *aopt;
+        char *val;
+	int i;
+
+        for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+
+                if (uwsgi.exported_opts[i]->configured)
+                        continue;
+                lopt = uwsgi.long_options;;
+                while ((aopt = lopt)) {
+                        if (!aopt->name)
+                                break;
+
+                        if (!strcmp(aopt->name, uwsgi.exported_opts[i]->key)) {
+                                val = uwsgi.exported_opts[i]->value;
+
+                                if (aopt->flag)
+                                        *aopt->flag = aopt->val;
+                                else if (val) {
+                                        if (aopt->has_arg == optional_argument) {
+                                                if (!strcasecmp("true", val)) {
+                                                        val = NULL;
+                                                }
+                                        }
+                                        if (aopt->has_arg == no_argument) {
+                                                if (!strcasecmp("false", val) || val[0] == '0') {
+                                                        lopt++;
+                                                        continue;
+                                                }
+                                        }
+                                        manage_opt(aopt->val, val);
+                                }
+                        }
+                        lopt++;
+                }
+        }
+
+}
+
 void config_magic_table_fill(char *filename, char **magic_table) {
 
 	magic_table['o'] = filename;
@@ -833,43 +875,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	// ok, the options dictionary is available, lets manage it
 
-	struct option *lopt = uwsgi.long_options;
-	struct option *aopt;
-	char *val;
-
-	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-
-		if (uwsgi.exported_opts[i]->configured)
-			continue;
-		lopt = uwsgi.long_options;;
-		while ((aopt = lopt)) {
-			if (!aopt->name)
-				break;
-
-			if (!strcmp(aopt->name, uwsgi.exported_opts[i]->key)) {
-				val = uwsgi.exported_opts[i]->value;
-
-				if (aopt->flag)
-					*aopt->flag = aopt->val;
-				else if (val) {
-					if (aopt->has_arg == optional_argument) {
-						if (!strcasecmp("true", val)) {
-							val = NULL;
-						}
-					}
-					if (aopt->has_arg == no_argument) {
-						if (!strcasecmp("false", val) || val[0] == '0') {
-							lopt++;
-							continue;
-						}
-					}
-					manage_opt(aopt->val, val);
-				}
-			}
-			lopt++;
-		}
-	}
-
+	uwsgi_configure();
 
 	/* uWSGI IS CONFIGURED !!! */
 
@@ -923,6 +929,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					// receive the packet
 					char clusterbuf[4096];
 					if (!uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, manage_string_opt, NULL)) {
+						uwsgi_configure();
 						goto options_parsed;
 					}
 					else {
