@@ -3081,14 +3081,21 @@ int uwsgi_cluster_add_me() {
 	uint16_t ustrlen;
 	char numproc[6];
 
-	if (!uwsgi.sockets[0].name) {
+	if (!uwsgi.sockets[0].name && !uwsgi.zeromq) {
 		uwsgi_log("you need to specify at least a socket to start a uWSGI cluster\n");
 		exit(1);
 	}
 
 	snprintf(numproc, 6, "%d", uwsgi.numproc);
 
-	size_t len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.sockets[0].name) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
+	size_t len;
+
+	if (uwsgi.sockets[0].name) {
+		len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.sockets[0].name) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
+	}
+	else {
+		len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
+	}
 	char *buf = uwsgi_malloc(len);
 
 	ptrbuf = buf;
@@ -3105,17 +3112,20 @@ int uwsgi_cluster_add_me() {
 	memcpy(ptrbuf, uwsgi.hostname, strlen(uwsgi.hostname));
 	ptrbuf += strlen(uwsgi.hostname);
 
-	ustrlen = strlen(key2);
-	*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
-	*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ptrbuf, key2, strlen(key2));
-	ptrbuf += strlen(key2);
 
-	ustrlen = strlen(uwsgi.sockets[0].name);
-	*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
-	*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ptrbuf, uwsgi.sockets[0].name, strlen(uwsgi.sockets[0].name));
-	ptrbuf += strlen(uwsgi.sockets[0].name);
+	if (uwsgi.sockets[0].name) {
+		ustrlen = strlen(key2);
+		*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
+		*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
+		memcpy(ptrbuf, key2, strlen(key2));
+		ptrbuf += strlen(key2);
+
+		ustrlen = strlen(uwsgi.sockets[0].name);
+		*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
+		*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
+		memcpy(ptrbuf, uwsgi.sockets[0].name, strlen(uwsgi.sockets[0].name));
+		ptrbuf += strlen(uwsgi.sockets[0].name);
+	}
 
 
 	ustrlen = strlen(key3);
