@@ -3088,7 +3088,11 @@ int uwsgi_cluster_add_me() {
 	uint16_t ustrlen;
 	char numproc[6];
 
+#ifdef UWSGI_ZEROMQ
 	if (!uwsgi.sockets[0].name && !uwsgi.zeromq) {
+#else
+	if (!uwsgi.sockets[0].name) {
+#endif
 		uwsgi_log("you need to specify at least a socket to start a uWSGI cluster\n");
 		exit(1);
 	}
