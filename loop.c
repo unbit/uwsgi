@@ -2,12 +2,16 @@
 
 extern struct uwsgi_server uwsgi;
 
-struct wsgi_request* threaded_current_wsgi_req() { return pthread_getspecific(uwsgi.tur_key); }
-struct wsgi_request* simple_current_wsgi_req() { return uwsgi.wsgi_req; }
+struct wsgi_request *threaded_current_wsgi_req() {
+	return pthread_getspecific(uwsgi.tur_key);
+}
+struct wsgi_request *simple_current_wsgi_req() {
+	return uwsgi.wsgi_req;
+}
 
 
 void uwsgi_register_loop(char *name, void *loop) {
-	
+
 	if (uwsgi.loops_cnt >= MAX_LOOPS) {
 		uwsgi_log("you can define %d loops at max\n", MAX_LOOPS);
 		exit(1);
@@ -21,8 +25,8 @@ void uwsgi_register_loop(char *name, void *loop) {
 void *uwsgi_get_loop(char *name) {
 
 	int i;
-	
-	for(i=0;i<uwsgi.loops_cnt;i++) {
+
+	for (i = 0; i < uwsgi.loops_cnt; i++) {
 		if (!strcmp(name, uwsgi.loops[i].name)) {
 			return uwsgi.loops[i].loop;
 		}
@@ -50,15 +54,11 @@ void *simple_loop(void *arg1) {
 			// block all signals on new threads
 			sigfillset(&smask);
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
-			for(i=0;i<0xFF;i++) {
+			for (i = 0; i < 0xFF; i++) {
 				if (uwsgi.p[i]->init_thread) {
 					uwsgi.p[i]->init_thread(core_id);
 				}
 			}
-			/*
-			   pts = PyThreadState_New(uwsgi.main_thread->interp);
-			   pthread_setspecific(uwsgi.ut_save_key, (void *) pts);
-			   */
 		}
 	}
 #endif
@@ -85,37 +85,70 @@ void *simple_loop(void *arg1) {
 #ifdef UWSGI_THREADING
 	pthread_exit(NULL);
 #endif
-	
+
 	//never here
 	return NULL;
 }
 
 #ifdef UWSGI_ZEROMQ
 void *zeromq_loop(void *arg1) {
+	sigset_t smask;
+	int i;
 
 	long core_id = (long) arg1;
 
-        struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
+	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
 	uwsgi.zeromq_recv_flag = 0;
+
+	if (uwsgi.threads > 1) {
+
+		pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
+
+		if (core_id > 0) {
+			// block all signals on new threads
+			sigfillset(&smask);
+			pthread_sigmask(SIG_BLOCK, &smask, NULL);
+			for (i = 0; i < 0xFF; i++) {
+				if (uwsgi.p[i]->init_thread) {
+					uwsgi.p[i]->init_thread(core_id);
+				}
+			}
+
+
+			void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
+			if (tmp_zmq_pull == NULL) {
+				uwsgi_error("zmq_socket()");
+				exit(1);
+			}
+			if (zmq_connect(tmp_zmq_pull, uwsgi.zmq_receiver) < 0) {
+				uwsgi_error("zmq_connect()");
+				exit(1);
+			}
+
+			pthread_setspecific(uwsgi.zmq_pull, tmp_zmq_pull);
+		}
+
+	}
+
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
-                UWSGI_CLEAR_STATUS;
+		UWSGI_CLEAR_STATUS;
 
-                wsgi_req_setup(wsgi_req, core_id, -1);
+		wsgi_req_setup(wsgi_req, core_id, -1);
 
 		uwsgi.edge_triggered = 1;
 		int socket_id = uwsgi.zmq_socket;
 		wsgi_req->socket = &uwsgi.sockets[socket_id];
-                wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.sockets[socket_id].fd);
+		wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.sockets[socket_id].fd);
 
-                if (wsgi_req->poll.fd >= 0) {
-                	wsgi_req_recv(wsgi_req);
-                }
+		if (wsgi_req->poll.fd >= 0) {
+			wsgi_req_recv(wsgi_req);
+		}
 
-                uwsgi_close_request(wsgi_req);
-        }
+		uwsgi_close_request(wsgi_req);
+	}
 
 	exit(0);
 }

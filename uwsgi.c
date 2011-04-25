@@ -1903,7 +1903,7 @@ int uwsgi_start(void *v_argv) {
 
 #ifdef UWSGI_ZEROMQ
 	if (uwsgi.zmq_receiver && uwsgi.zmq_responder) {
-		uwsgi.zmq_context = zmq_init(4);
+		uwsgi.zmq_context = zmq_init(1);
 		if (uwsgi.zmq_context == NULL) {
 			uwsgi_error("zmq_init()");
 			exit(1);
@@ -1911,16 +1911,6 @@ int uwsgi_start(void *v_argv) {
 
 		if (uwsgi.threads > 1) {
 			pthread_mutex_init(&uwsgi.zmq_lock, NULL);
-		}
-
-		uwsgi.zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
-		if (uwsgi.zmq_pull == NULL) {
-			uwsgi_error("zmq_socket()");
-			exit(1);
-		}
-		if (zmq_connect(uwsgi.zmq_pull, uwsgi.zmq_receiver) < 0) {
-			uwsgi_error("zmq_connect()");
-			exit(1);
 		}
 
 		uwsgi.zmq_pub = zmq_socket(uwsgi.zmq_context, ZMQ_PUB);
@@ -1961,11 +1951,30 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.sockets[uwsgi.zmq_socket].proto_sendfile = uwsgi_proto_zeromq_sendfile;
 
 		uwsgi.sockets[uwsgi.zmq_socket].edge_trigger = 1;
+
+		if (pthread_key_create(&uwsgi.zmq_pull, NULL)) {
+			uwsgi_error("pthread_key_create()");
+			exit(1);
+		}
+
+		void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
+		if (tmp_zmq_pull == NULL) {
+			uwsgi_error("zmq_socket()");
+			exit(1);
+		}
+		if (zmq_connect(tmp_zmq_pull, uwsgi.zmq_receiver) < 0) {
+			uwsgi_error("zmq_connect()");
+			exit(1);
+		}
+
+		pthread_setspecific(uwsgi.zmq_pull, tmp_zmq_pull);
+
 		size_t zmq_socket_len = sizeof(int);
-		if (zmq_getsockopt(uwsgi.zmq_pull, ZMQ_FD, &uwsgi.sockets[uwsgi.zmq_socket].fd, &zmq_socket_len) < 0) {
+		if (zmq_getsockopt(pthread_getspecific(uwsgi.zmq_pull), ZMQ_FD, &uwsgi.sockets[uwsgi.zmq_socket].fd, &zmq_socket_len) < 0) {
 			uwsgi_error("zmq_getsockopt()");
 			exit(1);
 		}
+
 
 		uwsgi.sockets_poll[uwsgi.zmq_socket].fd = uwsgi.sockets[uwsgi.zmq_socket].fd;
 		uwsgi.sockets_poll[uwsgi.zmq_socket].events = POLLIN;
@@ -2085,7 +2094,34 @@ int uwsgi_start(void *v_argv) {
 	}
 	else {
 #ifdef UWSGI_ZEROMQ
-		if (uwsgi.zeromq && uwsgi.cores < 2 && uwsgi.sockets_cnt == 1) {
+		if (uwsgi.zeromq && uwsgi.async < 2 && uwsgi.sockets_cnt == 1) {
+
+			pthread_attr_t pa;
+			pthread_t *a_thread;
+			int ret;
+
+			if (uwsgi.threads > 1) {
+				ret = pthread_attr_init(&pa);
+				if (ret) {
+					uwsgi_log("pthread_attr_init() = %d\n", ret);
+					exit(1);
+				}
+				ret = pthread_attr_setdetachstate(&pa, PTHREAD_CREATE_DETACHED);
+				if (ret) {
+					uwsgi_log("pthread_attr_setdetachstate() = %d\n", ret);
+					exit(1);
+				}
+				if (pthread_key_create(&uwsgi.tur_key, NULL)) {
+					uwsgi_error("pthread_key_create()");
+					exit(1);
+				}
+				for (i = 1; i < uwsgi.threads; i++) {
+					long j = i;
+					a_thread = uwsgi_malloc(sizeof(pthread_t));
+					pthread_create(a_thread, &pa, zeromq_loop, (void *) j);
+				}
+			}
+
 			long y = 0;
 			zeromq_loop((void *) y);
 		}

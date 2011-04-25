@@ -574,6 +574,7 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 	 */
 
       polling:
+	uwsgi.edge_triggered = 1;
 	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt + uwsgi.master_process, uwsgi.edge_triggered - 1);
 
 	if (ret < 0) {

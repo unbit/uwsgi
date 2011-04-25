@@ -1076,10 +1076,11 @@ struct uwsgi_server {
 	char *zmq_responder;
 	int zmq_socket;
 	void *zmq_context;
-	void *zmq_pull;
+	//void *zmq_pull;
 	void *zmq_pub;
 	int zeromq_recv_flag;
 	pthread_mutex_t zmq_lock;
+	pthread_key_t zmq_pull;
 #endif
 	struct uwsgi_socket sockets[MAX_SOCKETS];
 	// leave a slot for no-orphan mode

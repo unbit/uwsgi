@@ -235,7 +235,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 	
 
 	if (uwsgi.edge_triggered == 0) {
-		if (zmq_getsockopt(uwsgi.zmq_pull, ZMQ_EVENTS, &events, &events_len) < 0) {
+		if (zmq_getsockopt(pthread_getspecific(uwsgi.zmq_pull), ZMQ_EVENTS, &events, &events_len) < 0) {
 			uwsgi_error("zmq_getsockopt()");
 			uwsgi.edge_triggered = 0;
 			return -1;
@@ -246,9 +246,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 		wsgi_req->do_not_add_to_async_queue = 1;
 		wsgi_req->proto_parser_status = 0;
 		zmq_msg_init(&message);
-		if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.zmq_lock);
-		if (zmq_recv(uwsgi.zmq_pull, &message, uwsgi.zeromq_recv_flag) < 0) {
-			if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
+		if (zmq_recv(pthread_getspecific(uwsgi.zmq_pull), &message, uwsgi.zeromq_recv_flag) < 0) {
 			if (errno == EAGAIN) {
 				uwsgi.edge_triggered = 0;
 			}
@@ -258,7 +256,6 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 			zmq_msg_close(&message);
 			return -1;
 		}
-		if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
 		uwsgi.edge_triggered = 1;
 		message_size = zmq_msg_size(&message); 	
 		//uwsgi_log("%.*s\n", (int) wsgi_req->proto_parser_pos, zmq_msg_data(&message));
@@ -370,9 +367,11 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 	if (!wsgi_req->proto_parser_pos) return;
 
 	zmq_msg_init_data(&reply, wsgi_req->proto_parser_buf, wsgi_req->proto_parser_pos, uwsgi_proto_zeromq_free, NULL);
+	pthread_mutex_lock(&uwsgi.zmq_lock);
 	if (zmq_send(uwsgi.zmq_pub, &reply, 0)) {
 		uwsgi_error("zmq_send()");
 	}
+	pthread_mutex_unlock(&uwsgi.zmq_lock);
 	zmq_msg_close(&reply);
 
 	if (wsgi_req->async_post && wsgi_req->body_as_file) {
@@ -413,11 +412,14 @@ ssize_t uwsgi_proto_zeromq_write(struct wsgi_request *wsgi_req, char *buf, size_
 	//uwsgi_log("|%.*s|\n", (int)wsgi_req->proto_parser_pos+len, zmq_body);
 
 	zmq_msg_init_data(&reply, zmq_body, wsgi_req->proto_parser_pos+len, uwsgi_proto_zeromq_free, NULL);
+	pthread_mutex_lock(&uwsgi.zmq_lock);
 	if (zmq_send(uwsgi.zmq_pub, &reply, 0)) {
 		uwsgi_error("zmq_send()");
+		pthread_mutex_unlock(&uwsgi.zmq_lock);
 		zmq_msg_close(&reply);
 		return -1;
 	}	
+	pthread_mutex_unlock(&uwsgi.zmq_lock);
 	zmq_msg_close(&reply);
 
 	return len;
