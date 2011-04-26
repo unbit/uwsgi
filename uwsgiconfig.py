@@ -385,6 +385,8 @@ class uConf(object):
         if os.path.exists('/usr/include/uuid/uuid.h') or os.path.exists('/usr/local/include/uuid/uuid.h'):
             has_uuid = True
             self.cflags.append("-DUWSGI_UUID")
+            if os.path.exists('/usr/lib/libuuid.so') or os.path.exists('/usr/local/lib/libuuid.so'):
+                self.libs.append('-luuid')
 
         if self.get('async'):
             self.cflags.append("-DUWSGI_ASYNC")

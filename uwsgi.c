@@ -1979,11 +1979,15 @@ int uwsgi_start(void *v_argv) {
 
 		pthread_setspecific(uwsgi.zmq_pull, tmp_zmq_pull);
 
+#ifdef ZMQ_FD
 		size_t zmq_socket_len = sizeof(int);
 		if (zmq_getsockopt(pthread_getspecific(uwsgi.zmq_pull), ZMQ_FD, &uwsgi.sockets[uwsgi.zmq_socket].fd, &zmq_socket_len) < 0) {
 			uwsgi_error("zmq_getsockopt()");
 			exit(1);
 		}
+#else
+		uwsgi.sockets[uwsgi.zmq_socket].fd = -1;
+#endif
 
 
 		uwsgi.sockets_poll[uwsgi.zmq_socket].fd = uwsgi.sockets[uwsgi.zmq_socket].fd;

@@ -241,12 +241,13 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 	size_t mongrel2_req_size = 0;
 	int resp_id_len;
 	uint32_t events = 0;
-	size_t events_len = sizeof(uint32_t);
 	char *message_ptr;
 	size_t message_size = 0;
 	char *post_data;
 
 
+#ifdef ZMQ_EVENTS
+	size_t events_len = sizeof(uint32_t);
 	if (uwsgi.edge_triggered == 0) {
 		if (zmq_getsockopt(pthread_getspecific(uwsgi.zmq_pull), ZMQ_EVENTS, &events, &events_len) < 0) {
 			uwsgi_error("zmq_getsockopt()");
@@ -254,6 +255,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 			return -1;
 		}
 	}
+#endif
 
 	if (events & ZMQ_POLLIN || uwsgi.edge_triggered) {
 		wsgi_req->do_not_add_to_async_queue = 1;
