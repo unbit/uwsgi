@@ -9,6 +9,7 @@ uwsgi:
   master:	1
   processes: 8 # the number of processes
   memory-report: 1
+  show-config: true
 
 # now a psgi app via plugin
 app2:
@@ -19,3 +20,4 @@ app2:
   processes: 8 # the number of processes
   memory-report: 1
   psgi: test.psgi
+  show-config: true

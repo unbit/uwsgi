@@ -4,6 +4,8 @@
 
 extern struct uwsgi_server uwsgi;
 
+
+#ifndef UWSGI_LIBYAML
 /*
    yaml file must be read ALL into memory.
    This memory must not be freed for all the server lifecycle
@@ -83,23 +85,19 @@ char *yaml_get_line(char *yaml, off_t size) {
 	return NULL;
 
 }
+#else
+#include <yaml.h>
+#endif
 
 void uwsgi_yaml_config(char *file, char *magic_table[]) {
 
 	int len = 0;
 	char *yaml;
 
-	int depth;
-	int current_depth = 0;
 	int in_uwsgi_section = 0;
 
-	char *yaml_line;
-
-	char *section = "";
-	char *key;
-	char *val;
-
-	int lines = 1;
+	char *key = NULL;
+	char *val = NULL;
 
 	char *section_asked = "uwsgi";
 	char *colon;
@@ -122,6 +120,76 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 	uwsgi_log("[uWSGI] getting YAML configuration from %s\n", file);
 
 	yaml = uwsgi_open_and_read(file, &len, 1, magic_table);
+
+#ifdef UWSGI_LIBYAML
+	yaml_parser_t parser;
+	yaml_token_t  token;
+	int status = 0;
+	int parsing = 1;
+
+	if(!yaml_parser_initialize(&parser)) {
+		uwsgi_log("unable to initialize YAML parser (libyaml)\n");
+		exit(1);
+	}
+
+	yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, (size_t) len-1);
+
+	while(parsing) {
+		yaml_parser_scan(&parser, &token);
+		switch(token.type) {
+			case YAML_STREAM_END_TOKEN:
+				parsing = 0;
+				break;		
+			case YAML_KEY_TOKEN: 
+				status = 1;
+				break;
+			case YAML_VALUE_TOKEN:
+				status = 2;
+				break;
+			case YAML_BLOCK_MAPPING_START_TOKEN:
+				if (!in_uwsgi_section) {
+                                        if (key) {
+                                                if (!strcmp(section_asked, key)) {
+                                                        in_uwsgi_section = 1;
+                                                }
+                                        }
+                                }
+				break;
+			case YAML_BLOCK_END_TOKEN:
+				if (in_uwsgi_section) {
+					parsing = 0;
+					break;
+				}
+				break;
+			case YAML_SCALAR_TOKEN:
+				if (status == 1) {
+					key = (char *) token.data.scalar.value;
+				}
+				else if (status == 2) {
+					val = (char *) token.data.scalar.value; 
+					if (key && val && in_uwsgi_section) {
+						add_exported_option(key, val, 0);
+					}
+					status = 0;
+				}
+				else {
+					uwsgi_log("unsupported YAML token in %s block\n", section_asked);
+					parsing = 0;
+					break;
+				}
+				break;
+			default:
+				status = 0;
+		}
+	}
+	
+#else
+	int depth;
+	int current_depth = 0;
+	int lines = 1;
+	char *yaml_line;
+	char *section = "";
+
 
 	while(len) {
 		yaml_line = yaml_get_line(yaml, len);
@@ -184,6 +252,7 @@ next:
 		yaml += (yaml_line - yaml);
 
 	}
+#endif
 
 
 }

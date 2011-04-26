@@ -404,6 +404,13 @@ class uConf(object):
         if self.get('yaml'):
             self.cflags.append("-DUWSGI_YAML")
             self.gcc_list.append('yaml')
+            if self.get('yaml_implementation') == 'libyaml':
+                self.cflags.append("-DUWSGI_LIBYAML")
+                self.libs.append('-lyaml')
+            if self.get('yaml_implementation') == 'auto':
+                if os.path.exists('/usr/include/yaml.h') or os.path.exists('/usr/local/include/yaml.h'):
+                    self.cflags.append("-DUWSGI_LIBYAML")
+                    self.libs.append('-lyaml')
 
         if self.get('json'):
             if self.get('json') == 'auto':
