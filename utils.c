@@ -183,6 +183,45 @@ void logto(char *logfile) {
 	}
 }
 
+#ifdef UWSGI_ZEROMQ
+void log_zeromq(char *node) {
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
+                uwsgi_error("socketpair()\n");
+                exit(1);
+        }
+
+        if (uwsgi.shared->worker_log_pipe[1] != 1) {
+                if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
+                        uwsgi_error("dup2()");
+                        exit(1);
+                }
+        }
+
+        if (dup2(1, 2) < 0) {
+                uwsgi_error("dup2()");
+                exit(1);
+        }
+
+        void *ctx = zmq_init(1);
+        if (ctx == NULL) {
+                uwsgi_error("zmq_init()");
+                exit(1);
+        }
+
+        uwsgi.zmq_log_socket = zmq_socket(ctx, ZMQ_PUSH);
+        if (uwsgi.zmq_log_socket == NULL) {
+                uwsgi_error("zmq_socket()");
+                exit(1);
+        }
+        if (zmq_connect(uwsgi.zmq_log_socket, node) < 0) {
+                uwsgi_error("zmq_connect()");
+                exit(1);
+        }
+}
+#endif
+
+
 void log_syslog(char *syslog_opts) {
 
 	if (syslog_opts == NULL) {

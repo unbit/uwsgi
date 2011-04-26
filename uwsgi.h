@@ -420,6 +420,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_INHERIT		17101
 #define LONG_ARGS_VASSALS_INHERIT	17102
 #define LONG_ARGS_SOCKET_PROTOCOL	17103
+#define LONG_ARGS_LOG_ZEROMQ		17104
 
 
 #define UWSGI_OK	0
@@ -1081,6 +1082,7 @@ struct uwsgi_server {
 	int zeromq_recv_flag;
 	pthread_mutex_t zmq_lock;
 	pthread_key_t zmq_pull;
+	void *zmq_log_socket;
 #endif
 	struct uwsgi_socket sockets[MAX_SOCKETS];
 	// leave a slot for no-orphan mode
@@ -1876,6 +1878,7 @@ uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, ch
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 #ifdef UWSGI_ZEROMQ
+void log_zeromq(char *);
 int uwsgi_proto_zeromq_accept(struct wsgi_request *, int);
 void uwsgi_proto_zeromq_close(struct wsgi_request *);
 ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *, struct iovec *, size_t);

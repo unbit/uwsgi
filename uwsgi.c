@@ -149,6 +149,9 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
+#ifdef UWSGI_ZEROMQ
+	{"log-zeromq", required_argument, 0, LONG_ARGS_LOG_ZEROMQ},
+#endif
 	{"log-master", no_argument, 0, LONG_ARGS_LOG_MASTER},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE},
 	{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO},
@@ -2298,6 +2301,13 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.log_master = 1;
 		uwsgi.master_process = 1;
 		return 1;
+#ifdef UWSGI_ZEROMQ
+         case LONG_ARGS_LOG_ZEROMQ:
+                        log_zeromq(optarg);
+                        uwsgi.log_master = 1;
+                        uwsgi.master_process = 1;
+                        return 1;
+#endif	
 	case LONG_ARGS_PRINT:
 		uwsgi_log("%s\n", optarg);
 		return 1;

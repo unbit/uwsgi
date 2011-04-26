@@ -625,6 +625,16 @@ void master_loop(char **argv, char **environ) {
 								if (uwsgi.log_syslog) {
 									syslog(LOG_INFO, "%.*s", rlen, log_buf);
 								}
+#ifdef UWSGI_ZEROMQ
+								else if (uwsgi.zmq_log_socket) {
+                                                                        zmq_msg_t msg;
+                                                                        if (zmq_msg_init_size (&msg, rlen) == 0) {
+                                                                                memcpy(zmq_msg_data(&msg), log_buf, rlen);
+                                                                                zmq_send(uwsgi.zmq_log_socket, &msg, 0);
+                                                                                zmq_msg_close(&msg);
+                                                                        }
+                                                                }
+#endif
 								// TODO allow uwsgi.logger = func
 							}	
 						}
