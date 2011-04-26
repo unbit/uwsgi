@@ -4,7 +4,8 @@ extern struct uwsgi_server uwsgi;
 
 XS(XS_reload) {
     dXSARGS;
-    items = 0;
+
+	psgi_check_args(0);
 
     uwsgi_log("SENDING HUP TO %d\n", (int) uwsgi.workers[0].pid);
     if (kill(uwsgi.workers[0].pid, SIGHUP)) {

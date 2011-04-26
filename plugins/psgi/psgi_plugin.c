@@ -248,7 +248,6 @@ void uwsgi_perl_enable_threads() {
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	HV *env;
-	SV **item;
 
 	AV *response;
 
@@ -293,11 +292,11 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	for(i=0;i<wsgi_req->var_cnt;i++) {
 		if (wsgi_req->hvec[i+1].iov_len > 0) {
 
-			item = hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
-					newSVpv(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len), 0);
+			if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
+					newSVpv(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len), 0)) goto clear;
 		}
 		else {
-			item = hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, newSVpv("", 0), 0);
+			if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, newSVpv("", 0), 0)) goto clear;
 		}
 		//uwsgi_log("%.*s = %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 		i++;
@@ -305,7 +304,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 
 	SV *us = newSVpv("http", 4);
-	item = hv_store(env, "psgi.url_scheme", 15, us, 0);
+	if (!hv_store(env, "psgi.url_scheme", 15, us, 0)) goto clear;
 
 
 	SV* iohandle = newSVpv( "IO::Handle", 10 );
@@ -330,7 +329,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 
 	SV *pi = SvREFCNT_inc(POPs);
-	item = hv_store(env, "psgi.input", 10, pi, 0);
+	if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
 
 
 	PUSHMARK(SP);
@@ -349,7 +348,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	SPAGAIN;
 
 	SV *pe = SvREFCNT_inc(POPs);
-	item = hv_store(env, "psgi.errors", 11, pe, 0);
+	if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
 
 
 	PUSHMARK(SP);

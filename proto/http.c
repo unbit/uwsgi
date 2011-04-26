@@ -219,7 +219,6 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	ssize_t len;
 	int j;
 	char *ptr;
-	int ret;
 	ssize_t remains;
 	// make this buffer configurable
 	char post_buf[8192];
@@ -280,7 +279,7 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 		else if (*ptr == '\n' && wsgi_req->proto_parser_status == 3) {
 			ptr++;
 			remains = len - (j + 1);
-			ret = http_parse(wsgi_req, ptr);
+			http_parse(wsgi_req, ptr);
 			//is there a Content_Length ?
 			if (wsgi_req->post_cl) {
 				wsgi_req->async_post = tmpfile();

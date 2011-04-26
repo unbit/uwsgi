@@ -1660,8 +1660,6 @@ PyObject *py_uwsgi_async_send_message(PyObject * self, PyObject * args) {
 	int modifier1 = 0;
 	int modifier2 = 0;
 
-	ssize_t ret;
-
 	char *encoded;
 	uint16_t esize = 0;
 
@@ -1676,14 +1674,14 @@ PyObject *py_uwsgi_async_send_message(PyObject * self, PyObject * args) {
 	if (PyDict_Check(pyobj)) {
 		encoded = uwsgi_encode_pydict(pyobj, &esize);
 		if (esize > 0) {
-			UWSGI_RELEASE_GIL ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
+			UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
 			free(encoded);
 		}
 	}
 	else if (PyString_Check(pyobj)) {
 		encoded = PyString_AsString(pyobj);
 		esize = PyString_Size(pyobj);
-		UWSGI_RELEASE_GIL ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
+		UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
 	}
 	else {
 		marshalled = PyMarshal_WriteObjectToString(pyobj, 1);
@@ -1694,7 +1692,7 @@ PyObject *py_uwsgi_async_send_message(PyObject * self, PyObject * args) {
 
 		encoded = PyString_AsString(marshalled);
 		esize = PyString_Size(marshalled);
-		UWSGI_RELEASE_GIL ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
+		UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
 	}
 
       UWSGI_GET_GIL clear:
@@ -1804,8 +1802,6 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 	int fd = -1;
 	int cl = 0;
 
-	ssize_t ret;
-
 	int uwsgi_fd = -1;
 	char *encoded;
 	uint16_t esize = 0;
@@ -1834,14 +1830,14 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 	if (PyDict_Check(pyobj)) {
 		encoded = uwsgi_encode_pydict(pyobj, &esize);
 		if (esize > 0) {
-			UWSGI_RELEASE_GIL ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
+			UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
 			free(encoded);
 		}
 	}
 	else if (PyString_Check(pyobj)) {
 		encoded = PyString_AsString(pyobj);
 		esize = PyString_Size(pyobj);
-		UWSGI_RELEASE_GIL ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
+		UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
 	}
 	else {
 		marshalled = PyMarshal_WriteObjectToString(pyobj, 1);
@@ -1852,7 +1848,7 @@ PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
 		encoded = PyString_AsString(marshalled);
 		esize = PyString_Size(marshalled);
-		UWSGI_RELEASE_GIL ret = uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
+		UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, fd, cl, timeout);
 	}
 
 	UWSGI_GET_GIL
