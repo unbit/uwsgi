@@ -3,6 +3,8 @@
 extern struct uwsgi_server uwsgi;
 struct uwsgi_python up;
 
+#include <glob.h>
+
 extern PyTypeObject uwsgi_InputType;
 
 struct option uwsgi_python_options[] = {
@@ -661,6 +663,9 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 
 int uwsgi_python_manage_options(int i, char *optarg) {
 
+	glob_t g;
+	int j;
+
 	switch (i) {
 	case 'w':
 		up.wsgi_config = optarg;
@@ -682,7 +687,14 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 		}
 		return 1;
 	case LONG_ARGS_PYTHONPATH:
-		uwsgi_string_new_list(&up.python_path, optarg);
+		if (glob(optarg, GLOB_MARK, NULL, &g)) {
+			uwsgi_string_new_list(&up.python_path, optarg);
+		}
+		else {
+			for (j = 0; j < (int) g.gl_pathc; j++) {
+				uwsgi_string_new_list(&up.python_path, g.gl_pathv[j]);
+			}
+		}
 		return 1;
 	case LONG_ARGS_PYARGV:
 		up.argv = optarg;
