@@ -417,6 +417,11 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	if (PyDict_SetItemString(up.embedded_dict, "hostname", PyString_FromStringAndSize(uwsgi.hostname, uwsgi.hostname_len))) {
+		PyErr_Print();
+		exit(1);
+	}
+
 	if (uwsgi.mode) {
 		if (PyDict_SetItemString(up.embedded_dict, "mode", PyString_FromString(uwsgi.mode))) {
 			PyErr_Print();
