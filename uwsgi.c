@@ -1598,25 +1598,6 @@ int uwsgi_start(void *v_argv) {
 	}
 	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1);
 
-/*
-	for (i = 0; i < MAX_SOCKETS; i++) {
-		if (!uwsgi.map_socket[i])
-			continue;
-		char *p = strtok(uwsgi.map_socket[i], ",");
-		while (p != NULL) {
-			int w = atoi(p);
-			if (w < 1 || w > uwsgi.numproc) {
-				uwsgi_log("invalid worker num: %d\n", w);
-				exit(1);
-			}
-			uwsgi.workers[w].sockets_mask[i] = 1;
-			uwsgi_log("mapped socket %d (%s) to worker %d\n", i, uwsgi_sock->name, w);
-			p = strtok(NULL, ",");
-		}
-
-	}
-*/
-
 	uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid;
 
@@ -1835,32 +1816,66 @@ int uwsgi_start(void *v_argv) {
 		//from now on the process is a real worker
 	}
 
-/*
-	for (i = 0; i < uwsgi.sockets_cnt; i++) {
-		if (uwsgi.workers[uwsgi.mywid].sockets_mask[i]) {
-			// disable the socket for this worker
-#ifdef UWSGI_DEBUG
-			uwsgi_log("switching off socket %d (%d) on worker %d\n", i, uwsgi_sock->fd, uwsgi.mywid);
-#endif
+	uwsgi_sock = uwsgi.sockets;
+        while(uwsgi_sock) {
+                struct uwsgi_string_list *usl = uwsgi.map_socket;
+		int enabled = 1;
+                while(usl) {
+
+                        char *colon = strchr(usl->value, ':');
+                        if (uwsgi_str_num(usl->value, colon-usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
+				enabled = 0;
+                		char *p = strtok(colon+1, ",");
+                		while (p != NULL) {
+                        		int w = atoi(p);
+                        		if (w < 1 || w > uwsgi.numproc) {
+                                		uwsgi_log("invalid worker num: %d\n", w);
+                                		exit(1);
+                        		}
+					if (w == uwsgi.mywid) {
+						enabled = 1;
+						uwsgi_log("mapped socket %d (%s) to worker %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi.mywid);
+						break;
+					}
+                        		p = strtok(NULL, ",");
+                		}
+			}
+
+                        usl = usl->next;
+                }
+
+		if (!enabled) {
 			int fd = uwsgi_sock->fd;
 			close(fd);
-			fd = open("/dev/null", O_RDONLY);
-			if (fd < 0) {
-				uwsgi_error_open("/dev/null");
-				exit(1);
-			}
-			if (fd != uwsgi_sock->fd) {
-				if (dup2(fd, uwsgi_sock->fd)) {
-					uwsgi_error("dup2()");
-					exit(1);
-				}
-				close(fd);
-			}
-			uwsgi.sockets_poll[i].fd = -1;
-			uwsgi.sockets_poll[i].events = 0;
+                        fd = open("/dev/null", O_RDONLY);
+                        if (fd < 0) {
+                                uwsgi_error_open("/dev/null");
+                                exit(1);
+                        }
+                        if (fd != uwsgi_sock->fd) {
+                                if (dup2(fd, uwsgi_sock->fd)) {
+                                        uwsgi_error("dup2()");
+                                        exit(1);
+                                }
+                                close(fd);
+                        }
+			uwsgi_sock->disabled = 1;
+		}
+
+
+		uwsgi_sock = uwsgi_sock->next;
+
+        }
+
+	uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		if (uwsgi_sock->disabled) {
+			uwsgi_sock = uwsgi_del_socket(uwsgi_sock);
+		}
+		else {
+			uwsgi_sock = uwsgi_sock->next;
 		}
 	}
-*/
 
 	if (uwsgi.cpu_affinity) {
 #ifdef __linux__
@@ -2575,10 +2590,7 @@ static int manage_base_opt(int i, char *optarg) {
 			uwsgi_log("invalid map-socket syntax, must be socketnum:workerN[,workerN...]\n");
 			exit(1);
 		}
-		p[0] = 0;
-		int sn = atoi(optarg);
-		uwsgi.map_socket[sn] = p + 1;
-		p[0] = ':';
+		uwsgi_string_new_list(&uwsgi.map_socket, optarg);
 		return 1;
 	case LONG_ARGS_CHECK_INTERVAL:
 		uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = atoi(optarg);

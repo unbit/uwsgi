@@ -2022,3 +2022,52 @@ char *uwsgi_netstring(char *buf, size_t len, char **netstring, size_t *netstring
 
 	return NULL;
 }
+
+struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list, char *value) {
+
+	struct uwsgi_string_list *uwsgi_string = *list, *old_uwsgi_string;
+
+        if (!uwsgi_string) {
+                *list = uwsgi_malloc(sizeof(struct uwsgi_string_list));
+                uwsgi_string = *list;
+        }
+        else {
+                while(uwsgi_string) {
+                        old_uwsgi_string = uwsgi_string;
+                        uwsgi_string = uwsgi_string->next;
+                }
+
+                uwsgi_string = uwsgi_malloc(sizeof(struct uwsgi_string_list));
+                old_uwsgi_string->next = uwsgi_string;
+        }
+
+        uwsgi_string->value = value;
+	uwsgi_string->next = NULL;
+
+        return uwsgi_string;
+}
+
+
+void uwsgi_string_del_list(struct uwsgi_string_list **list, struct uwsgi_string_list *item) {
+
+	struct uwsgi_string_list *uwsgi_string = *list, *old_uwsgi_string = NULL;
+
+	while(uwsgi_string) {
+		if (uwsgi_string == item) {
+			// parent instance ?
+			if (old_uwsgi_string == NULL) {
+				*list = uwsgi_string->next;
+			}
+			else {
+				old_uwsgi_string->next = uwsgi_string->next;
+			}
+
+			free(uwsgi_string);
+			return;
+		}
+
+		old_uwsgi_string = uwsgi_string;
+		uwsgi_string = uwsgi_string->next;
+	}
+	
+}

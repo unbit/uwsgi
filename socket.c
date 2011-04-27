@@ -647,3 +647,31 @@ void uwsgi_close_all_sockets() {
 		uwsgi_sock = uwsgi_sock->next;
 	}
 }
+
+struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *uwsgi_sock) {
+
+        struct uwsgi_socket *uwsgi_current_sock = uwsgi.sockets, *old_sock = NULL;
+
+        while(uwsgi_current_sock) {
+                if (uwsgi_current_sock == uwsgi_sock) {
+                        // parent instance ?
+                        if (old_sock == NULL) {
+                                uwsgi.sockets = uwsgi_current_sock->next;
+                        	free(uwsgi_current_sock);
+                        	return uwsgi.sockets;
+                        }
+                        else {
+                                old_sock->next = uwsgi_current_sock->next;
+                        	free(uwsgi_current_sock);
+                        	return old_sock->next;
+                        }
+
+                }
+
+                old_sock = uwsgi_current_sock;
+                uwsgi_current_sock = uwsgi_current_sock->next;
+        }
+	
+	return NULL;
+}
+

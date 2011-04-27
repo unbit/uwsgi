@@ -242,6 +242,12 @@ struct uwsgi_static_map {
 	struct uwsgi_static_map *next;
 };
 
+struct uwsgi_string_list {
+
+	char *value;
+	struct uwsgi_string_list *next;
+};
+
 
 union uwsgi_sockaddr {
 	struct sockaddr     sa;
@@ -525,6 +531,8 @@ struct uwsgi_socket {
 	ssize_t		(*proto_sendfile)(struct wsgi_request *);
 	void		(*proto_close)(struct wsgi_request *);
 	int		edge_trigger;
+
+	int		disabled;
 
 	struct uwsgi_socket *next;
 };
@@ -1093,7 +1101,7 @@ struct uwsgi_server {
 	int             shared_sockets_cnt;
 	struct uwsgi_socket *shared_sockets;
 
-	char		**map_socket;
+	struct uwsgi_string_list *map_socket;
 
 	time_t          respawn_delta;
 
@@ -1358,8 +1366,6 @@ struct uwsgi_worker {
 	int             manage_next_request;
 
 	uint64_t	exceptions;
-
-	char		*sockets_mask;
 
 };
 
@@ -1903,5 +1909,10 @@ char *uwsgi_netstring(char *, size_t, char **, size_t *);
 
 int uwsgi_get_socket_num(struct uwsgi_socket *);
 struct uwsgi_socket *uwsgi_new_socket(char *);
+struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *);
 
 void uwsgi_close_all_sockets(void);
+
+struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, char *);
+
+void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list *);
