@@ -199,13 +199,13 @@ void *async_loop(void *arg1) {
 	int interesting_fd, i;
 	struct uwsgi_rb_timer *min_timeout;
 	int timeout;
-	int j;
 	int is_a_new_connection;
 	int proto_parser_status;
 
 	static struct uwsgi_async_request *current_request = NULL, *next_async_request = NULL;
 
 	void *events = event_queue_alloc(64);
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
 	uwsgi.async_runqueue = NULL;
 	uwsgi.async_runqueue_cnt = 0;
@@ -251,9 +251,10 @@ void *async_loop(void *arg1) {
 
 			// new request coming in ?
 
-			for(j=0;j<uwsgi.sockets_cnt;j++) {	
+			uwsgi_sock = uwsgi.sockets;
+			while(uwsgi_sock) {
 
-				if (interesting_fd == uwsgi.sockets[j].fd) {
+				if (interesting_fd == uwsgi_sock->fd) {
 
 					is_a_new_connection = 1;	
 
@@ -263,7 +264,7 @@ void *async_loop(void *arg1) {
 						break;;
 					}
 
-					wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id, j );
+					wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id, uwsgi_sock );
 					if (wsgi_req_simple_accept(uwsgi.wsgi_req, interesting_fd)) {
 #ifdef UWSGI_EVENT_USE_PORT
                                 		event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
@@ -280,7 +281,7 @@ void *async_loop(void *arg1) {
 #ifndef __linux__
 					if (uwsgi.numproc > 1) {
 	                                	/* re-set blocking socket */
-	                                	if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi.sockets[j].arg) < 0) {
+	                                	if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi_sock->arg) < 0) {
 	                                        	uwsgi_error("fcntl()");
 							uwsgi.async_queue_unused_ptr++;
 							uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;

@@ -628,9 +628,9 @@ void http_loop() {
 										uhttp_session->instance_address_len = uhttp_session->un->len;
 									}
 								}
-								else if (uwsgi.sockets_cnt > 0) {
-									uhttp_session->instance_address = uwsgi.sockets[0].name;
-									uhttp_session->instance_address_len = strlen(uwsgi.sockets[0].name);
+								else if (uwsgi.sockets) {
+									uhttp_session->instance_address = uwsgi.sockets->name;
+									uhttp_session->instance_address_len = strlen(uwsgi.sockets->name);
 								}
 
 								if (!uhttp_session->instance_address_len) {
@@ -868,10 +868,10 @@ int http_init() {
 
 		if (!uhttp.nevents) uhttp.nevents = 64;
 
-		if (!uhttp.base && !uhttp.use_cache && !uhttp.to && !uwsgi.sockets_cnt && !uhttp.subscription_server && !uhttp.use_cluster) {
-			uwsgi.sockets[0].name = uwsgi_malloc(64);
-			uwsgi.sockets_cnt++;
-			snprintf(uwsgi.sockets[0].name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
+		if (!uhttp.base && !uhttp.use_cache && !uhttp.to && !uwsgi.sockets && !uhttp.subscription_server && !uhttp.use_cluster) {
+			char *rand_name = uwsgi_malloc(64);
+			snprintf(rand_name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
+			uwsgi.sockets = uwsgi_new_socket(rand_name);
 		}
 
 		uhttp.server = bind_to_tcp(uhttp.socket_name, uwsgi.listen_queue, strchr(uhttp.socket_name,':'));

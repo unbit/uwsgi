@@ -505,7 +505,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 }
 
-void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, int socket_id) {
+void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
 	wsgi_req->poll.events = POLLIN;
 	wsgi_req->app_id = uwsgi.default_app;
@@ -525,8 +525,8 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, int socket_id) 
 		wsgi_req->post_buffering_buf = uwsgi.async_post_buf[wsgi_req->async_id];
 	}
 
-	if (socket_id > -1) {
-		wsgi_req->socket = &uwsgi.sockets[socket_id];
+	if (uwsgi_sock) {
+		wsgi_req->socket = uwsgi_sock;
 	}
 
 }
@@ -594,35 +594,18 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
 int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 
-	int i;
 	int ret;
+	int interesting_fd;
 	char uwsgi_signal;
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
-	/*
-	   if (uwsgi.edge_triggered) {
-	   for(i=0;i<uwsgi.sockets_cnt;i++) {
-	   if (uwsgi.sockets[i].edge_trigger) {
-	   uwsgi.sockets_poll[i].revents = POLLIN;
-	   }
-	   else {
-	   uwsgi.sockets_poll[i].revents = 0;
-	   }
-	   }
-	   goto edgetrigger;
-	   }
-	 */
-
-      polling:
-	uwsgi.edge_triggered = 1;
-	ret = poll(uwsgi.sockets_poll, uwsgi.sockets_cnt + uwsgi.master_process, uwsgi.edge_triggered - 1);
-
+	ret = event_queue_wait(uwsgi.main_queue, uwsgi.edge_triggered - 1, &interesting_fd);
 	if (ret < 0) {
-		uwsgi_error("poll()");
 		return -1;
 	}
 
-	if (uwsgi.master_process && uwsgi.sockets_poll[uwsgi.sockets_cnt].revents) {
-		if (read(uwsgi.sockets_poll[uwsgi.sockets_cnt].fd, &uwsgi_signal, 1) <= 0) {
+	if (uwsgi.signal_socket > -1 && interesting_fd == uwsgi.signal_socket) {
+		if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
 			if (uwsgi.no_orphans) {
 				uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
 				end_me(0);
@@ -637,33 +620,19 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 	}
 
 
-//edgetrigger:
-	for (i = 0; i < uwsgi.sockets_cnt; i++) {
-
-		if (uwsgi.sockets_poll[i].revents & POLLIN || (uwsgi.edge_triggered && uwsgi.sockets[i].edge_trigger)) {
-			int socket_id = i;
-			wsgi_req->socket = &uwsgi.sockets[socket_id];
-
-			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.sockets_poll[i].fd);
-
+	while(uwsgi_sock) {
+		if (interesting_fd == uwsgi_sock->fd || (uwsgi.edge_triggered && uwsgi_sock->edge_trigger)) {
+			wsgi_req->socket = uwsgi_sock;
+			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			if (wsgi_req->poll.fd < 0) {
-
-				return -1;
-				if (uwsgi.sockets[i].edge_trigger) {
-					return -1;
-				}
-				if (errno == EWOULDBLOCK) {
-					goto polling;
-				}
-				uwsgi_error("accept()");
 				return -1;
 			}
 
-			if (!uwsgi.sockets[socket_id].edge_trigger) {
+			if (!uwsgi_sock->edge_trigger) {
 // in Linux, new sockets do not inherit attributes
 #ifndef __linux__
 				/* re-set blocking socket */
-				int arg = uwsgi.sockets[i].arg;
+				int arg = uwsgi_sock->arg;
 				arg &= (~O_NONBLOCK);
 				if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
 					uwsgi_error("fcntl()");
@@ -677,9 +646,10 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 				}
 
 			}
-
 			return 0;
 		}
+
+		uwsgi_sock = uwsgi_sock->next;
 	}
 
 	return -1;
@@ -1419,9 +1389,28 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 	int body = 0;
 	char *magic_buf;
 
-	// http url ?
+	// stdin ?
+	if (!strcmp(url, "-")) {
+		char stack_buf[4096];
+		len = 1;
+		while(len > 0) {
+			len = read(0, stack_buf, 4096);
+			if (len > 0) {
+				*size += len;
+				buffer = realloc(buffer, *size);
+				memcpy(buffer+(*size-len), stack_buf, len);
+			}
+		}
 
-	if (!strncmp("http://", url, 7)) {
+		if (add_zero) {
+			*size = *size+1;
+			buffer = realloc(buffer, *size);
+			buffer[*size-1] = 0;
+		}
+
+	}
+	// http url ?
+	else if (!strncmp("http://", url, 7)) {
 		domain = url + 7;
 		uri = strchr(domain, '/');
 		if (!uri) {
@@ -1685,7 +1674,6 @@ int uwsgi_attach_daemon(char *command) {
 
 void spawn_daemon(struct uwsgi_daemon *ud) {
 
-	int i;
 	char *argv[64];
 	char *a;
 	int cnt = 1;
@@ -1716,8 +1704,10 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 	else {
 
 		// close uwsgi sockets
-		for (i = 0; i < uwsgi.sockets_cnt; i++) {
-			close(uwsgi.sockets[i].fd);
+		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+		while(uwsgi_sock) {
+			close(uwsgi_sock->fd);
+			uwsgi_sock = uwsgi_sock->next;
 		}
 		close(ud->pipe[0]);
 

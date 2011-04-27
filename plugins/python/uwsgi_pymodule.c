@@ -2177,7 +2177,6 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 
 	pid_t grunt_pid;
-	int i;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	if (uwsgi.grunt) {
@@ -2194,9 +2193,7 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 		goto clear;
 	}
 	else if (grunt_pid == 0) {
-		for (i = 0; i < uwsgi.sockets_cnt; i++) {
-			close(uwsgi.sockets[i].fd);
-		}
+		uwsgi_close_all_sockets();
 		// create a new session
 		setsid();
 		// exit on SIGPIPE

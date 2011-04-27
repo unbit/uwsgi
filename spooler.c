@@ -4,17 +4,17 @@
 extern struct uwsgi_server uwsgi;
 
 pid_t spooler_start() {
-	int i;
-	pid_t pid;
 
-	pid = fork();
+	pid_t pid = fork();
 	if (pid < 0) {
 		uwsgi_error("fork()");
 		exit(1);
 	}
 	else if (pid == 0) {
-		for (i = 0; i < uwsgi.sockets_cnt; i++) {
-			close(uwsgi.sockets[i].fd);
+		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+		while(uwsgi_sock) {
+			close(uwsgi_sock->fd);
+			uwsgi_sock = uwsgi_sock->next;
 		}
 		spooler();
 	}

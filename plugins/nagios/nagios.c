@@ -22,11 +22,11 @@ int nagios() {
 	if (!use_nagios) {
 		return 1;
 	}
-	if (uwsgi.sockets[0].name == NULL) {
+	if (!uwsgi.sockets) {
 		fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
 		exit(3);
 	}
-	tcp_port = strchr(uwsgi.sockets[0].name, ':');
+	tcp_port = strchr(uwsgi.sockets->name, ':');
 	if (tcp_port == NULL) {
 		fprintf(stdout, "UWSGI UNKNOWN: you have specified an invalid socket\n");
 		exit(3);
@@ -34,7 +34,7 @@ int nagios() {
 
 	tcp_port[0] = 0;
 
-	nagios_poll.fd = connect_to_tcp(uwsgi.sockets[0].name, atoi(tcp_port + 1), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+	nagios_poll.fd = connect_to_tcp(uwsgi.sockets->name, atoi(tcp_port + 1), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (nagios_poll.fd < 0) {
 		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers\n");
 		exit(2);

@@ -15,7 +15,6 @@
 
 #define ushared uwsgi.shared
 
-#define MAX_SOCKETS 8
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
@@ -526,6 +525,8 @@ struct uwsgi_socket {
 	ssize_t		(*proto_sendfile)(struct wsgi_request *);
 	void		(*proto_close)(struct wsgi_request *);
 	int		edge_trigger;
+
+	struct uwsgi_socket *next;
 };
 
 struct uwsgi_server;
@@ -971,6 +972,8 @@ struct uwsgi_server {
 
 	int harakiri_verbose;
 
+	int		main_queue;
+
 	int             numproc;
 	int             async;
 	int             async_running;
@@ -1069,13 +1072,13 @@ struct uwsgi_server {
 	
 	char *protocol;
 
-	int             sockets_cnt;
+	int		signal_socket;
 
 #ifdef UWSGI_ZEROMQ
 	char *zeromq;
 	char *zmq_receiver;
 	char *zmq_responder;
-	int zmq_socket;
+	struct uwsgi_socket *zmq_socket;
 	void *zmq_context;
 	//void *zmq_pull;
 	void *zmq_pub;
@@ -1084,14 +1087,13 @@ struct uwsgi_server {
 	pthread_key_t zmq_pull;
 	void *zmq_log_socket;
 #endif
-	struct uwsgi_socket sockets[MAX_SOCKETS];
+	struct uwsgi_socket *sockets;
 	// leave a slot for no-orphan mode
-	struct pollfd   sockets_poll[9];
 
 	int             shared_sockets_cnt;
-	struct uwsgi_socket shared_sockets[MAX_SOCKETS];
+	struct uwsgi_socket *shared_sockets;
 
-	char		*map_socket[MAX_SOCKETS];
+	char		**map_socket;
 
 	time_t          respawn_delta;
 
@@ -1357,7 +1359,7 @@ struct uwsgi_worker {
 
 	uint64_t	exceptions;
 
-	char		sockets_mask[MAX_SOCKETS];
+	char		*sockets_mask;
 
 };
 
@@ -1472,7 +1474,7 @@ void            nagios(void);
 
 void            uwsgi_close_request(struct wsgi_request *);
 
-void            wsgi_req_setup(struct wsgi_request *, int, int);
+void            wsgi_req_setup(struct wsgi_request *, int, struct uwsgi_socket *);
 int             wsgi_req_recv(struct wsgi_request *);
 int             wsgi_req_async_recv(struct wsgi_request *);
 int             wsgi_req_accept(struct wsgi_request *);
@@ -1892,9 +1894,14 @@ int uwsgi_proto_zeromq_parser(struct wsgi_request *);
 int uwsgi_num2str2(int, char *);
 
 
-void uwsgi_add_socket_from_fd(int, int);
+void uwsgi_add_socket_from_fd(struct uwsgi_socket *, int);
 
 
 char *uwsgi_split3(char *, size_t, char, char **, size_t *, char **, size_t *, char **, size_t *);
 char *uwsgi_split4(char *, size_t, char, char **, size_t *, char **, size_t *, char **, size_t *, char **, size_t *);
 char *uwsgi_netstring(char *, size_t, char **, size_t *);
+
+int uwsgi_get_socket_num(struct uwsgi_socket *);
+struct uwsgi_socket *uwsgi_new_socket(char *);
+
+void uwsgi_close_all_sockets(void);

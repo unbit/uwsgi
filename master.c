@@ -65,10 +65,10 @@ void uwsgi_subscribe(char *subscription) {
         memcpy(ssb, "address", ustrlen);
         ssb+=ustrlen;
 
-        ustrlen = strlen(uwsgi.sockets[0].name);
+        ustrlen = strlen(uwsgi.sockets->name);
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, uwsgi.sockets[0].name, ustrlen);
+        memcpy(ssb, uwsgi.sockets->name, ustrlen);
         ssb+=ustrlen;
 
         send_udp_message(224, udp_address, subscrbuf, ssb-subscrbuf);
@@ -168,7 +168,7 @@ void master_loop(char **argv, char **environ) {
 	int snmp_fd = -1;
 #endif
 
-	int i=0,j;
+	int i=0;
 	int rlen;
 
 	int check_interval = 1;
@@ -422,12 +422,14 @@ void master_loop(char **argv, char **environ) {
 			uwsgi_log( "closing all non-uwsgi socket fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
 			for (i = 3; i < sysconf(_SC_OPEN_MAX); i++) {
 				int found = 0;
-				for(j=0;j<uwsgi.sockets_cnt;j++) {
-					if (i == uwsgi.sockets[j].fd) {
-						uwsgi_log("found fd %d mapped to socket %d (%s)\n", i, j, uwsgi.sockets[j].name);
+				struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                		while(uwsgi_sock) {
+					if (i == uwsgi_sock->fd) {
+						uwsgi_log("found fd %d mapped to socket %d (%s)\n", i, uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 						found = 1;
 						break;
 					}
+					uwsgi_sock = uwsgi_sock->next;
 				}
 
 				if (!found) {
@@ -879,9 +881,12 @@ void master_loop(char **argv, char **environ) {
 
 
 #ifdef __linux__
-			for(i=0;i<uwsgi.sockets_cnt;i++) {
-				if (uwsgi.sockets[i].family != AF_INET) continue;
-				get_linux_tcp_info(uwsgi.sockets[i].fd);
+			struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                	while(uwsgi_sock) {
+				if (uwsgi_sock->family == AF_INET) {
+					get_linux_tcp_info(uwsgi_sock->fd);
+				}
+				uwsgi_sock = uwsgi_sock->next;
 			}
 #endif
 

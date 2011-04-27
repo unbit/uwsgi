@@ -536,7 +536,47 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 
 }
 
-void uwsgi_add_socket_from_fd(int j, int i) {
+int uwsgi_get_socket_num(struct uwsgi_socket *uwsgi_sock) {
+
+	int count = 0;
+	struct uwsgi_socket *current_sock = uwsgi.sockets;
+
+	while(current_sock) {
+		if (uwsgi_sock == current_sock) {
+			return count;
+		}
+		count++;
+		current_sock = current_sock->next;
+	}
+
+	return -1;
+}
+
+struct uwsgi_socket *uwsgi_new_socket(char *name) {
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets, *old_uwsgi_sock;
+
+	if (!uwsgi_sock) {
+		uwsgi.sockets = uwsgi_malloc(sizeof(struct uwsgi_socket));
+		uwsgi_sock = uwsgi.sockets;
+	}
+	else {
+		while(uwsgi_sock) {
+			old_uwsgi_sock = uwsgi_sock;
+			uwsgi_sock = uwsgi_sock->next;
+		}
+
+		uwsgi_sock = uwsgi_malloc(sizeof(struct uwsgi_socket));
+		old_uwsgi_sock->next = uwsgi_sock;
+	}
+
+	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket)); 
+	uwsgi_sock->name = name;
+	
+	return uwsgi_sock;
+}
+
+void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 
 	socklen_t socket_type_len;
 	union uwsgi_sockaddr_ptr gsa, isa;
@@ -544,19 +584,17 @@ void uwsgi_add_socket_from_fd(int j, int i) {
 
 	socket_type_len = sizeof(struct sockaddr_un);
 	gsa.sa = &usa.sa;
-	if (!getsockname(j, gsa.sa, &socket_type_len)) {
+	if (!getsockname(fd, gsa.sa, &socket_type_len)) {
 		if (socket_type_len <= 2) {
 			// unbound socket
 			return;
 		}
 		if (gsa.sa->sa_family == AF_UNIX) {
-			if (!strcmp(usa.sa_un.sun_path, uwsgi.sockets[i].name)) {
-				uwsgi.sockets[i].fd = j;
-				uwsgi.sockets[i].family = AF_UNIX;
-				uwsgi.sockets[i].bound = 1;
-				uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
-				uwsgi.sockets_poll[i].events = POLLIN;
-				uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
+			if (!strcmp(usa.sa_un.sun_path, uwsgi_sock->name)) {
+				uwsgi_sock->fd = fd;
+				uwsgi_sock->family = AF_UNIX;
+				uwsgi_sock->bound = 1;
+				uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 			}
 		}
 		else if (gsa.sa->sa_family == AF_INET) {
@@ -577,23 +615,21 @@ void uwsgi_add_socket_from_fd(int j, int i) {
 					else {
 						computed_addr = uwsgi_concat3(ipv4a, ":", computed_port);
 					}
-					char *asterisk = strchr(uwsgi.sockets[i].name, '*');
+					char *asterisk = strchr(uwsgi_sock->name, '*');
 					int match = 1;
 					if (asterisk) {
 						asterisk[0] = 0;
-						match = strncmp(computed_addr, uwsgi.sockets[i].name, strlen(uwsgi.sockets[i].name));
+						match = strncmp(computed_addr, uwsgi_sock->name, strlen(uwsgi_sock->name));
 						asterisk[0] = '*';
 					}
 					else {
-						match = strcmp(computed_addr, uwsgi.sockets[i].name);
+						match = strcmp(computed_addr, uwsgi_sock->name);
 					}
 					if (!match) {
-						uwsgi.sockets[i].fd = j;
-						uwsgi.sockets[i].family = AF_INET;
-						uwsgi.sockets[i].bound = 1;
-						uwsgi.sockets_poll[i].fd = uwsgi.sockets[i].fd;
-						uwsgi.sockets_poll[i].events = POLLIN;
-						uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", i, uwsgi.sockets[i].name, uwsgi.sockets[i].fd);
+						uwsgi_sock->fd = fd;
+						uwsgi_sock->family = AF_INET;
+						uwsgi_sock->bound = 1;
+						uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 					}
 					free(computed_addr);
 				}
@@ -601,4 +637,13 @@ void uwsgi_add_socket_from_fd(int j, int i) {
 		}
 	}
 
+}
+
+void uwsgi_close_all_sockets() {
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+
+	while(uwsgi_sock) {
+		close(uwsgi_sock->fd);
+		uwsgi_sock = uwsgi_sock->next;
+	}
 }

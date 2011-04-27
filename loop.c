@@ -63,13 +63,25 @@ void *simple_loop(void *arg1) {
 	}
 #endif
 
+	// initialize the main event queue to monitor sockets
+	uwsgi.main_queue = event_queue_init();
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		event_queue_add_fd_read(uwsgi.main_queue, uwsgi_sock->fd);
+		uwsgi_sock = uwsgi_sock->next;
+	}
+
+	if (uwsgi.signal_socket > -1) {
+		event_queue_add_fd_read(uwsgi.main_queue, uwsgi.signal_socket);
+	}
+
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
 		UWSGI_CLEAR_STATUS;
 
-
-		wsgi_req_setup(wsgi_req, core_id, -1);
+		wsgi_req_setup(wsgi_req, core_id, NULL);
 
 		if (wsgi_req_accept(wsgi_req)) {
 			continue;
@@ -99,6 +111,8 @@ void *zeromq_loop(void *arg1) {
 
 	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
 	uwsgi.zeromq_recv_flag = 0;
+	zmq_pollitem_t zmq_poll_items[2];
+	char uwsgi_signal;
 
 	if (uwsgi.threads > 1) {
 
@@ -131,17 +145,57 @@ void *zeromq_loop(void *arg1) {
 	}
 
 
+	if (uwsgi.signal_socket > -1) {
+		zmq_poll_items[0].socket = pthread_getspecific(uwsgi.zmq_pull);
+		zmq_poll_items[0].fd = -1;
+		zmq_poll_items[0].events = ZMQ_POLLIN;
+
+		zmq_poll_items[1].socket = NULL;
+		zmq_poll_items[1].fd = uwsgi.signal_socket;
+		zmq_poll_items[1].events = ZMQ_POLLIN;
+	}
+
+
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 
 		UWSGI_CLEAR_STATUS;
 
-		wsgi_req_setup(wsgi_req, core_id, -1);
+		wsgi_req_setup(wsgi_req, core_id, NULL);
 
 		uwsgi.edge_triggered = 1;
-		int socket_id = uwsgi.zmq_socket;
-		wsgi_req->socket = &uwsgi.sockets[socket_id];
-		wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.sockets[socket_id].fd);
+		wsgi_req->socket = uwsgi.zmq_socket;
+
+
+		if (uwsgi.signal_socket > -1) {
+			if (zmq_poll(zmq_poll_items, 2, -1) < 0) {
+				uwsgi_error("zmq_poll()");
+				continue;
+			}
+
+			if (zmq_poll_items[1].revents & ZMQ_POLLIN) {
+                		if (read(uwsgi.signal_socket, &uwsgi_signal, 1) <= 0) {
+                        		if (uwsgi.no_orphans) {
+                                		uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
+                                		end_me(0);
+                        		}
+                		}
+                		else {
+                        		uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
+                        		if (uwsgi_signal_handler(uwsgi_signal)) {
+                                		uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
+                        		}
+                		}
+				continue;
+			}
+
+			if (zmq_poll_items[0].revents & ZMQ_POLLIN) {
+				wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.zmq_socket->fd);
+			}
+		}
+		else {
+			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.zmq_socket->fd);
+		}
 
 		if (wsgi_req->poll.fd >= 0) {
 			wsgi_req_recv(wsgi_req);
