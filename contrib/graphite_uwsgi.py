@@ -20,7 +20,7 @@ def update_carbon(signum):
     carbon_fd = uwsgi.connect(CARBON_SERVER)
     # send data to the carbon server
     uwsgi.send(carbon_fd, "uwsgi.%s.requests %d %d\n" % (uwsgi.hostname, uwsgi.total_requests(), int(time.time())))
-    # close the connection wit hthe carbon server
+    # close the connection with the carbon server
     uwsgi.close(carbon_fd)
 
 # register a new uwsgi signal (signum: 17)
