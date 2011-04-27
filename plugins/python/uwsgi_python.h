@@ -3,7 +3,6 @@
 
 #include <frameobject.h>
 
-#define MAX_PYTHONPATH 64
 #define MAX_PYMODULE_ALIAS 64
 #define MAX_PYARGV 10
 
@@ -91,8 +90,7 @@ struct uwsgi_python {
 
 	char *test_module;
 
-	char *python_path[MAX_PYTHONPATH];
-	int python_path_cnt;
+	struct uwsgi_string_list *python_path;
 
 	PyObject *loader_dict;
 	PyObject* (*loaders[LOADER_MAX]) (void *);

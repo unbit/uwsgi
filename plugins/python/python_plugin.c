@@ -324,13 +324,16 @@ void init_uwsgi_vars() {
 		PyErr_Print();
 	}
 
-	for (i = 0; i < up.python_path_cnt; i++) {
-		if (PyList_Insert(pypath, 0, UWSGI_PYFROMSTRING(up.python_path[i])) != 0) {
+	struct uwsgi_string_list *uppp = up.python_path;
+	while(uppp) {
+		if (PyList_Insert(pypath, 0, UWSGI_PYFROMSTRING(uppp->value)) != 0) {
 			PyErr_Print();
 		}
 		else {
-			uwsgi_log("added %s to pythonpath.\n", up.python_path[i]);
+			uwsgi_log("added %s to pythonpath.\n", uppp->value);
 		}
+
+		uppp = uppp->next;
 	}
 
 	for (i = 0; i < up.pymodule_alias_cnt; i++) {
@@ -679,13 +682,7 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 		}
 		return 1;
 	case LONG_ARGS_PYTHONPATH:
-		if (up.python_path_cnt < MAX_PYTHONPATH) {
-			up.python_path[up.python_path_cnt] = optarg;
-			up.python_path_cnt++;
-		}
-		else {
-			uwsgi_log("you can specify at most %d --pythonpath options\n", MAX_PYTHONPATH);
-		}
+		uwsgi_string_new_list(&up.python_path, optarg);
 		return 1;
 	case LONG_ARGS_PYARGV:
 		up.argv = optarg;
