@@ -382,7 +382,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	SV *pi = SvREFCNT_inc(POPs);
 	if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
-	if (!hv_store(env, "psgix.io", 8, pi, 0)) goto clear;
+	if (!hv_store(env, "psgix.io", 8, SvREFCNT_inc(pi), 0)) goto clear;
 
 	if (!hv_store(env, "psgix.input.buffered", 20, &PL_sv_no, 0)) goto clear;
 
@@ -413,10 +413,11 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	PUTBACK;
 
 
-	perl_call_sv(psgi_func, G_SCALAR);
+	perl_call_sv(psgi_func, G_SCALAR | G_EVAL);
 
 	
 	if(SvTRUE(ERRSV)) {
+		internal_server_error(wsgi_req, "exception raised");
 		uwsgi_log("%s\n", SvPV_nolen(ERRSV));
 		goto clear;
 	}
@@ -434,9 +435,10 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
         	XPUSHs( newRV((SV*) uperl.stream_responder));
         	PUTBACK;
 
-        	perl_call_sv( (SV*)response, G_SCALAR);
+        	perl_call_sv( (SV*)response, G_SCALAR | G_EVAL);
 
 		if(SvTRUE(ERRSV)) {
+			internal_server_error(wsgi_req, "exception raised");
 			uwsgi_log("%s\n", SvPV_nolen(ERRSV));
 		}
 

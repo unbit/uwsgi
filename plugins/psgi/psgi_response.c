@@ -132,16 +132,17 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
 		return 1;
 	}
 	
-        if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV) {
+        if (SvTYPE(SvRV(*hitem)) == SVt_PVGV || SvTYPE(SvRV(*hitem)) == SVt_PVHV || SvTYPE(SvRV(*hitem)) == SVt_PVMG) {
 
                 for(;;) {
                         PUSHMARK(SP);
                         XPUSHs(*hitem);
                         PUTBACK;
-                        perl_call_method("getline", G_SCALAR);
+                        perl_call_method("getline", G_SCALAR | G_EVAL);
                         SPAGAIN;
 
                         if(SvTRUE(ERRSV)) {
+				internal_server_error(wsgi_req, "exception raised");
                                 uwsgi_log("%s\n", SvPV_nolen(ERRSV));
                                 break;
                         }
@@ -153,6 +154,12 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
                         }
                         wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, chitem, hlen);
                 }
+
+		PUSHMARK(SP);
+                XPUSHs(*hitem);
+                PUTBACK;
+                perl_call_method("close", G_SCALAR | G_EVAL);
+                SPAGAIN;
 
 
         }

@@ -1405,7 +1405,7 @@ void            stats(int);
 void            uwsgi_xml_config(char *, struct wsgi_request *, int, char *[]);
 #endif
 
-void            internal_server_error(int, char *);
+void            internal_server_error(struct wsgi_request *, char *);
 
 #ifdef UWSGI_SNMP
 void            manage_snmp(int, uint8_t *, int, struct sockaddr_in *);

@@ -339,7 +339,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			wsgi_req->app_id = uwsgi.default_app;
 		}
 		else {
-			internal_server_error(wsgi_req->poll.fd, "wsgi application not found");
+			internal_server_error(wsgi_req, "wsgi application not found");
 			goto clear2;
 		}
 
@@ -361,14 +361,14 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (wsgi_req->protocol_len < 5) {
 		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
-		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
+		internal_server_error(wsgi_req, "invalid HTTP protocol !!!");
 		goto clear;
 
 	}
 
 	if (strncmp(wsgi_req->protocol, "HTTP/", 5)) {
 		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
-		internal_server_error(wsgi_req->poll.fd, "invalid HTTP protocol !!!");
+		internal_server_error(wsgi_req, "invalid HTTP protocol !!!");
 		goto clear;
 	}
 
