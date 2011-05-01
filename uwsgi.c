@@ -164,6 +164,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"master-as-root", no_argument, &uwsgi.master_as_root, 1},
 	{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 	{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
+	{"lazy", no_argument, &uwsgi.lazy, 1},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 	{"grunt", no_argument, &uwsgi.grunt, 1},
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
@@ -1672,50 +1673,9 @@ int uwsgi_start(void *v_argv) {
 
 	uwsgi_rawlog(" ***\n");
 
-	//init apps hook
-	for (i = 0; i < 0xFF; i++) {
-		if (uwsgi.p[i]->init_apps) {
-			uwsgi.p[i]->init_apps();
-		}
-	}
-
-	for (i = 0; i < uwsgi.gp_cnt; i++) {
-		if (uwsgi.gp[i]->init_apps) {
-			uwsgi.gp[i]->init_apps();
-		}
-	}
-
-	/*parse xml for <app> tags */
-#ifdef UWSGI_XML
-	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 1, NULL);
-	}
-#endif
-
-	for (i = 0; i < uwsgi.mounts_cnt; i++) {
-		char *what = strchr(uwsgi.mounts[i], '=');
-		if (what) {
-			what[0] = 0;
-			what++;
-			uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
-			for (j = 0; j < 0xFF; j++) {
-				if (uwsgi.p[j]->mount_app) {
-					if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what) != -1)
-						break;
-				}
-			}
-			what--;
-			what[0] = '=';
-		}
-		else {
-			uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
-			exit(1);
-		}
-	}
-
-	// no app initialized and virtualhosting enabled
-	if (uwsgi.apps_cnt == 0 && uwsgi.vhost) {
-		uwsgi.apps_cnt = 1;
+	//init apps hook (if not lazy)
+	if (!uwsgi.lazy) {
+		uwsgi_init_all_apps();
 	}
 
 	if (uwsgi.no_server) {
@@ -1925,6 +1885,10 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.master_as_root) {
 		uwsgi_as_root();
+	}
+
+	if (uwsgi.lazy) {
+		uwsgi_init_all_apps();
 	}
 
 	for (i = 0; i < 0xFF; i++) {
@@ -3545,4 +3509,55 @@ void uwsgi_help(void) {
 	}
 
 	exit(0);
+}
+
+void uwsgi_init_all_apps() {
+
+	int i, j;
+
+	for (i = 0; i < 0xFF; i++) {
+                if (uwsgi.p[i]->init_apps) {
+                        uwsgi.p[i]->init_apps();
+                }
+        }
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->init_apps) {
+                        uwsgi.gp[i]->init_apps();
+                }
+        }
+
+        /*parse xml for <app> tags */
+#ifdef UWSGI_XML
+        if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
+                uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 1, NULL);
+        }
+#endif
+
+        for (i = 0; i < uwsgi.mounts_cnt; i++) {
+                char *what = strchr(uwsgi.mounts[i], '=');
+                if (what) {
+                        what[0] = 0;
+                        what++;
+                        uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
+                        for (j = 0; j < 0xFF; j++) {
+                                if (uwsgi.p[j]->mount_app) {
+                                        if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what) != -1)
+                                                break;
+                                }
+                        }
+                        what--;
+                        what[0] = '=';
+                }
+                else {
+                        uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
+                        exit(1);
+                }
+        }
+
+        // no app initialized and virtualhosting enabled
+        if (uwsgi.apps_cnt == 0 && uwsgi.vhost) {
+                uwsgi.apps_cnt = 1;
+        }
+
 }

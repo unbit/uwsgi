@@ -138,6 +138,7 @@ int uwsgi_perl_init(){
 	perl_parse(uperl.main, xs_init, 4, embedding, NULL);
 
 	perl_eval_pv("use IO::Handle;", 0);
+	perl_eval_pv("use IO::File;", 0);
 
 	return 1;
 

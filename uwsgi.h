@@ -840,6 +840,8 @@ struct uwsgi_server {
 	unsigned int reloads;
 	int master_as_root;
 
+	int		lazy;
+
 	int		has_emperor;
 	int emperor_fd;
 	int emperor_fd_config;
@@ -1917,3 +1919,4 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, cha
 
 void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list *);
 
+void uwsgi_init_all_apps(void);
