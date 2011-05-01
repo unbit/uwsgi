@@ -531,6 +531,7 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 
 }
 
+#ifdef UWSGI_ASYNC
 int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	UWSGI_SET_IN_REQUEST;
@@ -553,6 +554,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	return 0;
 }
+#endif
 
 int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 

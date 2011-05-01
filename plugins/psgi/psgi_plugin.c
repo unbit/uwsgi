@@ -302,8 +302,60 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		i++;
 	}
 
+	// psgi.version
+	AV *av = newAV();
+	av_store( av, 0, newSViv(1));
+	av_store( av, 1, newSViv(1));
+	if (!hv_store(env, "psgi.version", 12, newRV((SV *)av ), 0)) goto clear;
+	
+	if (uwsgi.numproc > 1) {
+		if (!hv_store(env, "psgi.multiprocess", 17, &PL_sv_yes, 0)) goto clear;
+	}
+	else {
+		if (!hv_store(env, "psgi.multiprocess", 17, &PL_sv_no, 0)) goto clear;
+	}
 
-	SV *us = newSVpv("http", 4);
+	if (uwsgi.threads > 1) {
+		if (!hv_store(env, "psgi.multithread", 16, &PL_sv_yes, 0)) goto clear;
+	}
+	else {
+		if (!hv_store(env, "psgi.multithread", 16, &PL_sv_no, 0)) goto clear;
+	}
+
+	if (!hv_store(env, "psgi.run_once", 13, &PL_sv_no, 0)) goto clear;
+
+#ifdef UWSGI_ASYNC
+	if (uwsgi.async > 1) {
+		if (!hv_store(env, "psgi.nonblocking", 16, &PL_sv_yes, 0)) goto clear;
+	}
+	else {
+#else
+		if (!hv_store(env, "psgi.nonblocking", 16, &PL_sv_no, 0)) goto clear;
+#endif
+
+#ifdef UWSGI_ASYNC
+	}
+#endif
+
+	if (!hv_store(env, "psgi.streaming", 14, &PL_sv_yes, 0)) goto clear;
+
+	SV *us;
+	// psgi.url_scheme, honour HTTPS var or UWSGI_SCHEME
+	if (wsgi_req->scheme_len > 0) {
+		us = newSVpv(wsgi_req->scheme, wsgi_req->scheme_len);
+	}
+	else if (wsgi_req->https_len > 0) {
+		if (!strncasecmp(wsgi_req->https, "on", 2) || wsgi_req->https[0] == '1') {
+			us = newSVpv("https", 5);
+		}
+		else {
+			us = newSVpv("http", 4);
+		}
+	}
+	else {
+		us = newSVpv("http", 4);
+	}
+
 	if (!hv_store(env, "psgi.url_scheme", 15, us, 0)) goto clear;
 
 
@@ -330,6 +382,9 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	SV *pi = SvREFCNT_inc(POPs);
 	if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
+	if (!hv_store(env, "psgix.io", 8, pi, 0)) goto clear;
+
+	if (!hv_store(env, "psgix.input.buffered", 20, &PL_sv_no, 0)) goto clear;
 
 
 	PUSHMARK(SP);
@@ -349,6 +404,8 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	SV *pe = SvREFCNT_inc(POPs);
 	if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
+
+	
 
 
 	PUSHMARK(SP);

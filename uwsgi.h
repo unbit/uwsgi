@@ -1916,3 +1916,4 @@ void uwsgi_close_all_sockets(void);
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, char *);
 
 void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list *);
+
