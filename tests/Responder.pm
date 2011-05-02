@@ -29,6 +29,14 @@ sub getline {
 		$self->{_counter}++;
 		return "connected to http://projects.unbit.it<br/>";
 	}
+	elsif ($self->{_counter} == 7) {
+		$self->{_counter}++;
+		print "suspending the app...\n";
+		uwsgi::async_sleep(3);
+		uwsgi::suspend();
+		print "resumed the app\n";
+		return "Suspended and Resumed the app<br/>";
+	}
 	elsif ($self->{_counter} % 2 == 0) {
 		$self->{_counter}++;
 		print "sleeping...\n";

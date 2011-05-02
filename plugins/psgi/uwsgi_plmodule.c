@@ -182,6 +182,19 @@ XS(XS_call) {
 }
 
 
+XS(XS_suspend) {
+
+	dXSARGS;
+	psgi_check_args(0);
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	wsgi_req->async_force_again = 0;
+
+        if (uwsgi.schedule_to_main) uwsgi.schedule_to_main(wsgi_req);
+
+	XSRETURN_UNDEF;
+}
 
 void init_perl_embedded_module() {
 	psgi_xs(reload);
@@ -193,5 +206,6 @@ void init_perl_embedded_module() {
 	psgi_xs(async_sleep);
 	psgi_xs(log);
 	psgi_xs(async_connect);
+	psgi_xs(suspend);
 }
 
