@@ -158,6 +158,9 @@ void uwsgi_psgi_app() {
 		SV *dollar_zero = get_sv("0", GV_ADD);
 		sv_setpv(dollar_zero, uperl.psgi);
 
+		SV *dollar_slash = get_sv("/", GV_ADD);
+		sv_setsv(dollar_slash, newRV_inc(newSViv(uwsgi.buffer_size)));
+
 		uperl.fd = open(uperl.psgi, O_RDONLY);
 		if (uperl.fd < 0) {
 			uwsgi_error_open(uperl.psgi);
