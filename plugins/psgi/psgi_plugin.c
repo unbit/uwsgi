@@ -8,6 +8,7 @@ struct uwsgi_perl uperl;
 struct option uwsgi_perl_options[] = {
 
         {"psgi", required_argument, 0, LONG_ARGS_PSGI},
+        {"perl-local-lib", required_argument, 0, LONG_ARGS_PERL_LOCAL_LIB},
         {0, 0, 0, 0},
 
 };
@@ -142,6 +143,12 @@ int uwsgi_perl_init(){
 	PL_origalen = 1;
 	perl_parse(uperl.main, xs_init, 4, embedding, NULL);
 
+	if (uperl.locallib) {
+		char *ll = uwsgi_concat3("use local::lib '", uperl.locallib, "' ;");
+		uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
+		perl_eval_pv(ll, 0);
+		free(ll);	
+	}
 	perl_eval_pv("use IO::Handle;", 0);
 	perl_eval_pv("use IO::File;", 0);
 
@@ -535,6 +542,9 @@ int uwsgi_perl_manage_options(int i, char *optarg) {
         switch(i) {
                 case LONG_ARGS_PSGI:
                         uperl.psgi = optarg;
+                        return 1;
+                case LONG_ARGS_PERL_LOCAL_LIB:
+                        uperl.locallib = optarg;
                         return 1;
         }
 
