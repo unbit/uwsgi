@@ -282,13 +282,16 @@ char *uwsgi_get_cwd() {
 }
 
 void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
-	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-		uwsgi.wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
+
+	if (uwsgi.wsgi_req->headers_size == 0) {
+		if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
+			uwsgi.wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
+		}
+		else {
+			uwsgi.wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
+		}
+		uwsgi.wsgi_req->header_cnt = 2;
 	}
-	else {
-		uwsgi.wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, "Status: 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 62);
-	}
-	uwsgi.wsgi_req->header_cnt = 2;
 
 	uwsgi.wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "<h1>uWSGI Error</h1>", 20);
 	uwsgi.wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, message, strlen(message));
@@ -545,6 +548,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 		async_add_timeout(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		uwsgi.async_proto_fd_table[wsgi_req->poll.fd] = wsgi_req;
 	}
+
 
 
 	// enter harakiri mode

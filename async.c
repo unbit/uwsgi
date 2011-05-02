@@ -302,6 +302,8 @@ void *async_loop(void *arg1) {
 
 					break;
 				}
+
+				uwsgi_sock = uwsgi_sock->next;
 			}
 
 			if (!is_a_new_connection) {

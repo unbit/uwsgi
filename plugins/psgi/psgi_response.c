@@ -1,5 +1,7 @@
 #include "psgi.h"
 
+extern struct uwsgi_server uwsgi;
+
 /* statistically ordered */
 struct http_status_codes hsc[] = {
         {"200", "OK"},
@@ -56,6 +58,48 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
 	int i,vi, base;
 	char *chitem;
 	dSP;
+
+#ifdef UWSGI_ASYNC
+	if (wsgi_req->async_status == UWSGI_AGAIN) {
+
+		wsgi_req->async_force_again = 0;
+
+		PUSHMARK(SP);
+                XPUSHs(wsgi_req->async_placeholder);
+                PUTBACK;
+                perl_call_method("getline", G_SCALAR | G_EVAL);
+		SPAGAIN;
+
+                if(SvTRUE(ERRSV)) {
+                        internal_server_error(wsgi_req, "exception raised");
+                        uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+                	return UWSGI_OK; 
+                }
+
+                SV *chunk = POPs;
+                chitem = SvPV( chunk, hlen);
+
+		if (wsgi_req->async_force_again) {
+			return UWSGI_AGAIN;
+		}
+
+                if (hlen <= 0) {
+			PUSHMARK(SP);
+                	XPUSHs(wsgi_req->async_placeholder);
+                	PUTBACK;
+                	perl_call_method("close", G_SCALAR | G_EVAL);
+                	SPAGAIN;
+			SvREFCNT_dec(wsgi_req->async_placeholder);
+                	if(SvTRUE(ERRSV)) {
+                        	uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+                	}
+			return UWSGI_OK;
+                }
+
+                wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, chitem, hlen);
+		return UWSGI_AGAIN;
+	}
+#endif
 
 	status_code = av_fetch(response, 0, 0);
 
@@ -149,10 +193,25 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
 
                         SV *chunk = POPs;
                         chitem = SvPV( chunk, hlen);
+
+#ifdef UWSGI_ASYNC
+			if (uwsgi.async > 1 && wsgi_req->async_force_again) {
+				wsgi_req->async_status = UWSGI_AGAIN;
+				wsgi_req->async_placeholder = SvREFCNT_inc((SV *) *hitem);
+				return UWSGI_AGAIN;
+			}
+#endif
                         if (hlen <= 0) {
                                 break;
                         }
                         wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, chitem, hlen);
+#ifdef UWSGI_ASYNC
+			if (uwsgi.async > 1) {
+				wsgi_req->async_status = UWSGI_AGAIN;
+				wsgi_req->async_placeholder = SvREFCNT_inc((SV *) *hitem);
+				return UWSGI_AGAIN;
+			}
+#endif
                 }
 
 		PUSHMARK(SP);
@@ -178,6 +237,6 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
                 uwsgi_log("unsupported response body type: %d\n", SvTYPE(SvRV(*hitem)));
         }
 	
-	return 1;
+	return UWSGI_OK;
 
 }

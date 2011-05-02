@@ -770,6 +770,8 @@ struct wsgi_request {
 	void           *async_post;
 	void           *async_sendfile;
 
+	int		async_force_again;
+
 	int             async_plagued;
 
 	int		suspended;

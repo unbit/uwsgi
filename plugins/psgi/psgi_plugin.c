@@ -260,6 +260,13 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	register PerlInterpreter *my_perl = uperl.main;
 	dSP;
 
+#ifdef UWSGI_ASYNC
+	if (wsgi_req->async_status == UWSGI_AGAIN) {
+		return psgi_response(wsgi_req, my_perl, wsgi_req->async_placeholder);	
+	}
+#endif
+
+
 
 	/* Standard PSGI request */
 	if (!wsgi_req->uh.pktsize) {
@@ -460,14 +467,27 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		goto clear;
 	}
 
-	psgi_response(wsgi_req, my_perl, response);
+	while (psgi_response(wsgi_req, my_perl, response) != UWSGI_OK) {
+#ifdef UWSGI_ASYNC
+		if (uwsgi.async > 1) {
+			FREETMPS;
+			LEAVE;
+			return UWSGI_AGAIN;
+		}
+		else {
+#endif
+			wsgi_req->switches++;
+#ifdef UWSGI_ASYNC
+		}
+#endif
+	}
 
 clear:
 
 	FREETMPS;
 	LEAVE;
 
-	return 0;
+	return UWSGI_OK;
 }
 
 
