@@ -115,7 +115,11 @@ int uwsgi_perl_init(){
 	int argc = 4;
 	char *embedding[] = { "", "-e", "-e", "0" };
 
-	uwsgi_log("initializing Perl environment\n");
+	if (setenv("PLACK_ENV", "uwsgi", 0)) {
+		uwsgi_error("setenv()");
+	}
+
+	uwsgi_log("initializing Perl %s environment\n", PERL_VERSION_STRING);
 	PERL_SYS_INIT3(&argc, (char ***) &embedding, &environ);
 	uperl.main = perl_alloc();
 	if (!uperl.main) {
@@ -127,6 +131,7 @@ int uwsgi_perl_init(){
 	PERL_SET_CONTEXT(uperl.main);
 
 	PL_perl_destruct_level = 2;
+	PL_origalen = 1;
 	perl_construct(uperl.main);
 
 	// filling http status codes
@@ -149,6 +154,10 @@ void uwsgi_psgi_app() {
 	struct stat stat_psgi;
 
 	if (uperl.psgi) {
+		
+		SV *dollar_zero = get_sv("0", GV_ADD);
+		sv_setpv(dollar_zero, uperl.psgi);
+
 		uperl.fd = open(uperl.psgi, O_RDONLY);
 		if (uperl.fd < 0) {
 			uwsgi_error_open(uperl.psgi);
