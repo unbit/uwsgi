@@ -493,6 +493,17 @@ class uConf(object):
                 self.libs.append('-lexpat')
                 self.gcc_list.append('xmlconf')
 
+        if self.get('sqlite3'):
+            if self.get('sqlite3') == 'auto':
+                if os.path.exists('/usr/include/sqlite3.h') or os.path.exists('/usr/local/include/sqlite3.h'):
+                    self.cflags.append("-DUWSGI_SQLITE3")
+                    self.libs.append('-lsqlite3')
+                    self.gcc_list.append('sqlite3')
+            else:
+                self.cflags.append("-DUWSGI_SQLITE3")
+                self.libs.append('-lsqlite3')
+                self.gcc_list.append('sqlite3')
+
 
         if self.get('plugin_dir'):
             self.cflags.append('-DUWSGI_PLUGIN_DIR=\\"%s\\"' % self.get('plugin_dir'))

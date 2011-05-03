@@ -427,6 +427,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_SOCKET_PROTOCOL	17103
 #define LONG_ARGS_LOG_ZEROMQ		17104
 #define LONG_ARGS_PROFILER		17105
+#define LONG_ARGS_SQLITE3		17106
 
 
 #define UWSGI_OK	0
@@ -1046,6 +1047,10 @@ struct uwsgi_server {
 	char           *ini;
 #endif
 
+#ifdef UWSGI_SQLITE3
+	char		*sqlite3;
+#endif
+
 	struct uwsgi_config_template *config_templates;
 
 	int             single_interpreter;
@@ -1517,6 +1522,10 @@ void            uwsgi_yaml_config(char *, char*[]);
 
 #ifdef UWSGI_JSON
 void            uwsgi_json_config(char *, char*[]);
+#endif
+
+#ifdef UWSGI_SQLITE3
+void            uwsgi_sqlite3_config(char *);
 #endif
 
 

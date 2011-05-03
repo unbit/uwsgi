@@ -102,6 +102,10 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 #ifdef UWSGI_JSON
 	{"json", required_argument, 0, 'j'},
 #endif
+#ifdef UWSGI_SQLITE3
+	{"sqlite3", required_argument, 0, LONG_ARGS_SQLITE3},
+	{"sqlite", required_argument, 0, LONG_ARGS_SQLITE3},
+#endif
 #ifdef UWSGI_ZEROMQ
 	{"zeromq", required_argument, 0, LONG_ARGS_ZEROMQ},
 	{"zmq", required_argument, 0, LONG_ARGS_ZEROMQ},
@@ -730,6 +734,17 @@ int main(int argc, char *argv[], char *envp[]) {
 				uwsgi.json = lazy;
 			}
 #endif
+#ifdef UWSGI_SQLITE3
+			else if (!strcmp(lazy + strlen(lazy) - 3, ".db")) {
+				uwsgi.sqlite3 = lazy;
+			}
+			else if (!strcmp(lazy + strlen(lazy) - 7, ".sqlite")) {
+				uwsgi.sqlite3 = lazy;
+			}
+			else if (!strcmp(lazy + strlen(lazy) - 8, ".sqlite3")) {
+				uwsgi.sqlite3 = lazy;
+			}
+#endif
 			// manage magic mountpoint
 			else if ((lazy[0] == '/' || strchr(lazy, '|')) && strchr(lazy, '=')) {
 			}
@@ -791,6 +806,11 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_json_config(uwsgi.json, magic_table);
 	}
 #endif
+#ifdef UWSGI_JSON
+	if (uwsgi.sqlite3 != NULL) {
+		uwsgi_sqlite3_config(uwsgi.sqlite3);
+	}
+#endif
 #ifdef UWSGI_LDAP
 	if (uwsgi.ldap != NULL) {
 		uwsgi_ldap_config();
@@ -824,6 +844,17 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_JSON
 		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".js")) {
 			uwsgi_json_config(uct->filename, magic_table);
+		}
+#endif
+#ifdef UWSGI_SQLITE3
+		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".db")) {
+			uwsgi_sqlite3_config(uct->filename);
+		}
+		if (!strcmp(uct->filename + strlen(uct->filename) - 7, ".sqlite")) {
+			uwsgi_sqlite3_config(uct->filename);
+		}
+		if (!strcmp(uct->filename + strlen(uct->filename) - 8, ".sqlite3")) {
+			uwsgi_sqlite3_config(uct->filename);
 		}
 #endif
 		uct = uct->next;
@@ -2199,6 +2230,11 @@ static int manage_base_opt(int i, char *optarg) {
 #ifdef UWSGI_ZEROMQ
 	case LONG_ARGS_ZEROMQ:
 		uwsgi.zeromq = optarg;
+		return 1;
+#endif
+#ifdef UWSGI_SQLITE3
+	case LONG_ARGS_SQLITE3:
+		uwsgi.sqlite3 = optarg;
 		return 1;
 #endif
 	case LONG_ARGS_REMAP_MODIFIER:
