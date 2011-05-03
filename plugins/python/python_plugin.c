@@ -792,6 +792,11 @@ void uwsgi_python_init_apps() {
 		init_uwsgi_app(LOADER_EVAL, up.eval, uwsgi.wsgi_req, up.main_thread);
 	}
 
+	if (uwsgi.profiler) {
+		if (!strcmp(uwsgi.profiler, "pycall")) {
+			PyEval_SetProfile(uwsgi_python_profiler_call, NULL);
+		}
+	}
 
 }
 

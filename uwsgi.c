@@ -50,6 +50,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"max-vars", required_argument, 0, 'v'},
 	{"buffer-size", required_argument, 0, 'b'},
 	{"memory-report", no_argument, 0, 'm'},
+	{"profiler", required_argument, 0, LONG_ARGS_PROFILER},
 	{"cgi-mode", no_argument, 0, 'c'},
 	{"abstract-socket", no_argument, 0, 'a'},
 	{"chmod-socket", optional_argument, 0, 'C'},
@@ -2381,6 +2382,9 @@ static int manage_base_opt(int i, char *optarg) {
 		else if (!strcasecmp("nginx", optarg)) {
 			uwsgi.file_serve_mode = 1;
 		}
+		return 1;
+	case LONG_ARGS_PROFILER:
+		uwsgi.profiler = optarg;
 		return 1;
 	case LONG_ARGS_INHERIT:
 		uct = uwsgi.config_templates;

@@ -211,3 +211,5 @@ void threaded_swap_ts(struct wsgi_request *, struct uwsgi_app *);
 void simple_swap_ts(struct wsgi_request *, struct uwsgi_app *);
 void threaded_reset_ts(struct wsgi_request *, struct uwsgi_app *);
 void simple_reset_ts(struct wsgi_request *, struct uwsgi_app *);
+
+int uwsgi_python_profiler_call(PyObject *, PyFrameObject *, int, PyObject *);

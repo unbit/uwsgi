@@ -426,6 +426,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_VASSALS_INHERIT	17102
 #define LONG_ARGS_SOCKET_PROTOCOL	17103
 #define LONG_ARGS_LOG_ZEROMQ		17104
+#define LONG_ARGS_PROFILER		17105
 
 
 #define UWSGI_OK	0
@@ -880,6 +881,7 @@ struct uwsgi_server {
 	char		*uidname;
 	char		*gidname;
 
+	char		*profiler;
 	char           *mode;
 
 	char *worker_exec;
