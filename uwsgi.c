@@ -806,7 +806,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_json_config(uwsgi.json, magic_table);
 	}
 #endif
-#ifdef UWSGI_JSON
+#ifdef UWSGI_SQLITE3
 	if (uwsgi.sqlite3 != NULL) {
 		uwsgi_sqlite3_config(uwsgi.sqlite3);
 	}
