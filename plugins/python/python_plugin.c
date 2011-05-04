@@ -283,6 +283,15 @@ void init_uwsgi_vars() {
 		exit(1);
 	}
 	pysys_dict = PyModule_GetDict(pysys);
+
+#ifdef PYTHREE
+	// fix stdout and stderr
+	PyObject *new_stdprint = PyFile_NewStdPrinter(2);
+	PyDict_SetItemString(pysys_dict, "stdout", new_stdprint);
+	PyDict_SetItemString(pysys_dict, "__stdout__", new_stdprint);
+	PyDict_SetItemString(pysys_dict, "stderr", new_stdprint);
+	PyDict_SetItemString(pysys_dict, "__stderr__", new_stdprint);
+#endif
 	pypath = PyDict_GetItemString(pysys_dict, "path");
 	if (!pypath) {
 		PyErr_Print();
