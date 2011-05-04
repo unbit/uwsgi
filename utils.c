@@ -191,6 +191,42 @@ void log_zeromq(char *node) {
                 exit(1);
         }
 
+#ifdef UWSGI_DEBUG
+		int so_bufsize;
+		socklen_t so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("master logger SO_RCVBUF size: %d\n", so_bufsize);
+                }
+
+                so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("master logger SO_SNDBUF size: %d\n", so_bufsize);
+                }
+
+		so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("worker logger SO_RCVBUF size: %d\n", so_bufsize);
+                }
+
+                so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("worker logger SO_SNDBUF size: %d\n", so_bufsize);
+                }
+
+#endif
+
         if (uwsgi.shared->worker_log_pipe[1] != 1) {
                 if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
                         uwsgi_error("dup2()");
@@ -234,7 +270,40 @@ void log_syslog(char *syslog_opts) {
 	}
 
 #ifdef UWSGI_DEBUG
+	int so_bufsize;
 	uwsgi_log("log pipe %d %d\n", uwsgi.shared->worker_log_pipe[0], uwsgi.shared->worker_log_pipe[1]);
+                socklen_t so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("master logger SO_RCVBUF size: %d\n", so_bufsize);
+                }
+
+                so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("master logger SO_SNDBUF size: %d\n", so_bufsize);
+                }
+
+                so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("worker logger SO_RCVBUF size: %d\n", so_bufsize);
+                }
+
+                so_bufsize_len = sizeof(int);
+                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
+                        uwsgi_error("getsockopt()");
+                }
+                else {
+                        uwsgi_debug("worker logger SO_SNDBUF size: %d\n", so_bufsize);
+                }
+
 #endif
 
 	if (uwsgi.shared->worker_log_pipe[1] != 1) {
