@@ -191,6 +191,8 @@ void log_zeromq(char *node) {
                 exit(1);
         }
 
+	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
+	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
 #ifdef UWSGI_DEBUG
 		int so_bufsize;
 		socklen_t so_bufsize_len = sizeof(int);
@@ -268,6 +270,9 @@ void log_syslog(char *syslog_opts) {
 		uwsgi_error("socketpair()\n");
 		exit(1);
 	}
+
+	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
+        uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
 
 #ifdef UWSGI_DEBUG
 	int so_bufsize;

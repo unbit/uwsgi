@@ -458,6 +458,22 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	return serverfd;
 }
 
+void uwsgi_socket_nb(int fd) {
+	int arg;
+
+	arg = fcntl(fd, F_GETFL, NULL);
+        if (arg < 0) {
+                uwsgi_error("fcntl()");
+                return;
+        }
+        arg |= O_NONBLOCK;
+        if (fcntl(fd, F_SETFL, arg) < 0) {
+                uwsgi_error("fcntl()");
+                return;
+        }
+
+}
+
 int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_size, int timeout, int async) {
 
 	int arg, ret;
