@@ -15,6 +15,7 @@ struct uwsgi_perl {
         char *psgibuffer;
         char *psgi;
 	char *locallib;
+	char *embedding[3];
         PerlInterpreter *main;
         pthread_key_t u_interpreter;
         PerlInterpreter **interp;

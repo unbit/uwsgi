@@ -113,15 +113,17 @@ int uwsgi_perl_init(){
 
 	struct http_status_codes *http_sc;
 
-	int argc = 4;
-	char *embedding[] = { "", "-e", "-e", "0" };
+	int argc = 3;
+	uperl.embedding[0] = "";
+	uperl.embedding[1] = "-e";
+	uperl.embedding[2] = "0";
 
 	if (setenv("PLACK_ENV", "uwsgi", 0)) {
 		uwsgi_error("setenv()");
 	}
 
 	uwsgi_log("initializing Perl %s environment\n", PERL_VERSION_STRING);
-	PERL_SYS_INIT3(&argc, (char ***) &embedding, &environ);
+	PERL_SYS_INIT3(&argc, (char ***) &uperl.embedding, &environ);
 	uperl.main = perl_alloc();
 	if (!uperl.main) {
 		uwsgi_log("unable to allocate perl interpreter\n");
@@ -141,16 +143,6 @@ int uwsgi_perl_init(){
 	}
 
 	PL_origalen = 1;
-	perl_parse(uperl.main, xs_init, 4, embedding, NULL);
-
-	if (uperl.locallib) {
-		char *ll = uwsgi_concat3("use local::lib '", uperl.locallib, "' ;");
-		uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
-		perl_eval_pv(ll, 0);
-		free(ll);	
-	}
-	perl_eval_pv("use IO::Handle;", 0);
-	perl_eval_pv("use IO::File;", 0);
 
 	return 1;
 
@@ -161,9 +153,21 @@ void uwsgi_psgi_app() {
 	struct stat stat_psgi;
 
 	if (uperl.psgi) {
-		
-		SV *dollar_zero = get_sv("0", GV_ADD);
-		sv_setpv(dollar_zero, uperl.psgi);
+
+		// two-pass loading: parse the script -> eval the script
+
+		uperl.embedding[1] = uperl.psgi;
+
+		perl_parse(uperl.main, xs_init, 2, uperl.embedding, NULL);
+
+        	if (uperl.locallib) {
+                	char *ll = uwsgi_concat3("use local::lib '", uperl.locallib, "' ;");
+                	uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
+                	perl_eval_pv(ll, 0);
+                	free(ll);
+        	}
+        	perl_eval_pv("use IO::Handle;", 0);
+        	perl_eval_pv("use IO::File;", 0);
 
 		SV *dollar_slash = get_sv("/", GV_ADD);
 		sv_setsv(dollar_slash, newRV_inc(newSViv(uwsgi.buffer_size)));
