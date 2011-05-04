@@ -156,16 +156,24 @@ void uwsgi_psgi_app() {
 
 		// two-pass loading: parse the script -> eval the script
 
-		uperl.embedding[1] = uperl.psgi;
 
-		perl_parse(uperl.main, xs_init, 2, uperl.embedding, NULL);
 
-        	if (uperl.locallib) {
-                	char *ll = uwsgi_concat3("use local::lib '", uperl.locallib, "' ;");
-                	uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
-                	perl_eval_pv(ll, 0);
-                	free(ll);
-        	}
+		if (uperl.locallib) {
+                        uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
+			uperl.embedding[1] = uwsgi_concat2("-Mlocal::lib=", uperl.locallib);
+			uperl.embedding[2] = uperl.psgi;
+			if (perl_parse(uperl.main, xs_init, 3, uperl.embedding, NULL)) {
+				exit(1);
+			}
+                }
+		else {
+			uperl.embedding[1] = uperl.psgi;
+			if (perl_parse(uperl.main, xs_init, 2, uperl.embedding, NULL)) {
+				exit(1);
+			}
+		}
+
+
         	perl_eval_pv("use IO::Handle;", 0);
         	perl_eval_pv("use IO::File;", 0);
 
