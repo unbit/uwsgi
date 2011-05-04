@@ -173,7 +173,6 @@ void uwsgi_psgi_app() {
 			}
 		}
 
-
         	perl_eval_pv("use IO::Handle;", 0);
         	perl_eval_pv("use IO::File;", 0);
 
@@ -205,7 +204,7 @@ void uwsgi_psgi_app() {
 		uperl.psgibuffer[stat_psgi.st_size] = 0;
 
 		if (uwsgi.threads < 2) {
-			uperl.psgi_main = perl_eval_pv(uperl.psgibuffer, 0);
+			uperl.psgi_main = perl_eval_pv(uwsgi_concat4("#line 1 ", uperl.psgi, "\n", uperl.psgibuffer), 0);
 			if (!uperl.psgi_main) {
 				uwsgi_log("unable to find PSGI function entry point.\n");
 				exit(1);
