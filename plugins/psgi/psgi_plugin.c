@@ -176,6 +176,9 @@ void uwsgi_psgi_app() {
         	perl_eval_pv("use IO::Handle;", 0);
         	perl_eval_pv("use IO::File;", 0);
 
+		SV *dollar_zero = get_sv("0", GV_ADD);
+		sv_setsv(dollar_zero, newSVpv(uperl.psgi, 0));
+
 		SV *dollar_slash = get_sv("/", GV_ADD);
 		sv_setsv(dollar_slash, newRV_inc(newSViv(uwsgi.buffer_size)));
 

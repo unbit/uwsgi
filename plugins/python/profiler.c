@@ -2,6 +2,12 @@
 
 extern struct uwsgi_server uwsgi;
 
+#ifndef PyFrame_GetLineNumber
+static int PyFrame_GetLineNumber(PyFrameObject *frame) {
+	return frame->f_lineno;
+}
+#endif
+
 int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
 	switch(what) {
