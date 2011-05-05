@@ -123,6 +123,13 @@ ret:
         XSRETURN_IV(bytes);
 }
 
+XS(XS_input_seek) {
+
+	dXSARGS;
+
+	psgi_check_args(1);
+	XSRETURN(0);
+}
 
 XS(XS_input) {
 
@@ -192,7 +199,7 @@ xs_init(pTHX)
 
 	newXS("uwsgi::input::new", XS_input, "uwsgi::input");
 	newXS("uwsgi::input::read", XS_input_read, "uwsgi::input");
-	//newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input");
+	newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input");
 
 	uperl.input_stash = gv_stashpv("uwsgi::input", 0);
 
@@ -553,7 +560,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
 	if (!hv_store(env, "psgix.io", 8, SvREFCNT_inc(pi), 0)) goto clear;
 
-	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(1), 0)) goto clear;
+	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(0), 0)) goto clear;
 
 
 	PUSHMARK(SP);

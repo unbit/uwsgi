@@ -23,7 +23,6 @@ struct uwsgi_perl {
         SV *psgi_main;
         SV **psgi_func;
         CV *stream_responder;
-        CV *input_object;
 	HV *streaming_stash;
 	HV *input_stash;
 
