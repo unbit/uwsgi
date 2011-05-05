@@ -45,7 +45,8 @@ XS(XS_input_read) {
         struct wsgi_request *wsgi_req = current_wsgi_req();
 	int fd = -1;
         char *tmp_buf;
-	ssize_t bytes = 0, len, remains;
+	ssize_t bytes = 0, len;
+	size_t remains;
 	SV *read_buf;
 
         psgi_check_args(2);
