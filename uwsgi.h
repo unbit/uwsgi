@@ -780,6 +780,7 @@ struct wsgi_request {
 
 	int            *ovector;
 	size_t          post_cl;
+	off_t		post_pos;
 	char           *post_buffering_buf;
 	uint64_t        post_buffering_read;
 

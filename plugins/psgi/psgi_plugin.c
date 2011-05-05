@@ -9,6 +9,7 @@ struct option uwsgi_perl_options[] = {
 
         {"psgi", required_argument, 0, LONG_ARGS_PSGI},
         {"perl-local-lib", required_argument, 0, LONG_ARGS_PERL_LOCAL_LIB},
+        {"psgi-custom-input", no_argument, &uperl.custom_input, 1},
         {0, 0, 0, 0},
 
 };
@@ -36,6 +37,102 @@ XS(XS_streaming_write) {
 	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, body, blen);	
 
 	XSRETURN(0);
+}
+
+XS(XS_input_read) {
+
+        dXSARGS;
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+	int fd = -1;
+        char *tmp_buf;
+	ssize_t bytes = 0, len, remains;
+	SV *read_buf;
+
+        psgi_check_args(2);
+
+	uwsgi_log("calling read()\n");
+
+        read_buf = ST(1);
+	len = SvIV(ST(2));
+
+	// return empty string if no post_cl or pos >= post_cl
+        if (!wsgi_req->post_cl || (size_t) wsgi_req->post_pos >= wsgi_req->post_cl) {
+		goto ret;
+        }
+
+	if (wsgi_req->body_as_file) {
+		fd = fileno((FILE *)wsgi_req->async_post);
+		uwsgi_log("fd = %d\n", fd);
+	}
+        else if (uwsgi.post_buffering > 0) {
+                fd = -1;
+                if (wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
+                        fd = fileno((FILE *)wsgi_req->async_post);
+                }
+        }
+        else {
+                fd = wsgi_req->poll.fd;
+        }
+        // return the whole input
+        if (len <= 0) {
+                remains = wsgi_req->post_cl;
+        }
+        else {
+                remains = len ;
+        }
+
+        if (remains + wsgi_req->post_pos > wsgi_req->post_cl) {
+                remains = wsgi_req->post_cl - wsgi_req->post_pos;
+        }
+
+        if (remains <= 0) {
+                goto ret;
+        }
+
+	// data in memory ?
+        if (fd == -1) {
+		sv_setpvn(read_buf, wsgi_req->post_buffering_buf, remains);
+		bytes = remains;
+                wsgi_req->post_pos += remains;
+		
+        }
+
+	uwsgi_log("allocating %d bytes\n", remains);
+        tmp_buf = uwsgi_malloc(remains);
+
+        if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
+                free(tmp_buf);
+                croak("error waiting for wsgi.input data");
+		goto ret;
+        }
+
+        bytes = read(fd, tmp_buf, remains);
+        if (bytes < 0) {
+                free(tmp_buf);
+                croak("error reading wsgi.input data");
+		goto ret;
+        }
+
+        wsgi_req->post_pos += bytes;
+	uwsgi_log("post data: %.*s\n", bytes, tmp_buf);
+	sv_setpvn(read_buf, tmp_buf, bytes);
+
+        free(tmp_buf);
+
+ret:
+        XSRETURN_IV(bytes);
+}
+
+
+XS(XS_input) {
+
+	dXSARGS;
+
+	uwsgi_log("new custom input\n");
+	psgi_check_args(0);
+
+	ST(0) = sv_bless(newRV(sv_newmortal()), uperl.input_stash);
+        XSRETURN(1);
 }
 
 XS(XS_stream)
@@ -93,11 +190,18 @@ xs_init(pTHX)
 	/* DynaLoader is a special case */
 	newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
 
+	newXS("uwsgi::input::new", XS_input, "uwsgi::input");
+	newXS("uwsgi::input::read", XS_input_read, "uwsgi::input");
+	//newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input");
+
+	uperl.input_stash = gv_stashpv("uwsgi::input", 0);
+
 	uperl.stream_responder = newXS("uwsgi::stream", XS_stream, "uwsgi");
 
 #ifdef UWSGI_EMBEDDED
 	init_perl_embedded_module();
 #endif
+
 
 	newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
 	newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
@@ -414,22 +518,32 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	if (!hv_store(env, "psgi.url_scheme", 15, us, 0)) goto clear;
 
 
-	SV* iohandle = newSVpv( "IO::File", 8 );
+	if (uperl.custom_input) {
+		SV* iohandle = newSVpv( "uwsgi::input", 12 );
+		PUSHMARK(SP);
+                XPUSHs( sv_2mortal(iohandle));
+                PUTBACK;
+                perl_call_method( "new", G_SCALAR);
+	}
+	else {
+		SV* iohandle = newSVpv( "IO::File", 8 );
 
 
-	PUSHMARK(SP);
-	XPUSHs( sv_2mortal(iohandle));
-	PUTBACK;
-	perl_call_method( "new", G_SCALAR);
-	SPAGAIN;
-	io_new = POPs;
+		PUSHMARK(SP);
+		XPUSHs( sv_2mortal(iohandle));
+		PUTBACK;
+		perl_call_method( "new", G_SCALAR);
+		SPAGAIN;
+		io_new = POPs;
 
-	PUSHMARK(SP);
-	XPUSHs( io_new );
-	XPUSHs( sv_2mortal(newSViv( wsgi_req->poll.fd)));
-	XPUSHs( sv_2mortal(newSVpv( "r", 1)));
-	PUTBACK;
-	perl_call_method( "fdopen", G_SCALAR);
+		PUSHMARK(SP);
+		XPUSHs( io_new );
+		XPUSHs( sv_2mortal(newSViv( wsgi_req->poll.fd)));
+		XPUSHs( sv_2mortal(newSVpv( "r", 1)));
+		PUTBACK;
+		perl_call_method( "fdopen", G_SCALAR);
+
+	}
 	SPAGAIN;
 
 

@@ -12,6 +12,7 @@
 struct uwsgi_perl {
 
         int fd;
+	int custom_input;
         char *psgibuffer;
         char *psgi;
 	char *locallib;
@@ -22,13 +23,15 @@ struct uwsgi_perl {
         SV *psgi_main;
         SV **psgi_func;
         CV *stream_responder;
+        CV *input_object;
 	HV *streaming_stash;
+	HV *input_stash;
 
 };
 
-#define LONG_ARGS_PERL_BASE      17000 + ((5 + 1) * 1000)
-#define LONG_ARGS_PSGI           LONG_ARGS_PERL_BASE + 1
-#define LONG_ARGS_PERL_LOCAL_LIB LONG_ARGS_PERL_BASE + 2
+#define LONG_ARGS_PERL_BASE      	17000 + ((5 + 1) * 1000)
+#define LONG_ARGS_PSGI           	LONG_ARGS_PERL_BASE + 1
+#define LONG_ARGS_PERL_LOCAL_LIB	LONG_ARGS_PERL_BASE + 2
 
 void init_perl_embedded_module(void);
 int psgi_response(struct wsgi_request *, PerlInterpreter *, AV*);
