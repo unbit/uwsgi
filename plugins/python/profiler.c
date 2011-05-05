@@ -3,8 +3,13 @@
 extern struct uwsgi_server uwsgi;
 
 #ifndef PyFrame_GetLineNumber
-static int PyFrame_GetLineNumber(PyFrameObject *frame) {
-	return frame->f_lineno;
+int PyFrame_GetLineNumber(PyFrameObject *frame) {
+	if (frame->f_trace) {
+		return frame->f_lineno;
+	}
+	else {
+		return PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+	}
 }
 #endif
 
