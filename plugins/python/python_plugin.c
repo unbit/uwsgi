@@ -910,13 +910,15 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
 int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 
+	UWSGI_GET_GIL;
+
 	PyObject *args = PyTuple_New(1);
 	PyObject *ret;
 
 	if (!args)
-		return -1;
+		goto clear;
 
-	if (!handler) return -1;
+	if (!handler) goto clear;
 
 
 	PyTuple_SetItem(args, 0, PyInt_FromLong(sig));
@@ -924,9 +926,12 @@ int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 	ret = python_call(handler, args, 0);
 
 	if (ret) {
+		UWSGI_RELEASE_GIL;
 		return 0;
 	}
 
+clear:
+	UWSGI_RELEASE_GIL;
 	return -1;
 }
 
