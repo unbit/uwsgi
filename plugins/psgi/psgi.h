@@ -12,7 +12,6 @@
 struct uwsgi_perl {
 
         int fd;
-	int custom_input;
         char *psgibuffer;
         char *psgi;
 	char *locallib;
@@ -25,6 +24,7 @@ struct uwsgi_perl {
         CV *stream_responder;
 	HV *streaming_stash;
 	HV *input_stash;
+	HV *error_stash;
 
 };
 
@@ -40,3 +40,4 @@ int psgi_response(struct wsgi_request *, PerlInterpreter *, AV*);
 #define psgi_check_args(x) if (items < x) Perl_croak(aTHX_ "Usage: uwsgi::%s takes %d arguments", __FUNCTION__ + 3, x)
 
 SV *uwsgi_perl_obj_call(SV *, char *);
+int uwsgi_perl_obj_can(SV *, char *, size_t);

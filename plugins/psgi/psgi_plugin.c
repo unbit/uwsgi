@@ -9,7 +9,6 @@ struct option uwsgi_perl_options[] = {
 
         {"psgi", required_argument, 0, LONG_ARGS_PSGI},
         {"perl-local-lib", required_argument, 0, LONG_ARGS_PERL_LOCAL_LIB},
-        {"psgi-custom-input", no_argument, &uperl.custom_input, 1},
         {0, 0, 0, 0},
 
 };
@@ -41,6 +40,64 @@ SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 	return newobj;
 	
 }
+
+SV *uwsgi_perl_call_stream(SV *func) {
+
+	SV *ret = NULL;
+        // set current context ?
+        //dTHX;
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs( sv_2mortal(newRV((SV*) uperl.stream_responder)));
+        PUTBACK;
+
+	call_sv( func, G_SCALAR | G_EVAL);
+
+	SPAGAIN;
+        if(SvTRUE(ERRSV)) {
+                uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+        }
+        else {
+                ret = SvREFCNT_inc(POPs);
+        }
+
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return ret;
+}
+
+int uwsgi_perl_obj_can(SV *obj, char *method, size_t len) {
+
+	int ret;
+        // set current context ? needed for threading
+        //dTHX;
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs(obj);
+        XPUSHs(sv_2mortal(newSVpv(method, len)));
+        PUTBACK;
+
+        call_method( "can", G_SCALAR);
+
+        SPAGAIN;
+
+        ret = SvROK(POPs);
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return ret;
+
+}
+
 
 SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
@@ -74,38 +131,6 @@ SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
 }
 
-
-SV *uwsgi_perl_obj_call2(SV *obj, char *method, SV *arg1, SV *arg2) {
-
-	SV *ret;
-
-	dSP;
-
-        ENTER;
-        SAVETMPS;
-        PUSHMARK(SP);
-
-	XPUSHs(obj);
-        XPUSHs(sv_2mortal(arg1));
-        XPUSHs(sv_2mortal(arg2));
-
-        PUTBACK;
-
-
-        call_method( method, G_SCALAR);
-
-        SPAGAIN;
-
-
-        ret = POPs;
-        PUTBACK;
-        FREETMPS;
-        LEAVE;
-
-
-        return ret;
-	
-}
 
 AV *psgi_call(struct wsgi_request *wsgi_req, SV *psgi_func, SV *env) {
 
@@ -228,22 +253,12 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 
 
 	SV *pi = uwsgi_perl_obj_new("uwsgi::input", 12);
-
         if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
 	
-	/* disable for now...
-        if (!hv_store(env, "psgix.io", 8, pi, 0)) goto clear;
-	*/
+	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(wsgi_req->body_as_file), 0)) goto clear;
 
-        if (!hv_store(env, "psgix.input.buffered", 20, newSViv(0), 0)) goto clear;
-
-
-        SV *io_err = uwsgi_perl_obj_new("IO::Handle", 10);
-	uwsgi_log("task001 %p %d\n", io_err, SvREFCNT(io_err));
-	//SV *pe = uwsgi_perl_obj_call2(io_err, "fdopen", newSViv(2), newSVpv("w", 1));
-	uwsgi_log("done\n");
-
-        //if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
+	SV *pe = uwsgi_perl_obj_new("uwsgi::error", 12);
+        if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
 
 	return newRV_noinc((SV *)env);
 
@@ -266,7 +281,11 @@ int uwsgi_perl_init(){
 		uwsgi_error("setenv()");
 	}
 
+#ifdef PERL_VERSION_STRING
 	uwsgi_log("initializing Perl %s environment\n", PERL_VERSION_STRING);
+#else
+	uwsgi_log("initializing Perl environment\n");
+#endif
 	PERL_SYS_INIT3(&argc, (char ***) &uperl.embedding, &environ);
 	uperl.main = perl_alloc();
 	if (!uperl.main) {
@@ -345,8 +364,6 @@ void uwsgi_perl_enable_threads() {
 
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
-	dSP;
-
 	SV *psgi_func = uperl.psgi_main;
 	// ugly hack
 	register PerlInterpreter *my_perl = uperl.main;
@@ -389,22 +406,15 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	if (!wsgi_req->async_result) goto clear;
 
 	if (SvTYPE((AV *)wsgi_req->async_result) == SVt_PVCV) {
-			
-		PUSHMARK(SP);
-        	XPUSHs( newRV((SV*) uperl.stream_responder));
-        	PUTBACK;
-
-        	perl_call_sv( (SV*)wsgi_req->async_result, G_SCALAR | G_EVAL);
-
-		if(SvTRUE(ERRSV)) {
+		SV *stream_result = uwsgi_perl_call_stream((SV*)wsgi_req->async_result);		
+		if (!stream_result) {
 			internal_server_error(wsgi_req, "exception raised");
-			uwsgi_log("%s\n", SvPV_nolen(ERRSV));
 		}
-
+		else {
+			SvREFCNT_dec(stream_result);
+		}
 		goto clear2;
 	}
-
-	uwsgi_log("ok...\n");
 
 	while (psgi_response(wsgi_req, my_perl, wsgi_req->async_result) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC

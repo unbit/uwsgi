@@ -13,11 +13,18 @@ XS(XS_input_seek) {
         XSRETURN(0);
 }
 
+XS(XS_error) {
+	dXSARGS;
+
+        psgi_check_args(0);
+
+        ST(0) = sv_bless(newRV(sv_newmortal()), uperl.error_stash);
+        XSRETURN(1);
+}
+
 XS(XS_input) {
 
         dXSARGS;
-
-        uwsgi_log("new custom input\n");
         psgi_check_args(0);
 
         ST(0) = sv_bless(newRV(sv_newmortal()), uperl.input_stash);
@@ -28,39 +35,35 @@ XS(XS_stream)
 {
     dXSARGS;
     struct wsgi_request *wsgi_req = current_wsgi_req();
-    SV *stack;
-    AV *response;
 
     psgi_check_args(1);
-    stack = ST(0);
 
-        if (items == 2) {
-                response = (AV* ) SvRV(stack) ;
+    AV *response = (AV* ) SvREFCNT_inc(SvRV(ST(0))) ;
 
-#ifdef my_perl
-                psgi_response(wsgi_req, my_perl, response);
-#else
-                psgi_response(wsgi_req, uperl.main, response);
-#endif
-        }
-        else if (items == 1) {
-                response = (AV* ) SvRV(stack) ;
+	if (av_len(response) == 2) {
 
 #ifdef my_perl
-                psgi_response(wsgi_req, my_perl, response);
+		while (psgi_response(wsgi_req, my_perl, response) != UWSGI_OK);
 #else
-                psgi_response(wsgi_req, uperl.main, response);
+		while (psgi_response(wsgi_req, uperl.main, response) != UWSGI_OK);
 #endif
+	}
+	else if (av_len(response) == 1) {
+#ifdef my_perl
+		while (psgi_response(wsgi_req, my_perl, response) != UWSGI_OK);
+#else
+		while (psgi_response(wsgi_req, uperl.main, response) != UWSGI_OK);
+#endif
+		SvREFCNT_dec(response);
                 ST(0) = sv_bless(newRV(sv_newmortal()), uperl.streaming_stash);
                 XSRETURN(1);
+	}
+	else {
+		uwsgi_log("invalid PSGI response: array size %d\n", av_len(response));
+	}
 
-        }
-        else {
-                uwsgi_log("invalid PSGI response: array size %d\n", items+1);
-        }
-
-    //mXPUSHp("x", 1);
-    XSRETURN(0);
+	SvREFCNT_dec(response);
+	XSRETURN(0);
 
 }
 
@@ -81,8 +84,6 @@ XS(XS_input_read) {
         read_buf = ST(1);
         len = SvIV(ST(2));
 
-        uwsgi_log("calling read() %d of %d\n", len, wsgi_req->post_cl);
-
         // return empty string if no post_cl or pos >= post_cl
         if (!wsgi_req->post_cl || (size_t) wsgi_req->post_pos >= wsgi_req->post_cl) {
                 sv_setpvn(read_buf, "", 0);
@@ -91,7 +92,6 @@ XS(XS_input_read) {
 
         if (wsgi_req->body_as_file) {
                 fd = fileno((FILE *)wsgi_req->async_post);
-                uwsgi_log("fd = %d\n", fd);
         }
         else if (uwsgi.post_buffering > 0) {
                 fd = -1;
@@ -127,7 +127,6 @@ XS(XS_input_read) {
 
         }
 
-        uwsgi_log("allocating %d bytes\n", remains);
         tmp_buf = uwsgi_malloc(remains);
 
         if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
@@ -144,7 +143,6 @@ XS(XS_input_read) {
         }
 
         wsgi_req->post_pos += bytes;
-        uwsgi_log("post data: %.*s\n", bytes, tmp_buf);
         sv_setpvn(read_buf, tmp_buf, bytes);
 
         free(tmp_buf);
@@ -158,6 +156,7 @@ XS(XS_streaming_close) {
 
         dXSARGS;
         psgi_check_args(0);
+
         XSRETURN(0);
 }
 
@@ -177,6 +176,21 @@ XS(XS_streaming_write) {
         XSRETURN(0);
 }
 
+XS(XS_error_print) {
+
+	dXSARGS;
+        STRLEN blen;
+        char *body;
+
+        psgi_check_args(1);
+
+	if (items > 1) {
+        	body = SvPV(ST(1), blen);
+		uwsgi_log("%.*s", blen, body);
+	}
+
+        XSRETURN(0);
+}
 
 /* automatically generated */
 
@@ -199,17 +213,21 @@ xs_init(pTHX)
 
         uperl.input_stash = gv_stashpv("uwsgi::input", 0);
 
+        newXS("uwsgi::error::new", XS_error, "uwsgi::error");
+        newXS("uwsgi::error::print", XS_error_print, "uwsgi::print");
+        uperl.error_stash = gv_stashpv("uwsgi::error", 0);
+
         uperl.stream_responder = newXS("uwsgi::stream", XS_stream, "uwsgi");
-
-#ifdef UWSGI_EMBEDDED
-        init_perl_embedded_module();
-#endif
-
 
         newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
         newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
 
         uperl.streaming_stash = gv_stashpv("uwsgi::streaming", 0);
+
+#ifdef UWSGI_EMBEDDED
+        init_perl_embedded_module();
+#endif
+
 }
 
 /* end of automagically generated part */
