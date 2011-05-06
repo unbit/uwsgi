@@ -16,209 +16,241 @@ struct option uwsgi_perl_options[] = {
 
 extern struct http_status_codes hsc[];
 
-XS(XS_streaming_close) {
+SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 
-	dXSARGS;
-	psgi_check_args(0);
-	XSRETURN(0);
+	SV *newobj;
+	// set current context ?
+	//dTHX;
+	dSP;
+
+	ENTER;
+	SAVETMPS;
+	PUSHMARK(SP);
+	XPUSHs(sv_2mortal(newSVpv( class, class_len)));
+	PUTBACK;
+
+	call_method( "new", G_SCALAR);
+
+	SPAGAIN;
+
+	newobj = POPs;	
+	PUTBACK;
+	FREETMPS;
+	LEAVE;
+
+	return newobj;
+	
 }
 
-XS(XS_streaming_write) {
+SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
-	dXSARGS;
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-	STRLEN blen;
-	char *body;
+        SV *ret = NULL;
 
-	psgi_check_args(2);
+        dSP;
 
-	body = SvPV(ST(1), blen);
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
 
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, body, blen);	
+        XPUSHs(obj);
 
-	XSRETURN(0);
+        PUTBACK;
+
+        call_method( method, G_SCALAR | G_EVAL);
+
+        SPAGAIN;
+	if(SvTRUE(ERRSV)) {
+        	uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+        }
+	else {
+        	ret = SvREFCNT_inc(POPs);
+	}
+
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return ret;
+
 }
 
-XS(XS_input_read) {
 
-        dXSARGS;
-        struct wsgi_request *wsgi_req = current_wsgi_req();
-	int fd = -1;
-        char *tmp_buf;
-	ssize_t bytes = 0, len;
-	size_t remains;
-	SV *read_buf;
+SV *uwsgi_perl_obj_call2(SV *obj, char *method, SV *arg1, SV *arg2) {
 
-        psgi_check_args(2);
+	SV *ret;
 
-	uwsgi_log("calling read()\n");
+	dSP;
 
-        read_buf = ST(1);
-	len = SvIV(ST(2));
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
 
-	// return empty string if no post_cl or pos >= post_cl
-        if (!wsgi_req->post_cl || (size_t) wsgi_req->post_pos >= wsgi_req->post_cl) {
-		goto ret;
+	XPUSHs(obj);
+        XPUSHs(sv_2mortal(arg1));
+        XPUSHs(sv_2mortal(arg2));
+
+        PUTBACK;
+
+
+        call_method( method, G_SCALAR);
+
+        SPAGAIN;
+
+
+        ret = POPs;
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+
+        return ret;
+	
+}
+
+AV *psgi_call(struct wsgi_request *wsgi_req, SV *psgi_func, SV *env) {
+
+	AV *ret = NULL;
+
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs(env);
+	PUTBACK;
+
+	call_sv(psgi_func, G_SCALAR | G_EVAL);
+	SPAGAIN;
+
+        if(SvTRUE(ERRSV)) {
+                internal_server_error(wsgi_req, "exception raised");
+                uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+        }
+	else {
+		ret = (AV *) SvREFCNT_inc(SvRV(POPs));
+	}
+
+	PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return (AV *)ret;
+	
+}
+
+SV *build_psgi_env(struct wsgi_request *wsgi_req) {
+	int i;
+	HV *env = newHV();
+
+	// fill perl hash
+        for(i=0;i<wsgi_req->var_cnt;i++) {
+                if (wsgi_req->hvec[i+1].iov_len > 0) {
+
+                        // check for multiline header
+                        if (hv_exists(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) {
+                                SV **already_avalable_header = hv_fetch(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, 0);
+                                STRLEN hlen;
+                                char *old_value = SvPV(*already_avalable_header, hlen );
+                                char *multiline_header = uwsgi_concat3n(old_value, hlen, ", ", 2, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
+                                if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
+                                        newSVpv(multiline_header, hlen+wsgi_req->hvec[i+1].iov_len+2), 0))  { free(multiline_header); goto clear;}
+                                free(multiline_header);
+
+
+                        }
+                        else {
+                                if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
+                                        newSVpv(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len), 0)) goto clear;
+                        }
+                }
+                else {
+                        if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, newSVpv("", 0), 0)) goto clear;
+                }
+                //uwsgi_log("%.*s = %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
+                i++;
         }
 
-	if (wsgi_req->body_as_file) {
-		fd = fileno((FILE *)wsgi_req->async_post);
-		uwsgi_log("fd = %d\n", fd);
-	}
-        else if (uwsgi.post_buffering > 0) {
-                fd = -1;
-                if (wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
-                        fd = fileno((FILE *)wsgi_req->async_post);
+        // psgi.version
+        AV *av = newAV();
+        av_store( av, 0, newSViv(1));
+        av_store( av, 1, newSViv(1));
+        if (!hv_store(env, "psgi.version", 12, newRV_noinc((SV *)av ), 0)) goto clear;
+
+        if (uwsgi.numproc > 1) {
+                if (!hv_store(env, "psgi.multiprocess", 17, newSViv(1), 0)) goto clear;
+        }
+        else {
+                if (!hv_store(env, "psgi.multiprocess", 17, newSViv(0), 0)) goto clear;
+        }
+
+        if (uwsgi.threads > 1) {
+                if (!hv_store(env, "psgi.multithread", 16, newSViv(1), 0)) goto clear;
+        }
+        else {
+                if (!hv_store(env, "psgi.multithread", 16, newSViv(0), 0)) goto clear;
+        }
+
+        if (!hv_store(env, "psgi.run_once", 13, newSViv(0), 0)) goto clear;
+
+#ifdef UWSGI_ASYNC
+        if (uwsgi.async > 1) {
+                if (!hv_store(env, "psgi.nonblocking", 16, newSViv(1), 0)) goto clear;
+        }
+        else {
+#else
+                if (!hv_store(env, "psgi.nonblocking", 16, newSViv(0), 0)) goto clear;
+#endif
+
+#ifdef UWSGI_ASYNC
+        }
+#endif
+
+        if (!hv_store(env, "psgi.streaming", 14, newSViv(1), 0)) goto clear;
+
+	SV *us;
+        // psgi.url_scheme, honour HTTPS var or UWSGI_SCHEME
+        if (wsgi_req->scheme_len > 0) {
+                us = newSVpv(wsgi_req->scheme, wsgi_req->scheme_len);
+        }
+        else if (wsgi_req->https_len > 0) {
+                if (!strncasecmp(wsgi_req->https, "on", 2) || wsgi_req->https[0] == '1') {
+                        us = newSVpv("https", 5);
+                }
+                else {
+                        us = newSVpv("http", 4);
                 }
         }
         else {
-                fd = wsgi_req->poll.fd;
-        }
-        // return the whole input
-        if (len <= 0) {
-                remains = wsgi_req->post_cl;
-        }
-        else {
-                remains = len ;
+                us = newSVpv("http", 4);
         }
 
-        if (remains + wsgi_req->post_pos > wsgi_req->post_cl) {
-                remains = wsgi_req->post_cl - wsgi_req->post_pos;
-        }
+        if (!hv_store(env, "psgi.url_scheme", 15, us, 0)) goto clear;
 
-        if (remains <= 0) {
-                goto ret;
-        }
 
-	// data in memory ?
-        if (fd == -1) {
-		sv_setpvn(read_buf, wsgi_req->post_buffering_buf, remains);
-		bytes = remains;
-                wsgi_req->post_pos += remains;
-		
-        }
+	SV *pi = uwsgi_perl_obj_new("uwsgi::input", 12);
 
-	uwsgi_log("allocating %d bytes\n", remains);
-        tmp_buf = uwsgi_malloc(remains);
+        if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
+	
+	/* disable for now...
+        if (!hv_store(env, "psgix.io", 8, pi, 0)) goto clear;
+	*/
 
-        if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-                free(tmp_buf);
-                croak("error waiting for wsgi.input data");
-		goto ret;
-        }
+        if (!hv_store(env, "psgix.input.buffered", 20, newSViv(0), 0)) goto clear;
 
-        bytes = read(fd, tmp_buf, remains);
-        if (bytes < 0) {
-                free(tmp_buf);
-                croak("error reading wsgi.input data");
-		goto ret;
-        }
 
-        wsgi_req->post_pos += bytes;
-	uwsgi_log("post data: %.*s\n", bytes, tmp_buf);
-	sv_setpvn(read_buf, tmp_buf, bytes);
+        SV *io_err = uwsgi_perl_obj_new("IO::Handle", 10);
+	uwsgi_log("task001 %p %d\n", io_err, SvREFCNT(io_err));
+	//SV *pe = uwsgi_perl_obj_call2(io_err, "fdopen", newSViv(2), newSVpv("w", 1));
+	uwsgi_log("done\n");
 
-        free(tmp_buf);
+        //if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
 
-ret:
-        XSRETURN_IV(bytes);
+	return newRV_noinc((SV *)env);
+
+clear:
+	SvREFCNT_dec((SV *)env);
+	return NULL;
 }
-
-XS(XS_input_seek) {
-
-	dXSARGS;
-
-	psgi_check_args(1);
-	XSRETURN(0);
-}
-
-XS(XS_input) {
-
-	dXSARGS;
-
-	uwsgi_log("new custom input\n");
-	psgi_check_args(0);
-
-	ST(0) = sv_bless(newRV(sv_newmortal()), uperl.input_stash);
-        XSRETURN(1);
-}
-
-XS(XS_stream)
-{
-    dXSARGS;
-    struct wsgi_request *wsgi_req = current_wsgi_req();
-    SV *stack;
-    AV *response;
-
-    psgi_check_args(1);
-    stack = ST(0);
-
-	if (items == 2) {
-		response = (AV* ) SvRV(stack) ;
-
-#ifdef my_perl
-		psgi_response(wsgi_req, my_perl, response);
-#else
-		psgi_response(wsgi_req, uperl.main, response);
-#endif
-	}
- 	else if (items == 1) {
-		response = (AV* ) SvRV(stack) ;
-
-#ifdef my_perl
-		psgi_response(wsgi_req, my_perl, response);
-#else
-		psgi_response(wsgi_req, uperl.main, response);
-#endif
-		ST(0) = sv_bless(newRV(sv_newmortal()), uperl.streaming_stash);
-		XSRETURN(1);
-		
-	}
-	else {
-    		uwsgi_log("invalid PSGI response: array size %d\n", items+1);
-	}
-
-    //mXPUSHp("x", 1);
-    XSRETURN(0);
-
-}
-
-/* automatically generated */
-
-EXTERN_C void xs_init (pTHX);
-
-EXTERN_C void boot_DynaLoader (pTHX_ CV* cv);
-
-	EXTERN_C void
-xs_init(pTHX)
-{
-	char *file = __FILE__;
-	dXSUB_SYS;
-
-	/* DynaLoader is a special case */
-	newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
-
-	newXS("uwsgi::input::new", XS_input, "uwsgi::input");
-	newXS("uwsgi::input::read", XS_input_read, "uwsgi::input");
-	newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input");
-
-	uperl.input_stash = gv_stashpv("uwsgi::input", 0);
-
-	uperl.stream_responder = newXS("uwsgi::stream", XS_stream, "uwsgi");
-
-#ifdef UWSGI_EMBEDDED
-	init_perl_embedded_module();
-#endif
-
-
-	newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
-	newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
-
-	uperl.streaming_stash = gv_stashpv("uwsgi::streaming", 0);
-}
-
-/* end of automagically generated part */
-
 
 int uwsgi_perl_init(){
 
@@ -257,86 +289,6 @@ int uwsgi_perl_init(){
 	PL_origalen = 1;
 
 	return 1;
-
-}
-
-void uwsgi_psgi_app() {
-
-	struct stat stat_psgi;
-
-	if (uperl.psgi) {
-
-		// two-pass loading: parse the script -> eval the script
-
-
-
-		if (uperl.locallib) {
-                        uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
-			uperl.embedding[1] = uwsgi_concat2("-Mlocal::lib=", uperl.locallib);
-			uperl.embedding[2] = uperl.psgi;
-			if (perl_parse(uperl.main, xs_init, 3, uperl.embedding, NULL)) {
-				exit(1);
-			}
-                }
-		else {
-			uperl.embedding[1] = uperl.psgi;
-			if (perl_parse(uperl.main, xs_init, 2, uperl.embedding, NULL)) {
-				exit(1);
-			}
-		}
-
-        	perl_eval_pv("use IO::Handle;", 0);
-        	perl_eval_pv("use IO::File;", 0);
-
-		SV *dollar_zero = get_sv("0", GV_ADD);
-		sv_setsv(dollar_zero, newSVpv(uperl.psgi, 0));
-
-		SV *dollar_slash = get_sv("/", GV_ADD);
-		sv_setsv(dollar_slash, newRV_inc(newSViv(uwsgi.buffer_size)));
-
-		uperl.fd = open(uperl.psgi, O_RDONLY);
-		if (uperl.fd < 0) {
-			uwsgi_error_open(uperl.psgi);
-			exit(1);
-		}
-
-		if (fstat(uperl.fd, &stat_psgi)) {
-			uwsgi_error("fstat()");
-			exit(1);
-		}
-
-		uperl.psgibuffer = malloc(stat_psgi.st_size + 1);
-		if (!uperl.psgibuffer) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-
-		if (read(uperl.fd, uperl.psgibuffer, stat_psgi.st_size) != stat_psgi.st_size) {
-			uwsgi_error("read()");
-			exit(1);
-		}
-
-		uperl.psgibuffer[stat_psgi.st_size] = 0;
-
-		if (uwsgi.threads < 2) {
-			uperl.psgi_main = perl_eval_pv(uwsgi_concat4("#line 1 ", uperl.psgi, "\n", uperl.psgibuffer), 0);
-			if (!uperl.psgi_main) {
-				uwsgi_log("unable to find PSGI function entry point.\n");
-				exit(1);
-			}
-
-			if(SvTRUE(ERRSV)) {
-				uwsgi_log("%s\n", SvPV_nolen(ERRSV));
-				exit(1);
-			}
-
-			free(uperl.psgibuffer);
-			close(uperl.fd);
-		}
-
-		uwsgi_log("PSGI app (%s) loaded at %p\n", uperl.psgi, uperl.psgi_main);
-	}
-
 
 }
 
@@ -393,25 +345,17 @@ void uwsgi_perl_enable_threads() {
 
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
-	HV *env;
-
-	AV *response;
-
-	SV *io_new, *io_err;
-	int i;
+	dSP;
 
 	SV *psgi_func = uperl.psgi_main;
 	// ugly hack
 	register PerlInterpreter *my_perl = uperl.main;
-	dSP;
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		return psgi_response(wsgi_req, my_perl, wsgi_req->async_placeholder);	
 	}
 #endif
-
-
 
 	/* Standard PSGI request */
 	if (!wsgi_req->uh.pktsize) {
@@ -438,205 +382,43 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	SAVETMPS;
 
 
-	env = (HV*) sv_2mortal((SV*)newHV());
+	wsgi_req->async_environ = build_psgi_env(wsgi_req);
+	if (!wsgi_req->async_environ) goto clear;
 
+	wsgi_req->async_result = psgi_call(wsgi_req, psgi_func, wsgi_req->async_environ);
+	if (!wsgi_req->async_result) goto clear;
 
-	// fill perl hash
-	for(i=0;i<wsgi_req->var_cnt;i++) {
-		if (wsgi_req->hvec[i+1].iov_len > 0) {
-
-			// check for multiline header
-			if (hv_exists(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) {
-				SV **already_avalable_header = hv_fetch(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, 0);
-				STRLEN hlen;
-				char *old_value = SvPV(*already_avalable_header, hlen );
-				char *multiline_header = uwsgi_concat3n(old_value, hlen, ", ", 2, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
-				if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
-					newSVpv(multiline_header, hlen+wsgi_req->hvec[i+1].iov_len+2), 0))  { free(multiline_header); goto clear;}
-				free(multiline_header);
-				
-				
-			}
-			else {
-				if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len,
-					newSVpv(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len), 0)) goto clear;
-			}
-		}
-		else {
-			if (!hv_store(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, newSVpv("", 0), 0)) goto clear;
-		}
-		//uwsgi_log("%.*s = %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
-		i++;
-	}
-
-	// psgi.version
-	AV *av = newAV();
-	av_store( av, 0, newSViv(1));
-	av_store( av, 1, newSViv(1));
-	if (!hv_store(env, "psgi.version", 12, newRV((SV *)av ), 0)) goto clear;
-	
-	if (uwsgi.numproc > 1) {
-		if (!hv_store(env, "psgi.multiprocess", 17, newSViv(1), 0)) goto clear;
-	}
-	else {
-		if (!hv_store(env, "psgi.multiprocess", 17, newSViv(0), 0)) goto clear;
-	}
-
-	if (uwsgi.threads > 1) {
-		if (!hv_store(env, "psgi.multithread", 16, newSViv(1), 0)) goto clear;
-	}
-	else {
-		if (!hv_store(env, "psgi.multithread", 16, newSViv(0), 0)) goto clear;
-	}
-
-	if (!hv_store(env, "psgi.run_once", 13, newSViv(0), 0)) goto clear;
-
-#ifdef UWSGI_ASYNC
-	if (uwsgi.async > 1) {
-		if (!hv_store(env, "psgi.nonblocking", 16, newSViv(1), 0)) goto clear;
-	}
-	else {
-#else
-		if (!hv_store(env, "psgi.nonblocking", 16, newSViv(0), 0)) goto clear;
-#endif
-
-#ifdef UWSGI_ASYNC
-	}
-#endif
-
-	if (!hv_store(env, "psgi.streaming", 14, newSViv(1), 0)) goto clear;
-
-	SV *us;
-	// psgi.url_scheme, honour HTTPS var or UWSGI_SCHEME
-	if (wsgi_req->scheme_len > 0) {
-		us = newSVpv(wsgi_req->scheme, wsgi_req->scheme_len);
-	}
-	else if (wsgi_req->https_len > 0) {
-		if (!strncasecmp(wsgi_req->https, "on", 2) || wsgi_req->https[0] == '1') {
-			us = newSVpv("https", 5);
-		}
-		else {
-			us = newSVpv("http", 4);
-		}
-	}
-	else {
-		us = newSVpv("http", 4);
-	}
-
-	if (!hv_store(env, "psgi.url_scheme", 15, us, 0)) goto clear;
-
-
-	if (uperl.custom_input) {
-		SV* iohandle = newSVpv( "uwsgi::input", 12 );
-		PUSHMARK(SP);
-                XPUSHs( sv_2mortal(iohandle));
-                PUTBACK;
-                perl_call_method( "new", G_SCALAR);
-	}
-	else {
-		SV* iohandle = newSVpv( "IO::File", 8 );
-
-
-		PUSHMARK(SP);
-		XPUSHs( sv_2mortal(iohandle));
-		PUTBACK;
-		perl_call_method( "new", G_SCALAR);
-		SPAGAIN;
-		io_new = POPs;
-
-		PUSHMARK(SP);
-		XPUSHs( io_new );
-		XPUSHs( sv_2mortal(newSViv( wsgi_req->poll.fd)));
-		XPUSHs( sv_2mortal(newSVpv( "r", 1)));
-		PUTBACK;
-		perl_call_method( "fdopen", G_SCALAR);
-
-	}
-	SPAGAIN;
-
-
-
-
-	SV *pi = SvREFCNT_inc(POPs);
-	if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
-	if (!hv_store(env, "psgix.io", 8, SvREFCNT_inc(pi), 0)) goto clear;
-
-	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(0), 0)) goto clear;
-
-
-	PUSHMARK(SP);
-	XPUSHs( newSVpv( "IO::Handle", 10 ));
-	PUTBACK;
-	perl_call_method( "new", G_SCALAR);
-	SPAGAIN;
-	io_err = POPs;
-
-	PUSHMARK(SP);
-	XPUSHs( io_err );
-	XPUSHs( sv_2mortal( newSViv( 2 )));
-	XPUSHs( sv_2mortal( newSVpv( "w", 1)));
-	PUTBACK;
-	perl_call_method( "fdopen", G_SCALAR);
-	SPAGAIN;
-
-	SV *pe = SvREFCNT_inc(POPs);
-	if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
-
-	
-
-
-	PUSHMARK(SP);
-	XPUSHs( sv_2mortal(newRV((SV *)env )) );
-	PUTBACK;
-
-
-	perl_call_sv(psgi_func, G_SCALAR | G_EVAL);
-
-	
-	if(SvTRUE(ERRSV)) {
-		internal_server_error(wsgi_req, "exception raised");
-		uwsgi_log("%s\n", SvPV_nolen(ERRSV));
-		goto clear;
-	}
-	SPAGAIN;
-	// no leaks to here
-
-	// dereference output
-	response = (AV *) SvRV( POPs );
-
-	//uwsgi_log("response: %p %d\n", response, SvTYPE(response));
-
-	if (SvTYPE(response) == SVt_PVCV) {
+	if (SvTYPE((AV *)wsgi_req->async_result) == SVt_PVCV) {
 			
 		PUSHMARK(SP);
         	XPUSHs( newRV((SV*) uperl.stream_responder));
         	PUTBACK;
 
-        	perl_call_sv( (SV*)response, G_SCALAR | G_EVAL);
+        	perl_call_sv( (SV*)wsgi_req->async_result, G_SCALAR | G_EVAL);
 
 		if(SvTRUE(ERRSV)) {
 			internal_server_error(wsgi_req, "exception raised");
 			uwsgi_log("%s\n", SvPV_nolen(ERRSV));
 		}
 
-		goto clear;
+		goto clear2;
 	}
 
-	while (psgi_response(wsgi_req, my_perl, response) != UWSGI_OK) {
+	uwsgi_log("ok...\n");
+
+	while (psgi_response(wsgi_req, my_perl, wsgi_req->async_result) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
 			FREETMPS;
 			LEAVE;
 			return UWSGI_AGAIN;
 		}
-		else {
-#endif
-			wsgi_req->switches++;
-#ifdef UWSGI_ASYNC
-		}
 #endif
 	}
 
+clear2:
+	SvREFCNT_dec(wsgi_req->async_environ);
+	SvREFCNT_dec(wsgi_req->async_result);
 clear:
 
 	FREETMPS;
