@@ -187,6 +187,15 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
 				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 				return UWSGI_OK;
 			}
+			
+			if (uwsgi_perl_obj_can(*hitem, "path", 4)) {
+				SV *p = uwsgi_perl_obj_call(*hitem, "path");
+				wsgi_req->sendfile_fd = open(SvPV_nolen(p), O_RDONLY);
+				SvREFCNT_dec(p);	
+				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+				close(wsgi_req->sendfile_fd);
+				return UWSGI_OK;
+			}
 		}
 
                 for(;;) {
