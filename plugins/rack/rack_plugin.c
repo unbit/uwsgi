@@ -401,7 +401,7 @@ VALUE send_body(VALUE obj) {
 
 	//uwsgi_log("sending body\n");
 	if (TYPE(obj) == T_STRING) {
-		len = wsgi_req->socket_proto_write( wsgi_req, RSTRING_PTR(obj), RSTRING_LEN(obj));
+		len = wsgi_req->socket->proto_write( wsgi_req, RSTRING_PTR(obj), RSTRING_LEN(obj));
 	}
 	else {
 		uwsgi_log("UNMANAGED BODY TYPE %d\n", TYPE(obj));
@@ -427,7 +427,6 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	size_t len;
-	int fd = wsgi_req->poll.fd;
 	VALUE hkey, hval;
 	
 	//uwsgi_log("HEADERS %d\n", TYPE(obj));
@@ -459,9 +458,9 @@ VALUE send_header(VALUE obj, VALUE headers) {
 
 	//uwsgi_log("header: %.*s: %.*s\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), RSTRING_LEN(hval), RSTRING_PTR(hval));
 
-	len = wsgi_req->socket_proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
+	len = wsgi_req->socket->proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
 	wsgi_req->headers_size += len;
-	len = wsgi_req->socket_proto_write_header( wsgi_req, ": ", 2);
+	len = wsgi_req->socket->proto_write_header( wsgi_req, ": ", 2);
 	wsgi_req->headers_size += len;
 
 	char *header_value = RSTRING_PTR(hval);
@@ -470,17 +469,17 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	char *header_value_splitted = memchr(header_value, '\n', header_value_len);
 
 	if (!header_value_splitted) {
-		len = wsgi_req->socket_proto_write_header( wsgi_req, header_value, header_value_len);
+		len = wsgi_req->socket->proto_write_header( wsgi_req, header_value, header_value_len);
 		wsgi_req->headers_size += len;
-		len = wsgi_req->socket_proto_write_header( wsgi_req, "\r\n", 2);
+		len = wsgi_req->socket->proto_write_header( wsgi_req, "\r\n", 2);
 		wsgi_req->headers_size += len;
 		wsgi_req->header_cnt++;
 	}
 	else {
 		header_value_splitted[0] = 0;
-		len = wsgi_req->socket_proto_write_header( wsgi_req, header_value, header_value_splitted-header_value);
+		len = wsgi_req->socket->proto_write_header( wsgi_req, header_value, header_value_splitted-header_value);
 		wsgi_req->headers_size += len;
-		len = wsgi_req->socket_proto_write_header( wsgi_req, "\r\n", 2);
+		len = wsgi_req->socket->proto_write_header( wsgi_req, "\r\n", 2);
                 wsgi_req->headers_size += len;
 		wsgi_req->header_cnt++;
 
@@ -490,14 +489,14 @@ VALUE send_header(VALUE obj, VALUE headers) {
 		while(header_value_len && (header_value_splitted = memchr(header_value, '\n', header_value_len))) {
 			header_value_splitted[0] = 0;
 
-			len = wsgi_req->socket_proto_write( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
+			len = wsgi_req->socket->proto_write( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
         		wsgi_req->headers_size += len;
-        		len = wsgi_req->socket_proto_write( wsgi_req, ": ", 2);
+        		len = wsgi_req->socket->proto_write( wsgi_req, ": ", 2);
         		wsgi_req->headers_size += len;
 
-			len = wsgi_req->socket_proto_write( wsgi_req, header_value, header_value_splitted-header_value);
+			len = wsgi_req->socket->proto_write( wsgi_req, header_value, header_value_splitted-header_value);
 			wsgi_req->headers_size += len;
-			len = wsgi_req->socket_proto_write( wsgi_req, "\r\n", 2);
+			len = wsgi_req->socket->proto_write( wsgi_req, "\r\n", 2);
                 	wsgi_req->headers_size += len;		
                 	wsgi_req->header_cnt++;
 
@@ -627,7 +626,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	wsgi_req->hvec[5].iov_len = 2 ;
 
 		//RUBY_GVL_UNLOCK
-		if ( !(wsgi_req->headers_size = wsgi_req->socket_proto_writev_header(wsgi_req, wsgi_req->hvec, 6)) ) {
+		if ( !(wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 6)) ) {
                 	uwsgi_error("writev()");
         	}
 		//RUBY_GVL_LOCK
@@ -638,7 +637,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		}
 
 		//RUBY_GVL_UNLOCK
-		if (wsgi_req->socket_proto_write(wsgi_req, "\r\n", 2) != 2) {
+		if (wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2) != 2) {
 			uwsgi_error("write()");
 		}
 		//RUBY_GVL_LOCK
