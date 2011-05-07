@@ -198,6 +198,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"worker-exec", required_argument, 0, LONG_ARGS_WORKER_EXEC},
 	{"attach-daemon", required_argument, 0, LONG_ARGS_ATTACH_DAEMON},
 	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS},
+	{"autoload", no_argument, &uwsgi.autoload, 1},
 	{"allowed-modifiers", required_argument, 0, LONG_ARGS_ALLOWED_MODIFIERS},
 	{"remap-modifier", required_argument, 0, LONG_ARGS_REMAP_MODIFIER},
 	{"dump-options", no_argument, &uwsgi.dump_options, 1},
@@ -213,17 +214,24 @@ void uwsgi_configure(void) {
         struct option *aopt;
         char *val;
 	int i;
+	int is_retry;
+	int found;
 
         for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
 
                 if (uwsgi.exported_opts[i]->configured)
                         continue;
+
+		is_retry = 0;
+retry:
+		found = 0;
                 lopt = uwsgi.long_options;;
                 while ((aopt = lopt)) {
                         if (!aopt->name)
                                 break;
 
                         if (!strcmp(aopt->name, uwsgi.exported_opts[i]->key)) {
+				found = 1;
                                 val = uwsgi.exported_opts[i]->value;
 
                                 if (aopt->flag)
@@ -245,6 +253,32 @@ void uwsgi_configure(void) {
                         }
                         lopt++;
                 }
+
+		if (!found && uwsgi.autoload && !is_retry) {
+			DIR *pdir;
+			struct dirent *dp;
+			pdir = opendir(UWSGI_PLUGIN_DIR);
+			if (!pdir) {
+				uwsgi_fatal_error("opendir()");
+			}
+			while ((dp = readdir(pdir)) != NULL) {
+				if (!strncmp("_plugin.so", dp->d_name+(strlen(dp->d_name)-10), 19)) {
+					if (uwsgi_load_plugin(-1, dp->d_name, uwsgi.exported_opts[i]->key, 2)) {
+						uwsgi_log("option \"%s\" found in plugin %s\n", uwsgi.exported_opts[i]->key, dp->d_name);
+						found = 1;
+						break;
+					}
+				}
+			}
+			if (found) {
+				build_options();
+				closedir(pdir);
+				// avoid deadly loops...
+				is_retry = 1;
+				goto retry;
+			}
+			closedir(pdir);
+		}
         }
 
 }

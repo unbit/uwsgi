@@ -7,6 +7,7 @@
 #define UMAX16	65536
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
@@ -842,6 +843,8 @@ struct uwsgi_server {
 	int             apps_cnt;
 	int             default_app;
 
+	int		autoload;
+
 	unsigned int reloads;
 	int master_as_root;
 
@@ -1509,7 +1512,7 @@ void            uwsgi_log(const char *,...);
 void            uwsgi_log_verbose(const char *,...);
 
 
-int             uwsgi_load_plugin(int, char *, char *, int);
+void            *uwsgi_load_plugin(int, char *, char *, int);
 
 int             unconfigured_hook(struct wsgi_request *);
 
