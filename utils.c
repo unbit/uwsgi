@@ -545,12 +545,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
-		if (uwsgi.core[wsgi_req->async_id]->dead) {
-			pthread_exit(NULL);
-		}
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);
-		uwsgi_log("cancel enabled\n");
-		pthread_testcancel();
+		uwsgi_log("cancel re-enabled\n");
 	}
 #endif
 
@@ -727,7 +723,6 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 			wsgi_req->socket = uwsgi_sock;
 			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			if (wsgi_req->poll.fd < 0) {
-				uwsgi_log("PORCA TROIA!!!\n");
 #ifdef UWSGI_THREADING
         			if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 #endif
@@ -743,7 +738,7 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 				if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
 					uwsgi_error("fcntl()");
 #ifdef UWSGI_THREADING
-        if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
+        if (uwsgi.threads > 1) { pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 #endif
 					return -1;
 				}

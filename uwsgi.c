@@ -345,27 +345,25 @@ void goodbye_cruel_world() {
 	// in threading mode we need to use the cancel pthread subsystem
 #ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1 && !uwsgi.to_hell) {
-		pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-		int i;
+		//pthread_mutex_lock(&uwsgi.six_feet_under_lock);
+		int i, ret;
 		for(i=0;i<uwsgi.threads;i++) {
 			if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-				uwsgi_log("killing thread %d\n", i);
 				pthread_cancel(uwsgi.core[i]->thread_id);
-				uwsgi.core[i]->dead = 1;
 			}
 		}
 
 		// wait for thread termination
 		for(i=0;i<uwsgi.threads;i++) {
-			uwsgi_log("waiting for thread %d %lu end\n", i, uwsgi.core[i]->thread_id);
 			if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-				void *pippo;
-				pthread_join(uwsgi.core[i]->thread_id, &pippo);
-				uwsgi_log("thread %d ended\n", i);
+				ret = pthread_join(uwsgi.core[i]->thread_id, NULL);
+				if (ret) {
+					uwsgi_log("pthread_join() = %d\n", ret);
+				}
 			}
 		}
 
-		pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
+		//pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 	}
 #endif
 
@@ -2194,27 +2192,14 @@ int uwsgi_start(void *v_argv) {
 #ifdef UWSGI_ZEROMQ
 		if (uwsgi.zeromq && uwsgi.async < 2 && !uwsgi.sockets->next) {
 
-			pthread_attr_t pa;
-			int ret;
-
 			if (uwsgi.threads > 1) {
-				ret = pthread_attr_init(&pa);
-				if (ret) {
-					uwsgi_log("pthread_attr_init() = %d\n", ret);
-					exit(1);
-				}
-				ret = pthread_attr_setdetachstate(&pa, PTHREAD_CREATE_DETACHED);
-				if (ret) {
-					uwsgi_log("pthread_attr_setdetachstate() = %d\n", ret);
-					exit(1);
-				}
 				if (pthread_key_create(&uwsgi.tur_key, NULL)) {
 					uwsgi_error("pthread_key_create()");
 					exit(1);
 				}
 				for (i = 1; i < uwsgi.threads; i++) {
 					long j = i;
-					pthread_create(&uwsgi.core[i]->thread_id, &pa, zeromq_loop, (void *) j);
+					pthread_create(&uwsgi.core[i]->thread_id, NULL, zeromq_loop, (void *) j);
 				}
 			}
 
@@ -2225,26 +2210,13 @@ int uwsgi_start(void *v_argv) {
 #else
 		if (uwsgi.threads > 1) {
 #endif
-			pthread_attr_t pa;
-			int ret;
-
-			ret = pthread_attr_init(&pa);
-			if (ret) {
-				uwsgi_log("pthread_attr_init() = %d\n", ret);
-				exit(1);
-			}
-			ret = pthread_attr_setdetachstate(&pa, PTHREAD_CREATE_DETACHED);
-			if (ret) {
-				uwsgi_log("pthread_attr_setdetachstate() = %d\n", ret);
-				exit(1);
-			}
 			if (pthread_key_create(&uwsgi.tur_key, NULL)) {
 				uwsgi_error("pthread_key_create()");
 				exit(1);
 			}
 			for (i = 1; i < uwsgi.threads; i++) {
 				long j = i;
-				pthread_create(&uwsgi.core[i]->thread_id, &pa, simple_loop, (void *) j);
+				pthread_create(&uwsgi.core[i]->thread_id, NULL, simple_loop, (void *) j);
 			}
 		}
 

@@ -1367,8 +1367,6 @@ struct uwsgi_core {
 	              //multiple ts per - core are needed only with multiple_interpreter + threads
 	void           *ts[MAX_APPS];
 
-	int		dead;
-
 };
 
 struct uwsgi_worker {
