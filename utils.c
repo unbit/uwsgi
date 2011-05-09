@@ -546,7 +546,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);
-		uwsgi_log("cancel re-enabled\n");
 	}
 #endif
 
