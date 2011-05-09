@@ -48,6 +48,8 @@ void *simple_loop(void *arg1) {
 
 	if (uwsgi.threads > 1) {
 
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &i);
+		pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &i);
 		pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
 
 		if (core_id > 0) {
@@ -96,6 +98,8 @@ void *simple_loop(void *arg1) {
 
 #ifdef UWSGI_THREADING
 	pthread_exit(NULL);
+#else
+	exit(0);
 #endif
 
 	//never here
@@ -116,6 +120,8 @@ void *zeromq_loop(void *arg1) {
 
 	if (uwsgi.threads > 1) {
 
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &i);
+		pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &i);
 		pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
 
 		if (core_id > 0) {
@@ -204,6 +210,13 @@ void *zeromq_loop(void *arg1) {
 		uwsgi_close_request(wsgi_req);
 	}
 
+#ifdef UWSGI_THREADING
+        pthread_exit(NULL);
+#else
 	exit(0);
+#endif
+
+        //never here
+        return NULL;
 }
 #endif

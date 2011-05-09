@@ -341,6 +341,34 @@ void end_me(int signum) {
 }
 
 void goodbye_cruel_world() {
+
+	// in threading mode we need to use the cancel pthread subsystem
+#ifdef UWSGI_THREADING
+	if (uwsgi.threads > 1 && !uwsgi.to_hell) {
+		pthread_mutex_lock(&uwsgi.six_feet_under_lock);
+		int i;
+		for(i=0;i<uwsgi.threads;i++) {
+			if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
+				uwsgi_log("killing thread %d\n", i);
+				pthread_cancel(uwsgi.core[i]->thread_id);
+				uwsgi.core[i]->dead = 1;
+			}
+		}
+
+		// wait for thread termination
+		for(i=0;i<uwsgi.threads;i++) {
+			uwsgi_log("waiting for thread %d %lu end\n", i, uwsgi.core[i]->thread_id);
+			if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
+				void *pippo;
+				pthread_join(uwsgi.core[i]->thread_id, &pippo);
+				uwsgi_log("thread %d ended\n", i);
+			}
+		}
+
+		pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
+	}
+#endif
+
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
 	exit(0);
@@ -2149,19 +2177,24 @@ int uwsgi_start(void *v_argv) {
 #endif
 	}
 
+#ifdef UWSGI_THREADING
+	if (uwsgi.cores > 1) {
+		uwsgi.core[0]->thread_id = pthread_self();
+		pthread_mutex_init(&uwsgi.six_feet_under_lock, NULL);
+	}
+#endif
+
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
 		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
 		u_loop();
 		uwsgi_log("done\n");
-		goto end;
 	}
 	else {
 #ifdef UWSGI_ZEROMQ
 		if (uwsgi.zeromq && uwsgi.async < 2 && !uwsgi.sockets->next) {
 
 			pthread_attr_t pa;
-			pthread_t *a_thread;
 			int ret;
 
 			if (uwsgi.threads > 1) {
@@ -2181,8 +2214,7 @@ int uwsgi_start(void *v_argv) {
 				}
 				for (i = 1; i < uwsgi.threads; i++) {
 					long j = i;
-					a_thread = uwsgi_malloc(sizeof(pthread_t));
-					pthread_create(a_thread, &pa, zeromq_loop, (void *) j);
+					pthread_create(&uwsgi.core[i]->thread_id, &pa, zeromq_loop, (void *) j);
 				}
 			}
 
@@ -2194,7 +2226,6 @@ int uwsgi_start(void *v_argv) {
 		if (uwsgi.threads > 1) {
 #endif
 			pthread_attr_t pa;
-			pthread_t *a_thread;
 			int ret;
 
 			ret = pthread_attr_init(&pa);
@@ -2213,8 +2244,7 @@ int uwsgi_start(void *v_argv) {
 			}
 			for (i = 1; i < uwsgi.threads; i++) {
 				long j = i;
-				a_thread = uwsgi_malloc(sizeof(pthread_t));
-				pthread_create(a_thread, &pa, simple_loop, (void *) j);
+				pthread_create(&uwsgi.core[i]->thread_id, &pa, simple_loop, (void *) j);
 			}
 		}
 
@@ -2226,14 +2256,6 @@ int uwsgi_start(void *v_argv) {
 			async_loop(NULL);
 		}
 
-	}
-
-      end:
-	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
-		reload_me(0);
-	}
-	else {
-		goodbye_cruel_world();
 	}
 
 	// never here

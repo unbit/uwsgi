@@ -9,6 +9,7 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option, int absolu
 	char *plugin_name;
 	char *plugin_entry_symbol;
 	struct uwsgi_plugin *up;
+	char linkpath[1024];
 	int i;
 
 	char *colon = strchr(plugin, ':');
@@ -77,13 +78,30 @@ check:
 		plugin_entry_symbol = uwsgi_concat2(plugin, "_plugin");
 	}
 	plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
-	free(plugin_name);
 
         if (!plugin_handle) {
                 uwsgi_log( "%s\n", dlerror());
         }
         else {
                 up = dlsym(plugin_handle, plugin_entry_symbol);
+		if (!up) {
+			// is it a link ?
+			memset(linkpath, 0, 1024);
+			if (readlink(plugin_name, linkpath, 1024) > 0) {
+				uwsgi_log("%s\n", linkpath);
+				free(plugin_entry_symbol);
+				up = dlsym(plugin_handle, plugin_entry_symbol);
+				char *slash = uwsgi_get_last_char(linkpath, '/');
+				if (!slash) {
+					slash = linkpath;
+				}
+				else {
+					slash++;
+				}
+				plugin_entry_symbol = uwsgi_concat2n(slash, strlen(slash)-3, "",0);
+				up = dlsym(plugin_handle, plugin_entry_symbol);
+			}
+		}
                 if (up) {
 			if (has_option) {
 				struct option *lopt = up->options, *aopt;
@@ -101,6 +119,7 @@ check:
 					if (dlclose(plugin_handle)) {
 						uwsgi_error("dlclose()");
 					}
+					free(plugin_name);
 					free(plugin_entry_symbol);
 					return NULL;
 				}
@@ -112,11 +131,14 @@ check:
 			else {
 				fill_plugin_table(up->modifier1, up);			
 			}
+			free(plugin_name);
 			free(plugin_entry_symbol);
 			return plugin_handle;
                 }
                 uwsgi_log( "%s\n", dlerror());
         }
+
+	free(plugin_name);
 
 	return NULL;
 }

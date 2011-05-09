@@ -2,7 +2,7 @@ import os,sys
 
 NAME='python26'
 
-GCC_LIST = map(lambda x: '../python/' + x, ['python_plugin', 'pyutils', 'pyloader', 'wsgi_handlers', 'wsgi_headers', 'wsgi_subhandler', 'gil', 'uwsgi_pymodule'])
+GCC_LIST = map(lambda x: '../python/' + x, ['python_plugin', 'pyutils', 'pyloader', 'wsgi_handlers', 'wsgi_headers', 'wsgi_subhandler', 'gil', 'uwsgi_pymodule', 'profiler'])
 
 CFLAGS = os.popen('python2.6-config --cflags').read().rstrip().split()
 CFLAGS.append('-Wno-unused-parameter')

@@ -1009,6 +1009,11 @@ struct uwsgi_server {
 	void           *sharedareamutex;
 	int             sharedareasize;
 
+#ifdef UWSGI_THREADING
+	pthread_mutex_t six_feet_under_lock;
+#endif
+	
+
 	/* the list of workers */
 	struct uwsgi_worker *workers;
 
@@ -1355,8 +1360,14 @@ struct uwsgi_core {
 	//uint64_t        requests;
 	uint64_t        failed_requests;
 
+#ifdef UWSGI_THREADING 
+	pthread_t	thread_id;
+#endif
+
 	              //multiple ts per - core are needed only with multiple_interpreter + threads
 	void           *ts[MAX_APPS];
+
+	int		dead;
 
 };
 

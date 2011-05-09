@@ -542,6 +542,18 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (uwsgi.p[wsgi_req->uh.modifier1]->after_request)
 		uwsgi.p[wsgi_req->uh.modifier1]->after_request(wsgi_req);
 
+#ifdef UWSGI_THREADING
+	if (uwsgi.threads > 1) {
+		// now the thread can die...
+		if (uwsgi.core[wsgi_req->async_id]->dead) {
+			pthread_exit(NULL);
+		}
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);
+		uwsgi_log("cancel enabled\n");
+		pthread_testcancel();
+	}
+#endif
+
 	// leave harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 		set_harakiri(0);
@@ -684,6 +696,11 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
+#ifdef UWSGI_THREADING
+	// kill the thread after the request completion
+	if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &ret);
+#endif
+
 	if (uwsgi.signal_socket > -1 && interesting_fd == uwsgi.signal_socket) {
 		if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
 			if (uwsgi.no_orphans) {
@@ -697,6 +714,11 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 				uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
 			}
 		}
+
+#ifdef UWSGI_THREADING
+        	if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
+#endif
+		return -1;
 	}
 
 
@@ -705,6 +727,10 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 			wsgi_req->socket = uwsgi_sock;
 			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			if (wsgi_req->poll.fd < 0) {
+				uwsgi_log("PORCA TROIA!!!\n");
+#ifdef UWSGI_THREADING
+        			if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
+#endif
 				return -1;
 			}
 
@@ -716,6 +742,9 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 				arg &= (~O_NONBLOCK);
 				if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
 					uwsgi_error("fcntl()");
+#ifdef UWSGI_THREADING
+        if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
+#endif
 					return -1;
 				}
 
@@ -732,6 +761,9 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
+#ifdef UWSGI_THREADING
+        if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
+#endif
 	return -1;
 }
 
