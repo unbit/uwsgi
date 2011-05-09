@@ -2091,6 +2091,13 @@ int uwsgi_start(void *v_argv) {
 
 	//initialization done
 
+	// run fixup handler
+	for (i = 0; i < 0xFF; i++) {
+                if (uwsgi.p[i]->fixup) {
+                        uwsgi.p[i]->fixup();
+                }
+        }
+
 	if (uwsgi.chdir2) {
 		if (chdir(uwsgi.chdir2)) {
 			uwsgi_error("chdir()");

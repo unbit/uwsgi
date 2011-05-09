@@ -132,9 +132,6 @@ int uwsgi_python_init() {
 
 	uwsgi_log("Python main interpreter initialized at %p\n", up.main_thread);
 
-	// add the hacky modifier1 30
-	uwsgi.p[30]->request = uwsgi.p[0]->request;
-
 	return 1;
 
 }
@@ -1035,6 +1032,11 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 }
 
+void uwsgi_python_fixup() {
+	// set hacky modifier 30
+	uwsgi.p[30] = uwsgi.p[0];
+}
+
 struct uwsgi_plugin python_plugin = {
 
 	.name = "python",
@@ -1048,6 +1050,8 @@ struct uwsgi_plugin python_plugin = {
 	.request = uwsgi_request_wsgi,
 	.after_request = uwsgi_after_request_wsgi,
 	.init_apps = uwsgi_python_init_apps,
+
+	.fixup = uwsgi_python_fixup,
 
 	.mount_app = uwsgi_python_mount_app,
 
