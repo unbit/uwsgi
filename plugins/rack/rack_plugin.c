@@ -277,7 +277,55 @@ VALUE require_rails(VALUE arg) {
 
 VALUE init_rack_app(VALUE);
 
-VALUE uwsgi_ruby_suspend(VALUE *arg) {
+VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	int fd = NUM2INT(arg1);
+	int timeout = NUM2INT(arg2);
+
+	if (fd >= 0) {
+                async_add_fd_read(wsgi_req, fd, timeout);
+        }
+
+	return Qtrue;
+}
+
+VALUE uwsgi_ruby_wait_fd_write(VALUE *class, VALUE arg1, VALUE arg2) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        int fd = NUM2INT(arg1);
+        int timeout = NUM2INT(arg2);
+
+        if (fd >= 0) {
+                async_add_fd_write(wsgi_req, fd, timeout);
+        }
+
+        return Qtrue;
+}
+
+VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
+
+	int fd = uwsgi_connect(RSTRING_PTR(arg), 0, 1);
+
+	return INT2FIX(fd);
+}
+
+
+VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	int timeout = NUM2INT(arg);
+
+        if (timeout >= 0) {
+                async_add_timeout(wsgi_req, timeout);
+        }
+
+	return Qtrue;
+}
+
+VALUE uwsgi_ruby_suspend(VALUE *class) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
@@ -319,6 +367,10 @@ int uwsgi_rack_init(){
 
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
 	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
+	rb_define_module_function(rb_uwsgi_embedded, "async_sleep", uwsgi_ruby_async_sleep, 1);
+	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
+	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
+	rb_define_module_function(rb_uwsgi_embedded, "async_connect", uwsgi_ruby_async_connect, 1);
 
 	if (ur.rack) {
 		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
