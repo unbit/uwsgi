@@ -60,3 +60,5 @@ struct uwsgi_rack {
         pthread_mutex_t gvl;
 
 };
+
+void uwsgi_ruby_exception(void);

@@ -150,6 +150,8 @@ VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 
 	// return the whole body as string
+
+	uwsgi_log("rack.input gets is not implemented (req %p)\n", wsgi_req);
 	return Qnil;
 }
 
@@ -159,6 +161,7 @@ VALUE rb_uwsgi_io_each(VALUE obj, VALUE args) {
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 
 	// yield strings chunks
+	uwsgi_log("rack.input each is not implemented (req %p)\n", wsgi_req);
 
 	return Qnil;
 }
@@ -183,6 +186,11 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 			if (post_body) {
 				//RUBY_GVL_UNLOCK
 				len = fread( post_body, wsgi_req->post_cl, 1, wsgi_req->async_post);
+				if (!len) {
+					uwsgi_error("fread()");
+					free(post_body);
+					return Qnil;
+				}
 				//RUBY_GVL_LOCK
 				chunk = rb_str_new(post_body, wsgi_req->post_cl);
 				free(post_body);
@@ -269,12 +277,6 @@ VALUE require_rails(VALUE arg) {
 
 VALUE init_rack_app(VALUE);
 
-#ifdef RUBY19
-VALUE uwsgi_ruby_fiber_yield() {
-	return rb_fiber_yield(0, NULL);
-}
-#endif
-
 VALUE uwsgi_ruby_suspend(VALUE *arg) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -315,16 +317,8 @@ int uwsgi_rack_init(){
 
 	ruby_script("uwsgi");
 
-#ifdef RUBY19
-	uwsgi_register_loop( (char *) "fiber", fiber_loop);
-#endif
-
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
 	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
-#ifdef RUBY19
-	rb_define_module_function(rb_uwsgi_embedded, "fiber_yield", uwsgi_ruby_fiber_yield, 0);
-#endif
-
 
 	if (ur.rack) {
 		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
@@ -517,7 +511,7 @@ clear:
 
 int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
-	int error;
+	int error = 0;
 	int i;
 	VALUE env, ret, status, headers, body;
 

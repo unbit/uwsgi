@@ -13,7 +13,6 @@ v = version.split('.')
 
 if v[0] == '1' and v[1] == '9':
 	CFLAGS.append('-DRUBY19')
-	GCC_LIST.append('../rack/fiber')
 
 includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['rubyhdrdir']\"").read().rstrip()
 if includedir == 'nil':

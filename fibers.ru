@@ -2,9 +2,10 @@ require 'fiber'
 class SuspendingBody
 
 	def each
-		for i in 1..10
+		for i in 1..100
 			yield "number: #{i}\n"
-			Fiber.yield
+			UWSGI.suspend
+			#Fiber.yield
 		end
 	end
 

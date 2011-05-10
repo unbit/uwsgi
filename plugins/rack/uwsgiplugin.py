@@ -17,7 +17,6 @@ GCC_LIST = ['rack_plugin']
 if v[0] == '1' and v[1] == '9':
 	CFLAGS.append('-DRUBY19')
 	CFLAGS.append('-Wno-unused-parameter')
-	GCC_LIST.append('fiber')
 
 includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['rubyhdrdir']\"").read().rstrip()
 if includedir == 'nil':
