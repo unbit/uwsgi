@@ -345,7 +345,7 @@ void goodbye_cruel_world() {
 	// in threading mode we need to use the cancel pthread subsystem
 #ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1 && !uwsgi.to_hell) {
-		//pthread_mutex_lock(&uwsgi.six_feet_under_lock);
+		pthread_mutex_lock(&uwsgi.six_feet_under_lock);
 		int i, ret;
 		for(i=0;i<uwsgi.threads;i++) {
 			if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
@@ -363,7 +363,7 @@ void goodbye_cruel_world() {
 			}
 		}
 
-		//pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
+		pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 	}
 #endif
 
