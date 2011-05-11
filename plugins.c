@@ -9,7 +9,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option, int absolu
 	char *plugin_name;
 	char *plugin_entry_symbol;
 	struct uwsgi_plugin *up;
-	char linkpath[1024];
+	char linkpath_buf[1024], linkpath[1024];
+	int linkpath_size;
 	int i;
 
 	char *colon = strchr(plugin, ':');
@@ -86,8 +87,13 @@ check:
                 up = dlsym(plugin_handle, plugin_entry_symbol);
 		if (!up) {
 			// is it a link ?
+			memset(linkpath_buf, 0, 1024);
 			memset(linkpath, 0, 1024);
-			if (readlink(plugin_name, linkpath, 1024) > 0) {
+			if ((linkpath_size = readlink(plugin_name, linkpath_buf, 1023)) > 0) {
+				do {
+					linkpath_buf[linkpath_size] = '\0';
+					strcpy(linkpath, linkpath_buf);
+				} while ((linkpath_size = readlink(linkpath, linkpath_buf, 1023)) > 0);
 				uwsgi_log("%s\n", linkpath);
 				free(plugin_entry_symbol);
 				up = dlsym(plugin_handle, plugin_entry_symbol);
