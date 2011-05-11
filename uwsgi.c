@@ -1715,25 +1715,6 @@ int uwsgi_start(void *v_argv) {
 	uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid;
 
-	if (uwsgi.cores > 1) {
-		for (i = 0; i < uwsgi.numproc + 1; i++) {
-			uwsgi.core = (struct uwsgi_core **) mmap(NULL, sizeof(struct uwsgi_core *) * uwsgi.cores, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-			if (!uwsgi.core) {
-				uwsgi_error("mmap()");
-				exit(1);
-			}
-			memset(uwsgi.core, 0, sizeof(struct uwsgi_core *) * uwsgi.cores);
-
-			for (j = 0; j < uwsgi.cores; j++) {
-				uwsgi.core[j] = (struct uwsgi_core *) mmap(NULL, sizeof(struct uwsgi_core), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-				if (!uwsgi.core[j]) {
-					uwsgi_error("mmap()");
-					exit(1);
-				}
-				memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
-			}
-		}
-	}
 	uwsgi.workers[0].pid = masterpid;
 
 	/*
@@ -1994,6 +1975,12 @@ int uwsgi_start(void *v_argv) {
 		// never here
 		uwsgi_error("execvp()");
 		exit(1);
+	}
+
+	uwsgi.core = uwsgi_malloc(sizeof(struct uwsgi_core *) * uwsgi.cores);
+        for (j = 0; j < uwsgi.cores; j++) {
+        	uwsgi.core[j] = uwsgi_malloc(sizeof(struct uwsgi_core));
+                memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
 	}
 
 	if (uwsgi.master_as_root) {
