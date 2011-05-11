@@ -436,23 +436,6 @@ struct uwsgi_opt {
 #define UWSGI_ACCEPTING	2
 #define UWSGI_PAUSED	3
 
-#define UWSGI_CLEAR_STATUS		uwsgi.workers[uwsgi.mywid].status = 0
-
-#define UWSGI_STATUS_IN_REQUEST		1 << 0
-#define UWSGI_IS_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_IN_REQUEST
-#define UWSGI_SET_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_IN_REQUEST
-#define UWSGI_UNSET_IN_REQUEST		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_IN_REQUEST
-
-#define UWSGI_STATUS_BLOCKING		1 << 1
-#define UWSGI_IS_BLOCKING		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_BLOCKING
-#define UWSGI_SET_BLOCKING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_BLOCKING
-#define UWSGI_UNSET_BLOCKING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_BLOCKING
-
-#define UWSGI_STATUS_LOCKING		1 << 2
-#define UWSGI_IS_LOCKING		uwsgi.workers[uwsgi.mywid].status & UWSGI_STATUS_LOCKING
-#define UWSGI_SET_LOCKING		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_LOCKING
-#define UWSGI_UNSET_LOCKING		uwsgi.workers[uwsgi.mywid].status ^= UWSGI_STATUS_LOCKING
-
 #ifdef __linux__
 #include <endian.h>
 #elif __sun__
@@ -1368,6 +1351,7 @@ struct uwsgi_core {
 	              //multiple ts per - core are needed only with multiple_interpreter + threads
 	void           *ts[MAX_APPS];
 
+	int		in_request;
 };
 
 struct uwsgi_worker {
@@ -1404,7 +1388,6 @@ void            gracefully_kill(int);
 void            reap_them_all(int);
 void            kill_them_all(int);
 void            grace_them_all(int);
-void            reload_me(int);
 void            end_me(int);
 int             bind_to_unix(char *, int, int, int);
 int             bind_to_tcp(char *, int, char *);

@@ -80,9 +80,6 @@ void *simple_loop(void *arg1) {
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
-
-		UWSGI_CLEAR_STATUS;
-
 		wsgi_req_setup(wsgi_req, core_id, NULL);
 
 		if (wsgi_req_accept(wsgi_req)) {
@@ -96,11 +93,7 @@ void *simple_loop(void *arg1) {
 		uwsgi_close_request(wsgi_req);
 	}
 
-#ifdef UWSGI_THREADING
 	pthread_exit(NULL);
-#else
-	exit(0);
-#endif
 
 	//never here
 	return NULL;
@@ -164,9 +157,6 @@ void *zeromq_loop(void *arg1) {
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
-
-		UWSGI_CLEAR_STATUS;
-
 		wsgi_req_setup(wsgi_req, core_id, NULL);
 
 		uwsgi.edge_triggered = 1;
@@ -210,12 +200,8 @@ void *zeromq_loop(void *arg1) {
 		uwsgi_close_request(wsgi_req);
 	}
 
-#ifdef UWSGI_THREADING
-        pthread_exit(NULL);
-#else
-	exit(0);
-#endif
 
+	pthread_exit(NULL);
         //never here
         return NULL;
 }

@@ -874,7 +874,6 @@ PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid) {
 #endif
 		uwsgi_lock(uwsgi.user_lock);
-		UWSGI_SET_LOCKING;
 	}
 
 	Py_INCREF(Py_None);
@@ -884,7 +883,6 @@ PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
 
 	uwsgi_unlock(uwsgi.user_lock);
-	UWSGI_UNSET_LOCKING;
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -2007,7 +2005,6 @@ PyObject *py_uwsgi_reload(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_set_blocking(PyObject * self, PyObject * args) {
 
 	if (uwsgi.master_process) {
-		uwsgi.workers[uwsgi.mywid].status |= UWSGI_STATUS_BLOCKING;
 		Py_INCREF(Py_True);
 		return Py_True;
 	}

@@ -136,9 +136,6 @@ void master_loop(char **argv, char **environ) {
 	pid_t diedpid;
 	int waitpid_status;
 
-	int working_workers = 0;
-	int blocking_workers = 0;
-
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
 
@@ -848,8 +845,6 @@ void master_loop(char **argv, char **environ) {
 
 				
 			master_cycles++;
-			working_workers = 0;
-			blocking_workers = 0;
 
 			// recalculate requests counter on race conditions risky configurations
 			// a bit of inaccuracy is better than locking;)
@@ -940,14 +935,9 @@ void master_loop(char **argv, char **environ) {
 						uwsgi.workers[i].harakiri = 0;
 					}
 				}
-				/* load counters */
-				if (uwsgi.workers[i].status & UWSGI_STATUS_IN_REQUEST)
-					working_workers++;
 
-				if (uwsgi.workers[i].status & UWSGI_STATUS_BLOCKING)
-					blocking_workers++;
-
-				uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
+				// need to find a better way
+				//uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
 			}
 
 #ifdef UWSGI_UDP

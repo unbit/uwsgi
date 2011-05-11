@@ -613,12 +613,13 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 		wsgi_req->socket = uwsgi_sock;
 	}
 
+	uwsgi.core[wsgi_req->async_id]->in_request = 0;
 }
 
 #ifdef UWSGI_ASYNC
 int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
-	UWSGI_SET_IN_REQUEST;
+	uwsgi.core[wsgi_req->async_id]->in_request = 1;
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
@@ -643,7 +644,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
-	UWSGI_SET_IN_REQUEST;
+	uwsgi.core[wsgi_req->async_id]->in_request = 1;
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 

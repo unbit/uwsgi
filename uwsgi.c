@@ -322,48 +322,69 @@ void warn_pipe() {
 	}
 }
 
-void gracefully_kill(int signum) {
-	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
-	if (UWSGI_IS_IN_REQUEST) {
-		uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-	}
-	else {
-		reload_me(0);
-	}
-}
+#ifdef UWSGI_THREADING
+// in threading mode we need to use the cancel pthread subsystem
+void wait_for_threads() {
+        int i, ret;
 
-void reload_me(int signum) {
-	exit(UWSGI_RELOAD_CODE);
+        pthread_mutex_lock(&uwsgi.six_feet_under_lock);
+        for(i=0;i<uwsgi.threads;i++) {
+                if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
+                        pthread_cancel(uwsgi.core[i]->thread_id);
+                }
+        }
+
+        // wait for thread termination
+        for(i=0;i<uwsgi.threads;i++) {
+                if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
+                        ret = pthread_join(uwsgi.core[i]->thread_id, NULL);
+                        if (ret) {
+                                uwsgi_log("pthread_join() = %d\n", ret);
+                        }
+                }
+        }
+
+        pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
+}
+#endif
+
+
+void gracefully_kill(int signum) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+#ifdef UWSGI_THREADING
+	if (uwsgi.threads > 1) {
+		wait_for_threads();
+		if (!uwsgi.core[wsgi_req->async_id]->in_request) {
+			exit(UWSGI_RELOAD_CODE);
+		}
+		return;	
+		// never here
+	}
+#endif
+
+	// still not found a way to gracefully reload in async mode
+	if (uwsgi.async > 1) {
+		exit(UWSGI_RELOAD_CODE);
+	}
+
+	if (!uwsgi.core[0]->in_request) {
+		exit(UWSGI_RELOAD_CODE);
+	}
 }
 
 void end_me(int signum) {
 	exit(UWSGI_END_CODE);
 }
 
+
 void goodbye_cruel_world() {
 
-	// in threading mode we need to use the cancel pthread subsystem
 #ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1 && !uwsgi.to_hell) {
-		pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-		int i, ret;
-		for(i=0;i<uwsgi.threads;i++) {
-			if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-				pthread_cancel(uwsgi.core[i]->thread_id);
-			}
-		}
-
-		// wait for thread termination
-		for(i=0;i<uwsgi.threads;i++) {
-			if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-				ret = pthread_join(uwsgi.core[i]->thread_id, NULL);
-				if (ret) {
-					uwsgi_log("pthread_join() = %d\n", ret);
-				}
-			}
-		}
-
-		pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
+		wait_for_threads();
 	}
 #endif
 
@@ -2105,7 +2126,7 @@ int uwsgi_start(void *v_argv) {
 	}
 	uwsgi_unix_signal(SIGHUP, gracefully_kill);
 	uwsgi_unix_signal(SIGINT, end_me);
-	uwsgi_unix_signal(SIGTERM, reload_me);
+	uwsgi_unix_signal(SIGTERM, end_me);
 
 
 	uwsgi_unix_signal(SIGUSR1, stats);
