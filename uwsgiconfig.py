@@ -531,11 +531,10 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
 
     p_cflags = cflags[:]
     p_ldflags = ldflags[:]
-    p_libs = libs[:]
 
     p_cflags += up.CFLAGS
     p_ldflags += up.LDFLAGS
-    p_libs += up.LIBS
+    p_libs = up.LIBS
 
     p_cflags.insert(0, '-I.')
 
