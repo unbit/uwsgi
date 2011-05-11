@@ -772,6 +772,7 @@ struct wsgi_request {
 	void           *async_args;
 	void           *async_environ;
 	void           *async_post;
+	void           *async_input;
 	void           *async_sendfile;
 
 	int		async_force_again;

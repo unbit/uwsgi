@@ -157,6 +157,7 @@ VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 
 VALUE rb_uwsgi_io_each(VALUE obj, VALUE args) {
 
+	uwsgi_log("calling each\n");
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 

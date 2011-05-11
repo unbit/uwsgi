@@ -211,6 +211,9 @@ clear:
 	if (wsgi_req->sendfile_fd != -1) {
 		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
 	}
+	if (wsgi_req->async_input) {
+		Py_DECREF((PyObject *)wsgi_req->async_input);
+	}
 	if (wsgi_req->async_environ) {
 		PyDict_Clear(wsgi_req->async_environ);
 	}
