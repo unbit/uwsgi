@@ -737,7 +737,7 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 				if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
 					uwsgi_error("fcntl()");
 #ifdef UWSGI_THREADING
-        if (uwsgi.threads > 1) { pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
+        if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 #endif
 					return -1;
 				}
