@@ -9,8 +9,8 @@ typedef struct uwsgi_Input {
 	char readline[1024];
 	size_t readline_size;
 	size_t readline_max_size;
-	off_t readline_pos;
-	off_t pos;
+	size_t readline_pos;
+	size_t pos;
 	struct wsgi_request *wsgi_req;
 } uwsgi_Input;
 
@@ -20,7 +20,7 @@ PyObject *uwsgi_Input_iter(PyObject *self) {
 }
 
 PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
-	off_t i;
+	size_t i;
 	ssize_t rlen;
 	struct wsgi_request *wsgi_req = self->wsgi_req;
 	PyObject *res;
@@ -72,7 +72,7 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
 
 	UWSGI_GET_GIL;
 
-	for(i=0;i<rlen;i++) {
+	for(i=0;i<(size_t)rlen;i++) {
 		if (self->readline[i] == '\n') {
 			res = PyString_FromStringAndSize(self->readline, i);
 			self->readline_pos+= i+1;
