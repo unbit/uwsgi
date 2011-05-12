@@ -350,8 +350,11 @@ class uConf(object):
             self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_NONE')
 
 
-        if self.get('tcmalloc'):
-            self.libs.append('-ltcmalloc')
+        if self.get('malloc_implementation') != 'libc':
+            if self.get('malloc_implementation') == 'tcmalloc':
+                self.libs.append('-ltcmalloc')
+            if self.get('malloc_implementation') == 'jemalloc':
+                self.libs.append('-ljemalloc')
 
         if self.get('embedded'):
             self.cflags.append('-DUWSGI_EMBEDDED')
