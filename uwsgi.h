@@ -775,7 +775,7 @@ struct wsgi_request {
 
 	int body_as_file;
 	//for generic use
-	off_t buf_pos;
+	size_t buf_pos;
 
 	uint64_t proto_parser_pos;
 	int proto_parser_status;
