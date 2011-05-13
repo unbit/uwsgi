@@ -2442,7 +2442,7 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 #endif
 	case LONG_ARGS_CHECK_STATIC:
-		uwsgi.check_static = optarg;
+		uwsgi.check_static = realpath(optarg, NULL);
 		uwsgi.check_static_len = strlen(uwsgi.check_static);
 		return 1;
 	case LONG_ARGS_FILE_SERVE_MODE:

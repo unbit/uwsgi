@@ -489,7 +489,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         }
 
         if (uwsgi_parse_vars(wsgi_req)) {
-                if (wsgi_req->status != 200) uwsgi_log("Invalid RACK request. skip.\n");
                 return -1;
         }
 

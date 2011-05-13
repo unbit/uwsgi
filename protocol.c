@@ -634,7 +634,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		uint64_t cache_value_size;
 		char *cache_value = uwsgi_cache_get(wsgi_req->cache_get, wsgi_req->cache_get_len, &cache_value_size);
 		if (cache_value && cache_value_size > 0) {
-			wsgi_req->response_size = write(wsgi_req->poll.fd, cache_value, cache_value_size);
+			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, cache_value, cache_value_size);
 			wsgi_req->status = -1;
 			return -1;
 		}
@@ -646,7 +646,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		uint64_t cache_value_size;
 		char *cache_value = uwsgi_cache_get(wsgi_req->uri, wsgi_req->uri_len, &cache_value_size);
 		if (cache_value && cache_value_size > 0) {
-			wsgi_req->response_size = write(wsgi_req->poll.fd, cache_value, cache_value_size);
+			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, cache_value, cache_value_size);
 			wsgi_req->status = -1;
 			return -1;
 		}
@@ -1241,8 +1241,8 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                         time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
                         if (st.st_mtime <= ims) {
                                 wsgi_req->status = 304;
-                                wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-                                wsgi_req->headers_size += write(wsgi_req->poll.fd, " 304 Not Modified\r\n\r\n", 21);
+                                wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
+                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, " 304 Not Modified\r\n\r\n", 21);
                                 return 0;
                         }
                 }
@@ -1253,37 +1253,37 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 #endif
                         // no need to set content-type/content-length, they will be fixed by the http server/router
 
-                        wsgi_req->headers_size = write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
-                        wsgi_req->headers_size += write(wsgi_req->poll.fd, " 200 OK\r\n", 9);
+                        wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
+                        wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, " 200 OK\r\n", 9);
 
 			if (uwsgi.file_serve_mode == 1) {
                                 wsgi_req->header_cnt = 2;
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, "X-Accel-Redirect: ", 18);
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, orig_document_root, orig_document_root_len);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Accel-Redirect: ", 18);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, orig_document_root, orig_document_root_len);
 				if (orig_document_root[orig_document_root_len-1] != '/') {
-					wsgi_req->headers_size += write(wsgi_req->poll.fd, "/", 1);
+					wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "/", 1);
 				}
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, path_info, path_info_len);
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, path_info, path_info_len);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
                         	set_http_date(st.st_mtime, http_last_modified);
-                        	wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
+                        	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
 			}
 			else if (uwsgi.file_serve_mode == 2) {
                                 wsgi_req->header_cnt = 2;
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, "X-Sendfile: ", 12);
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, orig_document_root, orig_document_root_len);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Sendfile: ", 12);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, orig_document_root, orig_document_root_len);
                                 if (orig_document_root[orig_document_root_len-1] != '/') {
-                                        wsgi_req->headers_size += write(wsgi_req->poll.fd, "/", 1);
+                                        wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "/", 1);
                                 }
-                                wsgi_req->headers_size += write(wsgi_req->poll.fd, path_info, path_info_len);	
-				wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, path_info, path_info_len);	
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
                         	set_http_date(st.st_mtime, http_last_modified);
-                        	wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
+                        	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
 			}
 			else {
                                 wsgi_req->header_cnt = 1;
                         	set_http_date(st.st_mtime, http_last_modified);
-                        	wsgi_req->headers_size += write(wsgi_req->poll.fd, http_last_modified, 48);
+                        	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
                                 wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);
                                 wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 			}

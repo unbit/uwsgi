@@ -382,7 +382,6 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 
 	if (uwsgi_parse_vars(wsgi_req)) {
-		uwsgi_log("Invalid PSGI request. skip.\n");
 		return -1;
 	}
 
