@@ -87,52 +87,6 @@ VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
 	Data_Get_Struct(wr, struct wsgi_request, wsgi_req);
 	VALUE self = Data_Wrap_Struct(class , 0, 0, wsgi_req);
 
-	ssize_t len = uwsgi.post_buffering_bufsize;
-	size_t post_remains = wsgi_req->post_cl;
-	char *ptr;
-
-	/* now the fun part:
-
-	   We will try to emulate a StringIO ruby object if http body is littler than uwsgi.post_buffering_bufsize
-	   otherwise we will map a *FILE object
-
-*/
-
-	if (!wsgi_req->post_cl) {
-		return self;
-	}
-
-	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-		//uwsgi_log("using file for http body storage %d\n", wsgi_req->post_cl);
-		//RUBY_GVL_UNLOCK
-		uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize);
-		//RUBY_GVL_LOCK
-	}
-	else {
-		//RUBY_GVL_UNLOCK
-		//uwsgi_log("using memory for http body storage %d\n", wsgi_req->post_cl);
-		ptr = wsgi_req->post_buffering_buf;
-		while(post_remains > 0) {
-			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-				inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-			}
-			if (post_remains > (size_t) uwsgi.post_buffering_bufsize) {
-				len = read(wsgi_req->poll.fd, ptr, len);
-			}
-			else {
-				len = read(wsgi_req->poll.fd, ptr, post_remains);
-			}
-			if (len < 0) {
-				uwsgi_error("read()");
-				return Qnil;
-			}
-			ptr += len;
-			post_remains -= len;
-		}
-		wsgi_req->buf_pos = 0;
-		//RUBY_GVL_LOCK
-	}
-
 	rb_obj_call_init(self, 0, NULL);
 
 	return self;
@@ -172,68 +126,28 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 	VALUE chunk;
-	size_t len;
 	int chunk_size;
 
 
-	if (!wsgi_req->post_cl) {
+	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
 		return Qnil;
 	}
 	
 	if (RARRAY_LEN(args) == 0) {
-		//uwsgi_log("reading the whole post data\n" ) ;
-		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-			char *post_body = malloc(wsgi_req->post_cl);
-			if (post_body) {
-				//RUBY_GVL_UNLOCK
-				len = fread( post_body, wsgi_req->post_cl, 1, wsgi_req->async_post);
-				if (!len) {
-					uwsgi_error("fread()");
-					free(post_body);
-					return Qnil;
-				}
-				//RUBY_GVL_LOCK
-				chunk = rb_str_new(post_body, wsgi_req->post_cl);
-				free(post_body);
-			}
-			else {
-				uwsgi_error("malloc()");
-				return Qnil;
-			}
-		}
-		else {
-			chunk = rb_str_new(wsgi_req->post_buffering_buf, wsgi_req->post_cl);
-		}
+		chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, wsgi_req->post_cl-wsgi_req->buf_pos);
 		return chunk;
 	}
 	else if (RARRAY_LEN(args) > 0) {
 		chunk_size = NUM2INT(RARRAY_PTR(args)[0]);
-		//uwsgi_log("chunk reading of %d bytes (post_cl: %d bufsize: %d)\n", chunk_size, wsgi_req->post_cl, uwsgi.post_buffering_bufsize ) ;
-		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-			char *post_body = malloc( chunk_size ) ;
-			if (post_body) {	
-				//RUBY_GVL_UNLOCK
-				len = fread( post_body, chunk_size, 1, wsgi_req->async_post );
-				//uwsgi_log("read %d items\n", len);
-				//RUBY_GVL_LOCK
-				chunk = rb_str_new(post_body, chunk_size);
-				free(post_body);
-			}
-			else {
-				uwsgi_error("malloc()");
-				return Qnil;
-			}
+		if (wsgi_req->buf_pos+chunk_size > wsgi_req->post_cl) {
+			chunk_size = wsgi_req->post_cl-wsgi_req->buf_pos;
 		}
-		else {	
-			if (RARRAY_LEN(args) > 1) {
-				rb_str_cat(RARRAY_PTR(args)[1], wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
-			}
-			chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
-			wsgi_req->buf_pos+=chunk_size;
+		wsgi_req->buf_pos+=chunk_size;
+		if (RARRAY_LEN(args) > 1) {
+			rb_str_cat(RARRAY_PTR(args)[1], wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
+			return RARRAY_PTR(args)[1];
 		}
-
-		return chunk;
-
+		return rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
 	}
 
 	return Qnil;
@@ -248,14 +162,7 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 		return Qnil;
 	}
 
-	if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-		//RUBY_GVL_LOCK
-		rewind(wsgi_req->async_post);
-		//RUBY_GVL_UNLOCK
-	}
-	else {
-		wsgi_req->buf_pos = 0;
-	}
+	wsgi_req->buf_pos = 0;
 
 	return Qnil;
 }
@@ -617,7 +524,13 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	rb_hash_aset(env, rb_str_new2("rack.run_once"), Qfalse);
 
 	VALUE dws_wr = Data_Wrap_Struct(ur.rb_uwsgi_io_class, 0, 0, wsgi_req);
-	rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall(ur.rb_uwsgi_io_class, rb_intern("new"), 1, dws_wr ));
+
+	if (wsgi_req->async_post) {
+		rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(fileno(wsgi_req->async_post)), rb_str_new("r",1) ));
+	}
+	else {
+		rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall(ur.rb_uwsgi_io_class, rb_intern("new"), 1, dws_wr ));
+	}
 
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
