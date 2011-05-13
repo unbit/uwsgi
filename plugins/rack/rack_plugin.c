@@ -111,7 +111,6 @@ VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 
 VALUE rb_uwsgi_io_each(VALUE obj, VALUE args) {
 
-	uwsgi_log("calling each\n");
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 
@@ -270,6 +269,7 @@ int uwsgi_rack_init(){
 	ruby_init();
 	ruby_init_loadpath();
 #endif
+	ruby_show_version();
 
 	ruby_script("uwsgi");
 
@@ -330,14 +330,6 @@ int uwsgi_rack_init(){
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
 
-#ifdef RUBY19
-#ifdef UWSGI_THREADING
-	if (uwsgi.threads > 1) {
-		rb_gc_disable();
-	}
-#endif
-#endif
-
 	return 0;
 
 }
@@ -382,6 +374,7 @@ VALUE send_header(VALUE obj, VALUE headers) {
 
 	size_t len;
 	VALUE hkey, hval;
+
 	
 	//uwsgi_log("HEADERS %d\n", TYPE(obj));
 	if (TYPE(obj) == T_ARRAY) {
@@ -469,6 +462,18 @@ clear:
 	return Qnil;
 }
 
+VALUE iterate_headers(VALUE headers) {
+
+#ifdef RUBY19
+        return rb_block_call(headers, rb_intern("each"), 0, 0, send_header, headers );
+#else
+        return rb_iterate(rb_each, headers, send_header, headers);
+#endif
+
+}
+
+
+
 int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	int error = 0;
@@ -488,8 +493,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-
-	//RUBY_GVL_LOCK
 
         env = rb_hash_new();
 
@@ -585,29 +588,39 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	wsgi_req->hvec[5].iov_base = (char *) "\r\n";
         	wsgi_req->hvec[5].iov_len = 2 ;
 
-		//RUBY_GVL_UNLOCK
 		if ( !(wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 6)) ) {
                 	uwsgi_error("writev()");
         	}
-		//RUBY_GVL_LOCK
 
 		headers = RARRAY_PTR(ret)[1] ;
 		if (rb_respond_to( headers, rb_intern("each") )) {
-			rb_iterate( rb_each, headers, send_header, headers); 
+			if (ur.unprotected) {
+#ifdef RUBY19
+        			rb_block_call(headers, rb_intern("each"), 0, 0, send_header, headers);
+#else
+        			rb_iterate(rb_each, headers, send_header, headers);
+#endif
+			}
+			else {
+				rb_protect( iterate_headers, headers, &error);
+				if (error) {
+					uwsgi_ruby_exception();
+					rb_gc_unregister_address(&status);
+                			rb_gc_unregister_address(&headers);
+					goto clear;
+				}
+			}
 		}
 
-		//RUBY_GVL_UNLOCK
 		if (wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2) != 2) {
 			uwsgi_error("write()");
 		}
-		//RUBY_GVL_LOCK
 
 		body = RARRAY_PTR(ret)[2] ;
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
 			VALUE sendfile_path = rb_funcall( body, rb_intern("to_path"), 0);
 			wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
-			//RUBY_GVL_UNLOCK
 			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
 			if (wsgi_req->response_size > 0) {
 				while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
@@ -615,7 +628,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 					wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 				}
 			}
-			//RUBY_GVL_LOCK;
 			rb_gc_unregister_address(&sendfile_path);
 
 		}
@@ -649,35 +661,20 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		rb_gc_unregister_address(&body);
 
 	}
+	else {
+		internal_server_error(wsgi_req, "Invalid RACK response");
+	}
 
+clear:
 
 	rb_gc_unregister_address(&ret);
 
 	rb_gc_unregister_address(&env);
 
 	if (ur.gc_freq <= 1 || ur.cycles%ur.gc_freq == 0) {
-#ifdef RUBY19
-#ifdef UWSGI_THREADING
-		if (uwsgi.threads > 1) {
-			if (wsgi_req->async_id == 0) {
-				rb_gc_enable();
-				rb_gc();
-				rb_gc_disable();
-			}
-		}
-		else {
-#endif
-#endif
 			//uwsgi_log("calling ruby GC\n");
 			rb_gc();
-#ifdef RUBY19
-#ifdef UWSGI_THREADING
-		}
-#endif
-#endif
 	}
-
-	//RUBY_GVL_UNLOCK
 
 	ur.cycles++;
 
@@ -717,15 +714,6 @@ void uwsgi_rack_suspend(struct wsgi_request *wsgi_req) {
 void uwsgi_rack_resume(struct wsgi_request *wsgi_req) {
 
 	uwsgi_log("RESUMING RUBY\n");
-}
-
-void uwsgi_rack_enable_threads(void) {
-
-	pthread_mutex_init(&ur.gvl, NULL);
-}
-
-void uwsgi_rack_init_thread(int core_id) {
-	// thread initialization
 }
 
 VALUE init_rack_app( VALUE script ) {
@@ -816,11 +804,5 @@ struct uwsgi_plugin rack_plugin = {
 
 	.suspend = uwsgi_rack_suspend,
 	.resume = uwsgi_rack_resume,
-#ifdef RUBY19
-#ifdef UWSGI_THREADING
-	.enable_threads = uwsgi_rack_enable_threads,
-	.init_thread = uwsgi_rack_init_thread,
-#endif
-#endif
 };
 
