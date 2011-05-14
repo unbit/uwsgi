@@ -1,3 +1,36 @@
+*** may 2011 ***
+
+ * 0.9.8-rc1 [20110514]
+
+- massive code cleanup and refactoring
+- added vassals loyalty concept
+- fixed virtualhosting with dynamic virtualenv
+- fixed reloading on grand-central-dispatch-enabled OSX
+- improved PSGI support with uGreen and async support
+- improved Rack support with complete fiber+async in ruby 1.9
+- support for JSON config files
+- native multi-protocol support (added fastcgi and http)
+- Mongrel2 support
+- support for templates in vassals
+- various threading fixes
+- gcc-4.6 support
+- support for logging via zeromq
+- support for configuration passed via pipe/stdin
+- pythonpath entries are now unlimited
+- socket entries are unlimited
+- pythonpath can be a glob
+- lazy mode added
+- new language-independent profiling subsystem
+- support for configuration stored in a sqlite3 db
+- allow workers to survive to syslogd death (when --log-syslog is used)
+- fix traceback in Python 3.x
+- support for uwsgi signals in threads
+- plugin autoloading
+- graceful reloading for threads
+- new wsgi.input object
+- support for alternative allocators (tcmalloc and jemalloc)
+
+
 *** april 2011 ***
 
  * 0.9.7.2 [20110406]
