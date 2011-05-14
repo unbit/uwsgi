@@ -8,37 +8,6 @@ extern struct uwsgi_server uwsgi;
 #define PROTO_STATUS_RECV_BODY 1
 
 
-static uint16_t http_add_uwsgi_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
-
-
-	char *buffer = wsgi_req->buffer + wsgi_req->uh.pktsize;
-	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
-	char *ptr = buffer;
-
-	if (buffer + keylen + vallen + 2 + 2 >= watermark) {
-		uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, key, vallen, val);
-		return 0;
-	}
-
-
-	*ptr++ = (uint8_t) (keylen & 0xff);
-	*ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
-	memcpy(ptr, key, keylen);
-	ptr += keylen;
-
-	*ptr++ = (uint8_t) (vallen & 0xff);
-	*ptr++ = (uint8_t) ((vallen >> 8) & 0xff);
-	memcpy(ptr, val, vallen);
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("add uwsgi var: %.*s = %.*s\n", keylen, key, vallen, val);
-#endif
-
-	return keylen + vallen + 2 + 2;
-}
-
-
-
 int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 
 	ssize_t len;
@@ -152,7 +121,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_DEBUG
 						uwsgi_log("keylen %d %.*s vallen %d %.*s\n", keylen, keylen, wsgi_req->proto_parser_buf + 8 + j, vallen, vallen, wsgi_req->proto_parser_buf + 8 + j + keylen);
 #endif
-						wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, wsgi_req->proto_parser_buf + 8 + j, keylen, wsgi_req->proto_parser_buf + 8 + j + keylen, vallen);
+						wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, wsgi_req->proto_parser_buf + 8 + j, keylen, wsgi_req->proto_parser_buf + 8 + j + keylen, vallen);
 					}
 					j += (keylen + vallen) - 1;
 				}
@@ -203,7 +172,9 @@ ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request * wsgi_req, struct iovec 
 
 ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
 	struct fcgi_record fr;
-	size_t rlen;
+	ssize_t rlen;
+	size_t chunk_len;
+	char *ptr = buf;
 
 	// in fastcgi we need to not send 0 size frames
 	if (!len)
@@ -217,13 +188,33 @@ ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, siz
 	fr.reserved = 0;
 	fr.cl = htons(len);
 
-	// TODO split response in 64k chunks...
+	// split response in 64k chunks...
 
-	rlen = write(wsgi_req->poll.fd, &fr, 8);
-	if (rlen <= 0) {
-		return rlen;
+	if (len <= 65535) {
+		rlen = write(wsgi_req->poll.fd, &fr, 8);
+		if (rlen <= 0) {
+			return rlen;
+		}
+		return write(wsgi_req->poll.fd, buf, len);
+	}	
+	else {
+		while(len > 0) {
+			chunk_len = UMIN(65535, len);	
+			fr.cl = htons(chunk_len);
+			rlen = write(wsgi_req->poll.fd, &fr, 8);
+			if (rlen <= 0) {
+				return rlen;
+			}
+			rlen = write(wsgi_req->poll.fd, ptr, chunk_len);
+			if (rlen <= 0) {
+				return rlen;
+			}
+			ptr += rlen;
+			len -= rlen;
+		}
+		return ptr-buf;
 	}
-	return write(wsgi_req->poll.fd, buf, len);
+
 }
 
 ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request * wsgi_req, char *buf, size_t len) {

@@ -87,6 +87,7 @@ void *simple_loop(void *arg1) {
 		}
 
 		if (wsgi_req_recv(wsgi_req)) {
+			uwsgi_destroy_request(wsgi_req);
 			continue;
 		}
 

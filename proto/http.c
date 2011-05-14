@@ -84,35 +84,6 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, i
 }
 
 
-static uint16_t http_add_uwsgi_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
-
-
-	char *buffer = wsgi_req->buffer + wsgi_req->uh.pktsize;
-	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
-	char *ptr = buffer;
-
-	if (buffer + keylen + vallen + 2 + 2 >= watermark) {
-		uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, key, vallen, val);
-		return 0;
-	}
-
-
-	*ptr++ = (uint8_t) (keylen & 0xff);
-	*ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
-	memcpy(ptr, key, keylen);
-	ptr += keylen;
-
-	*ptr++ = (uint8_t) (vallen & 0xff);
-	*ptr++ = (uint8_t) ((vallen >> 8) & 0xff);
-	memcpy(ptr, val, vallen);
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("add uwsgi var: %.*s = %.*s\n", keylen, key, vallen, val);
-#endif
-
-	return keylen + vallen + 2 + 2;
-}
-
 static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 
 	char *ptr = wsgi_req->proto_parser_buf;
@@ -122,7 +93,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
 		if (*ptr == ' ') {
-			wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, base, ptr - base);
+			wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, base, ptr - base);
 			ptr++;
 			break;
 		}
@@ -133,17 +104,17 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	base = ptr;
 	while (ptr < watermark) {
 		if (*ptr == '?' && !query_string) {
-			wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
+			wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
 			query_string = ptr + 1;
 		}
 		else if (*ptr == ' ') {
-			wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, base, ptr - base);
+			wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_URI", 11, base, ptr - base);
 			if (!query_string) {
-				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
-				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
+				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
+				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
 			}
 			else {
-				wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, query_string, ptr - query_string);
+				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, query_string, ptr - query_string);
 			}
 			ptr++;
 			break;
@@ -159,7 +130,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				return 0;
 			if (*(ptr + 1) != '\n')
 				return 0;
-			wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SERVER_PROTOCOL", 15, base, ptr - base);
+			wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PROTOCOL", 15, base, ptr - base);
 			ptr += 2;
 			break;
 		}
@@ -167,18 +138,18 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	}
 
 	// SCRIPT_NAME
-	wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
+	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
 
 	// SERVER_NAME
-	wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
+	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
 
 	// SERVER_PORT
-	wsgi_req->uh.pktsize += http_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "3031", 4);
+	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "3031", 4);
 
 	/*
 	   // REMOTE_ADDR
 	   if (inet_ntop(AF_INET, &h_session->ip_addr, h_session->ip, INET_ADDRSTRLEN)) {
-	   h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REMOTE_ADDR", 11, h_session->ip, strlen(h_session->ip));
+	   h_session->uh.pktsize += proto_base_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REMOTE_ADDR", 11, h_session->ip, strlen(h_session->ip));
 	   }
 	   else {
 	   uwsgi_error("inet_ntop()");

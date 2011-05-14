@@ -516,13 +516,30 @@ void uwsgi_as_root() {
 	}
 }
 
+void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
+
+	wsgi_req->socket->proto_close(wsgi_req);
+
+#ifdef UWSGI_THREADING
+	int foo;
+        if (uwsgi.threads > 1) {
+                // now the thread can die...
+                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
+        }
+#endif
+
+	memset(wsgi_req, 0, sizeof(struct wsgi_request));
+
+	
+}
+
 void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
 	int tmp_id;
 
 	gettimeofday(&wsgi_req->end_of_request, NULL);
-	uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
+	//uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
 
 
 	// get memory usage

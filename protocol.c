@@ -354,13 +354,13 @@ int uwsgi_parse_response(struct pollfd *upoll, int timeout, struct uwsgi_header 
 		}
 		else if (rlen == 0) {
 			uwsgi_log( "timeout waiting for header. skip request.\n");
-			close(upoll->fd);
+			//close(upoll->fd);
 			return 0;
 		}
 		status = socket_proto((struct wsgi_request *) uh);
 		if (status < 0) {
 			uwsgi_log("error parsing request\n");
-			close(upoll->fd);
+			//close(upoll->fd);
 			return 0;
 		}
 	}

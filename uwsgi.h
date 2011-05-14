@@ -1932,3 +1932,5 @@ void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list
 
 void uwsgi_init_all_apps(void);
 void uwsgi_socket_nb(int);
+
+void uwsgi_destroy_request(struct wsgi_request *);
