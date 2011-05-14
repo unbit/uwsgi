@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-#ifndef PyFrame_GetLineNumber
+#ifdef HAS_NOT_PyFrame_GetLineNumber
 int PyFrame_GetLineNumber(PyFrameObject *frame) {
 	if (frame->f_trace) {
 		return frame->f_lineno;

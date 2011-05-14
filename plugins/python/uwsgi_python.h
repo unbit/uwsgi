@@ -18,6 +18,10 @@
 #define Py_ssize_t ssize_t
 #endif
 
+#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
+#define HAS_NOT_PyFrame_GetLineNumber 
+#endif
+
 #if PY_MAJOR_VERSION > 2
 #define PYTHREE
 #endif
