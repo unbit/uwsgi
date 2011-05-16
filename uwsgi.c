@@ -159,6 +159,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 #endif
 	{"log-master", no_argument, 0, LONG_ARGS_LOG_MASTER},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE},
+	{"log-prefix", optional_argument, 0, LONG_ARGS_LOG_DATE},
 	{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO},
 	{"log-slow", required_argument, 0, LONG_ARGS_LOG_SLOW},
 	{"log-4xx", no_argument, 0, LONG_ARGS_LOG_4xx},
