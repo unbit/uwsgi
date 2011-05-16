@@ -1171,7 +1171,6 @@ int uwsgi_start(void *v_argv) {
 	union uwsgi_sockaddr_ptr gsa;
 	socklen_t socket_type_len;
 
-	int emperor_pipe[2];
 	struct uwsgi_socket *uwsgi_sock;
 
 #ifdef __linux__
@@ -1257,9 +1256,10 @@ int uwsgi_start(void *v_argv) {
 	// start the Emperor if needed
 	if (uwsgi.emperor_dir) {
 
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, emperor_pipe)) {
-			uwsgi_error("socketpair()");
-			exit(1);
+		if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
+			emperor_loop();
+                        // never here
+                        exit(1);
 		}
 
 		uwsgi.emperor_pid = fork();
@@ -1268,21 +1268,10 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 		else if (uwsgi.emperor_pid > 0) {
-			close(emperor_pipe[1]);
 			emperor_loop();
 			// never here
 			exit(1);
 		}
-
-		// do not go on if no socket or gateway is defined
-		if (!uwsgi.sockets && !uwsgi.gateways_cnt) {
-			exit(0);
-		}
-		close(emperor_pipe[0]);
-		uwsgi.has_emperor = 1;
-		uwsgi.emperor_fd = emperor_pipe[1];
-		uwsgi.master_process = 1;
-		uwsgi.no_orphans = 1;
 	}
 
 

@@ -7,6 +7,10 @@ extern char **environ;
 
 int emperor_queue;
 
+static void royal_death(int signum) {
+	exit(0);
+}
+
 struct uwsgi_instance {
 	struct uwsgi_instance *ui_prev;
 	struct uwsgi_instance *ui_next;
@@ -311,6 +315,8 @@ void emperor_loop() {
 	int interesting_fd;
 
 	signal(SIGPIPE, SIG_IGN);
+	uwsgi_unix_signal(SIGINT, royal_death);
+        uwsgi_unix_signal(SIGTERM, royal_death);
 
 	memset(&ui_base, 0, sizeof(struct uwsgi_instance));
 

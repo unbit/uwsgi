@@ -720,6 +720,9 @@ int wsgi_req_accept(struct wsgi_request *wsgi_req) {
 				uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
 				end_me(0);
 			}
+			else {
+				close(interesting_fd);
+			}
 		}
 		else {
 			uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
