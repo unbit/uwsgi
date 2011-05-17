@@ -8,6 +8,7 @@ extern char **environ;
 int emperor_queue;
 
 static void royal_death(int signum) {
+	uwsgi_notify("The Emperor is buried.");
 	exit(0);
 }
 
@@ -198,6 +199,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	else {
 
 		unsetenv("UWSGI_RELOADS");
+		unsetenv("NOTIFY_SOCKET");
 
 		uef = uwsgi_num2str(n_ui->pipe[1]);
 		if (setenv("UWSGI_EMPEROR_FD", uef, 1)) {
