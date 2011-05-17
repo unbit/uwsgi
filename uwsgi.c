@@ -704,6 +704,14 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.rl.rlim_cur = 0;
 	uwsgi.rl.rlim_max = 0;
 
+	// are we under systemd ?
+	char *notify_socket = getenv("NOTIFY_SOCKET");
+	if (notify_socket) {
+		uwsgi_systemd_init(notify_socket);
+	}
+
+	uwsgi_notify("initializing uWSGI");
+
 	emperor_env = getenv("UWSGI_EMPEROR_FD");
 	if (emperor_env) {
 		uwsgi.has_emperor = 1;
@@ -1257,6 +1265,7 @@ int uwsgi_start(void *v_argv) {
 	if (uwsgi.emperor_dir) {
 
 		if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
+			uwsgi_notify_ready();
 			emperor_loop();
                         // never here
                         exit(1);
@@ -1830,6 +1839,10 @@ int uwsgi_start(void *v_argv) {
 		}
 
 	}
+
+	// uWSGI is ready
+	uwsgi_notify_ready();
+
 	for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
 		pid = fork();
 		if (pid == 0) {

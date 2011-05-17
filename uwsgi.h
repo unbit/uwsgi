@@ -12,6 +12,9 @@
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
 
+#define uwsgi_notify(x) if (uwsgi.notify) uwsgi.notify(x)
+#define uwsgi_notify_ready() if (uwsgi.notify_ready) uwsgi.notify_ready()
+
 #define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
 
 #define ushared uwsgi.shared
@@ -1125,6 +1128,11 @@ struct uwsgi_server {
 
 	struct wsgi_request *(*current_wsgi_req) (void);
 
+	void (*notify) (char *);
+	void (*notify_ready) (void);
+	int	notification_fd;
+	void	*notification_object;
+
 	// usedby suspend/resume loops
 	void (*schedule_to_main) (struct wsgi_request *);
 	void (*schedule_to_req) (void);
@@ -1934,3 +1942,5 @@ void uwsgi_init_all_apps(void);
 void uwsgi_socket_nb(int);
 
 void uwsgi_destroy_request(struct wsgi_request *);
+
+void uwsgi_systemd_init(char *);
