@@ -315,6 +315,7 @@ void emperor_loop() {
 	void *events;
 	int nevents;
 	int interesting_fd;
+	char notification_message[64];
 
 	signal(SIGPIPE, SIG_IGN);
 	uwsgi_unix_signal(SIGINT, royal_death);
@@ -577,6 +578,12 @@ reconnect:
 			has_children++;
 		}
 
+		if (uwsgi.notify) {
+			if (snprintf(notification_message, 64, "The Emperor is governing %d vassals", has_children) >= 34) {
+				uwsgi_notify(notification_message);
+			}
+		}
+
 		if (has_children) {
 			diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 		}
@@ -627,6 +634,7 @@ reconnect:
 				}
 			}
 		}
+
 
 	}
 
