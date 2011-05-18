@@ -113,8 +113,22 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 	}
 
 	// return empty string if no post_cl or pos >= post_cl
-	if (!self->wsgi_req->post_cl || (size_t) self->pos >= self->wsgi_req->post_cl) {
+	if ((!self->wsgi_req->post_cl || (size_t) self->pos >= self->wsgi_req->post_cl ) && !self->readline_pos) {
 		return PyString_FromString("");
+	}
+
+	// some residual data ?
+	if (self->readline_pos && self->readline_size) {
+		if (len > 0) {
+			if ((size_t) len < (self->readline_size - self->readline_pos)) {
+				res = PyString_FromStringAndSize(self->readline + self->readline_pos, len);
+				self->readline_pos+=len;
+				if (self->readline_pos >= self->readline_size) self->readline_pos = 0;
+				return res;	
+			}
+		}
+		self->readline_pos = 0;
+		return PyString_FromStringAndSize(self->readline + self->readline_pos, self->readline_size - self->readline_pos);
 	}
 
 	// return the whole input
@@ -125,7 +139,7 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
                 remains = len ;
         }
 
-        if (remains + self->pos > self->wsgi_req->post_cl) {
+	if (remains + self->pos > self->wsgi_req->post_cl) {
                 remains = self->wsgi_req->post_cl - self->pos;
         }
 
@@ -134,7 +148,7 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
         }
 
 	if (uwsgi.post_buffering > 0) {
-		res = PyString_FromStringAndSize( self->wsgi_req->post_buffering_buf, remains);
+		res = PyString_FromStringAndSize( self->wsgi_req->post_buffering_buf+self->pos, remains);
 		self->pos += remains;
 		return res;
 	}
