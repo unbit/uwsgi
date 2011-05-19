@@ -68,6 +68,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
+	{"die-on-term", no_argument, &uwsgi.die_on_term, 1},
 	{"help", no_argument, 0, 'h'},
 	{"usage", no_argument, 0, 'h'},
 	{"reaper", no_argument, 0, 'r'},

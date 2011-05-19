@@ -56,7 +56,7 @@ void uwsgi_systemd_init(char *systemd_socket) {
 	if (sun->sun_path[0] == '@') sun->sun_path[0] = 0;
 
 	msghdr = uwsgi_malloc(sizeof(struct msghdr));
-	memset(msghdr, sizeof(struct msghdr), 0);
+	memset(msghdr, 0, sizeof(struct msghdr));
 
 	msghdr->msg_iov = uwsgi_malloc(sizeof(struct iovec)*3);
 	memset(msghdr->msg_iov, 0, sizeof(struct iovec)*3);

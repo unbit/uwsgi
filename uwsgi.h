@@ -835,6 +835,7 @@ struct uwsgi_server {
 
 	unsigned int reloads;
 	int master_as_root;
+	int	die_on_term;
 
 	int		lazy;
 
