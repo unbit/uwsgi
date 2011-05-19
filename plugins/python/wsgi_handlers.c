@@ -103,7 +103,7 @@ static void uwsgi_Input_free(uwsgi_Input *self) {
 static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 	long len = 0;
-	size_t remains;
+	size_t remains, tmp_pos = 0;
 	ssize_t rlen;
 	char *tmp_buf;
 	PyObject *res;
@@ -157,23 +157,26 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 	tmp_buf = uwsgi_malloc(remains);	
 
-	if (uwsgi_waitfd(self->wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-		free(tmp_buf);
-		UWSGI_GET_GIL
-		return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data");
+	while(remains) {
+		if (uwsgi_waitfd(self->wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
+                       	free(tmp_buf);
+                       	UWSGI_GET_GIL
+                       	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data");
+               	}
+
+		rlen = read(self->wsgi_req->poll.fd, tmp_buf+tmp_pos, remains);
+		if (rlen < 0) {
+                       	free(tmp_buf);
+                       	UWSGI_GET_GIL
+                       	return PyErr_Format(PyExc_IOError, "error reading wsgi.input data");
+               	}
+		tmp_pos += rlen;
+		remains -= rlen;
 	}
 
-	rlen = read(self->wsgi_req->poll.fd, tmp_buf, remains);
-	if (rlen < 0) {
-		free(tmp_buf);
-		UWSGI_GET_GIL
-		return PyErr_Format(PyExc_IOError, "error reading wsgi.input data");
-	}
-
-	self->pos += rlen;
 	UWSGI_GET_GIL
-	res = PyString_FromStringAndSize(tmp_buf, rlen);
-
+	self->pos += tmp_pos;
+	res = PyString_FromStringAndSize(tmp_buf, tmp_pos);
 	free(tmp_buf);
 	return res;
 		
