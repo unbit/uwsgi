@@ -1002,7 +1002,7 @@ void master_loop(char **argv, char **environ) {
                 		}
                 		else {
 					if (tr_st.st_mtime > uwsgi.last_touch_reload_mtime) {
-						uwsgi_log("*** %s has been touched... grace them all !!! ***\n");
+						uwsgi_log("*** %s has been touched... grace them all !!! ***\n", uwsgi.touch_reload);
 						grace_them_all(0);
 					}
                 		}
