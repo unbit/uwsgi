@@ -1,5 +1,12 @@
 *** may 2011 ***
 
+ * 0.9.8-rc2 [20110521]
+
+- new option --die-on-term
+- fixed touch reload
+- a couple of optimizations for wsgi.input
+- systemd integration
+
  * 0.9.8-rc1 [20110514]
 
 - massive code cleanup and refactoring
