@@ -1,5 +1,7 @@
 # uWSGI build system
 
+uwsgi_version = '0.9.8-dev'
+
 import os
 import re
 import time
@@ -23,6 +25,8 @@ GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
     GCC = 'gcc'
 
+	
+    
 
 def spcall(cmd):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('/dev/null','w'))
@@ -33,6 +37,12 @@ def spcall(cmd):
         return p.stdout.read().rstrip()
     else:
         return None
+
+if uwsgi_version.endswith('-dev') and os.path.exists('%s/.hg' % os.path.dirname(os.path.abspath( __file__ ))):
+    try:
+        uwsgi_version += spcall('hg tip --template "-{rev}"')
+    except:
+        pass
 
 
 def spcall2(cmd):
@@ -166,7 +176,7 @@ class uConf(object):
         if uwsgi_os == 'Linux':
             self.gcc_list.append('lib/linux_ns')
             self.gcc_list.append('lib/netlink')
-        self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
+        self.cflags = ['-DUWSGI_VERSION="\\"' + uwsgi_version + '\\""', '-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:
             gcc_version = str(spcall("%s -dumpversion" % GCC))
         except:
