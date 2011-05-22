@@ -2219,8 +2219,13 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 
 #ifdef UWSGI_SPOOLER
 static PyMethodDef uwsgi_spooler_methods[] = {
+#ifdef PYTHREE
+	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
+	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_VARARGS | METH_KEYWORDS, ""},
+#else
 	{"send_to_spooler", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
 	{"spool", (PyCFunction) py_uwsgi_send_spool, METH_KEYWORDS, ""},
+#endif
 	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{NULL, NULL},
