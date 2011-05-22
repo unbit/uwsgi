@@ -66,7 +66,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
 	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
 	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT},
-	{"auto-snapshot", no_argument, 0, LONG_ARGS_AUTO_SNAPSHOT},
+	{"auto-snapshot", optional_argument, 0, LONG_ARGS_AUTO_SNAPSHOT},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
 	{"die-on-term", no_argument, &uwsgi.die_on_term, 1},
@@ -463,8 +463,16 @@ void grace_them_all(int signum) {
                                 	uwsgi_error("waitpid()");
                                 }
 			}
-			uwsgi.workers[i].snapshot = uwsgi.workers[i].pid;
-			kill(uwsgi.workers[i].pid, SIGURG);
+			if (uwsgi.workers[i].pid > 0) {
+				if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
+					uwsgi.workers[i].snapshot = 0;
+					kill(uwsgi.workers[i].pid, SIGHUP);
+				}
+				else {
+					uwsgi.workers[i].snapshot = uwsgi.workers[i].pid;
+					kill(uwsgi.workers[i].pid, SIGURG);
+				}
+			}
 		}
 		else if (uwsgi.workers[i].pid > 0)
 			kill(uwsgi.workers[i].pid, SIGHUP);
@@ -2437,7 +2445,10 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.reload_mercy = atoi(optarg);
 		return 1;
 	case LONG_ARGS_AUTO_SNAPSHOT:
-		uwsgi.auto_snapshot = 1;
+		uwsgi.auto_snapshot = -1;
+		if (optarg) {
+			uwsgi.auto_snapshot = atoi(optarg);
+		}
 		uwsgi.lazy = 1;
 		return 1;
 	case LONG_ARGS_LOG_MASTER:

@@ -409,10 +409,16 @@ void master_loop(char **argv, char **environ) {
 				if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
                                 	uwsgi_error("waitpid()");
                                 }
-				uwsgi.workers[i].pid = uwsgi.workers[i].snapshot;
-				uwsgi.workers[i].snapshot = 0;
-				kill(uwsgi.workers[i].pid, SIGURG);
-				uwsgi_log( "Restored uWSGI worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
+				if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
+					uwsgi.workers[i].pid = 0;
+					uwsgi.workers[i].snapshot = 0;
+				}
+				else {
+					uwsgi.workers[i].pid = uwsgi.workers[i].snapshot;
+					uwsgi.workers[i].snapshot = 0;
+					kill(uwsgi.workers[i].pid, SIGURG);
+					uwsgi_log( "Restored uWSGI worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
+				}
 			}
 
 			uwsgi.restore_snapshot = 0;
