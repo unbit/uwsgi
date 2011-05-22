@@ -2,6 +2,17 @@
 
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_restore_auto_snapshot(int signum) {
+
+	if (uwsgi.workers[1].snapshot > 0) {
+		uwsgi.restore_snapshot = 1;
+	}
+	else {
+		uwsgi_log("[WARNING] no snapshot available\n");
+	}
+	
+}
+
 void expire_rb_timeouts(struct rb_root *root) {
 
         time_t current = time(NULL);
@@ -121,16 +132,14 @@ void manage_cluster_announce(char *key, uint16_t keylen, char *val, uint16_t val
 
 void master_loop(char **argv, char **environ) {
 
-	uint64_t master_cycles = 0;
 	uint64_t tmp_counter;
 
 	char log_buf[4096];
 
-	time_t current_time = time(NULL);
 
 	struct timeval last_respawn;
+	int last_respawn_rate = 0;
 
-	pid_t pid;
 	int pid_found = 0;
 
 	pid_t diedpid;
@@ -174,6 +183,7 @@ void master_loop(char **argv, char **environ) {
 	struct rb_root *rb_timers = uwsgi_init_rb_timer();
 	struct tm *uwsgi_cron_delta;
 
+	uwsgi.current_time = time(NULL);
 
 	uwsgi_unix_signal(SIGHUP, grace_them_all);
 	if (uwsgi.die_on_term) {
@@ -186,6 +196,9 @@ void master_loop(char **argv, char **environ) {
 	}
 	uwsgi_unix_signal(SIGINT, kill_them_all);
 	uwsgi_unix_signal(SIGUSR1, stats);
+	if (uwsgi.auto_snapshot) {
+		uwsgi_unix_signal(SIGURG, uwsgi_restore_auto_snapshot);
+	}
 
 
 	uwsgi.master_queue = event_queue_init();
@@ -382,29 +395,39 @@ void master_loop(char **argv, char **environ) {
 				}
 			}
 		}
-		if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
-#ifdef UWSGI_SPOOLER
-			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-				kill(uwsgi.shared->spooler_pid, SIGKILL);
-				uwsgi_log( "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+		if (uwsgi.respawn_workers) {
+			for(i=1;i<=uwsgi.numproc;i++) {
+				if (uwsgi_respawn_worker(i)) return;
 			}
 
-#endif
+			uwsgi.respawn_workers = 0;
+		}
+		if (uwsgi.restore_snapshot) {
+			uwsgi_log("[snapshot] restoring workers...\n");
+			for(i=1;i<=uwsgi.numproc;i++) {
+				kill(uwsgi.workers[i].pid, SIGKILL);
+				if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+                                	uwsgi_error("waitpid()");
+                                }
+				uwsgi.workers[i].pid = uwsgi.workers[i].snapshot;
+				uwsgi.workers[i].snapshot = 0;
+				kill(uwsgi.workers[i].pid, SIGURG);
+				uwsgi_log( "Restored uWSGI worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
+			}
 
-			// TODO kill all the gateways
+			uwsgi.restore_snapshot = 0;
+			continue;
+		}
+		if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
+			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
+			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
+				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
+			}
+
 			uwsgi_log( "goodbye to uWSGI.\n");
 			exit(0);
 		}
 		if (ready_to_reload >= uwsgi.numproc && uwsgi.to_heaven) {
-#ifdef UWSGI_SPOOLER
-			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-				kill(uwsgi.shared->spooler_pid, SIGKILL);
-				uwsgi_log( "wait4() the spooler with pid %d...", uwsgi.shared->spooler_pid);
-				diedpid = waitpid(uwsgi.shared->spooler_pid, &waitpid_status, 0);
-				uwsgi_log( "done.");
-			}
-#endif
-
 			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
 			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
@@ -555,8 +578,8 @@ void master_loop(char **argv, char **environ) {
 			
 				// check uwsgi-cron table
 				if (ushared->cron_cnt) {
-					current_time = time(NULL);
-					uwsgi_cron_delta = localtime( &current_time );
+					uwsgi.current_time = time(NULL);
+					uwsgi_cron_delta = localtime( &uwsgi.current_time );
 
 					if (uwsgi_cron_delta) {
 
@@ -607,9 +630,9 @@ void master_loop(char **argv, char **environ) {
 
 
 								// date match, signal it ?
-								if (current_time - ucron->last_job > 60) {
+								if (uwsgi.current_time - ucron->last_job > 60) {
 									uwsgi_route_signal(ucron->sig);
-									ucron->last_job = current_time;
+									ucron->last_job = uwsgi.current_time;
 								}
 							}
 					
@@ -640,6 +663,10 @@ void master_loop(char **argv, char **environ) {
                                                                         }
                                                                 }
 #endif
+								/*
+								else if (uwsgi.udp_log_addr) {
+								}
+								*/
 								// TODO allow uwsgi.logger = func
 							}	
 						}
@@ -832,7 +859,7 @@ void master_loop(char **argv, char **environ) {
 					}
 				}
 
-			current_time = time(NULL);	
+			uwsgi.current_time = time(NULL);	
 			// checking logsize
 			if (uwsgi.logfile) {
 				uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
@@ -850,7 +877,7 @@ void master_loop(char **argv, char **environ) {
 			}
 
 				
-			master_cycles++;
+			uwsgi.master_cycles++;
 
 			// recalculate requests counter on race conditions risky configurations
 			// a bit of inaccuracy is better than locking;)
@@ -868,7 +895,7 @@ void master_loop(char **argv, char **environ) {
 				for(i=0;i< (int)uwsgi.cache_max_items;i++) {
 					uwsgi_wlock(uwsgi.cache_lock);
 					if (uwsgi.cache_items[i].expires) {
-						if (uwsgi.cache_items[i].expires < (uint64_t) current_time) {
+						if (uwsgi.cache_items[i].expires < (uint64_t) uwsgi.current_time) {
 							uwsgi_cache_del(uwsgi.cache_items[i].key, uwsgi.cache_items[i].keysize);
 						}
 					}
@@ -894,7 +921,7 @@ void master_loop(char **argv, char **environ) {
 			for (i = 1; i <= uwsgi.numproc; i++) {
 				/* first check for harakiri */
 				if (uwsgi.workers[i].harakiri > 0) {
-					if (uwsgi.workers[i].harakiri < (time_t) current_time) {
+					if (uwsgi.workers[i].harakiri < (time_t) uwsgi.current_time) {
 						/* first try to invoke the harakiri() custom handler */
 						/* TODO */
 						/* then brutally kill the worker */
@@ -948,37 +975,15 @@ void master_loop(char **argv, char **environ) {
 
 #ifdef UWSGI_UDP
 			// check for cluster nodes
-			for (i = 0; i < MAX_CLUSTER_NODES; i++) {
-				struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[i];
-
-				if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_STATIC && ucn->status == UWSGI_NODE_FAILED) {
-					// should i retry ?
-					if (master_cycles % ucn->errors == 0) {
-						if (!uwsgi_ping_node(i, uwsgi.wsgi_req)) {
-							ucn->status = UWSGI_NODE_OK;
-							uwsgi_log( "re-enabled cluster node %d/%s\n", i, ucn->name);
-						}
-						else {
-							ucn->errors++;
-						}
-					}
-				}
-				else if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_DYNAMIC) {
-					// if the last_seen attr is higher than 30 secs ago, mark the node as dead
-					if ( (current_time - ucn->last_seen) > 30) {
-						uwsgi_log_verbose("no presence announce in the last 30 seconds by node %s, i assume it is dead.\n", ucn->name);
-						ucn->name[0] = 0 ;
-					}
-				}
-			}
+			master_check_cluster_nodes();
 
 			// reannounce myself every 10 cycles
-			if (uwsgi.cluster && uwsgi.cluster_fd >= 0 && !uwsgi.cluster_nodes && (master_cycles % 10) == 0) {
+			if (uwsgi.cluster && uwsgi.cluster_fd >= 0 && !uwsgi.cluster_nodes && (uwsgi.master_cycles % 10) == 0) {
 				uwsgi_cluster_add_me();
 			}
 
 			// resubscribe every 10 cycles
-			if (uwsgi.subscriptions_cnt > 0 && ((master_cycles % 10) == 0 || master_cycles == 1)) {
+			if (uwsgi.subscriptions_cnt > 0 && ((uwsgi.master_cycles % 10) == 0 || uwsgi.master_cycles == 1)) {
 				for(i=0;i<uwsgi.subscriptions_cnt;i++) {
 					uwsgi_subscribe(uwsgi.subscriptions[i]);
 				}
@@ -986,13 +991,13 @@ void master_loop(char **argv, char **environ) {
 
 #endif
 
-			if (uwsgi.cache_store && uwsgi.cache_filesize && uwsgi.cache_store_sync && ((master_cycles % uwsgi.cache_store_sync) == 0)) {
+			if (uwsgi.cache_store && uwsgi.cache_filesize && uwsgi.cache_store_sync && ((uwsgi.master_cycles % uwsgi.cache_store_sync) == 0)) {
 				if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
                         		uwsgi_error("msync()");
                 		}
 			}
 
-			if (uwsgi.queue_store && uwsgi.queue_filesize && uwsgi.queue_store_sync && ((master_cycles % uwsgi.queue_store_sync) == 0)) {
+			if (uwsgi.queue_store && uwsgi.queue_filesize && uwsgi.queue_store_sync && ((uwsgi.master_cycles % uwsgi.queue_store_sync) == 0)) {
 				if (msync(uwsgi.queue, uwsgi.queue_filesize, MS_ASYNC)) {
                         		uwsgi_error("msync()");
                 		}
@@ -1021,6 +1026,9 @@ void master_loop(char **argv, char **environ) {
 			continue;
 
 		}
+		// reload gateways and daemons only on normal workflow
+		if (!uwsgi.to_heaven && !uwsgi.to_hell) {
+
 #ifdef UWSGI_SPOOLER
 		/* reload the spooler */
 		if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
@@ -1032,8 +1040,6 @@ void master_loop(char **argv, char **environ) {
 		}
 #endif
 
-		// reload gateways and daemons only on normal workflow
-		if (!uwsgi.to_heaven && !uwsgi.to_hell) {
 		/* reload the gateways */
 		// TODO reload_gateway(diedpid);
 		pid_found = 0;
@@ -1059,6 +1065,7 @@ void master_loop(char **argv, char **environ) {
                 }
 
 		if (pid_found) continue;
+
 		}
 
 		/* What happens here ?
@@ -1107,9 +1114,16 @@ void master_loop(char **argv, char **environ) {
 		}
 		gettimeofday(&last_respawn, NULL);
 		if (last_respawn.tv_sec == uwsgi.respawn_delta) {
-			uwsgi_log( "worker respawning too fast !!! i have to sleep a bit...\n");
-			/* TODO, user configurable fork throttler */
-			sleep(2);
+			last_respawn_rate++;
+			if (last_respawn_rate > uwsgi.numproc) {
+				uwsgi_log( "worker respawning too fast !!! i have to sleep a bit...\n");
+				/* TODO, user configurable fork throttler */
+				sleep(2);
+				last_respawn_rate = 0;
+			}
+		}
+		else {
+			last_respawn_rate = 0;
 		}
 		gettimeofday(&last_respawn, NULL);
 		uwsgi.respawn_delta = last_respawn.tv_sec;
@@ -1121,26 +1135,7 @@ void master_loop(char **argv, char **environ) {
 			continue;
 		}
 		*/
-		pid = fork();
-		if (pid == 0) {
-			// fix the communication pipe
-			close(uwsgi.shared->worker_signal_pipe[0]);
-			uwsgi.mypid = getpid();
-			uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
-			uwsgi.workers[uwsgi.mywid].harakiri = 0;
-			uwsgi.workers[uwsgi.mywid].requests = 0;
-			uwsgi.workers[uwsgi.mywid].failed_requests = 0;
-			uwsgi.workers[uwsgi.mywid].respawn_count++;
-			uwsgi.workers[uwsgi.mywid].last_spawn = current_time;
-			uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
-			break;
-		}
-		else if (pid < 1) {
-			uwsgi_error("fork()");
-		}
-		else {
-			uwsgi_log( "Respawned uWSGI worker %d (new pid: %d)\n", uwsgi.mywid, (int) pid);
-		}
+		if (uwsgi_respawn_worker(uwsgi.mywid)) return;
 
 	}
 }

@@ -2198,3 +2198,10 @@ void uwsgi_string_del_list(struct uwsgi_string_list **list, struct uwsgi_string_
 	}
 	
 }
+
+void uwsgi_sig_pause() {
+
+	sigset_t mask;
+        sigemptyset(&mask);
+	sigsuspend(&mask);
+}

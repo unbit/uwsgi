@@ -66,6 +66,7 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS static struct option long_base_options[] = {
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
 	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
 	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT},
+	{"auto-snapshot", no_argument, 0, LONG_ARGS_AUTO_SNAPSHOT},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
 	{"die-on-term", no_argument, &uwsgi.die_on_term, 1},
@@ -404,6 +405,15 @@ void kill_them_all(int signum) {
 			kill(uwsgi.workers[i].pid, SIGINT);
 	}
 
+#ifdef UWSGI_SPOOLER
+                 if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+                            kill(uwsgi.shared->spooler_pid, SIGKILL);
+                             uwsgi_log( "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+                   }
+
+#endif
+
+
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
 			kill(uwsgi.shared->daemons[i].pid, SIGKILL);
@@ -417,11 +427,21 @@ void kill_them_all(int signum) {
 
 void grace_them_all(int signum) {
 	int i;
-	uwsgi.to_heaven = 1;
+	int waitpid_status;
+
+	if (!uwsgi.lazy) uwsgi.to_heaven = 1;
 
 	if (uwsgi.reload_mercy > 0) {
 		uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
 	}
+
+#ifdef UWSGI_SPOOLER
+                        if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+                                kill(uwsgi.shared->spooler_pid, SIGKILL);
+                             	uwsgi_log( "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+                        }
+#endif
+
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
@@ -436,8 +456,22 @@ void grace_them_all(int signum) {
 
 	uwsgi_log("...gracefully killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
-		if (uwsgi.workers[i].pid > 0)
+		if (uwsgi.auto_snapshot) {
+			if (uwsgi.workers[i].snapshot > 0) {
+				kill(uwsgi.workers[i].snapshot, SIGKILL);
+				if (waitpid(uwsgi.workers[i].snapshot, &waitpid_status, 0) < 0) {
+                                	uwsgi_error("waitpid()");
+                                }
+			}
+			uwsgi.workers[i].snapshot = uwsgi.workers[i].pid;
+			kill(uwsgi.workers[i].pid, SIGURG);
+		}
+		else if (uwsgi.workers[i].pid > 0)
 			kill(uwsgi.workers[i].pid, SIGHUP);
+	}
+
+	if (uwsgi.auto_snapshot) {
+		uwsgi.respawn_workers = 1;
 	}
 
 }
@@ -458,7 +492,8 @@ void uwsgi_nuclear_blast() {
 
 void reap_them_all(int signum) {
 	int i;
-	uwsgi.to_heaven = 1;
+
+	if (!uwsgi.lazy) uwsgi.to_heaven = 1;
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
@@ -488,6 +523,23 @@ void harakiri() {
 		uwsgi_log("*** if you want your workers to be automatically respawned consider enabling the uWSGI master process ***\n");
 	}
 	exit(0);
+}
+
+void snapshot_me(int signum) {
+	// wakeup !!!
+	if (uwsgi.snapshot) {
+		uwsgi.snapshot = 0;
+		return;
+	}
+
+	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
+#ifdef UWSGI_THREADING
+        if (uwsgi.threads > 1) {
+                wait_for_threads();
+        }
+#endif
+	uwsgi.snapshot = 1;
+	uwsgi_log("[snapshot] process %d taken\n", (int) getpid());
 }
 
 void stats(int signum) {
@@ -2118,6 +2170,10 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_unix_signal(SIGHUP, gracefully_kill);
 	uwsgi_unix_signal(SIGINT, end_me);
 	uwsgi_unix_signal(SIGTERM, end_me);
+	
+	if (uwsgi.auto_snapshot) {
+		uwsgi_unix_signal(SIGURG, snapshot_me);
+	}
 
 
 	uwsgi_unix_signal(SIGUSR1, stats);
@@ -2194,6 +2250,26 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
+	uwsgi_ignition();
+
+	// never here
+	exit(0);
+
+}
+
+
+void uwsgi_ignition() {
+
+	int i;
+
+	// snapshot workers do not enter the loop until a specific signal (SIGURG) is raised...
+        if (uwsgi.snapshot) {
+wait_for_call_of_duty:
+		uwsgi_sig_pause();
+		if (uwsgi.snapshot) goto wait_for_call_of_duty;
+		uwsgi_log("[snapshot] process %d is the new worker %d\n", (int) getpid(), uwsgi.mywid);
+	}
+
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
 		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
@@ -2242,8 +2318,11 @@ int uwsgi_start(void *v_argv) {
 
 	}
 
+	if (uwsgi.snapshot) {
+		uwsgi_ignition();
+	}
 	// never here
-	return 0;
+	pthread_exit(NULL);
 }
 
 static int manage_base_opt(int i, char *optarg) {
@@ -2356,6 +2435,10 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_RELOAD_MERCY:
 		uwsgi.reload_mercy = atoi(optarg);
+		return 1;
+	case LONG_ARGS_AUTO_SNAPSHOT:
+		uwsgi.auto_snapshot = 1;
+		uwsgi.lazy = 1;
 		return 1;
 	case LONG_ARGS_LOG_MASTER:
 		uwsgi.log_master = 1;

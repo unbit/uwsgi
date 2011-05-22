@@ -126,10 +126,14 @@ void spooler() {
 
 	// asked by Marco Beri
 #ifdef __HAIKU__
+#ifdef UWSGI_DEBUG
 	uwsgi_log("lowering spooler priority to %d\n", B_LOW_PRIORITY);
+#endif
 	set_thread_priority(find_thread(NULL), B_LOW_PRIORITY);
 #else
+#ifdef UWSGI_DEBUG
 	uwsgi_log("lowering spooler priority to %d\n", PRIO_MAX);
+#endif
 	setpriority(PRIO_PROCESS, getpid(), PRIO_MAX);
 #endif
 

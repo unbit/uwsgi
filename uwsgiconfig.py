@@ -166,7 +166,7 @@ class uConf(object):
         self.config = ConfigParser.ConfigParser()
         print("using profile: %s" % filename)
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'emperor', 'notify',
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'master_utils', 'emperor', 'notify',
             'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')

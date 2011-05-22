@@ -430,6 +430,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOG_ZEROMQ		17104
 #define LONG_ARGS_PROFILER		17105
 #define LONG_ARGS_SQLITE3		17106
+#define LONG_ARGS_AUTO_SNAPSHOT		17107
 
 
 #define UWSGI_OK	0
@@ -831,9 +832,16 @@ struct uwsgi_server {
 
 	int		autoload;
 
+	int		snapshot;
+	int		auto_snapshot;
+	pid_t		restore_snapshot;
+	int		respawn_workers;
 	unsigned int reloads;
 	int master_as_root;
 	int	die_on_term;
+
+	time_t current_time;
+	uint64_t master_cycles;
 
 	int		lazy;
 
@@ -1361,9 +1369,17 @@ struct uwsgi_core {
 	int		in_request;
 };
 
+struct uwsgi_snapshot {
+	char *name;
+	pid_t pid;
+	time_t timestamp;
+};
+
 struct uwsgi_worker {
 	int             id;
 	pid_t           pid;
+
+	pid_t		snapshot;
 	uint64_t        status;
 
 	time_t          last_spawn;
@@ -1943,3 +1959,10 @@ void uwsgi_socket_nb(int);
 void uwsgi_destroy_request(struct wsgi_request *);
 
 void uwsgi_systemd_init(char *);
+
+void uwsgi_sig_pause(void);
+
+void uwsgi_ignition(void);
+
+void master_check_cluster_nodes(void);
+int uwsgi_respawn_worker(int);

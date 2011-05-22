@@ -94,9 +94,7 @@ void *simple_loop(void *arg1) {
 		uwsgi_close_request(wsgi_req);
 	}
 
-	pthread_exit(NULL);
-
-	//never here
+	// end of the loop
 	return NULL;
 }
 
@@ -202,8 +200,7 @@ void *zeromq_loop(void *arg1) {
 	}
 
 
-	pthread_exit(NULL);
-        //never here
+        // end of the loop
         return NULL;
 }
 #endif
