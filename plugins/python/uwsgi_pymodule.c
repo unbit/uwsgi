@@ -2209,8 +2209,10 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 	}
 
 	// close connection on the worker
-	fclose(wsgi_req->async_post);
-	wsgi_req->fd_closed = 1;
+	if (PyTuple_Size(args) == 0) {
+		fclose(wsgi_req->async_post);
+		wsgi_req->fd_closed = 1;
+	}
 
       clear:
 	Py_INCREF(Py_None);
