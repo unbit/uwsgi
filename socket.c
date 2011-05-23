@@ -13,6 +13,10 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		uwsgi_nuclear_blast();
 	}
 
+	if (socket_name[0] == '@') {
+		abstract_socket = 1;
+	}
+
 	uws_addr = malloc(sizeof(struct sockaddr_un));
 	if (uws_addr == NULL) {
 		uwsgi_error("malloc()");
@@ -36,7 +40,12 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 
 	uws_addr->sun_family = AF_UNIX;
-	memcpy(uws_addr->sun_path + abstract_socket, socket_name, 102);
+	if (socket_name[0] == '@') {
+		memcpy(uws_addr->sun_path + abstract_socket, socket_name+1, strlen(socket_name+1));
+	}
+	else {
+		memcpy(uws_addr->sun_path + abstract_socket, socket_name, strlen(socket_name));
+	}
 
 #ifdef __HAIKU__
 	if (bind(serverfd, (struct sockaddr *) uws_addr, sizeof(struct sockaddr_un))) {
@@ -597,6 +606,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 	socklen_t socket_type_len;
 	union uwsgi_sockaddr_ptr gsa, isa;
 	union uwsgi_sockaddr usa;
+	int abstract = 0;
 
 	socket_type_len = sizeof(struct sockaddr_un);
 	gsa.sa = &usa.sa;
@@ -606,7 +616,8 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 			return;
 		}
 		if (gsa.sa->sa_family == AF_UNIX) {
-			if (!strcmp(usa.sa_un.sun_path, uwsgi_sock->name)) {
+			if (usa.sa_un.sun_path[0] == 0) abstract = 1;
+			if (!strcmp(usa.sa_un.sun_path+abstract, uwsgi_sock->name+abstract)) {
 				uwsgi_sock->fd = fd;
 				uwsgi_sock->family = AF_UNIX;
 				uwsgi_sock->bound = 1;
