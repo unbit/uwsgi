@@ -669,10 +669,9 @@ void master_loop(char **argv, char **environ) {
                                                                         }
                                                                 }
 #endif
-								/*
-								else if (uwsgi.udp_log_addr) {
+								else if (uwsgi.log_socket) {
+									sendto(uwsgi.log_socket_fd, log_buf, rlen, 0, &uwsgi.log_socket_addr->sa, uwsgi.log_socket_size);
 								}
-								*/
 								// TODO allow uwsgi.logger = func
 							}	
 						}

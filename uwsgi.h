@@ -431,6 +431,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_PROFILER		17105
 #define LONG_ARGS_SQLITE3		17106
 #define LONG_ARGS_AUTO_SNAPSHOT		17107
+#define LONG_ARGS_LOG_SOCKET		17108
 
 
 #define UWSGI_OK	0
@@ -898,6 +899,12 @@ struct uwsgi_server {
 
 	int log_master;
 	int log_syslog;
+
+	int log_socket;
+	int log_socket_fd;
+	union uwsgi_sockaddr *log_socket_addr;
+	socklen_t log_socket_size;
+
 	char *check_static;
 	size_t check_static_len;
 	int file_serve_mode;
@@ -1966,3 +1973,8 @@ void uwsgi_ignition(void);
 
 void master_check_cluster_nodes(void);
 int uwsgi_respawn_worker(int);
+
+void log_socket(char *);
+
+socklen_t socket_to_in_addr(char *, char *, struct sockaddr_in *);
+socklen_t socket_to_un_addr(char *, struct sockaddr_un *);

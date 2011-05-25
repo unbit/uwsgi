@@ -158,6 +158,7 @@ static struct option long_base_options[] = {
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
+	{"log-socket", required_argument, 0, LONG_ARGS_LOG_SOCKET},
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, LONG_ARGS_LOG_ZEROMQ},
 #endif
@@ -2455,6 +2456,12 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_LOG_MASTER:
 		uwsgi.log_master = 1;
+		return 1;
+	case LONG_ARGS_LOG_SOCKET:
+		uwsgi.log_socket = 1;
+		uwsgi.log_master = 1;
+		uwsgi.master_process = 1;
+		log_socket(optarg);	
 		return 1;
 	case LONG_ARGS_LOG_SYSLOG:
 		log_syslog(optarg);

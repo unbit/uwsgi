@@ -395,33 +395,64 @@ char *generate_socket_name(char *socket_name) {
 	return socket_name;
 }
 
+socklen_t socket_to_un_addr(char *socket_name, struct sockaddr_un *sun_addr) {
+
+	size_t len = strlen(socket_name);
+
+	if (len > 102) {
+		uwsgi_log("invalid UNIX socket address: %s\n", socket_name);
+		uwsgi_nuclear_blast();
+	}
+
+	memset(sun_addr, 0, sizeof(struct sockaddr_un));
+
+        sun_addr->sun_family = AF_UNIX;
+
+	// abstract socket
+        if (socket_name[0] == '@') {
+		memcpy(sun_addr->sun_path+1, socket_name+1, len-1);
+        }
+        else {
+		memcpy(sun_addr->sun_path, socket_name, len);
+        }
+
+        return sizeof(sun_addr->sun_family)+len;
+}
+
+socklen_t socket_to_in_addr(char *socket_name, char *port, struct sockaddr_in *sin_addr) {
+
+	memset(sin_addr, 0, sizeof(struct sockaddr_in));
+	
+	sin_addr->sin_family = AF_INET;
+	if (port) {
+		port[0] = 0;
+		sin_addr->sin_port = htons(atoi(port + 1));
+	}
+
+	if (socket_name[0] == 0) {
+                sin_addr->sin_addr.s_addr = INADDR_ANY;
+        }
+        else {
+                sin_addr->sin_addr.s_addr = inet_addr(socket_name);
+        }
+
+	return sizeof(struct sockaddr_in);
+	
+}
+
 int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	int serverfd;
 	struct sockaddr_in uws_addr;
 	int reuse = 1;
 
-	memset(&uws_addr, 0, sizeof(struct sockaddr_in));
-
-	uws_addr.sin_family = AF_INET;
-	if (tcp_port) {
-		tcp_port[0] = 0;
-		uws_addr.sin_port = htons(atoi(tcp_port + 1));
-	}
+	socket_to_in_addr(socket_name, tcp_port, &uws_addr);
 
 	serverfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (serverfd < 0) {
 		uwsgi_error("socket()");
 		uwsgi_nuclear_blast();
 	}
-
-	if (socket_name[0] == 0) {
-		uws_addr.sin_addr.s_addr = INADDR_ANY;
-	}
-	else {
-		uws_addr.sin_addr.s_addr = inet_addr(socket_name);
-	}
-
 
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
 		uwsgi_error("setsockopt()");

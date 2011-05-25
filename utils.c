@@ -259,6 +259,50 @@ void log_zeromq(char *node) {
 }
 #endif
 
+void log_socket(char *socket_name) {
+
+	int family = AF_UNIX;
+
+	uwsgi.log_socket_addr = uwsgi_malloc(sizeof(union uwsgi_sockaddr));
+
+	char *colon = strchr(socket_name, ':');
+	if (colon) {
+		family = AF_INET;
+		uwsgi.log_socket_size = socket_to_in_addr(socket_name, colon, &uwsgi.log_socket_addr->sa_in);
+	}
+	else {
+		uwsgi.log_socket_size = socket_to_un_addr(socket_name, &uwsgi.log_socket_addr->sa_un);	
+	}
+
+	uwsgi.log_socket_fd = socket(family, SOCK_DGRAM, 0);
+	if (uwsgi.log_socket_fd < 0) {
+		uwsgi_error("socket()");
+		uwsgi_nuclear_blast();
+	}
+
+	// create log connection with the master
+
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
+                uwsgi_error("socketpair()\n");
+                exit(1);
+        }
+
+        uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
+        uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
+
+	if (uwsgi.shared->worker_log_pipe[1] != 1) {
+                if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
+                        uwsgi_error("dup2()");
+                        exit(1);
+                }
+        }
+
+        if (dup2(1, 2) < 0) {
+                uwsgi_error("dup2()");
+                exit(1);
+        }
+
+}
 
 void log_syslog(char *syslog_opts) {
 
