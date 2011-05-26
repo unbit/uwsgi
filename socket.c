@@ -325,7 +325,6 @@ char *generate_socket_name(char *socket_name) {
 
 	char *asterisk = strchr(socket_name, '*');
 
-	char *new_socket;
 	char *tcp_port;
 	int i;
 	char *ptr = socket_name;
@@ -354,6 +353,10 @@ char *generate_socket_name(char *socket_name) {
 
 	if (asterisk) {
 
+#ifndef UWSGI_HAS_IFADDRS
+		uwsgi_log("your system does not support ifaddrs subsystem\n");
+#else
+		char *new_socket;
 		uwsgi_log("generate_socket_name(%s)\n", socket_name);
 		// get all the AF_INET addresses available
 		struct ifaddrs *ifap = NULL, *ifa, *ifaf;
@@ -390,6 +393,7 @@ char *generate_socket_name(char *socket_name) {
 		}
 
 		uwsgi_log("unable to find avalid socket address\n");
+#endif
 		uwsgi_nuclear_blast();
 	}
 	return socket_name;

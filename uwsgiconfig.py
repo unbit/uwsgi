@@ -240,6 +240,9 @@ class uConf(object):
         self.cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
         kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
+        if os.path.exists('/usr/include/ifaddrs.h') or os.path.exists('/usr/local/include/ifaddrs.h'):
+            self.cflags.append('-DUWSGI_HAS_IFADDRS')
+
         if uwsgi_os == 'SunOS':
             self.libs.append('-lsendfile')
             self.gcc_list.append('lib/sun_fixes')

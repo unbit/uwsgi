@@ -94,7 +94,9 @@
 
 #include <syslog.h>
 
+#ifdef UWSGI_HAS_IFADDRS
 #include <ifaddrs.h>
+#endif
 
 #include <dirent.h>
 
