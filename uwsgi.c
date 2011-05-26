@@ -77,6 +77,7 @@ static struct option long_base_options[] = {
 	{"reaper", no_argument, 0, 'r'},
 	{"max-requests", required_argument, 0, 'R'},
 	{"socket-timeout", required_argument, 0, 'z'},
+	{"no-fd-passing", no_argument, &uwsgi.no_fd_passing, 1},
 	{"sharedarea", required_argument, 0, 'A'},
 	{"cache", required_argument, 0, LONG_ARGS_CACHE},
 	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE},

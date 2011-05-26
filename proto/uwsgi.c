@@ -84,6 +84,9 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 				return UWSGI_OK;
 #endif
 
+			if (uwsgi.no_fd_passing)
+				return UWSGI_OK;
+
 			cmsg = CMSG_FIRSTHDR(&wsgi_req->msg);
 			while (cmsg != NULL) {
 				if (cmsg->cmsg_len == CMSG_LEN(sizeof(int)) && cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type && SCM_RIGHTS) {

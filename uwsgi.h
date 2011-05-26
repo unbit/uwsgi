@@ -843,6 +843,8 @@ struct uwsgi_server {
 	int master_as_root;
 	int	die_on_term;
 
+	int	no_fd_passing;
+
 	time_t current_time;
 	uint64_t master_cycles;
 

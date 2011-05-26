@@ -710,7 +710,7 @@ void http_loop() {
 
 #ifndef __sun__
 							// fd passing: PERFORMANCE EXTREME BOOST !!!
-							if (uhttp_session->pass_fd && !uhttp_session->remains) {
+							if (uhttp_session->pass_fd && !uhttp_session->remains && !uwsgi.no_fd_passing) {
 								msg.msg_name    = NULL;
                 						msg.msg_namelen = 0;
                 						msg.msg_iov     = uhttp_session->iov;

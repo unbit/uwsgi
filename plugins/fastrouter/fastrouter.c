@@ -437,7 +437,7 @@ void fastrouter_loop() {
 							iov[1].iov_len = fr_session->uh.pktsize;
 
 							// fd passing: PERFORMANCE EXTREME BOOST !!!
-							if (fr_session->pass_fd) {
+							if (fr_session->pass_fd && !uwsgi.no_fd_passing) {
 								msg.msg_name    = NULL;
                 						msg.msg_namelen = 0;
                 						msg.msg_iov     = iov;
