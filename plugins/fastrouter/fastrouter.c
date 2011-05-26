@@ -18,6 +18,7 @@
 #define LONG_ARGS_FASTROUTER_USE_BASE			150004
 #define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER	150005
 #define LONG_ARGS_FASTROUTER_TIMEOUT			150006
+#define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT		150007
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -32,6 +33,8 @@ struct uwsgi_fastrouter {
 	char *socket_name;
 	int use_cache;
 	int nevents;
+
+	int subscription_slot;
 
 	char *pattern;
 	int pattern_len;
@@ -54,6 +57,7 @@ struct option fastrouter_options[] = {
 	{"fastrouter-use-base", required_argument, 0, LONG_ARGS_FASTROUTER_USE_BASE},
 	{"fastrouter-events", required_argument, 0, LONG_ARGS_FASTROUTER_EVENTS},
 	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
+	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
 	{0, 0, 0, 0},	
 };
@@ -240,7 +244,8 @@ void fastrouter_loop() {
 	if (ufr.subscription_server) {
 		ufr_subserver = bind_to_udp(ufr.subscription_server, 0, 0);
 		event_queue_add_fd_read(fr_queue, ufr_subserver);
-		ufr.subscription_dict = uwsgi_dict_create(30, 0);
+		if (!ufr.subscription_slot) ufr.subscription_slot = 30;
+		ufr.subscription_dict = uwsgi_dict_create(ufr.subscription_slot, 0);
 	}
 
 	if (ufr.pattern) {
@@ -575,6 +580,9 @@ int fastrouter_opt(int i, char *optarg) {
 		case LONG_ARGS_FASTROUTER_TIMEOUT:
 			ufr.socket_timeout = atoi(optarg);
 			return -1;
+		case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT:
+			ufr.subscription_slot = atoi(optarg);
+			return 1;
 	}
 	return 0;
 }
