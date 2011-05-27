@@ -216,11 +216,9 @@ void fastrouter_loop() {
 
 	if (ufr.socket_name[0] == '=') {
 		int shared_socket = atoi(ufr.socket_name+1);
-		if (shared_socket >= 0 && shared_socket < uwsgi.shared_sockets_cnt) {
-			if (uwsgi.shared_sockets[shared_socket].name) {
-				fr_server = uwsgi.shared_sockets[shared_socket].fd;
-			}	
-			else {
+		if (shared_socket >= 0) {
+			fr_server = uwsgi_get_shared_socket_fd_by_num(shared_socket);
+			if (fr_server == -1) {
 				uwsgi_log("unable to use shared socket %d\n", shared_socket);
 			}
 		}

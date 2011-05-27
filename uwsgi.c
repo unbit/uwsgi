@@ -1179,27 +1179,28 @@ int main(int argc, char *argv[], char *envp[]) {
 		fclose(pidfile);
 	}
 
-/*
-	for (i = 0; i < uwsgi.shared_sockets_cnt; i++) {
-		char *tcp_port = strchr(uwsgi.shared_sockets[i].name, ':');
+	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
+	while(shared_sock) {
+		char *tcp_port = strchr(shared_sock->name, ':');
 		if (tcp_port == NULL) {
-			uwsgi.shared_sockets[i].fd = bind_to_unix(uwsgi.shared_sockets[i].name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-			uwsgi.shared_sockets[i].family = AF_UNIX;
-			uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", i, uwsgi.shared_sockets[i].name, uwsgi.shared_sockets[i].fd);
+			shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+			shared_sock->family = AF_UNIX;
+			uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 		}
 		else {
-			uwsgi.shared_sockets[i].fd = bind_to_tcp(uwsgi.shared_sockets[i].name, uwsgi.listen_queue, tcp_port);
-			uwsgi.shared_sockets[i].family = AF_INET;
-			uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", i, uwsgi.shared_sockets[i].name, uwsgi.shared_sockets[i].fd);
+			shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
+			shared_sock->family = AF_INET;
+			uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 		}
 
-		if (uwsgi.shared_sockets[i].fd < 0) {
-			uwsgi_log("unable to create shared socket on: %s\n", uwsgi.shared_sockets[i].name);
+		if (shared_sock->fd < 0) {
+			uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
 			exit(1);
 		}
-		uwsgi.shared_sockets[i].bound = 1;
+		shared_sock->bound = 1;
+	
+		shared_sock = shared_sock->next;
 	}
-*/
 
 	// call jail systems
 	for (i = 0; i < uwsgi.gp_cnt; i++) {
@@ -2833,15 +2834,7 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi_new_socket(generate_socket_name(optarg));
 		return 1;
 	case LONG_ARGS_SHARED_SOCKET:
-/*
-		if (uwsgi.shared_sockets_cnt < MAX_SOCKETS) {
-			uwsgi.shared_sockets[uwsgi.shared_sockets_cnt].name = generate_socket_name(optarg);
-			uwsgi.shared_sockets_cnt++;
-		}
-		else {
-			uwsgi_log("you can specify at most 8 --socket options\n");
-		}
-*/
+		uwsgi_new_shared_socket(generate_socket_name(optarg));
 		return 1;
 #ifdef UWSGI_XML
 	case 'x':

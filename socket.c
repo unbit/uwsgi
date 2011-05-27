@@ -612,6 +612,31 @@ int uwsgi_get_socket_num(struct uwsgi_socket *uwsgi_sock) {
 	return -1;
 }
 
+struct uwsgi_socket *uwsgi_new_shared_socket(char *name) {
+
+        struct uwsgi_socket *uwsgi_sock = uwsgi.shared_sockets, *old_uwsgi_sock;
+
+        if (!uwsgi_sock) {
+                uwsgi.shared_sockets = uwsgi_malloc(sizeof(struct uwsgi_socket));
+                uwsgi_sock = uwsgi.shared_sockets;
+        }
+        else {
+                while(uwsgi_sock) {
+                        old_uwsgi_sock = uwsgi_sock;
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+                uwsgi_sock = uwsgi_malloc(sizeof(struct uwsgi_socket));
+                old_uwsgi_sock->next = uwsgi_sock;
+        }
+
+        memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket));
+        uwsgi_sock->name = name;
+
+        return uwsgi_sock;
+}
+
+
 struct uwsgi_socket *uwsgi_new_socket(char *name) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets, *old_uwsgi_sock;
@@ -737,3 +762,25 @@ struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *uwsgi_sock) {
 	return NULL;
 }
 
+
+int uwsgi_get_shared_socket_fd_by_num(int num) {
+
+	int counter = 0;
+	
+	struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.shared_sockets;	
+
+	while(uwsgi_sock) {
+		if (counter == num) {
+			found_sock = uwsgi_sock;
+			break;
+		}
+		counter++;
+		uwsgi_sock = uwsgi_sock->next;
+	}
+
+	if (found_sock) {
+		return found_sock->fd;
+	}
+	
+	return -1;
+}

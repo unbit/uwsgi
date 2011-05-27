@@ -1122,9 +1122,6 @@ struct uwsgi_server {
 	void *zmq_log_socket;
 #endif
 	struct uwsgi_socket *sockets;
-	// leave a slot for no-orphan mode
-
-	int             shared_sockets_cnt;
 	struct uwsgi_socket *shared_sockets;
 
 	struct uwsgi_string_list *map_socket;
@@ -1956,6 +1953,7 @@ char *uwsgi_netstring(char *, size_t, char **, size_t *);
 
 int uwsgi_get_socket_num(struct uwsgi_socket *);
 struct uwsgi_socket *uwsgi_new_socket(char *);
+struct uwsgi_socket *uwsgi_new_shared_socket(char *);
 struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *);
 
 void uwsgi_close_all_sockets(void);
@@ -1982,3 +1980,5 @@ void log_socket(char *);
 
 socklen_t socket_to_in_addr(char *, char *, struct sockaddr_in *);
 socklen_t socket_to_un_addr(char *, struct sockaddr_un *);
+
+int uwsgi_get_shared_socket_fd_by_num(int);
