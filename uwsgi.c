@@ -417,6 +417,11 @@ void kill_them_all(int signum) {
 
 #endif
 
+	if (uwsgi.emperor_pid >= 0) {
+		kill(uwsgi.emperor_pid, SIGKILL);
+                uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
+	}
+
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
@@ -446,6 +451,10 @@ void grace_them_all(int signum) {
                         }
 #endif
 
+	if (uwsgi.emperor_pid >= 0) {
+		kill(uwsgi.emperor_pid, SIGKILL);
+                uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
+	}
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
@@ -742,6 +751,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.signal_socket = -1;
 
 	uwsgi.emperor_fd_config = -1;
+	uwsgi.emperor_pid = -1;
 
 	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
@@ -1342,7 +1352,7 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_error("pid()");
 			exit(1);
 		}
-		else if (uwsgi.emperor_pid > 0) {
+		else if (uwsgi.emperor_pid == 0) {
 			emperor_loop();
 			// never here
 			exit(1);
