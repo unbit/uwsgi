@@ -1258,6 +1258,8 @@ int uwsgi_start(void *v_argv) {
 	struct uwsgi_socket *uwsgi_sock;
 
 #ifdef __linux__
+        uwsgi_set_cgroup();
+
 	if (uwsgi.ns) {
 		linux_namespace_jail();
 	}
