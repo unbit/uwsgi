@@ -397,6 +397,7 @@ reconnect:
 				
 				if (!config) {
 					uwsgi_log("problem with RabbitMQ server, trying reconnection...\n");
+					event_queue_del_fd(emperor_queue, amqp_fd, event_queue_read());
 					close(amqp_fd);
 					amqp_fd = -1;
 					goto reconnect;
@@ -487,6 +488,7 @@ reconnect:
 				}
 				else {
 					uwsgi_log("unrecognized event on fd %d\n", interesting_fd);
+					event_queue_del_fd(emperor_queue, interesting_fd, event_queue_read());
 					close(interesting_fd);
 				}
 			}
