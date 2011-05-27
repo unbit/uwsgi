@@ -612,6 +612,23 @@ int uwsgi_get_socket_num(struct uwsgi_socket *uwsgi_sock) {
 	return -1;
 }
 
+int uwsgi_get_shared_socket_num(struct uwsgi_socket *uwsgi_sock) {
+
+        int count = 0;
+        struct uwsgi_socket *current_sock = uwsgi.shared_sockets;
+
+        while(current_sock) {
+                if (uwsgi_sock == current_sock) {
+                        return count;
+                }
+                count++;
+                current_sock = current_sock->next;
+        }
+
+        return -1;
+}
+
+
 struct uwsgi_socket *uwsgi_new_shared_socket(char *name) {
 
         struct uwsgi_socket *uwsgi_sock = uwsgi.shared_sockets, *old_uwsgi_sock;

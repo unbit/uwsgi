@@ -2,6 +2,7 @@
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/if_link.h>
 #include <net/if.h>
 
 #ifdef IFLA_NET_NS_PID

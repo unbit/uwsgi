@@ -1982,3 +1982,5 @@ socklen_t socket_to_in_addr(char *, char *, struct sockaddr_in *);
 socklen_t socket_to_un_addr(char *, struct sockaddr_un *);
 
 int uwsgi_get_shared_socket_fd_by_num(int);
+
+int uwsgi_get_shared_socket_num(struct uwsgi_socket *);

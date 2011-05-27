@@ -1185,12 +1185,12 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (tcp_port == NULL) {
 			shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 			shared_sock->family = AF_UNIX;
-			uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+			uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 		}
 		else {
 			shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
 			shared_sock->family = AF_INET;
-			uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+			uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 		}
 
 		if (shared_sock->fd < 0) {
