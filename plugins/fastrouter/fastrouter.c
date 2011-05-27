@@ -29,26 +29,61 @@
 #define add_timeout(x) uwsgi_add_rb_timer(ufr.timeouts, time(NULL)+ufr.socket_timeout, x)
 #define del_timeout(x) rb_erase(&x->timeout->rbt, ufr.timeouts); free(x->timeout);
 
+struct uwsgi_fastrouter_socket {
+	char *name;
+	int fd;
+	struct uwsgi_fastrouter_socket *next;
+};
+
 struct uwsgi_fastrouter {
-	char *socket_name;
-	int use_cache;
-	int nevents;
 
-	int subscription_slot;
+        struct uwsgi_fastrouter_socket *sockets;
 
-	char *pattern;
-	int pattern_len;
+        int use_cache;
+        int nevents;
 
-	char *base;
-	int base_len;
+        int subscription_slot;
 
-	char *subscription_server;
-	struct uwsgi_dict *subscription_dict;
+        char *pattern;
+        int pattern_len;
 
-	int socket_timeout;
+        char *base;
+        int base_len;
 
-	struct rb_root *timeouts;
+        char *subscription_server;
+        struct uwsgi_dict *subscription_dict;
+
+        int socket_timeout;
+
+        struct rb_root *timeouts;
 } ufr;
+
+
+static struct uwsgi_fastrouter_socket *uwsgi_fastrouter_new_socket(char *name) {
+
+        struct uwsgi_fastrouter_socket *uwsgi_sock = ufr.sockets, *old_uwsgi_sock;
+
+        if (!uwsgi_sock) {
+                ufr.sockets = uwsgi_malloc(sizeof(struct uwsgi_fastrouter_socket));
+                uwsgi_sock = ufr.sockets;
+        }
+        else {
+                while(uwsgi_sock) {
+                        old_uwsgi_sock = uwsgi_sock;
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+                uwsgi_sock = uwsgi_malloc(sizeof(struct uwsgi_fastrouter_socket));
+                old_uwsgi_sock->next = uwsgi_sock;
+        }
+
+        memset(uwsgi_sock, 0, sizeof(struct uwsgi_fastrouter_socket));
+        uwsgi_sock->name = name;
+
+        return uwsgi_sock;
+}
+
+
 
 struct option fastrouter_options[] = {
 	{"fastrouter", required_argument, 0, LONG_ARGS_FASTROUTER},
@@ -167,7 +202,6 @@ struct fastrouter_session *alloc_fr_session() {
 void fastrouter_loop() {
 
 	int fr_queue;
-	int fr_server = -1;
 	int nevents;
 	int interesting_fd;
 	int new_connection;
@@ -214,30 +248,37 @@ void fastrouter_loop() {
 		fr_table[i] = NULL;
 	}
 
-	if (ufr.socket_name[0] == '=') {
-		int shared_socket = atoi(ufr.socket_name+1);
-		if (shared_socket >= 0) {
-			fr_server = uwsgi_get_shared_socket_fd_by_num(shared_socket);
-			if (fr_server == -1) {
-				uwsgi_log("unable to use shared socket %d\n", shared_socket);
+	fr_queue = event_queue_init();
+
+	struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
+
+	while(ufr_sock) {
+		if (ufr_sock->name[0] == '=') {
+			int shared_socket = atoi(ufr_sock->name+1);
+			if (shared_socket >= 0) {
+				ufr_sock->fd = uwsgi_get_shared_socket_fd_by_num(shared_socket);
+				if (ufr_sock->fd == -1) {
+					uwsgi_log("unable to use shared socket %d\n", shared_socket);
+				}
 			}
 		}
-	}
-	else {
-		tcp_port = strchr(ufr.socket_name, ':');
-		if (tcp_port) {
-			fr_server = bind_to_tcp(ufr.socket_name, uwsgi.listen_queue, tcp_port);
-		}
 		else {
-			fr_server = bind_to_unix(ufr.socket_name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+			tcp_port = strchr(ufr_sock->name, ':');
+			if (tcp_port) {
+				ufr_sock->fd = bind_to_tcp(ufr_sock->name, uwsgi.listen_queue, tcp_port);
+			}
+			else {
+				ufr_sock->fd = bind_to_unix(ufr_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+			}
 		}
+
+		event_queue_add_fd_read(fr_queue, ufr_sock->fd);
+		ufr_sock = ufr_sock->next;
 	}
 
-	fr_queue = event_queue_init();
 
 	events = event_queue_alloc(ufr.nevents);
 
-	event_queue_add_fd_read(fr_queue, fr_server);
 
 	if (ufr.subscription_server) {
 		ufr_subserver = bind_to_udp(ufr.subscription_server, 0, 0);
@@ -279,27 +320,39 @@ void fastrouter_loop() {
 			interesting_fd = event_queue_interesting_fd(events, i);
 
 
-			if (interesting_fd == fr_server) {
-				new_connection = accept(fr_server, (struct sockaddr *) &fr_addr, &fr_addr_len);
-				if (new_connection < 0) {
-					continue;
-				}
+			int taken = 0;
+			struct uwsgi_fastrouter_socket *uwsgi_sock = ufr.sockets;
+			while(uwsgi_sock) {
+				if (interesting_fd == uwsgi_sock->fd) {
+					new_connection = accept(interesting_fd, (struct sockaddr *) &fr_addr, &fr_addr_len);
+					if (new_connection < 0) {
+						continue;
+					}
 
-				fr_table[new_connection] = alloc_fr_session();
-				fr_table[new_connection]->fd = new_connection;
-				fr_table[new_connection]->instance_fd = -1; 
-				fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
-				fr_table[new_connection]->h_pos = 0;
-				fr_table[new_connection]->pos = 0;
-				fr_table[new_connection]->instance_failed = 0;
-				fr_table[new_connection]->instance_address_len = 0;
+					fr_table[new_connection] = alloc_fr_session();
+					fr_table[new_connection]->fd = new_connection;
+					fr_table[new_connection]->instance_fd = -1; 
+					fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
+					fr_table[new_connection]->h_pos = 0;
+					fr_table[new_connection]->pos = 0;
+					fr_table[new_connection]->instance_failed = 0;
+					fr_table[new_connection]->instance_address_len = 0;
 		
-				fr_table[new_connection]->timeout = add_timeout(fr_table[new_connection]);
+					fr_table[new_connection]->timeout = add_timeout(fr_table[new_connection]);
 
-				event_queue_add_fd_read(fr_queue, new_connection);
+					event_queue_add_fd_read(fr_queue, new_connection);
+					taken = 1;
+					break;
+				}
 				
+				uwsgi_sock = uwsgi_sock->next;
 			}	
-			else if (interesting_fd == ufr_subserver) {
+
+			if (taken) {
+				continue;
+			}
+
+			if (interesting_fd == ufr_subserver) {
 				len = recv(ufr_subserver, bbuf, 4096, 0);
 #ifdef UWSGI_EVENT_USE_PORT
 				event_queue_add_fd_read(fr_queue, ufr_subserver);
@@ -535,7 +588,7 @@ void fastrouter_loop() {
 
 int fastrouter_init() {
 
-	if (ufr.socket_name) {
+	if (ufr.sockets) {
 
 		if (ufr.use_cache && !uwsgi.cache_max_items) {
 			uwsgi_log("you need to create a uwsgi cache to use the fastrouter (add --cache <n>)\n");
@@ -557,7 +610,7 @@ int fastrouter_opt(int i, char *optarg) {
 
 	switch(i) {
 		case LONG_ARGS_FASTROUTER:
-			ufr.socket_name = optarg;
+			uwsgi_fastrouter_new_socket(generate_socket_name(optarg));
 			return 1;
 		case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER:
 			ufr.subscription_server = optarg;
