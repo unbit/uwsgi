@@ -249,6 +249,7 @@ struct uwsgi_static_map {
 struct uwsgi_string_list {
 
 	char *value;
+	size_t len;
 	struct uwsgi_string_list *next;
 };
 
@@ -434,6 +435,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_SQLITE3		17106
 #define LONG_ARGS_AUTO_SNAPSHOT		17107
 #define LONG_ARGS_LOG_SOCKET		17108
+#define LONG_ARGS_ADD_HEADER		17109
 
 
 #define UWSGI_OK	0
@@ -861,6 +863,8 @@ struct uwsgi_server {
 	char *emperor_amqp_vhost;
 	char *emperor_amqp_username;
 	char *emperor_amqp_password;
+
+	struct uwsgi_string_list *additional_headers;
 
 	time_t master_mercy;
 

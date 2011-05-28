@@ -2219,6 +2219,7 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list,
         }
 
         uwsgi_string->value = value;
+        uwsgi_string->len = strlen(value);
 	uwsgi_string->next = NULL;
 
         return uwsgi_string;

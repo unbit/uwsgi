@@ -1242,7 +1242,16 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                         if (st.st_mtime <= ims) {
                                 wsgi_req->status = 304;
                                 wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
-                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, " 304 Not Modified\r\n\r\n", 21);
+                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, " 304 Not Modified\r\n", 19);
+
+				struct uwsgi_string_list *ah = uwsgi.additional_headers;
+				while(ah) {
+					wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ah->value, ah->len);
+					wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
+					ah = ah->next;
+				}
+
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
                                 return 0;
                         }
                 }
@@ -1255,6 +1264,13 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 
                         wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
                         wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, " 200 OK\r\n", 9);
+
+			struct uwsgi_string_list *ah = uwsgi.additional_headers;
+			while(ah) {
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ah->value, ah->len);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
+				ah = ah->next;
+			}
 
 			if (uwsgi.file_serve_mode == 1) {
                                 wsgi_req->header_cnt = 2;

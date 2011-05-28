@@ -185,6 +185,7 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_ROUTING
 	{"routing", no_argument, &uwsgi.routing, 1},
 #endif
+	{"add-header", required_argument, 0, LONG_ARGS_ADD_HEADER},
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
 	{"static-map", required_argument, 0, LONG_ARGS_STATIC_MAP},
 	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE},
@@ -2562,6 +2563,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.erlang_cookie = optarg;
 		return 1;
 #endif
+	case LONG_ARGS_ADD_HEADER:
+		uwsgi_string_new_list(&uwsgi.additional_headers, optarg);
+		return 1;
 	case LONG_ARGS_CHECK_STATIC:
 		uwsgi.check_static = realpath(optarg, NULL);
 		uwsgi.check_static_len = strlen(uwsgi.check_static);

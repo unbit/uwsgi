@@ -13,7 +13,6 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *headers, *head;
 	PyObject *h_key, *h_value;
 	int i, j;
-	struct uwsgi_header uh;
 	PyObject *exc_info = NULL;
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -70,10 +69,8 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		}
 
 		wsgi_req->hvec[0].iov_len = wsgi_req->protocol_len;
-		uh.pktsize = wsgi_req->hvec[0].iov_len;
 		wsgi_req->hvec[1].iov_base = " ";
 		wsgi_req->hvec[1].iov_len = 1;
-		uh.pktsize += wsgi_req->hvec[1].iov_len;
 #ifdef PYTHREE
 		wsgi_req->hvec[2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
 		wsgi_req->hvec[2].iov_len = strlen(wsgi_req->hvec[2].iov_base);
@@ -81,18 +78,15 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[2].iov_base = PyString_AsString(head);
 		wsgi_req->hvec[2].iov_len = PyString_Size(head);
 #endif
-		uh.pktsize += wsgi_req->hvec[2].iov_len;
 		wsgi_req->status = uwsgi_str3_num(wsgi_req->hvec[2].iov_base);
 		wsgi_req->hvec[3].iov_base = nl;
 		wsgi_req->hvec[3].iov_len = NL_SIZE;
-		uh.pktsize += wsgi_req->hvec[3].iov_len;
 	}
 	else {
 		// drop http status on cgi mode
 		base = 3;
 		wsgi_req->hvec[0].iov_base = "Status: ";
 		wsgi_req->hvec[0].iov_len = 8;
-		uh.pktsize = wsgi_req->hvec[0].iov_len;
 #ifdef PYTHREE
 		wsgi_req->hvec[1].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
 		wsgi_req->hvec[1].iov_len = strlen(wsgi_req->hvec[1].iov_base);
@@ -100,11 +94,9 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[1].iov_base = PyString_AsString(head);
 		wsgi_req->hvec[1].iov_len = PyString_Size(head);
 #endif
-		uh.pktsize += wsgi_req->hvec[1].iov_len;
 		wsgi_req->status = uwsgi_str3_num(wsgi_req->hvec[1].iov_base);
 		wsgi_req->hvec[2].iov_base = nl;
 		wsgi_req->hvec[2].iov_len = NL_SIZE;
-		uh.pktsize += wsgi_req->hvec[2].iov_len;
 	}
 
 	headers = PyTuple_GetItem(args, 1);
@@ -146,10 +138,8 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[j].iov_base = PyString_AsString(h_key);
 		wsgi_req->hvec[j].iov_len = PyString_Size(h_key);
 #endif
-		uh.pktsize += wsgi_req->hvec[j].iov_len;
 		wsgi_req->hvec[j + 1].iov_base = h_sep;
 		wsgi_req->hvec[j + 1].iov_len = H_SEP_SIZE;
-		uh.pktsize += wsgi_req->hvec[j+1].iov_len;
 #ifdef PYTHREE
 		wsgi_req->hvec[j + 2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_value));
 		wsgi_req->hvec[j + 2].iov_len = strlen(wsgi_req->hvec[j + 2].iov_base);
@@ -158,22 +148,37 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[j + 2].iov_len = PyString_Size(h_value);
 #endif
 
-		uh.pktsize += wsgi_req->hvec[j+2].iov_len;
 
 		wsgi_req->hvec[j + 3].iov_base = nl;
 		wsgi_req->hvec[j + 3].iov_len = NL_SIZE;
 
-		uh.pktsize += wsgi_req->hvec[j+3].iov_len;
 		//uwsgi_log( "%.*s: %.*s\n", wsgi_req->hvec[j].iov_len, (char *)wsgi_req->hvec[j].iov_base, wsgi_req->hvec[j+2].iov_len, (char *) wsgi_req->hvec[j+2].iov_base);
+	}
+
+	j = (i * 4) + base;
+
+	struct uwsgi_string_list *ah = uwsgi.additional_headers;
+	while(ah) {
+		if (wsgi_req->header_cnt+1 <= uwsgi.max_vars) {
+			wsgi_req->header_cnt++;
+			wsgi_req->hvec[j].iov_base = ah->value;
+        		wsgi_req->hvec[j].iov_len = ah->len;
+			j++;
+			wsgi_req->hvec[j].iov_base = nl;
+        		wsgi_req->hvec[j].iov_len = NL_SIZE;
+			j++;
+			ah = ah->next;
+		}
+		else {
+			uwsgi_log("no more space in iovec. consider increasing max-vars...\n");
+			break;
+		}
 	}
 
 
 	// \r\n
-	j = (i * 4) + base;
 	wsgi_req->hvec[j].iov_base = nl;
 	wsgi_req->hvec[j].iov_len = NL_SIZE;
-
-	uh.pktsize += wsgi_req->hvec[j].iov_len;
 
 	UWSGI_RELEASE_GIL
 		wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, j + 1);
