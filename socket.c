@@ -801,3 +801,24 @@ int uwsgi_get_shared_socket_fd_by_num(int num) {
 	
 	return -1;
 }
+
+void uwsgi_add_sockets_to_queue(int queue) {
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                while(uwsgi_sock) {
+                        event_queue_add_fd_read(queue, uwsgi_sock->fd);
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+}
+
+void uwsgi_del_sockets_from_queue(int queue) {
+
+        struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                while(uwsgi_sock) {
+                        event_queue_del_fd(queue, uwsgi_sock->fd, event_queue_read());
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+}
+

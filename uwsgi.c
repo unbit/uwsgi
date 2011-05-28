@@ -177,6 +177,7 @@ static struct option long_base_options[] = {
 	{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 	{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 	{"lazy", no_argument, &uwsgi.lazy, 1},
+	{"cheap", no_argument, &uwsgi.cheap, 1},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 	{"grunt", no_argument, &uwsgi.grunt, 1},
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
@@ -1249,7 +1250,6 @@ int uwsgi_start(void *v_argv) {
 #endif
 
 
-	pid_t pid;
 	int i, j;
 
 	union uwsgi_sockaddr usa;
@@ -1921,28 +1921,13 @@ int uwsgi_start(void *v_argv) {
 
 	// uWSGI is ready
 	uwsgi_notify_ready();
+	uwsgi.current_time = time(NULL);
 
-	for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
-		pid = fork();
-		if (pid == 0) {
-			close(uwsgi.shared->worker_signal_pipe[0]);
-			uwsgi.mypid = getpid();
-			uwsgi.workers[i].pid = uwsgi.mypid;
-			uwsgi.workers[i].id = i;
-			uwsgi.workers[i].last_spawn = time(NULL);
-			uwsgi.workers[i].manage_next_request = 1;
-			uwsgi.mywid = i;
-			break;
-		}
-		else if (pid < 1) {
-			uwsgi_error("fork()");
-			exit(1);
-		}
-		else {
-			uwsgi_log("spawned uWSGI worker %d (pid: %d, cores: %d)\n", i, pid, uwsgi.cores);
-			//close(uwsgi.workers[i].pipe[1]);
+	if (!uwsgi.cheap) {
+		for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
+			if (uwsgi_respawn_worker(i)) break;
 			gettimeofday(&last_respawn, NULL);
-			uwsgi.respawn_delta = last_respawn.tv_sec;
+                	uwsgi.respawn_delta = last_respawn.tv_sec;
 		}
 	}
 
@@ -2165,11 +2150,7 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 
-		uwsgi_sock = uwsgi.sockets;
-		while(uwsgi_sock) {
-			event_queue_add_fd_read(uwsgi.async_queue, uwsgi_sock->fd);
-			uwsgi_sock = uwsgi_sock->next;
-		}
+		uwsgi_add_sockets_to_queue(uwsgi.async_queue);
 	}
 
 	uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();

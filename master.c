@@ -233,6 +233,11 @@ void master_loop(char **argv, char **environ) {
 			event_queue_add_fd_read(uwsgi.master_queue, udp_fd);
 		}
 	}
+
+	if (uwsgi.cheap) {
+		uwsgi_add_sockets_to_queue(uwsgi.master_queue);
+	}
+
 #ifdef UWSGI_MULTICAST
 	if (uwsgi.cluster) {
 
@@ -424,7 +429,7 @@ void master_loop(char **argv, char **environ) {
 			uwsgi.restore_snapshot = 0;
 			continue;
 		}
-		if (ready_to_die >= uwsgi.numproc && uwsgi.to_hell) {
+		if ((uwsgi.cheap || ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
 			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
 			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
@@ -433,7 +438,7 @@ void master_loop(char **argv, char **environ) {
 			uwsgi_log( "goodbye to uWSGI.\n");
 			exit(0);
 		}
-		if (ready_to_reload >= uwsgi.numproc && uwsgi.to_heaven) {
+		if ( (uwsgi.cheap || ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
 			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
 			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
@@ -489,14 +494,17 @@ void master_loop(char **argv, char **environ) {
 			exit(1);
 		}
 
-		if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0 || ushared->daemons_cnt > 0) {
-			master_has_children = 1;
-		}
+		if (!uwsgi.cheap) {
+
+			if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0 || ushared->daemons_cnt > 0) {
+				master_has_children = 1;
+			}
 #ifdef UWSGI_SPOOLER
-		if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-			master_has_children = 1;
-		}
+			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+				master_has_children = 1;
+			}
 #endif
+		}
 
 		if (!master_has_children) {
 			diedpid = 0;
@@ -701,6 +709,25 @@ void master_loop(char **argv, char **environ) {
 								exit(1);
 							}
 						}
+					}
+
+
+					if (uwsgi.cheap) {
+						int found = 0 ;
+						struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+						while(uwsgi_sock) {
+							if (interesting_fd == uwsgi_sock->fd) {
+								found = 1;
+								uwsgi.cheap = 0;
+								uwsgi_del_sockets_from_queue(uwsgi.master_queue);
+								for(i=1;i<=uwsgi.numproc;i++) {
+									if (uwsgi_respawn_worker(i)) return;		
+								}
+								break;
+							}
+							uwsgi_sock = uwsgi_sock->next;
+						}
+						if (found) continue;
 					}
 #ifdef UWSGI_SNMP
 					if (uwsgi.snmp_addr && interesting_fd == snmp_fd) {

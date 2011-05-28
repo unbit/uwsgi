@@ -34,14 +34,17 @@ void master_check_cluster_nodes() {
 
 int uwsgi_respawn_worker(int wid) {
 
-	pid_t pid;
-	uwsgi.mywid = wid;
-	pid = fork();
+	int respawns = uwsgi.workers[wid].respawn_count;
+
+	pid_t pid = fork();
+
                 if (pid == 0) {
+			uwsgi.mywid = wid;
                         // fix the communication pipe
                         close(uwsgi.shared->worker_signal_pipe[0]);
                         uwsgi.mypid = getpid();
                         uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
+			uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
                         uwsgi.workers[uwsgi.mywid].harakiri = 0;
                         uwsgi.workers[uwsgi.mywid].requests = 0;
                         uwsgi.workers[uwsgi.mywid].failed_requests = 0;
@@ -54,7 +57,12 @@ int uwsgi_respawn_worker(int wid) {
                         uwsgi_error("fork()");
                 }
                 else {
-                        uwsgi_log( "Respawned uWSGI worker %d (new pid: %d)\n", uwsgi.mywid, (int) pid);
+			if (respawns > 0) {
+                        	uwsgi_log( "Respawned uWSGI worker %d (new pid: %d)\n", uwsgi.mywid, (int) pid);
+			}
+			else {
+				uwsgi_log("spawned uWSGI worker %d (pid: %d, cores: %d)\n", wid, pid, uwsgi.cores);
+			}
                 }
 
 	return 0;

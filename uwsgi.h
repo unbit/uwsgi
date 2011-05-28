@@ -851,6 +851,7 @@ struct uwsgi_server {
 	uint64_t master_cycles;
 
 	int		lazy;
+	int		cheap;
 
 	int		has_emperor;
 	int emperor_fd;
@@ -1992,3 +1993,6 @@ int uwsgi_get_shared_socket_num(struct uwsgi_socket *);
 #ifdef __linux__
 void uwsgi_set_cgroup(void);
 #endif
+
+void uwsgi_add_sockets_to_queue(int);
+void uwsgi_del_sockets_from_queue(int);
