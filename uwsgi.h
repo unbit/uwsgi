@@ -436,6 +436,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_AUTO_SNAPSHOT		17107
 #define LONG_ARGS_LOG_SOCKET		17108
 #define LONG_ARGS_ADD_HEADER		17109
+#define LONG_ARGS_IDLE			17120
 
 
 #define UWSGI_OK	0
@@ -852,6 +853,7 @@ struct uwsgi_server {
 
 	int		lazy;
 	int		cheap;
+	int		idle;
 
 	int		has_emperor;
 	int emperor_fd;

@@ -178,6 +178,7 @@ static struct option long_base_options[] = {
 	{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 	{"lazy", no_argument, &uwsgi.lazy, 1},
 	{"cheap", no_argument, &uwsgi.cheap, 1},
+	{"idle", required_argument, 0, LONG_ARGS_IDLE},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 	{"grunt", no_argument, &uwsgi.grunt, 1},
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
@@ -2386,6 +2387,9 @@ static int manage_base_opt(int i, char *optarg) {
 			p = strtok(NULL, ",");
 		}
 		build_options();
+		return 1;
+	case LONG_ARGS_IDLE:
+		uwsgi.idle = atoi(optarg);
 		return 1;
 	case LONG_ARGS_CHDIR:
 		uwsgi.chdir = optarg;
