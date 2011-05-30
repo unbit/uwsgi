@@ -1,5 +1,25 @@
 *** may 2011 ***
 
+ * 0.9.8-rc3 [20110530]
+
+- snapshotting support
+- fixed python 3.x spooler
+- improvements for grunt processes
+- better abstract unix socket
+- --log-socket allows logging to generic DGRAM sockets
+- a bunch of solaris fixes
+- new option --no-fd-passng for fastrouter
+- --fastrouter-subscription-slot to set the number of slot in subscription server
+- unlimited shared sockets
+- fixed netlink compilation
+- auto-reconnect on emperor+amqp server disconnection
+- various emperor fixes
+- unlimited fastrouter sockets
+- better cgroup support
+- --add-header option allow adding of custom HTTP response headers
+- cheap and idle operational modes
+
+
  * 0.9.8-rc2 [20110521]
 
 - new option --die-on-term
