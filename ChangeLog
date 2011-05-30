@@ -8,7 +8,7 @@
 - better abstract unix socket
 - --log-socket allows logging to generic DGRAM sockets
 - a bunch of solaris fixes
-- new option --no-fd-passng for fastrouter
+- new option --no-fd-passing for fastrouter
 - --fastrouter-subscription-slot to set the number of slot in subscription server
 - unlimited shared sockets
 - fixed netlink compilation
