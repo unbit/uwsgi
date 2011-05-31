@@ -924,29 +924,30 @@ void master_loop(char **argv, char **environ) {
 				for(i=1;i<uwsgi.numproc+1;i++)
 					tmp_counter += uwsgi.workers[i].requests;
 				uwsgi.workers[0].requests = tmp_counter;
-				if (uwsgi.idle > 0 && !uwsgi.cheap) {
-					uwsgi.current_time = time(NULL);
-					if (!last_request_timecheck) last_request_timecheck = uwsgi.current_time;
-					if (last_request_count != uwsgi.workers[0].requests) {
-						last_request_timecheck = uwsgi.current_time;
-						last_request_count = uwsgi.workers[0].requests;
+			}
+		
+			if (uwsgi.idle > 0 && !uwsgi.cheap) {
+				uwsgi.current_time = time(NULL);
+				if (!last_request_timecheck) last_request_timecheck = uwsgi.current_time;
+				if (last_request_count != uwsgi.workers[0].requests) {
+					last_request_timecheck = uwsgi.current_time;
+					last_request_count = uwsgi.workers[0].requests;
+				}
+				else if (uwsgi.current_time - last_request_timecheck > uwsgi.idle) {
+					uwsgi_log("workers have been inactive for more than %d seconds\n", uwsgi.idle);
+					for(i=1;i<=uwsgi.numproc;i++) {
+                               			if (uwsgi.workers[i].pid == 0) continue;
+                               			kill(uwsgi.workers[i].pid, SIGKILL);
+                               			if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+                                       			uwsgi_error("waitpid()");
+                               			}
 					}
-					else if (uwsgi.current_time - last_request_timecheck > uwsgi.idle) {
-						uwsgi_log("workers have been inactive for more than %d seconds\n", uwsgi.idle);
-						for(i=1;i<=uwsgi.numproc;i++) {
-                                			if (uwsgi.workers[i].pid == 0) continue;
-                                			kill(uwsgi.workers[i].pid, SIGKILL);
-                                			if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
-                                        			uwsgi_error("waitpid()");
-                                			}
-						}
-						master_has_children = 0;
-						uwsgi.cheap = 1;
-						uwsgi_add_sockets_to_queue(uwsgi.master_queue);
-                				uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
-						last_request_timecheck = 0;
-						continue;	
-					}
+					master_has_children = 0;
+					uwsgi.cheap = 1;
+					uwsgi_add_sockets_to_queue(uwsgi.master_queue);
+                			uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
+					last_request_timecheck = 0;
+					continue;	
 				}
 			}
 
