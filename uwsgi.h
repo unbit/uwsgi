@@ -858,6 +858,7 @@ struct uwsgi_server {
 	int		has_emperor;
 	int emperor_fd;
 	int emperor_fd_config;
+	int	early_emperor;
 	char *emperor_dir;
 	pid_t emperor_pid;
 	struct uwsgi_config_template *vassals_templates;

@@ -64,6 +64,7 @@ static struct option long_base_options[] = {
 	{"single-interpreter", no_argument, 0, 'i'},
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
+	{"early-emperor", no_argument, &uwsgi.early_emperor, 1},
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
 	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
@@ -1223,6 +1224,34 @@ int main(int argc, char *argv[], char *envp[]) {
 		shared_sock = shared_sock->next;
 	}
 
+	// start the Emperor if needed
+        if (uwsgi.early_emperor && uwsgi.emperor_dir) {
+
+                if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
+                        uwsgi_notify_ready();
+                        emperor_loop();
+                        // never here
+                        exit(1);
+                }
+
+                uwsgi.emperor_pid = fork();
+                if (uwsgi.emperor_pid < 0) {
+                        uwsgi_error("pid()");
+                        exit(1);
+                }
+                else if (uwsgi.emperor_pid == 0) {
+#ifdef __linux__
+                        if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+                                uwsgi_error("prctl()");
+                        }
+#endif
+                        emperor_loop();
+                        // never here
+                        exit(1);
+                }
+        }
+
+
 	// call jail systems
 	for (i = 0; i < uwsgi.gp_cnt; i++) {
 		if (uwsgi.gp[i]->jail) {
@@ -1350,7 +1379,7 @@ int uwsgi_start(void *v_argv) {
 
 
 	// start the Emperor if needed
-	if (uwsgi.emperor_dir) {
+	if (!uwsgi.early_emperor && uwsgi.emperor_dir) {
 
 		if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
 			uwsgi_notify_ready();
