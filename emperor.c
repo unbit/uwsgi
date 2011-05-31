@@ -328,7 +328,12 @@ void emperor_loop() {
 
         events = event_queue_alloc(64);
 
-	uwsgi_log("*** starting uWSGI Emperor ***\n");
+	if (uwsgi.has_emperor) {
+		uwsgi_log("*** starting uWSGI sub-Emperor ***\n");
+	}
+	else {
+		uwsgi_log("*** starting uWSGI Emperor ***\n");
+	}
 
 	amqp_port = strchr(uwsgi.emperor_dir, ':');
 
@@ -356,7 +361,7 @@ reconnect:
 		event_queue_add_fd_read(emperor_queue, amqp_fd);
 	}
 	else {
-		if (!glob(uwsgi.emperor_dir, GLOB_MARK, NULL, &g)) {
+		if (!glob(uwsgi.emperor_dir, GLOB_MARK|GLOB_NOCHECK, NULL, &g)) {
 			if (g.gl_pathc == 1 && g.gl_pathv[0][strlen(g.gl_pathv[0]) - 1] == '/') {
 				simple_mode = 1;
 				if (chdir(uwsgi.emperor_dir)) {
@@ -531,7 +536,7 @@ reconnect:
 			closedir(dir);
 		}
 		else {
-			if (glob(uwsgi.emperor_dir, GLOB_MARK, NULL, &g)) {
+			if (glob(uwsgi.emperor_dir, GLOB_MARK|GLOB_NOCHECK, NULL, &g)) {
 				uwsgi_error("glob()");
 				continue;
 			}

@@ -422,6 +422,7 @@ void kill_them_all(int signum) {
 
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
+		waitpid(uwsgi.emperor_pid, &i, 0);
                 uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
@@ -456,6 +457,7 @@ void grace_them_all(int signum) {
 
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
+		waitpid(uwsgi.emperor_pid, &i, 0);
                 uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
@@ -527,6 +529,12 @@ void reap_them_all(int signum) {
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
 		if (uwsgi.gateways[i].pid > 0)
 			kill(uwsgi.gateways[i].pid, SIGKILL);
+	}
+
+	if (uwsgi.emperor_pid >= 0) {
+		kill(uwsgi.emperor_pid, SIGKILL);
+		waitpid(uwsgi.emperor_pid, &i, 0);
+                uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
 	if (!uwsgi.workers)
@@ -1357,6 +1365,11 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 		else if (uwsgi.emperor_pid == 0) {
+#ifdef __linux__
+                	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+                        	uwsgi_error("prctl()");
+                	}
+#endif
 			emperor_loop();
 			// never here
 			exit(1);
@@ -1743,7 +1756,7 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
-	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket) {
+	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir) {
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
