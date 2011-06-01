@@ -422,9 +422,9 @@ class uConf(object):
         else:
             uver_custom = uver_whole[1]
 
-	uver_dots = uver_whole[0].split('.')
+        uver_dots = uver_whole[0].split('.')
 
-	uver_base = uver_dots[0]
+        uver_base = uver_dots[0]
         uver_maj = uver_dots[1]
         uver_min = '0'
         uver_rev = '0'
