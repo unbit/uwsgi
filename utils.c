@@ -944,6 +944,7 @@ void uwsgi_log(const char *fmt, ...) {
 		return;
 	}
 
+	rlen+=ret;
 	// do not check for errors
 	rlen = write(2, logpkt, rlen);
 }
