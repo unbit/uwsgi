@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '0.9.8'
+uwsgi_version = '0.9.8-dev'
 
 import os
 import re
@@ -436,10 +436,10 @@ class uConf(object):
             uver_rev = uver_dots[3]
         
 
-        self.cflags.append('-DUWSGI_VERSION_BASE="\\"' + uver_base + '\\""')
-        self.cflags.append('-DUWSGI_VERSION_MAJOR="\\"' + uver_maj + '\\""')
-        self.cflags.append('-DUWSGI_VERSION_MINOR="\\"' + uver_min + '\\""')
-        self.cflags.append('-DUWSGI_VERSION_REVISION="\\"' + uver_rev + '\\""')
+        self.cflags.append('-DUWSGI_VERSION_BASE="' + uver_base + '"')
+        self.cflags.append('-DUWSGI_VERSION_MAJOR="' + uver_maj + '"')
+        self.cflags.append('-DUWSGI_VERSION_MINOR="' + uver_min + '"')
+        self.cflags.append('-DUWSGI_VERSION_REVISION="' + uver_rev + '"')
         self.cflags.append('-DUWSGI_VERSION_CUSTOM="\\"' + uver_custom + '\\""')
 
 	

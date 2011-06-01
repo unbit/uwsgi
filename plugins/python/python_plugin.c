@@ -430,10 +430,10 @@ void init_uwsgi_embedded_module() {
 
 	PyObject *uwsgi_py_version_info = PyTuple_New(5);
 
-	PyTuple_SetItem(uwsgi_py_version_info, 0, PyString_FromString(UWSGI_VERSION_BASE));
-	PyTuple_SetItem(uwsgi_py_version_info, 1, PyString_FromString(UWSGI_VERSION_MAJOR));
-	PyTuple_SetItem(uwsgi_py_version_info, 2, PyString_FromString(UWSGI_VERSION_MINOR));
-	PyTuple_SetItem(uwsgi_py_version_info, 3, PyString_FromString(UWSGI_VERSION_REVISION));
+	PyTuple_SetItem(uwsgi_py_version_info, 0, PyInt_FromLong(UWSGI_VERSION_BASE));
+	PyTuple_SetItem(uwsgi_py_version_info, 1, PyInt_FromLong(UWSGI_VERSION_MAJOR));
+	PyTuple_SetItem(uwsgi_py_version_info, 2, PyInt_FromLong(UWSGI_VERSION_MINOR));
+	PyTuple_SetItem(uwsgi_py_version_info, 3, PyInt_FromLong(UWSGI_VERSION_REVISION));
 	PyTuple_SetItem(uwsgi_py_version_info, 4, PyString_FromString(UWSGI_VERSION_CUSTOM));
 
 	if (PyDict_SetItemString(up.embedded_dict, "version_info", uwsgi_py_version_info)) {
