@@ -1554,7 +1554,6 @@ PyObject *uwsgi_Iter_next(PyObject * self) {
 				ui->has_cl = 1;
 				ui->size = uh.pktsize;
 				ui->sent = 0;
-				uwsgi_log("NEED TO READ %d\n", uh.pktsize);
 			}
 		}
 
@@ -2344,7 +2343,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
-	{"send", py_uwsgi_send, METH_VARARGS, ""},
 	{"cl", py_uwsgi_cl, METH_VARARGS, ""},
 
 	{"listen_queue", py_uwsgi_listen_queue, METH_VARARGS, ""},

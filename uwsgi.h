@@ -1310,7 +1310,7 @@ struct uwsgi_shared {
 	//vga 80 x25 specific !
 	char            warning_message[81];
 
-	uint32_t        options[0xFF];
+	uint32_t        options[256];
 
 	struct uwsgi_cluster_node nodes[MAX_CLUSTER_NODES];
 

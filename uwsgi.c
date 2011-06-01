@@ -222,48 +222,48 @@ static struct option long_base_options[] = {
 void uwsgi_configure(void) {
 
 	struct option *lopt = uwsgi.long_options;
-        struct option *aopt;
-        char *val;
+	struct option *aopt;
+	char *val;
 	int i;
 	int is_retry;
 	int found;
 
-        for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
 
-                if (uwsgi.exported_opts[i]->configured)
-                        continue;
+		if (uwsgi.exported_opts[i]->configured)
+			continue;
 
 		is_retry = 0;
-retry:
+	      retry:
 		found = 0;
-                lopt = uwsgi.long_options;;
-                while ((aopt = lopt)) {
-                        if (!aopt->name)
-                                break;
+		lopt = uwsgi.long_options;;
+		while ((aopt = lopt)) {
+			if (!aopt->name)
+				break;
 
-                        if (!strcmp(aopt->name, uwsgi.exported_opts[i]->key)) {
+			if (!strcmp(aopt->name, uwsgi.exported_opts[i]->key)) {
 				found = 1;
-                                val = uwsgi.exported_opts[i]->value;
+				val = uwsgi.exported_opts[i]->value;
 
-                                if (aopt->flag)
-                                        *aopt->flag = aopt->val;
-                                else if (val) {
-                                        if (aopt->has_arg == optional_argument) {
-                                                if (!strcasecmp("true", val)) {
-                                                        val = NULL;
-                                                }
-                                        }
-                                        if (aopt->has_arg == no_argument) {
-                                                if (!strcasecmp("false", val) || val[0] == '0') {
-                                                        lopt++;
-                                                        continue;
-                                                }
-                                        }
-                                        manage_opt(aopt->val, val);
-                                }
-                        }
-                        lopt++;
-                }
+				if (aopt->flag)
+					*aopt->flag = aopt->val;
+				else if (val) {
+					if (aopt->has_arg == optional_argument) {
+						if (!strcasecmp("true", val)) {
+							val = NULL;
+						}
+					}
+					if (aopt->has_arg == no_argument) {
+						if (!strcasecmp("false", val) || val[0] == '0') {
+							lopt++;
+							continue;
+						}
+					}
+					manage_opt(aopt->val, val);
+				}
+			}
+			lopt++;
+		}
 
 		if (!found && uwsgi.autoload && !is_retry) {
 			DIR *pdir;
@@ -273,7 +273,7 @@ retry:
 				uwsgi_fatal_error("opendir()");
 			}
 			while ((dp = readdir(pdir)) != NULL) {
-				if (!strncmp("_plugin.so", dp->d_name+(strlen(dp->d_name)-10), 19)) {
+				if (!strncmp("_plugin.so", dp->d_name + (strlen(dp->d_name) - 10), 19)) {
 					if (uwsgi_load_plugin(-1, dp->d_name, uwsgi.exported_opts[i]->key, 2)) {
 						uwsgi_log("option \"%s\" found in plugin %s\n", uwsgi.exported_opts[i]->key, dp->d_name);
 						found = 1;
@@ -290,7 +290,7 @@ retry:
 			}
 			closedir(pdir);
 		}
-        }
+	}
 
 }
 
@@ -336,26 +336,26 @@ void warn_pipe() {
 #ifdef UWSGI_THREADING
 // in threading mode we need to use the cancel pthread subsystem
 void wait_for_threads() {
-        int i, ret;
+	int i, ret;
 
-        pthread_mutex_lock(&uwsgi.six_feet_under_lock);
-        for(i=0;i<uwsgi.threads;i++) {
-                if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-                        pthread_cancel(uwsgi.core[i]->thread_id);
-                }
-        }
+	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
+	for (i = 0; i < uwsgi.threads; i++) {
+		if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
+			pthread_cancel(uwsgi.core[i]->thread_id);
+		}
+	}
 
-        // wait for thread termination
-        for(i=0;i<uwsgi.threads;i++) {
-                if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-                        ret = pthread_join(uwsgi.core[i]->thread_id, NULL);
-                        if (ret) {
-                                uwsgi_log("pthread_join() = %d\n", ret);
-                        }
-                }
-        }
+	// wait for thread termination
+	for (i = 0; i < uwsgi.threads; i++) {
+		if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
+			ret = pthread_join(uwsgi.core[i]->thread_id, NULL);
+			if (ret) {
+				uwsgi_log("pthread_join() = %d\n", ret);
+			}
+		}
+	}
 
-        pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
+	pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 }
 #endif
 
@@ -371,7 +371,7 @@ void gracefully_kill(int signum) {
 		if (!uwsgi.core[wsgi_req->async_id]->in_request) {
 			exit(UWSGI_RELOAD_CODE);
 		}
-		return;	
+		return;
 		// never here
 	}
 #endif
@@ -414,17 +414,17 @@ void kill_them_all(int signum) {
 	}
 
 #ifdef UWSGI_SPOOLER
-                 if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-                            kill(uwsgi.shared->spooler_pid, SIGKILL);
-                             uwsgi_log( "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
-                   }
+	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+		kill(uwsgi.shared->spooler_pid, SIGKILL);
+		uwsgi_log("killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+	}
 
 #endif
 
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
 		waitpid(uwsgi.emperor_pid, &i, 0);
-                uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
+		uwsgi_log("killed the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
 
@@ -443,23 +443,24 @@ void grace_them_all(int signum) {
 	int i;
 	int waitpid_status;
 
-	if (!uwsgi.lazy) uwsgi.to_heaven = 1;
+	if (!uwsgi.lazy)
+		uwsgi.to_heaven = 1;
 
 	if (uwsgi.reload_mercy > 0) {
 		uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
 	}
 
 #ifdef UWSGI_SPOOLER
-                        if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-                                kill(uwsgi.shared->spooler_pid, SIGKILL);
-                             	uwsgi_log( "killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
-                        }
+	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+		kill(uwsgi.shared->spooler_pid, SIGKILL);
+		uwsgi_log("killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+	}
 #endif
 
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
 		waitpid(uwsgi.emperor_pid, &i, 0);
-                uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
+		uwsgi_log("killed the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
@@ -479,8 +480,8 @@ void grace_them_all(int signum) {
 			if (uwsgi.workers[i].snapshot > 0) {
 				kill(uwsgi.workers[i].snapshot, SIGKILL);
 				if (waitpid(uwsgi.workers[i].snapshot, &waitpid_status, 0) < 0) {
-                                	uwsgi_error("waitpid()");
-                                }
+					uwsgi_error("waitpid()");
+				}
 			}
 			if (uwsgi.workers[i].pid > 0) {
 				if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
@@ -520,7 +521,8 @@ void uwsgi_nuclear_blast() {
 void reap_them_all(int signum) {
 	int i;
 
-	if (!uwsgi.lazy) uwsgi.to_heaven = 1;
+	if (!uwsgi.lazy)
+		uwsgi.to_heaven = 1;
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
@@ -535,7 +537,7 @@ void reap_them_all(int signum) {
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
 		waitpid(uwsgi.emperor_pid, &i, 0);
-                uwsgi_log( "killed the emperor with pid %d\n", uwsgi.emperor_pid);
+		uwsgi_log("killed the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
 	if (!uwsgi.workers)
@@ -567,9 +569,9 @@ void snapshot_me(int signum) {
 
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 #ifdef UWSGI_THREADING
-        if (uwsgi.threads > 1) {
-                wait_for_threads();
-        }
+	if (uwsgi.threads > 1) {
+		wait_for_threads();
+	}
 #endif
 	uwsgi.snapshot = 1;
 	uwsgi_log("[snapshot] process %d taken\n", (int) getpid());
@@ -673,7 +675,7 @@ static void vacuum(void) {
 					uwsgi_error("chdir()");
 				}
 			}
-			while(uwsgi_sock) {
+			while (uwsgi_sock) {
 				if (uwsgi_sock->family == AF_UNIX) {
 					if (unlink(uwsgi_sock->name)) {
 						uwsgi_error("unlink()");
@@ -1202,7 +1204,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
-	while(shared_sock) {
+	while (shared_sock) {
 		char *tcp_port = strchr(shared_sock->name, ':');
 		if (tcp_port == NULL) {
 			shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
@@ -1220,36 +1222,36 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 		shared_sock->bound = 1;
-	
+
 		shared_sock = shared_sock->next;
 	}
 
 	// start the Emperor if needed
-        if (uwsgi.early_emperor && uwsgi.emperor_dir) {
+	if (uwsgi.early_emperor && uwsgi.emperor_dir) {
 
-                if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
-                        uwsgi_notify_ready();
-                        emperor_loop();
-                        // never here
-                        exit(1);
-                }
+		if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
+			uwsgi_notify_ready();
+			emperor_loop();
+			// never here
+			exit(1);
+		}
 
-                uwsgi.emperor_pid = fork();
-                if (uwsgi.emperor_pid < 0) {
-                        uwsgi_error("pid()");
-                        exit(1);
-                }
-                else if (uwsgi.emperor_pid == 0) {
+		uwsgi.emperor_pid = fork();
+		if (uwsgi.emperor_pid < 0) {
+			uwsgi_error("pid()");
+			exit(1);
+		}
+		else if (uwsgi.emperor_pid == 0) {
 #ifdef __linux__
-                        if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
-                                uwsgi_error("prctl()");
-                        }
+			if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+				uwsgi_error("prctl()");
+			}
 #endif
-                        emperor_loop();
-                        // never here
-                        exit(1);
-                }
-        }
+			emperor_loop();
+			// never here
+			exit(1);
+		}
+	}
 
 
 	// call jail systems
@@ -1297,7 +1299,7 @@ int uwsgi_start(void *v_argv) {
 	struct uwsgi_socket *uwsgi_sock;
 
 #ifdef __linux__
-        uwsgi_set_cgroup();
+	uwsgi_set_cgroup();
 
 	if (uwsgi.ns) {
 		linux_namespace_jail();
@@ -1384,8 +1386,8 @@ int uwsgi_start(void *v_argv) {
 		if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
 			uwsgi_notify_ready();
 			emperor_loop();
-                        // never here
-                        exit(1);
+			// never here
+			exit(1);
 		}
 
 		uwsgi.emperor_pid = fork();
@@ -1395,9 +1397,9 @@ int uwsgi_start(void *v_argv) {
 		}
 		else if (uwsgi.emperor_pid == 0) {
 #ifdef __linux__
-                	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
-                        	uwsgi_error("prctl()");
-                	}
+			if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+				uwsgi_error("prctl()");
+			}
 #endif
 			emperor_loop();
 			// never here
@@ -1576,7 +1578,7 @@ int uwsgi_start(void *v_argv) {
 		//check for inherited sockets
 		if (uwsgi.is_a_reload) {
 			uwsgi_sock = uwsgi.sockets;
-			while(uwsgi_sock) {
+			while (uwsgi_sock) {
 				//a bit overengineering
 				if (uwsgi_sock->name[0] != 0) {
 					for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
@@ -1601,7 +1603,7 @@ int uwsgi_start(void *v_argv) {
 				gsa.sa = (struct sockaddr *) &usa;
 				if (!getsockname(j, gsa.sa, &socket_type_len)) {
 					uwsgi_sock = uwsgi.sockets;
-					while(uwsgi_sock) {
+					while (uwsgi_sock) {
 						if (uwsgi_sock->fd == j && uwsgi_sock->bound) {
 							useless = 0;
 							break;
@@ -1615,7 +1617,7 @@ int uwsgi_start(void *v_argv) {
 		}
 		//now bind all the unbound sockets
 		uwsgi_sock = uwsgi.sockets;
-		while(uwsgi_sock) {
+		while (uwsgi_sock) {
 			if (!uwsgi_sock->bound) {
 				char *tcp_port = strchr(uwsgi_sock->name, ':');
 				if (tcp_port == NULL) {
@@ -1640,7 +1642,7 @@ int uwsgi_start(void *v_argv) {
 
 		int zero_used = 0;
 		uwsgi_sock = uwsgi.sockets;
-		while(uwsgi_sock) {
+		while (uwsgi_sock) {
 			if (uwsgi_sock->bound && uwsgi_sock->fd == 0) {
 				zero_used = 1;
 				break;
@@ -1652,14 +1654,13 @@ int uwsgi_start(void *v_argv) {
 			socket_type_len = sizeof(struct sockaddr_un);
 			gsa.sa = (struct sockaddr *) &usa;
 			if (!getsockname(0, gsa.sa, &socket_type_len)) {
-					if (gsa.sa->sa_family == AF_UNIX) {
-						uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
-						uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
-					}
-					else {
-						uwsgi_sock = uwsgi_new_socket(":0");
-						uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
-					}
+				if (gsa.sa->sa_family == AF_UNIX) {
+					uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
+					uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
+				}
+				else {
+					uwsgi_sock = uwsgi_new_socket(":0");
+					uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 				}
 			}
 			else {
@@ -1681,7 +1682,7 @@ int uwsgi_start(void *v_argv) {
 
 		// put listening socket in non-blocking state and set the protocol
 		uwsgi_sock = uwsgi.sockets;
-		while(uwsgi_sock) {
+		while (uwsgi_sock) {
 			uwsgi_sock->arg = fcntl(uwsgi_sock->fd, F_GETFL, NULL);
 			if (uwsgi_sock->arg < 0) {
 				uwsgi_error("fcntl()");
@@ -1744,10 +1745,11 @@ int uwsgi_start(void *v_argv) {
 		}
 #endif
 
+	}
 
 
 	// initialize request plugin only if workers or master are available
-	if (uwsgi.sockets || uwsgi.master_process) {
+	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server) {
 		for (i = 0; i < 0xFF; i++) {
 			if (uwsgi.p[i]->init) {
 				uwsgi.p[i]->init();
@@ -1798,7 +1800,7 @@ int uwsgi_start(void *v_argv) {
 
 #ifdef UWSGI_DEBUG
 	uwsgi_sock = uwsgi.sockets;
-	while(uwsgi_sock) {
+	while (uwsgi_sock) {
 		so_bufsize_len = sizeof(int);
 		if (getsockopt(uwsgi_sock->fd, SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
 			uwsgi_error("getsockopt()");
@@ -1897,7 +1899,7 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log("no-server mode requested. Goodbye.\n");
 		exit(0);
 	}
-	//is this a proxy only worker ?
+
 
 	if (!uwsgi.master_process && uwsgi.numproc == 0) {
 		exit(0);
@@ -1968,9 +1970,10 @@ int uwsgi_start(void *v_argv) {
 
 	if (!uwsgi.cheap) {
 		for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
-			if (uwsgi_respawn_worker(i)) break;
+			if (uwsgi_respawn_worker(i))
+				break;
 			gettimeofday(&last_respawn, NULL);
-                	uwsgi.respawn_delta = last_respawn.tv_sec;
+			uwsgi.respawn_delta = last_respawn.tv_sec;
 		}
 	}
 
@@ -1981,58 +1984,58 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	uwsgi_sock = uwsgi.sockets;
-        while(uwsgi_sock) {
-                struct uwsgi_string_list *usl = uwsgi.map_socket;
+	while (uwsgi_sock) {
+		struct uwsgi_string_list *usl = uwsgi.map_socket;
 		int enabled = 1;
-                while(usl) {
+		while (usl) {
 
-                        char *colon = strchr(usl->value, ':');
-                        if (uwsgi_str_num(usl->value, colon-usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
+			char *colon = strchr(usl->value, ':');
+			if (uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
 				enabled = 0;
-                		char *p = strtok(colon+1, ",");
-                		while (p != NULL) {
-                        		int w = atoi(p);
-                        		if (w < 1 || w > uwsgi.numproc) {
-                                		uwsgi_log("invalid worker num: %d\n", w);
-                                		exit(1);
-                        		}
+				char *p = strtok(colon + 1, ",");
+				while (p != NULL) {
+					int w = atoi(p);
+					if (w < 1 || w > uwsgi.numproc) {
+						uwsgi_log("invalid worker num: %d\n", w);
+						exit(1);
+					}
 					if (w == uwsgi.mywid) {
 						enabled = 1;
 						uwsgi_log("mapped socket %d (%s) to worker %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi.mywid);
 						break;
 					}
-                        		p = strtok(NULL, ",");
-                		}
+					p = strtok(NULL, ",");
+				}
 			}
 
-                        usl = usl->next;
-                }
+			usl = usl->next;
+		}
 
 		if (!enabled) {
 			int fd = uwsgi_sock->fd;
 			close(fd);
-                        fd = open("/dev/null", O_RDONLY);
-                        if (fd < 0) {
-                                uwsgi_error_open("/dev/null");
-                                exit(1);
-                        }
-                        if (fd != uwsgi_sock->fd) {
-                                if (dup2(fd, uwsgi_sock->fd)) {
-                                        uwsgi_error("dup2()");
-                                        exit(1);
-                                }
-                                close(fd);
-                        }
+			fd = open("/dev/null", O_RDONLY);
+			if (fd < 0) {
+				uwsgi_error_open("/dev/null");
+				exit(1);
+			}
+			if (fd != uwsgi_sock->fd) {
+				if (dup2(fd, uwsgi_sock->fd)) {
+					uwsgi_error("dup2()");
+					exit(1);
+				}
+				close(fd);
+			}
 			uwsgi_sock->disabled = 1;
 		}
 
 
 		uwsgi_sock = uwsgi_sock->next;
 
-        }
+	}
 
 	uwsgi_sock = uwsgi.sockets;
-	while(uwsgi_sock) {
+	while (uwsgi_sock) {
 		if (uwsgi_sock->disabled) {
 			uwsgi_sock = uwsgi_del_socket(uwsgi_sock);
 		}
@@ -2088,9 +2091,9 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	uwsgi.core = uwsgi_malloc(sizeof(struct uwsgi_core *) * uwsgi.cores);
-        for (j = 0; j < uwsgi.cores; j++) {
-        	uwsgi.core[j] = uwsgi_malloc(sizeof(struct uwsgi_core));
-                memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
+	for (j = 0; j < uwsgi.cores; j++) {
+		uwsgi.core[j] = uwsgi_malloc(sizeof(struct uwsgi_core));
+		memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
 	}
 
 	if (uwsgi.master_as_root) {
@@ -2220,7 +2223,7 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_unix_signal(SIGHUP, gracefully_kill);
 	uwsgi_unix_signal(SIGINT, end_me);
 	uwsgi_unix_signal(SIGTERM, end_me);
-	
+
 	if (uwsgi.auto_snapshot) {
 		uwsgi_unix_signal(SIGURG, snapshot_me);
 	}
@@ -2237,10 +2240,10 @@ int uwsgi_start(void *v_argv) {
 
 	// run fixup handler
 	for (i = 0; i < 0xFF; i++) {
-                if (uwsgi.p[i]->fixup) {
-                        uwsgi.p[i]->fixup();
-                }
-        }
+		if (uwsgi.p[i]->fixup) {
+			uwsgi.p[i]->fixup();
+		}
+	}
 
 	if (uwsgi.chdir2) {
 		if (chdir(uwsgi.chdir2)) {
@@ -2313,10 +2316,11 @@ void uwsgi_ignition() {
 	int i;
 
 	// snapshot workers do not enter the loop until a specific signal (SIGURG) is raised...
-        if (uwsgi.snapshot) {
-wait_for_call_of_duty:
+	if (uwsgi.snapshot) {
+	      wait_for_call_of_duty:
 		uwsgi_sig_pause();
-		if (uwsgi.snapshot) goto wait_for_call_of_duty;
+		if (uwsgi.snapshot)
+			goto wait_for_call_of_duty;
 		uwsgi_log("[snapshot] process %d is the new worker %d\n", (int) getpid(), uwsgi.mywid);
 	}
 
@@ -2503,7 +2507,7 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.log_socket = 1;
 		uwsgi.log_master = 1;
 		uwsgi.master_process = 1;
-		log_socket(optarg);	
+		log_socket(optarg);
 		return 1;
 	case LONG_ARGS_LOG_SYSLOG:
 		log_syslog(optarg);
@@ -2512,12 +2516,12 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.master_process = 1;
 		return 1;
 #ifdef UWSGI_ZEROMQ
-         case LONG_ARGS_LOG_ZEROMQ:
-                        log_zeromq(optarg);
-                        uwsgi.log_master = 1;
-                        uwsgi.master_process = 1;
-                        return 1;
-#endif	
+	case LONG_ARGS_LOG_ZEROMQ:
+		log_zeromq(optarg);
+		uwsgi.log_master = 1;
+		uwsgi.master_process = 1;
+		return 1;
+#endif
 	case LONG_ARGS_PRINT:
 		uwsgi_log("%s\n", optarg);
 		return 1;
@@ -3743,48 +3747,48 @@ void uwsgi_init_all_apps() {
 	int i, j;
 
 	for (i = 0; i < 0xFF; i++) {
-                if (uwsgi.p[i]->init_apps) {
-                        uwsgi.p[i]->init_apps();
-                }
-        }
+		if (uwsgi.p[i]->init_apps) {
+			uwsgi.p[i]->init_apps();
+		}
+	}
 
-        for (i = 0; i < uwsgi.gp_cnt; i++) {
-                if (uwsgi.gp[i]->init_apps) {
-                        uwsgi.gp[i]->init_apps();
-                }
-        }
+	for (i = 0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->init_apps) {
+			uwsgi.gp[i]->init_apps();
+		}
+	}
 
-        /*parse xml for <app> tags */
+	/*parse xml for <app> tags */
 #ifdef UWSGI_XML
-        if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-                uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 1, NULL);
-        }
+	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
+		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 1, NULL);
+	}
 #endif
 
-        for (i = 0; i < uwsgi.mounts_cnt; i++) {
-                char *what = strchr(uwsgi.mounts[i], '=');
-                if (what) {
-                        what[0] = 0;
-                        what++;
-                        uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
-                        for (j = 0; j < 0xFF; j++) {
-                                if (uwsgi.p[j]->mount_app) {
-                                        if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what) != -1)
-                                                break;
-                                }
-                        }
-                        what--;
-                        what[0] = '=';
-                }
-                else {
-                        uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
-                        exit(1);
-                }
-        }
+	for (i = 0; i < uwsgi.mounts_cnt; i++) {
+		char *what = strchr(uwsgi.mounts[i], '=');
+		if (what) {
+			what[0] = 0;
+			what++;
+			uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
+			for (j = 0; j < 0xFF; j++) {
+				if (uwsgi.p[j]->mount_app) {
+					if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what) != -1)
+						break;
+				}
+			}
+			what--;
+			what[0] = '=';
+		}
+		else {
+			uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
+			exit(1);
+		}
+	}
 
-        // no app initialized and virtualhosting enabled
-        if (uwsgi.apps_cnt == 0 && uwsgi.vhost) {
-                uwsgi.apps_cnt = 1;
-        }
+	// no app initialized and virtualhosting enabled
+	if (uwsgi.apps_cnt == 0 && uwsgi.vhost) {
+		uwsgi.apps_cnt = 1;
+	}
 
 }
