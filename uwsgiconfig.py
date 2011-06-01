@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '0.9.8-dev'
+uwsgi_version = '0.9.8'
 
 import os
 import re
@@ -176,7 +176,7 @@ class uConf(object):
         if uwsgi_os == 'Linux':
             self.gcc_list.append('lib/linux_ns')
             self.gcc_list.append('lib/netlink')
-        self.cflags = ['-DUWSGI_VERSION="\\"' + uwsgi_version + '\\""', '-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
+        self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
         try:
             gcc_version = str(spcall("%s -dumpversion" % GCC))
         except:
@@ -236,6 +236,8 @@ class uConf(object):
                 sys.exit(1)
 
     def get_gcll(self):
+
+        global uwsgi_version
 
         self.cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
         kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
@@ -406,6 +408,41 @@ class uConf(object):
             self.cflags.append("-DUWSGI_UUID")
             if os.path.exists('/usr/lib/libuuid.so') or os.path.exists('/usr/local/lib/libuuid.so'):
                 self.libs.append('-luuid')
+
+        if self.get('append_version'):
+            if not self.get('append_version').startswith('-'):
+                uwsgi_version += '-'
+            uwsgi_version += self.get('append_version')
+
+        self.cflags.append('-DUWSGI_VERSION="\\"' + uwsgi_version + '\\""')
+
+        uver_whole = uwsgi_version.split('-', 1)
+        if len(uver_whole) == 1:
+            uver_custom = ''
+        else:
+            uver_custom = uver_whole[1]
+
+	uver_dots = uver_whole[0].split('.')
+
+	uver_base = uver_dots[0]
+        uver_maj = uver_dots[1]
+        uver_min = '0'
+        uver_rev = '0'
+
+        if len(uver_dots) > 2:
+            uver_min = uver_dots[2]
+
+        if len(uver_dots) > 3:
+            uver_rev = uver_dots[3]
+        
+
+        self.cflags.append('-DUWSGI_VERSION_BASE="\\"' + uver_base + '\\""')
+        self.cflags.append('-DUWSGI_VERSION_MAJOR="\\"' + uver_maj + '\\""')
+        self.cflags.append('-DUWSGI_VERSION_MINOR="\\"' + uver_min + '\\""')
+        self.cflags.append('-DUWSGI_VERSION_REVISION="\\"' + uver_rev + '\\""')
+        self.cflags.append('-DUWSGI_VERSION_CUSTOM="\\"' + uver_custom + '\\""')
+
+	
 
         if self.get('async'):
             self.cflags.append("-DUWSGI_ASYNC")
