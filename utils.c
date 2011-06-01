@@ -905,6 +905,7 @@ void uwsgi_log(const char *fmt, ...) {
 	va_list ap;
 	char logpkt[4096];
 	int rlen = 0;
+	int ret;
 
 	struct timeval tv;
 	char sftime[64];
@@ -929,8 +930,19 @@ void uwsgi_log(const char *fmt, ...) {
 	}
 
 	va_start(ap, fmt);
-	rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
+	ret = vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
 	va_end(ap);
+
+	if (ret >= 4096) {
+		char *tmp_buf = uwsgi_malloc(rlen + ret);
+		memcpy(tmp_buf, logpkt, rlen);
+		va_start(ap, fmt);
+		ret = vsnprintf(tmp_buf + rlen,  ret, fmt, ap);
+		va_end(ap);
+		rlen = write(2, tmp_buf, rlen+ret);
+		free(tmp_buf);
+		return;
+	}
 
 	// do not check for errors
 	rlen = write(2, logpkt, rlen);
