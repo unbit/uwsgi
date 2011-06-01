@@ -1192,8 +1192,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 					}
 					else {
 						Py_DECREF(zero);
-						Py_INCREF(Py_None);
-						return Py_None;
+						return PyErr_Format(PyExc_ValueError, "spooler packet cannot be more than %d bytes", uwsgi.buffer_size);
 					}
 				}
 				else {
