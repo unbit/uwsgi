@@ -96,8 +96,11 @@ void get_linux_tcp_info(int fd) {
 		if (!uwsgi.shared->ti.tcpi_sacked) {
 			return;
 		}
+
+		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->ti.tcpi_unacked;
 		if (uwsgi.shared->ti.tcpi_unacked >= uwsgi.shared->ti.tcpi_sacked) {
 			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, uwsgi.shared->ti.tcpi_unacked, uwsgi.shared->ti.tcpi_sacked);
+			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
 		}
 	}
 }
