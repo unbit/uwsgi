@@ -180,12 +180,31 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	wsgi_req->hvec[j].iov_base = nl;
 	wsgi_req->hvec[j].iov_len = NL_SIZE;
 
+#ifdef __sun__
+	int remains = j + 1;
+	int iov_size;
+	struct iovec* iov_ptr = wsgi_req->hvec;
+	ssize_t iov_ret;
+	while(remains) {
+		iov_size = UMIN(remains, IOV_MAX);
+		UWSGI_RELEASE_GIL
+		iov_ret = wsgi_req->socket->proto_writev_header(wsgi_req, iov_ptr, iov_size);
+		UWSGI_GET_GIL
+		if (iov_ret < 0) {
+			uwsgi_error("writev()");
+		}
+		wsgi_req->headers_size += iov_ret;
+		iov_ptr += iov_size;
+		remains -= iov_size;
+	}
+#else
 	UWSGI_RELEASE_GIL
 		wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, j + 1);
 	UWSGI_GET_GIL
 		if (wsgi_req->headers_size < 0) {
 			uwsgi_error("writev()");
 		}
+#endif
 
 	//uwsgi_log("%d %p\n", wsgi_req->poll.fd, up.wsgi_writeout);
 	Py_INCREF(up.wsgi_writeout);
