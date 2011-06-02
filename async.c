@@ -318,7 +318,9 @@ void *async_loop(void *arg1) {
 					// parsing complete
 					if (!proto_parser_status) {
 						// remove fd from event poll and fd proto table	
+#ifndef UWSGI_EVENT_USE_PORT
 						event_queue_del_fd(uwsgi.async_queue, interesting_fd, event_queue_read());
+#endif
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
 						// put request in the runqueue
 						runqueue_push(uwsgi.wsgi_req);

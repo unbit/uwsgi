@@ -6,7 +6,7 @@ def application(env, start_response):
 	start_response( '200 OK', [ ('Content-Type','text/html') ])
 	start_time = time.time()
 	for i in range(1,100000):
-		uwsgi.green_schedule()
+		uwsgi.suspend()
 		# print every 100
 		if i % 100 == 0:
 			yield "<h1>%d</h1>\n" % i

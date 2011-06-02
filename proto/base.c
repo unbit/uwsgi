@@ -90,6 +90,7 @@ uint16_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uin
 
 int uwsgi_proto_base_accept(struct wsgi_request *wsgi_req, int fd) {
 
+	wsgi_req->c_len = sizeof(struct sockaddr_un);
 	return accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) & wsgi_req->c_len);
 }
 

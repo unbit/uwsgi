@@ -89,6 +89,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	char *ptr = wsgi_req->proto_parser_buf;
 	char *base = ptr;
 	char *query_string = NULL;
+	char ip[INET_ADDRSTRLEN+1];
+	struct sockaddr_in *http_sin = (struct sockaddr_in *) &wsgi_req->c_addr;
 
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
@@ -146,15 +148,14 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	// SERVER_PORT
 	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "3031", 4);
 
-	/*
-	   // REMOTE_ADDR
-	   if (inet_ntop(AF_INET, &h_session->ip_addr, h_session->ip, INET_ADDRSTRLEN)) {
-	   h_session->uh.pktsize += proto_base_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REMOTE_ADDR", 11, h_session->ip, strlen(h_session->ip));
-	   }
-	   else {
-	   uwsgi_error("inet_ntop()");
-	   }
-	 */
+	// REMOTE_ADDR
+	memset(ip, 0, INET_ADDRSTRLEN+1);
+	if (inet_ntop(AF_INET, (void *) &http_sin->sin_addr.s_addr, ip, INET_ADDRSTRLEN)) {
+		wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, ip, strlen(ip));
+	}
+	else {
+		uwsgi_error("inet_ntop()");
+	}
 
 	//HEADERS
 	base = ptr;
