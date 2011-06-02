@@ -260,11 +260,17 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 
 	struct pollfd uwsgi_poll;
 	struct sockaddr_un uws_addr;
+	socklen_t un_size = sizeof(struct sockaddr_un);
 
 	memset(&uws_addr, 0, sizeof(struct sockaddr_un));
 
 	uws_addr.sun_family = AF_UNIX;
 	memcpy(uws_addr.sun_path, socket_name, 102);
+
+	if (socket_name[0] == '@'){
+		un_size = sizeof(uws_addr.sun_family) + strlen(socket_name);
+		uws_addr.sun_path[0] = 0;
+	}
 
 	uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (uwsgi_poll.fd < 0) {
@@ -274,7 +280,7 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 
 	uwsgi_poll.events = POLLIN;
 
-	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, sizeof(struct sockaddr_un), timeout, async)) {
+	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, un_size, timeout, async)) {
 		uwsgi_error("connect()");
 		close(uwsgi_poll.fd);
 		return -1;
