@@ -1,5 +1,19 @@
 *** may 2011 ***
 
+ * 0.9.8-rc4 [20110602]
+
+- fixed REMOTE_ADDR when --protocol=http
+- official support for OpenIndiana
+- added a welcome.py test script
+- new api attribute uwsgi.version_info
+- improved the admin plugin
+- two new management flag for backlog queue monitoring
+- fixed uwsgi_log for bigger loglines
+- new option --early-emperor to allows out-of-jail emperors
+- emperor can now spawn other emperors (sub-emperors)
+- fixed idle mode in single-process
+- fixed solaris iovec
+
  * 0.9.8-rc3 [20110530]
 
 - snapshotting support
