@@ -6,6 +6,7 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	int serverfd;
 	struct sockaddr_un *uws_addr;
+	socklen_t len;
 
 	// leave 1 byte for abstract namespace (108 linux -> 104 bsd/mac)
 	if (strlen(socket_name) > 102) {
@@ -14,6 +15,9 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	}
 
 	if (socket_name[0] == '@') {
+		abstract_socket = 1;
+	}
+	else if (strlen(socket_name) > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
 		abstract_socket = 1;
 	}
 
@@ -41,16 +45,23 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	uws_addr->sun_family = AF_UNIX;
 	if (socket_name[0] == '@') {
-		memcpy(uws_addr->sun_path + abstract_socket, socket_name+1, strlen(socket_name+1));
+		memcpy(uws_addr->sun_path + abstract_socket, socket_name+1, UMIN(strlen(socket_name+1), 101));
+		len = strlen(socket_name) + 1;
+	}
+	else if (strlen(socket_name) > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
+		memcpy(uws_addr->sun_path + abstract_socket, socket_name+2, UMIN(strlen(socket_name+2), 101));
+		len = strlen(socket_name+1) + 1;
+		
 	}
 	else {
-		memcpy(uws_addr->sun_path + abstract_socket, socket_name, strlen(socket_name));
+		memcpy(uws_addr->sun_path + abstract_socket, socket_name, UMIN(strlen(socket_name), 102));
+		len = strlen(socket_name);
 	}
 
 #ifdef __HAIKU__
 	if (bind(serverfd, (struct sockaddr *) uws_addr, sizeof(struct sockaddr_un))) {
 #else
-	if (bind(serverfd, (struct sockaddr *) uws_addr, strlen(socket_name) + abstract_socket + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
+	if (bind(serverfd, (struct sockaddr *) uws_addr, len + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
 #endif
 		uwsgi_error("bind()");
 		uwsgi_nuclear_blast();
@@ -265,11 +276,17 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 	memset(&uws_addr, 0, sizeof(struct sockaddr_un));
 
 	uws_addr.sun_family = AF_UNIX;
-	memcpy(uws_addr.sun_path, socket_name, 102);
 
 	if (socket_name[0] == '@'){
-		un_size = sizeof(uws_addr.sun_family) + strlen(socket_name);
-		uws_addr.sun_path[0] = 0;
+		un_size = sizeof(uws_addr.sun_family) + strlen(socket_name) + 1;
+		memcpy(uws_addr.sun_path+1, socket_name+1, UMIN(strlen(socket_name+1), 101));
+	}
+	else if (strlen(socket_name) > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
+		un_size = sizeof(uws_addr.sun_family) + strlen(socket_name+1) + 1;
+		memcpy(uws_addr.sun_path+1, socket_name+2, UMIN(strlen(socket_name+2), 101));
+	}
+	else {
+		memcpy(uws_addr.sun_path, socket_name, UMIN(strlen(socket_name), 102));
 	}
 
 	uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -420,10 +437,15 @@ socklen_t socket_to_un_addr(char *socket_name, struct sockaddr_un *sun_addr) {
 
 	// abstract socket
         if (socket_name[0] == '@') {
-		memcpy(sun_addr->sun_path+1, socket_name+1, len-1);
+		memcpy(sun_addr->sun_path+1, socket_name+1, UMIN(len-1, 101));
+		len = strlen(socket_name) + 1;
         }
+	else if (len > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
+		memcpy(sun_addr->sun_path+1, socket_name+2, UMIN(len-2, 101));
+		len = strlen(socket_name+1) + 1;
+	}
         else {
-		memcpy(sun_addr->sun_path, socket_name, len);
+		memcpy(sun_addr->sun_path, socket_name, UMIN(len, 102));
         }
 
         return sizeof(sun_addr->sun_family)+len;

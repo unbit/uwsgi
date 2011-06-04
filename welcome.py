@@ -25,6 +25,8 @@ def application(env, start_response):
     if routes.has_key(env['PATH_INFO']):
         return routes[env['PATH_INFO']](env, start_response)
 
+    start_response('200 OK', [('Content-Type', 'text/html')])
+
     return """
 <img src="/logo"/> version %s<br/>
 <hr size="1"/>
