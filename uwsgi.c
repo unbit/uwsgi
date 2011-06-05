@@ -408,6 +408,14 @@ void goodbye_cruel_world() {
 void kill_them_all(int signum) {
 	int i;
 	uwsgi.to_hell = 1;
+
+	if (uwsgi.reload_mercy > 0) {
+                uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
+        }
+	else {
+		uwsgi.master_mercy = time(NULL) + 5;
+	}
+
 	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0)
