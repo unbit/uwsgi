@@ -1,4 +1,12 @@
-*** may 2011 ***
+*** june 2011 ***
+
+ * 0.9.8 [20110605]
+
+- support for --callable in virtualhosting mode
+- a NetBSD fix
+- abstract unix socket can be prefixed with \0 (nginx-style)
+- add /lib to the linker in sun-like systems
+- a mercy mode of 5 seconds is enabled by default on SIGINT/SIGQUIT
 
  * 0.9.8-rc4 [20110602]
 
@@ -13,6 +21,8 @@
 - emperor can now spawn other emperors (sub-emperors)
 - fixed idle mode in single-process
 - fixed solaris iovec
+
+*** may 2011 ***
 
  * 0.9.8-rc3 [20110530]
 
