@@ -671,8 +671,10 @@ struct wsgi_request {
 	struct msghdr   msg;
 	union {
                 struct cmsghdr cmsg;
+#ifndef __NetBSD__
                 char control [CMSG_SPACE (sizeof (int))];
-        } msg_control;
+#endif
+       } msg_control;
 
 	struct timeval  start_of_request;
 	struct timeval  end_of_request;

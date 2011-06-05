@@ -17,7 +17,7 @@ uint16_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, u
 			key[i] = '_';
 		}
 		else {
-			key[i] = toupper(key[i]);
+			key[i] = toupper((int)key[i]);
 		}
 	}
 
