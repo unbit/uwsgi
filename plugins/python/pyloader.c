@@ -114,7 +114,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 					uwsgi_log("%s = %s\n", PyString_AsString(k), PyString_AsString(env_value));
 
                         		if (PyObject_SetItem(py_environ, k, env_value)) {
-						uwsgi_log("cazzo\n");
                                 		PyErr_Print();
                         		}
 
@@ -521,6 +520,9 @@ PyObject *uwsgi_file_loader(void *arg1) {
 	PyObject *wsgi_file_module, *wsgi_file_dict;
 	PyObject *wsgi_file_callable;
 
+	char *callable = up.callable;
+	if (!callable) callable = "application";
+
 	wsgi_file_module = uwsgi_pyimport_by_filename("uwsgi_wsgi_file", filename);
 	// no need to check here for module import as it is already done by uwsgi_pyimport_by_file
 
@@ -530,7 +532,7 @@ PyObject *uwsgi_file_loader(void *arg1) {
 		exit(1);
 	}
 
-	wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, "application");
+	wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, callable);
 	if (!wsgi_file_callable) {
 		PyErr_Print();
 		uwsgi_log( "unable to find \"application\" callable in file %s\n", filename);

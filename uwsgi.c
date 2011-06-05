@@ -3796,7 +3796,8 @@ void uwsgi_init_all_apps() {
 	}
 
 	// no app initialized and virtualhosting enabled
-	if (uwsgi.apps_cnt == 0 && uwsgi.vhost) {
+	if (uwsgi.apps_cnt == 0) {
+		uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
 		uwsgi.apps_cnt = 1;
 	}
 
