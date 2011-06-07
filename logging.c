@@ -173,6 +173,8 @@ void get_memusage() {
 
 #if defined(__FreeBSD__)
 	kv = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, NULL);
+#elif defined(__NetBSD__) || defined(__OpenBSD__)
+	kv = kvm_open(NULL, NULL, NULL, KVM_NO_FILES, NULL);
 #else
 	kv = kvm_open(NULL, NULL, NULL, O_RDONLY, NULL);
 #endif
