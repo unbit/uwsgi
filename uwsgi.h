@@ -798,7 +798,8 @@ struct wsgi_request {
 	struct msghdr   msg;
 	union {
                 struct cmsghdr cmsg;
-                char control [CMSG_SPACE (sizeof (int))];
+		// should be enough...
+                char control [64];
        } msg_control;
 
 
