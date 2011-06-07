@@ -53,6 +53,10 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 		len = strlen(socket_name+1) + 1;
 		
 	}
+	else if (abstract_socket) {
+		memcpy(uws_addr->sun_path + 1, socket_name, UMIN(strlen(socket_name), 101));
+		len = strlen(socket_name)+1;
+	}
 	else {
 		memcpy(uws_addr->sun_path + abstract_socket, socket_name, UMIN(strlen(socket_name), 102));
 		len = strlen(socket_name);
