@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>Label</key>
+        <string>it.unbit.uwsgi</string>
+	<key>ProgramArguments</key>
+        <array>
+        	<string>/Users/roberta/uwsgi/uwsgi</string>
+                <string>--socket</string>
+		<string>:3032</string>
+		<string>--module</string>
+		<string>welcome</string>
+		<string>--master</string>
+		<string>--die-on-term</string>
+	</array>
+</dict>
+</plist>
