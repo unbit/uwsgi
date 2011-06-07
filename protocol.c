@@ -1121,10 +1121,11 @@ char *uwsgi_simple_message_string(char *socket_name, uint8_t modifier1, uint8_t 
 			if (response_len) *response_len = 0;
 			return NULL;
 		}
+
+		if (response_len) *response_len = uh.pktsize;
 	}
 
 	close(fd);
-	if (response_len) *response_len = uh.pktsize;
 	return buffer;
 }
 

@@ -205,7 +205,7 @@ void *async_loop(void *arg1) {
 	static struct uwsgi_async_request *current_request = NULL, *next_async_request = NULL;
 
 	void *events = event_queue_alloc(64);
-	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	struct uwsgi_socket *uwsgi_sock;
 
 	uwsgi.async_runqueue = NULL;
 	uwsgi.async_runqueue_cnt = 0;

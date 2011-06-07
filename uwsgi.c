@@ -222,7 +222,7 @@ static struct option long_base_options[] = {
 
 void uwsgi_configure(void) {
 
-	struct option *lopt = uwsgi.long_options;
+	struct option *lopt;
 	struct option *aopt;
 	char *val;
 	int i;

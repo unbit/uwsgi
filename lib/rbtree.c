@@ -25,6 +25,16 @@
 
 #include "../uwsgi.h"
 
+static inline void rb_set_parent(struct rb_node *rb, struct rb_node *p)
+{
+        rb->rb_parent_color = (rb->rb_parent_color & 3) | (unsigned long)p;
+}
+static inline void rb_set_color(struct rb_node *rb, int color)
+{
+        rb->rb_parent_color = (rb->rb_parent_color & ~1) | color;
+}
+
+
 static void __rb_rotate_left(struct rb_node *node, struct rb_root *root)
 {
 	struct rb_node *right = node->rb_right;
@@ -282,3 +292,18 @@ void rb_erase(struct rb_node *node, struct rb_root *root)
 	if (color == RB_BLACK)
 		__rb_erase_color(child, parent, root);
 }
+
+#ifdef __clang__
+void rb_link_node(struct rb_node * node, struct rb_node * parent,
+                                struct rb_node ** rb_link)
+#else
+inline void rb_link_node(struct rb_node * node, struct rb_node * parent,
+                                struct rb_node ** rb_link)
+#endif
+{
+        node->rb_parent_color = (unsigned long )parent;
+        node->rb_left = node->rb_right = NULL;
+
+        *rb_link = node;
+}
+

@@ -115,6 +115,7 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 		if (!key || !val) {
 			PyErr_Print();
+			continue;
 		}
 
 		if (!PyString_Check(key) || !PyString_Check(val)) {
@@ -343,7 +344,7 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 		argv[i] = PyString_AsString(PyTuple_GetItem(args, i + 2));
 	}
 
-	if (node == (char *) "") {
+	if (!strcmp(node, "")) {
 		size = uwsgi_rpc(func, 0, NULL, buffer);
 	}
 	else {
@@ -2495,6 +2496,7 @@ PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 	}
 	
 	if (remote && strlen(remote) > 0) {
+		// TODO FIX THIS !!!
 		uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (valsize > 0) {
 			Py_INCREF(Py_True);
@@ -2657,6 +2659,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	char *key;
 	uint64_t valsize;
+	uint16_t valsize16;
 	Py_ssize_t keylen = 0;
 	char *value = NULL;
 	char *remote = NULL;
@@ -2672,8 +2675,8 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 	}
 
 	if (remote && strlen(remote) > 0) {
-		//uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (valsize > 0) {
+		uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize16, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (valsize16 > 0) {
 			value = buffer;
 		}
 	}

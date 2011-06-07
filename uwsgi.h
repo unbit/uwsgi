@@ -33,6 +33,11 @@
 #define UWSGI_DECLARE_EMBEDDED_PLUGINS
 #endif
 
+
+#ifdef __clang__
+#define inline
+#endif
+
 #define UDEP(pname) extern struct uwsgi_plugin pname##_plugin;
 
 #define ULEP(pname)\
@@ -1511,11 +1516,7 @@ struct wsgi_request *find_wsgi_req_by_id(int);
 void async_add_fd_write(struct wsgi_request *, int, int);
 void async_add_fd_read(struct wsgi_request *, int, int);
 
-#ifdef __clang__
-struct wsgi_request *next_wsgi_req(struct wsgi_request *);
-#else
 inline struct wsgi_request *next_wsgi_req(struct wsgi_request *);
-#endif
 
 
 void async_add_timeout(struct wsgi_request*, int);
@@ -1576,13 +1577,8 @@ void            uwsgi_ldap_schema_dump_ldif(void);
 void            uwsgi_ldap_config(void);
 #endif
 
-#ifdef __clang__
-int             uwsgi_strncmp(char *, int, char *, int);
-int             uwsgi_startswith(char *, char *, int);
-#else
 inline int      uwsgi_strncmp(char *, int, char *, int);
 inline int      uwsgi_startswith(char *, char *, int);
-#endif
 
 
 char           *uwsgi_concat(int,...);
