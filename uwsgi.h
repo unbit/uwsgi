@@ -668,14 +668,6 @@ struct wsgi_request {
 	              //iovec
 	struct iovec   *hvec;
 
-	struct msghdr   msg;
-	union {
-                struct cmsghdr cmsg;
-#ifndef __NetBSD__
-                char control [CMSG_SPACE (sizeof (int))];
-#endif
-       } msg_control;
-
 	struct timeval  start_of_request;
 	struct timeval  end_of_request;
 
@@ -802,6 +794,13 @@ struct wsgi_request {
 
 	int sigwait;
 	uint8_t signal_received;
+
+	struct msghdr   msg;
+	union {
+                struct cmsghdr cmsg;
+                char control [CMSG_SPACE (sizeof (int))];
+       } msg_control;
+
 
 };
 
