@@ -131,6 +131,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	char *uef;
 	char **uenvs;
 	int counter;
+	int i;
 
 	sleep(1);
 
@@ -276,6 +277,13 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 			uct = uct->next;
 		}
 		argv[counter] = NULL;
+
+		// close all of the unneded fd
+		for(i=3;i<sysconf(_SC_OPEN_MAX);i++) {
+			if (i != n_ui->pipe[1]) {
+				close(i);
+			}
+		}
 		// start !!!
 		if (execvp(argv[0], argv)) {
 			uwsgi_error("execvp()");
