@@ -879,6 +879,9 @@ struct uwsgi_server {
 	char *emperor_amqp_username;
 	char *emperor_amqp_password;
 
+	char *vassals_start_hook;
+	char *vassals_stop_hook;
+
 	struct uwsgi_string_list *additional_headers;
 
 	time_t master_mercy;
@@ -2001,3 +2004,5 @@ void uwsgi_set_cgroup(void);
 
 void uwsgi_add_sockets_to_queue(int);
 void uwsgi_del_sockets_from_queue(int);
+
+int uwsgi_run_command_and_wait(char *, char *);

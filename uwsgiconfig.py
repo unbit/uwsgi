@@ -67,6 +67,8 @@ def compile(cflags, objfile, srcfile):
     source_stat = os.stat(srcfile)
     header_stat = os.stat('uwsgi.h')
     try:
+        if os.environ.get('UWSGI_FORCE_REBUILD', None):
+            raise
         object_stat = os.stat(objfile)
         if object_stat[8] <= source_stat[8]:
             raise
@@ -675,7 +677,6 @@ if __name__ == "__main__":
             pass
         if not '/' in bconf:
             bconf = 'buildconf/%s' % bconf
-
         uc = uConf(bconf)
         gcc_list, cflags, ldflags, libs = uc.get_gcll()
         try:
@@ -683,6 +684,9 @@ if __name__ == "__main__":
         except:
             name = None
         build_plugin(sys.argv[2], uc, cflags, ldflags, libs, name)
+    elif cmd == '--clean':
+        os.system("rm *.o")
+
     else:
         print("unknown uwsgiconfig command")
         sys.exit(1)

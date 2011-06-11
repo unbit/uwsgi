@@ -2652,6 +2652,12 @@ static int manage_base_opt(int i, char *optarg) {
 		uct->next = NULL;
 
 		return 1;
+	case LONG_ARGS_VASSALS_START_HOOK:
+		uwsgi.vassals_start_hook = optarg;
+		return 1;
+	case LONG_ARGS_VASSALS_STOP_HOOK:
+		uwsgi.vassals_stop_hook = optarg;
+		return 1;
 	case LONG_ARGS_VASSALS_INHERIT:
 		uct = uwsgi.vassals_templates;
 		if (!uct) {

@@ -2269,3 +2269,32 @@ void uwsgi_sig_pause() {
         sigemptyset(&mask);
 	sigsuspend(&mask);
 }
+
+int uwsgi_run_command_and_wait(char *command, char *arg) {
+
+	char *argv[3];
+	int waitpid_status = 0;
+	pid_t pid = fork();
+	if (pid < 0) {
+		return -1;
+	}
+	
+	if (pid > 0) {
+		if (waitpid(pid, &waitpid_status, 0) < 0) {
+			uwsgi_error("waitpid()");
+			return -1;
+		}
+
+		return WEXITSTATUS(waitpid_status);
+	}
+
+	argv[0] = command;
+	argv[1] = arg;
+	argv[2] = NULL;
+	
+	execvp(command, argv);
+
+	uwsgi_error("execvp()");
+	//never here
+	exit(1);
+}

@@ -5,7 +5,7 @@ extern struct uwsgi_server uwsgi;
 
 int uwsgi_echo_request(struct wsgi_request *wsgi_req) {
 
-	wsgi_req->response_size = wsgi_req->socket_proto_write(wsgi_req, wsgi_req->buffer, wsgi_req->uh.pktsize);
+	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, wsgi_req->buffer, wsgi_req->uh.pktsize);
 	
 	return 0;
 }
