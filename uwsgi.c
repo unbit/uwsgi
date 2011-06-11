@@ -208,6 +208,7 @@ static struct option long_base_options[] = {
 	{"namespace-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET},
 	{"ns-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET},
 #endif
+	{"cron", required_argument, 0, LONG_ARGS_CRON},
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"worker-exec", required_argument, 0, LONG_ARGS_WORKER_EXEC},
 	{"attach-daemon", required_argument, 0, LONG_ARGS_ATTACH_DAEMON},
@@ -1835,6 +1836,15 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
 
+	if (uwsgi.crons) {
+                struct uwsgi_cron *ucron = uwsgi.crons;
+                while(ucron) {
+                        uwsgi_log("command \"%s\" registered as uWSGI-cron task\n", ucron->command);
+                        ucron = ucron->next;
+                }
+        }
+
+
 
 	memset(uwsgi.apps, 0, sizeof(uwsgi.apps));
 
@@ -2394,6 +2404,7 @@ static int manage_base_opt(int i, char *optarg) {
 	char *p;
 	struct uwsgi_static_map *usm, *old_usm;
 	struct uwsgi_config_template *uct, *old_uct;
+	struct uwsgi_cron *uc, *old_uc;
 
 	switch (i) {
 
@@ -2678,6 +2689,32 @@ static int manage_base_opt(int i, char *optarg) {
 		uct->filename = optarg;
 		uct->next = NULL;
 
+		return 1;
+	case LONG_ARGS_CRON:
+		uwsgi.master_process = 1;
+		uc = uwsgi.crons;
+		if (!uc) {
+			uc = uwsgi_malloc(sizeof(struct uwsgi_cron));
+			uwsgi.crons = uc;
+		}
+		else {
+			old_uc = uc;
+			while(uc->next) {
+				uc = uc->next;
+				old_uc = uc;
+			}
+
+			old_uc->next = uwsgi_malloc(sizeof(struct uwsgi_cron));
+			uc = old_uc->next;
+		}
+
+		memset(uc, 0, sizeof(struct uwsgi_cron));
+
+		if (sscanf(optarg, "%d %d %d %d %d %n", &uc->minute, &uc->hour, &uc->day, &uc->month, &uc->week, &i) != 5) {
+			uwsgi_log("invalid cron syntax\n");
+			exit(1);
+		}	
+		uc->command = optarg+i;
 		return 1;
 	case LONG_ARGS_STATIC_MAP:
 		usm = uwsgi.static_maps;

@@ -2270,9 +2270,10 @@ void uwsgi_sig_pause() {
 	sigsuspend(&mask);
 }
 
-int uwsgi_run_command_and_wait(char *command, char *arg) {
+int uwsgi_run_command_and_wait(char *command, ...) {
 
-	char *argv[3];
+	va_list ap;
+
 	int waitpid_status = 0;
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -2288,13 +2289,50 @@ int uwsgi_run_command_and_wait(char *command, char *arg) {
 		return WEXITSTATUS(waitpid_status);
 	}
 
-	argv[0] = command;
-	argv[1] = arg;
-	argv[2] = NULL;
-	
-	execvp(command, argv);
+	va_start(ap, command);
+	execlp(command, command, ap, (char *) NULL);
+	va_end(ap);
 
-	uwsgi_error("execvp()");
+	uwsgi_error("execlp()");
 	//never here
 	exit(1);
 }
+
+int uwsgi_run_command(char *command) {
+
+	char *argv[4];
+
+        int waitpid_status = 0;
+        pid_t pid = fork();
+        if (pid < 0) {
+                return -1;
+        }
+
+        if (pid > 0) {
+                if (waitpid(pid, &waitpid_status, WNOHANG) < 0) {
+                        uwsgi_error("waitpid()");
+                        return -1;
+                }
+
+                return WEXITSTATUS(waitpid_status);
+        }
+
+	uwsgi_close_all_sockets();
+
+	if (setsid() < 0) {
+		uwsgi_error("setsid()");
+		exit(1);
+	}
+
+	argv[0] = "/bin/sh";
+	argv[1] = "-c";
+	argv[2] = command;
+	argv[3] = NULL;
+
+        execvp("/bin/sh", argv);
+
+        uwsgi_error("execvp()");
+        //never here
+        exit(1);
+}
+

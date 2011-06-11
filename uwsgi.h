@@ -444,6 +444,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_IDLE			17120
 #define LONG_ARGS_VASSALS_START_HOOK	17121
 #define LONG_ARGS_VASSALS_STOP_HOOK	17122
+#define LONG_ARGS_CRON			17123
 
 
 #define UWSGI_OK	0
@@ -1148,6 +1149,8 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *map_socket;
 
+	struct uwsgi_cron *crons;
+
 	time_t          respawn_delta;
 
 	char           *mounts[MAX_APPS];
@@ -1317,6 +1320,10 @@ struct uwsgi_cron {
 
         time_t last_job;
         uint8_t sig;
+
+	char *command;
+
+	struct uwsgi_cron *next;
 };
 
 struct uwsgi_shared {
@@ -2005,4 +2012,9 @@ void uwsgi_set_cgroup(void);
 void uwsgi_add_sockets_to_queue(int);
 void uwsgi_del_sockets_from_queue(int);
 
-int uwsgi_run_command_and_wait(char *, char *);
+int uwsgi_run_command_and_wait(char *, ...);
+
+void uwsgi_manage_signal_cron(time_t);
+int uwsgi_run_command(char *);
+
+void uwsgi_manage_command_cron(time_t);

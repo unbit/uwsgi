@@ -187,7 +187,6 @@ void master_loop(char **argv, char **environ) {
 
 	struct uwsgi_rb_timer *min_timeout;
 	struct rb_root *rb_timers = uwsgi_init_rb_timer();
-	struct tm *uwsgi_cron_delta;
 
 	uwsgi.current_time = time(NULL);
 
@@ -205,7 +204,6 @@ void master_loop(char **argv, char **environ) {
 	if (uwsgi.auto_snapshot) {
 		uwsgi_unix_signal(SIGURG, uwsgi_restore_auto_snapshot);
 	}
-
 
 	uwsgi.master_queue = event_queue_init();
 
@@ -600,70 +598,11 @@ void master_loop(char **argv, char **environ) {
 			
 				// check uwsgi-cron table
 				if (ushared->cron_cnt) {
-					uwsgi.current_time = time(NULL);
-					uwsgi_cron_delta = localtime( &uwsgi.current_time );
+					uwsgi_manage_signal_cron(time(NULL));
+				}
 
-					if (uwsgi_cron_delta) {
-
-						// fix month
-						uwsgi_cron_delta->tm_mon++;
-
-						uwsgi_lock(uwsgi.cron_table_lock);
-						for(i=0;i<ushared->cron_cnt;i++) {
-	
-							struct uwsgi_cron *ucron = &ushared->cron[i];
-							int uc_minute, uc_hour, uc_day, uc_month, uc_week;
-
-							uc_minute = ucron->minute;
-							uc_hour = ucron->hour;
-							uc_day = ucron->day;
-							uc_month = ucron->month;
-							uc_week = ucron->week;
-	
-							if (ucron->minute == -1) uc_minute = uwsgi_cron_delta->tm_min;
-							if (ucron->hour == -1) uc_hour = uwsgi_cron_delta->tm_hour;
-							if (ucron->month == -1) uc_month = uwsgi_cron_delta->tm_mon;
-
-							// mday and wday are ORed
-							if (ucron->day == -1 && ucron->week == -1) {
-								if (ucron->day == -1) uc_day = uwsgi_cron_delta->tm_mday;
-								if (ucron->week == -1) uc_week = uwsgi_cron_delta->tm_wday;
-							}
-							else if (ucron->day == -1) {
-								ucron->day = uwsgi_cron_delta->tm_mday;
-							}
-							else if (ucron->week == -1) {
-								ucron->week = uwsgi_cron_delta->tm_wday;
-							}
-							else {
-								if (ucron->day == uwsgi_cron_delta->tm_mday) {
-									ucron->week = uwsgi_cron_delta->tm_wday;
-								}
-								else if (ucron->week == uwsgi_cron_delta->tm_wday) {
-									ucron->day = uwsgi_cron_delta->tm_mday;
-								}
-							}
-							
-							if (uwsgi_cron_delta->tm_min == uc_minute &&
-								uwsgi_cron_delta->tm_hour == uc_hour &&
-								uwsgi_cron_delta->tm_mon == uc_month &&
-								uwsgi_cron_delta->tm_mday == uc_day &&
-								uwsgi_cron_delta->tm_wday == uc_week) {
-
-
-								// date match, signal it ?
-								if (uwsgi.current_time - ucron->last_job > 60) {
-									uwsgi_route_signal(ucron->sig);
-									ucron->last_job = uwsgi.current_time;
-								}
-							}
-					
-						}
-						uwsgi_unlock(uwsgi.cron_table_lock);
-					}
-					else {
-						uwsgi_error("localtime()");
-					}
+				if (uwsgi.crons) {
+					uwsgi_manage_command_cron(time(NULL));
 				}
 
 				if (rlen > 0) {
