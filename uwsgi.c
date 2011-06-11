@@ -848,19 +848,18 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
-		// now a bit of magic, if the argv[0] contains a _ try to automatically load a plugin
+		// now a bit of magic, if the argv[0] basename contains a 'uwsgi_' string,
+		// try to automatically load a plugin
 		//uwsgi_log("executable name: %s\n", argv[0]);
-	char *p = strtok(argv[0], "_");
-	plugins_requested = NULL;
-	while (p != NULL) {
-		p = strtok(NULL, "_");
-		if (p)
-			plugins_requested = p;
-	}
-
-	if (plugins_requested) {
-		uwsgi_log("plugin = %s\n", plugins_requested);
-		uwsgi_load_plugin(0, plugins_requested, NULL, 0);
+	char *p = strrchr(argv[0], '/');
+	if (p == NULL) p = argv[0];
+	p = strstr(p, "uwsgi_");
+	if (p != NULL) {
+		plugins_requested = strchr(p, '_');
+		if (plugins_requested != NULL && *(++plugins_requested) != '\0') {
+			uwsgi_log("plugin = %s\n", plugins_requested);
+			uwsgi_load_plugin(0, plugins_requested, NULL, 0);
+		}
 	}
 
 	plugins_requested = getenv("UWSGI_PLUGINS");
