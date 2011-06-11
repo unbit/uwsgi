@@ -63,8 +63,24 @@ def add_o(x):
     return x
 
 
-def compile(file, objfile, cflags):
-    cmdline = "%s -c %s -o %s %s" % (GCC, cflags, objfile, file)
+def compile(cflags, objfile, srcfile):
+    source_stat = os.stat(srcfile)
+    header_stat = os.stat('uwsgi.h')
+    try:
+        object_stat = os.stat(objfile)
+        if object_stat[8] <= source_stat[8]:
+            raise
+        if object_stat[8] <= header_stat[8]:
+            raise
+        for profile in os.listdir('buildconf'):
+            profile_stat = os.stat('buildconf/%s' % profile)
+            if object_stat[8] <= profile_stat[8]:
+                raise
+        print("%s is up to date" % objfile)
+        return
+    except:
+        pass
+    cmdline = "%s -c %s -o %s %s" % (GCC, cflags, objfile, srcfile)
     print(cmdline)
     ret = os.system(cmdline)
     if ret != 0:

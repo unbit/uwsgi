@@ -69,6 +69,8 @@ static struct option long_base_options[] = {
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
 	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
 	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT},
+	{"vassals-start-hook", required_argument, 0, LONG_ARGS_VASSALS_START_HOOK},
+	{"vassals-stop-hook", required_argument, 0, LONG_ARGS_VASSALS_STOP_HOOK},
 	{"auto-snapshot", optional_argument, 0, LONG_ARGS_AUTO_SNAPSHOT},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
