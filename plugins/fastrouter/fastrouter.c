@@ -126,6 +126,8 @@ struct fastrouter_session {
 	char *hostname;
 	uint16_t hostname_len;
 
+	int has_key;
+
 	char *instance_address;
 	uint64_t instance_address_len;
 
@@ -187,13 +189,14 @@ void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, voi
 		return;
 	}
 
-	if (!uwsgi_strncmp("HTTP_HOST", 9, key, keylen)) {
+	if (!uwsgi_strncmp("HTTP_HOST", 9, key, keylen) && !fr_session->has_key) {
 		fr_session->hostname = val;
 		fr_session->hostname_len = vallen;
 		return;
 	}
 
 	if (!uwsgi_strncmp("UWSGI_FASTROUTER_KEY", 20, key, keylen)) {
+		fr_session->has_key = 1;
 		fr_session->hostname = val;
 		fr_session->hostname_len = vallen;
 		return;
@@ -420,7 +423,9 @@ void fastrouter_loop() {
                                                         	break;
 							}
 
-							//uwsgi_log("requested domain %.*s\n", fr_session->hostname_len, fr_session->hostname);
+#ifdef UWSGI_DEBUG
+							uwsgi_log("requested domain %.*s\n", fr_session->hostname_len, fr_session->hostname);
+#endif
 							if (ufr.use_cache) {
 								fr_session->instance_address = uwsgi_cache_get(fr_session->hostname, fr_session->hostname_len, &fr_session->instance_address_len);
 							}
