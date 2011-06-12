@@ -232,8 +232,22 @@ void uwsgi_configure(void) {
 	int is_retry;
 	int found;
 
-	// option must be processed in revers (to have a consistent template system)
+	// option must be processed in reverse (to have a consistent template system)
+	// but first load plugins...
+	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+		if (uwsgi.exported_opts[i]->configured)
+                        continue;
+
+		if (!strcmp("plugin", uwsgi.exported_opts[i]->key) || !strcmp("plugins", uwsgi.exported_opts[i]->key)) {
+			manage_opt(LONG_ARGS_PLUGINS, uwsgi.exported_opts[i]->value);
+		}
+	}
+
 	for (i = uwsgi.exported_opts_cnt-1; i >= 0; i--) {
+
+#ifdef UWSGI_DEBUG
+		uwsgi_log("i = %d %p\n", i, uwsgi.exported_opts[i]);
+#endif
 
 		if (uwsgi.exported_opts[i]->configured)
 			continue;
