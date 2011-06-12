@@ -202,6 +202,8 @@ void *async_loop(void *arg1) {
 	int is_a_new_connection;
 	int proto_parser_status;
 
+	time_t now, last_now = 0;
+
 	static struct uwsgi_async_request *current_request = NULL, *next_async_request = NULL;
 
 	void *events = event_queue_alloc(64);
@@ -260,7 +262,11 @@ void *async_loop(void *arg1) {
 
 					uwsgi.wsgi_req = find_first_available_wsgi_req();
 					if (uwsgi.wsgi_req == NULL) {
-						uwsgi_log("async queue is full !!!\n");
+						now = time(NULL);
+						if (now > last_now) {
+							uwsgi_log("async queue is full !!!\n");
+							last_now = now;
+						}
 						break;;
 					}
 
