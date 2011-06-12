@@ -1013,7 +1013,8 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #ifdef UWSGI_SQLITE3
 	if (uwsgi.sqlite3 != NULL) {
-		uwsgi_sqlite3_config(uwsgi.sqlite3);
+		config_magic_table_fill(uwsgi.sqlite3, magic_table);
+		uwsgi_sqlite3_config(uwsgi.sqlite3, magic_table);
 	}
 #endif
 #ifdef UWSGI_LDAP
@@ -1053,13 +1054,13 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #ifdef UWSGI_SQLITE3
 		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".db")) {
-			uwsgi_sqlite3_config(uct->filename);
+			uwsgi_sqlite3_config(uct->filename, magic_table);
 		}
 		if (!strcmp(uct->filename + strlen(uct->filename) - 7, ".sqlite")) {
-			uwsgi_sqlite3_config(uct->filename);
+			uwsgi_sqlite3_config(uct->filename, magic_table);
 		}
 		if (!strcmp(uct->filename + strlen(uct->filename) - 8, ".sqlite3")) {
-			uwsgi_sqlite3_config(uct->filename);
+			uwsgi_sqlite3_config(uct->filename, magic_table);
 		}
 #endif
 		uct = uct->next;

@@ -1579,7 +1579,7 @@ void            uwsgi_json_config(char *, char*[]);
 #endif
 
 #ifdef UWSGI_SQLITE3
-void            uwsgi_sqlite3_config(char *);
+void            uwsgi_sqlite3_config(char *, char *[]);
 #endif
 
 

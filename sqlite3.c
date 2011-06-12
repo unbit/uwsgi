@@ -5,18 +5,19 @@
 
 extern struct uwsgi_server uwsgi;
 
-static int uwsgi_sqlite3_config_callback(void *foo, int field_count, char **fields, char **col) {
-
+static int uwsgi_sqlite3_config_callback(void *magic_table, int field_count, char **fields, char **col) {
 	// make a copy of the string
 	if (field_count >= 2) {
-		add_exported_option( uwsgi_strncopy(fields[0], strlen(fields[0])), uwsgi_strncopy(fields[1], strlen(fields[1])), 0);
+		int value_len = strlen(fields[1]) + 1;
+		char *value = magic_sub(fields[1], value_len, &value_len, (char **) magic_table);
+		add_exported_option( uwsgi_strncopy(fields[0], strlen(fields[0])), value, 0);
 	}
 
 	return 0;
 }
 
 
-void uwsgi_sqlite3_config(char *file) {
+void uwsgi_sqlite3_config(char *file, char *magic_table[]) {
 
 	sqlite3 *db;
 	char *err = NULL;		
@@ -43,7 +44,7 @@ void uwsgi_sqlite3_config(char *file) {
 		exit(1);
 	}
 
-	if (sqlite3_exec(db, query, uwsgi_sqlite3_config_callback, 0, &err)) {
+	if (sqlite3_exec(db, query, uwsgi_sqlite3_config_callback, (void *) magic_table, &err)) {
 		uwsgi_log("sqlite3 error: %s\n", err);
 		sqlite3_close(db);
 		exit(1);
