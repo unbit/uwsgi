@@ -192,6 +192,12 @@ void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, voi
 		fr_session->hostname_len = vallen;
 		return;
 	}
+
+	if (!uwsgi_strncmp("UWSGI_FASTROUTER_KEY", 20, key, keylen)) {
+		fr_session->hostname = val;
+		fr_session->hostname_len = vallen;
+		return;
+	}
 }
 
 struct fastrouter_session *alloc_fr_session() {
