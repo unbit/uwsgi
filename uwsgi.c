@@ -232,7 +232,8 @@ void uwsgi_configure(void) {
 	int is_retry;
 	int found;
 
-	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+	// option must be processed in revers (to have a consistent template system)
+	for (i = uwsgi.exported_opts_cnt-1; i >= 0; i--) {
 
 		if (uwsgi.exported_opts[i]->configured)
 			continue;
