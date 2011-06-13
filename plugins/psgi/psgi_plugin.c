@@ -368,6 +368,7 @@ void uwsgi_perl_enable_threads() {
 
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
+	SV **harakiri;
 	SV *psgi_func = uperl.psgi_main;
 	// ugly hack
 	register PerlInterpreter *my_perl = uperl.main;
@@ -430,6 +431,12 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	}
 
 clear2:
+	// check for psgix.harakiri
+        harakiri = hv_fetch((HV*)SvRV( (SV*)wsgi_req->async_environ), "psgix.harakiri", 14, 0);
+        if (harakiri) {
+                if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
+        }
+
 	SvREFCNT_dec(wsgi_req->async_environ);
 	SvREFCNT_dec(wsgi_req->async_result);
 clear:
@@ -445,6 +452,12 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
 		log_request(wsgi_req);
+
+	if (wsgi_req->async_plagued) {
+		uwsgi_log("*** psgix.harakiri requested ***\n");
+		goodbye_cruel_world();
+	}
+
 }
 
 void uwsgi_perl_init_thread(int core_id) {

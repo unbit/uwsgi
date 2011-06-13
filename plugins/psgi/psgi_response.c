@@ -57,6 +57,7 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
 	struct http_status_codes *http_sc;
 	int i,vi, base;
 	char *chitem;
+	SV **harakiri;
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -83,6 +84,12 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
                 	if (closed) {
                         	SvREFCNT_dec(closed);
                 	}
+
+			// check for psgix.harakiri
+        		harakiri = hv_fetch((HV*)SvRV( (SV*)wsgi_req->async_environ), "psgix.harakiri", 14, 0);
+        		if (harakiri) {
+                		if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
+        		}
 
 			SvREFCNT_dec(wsgi_req->async_environ);
         		SvREFCNT_dec(wsgi_req->async_result);
