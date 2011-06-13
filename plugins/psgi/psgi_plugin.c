@@ -281,6 +281,10 @@ int uwsgi_perl_init(){
 		uwsgi_error("setenv()");
 	}
 
+	if (setenv("PLACK_SERVER", "uwsgi", 0)) {
+		uwsgi_error("setenv()");
+	}
+
 #ifdef PERL_VERSION_STRING
 	uwsgi_log("initializing Perl %s environment\n", PERL_VERSION_STRING);
 #else
