@@ -257,6 +257,10 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	
 	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(wsgi_req->body_as_file), 0)) goto clear;
 
+	if (uwsgi.master_process) {
+		if (!hv_store(env, "psgix.harakiri.supported", 24, newSViv(1), 0)) goto clear;
+	}
+
 	SV *pe = uwsgi_perl_obj_new("uwsgi::error", 12);
         if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
 
