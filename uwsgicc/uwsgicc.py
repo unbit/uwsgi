@@ -26,12 +26,11 @@ def log():
 @app.route("/rpc", methods=['POST'])
 def rpc():
     node = str(request.form['node'])
-    if node == '':
-	node = None
 
     fargs = str(request.form['args'])
 
     args = fargs.split()
+
 
     if len(args) > 0:
         ret = uwsgi.rpc(str(node), str(request.form['func']), *map(str, args))

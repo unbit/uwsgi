@@ -152,7 +152,7 @@ $(document).ready(function() {
 	});
 
 	$('#rpc_form').submit(function() {
-		$.post('{{url_for('rpc')}}', { node: '192.168.173.100:3031', func: 'hello', args: ''}, function(data) {
+		$.post('{{url_for('rpc')}}', { node: $('[name=node]').val(), func: $('[name=func]').val(), args: $('[name=args]').val()}, function(data) {
 			$('#dialog-modal').html(data);
 			$('#dialog-modal').attr('title', 'RPC "hello" returned:');
 			$('#dialog-modal').dialog({

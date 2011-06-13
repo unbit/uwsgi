@@ -317,6 +317,7 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	uint16_t pktsize = 0, ulen;
 	char *bufptr;
 	int rlen;
+	int rpc_args = 0;
 
 	struct pollfd upoll;
 
@@ -342,10 +343,16 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 
 	for (i = 0; i < (argc - 2); i++) {
 		argv[i] = PyString_AsString(PyTuple_GetItem(args, i + 2));
+		rpc_args++;
 	}
 
 	if (!strcmp(node, "")) {
-		size = uwsgi_rpc(func, 0, NULL, buffer);
+		if (!rpc_args) {
+			size = uwsgi_rpc(func, 0, NULL, buffer);
+		}
+		else {
+			size = uwsgi_rpc(func, rpc_args, argv, buffer);
+		}
 	}
 	else {
 
