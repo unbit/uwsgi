@@ -1289,7 +1289,7 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
 		}
 
 		if (!ret) {
-			uwsgi_log("buffering POST data timedout !!!\n");
+			uwsgi_log("buffering POST data timed-out !!!\n");
 			return 0;
 		}
 

@@ -439,7 +439,7 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 	if (quick_callable[strlen(quick_callable) -2 ] == '(' && quick_callable[strlen(quick_callable) -1] ==')') {
 		quick_callable[strlen(quick_callable) -2 ] = 0;
 		tmp_callable = PyDict_GetItemString(wsgi_dict, quick_callable);
-		quick_callable[strlen(quick_callable) -2 ] = '(';
+		quick_callable[strlen(quick_callable)] = '(';
 		if (tmp_callable) {
 			return python_call(tmp_callable, PyTuple_New(0), 0);
 		}
