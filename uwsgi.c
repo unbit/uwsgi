@@ -460,7 +460,7 @@ void kill_them_all(int signum) {
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
-			kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+			kill(-uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
 
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
@@ -495,7 +495,7 @@ void grace_them_all(int signum) {
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
-			kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+			kill(-uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
 
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
@@ -556,7 +556,7 @@ void reap_them_all(int signum) {
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)
-			kill(uwsgi.shared->daemons[i].pid, SIGKILL);
+			kill(-uwsgi.shared->daemons[i].pid, SIGKILL);
 	}
 
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {

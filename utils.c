@@ -1909,6 +1909,8 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 			}
 		}
 
+		uwsgi_log("new pgid = %d\n", setsid());
+
 #ifdef __linux__
 		if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
 			uwsgi_error("prctl()");
