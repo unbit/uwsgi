@@ -497,7 +497,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	if (uwsgi.reuse_port) {
 #ifdef SO_REUSEPORT
-		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, (const void *) &reuse_port, sizeof(int)) < 0) {
+		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, (const void *) &uwsgi.reuse_port, sizeof(int)) < 0) {
 			uwsgi_error("setsockopt()");
 			uwsgi_nuclear_blast();
 		}

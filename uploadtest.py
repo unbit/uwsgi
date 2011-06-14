@@ -5,8 +5,9 @@ def application(env, start_response):
     	start_response('200 Ok', [('Content-type', 'text/plain')])
 	#for x in env['wsgi.input']:
 	#	yield x
-	body = env['wsgi.input'].readline()
-	print body
+	body = env['wsgi.input'].read(int(env['CONTENT_LENGTH']))
+	body += env['wsgi.input'].readline()
+	#print body
 	body += env['wsgi.input'].read(100)
 	body += env['wsgi.input'].read(100)
 	body += env['wsgi.input'].read()
@@ -17,7 +18,7 @@ def application(env, start_response):
 <form method="POST" enctype="multipart/form-data">
 	<textarea name="pluto">
 	</textarea>
-    <input type="test" name="pippo" />
+    <input type="file" name="pippo" />
     <input type="submit" value="invia" />
 </form>
         """
