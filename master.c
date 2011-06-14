@@ -226,6 +226,12 @@ void master_loop(char **argv, char **environ) {
 	if (uwsgi.has_emperor) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.emperor_fd);
 	}
+
+	if (uwsgi.zerg_server) {
+		uwsgi.zerg_server_fd = bind_to_unix(uwsgi.zerg_server, uwsgi.listen_queue, 0, 0);
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.zerg_server_fd);
+		uwsgi_log("*** Zerg server enabled on %s ***\n", uwsgi.zerg_server);
+	}
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
 		udp_fd = bind_to_udp(uwsgi.udp_socket, 0, 0);
@@ -629,6 +635,56 @@ void master_loop(char **argv, char **environ) {
 								}
 								// TODO allow uwsgi.logger = func
 							}	
+						}
+					}
+
+					if (uwsgi.zerg_server) {
+						if (interesting_fd == uwsgi.zerg_server_fd) {
+							struct sockaddr_un zsun;
+							socklen_t zsun_len = sizeof(struct sockaddr_un);
+							int zerg_client = accept(uwsgi.zerg_server_fd, (struct sockaddr *) &zsun, &zsun_len);
+							if (zerg_client < 0) {
+								uwsgi_error("zerg: accept()");
+								continue;
+							}
+
+							struct msghdr zerg_msg;
+							void *zerg_msg_control = uwsgi_malloc(CMSG_SPACE (sizeof (int) * uwsgi_count_sockets(uwsgi.sockets)));
+							struct iovec zerg_iov;
+							struct cmsghdr *cmsg;
+
+							zerg_iov.iov_base = "uwsgi-zerg";
+                        				zerg_iov.iov_len = 10;
+
+							zerg_msg.msg_name    = NULL;
+                                        		zerg_msg.msg_namelen = 0;
+                                        		zerg_msg.msg_iov     = &zerg_iov;
+                                        		zerg_msg.msg_iovlen  = 1;
+                                        		zerg_msg.msg_flags   = 0;
+                                        		zerg_msg.msg_control    = zerg_msg_control;
+                                        		zerg_msg.msg_controllen = CMSG_SPACE (sizeof (int) * uwsgi_count_sockets(uwsgi.sockets));
+
+                                        		cmsg = CMSG_FIRSTHDR (&zerg_msg);
+                                        		cmsg->cmsg_len   = CMSG_LEN (sizeof (int) * uwsgi_count_sockets(uwsgi.sockets));
+                                        		cmsg->cmsg_level = SOL_SOCKET;
+                                        		cmsg->cmsg_type  = SCM_RIGHTS;
+
+							struct uwsgi_socket *uwsgi_sock = uwsgi.sockets; 
+							unsigned char *zerg_fd_ptr = CMSG_DATA(cmsg);
+							while(uwsgi_sock) {
+								memcpy(zerg_fd_ptr, &uwsgi_sock->fd, sizeof(int));
+								zerg_fd_ptr += sizeof(int);
+								uwsgi_sock = uwsgi_sock->next;
+							}
+
+                                        		if (sendmsg(zerg_client, &zerg_msg, 0) < 0) {
+                                                		uwsgi_error("sendmsg()");
+                                        		}
+
+
+                                        		close(zerg_client);
+
+							free(zerg_msg_control);
 						}
 					}
 

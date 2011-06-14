@@ -2336,3 +2336,73 @@ int uwsgi_run_command(char *command) {
         exit(1);
 }
 
+int *uwsgi_attach_fd(int fd, int count, char *code, size_t code_len) {
+
+	struct msghdr   msg;
+	ssize_t len;
+	char *id = NULL;
+
+	struct iovec iov;
+	struct cmsghdr *cmsg;
+	int *ret;
+	int i;
+
+	void *msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * count));
+	
+	memset( msg_control, 0, CMSG_SPACE(sizeof(int) * count));
+
+	if (code && code_len > 0) {
+		id = uwsgi_malloc(code_len);
+		memset(id, 0, code_len);
+	}
+
+	iov.iov_base = id;
+        iov.iov_len = code_len;
+        memset(&msg, 0, sizeof(msg));
+
+	msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
+        msg.msg_control = msg_control;
+        msg.msg_controllen = CMSG_SPACE(sizeof(int) * count);
+        msg.msg_flags = 0;
+
+        len = recvmsg(fd, &msg, 0);
+	if (len <= 0) {
+		uwsgi_error("recvmsg()");
+		return NULL;
+	}
+	
+	if (code && code_len > 0) {
+		if (strcmp(id, code)) {
+			return NULL;
+		}
+	}
+	
+	cmsg = CMSG_FIRSTHDR(&msg);
+	if (!cmsg) return NULL;
+
+	if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
+		return NULL;
+	}
+
+	ret = uwsgi_malloc(sizeof(int) * (count + 1));
+	for(i=0;i<count+1;i++) {
+		ret[i] = -1;
+	}
+
+	if ((cmsg->cmsg_len - ((char *)CMSG_DATA(cmsg)- (char *)cmsg)) > (sizeof(int) * (count + 1))) {
+		uwsgi_log("not enough space for sockets data, consider increasing it\n");
+		return NULL;	
+	}
+
+	memcpy(ret, CMSG_DATA(cmsg), cmsg->cmsg_len - ((char *)CMSG_DATA(cmsg)- (char *)cmsg));
+
+	free(msg_control);
+	if (code && code_len > 0) {
+		free(id);
+	}
+
+	return ret;
+}

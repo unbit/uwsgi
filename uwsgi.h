@@ -445,6 +445,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_VASSALS_START_HOOK	17121
 #define LONG_ARGS_VASSALS_STOP_HOOK	17122
 #define LONG_ARGS_CRON			17123
+#define LONG_ARGS_ZERG			17124
+#define LONG_ARGS_ZERG_SERVER		17125
 
 
 #define UWSGI_OK	0
@@ -863,6 +865,8 @@ struct uwsgi_server {
 	time_t current_time;
 	uint64_t master_cycles;
 
+	int		reuse_port;
+
 	int		lazy;
 	int		cheap;
 	int		idle;
@@ -902,6 +906,10 @@ struct uwsgi_server {
 	struct wsgi_request *wsgi_req;
 
 	char *remap_modifier;
+
+	int		*zerg;
+	char		*zerg_server;
+	int		zerg_server_fd;
 
 	char           *chroot;
 	gid_t           gid;
@@ -2018,3 +2026,7 @@ void uwsgi_manage_signal_cron(time_t);
 int uwsgi_run_command(char *);
 
 void uwsgi_manage_command_cron(time_t);
+
+int *uwsgi_attach_fd(int, int, char *, size_t);
+
+int uwsgi_count_sockets(struct uwsgi_socket *);

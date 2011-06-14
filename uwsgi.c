@@ -208,6 +208,9 @@ static struct option long_base_options[] = {
 	{"namespace-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET},
 	{"ns-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET},
 #endif
+	{"reuse-port", no_argument, &uwsgi.reuse_port, 1},
+	{"zerg", required_argument, 0, LONG_ARGS_ZERG},
+	{"zerg-server", required_argument, 0, LONG_ARGS_ZERG_SERVER},
 	{"cron", required_argument, 0, LONG_ARGS_CRON},
 	{"loop", required_argument, 0, LONG_ARGS_LOOP},
 	{"worker-exec", required_argument, 0, LONG_ARGS_WORKER_EXEC},
@@ -1603,11 +1606,26 @@ int uwsgi_start(void *v_argv) {
 	if (!uwsgi.no_server) {
 
 		//check for inherited sockets
-		if (uwsgi.is_a_reload) {
+		if (uwsgi.is_a_reload || uwsgi.zerg) {
+
+			if (uwsgi.zerg) {
+				int zerg_fd;
+				i = 0;
+				for(;;) {
+					zerg_fd = uwsgi.zerg[i];
+					if (zerg_fd == -1) {
+						break;
+					}
+					uwsgi_sock = uwsgi_new_socket(NULL);
+					uwsgi_add_socket_from_fd(uwsgi_sock, zerg_fd);
+					i++;
+				}
+			}
+
 			uwsgi_sock = uwsgi.sockets;
 			while (uwsgi_sock) {
 				//a bit overengineering
-				if (uwsgi_sock->name[0] != 0) {
+				if (uwsgi_sock->name[0] != 0 && !uwsgi_sock->bound) {
 					for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
 						uwsgi_add_socket_from_fd(uwsgi_sock, j);
 					}
@@ -2421,6 +2439,7 @@ static int manage_base_opt(int i, char *optarg) {
 	struct uwsgi_static_map *usm, *old_usm;
 	struct uwsgi_config_template *uct, *old_uct;
 	struct uwsgi_cron *uc, *old_uc;
+	int zerg_fd;
 
 	switch (i) {
 
@@ -2948,6 +2967,23 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case 's':
 		uwsgi_new_socket(generate_socket_name(optarg));
+		return 1;
+	case LONG_ARGS_ZERG:
+		zerg_fd = uwsgi_connect(optarg, 30, 0);
+		if (zerg_fd < 0) {
+			uwsgi_log("--- unable to connect to zerg server ---\n");
+			exit(1);
+		}
+		uwsgi.zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
+		if (uwsgi.zerg == NULL) {
+			uwsgi_log("--- invalid data received from zerg-server ---\n");
+			exit(1);
+		}
+		close(zerg_fd);
+		return 1;
+	case LONG_ARGS_ZERG_SERVER:
+		uwsgi.zerg_server = optarg;
+		uwsgi.master_process = 1;
 		return 1;
 	case LONG_ARGS_SHARED_SOCKET:
 		uwsgi_new_shared_socket(generate_socket_name(optarg));
