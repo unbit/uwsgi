@@ -1867,11 +1867,7 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 	char *argv[64];
 	char *a;
 	int cnt = 1;
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ud->pipe)) {
-		uwsgi_error("socketpair()");
-		return;
-	}
+	int devnull = -1;
 
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -1880,7 +1876,6 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 	}
 
 	if (pid > 0) {
-		close(ud->pipe[1]);
 		ud->pid = pid;
 		ud->status = 1;
 		if (ud->respawns == 0) {
@@ -1892,24 +1887,26 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 
 	}
 	else {
-
 		// close uwsgi sockets
-		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-		while(uwsgi_sock) {
-			close(uwsgi_sock->fd);
-			uwsgi_sock = uwsgi_sock->next;
-		}
-		close(ud->pipe[0]);
+		uwsgi_close_all_sockets();
 
-		// stdin will become the pipe
-		if (ud->pipe[1] != 0) {
-			if (dup2(ud->pipe[1], 0)) {
+		// /dev/null will became stdin
+		devnull = open("/dev/null", O_RDONLY);	
+		if (devnull < 0) {
+			uwsgi_error("/dev/null open()");
+			exit(1);
+		}
+		if (devnull != 0) {
+			if (dup2(devnull, 0)) {
 				uwsgi_error("dup2()");
 				exit(1);
 			}
 		}
 
-		uwsgi_log("new pgid = %d\n", setsid());
+		if (setsid() < 0) {
+			uwsgi_error("setsid()");
+			exit(1);
+		}
 
 #ifdef __linux__
 		if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
