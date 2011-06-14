@@ -296,7 +296,7 @@ struct uwsgi_daemon {
 	time_t last_spawn;	
 	int status;
 	int registered;
-	int pipe[2];
+	//int pipe[2];
 };
 
 struct uwsgi_queue_item {
