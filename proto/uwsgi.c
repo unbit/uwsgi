@@ -56,7 +56,7 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 
 			/* check for max buffer size */
 			if (wsgi_req->uh.pktsize > uwsgi.buffer_size) {
-				uwsgi_log("invalid request block size: %d...skip\n", wsgi_req->uh.pktsize);
+				uwsgi_log("invalid request block size: %d (max %d)...skip\n", wsgi_req->uh.pktsize, uwsgi.buffer_size);
 				return -1;
 			}
 
