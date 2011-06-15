@@ -58,7 +58,7 @@ int uwsgi_respawn_worker(int wid) {
 	}
 	else {
 		if (respawns > 0) {
-			uwsgi_log("Respawned uWSGI worker %d (new pid: %d)\n", uwsgi.mywid, (int) pid);
+			uwsgi_log("Respawned uWSGI worker %d (new pid: %d)\n", wid, (int) pid);
 		}
 		else {
 			uwsgi_log("spawned uWSGI worker %d (pid: %d, cores: %d)\n", wid, pid, uwsgi.cores);

@@ -746,6 +746,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	char *magic_table[0xff];
 	char *optname;
 
+	uwsgi_log("size = %d\n", sizeof(struct cmsghdr) + CMSG_SPACE(sizeof(int)));
 
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
