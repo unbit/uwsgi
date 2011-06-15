@@ -488,9 +488,11 @@ PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("sending %d to master\n", uwsgi_signal);
+#endif
 
-	rlen = write(uwsgi.shared->worker_signal_pipe[1], &uwsgi_signal, 1);
+	rlen = write(uwsgi.signal_socket, &uwsgi_signal, 1);
 	if (rlen != 1) {
 		uwsgi_error("write()");
 	}

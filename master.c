@@ -693,7 +693,7 @@ void master_loop(char **argv, char **environ) {
 							char byte;
 							rlen = read(uwsgi.emperor_fd, &byte, 1);
                                                         if (rlen > 0) {
-								uwsgi_log("received message %d from emperor\n", byte);
+								uwsgi_log_verbose("received message %d from emperor\n", byte);
 								// remove me
 								if (byte == 0) {
 									close(uwsgi.emperor_fd);
@@ -883,7 +883,7 @@ void master_loop(char **argv, char **environ) {
 							uwsgi_error("read()");
 						}	
 						else if (rlen > 0) {
-							uwsgi_log("received uwsgi signal %d from workers\n", uwsgi_signal);
+							uwsgi_log_verbose("received uwsgi signal %d from a worker\n", uwsgi_signal);
 							uwsgi_route_signal(uwsgi_signal);
 						}
 						else {

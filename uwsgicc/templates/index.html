@@ -174,7 +174,7 @@ $(document).ready(function() {
 <a name="top"></a>
 <h1>uWSGI <span class="small">{{uwsgi.version}}</span> Control Center</h1>
 <div class="anchor">
-<a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#workers">workers</a> | <a href="#rpc">rpc</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
+<a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#signals">signals</a> | <a href="#workers">workers</a> | <a href="#rpc">rpc</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
 </div>
 
 {% with messages = get_flashed_messages() %}
@@ -238,6 +238,21 @@ $(document).ready(function() {
     </div>
 
 </div>
+
+<a name="signals"></a>
+<h3>Signals</h3>
+<div class="info">
+<form action="{{url_for('sig')}}" method="POST">
+        <input type="text" size="3" name="signum" />
+        <input type="submit" value="send uwsgi signal" />
+</form>
+
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
+
 
 <a name="workers"></a>
 <h3>Workers</h3>
