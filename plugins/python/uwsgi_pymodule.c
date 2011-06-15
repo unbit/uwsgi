@@ -310,7 +310,7 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	char *node, *func;
 	uint16_t size = 0;
 	PyObject *py_node, *py_func;
-	struct uwsgi_header uh;
+	struct wsgi_request rpc_req;
 	int argc = PyTuple_Size(args);
 	char *argv[0xff];
 	int i, fd;
@@ -369,9 +369,11 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 			pktsize += 2 + strlen(argv[i]);
 		}
 
-		uh.modifier1 = 173;
-		uh.pktsize = pktsize;
-		uh.modifier2 = 0;
+		memset(&rpc_req, 0, sizeof(struct wsgi_request));
+
+		rpc_req.uh.modifier1 = 173;
+		rpc_req.uh.pktsize = pktsize;
+		rpc_req.uh.modifier2 = 0;
 
 		bufptr = buffer;
 
@@ -389,7 +391,7 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 			bufptr += ulen;
 		}
 
-		if (write(fd, &uh, 4) != 4) {
+		if (write(fd, &rpc_req.uh, 4) != 4) {
 			uwsgi_error("write()");
 			close(fd);
 			goto clear;
@@ -405,8 +407,10 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 		if (rlen > 0) {
 			upoll.fd = fd;
 			upoll.events = POLLIN;
-			if (uwsgi_parse_response(&upoll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &uh, buffer, uwsgi_proto_uwsgi_parser)) {
-				size = uh.pktsize;
+			rpc_req.poll.fd = fd;
+			rpc_req.buffer = buffer;
+			if (uwsgi_parse_response(&upoll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *)&rpc_req, buffer, uwsgi_proto_uwsgi_parser)) {
+				size = rpc_req.uh.pktsize;
 			}
 		}
 
