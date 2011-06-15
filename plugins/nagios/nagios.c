@@ -16,7 +16,7 @@ struct option nagios_options[] = {
 int nagios() {
 
 	char *tcp_port;
-	struct pollfd nagios_poll;
+	struct wsgi_request nagios_req;
 // connect and send
 
 	if (!use_nagios) {
@@ -34,27 +34,30 @@ int nagios() {
 
 	tcp_port[0] = 0;
 
-	nagios_poll.fd = connect_to_tcp(uwsgi.sockets->name, atoi(tcp_port + 1), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
-	if (nagios_poll.fd < 0) {
+	int fd = connect_to_tcp(uwsgi.sockets->name, atoi(tcp_port + 1), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+	if (fd < 0) {
 		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers\n");
 		exit(2);
 	}
-	uwsgi.wsgi_req->uh.modifier1 = UWSGI_MODIFIER_PING;
-	uwsgi.wsgi_req->uh.pktsize = 0;
-	uwsgi.wsgi_req->uh.modifier2 = 0;
-	if (write(nagios_poll.fd, uwsgi.wsgi_req, 4) != 4) {
+	nagios_req.uh.modifier1 = UWSGI_MODIFIER_PING;
+	nagios_req.uh.pktsize = 0;
+	nagios_req.uh.modifier2 = 0;
+	if (write(fd, &nagios_req.uh, 4) != 4) {
 		uwsgi_error("write()");
 		fprintf(stdout, "UWSGI CRITICAL: could not send ping packet to workers\n");
 		exit(2);
 	}
-	nagios_poll.events = POLLIN;
-	if (!uwsgi_parse_response(&nagios_poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) uwsgi.wsgi_req, uwsgi.wsgi_req->buffer, uwsgi_proto_uwsgi_parser)) {
+
+	nagios_req.poll.fd = fd;
+	nagios_req.poll.events = POLLIN;
+
+	if (!uwsgi_parse_packet(&nagios_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 		fprintf(stdout, "UWSGI CRITICAL: timed out waiting for response\n");
 		exit(2);
 	}
 	else {
-		if (uwsgi.wsgi_req->uh.pktsize > 0) {
-			fprintf(stdout, "UWSGI WARNING: %.*s\n", uwsgi.wsgi_req->uh.pktsize, uwsgi.wsgi_req->buffer);
+		if (nagios_req.uh.pktsize > 0) {
+			fprintf(stdout, "UWSGI WARNING: %.*s\n", nagios_req.uh.pktsize, nagios_req.buffer);
 			exit(1);
 		}
 		else {

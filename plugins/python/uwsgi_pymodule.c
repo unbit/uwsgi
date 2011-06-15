@@ -319,7 +319,6 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	int rlen;
 	int rpc_args = 0;
 
-	struct pollfd upoll;
 
 	// TODO better error reporting
 	if (argc < 2)
@@ -405,11 +404,10 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 
 		rlen = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (rlen > 0) {
-			upoll.fd = fd;
-			upoll.events = POLLIN;
 			rpc_req.poll.fd = fd;
+			rpc_req.poll.events = POLLIN;
 			rpc_req.buffer = buffer;
-			if (uwsgi_parse_response(&upoll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *)&rpc_req, buffer, uwsgi_proto_uwsgi_parser)) {
+			if (uwsgi_parse_packet(&rpc_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 				size = rpc_req.uh.pktsize;
 			}
 		}
@@ -1246,7 +1244,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 	int managed;
 	struct pollfd *multipoll;
 	char *buffer;
-	struct uwsgi_header uh;
+
 	PyObject *arg_cluster;
 
 	PyObject *cluster_node;
@@ -1360,9 +1358,11 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 			goto megamulticlear;
 		}
 		else {
+			// TODO fix
+/*
 			for (i = 0; i < clen; i++) {
 				if (multipoll[i].revents & POLLIN) {
-					if (!uwsgi_parse_response(&multipoll[i], PyInt_AsLong(arg_timeout), &uh, &buffer[i], uwsgi_proto_uwsgi_parser)) {
+					if (!uwsgi_parse_packet(&multipoll[i], PyInt_AsLong(arg_timeout), &uh, &buffer[i], uwsgi_proto_uwsgi_parser)) {
 						goto megamulticlear;
 					}
 					else {
@@ -1375,6 +1375,7 @@ PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
 					}
 				}
 			}
+*/
 		}
 	}
 

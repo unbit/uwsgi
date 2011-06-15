@@ -15,32 +15,38 @@ struct option uwsgi_ping_options[] = {
 
 static void ping() {
 
-	struct uwsgi_header uh;
-	struct pollfd uwsgi_poll;
+	struct wsgi_request ping_req;
+	char *buf = uwsgi_malloc(uwsgi.buffer_size);
 
 	// use a 3 secs timeout by default
 	if (!uping.ping_timeout) uping.ping_timeout = 3;
 
 	uwsgi_log("PING uwsgi host %s (timeout: %d)\n", uping.ping, uping.ping_timeout);
 
-	uwsgi_poll.fd = uwsgi_connect(uping.ping, uping.ping_timeout, 0);
-	if (uwsgi_poll.fd < 0) {
+	int fd = uwsgi_connect(uping.ping, uping.ping_timeout, 0);
+	if (fd < 0) {
 		exit(1);
 	}
 
-	uh.modifier1 = UWSGI_MODIFIER_PING;
-	uh.pktsize = 0;
-	uh.modifier2 = 0;
-	if (write(uwsgi_poll.fd, &uh, 4) != 4) {
+	memset(&ping_req, 0, sizeof(struct wsgi_request));
+	ping_req.uh.modifier1 = UWSGI_MODIFIER_PING;
+	ping_req.uh.pktsize = 0;
+	ping_req.uh.modifier2 = 0;
+	if (write(fd, &ping_req.uh, 4) != 4) {
 		uwsgi_error("write()");
 		exit(2);
 	}
-	uwsgi_poll.events = POLLIN;
-	if (!uwsgi_parse_response(&uwsgi_poll, uping.ping_timeout, &uh, NULL, uwsgi_proto_uwsgi_parser)) {
+	ping_req.poll.fd = fd;
+	ping_req.poll.events = POLLIN;
+
+	ping_req.buffer = buf;
+
+	if (!uwsgi_parse_packet(&ping_req, uping.ping_timeout)) {
 		exit(1);
 	}
 	else {
-		if (uh.pktsize > 0) {
+		if (ping_req.uh.pktsize > 0) {
+			uwsgi_log("[WARNING] node %s message: %.*s\n", uping.ping, ping_req.uh.pktsize, buf);
 			exit(2);
 		}
 		else {
@@ -92,6 +98,7 @@ int uwsgi_ping_manage_options(int i, char *optarg) {
 
 	switch(i) {
 		case LONG_ARGS_PING:
+			uwsgi.no_server = 1;
 			uping.ping = optarg;
 			return 1;
 		case LONG_ARGS_PING_TIMEOUT:

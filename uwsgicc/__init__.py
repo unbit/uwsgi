@@ -7,4 +7,6 @@ def hello_world(name):
 
 uwsgi.register_rpc("hello", hello_world)
 
+uwsgi.set_warning_message("uWSGI is running the Control Center")
+
 application = app

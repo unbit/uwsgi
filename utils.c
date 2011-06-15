@@ -716,7 +716,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
 	if (!wsgi_req->socket->edge_trigger) {
-		if (!uwsgi_parse_response(&wsgi_req->poll, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], (struct uwsgi_header *) wsgi_req, wsgi_req->buffer, wsgi_req->socket->proto)) {
+		if (!uwsgi_parse_packet(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 			return -1;
 		}
 	}
