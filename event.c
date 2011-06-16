@@ -591,7 +591,9 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 
 	*id = inotify_add_watch(ifd, filename, IN_ATTRIB|IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MODIFY|IN_MOVE_SELF|IN_MOVED_FROM|IN_MOVED_TO);
 		
+#ifdef UWSGI_DEBUG
 	uwsgi_log("added watch %d for filename %s\n", *id, filename);
+#endif
 
 	if (add_to_queue) {
 		return event_queue_add_fd_read(eq, ifd);
@@ -630,7 +632,9 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 	}
 	else {
 		items = isize/(sizeof(struct inotify_event));
+#ifdef UWSGI_DEBUG
 		uwsgi_log("inotify returned %d items\n", items);
+#endif
 		for(j=0;j<items;j++) {	
 			iie = &bie[j];
 			for(i=0;i<ushared->files_monitored_cnt;i++) {
