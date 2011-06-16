@@ -110,7 +110,10 @@ void manage_cluster_announce(char *key, uint16_t keylen, char *val, uint16_t val
 
 	char *tmpstr;
 	struct uwsgi_cluster_node *ucn = (struct uwsgi_cluster_node *) data;
+
+#ifdef UWSGI_DEBUG
 	uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
+#endif
 
 	if (!uwsgi_strncmp("hostname", 8, key, keylen)) {
 		strncpy(ucn->nodename, val, UMIN(vallen, 255));

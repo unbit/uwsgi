@@ -825,7 +825,9 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-	uwsgi_log("recevied request from %s\n", inet_ntoa(sin.sin_addr));
+#ifdef UWSGI_DEBUG
+	uwsgi_log("received request from %s\n", inet_ntoa(sin.sin_addr));
+#endif
 
         if (rlen < 4) {
                 uwsgi_log("invalid uwsgi packet\n");
@@ -849,7 +851,9 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 
 	wsgi_req->buffer = buffer+4;
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("request received %d %d\n", wsgi_req->uh.modifier1, wsgi_req->uh.modifier2);
+#endif
 
 	return 0;
 

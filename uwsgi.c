@@ -3141,76 +3141,15 @@ void manage_opt(int i, char *optarg) {
 
 }
 
-void uwsgi_cluster_simple_add_node(char *nodename, int workers, int type) {
-
-	int i;
-	struct uwsgi_cluster_node *ucn;
-	char *tcp_port;
-
-	if (strlen(nodename) > 100) {
-		uwsgi_log("invalid cluster node name %s\n", nodename);
-		return;
-	}
-
-	tcp_port = strchr(nodename, ':');
-	if (tcp_port == NULL) {
-		fprintf(stdout, "invalid cluster node name %s\n", nodename);
-		return;
-	}
-
-	// first check for already present node
-	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
-		ucn = &uwsgi.shared->nodes[i];
-		if (ucn->name[0] != 0) {
-			if (!strcmp(ucn->name, nodename)) {
-				ucn->status = UWSGI_NODE_OK;
-				ucn->last_seen = time(NULL);
-				return;
-			}
-		}
-	}
-
-	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
-		ucn = &uwsgi.shared->nodes[i];
-
-		if (ucn->name[0] == 0) {
-			memcpy(ucn->name, nodename, strlen(nodename) + 1);
-			ucn->workers = workers;
-			ucn->ucn_addr.sin_family = AF_INET;
-			ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));
-			tcp_port[0] = 0;
-			if (nodename[0] == 0) {
-				ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY;
-			}
-			else {
-				uwsgi_log("%s\n", nodename);
-				ucn->ucn_addr.sin_addr.s_addr = inet_addr(nodename);
-			}
-
-			ucn->type = type;
-			// here memory can be freed, as it is allocated by uwsgi_concat2n
-			if (type == CLUSTER_NODE_DYNAMIC) {
-				free(nodename);
-			}
-			else {
-				tcp_port[0] = ':';
-			}
-			ucn->last_seen = time(NULL);
-			uwsgi_log("[uWSGI cluster] added node %s\n", ucn->name);
-			return;
-		}
-	}
-
-	uwsgi_log("unable to add node %s\n", nodename);
-}
-
 void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
 
 	int i;
 	struct uwsgi_cluster_node *ucn;
 	char *tcp_port;
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("adding node\n");
+#endif
 
 	tcp_port = strchr(nucn->name, ':');
 	if (tcp_port == NULL) {
@@ -3246,7 +3185,9 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
 				ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY;
 			}
 			else {
+#ifdef UWSGI_DEBUG
 				uwsgi_log("%s\n", nucn->name);
+#endif
 				ucn->ucn_addr.sin_addr.s_addr = inet_addr(nucn->name);
 			}
 
@@ -3483,7 +3424,9 @@ int uwsgi_cluster_add_me() {
 
 	free(buf);
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("add_me() successfull\n");
+#endif
 
 	return 0;
 }
@@ -3495,6 +3438,7 @@ int uwsgi_cluster_join(char *name) {
 	int broadcast = 0;
 
 
+	
 	if (name[0] == ':') {
 		fd = bind_to_udp(name, 0, 1);
 		broadcast = 1;
