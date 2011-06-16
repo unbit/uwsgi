@@ -384,7 +384,10 @@ char *generate_socket_name(char *socket_name) {
 		uwsgi_log("your system does not support ifaddrs subsystem\n");
 #else
 		char *new_socket;
+
+#ifdef UWSGI_DEBUG
 		uwsgi_log("generate_socket_name(%s)\n", socket_name);
+#endif
 		// get all the AF_INET addresses available
 		struct ifaddrs *ifap = NULL, *ifa, *ifaf;
 		if (getifaddrs(&ifap)) {
@@ -395,7 +398,9 @@ char *generate_socket_name(char *socket_name) {
 		// here socket_name will be truncated
 		asterisk[0] = 0;
 
+#ifdef UWSGI_DEBUG
 		uwsgi_log("asterisk found\n");
+#endif
 
 		char new_addr[16];
 		struct sockaddr_in *sin;

@@ -919,20 +919,27 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 		return -1;
 	}
 
-	uwsgi_log("recevied request from %s\n", inet_ntoa(sin.sin_addr));
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("RLEN: %d\n", rlen);
+#endif
 
 	// check for valid dict 4(header) 2(non-zero key)+1 2(value)
 	if (rlen < (4+2+1+2)) {
+#ifdef UWSGI_DEBUG
 		uwsgi_log("invalid uwsgi dictionary\n");
+#endif
 		return -1;
 	}
+
+	uwsgi_log("received message from %s\n", inet_ntoa(sin.sin_addr));
 	
 	uh = (struct uwsgi_header *) buffer;
 
 	if (uh->modifier1 != modifier1 || uh->modifier2 != modifier2) {
+#ifdef UWSGI_DEBUG
 		uwsgi_log("invalid uwsgi dictionary received, modifier1: %d modifier2: %d\n", uh->modifier1, uh->modifier2);
+#endif
 		return -1;
 	}
 
@@ -952,7 +959,9 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 	}
 
 	
+#ifdef UWSGI_DEBUG
 	uwsgi_log("%p %p %d\n", ptrbuf, bufferend, bufferend-ptrbuf);
+#endif
 
 	uwsgi_hooked_parse(ptrbuf, bufferend-ptrbuf, hook, data);
 

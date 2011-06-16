@@ -3328,7 +3328,9 @@ void manage_string_opt(char *key, uint16_t keylen, char *val, uint16_t vallen, v
 	char *key2 = uwsgi_concat2n(key, keylen, "", 0);
 	char *val2 = uwsgi_concat2n(val, vallen, "", 0);
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("%s = %s\n", key2, val2);
+#endif
 	add_exported_option(key2, val2, 0);
 }
 
