@@ -2287,7 +2287,9 @@ PyObject *py_uwsgi_cluster_node_name(PyObject * self, PyObject * args) {
 	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
 		ucn = &uwsgi.shared->nodes[i];
 		if (ucn->name[0] != 0) {
+#ifdef UWSGI_DEBUG
 			uwsgi_log("node_name: %s %s\n", node, ucn->name);
+#endif
 			if (!strcmp(ucn->name, node)) {
 				return PyString_FromString(ucn->nodename);
 			}
