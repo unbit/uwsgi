@@ -1,5 +1,11 @@
 import uwsgi
 
+if uwsgi.masterpid() == 0:
+    raise Exception("you have to enable the uWSGI master process to use this module")
+
+if uwsgi.opt.get('lazy'):
+    raise Exception("uWSGI lazy mode is not supporte by this module")
+
 class rpc(object):
 
     def __init__(self, name):
