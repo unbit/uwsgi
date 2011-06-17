@@ -1235,7 +1235,9 @@ int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 	struct stat st;
 
 	for (i = 0; i < uwsgi.apps_cnt; i++) {
-		//uwsgi_log("searching for %.*s in %.*s %p\n", script_name_len, script_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("searching for %.*s in %.*s %p\n", script_name_len, script_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
+#endif
 		if (!uwsgi.apps[i].mountpoint_len) {
 			continue;
 		}
