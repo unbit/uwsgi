@@ -3345,6 +3345,7 @@ int uwsgi_cluster_add_me() {
 	char *ptrbuf;
 	uint16_t ustrlen;
 	char numproc[6];
+	struct uwsgi_cluster_node nucn;
 
 #ifdef UWSGI_ZEROMQ
 	if (!uwsgi.sockets && !uwsgi.zeromq) {
@@ -3362,6 +3363,11 @@ int uwsgi_cluster_add_me() {
 	if (uwsgi.sockets) {
 		len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.sockets->name) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
 	}
+#ifdef UWSGI_ZEROMQ
+	else if (uwsgi.zeromq) {
+		len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.zeromq) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
+	}
+#endif
 	else {
 		len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
 	}
@@ -3395,6 +3401,21 @@ int uwsgi_cluster_add_me() {
 		memcpy(ptrbuf, uwsgi.sockets->name, strlen(uwsgi.sockets->name));
 		ptrbuf += strlen(uwsgi.sockets->name);
 	}
+#ifdef UWSGI_ZEROMQ
+	else if (uwsgi.zeromq) {
+		ustrlen = strlen(key2);
+		*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
+		*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
+		memcpy(ptrbuf, key2, strlen(key2));
+		ptrbuf += strlen(key2);
+
+		ustrlen = strlen(uwsgi.zeromq);
+		*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
+		*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
+		memcpy(ptrbuf, uwsgi.zeromq, strlen(uwsgi.zeromq));
+		ptrbuf += strlen(uwsgi.zeromq);
+	}
+#endif
 
 
 	ustrlen = strlen(key3);
@@ -3429,6 +3450,24 @@ int uwsgi_cluster_add_me() {
 #ifdef UWSGI_DEBUG
 	uwsgi_log("add_me() successfull\n");
 #endif
+	memset(&nucn, 0, sizeof(struct uwsgi_cluster_node));
+
+	strncpy(nucn.nodename, uwsgi.hostname, UMIN(uwsgi.hostname_len, 255));
+
+	if (uwsgi.sockets && uwsgi.sockets->name) {
+        	strncpy(nucn.name, uwsgi.sockets->name, UMIN(strlen(uwsgi.sockets->name), 100));
+	}
+#ifdef UWSGI_ZEROMQ
+	else if (uwsgi.zeromq) {
+        	strncpy(nucn.name, uwsgi.zeromq, UMIN(strlen(uwsgi.zeromq), 100));
+	}
+#endif
+
+        nucn.workers = uwsgi.numproc;
+        nucn.requests = 0;
+
+	uwsgi_cluster_add_node(&nucn, CLUSTER_NODE_STATIC);
+
 
 	return 0;
 }
