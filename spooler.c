@@ -27,6 +27,12 @@ pid_t spooler_start() {
 
 void destroy_spool(char *file) {
 
+	if (chdir(uwsgi.spool_dir)) {
+		uwsgi_error("chdir()");
+                uwsgi_log("something horrible happened to the spooler. Better to kill it.\n");
+		exit(1);
+	}
+
 	if (unlink(file)) {
         	uwsgi_error("unlink()");
                 uwsgi_log("something horrible happened to the spooler. Better to kill it.\n");
@@ -119,10 +125,6 @@ void spooler() {
 
 	char spool_buf[0xffff];
 
-	if (chdir(uwsgi.spool_dir)) {
-		uwsgi_error("chdir()");
-		exit(1);
-	}
 
 	// asked by Marco Beri
 #ifdef __HAIKU__
@@ -151,6 +153,11 @@ void spooler() {
 	for (;;) {
 
 		sleep(uwsgi.shared->spooler_frequency);
+
+		if (chdir(uwsgi.spool_dir)) {
+			uwsgi_error("chdir()");
+			exit(1);
+		}
 
 		sdir = opendir(uwsgi.spool_dir);
 		if (sdir) {
