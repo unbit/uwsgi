@@ -254,7 +254,7 @@ ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req) {
 			return -1;
 		}
 		len = read(wsgi_req->sendfile_fd, buf, ntohs(fr.cl));
-		if (len != ntohs(fr.cl)) {
+		if (len != (ssize_t) ntohs(fr.cl)) {
 			uwsgi_error("read()");
 			return -1;
 		}
@@ -270,7 +270,7 @@ ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req) {
 			return -1;
 		}
 		len = read(wsgi_req->sendfile_fd, buf, ntohs(fr.cl));
-		if (len != ntohs(fr.cl)) {
+		if (len != (ssize_t) ntohs(fr.cl)) {
 			uwsgi_error("read()");
 			return -1;
 		}
