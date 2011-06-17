@@ -2250,17 +2250,17 @@ int uwsgi_start(void *v_argv) {
 		}
 
 		uwsgi_add_sockets_to_queue(uwsgi.async_queue);
+
+		uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();
+
+		uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
+
+		for (i = 0; i < uwsgi.async; i++) {
+			uwsgi.async_queue_unused[i] = uwsgi.wsgi_requests[i];
+		}
+
+		uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
 	}
-
-	uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();
-
-	uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
-
-	for (i = 0; i < uwsgi.async; i++) {
-		uwsgi.async_queue_unused[i] = uwsgi.wsgi_requests[i];
-	}
-
-	uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
 #endif
 
 
