@@ -3152,7 +3152,13 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
 #endif
 
 	tcp_port = strchr(nucn->name, ':');
+#ifndef UWSGI_ZEROMQ
 	if (tcp_port == NULL) {
+#else
+	char *zmq_dash = strchr(nucn->name, '-');
+	if (tcp_port == NULL && zmq_dash == NULL) {
+#endif
+
 		fprintf(stdout, "invalid cluster node name %s\n", nucn->name);
 		return;
 	}
@@ -3179,8 +3185,10 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
 			memcpy(ucn->nodename, nucn->nodename, strlen(nucn->nodename) + 1);
 			ucn->workers = nucn->workers;
 			ucn->ucn_addr.sin_family = AF_INET;
-			ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));
-			tcp_port[0] = 0;
+			if (tcp_port) {
+				ucn->ucn_addr.sin_port = htons(atoi(tcp_port + 1));
+				tcp_port[0] = 0;
+			}
 			if (nucn->name[0] == 0) {
 				ucn->ucn_addr.sin_addr.s_addr = INADDR_ANY;
 			}
@@ -3193,7 +3201,7 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
 
 			ucn->type = type;
 			// here memory can be freed, as it is allocated by uwsgi_concat2n
-			if (type != CLUSTER_NODE_DYNAMIC) {
+			if (type != CLUSTER_NODE_DYNAMIC && tcp_port) {
 				tcp_port[0] = ':';
 			}
 			ucn->last_seen = time(NULL);
@@ -3345,9 +3353,10 @@ int uwsgi_cluster_add_me() {
 	char *ptrbuf;
 	uint16_t ustrlen;
 	char numproc[6];
-	struct uwsgi_cluster_node nucn;
 
 #ifdef UWSGI_ZEROMQ
+	char uuid_zmq_str[37];
+	uuid_t uuid_zmq;
 	if (!uwsgi.sockets && !uwsgi.zeromq) {
 #else
 	if (!uwsgi.sockets) {
@@ -3365,7 +3374,9 @@ int uwsgi_cluster_add_me() {
 	}
 #ifdef UWSGI_ZEROMQ
 	else if (uwsgi.zeromq) {
-		len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uwsgi.zeromq) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
+                uuid_generate(uuid_zmq);
+                uuid_unparse(uuid_zmq, uuid_zmq_str);
+		len = 2 + strlen(key1) + 2 + strlen(uwsgi.hostname) + 2 + strlen(key2) + 2 + strlen(uuid_zmq_str) + 2 + strlen(key3) + 2 + strlen(numproc) + 2 + strlen(key4) + 2 + 1;
 	}
 #endif
 	else {
@@ -3409,11 +3420,11 @@ int uwsgi_cluster_add_me() {
 		memcpy(ptrbuf, key2, strlen(key2));
 		ptrbuf += strlen(key2);
 
-		ustrlen = strlen(uwsgi.zeromq);
+		ustrlen = strlen(uuid_zmq_str);
 		*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
 		*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-		memcpy(ptrbuf, uwsgi.zeromq, strlen(uwsgi.zeromq));
-		ptrbuf += strlen(uwsgi.zeromq);
+		memcpy(ptrbuf, uuid_zmq_str, strlen(uuid_zmq_str));
+		ptrbuf += strlen(uuid_zmq_str);
 	}
 #endif
 
@@ -3450,24 +3461,6 @@ int uwsgi_cluster_add_me() {
 #ifdef UWSGI_DEBUG
 	uwsgi_log("add_me() successfull\n");
 #endif
-	memset(&nucn, 0, sizeof(struct uwsgi_cluster_node));
-
-	strncpy(nucn.nodename, uwsgi.hostname, UMIN(uwsgi.hostname_len, 255));
-
-	if (uwsgi.sockets && uwsgi.sockets->name) {
-        	strncpy(nucn.name, uwsgi.sockets->name, UMIN(strlen(uwsgi.sockets->name), 100));
-	}
-#ifdef UWSGI_ZEROMQ
-	else if (uwsgi.zeromq) {
-        	strncpy(nucn.name, uwsgi.zeromq, UMIN(strlen(uwsgi.zeromq), 100));
-	}
-#endif
-
-        nucn.workers = uwsgi.numproc;
-        nucn.requests = 0;
-
-	uwsgi_cluster_add_node(&nucn, CLUSTER_NODE_STATIC);
-
 
 	return 0;
 }
