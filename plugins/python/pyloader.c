@@ -50,7 +50,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 
 
-	if (uwsgi.vhost && wsgi_req->host_len > 0) {
+	if (uwsgi.vhost) {
 		mountpoint = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|", 1, wsgi_req->script_name, wsgi_req->script_name_len);
 	}
 	else {

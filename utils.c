@@ -1238,7 +1238,7 @@ int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 #ifdef UWSGI_DEBUG
 		uwsgi_log("searching for %.*s in %.*s %p\n", script_name_len, script_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
 #endif
-		if (!uwsgi.apps[i].mountpoint_len) {
+		if (!uwsgi.apps[i].callable) {
 			continue;
 		}
 		if (!uwsgi_strncmp(uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len, script_name, script_name_len)) {
