@@ -3382,7 +3382,7 @@ int uwsgi_cluster_add_me() {
 	ptrbuf += strlen(uwsgi.hostname);
 
 
-	if (uwsgi.sockets->name) {
+	if (uwsgi.sockets && uwsgi.sockets->name) {
 		ustrlen = strlen(key2);
 		*ptrbuf++ = (uint8_t) (ustrlen & 0xff);
 		*ptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
