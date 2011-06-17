@@ -89,14 +89,15 @@ int uwsgi_python_init() {
 	if (up.home != NULL) {
 #ifdef PYTHREE
 		wchar_t *wpyhome;
-		wpyhome = malloc((sizeof(wchar_t) * strlen(up.home)) + 2);
+		wpyhome = malloc((sizeof(wchar_t) * strlen(up.home)) + sizeof(wchar_t) );
 		if (!wpyhome) {
 			uwsgi_error("malloc()");
 			exit(1);
 		}
 		mbstowcs(wpyhome, up.home, strlen(up.home));
 		Py_SetPythonHome(wpyhome);
-		free(wpyhome);
+		// do not free this memory !!!
+		//free(wpyhome);
 #else
 		Py_SetPythonHome(up.home);
 #endif
