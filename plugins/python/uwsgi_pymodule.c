@@ -2215,6 +2215,9 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
 		// this field will be overwrite after each call
 		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
+
+		// reset the random seed
+		uwsgi_python_reset_random_seed();
 		// TODO
 		// manage thread in grunt processes
 		Py_INCREF(Py_True);

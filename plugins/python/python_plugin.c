@@ -137,27 +137,32 @@ int uwsgi_python_init() {
 
 }
 
-void uwsgi_python_post_fork() {
+void uwsgi_python_reset_random_seed() {
 
 	PyObject *random_module, *random_dict, *random_seed;
 
-	// reinitialize the random seed (thanks Jonas Borgström)
-	random_module = PyImport_ImportModule("random");
-	if (random_module) {
-		random_dict = PyModule_GetDict(random_module);
-		if (random_dict) {
-			random_seed = PyDict_GetItemString(random_dict, "seed");
-			if (random_seed) {
-				PyObject *random_args = PyTuple_New(1);
-				// pass no args
-				PyTuple_SetItem(random_args, 0, Py_None);
-				PyEval_CallObject(random_seed, random_args);
-				if (PyErr_Occurred()) {
-					PyErr_Print();
-				}
-			}
-		}
-	}
+        // reinitialize the random seed (thanks Jonas Borgström)
+        random_module = PyImport_ImportModule("random");
+        if (random_module) {
+                random_dict = PyModule_GetDict(random_module);
+                if (random_dict) {
+                        random_seed = PyDict_GetItemString(random_dict, "seed");
+                        if (random_seed) {
+                                PyObject *random_args = PyTuple_New(1);
+                                // pass no args
+                                PyTuple_SetItem(random_args, 0, Py_None);
+                                PyEval_CallObject(random_seed, random_args);
+                                if (PyErr_Occurred()) {
+                                        PyErr_Print();
+                                }
+                        }
+                }
+        }
+}
+
+void uwsgi_python_post_fork() {
+
+	uwsgi_python_reset_random_seed();
 
 #ifdef UWSGI_EMBEDDED
 	// call the post_fork_hook

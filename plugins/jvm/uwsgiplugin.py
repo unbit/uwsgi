@@ -16,6 +16,16 @@ NAME='jvm'
 JVM_INCPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/include/ -I/usr/lib/jvm/java-6-sun-1.6.0.15/include/linux"
 JVM_LIBPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/jre/lib/i386/server/"
 
+try: 
+    JVM_INCPATH = os.environ['UWSGICONFIG_JVM_INCPATH'] 
+except: 
+    pass 
+
+try: 
+    JVM_LIBPATH = os.environ['UWSGICONFIG_JVM_LIBPATH'] 
+except: 
+    pass 
+
 try:
     JVM_INCPATH = os.environ['UWSGICONFIG_JVM_INCPATH']
 except:
