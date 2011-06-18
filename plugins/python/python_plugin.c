@@ -1000,8 +1000,14 @@ void uwsgi_python_add_item(char *key, uint16_t keylen, char *val, uint16_t valle
 
 int uwsgi_python_spooler(char *buf, uint16_t len) {
 
+	static int random_seed_reset = 0;
 	PyObject *spool_dict = PyDict_New();
 	PyObject *spool_func, *pyargs, *ret;
+
+	if (!random_seed_reset) {
+		uwsgi_python_reset_random_seed();
+		random_seed_reset = 1;	
+	}
 
 	if (!up.embedded_dict) {
 		// ignore
