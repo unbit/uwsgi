@@ -135,7 +135,10 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 	yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, (size_t) len-1);
 
 	while(parsing) {
-		yaml_parser_scan(&parser, &token);
+		if (!yaml_parser_scan(&parser, &token)) {
+			uwsgi_log("error parsing YAML file: %s (%c)\n", parser.problem, yaml[parser.problem_offset]);
+			exit(1);
+		}
 		switch(token.type) {
 			case YAML_STREAM_END_TOKEN:
 				parsing = 0;

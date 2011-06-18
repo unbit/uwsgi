@@ -131,7 +131,7 @@ struct uwsgi_subscriber_name *uwsgi_get_subscriber(struct uwsgi_dict *udict, cha
 	return ret;
 }
 
-void uwsgi_add_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, char *address, uint64_t address_len) {
+void uwsgi_add_subscriber(struct uwsgi_dict *udict, struct uwsgi_subscribe_req *usr) {
 
 	char *ptr;
 	uint64_t vallen = 0;
@@ -139,11 +139,11 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, 
 	int found = 0;
 	int i;
 	
-	ptr = uwsgi_dict_get(udict, key, keylen, &vallen);
+	ptr = uwsgi_dict_get(udict, usr->key, usr->keylen, &vallen);
 	if (ptr && vallen) {
 		usub = (struct uwsgi_subscriber *) ptr;
 		for(i=0;i<(int)usub->nodes;i++) {
-			if (!uwsgi_strncmp(usub->names[i].name, usub->names[i].len, address, address_len)) {
+			if (!uwsgi_strncmp(usub->names[i].name, usub->names[i].len, usr->address, usr->address_len)) {
 				found = 1;
 				break;
 			}
@@ -157,8 +157,10 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, 
 					break;
 				}
 			}
-			usub->names[found].len = address_len;
-			memcpy(usub->names[found].name, address, address_len);
+			usub->names[found].len = usr->address_len;
+			usub->names[found].modifier1 = usr->modifier1;
+			usub->names[found].modifier2 = usr->modifier2;
+			memcpy(usub->names[found].name, usr->address, usr->address_len);
 			if (found == (int) usub->nodes) {
 				usub->nodes++;
 			}
@@ -168,8 +170,10 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, char *key, uint16_t keylen, 
 	else {
 		nusub.nodes = 1;
 		nusub.current = 0;
-		memcpy(nusub.names[0].name, address, address_len);
-		uwsgi_dict_set(udict, key, keylen, (char *) &nusub, sizeof(struct uwsgi_subscriber));
+		memcpy(nusub.names[0].name, usr->address, usr->address_len);
+		nusub.names[0].modifier1 = usr->modifier1;
+		nusub.names[0].modifier2 = usr->modifier2;
+		uwsgi_dict_set(udict, usr->key, usr->keylen, (char *) &nusub, sizeof(struct uwsgi_subscriber));
 	}
 
 }

@@ -1825,6 +1825,9 @@ struct uwsgi_dict {
 struct uwsgi_subscriber_name {
 	uint16_t len;
 	char name[128];
+
+	uint8_t modifier1;
+	uint8_t modifier2;
 };
 
 struct uwsgi_subscriber {
@@ -1844,10 +1847,13 @@ struct uwsgi_subscribe_req {
 
 	char *auth;
 	uint16_t auth_len;
+
+	uint8_t modifier1;
+	uint8_t modifier2;
 };
 
 struct uwsgi_dict *uwsgi_dict_create(uint64_t, uint64_t);
-void uwsgi_add_subscriber(struct uwsgi_dict *, char *, uint16_t, char *, uint64_t);
+void uwsgi_add_subscriber(struct uwsgi_dict *, struct uwsgi_subscribe_req *);
 char *uwsgi_dict_get(struct uwsgi_dict *, char *, uint16_t, uint64_t *);
 int uwsgi_dict_set(struct uwsgi_dict *, char *, uint16_t, char *, uint64_t);
 

@@ -42,7 +42,7 @@ void expire_rb_timeouts(struct rb_root *root) {
         }
 }
 
-void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize) {
+void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, char *modifier1, size_t modifier1_len) {
 	char *ssb;
 	char subscrbuf[4096];
 
@@ -74,6 +74,20 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize) {
         memcpy(ssb, uwsgi.sockets->name, ustrlen);
         ssb+=ustrlen;
 
+	if (modifier1) {
+		ustrlen = 9;
+        	*ssb++ = (uint8_t) (ustrlen  & 0xff);
+        	*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        	memcpy(ssb, "modifier1", ustrlen);
+        	ssb+=ustrlen;
+
+        	ustrlen = modifier1_len;
+        	*ssb++ = (uint8_t) (ustrlen  & 0xff);
+        	*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        	memcpy(ssb, modifier1, ustrlen);
+        	ssb+=ustrlen;
+	}
+
         send_udp_message(224, udp_address, subscrbuf, ssb-subscrbuf);
 }
 
@@ -83,6 +97,8 @@ void uwsgi_subscribe(char *subscription) {
 	int i;
 	char *key = NULL;
 	int keysize = 0;
+	char *modifier1 = NULL;
+	int modifier1_len = 0;
 
 	char *udp_address = strchr(subscription,':');
         if (!udp_address) return;
@@ -101,7 +117,16 @@ void uwsgi_subscribe(char *subscription) {
 				if (lines[i] == 0) {
 					if (keysize > 0) {
 						if (key[0] != '#' && key[0] != '\n') {
-							uwsgi_send_subscription(udp_address, key, keysize);
+							modifier1 = strchr(key, ':');
+                					if (modifier1) {
+                        					modifier1[0] = 0;
+                        					modifier1++;
+                        					modifier1_len = strlen(modifier1);
+								keysize = strlen(key);
+                					}
+							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len);
+							modifier1 = NULL;
+							modifier1_len = 0;
 						}
 					}	
 					break;
@@ -109,7 +134,18 @@ void uwsgi_subscribe(char *subscription) {
 				else if (lines[i] == '\n') {
 					if (keysize > 0) {
 						if (key[0] != '#' && key[0] != '\n') {
-							uwsgi_send_subscription(udp_address, key, keysize);
+							lines[i] = 0;
+							modifier1 = strchr(key, ':');
+                					if (modifier1) {
+                        					modifier1[0] = 0;
+                        					modifier1++;
+                        					modifier1_len = strlen(modifier1);
+								keysize = strlen(key);
+                					}
+							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len);
+							modifier1 = NULL;
+							modifier1_len = 0;
+							lines[i] = '\n';
 						}
 					}
 					key = lines+i+1;
@@ -118,10 +154,21 @@ void uwsgi_subscribe(char *subscription) {
 				}
 				keysize++;
 			}
+
+			free(lines);
 		}
 	}
 	else {
-		uwsgi_send_subscription(udp_address, subscription_key, strlen(subscription_key));
+		modifier1 = strchr(subscription_key+1, ':');
+		if (modifier1) {
+			modifier1[0] = 0;
+			modifier1++;
+			modifier1_len = strlen(modifier1);
+		}
+
+		uwsgi_send_subscription(udp_address, subscription_key+1, strlen(subscription_key+1), modifier1, modifier1_len);
+		if (modifier1)
+			modifier1[-1] = ':';
 	}
 
 clear:

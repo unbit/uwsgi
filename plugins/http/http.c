@@ -542,7 +542,7 @@ void http_loop() {
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, http_manage_subscription, &usr);
-					uwsgi_add_subscriber(uhttp.subscription_dict, usr.key, usr.keylen, usr.address, usr.address_len);
+					uwsgi_add_subscriber(uhttp.subscription_dict, &usr);
 				}
 			}
 			else {
