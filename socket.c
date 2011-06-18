@@ -716,6 +716,8 @@ struct uwsgi_socket *uwsgi_new_shared_socket(char *name) {
 struct uwsgi_socket *uwsgi_new_socket(char *name) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets, *old_uwsgi_sock;
+	struct sockaddr_in sin;
+	socklen_t socket_type_len;
 
 	if (!uwsgi_sock) {
 		uwsgi.sockets = uwsgi_malloc(sizeof(struct uwsgi_socket));
@@ -733,6 +735,29 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 
 	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket)); 
 	uwsgi_sock->name = name;
+
+	char *tcp_port = strchr(name, ':');
+	if (tcp_port) {
+		// INET socket, check for 0 port
+		if (tcp_port[1] == 0 || tcp_port[1] == '0') {
+			uwsgi_sock->fd = bind_to_tcp(name, uwsgi.listen_queue, tcp_port);
+                        uwsgi_sock->family = AF_INET;
+			uwsgi_sock->bound = 1;
+
+			uwsgi_sock->auto_port = 1;
+
+			socket_type_len = sizeof(struct sockaddr_in);
+
+			if (getsockname(uwsgi_sock->fd, (struct sockaddr *)&sin, &socket_type_len)) {
+				uwsgi_error("getsockname()");
+				exit(1);
+			}
+
+
+			char *auto_port = uwsgi_num2str(ntohs(sin.sin_port));
+			uwsgi_sock->name = uwsgi_concat3n(name, tcp_port-name, ":", 1, auto_port, strlen(auto_port));
+		}	
+	}
 	
 	return uwsgi_sock;
 }

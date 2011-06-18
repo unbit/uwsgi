@@ -1722,6 +1722,15 @@ int uwsgi_start(void *v_argv) {
 			}
 
 		}
+	
+		// check for auto_port socket
+		uwsgi_sock = uwsgi.sockets;
+                while (uwsgi_sock) {
+			if (uwsgi_sock->auto_port) {
+				uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+			}
+			uwsgi_sock = uwsgi_sock->next;
+		}
 
 
 		// put listening socket in non-blocking state and set the protocol

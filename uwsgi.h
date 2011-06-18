@@ -526,6 +526,8 @@ struct uwsgi_socket {
 	int		arg;
 	void           *ctx;
 
+	int		auto_port;
+
 	char		*proto_name;
 
 	int		(*proto)(struct wsgi_request *);
