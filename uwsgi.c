@@ -318,6 +318,8 @@ void uwsgi_configure(void) {
 
 void config_magic_table_fill(char *filename, char **magic_table) {
 
+	char *tmp = NULL;
+
 	magic_table['o'] = filename;
 	if (filename[0] == '/') {
 		magic_table['p'] = filename;
@@ -327,6 +329,16 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	}
 	magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/') + 1;
 	magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s'] - magic_table['p'], "", 0);
+	if (magic_table['d'][strlen(magic_table['d'])-1] == '/') {
+		tmp = magic_table['d'] + (strlen(magic_table['d']) -1) ;
+		uwsgi_log("tmp = %c\n", *tmp);
+		*tmp = 0;
+	}
+	if (uwsgi_get_last_char(magic_table['d'], '/'))
+		magic_table['c'] = uwsgi_get_last_char(magic_table['d'], '/') + 1;
+
+	if (tmp) *tmp = '/';
+
 	if (uwsgi_get_last_char(filename, '.'))
 		magic_table['e'] = uwsgi_get_last_char(filename, '.') + 1;
 	if (uwsgi_get_last_char(magic_table['s'], '.'))
