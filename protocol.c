@@ -173,6 +173,8 @@ ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t 
 	}
 	close(fd);
 
+	udp_port[0] = ':';
+
 	return ret;
 	
 }

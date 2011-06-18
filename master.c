@@ -42,32 +42,24 @@ void expire_rb_timeouts(struct rb_root *root) {
         }
 }
 
-
-void uwsgi_subscribe(char *subscription) {
-
+void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize) {
 	char *ssb;
 	char subscrbuf[4096];
+
 	uint16_t ustrlen;
 
-	char *udp_address = strchr(subscription,':');
-        if (!udp_address) return;
+	ssb = subscrbuf;
 
-        char *subscription_key = strchr(udp_address+1, ':');
-	if (!subscription_key) return;
-        udp_address = uwsgi_concat2n(subscription, subscription_key-subscription, "", 0);
-
-        ssb = subscrbuf;
-
-	ustrlen = 3;
+        ustrlen = 3;
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
         memcpy(ssb, "key", ustrlen);
         ssb+=ustrlen;
 
-        ustrlen = strlen(subscription_key+1);
+        ustrlen = keysize;
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, subscription_key+1, ustrlen);
+        memcpy(ssb, key, ustrlen);
         ssb+=ustrlen;
 
         ustrlen = 7;
@@ -83,7 +75,58 @@ void uwsgi_subscribe(char *subscription) {
         ssb+=ustrlen;
 
         send_udp_message(224, udp_address, subscrbuf, ssb-subscrbuf);
-	free(udp_address);
+}
+
+void uwsgi_subscribe(char *subscription) {
+
+	int subfile_size;
+	int i;
+	char *key = NULL;
+	int keysize = 0;
+
+	char *udp_address = strchr(subscription,':');
+        if (!udp_address) return;
+
+        char *subscription_key = strchr(udp_address+1, ':');
+	if (!subscription_key) return;
+
+        udp_address = uwsgi_concat2n(subscription, subscription_key-subscription, "", 0);
+
+	if (subscription_key[1] == '@') {
+		if (!uwsgi_file_exists(subscription_key+2)) goto clear;
+		char *lines = uwsgi_open_and_read(subscription_key+2, &subfile_size, 1, NULL);
+		if (subfile_size > 0) {
+			key = lines;
+			for(i=0;i<subfile_size;i++) {
+				if (lines[i] == 0) {
+					if (keysize > 0) {
+						if (key[0] != '#' && key[0] != '\n') {
+							uwsgi_send_subscription(udp_address, key, keysize);
+						}
+					}	
+					break;
+				}
+				else if (lines[i] == '\n') {
+					if (keysize > 0) {
+						if (key[0] != '#' && key[0] != '\n') {
+							uwsgi_send_subscription(udp_address, key, keysize);
+						}
+					}
+					key = lines+i+1;
+					keysize = 0;
+					continue;
+				}
+				keysize++;
+			}
+		}
+	}
+	else {
+		uwsgi_send_subscription(udp_address, subscription_key, strlen(subscription_key));
+	}
+
+clear:
+
+        free(udp_address);
 
 }
 

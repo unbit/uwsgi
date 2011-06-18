@@ -2031,3 +2031,4 @@ void uwsgi_manage_command_cron(time_t);
 int *uwsgi_attach_fd(int, int, char *, size_t);
 
 int uwsgi_count_sockets(struct uwsgi_socket *);
+int uwsgi_file_exists(char *);

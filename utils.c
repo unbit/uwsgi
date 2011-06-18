@@ -1570,6 +1570,11 @@ char *uwsgi_resolve_ip(char *domain) {
 	return inet_ntoa(*(struct in_addr *) he->h_addr_list[0]);
 }
 
+int uwsgi_file_exists(char *filename) {
+	// TODO check for http url or stdin
+	return !access(filename, R_OK);
+}
+
 char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[]) {
 
 	int fd;
