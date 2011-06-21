@@ -2545,6 +2545,7 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 #ifdef UWSGI_THREADING
 	case LONG_ARGS_THREADS:
+		uwsgi.has_threads = 1;
 		uwsgi.threads = atoi(optarg);
 		return 1;
 #endif

@@ -1247,7 +1247,6 @@ int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 					if (st.st_mtime != uwsgi.apps[i].touch_reload_mtime) {
 						// serve the new request and reload
 						uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
-						return -1;
 					}
 				}
 			}
