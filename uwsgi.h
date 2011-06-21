@@ -447,6 +447,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CRON			17123
 #define LONG_ARGS_ZERG			17124
 #define LONG_ARGS_ZERG_SERVER		17125
+#define LONG_ARGS_LOGTO2		17126
 
 
 #define UWSGI_OK	0
@@ -851,6 +852,8 @@ struct uwsgi_server {
 	int             has_threads;
 	int             apps_cnt;
 	int             default_app;
+
+	char		*logto2;
 
 	int		autoload;
 

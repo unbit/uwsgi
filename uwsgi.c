@@ -160,6 +160,7 @@ static struct option long_base_options[] = {
 	{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
+	{"logto2", required_argument, 0, LONG_ARGS_LOGTO2},
 	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
 	{"log-socket", required_argument, 0, LONG_ARGS_LOG_SOCKET},
@@ -1349,6 +1350,10 @@ int uwsgi_start(void *v_argv) {
 
 	if (!uwsgi.master_as_root) {
 		uwsgi_as_root();
+	}
+
+	if (uwsgi.logto2) {
+		logto(uwsgi.logto2);
 	}
 
 	if (uwsgi.chdir) {
@@ -2553,6 +2558,9 @@ static int manage_base_opt(int i, char *optarg) {
 #endif
 	case LONG_ARGS_LOGTO:
 		logto(optarg);
+		return 1;
+	case LONG_ARGS_LOGTO2:
+		uwsgi.logto2 = optarg;
 		return 1;
 	case LONG_ARGS_EMPEROR:
 		uwsgi.emperor_dir = optarg;
