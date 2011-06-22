@@ -91,6 +91,13 @@ void *simple_loop(void *arg1) {
 	}
 
 	// end of the loop
+	if (uwsgi.workers[uwsgi.mywid].destroy && uwsgi.workers[0].pid > 0) {
+#ifdef __APPLE__
+		kill(uwsgi.workers[0].pid, SIGTERM);
+#else
+		greacefully_kill(0);
+#endif
+	}
 	return NULL;
 }
 

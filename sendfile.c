@@ -72,7 +72,6 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 		*pos += sf_len;
 	}
 	else {
-		uwsgi_log("%d %d\n", filefd, sockfd);
 		sf_ret = sendfile(filefd, sockfd, 0, &sf_len, NULL, 0);
 	}
 

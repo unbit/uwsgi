@@ -1450,6 +1450,8 @@ struct uwsgi_worker {
 
 	uint64_t	exceptions;
 
+	int		destroy;
+
 };
 
 char           *uwsgi_get_cwd(void);
