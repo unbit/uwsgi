@@ -129,6 +129,7 @@ static struct option long_base_options[] = {
 	{"reload-on-as", required_argument, 0, LONG_ARGS_RELOAD_ON_AS},
 	{"reload-on-rss", required_argument, 0, LONG_ARGS_RELOAD_ON_RSS},
 	{"touch-reload", required_argument, 0, LONG_ARGS_TOUCH_RELOAD},
+	{"propagate-touch", no_argument, &uwsgi.propagate_touch, 1},
 	{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
 	{"no-orphans", no_argument, &uwsgi.no_orphans, 1},
 	{"prio", required_argument, 0, LONG_ARGS_PRIO},

@@ -95,7 +95,12 @@ void *simple_loop(void *arg1) {
 #ifdef __APPLE__
 		kill(uwsgi.workers[0].pid, SIGTERM);
 #else
-		greacefully_kill(0);
+		if (uwsgi.propagate_touch) {
+			kill(uwsgi.workers[0].pid, SIGHUP);
+		}
+		else {
+			gracefully_kill(0);
+		}
 #endif
 	}
 	return NULL;

@@ -986,6 +986,8 @@ struct uwsgi_server {
 	char		*touch_reload;
 	time_t		last_touch_reload_mtime;
 
+	int		propagate_touch;
+
 	int             grunt;
 
 	char           *binary_path;
