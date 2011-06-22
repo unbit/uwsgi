@@ -758,6 +758,7 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	off_t pos = 0;
 	size_t filesize = 0;
 	struct stat stat_buf;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	int fd = -1;
 
@@ -782,7 +783,7 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 			goto clear;
 
 		// check for mixing file_wrapper and sendfile
-		if (fd == uwsgi.wsgi_req->sendfile_fd) {
+		if (fd == wsgi_req->sendfile_fd) {
 			Py_INCREF(what);
 		}
 	}
@@ -804,7 +805,7 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	if (!chunk)
 		chunk = 4096;
 
-	uwsgi.wsgi_req->response_size += uwsgi_do_sendfile(uwsgi.wsgi_req->poll.fd, fd, filesize, chunk, &pos, 0);
+	uwsgi.wsgi_req->response_size += uwsgi_do_sendfile(wsgi_req->poll.fd, fd, filesize, chunk, &pos, 0);
 
 	close(fd);
 	Py_INCREF(Py_True);
