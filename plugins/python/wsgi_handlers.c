@@ -44,8 +44,9 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
 				return res;
 			}
 		}
+		res = PyString_FromStringAndSize(ptr + self->readline_pos, self->readline_size - self->readline_pos);
 		self->readline_pos = 0;
-		return PyString_FromStringAndSize(ptr + self->readline_pos, self->readline_size - self->readline_pos);
+		return res;
 	}
 
 
@@ -74,7 +75,7 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
 
 	for(i=0;i<(size_t)rlen;i++) {
 		if (self->readline[i] == '\n') {
-			res = PyString_FromStringAndSize(self->readline, i);
+			res = PyString_FromStringAndSize(self->readline, i+1);
 			self->readline_pos+= i+1;
 			if (self->readline_pos >= self->readline_size) self->readline_pos = 0;
 			return res;
