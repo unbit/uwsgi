@@ -850,6 +850,14 @@ void uwsgi_python_enable_threads() {
 	up.swap_ts = threaded_swap_ts;
 	up.reset_ts = threaded_reset_ts;
 	uwsgi_log("threads support enabled\n");
+
+}
+
+void uwsgi_python_master_fixup() {
+
+	if (uwsgi.has_threads) {
+		UWSGI_RELEASE_GIL;
+	}
 }
 
 void uwsgi_python_init_thread(int core_id) {
@@ -1086,6 +1094,8 @@ struct uwsgi_plugin python_plugin = {
 	.enable_threads = uwsgi_python_enable_threads,
 	.init_thread = uwsgi_python_init_thread,
 	.manage_xml = uwsgi_python_xml,
+
+	.master_fixup = uwsgi_python_master_fixup,
 
 	.magic = uwsgi_python_magic,
 

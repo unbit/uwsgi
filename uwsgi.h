@@ -557,6 +557,7 @@ struct uwsgi_plugin {
         int             (*init) (void);
         void            (*post_init) (void);
         void            (*post_fork) (void);
+        void            (*master_fixup) (void);
         struct option  *options;
         const char     *short_options;
         int             (*manage_opt) (int, char *);
