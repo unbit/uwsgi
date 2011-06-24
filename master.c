@@ -481,10 +481,13 @@ void master_loop(char **argv, char **environ) {
 		}
 	}
 
+	// fixup
+
 	for (i = 0; i < 0xFF; i++) {
-        	if (uwsgi.p[i]->master_fixup)
-                	uwsgi.p[i]->master_fixup();
-	}
+                if (uwsgi.p[i]->master_fixup) {
+                        uwsgi.p[i]->master_fixup();
+                }
+        }
 
 
 	for (;;) {

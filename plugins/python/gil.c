@@ -4,6 +4,7 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
 void gil_real_get() {
+	uwsgi_log("LOCK %d\n", uwsgi.mywid);
 #ifndef PYTHREE
 	PyEval_AcquireLock();
 	PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_gil_key));
@@ -13,6 +14,7 @@ void gil_real_get() {
 }
 
 void gil_real_release() {
+	uwsgi_log("UNLOCK %d\n", uwsgi.mywid);
 #ifndef PYTHREE
 	pthread_setspecific(up.upt_gil_key, (void *) PyThreadState_Swap(NULL));
 	PyEval_ReleaseLock();	
