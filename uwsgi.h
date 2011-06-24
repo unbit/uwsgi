@@ -566,7 +566,7 @@ struct uwsgi_plugin {
         void            (*after_request) (struct wsgi_request *);
         void            (*init_apps) (void);
         void            (*fixup) (void);
-        void            (*master_fixup) (void);
+        void            (*master_fixup) (int);
         int		(*mount_app) (char *, char *);
         int             (*manage_udp) (char *, int, char *, int);
         int             (*manage_xml) (char *, char *);

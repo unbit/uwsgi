@@ -35,6 +35,7 @@ void master_check_cluster_nodes() {
 int uwsgi_respawn_worker(int wid) {
 
 	int respawns = uwsgi.workers[wid].respawn_count;
+	int i;
 
 	pid_t pid = fork();
 
@@ -51,6 +52,14 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].respawn_count++;
 		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
+
+		if (uwsgi.master_process && uwsgi.workers[uwsgi.mywid].respawn_count > 1) {
+			for (i = 0; i < 0xFF; i++) {
+                		if (uwsgi.p[i]->master_fixup) {
+                        		uwsgi.p[i]->master_fixup(1);
+                		}
+        		}
+		}
 		return 1;
 	}
 	else if (pid < 1) {

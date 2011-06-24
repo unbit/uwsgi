@@ -38,7 +38,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	struct uwsgi_app *wi;
 
-
 	if (wsgi_req->script_name_len == 0) {
 		wsgi_req->script_name = "";
 	}

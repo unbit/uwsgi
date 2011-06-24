@@ -162,6 +162,8 @@ void uwsgi_python_reset_random_seed() {
 
 void uwsgi_python_post_fork() {
 
+	uwsgi_log("POST FORK %d\n", uwsgi.mywid);
+
 	uwsgi_python_reset_random_seed();
 
 #ifdef UWSGI_EMBEDDED
@@ -175,6 +177,8 @@ void uwsgi_python_post_fork() {
 	}
 	PyErr_Clear();
 #endif
+
+	uwsgi_log("RELEASING GIL %d\n", uwsgi.mywid);
 
 UWSGI_RELEASE_GIL
 
@@ -828,10 +832,15 @@ void uwsgi_python_init_apps() {
 
 }
 
-void uwsgi_python_master_fixup() {
+void uwsgi_python_master_fixup(int step) {
 
 	if (uwsgi.has_threads) {
-		UWSGI_RELEASE_GIL;
+		if (step == 0) {
+			UWSGI_RELEASE_GIL;
+		}	
+		else {
+			UWSGI_GET_GIL;
+		}
 	}
 }
 

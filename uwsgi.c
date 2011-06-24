@@ -2063,6 +2063,8 @@ int uwsgi_start(void *v_argv) {
 		//from now on the process is a real worker
 	}
 
+	uwsgi_log("running workers...\n");
+
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
 		struct uwsgi_string_list *usl = uwsgi.map_socket;
@@ -2184,11 +2186,14 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_init_all_apps();
 	}
 
+	uwsgi_log("post fork hook %d\n", uwsgi.mywid);
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->post_fork) {
 			uwsgi.p[i]->post_fork();
 		}
 	}
+
+	uwsgi_log("post fork hook DONE %d\n", uwsgi.mywid);
 
 #ifdef UWSGI_ZEROMQ
 	if (uwsgi.zmq_receiver && uwsgi.zmq_responder) {
