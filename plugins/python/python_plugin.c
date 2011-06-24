@@ -162,8 +162,6 @@ void uwsgi_python_reset_random_seed() {
 
 void uwsgi_python_post_fork() {
 
-	uwsgi_log("POST FORK %d\n", uwsgi.mywid);
-
 	uwsgi_python_reset_random_seed();
 
 #ifdef UWSGI_EMBEDDED
@@ -177,8 +175,6 @@ void uwsgi_python_post_fork() {
 	}
 	PyErr_Clear();
 #endif
-
-	uwsgi_log("RELEASING GIL %d\n", uwsgi.mywid);
 
 UWSGI_RELEASE_GIL
 

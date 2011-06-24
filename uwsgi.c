@@ -1970,6 +1970,15 @@ int uwsgi_start(void *v_argv) {
 
 	uwsgi_rawlog(" ***\n");
 
+	// even the master has cores..
+	uwsgi.core = uwsgi_malloc(sizeof(struct uwsgi_core *) * uwsgi.cores);
+	for (j = 0; j < uwsgi.cores; j++) {
+		uwsgi.core[j] = uwsgi_malloc(sizeof(struct uwsgi_core));
+		memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
+	}
+
+
+
 	//init apps hook (if not lazy)
 	if (!uwsgi.lazy) {
 		uwsgi_init_all_apps();
@@ -2062,8 +2071,6 @@ int uwsgi_start(void *v_argv) {
 		master_loop(argv, environ);
 		//from now on the process is a real worker
 	}
-
-	uwsgi_log("running workers...\n");
 
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
@@ -2172,12 +2179,6 @@ int uwsgi_start(void *v_argv) {
 		exit(1);
 	}
 
-	uwsgi.core = uwsgi_malloc(sizeof(struct uwsgi_core *) * uwsgi.cores);
-	for (j = 0; j < uwsgi.cores; j++) {
-		uwsgi.core[j] = uwsgi_malloc(sizeof(struct uwsgi_core));
-		memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
-	}
-
 	if (uwsgi.master_as_root) {
 		uwsgi_as_root();
 	}
@@ -2186,14 +2187,11 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_init_all_apps();
 	}
 
-	uwsgi_log("post fork hook %d\n", uwsgi.mywid);
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->post_fork) {
 			uwsgi.p[i]->post_fork();
 		}
 	}
-
-	uwsgi_log("post fork hook DONE %d\n", uwsgi.mywid);
 
 #ifdef UWSGI_ZEROMQ
 	if (uwsgi.zmq_receiver && uwsgi.zmq_responder) {

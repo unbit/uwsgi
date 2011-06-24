@@ -303,6 +303,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	if (uwsgi.threads > 1 && id) {
 		// if we have multiple threads we need to initialize a PyThreadState for each one
 		for(i=0;i<uwsgi.threads;i++) {
+			//uwsgi_log("%p\n", uwsgi.core[i]->ts[id]);
 			uwsgi.core[i]->ts[id] = PyThreadState_New( ((PyThreadState *)wi->interpreter)->interp);
 			if (!uwsgi.core[i]->ts[id]) {
 				uwsgi_log("unable to allocate new PyThreadState structure for app %s", mountpoint);

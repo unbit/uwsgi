@@ -7,6 +7,11 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 	struct uwsgi_rpc *urpc;
 	int ret = -1;
 
+	if (uwsgi.mywid != 0) {
+		uwsgi_log("you can register RPC functions only in the master\n");
+		return -1;
+	}
+
 	uwsgi_lock(uwsgi.rpc_table_lock);
 
 	if (uwsgi.shared->rpc_count < MAX_RPC) {
