@@ -1036,8 +1036,6 @@ struct uwsgi_server {
 
 	int harakiri_verbose;
 
-	int		main_queue;
-
 	int             numproc;
 	int             async;
 	int             async_running;
@@ -1565,7 +1563,7 @@ void            uwsgi_close_request(struct wsgi_request *);
 void            wsgi_req_setup(struct wsgi_request *, int, struct uwsgi_socket *);
 int             wsgi_req_recv(struct wsgi_request *);
 int             wsgi_req_async_recv(struct wsgi_request *);
-int             wsgi_req_accept(struct wsgi_request *);
+int             wsgi_req_accept(int, struct wsgi_request *);
 int             wsgi_req_simple_accept(struct wsgi_request *, int);
 
 #define current_wsgi_req() (*uwsgi.current_wsgi_req)()

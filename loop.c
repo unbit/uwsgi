@@ -66,19 +66,19 @@ void *simple_loop(void *arg1) {
 #endif
 
 	// initialize the main event queue to monitor sockets
-	uwsgi.main_queue = event_queue_init();
+	int main_queue = event_queue_init();
 
-	uwsgi_add_sockets_to_queue(uwsgi.main_queue);
+	uwsgi_add_sockets_to_queue(main_queue);
 
 	if (uwsgi.signal_socket > -1) {
-		event_queue_add_fd_read(uwsgi.main_queue, uwsgi.signal_socket);
+		event_queue_add_fd_read(main_queue, uwsgi.signal_socket);
 	}
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 		wsgi_req_setup(wsgi_req, core_id, NULL);
 
-		if (wsgi_req_accept(wsgi_req)) {
+		if (wsgi_req_accept(main_queue, wsgi_req)) {
 			continue;
 		}
 

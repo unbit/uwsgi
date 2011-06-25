@@ -747,14 +747,14 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 	return 0;
 }
 
-int wsgi_req_accept(struct wsgi_request *wsgi_req) {
+int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	int ret;
 	int interesting_fd;
 	char uwsgi_signal;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
-	ret = event_queue_wait(uwsgi.main_queue, uwsgi.edge_triggered - 1, &interesting_fd);
+	ret = event_queue_wait(queue, uwsgi.edge_triggered - 1, &interesting_fd);
 	if (ret < 0) {
 		return -1;
 	}
