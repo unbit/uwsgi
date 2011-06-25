@@ -524,7 +524,10 @@ PyObject *uwsgi_file_loader(void *arg1) {
 	if (!callable) callable = "application";
 
 	wsgi_file_module = uwsgi_pyimport_by_filename("uwsgi_wsgi_file", filename);
-	// no need to check here for module import as it is already done by uwsgi_pyimport_by_file
+	if (!wsgi_file_module) {
+		PyErr_Print();
+		exit(1);
+	}
 
 	wsgi_file_dict = PyModule_GetDict(wsgi_file_module);
 	if (!wsgi_file_dict) {

@@ -195,12 +195,12 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 		pyfile = fopen(filename, "r");
 		if (!pyfile) {
 			uwsgi_log("failed to open python file %s\n", filename);
-			exit(1);
+			return NULL;
 		}
 
 		if (fstat(fileno(pyfile), &pystat)) {
 			uwsgi_error("fstat()");
-			exit(1);
+			return NULL;
 		}
 
 		if (S_ISDIR(pystat.st_mode)) {
@@ -210,7 +210,9 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 			pyfile = fopen(real_filename, "r");
 			if (!pyfile) {
 				uwsgi_error_open(real_filename);
-				exit(1);
+				free(real_filename);
+				fclose(pyfile);
+				return NULL;
 			}
 		}
 
@@ -218,7 +220,9 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 		if (!py_file_node) {
 			PyErr_Print();
 			uwsgi_log("failed to parse file %s\n", real_filename);
-			exit(1);
+			free(real_filename);
+			fclose(pyfile);
+			return NULL;
 		}
 
 		fclose(pyfile);
@@ -232,7 +236,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 			if (!py_file_node) {
 				PyErr_Print();
 				uwsgi_log("failed to parse url %s\n", real_filename);
-				exit(1);
+				return NULL;
 			}
 		}
 	}
@@ -242,13 +246,13 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 	if (!py_compiled_node) {
 		PyErr_Print();
 		uwsgi_log("failed to compile python file %s\n", real_filename);
-		exit(1);
+		return NULL;
 	}
 
 	py_file_module = PyImport_ExecCodeModule(name, py_compiled_node);
 	if (!py_file_module) {
 		PyErr_Print();
-		exit(1);
+		return NULL;
 	}
 
 	Py_DECREF(py_compiled_node);
@@ -371,6 +375,10 @@ void init_uwsgi_vars() {
 		else {
 			// this is a filepath that need to be mapped
 			tmp_module = uwsgi_pyimport_by_filename(up.pymodule_alias[i], value + 1);
+			if (!tmp_module) {
+				PyErr_Print();
+				exit(1);
+			}
 		}
 		uwsgi_log("mapped virtual pymodule \"%s\" to real pymodule \"%s\"\n", up.pymodule_alias[i], value + 1);
 		// reset original value
