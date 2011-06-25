@@ -12,7 +12,11 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 
 	PyObject *pyret;
 
+	uwsgi_log("ready to call %p %p\n", callable, args);
+
 	pyret =  PyEval_CallObject(callable, args);
+
+	uwsgi_log("called\n");
 
 	if (PyErr_Occurred()) {
 		if (PyErr_ExceptionMatches(PyExc_MemoryError)) {

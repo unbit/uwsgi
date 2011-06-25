@@ -859,8 +859,10 @@ void uwsgi_python_enable_threads() {
 	up.gil_get = gil_real_get;
 	up.gil_release = gil_real_release;
 
-	up.swap_ts = threaded_swap_ts;
-	up.reset_ts = threaded_reset_ts;
+	if (uwsgi.threads > 1) {
+		up.swap_ts = threaded_swap_ts;
+		up.reset_ts = threaded_reset_ts;
+	}
 	uwsgi_log("threads support enabled\n");
 
 }

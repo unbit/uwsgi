@@ -436,8 +436,7 @@ PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
 
 
 	if (uwsgi_register_rpc(name, 0, argc, func)) {
-		Py_INCREF(Py_None);
-		return Py_None;
+		return PyErr_Format(PyExc_ValueError, "unable to register rpc function");
 	}
 
 	Py_INCREF(Py_True);
