@@ -86,7 +86,7 @@ int psgi_response(struct wsgi_request *wsgi_req, PerlInterpreter *my_perl, AV *r
                 	}
 
 			// check for psgix.harakiri
-        		harakiri = hv_fetch((HV*)SvRV( (SV*)wsgi_req->async_environ), "psgix.harakiri", 14, 0);
+        		harakiri = hv_fetch((HV*)SvRV( (SV*)wsgi_req->async_environ), "psgix.harakiri.commit", 21, 0);
         		if (harakiri) {
                 		if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
         		}

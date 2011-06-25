@@ -258,7 +258,7 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(wsgi_req->body_as_file), 0)) goto clear;
 
 	if (uwsgi.master_process) {
-		if (!hv_store(env, "psgix.harakiri.supported", 24, newSViv(1), 0)) goto clear;
+		if (!hv_store(env, "psgix.harakiri", 14, newSViv(1), 0)) goto clear;
 	}
 
 	SV *pe = uwsgi_perl_obj_new("uwsgi::error", 12);
@@ -436,7 +436,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 clear2:
 	// check for psgix.harakiri
-        harakiri = hv_fetch((HV*)SvRV( (SV*)wsgi_req->async_environ), "psgix.harakiri", 14, 0);
+        harakiri = hv_fetch((HV*)SvRV( (SV*)wsgi_req->async_environ), "psgix.harakiri.commit", 21, 0);
         if (harakiri) {
                 if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
         }
@@ -458,7 +458,7 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 		log_request(wsgi_req);
 
 	if (wsgi_req->async_plagued) {
-		uwsgi_log("*** psgix.harakiri requested ***\n");
+		uwsgi_log("*** psgix.harakiri.commit requested ***\n");
 		goodbye_cruel_world();
 	}
 

@@ -2,6 +2,7 @@
 
  * 0.9.8.1 [20110625]
 
+- the build system has been improved
 - various threading fixes
 - fix python GIL status after reload
 - new option --propagate-touch
