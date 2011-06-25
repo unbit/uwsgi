@@ -152,7 +152,6 @@ void spooler() {
 
 	for (;;) {
 
-		sleep(uwsgi.shared->spooler_frequency);
 
 		if (chdir(uwsgi.spool_dir)) {
 			uwsgi_error("chdir()");
@@ -233,6 +232,8 @@ void spooler() {
 		else {
 			uwsgi_error("opendir()");
 		}
+
+		sleep(uwsgi.shared->spooler_frequency);
 
 	}
 }
