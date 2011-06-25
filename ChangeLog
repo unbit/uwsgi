@@ -1,5 +1,39 @@
 *** june 2011 ***
 
+ * 0.9.8.1 [20110625]
+
+- various threading fixes
+- fix python GIL status after reload
+- new option --propagate-touch
+- fixed uwsgi.sendfile
+- fixed readline() support in wsgi.input
+- fixed dynamic touch reload
+- new option --logto2
+- export %c in config files
+- fixed libyaml support
+- support passing modifiers in subscription system
+- reset random seed in spooler
+- subscribe from a list in a text file
+- allow binding on port 0 (auto-assignment)
+- reset random seed on grunt
+- fix vhost mode for empty hostname
+- fixed python3+virtualenv support
+- tasks are now allowed to chdir() in spooler
+- better zeromq+clustering support
+- clustering has been refactored
+- fixed rpc
+- report correct worker id in cheap mode
+- fixed a fd-leak in attach-daemon
+- use setsid() in attach-daemon
+- zerg mode
+- added psgix.harakiri
+- allows magic vars in sqlite3 config db
+- added UWSGI_FASTROUTER_KEY var
+- slowdown async-queue-is-full messages
+- new option --cron
+- --vassals-start-hook and --vassals-stop-hook
+- the proxy plugin has been removed
+
  * 0.9.8 [20110605]
 
 - support for --callable in virtualhosting mode
