@@ -830,12 +830,23 @@ void uwsgi_python_init_apps() {
 
 void uwsgi_python_master_fixup(int step) {
 
+	static int master_fixed = 0;
+	static int worker_fixed = 0;
+
+	if (!uwsgi.master_process) return;
+
 	if (uwsgi.has_threads) {
 		if (step == 0) {
-			UWSGI_RELEASE_GIL;
+			if (!master_fixed) {
+				UWSGI_RELEASE_GIL;
+				master_fixed = 1;
+			}
 		}	
 		else {
-			UWSGI_GET_GIL;
+			if (!worker_fixed) {
+				UWSGI_GET_GIL;
+				worker_fixed = 1;
+			}
 		}
 	}
 }

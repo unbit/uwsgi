@@ -1978,7 +1978,6 @@ int uwsgi_start(void *v_argv) {
 	}
 
 
-
 	//init apps hook (if not lazy)
 	if (!uwsgi.lazy) {
 		uwsgi_init_all_apps();
@@ -2028,6 +2027,15 @@ int uwsgi_start(void *v_argv) {
 #ifdef UWSGI_ROUTING
 	routing_setup();
 #endif
+
+	// master fixup
+
+        for (i = 0; i < 0xFF; i++) {
+                if (uwsgi.p[i]->master_fixup) {
+                        uwsgi.p[i]->master_fixup(0);
+                }
+        }
+
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
@@ -2435,6 +2443,7 @@ void uwsgi_ignition() {
 #else
 		if (uwsgi.threads > 1) {
 #endif
+
 			if (pthread_key_create(&uwsgi.tur_key, NULL)) {
 				uwsgi_error("pthread_key_create()");
 				exit(1);

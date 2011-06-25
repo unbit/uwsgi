@@ -11,6 +11,8 @@ void gil_real_get() {
 #else
 	PyEval_RestoreThread((PyThreadState *) pthread_getspecific(up.upt_gil_key));
 #endif
+
+	//uwsgi_log("LOCKED !!! %d\n", uwsgi.mywid);
 }
 
 void gil_real_release() {
