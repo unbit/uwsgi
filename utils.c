@@ -1251,7 +1251,9 @@ int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
 							uwsgi.workers[uwsgi.mywid].destroy = 1;
 						}
 
+#ifdef UWSGI_DEBUG
 						uwsgi_log("mtime %d %d\n", st.st_mtime, uwsgi.apps[i].touch_reload_mtime);
+#endif
 					}
 				}
 			}
