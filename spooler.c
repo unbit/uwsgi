@@ -3,6 +3,10 @@
 
 extern struct uwsgi_server uwsgi;
 
+static void spooler_readdir(char *);
+static void spooler_scandir(char *);
+void spooler_manage_task(char *, char *);
+
 pid_t spooler_start() {
 
 	pid_t pid = fork();
@@ -11,11 +15,7 @@ pid_t spooler_start() {
 		exit(1);
 	}
 	else if (pid == 0) {
-		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-		while(uwsgi_sock) {
-			close(uwsgi_sock->fd);
-			uwsgi_sock = uwsgi_sock->next;
-		}
+		uwsgi_close_all_sockets();
 		spooler();
 	}
 	else if (pid > 0) {
@@ -25,9 +25,9 @@ pid_t spooler_start() {
 	return pid;
 }
 
-void destroy_spool(char *file) {
+void destroy_spool(char *dir, char *file) {
 
-	if (chdir(uwsgi.spool_dir)) {
+	if (chdir(dir)) {
 		uwsgi_error("chdir()");
                 uwsgi_log("something horrible happened to the spooler. Better to kill it.\n");
 		exit(1);
@@ -42,7 +42,7 @@ void destroy_spool(char *file) {
 }
 
 
-int spool_request(char *filename, int rn, int core_id, char *buffer, int size) {
+int spool_request(char *filename, int rn, int core_id, char *buffer, int size, char *priority) {
 
 	struct timeval tv;
 	int fd;
@@ -52,9 +52,24 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size) {
 
 	gettimeofday(&tv, NULL);
 
-	if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uwsgi.spool_dir, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
-		uwsgi_unlock(uwsgi.spooler_lock);
-		return 0;
+	if (priority) {
+		if (snprintf(filename, 1024, "%s/%s", uwsgi.spool_dir, priority) <= 0) {
+			uwsgi_unlock(uwsgi.spooler_lock);
+			return 0;
+		}
+		// no need to check for errors...
+		(void) mkdir(filename, 0777);
+
+		if (snprintf(filename, 1024, "%s/%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uwsgi.spool_dir, priority, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+			uwsgi_unlock(uwsgi.spooler_lock);
+			return 0;
+		}
+	}
+	else {
+		if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uwsgi.spool_dir, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
+			uwsgi_unlock(uwsgi.spooler_lock);
+			return 0;
+		}
 	}
 
 	fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR);
@@ -111,20 +126,9 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size) {
 
 
 void spooler() {
-	DIR *sdir;
-	struct dirent *dp;
-	int i, ret;
-
-
-	int spool_fd;
 
 	// prevent process blindly reading stdin to make mess
 	int nullfd;
-
-	struct uwsgi_header uh;
-
-	char spool_buf[0xffff];
-
 
 	// asked by Marco Beri
 #ifdef __HAIKU__
@@ -158,83 +162,139 @@ void spooler() {
 			exit(1);
 		}
 
-		sdir = opendir(uwsgi.spool_dir);
-		if (sdir) {
-			while ((dp = readdir(sdir)) != NULL) {
-				if (!strncmp("uwsgi_spoolfile_on_", dp->d_name, 19)) {
-					struct stat sf_lstat;
-					if (lstat(dp->d_name, &sf_lstat)) {
-						continue;
-					}
-					if (!S_ISREG(sf_lstat.st_mode)) {
-						continue;
-					}
-					if (!access(dp->d_name, R_OK | W_OK)) {
-						uwsgi_log("managing spool request %s ...\n", dp->d_name);
-
-						spool_fd = open(dp->d_name, O_RDONLY);
-						if (spool_fd < 0) {
-							uwsgi_error_open(dp->d_name);
-							continue;
-						}
-
-#ifdef __sun__
-						if (lockf(spool_fd, F_LOCK, 0)) {
-							uwsgi_error("lockf()");
-#else
-						if (flock(spool_fd, LOCK_EX)) {
-							uwsgi_error("flock()");
-#endif
-							close(spool_fd);
-							continue;
-						}
-
-						if (read(spool_fd, &uh, 4) != 4) {
-							uwsgi_error("read()");
-							close(spool_fd);
-							continue;
-						}
-
-#ifdef __BIG_ENDIAN__
-						uh.pktsize = uwsgi_swap16(uh.pktsize);
-#endif
-
-
-						if (read(spool_fd, spool_buf, uh.pktsize) != uh.pktsize) {
-							uwsgi_error("read()");
-							destroy_spool(dp->d_name);	
-							close(spool_fd);
-							continue;
-						}			
-					
-
-						close(spool_fd);
-
-						for(i=0;i<0xff;i++) {
-							if (uwsgi.p[i]->spooler) {
-								ret = uwsgi.p[i]->spooler(spool_buf, uh.pktsize);
-								if (ret == 0) continue;
-								if (ret == -2) {
-
-									uwsgi_log("done with task/spool %s\n", dp->d_name);
-									destroy_spool(dp->d_name);	
-								}
-								// re-spool it
-								break;	
-							}
-						}
-
-					}
-				}
-			}
-			closedir(sdir);
+		if (uwsgi.spooler_ordered) {
+			spooler_scandir(uwsgi.spool_dir);
 		}
 		else {
-			uwsgi_error("opendir()");
+			spooler_readdir(uwsgi.spool_dir);
 		}
 
 		sleep(uwsgi.shared->spooler_frequency);
 
+	}
+}
+
+static void spooler_scandir(char *dir) {
+
+	struct dirent **tasklist;
+	int n;
+
+	n = scandir(dir, &tasklist, 0, versionsort);
+	if (n < 0) {
+		uwsgi_error("scandir()");
+		return;
+	}
+	
+	while(n--) {
+		spooler_manage_task(dir, tasklist[n]->d_name);
+		free(tasklist[n]);	
+	}
+
+	free(tasklist);
+}
+
+
+static void spooler_readdir(char *dir) {
+
+	DIR *sdir;
+	struct dirent *dp;
+
+	sdir = opendir(dir);
+	if (sdir) {
+		while ((dp = readdir(sdir)) != NULL) {
+			spooler_manage_task(dir, dp->d_name);
+		}
+		closedir(sdir);
+	}
+	else {
+		uwsgi_error("opendir()");
+	}
+}
+
+void spooler_manage_task(char *dir, char *task) {
+
+	int i, ret;
+
+	char spool_buf[0xffff];
+	struct uwsgi_header uh;
+
+	int spool_fd;
+
+	if (!strncmp("uwsgi_spoolfile_on_", task, 19) || (uwsgi.spooler_ordered && is_a_number(task))) {
+		struct stat sf_lstat;
+		if (lstat(task, &sf_lstat)) {
+			return;
+		}
+
+		if (S_ISDIR(sf_lstat.st_mode) && uwsgi.spooler_ordered) {
+			if (chdir(task)) {
+				uwsgi_error("chdir()");
+				return;
+			}
+			char *prio_path = realpath(".", NULL);
+			spooler_scandir(prio_path);
+			free(prio_path);
+			chdir(dir);
+			return;
+		}
+		if (!S_ISREG(sf_lstat.st_mode)) {
+			return;
+		}
+		if (!access(task, R_OK | W_OK)) {
+			uwsgi_log("managing spool request %s ...\n", task);
+
+			spool_fd = open(task, O_RDONLY);
+			if (spool_fd < 0) {
+				uwsgi_error_open(task);
+				return;
+			}
+
+#ifdef __sun__
+			if (lockf(spool_fd, F_LOCK, 0)) {
+				uwsgi_error("lockf()");
+#else
+			if (flock(spool_fd, LOCK_EX)) {
+				uwsgi_error("flock()");
+#endif
+				close(spool_fd);
+				return;
+			}
+
+			if (read(spool_fd, &uh, 4) != 4) {
+				uwsgi_error("read()");
+				close(spool_fd);
+				return;
+			}
+
+#ifdef __BIG_ENDIAN__
+			uh.pktsize = uwsgi_swap16(uh.pktsize);
+#endif
+
+			if (read(spool_fd, spool_buf, uh.pktsize) != uh.pktsize) {
+				uwsgi_error("read()");
+				destroy_spool(dir, task);	
+				close(spool_fd);
+				return;
+			}			
+					
+
+			close(spool_fd);
+
+			for(i=0;i<0xff;i++) {
+				if (uwsgi.p[i]->spooler) {
+					ret = uwsgi.p[i]->spooler(spool_buf, uh.pktsize);
+					if (ret == 0) continue;
+					if (ret == -2) {
+
+						uwsgi_log("done with task/spool %s\n", task);
+						destroy_spool(dir, task);	
+					}
+					// re-spool it
+					break;	
+				}
+			}
+
+		}
 	}
 }
 
@@ -251,7 +311,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 	}
 
 	uwsgi_log("managing spool request...\n");
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize);
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL);
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
 	if (i > 0) {

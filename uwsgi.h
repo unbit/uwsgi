@@ -103,7 +103,6 @@
 #include <ifaddrs.h>
 #endif
 
-#include <dirent.h>
 
 #include <pwd.h>
 #include <grp.h>
@@ -116,6 +115,8 @@
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
+
+#include <dirent.h>
 #include <sched.h>
 #include <sys/prctl.h>
 #include <linux/limits.h>
@@ -1006,6 +1007,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SPOOLER
 	char           *spool_dir;
+	int		spooler_ordered;
 #endif
 
 #ifdef UWSGI_SNMP
@@ -1498,7 +1500,7 @@ void            snmp_init(void);
 #endif
 
 #ifdef UWSGI_SPOOLER
-int             spool_request(char *, int, int, char *, int);
+int             spool_request(char *, int, int, char *, int, char *);
 void            spooler(void);
 pid_t           spooler_start(void);
 #endif

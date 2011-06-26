@@ -1139,6 +1139,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	int i;
 	char spool_filename[1024];
 	struct wsgi_request *wsgi_req = current_wsgi_req();
+	char *priority = NULL;
+	long numprio = 0;
 
 	spool_dict = PyTuple_GetItem(args, 0);
 
@@ -1157,6 +1159,14 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	
 	if (!spool_dict) {
 		return PyErr_Format(PyExc_ValueError, "The argument of spooler callable must be a dictionary");
+	}
+
+	PyObject *pyprio = PyDict_GetItemString(spool_dict, "priority");
+	if (pyprio) {
+		if (PyInt_Check(pyprio)) {
+			numprio = PyInt_AsLong(pyprio);
+			PyDict_DelItemString(spool_dict, "priority");
+		}
 	}
 
 	spool_vars = PyDict_Items(spool_dict);
@@ -1224,7 +1234,13 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		}
 	}
 
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer);
+	if (numprio) {
+		priority = uwsgi_num2str(numprio);
+	} 
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority);
+	if (priority) {
+		free(priority);
+	}
 
 	Py_DECREF(spool_vars);
 

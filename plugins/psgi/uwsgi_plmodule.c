@@ -66,7 +66,7 @@ XS(XS_wait_fd_write) {
         }
 
         if (fd >= 0) {
-                async_add_fd_read(wsgi_req, fd, timeout);
+                async_add_fd_write(wsgi_req, fd, timeout);
         }
 
 	wsgi_req->async_force_again = 1;

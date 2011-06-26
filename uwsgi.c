@@ -92,6 +92,7 @@ static struct option long_base_options[] = {
 	{"queue-store-sync", required_argument, 0, LONG_ARGS_QUEUE_STORE_SYNC},
 #ifdef UWSGI_SPOOLER
 	{"spooler", required_argument, 0, 'Q'},
+	{"spooler-ordered", no_argument, &uwsgi.spooler_ordered, 1},
 #endif
 	{"disable-logging", no_argument, 0, 'L'},
 
