@@ -2401,14 +2401,14 @@ int *uwsgi_attach_fd(int fd, int count, char *code, size_t code_len) {
 		return NULL;
 	}
 
+	if ((size_t) (cmsg->cmsg_len - ((char *)CMSG_DATA(cmsg)- (char *)cmsg)) > (size_t) (sizeof(int) * (count + 1))) {
+        	uwsgi_log("not enough space for sockets data, consider increasing it\n");
+        	return NULL;
+	}
+
 	ret = uwsgi_malloc(sizeof(int) * (count + 1));
 	for(i=0;i<count+1;i++) {
 		ret[i] = -1;
-	}
-
-	if ((size_t) (cmsg->cmsg_len - ((char *)CMSG_DATA(cmsg)- (char *)cmsg)) > (size_t) (sizeof(int) * (count + 1))) {
-		uwsgi_log("not enough space for sockets data, consider increasing it\n");
-		return NULL;	
 	}
 
 	memcpy(ret, CMSG_DATA(cmsg), cmsg->cmsg_len - ((char *)CMSG_DATA(cmsg)- (char *)cmsg));

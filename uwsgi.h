@@ -116,7 +116,6 @@
 #define __USE_GNU
 #endif
 
-#include <dirent.h>
 #include <sched.h>
 #include <sys/prctl.h>
 #include <linux/limits.h>
@@ -130,6 +129,8 @@ extern int pivot_root(const char * new_root, const char * put_old);
 #else
 #include <limits.h>
 #endif
+
+#include <dirent.h>
 
 #ifdef UWSGI_SCTP
 #include <netinet/sctp.h>

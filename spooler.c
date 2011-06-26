@@ -4,7 +4,9 @@
 extern struct uwsgi_server uwsgi;
 
 static void spooler_readdir(char *);
+#ifdef __linux__
 static void spooler_scandir(char *);
+#endif
 void spooler_manage_task(char *, char *);
 
 pid_t spooler_start() {
@@ -163,7 +165,9 @@ void spooler() {
 		}
 
 		if (uwsgi.spooler_ordered) {
+#ifdef __linux__
 			spooler_scandir(uwsgi.spool_dir);
+#endif
 		}
 		else {
 			spooler_readdir(uwsgi.spool_dir);
@@ -174,6 +178,7 @@ void spooler() {
 	}
 }
 
+#ifdef __linux__
 static void spooler_scandir(char *dir) {
 
 	struct dirent **tasklist;
@@ -192,6 +197,7 @@ static void spooler_scandir(char *dir) {
 
 	free(tasklist);
 }
+#endif
 
 
 static void spooler_readdir(char *dir) {
@@ -226,6 +232,7 @@ void spooler_manage_task(char *dir, char *task) {
 			return;
 		}
 
+#ifdef __linux__
 		if (S_ISDIR(sf_lstat.st_mode) && uwsgi.spooler_ordered) {
 			if (chdir(task)) {
 				uwsgi_error("chdir()");
@@ -237,6 +244,7 @@ void spooler_manage_task(char *dir, char *task) {
 			chdir(dir);
 			return;
 		}
+#endif
 		if (!S_ISREG(sf_lstat.st_mode)) {
 			return;
 		}
