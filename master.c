@@ -1038,6 +1038,21 @@ void master_loop(char **argv, char **environ) {
 				}
 				else if (uwsgi.current_time - last_request_timecheck > uwsgi.idle) {
 					uwsgi_log("workers have been inactive for more than %d seconds\n", uwsgi.idle);
+					uwsgi.cheap = 1;
+					master_has_children = 0;
+					if (uwsgi.die_on_idle) {
+						if (uwsgi.has_emperor) {
+							char byte = 22;
+							if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+								uwsgi_error("write()");
+								kill_them_all(0);	
+							}
+						}
+						else {
+							kill_them_all(0);	
+						}
+						continue;
+					}
 					for(i=1;i<=uwsgi.numproc;i++) {
                                			if (uwsgi.workers[i].pid == 0) continue;
                                			kill(uwsgi.workers[i].pid, SIGKILL);
@@ -1045,8 +1060,6 @@ void master_loop(char **argv, char **environ) {
                                        			uwsgi_error("waitpid()");
                                			}
 					}
-					master_has_children = 0;
-					uwsgi.cheap = 1;
 					uwsgi_add_sockets_to_queue(uwsgi.master_queue);
                 			uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
 					last_request_timecheck = 0;

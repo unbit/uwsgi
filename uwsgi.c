@@ -65,6 +65,7 @@ static struct option long_base_options[] = {
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
 	{"early-emperor", no_argument, &uwsgi.early_emperor, 1},
+	{"emperor-broodlord", required_argument, 0, LONG_ARGS_EMPEROR_BROODLORD},
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
 	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
@@ -187,6 +188,7 @@ static struct option long_base_options[] = {
 	{"lazy", no_argument, &uwsgi.lazy, 1},
 	{"cheap", no_argument, &uwsgi.cheap, 1},
 	{"idle", required_argument, 0, LONG_ARGS_IDLE},
+	{"die-on-idle", no_argument, &uwsgi.die_on_idle, 1},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 	{"grunt", no_argument, &uwsgi.grunt, 1},
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
@@ -335,7 +337,9 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s'] - magic_table['p'], "", 0);
 	if (magic_table['d'][strlen(magic_table['d'])-1] == '/') {
 		tmp = magic_table['d'] + (strlen(magic_table['d']) -1) ;
+#ifdef UWSGI_DEBUG
 		uwsgi_log("tmp = %c\n", *tmp);
+#endif
 		*tmp = 0;
 	}
 	if (uwsgi_get_last_char(magic_table['d'], '/'))
@@ -2586,6 +2590,9 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_LOGTO2:
 		uwsgi.logto2 = optarg;
+		return 1;
+	case LONG_ARGS_EMPEROR_BROODLORD:
+		uwsgi.emperor_broodlord = atoi(optarg);
 		return 1;
 	case LONG_ARGS_EMPEROR:
 		uwsgi.emperor_dir = optarg;

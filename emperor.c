@@ -12,6 +12,7 @@ static void royal_death(int signum) {
 	exit(0);
 }
 
+
 struct uwsgi_instance {
 	struct uwsgi_instance *ui_prev;
 	struct uwsgi_instance *ui_next;
@@ -34,9 +35,24 @@ struct uwsgi_instance {
 	uint32_t config_len;
 
 	int loyal;
+
+	int zerg;
 };
 
 struct uwsgi_instance *ui;
+
+void emperor_stats() {
+
+	struct uwsgi_instance *c_ui = ui->ui_next;
+
+        while (c_ui) {
+
+		uwsgi_log("vassal instance %s (last modified %d) status %d loyal %d zerg %d\n",c_ui->name, c_ui->last_mod, c_ui->status, c_ui->loyal, c_ui->zerg);
+
+                c_ui = c_ui->ui_next;
+        }
+
+}
 
 struct uwsgi_instance *emperor_get_by_fd(int fd) {
 
@@ -92,6 +108,10 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 
 	uwsgi_log("removed uwsgi instance %s\n", c_ui->name);
 
+	if (c_ui->zerg) {
+		uwsgi.emperor_broodlord_count--;
+	}
+
 	free(c_ui);
 
 }
@@ -137,6 +157,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	char *uef;
 	char **uenvs;
 	int counter;
+	char *colon = NULL;
 	int i;
 
 	sleep(1);
@@ -159,6 +180,12 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	uwsgi_log("c_ui->ui_next = %p\n", c_ui->ui_next);
 #endif
 	n_ui->ui_prev = c_ui;
+
+	if (strchr(name,':')) {
+		n_ui->zerg = 1;
+		uwsgi.emperor_broodlord_count++;
+	}
+
 	memcpy(n_ui->name, name, strlen(name));
 	n_ui->born = born;
 	n_ui->last_mod = born;
@@ -263,6 +290,13 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 		argv = uwsgi_malloc(sizeof(char *) * counter);
 		// set args
 		argv[0] = uwsgi.binary_path;
+
+		if (uwsgi.emperor_broodlord) {
+			colon = strchr(name, ':');
+			if (colon) {
+				colon[0] = 0;
+			}
+		}
 		if (!strcmp(name + (strlen(name) - 4), ".xml"))
 			argv[1] = "--xml";
 		if (!strcmp(name + (strlen(name) - 4), ".ini"))
@@ -273,6 +307,10 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 			argv[1] = "--yaml";
 		if (!strcmp(name + (strlen(name) - 3), ".js"))
 			argv[1] = "--json";
+
+		if (colon) {
+			colon[0] = ':';
+		}
 		argv[2] = name;
 		counter = 3;
 		uct = uwsgi.vassals_templates;
@@ -341,6 +379,7 @@ void emperor_loop() {
 	signal(SIGPIPE, SIG_IGN);
 	uwsgi_unix_signal(SIGINT, royal_death);
         uwsgi_unix_signal(SIGTERM, royal_death);
+        uwsgi_unix_signal(SIGUSR1, emperor_stats);
 
 	memset(&ui_base, 0, sizeof(struct uwsgi_instance));
 
@@ -512,7 +551,10 @@ reconnect:
 							
 							// TODO post-start hook
 						}
-						else if (byte == 30) {
+						else if (byte == 22) {
+							emperor_stop(ui_current);
+						}
+						else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
 							uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
 							char *zerg_name = uwsgi_concat3(ui_current->name,":","zerg");
 							emperor_add(zerg_name, time(NULL), NULL, 0);
@@ -649,7 +691,7 @@ reconnect:
 				emperor_del(ui_current);
 				break;
 			}
-			else if (!ui_current->use_config && strncmp(ui_current->name, "http://",7) && stat(ui_current->name, &st)) {
+			else if (!ui_current->use_config && strncmp(ui_current->name, "http://",7) && stat(ui_current->name, &st) && !ui_current->zerg) {
 				emperor_stop(ui_current);
 			}
 			else if (ui_current->pid == diedpid) {

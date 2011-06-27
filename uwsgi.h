@@ -451,6 +451,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_ZERG_SERVER		17125
 #define LONG_ARGS_LOGTO2		17126
 #define LONG_ARGS_VASSAL_SOS_BACKLOG	17127
+#define LONG_ARGS_EMPEROR_BROODLORD	17128
 
 
 #define UWSGI_OK	0
@@ -879,6 +880,8 @@ struct uwsgi_server {
 	int lazy;
 	int cheap;
 	int idle;
+	
+	int die_on_idle;
 
 	int has_emperor;
 	int emperor_fd;
@@ -886,6 +889,8 @@ struct uwsgi_server {
 	int early_emperor;
 	char *emperor_dir;
 	pid_t emperor_pid;
+	int	emperor_broodlord;
+	int	emperor_broodlord_count;
 	struct uwsgi_config_template *vassals_templates;
 	int loyal;
 

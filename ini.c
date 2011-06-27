@@ -143,6 +143,11 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 
 	}
 
+	if (colon) {
+		colon[0] = ':';
+	}
+
+
 }
 
 #endif
