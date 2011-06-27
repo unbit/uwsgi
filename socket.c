@@ -736,6 +736,8 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket)); 
 	uwsgi_sock->name = name;
 
+	if (!name) return uwsgi_sock;
+
 	char *tcp_port = strchr(name, ':');
 	if (tcp_port) {
 		// INET socket, check for 0 port
@@ -768,6 +770,10 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 	union uwsgi_sockaddr_ptr gsa, isa;
 	union uwsgi_sockaddr usa;
 	int abstract = 0;
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("creating socket from fd %d\n", fd);
+#endif
 
 	socket_type_len = sizeof(struct sockaddr_un);
 	gsa.sa = &usa.sa;

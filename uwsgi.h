@@ -450,6 +450,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_ZERG			17124
 #define LONG_ARGS_ZERG_SERVER		17125
 #define LONG_ARGS_LOGTO2		17126
+#define LONG_ARGS_VASSAL_SOS_BACKLOG	17127
 
 
 #define UWSGI_OK	0
@@ -1029,6 +1030,8 @@ struct uwsgi_server {
 
 	int master_process;
 	int master_queue;
+
+	int vassal_sos_backlog;
 
 	int no_defer_accept;
 

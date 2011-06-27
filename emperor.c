@@ -512,6 +512,12 @@ reconnect:
 							
 							// TODO post-start hook
 						}
+						else if (byte == 30) {
+							uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
+							char *zerg_name = uwsgi_concat3(ui_current->name,":","zerg");
+							emperor_add(zerg_name, time(NULL), NULL, 0);
+							free(zerg_name);
+						}
 					}
 				}
 				else {

@@ -71,6 +71,7 @@ static struct option long_base_options[] = {
 	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT},
 	{"vassals-start-hook", required_argument, 0, LONG_ARGS_VASSALS_START_HOOK},
 	{"vassals-stop-hook", required_argument, 0, LONG_ARGS_VASSALS_STOP_HOOK},
+	{"vassal-sos-backlog", required_argument, 0, LONG_ARGS_VASSAL_SOS_BACKLOG},
 	{"auto-snapshot", optional_argument, 0, LONG_ARGS_AUTO_SNAPSHOT},
 	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY},
 	{"exit-on-reload", no_argument, &uwsgi.exit_on_reload, 1},
@@ -1527,6 +1528,10 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
+#ifdef UWSGI_DEBUG
+	uwsgi_log("cores allocated...\n");
+#endif
+
 
 	//by default set wsgi_req to the first slot
 	uwsgi.wsgi_req = uwsgi.wsgi_requests[0];
@@ -1627,6 +1632,9 @@ int uwsgi_start(void *v_argv) {
 		if (uwsgi.is_a_reload || uwsgi.zerg) {
 
 			if (uwsgi.zerg) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("attaching zerg sockets...\n");
+#endif
 				int zerg_fd;
 				i = 0;
 				for(;;) {
@@ -1638,6 +1646,8 @@ int uwsgi_start(void *v_argv) {
 					uwsgi_add_socket_from_fd(uwsgi_sock, zerg_fd);
 					i++;
 				}
+
+				uwsgi_log("zerg sockets attached\n");
 			}
 
 			uwsgi_sock = uwsgi.sockets;
@@ -2740,6 +2750,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uct->filename = optarg;
 		uct->next = NULL;
 
+		return 1;
+	case LONG_ARGS_VASSAL_SOS_BACKLOG:
+		uwsgi.vassal_sos_backlog = atoi(optarg);
 		return 1;
 	case LONG_ARGS_VASSALS_START_HOOK:
 		uwsgi.vassals_start_hook = optarg;
