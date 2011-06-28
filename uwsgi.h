@@ -1145,9 +1145,8 @@ struct uwsgi_server {
 	int log_high_memory;
 
 #ifdef __linux__
-	char *cgroup;
-	char *cgroup_opt[64];
-	int cgroup_opt_cnt;
+	struct uwsgi_string_list *cgroup;
+	struct uwsgi_string_list *cgroup_opt;
 	char *ns;
 	char *ns_net;
 #endif

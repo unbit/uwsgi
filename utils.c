@@ -419,37 +419,45 @@ void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
 void uwsgi_set_cgroup() {
 
 	char *cgroup_taskfile;
-	int i;
 	FILE *cgroup;
 	char *cgroup_opt;
+	struct uwsgi_string_list *usl, *uslo;
 
 	if (!uwsgi.cgroup) return;
 
-			if (mkdir(uwsgi.cgroup, 0700)) {
-                                uwsgi_log("using Linux cgroup %s\n", uwsgi.cgroup);
-                        }
-                        else {
-                                uwsgi_log("created Linux cgroup %s\n", uwsgi.cgroup);
-                        }
-			uwsgi_error("mkdir()");
-                        cgroup_taskfile = uwsgi_concat2(uwsgi.cgroup, "/tasks");
-                        cgroup = fopen(cgroup_taskfile, "w");
-                        if (!cgroup) {
-                                uwsgi_error_open(cgroup_taskfile);
-                                exit(1);
-                        }
-                        if (fprintf(cgroup, "%d", (int) getpid()) <= 0) {
-                                uwsgi_log("could not set cgroup\n");
-                                exit(1);
-                        }
-			uwsgi_log("moved process %d to cgroup %s\n", (int) getpid(), cgroup_taskfile);
-                        fclose(cgroup);
-                        free(cgroup_taskfile);
+	usl = uwsgi.cgroup;
 
-                        for (i = 0; i < uwsgi.cgroup_opt_cnt; i++) {
-                                cgroup_opt = strchr(uwsgi.cgroup_opt[i], '=');
+	while(usl) {
+		if (mkdir(usl->value, 0700)) {
+                	uwsgi_log("using Linux cgroup %s\n", usl->value);
+			if (errno != EEXIST) {
+				uwsgi_error("mkdir()");
+			}
+                }
+                else {
+                	uwsgi_log("created Linux cgroup %s\n", usl->value);
+                }
+
+                cgroup_taskfile = uwsgi_concat2(usl->value, "/tasks");
+                cgroup = fopen(cgroup_taskfile, "w");
+                if (!cgroup) {
+                	uwsgi_error_open(cgroup_taskfile);
+                        exit(1);
+                }
+                if (fprintf(cgroup, "%d", (int) getpid()) <= 0) {
+                	uwsgi_log("could not set cgroup\n");
+                        exit(1);
+                }
+		uwsgi_log("assigned process %d to cgroup %s\n", (int) getpid(), cgroup_taskfile);
+                fclose(cgroup);
+                free(cgroup_taskfile);
+
+
+		uslo = uwsgi.cgroup_opt;
+		while(uslo) {
+                                cgroup_opt = strchr(uslo->value, '=');
                                 if (!cgroup_opt) {
-                                        cgroup_opt = strchr(uwsgi.cgroup_opt[i], ':');
+                                        cgroup_opt = strchr(uslo->value, ':');
                                         if (!cgroup_opt) {
                                                 uwsgi_log("invalid cgroup-opt syntax\n");
                                                 exit(1);
@@ -459,19 +467,25 @@ void uwsgi_set_cgroup() {
                                 cgroup_opt[0] = 0;
                                 cgroup_opt++;
 
-                                cgroup_taskfile = uwsgi_concat3(uwsgi.cgroup, "/", uwsgi.cgroup_opt[i]);
+                                cgroup_taskfile = uwsgi_concat3(usl->value, "/", uslo->value);
                                 cgroup = fopen(cgroup_taskfile, "w");
-                                if (!cgroup) {
-                                        uwsgi_error_open(cgroup_taskfile);
-                                        exit(1);
+                                if (cgroup) {
+                                	if (fprintf(cgroup, "%s\n", cgroup_opt) < 0) {
+                                        	uwsgi_log("could not set cgroup option %s to %s\n", uslo->value, cgroup_opt);
+                                        	exit(1);
+					}
+                                	fclose(cgroup);
+					uwsgi_log("set %s to %s\n", cgroup_opt, cgroup_taskfile);
                                 }
-                                if (fprintf(cgroup, "%s\n", cgroup_opt) < 0) {
-                                        uwsgi_log("could not set cgroup option %s to %s\n", uwsgi.cgroup_opt[i], cgroup_opt);
-                                        exit(1);
-                                }
-                                fclose(cgroup);
                                 free(cgroup_taskfile);
+
+				cgroup_opt[-1] = '=';
+
+				uslo = uslo->next;
                         }
+
+		usl = usl->next;
+	}
 
 }
 #endif

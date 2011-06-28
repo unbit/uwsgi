@@ -2870,16 +2870,10 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 #ifdef __linux__
 	case LONG_ARGS_CGROUP:
-		uwsgi.cgroup = optarg;
+		uwsgi_string_new_list(&uwsgi.cgroup, optarg);
 		return 1;
 	case LONG_ARGS_CGROUP_OPT:
-		if (uwsgi.cgroup_opt_cnt < 63) {
-			uwsgi.cgroup_opt[uwsgi.cgroup_opt_cnt] = optarg;
-			uwsgi.cgroup_opt_cnt++;
-		}
-		else {
-			uwsgi_log("you can specify at most 64 --cgroup_opt options\n");
-		}
+		uwsgi_string_new_list(&uwsgi.cgroup_opt, optarg);
 		return 1;
 	case LONG_ARGS_LINUX_NS:
 		uwsgi.ns = optarg;
