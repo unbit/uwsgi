@@ -513,7 +513,8 @@ void fastrouter_loop() {
 							iov[1].iov_len = fr_session->uh.pktsize;
 
 							// increment node requests counter
-							fr_session->un->requests++;
+							if (fr_session->un)
+								fr_session->un->requests++;
 
 							// fd passing: PERFORMANCE EXTREME BOOST !!!
 							if (fr_session->pass_fd && !uwsgi.no_fd_passing) {
@@ -572,7 +573,8 @@ void fastrouter_loop() {
 							}
 
 							// update transfer statistics
-							fr_session->un->transferred += len;
+							if (fr_session->un)
+								fr_session->un->transferred += len;
 						}
 						// body from client
 						else if (interesting_fd == fr_session->fd) {
