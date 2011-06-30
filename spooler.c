@@ -241,7 +241,9 @@ void spooler_manage_task(char *dir, char *task) {
 			char *prio_path = realpath(".", NULL);
 			spooler_scandir(prio_path);
 			free(prio_path);
-			chdir(dir);
+			if (chdir(dir)) {
+				uwsgi_error("chdir()");
+			}
 			return;
 		}
 #endif

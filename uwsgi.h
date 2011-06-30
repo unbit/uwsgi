@@ -1844,6 +1844,12 @@ struct uwsgi_subscriber_name {
 
 	uint8_t modifier1;
 	uint8_t modifier2;
+
+	// total requests managed by this node
+	uint64_t	requests;
+	// bytes transferred by this node
+	uint64_t	transferred;
+
 };
 
 struct uwsgi_subscriber {
