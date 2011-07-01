@@ -16,7 +16,9 @@ def get_free_signal():
     raise Exception("No free uwsgi signal available")
 
 def manage_spool_request(vars):
-    spooler_functions[vars['ud_spool_func']](vars)
+    ret = spooler_functions[vars['ud_spool_func']](vars)
+    if not spooler_functions[vars['ud_spool_func']].ret:
+        return ret
     return spooler_functions[vars['ud_spool_func']].ret
 
 uwsgi.spooler = manage_spool_request
@@ -26,20 +28,42 @@ class spool(object):
 
     def spool(self, *args, **kwargs):
         self.f.ret = uwsgi.SPOOL_OK
-        return uwsgi.spool(ud_spool_func=self.f.__name__)
+        arguments = self.base_dict
+        if len(args) > 0:
+            arguments.update(args[0])
+        if kwargs:
+            arguments.update(kwargs)
+        return uwsgi.spool(arguments)
 
     def __init__(self, f):
         if not uwsgi.spooler_pid:
             raise Exception("you have to enable the uWSGI spooler to use the @spool decorator")
         spooler_functions[f.__name__] = f
         f.spool = self.spool
+	self.base_dict = {'ud_spool_func':f.__name__}
         self.f = f
 
 class spoolforever(spool):
 
     def spool(self, *args, **kwargs):
         self.f.ret = uwsgi.SPOOL_RETRY
-        return uwsgi.spool(ud_spool_func=self.f.__name__)
+        arguments = self.base_dict
+        if len(args) > 0:
+            arguments.update(args[0])
+        if kwargs:
+            arguments.update(kwargs)
+        return uwsgi.spool(arguments)
+
+class spoolraw(spool):
+
+    def spool(self, *args, **kwargs):
+        self.f.ret = None
+        arguments = self.base_dict
+        if len(args) > 0:
+            arguments.update(args[0])
+        if kwargs:
+            arguments.update(kwargs)
+        return uwsgi.spool(arguments)
 
 
 class rpc(object):
@@ -73,6 +97,26 @@ class timer(object):
         uwsgi.register_signal(self.num, "", f)
         uwsgi.add_timer(self.num, self.secs)
         return f
+
+class cron(object):
+
+    def __init__(self, minute, hour, day, month, dayweek, num=None):
+        if num:
+            self.num = num
+        else:
+            self.num = get_free_signal()
+        self.minute = minute
+        self.hour = hour
+        self.day = day
+        self.month = month
+        self.dayweek = dayweek
+
+    def __call__(self, f):
+        uwsgi.register_signal(self.num, "", f)
+        uwsgi.add_cron(self.num, self.minute, self.hour, self.day, self.month, self.dayweek)
+        return f
+
+
 
 class rbtimer(object):
 

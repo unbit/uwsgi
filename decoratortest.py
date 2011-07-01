@@ -34,18 +34,23 @@ def tmpmodified(num):
 
 # spool a long running task
 @spool
-def a_long_task(vars):
+def a_long_task(args):
     for i in xrange(1,10):
-        print(i)
+        print("%s = %d" % ( str(args), i))
         time.sleep(1)
 
-# continuosly spool a long task
+# continuosly spool a long running task
 @spoolforever
-def an_infinite_task(vars):
+def an_infinite_task(args):
     for i in xrange(1,4):
-        print("infinite: %d" % i)
+        print("infinite: %d %s" % (i, str(args)))
         time.sleep(1)
 
+# run a task every hour
+@cron(59, -1, -1, -1, -1)
+def one_hour_passed(num):
+    print("received signal %d after 1 hour" % num)
 
-a_long_task.spool(foo='bar')
+
+a_long_task.spool({'foo':'bar'}, hello='world')
 an_infinite_task.spool(foo='bar')
