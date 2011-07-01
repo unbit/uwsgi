@@ -834,6 +834,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
+#ifdef UWSGIS_POOLER
+	uwsgi.shared->spooler_signal_pipe[0] = -1;
+	uwsgi.shared->spooler_signal_pipe[1] = -1;
+#endif
+
 
 	gettimeofday(&uwsgi.start_tv, NULL);
 
@@ -2074,6 +2079,7 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 
+		uwsgi.signal_socket = uwsgi.shared->worker_signal_pipe[1];
 	}
 
 	// uWSGI is ready
@@ -2313,6 +2319,8 @@ int uwsgi_start(void *v_argv) {
 		}
 
 		uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
+
+		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);
 	}
 #endif
 
@@ -2391,16 +2399,6 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-
-	if (uwsgi.master_process) {
-		uwsgi.signal_socket = uwsgi.shared->worker_signal_pipe[1];
-#ifdef UWSGI_ASYNC
-		// add uwsgi signal fd to async queue
-		if (uwsgi.async > 1) {
-			event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);
-		}
-#endif
-	}
 
 #ifdef UWSGI_THREADING
 	if (uwsgi.cores > 1) {

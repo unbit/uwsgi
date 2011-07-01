@@ -86,42 +86,39 @@ class rpc(object):
 
 class signal(object):
 
-    def __init__(self, num):
+    def __init__(self, num, **kwargs):
         self.num = num
+	self.target = kwargs.get('target', '')
 
     def __call__(self, f):
-        uwsgi.register_signal(self.num, "", f)
+        uwsgi.register_signal(self.num, self.target, f)
         return f
 
 class timer(object):
 
-    def __init__(self, secs, num=None):
-        if num:
-            self.num = num
-        else:
-            self.num = get_free_signal()
+    def __init__(self, secs, **kwargs):
+        self.num = kwargs.get('signum', get_free_signal())
         self.secs = secs
+	self.target = kwargs.get('target', '')
 
     def __call__(self, f):
-        uwsgi.register_signal(self.num, "", f)
+        uwsgi.register_signal(self.num, self.target, f)
         uwsgi.add_timer(self.num, self.secs)
         return f
 
 class cron(object):
 
-    def __init__(self, minute, hour, day, month, dayweek, num=None):
-        if num:
-            self.num = num
-        else:
-            self.num = get_free_signal()
+    def __init__(self, minute, hour, day, month, dayweek, **kwargs):
+        self.num = kwargs.get('signum', get_free_signal())
         self.minute = minute
         self.hour = hour
         self.day = day
         self.month = month
         self.dayweek = dayweek
+	self.target = kwargs.get('target', '')
 
     def __call__(self, f):
-        uwsgi.register_signal(self.num, "", f)
+        uwsgi.register_signal(self.num, self.target, f)
         uwsgi.add_cron(self.num, self.minute, self.hour, self.day, self.month, self.dayweek)
         return f
 
@@ -129,28 +126,24 @@ class cron(object):
 
 class rbtimer(object):
 
-    def __init__(self, secs, num=None):
-        if num:
-            self.num = num
-        else:
-            self.num = get_free_signal()
+    def __init__(self, secs, **kwargs):
+        self.num = kwargs.get('signum', get_free_signal())
         self.secs = secs
+	self.target = kwargs.get('target', '')
 
     def __call__(self, f):
-        uwsgi.register_signal(self.num, "", f)
+        uwsgi.register_signal(self.num, self.target, f)
         uwsgi.add_rb_timer(self.num, self.secs)
         return f
 
 class filemon(object):
 
-    def __init__(self, fsobj, num=None):
-        if num:
-            self.num = num
-        else:
-            self.num = get_free_signal()
+    def __init__(self, fsobj, **kwargs):
+        self.num = kwargs.get('signum', get_free_signal())
         self.fsobj = fsobj
+	self.target = kwargs.get('target', '')
 
     def __call__(self, f):
-        uwsgi.register_signal(self.num, "", f)
+        uwsgi.register_signal(self.num, self.target, f)
         uwsgi.add_file_monitor(self.num, self.fsobj)
         return f

@@ -53,12 +53,15 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 
-		if (uwsgi.master_process && (uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.cheap)) {
-			for (i = 0; i < 0xFF; i++) {
-                		if (uwsgi.p[i]->master_fixup) {
-                        		uwsgi.p[i]->master_fixup(1);
-                		}
-        		}
+		if (uwsgi.master_process) {
+			if (uwsgi.shared->spooler_signal_pipe[0] != -1) close (uwsgi.shared->spooler_signal_pipe[0]);
+			if ((uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.cheap)) {
+				for (i = 0; i < 0xFF; i++) {
+                			if (uwsgi.p[i]->master_fixup) {
+                        			uwsgi.p[i]->master_fixup(1);
+                			}
+        			}
+			}
 		}
 		return 1;
 	}

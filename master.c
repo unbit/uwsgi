@@ -988,7 +988,9 @@ void master_loop(char **argv, char **environ) {
 							uwsgi_error("read()");
 						}	
 						else if (rlen > 0) {
+#ifdef UWSGI_DEBUG
 							uwsgi_log_verbose("received uwsgi signal %d from a worker\n", uwsgi_signal);
+#endif
 							uwsgi_route_signal(uwsgi_signal);
 						}
 						else {

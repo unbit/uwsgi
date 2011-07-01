@@ -1384,7 +1384,10 @@ struct uwsgi_shared {
 	uint64_t queue_pull_pos;
 
 	int worker_signal_pipe[2];
-	struct uwsgi_signal_entry signal_table[0xff];
+#ifdef UWSGI_SPOOLER
+	int spooler_signal_pipe[2];
+#endif
+	struct uwsgi_signal_entry signal_table[256];
 
 	struct uwsgi_fmon files_monitored[64];
 	int files_monitored_cnt;

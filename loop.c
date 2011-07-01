@@ -184,7 +184,9 @@ void *zeromq_loop(void *arg1) {
                         		}
                 		}
                 		else {
+#ifdef UWSGI_DEBUG
                         		uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
+#endif
                         		if (uwsgi_signal_handler(uwsgi_signal)) {
                                 		uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
                         		}

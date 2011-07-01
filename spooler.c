@@ -11,6 +11,17 @@ void spooler_manage_task(char *, char *);
 
 pid_t spooler_start() {
 
+	if (uwsgi.master_process) {
+		if (uwsgi.shared->spooler_signal_pipe[0] != -1) close (uwsgi.shared->spooler_signal_pipe[0]);
+		if (uwsgi.shared->spooler_signal_pipe[1] != -1) close (uwsgi.shared->spooler_signal_pipe[1]);
+		// setup internal signalling system
+                if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->spooler_signal_pipe)) {
+                        uwsgi_error("socketpair()\n");
+                        exit(1);
+                }
+	}
+
+
 	pid_t pid = fork();
 	if (pid < 0) {
 		uwsgi_error("fork()");
@@ -18,9 +29,15 @@ pid_t spooler_start() {
 	}
 	else if (pid == 0) {
 		uwsgi_close_all_sockets();
+		if (uwsgi.master_process) {
+			close(uwsgi.shared->spooler_signal_pipe[0]);
+		}
 		spooler();
 	}
 	else if (pid > 0) {
+		if (uwsgi.master_process) {
+			close(uwsgi.shared->spooler_signal_pipe[1]);
+		}
 		uwsgi_log("spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
 	}
 
@@ -156,6 +173,13 @@ void spooler() {
 		close(nullfd);
 	}
 
+	int spooler_event_queue = event_queue_init();
+	int interesting_fd = -1;
+
+	if (uwsgi.master_process) {
+		event_queue_add_fd_read(spooler_event_queue, uwsgi.shared->spooler_signal_pipe[1]);
+	}
+
 	for (;;) {
 
 
@@ -173,7 +197,27 @@ void spooler() {
 			spooler_readdir(uwsgi.spool_dir);
 		}
 
-		sleep(uwsgi.shared->spooler_frequency);
+		if (event_queue_wait(spooler_event_queue, uwsgi.shared->spooler_frequency, &interesting_fd) > 0) {
+			if (uwsgi.master_process) {
+				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
+					uint8_t uwsgi_signal;
+					if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
+                                        	if (uwsgi.no_orphans) {
+                                                	uwsgi_log_verbose("uWSGI spooler screams: UAAAAAAH my master died, i will follow him...\n");
+                                               		end_me(0); 
+                                        	}
+                                	}
+                                	else {
+#ifdef UWSGI_DEBUG
+                                        	uwsgi_log_verbose("master sent signal %d to the spooler\n", uwsgi_signal);
+#endif
+                                        	if (uwsgi_signal_handler(uwsgi_signal)) {
+                                                	uwsgi_log_verbose("error managing signal %d on the spooler\n", uwsgi_signal);
+                                        	}
+                                	}
+				}
+			}
+		}
 
 	}
 }

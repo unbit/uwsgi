@@ -23,8 +23,8 @@ def what_time_is_it(num):
 def salut(num):
     print("Salut !!! 3 seconds elapsed and signal %d raised" % num)
 
-# a 10 seconds red black timer
-@rbtimer(10)
+# a 10 seconds red black timer (executed by the spooler)
+@rbtimer(10, target='spooler')
 def tenseconds(num):
     print("red black timer !!! 10 seconds elapsed and signal %d raised" % num)
 

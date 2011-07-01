@@ -172,6 +172,15 @@ void uwsgi_route_signal(uint8_t sig) {
 	// route to subscribed
 	else if (!strcmp(use->receiver, "subscribed")) {
 	}
+	// route to spooler
+	else if (!strcmp(use->receiver, "spooler")) {
+		if (ushared->worker_signal_pipe[0] != -1) {
+			if (write(ushared->spooler_signal_pipe[0], &sig, 1) != 1) {
+                        	uwsgi_error("write()");
+                        	uwsgi_log("could not deliver signal %d to the spooler\n", sig);
+                	}
+		}
+	}
 	else {
 		// unregistered signal, sending it to all the workers
 		uwsgi_log("^^^ ROUTING UNREGISTERED SIGNAL ^^^\n");
