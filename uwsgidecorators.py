@@ -36,7 +36,7 @@ class spool(object):
         return uwsgi.spool(arguments)
 
     def __init__(self, f):
-        if not uwsgi.spooler_pid:
+        if not uwsgi.opt.has_key('spooler'):
             raise Exception("you have to enable the uWSGI spooler to use the @spool decorator")
         spooler_functions[f.__name__] = f
         f.spool = self.spool

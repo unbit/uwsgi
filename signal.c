@@ -11,7 +11,7 @@ int uwsgi_signal_handler(uint8_t sig) {
 	if (!uwsgi.p[use->modifier1]->signal_handler) {
 		return -1;
 	}	
-	
+
 	return uwsgi.p[use->modifier1]->signal_handler(sig, use->handler);
 }
 
