@@ -40,7 +40,7 @@ def a_long_task(vars):
         time.sleep(1)
 
 # continuosly spool a long task
-@spool
+@spoolforever
 def an_infinite_task(vars):
     for i in xrange(1,4):
         print("infinite: %d" % i)
