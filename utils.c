@@ -2434,3 +2434,22 @@ int *uwsgi_attach_fd(int fd, int count, char *code, size_t code_len) {
 
 	return ret;
 }
+
+int uwsgi_endswith(char *str1, char *str2) {
+
+	size_t i;
+	size_t str1len = strlen(str1);
+	size_t str2len = strlen(str2);
+	char *ptr;
+
+	if (str2len > str1len) return 0;
+	
+	ptr = (str1 + str1len) - str2len;
+
+	for(i=0;i<str2len;i++) {
+		if (*ptr != str2[i]) return 0;
+		ptr++;
+	}
+
+	return 1;
+}

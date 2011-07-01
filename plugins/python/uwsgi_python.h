@@ -13,6 +13,7 @@
 #define LONG_ARGS_PYARGV                LONG_ARGS_PYTHON_BASE + 3
 #define LONG_ARGS_PYMODULE_ALIAS        LONG_ARGS_PYTHON_BASE + 4
 #define LONG_ARGS_RELOAD_OS_ENV		LONG_ARGS_PYTHON_BASE + 5
+#define LONG_ARGS_PYIMPORT		LONG_ARGS_PYTHON_BASE + 6
 
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
 #define Py_ssize_t ssize_t
@@ -99,6 +100,7 @@ struct uwsgi_python {
 	char *test_module;
 
 	struct uwsgi_string_list *python_path;
+	struct uwsgi_string_list *import_list;
 
 	PyObject *loader_dict;
 	PyObject* (*loaders[LOADER_MAX]) (void *);

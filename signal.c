@@ -15,6 +15,14 @@ int uwsgi_signal_handler(uint8_t sig) {
 	return uwsgi.p[use->modifier1]->signal_handler(sig, use->handler);
 }
 
+int uwsgi_signal_registered(uint8_t sig) {
+
+	if (uwsgi.shared->signal_table[sig].handler != NULL)
+		return 1;
+
+	return 0;
+}
+
 int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t modifier1) {
 
 	struct uwsgi_signal_entry *use = NULL;

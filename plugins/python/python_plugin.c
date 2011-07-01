@@ -21,6 +21,10 @@ struct option uwsgi_python_options[] = {
 	{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"pymodule-alias", required_argument, 0, LONG_ARGS_PYMODULE_ALIAS},
+	{"import", required_argument, 0, LONG_ARGS_PYIMPORT},
+	{"pyimport", required_argument, 0, LONG_ARGS_PYIMPORT},
+	{"py-import", required_argument, 0, LONG_ARGS_PYIMPORT},
+	{"python-import", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 	{"optimize", required_argument, 0, 'O'},
@@ -720,6 +724,9 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 			uwsgi_log("you can specify at most %d --pymodule-alias options\n", MAX_PYMODULE_ALIAS);
 		}
 		return 1;
+	case LONG_ARGS_PYIMPORT:
+		uwsgi_string_new_list(&up.import_list, optarg);
+		return 1;
 	case LONG_ARGS_PYTHONPATH:
 		if (glob(optarg, GLOB_MARK, NULL, &g)) {
 			uwsgi_string_new_list(&up.python_path, optarg);
@@ -813,6 +820,18 @@ void uwsgi_python_init_apps() {
         up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
         up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
+	struct uwsgi_string_list *upli = up.import_list;
+	while(upli) {
+		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
+			uwsgi_pyimport_by_filename("uwsgi_imported_file", upli->value);
+		}
+		else {
+			if (PyImport_ImportModule(upli->value) == NULL) {
+				PyErr_Print();
+			}
+		}
+		upli = upli->next;
+	}
 
 	if (up.wsgi_config != NULL) {
 		init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread);

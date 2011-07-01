@@ -460,6 +460,22 @@ PyObject *py_uwsgi_attach_daemon(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+PyObject *py_uwsgi_signal_registered(PyObject * self, PyObject * args) {
+	uint8_t uwsgi_signal;
+
+	if (!PyArg_ParseTuple(args, "B:signal_registered", &uwsgi_signal)) {
+                return NULL;
+        }
+
+	if (uwsgi_signal_registered(uwsgi_signal)) {
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
@@ -2393,6 +2409,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"register_signal", py_uwsgi_register_signal, METH_VARARGS, ""},
 	{"signal", py_uwsgi_signal, METH_VARARGS, ""},
 	{"signal_wait", py_uwsgi_signal_wait, METH_VARARGS, ""},
+	{"signal_registered", py_uwsgi_signal_registered, METH_VARARGS, ""},
 	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
 	{"add_file_monitor", py_uwsgi_add_file_monitor, METH_VARARGS, ""},
 	{"add_timer", py_uwsgi_add_timer, METH_VARARGS, ""},

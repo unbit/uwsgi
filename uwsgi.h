@@ -2060,3 +2060,7 @@ int *uwsgi_attach_fd(int, int, char *, size_t);
 
 int uwsgi_count_sockets(struct uwsgi_socket *);
 int uwsgi_file_exists(char *);
+
+int uwsgi_signal_registered(uint8_t);
+
+int uwsgi_endswith(char *, char *);
