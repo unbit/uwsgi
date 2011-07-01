@@ -1,3 +1,5 @@
+import uwsgi
+
 from uwsgidecorators import *
 
 from uwsgicc import app as application
@@ -51,6 +53,14 @@ def an_infinite_task(args):
 def one_hour_passed(num):
     print("received signal %d after 1 hour" % num)
 
+
+@postfork
+def fork_happened():
+    print("fork() has been called [1]")
+
+@postfork
+def fork_happened2():
+    print("fork() has been called [2] wid: %d" % uwsgi.worker_id())
 
 a_long_task.spool({'foo':'bar'}, hello='world')
 an_infinite_task.spool(foo='bar')

@@ -7,6 +7,7 @@ if uwsgi.opt.get('lazy'):
     raise Exception("uWSGI lazy mode is not supporte by this module")
 
 spooler_functions = {}
+postfork_chain = []
 
 def get_free_signal():
     for signum in xrange(0, 256):
@@ -21,8 +22,16 @@ def manage_spool_request(vars):
         return ret
     return spooler_functions[vars['ud_spool_func']].ret
 
-uwsgi.spooler = manage_spool_request
+def postfork_chain_hook():
+    for f in postfork_chain:
+        f()
 
+uwsgi.spooler = manage_spool_request
+uwsgi.post_fork_hook = postfork_chain_hook
+
+class postfork(object):
+    def __init__(self, f):
+        postfork_chain.append(f)
 
 class spool(object):
 
