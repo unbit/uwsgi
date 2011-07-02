@@ -352,11 +352,12 @@ void spooler_manage_task(char *dir, char *task) {
 
 			for(i=0;i<0xff;i++) {
 				if (uwsgi.p[i]->spooler) {
+					time_t now = time(NULL);
 					ret = uwsgi.p[i]->spooler(spool_buf, uh.pktsize);
 					if (ret == 0) continue;
 					if (ret == -2) {
 
-						uwsgi_log("done with task/spool %s\n", task);
+						uwsgi_log("done with task/spool %s after %d seconds\n", task, time(NULL)-now);
 						destroy_spool(dir, task);	
 					}
 					// re-spool it
