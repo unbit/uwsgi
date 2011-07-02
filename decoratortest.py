@@ -80,6 +80,15 @@ def fork_happened():
 def fork_happened2():
     print("fork() has been called [2] wid: %d" % uwsgi.worker_id())
 
+@postfork
+@lock
+def locked_func():
+    print("starting locked function on worker %d" % uwsgi.worker_id())
+    for i in xrange(1, 100):
+        time.sleep(0.2)
+        print("[locked %d] waiting..." % uwsgi.worker_id())
+    print("done with locked function on worker %d" % uwsgi.worker_id())
+
 a_long_task.spool({'foo':'bar'}, hello='world')
 an_infinite_task.spool(foo='bar')
 a_running_thread()

@@ -149,6 +149,17 @@ class filemon(object):
         uwsgi.add_file_monitor(self.num, self.fsobj)
         return f
 
+class lock(object):
+    def __init__(self, f):
+        self.f = f
+
+    def __call__(self, *args, **kwargs):
+        uwsgi.lock()
+        try:
+            return self.f(*args, **kwargs)
+        finally:
+            uwsgi.unlock()
+
 class thread(object):
 
     def __init__(self, f):

@@ -895,20 +895,25 @@ PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 
-	// the spooler, the master process or single process environment cannot lock resources
+	// the spooler cannot lock resources
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid && uwsgi.mypid != uwsgi.shared->spooler_pid) {
-#else
-	if (uwsgi.numproc > 1 && uwsgi.mypid != uwsgi.workers[0].pid) {
-#endif
-		uwsgi_lock(uwsgi.user_lock);
+	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+		return PyErr_Format(PyExc_ValueError, "The spooler cannot lock/unlock resources");
 	}
+#endif
+	uwsgi_lock(uwsgi.user_lock);
 
 	Py_INCREF(Py_None);
 	return Py_None;
 }
 
 PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
+
+#ifdef UWSGI_SPOOLER
+	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+		return PyErr_Format(PyExc_ValueError, "The spooler cannot lock/unlock resources");
+	}
+#endif
 
 	uwsgi_unlock(uwsgi.user_lock);
 
