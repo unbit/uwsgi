@@ -972,13 +972,26 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 	int rlen = 0;
 
 	struct timeval tv;
+	char sftime[64];
+        time_t now;
 
-	gettimeofday(&tv, NULL);
+		if (uwsgi.log_strftime) {
+                        now = time(NULL);
+                        rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
+                        memcpy(logpkt, sftime, rlen);
+                        memcpy(logpkt + rlen, " - ", 3);
+                        rlen += 3;
+                }
+                else {
+                        gettimeofday(&tv, NULL);
 
-	memcpy(logpkt, ctime((const time_t *) &tv.tv_sec), 24);
-	memcpy(logpkt + 24, " - ", 3);
+                        memcpy(logpkt, ctime((const time_t *) &tv.tv_sec), 24);
+                        memcpy(logpkt + 24, " - ", 3);
 
-	rlen = 24 + 3;
+                        rlen = 24 + 3;
+                }
+	
+
 
 	va_start(ap, fmt);
 	rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
