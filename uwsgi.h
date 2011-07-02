@@ -1504,7 +1504,7 @@ void snmp_init(void);
 #endif
 
 #ifdef UWSGI_SPOOLER
-int spool_request(char *, int, int, char *, int, char *);
+int spool_request(char *, int, int, char *, int, char *, time_t);
 void spooler(void);
 pid_t spooler_start(void);
 #endif

@@ -1162,6 +1162,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	char *priority = NULL;
 	long numprio = 0;
+	time_t at = 0;
 
 	spool_dict = PyTuple_GetItem(args, 0);
 
@@ -1187,6 +1188,22 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		if (PyInt_Check(pyprio)) {
 			numprio = PyInt_AsLong(pyprio);
 			PyDict_DelItemString(spool_dict, "priority");
+		}
+	}
+
+	PyObject *pyat = PyDict_GetItemString(spool_dict, "at");
+	if (pyat) {
+		if (PyInt_Check(pyat)) {
+			at = (time_t) PyInt_AsLong(pyat);
+			PyDict_DelItemString(spool_dict, "at");
+		}
+		else if (PyLong_Check(pyat)) {
+			at = (time_t) PyLong_AsLong(pyat);
+			PyDict_DelItemString(spool_dict, "at");
+		}
+		else if (PyFloat_Check(pyat)) {
+			at = (time_t) PyFloat_AsDouble(pyat);
+			PyDict_DelItemString(spool_dict, "at");
 		}
 	}
 
@@ -1258,7 +1275,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	if (numprio) {
 		priority = uwsgi_num2str(numprio);
 	} 
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority);
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at);
 	if (priority) {
 		free(priority);
 	}

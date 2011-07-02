@@ -61,7 +61,7 @@ void destroy_spool(char *dir, char *file) {
 }
 
 
-int spool_request(char *filename, int rn, int core_id, char *buffer, int size, char *priority) {
+int spool_request(char *filename, int rn, int core_id, char *buffer, int size, char *priority, time_t at) {
 
 	struct timeval tv;
 	int fd;
@@ -123,6 +123,17 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size, c
 
 	if (write(fd, buffer, size) != size) {
 		goto clear;
+	}
+
+	if (at > 0) {
+		struct timeval tv[2];
+		tv[0].tv_sec = at;
+		tv[0].tv_usec = 0;
+		tv[1].tv_sec = at;
+		tv[1].tv_usec = 0;
+		if (futimes(fd, tv)) {
+			uwsgi_error("futimes()");
+		}
 	}
 
 	close(fd);
@@ -276,6 +287,11 @@ void spooler_manage_task(char *dir, char *task) {
 			return;
 		}
 
+		// a spool request for the future
+		if (sf_lstat.st_mtime > time(NULL)) {
+			return;
+		}
+
 #ifdef __linux__
 		if (S_ISDIR(sf_lstat.st_mode) && uwsgi.spooler_ordered) {
 			if (chdir(task)) {
@@ -365,7 +381,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 	}
 
 	uwsgi_log("managing spool request...\n");
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL);
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL, 0);
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
 	if (i > 0) {

@@ -2037,6 +2037,14 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
+	// master fixup
+        for (i = 0; i < 0xFF; i++) {
+                if (uwsgi.p[i]->master_fixup) {
+                        uwsgi.p[i]->master_fixup(0);
+                }
+        }
+
+
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.sockets) {
@@ -2048,13 +2056,7 @@ int uwsgi_start(void *v_argv) {
 	routing_setup();
 #endif
 
-	// master fixup
 
-        for (i = 0; i < 0xFF; i++) {
-                if (uwsgi.p[i]->master_fixup) {
-                        uwsgi.p[i]->master_fixup(0);
-                }
-        }
 
 
 	if (!uwsgi.master_process) {

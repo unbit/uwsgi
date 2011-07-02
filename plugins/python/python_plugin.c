@@ -1026,6 +1026,9 @@ void uwsgi_python_add_item(char *key, uint16_t keylen, char *val, uint16_t valle
 int uwsgi_python_spooler(char *buf, uint16_t len) {
 
 	static int random_seed_reset = 0;
+
+	UWSGI_GET_GIL;
+
 	PyObject *spool_dict = PyDict_New();
 	PyObject *spool_func, *pyargs, *ret;
 
@@ -1036,17 +1039,20 @@ int uwsgi_python_spooler(char *buf, uint16_t len) {
 
 	if (!up.embedded_dict) {
 		// ignore
+		UWSGI_RELEASE_GIL;
 		return 0;
 	}
 
 	spool_func = PyDict_GetItemString(up.embedded_dict, "spooler");
 	if (!spool_func) {
 		// ignore
+		UWSGI_RELEASE_GIL;
 		return 0;
 	}
 
 	if (uwsgi_hooked_parse(buf, len, uwsgi_python_add_item, spool_dict)) {
 		// malformed packet, destroy it
+		UWSGI_RELEASE_GIL;
 		return -2;
 	}
 
@@ -1057,16 +1063,21 @@ int uwsgi_python_spooler(char *buf, uint16_t len) {
 	if (ret) {
 		if (!PyInt_Check(ret)) {
 			// error, retry
+			UWSGI_RELEASE_GIL;
 			return -1;
 		}	
 
-		return PyInt_AsLong(ret);
+		int retval = (int) PyInt_AsLong(ret);
+		UWSGI_RELEASE_GIL;
+		return retval;
+		
 	}
 	
 	if (PyErr_Occurred())
 		PyErr_Print();
 
 	// error, retry
+	UWSGI_RELEASE_GIL;
 	return -1;
 }
 

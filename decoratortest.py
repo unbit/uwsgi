@@ -48,6 +48,12 @@ def an_infinite_task(args):
         print("infinite: %d %s" % (i, str(args)))
         time.sleep(1)
 
+
+# spool a task after 60 seconds
+@spool
+def delayed_task(args):
+    print("*** I am a delayed spool job. It is %s [%s]***" % (time.asctime(), str(args)))
+
 # run a task every hour
 @cron(59, -1, -1, -1, -1)
 def one_hour_passed(num):
@@ -90,6 +96,7 @@ def locked_func():
     print("done with locked function on worker %d" % uwsgi.worker_id())
 
 a_long_task.spool({'foo':'bar'}, hello='world')
-an_infinite_task.spool(foo='bar')
+an_infinite_task.spool(foo='bar', priority=3)
+delayed_task.spool(foo2='bar2', at=time.time()+60)
 a_running_thread()
 a_running_thread_with_args("uWSGI")
