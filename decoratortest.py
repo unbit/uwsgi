@@ -53,6 +53,24 @@ def an_infinite_task(args):
 def one_hour_passed(num):
     print("received signal %d after 1 hour" % num)
 
+@thread
+def a_running_thread():
+    while True:
+        time.sleep(2)
+        print("i am a no-args thread")
+
+@thread
+def a_running_thread_with_args(who):
+    while True:
+        time.sleep(2)
+        print("Hello %s (from arged-thread)" % who)
+
+@postfork
+@thread
+def a_post_fork_thread():
+    while True:
+        time.sleep(3)
+        print("Hello from a thread in worker %d" % uwsgi.worker_id())
 
 @postfork
 def fork_happened():
@@ -64,3 +82,5 @@ def fork_happened2():
 
 a_long_task.spool({'foo':'bar'}, hello='world')
 an_infinite_task.spool(foo='bar')
+a_running_thread()
+a_running_thread_with_args("uWSGI")

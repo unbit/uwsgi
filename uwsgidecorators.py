@@ -1,4 +1,5 @@
 import uwsgi
+from threading import Thread
 
 if uwsgi.masterpid() == 0:
     raise Exception("you have to enable the uWSGI master process to use this module")
@@ -147,3 +148,16 @@ class filemon(object):
         uwsgi.register_signal(self.num, self.target, f)
         uwsgi.add_file_monitor(self.num, self.fsobj)
         return f
+
+class thread(object):
+
+    def __init__(self, f):
+        self.f = f
+
+    def __call__(self, *args):
+        t = Thread(target=self.f, args=args)
+        t.daemon = True
+        t.start()
+        return self.f
+
+    

@@ -500,6 +500,11 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	if (PyDict_SetItemString(up.embedded_dict, "has_threads", PyInt_FromLong(uwsgi.has_threads))) {
+		PyErr_Print();
+		exit(1);
+	}
+
 	if (PyDict_SetItemString(up.embedded_dict, "cores", PyInt_FromLong(uwsgi.cores))) {
 		PyErr_Print();
 		exit(1);
@@ -510,39 +515,6 @@ void init_uwsgi_embedded_module() {
 			PyErr_Print();
 			exit(1);
 		}
-	}
-
-	if (PyDict_SetItemString(up.embedded_dict, "KIND_NULL", PyInt_FromLong(KIND_NULL))) {
-		PyErr_Print();
-		exit(1);
-	}
-	if (PyDict_SetItemString(up.embedded_dict, "KIND_WORKER", PyInt_FromLong(KIND_WORKER))) {
-		PyErr_Print();
-		exit(1);
-	}
-	if (PyDict_SetItemString(up.embedded_dict, "KIND_EVENT", PyInt_FromLong(KIND_EVENT))) {
-		PyErr_Print();
-		exit(1);
-	}
-	if (PyDict_SetItemString(up.embedded_dict, "KIND_SPOOLER", PyInt_FromLong(KIND_SPOOLER))) {
-		PyErr_Print();
-		exit(1);
-	}
-
-/*
-	if (PyDict_SetItemString(up.embedded_dict, "KIND_ERLANG", PyInt_FromLong(KIND_ERLANG))) {
-		PyErr_Print();
-		exit(1);
-	}
-*/
-
-	if (PyDict_SetItemString(up.embedded_dict, "KIND_PROXY", PyInt_FromLong(KIND_PROXY))) {
-		PyErr_Print();
-		exit(1);
-	}
-	if (PyDict_SetItemString(up.embedded_dict, "KIND_MASTER", PyInt_FromLong(KIND_MASTER))) {
-		PyErr_Print();
-		exit(1);
 	}
 
 	PyObject *py_opt_dict = PyDict_New();

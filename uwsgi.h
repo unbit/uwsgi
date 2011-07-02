@@ -1275,13 +1275,6 @@ struct uwsgi_lb_group {
 };
 
 
-#define KIND_NULL 0
-#define KIND_WORKER 1
-#define KIND_EVENT 2
-#define KIND_SPOOLER 3
-#define KIND_PROXY 5
-#define KIND_MASTER 6
-
 struct uwsgi_signal_entry {
 	uint8_t modifier1;
 	char receiver[64];
