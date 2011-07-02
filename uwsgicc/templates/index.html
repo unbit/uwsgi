@@ -208,6 +208,10 @@ $(document).ready(function() {
 <b>spooler pid:</b> {{uwsgi.spooler_pid()}}<br/>
 {% endif %}
 
+{% if uwsgi.has_threads == 1 %}
+<b>--- threads enabled ---</b><br/>
+{% endif %}
+
     <div class="anchor">
     <a href="#top">back to top</a>
     </div>
