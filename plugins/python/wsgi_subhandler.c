@@ -96,6 +96,10 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		Py_DECREF(zero);
 	}
 
+	zero = PyString_FromString(uwsgi.hostname);
+	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", zero);
+	Py_DECREF(zero);
+
 
 #ifdef UWSGI_ROUTING
 	uwsgi_log("routing %d routes %d\n", uwsgi.routing, uwsgi.nroutes);
