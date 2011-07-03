@@ -2311,10 +2311,9 @@ void uwsgi_sig_pause() {
 	sigsuspend(&mask);
 }
 
-int uwsgi_run_command_and_wait(char *command, ...) {
+int uwsgi_run_command_and_wait(char *command, char *arg) {
 
-	va_list ap;
-
+	char *argv[3];
 	int waitpid_status = 0;
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -2330,11 +2329,13 @@ int uwsgi_run_command_and_wait(char *command, ...) {
 		return WEXITSTATUS(waitpid_status);
 	}
 
-	va_start(ap, command);
-	execlp(command, command, ap, (char *) NULL);
-	va_end(ap);
+	argv[0] = command;
+	argv[1] = arg;
+	argv[2] = NULL;
 
-	uwsgi_error("execlp()");
+	execvp(command, argv);
+
+	uwsgi_error("execvp()");
 	//never here
 	exit(1);
 }

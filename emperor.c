@@ -6,6 +6,7 @@ extern struct uwsgi_server uwsgi;
 extern char **environ;
 
 int emperor_queue;
+char *emperor_absolute_dir;
 
 static void royal_death(int signum) {
 	uwsgi_notify("The Emperor is buried.");
@@ -331,6 +332,9 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 
 		if (uwsgi.vassals_start_hook) {
 			uwsgi_log("running vassal start-hook: %s %s\n", uwsgi.vassals_start_hook, n_ui->name);
+			if (setenv("UWSGI_VASSALS_DIR", emperor_absolute_dir, 1)) {
+				uwsgi_error("setenv()");
+			}
 			int start_hook_ret = uwsgi_run_command_and_wait(uwsgi.vassals_start_hook, n_ui->name);
 			uwsgi_log("%s start-hook returned %d\n", n_ui->name, start_hook_ret);
 		}
@@ -434,6 +438,7 @@ reconnect:
 			uwsgi_error("glob()");
 			exit(1);
 		}
+		emperor_absolute_dir = realpath(".", NULL);
 	}
 
 	ui = &ui_base;

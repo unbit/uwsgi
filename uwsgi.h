@@ -2048,7 +2048,7 @@ void uwsgi_set_cgroup(void);
 void uwsgi_add_sockets_to_queue(int);
 void uwsgi_del_sockets_from_queue(int);
 
-int uwsgi_run_command_and_wait(char *, ...);
+int uwsgi_run_command_and_wait(char *, char *);
 
 void uwsgi_manage_signal_cron(time_t);
 int uwsgi_run_command(char *);
