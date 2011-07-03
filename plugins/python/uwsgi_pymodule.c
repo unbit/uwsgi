@@ -10,8 +10,44 @@ extern struct uwsgi_python up;
 PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
+	int wait_for_specific_signal = 0;
+	uint8_t uwsgi_signal = 0;
+	uint8_t received_signal;
+	int ret;
 
-        wsgi_req->sigwait = 1;
+	wsgi_req->signal_received = -1;
+
+	if (PyTuple_Size(args) > 0) {
+		if (!PyArg_ParseTuple(args, "|B:", &uwsgi_signal)) {
+                	return NULL;
+        	}
+		wait_for_specific_signal = 1;	
+	}
+
+#ifdef UWSGI_ASYNC
+	if (uwsgi.async > 1) {
+        	wsgi_req->sigwait = 1;
+	}
+	else {
+#endif
+cycle:
+		ret = uwsgi_waitfd(uwsgi.signal_socket, -1);
+		if (ret > 0) {
+			if (read(uwsgi.signal_socket, &received_signal, 1) != 1) {
+				uwsgi_error("read()");
+			}	
+			else {
+				wsgi_req->signal_received = received_signal;			
+				if (wait_for_specific_signal) {
+					if (received_signal != uwsgi_signal) goto cycle;
+				}
+			}
+		}
+
+#ifdef UWSGI_ASYNC
+	}
+#endif
+
 
         return PyString_FromString("");
 }

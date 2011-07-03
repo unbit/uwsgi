@@ -84,6 +84,9 @@ def fork_happened():
 
 @postfork
 def fork_happened2():
+    print("waiting for a signal...")
+    uwsgi.signal_wait()
+    print("signal received: %d" % uwsgi.signal_received())
     print("fork() has been called [2] wid: %d" % uwsgi.worker_id())
 
 @postfork

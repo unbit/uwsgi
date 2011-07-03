@@ -811,7 +811,7 @@ struct wsgi_request {
 	int log_this;
 
 	int sigwait;
-	uint8_t signal_received;
+	int signal_received;
 
 	struct msghdr msg;
 	union {

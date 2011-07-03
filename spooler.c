@@ -32,6 +32,7 @@ pid_t spooler_start() {
 		if (uwsgi.master_process) {
 			close(uwsgi.shared->spooler_signal_pipe[0]);
 		}
+		uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
 		spooler();
 	}
 	else if (pid > 0) {
