@@ -8,39 +8,53 @@ extern char **environ;
 int emperor_queue;
 char *emperor_absolute_dir;
 
+struct uwsgi_instance {
+        struct uwsgi_instance *ui_prev;
+        struct uwsgi_instance *ui_next;
+
+        char name[0xff];
+        pid_t pid;
+
+        int status;
+        time_t born;
+        time_t last_mod;
+        time_t last_loyal;
+
+        uint64_t respawns;
+        int use_config;
+
+        int pipe[2];
+        int pipe_config[2];
+
+        char *config;
+        uint32_t config_len;
+
+        int loyal;
+
+        int zerg;
+};
+
+
+struct uwsgi_instance *ui;
+
 static void royal_death(int signum) {
+
+
+	if (uwsgi.vassals_stop_hook) {
+
+		struct uwsgi_instance *c_ui = ui->ui_next;
+
+		while (c_ui) {
+                        uwsgi_log("running vassal stop-hook: %s %s\n", uwsgi.vassals_stop_hook, c_ui->name);
+                        int stop_hook_ret = uwsgi_run_command_and_wait(uwsgi.vassals_stop_hook, c_ui->name);
+                        uwsgi_log("%s stop-hook returned %d\n", c_ui->name, stop_hook_ret);
+			c_ui = c_ui->ui_next;
+		}
+        }
 	uwsgi_notify("The Emperor is buried.");
 	exit(0);
 }
 
-
-struct uwsgi_instance {
-	struct uwsgi_instance *ui_prev;
-	struct uwsgi_instance *ui_next;
-
-	char name[0xff];
-	pid_t pid;
-
-	int status;
-	time_t born;
-	time_t last_mod;
-	time_t last_loyal;
-
-	uint64_t respawns;
-	int use_config;
-
-	int pipe[2];
-	int pipe_config[2];
-
-	char *config;
-	uint32_t config_len;
-
-	int loyal;
-
-	int zerg;
-};
-
-struct uwsgi_instance *ui;
 
 void emperor_stats() {
 
