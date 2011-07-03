@@ -172,6 +172,17 @@ void uwsgi_route_signal(uint8_t sig) {
 			}
 		}
 	}
+	// route to specific worker
+	else if (!strncmp(use->receiver, "worker", 6)) {
+		i = atoi(use->receiver+6);
+		if (i > uwsgi.numproc) {
+			uwsgi_log("invalid signal target: %s\n", use->receiver);
+		}
+		if (write(uwsgi.workers[i].signal_pipe[0], &sig, 1) != 1) {
+                        uwsgi_error("write()");
+                	uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
+                }
+	}
 	// route to subscribed
 	else if (!strcmp(use->receiver, "subscribed")) {
 	}
@@ -186,11 +197,6 @@ void uwsgi_route_signal(uint8_t sig) {
 	}
 	else {
 		// unregistered signal, sending it to all the workers
-		uwsgi_log("^^^ ROUTING UNREGISTERED SIGNAL ^^^\n");
-		if (write(ushared->worker_signal_pipe[0], &sig, 1) != 1) {
-                        uwsgi_error("write()");
-                        uwsgi_log("could not deliver signal %d to workers pool\n", sig);
-                }
-
+		uwsgi_log("^^^ UNSUPPORTED SIGNAL TARGET: %s ^^^\n", use->receiver);
 	}
 }

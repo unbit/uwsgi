@@ -43,6 +43,9 @@ cycle:
 					uwsgi_error("read()");
 				}		
 				else {
+					if (uwsgi_signal_handler(received_signal)) {
+                                		uwsgi_log_verbose("error managing signal %d on worker %d\n", received_signal, uwsgi.mywid);
+                        		}
 					wsgi_req->signal_received = received_signal;			
 					if (wait_for_specific_signal) {
 						if (received_signal != uwsgi_signal) goto cycle;
@@ -54,6 +57,9 @@ cycle:
                                         uwsgi_error("read()");
                                 }
                                 else {
+					if (uwsgi_signal_handler(received_signal)) {
+                                		uwsgi_log_verbose("error managing signal %d on worker %d\n", received_signal, uwsgi.mywid);
+                        		}
                                         wsgi_req->signal_received = received_signal;
                                         if (wait_for_specific_signal) {
                                                 if (received_signal != uwsgi_signal) goto cycle;
