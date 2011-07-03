@@ -14,6 +14,7 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 	uint8_t uwsgi_signal = 0;
 	uint8_t received_signal;
 	int ret;
+	struct pollfd pfd[2];
 
 	wsgi_req->signal_received = -1;
 
@@ -30,18 +31,35 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 	}
 	else {
 #endif
+		pfd[0].fd = uwsgi.signal_socket;
+		pfd[0].events = POLLIN;
+		pfd[1].fd = uwsgi.my_signal_socket;
+		pfd[1].events = POLLIN;
 cycle:
-		ret = uwsgi_waitfd(uwsgi.signal_socket, -1);
+		ret = poll(pfd, 2, -1);
 		if (ret > 0) {
-			if (read(uwsgi.signal_socket, &received_signal, 1) != 1) {
-				uwsgi_error("read()");
-			}	
-			else {
-				wsgi_req->signal_received = received_signal;			
-				if (wait_for_specific_signal) {
-					if (received_signal != uwsgi_signal) goto cycle;
+			if (pfd[0].revents == POLLIN) {
+				if (read(uwsgi.signal_socket, &received_signal, 1) != 1) {
+					uwsgi_error("read()");
+				}		
+				else {
+					wsgi_req->signal_received = received_signal;			
+					if (wait_for_specific_signal) {
+						if (received_signal != uwsgi_signal) goto cycle;
+					}
 				}
 			}
+			if (pfd[1].revents == POLLIN) {
+                                if (read(uwsgi.my_signal_socket, &received_signal, 1) != 1) {
+                                        uwsgi_error("read()");
+                                }
+                                else {
+                                        wsgi_req->signal_received = received_signal;
+                                        if (wait_for_specific_signal) {
+                                                if (received_signal != uwsgi_signal) goto cycle;
+                                        }
+                                }
+                        }
 		}
 
 #ifdef UWSGI_ASYNC

@@ -1154,6 +1154,7 @@ struct uwsgi_server {
 	char *protocol;
 
 	int signal_socket;
+	int my_signal_socket;
 
 #ifdef UWSGI_ZEROMQ
 	char *zeromq;
@@ -1458,6 +1459,8 @@ struct uwsgi_worker {
 	uint64_t exceptions;
 
 	int destroy;
+
+	int signal_pipe[2];
 
 };
 

@@ -37,12 +37,19 @@ int uwsgi_respawn_worker(int wid) {
 	int respawns = uwsgi.workers[wid].respawn_count;
 	int i;
 
+	if (uwsgi.master_process) {
+		if (uwsgi.workers[wid].signal_pipe[0] != -1) close(uwsgi.workers[wid].signal_pipe[0]);
+
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[wid].signal_pipe)) {
+        		uwsgi_error("socketpair()\n");
+		}
+	}
+
+
 	pid_t pid = fork();
 
 	if (pid == 0) {
 		uwsgi.mywid = wid;
-		// fix the communication pipe
-		close(uwsgi.shared->worker_signal_pipe[0]);
 		uwsgi.mypid = getpid();
 		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
@@ -54,6 +61,10 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 
 		if (uwsgi.master_process) {
+			// fix the communication pipe
+			close(uwsgi.shared->worker_signal_pipe[0]);
+			close(uwsgi.workers[wid].signal_pipe[0]);
+			uwsgi.my_signal_socket = uwsgi.workers[wid].signal_pipe[1];
 			if (uwsgi.shared->spooler_signal_pipe[0] != -1) close (uwsgi.shared->spooler_signal_pipe[0]);
 			if ((uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.cheap)) {
 				for (i = 0; i < 0xFF; i++) {

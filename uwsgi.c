@@ -812,6 +812,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.master_queue = -1;
 
 	uwsgi.signal_socket = -1;
+	uwsgi.my_signal_socket = -1;
 
 	uwsgi.emperor_fd_config = -1;
 	uwsgi.emperor_pid = -1;
@@ -1940,6 +1941,13 @@ int uwsgi_start(void *v_argv) {
 
 	uwsgi.workers[0].pid = masterpid;
 
+	// fix the second signal socket
+	if (uwsgi.master_process) {
+		for(i=1;i<=uwsgi.numproc;i++) {
+			uwsgi.workers[i].signal_pipe[0] = -1;
+		}
+	}
+
 	/*
 
 	   uwsgi.shared->hooks[0] = uwsgi_request_wsgi;
@@ -2187,6 +2195,7 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log("\n");
 #endif
 	}
+
 
 	if (uwsgi.worker_exec) {
 		char *w_argv[2];

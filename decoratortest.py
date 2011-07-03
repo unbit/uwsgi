@@ -17,6 +17,11 @@ def hello_world():
 def what_time_is_it(num):
     print(time.asctime())
 
+# register signal 100
+@signal(100, target='workers')
+def what_time_is_it(num):
+    print("*** I AM THE WORKER %d AT %s ***" % (uwsgi.worker_id(), time.asctime()))
+
 
 # a 3 seconds timer
 @timer(3)
@@ -53,6 +58,8 @@ def an_infinite_task(args):
 @spool
 def delayed_task(args):
     print("*** I am a delayed spool job. It is %s [%s]***" % (time.asctime(), str(args)))
+    # send a signal to all workers
+    uwsgi.signal(100)
 
 # run a task every hour
 @cron(59, -1, -1, -1, -1)

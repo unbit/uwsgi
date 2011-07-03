@@ -1,15 +1,15 @@
 import uwsgi
 from uwsgidecorators import *
 
+@signal(17, target='workers')
+def hello(signum):
+    print("I AM THE WORKER %d" % uwsgi.worker_id())
+
 @postfork
 def wait_for_signal():
-    if uwsgi.worker_id() == 2:
+    if uwsgi.worker_id() != 2:
         print("waiting for a signal...")
         uwsgi.signal_wait()
-        print("signal %d received" % uwsgi.signal_received())
-    elif uwsgi.worker_id() == 3:
-        print("waiting for signal 30...")
-        uwsgi.signal_wait(30)
         print("signal %d received" % uwsgi.signal_received())
 
 

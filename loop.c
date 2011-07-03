@@ -72,6 +72,7 @@ void *simple_loop(void *arg1) {
 
 	if (uwsgi.signal_socket > -1) {
 		event_queue_add_fd_read(main_queue, uwsgi.signal_socket);
+		event_queue_add_fd_read(main_queue, uwsgi.my_signal_socket);
 	}
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
@@ -115,7 +116,7 @@ void *zeromq_loop(void *arg1) {
 
 	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
 	uwsgi.zeromq_recv_flag = 0;
-	zmq_pollitem_t zmq_poll_items[2];
+	zmq_pollitem_t zmq_poll_items[3];
 	char uwsgi_signal;
 
 	if (uwsgi.threads > 1) {
@@ -159,6 +160,10 @@ void *zeromq_loop(void *arg1) {
 		zmq_poll_items[1].socket = NULL;
 		zmq_poll_items[1].fd = uwsgi.signal_socket;
 		zmq_poll_items[1].events = ZMQ_POLLIN;
+
+		zmq_poll_items[2].socket = NULL;
+		zmq_poll_items[2].fd = uwsgi.my_signal_socket;
+		zmq_poll_items[2].events = ZMQ_POLLIN;
 	}
 
 
@@ -171,7 +176,7 @@ void *zeromq_loop(void *arg1) {
 
 
 		if (uwsgi.signal_socket > -1) {
-			if (zmq_poll(zmq_poll_items, 2, -1) < 0) {
+			if (zmq_poll(zmq_poll_items, 3, -1) < 0) {
 				uwsgi_error("zmq_poll()");
 				continue;
 			}
@@ -193,6 +198,26 @@ void *zeromq_loop(void *arg1) {
                 		}
 				continue;
 			}
+
+			if (zmq_poll_items[2].revents & ZMQ_POLLIN) {
+                                if (read(uwsgi.my_signal_socket, &uwsgi_signal, 1) <= 0) {
+                                        if (uwsgi.no_orphans) {
+                                                uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
+                                                end_me(0);
+                                        }
+                                }
+                                else {
+#ifdef UWSGI_DEBUG
+                                        uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
+#endif
+                                        if (uwsgi_signal_handler(uwsgi_signal)) {
+                                                uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
+                                        }
+                                }
+                                continue;
+                        }
+
+			
 
 			if (zmq_poll_items[0].revents & ZMQ_POLLIN) {
 				wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, uwsgi.zmq_socket->fd);

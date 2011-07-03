@@ -778,7 +778,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &ret);
 #endif
 
-	if (uwsgi.signal_socket > -1 && interesting_fd == uwsgi.signal_socket) {
+	if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
 		if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
 			if (uwsgi.no_orphans) {
 				uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
