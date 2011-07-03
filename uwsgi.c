@@ -2724,6 +2724,10 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_CHECK_STATIC:
 		uwsgi.check_static = realpath(optarg, NULL);
+		if (!uwsgi.check_static) {
+			uwsgi_error("check-static realpath()");
+			exit(1);
+		}
 		uwsgi.check_static_len = strlen(uwsgi.check_static);
 		return 1;
 	case LONG_ARGS_FILE_SERVE_MODE:
@@ -2850,6 +2854,10 @@ static int manage_base_opt(int i, char *optarg) {
 		usm->mountpoint_len = docroot - usm->mountpoint;
 
 		usm->document_root = realpath(docroot + 1, NULL);
+		if (!usm->document_root) {
+			uwsgi_error("static-map realpath()");
+			exit(1);
+		}
 		usm->document_root_len = strlen(usm->document_root);
 
 		usm->orig_document_root = usm->document_root;
