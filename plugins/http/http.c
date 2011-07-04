@@ -869,9 +869,7 @@ int http_init() {
 		if (!uhttp.nevents) uhttp.nevents = 64;
 
 		if (!uhttp.base && !uhttp.use_cache && !uhttp.to && !uwsgi.sockets && !uhttp.subscription_server && !uhttp.use_cluster) {
-			char *rand_name = uwsgi_malloc(64);
-			snprintf(rand_name, 64, "%d_%d.sock", (int) time(NULL), (int) getpid());
-			uwsgi.sockets = uwsgi_new_socket(rand_name);
+			uwsgi_new_socket(uwsgi_concat2("127.0.0.1:0", ""));
 		}
 
 		uhttp.server = bind_to_tcp(uhttp.socket_name, uwsgi.listen_queue, strchr(uhttp.socket_name,':'));
