@@ -910,6 +910,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	plugins_requested = getenv("UWSGI_PLUGINS");
 	if (plugins_requested) {
+		plugins_requested = uwsgi_concat2(plugins_requested, "");
 		char *p = strtok(plugins_requested, ",");
 		while (p != NULL) {
 			uwsgi_load_plugin(-1, p, NULL, 0);
@@ -2542,7 +2543,7 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.allowed_modifiers = optarg;
 		return 1;
 	case LONG_ARGS_PLUGINS:
-		p = strtok(optarg, ",");
+		p = strtok(uwsgi_concat2(optarg, ""), ",");
 		while (p != NULL) {
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("loading plugin %s\n", p);
