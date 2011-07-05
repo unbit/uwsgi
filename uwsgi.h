@@ -2,6 +2,10 @@
 
 /* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define UMAX16	65536
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
@@ -1464,6 +1468,7 @@ struct uwsgi_worker {
 
 };
 
+
 char *uwsgi_get_cwd(void);
 
 void warn_pipe(void);
@@ -2063,3 +2068,9 @@ int uwsgi_file_exists(char *);
 int uwsgi_signal_registered(uint8_t);
 
 int uwsgi_endswith(char *, char *);
+
+char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t *);
+
+#ifdef __cplusplus
+}
+#endif

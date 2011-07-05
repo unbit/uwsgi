@@ -1,3 +1,6 @@
 NAME='example'
-CFLAGS = ''
-LDFLAGS = ''
+
+CFLAGS = []
+LDFLAGS = []
+LIBS = []
+GCC_LIST = ['example_plugin']

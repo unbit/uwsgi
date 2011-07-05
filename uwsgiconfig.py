@@ -627,7 +627,10 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         shared_flag = '-dynamiclib -undefined dynamic_lookup'
 
     for cfile in up.GCC_LIST:
-        gcc_list.append(path + '/' + cfile + '.c')
+        if not cfile.endswith('.c') and not cfile.endswith('.cc'):
+            gcc_list.append(path + '/' + cfile + '.c')
+        else:
+            gcc_list.append(path + '/' + cfile)
 
 
     gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), ' '.join(gcc_list), ' '.join(p_libs) )
