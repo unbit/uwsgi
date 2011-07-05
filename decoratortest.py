@@ -64,7 +64,7 @@ def delayed_task(args):
 
 @spool
 def big_body_task(args):
-    print("*** managing a task with a body of %d bytes ***", len(args['body']))
+    print("*** managing a task with a body of %d bytes ***" % len(args['body']))
     print(args['body'].swapcase()) 
 
 # run a task every hour
