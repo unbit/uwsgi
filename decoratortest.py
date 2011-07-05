@@ -61,6 +61,11 @@ def delayed_task(args):
     # send a signal to all workers
     uwsgi.signal(100)
 
+@spool
+def big_body_task(args):
+    print("*** managing a task with a body of %d bytes ***", len(args['body']))
+    print(args['body'].swapcase()) 
+
 # run a task every hour
 @cron(59, -1, -1, -1, -1)
 def one_hour_passed(num):
@@ -110,3 +115,6 @@ an_infinite_task.spool(foo='bar', priority=3)
 delayed_task.spool(foo2='bar2', at=time.time()+60)
 a_running_thread()
 a_running_thread_with_args("uWSGI")
+uwsgi_source_file = open('uwsgi.c','r')
+big_body_task.spool(priority=9,filename='uwsgi.c',body=uwsgi_source_file.read())
+uwsgi_source_file.close()

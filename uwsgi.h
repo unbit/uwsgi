@@ -587,7 +587,7 @@ struct uwsgi_plugin {
 	char *(*decode_string) (void *);
 	int (*signal_handler) (uint8_t, void *);
 
-	int (*spooler) (char *, uint16_t);
+	int (*spooler) (char *, uint16_t, char *, size_t);
 
 	 uint16_t(*rpc) (void *, uint8_t, char **, char *);
 
@@ -1512,7 +1512,7 @@ void snmp_init(void);
 #endif
 
 #ifdef UWSGI_SPOOLER
-int spool_request(char *, int, int, char *, int, char *, time_t);
+int spool_request(char *, int, int, char *, int, char *, time_t, char *, size_t);
 void spooler(void);
 pid_t spooler_start(void);
 #endif

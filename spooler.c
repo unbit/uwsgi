@@ -62,7 +62,7 @@ void destroy_spool(char *dir, char *file) {
 }
 
 
-int spool_request(char *filename, int rn, int core_id, char *buffer, int size, char *priority, time_t at) {
+int spool_request(char *filename, int rn, int core_id, char *buffer, int size, char *priority, time_t at, char *body, size_t body_len) {
 
 	struct timeval tv;
 	int fd;
@@ -126,6 +126,12 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size, c
 		goto clear;
 	}
 
+	if (body && body_len > 0) {
+		if ((size_t)write(fd, body, body_len) != body_len) {
+			goto clear;	
+		}
+	}
+
 	if (at > 0) {
 		struct timeval tv[2];
 		tv[0].tv_sec = at;
@@ -139,7 +145,7 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size, c
 
 	close(fd);
 
-	uwsgi_log("written %d bytes to spool file %s\n", size + 4, filename);
+	uwsgi_log("written %d bytes to spool file %s\n", size + body_len + 4, filename);
 	
 	uwsgi_unlock(uwsgi.spooler_lock);
 
@@ -279,6 +285,8 @@ void spooler_manage_task(char *dir, char *task) {
 
 	char spool_buf[0xffff];
 	struct uwsgi_header uh;
+	char *body = NULL;
+	size_t body_len = 0;
 
 	int spool_fd;
 
@@ -348,13 +356,28 @@ void spooler_manage_task(char *dir, char *task) {
 				return;
 			}			
 					
+			// body available ?
+			if (sf_lstat.st_size > (uh.pktsize+4)) {
+				body_len = sf_lstat.st_size - (uh.pktsize+4);
+				body = uwsgi_malloc(body_len);
+				if ((size_t)read(spool_fd, body, body_len) != body_len) {
+					uwsgi_error("read()");
+					destroy_spool(dir, task);
+					close(spool_fd);
+					free(body);
+					return;
+				}
+			}
 
 			close(spool_fd);
 
 			for(i=0;i<0xff;i++) {
 				if (uwsgi.p[i]->spooler) {
 					time_t now = time(NULL);
-					ret = uwsgi.p[i]->spooler(spool_buf, uh.pktsize);
+					ret = uwsgi.p[i]->spooler(spool_buf, uh.pktsize, body, body_len);
+					if (body) {
+						free(body);
+					}
 					if (ret == 0) continue;
 					if (ret == -2) {
 
@@ -383,7 +406,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 	}
 
 	uwsgi_log("managing spool request...\n");
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL, 0);
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL, 0, NULL, 0);
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
 	if (i > 0) {

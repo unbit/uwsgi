@@ -2,8 +2,6 @@
 
 #include "uwsgi_python.h"
 
-char *spool_buffer = NULL;
-
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
@@ -1223,6 +1221,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	char *priority = NULL;
 	long numprio = 0;
 	time_t at = 0;
+	char *body = NULL;
+	size_t body_len= 0;
 
 	spool_dict = PyTuple_GetItem(args, 0);
 
@@ -1267,11 +1267,22 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		}
 	}
 
+	PyObject *pybody = PyDict_GetItemString(spool_dict, "body");
+	if (pybody) {
+		if (PyString_Check(pybody)) {
+			body = PyString_AsString(pybody);
+			body_len = PyString_Size(pybody);
+			PyDict_DelItemString(spool_dict, "body");
+		}
+	}
+
 	spool_vars = PyDict_Items(spool_dict);
 	if (!spool_vars) {
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
+
+	char *spool_buffer = uwsgi_malloc(UMAX16);
 
 	cur_buf = spool_buffer;
 
@@ -1287,7 +1298,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 
 					keysize = PyString_Size(key);
 					valsize = PyString_Size(val);
-					if (cur_buf + keysize + 2 + valsize + 2 <= spool_buffer + uwsgi.buffer_size) {
+					if (cur_buf + keysize + 2 + valsize + 2 <= spool_buffer + UMAX16) {
 
 #ifdef __BIG_ENDIAN__
 						keysize = uwsgi_swap16(keysize);
@@ -1312,21 +1323,25 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 					}
 					else {
 						Py_DECREF(zero);
-						return PyErr_Format(PyExc_ValueError, "spooler packet cannot be more than %d bytes", uwsgi.buffer_size);
+						free(spool_buffer);	
+						return PyErr_Format(PyExc_ValueError, "spooler packet cannot be more than %d bytes", UMAX16);
 					}
 				}
 				else {
 					Py_DECREF(zero);
+					free(spool_buffer);
 					return PyErr_Format(PyExc_ValueError, "spooler callable dictionary must contains only strings");
 				}
 			}
 			else {
+				free(spool_buffer);
 				Py_DECREF(zero);
 				Py_INCREF(Py_None);
 				return Py_None;
 			}
 		}
 		else {
+			free(spool_buffer);
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
@@ -1335,10 +1350,12 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	if (numprio) {
 		priority = uwsgi_num2str(numprio);
 	} 
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at);
+	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
 	if (priority) {
 		free(priority);
 	}
+		
+	free(spool_buffer);
 
 	Py_DECREF(spool_vars);
 
@@ -2879,13 +2896,6 @@ void init_uwsgi_module_spooler(PyObject * current_uwsgi_module) {
 		uwsgi_log("could not get uwsgi module __dict__\n");
 		exit(1);
 	}
-
-	spool_buffer = malloc(uwsgi.buffer_size);
-	if (!spool_buffer) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
-
 
 	for (uwsgi_function = uwsgi_spooler_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
 		PyObject *func = PyCFunction_New(uwsgi_function, NULL);
