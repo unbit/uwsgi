@@ -46,6 +46,9 @@ static void royal_death(int signum) {
 
 		while (c_ui) {
                         uwsgi_log("running vassal stop-hook: %s %s\n", uwsgi.vassals_stop_hook, c_ui->name);
+			if (setenv("UWSGI_VASSALS_DIR", emperor_absolute_dir, 1)) {
+                                uwsgi_error("setenv()");
+                        }
                         int stop_hook_ret = uwsgi_run_command_and_wait(uwsgi.vassals_stop_hook, c_ui->name);
                         uwsgi_log("%s stop-hook returned %d\n", c_ui->name, stop_hook_ret);
 			c_ui = c_ui->ui_next;
@@ -117,6 +120,9 @@ void emperor_del(struct uwsgi_instance *c_ui) {
 
 	if (uwsgi.vassals_stop_hook) {
                         uwsgi_log("running vassal stop-hook: %s %s\n", uwsgi.vassals_stop_hook, c_ui->name);
+			if (setenv("UWSGI_VASSALS_DIR", emperor_absolute_dir, 1)) {
+                                uwsgi_error("setenv()");
+                        }
                         int stop_hook_ret = uwsgi_run_command_and_wait(uwsgi.vassals_stop_hook, c_ui->name);
                         uwsgi_log("%s stop-hook returned %d\n", c_ui->name, stop_hook_ret);
                 }
