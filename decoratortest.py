@@ -1,3 +1,4 @@
+#!./uwsgi --import decoratortest -s :3035 -M --spooler myspool --enable-threads -p 8 --spooler-ordered
 import uwsgi
 
 from uwsgidecorators import *
