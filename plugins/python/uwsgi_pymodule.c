@@ -1243,36 +1243,36 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		return PyErr_Format(PyExc_ValueError, "The argument of spooler callable must be a dictionary");
 	}
 
-	PyObject *pyprio = PyDict_GetItemString(spool_dict, "priority");
+	PyObject *pyprio = uwsgi_py_dict_get(spool_dict, "priority");
 	if (pyprio) {
 		if (PyInt_Check(pyprio)) {
 			numprio = PyInt_AsLong(pyprio);
-			PyDict_DelItemString(spool_dict, "priority");
+			uwsgi_py_dict_del(spool_dict, "priority");
 		}
 	}
 
-	PyObject *pyat = PyDict_GetItemString(spool_dict, "at");
+	PyObject *pyat = uwsgi_py_dict_get(spool_dict, "at");
 	if (pyat) {
 		if (PyInt_Check(pyat)) {
 			at = (time_t) PyInt_AsLong(pyat);
-			PyDict_DelItemString(spool_dict, "at");
+			uwsgi_py_dict_del(spool_dict, "at");
 		}
 		else if (PyLong_Check(pyat)) {
 			at = (time_t) PyLong_AsLong(pyat);
-			PyDict_DelItemString(spool_dict, "at");
+			uwsgi_py_dict_del(spool_dict, "at");
 		}
 		else if (PyFloat_Check(pyat)) {
 			at = (time_t) PyFloat_AsDouble(pyat);
-			PyDict_DelItemString(spool_dict, "at");
+			uwsgi_py_dict_del(spool_dict, "at");
 		}
 	}
 
-	PyObject *pybody = PyDict_GetItemString(spool_dict, "body");
+	PyObject *pybody = uwsgi_py_dict_get(spool_dict, "body");
 	if (pybody) {
 		if (PyString_Check(pybody)) {
 			body = PyString_AsString(pybody);
 			body_len = PyString_Size(pybody);
-			PyDict_DelItemString(spool_dict, "body");
+			uwsgi_py_dict_del(spool_dict, "body");
 		}
 	}
 
@@ -1292,6 +1292,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 			if (PyTuple_Check(zero)) {
 				key = PyTuple_GetItem(zero, 0);
 				val = PyTuple_GetItem(zero, 1);
+
+				uwsgi_log("ob_type %s %s\n", key->ob_type->tp_name, val->ob_type->tp_name);
 
 				if (PyString_Check(key) && PyString_Check(val)) {
 
