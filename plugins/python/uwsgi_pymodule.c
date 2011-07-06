@@ -1293,7 +1293,9 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 				key = PyTuple_GetItem(zero, 0);
 				val = PyTuple_GetItem(zero, 1);
 
+#ifdef UWSGI_DEBUG
 				uwsgi_log("ob_type %s %s\n", key->ob_type->tp_name, val->ob_type->tp_name);
+#endif
 
 				if (PyString_Check(key) && PyString_Check(val)) {
 
