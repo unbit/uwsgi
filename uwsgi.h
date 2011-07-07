@@ -456,6 +456,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOGTO2		17126
 #define LONG_ARGS_VASSAL_SOS_BACKLOG	17127
 #define LONG_ARGS_EMPEROR_BROODLORD	17128
+#define LONG_ARGS_CACHE_SERVER		17129
+#define LONG_ARGS_CACHE_SERVER_THREADS	17130
 
 
 #define UWSGI_OK	0
@@ -1236,6 +1238,11 @@ struct uwsgi_server {
 	char *cache_store;
 	size_t cache_filesize;
 	int cache_store_sync;
+
+	char *cache_server;
+	int cache_server_threads;
+	int cache_server_fd;
+	pthread_mutex_t cache_server_lock;
 
 	uint64_t queue_size;
 	uint64_t queue_blocksize;
@@ -2072,6 +2079,8 @@ int uwsgi_signal_registered(uint8_t);
 int uwsgi_endswith(char *, char *);
 
 char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t *);
+
+int uwsgi_cache_server(char *, int);
 
 #ifdef __cplusplus
 }

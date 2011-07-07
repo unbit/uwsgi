@@ -582,3 +582,122 @@ end:
         return ret;
 
 }
+
+/* THIS PART IS HEAVILY OPTIMIZED: PERFORMANCE NOT ELEGANCE !!! */
+
+void *cache_thread_loop(void *fd_ptr) {
+
+	int fd = (int) fd_ptr;
+	int i;
+	ssize_t len;
+	char uwsgi_packet[UMAX16+4];
+	struct uwsgi_header *uh = (struct uwsgi_header *) uwsgi_packet;
+	char *val;
+	uint64_t vallen;
+	char *key;
+	uint16_t keylen;
+	struct pollfd ctl_poll;
+	char *watermark;
+	struct sockaddr_un ctl_sun;
+	socklen_t ctl_sun_len;
+
+	ctl_poll.events = POLLIN;
+
+	for(;;) {
+		ctl_sun_len = sizeof(struct sockaddr_un);
+		pthread_mutex_lock(&uwsgi.cache_server_lock);
+
+		ctl_poll.fd = accept(fd, (struct sockaddr *) &ctl_sun, &ctl_sun_len);
+
+		pthread_mutex_unlock(&uwsgi.cache_server_lock);
+
+		if (ctl_poll.fd < 0) {
+			uwsgi_error("cache accept()");
+			continue;
+		}
+		i = 0;
+		while(i < 4) {
+			len = poll(&ctl_poll, 1, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+			if (len <= 0) {
+				uwsgi_error("cache poll()");
+				goto clear;
+			}
+			len = read(ctl_poll.fd, uwsgi_packet+i, 4-i);
+			if (len < 0) {
+				uwsgi_error("cache read()");
+				goto clear;
+			}
+			i+=len;
+		}
+
+		if (uh->pktsize == 0) goto clear;
+
+		while(i < 4+uh->pktsize) {
+			len = poll(&ctl_poll, 1, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+			if (len <= 0) {
+				uwsgi_error("cache poll()");
+				goto clear;
+			}
+			len = read(ctl_poll.fd, uwsgi_packet+i, (4+uh->pktsize)-i);
+			if (len < 0) {
+				uwsgi_error("cache read()");
+				goto clear;
+			}
+			i+=len;
+		}
+
+		watermark = uwsgi_packet+4+uh->pktsize;
+
+		// get first parameter
+		memcpy(&keylen, uwsgi_packet+4, 2);
+#ifdef __BIG_ENDIAN__
+        	keylen = uwsgi_swap16(keylen);
+#endif
+		if (uwsgi_packet+6+keylen > watermark) goto clear;
+		key = uwsgi_packet+6+keylen+2;
+		memcpy(&keylen, key-2, 2);
+#ifdef __BIG_ENDIAN__
+        	keylen = uwsgi_swap16(keylen);
+#endif
+
+		if (key+keylen > watermark) goto clear;
+
+		val = uwsgi_cache_get(key, keylen, &vallen);
+                if (val && vallen > 0) {
+                	if (write(ctl_poll.fd, val, vallen) < 0) {
+				uwsgi_error("cache write()");
+			}
+		}
+
+clear:
+		close(ctl_poll.fd);
+	}
+
+}
+
+int uwsgi_cache_server(char *socket, int threads) {
+
+        int fd;
+	int i;
+	pthread_t thread_id;
+        char *tcp_port = strchr(socket, ':');
+        if (tcp_port) {
+                fd = bind_to_tcp(socket, uwsgi.listen_queue, tcp_port);
+        }
+        else {
+                fd = bind_to_unix(socket, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+        }
+
+        pthread_mutex_init(&uwsgi.cache_server_lock, NULL);
+
+	if (threads < 1) threads = 1;
+
+	uwsgi_log("*** cache-optimized server enabled on fd %d (%d threads) ***\n", fd, threads);
+
+	for(i=0;i<threads;i++) {
+		pthread_create(&thread_id, NULL, cache_thread_loop, (void *) fd);
+	}
+
+        return fd;
+}
+

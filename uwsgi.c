@@ -88,6 +88,8 @@ static struct option long_base_options[] = {
 	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE},
 	{"cache-store", required_argument, 0, LONG_ARGS_CACHE_STORE},
 	{"cache-store-sync", required_argument, 0, LONG_ARGS_CACHE_STORE_SYNC},
+	{"cache-server", required_argument, 0, LONG_ARGS_CACHE_SERVER},
+	{"cache-server-threads", required_argument, 0, LONG_ARGS_CACHE_SERVER_THREADS},
 	{"queue", required_argument, 0, LONG_ARGS_QUEUE},
 	{"queue-blocksize", required_argument, 0, LONG_ARGS_QUEUE_BLOCKSIZE},
 	{"queue-store", required_argument, 0, LONG_ARGS_QUEUE_STORE},
@@ -813,6 +815,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.signal_socket = -1;
 	uwsgi.my_signal_socket = -1;
+	uwsgi.cache_server_fd = -1;
 
 	uwsgi.emperor_fd_config = -1;
 	uwsgi.emperor_pid = -1;
@@ -1631,6 +1634,10 @@ int uwsgi_start(void *v_argv) {
 				uwsgi_log("!!! unable to attach daemon %s !!!\n", uwsgi.startup_daemons[i]);
 			}
 		}
+		// create the cache server
+		if (uwsgi.cache_server) {
+			uwsgi.cache_server_fd = uwsgi_cache_server(uwsgi.cache_server, uwsgi.cache_server_threads);
+		}
 	}
 
 	/* plugin initialization */
@@ -1687,6 +1694,12 @@ int uwsgi_start(void *v_argv) {
 					if (j == uwsgi.emperor_fd)
 						continue;
 				}
+
+				if (uwsgi.cache_server && uwsgi.cache_server_fd != -1) {
+					if (j == uwsgi.cache_server_fd)
+						continue;
+				}
+
 				socket_type_len = sizeof(struct sockaddr_un);
 				gsa.sa = (struct sockaddr *) &usa;
 				if (!getsockname(j, gsa.sa, &socket_type_len)) {
@@ -2964,6 +2977,12 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_CHECK_INTERVAL:
 		uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL] = atoi(optarg);
+		return 1;
+	case LONG_ARGS_CACHE_SERVER:
+		uwsgi.cache_server = optarg;
+		return 1;
+	case LONG_ARGS_CACHE_SERVER_THREADS:
+		uwsgi.cache_server_threads = atoi(optarg);
 		return 1;
 	case LONG_ARGS_CACHE:
 		uwsgi.cache_max_items = atoi(optarg);
