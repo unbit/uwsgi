@@ -688,10 +688,10 @@ if __name__ == "__main__":
             name = None
         build_plugin(sys.argv[2], uc, cflags, ldflags, libs, name)
     elif cmd == '--clean':
-        os.system("rm *.o")
-        os.system("rm proto/*.o")
-        os.system("rm lib/*.o")
-        os.system("rm plugins/*/*.o")
+        os.system("rm -f *.o")
+        os.system("rm -f proto/*.o")
+        os.system("rm -f lib/*.o")
+        os.system("rm -f plugins/*/*.o")
 
     else:
         print("unknown uwsgiconfig command")
