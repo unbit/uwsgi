@@ -587,7 +587,8 @@ end:
 
 void *cache_thread_loop(void *fd_ptr) {
 
-	int fd = (int) fd_ptr;
+	int *fd_tmp = (int *) fd_ptr;
+	int fd = *fd_tmp;
 	int i;
 	ssize_t len;
 	char uwsgi_packet[UMAX16+4];
@@ -677,27 +678,28 @@ clear:
 
 int uwsgi_cache_server(char *socket, int threads) {
 
-        int fd;
+	int *fd = uwsgi_malloc(sizeof(int));
+	
 	int i;
 	pthread_t thread_id;
         char *tcp_port = strchr(socket, ':');
         if (tcp_port) {
-                fd = bind_to_tcp(socket, uwsgi.listen_queue, tcp_port);
+                *fd = bind_to_tcp(socket, uwsgi.listen_queue, tcp_port);
         }
         else {
-                fd = bind_to_unix(socket, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                *fd = bind_to_unix(socket, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
         }
 
         pthread_mutex_init(&uwsgi.cache_server_lock, NULL);
 
 	if (threads < 1) threads = 1;
 
-	uwsgi_log("*** cache-optimized server enabled on fd %d (%d threads) ***\n", fd, threads);
+	uwsgi_log("*** cache-optimized server enabled on fd %d (%d threads) ***\n", *fd, threads);
 
 	for(i=0;i<threads;i++) {
 		pthread_create(&thread_id, NULL, cache_thread_loop, (void *) fd);
 	}
 
-        return fd;
+        return *fd;
 }
 
