@@ -224,12 +224,13 @@ class uConf(object):
             iconfig = ConfigParser.ConfigParser()
             iconfig.read(inherit)
             for opt in iconfig.options('uwsgi'):
-                if not self.get(opt):
+                if not self.config.has_option('uwsgi', opt):
                     self.set(opt, iconfig.get('uwsgi', opt))
-                elif self.get(opt).startswith('+'):
-                    self.set(opt, iconfig.get('uwsgi', opt) + self.get(opt)[1:])
-                elif self.get(opt) == 'null':
-                    self.config.remove_option('uwsgi', opt)
+                elif self.get(opt):
+                    if self.get(opt).startswith('+'):
+                        self.set(opt, iconfig.get('uwsgi', opt) + self.get(opt)[1:])
+                    elif self.get(opt) == 'null':
+                        self.config.remove_option('uwsgi', opt)
 
 
     def set(self, key, value):
