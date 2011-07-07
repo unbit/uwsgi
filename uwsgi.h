@@ -1244,6 +1244,8 @@ struct uwsgi_server {
 	size_t queue_filesize;
 	int queue_store_sync;
 
+	void *thunder_lock;
+
 	void *cache_lock;
 	void *queue_lock;
 	void *user_lock;

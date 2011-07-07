@@ -1556,6 +1556,10 @@ int uwsgi_start(void *v_argv) {
 	}
 
 
+	// event queue lock (avoid same oevent on multiple queues)
+	uwsgi.thunder_lock = uwsgi_mmap_shared_lock();
+	uwsgi_lock_init(uwsgi.thunder_lock);
+
 	// application generic lock
 	uwsgi.user_lock = uwsgi_mmap_shared_lock();
 	uwsgi_lock_init(uwsgi.user_lock);
