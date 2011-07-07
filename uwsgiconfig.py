@@ -502,7 +502,7 @@ class uConf(object):
                     self.gcc_list.append('json')
                     self.libs.append('-ljansson')
                     has_json = True
-            else:
+            elif self.get('json') == 'true':
                 self.cflags.append("-DUWSGI_JSON")
                 self.gcc_list.append('json')
                 self.libs.append('-ljansson')
@@ -514,7 +514,7 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_LDAP")
                     self.gcc_list.append('ldap')
                     self.libs.append('-lldap')
-            else:
+            elif self.get('ldap') == 'true':
                 self.cflags.append("-DUWSGI_LDAP")
                 self.gcc_list.append('ldap')
                 self.libs.append('-lldap')
@@ -525,7 +525,7 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_ZEROMQ")
                     self.gcc_list.append('proto/zeromq')
                     self.libs.append('-lzmq')
-            else:
+            elif self.get('zeromq') == 'true':
                 self.cflags.append("-DUWSGI_ZEROMQ")
                 self.gcc_list.append('proto/zeromq')
                 self.libs.append('-lzmq')
