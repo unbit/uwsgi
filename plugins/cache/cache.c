@@ -9,6 +9,9 @@ void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void 
                 if (!uwsgi_strncmp(key, keylen, "key", 3)) {
                         val = uwsgi_cache_get(val, vallen, &tmp_vallen);
                         if (val && tmp_vallen > 0) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("cache value size: %llu\n", tmp_vallen);
+#endif
                                 wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, val, tmp_vallen);
                         }
 
