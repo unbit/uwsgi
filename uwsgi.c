@@ -931,7 +931,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	magic_table['v'] = uwsgi.cwd;
 	magic_table['h'] = uwsgi.hostname;
 
-
 #ifdef UWSGI_EMBED_CONFIG
 	uwsgi_ini_config("", magic_table);	
 #endif

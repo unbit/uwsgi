@@ -165,6 +165,9 @@ def build_uwsgi(uc):
 
     if uc.get('embed_config'):
         gcc_list.append(uc.get('embed_config'))
+    if uc.get('embed_files'):
+        for ef in uc.get('embed_files').split(','):
+            gcc_list.append(ef)
 
     print("*** uWSGI linking ***")
     ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags),
@@ -445,6 +448,11 @@ class uConf(object):
                 os.system(binary_link_cmd)
                 self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % self.get('embed_config').replace('.','_'))
                 self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % self.get('embed_config').replace('.','_'))
+            if self.get('embed_files'):
+                for ef in self.get('embed_files').split(','):
+                    binary_link_cmd = "ld -r -b binary -o %s.o %s" % (ef, ef)
+                    print(binary_link_cmd)
+                    os.system(binary_link_cmd)
                 
                  
 
