@@ -922,6 +922,20 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 	build_options();
 
+	if (gethostname(uwsgi.hostname, 255)) {
+		uwsgi_error("gethostname()");
+	}
+	uwsgi.hostname_len = strlen(uwsgi.hostname);
+
+
+	magic_table['v'] = uwsgi.cwd;
+	magic_table['h'] = uwsgi.hostname;
+
+
+#ifdef UWSGI_EMBED_CONFIG
+	uwsgi_ini_config("", magic_table);	
+#endif
+
 	uwsgi.option_index = -1;
 	while ((i = getopt_long(argc, argv, short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
 
@@ -1008,15 +1022,6 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 		}
 	}
-
-	if (gethostname(uwsgi.hostname, 255)) {
-		uwsgi_error("gethostname()");
-	}
-	uwsgi.hostname_len = strlen(uwsgi.hostname);
-
-
-	magic_table['v'] = uwsgi.cwd;
-	magic_table['h'] = uwsgi.hostname;
 
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {

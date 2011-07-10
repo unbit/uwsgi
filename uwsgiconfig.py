@@ -163,6 +163,9 @@ def build_uwsgi(uc):
 
     bin_name = uc.get('bin_name')
 
+    if uc.get('embed_config'):
+        gcc_list.append(uc.get('embed_config'))
+
     print("*** uWSGI linking ***")
     ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags),
         ' '.join(map(add_o, gcc_list)), ' '.join(libs))
@@ -432,6 +435,18 @@ class uConf(object):
             if not self.get('append_version').startswith('-'):
                 uwsgi_version += '-'
             uwsgi_version += self.get('append_version')
+
+
+
+        if uwsgi_os == 'Linux':
+            if self.get('embed_config'):
+                binary_link_cmd = "ld -r -b binary -o %s.o %s" % (self.get('embed_config'), self.get('embed_config'))
+                print(binary_link_cmd)
+                os.system(binary_link_cmd)
+                self.cflags.append("-DUWSGI_EMBED_CONFIG=_binary_%s_start" % self.get('embed_config').replace('.','_'))
+                self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % self.get('embed_config').replace('.','_'))
+                
+                 
 
         self.cflags.append('-DUWSGI_VERSION="\\"' + uwsgi_version + '\\""')
 

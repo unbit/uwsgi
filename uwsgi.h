@@ -37,6 +37,10 @@ extern "C" {
 #define UWSGI_DECLARE_EMBEDDED_PLUGINS
 #endif
 
+#ifdef UWSGI_EMBED_CONFIG
+extern char UWSGI_EMBED_CONFIG;
+extern char UWSGI_EMBED_CONFIG_END;
+#endif
 
 #ifdef __clang__
 #define inline

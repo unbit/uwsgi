@@ -1780,6 +1780,17 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			buffer[*size - 1] = 0;
 		}
 	}
+#ifdef UWSGI_EMBED_CONFIG
+	else if (url[0] == 0) {
+		*size = &UWSGI_EMBED_CONFIG_END-&UWSGI_EMBED_CONFIG;
+		if (add_zero) {
+			*size+=1;
+		}
+		buffer = uwsgi_malloc(*size);
+		memset(buffer, 0, *size);
+		memcpy(buffer, &UWSGI_EMBED_CONFIG, &UWSGI_EMBED_CONFIG_END-&UWSGI_EMBED_CONFIG);
+	}
+#endif
 	// fallback to file
 	else {
 		fd = open(url, O_RDONLY);
