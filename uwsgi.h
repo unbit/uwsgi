@@ -1076,6 +1076,9 @@ struct uwsgi_server {
 	/* the list of workers */
 	struct uwsgi_worker *workers;
 
+	/* the dedicated signal_pipe */
+	int **signal_pipe;
+
 	pid_t mypid;
 	int mywid;
 
@@ -1472,8 +1475,6 @@ struct uwsgi_worker {
 	uint64_t exceptions;
 
 	int destroy;
-
-	int signal_pipe[2];
 
 };
 

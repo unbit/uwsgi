@@ -838,7 +838,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
-#ifdef UWSGIS_POOLER
+#ifdef UWSGI_SPOOLER
 	uwsgi.shared->spooler_signal_pipe[0] = -1;
 	uwsgi.shared->spooler_signal_pipe[1] = -1;
 #endif
@@ -1775,6 +1775,7 @@ int uwsgi_start(void *v_argv) {
 						uwsgi_error("dup2()");
 						exit(1);
 					}
+					close(fd);
 				}
 			}
 
@@ -1954,17 +1955,17 @@ int uwsgi_start(void *v_argv) {
 	}
 	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1);
 
+	uwsgi.signal_pipe = uwsgi_malloc( sizeof(int *) * (uwsgi.numproc + 1));
+	for(i=1;i<=uwsgi.numproc;i++) {
+		uwsgi.signal_pipe[i] = uwsgi_malloc(sizeof(int) * 2);
+		uwsgi.signal_pipe[i][0] = - 1;
+		uwsgi.signal_pipe[i][1] = - 1;
+	}
+
 	uwsgi.mypid = getpid();
 	masterpid = uwsgi.mypid;
 
 	uwsgi.workers[0].pid = masterpid;
-
-	// fix the second signal socket
-	if (uwsgi.master_process) {
-		for(i=1;i<=uwsgi.numproc;i++) {
-			uwsgi.workers[i].signal_pipe[0] = -1;
-		}
-	}
 
 	/*
 

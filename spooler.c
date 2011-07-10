@@ -10,6 +10,8 @@ static void spooler_scandir(char *);
 void spooler_manage_task(char *, char *);
 
 pid_t spooler_start() {
+	
+	int i;
 
 	if (uwsgi.master_process) {
 		if (uwsgi.shared->spooler_signal_pipe[0] != -1) close (uwsgi.shared->spooler_signal_pipe[0]);
@@ -31,6 +33,11 @@ pid_t spooler_start() {
 		uwsgi_close_all_sockets();
 		if (uwsgi.master_process) {
 			close(uwsgi.shared->spooler_signal_pipe[0]);
+			for(i=1;i<=uwsgi.numproc;i++) {
+				if (uwsgi.signal_pipe[i][0] != -1) {
+					close(uwsgi.signal_pipe[i][0]);
+				}
+			}
 		}
 		uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
 		spooler();

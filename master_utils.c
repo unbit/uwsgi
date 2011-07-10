@@ -38,9 +38,9 @@ int uwsgi_respawn_worker(int wid) {
 	int i;
 
 	if (uwsgi.master_process) {
-		if (uwsgi.workers[wid].signal_pipe[0] != -1) close(uwsgi.workers[wid].signal_pipe[0]);
+		if (uwsgi.signal_pipe[wid][0] != -1) close(uwsgi.signal_pipe[wid][0]);
 
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[wid].signal_pipe)) {
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.signal_pipe[wid])) {
         		uwsgi_error("socketpair()\n");
 		}
 	}
@@ -60,11 +60,20 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 
+		// close the cache server
+		if (uwsgi.cache_server_fd != -1) {
+			close(uwsgi.cache_server_fd);
+		}
+
 		if (uwsgi.master_process) {
 			// fix the communication pipe
 			close(uwsgi.shared->worker_signal_pipe[0]);
-			close(uwsgi.workers[wid].signal_pipe[0]);
-			uwsgi.my_signal_socket = uwsgi.workers[wid].signal_pipe[1];
+			for(i=1;i<=uwsgi.numproc;i++) {
+				if (uwsgi.signal_pipe[i][0] != -1) {
+					close(uwsgi.signal_pipe[i][0]);
+				}
+			}
+			uwsgi.my_signal_socket = uwsgi.signal_pipe[wid][1];
 #ifdef UWSGI_SPOOLER
         		if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 				if (uwsgi.shared->spooler_signal_pipe[0] != -1) close (uwsgi.shared->spooler_signal_pipe[0]);
@@ -84,6 +93,9 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi_error("fork()");
 	}
 	else {
+		if (uwsgi.master_process) {
+			close(uwsgi.signal_pipe[wid][1]);
+		}
 		if (respawns > 0) {
 			uwsgi_log("Respawned uWSGI worker %d (new pid: %d)\n", wid, (int) pid);
 		}
