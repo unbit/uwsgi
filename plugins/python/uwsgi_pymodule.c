@@ -979,6 +979,35 @@ PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_embedded_data(PyObject * self, PyObject * args) {
+
+	char *name;
+	char *symbol;
+	void *sym_ptr_start = NULL;
+	void *sym_ptr_end = NULL;
+
+	if (!PyArg_ParseTuple(args, "s:embedded_data", &name)) {
+		return NULL;
+	}
+
+	symbol = uwsgi_concat3("_binary_", name, "_start");
+	sym_ptr_start = dlsym(RTLD_DEFAULT, symbol);
+	free(symbol);
+	if (!sym_ptr_start)
+		return PyErr_Format(PyExc_ValueError, "unable to find symbol %s", name);
+
+
+
+	symbol = uwsgi_concat3("_binary_", name, "_end");
+	sym_ptr_end = dlsym(RTLD_DEFAULT, symbol);
+	free(symbol);
+	if (!sym_ptr_end)
+		return PyErr_Format(PyExc_ValueError, "unable to find symbol %s", name);
+
+	return PyString_FromStringAndSize(sym_ptr_start, sym_ptr_end - sym_ptr_start);
+
+}
+
 PyObject *py_uwsgi_sharedarea_inclong(PyObject * self, PyObject * args) {
 	int pos = 0;
 	long value = 0;
@@ -2559,6 +2588,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"fcgi", py_uwsgi_fcgi, METH_VARARGS, ""},
 
 	{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},
+	{"embedded_data", py_uwsgi_embedded_data, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{NULL, NULL},
