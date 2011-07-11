@@ -134,6 +134,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	
 	if (RARRAY_LEN(args) == 0) {
 		chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, wsgi_req->post_cl-wsgi_req->buf_pos);
+		wsgi_req->buf_pos += (wsgi_req->post_cl-wsgi_req->buf_pos);
 		return chunk;
 	}
 	else if (RARRAY_LEN(args) > 0) {
@@ -141,11 +142,12 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		if (wsgi_req->buf_pos+chunk_size > wsgi_req->post_cl) {
 			chunk_size = wsgi_req->post_cl-wsgi_req->buf_pos;
 		}
-		wsgi_req->buf_pos+=chunk_size;
 		if (RARRAY_LEN(args) > 1) {
 			rb_str_cat(RARRAY_PTR(args)[1], wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
+			wsgi_req->buf_pos+=chunk_size;
 			return RARRAY_PTR(args)[1];
 		}
+		wsgi_req->buf_pos+=chunk_size;
 		return rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
 	}
 
