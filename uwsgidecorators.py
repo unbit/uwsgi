@@ -19,9 +19,9 @@ def get_free_signal():
 
 def manage_spool_request(vars):
     ret = spooler_functions[vars['ud_spool_func']](vars)
-    if not spooler_functions[vars['ud_spool_func']].ret:
+    if not vars.has_key('ud_spool_ret'):
         return ret
-    return spooler_functions[vars['ud_spool_func']].ret
+    return int(vars['ud_spool_ret'])
 
 def postfork_chain_hook():
     for f in postfork_chain:
@@ -37,8 +37,8 @@ class postfork(object):
 class spool(object):
 
     def spool(self, *args, **kwargs):
-        self.f.ret = uwsgi.SPOOL_OK
         arguments = self.base_dict
+        arguments['ud_spool_ret'] = str(uwsgi.SPOOL_OK)
         if len(args) > 0:
             arguments.update(args[0])
         if kwargs:
@@ -48,16 +48,16 @@ class spool(object):
     def __init__(self, f):
         if not uwsgi.opt.has_key('spooler'):
             raise Exception("you have to enable the uWSGI spooler to use the @spool decorator")
-        spooler_functions[f.__name__] = f
-        f.spool = self.spool
-	self.base_dict = {'ud_spool_func':f.__name__}
         self.f = f
+        spooler_functions[f.__name__] = self.f
+        self.f.spool = self.spool
+	self.base_dict = {'ud_spool_func':self.f.__name__}
 
 class spoolforever(spool):
 
     def spool(self, *args, **kwargs):
-        self.f.ret = uwsgi.SPOOL_RETRY
         arguments = self.base_dict
+        arguments['ud_spool_ret'] = str(uwsgi.SPOOL_RETRY)
         if len(args) > 0:
             arguments.update(args[0])
         if kwargs:
@@ -67,7 +67,6 @@ class spoolforever(spool):
 class spoolraw(spool):
 
     def spool(self, *args, **kwargs):
-        self.f.ret = None
         arguments = self.base_dict
         if len(args) > 0:
             arguments.update(args[0])
