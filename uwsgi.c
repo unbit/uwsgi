@@ -1731,9 +1731,6 @@ int uwsgi_start(void *v_argv) {
 					uwsgi_sock->family = AF_UNIX;
 					if (uwsgi.chown_socket) {
 						uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
-						if (!uwsgi.master_as_root) {
-							uwsgi_as_root();
-						}
 					}
 					uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 				}
@@ -1750,6 +1747,12 @@ int uwsgi_start(void *v_argv) {
 			}
 			uwsgi_sock->bound = 1;
 			uwsgi_sock = uwsgi_sock->next;
+		}
+
+		if (uwsgi.chown_socket) {
+			if (!uwsgi.master_as_root) {
+				uwsgi_as_root();
+			}
 		}
 
 		int zero_used = 0;
