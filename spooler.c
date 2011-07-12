@@ -145,7 +145,11 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size, c
 		tv[0].tv_usec = 0;
 		tv[1].tv_sec = at;
 		tv[1].tv_usec = 0;
+#ifdef __sun__
+		if (futimesat(fd, NULL, tv)) {
+#else
 		if (futimes(fd, tv)) {
+#endif
 			uwsgi_error("futimes()");
 		}
 	}
