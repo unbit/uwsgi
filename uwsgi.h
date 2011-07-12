@@ -462,6 +462,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_EMPEROR_BROODLORD	17128
 #define LONG_ARGS_CACHE_SERVER		17129
 #define LONG_ARGS_CACHE_SERVER_THREADS	17130
+#define LONG_ARGS_CHOWN_SOCKET		17131
 
 
 #define UWSGI_OK	0
@@ -1092,6 +1093,7 @@ struct uwsgi_server {
 
 	int abstract_socket;
 	int chmod_socket;
+	char *chown_socket;
 	mode_t chmod_socket_value;
 	int listen_queue;
 
@@ -2087,6 +2089,9 @@ char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t *);
 
 int uwsgi_cache_server(char *, int);
 
+void uwsgi_chown(char *, char *);
+
 #ifdef __cplusplus
 }
 #endif
+

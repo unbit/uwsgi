@@ -2510,3 +2510,50 @@ int uwsgi_endswith(char *str1, char *str2) {
 
 	return 1;
 }
+
+void uwsgi_chown(char *filename, char *owner) {
+
+	uid_t new_uid = -1;
+	uid_t new_gid = -1;
+	struct group *new_group = NULL;
+	struct passwd *new_user = NULL;
+
+	char *colon = strchr(owner, ':');
+	if (colon) {
+		colon[0] = 0;
+	}
+
+	
+	if (is_a_number(owner)) {
+		new_uid = atoi(owner);
+	}
+	else {
+		new_user = getpwnam(owner);
+		if (!new_user) {
+			uwsgi_log("unable to find user %s\n", owner);
+			exit(1);
+		}
+		new_uid = new_user->pw_uid;
+	}
+
+	if (colon) {
+		colon[0] = ':';
+		if (is_a_number(colon+1)) {
+			new_gid = atoi(colon+1);
+		}
+		else {
+			new_group = getgrnam(colon+1);
+			if (!new_group) {
+				uwsgi_log("unable to find group %s\n", colon+1);
+				exit(1);
+			}
+			new_gid = new_group->gr_gid;
+		}
+	}
+
+	if (chown(filename, new_uid, new_gid)) {
+		uwsgi_error("chown()");
+		exit(1);
+	}
+
+}

@@ -56,6 +56,7 @@ static struct option long_base_options[] = {
 	{"cgi-mode", no_argument, 0, 'c'},
 	{"abstract-socket", no_argument, 0, 'a'},
 	{"chmod-socket", optional_argument, 0, 'C'},
+	{"chown-socket", required_argument, 0, LONG_ARGS_CHOWN_SOCKET},
 	{"map-socket", required_argument, 0, LONG_ARGS_MAP_SOCKET},
 	{"chmod", optional_argument, 0, 'C'},
 #ifdef UWSGI_THREADING
@@ -1728,6 +1729,9 @@ int uwsgi_start(void *v_argv) {
 				if (tcp_port == NULL) {
 					uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 					uwsgi_sock->family = AF_UNIX;
+					if (uwsgi.chown_socket) {
+						uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
+					}
 					uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 				}
 				else {
@@ -3163,6 +3167,9 @@ static int manage_base_opt(int i, char *optarg) {
 		if (optarg) {
 			uwsgi.log_strftime = optarg;
 		}
+		return 1;
+	case LONG_ARGS_CHOWN_SOCKET:
+		uwsgi.chown_socket = optarg;
 		return 1;
 	case 'C':
 		uwsgi.chmod_socket = 1;
