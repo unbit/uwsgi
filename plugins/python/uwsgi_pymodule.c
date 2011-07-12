@@ -1393,11 +1393,9 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	Py_DECREF(spool_vars);
 
 	if (i > 0) {
-		Py_INCREF(Py_True);
-		return Py_True;
+		return PyString_FromString(spool_filename);
 	}
-	Py_INCREF(Py_None);
-	return Py_None;
+	return PyErr_Format(PyExc_ValueError, "unable to spool job");
 }
 
 PyObject *py_uwsgi_spooler_pid(PyObject * self, PyObject * args) {
