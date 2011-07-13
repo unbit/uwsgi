@@ -385,7 +385,7 @@ void spooler_manage_task(char *dir, char *task) {
 			for(i=0;i<0xff;i++) {
 				if (uwsgi.p[i]->spooler) {
 					time_t now = time(NULL);
-					ret = uwsgi.p[i]->spooler(spool_buf, uh.pktsize, body, body_len);
+					ret = uwsgi.p[i]->spooler(task, spool_buf, uh.pktsize, body, body_len);
 					if (body) {
 						free(body);
 					}

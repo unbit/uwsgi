@@ -1023,7 +1023,7 @@ void uwsgi_python_add_item(char *key, uint16_t keylen, char *val, uint16_t valle
 	PyDict_SetItem(pydict, PyString_FromStringAndSize(key, keylen), PyString_FromStringAndSize(val, vallen));
 }
 
-int uwsgi_python_spooler(char *buf, uint16_t len, char *body, size_t body_len) {
+int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, size_t body_len) {
 
 	static int random_seed_reset = 0;
 
@@ -1057,6 +1057,9 @@ int uwsgi_python_spooler(char *buf, uint16_t len, char *body, size_t body_len) {
 	}
 
 	pyargs = PyTuple_New(1);
+
+	PyDict_SetItemString(spool_dict, "spooler_task_name", PyString_FromString(filename));
+
 	if (body && body_len > 0) {
 		PyDict_SetItemString(spool_dict, "body", PyString_FromStringAndSize(body, body_len));
 	}

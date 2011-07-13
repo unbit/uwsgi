@@ -594,7 +594,7 @@ struct uwsgi_plugin {
 	char *(*decode_string) (void *);
 	int (*signal_handler) (uint8_t, void *);
 
-	int (*spooler) (char *, uint16_t, char *, size_t);
+	int (*spooler) (char *, char *, uint16_t, char *, size_t);
 
 	 uint16_t(*rpc) (void *, uint8_t, char **, char *);
 

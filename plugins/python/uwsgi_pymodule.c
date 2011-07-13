@@ -1393,6 +1393,10 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	Py_DECREF(spool_vars);
 
 	if (i > 0) {
+		char *slash = uwsgi_get_last_char(spool_filename, '/');
+		if (slash) {
+			return PyString_FromString(slash+1);
+		}
 		return PyString_FromString(spool_filename);
 	}
 	return PyErr_Format(PyExc_ValueError, "unable to spool job");
