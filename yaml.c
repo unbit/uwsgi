@@ -82,6 +82,11 @@ char *yaml_get_line(char *yaml, off_t size) {
 		}
 	}
 
+	// check if it is a stupid file without \n at the end
+	if (ptr > yaml) {
+		return ptr;
+	}
+
 	return NULL;
 
 }

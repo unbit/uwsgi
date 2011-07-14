@@ -67,6 +67,11 @@ char *ini_get_line(char *ini, off_t size) {
 		}
 	}
 
+	// check if it is a stupid file without \n at the end
+	if (ptr > ini) {
+		return ptr;
+	}
+
 	return NULL;
 
 }
