@@ -759,6 +759,35 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 
 }
 
+char *uwsgi_pythonize(char *orig) {
+
+	char *name = uwsgi_concat2(orig, "");
+	size_t i;
+	size_t len = 0;
+
+	if (!strncmp(name, "sym://", 6)) {
+		name+=6;
+	}
+	else if (!strncmp(name, "http://", 7)) {
+		name+=7;
+	}
+
+	len = strlen(name);
+	for(i=0;i<len;i++) {
+		if (name[i] == '/') {
+			name[i] = '.';
+		}
+	}
+
+
+	if ((name[len-3] == '.' || name[len-3] == '_') && name[len-2] == 'p' && name[len-1] == 'y') {
+		name[len-3] = 0;
+	}
+
+	return name;
+
+}
+
 void uwsgi_python_init_apps() {
 
 	if (uwsgi.async > 1) {
@@ -795,7 +824,7 @@ void uwsgi_python_init_apps() {
 	struct uwsgi_string_list *upli = up.import_list;
 	while(upli) {
 		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
-			uwsgi_pyimport_by_filename("uwsgi_imported_file", upli->value);
+			uwsgi_pyimport_by_filename(uwsgi_pythonize(upli->value), upli->value);
 		}
 		else {
 			if (PyImport_ImportModule(upli->value) == NULL) {
