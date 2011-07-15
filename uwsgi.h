@@ -19,6 +19,9 @@ extern "C" {
 
 #define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
 
+#define thunder_lock if (uwsgi.threads > 1) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
+#define thunder_unlock if (uwsgi.threads > 1) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
+
 #define ushared uwsgi.shared
 
 #define MAX_APPS 64
@@ -1260,7 +1263,7 @@ struct uwsgi_server {
 	size_t queue_filesize;
 	int queue_store_sync;
 
-	void *thunder_lock;
+	pthread_mutex_t thunder_mutex;
 
 	void *cache_lock;
 	void *queue_lock;

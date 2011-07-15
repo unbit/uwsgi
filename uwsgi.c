@@ -1564,9 +1564,10 @@ int uwsgi_start(void *v_argv) {
 	}
 
 
-	// event queue lock (avoid same oevent on multiple queues)
-	uwsgi.thunder_lock = uwsgi_mmap_shared_lock();
-	uwsgi_lock_init(uwsgi.thunder_lock);
+	// event queue lock (mitigate same event on multiple queues)
+	if (uwsgi.threads > 1) {
+		pthread_mutex_init(&uwsgi.thunder_mutex, NULL);
+	}
 
 	// application generic lock
 	uwsgi.user_lock = uwsgi_mmap_shared_lock();

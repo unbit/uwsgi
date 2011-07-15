@@ -768,10 +768,10 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	char uwsgi_signal;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
-	uwsgi_lock(uwsgi.thunder_lock);
+	thunder_lock;
 	ret = event_queue_wait(queue, uwsgi.edge_triggered - 1, &interesting_fd);
 	if (ret < 0) {
-		uwsgi_unlock(uwsgi.thunder_lock);
+		thunder_unlock;
 		return -1;
 	}
 
@@ -782,7 +782,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
 
-		uwsgi_unlock(uwsgi.thunder_lock);
+		thunder_unlock;
 
 		if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
 			if (uwsgi.no_orphans) {
@@ -813,7 +813,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 		if (interesting_fd == uwsgi_sock->fd || (uwsgi.edge_triggered && uwsgi_sock->edge_trigger)) {
 			wsgi_req->socket = uwsgi_sock;
 			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
-			uwsgi_unlock(uwsgi.thunder_lock);
+			thunder_unlock;
 			if (wsgi_req->poll.fd < 0) {
 #ifdef UWSGI_THREADING
         			if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
@@ -848,7 +848,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
-	uwsgi_unlock(uwsgi.thunder_lock);
+	thunder_unlock;
 #ifdef UWSGI_THREADING
         if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
 #endif
