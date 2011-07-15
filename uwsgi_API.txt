@@ -20,7 +20,7 @@ unlock()
 send()
 cl()
 req_fd()
-signal(num,[payload])
+signal(num)
 sendfile()
 set_warning_message()
 mem()
@@ -50,6 +50,6 @@ sharedarea_writebyte
 sharedarea_readlong
 sharedarea_writelong
 sharedarea_inclong
-register_signal(num, handler)
+register_signal(num, targer, handler)
 register_rpc(name, func[,args])
 rpc(node, name[,args,...])
