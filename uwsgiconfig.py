@@ -25,7 +25,10 @@ GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
     GCC = 'gcc'
 
+binary_list = []
 	
+def binarize(name):
+    return name.replace('/', '_').replace('.','_')
 
 def spcall(cmd):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('/dev/null','w'))
@@ -165,9 +168,8 @@ def build_uwsgi(uc):
 
     if uc.get('embed_config'):
         gcc_list.append(uc.get('embed_config'))
-    if uc.get('embed_files'):
-        for ef in uc.get('embed_files').split(','):
-            gcc_list.append(ef)
+    for ef in binary_list:
+        gcc_list.append("build/%s" % ef)
 
     print("*** uWSGI linking ***")
     ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags),
@@ -450,9 +452,34 @@ class uConf(object):
                 self.cflags.append("-DUWSGI_EMBED_CONFIG_END=_binary_%s_end" % self.get('embed_config').replace('.','_'))
             if self.get('embed_files'):
                 for ef in self.get('embed_files').split(','):
-                    binary_link_cmd = "ld -r -b binary -o %s.o %s" % (ef, ef)
-                    print(binary_link_cmd)
-                    os.system(binary_link_cmd)
+                    ef_parts = ef.split('=')
+                    symbase = None
+                    if len(ef_parts) > 1:
+                        ef = ef_parts[1]
+                        symbase = ef_parts[0]
+                    if os.path.isdir(ef):
+                        for directory, directories, files in os.walk(ef):
+                            for f in files:
+                                fname = "%s/%s" % (directory, f)
+                                binary_link_cmd = "ld -r -b binary -o build/%s.o %s" % (binarize(fname), fname)
+                                print(binary_link_cmd)
+                                os.system(binary_link_cmd)
+                                if symbase:
+                                    for kind in ('start','end'):
+                                        objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=_binary_%s%s_%s build/%s.o" % (binarize(fname), kind, binarize(symbase), binarize(fname[len(ef):]), kind, binarize(fname))
+                                        print(objcopy_cmd)
+                                        os.system(objcopy_cmd)
+                                binary_list.append(binarize(fname))
+                    else:
+                        binary_link_cmd = "ld -r -b binary -o build/%s.o %s" % (binarize(ef), ef)
+                        print(binary_link_cmd)
+                        os.system(binary_link_cmd)
+                        binary_list.append(binarize(ef))
+                        if symbase:
+                            for kind in ('start','end'):
+                                objcopy_cmd = "objcopy --redefine-sym _binary_%s_%s=_binary_%s_%s build/%s.o" % (binarize(ef), kind, binarize(symbase), kind, binarize(ef))
+                                print(objcopy_cmd)
+                                os.system(objcopy_cmd)
                 
                  
 
@@ -715,6 +742,7 @@ if __name__ == "__main__":
         os.system("rm -f proto/*.o")
         os.system("rm -f lib/*.o")
         os.system("rm -f plugins/*/*.o")
+        os.system("rm -f build/*.o")
 
     else:
         print("unknown uwsgiconfig command")
