@@ -21,6 +21,7 @@ struct option uwsgi_python_options[] = {
 	{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"pymodule-alias", required_argument, 0, LONG_ARGS_PYMODULE_ALIAS},
+	{"post-pymodule-alias", required_argument, 0, LONG_ARGS_POST_PYMODULE_ALIAS},
 	{"import", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"pyimport", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"py-import", required_argument, 0, LONG_ARGS_PYIMPORT},
@@ -699,6 +700,9 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 	case LONG_ARGS_PYIMPORT:
 		uwsgi_string_new_list(&up.import_list, optarg);
 		return 1;
+	case LONG_ARGS_POST_PYMODULE_ALIAS:
+		uwsgi_string_new_list(&up.post_pymodule_alias, optarg);
+		return 1;
 	case LONG_ARGS_PYTHONPATH:
 		if (glob(optarg, GLOB_MARK, NULL, &g)) {
 			uwsgi_string_new_list(&up.python_path, optarg);
@@ -790,14 +794,20 @@ char *uwsgi_pythonize(char *orig) {
 
 void uwsgi_python_init_apps() {
 
+
 	if (uwsgi.async > 1) {
 		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
         	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
 	}
 
 	init_pyargv();
+
 #ifdef UWSGI_MINTERPRETERS
         init_uwsgi_embedded_module();
+#endif
+
+#ifdef __linux__
+	uwsgi_init_symbol_import();
 #endif
 
         if (up.test_module != NULL) {
@@ -821,6 +831,7 @@ void uwsgi_python_init_apps() {
         up.loaders[LOADER_CALLABLE] = uwsgi_callable_loader;
         up.loaders[LOADER_STRING_CALLABLE] = uwsgi_string_callable_loader;
 
+
 	struct uwsgi_string_list *upli = up.import_list;
 	while(upli) {
 		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
@@ -833,6 +844,43 @@ void uwsgi_python_init_apps() {
 		}
 		upli = upli->next;
 	}
+
+	struct uwsgi_string_list *uppa = up.post_pymodule_alias;
+	PyObject *modules = PyImport_GetModuleDict();
+	PyObject *tmp_module;
+	while(uppa) {
+                // split key=value
+                char *value = strchr(uppa->value, '=');
+                if (!value) {
+                        uwsgi_log("invalid pymodule-alias syntax\n");
+                        continue;
+                }
+                value[0] = 0;
+                if (!strchr(value + 1, '/')) {
+                        // this is a standard pymodule
+                        tmp_module = PyImport_ImportModule(value + 1);
+                        if (!tmp_module) {
+                                PyErr_Print();
+                                exit(1);
+                        }
+
+                        PyDict_SetItemString(modules, uppa->value, tmp_module);
+                }
+                else {
+                        // this is a filepath that need to be mapped
+                        tmp_module = uwsgi_pyimport_by_filename(uppa->value, value + 1);
+                        if (!tmp_module) {
+                                PyErr_Print();
+                                exit(1);
+                        }
+                }
+                uwsgi_log("mapped virtual pymodule \"%s\" to real pymodule \"%s\"\n", uppa->value, value + 1);
+                // reset original value
+                value[0] = '=';
+
+		uppa = uppa->next;
+        }
+
 
 	if (up.wsgi_config != NULL) {
 		init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread);

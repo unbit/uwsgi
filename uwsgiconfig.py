@@ -28,7 +28,7 @@ if not GCC:
 binary_list = []
 	
 def binarize(name):
-    return name.replace('/', '_').replace('.','_')
+    return name.replace('/', '_').replace('.','_').replace('-','_')
 
 def spcall(cmd):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('/dev/null','w'))
