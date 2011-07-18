@@ -807,7 +807,9 @@ void uwsgi_python_init_apps() {
 #endif
 
 #ifdef __linux__
+#ifndef PYTHREE
 	uwsgi_init_symbol_import();
+#endif
 #endif
 
         if (up.test_module != NULL) {

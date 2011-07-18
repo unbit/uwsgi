@@ -197,19 +197,22 @@ int uwsgi_init_symbol_import() {
 
 
 	if (PyType_Ready(&SymImporter_Type) < 0) {
+		PyErr_Print();
 		uwsgi_log("unable to initialize symbols importer module\n");
 		exit(1);
 	}
 
 	PyObject *uwsgi_em = PyImport_ImportModule("uwsgi");
 	if (!uwsgi_em) {
+		PyErr_Print();
 		uwsgi_log("unable to get uwsgi module\n");
 		exit(1);
 	}
 
 	if (PyModule_AddObject(uwsgi_em, "SymbolsImporter",
                            (PyObject *)&SymImporter_Type) < 0) {
-		uwsgi_log("unable to initialize symbols importer module\n");
+		PyErr_Print();
+		uwsgi_log("unable to initialize symbols importer object\n");
 		exit(1);
 	}
 

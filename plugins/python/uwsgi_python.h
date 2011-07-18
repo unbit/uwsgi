@@ -233,5 +233,7 @@ int uwsgi_python_profiler_call(PyObject *, PyFrameObject *, int, PyObject *);
 void uwsgi_python_reset_random_seed(void);
 
 #ifdef __linux__
+#ifndef PYTHREE
 int uwsgi_init_symbol_import(void);
+#endif
 #endif
