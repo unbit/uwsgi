@@ -1,6 +1,6 @@
 *** july 2011 ***
 
- * 0.9.8.2 [201107xx]
+ * 0.9.8.2 [20110719]
 
 - fixed an ini and yaml parsing bug spotted by Raffaele Colace
 - spooler has been extremely improved
@@ -9,7 +9,7 @@
 - the rack plugin is now stable
 - support for embedding config and generic files in the server binary
 - high-performance cache-server
-- accept() is now locked on all threads/workers
+- accept() is now locked on all threads in the same workers
 - preliminary implementation of hooks in emperor
 - support for C++ in server core
 - tcp port auto-bind
@@ -17,7 +17,7 @@
 - prefork/multithread uwsgi.signal_wait() implementation
 - export uwsgi.node in WSGI vars
 - new option --import (python plugin)
-- support for unlimited number of cgroups
+- support for unlimited number of Linux cgroups
 - broodlord mode
 
 *** june 2011 ***
