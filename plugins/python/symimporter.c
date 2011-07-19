@@ -10,6 +10,7 @@ struct _symimporter {
 
 struct _symzipimporter {
 	PyObject_HEAD;
+	char *prefix;
 	PyObject *zip;
         PyObject *items;
 } uwsgi_symbol_zip_importer_object;
@@ -28,10 +29,25 @@ static char *symbolize(char *name) {
 	return base;
 }
 
-static char *name_to_py(char *name) {
+static char *name_to_py(char *prefix, char *name) {
 
-        char *base = uwsgi_concat2(name, ".py");
-        char *ptr = base;
+	char *base;
+	char *ptr;
+
+	if (prefix) {
+		if (prefix[strlen(prefix)-1] == '/') { 
+        		base = uwsgi_concat3(prefix, name, ".py");
+			ptr = base + strlen(prefix);
+		}
+		else {
+        		base = uwsgi_concat4(prefix, "/", name, ".py");
+			ptr = base + strlen(prefix) + 1;
+		}
+	}
+	else {
+        	base = uwsgi_concat2(name, ".py");
+		ptr = base;
+	}
         while(*ptr != 0) {
                 if (*ptr == '.') {
                         *ptr = '/';
@@ -45,10 +61,26 @@ static char *name_to_py(char *name) {
         return base;
 }
 
-static char *name_to_init_py(char *name) {
+static char *name_to_init_py(char *prefix, char *name) {
 
-        char *base = uwsgi_concat2(name, "/__init__.py");
-        char *ptr = base;
+	char *base;
+	char *ptr;
+
+	if (prefix) {
+		if (prefix[strlen(prefix)-1] == '/') { 
+        		base = uwsgi_concat3(prefix, name, "/__init__.py");
+			ptr = base + strlen(prefix);
+		}
+		else {
+        		base = uwsgi_concat4(prefix, "/", name, "/__init__.py");
+			ptr = base + strlen(prefix) + 1;
+		}
+	}
+	else {
+        	base = uwsgi_concat2(name, "/__init__.py");
+		ptr = base;
+	}
+
         while(*ptr != 0) {
                 if (*ptr == '.') {
                         *ptr = '/';
@@ -59,6 +91,7 @@ static char *name_to_init_py(char *name) {
         // fix .py
         ptr-=3;
         *ptr = '.';
+
         return base;
 }
 
@@ -116,7 +149,7 @@ static PyObject* symzipimporter_find_module(PyObject *self, PyObject *args) {
 		return NULL;
 	}
 
-	char *filename = name_to_py(fullname);
+	char *filename = name_to_py(this->prefix, fullname);
 
 	if (py_list_has_string(this->items, filename)) {
 		free(filename);
@@ -126,7 +159,7 @@ static PyObject* symzipimporter_find_module(PyObject *self, PyObject *args) {
 	PyErr_Clear();
 	free(filename);
 
-	filename = name_to_init_py(fullname);
+	filename = name_to_init_py(this->prefix, fullname);
 
 	if (py_list_has_string(this->items, filename)) {
 		free(filename);
@@ -150,7 +183,7 @@ static PyObject* symzipimporter_load_module(PyObject *self, PyObject *args) {
                 return NULL;
         }
 
-        char *filename = name_to_py(fullname);
+        char *filename = name_to_py(this->prefix, fullname);
 
         if (py_list_has_string(this->items, filename)) {
 		PyObject *mod = PyImport_AddModule(fullname);
@@ -176,7 +209,7 @@ static PyObject* symzipimporter_load_module(PyObject *self, PyObject *args) {
         PyErr_Clear();
         free(filename);
 
-        filename = name_to_init_py(fullname);
+        filename = name_to_init_py(this->prefix, fullname);
 
         if (py_list_has_string(this->items, filename)) {
 		PyObject *mod = PyImport_AddModule(fullname);
@@ -376,9 +409,18 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 {
 
 	char *name;
+	char *prefix = NULL;
 
 	if (!PyArg_ParseTuple(args, "s", &name))
         	return -1; 
+
+	// avoid GC !!!
+	name = uwsgi_concat2(name, "");
+
+	prefix = strchr(name, ':');
+	if (prefix) {
+		prefix[0] = 0;
+	}
 
 	char *code_start = name_to_symbol(name, "start");
 	if (!code_start) {
@@ -455,6 +497,12 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
         }
 
 	Py_INCREF(self->items);
+
+	self->prefix = NULL;
+	if (prefix) {
+		self->prefix = prefix+1;
+		prefix[0] = ':';
+	}
 
 	return 0;
 }
