@@ -8,6 +8,12 @@ struct _symimporter {
 	PyObject_HEAD;
 } uwsgi_symbol_importer_object;
 
+struct _symzipimporter {
+	PyObject_HEAD;
+	PyObject *zip;
+        PyObject *items;
+} uwsgi_symbol_zip_importer_object;
+
 static char *symbolize(char *name) {
 
 	char *base = uwsgi_concat2(name, "");
@@ -21,6 +27,52 @@ static char *symbolize(char *name) {
 
 	return base;
 }
+
+static char *name_to_py(char *name) {
+
+        char *base = uwsgi_concat2(name, ".py");
+        char *ptr = base;
+        while(*ptr != 0) {
+                if (*ptr == '.') {
+                        *ptr = '/';
+                }
+                ptr++;
+        }
+
+	// fix .py
+	ptr-=3;
+	*ptr = '.';
+        return base;
+}
+
+static char *name_to_init_py(char *name) {
+
+        char *base = uwsgi_concat2(name, "/__init__.py");
+        char *ptr = base;
+        while(*ptr != 0) {
+                if (*ptr == '.') {
+                        *ptr = '/';
+                }
+                ptr++;
+        }
+
+        // fix .py
+        ptr-=3;
+        *ptr = '.';
+        return base;
+}
+
+
+
+
+static char *name_to_symbol(char *name, char *what) {
+
+        char *symbol = uwsgi_concat4("_binary_", name, "_", what);
+        char *sym_ptr_start = dlsym(RTLD_DEFAULT, symbol);
+        free(symbol);
+        return sym_ptr_start;
+}
+
 
 static char *name_to_symbol_module(char *name, char *what) {
 
@@ -36,6 +88,127 @@ static char *name_to_symbol_pkg(char *name, char *what) {
         char *sym_ptr_start = dlsym(RTLD_DEFAULT, symbol);
 	free(symbol);
 	return sym_ptr_start;
+}
+
+int py_list_has_string(PyObject *obj, char *name) {
+
+	Py_ssize_t i, len = PyList_Size(obj);
+	int found = 0;
+	for(i=0;i<len;i++) {
+		PyObject *current = PyList_GetItem(obj, i);
+		char *filename = PyString_AsString(current);
+		if (!strcmp(filename, name)) {
+			found = 1;
+			break;
+		}
+	}
+
+	return found;
+}
+
+static PyObject* symzipimporter_find_module(PyObject *self, PyObject *args) {
+
+	char *fullname;
+	PyObject *path = NULL;
+	struct _symzipimporter *this = (struct _symzipimporter *) self;
+
+	if (!PyArg_ParseTuple(args, "s|O:find_module", &fullname, &path)) {
+		return NULL;
+	}
+
+	char *filename = name_to_py(fullname);
+
+	if (py_list_has_string(this->items, filename)) {
+		free(filename);
+		return self;
+	}
+
+	PyErr_Clear();
+	free(filename);
+
+	filename = name_to_init_py(fullname);
+
+	if (py_list_has_string(this->items, filename)) {
+		free(filename);
+		return self;
+	}
+
+	PyErr_Clear();
+	free(filename);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject* symzipimporter_load_module(PyObject *self, PyObject *args) {
+
+	char *fullname;
+	char *modname;
+        struct _symzipimporter *this = (struct _symzipimporter *) self;
+
+        if (!PyArg_ParseTuple(args, "s:load_module", &fullname)) {
+                return NULL;
+        }
+
+        char *filename = name_to_py(fullname);
+
+        if (py_list_has_string(this->items, filename)) {
+		PyObject *mod = PyImport_AddModule(fullname);
+                if (!mod) goto clear;
+                PyObject *dict = PyModule_GetDict(mod);
+                if (!dict) goto clear;
+
+                PyDict_SetItemString(dict, "__loader__", self);
+
+                modname = uwsgi_concat2("symzip://", fullname);
+
+		PyObject *source = PyObject_CallMethod(this->zip, "read", "(s)", filename);
+                free(filename);
+                PyObject *code = Py_CompileString(PyString_AsString(source), modname, Py_file_input);
+                mod = PyImport_ExecCodeModuleEx(fullname, code, modname);
+
+                Py_DECREF(code);
+                Py_DECREF(source);
+                free(modname);
+                return mod;
+        }
+
+        PyErr_Clear();
+        free(filename);
+
+        filename = name_to_init_py(fullname);
+
+        if (py_list_has_string(this->items, filename)) {
+		PyObject *mod = PyImport_AddModule(fullname);
+                if (!mod) goto clear;
+                PyObject *dict = PyModule_GetDict(mod);
+                if (!dict) goto clear;
+
+                modname = uwsgi_concat2("symzip://", fullname);
+
+		PyObject *pkgpath = Py_BuildValue("[O]", PyString_FromString(modname));
+
+                PyDict_SetItemString(dict, "__path__", pkgpath);
+                PyDict_SetItemString(dict, "__loader__", self);
+
+
+                PyObject *source = PyObject_CallMethod(this->zip, "read", "(s)", filename);
+                free(filename);
+                PyObject *code = Py_CompileString(PyString_AsString(source), modname, Py_file_input);
+                mod = PyImport_ExecCodeModuleEx(fullname, code, modname);
+
+                Py_DECREF(code);
+                Py_DECREF(source);
+                free(modname);
+                return mod;
+        }
+
+clear:
+        PyErr_Clear();
+        free(filename);
+
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 static PyObject* symimporter_find_module(PyObject *self, PyObject *args) {
@@ -146,6 +319,11 @@ static PyMethodDef symimporter_methods[] = {
     {"load_module", symimporter_load_module, METH_VARARGS},
 };
 
+static PyMethodDef symzipimporter_methods[] = {
+    {"find_module", symzipimporter_find_module, METH_VARARGS},
+    {"load_module", symzipimporter_load_module, METH_VARARGS},
+};
+
 static void uwsgi_symimporter_free(struct _symimporter *self) {
         PyObject_Del(self);
 }
@@ -193,12 +371,149 @@ static PyTypeObject SymImporter_Type = {
     PyObject_GC_Del,                            /* tp_free */
 };
 
+static int
+symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
+{
+
+	char *name;
+
+	if (!PyArg_ParseTuple(args, "s", &name))
+        	return -1; 
+
+	char *code_start = name_to_symbol(name, "start");
+	if (!code_start) {
+		PyErr_Format(PyExc_ValueError, "unable to find symbol");
+		return -1;
+	}
+
+	char *code_end = name_to_symbol(name, "end");
+	if (!code_end) {
+		PyErr_Format(PyExc_ValueError, "unable to find symbol");
+		return -1;
+	}
+
+	PyObject *stringio = PyImport_ImportModule("StringIO");
+	if (!stringio) {
+		PyErr_Print();
+		return -1;
+	}
+
+	PyObject *stringio_dict = PyModule_GetDict(stringio);
+	if (!stringio_dict) {
+		PyErr_Print();
+		return -1;
+	}
+
+	PyObject *stringio_stringio = PyDict_GetItemString(stringio_dict, "StringIO");
+	if (!stringio_stringio) {
+		PyErr_Print();
+		return -1;
+	}
+
+	PyObject *stringio_args = PyTuple_New(1);
+	PyTuple_SetItem(stringio_args, 0, PyString_FromStringAndSize(code_start, code_end-code_start));
+
+	PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
+	if (!source_code) {
+		PyErr_Print();
+		return -1;
+	}
+
+	PyObject *zipfile = PyImport_ImportModule("zipfile");
+	if (!zipfile) {
+		PyErr_Print();
+		return -1;
+	}
+	
+	PyObject *zipfile_dict = PyModule_GetDict(zipfile);
+        if (!zipfile_dict) {
+                PyErr_Print();
+                return -1;
+        }
+
+        PyObject *zipfile_zipfile = PyDict_GetItemString(zipfile_dict, "ZipFile");
+        if (!zipfile_zipfile) {
+                PyErr_Print();
+                return -1;
+        }
+
+        PyObject *zipfile_args = PyTuple_New(1);
+        PyTuple_SetItem(zipfile_args, 0, source_code);
+
+	self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
+        if (!self->zip) {
+                PyErr_Print();
+                return -1;
+        }
+
+	Py_INCREF(self->zip);
+
+	self->items = PyObject_CallMethod(self->zip, "namelist", NULL);
+        if (!self->items) {
+                PyErr_Print();
+                return -1;
+        }
+
+	Py_INCREF(self->items);
+
+	return 0;
+}
+
+static PyTypeObject SymZipImporter_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "uwsgi.SymbolsZipImporter",
+    sizeof(struct _symzipimporter),
+    0,                                          /* tp_itemsize */
+    (destructor) uwsgi_symimporter_free,            /* tp_dealloc */
+    0,                                          /* tp_print */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_compare */
+    0,                                          /* tp_repr */
+    0,                                          /* tp_as_number */
+    0,                                          /* tp_as_sequence */
+    0,                                          /* tp_as_mapping */
+    0,                                          /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    0,                    /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,
+    "uwsgi symbols zip importer",                                          /* tp_doc */
+    0,                                          /* tp_traverse */
+    0,                                          /* tp_clear */
+    0,                                          /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    symzipimporter_methods,                        /* tp_methods */
+    0,                                          /* tp_members */
+    0,                                          /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+    0,                                          /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    0,                                          /* tp_dictoffset */
+    (initproc) symzipimporter_init,                 /* tp_init */
+    PyType_GenericAlloc,                        /* tp_alloc */
+    PyType_GenericNew,                          /* tp_new */
+    PyObject_GC_Del,                            /* tp_free */
+};
+
+
 int uwsgi_init_symbol_import() {
 
 
 	if (PyType_Ready(&SymImporter_Type) < 0) {
 		PyErr_Print();
 		uwsgi_log("unable to initialize symbols importer module\n");
+		exit(1);
+	}
+
+	if (PyType_Ready(&SymZipImporter_Type) < 0) {
+		PyErr_Print();
+		uwsgi_log("unable to initialize symbols zip importer module\n");
 		exit(1);
 	}
 
@@ -215,6 +530,14 @@ int uwsgi_init_symbol_import() {
 		uwsgi_log("unable to initialize symbols importer object\n");
 		exit(1);
 	}
+
+	if (PyModule_AddObject(uwsgi_em, "SymbolsZipImporter",
+                           (PyObject *)&SymZipImporter_Type) < 0) {
+		PyErr_Print();
+		uwsgi_log("unable to initialize symbols zip importer object\n");
+		exit(1);
+	}
+
 
         return 0;
 	
