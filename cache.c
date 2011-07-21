@@ -674,6 +674,7 @@ clear:
 		close(ctl_poll.fd);
 	}
 
+	return NULL;
 }
 
 int uwsgi_cache_server(char *socket, int threads) {
