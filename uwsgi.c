@@ -1656,6 +1656,29 @@ int uwsgi_start(void *v_argv) {
 
 	if (!uwsgi.no_server) {
 
+		// systemd socket activation
+		if (!uwsgi.is_a_reload) {
+			char *listen_pid = getenv("LISTEN_PID");
+			if (listen_pid) {
+				if (atoi(listen_pid) == (int) getpid()) {
+					char *listen_fds = getenv("LISTEN_FDS");
+					if (listen_fds) {
+						int systemd_fds = atoi(listen_fds);
+						if (systemd_fds > 0) {
+							for(i=3;i<3+systemd_fds;i++) {
+								uwsgi_sock = uwsgi_new_socket(NULL);
+								uwsgi_add_socket_from_fd(uwsgi_sock, i);
+							}
+						}
+						unsetenv("LISTEN_PID");
+						unsetenv("LISTEN_FDS");
+						goto skipzero;
+					}
+				}
+			}
+		}
+
+
 		//check for inherited sockets
 		if (uwsgi.is_a_reload || uwsgi.zerg) {
 
@@ -1795,6 +1818,8 @@ int uwsgi_start(void *v_argv) {
 			}
 
 		}
+
+skipzero:
 	
 		// check for auto_port socket
 		uwsgi_sock = uwsgi.sockets;
