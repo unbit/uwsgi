@@ -758,7 +758,25 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 
 			char *auto_port = uwsgi_num2str(ntohs(sin.sin_port));
 			uwsgi_sock->name = uwsgi_concat3n(name, tcp_port-name, ":", 1, auto_port, strlen(auto_port));
-		}	
+		}
+		// is it fd 0 ?
+		else if (tcp_port[1] == ':') {
+			uwsgi_sock->fd = 0;
+                        uwsgi_sock->family = AF_INET;
+			uwsgi_sock->bound = 1;
+
+			socket_type_len = sizeof(struct sockaddr_in);
+
+			if (getsockname(0, (struct sockaddr *)&sin, &socket_type_len)) {
+				uwsgi_error("getsockname()");
+				exit(1);
+			}
+
+
+			char *auto_port = uwsgi_num2str(ntohs(sin.sin_port));
+			char *auto_ip = inet_ntoa(sin.sin_addr);
+			uwsgi_sock->name = uwsgi_concat3n(auto_ip, strlen(auto_ip), ":", 1, auto_port, strlen(auto_port));
+		}
 	}
 	
 	return uwsgi_sock;

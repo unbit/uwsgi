@@ -1775,7 +1775,7 @@ int uwsgi_start(void *v_argv) {
 					uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 				}
 				else {
-					uwsgi_sock = uwsgi_new_socket(uwsgi_concat2(":0", ""));
+					uwsgi_sock = uwsgi_new_socket(uwsgi_concat2("::",""));
 					uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 				}
 			}

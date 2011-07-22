@@ -1,0 +1,14 @@
+service uwsgi
+{
+        disable         = no
+        id              = uwsgi-000
+        type            = UNLISTED
+        socket_type     = stream
+        server          = /root/uwsgi/uwsgi
+        server_args     = --chdir /root/uwsgi/ --module welcome --logto /tmp/uwsgi.log
+        port            = 3031
+        bind            = 127.0.0.1
+        user            = root
+        wait            = yes
+}
+
