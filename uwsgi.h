@@ -1095,6 +1095,10 @@ struct uwsgi_server {
 	struct timeval start_tv;
 
 	int abstract_socket;
+#ifdef __linux__
+	int freebind;
+#endif
+
 	int chmod_socket;
 	char *chown_socket;
 	mode_t chmod_socket_value;

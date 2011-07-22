@@ -500,6 +500,17 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		uwsgi_nuclear_blast();
 	}
 
+#ifdef __linux__
+#ifdef IP_FREEBIND
+	if (uwsgi.freebind) {
+		if (setsockopt(serverfd, SOL_IP, IP_FREEBIND, (const void *) &uwsgi.freebind, sizeof(int)) < 0) {
+			uwsgi_error("setsockopt()");
+			uwsgi_nuclear_blast();
+		}
+	}
+#endif
+#endif
+
 	if (uwsgi.reuse_port) {
 #ifdef SO_REUSEPORT
 		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, (const void *) &uwsgi.reuse_port, sizeof(int)) < 0) {

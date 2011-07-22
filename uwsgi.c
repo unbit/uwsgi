@@ -57,6 +57,9 @@ static struct option long_base_options[] = {
 	{"abstract-socket", no_argument, 0, 'a'},
 	{"chmod-socket", optional_argument, 0, 'C'},
 	{"chown-socket", required_argument, 0, LONG_ARGS_CHOWN_SOCKET},
+#ifdef __linux__
+	{"freebind", no_argument, &uwsgi.freebind, 1},
+#endif
 	{"map-socket", required_argument, 0, LONG_ARGS_MAP_SOCKET},
 	{"chmod", optional_argument, 0, 'C'},
 #ifdef UWSGI_THREADING
