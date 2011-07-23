@@ -1,5 +1,13 @@
 *** july 2011 ***
 
+ * 0.9.8.3 [20110723]
+
+- implemented uwsgi.SymZipImporter to load embedded zip files
+- OSX Lion is officially supported
+- fixed xinetd support (example file added in contrib)
+- suppot for systemd socket activation
+- added --freebind option (Linux only)
+
  * 0.9.8.2 [20110719]
 
 - fixed an ini and yaml parsing bug spotted by Raffaele Colace

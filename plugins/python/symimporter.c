@@ -1,5 +1,7 @@
 #include "uwsgi_python.h"
 
+#ifndef PYTHREE
+
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
@@ -408,6 +410,7 @@ static int
 symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
 {
 
+
 	char *name;
 	char *prefix = NULL;
 
@@ -504,6 +507,7 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 		prefix[0] = ':';
 	}
 
+
 	return 0;
 }
 
@@ -591,3 +595,4 @@ int uwsgi_init_symbol_import() {
 	
 }
 
+#endif
