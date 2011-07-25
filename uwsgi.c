@@ -1946,6 +1946,7 @@ skipzero:
 		exit(1);
 	}
 	else if (!uwsgi.sockets && uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.master_process) {
+		// here we will have a zombie... sorry
 		exit(0);
 	}
 

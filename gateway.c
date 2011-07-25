@@ -63,7 +63,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 
 		if (!uwsgi.sockets) {
 			// wait for child end
-			waitpid(-1, &i, 0);
+			//waitpid(-1, &i, 0);
 		}
 			loop();
 			// never here !!! (i hope)

@@ -287,6 +287,8 @@ void fastrouter_loop() {
 			}
 		}
 
+		uwsgi_log("uwsgi fastrouter/proxy bound on %s\n", ufr_sock->name);
+
 		event_queue_add_fd_read(fr_queue, ufr_sock->fd);
 		ufr_sock = ufr_sock->next;
 	}
