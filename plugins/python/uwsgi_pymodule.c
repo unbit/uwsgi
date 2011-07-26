@@ -830,7 +830,6 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	size_t chunk;
 	off_t pos = 0;
 	size_t filesize = 0;
-	struct stat stat_buf;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	int fd = -1;
@@ -861,31 +860,30 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 		}
 	}
 
-	if (!filesize) {
-		if (fstat(fd, &stat_buf)) {
-			uwsgi_error("fstat()");
-			goto clear2;
-		}
-		else {
-			filesize = stat_buf.st_size;
-		}
+	int tmp_fd = wsgi_req->sendfile_fd;
+	size_t tmp_filesize = wsgi_req->sendfile_fd_size;
+	size_t tmp_chunk = wsgi_req->sendfile_fd_chunk;
+	off_t tmp_pos = wsgi_req->sendfile_fd_pos;
 
-	}
+	wsgi_req->sendfile_fd = fd;
+	wsgi_req->sendfile_fd_size = filesize;
+	wsgi_req->sendfile_fd_chunk = chunk;
+	wsgi_req->sendfile_fd_pos = pos;
 
-	if (!filesize)
-		goto clear2;
+	// do sendfile
+	wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 
-	if (!chunk)
-		chunk = 4096;
-
-	uwsgi.wsgi_req->response_size += uwsgi_do_sendfile(wsgi_req->poll.fd, fd, filesize, chunk, &pos, 0);
+	// revert to old values
+	wsgi_req->sendfile_fd = tmp_fd;
+	wsgi_req->sendfile_fd_size = tmp_filesize;
+	wsgi_req->sendfile_fd_chunk = tmp_chunk;
+	wsgi_req->sendfile_fd_pos = tmp_pos;
+	
 
 	close(fd);
 	Py_INCREF(Py_True);
 	return Py_True;
 
-      clear2:
-	close(fd);
       clear:
 	Py_INCREF(Py_None);
 	return Py_None;

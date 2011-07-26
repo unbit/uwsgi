@@ -454,7 +454,6 @@ ssize_t uwsgi_proto_zeromq_sendfile(struct wsgi_request * wsgi_req) {
 
 	wsgi_req->sendfile_fd_chunk = 65536;
 
-
 	if (uwsgi.async > 1) {
 		len = read(wsgi_req->sendfile_fd, buf, UMIN(remains, wsgi_req->sendfile_fd_chunk));
 		if (len != (int) UMIN(remains, wsgi_req->sendfile_fd_chunk)) {

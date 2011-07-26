@@ -1,5 +1,9 @@
 import uwsgi
+import os
 
+def xsendfile(e, sr):
+    sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])
+    return ''
 
 def serve_logo(e, sr):
     sr('200 OK', [('Content-Type', 'image/png')])
@@ -16,6 +20,7 @@ def serve_config(e, sr):
         yield "%s = %s<br/>" % (opt, uwsgi.opt[opt])
 
 routes = {}
+routes['/xsendfile'] = xsendfile
 routes['/logo'] = serve_logo
 routes['/config'] = serve_config
 routes['/options'] = serve_options
