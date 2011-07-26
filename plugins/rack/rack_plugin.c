@@ -260,6 +260,7 @@ int uwsgi_rack_init(){
                 http_sc->message_size = (int) strlen(http_sc->message);
         }
 
+	ur.unprotected = 0;
 
 #ifdef RUBY19
 	ruby_sysinit(&argc, &argv);
@@ -625,7 +626,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
 			if (wsgi_req->response_size > 0) {
 				while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
-					uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
+					//uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
 					wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 				}
 			}
@@ -691,6 +692,9 @@ void uwsgi_rack_after_request(struct wsgi_request *wsgi_req) {
 }
 
 int uwsgi_rack_manage_options(int i, char *optarg) {
+
+	// HACK: can be overridden with --post-buffering
+	if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
 
 	switch(i) {
 		case LONG_ARGS_RAILS:
