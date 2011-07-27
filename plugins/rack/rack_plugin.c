@@ -186,6 +186,19 @@ VALUE require_rails(VALUE arg) {
 
 VALUE init_rack_app(VALUE);
 
+VALUE uwsgi_ruby_signal(VALUE *class, VALUE signum) {
+
+        uint8_t uwsgi_signal = NUM2INT(signum);
+	ssize_t rlen; 
+
+	rlen = write(uwsgi.signal_socket, &uwsgi_signal, 1);
+        if (rlen != 1) {
+                uwsgi_error("write()");
+        }
+
+	return Qtrue;
+}
+
 VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -282,6 +295,7 @@ int uwsgi_rack_init(){
 	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "async_connect", uwsgi_ruby_async_connect, 1);
+	rb_define_module_function(rb_uwsgi_embedded, "signal", uwsgi_ruby_signal, 1);
 
 	if (ur.rack) {
 		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
