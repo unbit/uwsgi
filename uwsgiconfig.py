@@ -343,7 +343,9 @@ class uConf(object):
                 k_base = k_all[0]
                 k_major = k_all[1]
                 k_minor = k_all[2]
-                if int(k_minor) >= 25:
+                if int(k_base) > 2:
+                    timer_mode = 'timerfd'
+                elif int(k_minor) >= 25:
                     timer_mode = 'timerfd'
                 else:
                     timer_mode = 'none'

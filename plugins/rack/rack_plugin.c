@@ -186,6 +186,22 @@ VALUE require_rails(VALUE arg) {
 
 VALUE init_rack_app(VALUE);
 
+VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALUE rbhandler) {
+
+        uint8_t uwsgi_signal = NUM2INT(signum);
+        char *signal_kind = RSTRING_PTR(sigkind);
+
+        if (uwsgi_register_signal(uwsgi_signal, signal_kind, (void *) rbhandler, 7)) {
+		rb_raise(rb_eRuntimeError, "unable to register signal %d", uwsgi_signal);
+		return Qnil;
+        }
+
+	rb_gc_register_address(&rbhandler);
+
+	return Qtrue;
+}
+
+
 VALUE uwsgi_ruby_signal(VALUE *class, VALUE signum) {
 
         uint8_t uwsgi_signal = NUM2INT(signum);
@@ -198,6 +214,101 @@ VALUE uwsgi_ruby_signal(VALUE *class, VALUE signum) {
 
 	return Qtrue;
 }
+
+VALUE rack_call_signal_handler(VALUE args) {
+
+	return rb_funcall(rb_ary_entry(args, 0), rb_intern("call"), 1, rb_ary_entry(args, 1));
+}
+
+int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
+
+	int error = 0;
+
+	VALUE rbhandler = (VALUE) handler;
+	VALUE args = rb_ary_new2(2);
+	rb_ary_store(args, 0, rbhandler);
+	VALUE rbsig = INT2NUM(sig);
+	rb_ary_store(args, 1, rbsig);
+	VALUE ret = rb_protect(rack_call_signal_handler, args, &error);
+	if (error) {
+        	uwsgi_ruby_exception();
+		// free resources (useless ?)
+		rb_gc_unregister_address(&args);
+		rb_gc_unregister_address(&ret);
+		rb_gc_unregister_address(&rbsig);
+        	return -1;
+	}
+
+	// free resources (useless ?)
+	rb_gc_unregister_address(&args);
+	rb_gc_unregister_address(&ret);
+	rb_gc_unregister_address(&rbsig);
+
+	return 0;
+}
+
+VALUE rack_uwsgi_add_cron(VALUE *class, VALUE rbsignum, VALUE rbmin, VALUE rbhour, VALUE rbday, VALUE rbmon, VALUE rbweek) {
+
+        uint8_t uwsgi_signal = NUM2INT(rbsignum);
+        int minute = NUM2INT(rbmin);
+	int hour = NUM2INT(rbhour);
+	int day = NUM2INT(rbday);
+	int month = NUM2INT(rbmon);
+	int week = NUM2INT(rbweek);
+
+        if (uwsgi_signal_add_cron(uwsgi_signal, minute, hour, day, month, week)) {
+                rb_raise(rb_eRuntimeError, "unable to add cron");
+		return Qnil;
+        }
+
+        return Qtrue;
+}
+
+
+
+VALUE rack_uwsgi_add_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
+
+        uint8_t uwsgi_signal = NUM2INT(rbsignum);
+	int seconds = NUM2INT(secs);
+
+        if (uwsgi_add_timer(uwsgi_signal, seconds)) {
+                rb_raise(rb_eRuntimeError, "unable to add timer");
+		return Qnil;
+	}
+
+        return Qtrue;
+}
+
+VALUE rack_uwsgi_add_rb_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
+
+
+        uint8_t uwsgi_signal = NUM2INT(rbsignum);
+	int seconds = NUM2INT(secs);
+	
+
+        if (uwsgi_signal_add_rb_timer(uwsgi_signal, seconds, 0)) {
+                rb_raise(rb_eRuntimeError, "unable to add rb_timer");
+		return Qnil;
+	}
+
+        return Qtrue;
+}
+
+
+
+VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbfilename) {
+
+        uint8_t uwsgi_signal = NUM2INT(rbsignum);
+        char *filename = RSTRING_PTR(rbfilename);
+
+        if (uwsgi_add_file_monitor(uwsgi_signal, filename)) {
+                rb_raise(rb_eRuntimeError, "unable to add file monitor");
+		return Qnil;
+	}
+
+	return Qtrue;
+}
+
 
 VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
 
@@ -266,7 +377,6 @@ int uwsgi_rack_init(){
 	char **argv = sargv;
 #endif
 
-	int error;
 
 	// filling http status codes
         for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
@@ -296,6 +406,18 @@ int uwsgi_rack_init(){
 	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "async_connect", uwsgi_ruby_async_connect, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "signal", uwsgi_ruby_signal, 1);
+	rb_define_module_function(rb_uwsgi_embedded, "register_signal", uwsgi_ruby_register_signal, 3);
+	rb_define_module_function(rb_uwsgi_embedded, "add_cron", rack_uwsgi_add_cron, 6);
+	rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
+	rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
+	rb_define_module_function(rb_uwsgi_embedded, "add_file_monitor", rack_uwsgi_add_file_monitor, 2);
+
+	return 0;
+}
+
+void uwsgi_rack_init_apps(void) {
+
+	int error;
 
 	if (ur.rack) {
 		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
@@ -304,9 +426,12 @@ int uwsgi_rack_init(){
                         exit(1);
                 }
 		if (ur.dispatcher == Qnil) {
+			uwsgi_log("unable to find RACK entry point\n");
 			exit(1);
 		}
 		rb_gc_register_address(&ur.dispatcher);
+
+		goto ready;
 	}
 	else if (ur.rails) {
 		if (chdir(ur.rails)) {
@@ -329,10 +454,18 @@ int uwsgi_rack_init(){
 			uwsgi_log("unable to load rails dispatcher\n");
 			exit(1);
 		}
+
+		goto ready;
 	}
 
+	return;
 
+ready:
 	ur.call = rb_intern("call");
+	if (!ur.call) {
+		uwsgi_log("unable to find RACK entry point\n");
+		return;
+	}
 	rb_gc_register_address(&ur.call);
 
 
@@ -346,8 +479,6 @@ int uwsgi_rack_init(){
 	rb_define_method(ur.rb_uwsgi_io_class, "each", rb_uwsgi_io_each, 0);
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
-
-	return 0;
 
 }
 
@@ -707,14 +838,16 @@ void uwsgi_rack_after_request(struct wsgi_request *wsgi_req) {
 
 int uwsgi_rack_manage_options(int i, char *optarg) {
 
-	// HACK: can be overridden with --post-buffering
-	if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
 
 	switch(i) {
 		case LONG_ARGS_RAILS:
+			// HACK: can be overridden with --post-buffering
+			if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
 			ur.rails = optarg;
 			return 1;
 		case LONG_ARGS_RACK:
+			// HACK: can be overridden with --post-buffering
+			if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
 			ur.rack = optarg;
 			return 1;
 		case LONG_ARGS_RUBY_GC_FREQ:
@@ -816,6 +949,9 @@ struct uwsgi_plugin rack_plugin = {
 	.request = uwsgi_rack_request,
 	.after_request = uwsgi_rack_after_request,
 
+	.signal_handler = uwsgi_rack_signal_handler,
+
+	.init_apps = uwsgi_rack_init_apps,
 	//.mount_app = uwsgi_rack_mount_app,
 	.manage_xml = uwsgi_rack_xml,
 
