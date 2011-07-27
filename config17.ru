@@ -15,6 +15,9 @@ UWSGI.add_rb_timer(17 , 2)
 UWSGI.add_timer(17 , 1)
 UWSGI.add_file_monitor(30 , '/tmp')
 
+puts UWSGI.signal_registered(1)
+puts UWSGI.signal_registered(17)
+
 run lambda { |env| 
 	UWSGI.signal(17)
 	[200, {'Content-Type'=>'text/plain'}, StringIO.new("Hello World!\n")] 

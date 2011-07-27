@@ -186,6 +186,18 @@ VALUE require_rails(VALUE arg) {
 
 VALUE init_rack_app(VALUE);
 
+VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
+
+	uint8_t uwsgi_signal = NUM2INT(signum);
+
+	if (uwsgi_signal_registered(uwsgi_signal)) {
+		return Qtrue;
+        }
+
+	return Qfalse;
+}
+
+
 VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALUE rbhandler) {
 
         uint8_t uwsgi_signal = NUM2INT(signum);
@@ -407,6 +419,7 @@ int uwsgi_rack_init(){
 	rb_define_module_function(rb_uwsgi_embedded, "async_connect", uwsgi_ruby_async_connect, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "signal", uwsgi_ruby_signal, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "register_signal", uwsgi_ruby_register_signal, 3);
+	rb_define_module_function(rb_uwsgi_embedded, "signal_registered", uwsgi_ruby_signal_registered, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "add_cron", rack_uwsgi_add_cron, 6);
 	rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
