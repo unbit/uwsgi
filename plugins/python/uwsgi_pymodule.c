@@ -2671,6 +2671,43 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
+
+        char *key;
+        char *value;
+        Py_ssize_t vallen = 0;
+        Py_ssize_t keylen = 0;
+        char *remote = NULL;
+
+        uint64_t expires = 0;
+
+        if (!PyArg_ParseTuple(args, "s#s#|is:cache_update", &key, &keylen, &value, &vallen, &expires, &remote)) {
+                return NULL;
+        }
+
+        if ((uint64_t)vallen > uwsgi.cache_blocksize) {
+                return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %d bytes", (unsigned long long)uwsgi.cache_blocksize, (int) vallen);
+        }
+
+        if (remote && strlen(remote) > 0) {
+                uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        }
+        else if (uwsgi.cache_max_items) {
+                uwsgi_wlock(uwsgi.cache_lock);
+                if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
+                        uwsgi_rwunlock(uwsgi.cache_lock);
+                        Py_INCREF(Py_None);
+                        return Py_None;
+                }
+                uwsgi_rwunlock(uwsgi.cache_lock);
+        }
+
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+
 
 PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 
@@ -2904,6 +2941,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 static PyMethodDef uwsgi_cache_methods[] = {
 	{"cache_get", py_uwsgi_cache_get, METH_VARARGS, ""},
 	{"cache_set", py_uwsgi_cache_set, METH_VARARGS, ""},
+	{"cache_update", py_uwsgi_cache_update, METH_VARARGS, ""},
 	{"cache_del", py_uwsgi_cache_del, METH_VARARGS, ""},
 	{"cache_exists", py_uwsgi_cache_exists, METH_VARARGS, ""},
 	{NULL, NULL},

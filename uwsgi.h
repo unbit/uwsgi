@@ -235,6 +235,7 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 #define UWSGI_CACHE_MAX_KEY_SIZE 2048
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x0001
+#define UWSGI_CACHE_FLAG_UPDATE		0x0002
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
