@@ -405,7 +405,7 @@ int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
 				*argc = *argc + 1;
 			}
 			else {
-				uwsgi_log( "invalid uwsgi array. skip this request.\n");
+				uwsgi_log( "invalid uwsgi array. skip this var.\n");
                         	return -1;
 			}
 		}
@@ -415,6 +415,73 @@ int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
 		}
 	}
 	
+
+	return 0;
+}
+
+int uwsgi_simple_parse_vars(struct wsgi_request *wsgi_req, char *ptrbuf, char *bufferend) {
+	
+	uint16_t strsize;
+
+	while (ptrbuf < bufferend) {
+                if (ptrbuf + 2 < bufferend) {
+                        memcpy(&strsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                        strsize = uwsgi_swap16(strsize);
+#endif
+                        /* key cannot be null */
+                        if (!strsize) {
+                                uwsgi_log( "uwsgi key cannot be null. skip this request.\n");
+                                return -1;
+                        }
+
+                        ptrbuf += 2;
+                        if (ptrbuf + strsize < bufferend) {
+                                // var key
+                                wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
+                                wsgi_req->hvec[wsgi_req->var_cnt].iov_len = strsize;
+                                ptrbuf += strsize;
+                                // value can be null (even at the end) so use <=
+                                if (ptrbuf + 2 <= bufferend) {
+                                        memcpy(&strsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                                        strsize = uwsgi_swap16(strsize);
+#endif
+                                        ptrbuf += 2;
+                                        if (ptrbuf + strsize <= bufferend) {
+                                                
+                                                if (wsgi_req->var_cnt < uwsgi.vec_size - (4 + 1)) {
+                                                        wsgi_req->var_cnt++;
+                                                }
+                                                else {
+                                                        uwsgi_log( "max vec size reached. skip this header.\n");
+                                                        return -1;
+                                                }
+                                                // var value
+                                                wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
+                                                wsgi_req->hvec[wsgi_req->var_cnt].iov_len = strsize;
+
+                                                if (wsgi_req->var_cnt < uwsgi.vec_size - (4 + 1)) {
+                                                        wsgi_req->var_cnt++;
+                                                }
+                                                else {
+                                                        uwsgi_log( "max vec size reached. skip this var.\n");
+                                                        return -1;
+                                                }
+                                                ptrbuf += strsize;
+                                        }
+                                        else {
+                                                uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
+                                                return -1;
+                                        }
+                                }
+                                else {
+                                        uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
+                                        return -1;
+                                }
+			}
+		}
+	}
 
 	return 0;
 }
@@ -433,6 +500,13 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	/* set an HTTP 500 status as default */
 	wsgi_req->status = 500;
+	
+	// has the protocol already parsed the request ?
+	if (wsgi_req->uri_len > 0) {
+		i = uwsgi_simple_parse_vars(wsgi_req, ptrbuf, bufferend);
+		if (i == 0) goto next;
+		return i;
+	}
 
 	while (ptrbuf < bufferend) {
 		if (ptrbuf + 2 < bufferend) {
@@ -442,7 +516,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 #endif
 			/* key cannot be null */
                         if (!strsize) {
-                                uwsgi_log( "uwsgi key cannot be null. skip this request.\n");
+                                uwsgi_log( "uwsgi key cannot be null. skip this var.\n");
                                 return -1;
                         }
 			
@@ -585,7 +659,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->var_cnt++;
 						}
 						else {
-							uwsgi_log( "max vec size reached. skip this header.\n");
+							uwsgi_log( "max vec size reached. skip this var.\n");
 							return -1;
 						}
 						// var value
@@ -596,7 +670,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->var_cnt++;
 						}
 						else {
-							uwsgi_log( "max vec size reached. skip this header.\n");
+							uwsgi_log( "max vec size reached. skip this var.\n");
 							return -1;
 						}
 						ptrbuf += strsize;
@@ -617,6 +691,8 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 			return -1;
 		}
 	}
+
+next:
 
 	if (uwsgi.post_buffering > 0 && !wsgi_req->body_as_file && !wsgi_req->async_post) {
         	// read to disk if post_cl > post_buffering (it will eventually do upload progress...)
@@ -669,7 +745,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 			// if SCRIPT_NAME is not allocated, add a slot for it
 			if (script_name == -1) {
 				if (wsgi_req->var_cnt >= uwsgi.vec_size - (4 + 2)) {
-					uwsgi_log( "max vec size reached. skip this header.\n");
+					uwsgi_log( "max vec size reached. skip this var.\n");
                                         return -1;
 				}
 				wsgi_req->var_cnt++;
