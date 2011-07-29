@@ -49,7 +49,11 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 
 	json_data = uwsgi_open_and_read(file, &len, 1, magic_table);
 
+#ifdef JANSSON_MAJOR_VERSION 
 	root = json_loads(json_data, 0, &error);
+#else
+	root = json_loads(json_data, &error);
+#endif
 
 	if (!root) {
 		uwsgi_log("error parsing JSON data: line %d %s\n", error.line, error.text);
