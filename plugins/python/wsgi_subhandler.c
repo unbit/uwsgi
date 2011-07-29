@@ -7,15 +7,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyObject *zero;
 
-	//static PyObject *uwsgi_version = NULL;
-
-	/*
-	   if (uwsgi_version == NULL) {
-	   uwsgi_version = PyString_FromString(UWSGI_VERSION);
-	   }
-	   */
-
-
 #ifdef UWSGI_SENDFILE
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
 #endif
@@ -28,12 +19,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	}
 #endif
 
-	// cache this
-	zero = PyTuple_New(2);
-	PyTuple_SetItem(zero, 0, PyInt_FromLong(1));
-	PyTuple_SetItem(zero, 1, PyInt_FromLong(0));
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", zero);
-	Py_DECREF(zero);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", wi->gateway_version);
 
 	zero = PyFile_FromFile(stderr, "wsgi_input", "w", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.errors", zero);
@@ -79,14 +65,13 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		PyDict_SetItemString(up.embedded_dict, "env", wsgi_req->async_environ);
 	}
 
-	zero = PyString_FromString(UWSGI_VERSION);
-	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", zero);
-	Py_DECREF(zero);
+	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", wi->uwsgi_version);
 
 	if (uwsgi.cores > 1) {
 		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.core", PyInt_FromLong(wsgi_req->async_id));
 	}
 
+	// cache this ?
 	if (uwsgi.cluster_fd >= 0) {
 		zero = PyString_FromString(uwsgi.cluster);
 		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster", zero);
@@ -96,9 +81,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		Py_DECREF(zero);
 	}
 
-	zero = PyString_FromString(uwsgi.hostname);
-	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", zero);
-	Py_DECREF(zero);
+	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", wi->uwsgi_node);
 
 
 #ifdef UWSGI_ROUTING

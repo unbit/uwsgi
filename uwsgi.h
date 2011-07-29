@@ -645,6 +645,10 @@ struct uwsgi_app {
 	char *touch_reload;
 	time_t touch_reload_mtime;
 
+	void *gateway_version;
+        void *uwsgi_version;
+        void *uwsgi_node;
+
 };
 
 

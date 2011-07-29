@@ -152,6 +152,7 @@ struct uwsgi_python {
 	void (*extension)(void);
 
 	int reload_os_env;
+
 };
 
 
