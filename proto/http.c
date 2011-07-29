@@ -46,7 +46,7 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, i
         		wsgi_req->if_modified_since = val;
                 	wsgi_req->if_modified_since_len = vallen;
         	}
-		else if (!uwsgi_strncmp("HOST", 4, hh, keylen) && uwsgi.vhost_host) {
+		else if (uwsgi.vhost_host && !uwsgi_strncmp("HOST", 4, hh, keylen)) {
         		wsgi_req->host = val;
                 	wsgi_req->host_len = vallen;
         	}

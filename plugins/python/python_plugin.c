@@ -12,6 +12,7 @@ struct option uwsgi_python_options[] = {
 	{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
 	{"eval", required_argument, 0, LONG_ARGS_EVAL_CONFIG},
 	{"module", required_argument, 0, 'w'},
+	{"wsgi", required_argument, 0, 'w'},
 	{"callable", required_argument, 0, LONG_ARGS_CALLABLE},
 	{"test", required_argument, 0, 'j'},
 	{"home", required_argument, 0, 'H'},

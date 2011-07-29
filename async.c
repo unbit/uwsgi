@@ -212,6 +212,10 @@ void *async_loop(void *arg1) {
 	uwsgi.async_runqueue = NULL;
 	uwsgi.async_runqueue_cnt = 0;
 
+	if (uwsgi.signal_socket > -1) {
+		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);
+	}
+
 	// set a default request manager
         if (!uwsgi.schedule_to_req) uwsgi.schedule_to_req = async_schedule_to_req;
 

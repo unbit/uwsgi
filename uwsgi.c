@@ -35,6 +35,9 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS;
 
 static struct option long_base_options[] = {
 	{"socket", required_argument, 0, 's'},
+	{"uwsgi-socket", required_argument, 0, 's'},
+	{"http-socket", required_argument, 0, LONG_ARGS_HTTP_SOCKET},
+	{"fastcgi-socket", required_argument, 0, LONG_ARGS_FASTCGI_SOCKET},
 	{"protocol", required_argument, 0, LONG_ARGS_PROTOCOL},
 	{"socket-protocol", required_argument, 0, LONG_ARGS_SOCKET_PROTOCOL},
 	{"shared-socket", required_argument, 0, LONG_ARGS_SHARED_SOCKET},
@@ -1848,7 +1851,12 @@ skipzero:
 				exit(1);
 			}
 
-			if (uwsgi.protocol && !strcmp("http", uwsgi.protocol)) {
+			char *requested_protocol = uwsgi_sock->proto_name;
+			if (!requested_protocol) {
+				requested_protocol = uwsgi.protocol;
+			}
+
+			if (requested_protocol && !strcmp("http", requested_protocol)) {
 				uwsgi_sock->proto = uwsgi_proto_http_parser;
 				uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
 				uwsgi_sock->proto_write = uwsgi_proto_http_write;
@@ -1858,7 +1866,7 @@ skipzero:
 				uwsgi_sock->proto_sendfile = NULL;
 				uwsgi_sock->proto_close = uwsgi_proto_base_close;
 			}
-			else if (uwsgi.protocol && (!strcmp("fastcgi", uwsgi.protocol) || !strcmp("fcgi", uwsgi.protocol))) {
+			else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
 				uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
 				uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
 				uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
@@ -2394,7 +2402,6 @@ skipzero:
 
 		uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
 
-		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);
 	}
 #endif
 
@@ -2564,6 +2571,7 @@ static int manage_base_opt(int i, char *optarg) {
 	struct uwsgi_static_map *usm, *old_usm;
 	struct uwsgi_config_template *uct, *old_uct;
 	struct uwsgi_cron *uc, *old_uc;
+	struct uwsgi_socket *uwsgi_sock = NULL;
 	int zerg_fd;
 
 	switch (i) {
@@ -3109,7 +3117,16 @@ static int manage_base_opt(int i, char *optarg) {
 		}
 		return 1;
 	case 's':
-		uwsgi_new_socket(generate_socket_name(optarg));
+		uwsgi_sock = uwsgi_new_socket(generate_socket_name(optarg));
+		uwsgi_sock->proto_name = "uwsgi";
+		return 1;
+	case LONG_ARGS_HTTP_SOCKET:
+		uwsgi_sock = uwsgi_new_socket(generate_socket_name(optarg));
+		uwsgi_sock->proto_name = "http";
+		return 1;
+	case LONG_ARGS_FASTCGI_SOCKET:
+		uwsgi_sock = uwsgi_new_socket(generate_socket_name(optarg));
+		uwsgi_sock->proto_name = "fastcgi";
 		return 1;
 	case LONG_ARGS_ZERG:
 		zerg_fd = uwsgi_connect(optarg, 30, 0);
