@@ -51,7 +51,6 @@ LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
 #include <fcntl.h>
 
 
-#define MAX_VARS 64
 #define DEFAULT_SOCK "/tmp/uwsgi.sock"
 
 typedef struct {
@@ -73,6 +72,7 @@ typedef struct {
 	char script_name[256];
 	char scheme[9];
 	int cgi_mode ;
+	int max_vars;
 } uwsgi_cfg;
 
 module AP_MODULE_DECLARE_DATA uwsgi_module;
@@ -83,8 +83,18 @@ static uint16_t uwsgi_swap16(uint16_t x) {
 }
 #endif
 
-static int uwsgi_add_var(struct iovec *vec, int i, char *key, char *value, uint16_t *pkt_size) {
+static int uwsgi_add_var(struct iovec *vec, int i, request_rec *r, char *key, char *value, uint16_t *pkt_size) {
 
+	uwsgi_cfg *c = ap_get_module_config(r->per_dir_config, &uwsgi_module);
+
+#if APR_IS_BIGENDIAN
+	if (i+6 > c->max_vars) {
+#else
+	if (i+4 > c->max_vars) {
+#endif
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: max number of uwsgi variables reached. consider increasing it with uWSGImaxVars directive");
+		return i;
+	}
 
 #if APR_IS_BIGENDIAN
 	char *ptr;
@@ -150,6 +160,7 @@ static void *uwsgi_server_config(apr_pool_t *p, server_rec *s) {
 	c->modifier1 = 0 ;
 	c->modifier2 = 0 ;
 	c->cgi_mode = 0 ;
+	c->max_vars = 128;
 
 	return c;
 }
@@ -164,6 +175,7 @@ static void *uwsgi_dir_config(apr_pool_t *p, char *dir) {
 	c->modifier1 = 0 ;
 	c->modifier2 = 0 ;
 	c->cgi_mode = 0 ;
+	c->max_vars = 128;
 
 	return c;
 }
@@ -243,11 +255,8 @@ static int uwsgi_handler(request_rec *r) {
 
 	uwsgi_cfg *c = ap_get_module_config(r->per_dir_config, &uwsgi_module);
 
-#if APR_IS_BIGENDIAN
-	struct iovec uwsgi_vars[(MAX_VARS*6)+1] ;
-#else
-	struct iovec uwsgi_vars[(MAX_VARS*4)+1] ;
-#endif
+	struct iovec *uwsgi_vars;
+
 	int vecptr = 1 ;
 	char pkt_header[4];
 	uint16_t pkt_size = 0;
@@ -315,48 +324,53 @@ static int uwsgi_handler(request_rec *r) {
 	}
 
 
+#if APR_IS_BIGENDIAN
+        uwsgi_vars = malloc(sizeof(struct iovec) * (c->max_vars*6)+1);
+#else
+        uwsgi_vars = malloc(sizeof(struct iovec) * (c->max_vars*4)+1);
+#endif
 		
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REQUEST_METHOD", (char *) r->method, &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "QUERY_STRING", r->args ? r->args : "", &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SERVER_NAME", (char *) ap_get_server_name(r), &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SERVER_PORT", apr_psprintf(r->pool, "%u",ap_get_server_port(r)), &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SERVER_PROTOCOL", r->protocol, &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REQUEST_URI", r->unparsed_uri, &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_ADDR", r->connection->remote_ip, &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "REMOTE_USER", r->user ? r->user : "", &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REQUEST_METHOD", (char *) r->method, &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "QUERY_STRING", r->args ? r->args : "", &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SERVER_NAME", (char *) ap_get_server_name(r), &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SERVER_PORT", apr_psprintf(r->pool, "%u",ap_get_server_port(r)), &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SERVER_PROTOCOL", r->protocol, &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REQUEST_URI", r->unparsed_uri, &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_ADDR", r->connection->remote_ip, &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_USER", r->user ? r->user : "", &pkt_size) ;
 	if (r->user) {
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "AUTH_TYPE", (char *) ap_auth_type(r), &pkt_size) ;
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "AUTH_TYPE", (char *) ap_auth_type(r), &pkt_size) ;
 	}
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
 
 	if (c->scheme[0] != 0) {
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "UWSGI_SCHEME", c->scheme, &pkt_size) ;
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "UWSGI_SCHEME", c->scheme, &pkt_size) ;
 	}
 
 	if (c->script_name[0] == '/') {
 		if (c->script_name[1] == 0) {
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", "", &pkt_size) ;
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", "", &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri, &pkt_size) ;
 		}
 		else {
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", c->script_name, &pkt_size) ;
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", c->script_name, &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
 		}
 	}
 	else {
 		if (r->path_info) {
 			if (strlen(r->path_info) <= 0) {
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", "", &pkt_size) ;
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", "", &pkt_size) ;
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri, &pkt_size) ;
 			}
 			else {
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", apr_pstrndup(r->pool, r->uri, (strlen(r->uri) - strlen(r->path_info) )) , &pkt_size) ;
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->path_info, &pkt_size) ;
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", apr_pstrndup(r->pool, r->uri, (strlen(r->uri) - strlen(r->path_info) )) , &pkt_size) ;
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->path_info, &pkt_size) ;
 			}
 		}
 		else {
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "SCRIPT_NAME", "", &pkt_size) ;
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "PATH_INFO", r->uri, &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", "", &pkt_size) ;
+			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri, &pkt_size) ;
 		}
 	}
 
@@ -364,19 +378,13 @@ static int uwsgi_handler(request_rec *r) {
 	headers = apr_table_elts(r->headers_in);
 	h = (apr_table_entry_t *) headers->elts;
 
-	// check for max vars (a bit ugly)
-	cnt = headers->nelts ;
-	if (cnt + 11 > MAX_VARS) {
-		cnt = MAX_VARS -11;
-	}
-
-	for(i=0;i< cnt;i++) {
+	for(i=0;i< headers->nelts;i++) {
 		if (h[i].key){
 			if (!strcasecmp(h[i].key, "Content-Type")) {
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "CONTENT_TYPE", h[i].val, &pkt_size) ;
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "CONTENT_TYPE", h[i].val, &pkt_size) ;
 			}
 			else if (!strcasecmp(h[i].key, "Content-Length")) {
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, "CONTENT_LENGTH", h[i].val, &pkt_size) ;
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "CONTENT_LENGTH", h[i].val, &pkt_size) ;
 			}
 			else {
 				penv = apr_pstrcat(r->pool, "HTTP_", h[i].key, NULL);
@@ -388,7 +396,7 @@ static int uwsgi_handler(request_rec *r) {
 						*cp = toupper(*cp);
 					}
 				}
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, penv, h[i].val, &pkt_size) ;
+				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, penv, h[i].val, &pkt_size) ;
 			}
 		}
 	}
@@ -397,7 +405,7 @@ static int uwsgi_handler(request_rec *r) {
 	headers = apr_table_elts(r->subprocess_env);
 	h = (apr_table_entry_t*) headers->elts;
 	for (i = 0; i < headers->nelts; ++i) {
-		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, h[i].key, h[i].val, &pkt_size) ;
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, h[i].key, h[i].val, &pkt_size) ;
 	}	
 	
 
@@ -418,11 +426,13 @@ static int uwsgi_handler(request_rec *r) {
 	if (cnt < 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: writev() %s", strerror(errno));
 		close(uwsgi_poll.fd);
+		free(uwsgi_vars);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 	else if (cnt != pkt_size+4) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: writev() returned wrong size");
 		close(uwsgi_poll.fd);
+		free(uwsgi_vars);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
@@ -434,6 +444,7 @@ static int uwsgi_handler(request_rec *r) {
 			if (cnt < 0) {
 				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: read() client block failed !");
 				close(uwsgi_poll.fd);
+				free(uwsgi_vars);
 				return HTTP_INTERNAL_SERVER_ERROR;
 			}
 		}
@@ -458,6 +469,7 @@ static int uwsgi_handler(request_rec *r) {
 		if (cnt == 0) {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() timeout");
 			apr_brigade_destroy(bb);
+			free(uwsgi_vars);
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 		else if (cnt > 0) {
@@ -467,6 +479,7 @@ static int uwsgi_handler(request_rec *r) {
 					if (errno != ECONNRESET) {
 						ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: recv() %s", strerror(errno));
 						apr_brigade_destroy(bb);
+						free(uwsgi_vars);
 						return HTTP_INTERNAL_SERVER_ERROR;
 					}
 					else {
@@ -489,6 +502,7 @@ static int uwsgi_handler(request_rec *r) {
 					if (r->connection->aborted) { 
 						close(uwsgi_poll.fd);
 						apr_brigade_destroy(bb);
+						free(uwsgi_vars);
 						return HTTP_INTERNAL_SERVER_ERROR;
 					}
 					apr_brigade_write(bb, NULL, NULL, buf, cnt);
@@ -508,6 +522,7 @@ static int uwsgi_handler(request_rec *r) {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "uwsgi: poll() %s", strerror(errno));
 			close(uwsgi_poll.fd);
 			apr_brigade_destroy(bb);
+			free(uwsgi_vars);
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 	}
@@ -521,6 +536,7 @@ static int uwsgi_handler(request_rec *r) {
 
 	if (!c->cgi_mode) {
 		if (uwsgi_http_status_read == 0) {
+			free(uwsgi_vars);
 			return HTTP_INTERNAL_SERVER_ERROR;
 		}
 	}
@@ -528,11 +544,13 @@ static int uwsgi_handler(request_rec *r) {
 
 		if (hret = ap_scan_script_header_err_brigade(r, bb, NULL)) {
 			apr_brigade_destroy(bb);
+			free(uwsgi_vars);
 			return hret;
 		}
 	}
 
 
+	free(uwsgi_vars);
 	return ap_pass_brigade(r->output_filters, bb) ;
 }
 
@@ -562,6 +580,22 @@ static const char * cmd_uwsgi_force_wsgi_scheme(cmd_parms *cmd, void *cfg, const
 
 	return NULL ;
 
+}
+
+static const char *cmd_uwsgi_max_vars(cmd_parms *cmd, void *cfg, const char *value) {
+	uwsgi_cfg *c ;
+        int val ;
+
+        if (cfg) {
+                c = cfg ;
+        }
+        else {
+                c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
+        }
+
+        c->max_vars = atoi(value);
+
+        return NULL;
 }
 
 static const char * cmd_uwsgi_modifier1(cmd_parms *cmd, void *cfg, const char *value) {
@@ -707,6 +741,7 @@ static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE1("uWSGIforceScriptName", cmd_uwsgi_force_script_name, NULL, ACCESS_CONF, "Fix for PATH_INFO/SCRIPT_NAME when the location has filesystem correspondence"),	
 	AP_INIT_TAKE1("uWSGIforceCGImode", cmd_uwsgi_force_cgi_mode, NULL, ACCESS_CONF, "Force uWSGI CGI mode for perfect integration with apache filter"),	
 	AP_INIT_TAKE1("uWSGIforceWSGIscheme", cmd_uwsgi_force_wsgi_scheme, NULL, ACCESS_CONF, "Force the WSGI scheme var (set by default to \"http\")"),	
+	AP_INIT_TAKE1("uWSGImaxVars", cmd_uwsgi_max_vars, NULL, ACCESS_CONF, "Set the maximum allowed number of uwsgi variables (default 128)"),	
 	{NULL}
 };
 
