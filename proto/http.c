@@ -146,7 +146,13 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
 
 	// SERVER_PORT
-	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "3031", 4);
+	char *server_port = strchr(wsgi_req->socket->name, ':');
+	if (server_port) {
+		wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, server_port+1, strlen(server_port+1));
+	}
+	else {
+		wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
+	}
 
 	// REMOTE_ADDR
 	memset(ip, 0, INET_ADDRSTRLEN+1);
