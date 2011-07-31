@@ -107,7 +107,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 	char *section_asked = "uwsgi";
 	char *colon;
 
-	if (!uwsgi_startswith(file, "http://", 7)) {
+	if (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6)) {
                 colon = uwsgi_get_last_char(file, '/');
                 colon = uwsgi_get_last_char(colon, ':');
         }

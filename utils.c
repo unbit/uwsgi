@@ -1793,6 +1793,63 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 #endif
 	else if (!strncmp("data://", url, 7)) {
 		fd = open(uwsgi.binary_path, O_RDONLY);
+		if (fd < 0) {
+			uwsgi_error_open(uwsgi.binary_path);
+			exit(1);
+		}
+		int slot = atoi(url+7);
+		if (slot < 0) {
+			uwsgi_log("invalid binary data slot requested\n");
+			exit(1);
+		}
+		uwsgi_log("requesting binary data slot %d\n", slot);
+		off_t fo = lseek(fd, 0, SEEK_END);
+		if (fo < 0) {
+			uwsgi_error("lseek()");
+			uwsgi_log("invalid binary data slot requested\n");
+			exit(1);
+		}
+		int i = 0;
+		uint64_t datasize = 0;
+		for(i=0;i<=slot;i++) {
+			fo = lseek(fd, -9, SEEK_CUR);
+			if (fo < 0) {
+				uwsgi_error("lseek()");
+				uwsgi_log("invalid binary data slot requested\n");
+				exit(1);
+			}
+			ssize_t len = read(fd, &datasize, 8);
+			if (len != 8) {
+				uwsgi_error("read()");
+				uwsgi_log("invalid binary data slot requested\n");
+				exit(1);
+			}
+			if (datasize == 0) {
+				uwsgi_log("0 size binary data !!!\n");
+				exit(1);
+			}
+			fo = lseek(fd, -(datasize+9), SEEK_CUR);	
+			if (fo < 0) {
+				uwsgi_error("lseek()");
+				uwsgi_log("invalid binary data slot requested\n");
+				exit(1);
+			}
+
+			if (i == slot) {
+				*size = datasize;
+				if (add_zero) {
+                        		*size+=1;
+                		}
+				buffer = uwsgi_malloc(*size);
+                		memset(buffer, 0, *size);
+				len = read(fd, buffer, datasize);
+				if (len != (ssize_t) datasize) {
+					uwsgi_error("read()");
+					uwsgi_log("invalid binary data slot requested\n");
+					exit(1);
+				}
+			}
+		}
 	}
 	else if (!strncmp("sym://", url, 6)) {
 		char *symbol = uwsgi_concat3("_binary_", url+6, "_start") ;
