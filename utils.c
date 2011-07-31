@@ -2573,8 +2573,22 @@ char *uwsgi_get_binary_path(char *argvzero) {
 	char *buf = uwsgi_malloc(uwsgi.page_size);
 	uint32_t len = uwsgi.page_size;
 	if (_NSGetExecutablePath(buf, &len) == 0) {
-		return buf;
+		// return only absolute path
+		char *newbuf = realpath(buf, NULL);
+		if (newbuf) {
+			free(buf);
+			return newbuf;
+		}
 	}
+	free(buf);
+#elif defined(__sun__)
+	char *buf = getexecname();
+	if (buf) {
+		// return only absolute path
+		if (buf[0] == '/') {
+			return buf;
+		}
+	}	
 #endif
 
 
