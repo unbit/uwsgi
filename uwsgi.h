@@ -2106,7 +2106,10 @@ int uwsgi_cache_server(char *, int);
 
 void uwsgi_chown(char *, char *);
 
+char *uwsgi_get_binary_path(char *);
+
 #ifdef __cplusplus
 }
 #endif
+
 

@@ -901,7 +901,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	uwsgi.binary_path = argv[0];
+	uwsgi.page_size = getpagesize();
+	uwsgi.binary_path = uwsgi_get_binary_path(argv[0]);
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -1237,8 +1238,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	//call after_opt hooks
 
 	if (uwsgi.binary_path == argv[0]) {
-		uwsgi.binary_path = uwsgi_malloc(strlen(argv[0]) + 1);
-		memcpy(uwsgi.binary_path, argv[0], strlen(argv[0]) + 1);
+		uwsgi.binary_path = uwsgi_str(argv[0]);
 	}
 
 	if (!uwsgi.no_initial_output) {
@@ -1273,6 +1273,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		fclose(pidfile);
 	}
+
+	uwsgi_log("detected binary path: %s\n", uwsgi.binary_path);
 
 	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
 	while (shared_sock) {
@@ -1440,7 +1442,6 @@ int uwsgi_start(void *v_argv) {
 	}
 #endif
 
-	uwsgi.page_size = getpagesize();
 
 	if (!uwsgi.no_initial_output) {
 		uwsgi_log("your memory page size is %d bytes\n", uwsgi.page_size);

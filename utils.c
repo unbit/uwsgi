@@ -1791,6 +1791,9 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		memcpy(buffer, &UWSGI_EMBED_CONFIG, &UWSGI_EMBED_CONFIG_END-&UWSGI_EMBED_CONFIG);
 	}
 #endif
+	else if (!strncmp("data://", url, 7)) {
+		fd = open(uwsgi.binary_path, O_RDONLY);
+	}
 	else if (!strncmp("sym://", url, 6)) {
 		char *symbol = uwsgi_concat3("_binary_", url+6, "_start") ;
 		void *sym_start_ptr = dlsym(RTLD_DEFAULT, symbol);
@@ -2555,5 +2558,20 @@ void uwsgi_chown(char *filename, char *owner) {
 		uwsgi_error("chown()");
 		exit(1);
 	}
+
+}
+
+char *uwsgi_get_binary_path(char *argvzero) {
+
+	char *buf;
+#ifdef __linux__
+	buf = uwsgi_malloc(uwsgi.page_size);
+	ssize_t len = readlink("/proc/self/exe", buf, uwsgi.page_size);
+	if (len > 0) {
+		return buf;
+	}
+#endif
+
+	return argvzero;
 
 }
