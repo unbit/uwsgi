@@ -17,6 +17,7 @@ struct _symzipimporter {
         PyObject *items;
 } uwsgi_symbol_zip_importer_object;
 
+
 static char *symbolize(char *name) {
 
 	char *base = uwsgi_concat2(name, "");
@@ -407,6 +408,106 @@ static PyTypeObject SymImporter_Type = {
 };
 
 static int
+zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
+{
+
+
+        char *name;
+        char *prefix = NULL;
+	int len = 0;
+
+        if (!PyArg_ParseTuple(args, "s", &name))
+                return -1;
+
+        // avoid GC !!!
+        name = uwsgi_concat2(name, "");
+
+	if (!uwsgi_startswith(name, "http://", 7) || !uwsgi_startswith(name, "data://", 7) || !uwsgi_startswith(name, "sym://", 6) ) {
+                prefix = uwsgi_get_last_char(name, '/');
+                prefix = uwsgi_get_last_char(prefix, ':');
+        }
+        else {
+                prefix = uwsgi_get_last_char(name, ':');
+        }
+
+	if (prefix) {
+		prefix[0] = 0;
+	}
+
+
+	char *body = uwsgi_open_and_read(name, &len, 0, NULL);
+	if (!body) {
+		return -1;
+	}
+
+	PyObject *stringio = PyImport_ImportModule("StringIO");
+        if (!stringio) {
+                return -1;
+        }
+
+        PyObject *stringio_dict = PyModule_GetDict(stringio);
+        if (!stringio_dict) {
+                return -1;
+        }
+
+        PyObject *stringio_stringio = PyDict_GetItemString(stringio_dict, "StringIO");
+        if (!stringio_stringio) {
+                return -1;
+        }
+
+        PyObject *stringio_args = PyTuple_New(1);
+        PyTuple_SetItem(stringio_args, 0, PyString_FromStringAndSize(body, len));
+
+        PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
+        if (!source_code) {
+                return -1;
+        }
+
+        PyObject *zipfile = PyImport_ImportModule("zipfile");
+        if (!zipfile) {
+                return -1;
+        }
+
+        PyObject *zipfile_dict = PyModule_GetDict(zipfile);
+        if (!zipfile_dict) {
+                return -1;
+        }
+
+        PyObject *zipfile_zipfile = PyDict_GetItemString(zipfile_dict, "ZipFile");
+        if (!zipfile_zipfile) {
+                return -1;
+        }
+
+        PyObject *zipfile_args = PyTuple_New(1);
+        PyTuple_SetItem(zipfile_args, 0, source_code);
+
+        self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
+        if (!self->zip) {
+                return -1;
+        }
+
+        Py_INCREF(self->zip);
+
+        self->items = PyObject_CallMethod(self->zip, "namelist", NULL);
+        if (!self->items) {
+                return -1;
+        }
+
+        Py_INCREF(self->items);
+
+        self->prefix = NULL;
+        if (prefix) {
+                self->prefix = prefix+1;
+                prefix[0] = ':';
+        }
+
+
+        return 0;
+}
+
+
+
+static int
 symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
 {
 
@@ -439,19 +540,16 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 
 	PyObject *stringio = PyImport_ImportModule("StringIO");
 	if (!stringio) {
-		PyErr_Print();
 		return -1;
 	}
 
 	PyObject *stringio_dict = PyModule_GetDict(stringio);
 	if (!stringio_dict) {
-		PyErr_Print();
 		return -1;
 	}
 
 	PyObject *stringio_stringio = PyDict_GetItemString(stringio_dict, "StringIO");
 	if (!stringio_stringio) {
-		PyErr_Print();
 		return -1;
 	}
 
@@ -460,25 +558,21 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 
 	PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
 	if (!source_code) {
-		PyErr_Print();
 		return -1;
 	}
 
 	PyObject *zipfile = PyImport_ImportModule("zipfile");
 	if (!zipfile) {
-		PyErr_Print();
 		return -1;
 	}
 	
 	PyObject *zipfile_dict = PyModule_GetDict(zipfile);
         if (!zipfile_dict) {
-                PyErr_Print();
                 return -1;
         }
 
         PyObject *zipfile_zipfile = PyDict_GetItemString(zipfile_dict, "ZipFile");
         if (!zipfile_zipfile) {
-                PyErr_Print();
                 return -1;
         }
 
@@ -487,7 +581,6 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 
 	self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
         if (!self->zip) {
-                PyErr_Print();
                 return -1;
         }
 
@@ -495,7 +588,6 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 
 	self->items = PyObject_CallMethod(self->zip, "namelist", NULL);
         if (!self->items) {
-                PyErr_Print();
                 return -1;
         }
 
@@ -553,6 +645,49 @@ static PyTypeObject SymZipImporter_Type = {
     PyObject_GC_Del,                            /* tp_free */
 };
 
+static PyTypeObject ZipImporter_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "uwsgi.ZipImporter",
+    sizeof(struct _symzipimporter),
+    0,                                          /* tp_itemsize */
+    (destructor) uwsgi_symimporter_free,            /* tp_dealloc */
+    0,                                          /* tp_print */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_compare */
+    0,                                          /* tp_repr */
+    0,                                          /* tp_as_number */
+    0,                                          /* tp_as_sequence */
+    0,                                          /* tp_as_mapping */
+    0,                                          /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    0,                    /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,
+    "uwsgi zip importer",                                          /* tp_doc */
+    0,                                          /* tp_traverse */
+    0,                                          /* tp_clear */
+    0,                                          /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    symzipimporter_methods,                        /* tp_methods */
+    0,                                          /* tp_members */
+    0,                                          /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+    0,                                          /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    0,                                          /* tp_dictoffset */
+    (initproc) zipimporter_init,                 /* tp_init */
+    PyType_GenericAlloc,                        /* tp_alloc */
+    PyType_GenericNew,                          /* tp_new */
+    PyObject_GC_Del,                            /* tp_free */
+};
+
+
 
 int uwsgi_init_symbol_import() {
 
@@ -560,6 +695,12 @@ int uwsgi_init_symbol_import() {
 	if (PyType_Ready(&SymImporter_Type) < 0) {
 		PyErr_Print();
 		uwsgi_log("unable to initialize symbols importer module\n");
+		exit(1);
+	}
+
+	if (PyType_Ready(&ZipImporter_Type) < 0) {
+		PyErr_Print();
+		uwsgi_log("unable to initialize zip importer module\n");
 		exit(1);
 	}
 
@@ -580,6 +721,13 @@ int uwsgi_init_symbol_import() {
                            (PyObject *)&SymImporter_Type) < 0) {
 		PyErr_Print();
 		uwsgi_log("unable to initialize symbols importer object\n");
+		exit(1);
+	}
+
+	if (PyModule_AddObject(uwsgi_em, "ZipImporter",
+                           (PyObject *)&ZipImporter_Type) < 0) {
+		PyErr_Print();
+		uwsgi_log("unable to initialize zip importer object\n");
 		exit(1);
 	}
 
