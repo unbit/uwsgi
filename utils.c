@@ -2582,11 +2582,16 @@ char *uwsgi_get_binary_path(char *argvzero) {
 	}
 	free(buf);
 #elif defined(__sun__)
-	char *buf = getexecname();
+	char *buf = (char *)getexecname();
 	if (buf) {
+		uwsgi_log("HELLO: %s\n", buf);
 		// return only absolute path
 		if (buf[0] == '/') {
 			return buf;
+		}
+		char *newbuf = realpath(buf, NULL);
+		if (newbuf) {
+			return newbuf;	
 		}
 	}	
 #elif defined(__FreeBSD__)
