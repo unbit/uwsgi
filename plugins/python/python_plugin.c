@@ -196,7 +196,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 	char *real_filename = filename;
 
 
-	if (strncmp(filename, "http://", 7) && strncmp(filename, "sym://", 6)) {
+	if (strncmp(filename, "http://", 7) && strncmp(filename, "sym://", 6) && strncmp(filename, "data://", 6)) {
 
 		pyfile = fopen(filename, "r");
 		if (!pyfile) {
