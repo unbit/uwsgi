@@ -103,6 +103,10 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <netinet/tcp.h>
 #include <netdb.h>
 
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+#endif
+
 #include <stdarg.h>
 #include <errno.h>
 #include <ctype.h>

@@ -2589,6 +2589,17 @@ char *uwsgi_get_binary_path(char *argvzero) {
 			return buf;
 		}
 	}	
+#elif defined(__FreeBSD__)
+	char *buf = uwsgi_malloc(uwsgi.page_size);
+	size_t len = uwsgi.page_size;
+	int mib[4];
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROC;
+	mib[2] = KERN_PROC_PATHNAME;
+	mib[3] = -1;
+	if (sysctl(mib, 4, buf, &len, NULL, 0) == 0) {
+		return buf;
+	}
 #endif
 
 
