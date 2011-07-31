@@ -13,6 +13,7 @@ extern "C" {
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
+#define uwsgi_str(x) uwsgi_concat2(x, "")
 
 #define uwsgi_notify(x) if (uwsgi.notify) uwsgi.notify(x)
 #define uwsgi_notify_ready() if (uwsgi.notify_ready) uwsgi.notify_ready()

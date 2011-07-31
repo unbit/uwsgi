@@ -38,7 +38,8 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 			// in this way, error will be reported to the log
 			PyErr_Restore(exc_type, exc_val, exc_tb);
 
-			goto clear;	
+			// the error is reported, let's continue...
+			//goto clear;	
 		}
 	}
 
