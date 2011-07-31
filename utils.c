@@ -2563,14 +2563,20 @@ void uwsgi_chown(char *filename, char *owner) {
 
 char *uwsgi_get_binary_path(char *argvzero) {
 
-	char *buf;
-#ifdef __linux__
-	buf = uwsgi_malloc(uwsgi.page_size);
+#if defined(__linux__)
+	char *buf = uwsgi_malloc(uwsgi.page_size);
 	ssize_t len = readlink("/proc/self/exe", buf, uwsgi.page_size);
 	if (len > 0) {
 		return buf;
 	}
+#elif defined(__APPLE__)
+	char *buf = uwsgi_malloc(uwsgi.page_size);
+	uint32_t len = uwsgi.page_size;
+	if (_NSGetExecutablePath(buf, &len) == 0) {
+		return buf;
+	}
 #endif
+
 
 	return argvzero;
 
