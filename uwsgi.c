@@ -29,7 +29,7 @@ extern char **environ;
 
 static char *short_options = NULL;
 
-static char *base_short_options = "s:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:Ly:";
+static char *base_short_options = "s:S:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:Ly:";
 
 UWSGI_DECLARE_EMBEDDED_PLUGINS;
 
@@ -2822,16 +2822,6 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_PROFILER:
 		uwsgi.profiler = optarg;
 		return 1;
-	case 'S':
-		p = strchr(optarg, '=');
-		if (!p) {
-			uwsgi_log("invalid --set value\n");
-			exit(1);
-		}
-		p[0] = 0;
-		add_exported_option(uwsgi_str(optarg), p+1, 1);
-		p[0] = '=';
-		return 1;
 	case LONG_ARGS_INHERIT:
 		uct = uwsgi.config_templates;
 		if (!uct) {
@@ -3130,6 +3120,16 @@ static int manage_base_opt(int i, char *optarg) {
 	case 's':
 		uwsgi_sock = uwsgi_new_socket(generate_socket_name(optarg));
 		uwsgi_sock->proto_name = "uwsgi";
+		return 1;
+	case 'S':
+		p = strchr(optarg, '=');
+		if (!p) {
+			uwsgi_log("invalid --set value\n");
+			exit(1);
+		}
+		p[0] = 0;
+		add_exported_option(uwsgi_str(optarg), p+1, 1);
+		p[0] = '=';
 		return 1;
 	case LONG_ARGS_HTTP_SOCKET:
 		uwsgi_sock = uwsgi_new_socket(generate_socket_name(optarg));
