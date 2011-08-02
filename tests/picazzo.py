@@ -6,9 +6,10 @@ def home(req):
   return "<h1>Welcome back, %s!</h1>" % req["session"]["user"]
 
 def login(req):
-  return "<form method='post'><input type='submit' value='login' /></form>"
+  return "<form method='post'><input type='submit' name='foo' value='login' /></form>"
 
 def login_post(req):
+  print req
   req["session"]["user"] = "James"
   return redirect("/")
 
