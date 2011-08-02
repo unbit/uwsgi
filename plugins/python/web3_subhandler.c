@@ -64,7 +64,7 @@ void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_
 
         PyDict_SetItemString(wsgi_req->async_environ, "web3.input", wsgi_req->async_input);
 
-	PyDict_SetItemString(wsgi_req->async_environ, "web3.version", wi->uwsgi_version);
+	PyDict_SetItemString(wsgi_req->async_environ, "web3.version", wi->gateway_version);
 
 	zero = PyFile_FromFile(stderr, "web3_input", "w", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "web3.errors", zero);
@@ -102,7 +102,7 @@ void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	// export .env only in non-threaded mode
         if (uwsgi.threads < 2) {
-                PyDict_SetItemString(up.embedded_dict, "env", wsgi_req->async_environ);
+        	PyDict_SetItemString(up.embedded_dict, "env", wsgi_req->async_environ);
         }
 
         PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", wi->uwsgi_version);
@@ -145,18 +145,29 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 				uwsgi_log("invalid Web3 response.\n"); 
 				goto clear; 
 			} 
+
+
+
+			wsgi_req->async_placeholder = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 0); 
+			Py_INCREF(wsgi_req->async_placeholder);
+
 			PyObject *spit_args = PyTuple_New(2);
-			PyTuple_SetItem(spit_args, 0, PyTuple_GetItem((PyObject *)wsgi_req->async_result, 1));
-			PyTuple_SetItem(spit_args, 1, PyTuple_GetItem((PyObject *)wsgi_req->async_result, 2));
-			Py_INCREF((PyObject *)wsgi_req->async_result);
+
+			PyObject *status = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 1);
+			Py_INCREF(status);
+			PyTuple_SetItem(spit_args, 0, status);
+
+			PyObject *headers = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 2);
+			Py_INCREF(headers);
+			PyTuple_SetItem(spit_args, 1, headers);
 
 			if (py_uwsgi_spit(NULL, spit_args) == Py_None) { 
 				Py_DECREF(spit_args);
 				goto clear; 
 			} 
-			Py_DECREF(spit_args);
 
-			wsgi_req->async_placeholder = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 0); 
+
+			Py_DECREF(spit_args);
 
 			if (PyString_Check((PyObject *)wsgi_req->async_placeholder)) {
                 		if ((wsize = wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(wsgi_req->async_placeholder), PyString_Size(wsgi_req->async_placeholder))) < 0) {
@@ -167,7 +178,11 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
                 		goto clear;
         		}
 
+			PyObject *tmp = (PyObject *)wsgi_req->async_placeholder;
+
 			wsgi_req->async_placeholder = PyObject_GetIter( (PyObject *)wsgi_req->async_placeholder );
+
+			Py_DECREF(tmp);
 
 			if (!wsgi_req->async_placeholder) {
 				goto clear;
@@ -193,7 +208,6 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 		if (PyErr_Occurred()) PyErr_Print();
 		goto clear;
 	}
-
 
 
 	if (PyString_Check(pychunk)) {
