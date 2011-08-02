@@ -310,8 +310,12 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
                 		wsgi_req->response_size += wsize;
                 		goto clear;
         		}
+#ifdef PYTHREE
+			else if ((wsgi_req->sendfile_fd = PyObject_AsFileDescriptor((PyObject *)wsgi_req->async_placeholder)) > -1) {
+#else
 			else if (PyFile_Check((PyObject *)wsgi_req->async_placeholder)) {
 				wsgi_req->sendfile_fd = fileno(PyFile_AsFile((PyObject *)wsgi_req->async_placeholder));
+#endif
                 		wsize = uwsgi_sendfile(wsgi_req);
 				if (wsize < 0) {
 					goto clear;
