@@ -89,6 +89,7 @@ void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_
 					PyList_Append(new_value, old_value);
 					old_value = new_value;
                 			PyDict_SetItem(headers, pydictkey, old_value);
+					Py_DECREF(old_value);
 				}
 				PyList_Append(old_value, pydictvalue);
 			}
@@ -179,6 +180,7 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 
 	PyObject *pychunk;
 	ssize_t wsize;
+	int i;
 
 	struct http_status_codes *http_sc;
 	char sc[4];
@@ -261,15 +263,39 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 
 				wsgi_req->hvec[0].iov_base = PyString_AsString(hhkey);
 				wsgi_req->hvec[0].iov_len = PyString_Size(hhkey);	
+				((char*)wsgi_req->hvec[0].iov_base)[0] = toupper((int) ((char*)wsgi_req->hvec[0].iov_base)[0]);
 
 				wsgi_req->hvec[1].iov_base = ": ";
                         	wsgi_req->hvec[1].iov_len = 2;
 
-				wsgi_req->hvec[2].iov_base = "\r\n";
-                        	wsgi_req->hvec[2].iov_len = 2;
+				wsgi_req->hvec[3].iov_base = "\r\n";
+                        	wsgi_req->hvec[3].iov_len = 2;
 				if (PyList_Check(hhvalue)) {
+					for(i=0;i<PyList_Size(hhvalue);i++) {
+						PyObject *item = PyList_GetItem(hhvalue, i);
+						if (PyString_Check(item)) {
+							wsgi_req->hvec[2].iov_base = PyString_AsString(item);
+                                        		wsgi_req->hvec[2].iov_len = PyString_Size(item);
+                                        		UWSGI_RELEASE_GIL
+                                        		wsize = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 4);
+                                        		UWSGI_GET_GIL
+                                        		if (wsize < 0) {
+                                                		uwsgi_error("writev()");
+                                        		}
+                                        		wsgi_req->headers_size += wsize;
+						}
+					}	
 				}
 				else if (PyString_Check(hhvalue)) {
+					wsgi_req->hvec[2].iov_base = PyString_AsString(hhvalue);
+                                	wsgi_req->hvec[2].iov_len = PyString_Size(hhvalue);
+					UWSGI_RELEASE_GIL
+                        		wsize = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 4);
+                        		UWSGI_GET_GIL
+                        		if (wsize < 0) {
+                                		uwsgi_error("writev()");
+                        		}
+                        		wsgi_req->headers_size += wsize;
 				}
 			}
 
