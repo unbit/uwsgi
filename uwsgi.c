@@ -511,6 +511,10 @@ void grace_them_all(int signum) {
 	if (uwsgi.reload_mercy > 0) {
 		uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
 	}
+	else {
+		// wait max 60 seconds for graceful reload
+		uwsgi.master_mercy = time(NULL) + 60;
+	}
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
