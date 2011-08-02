@@ -403,6 +403,14 @@ int http_parse(struct http_session *h_session) {
 		ptr++;
 	}
 
+	int i;
+	for(i=0;i<uhttp.http_vars_cnt;i++) {
+		char *equal = strchr(uhttp.http_vars[i],'=');
+		if (equal) {
+			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, uhttp.http_vars[i], equal-uhttp.http_vars[i], equal+1, strlen(equal+1), &c);
+		}
+	}
+
 #ifdef UWSGI_DEBUG
 	uwsgi_log("vec size: %d pkt size: %d load %d\n", c, h_session->uh.pktsize, uhttp.load);
 #endif

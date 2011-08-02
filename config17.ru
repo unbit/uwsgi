@@ -19,6 +19,7 @@ puts UWSGI.signal_registered(1)
 puts UWSGI.signal_registered(17)
 
 run lambda { |env| 
+        puts env.inspect
 	UWSGI.signal(17)
 	[200, {'Content-Type'=>'text/plain'}, StringIO.new("Hello World!\n")] 
 }
