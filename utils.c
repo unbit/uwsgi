@@ -901,6 +901,15 @@ void env_to_arg(char *src, char *dst) {
 	dst[strlen(src)] = 0;
 }
 
+char *uwsgi_lower(char *str, size_t size) {
+	size_t i;
+	for(i=0;i<size;i++) {
+		str[i] = tolower((int) str[i]);
+	}
+
+	return str;
+}
+
 void parse_sys_envs(char **envs) {
 
 	char **uenvs = envs;

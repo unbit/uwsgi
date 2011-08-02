@@ -228,6 +228,13 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->request_subhandler = uwsgi_request_subhandler_web3;
 		wi->response_subhandler = uwsgi_response_subhandler_web3;
 	}
+	else if (app_type == PYTHON_APP_TYPE_PUMP) {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("-- Pump callable selected --\n");
+#endif
+		wi->request_subhandler = uwsgi_request_subhandler_pump;
+		wi->response_subhandler = uwsgi_response_subhandler_pump;
+	}
 
 #ifdef UWSGI_ASYNC
 	wi->args = malloc(sizeof(PyObject*)*uwsgi.cores);
@@ -308,6 +315,9 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 	else if (app_type == PYTHON_APP_TYPE_WEB3) {
 		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+	}
+	else if (app_type == PYTHON_APP_TYPE_PUMP) {
+		uwsgi_log( "Pump application %d (SCRIPT_NAME=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 
 	if (!wsgi_req->script_name_len) {

@@ -644,6 +644,10 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->if_modified_since = ptrbuf;
 							wsgi_req->if_modified_since_len = strsize;
 						}
+						else if (!uwsgi_strncmp("CONTENT_TYPE", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->content_type = ptrbuf;
+							wsgi_req->content_type_len = strsize;
+						}
 						else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
 							if (uwsgi.limit_post) {

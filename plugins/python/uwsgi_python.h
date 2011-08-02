@@ -213,6 +213,9 @@ void init_pyargv(void);
 void *uwsgi_request_subhandler_web3(struct wsgi_request *, struct uwsgi_app *);
 int uwsgi_response_subhandler_web3(struct wsgi_request *);
 
+void *uwsgi_request_subhandler_pump(struct wsgi_request *, struct uwsgi_app *);
+int uwsgi_response_subhandler_pump(struct wsgi_request *);
+
 PyObject *uwsgi_uwsgi_loader(void *);
 PyObject *uwsgi_dyn_loader(void *);
 PyObject *uwsgi_file_loader(void *);

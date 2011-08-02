@@ -738,6 +738,9 @@ struct wsgi_request {
 	char *host;
 	uint16_t host_len;
 
+	char *content_type;
+	uint16_t content_type_len;
+
 	char *path_info;
 	uint16_t path_info_len;
 
@@ -2112,6 +2115,8 @@ int uwsgi_cache_server(char *, int);
 void uwsgi_chown(char *, char *);
 
 char *uwsgi_get_binary_path(char *);
+
+char *uwsgi_lower(char *, size_t);
 
 #ifdef __cplusplus
 }
