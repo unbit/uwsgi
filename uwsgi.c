@@ -497,6 +497,7 @@ void kill_them_all(int signum) {
 		if (uwsgi.gateways[i].pid > 0)
 			kill(uwsgi.gateways[i].pid, SIGKILL);
 	}
+
 }
 
 void grace_them_all(int signum) {
@@ -505,6 +506,7 @@ void grace_them_all(int signum) {
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;
+	else uwsgi.to_outworld = 1;
 
 	if (uwsgi.reload_mercy > 0) {
 		uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
@@ -583,6 +585,7 @@ void reap_them_all(int signum) {
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;
+	else uwsgi.to_outworld = 1;
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
 		if (uwsgi.shared->daemons[i].pid > 0)

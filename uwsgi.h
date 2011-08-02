@@ -1056,6 +1056,7 @@ struct uwsgi_server {
 
 	int to_heaven;
 	int to_hell;
+	int to_outworld;
 
 	int buffer_size;
 

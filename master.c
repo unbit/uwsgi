@@ -255,6 +255,7 @@ void master_loop(char **argv, char **environ) {
 
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
+	int lazy_respawned = 0;
 
 	int master_has_children = 0;
 
@@ -496,6 +497,13 @@ void master_loop(char **argv, char **environ) {
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 
+		if (uwsgi.to_outworld) {
+			if (lazy_respawned >= uwsgi.numproc) {
+				uwsgi.master_mercy = 0;
+				lazy_respawned = 0;
+				uwsgi.to_outworld = 0;
+			}
+		}
 		if (uwsgi.master_mercy) {
 			if (uwsgi.master_mercy < time(NULL)) {
 				for(i=1;i<=uwsgi.numproc;i++) {
@@ -1286,6 +1294,9 @@ void master_loop(char **argv, char **environ) {
 				uwsgi.workers[uwsgi.mywid].harakiri = 0;	
                                 continue;
                         }
+			if (uwsgi.to_outworld) {
+				lazy_respawned++;
+			}
 
 
 		if (uwsgi.workers[uwsgi.mywid].manage_next_request) {
