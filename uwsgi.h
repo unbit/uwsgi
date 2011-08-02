@@ -978,6 +978,7 @@ struct uwsgi_server {
 
 	int log_master;
 	int log_syslog;
+	int original_log_fd;
 
 	int log_socket;
 	int log_socket_fd;
@@ -1057,6 +1058,8 @@ struct uwsgi_server {
 	int to_heaven;
 	int to_hell;
 	int to_outworld;
+
+	int lazy_respawned;
 
 	int buffer_size;
 
@@ -2119,6 +2122,7 @@ char *uwsgi_get_binary_path(char *);
 
 char *uwsgi_lower(char *, size_t);
 int uwsgi_num2str2n(int, char *, int);
+void create_logpipe(void);
 
 #ifdef __cplusplus
 }

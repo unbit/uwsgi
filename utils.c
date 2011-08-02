@@ -330,6 +330,12 @@ void log_socket(char *socket_name) {
 
 	// create log connection with the master
 
+	create_logpipe();
+
+}
+
+void create_logpipe(void) {
+
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
                 uwsgi_error("socketpair()\n");
                 exit(1);
@@ -338,7 +344,7 @@ void log_socket(char *socket_name) {
         uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
         uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
 
-	if (uwsgi.shared->worker_log_pipe[1] != 1) {
+        if (uwsgi.shared->worker_log_pipe[1] != 1) {
                 if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
                         uwsgi_error("dup2()");
                         exit(1);

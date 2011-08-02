@@ -504,6 +504,8 @@ void grace_them_all(int signum) {
 	int i;
 	int waitpid_status;
 
+	if (uwsgi.to_heaven == 1 || uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0) return;
+
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;
 	else uwsgi.to_outworld = 1;
@@ -586,6 +588,8 @@ void uwsgi_nuclear_blast() {
 
 void reap_them_all(int signum) {
 	int i;
+
+	if (uwsgi.to_heaven == 1 || uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0) return;
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;
@@ -2708,6 +2712,8 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.lazy = 1;
 		return 1;
 	case LONG_ARGS_LOG_MASTER:
+		uwsgi.original_log_fd = dup(1);
+		create_logpipe();
 		uwsgi.log_master = 1;
 		return 1;
 	case LONG_ARGS_LOG_SOCKET:

@@ -255,7 +255,6 @@ void master_loop(char **argv, char **environ) {
 
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
-	int lazy_respawned = 0;
 
 	int master_has_children = 0;
 
@@ -498,10 +497,11 @@ void master_loop(char **argv, char **environ) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 
 		if (uwsgi.to_outworld) {
-			if (lazy_respawned >= uwsgi.numproc) {
-				uwsgi.master_mercy = 0;
-				lazy_respawned = 0;
+			uwsgi_log("%d/%d\n", uwsgi.lazy_respawned, uwsgi.numproc);
+			if (uwsgi.lazy_respawned >= uwsgi.numproc) {
 				uwsgi.to_outworld = 0;
+				uwsgi.master_mercy = 0;
+				uwsgi.lazy_respawned = 0;
 			}
 		}
 		if (uwsgi.master_mercy) {
@@ -745,6 +745,9 @@ void master_loop(char **argv, char **environ) {
 #endif
 								else if (uwsgi.log_socket) {
 									sendto(uwsgi.log_socket_fd, log_buf, rlen, 0, &uwsgi.log_socket_addr->sa, uwsgi.log_socket_size);
+								}
+								else {
+									(void)write(uwsgi.original_log_fd, log_buf, rlen);
 								}
 								// TODO allow uwsgi.logger = func
 							}	
@@ -1294,8 +1297,9 @@ void master_loop(char **argv, char **environ) {
 				uwsgi.workers[uwsgi.mywid].harakiri = 0;	
                                 continue;
                         }
-			if (uwsgi.to_outworld) {
-				lazy_respawned++;
+			else if (uwsgi.to_outworld) {
+				uwsgi.lazy_respawned++;
+				uwsgi_log("lzy respawned %d\n", uwsgi.lazy_respawned);	
 			}
 
 
