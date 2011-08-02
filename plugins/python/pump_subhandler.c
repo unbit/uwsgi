@@ -51,7 +51,7 @@ void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_
 		Py_DECREF(zero);
 	}
 
-	zero = PyString_FromStringAndSize(wsgi_req->method, wsgi_req->method_len);
+	zero = PyString_FromStringAndSize(uwsgi_lower(wsgi_req->method, wsgi_req->method_len), wsgi_req->method_len);
 	PyDict_SetItemString(wsgi_req->async_environ, "method", zero);
 	Py_DECREF(zero);
 
