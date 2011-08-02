@@ -4,6 +4,10 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 extern PyTypeObject uwsgi_InputType;
 
+
+extern struct http_status_codes hsc[];
+
+
 void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
 	PyObject *zero;
@@ -176,6 +180,9 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 	PyObject *pychunk;
 	ssize_t wsize;
 
+	struct http_status_codes *http_sc;
+	char sc[4];
+
 	UWSGI_GET_GIL
 
 	// ok its a yield
@@ -185,18 +192,88 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 
 			PyObject *status = PyDict_GetItemString((PyObject *)wsgi_req->async_result, "status");
 			if (!status) {
-				uwsgi_log("invalid Pump response.\n"); 
+				uwsgi_log("invalid Pump response (status code).\n"); 
 				goto clear; 
 			}
 
 			PyObject *headers = PyDict_GetItemString((PyObject *)wsgi_req->async_result, "headers");
 			if (!headers) {
-				uwsgi_log("invalid Pump response.\n"); 
+				uwsgi_log("invalid Pump response (headers).\n"); 
 				goto clear; 
 			}
 
 
 			wsgi_req->async_placeholder =  PyDict_GetItemString((PyObject *)wsgi_req->async_result, "body");
+			if (!wsgi_req->async_placeholder) {
+				uwsgi_log("invalid Pump response (body).\n"); 
+				goto clear; 
+			}
+
+			// get the status code
+			if (!PyInt_Check(status)) {
+				uwsgi_log("invalid Pump response (status code).\n"); 
+				goto clear; 
+			}
+
+			if (uwsgi_num2str2n(PyInt_AsLong(status), sc, 4) != 3) {
+				uwsgi_log("invalid Pump response (status code).\n"); 
+				goto clear; 
+			}
+
+			int found = 0;
+			for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+                		if (http_sc->key[0] == sc[0] && http_sc->key[1] == sc[1] && http_sc->key[2] == sc[2]) {
+                        		wsgi_req->hvec[4].iov_base = (char *) http_sc->message;
+                        		wsgi_req->hvec[4].iov_len = http_sc->message_size;
+					found = 1;
+                        		break;
+                		}
+        		}
+		
+			if (!found) {
+				uwsgi_log("invalid Pump response (status code).\n"); 
+				goto clear; 
+			}
+
+			wsgi_req->hvec[0].iov_base = wsgi_req->protocol;
+			wsgi_req->hvec[0].iov_len = wsgi_req->protocol_len;
+			wsgi_req->hvec[1].iov_base = " ";
+			wsgi_req->hvec[1].iov_len = 1;
+			wsgi_req->hvec[2].iov_base = sc;
+			wsgi_req->hvec[2].iov_len = 3;
+			wsgi_req->hvec[3].iov_base = " ";
+			wsgi_req->hvec[3].iov_len = 1;
+			wsgi_req->hvec[5].iov_base = "\r\n";
+			wsgi_req->hvec[5].iov_len = 2;
+
+			UWSGI_RELEASE_GIL
+                	wsize = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 6);
+                	UWSGI_GET_GIL
+                	if (wsize < 0) {
+                        	uwsgi_error("writev()");
+                	}
+                	wsgi_req->headers_size += wsize;
+
+			PyObject *hhkey, *hhvalue;
+			Py_ssize_t hhpos = 0;
+			while (PyDict_Next(headers, &hhpos, &hhkey, &hhvalue)) {
+				if (!PyString_Check(hhkey)) continue;
+
+				wsgi_req->hvec[0].iov_base = PyString_AsString(hhkey);
+				wsgi_req->hvec[0].iov_len = PyString_Size(hhkey);	
+
+				wsgi_req->hvec[1].iov_base = ": ";
+                        	wsgi_req->hvec[1].iov_len = 2;
+
+				wsgi_req->hvec[2].iov_base = "\r\n";
+                        	wsgi_req->hvec[2].iov_len = 2;
+				if (PyList_Check(hhvalue)) {
+				}
+				else if (PyString_Check(hhvalue)) {
+				}
+			}
+
+			wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2);
 			Py_INCREF(wsgi_req->async_placeholder);
 
 			if (PyString_Check((PyObject *)wsgi_req->async_placeholder)) {

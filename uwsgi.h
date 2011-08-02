@@ -2117,6 +2117,7 @@ void uwsgi_chown(char *, char *);
 char *uwsgi_get_binary_path(char *);
 
 char *uwsgi_lower(char *, size_t);
+int uwsgi_num2str2n(int, char *, int);
 
 #ifdef __cplusplus
 }

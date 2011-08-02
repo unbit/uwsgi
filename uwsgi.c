@@ -1869,7 +1869,9 @@ skipzero:
 				uwsgi_sock->proto_close = uwsgi_proto_base_close;
 			}
 			else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
-				uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
+				if (!strcmp(uwsgi.protocol, "fastcgi") || !strcmp(uwsgi.protocol, "fcgi")) {
+					uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
+				}
 				uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
 				uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
 				uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;

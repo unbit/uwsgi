@@ -3,6 +3,8 @@
 extern struct uwsgi_server uwsgi;
 struct uwsgi_python up;
 
+extern struct http_status_codes hsc[];
+
 #include <glob.h>
 
 extern PyTypeObject uwsgi_InputType;
@@ -810,6 +812,8 @@ char *uwsgi_pythonize(char *orig) {
 
 void uwsgi_python_init_apps() {
 
+	struct http_status_codes *http_sc;
+
 
 	if (uwsgi.async > 1) {
 		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
@@ -918,6 +922,10 @@ void uwsgi_python_init_apps() {
 	}
 	if (up.pump != NULL) {
 		init_uwsgi_app(LOADER_UWSGI, up.pump, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_PUMP);
+		// filling http status codes
+        	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+                	http_sc->message_size = (int) strlen(http_sc->message);
+        	}
 	}
 	if (up.wsgi_lite != NULL) {
 		init_uwsgi_app(LOADER_UWSGI, up.wsgi_lite, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI_LITE);

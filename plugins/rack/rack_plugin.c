@@ -32,53 +32,7 @@ void uwsgi_ruby_exception(void) {
 
 
 
-/* statistically ordered */
-static struct http_status_codes hsc[] = {
-
-	{"200", "OK"},
-	{"302", "Found"},
-	{"404", "Not Found"},
-	{"500", "Internal Server Error"},
-	{"301", "Moved Permanently"},
-	{"304", "Not Modified"},
-	{"303", "See Other"},
-	{"403", "Forbidden"},
-	{"307", "Temporary Redirect"},
-	{"401", "Unauthorized"},
-	{"400", "Bad Request"},
-	{"405", "Method Not Allowed"},
-	{"408", "Request Timeout"},
-
-	{"100", "Continue"},
-	{"101", "Switching Protocols"},
-	{"201", "Created"},
-	{"202", "Accepted"},
-	{"203", "Non-Authoritative Information"},
-	{"204", "No Content"},
-	{"205", "Reset Content"},
-	{"206", "Partial Content"},
-	{"300", "Multiple Choices"},
-	{"305", "Use Proxy"},
-	{"402", "Payment Required"},
-	{"406", "Not Acceptable"},
-	{"407", "Proxy Authentication Required"},
-	{"409", "Conflict"},
-	{"410", "Gone"},
-	{"411", "Length Required"},
-	{"412", "Precondition Failed"},
-	{"413", "Request Entity Too Large"},
-	{"414", "Request-URI Too Long"},
-	{"415", "Unsupported Media Type"},
-	{"416", "Requested Range Not Satisfiable"},
-	{"417", "Expectation Failed"},
-	{"501", "Not Implemented"},
-	{"502", "Bad Gateway"},
-	{"503", "Service Unavailable"},
-	{"504", "Gateway Timeout"},
-	{"505", "HTTP Version Not Supported"},
-	{ "", NULL },
-};
-
+extern struct http_status_codes hsc[];
 
 
 VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
@@ -680,7 +634,21 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	rb_ary_store(rbv, 1, INT2NUM(1));
 	rb_hash_aset(env, rb_str_new2("rack.version"), rbv);
 
-	rb_hash_aset(env, rb_str_new2("rack.url_scheme"), rb_str_new2("http"));
+	if (wsgi_req->scheme_len > 0) {
+		rb_hash_aset(env, rb_str_new2("rack.url_scheme"), rb_str_new(wsgi_req->scheme, wsgi_req->scheme_len));
+        }
+        else if (wsgi_req->https_len > 0) {
+                if (!strncasecmp(wsgi_req->https, "on", 2) || wsgi_req->https[0] == '1') {
+			rb_hash_aset(env, rb_str_new2("rack.url_scheme"), rb_str_new2("https"));
+                }
+                else {
+			rb_hash_aset(env, rb_str_new2("rack.url_scheme"), rb_str_new2("http"));
+                }
+        }
+        else {
+		rb_hash_aset(env, rb_str_new2("rack.url_scheme"), rb_str_new2("http"));
+        }
+
 
 	rb_hash_aset(env, rb_str_new2("rack.multithread"), Qfalse);
 	rb_hash_aset(env, rb_str_new2("rack.multiprocess"), Qtrue);
