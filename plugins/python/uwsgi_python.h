@@ -15,6 +15,15 @@
 #define LONG_ARGS_RELOAD_OS_ENV		LONG_ARGS_PYTHON_BASE + 5
 #define LONG_ARGS_PYIMPORT		LONG_ARGS_PYTHON_BASE + 6
 #define LONG_ARGS_POST_PYMODULE_ALIAS   LONG_ARGS_PYTHON_BASE + 7
+#define LONG_ARGS_WEB3			LONG_ARGS_PYTHON_BASE + 8
+#define LONG_ARGS_PUMP			LONG_ARGS_PYTHON_BASE + 9
+#define LONG_ARGS_WSGI_LITE		LONG_ARGS_PYTHON_BASE + 10
+
+#define PYTHON_APP_TYPE_WSGI		0
+#define PYTHON_APP_TYPE_WEB3		1
+#define PYTHON_APP_TYPE_WSGI2		2
+#define PYTHON_APP_TYPE_PUMP		3
+#define PYTHON_APP_TYPE_WSGI_LITE	4
 
 #if PY_MINOR_VERSION == 4 && PY_MAJOR_VERSION == 2
 #define Py_ssize_t ssize_t
@@ -83,6 +92,16 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define LOADER_MAX              8
 
+typedef struct uwsgi_Input {
+        PyObject_HEAD
+        char readline[1024];
+        size_t readline_size;
+        size_t readline_max_size;
+        size_t readline_pos;
+        size_t pos;
+        struct wsgi_request *wsgi_req;
+} uwsgi_Input;
+
 struct uwsgi_python {
 
 	char *home;
@@ -116,6 +135,9 @@ struct uwsgi_python {
 	char *paste;
 	char *eval;
 
+	char *web3;
+	char *pump;
+	char *wsgi_lite;
 
 	char *callable;
 
@@ -166,7 +188,7 @@ void uwsgi_paste_config(char *);
 void uwsgi_file_config(char *);
 void uwsgi_eval_config(char *);
 
-int init_uwsgi_app(int, void *, struct wsgi_request *wsgi_req, PyThreadState *);
+int init_uwsgi_app(int, void *, struct wsgi_request *, PyThreadState *, int);
 
 
 PyObject *py_eventfd_read(PyObject *, PyObject *);
@@ -188,10 +210,8 @@ PyObject *py_uwsgi_spit(PyObject *, PyObject *);
 
 void init_pyargv(void);
 
-#ifdef UWSGI_WEB3
 void *uwsgi_request_subhandler_web3(struct wsgi_request *, struct uwsgi_app *);
 int uwsgi_response_subhandler_web3(struct wsgi_request *);
-#endif
 
 PyObject *uwsgi_uwsgi_loader(void *);
 PyObject *uwsgi_dyn_loader(void *);

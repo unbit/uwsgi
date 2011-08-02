@@ -22,9 +22,8 @@ PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_re
 PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_write, METH_VARARGS, ""}};
 #endif
 
-int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThreadState *interpreter) {
+int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThreadState *interpreter, int app_type) {
 
-	PyObject *zero;
 	PyObject *app_list = NULL, *applications = NULL;
 
 	int id = uwsgi.apps_cnt;
@@ -212,47 +211,22 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 #endif
 
-	// check function args
-	// by defaut it is a WSGI app
-	wi->argc = 2;
-	zero = PyObject_GetAttrString(wi->callable, "__code__");
-	if (!zero) {
-		zero = PyObject_GetAttrString(wi->callable, "__call__");
-		if (zero) {
-			zero = PyObject_GetAttrString(wi->callable, "__code__");
-		}
-		else {
-			uwsgi_log("WARNING: unable to get the number of callable args. Fallback to WSGI\n");
-		}
-	}
+	wi->argc = 1;
 
-	// avoid __code__ attr error propagation
-	PyErr_Clear();
-
-	if (zero) {
-		zero = PyObject_GetAttrString(zero, "co_argcount");
-		wi->argc = (int) PyInt_AsLong(zero);
-	}
-
-	if (wi->argc == 2) {
+	if (app_type == PYTHON_APP_TYPE_WSGI) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("-- WSGI callable detected --\n");
+		uwsgi_log("-- WSGI callable selected --\n");
 #endif
 		wi->request_subhandler = uwsgi_request_subhandler_wsgi;
 		wi->response_subhandler = uwsgi_response_subhandler_wsgi;
+		wi->argc = 2;
 	}
-#ifdef UWSGI_WEB3
-	else if (wi->argc == 1) {
+	else if (app_type == PYTHON_APP_TYPE_WEB3) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("-- Web3 callable detected --\n");
+		uwsgi_log("-- Web3 callable selected --\n");
 #endif
 		wi->request_subhandler = uwsgi_request_subhandler_web3;
 		wi->response_subhandler = uwsgi_response_subhandler_web3;
-	}
-#endif
-	else {
-		uwsgi_log("-- INVALID callable detected --\n");
-		goto doh;
 	}
 
 #ifdef UWSGI_ASYNC
@@ -270,7 +244,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		}
 
 		// add start_response on WSGI app
-		if (wi->argc == 2) {
+		if (app_type == PYTHON_APP_TYPE_WSGI) {
 			if (PyTuple_SetItem(wi->args[i], 1, up.wsgi_spitout)) {
 				uwsgi_log("unable to set start_response in args tuple\n");
 				exit(1);
@@ -280,7 +254,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 #else
 
 	wi->wsgi_args = PyTuple_New(wi->argc);
-	if (wi->argc == 2) {
+	if (app_type == PYTHON_APP_TYPE_WSGI) {
 		if (PyTuple_SetItem(wi->wsgi_args, 1, up.wsgi_spitout)) {
 			uwsgi_log("unable to set start_response in args tuple\n");
 			exit(1);
@@ -288,7 +262,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 #endif
 
-	if (wi->argc == 2) {
+	if (app_type == PYTHON_APP_TYPE_WSGI) {
 #ifdef UWSGI_SENDFILE
 		// prepare sendfile() for WSGI app
 		wi->sendfile = PyCFunction_New(uwsgi_sendfile_method, NULL);
@@ -329,11 +303,11 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		PyThreadState_Swap(up.main_thread);
 	}
 
-	if (wi->argc == 1) {
-		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready on interpreter %p", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter);
-	}
-	else {
+	if (app_type == PYTHON_APP_TYPE_WSGI) {
 		uwsgi_log( "WSGI application %d (SCRIPT_NAME=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+	}
+	else if (app_type == PYTHON_APP_TYPE_WEB3) {
+		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 
 	if (!wsgi_req->script_name_len) {
@@ -355,7 +329,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 			wsgi_req->script_name = PyString_AsString(app_mnt);
 			wsgi_req->script_name_len = strlen(wsgi_req->script_name);
-			init_uwsgi_app(LOADER_CALLABLE, PyDict_GetItem(applications, app_mnt), wsgi_req, wi->interpreter);
+			init_uwsgi_app(LOADER_CALLABLE, PyDict_GetItem(applications, app_mnt), wsgi_req, wi->interpreter, app_type);
 		}
 	}
 

@@ -2,10 +2,66 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
+extern PyTypeObject uwsgi_InputType;
 
 void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
 	PyObject *zero;
+	int i;
+	PyObject *pydictkey, *pydictvalue;
+	char *path_info;
+
+        for (i = 0; i < wsgi_req->var_cnt; i += 2) {
+#ifdef UWSGI_DEBUG
+                uwsgi_debug("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
+#endif
+#ifdef PYTHREE
+                pydictkey = PyUnicode_DecodeLatin1(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, NULL);
+                pydictvalue = PyUnicode_DecodeLatin1(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len, NULL);
+#else
+                pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
+                pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
+#endif
+                PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
+                Py_DECREF(pydictkey);
+                Py_DECREF(pydictvalue);
+        }
+
+        if (wsgi_req->uh.modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
+                wsgi_req->uh.modifier1 = 0;
+                pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
+                if (pydictkey) {
+                        if (PyString_Check(pydictkey)) {
+                                pydictvalue = PyDict_GetItemString(wsgi_req->async_environ, "PATH_INFO");
+                                if (pydictvalue) {
+                                        if (PyString_Check(pydictvalue)) {
+                                                path_info = PyString_AsString(pydictvalue);
+                                                PyDict_SetItemString(wsgi_req->async_environ, "PATH_INFO", PyString_FromString(path_info + PyString_Size(pydictkey)));
+                                        }
+                                }
+                        }
+                }
+        }
+
+        // if async_post is mapped as a file, directly use it as wsgi.input
+        if (wsgi_req->async_post) {
+#ifdef PYTHREE
+                wsgi_req->async_input = PyFile_FromFd(fileno(wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
+#else
+                wsgi_req->async_input = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
+#endif
+        }
+        else {
+                // create wsgi.input custom object
+                wsgi_req->async_input = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
+                ((uwsgi_Input*)wsgi_req->async_input)->wsgi_req = wsgi_req;
+                ((uwsgi_Input*)wsgi_req->async_input)->pos = 0;
+                ((uwsgi_Input*)wsgi_req->async_input)->readline_pos = 0;
+                ((uwsgi_Input*)wsgi_req->async_input)->readline_max_size = 0;
+
+        }
+
+        PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_req->async_input);
 
 #ifdef UWSGI_SENDFILE
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);

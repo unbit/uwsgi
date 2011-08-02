@@ -31,6 +31,9 @@ struct option uwsgi_python_options[] = {
 	{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 	{"optimize", required_argument, 0, 'O'},
 	{"paste", required_argument, 0, LONG_ARGS_PASTE},
+	{"web3", required_argument, 0, LONG_ARGS_WEB3},
+	{"pump", required_argument, 0, LONG_ARGS_PUMP},
+	{"wsgi-lite", required_argument, 0, LONG_ARGS_WSGI_LITE},
 #ifdef UWSGI_INI
 	{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
 #endif
@@ -742,6 +745,15 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 		}
 		return 1;
 #endif
+	case LONG_ARGS_WEB3:
+		up.web3 = optarg;
+		return 1;
+	case LONG_ARGS_PUMP:
+		up.pump = optarg;
+		return 1;
+	case LONG_ARGS_WSGI_LITE:
+		up.wsgi_lite = optarg;
+		return 1;
 	case LONG_ARGS_PASTE:
 		up.paste = optarg;
 		return 1;
@@ -758,9 +770,9 @@ int uwsgi_python_mount_app(char *mountpoint, char *app) {
 	uwsgi.wsgi_req->script_name = mountpoint;
 	uwsgi.wsgi_req->script_name_len = strlen(mountpoint);
 	if (uwsgi.single_interpreter) {
-		return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread);
+		return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
 	}
-	return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL);
+	return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
 
 }
 
@@ -889,17 +901,26 @@ void uwsgi_python_init_apps() {
 
 
 	if (up.wsgi_config != NULL) {
-		init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread);
+		init_uwsgi_app(LOADER_UWSGI, up.wsgi_config, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
 	}
 
 	if (up.file_config != NULL) {
-		init_uwsgi_app(LOADER_FILE, up.file_config, uwsgi.wsgi_req, up.main_thread);
+		init_uwsgi_app(LOADER_FILE, up.file_config, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
 	}
 	if (up.paste != NULL) {
-		init_uwsgi_app(LOADER_PASTE, up.paste, uwsgi.wsgi_req, up.main_thread);
+		init_uwsgi_app(LOADER_PASTE, up.paste, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
 	}
 	if (up.eval != NULL) {
-		init_uwsgi_app(LOADER_EVAL, up.eval, uwsgi.wsgi_req, up.main_thread);
+		init_uwsgi_app(LOADER_EVAL, up.eval, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
+	}
+	if (up.web3 != NULL) {
+		init_uwsgi_app(LOADER_UWSGI, up.web3, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WEB3);
+	}
+	if (up.pump != NULL) {
+		init_uwsgi_app(LOADER_UWSGI, up.pump, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_PUMP);
+	}
+	if (up.wsgi_lite != NULL) {
+		init_uwsgi_app(LOADER_UWSGI, up.wsgi_lite, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI_LITE);
 	}
 
 	if (uwsgi.profiler) {
@@ -979,16 +1000,16 @@ int uwsgi_python_xml(char *node, char *content) {
 	}
 
 	if (!strcmp("script", node)) {
-		return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter);
+		return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
 	}
 	else if (!strcmp("file", node)) {
-		return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, interpreter);
+		return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
 	}
 	else if (!strcmp("eval", node)) {
-		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter);
+		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
 	}
 	else if (!strcmp("wsgi", node)) {
-		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter);
+		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
 	}
 	else if (!strcmp("module", node)) {
 		uwsgi.wsgi_req->module = content;
@@ -999,10 +1020,10 @@ int uwsgi_python_xml(char *node, char *content) {
 			uwsgi.wsgi_req->callable++;
 			uwsgi.wsgi_req->callable_len = strlen(uwsgi.wsgi_req->callable);
 			uwsgi.wsgi_req->module_len = strlen(uwsgi.wsgi_req->module);
-			return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter);
+			return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
 		}
 		else {
-			return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter);
+			return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
 		}
 		return 1;
 	}
@@ -1014,7 +1035,7 @@ int uwsgi_python_xml(char *node, char *content) {
 	else if (!strcmp("callable", node)) {
 		uwsgi.wsgi_req->callable = content;
 		uwsgi.wsgi_req->callable_len = strlen(content);
-		return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter);
+		return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
 	}
 
 	return 0;
