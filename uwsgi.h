@@ -600,6 +600,8 @@ struct uwsgi_plugin {
 	void (*suspend) (struct wsgi_request *);
 	void (*resume) (struct wsgi_request *);
 
+	void (*hijack_worker) (void);
+
 	int (*magic) (char *, char *);
 
 	void *(*encode_string) (char *);
@@ -975,6 +977,8 @@ struct uwsgi_server {
 	int logdate;
 	int log_micros;
 	char *log_strftime;
+
+	int honour_stdin;
 
 	int log_master;
 	int log_syslog;

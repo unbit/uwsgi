@@ -286,13 +286,13 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	wi->gateway_version = PyTuple_New(2);
         PyTuple_SetItem(wi->gateway_version, 0, PyInt_FromLong(1));
         PyTuple_SetItem(wi->gateway_version, 1, PyInt_FromLong(0));
-	Py_INCREF(wi->gateway_version);
+	Py_INCREF((PyObject *)wi->gateway_version);
 
 	wi->uwsgi_version = PyString_FromString(UWSGI_VERSION);
-	Py_INCREF(wi->uwsgi_version);
+	Py_INCREF((PyObject *)wi->uwsgi_version);
 
 	wi->uwsgi_node = PyString_FromString(uwsgi.hostname);
-	Py_INCREF(wi->uwsgi_node);
+	Py_INCREF((PyObject *)wi->uwsgi_node);
 
 	if (uwsgi.threads > 1 && id) {
 		// if we have multiple threads we need to initialize a PyThreadState for each one

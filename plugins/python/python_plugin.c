@@ -44,6 +44,7 @@ struct option uwsgi_python_options[] = {
 	{"pep3333-input", no_argument, &up.pep3333_input, 1},
 	{"reload-os-env", no_argument, &up.reload_os_env, 1},
 	{"no-site", no_argument, &Py_NoSiteFlag, 1},
+	{"pyshell", no_argument, 0, LONG_ARGS_PYSHELL},
 
 	{0, 0, 0, 0},
 };
@@ -703,6 +704,11 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 			uwsgi_log("you can specify at most %d --pymodule-alias options\n", MAX_PYMODULE_ALIAS);
 		}
 		return 1;
+	case LONG_ARGS_PYSHELL:
+		uwsgi.honour_stdin = 1;
+		up.pyshell = 1;
+		uwsgi.to_hell = 1;
+		return 1;
 	case LONG_ARGS_PYIMPORT:
 		uwsgi_string_new_list(&up.import_list, optarg);
 		return 1;
@@ -1219,6 +1225,14 @@ void uwsgi_python_fixup() {
 	uwsgi.p[30] = uwsgi.p[0];
 }
 
+void uwsgi_python_hijack(void) {
+	if (up.pyshell) {
+		PyImport_ImportModule("readline");
+		PyRun_InteractiveLoop(stdin, "uwsgi");
+		exit(0);
+	}
+}
+
 struct uwsgi_plugin python_plugin = {
 
 	.name = "python",
@@ -1246,6 +1260,8 @@ struct uwsgi_plugin python_plugin = {
 
 	.suspend = uwsgi_python_suspend,
 	.resume = uwsgi_python_resume,
+
+	.hijack_worker = uwsgi_python_hijack,
 
 	.signal_handler = uwsgi_python_signal_handler,
 	.rpc = uwsgi_python_rpc,

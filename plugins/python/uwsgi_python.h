@@ -18,6 +18,7 @@
 #define LONG_ARGS_WEB3			LONG_ARGS_PYTHON_BASE + 8
 #define LONG_ARGS_PUMP			LONG_ARGS_PYTHON_BASE + 9
 #define LONG_ARGS_WSGI_LITE		LONG_ARGS_PYTHON_BASE + 10
+#define LONG_ARGS_PYSHELL		LONG_ARGS_PYTHON_BASE + 11
 
 #define PYTHON_APP_TYPE_WSGI		0
 #define PYTHON_APP_TYPE_WEB3		1
@@ -122,6 +123,8 @@ struct uwsgi_python {
 	PyThreadState *main_thread;
 
 	char *test_module;
+
+	int pyshell;
 
 	struct uwsgi_string_list *python_path;
 	struct uwsgi_string_list *import_list;

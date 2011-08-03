@@ -1824,7 +1824,7 @@ int uwsgi_start(void *v_argv) {
 					uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 				}
 			}
-			else {
+			else if (!uwsgi.honour_stdin) {
 				int fd = open("/dev/null", O_RDONLY);
 				if (fd < 0) {
 					uwsgi_error_open("/dev/null");
@@ -2199,6 +2199,19 @@ skipzero:
 		master_loop(argv, environ);
 		//from now on the process is a real worker
 	}
+
+	for (i = 0; i < 0xFF; i++) {
+                if (uwsgi.p[i]->hijack_worker) {
+                        uwsgi.p[i]->hijack_worker();
+                }
+        }
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->hijack_worker) {
+                        uwsgi.gp[i]->hijack_worker();
+                }
+        }
+
 
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {

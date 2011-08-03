@@ -231,10 +231,8 @@ void spooler() {
 				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
 					uint8_t uwsgi_signal;
 					if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
-                                        	if (uwsgi.no_orphans) {
                                                 	uwsgi_log_verbose("uWSGI spooler screams: UAAAAAAH my master died, i will follow him...\n");
                                                		end_me(0); 
-                                        	}
                                 	}
                                 	else {
 #ifdef UWSGI_DEBUG

@@ -97,18 +97,18 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	}
 
 	if (wsgi_req->scheme_len > 0) {
-		zero = PyString_FromStringAndSize(wsgi_req->scheme, wsgi_req->scheme_len);
+		zero = UWSGI_PYFROMSTRINGSIZE(wsgi_req->scheme, wsgi_req->scheme_len);
 	}
 	else if (wsgi_req->https_len > 0) {
 		if (!strncasecmp(wsgi_req->https, "on", 2) || wsgi_req->https[0] == '1') {
-			zero = PyString_FromString("https");
+			zero = UWSGI_PYFROMSTRING("https");
 		}
 		else {
-			zero = PyString_FromString("http");
+			zero = UWSGI_PYFROMSTRING("http");
 		}
 	}
 	else {
-		zero = PyString_FromString("http");
+		zero = UWSGI_PYFROMSTRING("http");
 	}
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
 	Py_DECREF(zero);
