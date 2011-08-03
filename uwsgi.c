@@ -562,8 +562,10 @@ void grace_them_all(int signum) {
 				}
 			}
 		}
-		else if (uwsgi.workers[i].pid > 0)
+		else if (uwsgi.workers[i].pid > 0) {
+			if (uwsgi.lazy) uwsgi.workers[i].destroy = 1;
 			kill(uwsgi.workers[i].pid, SIGHUP);
+		}
 	}
 
 	if (uwsgi.auto_snapshot) {
@@ -589,7 +591,8 @@ void uwsgi_nuclear_blast() {
 void reap_them_all(int signum) {
 	int i;
 
-	if (uwsgi.to_heaven == 1 || uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0) return;
+	// avoid reace condition in lazy mode
+	if (uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0) return;
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;

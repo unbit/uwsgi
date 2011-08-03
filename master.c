@@ -497,7 +497,7 @@ void master_loop(char **argv, char **environ) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 
 		if (uwsgi.to_outworld) {
-			uwsgi_log("%d/%d\n", uwsgi.lazy_respawned, uwsgi.numproc);
+			//uwsgi_log("%d/%d\n", uwsgi.lazy_respawned, uwsgi.numproc);
 			if (uwsgi.lazy_respawned >= uwsgi.numproc) {
 				uwsgi.to_outworld = 0;
 				uwsgi.master_mercy = 0;
@@ -508,6 +508,7 @@ void master_loop(char **argv, char **environ) {
 			if (uwsgi.master_mercy < time(NULL)) {
 				for(i=1;i<=uwsgi.numproc;i++) {
 					if (uwsgi.workers[i].pid > 0) {
+						if (uwsgi.lazy && uwsgi.workers[i].destroy == 0) continue;
 						uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
 						if (!kill(uwsgi.workers[i].pid, SIGKILL)) {
 							if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
@@ -516,12 +517,17 @@ void master_loop(char **argv, char **environ) {
 							uwsgi.workers[i].pid = 0;
 							if (uwsgi.to_hell) { ready_to_die++;}
 							else if (uwsgi.to_heaven) { ready_to_reload++;}
+							else if (uwsgi.to_outworld) {
+								uwsgi.lazy_respawned++;
+								if (uwsgi_respawn_worker(i)) return;	
+							}
 						}
 						else {
 							uwsgi_error("kill()");
 						}
 					}
 				}
+				uwsgi.master_mercy = 0;
 			}
 		}
 		if (uwsgi.respawn_workers) {
@@ -1299,7 +1305,10 @@ void master_loop(char **argv, char **environ) {
                         }
 			else if (uwsgi.to_outworld) {
 				uwsgi.lazy_respawned++;
-				uwsgi_log("lzy respawned %d\n", uwsgi.lazy_respawned);	
+				uwsgi.workers[uwsgi.mywid].destroy = 0;
+				uwsgi.workers[uwsgi.mywid].pid = 0;
+				// only to be safe :P
+                                uwsgi.workers[uwsgi.mywid].harakiri = 0;
 			}
 
 
