@@ -211,12 +211,18 @@ static PyObject *uwsgi_Input_close(uwsgi_Input *self, PyObject *args) {
 	return Py_None;
 }
 
+static PyObject *uwsgi_Input_fileno(uwsgi_Input *self, PyObject *args) {
+
+	return PyInt_FromLong(self->wsgi_req->poll.fd);
+}
+
 static PyMethodDef uwsgi_Input_methods[] = {
 	{ "read",      (PyCFunction)uwsgi_Input_read,      METH_VARARGS, 0 },
 	{ "readline",  (PyCFunction)uwsgi_Input_readline,  METH_VARARGS, 0 },
 	{ "readlines", (PyCFunction)uwsgi_Input_readlines, METH_VARARGS, 0 },
 // add close to allow mod_wsgi compatibility
 	{ "close",     (PyCFunction)uwsgi_Input_close,     METH_VARARGS, 0 },
+	{ "fileno",     (PyCFunction)uwsgi_Input_fileno,     METH_VARARGS, 0 },
 	{ NULL, NULL}
 };
 
