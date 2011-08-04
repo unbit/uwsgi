@@ -46,6 +46,12 @@ pid_t spooler_start() {
 				}
 			}
 		}
+
+		for (i = 0; i < 0xFF; i++) {
+                	if (uwsgi.p[i]->post_fork) {
+                        	uwsgi.p[i]->post_fork();
+                	}
+        	}
 		uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
 		for (i = 0; i < 0xFF; i++) {
                 	if (uwsgi.p[i]->spooler_init) {
