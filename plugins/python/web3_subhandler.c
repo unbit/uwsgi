@@ -149,7 +149,7 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 
 
 			wsgi_req->async_placeholder = PyTuple_GetItem((PyObject *)wsgi_req->async_result, 0); 
-			Py_INCREF(wsgi_req->async_placeholder);
+			Py_INCREF((PyObject *)wsgi_req->async_placeholder);
 
 			PyObject *spit_args = PyTuple_New(2);
 

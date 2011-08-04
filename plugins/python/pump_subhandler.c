@@ -300,7 +300,7 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 			}
 
 			wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2);
-			Py_INCREF(wsgi_req->async_placeholder);
+			Py_INCREF((PyObject *)wsgi_req->async_placeholder);
 
 			if (PyString_Check((PyObject *)wsgi_req->async_placeholder)) {
                 		if ((wsize = wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(wsgi_req->async_placeholder), PyString_Size(wsgi_req->async_placeholder))) < 0) {

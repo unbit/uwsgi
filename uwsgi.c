@@ -2200,18 +2200,6 @@ skipzero:
 		//from now on the process is a real worker
 	}
 
-	for (i = 0; i < 0xFF; i++) {
-                if (uwsgi.p[i]->hijack_worker) {
-                        uwsgi.p[i]->hijack_worker();
-                }
-        }
-
-        for (i = 0; i < uwsgi.gp_cnt; i++) {
-                if (uwsgi.gp[i]->hijack_worker) {
-                        uwsgi.gp[i]->hijack_worker();
-                }
-        }
-
 
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
@@ -2539,6 +2527,19 @@ void uwsgi_ignition() {
 			goto wait_for_call_of_duty;
 		uwsgi_log("[snapshot] process %d is the new worker %d\n", (int) getpid(), uwsgi.mywid);
 	}
+
+	for (i = 0; i < 0xFF; i++) {
+                if (uwsgi.p[i]->hijack_worker) {
+                        uwsgi.p[i]->hijack_worker();
+                }
+        }
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->hijack_worker) {
+                        uwsgi.gp[i]->hijack_worker();
+                }
+        }
+
 
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);

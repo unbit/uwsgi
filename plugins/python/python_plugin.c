@@ -1226,7 +1226,8 @@ void uwsgi_python_fixup() {
 }
 
 void uwsgi_python_hijack(void) {
-	if (up.pyshell) {
+	// the pyshell will be execute only in the first worker
+	if (up.pyshell && uwsgi.mywid == 1) {
 		PyImport_ImportModule("readline");
 		PyRun_InteractiveLoop(stdin, "uwsgi");
 		exit(0);

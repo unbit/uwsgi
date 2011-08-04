@@ -2693,6 +2693,7 @@ char *uwsgi_get_binary_path(char *argvzero) {
 	if (len > 0) {
 		return buf;
 	}
+	free(buf);
 #elif defined(__APPLE__)
 	char *buf = uwsgi_malloc(uwsgi.page_size);
 	uint32_t len = uwsgi.page_size;
@@ -2729,6 +2730,7 @@ char *uwsgi_get_binary_path(char *argvzero) {
 	if (sysctl(mib, 4, buf, &len, NULL, 0) == 0) {
 		return buf;
 	}
+	free(buf);
 #endif
 
 
