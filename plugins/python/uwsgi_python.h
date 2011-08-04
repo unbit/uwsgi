@@ -19,6 +19,7 @@
 #define LONG_ARGS_PUMP			LONG_ARGS_PYTHON_BASE + 9
 #define LONG_ARGS_WSGI_LITE		LONG_ARGS_PYTHON_BASE + 10
 #define LONG_ARGS_PYSHELL		LONG_ARGS_PYTHON_BASE + 11
+#define LONG_ARGS_SPOOLER_PYIMPORT	LONG_ARGS_PYTHON_BASE + 12
 
 #define PYTHON_APP_TYPE_WSGI		0
 #define PYTHON_APP_TYPE_WEB3		1
@@ -128,6 +129,7 @@ struct uwsgi_python {
 
 	struct uwsgi_string_list *python_path;
 	struct uwsgi_string_list *import_list;
+	struct uwsgi_string_list *spooler_import_list;
 	struct uwsgi_string_list *post_pymodule_alias;
 
 	PyObject *loader_dict;

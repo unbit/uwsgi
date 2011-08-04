@@ -29,6 +29,10 @@ struct option uwsgi_python_options[] = {
 	{"pyimport", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"py-import", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"python-import", required_argument, 0, LONG_ARGS_PYIMPORT},
+	{"spooler-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
+	{"spooler-pyimport", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
+	{"spooler-py-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
+	{"spooler-python-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
 	{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
 	{"optimize", required_argument, 0, 'O'},
@@ -712,6 +716,9 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 	case LONG_ARGS_PYIMPORT:
 		uwsgi_string_new_list(&up.import_list, optarg);
 		return 1;
+	case LONG_ARGS_SPOOLER_PYIMPORT:
+		uwsgi_string_new_list(&up.spooler_import_list, optarg);
+		return 1;
 	case LONG_ARGS_POST_PYMODULE_ALIAS:
 		uwsgi_string_new_list(&up.post_pymodule_alias, optarg);
 		return 1;
@@ -813,6 +820,23 @@ char *uwsgi_pythonize(char *orig) {
 	}
 
 	return name;
+
+}
+
+void uwsgi_python_spooler_init(void) {
+
+	struct uwsgi_string_list *upli = up.spooler_import_list;
+        while(upli) {
+                if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
+                        uwsgi_pyimport_by_filename(uwsgi_pythonize(upli->value), upli->value);
+                }
+                else {
+                        if (PyImport_ImportModule(upli->value) == NULL) {
+                                PyErr_Print();
+                        }
+                }
+                upli = upli->next;
+        }
 
 }
 
@@ -1263,6 +1287,7 @@ struct uwsgi_plugin python_plugin = {
 	.resume = uwsgi_python_resume,
 
 	.hijack_worker = uwsgi_python_hijack,
+	.spooler_init = uwsgi_python_spooler_init,
 
 	.signal_handler = uwsgi_python_signal_handler,
 	.rpc = uwsgi_python_rpc,

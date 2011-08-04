@@ -9,6 +9,9 @@ static void spooler_scandir(char *);
 #endif
 void spooler_manage_task(char *, char *);
 
+// fake function to allow waking the spooler
+void spooler_wakeup() {}
+
 pid_t spooler_start() {
 	
 	int i;
@@ -30,6 +33,8 @@ pid_t spooler_start() {
 		exit(1);
 	}
 	else if (pid == 0) {
+		// USR1 will be used to wake up the spooler
+		signal(SIGUSR1, spooler_wakeup);
 		uwsgi.mywid = -1;
 		uwsgi.mypid = pid;
 		uwsgi_close_all_sockets();
@@ -42,6 +47,17 @@ pid_t spooler_start() {
 			}
 		}
 		uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
+		for (i = 0; i < 0xFF; i++) {
+                	if (uwsgi.p[i]->spooler_init) {
+                        	uwsgi.p[i]->spooler_init();
+                	}
+        	}
+
+        	for (i = 0; i < uwsgi.gp_cnt; i++) {
+                	if (uwsgi.gp[i]->spooler_init) {
+                        	uwsgi.gp[i]->spooler_init();
+                	}
+        	}
 		spooler();
 	}
 	else if (pid > 0) {
@@ -161,6 +177,11 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size, c
 	uwsgi_log("written %d bytes to spool file %s\n", size + body_len + 4, filename);
 	
 	uwsgi_unlock(uwsgi.spooler_lock);
+
+/*	wake up the spooler ... (HACKY) */
+	if (uwsgi.shared->spooler_pid > 0 ) {
+		(void) kill(uwsgi.shared->spooler_pid, SIGUSR1);
+	}
 
 	return 1;
 

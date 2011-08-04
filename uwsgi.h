@@ -601,6 +601,7 @@ struct uwsgi_plugin {
 	void (*resume) (struct wsgi_request *);
 
 	void (*hijack_worker) (void);
+	void (*spooler_init) (void);
 
 	int (*magic) (char *, char *);
 
