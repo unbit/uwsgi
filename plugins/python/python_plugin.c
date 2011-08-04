@@ -178,6 +178,14 @@ void uwsgi_python_reset_random_seed() {
 
 void uwsgi_python_post_fork() {
 
+#ifdef UWSGI_SPOOLER
+	if (uwsgi.shared->spooler_pid > 0) {
+		if (uwsgi.shared->spooler_pid == getpid()) {
+			UWSGI_GET_GIL
+		}
+	}	
+#endif
+
 	uwsgi_python_reset_random_seed();
 
 #ifdef UWSGI_EMBEDDED
@@ -827,7 +835,9 @@ void uwsgi_python_spooler_init(void) {
 
 	struct uwsgi_string_list *upli = up.spooler_import_list;
 
+	
 	UWSGI_GET_GIL
+
         while(upli) {
                 if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
                         uwsgi_pyimport_by_filename(uwsgi_pythonize(upli->value), upli->value);
@@ -839,7 +849,9 @@ void uwsgi_python_spooler_init(void) {
                 }
                 upli = upli->next;
         }
+
 	UWSGI_RELEASE_GIL
+	
 
 }
 
