@@ -826,6 +826,8 @@ char *uwsgi_pythonize(char *orig) {
 void uwsgi_python_spooler_init(void) {
 
 	struct uwsgi_string_list *upli = up.spooler_import_list;
+
+	UWSGI_GET_GIL
         while(upli) {
                 if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
                         uwsgi_pyimport_by_filename(uwsgi_pythonize(upli->value), upli->value);
@@ -837,6 +839,7 @@ void uwsgi_python_spooler_init(void) {
                 }
                 upli = upli->next;
         }
+	UWSGI_RELEASE_GIL
 
 }
 
@@ -1206,8 +1209,9 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 		PyDict_SetItemString(spool_dict, "body", PyString_FromStringAndSize(body, body_len));
 	}
 	PyTuple_SetItem(pyargs, 0, spool_dict);
-	
+
 	ret = python_call(spool_func, pyargs, 0);
+
 	if (ret) {
 		if (!PyInt_Check(ret)) {
 			// error, retry

@@ -437,7 +437,6 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	uwsgi_log("managing spool request...\n");
 	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL, 0, NULL, 0);
 	wsgi_req->uh.modifier1 = 255;
 	wsgi_req->uh.pktsize = 0;
