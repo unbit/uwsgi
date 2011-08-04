@@ -685,7 +685,10 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         else:
             gcc_list.append(path + '/' + cfile)
 
-    p_ldflags.remove('-Wl,--no-undefined')
+    try:
+        p_ldflags.remove('-Wl,--no-undefined')
+    except:
+        pass
 
     gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), ' '.join(gcc_list), ' '.join(p_libs) )
     print(gccline)
