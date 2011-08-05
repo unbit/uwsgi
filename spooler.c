@@ -195,7 +195,9 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size, c
       clear:
 	uwsgi_unlock(uwsgi.spooler_lock);
 	uwsgi_error("write()");
-	unlink(filename);
+	if (unlink(filename)) {
+		uwsgi_error("unlink()");
+	}
 	close(fd);
 	return 0;
 }
