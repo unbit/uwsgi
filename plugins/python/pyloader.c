@@ -37,23 +37,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	struct uwsgi_app *wi;
 
-	if (wsgi_req->script_name_len == 0) {
-		wsgi_req->script_name = "";
-	}
-	else if (wsgi_req->script_name_len == 1) {
-		if (wsgi_req->script_name[0] == '/') {
-			wsgi_req->script_name = "";
-			wsgi_req->script_name_len = 0;
-		}
-	}
 
-
-	if (uwsgi.vhost) {
-		mountpoint = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|", 1, wsgi_req->script_name, wsgi_req->script_name_len);
-	}
-	else {
-		mountpoint = uwsgi_strncopy(wsgi_req->script_name, wsgi_req->script_name_len);
-	}
+	mountpoint = uwsgi_strncopy(wsgi_req->appid, wsgi_req->appid_len);
 
 	if (uwsgi_get_app_id(mountpoint, strlen(mountpoint), -1) != -1) {
 		uwsgi_log( "mountpoint %.*s already configured. skip.\n", strlen(mountpoint), mountpoint);
@@ -159,7 +144,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	wi->callable = up.loaders[loader](arg1);
 
 	if (!wi->callable) {
-		uwsgi_log("unable to load app SCRIPT_NAME=%s\n", mountpoint);
+		uwsgi_log("unable to load app mountpoint=%s\n", mountpoint);
 		goto doh;
 	}
 
@@ -183,8 +168,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		}
 		wi->mountpoint = PyString_AsString(app_mnt);
 		wi->mountpoint_len = strlen(wi->mountpoint);
-		wsgi_req->script_name = wi->mountpoint;
-		wsgi_req->script_name_len = wi->mountpoint_len;
+		wsgi_req->appid = wi->mountpoint;
+		wsgi_req->appid_len = wi->mountpoint_len;
 		uwsgi_log("main mountpoint = %s\n", wi->mountpoint);
 		wi->callable = PyDict_GetItem(applications, app_mnt);
 	}
@@ -311,16 +296,16 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 
 	if (app_type == PYTHON_APP_TYPE_WSGI) {
-		uwsgi_log( "WSGI application %d (SCRIPT_NAME=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+		uwsgi_log( "WSGI application %d (mountpoint=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 	else if (app_type == PYTHON_APP_TYPE_WEB3) {
-		uwsgi_log( "Web3 application %d (SCRIPT_NAME=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+		uwsgi_log( "Web3 application %d (mountpoint=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 	else if (app_type == PYTHON_APP_TYPE_PUMP) {
-		uwsgi_log( "Pump application %d (SCRIPT_NAME=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+		uwsgi_log( "Pump application %d (mountpoint=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 
-	if (!wsgi_req->script_name_len) {
+	if (!wsgi_req->appid_len) {
 		uwsgi_rawlog(" (default app)");
 		uwsgi.default_app = id;
 	}
@@ -337,8 +322,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 				continue;
 			}
 
-			wsgi_req->script_name = PyString_AsString(app_mnt);
-			wsgi_req->script_name_len = strlen(wsgi_req->script_name);
+			wsgi_req->appid = PyString_AsString(app_mnt);
+			wsgi_req->appid_len = strlen(wsgi_req->appid);
 			init_uwsgi_app(LOADER_CALLABLE, PyDict_GetItem(applications, app_mnt), wsgi_req, wi->interpreter, app_type);
 		}
 	}

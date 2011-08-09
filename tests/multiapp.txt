@@ -1,0 +1,23 @@
+- case 1
+
+single static app
+
+- case 2
+
+single static multiapp
+
+- case 3
+
+multi app static mountpoint
+
+- case 4
+
+dynamic apps with UWSGI_APPID
+
+- case 5
+
+dynamic apps with SCRIPT_NAME
+
+- case 6
+
+dynamic apps with vhost mode

@@ -727,7 +727,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
 	wsgi_req->poll.events = POLLIN;
+
 	wsgi_req->app_id = uwsgi.default_app;
+
 	wsgi_req->async_id = async_id;
 #ifdef UWSGI_SENDFILE
 	wsgi_req->sendfile_fd = -1;
@@ -1326,19 +1328,19 @@ char *uwsgi_strncopy(char *s, int len) {
 }
 
 
-int uwsgi_get_app_id(char *script_name, int script_name_len, int modifier1) {
+int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 
 	int i;
 	struct stat st;
 
 	for (i = 0; i < uwsgi.apps_cnt; i++) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("searching for %.*s in %.*s %p\n", script_name_len, script_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
+		uwsgi_log("searching for %.*s in %.*s %p\n", app_name_len, app_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
 #endif
 		if (!uwsgi.apps[i].callable) {
 			continue;
 		}
-		if (!uwsgi_strncmp(uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len, script_name, script_name_len)) {
+		if (!uwsgi_strncmp(uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len, app_name, app_name_len)) {
 			if (uwsgi.apps[i].touch_reload) {
 				if (!stat(uwsgi.apps[i].touch_reload, &st)) {
 					if (st.st_mtime != uwsgi.apps[i].touch_reload_mtime) {

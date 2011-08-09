@@ -326,8 +326,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	struct uwsgi_app *wi;
 
 	int tmp_stderr;
-	char *what;
-	int what_len;
+	int free_appid = 0;
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -354,7 +353,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	/* Standard WSGI request */
 	if (!wsgi_req->uh.pktsize) {
-		uwsgi_log( "Invalid WSGI request. skip.\n");
+		uwsgi_log( "Empty python request. skip.\n");
 		return -1;
 	}
 
@@ -363,73 +362,56 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
-	if (!up.ignore_script_name) {
-
-		if (!wsgi_req->script_name)
-			wsgi_req->script_name = "";
+	if (wsgi_req->appid_len == 0) {
+		if (!up.ignore_script_name) {
+			wsgi_req->appid = wsgi_req->script_name;
+			wsgi_req->appid_len = wsgi_req->script_name_len;
+		}
 
 		if (uwsgi.vhost) {
-			what = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
-			what_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
+			wsgi_req->appid = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
+			wsgi_req->appid_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
 #ifdef UWSGI_DEBUG
 			uwsgi_debug("VirtualHost SCRIPT_NAME=%s\n", what);
 #endif
+			free_appid = 1;
 		}
-		else {
-			what = wsgi_req->script_name;
-			what_len = wsgi_req->script_name_len;
-		}
+	}
 
 
-		if ( (wsgi_req->app_id = uwsgi_get_app_id(what, what_len, 0))  == -1) {
-			if (wsgi_req->script_name_len > 1 || uwsgi.default_app < 0 || uwsgi.vhost) {
-				/* unavailable app for this SCRIPT_NAME */
-				wsgi_req->app_id = -1;
-				if (wsgi_req->script_len > 0
-						|| wsgi_req->module_len > 0
-						|| wsgi_req->file_len > 0
-						|| wsgi_req->paste_len > 0
-				   ) {
-					// this part must be heavy locked in threaded modes
-					if (uwsgi.threads > 1) {
-						pthread_mutex_lock(&up.lock_pyloaders);
-					}
 
-					UWSGI_GET_GIL
-					if (uwsgi.single_interpreter) {
-						wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
-					}
-					else {
-						wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
-					}
-					UWSGI_RELEASE_GIL
-					if (uwsgi.threads > 1) {
-						pthread_mutex_unlock(&up.lock_pyloaders);
-					}
-				}
+	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, 0))  == -1) {
+		wsgi_req->app_id = uwsgi.default_app;
+		if (uwsgi.no_default_app) {
+                	wsgi_req->app_id = -1;
+        	}
+		if (wsgi_req->dynamic) {
+			// this part must be heavy locked in threaded modes
+			if (uwsgi.threads > 1) {
+				pthread_mutex_lock(&up.lock_pyloaders);
+			}
+
+			UWSGI_GET_GIL
+			if (uwsgi.single_interpreter) {
+				wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
+			}
+			else {
+				wsgi_req->app_id = init_uwsgi_app(LOADER_DYN, (void *) wsgi_req, wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
+			}
+			UWSGI_RELEASE_GIL
+			if (uwsgi.threads > 1) {
+				pthread_mutex_unlock(&up.lock_pyloaders);
 			}
 		}
-
-		if (uwsgi.vhost) {
-			free(what);
-		}
-
-	}
-	else {
-		wsgi_req->app_id = 0;
 	}
 
+	if (free_appid) {
+		free(wsgi_req->appid);
+	}
 
 	if (wsgi_req->app_id == -1) {
-		// use default app ?
-		if (!uwsgi.no_default_app && uwsgi.default_app >= 0) {
-			wsgi_req->app_id = uwsgi.default_app;
-		}
-		else {
-			internal_server_error(wsgi_req, "wsgi application not found");
-			goto clear2;
-		}
-
+		internal_server_error(wsgi_req, "Python application not found");
+		goto clear2;
 	}
 
 	wi = &uwsgi.apps[wsgi_req->app_id];
@@ -444,21 +426,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			uwsgi_error("chdir()");
 		}
 	}
-
-
-	if (wsgi_req->protocol_len < 5) {
-		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
-		internal_server_error(wsgi_req, "invalid HTTP protocol !!!");
-		goto clear;
-
-	}
-
-	if (strncmp(wsgi_req->protocol, "HTTP/", 5)) {
-		uwsgi_log( "INVALID PROTOCOL: %.*s\n", wsgi_req->protocol_len, wsgi_req->protocol);
-		internal_server_error(wsgi_req, "invalid HTTP protocol !!!");
-		goto clear;
-	}
-
 
 
 #ifdef UWSGI_ASYNC

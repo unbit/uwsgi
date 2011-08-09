@@ -706,6 +706,10 @@ struct wsgi_request {
 	//temporary attr
 
 	int app_id;
+	int dynamic;
+
+	char *appid;
+	uint16_t appid_len;
 
 	struct pollfd poll;
 

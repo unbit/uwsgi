@@ -582,14 +582,17 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						else if (!uwsgi_strncmp("UWSGI_SCRIPT", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len )) {
 							wsgi_req->script = ptrbuf;
 							wsgi_req->script_len = strsize;
+							wsgi_req->dynamic = 1;
 						}
 						else if (!uwsgi_strncmp("UWSGI_MODULE", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->module = ptrbuf;
 							wsgi_req->module_len = strsize;
+							wsgi_req->dynamic = 1;
 						}
 						else if (!uwsgi_strncmp("UWSGI_CALLABLE", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->callable = ptrbuf;
 							wsgi_req->callable_len = strsize;
+							wsgi_req->dynamic = 1;
 						}
 						else if (!uwsgi_strncmp("UWSGI_PYHOME", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->pyhome = ptrbuf;
@@ -599,9 +602,14 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->chdir = ptrbuf;
 							wsgi_req->chdir_len = strsize;
 						}
+						else if (!uwsgi_strncmp("UWSGI_APPID", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->appid = ptrbuf;
+							wsgi_req->appid_len = strsize;
+						}
 						else if (!uwsgi_strncmp("UWSGI_FILE", 10, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->file = ptrbuf;
 							wsgi_req->file_len = strsize;
+							wsgi_req->dynamic = 1;
 						}
 						else if (!uwsgi_strncmp("UWSGI_TOUCH_RELOAD", 18, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->touch_reload = ptrbuf;
