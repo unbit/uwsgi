@@ -753,7 +753,7 @@ void master_loop(char **argv, char **environ) {
 									sendto(uwsgi.log_socket_fd, log_buf, rlen, 0, &uwsgi.log_socket_addr->sa, uwsgi.log_socket_size);
 								}
 								else {
-									(void)write(uwsgi.original_log_fd, log_buf, rlen);
+									rlen = write(uwsgi.original_log_fd, log_buf, rlen);
 								}
 								// TODO allow uwsgi.logger = func
 							}	
