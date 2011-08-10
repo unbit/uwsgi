@@ -202,6 +202,8 @@ static struct option long_base_options[] = {
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
 	{"grunt", no_argument, &uwsgi.grunt, 1},
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
+	{"threads-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE},
+	{"thread-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE},
 	{"vhost", no_argument, &uwsgi.vhost, 1},
 	{"vhost-host", no_argument, 0, LONG_ARGS_VHOSTHOST},
 #ifdef UWSGI_ROUTING
@@ -1959,6 +1961,15 @@ skipzero:
 		if (uwsgi.has_threads) {
 			if (uwsgi.threads > 1)
 				uwsgi.current_wsgi_req = threaded_current_wsgi_req;
+			(void) pthread_attr_init(&uwsgi.threads_attr);
+			if (uwsgi.threads_stacksize) {
+				if (pthread_attr_setstacksize(&uwsgi.threads_attr, uwsgi.threads_stacksize*1024) == 0) {
+					uwsgi_log("threads stack size set to %dk\n", uwsgi.threads_stacksize);
+				}
+				else {
+					uwsgi_log("!!! unable to set requested threads stacksize !!!\n");
+				}
+			}
 			for (i = 0; i < 0xFF; i++) {
 				if (uwsgi.p[i]->enable_threads)
 					uwsgi.p[i]->enable_threads();
@@ -2687,6 +2698,10 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_THREADS:
 		uwsgi.has_threads = 1;
 		uwsgi.threads = atoi(optarg);
+		return 1;
+	case LONG_ARGS_THREADS_STACKSIZE:
+		uwsgi.has_threads = 1;
+		uwsgi.threads_stacksize = atoi(optarg);
 		return 1;
 #endif
 	case LONG_ARGS_PROTOCOL:

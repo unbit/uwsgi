@@ -475,6 +475,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CHOWN_SOCKET		17131
 #define LONG_ARGS_HTTP_SOCKET		17132
 #define LONG_ARGS_FASTCGI_SOCKET	17133
+#define LONG_ARGS_THREADS_STACKSIZE	17134
 
 
 #define UWSGI_OK	0
@@ -1237,6 +1238,8 @@ struct uwsgi_server {
 	struct uwsgi_core **core;
 
 	int threads;
+	pthread_attr_t threads_attr;
+	size_t threads_stacksize;
 
 	//this key old the u_request structure per core / thread
 	pthread_key_t tur_key;
