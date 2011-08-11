@@ -2569,7 +2569,7 @@ void uwsgi_ignition() {
 				}
 				for (i = 1; i < uwsgi.threads; i++) {
 					long j = i;
-					pthread_create(&uwsgi.core[i]->thread_id, NULL, zeromq_loop, (void *) j);
+					pthread_create(&uwsgi.core[i]->thread_id, &uwsgi.threads_attr, zeromq_loop, (void *) j);
 				}
 			}
 
@@ -2587,7 +2587,7 @@ void uwsgi_ignition() {
 			}
 			for (i = 1; i < uwsgi.threads; i++) {
 				long j = i;
-				pthread_create(&uwsgi.core[i]->thread_id, NULL, simple_loop, (void *) j);
+				pthread_create(&uwsgi.core[i]->thread_id, &uwsgi.threads_attr, simple_loop, (void *) j);
 			}
 		}
 
