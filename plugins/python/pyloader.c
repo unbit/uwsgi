@@ -26,7 +26,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	PyObject *app_list = NULL, *applications = NULL;
 
-	int id = uwsgi.apps_cnt;
+	int id = uwsgi_apps_cnt;
 	int multiapp = 0;
 
 #ifdef UWSGI_ASYNC
@@ -47,7 +47,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 
 
-	wi = &uwsgi.apps[id];
+	wi = &uwsgi_apps[id];
 
 	memset(wi, 0, sizeof(struct uwsgi_app));
 	wi->mountpoint = mountpoint;
@@ -310,7 +310,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		uwsgi.default_app = id;
 	}
 
-	uwsgi.apps_cnt++;
+	uwsgi_apps_cnt++;
 
 	uwsgi_rawlog("\n");
 
@@ -325,6 +325,14 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			wsgi_req->appid = PyString_AsString(app_mnt);
 			wsgi_req->appid_len = strlen(wsgi_req->appid);
 			init_uwsgi_app(LOADER_CALLABLE, PyDict_GetItem(applications, app_mnt), wsgi_req, wi->interpreter, app_type);
+		}
+	}
+
+	// check if we need to emulate fork() COW
+	if (uwsgi.mywid == 0) {
+		for(i=1;i<=uwsgi.numproc;i++) {
+			memcpy(&uwsgi.workers[i].apps[id], &uwsgi.workers[0].apps[id], sizeof(struct uwsgi_app));
+			uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
 		}
 	}
 
@@ -423,7 +431,7 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 		tmp_callable = PyDict_GetItemString(wsgi_dict, quick_callable);
 		quick_callable[strlen(quick_callable)] = '(';
 		if (tmp_callable) {
-			return python_call(tmp_callable, PyTuple_New(0), 0);
+			return python_call(tmp_callable, PyTuple_New(0), 0, NULL);
 		}
 	}
 

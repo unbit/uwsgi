@@ -656,15 +656,30 @@ void snapshot_me(int signum) {
 void stats(int signum) {
 	//fix this for better logging(this cause races)
 	struct uwsgi_app *ua = NULL;
-	int i;
+	int i, j;
 
-	uwsgi_log("*** pid %d stats ***\n", getpid());
-	uwsgi_log("\ttotal requests: %llu\n", uwsgi.workers[0].requests);
-	for (i = 0; i < uwsgi.apps_cnt; i++) {
-		ua = &uwsgi.apps[i];
-		if (ua) {
-			uwsgi_log("\tapp %d requests: %d\n", i, ua->requests);
+	if (uwsgi.mywid == 0) {
+		uwsgi_log("\tworkers total requests: %llu\n", uwsgi.workers[0].requests);
+		uwsgi_log("-----------------\n");
+		for(j=1;j<=uwsgi.numproc;j++) {
+			for (i = 0; i < uwsgi.workers[j].apps_cnt; i++) {
+				ua = &uwsgi.workers[j].apps[i];
+				if (ua) {
+					uwsgi_log("\tworker %d app %d [%.*s] requests: %d exceptions: %d\n", j, i, ua->mountpoint_len, ua->mountpoint, ua->requests, ua->exceptions);
+				}
+			}
+			uwsgi_log("-----------------\n");
 		}
+	}
+	else {
+		uwsgi_log("worker %d total requests: %llu\n", uwsgi.mywid, uwsgi.workers[0].requests);
+		for (i = 0; i < uwsgi.workers[uwsgi.mywid].apps_cnt; i++) {
+			ua = &uwsgi.workers[uwsgi.mywid].apps[i];
+			if (ua) {
+				uwsgi_log("\tapp %d [%.*s] requests: %d exceptions: %d\n", i, ua->mountpoint_len, ua->mountpoint, ua->requests, ua->exceptions);
+			}
+		}
+		uwsgi_log("-----------------\n");
 	}
 	uwsgi_log("\n");
 }
@@ -847,7 +862,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
 
-	uwsgi.apps_cnt = 0;
 	uwsgi.default_app = -1;
 
 	uwsgi.buffer_size = 4096;
@@ -1584,7 +1598,6 @@ int uwsgi_start(void *v_argv) {
 	}
 	if (uwsgi.vhost) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
-		uwsgi.apps_cnt = 0;
 	}
 
 
@@ -2027,7 +2040,8 @@ skipzero:
 
 
 
-	memset(uwsgi.apps, 0, sizeof(uwsgi.apps));
+	// apps are now per-worker
+	//memset(uwsgi.apps, 0, sizeof(uwsgi.apps));
 
 	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (!uwsgi.workers) {
@@ -4092,9 +4106,8 @@ void uwsgi_init_all_apps() {
 	}
 
 	// no app initialized and virtualhosting enabled
-	if (uwsgi.apps_cnt == 0) {
+	if (uwsgi_apps_cnt == 0) {
 		uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
-		uwsgi.apps_cnt = 1;
 	}
 
 }

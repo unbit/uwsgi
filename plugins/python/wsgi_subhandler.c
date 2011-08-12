@@ -152,7 +152,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 
 	PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-	return python_call(wsgi_req->async_app, wsgi_req->async_args, up.catch_exceptions);
+	return python_call(wsgi_req->async_app, wsgi_req->async_args, up.catch_exceptions, wsgi_req);
 }
 
 int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
@@ -219,6 +219,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 				uwsgi_log("Memory Error detected !!!\n");	
 			}		
 			uwsgi.workers[uwsgi.mywid].exceptions++;
+			uwsgi_apps[wsgi_req->app_id].exceptions++;
 			PyErr_Print();
 		}	
 		goto clear;

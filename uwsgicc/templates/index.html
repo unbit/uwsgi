@@ -4,9 +4,9 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <title>uWSGI {{uwsgi.version}} Control Center</title>
 
-<link href="{{ url_for('static', filename='css/ui-lightness/jquery-ui-1.8.7.custom.css') }}" rel="stylesheet" type="text/css"/>
-<script src="{{ url_for('static', filename='js/jquery-1.4.4.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/jquery-ui-1.8.7.custom.min.js') }}"></script>
+<link href="{{ url_for('static', filename='css/custom-theme/jquery-ui-1.8.14.custom.css') }}" rel="stylesheet" type="text/css"/>
+<script src="{{ url_for('static', filename='js/jquery-1.5.1.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/jquery-ui-1.8.14.custom.min.js') }}"></script>
 
 <style type="text/css"> 
 body {
@@ -174,7 +174,7 @@ $(document).ready(function() {
 <a name="top"></a>
 <h1>uWSGI <span class="small">{{uwsgi.version}}</span> Control Center</h1>
 <div class="anchor">
-<a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#signals">signals</a> | <a href="#workers">workers</a> | <a href="#rpc">rpc</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
+<a href="#information">information</a> | <a href="#options">options</a> | <a href="#logs">logs</a> | <a href="#signals">signals</a> | <a href="#workers">workers</a> | <a href="#applications">applications</a> | <a href="#rpc">rpc</a> {% if uwsgi.cluster() %}| <a href="#cluster">cluster</a>{% endif %}
 </div>
 
 {% with messages = get_flashed_messages() %}
@@ -288,6 +288,45 @@ $(document).ready(function() {
     </div>
 
 </div>
+
+<a name="applications"></a>
+<h3>Applications</h3>
+<div class="info">
+{% for w in uwsgi.workers() %}
+worker {{w.id}}
+<table width="400">
+<tr>
+    <th>#</th>
+    <th>modifier1</th>
+    <th>mountpoint</th>
+    <th>interpreter</th>
+    <th>callable</th>
+    <th>chdir</th>
+    <th>requests</th>
+    <th>exceptions</th>
+</tr>
+{% for app in w.apps %}
+        <tr class="{{ loop.cycle('odd', 'even') }}">
+                <td>{{app.id}}</td>
+                <td>{{app.modifier1}}</td>
+                <td>{{app.mountpoint}}</td>
+                <td>{{app.interpreter}}</td>
+                <td>{{app.callable}}</td>
+                <td>{{app.chdir}}</td>
+                <td>{{app.requests}}</td>
+                <td>{{app.exceptions}}</td>
+        </tr>
+{% endfor %}
+</table>
+<br/><br/>
+{% endfor %}
+<br/>
+    <div class="anchor">
+    <a href="#top">back to top</a>
+    </div>
+
+</div>
+
 
 <a name="rpc"></a>
 <div id="rpc_tabs" class="info">

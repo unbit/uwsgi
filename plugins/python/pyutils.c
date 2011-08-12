@@ -8,7 +8,7 @@ int manage_python_response(struct wsgi_request *wsgi_req) {
 	return uwsgi_response_subhandler_wsgi(wsgi_req);
 }
 
-PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
+PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi_request *wsgi_req) {
 
 	PyObject *pyret;
 
@@ -23,8 +23,12 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 			uwsgi_log("Memory Error detected !!!\n");
 		}
 		// this can be in a spooler or in the master
-		if (uwsgi.mywid > 0)
+		if (uwsgi.mywid > 0) {
 			uwsgi.workers[uwsgi.mywid].exceptions++;
+			if (wsgi_req) {
+				uwsgi_apps[wsgi_req->app_id].exceptions++;
+			}
+		}
 		if (!catch) {
 			PyErr_Print();
 		}
@@ -41,7 +45,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch) {
 
 int uwsgi_python_call(struct wsgi_request *wsgi_req, PyObject *callable, PyObject *args) {
 
-	wsgi_req->async_result = python_call(callable, args, 0);
+	wsgi_req->async_result = python_call(callable, args, 0, wsgi_req);
 
 	if (wsgi_req->async_result) {
 		while ( manage_python_response(wsgi_req) != UWSGI_OK) {

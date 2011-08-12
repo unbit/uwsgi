@@ -372,7 +372,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			wsgi_req->appid = uwsgi_concat3n(wsgi_req->host, wsgi_req->host_len, "|",1, wsgi_req->script_name, wsgi_req->script_name_len);
 			wsgi_req->appid_len = wsgi_req->host_len + 1 + wsgi_req->script_name_len;
 #ifdef UWSGI_DEBUG
-			uwsgi_debug("VirtualHost SCRIPT_NAME=%s\n", what);
+			uwsgi_debug("VirtualHost KEY=%.*s\n", wsgi_req->appid_len, wsgi_req->appid);
 #endif
 			free_appid = 1;
 		}
@@ -414,7 +414,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		goto clear2;
 	}
 
-	wi = &uwsgi.apps[wsgi_req->app_id];
+	wi = &uwsgi_apps[wsgi_req->app_id];
 
 	up.swap_ts(wsgi_req, wi);
 	

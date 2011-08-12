@@ -1333,17 +1333,17 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 	int i;
 	struct stat st;
 
-	for (i = 0; i < uwsgi.apps_cnt; i++) {
+	for (i = 0; i < uwsgi_apps_cnt; i++) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("searching for %.*s in %.*s %p\n", app_name_len, app_name, uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint, uwsgi.apps[i].callable);
+		uwsgi_log("searching for %.*s in %.*s %p\n", app_name_len, app_name, uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint, uwsgi_apps[i].callable);
 #endif
-		if (!uwsgi.apps[i].callable) {
+		if (!uwsgi_apps[i].callable) {
 			continue;
 		}
-		if (!uwsgi_strncmp(uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len, app_name, app_name_len)) {
-			if (uwsgi.apps[i].touch_reload) {
-				if (!stat(uwsgi.apps[i].touch_reload, &st)) {
-					if (st.st_mtime != uwsgi.apps[i].touch_reload_mtime) {
+		if (!uwsgi_strncmp(uwsgi_apps[i].mountpoint, uwsgi_apps[i].mountpoint_len, app_name, app_name_len)) {
+			if (uwsgi_apps[i].touch_reload) {
+				if (!stat(uwsgi_apps[i].touch_reload, &st)) {
+					if (st.st_mtime != uwsgi_apps[i].touch_reload_mtime) {
 						// serve the new request and reload
 						uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 						if (uwsgi.threads > 1) {
@@ -1351,14 +1351,14 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 						}
 
 #ifdef UWSGI_DEBUG
-						uwsgi_log("mtime %d %d\n", st.st_mtime, uwsgi.apps[i].touch_reload_mtime);
+						uwsgi_log("mtime %d %d\n", st.st_mtime, uwsgi_apps[i].touch_reload_mtime);
 #endif
 					}
 				}
 			}
 			if (modifier1 == -1)
 				return i;
-			if (modifier1 == uwsgi.apps[i].modifier1)
+			if (modifier1 == uwsgi_apps[i].modifier1)
 				return i;
 		}
 	}

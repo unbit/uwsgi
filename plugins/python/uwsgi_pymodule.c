@@ -2081,8 +2081,9 @@ PyObject *py_uwsgi_total_requests(PyObject * self, PyObject * args) {
 	/* uWSGI workers */
 PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 
-	PyObject *worker_dict, *zero;
-	int i;
+	PyObject *worker_dict, *apps_dict, *apps_tuple, *zero;
+	int i, j;
+	struct uwsgi_app *ua;
 
 	for (i = 0; i < uwsgi.numproc; i++) {
 		worker_dict = PyTuple_GetItem(up.workers_tuple, i);
@@ -2155,6 +2156,43 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		   Py_DECREF(zero);
 		 */
 
+		apps_tuple = PyTuple_New(uwsgi.workers[i+1].apps_cnt);
+
+		for(j=0;j<uwsgi.workers[i+1].apps_cnt;j++) {
+			apps_dict = PyDict_New();
+			ua = &uwsgi.workers[i+1].apps[j];
+
+			PyDict_SetItemString(apps_dict, "id", PyInt_FromLong(j));
+
+			PyDict_SetItemString(apps_dict, "modifier1", PyInt_FromLong(ua->modifier1));
+
+			zero = PyString_FromStringAndSize(ua->mountpoint, ua->mountpoint_len);
+			PyDict_SetItemString(apps_dict, "mountpoint", zero);
+			Py_DECREF(zero);
+
+			PyDict_SetItemString(apps_dict, "interpreter", PyInt_FromLong((long)ua->interpreter));
+			PyDict_SetItemString(apps_dict, "callable", PyInt_FromLong((long)ua->interpreter));
+
+			PyDict_SetItemString(apps_dict, "requests", PyInt_FromLong(ua->requests));
+			PyDict_SetItemString(apps_dict, "exceptions", PyInt_FromLong(ua->exceptions));
+
+			if (ua->chdir) {
+				zero = PyString_FromString(ua->chdir);
+			}
+			else {
+				zero = PyString_FromString("");
+			}
+			PyDict_SetItemString(apps_dict, "chdir", zero);
+			Py_DECREF(zero);
+
+			PyTuple_SetItem(apps_tuple, j, apps_dict);
+
+		}
+	
+
+		PyDict_SetItemString(worker_dict, "apps", apps_tuple);
+		Py_DECREF(apps_tuple);
+
 	}
 
 
@@ -2168,6 +2206,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 	return Py_None;
 
 }
+
 
 	/* uWSGI reload */
 PyObject *py_uwsgi_reload(PyObject * self, PyObject * args) {

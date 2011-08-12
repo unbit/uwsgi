@@ -749,7 +749,7 @@ next:
 	}
 
 	if (uwsgi.manage_script_name) {
-		if (uwsgi.apps_cnt > 0 && wsgi_req->path_info_len > 1) {
+		if (uwsgi_apps_cnt > 0 && wsgi_req->path_info_len > 1) {
 			// starts with 1 as the 0 app is the default (/) one
 			int best_found = 0;
 			char *orig_path_info = wsgi_req->path_info;
@@ -766,13 +766,13 @@ next:
 				wsgi_req->var_cnt++;
 				script_name = wsgi_req->var_cnt;
 			}
-			for(i=0;i<uwsgi.apps_cnt;i++) {
+			for(i=0;i<uwsgi_apps_cnt;i++) {
 				//uwsgi_log("app mountpoint = %.*s\n", uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint);
-				if (orig_path_info_len >= uwsgi.apps[i].mountpoint_len) {
-					if (!uwsgi_startswith(orig_path_info, uwsgi.apps[i].mountpoint, uwsgi.apps[i].mountpoint_len) && uwsgi.apps[i].mountpoint_len > best_found) {
-						best_found = uwsgi.apps[i].mountpoint_len;
-						wsgi_req->script_name = uwsgi.apps[i].mountpoint;
-						wsgi_req->script_name_len = uwsgi.apps[i].mountpoint_len;
+				if (orig_path_info_len >= uwsgi_apps[i].mountpoint_len) {
+					if (!uwsgi_startswith(orig_path_info, uwsgi_apps[i].mountpoint, uwsgi_apps[i].mountpoint_len) && uwsgi_apps[i].mountpoint_len > best_found) {
+						best_found = uwsgi_apps[i].mountpoint_len;
+						wsgi_req->script_name = uwsgi_apps[i].mountpoint;
+						wsgi_req->script_name_len = uwsgi_apps[i].mountpoint_len;
 						wsgi_req->path_info = orig_path_info+wsgi_req->script_name_len;
 						wsgi_req->path_info_len = orig_path_info_len-wsgi_req->script_name_len;
 

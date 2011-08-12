@@ -194,7 +194,7 @@ void uwsgi_python_post_fork() {
 	if (uwsgi_dict) {
 		PyObject *pfh = PyDict_GetItemString(uwsgi_dict, "post_fork_hook");
 		if (pfh) {
-			python_call(pfh, PyTuple_New(0), 0);
+			python_call(pfh, PyTuple_New(0), 0, NULL);
 		}
 	}
 	PyErr_Clear();
@@ -790,8 +790,8 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 
 int uwsgi_python_mount_app(char *mountpoint, char *app) {
 
-	uwsgi.wsgi_req->script_name = mountpoint;
-	uwsgi.wsgi_req->script_name_len = strlen(mountpoint);
+	uwsgi.wsgi_req->appid = mountpoint;
+	uwsgi.wsgi_req->appid_len = strlen(mountpoint);
 	if (uwsgi.single_interpreter) {
 		return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
 	}
@@ -1124,7 +1124,7 @@ int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 
 	PyTuple_SetItem(args, 0, PyInt_FromLong(sig));
 
-	ret = python_call(handler, args, 0);
+	ret = python_call(handler, args, 0, NULL);
 
 	if (ret) {
 		UWSGI_RELEASE_GIL;
@@ -1151,7 +1151,7 @@ uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
 		PyTuple_SetItem(pyargs, i, PyString_FromString(argv[i]));
 	}
 
-	ret = python_call((PyObject *) func, pyargs, 0);
+	ret = python_call((PyObject *) func, pyargs, 0, NULL);
 
 	if (ret) {
 		if (PyString_Check(ret)) {
@@ -1222,7 +1222,7 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	}
 	PyTuple_SetItem(pyargs, 0, spool_dict);
 
-	ret = python_call(spool_func, pyargs, 0);
+	ret = python_call(spool_func, pyargs, 0, NULL);
 
 	if (ret) {
 		if (!PyInt_Check(ret)) {

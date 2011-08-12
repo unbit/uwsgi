@@ -18,6 +18,9 @@ extern "C" {
 #define uwsgi_notify(x) if (uwsgi.notify) uwsgi.notify(x)
 #define uwsgi_notify_ready() if (uwsgi.notify_ready) uwsgi.notify_ready()
 
+#define uwsgi_apps uwsgi.workers[uwsgi.mywid].apps
+#define uwsgi_apps_cnt uwsgi.workers[uwsgi.mywid].apps_cnt
+
 #define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
 
 #define thunder_lock if (uwsgi.threads > 1) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
@@ -651,7 +654,8 @@ struct uwsgi_app {
 	int (*response_subhandler) (struct wsgi_request *);
 
 	int argc;
-	int requests;
+	uint64_t requests;
+	uint64_t exceptions;
 	char *chdir;
 
 	char *touch_reload;
@@ -893,7 +897,6 @@ struct uwsgi_server {
 	int hostname_len;
 	int no_initial_output;
 	int has_threads;
-	int apps_cnt;
 	int default_app;
 
 	char *logto2;
@@ -1172,7 +1175,6 @@ struct uwsgi_server {
 
 	struct uwsgi_shared *shared;
 
-	struct uwsgi_app apps[MAX_APPS];
 
 	int no_orphans;
 
@@ -1520,6 +1522,9 @@ struct uwsgi_worker {
 	uint64_t exceptions;
 
 	int destroy;
+
+	int apps_cnt;
+	struct uwsgi_app apps[MAX_APPS];
 
 };
 
