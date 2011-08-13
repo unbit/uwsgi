@@ -1073,6 +1073,17 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 	rlen = write(2, logpkt, rlen);
 }
 
+char *uwsgi_str_contains(char *str, int slen, char what) {
+
+	int i;
+	for(i=0;i<slen;i++) {
+		if (str[i] == what) {
+			return str+i;
+		}
+	}
+	return NULL;
+}
+
 inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 
 	if (slen != dlen)

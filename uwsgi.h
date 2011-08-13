@@ -305,6 +305,7 @@ struct uwsgi_gateway {
 	pid_t pid;
 	int num;
 	int use_signals;
+	uint64_t respawns;
 };
 
 
@@ -612,6 +613,7 @@ struct uwsgi_plugin {
 	void *(*encode_string) (char *);
 	char *(*decode_string) (void *);
 	int (*signal_handler) (uint8_t, void *);
+	char *(*code_string) (char *, char *, char *, char *, uint16_t);
 
 	int (*spooler) (char *, char *, uint16_t, char *, size_t);
 
@@ -2140,6 +2142,8 @@ char *uwsgi_get_binary_path(char *);
 char *uwsgi_lower(char *, size_t);
 int uwsgi_num2str2n(int, char *, int);
 void create_logpipe(void);
+
+char *uwsgi_str_contains(char *, int, char);
 
 #ifdef __cplusplus
 }

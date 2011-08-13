@@ -1109,6 +1109,56 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
 }
 
+char *uwsgi_python_code_string(char *id, char *code, char *function, char *key, uint16_t keylen) {
+
+	PyObject *cs_module = NULL;
+	PyObject *cs_dict = NULL;
+
+	UWSGI_GET_GIL;
+
+	cs_module = PyImport_ImportModule(id);
+	if (!cs_module) {
+		PyErr_Clear();
+		cs_module = uwsgi_pyimport_by_filename(id, code);
+	}
+
+	if (!cs_module) {
+		UWSGI_RELEASE_GIL;
+		return NULL;
+	}
+
+	cs_dict = PyModule_GetDict(cs_module);
+	if (!cs_dict) {
+		PyErr_Print();
+		UWSGI_RELEASE_GIL;
+		return NULL;
+	}
+	
+	PyObject *func = PyDict_GetItemString(cs_dict, function);
+	if (!func) {
+		uwsgi_log("function %s not available in %s\n", function, code);
+		PyErr_Print();
+		UWSGI_RELEASE_GIL;
+		return NULL;
+	}
+
+	PyObject *args = PyTuple_New(1);
+
+	PyTuple_SetItem(args, 0, PyString_FromStringAndSize(key, keylen));
+
+	PyObject *ret = python_call(func, args, 0, NULL);
+	Py_DECREF(args);
+	if (ret && PyString_Check(ret)) {
+		char *val = PyString_AsString(ret);
+		UWSGI_RELEASE_GIL;
+		return val;
+	}
+
+	UWSGI_RELEASE_GIL;
+	return NULL;
+	
+}
+
 int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 
 	UWSGI_GET_GIL;
@@ -1125,7 +1175,7 @@ int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 	PyTuple_SetItem(args, 0, PyInt_FromLong(sig));
 
 	ret = python_call(handler, args, 0, NULL);
-
+	Py_DECREF(args);
 	if (ret) {
 		UWSGI_RELEASE_GIL;
 		return 0;
@@ -1309,6 +1359,8 @@ struct uwsgi_plugin python_plugin = {
 	.rpc = uwsgi_python_rpc,
 
 	.spooler = uwsgi_python_spooler,
+
+	.code_string = uwsgi_python_code_string,
 
 	.help = uwsgi_python_help,
 

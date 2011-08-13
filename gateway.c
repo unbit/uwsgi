@@ -122,6 +122,12 @@ void gateway_respawn(int id) {
 	}
 
 	ug->pid = gw_pid;
-	uwsgi_log( "respawned uWSGI %s %d (pid: %d)\n", ug->name, ug->num, (int) gw_pid);
+	ug->respawns++;
+	if (ug->respawns == 1) {
+		uwsgi_log( "spawned uWSGI %s %d (pid: %d)\n", ug->name, ug->num, (int) gw_pid);
+	}
+	else {
+		uwsgi_log( "respawned uWSGI %s %d (pid: %d)\n", ug->name, ug->num, (int) gw_pid);
+	}
 	
 }

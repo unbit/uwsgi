@@ -19,6 +19,7 @@
 #define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER	150005
 #define LONG_ARGS_FASTROUTER_TIMEOUT			150006
 #define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT		150007
+#define LONG_ARGS_FASTROUTER_USE_CODE_STRING		150008
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -55,6 +56,10 @@ struct uwsgi_fastrouter {
 
         int socket_timeout;
 
+	uint8_t code_string_modifier1;
+	char *code_string_code;
+	char *code_string_function;
+
         struct rb_root *timeouts;
 } ufr;
 
@@ -90,6 +95,7 @@ struct option fastrouter_options[] = {
 	{"fastrouter-use-cache", no_argument, &ufr.use_cache, 1},
 	{"fastrouter-use-pattern", required_argument, 0, LONG_ARGS_FASTROUTER_USE_PATTERN},
 	{"fastrouter-use-base", required_argument, 0, LONG_ARGS_FASTROUTER_USE_BASE},
+	{"fastrouter-use-code-string", required_argument, 0, LONG_ARGS_FASTROUTER_USE_CODE_STRING},
 	{"fastrouter-events", required_argument, 0, LONG_ARGS_FASTROUTER_EVENTS},
 	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
 	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
@@ -457,6 +463,19 @@ void fastrouter_loop() {
 								fr_session->instance_address_len = tmp_socket_name_len;
 								fr_session->instance_address = tmp_socket_name;
 							}
+							else if (ufr.code_string_code && ufr.code_string_function) {
+								if (uwsgi.p[ufr.code_string_modifier1]->code_string) {
+									fr_session->instance_address = uwsgi.p[ufr.code_string_modifier1]->code_string("uwsgi_fastrouter", ufr.code_string_code, ufr.code_string_function, fr_session->hostname, fr_session->hostname_len);
+									if (fr_session->instance_address) {
+										fr_session->instance_address_len = strlen(fr_session->instance_address);
+									}
+									char *cs_mod = uwsgi_str_contains(fr_session->instance_address, fr_session->instance_address_len, ',');
+									if (cs_mod) {
+										fr_session->modifier1 = uwsgi_str_num(cs_mod+1, (fr_session->instance_address_len - (cs_mod - fr_session->instance_address))-1);
+										fr_session->instance_address_len = (cs_mod - fr_session->instance_address);
+									}
+								}
+							}
 
 							// no address found
 							if (!fr_session->instance_address_len) {
@@ -627,9 +646,17 @@ int fastrouter_init() {
 
 		if (!ufr.nevents) ufr.nevents = 64;
 
-		if (register_gateway("fastrouter", fastrouter_loop) == NULL) {
-			uwsgi_log("unable to register the fastrouter gateway\n");
-			exit(1);
+		if (ufr.code_string_code && ufr.code_string_function) {
+			if (register_fat_gateway("fastrouter", fastrouter_loop) == NULL) {
+				uwsgi_log("unable to register the fastrouter gateway\n");
+				exit(1);
+			}
+		}
+		else {
+			if (register_gateway("fastrouter", fastrouter_loop) == NULL) {
+				uwsgi_log("unable to register the fastrouter gateway\n");
+				exit(1);
+			}
 		}
 	}
 
@@ -637,6 +664,10 @@ int fastrouter_init() {
 }
 	
 int fastrouter_opt(int i, char *optarg) {
+
+	char *cs;
+	char *cs_code;
+	char *cs_func;
 
 	switch(i) {
 		case LONG_ARGS_FASTROUTER:
@@ -657,6 +688,24 @@ int fastrouter_opt(int i, char *optarg) {
 			ufr.base = optarg;
 			// optimization
 			ufr.base_len = strlen(ufr.base);
+			return 1;
+		case LONG_ARGS_FASTROUTER_USE_CODE_STRING:
+			cs = uwsgi_str(optarg);
+			cs_code = strchr(cs, ':');
+			if (!cs_code) {
+				uwsgi_log("invalid code_string option\n");
+				exit(1);	
+			}
+			cs_code[0] = 0;
+			cs_func = strchr(cs_code+1, ':');
+			if (!cs_func) {
+				uwsgi_log("invalid code_string option\n");
+				exit(1);	
+			}
+			cs_func[0] = 0;
+			ufr.code_string_modifier1 = atoi(cs);
+			ufr.code_string_code = cs_code+1;
+			ufr.code_string_function = cs_func+1;
 			return 1;
 		case LONG_ARGS_FASTROUTER_TIMEOUT:
 			ufr.socket_timeout = atoi(optarg);
