@@ -443,6 +443,11 @@ void fastrouter_loop() {
 #endif
 							if (ufr.use_cache) {
 								fr_session->instance_address = uwsgi_cache_get(fr_session->hostname, fr_session->hostname_len, &fr_session->instance_address_len);
+								char *cs_mod = uwsgi_str_contains(fr_session->instance_address, fr_session->instance_address_len, ',');
+                                                                if (cs_mod) {
+                                                                	fr_session->modifier1 = uwsgi_str_num(cs_mod+1, (fr_session->instance_address_len - (cs_mod - fr_session->instance_address))-1);
+                                                                        fr_session->instance_address_len = (cs_mod - fr_session->instance_address);
+                                                                }
 							}
 							else if (ufr.pattern) {
 								magic_table['s'] = uwsgi_concat2n(fr_session->hostname, fr_session->hostname_len, "", 0);	
