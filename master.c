@@ -117,7 +117,7 @@ void uwsgi_subscribe(char *subscription) {
 				if (lines[i] == 0) {
 					if (keysize > 0) {
 						if (key[0] != '#' && key[0] != '\n') {
-							modifier1 = strchr(key, ':');
+							modifier1 = strchr(key, ',');
                 					if (modifier1) {
                         					modifier1[0] = 0;
                         					modifier1++;
@@ -135,7 +135,7 @@ void uwsgi_subscribe(char *subscription) {
 					if (keysize > 0) {
 						if (key[0] != '#' && key[0] != '\n') {
 							lines[i] = 0;
-							modifier1 = strchr(key, ':');
+							modifier1 = strchr(key, ',');
                 					if (modifier1) {
                         					modifier1[0] = 0;
                         					modifier1++;
@@ -159,7 +159,7 @@ void uwsgi_subscribe(char *subscription) {
 		}
 	}
 	else {
-		modifier1 = strchr(subscription_key+1, ':');
+		modifier1 = strchr(subscription_key+1, ',');
 		if (modifier1) {
 			modifier1[0] = 0;
 			modifier1++;
@@ -168,7 +168,7 @@ void uwsgi_subscribe(char *subscription) {
 
 		uwsgi_send_subscription(udp_address, subscription_key+1, strlen(subscription_key+1), modifier1, modifier1_len);
 		if (modifier1)
-			modifier1[-1] = ':';
+			modifier1[-1] = ',';
 	}
 
 clear:

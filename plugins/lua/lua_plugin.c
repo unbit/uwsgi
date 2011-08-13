@@ -374,7 +374,7 @@ void uwsgi_lua_app() {
 			luaL_openlibs(ulua.L[i]);
 			luaL_register(ulua.L[i], "uwsgi", uwsgi_api);
 			if (luaL_loadfile(ulua.L[i], ulua.filename)) {
-				uwsgi_log("unable to load file %s\n", ulua.filename);
+				uwsgi_log("unable to load file %s: %s\n", ulua.filename, lua_tostring(ulua.L[i], -1));
 				exit(1);
 			}
 			// use a pcall
@@ -403,8 +403,7 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		if ((i = lua_pcall(L, 0, 1, 0)) == 0) {
 			if (lua_type(L, -1) == LUA_TSTRING) {
 				http = lua_tolstring(L, -1, &slen);
-				if ( (rlen = write(wsgi_req->poll.fd, http, slen)) != (ssize_t) slen) {
-					perror("write()");
+				if ( (rlen = wsgi_req->socket->proto_write(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
 					return UWSGI_OK;
 				}
 				wsgi_req->response_size += rlen;
@@ -420,12 +419,12 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	/* Standard WSAPI request */
 	if (!wsgi_req->uh.pktsize) {
 		uwsgi_log( "Invalid WSAPI request. skip.\n");
-		goto clear;
+		goto clear2;
 	}
 
 	if (uwsgi_parse_vars(wsgi_req)) {
 		uwsgi_log("Invalid WSAPI request. skip.\n");
-		goto clear;
+		goto clear2;
 	}
 
 	// put function in the stack
@@ -453,12 +452,16 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	lua_setfield(L, -2, "read");
 	lua_setfield(L, -2, "input");
 
+#ifdef UWSGI_DEBUG
+	uwsgi_log("stack pos %d\n", lua_gettop(L));
+#endif
 
 	// call function
 	i = lua_pcall(L, 1, 3, 0);
 	if (i != 0) {
 		uwsgi_log("%s\n", lua_tostring(L, -1));
 		lua_pop(L, 1);
+                lua_pushvalue(L, -1);
 		goto clear;
 	}
 
@@ -468,26 +471,30 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	// send status
 	if (lua_type(L, -3) == LUA_TSTRING || lua_type(L, -3) == LUA_TNUMBER) {
 		http = lua_tolstring(L, -3, &slen);
-		if (write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len) != wsgi_req->protocol_len) {
-			perror("write()");
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len)) != wsgi_req->protocol_len) {
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
-		if (write(wsgi_req->poll.fd, " ", 1) != 1) {
-			perror("write()");
+		wsgi_req->headers_size += rlen;
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, " ", 1)) != 1) {
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
-		if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
-			perror("write()");
+		wsgi_req->headers_size += rlen;
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
+		wsgi_req->headers_size += rlen;
 		// a performance hack
 		ptrbuf = (char *) http;
 		ptrbuf[3] = 0;
 		wsgi_req->status = atoi(ptrbuf);
-		if (write(wsgi_req->poll.fd, "\r\n", 2) != 2) {
-			perror("write()");
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2)) != 2) {
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
+		wsgi_req->headers_size += rlen;
 	}
 	else {
 		raw = 1;
@@ -499,31 +506,41 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	lua_pushnil(L);
 	while(lua_next(L, -3) != 0) {
 		http = lua_tolstring(L, -2, &slen);
-		if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
-			perror("write()");
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
+			lua_pop(L, 2);
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
-		if (write(wsgi_req->poll.fd, ": ", 2) != 2) {
-			perror("write()");
+		wsgi_req->headers_size += rlen;
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, ": ", 2)) != 2) {
+			lua_pop(L, 2);
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
+		wsgi_req->headers_size += rlen;
 		http = lua_tolstring(L, -1, &slen);
-		if (write(wsgi_req->poll.fd, http, slen) != (ssize_t) slen) {
-			perror("write()");
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
+			lua_pop(L, 2);
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
-		if (write(wsgi_req->poll.fd, "\r\n", 2) != 2) {
-			perror("write()");
+		wsgi_req->headers_size += rlen;
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2)) != 2) {
+			lua_pop(L, 2);
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
+		wsgi_req->headers_size += rlen;
 		lua_pop(L, 1);
+		wsgi_req->header_cnt++;
 	}
 
 	if (!raw) {
-		if (write(wsgi_req->poll.fd, "\r\n", 2) != 2) {
-			perror("write()");
+		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2)) != 2) {
+			lua_pushvalue(L, -1);
 			goto clear;
 		}
+		wsgi_req->headers_size += rlen;
 	}
 
 	// send body with coroutine
@@ -532,8 +549,9 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	while ( (i = lua_pcall(L, 0, 1, 0)) == 0) {
 		if (lua_type(L, -1) == LUA_TSTRING) {
 			http = lua_tolstring(L, -1, &slen);
-			if ( (rlen = write(wsgi_req->poll.fd, http, slen)) != (ssize_t) slen) {
-				perror("write()");
+			if ( (rlen = wsgi_req->socket->proto_write(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
+				lua_pop(L, 1);
+                		lua_pushvalue(L, -1);
 				goto clear;
 			}
 			wsgi_req->response_size += rlen;
@@ -550,6 +568,7 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 clear:
 
 	lua_pop(L, 4);
+clear2:
 
 	// set frequency
 	lua_gc(L, LUA_GCCOLLECT, 0);
@@ -588,6 +607,55 @@ int uwsgi_lua_magic(char *mountpoint, char *lazy) {
 
 
 	return 0;
+}
+
+char *uwsgi_lua_code_string(char *id, char *code, char *func, char *key, uint16_t keylen) {
+
+	static struct lua_State *L = NULL;
+
+	if (!L) {
+		L = luaL_newstate();
+                luaL_openlibs(L);
+                if (luaL_loadfile(L, code) || lua_pcall(L, 0, 0, 0)) {
+                	uwsgi_log("unable to load file %s: %s\n", code, lua_tostring(L, -1));
+			lua_close(L);
+			L = NULL;
+			return NULL;
+                }
+		lua_getglobal(L, func);
+		if (!lua_isfunction(L,-1)) {
+			uwsgi_log("unable to find %s function in lua file %s\n", func, code);
+			lua_close(L);
+			L = NULL;
+			return NULL;
+		}
+		lua_pushnil(L);
+	}
+
+	
+	lua_pop(L, 1);
+
+	lua_pushvalue(L, -1);
+	lua_pushlstring(L, key, keylen);
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("stack pos %d %.*s\n", lua_gettop(L), keylen, key);
+#endif
+
+        if (lua_pcall(L, 1, 1, 0) != 0) {
+		uwsgi_log("CAZZO\n");
+                uwsgi_log("error running function `f': %s",
+                 lua_tostring(L, -1));
+                return NULL;
+
+        }
+
+	if (lua_isstring(L, -1)) {
+                const char *ret = lua_tolstring(L, -1, NULL);
+		return (char *)ret;
+        }
+
+        return NULL;
 }
 
 int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
@@ -664,6 +732,8 @@ struct uwsgi_plugin lua_plugin = {
 	.init_apps = uwsgi_lua_app,
 	.magic = uwsgi_lua_magic,
 	.signal_handler = uwsgi_lua_signal_handler,
+
+	.code_string = uwsgi_lua_code_string,
 	.rpc = uwsgi_lua_rpc,
 
 };

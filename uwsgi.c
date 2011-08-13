@@ -1997,6 +1997,7 @@ skipzero:
 	}
 	else if (!uwsgi.sockets && uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.master_process) {
 		// here we will have a zombie... sorry
+		uwsgi_log("...you should enable the master process... really...\n");
 		exit(0);
 	}
 

@@ -358,6 +358,7 @@ void fastrouter_loop() {
 					fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
 					fr_table[new_connection]->h_pos = 0;
 					fr_table[new_connection]->pos = 0;
+					fr_table[new_connection]->un = NULL;
 					fr_table[new_connection]->instance_failed = 0;
 					fr_table[new_connection]->instance_address_len = 0;
 		
@@ -468,11 +469,11 @@ void fastrouter_loop() {
 									fr_session->instance_address = uwsgi.p[ufr.code_string_modifier1]->code_string("uwsgi_fastrouter", ufr.code_string_code, ufr.code_string_function, fr_session->hostname, fr_session->hostname_len);
 									if (fr_session->instance_address) {
 										fr_session->instance_address_len = strlen(fr_session->instance_address);
-									}
-									char *cs_mod = uwsgi_str_contains(fr_session->instance_address, fr_session->instance_address_len, ',');
-									if (cs_mod) {
-										fr_session->modifier1 = uwsgi_str_num(cs_mod+1, (fr_session->instance_address_len - (cs_mod - fr_session->instance_address))-1);
-										fr_session->instance_address_len = (cs_mod - fr_session->instance_address);
+										char *cs_mod = uwsgi_str_contains(fr_session->instance_address, fr_session->instance_address_len, ',');
+										if (cs_mod) {
+											fr_session->modifier1 = uwsgi_str_num(cs_mod+1, (fr_session->instance_address_len - (cs_mod - fr_session->instance_address))-1);
+											fr_session->instance_address_len = (cs_mod - fr_session->instance_address);
+										}
 									}
 								}
 							}
