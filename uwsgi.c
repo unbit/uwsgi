@@ -1970,7 +1970,7 @@ skipzero:
 
 
 #ifdef UWSGI_THREADING
-	if (uwsgi.sockets) {
+	if (uwsgi.sockets || uwsgi.gateways_cnt) {
 		if (uwsgi.has_threads) {
 			if (uwsgi.threads > 1)
 				uwsgi.current_wsgi_req = threaded_current_wsgi_req;
