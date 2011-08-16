@@ -174,6 +174,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->callable = PyDict_GetItem(applications, app_mnt);
 	}
 
+	Py_INCREF(wi->callable);
+
 #ifdef UWSGI_ASYNC
 	wi->environ = malloc(sizeof(PyObject*)*uwsgi.cores);
 	if (!wi->environ) {
@@ -236,6 +238,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		}
 
 		// add start_response on WSGI app
+		Py_INCREF((PyObject *)up.wsgi_spitout);
 		if (app_type == PYTHON_APP_TYPE_WSGI) {
 			if (PyTuple_SetItem(wi->args[i], 1, up.wsgi_spitout)) {
 				uwsgi_log("unable to set start_response in args tuple\n");

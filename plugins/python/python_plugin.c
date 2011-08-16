@@ -462,6 +462,9 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	// just for safety
+	Py_INCREF(up.embedded_dict);
+
 	if (PyDict_SetItemString(up.embedded_dict, "version", PyString_FromString(UWSGI_VERSION))) {
 		PyErr_Print();
 		exit(1);
