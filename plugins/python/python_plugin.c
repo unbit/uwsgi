@@ -244,7 +244,8 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 		if (!py_file_node) {
 			PyErr_Print();
 			uwsgi_log("failed to parse file %s\n", real_filename);
-			free(real_filename);
+			if (is_a_package)
+				free(real_filename);
 			fclose(pyfile);
 			return NULL;
 		}
@@ -817,7 +818,10 @@ char *uwsgi_pythonize(char *orig) {
 
 	len = strlen(name);
 	for(i=0;i<len;i++) {
-		if (name[i] == '/') {
+		if (name[i] == '.') {
+			name[i] = '_';
+		}
+		else if (name[i] == '/') {
 			name[i] = '.';
 		}
 	}
@@ -1318,8 +1322,8 @@ void uwsgi_python_fixup() {
 void uwsgi_python_hijack(void) {
 	// the pyshell will be execute only in the first worker
 
-	UWSGI_GET_GIL;
 	if (up.pyshell && uwsgi.mywid == 1) {
+		UWSGI_GET_GIL;
 		PyImport_ImportModule("readline");
 		PyRun_InteractiveLoop(stdin, "uwsgi");
 		exit(0);
