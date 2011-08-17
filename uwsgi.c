@@ -781,7 +781,11 @@ static void vacuum(void) {
 	}
 }
 
+#ifdef UWSGI_AS_SHARED_LIBRARY
+int uwsgi_init(int argc, char *argv[], char *envp[]) {
+#else
 int main(int argc, char *argv[], char *envp[]) {
+#endif
 
 	int i, j;
 	int rlen;

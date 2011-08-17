@@ -2145,6 +2145,12 @@ void create_logpipe(void);
 
 char *uwsgi_str_contains(char *, int, char);
 
+int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
+
+#ifdef UWSGI_AS_SHARED_LIBRARY
+int uwsgi_init(int, char **, char **);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

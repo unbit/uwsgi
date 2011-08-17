@@ -400,6 +400,11 @@ class uConf(object):
             if self.get('malloc_implementation') == 'jemalloc':
                 self.libs.append('-ljemalloc')
 
+        if self.get('as_shared_library'):
+            self.ldflags.append('-shared')
+            self.ldflags.append('-fPIC')
+            self.cflags.append('-DUWSGI_AS_SHARED_LIBRARY')
+
         if self.get('embedded'):
             self.cflags.append('-DUWSGI_EMBEDDED')
 
