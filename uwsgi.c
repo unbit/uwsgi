@@ -1578,6 +1578,7 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.post_buffering > 0) {
 		uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
+		uwsgi.mem_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 		if (!uwsgi.post_buffering_bufsize) {
 			uwsgi.post_buffering_bufsize = 8192;
 		}
@@ -1585,6 +1586,7 @@ int uwsgi_start(void *v_argv) {
 	for (i = 0; i < uwsgi.cores; i++) {
 		uwsgi.async_buf[i] = uwsgi_malloc(uwsgi.buffer_size);
 		if (uwsgi.post_buffering > 0) {
+			uwsgi.mem_post_buf[i] = uwsgi_malloc(uwsgi.post_buffering);
 			uwsgi.async_post_buf[i] = uwsgi_malloc(uwsgi.post_buffering_bufsize);
 		}
 	}

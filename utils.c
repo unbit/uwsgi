@@ -1391,7 +1391,7 @@ int count_options(struct option *lopt) {
 	return count;
 }
 
-int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
+int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf, size_t limit) {
 
 	size_t post_remains = wsgi_req->post_cl;
 	int ret;
@@ -1413,7 +1413,12 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
 			return 0;
 		}
 
-		len = read(wsgi_req->poll.fd, ptr, post_remains);
+		if (limit) {
+			len = read(wsgi_req->poll.fd, ptr, UMIN(post_remains, limit) );
+		}
+		else {
+			len = read(wsgi_req->poll.fd, ptr, post_remains);
+		}
 		if (len <= 0) {
 			uwsgi_error("read()");
 			return 0;

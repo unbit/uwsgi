@@ -1015,6 +1015,7 @@ struct uwsgi_server {
 	struct iovec **async_hvec;
 	char **async_buf;
 	char **async_post_buf;
+	char **mem_post_buf;
 
 	struct wsgi_request **async_waiting_fd_table;
 	struct wsgi_request **async_proto_fd_table;
@@ -1719,7 +1720,7 @@ struct wsgi_request *threaded_current_wsgi_req(void);
 void build_options(void);
 
 int uwsgi_read_whole_body(struct wsgi_request *, char *, size_t);
-int uwsgi_read_whole_body_in_mem(struct wsgi_request *, char *);
+int uwsgi_read_whole_body_in_mem(struct wsgi_request *, char *, size_t);
 
 ssize_t uwsgi_sendfile(struct wsgi_request *);
 
