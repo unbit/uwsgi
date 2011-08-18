@@ -174,7 +174,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->callable = PyDict_GetItem(applications, app_mnt);
 	}
 
-	Py_INCREF(wi->callable);
+	Py_INCREF((PyObject *)wi->callable);
 
 #ifdef UWSGI_ASYNC
 	wi->environ = malloc(sizeof(PyObject*)*uwsgi.cores);
