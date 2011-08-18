@@ -476,7 +476,7 @@ void master_loop(char **argv, char **environ) {
 	}
 
 	if (uwsgi.queue_store && uwsgi.queue_filesize) {
-		if (msync(uwsgi.queue, uwsgi.queue_filesize, MS_ASYNC)) {
+		if (msync(uwsgi.queue_header, uwsgi.queue_filesize, MS_ASYNC)) {
 			uwsgi_error("msync()");
 		}
 	}
@@ -1194,7 +1194,7 @@ void master_loop(char **argv, char **environ) {
 			}
 
 			if (uwsgi.queue_store && uwsgi.queue_filesize && uwsgi.queue_store_sync && ((uwsgi.master_cycles % uwsgi.queue_store_sync) == 0)) {
-				if (msync(uwsgi.queue, uwsgi.queue_filesize, MS_ASYNC)) {
+				if (msync(uwsgi.queue_header, uwsgi.queue_filesize, MS_ASYNC)) {
                         		uwsgi_error("msync()");
                 		}
 			}

@@ -1,0 +1,50 @@
+<head>
+<style>
+.flash {
+color: red;
+}
+</style>
+</head>
+<body>
+{% with messages = get_flashed_messages() %}
+        {% if messages %}
+                <div class="flash">
+                        <ul>
+                        {% for message in messages %}
+                                <li>{{ message }}</li>
+                        {% endfor %}
+                        </ul>
+                </div>
+        {% endif %}
+{% endwith %}
+<h1>next available slot: {{uwsgi.queue_slot()}}</h1>
+<h1>next available pull slot: {{uwsgi.queue_pull_slot()}}</h1>
+{% for item in range(0, uwsgi.queue_size) %}
+
+slot {{item}} = {{uwsgi.queue_get(item)}}<br/>
+
+{% endfor %}
+
+<br/>
+
+<form method="POST" action="/push">
+<input type="text" name="body"><input type="submit" value="push value" /><br/>
+</form>
+
+<form method="POST" action="/get">
+<input type="text" name="slot" size="9"><input type="submit" value="get value" /><br/>
+</form>
+
+<form method="POST" action="/pop">
+<input type="submit" value="pop value" /><br/>
+</form>
+
+<form method="POST" action="/pull">
+<input type="submit" value="pull value" /><br/>
+</form>
+
+<form method="POST" action="/set">
+<input type="text" name="pos" size="5" /> <input type="text" name="body"><input type="submit" value="set value" /><br/>
+</form>
+
+</body>

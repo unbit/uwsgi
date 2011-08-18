@@ -2808,10 +2808,47 @@ PyObject *py_uwsgi_queue_push(PyObject * self, PyObject * args) {
 	
 }
 
+PyObject *py_uwsgi_queue_set(PyObject * self, PyObject * args) {
+
+        Py_ssize_t msglen = 0;
+	uint64_t pos = 0;
+        char *message ;
+        PyObject *res;
+
+        if (!PyArg_ParseTuple(args, "ls#:queue_set", &pos, &message, &msglen)) {
+                return NULL;
+        }
+
+        if (uwsgi.queue_size) {
+                uwsgi_wlock(uwsgi.queue_lock);
+                if (uwsgi_queue_set(pos, message, msglen)) {
+                        Py_INCREF(Py_True);
+                        res = Py_True;
+                }
+                else {
+                        Py_INCREF(Py_None);
+                        res = Py_None;
+                }
+                uwsgi_rwunlock(uwsgi.queue_lock);
+                return res;
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+
 PyObject *py_uwsgi_queue_slot(PyObject * self, PyObject * args) {
 
-	return PyInt_FromLong(uwsgi.shared->queue_pos);
+	return PyInt_FromLong(uwsgi.queue_header->pos);
 }
+
+PyObject *py_uwsgi_queue_pull_slot(PyObject * self, PyObject * args) {
+
+	return PyInt_FromLong(uwsgi.queue_header->pull_pos);
+}
+
 
 PyObject *py_uwsgi_queue_pull(PyObject * self, PyObject * args) {
 
@@ -2819,14 +2856,10 @@ PyObject *py_uwsgi_queue_pull(PyObject * self, PyObject * args) {
 	uint64_t size;
 	PyObject *res;
 
-	if (!PyArg_ParseTuple(args, ":queue_pull")) {
-                return NULL;
-        }
-
 	if (uwsgi.queue_size) {
 		uwsgi_wlock(uwsgi.queue_lock);
 		message = uwsgi_queue_pull(&size);
-		if (message) {
+		if (message && size > 0) {
                         res = PyString_FromStringAndSize(message, size);
                 }
                 else {
@@ -2842,6 +2875,32 @@ PyObject *py_uwsgi_queue_pull(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_queue_pop(PyObject * self, PyObject * args) {
+
+        char *message;
+        uint64_t size;
+        PyObject *res;
+
+        if (uwsgi.queue_size) {
+                uwsgi_wlock(uwsgi.queue_lock);
+                message = uwsgi_queue_pop(&size);
+                if (message && size > 0) {
+                        res = PyString_FromStringAndSize(message, size);
+                }
+                else {
+                        Py_INCREF(Py_None);
+                        res = Py_None;
+                }
+                uwsgi_rwunlock(uwsgi.queue_lock);
+                return res;
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+
 PyObject *py_uwsgi_queue_get(PyObject * self, PyObject * args) {
 
 	long index = 0;
@@ -2856,7 +2915,7 @@ PyObject *py_uwsgi_queue_get(PyObject * self, PyObject * args) {
 	if (uwsgi.queue_size) {
 		uwsgi_rlock(uwsgi.queue_lock);
 		message = uwsgi_queue_get(index, &size);
-		if (message) {
+		if (message && size > 0) {
 			res = PyString_FromStringAndSize(message, size);
 		}
 		else {
@@ -2886,8 +2945,8 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
         if (uwsgi.queue_size) {
 		res = PyList_New(0);
                 uwsgi_rlock(uwsgi.queue_lock);
-		if (uwsgi.shared->queue_pos > 0) {
-			base = uwsgi.shared->queue_pos-1;
+		if (uwsgi.queue_header->pos > 0) {
+			base = uwsgi.queue_header->pos-1;
 		}
 		else {
 			base = uwsgi.queue_size-1;
@@ -2988,10 +3047,13 @@ static PyMethodDef uwsgi_cache_methods[] = {
 
 static PyMethodDef uwsgi_queue_methods[] = {
 	{"queue_get", py_uwsgi_queue_get, METH_VARARGS, ""},
+	{"queue_set", py_uwsgi_queue_set, METH_VARARGS, ""},
 	{"queue_last", py_uwsgi_queue_last, METH_VARARGS, ""},
 	{"queue_push", py_uwsgi_queue_push, METH_VARARGS, ""},
 	{"queue_pull", py_uwsgi_queue_pull, METH_VARARGS, ""},
+	{"queue_pop", py_uwsgi_queue_pop, METH_VARARGS, ""},
 	{"queue_slot", py_uwsgi_queue_slot, METH_VARARGS, ""},
+	{"queue_pull_slot", py_uwsgi_queue_pull_slot, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
@@ -3072,6 +3134,8 @@ void init_uwsgi_module_queue(PyObject * current_uwsgi_module) {
                 PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
                 Py_DECREF(func);
         }
+
+	PyDict_SetItemString(uwsgi_module_dict, "queue_size", PyInt_FromLong(uwsgi.queue_size));
 }
 
 

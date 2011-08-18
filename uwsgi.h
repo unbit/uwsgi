@@ -323,6 +323,11 @@ struct uwsgi_daemon {
 	//int pipe[2];
 };
 
+struct uwsgi_queue_header {
+	uint64_t pos;
+	uint64_t pull_pos;
+};
+
 struct uwsgi_queue_item {
 	uint64_t size;
 	time_t ts;
@@ -1300,6 +1305,7 @@ struct uwsgi_server {
 	uint64_t queue_size;
 	uint64_t queue_blocksize;
 	void *queue;
+	struct uwsgi_queue_header *queue_header;
 	char *queue_store;
 	size_t queue_filesize;
 	int queue_store_sync;
@@ -1440,8 +1446,6 @@ struct uwsgi_shared {
 	uint64_t cache_first_available_item;
 	uint64_t cache_unused_stack_ptr;
 
-	uint64_t queue_pos;
-	uint64_t queue_pull_pos;
 
 	int worker_signal_pipe[2];
 #ifdef UWSGI_SPOOLER
@@ -1867,6 +1871,8 @@ void uwsgi_init_cache(void);
 char *uwsgi_queue_get(uint64_t, uint64_t *);
 char *uwsgi_queue_pull(uint64_t *);
 int uwsgi_queue_push(char *, uint64_t);
+char *uwsgi_queue_pop(uint64_t *);
+int uwsgi_queue_set(uint64_t, char *, uint64_t);
 
 // maintain alignment here !!!
 struct uwsgi_dict_item {
@@ -1992,8 +1998,6 @@ inline int event_queue_read(void);
 inline int event_queue_write(void);
 
 void uwsgi_help(void);
-
-void uwsgi_queue_fix(void);
 
 int uwsgi_str2_num(char *);
 int uwsgi_str3_num(char *);

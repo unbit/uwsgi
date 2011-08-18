@@ -12,11 +12,9 @@ void uwsgi_init_queue() {
                 }
 
 
-                uwsgi.shared->queue_pos = 0;
-                uwsgi.shared->queue_pull_pos = 0;
 
                 if (uwsgi.queue_store) {
-                        uwsgi.queue_filesize = uwsgi.queue_blocksize * uwsgi.queue_size;
+                        uwsgi.queue_filesize = uwsgi.queue_blocksize * uwsgi.queue_size + 16;
                         int queue_fd;
                         struct stat qst;
 
@@ -45,15 +43,25 @@ void uwsgi_init_queue() {
                                 exit(1);
                         }
                         uwsgi.queue = mmap(NULL, uwsgi.queue_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, queue_fd, 0);
-                        uwsgi_queue_fix();
+
+			// fix header
+			uwsgi.queue_header = uwsgi.queue;
+			uwsgi.queue+=16;
                 }
                 else {
-                        uwsgi.queue = mmap(NULL, uwsgi.queue_blocksize * uwsgi.queue_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+                        uwsgi.queue = mmap(NULL, (uwsgi.queue_blocksize * uwsgi.queue_size)+16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+			// fix header
+			uwsgi.queue_header = uwsgi.queue;
+			uwsgi.queue+=16;
+                	uwsgi.queue_header->pos = 0;
+                	uwsgi.queue_header->pull_pos = 0;
                 }
                 if (!uwsgi.queue) {
                         uwsgi_error("mmap()");
                         exit(1);
                 }
+
+
 
                 uwsgi.queue_lock = uwsgi_mmap_shared_rwlock();
                 uwsgi_rwlock_init(uwsgi.queue_lock);
@@ -78,33 +86,20 @@ char *uwsgi_queue_get(uint64_t index, uint64_t *size) {
 	
 }
 
-void uwsgi_queue_fix() {
-
-        uint64_t i;
-	char *value;
-	uint64_t size;
-
-        for(i=0;i< uwsgi.queue_size;i++) {
-                // valid record ?
-		value = uwsgi_queue_get(i, &size);
-		if (value && size) {
-			uwsgi.shared->queue_pos++;
-		}
-		else {
-			return;
-		}
-        }
-}
-
 
 char *uwsgi_queue_pop(uint64_t *size) {
 
         struct uwsgi_queue_item *uqi;
         char *ptr = (char *) uwsgi.queue;
 
-	if (uwsgi.shared->queue_pos > 0) uwsgi.shared->queue_pos--;
+	if (uwsgi.queue_header->pos == 0) {
+		uwsgi.queue_header->pos = uwsgi.queue_size-1;
+	}
+	else {
+		uwsgi.queue_header->pos--;
+	}
 
-        ptr = ptr + (uwsgi.queue_blocksize*uwsgi.shared->queue_pos);
+        ptr = ptr + (uwsgi.queue_blocksize*uwsgi.queue_header->pos);
         uqi = (struct uwsgi_queue_item *) ptr;
 
         if (!uqi->size) return NULL;
@@ -122,16 +117,16 @@ char *uwsgi_queue_pull(uint64_t *size) {
 	struct uwsgi_queue_item *uqi;
 	char *ptr = (char *) uwsgi.queue;	
 
-	ptr = ptr + (uwsgi.queue_blocksize*uwsgi.shared->queue_pull_pos);
+	ptr = ptr + (uwsgi.queue_blocksize*uwsgi.queue_header->pull_pos);
 	uqi = (struct uwsgi_queue_item *) ptr;
 
 	if (!uqi->size) return NULL;
 
 	*size = uqi->size;
 
-	uwsgi.shared->queue_pull_pos++;
+	uwsgi.queue_header->pull_pos++;
 
-	if (uwsgi.shared->queue_pull_pos >= uwsgi.queue_size) uwsgi.shared->queue_pull_pos = 0;
+	if (uwsgi.queue_header->pull_pos >= uwsgi.queue_size) uwsgi.queue_header->pull_pos = 0;
 
 	// remove item
 	uqi->size = 0;
@@ -150,7 +145,7 @@ int uwsgi_queue_push(char *message, uint64_t size) {
 
 	if (!size) return 0;
 
-	ptr = ptr + (uwsgi.queue_blocksize*uwsgi.shared->queue_pos);
+	ptr = ptr + (uwsgi.queue_blocksize*uwsgi.queue_header->pos);
 	uqi = (struct uwsgi_queue_item *) ptr;
 
 	ptr += sizeof(struct uwsgi_queue_item);
@@ -159,9 +154,34 @@ int uwsgi_queue_push(char *message, uint64_t size) {
 	uqi->ts = time(NULL);
 	memcpy(ptr, message, size);
 
-	uwsgi.shared->queue_pos++;
+	uwsgi.queue_header->pos++;
 	
-	if (uwsgi.shared->queue_pos >= uwsgi.queue_size) uwsgi.shared->queue_pos = 0;
+	if (uwsgi.queue_header->pos >= uwsgi.queue_size) uwsgi.queue_header->pos = 0;
 
 	return 1;
 }
+
+int uwsgi_queue_set(uint64_t pos, char *message, uint64_t size) {
+
+        struct uwsgi_queue_item *uqi;
+        char *ptr = (char *) uwsgi.queue;
+
+        if (size > uwsgi.queue_blocksize + sizeof(struct uwsgi_queue_item))
+                return 0;
+
+        if (!size) return 0;
+
+	if (pos >= uwsgi.queue_size) return 0;
+
+        ptr = ptr + (uwsgi.queue_blocksize*pos);
+        uqi = (struct uwsgi_queue_item *) ptr;
+
+        ptr += sizeof(struct uwsgi_queue_item);
+
+        uqi->size = size;
+        uqi->ts = time(NULL);
+        memcpy(ptr, message, size);
+
+        return 1;
+}
+
