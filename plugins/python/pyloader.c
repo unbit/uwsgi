@@ -308,7 +308,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		uwsgi_log( "Pump application %d (mountpoint=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 
-	if (!wsgi_req->appid_len) {
+	if ((wsgi_req->appid_len == 0 || (wsgi_req->appid_len = 1 && wsgi_req->appid[0] == '/')) && uwsgi.default_app == -1) {
 		uwsgi_rawlog(" (default app)");
 		uwsgi.default_app = id;
 	}
