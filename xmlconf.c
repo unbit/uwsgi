@@ -141,12 +141,12 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, int app_tag
 			if (node->type == XML_ELEMENT_NODE) {
 
 				if (!strcmp((char *) node->name, "app")) {
-					wsgi_req->script_name_len = 0;
+					wsgi_req->appid_len = 0;
 					wsgi_req->host_len = 0;
 					xml_uwsgi_mountpoint = xmlGetProp(node, (const xmlChar *) "mountpoint");
 					if (xml_uwsgi_mountpoint) {
-						wsgi_req->script_name = (char *) xml_uwsgi_mountpoint;
-						wsgi_req->script_name_len = strlen(wsgi_req->script_name);
+						wsgi_req->appid = (char *) xml_uwsgi_mountpoint;
+						wsgi_req->appid_len = strlen(wsgi_req->appid);
 					}
 
 					xml_uwsgi_domain = xmlGetProp(node, (const xmlChar *) "domain");
