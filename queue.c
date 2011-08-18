@@ -6,8 +6,8 @@ void uwsgi_init_queue() {
 	if (!uwsgi.queue_blocksize)
                         uwsgi.queue_blocksize = 8192;
 
-                if (uwsgi.queue_blocksize % uwsgi.page_size != 0) {
-                        uwsgi_log("invalid queue blocksize %llu: must be a multiple of memory page size (%d bytes)\n", (unsigned long long) uwsgi.queue_blocksize, uwsgi.page_size);
+                if ((uwsgi.queue_blocksize * uwsgi.queue_size) % uwsgi.page_size != 0) {
+                        uwsgi_log("invalid queue size/blocksize %llu: must be a multiple of memory page size (%d bytes)\n", (unsigned long long) uwsgi.queue_blocksize, uwsgi.page_size);
                         exit(1);
                 }
 

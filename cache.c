@@ -8,7 +8,7 @@ void uwsgi_init_cache() {
 	if (!uwsgi.cache_blocksize)
                         uwsgi.cache_blocksize = UMAX16;
 
-                if (uwsgi.cache_blocksize % uwsgi.page_size != 0) {
+                if ((uwsgi.cache_blocksize * uwsgi.cache_max_items) % uwsgi.page_size != 0) {
                         uwsgi_log("invalid cache blocksize %llu: must be a multiple of memory page size (%d bytes)\n", (unsigned long long) uwsgi.cache_blocksize, uwsgi.page_size);
                         exit(1);
                 }
