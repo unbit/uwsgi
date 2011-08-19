@@ -342,7 +342,10 @@ class uConf(object):
                 k_all = uwsgi_os_k.split('.')
                 k_base = k_all[0]
                 k_major = k_all[1]
-                k_minor = k_all[2]
+                if len(k_all) > 2:
+                    k_minor = k_all[2]
+                else:
+                    k_minor = 0
                 if int(k_base) > 2:
                     timer_mode = 'timerfd'
                 elif int(k_minor) >= 25:
