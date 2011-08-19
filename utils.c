@@ -2032,7 +2032,7 @@ char *magic_sub(char *buffer, int len, int *size, char *magic_table[]) {
 void init_magic_table(char *magic_table[]) {
 
 	int i;
-	for (i = 0; i < 0xff; i++) {
+	for (i = 0; i <= 0xff; i++) {
 		magic_table[i] = "";
 	}
 

@@ -1101,6 +1101,8 @@ struct uwsgi_server {
 
 	int harakiri_verbose;
 
+	char *magic_table[256];
+
 	int numproc;
 	int async;
 	int async_running;

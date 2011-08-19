@@ -578,6 +578,23 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	PyObject *py_magic_table = PyDict_New();
+	uint8_t mtk;
+	for (i = 0; i <= 0xff; i++) {
+		// a bit of magic :P
+		mtk = i;
+                if (uwsgi.magic_table[i]) {
+			if (uwsgi.magic_table[i][0] != 0) {
+				PyDict_SetItem(py_magic_table, PyString_FromStringAndSize((char *) &mtk, 1), PyString_FromString(uwsgi.magic_table[i]));
+			}
+		}
+        }
+
+	if (PyDict_SetItemString(up.embedded_dict, "magic_table", py_magic_table)) {
+		PyErr_Print();
+		exit(1);
+	}
+
 #ifdef UNBIT
 	if (PyDict_SetItemString(up.embedded_dict, "unbit", Py_True)) {
 #else

@@ -808,18 +808,18 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	char *emperor_env;
-	char *magic_table[0xff];
 	char *optname;
 
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 
-	init_magic_table(magic_table);
 	//initialize masterpid with a default value
 	masterpid = getpid();
 
 	memset(&uwsgi, 0, sizeof(struct uwsgi_server));
 	uwsgi.cwd = uwsgi_get_cwd();
+
+	init_magic_table(uwsgi.magic_table);
 
 	atexit(vacuum);
 
@@ -971,11 +971,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.hostname_len = strlen(uwsgi.hostname);
 
 
-	magic_table['v'] = uwsgi.cwd;
-	magic_table['h'] = uwsgi.hostname;
+	uwsgi.magic_table['v'] = uwsgi.cwd;
+	uwsgi.magic_table['h'] = uwsgi.hostname;
 
 #ifdef UWSGI_EMBED_CONFIG
-	uwsgi_ini_config("", magic_table);	
+	uwsgi_ini_config("", uwsgi.magic_table);	
 #endif
 
 	uwsgi.option_index = -1;
@@ -1064,36 +1064,36 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 		}
 	}
-
+	
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
-		config_magic_table_fill(uwsgi.xml_config, magic_table);
-		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 0, magic_table);
-		uwsgi.xml_config = magic_table['p'];
+		config_magic_table_fill(uwsgi.xml_config, uwsgi.magic_table);
+		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 0, uwsgi.magic_table);
+		uwsgi.xml_config = uwsgi.magic_table['p'];
 	}
 #endif
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
-		config_magic_table_fill(uwsgi.ini, magic_table);
-		uwsgi_ini_config(uwsgi.ini, magic_table);
+		config_magic_table_fill(uwsgi.ini, uwsgi.magic_table);
+		uwsgi_ini_config(uwsgi.ini, uwsgi.magic_table);
 	}
 #endif
 #ifdef UWSGI_YAML
 	if (uwsgi.yaml != NULL) {
-		config_magic_table_fill(uwsgi.yaml, magic_table);
-		uwsgi_yaml_config(uwsgi.yaml, magic_table);
+		config_magic_table_fill(uwsgi.yaml, uwsgi.magic_table);
+		uwsgi_yaml_config(uwsgi.yaml, uwsgi.magic_table);
 	}
 #endif
 #ifdef UWSGI_JSON
 	if (uwsgi.json != NULL) {
-		config_magic_table_fill(uwsgi.json, magic_table);
-		uwsgi_json_config(uwsgi.json, magic_table);
+		config_magic_table_fill(uwsgi.json, uwsgi.magic_table);
+		uwsgi_json_config(uwsgi.json, uwsgi.magic_table);
 	}
 #endif
 #ifdef UWSGI_SQLITE3
 	if (uwsgi.sqlite3 != NULL) {
-		config_magic_table_fill(uwsgi.sqlite3, magic_table);
-		uwsgi_sqlite3_config(uwsgi.sqlite3, magic_table);
+		config_magic_table_fill(uwsgi.sqlite3, uwsgi.magic_table);
+		uwsgi_sqlite3_config(uwsgi.sqlite3, uwsgi.magic_table);
 	}
 #endif
 #ifdef UWSGI_LDAP
@@ -1110,36 +1110,36 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_log("using %s as config template\n", uct->filename);
 #ifdef UWSGI_XML
 		if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".xml")) {
-			uwsgi_xml_config(uct->filename, uwsgi.wsgi_req, 0, magic_table);
+			uwsgi_xml_config(uct->filename, uwsgi.wsgi_req, 0, uwsgi.magic_table);
 		}
 #endif
 #ifdef UWSGI_INI
 		if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".ini")) {
-			uwsgi_ini_config(uct->filename, magic_table);
+			uwsgi_ini_config(uct->filename, uwsgi.magic_table);
 		}
 #endif
 #ifdef UWSGI_YAML
 		if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".yml")) {
-			uwsgi_yaml_config(uct->filename, magic_table);
+			uwsgi_yaml_config(uct->filename, uwsgi.magic_table);
 		}
 		if (!strcmp(uct->filename + strlen(uct->filename) - 5, ".yaml")) {
-			uwsgi_yaml_config(uct->filename, magic_table);
+			uwsgi_yaml_config(uct->filename, uwsgi.magic_table);
 		}
 #endif
 #ifdef UWSGI_JSON
 		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".js")) {
-			uwsgi_json_config(uct->filename, magic_table);
+			uwsgi_json_config(uct->filename, uwsgi.magic_table);
 		}
 #endif
 #ifdef UWSGI_SQLITE3
 		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".db")) {
-			uwsgi_sqlite3_config(uct->filename, magic_table);
+			uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
 		}
 		if (!strcmp(uct->filename + strlen(uct->filename) - 7, ".sqlite")) {
-			uwsgi_sqlite3_config(uct->filename, magic_table);
+			uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
 		}
 		if (!strcmp(uct->filename + strlen(uct->filename) - 8, ".sqlite3")) {
-			uwsgi_sqlite3_config(uct->filename, magic_table);
+			uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
 		}
 #endif
 		uct = uct->next;
