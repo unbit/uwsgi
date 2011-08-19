@@ -1391,14 +1391,14 @@ int count_options(struct option *lopt) {
 	return count;
 }
 
-int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf, size_t limit) {
+int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
 
 	size_t post_remains = wsgi_req->post_cl;
 	int ret;
 	ssize_t len;
 	char *ptr = buf;
 
-	while (post_remains) {
+	while (post_remains > 0) {
 		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 			inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		}
@@ -1413,12 +1413,8 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf, size_
 			return 0;
 		}
 
-		if (limit) {
-			len = read(wsgi_req->poll.fd, ptr, UMIN(post_remains, limit) );
-		}
-		else {
-			len = read(wsgi_req->poll.fd, ptr, post_remains);
-		}
+		len = read(wsgi_req->poll.fd, ptr, post_remains);
+
 		if (len <= 0) {
 			uwsgi_error("read()");
 			return 0;
@@ -1426,6 +1422,8 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf, size_
 		ptr += len;
 		post_remains -= len;
 	}
+
+	uwsgi_log("%.*s\n", wsgi_req->post_cl, buf);
 
 	return 1;
 

@@ -717,7 +717,7 @@ next:
 		}
                 // on tiny post use memory
                 else {
-                	if (!uwsgi_read_whole_body_in_mem(wsgi_req, uwsgi.mem_post_buf[wsgi_req->async_id], uwsgi.post_buffering)) {
+                	if (!uwsgi_read_whole_body_in_mem(wsgi_req, wsgi_req->post_buffering_buf)) {
 				wsgi_req->status = -1;
 				return -1;	
                         }

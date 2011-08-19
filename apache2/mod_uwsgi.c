@@ -161,6 +161,7 @@ static void *uwsgi_server_config(apr_pool_t *p, server_rec *s) {
 	c->modifier2 = 0 ;
 	c->cgi_mode = 0 ;
 	c->max_vars = 128;
+	c->script_name[0] = 0;
 
 	return c;
 }
@@ -176,6 +177,12 @@ static void *uwsgi_dir_config(apr_pool_t *p, char *dir) {
 	c->modifier2 = 0 ;
 	c->cgi_mode = 0 ;
 	c->max_vars = 128;
+	c->script_name[0] = 0;
+	if (dir) {
+		if (strcmp(dir, "/")) {
+			strncpy(c->script_name, dir, 255);
+		}
+	}
 
 	return c;
 }
@@ -347,31 +354,13 @@ static int uwsgi_handler(request_rec *r) {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "UWSGI_SCHEME", c->scheme, &pkt_size) ;
 	}
 
-	if (c->script_name[0] == '/') {
-		if (c->script_name[1] == 0) {
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", "", &pkt_size) ;
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri, &pkt_size) ;
-		}
-		else {
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", c->script_name, &pkt_size) ;
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
-		}
+	if (c->script_name[0] != 0) {
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", c->script_name, &pkt_size) ;
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
 	}
 	else {
-		if (r->path_info) {
-			if (strlen(r->path_info) <= 0) {
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", "", &pkt_size) ;
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri, &pkt_size) ;
-			}
-			else {
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", apr_pstrndup(r->pool, r->uri, (strlen(r->uri) - strlen(r->path_info) )) , &pkt_size) ;
-				vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->path_info, &pkt_size) ;
-			}
-		}
-		else {
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", "", &pkt_size) ;
-			vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri, &pkt_size) ;
-		}
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", "", &pkt_size) ;
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri, &pkt_size) ;
 	}
 
 
