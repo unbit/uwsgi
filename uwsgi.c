@@ -1653,18 +1653,18 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_lock_init(uwsgi.rpc_table_lock);
 
 	if (uwsgi.sharedareasize > 0) {
-		uwsgi.sharedareamutex = uwsgi_mmap_shared_lock();
 
 		uwsgi.sharedarea = mmap(NULL, uwsgi.page_size * uwsgi.sharedareasize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		if (uwsgi.sharedarea) {
 			uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
-			uwsgi_lock_init(uwsgi.sharedareamutex);
 		}
 		else {
 			uwsgi_error("mmap()");
 			exit(1);
 		}
 
+		uwsgi.sa_lock = uwsgi_mmap_shared_rwlock();
+                uwsgi_rwlock_init(uwsgi.sa_lock);
 	}
 
 	if (uwsgi.queue_size > 0) {

@@ -1115,8 +1115,7 @@ struct uwsgi_server {
 	int vec_size;
 
 	char *sharedarea;
-	void *sharedareamutex;
-	int sharedareasize;
+	uint64_t sharedareasize;
 
 #ifdef UWSGI_THREADING
 	pthread_mutex_t six_feet_under_lock;
@@ -1322,6 +1321,7 @@ struct uwsgi_server {
 	void *rb_timer_table_lock;
 	void *cron_table_lock;
 	void *rpc_table_lock;
+        void *sa_lock;
 #ifdef UWSGI_SPOOLER
 	void *spooler_lock;
 #endif
