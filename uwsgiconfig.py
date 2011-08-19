@@ -182,7 +182,10 @@ def build_uwsgi(uc):
 
     if bin_name.find("/") < 0:
         bin_name = './' + bin_name
-    print("*** uWSGI is ready, launch it with %s ***" % bin_name)
+    if uc.get('as_shared_library'):
+        print("*** uWSGI shared library (%s) is ready, move it to a library directory ***" % bin_name)
+    else:
+        print("*** uWSGI is ready, launch it with %s ***" % bin_name)
 
 
 class uConf(object):
