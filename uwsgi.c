@@ -1579,8 +1579,8 @@ int uwsgi_start(void *v_argv) {
 	if (uwsgi.post_buffering > 0) {
 		uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 		if (uwsgi.post_buffering_bufsize < uwsgi.post_buffering) {
-			uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
 			uwsgi.post_buffering_bufsize = uwsgi.post_buffering;
+			uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
 		}
 	}
 	for (i = 0; i < uwsgi.cores; i++) {
