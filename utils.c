@@ -1423,8 +1423,6 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
 		post_remains -= len;
 	}
 
-	uwsgi_log("%.*s\n", wsgi_req->post_cl, buf);
-
 	return 1;
 
 }

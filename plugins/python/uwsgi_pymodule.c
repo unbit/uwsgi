@@ -838,17 +838,29 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
+
 	if (PyString_Check(what)) {
 
 		filename = PyString_AsString(what);
 
 		fd = open(filename, O_RDONLY);
 		if (fd < 0) {
-			uwsgi_error("open");
+			uwsgi_error_open(filename);
 			goto clear;
 		}
 
 	}
+#ifdef PYTHREE
+	else if (PyUnicode_Check(what)) {
+		filename = PyBytes_AsString(PyUnicode_AsASCIIString(what));
+
+		fd = open(filename, O_RDONLY);
+		if (fd < 0) {
+			uwsgi_error_open(filename);
+			goto clear;
+		}
+	}
+#endif
 	else {
 		fd = PyObject_AsFileDescriptor(what);
 		if (fd < 0)
