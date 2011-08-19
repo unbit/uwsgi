@@ -248,6 +248,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 #else
 
+	// add start_response on WSGI app
+	Py_INCREF((PyObject *)up.wsgi_spitout);
 	wi->wsgi_args = PyTuple_New(wi->argc);
 	if (app_type == PYTHON_APP_TYPE_WSGI) {
 		if (PyTuple_SetItem(wi->wsgi_args, 1, up.wsgi_spitout)) {
