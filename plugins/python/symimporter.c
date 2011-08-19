@@ -717,6 +717,7 @@ int uwsgi_init_symbol_import() {
 		exit(1);
 	}
 
+	Py_INCREF((PyObject *)&SymImporter_Type);
 	if (PyModule_AddObject(uwsgi_em, "SymbolsImporter",
                            (PyObject *)&SymImporter_Type) < 0) {
 		PyErr_Print();
@@ -724,6 +725,7 @@ int uwsgi_init_symbol_import() {
 		exit(1);
 	}
 
+	Py_INCREF((PyObject *)&ZipImporter_Type);
 	if (PyModule_AddObject(uwsgi_em, "ZipImporter",
                            (PyObject *)&ZipImporter_Type) < 0) {
 		PyErr_Print();
@@ -731,6 +733,7 @@ int uwsgi_init_symbol_import() {
 		exit(1);
 	}
 
+	Py_INCREF((PyObject *)&SymZipImporter_Type);
 	if (PyModule_AddObject(uwsgi_em, "SymbolsZipImporter",
                            (PyObject *)&SymZipImporter_Type) < 0) {
 		PyErr_Print();

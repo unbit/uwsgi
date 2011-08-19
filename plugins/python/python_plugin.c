@@ -456,6 +456,8 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
+	Py_INCREF((PyObject *) &uwsgi_InputType);
+
 	up.embedded_dict = PyModule_GetDict(new_uwsgi_module);
 	if (!up.embedded_dict) {
 		uwsgi_log("could not get uwsgi module __dict__\n");
