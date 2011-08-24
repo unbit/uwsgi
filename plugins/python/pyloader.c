@@ -170,8 +170,16 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->mountpoint_len = strlen(wi->mountpoint);
 		wsgi_req->appid = wi->mountpoint;
 		wsgi_req->appid_len = wi->mountpoint_len;
+#ifdef UWSGI_DEBUG
 		uwsgi_log("main mountpoint = %s\n", wi->mountpoint);
+#endif
 		wi->callable = PyDict_GetItem(applications, app_mnt);
+		if (PyString_Check((PyObject *) wi->callable)) {
+			PyObject *callables_dict = get_uwsgi_pydict((char *)arg1);
+			if (callables_dict) {
+				wi->callable = PyDict_GetItem(callables_dict, (PyObject *)wi->callable);	
+			}
+		}
 	}
 
 	Py_INCREF((PyObject *)wi->callable);
@@ -329,7 +337,19 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 			wsgi_req->appid = PyString_AsString(app_mnt);
 			wsgi_req->appid_len = strlen(wsgi_req->appid);
-			init_uwsgi_app(LOADER_CALLABLE, PyDict_GetItem(applications, app_mnt), wsgi_req, wi->interpreter, app_type);
+			PyObject *a_callable = PyDict_GetItem(applications, app_mnt);
+			if (PyString_Check(a_callable)) {
+
+				PyObject *callables_dict = get_uwsgi_pydict((char *)arg1);
+				if (callables_dict) {
+					a_callable = PyDict_GetItem(callables_dict, a_callable);
+				}
+			}
+			if (!a_callable) {
+				uwsgi_log("skipping broken app %s\n", wsgi_req->appid);
+				continue;
+			}
+			init_uwsgi_app(LOADER_CALLABLE, a_callable, wsgi_req, wi->interpreter, app_type);
 		}
 	}
 

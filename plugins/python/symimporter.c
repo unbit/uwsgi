@@ -351,13 +351,15 @@ clear:
 }
 
 static PyMethodDef symimporter_methods[] = {
-    {"find_module", symimporter_find_module, METH_VARARGS},
-    {"load_module", symimporter_load_module, METH_VARARGS},
+	{"find_module", symimporter_find_module, METH_VARARGS},
+ 	{"load_module", symimporter_load_module, METH_VARARGS},
+	{ NULL, NULL },
 };
 
 static PyMethodDef symzipimporter_methods[] = {
-    {"find_module", symzipimporter_find_module, METH_VARARGS},
-    {"load_module", symzipimporter_load_module, METH_VARARGS},
+	{"find_module", symzipimporter_find_module, METH_VARARGS},
+	{"load_module", symzipimporter_load_module, METH_VARARGS},
+	{ NULL, NULL },
 };
 
 static void uwsgi_symimporter_free(struct _symimporter *self) {

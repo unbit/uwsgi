@@ -767,7 +767,7 @@ next:
 				script_name = wsgi_req->var_cnt;
 			}
 			for(i=0;i<uwsgi_apps_cnt;i++) {
-				//uwsgi_log("app mountpoint = %.*s\n", uwsgi.apps[i].mountpoint_len, uwsgi.apps[i].mountpoint);
+				//uwsgi_log("app mountpoint = %.*s\n", uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint);
 				if (orig_path_info_len >= uwsgi_apps[i].mountpoint_len) {
 					if (!uwsgi_startswith(orig_path_info, uwsgi_apps[i].mountpoint, uwsgi_apps[i].mountpoint_len) && uwsgi_apps[i].mountpoint_len > best_found) {
 						best_found = uwsgi_apps[i].mountpoint_len;
