@@ -193,6 +193,8 @@ class uConf(object):
     def __init__(self, filename):
         self.config = ConfigParser.ConfigParser()
         print("using profile: %s" % filename)
+        if not os.path.exists(filename):
+            raise Exception("profile not found !!!")
         self.config.read(filename)
         self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'master_utils', 'emperor', 'notify',
             'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
