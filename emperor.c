@@ -181,7 +181,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	char *colon = NULL;
 	int i;
 
-	sleep(1);
+	usleep(uwsgi.emperor_throttle*1000);
 
 	while (c_ui->ui_next) {
 		c_ui = c_ui->ui_next;

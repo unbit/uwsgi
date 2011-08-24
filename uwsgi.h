@@ -485,6 +485,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_HTTP_SOCKET		17132
 #define LONG_ARGS_FASTCGI_SOCKET	17133
 #define LONG_ARGS_THREADS_STACKSIZE	17134
+#define LONG_ARGS_EMPEROR_THROTTLE	17135
 
 
 #define UWSGI_OK	0
@@ -935,6 +936,7 @@ struct uwsgi_server {
 	int emperor_fd;
 	int emperor_fd_config;
 	int early_emperor;
+        int emperor_throttle;
 	char *emperor_dir;
 	pid_t emperor_pid;
 	int	emperor_broodlord;

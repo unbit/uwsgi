@@ -77,6 +77,7 @@ static struct option long_base_options[] = {
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME},
 	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD},
+	{"emperor-throttle", required_argument, 0, LONG_ARGS_EMPEROR_THROTTLE},
 	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT},
 	{"vassals-start-hook", required_argument, 0, LONG_ARGS_VASSALS_START_HOOK},
 	{"vassals-stop-hook", required_argument, 0, LONG_ARGS_VASSALS_STOP_HOOK},
@@ -861,6 +862,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.cache_server_fd = -1;
 
 	uwsgi.emperor_fd_config = -1;
+	uwsgi.emperor_throttle = 1000;
 	uwsgi.emperor_pid = -1;
 
 	uwsgi.cluster_fd = -1;
@@ -2742,6 +2744,9 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_EMPEROR_BROODLORD:
 		uwsgi.emperor_broodlord = atoi(optarg);
+		return 1;
+	case LONG_ARGS_EMPEROR_THROTTLE:
+		uwsgi.emperor_throttle = atoi(optarg);
 		return 1;
 	case LONG_ARGS_EMPEROR:
 		uwsgi.emperor_dir = optarg;
