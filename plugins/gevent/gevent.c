@@ -145,7 +145,7 @@ void gevent_loop() {
 	}
 
 	if (PyInt_AsLong(PyTuple_GetItem(gevent_version, 0)) < 1) {
-		uwsgi_log("uWSGIt requires at least gevent 1.x version\n");
+		uwsgi_log("uWSGI requires at least gevent 1.x version\n");
 		exit(1);
 	}
 
