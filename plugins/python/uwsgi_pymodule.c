@@ -2492,7 +2492,9 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 
 	// close connection on the worker
 	if (PyTuple_Size(args) == 0) {
-		fclose(wsgi_req->async_post);
+		if (wsgi_req->socket) {
+			wsgi_req->socket->proto_close(wsgi_req);
+		}
 		wsgi_req->fd_closed = 1;
 	}
 
