@@ -8,6 +8,12 @@ from setuptools.dist import Distribution
 from setuptools.command.install import install
 from setuptools.command.build_ext import build_ext
 
+def get_profile():
+    profile = os.environ.get('UWSGI_PROFILE','buildconf/default.ini')
+    if not profile.endswith('.ini'):
+        profile = "%s.ini" % profile
+    if not '/' in profile:
+        profile = "buildconf/%s" % profile
 
 def patch_bin_path(cmd, conf):
 
@@ -26,7 +32,7 @@ def patch_bin_path(cmd, conf):
 class uWSGIBuilder(build_ext):
 
     def run(self):
-        conf = uc.uConf('buildconf/default.ini')
+        conf = uc.uConf(get_profile())
         patch_bin_path(self, conf)
         uc.build_uwsgi( conf )
 
@@ -38,7 +44,7 @@ class uWSGIInstall(install):
         if self.record:
             record_file = open(self.record,'w')
 
-        conf = uc.uConf('buildconf/default.ini')
+        conf = uc.uConf(get_profile())
         patch_bin_path(self, conf)
         uc.build_uwsgi( conf )
 
