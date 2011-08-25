@@ -15,6 +15,8 @@ def get_profile():
     if not '/' in profile:
         profile = "buildconf/%s" % profile
 
+    return profile
+
 def patch_bin_path(cmd, conf):
 
     bin_name = conf.get('bin_name')
