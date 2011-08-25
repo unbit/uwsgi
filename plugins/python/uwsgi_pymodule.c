@@ -2333,7 +2333,9 @@ PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 	uwsgi_log("disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
 #endif
 
-	fclose(wsgi_req->async_post);
+	if (wsgi_req->socket) {
+		wsgi_req->socket->proto_close(wsgi_req);
+	}
 	wsgi_req->fd_closed = 1;
 
 	Py_INCREF(Py_True);
