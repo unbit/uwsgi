@@ -138,6 +138,17 @@ void gevent_loop() {
 		exit(1);
 	}
 
+	PyObject *gevent_version = PyDict_GetItemString(gevent_dict, "version_info");
+	if (!gevent_version) {
+		PyErr_Print();
+		exit(1);
+	}
+
+	if (PyInt_AsLong(PyTuple_GetItem(gevent_version, 0)) < 1) {
+		uwsgi_log("uWSGIt requires at least gevent 1.x version\n");
+		exit(1);
+	}
+
 	uwsgi_gevent_spawn = PyDict_GetItemString(gevent_dict, "spawn");
 	if (!uwsgi_gevent_spawn) {
 		PyErr_Print();
