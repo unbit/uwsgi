@@ -727,13 +727,13 @@ if __name__ == "__main__":
     if cmd == '--libs':
         print(' '.join(libs))
     elif cmd == '--build':
-        bconf = 'default.ini'
+        bconf = os.environ.get('UWSGI_PROFILE','default.ini')
         try:
             bconf = sys.argv[2]
-            if not bconf.endswith('.ini'):
-                bconf += '.ini'
         except:
             pass
+        if not bconf.endswith('.ini'):
+            bconf += '.ini'
         if not '/' in bconf:
             bconf = 'buildconf/%s' % bconf
         build_uwsgi(uConf(bconf))
