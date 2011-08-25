@@ -2578,6 +2578,10 @@ void uwsgi_ignition() {
 
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
+		if (!u_loop) {
+			uwsgi_log("unavailable loop engine !!!\n");
+			exit(1);
+		}
 		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
 		u_loop();
 		uwsgi_log("done\n");
