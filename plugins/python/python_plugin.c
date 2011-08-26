@@ -681,9 +681,11 @@ void init_uwsgi_embedded_module() {
 		init_uwsgi_module_queue(new_uwsgi_module);
 	}
 
+#ifdef UWSGI_SNMP
 	if (uwsgi.snmp) {
 		init_uwsgi_module_snmp(new_uwsgi_module);
 	}
+#endif
 
 	if (up.extension) {
 		up.extension();

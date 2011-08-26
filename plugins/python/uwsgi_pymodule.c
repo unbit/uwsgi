@@ -3217,6 +3217,7 @@ void init_uwsgi_module_sharedarea(PyObject * current_uwsgi_module) {
 	}
 }
 
+#ifdef UWSGI_SNMP
 PyObject *py_snmp_counter32(PyObject * self, PyObject * args) {
 
                    uint8_t oid_num;
@@ -3337,6 +3338,7 @@ void init_uwsgi_module_snmp(PyObject * current_uwsgi_module) {
 
         uwsgi_log( "SNMP python functions initialized.\n");
 }
+#endif
 
 
 #endif
