@@ -249,6 +249,7 @@ void init_uwsgi_module_spooler(PyObject *);
 void init_uwsgi_module_sharedarea(PyObject *);
 void init_uwsgi_module_cache(PyObject *);
 void init_uwsgi_module_queue(PyObject *);
+void init_uwsgi_module_snmp(PyObject *);
 
 PyObject *uwsgi_pyimport_by_filename(char *, char *);
 

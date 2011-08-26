@@ -3217,4 +3217,126 @@ void init_uwsgi_module_sharedarea(PyObject * current_uwsgi_module) {
 	}
 }
 
+PyObject *py_snmp_counter32(PyObject * self, PyObject * args) {
+
+                   uint8_t oid_num;
+                   uint32_t oid_val = 0;
+
+                   if (!PyArg_ParseTuple(args, "bI:snmp_set_counter32", &oid_num, &oid_val)) {
+                   return NULL;
+                   }
+
+                   if (oid_num > 100 || oid_num < 1)
+                   goto clear;
+
+                   uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER32;
+                   uwsgi.shared->snmp_value[oid_num - 1].val = oid_val;
+
+                   Py_INCREF(Py_True);
+                   return Py_True;
+
+clear:
+
+		Py_INCREF(Py_None);
+		return Py_None;
+}
+
+PyObject *py_snmp_counter64(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint64_t oid_val = 0;
+
+	if (!PyArg_ParseTuple(args, "bK:snmp_set_counter64", &oid_num, &oid_val)) {
+		return NULL;
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+	goto clear;
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER64;
+	uwsgi.shared->snmp_value[oid_num - 1].val = oid_val;
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_gauge(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint32_t oid_val = 0;
+
+	if (!PyArg_ParseTuple(args, "bI:snmp_set_gauge", &oid_num, &oid_val)) {
+		return NULL;
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+		goto clear;
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_GAUGE;
+	uwsgi.shared->snmp_value[oid_num - 1].val = oid_val;
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_community(PyObject * self, PyObject * args) {
+
+        char *snmp_community;
+
+        if (!PyArg_ParseTuple(args, "s:snmp_set_community", &snmp_community)) {
+                return NULL;
+        }
+
+        if (strlen(snmp_community) > 72) {
+                uwsgi_log( "*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
+                memcpy(uwsgi.shared->snmp_community, snmp_community, 72);
+        }
+        else {
+                memcpy(uwsgi.shared->snmp_community, snmp_community, strlen(snmp_community) + 1);
+        }
+
+        Py_INCREF(Py_True);
+        return Py_True;
+
+}
+
+
+static PyMethodDef uwsgi_snmp_methods[] = {
+        {"snmp_set_counter32", py_snmp_counter32, METH_VARARGS, ""},
+        {"snmp_set_counter64", py_snmp_counter64, METH_VARARGS, ""},
+        {"snmp_set_gauge", py_snmp_gauge, METH_VARARGS, ""},
+        {"snmp_set_community", py_snmp_community, METH_VARARGS, ""},
+        {NULL, NULL},
+};
+
+void init_uwsgi_module_snmp(PyObject * current_uwsgi_module) {
+
+        PyMethodDef *uwsgi_function;
+
+	PyObject *uwsgi_module_dict = PyModule_GetDict(current_uwsgi_module);
+        if (!uwsgi_module_dict) {
+                uwsgi_log("could not get uwsgi module __dict__\n");
+                exit(1);
+        }
+
+        for (uwsgi_function = uwsgi_snmp_methods; uwsgi_function->ml_name != NULL; uwsgi_function++) {
+                PyObject *func = PyCFunction_New(uwsgi_function, NULL);
+                PyDict_SetItemString(uwsgi_module_dict, uwsgi_function->ml_name, func);
+                Py_DECREF(func);
+        }
+
+        uwsgi_log( "SNMP python functions initialized.\n");
+}
+
+
 #endif
