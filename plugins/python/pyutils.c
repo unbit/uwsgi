@@ -72,8 +72,9 @@ void init_pyargv() {
 	up.py_argv[0] = "uwsgi";
 #endif
 
-	if (up.argv != NULL && !up.argc) {
-		up.argc++;
+	up.argc = 1;
+
+	if (up.argv != NULL) {
 #ifdef PYTHREE
 		wchar_t *wcargv = malloc( sizeof( wchar_t ) * (strlen(up.argv)+1));
 		if (!wcargv) {
@@ -105,6 +106,9 @@ void init_pyargv() {
 		}
 
 		PySys_SetArgv(up.argc, up.py_argv);
+
+	PyObject *sys_dict = get_uwsgi_pydict("sys");
+	PyDict_SetItemString(sys_dict, "executable", PyString_FromString(uwsgi.binary_path));
 
 
 }
