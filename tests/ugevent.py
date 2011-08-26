@@ -1,5 +1,12 @@
 import gevent
 import gevent.socket
+import sys
+
+if 'gettotalrefcount' in sys.__dict__:
+    REFCNT = True
+else:
+    REFCNT = False
+
 
 def bg_task():
     for i in range(1,10):
@@ -33,6 +40,9 @@ def application(e, sr):
 
     for j in jobs:
         yield "ip = %s<br/>" % j.value
+
+    if REFCNT:
+        print sys.gettotalrefcount()
 
     # this task will goes on after request end
     gevent.spawn(bg_task)

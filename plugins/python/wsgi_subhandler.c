@@ -125,7 +125,9 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", wi->uwsgi_version);
 
 	if (uwsgi.cores > 1) {
-		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.core", PyInt_FromLong(wsgi_req->async_id));
+		zero = PyInt_FromLong(wsgi_req->async_id);
+		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.core", zero);
+		Py_DECREF(zero);
 	}
 
 	// cache this ?
