@@ -195,7 +195,13 @@ void logto(char *logfile) {
 
 		udp_addr.sin_family = AF_INET;
 		udp_addr.sin_port = htons(atoi(udp_port + 1));
-		udp_addr.sin_addr.s_addr = inet_addr(logfile);
+		char *resolved = uwsgi_resolve_ip(logfile);
+		if (resolved) {
+			udp_addr.sin_addr.s_addr = inet_addr(resolved);
+		}
+		else {
+			udp_addr.sin_addr.s_addr = inet_addr(logfile);
+		}
 
 		if (connect(fd, (const struct sockaddr *) &udp_addr, sizeof(struct sockaddr_in)) < 0) {
 			uwsgi_error("connect()");

@@ -474,7 +474,13 @@ socklen_t socket_to_in_addr(char *socket_name, char *port, struct sockaddr_in *s
                 sin_addr->sin_addr.s_addr = INADDR_ANY;
         }
         else {
-                sin_addr->sin_addr.s_addr = inet_addr(socket_name);
+		char *resolved = uwsgi_resolve_ip(socket_name);
+		if (resolved) {
+                	sin_addr->sin_addr.s_addr = inet_addr(resolved);
+		}
+		else {
+                	sin_addr->sin_addr.s_addr = inet_addr(socket_name);
+		}
         }
 
 	return sizeof(struct sockaddr_in);
