@@ -16,26 +16,13 @@ struct uwsgi_gevent {
 	PyObject *greenlet_switch_args;
 	PyObject *get_current;
 	PyObject *get_current_args;
+	PyObject *hub;
 	PyObject *hub_loop;
 	PyObject *spawn;
 	PyObject *greenlet_args;
 } ugevent;
 
 
-PyObject* gevent_wait_io_and_switch(int fd, PyObject *greenlet_switch) {
-
-	PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", fd, 1);
-        if (!watcher) {
-                PyErr_Print();
-		return NULL; 
-        }
-
-	PyObject *ret = PyObject_CallMethod(watcher, "start", "O", greenlet_switch);
-	Py_DECREF(ret);
-
-	return watcher;
-
-}
 
 PyObject *py_uwsgi_gevent_callback(PyObject * self, PyObject * args) {
 
@@ -80,17 +67,20 @@ PyObject *py_uwsgi_gevent_greenlet(PyObject * self, PyObject * args) {
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	PyObject *greenlet_switch = PyObject_GetAttrString(current_greenlet, "switch");
 
+	uwsgi.wsgi_req = wsgi_req;
+
+	PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
+	if (!watcher) {
+		goto clear;
+	}
+
 	for(;;) {
-		uwsgi.wsgi_req = wsgi_req;
-		PyObject *watcher = gevent_wait_io_and_switch(wsgi_req->poll.fd, greenlet_switch);
-		if (!watcher) {
-			goto clear;
-		}
+		PyObject *ret = PyObject_CallMethod(ugevent.hub, "wait", "O", watcher);	
+		if (!ret) goto clear;
+		Py_DECREF(ret);
+
 		uwsgi.wsgi_req = wsgi_req;
 		status = wsgi_req->socket->proto(wsgi_req);
-		PyObject *ret = PyObject_CallMethod(watcher, "stop", NULL);
-		Py_DECREF(ret);
-		Py_DECREF(watcher);
 		if (status < 0) {
 			goto clear;
 		}
@@ -99,6 +89,9 @@ PyObject *py_uwsgi_gevent_greenlet(PyObject * self, PyObject * args) {
 		}
 		
 	}
+
+	PyObject *ret = PyObject_CallMethod(watcher, "stop", NULL);
+	Py_DECREF(ret);
 
 	for(;;) {
 		uwsgi.wsgi_req = wsgi_req;
@@ -110,6 +103,7 @@ PyObject *py_uwsgi_gevent_greenlet(PyObject * self, PyObject * args) {
 	}
 
 clear:
+	Py_DECREF(watcher);
 	Py_DECREF(greenlet_switch);
 	Py_DECREF(current_greenlet);
 	uwsgi_close_request(wsgi_req);
@@ -173,8 +167,8 @@ void gevent_loop() {
 
 	PyObject *gevent_get_hub = PyDict_GetItemString(gevent_dict, "get_hub");
 
-	PyObject *gevent_hub = python_call(gevent_get_hub, PyTuple_New(0), 0, NULL);
-	if (!gevent_hub) {
+	ugevent.hub = python_call(gevent_get_hub, PyTuple_New(0), 0, NULL);
+	if (!ugevent.hub) {
 		PyErr_Print();
 		exit(1);
 	}
@@ -188,7 +182,7 @@ void gevent_loop() {
 	Py_INCREF(ugevent.get_current_args);
 	
 
-	ugevent.hub_loop = PyObject_GetAttrString(gevent_hub, "loop");
+	ugevent.hub_loop = PyObject_GetAttrString(ugevent.hub, "loop");
 	if (!ugevent.hub_loop) {
 
 		PyErr_Print();
@@ -216,7 +210,7 @@ void gevent_loop() {
 
 	PyObject_CallMethod(watcher, "start", "O", uwsgi_gevent_callback);
 
-	if (PyObject_CallMethod(gevent_hub, "switch", NULL)) {
+	if (PyObject_CallMethod(ugevent.hub, "switch", NULL)) {
 		PyErr_Print();
 		exit(1);
 	}
