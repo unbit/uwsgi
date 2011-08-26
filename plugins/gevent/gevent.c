@@ -273,9 +273,8 @@ void gevent_loop() {
 
 	PyObject_CallMethod(watcher, "start", "O", uwsgi_gevent_callback);
 
-	if (PyObject_CallMethod(ugevent.hub, "switch", NULL)) {
+	if (!PyObject_CallMethod(ugevent.hub, "join", NULL)) {
 		PyErr_Print();
-		exit(1);
 	}
 
 	uwsgi_log("the gevent Hub is no more :(\n");
