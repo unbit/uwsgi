@@ -355,7 +355,7 @@ int uwsgi_parse_packet(struct wsgi_request *wsgi_req, int timeout) {
 			exit(1);
 		}
 		else if (rlen == 0) {
-			uwsgi_log( "timeout waiting for header. skip request.\n");
+			uwsgi_log( "timeout. skip request.\n");
 			//close(upoll->fd);
 			return 0;
 		}
