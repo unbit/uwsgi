@@ -14,10 +14,11 @@ def index(request):
 		w['load'] = (100 * (w['running_time']/1000))/total_load
 		w['last_spawn_str'] = time.ctime(w['last_spawn'])
 
-	spooler_jobs = uwsgi.spooler_jobs()
 	jobs = []
-	for j in spooler_jobs:
-		jobs.append({'file': j, 'env': uwsgi.parsefile(j)})
+        if 'spooler' in uwsgi.opt:
+	    spooler_jobs = uwsgi.spooler_jobs()
+	    for j in spooler_jobs:
+	        jobs.append({'file': j, 'env': uwsgi.parsefile(j)})
 
 	return render_to_response('uwsgi.html', {'masterpid': uwsgi.masterpid(),
 						'started_on': time.ctime(uwsgi.started_on),
