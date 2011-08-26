@@ -108,7 +108,15 @@ void init_pyargv() {
 		PySys_SetArgv(up.argc, up.py_argv);
 
 	PyObject *sys_dict = get_uwsgi_pydict("sys");
+	if (!sys_dict) {
+		uwsgi_log("unable to load python sys module !!!\n");
+		exit(1);
+	}
+#ifdef PYTHREE
+	PyDict_SetItemString(sys_dict, "executable", PyUnicode_FromString(uwsgi.binary_path));
+#else
 	PyDict_SetItemString(sys_dict, "executable", PyString_FromString(uwsgi.binary_path));
+#endif
 
 
 }
