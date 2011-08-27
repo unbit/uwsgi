@@ -71,6 +71,7 @@ struct uwsgi_help_item uwsgi_python_help[] = {
 {"file <file>", "use python file instead of python module for configuration"},
 {"eval <code>", "evaluate code for app configuration"},
 {"ini-paste <inifile>", "path of ini config file that contains paste configuration"},
+{"pyshell", "run a python interactive shell in the uwsgi environment (steals a worker)"},
 
 
  { 0, 0},
