@@ -2582,9 +2582,11 @@ void uwsgi_ignition() {
 			uwsgi_log("unavailable loop engine !!!\n");
 			exit(1);
 		}
-		uwsgi_log("running %s loop %p\n", uwsgi.loop, u_loop);
+		if (uwsgi.mywid == 1) {
+			uwsgi_log("*** running %s loop engine [addr:%p] ***\n", uwsgi.loop, u_loop);
+		}
 		u_loop();
-		uwsgi_log("done\n");
+		uwsgi_log("your loop engine died. R.I.P.\n");
 	}
 	else {
 #ifdef UWSGI_ZEROMQ

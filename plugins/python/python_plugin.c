@@ -1213,6 +1213,7 @@ int uwsgi_python_signal_handler(uint8_t sig, void *handler) {
 	ret = python_call(handler, args, 0, NULL);
 	Py_DECREF(args);
 	if (ret) {
+		Py_DECREF(ret);
 		UWSGI_RELEASE_GIL;
 		return 0;
 	}
