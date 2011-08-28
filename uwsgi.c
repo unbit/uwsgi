@@ -1461,7 +1461,7 @@ int uwsgi_start(void *v_argv) {
 
 	if (!uwsgi.no_initial_output) {
 		if (!uwsgi.master_process) {
-			uwsgi_log(" *** WARNING: you are running uWSGI without its master process manager ***\n");
+			uwsgi_log("*** WARNING: you are running uWSGI without its master process manager ***\n");
 		}
 	}
 #ifndef __OpenBSD__

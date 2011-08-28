@@ -1,3 +1,4 @@
+import uuid
 def application(env, start_response):
 
 
@@ -15,11 +16,11 @@ def application(env, start_response):
     else:
     	start_response('200 Ok', [('Content-type', 'text/html')])
         return """
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" action="?X-Progress-ID=%s">
 	<textarea name="pluto">
 	</textarea>
     <input type="file" name="pippo" />
     <input type="submit" value="invia" />
 </form>
-        """
+        """ % uuid.uuid4()
 
