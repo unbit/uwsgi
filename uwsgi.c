@@ -3478,9 +3478,10 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
 void build_options() {
 	int i;
 	struct option *lopt, *aopt;
-	int opt_count = count_options(long_base_options);
-	int short_opt_size = strlen(base_short_options);
 	char *so_ptr;
+
+	int opt_count = count_options(long_base_options);
+	size_t short_opt_size = strlen(base_short_options);
 
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->short_options) {

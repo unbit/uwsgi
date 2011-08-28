@@ -2726,14 +2726,15 @@ char *uwsgi_get_binary_path(char *argvzero) {
 	}
 	free(buf);
 #elif defined(__sun__)
+	// do not free this value !!!
 	char *buf = (char *)getexecname();
 	if (buf) {
 		// return only absolute path
 		if (buf[0] == '/') {
 			return buf;
 		}
+
 		char *newbuf = realpath(buf, NULL);
-		free(buf);
 		if (newbuf) {
 			return newbuf;	
 		}
