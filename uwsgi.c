@@ -945,7 +945,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
 		// try to automatically load a plugin
 #ifdef UWSGI_DEBUG
-		uwsgi_log("executable name: %s\n", uwsgi.binary_path);
+	uwsgi_log("executable name: %s\n", uwsgi.binary_path);
 #endif
 	char *p = strrchr(uwsgi.binary_path, '/');
 	if (p == NULL) p = uwsgi.binary_path;
