@@ -27,7 +27,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
                 Py_DECREF(pydictvalue);
         }
 
-
         if (wsgi_req->uh.modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
                 wsgi_req->uh.modifier1 = 0;
                 pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");

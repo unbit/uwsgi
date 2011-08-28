@@ -766,6 +766,7 @@ next:
 				wsgi_req->var_cnt++;
 				script_name = wsgi_req->var_cnt;
 			}
+
 			for(i=0;i<uwsgi_apps_cnt;i++) {
 				//uwsgi_log("app mountpoint = %.*s\n", uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint);
 				if (orig_path_info_len >= uwsgi_apps[i].mountpoint_len) {

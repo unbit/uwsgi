@@ -855,7 +855,7 @@ char *uwsgi_pythonize(char *orig) {
 			name[i] = '_';
 		}
 		else if (name[i] == '/') {
-			name[i] = '.';
+			name[i] = '_';
 		}
 	}
 
