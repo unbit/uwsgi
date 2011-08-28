@@ -1002,65 +1002,71 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi.option_index = -1;
 	}
 
+#ifdef UWSGI_DEBUG
+	uwsgi_log("optind:%d argc:%d\n", optind,argc);
+#endif
+
 	if (optind < argc) {
-		char *lazy = argv[optind];
-		if (lazy[0] != '[') {
-			if (0) {
-			}
+		for(i=optind;i<argc;i++) {
+			char *lazy = argv[i];
+			if (lazy[0] != '[') {
+				if (0) {
+				}
 
 #ifdef UWSGI_XML
-			else if (!strcmp(lazy + strlen(lazy) - 4, ".xml")) {
-				uwsgi.xml_config = lazy;
-			}
+				else if (!strcmp(lazy + strlen(lazy) - 4, ".xml")) {
+					uwsgi.xml_config = lazy;
+				}
 #endif
 #ifdef UWSGI_INI
-			else if (!strcmp(lazy + strlen(lazy) - 4, ".ini")) {
-				uwsgi.ini = lazy;
-			}
+				else if (!strcmp(lazy + strlen(lazy) - 4, ".ini")) {
+					uwsgi_string_new_list(&uwsgi.ini, lazy);
+				}
 #endif
 #ifdef UWSGI_YAML
-			else if (!strcmp(lazy + strlen(lazy) - 4, ".yml")) {
-				uwsgi.yaml = lazy;
-			}
-			else if (!strcmp(lazy + strlen(lazy) - 5, ".yaml")) {
-				uwsgi.yaml = lazy;
-			}
+				else if (!strcmp(lazy + strlen(lazy) - 4, ".yml")) {
+					uwsgi.yaml = lazy;
+				}
+				else if (!strcmp(lazy + strlen(lazy) - 5, ".yaml")) {
+					uwsgi.yaml = lazy;
+				}
 #endif
 #ifdef UWSGI_JSON
-			else if (!strcmp(lazy + strlen(lazy) - 3, ".js")) {
-				uwsgi.json = lazy;
-			}
+				else if (!strcmp(lazy + strlen(lazy) - 3, ".js")) {
+					uwsgi.json = lazy;
+				}
 #endif
 #ifdef UWSGI_SQLITE3
-			else if (!strcmp(lazy + strlen(lazy) - 3, ".db")) {
-				uwsgi.sqlite3 = lazy;
-			}
-			else if (!strcmp(lazy + strlen(lazy) - 7, ".sqlite")) {
-				uwsgi.sqlite3 = lazy;
-			}
-			else if (!strcmp(lazy + strlen(lazy) - 8, ".sqlite3")) {
-				uwsgi.sqlite3 = lazy;
-			}
-#endif
-			// manage magic mountpoint
-			else if ((lazy[0] == '/' || strchr(lazy, '|')) && strchr(lazy, '=')) {
-			}
-			else {
-				int magic = 0;
-				for (i = 0; i < uwsgi.gp_cnt; i++) {
-					if (uwsgi.gp[i]->magic) {
-						if (uwsgi.gp[i]->magic(NULL, lazy)) {
-							magic = 1;
-							break;
-						}
-					}
+				else if (!strcmp(lazy + strlen(lazy) - 3, ".db")) {
+					uwsgi.sqlite3 = lazy;
 				}
-				if (!magic) {
-					for (i = 0; i < 0xFF; i++) {
-						if (uwsgi.p[i]->magic) {
-							if (uwsgi.p[i]->magic(NULL, lazy)) {
+				else if (!strcmp(lazy + strlen(lazy) - 7, ".sqlite")) {
+					uwsgi.sqlite3 = lazy;
+				}
+				else if (!strcmp(lazy + strlen(lazy) - 8, ".sqlite3")) {
+					uwsgi.sqlite3 = lazy;
+				}
+#endif
+				// manage magic mountpoint
+				else if ((lazy[0] == '/' || strchr(lazy, '|')) && strchr(lazy, '=')) {
+				}
+				else {
+					int magic = 0;
+					for (i = 0; i < uwsgi.gp_cnt; i++) {
+						if (uwsgi.gp[i]->magic) {
+							if (uwsgi.gp[i]->magic(NULL, lazy)) {
 								magic = 1;
 								break;
+							}
+						}
+					}
+					if (!magic) {
+						for (i = 0; i < 0xFF; i++) {
+							if (uwsgi.p[i]->magic) {
+								if (uwsgi.p[i]->magic(NULL, lazy)) {
+									magic = 1;
+									break;
+								}
 							}
 						}
 					}
@@ -1068,6 +1074,8 @@ int main(int argc, char *argv[], char *envp[]) {
 			}
 		}
 	}
+
+	struct uwsgi_string_list *config_file;
 	
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
@@ -1078,8 +1086,12 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #ifdef UWSGI_INI
 	if (uwsgi.ini != NULL) {
-		config_magic_table_fill(uwsgi.ini, uwsgi.magic_table);
-		uwsgi_ini_config(uwsgi.ini, uwsgi.magic_table);
+		config_file = uwsgi.ini;
+		while(config_file) {
+			config_magic_table_fill(config_file->value, uwsgi.magic_table);
+			uwsgi_ini_config(config_file->value, uwsgi.magic_table);
+			config_file = config_file->next;
+		}
 	}
 #endif
 #ifdef UWSGI_YAML
@@ -3099,7 +3111,7 @@ static int manage_base_opt(int i, char *optarg) {
 #endif
 #ifdef UWSGI_INI
 	case LONG_ARGS_INI:
-		uwsgi.ini = optarg;
+		uwsgi_string_new_list(&uwsgi.ini, optarg);
 		return 1;
 #endif
 	case LONG_ARGS_SOCKET_PROTOCOL:

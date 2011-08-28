@@ -1172,7 +1172,7 @@ struct uwsgi_server {
 #endif
 
 #ifdef UWSGI_INI
-	char *ini;
+	struct uwsgi_string_list *ini;
 #endif
 
 #ifdef UWSGI_SQLITE3

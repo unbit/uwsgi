@@ -793,12 +793,12 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 
 #ifdef UWSGI_INI
 	case LONG_ARGS_INI_PASTE:
-		uwsgi.ini = optarg;
-		if (uwsgi.ini[0] != '/') {
-			up.paste = uwsgi_concat4("config:", uwsgi.cwd, "/", uwsgi.ini);
+		uwsgi_string_new_list(&uwsgi.ini,optarg);
+		if (optarg[0] != '/') {
+			up.paste = uwsgi_concat4("config:", uwsgi.cwd, "/", optarg);
 		}
 		else {
-			up.paste = uwsgi_concat2("config:", uwsgi.ini);
+			up.paste = uwsgi_concat2("config:", optarg);
 		}
 		return 1;
 #endif
