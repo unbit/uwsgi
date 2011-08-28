@@ -32,6 +32,9 @@ struct uwsgi_instance {
         int loyal;
 
         int zerg;
+	
+	uid_t uid;
+	gid_t gid;
 };
 
 
@@ -169,7 +172,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	uwsgi_log("reload the uwsgi instance %s\n", c_ui->name);
 }
 
-void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
+void emperor_add(char *name, time_t born, char *config, uint32_t config_size, uid_t uid, gid_t gid) {
 
 	struct uwsgi_instance *c_ui = ui;
 	struct uwsgi_instance *n_ui = NULL;
@@ -182,6 +185,13 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 	int i;
 
 	usleep(uwsgi.emperor_throttle*1000);
+
+	if (uwsgi.emperor_tyrant) {
+		if (uid == 0 || gid == 0) {
+			uwsgi_log("[emperor-tyrant] invalid permissions for file %s\n", name);
+			return;
+		}
+	}
 
 	while (c_ui->ui_next) {
 		c_ui = c_ui->ui_next;
@@ -209,6 +219,8 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 
 	memcpy(n_ui->name, name, strlen(name));
 	n_ui->born = born;
+	n_ui->uid = uid;
+	n_ui->gid = gid;
 	n_ui->last_mod = born;
 	// start without loyalty
 	n_ui->last_loyal = born;
@@ -252,6 +264,24 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size) {
 		return;
 	}
 	else {
+
+		if (uwsgi.emperor_tyrant) {
+			uwsgi_log("[emperor-tyrant] dropping privileges to %d %d for instance %s\n", (int) uid, (int) gid, name);
+			if (setgid(gid)) {
+                                uwsgi_error("setgid()");
+                                exit(1);
+                        }
+                        if (setgroups(0, NULL)) {
+                                uwsgi_error("setgroups()");
+                                exit(1);
+                        }
+
+                        if (setuid(uid)) {
+                                uwsgi_error("setuid()");
+                                exit(1);
+                        }
+
+		}
 
 		unsetenv("UWSGI_RELOADS");
 		unsetenv("NOTIFY_SOCKET");
@@ -517,7 +547,7 @@ reconnect:
                                         }
                                         else {
 						if (msgsize > 0) {
-                                                	emperor_add(config_file, time(NULL), config, msgsize);
+                                                	emperor_add(config_file, time(NULL), config, msgsize, 0, 0);
 						}
                                         }
 
@@ -554,7 +584,7 @@ reconnect:
 						emperor_respawn(ui_current, time(NULL));
 					}
 					else {
-						emperor_add(config_file, time(NULL), NULL, 0);
+						emperor_add(config_file, time(NULL), NULL, 0, 0, 0);
 					}
 
 					free(config_file);
@@ -583,7 +613,7 @@ reconnect:
 						else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
 							uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
 							char *zerg_name = uwsgi_concat3(ui_current->name,":","zerg");
-							emperor_add(zerg_name, time(NULL), NULL, 0);
+							emperor_add(zerg_name, time(NULL), NULL, 0, ui_current->uid, ui_current->gid);
 							free(zerg_name);
 						}
 					}
@@ -620,13 +650,21 @@ reconnect:
 					ui_current = emperor_get(de->d_name);
 
 					if (ui_current) {
+						// check if uid or gid are changed, in such case, sotp the instance
+						if (uwsgi.emperor_tyrant) {
+							if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
+								uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n"); 
+								emperor_stop(ui_current);	
+								continue;
+							}	
+						}
 						// check if mtime is changed and the uWSGI instance must be reloaded
 						if (st.st_mtime > ui_current->last_mod) {
 							emperor_respawn(ui_current, st.st_mtime);
 						}
 					}
 					else {
-						emperor_add(de->d_name, st.st_mtime, NULL, 0);
+						emperor_add(de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
 					}
 				}
 			}
@@ -659,13 +697,21 @@ reconnect:
 					ui_current = emperor_get(g.gl_pathv[i]);
 
 					if (ui_current) {
+						// check if uid or gid are changed, in such case, sotp the instance
+                                                if (uwsgi.emperor_tyrant) {
+                                                        if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
+                                                                uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n");
+                                                                emperor_stop(ui_current);
+                                                                continue;
+                                                        }
+                                                }
 						// check if mtime is changed and the uWSGI instance must be reloaded
 						if (st.st_mtime > ui_current->last_mod) {
 							emperor_respawn(ui_current, st.st_mtime);
 						}
 					}
 					else {
-						emperor_add(g.gl_pathv[i], st.st_mtime, NULL, 0);
+						emperor_add(g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
 					}
 				}
 
@@ -729,7 +775,7 @@ reconnect:
 					}
 					else {
 						// UNSAFE
-						emperor_add(ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len);
+						emperor_add(ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid);
 						emperor_del(ui_current);
 					}
 					break;

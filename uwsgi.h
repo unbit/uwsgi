@@ -934,6 +934,7 @@ struct uwsgi_server {
 
 	int has_emperor;
 	int emperor_fd;
+	int emperor_tyrant;
 	int emperor_fd_config;
 	int early_emperor;
         int emperor_throttle;

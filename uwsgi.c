@@ -72,6 +72,7 @@ static struct option long_base_options[] = {
 	{"single-interpreter", no_argument, 0, 'i'},
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
+	{"emperor-tyrant", no_argument, &uwsgi.emperor_tyrant, 1},
 	{"early-emperor", no_argument, &uwsgi.early_emperor, 1},
 	{"emperor-broodlord", required_argument, 0, LONG_ARGS_EMPEROR_BROODLORD},
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
