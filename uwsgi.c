@@ -942,11 +942,13 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
-		// now a bit of magic, if the argv[0] basename contains a 'uwsgi_' string,
+		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
 		// try to automatically load a plugin
-		//uwsgi_log("executable name: %s\n", argv[0]);
-	char *p = strrchr(argv[0], '/');
-	if (p == NULL) p = argv[0];
+#ifdef UWSGI_DEBUG
+		uwsgi_log("executable name: %s\n", uwsgi.binary_path);
+#endif
+	char *p = strrchr(uwsgi.binary_path, '/');
+	if (p == NULL) p = uwsgi.binary_path;
 	p = strstr(p, "uwsgi_");
 	if (p != NULL) {
 		plugins_requested = strchr(p, '_');
@@ -965,13 +967,13 @@ int main(int argc, char *argv[], char *envp[]) {
 			p = strtok(NULL, ",");
 		}
 	}
+
 	build_options();
 
 	if (gethostname(uwsgi.hostname, 255)) {
 		uwsgi_error("gethostname()");
 	}
 	uwsgi.hostname_len = strlen(uwsgi.hostname);
-
 
 	uwsgi.magic_table['v'] = uwsgi.cwd;
 	uwsgi.magic_table['h'] = uwsgi.hostname;
@@ -1200,6 +1202,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	// ok, the options dictionary is available, lets manage it
+
 
 	uwsgi_configure();
 
@@ -3491,9 +3494,12 @@ void build_options() {
 		}
 	}
 
+
 	if (short_options) {
 		free(short_options);
 	}
+
+
 	short_options = uwsgi_malloc(short_opt_size + 1);
 	memcpy(short_options, base_short_options, strlen(base_short_options));
 	so_ptr = short_options + strlen(base_short_options);

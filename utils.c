@@ -439,10 +439,9 @@ void log_syslog(char *syslog_opts) {
 
 char *uwsgi_get_cwd() {
 
-	int newsize = 256;
-	char *cwd;
+	size_t newsize = 256;
 
-	cwd = uwsgi_malloc(newsize);
+	char *cwd = uwsgi_malloc(newsize);
 
 	if (getcwd(cwd, newsize) == NULL) {
 		newsize = errno;
