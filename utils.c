@@ -1512,18 +1512,18 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 	}
 	// manage buffered data and upload progress
 	while (post_remains > 0) {
+
 		if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 			inc_harakiri(uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		}
 
-		ret = poll(&wsgi_req->poll, 1, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] * 1000);
+		ret = uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (ret < 0) {
-			uwsgi_error("poll()");
-			goto end;
+			return 0;
 		}
 
 		if (!ret) {
-			uwsgi_log("buffering POST data timedout !!!\n");
+			uwsgi_log("buffering POST data timed-out !!!\n");
 			goto end;
 		}
 
@@ -1548,7 +1548,7 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 				goto end;
 			}
 
-			// resue buf for json buffer
+			// reuse buf for json buffer
 			ret = snprintf(buf, len, "{ \"state\" : \"uploading\", \"received\" : %d, \"size\" : %d }\r\n", (int) (wsgi_req->post_cl - post_remains), (int) wsgi_req->post_cl);
 			if (ret < 0) {
 				uwsgi_log("unable to write JSON data in upload progress file %s\n", upload_progress_filename);
