@@ -236,12 +236,15 @@ class uConf(object):
                 elif line.startswith('End of search list.'):
                     add_it = False
                 elif add_it:
-                    self.include_path.append(line.strip())
+                    self.include_path.append(line.strip().split()[0])
+            
+            if not self.include_path:
+                raise 
         except:
             self.include_path = ['/usr/include', '/usr/local/include']
             
             
-        print("detected include path:", self.include_path)
+        print("detected include path: %s" % self.include_path)
 
         gcc_major = int(gcc_version.split('.')[0])
         gcc_minor = int(gcc_version.split('.')[1])
