@@ -369,7 +369,12 @@ void spooler_manage_task(char *dir, char *task) {
 		if (!access(task, R_OK | W_OK)) {
 			uwsgi_log("managing spool request %s ...\n", task);
 
+#ifdef __sun__
+			// lockf needs write permission
+			spool_fd = open(task, O_RDWR);
+#else
 			spool_fd = open(task, O_RDONLY);
+#endif
 			if (spool_fd < 0) {
 				uwsgi_error_open(task);
 				return;
