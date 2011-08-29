@@ -872,7 +872,6 @@ void uwsgi_python_spooler_init(void) {
 
 	struct uwsgi_string_list *upli = up.spooler_import_list;
 
-	
 	UWSGI_GET_GIL
 
         while(upli) {

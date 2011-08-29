@@ -37,6 +37,8 @@ pid_t spooler_start() {
 		signal(SIGUSR1, spooler_wakeup);
 		uwsgi.mywid = -1;
 		uwsgi.mypid = getpid();
+		// avoid race conditions !!!
+		uwsgi.shared->spooler_pid = uwsgi.mypid;
 		uwsgi_close_all_sockets();
 		if (uwsgi.master_process) {
 			close(uwsgi.shared->spooler_signal_pipe[0]);
@@ -66,6 +68,7 @@ pid_t spooler_start() {
                         	uwsgi.gp[i]->spooler_init();
                 	}
         	}
+
 		spooler();
 	}
 	else if (pid > 0) {
@@ -253,6 +256,8 @@ void spooler() {
 		if (uwsgi.spooler_ordered) {
 #ifdef __linux__
 			spooler_scandir(uwsgi.spool_dir);
+#else
+			spooler_readdir(uwsgi.spool_dir);
 #endif
 		}
 		else {
