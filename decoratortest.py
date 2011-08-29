@@ -10,8 +10,8 @@ import time
 
 # register rpc function helloworld
 @rpc("helloworld")
-def hello_world():
-    return "Hello World"
+def hello2():
+    return "[RPC] Hello World"
 
 # register signal 1
 @signal(1)
@@ -45,6 +45,7 @@ def tmpmodified(num):
 def a_long_task(args):
     for i in xrange(1,10):
         print("%s = %d" % ( str(args), i))
+        print(uwsgi.call('helloworld'))
         time.sleep(1)
 
 # continuosly spool a long running task
@@ -52,10 +53,11 @@ def a_long_task(args):
 def an_infinite_task(args):
     for i in xrange(1,4):
         print("infinite: %d %s" % (i, str(args)))
+        print(uwsgi.call('helloworld'))
         time.sleep(1)
 
 
-# spool a task after 60 seconds
+# spool a task after 5 seconds
 @spool
 def delayed_task(args):
     print("*** I am a delayed spool job. It is %s [%s]***" % (time.asctime(), str(args)))
@@ -89,7 +91,10 @@ def a_running_thread_with_args(who):
 def a_post_fork_thread():
     while True:
         time.sleep(3)
-        print("Hello from a thread in worker %d" % uwsgi.worker_id())
+        if uwsgi.i_am_the_spooler():
+            print("Hello from a thread in the spooler")
+        else:
+            print("Hello from a thread in worker %d" % uwsgi.worker_id())
 
 @postfork
 def fork_happened():
@@ -97,24 +102,29 @@ def fork_happened():
 
 @postfork
 def fork_happened2():
-    print("waiting for a signal...")
-    uwsgi.signal_wait()
-    print("signal received: %d" % uwsgi.signal_received())
+    if uwsgi.i_am_the_spooler():
+        return
+    print("worker %d is waiting for signal 100..." % uwsgi.worker_id())
+    uwsgi.signal_wait(100)
+    print("worker %d received signal %d" % (uwsgi.worker_id(), uwsgi.signal_received()))
     print("fork() has been called [2] wid: %d" % uwsgi.worker_id())
 
 @postfork
 @lock
 def locked_func():
     print("starting locked function on worker %d" % uwsgi.worker_id())
-    for i in xrange(1, 100):
-        time.sleep(0.2)
+    for i in xrange(1, 5):
+        time.sleep(1)
         print("[locked %d] waiting..." % uwsgi.worker_id())
     print("done with locked function on worker %d" % uwsgi.worker_id())
 
+print(uwsgi.call('helloworld'))
 spool_filename = a_long_task.spool({'foo':'bar'}, hello='world')
 print("spool filename = %s" % spool_filename)
 an_infinite_task.spool(foo='bar', priority=3)
-delayed_task.spool(foo2='bar2', at=time.time()+60)
+when = int(time.time())+5
+print("scheduling a delayed task at %d" % when)
+delayed_task.spool(foo2='bar2', at=when)
 a_running_thread()
 a_running_thread_with_args("uWSGI")
 uwsgi_source_file = open('uwsgi.c','r')

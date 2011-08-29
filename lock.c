@@ -46,6 +46,7 @@ void uwsgi_lock(void *lock) {
 void uwsgi_unlock(void *lock) {
 
 	pthread_mutex_unlock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t));
+
 }
 
 void uwsgi_rwlock_init(void *lock) {

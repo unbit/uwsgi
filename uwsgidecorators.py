@@ -153,6 +153,9 @@ class lock(object):
         self.f = f
 
     def __call__(self, *args, **kwargs):
+        # ensure the spooler will not call it
+        if uwsgi.i_am_the_spooler():
+            return
         uwsgi.lock()
         try:
             return self.f(*args, **kwargs)

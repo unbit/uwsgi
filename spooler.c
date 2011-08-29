@@ -36,7 +36,7 @@ pid_t spooler_start() {
 		// USR1 will be used to wake up the spooler
 		signal(SIGUSR1, spooler_wakeup);
 		uwsgi.mywid = -1;
-		uwsgi.mypid = pid;
+		uwsgi.mypid = getpid();
 		uwsgi_close_all_sockets();
 		if (uwsgi.master_process) {
 			close(uwsgi.shared->spooler_signal_pipe[0]);
@@ -52,7 +52,9 @@ pid_t spooler_start() {
                         	uwsgi.p[i]->post_fork();
                 	}
         	}
+
 		uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
+
 		for (i = 0; i < 0xFF; i++) {
                 	if (uwsgi.p[i]->spooler_init) {
                         	uwsgi.p[i]->spooler_init();

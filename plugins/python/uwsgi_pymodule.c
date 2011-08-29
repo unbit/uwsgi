@@ -29,6 +29,9 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 	}
 	else {
 #endif
+
+		UWSGI_RELEASE_GIL;
+
 		pfd[0].fd = uwsgi.signal_socket;
 		pfd[0].events = POLLIN;
 		pfd[1].fd = uwsgi.my_signal_socket;
@@ -55,6 +58,7 @@ cycle:
                                         uwsgi_error("read()");
                                 }
                                 else {
+					
 					if (uwsgi_signal_handler(received_signal)) {
                                 		uwsgi_log_verbose("error managing signal %d on worker %d\n", received_signal, uwsgi.mywid);
                         		}
@@ -64,7 +68,10 @@ cycle:
                                         }
                                 }
                         }
+
 		}
+
+		UWSGI_GET_GIL;
 
 #ifdef UWSGI_ASYNC
 	}
@@ -959,6 +966,18 @@ PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 
 	Py_INCREF(Py_True);
 	return Py_True;
+}
+
+PyObject *py_uwsgi_i_am_the_spooler(PyObject * self, PyObject * args) {
+#ifdef UWSGI_SPOOLER
+	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+#endif
+
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
@@ -2684,6 +2703,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"recv_block", py_uwsgi_recv_block, METH_VARARGS, ""},
 	{"recv_frame", py_uwsgi_recv_frame, METH_VARARGS, ""},
 	{"close", py_uwsgi_close, METH_VARARGS, ""},
+	{"i_am_the_spooler", py_uwsgi_i_am_the_spooler, METH_VARARGS, ""},
 
 	{"fcgi", py_uwsgi_fcgi, METH_VARARGS, ""},
 

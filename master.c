@@ -318,6 +318,15 @@ void master_loop(char **argv, char **environ) {
 #endif
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
+#ifdef UWSGI_SPOOLER
+	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("adding %d to signal poll (spooler)\n", uwsgi.shared->spooler_signal_pipe[0]);
+#endif
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
+	}
+#endif
+
 	if (uwsgi.log_master) {
 #ifdef UWSGI_DEBUG
 		uwsgi_log("adding %d to master logging\n", uwsgi.shared->worker_log_pipe[0]);
@@ -1016,6 +1025,30 @@ void master_loop(char **argv, char **environ) {
 							//uwsgi.workers[i].pipe[0] = -1;
 						}
 					}
+	
+#ifdef UWSGI_SPOOLER
+					// check for spooler signal
+				if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+					if (interesting_fd == uwsgi.shared->spooler_signal_pipe[0]) {
+						rlen = read(interesting_fd, &uwsgi_signal, 1);
+						if (rlen < 0) {
+							uwsgi_error("read()");
+						}	
+						else if (rlen > 0) {
+#ifdef UWSGI_DEBUG
+							uwsgi_log_verbose("received uwsgi signal %d from the spooler\n", uwsgi_signal);
+#endif
+							uwsgi_route_signal(uwsgi_signal);
+						}
+						else {
+							uwsgi_log_verbose("lost connection with the spooler\n");
+							close(interesting_fd);
+						}
+					}
+				}
+#endif
+	
+
 				}
 
 			uwsgi.current_time = time(NULL);	
