@@ -687,13 +687,21 @@ enum
 
 
 static int timerfd_create (clockid_t __clock_id, int __flags) {
+#ifdef __amd64__
+	return syscall(283, __clock_id, __flags);
+#elif defined(__i386__)
 	return syscall(322, __clock_id, __flags);
+#endif
 }
 
 static int timerfd_settime (int __ufd, int __flags,
                             __const struct itimerspec *__utmr,
                             struct itimerspec *__otmr) {
+#ifdef __amd64__
+	return syscall(286, __ufd, __flags, __utmr, __otmr);
+#elif defined(__i386__)
 	return syscall(325, __ufd, __flags, __utmr, __otmr);
+#endif
 }
 #endif
 

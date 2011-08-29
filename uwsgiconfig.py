@@ -25,6 +25,8 @@ GCC = os.environ.get('CC', sysconfig.get_config_var('CC'))
 if not GCC:
     GCC = 'gcc'
 
+CPP = os.environ.get('CPP', 'cpp')
+
 binary_list = []
 	
 def binarize(name):
@@ -49,6 +51,16 @@ if uwsgi_version.endswith('-dev') and os.path.exists('%s/.hg' % os.path.dirname(
 
 def spcall2(cmd):
     p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
+
+    if p.wait() == 0:
+        if sys.version_info[0] > 2:
+            return p.stderr.read().rstrip().decode()
+        return p.stderr.read().rstrip()
+    else:
+        return None
+
+def spcall3(cmd):
+    p = subprocess.Popen(cmd, shell=True, stdin=open('/dev/null'), stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
     if p.wait() == 0:
         if sys.version_info[0] > 2:
@@ -100,7 +112,7 @@ def build_uwsgi(uc):
         epc = "-DUWSGI_DECLARE_EMBEDDED_PLUGINS=\""
         eplc = "-DUWSGI_LOAD_EMBEDDED_PLUGINS=\""
         for p in ep:
-            p = p.rstrip().lstrip()
+            p = p.strip()
             if p == 'ugreen':
                 if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
                     continue
@@ -125,7 +137,7 @@ def build_uwsgi(uc):
         if len(ep) > 0:
             print("*** uWSGI compiling embedded plugins ***")
             for p in ep:
-                p = p.rstrip().lstrip()
+                p = p.strip()
 
                 if p == 'ugreen':
                     if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
@@ -160,7 +172,7 @@ def build_uwsgi(uc):
             print("*** uWSGI building plugins ***")
 
             for p in plugins:
-                p = p.rstrip().lstrip()
+                p = p.strip()
                 print("*** building plugin: %s ***" % p)
                 build_plugin("plugins/%s" % p, uc, cflags, ldflags, libs)
 
@@ -203,15 +215,34 @@ class uConf(object):
         self.gcc_list.append('proto/uwsgi')
         self.gcc_list.append('proto/http')
         self.gcc_list.append('proto/fastcgi')
+        self.include_path = []
         if uwsgi_os == 'Linux':
             self.gcc_list.append('lib/linux_ns')
             self.gcc_list.append('lib/netlink')
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
+
         try:
             gcc_version = str(spcall("%s -dumpversion" % GCC))
         except:
             print("*** you need a c compiler to build uWSGI ***")
             sys.exit(1)
+
+        try:
+            add_it = False
+            cpp_include_list = str(spcall3("%s -v" % CPP)).split("\n")
+            for line in cpp_include_list:
+                if line.startswith('#include <...> search starts here:'):
+                    add_it = True
+                elif line.startswith('End of search list.'):
+                    add_it = False
+                elif add_it:
+                    self.include_path.append(line.strip())
+        except:
+            self.include_path = ['/usr/include', '/usr/local/include']
+            
+            
+        print("detected include path:", self.include_path)
+
         gcc_major = int(gcc_version.split('.')[0])
         gcc_minor = int(gcc_version.split('.')[1])
         if (sys.version_info[0] == 2) or (gcc_major < 4) or (gcc_major == 4 and gcc_minor < 3):
@@ -266,6 +297,12 @@ class uConf(object):
                 print("%s needs %s support." % (what, d))
                 sys.exit(1)
 
+    def has_include(self, what):
+        for include in self.include_path:
+            if os.path.exists("%s/%s" %(include, what)):
+                return True
+        return False
+
     def get_gcll(self):
 
         global uwsgi_version
@@ -273,7 +310,7 @@ class uConf(object):
         self.cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
         kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
-        if os.path.exists('/usr/include/ifaddrs.h') or os.path.exists('/usr/local/include/ifaddrs.h'):
+        if self.has_include('ifaddrs.h'):
             self.cflags.append('-DUWSGI_HAS_IFADDRS')
 
         if uwsgi_os == 'SunOS':
@@ -369,7 +406,7 @@ class uConf(object):
 
         if timer_mode == 'timerfd':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD')
-            if not os.path.exists('/usr/include/sys/timerfd.h') and not os.path.exists('/usr/local/include/sys/timerfd.h'):
+            if not self.has_include('sys/timerfd.h'):
                 self.cflags.append('-DUWSGI_EVENT_TIMER_USE_TIMERFD_NOINC')
         elif timer_mode == 'kqueue':
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_KQUEUE')
@@ -445,7 +482,7 @@ class uConf(object):
         has_json = False
         has_uuid = False
 
-        if os.path.exists('/usr/include/uuid/uuid.h') or os.path.exists('/usr/local/include/uuid/uuid.h'):
+        if self.has_include('uuid/uuid.h'):
             has_uuid = True
             self.cflags.append("-DUWSGI_UUID")
             if os.path.exists('/usr/lib/libuuid.so') or os.path.exists('/usr/local/lib/libuuid.so') or os.path.exists('/usr/lib64/libuuid.so') or os.path.exists('/usr/local/lib64/libuuid.so'):
@@ -550,7 +587,7 @@ class uConf(object):
                 self.cflags.append("-DUWSGI_LIBYAML")
                 self.libs.append('-lyaml')
             if self.get('yaml_implementation') == 'auto':
-                if os.path.exists('/usr/include/yaml.h') or os.path.exists('/usr/local/include/yaml.h'):
+                if self.has_include('yaml.h'):
                     self.cflags.append("-DUWSGI_LIBYAML")
                     self.libs.append('-lyaml')
 
@@ -563,7 +600,7 @@ class uConf(object):
                     self.gcc_list.append('json')
                     self.libs.append(spcall("pkg-config --libs jansson"))
                     has_json = True
-                elif os.path.exists('/usr/include/jansson.h') or os.path.exists('/usr/local/include/jansson.h'):
+                elif self.has_include('jansson.h'):
                     self.cflags.append("-DUWSGI_JSON")
                     self.gcc_list.append('json')
                     self.libs.append('-ljansson')
@@ -576,7 +613,7 @@ class uConf(object):
 
         if self.get('ldap'):
             if self.get('ldap') == 'auto':
-                if os.path.exists('/usr/include/ldap.h'):
+                if self.has_include('ldap.h'):
                     self.cflags.append("-DUWSGI_LDAP")
                     self.gcc_list.append('ldap')
                     self.libs.append('-lldap')
@@ -587,7 +624,7 @@ class uConf(object):
 
         if has_uuid and self.get('zeromq'):
             if self.get('zeromq') == 'auto':
-                if os.path.exists('/usr/include/zmq.h') or os.path.exists('/usr/local/include/zmq.h'):
+                if self.has_include('zmq.h'):
                     self.cflags.append("-DUWSGI_ZEROMQ")
                     self.gcc_list.append('proto/zeromq')
                     self.libs.append('-lzmq')
@@ -635,7 +672,7 @@ class uConf(object):
 
         if self.get('sqlite3'):
             if self.get('sqlite3') == 'auto':
-                if os.path.exists('/usr/include/sqlite3.h') or os.path.exists('/usr/local/include/sqlite3.h'):
+                if self.has_include('sqlite3.h'):
                     self.cflags.append("-DUWSGI_SQLITE3")
                     self.libs.append('-lsqlite3')
                     self.gcc_list.append('sqlite3')
