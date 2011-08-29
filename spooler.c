@@ -17,8 +17,10 @@ pid_t spooler_start() {
 	int i;
 
 	if (uwsgi.master_process) {
-		if (uwsgi.shared->spooler_signal_pipe[0] != -1) close (uwsgi.shared->spooler_signal_pipe[0]);
-		if (uwsgi.shared->spooler_signal_pipe[1] != -1) close (uwsgi.shared->spooler_signal_pipe[1]);
+		if (uwsgi.shared->spooler_signal_pipe[0] != -1) {close (uwsgi.shared->spooler_signal_pipe[0]); uwsgi.shared->spooler_signal_pipe[0] = -1;}
+		if (!uwsgi.spooler_respawned) {
+			if (uwsgi.shared->spooler_signal_pipe[1] != -1) {close (uwsgi.shared->spooler_signal_pipe[1]); uwsgi.shared->spooler_signal_pipe[1] = -1;}
+		}
 		// setup internal signalling system
                 if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->spooler_signal_pipe)) {
                         uwsgi_error("socketpair()\n");

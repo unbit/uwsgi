@@ -54,6 +54,7 @@ def an_infinite_task(args):
     for i in xrange(1,4):
         print("infinite: %d %s" % (i, str(args)))
         print(uwsgi.call('helloworld'))
+        uwsgi.signal(100)
         time.sleep(1)
 
 

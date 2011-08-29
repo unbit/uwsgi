@@ -1069,6 +1069,7 @@ struct uwsgi_server {
 #ifdef UWSGI_SPOOLER
 	char *spool_dir;
 	int spooler_ordered;
+	uint64_t spooler_respawned;
 #endif
 
 #ifdef UWSGI_SNMP
