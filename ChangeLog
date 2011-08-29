@@ -1,3 +1,37 @@
+*** august 2011 ***
+
+ * 0.9.9 [20110829]
+
+- various spooler improvements
+- upload progress optimizations and fixes
+- new emperor mode: Tyrant
+- allows multiple --ini options
+- better binary path detection
+- gevent loop engine support
+- resolve domain names in socket logging
+- snmp fixes and reintroduction of the snmp-api
+- fixed grunt mode
+- you can specify build profile via env var UWSGI_PROFILE
+- reintroduction of string-based multiapp
+- new option --emperor-throttle
+- improved queue and sharedarea subsystems
+- uWSGI can now be built as a shared library
+- new api attribute: uwsgi.magic_table
+- improved apache2 module
+- new option --pyshell
+- allow threads in gateways
+- fastrouter improvements
+- the application list is now shared and exported to the api
+- allows setting the thread stack size
+- UWSGI_APPID for better multiapp hosting
+- better reloading in lazy mode
+- native pump support
+- various rack fixes
+- support for attaching binary data in the executable
+- new option --set
+- extreme-optimized http protocol parser
+- WSGI handler optimizations
+
 *** july 2011 ***
 
  * 0.9.8.3 [20110723]
