@@ -26,6 +26,8 @@ extern "C" {
 #define thunder_lock if (uwsgi.threads > 1) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
 #define thunder_unlock if (uwsgi.threads > 1) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
 
+#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5))
+
 #define ushared uwsgi.shared
 
 #define MAX_APPS 64
@@ -486,6 +488,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_FASTCGI_SOCKET	17133
 #define LONG_ARGS_THREADS_STACKSIZE	17134
 #define LONG_ARGS_EMPEROR_THROTTLE	17135
+#define LONG_ARGS_STOP			17136
+#define LONG_ARGS_RELOAD		17137
 
 
 #define UWSGI_OK	0

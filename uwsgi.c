@@ -52,6 +52,8 @@ static struct option long_base_options[] = {
 	{"set", required_argument, 0, 'S'},
 	{"inherit", required_argument, 0, LONG_ARGS_INHERIT},
 	{"daemonize", required_argument, 0, 'd'},
+	{"stop", required_argument, 0, LONG_ARGS_STOP},
+	{"reload", required_argument, 0, LONG_ARGS_RELOAD},
 	{"listen", required_argument, 0, 'l'},
 	{"max-vars", required_argument, 0, 'v'},
 	{"buffer-size", required_argument, 0, 'b'},
@@ -780,6 +782,22 @@ static void vacuum(void) {
 				uwsgi_sock = uwsgi_sock->next;
 			}
 		}
+	}
+}
+
+void signal_pidfile(int sig, char *filename) {
+
+	int size = 0;
+
+	char *buffer = uwsgi_open_and_read(filename, &size, 1, NULL);
+
+	if (size > 0) {
+		if (kill((pid_t) atoi(buffer), sig)) {
+			uwsgi_error("kill()");
+		}
+	}
+	else {
+		uwsgi_log("error: invalid pidfile\n");
 	}
 }
 
@@ -3036,6 +3054,12 @@ static int manage_base_opt(int i, char *optarg) {
 
 		usm->next = NULL;
 		return 1;
+	case LONG_ARGS_STOP:
+		signal_pidfile(SIGINT, optarg);
+		exit(0);
+	case LONG_ARGS_RELOAD:
+		signal_pidfile(SIGHUP, optarg);
+		exit(0);
 	case LONG_ARGS_ATTACH_DAEMON:
 		if (uwsgi.startup_daemons_cnt < MAX_DAEMONS) {
 			uwsgi.startup_daemons[uwsgi.startup_daemons_cnt] = optarg;

@@ -424,7 +424,7 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         // avoid GC !!!
         name = uwsgi_concat2(name, "");
 
-	if (!uwsgi_startswith(name, "http://", 7) || !uwsgi_startswith(name, "data://", 7) || !uwsgi_startswith(name, "sym://", 6) ) {
+	if (uwsgi_check_scheme(name)) {
                 prefix = uwsgi_get_last_char(name, '/');
                 prefix = uwsgi_get_last_char(prefix, ':');
         }

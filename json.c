@@ -30,7 +30,7 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 	char *colon;
 	int i;
 
-	if (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6)) {
+	if (uwsgi_check_scheme(file)) {
                 colon = uwsgi_get_last_char(file, '/');
                 colon = uwsgi_get_last_char(colon, ':');
         }

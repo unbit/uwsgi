@@ -1697,6 +1697,32 @@ int uwsgi_file_exists(char *filename) {
 	return !access(filename, R_OK);
 }
 
+char *uwsgi_read_fd(int fd, int *size, int add_zero) {
+
+	char stack_buf[4096];
+	ssize_t len;
+	char *buffer = NULL;
+
+	len = 1;
+        while(len > 0) {
+        	len = read(fd, stack_buf, 4096);
+                if (len > 0) {
+                	*size += len;
+                        buffer = realloc(buffer, *size);
+                        memcpy(buffer+(*size-len), stack_buf, len);
+                }
+	}
+
+        if (add_zero) {
+        	*size = *size+1;
+                buffer = realloc(buffer, *size);
+                buffer[*size-1] = 0;
+	}
+
+	return buffer;
+
+}
+
 char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[]) {
 
 	int fd;
@@ -1712,23 +1738,12 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 
 	// stdin ?
 	if (!strcmp(url, "-")) {
-		char stack_buf[4096];
-		len = 1;
-		while(len > 0) {
-			len = read(0, stack_buf, 4096);
-			if (len > 0) {
-				*size += len;
-				buffer = realloc(buffer, *size);
-				memcpy(buffer+(*size-len), stack_buf, len);
-			}
-		}
-
-		if (add_zero) {
-			*size = *size+1;
-			buffer = realloc(buffer, *size);
-			buffer[*size-1] = 0;
-		}
-
+		buffer = uwsgi_read_fd(0, size, add_zero);
+	}
+	// fd ?
+	else if (!strncmp("fd://", url, 5)) {
+		fd = atoi(url+5);
+		buffer = uwsgi_read_fd(fd, size, add_zero);
 	}
 	// http url ?
 	else if (!strncmp("http://", url, 7)) {
@@ -1971,6 +1986,10 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			exit(1);
 		}
 
+		if (S_ISFIFO(sb.st_mode)) {
+			buffer = uwsgi_read_fd(fd, size, add_zero);
+			goto end;
+		}
 
 		buffer = malloc(sb.st_size + add_zero);
 
@@ -1993,6 +2012,8 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		if (add_zero)
 			buffer[sb.st_size] = 0;
 	}
+
+end:
 
 	if (magic_table) {
 

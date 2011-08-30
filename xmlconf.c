@@ -26,7 +26,7 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, int app_tag
 	char *xml_content;
 	int xml_size = 0;
 
-	if (!uwsgi_startswith(filename, "http://", 7) || !uwsgi_startswith(filename, "data://", 7) || !uwsgi_startswith(filename, "sym://", 6)) {
+	if (uwsgi_check_scheme(filename)) {
 		colon = uwsgi_get_last_char(filename, '/');
 		colon = uwsgi_get_last_char(colon, ':');
 	}
