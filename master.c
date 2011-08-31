@@ -238,7 +238,7 @@ void manage_cluster_announce(char *key, uint16_t keylen, char *val, uint16_t val
 	}
 }
 
-void master_loop(char **argv, char **environ) {
+int master_loop(char **argv, char **environ) {
 
 	uint64_t tmp_counter;
 
@@ -528,7 +528,7 @@ void master_loop(char **argv, char **environ) {
 							else if (uwsgi.to_heaven) { ready_to_reload++;}
 							else if (uwsgi.to_outworld) {
 								uwsgi.lazy_respawned++;
-								if (uwsgi_respawn_worker(i)) return;	
+								if (uwsgi_respawn_worker(i)) return 0;	
 							}
 						}
 						else {
@@ -541,7 +541,7 @@ void master_loop(char **argv, char **environ) {
 		}
 		if (uwsgi.respawn_workers) {
 			for(i=1;i<=uwsgi.numproc;i++) {
-				if (uwsgi_respawn_worker(i)) return;
+				if (uwsgi_respawn_worker(i)) return 0;
 			}
 
 			uwsgi.respawn_workers = 0;
@@ -625,6 +625,9 @@ void master_loop(char **argv, char **environ) {
 				}
 			}
 
+#ifdef UWSGI_AS_SHARED_LIBRARY
+			return -1;
+#else
 			uwsgi_log( "running %s\n", uwsgi.binary_path);
 			argv[0] = uwsgi.binary_path;
 			//strcpy (argv[0], uwsgi.binary_path);
@@ -632,6 +635,7 @@ void master_loop(char **argv, char **environ) {
 			uwsgi_error("execvp()");
 			// never here
 			exit(1);
+#endif
 		}
 
 		if (!uwsgi.cheap) {
@@ -855,7 +859,7 @@ void master_loop(char **argv, char **environ) {
 								uwsgi.cheap = 0;
 								uwsgi_del_sockets_from_queue(uwsgi.master_queue);
 								for(i=1;i<=uwsgi.numproc;i++) {
-									if (uwsgi_respawn_worker(i)) return;		
+									if (uwsgi_respawn_worker(i)) return 0;		
 								}
 								break;
 							}
@@ -1373,7 +1377,7 @@ void master_loop(char **argv, char **environ) {
 			continue;
 		}
 		*/
-		if (uwsgi_respawn_worker(uwsgi.mywid)) return;
+		if (uwsgi_respawn_worker(uwsgi.mywid)) return 0;
 
 	}
 }

@@ -1712,7 +1712,7 @@ char *uwsgi_concat4n(char *, int, char *, int, char *, int, char *, int);
 int uwsgi_get_app_id(char *, int, int);
 char *uwsgi_strncopy(char *, int);
 
-void master_loop(char **, char **);
+int master_loop(char **, char **);
 
 
 int find_worker_id(pid_t);

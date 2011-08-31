@@ -25,7 +25,12 @@
 
 struct uwsgi_server uwsgi;
 
+#if defined(__APPLE__) && defined(UWSGI_AS_SHARED_LIBRARY)
+#include <crt_externs.h>
+char **environ;
+#else
 extern char **environ;
+#endif
 
 static char *short_options = NULL;
 
@@ -803,6 +808,12 @@ void signal_pidfile(int sig, char *filename) {
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
+
+#ifdef __APPLE__
+	char*** envPtr = _NSGetEnviron();
+	environ = *envPtr;
+#endif
+
 #else
 int main(int argc, char *argv[], char *envp[]) {
 #endif
@@ -2265,7 +2276,14 @@ skipzero:
 
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
-		master_loop(argv, environ);
+#ifdef UWSGI_AS_SHARED_LIBRARY
+		int ml_ret = master_loop(argv, environ);
+		if (ml_ret == -1) {
+			return 0;
+		}
+#else
+		(void) master_loop(argv, environ);
+#endif
 		//from now on the process is a real worker
 	}
 
