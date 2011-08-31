@@ -452,6 +452,9 @@ class uConf(object):
             self.ldflags.append('-shared')
             self.ldflags.append('-fPIC')
             self.cflags.append('-DUWSGI_AS_SHARED_LIBRARY')
+            if uwsgi_os == 'Darwin':
+                self.ldflags.append('-dynamiclib')
+                self.ldflags.append('-undefined dynamic_lookup')
 
         if self.get('embedded'):
             self.cflags.append('-DUWSGI_EMBEDDED')
