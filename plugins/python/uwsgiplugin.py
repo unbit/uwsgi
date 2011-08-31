@@ -17,12 +17,12 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
     if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
         LIBS.append('-L' + sysconfig.get_config_var('LIBPL'))
     else:
-	try:
-	    LDFLAGS.append("-L%s" % sysconfig.get_config_var('LIBDIR'))
-	    os.environ['LD_RUN_PATH'] = "%s" % (sysconfig.get_config_var('LIBDIR'))
-	except:
-	    LDFLAGS.append("-L%s/lib" % sysconfig.PREFIX)
-	    os.environ['LD_RUN_PATH'] = "%s/lib" % sysconfig.PREFIX
+        try:
+            LDFLAGS.append("-L%s" % sysconfig.get_config_var('LIBDIR'))
+            os.environ['LD_RUN_PATH'] = "%s" % (sysconfig.get_config_var('LIBDIR'))
+        except:
+            LDFLAGS.append("-L%s/lib" % sysconfig.PREFIX)
+            os.environ['LD_RUN_PATH'] = "%s/lib" % sysconfig.PREFIX
 
 
     version = sysconfig.get_config_var('VERSION')
