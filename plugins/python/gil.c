@@ -3,6 +3,11 @@
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
+#ifdef UWSGI_PYPY
+void gil_real_get() {}
+void gil_real_release() {}
+#else
+
 void gil_real_get() {
 	//uwsgi_log("LOCK %d\n", uwsgi.mywid);
 #ifndef PYTHREE
@@ -25,6 +30,8 @@ void gil_real_release() {
 	PyEval_SaveThread();
 #endif
 }
+
+#endif
 
 void gil_fake_get() {}
 void gil_fake_release() {}

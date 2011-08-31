@@ -1,6 +1,6 @@
 #include "uwsgi_python.h"
 
-#ifndef PYTHREE
+#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;

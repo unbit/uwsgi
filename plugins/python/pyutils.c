@@ -105,7 +105,9 @@ void init_pyargv() {
 			}
 		}
 
+#ifndef UWSGI_PYPY
 		PySys_SetArgv(up.argc, up.py_argv);
+#endif
 
 	PyObject *sys_dict = get_uwsgi_pydict("sys");
 	if (!sys_dict) {

@@ -10,9 +10,10 @@ uwsgi_args = []
 
 uwsgi_args.append('--socket')
 uwsgi_args.append(':3031')
-uwsgi_args.append('--master')
+#uwsgi_args.append('--master')
 uwsgi_args.append('--module')
-uwsgi_args.append('welcome')
+#uwsgi_args.append('welcome')
+uwsgi_args.append('hello')
 
 #pyuwsgi.run('welcome.ini')
 pyuwsgi.run(uwsgi_args)

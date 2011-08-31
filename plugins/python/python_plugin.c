@@ -47,7 +47,9 @@ struct option uwsgi_python_options[] = {
 	{"ignore-script-name", no_argument, &up.ignore_script_name, 1},
 	{"pep3333-input", no_argument, &up.pep3333_input, 1},
 	{"reload-os-env", no_argument, &up.reload_os_env, 1},
+#ifndef UWSGI_PYPY
 	{"no-site", no_argument, &Py_NoSiteFlag, 1},
+#endif
 	{"pyshell", no_argument, 0, LONG_ARGS_PYSHELL},
 
 	{0, 0, 0, 0},
@@ -100,9 +102,14 @@ PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARG
 
 int uwsgi_python_init() {
 
+#ifndef UWSGI_PYPY
 	char *pyversion = strchr(Py_GetVersion(), '\n');
         uwsgi_log("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
+#else
+	uwsgi_log("PyPy version: %s\n", PYPY_VERSION);
+#endif
 
+#ifndef UWSGI_PYPY
 	if (up.home != NULL) {
 #ifdef PYTHREE
 		wchar_t *wpyhome;
@@ -135,6 +142,8 @@ int uwsgi_python_init() {
 
 	Py_OptimizeFlag = up.optimize;
 
+#endif
+
 	up.wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
 	up.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
 
@@ -156,6 +165,7 @@ int uwsgi_python_init() {
 
 void uwsgi_python_reset_random_seed() {
 
+#ifndef UWSGI_PYPY
 	PyObject *random_module, *random_dict, *random_seed;
 
         // reinitialize the random seed (thanks Jonas Borgström)
@@ -175,6 +185,7 @@ void uwsgi_python_reset_random_seed() {
                         }
                 }
         }
+#endif
 }
 
 void uwsgi_python_post_fork() {
@@ -189,6 +200,7 @@ void uwsgi_python_post_fork() {
 
 	uwsgi_python_reset_random_seed();
 
+#ifndef UWSGI_PYPY
 #ifdef UWSGI_EMBEDDED
 	// call the post_fork_hook
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
@@ -200,6 +212,7 @@ void uwsgi_python_post_fork() {
 	}
 	PyErr_Clear();
 #endif
+#endif
 
 UWSGI_RELEASE_GIL
 
@@ -207,6 +220,7 @@ UWSGI_RELEASE_GIL
 
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
+#ifndef UWSGI_PYPY
 	FILE *pyfile;
 	struct _node *py_file_node = NULL;
 	PyObject *py_compiled_node, *py_file_module;
@@ -292,6 +306,9 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 	}
 
 	return py_file_module;
+#else
+	return NULL;
+#endif
 
 }
 
@@ -859,7 +876,9 @@ void uwsgi_python_init_apps() {
 
 	if (uwsgi.async > 1) {
 		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
+#ifndef UWSGI_PYPY
         	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
+#endif
 	}
 
 	init_pyargv();
@@ -869,7 +888,7 @@ void uwsgi_python_init_apps() {
 #endif
 
 #ifdef __linux__
-#ifndef PYTHREE
+#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
 	uwsgi_init_symbol_import();
 #endif
 #endif
@@ -974,9 +993,11 @@ void uwsgi_python_init_apps() {
 	}
 
 	if (uwsgi.profiler) {
+#ifndef UWSGI_PYPY
 		if (!strcmp(uwsgi.profiler, "pycall")) {
 			PyEval_SetProfile(uwsgi_python_profiler_call, NULL);
 		}
+#endif
 	}
 
 }
@@ -1091,6 +1112,7 @@ int uwsgi_python_xml(char *node, char *content) {
 	return 0;
 }
 
+#ifndef UWSGI_PYPY
 void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
 	PyThreadState *tstate = PyThreadState_GET();
@@ -1105,6 +1127,7 @@ void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 	}
 
 }
+#endif
 
 char *uwsgi_python_code_string(char *id, char *code, char *function, char *key, uint16_t keylen) {
 
@@ -1293,6 +1316,7 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	return -1;
 }
 
+#ifndef UWSGI_PYPY
 void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 	PyThreadState *tstate = PyThreadState_GET();
@@ -1307,6 +1331,7 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 	}
 
 }
+#endif
 
 void uwsgi_python_fixup() {
 	// set hacky modifier 30
@@ -1316,12 +1341,14 @@ void uwsgi_python_fixup() {
 void uwsgi_python_hijack(void) {
 	// the pyshell will be execute only in the first worker
 
+#ifndef UWSGI_PYPY
 	if (up.pyshell && uwsgi.mywid == 1) {
 		UWSGI_GET_GIL;
 		PyImport_ImportModule("readline");
 		PyRun_InteractiveLoop(stdin, "uwsgi");
 		exit(0);
 	}
+#endif
 }
 
 struct uwsgi_plugin python_plugin = {
@@ -1349,8 +1376,10 @@ struct uwsgi_plugin python_plugin = {
 
 	.magic = uwsgi_python_magic,
 
+#ifndef UWSGI_PYPY
 	.suspend = uwsgi_python_suspend,
 	.resume = uwsgi_python_resume,
+#endif
 
 	.hijack_worker = uwsgi_python_hijack,
 	.spooler_init = uwsgi_python_spooler_init,

@@ -264,6 +264,10 @@ void uwsgi_python_reset_random_seed(void);
 
 char *uwsgi_pythonize(char *);
 
+#ifdef UWSGI_PYPY
+#undef UWSGI_MINTERPRETERS
+#endif
+
 #define uwsgi_pyexit {PyErr_Print();exit(1);}
 
 #ifdef __linux__

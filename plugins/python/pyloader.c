@@ -160,6 +160,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
         	}
 	}
 
+#ifdef UWSGI_MINTERPRETERS
 	if (interpreter == NULL && id) {
 
 		wi->interpreter = Py_NewInterpreter();
@@ -184,10 +185,11 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->interpreter = up.main_thread;
 	}
 
-#ifdef UWSGI_MINTERPRETERS
 	if (wsgi_req->pyhome_len) {
 		set_dyn_pyhome(wsgi_req->pyhome, wsgi_req->pyhome_len);
 	}
+#else
+	wi->interpreter = up.main_thread;
 #endif
 
 	if (wsgi_req->touch_reload_len) {
@@ -424,6 +426,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 doh:
 	free(mountpoint);
 	PyErr_Print();
+#ifdef UWSGI_MINTERPRETERS
 	if (interpreter == NULL && id) {
 		Py_EndInterpreter(wi->interpreter);
 		if (uwsgi.threads > 1) {
@@ -433,6 +436,7 @@ doh:
 			PyThreadState_Swap(up.main_thread);
 		}
 	}
+#endif
 	return -1;
 }
 
@@ -477,7 +481,9 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 
 	PyObject *tmp_callable;
 	PyObject *applications;
+#ifndef UWSGI_PYPY
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+#endif
 
 	char *module = (char *) arg1;
 
@@ -500,8 +506,10 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 		return NULL;
 	}
 
+#ifndef UWSGI_PYPY
 	applications = PyDict_GetItemString(uwsgi_dict, "applications");
 	if (applications && PyDict_Check(applications)) return applications;
+#endif
 
 
 	applications = PyDict_GetItemString(wsgi_dict, "applications");
@@ -672,6 +680,8 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 
 PyObject *uwsgi_eval_loader(void *arg1) {
 
+#ifndef UWSGI_PYPY
+
 	char *code = (char *) arg1;
 
 	PyObject *wsgi_eval_module, *wsgi_eval_callable = NULL;
@@ -727,6 +737,9 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 	}
 
 	return wsgi_eval_callable;
+#else
+	return NULL;
+#endif
 
 }
 

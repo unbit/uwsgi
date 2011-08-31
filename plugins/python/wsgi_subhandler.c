@@ -43,6 +43,8 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
                 }
         }
 
+
+#ifndef UWSGI_PYPY
         // if async_post is mapped as a file, directly use it as wsgi.input
         if (wsgi_req->async_post) {
 #ifdef PYTHREE
@@ -61,7 +63,9 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         }
 
+
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_req->async_input);
+#endif
 
 #ifdef UWSGI_SENDFILE
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
@@ -77,11 +81,15 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", wi->gateway_version);
 
-	zero = PyFile_FromFile(stderr, "wsgi_input", "w", NULL);
+#ifndef UWSGI_PYPY
+	zero = PyFile_FromFile(stderr, "wsgi_errors", "w", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.errors", zero);
 	Py_DECREF(zero);
+#endif
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.run_once", Py_False);
+
+
 
 	if (uwsgi.threads > 1) {
 		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multithread", Py_True);
@@ -116,10 +124,13 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	wsgi_req->async_app = wi->callable;
 
+
 	// export .env only in non-threaded mode
+#ifndef UWSGI_PYPY
 	if (uwsgi.threads < 2) {
 		PyDict_SetItemString(up.embedded_dict, "env", wsgi_req->async_environ);
 	}
+#endif
 
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", wi->uwsgi_version);
 

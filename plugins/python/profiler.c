@@ -15,6 +15,7 @@ int PyFrame_GetLineNumber(PyFrameObject *frame) {
 
 int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
+#ifndef UWSGI_PYPY
 	switch(what) {
 		case PyTrace_CALL:
 			uwsgi_log("[uWSGI Python profiler] CALL: %s (line %d) -> %s %d args, stacksize %d\n",
@@ -29,6 +30,7 @@ int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, Py
 				PyEval_GetFuncName(arg), frame->f_code->co_argcount, frame->f_code->co_stacksize);
 			break;
 	}
+#endif
 
 	return 0;
 }
