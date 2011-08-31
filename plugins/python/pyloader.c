@@ -22,6 +22,57 @@ PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_re
 PyMethodDef uwsgi_eventfd_write_method[] = { {"uwsgi_eventfd_write", py_eventfd_write, METH_VARARGS, ""}};
 #endif
 
+#ifdef UWSGI_MINTERPRETERS
+
+void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
+
+
+	char venv_version[15];
+	PyObject *site_module;
+
+	PyObject *pysys_dict = get_uwsgi_pydict("sys");
+
+	PyObject *pypath = pypath = PyDict_GetItemString(pysys_dict, "path");
+	if (!pypath) {
+		PyErr_Print();
+		exit(1);
+	}
+
+        // simulate a pythonhome directive
+        if (uwsgi.wsgi_req->pyhome_len > 0) {
+
+                PyObject *venv_path = UWSGI_PYFROMSTRINGSIZE(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len);
+
+#ifdef UWSGI_DEBUG
+                uwsgi_debug("setting dynamic virtualenv to %.*s\n", uwsgi.wsgi_req->pyhome_len, uwsgi.wsgi_req->pyhome);
+#endif
+
+                PyDict_SetItemString(pysys_dict, "prefix", venv_path);
+                PyDict_SetItemString(pysys_dict, "exec_prefix", venv_path);
+
+                venv_version[14] = 0;
+                if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
+                        return;
+                }
+
+                // check here
+                PyString_Concat(&venv_path, PyString_FromString(venv_version));
+
+                if (PyList_Insert(pypath, 0, venv_path)) {
+                        PyErr_Print();
+                }
+
+                site_module = PyImport_ImportModule("site");
+                if (site_module) {
+                        PyImport_ReloadModule(site_module);
+                }
+
+        }
+}
+
+#endif
+
+
 int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThreadState *interpreter, int app_type) {
 
 	PyObject *app_list = NULL, *applications = NULL;
@@ -110,6 +161,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 
 	if (interpreter == NULL && id) {
+
 		wi->interpreter = Py_NewInterpreter();
 		if (!wi->interpreter) {
 			uwsgi_log( "unable to initialize the new python interpreter\n");
@@ -131,6 +183,12 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	else {
 		wi->interpreter = up.main_thread;
 	}
+
+#ifdef UWSGI_MINTERPRETERS
+	if (wsgi_req->pyhome_len) {
+		set_dyn_pyhome(wsgi_req->pyhome, wsgi_req->pyhome_len);
+	}
+#endif
 
 	if (wsgi_req->touch_reload_len) {
 		struct stat trst;

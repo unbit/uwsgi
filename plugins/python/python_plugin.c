@@ -295,7 +295,6 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 }
 
-
 void init_uwsgi_vars() {
 
 	int i;
@@ -303,11 +302,6 @@ void init_uwsgi_vars() {
 
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *tmp_module;
-
-#ifdef UWSGI_MINTERPRETERS
-	char venv_version[15];
-	PyObject *site_module;
-#endif
 
 	/* add cwd to pythonpath */
 	pysys = PyImport_ImportModule("sys");
@@ -330,39 +324,6 @@ void init_uwsgi_vars() {
 		PyErr_Print();
 		exit(1);
 	}
-
-#ifdef UWSGI_MINTERPRETERS
-	// simulate a pythonhome directive
-	if (uwsgi.wsgi_req->pyhome_len > 0) {
-
-		PyObject *venv_path = UWSGI_PYFROMSTRINGSIZE(uwsgi.wsgi_req->pyhome, uwsgi.wsgi_req->pyhome_len);
-
-#ifdef UWSGI_DEBUG
-		uwsgi_debug("setting dynamic virtualenv to %.*s\n", uwsgi.wsgi_req->pyhome_len, uwsgi.wsgi_req->pyhome);
-#endif
-
-		PyDict_SetItemString(pysys_dict, "prefix", venv_path);
-		PyDict_SetItemString(pysys_dict, "exec_prefix", venv_path);
-
-		venv_version[14] = 0;
-		if (snprintf(venv_version, 15, "/lib/python%d.%d", PY_MAJOR_VERSION, PY_MINOR_VERSION) == -1) {
-			return;
-		}
-
-		// check here
-		PyString_Concat(&venv_path, PyString_FromString(venv_version));
-
-		if (PyList_Insert(pypath, 0, venv_path)) {
-			PyErr_Print();
-		}
-
-		site_module = PyImport_ImportModule("site");
-		if (site_module) {
-			PyImport_ReloadModule(site_module);
-		}
-
-	}
-#endif
 
 	if (PyList_Insert(pypath, 0, UWSGI_PYFROMSTRING(".")) != 0) {
 		PyErr_Print();
