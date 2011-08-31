@@ -883,8 +883,10 @@ void uwsgi_python_init_apps() {
 
 	init_pyargv();
 
-#ifdef UWSGI_MINTERPRETERS
+#ifndef UWSGI_PYPY
+#ifdef UWSGI_EMBEDDED
         init_uwsgi_embedded_module();
+#endif
 #endif
 
 #ifdef __linux__
