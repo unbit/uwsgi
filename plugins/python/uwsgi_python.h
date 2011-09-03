@@ -94,9 +94,11 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define LOADER_MAX              8
 
+#define UWSGI_PY_READLINE_BUFSIZE 1024
+
 typedef struct uwsgi_Input {
         PyObject_HEAD
-        char readline[1024];
+        char readline[UWSGI_PY_READLINE_BUFSIZE];
         size_t readline_size;
         size_t readline_max_size;
         size_t readline_pos;

@@ -46,11 +46,11 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
                 return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data");
         }
 
-	if (self->readline_max_size > 0 && self->readline_max_size < 1024) {
+	if (self->readline_max_size > 0 && self->readline_max_size < UWSGI_PY_READLINE_BUFSIZE) {
         	rlen = read(wsgi_req->poll.fd, self->readline, self->readline_max_size);
 	}
 	else {
-        	rlen = read(wsgi_req->poll.fd, self->readline, 1024);
+        	rlen = read(wsgi_req->poll.fd, self->readline, UWSGI_PY_READLINE_BUFSIZE);
 	}
         if (rlen <= 0) {
                 UWSGI_GET_GIL
