@@ -60,6 +60,9 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 
+		// reset the apps count 
+		uwsgi.workers[uwsgi.mywid].apps_cnt = 0;
+
 		// close the cache server
 		if (uwsgi.cache_server_fd != -1) {
 			close(uwsgi.cache_server_fd);
