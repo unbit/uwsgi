@@ -1348,15 +1348,31 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 
 	int i;
 	struct stat st;
+	int found;
 
 	for (i = 0; i < uwsgi_apps_cnt; i++) {
+		// reset check
+		found = 0;
 #ifdef UWSGI_DEBUG
 		uwsgi_log("searching for %.*s in %.*s %p\n", app_name_len, app_name, uwsgi_apps[i].mountpoint_len, uwsgi_apps[i].mountpoint, uwsgi_apps[i].callable);
 #endif
 		if (!uwsgi_apps[i].callable) {
 			continue;
 		}
+	
+#ifdef UWSGI_PCRE
+		if (uwsgi_apps[i].pattern) {
+			if (uwsgi_regexp_match(uwsgi_apps[i].pattern, uwsgi_apps[i].pattern_extra, app_name, app_name_len) >= 0) {
+				found = 1;
+			}
+		}
+		else
+#endif
 		if (!uwsgi_strncmp(uwsgi_apps[i].mountpoint, uwsgi_apps[i].mountpoint_len, app_name, app_name_len)) {
+			found = 1;
+		}
+
+		if (found) {
 			if (uwsgi_apps[i].touch_reload) {
 				if (!stat(uwsgi_apps[i].touch_reload, &st)) {
 					if (st.st_mtime != uwsgi_apps[i].touch_reload_mtime) {

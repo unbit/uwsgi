@@ -1,8 +1,30 @@
 #ifdef UWSGI_PCRE
-
 #include "uwsgi.h"
 
-#include <pcre.h>
+void uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra) {
+
+	const char *errstr;
+	int erroff;
+
+	*pattern = pcre_compile( (const char *)re, 0, &errstr, &erroff, NULL);
+        if (!*pattern) {
+		uwsgi_log("pcre error: %s at offset %d\n", errstr, erroff);
+		exit(1);
+	}
+
+	*pattern_extra = (pcre_extra *) pcre_study((const pcre*)*pattern, 0, &errstr);
+        if (!*pattern_extra) {
+		uwsgi_log("pcre (study) error: %s\n", errstr);
+		exit(1);
+	}
+
+	
+}
+
+int uwsgi_regexp_match(pcre *pattern, pcre_extra *pattern_extra, char *subject, int length) {
+
+	return pcre_exec((const pcre*)pattern, (const pcre_extra *)pattern_extra, subject, length, 0, 0, NULL, 0 );
+}
 
 /*
 

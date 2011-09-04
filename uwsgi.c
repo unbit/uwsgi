@@ -209,6 +209,9 @@ static struct option long_base_options[] = {
 	{"idle", required_argument, 0, LONG_ARGS_IDLE},
 	{"die-on-idle", no_argument, &uwsgi.die_on_idle, 1},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
+#ifdef UWSGI_PCRE
+	{"regexp-mount", required_argument, 0, LONG_ARGS_REGEXP_MOUNT},
+#endif
 	{"grunt", no_argument, &uwsgi.grunt, 1},
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
 	{"threads-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE},
@@ -3236,6 +3239,17 @@ static int manage_base_opt(int i, char *optarg) {
 			uwsgi_log("you can specify at most %d --mount options\n", MAX_APPS);
 		}
 		return 1;
+#ifdef UWSGI_PCRE
+	case LONG_ARGS_REGEXP_MOUNT:
+		if (uwsgi.mounts_cnt < MAX_APPS) {
+			uwsgi.mounts[uwsgi.mounts_cnt] = uwsgi_concat2("regexp://", optarg);
+			uwsgi.mounts_cnt++;
+		}
+		else {
+			uwsgi_log("you can specify at most %d --regexp-mount options\n", MAX_APPS);
+		}
+		return 1;
+#endif
 #ifdef UWSGI_SPOOLER
 	case 'Q':
 		uwsgi.spool_dir = uwsgi_malloc(PATH_MAX);
@@ -4187,8 +4201,14 @@ void uwsgi_init_all_apps() {
 			uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
 			for (j = 0; j < 0xFF; j++) {
 				if (uwsgi.p[j]->mount_app) {
-					if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what) != -1)
-						break;
+					if (!uwsgi_startswith(uwsgi.mounts[i], "regexp://", 9)) {
+						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i]+9, what, 1) != -1)
+							break;
+					}
+					else {
+						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what, 0) != -1)
+							break;
+					}
 				}
 			}
 			what--;

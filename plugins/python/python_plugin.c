@@ -800,14 +800,28 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 	return 0;
 }
 
-int uwsgi_python_mount_app(char *mountpoint, char *app) {
+int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
 
+	int id, i;
 	uwsgi.wsgi_req->appid = mountpoint;
 	uwsgi.wsgi_req->appid_len = strlen(mountpoint);
 	if (uwsgi.single_interpreter) {
-		return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
+		id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
 	}
-	return init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
+	id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
+
+	if (regexp && id != -1) {
+		struct uwsgi_app *ua = &uwsgi_apps[id];
+		uwsgi_regexp_build(mountpoint, &ua->pattern, &ua->pattern_extra);
+		if (uwsgi.mywid == 0) {
+			for(i=1;i<=uwsgi.numproc;i++) {
+				uwsgi.workers[i].apps[id].pattern = ua->pattern;
+				uwsgi.workers[i].apps[id].pattern_extra = ua->pattern_extra;
+			}
+		}
+	}
+
+	return id;
 
 }
 

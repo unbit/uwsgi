@@ -490,6 +490,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_EMPEROR_THROTTLE	17135
 #define LONG_ARGS_STOP			17136
 #define LONG_ARGS_RELOAD		17137
+#define LONG_ARGS_REGEXP_MOUNT		17138
 
 
 #define UWSGI_OK	0
@@ -609,7 +610,7 @@ struct uwsgi_plugin {
 	void (*init_apps) (void);
 	void (*fixup) (void);
 	void (*master_fixup) (int);
-	int (*mount_app) (char *, char *);
+	int (*mount_app) (char *, char *, int);
 	int (*manage_udp) (char *, int, char *, int);
 	int (*manage_xml) (char *, char *);
 	void (*suspend) (struct wsgi_request *);
@@ -635,6 +636,13 @@ struct uwsgi_plugin {
 
 };
 
+#ifdef UWSGI_PCRE
+#include <pcre.h>
+void uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra);
+int uwsgi_regexp_match(pcre *pattern, pcre_extra *pattern_extra, char *subject, int length);
+#endif
+
+
 
 struct uwsgi_app {
 
@@ -643,6 +651,11 @@ struct uwsgi_app {
 	char *mountpoint;
 	int mountpoint_len;
 
+#ifdef UWSGI_PCRE
+	pcre *pattern;
+        pcre_extra *pattern_extra;
+#endif
+	
 	void *interpreter;
 	void *callable;
 
@@ -2160,6 +2173,7 @@ void create_logpipe(void);
 char *uwsgi_str_contains(char *, int, char);
 
 int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
