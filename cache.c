@@ -138,7 +138,7 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, struct uwsgi_subscribe_req *
 	struct uwsgi_subscriber *usub, nusub;
 	int found = 0;
 	int i;
-	
+
 	ptr = uwsgi_dict_get(udict, usr->key, usr->keylen, &vallen);
 	if (ptr && vallen) {
 		usub = (struct uwsgi_subscriber *) ptr;
@@ -164,6 +164,7 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, struct uwsgi_subscribe_req *
 			if (found == (int) usub->nodes) {
 				usub->nodes++;
 			}
+			uwsgi_log("[uwsgi-subscription] %.*s => new node: %.*s\n", usr->keylen, usr->key, usr->address_len, usr->address);
 		}
 		return;
 	}
@@ -171,9 +172,12 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, struct uwsgi_subscribe_req *
 		nusub.nodes = 1;
 		nusub.current = 0;
 		memcpy(nusub.names[0].name, usr->address, usr->address_len);
+		nusub.names[0].len = usr->address_len;
 		nusub.names[0].modifier1 = usr->modifier1;
 		nusub.names[0].modifier2 = usr->modifier2;
 		uwsgi_dict_set(udict, usr->key, usr->keylen, (char *) &nusub, sizeof(struct uwsgi_subscriber));
+		uwsgi_log("[uwsgi-subscription] new pool: %.*s\n", usr->keylen, usr->key);
+		uwsgi_log("[uwsgi-subscription] %.*s => new node: %.*s\n", usr->keylen, usr->key, usr->address_len, usr->address);
 	}
 
 }

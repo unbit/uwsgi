@@ -1927,6 +1927,7 @@ struct uwsgi_dict {
 
 	void *data;
 	void *lock;
+
 	struct uwsgi_dict_item *items;
 };
 

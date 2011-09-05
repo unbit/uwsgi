@@ -156,7 +156,7 @@ static void close_session(struct fastrouter_session **fr_table, struct fastroute
 	fr_table[fr_session->fd] = NULL;
 	if (fr_session->instance_fd != -1) {
 		if (ufr.subscription_server && (fr_session->instance_failed || fr_session->status == FASTROUTER_STATUS_CONNECTING)) {
-			uwsgi_log("marking %.*s as failed\n", (int) fr_session->instance_address_len,fr_session->instance_address);
+			uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
 			fr_session->un->len = 0;
 		}
 		close(fr_session->instance_fd);
@@ -498,7 +498,7 @@ void fastrouter_loop() {
 
 							if (fr_session->instance_fd < 0) {
 								if (ufr.subscription_server) {
-	                                                        	uwsgi_log("marking %.*s as failed\n", (int) fr_session->instance_address_len,fr_session->instance_address);
+	                                                        	uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
 	                                                        	fr_session->un->len = 0;
 	                                                        }
 								close_session(fr_table, fr_session);
