@@ -802,7 +802,7 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 
 int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
 
-	int id, i;
+	int id;
 	uwsgi.wsgi_req->appid = mountpoint;
 	uwsgi.wsgi_req->appid_len = strlen(mountpoint);
 	if (uwsgi.single_interpreter) {
@@ -810,6 +810,8 @@ int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
 	}
 	id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
 
+#ifdef UWSGI_PCRE
+	int i;
 	if (regexp && id != -1) {
 		struct uwsgi_app *ua = &uwsgi_apps[id];
 		uwsgi_regexp_build(mountpoint, &ua->pattern, &ua->pattern_extra);
@@ -820,6 +822,7 @@ int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
 			}
 		}
 	}
+#endif
 
 	return id;
 
