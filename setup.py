@@ -6,6 +6,7 @@ import shutil
 from setuptools import setup
 from setuptools.dist import Distribution
 from setuptools.command.install import install
+from setuptools.command.install_lib import install_lib
 from setuptools.command.build_ext import build_ext
 
 def get_profile():
@@ -50,11 +51,19 @@ class uWSGIInstall(install):
         patch_bin_path(self, conf)
         uc.build_uwsgi( conf )
 
+class uWSGIInstallLib(install_lib):
+
+    def run(self):
+        conf = uc.uConf(get_profile())
+        patch_bin_path(self, conf)
+        uc.build_uwsgi( conf )
+
 class uWSGIDistribution(Distribution):
 
     def __init__(self, *attrs):
         Distribution.__init__(self, *attrs)
         self.cmdclass['install'] = uWSGIInstall
+        self.cmdclass['install_lib'] = uWSGIInstallLib
         self.cmdclass['build_ext'] = uWSGIBuilder
 
 
