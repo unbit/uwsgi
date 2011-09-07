@@ -33,7 +33,7 @@ def binarize(name):
     return name.replace('/', '_').replace('.','_').replace('-','_')
 
 def spcall(cmd):
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('build.log','w'))
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('uwsgibuild.log','w'))
 
     if p.wait() == 0:
         if sys.version_info[0] > 2:
@@ -221,11 +221,11 @@ class uConf(object):
             self.gcc_list.append('lib/netlink')
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 
-        #try:
-        gcc_version = str(spcall("%s -dumpversion" % GCC))
-        #except:
-        #    print("*** you need a c compiler to build uWSGI ***")
-        #    sys.exit(1)
+        try:
+            gcc_version = str(spcall("%s -dumpversion" % GCC))
+        except:
+            print("*** you need a c compiler to build uWSGI ***")
+            sys.exit(1)
 
         try:
             add_it = False
