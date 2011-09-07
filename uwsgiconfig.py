@@ -33,7 +33,7 @@ def binarize(name):
     return name.replace('/', '_').replace('.','_').replace('-','_')
 
 def spcall(cmd):
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('/dev/null','w'))
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,stderr=open('build.log','w'))
 
     if p.wait() == 0:
         if sys.version_info[0] > 2:
