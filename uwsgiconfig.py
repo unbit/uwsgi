@@ -222,6 +222,7 @@ class uConf(object):
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 
         try:
+            print("GCC %s" % GCC)
             gcc_version = str(spcall("%s -dumpversion" % GCC))
         except:
             print("*** you need a c compiler to build uWSGI ***")
