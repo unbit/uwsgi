@@ -3090,6 +3090,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 		uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize16, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (valsize16 > 0) {
 			value = buffer;
+			valsize = valsize16;
 		}
 	}
 	else if (uwsgi.cache_max_items) {

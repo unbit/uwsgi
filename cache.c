@@ -516,7 +516,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 			uci->prev = last_index;
 		}
 	}
-	else if (flags && UWSGI_CACHE_FLAG_UPDATE) {
+	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = &uwsgi.cache_items[index] ;
 		if (expires) {
 			expires += time(NULL);
