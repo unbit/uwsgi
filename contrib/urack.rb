@@ -1,5 +1,9 @@
 require 'rubygems'
 require 'socket'
+begin
+        require 'bundler/setup'
+rescue
+end
 require 'rack'
 require 'rack/content_length'
 require 'rack/rewindable_input'
