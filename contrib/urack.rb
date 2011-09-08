@@ -2,7 +2,7 @@ require 'rubygems'
 require 'socket'
 begin
         require 'bundler/setup'
-rescue
+rescue LoadError
 end
 require 'rack'
 require 'rack/content_length'
