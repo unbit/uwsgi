@@ -16,7 +16,7 @@ struct option uwsgi_python_options[] = {
 	{"module", required_argument, 0, 'w'},
 	{"wsgi", required_argument, 0, 'w'},
 	{"callable", required_argument, 0, LONG_ARGS_CALLABLE},
-	{"test", required_argument, 0, 'j'},
+	{"test", required_argument, 0, 'J'},
 	{"home", required_argument, 0, 'H'},
 	{"virtualenv", required_argument, 0, 'H'},
 	{"venv", required_argument, 0, 'H'},
@@ -755,7 +755,7 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 	case LONG_ARGS_PYARGV:
 		up.argv = optarg;
 		return 1;
-	case 'j':
+	case 'J':
 		up.test_module = optarg;
 		return 1;
 	case 'H':
@@ -1386,7 +1386,7 @@ struct uwsgi_plugin python_plugin = {
 	.post_fork = uwsgi_python_post_fork,
 	.options = uwsgi_python_options,
 	.manage_opt = uwsgi_python_manage_options,
-	.short_options = "w:O:H:j:",
+	.short_options = "w:O:H:J:",
 	.request = uwsgi_request_wsgi,
 	.after_request = uwsgi_after_request_wsgi,
 	.init_apps = uwsgi_python_init_apps,
