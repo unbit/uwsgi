@@ -1325,6 +1325,33 @@ int uwsgi_simple_send_string(char *socket_name, uint8_t modifier1, uint8_t modif
         return 0;
 }
 
+char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
+
+	int i;
+	int count = 0;
+	char *ext = NULL;
+	for(i=namelen-1;i>=0;i--) {
+		if (!isalnum( (int)name[i])) {
+			if (name[i] == '.') {
+				ext = name+(namelen-count);
+				break;
+			}
+		}
+		count++;
+	}
+
+	if (ext) {
+		struct uwsgi_dyn_dict *udd = uwsgi.mimetypes;
+		while(udd) {
+			if (!uwsgi_strncmp(ext, count, udd->key, udd->keylen)) {
+				*size = udd->vallen;
+				return udd->value;
+			}
+			udd = udd->next;
+		}
+	}
+	return NULL;
+}
 
 int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len, char *orig_document_root, uint16_t orig_document_root_len) {
 
@@ -1349,6 +1376,8 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                 return -1;
         }
         if (!stat(real_filename, &st)) {
+		int mime_type_size = 0;
+		char *mime_type = uwsgi_get_mime_type(path_info, path_info_len, &mime_type_size);
                 if (wsgi_req->if_modified_since_len) {
                         time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
                         if (st.st_mtime <= ims) {
@@ -1381,11 +1410,19 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 			while(ah) {
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ah->value, ah->len);
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
+				wsgi_req->header_cnt++;
 				ah = ah->next;
 			}
 
+			if (mime_type_size > 0 && mime_type) {
+				wsgi_req->header_cnt++;
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "Content-Type: ", 14);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, mime_type, mime_type_size);
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
+			}
+
 			if (uwsgi.file_serve_mode == 1) {
-                                wsgi_req->header_cnt = 2;
+                                wsgi_req->header_cnt += 2;
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Accel-Redirect: ", 18);
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, orig_document_root, orig_document_root_len);
 				if (orig_document_root[orig_document_root_len-1] != '/') {
@@ -1397,7 +1434,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
 			}
 			else if (uwsgi.file_serve_mode == 2) {
-                                wsgi_req->header_cnt = 2;
+                                wsgi_req->header_cnt += 2;
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Sendfile: ", 12);
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, orig_document_root, orig_document_root_len);
                                 if (orig_document_root[orig_document_root_len-1] != '/') {
@@ -1409,7 +1446,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
 			}
 			else {
-                                wsgi_req->header_cnt = 1;
+                                wsgi_req->header_cnt += 1;
                         	set_http_date(st.st_mtime, http_last_modified);
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
                                 wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);

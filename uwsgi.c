@@ -224,6 +224,8 @@ static struct option long_base_options[] = {
 	{"add-header", required_argument, 0, LONG_ARGS_ADD_HEADER},
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
 	{"static-map", required_argument, 0, LONG_ARGS_STATIC_MAP},
+	{"mimefile", required_argument, 0, LONG_ARGS_MIMEFILE},
+	{"mime-file", required_argument, 0, LONG_ARGS_MIMEFILE},
 	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE},
 	{"check-cache", no_argument, &uwsgi.check_cache, 1},
 	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
@@ -920,6 +922,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->spooler_signal_pipe[1] = -1;
 #endif
 
+	uwsgi.mime_file = "/etc/mime.types";
+
 
 	gettimeofday(&uwsgi.start_tv, NULL);
 
@@ -1252,6 +1256,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_configure();
 
 	/* uWSGI IS CONFIGURED !!! */
+
+	if (uwsgi.build_mime_dict) {
+		uwsgi_build_mime_dict(uwsgi.mime_file);
+	}
 
 	if (uwsgi.dump_options) {
 		struct option *lopt = uwsgi.long_options;
@@ -2930,6 +2938,9 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_ADD_HEADER:
 		uwsgi_string_new_list(&uwsgi.additional_headers, optarg);
 		return 1;
+	case LONG_ARGS_MIMEFILE:
+		uwsgi.mime_file = optarg;
+		return 1;
 	case LONG_ARGS_CHECK_STATIC:
 		uwsgi.check_static = realpath(optarg, NULL);
 		if (!uwsgi.check_static) {
@@ -2937,6 +2948,7 @@ static int manage_base_opt(int i, char *optarg) {
 			exit(1);
 		}
 		uwsgi.check_static_len = strlen(uwsgi.check_static);
+		uwsgi.build_mime_dict = 1;
 		return 1;
 	case LONG_ARGS_FILE_SERVE_MODE:
 		if (!strcasecmp("x-sendfile", optarg)) {
@@ -3072,6 +3084,7 @@ static int manage_base_opt(int i, char *optarg) {
 		usm->orig_document_root_len = usm->document_root_len;
 
 		uwsgi_log("static-mapped %.*s to %.*s\n", usm->mountpoint_len, usm->mountpoint, usm->document_root_len, usm->document_root);
+		uwsgi.build_mime_dict = 1;
 
 		usm->next = NULL;
 		return 1;

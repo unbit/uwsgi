@@ -2480,6 +2480,35 @@ char *uwsgi_netstring(char *buf, size_t len, char **netstring, size_t *netstring
 	return NULL;
 }
 
+struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **dd, char *key, int keylen, char *val, int vallen) {
+
+        struct uwsgi_dyn_dict *uwsgi_dd = *dd, *old_dd;
+
+        if (!uwsgi_dd) {
+                *dd = uwsgi_malloc(sizeof(struct uwsgi_dyn_dict));
+                uwsgi_dd = *dd;
+        }
+        else {
+                while(uwsgi_dd) {
+                        old_dd = uwsgi_dd;
+                        uwsgi_dd = uwsgi_dd->next;
+                }
+
+                uwsgi_dd = uwsgi_malloc(sizeof(struct uwsgi_dyn_dict));
+                old_dd->next = uwsgi_dd;
+        }
+
+        uwsgi_dd->key = key;
+        uwsgi_dd->keylen = keylen;
+        uwsgi_dd->value = val;
+        uwsgi_dd->vallen = vallen;
+	uwsgi_dd->hit = 0;
+        uwsgi_dd->next = NULL;
+
+        return uwsgi_dd;
+}
+
+
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list, char *value) {
 
 	struct uwsgi_string_list *uwsgi_string = *list, *old_uwsgi_string;
@@ -2792,5 +2821,93 @@ char *uwsgi_get_binary_path(char *argvzero) {
 
 
 	return argvzero;
+
+}
+
+char *uwsgi_get_line(char *ptr, char *watermark, int *size) {
+	char *p = ptr;
+	int count = 0;
+
+	while(p < watermark) {
+		if (*p == '\n') {
+			*size = count;
+			return ptr+count;
+		}
+		count++;
+		p++;
+	}
+
+	return NULL;
+}
+
+void uwsgi_build_mime_dict(char *filename) {
+
+	int size = 0;
+	char *buf = uwsgi_open_and_read(filename, &size, 1, NULL);
+	char *watermark = buf+size;
+
+	int linesize = 0;
+	char *line = buf;
+	int i;
+	int type_size = 0;
+	int ext_start = 0;
+	int found ;
+	int entries = 0;
+
+	uwsgi_log("building mime-types dictionary from file %s...", filename);
+
+	while(uwsgi_get_line(line, watermark, &linesize) != NULL) {
+		found = 0;
+		if (isalnum((int)line[0])) { 
+			// get the type size
+			for(i=0;i<linesize;i++) {
+				if (isblank((int)line[i])) {
+					type_size = i;
+					found = 1;
+					break;
+				}
+			}
+			if (!found) { line += linesize+1; continue;}
+			found = 0;
+			for(i=type_size;i<linesize;i++) {
+				if (!isblank((int)line[i])) {
+					ext_start = i;
+					found = 1;
+					break;
+				}
+			}
+			if (!found) { line += linesize+1; continue;}
+
+			char *current = line+ext_start;
+			int ext_size = 0;
+			for(i=ext_start;i<linesize;i++) {
+				if (isblank((int)line[i])) {
+#ifdef UWSGI_DEBUG
+					uwsgi_log("%.*s %.*s\n", ext_size, current, type_size, line);
+#endif
+					uwsgi_dyn_dict_new(&uwsgi.mimetypes, current, ext_size, line, type_size);
+					entries++;
+					ext_size = 0;
+					current = NULL;
+					continue;
+				}
+				else if (current == NULL) {
+					current = line+i;
+				}
+				ext_size++;
+			}
+			if (current && ext_size > 1) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("%.*s %.*s\n", ext_size, current, type_size, line);
+#endif
+				uwsgi_dyn_dict_new(&uwsgi.mimetypes, current, ext_size, line, type_size);
+				entries++;
+			}
+		
+		}
+		line += linesize+1;
+	}
+
+	uwsgi_log("%d entry found\n", entries);
 
 }

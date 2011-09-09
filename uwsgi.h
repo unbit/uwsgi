@@ -283,6 +283,17 @@ struct uwsgi_string_list {
 	struct uwsgi_string_list *next;
 };
 
+struct uwsgi_dyn_dict {
+
+	char *key;
+	int keylen;
+	char *value;
+	int vallen;
+
+	uint64_t hit;
+	struct uwsgi_dyn_dict *next;
+};
+
 
 union uwsgi_sockaddr {
 	struct sockaddr sa;
@@ -491,6 +502,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_STOP			17136
 #define LONG_ARGS_RELOAD		17137
 #define LONG_ARGS_REGEXP_MOUNT		17138
+#define LONG_ARGS_MIMEFILE		17139
 
 
 #define UWSGI_OK	0
@@ -1029,7 +1041,10 @@ struct uwsgi_server {
 	size_t check_static_len;
 	int file_serve_mode;
 
+	int build_mime_dict;
+	char *mime_file;
 	struct uwsgi_static_map *static_maps;
+	struct uwsgi_dyn_dict *mimetypes;
 
 	char *logfile;
 	int logfile_chown;
@@ -2175,6 +2190,8 @@ char *uwsgi_str_contains(char *, int, char);
 
 int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
 
+void uwsgi_build_mime_dict(char *);
+struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int, char *, int);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
