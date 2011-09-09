@@ -22,6 +22,10 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
                 pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
                 pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
 #endif
+
+#ifdef UWSGI_DEBUG
+		uwsgi_log("%p %d %p %d\n", pydictkey, wsgi_req->hvec[i].iov_len, pydictvalue, wsgi_req->hvec[i + 1].iov_len);
+#endif
                 PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
                 Py_DECREF(pydictkey);
                 Py_DECREF(pydictvalue);
