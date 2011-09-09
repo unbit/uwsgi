@@ -760,11 +760,11 @@ next:
 					uwsgi_log( "max vec size reached. skip this var.\n");
                                         return -1;
 				}
-				wsgi_req->var_cnt++;
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = "SCRIPT_NAME";
                                 wsgi_req->hvec[wsgi_req->var_cnt].iov_len = 11;
 				wsgi_req->var_cnt++;
 				script_name = wsgi_req->var_cnt;
+				wsgi_req->var_cnt++;
 			}
 
 			for(i=0;i<uwsgi_apps_cnt;i++) {
