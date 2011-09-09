@@ -114,9 +114,10 @@ extern char UWSGI_EMBED_CONFIG_END;
 
 #include <stdarg.h>
 #include <errno.h>
+#ifndef __USE_ISOC99
 #define __USE_ISOC99
+#endif
 #include <ctype.h>
-#undef __USE_ISOC99
 #include <sys/time.h>
 #include <unistd.h>
 
