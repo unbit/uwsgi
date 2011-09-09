@@ -1344,6 +1344,21 @@ char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
 		struct uwsgi_dyn_dict *udd = uwsgi.mimetypes;
 		while(udd) {
 			if (!uwsgi_strncmp(ext, count, udd->key, udd->keylen)) {
+				udd->hits++;
+				// auto optimization
+				if (udd->prev) {
+					if (udd->hits > udd->prev->hits) {
+						struct uwsgi_dyn_dict *udd_parent = udd->prev->prev, *udd_prev = udd->prev;
+						if (udd_parent) {
+							udd_parent->next = udd;
+						}
+						udd_prev->prev = udd;
+						udd_prev->next = udd->next;
+
+						udd->prev = udd_parent;
+						udd->next = udd_prev;
+					}
+				}
 				*size = udd->vallen;
 				return udd->value;
 			}

@@ -290,7 +290,9 @@ struct uwsgi_dyn_dict {
 	char *value;
 	int vallen;
 
-	uint64_t hit;
+	uint64_t hits;
+
+	struct uwsgi_dyn_dict *prev;
 	struct uwsgi_dyn_dict *next;
 };
 

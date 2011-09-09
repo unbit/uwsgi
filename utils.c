@@ -2487,6 +2487,7 @@ struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **dd, char *key,
         if (!uwsgi_dd) {
                 *dd = uwsgi_malloc(sizeof(struct uwsgi_dyn_dict));
                 uwsgi_dd = *dd;
+		uwsgi_dd->prev = NULL;
         }
         else {
                 while(uwsgi_dd) {
@@ -2496,13 +2497,14 @@ struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **dd, char *key,
 
                 uwsgi_dd = uwsgi_malloc(sizeof(struct uwsgi_dyn_dict));
                 old_dd->next = uwsgi_dd;
+		uwsgi_dd->prev = old_dd;
         }
 
         uwsgi_dd->key = key;
         uwsgi_dd->keylen = keylen;
         uwsgi_dd->value = val;
         uwsgi_dd->vallen = vallen;
-	uwsgi_dd->hit = 0;
+	uwsgi_dd->hits = 0;
         uwsgi_dd->next = NULL;
 
         return uwsgi_dd;
