@@ -1067,7 +1067,9 @@ void uwsgi_python_enable_threads() {
 		up.swap_ts = threaded_swap_ts;
 		up.reset_ts = threaded_reset_ts;
 	}
+
 	uwsgi_log("threads support enabled\n");
+	
 
 }
 
@@ -1078,6 +1080,9 @@ void uwsgi_python_init_thread(int core_id) {
 	pts = PyThreadState_New(up.main_thread->interp);
 	pthread_setspecific(up.upt_save_key, (void *) pts);
 	pthread_setspecific(up.upt_gil_key, (void *) pts);
+#ifdef UWSGI_DEBUG
+	uwsgi_log("pts %d = %p\n", core_id, pts);
+#endif
 
 }
 
@@ -1354,7 +1359,9 @@ void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
 void uwsgi_python_fixup() {
 	// set hacky modifier 30
-	uwsgi.p[30] = uwsgi.p[0];
+	uwsgi.p[30] = uwsgi_malloc( sizeof(struct uwsgi_plugin) );
+	memcpy(uwsgi.p[30], uwsgi.p[0], sizeof(struct uwsgi_plugin) );
+	uwsgi.p[30]->init_thread = NULL;
 }
 
 void uwsgi_python_hijack(void) {

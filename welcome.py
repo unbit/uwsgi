@@ -1,5 +1,7 @@
 import uwsgi
 import os
+import gc
+gc.set_debug(gc.DEBUG_SAVEALL)
 
 def xsendfile(e, sr):
     sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])
@@ -27,10 +29,16 @@ routes['/options'] = serve_options
 
 def application(env, start_response):
 
+    gc.collect(2)
+    print env['wsgi.input'].fileno()
+
     if routes.has_key(env['PATH_INFO']):
         return routes[env['PATH_INFO']](env, start_response)
 
     start_response('200 OK', [('Content-Type', 'text/html')])
+
+    print env['wsgi.input'].fileno()
+    gc.collect(2)
 
     return """
 <img src="/logo"/> version %s<br/>
