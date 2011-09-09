@@ -1258,7 +1258,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	/* uWSGI IS CONFIGURED !!! */
 
 	if (uwsgi.build_mime_dict) {
-		uwsgi_build_mime_dict(uwsgi.mime_file);
+		if (!access(uwsgi.mime_file, R_OK)) {
+			uwsgi_build_mime_dict(uwsgi.mime_file);
+		}
+		else {
+			uwsgi_log("!!! no mime.types file found !!!\n");
+		}
 	}
 
 	if (uwsgi.dump_options) {
