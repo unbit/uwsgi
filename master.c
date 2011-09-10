@@ -1328,6 +1328,7 @@ int master_loop(char **argv, char **environ) {
 		}
 		else {
 
+
 			if (uwsgi.to_heaven) {
                                 ready_to_reload++;
 				uwsgi.workers[uwsgi.mywid].pid = 0;

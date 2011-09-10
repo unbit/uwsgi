@@ -834,7 +834,7 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 
 	PyObject *what;
 	char *filename;
-	size_t chunk;
+	size_t chunk = 0;
 	off_t pos = 0;
 	size_t filesize = 0;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -890,7 +890,20 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	wsgi_req->sendfile_fd_pos = pos;
 
 	// do sendfile
-	wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+	if (uwsgi.async > 1) {
+		ssize_t sf_len = uwsgi_sendfile(wsgi_req);
+		if (sf_len > 0) {
+			wsgi_req->response_size += sf_len;
+			while(wsgi_req->sendfile_fd_pos < wsgi_req->sendfile_fd_size) {
+				sf_len = uwsgi_sendfile(wsgi_req);
+				if (sf_len <= 0) break;
+				wsgi_req->response_size += sf_len;
+			}
+		}
+	}
+	else {
+		wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+	}
 
 	// revert to old values
 	wsgi_req->sendfile_fd = tmp_fd;

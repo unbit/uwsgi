@@ -50,7 +50,7 @@ struct option uwsgi_python_options[] = {
 #ifndef UWSGI_PYPY
 	{"no-site", no_argument, &Py_NoSiteFlag, 1},
 #endif
-	{"pyshell", no_argument, 0, LONG_ARGS_PYSHELL},
+	{"pyshell", optional_argument, 0, LONG_ARGS_PYSHELL},
 
 	{0, 0, 0, 0},
 };
@@ -731,7 +731,9 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 	case LONG_ARGS_PYSHELL:
 		uwsgi.honour_stdin = 1;
 		up.pyshell = 1;
-		uwsgi.to_hell = 1;
+		if (optarg) {
+			up.pyshell_pts = optarg;
+		}
 		return 1;
 	case LONG_ARGS_PYIMPORT:
 		uwsgi_string_new_list(&up.import_list, optarg);
@@ -1364,6 +1366,11 @@ void uwsgi_python_fixup() {
 	uwsgi.p[30]->init_thread = NULL;
 }
 
+int posix_openpt(int);
+int grantpt(int);
+int unlockpt(int);
+char *ptsname(int);
+
 void uwsgi_python_hijack(void) {
 	// the pyshell will be execute only in the first worker
 
@@ -1371,6 +1378,20 @@ void uwsgi_python_hijack(void) {
 	if (up.pyshell && uwsgi.mywid == 1) {
 		UWSGI_GET_GIL;
 		PyImport_ImportModule("readline");
+		if (up.pyshell_pts) {
+
+			int masterfd = posix_openpt(O_RDWR|O_NOCTTY);
+			grantpt (masterfd);
+			unlockpt (masterfd);
+			uwsgi_log("slave = %s\n", ptsname (masterfd));
+			dup2(masterfd, 0);
+			dup2(masterfd, 1);
+			dup2(masterfd, 2);
+			for(;;) {
+				PyRun_InteractiveLoop(stdin, "uwsgi");
+				uwsgi_log("again !!!\n");
+			}
+		}
 		PyRun_InteractiveLoop(stdin, "uwsgi");
 		exit(0);
 	}

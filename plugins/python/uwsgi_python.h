@@ -128,6 +128,7 @@ struct uwsgi_python {
 	char *test_module;
 
 	int pyshell;
+	char *pyshell_pts;
 
 	struct uwsgi_string_list *python_path;
 	struct uwsgi_string_list *import_list;
