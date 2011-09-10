@@ -1,7 +1,10 @@
 import uwsgi
 import os
 import gc
+import sys
 gc.set_debug(gc.DEBUG_SAVEALL)
+
+print sys.modules
 
 def xsendfile(e, sr):
     sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])
@@ -39,6 +42,8 @@ def application(env, start_response):
 
     print env['wsgi.input'].fileno()
     gc.collect(2)
+
+    print len(gc.get_objects())
 
     return """
 <img src="/logo"/> version %s<br/>
