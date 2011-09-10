@@ -43,6 +43,8 @@ def application(env, start_response):
     print env['wsgi.input'].fileno()
     gc.collect(2)
 
+    print len(gc.get_objects())
+
     return """
 <img src="/logo"/> version %s<br/>
 <hr size="1"/>
