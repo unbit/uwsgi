@@ -388,7 +388,7 @@ static PyTypeObject SymImporter_Type = {
     0,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,
+    Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE |Py_TPFLAGS_HAVE_GC,
     "uwsgi symbols importer",                                          /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -626,7 +626,7 @@ static PyTypeObject SymZipImporter_Type = {
     0,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,
+    Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE |Py_TPFLAGS_HAVE_GC,
     "uwsgi symbols zip importer",                                          /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -668,7 +668,7 @@ static PyTypeObject ZipImporter_Type = {
     0,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,
+    Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE |Py_TPFLAGS_HAVE_GC,
     "uwsgi zip importer",                                          /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
