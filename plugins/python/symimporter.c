@@ -363,7 +363,8 @@ static PyMethodDef symzipimporter_methods[] = {
 };
 
 static void uwsgi_symimporter_free(struct _symimporter *self) {
-        PyObject_Del(self);
+	PyObject_GC_UnTrack(self);
+	Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 
