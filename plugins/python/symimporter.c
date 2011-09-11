@@ -363,8 +363,7 @@ static PyMethodDef symzipimporter_methods[] = {
 };
 
 static void uwsgi_symimporter_free(struct _symimporter *self) {
-	PyObject_GC_UnTrack(self);
-	Py_TYPE(self)->tp_free((PyObject *)self);
+	PyObject_Del(self);
 }
 
 
@@ -388,7 +387,7 @@ static PyTypeObject SymImporter_Type = {
     0,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE |Py_TPFLAGS_HAVE_GC,
+    Py_TPFLAGS_DEFAULT,
     "uwsgi symbols importer",                                          /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -407,7 +406,7 @@ static PyTypeObject SymImporter_Type = {
     0,                 /* tp_init */
     PyType_GenericAlloc,                        /* tp_alloc */
     PyType_GenericNew,                          /* tp_new */
-    PyObject_GC_Del,                            /* tp_free */
+    0,                            /* tp_free */
 };
 
 static int
@@ -443,33 +442,43 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 
+
+
 	PyObject *stringio = PyImport_ImportModule("StringIO");
         if (!stringio) {
                 return -1;
         }
+
 
         PyObject *stringio_dict = PyModule_GetDict(stringio);
         if (!stringio_dict) {
                 return -1;
         }
 
+
         PyObject *stringio_stringio = PyDict_GetItemString(stringio_dict, "StringIO");
         if (!stringio_stringio) {
                 return -1;
         }
 
+
         PyObject *stringio_args = PyTuple_New(1);
         PyTuple_SetItem(stringio_args, 0, PyString_FromStringAndSize(body, len));
+
 
         PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
         if (!source_code) {
                 return -1;
         }
 
+
         PyObject *zipfile = PyImport_ImportModule("zipfile");
+
         if (!zipfile) {
+		PyErr_Print();
                 return -1;
         }
+
 
         PyObject *zipfile_dict = PyModule_GetDict(zipfile);
         if (!zipfile_dict) {
@@ -480,6 +489,7 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         if (!zipfile_zipfile) {
                 return -1;
         }
+
 
         PyObject *zipfile_args = PyTuple_New(1);
         PyTuple_SetItem(zipfile_args, 0, source_code);
@@ -626,7 +636,7 @@ static PyTypeObject SymZipImporter_Type = {
     0,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE |Py_TPFLAGS_HAVE_GC,
+    Py_TPFLAGS_DEFAULT,
     "uwsgi symbols zip importer",                                          /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -645,7 +655,7 @@ static PyTypeObject SymZipImporter_Type = {
     (initproc) symzipimporter_init,                 /* tp_init */
     PyType_GenericAlloc,                        /* tp_alloc */
     PyType_GenericNew,                          /* tp_new */
-    PyObject_GC_Del,                            /* tp_free */
+    0,                            /* tp_free */
 };
 
 static PyTypeObject ZipImporter_Type = {
@@ -668,7 +678,7 @@ static PyTypeObject ZipImporter_Type = {
     0,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE |Py_TPFLAGS_HAVE_GC,
+    Py_TPFLAGS_DEFAULT,
     "uwsgi zip importer",                                          /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -687,7 +697,7 @@ static PyTypeObject ZipImporter_Type = {
     (initproc) zipimporter_init,                 /* tp_init */
     PyType_GenericAlloc,                        /* tp_alloc */
     PyType_GenericNew,                          /* tp_new */
-    PyObject_GC_Del,                            /* tp_free */
+    0,                            /* tp_free */
 };
 
 
