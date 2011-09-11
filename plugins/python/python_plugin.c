@@ -138,9 +138,10 @@ int uwsgi_python_init() {
 #endif
 
 
+	Py_OptimizeFlag = up.optimize;
+
 	Py_Initialize();
 
-	Py_OptimizeFlag = up.optimize;
 
 #endif
 
