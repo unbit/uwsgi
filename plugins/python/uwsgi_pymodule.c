@@ -894,7 +894,7 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 		ssize_t sf_len = uwsgi_sendfile(wsgi_req);
 		if (sf_len > 0) {
 			wsgi_req->response_size += sf_len;
-			while(wsgi_req->sendfile_fd_pos < wsgi_req->sendfile_fd_size) {
+			while((size_t)wsgi_req->sendfile_fd_pos < wsgi_req->sendfile_fd_size) {
 				sf_len = uwsgi_sendfile(wsgi_req);
 				if (sf_len <= 0) break;
 				wsgi_req->response_size += sf_len;
