@@ -1371,6 +1371,7 @@ int posix_openpt(int);
 int grantpt(int);
 int unlockpt(int);
 char *ptsname(int);
+#include <termios.h>
 
 void uwsgi_python_hijack(void) {
 	// the pyshell will be execute only in the first worker
@@ -1380,14 +1381,23 @@ void uwsgi_python_hijack(void) {
 		UWSGI_GET_GIL;
 		PyImport_ImportModule("readline");
 		if (up.pyshell_pts) {
-
 			int masterfd = posix_openpt(O_RDWR|O_NOCTTY);
 			grantpt (masterfd);
 			unlockpt (masterfd);
+			int sdong = open(ptsname (masterfd), O_RDWR);
+			struct termios tt;
+			tcgetattr(masterfd, &tt);
+			// avoid echo-loop
+			cfmakeraw(&tt);
+			tcsetattr(masterfd, TCSADRAIN, &tt);	
+
+			uwsgi_log("fd master = %d slave = %d\n", masterfd, sdong);
 			uwsgi_log("slave = %s\n", ptsname (masterfd));
-			dup2(masterfd, 0);
-			dup2(masterfd, 1);
-			dup2(masterfd, 2);
+
+			if (dup2(masterfd, 0) < 0) uwsgi_error("dup2()");
+			if (dup2(masterfd, 1) < 0) uwsgi_error("dup2()");
+			if (dup2(masterfd, 2) < 0) uwsgi_error("dup2()");
+
 			for(;;) {
 				PyRun_InteractiveLoop(stdin, "uwsgi");
 				uwsgi_log("again !!!\n");
