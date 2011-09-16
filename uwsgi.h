@@ -604,6 +604,8 @@ struct uwsgi_socket {
 	int disabled;
 
 	struct uwsgi_socket *next;
+	int shared;
+	int from_shared;
 };
 
 struct uwsgi_server;
@@ -1575,6 +1577,8 @@ struct uwsgi_worker {
 	int apps_cnt;
 	struct uwsgi_app apps[MAX_APPS];
 
+	uint64_t tx;
+
 };
 
 
@@ -2153,6 +2157,7 @@ socklen_t socket_to_in_addr(char *, char *, struct sockaddr_in *);
 socklen_t socket_to_un_addr(char *, struct sockaddr_un *);
 
 int uwsgi_get_shared_socket_fd_by_num(int);
+struct uwsgi_socket *uwsgi_get_shared_socket_by_num(int);
 
 int uwsgi_get_shared_socket_num(struct uwsgi_socket *);
 

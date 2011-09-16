@@ -9,6 +9,7 @@ struct option uwsgi_rack_options[] = {
         {"rails", required_argument, 0, LONG_ARGS_RAILS},
         {"rack", required_argument, 0, LONG_ARGS_RACK},
         {"ruby-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
+        {"rbshell", optional_argument, 0, LONG_ARGS_RUBY_SHELL},
 
         {0, 0, 0, 0},
 
@@ -920,6 +921,9 @@ int uwsgi_rack_mount_app(char *mountpoint, char *app) {
 }
 */
 
+void uwsgi_rack_hijack(void) {
+}
+
 struct uwsgi_plugin rack_plugin = {
 
 	.name = "rack",
@@ -931,6 +935,8 @@ struct uwsgi_plugin rack_plugin = {
 	.after_request = uwsgi_rack_after_request,
 
 	.signal_handler = uwsgi_rack_signal_handler,
+
+	.hijack = uwsgi_rack_hijack,
 
 	.init_apps = uwsgi_rack_init_apps,
 	//.mount_app = uwsgi_rack_mount_app,

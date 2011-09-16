@@ -755,6 +755,20 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 
 	if (!name) return uwsgi_sock;
 
+	if (name[0] == '=') {
+		int shared_socket = atoi(uwsgi_sock->name+1);
+                if (shared_socket >= 0) {
+                	struct uwsgi_socket *uss = uwsgi_get_shared_socket_by_num(shared_socket);
+                        if (!uss) {
+                        	uwsgi_log("unable to use shared socket %d\n", shared_socket);
+				exit(1);
+                        }
+			uwsgi_sock->bound = 1;
+			uwsgi_sock->shared = 1;
+			uwsgi_sock->from_shared = shared_socket;
+			return uwsgi_sock;
+                }
+	}
 	char *tcp_port = strchr(name, ':');
 	if (tcp_port) {
 		// INET socket, check for 0 port
@@ -956,6 +970,29 @@ int uwsgi_get_shared_socket_fd_by_num(int num) {
 	
 	return -1;
 }
+
+struct uwsgi_socket *uwsgi_get_shared_socket_by_num(int num) {
+
+        int counter = 0;
+
+        struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.shared_sockets;
+
+        while(uwsgi_sock) {
+                if (counter == num) {
+                        found_sock = uwsgi_sock;
+                        break;
+                }
+                counter++;
+                uwsgi_sock = uwsgi_sock->next;
+        }
+
+        if (found_sock) {
+                return found_sock;
+        }
+
+        return NULL;
+}
+
 
 void uwsgi_add_sockets_to_queue(int queue) {
 

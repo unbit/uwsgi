@@ -45,6 +45,18 @@ def application(env, start_response):
 
     print len(gc.get_objects())
 
+    workers = ''
+    for w in uwsgi.workers():
+        apps = '<table border="1"><tr><th>id</th><th>mountpoint</th><th>requests</th></tr>'
+        for app in w['apps']:
+            apps += '<tr><td>%d</td><td>%s</td><td>%d</td></tr>' % (app['id'], app['mountpoint'], app['requests']) 
+        apps += '</table>'
+        workers += """
+<tr>
+<td>%d</td><td>%d</td><td>%d</td><td>%s</td>
+</tr>
+        """ % (w['id'], w['pid'], w['tx'], apps)
+
     return """
 <img src="/logo"/> version %s<br/>
 <hr size="1"/>
@@ -57,7 +69,16 @@ Configuration<br/>
 Dynamic options<br/>
 <iframe src="/options"></iframe><br/>
 
-    """ % (uwsgi.version)
+<br/>
+Workers and applications<br/>
+<table border="1">
+<tr>
+<th>wid</th><th>pid</th><th>tx</th><th>apps</th>
+</tr>
+%s
+</table>
+
+    """ % (uwsgi.version, workers)
 
 
 

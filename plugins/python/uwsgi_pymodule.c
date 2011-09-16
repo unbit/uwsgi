@@ -2242,6 +2242,12 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
+		zero = PyLong_FromLong(uwsgi.workers[i + 1].tx);
+		if (PyDict_SetItemString(worker_dict, "tx", zero)) {
+			goto clear;
+		}
+		Py_DECREF(zero);
+
 		/* return a tuple of current status ! (in_request, blocking, locking, )
 
 		   zero = PyLong_FromLong(uwsgi.workers[i+1].in_request);

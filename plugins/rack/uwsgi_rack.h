@@ -6,6 +6,7 @@
 #define LONG_ARGS_RAILS         LONG_ARGS_RACK_BASE + 1
 #define LONG_ARGS_RUBY_GC_FREQ  LONG_ARGS_RACK_BASE + 2
 #define LONG_ARGS_RACK          LONG_ARGS_RACK_BASE + 3
+#define LONG_ARGS_RUBY_SHELL    LONG_ARGS_RACK_BASE + 4
 
 #ifndef RUBY19
         #define rb_errinfo() ruby_errinfo
@@ -58,6 +59,8 @@ struct uwsgi_rack {
         int unprotected;
 
         pthread_mutex_t gvl;
+
+	int rb_shell;
 
 };
 

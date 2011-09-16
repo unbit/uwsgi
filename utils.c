@@ -620,7 +620,7 @@ void uwsgi_as_root() {
 		}
 
 		if (!getuid()) {
-			uwsgi_log(" *** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
+			uwsgi_log("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
 		}
 	}
 	else {
@@ -692,6 +692,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// leave harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 		set_harakiri(0);
+	}
+
+	// this is racy in multithread mode
+	if (wsgi_req->response_size > 0) {
+		uwsgi.workers[uwsgi.mywid].tx += wsgi_req->response_size;
+	}
+	if (wsgi_req->headers_size > 0) {
+		uwsgi.workers[uwsgi.mywid].tx += wsgi_req->headers_size;
 	}
 
 	// defunct process reaper
