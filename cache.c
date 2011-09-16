@@ -165,6 +165,7 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, struct uwsgi_subscribe_req *
 				usub->nodes++;
 			}
 			uwsgi_log("[uwsgi-subscription] %.*s => new node: %.*s\n", usr->keylen, usr->key, usr->address_len, usr->address);
+			udict->count++;
 		}
 		return;
 	}
@@ -178,6 +179,7 @@ void uwsgi_add_subscriber(struct uwsgi_dict *udict, struct uwsgi_subscribe_req *
 		uwsgi_dict_set(udict, usr->key, usr->keylen, (char *) &nusub, sizeof(struct uwsgi_subscriber));
 		uwsgi_log("[uwsgi-subscription] new pool: %.*s\n", usr->keylen, usr->key);
 		uwsgi_log("[uwsgi-subscription] %.*s => new node: %.*s\n", usr->keylen, usr->key, usr->address_len, usr->address);
+		udict->count++;
 	}
 
 }

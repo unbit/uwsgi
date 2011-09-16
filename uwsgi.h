@@ -1952,6 +1952,8 @@ struct uwsgi_dict {
 	void *data;
 	void *lock;
 
+	uint64_t count;
+
 	struct uwsgi_dict_item *items;
 };
 

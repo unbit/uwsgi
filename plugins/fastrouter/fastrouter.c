@@ -43,6 +43,8 @@ struct uwsgi_fastrouter {
         int use_cache;
         int nevents;
 
+	int queue;
+
         int subscription_slot;
 
         char *pattern;
@@ -61,6 +63,9 @@ struct uwsgi_fastrouter {
 	char *code_string_function;
 
         struct rb_root *timeouts;
+
+	int cheap;
+	int i_am_cheap;
 } ufr;
 
 
@@ -97,6 +102,7 @@ struct option fastrouter_options[] = {
 	{"fastrouter-use-base", required_argument, 0, LONG_ARGS_FASTROUTER_USE_BASE},
 	{"fastrouter-use-code-string", required_argument, 0, LONG_ARGS_FASTROUTER_USE_CODE_STRING},
 	{"fastrouter-events", required_argument, 0, LONG_ARGS_FASTROUTER_EVENTS},
+	{"fastrouter-cheap", no_argument, &ufr.cheap, 1},
 	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
 	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
@@ -157,7 +163,21 @@ static void close_session(struct fastrouter_session **fr_table, struct fastroute
 	if (fr_session->instance_fd != -1) {
 		if (ufr.subscription_server && (fr_session->instance_failed || fr_session->status == FASTROUTER_STATUS_CONNECTING)) {
 			uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
-			fr_session->un->len = 0;
+			if (fr_session->un->len > 0) {
+				if (ufr.subscription_dict->count > 0) {
+                                	ufr.subscription_dict->count--;
+                                }
+                                if (ufr.subscription_dict->count == 0 && ufr.cheap && !ufr.i_am_cheap) {
+                                	uwsgi_log("[uwsgi-fastrouter] no more nodes available. Going cheap...\n");
+                                        struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
+                                        while(ufr_sock) {
+                                        	event_queue_del_fd(ufr.queue, ufr_sock->fd, event_queue_read());
+                                                ufr_sock = ufr_sock->next;
+                                        }
+					ufr.i_am_cheap = 1;
+                                }
+
+			}
 		}
 		close(fr_session->instance_fd);
 		fr_table[fr_session->instance_fd] = NULL;
@@ -222,7 +242,6 @@ struct fastrouter_session *alloc_fr_session() {
 
 void fastrouter_loop() {
 
-	int fr_queue;
 	int nevents;
 	int interesting_fd;
 	int new_connection;
@@ -269,7 +288,7 @@ void fastrouter_loop() {
 		fr_table[i] = NULL;
 	}
 
-	fr_queue = event_queue_init();
+	ufr.queue = event_queue_init();
 
 	struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
 
@@ -295,7 +314,13 @@ void fastrouter_loop() {
 
 		uwsgi_log("uwsgi fastrouter/proxy bound on %s\n", ufr_sock->name);
 
-		event_queue_add_fd_read(fr_queue, ufr_sock->fd);
+		if (!ufr.cheap) {
+			event_queue_add_fd_read(ufr.queue, ufr_sock->fd);
+		}
+		else {
+			uwsgi_log("[uwsgi-fastrouter] cheap mode requested. Waiting for subscriptions...\n");
+			ufr.i_am_cheap = 1;
+		}
 		ufr_sock = ufr_sock->next;
 	}
 
@@ -305,7 +330,7 @@ void fastrouter_loop() {
 
 	if (ufr.subscription_server) {
 		ufr_subserver = bind_to_udp(ufr.subscription_server, 0, 0);
-		event_queue_add_fd_read(fr_queue, ufr_subserver);
+		event_queue_add_fd_read(ufr.queue, ufr_subserver);
 		if (!ufr.subscription_slot) ufr.subscription_slot = 30;
 		ufr.subscription_dict = uwsgi_dict_create(ufr.subscription_slot, 0);
 	}
@@ -331,7 +356,7 @@ void fastrouter_loop() {
 			}
 		}
 
-		nevents = event_queue_wait_multi(fr_queue, delta, events, ufr.nevents);
+		nevents = event_queue_wait_multi(ufr.queue, delta, events, ufr.nevents);
 
 		if (nevents == 0) {
 			expire_timeouts(fr_table);
@@ -364,7 +389,7 @@ void fastrouter_loop() {
 		
 					fr_table[new_connection]->timeout = add_timeout(fr_table[new_connection]);
 
-					event_queue_add_fd_read(fr_queue, new_connection);
+					event_queue_add_fd_read(ufr.queue, new_connection);
 					taken = 1;
 					break;
 				}
@@ -379,12 +404,21 @@ void fastrouter_loop() {
 			if (interesting_fd == ufr_subserver) {
 				len = recv(ufr_subserver, bbuf, 4096, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-				event_queue_add_fd_read(fr_queue, ufr_subserver);
+				event_queue_add_fd_read(ufr.queue, ufr_subserver);
 #endif
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, fastrouter_manage_subscription, &usr);
 					uwsgi_add_subscriber(ufr.subscription_dict, &usr);
+					if (ufr.i_am_cheap) {
+						struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
+                                                while(ufr_sock) {
+                                                	event_queue_add_fd_read(ufr.queue, ufr_sock->fd);
+                                                        ufr_sock = ufr_sock->next;
+                                                }
+						ufr.i_am_cheap = 0;
+						uwsgi_log("[uwsgi-fastrouter] leaving cheap mode...\n");	
+					}
 				}
 			}
 			else {
@@ -499,7 +533,21 @@ void fastrouter_loop() {
 							if (fr_session->instance_fd < 0) {
 								if (ufr.subscription_server) {
 	                                                        	uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
-	                                                        	fr_session->un->len = 0;
+									if (fr_session->un->len > 0) { 
+                                						fr_session->un->len = 0; 
+										if (ufr.subscription_dict->count > 0) {
+                                							ufr.subscription_dict->count--;
+										}
+										if (ufr.subscription_dict->count == 0 && ufr.cheap && !ufr.i_am_cheap) {
+											uwsgi_log("[uwsgi-fastrouter] no more nodes available. Going cheap...\n");
+											struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;	
+											while(ufr_sock) {
+												event_queue_del_fd(ufr.queue, ufr_sock->fd, event_queue_read());	
+												ufr_sock = ufr_sock->next;
+											}
+											ufr.i_am_cheap = 1;
+										}
+                        						}
 	                                                        }
 								close_session(fr_table, fr_session);
                                                         	break;
@@ -508,7 +556,7 @@ void fastrouter_loop() {
 
 							fr_session->status = FASTROUTER_STATUS_CONNECTING;
 							fr_table[fr_session->instance_fd] = fr_session;
-							event_queue_add_fd_write(fr_queue, fr_session->instance_fd);
+							event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
                                                 }
                                                 break;
 
@@ -574,7 +622,7 @@ void fastrouter_loop() {
                                                         	break;
 							}
 
-							event_queue_fd_write_to_read(fr_queue, fr_session->instance_fd);
+							event_queue_fd_write_to_read(ufr.queue, fr_session->instance_fd);
 							fr_session->status = FASTROUTER_STATUS_RESPONSE;
 						}
 
