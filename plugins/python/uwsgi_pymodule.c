@@ -1050,6 +1050,26 @@ PyObject *py_uwsgi_embedded_data(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_extract(PyObject * self, PyObject * args) {
+
+        char *name;
+	int len;
+	char *buf;
+
+        if (!PyArg_ParseTuple(args, "s:extract", &name)) {
+                return NULL;
+        }
+
+	buf = uwsgi_open_and_read(name, &len, 0, NULL);
+	if (buf && len > 0) {
+        	return PyString_FromStringAndSize(buf, len);
+	}
+	Py_INCREF(Py_None);
+	return Py_None;
+
+}
+
+
 PyObject *py_uwsgi_sharedarea_inclong(PyObject * self, PyObject * args) {
 	uint64_t pos = 0;
 	uint64_t value = 1;
@@ -2734,6 +2754,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},
 	{"embedded_data", py_uwsgi_embedded_data, METH_VARARGS, ""},
+	{"extract", py_uwsgi_extract, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{NULL, NULL},
