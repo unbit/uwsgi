@@ -726,6 +726,12 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     else:
         p_cflags.append("-D%s_plugin=%s_plugin" % (up.NAME, name))
 
+    try:
+        for opt in uc.config.options(name):
+            p_cflags.append('-DUWSGI_PLUGIN_%s_%s="%s"' % (name.upper(), opt.upper(), uc.config.get(name, opt, '1')))
+    except:
+        pass
+
     plugin_dest = uc.get('plugin_dir') + '/' + name + '_plugin'
 
     shared_flag = '-shared'
@@ -745,6 +751,9 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         p_ldflags.remove('-Wl,--no-undefined')
     except:
         pass
+
+    #for ofile in up.OBJ_LIST:
+    #    gcc_list.insert(0,ofile)
 
     gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), ' '.join(gcc_list), ' '.join(p_libs) )
     print(gccline)
