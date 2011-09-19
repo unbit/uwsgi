@@ -290,6 +290,7 @@ int master_loop(char **argv, char **environ) {
 
 	int check_interval = 1;
 	uint64_t overload_count = 0;
+	uint64_t idle_count = 0;
 
 	struct uwsgi_rb_timer *min_timeout;
 	struct rb_root *rb_timers = uwsgi_init_rb_timer();
@@ -578,7 +579,7 @@ int master_loop(char **argv, char **environ) {
 		// cheaper management
 		if (uwsgi.cheaper) {
 			for(i=1;i<=uwsgi.numproc;i++) {
-				if (uwsgi.workers[i].cheaped == 0) {
+				if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 					if (uwsgi.workers[i].busy == 0) {
 						if (overload_count > 0) overload_count--;
 						goto healthy;
@@ -586,6 +587,7 @@ int master_loop(char **argv, char **environ) {
 				}
 			}
 			overload_count++;
+			idle_count = 0;
 		}
 
 healthy:
@@ -602,6 +604,7 @@ healthy:
 			}
 			else if (overload_count == 0) {
 				// how many active workers ?
+				idle_count++;
 				int active_workers = 0;
 				for(i=1;i<=uwsgi.numproc;i++) {
 					if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
@@ -609,11 +612,11 @@ healthy:
 					}
 				}
 			
-				uwsgi_log("%d active workers\n", active_workers);
 				// find the oldest worker and cheap it
-				if (active_workers > uwsgi.cheaper_count) {
+				if (active_workers > uwsgi.cheaper_count+1 || (idle_count > 60 && active_workers > uwsgi.cheaper_count)) {
 					time_t oldest_worker_spawn = LONG_MAX;
 					int oldest_worker = 0;
+					idle_count = 0;
 					for(i=1;i<=uwsgi.numproc;i++) {
 						if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 							if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
@@ -623,7 +626,9 @@ healthy:
 						}
 					}	
 					if (oldest_worker > 0) {
+#ifdef UWSGI_DEBUG
 						uwsgi_log("worker %d should die...\n", oldest_worker);
+#endif
 						uwsgi.workers[oldest_worker].cheaped = 1;
 						uwsgi.workers[oldest_worker].manage_next_request = 0;
 						// wakeup task in case of wait
@@ -722,6 +727,16 @@ healthy:
 		else {
 			diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			if (diedpid == -1) {
+				if (errno == ECHILD && uwsgi.cheaper) {
+					if (uwsgi.to_heaven) {
+                                		ready_to_reload = uwsgi.numproc;
+						continue;
+					}
+                        		else if (uwsgi.to_hell) {
+						ready_to_die = uwsgi.numproc;
+						continue;
+					}
+				}
 				uwsgi_error("waitpid()");
 				/* here is better to reload all the uWSGI stack */
 				uwsgi_log( "something horrible happened...\n");
