@@ -2,6 +2,8 @@
 
 extern struct uwsgi_server uwsgi;
 
+void worker_wakeup() {}
+
 void master_check_cluster_nodes() {
 
 	int i;
@@ -49,6 +51,7 @@ int uwsgi_respawn_worker(int wid) {
 	pid_t pid = fork();
 
 	if (pid == 0) {
+		signal(SIGWINCH, worker_wakeup);
 		uwsgi.mywid = wid;
 		uwsgi.mypid = getpid();
 		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
