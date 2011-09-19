@@ -289,6 +289,7 @@ int master_loop(char **argv, char **environ) {
 	int rlen;
 
 	int check_interval = 1;
+	uint64_t overload_count = 0;
 
 	struct uwsgi_rb_timer *min_timeout;
 	struct rb_root *rb_timers = uwsgi_init_rb_timer();
@@ -360,6 +361,9 @@ int master_loop(char **argv, char **environ) {
 
 	if (uwsgi.cheap) {
 		uwsgi_add_sockets_to_queue(uwsgi.master_queue);
+		for(i=1;i<=uwsgi.numproc;i++) {
+			uwsgi.workers[i].cheaped = 1;
+		}
 		uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
 	}
 
@@ -513,6 +517,7 @@ int master_loop(char **argv, char **environ) {
 				uwsgi.lazy_respawned = 0;
 			}
 		}
+
 		if (uwsgi.master_mercy) {
 			if (uwsgi.master_mercy < time(NULL)) {
 				for(i=1;i<=uwsgi.numproc;i++) {
@@ -569,6 +574,67 @@ int master_loop(char **argv, char **environ) {
 			uwsgi.restore_snapshot = 0;
 			continue;
 		}
+
+		// cheaper management
+		if (uwsgi.cheaper) {
+			for(i=1;i<=uwsgi.numproc;i++) {
+				if (uwsgi.workers[i].cheaped == 0) {
+					if (uwsgi.workers[i].busy == 0) {
+						if (overload_count > 0) overload_count--;
+						goto healthy;
+					}		
+				}
+			}
+			overload_count++;
+		}
+
+healthy:
+		if (uwsgi.cheaper) {
+			if (overload_count > 3) {
+				// activate the first available worker
+				for(i=1;i<=uwsgi.numproc;i++) {
+					if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
+						if (uwsgi_respawn_worker(i)) return 0;
+						overload_count = 0;
+						break;
+					}
+				}
+			}
+			else if (overload_count == 0) {
+				// how many active workers ?
+				int active_workers = 0;
+				for(i=1;i<=uwsgi.numproc;i++) {
+					if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+						active_workers++;
+					}
+				}
+			
+				uwsgi_log("%d active workers\n", active_workers);
+				// find the oldest worker and cheap it
+				if (active_workers > uwsgi.cheaper_count) {
+					time_t oldest_worker_spawn = LONG_MAX;
+					int oldest_worker = 0;
+					for(i=1;i<=uwsgi.numproc;i++) {
+						if (uwsgi.workers[i].cheaped == 0) {
+							if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
+								oldest_worker_spawn = uwsgi.workers[i].last_spawn;
+								oldest_worker = i;
+							}		
+						}
+					}	
+					if (oldest_worker > 0) {
+						uwsgi_log("worker %d should die...\n", oldest_worker);
+						uwsgi.workers[oldest_worker].cheaped = 1;
+						uwsgi.workers[oldest_worker].manage_next_request = 0;
+						// wakeup task in case of wait
+						(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
+						overload_count = 0;
+					}
+				}
+			}
+		}
+
+
 		if ((uwsgi.cheap || ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
 			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
 			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
@@ -1354,6 +1420,12 @@ int master_loop(char **argv, char **environ) {
 
 		if (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 			uwsgi_log( "DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int)diedpid);
+		}
+
+		if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {
+			uwsgi.workers[uwsgi.mywid].pid = 0;
+			uwsgi_log("uWSGI worker %d cheaped.\n", uwsgi.mywid);
+			continue;
 		}
 		gettimeofday(&last_respawn, NULL);
 		if (last_respawn.tv_sec == uwsgi.respawn_delta) {

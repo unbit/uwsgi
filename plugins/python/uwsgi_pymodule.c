@@ -2232,6 +2232,23 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
+		if (uwsgi.workers[i + 1].cheaped) {
+			zero = PyString_FromString("cheap");
+		}
+		else {
+			if (uwsgi.workers[i + 1].busy) {
+				zero = PyString_FromString("busy");
+			}
+			else {
+				zero = PyString_FromString("idle");
+			}
+		}
+		if (PyDict_SetItemString(worker_dict, "status", zero)) {
+                        goto clear;
+                }
+
+		Py_DECREF(zero);
+
 		zero = PyInt_FromLong(uwsgi.workers[i + 1].rss_size);
 		if (PyDict_SetItemString(worker_dict, "rss", zero)) {
 			goto clear;

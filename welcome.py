@@ -5,6 +5,17 @@ import sys
 gc.set_debug(gc.DEBUG_SAVEALL)
 
 print sys.modules
+print sys.argv
+
+try:
+    if sys.argv[1] == 'debug':
+        DEBUG = True
+    else:
+        raise
+except:
+    DEBUG = False
+
+
 
 def xsendfile(e, sr):
     sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])
@@ -33,17 +44,21 @@ routes['/options'] = serve_options
 def application(env, start_response):
 
     gc.collect(2)
-    print env['wsgi.input'].fileno()
+    if DEBUG:
+        print env['wsgi.input'].fileno()
 
     if routes.has_key(env['PATH_INFO']):
         return routes[env['PATH_INFO']](env, start_response)
 
     start_response('200 OK', [('Content-Type', 'text/html')])
 
-    print env['wsgi.input'].fileno()
+    if DEBUG:
+        print env['wsgi.input'].fileno()
+
     gc.collect(2)
 
-    print len(gc.get_objects())
+    if DEBUG:
+        print len(gc.get_objects())
 
     workers = ''
     for w in uwsgi.workers():
@@ -53,9 +68,9 @@ def application(env, start_response):
         apps += '</table>'
         workers += """
 <tr>
-<td>%d</td><td>%d</td><td>%d</td><td>%s</td>
+<td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%s</td>
 </tr>
-        """ % (w['id'], w['pid'], w['tx'], apps)
+        """ % (w['id'], w['pid'], w['status'], w['tx'], apps)
 
     return """
 <img src="/logo"/> version %s<br/>
@@ -73,7 +88,7 @@ Dynamic options<br/>
 Workers and applications<br/>
 <table border="1">
 <tr>
-<th>wid</th><th>pid</th><th>tx</th><th>apps</th>
+<th>wid</th><th>pid</th><th>status</th><th>tx</th><th>apps</th>
 </tr>
 %s
 </table>

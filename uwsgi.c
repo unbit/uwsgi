@@ -206,6 +206,7 @@ static struct option long_base_options[] = {
 	{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},
 	{"lazy", no_argument, &uwsgi.lazy, 1},
 	{"cheap", no_argument, &uwsgi.cheap, 1},
+	{"cheaper", required_argument, 0, LONG_ARGS_CHEAPER},
 	{"idle", required_argument, 0, LONG_ARGS_IDLE},
 	{"die-on-idle", no_argument, &uwsgi.die_on_idle, 1},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
@@ -2300,11 +2301,25 @@ skipzero:
 	uwsgi.current_time = time(NULL);
 
 	if (!uwsgi.cheap) {
-		for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
-			if (uwsgi_respawn_worker(i))
-				break;
-			gettimeofday(&last_respawn, NULL);
-			uwsgi.respawn_delta = last_respawn.tv_sec;
+		if (uwsgi.cheaper && uwsgi.cheaper_count) {
+			for(i=1;i<=uwsgi.numproc;i++) {
+				if (i <= uwsgi.cheaper_count) {
+					if (uwsgi_respawn_worker(i)) break;
+					gettimeofday(&last_respawn, NULL);
+					uwsgi.respawn_delta = last_respawn.tv_sec;
+				}
+				else {
+					uwsgi.workers[i].cheaped = 1;
+				}
+			}	
+		}
+		else {
+			for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
+				if (uwsgi_respawn_worker(i))
+					break;
+				gettimeofday(&last_respawn, NULL);
+				uwsgi.respawn_delta = last_respawn.tv_sec;
+			}
 		}
 	}
 
@@ -2784,6 +2799,11 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_IDLE:
 		uwsgi.idle = atoi(optarg);
+		return 1;
+	case LONG_ARGS_CHEAPER:
+		uwsgi.master_process = 1;
+		uwsgi.cheaper = 1;
+		uwsgi.cheaper_count = atoi(optarg);
 		return 1;
 	case LONG_ARGS_CHDIR:
 		uwsgi.chdir = optarg;

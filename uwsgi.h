@@ -150,9 +150,9 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <sys/reg.h>
 #endif
 extern int pivot_root(const char *new_root, const char *put_old);
-#else
-#include <limits.h>
 #endif
+
+#include <limits.h>
 
 #include <dirent.h>
 
@@ -508,6 +508,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_RELOAD		17137
 #define LONG_ARGS_REGEXP_MOUNT		17138
 #define LONG_ARGS_MIMEFILE		17139
+#define LONG_ARGS_CHEAPER		17140
 
 
 #define UWSGI_OK	0
@@ -964,6 +965,8 @@ struct uwsgi_server {
 
 	int lazy;
 	int cheap;
+	int cheaper;
+	int cheaper_count;
 	int idle;
 	
 	int die_on_idle;
@@ -1578,6 +1581,9 @@ struct uwsgi_worker {
 	struct uwsgi_app apps[MAX_APPS];
 
 	uint64_t tx;
+
+	int busy;
+	int cheaped;
 
 };
 
