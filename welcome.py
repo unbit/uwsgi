@@ -4,6 +4,7 @@ import gc
 import sys
 gc.set_debug(gc.DEBUG_SAVEALL)
 
+print os.environ
 print sys.modules
 print sys.argv
 

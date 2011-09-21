@@ -954,6 +954,13 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
+	char *screen_env = getenv("TERM");
+	if (screen_env) {
+		if (!strcmp(screen_env, "screen")) {
+			uwsgi.screen_session = getenv("STY");
+		}
+	}
+
 	env_reloads = getenv("UWSGI_RELOADS");
 	if (env_reloads) {
 		//convert env value to int
@@ -1357,6 +1364,10 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi_log("*** big endian arch detected ***\n");
 #endif
 
+	}
+
+	if (uwsgi.screen_session) {
+		uwsgi_log("*** running under screen session %s ***\n", uwsgi.screen_session);
 	}
 
 	if (uwsgi.pidfile && !uwsgi.is_a_reload) {

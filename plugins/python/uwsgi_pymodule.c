@@ -2359,6 +2359,20 @@ PyObject *py_uwsgi_reload(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+/* uWSGI stop */
+PyObject *py_uwsgi_stop(PyObject * self, PyObject * args) {
+
+        if (kill(uwsgi.workers[0].pid, SIGQUIT)) {
+                uwsgi_error("kill()");
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        Py_INCREF(Py_True);
+        return Py_True;
+}
+
+
 	/* blocking hint */
 PyObject *py_uwsgi_set_blocking(PyObject * self, PyObject * args) {
 
@@ -2696,6 +2710,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"send_message", py_uwsgi_send_message, METH_VARARGS, ""},
 	{"send_multi_message", py_uwsgi_send_multi_message, METH_VARARGS, ""},
 	{"reload", py_uwsgi_reload, METH_VARARGS, ""},
+	{"stop", py_uwsgi_stop, METH_VARARGS, ""},
 	{"workers", py_uwsgi_workers, METH_VARARGS, ""},
 	{"masterpid", py_uwsgi_masterpid, METH_VARARGS, ""},
 	{"total_requests", py_uwsgi_total_requests, METH_VARARGS, ""},

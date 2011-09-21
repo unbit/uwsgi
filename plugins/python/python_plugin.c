@@ -1369,6 +1369,15 @@ void uwsgi_python_hijack(void) {
 
 #ifndef UWSGI_PYPY
 	if (up.pyshell && uwsgi.mywid == 1) {
+		// re-map stdin to stdout and stderr if we are logging to a file
+		if (uwsgi.logfile) {
+			if (dup2(0, 1) < 0) {
+				uwsgi_error("dup2()");
+			}
+			if (dup2(0, 2) < 0) {
+				uwsgi_error("dup2()");
+			}
+		}
 		UWSGI_GET_GIL;
 		PyImport_ImportModule("readline");
 		PyRun_InteractiveLoop(stdin, "uwsgi");

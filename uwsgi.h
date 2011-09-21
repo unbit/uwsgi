@@ -971,6 +971,8 @@ struct uwsgi_server {
 	
 	int die_on_idle;
 
+	char *screen_session;
+
 	int has_emperor;
 	int emperor_fd;
 	int emperor_tyrant;
