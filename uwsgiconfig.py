@@ -73,6 +73,8 @@ def spcall3(cmd):
 def add_o(x):
     if x == 'uwsgi':
         x = 'main'
+    elif x.endswith('.a'):
+        return x
     x = x + '.o'
     return x
 
@@ -129,7 +131,8 @@ def build_uwsgi(uc):
         objfile = file
         if objfile == 'uwsgi':
             objfile = 'main'
-        compile(' '.join(cflags), objfile + '.o', file + '.c')
+        if not objfile.endswith('.a'):
+            compile(' '.join(cflags), objfile + '.o', file + '.c')
 
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
@@ -152,10 +155,20 @@ def build_uwsgi(uc):
                 p_cflags = cflags[:]
                 p_cflags += up.CFLAGS
 
+                print p_cflags
+
+                try:
+                    p_cflags.remove('-Wdeclaration-after-statement')
+                except:
+                    pass
+
                 for cfile in up.GCC_LIST:
-                    compile(' '.join(p_cflags),
-                        path + '/' + cfile + '.o', path + '/' + cfile + '.c')
-                    gcc_list.append('%s/%s' % (path, cfile))
+                    if not cfile.endswith('.a'):
+                        compile(' '.join(p_cflags),
+                            path + '/' + cfile + '.o', path + '/' + cfile + '.c')
+                        gcc_list.append('%s/%s' % (path, cfile))
+                    else:
+                        gcc_list.append(cfile)
 
                 libs += up.LIBS
                 ldflags += up.LDFLAGS
@@ -207,6 +220,18 @@ class uConf(object):
         print("using profile: %s" % filename)
         if not os.path.exists(filename):
             raise Exception("profile not found !!!")
+
+        if os.path.exists('uwsgibuild.lastprofile'):
+            ulp = open('uwsgibuild.lastprofile','r')
+            last_profile = ulp.read()
+            ulp.close()
+            if last_profile != filename:
+                os.environ['UWSGI_FORCE_REBUILD'] = '1'
+
+        ulp = open('uwsgibuild.lastprofile','w')
+        ulp.write(filename)
+        ulp.close()
+
         self.config.read(filename)
         self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'master_utils', 'emperor', 'notify',
             'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
@@ -742,13 +767,20 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         shared_flag = '-dynamiclib -undefined dynamic_lookup'
 
     for cfile in up.GCC_LIST:
-        if not cfile.endswith('.c') and not cfile.endswith('.cc'):
+        if cfile.endswith('.a'): 
+            gcc_list.append(cfile)
+        elif not cfile.endswith('.c') and not cfile.endswith('.cc'):
             gcc_list.append(path + '/' + cfile + '.c')
         else:
             gcc_list.append(path + '/' + cfile)
 
     try:
         p_ldflags.remove('-Wl,--no-undefined')
+    except:
+        pass
+
+    try:
+        p_cflags.remove('-Wdeclaration-after-statement')
     except:
         pass
 

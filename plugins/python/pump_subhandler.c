@@ -257,7 +257,11 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
                 	wsgi_req->headers_size += wsize;
 
 			PyObject *hhkey, *hhvalue;
+#ifdef UWSGI_PYTHON_OLD
+			int hhpos = 0;
+#else
 			Py_ssize_t hhpos = 0;
+#endif
 			while (PyDict_Next(headers, &hhpos, &hhkey, &hhvalue)) {
 				if (!PyString_Check(hhkey)) continue;
 

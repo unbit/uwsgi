@@ -280,7 +280,7 @@ int uwsgi_perl_init(){
 
 	struct http_status_codes *http_sc;
 
-	int argc = 3;
+	int argc;
 	uperl.embedding[0] = "";
 	uperl.embedding[1] = "-e";
 	uperl.embedding[2] = "0";
@@ -298,6 +298,9 @@ int uwsgi_perl_init(){
 #else
 	uwsgi_log("initializing Perl environment\n");
 #endif
+
+	argc = 3;
+
 	PERL_SYS_INIT3(&argc, (char ***) &uperl.embedding, &environ);
 	uperl.main = perl_alloc();
 	if (!uperl.main) {
