@@ -155,8 +155,6 @@ def build_uwsgi(uc):
                 p_cflags = cflags[:]
                 p_cflags += up.CFLAGS
 
-                print p_cflags
-
                 try:
                     p_cflags.remove('-Wdeclaration-after-statement')
                 except:
