@@ -660,10 +660,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
 	int tmp_id;
+	uint64_t tmp_rt;
 
 	gettimeofday(&wsgi_req->end_of_request, NULL);
-	//uwsgi.workers[uwsgi.mywid].running_time += (double) (((double) (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (double) (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec)) / (double) 1000.0);
+	
+	tmp_rt = (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec);
 
+	uwsgi.workers[uwsgi.mywid].running_time += tmp_rt;
+	uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time+tmp_rt)/2;
 
 	// get memory usage
 	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.reload_on_as || uwsgi.reload_on_rss)

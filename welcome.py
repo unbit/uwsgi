@@ -69,9 +69,9 @@ def application(env, start_response):
         apps += '</table>'
         workers += """
 <tr>
-<td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%s</td>
+<td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td>
 </tr>
-        """ % (w['id'], w['pid'], w['status'], w['tx'], apps)
+        """ % (w['id'], w['pid'], w['status'], w['running_time']/1000, w['avg_rt']/1000, w['tx'], apps)
 
     return """
 <img src="/logo"/> version %s<br/>
@@ -89,7 +89,7 @@ Dynamic options<br/>
 Workers and applications<br/>
 <table border="1">
 <tr>
-<th>wid</th><th>pid</th><th>status</th><th>tx</th><th>apps</th>
+<th>wid</th><th>pid</th><th>status</th><th>running time</th><th>average</th><th>tx</th><th>apps</th>
 </tr>
 %s
 </table>

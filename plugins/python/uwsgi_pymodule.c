@@ -2261,7 +2261,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
-		zero = PyFloat_FromDouble(uwsgi.workers[i + 1].running_time);
+		zero = PyLong_FromLong(uwsgi.workers[i + 1].running_time);
 		if (PyDict_SetItemString(worker_dict, "running_time", zero)) {
 			goto clear;
 		}
@@ -2285,14 +2285,11 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
-		/* return a tuple of current status ! (in_request, blocking, locking, )
-
-		   zero = PyLong_FromLong(uwsgi.workers[i+1].in_request);
-		   if (PyDict_SetItemString(worker_dict, "in_request", zero)) {
-		   goto clear;
-		   }
-		   Py_DECREF(zero);
-		 */
+		zero = PyLong_FromLong(uwsgi.workers[i + 1].avg_response_time);
+		if (PyDict_SetItemString(worker_dict, "avg_rt", zero)) {
+			goto clear;
+		}
+		Py_DECREF(zero);
 
 		apps_tuple = PyTuple_New(uwsgi.workers[i+1].apps_cnt);
 

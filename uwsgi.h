@@ -710,6 +710,7 @@ struct uwsgi_app {
         void *uwsgi_version;
         void *uwsgi_node;
 
+	uint64_t avg_response_time;
 };
 
 
@@ -1570,8 +1571,7 @@ struct uwsgi_worker {
 	uint64_t vsz_size;
 	uint64_t rss_size;
 
-	double running_time;
-	double last_running_time;
+	uint64_t running_time;
 
 	int manage_next_request;
 
@@ -1586,6 +1586,8 @@ struct uwsgi_worker {
 
 	int busy;
 	int cheaped;
+
+	uint64_t avg_response_time;
 
 };
 
