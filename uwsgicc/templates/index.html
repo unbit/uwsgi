@@ -264,12 +264,14 @@ $(document).ready(function() {
 <a name="workers"></a>
 <h3>Workers</h3>
 <div class="info">
-<table width="400">
+<table width="600">
 <tr>
     <th>#</th>
     <th>pid</th>
     <th>requests</th>
     <th>exceptions</th>
+    <th>running time</th>
+    <th>avg response time</th>
     <th># respawn</th>
 </tr>
 {% for w in uwsgi.workers() %}
@@ -278,6 +280,8 @@ $(document).ready(function() {
 		<td>{{w.pid}}</td>
 		<td>{{w.requests}}</td>
 		<td>{{w.exceptions}}</td>
+		<td>{{w.running_time/1000}}</td>
+		<td>{{w.avg_rt/1000}}</td>
 		<td>{{w.respawn_count}}</td>
 	</tr>
 {% endfor %}
@@ -294,7 +298,7 @@ $(document).ready(function() {
 <div class="info">
 {% for w in uwsgi.workers() %}
 worker {{w.id}}
-<table width="400">
+<table width="600">
 <tr>
     <th>#</th>
     <th>modifier1</th>
