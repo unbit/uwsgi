@@ -2273,7 +2273,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
-		zero = PyLong_FromLong(uwsgi.workers[i + 1].respawn_count);
+		zero = PyLong_FromLong(uwsgi.workers[i + 1].respawn_count-1);
 		if (PyDict_SetItemString(worker_dict, "respawn_count", zero)) {
 			goto clear;
 		}
