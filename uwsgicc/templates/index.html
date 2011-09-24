@@ -272,6 +272,10 @@ $(document).ready(function() {
     <th>exceptions</th>
     <th>running time</th>
     <th>avg response time</th>
+{% if 'memory-report' in uwsgi.opt %}
+    <th>rss</th>
+    <th>vsz</th>
+{% endif %}
     <th># respawn</th>
 </tr>
 {% for w in uwsgi.workers() %}
@@ -282,6 +286,10 @@ $(document).ready(function() {
 		<td>{{w.exceptions}}</td>
 		<td>{{w.running_time/1000}}</td>
 		<td>{{w.avg_rt/1000}}</td>
+{% if 'memory-report' in uwsgi.opt %}
+		<td>{{(w.rss/1000/1000)|round(2,'floor')}}MB</td>
+		<td>{{(w.vsz/1000/1000)|round(2,'floor')}}MB</td>
+{% endif %}
 		<td>{{w.respawn_count}}</td>
 	</tr>
 {% endfor %}
