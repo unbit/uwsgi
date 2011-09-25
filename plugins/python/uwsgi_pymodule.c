@@ -2190,7 +2190,7 @@ PyObject *py_uwsgi_masterpid(PyObject * self, PyObject * args) {
 
 	/* uWSGI total_requests */
 PyObject *py_uwsgi_total_requests(PyObject * self, PyObject * args) {
-	return PyInt_FromLong(uwsgi.workers[0].requests);
+	return PyLong_FromUnsignedLongLong(uwsgi.workers[0].requests);
 }
 
 	/* uWSGI workers */
@@ -2220,13 +2220,13 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
-		zero = PyInt_FromLong(uwsgi.workers[i + 1].requests);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].requests);
 		if (PyDict_SetItemString(worker_dict, "requests", zero)) {
 			goto clear;
 		}
 		Py_DECREF(zero);
 
-		zero = PyInt_FromLong(uwsgi.workers[i + 1].exceptions);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].exceptions);
 		if (PyDict_SetItemString(worker_dict, "exceptions", zero)) {
 			goto clear;
 		}
@@ -2249,19 +2249,19 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 
 		Py_DECREF(zero);
 
-		zero = PyInt_FromLong(uwsgi.workers[i + 1].rss_size);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].rss_size);
 		if (PyDict_SetItemString(worker_dict, "rss", zero)) {
 			goto clear;
 		}
 		Py_DECREF(zero);
 
-		zero = PyInt_FromLong(uwsgi.workers[i + 1].vsz_size);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].vsz_size);
 		if (PyDict_SetItemString(worker_dict, "vsz", zero)) {
 			goto clear;
 		}
 		Py_DECREF(zero);
 
-		zero = PyLong_FromLong(uwsgi.workers[i + 1].running_time);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].running_time);
 		if (PyDict_SetItemString(worker_dict, "running_time", zero)) {
 			goto clear;
 		}
@@ -2273,19 +2273,19 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
-		zero = PyLong_FromLong(uwsgi.workers[i + 1].respawn_count-1);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].respawn_count-1);
 		if (PyDict_SetItemString(worker_dict, "respawn_count", zero)) {
 			goto clear;
 		}
 		Py_DECREF(zero);
 
-		zero = PyLong_FromLong(uwsgi.workers[i + 1].tx);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].tx);
 		if (PyDict_SetItemString(worker_dict, "tx", zero)) {
 			goto clear;
 		}
 		Py_DECREF(zero);
 
-		zero = PyLong_FromLong(uwsgi.workers[i + 1].avg_response_time);
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].avg_response_time);
 		if (PyDict_SetItemString(worker_dict, "avg_rt", zero)) {
 			goto clear;
 		}
@@ -2308,8 +2308,8 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			PyDict_SetItemString(apps_dict, "interpreter", PyInt_FromLong((long)ua->interpreter));
 			PyDict_SetItemString(apps_dict, "callable", PyInt_FromLong((long)ua->interpreter));
 
-			PyDict_SetItemString(apps_dict, "requests", PyInt_FromLong(ua->requests));
-			PyDict_SetItemString(apps_dict, "exceptions", PyInt_FromLong(ua->exceptions));
+			PyDict_SetItemString(apps_dict, "requests", PyLong_FromUnsignedLongLong(ua->requests));
+			PyDict_SetItemString(apps_dict, "exceptions", PyLong_FromUnsignedLongLong(ua->exceptions));
 
 			if (ua->chdir) {
 				zero = PyString_FromString(ua->chdir);
