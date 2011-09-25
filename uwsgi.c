@@ -122,6 +122,9 @@ static struct option long_base_options[] = {
 	{"chroot", required_argument, 0, LONG_ARGS_CHROOT},
 	{"gid", required_argument, 0, LONG_ARGS_GID},
 	{"uid", required_argument, 0, LONG_ARGS_UID},
+#ifdef UWSGI_CAP
+	{"cap", required_argument,0, LONG_ARGS_CAP},
+#endif
 #ifdef UWSGI_INI
 	{"ini", required_argument, 0, LONG_ARGS_INI},
 #endif
@@ -2978,6 +2981,11 @@ static int manage_base_opt(int i, char *optarg) {
 			uwsgi.uidname = optarg;
 		}
 		return 1;
+#ifdef UWSGI_CAP
+	case LONG_ARGS_CAP:
+		uwsgi_build_cap(optarg);
+		return 1;
+#endif
 	case LONG_ARGS_BINARY_PATH:
 		uwsgi.binary_path = optarg;
 		return 1;

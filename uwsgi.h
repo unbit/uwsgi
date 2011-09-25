@@ -227,6 +227,10 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #include <sys/event.h>
 #endif
 
+#ifdef UWSGI_CAP
+#include <sys/capability.h>
+#endif
+
 #ifdef __HAIKU__
 #include <kernel/OS.h>
 #endif
@@ -509,6 +513,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_REGEXP_MOUNT		17138
 #define LONG_ARGS_MIMEFILE		17139
 #define LONG_ARGS_CHEAPER		17140
+#define LONG_ARGS_CAP			17141
 
 
 #define UWSGI_OK	0
@@ -1023,6 +1028,11 @@ struct uwsgi_server {
 	uid_t uid;
 	char *uidname;
 	char *gidname;
+
+#ifdef UWSGI_CAP
+	cap_value_t *cap;
+	int cap_count;
+#endif
 
 	char *profiler;
 	char *mode;
@@ -2214,6 +2224,10 @@ int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
 
 void uwsgi_build_mime_dict(char *);
 struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int, char *, int);
+
+#ifdef UWSGI_CAP
+void uwsgi_build_cap(char *);
+#endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

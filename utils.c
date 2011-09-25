@@ -557,6 +557,41 @@ void uwsgi_as_root() {
 			uwsgi_log("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
 		}
 
+#ifdef UWSGI_CAP
+		if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
+
+			cap_value_t minimal_cap_values[] = { CAP_SYS_CHROOT, CAP_SETUID, CAP_SETGID, CAP_SETPCAP };
+
+			cap_t caps = cap_init();
+			
+			if (!caps) {
+				uwsgi_error("cap_init()");
+				exit(1);
+			}
+			cap_clear(caps);
+
+    			cap_set_flag(caps, CAP_EFFECTIVE, 4, minimal_cap_values, CAP_SET);
+
+    			cap_set_flag(caps, CAP_PERMITTED, 4, minimal_cap_values, CAP_SET);
+    			cap_set_flag(caps, CAP_PERMITTED, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+
+    			cap_set_flag(caps, CAP_INHERITABLE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+    
+    			if (cap_set_proc(caps) < 0) {
+				uwsgi_error("cap_set_proc()");
+				exit(1);
+    			}
+    			cap_free(caps);
+
+#ifdef __linux__
+    			if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+				uwsgi_error("prctl()");
+				exit(1);
+    			}
+#endif
+		}
+#endif
+
 		if (uwsgi.chroot && !uwsgi.reloads) {
 			if (!uwsgi.master_as_root)
 				uwsgi_log("chroot() to %s\n", uwsgi.chroot);
@@ -622,6 +657,30 @@ void uwsgi_as_root() {
 		if (!getuid()) {
 			uwsgi_log("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
 		}
+
+#ifdef UWSGI_CAP
+
+		if (uwsgi.cap && uwsgi.cap_count > 0 && !uwsgi.reloads) {
+
+			cap_t caps = cap_init();
+
+                        if (!caps) {
+                                uwsgi_error("cap_init()");
+                                exit(1);
+                        }
+                        cap_clear(caps);
+
+                        cap_set_flag(caps, CAP_EFFECTIVE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+                        cap_set_flag(caps, CAP_PERMITTED, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+                        cap_set_flag(caps, CAP_INHERITABLE, uwsgi.cap_count, uwsgi.cap, CAP_SET);
+
+                        if (cap_set_proc(caps) < 0) {
+                                uwsgi_error("cap_set_proc()");
+                                exit(1);
+                        }
+                        cap_free(caps);
+		}
+#endif
 	}
 	else {
 		if (uwsgi.chroot && !uwsgi.is_a_reload) {
@@ -2928,3 +2987,105 @@ void uwsgi_build_mime_dict(char *filename) {
 	uwsgi_log("%d entry found\n", entries);
 
 }
+
+#ifdef UWSGI_CAP
+struct uwsgi_cap {
+	char *name;
+	cap_value_t value;
+};
+
+static struct uwsgi_cap uwsgi_cap_list[] = {
+	{ "chown", CAP_CHOWN},
+	{ "dac_override", CAP_DAC_OVERRIDE},
+	{ "dac_read_search", CAP_DAC_READ_SEARCH},
+	{ "fowner", CAP_FOWNER},
+	{ "fsetid", CAP_FSETID},
+	{ "kill", CAP_KILL},
+	{ "setgid", CAP_SETGID},
+	{ "setuid", CAP_SETUID},
+	{ "setpcap", CAP_SETPCAP},
+	{ "linux_immutable", CAP_LINUX_IMMUTABLE},
+	{ "net_bind_service", CAP_NET_BIND_SERVICE},
+	{ "net_broadcast", CAP_NET_BROADCAST},
+	{ "net_admin", CAP_NET_ADMIN},
+	{ "net_raw", CAP_NET_RAW},
+	{ "ipc_lock", CAP_IPC_LOCK},
+	{ "ipc_owner", CAP_IPC_OWNER},
+	{ "sys_module", CAP_SYS_MODULE},
+	{ "sys_rawio", CAP_SYS_RAWIO},
+	{ "sys_chroot", CAP_SYS_CHROOT},
+	{ "sys_ptrace", CAP_SYS_PTRACE},
+	{ "sys_pacct", CAP_SYS_PACCT},
+	{ "sys_admin", CAP_SYS_ADMIN},
+	{ "sys_boot", CAP_SYS_BOOT},
+	{ "sys_nice", CAP_SYS_NICE},
+	{ "sys_resource", CAP_SYS_RESOURCE},
+	{ "sys_time", CAP_SYS_TIME},
+	{ "sys_tty_config", CAP_SYS_TTY_CONFIG},
+	{ "mknod", CAP_MKNOD},
+	{ "lease", CAP_LEASE},
+	{ "audit_write", CAP_AUDIT_WRITE},
+	{ "audit_control", CAP_AUDIT_CONTROL},
+	{ "setfcap", CAP_SETFCAP},
+	{ "mac_override", CAP_MAC_OVERRIDE},
+	{ "mac_admin", CAP_MAC_ADMIN},
+	{ "syslog", CAP_SYSLOG},
+	{ "wake_alarm", CAP_WAKE_ALARM},
+	{ NULL, -1}
+};
+
+static int uwsgi_get_cap_id(char *name) {
+
+	struct uwsgi_cap *ucl = uwsgi_cap_list;
+	while(ucl->name) {
+		if (!strcmp(ucl->name, name)) return ucl->value;
+		ucl++;
+	}
+
+	return -1;
+}
+
+void uwsgi_build_cap(char *what) {
+
+	int cap_id;
+	char *caps = uwsgi_str(what);
+	int pos = 0;
+	uwsgi.cap_count = 0;
+
+	char *p = strtok(caps, ",");
+        while (p != NULL) {
+		if (is_a_number(p)) {
+			uwsgi.cap_count++;
+		}
+		else {
+			cap_id = uwsgi_get_cap_id(p);
+			if (cap_id != -1) {
+				uwsgi.cap_count++;
+			}
+		}
+                p = strtok(NULL, ",");
+	}
+	free(caps);
+
+	uwsgi.cap = uwsgi_malloc( sizeof(cap_value_t) * uwsgi.cap_count);
+
+	caps = uwsgi_str(what);
+	p = strtok(caps, ",");
+        while (p != NULL) {
+                if (is_a_number(p)) {
+			cap_id = atoi(p);
+                }
+                else {
+			cap_id = uwsgi_get_cap_id(p);	
+		}
+                if (cap_id != -1) {
+			uwsgi.cap[pos] = cap_id;
+			uwsgi_log("setting capability %s [%d]\n", p, cap_id);
+			pos++;
+                }
+                p = strtok(NULL, ",");
+        }
+        free(caps);
+
+}
+#endif
