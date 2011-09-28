@@ -167,6 +167,7 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_UDP
 	{"udp", required_argument, 0, LONG_ARGS_UDP},
 #endif
+	{"stats", required_argument, 0, LONG_ARGS_STATS},
 #ifdef UWSGI_MULTICAST
 	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
 	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER},
@@ -899,6 +900,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.signal_socket = -1;
 	uwsgi.my_signal_socket = -1;
 	uwsgi.cache_server_fd = -1;
+	uwsgi.stats_fd = -1;
 
 	uwsgi.emperor_fd_config = -1;
 	uwsgi.emperor_throttle = 1000;
@@ -3251,6 +3253,10 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_CACHE_SERVER:
 		uwsgi.cache_server = optarg;
+		return 1;
+	case LONG_ARGS_STATS:
+		uwsgi.stats = optarg;
+		uwsgi.master_process = 1;
 		return 1;
 	case LONG_ARGS_CACHE_SERVER_THREADS:
 		uwsgi.cache_server_threads = atoi(optarg);

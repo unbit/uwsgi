@@ -264,3 +264,99 @@ void uwsgi_manage_command_cron(time_t now) {
 
 
 }
+
+void uwsgi_send_stats(int fd) {
+
+	int i,j;
+	struct sockaddr_un client_src;
+	struct uwsgi_app *ua;
+	socklen_t client_src_len = 0;
+	int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
+	if (client_fd < 0) {
+		uwsgi_error("accept()");
+		return;
+	}
+
+	FILE *output = fdopen(client_fd, "w");
+	if (!output) {
+		uwsgi_error("fdopen()");
+		close(client_fd);
+		return;
+	}
+
+	fprintf(output,"{\"workers\": [\n");
+
+	for (i = 0; i < uwsgi.numproc; i++) {
+		fprintf(output,"\t{");
+
+		fprintf(output,"\"id\": %d, ", uwsgi.workers[i+1].id);
+		fprintf(output,"\"pid\": %d, ", uwsgi.workers[i+1].pid);
+		fprintf(output,"\"requests\": %llu, ", uwsgi.workers[i+1].requests);
+		fprintf(output,"\"exceptions\": %llu, ", uwsgi.workers[i+1].exceptions);
+
+		if (uwsgi.workers[i + 1].cheaped) {
+			fprintf(output,"\"status\": \"cheap\", ");
+		}
+		else {
+                	if (uwsgi.workers[i + 1].busy) {
+				fprintf(output,"\"status\": \"busy\", ");
+                        }
+                        else {
+				fprintf(output,"\"status\": \"idle\", ");
+                        }
+                }
+
+		fprintf(output,"\"rss\": %llu, ", uwsgi.workers[i+1].rss_size);
+		fprintf(output,"\"vsz\": %llu, ", uwsgi.workers[i+1].vsz_size);
+
+		fprintf(output,"\"running_time\": %llu, ", uwsgi.workers[i+1].running_time);
+
+		fprintf(output,"\"last_spawn\": %llu, ", (unsigned long long) uwsgi.workers[i+1].last_spawn);
+
+		fprintf(output,"\"respawn_count\": %llu, ", uwsgi.workers[i+1].respawn_count);
+
+		fprintf(output,"\"tx\": %llu, ", uwsgi.workers[i+1].tx);
+
+		fprintf(output,"\"avg_rt\": %llu, ", uwsgi.workers[i+1].avg_response_time);
+		
+		fprintf(output,"\"apps\": [\n");
+
+		for(j=0;j<uwsgi.workers[i+1].apps_cnt;j++) {
+			ua = &uwsgi.workers[i+1].apps[j];
+			fprintf(output,"\t\t{ ");
+
+			fprintf(output, "\"id\": %d, ", j);
+			fprintf(output, "\"modifier1\": %d, ", ua->modifier1);
+			fprintf(output, "\"mountpoint\": \"%.*s\", ", ua->mountpoint_len, ua->mountpoint);
+
+			fprintf(output, "\"requests\": %llu, ", ua->requests);
+			fprintf(output, "\"exceptions\": %llu, ", ua->exceptions);
+
+			if (ua->chdir) {
+				fprintf(output, "\"chdir\": \"%s\", ", ua->chdir);
+			}
+			else {
+				fprintf(output, "\"chdir\": \"\" ");
+			}
+			
+			if (j == uwsgi.workers[i+1].apps_cnt-1) {
+				fprintf(output,"}\n");
+			}
+			else {
+				fprintf(output,"},\n");
+			}
+		}
+
+		fprintf(output,"\t\t]");
+
+		if (i == uwsgi.numproc-1) {
+			fprintf(output,"}\n");
+		}
+		else {
+			fprintf(output,"},\n");
+		}
+	}
+
+	fprintf(output,"]}\n");
+	fclose(output);
+}

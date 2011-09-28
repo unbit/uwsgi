@@ -284,7 +284,6 @@ int master_loop(char **argv, char **environ) {
 #ifdef UWSGI_SNMP
 	int snmp_fd = -1;
 #endif
-
 	int i=0;
 	int rlen;
 
@@ -347,6 +346,23 @@ int master_loop(char **argv, char **environ) {
 		uwsgi.zerg_server_fd = bind_to_unix(uwsgi.zerg_server, uwsgi.listen_queue, 0, 0);
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.zerg_server_fd);
 		uwsgi_log("*** Zerg server enabled on %s ***\n", uwsgi.zerg_server);
+	}
+
+	if (uwsgi.stats) {
+		char *tcp_port = strchr(uwsgi.stats, ':');
+                if (tcp_port) {
+			// disable deferred accept for this socket
+			int current_defer_accept = uwsgi.no_defer_accept;
+			uwsgi.no_defer_accept = 1;
+                	uwsgi.stats_fd = bind_to_tcp(uwsgi.stats, uwsgi.listen_queue, tcp_port);
+			uwsgi.no_defer_accept = current_defer_accept;
+                }
+                else {
+                	uwsgi.stats_fd = bind_to_unix(uwsgi.stats, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                }
+		
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.stats_fd);
+		uwsgi_log("*** Stats server enabled on %s fd: %d ***\n", uwsgi.stats, uwsgi.stats_fd);
 	}
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
@@ -851,6 +867,12 @@ healthy:
 								}
 								// TODO allow uwsgi.logger = func
 							}	
+						}
+					}
+
+					if (uwsgi.stats && uwsgi.stats_fd > -1) {
+						if (interesting_fd == uwsgi.stats_fd) {
+							uwsgi_send_stats(uwsgi.stats_fd);
 						}
 					}
 

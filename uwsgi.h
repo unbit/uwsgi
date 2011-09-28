@@ -516,6 +516,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_MIMEFILE		17139
 #define LONG_ARGS_CHEAPER		17140
 #define LONG_ARGS_CAP			17141
+#define LONG_ARGS_STATS			17142
 
 
 #define UWSGI_OK	0
@@ -1362,6 +1363,9 @@ struct uwsgi_server {
 	int cache_server_threads;
 	int cache_server_fd;
 	pthread_mutex_t cache_server_lock;
+
+	char *stats;
+	int stats_fd;
 
 	uint64_t queue_size;
 	uint64_t queue_blocksize;
@@ -2226,6 +2230,8 @@ int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
 
 void uwsgi_build_mime_dict(char *);
 struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int, char *, int);
+
+void uwsgi_send_stats(int);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);
