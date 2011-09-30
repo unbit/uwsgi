@@ -306,14 +306,14 @@ void uwsgi_send_stats(int fd) {
                         }
                 }
 
-		fprintf(output,"\"rss\": %llu, ", uwsgi.workers[i+1].rss_size);
-		fprintf(output,"\"vsz\": %llu, ", uwsgi.workers[i+1].vsz_size);
+		fprintf(output,"\"rss\": %llu, ", (long long unsigned int)uwsgi.workers[i+1].rss_size);
+		fprintf(output,"\"vsz\": %llu, ", (long long unsigned int)uwsgi.workers[i+1].vsz_size);
 
 		fprintf(output,"\"running_time\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].running_time);
 
 		fprintf(output,"\"last_spawn\": %llu, ", (unsigned long long) uwsgi.workers[i+1].last_spawn);
 
-		fprintf(output,"\"respawn_count\": %llu, ", uwsgi.workers[i+1].respawn_count);
+		fprintf(output,"\"respawn_count\": %llu, ", (long long unsigned int)uwsgi.workers[i+1].respawn_count);
 
 		fprintf(output,"\"tx\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].tx);
 
