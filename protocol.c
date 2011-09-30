@@ -499,7 +499,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	ptrbuf = buffer;
 	bufferend = ptrbuf + wsgi_req->uh.pktsize;
-	int i, script_name= -1, path_info= -1;
+	int i, script_name= -1;
 
 	/* set an HTTP 500 status as default */
 	wsgi_req->status = 500;
@@ -510,6 +510,8 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 		if (i == 0) goto next;
 		return i;
 	}
+
+	wsgi_req->path_info_pos = -1;
 
 	while (ptrbuf < bufferend) {
 		if (ptrbuf + 2 < bufferend) {
@@ -549,7 +551,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						else if (!uwsgi_strncmp("PATH_INFO", 9, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->path_info = ptrbuf;
 							wsgi_req->path_info_len = strsize;
-							path_info = wsgi_req->var_cnt + 1;
+							wsgi_req->path_info_pos = wsgi_req->var_cnt + 1;
 #ifdef UWSGI_DEBUG
 							uwsgi_debug("PATH_INFO=%.*s\n", wsgi_req->path_info_len, wsgi_req->path_info);
 #endif
@@ -752,7 +754,7 @@ next:
 	}
 
 	if (uwsgi.manage_script_name) {
-		if (uwsgi_apps_cnt > 0 && wsgi_req->path_info_len > 1) {
+		if (uwsgi_apps_cnt > 0 && wsgi_req->path_info_len > 1 && wsgi_req->path_info_pos != -1) {
 			// starts with 1 as the 0 app is the default (/) one
 			int best_found = 0;
 			char *orig_path_info = wsgi_req->path_info;
@@ -767,6 +769,8 @@ next:
                                 wsgi_req->hvec[wsgi_req->var_cnt].iov_len = 11;
 				wsgi_req->var_cnt++;
 				script_name = wsgi_req->var_cnt;
+				wsgi_req->hvec[script_name].iov_base = "";
+				wsgi_req->hvec[script_name].iov_len = 0;
 				wsgi_req->var_cnt++;
 			}
 
@@ -783,8 +787,8 @@ next:
 						wsgi_req->hvec[script_name].iov_base = wsgi_req->script_name;
 						wsgi_req->hvec[script_name].iov_len = wsgi_req->script_name_len;
 
-						wsgi_req->hvec[path_info].iov_base = wsgi_req->path_info;
-						wsgi_req->hvec[path_info].iov_len = wsgi_req->path_info_len;
+						wsgi_req->hvec[wsgi_req->path_info_pos].iov_base = wsgi_req->path_info;
+						wsgi_req->hvec[wsgi_req->path_info_pos].iov_len = wsgi_req->path_info_len;
 #ifdef UWSGI_DEBUG
 						uwsgi_log("managed SCRIPT_NAME = %.*s PATH_INFO = %.*s\n", wsgi_req->script_name_len, wsgi_req->script_name, wsgi_req->path_info_len, wsgi_req->path_info);
 #endif

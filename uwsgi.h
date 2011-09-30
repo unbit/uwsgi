@@ -809,6 +809,7 @@ struct wsgi_request {
 
 	char *path_info;
 	uint16_t path_info_len;
+	int path_info_pos;
 
 	char *script;
 	uint16_t script_len;

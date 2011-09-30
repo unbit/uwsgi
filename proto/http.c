@@ -100,6 +100,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	char ip[INET_ADDRSTRLEN+1];
 	struct sockaddr_in *http_sin = (struct sockaddr_in *) &wsgi_req->c_addr;
 
+	wsgi_req->path_info_pos = -1;
+
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
 		if (*ptr == ' ') {
@@ -119,6 +121,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
 			wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
 			wsgi_req->path_info_len = ptr - base;
+			wsgi_req->path_info_pos = 3;
 			query_string = ptr + 1;
 		}
 		else if (*ptr == ' ') {
@@ -130,6 +133,7 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
 				wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
 				wsgi_req->path_info_len = ptr - base;
+				wsgi_req->path_info_pos = 5;
 				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
 			}
 			else {
@@ -161,7 +165,10 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	}
 
 	// SCRIPT_NAME
-	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
+	if (!uwsgi.manage_script_name) {
+		wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SCRIPT_NAME", 11, "", 0);
+	}
+	
 
 	// SERVER_NAME
 	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_NAME", 11, uwsgi.hostname, uwsgi.hostname_len);
