@@ -291,8 +291,8 @@ void uwsgi_send_stats(int fd) {
 
 		fprintf(output,"\"id\": %d, ", uwsgi.workers[i+1].id);
 		fprintf(output,"\"pid\": %d, ", uwsgi.workers[i+1].pid);
-		fprintf(output,"\"requests\": %llu, ", uwsgi.workers[i+1].requests);
-		fprintf(output,"\"exceptions\": %llu, ", uwsgi.workers[i+1].exceptions);
+		fprintf(output,"\"requests\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].requests);
+		fprintf(output,"\"exceptions\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].exceptions);
 
 		if (uwsgi.workers[i + 1].cheaped) {
 			fprintf(output,"\"status\": \"cheap\", ");
@@ -309,15 +309,15 @@ void uwsgi_send_stats(int fd) {
 		fprintf(output,"\"rss\": %llu, ", uwsgi.workers[i+1].rss_size);
 		fprintf(output,"\"vsz\": %llu, ", uwsgi.workers[i+1].vsz_size);
 
-		fprintf(output,"\"running_time\": %llu, ", uwsgi.workers[i+1].running_time);
+		fprintf(output,"\"running_time\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].running_time);
 
 		fprintf(output,"\"last_spawn\": %llu, ", (unsigned long long) uwsgi.workers[i+1].last_spawn);
 
 		fprintf(output,"\"respawn_count\": %llu, ", uwsgi.workers[i+1].respawn_count);
 
-		fprintf(output,"\"tx\": %llu, ", uwsgi.workers[i+1].tx);
+		fprintf(output,"\"tx\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].tx);
 
-		fprintf(output,"\"avg_rt\": %llu, ", uwsgi.workers[i+1].avg_response_time);
+		fprintf(output,"\"avg_rt\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].avg_response_time);
 		
 		fprintf(output,"\"apps\": [\n");
 
@@ -329,8 +329,8 @@ void uwsgi_send_stats(int fd) {
 			fprintf(output, "\"modifier1\": %d, ", ua->modifier1);
 			fprintf(output, "\"mountpoint\": \"%.*s\", ", ua->mountpoint_len, ua->mountpoint);
 
-			fprintf(output, "\"requests\": %llu, ", ua->requests);
-			fprintf(output, "\"exceptions\": %llu, ", ua->exceptions);
+			fprintf(output, "\"requests\": %llu, ", (long long unsigned int)ua->requests);
+			fprintf(output, "\"exceptions\": %llu, ", (long long unsigned int)ua->exceptions);
 
 			if (ua->chdir) {
 				fprintf(output, "\"chdir\": \"%s\", ", ua->chdir);
