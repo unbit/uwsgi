@@ -65,6 +65,7 @@ class uWSGIDistribution(Distribution):
         self.cmdclass['build_ext'] = uWSGIBuilder
 
 
+print os.environ
 setup(name='uWSGI',
       version=uc.uwsgi_version,
       description='The uWSGI server',
