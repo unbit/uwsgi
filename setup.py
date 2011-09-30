@@ -43,13 +43,11 @@ class uWSGIBuilder(build_ext):
 class uWSGIInstall(install):
 
     def run(self):
-        # hack, hack and still hack. We need to find a solution...
-        if self.record:
-            record_file = open(self.record,'w')
 
         conf = uc.uConf(get_profile())
         patch_bin_path(self, conf)
         uc.build_uwsgi( conf )
+        install.run(self)
 
 class uWSGIInstallLib(install_lib):
 
