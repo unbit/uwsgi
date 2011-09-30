@@ -828,7 +828,7 @@ int uwsgi_init(int argc, char *argv[], char *envp[]) {
 int main(int argc, char *argv[], char *envp[]) {
 #endif
 
-	int i, j;
+	int i;
 	int rlen;
 
 	FILE *pidfile;
@@ -1212,55 +1212,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	// second pass
-	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-		int has_percent = 0;
-		char *magic_key = NULL;
-		char *magic_val = NULL;
-		if (uwsgi.exported_opts[i]->value && !uwsgi.exported_opts[i]->configured) {
-			for (j = 0; j < (int) strlen(uwsgi.exported_opts[i]->value); j++) {
-				if (uwsgi.exported_opts[i]->value[j] == '%') {
-					has_percent = 1;
-				}
-				else if (uwsgi.exported_opts[i]->value[j] == '(' && has_percent == 1) {
-					has_percent = 2;
-					magic_key = uwsgi.exported_opts[i]->value + j + 1;
-				}
-				else if (has_percent > 1) {
-					if (uwsgi.exported_opts[i]->value[j] == ')') {
-						if (has_percent <= 2) {
-							magic_key = NULL;
-							has_percent = 0;
-							continue;
-						}
-#ifdef UWSGI_DEBUG
-						uwsgi_log("need to interpret the %.*s tag\n", has_percent - 2, magic_key);
-#endif
-						char *tmp_magic_key = uwsgi_concat2n(magic_key, has_percent - 2, "", 0);
-						magic_val = uwsgi_get_exported_opt(tmp_magic_key);
-						free(tmp_magic_key);
-						if (!magic_val) {
-							magic_key = NULL;
-							has_percent = 0;
-							continue;
-						}
-						uwsgi.exported_opts[i]->value = uwsgi_concat4n(uwsgi.exported_opts[i]->value, (magic_key - 2) - uwsgi.exported_opts[i]->value, magic_val, strlen(magic_val), magic_key + (has_percent - 1), strlen(magic_key + (has_percent - 1)), "", 0);
-#ifdef UWSGI_DEBUG
-						uwsgi_log("computed new value = %s\n", uwsgi.exported_opts[i]->value);
-#endif
-						magic_key = NULL;
-						has_percent = 0;
-						j = 0;
-					}
-					else {
-						has_percent++;
-					}
-				}
-				else {
-					has_percent = 0;
-				}
-			}
-		}
-	}
+	uwsgi_apply_config_pass('%', uwsgi_get_exported_opt);
+
+	// third pass: ENVs
+	uwsgi_apply_config_pass('$', (char *(*)(char *))getenv);
+
 
 
 	// ok, the options dictionary is available, lets manage it

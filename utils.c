@@ -3088,4 +3088,60 @@ void uwsgi_build_cap(char *what) {
         free(caps);
 
 }
+
+void uwsgi_apply_config_pass(char symbol, char*(*hook)(char *) ) {
+
+	int i, j;
+
+	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+                int has_symbol = 0;
+                char *magic_key = NULL;
+                char *magic_val = NULL;
+                if (uwsgi.exported_opts[i]->value && !uwsgi.exported_opts[i]->configured) {
+                        for (j = 0; j < (int) strlen(uwsgi.exported_opts[i]->value); j++) {
+                                if (uwsgi.exported_opts[i]->value[j] == symbol) {
+                                        has_symbol = 1;
+                                }
+                                else if (uwsgi.exported_opts[i]->value[j] == '(' && has_symbol == 1) {
+                                        has_symbol = 2;
+                                        magic_key = uwsgi.exported_opts[i]->value + j + 1;
+                                }
+                                else if (has_symbol > 1) {
+                                        if (uwsgi.exported_opts[i]->value[j] == ')') {
+                                                if (has_symbol <= 2) {
+                                                        magic_key = NULL;
+                                                        has_symbol = 0;
+                                                        continue;
+                                                }
+#ifdef UWSGI_DEBUG
+                                                uwsgi_log("need to interpret the %.*s tag\n", has_symbol - 2, magic_key);
+#endif
+                                                char *tmp_magic_key = uwsgi_concat2n(magic_key, has_symbol - 2, "", 0);
+                                                magic_val = hook(tmp_magic_key);
+                                                free(tmp_magic_key);
+                                                if (!magic_val) {
+                                                        magic_key = NULL;
+                                                        has_symbol = 0;
+                                                        continue;
+                                                }
+                                                uwsgi.exported_opts[i]->value = uwsgi_concat4n(uwsgi.exported_opts[i]->value, (magic_key - 2) - uwsgi.exported_opts[i]->value, magic_val, strlen(magic_val), magic_key + (has_symbol - 1), strlen(magic_key + (has_symbol - 1)), "", 0);
+#ifdef UWSGI_DEBUG
+                                                uwsgi_log("computed new value = %s\n", uwsgi.exported_opts[i]->value);
+#endif
+                                                magic_key = NULL;
+                                                has_symbol = 0;
+                                                j = 0;
+                                        }
+                                        else {
+                                                has_symbol++;
+                                        }
+                                }
+                                else {
+                                        has_symbol = 0;
+                                }
+                        }
+                }
+        }
+
+}
 #endif

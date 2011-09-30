@@ -2233,6 +2233,8 @@ struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int,
 
 void uwsgi_send_stats(int);
 
+void uwsgi_apply_config_pass(char symbol, char*(*)(char *) );
+
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);
 #endif
