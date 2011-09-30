@@ -366,7 +366,10 @@ int uwsgi_parse_packet(struct wsgi_request *wsgi_req, int timeout) {
 			status = uwsgi_proto_uwsgi_parser(wsgi_req);
 		}
 		if (status < 0) {
-			uwsgi_log("error parsing request\n");
+			if (status == -1)
+				uwsgi_log("error parsing request\n");
+			else if (status == -2)
+				uwsgi_log("open-close packet (ping/check) received\n");
 			//close(upoll->fd);
 			return 0;
 		}
