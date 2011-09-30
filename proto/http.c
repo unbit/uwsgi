@@ -261,10 +261,11 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	len = read(wsgi_req->poll.fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
 	if (len <= 0) {
 		free(wsgi_req->proto_parser_buf);
-		if (len < 0)
+		if (len < 0) {
 			uwsgi_error("recv()");
+		}
 		// this is simple ping packet
-		else return -2;
+		else { return -2; }
 		return -1;
 	}
 
