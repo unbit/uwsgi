@@ -3089,6 +3089,8 @@ void uwsgi_build_cap(char *what) {
 
 }
 
+#endif
+
 void uwsgi_apply_config_pass(char symbol, char*(*hook)(char *) ) {
 
 	int i, j;
@@ -3144,4 +3146,3 @@ void uwsgi_apply_config_pass(char symbol, char*(*hook)(char *) ) {
         }
 
 }
-#endif
