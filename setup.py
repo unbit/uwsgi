@@ -66,6 +66,7 @@ class uWSGIDistribution(Distribution):
 
 
 print os.environ
+print sys.argv
 setup(name='uWSGI',
       version=uc.uwsgi_version,
       description='The uWSGI server',
