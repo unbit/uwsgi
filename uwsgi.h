@@ -949,41 +949,67 @@ struct uwsgi_signal_rb_timer {
 struct uwsgi_server {
 
 
+	// store the machine hostname
 	char hostname[256];
 	int hostname_len;
+
+	// quiet startup
 	int no_initial_output;
+
+	// enable threads
 	int has_threads;
+
+	// default app id
 	int default_app;
 
 	char *logto2;
 
+	// autoload plugins
 	int autoload;
 
 	int snapshot;
+
+	// enable auto-snapshotting
 	int auto_snapshot;
 	pid_t restore_snapshot;
+
+
 	int respawn_workers;
 	unsigned int reloads;
+
+	// leave master running as root
 	int master_as_root;
+	// kill the stack on SIGTERM (instead of brutal reloading)
 	int die_on_term;
 
+	// disable fd passing on unix socket
 	int no_fd_passing;
 
+	// store the current time
 	time_t current_time;
+
 	uint64_t master_cycles;
 
 	int reuse_port;
 
+	// enable lazy mode
 	int lazy;
+	// enable cheap mode
 	int cheap;
+	// enable cheaper mode
 	int cheaper;
+	// minimal number of running workers in cheaper mode
 	int cheaper_count;
+	// enable idle mode
 	int idle;
 	
+	// destroy the stack when idle
 	int die_on_idle;
 
+	// store the screen session
 	char *screen_session;
 
+	// true if run under the emperor
 	int has_emperor;
 	int emperor_fd;
 	int emperor_tyrant;
@@ -995,39 +1021,53 @@ struct uwsgi_server {
 	int	emperor_broodlord;
 	int	emperor_broodlord_count;
 	struct uwsgi_config_template *vassals_templates;
+	// true if loyal to the emperor
 	int loyal;
 
+	// amqp support
 	char *emperor_amqp_vhost;
 	char *emperor_amqp_username;
 	char *emperor_amqp_password;
 
+	// emperor hook (still in development)
 	char *vassals_start_hook;
 	char *vassals_stop_hook;
 
 	struct uwsgi_string_list *additional_headers;
 
+	// maximum time to wait after a reload
 	time_t master_mercy;
 
+	// set cpu affinity
 	int cpu_affinity;
 
 	int reload_mercy;
+	// map reloads to death
 	int exit_on_reload;
+
+	// store options
 	int option_index;
 	struct option *long_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
+
+	// dump the whole set of options
 	int dump_options;
+	// show ini representation of the current config
 	int show_config;
+
 	//base for all the requests(even on async mode)
 	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;
 
 	char *remap_modifier;
 
+	// enable zerg mode
 	int *zerg;
 	char *zerg_server;
 	int zerg_server_fd;
 
+	// security
 	char *chroot;
 	gid_t gid;
 	uid_t uid;
@@ -1039,10 +1079,16 @@ struct uwsgi_server {
 	int cap_count;
 #endif
 
+	// still working on it
 	char *profiler;
+
+	// mostly useless
 	char *mode;
 
+	// binary path the worker image
 	char *worker_exec;
+
+	// gateways
 	struct uwsgi_gateway gateways[MAX_GATEWAYS];
 	int gateways_cnt;
 
@@ -1050,13 +1096,16 @@ struct uwsgi_server {
 	int ignore_script_name;
 	int manage_script_name;
 	int no_default_app;
+
 	int logdate;
 	int log_micros;
 	char *log_strftime;
 
 	int honour_stdin;
 
+	// route all of the logs to the master process
 	int log_master;
+
 	int log_syslog;
 	int original_log_fd;
 
@@ -1065,6 +1114,8 @@ struct uwsgi_server {
 	union uwsgi_sockaddr *log_socket_addr;
 	socklen_t log_socket_size;
 
+
+	// static file serving
 	char *check_static;
 	size_t check_static_len;
 	int file_serve_mode;
@@ -1077,6 +1128,7 @@ struct uwsgi_server {
 	char *logfile;
 	int logfile_chown;
 
+	// enable vhost mode
 	int vhost;
 	int vhost_host;
 
@@ -1084,6 +1136,7 @@ struct uwsgi_server {
 	char **async_buf;
 	char **async_post_buf;
 
+	// async commodity
 	struct wsgi_request **async_waiting_fd_table;
 	struct wsgi_request **async_proto_fd_table;
 	struct uwsgi_async_request *async_runqueue;
@@ -1100,10 +1153,14 @@ struct uwsgi_server {
 	int **async_ovector;
 #endif
 
+	// store rlimit
 	struct rlimit rl;
 	size_t limit_post;
+
+	// set process priority
 	int prio;
 
+	// funny reload systems
 	int reload_on_as;
 	int reload_on_rss;
 	char *touch_reload;
@@ -1111,8 +1168,10 @@ struct uwsgi_server {
 
 	int propagate_touch;
 
+	// enable grunt mode
 	int grunt;
 
+	// store the binary path
 	char *binary_path;
 
 	int is_a_reload;
@@ -1147,6 +1206,7 @@ struct uwsgi_server {
 
 	int buffer_size;
 
+	// post buffering
 	int post_buffering;
 	int post_buffering_harakiri;
 	int post_buffering_bufsize;
@@ -1154,6 +1214,7 @@ struct uwsgi_server {
 	int master_process;
 	int master_queue;
 
+	// mainly iseful for broodlord mode
 	int vassal_sos_backlog;
 
 	int no_defer_accept;
@@ -1178,10 +1239,12 @@ struct uwsgi_server {
 	int max_vars;
 	int vec_size;
 
+	// shared area
 	char *sharedarea;
 	uint64_t sharedareasize;
 
 #ifdef UWSGI_THREADING
+	// avoid thundering herd in threaded modes
 	pthread_mutex_t six_feet_under_lock;
 #endif
 
@@ -1272,6 +1335,7 @@ struct uwsgi_server {
 
 	char *cwd;
 
+	// conditional logging
 	int log_slow_requests;
 	int log_zero_headers;
 	int log_empty_body;
@@ -1373,6 +1437,7 @@ struct uwsgi_server {
 	int cache_server_fd;
 	pthread_mutex_t cache_server_lock;
 
+	// the stats server
 	char *stats;
 	int stats_fd;
 
@@ -1405,6 +1470,7 @@ struct uwsgi_server {
 	char *startup_daemons[MAX_DAEMONS];
 	int startup_daemons_cnt;
 
+	// subscription client
 	char *subscriptions[MAX_SUBSCRIPTIONS];
 	int subscriptions_cnt;
 
