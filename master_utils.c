@@ -265,6 +265,9 @@ void uwsgi_manage_command_cron(time_t now) {
 
 }
 
+#define stats_send_llu(x, y) fprintf(output, x, (long long unsigned int) y)
+#define stats_send(x, y) fprintf(output, x, y)
+
 void uwsgi_send_stats(int fd) {
 
 	int i,j;
@@ -284,15 +287,15 @@ void uwsgi_send_stats(int fd) {
 		return;
 	}
 
-	fprintf(output,"{\"workers\": [\n");
+	stats_send("{ \"version\": \"%s\",\n\"workers\": [\n", UWSGI_VERSION);
 
 	for (i = 0; i < uwsgi.numproc; i++) {
 		fprintf(output,"\t{");
 
 		fprintf(output,"\"id\": %d, ", uwsgi.workers[i+1].id);
 		fprintf(output,"\"pid\": %d, ", uwsgi.workers[i+1].pid);
-		fprintf(output,"\"requests\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].requests);
-		fprintf(output,"\"exceptions\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].exceptions);
+		stats_send_llu("\"requests\": %llu, ", uwsgi.workers[i+1].requests);
+		stats_send_llu("\"exceptions\": %llu, ", uwsgi.workers[i+1].exceptions);
 
 		if (uwsgi.workers[i + 1].cheaped) {
 			fprintf(output,"\"status\": \"cheap\", ");
@@ -306,18 +309,18 @@ void uwsgi_send_stats(int fd) {
                         }
                 }
 
-		fprintf(output,"\"rss\": %llu, ", (long long unsigned int)uwsgi.workers[i+1].rss_size);
-		fprintf(output,"\"vsz\": %llu, ", (long long unsigned int)uwsgi.workers[i+1].vsz_size);
+		stats_send_llu("\"rss\": %llu, ", uwsgi.workers[i+1].rss_size);
+		stats_send_llu("\"vsz\": %llu, ", uwsgi.workers[i+1].vsz_size);
 
-		fprintf(output,"\"running_time\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].running_time);
+		stats_send_llu("\"running_time\": %llu, ", uwsgi.workers[i+1].running_time);
 
-		fprintf(output,"\"last_spawn\": %llu, ", (unsigned long long) uwsgi.workers[i+1].last_spawn);
+		stats_send_llu("\"last_spawn\": %llu, ", uwsgi.workers[i+1].last_spawn);
 
-		fprintf(output,"\"respawn_count\": %llu, ", (long long unsigned int)uwsgi.workers[i+1].respawn_count);
+		stats_send_llu("\"respawn_count\": %llu, ", uwsgi.workers[i+1].respawn_count);
 
-		fprintf(output,"\"tx\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].tx);
+		stats_send_llu("\"tx\": %llu, ", uwsgi.workers[i+1].tx);
 
-		fprintf(output,"\"avg_rt\": %llu, ", (long long unsigned int) uwsgi.workers[i+1].avg_response_time);
+		stats_send_llu("\"avg_rt\": %llu, ", uwsgi.workers[i+1].avg_response_time);
 		
 		fprintf(output,"\"apps\": [\n");
 
@@ -329,8 +332,8 @@ void uwsgi_send_stats(int fd) {
 			fprintf(output, "\"modifier1\": %d, ", ua->modifier1);
 			fprintf(output, "\"mountpoint\": \"%.*s\", ", ua->mountpoint_len, ua->mountpoint);
 
-			fprintf(output, "\"requests\": %llu, ", (long long unsigned int)ua->requests);
-			fprintf(output, "\"exceptions\": %llu, ", (long long unsigned int)ua->exceptions);
+			stats_send_llu( "\"requests\": %llu, ", ua->requests);
+			stats_send_llu( "\"exceptions\": %llu, ", ua->exceptions);
 
 			if (ua->chdir) {
 				fprintf(output, "\"chdir\": \"%s\", ", ua->chdir);

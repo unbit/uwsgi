@@ -51,6 +51,8 @@ struct option uwsgi_python_options[] = {
 	{"no-site", no_argument, &Py_NoSiteFlag, 1},
 #endif
 	{"pyshell", no_argument, 0, LONG_ARGS_PYSHELL},
+	{"python", required_argument, 0, LONG_ARGS_PYTHON_RUN},
+	{"py", required_argument, 0, LONG_ARGS_PYTHON_RUN},
 
 	{0, 0, 0, 0},
 };
@@ -523,12 +525,20 @@ void init_uwsgi_embedded_module() {
 		}
 	}
 
+	uwsgi_log("getting exported opts\n");
+
 	PyObject *py_opt_dict = PyDict_New();
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+		uwsgi_log("%s = %s\n", uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
 		if (PyDict_Contains(py_opt_dict, PyString_FromString(uwsgi.exported_opts[i]->key))) {
 			PyObject *py_opt_item = PyDict_GetItemString(py_opt_dict, uwsgi.exported_opts[i]->key);
 			if (PyList_Check(py_opt_item)) {
-				PyList_Append(py_opt_item, PyString_FromString(uwsgi.exported_opts[i]->value));
+				if (uwsgi.exported_opts[i]->value == NULL) {
+					PyList_Append(py_opt_item, Py_True);
+				}
+				else {
+					PyList_Append(py_opt_item, PyString_FromString(uwsgi.exported_opts[i]->value));
+				}
 			}
 			else {
 				PyObject *py_opt_list = PyList_New(0);
@@ -552,6 +562,8 @@ void init_uwsgi_embedded_module() {
 			}
 		}
 	}
+
+	uwsgi_log("DONE\n");
 
 	if (PyDict_SetItemString(up.embedded_dict, "opt", py_opt_dict)) {
 		PyErr_Print();
@@ -898,13 +910,17 @@ void uwsgi_python_init_apps() {
 #endif
 	}
 
+	uwsgi_log("init_pyargv\n");
 	init_pyargv();
+	uwsgi_log("init_pyargv\n");
 
 #ifndef UWSGI_PYPY
 #ifdef UWSGI_EMBEDDED
         init_uwsgi_embedded_module();
 #endif
 #endif
+
+	uwsgi_log("init_pyargv\n");
 
 #ifdef __linux__
 #if !defined(PYTHREE) && !defined(UWSGI_PYPY)
@@ -918,6 +934,8 @@ void uwsgi_python_init_apps() {
                 }
                 exit(1);
         }
+
+	uwsgi_log("init_pyargv\n");
 
         init_uwsgi_vars();
 

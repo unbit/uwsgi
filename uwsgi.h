@@ -517,6 +517,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CHEAPER		17140
 #define LONG_ARGS_CAP			17141
 #define LONG_ARGS_STATS			17142
+#define LONG_ARGS_MULE			17143
 
 
 #define UWSGI_OK	0
@@ -1188,11 +1189,18 @@ struct uwsgi_server {
 	/* the list of workers */
 	struct uwsgi_worker *workers;
 
+	/* the list of mules */
+	struct uwsgi_string_list *mules_patches;
+	struct uwsgi_mule *mules;
+
 	/* the dedicated signal_pipe */
 	int **signal_pipe;
 
 	pid_t mypid;
 	int mywid;
+
+	int muleid;
+	int mules_cnt;
 
 	rlim_t max_fd;
 
@@ -1606,6 +1614,24 @@ struct uwsgi_worker {
 
 	uint64_t avg_response_time;
 
+};
+
+struct uwsgi_mule {
+	int id;
+	pid_t pid;
+
+	int signal_pipe[2];
+	int queue_pipe[2];
+
+	time_t last_spawn;
+	uint64_t respawn_count;
+
+	// signals managed by this mule
+	uint64_t signals;
+
+	int patched;
+
+	char name[0xff];
 };
 
 
@@ -2235,6 +2261,8 @@ struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int,
 void uwsgi_send_stats(int);
 
 void uwsgi_apply_config_pass(char symbol, char*(*)(char *) );
+
+void uwsgi_mule(int);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

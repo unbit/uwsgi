@@ -480,10 +480,10 @@ int master_loop(char **argv, char **environ) {
 #endif
 
 	
-/*
-
-
-*/
+	// spawn mules
+	for(i=0;i<uwsgi.mules_cnt;i++) {
+		uwsgi_mule(i+1);
+	}
 
 	// spawn fat gateways
 	for(i=0;i<uwsgi.gateways_cnt;i++) {
@@ -1377,6 +1377,19 @@ healthy:
 			}
 		}
 #endif
+
+		pid_found = 0;
+		for(i=0;i<uwsgi.mules_cnt;i++) {
+                        if (uwsgi.mules[i].pid == diedpid) {
+				uwsgi_log("OOOPS mule %d crippled...trying respawn...\n", i+1);
+                                uwsgi_mule(i+1);
+				pid_found = 1;
+				break;
+                        }
+                }
+
+		if (pid_found) continue;
+
 
 		/* reload the gateways */
 		// TODO reload_gateway(diedpid);

@@ -195,6 +195,20 @@ void uwsgi_route_signal(uint8_t sig) {
                 	}
 		}
 	}
+	else if (!strcmp(use->receiver, "mules")) {
+	}
+	else if (!strncmp(use->receiver, "mule", 4)) {
+		i = atoi(use->receiver+4);
+		if (i > uwsgi.mules_cnt || i == 0) {
+			uwsgi_log("invalid signal target: %s\n", use->receiver);
+		}
+		else {
+			if (write(uwsgi.mules[i-1].signal_pipe[0], &sig, 1) != 1) {
+                                uwsgi_error("write()");
+                                uwsgi_log("could not deliver signal %d to mule\n", sig, i);
+                        }
+		}
+	}
 	else {
 		// unregistered signal, sending it to all the workers
 		uwsgi_log("^^^ UNSUPPORTED SIGNAL TARGET: %s ^^^\n", use->receiver);

@@ -115,6 +115,7 @@ static struct option long_base_options[] = {
 	{"spooler", required_argument, 0, 'Q'},
 	{"spooler-ordered", no_argument, &uwsgi.spooler_ordered, 1},
 #endif
+	{"mule", optional_argument, 0, LONG_ARGS_MULE},
 	{"disable-logging", no_argument, 0, 'L'},
 
 	{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
@@ -2124,6 +2125,15 @@ skipzero:
 
 	uwsgi.workers[0].pid = masterpid;
 
+	if (uwsgi.mules_cnt > 0) {
+		uwsgi.mules = (struct uwsgi_mule *) mmap(NULL, sizeof(struct uwsgi_mule) * uwsgi.mules_cnt, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (!uwsgi.mules) {
+			uwsgi_error("mmap()");
+                	exit(1);
+		}
+		memset(uwsgi.mules, 0, sizeof(struct uwsgi_mule) * uwsgi.mules_cnt);
+	}
+
 	/*
 
 	   uwsgi.shared->hooks[0] = uwsgi_request_wsgi;
@@ -2181,10 +2191,11 @@ skipzero:
 		memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
 	}
 
-
 	//init apps hook (if not lazy)
 	if (!uwsgi.lazy) {
+		uwsgi_log("INIT APPS\n");
 		uwsgi_init_all_apps();
+		uwsgi_log("DONE\n");
 	}
 
 	if (uwsgi.no_server) {
@@ -3193,6 +3204,11 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi_string_new_list(&uwsgi.ini, optarg);
 		return 1;
 #endif
+	case LONG_ARGS_MULE:
+		uwsgi.master_process = 1;
+		uwsgi.mules_cnt++;
+		uwsgi_string_new_list(&uwsgi.mules_patches, optarg);
+		return 1;
 	case LONG_ARGS_SOCKET_PROTOCOL:
 		// TODO map each socket to a specific protocol
 		return 1;
