@@ -308,7 +308,7 @@ void uwsgi_send_stats(int fd) {
 		fprintf(output,"\t{");
 
 		fprintf(output,"\"id\": %d, ", uwsgi.workers[i+1].id);
-		fprintf(output,"\"pid\": %d, ", uwsgi.workers[i+1].pid);
+		fprintf(output,"\"pid\": %d, ", (int) uwsgi.workers[i+1].pid);
 		stats_send_llu("\"requests\": %llu, ", uwsgi.workers[i+1].requests);
 		stats_send_llu("\"exceptions\": %llu, ", uwsgi.workers[i+1].exceptions);
 
