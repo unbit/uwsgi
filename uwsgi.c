@@ -520,6 +520,11 @@ void kill_them_all(int signum) {
 			kill(uwsgi.gateways[i].pid, SIGKILL);
 	}
 
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0)
+			kill(uwsgi.mules[i].pid, SIGKILL);
+	}
+
 }
 
 void grace_them_all(int signum) {
@@ -561,6 +566,11 @@ void grace_them_all(int signum) {
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
 		if (uwsgi.gateways[i].pid > 0)
 			kill(uwsgi.gateways[i].pid, SIGKILL);
+	}
+
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0)
+			kill(uwsgi.mules[i].pid, SIGKILL);
 	}
 
 
@@ -628,6 +638,11 @@ void reap_them_all(int signum) {
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
 		if (uwsgi.gateways[i].pid > 0)
 			kill(uwsgi.gateways[i].pid, SIGKILL);
+	}
+
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0)
+			kill(uwsgi.mules[i].pid, SIGKILL);
 	}
 
 	if (uwsgi.emperor_pid >= 0) {
@@ -928,6 +943,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->spooler_signal_pipe[0] = -1;
 	uwsgi.shared->spooler_signal_pipe[1] = -1;
 #endif
+	uwsgi.shared->mule_signal_pipe[0] = -1;
+	uwsgi.shared->mule_signal_pipe[1] = -1;
 
 	uwsgi.mime_file = "/etc/mime.types";
 
@@ -2132,6 +2149,18 @@ skipzero:
                 	exit(1);
 		}
 		memset(uwsgi.mules, 0, sizeof(struct uwsgi_mule) * uwsgi.mules_cnt);
+
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->mule_signal_pipe)) {
+			uwsgi_error("socketpair()");
+			exit(1);
+		}
+
+		for(i=0;i<uwsgi.mules_cnt;i++) {
+			if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.mules[i].queue_pipe)) {
+				uwsgi_error("socketpair()");
+				exit(1);
+			}
+		}
 	}
 
 	/*
@@ -2193,9 +2222,7 @@ skipzero:
 
 	//init apps hook (if not lazy)
 	if (!uwsgi.lazy) {
-		uwsgi_log("INIT APPS\n");
 		uwsgi_init_all_apps();
-		uwsgi_log("DONE\n");
 	}
 
 	if (uwsgi.no_server) {

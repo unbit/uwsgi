@@ -657,10 +657,11 @@ struct uwsgi_plugin {
 
 	int (*spooler) (char *, char *, uint16_t, char *, size_t);
 
-	 uint16_t(*rpc) (void *, uint8_t, char **, char *);
+	uint16_t(*rpc) (void *, uint8_t, char **, char *);
 
 	void (*jail) (int (*)(void *), char **);
 
+	int (*mule)(char *);
 	struct uwsgi_help_item *help;
 
 };
@@ -1592,6 +1593,8 @@ struct uwsgi_shared {
 #ifdef UWSGI_SPOOLER
 	int spooler_signal_pipe[2];
 #endif
+	int mule_signal_pipe[2];
+
 	struct uwsgi_signal_entry signal_table[256];
 
 	struct uwsgi_fmon files_monitored[64];
@@ -1692,10 +1695,10 @@ struct uwsgi_mule {
 	time_t last_spawn;
 	uint64_t respawn_count;
 
+	char *patch;
+
 	// signals managed by this mule
 	uint64_t signals;
-
-	int patched;
 
 	char name[0xff];
 };
@@ -2329,6 +2332,8 @@ void uwsgi_send_stats(int);
 void uwsgi_apply_config_pass(char symbol, char*(*)(char *) );
 
 void uwsgi_mule(int);
+
+char *uwsgi_string_get_list(struct uwsgi_string_list **, int, size_t *);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

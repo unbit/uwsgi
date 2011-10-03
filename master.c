@@ -482,6 +482,8 @@ int master_loop(char **argv, char **environ) {
 	
 	// spawn mules
 	for(i=0;i<uwsgi.mules_cnt;i++) {
+		size_t mule_patch_size = 0;
+		uwsgi.mules[i].patch = uwsgi_string_get_list(&uwsgi.mules_patches, i, &mule_patch_size);
 		uwsgi_mule(i+1);
 	}
 

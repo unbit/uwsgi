@@ -44,6 +44,8 @@ routes['/options'] = serve_options
 
 def application(env, start_response):
 
+    uwsgi.mule_msg(env['REQUEST_URI'], 1)
+
     gc.collect(2)
     if DEBUG:
         print env['wsgi.input'].fileno()

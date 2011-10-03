@@ -1050,6 +1050,52 @@ PyObject *py_uwsgi_embedded_data(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
+
+	char *message = NULL;
+	Py_ssize_t message_len = 0;
+	int mule_id = 0;
+	ssize_t len;
+
+	if (!PyArg_ParseTuple(args, "s#|i:mule_msg", &message, &message_len, &mule_id)) {
+                return NULL;
+        }
+
+	if (mule_id == 0) {
+	}
+	else if (mule_id > 0 && mule_id <= uwsgi.mules_cnt) {
+		len = write(uwsgi.mules[mule_id-1].queue_pipe[0], message, message_len);
+		if (len <= 0) {
+			uwsgi_error("write()");
+		}
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+	
+}
+
+PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args) {
+
+	ssize_t len;
+	// this buffer will be configurable
+	char message[65536];
+
+	if (uwsgi.muleid == 0) {
+		return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
+	}
+	UWSGI_RELEASE_GIL;
+	len = read(uwsgi.mules[uwsgi.muleid-1].queue_pipe[1], message, 65536);
+	UWSGI_GET_GIL;
+	if (len <= 0) {
+		uwsgi_error("read()");
+		Py_INCREF(Py_None);
+        	return Py_None;
+	}
+
+	return PyString_FromStringAndSize(message, len);
+}
+
 PyObject *py_uwsgi_extract(PyObject * self, PyObject * args) {
 
         char *name;
@@ -2784,6 +2830,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"parsefile", py_uwsgi_parse_file, METH_VARARGS, ""},
 	{"embedded_data", py_uwsgi_embedded_data, METH_VARARGS, ""},
 	{"extract", py_uwsgi_extract, METH_VARARGS, ""},
+
+	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
+	{"mule_get_msg", py_uwsgi_mule_get_msg, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{NULL, NULL},

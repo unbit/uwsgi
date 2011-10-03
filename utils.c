@@ -2613,6 +2613,25 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list,
         return uwsgi_string;
 }
 
+char *uwsgi_string_get_list(struct uwsgi_string_list **list, int pos, size_t *len) {
+
+	struct uwsgi_string_list *uwsgi_string = *list;
+	int counter = 0;
+
+	while(uwsgi_string) {
+		if (counter == pos) {
+			*len = uwsgi_string->len;
+			return uwsgi_string->value;
+		}
+		uwsgi_string = uwsgi_string->next;
+		counter++;
+	}
+
+	*len = 0;
+	return NULL;
+	
+}
+
 
 void uwsgi_string_del_list(struct uwsgi_string_list **list, struct uwsgi_string_list *item) {
 
