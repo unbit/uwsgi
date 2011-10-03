@@ -46,6 +46,12 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, i
         		wsgi_req->if_modified_since = val;
                 	wsgi_req->if_modified_since_len = vallen;
         	}
+		else if (!uwsgi_strncmp("X_FORWARDED_SSL", 15, hh, keylen)) {
+			if (vallen == 2 && val[0] == 'o' && val[1] == 'n') {
+				wsgi_req->scheme = "https";
+				wsgi_req->scheme_len = 5;
+			}
+		}
 		else if (uwsgi.vhost_host && !uwsgi_strncmp("HOST", 4, hh, keylen)) {
         		wsgi_req->host = val;
                 	wsgi_req->host_len = vallen;
