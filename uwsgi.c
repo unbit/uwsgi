@@ -1542,7 +1542,7 @@ int uwsgi_start(void *v_argv) {
 	}
 	if (!getrlimit(RLIMIT_AS, &uwsgi.rl)) {
 		//check for overflow
-		if (uwsgi.rl.rlim_max != RLIM_INFINITY && !uwsgi.no_initial_output) {
+		if (uwsgi.rl.rlim_max != (rlim_t) RLIM_INFINITY && !uwsgi.no_initial_output) {
 			uwsgi_log("your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
 		}
 	}
