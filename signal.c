@@ -196,16 +196,28 @@ void uwsgi_route_signal(uint8_t sig) {
 		}
 	}
 	else if (!strcmp(use->receiver, "mules")) {
+		for(i=0;i<uwsgi.mules_cnt;i++) {
+			if (write(uwsgi.mules[i].signal_pipe[0], &sig, 1) != 1) {
+                                uwsgi_error("write()");
+                                uwsgi_log("could not deliver signal %d to mule %d\n", sig, i+1);
+                        }
+		}
 	}
 	else if (!strncmp(use->receiver, "mule", 4)) {
 		i = atoi(use->receiver+4);
-		if (i > uwsgi.mules_cnt || i == 0) {
+		if (i > uwsgi.mules_cnt) {
 			uwsgi_log("invalid signal target: %s\n", use->receiver);
+		}
+		else if (i == 0) {
+			if (write(ushared->mule_signal_pipe[0], &sig, 1) != 1) {
+                                uwsgi_error("write()");
+                                uwsgi_log("could not deliver signal %d to a mule\n", sig);
+                        }
 		}
 		else {
 			if (write(uwsgi.mules[i-1].signal_pipe[0], &sig, 1) != 1) {
                                 uwsgi_error("write()");
-                                uwsgi_log("could not deliver signal %d to mule\n", sig, i);
+                                uwsgi_log("could not deliver signal %d to mule %d\n", sig, i);
                         }
 		}
 	}
