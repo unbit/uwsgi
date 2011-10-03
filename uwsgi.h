@@ -1257,9 +1257,6 @@ struct uwsgi_server {
 	struct uwsgi_string_list *mules_patches;
 	struct uwsgi_mule *mules;
 
-	/* the dedicated signal_pipe */
-	int **signal_pipe;
-
 	pid_t mypid;
 	int mywid;
 
@@ -1680,6 +1677,8 @@ struct uwsgi_worker {
 
 	int busy;
 	int cheaped;
+
+	int signal_pipe[2];
 
 	uint64_t avg_response_time;
 
@@ -2334,6 +2333,8 @@ void uwsgi_apply_config_pass(char symbol, char*(*)(char *) );
 void uwsgi_mule(int);
 
 char *uwsgi_string_get_list(struct uwsgi_string_list **, int, size_t *);
+
+void uwsgi_fixup_fds(int, int);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

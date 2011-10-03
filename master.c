@@ -1374,7 +1374,7 @@ healthy:
 				uwsgi_log( "OOOPS the spooler is no more...trying respawn...\n");
 				uwsgi.spooler_respawned++;
 				uwsgi.shared->spooler_pid = spooler_start();
-				event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
+				//event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
 				continue;
 			}
 		}

@@ -2130,11 +2130,18 @@ skipzero:
 	}
 	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1);
 
-	uwsgi.signal_pipe = uwsgi_malloc( sizeof(int *) * (uwsgi.numproc + 1));
 	for(i=1;i<=uwsgi.numproc;i++) {
-		uwsgi.signal_pipe[i] = uwsgi_malloc(sizeof(int) * 2);
-		uwsgi.signal_pipe[i][0] = - 1;
-		uwsgi.signal_pipe[i][1] = - 1;
+		uwsgi.workers[i].signal_pipe[0] = - 1;
+		uwsgi.workers[i].signal_pipe[1] = - 1;
+	}
+
+	if (uwsgi.master_process) {
+		for(i=1;i<=uwsgi.numproc;i++) {
+			if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[i].signal_pipe)) {
+                        	uwsgi_error("socketpair()\n");
+				exit(1);
+                	}
+		}
 	}
 
 	uwsgi.mypid = getpid();
@@ -2270,6 +2277,10 @@ skipzero:
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.sockets) {
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->spooler_signal_pipe)) {
+                        uwsgi_error("socketpair()\n");
+                        exit(1);
+                }
 		uwsgi.shared->spooler_pid = spooler_start();
 	}
 #endif

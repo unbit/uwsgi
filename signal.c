@@ -166,7 +166,7 @@ void uwsgi_route_signal(uint8_t sig) {
 	// send to all workers
 	else if (!strcmp(use->receiver, "workers")) {
 		for(i=1;i<=uwsgi.numproc;i++) {
-			if (write(uwsgi.signal_pipe[i][0], &sig, 1) != 1) {
+			if (write(uwsgi.workers[i].signal_pipe[0], &sig, 1) != 1) {
 				uwsgi_error("write()");
 				uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
 			}
@@ -178,7 +178,7 @@ void uwsgi_route_signal(uint8_t sig) {
 		if (i > uwsgi.numproc) {
 			uwsgi_log("invalid signal target: %s\n", use->receiver);
 		}
-		if (write(uwsgi.signal_pipe[i][0], &sig, 1) != 1) {
+		if (write(uwsgi.workers[i].signal_pipe[0], &sig, 1) != 1) {
                         uwsgi_error("write()");
                 	uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
                 }

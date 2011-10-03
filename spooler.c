@@ -16,19 +16,6 @@ pid_t spooler_start() {
 	
 	int i;
 
-	if (uwsgi.master_process) {
-		if (uwsgi.shared->spooler_signal_pipe[0] != -1) {close (uwsgi.shared->spooler_signal_pipe[0]); uwsgi.shared->spooler_signal_pipe[0] = -1;}
-		if (!uwsgi.spooler_respawned) {
-			if (uwsgi.shared->spooler_signal_pipe[1] != -1) {close (uwsgi.shared->spooler_signal_pipe[1]); uwsgi.shared->spooler_signal_pipe[1] = -1;}
-		}
-		// setup internal signalling system
-                if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->spooler_signal_pipe)) {
-                        uwsgi_error("socketpair()\n");
-                        exit(1);
-                }
-	}
-
-
 	pid_t pid = fork();
 	if (pid < 0) {
 		uwsgi_error("fork()");
@@ -41,15 +28,9 @@ pid_t spooler_start() {
 		uwsgi.mypid = getpid();
 		// avoid race conditions !!!
 		uwsgi.shared->spooler_pid = uwsgi.mypid;
+
+		uwsgi_fixup_fds(0, 0);
 		uwsgi_close_all_sockets();
-		if (uwsgi.master_process) {
-			close(uwsgi.shared->spooler_signal_pipe[0]);
-			for(i=1;i<=uwsgi.numproc;i++) {
-				if (uwsgi.signal_pipe[i][0] != -1) {
-					close(uwsgi.signal_pipe[i][0]);
-				}
-			}
-		}
 
 		for (i = 0; i < 0xFF; i++) {
                 	if (uwsgi.p[i]->post_fork) {

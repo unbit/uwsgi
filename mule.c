@@ -24,6 +24,12 @@ void uwsgi_mule(int id) {
 	pid_t pid = fork();
 	if (pid == 0) {
 		uwsgi.muleid = id;
+		// avoid race conditions
+		uwsgi.mules[id-1].id = id;
+		uwsgi.mules[id-1].pid = getpid();
+
+		uwsgi_fixup_fds(0, id);
+
 		uwsgi.my_signal_socket = uwsgi.mules[id-1].signal_pipe[1];
 		uwsgi.signal_socket = uwsgi.shared->mule_signal_pipe[1];
 
@@ -59,7 +65,6 @@ void uwsgi_mule(int id) {
 		uwsgi.mules[id-1].id = id;
 		uwsgi.mules[id-1].pid = pid;
 		uwsgi_log("spawned uWSGI mule %d (pid: %d)\n", id, (int) pid);
-		close(uwsgi.mules[id-1].signal_pipe[1]);
 	}
 }
 
