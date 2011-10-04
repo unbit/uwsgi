@@ -145,7 +145,9 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
                                 		continue;
                         		}
 	
+#ifdef UWSGI_DEBUG
 					uwsgi_log("%s = %s\n", PyString_AsString(k), PyString_AsString(env_value));
+#endif
 
                         		if (PyObject_SetItem(py_environ, k, env_value)) {
                                 		PyErr_Print();
@@ -204,7 +206,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	wi->callable = up.loaders[loader](arg1);
 
 	if (!wi->callable) {
-		uwsgi_log("unable to load app mountpoint=%s\n", mountpoint);
+		uwsgi_log("unable to load app %d (mountpoint='%s') (callable not found or import error)\n", id, mountpoint);
 		goto doh;
 	}
 
@@ -369,13 +371,13 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	}
 
 	if (app_type == PYTHON_APP_TYPE_WSGI) {
-		uwsgi_log( "WSGI application %d (mountpoint=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+		uwsgi_log( "WSGI application %d (mountpoint='%.*s') ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 	else if (app_type == PYTHON_APP_TYPE_WEB3) {
-		uwsgi_log( "Web3 application %d (mountpoint=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+		uwsgi_log( "Web3 application %d (mountpoint='%.*s') ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 	else if (app_type == PYTHON_APP_TYPE_PUMP) {
-		uwsgi_log( "Pump application %d (mountpoint=%.*s) ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
+		uwsgi_log( "Pump application %d (mountpoint='%.*s') ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
 	}
 
 	if ((wsgi_req->appid_len == 0 || (wsgi_req->appid_len = 1 && wsgi_req->appid[0] == '/')) && uwsgi.default_app == -1) {
