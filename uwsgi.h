@@ -289,6 +289,7 @@ struct uwsgi_string_list {
 
 	char *value;
 	size_t len;
+	uint64_t custom;
 	struct uwsgi_string_list *next;
 };
 
@@ -1164,8 +1165,7 @@ struct uwsgi_server {
 	// funny reload systems
 	int reload_on_as;
 	int reload_on_rss;
-	char *touch_reload;
-	time_t last_touch_reload_mtime;
+	struct uwsgi_string_list *touch_reload;
 
 	int propagate_touch;
 

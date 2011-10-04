@@ -513,16 +513,18 @@ int master_loop(char **argv, char **environ) {
 		}
 	}
 
-	if (uwsgi.touch_reload) {
+	struct uwsgi_string_list *touch_reload = uwsgi.touch_reload;
+	while(touch_reload) {
 		struct stat tr_st;
-		if (stat(uwsgi.touch_reload, &tr_st)) {
-			uwsgi_error("stat()");
-			uwsgi_log("unable to stat() %s, touch-reload will be disabled\n", uwsgi.touch_reload);
-			uwsgi.touch_reload = NULL;
+		if (stat(touch_reload->value, &tr_st)) {
+			uwsgi_log("unable to stat() %s, reload will be triggered as soon as the file is created\n", touch_reload->value);
+			touch_reload->custom = 0;
 		}
 		else {
-			uwsgi.last_touch_reload_mtime = tr_st.st_mtime;
+			touch_reload->custom = (uint64_t) tr_st.st_mtime;
 		}
+		touch_reload = touch_reload->next;
+		
 	}
 
 	for (;;) {
@@ -1342,19 +1344,20 @@ healthy:
 			}
 
 			// check touch_reload
-			if (uwsgi.touch_reload && !uwsgi.to_heaven && !uwsgi.to_hell) {
+			struct uwsgi_string_list *touch_reload = uwsgi.touch_reload;
+			while (touch_reload && !uwsgi.to_heaven && !uwsgi.to_hell) {
                 		struct stat tr_st;
-                		if (stat(uwsgi.touch_reload, &tr_st)) {
-                        		uwsgi_error("stat()");
-                        		uwsgi_log("unable to stat() %s, touch-reload will be disabled\n", uwsgi.touch_reload);
-                        		uwsgi.touch_reload = NULL;
+                		if (stat(touch_reload->value, &tr_st)) {
+					touch_reload->custom = 0;
                 		}
                 		else {
-					if (tr_st.st_mtime > uwsgi.last_touch_reload_mtime) {
-						uwsgi_log("*** %s has been touched... grace them all !!! ***\n", uwsgi.touch_reload);
+					if ((uint64_t)tr_st.st_mtime > touch_reload->custom) {
+						uwsgi_log("*** %s has been touched... grace them all !!! ***\n", touch_reload->value);
 						grace_them_all(0);
+						break;
 					}
                 		}
+				touch_reload = touch_reload->next;
 			}
 
 

@@ -3209,7 +3209,7 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.reload_on_rss = atoi(optarg);
 		return 1;
 	case LONG_ARGS_TOUCH_RELOAD:
-		uwsgi.touch_reload = optarg;
+		uwsgi_string_new_list(&uwsgi.touch_reload, optarg);
 		uwsgi.master_process = 1;
 		return 1;
 	case LONG_ARGS_PRIO:
