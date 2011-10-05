@@ -873,6 +873,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
+	signal(SIGPIPE, SIG_IGN);
 
 	//initialize masterpid with a default value
 	masterpid = getpid();
