@@ -634,7 +634,7 @@ healthy:
 			
 				// find the oldest worker and cheap it
 				if (active_workers > uwsgi.cheaper_count+1 || (idle_count > 60 && active_workers > uwsgi.cheaper_count)) {
-					time_t oldest_worker_spawn = LONG_MAX;
+					time_t oldest_worker_spawn = INT_MAX;
 					int oldest_worker = 0;
 					idle_count = 0;
 					for(i=1;i<=uwsgi.numproc;i++) {
