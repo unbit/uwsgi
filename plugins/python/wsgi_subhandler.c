@@ -194,7 +194,11 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 
 #ifdef UWSGI_SENDFILE
+#ifdef __FreeBSD__
+	if ( ((wsgi_req->sendfile_obj == wsgi_req->async_result) || ( wsgi_req->sendfile_fd_size > 0 && wsgi_req->response_size < wsgi_req->sendfile_fd_size)) && wsgi_req->sendfile_fd != -1) {
+#else
 	if (wsgi_req->sendfile_obj == wsgi_req->async_result && wsgi_req->sendfile_fd != -1) {
+#endif
 		sf_len = uwsgi_sendfile(wsgi_req);
 		if (sf_len < 1) goto clear;
 		wsgi_req->response_size += sf_len;

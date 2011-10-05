@@ -56,7 +56,7 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 		sf_ret = sendfile(filefd, sockfd, 0, 0, NULL, &sf_len, 0);
 	}
 
-	if (sf_ret) {
+	if (sf_ret < 0) {
 		if (errno != EAGAIN) {
 			uwsgi_error("sendfile()");
 			return 0;
