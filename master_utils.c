@@ -304,7 +304,9 @@ void uwsgi_send_stats(int fd) {
 
 	stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
 
+#ifdef __linux__
 	stats_send_llu("\"listen_queue\": %llu,\n", uwsgi.shared->ti.tcpi_unacked);
+#endif
 
 	fprintf(output, "\"workers\": [\n");
 
