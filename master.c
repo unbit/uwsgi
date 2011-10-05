@@ -1181,7 +1181,7 @@ healthy:
 						need_free = 1;
 					}
 					char message[1024];
-					int ret = snprintf(message, 1024, "logsize: %llu, triggering rotation to %s...\n", (unsigned long long) uwsgi.shared->logsize, rot_name);
+					int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) time(NULL), (unsigned long long) uwsgi.shared->logsize, rot_name);
 					if (ret > 0) {
 						(void) write(uwsgi.original_log_fd, message, ret);
 					}

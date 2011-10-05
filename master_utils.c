@@ -302,7 +302,11 @@ void uwsgi_send_stats(int fd) {
 		return;
 	}
 
-	stats_send("{ \"version\": \"%s\",\n\"workers\": [\n", UWSGI_VERSION);
+	stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
+
+	stats_send_llu("\"listen_queue\": %llu,\n", uwsgi.shared->ti.tcpi_unacked);
+
+	fprintf(output, "\"workers\": [\n");
 
 	for (i = 0; i < uwsgi.numproc; i++) {
 		fprintf(output,"\t{");
