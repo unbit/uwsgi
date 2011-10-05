@@ -519,6 +519,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_CAP			17141
 #define LONG_ARGS_STATS			17142
 #define LONG_ARGS_MULE			17143
+#define LONG_ARGS_LOG_MAXSIZE		17144
+#define LONG_ARGS_LOG_BACKUPNAME	17145
 
 
 #define UWSGI_OK	0
@@ -1107,6 +1109,11 @@ struct uwsgi_server {
 
 	// route all of the logs to the master process
 	int log_master;
+
+	int log_reopen;
+	int log_truncate;
+	off_t log_maxsize;
+	char *log_backupname;
 
 	int log_syslog;
 	int original_log_fd;

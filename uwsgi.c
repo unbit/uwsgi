@@ -196,6 +196,10 @@ static struct option long_base_options[] = {
 	{"log-zeromq", required_argument, 0, LONG_ARGS_LOG_ZEROMQ},
 #endif
 	{"log-master", no_argument, 0, LONG_ARGS_LOG_MASTER},
+	{"log-reopen", no_argument, &uwsgi.log_reopen, 1},
+	{"log-truncate", no_argument, &uwsgi.log_truncate, 1},
+	{"log-maxsize", required_argument, 0, LONG_ARGS_LOG_MAXSIZE},
+	{"log-backupname", required_argument, 0, LONG_ARGS_LOG_BACKUPNAME},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE},
 	{"log-date", optional_argument, 0, LONG_ARGS_LOG_DATE},
 	{"log-prefix", optional_argument, 0, LONG_ARGS_LOG_DATE},
@@ -2903,9 +2907,22 @@ static int manage_base_opt(int i, char *optarg) {
 		}
 		uwsgi.lazy = 1;
 		return 1;
+	case LONG_ARGS_LOG_MAXSIZE:
+		if (!uwsgi.log_master) {
+			uwsgi.original_log_fd = dup(1);
+			create_logpipe();
+		}
+		uwsgi.log_master = 1;
+		uwsgi.log_maxsize = atoi(optarg);
+		return 1;
+	case LONG_ARGS_LOG_BACKUPNAME:
+		uwsgi.log_backupname = optarg;
+		return 1;
 	case LONG_ARGS_LOG_MASTER:
-		uwsgi.original_log_fd = dup(1);
-		create_logpipe();
+		if (!uwsgi.log_master) {
+			uwsgi.original_log_fd = dup(1);
+			create_logpipe();
+		}
 		uwsgi.log_master = 1;
 		return 1;
 	case LONG_ARGS_LOG_SOCKET:
@@ -3359,6 +3376,9 @@ static int manage_base_opt(int i, char *optarg) {
 	case 'd':
 		if (!uwsgi.is_a_reload) {
 			daemonize(optarg);
+		}
+		else if (uwsgi.log_reopen) {
+			logto(optarg);
 		}
 		return 1;
 	case 's':

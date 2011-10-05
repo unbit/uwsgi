@@ -210,7 +210,12 @@ void logto(char *logfile) {
 	}
 	else {
 #endif
-		fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+		if (uwsgi.log_truncate) {
+			fd = open(logfile, O_RDWR | O_CREAT | O_TRUNC , S_IRUSR | S_IWUSR | S_IRGRP);
+		}
+		else {
+			fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+		}
 		if (fd < 0) {
 			uwsgi_error_open(logfile);
 			exit(1);

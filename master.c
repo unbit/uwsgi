@@ -1165,18 +1165,45 @@ healthy:
 			uwsgi.current_time = time(NULL);	
 			// checking logsize
 			if (uwsgi.logfile) {
-				uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
-/*
-				if (uwsgi.shared->logsize > 8192) {
-					//uwsgi_log("logsize: %d\n", uwsgi.shared->logsize);
-					char *new_logfile = uwsgi_malloc(strlen(uwsgi.logfile) + 14 + 1);
-					memset(new_logfile, 0, strlen(uwsgi.logfile) + 14 + 1);    
-					if (!rename(uwsgi.logfile, new_logfile)) {
-						// close 2, reopen logfile dup'it and gracefully reload workers;
+				if (uwsgi.log_master) {
+					uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
+				}
+				else {
+					uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
+				}
+				if (uwsgi.log_maxsize > 0 && uwsgi.shared->logsize > uwsgi.log_maxsize) {
+					char *rot_name = uwsgi.log_backupname;
+					int need_free = 0;
+					if (rot_name == NULL) {
+						char *ts_str = uwsgi_num2str((int)time(NULL));
+						rot_name = uwsgi_concat3(uwsgi.logfile, ".", ts_str);
+						free(ts_str);
+						need_free = 1;
 					}
-					free(new_logfile);
+					char message[1024];
+					int ret = snprintf(message, 1024, "logsize: %llu, triggering rotation to %s...\n", (unsigned long long) uwsgi.shared->logsize, rot_name);
+					if (ret > 0) {
+						(void) write(uwsgi.original_log_fd, message, ret);
+					}
+					if (rename(uwsgi.logfile, rot_name) == 0) {
+						// close 2, reopen logfile dup'it and gracefully reload workers;
+						int fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_TRUNC , S_IRUSR | S_IWUSR | S_IRGRP);
+						if (fd < 0) {
+                        				uwsgi_error_open(uwsgi.logfile);
+							grace_them_all(0);
+                				}
+						if (dup2(fd, uwsgi.original_log_fd) < 0) {
+							uwsgi_error("dup2()");
+							grace_them_all(0);
+						}
+
+					}
+					else {
+						uwsgi_error("unable to rotate log: rename()");
+					}
+					if (need_free)
+						free(rot_name);
 				}	
-*/
 			}
 
 				
