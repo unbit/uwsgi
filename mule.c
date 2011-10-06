@@ -16,11 +16,6 @@ void uwsgi_mule(int id) {
 
 	int i;
 
-	// create the socket pipe
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.mules[id-1].signal_pipe)) {
-        	uwsgi_error("socketpair()\n");
-        }
-
 	pid_t pid = fork();
 	if (pid == 0) {
 		uwsgi.muleid = id;

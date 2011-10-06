@@ -2169,6 +2169,11 @@ skipzero:
 		}
 
 		for(i=0;i<uwsgi.mules_cnt;i++) {
+			// create the socket pipe
+        		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.mules[i].signal_pipe)) {
+                		uwsgi_error("socketpair()\n");
+        		}
+
 			if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.mules[i].queue_pipe)) {
 				uwsgi_error("socketpair()");
 				exit(1);
