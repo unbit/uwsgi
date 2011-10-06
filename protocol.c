@@ -572,7 +572,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->method = ptrbuf;
 							wsgi_req->method_len = strsize;
 						}
-						else if (!uwsgi_strncmp("REMOTE_ADDR", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+						else if (!uwsgi.log_x_forwarded_for && !uwsgi_strncmp("REMOTE_ADDR", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->remote_addr = ptrbuf;
 							wsgi_req->remote_addr_len = strsize;
 						}
@@ -656,6 +656,10 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 						else if (!uwsgi_strncmp("HTTP_IF_MODIFIED_SINCE", 22, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->if_modified_since = ptrbuf;
 							wsgi_req->if_modified_since_len = strsize;
+						}
+						else if (uwsgi.log_x_forwarded_for && !uwsgi_strncmp("HTTP_X_FORWARDED_FOR", 20, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->remote_addr = ptrbuf;
+							wsgi_req->remote_addr_len = strsize;
 						}
 						else if (!uwsgi_strncmp("CONTENT_TYPE", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->content_type = ptrbuf;

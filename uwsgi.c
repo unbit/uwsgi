@@ -210,6 +210,7 @@ static struct option long_base_options[] = {
 	{"log-big", required_argument, 0, LONG_ARGS_LOG_BIG},
 	{"log-sendfile", required_argument, 0, LONG_ARGS_LOG_SENDFILE},
 	{"log-micros", no_argument, &uwsgi.log_micros, 1},
+	{"log-x-forwarded-for", no_argument, &uwsgi.log_x_forwarded_for, 1},
 	{"master-as-root", no_argument, &uwsgi.master_as_root, 1},
 	{"chdir", required_argument, 0, LONG_ARGS_CHDIR},
 	{"chdir2", required_argument, 0, LONG_ARGS_CHDIR2},

@@ -1104,6 +1104,7 @@ struct uwsgi_server {
 	int logdate;
 	int log_micros;
 	char *log_strftime;
+	int log_x_forwarded_for;
 
 	int honour_stdin;
 
