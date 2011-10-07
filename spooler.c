@@ -406,6 +406,7 @@ void spooler_manage_task(char *dir, char *task) {
 
 			close(spool_fd);
 
+			int callable_found = 0;
 			for(i=0;i<0xff;i++) {
 				if (uwsgi.p[i]->spooler) {
 					time_t now = time(NULL);
@@ -414,14 +415,17 @@ void spooler_manage_task(char *dir, char *task) {
 						free(body);
 					}
 					if (ret == 0) continue;
+					callable_found = 1;
 					if (ret == -2) {
-
 						uwsgi_log("done with task/spool %s after %d seconds\n", task, time(NULL)-now);
 						destroy_spool(dir, task);	
 					}
 					// re-spool it
 					break;	
 				}
+			}
+			if (!callable_found) {
+				uwsgi_log("unable to find the spooler function, have you loaded it into the spooler process ?\n");
 			}
 
 		}
