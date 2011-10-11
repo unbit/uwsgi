@@ -2282,7 +2282,10 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			zero = PyString_FromString("cheap");
 		}
 		else {
-			if (uwsgi.workers[i + 1].busy) {
+			if (uwsgi.workers[i + 1].sig) {
+				zero = PyString_FromFormat("sig%d",uwsgi.workers[i + 1].signum);
+			}
+			else if (uwsgi.workers[i + 1].busy) {
 				zero = PyString_FromString("busy");
 			}
 			else {

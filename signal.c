@@ -12,7 +12,41 @@ int uwsgi_signal_handler(uint8_t sig) {
 		return -1;
 	}	
 
-	return uwsgi.p[use->modifier1]->signal_handler(sig, use->handler);
+        // set harakiri here (if required and if i am a worker)
+	
+	if (uwsgi.mywid > 0) {
+                uwsgi.workers[uwsgi.mywid].sig = 1;
+                uwsgi.workers[uwsgi.mywid].signum = sig;
+		uwsgi.workers[uwsgi.mywid].signals++;
+		if(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+                	set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);
+		}
+        }
+	else if (uwsgi.muleid > 0) {
+                uwsgi.mules[uwsgi.muleid-1].sig = 1;
+                uwsgi.mules[uwsgi.muleid-1].signum = sig;
+		uwsgi.mules[uwsgi.muleid-1].signals++;
+		if(uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI] > 0) {
+                	set_mule_harakiri(uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI]);
+		}
+	}
+
+	int ret = uwsgi.p[use->modifier1]->signal_handler(sig, use->handler);
+
+	if (uwsgi.mywid > 0) {
+                uwsgi.workers[uwsgi.mywid].sig = 0;
+		if(uwsgi.workers[uwsgi.mywid].harakiri > 0) {
+                	set_harakiri(0);
+		}
+        }
+	if (uwsgi.muleid > 0) {
+                uwsgi.mules[uwsgi.muleid-1].sig = 0;
+		if(uwsgi.mules[uwsgi.muleid-1].harakiri > 0) {
+                	set_mule_harakiri(0);
+		}
+        }
+
+	return ret;
 }
 
 int uwsgi_signal_registered(uint8_t sig) {

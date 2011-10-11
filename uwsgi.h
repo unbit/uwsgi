@@ -523,6 +523,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOG_BACKUPNAME	17145
 #define LONG_ARGS_EVIL_RELOAD_ON_AS	17146
 #define LONG_ARGS_EVIL_RELOAD_ON_RSS	17147
+#define LONG_ARGS_SPOOLER_HARAKIRI	17148
+#define LONG_ARGS_MULE_HARAKIRI		17149
 
 
 #define UWSGI_OK	0
@@ -561,6 +563,8 @@ struct uwsgi_opt {
 #define UWSGI_OPTION_LOG_SENDFILE	14
 #define UWSGI_OPTION_BACKLOG_STATUS	15
 #define UWSGI_OPTION_BACKLOG_ERRORS	16
+#define UWSGI_OPTION_SPOOLER_HARAKIRI   17
+#define UWSGI_OPTION_MULE_HARAKIRI	18
 
 #define UWSGI_MODIFIER_ADMIN_REQUEST		10
 #define UWSGI_MODIFIER_SPOOL_REQUEST		17
@@ -1687,6 +1691,11 @@ struct uwsgi_worker {
 
 	int busy;
 	int cheaped;
+        int sig;
+	uint8_t signum;
+
+	// signals managed by this worker
+        uint64_t signals;
 
 	int signal_pipe[2];
 
@@ -1708,6 +1717,10 @@ struct uwsgi_mule {
 
 	// signals managed by this mule
 	uint64_t signals;
+	int sig;
+        uint8_t signum;
+
+	time_t harakiri;
 
 	char name[0xff];
 };
@@ -1762,6 +1775,7 @@ pid_t spooler_start(void);
 #endif
 
 void set_harakiri(int);
+void set_mule_harakiri(int);
 void inc_harakiri(int);
 
 #ifdef __BIG_ENDIAN__

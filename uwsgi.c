@@ -50,6 +50,8 @@ static struct option long_base_options[] = {
 	{"workers", required_argument, 0, 'p'},
 	{"harakiri", required_argument, 0, 't'},
 	{"harakiri-verbose", no_argument, &uwsgi.harakiri_verbose, 1},
+	{"spooler-harakiri", required_argument, 0, LONG_ARGS_SPOOLER_HARAKIRI},
+	{"mule-harakiri", required_argument, 0, LONG_ARGS_MULE_HARAKIRI},
 #ifdef UWSGI_XML
 	{"xmlconfig", required_argument, 0, 'x'},
 	{"xml", required_argument, 0, 'x'},
@@ -753,6 +755,9 @@ void what_i_am_doing() {
 			else {
 				uwsgi_log("SIGUSR2: --- uWSGI worker %d (pid: %d) is managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime((const time_t *) &wsgi_req->start_of_request.tv_sec));
 			}
+		}
+		else if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL) && uwsgi.workers[uwsgi.mywid].sig) {
+			uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS handling signal %d ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, uwsgi.workers[uwsgi.mywid].signum);
 		}
 	}
 }
@@ -3490,6 +3495,13 @@ static int manage_base_opt(int i, char *optarg) {
 	case 't':
 		uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] = atoi(optarg);
 		return 1;
+	case LONG_ARGS_SPOOLER_HARAKIRI:
+		uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] = atoi(optarg);
+		return 1;
+	case LONG_ARGS_MULE_HARAKIRI:
+		uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI] = atoi(optarg);
+		return 1;
+	
 	case 'b':
 		uwsgi.buffer_size = atoi(optarg);
 		return 1;

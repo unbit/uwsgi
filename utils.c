@@ -98,18 +98,29 @@ void inc_harakiri(int sec) {
 }
 
 void set_harakiri(int sec) {
-	if (uwsgi.master_process) {
-		if (sec == 0) {
-			uwsgi.workers[uwsgi.mywid].harakiri = 0;
-		}
-		else {
-			uwsgi.workers[uwsgi.mywid].harakiri = time(NULL) + sec;
-		}
+	if (sec == 0) {
+		uwsgi.workers[uwsgi.mywid].harakiri = 0;
 	}
 	else {
+		uwsgi.workers[uwsgi.mywid].harakiri = time(NULL) + sec;
+	}
+	if (!uwsgi.master_process) {
 		alarm(sec);
 	}
 }
+
+void set_mule_harakiri(int sec) {
+        if (sec == 0) {
+                uwsgi.mules[uwsgi.muleid-1].harakiri = 0;
+        }
+        else {
+                uwsgi.mules[uwsgi.muleid-1].harakiri = time(NULL) + sec;
+        }
+        if (!uwsgi.master_process) {
+                alarm(sec);
+        }
+}
+
 
 void daemonize(char *logfile) {
 	pid_t pid;
@@ -760,7 +771,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 #endif
 
 	// leave harakiri mode
-	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
+	if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
 		set_harakiri(0);
 	}
 

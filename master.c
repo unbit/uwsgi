@@ -1339,6 +1339,15 @@ healthy:
 				// need to find a better way
 				//uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
 			}
+			for (i = 0; i < uwsgi.mules_cnt; i++) {
+				if (uwsgi.mules[i].harakiri > 0) {
+					if (uwsgi.mules[i].harakiri < (time_t) uwsgi.current_time) {
+						uwsgi_log("*** HARAKIRI ON MULE %d HANDLING SIGNAL %d (pid: %d) ***\n", i+1, uwsgi.mules[i].signum, uwsgi.mules[i].pid );
+						kill(uwsgi.mules[i].pid, SIGKILL);
+						uwsgi.mules[i].harakiri = 0;
+					}
+				}
+			}
 
 #ifdef UWSGI_UDP
 			// check for cluster nodes

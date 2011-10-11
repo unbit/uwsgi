@@ -94,6 +94,8 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 		uwsgi.workers[uwsgi.mywid].cheaped = 0;
+		uwsgi.workers[uwsgi.mywid].busy = 0;
+		uwsgi.workers[uwsgi.mywid].sig = 0;
 
 		// reset the apps count with a copy from the master 
 		uwsgi.workers[uwsgi.mywid].apps_cnt = uwsgi.workers[0].apps_cnt;
@@ -322,7 +324,10 @@ void uwsgi_send_stats(int fd) {
 			fprintf(output,"\"status\": \"cheap\", ");
 		}
 		else {
-                	if (uwsgi.workers[i + 1].busy) {
+			if (uwsgi.workers[i + 1].sig) {
+				fprintf(output,"\"status\": \"sig%d\", ", uwsgi.workers[i + 1].signum);
+			}
+                	else if (uwsgi.workers[i + 1].busy) {
 				fprintf(output,"\"status\": \"busy\", ");
                         }
                         else {
