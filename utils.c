@@ -371,6 +371,8 @@ void create_logpipe(void) {
 
 void log_syslog(char *syslog_opts) {
 
+	setlinebuf(stderr);
+
 	if (syslog_opts == NULL) {
 		syslog_opts = "uwsgi";
 	}
