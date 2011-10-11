@@ -2438,6 +2438,10 @@ PyObject *py_uwsgi_worker_id(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(uwsgi.mywid);
 }
 
+PyObject *py_uwsgi_mule_id(PyObject * self, PyObject * args) {
+	return PyInt_FromLong(uwsgi.muleid);
+}
+
 PyObject *py_uwsgi_logsize(PyObject * self, PyObject * args) {
 	return PyLong_FromUnsignedLongLong(uwsgi.shared->logsize);
 }
@@ -2764,6 +2768,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"sorry_i_need_to_block", py_uwsgi_set_blocking, METH_VARARGS, ""},
 	{"request_id", py_uwsgi_request_id, METH_VARARGS, ""},
 	{"worker_id", py_uwsgi_worker_id, METH_VARARGS, ""},
+	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
 	{"log", py_uwsgi_log, METH_VARARGS, ""},
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
