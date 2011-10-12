@@ -1335,6 +1335,21 @@ healthy:
 						uwsgi.workers[i].harakiri = 0;
 					}
 				}
+				// then for evil memory checkers
+				if (uwsgi.evil_reload_on_as) {
+					if ((rlim_t) uwsgi.workers[i].vsz_size >= uwsgi.evil_reload_on_as) {
+						uwsgi_log("*** EVIL RELOAD ON WORKER %d ADDRESS SPACE: %lld (pid: %d) ***\n", i, (long long) uwsgi.workers[i].vsz_size, uwsgi.workers[i].pid );
+						kill(uwsgi.workers[i].pid, SIGKILL);
+						uwsgi.workers[i].vsz_size = 0;
+					}
+				}
+				if (uwsgi.evil_reload_on_rss) {
+					if ((rlim_t) uwsgi.workers[i].rss_size >= uwsgi.evil_reload_on_rss) {
+						uwsgi_log("*** EVIL RELOAD ON WORKER %d RSS: %lld (pid: %d) ***\n", i, (long long) uwsgi.workers[i].rss_size, uwsgi.workers[i].pid );
+						kill(uwsgi.workers[i].pid, SIGKILL);
+						uwsgi.workers[i].rss_size = 0;
+					}
+				}
 
 				// need to find a better way
 				//uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;

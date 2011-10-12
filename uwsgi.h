@@ -1177,8 +1177,11 @@ struct uwsgi_server {
 	int prio;
 
 	// funny reload systems
-	int reload_on_as;
-	int reload_on_rss;
+	int force_get_memusage;
+	rlim_t reload_on_as;
+	rlim_t reload_on_rss;
+	rlim_t evil_reload_on_as;
+	rlim_t evil_reload_on_rss;
 	struct uwsgi_string_list *touch_reload;
 
 	int propagate_touch;

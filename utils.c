@@ -747,7 +747,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time+tmp_rt)/2;
 
 	// get memory usage
-	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.reload_on_as || uwsgi.reload_on_rss)
+	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage )
 		get_memusage();
 
 
@@ -797,11 +797,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_as && (int) (uwsgi.workers[uwsgi.mywid].vsz_size / 1024 / 1024) >= uwsgi.reload_on_as) {
+	if (uwsgi.reload_on_as && (rlim_t) uwsgi.workers[uwsgi.mywid].vsz_size >= uwsgi.reload_on_as) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_rss && (int) (uwsgi.workers[uwsgi.mywid].rss_size / 1024 / 1024) >= uwsgi.reload_on_rss) {
+	if (uwsgi.reload_on_rss && (rlim_t) uwsgi.workers[uwsgi.mywid].rss_size >= uwsgi.reload_on_rss) {
 		goodbye_cruel_world();
 	}
 

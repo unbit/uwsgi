@@ -3227,17 +3227,29 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 #endif
 	case LONG_ARGS_LIMIT_AS:
-		uwsgi.rl.rlim_cur = (atoi(optarg)) * 1024 * 1024;
+		uwsgi.rl.rlim_cur = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
 		uwsgi.rl.rlim_max = uwsgi.rl.rlim_cur;
 		return 1;
 	case LONG_ARGS_LIMIT_POST:
 		uwsgi.limit_post = (int) strtol(optarg, NULL, 10);
 		return 1;
 	case LONG_ARGS_RELOAD_ON_AS:
-		uwsgi.reload_on_as = atoi(optarg);
+		uwsgi.force_get_memusage = 1;
+		uwsgi.reload_on_as = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
 		return 1;
 	case LONG_ARGS_RELOAD_ON_RSS:
-		uwsgi.reload_on_rss = atoi(optarg);
+		uwsgi.force_get_memusage = 1;
+		uwsgi.reload_on_rss = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
+		return 1;
+	case LONG_ARGS_EVIL_RELOAD_ON_AS:
+		uwsgi.master_process = 1;
+		uwsgi.force_get_memusage = 1;
+		uwsgi.evil_reload_on_as = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
+		return 1;
+	case LONG_ARGS_EVIL_RELOAD_ON_RSS:
+		uwsgi.master_process = 1;
+		uwsgi.force_get_memusage = 1;
+		uwsgi.evil_reload_on_rss = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
 		return 1;
 	case LONG_ARGS_TOUCH_RELOAD:
 		uwsgi_string_new_list(&uwsgi.touch_reload, optarg);
