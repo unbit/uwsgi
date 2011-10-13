@@ -268,8 +268,10 @@ $(document).ready(function() {
 <tr>
     <th>#</th>
     <th>pid</th>
+    <th>status</th>
     <th>requests</th>
     <th>exceptions</th>
+    <th>signals</th>
     <th>running time</th>
     <th>avg response time</th>
 {% if 'memory-report' in uwsgi.opt %}
@@ -282,8 +284,10 @@ $(document).ready(function() {
 	<tr class="{{ loop.cycle('odd', 'even') }}">
 		<td>{{w.id}}</td>
 		<td>{{w.pid}}</td>
+		<td>{{w.status}}</td>
 		<td>{{w.requests}}</td>
 		<td>{{w.exceptions}}</td>
+		<td>{{w.signals}}</td>
 		<td>{{w.running_time/1000}}</td>
 		<td>{{w.avg_rt/1000}}</td>
 {% if 'memory-report' in uwsgi.opt %}

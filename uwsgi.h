@@ -1031,6 +1031,8 @@ struct uwsgi_server {
 	pid_t emperor_pid;
 	int	emperor_broodlord;
 	int	emperor_broodlord_count;
+	char *emperor_stats;
+	int 	emperor_stats_fd;
 	struct uwsgi_config_template *vassals_templates;
 	// true if loyal to the emperor
 	int loyal;

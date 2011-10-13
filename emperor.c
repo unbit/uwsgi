@@ -8,6 +8,8 @@ extern char **environ;
 int emperor_queue;
 char *emperor_absolute_dir;
 
+void emperor_send_stats(int);
+
 struct uwsgi_instance {
         struct uwsgi_instance *ui_prev;
         struct uwsgi_instance *ui_next;
@@ -430,6 +432,8 @@ void emperor_loop() {
 	int interesting_fd;
 	char notification_message[64];
 
+	uwsgi.emperor_stats_fd = -1;
+
 	signal(SIGPIPE, SIG_IGN);
 	uwsgi_unix_signal(SIGINT, royal_death);
         uwsgi_unix_signal(SIGTERM, royal_death);
@@ -449,6 +453,23 @@ void emperor_loop() {
 	else {
 		uwsgi_log("*** starting uWSGI Emperor ***\n");
 	}
+
+	if (uwsgi.emperor_stats) {
+                char *tcp_port = strchr(uwsgi.emperor_stats, ':');
+                if (tcp_port) {
+                        // disable deferred accept for this socket
+                        int current_defer_accept = uwsgi.no_defer_accept;
+                        uwsgi.no_defer_accept = 1;
+                        uwsgi.emperor_stats_fd = bind_to_tcp(uwsgi.emperor_stats, uwsgi.listen_queue, tcp_port);
+                        uwsgi.no_defer_accept = current_defer_accept;
+                }
+                else {
+                        uwsgi.emperor_stats_fd = bind_to_unix(uwsgi.emperor_stats, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                }
+
+                event_queue_add_fd_read(emperor_queue, uwsgi.emperor_stats_fd);
+                uwsgi_log("*** Emperor stats server enabled on %s fd: %d ***\n", uwsgi.emperor_stats, uwsgi.emperor_stats_fd);
+        }
 
 	amqp_port = strchr(uwsgi.emperor_dir, ':');
 
@@ -591,6 +612,11 @@ reconnect:
 				}
 				}
 			}
+			else if (uwsgi.emperor_stats && uwsgi.emperor_stats_fd > -1) {
+                        	if (interesting_fd == uwsgi.emperor_stats_fd) {
+                                	emperor_send_stats(uwsgi.emperor_stats_fd);
+                                }
+                        }
 			else {
 				ui_current = emperor_get_by_fd(interesting_fd);
 				if (ui_current) {
@@ -792,5 +818,74 @@ reconnect:
 
 
 	}
+
+}
+
+#define stats_send_llu(x, y) fprintf(output, x, (long long unsigned int) y)
+#define stats_send(x, y) fprintf(output, x, y)
+
+void emperor_send_stats(int fd) {
+
+        struct sockaddr_un client_src;
+        socklen_t client_src_len = 0;
+        int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
+        if (client_fd < 0) {
+                uwsgi_error("accept()");
+                return;
+        }
+
+        FILE *output = fdopen(client_fd, "w");
+        if (!output) {
+                uwsgi_error("fdopen()");
+                close(client_fd);
+                return;
+        }
+
+        stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
+
+        fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
+        fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
+
+	char *cwd = uwsgi_get_cwd();
+        stats_send("\"cwd\": \"%s\",\n", cwd);
+        free(cwd);
+
+	stats_send("\"emperor\": \"%s\",\n", uwsgi.emperor_dir);
+
+        fprintf(output,"\"emperor_tyrant\": %d,\n", uwsgi.emperor_tyrant);
+
+
+        fprintf(output, "\"vassals\": [\n");
+
+	struct uwsgi_instance *c_ui = ui->ui_next;
+
+        while (c_ui) {
+                fprintf(output,"\t{");
+                stats_send("\"id\": \"%s\", ", c_ui->name);
+                fprintf(output,"\"pid\": %d, ", (int) c_ui->pid);
+
+		stats_send_llu( "\"born\": %llu, ", c_ui->born);
+		stats_send_llu( "\"last_mod\": %llu, ", c_ui->last_mod);
+
+                fprintf(output,"\"loyal\": %d, ", c_ui->loyal);
+                fprintf(output,"\"zerg\": %d, ", c_ui->zerg);
+
+                fprintf(output,"\"uid\": %d, ", (int)c_ui->uid);
+                fprintf(output,"\"gid\": %d, ", (int)c_ui->gid);
+
+		stats_send_llu( "\"respawns\": %llu ", c_ui->respawns);
+        	c_ui = c_ui->ui_next;
+
+		if (c_ui) {
+                	fprintf(output,"},\n");
+                }
+                else {
+                	fprintf(output,"}\n");
+                }
+        }
+
+
+	fprintf(output,"]}\n");
+        fclose(output);
 
 }

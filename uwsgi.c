@@ -82,6 +82,7 @@ static struct option long_base_options[] = {
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
 	{"emperor-tyrant", no_argument, &uwsgi.emperor_tyrant, 1},
+	{"emperor-stats", required_argument, 0, LONG_ARGS_EMPEROR_STATS},
 	{"early-emperor", no_argument, &uwsgi.early_emperor, 1},
 	{"emperor-broodlord", required_argument, 0, LONG_ARGS_EMPEROR_BROODLORD},
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
@@ -1357,6 +1358,8 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	}
+
+	uwsgi_log("current working directory: %s\n", uwsgi.cwd);
 
 	if (uwsgi.screen_session) {
 		uwsgi_log("*** running under screen session %s ***\n", uwsgi.screen_session);
@@ -3310,6 +3313,9 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_STATS:
 		uwsgi.stats = optarg;
 		uwsgi.master_process = 1;
+		return 1;
+	case LONG_ARGS_EMPEROR_STATS:
+		uwsgi.emperor_stats = optarg;
 		return 1;
 	case LONG_ARGS_CACHE_SERVER_THREADS:
 		uwsgi.cache_server_threads = atoi(optarg);

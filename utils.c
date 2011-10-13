@@ -457,12 +457,13 @@ void log_syslog(char *syslog_opts) {
 
 char *uwsgi_get_cwd() {
 
-	size_t newsize = 256;
+	// set this to static to avoid useless reallocations in stats mode
+	static size_t newsize = 256;
 
 	char *cwd = uwsgi_malloc(newsize);
 
-	if (getcwd(cwd, newsize) == NULL) {
-		newsize = errno;
+	if (getcwd(cwd, newsize) == NULL && errno == ERANGE) {
+		newsize += 256;
 		uwsgi_log("need a bigger buffer (%d bytes) for getcwd(). doing reallocation.\n", newsize);
 		free(cwd);
 		cwd = uwsgi_malloc(newsize);

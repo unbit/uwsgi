@@ -310,6 +310,13 @@ void uwsgi_send_stats(int fd) {
 	stats_send_llu("\"listen_queue\": %llu,\n", uwsgi.shared->ti.tcpi_unacked);
 #endif
 
+	fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
+	fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
+
+	char *cwd = uwsgi_get_cwd();
+	stats_send("\"cwd\": \"%s\",\n", cwd);
+	free(cwd);
+
 	fprintf(output, "\"workers\": [\n");
 
 	for (i = 0; i < uwsgi.numproc; i++) {
@@ -319,6 +326,7 @@ void uwsgi_send_stats(int fd) {
 		fprintf(output,"\"pid\": %d, ", (int) uwsgi.workers[i+1].pid);
 		stats_send_llu("\"requests\": %llu, ", uwsgi.workers[i+1].requests);
 		stats_send_llu("\"exceptions\": %llu, ", uwsgi.workers[i+1].exceptions);
+		stats_send_llu("\"signals\": %llu, ", uwsgi.workers[i+1].signals);
 
 		if (uwsgi.workers[i + 1].cheaped) {
 			fprintf(output,"\"status\": \"cheap\", ");
@@ -339,15 +347,11 @@ void uwsgi_send_stats(int fd) {
 		stats_send_llu("\"vsz\": %llu, ", uwsgi.workers[i+1].vsz_size);
 
 		stats_send_llu("\"running_time\": %llu, ", uwsgi.workers[i+1].running_time);
-
 		stats_send_llu("\"last_spawn\": %llu, ", uwsgi.workers[i+1].last_spawn);
-
 		stats_send_llu("\"respawn_count\": %llu, ", uwsgi.workers[i+1].respawn_count);
-
 		stats_send_llu("\"tx\": %llu, ", uwsgi.workers[i+1].tx);
-
 		stats_send_llu("\"avg_rt\": %llu, ", uwsgi.workers[i+1].avg_response_time);
-		
+
 		fprintf(output,"\"apps\": [\n");
 
 		for(j=0;j<uwsgi.workers[i+1].apps_cnt;j++) {
