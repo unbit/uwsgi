@@ -1183,7 +1183,8 @@ healthy:
 					char message[1024];
 					int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) time(NULL), (unsigned long long) uwsgi.shared->logsize, rot_name);
 					if (ret > 0) {
-						(void) write(uwsgi.original_log_fd, message, ret);
+						rlen = write(uwsgi.original_log_fd, message, ret);
+						
 					}
 					if (rename(uwsgi.logfile, rot_name) == 0) {
 						// close 2, reopen logfile dup'it and gracefully reload workers;
