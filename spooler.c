@@ -55,9 +55,6 @@ pid_t spooler_start() {
 		spooler();
 	}
 	else if (pid > 0) {
-		if (uwsgi.master_process) {
-			close(uwsgi.shared->spooler_signal_pipe[1]);
-		}
 		uwsgi_log("spawned the uWSGI spooler on dir %s with pid %d\n", uwsgi.spool_dir, pid);
 	}
 
