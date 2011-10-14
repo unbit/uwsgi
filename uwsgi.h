@@ -526,6 +526,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_SPOOLER_HARAKIRI	17148
 #define LONG_ARGS_MULE_HARAKIRI		17149
 #define LONG_ARGS_EMPEROR_STATS		17150
+#define LONG_ARGS_SPOOLER_CHDIR		17151
 
 
 #define UWSGI_OK	0
@@ -1208,6 +1209,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SPOOLER
 	char *spool_dir;
+	char *spooler_chdir;
 	int spooler_ordered;
 	uint64_t spooler_respawned;
 #endif

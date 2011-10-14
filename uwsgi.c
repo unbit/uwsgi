@@ -117,6 +117,7 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_SPOOLER
 	{"spooler", required_argument, 0, 'Q'},
 	{"spooler-ordered", no_argument, &uwsgi.spooler_ordered, 1},
+	{"spooler-chdir", required_argument, 0, LONG_ARGS_SPOOLER_CHDIR},
 #endif
 	{"mule", optional_argument, 0, LONG_ARGS_MULE},
 	{"disable-logging", no_argument, 0, 'L'},
@@ -3515,6 +3516,9 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_SPOOLER_HARAKIRI:
 		uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] = atoi(optarg);
+		return 1;
+	case LONG_ARGS_SPOOLER_CHDIR:
+		uwsgi.spooler_chdir = optarg;
 		return 1;
 	case LONG_ARGS_MULE_HARAKIRI:
 		uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI] = atoi(optarg);

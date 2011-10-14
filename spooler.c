@@ -403,6 +403,12 @@ void spooler_manage_task(char *dir, char *task) {
 
 			close(spool_fd);
 
+			if (uwsgi.spooler_chdir) {
+				if (chdir(uwsgi.spooler_chdir)) {
+					uwsgi_error("chdir()");
+				}
+			}
+
 			int callable_found = 0;
 			for(i=0;i<0xff;i++) {
 				if (uwsgi.p[i]->spooler) {
