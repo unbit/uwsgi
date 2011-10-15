@@ -527,6 +527,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_MULE_HARAKIRI		17149
 #define LONG_ARGS_EMPEROR_STATS		17150
 #define LONG_ARGS_SPOOLER_CHDIR		17151
+#define LONG_ARGS_LOCKS			17152
 
 
 #define UWSGI_OK	0
@@ -1471,9 +1472,11 @@ struct uwsgi_server {
 
 	pthread_mutex_t thunder_mutex;
 
+	int locks;
+
 	void *cache_lock;
 	void *queue_lock;
-	void *user_lock;
+	void **user_lock;
 	void *signal_table_lock;
 	void *fmon_table_lock;
 	void *timer_table_lock;

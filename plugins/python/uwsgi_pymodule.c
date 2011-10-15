@@ -995,13 +995,24 @@ PyObject *py_uwsgi_i_am_the_spooler(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 
+	int lock_num = 0;
+
 	// the spooler cannot lock resources
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
 		return PyErr_Format(PyExc_ValueError, "The spooler cannot lock/unlock resources");
 	}
 #endif
-	uwsgi_lock(uwsgi.user_lock);
+
+	if (!PyArg_ParseTuple(args, "|i:lock", &lock_num)) {
+                return NULL;
+        }
+
+	if (lock_num < 0 || lock_num > uwsgi.locks) {
+		return PyErr_Format(PyExc_ValueError, "Invalid lock number");
+	}
+
+	uwsgi_lock(uwsgi.user_lock[lock_num]);
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -1009,11 +1020,22 @@ PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
 
+	int lock_num = 0;
+
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
 		return PyErr_Format(PyExc_ValueError, "The spooler cannot lock/unlock resources");
 	}
 #endif
+
+	if (!PyArg_ParseTuple(args, "|i:unlock", &lock_num)) {
+                return NULL;
+        }
+
+        if (lock_num < 0 || lock_num > uwsgi.locks) {
+                return PyErr_Format(PyExc_ValueError, "Invalid lock number");
+        }
+
 
 	uwsgi_unlock(uwsgi.user_lock);
 

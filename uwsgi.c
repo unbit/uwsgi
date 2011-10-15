@@ -103,6 +103,7 @@ static struct option long_base_options[] = {
 	{"max-requests", required_argument, 0, 'R'},
 	{"socket-timeout", required_argument, 0, 'z'},
 	{"no-fd-passing", no_argument, &uwsgi.no_fd_passing, 1},
+	{"locks", required_argument, 0, LONG_ARGS_LOCKS},
 	{"sharedarea", required_argument, 0, 'A'},
 	{"cache", required_argument, 0, LONG_ARGS_CACHE},
 	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE},
@@ -1703,8 +1704,11 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	// application generic lock
-	uwsgi.user_lock = uwsgi_mmap_shared_lock();
-	uwsgi_lock_init(uwsgi.user_lock);
+	uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks+1));
+	for(i=0;i<uwsgi.locks;i++) {
+		uwsgi.user_lock[i] = uwsgi_mmap_shared_lock();
+		uwsgi_lock_init(uwsgi.user_lock[i]);
+	}
 
 	if (uwsgi.master_process) {
 		// signal table lock
@@ -3289,6 +3293,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi_string_new_list(&uwsgi.ini, optarg);
 		return 1;
 #endif
+	case LONG_ARGS_LOCKS:
+		uwsgi.locks = atoi(optarg);
+		return 1;
 	case LONG_ARGS_MULE:
 		uwsgi.master_process = 1;
 		uwsgi.mules_cnt++;
