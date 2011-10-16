@@ -515,7 +515,7 @@ void kill_them_all(int signum) {
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 		kill(uwsgi.shared->spooler_pid, SIGKILL);
-		uwsgi_log("killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+		uwsgi_log("killing the spooler with pid %d\n", uwsgi.shared->spooler_pid);
 	}
 
 #endif
@@ -523,7 +523,7 @@ void kill_them_all(int signum) {
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
 		waitpid(uwsgi.emperor_pid, &i, 0);
-		uwsgi_log("killed the emperor with pid %d\n", uwsgi.emperor_pid);
+		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
 
@@ -565,14 +565,14 @@ void grace_them_all(int signum) {
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
 		kill(uwsgi.shared->spooler_pid, SIGKILL);
-		uwsgi_log("killed the spooler with pid %d\n", uwsgi.shared->spooler_pid);
+		uwsgi_log("killing the spooler with pid %d\n", uwsgi.shared->spooler_pid);
 	}
 #endif
 
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
 		waitpid(uwsgi.emperor_pid, &i, 0);
-		uwsgi_log("killed the emperor with pid %d\n", uwsgi.emperor_pid);
+		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
 	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
@@ -666,7 +666,7 @@ void reap_them_all(int signum) {
 	if (uwsgi.emperor_pid >= 0) {
 		kill(uwsgi.emperor_pid, SIGKILL);
 		waitpid(uwsgi.emperor_pid, &i, 0);
-		uwsgi_log("killed the emperor with pid %d\n", uwsgi.emperor_pid);
+		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
 	if (!uwsgi.workers)

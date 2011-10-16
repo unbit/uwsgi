@@ -671,8 +671,8 @@ healthy:
 
 
 		if ((uwsgi.cheap || ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
-			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
-			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
+			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
+			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt+uwsgi.mules_cnt);i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			}
 
@@ -680,8 +680,8 @@ healthy:
 			exit(0);
 		}
 		if ( (uwsgi.cheap || ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
-			// call a series of waitpid to ensure all processes (gateways and daemons) are dead
-			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt);i++) {
+			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
+			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt+uwsgi.mules_cnt);i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			}
 
@@ -1498,6 +1498,35 @@ healthy:
 
 		uwsgi.mywid = find_worker_id(diedpid);
 		if (uwsgi.mywid <= 0) {
+			// check spooler, mules, gateways and daemons
+			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+                        	if (diedpid == uwsgi.shared->spooler_pid) {	
+					uwsgi_log("spooler (pid: %d) annihilated\n", (int) diedpid);
+					goto next;	
+				}
+			}
+
+			for(i=0;i<uwsgi.mules_cnt;i++) {
+				if (uwsgi.mules[i].pid == diedpid) {
+					uwsgi_log("mule %d (pid: %d) annihilated\n", i+1, (int) diedpid);
+					goto next;
+				}
+			}
+
+			for(i=0;i<uwsgi.gateways_cnt;i++) {
+				if (uwsgi.gateways[i].pid == diedpid) {
+					uwsgi_log("gateway %d (pid: %d) annihilated\n", i+1, (int) diedpid);
+					goto next;
+				}
+			}
+
+			for(i=0;i<uwsgi.shared->daemons_cnt;i++) {
+				if (uwsgi.shared->daemons[i].pid == diedpid) {
+					uwsgi_log("daemon %d (pid: %d) annihilated\n", i+1, (int) diedpid);
+					goto next;
+				}
+			}
+
 			if (WIFEXITED(waitpid_status)) {
 				uwsgi_log("subprocess %d exited with code %d\n", (int) diedpid, WEXITSTATUS(waitpid_status));
 			}
@@ -1507,6 +1536,7 @@ healthy:
 			else if (WIFSTOPPED(waitpid_status)) {
 				uwsgi_log("subprocess %d stopped\n", (int) diedpid);
 			}
+next:
 			continue;
 		}
 		else {
