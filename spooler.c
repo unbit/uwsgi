@@ -16,7 +16,7 @@ pid_t spooler_start() {
 	
 	int i;
 
-	pid_t pid = fork();
+	pid_t pid = uwsgi_fork("uWSGI spooler");
 	if (pid < 0) {
 		uwsgi_error("fork()");
 		exit(1);

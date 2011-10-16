@@ -883,7 +883,7 @@ int http_init() {
 
 		uhttp.server = bind_to_tcp(uhttp.socket_name, uwsgi.listen_queue, strchr(uhttp.socket_name,':'));
 
-		if (register_gateway("http", http_loop) == NULL) {
+		if (register_gateway("uWSGI http", http_loop) == NULL) {
 			uwsgi_log("unable to register the http gateway\n");
 			exit(1);
 		}

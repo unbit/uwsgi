@@ -16,7 +16,7 @@ void uwsgi_mule(int id) {
 
 	int i;
 
-	pid_t pid = fork();
+	pid_t pid = uwsgi_fork(uwsgi.mules[id-1].name);
 	if (pid == 0) {
 		uwsgi.muleid = id;
 		// avoid race conditions

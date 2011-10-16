@@ -701,13 +701,13 @@ int fastrouter_init() {
 		if (!ufr.nevents) ufr.nevents = 64;
 
 		if (ufr.code_string_code && ufr.code_string_function) {
-			if (register_fat_gateway("fastrouter", fastrouter_loop) == NULL) {
+			if (register_fat_gateway("uWSGI fastrouter", fastrouter_loop) == NULL) {
 				uwsgi_log("unable to register the fastrouter gateway\n");
 				exit(1);
 			}
 		}
 		else {
-			if (register_gateway("fastrouter", fastrouter_loop) == NULL) {
+			if (register_gateway("uWSGI fastrouter", fastrouter_loop) == NULL) {
 				uwsgi_log("unable to register the fastrouter gateway\n");
 				exit(1);
 			}

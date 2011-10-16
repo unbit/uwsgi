@@ -81,7 +81,7 @@ int uwsgi_respawn_worker(int wid) {
 	int respawns = uwsgi.workers[wid].respawn_count;
 	int i;
 
-	pid_t pid = fork();
+	pid_t pid = uwsgi_fork(uwsgi.workers[wid].name);
 
 	if (pid == 0) {
 		signal(SIGWINCH, worker_wakeup);

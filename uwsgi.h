@@ -528,6 +528,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_EMPEROR_STATS		17150
 #define LONG_ARGS_SPOOLER_CHDIR		17151
 #define LONG_ARGS_LOCKS			17152
+#define LONG_ARGS_PROCNAME_PREFIX	17153
+#define LONG_ARGS_PROCNAME_APPEND	17154
 
 
 #define UWSGI_OK	0
@@ -965,6 +967,15 @@ struct uwsgi_server {
 	// store the machine hostname
 	char hostname[256];
 	int hostname_len;
+
+	char **orig_argv;
+	char **argv;
+	int argc;
+	int max_procname;
+	int auto_procname;
+	char **environ;
+	char *procname_prefix;
+	char *procname_append;
 
 	// quiet startup
 	int no_initial_output;
@@ -1712,6 +1723,7 @@ struct uwsgi_worker {
 
 	uint64_t avg_response_time;
 
+	char name[0xff];
 };
 
 struct uwsgi_mule {
@@ -2370,6 +2382,10 @@ void uwsgi_mule(int);
 char *uwsgi_string_get_list(struct uwsgi_string_list **, int, size_t *);
 
 void uwsgi_fixup_fds(int, int);
+
+void uwsgi_set_processname(char *);
+
+pid_t uwsgi_fork(char *);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

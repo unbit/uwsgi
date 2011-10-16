@@ -2226,7 +2226,7 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 	int cnt = 1;
 	int devnull = -1;
 
-	pid_t pid = fork();
+	pid_t pid = uwsgi_fork("uWSGI external daemon");
 	if (pid < 0) {
 		uwsgi_error("fork()");
 		return;
@@ -3186,4 +3186,49 @@ void uwsgi_apply_config_pass(char symbol, char*(*hook)(char *) ) {
                 }
         }
 
+}
+
+void uwsgi_set_processname(char *name) {
+
+	char *pos = uwsgi.orig_argv[0];
+	size_t amount = 0;
+
+	// prepare for strncat
+	*uwsgi.orig_argv[0] = 0;
+
+	if (uwsgi.procname_prefix) {
+		amount += strlen(uwsgi.procname_prefix)+1;
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, uwsgi.max_procname-amount);
+		pos+=amount;
+	}
+	
+	amount += strlen(name)+1;
+	strncat(uwsgi.orig_argv[0], name, uwsgi.max_procname-amount);
+	pos+=amount;
+
+	if (uwsgi.procname_append) {
+		amount += strlen(uwsgi.procname_append)+1;
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname-amount);
+		pos+=amount;
+	}
+
+	memset(pos, ' ', uwsgi.max_procname-amount);
+}
+
+// this is a wrapper for fork restoring original argv
+pid_t uwsgi_fork(char *name) {
+
+	int i;
+
+	pid_t pid = fork();
+	if (pid == 0) {
+		for(i=0;i<uwsgi.argc;i++) {
+			strcpy(uwsgi.orig_argv[i],uwsgi.argv[i]);
+		}
+		if (uwsgi.auto_procname && name) {
+			uwsgi_set_processname(name);
+		}
+	}
+
+	return pid;
 }

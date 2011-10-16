@@ -78,6 +78,9 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_THREADING
 	{"enable-threads", no_argument, 0, 'T'},
 #endif
+	{"auto-procname", no_argument, &uwsgi.auto_procname, 1},
+	{"procname-prefix", required_argument, 0, LONG_ARGS_PROCNAME_PREFIX},
+	{"procname-append", required_argument, 0, LONG_ARGS_PROCNAME_APPEND},
 	{"single-interpreter", no_argument, 0, 'i'},
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
@@ -847,6 +850,38 @@ void signal_pidfile(int sig, char *filename) {
 	}
 }
 
+void fixup_argv_and_environ(int argc, char **argv, char **environ) {
+
+	int i;
+	int env_count = 0;
+
+	uwsgi.orig_argv = argv;
+	uwsgi.argv = uwsgi_malloc( sizeof(char *) * argc);
+	uwsgi.argc = argc;
+
+	for(i=0;i<argc;i++) {
+		if (i==0 || argv[0] + uwsgi.max_procname + 1 == argv[i]) {
+			uwsgi.max_procname += strlen(argv[i]) + 1;
+		}
+		uwsgi.argv[i] = strdup(argv[i]);
+	}
+
+	for (i = 0; environ[i] != NULL; i++) {
+		uwsgi.max_procname += strlen(environ[i]) + 1;
+		env_count++;
+	}
+
+	uwsgi.environ = uwsgi_malloc(sizeof(char *) * env_count);
+	for(i=0;i<env_count;i++) {
+		uwsgi.environ[i] = strdup(environ[i]);
+	}
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("max space for custom process name = %d\n", uwsgi.max_procname);
+#endif
+	environ = uwsgi.environ;
+}
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
 
@@ -885,6 +920,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
+
 
 	//initialize masterpid with a default value
 	masterpid = getpid();
@@ -1024,6 +1060,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.page_size = getpagesize();
 	uwsgi.binary_path = uwsgi_get_binary_path(argv[0]);
 
+	// ok we can now safely play with argv and environ
+	fixup_argv_and_environ(argc, argv, environ);
+
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
 		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
@@ -1067,7 +1106,7 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	uwsgi.option_index = -1;
-	while ((i = getopt_long(argc, argv, short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
+	while ((i = getopt_long(uwsgi.argc, uwsgi.argv, short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
 
 		if (uwsgi.option_index > -1) {
 			optname = (char *) uwsgi.long_options[uwsgi.option_index].name;
@@ -1091,8 +1130,8 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	if (optind < argc) {
-		for(i=optind;i<argc;i++) {
-			char *lazy = argv[i];
+		for(i=optind;i<uwsgi.argc;i++) {
+			char *lazy = uwsgi.argv[i];
 			if (lazy[0] != '[') {
 				if (0) {
 				}
@@ -1337,8 +1376,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	//call after_opt hooks
 
-	if (uwsgi.binary_path == argv[0]) {
-		uwsgi.binary_path = uwsgi_str(argv[0]);
+	if (uwsgi.binary_path == uwsgi.argv[0]) {
+		uwsgi.binary_path = uwsgi_str(uwsgi.argv[0]);
 	}
 
 	if (!uwsgi.no_initial_output) {
@@ -1433,7 +1472,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 
-		uwsgi.emperor_pid = fork();
+		uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
 		if (uwsgi.emperor_pid < 0) {
 			uwsgi_error("pid()");
 			exit(1);
@@ -1454,7 +1493,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	// call jail systems
 	for (i = 0; i < uwsgi.gp_cnt; i++) {
 		if (uwsgi.gp[i]->jail) {
-			uwsgi.gp[i]->jail(uwsgi_start, argv);
+			uwsgi.gp[i]->jail(uwsgi_start, uwsgi.argv);
 		}
 	}
 
@@ -1462,12 +1501,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	// TODO pluginize basic Linux namespace support
 #ifdef __linux__
 	if (uwsgi.ns) {
-		linux_namespace_start((void *) argv);
+		linux_namespace_start((void *) uwsgi.argv);
 		// never here
 	}
 	else {
 #endif
-		uwsgi_start((void *) argv);
+		uwsgi_start((void *) uwsgi.argv);
 #ifdef __linux__
 	}
 #endif
@@ -1478,8 +1517,6 @@ int main(int argc, char *argv[], char *envp[]) {
 }
 
 int uwsgi_start(void *v_argv) {
-
-	char **argv = v_argv;
 
 #ifdef UWSGI_DEBUG
 	int so_bufsize;
@@ -1590,7 +1627,7 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 
-		uwsgi.emperor_pid = fork();
+		uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
 		if (uwsgi.emperor_pid < 0) {
 			uwsgi_error("pid()");
 			exit(1);
@@ -2154,6 +2191,7 @@ skipzero:
 	for(i=1;i<=uwsgi.numproc;i++) {
 		uwsgi.workers[i].signal_pipe[0] = - 1;
 		uwsgi.workers[i].signal_pipe[1] = - 1;
+		snprintf(uwsgi.workers[i].name, 0xff, "uWSGI worker %d", i);
 	}
 
 	if (uwsgi.master_process) {
@@ -2193,6 +2231,8 @@ skipzero:
 				uwsgi_error("socketpair()");
 				exit(1);
 			}
+
+			snprintf(uwsgi.mules[i].name, 0xff, "uWSGI mule %d", i);
 		}
 	}
 
@@ -2373,12 +2413,12 @@ skipzero:
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
-		int ml_ret = master_loop(argv, environ);
+		int ml_ret = master_loop(uwsgi.argv, uwsgi.environ);
 		if (ml_ret == -1) {
 			return 0;
 		}
 #else
-		(void) master_loop(argv, environ);
+		(void) master_loop(uwsgi.argv, uwsgi.environ);
 #endif
 		//from now on the process is a real worker
 	}
@@ -2798,6 +2838,14 @@ static int manage_base_opt(int i, char *optarg) {
 	switch (i) {
 
 	case 0:
+		return 1;
+	case LONG_ARGS_PROCNAME_PREFIX:
+		uwsgi.auto_procname = 1;
+		uwsgi.procname_prefix = optarg;
+		return 1;
+	case LONG_ARGS_PROCNAME_APPEND:
+		uwsgi.auto_procname = 1;
+		uwsgi.procname_append = optarg;
 		return 1;
 #ifdef UWSGI_UDP
 	case LONG_ARGS_CLUSTER_RELOAD:

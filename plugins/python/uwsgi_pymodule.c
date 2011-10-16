@@ -2636,6 +2636,7 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 		goto clear;
 	}
 
+	// use a normal fork here
 	grunt_pid = fork();
 	if (grunt_pid < 0) {
 		uwsgi_error("fork()");

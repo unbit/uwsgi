@@ -294,6 +294,10 @@ int master_loop(char **argv, char **environ) {
 	struct uwsgi_rb_timer *min_timeout;
 	struct rb_root *rb_timers = uwsgi_init_rb_timer();
 
+	if (uwsgi.auto_procname) {
+		uwsgi_set_processname("uWSGI master");
+	}
+
 	uwsgi.current_time = time(NULL);
 
 	uwsgi_unix_signal(SIGHUP, grace_them_all);

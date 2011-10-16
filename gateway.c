@@ -47,7 +47,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 		}
 	}
 
-	gw_pid = fork();
+	gw_pid = uwsgi_fork(name);
 	if (gw_pid < 0) {
 		uwsgi_error("fork()");
 		return NULL;
@@ -90,7 +90,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 	ug->loop = loop;
 	ug->num = num;
 
-	uwsgi_log( "spawned uWSGI %s %d (pid: %d)\n", ug->name, ug->num, (int) ug->pid);
+	uwsgi_log( "spawned %s %d (pid: %d)\n", ug->name, ug->num, (int) ug->pid);
 
 	uwsgi.gateways_cnt++;
 
@@ -103,7 +103,7 @@ void gateway_respawn(int id) {
 	pid_t gw_pid;
 	struct uwsgi_gateway *ug = &uwsgi.gateways[id];
 	
-	gw_pid = fork();
+	gw_pid = uwsgi_fork(ug->name);
 	if (gw_pid < 0) {
                 uwsgi_error("fork()");
 		return;
@@ -124,10 +124,10 @@ void gateway_respawn(int id) {
 	ug->pid = gw_pid;
 	ug->respawns++;
 	if (ug->respawns == 1) {
-		uwsgi_log( "spawned uWSGI %s %d (pid: %d)\n", ug->name, ug->num, (int) gw_pid);
+		uwsgi_log( "spawned %s %d (pid: %d)\n", ug->name, ug->num, (int) gw_pid);
 	}
 	else {
-		uwsgi_log( "respawned uWSGI %s %d (pid: %d)\n", ug->name, ug->num, (int) gw_pid);
+		uwsgi_log( "respawned %s %d (pid: %d)\n", ug->name, ug->num, (int) gw_pid);
 	}
 	
 }

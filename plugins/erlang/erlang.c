@@ -422,7 +422,7 @@ int erlang_init() {
 		uwsgi_log("Erlang C-Node %s registered on port %d\n", ei_thisnodename(&uerl.cnode), ntohs(sin.sin_port));
 
 	
-                if (register_fat_gateway("erlang", erlang_loop) == NULL) {
+                if (register_fat_gateway("uWSGI erlang c-node", erlang_loop) == NULL) {
                         uwsgi_log("unable to register the erlang gateway\n");
                         exit(1);
                 }
