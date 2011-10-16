@@ -3214,6 +3214,26 @@ void uwsgi_set_processname(char *name) {
 	}
 
 	memset(pos, ' ', uwsgi.max_procname-amount);
+#elif defined(__FreeBSD__)
+	if (uwsgi.procname_prefix) {
+		if (!uwsgi.procname_append) {
+			setproctitle("-%s%s", uwsgi.procname_prefix, name);
+		}
+		else {
+			setproctitle("-%s%s%s", uwsgi.procname_prefix, name, uwsgi.procname_append);
+		}
+	}
+	else if (uwsgi.procname_append) {
+		if (!uwsgi.procname_prefix) {
+			setproctitle("-%s%s", name, uwsgi.procname_append);
+		}
+		else {
+			setproctitle("-%s%s%s", uwsgi.procname_prefix, name, uwsgi.procname_append);
+		}
+	}
+	else {
+		setproctitle("-%s", name);
+	}
 #endif
 }
 
