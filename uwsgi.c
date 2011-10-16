@@ -852,12 +852,18 @@ void signal_pidfile(int sig, char *filename) {
 
 void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 
+
+	uwsgi.orig_argv = argv;
+	uwsgi.argv = argv;
+	uwsgi.argc = argc;
+	uwsgi.environ = environ;
+
+#if defined(__linux__) || defined(__sun__)
+
 	int i;
 	int env_count = 0;
 
-	uwsgi.orig_argv = argv;
 	uwsgi.argv = uwsgi_malloc( sizeof(char *) * argc);
-	uwsgi.argc = argc;
 
 	for(i=0;i<argc;i++) {
 		if (i==0 || argv[0] + uwsgi.max_procname + 1 == argv[i]) {
@@ -880,6 +886,8 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 	uwsgi_log("max space for custom process name = %d\n", uwsgi.max_procname);
 #endif
 	environ = uwsgi.environ;
+
+#endif
 }
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

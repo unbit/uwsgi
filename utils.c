@@ -3190,6 +3190,7 @@ void uwsgi_apply_config_pass(char symbol, char*(*hook)(char *) ) {
 
 void uwsgi_set_processname(char *name) {
 
+#if defined(__linux__) || defined(__sun__)
 	char *pos = uwsgi.orig_argv[0];
 	size_t amount = 0;
 
@@ -3213,18 +3214,21 @@ void uwsgi_set_processname(char *name) {
 	}
 
 	memset(pos, ' ', uwsgi.max_procname-amount);
+#endif
 }
 
 // this is a wrapper for fork restoring original argv
 pid_t uwsgi_fork(char *name) {
 
-	int i;
 
 	pid_t pid = fork();
 	if (pid == 0) {
+#if defined(__linux__) || defined(__sun__)
+		int i;
 		for(i=0;i<uwsgi.argc;i++) {
 			strcpy(uwsgi.orig_argv[i],uwsgi.argv[i]);
 		}
+#endif
 		if (uwsgi.auto_procname && name) {
 			uwsgi_set_processname(name);
 		}
