@@ -656,6 +656,7 @@ void reap_them_all(int signum) {
 	}
 
 	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (!uwsgi.mules) break;
 		if (uwsgi.mules[i].pid > 0)
 			kill(uwsgi.mules[i].pid, SIGKILL);
 	}
