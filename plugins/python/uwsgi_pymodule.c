@@ -1072,6 +1072,19 @@ PyObject *py_uwsgi_embedded_data(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_setprocname(PyObject * self, PyObject * args) {
+	char *name = NULL;
+
+	if (!PyArg_ParseTuple(args, "s:setprocname", &name)) {
+                return NULL;
+        }
+
+	uwsgi_set_processname(name);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 	char *message = NULL;
@@ -2809,6 +2822,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"cl", py_uwsgi_cl, METH_VARARGS, ""},
+
+	{"setprocname", py_uwsgi_setprocname, METH_VARARGS, ""},
 
 	{"listen_queue", py_uwsgi_listen_queue, METH_VARARGS, ""},
 

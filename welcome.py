@@ -2,6 +2,7 @@ import uwsgi
 import os
 import gc
 import sys
+from uwsgidecorators import *
 gc.set_debug(gc.DEBUG_SAVEALL)
 
 print os.environ
@@ -42,9 +43,18 @@ routes['/logo'] = serve_logo
 routes['/config'] = serve_config
 routes['/options'] = serve_options
 
+@postfork
+def setprocname():
+    if uwsgi.worker_id() > 0:
+        uwsgi.setprocname("i am the worker %d" % uwsgi.worker_id())
+
 def application(env, start_response):
 
     uwsgi.mule_msg(env['REQUEST_URI'], 1)
+
+    req = uwsgi.workers()[uwsgi.worker_id()-1]['requests']
+
+    uwsgi.setprocname("worker %d managed %d requests" % (uwsgi.worker_id(), req))
 
     gc.collect(2)
     if DEBUG:
