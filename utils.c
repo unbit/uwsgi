@@ -3249,8 +3249,14 @@ pid_t uwsgi_fork(char *name) {
 			strcpy(uwsgi.orig_argv[i],uwsgi.argv[i]);
 		}
 #endif
+		
 		if (uwsgi.auto_procname && name) {
-			uwsgi_set_processname(name);
+			if (uwsgi.procname) {
+				uwsgi_set_processname(uwsgi.procname);
+			}
+			else {
+				uwsgi_set_processname(name);
+			}
 		}
 	}
 

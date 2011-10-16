@@ -81,6 +81,8 @@ static struct option long_base_options[] = {
 	{"auto-procname", no_argument, &uwsgi.auto_procname, 1},
 	{"procname-prefix", required_argument, 0, LONG_ARGS_PROCNAME_PREFIX},
 	{"procname-append", required_argument, 0, LONG_ARGS_PROCNAME_APPEND},
+	{"procname", required_argument, 0, LONG_ARGS_PROCNAME},
+	{"procname-master", required_argument, 0, LONG_ARGS_PROCNAME_MASTER},
 	{"single-interpreter", no_argument, 0, 'i'},
 	{"master", no_argument, 0, 'M'},
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
@@ -2855,6 +2857,14 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_PROCNAME_APPEND:
 		uwsgi.auto_procname = 1;
 		uwsgi.procname_append = optarg;
+		return 1;
+	case LONG_ARGS_PROCNAME:
+		uwsgi.auto_procname = 1;
+		uwsgi.procname = optarg;
+		return 1;
+	case LONG_ARGS_PROCNAME_MASTER:
+		uwsgi.auto_procname = 1;
+		uwsgi.procname_master = optarg;
 		return 1;
 #ifdef UWSGI_UDP
 	case LONG_ARGS_CLUSTER_RELOAD:

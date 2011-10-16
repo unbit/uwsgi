@@ -530,6 +530,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOCKS			17152
 #define LONG_ARGS_PROCNAME_PREFIX	17153
 #define LONG_ARGS_PROCNAME_APPEND	17154
+#define LONG_ARGS_PROCNAME		17155
+#define LONG_ARGS_PROCNAME_MASTER	17156
 
 
 #define UWSGI_OK	0
@@ -976,6 +978,8 @@ struct uwsgi_server {
 	char **environ;
 	char *procname_prefix;
 	char *procname_append;
+	char *procname_master;
+	char *procname;
 
 	// quiet startup
 	int no_initial_output;
