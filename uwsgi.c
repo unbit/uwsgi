@@ -1209,7 +1209,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	struct uwsgi_string_list *config_file;
 	
 #ifdef UWSGI_XML
 	if (uwsgi.xml_config != NULL) {
@@ -1219,6 +1218,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 #endif
 #ifdef UWSGI_INI
+	struct uwsgi_string_list *config_file;
 	if (uwsgi.ini != NULL) {
 		config_file = uwsgi.ini;
 		while(config_file) {
@@ -3588,12 +3588,14 @@ static int manage_base_opt(int i, char *optarg) {
 	case 't':
 		uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] = atoi(optarg);
 		return 1;
+#ifdef UWSGI_SPOOLER
 	case LONG_ARGS_SPOOLER_HARAKIRI:
 		uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] = atoi(optarg);
 		return 1;
 	case LONG_ARGS_SPOOLER_CHDIR:
 		uwsgi.spooler_chdir = optarg;
 		return 1;
+#endif
 	case LONG_ARGS_MULE_HARAKIRI:
 		uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI] = atoi(optarg);
 		return 1;

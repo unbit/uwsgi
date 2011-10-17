@@ -1499,12 +1499,14 @@ healthy:
 		uwsgi.mywid = find_worker_id(diedpid);
 		if (uwsgi.mywid <= 0) {
 			// check spooler, mules, gateways and daemons
+#ifdef UWSGI_SPOOLER
 			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
                         	if (diedpid == uwsgi.shared->spooler_pid) {	
 					uwsgi_log("spooler (pid: %d) annihilated\n", (int) diedpid);
 					goto next;	
 				}
 			}
+#endif
 
 			for(i=0;i<uwsgi.mules_cnt;i++) {
 				if (uwsgi.mules[i].pid == diedpid) {
