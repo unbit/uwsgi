@@ -1609,6 +1609,7 @@ struct uwsgi_shared {
 #ifdef UWSGI_SPOOLER
 	pid_t spooler_pid;
 	int spooler_frequency;
+	time_t spooler_harakiri;
 #endif
 
 #ifdef UWSGI_SNMP
@@ -1803,6 +1804,7 @@ pid_t spooler_start(void);
 
 void set_harakiri(int);
 void set_mule_harakiri(int);
+void set_spooler_harakiri(int);
 void inc_harakiri(int);
 
 #ifdef __BIG_ENDIAN__

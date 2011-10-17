@@ -30,6 +30,13 @@ int uwsgi_signal_handler(uint8_t sig) {
                 	set_mule_harakiri(uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI]);
 		}
 	}
+#ifdef UWSGI_SPOOLER
+        else if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0 && (getpid() == uwsgi.shared->spooler_pid)) {
+		if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
+                        set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
+                }
+        }
+#endif
 
 	int ret = uwsgi.p[use->modifier1]->signal_handler(sig, use->handler);
 
@@ -39,12 +46,19 @@ int uwsgi_signal_handler(uint8_t sig) {
                 	set_harakiri(0);
 		}
         }
-	if (uwsgi.muleid > 0) {
+	else if (uwsgi.muleid > 0) {
                 uwsgi.mules[uwsgi.muleid-1].sig = 0;
 		if(uwsgi.mules[uwsgi.muleid-1].harakiri > 0) {
                 	set_mule_harakiri(0);
 		}
         }
+#ifdef UWSGI_SPOOLER
+        else if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0 && (getpid() == uwsgi.shared->spooler_pid)) {
+		if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
+                        set_spooler_harakiri(0);
+                }
+        }
+#endif
 
 	return ret;
 }

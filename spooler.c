@@ -413,7 +413,13 @@ void spooler_manage_task(char *dir, char *task) {
 			for(i=0;i<0xff;i++) {
 				if (uwsgi.p[i]->spooler) {
 					time_t now = time(NULL);
+					if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
+                        			set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
+                			}
 					ret = uwsgi.p[i]->spooler(task, spool_buf, uh.pktsize, body, body_len);
+					if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
+                        			set_spooler_harakiri(0);
+                			}
 					if (body) {
 						free(body);
 					}

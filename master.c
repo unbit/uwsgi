@@ -1374,6 +1374,15 @@ healthy:
 					}
 				}
 			}
+#ifdef UWSGI_SPOOLER
+			if (uwsgi.shared->spooler_pid > 0 && uwsgi.shared->spooler_harakiri > 0) {
+				if (uwsgi.shared->spooler_harakiri < (time_t) uwsgi.current_time) {
+					uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uwsgi.shared->spooler_pid);
+					kill(uwsgi.shared->spooler_pid, SIGKILL);
+					uwsgi.shared->spooler_harakiri = 0;
+				}
+			}
+#endif
 
 #ifdef UWSGI_UDP
 			// check for cluster nodes

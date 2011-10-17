@@ -121,6 +121,18 @@ void set_mule_harakiri(int sec) {
         }
 }
 
+void set_spooler_harakiri(int sec) {
+        if (sec == 0) {
+                uwsgi.shared->spooler_harakiri = 0;
+        }
+        else {
+                uwsgi.shared->spooler_harakiri = time(NULL) + sec;
+        }
+        if (!uwsgi.master_process) {
+                alarm(sec);
+        }
+}
+
 
 void daemonize(char *logfile) {
 	pid_t pid;
