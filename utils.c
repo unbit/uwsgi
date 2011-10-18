@@ -121,6 +121,7 @@ void set_mule_harakiri(int sec) {
         }
 }
 
+#ifdef UWSGI_SPOOLER
 void set_spooler_harakiri(int sec) {
         if (sec == 0) {
                 uwsgi.shared->spooler_harakiri = 0;
@@ -132,6 +133,7 @@ void set_spooler_harakiri(int sec) {
                 alarm(sec);
         }
 }
+#endif
 
 
 void daemonize(char *logfile) {
