@@ -876,7 +876,9 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 	}
 
 	for (i = 0; environ[i] != NULL; i++) {
-		uwsgi.max_procname += strlen(environ[i]) + 1;
+		if ((environ[0] + uwsgi.max_procname + 1) == environ[i]) {
+			uwsgi.max_procname += strlen(environ[i]) + 1;
+		}
 		env_count++;
 	}
 
@@ -2420,7 +2422,6 @@ skipzero:
 			}
 		}
 	}
-
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 #ifdef UWSGI_AS_SHARED_LIBRARY

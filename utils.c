@@ -2304,6 +2304,7 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 
 		argv[cnt] = NULL;
 
+		uwsgi_log_verbose("running %s\n", argv[0]);
 		if (execvp(argv[0], argv)) {
 			uwsgi_error("execvp()");
 		}
