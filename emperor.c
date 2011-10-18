@@ -179,7 +179,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 	struct uwsgi_instance *c_ui = ui;
 	struct uwsgi_instance *n_ui = NULL;
 	pid_t pid;
-	char **argv;
+	char **vassal_argv;
 	char *uef;
 	char **uenvs;
 	int counter;
@@ -340,9 +340,9 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 			uct = uct->next;
 		}
 
-		argv = uwsgi_malloc(sizeof(char *) * counter);
+		vassal_argv = uwsgi_malloc(sizeof(char *) * counter);
 		// set args
-		argv[0] = uwsgi.binary_path;
+		vassal_argv[0] = uwsgi.binary_path;
 
 		if (uwsgi.emperor_broodlord) {
 			colon = strchr(name, ':');
@@ -351,29 +351,29 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 			}
 		}
 		if (!strcmp(name + (strlen(name) - 4), ".xml"))
-			argv[1] = "--xml";
+			vassal_argv[1] = "--xml";
 		if (!strcmp(name + (strlen(name) - 4), ".ini"))
-			argv[1] = "--ini";
+			vassal_argv[1] = "--ini";
 		if (!strcmp(name + (strlen(name) - 4), ".yml"))
-			argv[1] = "--yaml";
+			vassal_argv[1] = "--yaml";
 		if (!strcmp(name + (strlen(name) - 5), ".yaml"))
-			argv[1] = "--yaml";
+			vassal_argv[1] = "--yaml";
 		if (!strcmp(name + (strlen(name) - 3), ".js"))
-			argv[1] = "--json";
+			vassal_argv[1] = "--json";
 
 		if (colon) {
 			colon[0] = ':';
 		}
-		argv[2] = name;
+		vassal_argv[2] = name;
 		counter = 3;
 		uct = uwsgi.vassals_templates;
         	while(uct) {
-			argv[counter] = "--inherit";
-			argv[counter+1] = uct->filename;
+			vassal_argv[counter] = "--inherit";
+			vassal_argv[counter+1] = uct->filename;
 			counter+=2;
 			uct = uct->next;
 		}
-		argv[counter] = NULL;
+		vassal_argv[counter] = NULL;
 
 		// close all of the unneded fd
 		for(i=3;i<sysconf(_SC_OPEN_MAX);i++) {
@@ -392,7 +392,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 		}
 
 		// start !!!
-		if (execvp(argv[0], argv)) {
+		if (execvp(vassal_argv[0], vassal_argv)) {
 			uwsgi_error("execvp()");
 		}
 		uwsgi_log("is the uwsgi binary in your system PATH ?\n");

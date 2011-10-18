@@ -2,6 +2,7 @@
 
 
 extern struct uwsgi_server uwsgi;
+extern char **environ;
 
 /* statistically ordered */
 struct http_status_codes hsc[] = {
@@ -3212,22 +3213,22 @@ void uwsgi_set_processname(char *name) {
 	*uwsgi.orig_argv[0] = 0;
 
 	if (uwsgi.procname_prefix) {
-		amount += strlen(uwsgi.procname_prefix)+1;
-		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, uwsgi.max_procname-amount);
-		pos+=amount;
+		amount += strlen(uwsgi.procname_prefix);
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, uwsgi.max_procname-(amount+1));
+		pos+=strlen(uwsgi.procname_prefix)+1;
 	}
 	
-	amount += strlen(name)+1;
-	strncat(uwsgi.orig_argv[0], name, uwsgi.max_procname-amount);
-	pos+=amount;
+	amount += strlen(name);
+	strncat(uwsgi.orig_argv[0], name, (uwsgi.max_procname-amount+1));
+	pos+=strlen(uwsgi.procname_prefix)+1;
 
 	if (uwsgi.procname_append) {
-		amount += strlen(uwsgi.procname_append)+1;
-		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname-amount);
-		pos+=amount;
+		amount += strlen(uwsgi.procname_append);
+		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname-(amount+1));
+		pos+=strlen(uwsgi.procname_prefix)+1;
 	}
 
-	memset(pos, ' ', uwsgi.max_procname-amount);
+	memset(pos+1, ' ', uwsgi.max_procname-(amount+1));
 #elif defined(__FreeBSD__)
 	if (uwsgi.procname_prefix) {
 		if (!uwsgi.procname_append) {
