@@ -875,6 +875,9 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 		uwsgi.argv[i] = strdup(argv[i]);
 	}
 
+	
+	uwsgi.max_procname++;
+
 	for (i = 0; environ[i] != NULL; i++) {
 		if ((environ[0] + uwsgi.max_procname + 1) == environ[i]) {
 			uwsgi.max_procname += strlen(environ[i]) + 1;
@@ -885,12 +888,13 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 	uwsgi.environ = uwsgi_malloc(sizeof(char *) * env_count);
 	for(i=0;i<env_count;i++) {
 		uwsgi.environ[i] = strdup(environ[i]);
+		environ[i] = uwsgi.environ[i];
 	}
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("max space for custom process name = %d\n", uwsgi.max_procname);
 #endif
-	environ = uwsgi.environ;
+	//environ = uwsgi.environ;
 
 #endif
 }
