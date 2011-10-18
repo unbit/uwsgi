@@ -3206,7 +3206,6 @@ void uwsgi_apply_config_pass(char symbol, char*(*hook)(char *) ) {
 void uwsgi_set_processname(char *name) {
 
 #if defined(__linux__) || defined(__sun__)
-	char *pos = uwsgi.orig_argv[0];
 	size_t amount = 0;
 
 	// prepare for strncat
@@ -3215,20 +3214,17 @@ void uwsgi_set_processname(char *name) {
 	if (uwsgi.procname_prefix) {
 		amount += strlen(uwsgi.procname_prefix);
 		strncat(uwsgi.orig_argv[0], uwsgi.procname_prefix, uwsgi.max_procname-(amount+1));
-		pos+=strlen(uwsgi.procname_prefix)+1;
 	}
 	
 	amount += strlen(name);
 	strncat(uwsgi.orig_argv[0], name, (uwsgi.max_procname-amount+1));
-	pos+=strlen(uwsgi.procname_prefix)+1;
 
 	if (uwsgi.procname_append) {
 		amount += strlen(uwsgi.procname_append);
 		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname-(amount+1));
-		pos+=strlen(uwsgi.procname_prefix)+1;
 	}
 
-	memset(pos+1, ' ', uwsgi.max_procname-(amount+1));
+	memset(uwsgi.orig_argv[0]+amount, ' ', uwsgi.max_procname-(amount+1));
 #elif defined(__FreeBSD__)
 	if (uwsgi.procname_prefix) {
 		if (!uwsgi.procname_append) {
