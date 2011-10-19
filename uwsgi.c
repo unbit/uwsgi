@@ -879,15 +879,19 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 	uwsgi.max_procname++;
 
 	for (i = 0; environ[i] != NULL; i++) {
-		if ((environ[0] + uwsgi.max_procname + 1) == environ[i]) {
+		// useless
+		//if ((environ[0] + uwsgi.max_procname + 1) == environ[i]) {
 			uwsgi.max_procname += strlen(environ[i]) + 1;
-		}
+		//}
 		env_count++;
 	}
 
 	uwsgi.environ = uwsgi_malloc(sizeof(char *) * env_count);
 	for(i=0;i<env_count;i++) {
 		uwsgi.environ[i] = strdup(environ[i]);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("ENVIRON: %s\n", uwsgi.environ[i]);
+#endif
 		environ[i] = uwsgi.environ[i];
 	}
 
