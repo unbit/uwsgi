@@ -3238,7 +3238,7 @@ void uwsgi_set_processname(char *name) {
 		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname-(amount+1));
 	}
 
-	memset(uwsgi.orig_argv[0]+amount, ' ', uwsgi.max_procname-(amount));
+	memset(uwsgi.orig_argv[0]+amount+1, ' ', uwsgi.max_procname-(amount-1));
 #elif defined(__FreeBSD__)
 	if (uwsgi.procname_prefix) {
 		if (!uwsgi.procname_append) {
