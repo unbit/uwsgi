@@ -2253,7 +2253,7 @@ skipzero:
 				exit(1);
 			}
 
-			snprintf(uwsgi.mules[i].name, 0xff, "uWSGI mule %d", i);
+			snprintf(uwsgi.mules[i].name, 0xff, "uWSGI mule %d", i+1);
 		}
 	}
 
