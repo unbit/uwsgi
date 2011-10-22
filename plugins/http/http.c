@@ -136,6 +136,8 @@ struct http_session {
 	char uss[MAX_HTTP_VEC*2];
 
 	char buffer[UMAX16];
+	char path_info[UMAX16];
+	uint16_t path_info_len;
 
 	struct uwsgi_subscriber_name *un;
 	
@@ -325,13 +327,19 @@ int http_parse(struct http_session *h_session) {
 	base = ptr;
 	while(ptr < watermark) {
                 if (*ptr == '?' && !query_string) {
-			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "PATH_INFO", 9, base, ptr-base, &c);
+			// PATH_INFO must be url-decoded !!!
+			h_session->path_info_len = ptr-base;
+			http_url_decode(base, &h_session->path_info_len, h_session->path_info);
+			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "PATH_INFO", 9, h_session->path_info, h_session->path_info_len, &c);
 			query_string = ptr+1;
 		}
                 else if (*ptr == ' ') {
 			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "REQUEST_URI", 11, base, ptr-base, &c);
 			if (!query_string) {
-				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "PATH_INFO", 9, base, ptr-base, &c);
+				// PATH_INFO must be url-decoded !!!
+				h_session->path_info_len = ptr-base;
+				http_url_decode(base, &h_session->path_info_len, h_session->path_info);
+				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "PATH_INFO", 9, h_session->path_info, h_session->path_info_len, &c);
 				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss+c, h_session->uss+c+2, "QUERY_STRING", 12, "", 0, &c);
 			}	
 			else {

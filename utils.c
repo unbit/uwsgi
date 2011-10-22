@@ -2443,6 +2443,37 @@ int uwsgi_list_has_str(char *list, char *str) {
 	return 0;
 }
 
+char hex2num(char *str) {
+	
+	char val = 0;
+	
+	val <<= 4;
+
+	if (str[0] >= '0' && str[0] <= '9') {
+		val += str[0] & 0x0F;
+	}
+	else if ( str[0] >= 'A' && str[0] <= 'F') {
+		val += (str[0] & 0x0F) + 9;
+	}
+	else {
+		return 0;
+	}
+
+	val <<= 4;
+
+	if (str[1] >= '0' && str[1] <= '9') {
+		val += str[1] & 0x0F;
+	}
+	else if ( str[1] >= 'A' && str[1] <= 'F') {
+		val += (str[1] & 0x0F) + 9;
+	}
+	else {
+		return 0;
+	}
+
+	return val;
+}
+
 int uwsgi_str2_num(char *str) {
 
 	int num = 0;
@@ -3286,4 +3317,49 @@ pid_t uwsgi_fork(char *name) {
 	}
 
 	return pid;
+}
+
+void http_url_decode(char *buf, uint16_t *len, char *dst) {
+
+	uint16_t i;
+	int percent = 0;
+	char value[2];
+	size_t new_len = 0;
+
+	char *ptr = dst;
+
+	value[0] = '0';
+	value[1] = '0';
+
+	for(i=0;i<*len;i++) {
+		if (buf[i] == '%') {
+			if (percent == 0) {
+				percent = 1;
+			}
+			else {
+				*ptr++= '%';
+				new_len++;
+				percent = 0;
+			}
+		}
+		else {
+			if (percent == 1) {
+                                value[0] = buf[i];
+                                percent = 2;
+                        }
+                        else if (percent == 2) {
+                                value[1] = buf[i];
+                                *ptr++= hex2num(value);
+                                percent = 0;
+                                new_len++;
+                        }
+			else {
+				*ptr++= buf[i];
+				new_len++;
+			}
+		}
+	}
+
+	*len = new_len;
+
 }

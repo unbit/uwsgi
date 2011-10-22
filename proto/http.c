@@ -124,9 +124,18 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	base = ptr;
 	while (ptr < watermark) {
 		if (*ptr == '?' && !query_string) {
-			wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
-			wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
-			wsgi_req->path_info_len = ptr - base;
+			if (watermark + (ptr - base) < (char *)(wsgi_req->proto_parser_buf + uwsgi.buffer_size)) {
+				wsgi_req->path_info = watermark;
+				wsgi_req->path_info_len = ptr - base;
+				http_url_decode(base, &wsgi_req->path_info_len, wsgi_req->path_info);
+				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, wsgi_req->path_info, wsgi_req->path_info_len);
+			}
+			else {
+				uwsgi_log("not enough space in wsgi_req http proto_parser_buf to encode PATH_INFO, consider tuning it with --buffer-size\n");
+				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
+				wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
+				wsgi_req->path_info_len = ptr - base;
+			}
 			wsgi_req->path_info_pos = 3;
 			query_string = ptr + 1;
 		}
@@ -136,9 +145,18 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			wsgi_req->uri_len = ptr - base;
 			
 			if (!query_string) {
-				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
-				wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
-				wsgi_req->path_info_len = ptr - base;
+				if (watermark + (ptr - base) < (char *)(wsgi_req->proto_parser_buf + uwsgi.buffer_size)) {
+                                	wsgi_req->path_info = watermark;
+                                	wsgi_req->path_info_len = ptr - base;
+                                	http_url_decode(base, &wsgi_req->path_info_len, wsgi_req->path_info);
+                                	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, wsgi_req->path_info, wsgi_req->path_info_len);
+                        	}
+				else {
+					uwsgi_log("not enough space in wsgi_req http proto_parser_buf to encode PATH_INFO, consider tuning it with --buffer-size\n");
+					wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, base, ptr - base);
+					wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
+					wsgi_req->path_info_len = ptr - base;
+				}
 				wsgi_req->path_info_pos = 5;
 				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "QUERY_STRING", 12, "", 0);
 			}
