@@ -3679,32 +3679,58 @@ static int manage_base_opt(int i, char *optarg) {
 	return 0;
 }
 
-void manage_opt(int i, char *optarg) {
-
+int _manage_opt(int i, char *p) {
 	int j;
 
-	if (manage_base_opt(i, optarg)) {
+	if (manage_base_opt(i, p)) {
+                        return 1;
+                }
+
+                for (j = 0; j < 0xFF; j++) {
+                        if (uwsgi.p[j]->manage_opt) {
+                                if (uwsgi.p[j]->manage_opt(i, p)) {
+                                        return 1;
+                                }
+                        }
+                }
+
+                for (j = 0; j < uwsgi.gp_cnt; j++) {
+                        if (uwsgi.gp[j]->manage_opt) {
+                                if (uwsgi.gp[j]->manage_opt(i, p)) {
+                                        return 1;
+                                }
+                        }
+                }
+
+	return 0;
+}
+
+void manage_opt(int i, char *optarg) {
+
+	char *value = optarg;
+	
+	if (value && strchr(optarg, ';')) {
+		value = uwsgi_str(optarg);
+	}
+
+	if (!value) {
+		if (!_manage_opt(i, NULL)) {
+			exit(1);
+		}
 		return;
 	}
 
-	for (j = 0; j < 0xFF; j++) {
-		if (uwsgi.p[j]->manage_opt) {
-			if (uwsgi.p[j]->manage_opt(i, optarg)) {
-				return;
-			}
-		}
+	char *p = strtok(value, ";");
+	while(p != NULL) {
+
+		if (_manage_opt(i, p)) goto next;
+		exit(1);
+next:
+		p = strtok(NULL, ";");
+		
 	}
 
-	for (j = 0; j < uwsgi.gp_cnt; j++) {
-		if (uwsgi.gp[j]->manage_opt) {
-			if (uwsgi.gp[j]->manage_opt(i, optarg)) {
-				return;
-			}
-		}
-	}
-
-	//never here
-	exit(1);
+	return;
 
 }
 
