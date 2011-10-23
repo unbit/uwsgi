@@ -34,7 +34,7 @@ struct uwsgi_perl {
 
 void init_perl_embedded_module(void);
 void uwsgi_psgi_app(void);
-int psgi_response(struct wsgi_request *, PerlInterpreter *, AV*);
+int psgi_response(struct wsgi_request *, AV*);
 
 #define psgi_xs(func) newXS("uwsgi::" #func, XS_##func, "uwsgi")
 #define psgi_check_args(x) if (items < x) Perl_croak(aTHX_ "Usage: uwsgi::%s takes %d arguments", __FUNCTION__ + 3, x)
