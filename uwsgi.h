@@ -2420,6 +2420,8 @@ pid_t uwsgi_fork(char *);
 struct uwsgi_mule *get_mule_by_id(int);
 struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **, struct uwsgi_mule *);
 
+int uwsgi_farm_has_mule(struct uwsgi_farm *, int);
+
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);
 #endif

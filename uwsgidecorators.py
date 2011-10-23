@@ -84,6 +84,30 @@ class rpc(object):
         uwsgi.register_rpc(self.name, f)
         return f
 
+class farm_loop(object):
+
+    def __init__(self, f, farm):
+        self.f = f
+        self.farm = farm
+    
+    def __call__(self):
+        if uwsgi.mule_id() == 0:
+            return
+        if not uwsgi.in_farm(self.farm):
+            return
+        while True:
+            message = uwsgi.farm_get_msg()
+            if message:
+                self.f(message)
+
+class farm(object):
+
+    def __init__(self, name=None, **kwargs):
+        self.name = name
+
+    def __call__(self, f):
+        postfork_chain.append(farm_loop(f, self.name))
+
 class signal(object):
 
     def __init__(self, num, **kwargs):

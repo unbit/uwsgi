@@ -1085,6 +1085,40 @@ PyObject *py_uwsgi_setprocname(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_in_farm(PyObject * self, PyObject * args) {
+
+	char *farm_name = NULL;
+	int i;
+
+	if (!PyArg_ParseTuple(args, "|s:in_farm", &farm_name)) {
+                return NULL;
+        }
+
+	if (uwsgi.muleid == 0) goto none;
+
+	for(i=0;i<uwsgi.farms_cnt;i++) {
+		if (!farm_name) {
+			if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) {
+				Py_INCREF(Py_True);
+				return Py_True;
+			}
+		}
+		else {
+			if (!strcmp(farm_name, uwsgi.farms[i].name)) {
+				if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) {
+					Py_INCREF(Py_True);
+					return Py_True;
+				}
+			}
+		}
+	}
+none:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+   
+}
+
 PyObject *py_uwsgi_farm_msg(PyObject * self, PyObject * args) {
 
         char *message = NULL;
@@ -1160,6 +1194,57 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args) {
 
 	return PyString_FromStringAndSize(message, len);
 }
+
+PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {
+
+        ssize_t len = 0;
+        // this buffer will be configurable
+        char message[65536];
+	int i, count = 0, pos = 0, ret;
+	struct pollfd *farmpoll;
+
+        if (uwsgi.muleid == 0) {
+                return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
+        }
+        UWSGI_RELEASE_GIL;
+	for(i=0;i<uwsgi.farms_cnt;i++) {	
+		if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) count++;
+	}
+	farmpoll = uwsgi_malloc( sizeof(struct pollfd) * count);
+	for(i=0;i<uwsgi.farms_cnt;i++) {
+		if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) {
+			farmpoll[pos].fd = uwsgi.farms[i].queue_pipe[1];
+			farmpoll[pos].events = POLLIN;
+			pos++;
+		}
+	}
+
+	ret = poll(farmpoll, count, -1);
+	if (ret <= 0) {
+		uwsgi_error("poll()");
+		free(farmpoll);
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	for(i=0;i<count;i++) {
+		if (farmpoll[i].revents & POLLIN) {
+        		len = read(farmpoll[i].fd, message, 65536);
+			break;
+		}
+	}
+        UWSGI_GET_GIL;
+        if (len <= 0) {
+                uwsgi_error("read()");
+		free(farmpoll);
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+	free(farmpoll);
+        return PyString_FromStringAndSize(message, len);
+}
+
 
 PyObject *py_uwsgi_extract(PyObject * self, PyObject * args) {
 
@@ -2917,6 +3002,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
 	{"mule_get_msg", py_uwsgi_mule_get_msg, METH_VARARGS, ""},
+	{"farm_get_msg", py_uwsgi_farm_get_msg, METH_VARARGS, ""},
+	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{NULL, NULL},
