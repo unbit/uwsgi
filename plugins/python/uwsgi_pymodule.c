@@ -1085,6 +1085,36 @@ PyObject *py_uwsgi_setprocname(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_farm_msg(PyObject * self, PyObject * args) {
+
+        char *message = NULL;
+        Py_ssize_t message_len = 0;
+	char *farm_name = NULL;
+        ssize_t len;
+	int i;
+
+        if (!PyArg_ParseTuple(args, "ss#:farm_msg", &farm_name, &message, &message_len)) {
+                return NULL;
+        }
+
+	for(i=0;i<uwsgi.farms_cnt;i++) {
+	
+		if (!strcmp(farm_name, uwsgi.farms[i].name)) {
+                	len = write(uwsgi.farms[i].queue_pipe[0], message, message_len);
+                	if (len <= 0) {
+                        	uwsgi_error("write()");
+                	}
+			break;
+		}
+	
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+
+}
+
+
 PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 	char *message = NULL;
@@ -2885,6 +2915,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"extract", py_uwsgi_extract, METH_VARARGS, ""},
 
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
+	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
 	{"mule_get_msg", py_uwsgi_mule_get_msg, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 

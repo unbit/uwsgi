@@ -63,6 +63,64 @@ void uwsgi_mule(int id) {
 	}
 }
 
+int uwsgi_farm_has_mule(struct uwsgi_farm *farm, int muleid) {
+
+	struct uwsgi_mule_farm *umf = farm->mules;
+
+	while(umf) {
+		if (umf->mule->id == muleid) {
+			return 1;
+		}
+		umf = umf->next;
+	}
+
+	return 0;
+}
+
+int farm_has_signaled(int fd) {
+
+	int i;
+	for(i=0;i<uwsgi.farms_cnt;i++) {
+		struct uwsgi_mule_farm *umf = uwsgi.farms[i].mules;
+		while(umf) {
+			if (umf->mule->id == uwsgi.muleid && uwsgi.farms[i].signal_pipe[1] == fd) {
+				return 1;
+			}
+			umf = umf->next;
+		}
+	}
+	
+	return 0;
+}
+
+int farm_has_msg(int fd) {
+
+        int i;
+        for(i=0;i<uwsgi.farms_cnt;i++) {
+                struct uwsgi_mule_farm *umf = uwsgi.farms[i].mules;
+                while(umf) {
+                        if (umf->mule->id == uwsgi.muleid && uwsgi.farms[i].queue_pipe[1] == fd) {
+                                return 1;
+                        }
+                        umf = umf->next;
+                }
+        }
+
+        return 0;
+}
+
+
+void uwsgi_mule_add_farm_to_queue(int queue) {
+
+	int i;
+	for(i=0;i<uwsgi.farms_cnt;i++) {
+		if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) {
+			event_queue_add_fd_read(queue, uwsgi.farms[i].signal_pipe[1]);	
+			event_queue_add_fd_read(queue, uwsgi.farms[i].queue_pipe[1]);	
+		}
+	}
+}
+
 void uwsgi_mule_handler() {
 	
 	ssize_t len;
@@ -79,13 +137,15 @@ void uwsgi_mule_handler() {
 	event_queue_add_fd_read(mule_queue, uwsgi.my_signal_socket);
 	event_queue_add_fd_read(mule_queue, uwsgi.mules[uwsgi.muleid-1].queue_pipe[1]);
 
+	uwsgi_mule_add_farm_to_queue(mule_queue);
+
 	for(;;) {
 		rlen = event_queue_wait(mule_queue, -1, &interesting_fd);
 		if (rlen <= 0) {
 			continue;
 		}
 
-		if (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket) {
+		if (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket || farm_has_signaled(interesting_fd)) {
 			len = read(interesting_fd, &uwsgi_signal, 1);
 			if (len <= 0) {
                 		uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
@@ -98,8 +158,8 @@ void uwsgi_mule_handler() {
                 		uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
                 	}
 		}
-		else if (interesting_fd == uwsgi.mules[uwsgi.muleid-1].queue_pipe[1]) {
-			len = read(uwsgi.mules[uwsgi.muleid-1].queue_pipe[1], message, 65536);
+		else if (interesting_fd == uwsgi.mules[uwsgi.muleid-1].queue_pipe[1] || farm_has_msg(interesting_fd)) {
+			len = read(interesting_fd, message, 65536);
 			if (len < 0) {
 				uwsgi_error("read()");
 			}	
@@ -107,9 +167,47 @@ void uwsgi_mule_handler() {
 				exit(1);
 			}
 			else {
-				uwsgi_log("*** mule %d received a %d bytes message\n", uwsgi.muleid, len);
+				uwsgi_log("*** mule %d received a %d bytes message ***\n", uwsgi.muleid, len);
 			}
 		}
 	}
 
 }
+
+struct uwsgi_mule *get_mule_by_id(int id) {
+
+	int i;
+
+	for(i=0;i<uwsgi.mules_cnt;i++) {
+		if (uwsgi.mules[i].id == id) {
+			return &uwsgi.mules[i];
+		}
+	}
+
+	return NULL;
+}
+
+struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **umf, struct uwsgi_mule *um) {
+
+        struct uwsgi_mule_farm *uwsgi_mf = *umf, *old_umf;
+
+        if (!uwsgi_mf) {
+                *umf = uwsgi_malloc(sizeof(struct uwsgi_mule_farm));
+                uwsgi_mf = *umf;
+        }
+        else {
+                while(uwsgi_mf) {
+                        old_umf = uwsgi_mf;
+			uwsgi_mf = uwsgi_mf->next;
+                }
+
+                uwsgi_mf = uwsgi_malloc(sizeof(struct uwsgi_mule_farm));
+                old_umf->next = uwsgi_mf;
+        }
+
+        uwsgi_mf->mule = um;
+        uwsgi_mf->next = NULL;
+
+        return uwsgi_mf;
+}
+

@@ -71,6 +71,15 @@ void uwsgi_fixup_fds(int wid, int muleid) {
 				}
                         }
 
+			for(i=0;i<uwsgi.farms_cnt;i++) {
+                                if (uwsgi.farms[i].signal_pipe[0] != -1) close(uwsgi.farms[i].signal_pipe[0]);
+
+				if (muleid == 0) {
+                                	if (uwsgi.farms[i].signal_pipe[1] != -1) close(uwsgi.farms[i].signal_pipe[1]);
+                                	if (uwsgi.farms[i].queue_pipe[1] != -1) close(uwsgi.farms[i].queue_pipe[1]);
+				}
+			}
+
                 }
 
 	

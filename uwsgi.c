@@ -126,6 +126,7 @@ static struct option long_base_options[] = {
 	{"spooler-chdir", required_argument, 0, LONG_ARGS_SPOOLER_CHDIR},
 #endif
 	{"mule", optional_argument, 0, LONG_ARGS_MULE},
+	{"farm", required_argument, 0, LONG_ARGS_FARM},
 	{"disable-logging", no_argument, 0, 'L'},
 
 	{"pidfile", required_argument, 0, LONG_ARGS_PIDFILE},
@@ -2253,8 +2254,65 @@ skipzero:
 				exit(1);
 			}
 
+			uwsgi.mules[i].id = i+1;
+
 			snprintf(uwsgi.mules[i].name, 0xff, "uWSGI mule %d", i+1);
 		}
+	}
+
+	if (uwsgi.farms_cnt > 0) {
+		uwsgi.farms = (struct uwsgi_farm *) mmap(NULL, sizeof(struct uwsgi_farm) * uwsgi.farms_cnt, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		if (!uwsgi.farms) {
+			uwsgi_error("mmap()");
+                	exit(1);
+		}
+		memset(uwsgi.farms, 0, sizeof(struct uwsgi_farm) * uwsgi.farms_cnt);
+
+		struct uwsgi_string_list *farm_name = uwsgi.farms_list;
+		for(i=0;i<uwsgi.farms_cnt;i++) {
+
+			char *farm_value = uwsgi_str(farm_name->value);
+
+			char *mules_list = strchr(farm_value, ':');
+			if (!mules_list) {
+				uwsgi_log("invalid farm value (%s) must be in the form name:mule[,muleN].\n", farm_value);
+				exit(1);
+			}
+
+			mules_list[0] = 0;
+			mules_list++;
+
+			strncpy(uwsgi.farms[i].name, farm_value, 0xff);
+
+			// create the socket pipe
+        		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.farms[i].signal_pipe)) {
+                		uwsgi_error("socketpair()\n");
+        		}
+
+			if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.farms[i].queue_pipe)) {
+				uwsgi_error("socketpair()");
+				exit(1);
+			}
+
+
+			char *p = strtok(mules_list, ",");
+			while(p != NULL) {
+				struct uwsgi_mule *um = get_mule_by_id( atoi( p ) );
+				if (!um) {
+					uwsgi_log("invalid mule id: %s\n", p);
+					exit(1);
+				}
+
+				uwsgi_mule_farm_new(&uwsgi.farms[i].mules, um);
+
+				p = strtok(NULL, ",");
+			}
+			uwsgi_log("created farm %d name: %s mules:%s\n", i+1, uwsgi.farms[i].name, strchr(farm_name->value, ':')+1);
+
+			farm_name = farm_name->next;
+
+		}
+		
 	}
 
 	/*
@@ -3376,6 +3434,11 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.master_process = 1;
 		uwsgi.mules_cnt++;
 		uwsgi_string_new_list(&uwsgi.mules_patches, optarg);
+		return 1;
+	case LONG_ARGS_FARM:
+		uwsgi.master_process = 1;
+		uwsgi.farms_cnt++;
+		uwsgi_string_new_list(&uwsgi.farms_list, optarg);
 		return 1;
 	case LONG_ARGS_SOCKET_PROTOCOL:
 		// TODO map each socket to a specific protocol

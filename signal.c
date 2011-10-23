@@ -271,6 +271,20 @@ void uwsgi_route_signal(uint8_t sig) {
                         }
 		}
 	}
+
+	else if (!strncmp(use->receiver, "farm", 4)) {
+		i = atoi(use->receiver+4);
+		if (i > uwsgi.farms_cnt || i <= 0) {
+			uwsgi_log("invalid signal target: %s\n", use->receiver);
+		}
+		else {
+			if (write(uwsgi.farms[i-1].signal_pipe[0], &sig, 1) != 1) {
+                                uwsgi_error("write()");
+                                uwsgi_log("could not deliver signal %d to farm %d (%s)\n", sig, i, uwsgi.farms[i-1].name);
+                        }
+		}
+	}
+
 	else {
 		// unregistered signal, sending it to all the workers
 		uwsgi_log("^^^ UNSUPPORTED SIGNAL TARGET: %s ^^^\n", use->receiver);

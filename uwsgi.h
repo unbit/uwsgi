@@ -532,6 +532,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_PROCNAME_APPEND	17154
 #define LONG_ARGS_PROCNAME		17155
 #define LONG_ARGS_PROCNAME_MASTER	17156
+#define LONG_ARGS_FARM			17157
 
 
 #define UWSGI_OK	0
@@ -1294,12 +1295,15 @@ struct uwsgi_server {
 	/* the list of mules */
 	struct uwsgi_string_list *mules_patches;
 	struct uwsgi_mule *mules;
+	struct uwsgi_string_list *farms_list;
+	struct uwsgi_farm *farms;
 
 	pid_t mypid;
 	int mywid;
 
 	int muleid;
 	int mules_cnt;
+	int farms_cnt;
 
 	rlim_t max_fd;
 
@@ -1731,6 +1735,7 @@ struct uwsgi_worker {
 	char name[0xff];
 };
 
+
 struct uwsgi_mule {
 	int id;
 	pid_t pid;
@@ -1752,6 +1757,23 @@ struct uwsgi_mule {
 
 	char name[0xff];
 };
+
+struct uwsgi_mule_farm {
+	struct uwsgi_mule *mule;
+	struct uwsgi_mule_farm *next;
+};
+
+struct uwsgi_farm {
+	int id;
+	char name[0xff];
+
+	int signal_pipe[2];
+	int queue_pipe[2];
+
+	struct uwsgi_mule_farm *mules;
+
+};
+
 
 
 char *uwsgi_get_cwd(void);
@@ -2394,6 +2416,9 @@ void uwsgi_set_processname(char *);
 void http_url_decode(char *, uint16_t *, char *);
 
 pid_t uwsgi_fork(char *);
+
+struct uwsgi_mule *get_mule_by_id(int);
+struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **, struct uwsgi_mule *);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);
