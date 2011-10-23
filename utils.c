@@ -1712,24 +1712,45 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 	return 0;
 }
 
-void add_exported_option(char *key, char *value, int configured) {
+void _add_exported_option(char *key, char *value, int configured) {
 
 	if (!uwsgi.exported_opts) {
-		uwsgi.exported_opts = uwsgi_malloc(sizeof(struct uwsgi_opt *));
-	}
-	else {
-		uwsgi.exported_opts = realloc(uwsgi.exported_opts, sizeof(struct uwsgi_opt *) * (uwsgi.exported_opts_cnt + 1));
-		if (!uwsgi.exported_opts) {
-			uwsgi_error("realloc()");
-			exit(1);
-		}
+                        uwsgi.exported_opts = uwsgi_malloc(sizeof(struct uwsgi_opt *));
+                }
+                else {
+                        uwsgi.exported_opts = realloc(uwsgi.exported_opts, sizeof(struct uwsgi_opt *) * (uwsgi.exported_opts_cnt + 1));
+                        if (!uwsgi.exported_opts) {
+                                uwsgi_error("realloc()");
+                                exit(1);
+                        }
+                }
+
+                uwsgi.exported_opts[uwsgi.exported_opts_cnt] = uwsgi_malloc(sizeof(struct uwsgi_opt));
+                uwsgi.exported_opts[uwsgi.exported_opts_cnt]->key = key;
+                uwsgi.exported_opts[uwsgi.exported_opts_cnt]->value = value;
+                uwsgi.exported_opts[uwsgi.exported_opts_cnt]->configured = configured;
+                uwsgi.exported_opts_cnt++;
+}
+
+void add_exported_option(char *key, char *value, int configured) {
+
+	char *v = value;
+	if (value && strchr(value, ';')) {
+		v = uwsgi_str(value);
 	}
 
-	uwsgi.exported_opts[uwsgi.exported_opts_cnt] = uwsgi_malloc(sizeof(struct uwsgi_opt));
-	uwsgi.exported_opts[uwsgi.exported_opts_cnt]->key = key;
-	uwsgi.exported_opts[uwsgi.exported_opts_cnt]->value = value;
-	uwsgi.exported_opts[uwsgi.exported_opts_cnt]->configured = configured;
-	uwsgi.exported_opts_cnt++;
+	if (v == NULL) {
+		_add_exported_option(key, v, configured);
+		return;
+	}
+
+	char *p = strtok(v, ";");
+	while(p != NULL) {
+
+		_add_exported_option(key, p, configured);
+
+		p = strtok(NULL, ";");
+	}
 
 }
 
