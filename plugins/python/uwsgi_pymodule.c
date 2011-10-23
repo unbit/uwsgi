@@ -2492,12 +2492,13 @@ PyObject *py_uwsgi_logsize(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 
+	uint64_t rss=0, vsz = 0;
 	PyObject *ml = PyTuple_New(2);
 
-	get_memusage();
+	get_memusage(&rss, &vsz);
 
-	PyTuple_SetItem(ml, 0, PyLong_FromUnsignedLongLong(uwsgi.workers[uwsgi.mywid].rss_size));
-	PyTuple_SetItem(ml, 1, PyLong_FromUnsignedLongLong(uwsgi.workers[uwsgi.mywid].vsz_size));
+	PyTuple_SetItem(ml, 0, PyLong_FromUnsignedLongLong(rss));
+	PyTuple_SetItem(ml, 1, PyLong_FromUnsignedLongLong(vsz));
 
 	return ml;
 

@@ -129,22 +129,22 @@ void log_request(struct wsgi_request *wsgi_req) {
 	rlen = writev(2, logvec, logvecpos+1);
 }
 
-void get_memusage() {
+void get_memusage(uint64_t *rss, uint64_t *vsz) {
 
 #ifdef UNBIT
-	uwsgi.workers[uwsgi.mywid].vsz_size = syscall(356);
+	*vsz = syscall(356);
 #elif defined(__linux__)
 	FILE *procfile;
 	int i;
 	procfile = fopen("/proc/self/stat", "r");
 	if (procfile) {
-		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", (unsigned long long *) &uwsgi.workers[uwsgi.mywid].vsz_size, (unsigned long long *) &uwsgi.workers[uwsgi.mywid].rss_size);
+		i = fscanf(procfile, "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %llu %lld", (unsigned long long *) vsz, (unsigned long long *) rss);
 		if (i != 2) {
 			uwsgi_log( "warning: invalid record in /proc/self/stat\n");
 		}
 		fclose(procfile);
 	}
-	uwsgi.workers[uwsgi.mywid].rss_size = uwsgi.workers[uwsgi.mywid].rss_size * uwsgi.page_size;
+	*rss = *rss * uwsgi.page_size;
 #elif defined (__sun__)
 	psinfo_t info;
 	int procfd;
@@ -152,8 +152,8 @@ void get_memusage() {
 	procfd = open("/proc/self/psinfo", O_RDONLY);
 	if (procfd >= 0) {
 		if ( read(procfd, (char *) &info, sizeof(info)) > 0) {
-			uwsgi.workers[uwsgi.mywid].rss_size = (uint64_t) info.pr_rssize * 1024;
-			uwsgi.workers[uwsgi.mywid].vsz_size = (uint64_t) info.pr_size * 1024;
+			*rss = (uint64_t) info.pr_rssize * 1024;
+			*vsz = (uint64_t) info.pr_size * 1024;
 		}
 		close(procfd);
 	}
@@ -164,8 +164,8 @@ void get_memusage() {
 	mach_msg_type_number_t t_size = sizeof(struct task_basic_info);
 
 	if (task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t) & t_info, &t_size) == KERN_SUCCESS) {
-		uwsgi.workers[uwsgi.mywid].rss_size = t_info.resident_size;
-		uwsgi.workers[uwsgi.mywid].vsz_size = t_info.virtual_size;
+		*rss = t_info.resident_size;
+		*vsz = t_info.virtual_size;
 	}
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
 	kvm_t *kv;
@@ -184,8 +184,8 @@ void get_memusage() {
 		struct kinfo_proc *kproc;
 		kproc = kvm_getprocs(kv, KERN_PROC_PID, uwsgi.mypid, &cnt);
 		if (kproc && cnt > 0) {
-			uwsgi.workers[uwsgi.mywid].vsz_size = kproc->ki_size;
-			uwsgi.workers[uwsgi.mywid].rss_size = kproc->ki_rssize * uwsgi.page_size;
+			*vsz = kproc->ki_size;
+			*rss = kproc->ki_rssize * uwsgi.page_size;
 		}
 #elif defined(__NetBSD__) || defined(__OpenBSD__)
 		struct kinfo_proc2 *kproc2;
@@ -193,11 +193,11 @@ void get_memusage() {
 		kproc2 = kvm_getproc2(kv, KERN_PROC_PID, uwsgi.mypid, sizeof(struct kinfo_proc2), &cnt);
 		if (kproc2 && cnt > 0) {
 #ifdef __OpenBSD__
-			uwsgi.workers[uwsgi.mywid].vsz_size = (kproc2->p_vm_dsize + kproc2->p_vm_ssize + kproc2->p_vm_tsize) * uwsgi.page_size;
+			*vsz = (kproc2->p_vm_dsize + kproc2->p_vm_ssize + kproc2->p_vm_tsize) * uwsgi.page_size;
 #else
-			uwsgi.workers[uwsgi.mywid].vsz_size = kproc2->p_vm_msize * uwsgi.page_size;
+			*vsz = kproc2->p_vm_msize * uwsgi.page_size;
 #endif
-			uwsgi.workers[uwsgi.mywid].rss_size = kproc2->p_vm_rssize * uwsgi.page_size;
+			*rss = kproc2->p_vm_rssize * uwsgi.page_size;
 		}
 #endif
 
@@ -207,12 +207,12 @@ void get_memusage() {
 	area_info ai;
 	int32 cookie;
 
-	uwsgi.workers[uwsgi.mywid].vsz_size = 0;
-	uwsgi.workers[uwsgi.mywid].rss_size = 0;
+	*vsz = 0;
+	*rss = 0;
 	while(get_next_area_info(0, &cookie, &ai) == B_OK) {
-		uwsgi.workers[uwsgi.mywid].vsz_size += ai.ram_size;
+		*vsz += ai.ram_size;
 		if ( (ai.protection & B_WRITE_AREA) != 0) {
-			uwsgi.workers[uwsgi.mywid].rss_size += ai.ram_size;
+			*rss += ai.ram_size;
 		}
 	}
 #endif

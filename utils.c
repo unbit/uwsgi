@@ -753,7 +753,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
 	int tmp_id;
-	uint64_t tmp_rt;
+	uint64_t tmp_rt, rss = 0, vsz = 0;
 
 	gettimeofday(&wsgi_req->end_of_request, NULL);
 	
@@ -763,8 +763,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time+tmp_rt)/2;
 
 	// get memory usage
-	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage )
-		get_memusage();
+	if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage ) {
+		get_memusage(&rss, &vsz);
+		uwsgi.workers[uwsgi.mywid].vsz_size = vsz;
+		uwsgi.workers[uwsgi.mywid].rss_size = rss;
+	}
 
 
 	// close the connection with the webserver
@@ -813,11 +816,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_as && (rlim_t) uwsgi.workers[uwsgi.mywid].vsz_size >= uwsgi.reload_on_as) {
+	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_rss && (rlim_t) uwsgi.workers[uwsgi.mywid].rss_size >= uwsgi.reload_on_rss) {
+	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss) {
 		goodbye_cruel_world();
 	}
 

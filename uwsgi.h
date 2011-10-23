@@ -1780,7 +1780,7 @@ void daemonize(char *);
 void logto(char *);
 
 void log_request(struct wsgi_request *);
-void get_memusage(void);
+void get_memusage(uint64_t *, uint64_t *);
 void harakiri(void);
 
 void stats(int);
