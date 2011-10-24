@@ -1,6 +1,6 @@
 #include "uwsgi_python.h"
 
-#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
+#ifndef UWSGI_PYPY
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
@@ -201,9 +201,14 @@ static PyObject* symzipimporter_load_module(PyObject *self, PyObject *args) {
 		PyObject *source = PyObject_CallMethod(this->zip, "read", "(s)", filename);
                 free(filename);
                 PyObject *code = Py_CompileString(PyString_AsString(source), modname, Py_file_input);
+		if (!code) {
+			PyErr_Print();
+			goto shit;
+		}
                 mod = PyImport_ExecCodeModuleEx(fullname, code, modname);
 
                 Py_DECREF(code);
+shit:
                 Py_DECREF(source);
                 free(modname);
                 return mod;
@@ -231,9 +236,14 @@ static PyObject* symzipimporter_load_module(PyObject *self, PyObject *args) {
                 PyObject *source = PyObject_CallMethod(this->zip, "read", "(s)", filename);
                 free(filename);
                 PyObject *code = Py_CompileString(PyString_AsString(source), modname, Py_file_input);
+		if (!code) {
+			PyErr_Print();
+			goto shit2;
+		}
                 mod = PyImport_ExecCodeModuleEx(fullname, code, modname);
 
                 Py_DECREF(code);
+shit2:
                 Py_DECREF(source);
                 free(modname);
                 return mod;
@@ -306,9 +316,14 @@ static PyObject* symimporter_load_module(PyObject *self, PyObject *args) {
 			modname = uwsgi_concat3("sym://", fullname2, "_py");
 
 			code = Py_CompileString(source, modname, Py_file_input);
+		if (!code) {
+			PyErr_Print();
+			goto shit;
+		}
 			mod = PyImport_ExecCodeModuleEx(fullname, code, modname);
 
 			Py_DECREF(code);
+shit:
 			free(source);
 			free(modname);
 			free(fullname2);
@@ -334,9 +349,14 @@ static PyObject* symimporter_load_module(PyObject *self, PyObject *args) {
 			PyDict_SetItemString(dict, "__loader__", self);
 
                         code = Py_CompileString(source, modname, Py_file_input);
+		if (!code) {
+			PyErr_Print();
+			goto shit2;
+		}
                         mod = PyImport_ExecCodeModuleEx(fullname, code, modname);
 
 			Py_DECREF(code);
+shit2:
 			free(source);
 			free(modname);
 			free(fullname2);
@@ -450,7 +470,10 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         }
 
 
-        PyObject *stringio_dict = PyModule_GetDict(stringio);
+#ifdef PYTHREE
+        PyObject *source_code = PyObject_CallMethodObjArgs(stringio, PyString_FromString("StringIO"), PyString_FromStringAndSize(body, len));
+#else
+	PyObject *stringio_dict = PyModule_GetDict(stringio);
         if (!stringio_dict) {
                 return -1;
         }
@@ -466,7 +489,9 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         PyTuple_SetItem(stringio_args, 0, PyString_FromStringAndSize(body, len));
 
 
+
         PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
+#endif
         if (!source_code) {
                 return -1;
         }
@@ -480,7 +505,10 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         }
 
 
-        PyObject *zipfile_dict = PyModule_GetDict(zipfile);
+#ifdef PYTHREE
+	self->zip = PyObject_CallMethodObjArgs(zipfile, PyString_FromString("ZipFile"), source_code);
+#else
+	PyObject *zipfile_dict = PyModule_GetDict(zipfile);
         if (!zipfile_dict) {
                 return -1;
         }
@@ -494,7 +522,9 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
         PyObject *zipfile_args = PyTuple_New(1);
         PyTuple_SetItem(zipfile_args, 0, source_code);
 
+
         self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
+#endif
         if (!self->zip) {
                 return -1;
         }
@@ -556,6 +586,9 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 		return -1;
 	}
 
+#ifdef PYTHREE
+	PyObject *source_code = PyObject_CallMethodObjArgs(stringio, PyString_FromString("StringIO"), PyString_FromStringAndSize(code_start, code_end-code_start));
+#else
 	PyObject *stringio_dict = PyModule_GetDict(stringio);
 	if (!stringio_dict) {
 		return -1;
@@ -569,7 +602,9 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 	PyObject *stringio_args = PyTuple_New(1);
 	PyTuple_SetItem(stringio_args, 0, PyString_FromStringAndSize(code_start, code_end-code_start));
 
+
 	PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
+#endif
 	if (!source_code) {
 		return -1;
 	}
@@ -579,6 +614,9 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 		return -1;
 	}
 	
+#ifdef PYTHREE
+	self->zip = PyObject_CallMethodObjArgs(zipfile, PyString_FromString("ZipFile"), source_code);
+#else
 	PyObject *zipfile_dict = PyModule_GetDict(zipfile);
         if (!zipfile_dict) {
                 return -1;
@@ -592,7 +630,9 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
         PyObject *zipfile_args = PyTuple_New(1);
         PyTuple_SetItem(zipfile_args, 0, source_code);
 
+
 	self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
+#endif
         if (!self->zip) {
                 return -1;
         }

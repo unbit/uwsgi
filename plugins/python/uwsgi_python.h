@@ -275,7 +275,5 @@ char *uwsgi_pythonize(char *);
 #define uwsgi_pyexit {PyErr_Print();exit(1);}
 
 #ifdef __linux__
-#ifndef PYTHREE
 int uwsgi_init_symbol_import(void);
-#endif
 #endif

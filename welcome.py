@@ -5,9 +5,9 @@ import sys
 from uwsgidecorators import *
 gc.set_debug(gc.DEBUG_SAVEALL)
 
-print os.environ
-print sys.modules
-print sys.argv
+print(os.environ)
+print(sys.modules)
+print(sys.argv)
 
 try:
     if sys.argv[1] == 'debug':
@@ -58,7 +58,7 @@ def application(env, start_response):
 
     gc.collect(2)
     if DEBUG:
-        print env['wsgi.input'].fileno()
+        print(env['wsgi.input'].fileno())
 
     if routes.has_key(env['PATH_INFO']):
         return routes[env['PATH_INFO']](env, start_response)
@@ -66,12 +66,12 @@ def application(env, start_response):
     start_response('200 OK', [('Content-Type', 'text/html')])
 
     if DEBUG:
-        print env['wsgi.input'].fileno()
+        print(env['wsgi.input'].fileno())
 
     gc.collect(2)
 
     if DEBUG:
-        print len(gc.get_objects())
+        print(len(gc.get_objects()))
 
     workers = ''
     for w in uwsgi.workers():

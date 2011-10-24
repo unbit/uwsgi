@@ -915,8 +915,10 @@ void uwsgi_python_init_apps() {
 
 
 #ifdef __linux__
-#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
+#ifndef UWSGI_PYPY
+#ifdef UWSGI_EMBEDDED
 	uwsgi_init_symbol_import();
+#endif
 #endif
 #endif
 
