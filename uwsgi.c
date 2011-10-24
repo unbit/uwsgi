@@ -1138,7 +1138,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		// is this a flagged option ?
 		if (i == 0) {
-			add_exported_option(optname, "1", 0);
+			add_exported_option(optname, strdup("1"), 0);
 		}
 		else {
 			add_exported_option(optname, optarg, 1);
@@ -2491,12 +2491,12 @@ skipzero:
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
-		int ml_ret = master_loop(uwsgi.argv, uwsgi.environ);
+		int ml_ret = master_loop(uwsgi.orig_argv, uwsgi.environ);
 		if (ml_ret == -1) {
 			return 0;
 		}
 #else
-		(void) master_loop(uwsgi.argv, uwsgi.environ);
+		(void) master_loop(uwsgi.orig_argv, uwsgi.environ);
 #endif
 		//from now on the process is a real worker
 	}
