@@ -533,6 +533,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_PROCNAME		17155
 #define LONG_ARGS_PROCNAME_MASTER	17156
 #define LONG_ARGS_FARM			17157
+#define LONG_ARGS_MULES			17158
 
 
 #define UWSGI_OK	0

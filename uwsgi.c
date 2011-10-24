@@ -126,6 +126,7 @@ static struct option long_base_options[] = {
 	{"spooler-chdir", required_argument, 0, LONG_ARGS_SPOOLER_CHDIR},
 #endif
 	{"mule", optional_argument, 0, LONG_ARGS_MULE},
+	{"mules", required_argument, 0, LONG_ARGS_MULES},
 	{"farm", required_argument, 0, LONG_ARGS_FARM},
 	{"disable-logging", no_argument, 0, 'L'},
 
@@ -3434,6 +3435,13 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.master_process = 1;
 		uwsgi.mules_cnt++;
 		uwsgi_string_new_list(&uwsgi.mules_patches, optarg);
+		return 1;
+	case LONG_ARGS_MULES:
+		uwsgi.master_process = 1;
+		for(i=0;i<atoi(optarg);i++) {
+			uwsgi.mules_cnt++;
+			uwsgi_string_new_list(&uwsgi.mules_patches, optarg);
+		}
 		return 1;
 	case LONG_ARGS_FARM:
 		uwsgi.master_process = 1;
