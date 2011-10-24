@@ -129,7 +129,7 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, int app_tag
 					add_exported_option((char *) node->name, (char *) node->children->content, 0);
 				}
 				else {
-					add_exported_option((char *) node->name, "1", 0);
+					add_exported_option((char *) node->name, strdup("1"), 0);
 				}
 			}
 		}
