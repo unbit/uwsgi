@@ -1037,7 +1037,7 @@ PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
         }
 
 
-	uwsgi_unlock(uwsgi.user_lock);
+	uwsgi_unlock(uwsgi.user_lock[lock_num]);
 
 	Py_INCREF(Py_None);
 	return Py_None;
