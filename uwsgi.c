@@ -1181,6 +1181,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				else if (!strcmp(lazy + strlen(lazy) - 3, ".js")) {
 					uwsgi.json = lazy;
 				}
+				else if (!strcmp(lazy + strlen(lazy) - 5, ".json")) {
+					uwsgi.json = lazy;
+				}
 #endif
 #ifdef UWSGI_SQLITE3
 				else if (!strcmp(lazy + strlen(lazy) - 3, ".db")) {
@@ -1290,6 +1293,9 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 #ifdef UWSGI_JSON
 		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".js")) {
+			uwsgi_json_config(uct->filename, uwsgi.magic_table);
+		}
+		if (!strcmp(uct->filename + strlen(uct->filename) - 5, ".json")) {
 			uwsgi_json_config(uct->filename, uwsgi.magic_table);
 		}
 #endif
