@@ -1774,7 +1774,7 @@ int uwsgi_start(void *v_argv) {
 
 	// application generic lock
 	uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks+1));
-	for(i=0;i<uwsgi.locks;i++) {
+	for(i=0;i<uwsgi.locks+1;i++) {
 		uwsgi.user_lock[i] = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.user_lock[i]);
 	}
