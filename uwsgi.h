@@ -1637,6 +1637,7 @@ struct uwsgi_shared {
 	int spooler_signal_pipe[2];
 #endif
 	int mule_signal_pipe[2];
+	int mule_queue_pipe[2];
 
 	struct uwsgi_signal_entry signal_table[256];
 

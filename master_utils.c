@@ -59,8 +59,10 @@ void uwsgi_fixup_fds(int wid, int muleid) {
 #endif
 
                         if (uwsgi.shared->mule_signal_pipe[0] != -1) close(uwsgi.shared->mule_signal_pipe[0]);
+
 			if (muleid == 0) {
                         	if (uwsgi.shared->mule_signal_pipe[1] != -1) close(uwsgi.shared->mule_signal_pipe[1]);
+                        	if (uwsgi.shared->mule_queue_pipe[1] != -1) close(uwsgi.shared->mule_queue_pipe[1]);
 			}
 
                         for(i=0;i<uwsgi.mules_cnt;i++) {

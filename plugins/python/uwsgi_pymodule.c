@@ -1153,7 +1153,7 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 	char *message = NULL;
 	Py_ssize_t message_len = 0;
-	int mule_id = 1;
+	int mule_id = 0;
 	ssize_t len;
 
 	if (!PyArg_ParseTuple(args, "s#|i:mule_msg", &message, &message_len, &mule_id)) {
@@ -1161,6 +1161,10 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
         }
 
 	if (mule_id == 0) {
+		len = write(uwsgi.shared->mule_queue_pipe[0], message, message_len);
+		if (len <= 0) {
+			uwsgi_error("write()");
+		}
 	}
 	else if (mule_id > 0 && mule_id <= uwsgi.mules_cnt) {
 		len = write(uwsgi.mules[mule_id-1].queue_pipe[0], message, message_len);

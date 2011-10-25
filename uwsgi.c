@@ -1021,6 +1021,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->mule_signal_pipe[0] = -1;
 	uwsgi.shared->mule_signal_pipe[1] = -1;
 
+	uwsgi.shared->mule_queue_pipe[0] = -1;
+	uwsgi.shared->mule_queue_pipe[1] = -1;
+
 	uwsgi.mime_file = "/etc/mime.types";
 
 
@@ -2246,6 +2249,11 @@ skipzero:
 		memset(uwsgi.mules, 0, sizeof(struct uwsgi_mule) * uwsgi.mules_cnt);
 
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->mule_signal_pipe)) {
+			uwsgi_error("socketpair()");
+			exit(1);
+		}
+
+		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->mule_queue_pipe)) {
 			uwsgi_error("socketpair()");
 			exit(1);
 		}

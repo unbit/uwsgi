@@ -136,6 +136,7 @@ void uwsgi_mule_handler() {
 	event_queue_add_fd_read(mule_queue, uwsgi.signal_socket);
 	event_queue_add_fd_read(mule_queue, uwsgi.my_signal_socket);
 	event_queue_add_fd_read(mule_queue, uwsgi.mules[uwsgi.muleid-1].queue_pipe[1]);
+	event_queue_add_fd_read(mule_queue, uwsgi.shared->mule_queue_pipe[1]);
 
 	uwsgi_mule_add_farm_to_queue(mule_queue);
 
@@ -158,7 +159,7 @@ void uwsgi_mule_handler() {
                 		uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
                 	}
 		}
-		else if (interesting_fd == uwsgi.mules[uwsgi.muleid-1].queue_pipe[1] || farm_has_msg(interesting_fd)) {
+		else if (interesting_fd == uwsgi.mules[uwsgi.muleid-1].queue_pipe[1] || interesting_fd == uwsgi.shared->mule_queue_pipe[1] || farm_has_msg(interesting_fd)) {
 			len = read(interesting_fd, message, 65536);
 			if (len < 0) {
 				uwsgi_error("read()");
