@@ -1180,18 +1180,34 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args) {
 
-	ssize_t len;
+	ssize_t len = 0;
 	// this buffer will be configurable
 	char message[65536];
+	struct pollfd mulepoll[2];
 
 	if (uwsgi.muleid == 0) {
 		return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
 	}
 	UWSGI_RELEASE_GIL;
-	len = read(uwsgi.mules[uwsgi.muleid-1].queue_pipe[1], message, 65536);
+	mulepoll[0].fd = uwsgi.mules[uwsgi.muleid-1].queue_pipe[1];
+	mulepoll[0].events = POLLIN;
+	mulepoll[1].fd = uwsgi.shared->mule_queue_pipe[1];
+	mulepoll[1].events = POLLIN;
+	int ret = poll(mulepoll, 2, -1);
+	if (ret <= 0) {
+		uwsgi_error("poll");
+	}
+	else {
+		if (mulepoll[0].revents & POLLIN) {
+			len = read(uwsgi.mules[uwsgi.muleid-1].queue_pipe[1], message, 65536);
+		}
+		else if (mulepoll[1].revents & POLLIN) {
+			len = read(uwsgi.shared->mule_queue_pipe[1], message, 65536);
+		}
+	}
 	UWSGI_GET_GIL;
 	if (len <= 0) {
-		uwsgi_error("read()");
+		if (len < 0) uwsgi_error("read()");
 		Py_INCREF(Py_None);
         	return Py_None;
 	}
