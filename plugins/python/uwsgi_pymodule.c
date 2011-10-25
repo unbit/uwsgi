@@ -1153,7 +1153,7 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 	char *message = NULL;
 	Py_ssize_t message_len = 0;
-	int mule_id = 0;
+	int mule_id = 1;
 	ssize_t len;
 
 	if (!PyArg_ParseTuple(args, "s#|i:mule_msg", &message, &message_len, &mule_id)) {

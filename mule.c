@@ -47,7 +47,7 @@ void uwsgi_mule(int id) {
 			for (i = 0; i < 0xFF; i++) {
                         	if (uwsgi.p[i]->mule) {
                                 	if (uwsgi.p[i]->mule(uwsgi.mules[id-1].patch) == 1) {
-						uwsgi_log("loaded mule patch %s\n", uwsgi.mules[id-1].patch);
+						// never here
 						break;
 					}
 				}
