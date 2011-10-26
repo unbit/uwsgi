@@ -1,6 +1,12 @@
 import uwsgi
 from threading import Thread
 
+try:
+    import cPickle as pickle
+except:
+    import pickle
+
+
 if uwsgi.masterpid() == 0:
     raise Exception("you have to enable the uWSGI master process to use this module")
 
@@ -8,6 +14,7 @@ if uwsgi.opt.get('lazy'):
     raise Exception("uWSGI lazy mode is not supported by this module")
 
 spooler_functions = {}
+mule_functions = {}
 postfork_chain = []
 
 def get_free_signal():
@@ -73,6 +80,46 @@ class spoolraw(spool):
         if kwargs:
             arguments.update(kwargs)
         return uwsgi.spool(arguments)
+
+
+class mulefunc(object):
+
+    def __init__(self, f):
+        if callable(f):
+            self.fname = f.__name__
+            self.mule = 0
+            mule_functions[f.__name__] = f
+        else:
+            self.mule = f
+            self.fname = None
+
+    def real_call(self, *args, **kwargs):
+        uwsgi.mule_msg(pickle.dumps(
+            {
+                'service': 'uwsgi_mulefunc',
+                'func':self.fname,
+                'args': args,
+                'kwargs': kwargs
+            }
+        ), self.mule)
+
+
+    def __call__(self, *args, **kwargs):
+
+        if not self.fname:
+            self.fname = args[0].__name__
+            mule_functions[self.fname] = args[0]
+            return self.real_call
+
+        return self.real_call(*args, **kwargs)
+
+
+def mule_msg_dispatcher(message):
+    msg = pickle.loads(message)
+    if msg['service'] == 'uwsgi_mulefunc':
+        return mule_functions[msg['func']](*msg['args'],**msg['kwargs'])
+
+uwsgi.mule_msg_hook = mule_msg_dispatcher
 
 
 class rpc(object):
