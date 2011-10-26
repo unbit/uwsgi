@@ -1182,19 +1182,21 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 
 	ssize_t len = 0;
 	// this buffer will be configurable
-	char message[65536];
+	char *message;
 	struct pollfd mulepoll[4];
 	int count = 4;
 	uint8_t uwsgi_signal;
 	PyObject *manage_signals = NULL;
+	int buffer_size = 65536;
+	int timeout = -1;
 
-	static char *kwlist[] = {"signals", NULL};
+	static char *kwlist[] = {"signals", "buffer_size", "timeout", NULL};
 
 	if (uwsgi.muleid == 0) {
 		return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
 	}
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:mule_get_msg", kwlist, &manage_signals)) {
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|Oii:mule_get_msg", kwlist, &manage_signals, &buffer_size, &timeout)) {
 		return NULL;
 	}
 
@@ -1203,6 +1205,10 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 	}
 
 	UWSGI_RELEASE_GIL;
+	if (timeout > -1) timeout = timeout*1000;
+
+	message = uwsgi_malloc(buffer_size);
+
 	mulepoll[0].fd = uwsgi.mules[uwsgi.muleid-1].queue_pipe[1];
 	mulepoll[0].events = POLLIN;
 	mulepoll[1].fd = uwsgi.shared->mule_queue_pipe[1];
@@ -1213,7 +1219,7 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 		mulepoll[3].fd = uwsgi.my_signal_socket;
 		mulepoll[3].events = POLLIN;
 	}
-	int ret = poll(mulepoll, count, -1);
+	int ret = poll(mulepoll, count, timeout);
 	if (ret <= 0) {
 		uwsgi_error("poll");
 	}
@@ -1255,10 +1261,13 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 		goto clear2;
 	}
 
-	return PyString_FromStringAndSize(message, len);
+	PyObject *msg = PyString_FromStringAndSize(message, len);
+	free(message);
+	return msg;
 clear:
 	UWSGI_GET_GIL;
 clear2:
+	free(message);
 	Py_INCREF(Py_None);
         return Py_None;
 }
@@ -1272,7 +1281,7 @@ PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {
 	struct pollfd *farmpoll;
 
         if (uwsgi.muleid == 0) {
-                return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
+                return PyErr_Format(PyExc_ValueError, "you can receive farm messages only in a mule !!!");
         }
         UWSGI_RELEASE_GIL;
 	for(i=0;i<uwsgi.farms_cnt;i++) {	
