@@ -1178,22 +1178,42 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 	
 }
 
-PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwargs) {
 
 	ssize_t len = 0;
 	// this buffer will be configurable
 	char message[65536];
-	struct pollfd mulepoll[2];
+	struct pollfd mulepoll[4];
+	int count = 4;
+	uint8_t uwsgi_signal;
+	PyObject *manage_signals = NULL;
+
+	static char *kwlist[] = {"signals", NULL};
 
 	if (uwsgi.muleid == 0) {
 		return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
 	}
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:mule_get_msg", kwlist, &manage_signals)) {
+		return NULL;
+	}
+
+	if (manage_signals == Py_None || manage_signals == Py_False) {
+		count = 2;
+	}
+
 	UWSGI_RELEASE_GIL;
 	mulepoll[0].fd = uwsgi.mules[uwsgi.muleid-1].queue_pipe[1];
 	mulepoll[0].events = POLLIN;
 	mulepoll[1].fd = uwsgi.shared->mule_queue_pipe[1];
 	mulepoll[1].events = POLLIN;
-	int ret = poll(mulepoll, 2, -1);
+	if (count > 2) {
+		mulepoll[2].fd = uwsgi.signal_socket;
+		mulepoll[2].events = POLLIN;
+		mulepoll[3].fd = uwsgi.my_signal_socket;
+		mulepoll[3].events = POLLIN;
+	}
+	int ret = poll(mulepoll, count, -1);
 	if (ret <= 0) {
 		uwsgi_error("poll");
 	}
@@ -1203,6 +1223,29 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args) {
 		}
 		else if (mulepoll[1].revents & POLLIN) {
 			len = read(uwsgi.shared->mule_queue_pipe[1], message, 65536);
+		}
+		else if (count > 2) {
+			int interesting_fd = -1;
+			if (mulepoll[2].revents & POLLIN) {
+				interesting_fd = mulepoll[2].fd;
+			}
+			else if (mulepoll[3].revents & POLLIN) {
+                                interesting_fd = mulepoll[3].fd;
+                        }
+	
+			if (interesting_fd > -1) {
+				ssize_t len = read(interesting_fd, &uwsgi_signal, 1);
+                        	if (len <= 0) {
+                                	uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
+                                	end_me(0);
+                        	}
+#ifdef UWSGI_DEBUG
+                        	uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
+#endif
+                        	if (uwsgi_signal_handler(uwsgi_signal)) {
+                                	uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
+                        	}
+			}
 		}
 	}
 	UWSGI_GET_GIL;
@@ -3021,7 +3064,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"mule_msg", py_uwsgi_mule_msg, METH_VARARGS, ""},
 	{"farm_msg", py_uwsgi_farm_msg, METH_VARARGS, ""},
-	{"mule_get_msg", py_uwsgi_mule_get_msg, METH_VARARGS, ""},
+	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
 	{"farm_get_msg", py_uwsgi_farm_get_msg, METH_VARARGS, ""},
 	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
