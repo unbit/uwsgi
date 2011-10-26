@@ -1153,23 +1153,50 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
 
 	char *message = NULL;
 	Py_ssize_t message_len = 0;
-	int mule_id = 0;
+	PyObject *mule_obj = NULL;
 	ssize_t len;
+	int fd = -1;
+	int mule_id = -1;
 
-	if (!PyArg_ParseTuple(args, "s#|i:mule_msg", &message, &message_len, &mule_id)) {
+	if (!PyArg_ParseTuple(args, "s#|O:mule_msg", &message, &message_len, &mule_obj)) {
                 return NULL;
         }
 
-	if (mule_id == 0) {
+	if (mule_obj == NULL) {
 		len = write(uwsgi.shared->mule_queue_pipe[0], message, message_len);
 		if (len <= 0) {
 			uwsgi_error("write()");
 		}
 	}
-	else if (mule_id > 0 && mule_id <= uwsgi.mules_cnt) {
-		len = write(uwsgi.mules[mule_id-1].queue_pipe[0], message, message_len);
-		if (len <= 0) {
-			uwsgi_error("write()");
+	else {
+		if (PyString_Check(mule_obj)) {
+			struct uwsgi_farm *uf = get_farm_by_name(PyString_AsString(mule_obj));
+			if (uf == NULL) {
+				return PyErr_Format(PyExc_ValueError, "unknown farm");
+			}
+			fd = uf->queue_pipe[0];
+		}
+		else if (PyInt_Check(mule_obj)) {
+			mule_id = PyInt_AsLong(mule_obj);
+			if (mule_id < 0 && mule_id > uwsgi.mules_cnt) {
+				return PyErr_Format(PyExc_ValueError, "invalid mule number");
+			}
+			if (mule_id == 0) {
+				fd = uwsgi.shared->mule_queue_pipe[0];
+			}
+			else {
+				fd = uwsgi.mules[mule_id-1].queue_pipe[0];
+			}
+		}
+		else {
+			return PyErr_Format(PyExc_ValueError, "invalid mule");
+		}
+
+		if (fd > -1) {
+			len = write(fd, message, message_len);
+			if (len < 0) {
+				uwsgi_error("write()");
+			}
 		}
 	}
 
@@ -1183,20 +1210,23 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 	ssize_t len = 0;
 	// this buffer will be configurable
 	char *message;
-	struct pollfd mulepoll[4];
+	struct pollfd *mulepoll;
 	int count = 4;
+	int farms_count = 0;
 	uint8_t uwsgi_signal;
 	PyObject *manage_signals = NULL;
+	PyObject *manage_farms = NULL;
 	int buffer_size = 65536;
 	int timeout = -1;
+	int i;
 
-	static char *kwlist[] = {"signals", "buffer_size", "timeout", NULL};
+	static char *kwlist[] = {"signals", "buffer_size", "timeout", "farms", NULL};
 
 	if (uwsgi.muleid == 0) {
 		return PyErr_Format(PyExc_ValueError, "you can receive mule messages only in a mule !!!");
 	}
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|Oii:mule_get_msg", kwlist, &manage_signals, &buffer_size, &timeout)) {
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOii:mule_get_msg", kwlist, &manage_signals, &manage_farms, &buffer_size, &timeout)) {
 		return NULL;
 	}
 
@@ -1204,10 +1234,22 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 		count = 2;
 	}
 
+	if (manage_farms == Py_None || manage_farms == Py_False) {
+		goto next;
+	}
+	
+	for(i=0;i<uwsgi.farms_cnt;i++) {
+        	if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) farms_count++;
+        }
+
+
+next:
+
 	UWSGI_RELEASE_GIL;
 	if (timeout > -1) timeout = timeout*1000;
 
 	message = uwsgi_malloc(buffer_size);
+	mulepoll = uwsgi_malloc(sizeof(struct pollfd) * (count+farms_count));
 
 	mulepoll[0].fd = uwsgi.mules[uwsgi.muleid-1].queue_pipe[1];
 	mulepoll[0].events = POLLIN;
@@ -1219,39 +1261,54 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 		mulepoll[3].fd = uwsgi.my_signal_socket;
 		mulepoll[3].events = POLLIN;
 	}
-	int ret = poll(mulepoll, count, timeout);
+
+	for(i=0;i<farms_count;i++) {
+		mulepoll[count+i].fd = uwsgi.farms[i].queue_pipe[1];
+		mulepoll[count+i].events = POLLIN;
+	}
+
+	int ret = poll(mulepoll, count+farms_count, timeout);
 	if (ret <= 0) {
 		uwsgi_error("poll");
 	}
 	else {
 		if (mulepoll[0].revents & POLLIN) {
-			len = read(uwsgi.mules[uwsgi.muleid-1].queue_pipe[1], message, 65536);
+			len = read(uwsgi.mules[uwsgi.muleid-1].queue_pipe[1], message, buffer_size);
 		}
 		else if (mulepoll[1].revents & POLLIN) {
-			len = read(uwsgi.shared->mule_queue_pipe[1], message, 65536);
+			len = read(uwsgi.shared->mule_queue_pipe[1], message, buffer_size);
 		}
-		else if (count > 2) {
-			int interesting_fd = -1;
-			if (mulepoll[2].revents & POLLIN) {
-				interesting_fd = mulepoll[2].fd;
-			}
-			else if (mulepoll[3].revents & POLLIN) {
-                                interesting_fd = mulepoll[3].fd;
-                        }
+		else {
+			if (count > 2) {
+				int interesting_fd = -1;
+				if (mulepoll[2].revents & POLLIN) {
+					interesting_fd = mulepoll[2].fd;
+				}
+				else if (mulepoll[3].revents & POLLIN) {
+                                	interesting_fd = mulepoll[3].fd;
+                        	}
 	
-			if (interesting_fd > -1) {
-				len = read(interesting_fd, &uwsgi_signal, 1);
-                        	if (len <= 0) {
-                                	uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
-                                	end_me(0);
-                        	}
+				if (interesting_fd > -1) {
+					len = read(interesting_fd, &uwsgi_signal, 1);
+                        		if (len <= 0) {
+                                		uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
+                                		end_me(0);
+                        		}
 #ifdef UWSGI_DEBUG
-                        	uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
+                        		uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
 #endif
-                        	if (uwsgi_signal_handler(uwsgi_signal)) {
-                                	uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
-                        	}
-				goto clear;
+                        		if (uwsgi_signal_handler(uwsgi_signal)) {
+                                		uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
+                        		}
+					goto clear;
+				}
+			}
+
+			for(i=0;i<farms_count;i++) {
+				if (mulepoll[count+i].revents & POLLIN) {
+					len = read(mulepoll[count+i].fd, message, buffer_size);
+					break;
+				}
 			}
 		}
 	}
@@ -1263,11 +1320,13 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
 
 	PyObject *msg = PyString_FromStringAndSize(message, len);
 	free(message);
+	free(mulepoll);
 	return msg;
 clear:
 	UWSGI_GET_GIL;
 clear2:
 	free(message);
+	free(mulepoll);
 	Py_INCREF(Py_None);
         return Py_None;
 }

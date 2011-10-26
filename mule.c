@@ -165,7 +165,17 @@ void uwsgi_mule_handler() {
 				uwsgi_error("read()");
 			}	
 			else {
-				uwsgi_log("*** mule %d received a %d bytes message ***\n", uwsgi.muleid, len);
+				int i,found = 0;
+				for(i=0;i<0xff;i++) {
+                                	if (uwsgi.p[i]->mule_msg) {
+                                        	if (uwsgi.p[i]->mule_msg(message, len)) {
+							found = 1;
+							break;
+						}
+					}
+                                }
+				if (!found)
+					uwsgi_log("*** mule %d received a %d bytes message ***\n", uwsgi.muleid, len);
 			}
 		}
 	}

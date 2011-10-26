@@ -1411,6 +1411,33 @@ int uwsgi_python_mule(char *opt) {
 	
 }
 
+int uwsgi_python_mule_msg(char *message, size_t len) {
+
+	UWSGI_GET_GIL;
+
+	PyObject *mule_msg_hook = PyDict_GetItemString(up.embedded_dict, "mule_msg_hook");
+        if (!mule_msg_hook) {
+                // ignore
+                UWSGI_RELEASE_GIL;
+                return 0;
+        }
+
+	PyObject *pyargs = PyTuple_New(1);
+        PyTuple_SetItem(pyargs, 0, PyString_FromStringAndSize(message, len));
+
+        PyObject *ret = python_call(mule_msg_hook, pyargs, 0, NULL);
+	Py_DECREF(pyargs);
+	if (ret) {
+		Py_DECREF(ret);
+	}
+
+	if (PyErr_Occurred())
+                PyErr_Print();
+
+	UWSGI_RELEASE_GIL;
+	return 1;
+}
+
 struct uwsgi_plugin python_plugin = {
 
 	.name = "python",
@@ -1448,6 +1475,7 @@ struct uwsgi_plugin python_plugin = {
 	.rpc = uwsgi_python_rpc,
 
 	.mule = uwsgi_python_mule,
+	.mule_msg = uwsgi_python_mule_msg,
 
 	.spooler = uwsgi_python_spooler,
 

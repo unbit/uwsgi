@@ -680,6 +680,7 @@ struct uwsgi_plugin {
 	void (*jail) (int (*)(void *), char **);
 
 	int (*mule)(char *);
+	int (*mule_msg)(char *, size_t);
 	struct uwsgi_help_item *help;
 
 };
