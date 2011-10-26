@@ -1234,7 +1234,7 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
                         }
 	
 			if (interesting_fd > -1) {
-				ssize_t len = read(interesting_fd, &uwsgi_signal, 1);
+				len = read(interesting_fd, &uwsgi_signal, 1);
                         	if (len <= 0) {
                                 	uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
                                 	end_me(0);
@@ -1245,17 +1245,22 @@ PyObject *py_uwsgi_mule_get_msg(PyObject * self, PyObject * args, PyObject *kwar
                         	if (uwsgi_signal_handler(uwsgi_signal)) {
                                 	uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
                         	}
+				goto clear;
 			}
 		}
 	}
 	UWSGI_GET_GIL;
-	if (len <= 0) {
-		if (len < 0) uwsgi_error("read()");
-		Py_INCREF(Py_None);
-        	return Py_None;
+	if (len < 0) {
+		uwsgi_error("read()");
+		goto clear2;
 	}
 
 	return PyString_FromStringAndSize(message, len);
+clear:
+	UWSGI_GET_GIL;
+clear2:
+	Py_INCREF(Py_None);
+        return Py_None;
 }
 
 PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {

@@ -156,7 +156,7 @@ void uwsgi_mule_handler() {
 			uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
 #endif
 			if (uwsgi_signal_handler(uwsgi_signal)) {
-                		uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
+                		uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.muleid);
                 	}
 		}
 		else if (interesting_fd == uwsgi.mules[uwsgi.muleid-1].queue_pipe[1] || interesting_fd == uwsgi.shared->mule_queue_pipe[1] || farm_has_msg(interesting_fd)) {
@@ -164,9 +164,6 @@ void uwsgi_mule_handler() {
 			if (len < 0) {
 				uwsgi_error("read()");
 			}	
-			else if (len == 0) {
-				exit(1);
-			}
 			else {
 				uwsgi_log("*** mule %d received a %d bytes message ***\n", uwsgi.muleid, len);
 			}
@@ -187,6 +184,20 @@ struct uwsgi_mule *get_mule_by_id(int id) {
 
 	return NULL;
 }
+
+struct uwsgi_farm *get_farm_by_name(char *name) {
+
+        int i;
+
+        for(i=0;i<uwsgi.farms_cnt;i++) {
+                if (!strcmp(uwsgi.farms[i].name, name)) {
+                        return &uwsgi.farms[i];
+                }
+        }
+
+        return NULL;
+}
+
 
 struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **umf, struct uwsgi_mule *um) {
 

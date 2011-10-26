@@ -2423,6 +2423,7 @@ struct uwsgi_mule *get_mule_by_id(int);
 struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **, struct uwsgi_mule *);
 
 int uwsgi_farm_has_mule(struct uwsgi_farm *, int);
+struct uwsgi_farm *get_farm_by_name(char *);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

@@ -271,7 +271,18 @@ void uwsgi_route_signal(uint8_t sig) {
                         }
 		}
 	}
-
+	else if (!strncmp(use->receiver, "farm_", 5)) {
+		char *name = use->receiver+5;
+		struct uwsgi_farm *uf = get_farm_by_name(name);
+		if (!uf) {
+			uwsgi_log("unknown farm: %s\n", name);
+			return;
+		}
+		if (write(uf->signal_pipe[0], &sig, 1) != 1) {
+                	uwsgi_error("write()");
+                        uwsgi_log("could not deliver signal %d to farm %d (%s)\n", sig, uf->id, uf->name);
+                }
+	}
 	else if (!strncmp(use->receiver, "farm", 4)) {
 		i = atoi(use->receiver+4);
 		if (i > uwsgi.farms_cnt || i <= 0) {
