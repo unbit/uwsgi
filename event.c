@@ -693,6 +693,8 @@ static int timerfd_create (clockid_t __clock_id, int __flags) {
 	return syscall(283, __clock_id, __flags);
 #elif defined(__i386__)
 	return syscall(322, __clock_id, __flags);
+#else
+	return -1;
 #endif
 }
 
