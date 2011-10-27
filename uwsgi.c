@@ -80,6 +80,7 @@ static struct option long_base_options[] = {
 #endif
 	{"auto-procname", no_argument, &uwsgi.auto_procname, 1},
 	{"procname-prefix", required_argument, 0, LONG_ARGS_PROCNAME_PREFIX},
+	{"procname-prefix-spaced", required_argument, 0, LONG_ARGS_PROCNAME_PREFIX_SP},
 	{"procname-append", required_argument, 0, LONG_ARGS_PROCNAME_APPEND},
 	{"procname", required_argument, 0, LONG_ARGS_PROCNAME},
 	{"procname-master", required_argument, 0, LONG_ARGS_PROCNAME_MASTER},
@@ -2935,6 +2936,10 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_PROCNAME_PREFIX:
 		uwsgi.auto_procname = 1;
 		uwsgi.procname_prefix = optarg;
+		return 1;
+	case LONG_ARGS_PROCNAME_PREFIX_SP:
+		uwsgi.auto_procname = 1;
+		uwsgi.procname_prefix = uwsgi_concat2(optarg, " ");
 		return 1;
 	case LONG_ARGS_PROCNAME_APPEND:
 		uwsgi.auto_procname = 1;
