@@ -542,6 +542,17 @@ int master_loop(char **argv, char **environ) {
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+                	if (uwsgi.gp[i]->master_cycle) {
+                        	uwsgi.gp[i]->master_cycle();
+			}
+		}
+                for (i = 0; i < 0xFF; i++) {
+                	if (uwsgi.p[i]->master_cycle) {
+				uwsgi.p[i]->master_cycle();
+			}
+		}
+
 		if (uwsgi.to_outworld) {
 			//uwsgi_log("%d/%d\n", uwsgi.lazy_respawned, uwsgi.numproc);
 			if (uwsgi.lazy_respawned >= uwsgi.numproc) {

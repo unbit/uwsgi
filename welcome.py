@@ -50,7 +50,10 @@ def setprocname():
 
 def application(env, start_response):
 
-    uwsgi.mule_msg(env['REQUEST_URI'], 1)
+    try:
+        uwsgi.mule_msg(env['REQUEST_URI'], 1)
+    except:
+        pass
 
     req = uwsgi.workers()[uwsgi.worker_id()-1]['requests']
 

@@ -1162,6 +1162,9 @@ PyObject *py_uwsgi_mule_msg(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
+	if (uwsgi.mules_cnt < 1)
+		return PyErr_Format(PyExc_ValueError, "no mule configured");
+
 	if (mule_obj == NULL) {
 		len = write(uwsgi.shared->mule_queue_pipe[0], message, message_len);
 		if (len <= 0) {

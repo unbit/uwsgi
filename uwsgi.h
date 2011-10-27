@@ -8,6 +8,8 @@ extern "C" {
 
 #define UMAX16	65536
 
+#define UMAX64_STR "18446744073709551616"
+
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
@@ -657,6 +659,7 @@ struct uwsgi_plugin {
 	void (*init_apps) (void);
 	void (*fixup) (void);
 	void (*master_fixup) (int);
+	void (*master_cycle) (void);
 	int (*mount_app) (char *, char *, int);
 	int (*manage_udp) (char *, int, char *, int);
 	int (*manage_xml) (char *, char *);
