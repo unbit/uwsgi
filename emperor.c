@@ -360,6 +360,8 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 			vassal_argv[1] = "--yaml";
 		if (!strcmp(name + (strlen(name) - 3), ".js"))
 			vassal_argv[1] = "--json";
+		if (!strcmp(name + (strlen(name) - 5), ".json"))
+			vassal_argv[1] = "--json";
 
 		if (colon) {
 			colon[0] = ':';
@@ -660,7 +662,8 @@ reconnect:
 					!strcmp(de->d_name + (strlen(de->d_name) - 4), ".ini") ||
 					!strcmp(de->d_name + (strlen(de->d_name) - 4), ".yml") ||
 					!strcmp(de->d_name + (strlen(de->d_name) - 5), ".yaml") ||
-					!strcmp(de->d_name + (strlen(de->d_name) - 3), ".js")
+					!strcmp(de->d_name + (strlen(de->d_name) - 3), ".js") ||
+					!strcmp(de->d_name + (strlen(de->d_name) - 5), ".json")
 					) {
 
 
@@ -707,6 +710,7 @@ reconnect:
 					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".ini") ||
 					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 4), ".yml") ||
 					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 3), ".js") ||
+					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 5), ".json") ||
 					!strcmp(g.gl_pathv[i] + (strlen(g.gl_pathv[i]) - 5), ".yaml")
 					) {
 
