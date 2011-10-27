@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# uwsgi - Use uwsgi to run python and wsgi web apps.
+#
+# chkconfig: - 85 15
+# description: Use uwsgi to run python and wsgi web apps.
+# processname: uwsgi
+
+# author: Roman Vasilyev
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+PATH=/opt/uwsgi:/sbin:/bin:/usr/sbin:/usr/bin
+prog=/usr/sbin/uwsgi
+
+OWNER=nginx
+
+NAME=uwsgi
+DESC=uwsgi
+
+#DAEMON_OPTS="-s 127.0.0.1:9001 -M 4 -t 30 -A 4 -p 4 -d /var/log/uwsgi.log --pidfile /var/run/$NAME.pid --pythonpath $PYTHONPATH --module $MODULE"
+DAEMON_OPTS="-s 127.0.0.1:9001 -M 4 -t 30 -A 4 -p 16 -b 32768 -d /var/log/$NAME.log --pidfile /var/run/$NAME.pid --uid $OWNER"
+
+[ -f /etc/sysconfig/uwsgi ] && . /etc/sysconfig/uwsgi
+
+lockfile=/var/lock/subsys/uwsgi
+
+start () {
+  echo -n "Starting $DESC: "
+  daemon $prog $DAEMON_OPTS
+  retval=$?
+  echo
+  [ $retval -eq 0 ] && touch $lockfile
+  return $retval
+}
+
+stop () {
+  echo -n "Stopping $DESC: "
+  killproc $prog
+  retval=$?
+  echo
+  [ $retval -eq 0 ] && rm -f $lockfile
+  return $retval
+}
+
+reload () {
+  echo "Reloading $NAME" 
+  killproc $prog -HUP
+  RETVAL=$?
+  echo
+}
+
+force-reload () {
+  echo "Reloading $NAME" 
+  killproc $prog -TERM
+  RETVAL=$?
+  echo
+}
+
+restart () {
+    stop
+    start
+}
+
+rh_status () {
+  status $prog
+}
+
+rh_status_q() {
+  rh_status >/dev/null 2>&1
+}
+
+case "$1" in
+  start)
+    rh_status_q && exit 0
+    $1
+    ;;
+  stop)
+    rh_status_q || exit 0
+    $1
+    ;;
+  restart|force-reload)
+    $1
+    ;;
+  reload)
+    rh_status_q || exit 7
+    $1
+    ;;
+  status)
+    rh_status
+    ;;
+  *)  
+    echo "Usage: $0 {start|stop|restart|reload|force-reload|status}" >&2
+    exit 2
+    ;;
+  esac
+  exit 0
+
