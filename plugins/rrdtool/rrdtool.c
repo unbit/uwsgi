@@ -149,12 +149,12 @@ void rrdtool_master_cycle() {
 	// update every 5 minutes
 	if (uwsgi.current_time - last_update >= 300) {
 		ptr = u_rrd.update_area+1;
-		rlen = snprintf(ptr, 1+sizeof(UMAX64_STR), ":%llu", uwsgi.workers[0].requests);
+		rlen = snprintf(ptr, 1+sizeof(UMAX64_STR), ":%llu", (unsigned long long )uwsgi.workers[0].requests);
 		if (rlen < 2) return;
 		ptr+=rlen;
 		for(i=0;i<u_rrd.max_ds;i++) {
 			if (i+1 <= uwsgi.numproc) {
-				rlen = snprintf(ptr, 1+sizeof(UMAX64_STR), ":%llu", uwsgi.workers[1+i].requests);
+				rlen = snprintf(ptr, 1+sizeof(UMAX64_STR), ":%llu", (unsigned long long )uwsgi.workers[1+i].requests);
 				if (rlen < 2) return;
 			}
 			else {
