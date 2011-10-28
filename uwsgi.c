@@ -2507,12 +2507,12 @@ skipzero:
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
-		int ml_ret = master_loop(uwsgi.orig_argv, uwsgi.environ);
+		int ml_ret = master_loop(uwsgi.argv, uwsgi.environ);
 		if (ml_ret == -1) {
 			return 0;
 		}
 #else
-		(void) master_loop(uwsgi.orig_argv, uwsgi.environ);
+		(void) master_loop(uwsgi.argv, uwsgi.environ);
 #endif
 		//from now on the process is a real worker
 	}
