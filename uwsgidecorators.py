@@ -155,6 +155,23 @@ class farm(object):
     def __call__(self, f):
         postfork_chain.append(farm_loop(f, self.name))
 
+class mule_loop(object):
+
+    def __init__(self, f, num):
+        self.f = f
+        self.num = num
+
+    def __call__(self):
+        if uwsgi.mule_id() == self.num:
+            self.f()
+
+class mule(object):
+    def __init__(self, num):
+        self.num = num
+
+    def __call__(self, f):
+        postfork_chain.append(mule_loop(f, self.num))
+
 class signal(object):
 
     def __init__(self, num, **kwargs):
