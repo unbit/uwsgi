@@ -70,6 +70,7 @@ static struct option long_base_options[] = {
 	{"abstract-socket", no_argument, 0, 'a'},
 	{"chmod-socket", optional_argument, 0, 'C'},
 	{"chown-socket", required_argument, 0, LONG_ARGS_CHOWN_SOCKET},
+	{"umask", required_argument, 0, LONG_ARGS_UMASK},
 #ifdef __linux__
 	{"freebind", no_argument, &uwsgi.freebind, 1},
 #endif
@@ -2928,6 +2929,7 @@ static int manage_base_opt(int i, char *optarg) {
 	struct uwsgi_cron *uc, *old_uc;
 	struct uwsgi_socket *uwsgi_sock = NULL;
 	int zerg_fd;
+	mode_t umask_mode;
 
 	switch (i) {
 
@@ -3716,6 +3718,23 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_CHOWN_SOCKET:
 		uwsgi.chown_socket = optarg;
+		return 1;
+	case LONG_ARGS_UMASK:
+		if (strlen(optarg) < 3) {
+			uwsgi_log("invalid umask: %s\n", optarg);
+		}
+		umask_mode = 0;
+		if (strlen(optarg) == 3) {
+			umask_mode = (umask_mode << 3) + (optarg[0] - '0');
+			umask_mode = (umask_mode << 3) + (optarg[1] - '0');
+			umask_mode = (umask_mode << 3) + (optarg[2] - '0');
+		}	
+		else {
+			umask_mode = (umask_mode << 3) + (optarg[1] - '0');
+			umask_mode = (umask_mode << 3) + (optarg[2] - '0');
+			umask_mode = (umask_mode << 3) + (optarg[3] - '0');
+		}
+		umask(umask_mode);
 		return 1;
 	case 'C':
 		uwsgi.chmod_socket = 1;
