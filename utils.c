@@ -246,8 +246,8 @@ void logto(char *logfile) {
 			uwsgi_error_open(logfile);
 			exit(1);
 		}
-#ifdef UWSGI_UDP
 		uwsgi.logfile = logfile;
+#ifdef UWSGI_UDP
 	}
 #endif
 
