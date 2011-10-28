@@ -39,7 +39,7 @@ extern "C" {
 #define MAX_RPC 64
 #define MAX_GATEWAYS 64
 #define MAX_DAEMONS 8
-#define MAX_SUBSCRIPTIONS 8
+#define MAX_SUBSCRIPTIONS 64
 #define MAX_CRONS 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS

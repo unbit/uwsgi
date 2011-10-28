@@ -3371,7 +3371,7 @@ static int manage_base_opt(int i, char *optarg) {
 			uwsgi.subscriptions_cnt++;
 		}
 		else {
-			uwsgi_log("you can specify at most %d --attach-daemons options\n", MAX_SUBSCRIPTIONS);
+			uwsgi_log("you can specify at most %d --subscribe-to options\n", MAX_SUBSCRIPTIONS);
 		}
 		return 1;
 #ifdef __linux__
