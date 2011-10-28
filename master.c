@@ -713,6 +713,7 @@ healthy:
 			uwsgi_log( "closing all non-uwsgi socket fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
 			for (i = 3; i < sysconf(_SC_OPEN_MAX); i++) {
 				int found = 0;
+
 				struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
                 		while(uwsgi_sock) {
 					if (i == uwsgi_sock->fd) {
@@ -728,6 +729,13 @@ healthy:
 						if (i == uwsgi.emperor_fd) {
 							found = 1;
 						}
+					}
+				}
+
+				if (uwsgi.original_log_fd > -1) {
+					if (i == uwsgi.original_log_fd) {
+						dup2(uwsgi.original_log_fd, 1);
+						dup2(1, 2);
 					}
 				}
 				if (!found) {

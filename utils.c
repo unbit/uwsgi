@@ -271,61 +271,6 @@ void logto(char *logfile) {
 #ifdef UWSGI_ZEROMQ
 void log_zeromq(char *node) {
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
-                uwsgi_error("socketpair()\n");
-                exit(1);
-        }
-
-	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
-	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
-#ifdef UWSGI_DEBUG
-		int so_bufsize;
-		socklen_t so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("master logger SO_RCVBUF size: %d\n", so_bufsize);
-                }
-
-                so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("master logger SO_SNDBUF size: %d\n", so_bufsize);
-                }
-
-		so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("worker logger SO_RCVBUF size: %d\n", so_bufsize);
-                }
-
-                so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("worker logger SO_SNDBUF size: %d\n", so_bufsize);
-                }
-
-#endif
-
-        if (uwsgi.shared->worker_log_pipe[1] != 1) {
-                if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
-                        uwsgi_error("dup2()");
-                        exit(1);
-                }
-        }
-
-        if (dup2(1, 2) < 0) {
-                uwsgi_error("dup2()");
-                exit(1);
-        }
-
         void *ctx = zmq_init(1);
         if (ctx == NULL) {
                 uwsgi_error("zmq_init()");
@@ -365,10 +310,6 @@ void log_socket(char *socket_name) {
 		uwsgi_nuclear_blast();
 	}
 
-	// create log connection with the master
-
-	create_logpipe();
-
 }
 
 void create_logpipe(void) {
@@ -403,70 +344,11 @@ void log_syslog(char *syslog_opts) {
 		syslog_opts = "uwsgi";
 	}
 
-	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
-		uwsgi_error("socketpair()\n");
-		exit(1);
-	}
-
-	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
-        uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
-
-#ifdef UWSGI_DEBUG
-	int so_bufsize;
-	uwsgi_log("log pipe %d %d\n", uwsgi.shared->worker_log_pipe[0], uwsgi.shared->worker_log_pipe[1]);
-                socklen_t so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("master logger SO_RCVBUF size: %d\n", so_bufsize);
-                }
-
-                so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[0], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("master logger SO_SNDBUF size: %d\n", so_bufsize);
-                }
-
-                so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_RCVBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("worker logger SO_RCVBUF size: %d\n", so_bufsize);
-                }
-
-                so_bufsize_len = sizeof(int);
-                if (getsockopt(uwsgi.shared->worker_log_pipe[1], SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
-                        uwsgi_error("getsockopt()");
-                }
-                else {
-                        uwsgi_debug("worker logger SO_SNDBUF size: %d\n", so_bufsize);
-                }
-
-#endif
-
-	if (uwsgi.shared->worker_log_pipe[1] != 1) {
-		if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
-			uwsgi_error("dup2()");
-			exit(1);
-		}
-	}
-
-
 #ifdef UWSGI_DEBUG
 	uwsgi_log("opening syslog\n");
 #endif
 
-	if (dup2(1, 2) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
-	}
-
 	openlog(syslog_opts, 0, LOG_DAEMON);
-
 
 }
 

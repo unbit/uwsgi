@@ -1,5 +1,5 @@
 /*
-
+_socket_nb(uwsgi.shared->worker_log_pipe[1]
  *** uWSGI ***
 
  Copyright (C) 2009-2011 Unbit S.a.s. <info@unbit.it>
@@ -995,6 +995,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.cache_server_fd = -1;
 	uwsgi.stats_fd = -1;
 
+	uwsgi.original_log_fd = -1;
+
 	uwsgi.emperor_fd_config = -1;
 	uwsgi.emperor_throttle = 1000;
 	uwsgi.emperor_pid = -1;
@@ -1025,6 +1027,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.shared->mule_queue_pipe[0] = -1;
 	uwsgi.shared->mule_queue_pipe[1] = -1;
+
+	uwsgi.shared->worker_log_pipe[0] = -1;
+        uwsgi.shared->worker_log_pipe[1] = -1; 
 
 	uwsgi.mime_file = "/etc/mime.types";
 
@@ -1330,6 +1335,11 @@ int main(int argc, char *argv[], char *envp[]) {
 
 
 	uwsgi_configure();
+
+	if (uwsgi.log_master) {
+        	uwsgi.original_log_fd = dup(1);
+                create_logpipe();
+        }
 
 	/* uWSGI IS CONFIGURED !!! */
 
@@ -1931,6 +1941,21 @@ int uwsgi_start(void *v_argv) {
 					if (j == uwsgi.emperor_fd)
 						continue;
 				}
+
+				if (uwsgi.shared->worker_log_pipe[0] > -1) {
+					if (j == uwsgi.shared->worker_log_pipe[0])
+						continue;
+				}
+
+				if (uwsgi.shared->worker_log_pipe[1] > -1) {
+					if (j == uwsgi.shared->worker_log_pipe[1])
+						continue;
+				}
+
+				if (uwsgi.original_log_fd > -1) {
+					if (j == uwsgi.original_log_fd)
+						continue;
+				}	
 
 				if (uwsgi.cache_server && uwsgi.cache_server_fd != -1) {
 					if (j == uwsgi.cache_server_fd)
@@ -3086,10 +3111,6 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.lazy = 1;
 		return 1;
 	case LONG_ARGS_LOG_MAXSIZE:
-		if (!uwsgi.log_master) {
-			uwsgi.original_log_fd = dup(1);
-			create_logpipe();
-		}
 		uwsgi.log_master = 1;
 		uwsgi.log_maxsize = atoi(optarg);
 		return 1;
@@ -3097,10 +3118,6 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.log_backupname = optarg;
 		return 1;
 	case LONG_ARGS_LOG_MASTER:
-		if (!uwsgi.log_master) {
-			uwsgi.original_log_fd = dup(1);
-			create_logpipe();
-		}
 		uwsgi.log_master = 1;
 		return 1;
 	case LONG_ARGS_LOG_SOCKET:
