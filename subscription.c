@@ -16,9 +16,9 @@
 
 */
 
-struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot *slot, char *key, uint16_t keylen, int regexp) {
+struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
 
-	struct uwsgi_subscribe_slot *current_slot = slot;
+	struct uwsgi_subscribe_slot *current_slot = *slot;
 
 	if (keylen > 0xff) return NULL;
 
@@ -34,11 +34,16 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
                                                 if (slot_parent) {
                                                        slot_parent->next = current_slot;
                                                 }
+						else {
+							*slot = current_slot;
+						}
+
                                                 slot_prev->prev = current_slot;
                                                 slot_prev->next = current_slot->next;
 
-                                                current_slot->prev = slot_parent;
                                                 current_slot->next = slot_prev;
+						current_slot->prev = slot_parent;
+
                                         }
                                 }
 				return current_slot;
@@ -50,7 +55,7 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
         return NULL;
 }
 
-struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot *slot, char *key, uint16_t keylen, int regexp) {
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
 
 	if (keylen > 0xff) return NULL;
 
@@ -121,7 +126,7 @@ void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsg
 
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_req *usr, int regexp) {
 
-	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(*slot, usr->key, usr->keylen, regexp), *old_slot = NULL, *a_slot;
+	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, usr->key, usr->keylen, regexp), *old_slot = NULL, *a_slot;
 	struct uwsgi_subscribe_node *node, *old_node = NULL;
 
 	if (usr->address_len > 0xff) return NULL;

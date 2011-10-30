@@ -517,7 +517,7 @@ void fastrouter_loop() {
 								fr_session->instance_address = tmp_socket_name;
 							}
 							else if (ufr.subscription_server) {
-								fr_session->un = uwsgi_get_subscribe_node(ufr.subscriptions, fr_session->hostname, fr_session->hostname_len, 0);
+								fr_session->un = uwsgi_get_subscribe_node(&ufr.subscriptions, fr_session->hostname, fr_session->hostname_len, 0);
 								if (fr_session->un && fr_session->un->len) {
 									fr_session->instance_address = fr_session->un->name;
 									fr_session->instance_address_len = fr_session->un->len;

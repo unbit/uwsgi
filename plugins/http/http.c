@@ -637,7 +637,7 @@ void http_loop() {
 									uhttp_session->instance_address_len = uhttp.to_len;
 								}
 								else if (uhttp.subscription_server) {
-									uhttp_session->un = uwsgi_get_subscribe_node(uhttp.subscriptions, uhttp_session->hostname, uhttp_session->hostname_len, 0);
+									uhttp_session->un = uwsgi_get_subscribe_node(&uhttp.subscriptions, uhttp_session->hostname, uhttp_session->hostname_len, 0);
 									if (uhttp_session->un && uhttp_session->un->len) {
 										uhttp_session->instance_address = uhttp_session->un->name;
 										uhttp_session->instance_address_len = uhttp_session->un->len;
