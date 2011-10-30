@@ -60,7 +60,7 @@ struct uwsgi_http {
 
 	int socket_timeout;
 
-	struct uwsgi_dict *subscription_dict;
+	struct uwsgi_subscribe_slot *subscriptions;
 
 	struct rb_root *timeouts;
 } uhttp;
@@ -139,7 +139,7 @@ struct http_session {
 	char path_info[UMAX16];
 	uint16_t path_info_len;
 
-	struct uwsgi_subscriber_name *un;
+	struct uwsgi_subscribe_node *un;
 	
 	in_addr_t ip_addr;
 	char ip[INET_ADDRSTRLEN];
@@ -158,9 +158,9 @@ static void close_session(struct http_session **uhttp_table, struct http_session
 	close(uhttp_session->fd);
         uhttp_table[uhttp_session->fd] = NULL;
         if (uhttp_session->instance_fd != -1) {
-        	if (uhttp.subscription_server && (uhttp_session->instance_failed || uhttp_session->status == HTTP_STATUS_CONNECTING)) {
+        	if (uhttp.subscriptions && (uhttp_session->instance_failed || uhttp_session->status == HTTP_STATUS_CONNECTING)) {
                 	uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-                        uhttp_session->un->len = 0;
+			uwsgi_remove_subscribe_node(&uhttp.subscriptions, uhttp_session->un);
                 }
                 close(uhttp_session->instance_fd);
                 uhttp_table[uhttp_session->instance_fd] = NULL;
@@ -482,7 +482,6 @@ void http_loop() {
 	if (uhttp.subscription_server) {
 		uhttp_subserver = bind_to_udp(uhttp.subscription_server, 0, 0);
 		event_queue_add_fd_read(uhttp_queue, uhttp_subserver);
-		uhttp.subscription_dict = uwsgi_dict_create(100, 0);
 	}
 
 	if (uhttp.pattern) {
@@ -558,7 +557,7 @@ void http_loop() {
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, http_manage_subscription, &usr);
-					uwsgi_add_subscriber(uhttp.subscription_dict, &usr);
+					uwsgi_add_subscribe_node(&uhttp.subscriptions, &usr, 0);
 				}
 			}
 			else {
@@ -638,7 +637,7 @@ void http_loop() {
 									uhttp_session->instance_address_len = uhttp.to_len;
 								}
 								else if (uhttp.subscription_server) {
-									uhttp_session->un = uwsgi_get_subscriber(uhttp.subscription_dict, uhttp_session->hostname, uhttp_session->hostname_len);
+									uhttp_session->un = uwsgi_get_subscribe_node(uhttp.subscriptions, uhttp_session->hostname, uhttp_session->hostname_len, 0);
 									if (uhttp_session->un && uhttp_session->un->len) {
 										uhttp_session->instance_address = uhttp_session->un->name;
 										uhttp_session->instance_address_len = uhttp_session->un->len;
@@ -669,9 +668,9 @@ void http_loop() {
 								}
 
 								if (uhttp_session->instance_fd < 0) {
-									if (uhttp.subscription_server) {
+									if (uhttp.subscriptions && uhttp_session->un) {
 										uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-										uhttp_session->un->len = 0;
+										uwsgi_remove_subscribe_node(&uhttp.subscriptions, uhttp_session->un);
 									}
 									close_session(uhttp_table, uhttp_session);
                                                                 	break;
