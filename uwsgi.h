@@ -39,7 +39,6 @@ extern "C" {
 #define MAX_RPC 64
 #define MAX_GATEWAYS 64
 #define MAX_DAEMONS 8
-#define MAX_SUBSCRIPTIONS 64
 #define MAX_CRONS 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -1520,8 +1519,7 @@ struct uwsgi_server {
 	int startup_daemons_cnt;
 
 	// subscription client
-	char *subscriptions[MAX_SUBSCRIPTIONS];
-	int subscriptions_cnt;
+	struct uwsgi_string_list *subscriptions;
 
 };
 
@@ -2161,30 +2159,6 @@ struct uwsgi_dict {
 	struct uwsgi_dict_item *items;
 };
 
-#define SUBSCRIBER_PAGESIZE 4096
-#define SUBSCRIBER_NODES (SUBSCRIBER_PAGESIZE/128)-4
-
-struct uwsgi_subscriber_name {
-	uint16_t len;
-	char name[128];
-
-	uint8_t modifier1;
-	uint8_t modifier2;
-
-	// total requests managed by this node
-	uint64_t	requests;
-	// bytes transferred by this node
-	uint64_t	transferred;
-
-};
-
-struct uwsgi_subscriber {
-	uint64_t nodes;
-	uint64_t current;
-	// support upto md5
-	char auth[32];
-	struct uwsgi_subscriber_name names[SUBSCRIBER_NODES];
-};
 
 struct uwsgi_subscribe_req {
 	char *key;
@@ -2199,13 +2173,6 @@ struct uwsgi_subscribe_req {
 	uint8_t modifier1;
 	uint8_t modifier2;
 };
-
-struct uwsgi_dict *uwsgi_dict_create(uint64_t, uint64_t);
-void uwsgi_add_subscriber(struct uwsgi_dict *, struct uwsgi_subscribe_req *);
-char *uwsgi_dict_get(struct uwsgi_dict *, char *, uint16_t, uint64_t *);
-int uwsgi_dict_set(struct uwsgi_dict *, char *, uint16_t, char *, uint64_t);
-
-struct uwsgi_subscriber_name *uwsgi_get_subscriber(struct uwsgi_dict *, char *, uint16_t);
 
 #ifndef _NO_UWSGI_RB
 #include "lib/rbtree.h"
@@ -2408,6 +2375,7 @@ int uwsgi_simple_parse_vars(struct wsgi_request *, char *, char *);
 
 void uwsgi_build_mime_dict(char *);
 struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **, char *, int, char *, int);
+void uwsgi_dyn_dict_del(struct uwsgi_dyn_dict *);
 
 void uwsgi_send_stats(int);
 
@@ -2430,6 +2398,47 @@ struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **, struct uw
 
 int uwsgi_farm_has_mule(struct uwsgi_farm *, int);
 struct uwsgi_farm *get_farm_by_name(char *);
+
+struct uwsgi_subscribe_slot;
+
+struct uwsgi_subscribe_node {
+
+        char name[0xff];
+        uint16_t len;
+        uint8_t modifier1;
+        uint8_t modifier2;
+
+        time_t last_check;
+
+	uint64_t requests;
+	uint64_t transferred;
+
+	struct uwsgi_subscribe_slot *slot;
+
+        struct uwsgi_subscribe_node *next;
+};
+
+struct uwsgi_subscribe_slot {
+
+        char key[0xff];
+        uint16_t keylen;
+
+        uint64_t hits;
+
+	// used for round robin
+	uint64_t rr;
+
+        struct uwsgi_subscribe_node *nodes;
+
+        struct uwsgi_subscribe_slot *prev;
+        struct uwsgi_subscribe_slot *next;
+};
+
+
+struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot *, char *, uint16_t, int);
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot *, char *, uint16_t, int);
+void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_node *);
+struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_req *, int);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

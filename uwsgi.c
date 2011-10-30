@@ -3385,13 +3385,7 @@ static int manage_base_opt(int i, char *optarg) {
 		}
 		return 1;
 	case LONG_ARGS_SUBSCRIBE_TO:
-		if (uwsgi.subscriptions_cnt < MAX_SUBSCRIPTIONS) {
-			uwsgi.subscriptions[uwsgi.subscriptions_cnt] = optarg;
-			uwsgi.subscriptions_cnt++;
-		}
-		else {
-			uwsgi_log("you can specify at most %d --subscribe-to options\n", MAX_SUBSCRIPTIONS);
-		}
+		uwsgi_string_new_list(&uwsgi.subscriptions, optarg);
 		return 1;
 #ifdef __linux__
 	case LONG_ARGS_CGROUP:

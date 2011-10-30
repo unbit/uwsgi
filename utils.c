@@ -2566,6 +2566,22 @@ struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **dd, char *key,
         return uwsgi_dd;
 }
 
+void uwsgi_dyn_dict_del(struct uwsgi_dyn_dict *item) {
+
+	struct uwsgi_dyn_dict *prev = item->prev;
+	struct uwsgi_dyn_dict *next = item->next;
+
+	if (prev) {
+		prev->next = next;
+	}
+
+	if (next) {
+		next->prev = prev;
+	}
+
+	free(item);
+}
+
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list, char *value) {
 

@@ -507,9 +507,10 @@ int master_loop(char **argv, char **environ) {
         }
 
 	// first subscription
-	for(i=0;i<uwsgi.subscriptions_cnt;i++) {
-		uwsgi_log("requested subscription for %s\n", uwsgi.subscriptions[i]);
-		uwsgi_subscribe(uwsgi.subscriptions[i]);
+	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+	while(subscriptions) {
+		uwsgi_subscribe(subscriptions->value);
+		subscriptions = subscriptions->next;
 	}
 
 	// sync the cache store if needed
@@ -1415,9 +1416,11 @@ healthy:
 			}
 
 			// resubscribe every 10 cycles
-			if (uwsgi.subscriptions_cnt > 0 && ((uwsgi.master_cycles % 10) == 0 || uwsgi.master_cycles == 1)) {
-				for(i=0;i<uwsgi.subscriptions_cnt;i++) {
-					uwsgi_subscribe(uwsgi.subscriptions[i]);
+			if (uwsgi.subscriptions && ((uwsgi.master_cycles % 10) == 0 || uwsgi.master_cycles == 1)) {
+				struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+				while(subscriptions) {
+					uwsgi_subscribe(subscriptions->value);
+					subscriptions = subscriptions->next;
 				}
 			}
 
