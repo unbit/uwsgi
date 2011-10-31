@@ -668,10 +668,7 @@ void http_loop() {
 								}
 
 								if (uhttp_session->instance_fd < 0) {
-									if (uhttp.subscriptions && uhttp_session->un) {
-										uwsgi_log("marking %.*s as failed\n", (int) uhttp_session->instance_address_len,uhttp_session->instance_address);
-										uwsgi_remove_subscribe_node(&uhttp.subscriptions, uhttp_session->un);
-									}
+									uhttp_session->instance_failed = 1;
 									close_session(uhttp_table, uhttp_session);
                                                                 	break;
                                                         	}
