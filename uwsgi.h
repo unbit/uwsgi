@@ -691,7 +691,7 @@ struct uwsgi_plugin {
 
 #ifdef UWSGI_PCRE
 #include <pcre.h>
-void uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra);
+int uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra);
 int uwsgi_regexp_match(pcre *pattern, pcre_extra *pattern_extra, char *subject, int length);
 #endif
 
@@ -2422,6 +2422,11 @@ struct uwsgi_subscribe_slot {
 
         char key[0xff];
         uint16_t keylen;
+
+#ifdef UWSGI_PCRE
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+#endif
 
         uint64_t hits;
 

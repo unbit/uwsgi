@@ -435,8 +435,7 @@ void fastrouter_loop() {
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, fastrouter_manage_subscription, &usr);
-					uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, 0);
-					if (ufr.i_am_cheap) {
+					if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, 0) && ufr.i_am_cheap) {
 						struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
                                                 while(ufr_sock) {
                                                 	event_queue_add_fd_read(ufr.queue, ufr_sock->fd);
@@ -704,7 +703,7 @@ void fastrouter_loop() {
 
 					// fallback to destroy !!!
 					default:
-						uwsgi_log("default action\n");
+						uwsgi_log("unknown event: closing session\n");
 						close_session(fr_table, fr_session);
 						break;
 					

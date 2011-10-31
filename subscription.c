@@ -19,16 +19,32 @@
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
 
 	struct uwsgi_subscribe_slot *current_slot = *slot;
+#ifdef UWSGI_PCRE
+	int match;
+#endif
 
 	if (keylen > 0xff) return NULL;
 
 	while(current_slot) {
+#ifdef UWSGI_PCRE
+		match = 0;
 		if (regexp) {
+			if (uwsgi_regexp_match(current_slot->pattern, current_slot->pattern_extra, key, keylen)) {
+				match = 1;
+			}
 		}
 		else {
+#endif
 			if (!uwsgi_strncmp(key, keylen, current_slot->key, current_slot->keylen)) {
-                                // auto optimization
-                                if (current_slot->prev) {
+#ifdef UWSGI_PCRE
+				match = 1;
+			}
+		}
+
+		if (match) {
+#endif
+                	// auto optimization
+                        if (current_slot->prev) {
                                         if (current_slot->hits > current_slot->prev->hits) {
                                                 struct uwsgi_subscribe_slot *slot_parent = current_slot->prev->prev, *slot_prev = current_slot->prev;
                                                 if (slot_parent) {
@@ -44,10 +60,9 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
                                                 current_slot->next = slot_prev;
 						current_slot->prev = slot_parent;
 
-                                        }
-                                }
-				return current_slot;
-			}
+                        	}
+                        }
+			return current_slot;
 		}
 		current_slot = current_slot->next;
 	}
@@ -88,7 +103,7 @@ void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsg
 	struct uwsgi_subscribe_slot *prev_slot = node_slot->prev;
 	struct uwsgi_subscribe_slot *next_slot = node_slot->next;
 
-	// avoid race conditions
+	// over-engineering to avoid race conditions
 	node->len = 0;
 
 	if (node == node_slot->nodes) {
@@ -115,6 +130,15 @@ void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsg
 		if (next_slot) {
 			next_slot->prev = prev_slot;
 		}
+
+#ifdef UWSGI_PCRE
+		if (node_slot->pattern) {
+			pcre_free(node_slot->pattern);
+		}
+		if (node_slot->pattern_extra) {
+			pcre_free(node_slot->pattern_extra);
+		}
+#endif
 
 		free(node_slot);
 		// am i the only slot ?
@@ -167,8 +191,20 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot = uwsgi_malloc(sizeof(struct uwsgi_subscribe_slot));
 		current_slot->keylen = usr->keylen;
 		memcpy(current_slot->key, usr->key, usr->keylen);
+		current_slot->key[usr->keylen] = 0;
 		current_slot->hits = 0;
 		current_slot->rr = 0;
+
+#ifdef UWSGI_PCRE
+		current_slot->pattern = NULL;
+		current_slot->pattern_extra = NULL;
+		if (regexp) {
+			if (uwsgi_regexp_build(current_slot->key, &current_slot->pattern, &current_slot->pattern_extra)) {
+				free(current_slot);
+				return NULL;
+			}
+		}
+#endif
 
 		current_slot->nodes = uwsgi_malloc(sizeof(struct uwsgi_subscribe_node));
 		current_slot->nodes->slot = current_slot;

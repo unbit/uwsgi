@@ -101,8 +101,9 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
 		uwsgi.workers[uwsgi.mywid].harakiri = 0;
-		uwsgi.workers[uwsgi.mywid].requests = 0;
-		uwsgi.workers[uwsgi.mywid].failed_requests = 0;
+		// do not reset worker counters on reload !!!
+		//uwsgi.workers[uwsgi.mywid].requests = 0;
+		//uwsgi.workers[uwsgi.mywid].failed_requests = 0;
 		uwsgi.workers[uwsgi.mywid].respawn_count++;
 		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
