@@ -3385,6 +3385,7 @@ static int manage_base_opt(int i, char *optarg) {
 		}
 		return 1;
 	case LONG_ARGS_SUBSCRIBE_TO:
+		uwsgi.master_process = 1;
 		uwsgi_string_new_list(&uwsgi.subscriptions, optarg);
 		return 1;
 #ifdef __linux__

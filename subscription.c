@@ -19,32 +19,21 @@
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
 
 	struct uwsgi_subscribe_slot *current_slot = *slot;
-#ifdef UWSGI_PCRE
-	int match;
-#endif
 
 	if (keylen > 0xff) return NULL;
 
 	while(current_slot) {
 #ifdef UWSGI_PCRE
-		match = 0;
 		if (regexp) {
-			if (uwsgi_regexp_match(current_slot->pattern, current_slot->pattern_extra, key, keylen)) {
-				match = 1;
+			if (uwsgi_regexp_match(current_slot->pattern, current_slot->pattern_extra, key, keylen) >= 0) {
+				return current_slot;
 			}
 		}
 		else {
 #endif
 			if (!uwsgi_strncmp(key, keylen, current_slot->key, current_slot->keylen)) {
-#ifdef UWSGI_PCRE
-				match = 1;
-			}
-		}
-
-		if (match) {
-#endif
-                	// auto optimization
-                        if (current_slot->prev) {
+                		// auto optimization
+                        	if (current_slot->prev) {
                                         if (current_slot->hits > current_slot->prev->hits) {
                                                 struct uwsgi_subscribe_slot *slot_parent = current_slot->prev->prev, *slot_prev = current_slot->prev;
                                                 if (slot_parent) {
@@ -60,10 +49,13 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
                                                 current_slot->next = slot_prev;
 						current_slot->prev = slot_parent;
 
+                        		}
                         	}
-                        }
-			return current_slot;
+				return current_slot;
+			}
+#ifdef UWSGI_PCRE
 		}
+#endif
 		current_slot = current_slot->next;
 	}
 
@@ -150,7 +142,7 @@ void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsg
 
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_req *usr, int regexp) {
 
-	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, usr->key, usr->keylen, regexp), *old_slot = NULL, *a_slot;
+	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, usr->key, usr->keylen, 0), *old_slot = NULL, *a_slot;
 	struct uwsgi_subscribe_node *node, *old_node = NULL;
 
 	if (usr->address_len > 0xff) return NULL;
@@ -182,12 +174,6 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
         }
         else {
 
-		a_slot = *slot;
-		while(a_slot) {
-			old_slot = a_slot;
-			a_slot = a_slot->next;
-		}
-
 		current_slot = uwsgi_malloc(sizeof(struct uwsgi_subscribe_slot));
 		current_slot->keylen = usr->keylen;
 		memcpy(current_slot->key, usr->key, usr->keylen);
@@ -216,16 +202,68 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 		current_slot->nodes->next = NULL;
 
-		if (old_slot) {
-			old_slot->next = current_slot;
+#ifdef UWSGI_PCRE
+		// if key is a regexp, order it by keylen
+		if (regexp) {
+			old_slot = NULL;
+			a_slot = *slot;
+			while(a_slot) {
+				if (a_slot->keylen > current_slot->keylen) {
+					old_slot = a_slot;
+					break;
+				}	
+				a_slot = a_slot->next;
+			}
+
+			if (old_slot) {
+				current_slot->prev = old_slot->prev;
+				old_slot->prev = current_slot;
+				if (current_slot->prev) {
+					old_slot->prev->next = current_slot;
+				}
+	
+				current_slot->next = old_slot;
+			}
+			else {
+				a_slot = *slot;
+                        	while(a_slot) {
+                                	old_slot = a_slot;
+                                	a_slot = a_slot->next;
+                        	}
+
+
+                        	if (old_slot) {
+                                	old_slot->next = current_slot;
+                        	}
+
+                        	current_slot->prev = old_slot;
+                        	current_slot->next = NULL;
+			}
 		}
+		else {
+#endif
+			a_slot = *slot;
+			while(a_slot) {
+				old_slot = a_slot;
+				a_slot = a_slot->next;
+			}
 
-		current_slot->prev = old_slot;
-		current_slot->next = NULL;
 
-		if (!*slot) {
+			if (old_slot) {
+				old_slot->next = current_slot;
+			}
+
+			current_slot->prev = old_slot;
+			current_slot->next = NULL;
+
+#ifdef UWSGI_PCRE
+		}
+#endif
+
+		if (!*slot || current_slot->prev == NULL) {
 			*slot = current_slot;
 		}
+
 		uwsgi_log("[uwsgi-subscription] new pool: %.*s\n", usr->keylen, usr->key);
 		uwsgi_log("[uwsgi-subscription] %.*s => new node: %.*s\n", usr->keylen, usr->key, usr->address_len, usr->address);
                 return current_slot->nodes;

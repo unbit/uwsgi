@@ -57,6 +57,7 @@ struct uwsgi_fastrouter {
 
         char *subscription_server;
         struct uwsgi_subscribe_slot *subscriptions;
+	int subscription_regexp;
 
         int socket_timeout;
 
@@ -109,6 +110,7 @@ struct option fastrouter_options[] = {
 	{"fastrouter-cheap", no_argument, &ufr.cheap, 1},
 	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
 	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
+	{"fastrouter-subscription-use-regexp", no_argument, &ufr.subscription_regexp, 1},
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
 	{0, 0, 0, 0},	
 };
@@ -435,7 +437,7 @@ void fastrouter_loop() {
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, fastrouter_manage_subscription, &usr);
-					if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, 0) && ufr.i_am_cheap) {
+					if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, ufr.subscription_regexp) && ufr.i_am_cheap) {
 						struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
                                                 while(ufr_sock) {
                                                 	event_queue_add_fd_read(ufr.queue, ufr_sock->fd);
@@ -516,7 +518,7 @@ void fastrouter_loop() {
 								fr_session->instance_address = tmp_socket_name;
 							}
 							else if (ufr.subscription_server) {
-								fr_session->un = uwsgi_get_subscribe_node(&ufr.subscriptions, fr_session->hostname, fr_session->hostname_len, 0);
+								fr_session->un = uwsgi_get_subscribe_node(&ufr.subscriptions, fr_session->hostname, fr_session->hostname_len, ufr.subscription_regexp);
 								if (fr_session->un && fr_session->un->len) {
 									fr_session->instance_address = fr_session->un->name;
 									fr_session->instance_address_len = fr_session->un->len;

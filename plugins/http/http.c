@@ -39,6 +39,7 @@ struct uwsgi_http {
 	int server;
 
 	char *subscription_server;
+	int subscription_regexp;
 
 	char *pattern;
 	int pattern_len;
@@ -76,6 +77,7 @@ struct option http_options[] = {
 	{"http-use-cluster", no_argument, &uhttp.use_cluster, 1},
 	{"http-events", required_argument, 0, LONG_ARGS_HTTP_EVENTS},
 	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
+	{"http-subscription-use-regexp", no_argument, &uhttp.subscription_regexp, 1},
 	{"http-timeout", required_argument, 0, LONG_ARGS_HTTP_TIMEOUT},
 	{0, 0, 0, 0},	
 };
@@ -557,7 +559,7 @@ void http_loop() {
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, http_manage_subscription, &usr);
-					uwsgi_add_subscribe_node(&uhttp.subscriptions, &usr, 0);
+					uwsgi_add_subscribe_node(&uhttp.subscriptions, &usr, uhttp.subscription_regexp);
 				}
 			}
 			else {
@@ -637,7 +639,7 @@ void http_loop() {
 									uhttp_session->instance_address_len = uhttp.to_len;
 								}
 								else if (uhttp.subscription_server) {
-									uhttp_session->un = uwsgi_get_subscribe_node(&uhttp.subscriptions, uhttp_session->hostname, uhttp_session->hostname_len, 0);
+									uhttp_session->un = uwsgi_get_subscribe_node(&uhttp.subscriptions, uhttp_session->hostname, uhttp_session->hostname_len, uhttp.subscription_regexp);
 									if (uhttp_session->un && uhttp_session->un->len) {
 										uhttp_session->instance_address = uhttp_session->un->name;
 										uhttp_session->instance_address_len = uhttp_session->un->len;
