@@ -172,6 +172,27 @@ class mule(object):
     def __call__(self, f):
         postfork_chain.append(mule_loop(f, self.num))
 
+class mulemsg_loop(object):
+
+    def __init__(self, f, num):
+        self.f = f
+        self.num = num
+
+    def __call__(self):
+        if uwsgi.mule_id() == self.num:
+            print " i am the mule"
+            while True:
+                message = uwsgi.mule_get_msg()
+                if message:
+                    self.f(message)
+
+class mulemsg(object):
+    def __init__(self, num):
+        self.num = num
+
+    def __call__(self, f):
+        postfork_chain.append(mulemsg_loop(f, self.num))
+
 class signal(object):
 
     def __init__(self, num, **kwargs):
