@@ -9,6 +9,8 @@ from setuptools.command.install import install
 from setuptools.command.install_lib import install_lib
 from setuptools.command.build_ext import build_ext
 
+uwsgi_compiled = False
+
 def get_profile():
     profile = os.environ.get('UWSGI_PROFILE','buildconf/default.ini')
     if not profile.endswith('.ini'):
@@ -35,26 +37,35 @@ def patch_bin_path(cmd, conf):
 class uWSGIBuilder(build_ext):
 
     def run(self):
-        conf = uc.uConf(get_profile())
-        patch_bin_path(self, conf)
-        uc.build_uwsgi( conf )
+        global uwsgi_compiled
+        if not uwsgi_compiled:
+            conf = uc.uConf(get_profile())
+            patch_bin_path(self, conf)
+            uc.build_uwsgi( conf )
+            uwsgi_compiled = True
 
 
 class uWSGIInstall(install):
 
     def run(self):
-
-        conf = uc.uConf(get_profile())
-        patch_bin_path(self, conf)
-        uc.build_uwsgi( conf )
+        global uwsgi_compiled
+        if not uwsgi_compiled:
+            conf = uc.uConf(get_profile())
+            patch_bin_path(self, conf)
+            uc.build_uwsgi( conf )
+            uwsgi_compiled = True
         install.run(self)
 
 class uWSGIInstallLib(install_lib):
 
     def run(self):
-        conf = uc.uConf(get_profile())
-        patch_bin_path(self, conf)
-        uc.build_uwsgi( conf )
+        global uwsgi_compiled
+        if not uwsgi_compiled:
+            conf = uc.uConf(get_profile())
+            patch_bin_path(self, conf)
+            uc.build_uwsgi( conf )
+            uwsgi_compiled = True
+        install_lib.run(self)
 
 class uWSGIDistribution(Distribution):
 
@@ -71,6 +82,7 @@ setup(name='uWSGI',
       author_email='info@unbit.it',
       url='http://projects.unbit.it/uwsgi/',
       license='GPL2',
+      py_modules = ['uwsgidecorators'],
       distclass = uWSGIDistribution,
      )
 
