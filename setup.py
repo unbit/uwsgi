@@ -9,6 +9,10 @@ from setuptools.command.install import install
 from setuptools.command.install_lib import install_lib
 from setuptools.command.build_ext import build_ext
 
+"""
+This is a hack allowing you installing uWSGI and uwsgidecorators via pip and easy_install
+"""
+
 uwsgi_compiled = False
 
 def get_profile():

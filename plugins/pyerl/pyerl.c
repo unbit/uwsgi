@@ -304,7 +304,7 @@ void pyerl_call_registered(void *func, ei_x_buff *x) {
 
 	PyTuple_SetItem(pyargs, 0, erl_to_py(x));
 	
-        python_call((PyObject *) func, pyargs, 0);
+        python_call((PyObject *) func, pyargs, 0, 0);
 }
 
 PyObject *pyerl_register_process(PyObject * self, PyObject * args) {
