@@ -286,7 +286,7 @@ void erlang_loop() {
 					if (em.msgtype == ERL_TICK)
 						continue;
 
-					uwsgi_log("From: %s To: %s RegName: %s\n", em.from.node, em.to.node, em.toname);
+					uwsgi_log("[erlang] message From: '%s' To: '%s' RegName: %s\n", em.from.node, em.to.node, em.toname);
 
 
 					
@@ -366,7 +366,6 @@ int erlang_init() {
 
         if (uerl.name) {
 
-		uwsgi.master_process = 1;
 
 		host = strchr(uerl.name, '@');
 
@@ -435,7 +434,8 @@ int erlang_opt(int i, char *optarg) {
 
         switch(i) {
                 case LONG_ARGS_ERLANG:
-                        uerl.name = optarg;
+			uwsgi.master_process = 1;
+			uerl.name = optarg;
                         return 1;
                 case LONG_ARGS_ERLANG_COOKIE:
 			uerl.cookie = optarg;

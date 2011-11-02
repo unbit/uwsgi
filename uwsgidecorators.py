@@ -257,6 +257,15 @@ class filemon(object):
         uwsgi.add_file_monitor(self.num, self.fsobj)
         return f
 
+class erlang(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, f):
+        uwsgi.erlang_register_process(self.name, f)
+        return f
+
 class lock(object):
     def __init__(self, f):
         self.f = f
