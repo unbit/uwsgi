@@ -95,7 +95,7 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 	char buffer[0xffff];
 
 	char *argv[0xff] ;
-	int argc;
+	int argc = 0;
 	uint16_t ret;
 	ei_x_buff xr;
 
@@ -103,18 +103,19 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("%d %c %c %c\n", etype, etype, ERL_SMALL_TUPLE_EXT, ERL_LARGE_TUPLE_EXT);
+#endif
 	if (etype != ERL_SMALL_TUPLE_EXT && etype != ERL_LARGE_TUPLE_EXT) return;
 
-	uwsgi_log("decode tuple\n");
 	ei_decode_tuple_header(x->buff, &x->index, &arity);
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("rpc arity %d\n", arity);
+#endif
 	if (arity != 3) return ;
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
-
-	uwsgi_log("%d %c\n", etype, etype);
 
 	if (etype != ERL_ATOM_EXT && etype != ERL_STRING_EXT) return ;
 
@@ -127,7 +128,9 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
                 ei_decode_string(x->buff, &x->index, gen_call);
         }
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("gen call = %s\n", gen_call);
+#endif
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
 	
@@ -138,13 +141,10 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
 	ei_skip_term(x->buff, &x->index);
-	uwsgi_log("skip0 %d %c\n", etype, etype);
 	ei_get_type(x->buff, &x->index, &etype, &esize);
-	uwsgi_log("skip1 %d %c\n", etype, etype);
 	ei_decode_ref(x->buff, &x->index, &eref);
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
-	uwsgi_log("%d %c\n", etype, etype);
 
 	module = uwsgi_malloc(esize);
 
@@ -157,17 +157,16 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
 
-	uwsgi_log("%d %c\n", etype, etype);
-
 	if (etype != ERL_SMALL_TUPLE_EXT) return ;
 
 	ei_decode_tuple_header(x->buff, &x->index, &arity);
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("arity: %d\n", arity);
+#endif
 	if (arity != 5) return ;
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
-        uwsgi_log("%d %c\n", etype, etype);
 
         char *method = uwsgi_malloc(esize);
 
@@ -181,7 +180,6 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
         if (strcmp(method, "call")) return;
 
         ei_get_type(x->buff, &x->index, &etype, &esize);
-        uwsgi_log("%d %c\n", etype, etype);
 
 	if (etype != ERL_ATOM_EXT && etype != ERL_STRING_EXT) return ;
 
@@ -207,7 +205,9 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 		ei_decode_string(x->buff, &x->index, call);
 	}
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("RPC %s %s\n", module, call);
+#endif
 
 	ei_get_type(x->buff, &x->index, &etype, &esize);
 
@@ -224,7 +224,9 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 
 	ret = uwsgi_rpc(call, argc, argv, buffer);
 
+#ifdef UWSGI_DEBUG
 	uwsgi_log("buffer: %.*s\n", ret, buffer);
+#endif
 
 	ei_x_new_with_version(&xr);
 
@@ -247,7 +249,6 @@ void erlang_loop() {
 	int fd;
 
 	int eversion;
-	int i;
 
 	ei_x_buff x, xr;
 
@@ -286,7 +287,7 @@ void erlang_loop() {
 					if (em.msgtype == ERL_TICK)
 						continue;
 
-					uwsgi_log("[erlang] message From: '%s' To: '%s' RegName: %s\n", em.from.node, em.to.node, em.toname);
+					uwsgi_log("[erlang] message From: %s To (process): %s\n", em.from.node, em.toname);
 
 
 					
@@ -300,20 +301,18 @@ void erlang_loop() {
 						uwsgi_erlang_rpc(fd, &em.from, &x);
 					}
 					else {
-						int uep = -1;
-						for(i=0;i<uerl.uep_cnt;i++) {
-							if (!strcmp(uerl.uep[i].name, em.toname)) {
-								uep = i;
+						struct uwsgi_erlang_process *uep = uerl.uep;
+						while(uep) {
+							if (!strcmp(uep->name, em.toname)) {
+								if (uep->plugin) {
+									uep->plugin(uep->func, &x);	
+								}
 								break;
 							}
+							uep = uep->next;
 						}
 
-						if (uep > -1) {
-							if (uerl.uep[uep].plugin) {
-								uerl.uep[uep].plugin( uerl.uep[uep].func, &x );
-							}
-						}
-						else {
+						if (!uep) {
 							uwsgi_log("!!! unregistered erlang process requested, dumping it !!!\n");
 							dump_eterm(&x);
 						}
@@ -425,6 +424,7 @@ int erlang_init() {
                         uwsgi_log("unable to register the erlang gateway\n");
                         exit(1);
                 }
+
         }
 
         return 0;
