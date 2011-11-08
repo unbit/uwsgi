@@ -936,7 +936,7 @@ struct uwsgi_plugin rack_plugin = {
 
 	.signal_handler = uwsgi_rack_signal_handler,
 
-	.hijack = uwsgi_rack_hijack,
+	.hijack_worker = uwsgi_rack_hijack,
 
 	.init_apps = uwsgi_rack_init_apps,
 	//.mount_app = uwsgi_rack_mount_app,
