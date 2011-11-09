@@ -1622,6 +1622,10 @@ void add_exported_option(char *key, char *value, int configured) {
 	char *v = value;
 	if (value && strchr(value, ';')) {
 		v = uwsgi_str(value);
+		if (v[0] == '\\') {
+			_add_exported_option(key, v+1, configured);
+			return;
+		}
 	}
 
 	if (v == NULL) {

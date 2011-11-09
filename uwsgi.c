@@ -3829,9 +3829,15 @@ int _manage_opt(int i, char *p) {
 void manage_opt(int i, char *optarg) {
 
 	char *value = optarg;
-	
+
 	if (value && strchr(optarg, ';')) {
 		value = uwsgi_str(optarg);
+		if (value[0] == '\\') {
+			if (!_manage_opt(i, value+1)) {
+				exit(1);
+			}
+			return;
+		}
 	}
 
 	if (!value) {
