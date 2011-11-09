@@ -75,7 +75,7 @@ void carbon_post_init() {
 void carbon_master_cycle() {
 
 	static time_t last_update = 0;
-	char ptr[4006];
+	char ptr[4096];
 	int rlen, i;
 	int fd;
 	struct uwsgi_string_list *usl = u_carbon.servers;
