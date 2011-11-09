@@ -64,10 +64,12 @@ void carbon_post_init() {
 
 	if (u_carbon.freq < 1) u_carbon.freq = 60;
 	if (u_carbon.timeout < 1) u_carbon.timeout = 3;
-	if (!u_carbon.id) u_carbon.id = uwsgi_str(uwsgi.sockets->name);
+	if (!u_carbon.id) { 
+		u_carbon.id = uwsgi_str(uwsgi.sockets->name);
 
-	for(i=0;i<(int)strlen(u_carbon.id);i++) {
-		if (u_carbon.id[i] == '.') u_carbon.id[i] = '_';
+		for(i=0;i<(int)strlen(u_carbon.id);i++) {
+			if (u_carbon.id[i] == '.') u_carbon.id[i] = '_';
+		}
 	}
 
 }
