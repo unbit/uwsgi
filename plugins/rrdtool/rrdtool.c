@@ -5,6 +5,7 @@ extern struct uwsgi_server uwsgi;
 #define RRDTOOL_OPT_BASE 177000
 #define RRDTOOL_OPT_RRDTOOL		RRDTOOL_OPT_BASE+1
 #define RRDTOOL_OPT_RRDTOOL_MAX_DS	RRDTOOL_OPT_BASE+2
+#define RRDTOOL_OPT_RRDTOOL_FREQ	RRDTOOL_OPT_BASE+3
 
 struct uwsgi_rrdtool {
 	void *lib;
@@ -12,12 +13,14 @@ struct uwsgi_rrdtool {
 	int (*update)(int, char **);
 	struct uwsgi_string_list *rrd;
 	int max_ds;
+	int freq;
 
 	char *update_area;
 } u_rrd;
 
 struct option rrdtool_options[] = {
 	{"rrdtool", required_argument, 0, RRDTOOL_OPT_RRDTOOL},
+	{"rrdtool-freq", required_argument, 0, RRDTOOL_OPT_RRDTOOL_FREQ},
 	{"rrdtool-max-ds", required_argument, 0, RRDTOOL_OPT_RRDTOOL_MAX_DS},
 	{0, 0, 0, 0},
 
@@ -57,6 +60,9 @@ int rrdtool_opt(int i, char *optarg) {
 			return 1;
 		case RRDTOOL_OPT_RRDTOOL_MAX_DS:
 			u_rrd.max_ds = atoi(optarg);
+			return 1;
+		case RRDTOOL_OPT_RRDTOOL_FREQ:
+			u_rrd.freq = atoi(optarg);
 			return 1;
 	}
 
@@ -132,6 +138,8 @@ void rrdtool_post_init() {
 
 	u_rrd.update_area[0] = 'N';	
 
+	if (u_rrd.freq < 1) u_rrd.freq = 300;
+
 }
 
 void rrdtool_master_cycle() {
@@ -146,8 +154,8 @@ void rrdtool_master_cycle() {
 
 	if (last_update == 0) last_update = time(NULL);
 
-	// update every 5 minutes
-	if (uwsgi.current_time - last_update >= 300) {
+	// update
+	if (uwsgi.current_time - last_update >= u_rrd.freq) {
 		ptr = u_rrd.update_area+1;
 		rlen = snprintf(ptr, 1+sizeof(UMAX64_STR), ":%llu", (unsigned long long )uwsgi.workers[0].requests);
 		if (rlen < 2) return;
