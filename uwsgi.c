@@ -3379,7 +3379,7 @@ static int manage_base_opt(int i, char *optarg) {
 		signal_pidfile(SIGHUP, optarg);
 		exit(0);
 	case LONG_ARGS_PAUSE:
-		signal_pidfile(SIGWINCH, optarg);
+		signal_pidfile(SIGTSTP, optarg);
 		exit(0);
 	case LONG_ARGS_ATTACH_DAEMON:
 		if (uwsgi.startup_daemons_cnt < MAX_DAEMONS) {

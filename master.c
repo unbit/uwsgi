@@ -19,11 +19,11 @@ void suspend_resume_them_all(int signum) {
 	int suspend = 0;
 
 	if (uwsgi.workers[0].suspended == 1) {
-		uwsgi_log_verbose("*** (SIGWINCH received) resuming workers ***\n");
+		uwsgi_log_verbose("*** (SIGTSTP received) resuming workers ***\n");
 		uwsgi.workers[0].suspended = 0;
 	}
 	else {
-		uwsgi_log_verbose("*** PAUSE (press start to resume, if you do not have a joypad send SIGWINCH) ***\n");
+		uwsgi_log_verbose("*** PAUSE (press start to resume, if you do not have a joypad send SIGTSTP) ***\n");
 		suspend = 1;
 		uwsgi.workers[0].suspended = 1;
 	}
@@ -31,7 +31,7 @@ void suspend_resume_them_all(int signum) {
 	for(i=1;i<=uwsgi.numproc;i++) {
 		uwsgi.workers[i].suspended = suspend;
 		if (uwsgi.workers[i].pid > 0) {
-			if (kill(uwsgi.workers[i].pid, SIGWINCH)) {
+			if (kill(uwsgi.workers[i].pid, SIGTSTP)) {
 				uwsgi_error("kill()");
 			}
 		}
@@ -333,7 +333,7 @@ int master_loop(char **argv, char **environ) {
 
 	uwsgi.current_time = time(NULL);
 
-	uwsgi_unix_signal(SIGWINCH, suspend_resume_them_all);
+	uwsgi_unix_signal(SIGTSTP, suspend_resume_them_all);
 	uwsgi_unix_signal(SIGHUP, grace_them_all);
 	if (uwsgi.die_on_term) {
 		uwsgi_unix_signal(SIGTERM, kill_them_all);

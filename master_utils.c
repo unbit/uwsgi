@@ -96,6 +96,7 @@ int uwsgi_respawn_worker(int wid) {
 
 	if (pid == 0) {
 		signal(SIGWINCH, worker_wakeup);
+		signal(SIGTSTP, worker_wakeup);
 		uwsgi.mywid = wid;
 		uwsgi.mypid = getpid();
 		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
