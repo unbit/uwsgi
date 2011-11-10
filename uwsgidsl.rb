@@ -31,3 +31,7 @@ def cron(minute, hour, day, month, dayweek, target='', &block)
   UWSGI.register_signal(freesig, target, block)
   UWSGI.add_cron(freesig, minute, hour, day, month, dayweek)
 end
+
+def signal(signum, target='', &block)
+  UWSGI.register_signal(signum, target, block)
+end

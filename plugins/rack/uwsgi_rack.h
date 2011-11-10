@@ -52,6 +52,10 @@ struct uwsgi_rack {
         uint64_t cycles;
 
         int call_gc;
+
+	// why why why !!!!????!!!???
+	VALUE signals_protector;
+
         VALUE dispatcher;
         VALUE rb_uwsgi_io_class;
         ID call;

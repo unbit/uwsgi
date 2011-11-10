@@ -1,12 +1,14 @@
 require 'stringio'
 require 'uwsgidsl'
 
+signal 17,'mule5' do |signum|
+end
+
 timer 2 do |signum|
   puts "ciao sono un dsl ruby: #{signum}"
 end
 
-=begin
-timer 1,'mule' do |signum|
+timer 1,'mule1' do |signum|
   puts "1 second elapsed (signum #{signum})"
 end
 
@@ -21,10 +23,9 @@ end
 cron 58,-1,-1,-1,-1 do |signum|
   puts "cron ready #{signum}"
 end
-=end
 
 run lambda { |env| 
   puts env.inspect
-  #UWSGI.signal(17)
+  UWSGI.signal(17)
   [200, {'Content-Type'=>'text/plain'}, StringIO.new("Hello World!\n")] 
 }

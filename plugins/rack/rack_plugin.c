@@ -127,6 +127,10 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 RUBY_GLOBAL_SETUP
 #endif
 
+VALUE uwsgi_require_file(VALUE arg) {
+    return rb_funcall(rb_cObject, rb_intern("require"), 1, arg);
+}
+
 VALUE require_rack(VALUE arg) {
     return rb_funcall(rb_cObject, rb_intern("require"), 1, rb_str_new2("rack"));
 }
@@ -140,6 +144,42 @@ VALUE require_rails(VALUE arg) {
 }
 
 VALUE init_rack_app(VALUE);
+
+VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        int wait_for_specific_signal = 0;
+        uint8_t uwsgi_signal = 0;
+        uint8_t received_signal;
+
+        wsgi_req->signal_received = -1;
+
+        if (argc > 0) {
+		uwsgi_signal = NUM2INT(argv[0]);	
+                wait_for_specific_signal = 1;
+        }
+
+        if (wait_for_specific_signal) {
+                received_signal = uwsgi_signal_wait(uwsgi_signal);
+        }
+        else {
+                received_signal = uwsgi_signal_wait(-1);
+        }
+
+        wsgi_req->signal_received = received_signal;
+
+        return Qnil;
+}
+
+/*
+PyObject *py_uwsgi_signal_received(PyObject * self, PyObject * args) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        return PyInt_FromLong(wsgi_req->signal_received);
+}
+*/
+
 
 VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
 
@@ -164,6 +204,7 @@ VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALU
         }
 
 	rb_gc_register_address(&rbhandler);
+	rb_ary_push(ur.signals_protector, rbhandler);
 
 	return Qtrue;
 }
@@ -191,6 +232,7 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
 
 	int error = 0;
 
+
 	VALUE rbhandler = (VALUE) handler;
 	VALUE args = rb_ary_new2(2);
 	rb_ary_store(args, 0, rbhandler);
@@ -203,6 +245,7 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
 		rb_gc_unregister_address(&args);
 		rb_gc_unregister_address(&ret);
 		rb_gc_unregister_address(&rbsig);
+		rb_gc();
         	return -1;
 	}
 
@@ -210,6 +253,7 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
 	rb_gc_unregister_address(&args);
 	rb_gc_unregister_address(&ret);
 	rb_gc_unregister_address(&rbsig);
+	rb_gc();
 
 	return 0;
 }
@@ -358,13 +402,15 @@ int uwsgi_rack_init(){
 	ruby_init();
 	ruby_process_options(argc, argv);
 #else
-
 	ruby_init();
 	ruby_init_loadpath();
 #endif
 	ruby_show_version();
 
 	ruby_script("uwsgi");
+
+	ur.signals_protector = rb_ary_new();
+	rb_gc_register_address(&ur.signals_protector);
 
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
 	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
@@ -375,6 +421,7 @@ int uwsgi_rack_init(){
 	rb_define_module_function(rb_uwsgi_embedded, "signal", uwsgi_ruby_signal, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "register_signal", uwsgi_ruby_register_signal, 3);
 	rb_define_module_function(rb_uwsgi_embedded, "signal_registered", uwsgi_ruby_signal_registered, 1);
+	rb_define_module_function(rb_uwsgi_embedded, "signal_wait", uwsgi_ruby_signal_wait, -1);
 	rb_define_module_function(rb_uwsgi_embedded, "add_cron", rack_uwsgi_add_cron, 6);
 	rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
@@ -924,6 +971,23 @@ int uwsgi_rack_mount_app(char *mountpoint, char *app) {
 void uwsgi_rack_hijack(void) {
 }
 
+int uwsgi_rack_mule(char *opt) {
+	int error = 0;
+
+        if (uwsgi_endswith(opt, ".rb")) {
+		rb_protect( uwsgi_require_file, rb_str_new2(opt), &error ) ;
+                if (error) {
+                        uwsgi_ruby_exception();
+			return 0;
+                }
+                return 1;
+        }
+
+        return 0;
+
+}
+
+
 struct uwsgi_plugin rack_plugin = {
 
 	.name = "rack",
@@ -943,6 +1007,8 @@ struct uwsgi_plugin rack_plugin = {
 	.manage_xml = uwsgi_rack_xml,
 
 	.magic = uwsgi_rack_magic,
+
+	.mule = uwsgi_rack_mule,
 
 	.suspend = uwsgi_rack_suspend,
 	.resume = uwsgi_rack_resume,
