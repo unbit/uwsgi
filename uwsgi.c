@@ -2831,15 +2831,8 @@ skipzero:
 				int rm_src = atoi(map);
 				int rm_dst = atoi(colon + 1);
 				up_tmp = uwsgi.p[rm_dst];
-				uwsgi.p[rm_dst] = uwsgi.p[rm_src];
-				uwsgi.p[rm_src] = up_tmp;
-				// fix rpc
-				for (i = 0; i < uwsgi.shared->rpc_count; i++) {
-					if (uwsgi.shared->rpc_table[i].modifier1 == rm_src)
-						uwsgi.shared->rpc_table[i].modifier1 = rm_dst;
-					else if (uwsgi.shared->rpc_table[i].modifier1 == rm_dst)
-						uwsgi.shared->rpc_table[i].modifier1 = rm_src;
-				}
+				uwsgi.p[rm_dst]->request = uwsgi.p[rm_src]->request;
+				uwsgi.p[rm_src]->after_request = up_tmp->after_request;
 			}
 			map = strtok(NULL, ",");
 		}
