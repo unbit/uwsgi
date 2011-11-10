@@ -11,8 +11,6 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 	int wait_for_specific_signal = 0;
 	uint8_t uwsgi_signal = 0;
 	uint8_t received_signal;
-	int ret;
-	struct pollfd pfd[2];
 
 	wsgi_req->signal_received = -1;
 
@@ -23,60 +21,18 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 		wait_for_specific_signal = 1;	
 	}
 
-#ifdef UWSGI_ASYNC
-	if (uwsgi.async > 1) {
-        	wsgi_req->sigwait = 1;
+	UWSGI_RELEASE_GIL;
+
+	if (wait_for_specific_signal) {
+		received_signal = uwsgi_signal_wait(uwsgi_signal);
 	}
 	else {
-#endif
-
-		UWSGI_RELEASE_GIL;
-
-		pfd[0].fd = uwsgi.signal_socket;
-		pfd[0].events = POLLIN;
-		pfd[1].fd = uwsgi.my_signal_socket;
-		pfd[1].events = POLLIN;
-cycle:
-		ret = poll(pfd, 2, -1);
-		if (ret > 0) {
-			if (pfd[0].revents == POLLIN) {
-				if (read(uwsgi.signal_socket, &received_signal, 1) != 1) {
-					uwsgi_error("read()");
-				}		
-				else {
-					if (uwsgi_signal_handler(received_signal)) {
-                                		uwsgi_log_verbose("error managing signal %d on worker %d\n", received_signal, uwsgi.mywid);
-                        		}
-					wsgi_req->signal_received = received_signal;			
-					if (wait_for_specific_signal) {
-						if (received_signal != uwsgi_signal) goto cycle;
-					}
-				}
-			}
-			if (pfd[1].revents == POLLIN) {
-                                if (read(uwsgi.my_signal_socket, &received_signal, 1) != 1) {
-                                        uwsgi_error("read()");
-                                }
-                                else {
-					
-					if (uwsgi_signal_handler(received_signal)) {
-                                		uwsgi_log_verbose("error managing signal %d on worker %d\n", received_signal, uwsgi.mywid);
-                        		}
-                                        wsgi_req->signal_received = received_signal;
-                                        if (wait_for_specific_signal) {
-                                                if (received_signal != uwsgi_signal) goto cycle;
-                                        }
-                                }
-                        }
-
-		}
-
-		UWSGI_GET_GIL;
-
-#ifdef UWSGI_ASYNC
+		received_signal = uwsgi_signal_wait(-1);
 	}
-#endif
 
+        wsgi_req->signal_received = received_signal;
+
+	UWSGI_GET_GIL;
 
         return PyString_FromString("");
 }
