@@ -301,3 +301,51 @@ void uwsgi_route_signal(uint8_t sig) {
 		uwsgi_log("^^^ UNSUPPORTED SIGNAL TARGET: %s ^^^\n", use->receiver);
 	}
 }
+
+uint8_t uwsgi_signal_wait(int signum) {
+
+        int wait_for_specific_signal = 0;
+        uint8_t uwsgi_signal = 0;
+        uint8_t received_signal;
+        int ret;
+        struct pollfd pfd[2];
+
+	if (signum > -1) {
+                wait_for_specific_signal = 1;
+        }
+
+        pfd[0].fd = uwsgi.signal_socket;
+        pfd[0].events = POLLIN;
+        pfd[1].fd = uwsgi.my_signal_socket;
+        pfd[1].events = POLLIN;
+cycle:
+        ret = poll(pfd, 2, -1);
+        if (ret > 0) {
+        	if (pfd[0].revents == POLLIN) {
+                          if (read(uwsgi.signal_socket, &received_signal, 1) != 1) {
+                          	uwsgi_error("read()");
+                          }
+                          else {
+                          	(void)uwsgi_signal_handler(received_signal);
+                                if (wait_for_specific_signal) {
+                                	if (received_signal != uwsgi_signal) goto cycle;
+                                }
+                           }
+		}
+                if (pfd[1].revents == POLLIN) {
+                               if (read(uwsgi.my_signal_socket, &received_signal, 1) != 1) {
+                                       uwsgi_error("read()");
+                               }
+                               else {
+                                       (void)uwsgi_signal_handler(received_signal);
+                                       if (wait_for_specific_signal) {
+                                               if (received_signal != uwsgi_signal) goto cycle;
+                                       }
+                               }
+                        }
+
+                }
+
+        return received_signal;
+}
+
