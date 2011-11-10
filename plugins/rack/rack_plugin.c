@@ -171,14 +171,12 @@ VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
         return Qnil;
 }
 
-/*
-PyObject *py_uwsgi_signal_received(PyObject * self, PyObject * args) {
+VALUE uwsgi_ruby_signal_received(VALUE *class) {
 
         struct wsgi_request *wsgi_req = current_wsgi_req();
 
-        return PyInt_FromLong(wsgi_req->signal_received);
+        return INT2NUM(wsgi_req->signal_received);
 }
-*/
 
 
 VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
@@ -422,6 +420,7 @@ int uwsgi_rack_init(){
 	rb_define_module_function(rb_uwsgi_embedded, "register_signal", uwsgi_ruby_register_signal, 3);
 	rb_define_module_function(rb_uwsgi_embedded, "signal_registered", uwsgi_ruby_signal_registered, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "signal_wait", uwsgi_ruby_signal_wait, -1);
+	rb_define_module_function(rb_uwsgi_embedded, "signal_received", uwsgi_ruby_signal_received, 0);
 	rb_define_module_function(rb_uwsgi_embedded, "add_cron", rack_uwsgi_add_cron, 6);
 	rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
