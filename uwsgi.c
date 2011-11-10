@@ -61,6 +61,9 @@ static struct option long_base_options[] = {
 	{"daemonize", required_argument, 0, 'd'},
 	{"stop", required_argument, 0, LONG_ARGS_STOP},
 	{"reload", required_argument, 0, LONG_ARGS_RELOAD},
+	{"pause", required_argument, 0, LONG_ARGS_PAUSE},
+	{"suspend", required_argument, 0, LONG_ARGS_PAUSE},
+	{"resume", required_argument, 0, LONG_ARGS_PAUSE},
 	{"listen", required_argument, 0, 'l'},
 	{"max-vars", required_argument, 0, 'v'},
 	{"buffer-size", required_argument, 0, 'b'},
@@ -3374,6 +3377,9 @@ static int manage_base_opt(int i, char *optarg) {
 		exit(0);
 	case LONG_ARGS_RELOAD:
 		signal_pidfile(SIGHUP, optarg);
+		exit(0);
+	case LONG_ARGS_PAUSE:
+		signal_pidfile(SIGWINCH, optarg);
 		exit(0);
 	case LONG_ARGS_ATTACH_DAEMON:
 		if (uwsgi.startup_daemons_cnt < MAX_DAEMONS) {

@@ -109,6 +109,7 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 		uwsgi.workers[uwsgi.mywid].cheaped = 0;
 		uwsgi.workers[uwsgi.mywid].busy = 0;
+		uwsgi.workers[uwsgi.mywid].suspended = 0;
 		uwsgi.workers[uwsgi.mywid].sig = 0;
 
 		// reset the apps count with a copy from the master 
@@ -345,6 +346,9 @@ void uwsgi_send_stats(int fd) {
 		if (uwsgi.workers[i + 1].cheaped) {
 			fprintf(output,"\"status\": \"cheap\", ");
 		}
+                else if (uwsgi.workers[i + 1].suspended) {
+			fprintf(output,"\"status\": \"pause\", ");
+                }
 		else {
 			if (uwsgi.workers[i + 1].sig) {
 				fprintf(output,"\"status\": \"sig%d\", ", uwsgi.workers[i + 1].signum);

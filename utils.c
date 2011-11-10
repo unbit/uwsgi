@@ -747,6 +747,16 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 
 	uwsgi.core[wsgi_req->async_id]->in_request = 0;
 	uwsgi.workers[uwsgi.mywid].busy = 0;
+
+	// now check for suspend request
+	if (uwsgi.workers[uwsgi.mywid].suspended == 1) {
+		uwsgi_log_verbose("*** worker %d suspended ***\n", uwsgi.mywid);
+cycle:
+		// wait for some signal (normally SIGWINCH) or 10 seconds (as fallback)
+		(void) poll(NULL, 0, 10*1000);
+		if (uwsgi.workers[uwsgi.mywid].suspended == 1) goto cycle;
+		uwsgi_log_verbose("*** worker %d resumed ***\n", uwsgi.mywid);
+	}
 }
 
 #ifdef UWSGI_ASYNC

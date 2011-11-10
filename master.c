@@ -13,6 +13,31 @@ void uwsgi_restore_auto_snapshot(int signum) {
 	
 }
 
+void suspend_resume_them_all(int signum) {
+
+	int i;
+	int suspend = 0;
+
+	if (uwsgi.workers[0].suspended == 1) {
+		uwsgi_log_verbose("*** (SIGWINCH received) resuming workers ***\n");
+		uwsgi.workers[0].suspended = 0;
+	}
+	else {
+		uwsgi_log_verbose("*** PAUSE (press start to resume, if you do not have a joypad send SIGWINCH) ***\n");
+		suspend = 1;
+		uwsgi.workers[0].suspended = 1;
+	}
+
+	for(i=1;i<=uwsgi.numproc;i++) {
+		uwsgi.workers[i].suspended = suspend;
+		if (uwsgi.workers[i].pid > 0) {
+			if (kill(uwsgi.workers[i].pid, SIGWINCH)) {
+				uwsgi_error("kill()");
+			}
+		}
+	}
+}
+
 void expire_rb_timeouts(struct rb_root *root) {
 
         time_t current = time(NULL);
@@ -308,6 +333,7 @@ int master_loop(char **argv, char **environ) {
 
 	uwsgi.current_time = time(NULL);
 
+	uwsgi_unix_signal(SIGWINCH, suspend_resume_them_all);
 	uwsgi_unix_signal(SIGHUP, grace_them_all);
 	if (uwsgi.die_on_term) {
 		uwsgi_unix_signal(SIGTERM, kill_them_all);

@@ -2576,6 +2576,9 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		if (uwsgi.workers[i + 1].cheaped) {
 			zero = PyString_FromString("cheap");
 		}
+		else if (uwsgi.workers[i + 1].suspended) {
+			zero = PyString_FromString("pause");
+		}
 		else {
 			if (uwsgi.workers[i + 1].sig) {
 				zero = PyString_FromFormat("sig%d",uwsgi.workers[i + 1].signum);
