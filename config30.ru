@@ -3,21 +3,10 @@ require 'uwsgidsl'
 
 
 
-module UWSGI
-
-  module_function
-  def post_fork_hook()
-    puts "fork() called"
-  end
-end
-
-puts UWSGI.respond_to?('post_fork_hook')
-
 signal 17,'mule5' do |signum|
 end
 
 puts UWSGI::OPT.inspect
-
 
 timer 2 do |signum|
   puts "ciao sono un dsl ruby: #{signum} #{UWSGI::OPT.inspect}"
@@ -37,6 +26,10 @@ end
 
 cron 58,-1,-1,-1,-1 do |signum|
   puts "cron ready #{signum}"
+end
+
+postfork do
+  puts "fork() called"
 end
 
 begin

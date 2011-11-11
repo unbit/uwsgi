@@ -12,6 +12,15 @@ def get_free_signal()
   end
 end
 
+$postfork_chain = []
+
+module UWSGI
+  module_function
+  def post_fork_hook()
+    $postfork_chain.each {|func| func.call }
+  end
+end
+
 def timer(secs, target='', &block)
   freesig = get_free_signal
   UWSGI.register_signal(freesig, target, block)
@@ -38,4 +47,8 @@ end
 
 def signal(signum, target='', &block)
   UWSGI.register_signal(signum, target, block)
+end
+
+def postfork(&block)
+  $postfork_chain << block
 end
