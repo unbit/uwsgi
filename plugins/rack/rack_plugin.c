@@ -511,7 +511,12 @@ ready:
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
 
 	uwsgi_add_app(id, 7, "", 0);
-        uwsgi_log("RACK app %d loaded at %p\n", id, ur.call);
+	if (ur.gc_freq <= 1) {
+        	uwsgi_log("RACK app %d loaded at %p (GC frequency: AGGRESSIVE)\n", id, ur.call);
+	}
+	else {
+        	uwsgi_log("RACK app %d loaded at %p (GC frequency: %d)\n", id, ur.call, ur.gc_freq);
+	}
 
 }
 
