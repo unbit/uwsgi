@@ -1,5 +1,9 @@
 # based on uwsgidecorators.py
 
+if UWSGI.masterpid == 0
+    raise "you have to enable the uWSGI master process to use this module"
+end
+
 def get_free_signal()
   for signum in 0..255
     if not UWSGI.signal_registered(signum)

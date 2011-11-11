@@ -372,6 +372,14 @@ VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
 	return Qtrue;
 }
 
+VALUE uwsgi_ruby_masterpid(VALUE *class) {
+
+	if (uwsgi.master_process) {
+                return INT2NUM(uwsgi.workers[0].pid);
+        }
+        return INT2NUM(0);
+}
+
 VALUE uwsgi_ruby_suspend(VALUE *class) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -417,6 +425,7 @@ int uwsgi_rack_init(){
 
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
 	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
+	rb_define_module_function(rb_uwsgi_embedded, "masterpid", uwsgi_ruby_masterpid, 0);
 	rb_define_module_function(rb_uwsgi_embedded, "async_sleep", uwsgi_ruby_async_sleep, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
@@ -430,6 +439,45 @@ int uwsgi_rack_init(){
 	rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
 	rb_define_module_function(rb_uwsgi_embedded, "add_file_monitor", rack_uwsgi_add_file_monitor, 2);
+
+	VALUE uwsgi_rb_opt_hash = rb_hash_new();
+	int i;
+        for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+		VALUE rb_uwsgi_opt_key = rb_str_new2(uwsgi.exported_opts[i]->key);
+                if ( rb_funcall(uwsgi_rb_opt_hash, rb_intern("has_key?"), 1, rb_uwsgi_opt_key) == Qtrue) {
+			VALUE rb_uwsgi_opt_item = rb_hash_aref(uwsgi_rb_opt_hash, rb_uwsgi_opt_key);
+                        if (TYPE(rb_uwsgi_opt_item) == T_ARRAY) {
+                                if (uwsgi.exported_opts[i]->value == NULL) {
+                                        rb_ary_push(rb_uwsgi_opt_item, Qtrue);
+                                }
+                                else {
+                                        rb_ary_push(rb_uwsgi_opt_item, rb_str_new2(uwsgi.exported_opts[i]->value));
+                                }
+                        }
+                        else {
+                                VALUE rb_uwsgi_opt_list = rb_ary_new();
+                                rb_ary_push(rb_uwsgi_opt_list, rb_uwsgi_opt_item);
+                                if (uwsgi.exported_opts[i]->value == NULL) {
+                                        rb_ary_push(rb_uwsgi_opt_list, Qtrue);
+                                }
+                                else {
+                                        rb_ary_push(rb_uwsgi_opt_list, rb_str_new2(uwsgi.exported_opts[i]->value));
+                                }
+
+                                rb_hash_aset(uwsgi_rb_opt_hash, rb_uwsgi_opt_key, rb_uwsgi_opt_list);
+                        }
+                }
+                else {
+                        if (uwsgi.exported_opts[i]->value == NULL) {
+				rb_hash_aset(uwsgi_rb_opt_hash, rb_uwsgi_opt_key, Qtrue);
+                        }
+                        else {
+				rb_hash_aset(uwsgi_rb_opt_hash, rb_uwsgi_opt_key, rb_str_new2(uwsgi.exported_opts[i]->value));
+                        }
+                }
+        }
+
+	rb_const_set(rb_uwsgi_embedded, rb_intern("OPT"), uwsgi_rb_opt_hash);
 
 	return 0;
 }
@@ -1013,6 +1061,26 @@ int uwsgi_rack_mule(char *opt) {
 
 }
 
+VALUE uwsgi_rb_pfh(VALUE args) {
+	
+	VALUE uwsgi_rb_embedded = rb_const_get(rb_cObject, rb_intern("UWSGI"));
+	if (rb_respond_to(uwsgi_rb_embedded, rb_intern("post_fork_hook"))) {
+		return rb_funcall(uwsgi_rb_embedded, rb_intern("post_fork_hook"), 0);
+	}
+	return Qnil;
+}
+
+void uwsgi_rb_post_fork() {
+	int error = 0;
+
+        // call the post_fork_hook
+	rb_protect(uwsgi_rb_pfh, 0, &error);
+	if (error) {
+		uwsgi_ruby_exception();
+	}
+}
+
+
 
 struct uwsgi_plugin rack_plugin = {
 
@@ -1027,6 +1095,7 @@ struct uwsgi_plugin rack_plugin = {
 	.signal_handler = uwsgi_rack_signal_handler,
 
 	.hijack_worker = uwsgi_rack_hijack,
+	.post_fork = uwsgi_rb_post_fork,
 
 	.init_apps = uwsgi_rack_init_apps,
 	//.mount_app = uwsgi_rack_mount_app,
