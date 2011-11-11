@@ -32,6 +32,14 @@ postfork do
   puts "fork() called"
 end
 
+rpc 'pippo' do
+  "i am an rpc function"
+end
+
+rpc 'pluto' do |x,y|
+  "i am another rpc function #{x} #{y}"
+end
+
 begin
   foo_func
 rescue

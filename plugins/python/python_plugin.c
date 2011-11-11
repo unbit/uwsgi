@@ -1263,7 +1263,7 @@ uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
 	if (ret) {
 		if (PyString_Check(ret)) {
 			rv = PyString_AsString(ret);
-			rl = strlen(rv);
+			rl = PyString_Size(ret);
 			if (rl <= 0xffff) {
 				memcpy(buffer, rv, rl);
 				Py_DECREF(ret);

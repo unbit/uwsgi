@@ -56,6 +56,7 @@ struct uwsgi_rack {
 
 	// why why why !!!!????!!!???
 	VALUE signals_protector;
+	VALUE rpc_protector;
 
         VALUE dispatcher;
         VALUE rb_uwsgi_io_class;

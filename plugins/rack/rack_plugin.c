@@ -195,6 +195,29 @@ VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
 	return Qfalse;
 }
 
+VALUE uwsgi_ruby_register_rpc(int argc, VALUE *argv, VALUE *class) {
+
+	int rb_argc = 0;
+
+	if (argc < 2) goto clear;
+	if (argc > 2) {
+		rb_argc = NUM2INT(argv[2]);
+	}
+	char *name = RSTRING_PTR(argv[0]);
+	void *func = (void *) argv[1];
+	
+
+        if (uwsgi_register_rpc(name, 7, rb_argc, func)) {
+clear:
+                rb_raise(rb_eRuntimeError, "unable to register rpc function");
+		return Qnil;
+        }
+	rb_gc_register_address(&argv[1]);
+	rb_ary_push(ur.rpc_protector, argv[1]);
+
+	return Qtrue;	
+}
+
 
 VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALUE rbhandler) {
 
@@ -260,6 +283,50 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
 
 	return 0;
 }
+
+VALUE rack_call_rpc_handler(VALUE args) {
+	VALUE rpc_args = rb_ary_entry(args, 1);
+	return rb_funcall2(rb_ary_entry(args, 0), rb_intern("call"), RARRAY_LEN(rpc_args), RARRAY_PTR(rpc_args));
+}
+
+uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
+
+        uint8_t i;
+	VALUE rb_args = rb_ary_new2(2);
+        VALUE rb_rpc_args = rb_ary_new2(argc);
+        VALUE ret;
+	int error = 0;
+        char *rv;
+        size_t rl;
+
+	rb_ary_store(rb_args, 0, (VALUE) func);
+
+        for (i = 0; i < argc; i++) {
+                rb_ary_store(rb_rpc_args, i, rb_str_new2(argv[i]));
+        }
+	rb_ary_store(rb_args, 1, rb_rpc_args);
+
+
+	ret = rb_protect(rack_call_rpc_handler, rb_args, &error);
+
+        if (error) {
+		uwsgi_ruby_exception();
+		return 0;
+	}
+
+	if (TYPE(ret) == T_STRING) {
+        	rv = RSTRING_PTR(ret);
+                rl = RSTRING_LEN(ret);
+                if (rl <= 0xffff) {
+                	memcpy(buffer, rv, rl);
+                        return rl;
+                }
+        }
+
+        return 0;
+
+}
+
 
 VALUE rack_uwsgi_add_cron(VALUE *class, VALUE rbsignum, VALUE rbmin, VALUE rbhour, VALUE rbday, VALUE rbmon, VALUE rbweek) {
 
@@ -421,7 +488,9 @@ int uwsgi_rack_init(){
 	ruby_script("uwsgi");
 
 	ur.signals_protector = rb_ary_new();
+	ur.rpc_protector = rb_ary_new();
 	rb_gc_register_address(&ur.signals_protector);
+	rb_gc_register_address(&ur.rpc_protector);
 
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
 	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
@@ -432,6 +501,7 @@ int uwsgi_rack_init(){
 	rb_define_module_function(rb_uwsgi_embedded, "async_connect", uwsgi_ruby_async_connect, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "signal", uwsgi_ruby_signal, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "register_signal", uwsgi_ruby_register_signal, 3);
+	rb_define_module_function(rb_uwsgi_embedded, "register_rpc", uwsgi_ruby_register_rpc, -1);
 	rb_define_module_function(rb_uwsgi_embedded, "signal_registered", uwsgi_ruby_signal_registered, 1);
 	rb_define_module_function(rb_uwsgi_embedded, "signal_wait", uwsgi_ruby_signal_wait, -1);
 	rb_define_module_function(rb_uwsgi_embedded, "signal_received", uwsgi_ruby_signal_received, 0);
@@ -1104,6 +1174,7 @@ struct uwsgi_plugin rack_plugin = {
 	.magic = uwsgi_rack_magic,
 
 	.mule = uwsgi_rack_mule,
+	.rpc = uwsgi_ruby_rpc,
 
 	.suspend = uwsgi_rack_suspend,
 	.resume = uwsgi_rack_resume,

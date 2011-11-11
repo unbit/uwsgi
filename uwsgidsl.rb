@@ -52,3 +52,11 @@ end
 def postfork(&block)
   $postfork_chain << block
 end
+
+def rpc(name, &block)
+  if block.arity <= 0
+    UWSGI.register_rpc(name, block, 0)
+  else
+    UWSGI.register_rpc(name, block, block.arity)
+  end
+end

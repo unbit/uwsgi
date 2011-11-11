@@ -403,7 +403,9 @@ int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
                         if (ptrbuf + strsize <= bufferend) {
                                 // item
 				argv[*argc] = uwsgi_cheap_string(ptrbuf, strsize);
+#ifdef UWSGI_DEBUG
 				uwsgi_log("arg %s\n", argv[*argc]);
+#endif
                                 ptrbuf += strsize;
 				*argc = *argc + 1;
 			}
