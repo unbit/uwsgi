@@ -9,6 +9,11 @@ struct option uwsgi_rack_options[] = {
         {"rails", required_argument, 0, LONG_ARGS_RAILS},
         {"rack", required_argument, 0, LONG_ARGS_RACK},
         {"ruby-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
+        {"rb-require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
+        {"ruby-require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
+        {"rbrequire", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
+        {"rubyrequire", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
+        {"require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
         {"rbshell", optional_argument, 0, LONG_ARGS_RUBY_SHELL},
 
         {0, 0, 0, 0},
@@ -432,6 +437,17 @@ int uwsgi_rack_init(){
 void uwsgi_rack_init_apps(void) {
 
 	int error;
+	int id = uwsgi_apps_cnt;
+	struct uwsgi_string_list *usl = ur.rbrequire;
+
+	while(usl) {
+		error = 0;
+		rb_protect( uwsgi_require_file, rb_str_new2(usl->value), &error ) ;
+                if (error) {
+                        uwsgi_ruby_exception();
+		}
+		usl = usl->next;
+	}
 
 	if (ur.rack) {
 		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(ur.rack), &error);
@@ -493,6 +509,9 @@ ready:
 	rb_define_method(ur.rb_uwsgi_io_class, "each", rb_uwsgi_io_each, 0);
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
+
+	uwsgi_add_app(id, 7, "", 0);
+        uwsgi_log("RACK app %d loaded at %p\n", id, ur.call);
 
 }
 
@@ -880,6 +899,9 @@ int uwsgi_rack_manage_options(int i, char *optarg) {
 			return 1;
 		case LONG_ARGS_RUBY_GC_FREQ:
 			ur.gc_freq = atoi(optarg);
+			return 1;
+		case LONG_ARGS_RUBY_REQUIRE:
+			uwsgi_string_new_list(&ur.rbrequire, optarg);
 			return 1;
 	}
 

@@ -2448,6 +2448,7 @@ void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_su
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_req *, int);
 
 uint8_t uwsgi_signal_wait(int);
+void uwsgi_add_app(int, uint8_t, char *, int);
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

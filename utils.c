@@ -3299,3 +3299,24 @@ void http_url_decode(char *buf, uint16_t *len, char *dst) {
 	*len = new_len;
 
 }
+
+void uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_len) {
+
+	struct uwsgi_app *wi = &uwsgi_apps[id];
+        memset(wi, 0, sizeof(struct uwsgi_app));
+
+        wi->modifier1 = modifier1;
+        wi->mountpoint = mountpoint;
+        wi->mountpoint_len = mountpoint_len;
+        
+        uwsgi_apps_cnt++;
+        // check if we need to emulate fork() COW
+        int i;
+        if (uwsgi.mywid == 0) {
+                for(i=1;i<=uwsgi.numproc;i++) {
+                        memcpy(&uwsgi.workers[i].apps[id], &uwsgi.workers[0].apps[id], sizeof(struct uwsgi_app));
+                        uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
+                }
+        }
+}
+

@@ -24,6 +24,11 @@ cron 58,-1,-1,-1,-1 do |signum|
   puts "cron ready #{signum}"
 end
 
+begin
+  foo_func
+rescue
+end
+
 run lambda { |env| 
   puts env.inspect
   UWSGI.signal(17)

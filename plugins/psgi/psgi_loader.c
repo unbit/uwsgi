@@ -300,25 +300,8 @@ void uwsgi_psgi_app() {
                         close(uperl.fd);
 		}
 
-		struct uwsgi_app *wi = &uwsgi_apps[id];
-		memset(wi, 0, sizeof(struct uwsgi_app));
-
-		wi->modifier1 = 5;
-		wi->mountpoint = "";
-		wi->mountpoint_len = 0;
-
+		uwsgi_add_app(id, 5, "", 0);
                 uwsgi_log("PSGI app %d (%s) loaded at %p\n", id, uperl.psgi, uperl.psgi_main);
-
-		uwsgi_apps_cnt++;
-	
-		// check if we need to emulate fork() COW
-		int i;
-        	if (uwsgi.mywid == 0) {
-                	for(i=1;i<=uwsgi.numproc;i++) {
-                        	memcpy(&uwsgi.workers[i].apps[id], &uwsgi.workers[0].apps[id], sizeof(struct uwsgi_app));
-                        	uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
-                	}
-        	}
 
         }
 
