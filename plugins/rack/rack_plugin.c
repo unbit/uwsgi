@@ -9,6 +9,7 @@ struct option uwsgi_rack_options[] = {
         {"rails", required_argument, 0, LONG_ARGS_RAILS},
         {"rack", required_argument, 0, LONG_ARGS_RACK},
         {"ruby-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
+        {"rb-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
         {"rb-require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
         {"ruby-require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
         {"rbrequire", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
@@ -240,7 +241,7 @@ int uwsgi_rack_init(){
 void uwsgi_rack_init_apps(void) {
 
 	int error;
-	int id = uwsgi_apps_cnt;
+	ur.app_id = uwsgi_apps_cnt;
 	struct uwsgi_string_list *usl = ur.rbrequire;
 
 	while(usl) {
@@ -313,12 +314,12 @@ ready:
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
 
-	uwsgi_add_app(id, 7, "", 0);
+	uwsgi_add_app(ur.app_id, 7, "", 0);
 	if (ur.gc_freq <= 1) {
-        	uwsgi_log("RACK app %d loaded at %p (GC frequency: AGGRESSIVE)\n", id, ur.call);
+        	uwsgi_log("RACK app %d loaded at %p (GC frequency: AGGRESSIVE)\n", ur.app_id, ur.call);
 	}
 	else {
-        	uwsgi_log("RACK app %d loaded at %p (GC frequency: %d)\n", id, ur.call, ur.gc_freq);
+        	uwsgi_log("RACK app %d loaded at %p (GC frequency: %d)\n", ur.app_id, ur.call, ur.gc_freq);
 	}
 
 }
@@ -480,6 +481,9 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         if (uwsgi_parse_vars(wsgi_req)) {
                 return -1;
         }
+
+	wsgi_req->app_id = ur.app_id;
+	uwsgi_apps[wsgi_req->app_id].requests++;
 
 
         env = rb_hash_new();
@@ -674,7 +678,9 @@ clear:
 	rb_gc_unregister_address(&env);
 
 	if (ur.gc_freq <= 1 || ur.cycles%ur.gc_freq == 0) {
-			//uwsgi_log("calling ruby GC\n");
+#ifdef UWSGI_DEBUG
+			uwsgi_log("calling ruby GC\n");
+#endif
 			rb_gc();
 	}
 

@@ -67,6 +67,7 @@ struct uwsgi_rack {
         pthread_mutex_t gvl;
 
 	int rb_shell;
+	int app_id;
 
 	struct uwsgi_string_list *rbrequire;
 
