@@ -150,144 +150,11 @@ VALUE require_rails(VALUE arg) {
 
 VALUE init_rack_app(VALUE);
 
-VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
-
-        struct wsgi_request *wsgi_req = current_wsgi_req();
-        int wait_for_specific_signal = 0;
-        uint8_t uwsgi_signal = 0;
-        uint8_t received_signal;
-
-        wsgi_req->signal_received = -1;
-
-        if (argc > 0) {
-		uwsgi_signal = NUM2INT(argv[0]);	
-                wait_for_specific_signal = 1;
-        }
-
-        if (wait_for_specific_signal) {
-                received_signal = uwsgi_signal_wait(uwsgi_signal);
-        }
-        else {
-                received_signal = uwsgi_signal_wait(-1);
-        }
-
-        wsgi_req->signal_received = received_signal;
-
-        return Qnil;
-}
-
-VALUE uwsgi_ruby_signal_received(VALUE *class) {
-
-        struct wsgi_request *wsgi_req = current_wsgi_req();
-
-        return INT2NUM(wsgi_req->signal_received);
-}
-
-
-VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
-
-	uint8_t uwsgi_signal = NUM2INT(signum);
-
-	if (uwsgi_signal_registered(uwsgi_signal)) {
-		return Qtrue;
-        }
-
-	return Qfalse;
-}
-
-VALUE uwsgi_ruby_register_rpc(int argc, VALUE *argv, VALUE *class) {
-
-	int rb_argc = 0;
-
-	if (argc < 2) goto clear;
-	if (argc > 2) {
-		rb_argc = NUM2INT(argv[2]);
-	}
-	char *name = RSTRING_PTR(argv[0]);
-	void *func = (void *) argv[1];
-	
-
-        if (uwsgi_register_rpc(name, 7, rb_argc, func)) {
-clear:
-                rb_raise(rb_eRuntimeError, "unable to register rpc function");
-		return Qnil;
-        }
-	rb_gc_register_address(&argv[1]);
-	rb_ary_push(ur.rpc_protector, argv[1]);
-
-	return Qtrue;	
-}
-
-
-VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALUE rbhandler) {
-
-        uint8_t uwsgi_signal = NUM2INT(signum);
-        char *signal_kind = RSTRING_PTR(sigkind);
-
-        if (uwsgi_register_signal(uwsgi_signal, signal_kind, (void *) rbhandler, 7)) {
-		rb_raise(rb_eRuntimeError, "unable to register signal %d", uwsgi_signal);
-		return Qnil;
-        }
-
-	rb_gc_register_address(&rbhandler);
-	rb_ary_push(ur.signals_protector, rbhandler);
-
-	return Qtrue;
-}
-
-
-VALUE uwsgi_ruby_signal(VALUE *class, VALUE signum) {
-
-        uint8_t uwsgi_signal = NUM2INT(signum);
-	ssize_t rlen; 
-
-	rlen = write(uwsgi.signal_socket, &uwsgi_signal, 1);
-        if (rlen != 1) {
-                uwsgi_error("write()");
-        }
-
-	return Qtrue;
-}
-
-VALUE rack_call_signal_handler(VALUE args) {
-
-	return rb_funcall(rb_ary_entry(args, 0), rb_intern("call"), 1, rb_ary_entry(args, 1));
-}
-
-int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
-
-	int error = 0;
-
-
-	VALUE rbhandler = (VALUE) handler;
-	VALUE args = rb_ary_new2(2);
-	rb_ary_store(args, 0, rbhandler);
-	VALUE rbsig = INT2NUM(sig);
-	rb_ary_store(args, 1, rbsig);
-	VALUE ret = rb_protect(rack_call_signal_handler, args, &error);
-	if (error) {
-        	uwsgi_ruby_exception();
-		// free resources (useless ?)
-		rb_gc_unregister_address(&args);
-		rb_gc_unregister_address(&ret);
-		rb_gc_unregister_address(&rbsig);
-		rb_gc();
-        	return -1;
-	}
-
-	// free resources (useless ?)
-	rb_gc_unregister_address(&args);
-	rb_gc_unregister_address(&ret);
-	rb_gc_unregister_address(&rbsig);
-	rb_gc();
-
-	return 0;
-}
-
 VALUE rack_call_rpc_handler(VALUE args) {
-	VALUE rpc_args = rb_ary_entry(args, 1);
-	return rb_funcall2(rb_ary_entry(args, 0), rb_intern("call"), RARRAY_LEN(rpc_args), RARRAY_PTR(rpc_args));
+        VALUE rpc_args = rb_ary_entry(args, 1);
+        return rb_funcall2(rb_ary_entry(args, 0), rb_intern("call"), RARRAY_LEN(rpc_args), RARRAY_PTR(rpc_args));
 }
+
 
 uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
 
@@ -328,135 +195,6 @@ uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
 }
 
 
-VALUE rack_uwsgi_add_cron(VALUE *class, VALUE rbsignum, VALUE rbmin, VALUE rbhour, VALUE rbday, VALUE rbmon, VALUE rbweek) {
-
-        uint8_t uwsgi_signal = NUM2INT(rbsignum);
-        int minute = NUM2INT(rbmin);
-	int hour = NUM2INT(rbhour);
-	int day = NUM2INT(rbday);
-	int month = NUM2INT(rbmon);
-	int week = NUM2INT(rbweek);
-
-        if (uwsgi_signal_add_cron(uwsgi_signal, minute, hour, day, month, week)) {
-                rb_raise(rb_eRuntimeError, "unable to add cron");
-		return Qnil;
-        }
-
-        return Qtrue;
-}
-
-
-
-VALUE rack_uwsgi_add_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
-
-        uint8_t uwsgi_signal = NUM2INT(rbsignum);
-	int seconds = NUM2INT(secs);
-
-        if (uwsgi_add_timer(uwsgi_signal, seconds)) {
-                rb_raise(rb_eRuntimeError, "unable to add timer");
-		return Qnil;
-	}
-
-        return Qtrue;
-}
-
-VALUE rack_uwsgi_add_rb_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
-
-
-        uint8_t uwsgi_signal = NUM2INT(rbsignum);
-	int seconds = NUM2INT(secs);
-	
-
-        if (uwsgi_signal_add_rb_timer(uwsgi_signal, seconds, 0)) {
-                rb_raise(rb_eRuntimeError, "unable to add rb_timer");
-		return Qnil;
-	}
-
-        return Qtrue;
-}
-
-
-
-VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbfilename) {
-
-        uint8_t uwsgi_signal = NUM2INT(rbsignum);
-        char *filename = RSTRING_PTR(rbfilename);
-
-        if (uwsgi_add_file_monitor(uwsgi_signal, filename)) {
-                rb_raise(rb_eRuntimeError, "unable to add file monitor");
-		return Qnil;
-	}
-
-	return Qtrue;
-}
-
-
-VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
-
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-
-	int fd = NUM2INT(arg1);
-	int timeout = NUM2INT(arg2);
-
-	if (fd >= 0) {
-                async_add_fd_read(wsgi_req, fd, timeout);
-        }
-
-	return Qtrue;
-}
-
-VALUE uwsgi_ruby_wait_fd_write(VALUE *class, VALUE arg1, VALUE arg2) {
-
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-
-        int fd = NUM2INT(arg1);
-        int timeout = NUM2INT(arg2);
-
-        if (fd >= 0) {
-                async_add_fd_write(wsgi_req, fd, timeout);
-        }
-
-        return Qtrue;
-}
-
-VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
-
-	int fd = uwsgi_connect(RSTRING_PTR(arg), 0, 1);
-
-	return INT2FIX(fd);
-}
-
-
-VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
-
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-	int timeout = NUM2INT(arg);
-
-        if (timeout >= 0) {
-                async_add_timeout(wsgi_req, timeout);
-        }
-
-	return Qtrue;
-}
-
-VALUE uwsgi_ruby_masterpid(VALUE *class) {
-
-	if (uwsgi.master_process) {
-                return INT2NUM(uwsgi.workers[0].pid);
-        }
-        return INT2NUM(0);
-}
-
-VALUE uwsgi_ruby_suspend(VALUE *class) {
-
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-
-	uwsgi.schedule_to_main(wsgi_req);
-
-	return Qtrue;
-	
-}
-
 int uwsgi_rack_init(){
 
 	struct http_status_codes *http_sc;
@@ -492,62 +230,9 @@ int uwsgi_rack_init(){
 	rb_gc_register_address(&ur.signals_protector);
 	rb_gc_register_address(&ur.rpc_protector);
 
-	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
-	rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
-	rb_define_module_function(rb_uwsgi_embedded, "masterpid", uwsgi_ruby_masterpid, 0);
-	rb_define_module_function(rb_uwsgi_embedded, "async_sleep", uwsgi_ruby_async_sleep, 1);
-	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
-	rb_define_module_function(rb_uwsgi_embedded, "wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
-	rb_define_module_function(rb_uwsgi_embedded, "async_connect", uwsgi_ruby_async_connect, 1);
-	rb_define_module_function(rb_uwsgi_embedded, "signal", uwsgi_ruby_signal, 1);
-	rb_define_module_function(rb_uwsgi_embedded, "register_signal", uwsgi_ruby_register_signal, 3);
-	rb_define_module_function(rb_uwsgi_embedded, "register_rpc", uwsgi_ruby_register_rpc, -1);
-	rb_define_module_function(rb_uwsgi_embedded, "signal_registered", uwsgi_ruby_signal_registered, 1);
-	rb_define_module_function(rb_uwsgi_embedded, "signal_wait", uwsgi_ruby_signal_wait, -1);
-	rb_define_module_function(rb_uwsgi_embedded, "signal_received", uwsgi_ruby_signal_received, 0);
-	rb_define_module_function(rb_uwsgi_embedded, "add_cron", rack_uwsgi_add_cron, 6);
-	rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
-	rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
-	rb_define_module_function(rb_uwsgi_embedded, "add_file_monitor", rack_uwsgi_add_file_monitor, 2);
-
-	VALUE uwsgi_rb_opt_hash = rb_hash_new();
-	int i;
-        for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-		VALUE rb_uwsgi_opt_key = rb_str_new2(uwsgi.exported_opts[i]->key);
-                if ( rb_funcall(uwsgi_rb_opt_hash, rb_intern("has_key?"), 1, rb_uwsgi_opt_key) == Qtrue) {
-			VALUE rb_uwsgi_opt_item = rb_hash_aref(uwsgi_rb_opt_hash, rb_uwsgi_opt_key);
-                        if (TYPE(rb_uwsgi_opt_item) == T_ARRAY) {
-                                if (uwsgi.exported_opts[i]->value == NULL) {
-                                        rb_ary_push(rb_uwsgi_opt_item, Qtrue);
-                                }
-                                else {
-                                        rb_ary_push(rb_uwsgi_opt_item, rb_str_new2(uwsgi.exported_opts[i]->value));
-                                }
-                        }
-                        else {
-                                VALUE rb_uwsgi_opt_list = rb_ary_new();
-                                rb_ary_push(rb_uwsgi_opt_list, rb_uwsgi_opt_item);
-                                if (uwsgi.exported_opts[i]->value == NULL) {
-                                        rb_ary_push(rb_uwsgi_opt_list, Qtrue);
-                                }
-                                else {
-                                        rb_ary_push(rb_uwsgi_opt_list, rb_str_new2(uwsgi.exported_opts[i]->value));
-                                }
-
-                                rb_hash_aset(uwsgi_rb_opt_hash, rb_uwsgi_opt_key, rb_uwsgi_opt_list);
-                        }
-                }
-                else {
-                        if (uwsgi.exported_opts[i]->value == NULL) {
-				rb_hash_aset(uwsgi_rb_opt_hash, rb_uwsgi_opt_key, Qtrue);
-                        }
-                        else {
-				rb_hash_aset(uwsgi_rb_opt_hash, rb_uwsgi_opt_key, rb_str_new2(uwsgi.exported_opts[i]->value));
-                        }
-                }
-        }
-
-	rb_const_set(rb_uwsgi_embedded, rb_intern("OPT"), uwsgi_rb_opt_hash);
+#ifdef UWSGI_EMBEDDED
+	uwsgi_rack_init_api();	
+#endif
 
 	return 0;
 }
@@ -1149,6 +834,42 @@ void uwsgi_rb_post_fork() {
 		uwsgi_ruby_exception();
 	}
 }
+
+VALUE rack_call_signal_handler(VALUE args) {
+
+        return rb_funcall(rb_ary_entry(args, 0), rb_intern("call"), 1, rb_ary_entry(args, 1));
+}
+
+int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
+
+        int error = 0;
+
+
+        VALUE rbhandler = (VALUE) handler;
+        VALUE args = rb_ary_new2(2);
+        rb_ary_store(args, 0, rbhandler);
+        VALUE rbsig = INT2NUM(sig);
+        rb_ary_store(args, 1, rbsig);
+        VALUE ret = rb_protect(rack_call_signal_handler, args, &error);
+        if (error) {
+                uwsgi_ruby_exception();
+                // free resources (useless ?)
+                rb_gc_unregister_address(&args);
+                rb_gc_unregister_address(&ret);
+                rb_gc_unregister_address(&rbsig);
+                rb_gc();
+                return -1;
+        }
+
+        // free resources (useless ?)
+        rb_gc_unregister_address(&args);
+        rb_gc_unregister_address(&ret);
+        rb_gc_unregister_address(&rbsig);
+        rb_gc();
+
+        return 0;
+}
+
 
 
 

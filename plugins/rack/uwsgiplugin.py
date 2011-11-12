@@ -12,7 +12,7 @@ CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['CFL
 version = os.popen(RUBYPATH + " -e \"print RUBY_VERSION\"").read().rstrip()
 v = version.split('.')
 
-GCC_LIST = ['rack_plugin']
+GCC_LIST = ['rack_plugin', 'rack_api']
 
 if v[0] == '1' and v[1] == '9':
 	CFLAGS.append('-DRUBY19')

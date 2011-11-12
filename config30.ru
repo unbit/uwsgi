@@ -45,6 +45,14 @@ begin
 rescue
 end
 
+puts UWSGI.cache_exists('nilkey')
+puts UWSGI.cache_exists?('nilkey')
+begin
+puts UWSGI.cache_get(nil)
+rescue
+end
+puts UWSGI.cache_get('foobar_key?a=1')
+
 run lambda { |env| 
   puts env.inspect
   UWSGI.signal(17)

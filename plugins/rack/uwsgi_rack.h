@@ -73,3 +73,4 @@ struct uwsgi_rack {
 };
 
 void uwsgi_ruby_exception(void);
+void uwsgi_rack_init_api(void);

@@ -3134,7 +3134,7 @@ PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 	}
 	else if (uwsgi.cache_max_items) {
 		uwsgi_wlock(uwsgi.cache_lock);
-		if (uwsgi_cache_del(key, strlen(key))) {
+		if (uwsgi_cache_del(key, keylen)) {
 			uwsgi_rwunlock(uwsgi.cache_lock);
 			Py_INCREF(Py_None);
 			return Py_None;
@@ -3163,7 +3163,7 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 	}
 
 	if ((uint64_t)vallen > uwsgi.cache_blocksize) {
-		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %d bytes", (unsigned long long)uwsgi.cache_blocksize, (int) vallen);
+		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.cache_blocksize, (unsigned long long) vallen);
 	}
 
 	if (remote && strlen(remote) > 0) {
@@ -3199,7 +3199,7 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
         }
 
         if ((uint64_t)vallen > uwsgi.cache_blocksize) {
-                return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %d bytes", (unsigned long long)uwsgi.cache_blocksize, (int) vallen);
+                return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.cache_blocksize, (unsigned long long) vallen);
         }
 
         if (remote && strlen(remote) > 0) {
@@ -3243,7 +3243,7 @@ PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 			return Py_True;
 		}	
         }
-	else if (uwsgi_cache_exists(key, strlen(key))) {
+	else if (uwsgi_cache_exists(key, keylen)) {
 		Py_INCREF(Py_True);
 		return Py_True;
 	}
