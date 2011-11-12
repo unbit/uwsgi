@@ -55,8 +55,10 @@ rescue
 end
 puts UWSGI.cache_get('foobar_key?a=1')
 
+
 run lambda { |env| 
   puts env.inspect
+  UWSGI.setprocname("i am the uWSGI rack plugin")
   UWSGI.signal(17)
   [200, {'Content-Type'=>'text/plain'}, StringIO.new("Hello World!\n")] 
 }

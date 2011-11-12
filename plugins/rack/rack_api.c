@@ -4,6 +4,15 @@ extern struct uwsgi_server uwsgi;
 
 extern struct uwsgi_rack ur;
 
+VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
+
+	Check_Type(rbname, T_STRING);
+	char *name = RSTRING_PTR(rbname);
+        uwsgi_set_processname(name);
+
+        return Qnil;
+}
+
 
 
 VALUE rack_uwsgi_cache_set(VALUE *class, VALUE rbkey, VALUE rbvalue) {
@@ -443,6 +452,8 @@ void uwsgi_rack_init_api() {
         rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
         rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
         rb_define_module_function(rb_uwsgi_embedded, "add_file_monitor", rack_uwsgi_add_file_monitor, 2);
+
+        rb_define_module_function(rb_uwsgi_embedded, "setprocname", rack_uwsgi_setprocname, 1);
 
 	if (uwsgi.cache_max_items > 0) {
         	rb_define_module_function(rb_uwsgi_embedded, "cache_get", rack_uwsgi_cache_get, 1);
