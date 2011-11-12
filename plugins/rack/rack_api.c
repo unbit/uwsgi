@@ -27,6 +27,44 @@ VALUE rack_uwsgi_mem(VALUE *class) {
 
 }
 
+VALUE rack_uwsgi_lock(int argc, VALUE *argv, VALUE *class) {
+
+        int lock_num = 0;
+
+	if (argc > 0) {
+		Check_Type(argv[0], T_FIXNUM);
+		lock_num = NUM2INT(argv[0]);
+	}
+
+        if (lock_num < 0 || lock_num > uwsgi.locks) {
+                rb_raise(rb_eRuntimeError, "Invalid lock number");
+		return Qnil;
+        }
+
+        uwsgi_lock(uwsgi.user_lock[lock_num]);
+	return Qnil;
+}
+
+VALUE rack_uwsgi_unlock(int argc, VALUE *argv, VALUE *class) {
+
+        int lock_num = 0;
+
+	if (argc > 0) {
+                Check_Type(argv[0], T_FIXNUM);
+                lock_num = NUM2INT(argv[0]);
+        }
+
+        if (lock_num < 0 || lock_num > uwsgi.locks) {
+                rb_raise(rb_eRuntimeError, "Invalid lock number");
+                return Qnil;
+        }
+
+
+        uwsgi_unlock(uwsgi.user_lock[lock_num]);
+	return Qnil;
+}
+
+
 
 
 VALUE rack_uwsgi_cache_set(VALUE *class, VALUE rbkey, VALUE rbvalue) {
@@ -469,6 +507,10 @@ void uwsgi_rack_init_api() {
 
         rb_define_module_function(rb_uwsgi_embedded, "setprocname", rack_uwsgi_setprocname, 1);
         rb_define_module_function(rb_uwsgi_embedded, "mem", rack_uwsgi_mem, 0);
+
+        rb_define_module_function(rb_uwsgi_embedded, "lock", rack_uwsgi_lock, -1);
+        rb_define_module_function(rb_uwsgi_embedded, "unlock", rack_uwsgi_unlock, -1);
+
 
 	if (uwsgi.cache_max_items > 0) {
         	rb_define_module_function(rb_uwsgi_embedded, "cache_get", rack_uwsgi_cache_get, 1);
