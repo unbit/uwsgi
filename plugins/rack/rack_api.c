@@ -506,4 +506,13 @@ void uwsgi_rack_init_api() {
 
         rb_const_set(rb_uwsgi_embedded, rb_intern("OPT"), uwsgi_rb_opt_hash);
 
+        rb_const_set(rb_uwsgi_embedded, rb_intern("VERSION"), rb_str_new2(UWSGI_VERSION));
+        rb_const_set(rb_uwsgi_embedded, rb_intern("HOSTNAME"), rb_str_new(uwsgi.hostname, uwsgi.hostname_len));
+	if (uwsgi.pidfile) {
+        	rb_const_set(rb_uwsgi_embedded, rb_intern("PIDFILE"), rb_str_new2(uwsgi.pidfile));
+	}
+
+        rb_const_set(rb_uwsgi_embedded, rb_intern("NUMPROC"), INT2NUM(uwsgi.numproc));
+	
+
 }

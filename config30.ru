@@ -6,6 +6,10 @@ require 'uwsgidsl'
 signal 17,'mule5' do |signum|
 end
 
+puts UWSGI::VERSION
+puts UWSGI::NUMPROC
+puts UWSGI::HOSTNAME
+
 puts UWSGI::OPT.inspect
 
 timer 2 do |signum|
