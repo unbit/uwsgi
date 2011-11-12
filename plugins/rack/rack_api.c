@@ -141,6 +141,16 @@ VALUE rack_uwsgi_cache_get(VALUE *class, VALUE rbkey) {
         return res;
 
 }
+VALUE rack_uwsgi_cache_get_exc(VALUE *class, VALUE rbkey) {
+	VALUE ret;
+	ret = rack_uwsgi_cache_get(class, rbkey);
+	if (ret == Qnil) {
+		rb_raise(rb_eRuntimeError, "unable to get value from uWSGI cache");
+	}	
+	return ret;
+}
+
+
 
 
 VALUE rack_uwsgi_add_cron(VALUE *class, VALUE rbsignum, VALUE rbmin, VALUE rbhour, VALUE rbday, VALUE rbmon, VALUE rbweek) {
@@ -436,14 +446,14 @@ void uwsgi_rack_init_api() {
 
 	if (uwsgi.cache_max_items > 0) {
         	rb_define_module_function(rb_uwsgi_embedded, "cache_get", rack_uwsgi_cache_get, 1);
+        	rb_define_module_function(rb_uwsgi_embedded, "cache_get!", rack_uwsgi_cache_get_exc, 1);
         	rb_define_module_function(rb_uwsgi_embedded, "cache_exists", rack_uwsgi_cache_exists, 1);
         	rb_define_module_function(rb_uwsgi_embedded, "cache_exists?", rack_uwsgi_cache_exists, 1);
         	rb_define_module_function(rb_uwsgi_embedded, "cache_del", rack_uwsgi_cache_del, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_set", rack_uwsgi_cache_set, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_set", rack_uwsgi_cache_set, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_set!", rack_uwsgi_cache_set_exc, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_update", rack_uwsgi_cache_update, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_update!", rack_uwsgi_cache_update_exc, 1);
+        	rb_define_module_function(rb_uwsgi_embedded, "cache_set", rack_uwsgi_cache_set, 2);
+        	rb_define_module_function(rb_uwsgi_embedded, "cache_set!", rack_uwsgi_cache_set_exc, 2);
+        	rb_define_module_function(rb_uwsgi_embedded, "cache_update", rack_uwsgi_cache_update, 2);
+        	rb_define_module_function(rb_uwsgi_embedded, "cache_update!", rack_uwsgi_cache_update_exc, 2);
 	}
 
         VALUE uwsgi_rb_opt_hash = rb_hash_new();

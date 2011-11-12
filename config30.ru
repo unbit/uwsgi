@@ -47,6 +47,8 @@ end
 
 puts UWSGI.cache_exists('nilkey')
 puts UWSGI.cache_exists?('nilkey')
+
+UWSGI.cache_set!('foobar_key?a=1', UWSGI::OPT.inspect)
 begin
 puts UWSGI.cache_get(nil)
 rescue
