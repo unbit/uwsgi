@@ -64,5 +64,5 @@ run lambda { |env|
   puts env.inspect
   UWSGI.setprocname("i am the uWSGI rack plugin")
   UWSGI.signal(17)
-  [200, {'Content-Type'=>'text/plain'}, StringIO.new("Hello World!\n")] 
+  [200, {'Content-Type'=>'text/plain'}, StringIO.new("Hello World! #{UWSGI.mem.inspect}\n")] 
 }

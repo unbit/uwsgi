@@ -13,6 +13,20 @@ VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
         return Qnil;
 }
 
+VALUE rack_uwsgi_mem(VALUE *class) {
+
+        uint64_t rss=0, vsz = 0;
+        VALUE ml = rb_ary_new2(2);
+
+        get_memusage(&rss, &vsz);
+
+	rb_ary_store(ml, 0, LONG2NUM(rss));
+	rb_ary_store(ml, 1, LONG2NUM(vsz));
+
+        return ml;
+
+}
+
 
 
 VALUE rack_uwsgi_cache_set(VALUE *class, VALUE rbkey, VALUE rbvalue) {
@@ -454,6 +468,7 @@ void uwsgi_rack_init_api() {
         rb_define_module_function(rb_uwsgi_embedded, "add_file_monitor", rack_uwsgi_add_file_monitor, 2);
 
         rb_define_module_function(rb_uwsgi_embedded, "setprocname", rack_uwsgi_setprocname, 1);
+        rb_define_module_function(rb_uwsgi_embedded, "mem", rack_uwsgi_mem, 0);
 
 	if (uwsgi.cache_max_items > 0) {
         	rb_define_module_function(rb_uwsgi_embedded, "cache_get", rack_uwsgi_cache_get, 1);
