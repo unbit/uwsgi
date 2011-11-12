@@ -7,7 +7,7 @@ try:
 except:
 	RUBYPATH = 'ruby'
 
-CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['CFLAGS']\"").read().rstrip().split()
+rbconfig = 'Config'
 
 version = os.popen(RUBYPATH + " -e \"print RUBY_VERSION\"").read().rstrip()
 v = version.split('.')
@@ -15,25 +15,29 @@ v = version.split('.')
 GCC_LIST = ['rack_plugin', 'rack_api']
 
 if v[0] == '1' and v[1] == '9':
-	CFLAGS.append('-DRUBY19')
-	CFLAGS.append('-Wno-unused-parameter')
-
-includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['rubyhdrdir']\"").read().rstrip()
-if includedir == 'nil':
-	includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['archdir']\"").read().rstrip()
-	CFLAGS.append('-I' + includedir)
+    CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print RbConfig::CONFIG['CFLAGS']\"").read().rstrip().split()
+    CFLAGS.append('-DRUBY19')
+    CFLAGS.append('-Wno-unused-parameter')
+    rbconfig = 'RbConfig'	 
 else:
-	CFLAGS.append('-I' + includedir)
-	archdir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['archdir']\"").read().rstrip()
-	arch = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['arch']\"").read().rstrip()
-	CFLAGS.append('-I' + archdir)
-	CFLAGS.append('-I' + archdir + '/' + arch)
-	CFLAGS.append('-I' + includedir + '/' + arch)
+    CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['CFLAGS']\"" % rbconfig).read().rstrip().split()
 
-LDFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['LDFLAGS']\"").read().rstrip().split()
+includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['rubyhdrdir']\"" % rbconfig).read().rstrip()
+if includedir == 'nil':
+    includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['archdir']\"" % rbconfig).read().rstrip()
+    CFLAGS.append('-I' + includedir)
+else:
+    CFLAGS.append('-I' + includedir)
+    archdir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['archdir']\"" % rbconfig).read().rstrip()
+    arch = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['arch']\"" % rbconfig).read().rstrip()
+    CFLAGS.append('-I' + archdir)
+    CFLAGS.append('-I' + archdir + '/' + arch)
+    CFLAGS.append('-I' + includedir + '/' + arch)
 
-libpath = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['libdir']\"").read().rstrip()
+LDFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LDFLAGS']\"" % rbconfig).read().rstrip().split()
+
+libpath = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['libdir']\"" % rbconfig).read().rstrip()
 LDFLAGS.append('-L' + libpath )
 os.environ['LD_RUN_PATH'] = libpath
-LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + Config::CONFIG['RUBY_SO_NAME']\"").read().rstrip().split()
+LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + %s::CONFIG['RUBY_SO_NAME']\"" % rbconfig).read().rstrip().split()
 
