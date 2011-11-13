@@ -132,6 +132,8 @@ static struct option long_base_options[] = {
 #endif
 	{"mule", optional_argument, 0, LONG_ARGS_MULE},
 	{"mules", required_argument, 0, LONG_ARGS_MULES},
+	{"signal-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE},
+	{"signals-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE},
 	{"farm", required_argument, 0, LONG_ARGS_FARM},
 	{"disable-logging", no_argument, 0, 'L'},
 
@@ -2258,10 +2260,7 @@ skipzero:
 
 	if (uwsgi.master_process) {
 		for(i=1;i<=uwsgi.numproc;i++) {
-			if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[i].signal_pipe)) {
-                        	uwsgi_error("socketpair()\n");
-				exit(1);
-                	}
+			create_signal_pipe(uwsgi.workers[i].signal_pipe);
 		}
 	}
 
@@ -2278,26 +2277,13 @@ skipzero:
 		}
 		memset(uwsgi.mules, 0, sizeof(struct uwsgi_mule) * uwsgi.mules_cnt);
 
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->mule_signal_pipe)) {
-			uwsgi_error("socketpair()");
-			exit(1);
-		}
-
-		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->mule_queue_pipe)) {
-			uwsgi_error("socketpair()");
-			exit(1);
-		}
+		create_signal_pipe(uwsgi.shared->mule_signal_pipe);
+		create_signal_pipe(uwsgi.shared->mule_queue_pipe);
 
 		for(i=0;i<uwsgi.mules_cnt;i++) {
 			// create the socket pipe
-        		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.mules[i].signal_pipe)) {
-                		uwsgi_error("socketpair()\n");
-        		}
-
-			if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.mules[i].queue_pipe)) {
-				uwsgi_error("socketpair()");
-				exit(1);
-			}
+			create_signal_pipe(uwsgi.mules[i].signal_pipe);
+			create_signal_pipe(uwsgi.mules[i].queue_pipe);
 
 			uwsgi.mules[i].id = i+1;
 
@@ -2330,15 +2316,8 @@ skipzero:
 			strncpy(uwsgi.farms[i].name, farm_value, 0xff);
 
 			// create the socket pipe
-        		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.farms[i].signal_pipe)) {
-                		uwsgi_error("socketpair()\n");
-        		}
-
-			if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.farms[i].queue_pipe)) {
-				uwsgi_error("socketpair()");
-				exit(1);
-			}
-
+			create_signal_pipe(uwsgi.farms[i].signal_pipe);
+			create_signal_pipe(uwsgi.farms[i].queue_pipe);
 
 			char *p = strtok(mules_list, ",");
 			while(p != NULL) {
@@ -2467,10 +2446,7 @@ skipzero:
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spool_dir != NULL && uwsgi.sockets) {
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->spooler_signal_pipe)) {
-                        uwsgi_error("socketpair()\n");
-                        exit(1);
-                }
+		create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
 		uwsgi.shared->spooler_pid = spooler_start();
 	}
 #endif
@@ -2499,11 +2475,7 @@ skipzero:
 	}
 	else {
 		// setup internal signalling system
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.shared->worker_signal_pipe)) {
-			uwsgi_error("socketpair()\n");
-			exit(1);
-		}
-
+		create_signal_pipe(uwsgi.shared->worker_signal_pipe);
 		uwsgi.signal_socket = uwsgi.shared->worker_signal_pipe[1];
 	}
 
@@ -3467,6 +3439,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.master_process = 1;
 		uwsgi.mules_cnt++;
 		uwsgi_string_new_list(&uwsgi.mules_patches, optarg);
+		return 1;
+	case LONG_ARGS_SIGNAL_BUFSIZE:
+		uwsgi.signal_bufsize = atoi(optarg);
 		return 1;
 	case LONG_ARGS_MULES:
 		uwsgi.master_process = 1;

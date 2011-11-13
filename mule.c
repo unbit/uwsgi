@@ -12,6 +12,24 @@ extern struct uwsgi_server uwsgi;
 
 void uwsgi_mule_handler(void);
 
+void mule_send_msg(int fd, char *message, size_t len) {
+
+	socklen_t so_bufsize_len = sizeof(int);
+	int so_bufsize = 0;
+
+	if (write(fd, message, len) != (ssize_t) len) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
+                                uwsgi_error("getsockopt()");
+                        }
+                        uwsgi_log("*** MULE MSG QUEUE IS FULL: buffer size %d bytes (you can tune it with --signal-bufsize) ***\n", so_bufsize);
+                }
+                else {
+                        uwsgi_error("mule_send_msg()");
+                }
+	}
+}
+
 void uwsgi_mule(int id) {
 
 	int i;
@@ -231,5 +249,110 @@ struct uwsgi_mule_farm *uwsgi_mule_farm_new(struct uwsgi_mule_farm **umf, struct
         uwsgi_mf->next = NULL;
 
         return uwsgi_mf;
+}
+
+ssize_t uwsgi_mule_get_msg(int manage_signals, int manage_farms, char *message, size_t buffer_size, int timeout) {
+
+        ssize_t len = 0;
+        struct pollfd *mulepoll;
+        int count = 4;
+        int farms_count = 0;
+        uint8_t uwsgi_signal;
+        int i;
+
+	if (uwsgi.muleid == 0) return -1;
+
+        if (manage_signals) count = 2;
+
+        if (!manage_farms) goto next;
+
+        for(i=0;i<uwsgi.farms_cnt;i++) {
+                if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) farms_count++;
+        }
+next:
+
+        if (timeout > -1) timeout = timeout*1000;
+
+        mulepoll = uwsgi_malloc(sizeof(struct pollfd) * (count+farms_count));
+
+        mulepoll[0].fd = uwsgi.mules[uwsgi.muleid-1].queue_pipe[1];
+        mulepoll[0].events = POLLIN;
+        mulepoll[1].fd = uwsgi.shared->mule_queue_pipe[1];
+        mulepoll[1].events = POLLIN;
+        if (count > 2) {
+                mulepoll[2].fd = uwsgi.signal_socket;
+                mulepoll[2].events = POLLIN;
+                mulepoll[3].fd = uwsgi.my_signal_socket;
+                mulepoll[3].events = POLLIN;
+        }
+
+	if (farms_count > 0) {
+		int tmp_cnt = 0;
+        	for(i=0;i<uwsgi.farms_cnt;i++) {
+			if (uwsgi_farm_has_mule(&uwsgi.farms[i], uwsgi.muleid)) {
+                		mulepoll[count+tmp_cnt].fd = uwsgi.farms[i].queue_pipe[1];
+                		mulepoll[count+tmp_cnt].events = POLLIN;
+				tmp_cnt++;
+			}
+        	}
+	}
+
+        int ret = poll(mulepoll, count+farms_count, timeout);
+        if (ret <= 0) {
+                uwsgi_error("poll");
+        }
+        else {
+                if (mulepoll[0].revents & POLLIN) {
+                        len = read(uwsgi.mules[uwsgi.muleid-1].queue_pipe[1], message, buffer_size);
+                }
+                else if (mulepoll[1].revents & POLLIN) {
+                        len = read(uwsgi.shared->mule_queue_pipe[1], message, buffer_size);
+                }
+                else {
+                        if (count > 2) {
+                                int interesting_fd = -1;
+                                if (mulepoll[2].revents & POLLIN) {
+                                        interesting_fd = mulepoll[2].fd;
+                                }
+                                else if (mulepoll[3].revents & POLLIN) {
+                                        interesting_fd = mulepoll[3].fd;
+                                }
+
+                                if (interesting_fd > -1) {
+                                        len = read(interesting_fd, &uwsgi_signal, 1);
+                                        if (len <= 0) {
+                                                uwsgi_log_verbose("uWSGI mule %d braying: my master died, i will follow him...\n", uwsgi.muleid);
+                                                end_me(0);
+                                        }
+#ifdef UWSGI_DEBUG
+                                        uwsgi_log_verbose("master sent signal %d to mule %d\n", uwsgi_signal, uwsgi.muleid);
+#endif
+                                        if (uwsgi_signal_handler(uwsgi_signal)) {
+                                                uwsgi_log_verbose("error managing signal %d on mule %d\n", uwsgi_signal, uwsgi.mywid);
+                                        }
+					// set the error condition
+					len = -1;
+                                        goto clear;
+                                }
+                        }
+
+			// read messages in the farm
+                        for(i=0;i<farms_count;i++) {
+                                if (mulepoll[count+i].revents & POLLIN) {
+                                        len = read(mulepoll[count+i].fd, message, buffer_size);
+                                        break;
+                                }
+                        }
+                }
+        }
+
+        if (len < 0) {
+                uwsgi_error("read()");
+                goto clear;
+        }
+
+clear:
+        free(mulepoll);
+        return len;
 }
 

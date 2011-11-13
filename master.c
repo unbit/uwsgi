@@ -1650,14 +1650,7 @@ next:
 		}
 		gettimeofday(&last_respawn, NULL);
 		uwsgi.respawn_delta = last_respawn.tv_sec;
-		// close the communication pipe
-		/*
-		close(uwsgi.workers[uwsgi.mywid].pipe[0]);
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, uwsgi.workers[uwsgi.mywid].pipe)) {
-			uwsgi_error("socketpair()\n");
-			continue;
-		}
-		*/
+
 		if (uwsgi_respawn_worker(uwsgi.mywid)) return 0;
 
 	}

@@ -198,24 +198,68 @@ int uwsgi_signal_add_rb_timer(uint8_t sig, int secs, int iterations) {
 
 }
 
+void create_signal_pipe(int *sigpipe) {
 
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sigpipe)) {
+        	uwsgi_error("socketpair()\n");
+        	exit(1);
+        }
+        uwsgi_socket_nb(sigpipe[0]);
+        uwsgi_socket_nb(sigpipe[1]);
+
+	if (uwsgi.signal_bufsize) {
+		if (setsockopt(sigpipe[0],  SOL_SOCKET, SO_SNDBUF, &uwsgi.signal_bufsize, sizeof(int))) {
+                        	uwsgi_error("setsockopt()");
+		}
+		if (setsockopt(sigpipe[0],  SOL_SOCKET, SO_RCVBUF, &uwsgi.signal_bufsize, sizeof(int))) {
+                        	uwsgi_error("setsockopt()");
+		}
+
+		if (setsockopt(sigpipe[1],  SOL_SOCKET, SO_SNDBUF, &uwsgi.signal_bufsize, sizeof(int))) {
+                        	uwsgi_error("setsockopt()");
+		}
+		if (setsockopt(sigpipe[1],  SOL_SOCKET, SO_RCVBUF, &uwsgi.signal_bufsize, sizeof(int))) {
+                        	uwsgi_error("setsockopt()");
+		}
+	}
+}
+
+int uwsgi_signal_send(int fd, uint8_t sig) {
+
+	socklen_t so_bufsize_len = sizeof(int);
+	int so_bufsize = 0;
+
+	if (write(fd, &sig, 1) != 1) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &so_bufsize, &so_bufsize_len)) {
+                        	uwsgi_error("getsockopt()");
+                	}
+                	uwsgi_log("*** SIGNAL QUEUE IS FULL: buffer size %d bytes (you can tune it with --signal-bufsize) ***\n", so_bufsize);
+		}
+		else {
+			uwsgi_error("uwsgi_signal_send()");
+		}
+		return -1;
+        }
+	return 0;
+
+}
 
 void uwsgi_route_signal(uint8_t sig) {
 
-	int i;
 	struct uwsgi_signal_entry *use = &ushared->signal_table[sig];
+	int i;
+
 	// send to first available worker
 	if (use->receiver[0] == 0 || !strcmp(use->receiver, "worker") || !strcmp(use->receiver, "worker0")) {
-		if (write(ushared->worker_signal_pipe[0], &sig, 1) != 1) {
-			uwsgi_error("write()");
+		if (uwsgi_signal_send(ushared->worker_signal_pipe[0], sig)) {
 			uwsgi_log("could not deliver signal %d to workers pool\n", sig);
 		}
 	}
 	// send to all workers
 	else if (!strcmp(use->receiver, "workers")) {
 		for(i=1;i<=uwsgi.numproc;i++) {
-			if (write(uwsgi.workers[i].signal_pipe[0], &sig, 1) != 1) {
-				uwsgi_error("write()");
+			if (uwsgi_signal_send(uwsgi.workers[i].signal_pipe[0], sig)) {
 				uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
 			}
 		}
@@ -226,8 +270,7 @@ void uwsgi_route_signal(uint8_t sig) {
 		if (i > uwsgi.numproc) {
 			uwsgi_log("invalid signal target: %s\n", use->receiver);
 		}
-		if (write(uwsgi.workers[i].signal_pipe[0], &sig, 1) != 1) {
-                        uwsgi_error("write()");
+		if (uwsgi_signal_send(uwsgi.workers[i].signal_pipe[0], sig)) {
                 	uwsgi_log("could not deliver signal %d to worker %d\n", sig, i);
                 }
 	}
@@ -238,8 +281,7 @@ void uwsgi_route_signal(uint8_t sig) {
 #ifdef UWSGI_SPOOLER
 	else if (!strcmp(use->receiver, "spooler")) {
 		if (ushared->worker_signal_pipe[0] != -1) {
-			if (write(ushared->spooler_signal_pipe[0], &sig, 1) != 1) {
-                        	uwsgi_error("write()");
+			if (uwsgi_signal_send(ushared->spooler_signal_pipe[0], sig)) {
                         	uwsgi_log("could not deliver signal %d to the spooler\n", sig);
                 	}
 		}
@@ -247,8 +289,7 @@ void uwsgi_route_signal(uint8_t sig) {
 #endif
 	else if (!strcmp(use->receiver, "mules")) {
 		for(i=0;i<uwsgi.mules_cnt;i++) {
-			if (write(uwsgi.mules[i].signal_pipe[0], &sig, 1) != 1) {
-                                uwsgi_error("write()");
+			if (uwsgi_signal_send(uwsgi.mules[i].signal_pipe[0], sig)) {
                                 uwsgi_log("could not deliver signal %d to mule %d\n", sig, i+1);
                         }
 		}
@@ -259,14 +300,12 @@ void uwsgi_route_signal(uint8_t sig) {
 			uwsgi_log("invalid signal target: %s\n", use->receiver);
 		}
 		else if (i == 0) {
-			if (write(ushared->mule_signal_pipe[0], &sig, 1) != 1) {
-                                uwsgi_error("write()");
+			if (uwsgi_signal_send(ushared->mule_signal_pipe[0], sig)) {
                                 uwsgi_log("could not deliver signal %d to a mule\n", sig);
                         }
 		}
 		else {
-			if (write(uwsgi.mules[i-1].signal_pipe[0], &sig, 1) != 1) {
-                                uwsgi_error("write()");
+			if (uwsgi_signal_send(uwsgi.mules[i-1].signal_pipe[0], sig)) {
                                 uwsgi_log("could not deliver signal %d to mule %d\n", sig, i);
                         }
 		}
@@ -278,8 +317,7 @@ void uwsgi_route_signal(uint8_t sig) {
 			uwsgi_log("unknown farm: %s\n", name);
 			return;
 		}
-		if (write(uf->signal_pipe[0], &sig, 1) != 1) {
-                	uwsgi_error("write()");
+		if (uwsgi_signal_send(uf->signal_pipe[0], sig)) {
                         uwsgi_log("could not deliver signal %d to farm %d (%s)\n", sig, uf->id, uf->name);
                 }
 	}
@@ -289,8 +327,7 @@ void uwsgi_route_signal(uint8_t sig) {
 			uwsgi_log("invalid signal target: %s\n", use->receiver);
 		}
 		else {
-			if (write(uwsgi.farms[i-1].signal_pipe[0], &sig, 1) != 1) {
-                                uwsgi_error("write()");
+			if (uwsgi_signal_send(uwsgi.farms[i-1].signal_pipe[0], sig)) {
                                 uwsgi_log("could not deliver signal %d to farm %d (%s)\n", sig, i, uwsgi.farms[i-1].name);
                         }
 		}
@@ -300,6 +337,7 @@ void uwsgi_route_signal(uint8_t sig) {
 		// unregistered signal, sending it to all the workers
 		uwsgi_log("^^^ UNSUPPORTED SIGNAL TARGET: %s ^^^\n", use->receiver);
 	}
+
 }
 
 uint8_t uwsgi_signal_wait(int signum) {

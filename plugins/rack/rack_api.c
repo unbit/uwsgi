@@ -4,6 +4,8 @@ extern struct uwsgi_server uwsgi;
 
 extern struct uwsgi_rack ur;
 
+#define uwsgi_rack_api(x, y, z) rb_define_module_function(rb_uwsgi_embedded, x, y, z)
+
 VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
 
 	Check_Type(rbname, T_STRING);
@@ -26,6 +28,83 @@ VALUE rack_uwsgi_mem(VALUE *class) {
         return ml;
 
 }
+
+int uwsgi_ruby_hash_mule_callback(VALUE key, VALUE val, VALUE arg_array) {
+	Check_Type(key, T_SYMBOL);
+	ID key_id = SYM2ID(key);
+	const char *key_name = rb_id2name(key_id);
+
+	if (!strcmp(key_name, "signals")) {
+		rb_ary_store(arg_array, 0, val);
+	}
+	else if (!strcmp(key_name, "farms")) {
+		rb_ary_store(arg_array, 1, val);
+	}
+	else if (!strcmp(key_name, "timeout")) {
+		rb_ary_store(arg_array, 2, val);
+	}
+	else if (!strcmp(key_name, "buffer_size")) {
+		rb_ary_store(arg_array, 3, val);
+	}
+
+	return 0;
+}
+
+VALUE rack_uwsgi_mule_get_msg(int argc, VALUE *argv, VALUE *class) {
+
+	int manage_signals = 1;
+	int manage_farms = 1;
+	int timeout = -1;
+	size_t buffer_size = 65536;
+	ssize_t len = 0;
+	char *message;
+
+        if (uwsgi.muleid == 0) {
+                rb_raise(rb_eRuntimeError, "you can receive mule messages only in a mule !!!");
+		return Qnil;
+        }
+
+	if (argc > 0) {
+		// 0 = manage_signals
+		// 1 = manage_farms
+		// 2 = timeout
+		// 3 = buffer_size
+		VALUE arg_array = rb_ary_new2(4);
+		Check_Type(argv[0], T_HASH);
+		rb_hash_foreach(argv[0], uwsgi_ruby_hash_mule_callback, arg_array);
+		
+		if (rb_ary_entry(arg_array, 0) == Qfalse) {
+			manage_signals = 0;
+		}
+
+		if (rb_ary_entry(arg_array, 1) == Qfalse) {
+			manage_farms = 0;
+		}
+
+		if (TYPE(rb_ary_entry(arg_array,2)) == T_FIXNUM) {
+			timeout = NUM2INT(rb_ary_entry(arg_array,2));
+		}
+
+		if (TYPE(rb_ary_entry(arg_array,3)) == T_FIXNUM || TYPE(rb_ary_entry(arg_array,3)) == T_BIGNUM) {
+			buffer_size = NUM2ULONG(rb_ary_entry(arg_array,3));
+		}
+		
+	}
+
+        message = uwsgi_malloc(buffer_size);
+
+        len = uwsgi_mule_get_msg(manage_signals, manage_farms, message, buffer_size, timeout) ;
+
+        if (len < 0) {
+                free(message);
+                return Qnil;
+        }
+
+        VALUE msg = rb_str_new(message, len);
+        free(message);
+        return msg;
+}
+
 
 VALUE rack_uwsgi_lock(int argc, VALUE *argv, VALUE *class) {
 
@@ -488,40 +567,42 @@ VALUE uwsgi_ruby_signal(VALUE *class, VALUE signum) {
 void uwsgi_rack_init_api() {
 
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
-        rb_define_module_function(rb_uwsgi_embedded, "suspend", uwsgi_ruby_suspend, 0);
-        rb_define_module_function(rb_uwsgi_embedded, "masterpid", uwsgi_ruby_masterpid, 0);
-        rb_define_module_function(rb_uwsgi_embedded, "async_sleep", uwsgi_ruby_async_sleep, 1);
-        rb_define_module_function(rb_uwsgi_embedded, "wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
-        rb_define_module_function(rb_uwsgi_embedded, "wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
-        rb_define_module_function(rb_uwsgi_embedded, "async_connect", uwsgi_ruby_async_connect, 1);
-        rb_define_module_function(rb_uwsgi_embedded, "signal", uwsgi_ruby_signal, 1);
-        rb_define_module_function(rb_uwsgi_embedded, "register_signal", uwsgi_ruby_register_signal, 3);
-        rb_define_module_function(rb_uwsgi_embedded, "register_rpc", uwsgi_ruby_register_rpc, -1);
-        rb_define_module_function(rb_uwsgi_embedded, "signal_registered", uwsgi_ruby_signal_registered, 1);
-        rb_define_module_function(rb_uwsgi_embedded, "signal_wait", uwsgi_ruby_signal_wait, -1);
-        rb_define_module_function(rb_uwsgi_embedded, "signal_received", uwsgi_ruby_signal_received, 0);
-        rb_define_module_function(rb_uwsgi_embedded, "add_cron", rack_uwsgi_add_cron, 6);
-        rb_define_module_function(rb_uwsgi_embedded, "add_timer", rack_uwsgi_add_timer, 2);
-        rb_define_module_function(rb_uwsgi_embedded, "add_rb_timer", rack_uwsgi_add_rb_timer, 2);
-        rb_define_module_function(rb_uwsgi_embedded, "add_file_monitor", rack_uwsgi_add_file_monitor, 2);
+        uwsgi_rack_api("suspend", uwsgi_ruby_suspend, 0);
+        uwsgi_rack_api("masterpid", uwsgi_ruby_masterpid, 0);
+        uwsgi_rack_api("async_sleep", uwsgi_ruby_async_sleep, 1);
+        uwsgi_rack_api("wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
+        uwsgi_rack_api("wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
+        uwsgi_rack_api("async_connect", uwsgi_ruby_async_connect, 1);
+        uwsgi_rack_api("signal", uwsgi_ruby_signal, 1);
+        uwsgi_rack_api("register_signal", uwsgi_ruby_register_signal, 3);
+        uwsgi_rack_api("register_rpc", uwsgi_ruby_register_rpc, -1);
+        uwsgi_rack_api("signal_registered", uwsgi_ruby_signal_registered, 1);
+        uwsgi_rack_api("signal_wait", uwsgi_ruby_signal_wait, -1);
+        uwsgi_rack_api("signal_received", uwsgi_ruby_signal_received, 0);
+        uwsgi_rack_api("add_cron", rack_uwsgi_add_cron, 6);
+        uwsgi_rack_api("add_timer", rack_uwsgi_add_timer, 2);
+        uwsgi_rack_api("add_rb_timer", rack_uwsgi_add_rb_timer, 2);
+        uwsgi_rack_api("add_file_monitor", rack_uwsgi_add_file_monitor, 2);
 
-        rb_define_module_function(rb_uwsgi_embedded, "setprocname", rack_uwsgi_setprocname, 1);
-        rb_define_module_function(rb_uwsgi_embedded, "mem", rack_uwsgi_mem, 0);
+        uwsgi_rack_api("setprocname", rack_uwsgi_setprocname, 1);
+        uwsgi_rack_api("mem", rack_uwsgi_mem, 0);
 
-        rb_define_module_function(rb_uwsgi_embedded, "lock", rack_uwsgi_lock, -1);
-        rb_define_module_function(rb_uwsgi_embedded, "unlock", rack_uwsgi_unlock, -1);
+        uwsgi_rack_api("lock", rack_uwsgi_lock, -1);
+        uwsgi_rack_api("unlock", rack_uwsgi_unlock, -1);
+
+        uwsgi_rack_api("mule_get_msg", rack_uwsgi_mule_get_msg, -1);
 
 
 	if (uwsgi.cache_max_items > 0) {
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_get", rack_uwsgi_cache_get, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_get!", rack_uwsgi_cache_get_exc, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_exists", rack_uwsgi_cache_exists, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_exists?", rack_uwsgi_cache_exists, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_del", rack_uwsgi_cache_del, 1);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_set", rack_uwsgi_cache_set, 2);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_set!", rack_uwsgi_cache_set_exc, 2);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_update", rack_uwsgi_cache_update, 2);
-        	rb_define_module_function(rb_uwsgi_embedded, "cache_update!", rack_uwsgi_cache_update_exc, 2);
+        	uwsgi_rack_api("cache_get", rack_uwsgi_cache_get, 1);
+        	uwsgi_rack_api("cache_get!", rack_uwsgi_cache_get_exc, 1);
+        	uwsgi_rack_api("cache_exists", rack_uwsgi_cache_exists, 1);
+        	uwsgi_rack_api("cache_exists?", rack_uwsgi_cache_exists, 1);
+        	uwsgi_rack_api("cache_del", rack_uwsgi_cache_del, 1);
+        	uwsgi_rack_api("cache_set", rack_uwsgi_cache_set, 2);
+        	uwsgi_rack_api("cache_set!", rack_uwsgi_cache_set_exc, 2);
+        	uwsgi_rack_api("cache_update", rack_uwsgi_cache_update, 2);
+        	uwsgi_rack_api("cache_update!", rack_uwsgi_cache_update_exc, 2);
 	}
 
         VALUE uwsgi_rb_opt_hash = rb_hash_new();
