@@ -13,11 +13,20 @@ def get_free_signal()
 end
 
 $postfork_chain = []
+$mulefunc_list = []
 
 module UWSGI
   module_function
   def post_fork_hook()
     $postfork_chain.each {|func| func.call }
+  end
+
+  module_function
+  def mule_msg_hook(message)
+    service = Marshal.load(message)
+    if service['service'] == 'uwsgi_mulefunc'
+      mulefunc_manager(service)
+    end
   end
 end
 
@@ -59,4 +68,61 @@ def rpc(name, &block)
   else
     UWSGI.register_rpc(name, block, block.arity)
   end
+end
+
+def mulefunc_manager(service)
+  $mulefunc_list[service['func']].real_call(service['args'])
+end
+
+class MuleFunc < Proc
+
+  def initialize(id=0, &block)
+    @id = id
+    @block = block
+    @func_pos = (($mulefunc_list << self).length)-1
+  end
+
+  def real_call(*args)
+    @block.call(*args)
+  end
+
+  def call(*args)
+    UWSGI.mule_msg( Marshal.dump( {
+                'service' => 'uwsgi_mulefunc',
+                'func' => @func_pos,
+                'args'=> args
+            }), @id)
+  end
+
+end
+
+class MuleProc < Proc
+  def initialize(id, block)
+    @id = id
+    @block = block
+  end
+
+  def call()
+    if UWSGI.mule_id == @id
+      @block.call
+    end
+  end
+end
+
+class MuleLoopProc < MuleProc
+  def call()
+    if UWSGI.mule_id == @id
+      loop do
+        @block.call
+      end
+    end
+  end
+end
+
+def mule(id, &block)
+  $postfork_chain << MuleProc.new(id, block)
+end
+
+def muleloop(id, &block)
+  $postfork_chain << MuleLoopProc.new(id, block)
 end

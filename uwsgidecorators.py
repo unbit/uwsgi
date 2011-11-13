@@ -155,7 +155,7 @@ class farm(object):
     def __call__(self, f):
         postfork_chain.append(farm_loop(f, self.name))
 
-class mule_loop(object):
+class mule_brain(object):
 
     def __init__(self, f, num):
         self.f = f
@@ -165,12 +165,24 @@ class mule_loop(object):
         if uwsgi.mule_id() == self.num:
             self.f()
 
+class mule_brainloop(mule_brain):
+
+    def __call__(self):
+        if uwsgi.mule_id() == self.num:
+            while True:
+                self.f()
+    
+
 class mule(object):
     def __init__(self, num):
         self.num = num
 
     def __call__(self, f):
-        postfork_chain.append(mule_loop(f, self.num))
+        postfork_chain.append(mule_brain(f, self.num))
+
+class muleloop(mule):
+    def __call__(self, f):
+        postfork_chain.append(mule_brainloop(f, self.num))
 
 class mulemsg_loop(object):
 

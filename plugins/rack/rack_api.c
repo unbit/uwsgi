@@ -29,6 +29,80 @@ VALUE rack_uwsgi_mem(VALUE *class) {
 
 }
 
+VALUE rack_uwsgi_request_id(VALUE *class) {
+        return ULONG2NUM(uwsgi.workers[uwsgi.mywid].requests);
+}
+
+VALUE rack_uwsgi_worker_id(VALUE *class) {
+        return INT2NUM(uwsgi.mywid);
+}
+
+VALUE rack_uwsgi_mule_id(VALUE *class) {
+        return INT2NUM(uwsgi.muleid);
+}
+
+VALUE rack_uwsgi_logsize(VALUE *class) {
+        return ULONG2NUM(uwsgi.shared->logsize);
+}
+
+VALUE rack_uwsgi_mule_msg(int argc, VALUE *argv, VALUE *class) {
+
+        int fd = -1;
+        int mule_id = -1;
+
+	if (argc == 0) return Qnil;
+
+	Check_Type(argv[0], T_STRING);
+
+        char *message = RSTRING_PTR(argv[0]);
+        size_t message_len = RSTRING_LEN(argv[0]);
+
+        if (uwsgi.mules_cnt < 1) {
+                rb_raise(rb_eRuntimeError, "no mule configured");
+		return Qnil;
+	}
+
+        if (argc == 1) {
+                mule_send_msg(uwsgi.shared->mule_queue_pipe[0], message, message_len);
+        }
+        else {
+                if (TYPE(argv[1]) == T_STRING) {
+                        struct uwsgi_farm *uf = get_farm_by_name(RSTRING_PTR(argv[1]));
+                        if (uf == NULL) {
+                                rb_raise(rb_eRuntimeError, "unknown farm");
+				return Qnil;
+                        }
+                        fd = uf->queue_pipe[0];
+                }
+                else if (TYPE(argv[1]) == T_FIXNUM) {
+                        mule_id = NUM2INT(argv[1]);
+                        if (mule_id < 0 && mule_id > uwsgi.mules_cnt) {
+                                rb_raise(rb_eRuntimeError, "invalid mule number");
+				return Qnil;
+                        }
+                        if (mule_id == 0) {
+                                fd = uwsgi.shared->mule_queue_pipe[0];
+                        }
+                        else {
+                                fd = uwsgi.mules[mule_id-1].queue_pipe[0];
+                        }
+                }
+                else {
+                        rb_raise(rb_eRuntimeError, "invalid mule");
+			return Qnil;
+                }
+
+                if (fd > -1) {
+                        mule_send_msg(fd, message, message_len);
+                }
+        }
+
+        return Qnil;
+
+}
+
+
+
 int uwsgi_ruby_hash_mule_callback(VALUE key, VALUE val, VALUE arg_array) {
 	Check_Type(key, T_SYMBOL);
 	ID key_id = SYM2ID(key);
@@ -591,7 +665,14 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("unlock", rack_uwsgi_unlock, -1);
 
         uwsgi_rack_api("mule_get_msg", rack_uwsgi_mule_get_msg, -1);
+        uwsgi_rack_api("mule_msg", rack_uwsgi_mule_msg, -1);
 
+        uwsgi_rack_api("request_id", rack_uwsgi_request_id, 0);
+        uwsgi_rack_api("worker_id", rack_uwsgi_worker_id, 0);
+        uwsgi_rack_api("mule_id", rack_uwsgi_mule_id, 0);
+        uwsgi_rack_api("logsize", rack_uwsgi_logsize, 0);
+
+	
 
 	if (uwsgi.cache_max_items > 0) {
         	uwsgi_rack_api("cache_get", rack_uwsgi_cache_get, 1);

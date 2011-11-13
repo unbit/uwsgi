@@ -841,6 +841,29 @@ void uwsgi_rb_post_fork() {
 	}
 }
 
+VALUE uwsgi_rb_mmh(VALUE args) {
+	VALUE uwsgi_rb_embedded = rb_const_get(rb_cObject, rb_intern("UWSGI"));
+	return rb_funcall(uwsgi_rb_embedded, rb_intern("mule_msg_hook"), 1, args);
+}
+
+int uwsgi_rack_mule_msg(char *message, size_t len) {
+
+	int error = 0;
+	
+	VALUE uwsgi_rb_embedded = rb_const_get(rb_cObject, rb_intern("UWSGI"));
+        if (rb_respond_to(uwsgi_rb_embedded, rb_intern("mule_msg_hook"))) {
+		VALUE arg = rb_str_new(message, len);
+		rb_protect(uwsgi_rb_mmh, arg, &error);
+		if (error) {
+			uwsgi_ruby_exception();
+		}
+        	return 1;
+	}
+
+	return 0;
+}
+
+
 VALUE rack_call_signal_handler(VALUE args) {
 
         return rb_funcall(rb_ary_entry(args, 0), rb_intern("call"), 1, rb_ary_entry(args, 1));
@@ -901,6 +924,7 @@ struct uwsgi_plugin rack_plugin = {
 	.magic = uwsgi_rack_magic,
 
 	.mule = uwsgi_rack_mule,
+	.mule_msg = uwsgi_rack_mule_msg,
 	.rpc = uwsgi_ruby_rpc,
 
 	.suspend = uwsgi_rack_suspend,
