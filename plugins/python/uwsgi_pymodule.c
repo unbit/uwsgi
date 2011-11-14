@@ -2284,6 +2284,51 @@ PyObject *py_uwsgi_fcgi(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_route(PyObject * self, PyObject * args) {
+	
+	char *addr = NULL;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	if (!PyArg_ParseTuple(args, "s:route", &addr)) {
+                return NULL;
+        }
+
+	UWSGI_RELEASE_GIL;
+
+	int uwsgi_fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+
+	UWSGI_GET_GIL;
+
+	if (uwsgi_fd < 0) {
+		return PyErr_Format(PyExc_IOError, "unable to connect to host %s", addr);
+	}
+
+	if (uwsgi_send_message(uwsgi_fd, wsgi_req->uh.modifier1, wsgi_req->uh.modifier2, wsgi_req->buffer, wsgi_req->uh.pktsize, wsgi_req->poll.fd, wsgi_req->post_cl, 0) < 0) {
+		return PyErr_Format(PyExc_IOError, "unable to send uwsgi request to host %s", addr);
+	}
+
+	// request sent, return the iterator response
+        uwsgi_Iter *ui = PyObject_New(uwsgi_Iter, &uwsgi_IterType);
+        if (!ui) {
+                uwsgi_log("unable to create uwsgi response object, better to reap the process\n");
+		exit(1);
+        }
+
+        ui->fd = uwsgi_fd;
+        ui->timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+        ui->close = 1;
+        ui->started = 0;
+        ui->has_cl = 0;
+        ui->sent = 0;
+        ui->size = 0;
+        ui->func = NULL;
+
+	// mark a route request
+	wsgi_req->status = -1;
+
+        return (PyObject *) ui;
+}
+
 PyObject *py_uwsgi_send_message(PyObject * self, PyObject * args) {
 
 	PyObject *destination = NULL, *pyobj = NULL;
@@ -2923,6 +2968,7 @@ PyObject *py_uwsgi_cluster_best_node(PyObject * self, PyObject * args) {
 
 static PyMethodDef uwsgi_advanced_methods[] = {
 	{"send_message", py_uwsgi_send_message, METH_VARARGS, ""},
+	{"route", py_uwsgi_route, METH_VARARGS, ""},
 	{"send_multi_message", py_uwsgi_send_multi_message, METH_VARARGS, ""},
 	{"reload", py_uwsgi_reload, METH_VARARGS, ""},
 	{"stop", py_uwsgi_stop, METH_VARARGS, ""},

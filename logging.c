@@ -44,6 +44,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_SENDFILE
 	char *msg1 = " via sendfile() ";
 #endif
+	char *msg3 = " via route() ";
 
 	struct uwsgi_app *wi;
 
@@ -61,6 +62,11 @@ void log_request(struct wsgi_request *wsgi_req) {
 		via = msg1;
 	}
 #endif
+
+	// mark route() requests
+	if (wsgi_req->status == -1) {
+		via = msg3;
+	}
 
 	time_request = ctime((const time_t *) &wsgi_req->start_of_request.tv_sec);
 	microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;

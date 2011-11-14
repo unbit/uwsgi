@@ -280,7 +280,9 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 
 		memcpy(CMSG_DATA(cmsg), &pfd, sizeof(int));
 		
+#ifdef UWSGI_DEBUG
 		uwsgi_log("passing fd\n");
+#endif
 		cnt = sendmsg(fd, &msg, 0);	
 	}
 	else {
