@@ -84,8 +84,13 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 	strcpy(use->receiver, receiver);
 	use->handler = handler;
 	use->modifier1 = modifier1;
-	
-	uwsgi_log("registered signal %d\n", sig);
+
+	if (use->receiver[0] == 0) {
+		uwsgi_log("[uwsgi-signal] signum %d registered (modifier1: %d target: default, any worker)\n", sig, modifier1);
+	}
+	else {
+		uwsgi_log("[uwsgi-signal] signum %d registered (modifier1: %d target: %s)\n", sig, modifier1, receiver);
+	}
 
 	uwsgi_unlock(uwsgi.signal_table_lock);
 
