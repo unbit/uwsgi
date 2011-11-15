@@ -539,6 +539,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_UMASK			17160
 #define LONG_ARGS_PAUSE			17161
 #define LONG_ARGS_SIGNAL_BUFSIZE	17162
+#define LONG_ARGS_SIGNAL		17163
 
 
 #define UWSGI_OK	0

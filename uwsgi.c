@@ -132,6 +132,7 @@ static struct option long_base_options[] = {
 #endif
 	{"mule", optional_argument, 0, LONG_ARGS_MULE},
 	{"mules", required_argument, 0, LONG_ARGS_MULES},
+	{"signal", required_argument, 0, LONG_ARGS_SIGNAL},
 	{"signal-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE},
 	{"signals-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE},
 	{"farm", required_argument, 0, LONG_ARGS_FARM},
@@ -860,6 +861,40 @@ void signal_pidfile(int sig, char *filename) {
 	else {
 		uwsgi_log("error: invalid pidfile\n");
 	}
+}
+
+static void uwsgi_command_signal(char *opt) {
+
+	int tmp_signal;
+	char *colon = strchr(opt, ',');
+	if (!colon) {
+		uwsgi_log("invalid syntax for signal, must be addr,signal\n");
+		exit(1);
+	}
+
+	colon[0] = 0;
+	tmp_signal = atoi(colon+1);
+	
+	if (tmp_signal < 0 || tmp_signal > 255) {
+		uwsgi_log("invalid signal number\n");
+		exit(3);
+	}
+
+	uint8_t uwsgi_signal = tmp_signal;
+	int ret = uwsgi_remote_signal_send(opt, uwsgi_signal);
+
+	if (ret < 0) {
+		uwsgi_log("unable to deliver signal %d to node %s\n", uwsgi_signal, opt);
+		exit(1);
+	}
+
+	if (ret == 0) {
+		uwsgi_log("node %s rejected signal %d\n", opt, uwsgi_signal);
+		exit(2);
+	}
+
+	uwsgi_log("signal %d delivered to node %s\n", uwsgi_signal, opt);
+	exit(0);
 }
 
 void fixup_argv_and_environ(int argc, char **argv, char **environ) {
@@ -3439,6 +3474,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.master_process = 1;
 		uwsgi.mules_cnt++;
 		uwsgi_string_new_list(&uwsgi.mules_patches, optarg);
+		return 1;
+	case LONG_ARGS_SIGNAL:
+		uwsgi_command_signal(optarg);
 		return 1;
 	case LONG_ARGS_SIGNAL_BUFSIZE:
 		uwsgi.signal_bufsize = atoi(optarg);
