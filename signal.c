@@ -224,6 +224,48 @@ void create_signal_pipe(int *sigpipe) {
 	}
 }
 
+int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
+
+	struct uwsgi_header uh;
+	size_t remains = 4;
+	char *ptr = (char *) &uh;
+
+	uh.modifier1 = 110;
+	uh.pktsize = 0;
+	uh.modifier2 = sig;
+	
+	int fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
+        if (fd < 0) return -1;
+
+	if (write(fd, (char *) &uh, 4) != 4) {
+		uwsgi_error("uwsgi_remote_signal_send()");
+		close(fd);
+		return -1;
+	}
+
+	while(remains > 0) {
+		int rlen = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        	if (rlen > 0) {
+			ssize_t len = read(fd, ptr, remains);	
+			if (len <= 0) {
+				break;
+			}
+			remains -= len;
+			ptr += len;
+			if (remains == 0) {
+				close(fd);
+				return uh.modifier2;
+			}
+			continue;	
+		}
+		break;
+	}
+
+	close(fd);
+	return -1;
+
+}
+
 int uwsgi_signal_send(int fd, uint8_t sig) {
 
 	socklen_t so_bufsize_len = sizeof(int);

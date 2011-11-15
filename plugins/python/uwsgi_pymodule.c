@@ -518,17 +518,31 @@ PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_signal(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
+	char *remote = NULL;
 
-	if (!PyArg_ParseTuple(args, "B:signal", &uwsgi_signal)) {
+	if (!PyArg_ParseTuple(args, "B|s:signal", &uwsgi_signal, &remote)) {
 		return NULL;
 	}
 
+	if (remote) {
 #ifdef UWSGI_DEBUG
-	uwsgi_log("sending %d to master\n", uwsgi_signal);
+		uwsgi_log("sending signal %d to node %s\n", uwsgi_signal, remote);
 #endif
+		int ret = uwsgi_remote_signal_send(remote, uwsgi_signal);
+		if (ret == 1) goto clear;
+		if (ret == -1)
+			return PyErr_Format(PyExc_IOError, "unable to deliver signal %d to node %s", uwsgi_signal, remote);
+		if (ret == 0)
+			return PyErr_Format(PyExc_ValueError, "node %s rejected signal %d", remote, uwsgi_signal);
+	}
+	else {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("sending signal %d to master\n", uwsgi_signal);
+#endif
+		uwsgi_signal_send(uwsgi.signal_socket, uwsgi_signal);
+	}
 
-	uwsgi_signal_send(uwsgi.signal_socket, uwsgi_signal);
-
+clear:
 	Py_INCREF(Py_None);
 	return Py_None;
 

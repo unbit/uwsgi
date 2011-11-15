@@ -2456,6 +2456,7 @@ ssize_t uwsgi_mule_get_msg(int, int, char *, size_t, int);
 uint8_t uwsgi_signal_wait(int);
 void uwsgi_add_app(int, uint8_t, char *, int);
 int uwsgi_signal_send(int, uint8_t);
+int uwsgi_remote_signal_send(char *, uint8_t); 
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);
