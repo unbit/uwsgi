@@ -621,17 +621,35 @@ VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALU
 }
 
 
-VALUE uwsgi_ruby_signal(VALUE *class, VALUE signum) {
+VALUE uwsgi_ruby_signal(int argc, VALUE *argv, VALUE *class) {
 
-	Check_Type(signum, T_FIXNUM);
+	if (argc < 1) {
+		rb_raise(rb_eRuntimeError, "you have to specify a signum");
+                return Qnil;
+	}
 
-        uint8_t uwsgi_signal = NUM2INT(signum);
-        ssize_t rlen;
+	Check_Type(argv[0], T_FIXNUM);
 
-        rlen = write(uwsgi.signal_socket, &uwsgi_signal, 1);
-        if (rlen != 1) {
-                uwsgi_error("write()");
-        }
+        uint8_t uwsgi_signal = NUM2INT(argv[0]);
+
+	if (argc > 1) {
+		Check_Type(argv[1], T_STRING);
+		char *remote = RSTRING_PTR(argv[1]);
+
+		int ret = uwsgi_remote_signal_send(remote, uwsgi_signal);
+                if (ret == 1) return Qtrue;
+                if (ret == -1) {
+                        rb_raise(rb_eRuntimeError, "unable to deliver signal %d to node %s", uwsgi_signal, remote);
+			return Qnil;
+		}
+                if (ret == 0) {
+                        rb_raise(rb_eRuntimeError, "node %s rejected signal %d", remote, uwsgi_signal);	
+			return Qnil;
+		}
+	}
+	else {
+		uwsgi_signal_send(uwsgi.signal_socket, uwsgi_signal);
+	}
 
         return Qtrue;
 }
@@ -647,7 +665,7 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
         uwsgi_rack_api("wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
         uwsgi_rack_api("async_connect", uwsgi_ruby_async_connect, 1);
-        uwsgi_rack_api("signal", uwsgi_ruby_signal, 1);
+        uwsgi_rack_api("signal", uwsgi_ruby_signal, -1);
         uwsgi_rack_api("register_signal", uwsgi_ruby_register_signal, 3);
         uwsgi_rack_api("register_rpc", uwsgi_ruby_register_rpc, -1);
         uwsgi_rack_api("signal_registered", uwsgi_ruby_signal_registered, 1);
