@@ -176,6 +176,11 @@ static struct option long_base_options[] = {
 	{"reload-on-rss", required_argument, 0, LONG_ARGS_RELOAD_ON_RSS},
 	{"evil-reload-on-as", required_argument, 0, LONG_ARGS_EVIL_RELOAD_ON_AS},
 	{"evil-reload-on-rss", required_argument, 0, LONG_ARGS_EVIL_RELOAD_ON_RSS},
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+	{"ksm", optional_argument, 0, LONG_ARGS_KSM},
+#endif
+#endif
 	{"touch-reload", required_argument, 0, LONG_ARGS_TOUCH_RELOAD},
 	{"propagate-touch", no_argument, &uwsgi.propagate_touch, 1},
 	{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST},
@@ -2442,12 +2447,23 @@ skipzero:
 	}
 
 
+
 	if (!uwsgi.master_process && uwsgi.numproc == 0) {
 		exit(0);
 	}
 	if (!uwsgi.single_interpreter) {
 		uwsgi_log("*** uWSGI is running in multiple interpreter mode ***\n");
 	}
+
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+	if (uwsgi.linux_ksm > 0) {
+		uwsgi_log("[uwsgi-KSM] enabled with frequency: %d\n", uwsgi.linux_ksm); 
+	}
+#endif
+#endif
+
+
 
 	if (uwsgi.master_process) {
 		if (uwsgi.is_a_reload) {
@@ -2540,6 +2556,8 @@ skipzero:
 			}
 		}
 	}
+
+
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
 #ifdef UWSGI_AS_SHARED_LIBRARY
@@ -3415,6 +3433,16 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_LIMIT_POST:
 		uwsgi.limit_post = (int) strtol(optarg, NULL, 10);
 		return 1;
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+	case LONG_ARGS_KSM:
+		uwsgi.linux_ksm = 1;
+		if (optarg) {
+			uwsgi.linux_ksm = atoi(optarg);
+		}
+		return 1;
+#endif
+#endif
 	case LONG_ARGS_RELOAD_ON_AS:
 		uwsgi.force_get_memusage = 1;
 		uwsgi.reload_on_as = (strtoul(optarg, NULL, 10)) * 1024 * 1024;

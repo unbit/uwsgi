@@ -540,6 +540,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_PAUSE			17161
 #define LONG_ARGS_SIGNAL_BUFSIZE	17162
 #define LONG_ARGS_SIGNAL		17163
+#define LONG_ARGS_KSM			17164
 
 
 #define UWSGI_OK	0
@@ -1525,6 +1526,12 @@ struct uwsgi_server {
 	// subscription client
 	struct uwsgi_string_list *subscriptions;
 
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+	int linux_ksm;
+#endif
+#endif
+
 };
 
 struct uwsgi_rpc {
@@ -2458,6 +2465,12 @@ uint8_t uwsgi_signal_wait(int);
 void uwsgi_add_app(int, uint8_t, char *, int);
 int uwsgi_signal_send(int, uint8_t);
 int uwsgi_remote_signal_send(char *, uint8_t); 
+
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+void uwsgi_linux_ksm_map(void);
+#endif
+#endif
 
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);

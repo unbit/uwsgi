@@ -717,7 +717,95 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi.loyal = 1;
 	}
 
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+	// run the ksm mapper
+	if (uwsgi.linux_ksm > 0 && (uwsgi.workers[uwsgi.mywid].requests % uwsgi.linux_ksm) == 0) {
+		uwsgi_linux_ksm_map();
+	}
+#endif
+#endif
+
 }
+
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+
+unsigned long long *ksm_mappings_last = NULL;
+int ksm_mappings_last_lines = 0;
+unsigned long long *ksm_mappings_current = NULL;
+int ksm_mappings_current_lines = 0;
+
+void uwsgi_linux_ksm_map(void) {
+
+	char map_line_buf[1024];
+        unsigned long long start, end;
+	int dirty = 0;
+	int i;
+	int errors = 0;
+	unsigned long long *tmp_ptr;
+
+	ksm_mappings_current = NULL;
+	ksm_mappings_current_lines = 0;
+
+        FILE *process_maps = fopen("/proc/self/maps", "r");
+
+        if (process_maps) {
+        	while( fgets(map_line_buf, 1024, process_maps)) {
+                	if (fscanf(process_maps, "%llx-%llx %*s", &start, &end) == 2) {
+				ksm_mappings_current_lines+=2;
+				tmp_ptr = ksm_mappings_current;
+				ksm_mappings_current = realloc(ksm_mappings_current, sizeof(unsigned long long) * ksm_mappings_current_lines);
+				if (!ksm_mappings_current) {
+					uwsgi_error("[uwsgi-KSM] /proc/self/maps realloc()");
+					fclose(process_maps);
+					if (tmp_ptr) {
+						free(tmp_ptr);
+					}
+					return;
+				}
+				ksm_mappings_current[ksm_mappings_current_lines-2] = start;
+				ksm_mappings_current[ksm_mappings_current_lines-1] = end;
+                        }
+		}
+		fclose(process_maps);
+
+		if (ksm_mappings_last == NULL || ksm_mappings_last_lines == 0 || ksm_mappings_last_lines != ksm_mappings_current_lines) {
+			dirty = 1;
+		}
+		else {
+			for(i=0;i<ksm_mappings_current_lines;i+=2) {
+				if (ksm_mappings_current[i] != ksm_mappings_last[i]) {
+					dirty = 1;
+					break;
+				}
+				if (ksm_mappings_current[i+1] != ksm_mappings_last[i+1]) {
+					dirty = 1;
+					break;
+				}
+			}
+		}
+
+		if (dirty) {
+
+			for(i=0;i<ksm_mappings_current_lines;i+=2) {
+                		if (madvise((void *) (long) ksm_mappings_current[i], (size_t) (ksm_mappings_current[i+1]-ksm_mappings_current[i]), MADV_MERGEABLE)) {
+					errors += 2;
+                		}
+			}
+
+			free(ksm_mappings_last);
+			ksm_mappings_last = ksm_mappings_current;
+			ksm_mappings_last_lines = ksm_mappings_current_lines;
+
+			if (errors >= ksm_mappings_current_lines) {
+				uwsgi_error("[uwsgi-KSM] unable to share pages");
+			}
+		}
+	}
+}
+#endif
+#endif
 
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 

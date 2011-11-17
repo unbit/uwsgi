@@ -1432,6 +1432,14 @@ healthy:
 			}
 #endif
 
+#ifdef __linux__
+#ifdef MADV_MERGEABLE
+			if (uwsgi.linux_ksm > 0 && (uwsgi.master_cycles % uwsgi.linux_ksm) == 0) {
+				uwsgi_linux_ksm_map();
+			}
+#endif
+#endif
+
 #ifdef UWSGI_UDP
 			// check for cluster nodes
 			master_check_cluster_nodes();
