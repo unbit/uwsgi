@@ -314,7 +314,7 @@ ready:
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
 
-	uwsgi_add_app(ur.app_id, 7, "", 0);
+	uwsgi_add_app(ur.app_id, 7, (char*)"", 0);
 	if (ur.gc_freq <= 1) {
         	uwsgi_log("RACK app %d loaded at %p (GC frequency: AGGRESSIVE)\n", ur.app_id, ur.call);
 	}
@@ -397,7 +397,7 @@ VALUE send_header(VALUE obj, VALUE headers) {
 
 	len = wsgi_req->socket->proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
 	wsgi_req->headers_size += len;
-	len = wsgi_req->socket->proto_write_header( wsgi_req, ": ", 2);
+	len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)": ", 2);
 	wsgi_req->headers_size += len;
 
 	char *header_value = RSTRING_PTR(hval);
@@ -408,7 +408,7 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	if (!header_value_splitted) {
 		len = wsgi_req->socket->proto_write_header( wsgi_req, header_value, header_value_len);
 		wsgi_req->headers_size += len;
-		len = wsgi_req->socket->proto_write_header( wsgi_req, "\r\n", 2);
+		len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)"\r\n", 2);
 		wsgi_req->headers_size += len;
 		wsgi_req->header_cnt++;
 	}
@@ -416,7 +416,7 @@ VALUE send_header(VALUE obj, VALUE headers) {
 		header_value_splitted[0] = 0;
 		len = wsgi_req->socket->proto_write_header( wsgi_req, header_value, header_value_splitted-header_value);
 		wsgi_req->headers_size += len;
-		len = wsgi_req->socket->proto_write_header( wsgi_req, "\r\n", 2);
+		len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)"\r\n", 2);
                 wsgi_req->headers_size += len;
 		wsgi_req->header_cnt++;
 
@@ -428,12 +428,12 @@ VALUE send_header(VALUE obj, VALUE headers) {
 
 			len = wsgi_req->socket->proto_write( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
         		wsgi_req->headers_size += len;
-        		len = wsgi_req->socket->proto_write( wsgi_req, ": ", 2);
+        		len = wsgi_req->socket->proto_write( wsgi_req, (char *)": ", 2);
         		wsgi_req->headers_size += len;
 
 			len = wsgi_req->socket->proto_write( wsgi_req, header_value, header_value_splitted-header_value);
 			wsgi_req->headers_size += len;
-			len = wsgi_req->socket->proto_write( wsgi_req, "\r\n", 2);
+			len = wsgi_req->socket->proto_write( wsgi_req, (char *)"\r\n", 2);
                 	wsgi_req->headers_size += len;		
                 	wsgi_req->header_cnt++;
 
@@ -618,7 +618,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			}
 		}
 
-		if (wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2) != 2) {
+		if (wsgi_req->socket->proto_write(wsgi_req, (char *)"\r\n", 2) != 2) {
 			uwsgi_error("write()");
 		}
 
@@ -668,7 +668,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	}
 	else {
-		internal_server_error(wsgi_req, "Invalid RACK response");
+		internal_server_error(wsgi_req, (char *)"Invalid RACK response");
 	}
 
 clear:
@@ -809,7 +809,7 @@ void uwsgi_rack_hijack(void) {
 int uwsgi_rack_mule(char *opt) {
 	int error = 0;
 
-        if (uwsgi_endswith(opt, ".rb")) {
+        if (uwsgi_endswith(opt, (char *)".rb")) {
 		rb_protect( uwsgi_require_file, rb_str_new2(opt), &error ) ;
                 if (error) {
                         uwsgi_ruby_exception();

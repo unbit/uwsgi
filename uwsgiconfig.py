@@ -160,6 +160,21 @@ def build_uwsgi(uc):
                 except:
                     pass
 
+                try:
+                    p_cflags.remove('-Werror=declaration-after-statement')
+                except:
+                    pass
+
+                try:
+                    p_cflags.remove('-g')
+                except:
+                    pass
+
+                try:
+                    p_cflags.remove('-ggdb')
+                except:
+                    pass
+
                 for cfile in up.GCC_LIST:
                     if not cfile.endswith('.a'):
                         compile(' '.join(p_cflags),
@@ -786,6 +801,21 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
 
     try:
         p_cflags.remove('-Wdeclaration-after-statement')
+    except:
+        pass
+
+    try:
+        p_cflags.remove('-Werror=declaration-after-statement')
+    except:
+        pass
+
+    try:
+        p_cflags.remove('-g')
+    except:
+        pass
+
+    try:
+        p_cflags.remove('-ggdb')
     except:
         pass
 
