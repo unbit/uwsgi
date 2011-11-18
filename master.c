@@ -731,9 +731,9 @@ healthy:
 			}
 
 			uwsgi_log( "binary reloading uWSGI...\n");
+			uwsgi_log("chdir() to %s\n", uwsgi.cwd);
 			if (chdir(uwsgi.cwd)) {
 				uwsgi_error("chdir()");
-				exit(1);
 			}
 
 			/* check fd table (a module can obviosly open some fd on initialization...) */
