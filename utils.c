@@ -3151,8 +3151,12 @@ static struct uwsgi_cap uwsgi_cap_list[] = {
 	{ "setfcap", CAP_SETFCAP},
 	{ "mac_override", CAP_MAC_OVERRIDE},
 	{ "mac_admin", CAP_MAC_ADMIN},
+#ifdef CAP_SYSLOG
 	{ "syslog", CAP_SYSLOG},
+#endif
+#ifdef CAP_WAKE_ALARM
 	{ "wake_alarm", CAP_WAKE_ALARM},
+#endif
 	{ NULL, -1}
 };
 
