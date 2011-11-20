@@ -233,35 +233,6 @@ void get_linux_tcp_info(int fd) {
 }
 #endif
 
-void manage_cluster_announce(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
-
-	char *tmpstr;
-	struct uwsgi_cluster_node *ucn = (struct uwsgi_cluster_node *) data;
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
-#endif
-
-	if (!uwsgi_strncmp("hostname", 8, key, keylen)) {
-		strncpy(ucn->nodename, val, UMIN(vallen, 255));
-	}
-
-	if (!uwsgi_strncmp("address", 7, key, keylen)) {
-		strncpy(ucn->name, val, UMIN(vallen, 100));
-	}
-
-	if (!uwsgi_strncmp("workers", 7, key, keylen)) {
-		tmpstr = uwsgi_concat2n(val, vallen, "", 0);
-		ucn->workers = atoi(tmpstr);
-		free(tmpstr);
-	}
-
-	if (!uwsgi_strncmp("requests", 8, key, keylen)) {
-		tmpstr = uwsgi_concat2n(val, vallen, "", 0);
-		ucn->requests = strtoul(tmpstr, NULL, 0);
-		free(tmpstr);
-	}
-}
 
 int master_loop(char **argv, char **environ) {
 

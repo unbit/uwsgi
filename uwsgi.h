@@ -2466,6 +2466,10 @@ void uwsgi_add_app(int, uint8_t, char *, int);
 int uwsgi_signal_send(int, uint8_t);
 int uwsgi_remote_signal_send(char *, uint8_t); 
 
+void uwsgi_configure(void);
+void cluster_setup(void);
+void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
+
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 void uwsgi_linux_ksm_map(void);
