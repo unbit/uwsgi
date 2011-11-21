@@ -217,6 +217,7 @@ static struct option long_base_options[] = {
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 	{"logto2", required_argument, 0, LONG_ARGS_LOGTO2},
 	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1},
+	{"logfile-chmod", required_argument, 0, LONG_ARGS_LOGFILE_CHMOD},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
 	{"log-socket", required_argument, 0, LONG_ARGS_LOG_SOCKET},
 #ifdef UWSGI_ZEROMQ
@@ -3741,6 +3742,23 @@ static int manage_base_opt(int i, char *optarg) {
 			umask_mode = (umask_mode << 3) + (optarg[3] - '0');
 		}
 		umask(umask_mode);
+		return 1;
+	case LONG_ARGS_LOGFILE_CHMOD:
+                if (strlen(optarg) != 3) {
+                	uwsgi_log("invalid chmod value: %s\n", optarg);
+                        exit(1);
+               	}  
+                for (i = 0; i < 3; i++) {
+                	if (optarg[i] < '0' || optarg[i] > '7') {
+                        	uwsgi_log("invalid chmod value: %s\n", optarg);
+                                exit(1);
+                        }
+                }
+
+                uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (optarg[0] - '0');
+                uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (optarg[1] - '0');
+                uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (optarg[2] - '0');
+
 		return 1;
 	case 'C':
 		uwsgi.chmod_socket = 1;

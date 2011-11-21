@@ -542,6 +542,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_SIGNAL_BUFSIZE	17162
 #define LONG_ARGS_SIGNAL		17163
 #define LONG_ARGS_KSM			17164
+#define LONG_ARGS_LOGFILE_CHMOD		17165
 
 
 #define UWSGI_OK	0
@@ -1329,6 +1330,7 @@ struct uwsgi_server {
 	int chmod_socket;
 	char *chown_socket;
 	mode_t chmod_socket_value;
+	mode_t chmod_logfile_value;
 	int listen_queue;
 
 #ifdef UWSGI_XML

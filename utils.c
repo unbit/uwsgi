@@ -247,6 +247,12 @@ void logto(char *logfile) {
 			exit(1);
 		}
 		uwsgi.logfile = logfile;
+
+		if (uwsgi.chmod_logfile_value) {
+			if (chmod(uwsgi.logfile, uwsgi.chmod_logfile_value)) {
+				uwsgi_error("chmod()");
+			}
+		}
 #ifdef UWSGI_UDP
 	}
 #endif
