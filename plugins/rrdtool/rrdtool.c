@@ -46,7 +46,7 @@ int rrdtool_init() {
 
 	if (!u_rrd.max_ds) u_rrd.max_ds = 30;
 
-	uwsgi_log("*** RRDtool library available at %p ***\n", u_rrd.lib);
+	uwsgi_log_initial("*** RRDtool library available at %p ***\n", u_rrd.lib);
 
 	return 0;
 }

@@ -1428,27 +1428,26 @@ int main(int argc, char *argv[], char *envp[]) {
 		uwsgi.binary_path = uwsgi_str(uwsgi.argv[0]);
 	}
 
-	if (!uwsgi.no_initial_output) {
+
 		if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-			uwsgi_log("*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
+			uwsgi_log_initial("*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 		}
 		else {
-			uwsgi_log("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
+			uwsgi_log_initial("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 		}
 
 #ifdef UWSGI_DEBUG
 		uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, please disable debug in your build profile and recompile it ***\n***\n");
 #endif
 
-		uwsgi_log("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
+		uwsgi_log_initial("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
 
 #ifdef __BIG_ENDIAN__
-		uwsgi_log("*** big endian arch detected ***\n");
+		uwsgi_log_initial("*** big endian arch detected ***\n");
 #endif
 
-	}
 
-	uwsgi_log("current working directory: %s\n", uwsgi.cwd);
+	uwsgi_log_initial("current working directory: %s\n", uwsgi.cwd);
 
 	if (uwsgi.screen_session) {
 		uwsgi_log("*** running under screen session %s ***\n", uwsgi.screen_session);
@@ -1467,7 +1466,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		fclose(pidfile);
 	}
 
-	uwsgi_log("detected binary path: %s\n", uwsgi.binary_path);
+	uwsgi_log_initial("detected binary path: %s\n", uwsgi.binary_path);
 
 	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
 	while (shared_sock) {
@@ -1616,11 +1615,9 @@ int uwsgi_start(void *v_argv) {
 		fclose(pidfile2);
 	}
 
-	if (!uwsgi.no_initial_output) {
 		if (!uwsgi.master_process) {
-			uwsgi_log("*** WARNING: you are running uWSGI without its master process manager ***\n");
+			uwsgi_log_initial("*** WARNING: you are running uWSGI without its master process manager ***\n");
 		}
-	}
 #ifndef __OpenBSD__
 
 	if (uwsgi.rl.rlim_max > 0) {
@@ -1645,16 +1642,14 @@ int uwsgi_start(void *v_argv) {
 	}
 	if (!getrlimit(RLIMIT_AS, &uwsgi.rl)) {
 		//check for overflow
-		if (uwsgi.rl.rlim_max != (rlim_t) RLIM_INFINITY && !uwsgi.no_initial_output) {
-			uwsgi_log("your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
+		if (uwsgi.rl.rlim_max != (rlim_t) RLIM_INFINITY) {
+			uwsgi_log_initial("your process address space limit is %lld bytes (%lld MB)\n", (long long) uwsgi.rl.rlim_max, (long long) uwsgi.rl.rlim_max / 1024 / 1024);
 		}
 	}
 #endif
 
 
-	if (!uwsgi.no_initial_output) {
-		uwsgi_log("your memory page size is %d bytes\n", uwsgi.page_size);
-	}
+		uwsgi_log_initial("your memory page size is %d bytes\n", uwsgi.page_size);
 
 	if (uwsgi.buffer_size > 65536) {
 		uwsgi_log("invalid buffer size.\n");

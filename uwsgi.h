@@ -11,6 +11,7 @@ extern "C" {
 #define UMAX64_STR "18446744073709551616"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_log_initial if (!uwsgi.no_initial_output) uwsgi_log
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_req_error(x)  if (wsgi_req->uri_len > 0 && wsgi_req->method_len > 0 && wsgi_req->remote_addr_len > 0) uwsgi_log_verbose("%s: %s [%s line %d] during %.*s %.*s (%.*s)\n", x, strerror(errno), __FILE__, __LINE__,\
@@ -2469,6 +2470,8 @@ int uwsgi_remote_signal_send(char *, uint8_t);
 void uwsgi_configure(void);
 void cluster_setup(void);
 void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
+
+int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE

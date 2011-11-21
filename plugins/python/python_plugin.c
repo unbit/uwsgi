@@ -106,9 +106,9 @@ int uwsgi_python_init() {
 
 #ifndef UWSGI_PYPY
 	char *pyversion = strchr(Py_GetVersion(), '\n');
-        uwsgi_log("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
+        uwsgi_log_initial("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
 #else
-	uwsgi_log("PyPy version: %s\n", PYPY_VERSION);
+	uwsgi_log_initial("PyPy version: %s\n", PYPY_VERSION);
 #endif
 
 #ifndef UWSGI_PYPY
@@ -160,7 +160,7 @@ int uwsgi_python_init() {
         up.reset_ts = simple_reset_ts;
 	
 
-	uwsgi_log("Python main interpreter initialized at %p\n", up.main_thread);
+	uwsgi_log_initial("Python main interpreter initialized at %p\n", up.main_thread);
 
 	return 1;
 

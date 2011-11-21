@@ -470,7 +470,7 @@ void uwsgi_as_root() {
 
 	if (!getuid()) {
 		if (!uwsgi.master_as_root && !uwsgi.uidname) {
-			uwsgi_log("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
+			uwsgi_log_initial("uWSGI running as root, you can use --uid/--gid/--chroot options\n");
 		}
 
 #ifdef UWSGI_CAP
@@ -571,7 +571,7 @@ void uwsgi_as_root() {
 		}
 
 		if (!getuid()) {
-			uwsgi_log("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
+			uwsgi_log_initial("*** WARNING: you are running uWSGI as root !!! (use the --uid flag) *** \n");
 		}
 
 #ifdef UWSGI_CAP

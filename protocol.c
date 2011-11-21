@@ -342,6 +342,58 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 	return ret;
 }
 
+int uwsgi_read_response(int fd, struct uwsgi_header *uh, int timeout, char **buf) {
+
+	char *ptr = (char *) uh;
+	size_t remains = 4;
+	int ret = -1;
+	int rlen;
+	ssize_t len;
+
+	while(remains > 0) {
+                rlen = uwsgi_waitfd(fd, timeout);
+                if (rlen > 0) {
+                        len = read(fd, ptr, remains);
+                        if (len <= 0) break;
+                        remains -= len;
+                        ptr += len;
+                        if (remains == 0) {
+                                ret = uh->modifier2;
+				break;
+                        }
+                        continue;
+                }
+		// timed out ?
+		else if (ret == 0) ret = -2;
+                break;
+        }
+
+	if (buf && uh->pktsize > 0) {
+		*buf = uwsgi_malloc(uh->pktsize);
+		remains = uh->pktsize;
+		ptr = *buf;
+		ret = -1;
+		while(remains > 0) {
+			rlen = uwsgi_waitfd(fd, timeout);
+			if (rlen > 0) {
+				len = read(fd, ptr, remains);
+				if (len <= 0) break;
+				remains -= len;
+				ptr += len;
+				if (remains == 0) {
+					ret = uh->modifier2;
+					break;
+				}
+				continue;
+			}
+			// timed out ?
+			else if (ret == 0) ret = -2;
+			break;
+		}
+	}
+
+	return ret;
+}
 
 int uwsgi_parse_packet(struct wsgi_request *wsgi_req, int timeout) {
 	int rlen;

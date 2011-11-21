@@ -232,8 +232,6 @@ void create_signal_pipe(int *sigpipe) {
 int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
 
 	struct uwsgi_header uh;
-	size_t remains = 4;
-	char *ptr = (char *) &uh;
 
 	uh.modifier1 = 110;
 	uh.pktsize = 0;
@@ -248,26 +246,10 @@ int uwsgi_remote_signal_send(char *addr, uint8_t sig) {
 		return -1;
 	}
 
-	while(remains > 0) {
-		int rlen = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-        	if (rlen > 0) {
-			ssize_t len = read(fd, ptr, remains);	
-			if (len <= 0) {
-				break;
-			}
-			remains -= len;
-			ptr += len;
-			if (remains == 0) {
-				close(fd);
-				return uh.modifier2;
-			}
-			continue;	
-		}
-		break;
-	}
+	int ret = uwsgi_read_response(fd, &uh, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], NULL);
 
 	close(fd);
-	return -1;
+	return ret;
 
 }
 
