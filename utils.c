@@ -1861,6 +1861,41 @@ char *uwsgi_read_fd(int fd, int *size, int add_zero) {
 
 }
 
+char *uwsgi_simple_file_read(char *filename) {
+
+	struct stat sb;
+	int fd = open(filename, O_RDONLY);
+        if (fd < 0) {
+        	uwsgi_error_open(filename);
+		goto end;		
+        }
+
+        if (fstat(fd, &sb)) {
+        	uwsgi_error("fstat()");
+		close(fd);
+		goto end;
+        }
+
+        char *buffer = uwsgi_malloc(sb.st_size+1);
+
+        ssize_t len = read(fd, buffer, sb.st_size);
+        if (len != sb.st_size) {
+        	uwsgi_error("read()");
+		close(fd);
+		goto end;
+        }
+
+        close(fd);
+	if (buffer[sb.st_size-1] == '\n' || buffer[sb.st_size-1] == '\r') {
+		buffer[sb.st_size-1] = 0;
+	}
+	buffer[sb.st_size] = 0;
+	return buffer;
+end:
+	return (char *) "";
+
+}
+
 char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[]) {
 
 	int fd;

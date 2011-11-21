@@ -1369,11 +1369,16 @@ int main(int argc, char *argv[], char *envp[]) {
 		uct = uct->next;
 	}
 
-	// second pass
+	// second pass: ENVs
+	uwsgi_apply_config_pass('$', (char *(*)(char *))getenv);
+
+	// third pass: FILEs
+	uwsgi_apply_config_pass('@', uwsgi_simple_file_read);
+
+	// last pass: REFERENCEs
 	uwsgi_apply_config_pass('%', uwsgi_get_exported_opt);
 
-	// third pass: ENVs
-	uwsgi_apply_config_pass('$', (char *(*)(char *))getenv);
+
 
 
 
