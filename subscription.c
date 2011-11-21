@@ -14,7 +14,11 @@
 	This system is not mean to run on shared memory. If you have multiple processes for the same app, you have to create
 	a new subscriptions slot list.
 
+	To avoid removal of already using nodes, a reference count system has been implemented
+
 */
+
+extern struct uwsgi_server uwsgi;
 
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
 
@@ -72,23 +76,61 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 	if (current_slot) {
 		// node found, move up in the list increasing hits
 		current_slot->hits++;
+		time_t current = time(NULL);
 		struct uwsgi_subscribe_node *node = current_slot->nodes;
-		while(node) {
+		while(current_slot && node) {
+			// is the node alive ?
+			if (current - node->last_check > 10) {
+				node->death_mark = 1;
+			}
+			if (node->death_mark && node->reference == 0) {
+				// remove the node and move to next
+				struct uwsgi_subscribe_node *dead_node = node;
+				node = node->next;
+				// if the slot has been removed, return NULL;
+				if (uwsgi_remove_subscribe_node(slot, dead_node) == 1) {
+					return NULL;
+				}
+				continue;
+			}
 			if (rr_pos == current_slot->rr) {
 				current_slot->rr++;
+				node->reference++;
 				return node;
 			}
 			node = node->next;
 			rr_pos++;
 		}
 		current_slot->rr = 0;
+		if (current_slot->nodes) {
+			current_slot->nodes->reference++;
+		}
 		return current_slot->nodes;
 	}
 
 	return NULL;
 }
 
-void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_node *node) {
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, char *val, uint16_t vallen, int regexp) {
+
+	if (keylen > 0xff) return NULL;
+	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, key, keylen, regexp);
+	if (current_slot) {
+		struct uwsgi_subscribe_node *node = current_slot->nodes;
+		while(node) {
+			if (!uwsgi_strncmp(val, vallen, node->name, node->len)) {
+				return node;
+			}			
+			node = node->next;
+		}
+	}
+
+	return NULL;
+}
+
+int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_node *node) {
+
+	int ret = 0;
 
 	struct uwsgi_subscribe_node *a_node;
 	struct uwsgi_subscribe_slot *node_slot = node->slot;
@@ -132,12 +174,15 @@ void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsg
 		}
 #endif
 
+		ret = 1;
 		free(node_slot);
 		// am i the only slot ?
 		if (!prev_slot && !next_slot) {
 			*slot = NULL;
 		}
 	}
+
+	return ret;
 }
 
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_req *usr, int regexp) {
@@ -151,6 +196,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node = current_slot->nodes;
 		while(node) {
                         if (!uwsgi_strncmp(node->name, node->len, usr->address, usr->address_len)) {
+				// remove death mark
+				node->death_mark = 0;
                                 node->last_check = time(NULL);
                                 return node;
                         }
@@ -162,6 +209,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->len = usr->address_len;
 		node->modifier1 = usr->modifier1;
 		node->modifier2 = usr->modifier2;
+		node->reference = 0;
+		node->death_mark = 0;
 		node->last_check = time(NULL);
 		node->slot = current_slot;
                 memcpy(node->name, usr->address, usr->address_len);
@@ -195,6 +244,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes = uwsgi_malloc(sizeof(struct uwsgi_subscribe_node));
 		current_slot->nodes->slot = current_slot;
 		current_slot->nodes->len = usr->address_len;
+		current_slot->nodes->reference = 0;
+		current_slot->nodes->death_mark = 0;
 		current_slot->nodes->modifier1 = usr->modifier1;
 		current_slot->nodes->modifier2 = usr->modifier2;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
@@ -271,4 +322,60 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 }
 
+
+void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, char *modifier1, size_t modifier1_len, uint8_t cmd) {
+
+	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(uwsgi.sockets->name));
+
+	if (modifier1) {
+		ssb_size += (2 + 9) + (2 + modifier1_len);
+	}
+
+        char *subscrbuf = uwsgi_malloc(ssb_size);
+	// leave space for uwsgi header
+        char *ssb = subscrbuf+4;
+
+	// key = "domain"
+        uint16_t ustrlen = 3;
+        *ssb++ = (uint8_t) (ustrlen  & 0xff);
+        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        memcpy(ssb, "key", ustrlen);
+        ssb+=ustrlen;
+
+        ustrlen = keysize;
+        *ssb++ = (uint8_t) (ustrlen  & 0xff);
+        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        memcpy(ssb, key, ustrlen);
+        ssb+=ustrlen;
+
+	// address = "first uwsgi socket"
+        ustrlen = 7;
+        *ssb++ = (uint8_t) (ustrlen  & 0xff);
+        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        memcpy(ssb, "address", ustrlen);
+        ssb+=ustrlen;
+
+        ustrlen = strlen(uwsgi.sockets->name);
+        *ssb++ = (uint8_t) (ustrlen  & 0xff);
+        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        memcpy(ssb, uwsgi.sockets->name, ustrlen);
+        ssb+=ustrlen;
+
+	// modifier1 = "modifier1"
+        if (modifier1) {
+                ustrlen = 9;
+                *ssb++ = (uint8_t) (ustrlen  & 0xff);
+                *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                memcpy(ssb, "modifier1", ustrlen);
+                ssb+=ustrlen;
+
+                ustrlen = modifier1_len;
+                *ssb++ = (uint8_t) (ustrlen  & 0xff);
+                *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                memcpy(ssb, modifier1, ustrlen);
+                ssb+=ustrlen;
+        }
+
+        send_udp_message(224, cmd, udp_address, subscrbuf, ssb_size-4);
+}
 

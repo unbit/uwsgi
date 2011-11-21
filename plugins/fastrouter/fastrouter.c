@@ -73,6 +73,17 @@ struct uwsgi_fastrouter {
 	int i_am_cheap;
 } ufr;
 
+static void fastrouter_go_cheap(void) {
+
+	uwsgi_log("[uwsgi-fastrouter] no more nodes available. Going cheap...\n");
+        struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
+        while(ufr_sock) {
+        	event_queue_del_fd(ufr.queue, ufr_sock->fd, event_queue_read());
+                ufr_sock = ufr_sock->next;
+        }
+        ufr.i_am_cheap = 1;
+}
+
 
 static struct uwsgi_fastrouter_socket *uwsgi_fastrouter_new_socket(char *name) {
 
@@ -165,41 +176,28 @@ struct fastrouter_session {
 
 static void close_session(struct fastrouter_session **fr_table, struct fastrouter_session *fr_session) {
 
-	// check timeout expired
-	if (fr_session == NULL) {
-		if (ufr.subscription_server) {
-			//time_t current_time = time(NULL);
-			uwsgi_log("checking for node health\n");
-			struct uwsgi_subscribe_slot *slot = ufr.subscriptions;
-			while(slot) {
-				struct uwsgi_subscribe_node *node = slot->nodes;
-				while(node) {
-					uwsgi_log("%.*s (hits: %llu) %.*s\n", slot->keylen, slot->key, slot->hits, node->len, node->name);
-					node = node->next;
-				}
-				slot = slot->next;
-			}
-			del_check_timeout(ufr.subscriptions_check);
-			ufr.subscriptions_check = add_check_timeout(10);
-		}
-		return;
-	}
-
 	close(fr_session->fd);
 	fr_table[fr_session->fd] = NULL;
 	if (fr_session->instance_fd != -1) {
-		if (ufr.subscriptions && (fr_session->instance_failed || fr_session->status == FASTROUTER_STATUS_CONNECTING)) {
-			if (fr_session->un && fr_session->un->len > 0) {
-				uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
-                        	uwsgi_remove_subscribe_node(&ufr.subscriptions, fr_session->un);
+		if (ufr.subscriptions && fr_session->un && fr_session->un->len > 0) {
+			// decrease reference count
+#ifdef UWSGI_DEBUG
+			uwsgi_log("[1] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
+#endif
+			fr_session->un->reference--;
+#ifdef UWSGI_DEBUG
+			uwsgi_log("[2] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
+#endif
+			if (fr_session->instance_failed || fr_session->status == FASTROUTER_STATUS_CONNECTING) {
+				if (fr_session->un->death_mark == 0)
+					uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
+				fr_session->un->death_mark = 1;
+				// check if i can remove the node
+				if (fr_session->un->reference == 0) {
+                        		uwsgi_remove_subscribe_node(&ufr.subscriptions, fr_session->un);
+				}
                                 if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
-                                	uwsgi_log("[uwsgi-fastrouter] no more nodes available. Going cheap...\n");
-                                        struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
-                                        while(ufr_sock) {
-                                        	event_queue_del_fd(ufr.queue, ufr_sock->fd, event_queue_read());
-                                                ufr_sock = ufr_sock->next;
-                                        }
-					ufr.i_am_cheap = 1;
+					fastrouter_go_cheap();
                                 }
 
 			}
@@ -437,15 +435,34 @@ void fastrouter_loop() {
 				if (len > 0) {
 					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 					uwsgi_hooked_parse(bbuf+4, len-4, fastrouter_manage_subscription, &usr);
-					if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, ufr.subscription_regexp) && ufr.i_am_cheap) {
-						struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
-                                                while(ufr_sock) {
-                                                	event_queue_add_fd_read(ufr.queue, ufr_sock->fd);
-                                                        ufr_sock = ufr_sock->next;
-                                                }
-						ufr.i_am_cheap = 0;
-						uwsgi_log("[uwsgi-fastrouter] leaving cheap mode...\n");	
+					// subscribe request ?
+					if (bbuf[3] == 0) {
+						if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, ufr.subscription_regexp) && ufr.i_am_cheap) {
+							struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
+                                                	while(ufr_sock) {
+                                                		event_queue_add_fd_read(ufr.queue, ufr_sock->fd);
+                                                        	ufr_sock = ufr_sock->next;
+                                                	}
+							ufr.i_am_cheap = 0;
+							uwsgi_log("[uwsgi-fastrouter] leaving cheap mode...\n");	
+						}
 					}
+					//unsubscribe 
+					else {
+						struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ufr.subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ufr.subscription_regexp);	
+						if (node && node->len) {
+							if (node->death_mark == 0)
+								uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
+							node->death_mark = 1;
+                                			// check if i can remove the node
+                                			if (node->reference == 0) {
+                                        			uwsgi_remove_subscribe_node(&ufr.subscriptions, node);
+                                			}
+                                			if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
+								fastrouter_go_cheap();
+                                			}
+						}
+					}	
 				}
 			}
 			else {
@@ -524,6 +541,9 @@ void fastrouter_loop() {
 									fr_session->instance_address_len = fr_session->un->len;
 									fr_session->modifier1 = fr_session->un->modifier1;
 								}
+								else if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
+									fastrouter_go_cheap();
+                                				}
 							}
 							else if (ufr.base) {
 								tmp_socket_name = uwsgi_concat2nn(ufr.base, ufr.base_len, fr_session->hostname, fr_session->hostname_len, &tmp_socket_name_len);
@@ -558,23 +578,6 @@ void fastrouter_loop() {
 							if (tmp_socket_name) free(tmp_socket_name);
 
 							if (fr_session->instance_fd < 0) {
-								/*
-								if (ufr.subscription_server) {
-									if (fr_session->un && fr_session->un->len > 0) { 
-	                                                        		uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
-                                						uwsgi_remove_subscribe_node(&ufr.subscriptions, fr_session->un);	 
-										if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
-											uwsgi_log("[uwsgi-fastrouter] no more nodes available. Going cheap...\n");
-											struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;	
-											while(ufr_sock) {
-												event_queue_del_fd(ufr.queue, ufr_sock->fd, event_queue_read());	
-												ufr_sock = ufr_sock->next;
-											}
-											ufr.i_am_cheap = 1;
-										}
-                        						}
-	                                                        }
-								*/
 								fr_session->instance_failed = 1;
 								close_session(fr_table, fr_session);
                                                         	break;

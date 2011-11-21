@@ -523,6 +523,15 @@ void kill_them_all(int signum) {
 	}
 
 	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
+
+	// unsubscribe if needed
+	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+        while(subscriptions) {
+                uwsgi_subscribe(subscriptions->value, 1);
+                subscriptions = subscriptions->next;
+        }
+
+
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0)
 			kill(uwsgi.workers[i].pid, SIGINT);
@@ -608,6 +617,14 @@ void grace_them_all(int signum) {
 
 
 	uwsgi_log("...gracefully killing workers...\n");
+
+	// unsubscribe if needed
+	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+        while(subscriptions) {
+                uwsgi_subscribe(subscriptions->value, 1);
+                subscriptions = subscriptions->next;
+        }
+
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.auto_snapshot) {
 			if (uwsgi.workers[i].snapshot > 0) {
@@ -689,6 +706,14 @@ void reap_them_all(int signum) {
 		return;
 
 	uwsgi_log("...brutally killing workers...\n");
+
+	// unsubscribe if needed
+	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+        while(subscriptions) {
+                uwsgi_subscribe(subscriptions->value, 1);
+                subscriptions = subscriptions->next;
+        }
+
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0)
 			kill(uwsgi.workers[i].pid, SIGTERM);
@@ -2963,7 +2988,7 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 #ifdef UWSGI_UDP
 	case LONG_ARGS_CLUSTER_RELOAD:
-		send_udp_message(98, optarg, "", 0);
+		send_udp_message(98, 0, optarg, NULL, 0);
 		break;
 	case LONG_ARGS_CLUSTER_LOG:
 		uwsgi_stdin_sendto(optarg, 96, 0);
@@ -4013,8 +4038,9 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 
 	char buf[4096];
 	ssize_t rlen;
-	size_t delta = 4096;
-	char *ptr = buf;
+	size_t delta = 4096-4;
+	// leave space for uwsgi header
+	char *ptr = buf+4;
 
 	rlen = read(0, ptr, delta);
 	while (rlen > 0) {
@@ -4026,9 +4052,9 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 		rlen = read(0, ptr, delta);
 	}
 
-	if (ptr > buf) {
-		send_udp_message(modifier1, socket_name, buf, ptr - buf);
-		uwsgi_log("sent string \"%.*s\" to cluster node %s", ptr - buf, buf, socket_name);
+	if (ptr > buf+4) {
+		send_udp_message(modifier1, modifier2, socket_name, buf, (ptr - buf)-4);
+		uwsgi_log("sent string \"%.*s\" to cluster node %s", (ptr - buf)-4, buf+4, socket_name);
 	}
 
 }

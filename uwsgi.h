@@ -1857,7 +1857,7 @@ uint64_t uwsgi_swap64(uint64_t);
 #endif
 
 #ifdef UWSGI_UDP
-ssize_t send_udp_message(uint8_t, char *, char *, uint16_t);
+ssize_t send_udp_message(uint8_t, uint8_t, char *, char *, uint16_t);
 #endif
 
 int uwsgi_parse_packet(struct wsgi_request *, int);
@@ -2428,6 +2428,9 @@ struct uwsgi_subscribe_node {
 	uint64_t requests;
 	uint64_t transferred;
 
+	int death_mark;
+	uint64_t reference;
+
 	struct uwsgi_subscribe_slot *slot;
 
         struct uwsgi_subscribe_node *next;
@@ -2458,8 +2461,9 @@ void mule_send_msg(int, char *, size_t);
 
 void create_signal_pipe(int *);
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **, char *, uint16_t, int);
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **, char *, uint16_t, char *, uint16_t, int);
 struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **, char *, uint16_t, int);
-void uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_node *);
+int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_node *);
 struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **, struct uwsgi_subscribe_req *, int);
 
 ssize_t uwsgi_mule_get_msg(int, int, char *, size_t, int);
@@ -2475,6 +2479,10 @@ void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
 
 int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
+
+void uwsgi_send_subscription(char *, char *, size_t , char *, size_t, uint8_t);
+
+void uwsgi_subscribe(char *, uint8_t);
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE

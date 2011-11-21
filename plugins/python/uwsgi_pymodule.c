@@ -1942,13 +1942,18 @@ PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_multicast(PyObject * self, PyObject * args) {
 
 	char *host, *message;
+	Py_ssize_t message_len;
 	ssize_t ret;
+	char *uwsgi_message;
 
-	if (!PyArg_ParseTuple(args, "ss:send_multicast_message", &host, &message)) {
+	if (!PyArg_ParseTuple(args, "ss#:send_multicast_message", &host, &message, &message_len)) {
 		return NULL;
 	}
 
-	ret = send_udp_message(UWSGI_MODIFIER_MULTICAST, host, message, strlen(message));
+	uwsgi_message = uwsgi_malloc(message_len+4);
+	memcpy(uwsgi_message+4, message, message_len);
+	ret = send_udp_message(UWSGI_MODIFIER_MULTICAST, 0, host, uwsgi_message, message_len);
+	free(uwsgi_message);
 
 	if (ret <= 0) {
 		Py_INCREF(Py_None);

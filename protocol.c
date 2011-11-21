@@ -123,16 +123,21 @@ time_t parse_http_date(char *date, uint16_t len) {
 }
 
 #ifdef UWSGI_UDP
-ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t message_size) {
+ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char *message, uint16_t message_size) {
 
 	int fd;
 	struct sockaddr_in udp_addr;
 	char *udp_port;
 	ssize_t ret;
-	char udpbuff[1024];
 
-	if (message_size + 4 > 1024)
-		return -1;
+	struct uwsgi_header *uh;
+
+	if (message) {
+		uh = (struct uwsgi_header *) message;
+	}
+	else {
+		uh = (struct uwsgi_header *) uwsgi_malloc(4);
+	}
 
 	udp_port = strchr(host, ':');
 	if (udp_port == NULL) {
@@ -152,28 +157,25 @@ ssize_t send_udp_message(uint8_t modifier1, char *host, char *message, uint16_t 
 	udp_addr.sin_port = htons(atoi(udp_port+1));
 	udp_addr.sin_addr.s_addr = inet_addr(host);
 
-	udpbuff[0] = modifier1;
+	uh->modifier1 = modifier1;
 #ifdef __BIG_ENDIAN__
-	message_size = uwsgi_swap16(message_size);
+	uh->pktsize = uwsgi_swap16(message_size);
+#else
+	uh->pktsize = message_size;
 #endif
+	uh->modifier2 = modifier2;
 
-	memcpy(udpbuff+1, &message_size, 2);
-
-	udpbuff[3] = 0;
-
-#ifdef __BIG_ENDIAN__
-	message_size = uwsgi_swap16(message_size);
-#endif
-
-	memcpy(udpbuff+4, message, message_size);
-
-	ret = sendto(fd, udpbuff, message_size+4, 0, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
+	ret = sendto(fd, (char *) uh, message_size+4, 0, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
 	if (ret < 0) {
 		uwsgi_error("sendto()");
 	}
 	close(fd);
 
 	udp_port[0] = ':';
+
+	if ((char *)uh != message) {
+		free(uh);
+	}
 
 	return ret;
 	

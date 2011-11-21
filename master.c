@@ -67,56 +67,7 @@ void expire_rb_timeouts(struct rb_root *root) {
         }
 }
 
-void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, char *modifier1, size_t modifier1_len) {
-	char *ssb;
-	char subscrbuf[4096];
-
-	uint16_t ustrlen;
-
-	ssb = subscrbuf;
-
-        ustrlen = 3;
-        *ssb++ = (uint8_t) (ustrlen  & 0xff);
-        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, "key", ustrlen);
-        ssb+=ustrlen;
-
-        ustrlen = keysize;
-        *ssb++ = (uint8_t) (ustrlen  & 0xff);
-        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, key, ustrlen);
-        ssb+=ustrlen;
-
-        ustrlen = 7;
-        *ssb++ = (uint8_t) (ustrlen  & 0xff);
-        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, "address", ustrlen);
-        ssb+=ustrlen;
-
-        ustrlen = strlen(uwsgi.sockets->name);
-        *ssb++ = (uint8_t) (ustrlen  & 0xff);
-        *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, uwsgi.sockets->name, ustrlen);
-        ssb+=ustrlen;
-
-	if (modifier1) {
-		ustrlen = 9;
-        	*ssb++ = (uint8_t) (ustrlen  & 0xff);
-        	*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        	memcpy(ssb, "modifier1", ustrlen);
-        	ssb+=ustrlen;
-
-        	ustrlen = modifier1_len;
-        	*ssb++ = (uint8_t) (ustrlen  & 0xff);
-        	*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        	memcpy(ssb, modifier1, ustrlen);
-        	ssb+=ustrlen;
-	}
-
-        send_udp_message(224, udp_address, subscrbuf, ssb-subscrbuf);
-}
-
-void uwsgi_subscribe(char *subscription) {
+void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 
 	int subfile_size;
 	int i;
@@ -149,7 +100,7 @@ void uwsgi_subscribe(char *subscription) {
                         					modifier1_len = strlen(modifier1);
 								keysize = strlen(key);
                 					}
-							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len);
+							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len, cmd);
 							modifier1 = NULL;
 							modifier1_len = 0;
 						}
@@ -167,7 +118,7 @@ void uwsgi_subscribe(char *subscription) {
                         					modifier1_len = strlen(modifier1);
 								keysize = strlen(key);
                 					}
-							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len);
+							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len, cmd);
 							modifier1 = NULL;
 							modifier1_len = 0;
 							lines[i] = '\n';
@@ -191,7 +142,7 @@ void uwsgi_subscribe(char *subscription) {
 			modifier1_len = strlen(modifier1);
 		}
 
-		uwsgi_send_subscription(udp_address, subscription_key+1, strlen(subscription_key+1), modifier1, modifier1_len);
+		uwsgi_send_subscription(udp_address, subscription_key+1, strlen(subscription_key+1), modifier1, modifier1_len, cmd);
 		if (modifier1)
 			modifier1[-1] = ',';
 	}
@@ -506,7 +457,7 @@ int master_loop(char **argv, char **environ) {
 	// first subscription
 	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
 	while(subscriptions) {
-		uwsgi_subscribe(subscriptions->value);
+		uwsgi_subscribe(subscriptions->value, 0);
 		subscriptions = subscriptions->next;
 	}
 
@@ -1424,7 +1375,7 @@ healthy:
 			if (uwsgi.subscriptions && ((uwsgi.master_cycles % 10) == 0 || uwsgi.master_cycles == 1)) {
 				struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
 				while(subscriptions) {
-					uwsgi_subscribe(subscriptions->value);
+					uwsgi_subscribe(subscriptions->value, 0);
 					subscriptions = subscriptions->next;
 				}
 			}
