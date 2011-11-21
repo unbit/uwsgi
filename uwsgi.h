@@ -543,6 +543,8 @@ struct uwsgi_opt {
 #define LONG_ARGS_SIGNAL		17163
 #define LONG_ARGS_KSM			17164
 #define LONG_ARGS_LOGFILE_CHMOD		17165
+#define LONG_ARGS_SUBSCRIBE_FREQ	17166
+#define LONG_ARGS_SUBSCR_TOLERANCE	17167
 
 
 #define UWSGI_OK	0
@@ -1527,6 +1529,8 @@ struct uwsgi_server {
 	int startup_daemons_cnt;
 
 	// subscription client
+	int subscribe_freq;
+	int subscription_tolerance;
 	struct uwsgi_string_list *subscriptions;
 
 #ifdef __linux__

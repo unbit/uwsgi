@@ -204,6 +204,9 @@ static struct option long_base_options[] = {
 	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG},
 #endif
 	{"subscribe-to", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
+	{"subscribe", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
+	{"subscribe-freq", required_argument, 0, LONG_ARGS_SUBSCRIBE_FREQ},
+	{"subscription-tolerance", required_argument, 0, LONG_ARGS_SUBSCR_TOLERANCE},
 #ifdef UWSGI_SNMP
 	{"snmp", optional_argument, 0, LONG_ARGS_SNMP},
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
@@ -1071,6 +1074,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.emperor_fd_config = -1;
 	uwsgi.emperor_throttle = 1000;
 	uwsgi.emperor_pid = -1;
+
+	uwsgi.subscribe_freq = 10;
+	uwsgi.subscription_tolerance = 17;
 
 	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
@@ -3396,6 +3402,12 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_SUBSCRIBE_TO:
 		uwsgi.master_process = 1;
 		uwsgi_string_new_list(&uwsgi.subscriptions, optarg);
+		return 1;
+	case LONG_ARGS_SUBSCR_TOLERANCE:
+		uwsgi.subscription_tolerance = atoi(optarg);
+		return 1;
+	case LONG_ARGS_SUBSCRIBE_FREQ:
+		uwsgi.subscribe_freq = atoi(optarg);
 		return 1;
 #ifdef __linux__
 	case LONG_ARGS_CGROUP:

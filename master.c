@@ -1371,8 +1371,8 @@ healthy:
 				uwsgi_cluster_add_me();
 			}
 
-			// resubscribe every 10 cycles
-			if (uwsgi.subscriptions && ((uwsgi.master_cycles % 10) == 0 || uwsgi.master_cycles == 1)) {
+			// resubscribe every 10 cycles by default
+			if (uwsgi.subscriptions && ((uwsgi.master_cycles % uwsgi.subscribe_freq) == 0 || uwsgi.master_cycles == 1)) {
 				struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
 				while(subscriptions) {
 					uwsgi_subscribe(subscriptions->value, 0);

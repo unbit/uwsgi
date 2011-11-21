@@ -20,6 +20,7 @@
 #define LONG_ARGS_FASTROUTER_TIMEOUT			150006
 #define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT		150007
 #define LONG_ARGS_FASTROUTER_USE_CODE_STRING		150008
+#define LONG_ARGS_FASTROUTER_TOLERANCE			150009
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -71,6 +72,8 @@ struct uwsgi_fastrouter {
 
 	int cheap;
 	int i_am_cheap;
+
+	int tolerance;
 } ufr;
 
 static void fastrouter_go_cheap(void) {
