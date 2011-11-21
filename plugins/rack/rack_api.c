@@ -6,6 +6,26 @@ extern struct uwsgi_rack ur;
 
 #define uwsgi_rack_api(x, y, z) rb_define_module_function(rb_uwsgi_embedded, x, y, z)
 
+VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
+
+	Check_Type(rbmessage, T_STRING);
+        char *message = RSTRING_PTR(rbmessage);
+	size_t len = RSTRING_LEN(rbmessage);
+
+        if (len > 80) {
+                uwsgi_log("- warning message must be max 80 chars, it will be truncated -");
+                memcpy(uwsgi.shared->warning_message, message, 80);
+                uwsgi.shared->warning_message[80] = 0;
+        }
+        else {
+                memcpy(uwsgi.shared->warning_message, message, len);
+                uwsgi.shared->warning_message[len] = 0;
+        }
+
+        return Qnil;
+}
+
+
 VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
 
 	Check_Type(rbname, T_STRING);
@@ -689,6 +709,8 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("worker_id", rack_uwsgi_worker_id, 0);
         uwsgi_rack_api("mule_id", rack_uwsgi_mule_id, 0);
         uwsgi_rack_api("logsize", rack_uwsgi_logsize, 0);
+
+        uwsgi_rack_api("set_warning_message", rack_uwsgi_warning, 1);
 
 	
 
