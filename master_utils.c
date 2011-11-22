@@ -179,30 +179,13 @@ void uwsgi_manage_signal_cron(time_t now) {
 				uc_hour = uwsgi_cron_delta->tm_hour;
 			if (ucron->month == -1)
 				uc_month = uwsgi_cron_delta->tm_mon;
+			if (ucron->day == -1)
+				uc_day = uwsgi_cron_delta->tm_mday;
+			if (ucron->week == -1)
+				uc_week = uwsgi_cron_delta->tm_wday;
 
 			// mday and wday are ORed
-			if (ucron->day == -1 && ucron->week == -1) {
-				if (ucron->day == -1)
-					uc_day = uwsgi_cron_delta->tm_mday;
-				if (ucron->week == -1)
-					uc_week = uwsgi_cron_delta->tm_wday;
-			}
-			else if (ucron->day == -1) {
-				ucron->day = uwsgi_cron_delta->tm_mday;
-			}
-			else if (ucron->week == -1) {
-				ucron->week = uwsgi_cron_delta->tm_wday;
-			}
-			else {
-				if (ucron->day == uwsgi_cron_delta->tm_mday) {
-					ucron->week = uwsgi_cron_delta->tm_wday;
-				}
-				else if (ucron->week == uwsgi_cron_delta->tm_wday) {
-					ucron->day = uwsgi_cron_delta->tm_mday;
-				}
-			}
-
-			if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && uwsgi_cron_delta->tm_mday == uc_day && uwsgi_cron_delta->tm_wday == uc_week) {
+			if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
 
 
 				// date match, signal it ?
@@ -252,30 +235,13 @@ void uwsgi_manage_command_cron(time_t now) {
 			uc_hour = uwsgi_cron_delta->tm_hour;
 		if (current_cron->month == -1)
 			uc_month = uwsgi_cron_delta->tm_mon;
+		if (current_cron->day == -1)
+			uc_day = uwsgi_cron_delta->tm_mday;
+		if (current_cron->week == -1)
+			uc_week = uwsgi_cron_delta->tm_wday;
 
-		// mday and wday are ORed
-		if (current_cron->day == -1 && current_cron->week == -1) {
-			if (current_cron->day == -1)
-				uc_day = uwsgi_cron_delta->tm_mday;
-			if (current_cron->week == -1)
-				uc_week = uwsgi_cron_delta->tm_wday;
-		}
-		else if (current_cron->day == -1) {
-			current_cron->day = uwsgi_cron_delta->tm_mday;
-		}
-		else if (current_cron->week == -1) {
-			current_cron->week = uwsgi_cron_delta->tm_wday;
-		}
-		else {
-			if (current_cron->day == uwsgi_cron_delta->tm_mday) {
-				current_cron->week = uwsgi_cron_delta->tm_wday;
-			}
-			else if (current_cron->week == uwsgi_cron_delta->tm_wday) {
-				current_cron->day = uwsgi_cron_delta->tm_mday;
-			}
-		}
-
-		if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && uwsgi_cron_delta->tm_mday == uc_day && uwsgi_cron_delta->tm_wday == uc_week) {
+		// week and day are ored
+		if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
 
 
 			// date match, run command ?
