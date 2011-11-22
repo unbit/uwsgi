@@ -204,6 +204,7 @@ static struct option long_base_options[] = {
 	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG},
 #endif
 	{"subscribe-to", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
+	{"st", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
 	{"subscribe", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
 	{"subscribe-freq", required_argument, 0, LONG_ARGS_SUBSCRIBE_FREQ},
 	{"subscription-tolerance", required_argument, 0, LONG_ARGS_SUBSCR_TOLERANCE},
