@@ -99,7 +99,7 @@ def compile(cflags, objfile, srcfile):
     except:
         pass
     cmdline = "%s -c %s -o %s %s" % (GCC, cflags, objfile, srcfile)
-    print(cmdline)
+    print("[%s] %s" % (GCC, objfile))
     ret = os.system(cmdline)
     if ret != 0:
         sys.exit(1)
@@ -125,6 +125,8 @@ def build_uwsgi(uc):
 
         cflags.append(epc)
         cflags.append(eplc)
+
+    print("configured CFLAGS: %s" % ' '.join(cflags))
 
     print("*** uWSGI compiling server core ***")
     for file in gcc_list:
@@ -803,7 +805,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     #    gcc_list.insert(0,ofile)
 
     gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), ' '.join(gcc_list), ' '.join(p_libs) )
-    print(gccline)
+    print("[%s] %s.so" % (GCC, plugin_dest))
 
     ret = os.system(gccline)
     if ret != 0:
@@ -854,6 +856,7 @@ if __name__ == "__main__":
             name = sys.argv[4]
         except:
             name = None
+        print("*** uWSGI building and linking plugin %s ***" % sys.argv[2] )
         build_plugin(sys.argv[2], uc, cflags, ldflags, libs, name)
     elif cmd == '--clean':
         os.system("rm -f *.o")
