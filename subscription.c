@@ -81,6 +81,8 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 		while(current_slot && node) {
 			// is the node alive ?
 			if (current - node->last_check > uwsgi.subscription_tolerance) {
+				if (node->death_mark == 0)
+					uwsgi_log("[uwsgi-subscription] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
 				node->death_mark = 1;
 			}
 			if (node->death_mark && node->reference == 0) {
