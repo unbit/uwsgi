@@ -944,7 +944,7 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 	int i;
 	int env_count = 0;
 
-	uwsgi.argv = uwsgi_malloc( sizeof(char *) * argc);
+	uwsgi.argv = uwsgi_malloc( sizeof(char *) * (argc+1));
 
 	for(i=0;i<argc;i++) {
 		if (i==0 || argv[0] + uwsgi.max_procname + 1 == argv[i]) {
@@ -953,6 +953,8 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 		uwsgi.argv[i] = strdup(argv[i]);
 	}
 
+	// required by execve
+	uwsgi.argv[i+1] = NULL;
 	
 	uwsgi.max_procname++;
 
