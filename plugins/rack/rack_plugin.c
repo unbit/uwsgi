@@ -346,6 +346,11 @@ static VALUE send_body(VALUE obj) {
 	return Qnil;
 }
 
+VALUE body_to_path(VALUE body) {
+        return rb_funcall( body, rb_intern("to_path"), 0);
+}
+
+
 VALUE close_body(VALUE body) {
 	return rb_funcall( body, rb_intern("close"), 0);
 }
@@ -610,20 +615,24 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		body = RARRAY_PTR(ret)[2] ;
 
-		// TODO protect to_path and close
+		// TODO protect to_path
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
-			VALUE sendfile_path = rb_funcall( body, rb_intern("to_path"), 0);
-			wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
-			wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
-			if (wsgi_req->response_size > 0) {
-				while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
-					//uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
-					wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
-				}
+			VALUE sendfile_path = rb_protect( body_to_path, body, &error);
+			if (error) {
+				uwsgi_ruby_exception();
 			}
-			rb_gc_unregister_address(&sendfile_path);
-
+			else {
+				wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
+				wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
+				if (wsgi_req->response_size > 0) {
+					while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
+						//uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
+						wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+					}
+				}
+				rb_gc_unregister_address(&sendfile_path);
+			}
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {
 			rb_protect( iterate_body, body, &error);
@@ -634,7 +643,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		if (rb_respond_to( body, rb_intern("close") )) {
 			//uwsgi_log("calling close\n");
-			error = 0;
 			rb_protect( close_body, body, &error);
 			if (error) {
                                 uwsgi_ruby_exception();
@@ -715,6 +723,44 @@ void uwsgi_rack_resume(struct wsgi_request *wsgi_req) {
 	uwsgi_log("RESUMING RUBY\n");
 }
 
+#ifdef RUBY19
+VALUE uwsgi_call_block(VALUE body, VALUE block) {
+
+	return rb_funcall(block, rb_intern("call"), 1, body );
+}
+
+VALUE uwsgi_rack_patch_body_proxy_each(int argc, VALUE *argv, VALUE self) {
+
+	VALUE block = Qnil;
+	rb_scan_args(argc, argv, "0&", &block);
+
+	if(!RTEST(block)) {
+		rb_raise(rb_eArgError, "a block is required");
+		return Qnil;
+	}
+
+	VALUE original_body = rb_iv_get(self, "@body");
+	if (original_body != Qnil) {
+		return rb_block_call(original_body, rb_intern("each"), 0, 0, uwsgi_call_block, block);
+	}
+
+	return Qnil;
+}
+
+VALUE uwsgi_rack_patch_body_proxy(VALUE foo) {
+
+	VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
+	VALUE rack_body_proxy = rb_const_get(rack, rb_intern("BodyProxy"));	
+
+	if (!rb_respond_to(rack_body_proxy, rb_intern("each"))) {
+		rb_define_method(rack_body_proxy, "each", uwsgi_rack_patch_body_proxy_each, -1);
+		return Qtrue;
+	}
+
+	return Qnil;
+}
+#endif
+
 VALUE init_rack_app( VALUE script ) {
 
 	int error;
@@ -729,6 +775,14 @@ VALUE init_rack_app( VALUE script ) {
         }
 
         VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
+
+#ifdef RUBY19
+	VALUE ret = rb_protect(uwsgi_rack_patch_body_proxy, rack, &error);
+	if (!error && ret != Qnil) {
+		uwsgi_log("Rack::BodyProxy successfully patched for ruby 1.9.x\n");
+	}
+#endif
+
         VALUE rackup = rb_funcall( rb_const_get(rack, rb_intern("Builder")), rb_intern("parse_file"), 1, script);
         if (TYPE(rackup) != T_ARRAY) {
         	uwsgi_log("unable to parse %s file\n", RSTRING_PTR(script));
