@@ -62,7 +62,6 @@ struct uwsgi_rack {
         VALUE rb_uwsgi_io_class;
         ID call;
         VALUE fibers[200];
-        int unprotected;
 
         pthread_mutex_t gvl;
 

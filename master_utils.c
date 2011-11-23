@@ -184,10 +184,21 @@ void uwsgi_manage_signal_cron(time_t now) {
 			if (ucron->week == -1)
 				uc_week = uwsgi_cron_delta->tm_wday;
 
+			int run_task = 0;
 			// mday and wday are ORed
-			if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
+			if (ucron->day != -1 && ucron->week != -1) {
+				if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
+					run_task = 1;
+				}
+			}
+			else {
+				if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && uwsgi_cron_delta->tm_mday == uc_day && uwsgi_cron_delta->tm_wday == uc_week) {
+					run_task = 1;
+				}
+			}
 
 
+			if (run_task == 1) {
 				// date match, signal it ?
 				if (uwsgi.current_time - ucron->last_job > 60) {
 					uwsgi_route_signal(ucron->sig);
@@ -240,9 +251,21 @@ void uwsgi_manage_command_cron(time_t now) {
 		if (current_cron->week == -1)
 			uc_week = uwsgi_cron_delta->tm_wday;
 
-		// week and day are ored
-		if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
+		int run_task = 0;
+                        // mday and wday are ORed
+                        if (current_cron->day != -1 && current_cron->week != -1) {
+                                if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
+                                        run_task = 1;
+                                }
+                        }
+                        else {
+                                if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && uwsgi_cron_delta->tm_mday == uc_day && uwsgi_cron_delta->tm_wday == uc_week) {
+                                        run_task = 1;
+                                }
+                        }
 
+
+                if (run_task == 1) {
 
 			// date match, run command ?
 			if (uwsgi.current_time - current_cron->last_job > 60) {
