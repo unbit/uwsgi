@@ -1091,8 +1091,34 @@ void uwsgi_python_init_thread(int core_id) {
 	pthread_setspecific(up.upt_save_key, (void *) pts);
 	pthread_setspecific(up.upt_gil_key, (void *) pts);
 #ifdef UWSGI_DEBUG
-	uwsgi_log("pts %d = %p\n", core_id, pts);
+	uwsgi_log("python ThreadState %d = %p\n", core_id, pts);
 #endif
+	UWSGI_GET_GIL;
+	// call threading.currentThread (taken from mod_wsgi, but removes DECREFs as thread in uWSGI are fixed)
+	PyObject *threading_module = PyImport_ImportModule("threading");
+        if (threading_module) {
+        	PyObject *threading_module_dict = PyModule_GetDict(threading_module);
+                if (threading_module_dict) {
+#ifdef PYTHREE
+			PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "current_thread");
+#else
+			PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
+#endif
+                        if (threading_current) {
+                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                if (!current_thread) {
+					// ignore the error
+                                        PyErr_Clear();
+                                }
+				else {
+					PyObject_SetAttrString(current_thread, "name", PyString_FromFormat("uWSGIWorker%dCore%d", uwsgi.mywid, core_id));
+					Py_INCREF(current_thread);
+				}
+                        }
+                }
+        }
+	UWSGI_RELEASE_GIL;
+	
 
 }
 
