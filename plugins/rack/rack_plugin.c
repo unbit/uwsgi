@@ -328,7 +328,8 @@ VALUE call_dispatch(VALUE env) {
 
 }
 
-VALUE send_body(VALUE obj, VALUE body) {
+static VALUE send_body(VALUE obj) {
+
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	ssize_t len = 0;
 
@@ -345,12 +346,14 @@ VALUE send_body(VALUE obj, VALUE body) {
 	return Qnil;
 }
 
+VALUE close_body(VALUE body) {
+	return rb_funcall( body, rb_intern("close"), 0);
+}
+
 VALUE iterate_body(VALUE body) {
 
-	//VALUE argv[1];
 #ifdef RUBY19
-	//argv[0] = rb_str_new2("foo");
-	return rb_block_call(body, rb_intern("each"), 0, 0, send_body, body);
+	return rb_block_call(body, rb_intern("each"), 0, 0, send_body, 0);
 #else
 	return rb_iterate(rb_each, body, send_body, 0);
 #endif
@@ -606,7 +609,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		}
 
 		body = RARRAY_PTR(ret)[2] ;
-		rb_gc_register_address(&body);
+
+		// TODO protect to_path and close
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
 			VALUE sendfile_path = rb_funcall( body, rb_intern("to_path"), 0);
@@ -630,7 +634,11 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 		if (rb_respond_to( body, rb_intern("close") )) {
 			//uwsgi_log("calling close\n");
-			rb_funcall( body, rb_intern("close"), 0);
+			error = 0;
+			rb_protect( close_body, body, &error);
+			if (error) {
+                                uwsgi_ruby_exception();
+                        }
 		}
 
 //fine:

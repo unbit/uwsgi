@@ -3186,12 +3186,24 @@ static struct uwsgi_cap uwsgi_cap_list[] = {
 	{ "sys_time", CAP_SYS_TIME},
 	{ "sys_tty_config", CAP_SYS_TTY_CONFIG},
 	{ "mknod", CAP_MKNOD},
+#ifdef CAP_LEASE
 	{ "lease", CAP_LEASE},
+#endif
+#ifdef CAP_AUDIT_WRITE
 	{ "audit_write", CAP_AUDIT_WRITE},
+#endif
+#ifdef CAP_AUDIT_CONTROL
 	{ "audit_control", CAP_AUDIT_CONTROL},
+#endif
+#ifdef CAP_SETFCAP
 	{ "setfcap", CAP_SETFCAP},
+#endif
+#ifdef CAP_MAC_OVERRIDE
 	{ "mac_override", CAP_MAC_OVERRIDE},
+#endif
+#ifdef CAP_MAC_ADMIN
 	{ "mac_admin", CAP_MAC_ADMIN},
+#endif
 #ifdef CAP_SYSLOG
 	{ "syslog", CAP_SYSLOG},
 #endif
