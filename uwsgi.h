@@ -273,20 +273,6 @@ struct uwsgi_config_template {
 	struct uwsgi_config_template *next;
 };
 
-struct uwsgi_static_map {
-
-	char *mountpoint;
-	int mountpoint_len;
-
-	char *document_root;
-	int document_root_len;
-
-	char *orig_document_root;
-	int orig_document_root_len;
-
-	struct uwsgi_static_map *next;
-};
-
 struct uwsgi_string_list {
 
 	char *value;
@@ -303,6 +289,7 @@ struct uwsgi_dyn_dict {
 	int vallen;
 
 	uint64_t hits;
+	int status;
 
 	struct uwsgi_dyn_dict *prev;
 	struct uwsgi_dyn_dict *next;
@@ -1167,13 +1154,12 @@ struct uwsgi_server {
 
 
 	// static file serving
-	char *check_static;
-	size_t check_static_len;
 	int file_serve_mode;
-
 	int build_mime_dict;
 	char *mime_file;
-	struct uwsgi_static_map *static_maps;
+
+	struct uwsgi_dyn_dict *static_maps;
+	struct uwsgi_dyn_dict *check_static;
 	struct uwsgi_dyn_dict *mimetypes;
 
 	char *logfile;
@@ -1869,7 +1855,7 @@ int uwsgi_parse_vars(struct wsgi_request *);
 
 int uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
 
-void manage_opt(int, char *);
+int manage_opt(int, char *);
 
 void uwsgi_cluster_add_node(struct uwsgi_cluster_node *, int);
 int uwsgi_ping_node(int, struct wsgi_request *);
@@ -2258,7 +2244,7 @@ int uwsgi_netlink_del(char *);
 int uwsgi_amqp_consume_queue(int, char *, char *, char *, char *, char *, char *);
 char *uwsgi_amqp_consume(int, uint64_t *, char **);
 
-int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t, char *, uint16_t);
+int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 inline int uwsgi_starts_with(char *, int, char *, int);
 
 #ifdef __sun__

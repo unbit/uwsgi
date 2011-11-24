@@ -412,7 +412,7 @@ char *generate_socket_name(char *socket_name) {
 				if (!strncmp(socket_name, new_addr, strlen(socket_name))) {
 					asterisk[0] = '*';
 					new_socket = uwsgi_concat3(new_addr, ":", tcp_port + 1);
-					uwsgi_log("found %s for %s on interface %s\n", new_socket, socket_name, ifa->ifa_name);
+					uwsgi_log("[uwsgi-autoip] found %s for %s on interface %s\n", new_socket, socket_name, ifa->ifa_name);
 					freeifaddrs(ifap);
 					return new_socket;
 				}

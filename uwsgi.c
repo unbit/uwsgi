@@ -1428,15 +1428,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	/* uWSGI IS CONFIGURED !!! */
 
-	if (uwsgi.build_mime_dict) {
-		if (!access(uwsgi.mime_file, R_OK)) {
-			uwsgi_build_mime_dict(uwsgi.mime_file);
-		}
-		else {
-			uwsgi_log("!!! no mime.types file found !!!\n");
-		}
-	}
-
 	if (uwsgi.dump_options) {
 		struct option *lopt = uwsgi.long_options;
 		while (lopt->name) {
@@ -1696,6 +1687,15 @@ int uwsgi_start(void *v_argv) {
 		exit(1);
 	}
 	sanitize_args();
+
+	if (uwsgi.build_mime_dict) {
+		if (!access(uwsgi.mime_file, R_OK)) {
+			uwsgi_build_mime_dict(uwsgi.mime_file);
+		}
+		else {
+			uwsgi_log("!!! no mime.types file found !!!\n");
+		}
+	}
 
 	// end of generic initialization
 
@@ -2964,7 +2964,7 @@ void uwsgi_ignition() {
 static int manage_base_opt(int i, char *optarg) {
 
 	char *p;
-	struct uwsgi_static_map *usm, *old_usm;
+	char *docroot, *mountpoint;
 	struct uwsgi_config_template *uct, *old_uct;
 	struct uwsgi_cron *uc, *old_uc;
 	struct uwsgi_socket *uwsgi_sock = NULL;
@@ -3238,12 +3238,8 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.mime_file = optarg;
 		return 1;
 	case LONG_ARGS_CHECK_STATIC:
-		uwsgi.check_static = realpath(optarg, NULL);
-		if (!uwsgi.check_static) {
-			uwsgi_error("check-static realpath()");
-			exit(1);
-		}
-		uwsgi.check_static_len = strlen(uwsgi.check_static);
+		uwsgi_dyn_dict_new(&uwsgi.check_static, optarg, strlen(optarg), NULL, 0);
+		uwsgi_log("[uwsgi-static] added check for %s\n", optarg);
 		uwsgi.build_mime_dict = 1;
 		return 1;
 	case LONG_ARGS_FILE_SERVE_MODE:
@@ -3344,45 +3340,17 @@ static int manage_base_opt(int i, char *optarg) {
 		uc->command = optarg+i;
 		return 1;
 	case LONG_ARGS_STATIC_MAP:
-		usm = uwsgi.static_maps;
-		if (!usm) {
-			usm = uwsgi_malloc(sizeof(struct uwsgi_static_map));
-			uwsgi.static_maps = usm;
-		}
-		else {
-			old_usm = usm;
-			while (usm->next) {
-				usm = usm->next;
-				old_usm = usm;
-			}
-
-			old_usm->next = uwsgi_malloc(sizeof(struct uwsgi_static_map));
-			usm = old_usm->next;
-		}
-
-		char *docroot = strchr(optarg, '=');
+		mountpoint = uwsgi_str(optarg);
+		docroot = strchr(mountpoint, '=');
 		if (!docroot) {
-			uwsgi_log("invalid document root in static map\n");
+			uwsgi_log("invalid document root in static map, syntax mountpoint=docroot\n");
 			exit(1);
 		}
-
-		usm->mountpoint = optarg;
-		usm->mountpoint_len = docroot - usm->mountpoint;
-
-		usm->document_root = realpath(docroot + 1, NULL);
-		if (!usm->document_root) {
-			uwsgi_error("static-map realpath()");
-			exit(1);
-		}
-		usm->document_root_len = strlen(usm->document_root);
-
-		usm->orig_document_root = usm->document_root;
-		usm->orig_document_root_len = usm->document_root_len;
-
-		uwsgi_log("static-mapped %.*s to %.*s\n", usm->mountpoint_len, usm->mountpoint, usm->document_root_len, usm->document_root);
+		docroot[0] = 0;
+		docroot++;
+		uwsgi_dyn_dict_new(&uwsgi.static_maps, mountpoint, strlen(mountpoint), docroot, strlen(docroot));
+		uwsgi_log("[uwsgi-static] added mapping for %s => %s\n", mountpoint, docroot);
 		uwsgi.build_mime_dict = 1;
-
-		usm->next = NULL;
 		return 1;
 	case LONG_ARGS_STOP:
 		signal_pidfile(SIGINT, optarg);
@@ -3857,7 +3825,7 @@ static int manage_base_opt(int i, char *optarg) {
 	return 0;
 }
 
-int _manage_opt(int i, char *p) {
+int manage_opt(int i, char *p) {
 	int j;
 
 	if (manage_base_opt(i, p)) {
@@ -3881,41 +3849,6 @@ int _manage_opt(int i, char *p) {
                 }
 
 	return 0;
-}
-
-void manage_opt(int i, char *optarg) {
-
-	char *value = optarg;
-
-	if (value && strchr(optarg, ';')) {
-		value = uwsgi_str(optarg);
-		if (value[0] == '\\') {
-			if (!_manage_opt(i, value+1)) {
-				exit(1);
-			}
-			return;
-		}
-	}
-
-	if (!value) {
-		if (!_manage_opt(i, NULL)) {
-			exit(1);
-		}
-		return;
-	}
-
-	char *p = strtok(value, ";");
-	while(p != NULL) {
-
-		if (_manage_opt(i, p)) goto next;
-		exit(1);
-next:
-		p = strtok(NULL, ";");
-		
-	}
-
-	return;
-
 }
 
 void build_options() {

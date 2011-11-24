@@ -1701,7 +1701,7 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 	return 0;
 }
 
-void _add_exported_option(char *key, char *value, int configured) {
+void add_exported_option(char *key, char *value, int configured) {
 
 	if (!uwsgi.exported_opts) {
                         uwsgi.exported_opts = uwsgi_malloc(sizeof(struct uwsgi_opt *));
@@ -1719,32 +1719,6 @@ void _add_exported_option(char *key, char *value, int configured) {
                 uwsgi.exported_opts[uwsgi.exported_opts_cnt]->value = value;
                 uwsgi.exported_opts[uwsgi.exported_opts_cnt]->configured = configured;
                 uwsgi.exported_opts_cnt++;
-}
-
-void add_exported_option(char *key, char *value, int configured) {
-
-	char *v = value;
-	if (value && strchr(value, ';')) {
-		v = uwsgi_str(value);
-		if (v[0] == '\\') {
-			_add_exported_option(key, v+1, configured);
-			return;
-		}
-	}
-
-	if (v == NULL) {
-		_add_exported_option(key, v, configured);
-		return;
-	}
-
-	char *p = strtok(v, ";");
-	while(p != NULL) {
-
-		_add_exported_option(key, p, configured);
-
-		p = strtok(NULL, ";");
-	}
-
 }
 
 int uwsgi_waitfd(int fd, int timeout) {
@@ -2704,6 +2678,7 @@ struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **dd, char *key,
         uwsgi_dd->value = val;
         uwsgi_dd->vallen = vallen;
 	uwsgi_dd->hits = 0;
+	uwsgi_dd->status = 0;
         uwsgi_dd->next = NULL;
 
         return uwsgi_dd;

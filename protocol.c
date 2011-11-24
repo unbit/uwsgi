@@ -554,6 +554,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	char *ptrbuf, *bufferend;
 
 	uint16_t strsize = 0;
+	struct uwsgi_dyn_dict *udd;
 
 	ptrbuf = buffer;
 	bufferend = ptrbuf + wsgi_req->uh.pktsize;
@@ -861,25 +862,46 @@ next:
 	}
 
 	// check if a file named uwsgi.check_static+env['PATH_INFO'] exists
-	if (uwsgi.check_static && wsgi_req->path_info_len > 1) {
-		if (!uwsgi_file_serve(wsgi_req, uwsgi.check_static, uwsgi.check_static_len, wsgi_req->path_info, wsgi_req->path_info_len, uwsgi.check_static, uwsgi.check_static_len)) {
-			return -1;
+	
+	if (wsgi_req->path_info_len > 1) {
+		udd = uwsgi.check_static;
+		while(udd) {
+			// need to build the path ?
+			if (udd->value == NULL) {
+				udd->value = realpath(udd->key, NULL);
+				if (!udd->value) goto nextcs;				
+				udd->vallen = strlen(udd->value);
+			}
+
+			if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info, wsgi_req->path_info_len)) {
+				return -1;
+			}
+nextcs:
+			udd = udd->next;
 		}
 	}
 
 	// check static-map
-	struct uwsgi_static_map *usm = uwsgi.static_maps;
-	while(usm) {
+	udd = uwsgi.static_maps;
+	while(udd) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, usm->mountpoint_len, usm->mountpoint);
+		uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
 #endif
+		if (udd->status == 0) {
+			char *real_docroot = realpath(udd->value, NULL);
+			if (!real_docroot) goto nextsm;
+			udd->value = real_docroot;
+			udd->vallen = strlen(udd->value);
+			udd->status = 1;
+		}
 
-		if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, usm->mountpoint, usm->mountpoint_len)) {
-			if (!uwsgi_file_serve(wsgi_req, usm->document_root, usm->document_root_len, wsgi_req->path_info+usm->mountpoint_len, wsgi_req->path_info_len-usm->mountpoint_len, usm->orig_document_root, usm->orig_document_root_len)) {
+		if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, udd->key, udd->keylen)) {
+			if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info+udd->keylen, wsgi_req->path_info_len-udd->keylen)) {
 				return -1;
 			}
 		}
-		usm = usm->next;
+nextsm:
+		udd = udd->next;
 	}
 
 	return 0;
@@ -1437,7 +1459,7 @@ char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
 	return NULL;
 }
 
-int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len, char *orig_document_root, uint16_t orig_document_root_len) {
+int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len) {
 
         struct stat st;
         char real_filename[PATH_MAX];
@@ -1508,8 +1530,8 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 			if (uwsgi.file_serve_mode == 1) {
                                 wsgi_req->header_cnt += 2;
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Accel-Redirect: ", 18);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, orig_document_root, orig_document_root_len);
-				if (orig_document_root[orig_document_root_len-1] != '/') {
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, document_root, document_root_len);
+				if (document_root[document_root_len-1] != '/') {
 					wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "/", 1);
 				}
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, path_info, path_info_len);
@@ -1520,8 +1542,8 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 			else if (uwsgi.file_serve_mode == 2) {
                                 wsgi_req->header_cnt += 2;
 				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Sendfile: ", 12);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, orig_document_root, orig_document_root_len);
-                                if (orig_document_root[orig_document_root_len-1] != '/') {
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, document_root, document_root_len);
+                                if (document_root[document_root_len-1] != '/') {
                                         wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "/", 1);
                                 }
                                 wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, path_info, path_info_len);	
