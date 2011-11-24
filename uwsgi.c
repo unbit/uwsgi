@@ -3373,6 +3373,7 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_SUBSCRIBE_TO:
 		uwsgi.master_process = 1;
 		uwsgi_string_new_list(&uwsgi.subscriptions, optarg);
+		uwsgi_log("[uwsgi-subscription] subscribed to %s\n", optarg);
 		return 1;
 	case LONG_ARGS_SUBSCR_TOLERANCE:
 		uwsgi.subscription_tolerance = atoi(optarg);
