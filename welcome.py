@@ -59,7 +59,10 @@ def application(env, start_response):
 
     uwsgi.setprocname("worker %d managed %d requests" % (uwsgi.worker_id(), req))
 
-    gc.collect(2)
+    try:
+        gc.collect(2)
+    except:
+        pass
     if DEBUG:
         print(env['wsgi.input'].fileno())
 
@@ -71,7 +74,10 @@ def application(env, start_response):
     if DEBUG:
         print(env['wsgi.input'].fileno())
 
-    gc.collect(2)
+    try:
+        gc.collect(2)
+    except:
+        pass
 
     if DEBUG:
         print(len(gc.get_objects()))

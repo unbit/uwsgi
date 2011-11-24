@@ -1,5 +1,20 @@
 #include "../uwsgi.h"
 
+#ifdef OBSOLETE_LINUX_KERNEL
+#ifndef __u16
+#define __u16           u_int16_t
+#endif
+#ifndef __u32
+#define __u32           u_int32_t
+#endif
+#ifndef __s32
+#define __s32           int32_t
+#endif
+#ifndef __u8
+#define __u8           u_int8_t
+#endif
+#endif
+
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <net/if.h>

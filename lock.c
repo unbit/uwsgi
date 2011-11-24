@@ -4,7 +4,12 @@
 #ifdef UWSGI_LOCK_USE_MUTEX
 
 #define UWSGI_LOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)
+
+#ifdef OBSOLETE_LINUX_KERNEL
+#define UWSGI_RWLOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)
+#else
 #define UWSGI_RWLOCK_SIZE	sizeof(pthread_rwlockattr_t) + sizeof(pthread_rwlock_t)
+#endif
 
 // REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!! 
 void uwsgi_lock_init(void *lock) {
@@ -27,15 +32,27 @@ void uwsgi_lock_init(void *lock) {
 }
 
 void uwsgi_rlock(void *lock) {
+#ifdef OBSOLETE_LINUX_KERNEL
+	uwsgi_lock(lock);
+#else
 	pthread_rwlock_rdlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+#endif
 }
 
 void uwsgi_wlock(void *lock) {
+#ifdef OBSOLETE_LINUX_KERNEL
+	uwsgi_lock(lock);
+#else
 	pthread_rwlock_wrlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+#endif
 }
 
 void uwsgi_rwunlock(void *lock) {
+#ifdef OBSOLETE_LINUX_KERNEL
+	uwsgi_unlock(lock);
+#else
 	pthread_rwlock_unlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+#endif
 }
 
 void uwsgi_lock(void *lock) {
@@ -51,6 +68,9 @@ void uwsgi_unlock(void *lock) {
 
 void uwsgi_rwlock_init(void *lock) {
 
+#ifdef OBSOLETE_LINUX_KERNEL
+	uwsgi_lock_init(lock);
+#else
         if (pthread_rwlockattr_init((pthread_rwlockattr_t *) lock)) {
                 uwsgi_log("unable to allocate rwlock structure\n");
                 exit(1);
@@ -64,6 +84,7 @@ void uwsgi_rwlock_init(void *lock) {
                 uwsgi_log("unable to initialize rwlock\n");
                 exit(1);
         }
+#endif
 
 
 }

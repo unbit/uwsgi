@@ -567,6 +567,16 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 #endif
 
 #ifdef UWSGI_EVENT_FILEMONITOR_USE_INOTIFY
+
+
+#ifdef OBSOLETE_LINUX_KERNEL
+int event_queue_add_file_monitor(int eq, char *filename, int *id) {
+	return -1;
+}
+struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
+	return NULL;
+}
+#else
 #include <sys/inotify.h>
 
 int event_queue_add_file_monitor(int eq, char *filename, int *id) {
@@ -659,6 +669,8 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 	return NULL;
 	
 }
+
+#endif
 #endif
 
 #ifdef UWSGI_EVENT_TIMER_USE_TIMERFD
