@@ -104,6 +104,8 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].harakiri = 0;
 		// do not reset worker counters on reload !!!
 		//uwsgi.workers[uwsgi.mywid].requests = 0;
+		// ...but maintain a delta counter (yes this is racy in multithread)
+		uwsgi.workers[uwsgi.mywid].delta_requests = 0;	
 		//uwsgi.workers[uwsgi.mywid].failed_requests = 0;
 		uwsgi.workers[uwsgi.mywid].respawn_count++;
 		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
@@ -330,6 +332,7 @@ void uwsgi_send_stats(int fd) {
 		fprintf(output,"\"id\": %d, ", uwsgi.workers[i+1].id);
 		fprintf(output,"\"pid\": %d, ", (int) uwsgi.workers[i+1].pid);
 		stats_send_llu("\"requests\": %llu, ", uwsgi.workers[i+1].requests);
+		stats_send_llu("\"delta_requests\": %llu, ", uwsgi.workers[i+1].delta_requests);
 		stats_send_llu("\"exceptions\": %llu, ", uwsgi.workers[i+1].exceptions);
 		stats_send_llu("\"signals\": %llu, ", uwsgi.workers[i+1].signals);
 

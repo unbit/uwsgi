@@ -2490,6 +2490,12 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
+		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].delta_requests);
+		if (PyDict_SetItemString(worker_dict, "delta_requests", zero)) {
+			goto clear;
+		}
+		Py_DECREF(zero);
+
 		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].signals);
 		if (PyDict_SetItemString(worker_dict, "signals", zero)) {
 			goto clear;

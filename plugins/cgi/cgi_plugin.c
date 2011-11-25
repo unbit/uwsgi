@@ -6,7 +6,7 @@ extern struct uwsgi_server uwsgi;
 
 char *cgi_docroot;
 
-#define LONG_ARGS_CGI_BASE	17000 + ((9 + 1) * 100)
+#define LONG_ARGS_CGI_BASE	17000 + ((9 + 1) * 1000)
 #define LONG_ARGS_CGI		LONG_ARGS_CGI_BASE + 1
 
 struct option uwsgi_cgi_options[] = {
@@ -32,6 +32,8 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	int waitpid_status;
 	char *argv[2];
 	char full_path[PATH_MAX];
+	int cgi_pipe[2];
+	ssize_t len;
 
 	/* Standard CGI request */
 	if (!wsgi_req->uh.pktsize) {
@@ -47,6 +49,26 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 
 	// check for file availability (and 'runnability')
 
+	char *path_info = uwsgi_concat4n(cgi_docroot, strlen(cgi_docroot), "/", 1,wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+	uwsgi_log("requested %s %s\n", path_info, realpath(path_info, full_path));
+
+	if (access(full_path, R_OK)) {
+		wsgi_req->status = 404;
+		wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.1 404 Not Found\r\n\r\n", 26);
+		return UWSGI_OK;
+	}
+
+	if (access(full_path, X_OK)) {
+		wsgi_req->status = 500;
+		wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.1 500 Internal Server Error\r\n\r\n", 26);
+		return UWSGI_OK;
+	}
+
+	if (pipe(cgi_pipe)) {
+		uwsgi_error("pipe()");
+		return UWSGI_OK;
+	}
+
 	cgi_pid = fork();
 
 	if (cgi_pid < 0) {
@@ -59,6 +81,29 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		close(wsgi_req->poll.fd);
 		wsgi_req->fd_closed = 1;
 
+		// wait for data
+		char startbuf[8];
+		char *ptr = startbuf;
+		int remains = 8;
+		while(remains > 0) {
+			uwsgi_log("waiting for fd\n");
+			int ret = uwsgi_waitfd(cgi_pipe[0], 10);
+			uwsgi_log("data available\n");
+			if (ret > 0) {
+				len = read(cgi_pipe[0], ptr, remains);
+				if (len > 0) {
+					ptr+=len;
+					remains -= len;
+				}
+			}
+		}
+
+		uwsgi_log("STARTBUF %.*s\n", 8, startbuf);
+
+		if (!memcmp(startbuf, "Status: ", 8)) {
+			wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.1 "
+		}
+
 		// now wait for fd	
 		if (waitpid(cgi_pid, &waitpid_status ,0) > 0) {
 			uwsgi_log("CGI FINISHED\n");
@@ -69,18 +114,19 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	// close all the fd except wsgi_req->poll.fd and 2;
 
 	for(i=0;i< (int)uwsgi.max_fd;i++) {
-		if (i != wsgi_req->poll.fd && i != 2) {
+		if (i != wsgi_req->poll.fd && i != 2 && i != cgi_pipe[0] && i != cgi_pipe[1]) {
 			close(i);
 		}
 	}
 
-	// now map wsgi_req->poll.fd to 0 && 1
+	// now map wsgi_req->poll.fd to 0 & cgi_pipe[1] to 1
 	if (wsgi_req->poll.fd != 0) {
 		dup2(wsgi_req->poll.fd, 0);
 		close(wsgi_req->poll.fd);
 	}
 
-	dup2(0,1);
+	uwsgi_log("mapping cgi_pipe %d to 1\n", cgi_pipe[1]);
+	dup2(cgi_pipe[1],1);
 	
 
 	// fill cgi env
@@ -92,8 +138,6 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		i++;
 	}
 
-	char *path_info = uwsgi_concat4n(cgi_docroot, strlen(cgi_docroot), "/", 1,wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
-	uwsgi_log("requested %s %s\n", path_info, realpath(path_info, full_path));
 
 	argv[0] = full_path;
 	argv[1] = NULL;

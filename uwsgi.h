@@ -1710,6 +1710,7 @@ struct uwsgi_worker {
 	uint64_t respawn_count;
 
 	uint64_t requests;
+	uint64_t delta_requests;
 	uint64_t failed_requests;
 
 	time_t harakiri;
@@ -1855,7 +1856,7 @@ int uwsgi_parse_vars(struct wsgi_request *);
 
 int uwsgi_enqueue_message(char *, int, uint8_t, uint8_t, char *, int, int);
 
-int manage_opt(int, char *);
+void manage_opt(int, char *);
 
 void uwsgi_cluster_add_node(struct uwsgi_cluster_node *, int);
 int uwsgi_ping_node(int, struct wsgi_request *);

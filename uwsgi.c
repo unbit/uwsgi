@@ -93,6 +93,7 @@ static struct option long_base_options[] = {
 	{"emperor", required_argument, 0, LONG_ARGS_EMPEROR},
 	{"emperor-tyrant", no_argument, &uwsgi.emperor_tyrant, 1},
 	{"emperor-stats", required_argument, 0, LONG_ARGS_EMPEROR_STATS},
+	{"emperor-stats-server", required_argument, 0, LONG_ARGS_EMPEROR_STATS},
 	{"early-emperor", no_argument, &uwsgi.early_emperor, 1},
 	{"emperor-broodlord", required_argument, 0, LONG_ARGS_EMPEROR_BROODLORD},
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST},
@@ -196,6 +197,7 @@ static struct option long_base_options[] = {
 	{"udp", required_argument, 0, LONG_ARGS_UDP},
 #endif
 	{"stats", required_argument, 0, LONG_ARGS_STATS},
+	{"stats-server", required_argument, 0, LONG_ARGS_STATS},
 #ifdef UWSGI_MULTICAST
 	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST},
 	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER},
@@ -3826,17 +3828,17 @@ static int manage_base_opt(int i, char *optarg) {
 	return 0;
 }
 
-int manage_opt(int i, char *p) {
+void manage_opt(int i, char *p) {
 	int j;
 
 	if (manage_base_opt(i, p)) {
-                        return 1;
+                        return;
                 }
 
                 for (j = 0; j < 0xFF; j++) {
                         if (uwsgi.p[j]->manage_opt) {
                                 if (uwsgi.p[j]->manage_opt(i, p)) {
-                                        return 1;
+                                        return;
                                 }
                         }
                 }
@@ -3844,12 +3846,13 @@ int manage_opt(int i, char *p) {
                 for (j = 0; j < uwsgi.gp_cnt; j++) {
                         if (uwsgi.gp[j]->manage_opt) {
                                 if (uwsgi.gp[j]->manage_opt(i, p)) {
-                                        return 1;
+                                        return;
                                 }
                         }
                 }
 
-	return 0;
+	// never here
+	exit(1);
 }
 
 void build_options() {

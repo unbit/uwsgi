@@ -665,6 +665,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
+	// this is used for MAX_REQUESTS
+	uwsgi.workers[uwsgi.mywid].delta_requests++;
 
 	// after_request hook
 	if (uwsgi.p[wsgi_req->uh.modifier1]->after_request)
@@ -700,7 +702,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 	wsgi_req->async_id = tmp_id;
 
-	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
+	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
 		goodbye_cruel_world();
 	}
 
