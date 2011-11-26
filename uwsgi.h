@@ -39,6 +39,8 @@ extern "C" {
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
 #define MAX_GATEWAYS 64
+#define MAX_TIMERS 64
+#define MAX_PROBES 64
 #define MAX_CRONS 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -966,6 +968,29 @@ struct uwsgi_signal_rb_timer {
 	struct uwsgi_rb_timer *uwsgi_rb_timer;
 };
 
+struct uwsgi_signal_probe {
+	
+	int (*func)(int, struct uwsgi_signal_probe *);
+	char args[1024];
+
+	int fd;
+	int state;
+	int bad;
+	uint64_t cycles;
+
+	int registered;
+	uint8_t sig;
+};
+
+struct uwsgi_probe {
+
+	char *name;
+	int (*func)(int, struct uwsgi_signal_probe *);
+
+	struct uwsgi_probe *next;
+};
+
+
 struct uwsgi_server {
 
 
@@ -1158,6 +1183,8 @@ struct uwsgi_server {
 	int file_serve_mode;
 	int build_mime_dict;
 	char *mime_file;
+
+	struct uwsgi_probe *probes;
 
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
@@ -1505,6 +1532,7 @@ struct uwsgi_server {
 	void *signal_table_lock;
 	void *fmon_table_lock;
 	void *timer_table_lock;
+	void *probe_table_lock;
 	void *rb_timer_table_lock;
 	void *cron_table_lock;
 	void *rpc_table_lock;
@@ -1651,10 +1679,13 @@ struct uwsgi_shared {
 	struct uwsgi_fmon files_monitored[64];
 	int files_monitored_cnt;
 
-	struct uwsgi_timer timers[64];
+	struct uwsgi_signal_probe probes[MAX_PROBES];
+	int probes_cnt;
+
+	struct uwsgi_timer timers[MAX_TIMERS];
 	int timers_cnt;
 
-	struct uwsgi_signal_rb_timer rb_timers[64];
+	struct uwsgi_signal_rb_timer rb_timers[MAX_TIMERS];
 	int rb_timers_cnt;
 
 	struct uwsgi_rpc rpc_table[MAX_RPC];
@@ -2472,6 +2503,11 @@ void uwsgi_send_subscription(char *, char *, size_t , char *, size_t, uint8_t);
 void uwsgi_subscribe(char *, uint8_t);
 
 struct uwsgi_daemon *uwsgi_daemon_new(struct uwsgi_daemon **, char *);
+
+struct uwsgi_probe *uwsgi_probe_register(struct uwsgi_probe **, char *, int (*)(int, struct uwsgi_signal_probe *));
+int uwsgi_add_probe(uint8_t sig, char *, char *);
+
+int uwsgi_is_bad_connection(int);
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE

@@ -1851,6 +1851,10 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.timer_table_lock = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.timer_table_lock);
 
+		// probe table lock
+		uwsgi.probe_table_lock = uwsgi_mmap_shared_lock();
+		uwsgi_lock_init(uwsgi.probe_table_lock);
+
 		// rb_timer table lock
 		uwsgi.rb_timer_table_lock = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.rb_timer_table_lock);

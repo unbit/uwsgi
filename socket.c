@@ -1014,3 +1014,16 @@ void uwsgi_del_sockets_from_queue(int queue) {
 
 }
 
+int uwsgi_is_bad_connection(int fd) {
+
+	int soopt = 0;
+	socklen_t solen = sizeof(int) ;
+
+	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
+		return -1;
+	}
+
+	// will be 0 if all ok
+	return soopt;
+}
+

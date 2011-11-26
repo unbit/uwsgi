@@ -825,6 +825,18 @@ healthy:
 					uwsgi_manage_command_cron(time(NULL));
 				}
 
+					
+				// check for probes
+				if (ushared->probes_cnt > 0) {
+					uwsgi_lock(uwsgi.probe_table_lock);
+					for(i=0;i<ushared->probes_cnt;i++) {
+						if (ushared->probes[i].func(interesting_fd, &ushared->probes[i])) { 
+                                               		uwsgi_route_signal(ushared->probes[i].sig);
+                                        	}
+					}
+					uwsgi_unlock(uwsgi.probe_table_lock);
+				}
+
 				if (rlen > 0) {
 
 					if (uwsgi.log_master) {
@@ -1086,6 +1098,7 @@ healthy:
 
 					next_iteration = 0;
 
+					uwsgi_lock(uwsgi.timer_table_lock);
 					for(i=0;i<ushared->timers_cnt;i++) {
                                                 if (ushared->timers[i].registered) {
                                                         if (interesting_fd == ushared->timers[i].fd) {
@@ -1096,6 +1109,7 @@ healthy:
                                                         }
                                                 }
                                         }
+					uwsgi_unlock(uwsgi.timer_table_lock);
                                         if (next_iteration) continue;
 
 

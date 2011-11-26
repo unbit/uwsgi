@@ -220,6 +220,23 @@ PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+
+PyObject *py_uwsgi_add_probe(PyObject * self, PyObject * args) {
+
+        uint8_t uwsgi_signal;
+        char *probe, *probe_args;
+
+        if (!PyArg_ParseTuple(args, "Bss:add_probe", &uwsgi_signal, &probe, &probe_args)) {
+                return NULL;
+        }
+
+        if (uwsgi_add_probe(uwsgi_signal, probe ,probe_args))
+                return PyErr_Format(PyExc_ValueError, "unable to add probe");
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
 	
 
 PyObject *py_uwsgi_add_timer(PyObject * self, PyObject * args) {
@@ -3011,6 +3028,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"signal_received", py_uwsgi_signal_received, METH_VARARGS, ""},
 	{"add_file_monitor", py_uwsgi_add_file_monitor, METH_VARARGS, ""},
 	{"add_timer", py_uwsgi_add_timer, METH_VARARGS, ""},
+	{"add_probe", py_uwsgi_add_probe, METH_VARARGS, ""},
 	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 	{"add_cron", py_uwsgi_add_cron, METH_VARARGS, ""},
 
