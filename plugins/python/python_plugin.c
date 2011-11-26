@@ -253,7 +253,6 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 			if (!pyfile) {
 				uwsgi_error_open(real_filename);
 				free(real_filename);
-				fclose(pyfile);
 				return NULL;
 			}
 		}
