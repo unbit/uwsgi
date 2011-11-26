@@ -224,13 +224,15 @@ PyObject *py_uwsgi_add_cron(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_add_probe(PyObject * self, PyObject * args) {
 
         uint8_t uwsgi_signal;
+	int timeout = 0;
+	int freq = 0;
         char *probe, *probe_args;
 
-        if (!PyArg_ParseTuple(args, "Bss:add_probe", &uwsgi_signal, &probe, &probe_args)) {
+        if (!PyArg_ParseTuple(args, "Bss|ii:add_probe", &uwsgi_signal, &probe, &probe_args, &timeout, &freq)) {
                 return NULL;
         }
 
-        if (uwsgi_add_probe(uwsgi_signal, probe ,probe_args))
+        if (uwsgi_add_probe(uwsgi_signal, probe, probe_args, timeout, freq))
                 return PyErr_Format(PyExc_ValueError, "unable to add probe");
 
         Py_INCREF(Py_None);

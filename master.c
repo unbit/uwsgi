@@ -830,6 +830,10 @@ healthy:
 				if (ushared->probes_cnt > 0) {
 					uwsgi_lock(uwsgi.probe_table_lock);
 					for(i=0;i<ushared->probes_cnt;i++) {
+						if (interesting_fd == -1) {
+							// increment cycles
+							ushared->probes[i].cycles++;
+						}
 						if (ushared->probes[i].func(interesting_fd, &ushared->probes[i])) { 
                                                		uwsgi_route_signal(ushared->probes[i].sig);
                                         	}

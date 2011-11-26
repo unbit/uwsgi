@@ -976,7 +976,12 @@ struct uwsgi_signal_probe {
 	int fd;
 	int state;
 	int bad;
+	int last_event;
+	void *data;
 	uint64_t cycles;
+
+	int timeout;
+	int freq;
 
 	int registered;
 	uint8_t sig;
@@ -2505,7 +2510,7 @@ void uwsgi_subscribe(char *, uint8_t);
 struct uwsgi_daemon *uwsgi_daemon_new(struct uwsgi_daemon **, char *);
 
 struct uwsgi_probe *uwsgi_probe_register(struct uwsgi_probe **, char *, int (*)(int, struct uwsgi_signal_probe *));
-int uwsgi_add_probe(uint8_t sig, char *, char *);
+int uwsgi_add_probe(uint8_t sig, char *, char *, int, int);
 
 int uwsgi_is_bad_connection(int);
 

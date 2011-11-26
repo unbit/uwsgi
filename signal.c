@@ -156,7 +156,7 @@ struct uwsgi_probe *uwsgi_probe_register(struct uwsgi_probe **up, char *name, in
 }
 
 
-int uwsgi_add_probe(uint8_t sig, char *kind, char *args) {
+int uwsgi_add_probe(uint8_t sig, char *kind, char *args, int timeout, int freq) {
 
 	uwsgi_lock(uwsgi.probe_table_lock);
 
@@ -183,8 +183,19 @@ int uwsgi_add_probe(uint8_t sig, char *kind, char *args) {
                 ushared->probes[ushared->probes_cnt].sig = sig;
 		ushared->probes[ushared->probes_cnt].fd = -1;
 		ushared->probes[ushared->probes_cnt].state = 0;
+		ushared->probes[ushared->probes_cnt].last_event = 0;
+		ushared->probes[ushared->probes_cnt].data = NULL;
 		ushared->probes[ushared->probes_cnt].cycles = 0;
 		ushared->probes[ushared->probes_cnt].bad = 0;
+
+		if (!timeout) {
+			timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
+		}
+		ushared->probes[ushared->probes_cnt].timeout = timeout;
+		if (!freq) {
+			freq = 1;
+		}
+		ushared->probes[ushared->probes_cnt].freq = freq;
                 ushared->probes_cnt++;
         }
         else {

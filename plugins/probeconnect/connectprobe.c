@@ -8,8 +8,7 @@ int connect_prober_callback(int interesting_fd, struct uwsgi_signal_probe *up) {
 	if (interesting_fd == -1) {
 		// am i wating for something ?
 		if (up->fd != -1) {
-			up->cycles++;
-			if (up->cycles > 3) {
+			if (up->cycles > (uint64_t) up->timeout) {
 				// reset the cycle
 				up->cycles = 0;
 				close(up->fd);
@@ -25,17 +24,20 @@ int connect_prober_callback(int interesting_fd, struct uwsgi_signal_probe *up) {
 		}
 		// ok register a new event
 		else {
-			up->fd = uwsgi_connect(up->args, -1, 1);
-			if (up->fd != -1) {
-				// status = CONNECTING
-				up->state = 1;
-				event_queue_add_fd_write(uwsgi.master_queue, up->fd);
-				return 0;
-			}
-			// signal the bad event (if not already bad)
-			if (!up->bad) {
-				up->bad = 1;
-				return 1;
+			if ((up->cycles % up->freq) == 0) {
+				up->fd = uwsgi_connect(up->args, -1, 1);
+				if (up->fd != -1) {
+					// status = CONNECTING
+					up->state = 1;
+					event_queue_add_fd_write(uwsgi.master_queue, up->fd);
+					return 0;
+				}
+				// signal the bad event (if not already bad)
+				if (!up->bad) {
+					up->bad = 1;
+					return 1;
+				}
+
 			}
 		}
 	}
@@ -50,8 +52,8 @@ int connect_prober_callback(int interesting_fd, struct uwsgi_signal_probe *up) {
 					up->cycles = 0;
 					close(up->fd);
 					up->fd = -1;
-                                	// state = NOOP
-                                	up->state = 0;
+					// state = NOOP
+					up->state = 0;
 					if (!up->bad) {
 						up->bad = 1;
 						return 1;
@@ -83,6 +85,6 @@ int probeconnect_init() {
 }
 
 struct uwsgi_plugin probeconnect_plugin = {
-	
+
 	.init = probeconnect_init,
 };
