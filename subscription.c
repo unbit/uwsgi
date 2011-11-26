@@ -78,7 +78,7 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->hits++;
 		time_t current = time(NULL);
 		struct uwsgi_subscribe_node *node = current_slot->nodes;
-		while(current_slot && node) {
+		while(node) {
 			// is the node alive ?
 			if (current - node->last_check > uwsgi.subscription_tolerance) {
 				if (node->death_mark == 0)

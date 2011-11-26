@@ -1840,6 +1840,8 @@ char *uwsgi_read_fd(int fd, int *size, int add_zero) {
 char *uwsgi_simple_file_read(char *filename) {
 
 	struct stat sb;
+	char *buffer;
+	ssize_t len;
 	int fd = open(filename, O_RDONLY);
         if (fd < 0) {
         	uwsgi_error_open(filename);
@@ -1852,11 +1854,12 @@ char *uwsgi_simple_file_read(char *filename) {
 		goto end;
         }
 
-        char *buffer = uwsgi_malloc(sb.st_size+1);
+        buffer = uwsgi_malloc(sb.st_size+1);
 
-        ssize_t len = read(fd, buffer, sb.st_size);
+        len = read(fd, buffer, sb.st_size);
         if (len != sb.st_size) {
         	uwsgi_error("read()");
+		free(buffer);
 		close(fd);
 		goto end;
         }
