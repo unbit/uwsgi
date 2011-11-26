@@ -39,7 +39,6 @@ extern "C" {
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
 #define MAX_GATEWAYS 64
-#define MAX_DAEMONS 8
 #define MAX_CRONS 64
 
 #ifndef UWSGI_LOAD_EMBEDDED_PLUGINS
@@ -326,8 +325,8 @@ struct uwsgi_gateway {
 // Daemons are external processes maintained by the master
 
 struct uwsgi_daemon {
-	char command[0xff];
-	char tmp_command[0xff];
+	char *command;
+	char *tmp_command;
 	pid_t pid;
 	uint64_t respawns;
 	time_t born;
@@ -335,6 +334,8 @@ struct uwsgi_daemon {
 	int status;
 	int registered;
 	//int pipe[2];
+
+	struct uwsgi_daemon *next;
 };
 
 struct uwsgi_queue_header {
@@ -1158,6 +1159,9 @@ struct uwsgi_server {
 	int build_mime_dict;
 	char *mime_file;
 
+	struct uwsgi_daemon *daemons;
+	int daemons_cnt;
+
 	struct uwsgi_dyn_dict *static_maps;
 	struct uwsgi_dyn_dict *check_static;
 	struct uwsgi_dyn_dict *mimetypes;
@@ -1509,11 +1513,6 @@ struct uwsgi_server {
 	void *spooler_lock;
 #endif
 
-	void *daemon_table_lock;
-
-	char *startup_daemons[MAX_DAEMONS];
-	int startup_daemons_cnt;
-
 	// subscription client
 	int subscribe_freq;
 	int subscription_tolerance;
@@ -1663,8 +1662,6 @@ struct uwsgi_shared {
 
 	int worker_log_pipe[2];
 
-	struct uwsgi_daemon daemons[MAX_DAEMONS];
-	int daemons_cnt;
 #ifdef __linux__
 	struct tcp_info ti;
 #endif
@@ -2102,7 +2099,6 @@ ssize_t fcgi_send_record(int, uint8_t, uint16_t, char *);
 ssize_t fcgi_send_param(int, char *, uint16_t, char *, uint16_t);
 uint16_t fcgi_get_record(int, char *);
 
-int uwsgi_attach_daemon(char *);
 void spawn_daemon(struct uwsgi_daemon *);
 
 void emperor_loop(void);
@@ -2474,6 +2470,8 @@ char *uwsgi_simple_file_read(char *);
 void uwsgi_send_subscription(char *, char *, size_t , char *, size_t, uint8_t);
 
 void uwsgi_subscribe(char *, uint8_t);
+
+struct uwsgi_daemon *uwsgi_daemon_new(struct uwsgi_daemon **, char *);
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE

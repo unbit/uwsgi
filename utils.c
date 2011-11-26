@@ -2236,32 +2236,6 @@ char *uwsgi_get_last_char(char *what, char c) {
 	return ptr;
 }
 
-int uwsgi_attach_daemon(char *command) {
-
-	struct uwsgi_daemon *d;
-	int ret = -1;
-
-	uwsgi_lock(uwsgi.daemon_table_lock);
-
-	if (uwsgi.shared->daemons_cnt < MAX_DAEMONS) {
-		d = &uwsgi.shared->daemons[uwsgi.shared->daemons_cnt];
-
-		memcpy(d->command, command, UMIN(strlen(command), 0xff - 1));
-		d->registered = 0;
-		d->status = 0;
-
-		uwsgi.shared->daemons_cnt++;
-
-		ret = 0;
-		uwsgi_log("registered daemon %s\n", command);
-	}
-
-	uwsgi_unlock(uwsgi.daemon_table_lock);
-
-	return ret;
-
-}
-
 void spawn_daemon(struct uwsgi_daemon *ud) {
 
 	char *argv[64];
@@ -2318,7 +2292,11 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 			uwsgi_error("prctl()");
 		}
 #endif
-		memcpy(ud->tmp_command, ud->command, 0xff);
+
+		// free the old area
+		if (ud->tmp_command) free(ud->tmp_command);
+
+		ud->tmp_command = uwsgi_str(ud->command);
 
 		a = strtok(ud->tmp_command, " ");
 		if (a) {
@@ -2338,14 +2316,15 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 		argv[cnt] = NULL;
 
 		if (throttle) {
-			uwsgi_log_verbose("throttling %s for %d seconds\n", argv[0], throttle);
+			uwsgi_log("[uwsgi-daemons] throttling \"%s\" (%s) for %d seconds\n", ud->command, argv[0], throttle);
 			sleep(throttle);
 		}
 
-		uwsgi_log_verbose("running %s\n", argv[0]);
+		uwsgi_log("[uwsgi-daemons] spawning \"%s\" (%s)\n", ud->command, argv[0]);
 		if (execvp(argv[0], argv)) {
 			uwsgi_error("execvp()");
 		}
+		uwsgi_log("[uwsgi-daemons] unable to spawn \"%s\" (%s)\n", ud->command, argv[0]);
 
 		// never here;
 		exit(1);
@@ -2657,6 +2636,39 @@ char *uwsgi_netstring(char *buf, size_t len, char **netstring, size_t *netstring
 
 	return NULL;
 }
+
+struct uwsgi_daemon *uwsgi_daemon_new(struct uwsgi_daemon **ud, char *command) {
+
+        struct uwsgi_daemon *uwsgi_ud = *ud, *old_ud;
+
+        if (!uwsgi_ud) {
+                *ud = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+                uwsgi_ud = *ud;
+        }
+        else {
+                while(uwsgi_ud) {
+                        old_ud = uwsgi_ud;
+                        uwsgi_ud = uwsgi_ud->next;
+                }
+
+                uwsgi_ud = uwsgi_malloc(sizeof(struct uwsgi_daemon));
+                old_ud->next = uwsgi_ud;
+        }
+
+        uwsgi_ud->command = command;
+        uwsgi_ud->tmp_command = NULL;
+        uwsgi_ud->pid = 0;
+        uwsgi_ud->status = 0;
+        uwsgi_ud->registered = 0;
+        uwsgi_ud->next = NULL;
+	uwsgi_ud->respawns = 0;
+	uwsgi_ud->last_spawn = 0;
+
+	uwsgi.daemons_cnt++;
+
+        return uwsgi_ud;
+}
+
 
 struct uwsgi_dyn_dict *uwsgi_dyn_dict_new(struct uwsgi_dyn_dict **dd, char *key, int keylen, char *val, int vallen) {
 

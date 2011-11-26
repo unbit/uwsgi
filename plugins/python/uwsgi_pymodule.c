@@ -464,23 +464,6 @@ PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
-PyObject *py_uwsgi_attach_daemon(PyObject * self, PyObject * args) {
-
-	char *command = NULL;
-
-	if (!PyArg_ParseTuple(args, "s:attach_daemon", &command)) {
-		return NULL;
-	}
-
-	if (uwsgi_attach_daemon(command)) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	Py_INCREF(Py_True);
-	return Py_True;
-}
-
 PyObject *py_uwsgi_signal_registered(PyObject * self, PyObject * args) {
 	uint8_t uwsgi_signal;
 
@@ -3020,8 +3003,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"setprocname", py_uwsgi_setprocname, METH_VARARGS, ""},
 
 	{"listen_queue", py_uwsgi_listen_queue, METH_VARARGS, ""},
-
-	{"attach_daemon", py_uwsgi_attach_daemon, METH_VARARGS, ""},
 
 	{"register_signal", py_uwsgi_register_signal, METH_VARARGS, ""},
 	{"signal", py_uwsgi_signal, METH_VARARGS, ""},

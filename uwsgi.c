@@ -558,9 +558,11 @@ void kill_them_all(int signum) {
 	}
 
 
-	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
-		if (uwsgi.shared->daemons[i].pid > 0)
-			kill(-uwsgi.shared->daemons[i].pid, SIGKILL);
+	struct uwsgi_daemon *ud = uwsgi.daemons;
+	while(ud) {
+		if (ud->pid > 0)
+			kill(-ud->pid, SIGKILL);
+		ud = ud->next;
 	}
 
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
@@ -606,10 +608,12 @@ void grace_them_all(int signum) {
 		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
-	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
-		if (uwsgi.shared->daemons[i].pid > 0)
-			kill(-uwsgi.shared->daemons[i].pid, SIGKILL);
-	}
+	struct uwsgi_daemon *ud = uwsgi.daemons;
+        while(ud) {
+                if (ud->pid > 0)
+                        kill(-ud->pid, SIGKILL);
+                ud = ud->next;
+        }
 
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
 		if (uwsgi.gateways[i].pid > 0)
@@ -686,10 +690,12 @@ void reap_them_all(int signum) {
 		uwsgi.to_heaven = 1;
 	else uwsgi.to_outworld = 1;
 
-	for (i = 0; i < uwsgi.shared->daemons_cnt; i++) {
-		if (uwsgi.shared->daemons[i].pid > 0)
-			kill(-uwsgi.shared->daemons[i].pid, SIGKILL);
-	}
+	struct uwsgi_daemon *ud = uwsgi.daemons;
+        while(ud) {
+                if (ud->pid > 0)
+                        kill(-ud->pid, SIGKILL);
+                ud = ud->next;
+        }
 
 	for (i = 0; i < uwsgi.gateways_cnt; i++) {
 		if (uwsgi.gateways[i].pid > 0)
@@ -1849,10 +1855,6 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.rb_timer_table_lock = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.rb_timer_table_lock);
 
-		// daemons table lock
-		uwsgi.daemon_table_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.daemon_table_lock);
-
 		// cron table lock
 		uwsgi.cron_table_lock = uwsgi_mmap_shared_lock();
 		uwsgi_lock_init(uwsgi.cron_table_lock);
@@ -1892,17 +1894,9 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_init_cache();
 	}
 
-	// attach startup daemons
-	if (uwsgi.master_process) {
-		for (i = 0; i < uwsgi.startup_daemons_cnt; i++) {
-			if (uwsgi_attach_daemon(uwsgi.startup_daemons[i])) {
-				uwsgi_log("!!! unable to attach daemon %s !!!\n", uwsgi.startup_daemons[i]);
-			}
-		}
-		// create the cache server
-		if (uwsgi.cache_server) {
-			uwsgi.cache_server_fd = uwsgi_cache_server(uwsgi.cache_server, uwsgi.cache_server_threads);
-		}
+	// create the cache server
+	if (uwsgi.master_process && uwsgi.cache_server) {
+		uwsgi.cache_server_fd = uwsgi_cache_server(uwsgi.cache_server, uwsgi.cache_server_threads);
 	}
 
 	/* plugin initialization */
@@ -3364,13 +3358,7 @@ static int manage_base_opt(int i, char *optarg) {
 		signal_pidfile(SIGTSTP, optarg);
 		exit(0);
 	case LONG_ARGS_ATTACH_DAEMON:
-		if (uwsgi.startup_daemons_cnt < MAX_DAEMONS) {
-			uwsgi.startup_daemons[uwsgi.startup_daemons_cnt] = optarg;
-			uwsgi.startup_daemons_cnt++;
-		}
-		else {
-			uwsgi_log("you can specify at most %d --attach-daemons options\n", MAX_DAEMONS);
-		}
+		uwsgi_daemon_new(&uwsgi.daemons, optarg);
 		return 1;
 	case LONG_ARGS_SUBSCRIBE_TO:
 		uwsgi.master_process = 1;

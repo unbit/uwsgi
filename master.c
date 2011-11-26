@@ -454,6 +454,17 @@ int master_loop(char **argv, char **environ) {
                 }
         }
 
+	// spawn daemons
+	struct uwsgi_daemon *ud = uwsgi.daemons;
+	while(ud) {
+        	if (!ud->registered) {
+                        spawn_daemon(ud);
+                        ud->registered = 1;
+                }
+		ud = ud->next;
+        }
+
+
 	// first subscription
 	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
 	while(subscriptions) {
@@ -634,7 +645,7 @@ healthy:
 
 		if ((uwsgi.cheap || ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
 			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
-			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt+uwsgi.mules_cnt);i++) {
+			for(i=0;i<(uwsgi.gateways_cnt+uwsgi.daemons_cnt+uwsgi.mules_cnt);i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			}
 
@@ -643,7 +654,7 @@ healthy:
 		}
 		if ( (uwsgi.cheap || ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
 			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
-			for(i=0;i<(uwsgi.gateways_cnt+ushared->daemons_cnt+uwsgi.mules_cnt);i++) {
+			for(i=0;i<(uwsgi.gateways_cnt+uwsgi.daemons_cnt+uwsgi.mules_cnt);i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			}
 
@@ -711,7 +722,7 @@ healthy:
 
 		if (!uwsgi.cheap) {
 
-			if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0 || ushared->daemons_cnt > 0) {
+			if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0 || uwsgi.daemons_cnt > 0) {
 				master_has_children = 1;
 			}
 #ifdef UWSGI_SPOOLER
@@ -759,16 +770,6 @@ healthy:
 				if (!ushared->files_monitored[i].registered) {
 					ushared->files_monitored[i].fd = event_queue_add_file_monitor(uwsgi.master_queue, ushared->files_monitored[i].filename, &ushared->files_monitored[i].id);
 					ushared->files_monitored[i].registered = 1;		
-				}
-			}
-
-			// add unregistered daemons
-			// locking is not needed as daemons can only increase (for now)
-			for(i=0;i<ushared->daemons_cnt;i++) {
-				if (!ushared->daemons[i].registered) {
-					uwsgi_log("spawning daemon %s\n", ushared->daemons[i].command);
-					spawn_daemon(&ushared->daemons[i]);
-					ushared->daemons[i].registered = 1;		
 				}
 			}
 
@@ -1463,12 +1464,14 @@ healthy:
 		/* reload the daemons */
                 // TODO reload_gateway(diedpid);
                 pid_found = 0;
-                for(i=0;i<uwsgi.shared->daemons_cnt;i++) {
-                        if (uwsgi.shared->daemons[i].pid == diedpid) {
-                                spawn_daemon(&uwsgi.shared->daemons[i]);
+		struct uwsgi_daemon *ud = uwsgi.daemons;
+		while(ud) {
+                        if (ud->pid == diedpid) {
+                        	spawn_daemon(ud);
                                 pid_found = 1;
                                 break;
                         }
+			ud = ud->next;
                 }
 
 		if (pid_found) continue;
@@ -1511,11 +1514,13 @@ healthy:
 				}
 			}
 
-			for(i=0;i<uwsgi.shared->daemons_cnt;i++) {
-				if (uwsgi.shared->daemons[i].pid == diedpid) {
-					uwsgi_log("daemon %d (pid: %d) annihilated\n", i+1, (int) diedpid);
+			struct uwsgi_daemon *ud = uwsgi.daemons;
+			while(ud) {
+				if (ud->pid == diedpid) {
+					uwsgi_log("daemon \"%s\" (pid: %d) annihilated\n", ud->command, (int) diedpid);
 					goto next;
 				}
+				ud = ud->next;
 			}
 
 			if (WIFEXITED(waitpid_status)) {
