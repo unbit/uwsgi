@@ -192,12 +192,12 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 				UWSGI_RELEASE_GIL
 				return UWSGI_AGAIN;
 			}
+#endif
 		}
 		else {
 			uwsgi_log("invalid Web3 response.\n"); 
 			goto clear; 
 		}
-#endif
 	}
 
 

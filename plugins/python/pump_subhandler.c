@@ -342,12 +342,12 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 				UWSGI_RELEASE_GIL
 				return UWSGI_AGAIN;
 			}
+#endif
 		}
 		else {
 			uwsgi_log("invalid Pump response.\n"); 
 			goto clear; 
 		}
-#endif
 	}
 
 
