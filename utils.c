@@ -802,13 +802,18 @@ void uwsgi_linux_ksm_map(void) {
                 		}
 			}
 
-			free(ksm_mappings_last);
+			if (ksm_mappings_last)
+				free(ksm_mappings_last);
 			ksm_mappings_last = ksm_mappings_current;
 			ksm_mappings_last_lines = ksm_mappings_current_lines;
 
 			if (errors >= ksm_mappings_current_lines) {
 				uwsgi_error("[uwsgi-KSM] unable to share pages");
 			}
+		}
+		// if not dirty, free ksm_mappings_current
+		else {
+			free(ksm_mappings_current);
 		}
 	}
 }
