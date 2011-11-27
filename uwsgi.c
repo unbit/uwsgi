@@ -303,6 +303,22 @@ static struct option long_base_options[] = {
 	{0, 0, 0, 0}
 };
 
+void show_config(void) {
+        int i;
+                       fprintf(stdout, "\n;uWSGI instance configuration\n[uwsgi]\n");
+                for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+                        if (uwsgi.exported_opts[i]->value) {
+                                fprintf(stdout, "%s = %s\n", uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
+                        }
+                        else {
+                                fprintf(stdout, "%s = true\n", uwsgi.exported_opts[i]->key);
+                        }
+                }
+                fprintf(stdout, ";end of configuration\n\n");
+
+}
+
+
 void uwsgi_configure(void) {
 
 	struct option *lopt;
@@ -765,6 +781,7 @@ void stats(int signum) {
 	int i, j;
 
 	if (uwsgi.mywid == 0) {
+		show_config();
 		uwsgi_log("\tworkers total requests: %llu\n", uwsgi.workers[0].requests);
 		uwsgi_log("-----------------\n");
 		for(j=1;j<=uwsgi.numproc;j++) {
@@ -991,6 +1008,9 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 
 #endif
 }
+
+
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
@@ -1446,16 +1466,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (uwsgi.show_config) {
-		fprintf(stdout, "\n;uWSGI instance configuration\n[uwsgi]\n");
-		for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-			if (uwsgi.exported_opts[i]->value) {
-				fprintf(stdout, "%s = %s\n", uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
-			}
-			else {
-				fprintf(stdout, "%s = true\n", uwsgi.exported_opts[i]->key);
-			}
-		}
-		fprintf(stdout, ";end of configuration\n\n");
+		show_config();
 	}
 
 
