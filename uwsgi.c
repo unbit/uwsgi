@@ -2862,7 +2862,7 @@ skipzero:
 				int rm_dst = atoi(colon + 1);
 				up_tmp = uwsgi.p[rm_dst];
 				uwsgi.p[rm_dst]->request = uwsgi.p[rm_src]->request;
-				uwsgi.p[rm_src]->after_request = up_tmp->after_request;
+				uwsgi.p[rm_dst]->after_request = uwsgi.p[rm_src]->after_request;
 			}
 			map = strtok(NULL, ",");
 		}
