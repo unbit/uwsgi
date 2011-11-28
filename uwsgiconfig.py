@@ -809,6 +809,11 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     except:
         pass
 
+    try:
+        p_cflags.remove('-Winline')
+    except:
+        pass
+
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)
 
