@@ -2145,6 +2145,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 
 		if (S_ISFIFO(sb.st_mode)) {
 			buffer = uwsgi_read_fd(fd, size, add_zero);
+			close(fd);
 			goto end;
 		}
 
