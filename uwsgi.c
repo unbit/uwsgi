@@ -2853,14 +2853,12 @@ skipzero:
 	// eventually remap plugins
 	if (uwsgi.remap_modifier) {
 		char *map = strtok(uwsgi.remap_modifier, ",");
-		struct uwsgi_plugin *up_tmp;
 		while (map != NULL) {
 			char *colon = strchr(map, ':');
 			if (colon) {
 				colon[0] = 0;
 				int rm_src = atoi(map);
 				int rm_dst = atoi(colon + 1);
-				up_tmp = uwsgi.p[rm_dst];
 				uwsgi.p[rm_dst]->request = uwsgi.p[rm_src]->request;
 				uwsgi.p[rm_dst]->after_request = uwsgi.p[rm_src]->after_request;
 			}

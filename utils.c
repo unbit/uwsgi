@@ -1653,10 +1653,17 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 		else {
 			post_chunk = read(wsgi_req->poll.fd, buf, post_remains);
 		}
+
 		if (post_chunk < 0) {
 			uwsgi_error("read()");
 			goto end;
 		}
+
+		if (post_chunk == 0) {
+			uwsgi_log("client did not send the whole body: %s\n", strerror(errno));
+			goto end;
+		}
+
 		if (fwrite(buf, post_chunk, 1, wsgi_req->async_post) != 1) {
 			uwsgi_error("fwrite()");
 			goto end;
