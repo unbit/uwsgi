@@ -1657,7 +1657,7 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 			uwsgi_error("read()");
 			goto end;
 		}
-		if (!fwrite(buf, post_chunk, 1, wsgi_req->async_post)) {
+		if (fwrite(buf, post_chunk, 1, wsgi_req->async_post) != 1) {
 			uwsgi_error("fwrite()");
 			goto end;
 		}
