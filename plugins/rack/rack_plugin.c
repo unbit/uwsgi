@@ -603,7 +603,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		body = RARRAY_PTR(ret)[2] ;
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
-			uwsgi_log("TO_PATH\n");
 			VALUE sendfile_path = rb_protect( body_to_path, body, &error);
 			if (error) {
 				uwsgi_ruby_exception();
