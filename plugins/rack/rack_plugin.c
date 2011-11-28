@@ -395,11 +395,8 @@ VALUE send_header(VALUE obj, VALUE headers) {
 		goto clear;
 	}
 
-	rb_gc_register_address(&hkey);
-	rb_gc_register_address(&hval);
-
 	if (TYPE(hkey) != T_STRING || TYPE(hval) != T_STRING) {
-		goto clear2;
+		goto clear;
 	}
 
 	char *header_value = RSTRING_PTR(hval);
@@ -443,10 +440,6 @@ VALUE send_header(VALUE obj, VALUE headers) {
 		//uwsgi_log("--%.*s: %.*s--\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), cnt, this_header);
 	}
 
-clear2:
-	rb_gc_unregister_address(&hkey);
-	rb_gc_unregister_address(&hval);
-
 clear:
 
 	return Qnil;
@@ -487,7 +480,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 
         env = rb_hash_new();
-	rb_gc_register_address(&env);
 
         // fill ruby hash
         for(i=0;i<wsgi_req->var_cnt;i++) {
@@ -550,9 +542,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	ret = rb_protect( call_dispatch, env, &error);
 	if (error) {
 		uwsgi_ruby_exception();
-		goto clear2;
+		goto clear;
 	}
-	rb_gc_register_address(&ret);
 
 	if (TYPE(ret) == T_ARRAY) {
 		if (RARRAY_LEN(ret) != 3) {
@@ -563,7 +554,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		// manage Status
 
 		status = rb_obj_as_string(RARRAY_PTR(ret)[0]);
-		rb_gc_register_address(&status);
 		// get the status code
 
 		wsgi_req->hvec[0].iov_base = wsgi_req->protocol;
@@ -598,13 +588,10 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	}
 
 		headers = RARRAY_PTR(ret)[1] ;
-		rb_gc_register_address(&headers);
 		if (rb_respond_to( headers, rb_intern("each") )) {
 			rb_protect( iterate_headers, headers, &error);
 			if (error) {
 				uwsgi_ruby_exception();
-				rb_gc_unregister_address(&status);
-                		rb_gc_unregister_address(&headers);
 				goto clear;
 			}
 		}
@@ -614,8 +601,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		}
 
 		body = RARRAY_PTR(ret)[2] ;
-		rb_gc_register_address(&body);
-		// TODO protect to_path
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
 			uwsgi_log("TO_PATH\n");
@@ -624,7 +609,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 				uwsgi_ruby_exception();
 			}
 			else {
-				rb_gc_register_address(&sendfile_path);
 				wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
 				wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
 				if (wsgi_req->response_size > 0) {
@@ -633,7 +617,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 						wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 					}
 				}
-				rb_gc_unregister_address(&sendfile_path);
 			}
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {
@@ -651,25 +634,12 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
                         }
 		}
 
-//fine:
-
-		/* unregister all the objects created */
-	
-		rb_gc_unregister_address(&status);
-		rb_gc_unregister_address(&headers);
-		rb_gc_unregister_address(&body);
-
 	}
 	else {
 		internal_server_error(wsgi_req, (char *)"Invalid RACK response");
 	}
 
 clear:
-
-	rb_gc_unregister_address(&ret);
-clear2:
-
-	rb_gc_unregister_address(&env);
 
 	if (ur.gc_freq <= 1 || ur.cycles%ur.gc_freq == 0) {
 #ifdef UWSGI_DEBUG
@@ -916,29 +886,17 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
 
         VALUE rbhandler = (VALUE) handler;
         VALUE args = rb_ary_new2(2);
-	rb_gc_register_address(&args);
         rb_ary_store(args, 0, rbhandler);
         VALUE rbsig = INT2NUM(sig);
-	rb_gc_register_address(&rbsig);
         rb_ary_store(args, 1, rbsig);
-        VALUE ret = rb_protect(rack_call_signal_handler, args, &error);
-	rb_gc_register_address(&ret);
+        rb_protect(rack_call_signal_handler, args, &error);
         if (error) {
                 uwsgi_ruby_exception();
-                // free resources (useless ?)
-                rb_gc_unregister_address(&args);
-                rb_gc_unregister_address(&ret);
-                rb_gc_unregister_address(&rbsig);
                 rb_gc();
                 return -1;
         }
 
-        // free resources (useless ?)
-        rb_gc_unregister_address(&args);
-        rb_gc_unregister_address(&ret);
-        rb_gc_unregister_address(&rbsig);
         rb_gc();
-
         return 0;
 }
 
