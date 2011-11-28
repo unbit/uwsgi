@@ -395,59 +395,53 @@ VALUE send_header(VALUE obj, VALUE headers) {
 		goto clear;
 	}
 
+	rb_gc_register_address(&hkey);
+	rb_gc_register_address(&hval);
+
 	if (TYPE(hkey) != T_STRING || TYPE(hval) != T_STRING) {
 		goto clear2;
 	}
 
-	//uwsgi_log("header: %.*s: %.*s\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), RSTRING_LEN(hval), RSTRING_PTR(hval));
-
-	len = wsgi_req->socket->proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
-	wsgi_req->headers_size += len;
-	len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)": ", 2);
-	wsgi_req->headers_size += len;
-
 	char *header_value = RSTRING_PTR(hval);
-	int header_value_len = RSTRING_LEN(hval);
+	size_t header_value_len = RSTRING_LEN(hval);
+	size_t i,cnt=0;
+	char *this_header = header_value;
 
-	char *header_value_splitted = memchr(header_value, '\n', header_value_len);
+	for(i=0;i<header_value_len;i++) {
+		// multiline header, send it !!!
+		if (header_value[i] == '\n') {
+			len = wsgi_req->socket->proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
+			wsgi_req->headers_size += len;
+                        len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)": ", 2);
+                        wsgi_req->headers_size += len;
+			len = wsgi_req->socket->proto_write_header( wsgi_req, this_header, cnt);
+			wsgi_req->headers_size += len;
+			len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)"\r\n", 2);
+                	wsgi_req->headers_size += len;
 
-	if (!header_value_splitted) {
-		len = wsgi_req->socket->proto_write_header( wsgi_req, header_value, header_value_len);
-		wsgi_req->headers_size += len;
-		len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)"\r\n", 2);
-		wsgi_req->headers_size += len;
-		wsgi_req->header_cnt++;
+			//uwsgi_log("(multi) --%.*s: %.*s--\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), cnt, this_header);
+
+			wsgi_req->header_cnt++;
+
+			this_header += cnt+1;
+			cnt = 0;
+			continue;
+		}
+		cnt++;	
 	}
-	else {
-		header_value_splitted[0] = 0;
-		len = wsgi_req->socket->proto_write_header( wsgi_req, header_value, header_value_splitted-header_value);
+
+	if (cnt > 0) {
+		len = wsgi_req->socket->proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
+		wsgi_req->headers_size += len;
+                len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)": ", 2);
+                wsgi_req->headers_size += len;
+		len = wsgi_req->socket->proto_write_header( wsgi_req, this_header, cnt);
 		wsgi_req->headers_size += len;
 		len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)"\r\n", 2);
                 wsgi_req->headers_size += len;
 		wsgi_req->header_cnt++;
-
-		header_value = header_value_splitted+1;
-		header_value_len -= header_value_splitted-header_value;
-
-		while(header_value_len && (header_value_splitted = memchr(header_value, '\n', header_value_len))) {
-			header_value_splitted[0] = 0;
-
-			len = wsgi_req->socket->proto_write( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
-        		wsgi_req->headers_size += len;
-        		len = wsgi_req->socket->proto_write( wsgi_req, (char *)": ", 2);
-        		wsgi_req->headers_size += len;
-
-			len = wsgi_req->socket->proto_write( wsgi_req, header_value, header_value_splitted-header_value);
-			wsgi_req->headers_size += len;
-			len = wsgi_req->socket->proto_write( wsgi_req, (char *)"\r\n", 2);
-                	wsgi_req->headers_size += len;		
-                	wsgi_req->header_cnt++;
-
-                	header_value = header_value_splitted+1;
-                	header_value_len -= header_value_splitted-header_value;	
-		}
+		//uwsgi_log("--%.*s: %.*s--\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), cnt, this_header);
 	}
-
 
 clear2:
 	rb_gc_unregister_address(&hkey);
@@ -493,6 +487,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 
         env = rb_hash_new();
+	rb_gc_register_address(&env);
 
         // fill ruby hash
         for(i=0;i<wsgi_req->var_cnt;i++) {
@@ -508,6 +503,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 							) {
 			rb_hash_aset(env, rb_str_new(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len),
 					rb_str_new(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len));
+
+			//uwsgi_log("%.*s = %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 		}
                 i++;
         }
@@ -553,8 +550,9 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	ret = rb_protect( call_dispatch, env, &error);
 	if (error) {
 		uwsgi_ruby_exception();
-		//return -1;
+		goto clear2;
 	}
+	rb_gc_register_address(&ret);
 
 	if (TYPE(ret) == T_ARRAY) {
 		if (RARRAY_LEN(ret) != 3) {
@@ -565,6 +563,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		// manage Status
 
 		status = rb_obj_as_string(RARRAY_PTR(ret)[0]);
+		rb_gc_register_address(&status);
 		// get the status code
 
 		wsgi_req->hvec[0].iov_base = wsgi_req->protocol;
@@ -599,6 +598,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	}
 
 		headers = RARRAY_PTR(ret)[1] ;
+		rb_gc_register_address(&headers);
 		if (rb_respond_to( headers, rb_intern("each") )) {
 			rb_protect( iterate_headers, headers, &error);
 			if (error) {
@@ -614,15 +614,17 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		}
 
 		body = RARRAY_PTR(ret)[2] ;
-
+		rb_gc_register_address(&body);
 		// TODO protect to_path
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
+			uwsgi_log("TO_PATH\n");
 			VALUE sendfile_path = rb_protect( body_to_path, body, &error);
 			if (error) {
 				uwsgi_ruby_exception();
 			}
 			else {
+				rb_gc_register_address(&sendfile_path);
 				wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
 				wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
 				if (wsgi_req->response_size > 0) {
@@ -665,6 +667,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 clear:
 
 	rb_gc_unregister_address(&ret);
+clear2:
 
 	rb_gc_unregister_address(&env);
 
@@ -913,10 +916,13 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
 
         VALUE rbhandler = (VALUE) handler;
         VALUE args = rb_ary_new2(2);
+	rb_gc_register_address(&args);
         rb_ary_store(args, 0, rbhandler);
         VALUE rbsig = INT2NUM(sig);
+	rb_gc_register_address(&rbsig);
         rb_ary_store(args, 1, rbsig);
         VALUE ret = rb_protect(rack_call_signal_handler, args, &error);
+	rb_gc_register_address(&ret);
         if (error) {
                 uwsgi_ruby_exception();
                 // free resources (useless ?)
