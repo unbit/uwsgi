@@ -64,7 +64,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 #endif
 
 	// mark route() requests
-	if (wsgi_req->status == -1) {
+	if (wsgi_req->status == -17) {
 		via = msg3;
 	}
 

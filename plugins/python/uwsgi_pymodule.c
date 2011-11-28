@@ -2345,7 +2345,7 @@ PyObject *py_uwsgi_route(PyObject * self, PyObject * args) {
         ui->func = NULL;
 
 	// mark a route request
-	wsgi_req->status = -1;
+	wsgi_req->status = -17;
 
         return (PyObject *) ui;
 }
