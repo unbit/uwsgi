@@ -897,8 +897,8 @@ void fastrouter_send_stats(int fd) {
 			fprintf(output, "\t\t\"nodes\": [\n");
 			struct uwsgi_subscribe_node *s_node = s_slot->nodes;
 			while(s_node) {
-				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"ref\": %llu}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2,
-					(unsigned long long) s_node->last_check,  (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred, (unsigned long long) s_node->reference);
+				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"ref\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2,
+					(unsigned long long) s_node->last_check,  (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred, (unsigned long long) s_node->reference, s_node->death_mark);
 				if (s_node->next) {
 					fprintf(output, ",\n");
 				}
