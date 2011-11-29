@@ -21,6 +21,7 @@
 #define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT		150007
 #define LONG_ARGS_FASTROUTER_USE_CODE_STRING		150008
 #define LONG_ARGS_FASTROUTER_TOLERANCE			150009
+#define LONG_ARGS_FASTROUTER_STATS			150010
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -32,6 +33,8 @@
 #define add_check_timeout(x) uwsgi_add_rb_timer(ufr.timeouts, time(NULL)+x, NULL)
 #define del_check_timeout(x) rb_erase(&x->rbt, ufr.timeouts);
 #define del_timeout(x) rb_erase(&x->timeout->rbt, ufr.timeouts); free(x->timeout);
+
+void fastrouter_send_stats(int);
 
 struct uwsgi_fastrouter_socket {
 	char *name;
@@ -55,6 +58,8 @@ struct uwsgi_fastrouter {
 
         char *base;
         int base_len;
+
+	char *stats_server;
 
         char *subscription_server;
         struct uwsgi_subscribe_slot *subscriptions;
@@ -126,6 +131,9 @@ struct option fastrouter_options[] = {
 	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
 	{"fastrouter-subscription-use-regexp", no_argument, &ufr.subscription_regexp, 1},
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
+	{"fastrouter-stats", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
+	{"fastrouter-stats-server", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
+	{"fastrouter-ss", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{0, 0, 0, 0},	
 };
 
@@ -308,6 +316,7 @@ void fastrouter_loop() {
         socklen_t solen = sizeof(int);
 
 	int ufr_subserver = -1;
+	int ufr_stats_server = -1;
 
 	for(i=0;i<2048;i++) {
 		fr_table[i] = NULL;
@@ -362,6 +371,23 @@ void fastrouter_loop() {
 		if (!ufr.subscription_slot) ufr.subscription_slot = 30;
 		// check for node status every 10 seconds
 		//ufr.subscriptions_check = add_check_timeout(10);
+	}
+
+	if (ufr.stats_server) {
+		char *tcp_port = strchr(ufr.stats_server, ':');
+                if (tcp_port) {
+                        // disable deferred accept for this socket
+                        int current_defer_accept = uwsgi.no_defer_accept;
+                        uwsgi.no_defer_accept = 1;
+                        ufr_stats_server = bind_to_tcp(ufr.stats_server, uwsgi.listen_queue, tcp_port);
+                        uwsgi.no_defer_accept = current_defer_accept;
+                }
+                else {
+                        ufr_stats_server = bind_to_unix(ufr.stats_server, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                }
+
+                event_queue_add_fd_read(ufr.queue, ufr_stats_server);
+                uwsgi_log("*** FastRouter stats server enabled on %s fd: %d ***\n", ufr.stats_server, ufr_stats_server);
 	}
 
 	if (ufr.pattern) {
@@ -430,7 +456,10 @@ void fastrouter_loop() {
 				continue;
 			}
 
-			if (interesting_fd == ufr_subserver) {
+			if (interesting_fd == ufr_stats_server) {
+                        	fastrouter_send_stats(ufr_stats_server);
+			}
+			else if (interesting_fd == ufr_subserver) {
 				len = recv(ufr_subserver, bbuf, 4096, 0);
 #ifdef UWSGI_EVENT_USE_PORT
 				event_queue_add_fd_read(ufr.queue, ufr_subserver);
@@ -763,6 +792,9 @@ int fastrouter_opt(int i, char *optarg) {
 		case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER:
 			ufr.subscription_server = optarg;
 			return 1;
+		case LONG_ARGS_FASTROUTER_STATS:
+			ufr.stats_server = optarg;
+			return 1;
 		case LONG_ARGS_FASTROUTER_EVENTS:
 			ufr.nevents = atoi(optarg);
 			return 1;
@@ -812,4 +844,85 @@ struct uwsgi_plugin fastrouter_plugin = {
         .manage_opt = fastrouter_opt,
         .init = fastrouter_init,
 };
+
+
+#define stats_send_llu(x, y) fprintf(output, x, (long long unsigned int) y)
+#define stats_send(x, y) fprintf(output, x, y)
+
+void fastrouter_send_stats(int fd) {
+
+        struct sockaddr_un client_src;
+        socklen_t client_src_len = 0;
+        int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
+        if (client_fd < 0) {
+                uwsgi_error("accept()");
+                return;
+        }
+
+        FILE *output = fdopen(client_fd, "w");
+        if (!output) {
+                uwsgi_error("fdopen()");
+                close(client_fd);
+                return;
+        }
+
+        stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
+
+        fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
+        fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
+
+        char *cwd = uwsgi_get_cwd();
+        stats_send("\"cwd\": \"%s\",\n", cwd);
+        free(cwd);
+
+        fprintf(output, "\"fastrouter\": [");
+	struct uwsgi_fastrouter_socket *uwsgi_sock = ufr.sockets;
+        while(uwsgi_sock) {
+		if (uwsgi_sock->next) {
+			stats_send("\"%s\",", uwsgi_sock->name);
+		}
+		else {
+			stats_send("\"%s\"", uwsgi_sock->name);
+		}
+		uwsgi_sock = uwsgi_sock->next;
+	}
+	fprintf(output, "],\n");
+
+	if (ufr.subscription_server) {
+		fprintf(output, "\"subscriptions\": [\n");
+		struct uwsgi_subscribe_slot *s_slot = ufr.subscriptions;
+		while(s_slot) {
+			fprintf(output, "\t{ \"key\": \"%.*s\",\n", s_slot->keylen, s_slot->key);
+			fprintf(output, "\t\t\"hits\": %llu,\n", (unsigned long long) s_slot->hits);
+			fprintf(output, "\t\t\"nodes\": [\n");
+			struct uwsgi_subscribe_node *s_node = s_slot->nodes;
+			while(s_node) {
+				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"ref\": %llu}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2,
+					(unsigned long long) s_node->last_check,  (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred, (unsigned long long) s_node->reference);
+				if (s_node->next) {
+					fprintf(output, ",\n");
+				}
+				else {
+					fprintf(output, "\n");
+				}
+				s_node = s_node->next;
+			}
+			fprintf(output, "\t\t]\n");
+			if (s_slot->next) {
+				fprintf(output, "\t},\n");
+			}
+			else {
+				fprintf(output, "\t}\n");
+			}
+			s_slot = s_slot->next;
+		}
+		fprintf(output, "],\n");
+	}
+
+	fprintf(output,"\"cheap\": %d\n", ufr.i_am_cheap);
+
+        fprintf(output,"}\n");
+        fclose(output);
+
+}
 

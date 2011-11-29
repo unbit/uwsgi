@@ -103,7 +103,7 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			node = node->next;
 			rr_pos++;
 		}
-		current_slot->rr = 0;
+		current_slot->rr = 1;
 		if (current_slot->nodes) {
 			current_slot->nodes->reference++;
 		}
@@ -211,6 +211,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->len = usr->address_len;
 		node->modifier1 = usr->modifier1;
 		node->modifier2 = usr->modifier2;
+		node->requests = 0;
+		node->transferred = 0;
 		node->reference = 0;
 		node->death_mark = 0;
 		node->last_check = time(NULL);
@@ -247,6 +249,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->slot = current_slot;
 		current_slot->nodes->len = usr->address_len;
 		current_slot->nodes->reference = 0;
+		current_slot->nodes->requests = 0;
+		current_slot->nodes->transferred = 0;
 		current_slot->nodes->death_mark = 0;
 		current_slot->nodes->modifier1 = usr->modifier1;
 		current_slot->nodes->modifier2 = usr->modifier2;
