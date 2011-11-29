@@ -423,9 +423,9 @@ int uwsgi_parse_packet(struct wsgi_request *wsgi_req, int timeout) {
 		}
 		if (status < 0) {
 			if (status == -1)
-				uwsgi_log("error parsing request\n");
+				uwsgi_log_verbose("error parsing request\n");
 			else if (status == -2)
-				uwsgi_log("open-close packet (ping/check) received\n");
+				uwsgi_log_verbose("open-close packet (ping/check) received\n");
 			//close(upoll->fd);
 			return 0;
 		}

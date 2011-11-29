@@ -1244,6 +1244,7 @@ healthy:
 						continue;
 					}
 					for(i=1;i<=uwsgi.numproc;i++) {
+						uwsgi.workers[i].cheaped = 1;
                                			if (uwsgi.workers[i].pid == 0) continue;
                                			kill(uwsgi.workers[i].pid, SIGKILL);
                                			if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {

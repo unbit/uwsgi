@@ -1319,18 +1319,19 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 				else {
 					int magic = 0;
-					for (i = 0; i < uwsgi.gp_cnt; i++) {
-						if (uwsgi.gp[i]->magic) {
-							if (uwsgi.gp[i]->magic(NULL, lazy)) {
+					int j;
+					for (j = 0; j< uwsgi.gp_cnt; j++) {
+						if (uwsgi.gp[j]->magic) {
+							if (uwsgi.gp[j]->magic(NULL, lazy)) {
 								magic = 1;
 								break;
 							}
 						}
 					}
 					if (!magic) {
-						for (i = 0; i < 0xFF; i++) {
-							if (uwsgi.p[i]->magic) {
-								if (uwsgi.p[i]->magic(NULL, lazy)) {
+						for (j = 0; j < 0xFF; j++) {
+							if (uwsgi.p[j]->magic) {
+								if (uwsgi.p[j]->magic(NULL, lazy)) {
 									magic = 1;
 									break;
 								}
