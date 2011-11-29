@@ -254,7 +254,7 @@ class uConf(object):
             self.gcc_list.append('lib/netlink')
             try:
                 lk_ver = uwsgi_os_k.split('.')
-                if int(lk_ver[0]) <= 2 and int(lk_ver[1]) <= 6 and int(lk_ver[2]):
+                if int(lk_ver[0]) <= 2 and int(lk_ver[1]) <= 6 and int(lk_ver[2]) <= 9:
                     self.cflags.append('-DOBSOLETE_LINUX_KERNEL')                    
             except:
                 pass
