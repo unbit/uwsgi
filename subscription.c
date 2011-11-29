@@ -61,6 +61,8 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 		}
 #endif
 		current_slot = current_slot->next;
+		// check for loopy optimization
+		if (current_slot == *slot) break;
 	}
 
         return NULL;

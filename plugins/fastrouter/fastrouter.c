@@ -915,6 +915,8 @@ void fastrouter_send_stats(int fd) {
 				fprintf(output, "\t}\n");
 			}
 			s_slot = s_slot->next;
+			 // check for loopy optimization
+                	if (s_slot == ufr.subscriptions) break;
 		}
 		fprintf(output, "],\n");
 	}
