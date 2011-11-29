@@ -656,6 +656,7 @@ struct uwsgi_plugin {
 	int (*request) (struct wsgi_request *);
 	void (*after_request) (struct wsgi_request *);
 	void (*init_apps) (void);
+	void (*preinit_apps) (void);
 	void (*fixup) (void);
 	void (*master_fixup) (int);
 	void (*master_cycle) (void);
@@ -1573,6 +1574,7 @@ struct uwsgi_lb_group {
 
 
 struct uwsgi_signal_entry {
+	int wid;
 	uint8_t modifier1;
 	char receiver[64];
 	void *handler;

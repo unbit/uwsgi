@@ -370,24 +370,25 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		PyThreadState_Swap(up.main_thread);
 	}
 
-	if (app_type == PYTHON_APP_TYPE_WSGI) {
-		uwsgi_log( "WSGI application %d (mountpoint='%.*s') ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
-	}
-	else if (app_type == PYTHON_APP_TYPE_WEB3) {
-		uwsgi_log( "Web3 application %d (mountpoint='%.*s') ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
-	}
-	else if (app_type == PYTHON_APP_TYPE_PUMP) {
-		uwsgi_log( "Pump application %d (mountpoint='%.*s') ready on interpreter %p pid: %d", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid());
-	}
+	const char *default_app = "";
 
 	if ((wsgi_req->appid_len == 0 || (wsgi_req->appid_len = 1 && wsgi_req->appid[0] == '/')) && uwsgi.default_app == -1) {
-		uwsgi_rawlog(" (default app)");
+		default_app = " (default app)" ;
 		uwsgi.default_app = id;
 	}
 
-	uwsgi_apps_cnt++;
+	if (app_type == PYTHON_APP_TYPE_WSGI) {
+		uwsgi_log( "WSGI application %d (mountpoint='%.*s') ready on interpreter %p pid: %d%s\n", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid(), default_app);
+	}
+	else if (app_type == PYTHON_APP_TYPE_WEB3) {
+		uwsgi_log( "Web3 application %d (mountpoint='%.*s') ready on interpreter %p pid: %d%s\n", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid(), default_app);
+	}
+	else if (app_type == PYTHON_APP_TYPE_PUMP) {
+		uwsgi_log( "Pump application %d (mountpoint='%.*s') ready on interpreter %p pid: %d%s\n", id, wi->mountpoint_len, wi->mountpoint, wi->interpreter, (int) getpid(), default_app);
+	}
 
-	uwsgi_rawlog("\n");
+
+	uwsgi_apps_cnt++;
 
 	if (multiapp > 1) {
 		for(i=1;i<multiapp;i++) {

@@ -12,6 +12,28 @@ int uwsgi_signal_handler(uint8_t sig) {
 		return -1;
 	}	
 
+	// check for COW
+	if (uwsgi.master_process) {
+		if (use->wid != 0 && use->wid != uwsgi.mywid) {
+			uwsgi_log("[uwsgi-signal] you have registered this signal in worker %d memory area, only that process will be able to run it\n", use->wid);
+			return -1;
+		}
+	}
+	// in lazy mode (without a master), only the same worker will be able to run handlers
+	else if (uwsgi.lazy) {
+		if (use->wid != uwsgi.mywid) {
+			uwsgi_log("[uwsgi-signal] you have registered this signal in worker %d memory area, only that process will be able to run it\n", use->wid);
+			return -1;
+		}
+	}
+	else {
+		// when master is not active, worker1 is the COW-leader
+		if (use->wid != 1 && use->wid != uwsgi.mywid) {
+			uwsgi_log("[uwsgi-signal] you have registered this signal in worker %d memory area, only that process will be able to run it\n", use->wid);
+			return -1;
+		}
+	}
+
         // set harakiri here (if required and if i am a worker)
 	
 	if (uwsgi.mywid > 0) {
@@ -81,15 +103,22 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 
 	use = &uwsgi.shared->signal_table[sig];
 
+	if (use->handler) {
+		uwsgi_log("[uwsgi-signal] you cannot re-register a signal !!!\n");
+		uwsgi_unlock(uwsgi.signal_table_lock);
+		return -1;
+	}
+
 	strcpy(use->receiver, receiver);
 	use->handler = handler;
 	use->modifier1 = modifier1;
+	use->wid = uwsgi.mywid;
 
 	if (use->receiver[0] == 0) {
-		uwsgi_log("[uwsgi-signal] signum %d registered (modifier1: %d target: default, any worker)\n", sig, modifier1);
+		uwsgi_log("[uwsgi-signal] signum %d registered (wid: %d modifier1: %d target: default, any worker)\n", sig, uwsgi.mywid, modifier1);
 	}
 	else {
-		uwsgi_log("[uwsgi-signal] signum %d registered (modifier1: %d target: %s)\n", sig, modifier1, receiver);
+		uwsgi_log("[uwsgi-signal] signum %d registered (wid: %d modifier1: %d target: %s)\n", sig, uwsgi.mywid, modifier1, receiver);
 	}
 
 	uwsgi_unlock(uwsgi.signal_table_lock);

@@ -2441,6 +2441,19 @@ skipzero:
 		memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
 	}
 
+	// preinit apps (create the language environment)
+	for (i = 0; i < 0xFF; i++) {
+		if (uwsgi.p[i]->preinit_apps) {
+			uwsgi.p[i]->preinit_apps();
+		}
+	}
+
+	for (i = 0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->preinit_apps) {
+			uwsgi.gp[i]->preinit_apps();
+		}
+	}
+
 	//init apps hook (if not lazy)
 	if (!uwsgi.lazy) {
 		uwsgi_init_all_apps();

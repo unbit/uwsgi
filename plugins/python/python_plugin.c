@@ -29,6 +29,10 @@ struct option uwsgi_python_options[] = {
 	{"pyimport", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"py-import", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"python-import", required_argument, 0, LONG_ARGS_PYIMPORT},
+	{"shared-import", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
+	{"shared-pyimport", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
+	{"shared-py-import", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
+	{"shared-python-import", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
 	{"spooler-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
 	{"spooler-pyimport", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
 	{"spooler-py-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
@@ -739,6 +743,9 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 		uwsgi.honour_stdin = 1;
 		up.pyshell = 1;
 		return 1;
+	case LONG_ARGS_SHARED_PYIMPORT:
+		uwsgi_string_new_list(&up.shared_import_list, optarg);
+		return 1;
 	case LONG_ARGS_PYIMPORT:
 		uwsgi_string_new_list(&up.import_list, optarg);
 		return 1;
@@ -892,17 +899,8 @@ void uwsgi_python_spooler_init(void) {
 
 }
 
-void uwsgi_python_init_apps() {
-
-	struct http_status_codes *http_sc;
-
-
-	if (uwsgi.async > 1) {
-		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
-#ifndef UWSGI_PYPY
-        	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
-#endif
-	}
+// this hook will be executed by master (or worker1 when master is not requested, so COW is in place)
+void uwsgi_python_preinit_apps() {
 
 	init_pyargv();
 
@@ -911,7 +909,6 @@ void uwsgi_python_init_apps() {
         init_uwsgi_embedded_module();
 #endif
 #endif
-
 
 #ifdef __linux__
 #ifndef UWSGI_PYPY
@@ -929,6 +926,34 @@ void uwsgi_python_init_apps() {
         }
 
         init_uwsgi_vars();
+
+	// load shared imports
+	struct uwsgi_string_list *upli = up.shared_import_list;
+	while(upli) {
+		if (strchr(upli->value, '/') || uwsgi_endswith(upli->value, ".py")) {
+			uwsgi_pyimport_by_filename(uwsgi_pythonize(upli->value), upli->value);
+		}
+		else {
+			if (PyImport_ImportModule(upli->value) == NULL) {
+				PyErr_Print();
+			}
+		}
+		upli = upli->next;
+	}
+
+}
+
+void uwsgi_python_init_apps() {
+
+	struct http_status_codes *http_sc;
+
+	// prepare for stack suspend/resume
+	if (uwsgi.async > 1) {
+		up.current_recursion_depth = uwsgi_malloc(sizeof(int)*uwsgi.async);
+#ifndef UWSGI_PYPY
+        	up.current_frame = uwsgi_malloc(sizeof(struct _frame)*uwsgi.async);
+#endif
+	}
 
         // setup app loaders
 #ifdef UWSGI_MINTERPRETERS
@@ -1479,6 +1504,8 @@ struct uwsgi_plugin python_plugin = {
 	.short_options = "w:O:H:J:",
 	.request = uwsgi_request_wsgi,
 	.after_request = uwsgi_after_request_wsgi,
+
+	.preinit_apps = uwsgi_python_preinit_apps,
 	.init_apps = uwsgi_python_init_apps,
 
 	.fixup = uwsgi_python_fixup,

@@ -10,9 +10,6 @@ except:
 if uwsgi.masterpid() == 0:
     raise Exception("you have to enable the uWSGI master process to use this module")
 
-if uwsgi.opt.get('lazy'):
-    raise Exception("uWSGI lazy mode is not supported by this module")
-
 spooler_functions = {}
 mule_functions = {}
 postfork_chain = []
