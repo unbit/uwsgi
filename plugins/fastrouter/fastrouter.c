@@ -515,7 +515,8 @@ void fastrouter_loop() {
 					case FASTROUTER_STATUS_RECV_HDR:
 						len = recv(fr_session->fd, (char *)(&fr_session->uh) + fr_session->h_pos, 4-fr_session->h_pos, 0);
 						if (len <= 0) {
-							uwsgi_error("recv()");
+							if (len < 0)
+								uwsgi_error("recv()");
 							close_session(fr_table, fr_session);
 							break;
 						}
