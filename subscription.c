@@ -97,7 +97,8 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 				}
 				continue;
 			}
-			if (rr_pos == current_slot->rr) {
+			// only unmarked nodes can respond
+			if (node->death_mark == 0 && rr_pos == current_slot->rr) {
 				current_slot->rr++;
 				node->reference++;
 				return node;
@@ -107,6 +108,8 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 		}
 		current_slot->rr = 1;
 		if (current_slot->nodes) {
+			if (current_slot->nodes->death_mark)
+				return NULL;
 			current_slot->nodes->reference++;
 		}
 		return current_slot->nodes;
@@ -161,6 +164,20 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 	free(node);
 	// no more nodes, remove the slot too
 	if (node_slot->nodes == NULL) {
+
+		ret = 1;
+
+		// first check if i am the only node
+		if ((!prev_slot && !next_slot) || next_slot == node_slot) {
+			free(node_slot);
+			*slot = NULL;
+			goto end;
+		}
+
+		// if i am the main entry point, set the next value
+		if (node_slot == *slot) {
+			*slot = next_slot;
+		}
 			
 		if (prev_slot) {	
 			prev_slot->next = next_slot;	
@@ -178,13 +195,15 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 		}
 #endif
 
-		ret = 1;
 		free(node_slot);
-		// am i the only slot ?
-		if (!prev_slot && !next_slot) {
-			*slot = NULL;
+		struct uwsgi_subscribe_slot *x_slot = *slot;
+		while(x_slot) {
+			x_slot = x_slot->next;
 		}
+
 	}
+
+end:
 
 	return ret;
 }
