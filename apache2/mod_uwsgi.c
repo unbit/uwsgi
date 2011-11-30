@@ -73,6 +73,7 @@ typedef struct {
 	char scheme[9];
 	int cgi_mode ;
 	int max_vars;
+	int empty_remote_user;
 } uwsgi_cfg;
 
 module AP_MODULE_DECLARE_DATA uwsgi_module;
@@ -162,6 +163,7 @@ static void *uwsgi_server_config(apr_pool_t *p, server_rec *s) {
 	c->cgi_mode = 0 ;
 	c->max_vars = 128;
 	c->script_name[0] = 0;
+	c->empty_remote_user = 1;
 
 	return c;
 }
@@ -177,6 +179,7 @@ static void *uwsgi_dir_config(apr_pool_t *p, char *dir) {
 	c->modifier2 = 0 ;
 	c->cgi_mode = 0 ;
 	c->max_vars = 128;
+	c->empty_remote_user = 1;
 	c->script_name[0] = 0;
 	if (dir) {
 		if (strcmp(dir, "/")) {
@@ -344,7 +347,15 @@ static int uwsgi_handler(request_rec *r) {
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SERVER_PROTOCOL", r->protocol, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REQUEST_URI", r->unparsed_uri, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_ADDR", r->connection->remote_ip, &pkt_size) ;
-	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_USER", r->user ? r->user : "", &pkt_size) ;
+
+	// 
+	if (r->user) {
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_USER", r->user, &pkt_size) ;
+	}
+	else if (c->empty_remote_user) {
+		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_USER", "", &pkt_size) ;
+	}
+
 	if (r->user) {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "AUTH_TYPE", (char *) ap_auth_type(r), &pkt_size) ;
 	}
@@ -621,7 +632,7 @@ static const char * cmd_uwsgi_force_cgi_mode(cmd_parms *cmd, void *cfg, const ch
                 c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
         }
 
-	if (!strcmp("yes", value) || !strcmp("on", value) || !strcmp("enable", value) || !strcmp("1", value)) {
+	if (!strcmp("yes", value) || !strcmp("on", value) || !strcmp("enable", value) || !strcmp("1", value) || !strcmp("true", value)) {
 		c->cgi_mode = 1 ;
 	}
 
@@ -722,6 +733,28 @@ static const char * cmd_uwsgi_socket(cmd_parms *cmd, void *cfg, const char *path
 	return NULL ;
 }
 
+static const char * cmd_uwsgi_empty_remote_user(cmd_parms *cmd, void *cfg, const char *value) {
+
+	uwsgi_cfg *c ;
+
+	if (cfg) {
+		c = cfg ;
+	}
+	else {
+		c = ap_get_module_config(cmd->server->module_config, &uwsgi_module);
+	}
+
+	if (!strcmp("yes", value) || !strcmp("on", value) || !strcmp("enable", value) || !strcmp("1", value) || !strcmp("true", value)) {
+		c->empty_remote_user = 1;
+	}
+	else {
+		c->empty_remote_user = 0;
+	}
+
+	return NULL ;
+
+}
+
 static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE12("uWSGIsocket", cmd_uwsgi_socket, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path and optional timeout in seconds of uwsgi server socket"),	
 	AP_INIT_TAKE1("uWSGIsocket2", cmd_uwsgi_socket2, NULL, RSRC_CONF|ACCESS_CONF, "Absolute path of failover uwsgi server socket"),	
@@ -730,6 +763,7 @@ static const command_rec uwsgi_cmds[] = {
 	AP_INIT_TAKE1("uWSGIforceScriptName", cmd_uwsgi_force_script_name, NULL, ACCESS_CONF, "Fix for PATH_INFO/SCRIPT_NAME when the location has filesystem correspondence"),	
 	AP_INIT_TAKE1("uWSGIforceCGImode", cmd_uwsgi_force_cgi_mode, NULL, ACCESS_CONF, "Force uWSGI CGI mode for perfect integration with apache filter"),	
 	AP_INIT_TAKE1("uWSGIforceWSGIscheme", cmd_uwsgi_force_wsgi_scheme, NULL, ACCESS_CONF, "Force the WSGI scheme var (set by default to \"http\")"),	
+	AP_INIT_TAKE1("uWSGIemptyRemoteUser", cmd_uwsgi_empty_remote_user, NULL, ACCESS_CONF, "Always include REMOTE_USER in the environment, even with an empty value (default true)"),
 	AP_INIT_TAKE1("uWSGImaxVars", cmd_uwsgi_max_vars, NULL, ACCESS_CONF, "Set the maximum allowed number of uwsgi variables (default 128)"),	
 	{NULL}
 };
