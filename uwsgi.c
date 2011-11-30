@@ -1,5 +1,5 @@
 /*
-_socket_nb(uwsgi.shared->worker_log_pipe[1]
+
  *** uWSGI ***
 
  Copyright (C) 2009-2011 Unbit S.a.s. <info@unbit.it>
@@ -272,6 +272,7 @@ static struct option long_base_options[] = {
 	{"mimefile", required_argument, 0, LONG_ARGS_MIMEFILE},
 	{"mime-file", required_argument, 0, LONG_ARGS_MIMEFILE},
 	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE},
+	{"fileserve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE},
 	{"check-cache", no_argument, &uwsgi.check_cache, 1},
 	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1},
 	{"mode", required_argument, 0, LONG_ARGS_MODE},

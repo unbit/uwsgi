@@ -1462,14 +1462,17 @@ char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
 int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len) {
 
         struct stat st;
+	struct iovec headers_vec[8];
         char real_filename[PATH_MAX];
         char *filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
+	char content_length[sizeof(UMAX64_STR)+1];
+
 #ifdef UWSGI_DEBUG
-        uwsgi_log("checking for %s\n", filename);
+        uwsgi_log("[uwsgi-fileserve] checking for %s\n", filename);
 #endif
         if (!realpath(filename, real_filename)) {
 #ifdef UWSGI_DEBUG
-                uwsgi_log("unable to get realpath() of the static file\n");
+                uwsgi_log("[uwsgi-fileserve] unable to get realpath() of the static file\n");
 #endif
                 free(filename);
                 return -1;
@@ -1478,9 +1481,10 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
         free(filename);
 
         if (uwsgi_starts_with(real_filename, strlen(real_filename), document_root, document_root_len)) {
-                uwsgi_log("security error: %s is not under %.*s\n", real_filename, document_root_len, document_root);
+                uwsgi_log("[uwsgi-fileserve] security error: %s is not under %.*s\n", real_filename, document_root_len, document_root);
                 return -1;
         }
+
         if (!stat(real_filename, &st)) {
 		int mime_type_size = 0;
 		char *mime_type = uwsgi_get_mime_type(path_info, path_info_len, &mime_type_size);
@@ -1488,13 +1492,21 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                         time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
                         if (st.st_mtime <= ims) {
                                 wsgi_req->status = 304;
-                                wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
-                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, " 304 Not Modified\r\n", 19);
+				headers_vec[0].iov_base = wsgi_req->protocol;
+				headers_vec[0].iov_len = wsgi_req->protocol_len;
+				headers_vec[1].iov_base = " 304 Not Modified\r\n";
+				headers_vec[1].iov_len = 19;
+
+				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
 
 				struct uwsgi_string_list *ah = uwsgi.additional_headers;
 				while(ah) {
-					wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ah->value, ah->len);
-					wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
+					headers_vec[0].iov_base = ah->value;
+					headers_vec[0].iov_len = ah->len;
+					headers_vec[1].iov_base = "\r\n";
+					headers_vec[1].iov_len = 2;
+					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
+					wsgi_req->header_cnt++;
 					ah = ah->next;
 				}
 
@@ -1505,56 +1517,95 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                 if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
                         char http_last_modified[49];
 #ifdef UWSGI_DEBUG
-                        uwsgi_log("file %s found\n", real_filename);
+                        uwsgi_log("[uwsgi-fileserve] file %s found\n", real_filename);
 #endif
-                        // no need to set content-type/content-length, they will be fixed by the http server/router
 
-                        wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len);
-                        wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, " 200 OK\r\n", 9);
+			// HTTP status
+			headers_vec[0].iov_base = wsgi_req->protocol;
+                        headers_vec[0].iov_len = wsgi_req->protocol_len;
+			headers_vec[1].iov_base = " 200 OK\r\n";
+                        headers_vec[1].iov_len = 9;
+                        wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
 
+			// uWSGI additional headers
 			struct uwsgi_string_list *ah = uwsgi.additional_headers;
 			while(ah) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ah->value, ah->len);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
+				headers_vec[0].iov_base = ah->value;
+				headers_vec[0].iov_len = ah->len;
+				headers_vec[1].iov_base = "\r\n";
+				headers_vec[1].iov_len = 2;
+				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
 				wsgi_req->header_cnt++;
 				ah = ah->next;
 			}
 
+			// Content-Type (if available)
 			if (mime_type_size > 0 && mime_type) {
+				headers_vec[0].iov_base = "Content-Type: ";
+				headers_vec[0].iov_len = 14;
+				headers_vec[1].iov_base = mime_type;
+				headers_vec[1].iov_len = mime_type_size;
+				headers_vec[2].iov_base = "\r\n";
+				headers_vec[2].iov_len = 2;
+				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
 				wsgi_req->header_cnt++;
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "Content-Type: ", 14);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, mime_type, mime_type_size);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
 			}
 
+			// nginx
 			if (uwsgi.file_serve_mode == 1) {
-                                wsgi_req->header_cnt += 2;
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Accel-Redirect: ", 18);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, document_root, document_root_len);
+				headers_vec[0].iov_base = "X-Accel-Redirect: "; headers_vec[0].iov_len = 18 ;
+				headers_vec[1].iov_base = document_root; headers_vec[1].iov_len = document_root_len;
 				if (document_root[document_root_len-1] != '/') {
-					wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "/", 1);
+					headers_vec[2].iov_base = "/"; headers_vec[2].iov_len = 1;
+					headers_vec[3].iov_base = path_info; headers_vec[3].iov_len = path_info_len;
+					headers_vec[4].iov_base = "\r\n"; headers_vec[4].iov_len = 2;
+					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 5);
 				}
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, path_info, path_info_len);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
+				else {
+					headers_vec[2].iov_base = path_info; headers_vec[2].iov_len = path_info_len;
+					headers_vec[3].iov_base = "\r\n"; headers_vec[3].iov_len = 2;
+					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
+				}
+				// this is the final header (\r\n added)
                         	set_http_date(st.st_mtime, http_last_modified);
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
-			}
-			else if (uwsgi.file_serve_mode == 2) {
                                 wsgi_req->header_cnt += 2;
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "X-Sendfile: ", 12);
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, document_root, document_root_len);
-                                if (document_root[document_root_len-1] != '/') {
-                                        wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "/", 1);
-                                }
-                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, path_info, path_info_len);	
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
-                        	set_http_date(st.st_mtime, http_last_modified);
-                        	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
 			}
-			else {
-                                wsgi_req->header_cnt += 1;
+			// apache
+			else if (uwsgi.file_serve_mode == 2) {
+				headers_vec[0].iov_base = "X-Sendfile: "; headers_vec[0].iov_len = 12 ;
+				headers_vec[1].iov_base = document_root; headers_vec[1].iov_len = document_root_len;
+				if (document_root[document_root_len-1] != '/') {
+					headers_vec[2].iov_base = "/"; headers_vec[2].iov_len = 1;
+					headers_vec[3].iov_base = path_info; headers_vec[3].iov_len = path_info_len;
+					headers_vec[4].iov_base = "\r\n"; headers_vec[4].iov_len = 2;
+					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 5);
+				}
+				else {
+					headers_vec[2].iov_base = path_info; headers_vec[2].iov_len = path_info_len;
+					headers_vec[3].iov_base = "\r\n"; headers_vec[3].iov_len = 2;
+					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
+				}
+				// this is the final header (\r\n added)
                         	set_http_date(st.st_mtime, http_last_modified);
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
+                                wsgi_req->header_cnt += 2;
+			}
+			// raw
+			else {
+                        	// set Content-Length
+				headers_vec[0].iov_base = "Content-Length: ";
+				headers_vec[0].iov_len = 16;
+				headers_vec[1].iov_len = uwsgi_long2str2n(st.st_size, content_length, sizeof(UMAX64_STR)+1);
+				headers_vec[1].iov_base = content_length;
+				headers_vec[2].iov_base = "\r\n";
+				headers_vec[2].iov_len = 2;
+				// this is the final header (\r\n added)
+                        	set_http_date(st.st_mtime, http_last_modified);
+				headers_vec[3].iov_base = http_last_modified;
+				headers_vec[3].iov_len = 48;
+                        	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
+                                wsgi_req->header_cnt += 2;
                                 wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);
                                 wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 			}

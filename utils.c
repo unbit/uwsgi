@@ -2363,6 +2363,12 @@ int uwsgi_num2str2n(int num, char *ptr, int size) {
 	return snprintf(ptr, size, "%d", num);
 }
 
+int uwsgi_long2str2n(unsigned long long num, char *ptr, int size) {
+	int ret = snprintf(ptr, size, "%llu", num);
+	if (ret < 0) return 0;
+	return ret;
+}
+
 int is_unix(char *socket_name, int len) {
 	int i;
 	for (i = 0; i < len; i++) {

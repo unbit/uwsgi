@@ -2515,6 +2515,7 @@ struct uwsgi_probe *uwsgi_probe_register(struct uwsgi_probe **, char *, int (*)(
 int uwsgi_add_probe(uint8_t sig, char *, char *, int, int);
 
 int uwsgi_is_bad_connection(int);
+int uwsgi_long2str2n(unsigned long long, char *, int);
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
