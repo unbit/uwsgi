@@ -365,7 +365,8 @@ static int uwsgi_handler(request_rec *r) {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "UWSGI_SCHEME", c->scheme, &pkt_size) ;
 	}
 
-	if (c->script_name[0] != 0) {
+	// SCRIPT_NAME = "/" is like SCRIPT_NAME = ""
+	if (c->script_name[0] != 0 && !(c->script_name[0] == '/' && c->script_name[1] == 0)) {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SCRIPT_NAME", c->script_name, &pkt_size) ;
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "PATH_INFO", r->uri+strlen(c->script_name), &pkt_size) ;
 	}
