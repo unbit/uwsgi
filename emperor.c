@@ -171,7 +171,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	c_ui->respawns++;
 	c_ui->last_mod = mod;
 
-	uwsgi_log("reload the uwsgi instance %s\n", c_ui->name);
+	uwsgi_log("[emperor] reload the uwsgi instance %s\n", c_ui->name);
 }
 
 void emperor_add(char *name, time_t born, char *config, uint32_t config_size, uid_t uid, gid_t gid) {
@@ -512,6 +512,7 @@ reconnect:
 			uwsgi_error("glob()");
 			exit(1);
 		}
+		globfree(&g);
 		emperor_absolute_dir = realpath(".", NULL);
 	}
 
@@ -647,7 +648,7 @@ reconnect:
 					}
 				}
 				else {
-					uwsgi_log("unrecognized event on fd %d\n", interesting_fd);
+					uwsgi_log("[emperor] unrecognized vassal event on fd %d\n", interesting_fd);
 					event_queue_del_fd(emperor_queue, interesting_fd, event_queue_read());
 					close(interesting_fd);
 				}
@@ -746,6 +747,7 @@ reconnect:
 				}
 
 			}
+			globfree(&g);
 		}
 		}
 
@@ -847,6 +849,7 @@ void emperor_send_stats(int fd) {
 
         stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
 
+        fprintf(output,"\"pid\": %d,\n", (int)(getpid()));
         fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
         fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
 

@@ -352,6 +352,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, char *modifier1, size_t modifier1_len, uint8_t cmd) {
 
+	if (!uwsgi.sockets) return;
+
 	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(uwsgi.sockets->name));
 
 	if (modifier1) {
