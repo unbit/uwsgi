@@ -80,9 +80,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	int id = uwsgi_apps_cnt;
 	int multiapp = 0;
 
-#ifdef UWSGI_ASYNC
 	int i;
-#endif
 
 	char *mountpoint;
 
@@ -320,9 +318,9 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	// add start_response on WSGI app
 	Py_INCREF((PyObject *)up.wsgi_spitout);
-	wi->wsgi_args = PyTuple_New(wi->argc);
+	wi->args = PyTuple_New(wi->argc);
 	if (app_type == PYTHON_APP_TYPE_WSGI) {
-		if (PyTuple_SetItem(wi->wsgi_args, 1, up.wsgi_spitout)) {
+		if (PyTuple_SetItem(wi->args, 1, up.wsgi_spitout)) {
 			uwsgi_log("unable to set start_response in args tuple\n");
 			exit(1);
 		}
