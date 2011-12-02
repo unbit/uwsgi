@@ -1555,6 +1555,11 @@ struct uwsgi_server {
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 	int linux_ksm;
+	int ksm_buffer_size;
+	char *ksm_mappings_last;
+	char *ksm_mappings_current;
+	size_t ksm_mappings_last_size;
+	size_t ksm_mappings_current_size;
 #endif
 #endif
 

@@ -739,81 +739,76 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 
-unsigned long long *ksm_mappings_last = NULL;
-int ksm_mappings_last_lines = 0;
-unsigned long long *ksm_mappings_current = NULL;
-int ksm_mappings_current_lines = 0;
-
 void uwsgi_linux_ksm_map(void) {
 
-	char map_line_buf[1024];
-        unsigned long long start, end;
 	int dirty = 0;
-	int i;
-	int errors = 0;
-	unsigned long long *tmp_ptr;
+	size_t i;
+	unsigned long long start = 0, end = 0;
+	int errors = 0; int lines = 0;
 
-	ksm_mappings_current = NULL;
-	ksm_mappings_current_lines = 0;
+        int fd = open("/proc/self/maps", O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error_open("[uwsgi-KSM] /proc/self/maps");
+		return ;
+	}
 
-        FILE *process_maps = fopen("/proc/self/maps", "r");
+	// allocate memory if not available;
+	if (uwsgi.ksm_mappings_current == NULL) {
+		if (!uwsgi.ksm_buffer_size) uwsgi.ksm_buffer_size = 32768;
+		uwsgi.ksm_mappings_current = uwsgi_malloc(uwsgi.ksm_buffer_size);
+		uwsgi.ksm_mappings_current_size = 0;
+	}
+	if (uwsgi.ksm_mappings_last == NULL) {
+		if (!uwsgi.ksm_buffer_size) uwsgi.ksm_buffer_size = 32768;
+		uwsgi.ksm_mappings_last = uwsgi_malloc(uwsgi.ksm_buffer_size);
+		uwsgi.ksm_mappings_last_size = 0;
+	}
 
-        if (process_maps) {
-        	while( fgets(map_line_buf, 1024, process_maps)) {
-                	if (fscanf(process_maps, "%llx-%llx %*s", &start, &end) == 2) {
-				ksm_mappings_current_lines+=2;
-				tmp_ptr = ksm_mappings_current;
-				ksm_mappings_current = realloc(ksm_mappings_current, sizeof(unsigned long long) * ksm_mappings_current_lines);
-				if (!ksm_mappings_current) {
-					uwsgi_error("[uwsgi-KSM] /proc/self/maps realloc()");
-					fclose(process_maps);
-					if (tmp_ptr) {
-						free(tmp_ptr);
-					}
-					return;
-				}
-				ksm_mappings_current[ksm_mappings_current_lines-2] = start;
-				ksm_mappings_current[ksm_mappings_current_lines-1] = end;
-                        }
-		}
-		fclose(process_maps);
+	uwsgi.ksm_mappings_current_size = read(fd, uwsgi.ksm_mappings_current, uwsgi.ksm_buffer_size);
+	close(fd);
+	if (uwsgi.ksm_mappings_current_size <= 0) {
+		uwsgi_log("[uwsgi-KSM] unable to read /proc/self/maps data\n");
+		return;
+	}
 
-		if (ksm_mappings_last == NULL || ksm_mappings_last_lines == 0 || ksm_mappings_last_lines != ksm_mappings_current_lines) {
+	// we now have areas
+	if (uwsgi.ksm_mappings_last_size == 0 || uwsgi.ksm_mappings_current_size == 0 || uwsgi.ksm_mappings_current_size != uwsgi.ksm_mappings_last_size) {
+		dirty = 1;
+	}
+	else {
+		if (memcmp(uwsgi.ksm_mappings_current, uwsgi.ksm_mappings_last, uwsgi.ksm_mappings_current_size) != 0) {
 			dirty = 1;
 		}
-		else {
-			for(i=0;i<ksm_mappings_current_lines;i+=2) {
-				if (ksm_mappings_current[i] != ksm_mappings_last[i]) {
-					dirty = 1;
-					break;
+	}
+
+	// it is dirty, swap addresses and parse it
+	if (dirty) {
+		char *tmp = uwsgi.ksm_mappings_last;
+		uwsgi.ksm_mappings_last = uwsgi.ksm_mappings_current;
+		uwsgi.ksm_mappings_current = tmp;
+
+		size_t tmp_size = uwsgi.ksm_mappings_last_size;
+		uwsgi.ksm_mappings_last_size = uwsgi.ksm_mappings_current_size;
+		uwsgi.ksm_mappings_current_size = tmp_size;
+
+		// scan each line and call madvise on it
+		char *ptr = uwsgi.ksm_mappings_last;
+		for(i=0;i<uwsgi.ksm_mappings_last_size;i++) {
+			if (uwsgi.ksm_mappings_last[i] == '\n') {
+				lines++;
+				uwsgi.ksm_mappings_last[i] = 0;
+				if (sscanf(ptr, "%llx-%llx %*s", &start, &end) == 2) {
+					if (madvise((void *) (long) start, (size_t) (end-start), MADV_MERGEABLE)) {
+						errors ++;
+					}
 				}
-				if (ksm_mappings_current[i+1] != ksm_mappings_last[i+1]) {
-					dirty = 1;
-					break;
-				}
+				uwsgi.ksm_mappings_last[i] = '\n';
+				ptr = uwsgi.ksm_mappings_last+i+1;
 			}
 		}
 
-		if (dirty) {
-
-			for(i=0;i<ksm_mappings_current_lines;i+=2) {
-                		if (madvise((void *) (long) ksm_mappings_current[i], (size_t) (ksm_mappings_current[i+1]-ksm_mappings_current[i]), MADV_MERGEABLE)) {
-					errors += 2;
-                		}
-			}
-
-			if (ksm_mappings_last)
-				free(ksm_mappings_last);
-			ksm_mappings_last = ksm_mappings_current;
-			ksm_mappings_last_lines = ksm_mappings_current_lines;
-
-			if (errors >= ksm_mappings_current_lines) {
-				uwsgi_error("[uwsgi-KSM] unable to share pages");
-			}
-		}
-		// if not dirty, free ksm_mappings_current
-		else {
-			free(ksm_mappings_current);
+		if (errors >= lines) {
+			uwsgi_error("[uwsgi-KSM] unable to share pages");
 		}
 	}
 }
