@@ -406,5 +406,6 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, char 
         }
 
         send_udp_message(224, cmd, udp_address, subscrbuf, ssb_size-4);
+	free(subscrbuf);
 }
 

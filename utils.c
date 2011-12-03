@@ -320,7 +320,11 @@ void log_socket(char *socket_name) {
 
 void create_logpipe(void) {
 
+#ifdef SOCK_SEQPACKET
+	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_log_pipe)) {
+#else
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
+#endif
                 uwsgi_error("socketpair()\n");
                 exit(1);
         }

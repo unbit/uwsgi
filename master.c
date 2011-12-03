@@ -207,7 +207,7 @@ int master_loop(char **argv, char **environ) {
 
 	uint8_t uwsgi_signal;
 
-	time_t last_request_timecheck = 0;
+	time_t last_request_timecheck = 0, now = 0;
 	uint64_t last_request_count = 0;
 
 #ifdef UWSGI_UDP
@@ -874,6 +874,7 @@ healthy:
 					if (uwsgi.stats && uwsgi.stats_fd > -1) {
 						if (interesting_fd == uwsgi.stats_fd) {
 							uwsgi_send_stats(uwsgi.stats_fd);
+							goto health_cycle;
 						}
 					}
 
@@ -924,6 +925,7 @@ healthy:
                                         		close(zerg_client);
 
 							free(zerg_msg_control);
+							goto health_cycle;
 						}
 					}
 
@@ -950,6 +952,7 @@ healthy:
 								sleep(2);
 								exit(1);
 							}
+							goto health_cycle;
 						}
 					}
 
@@ -969,6 +972,7 @@ healthy:
 							}
 							uwsgi_sock = uwsgi_sock->next;
 						}
+						// here is better to continue instead going to health_cycle
 						if (found) continue;
 					}
 #ifdef UWSGI_SNMP
@@ -982,7 +986,7 @@ healthy:
 						else if (rlen > 0) {
 							manage_snmp(snmp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
 						}
-						continue;
+						goto health_cycle;
 					}
 #endif
 
@@ -1029,14 +1033,14 @@ healthy:
 							}
 						}
 
-						continue;
+						goto health_cycle;
 					}
 
 #ifdef UWSGI_MULTICAST
 					if (interesting_fd == uwsgi.cluster_fd) {
 					
 						if (uwsgi_get_dgram(uwsgi.cluster_fd, uwsgi.wsgi_requests[0])) {
-							continue;
+							goto health_cycle;
 						}
 
 						switch(uwsgi.wsgi_requests[0]->uh.modifier1) {
@@ -1076,7 +1080,7 @@ healthy:
 								uwsgi_log_verbose("[uWSGI cluster %s] new node available: %.*s\n", uwsgi.cluster, uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
 								break;
 						}
-						continue;
+						goto health_cycle;
 					}
 #endif
 
@@ -1098,7 +1102,7 @@ healthy:
 					}
 
 					uwsgi_unlock(uwsgi.fmon_table_lock);
-					if (next_iteration) continue;
+					if (next_iteration) goto health_cycle;;
 
 					next_iteration = 0;
 
@@ -1114,7 +1118,7 @@ healthy:
                                                 }
                                         }
 					uwsgi_unlock(uwsgi.timer_table_lock);
-                                        if (next_iteration) continue;
+                                        if (next_iteration) goto health_cycle;;
 
 
 					// check for worker signal
@@ -1134,6 +1138,7 @@ healthy:
 							close(interesting_fd);
 							//uwsgi.workers[i].pipe[0] = -1;
 						}
+						goto health_cycle;
 					}
 	
 #ifdef UWSGI_SPOOLER
@@ -1154,6 +1159,7 @@ healthy:
 							uwsgi_log_verbose("lost connection with the spooler\n");
 							close(interesting_fd);
 						}
+						goto health_cycle;
 					}
 				}
 #endif
@@ -1161,7 +1167,12 @@ healthy:
 
 				}
 
-			uwsgi.current_time = time(NULL);	
+health_cycle:
+			now = time(NULL);
+			if (now - uwsgi.current_time < 1) {
+				uwsgi_log("too fast\n");
+			}
+			uwsgi.current_time = now;
 			// checking logsize
 			if (uwsgi.logfile) {
 				if (uwsgi.log_master) {
@@ -1207,6 +1218,7 @@ healthy:
 			}
 
 				
+			// this will be incremented at (more or less) regular intervals
 			uwsgi.master_cycles++;
 
 			// recalculate requests counter on race conditions risky configurations
