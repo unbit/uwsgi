@@ -1170,7 +1170,7 @@ healthy:
 health_cycle:
 			now = time(NULL);
 			if (now - uwsgi.current_time < 1) {
-				uwsgi_log("too fast\n");
+				continue;
 			}
 			uwsgi.current_time = now;
 			// checking logsize
