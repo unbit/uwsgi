@@ -868,6 +868,7 @@ healthy:
 								}
 								// TODO allow uwsgi.logger = func
 							}	
+							goto health_cycle;
 						}
 					}
 
