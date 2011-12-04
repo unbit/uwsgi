@@ -169,10 +169,10 @@ void fastrouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 	}
 	else if (!uwsgi_strncmp("load", 4, key, keylen)) {
 		if (vallen == 8) {
-			memcpy(&usr->cores, val, vallen);
+			memcpy(&usr->load, val, vallen);
 		}
 		else {
-			usr->cores = uwsgi_str_num(val, vallen);
+			usr->load = uwsgi_str_num(val, vallen);
 		}
 	}
 }
