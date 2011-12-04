@@ -294,13 +294,13 @@ PyObject *py_uwsgi_add_file_monitor(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
 
-	char buffer[0xffff];
 	char *func;
 	uint16_t size = 0;
 	PyObject *py_func;
 	int argc = PyTuple_Size(args);
 	int i;
-	char *argv[0xff];
+	char *argv[256];
+	uint16_t argvs[256];
 
 	// TODO better error reporting
 	if (argc < 1)
@@ -314,19 +314,29 @@ PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
 	func = PyString_AsString(py_func);
 
 	for (i = 0; i < (argc - 1); i++) {
-		argv[i] = PyString_AsString(PyTuple_GetItem(args, i + 1));
+		PyObject *py_str = PyTuple_GetItem(args, i + 1);
+		if (!PyString_Check(py_str)) {
+			goto clear;
+		}
+		argv[i] = PyString_AsString(py_str);
+		argvs[i] = PyString_Size(py_str);
 	}
 
-	size = uwsgi_rpc(func, argc - 1, argv, buffer);
+	char *response = uwsgi_do_rpc(NULL, func, argc - 1, argv, argvs, &size);
 
 	if (size > 0) {
-		return PyString_FromStringAndSize(buffer, size);
+		PyObject *ret = PyString_FromStringAndSize(response, size);
+		free(response);
+		return ret;
 	}
-
-      clear:
 
 	Py_INCREF(Py_None);
 	return Py_None;
+
+      clear:
+
+	return PyErr_Format(PyExc_ValueError, "unable to call rpc function");
+
 }
 
 PyObject *py_uwsgi_rpc_list(PyObject * self, PyObject * args) {
@@ -346,19 +356,15 @@ PyObject *py_uwsgi_rpc_list(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 
-	char buffer[0xffff];
-	char *node, *func;
+	char *node = NULL, *func;
 	uint16_t size = 0;
 	PyObject *py_node, *py_func;
-	struct wsgi_request rpc_req;
-	int argc = PyTuple_Size(args);
-	char *argv[0xff];
-	int i, fd;
-	uint16_t pktsize = 0, ulen;
-	char *bufptr;
-	int rlen;
-	int rpc_args = 0;
 
+	int argc = PyTuple_Size(args);
+	char *argv[256];
+	uint16_t argvs[256];
+
+	int i;
 
 	// TODO better error reporting
 	if (argc < 2)
@@ -369,9 +375,6 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	if (PyString_Check(py_node)) {
 		node = PyString_AsString(py_node);
 	}
-	else {
-		node = "";
-	}
 
 	py_func = PyTuple_GetItem(args, 1);
 
@@ -381,87 +384,28 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	func = PyString_AsString(py_func);
 
 	for (i = 0; i < (argc - 2); i++) {
-		argv[i] = PyString_AsString(PyTuple_GetItem(args, i + 2));
-		rpc_args++;
+		PyObject *py_str = PyTuple_GetItem(args, i + 2);
+		if (!PyString_Check(py_str))
+			goto clear;
+		argv[i] = PyString_AsString(py_str);
+		argvs[i] = PyString_Size(py_str);
 	}
 
-	if (!strcmp(node, "")) {
-		if (!rpc_args) {
-			size = uwsgi_rpc(func, 0, NULL, buffer);
-		}
-		else {
-			size = uwsgi_rpc(func, rpc_args, argv, buffer);
-		}
-	}
-	else {
-
-
-		// connect to node
-		fd = uwsgi_connect(node, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
-
-		if (fd < 0)
-			goto clear;
-		// prepare a uwsgi array
-
-		pktsize = 2 + strlen(func);
-		for (i = 0; i < argc - 2; i++) {
-			pktsize += 2 + strlen(argv[i]);
-		}
-
-		memset(&rpc_req, 0, sizeof(struct wsgi_request));
-
-		rpc_req.uh.modifier1 = 173;
-		rpc_req.uh.pktsize = pktsize;
-		rpc_req.uh.modifier2 = 0;
-
-		bufptr = buffer;
-
-		ulen = strlen(func);
-		*bufptr++ = (uint8_t) (ulen & 0xff);
-		*bufptr++ = (uint8_t) ((ulen >> 8) & 0xff);
-		memcpy(bufptr, func, ulen);
-		bufptr += ulen;
-
-		for (i = 0; i < argc - 2; i++) {
-			ulen = strlen(argv[i]);
-			*bufptr++ = (uint8_t) (ulen & 0xff);
-			*bufptr++ = (uint8_t) ((ulen >> 8) & 0xff);
-			memcpy(bufptr, argv[i], ulen);
-			bufptr += ulen;
-		}
-
-		if (write(fd, &rpc_req.uh, 4) != 4) {
-			uwsgi_error("write()");
-			close(fd);
-			goto clear;
-		}
-
-		if (write(fd, buffer, pktsize) != pktsize) {
-			uwsgi_error("write()");
-			close(fd);
-			goto clear;
-		}
-
-		rlen = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (rlen > 0) {
-			rpc_req.poll.fd = fd;
-			rpc_req.poll.events = POLLIN;
-			rpc_req.buffer = buffer;
-			if (uwsgi_parse_packet(&rpc_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
-				size = rpc_req.uh.pktsize;
-			}
-		}
-
-	}
+	char *response = uwsgi_do_rpc(node, func, argc - 2, argv, argvs, &size);
 
 	if (size > 0) {
-		return PyString_FromStringAndSize(buffer, size);
-	}
+                PyObject *ret = PyString_FromStringAndSize(response, size);
+                free(response);
+                return ret;
+        }
+
+	Py_INCREF(Py_None);
+        return Py_None;
 
       clear:
 
-	Py_INCREF(Py_None);
-	return Py_None;
+        return PyErr_Format(PyExc_ValueError, "unable to call rpc function");
+
 }
 
 PyObject *py_uwsgi_register_rpc(PyObject * self, PyObject * args) {

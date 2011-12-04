@@ -94,7 +94,8 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 	char *call;
 	char buffer[0xffff];
 
-	char *argv[0xff] ;
+	char *argv[256] ;
+	uint16_t argvs[256] ;
 	int argc = 0;
 	uint16_t ret;
 	ei_x_buff xr;
@@ -215,14 +216,16 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 		argc = 1;
 		argv[0] = uwsgi_malloc(esize+1);
 		ei_decode_atom(x->buff, &x->index, argv[0]);	
+		argvs[1] = esize;
 	}
 	else if (etype == ERL_STRING_EXT) {
 		argc = 1;
 		argv[0] = uwsgi_malloc(esize+1);
 		ei_decode_string(x->buff, &x->index, argv[0]);	
+		argvs[1] = esize;
 	}
 
-	ret = uwsgi_rpc(call, argc, argv, buffer);
+	ret = uwsgi_rpc(call, argc, argv, argvs, buffer);
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("buffer: %.*s\n", ret, buffer);

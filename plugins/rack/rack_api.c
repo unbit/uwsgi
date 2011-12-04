@@ -595,6 +595,59 @@ VALUE uwsgi_ruby_signal_registered(VALUE *class, VALUE signum) {
         return Qfalse;
 }
 
+VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE *class) {
+
+	char *node = NULL, *func;
+        uint16_t size = 0;
+
+        char *argv[256];
+        uint16_t argvs[256];
+
+        int i;
+
+
+        // TODO better error reporting
+        if (argc < 2)
+                goto clear;
+
+
+        VALUE rpc_node = rpc_argv[0];
+
+        if (TYPE(rpc_node) == T_STRING) {
+                node = RSTRING_PTR(rpc_node);
+        }
+
+
+        VALUE rpc_func = rpc_argv[1];
+
+        if (TYPE(rpc_func) != T_STRING)
+                goto clear;
+
+        func = RSTRING_PTR(rpc_func);
+
+        for (i = 0; i < (argc - 2); i++) {
+                VALUE rpc_str = rpc_argv[i + 2];
+                if (TYPE(rpc_str) != T_STRING)
+                        goto clear;
+                argv[i] = RSTRING_PTR(rpc_str);
+                argvs[i] = RSTRING_LEN(rpc_str);
+        }
+
+        char *response = uwsgi_do_rpc(node, func, argc - 2, argv, argvs, &size);
+
+        if (size > 0) {
+                VALUE ret = rb_str_new(response, size);
+                free(response);
+                return ret;
+        }
+
+
+clear:
+
+        rb_raise(rb_eRuntimeError, "unable to call rpc function");
+        return Qnil;
+}
+
 VALUE uwsgi_ruby_register_rpc(int argc, VALUE *argv, VALUE *class) {
 
         int rb_argc = 0;
@@ -711,6 +764,8 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("logsize", rack_uwsgi_logsize, 0);
 
         uwsgi_rack_api("set_warning_message", rack_uwsgi_warning, 1);
+
+        uwsgi_rack_api("rpc", uwsgi_ruby_do_rpc, -1);
 
 	
 

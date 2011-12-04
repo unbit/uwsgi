@@ -678,7 +678,7 @@ struct uwsgi_plugin {
 
 	int (*spooler) (char *, char *, uint16_t, char *, size_t);
 
-	uint16_t(*rpc) (void *, uint8_t, char **, char *);
+	uint16_t(*rpc) (void *, uint8_t, char **, uint16_t *, char *);
 
 	void (*jail) (int (*)(void *), char **);
 
@@ -2103,11 +2103,12 @@ void uwsgi_route_signal(uint8_t);
 int uwsgi_start(void *);
 
 int uwsgi_register_rpc(char *, uint8_t, uint8_t, void *);
-uint16_t uwsgi_rpc(char *, uint8_t, char **, char *);
+uint16_t uwsgi_rpc(char *, uint8_t, char **, uint16_t *, char *);
+char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
 
 char *uwsgi_cheap_string(char *, int);
 
-int uwsgi_parse_array(char *, uint16_t, char **, uint8_t *);
+int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 
 void log_syslog(char *);
 

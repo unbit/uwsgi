@@ -157,7 +157,7 @@ VALUE rack_call_rpc_handler(VALUE args) {
 }
 
 
-uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
+uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
 
         uint8_t i;
 	VALUE rb_args = rb_ary_new2(2);
@@ -170,7 +170,7 @@ uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
 	rb_ary_store(rb_args, 0, (VALUE) func);
 
         for (i = 0; i < argc; i++) {
-                rb_ary_store(rb_rpc_args, i, rb_str_new2(argv[i]));
+                rb_ary_store(rb_rpc_args, i, rb_str_new(argv[i], argvs[i]));
         }
 	rb_ary_store(rb_args, 1, rb_rpc_args);
 

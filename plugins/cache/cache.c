@@ -34,6 +34,7 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
         uint64_t vallen = 0;
         char *value;
         char *argv[3];
+        uint16_t argvs[3];
         uint8_t argc = 0;
 
         switch(wsgi_req->uh.modifier2) {
@@ -52,9 +53,9 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                         // set
                         if (wsgi_req->uh.pktsize > 0) {
                                 argc = 3;
-                                if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh.pktsize, argv, &argc)) {
+                                if (!uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh.pktsize, argv, argvs, &argc)) {
                                         if (argc > 1) {
-                                                uwsgi_cache_set(argv[0], strlen(argv[0]), argv[1], strlen(argv[1]), 0, 0);
+                                                uwsgi_cache_set(argv[0], argvs[0], argv[1], argvs[1], 0, 0);
                                         }
                                 }
                         }

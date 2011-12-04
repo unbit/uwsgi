@@ -1291,36 +1291,38 @@ clear:
 	return -1;
 }
 
-uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, char *buffer) {
+uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
 
 	UWSGI_GET_GIL;
 
 	uint8_t i;
-	PyObject *pyargs = PyTuple_New(argc);
-	PyObject *ret;
 	char *rv;
 	size_t rl;
+
+	PyObject *pyargs = PyTuple_New(argc);
+	PyObject *ret;
 
 	if (!pyargs)
 		return 0;
 
 	for (i = 0; i < argc; i++) {
-		PyTuple_SetItem(pyargs, i, PyString_FromString(argv[i]));
+		PyTuple_SetItem(pyargs, i, PyString_FromStringAndSize(argv[i], argvs[i]));
 	}
 
 	ret = python_call((PyObject *) func, pyargs, 0, NULL);
-
+	Py_DECREF(pyargs);
 	if (ret) {
 		if (PyString_Check(ret)) {
 			rv = PyString_AsString(ret);
 			rl = PyString_Size(ret);
-			if (rl <= 0xffff) {
+			if (rl <= 65536) {
 				memcpy(buffer, rv, rl);
 				Py_DECREF(ret);
 				UWSGI_RELEASE_GIL;
 				return rl;
 			}
 		}
+		Py_DECREF(ret);
 	}
 
 	if (PyErr_Occurred())

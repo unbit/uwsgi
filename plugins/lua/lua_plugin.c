@@ -682,7 +682,7 @@ int uwsgi_lua_signal_handler(uint8_t sig, void *handler) {
 	
 }
 
-uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, char *buffer) {
+uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
 
         uint8_t i;
         const char *sv;
@@ -698,7 +698,7 @@ uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, char *buffer) {
 	lua_rawgeti(L, LUA_REGISTRYINDEX, ifunc);
 
         for(i=0;i<argc;i++) {
-		lua_pushstring(L, argv[i]);
+		lua_pushlstring(L, argv[i], argvs[i]);
         }
 
         if (lua_pcall(L, argc, 1, 0) != 0) {

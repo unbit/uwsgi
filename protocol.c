@@ -371,7 +371,8 @@ int uwsgi_read_response(int fd, struct uwsgi_header *uh, int timeout, char **buf
         }
 
 	if (buf && uh->pktsize > 0) {
-		*buf = uwsgi_malloc(uh->pktsize);
+		if (*buf == NULL)
+			*buf = uwsgi_malloc(uh->pktsize);
 		remains = uh->pktsize;
 		ptr = *buf;
 		ret = -1;
@@ -434,7 +435,7 @@ int uwsgi_parse_packet(struct wsgi_request *wsgi_req, int timeout) {
 	return 1;
 }
 
-int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
+int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint16_t argvs[], uint8_t *argc) {
 
 	char *ptrbuf, *bufferend;
 	uint16_t strsize = 0;
@@ -459,6 +460,7 @@ int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint8_t *argc) {
                         if (ptrbuf + strsize <= bufferend) {
                                 // item
 				argv[*argc] = uwsgi_cheap_string(ptrbuf, strsize);
+				argvs[*argc] = strsize;
 #ifdef UWSGI_DEBUG
 				uwsgi_log("arg %s\n", argv[*argc]);
 #endif

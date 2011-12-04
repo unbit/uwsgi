@@ -155,26 +155,28 @@ XS(XS_call) {
 
 	dXSARGS;
 
-	char buffer[0xffff];
         char *func;
         uint16_t size = 0;
         int i;
-        char *argv[0xff];
+        char *argv[256];
+        uint16_t argvs[256];
+	STRLEN arg_len;
 
 	psgi_check_args(1);
 
         func = SvPV_nolen(ST(0));
 
         for(i=0;i<(items-1);i++) {
-                argv[i] = SvPV_nolen(ST(i+1));
+                argv[i] = SvPV(ST(i+1), arg_len);
+		argvs[i] = arg_len;
         }
 
-        size = uwsgi_rpc(func, items-1, argv, buffer);
+        char *response = uwsgi_do_rpc(NULL, func, items-1, argv, argvs, &size);
 
         if (size > 0) {
-		ST(0) = newSVpv(buffer, size);
+		ST(0) = newSVpv(response, size);
         	sv_2mortal(ST(0));
-
+		free(response);
         	XSRETURN(1);
         }
 
