@@ -219,9 +219,11 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node = current_slot->nodes;
 		while(node) {
                         if (!uwsgi_strncmp(node->name, node->len, usr->address, usr->address_len)) {
-				// remove death mark
+				// remove death mark and update cores and load
 				node->death_mark = 0;
                                 node->last_check = time(NULL);
+				node->cores = usr->cores;
+				node->load = usr->load;
                                 return node;
                         }
 			old_node = node;

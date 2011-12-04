@@ -874,6 +874,7 @@ void fastrouter_send_stats(int fd) {
 
         stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
 
+        fprintf(output,"\"pid\": %d,\n", (int)(getpid()));
         fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
         fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
 

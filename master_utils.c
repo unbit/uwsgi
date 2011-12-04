@@ -322,6 +322,7 @@ void uwsgi_send_stats(int fd) {
 
 	stats_send_llu("\"load\": %llu,\n", uwsgi.shared->load);
 
+	fprintf(output,"\"pid\": %d,\n", (int)(getpid()));
 	fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
 	fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
 
