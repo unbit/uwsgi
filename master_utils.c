@@ -320,6 +320,8 @@ void uwsgi_send_stats(int fd) {
 	stats_send_llu("\"listen_queue\": %llu,\n", uwsgi.shared->ti.tcpi_unacked);
 #endif
 
+	stats_send_llu("\"load\": %llu,\n", uwsgi.shared->load);
+
 	fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
 	fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
 

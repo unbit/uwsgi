@@ -100,7 +100,7 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
                         					modifier1_len = strlen(modifier1);
 								keysize = strlen(key);
                 					}
-							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len, cmd);
+							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd);
 							modifier1 = NULL;
 							modifier1_len = 0;
 						}
@@ -118,7 +118,7 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
                         					modifier1_len = strlen(modifier1);
 								keysize = strlen(key);
                 					}
-							uwsgi_send_subscription(udp_address, key, keysize, modifier1, modifier1_len, cmd);
+							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd);
 							modifier1 = NULL;
 							modifier1_len = 0;
 							lines[i] = '\n';
@@ -142,7 +142,7 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 			modifier1_len = strlen(modifier1);
 		}
 
-		uwsgi_send_subscription(udp_address, subscription_key+1, strlen(subscription_key+1), modifier1, modifier1_len, cmd);
+		uwsgi_send_subscription(udp_address, subscription_key+1, strlen(subscription_key+1), uwsgi_str_num(modifier1, modifier1_len), 0, cmd);
 		if (modifier1)
 			modifier1[-1] = ',';
 	}
@@ -162,6 +162,8 @@ void get_linux_tcp_info(int fd) {
 		if (!uwsgi.shared->ti.tcpi_sacked) {
 			return;
 		}
+
+		uwsgi.shared->load = uwsgi.shared->ti.tcpi_unacked;
 
 		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->ti.tcpi_unacked;
 		if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {

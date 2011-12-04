@@ -151,9 +151,29 @@ void fastrouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 		usr->address = val;
 		usr->address_len = vallen;
 	}
-
 	else if (!uwsgi_strncmp("modifier1", 9, key, keylen)) {
-		usr->modifier1 = uwsgi_str_num(val, vallen);
+		if (vallen == 1) {
+			usr->modifier1 = *val;
+		}
+		else {
+			usr->modifier1 = uwsgi_str_num(val, vallen);
+		}
+	}
+	else if (!uwsgi_strncmp("cores", 5, key, keylen)) {
+		if (vallen == 8) {
+			memcpy(&usr->cores, val, vallen);
+		}
+		else {
+			usr->cores = uwsgi_str_num(val, vallen);
+		}
+	}
+	else if (!uwsgi_strncmp("load", 4, key, keylen)) {
+		if (vallen == 8) {
+			memcpy(&usr->cores, val, vallen);
+		}
+		else {
+			usr->cores = uwsgi_str_num(val, vallen);
+		}
 	}
 }
 
@@ -898,8 +918,9 @@ void fastrouter_send_stats(int fd) {
 			fprintf(output, "\t\t\"nodes\": [\n");
 			struct uwsgi_subscribe_node *s_node = s_slot->nodes;
 			while(s_node) {
-				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"ref\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2,
-					(unsigned long long) s_node->last_check,  (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred, (unsigned long long) s_node->reference, s_node->death_mark);
+				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"cores\": %llu, \"load\": %llu, \"ref\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2,
+					(unsigned long long) s_node->last_check,  (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred,
+					(unsigned long long) s_node->cores, (unsigned long long) s_node->load, (unsigned long long) s_node->reference, s_node->death_mark);
 				if (s_node->next) {
 					fprintf(output, ",\n");
 				}

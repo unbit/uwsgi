@@ -1708,7 +1708,7 @@ struct uwsgi_shared {
 #ifdef __linux__
 	struct tcp_info ti;
 #endif
-
+	uint64_t load;
 	struct uwsgi_cron cron[MAX_CRONS];
 	int cron_cnt;
 };
@@ -2218,6 +2218,9 @@ struct uwsgi_subscribe_req {
 
 	uint8_t modifier1;
 	uint8_t modifier2;
+
+	uint64_t cores;
+	uint64_t load;
 };
 
 #ifndef _NO_UWSGI_RB
@@ -2461,6 +2464,8 @@ struct uwsgi_subscribe_node {
 
 	int death_mark;
 	uint64_t reference;
+	uint64_t cores;
+	uint64_t load;
 
 	struct uwsgi_subscribe_slot *slot;
 
@@ -2511,7 +2516,7 @@ void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
 int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
 
-void uwsgi_send_subscription(char *, char *, size_t , char *, size_t, uint8_t);
+void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t);
 
 void uwsgi_subscribe(char *, uint8_t);
 
