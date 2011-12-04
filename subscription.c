@@ -358,12 +358,17 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 
 	char value_cores[sizeof(UMAX64_STR)+1];
 	char value_load[sizeof(UMAX64_STR)+1];
+	char value_modifier1[4];
+	char value_modifier2[4];
 	int value_cores_size = uwsgi_long2str2n(uwsgi.numproc*uwsgi.cores, value_cores, sizeof(UMAX64_STR));
 	int value_load_size = uwsgi_long2str2n(uwsgi.shared->load, value_load, sizeof(UMAX64_STR));
+	int value_modifier1_size = uwsgi_long2str2n(modifier1, value_modifier1, 3);
+	int value_modifier2_size = uwsgi_long2str2n(modifier2, value_modifier2, 3);
 
 	if (!uwsgi.sockets) return;
 
-	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(uwsgi.sockets->name)) + (2+9 + 2+1) + (2+9 + 2+1) + (2+5 + 2+value_cores_size) + (2+4 + 2+value_load_size);
+	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(uwsgi.sockets->name)) + (2+9 + 2+value_modifier1_size) +
+		(2+9 + 2+value_modifier2_size) + (2+5 + 2+value_cores_size) + (2+4 + 2+value_load_size);
 
         char *subscrbuf = uwsgi_malloc(ssb_size);
 	// leave space for uwsgi header
@@ -402,10 +407,11 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
         memcpy(ssb, "modifier1", ustrlen);
         ssb+=ustrlen;
 
-        ustrlen = 1;
+        ustrlen = value_modifier1_size;
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-	*ssb++ = modifier1;
+        memcpy(ssb, value_modifier1, value_modifier1_size);
+        ssb+=ustrlen;
 
 	// modifier2 = "modifier2"
         ustrlen = 9;
@@ -414,10 +420,11 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
         memcpy(ssb, "modifier2", ustrlen);
         ssb+=ustrlen;
 
-        ustrlen = 1;
+        ustrlen = value_modifier2_size;
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-	*ssb++ = modifier2;
+        memcpy(ssb, value_modifier2, value_modifier2_size);
+        ssb+=ustrlen;
 
 	// cores = uwsgi.numproc * uwsgi.cores
         ustrlen = 5;
