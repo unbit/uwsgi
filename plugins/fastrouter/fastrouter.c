@@ -152,28 +152,13 @@ void fastrouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 		usr->address_len = vallen;
 	}
 	else if (!uwsgi_strncmp("modifier1", 9, key, keylen)) {
-		if (vallen == 1) {
-			usr->modifier1 = *val;
-		}
-		else {
-			usr->modifier1 = uwsgi_str_num(val, vallen);
-		}
+		usr->modifier1 = uwsgi_str_num(val, vallen);
 	}
 	else if (!uwsgi_strncmp("cores", 5, key, keylen)) {
-		if (vallen == 8) {
-			memcpy(&usr->cores, val, vallen);
-		}
-		else {
-			usr->cores = uwsgi_str_num(val, vallen);
-		}
+		usr->cores = uwsgi_str_num(val, vallen);
 	}
 	else if (!uwsgi_strncmp("load", 4, key, keylen)) {
-		if (vallen == 8) {
-			memcpy(&usr->load, val, vallen);
-		}
-		else {
-			usr->load = uwsgi_str_num(val, vallen);
-		}
+		usr->load = uwsgi_str_num(val, vallen);
 	}
 }
 

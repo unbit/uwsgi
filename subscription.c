@@ -356,11 +356,14 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd) {
 
-	uint64_t value64 = 0;
+	char value_cores[sizeof(UMAX64_STR)+1];
+	char value_load[sizeof(UMAX64_STR)+1];
+	int value_cores_size = uwsgi_long2str2n(uwsgi.numproc*uwsgi.cores, value_cores, sizeof(UMAX64_STR));
+	int value_load_size = uwsgi_long2str2n(uwsgi.shared->load, value_load, sizeof(UMAX64_STR));
 
 	if (!uwsgi.sockets) return;
 
-	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(uwsgi.sockets->name)) + (2+9 + 2+1) + (2+9 + 2+1) + (2+5 + 2+8) + (2+4 + 2+8);
+	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(uwsgi.sockets->name)) + (2+9 + 2+1) + (2+9 + 2+1) + (2+5 + 2+value_cores_size) + (2+4 + 2+value_load_size);
 
         char *subscrbuf = uwsgi_malloc(ssb_size);
 	// leave space for uwsgi header
@@ -423,11 +426,10 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
         memcpy(ssb, "cores", ustrlen);
         ssb+=ustrlen;
 
-	value64 = uwsgi.numproc * uwsgi.cores;
-        ustrlen = 8;
+        ustrlen = value_cores_size;
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, &value64, 8);
+        memcpy(ssb, value_cores, value_cores_size);
         ssb+=ustrlen;
 
 	// load
@@ -437,11 +439,10 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
         memcpy(ssb, "load", ustrlen);
         ssb+=ustrlen;
 
-	value64 = uwsgi.shared->load;
-        ustrlen = 8;
+        ustrlen = value_load_size;
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, &value64, 8);
+        memcpy(ssb, value_load, value_load_size);
         ssb+=ustrlen;
 	
 
