@@ -320,7 +320,7 @@ void log_socket(char *socket_name) {
 
 void create_logpipe(void) {
 
-#ifdef SOCK_SEQPACKET
+#if defined(SOCK_SEQPACKET) && defined(__linux__)
 	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_log_pipe)) {
 #else
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
