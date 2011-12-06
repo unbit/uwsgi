@@ -1610,6 +1610,8 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                                 wsgi_req->header_cnt += 2;
                                 wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);
                                 wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+				// here we need to close the sendfile fd (no-GC involved)
+				close(wsgi_req->sendfile_fd);
 			}
 
 

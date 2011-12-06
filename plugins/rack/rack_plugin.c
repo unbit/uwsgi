@@ -616,6 +616,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 						wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 					}
 				}
+				// we need to close it...
+				close(wsgi_req->sendfile_fd);
 			}
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {

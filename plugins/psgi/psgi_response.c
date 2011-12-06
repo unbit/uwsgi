@@ -147,6 +147,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 				wsgi_req->sendfile_fd = SvIV(fn);
 				SvREFCNT_dec(fn);	
 				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+				// no need to close here as perl GC will do the close()
 				return UWSGI_OK;
 			}
 			

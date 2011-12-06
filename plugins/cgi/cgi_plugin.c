@@ -101,7 +101,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		uwsgi_log("STARTBUF %.*s\n", 8, startbuf);
 
 		if (!memcmp(startbuf, "Status: ", 8)) {
-			wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.1 "
+		//	wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.1 "
 		}
 
 		// now wait for fd	

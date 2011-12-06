@@ -212,8 +212,6 @@ PyObject *python_call(PyObject *, PyObject *, int, struct wsgi_request *);
 
 #ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_sendfile(PyObject *, PyObject *);
-ssize_t uwsgi_sendfile(struct wsgi_request *);
-ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t*, int);
 #endif
 
 PyObject *py_uwsgi_write(PyObject *, PyObject *);
