@@ -2466,6 +2466,7 @@ struct uwsgi_subscribe_node {
 	uint64_t reference;
 	uint64_t cores;
 	uint64_t load;
+	uint64_t failcnt;
 
 	struct uwsgi_subscribe_slot *slot;
 

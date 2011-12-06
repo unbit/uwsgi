@@ -207,6 +207,7 @@ static void close_session(struct fastrouter_session **fr_table, struct fastroute
 			if (fr_session->instance_failed || fr_session->status == FASTROUTER_STATUS_CONNECTING) {
 				if (fr_session->un->death_mark == 0)
 					uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len,fr_session->instance_address);
+				fr_session->un->failcnt++;
 				fr_session->un->death_mark = 1;
 				// check if i can remove the node
 				if (fr_session->un->reference == 0) {
@@ -490,6 +491,7 @@ void fastrouter_loop() {
 						if (node && node->len) {
 							if (node->death_mark == 0)
 								uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
+							node->failcnt++;
 							node->death_mark = 1;
                                 			// check if i can remove the node
                                 			if (node->reference == 0) {
@@ -904,9 +906,10 @@ void fastrouter_send_stats(int fd) {
 			fprintf(output, "\t\t\"nodes\": [\n");
 			struct uwsgi_subscribe_node *s_node = s_slot->nodes;
 			while(s_node) {
-				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"cores\": %llu, \"load\": %llu, \"ref\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2,
+				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"cores\": %llu, \"load\": %llu, \"ref\": %llu, \"failcnt\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2,
 					(unsigned long long) s_node->last_check,  (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred,
-					(unsigned long long) s_node->cores, (unsigned long long) s_node->load, (unsigned long long) s_node->reference, s_node->death_mark);
+					(unsigned long long) s_node->cores, (unsigned long long) s_node->load, (unsigned long long) s_node->reference,
+					(unsigned long long) s_node->failcnt, s_node->death_mark);
 				if (s_node->next) {
 					fprintf(output, ",\n");
 				}

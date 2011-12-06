@@ -85,6 +85,7 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			if (current - node->last_check > uwsgi.subscription_tolerance) {
 				if (node->death_mark == 0)
 					uwsgi_log("[uwsgi-subscription] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
+				node->failcnt++;
 				node->death_mark = 1;
 			}
 			if (node->death_mark && node->reference == 0) {
@@ -238,6 +239,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->transferred = 0;
 		node->reference = 0;
 		node->death_mark = 0;
+		node->failcnt = 0;
 		node->cores = usr->cores;
 		node->load = usr->load;
 		node->last_check = time(NULL);
@@ -277,6 +279,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->requests = 0;
 		current_slot->nodes->transferred = 0;
 		current_slot->nodes->death_mark = 0;
+		current_slot->nodes->failcnt = 0;
 		current_slot->nodes->modifier1 = usr->modifier1;
 		current_slot->nodes->modifier2 = usr->modifier2;
 		current_slot->nodes->cores = usr->cores;
