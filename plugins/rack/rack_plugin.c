@@ -149,6 +149,10 @@ VALUE require_rails(VALUE arg) {
 #endif
 }
 
+VALUE require_thin(VALUE arg) {
+    return rb_funcall(rb_cObject, rb_intern("require"), 1, rb_str_new2("thin"));
+}
+
 VALUE init_rack_app(VALUE);
 
 VALUE rack_call_rpc_handler(VALUE args) {
@@ -280,7 +284,27 @@ void uwsgi_rack_init_apps(void) {
 		uwsgi_log("rails app %s ready\n", ur.rails);
 		VALUE ac = rb_const_get(rb_cObject, rb_intern("ActionController"));
 
-		ur.dispatcher = rb_funcall( rb_const_get(ac, rb_intern("Dispatcher")), rb_intern("new"), 0);
+		ur.dispatcher = Qnil;
+		if (rb_funcall(ac, rb_intern("const_defined?"), 1, ID2SYM(rb_intern("Dispatcher"))) == Qtrue) {
+			VALUE ac_dispatcher = rb_const_get(ac, rb_intern("Dispatcher"));
+			if (rb_respond_to(ac_dispatcher, rb_intern("call")) || rb_respond_to(ac_dispatcher, ID2SYM(rb_intern("call")))) {
+                        	ur.dispatcher = rb_funcall( rb_const_get(ac, rb_intern("Dispatcher")), rb_intern("new"), 0);
+			}
+                }
+
+                if (ur.dispatcher == Qnil)  {
+                        uwsgi_log("non-rack rails version detected...loading thin adapter...\n");
+			rb_protect( require_thin, 0, &error ) ;
+                	if (error) {
+                        	uwsgi_ruby_exception();
+                        	exit(1);
+                	}
+			VALUE thin_rack = rb_const_get(rb_cObject, rb_intern("Rack"));
+			VALUE thin_rack_adapter = rb_const_get(thin_rack, rb_intern("Adapter"));
+			VALUE thin_rack_adapter_rails = rb_const_get(thin_rack_adapter, rb_intern("Rails"));
+			ur.dispatcher = rb_funcall( thin_rack_adapter_rails, rb_intern("new"), 0);
+                }
+
 
 		if (ur.dispatcher == Qnil) {
 			uwsgi_log("unable to load rails dispatcher\n");
