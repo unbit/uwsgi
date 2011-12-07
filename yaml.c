@@ -154,6 +154,10 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 			case YAML_VALUE_TOKEN:
 				status = 2;
 				break;
+			case YAML_FLOW_SEQUENCE_START_TOKEN:
+			case YAML_BLOCK_SEQUENCE_START_TOKEN:
+				status = 3;
+				break;
 			case YAML_BLOCK_MAPPING_START_TOKEN:
 				if (!in_uwsgi_section) {
                                         if (key) {
@@ -170,6 +174,8 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 				}
 				break;
 			case YAML_SCALAR_TOKEN:
+			case YAML_FLOW_ENTRY_TOKEN:
+			case YAML_BLOCK_ENTRY_TOKEN:
 				if (status == 1) {
 					key = (char *) token.data.scalar.value;
 				}
@@ -179,6 +185,12 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 						add_exported_option(key, val, 0);
 					}
 					status = 0;
+				}
+				else if (status == 3) {
+					val = (char *) token.data.scalar.value; 
+					if (key && val && in_uwsgi_section) {
+						add_exported_option(key, val, 0);
+					}
 				}
 				else {
 					uwsgi_log("unsupported YAML token in %s block\n", section_asked);
