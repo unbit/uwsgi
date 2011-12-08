@@ -10,6 +10,7 @@
 #define LONG_ARGS_RUBY_REQUIRE  LONG_ARGS_RACK_BASE + 5
 
 #ifndef RUBY19
+#include <st.h>
         #define rb_errinfo() ruby_errinfo
         #define RUBY_GVL_LOCK
         #define RUBY_GVL_UNLOCK
