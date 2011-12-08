@@ -286,9 +286,19 @@ void uwsgi_rack_init_apps(void) {
 
 		ur.dispatcher = Qnil;
 		if (rb_funcall(ac, rb_intern("const_defined?"), 1, ID2SYM(rb_intern("Dispatcher"))) == Qtrue) {
+
 			VALUE ac_dispatcher = rb_const_get(ac, rb_intern("Dispatcher"));
-			if (rb_respond_to(ac_dispatcher, rb_intern("call")) || rb_respond_to(ac_dispatcher, ID2SYM(rb_intern("call")))) {
-                        	ur.dispatcher = rb_funcall( rb_const_get(ac, rb_intern("Dispatcher")), rb_intern("new"), 0);
+
+			VALUE acd_instance_methods = rb_funcall( ac_dispatcher, rb_intern("instance_methods"), 0);
+
+			VALUE acim_call = rb_funcall( acd_instance_methods, rb_intern("include?"), 1, ID2SYM(rb_intern("call")));
+
+			if (acim_call == Qfalse) {
+				acim_call = rb_funcall( acd_instance_methods, rb_intern("include?"), 1, rb_str_new2("call"));
+			}
+
+			if (acim_call == Qtrue) {
+                        	ur.dispatcher = rb_funcall( ac_dispatcher, rb_intern("new"), 0);
 			}
                 }
 
@@ -310,6 +320,8 @@ void uwsgi_rack_init_apps(void) {
 			uwsgi_log("unable to load rails dispatcher\n");
 			exit(1);
 		}
+
+		rb_gc_register_address(&ur.dispatcher);
 
 		goto ready;
 	}
@@ -568,6 +580,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		uwsgi_ruby_exception();
 		goto clear;
 	}
+
 
 	if (TYPE(ret) == T_ARRAY) {
 		if (RARRAY_LEN(ret) != 3) {
