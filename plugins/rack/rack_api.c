@@ -747,6 +747,118 @@ VALUE uwsgi_ruby_signal(int argc, VALUE *argv, VALUE *class) {
         return Qtrue;
 }
 
+int rack_uwsgi_build_spool(VALUE rbkey, VALUE rbval, VALUE argv) {
+	char **sa = (char **) argv;
+
+	char *cur_buf = sa[0];
+	char *watermark = sa[1];
+
+	if (TYPE(rbkey) != T_STRING || TYPE(rbval) != T_STRING) {
+		rb_raise(rb_eRuntimeError, "spool hash must contains only strings");
+		return ST_STOP;
+	}
+
+	char *key = RSTRING_PTR(rbkey); uint16_t keylen = RSTRING_LEN(rbkey);
+	char *val = RSTRING_PTR(rbval); uint16_t vallen = RSTRING_LEN(rbval);
+
+	if (cur_buf + (2+keylen+2+vallen) > watermark) {
+		rb_raise(rb_eRuntimeError, "spool hash size can be no more than 64K");
+		return ST_STOP;
+	}
+
+	*cur_buf++ = (uint8_t) (keylen & 0xff);
+        *cur_buf++ = (uint8_t) ((keylen >> 8) & 0xff);
+	memcpy(cur_buf, key, keylen); cur_buf += keylen;
+
+	*cur_buf++ = (uint8_t) (vallen & 0xff);
+        *cur_buf++ = (uint8_t) ((vallen >> 8) & 0xff);
+	memcpy(cur_buf, val, vallen); cur_buf += vallen;
+
+	// fix the ptr
+	sa[0] = cur_buf;
+
+	return ST_CONTINUE;
+}
+
+
+VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
+
+        char spool_filename[1024];
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        char *priority = NULL;
+        long numprio = 0;
+        time_t at = 0;
+        char *body = NULL;
+        size_t body_len= 0;
+
+	Check_Type(args, T_HASH);
+
+	// priority
+#ifdef RUBY19
+       VALUE rbprio = rb_hash_lookup(args, rb_str_new2("priority"));
+#else
+       VALUE rbprio = rb_hash_aref(args, rb_str_new2("priority"));
+#endif
+        if (TYPE(rbprio) == T_FIXNUM) {
+        	numprio = NUM2INT(rbprio);
+             	rb_hash_delete(args, rb_str_new2("priority")); 
+        }
+
+	// at
+#ifdef RUBY19
+       VALUE rbat = rb_hash_lookup(args, rb_str_new2("at"));
+#else
+       VALUE rbat = rb_hash_aref(args, rb_str_new2("at"));
+#endif
+        if (TYPE(rbat) == T_FIXNUM) {
+        	at = NUM2INT(rbat);
+             	rb_hash_delete(args, rb_str_new2("at")); 
+        }
+
+	// body
+#ifdef RUBY19
+       VALUE rbbody = rb_hash_lookup(args, rb_str_new2("body"));
+#else
+       VALUE rbbody = rb_hash_aref(args, rb_str_new2("body"));
+#endif
+        if (TYPE(rbbody) == T_STRING) {
+        	body = RSTRING_PTR(rbbody);
+		body_len = RSTRING_LEN(rbbody);
+             	rb_hash_delete(args, rb_str_new2("body")); 
+        }
+
+	char *spool_buffer = uwsgi_malloc(UMAX16);
+	char *argv[2];
+	argv[0] = spool_buffer;
+	argv[1] = spool_buffer + UMAX16 ;
+
+	rb_hash_foreach(args, rack_uwsgi_build_spool, (VALUE) argv); 
+
+        if (numprio) {
+                priority = uwsgi_num2str(numprio);
+        }
+
+        int ret = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, argv[0] - spool_buffer, priority, at, body, body_len);
+
+        if (priority) {
+                free(priority);
+        }
+
+        free(spool_buffer);
+
+        if (ret > 0) {
+                char *slash = uwsgi_get_last_char(spool_filename, '/');
+                if (slash) {
+                        return rb_str_new2(slash+1);
+                }
+		return rb_str_new2(spool_filename);
+        }
+
+        rb_raise(rb_eRuntimeError, "unable to spool job");
+	return Qnil;
+
+}
+
 
 
 void uwsgi_rack_init_api() {
@@ -783,6 +895,8 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("mule_id", rack_uwsgi_mule_id, 0);
 
         uwsgi_rack_api("i_am_the_spooler", rack_uwsgi_i_am_the_spooler, 0);
+        uwsgi_rack_api("send_to_spooler", rack_uwsgi_send_spool, 1);
+        uwsgi_rack_api("spool", rack_uwsgi_send_spool, 1);
 
         uwsgi_rack_api("log", rack_uwsgi_log, 1);
         uwsgi_rack_api("logsize", rack_uwsgi_logsize, 0);

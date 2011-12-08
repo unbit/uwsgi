@@ -148,24 +148,14 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 		keysize = PyString_Size(key);
 		valsize = PyString_Size(val);
 		if (bufptr + keysize + 2 + valsize + 2 <= buf + *size) {
-#ifdef __BIG_ENDIAN__
-			keysize = uwsgi_swap16(keysize);
-#endif
-			memcpy(bufptr, &keysize, 2);
-			bufptr += 2;
-#ifdef __BIG_ENDIAN__
-			keysize = uwsgi_swap16(keysize);
-#endif
+
+			*bufptr++ = (uint8_t) (keysize & 0xff);
+        		*bufptr++ = (uint8_t) ((keysize >> 8) & 0xff);
 			memcpy(bufptr, PyString_AsString(key), keysize);
 			bufptr += keysize;
-#ifdef __BIG_ENDIAN__
-			valsize = uwsgi_swap16(valsize);
-#endif
-			memcpy(bufptr, &valsize, 2);
-			bufptr += 2;
-#ifdef __BIG_ENDIAN__
-			valsize = uwsgi_swap16(valsize);
-#endif
+
+			*bufptr++ = (uint8_t) (valsize & 0xff);
+        		*bufptr++ = (uint8_t) ((valsize >> 8) & 0xff);
 			memcpy(bufptr, PyString_AsString(val), valsize);
 			bufptr += valsize;
 		}
@@ -1600,24 +1590,15 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 					valsize = PyString_Size(val);
 					if (cur_buf + keysize + 2 + valsize + 2 <= spool_buffer + UMAX16) {
 
-#ifdef __BIG_ENDIAN__
-						keysize = uwsgi_swap16(keysize);
-#endif
-						memcpy(cur_buf, &keysize, 2);
-						cur_buf += 2;
-#ifdef __BIG_ENDIAN__
-						keysize = uwsgi_swap16(keysize);
-#endif
+						*cur_buf++ = (uint8_t) (keysize & 0xff);
+        					*cur_buf++ = (uint8_t) ((keysize >> 8) & 0xff);
+
 						memcpy(cur_buf, PyString_AsString(key), keysize);
 						cur_buf += keysize;
-#ifdef __BIG_ENDIAN__
-						valsize = uwsgi_swap16(valsize);
-#endif
-						memcpy(cur_buf, &valsize, 2);
-						cur_buf += 2;
-#ifdef __BIG_ENDIAN__
-						valsize = uwsgi_swap16(valsize);
-#endif
+
+						*cur_buf++ = (uint8_t) (valsize & 0xff);
+        					*cur_buf++ = (uint8_t) ((valsize >> 8) & 0xff);
+
 						memcpy(cur_buf, PyString_AsString(val), valsize);
 						cur_buf += valsize;
 					}
