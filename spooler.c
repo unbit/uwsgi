@@ -65,13 +65,13 @@ void destroy_spool(char *dir, char *file) {
 
 	if (chdir(dir)) {
 		uwsgi_error("chdir()");
-                uwsgi_log("something horrible happened to the spooler. Better to kill it.\n");
+                uwsgi_log("[spooler] something horrible happened to the spooler. Better to kill it.\n");
 		exit(1);
 	}
 
 	if (unlink(file)) {
         	uwsgi_error("unlink()");
-                uwsgi_log("something horrible happened to the spooler. Better to kill it.\n");
+                uwsgi_log("[spooler] something horrible happened to the spooler. Better to kill it.\n");
                 exit(1);
 	}
 
@@ -165,7 +165,7 @@ int spool_request(char *filename, int rn, int core_id, char *buffer, int size, c
 
 	close(fd);
 
-	uwsgi_log("written %d bytes to spool file %s\n", size + body_len + 4, filename);
+	uwsgi_log("[spooler] written %d bytes to file %s\n", size + body_len + 4, filename);
 	
 	uwsgi_unlock(uwsgi.spooler_lock);
 
@@ -347,7 +347,7 @@ void spooler_manage_task(char *dir, char *task) {
 			return;
 		}
 		if (!access(task, R_OK | W_OK)) {
-			uwsgi_log("managing spool request %s ...\n", task);
+			uwsgi_log("[spooler] managing request %s ...\n", task);
 
 #ifdef __sun__
 			// lockf needs write permission
@@ -426,7 +426,7 @@ void spooler_manage_task(char *dir, char *task) {
 					if (ret == 0) continue;
 					callable_found = 1;
 					if (ret == -2) {
-						uwsgi_log("done with task/spool %s after %d seconds\n", task, time(NULL)-now);
+						uwsgi_log("[spooler] done with task %s after %d seconds\n", task, time(NULL)-now);
 						destroy_spool(dir, task);	
 					}
 					// re-spool it

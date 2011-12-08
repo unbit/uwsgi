@@ -25,6 +25,26 @@ VALUE rack_uwsgi_warning(VALUE *class, VALUE rbmessage) {
         return Qnil;
 }
 
+VALUE rack_uwsgi_log(VALUE *class, VALUE msg) {
+
+	Check_Type(msg, T_STRING);
+
+        uwsgi_log("%s\n", RSTRING_PTR(msg));
+
+        return Qnil;
+}
+
+VALUE rack_uwsgi_i_am_the_spooler(VALUE *class) {
+#ifdef UWSGI_SPOOLER
+        if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+                return Qtrue;
+        }
+#endif
+
+        return Qfalse;
+}
+
+
 
 VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
 
@@ -761,6 +781,10 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("request_id", rack_uwsgi_request_id, 0);
         uwsgi_rack_api("worker_id", rack_uwsgi_worker_id, 0);
         uwsgi_rack_api("mule_id", rack_uwsgi_mule_id, 0);
+
+        uwsgi_rack_api("i_am_the_spooler", rack_uwsgi_i_am_the_spooler, 0);
+
+        uwsgi_rack_api("log", rack_uwsgi_log, 1);
         uwsgi_rack_api("logsize", rack_uwsgi_logsize, 0);
 
         uwsgi_rack_api("set_warning_message", rack_uwsgi_warning, 1);
@@ -819,6 +843,10 @@ void uwsgi_rack_init_api() {
         }
 
         rb_const_set(rb_uwsgi_embedded, rb_intern("OPT"), uwsgi_rb_opt_hash);
+
+        rb_const_set(rb_uwsgi_embedded, rb_intern("SPOOL_OK"), INT2NUM(-2));
+        rb_const_set(rb_uwsgi_embedded, rb_intern("SPOOL_IGNORE"), INT2NUM(0));
+        rb_const_set(rb_uwsgi_embedded, rb_intern("SPOOL_RETRY"), INT2NUM(-1));
 
         rb_const_set(rb_uwsgi_embedded, rb_intern("VERSION"), rb_str_new2(UWSGI_VERSION));
         rb_const_set(rb_uwsgi_embedded, rb_intern("HOSTNAME"), rb_str_new(uwsgi.hostname, uwsgi.hostname_len));

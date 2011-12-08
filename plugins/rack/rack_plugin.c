@@ -925,6 +925,61 @@ int uwsgi_rack_signal_handler(uint8_t sig, void *handler) {
         return 0;
 }
 
+VALUE uwsgi_rb_do_spooler(VALUE args) {
+        VALUE uwsgi_rb_embedded = rb_const_get(rb_cObject, rb_intern("UWSGI"));
+        return rb_funcall(uwsgi_rb_embedded, rb_intern("spooler"), 1, args);
+}
+
+void uwsgi_ruby_add_item(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+
+	VALUE *spool_dict = (VALUE*) data;
+	
+	rb_hash_aset(*spool_dict, rb_str_new(key, keylen), rb_str_new(val, vallen));
+}
+
+
+int uwsgi_rack_spooler(char *filename, char *buf, uint16_t len, char *body, size_t body_len) {
+
+	int error = 0;
+
+        VALUE uwsgi_rb_embedded = rb_const_get(rb_cObject, rb_intern("UWSGI"));
+        if (!rb_respond_to(uwsgi_rb_embedded, rb_intern("spooler"))) {
+		rb_gc();
+		return 0;
+	}
+
+	VALUE spool_dict = rb_hash_new();
+
+        if (uwsgi_hooked_parse(buf, len, uwsgi_ruby_add_item, (void *) &spool_dict)) {
+		rb_gc();
+                // malformed packet, destroy it
+                return 0;
+        }
+
+        rb_hash_aset(spool_dict, rb_str_new2("spooler_task_name"), rb_str_new2(filename));
+
+        if (body && body_len > 0) {
+                rb_hash_aset(spool_dict, rb_str_new2("body"), rb_str_new(body, body_len));
+        }
+
+        VALUE ret = rb_protect(uwsgi_rb_do_spooler, spool_dict, &error);
+	if (error) {
+		uwsgi_ruby_exception();
+		rb_gc();
+		return -1;
+	}
+
+        if (TYPE(ret) == T_FIXNUM) {
+		rb_gc();
+                return NUM2INT(ret);
+        }
+
+        // error, retry
+	rb_gc();
+        return -1;
+}
+
+
 
 
 
@@ -942,6 +997,8 @@ struct uwsgi_plugin rack_plugin = {
 
 	.hijack_worker = uwsgi_rack_hijack,
 	.post_fork = uwsgi_rb_post_fork,
+
+	.spooler = uwsgi_rack_spooler,
 
 	.init_apps = uwsgi_rack_init_apps,
 	//.mount_app = uwsgi_rack_mount_app,
