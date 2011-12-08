@@ -14,11 +14,17 @@ end
 
 $postfork_chain = []
 $mulefunc_list = []
+$spoolfunc_list = []
 
 module UWSGI
   module_function
   def post_fork_hook()
     $postfork_chain.each {|func| func.call }
+  end
+
+  module_function
+  def spooler(args)
+    $spoolfunc_list[args['ud_spool_func'].to_i].call(args)
   end
 
   module_function
@@ -60,6 +66,18 @@ end
 
 def postfork(&block)
   $postfork_chain << block
+end
+
+class SpoolProc < Proc
+  def initialize(&block)
+    @block = block
+    @id = (($spoolfunc_list << block).length-1).to_s
+  end
+
+  def call(args)
+    args['ud_spool_func'] = @id
+    UWSGI::send_to_spooler(args)
+  end
 end
 
 def rpc(name, &block)
