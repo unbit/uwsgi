@@ -535,6 +535,9 @@ struct uwsgi_opt {
 #define LONG_ARGS_LOGFILE_CHMOD		17165
 #define LONG_ARGS_SUBSCRIBE_FREQ	17166
 #define LONG_ARGS_SUBSCR_TOLERANCE	17167
+#define LONG_ARGS_UNSHARE		17168
+#define LONG_ARGS_EXEC_AS_ROOT		17169
+#define LONG_ARGS_EXEC_AS_USER		17170
 
 
 #define UWSGI_OK	0
@@ -1143,6 +1146,10 @@ struct uwsgi_server {
 	int cap_count;
 #endif
 
+#ifdef __linux__
+	int unshare;
+#endif
+
 	// still working on it
 	char *profiler;
 
@@ -1191,6 +1198,9 @@ struct uwsgi_server {
 	char *mime_file;
 
 	struct uwsgi_probe *probes;
+
+	struct uwsgi_string_list *exec_as_root;
+	struct uwsgi_string_list *exec_as_user;
 
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
@@ -2530,6 +2540,7 @@ int uwsgi_is_bad_connection(int);
 int uwsgi_long2str2n(unsigned long long, char *, int);
 
 #ifdef __linux__
+void uwsgi_build_unshare(char *);
 #ifdef MADV_MERGEABLE
 void uwsgi_linux_ksm_map(void);
 #endif

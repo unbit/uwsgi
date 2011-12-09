@@ -518,6 +518,20 @@ void uwsgi_as_root() {
 		}
 #endif
 
+#ifdef __linux__
+		if (uwsgi.unshare && !uwsgi.reloads) {
+
+			if (unshare(uwsgi.unshare)) {
+				uwsgi_error("unshare()");
+				exit(1);
+			}
+			else {
+				uwsgi_log("[linux-namespace] applied unshare() mask: %d\n", uwsgi.unshare);
+			}
+		}
+#endif
+
+
 		if (uwsgi.chroot && !uwsgi.reloads) {
 			if (!uwsgi.master_as_root)
 				uwsgi_log("chroot() to %s\n", uwsgi.chroot);
@@ -530,6 +544,18 @@ void uwsgi_as_root() {
 				uwsgi_log("*** Warning, on linux system you have to bind-mount the /proc fs in your chroot to get memory debug/report.\n");
 			}
 #endif
+		}
+
+		// now run the script needed by root
+		struct uwsgi_string_list *usl = uwsgi.exec_as_root;
+		while(usl) {
+			uwsgi_log("running \"%s\" (as root)...\n", usl->value);
+			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+			if (ret != 0) {
+				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+				exit(1);
+			}
+			usl = usl->next;
 		}
 
 		if (uwsgi.gidname) {
@@ -2817,7 +2843,7 @@ void uwsgi_sig_pause() {
 
 int uwsgi_run_command_and_wait(char *command, char *arg) {
 
-	char *argv[3];
+	char *argv[4];
 	int waitpid_status = 0;
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -2833,11 +2859,26 @@ int uwsgi_run_command_and_wait(char *command, char *arg) {
 		return WEXITSTATUS(waitpid_status);
 	}
 
-	argv[0] = command;
-	argv[1] = arg;
-	argv[2] = NULL;
+#ifdef __linux__
+	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+        	uwsgi_error("prctl()");
+        }
+#endif
 
-	execvp(command, argv);
+	if (command == NULL) {
+		argv[0] = "/bin/sh";
+		argv[1] = "-c";
+		argv[2] = arg;
+		argv[3] = NULL;
+		execvp(argv[0], argv);
+	}
+	else {
+		argv[0] = command;
+		argv[1] = arg;
+		argv[2] = NULL;
+		execvp(command, argv);
+	}
+
 
 	uwsgi_error("execvp()");
 	//never here
@@ -3160,6 +3201,67 @@ void uwsgi_build_mime_dict(char *filename) {
 	uwsgi_log("%d entry found\n", entries);
 
 }
+
+#ifdef __linux__
+struct uwsgi_unshare_id {
+	char *name;
+	int value;	
+};
+
+static struct uwsgi_unshare_id uwsgi_unshare_list[] = {
+#ifdef CLONE_FILES
+	{"files", CLONE_FILES},
+#endif
+#ifdef CLONE_FS
+	{"fs", CLONE_FS},
+#endif
+#ifdef CLONE_NEWIPC
+	{"ipc", CLONE_NEWIPC},
+#endif
+#ifdef CLONE_NEWNET
+	{"net", CLONE_NEWNET},
+#endif
+#ifdef CLONE_NEWNS
+	{"ns", CLONE_NEWNS},
+	{"mount", CLONE_NEWNS},
+#endif
+#ifdef CLONE_SYSVSEM
+	{"sysvsem", CLONE_SYSVSEM},
+#endif
+#ifdef CLONE_NEWUTS
+	{"uts", CLONE_NEWUTS},
+#endif
+	{ NULL, -1}
+};
+
+static int uwsgi_get_unshare_id(char *name) {
+
+        struct uwsgi_unshare_id *uui = uwsgi_unshare_list;
+        while(uui->name) {
+                if (!strcmp(uui->name, name)) return uui->value;
+                uui++;
+        }
+
+        return -1;
+}
+
+void uwsgi_build_unshare(char *what) {
+
+        char *list = uwsgi_str(what);
+
+        char *p = strtok(list, ",");
+        while (p != NULL) {
+        	int u_id = uwsgi_get_unshare_id(p);
+		if (u_id != -1) {
+			uwsgi.unshare |= u_id;
+		}
+                p = strtok(NULL, ",");
+        }
+        free(list);
+}
+
+
+#endif
 
 #ifdef UWSGI_CAP
 struct uwsgi_cap {

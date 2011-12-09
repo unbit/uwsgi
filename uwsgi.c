@@ -147,6 +147,11 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_CAP
 	{"cap", required_argument,0, LONG_ARGS_CAP},
 #endif
+#ifdef __linux__
+	{"unshare", required_argument,0, LONG_ARGS_UNSHARE},
+#endif
+	{"exec-as-root", required_argument,0, LONG_ARGS_EXEC_AS_ROOT},
+	{"exec-as-user", required_argument,0, LONG_ARGS_EXEC_AS_USER},
 #ifdef UWSGI_INI
 	{"ini", required_argument, 0, LONG_ARGS_INI},
 #endif
@@ -3248,6 +3253,11 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi_build_cap(optarg);
 		return 1;
 #endif
+#ifdef __linux__
+	case LONG_ARGS_UNSHARE:
+		uwsgi_build_unshare(optarg);
+		return 1;
+#endif
 	case LONG_ARGS_BINARY_PATH:
 		uwsgi.binary_path = optarg;
 		return 1;
@@ -3455,6 +3465,12 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_TOUCH_RELOAD:
 		uwsgi_string_new_list(&uwsgi.touch_reload, optarg);
 		uwsgi.master_process = 1;
+		return 1;
+	case LONG_ARGS_EXEC_AS_ROOT:
+		uwsgi_string_new_list(&uwsgi.exec_as_root, optarg);
+		return 1;
+	case LONG_ARGS_EXEC_AS_USER:
+		uwsgi_string_new_list(&uwsgi.exec_as_user, optarg);
 		return 1;
 	case LONG_ARGS_PRIO:
 		uwsgi.prio = (int) strtol(optarg, NULL, 10);
