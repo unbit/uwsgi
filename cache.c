@@ -6,12 +6,7 @@ void uwsgi_init_cache() {
 	int i;
 
 	if (!uwsgi.cache_blocksize)
-                        uwsgi.cache_blocksize = UMAX16;
-
-                if ((uwsgi.cache_blocksize * uwsgi.cache_max_items) % uwsgi.page_size != 0) {
-                        uwsgi_log("invalid cache blocksize %llu: must be a multiple of memory page size (%d bytes)\n", (unsigned long long) uwsgi.cache_blocksize, uwsgi.page_size);
-                        exit(1);
-                }
+        	uwsgi.cache_blocksize = UMAX16;
 
                 uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * UMAX16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
                 if (!uwsgi.cache_hashtable) {
@@ -91,7 +86,8 @@ void uwsgi_init_cache() {
                 uwsgi.cache_lock = uwsgi_mmap_shared_rwlock();
                 uwsgi_rwlock_init(uwsgi.cache_lock);
 
-                uwsgi_log("*** Cache subsystem initialized: %dMB preallocated ***\n", ((sizeof(uint64_t) * UMAX16) + (sizeof(uint64_t) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024 * 1024));
+                uwsgi_log("*** Cache subsystem initialized: %dMB (key: %llu bytes, keys: %llu bytes, data: %llu bytes) preallocated ***\n", ((uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024 * 1024),
+				 (unsigned long long) sizeof(struct uwsgi_cache_item), (unsigned long long) sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, (unsigned long long) uwsgi.cache_blocksize * uwsgi.cache_max_items);
 }
 
 uint32_t djb33x_hash(char *key, int keylen) {
