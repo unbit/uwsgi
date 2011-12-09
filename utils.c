@@ -546,7 +546,7 @@ void uwsgi_as_root() {
 #endif
 		}
 
-		// now run the script needed by root
+		// now run the scripts needed by root
 		struct uwsgi_string_list *usl = uwsgi.exec_as_root;
 		while(usl) {
 			uwsgi_log("running \"%s\" (as root)...\n", usl->value);
@@ -633,6 +633,18 @@ void uwsgi_as_root() {
                         cap_free(caps);
 		}
 #endif
+
+		// now run the scripts needed by the user
+		usl = uwsgi.exec_as_user;
+		while(usl) {
+			uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
+			int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+			if (ret != 0) {
+				uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+				exit(1);
+			}
+			usl = usl->next;
+		}
 	}
 	else {
 		if (uwsgi.chroot && !uwsgi.is_a_reload) {
