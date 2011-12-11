@@ -584,7 +584,8 @@ void http_loop() {
 						event_queue_add_fd_read(uhttp_queue, uhttp_session->fd);
 #endif
 						if (len <= 0) {
-							uwsgi_error("recv()");
+							if (len < 0)
+								uwsgi_error("recv()");
 							close_session(uhttp_table, uhttp_session);
 							break;
 						}

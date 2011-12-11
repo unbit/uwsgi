@@ -538,6 +538,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_UNSHARE		17168
 #define LONG_ARGS_EXEC_AS_ROOT		17169
 #define LONG_ARGS_EXEC_AS_USER		17170
+#define LONG_ARGS_STATIC_SKIP_EXT	17171
 
 
 #define UWSGI_OK	0
@@ -1208,6 +1209,7 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *static_maps;
 	struct uwsgi_dyn_dict *check_static;
 	struct uwsgi_dyn_dict *mimetypes;
+	struct uwsgi_string_list *static_skip_ext;
 
 	char *logfile;
 	int logfile_chown;
@@ -1334,6 +1336,7 @@ struct uwsgi_server {
 #ifdef UWSGI_THREADING
 	// avoid thundering herd in threaded modes
 	pthread_mutex_t six_feet_under_lock;
+	pthread_mutex_t lock_static;
 #endif
 
 

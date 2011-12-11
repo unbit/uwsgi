@@ -266,6 +266,8 @@ static struct option long_base_options[] = {
 	{"threads", required_argument, 0, LONG_ARGS_THREADS},
 	{"threads-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE},
 	{"thread-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE},
+	{"threads-stack-size", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE},
+	{"thread-stack-size", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE},
 	{"vhost", no_argument, &uwsgi.vhost, 1},
 	{"vhost-host", no_argument, 0, LONG_ARGS_VHOSTHOST},
 #ifdef UWSGI_ROUTING
@@ -273,6 +275,7 @@ static struct option long_base_options[] = {
 #endif
 	{"add-header", required_argument, 0, LONG_ARGS_ADD_HEADER},
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
+	{"static-skip-ext", required_argument, 0, LONG_ARGS_STATIC_SKIP_EXT},
 	{"static-map", required_argument, 0, LONG_ARGS_STATIC_MAP},
 	{"mimefile", required_argument, 0, LONG_ARGS_MIMEFILE},
 	{"mime-file", required_argument, 0, LONG_ARGS_MIMEFILE},
@@ -2238,6 +2241,9 @@ skipzero:
 					uwsgi_log("!!! unable to set requested threads stacksize !!!\n");
 				}
 			}
+
+			pthread_mutex_init(&uwsgi.lock_static, NULL);
+
 			for (i = 0; i < 0xFF; i++) {
 				if (uwsgi.p[i]->enable_threads)
 					uwsgi.p[i]->enable_threads();
@@ -3376,6 +3382,9 @@ static int manage_base_opt(int i, char *optarg) {
 			exit(1);
 		}	
 		uc->command = optarg+i;
+		return 1;
+	case LONG_ARGS_STATIC_SKIP_EXT:
+		uwsgi_string_new_list(&uwsgi.static_skip_ext, optarg);
 		return 1;
 	case LONG_ARGS_STATIC_MAP:
 		mountpoint = uwsgi_str(optarg);

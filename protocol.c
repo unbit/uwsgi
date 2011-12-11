@@ -863,14 +863,32 @@ next:
 		}
 	}
 
-	// check if a file named uwsgi.check_static+env['PATH_INFO'] exists
 	
+	// check for static files
 	if (wsgi_req->path_info_len > 1) {
+
+		// skip extensions
+		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
+		while(sse) {
+			if (wsgi_req->path_info_len >= sse->len) {
+				if (!uwsgi_strncmp(wsgi_req->path_info+(wsgi_req->path_info_len - sse->len), sse->len, sse->value, sse->len)) {
+					return 0;
+				} 
+			}
+			sse = sse->next;
+		}
+		// check if a file named uwsgi.check_static+env['PATH_INFO'] exists
 		udd = uwsgi.check_static;
 		while(udd) {
 			// need to build the path ?
 			if (udd->value == NULL) {
+#ifdef UWSGI_THREADING
+				if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
+#endif
 				udd->value = realpath(udd->key, NULL);
+#ifdef UWSGI_THREADING
+				if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
+#endif
 				if (!udd->value) goto nextcs;				
 				udd->vallen = strlen(udd->value);
 			}
@@ -881,29 +899,35 @@ next:
 nextcs:
 			udd = udd->next;
 		}
-	}
 
-	// check static-map
-	udd = uwsgi.static_maps;
-	while(udd) {
+		// check static-map
+		udd = uwsgi.static_maps;
+		while(udd) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
+			uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
 #endif
-		if (udd->status == 0) {
-			char *real_docroot = realpath(udd->value, NULL);
-			if (!real_docroot) goto nextsm;
-			udd->value = real_docroot;
-			udd->vallen = strlen(udd->value);
-			udd->status = 1;
-		}
-
-		if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, udd->key, udd->keylen)) {
-			if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info+udd->keylen, wsgi_req->path_info_len-udd->keylen)) {
-				return -1;
+			if (udd->status == 0) {
+#ifdef UWSGI_THREADING
+				if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
+#endif
+				char *real_docroot = realpath(udd->value, NULL);
+#ifdef UWSGI_THREADING
+				if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
+#endif
+				if (!real_docroot) goto nextsm;
+				udd->value = real_docroot;
+				udd->vallen = strlen(udd->value);
+				udd->status = 1;
 			}
-		}
+
+			if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, udd->key, udd->keylen)) {
+				if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info+udd->keylen, wsgi_req->path_info_len-udd->keylen)) {
+					return -1;
+				}
+			}
 nextsm:
-		udd = udd->next;
+			udd = udd->next;
+		}
 	}
 
 	return 0;
