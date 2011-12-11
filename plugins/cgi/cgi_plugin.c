@@ -288,7 +288,7 @@ send_body:
 	return 0;	
 }
 
-char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_free, int *is_a_file, int *discard_base) {
+char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_free, int *is_a_file, int *discard_base, char **script_name) {
 
 	struct uwsgi_dyn_dict *udd = uc.mountpoint, *choosen_udd = NULL;
 	int best_found = 0;
@@ -302,6 +302,7 @@ char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_f
 					best_found = udd->keylen ;
 					choosen_udd = udd;
 					path = udd->value;
+					*script_name = udd->key;
 					*discard_base = udd->keylen;
 					if (udd->key[udd->keylen-1] == '/') {
 						*discard_base = *discard_base-1;
@@ -417,6 +418,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	char *helper = NULL;
 	char *command = NULL;
 	char *path_info = NULL;
+	char *script_name = NULL;
 
 	/* Standard CGI request */
 	if (!wsgi_req->uh.pktsize) {
@@ -431,7 +433,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 
 	// check for file availability (and 'runnability')
 
-	char *docroot = uwsgi_cgi_get_docroot(wsgi_req->path_info, wsgi_req->path_info_len, &need_free, &is_a_file, &discard_base);
+	char *docroot = uwsgi_cgi_get_docroot(wsgi_req->path_info, wsgi_req->path_info_len, &need_free, &is_a_file, &discard_base, &script_name);
 
 	if (docroot == NULL) {
 		uwsgi_cgi_404(wsgi_req);
@@ -473,7 +475,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	}
 	else {
 		*(full_path+docroot_len) = 0;
-		path_info = wsgi_req->path_info;
+		path_info = wsgi_req->path_info+discard_base;
 	}
 
 	if (stat(full_path, &cgi_stat)) {
@@ -665,7 +667,7 @@ clear:
 		uwsgi_error("setenv()");
 	}
 
-	if (path_info) {
+	if (path_info && wsgi_req->path_info_len-discard_base > 0) {
 		if (setenv("PATH_INFO", uwsgi_concat2n(path_info, wsgi_req->path_info_len-discard_base, "", 0), 1)) {
 			uwsgi_error("setenv()");
 		}
@@ -686,6 +688,12 @@ clear:
 
 		if (setenv("SCRIPT_FILENAME", docroot, 0)) {
 			uwsgi_error("setenv()");
+		}
+
+		if (script_name && discard_base > 1) {
+			if (setenv("SCRIPT_NAME", uwsgi_concat2n(script_name, discard_base, "", 0), 1)) {
+				uwsgi_error("setenv()");
+			}
 		}
 	}
 	else {
