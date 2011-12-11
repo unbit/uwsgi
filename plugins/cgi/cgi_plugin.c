@@ -8,6 +8,8 @@ struct uwsgi_cgi {
 	int buffer_size;
 	int timeout;
 	struct uwsgi_string_list *index;
+	struct uwsgi_string_list *allowed_ext;
+	struct uwsgi_string_list *unset;
 	int optimize;
 	int has_mountpoints;
 	struct uwsgi_dyn_dict *default_cgi;
@@ -20,6 +22,8 @@ struct uwsgi_cgi {
 #define LONG_ARGS_CGI_BUFFER_SIZE	LONG_ARGS_CGI_BASE + 3
 #define LONG_ARGS_CGI_TIMEOUT		LONG_ARGS_CGI_BASE + 4
 #define LONG_ARGS_CGI_INDEX		LONG_ARGS_CGI_BASE + 5
+#define LONG_ARGS_CGI_ALLOWED_EXT	LONG_ARGS_CGI_BASE + 6
+#define LONG_ARGS_CGI_UNSET		LONG_ARGS_CGI_BASE + 7
 
 struct option uwsgi_cgi_options[] = {
 
@@ -29,6 +33,8 @@ struct option uwsgi_cgi_options[] = {
         {"cgi-buffer-size", required_argument, 0, LONG_ARGS_CGI_BUFFER_SIZE},
         {"cgi-timeout", required_argument, 0, LONG_ARGS_CGI_TIMEOUT},
         {"cgi-index", required_argument, 0, LONG_ARGS_CGI_INDEX},
+        {"cgi-allowed-ext", required_argument, 0, LONG_ARGS_CGI_ALLOWED_EXT},
+        {"cgi-unset", required_argument, 0, LONG_ARGS_CGI_UNSET},
         {"cgi-optimize", no_argument, &uc.optimize, 1},
         {"cgi-optimized", no_argument, &uc.optimize, 1},
         {"cgi-path-info", no_argument, &uc.path_info, 1},
@@ -39,7 +45,14 @@ struct option uwsgi_cgi_options[] = {
 void uwsgi_cgi_404(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->status = 404;
-	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.1 404 Not Found\r\n\r\nNot Found", 35);
+	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\n\r\nNot Found", 35);
+}
+
+void uwsgi_cgi_403(struct wsgi_request *wsgi_req) {
+
+	wsgi_req->status = 403;
+	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\n\r\nForbidden", 35);
+
 }
 
 void uwsgi_cgi_redirect_to_slash(struct wsgi_request *wsgi_req) {
@@ -518,6 +531,29 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		}
 
 	}
+	else {
+		full_path_len = strlen(full_path);
+	}
+
+	int cgi_allowed = 1;
+	struct uwsgi_string_list *allowed = uc.allowed_ext;
+	while(allowed) {
+		cgi_allowed = 0;
+		if (full_path_len >= allowed->len) {
+			if (!uwsgi_strncmp(full_path+(full_path_len-allowed->len), allowed->len, allowed->value, allowed->len)) {
+				cgi_allowed = 1;
+				break;
+			}
+		}
+		allowed = allowed->next;
+	}
+
+	if (!cgi_allowed) {
+		uwsgi_cgi_403(wsgi_req);
+		if (need_free)
+			free(docroot);
+		return UWSGI_OK;
+	}
 
 	if (is_a_file) {
 		command = docroot;
@@ -529,8 +565,9 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		if (helper == NULL) {
 			if (access(full_path, X_OK)) {
 				uwsgi_error("access()");
-				wsgi_req->status = 500;
-				wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.1 500 Internal Server Error\r\n\r\nInternal Server Error", 59);
+				uwsgi_cgi_403(wsgi_req);
+                		if (need_free)
+                        		free(docroot);
 				return UWSGI_OK;
 			}
 		}
@@ -725,6 +762,12 @@ clear:
 		}
 	}
 
+	struct uwsgi_string_list *drop_env = uc.unset;
+	while(drop_env) {
+		unsetenv(drop_env->value);
+		drop_env = drop_env->next;
+	}
+
 	if (helper) {
 		argv[0] = helper;
 		argv[1] = command;
@@ -772,6 +815,12 @@ int uwsgi_cgi_manage_options(int i, char *optarg) {
                         return 1;
                 case LONG_ARGS_CGI_INDEX:
 			uwsgi_string_new_list(&uc.index, optarg);
+                        return 1;
+                case LONG_ARGS_CGI_ALLOWED_EXT:
+			uwsgi_string_new_list(&uc.allowed_ext, optarg);
+                        return 1;
+                case LONG_ARGS_CGI_UNSET:
+			uwsgi_string_new_list(&uc.unset, optarg);
                         return 1;
 		case LONG_ARGS_CGI_MAP_HELPER:
 			value = strchr(optarg, '=');
