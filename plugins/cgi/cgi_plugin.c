@@ -438,10 +438,11 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		return UWSGI_OK;
 	}
 
-	if (!is_a_file) {
-		docroot_len = strlen(docroot);
+	docroot_len = strlen(docroot);
+	memcpy(full_path, docroot, docroot_len);
 
-		memcpy(full_path, docroot, docroot_len);
+	if (!is_a_file) {
+
 		*(full_path+docroot_len) = '/';
 		*(full_path+docroot_len+1) = 0;
 
@@ -469,6 +470,10 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
                 	return -1;
         	}
 
+	}
+	else {
+		*(full_path+docroot_len) = 0;
+		path_info = wsgi_req->path_info;
 	}
 
 	if (stat(full_path, &cgi_stat)) {
@@ -661,11 +666,11 @@ clear:
 	}
 
 	if (path_info) {
-		if (setenv("PATH_INFO", path_info, 1)) {
+		if (setenv("PATH_INFO", uwsgi_concat2n(path_info, wsgi_req->path_info_len-discard_base, "", 0), 1)) {
 			uwsgi_error("setenv()");
 		}
 
-		if (setenv("PATH_TRANSLATED", uwsgi_concat3(docroot, "/", path_info) , 1)) {
+		if (setenv("PATH_TRANSLATED", uwsgi_concat4n(docroot, docroot_len, "/", 1, path_info, wsgi_req->path_info_len-discard_base, "", 0) , 1)) {
 			uwsgi_error("setenv()");
 		}
 	}
