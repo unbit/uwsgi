@@ -518,7 +518,7 @@ void uwsgi_as_root() {
 		}
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) && !defined(OBSOLETE_LINUX_KERNEL)
 		if (uwsgi.unshare && !uwsgi.reloads) {
 
 			if (unshare(uwsgi.unshare)) {
