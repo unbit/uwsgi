@@ -66,7 +66,7 @@ VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 
 	// return the whole body as string
 
-	uwsgi_log("rack.input gets is not implemented (req %p)\n", wsgi_req);
+	rb_raise(rb_eRuntimeError, "rack.input::gets is not implemented (req %p)\n", wsgi_req);
 	return Qnil;
 }
 
@@ -76,7 +76,7 @@ VALUE rb_uwsgi_io_each(VALUE obj, VALUE args) {
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 
 	// yield strings chunks
-	uwsgi_log("rack.input each is not implemented (req %p)\n", wsgi_req);
+	rb_raise(rb_eRuntimeError, "rack.input::each is not implemented (req %p)\n", wsgi_req);
 
 	return Qnil;
 }
