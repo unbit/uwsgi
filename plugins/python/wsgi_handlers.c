@@ -599,3 +599,23 @@ void simple_swap_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
                 PyThreadState_Swap(wi->interpreter);
 	}
 }
+
+void simple_threaded_reset_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
+        	// restoring main interpreter
+		UWSGI_GET_GIL
+                PyThreadState_Swap(up.main_thread);
+		UWSGI_RELEASE_GIL
+	}
+}
+
+
+void simple_threaded_swap_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+
+	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
+                // set the interpreter
+		UWSGI_GET_GIL
+                PyThreadState_Swap(wi->interpreter);
+		UWSGI_RELEASE_GIL
+	}
+}

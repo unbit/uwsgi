@@ -539,6 +539,7 @@ PyObject *uwsgi_mount_loader(void *arg1) {
 
 	if ( !strcmp(what+strlen(what)-3, ".py") || !strcmp(what+strlen(what)-5, ".wsgi")) {
 		callable = uwsgi_file_loader((void *)what);
+		if (!callable) exit(1);
 	}
 	else if (!strcmp(what+strlen(what)-4, ".ini")) {
 		callable = uwsgi_paste_loader((void *)what);
@@ -605,29 +606,43 @@ PyObject *uwsgi_file_loader(void *arg1) {
 	char *callable = up.callable;
 	if (!callable) callable = "application";
 
-	wsgi_file_module = uwsgi_pyimport_by_filename(uwsgi_concat2("uwsgi_file_", uwsgi_pythonize(filename)), filename);
+	char *py_filename = uwsgi_concat2("uwsgi_file_", uwsgi_pythonize(filename));
+
+	wsgi_file_module = uwsgi_pyimport_by_filename(py_filename, filename);
 	if (!wsgi_file_module) {
 		PyErr_Print();
-		exit(1);
+		free(py_filename);
+		return NULL;
 	}
 
 	wsgi_file_dict = PyModule_GetDict(wsgi_file_module);
 	if (!wsgi_file_dict) {
 		PyErr_Print();
-		exit(1);
+		Py_DECREF(wsgi_file_module);
+		free(py_filename);
+		return NULL;
 	}
 
 	wsgi_file_callable = PyDict_GetItemString(wsgi_file_dict, callable);
 	if (!wsgi_file_callable) {
 		PyErr_Print();
+		Py_DECREF(wsgi_file_dict);
+		Py_DECREF(wsgi_file_module);
+                free(py_filename);
 		uwsgi_log( "unable to find \"application\" callable in file %s\n", filename);
-		exit(1);
+		return NULL;
 	}
 
 	if (!PyFunction_Check(wsgi_file_callable) && !PyCallable_Check(wsgi_file_callable)) {
 		uwsgi_log( "\"application\" must be a callable object in file %s\n", filename);
-		exit(1);
+		Py_DECREF(wsgi_file_callable);
+		Py_DECREF(wsgi_file_dict);
+		Py_DECREF(wsgi_file_module);
+                free(py_filename);
+		return NULL;
 	}
+
+        free(py_filename);
 
 	return wsgi_file_callable;
 
