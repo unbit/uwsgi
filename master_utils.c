@@ -330,6 +330,22 @@ void uwsgi_send_stats(int fd) {
 	stats_send("\"cwd\": \"%s\",\n", cwd);
 	free(cwd);
 
+	if (uwsgi.daemons) {
+		fprintf(output, "\"daemons\": [\n");
+		struct uwsgi_daemon *ud = uwsgi.daemons;
+        	while(ud) {
+			fprintf(output, "\t{ \"cmd\": \"%s\", \"pid\": %d, \"respawns\": %llu }",
+			ud->command, (int) ud->pid, (unsigned long long) ud->respawns-1);
+			if (ud->next)
+				fprintf(output, ",\n");
+			else {
+				fprintf(output, "\n");
+			}
+			ud = ud->next;
+		}
+		fprintf(output, "],\n");
+	}
+
 	fprintf(output, "\"workers\": [\n");
 
 	for (i = 0; i < uwsgi.numproc; i++) {
