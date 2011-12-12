@@ -88,7 +88,6 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	VALUE chunk;
 	int chunk_size;
 
-
 	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
 		return Qnil;
 	}
@@ -108,8 +107,9 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 			wsgi_req->buf_pos+=chunk_size;
 			return RARRAY_PTR(args)[1];
 		}
+		chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
 		wsgi_req->buf_pos+=chunk_size;
-		return rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
+		return chunk;
 	}
 
 	return Qnil;
