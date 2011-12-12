@@ -3233,6 +3233,9 @@ static struct uwsgi_unshare_id uwsgi_unshare_list[] = {
 #ifdef CLONE_NEWNET
 	{"net", CLONE_NEWNET},
 #endif
+#ifdef CLONE_NEWPID
+	{"pid", CLONE_NEWPID},
+#endif
 #ifdef CLONE_NEWNS
 	{"ns", CLONE_NEWNS},
 	{"mount", CLONE_NEWNS},
