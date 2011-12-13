@@ -11,6 +11,7 @@ extern "C" {
 #define UMAX64_STR "18446744073709551616"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_error_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_initial if (!uwsgi.no_initial_output) uwsgi_log
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
@@ -65,6 +66,8 @@ extern char UWSGI_EMBED_CONFIG_END;
 #define ULEP(pname)\
 	if (pname##_plugin.request) {\
 		uwsgi.p[pname##_plugin.modifier1] = &pname##_plugin;\
+		if (uwsgi.p[pname##_plugin.modifier1]->on_load)\
+			uwsgi.p[pname##_plugin.modifier1]->on_load();\
 	}\
 	else {\
 		if (uwsgi.gp_cnt >= MAX_GENERIC_PLUGINS) {\
@@ -72,6 +75,8 @@ extern char UWSGI_EMBED_CONFIG_END;
 			exit(1);\
 		}\
 		uwsgi.gp[uwsgi.gp_cnt] = &pname##_plugin;\
+		if (uwsgi.gp[uwsgi.gp_cnt]->on_load)\
+			uwsgi.gp[uwsgi.gp_cnt]->on_load();\
 		uwsgi.gp_cnt++;\
 	}\
 
@@ -125,8 +130,6 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <ctype.h>
 #include <sys/time.h>
 #include <unistd.h>
-
-#include <syslog.h>
 
 #ifdef UWSGI_HAS_IFADDRS
 #include <ifaddrs.h>
@@ -342,7 +345,10 @@ struct uwsgi_daemon {
 
 struct uwsgi_logger {
 	char *name;
-	ssize_t (*func)(char *, size_t);
+	ssize_t (*func)(struct uwsgi_logger *, char *, size_t);
+	int configured;
+	int fd;
+	void *data;
 	struct uwsgi_logger *next;
 };
 
@@ -1192,7 +1198,6 @@ struct uwsgi_server {
 	off_t log_maxsize;
 	char *log_backupname;
 
-	int log_syslog;
 	int original_log_fd;
 
 	int log_socket;
@@ -1469,7 +1474,6 @@ struct uwsgi_server {
 	int zeromq_recv_flag;
 	pthread_mutex_t zmq_lock;
 	pthread_key_t zmq_pull;
-	void *zmq_log_socket;
 #endif
 	struct uwsgi_socket *sockets;
 	struct uwsgi_socket *shared_sockets;
@@ -2136,7 +2140,6 @@ char *uwsgi_cheap_string(char *, int);
 
 int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 
-void log_syslog(char *);
 
 struct uwsgi_gateway *register_gateway(char *, void (*)(void));
 struct uwsgi_gateway *register_fat_gateway(char *, void (*)(void));
@@ -2353,7 +2356,7 @@ uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, ch
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 #ifdef UWSGI_ZEROMQ
-void log_zeromq(char *);
+ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *, char *, size_t len);
 int uwsgi_proto_zeromq_accept(struct wsgi_request *, int);
 void uwsgi_proto_zeromq_close(struct wsgi_request *);
 ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *, struct iovec *, size_t);
@@ -2566,7 +2569,7 @@ void uwsgi_linux_ksm_map(void);
 void uwsgi_build_cap(char *);
 #endif
 
-void uwsgi_register_logger(char *, ssize_t (*func)(char *, size_t));
+void uwsgi_register_logger(char *, ssize_t (*func)(struct uwsgi_logger *, char *, size_t));
 struct uwsgi_logger *uwsgi_get_logger(char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

@@ -225,7 +225,7 @@ void get_memusage(uint64_t *rss, uint64_t *vsz) {
 
 }
 
-void uwsgi_register_logger(char *name, ssize_t (*func)(char *, size_t)) {
+void uwsgi_register_logger(char *name, ssize_t (*func)(struct uwsgi_logger *, char *, size_t)) {
 
         struct uwsgi_logger *ul = uwsgi.loggers, *old_ul;
 
@@ -246,8 +246,14 @@ void uwsgi_register_logger(char *name, ssize_t (*func)(char *, size_t)) {
         ul->name = name;
         ul->func = func;
         ul->next = NULL;
+	ul->configured = 0;
+	ul->fd = -1;
+	ul->data = NULL;
 
+
+#ifdef UWSGI_DEBUG
 	uwsgi_log("[uwsgi-logger] registered \"%s\"\n", ul->name);
+#endif
 }
 
 struct uwsgi_logger *uwsgi_get_logger(char *name) {

@@ -1214,6 +1214,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	// ok we can now safely play with argv and environ
 	fixup_argv_and_environ(argc, argv, environ);
 
+#ifdef UWSGI_ZEROMQ
+	uwsgi_register_logger("zeromq", uwsgi_zeromq_logger);
+	uwsgi_register_logger("zmq", uwsgi_zeromq_logger);
+#endif
+
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
 		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
@@ -3208,16 +3213,20 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.requested_logger = uwsgi_str(optarg);
 		return 1;
 	case LONG_ARGS_LOG_SYSLOG:
-		log_syslog(optarg);
-		uwsgi.log_syslog = 1;
 		uwsgi.log_master = 1;
 		uwsgi.master_process = 1;
+		if (optarg) {
+			uwsgi.requested_logger = uwsgi_concat2("syslog:", optarg);
+		}
+		else {
+			uwsgi.requested_logger = "syslog";
+		}
 		return 1;
 #ifdef UWSGI_ZEROMQ
 	case LONG_ARGS_LOG_ZEROMQ:
-		log_zeromq(optarg);
 		uwsgi.log_master = 1;
 		uwsgi.master_process = 1;
+		uwsgi.requested_logger = uwsgi_concat2("zeromq:", optarg);
 		return 1;
 #endif
 	case LONG_ARGS_PRINT:

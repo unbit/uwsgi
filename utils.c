@@ -275,23 +275,40 @@ void logto(char *logfile) {
 }
 
 #ifdef UWSGI_ZEROMQ
-void log_zeromq(char *node) {
+ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 
-        void *ctx = zmq_init(1);
-        if (ctx == NULL) {
-                uwsgi_error("zmq_init()");
-                exit(1);
+	if (!ul->configured) {
+
+		if (!uwsgi.choosen_logger_arg) return -1;
+
+        	void *ctx = zmq_init(1);
+        	if (ctx == NULL) {
+                	uwsgi_error_safe("zmq_init()");
+                	exit(1);
+        	}
+
+        	ul->data = zmq_socket(ctx, ZMQ_PUSH);
+        	if (ul->data == NULL) {
+                	uwsgi_error_safe("zmq_socket()");
+                	exit(1);
+        	}
+
+        	if (zmq_connect(ul->data, uwsgi.choosen_logger_arg) < 0) {
+                	uwsgi_error_safe("zmq_connect()");
+                	exit(1);
+        	}
+
+		ul->configured = 1;
+	}
+
+	zmq_msg_t msg;
+        if (zmq_msg_init_size (&msg, len) == 0) {
+                memcpy(zmq_msg_data(&msg), message, len);
+                zmq_send(ul->data, &msg, 0);
+        	zmq_msg_close(&msg);
         }
 
-        uwsgi.zmq_log_socket = zmq_socket(ctx, ZMQ_PUSH);
-        if (uwsgi.zmq_log_socket == NULL) {
-                uwsgi_error("zmq_socket()");
-                exit(1);
-        }
-        if (zmq_connect(uwsgi.zmq_log_socket, node) < 0) {
-                uwsgi_error("zmq_connect()");
-                exit(1);
-        }
+	return 0;
 }
 #endif
 
@@ -343,22 +360,6 @@ void create_logpipe(void) {
                 uwsgi_error("dup2()");
                 exit(1);
         }
-
-}
-
-void log_syslog(char *syslog_opts) {
-
-	setlinebuf(stderr);
-
-	if (syslog_opts == NULL) {
-		syslog_opts = "uwsgi";
-	}
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("opening syslog\n");
-#endif
-
-	openlog(syslog_opts, 0, LOG_DAEMON);
 
 }
 
