@@ -10,6 +10,7 @@ struct uwsgi_cgi {
 	struct uwsgi_string_list *index;
 	struct uwsgi_string_list *allowed_ext;
 	struct uwsgi_string_list *unset;
+	struct uwsgi_string_list *loadlib;
 	int optimize;
 	int has_mountpoints;
 	struct uwsgi_dyn_dict *default_cgi;
@@ -24,6 +25,7 @@ struct uwsgi_cgi {
 #define LONG_ARGS_CGI_INDEX		LONG_ARGS_CGI_BASE + 5
 #define LONG_ARGS_CGI_ALLOWED_EXT	LONG_ARGS_CGI_BASE + 6
 #define LONG_ARGS_CGI_UNSET		LONG_ARGS_CGI_BASE + 7
+#define LONG_ARGS_CGI_LOADLIB		LONG_ARGS_CGI_BASE + 8
 
 struct option uwsgi_cgi_options[] = {
 
@@ -35,6 +37,7 @@ struct option uwsgi_cgi_options[] = {
         {"cgi-index", required_argument, 0, LONG_ARGS_CGI_INDEX},
         {"cgi-allowed-ext", required_argument, 0, LONG_ARGS_CGI_ALLOWED_EXT},
         {"cgi-unset", required_argument, 0, LONG_ARGS_CGI_UNSET},
+        {"cgi-loadlib", required_argument, 0, LONG_ARGS_CGI_LOADLIB},
         {"cgi-optimize", no_argument, &uc.optimize, 1},
         {"cgi-optimized", no_argument, &uc.optimize, 1},
         {"cgi-path-info", no_argument, &uc.path_info, 1},
@@ -150,8 +153,37 @@ void uwsgi_cgi_apps() {
 
 int uwsgi_cgi_init(){
 
+	void (*cgi_sym)(void);
+
 	if (!uc.buffer_size) uc.buffer_size = 65536;
 	if (!uc.timeout) uc.timeout = 60;
+
+	struct uwsgi_string_list *ll = uc.loadlib;
+	while(ll) {
+		char *colon = strchr(ll->value, ':');
+		if (!colon) {
+			uwsgi_log("invalid cgi-loadlib syntax, must be in the form lib:func\n");
+			exit(1);
+		}
+		*colon = 0;
+		void *cgi_lib = dlopen(ll->value, RTLD_NOW | RTLD_GLOBAL);
+		if (!cgi_lib) {
+			uwsgi_log( "cgi-loadlib: %s\n", dlerror());
+			exit(1);
+		}
+
+		cgi_sym = dlsym(cgi_lib, colon+1);
+		if (!cgi_sym) {
+			uwsgi_log("unknown symbol %s in lib %s\n", colon+1, ll->value);
+			exit(1);
+		}
+
+		cgi_sym();
+		uwsgi_log("[cgi-loadlib] loaded symbol %s from %s\n", colon+1, ll->value);
+
+		*colon = ':';
+		ll = ll->next;
+	}
 
 	return 0;	
 
@@ -769,6 +801,16 @@ clear:
 	}
 
 	if (helper) {
+		if (!uwsgi_starts_with(helper, strlen(helper), "sym://", 6)) {
+			void (*cgi_func)(char *) = dlsym(RTLD_DEFAULT, helper+6);
+			if (cgi_func) {
+				cgi_func(command);
+			}
+			else {
+				uwsgi_log("unable to find symbol %s\n", helper+6);
+			}
+			exit(0);	
+		}
 		argv[0] = helper;
 		argv[1] = command;
 		argv[2] = NULL;
@@ -818,6 +860,9 @@ int uwsgi_cgi_manage_options(int i, char *optarg) {
                         return 1;
                 case LONG_ARGS_CGI_ALLOWED_EXT:
 			uwsgi_string_new_list(&uc.allowed_ext, optarg);
+                        return 1;
+                case LONG_ARGS_CGI_LOADLIB:
+			uwsgi_string_new_list(&uc.loadlib, uwsgi_str(optarg));
                         return 1;
                 case LONG_ARGS_CGI_UNSET:
 			uwsgi_string_new_list(&uc.unset, optarg);
