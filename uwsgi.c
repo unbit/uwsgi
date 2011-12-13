@@ -231,6 +231,7 @@ static struct option long_base_options[] = {
 	{"logfile-chmod", required_argument, 0, LONG_ARGS_LOGFILE_CHMOD},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
 	{"log-socket", required_argument, 0, LONG_ARGS_LOG_SOCKET},
+	{"logger", required_argument, 0, LONG_ARGS_LOGGER},
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, LONG_ARGS_LOG_ZEROMQ},
 #endif
@@ -1460,8 +1461,29 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_configure();
 
 	if (uwsgi.log_master) {
+
+		if (uwsgi.requested_logger) {
+			char *colon = strchr(uwsgi.requested_logger, ':');
+			if (colon) {
+				*colon = 0;
+			}
+
+			uwsgi.choosen_logger = uwsgi_get_logger(uwsgi.requested_logger);
+			if (!uwsgi.choosen_logger) {
+				uwsgi_log("unable to find logger %s\n", uwsgi.requested_logger);
+				exit(1);
+			}
+
+			if (colon) {
+				uwsgi.choosen_logger_arg = colon+1;
+				*colon = ':';
+			}
+
+		}
+
         	uwsgi.original_log_fd = dup(1);
                 create_logpipe();
+
         }
 
 	/* uWSGI IS CONFIGURED !!! */
@@ -3179,6 +3201,11 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.log_master = 1;
 		uwsgi.master_process = 1;
 		log_socket(optarg);
+		return 1;
+	case LONG_ARGS_LOGGER:
+		uwsgi.log_master = 1;
+		uwsgi.master_process = 1;
+		uwsgi.requested_logger = uwsgi_str(optarg);
 		return 1;
 	case LONG_ARGS_LOG_SYSLOG:
 		log_syslog(optarg);

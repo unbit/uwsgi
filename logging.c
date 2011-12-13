@@ -224,3 +224,41 @@ void get_memusage(uint64_t *rss, uint64_t *vsz) {
 #endif
 
 }
+
+void uwsgi_register_logger(char *name, ssize_t (*func)(char *, size_t)) {
+
+        struct uwsgi_logger *ul = uwsgi.loggers, *old_ul;
+
+        if (!ul) {
+                uwsgi.loggers = uwsgi_malloc(sizeof(struct uwsgi_logger));
+                ul = uwsgi.loggers;
+        }
+        else {
+                while(ul) {
+                        old_ul = ul;
+                        ul = ul->next;
+                }
+
+                ul = uwsgi_malloc(sizeof(struct uwsgi_logger));
+                old_ul->next = ul;
+        }
+
+        ul->name = name;
+        ul->func = func;
+        ul->next = NULL;
+
+	uwsgi_log("[uwsgi-logger] registered \"%s\"\n", ul->name);
+}
+
+struct uwsgi_logger *uwsgi_get_logger(char *name) {
+	struct uwsgi_logger *ul = uwsgi.loggers;
+
+	while(ul) {
+		if (!strcmp(ul->name, name)) {
+			return ul;
+		}
+		ul = ul->next;	
+	}
+
+	return NULL;
+}

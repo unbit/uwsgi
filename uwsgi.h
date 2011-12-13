@@ -340,6 +340,12 @@ struct uwsgi_daemon {
 	struct uwsgi_daemon *next;
 };
 
+struct uwsgi_logger {
+	char *name;
+	ssize_t (*func)(char *, size_t);
+	struct uwsgi_logger *next;
+};
+
 struct uwsgi_queue_header {
 	uint64_t pos;
 	uint64_t pull_pos;
@@ -539,6 +545,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_EXEC_AS_ROOT		17169
 #define LONG_ARGS_EXEC_AS_USER		17170
 #define LONG_ARGS_STATIC_SKIP_EXT	17171
+#define LONG_ARGS_LOGGER		17172
 
 
 #define UWSGI_OK	0
@@ -649,6 +656,7 @@ struct uwsgi_plugin {
 	const char *alias;
 	uint8_t modifier1;
 	void *data;
+	void (*on_load) (void);
 	int (*init) (void);
 	void (*post_init) (void);
 	void (*post_fork) (void);
@@ -1202,6 +1210,11 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *exec_as_root;
 	struct uwsgi_string_list *exec_as_user;
+
+	struct uwsgi_logger *loggers;
+	struct uwsgi_logger *choosen_logger;
+	char *requested_logger;
+	char *choosen_logger_arg;
 
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
@@ -2552,6 +2565,9 @@ void uwsgi_linux_ksm_map(void);
 #ifdef UWSGI_CAP
 void uwsgi_build_cap(char *);
 #endif
+
+void uwsgi_register_logger(char *, ssize_t (*func)(char *, size_t));
+struct uwsgi_logger *uwsgi_get_logger(char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

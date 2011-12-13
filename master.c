@@ -849,7 +849,10 @@ healthy:
 						if (interesting_fd == uwsgi.shared->worker_log_pipe[0]) {
 							rlen = read(uwsgi.shared->worker_log_pipe[0], log_buf, 4096);
 							if (rlen > 0) {
-								if (uwsgi.log_syslog) {
+								if (uwsgi.choosen_logger) {
+									uwsgi.choosen_logger->func(log_buf, rlen);
+								}
+								else if (uwsgi.log_syslog) {
 									syslog(LOG_INFO, "%.*s", rlen, log_buf);
 								}
 #ifdef UWSGI_ZEROMQ

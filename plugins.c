@@ -139,6 +139,9 @@ check:
 			}
 			free(plugin_name);
 			free(plugin_entry_symbol);
+
+			if (up->on_load)
+				up->on_load();
 			return plugin_handle;
                 }
                 uwsgi_log( "%s\n", dlerror());
