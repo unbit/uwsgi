@@ -349,6 +349,7 @@ struct uwsgi_logger {
 	int configured;
 	int fd;
 	void *data;
+	struct sockaddr_in sin;
 	struct uwsgi_logger *next;
 };
 

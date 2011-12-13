@@ -1214,6 +1214,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	// ok we can now safely play with argv and environ
 	fixup_argv_and_environ(argc, argv, environ);
 
+	if (gethostname(uwsgi.hostname, 255)) {
+		uwsgi_error("gethostname()");
+	}
+	uwsgi.hostname_len = strlen(uwsgi.hostname);
+
 #ifdef UWSGI_ZEROMQ
 	uwsgi_register_logger("zeromq", uwsgi_zeromq_logger);
 	uwsgi_register_logger("zmq", uwsgi_zeromq_logger);
@@ -1248,11 +1253,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	build_options();
-
-	if (gethostname(uwsgi.hostname, 255)) {
-		uwsgi_error("gethostname()");
-	}
-	uwsgi.hostname_len = strlen(uwsgi.hostname);
 
 	uwsgi.magic_table['v'] = uwsgi.cwd;
 	uwsgi.magic_table['h'] = uwsgi.hostname;
@@ -2445,36 +2445,33 @@ skipzero:
 	   uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;       //100
 	 */
 
-	uwsgi_log("*** Operational MODE: ");
 	if (!uwsgi.numproc) {
-		uwsgi_rawlog("no-workers");
+		uwsgi_log("*** Operational MODE: no-workers ***\n");
 	}
 	else if (uwsgi.threads > 1) {
 		if (uwsgi.numproc > 1) {
-			uwsgi_rawlog("preforking+threaded");
+			uwsgi_log("*** Operational MODE: preforking+threaded ***\n");
 		}
 		else {
-			uwsgi_rawlog("threaded");
+			uwsgi_log("*** Operational MODE: threaded ***\n");
 		}
 	}
 #ifdef UWSGI_ASYNC
 	else if (uwsgi.async > 1) {
 		if (uwsgi.numproc > 1) {
-			uwsgi_rawlog("preforking+async");
+			uwsgi_log("*** Operational MODE: preforking+async ***\n");
 		}
 		else {
-			uwsgi_rawlog("async");
+			uwsgi_log("*** Operational MODE: async ***\n");
 		}
 	}
 #endif
 	else if (uwsgi.numproc > 1) {
-		uwsgi_rawlog("preforking");
+		uwsgi_log("*** Operational MODE: preforking ***\n");
 	}
 	else {
-		uwsgi_rawlog("single process");
+		uwsgi_log("*** Operational MODE: single process ***\n");
 	}
-
-	uwsgi_rawlog(" ***\n");
 
 	// even the master has cores..
 	uwsgi.core = uwsgi_malloc(sizeof(struct uwsgi_core *) * uwsgi.cores);
