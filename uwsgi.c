@@ -232,6 +232,7 @@ static struct option long_base_options[] = {
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG},
 	{"log-socket", required_argument, 0, LONG_ARGS_LOG_SOCKET},
 	{"logger", required_argument, 0, LONG_ARGS_LOGGER},
+	{"threaded-logger", no_argument, &uwsgi.threaded_logger, 1},
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, LONG_ARGS_LOG_ZEROMQ},
 #endif

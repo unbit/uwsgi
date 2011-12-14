@@ -19,10 +19,6 @@ ssize_t uwsgi_syslog_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 			syslog_opts = uwsgi.choosen_logger_arg;
 		}
 
-#ifdef UWSGI_DEBUG
-        	uwsgi_log("opening syslog\n");
-#endif
-
         	openlog(syslog_opts, 0, LOG_DAEMON);
 
 		ul->configured = 1;

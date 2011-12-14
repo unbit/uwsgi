@@ -1221,6 +1221,7 @@ struct uwsgi_server {
 	struct uwsgi_logger *choosen_logger;
 	char *requested_logger;
 	char *choosen_logger_arg;
+	int threaded_logger;
 
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
