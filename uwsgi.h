@@ -11,6 +11,7 @@ extern "C" {
 #define UMAX64_STR "18446744073709551616"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_log_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log(x);
 #define uwsgi_error_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_initial if (!uwsgi.no_initial_output) uwsgi_log
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
@@ -349,7 +350,10 @@ struct uwsgi_logger {
 	int configured;
 	int fd;
 	void *data;
-	struct sockaddr_in sin;
+	union uwsgi_sockaddr addr;
+	socklen_t addr_len;
+	int count;
+	struct msghdr msg;
 	struct uwsgi_logger *next;
 };
 
@@ -1200,12 +1204,6 @@ struct uwsgi_server {
 	char *log_backupname;
 
 	int original_log_fd;
-
-	int log_socket;
-	int log_socket_fd;
-	union uwsgi_sockaddr *log_socket_addr;
-	socklen_t log_socket_size;
-
 
 	// static file serving
 	int file_serve_mode;
@@ -2404,9 +2402,7 @@ void uwsgi_ignition(void);
 void master_check_cluster_nodes(void);
 int uwsgi_respawn_worker(int);
 
-void log_socket(char *);
-
-socklen_t socket_to_in_addr(char *, char *, struct sockaddr_in *);
+socklen_t socket_to_in_addr(char *, char *, int, struct sockaddr_in *);
 socklen_t socket_to_un_addr(char *, struct sockaddr_un *);
 
 int uwsgi_get_shared_socket_fd_by_num(int);

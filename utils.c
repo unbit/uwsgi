@@ -279,7 +279,10 @@ ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 
 	if (!ul->configured) {
 
-		if (!uwsgi.choosen_logger_arg) return -1;
+		if (!uwsgi.choosen_logger_arg) {
+			uwsgi_log_safe("invalid zeromq syntax\n");
+			exit(1);
+		}
 
         	void *ctx = zmq_init(1);
         	if (ctx == NULL) {
@@ -311,29 +314,6 @@ ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 	return 0;
 }
 #endif
-
-void log_socket(char *socket_name) {
-
-	int family = AF_UNIX;
-
-	uwsgi.log_socket_addr = uwsgi_malloc(sizeof(union uwsgi_sockaddr));
-
-	char *colon = strchr(socket_name, ':');
-	if (colon) {
-		family = AF_INET;
-		uwsgi.log_socket_size = socket_to_in_addr(socket_name, colon, &uwsgi.log_socket_addr->sa_in);
-	}
-	else {
-		uwsgi.log_socket_size = socket_to_un_addr(socket_name, &uwsgi.log_socket_addr->sa_un);	
-	}
-
-	uwsgi.log_socket_fd = socket(family, SOCK_DGRAM, 0);
-	if (uwsgi.log_socket_fd < 0) {
-		uwsgi_error("socket()");
-		uwsgi_nuclear_blast();
-	}
-
-}
 
 void create_logpipe(void) {
 

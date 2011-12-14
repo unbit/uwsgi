@@ -13,10 +13,16 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 
 	if (!ul->configured) {
 
-                if (!uwsgi.choosen_logger_arg) return -1;
+                if (!uwsgi.choosen_logger_arg) {
+			uwsgi_log_safe("invalid rsyslog syntax\n");
+			exit(1);
+		}
 
                 ul->fd = socket(AF_INET, SOCK_DGRAM, 0);
-                if (ul->fd < 0) return -1 ;
+                if (ul->fd < 0) {
+			uwsgi_error_safe("socket()");
+			exit(1);
+		}
 
 		uwsgi_socket_nb(ul->fd);
 
@@ -26,7 +32,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
                 	*comma = 0;
 		}
 		else {
-			ul->data = "uwsgi";
+			ul->data = uwsgi_concat2(uwsgi.hostname," uwsgi");
 		}
 
 
@@ -36,11 +42,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 			*port = 0;
 		}
 
-                memset(&ul->sin, 0, sizeof(struct sockaddr_in));
-                ul->sin.sin_family = AF_INET;
-                ul->sin.sin_port = htons(portn);
-
-                ul->sin.sin_addr.s_addr = inet_addr(uwsgi.choosen_logger_arg);
+		ul->addr_len = socket_to_in_addr(uwsgi.choosen_logger_arg, NULL, portn, &ul->addr.sa_in);
 
 		if (port) *port = ':';
 		if (comma) *comma = ',';
@@ -54,9 +56,9 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 	// drop newline
 	if (message[len-1] == '\n') len--;
 
- 	rlen = snprintf(buf, MAX_SYSLOG_PKT, "<29>%.*s %s %s: %.*s", 19, ctime(&current_time), uwsgi.hostname, (char *) ul->data, (int) len, message);
+ 	rlen = snprintf(buf, MAX_SYSLOG_PKT, "<29>%.*s %s: %.*s", 15, ctime(&current_time)+4, (char *) ul->data, (int) len, message);
 	if (rlen > 0) {
-		return sendto(ul->fd, buf, rlen, 0, (const struct sockaddr *) &ul->sin, sizeof(struct sockaddr_in));
+		return sendto(ul->fd, buf, rlen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);
 	}
 	return -1;
 

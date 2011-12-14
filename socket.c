@@ -460,14 +460,17 @@ socklen_t socket_to_un_addr(char *socket_name, struct sockaddr_un *sun_addr) {
         return sizeof(sun_addr->sun_family)+len;
 }
 
-socklen_t socket_to_in_addr(char *socket_name, char *port, struct sockaddr_in *sin_addr) {
+socklen_t socket_to_in_addr(char *socket_name, char *port, int portn, struct sockaddr_in *sin_addr) {
 
 	memset(sin_addr, 0, sizeof(struct sockaddr_in));
 	
 	sin_addr->sin_family = AF_INET;
 	if (port) {
-		port[0] = 0;
+		*port = 0;
 		sin_addr->sin_port = htons(atoi(port + 1));
+	}
+	else {
+		sin_addr->sin_port = htons(portn);
 	}
 
 	if (socket_name[0] == 0) {
@@ -483,6 +486,10 @@ socklen_t socket_to_in_addr(char *socket_name, char *port, struct sockaddr_in *s
 		}
         }
 
+	if (port) {
+		*port = ':';
+	}
+
 	return sizeof(struct sockaddr_in);
 	
 }
@@ -493,7 +500,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	struct sockaddr_in uws_addr;
 	int reuse = 1;
 
-	socket_to_in_addr(socket_name, tcp_port, &uws_addr);
+	socket_to_in_addr(socket_name, tcp_port, 0, &uws_addr);
 
 	serverfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (serverfd < 0) {

@@ -19,32 +19,37 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 
 	if (!ul->configured) {
 
-		if (!uwsgi.choosen_logger_arg) return -1;
+		if (!uwsgi.choosen_logger_arg) {
+			uwsgi_log_safe("invalid graylog2 syntax\n");
+			exit(1);
+		}
 
 		ul->fd = socket(AF_INET, SOCK_DGRAM, 0);
-		if (ul->fd < 0) return -1 ;
+		if (ul->fd < 0) {
+			uwsgi_error_safe("socket()");
+			exit(1);
+		}
 
 		uwsgi_socket_nb(ul->fd);
 
 		char *comma = strchr(uwsgi.choosen_logger_arg, ',');
-		if (!comma) return -1;
+		if (!comma) {
+			uwsgi_log_safe("invalid graylog2 syntax\n");
+                        exit(1);
+		}
 
 		g2c.host = comma + 1;
 
 		*comma = 0;
 
 		char *colon = strchr(uwsgi.choosen_logger_arg, ':');
-		if (!colon) return -1;
+		if (!colon) {
+			uwsgi_log_safe("invalid graylog2 syntax\n");
+                        exit(1);
+		}
 
-		memset(&ul->sin, 0, sizeof(struct sockaddr_in));
-        	ul->sin.sin_family = AF_INET;
-        	ul->sin.sin_port = htons(atoi(colon + 1));
+		ul->addr_len = socket_to_in_addr(uwsgi.choosen_logger_arg, colon, 0, &ul->addr.sa_in);
 
-		*colon = 0;
-
-                ul->sin.sin_addr.s_addr = inet_addr(uwsgi.choosen_logger_arg);
-
-		*colon = ':';
 		*comma = ',';
 
 		ul->configured = 1;
@@ -87,7 +92,7 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 	if (rlen > 0) {
 		if (compressBound((uLong) rlen) <= MAX_GELF) {
 			if (compress((Bytef *) g2c.buffer, &destLen, (Bytef *) g2c.json_buf, (uLong) rlen) == Z_OK) {
-				return sendto(ul->fd, g2c.buffer, destLen, 0, (const struct sockaddr *) &ul->sin, sizeof(struct sockaddr_in));
+				return sendto(ul->fd, g2c.buffer, destLen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);
 			}
 		}
 

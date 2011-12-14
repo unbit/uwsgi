@@ -3200,10 +3200,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.log_master = 1;
 		return 1;
 	case LONG_ARGS_LOG_SOCKET:
-		uwsgi.log_socket = 1;
 		uwsgi.log_master = 1;
 		uwsgi.master_process = 1;
-		log_socket(optarg);
+		uwsgi.requested_logger = uwsgi_concat2("socket:", optarg);
 		return 1;
 	case LONG_ARGS_LOGGER:
 		uwsgi.log_master = 1;

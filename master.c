@@ -77,9 +77,6 @@ void master_log(void) {
 		if (uwsgi.choosen_logger) {
 			uwsgi.choosen_logger->func(uwsgi.choosen_logger, log_buf, rlen);
 		}
-		else if (uwsgi.log_socket) {
-			sendto(uwsgi.log_socket_fd, log_buf, rlen, 0, &uwsgi.log_socket_addr->sa, uwsgi.log_socket_size);
-		}
 		else {
 			rlen = write(uwsgi.original_log_fd, log_buf, rlen);
 		}
