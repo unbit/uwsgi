@@ -202,7 +202,6 @@ class mulemsg_loop(object):
 
     def __call__(self):
         if uwsgi.mule_id() == self.num:
-            print " i am the mule"
             while True:
                 message = uwsgi.mule_get_msg()
                 if message:
