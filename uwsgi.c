@@ -1243,10 +1243,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (p == NULL) p = original_proc_name; 
 	p = strstr(p, "uwsgi_");
 	if (p != NULL) {
-		plugins_requested = strchr(p, '_');
-		if (plugins_requested != NULL && *(++plugins_requested) != '\0') {
-			uwsgi_log("[uwsgi] implicit plugin requested %s\n", argv[0], plugins_requested);
-			uwsgi_load_plugin(0, plugins_requested, NULL, 0);
+		plugins_requested = strtok(uwsgi_str(p+6), "_");
+		while(plugins_requested) {
+			uwsgi_log("[uwsgi] implicit plugin requested %s\n", plugins_requested);
+			uwsgi_load_plugin(-1, plugins_requested, NULL, 0);
+			plugins_requested = strtok(NULL, "_");
 		}
 	}
 
