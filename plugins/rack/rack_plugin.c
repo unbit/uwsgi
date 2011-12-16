@@ -240,6 +240,10 @@ int uwsgi_rack_init(){
 	return 0;
 }
 
+VALUE uwsgi_rb_call_new(VALUE obj) {
+    return rb_funcall(obj, rb_intern("new"), 0);
+}
+
 void uwsgi_rack_init_apps(void) {
 
 	int error;
@@ -275,6 +279,10 @@ void uwsgi_rack_init_apps(void) {
 			exit(1);
 		}
 
+		if (!access("config.ru", R_OK)) {
+			uwsgi_log("!!! a config.ru file has been found in yor rails app, please use --rack <configfile> instead of the old --rails <app> !!!\n");
+		}
+
 		uwsgi_log("loading rails app %s\n", ur.rails);
 		rb_protect( require_rails, 0, &error ) ;
 		if (error) {
@@ -298,7 +306,11 @@ void uwsgi_rack_init_apps(void) {
 			}
 
 			if (acim_call == Qtrue) {
-                        	ur.dispatcher = rb_funcall( ac_dispatcher, rb_intern("new"), 0);
+                        	ur.dispatcher = rb_protect(uwsgi_rb_call_new, ac_dispatcher, &error);
+				if (error) {
+                        		uwsgi_ruby_exception();
+                        		exit(1);
+				}
 			}
                 }
 
@@ -312,7 +324,11 @@ void uwsgi_rack_init_apps(void) {
 			VALUE thin_rack = rb_const_get(rb_cObject, rb_intern("Rack"));
 			VALUE thin_rack_adapter = rb_const_get(thin_rack, rb_intern("Adapter"));
 			VALUE thin_rack_adapter_rails = rb_const_get(thin_rack_adapter, rb_intern("Rails"));
-			ur.dispatcher = rb_funcall( thin_rack_adapter_rails, rb_intern("new"), 0);
+			ur.dispatcher = rb_protect( uwsgi_rb_call_new, thin_rack_adapter_rails, &error);
+			if (error) {
+                        	uwsgi_ruby_exception();
+                        	exit(1);
+			}
                 }
 
 
