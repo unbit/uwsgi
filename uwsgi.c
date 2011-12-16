@@ -1232,13 +1232,20 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_DEBUG
 	uwsgi_log("executable name: %s\n", uwsgi.binary_path);
 #endif
-	char *p = strrchr(uwsgi.binary_path, '/');
-	if (p == NULL) p = uwsgi.binary_path;
+
+	char *original_proc_name = getenv("UWSGI_ORIGINAL_PROC_NAME");
+	if (!original_proc_name) {
+		// here we use argv[0];
+		original_proc_name = argv[0];
+		setenv("UWSGI_ORIGINAL_PROC_NAME", original_proc_name, 1);
+	}
+	char *p = strrchr(original_proc_name, '/');
+	if (p == NULL) p = original_proc_name; 
 	p = strstr(p, "uwsgi_");
 	if (p != NULL) {
 		plugins_requested = strchr(p, '_');
 		if (plugins_requested != NULL && *(++plugins_requested) != '\0') {
-			uwsgi_log("plugin = %s\n", plugins_requested);
+			uwsgi_log("[uwsgi] implicit plugin requested %s\n", argv[0], plugins_requested);
 			uwsgi_load_plugin(0, plugins_requested, NULL, 0);
 		}
 	}
