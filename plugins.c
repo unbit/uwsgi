@@ -94,7 +94,9 @@ check:
 					linkpath_buf[linkpath_size] = '\0';
 					strcpy(linkpath, linkpath_buf);
 				} while ((linkpath_size = readlink(linkpath, linkpath_buf, 1023)) > 0);
+#ifdef UWSGI_DEBUG
 				uwsgi_log("%s\n", linkpath);
+#endif
 				free(plugin_entry_symbol);
 				up = dlsym(plugin_handle, plugin_entry_symbol);
 				char *slash = uwsgi_get_last_char(linkpath, '/');

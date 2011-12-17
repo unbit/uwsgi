@@ -105,7 +105,7 @@ def compile(cflags, objfile, srcfile):
         sys.exit(1)
 
 
-def build_uwsgi(uc):
+def build_uwsgi(uc, print_only=False):
 
     gcc_list, cflags, ldflags, libs = uc.get_gcll()
 
@@ -125,6 +125,10 @@ def build_uwsgi(uc):
 
         cflags.append(epc)
         cflags.append(eplc)
+
+    if print_only:
+        print(' '.join(cflags))
+        sys.exit(0)
 
     print("configured CFLAGS: %s" % ' '.join(cflags))
 
@@ -220,9 +224,10 @@ def build_uwsgi(uc):
 
 class uConf(object):
 
-    def __init__(self, filename):
+    def __init__(self, filename, mute=False):
         self.config = ConfigParser.ConfigParser()
-        print("using profile: %s" % filename)
+        if not mute:
+            print("using profile: %s" % filename)
         if not os.path.exists(filename):
             raise Exception("profile not found !!!")
 
@@ -281,8 +286,8 @@ class uConf(object):
         except:
             self.include_path = ['/usr/include', '/usr/local/include']
             
-            
-        print("detected include path: %s" % self.include_path)
+        if not mute:
+            print("detected include path: %s" % self.include_path)
 
         try:
             gcc_major = int(gcc_version.split('.')[0])
@@ -834,13 +839,7 @@ if __name__ == "__main__":
         print("please specify an argument")
         sys.exit(1)
 
-    if cmd == '--cflags':
-        print(' '.join(cflags))
-    if cmd == '--ldflags':
-        print(' '.join(ldflags))
-    if cmd == '--libs':
-        print(' '.join(libs))
-    elif cmd == '--build':
+    if cmd == '--build':
         bconf = os.environ.get('UWSGI_PROFILE','default.ini')
         try:
             bconf = sys.argv[2]
@@ -851,6 +850,17 @@ if __name__ == "__main__":
         if not '/' in bconf:
             bconf = 'buildconf/%s' % bconf
         build_uwsgi(uConf(bconf))
+    elif cmd == '--cflags':
+        bconf = os.environ.get('UWSGI_PROFILE','default.ini')
+        try:
+            bconf = sys.argv[2]
+        except:
+            pass
+        if not bconf.endswith('.ini'):
+            bconf += '.ini'
+        if not '/' in bconf:
+            bconf = 'buildconf/%s' % bconf
+        build_uwsgi(uConf(bconf, True), True)
     elif cmd == '--unbit':
         build_uwsgi(uConf('buildconf/unbit.ini'))
     elif cmd == '--plugin':
