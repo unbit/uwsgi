@@ -615,10 +615,8 @@ reconnect:
 				}
 				}
 			}
-			else if (uwsgi.emperor_stats && uwsgi.emperor_stats_fd > -1) {
-                        	if (interesting_fd == uwsgi.emperor_stats_fd) {
-                                	emperor_send_stats(uwsgi.emperor_stats_fd);
-                                }
+			else if (uwsgi.emperor_stats && uwsgi.emperor_stats_fd > -1 && interesting_fd == uwsgi.emperor_stats_fd) {
+                               	emperor_send_stats(uwsgi.emperor_stats_fd);
                         }
 			else {
 				ui_current = emperor_get_by_fd(interesting_fd);
