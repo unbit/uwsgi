@@ -3691,11 +3691,17 @@ static int manage_base_opt(int i, char *optarg) {
 #endif
 
 	case 'd':
-		if (!uwsgi.is_a_reload) {
-			daemonize(optarg);
-		}
-		else if (uwsgi.log_reopen) {
+		// do not daemonize in emperor mode
+		if (uwsgi.has_emperor) {
 			logto(optarg);
+		}
+		else {
+			if (!uwsgi.is_a_reload) {
+				daemonize(optarg);
+			}
+			else if (uwsgi.log_reopen) {
+				logto(optarg);
+			}
 		}
 		return 1;
 	case 's':
