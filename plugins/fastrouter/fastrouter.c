@@ -22,6 +22,7 @@
 #define LONG_ARGS_FASTROUTER_USE_CODE_STRING		150008
 #define LONG_ARGS_FASTROUTER_TOLERANCE			150009
 #define LONG_ARGS_FASTROUTER_STATS			150010
+#define LONG_ARGS_FASTROUTER_ZERG			150011
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -39,6 +40,7 @@ void fastrouter_send_stats(int);
 struct uwsgi_fastrouter_socket {
 	char *name;
 	int fd;
+	char *zerg;
 	struct uwsgi_fastrouter_socket *next;
 };
 
@@ -93,7 +95,7 @@ static void fastrouter_go_cheap(void) {
 }
 
 
-static struct uwsgi_fastrouter_socket *uwsgi_fastrouter_new_socket(char *name) {
+static struct uwsgi_fastrouter_socket *uwsgi_fastrouter_new_socket(char *name, int fd) {
 
         struct uwsgi_fastrouter_socket *uwsgi_sock = ufr.sockets, *old_uwsgi_sock;
 
@@ -113,6 +115,12 @@ static struct uwsgi_fastrouter_socket *uwsgi_fastrouter_new_socket(char *name) {
 
         memset(uwsgi_sock, 0, sizeof(struct uwsgi_fastrouter_socket));
         uwsgi_sock->name = name;
+	if (name) {
+		uwsgi_sock->fd = -1;
+	}
+	else {
+		uwsgi_sock->fd = fd;
+	}
 
         return uwsgi_sock;
 }
@@ -121,6 +129,7 @@ static struct uwsgi_fastrouter_socket *uwsgi_fastrouter_new_socket(char *name) {
 
 struct option fastrouter_options[] = {
 	{"fastrouter", required_argument, 0, LONG_ARGS_FASTROUTER},
+	{"fastrouter-zerg", required_argument, 0, LONG_ARGS_FASTROUTER_ZERG},
 	{"fastrouter-use-cache", no_argument, &ufr.use_cache, 1},
 	{"fastrouter-use-pattern", required_argument, 0, LONG_ARGS_FASTROUTER_USE_PATTERN},
 	{"fastrouter-use-base", required_argument, 0, LONG_ARGS_FASTROUTER_USE_BASE},
@@ -333,7 +342,10 @@ void fastrouter_loop() {
 	struct uwsgi_fastrouter_socket *ufr_sock = ufr.sockets;
 
 	while(ufr_sock) {
-		if (ufr_sock->name[0] == '=') {
+		if (ufr_sock->fd > -1) {
+			ufr_sock->name = uwsgi_getsockname(ufr_sock->fd);
+		}
+		else if (ufr_sock->name[0] == '=') {
 			int shared_socket = atoi(ufr_sock->name+1);
 			if (shared_socket >= 0) {
 				ufr_sock->fd = uwsgi_get_shared_socket_fd_by_num(shared_socket);
@@ -352,7 +364,12 @@ void fastrouter_loop() {
 			}
 		}
 
-		uwsgi_log("uwsgi fastrouter/proxy bound on %s\n", ufr_sock->name);
+		if (ufr_sock->zerg) {
+			uwsgi_log("uwsgi fastrouter/proxy bound on %s (from zerg server %s)\n", ufr_sock->name, ufr_sock->zerg);
+		}
+		else {
+			uwsgi_log("uwsgi fastrouter/proxy bound on %s\n", ufr_sock->name);
+		}
 
 		if (!ufr.cheap) {
 			event_queue_add_fd_read(ufr.queue, ufr_sock->fd);
@@ -792,10 +809,32 @@ int fastrouter_opt(int i, char *optarg) {
 	char *cs;
 	char *cs_code;
 	char *cs_func;
+	int zerg_fd;
+	int *zerg;
+	int j;
+	struct uwsgi_fastrouter_socket *fr_sock;
 
 	switch(i) {
 		case LONG_ARGS_FASTROUTER:
-			uwsgi_fastrouter_new_socket(generate_socket_name(optarg));
+			uwsgi_fastrouter_new_socket(generate_socket_name(optarg), -1);
+			return 1;
+		case LONG_ARGS_FASTROUTER_ZERG:
+			zerg_fd = uwsgi_connect(optarg, 30, 0);
+                	if (zerg_fd < 0) {
+                        	uwsgi_log("--- unable to connect to zerg server ---\n");
+                        	exit(1);
+                	}
+                	zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
+                	if (zerg == NULL) {
+                        	uwsgi_log("--- invalid data received from zerg-server ---\n");
+                        	exit(1);
+                	}
+                	close(zerg_fd);
+			for(j=0;j<8;j++) {
+				if (zerg[j] == -1) break;
+				fr_sock = uwsgi_fastrouter_new_socket(NULL, zerg[j]);
+				fr_sock->zerg = optarg;
+			}
 			return 1;
 		case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER:
 			ufr.subscription_server = optarg;

@@ -2570,6 +2570,8 @@ void uwsgi_build_cap(char *);
 void uwsgi_register_logger(char *, ssize_t (*func)(struct uwsgi_logger *, char *, size_t));
 struct uwsgi_logger *uwsgi_get_logger(char *);
 
+char *uwsgi_getsockname(int);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif

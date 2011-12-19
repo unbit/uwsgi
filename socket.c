@@ -2,6 +2,43 @@
 
 extern struct uwsgi_server uwsgi;
 
+char *uwsgi_getsockname(int fd) {
+
+	socklen_t socket_type_len = sizeof(struct sockaddr_un);
+	union uwsgi_sockaddr usa;
+	union uwsgi_sockaddr_ptr gsa;
+	char computed_port[6];
+        char ipv4a[INET_ADDRSTRLEN + 1];
+
+        gsa.sa = (struct sockaddr *) &usa;
+
+        if (!getsockname(fd, gsa.sa, &socket_type_len)) {
+        	if (gsa.sa->sa_family == AF_UNIX) {
+                	if (usa.sa_un.sun_path[0] == 0) {
+				return uwsgi_concat2("@", usa.sa_un.sun_path+1);
+			}
+			else {
+				return uwsgi_str(usa.sa_un.sun_path);
+			}
+                }
+                else {
+                        memset(ipv4a, 0, INET_ADDRSTRLEN + 1);
+                        memset(computed_port, 0, 6);
+                        if (snprintf(computed_port, 6, "%d", ntohs(gsa.sa_in->sin_port)) > 0) {
+				if (inet_ntop(AF_INET, (const void *) &gsa.sa_in->sin_addr.s_addr, ipv4a, INET_ADDRSTRLEN)) {
+                                        if (!strcmp("0.0.0.0", ipv4a)) {
+                                                return uwsgi_concat2(":", computed_port);
+                                        }
+                                        else {
+                                                return uwsgi_concat3(ipv4a, ":", computed_port);
+                                        }
+				}
+			}
+                }
+	}
+	return NULL;
+}
+
 int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abstract_socket) {
 
 	int serverfd;
