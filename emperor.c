@@ -314,7 +314,9 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 					break;
 				}
 				free(oe);
+#ifdef UWSGI_DEBUG
 				uwsgi_log("putenv %s\n", ne);
+#endif
 
 				if (putenv(ne)) {
 					uwsgi_error("putenv()");

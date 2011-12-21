@@ -329,6 +329,58 @@ void show_config(void) {
 
 }
 
+void uwsgi_apply_templates(void) {
+
+	struct uwsgi_config_template *uct = uwsgi.config_templates;
+
+        while (uct) {
+		if (uct->applied)  {
+			uct = uct->next;
+			continue;
+		}
+                uwsgi_log("using %s as config template\n", uct->filename);
+#ifdef UWSGI_XML
+                if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".xml")) {
+                        uwsgi_xml_config(uct->filename, uwsgi.wsgi_req, 0, uwsgi.magic_table);
+                }
+#endif
+#ifdef UWSGI_INI
+                if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".ini")) {
+                        uwsgi_ini_config(uct->filename, uwsgi.magic_table);
+                }
+#endif
+#ifdef UWSGI_YAML
+                if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".yml")) {
+                        uwsgi_yaml_config(uct->filename, uwsgi.magic_table);
+                }
+                if (!strcmp(uct->filename + strlen(uct->filename) - 5, ".yaml")) {
+                        uwsgi_yaml_config(uct->filename, uwsgi.magic_table);
+                }
+#endif
+#ifdef UWSGI_JSON
+                if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".js")) {
+                        uwsgi_json_config(uct->filename, uwsgi.magic_table);
+                }
+                if (!strcmp(uct->filename + strlen(uct->filename) - 5, ".json")) {
+                        uwsgi_json_config(uct->filename, uwsgi.magic_table);
+                }
+#endif
+#ifdef UWSGI_SQLITE3
+                if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".db")) {
+                        uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
+                }
+                if (!strcmp(uct->filename + strlen(uct->filename) - 7, ".sqlite")) {
+                        uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
+                }
+                if (!strcmp(uct->filename + strlen(uct->filename) - 8, ".sqlite3")) {
+                        uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
+                }
+#endif
+		uct->applied = 1;
+                uct = uct->next;
+        }
+
+}
 
 void uwsgi_configure(void) {
 
@@ -339,18 +391,32 @@ void uwsgi_configure(void) {
 	int is_retry;
 	int found;
 
-	// option must be processed in reverse (to have a consistent template system)
-	// but first load plugins...
+	// plugins and inherit must be processed first (to have a consistent template system)
+
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
 		if (uwsgi.exported_opts[i]->configured)
                         continue;
 
 		if (!strcmp("plugin", uwsgi.exported_opts[i]->key) || !strcmp("plugins", uwsgi.exported_opts[i]->key)) {
 			manage_opt(LONG_ARGS_PLUGINS, uwsgi.exported_opts[i]->value);
+			uwsgi.exported_opts[i]->configured = 1;
+		}
+
+		else if (!strcmp("inherit", uwsgi.exported_opts[i]->key)) {
+			manage_opt(LONG_ARGS_INHERIT, uwsgi.exported_opts[i]->value);
+			uwsgi.exported_opts[i]->configured = 1;
+		}
+
+		else if (!strcmp("vassals-inherit", uwsgi.exported_opts[i]->key)) {
+			manage_opt(LONG_ARGS_VASSALS_INHERIT, uwsgi.exported_opts[i]->value);
+			uwsgi.exported_opts[i]->configured = 1;
 		}
 	}
 
-	for (i = uwsgi.exported_opts_cnt-1; i >= 0; i--) {
+	// apply templates (again)
+	uwsgi_apply_templates();
+
+	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
 
 #ifdef UWSGI_DEBUG
 		uwsgi_log("i = %d %p\n", i, uwsgi.exported_opts[i]);
@@ -1413,48 +1479,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	//parse environ
 	parse_sys_envs(environ);
 
-	struct uwsgi_config_template *uct = uwsgi.config_templates;
-	while (uct) {
-		uwsgi_log("using %s as config template\n", uct->filename);
-#ifdef UWSGI_XML
-		if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".xml")) {
-			uwsgi_xml_config(uct->filename, uwsgi.wsgi_req, 0, uwsgi.magic_table);
-		}
-#endif
-#ifdef UWSGI_INI
-		if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".ini")) {
-			uwsgi_ini_config(uct->filename, uwsgi.magic_table);
-		}
-#endif
-#ifdef UWSGI_YAML
-		if (!strcmp(uct->filename + strlen(uct->filename) - 4, ".yml")) {
-			uwsgi_yaml_config(uct->filename, uwsgi.magic_table);
-		}
-		if (!strcmp(uct->filename + strlen(uct->filename) - 5, ".yaml")) {
-			uwsgi_yaml_config(uct->filename, uwsgi.magic_table);
-		}
-#endif
-#ifdef UWSGI_JSON
-		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".js")) {
-			uwsgi_json_config(uct->filename, uwsgi.magic_table);
-		}
-		if (!strcmp(uct->filename + strlen(uct->filename) - 5, ".json")) {
-			uwsgi_json_config(uct->filename, uwsgi.magic_table);
-		}
-#endif
-#ifdef UWSGI_SQLITE3
-		if (!strcmp(uct->filename + strlen(uct->filename) - 3, ".db")) {
-			uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
-		}
-		if (!strcmp(uct->filename + strlen(uct->filename) - 7, ".sqlite")) {
-			uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
-		}
-		if (!strcmp(uct->filename + strlen(uct->filename) - 8, ".sqlite3")) {
-			uwsgi_sqlite3_config(uct->filename, uwsgi.magic_table);
-		}
-#endif
-		uct = uct->next;
-	}
+	// apply templates passed from command line
+	uwsgi_apply_templates();
 
 	// second pass: ENVs
 	uwsgi_apply_config_pass('$', (char *(*)(char *))getenv);
@@ -1465,15 +1491,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	// last pass: REFERENCEs
 	uwsgi_apply_config_pass('%', uwsgi_get_exported_opt);
 
-
-
-
-
 	// ok, the options dictionary is available, lets manage it
-
-
 	uwsgi_configure();
 
+	// setup master logging
 	if (uwsgi.log_master) {
 
 		if (uwsgi.requested_logger) {
@@ -3366,6 +3387,7 @@ static int manage_base_opt(int i, char *optarg) {
 
 		uct->filename = optarg;
 		uct->next = NULL;
+		uct->applied = 0;
 
 		return 1;
 	case LONG_ARGS_VASSAL_SOS_BACKLOG:

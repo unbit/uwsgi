@@ -275,6 +275,7 @@ struct uwsgi_help_item {
 
 struct uwsgi_config_template {
 	char *filename;
+	int applied;
 	struct uwsgi_config_template *next;
 };
 
