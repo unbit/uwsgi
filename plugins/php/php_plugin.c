@@ -12,6 +12,27 @@ extern struct uwsgi_server uwsgi;
 // http status codes list
 extern struct http_status_codes hsc[];
 
+struct uwsgi_php {
+	struct uwsgi_string_list *allowed_docroot;
+	struct uwsgi_string_list *allowed_ext;
+} uphp;
+
+#define LONG_ARGS_PHP_BASE		17000 + ((14 + 1) * 1000)
+#define LONG_ARGS_PHP_INI		LONG_ARGS_PHP_BASE + 1
+#define LONG_ARGS_PHP_ALLOWED_DOCROOT	LONG_ARGS_PHP_BASE + 2
+#define LONG_ARGS_PHP_ALLOWED_EXT	LONG_ARGS_PHP_BASE + 3
+
+struct option uwsgi_php_options[] = {
+
+        {"php-ini", required_argument, 0, LONG_ARGS_PHP_INI},
+        {"php-config", required_argument, 0, LONG_ARGS_PHP_INI},
+        {"php-allowed-docroot", required_argument, 0, LONG_ARGS_PHP_ALLOWED_DOCROOT},
+        {"php-allowed-ext", required_argument, 0, LONG_ARGS_PHP_ALLOWED_EXT},
+        {0, 0, 0, 0},
+
+};
+
+
 static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
@@ -249,7 +270,7 @@ int uwsgi_php_init(void) {
         }
 
 
-	uwsgi_log("*** PHP %s plugin initialized ***\n", PHP_VERSION);
+	uwsgi_log("PHP %s initialized\n", PHP_VERSION);
 
 	return 0;
 }
@@ -315,6 +336,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	char real_filename[PATH_MAX+1];
 	uint16_t docroot_len = 0;
 	char *path_info = NULL;
+	size_t real_filename_len = 0;
 
 	zend_file_handle file_handle;
 
@@ -355,6 +377,39 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	}
 
 	free(filename);
+	real_filename_len = strlen(real_filename);
+
+	if (uphp.allowed_docroot) {
+		struct uwsgi_string_list *usl = uphp.allowed_docroot;
+		while(usl) {
+			if (!uwsgi_starts_with(real_filename, real_filename_len, usl->value, usl->len)) {
+				goto secure;
+			}
+			usl = usl->next;
+		}
+		uwsgi_php_403(wsgi_req);
+		uwsgi_log("PHP security error: %s is not under an allowed docroot\n", real_filename);
+		return -1;
+	}
+
+secure:
+
+	if (uphp.allowed_ext) {
+		struct uwsgi_string_list *usl = uphp.allowed_ext;
+                while(usl) {
+			if (real_filename_len >= usl->len) {
+				if (!uwsgi_strncmp(real_filename+(real_filename_len-usl->len), usl->len, usl->value, usl->len)) {
+                                	goto secure2;
+                        	}
+			}
+                        usl = usl->next;
+                }
+                uwsgi_php_403(wsgi_req);
+                uwsgi_log("PHP security error: %s does not end with an allowed extension\n", real_filename);
+                return -1;
+	}
+
+secure2:
 
 	wsgi_req->file = real_filename;
 	wsgi_req->file_len = strlen(wsgi_req->file);
@@ -408,6 +463,24 @@ void uwsgi_php_after_request(struct wsgi_request *wsgi_req) {
                 log_request(wsgi_req);
 }
 
+int uwsgi_php_manage_options(int i, char *optarg) {
+
+        switch(i) {
+                case LONG_ARGS_PHP_INI:
+			uwsgi_sapi_module.php_ini_path_override = uwsgi_str(optarg);
+                        uwsgi_sapi_module.php_ini_ignore = 1;
+                        return 1;
+		case LONG_ARGS_PHP_ALLOWED_DOCROOT:
+			uwsgi_string_new_list(&uphp.allowed_docroot, optarg);
+			return 1;
+		case LONG_ARGS_PHP_ALLOWED_EXT:
+			uwsgi_string_new_list(&uphp.allowed_ext, optarg);
+			return 1;
+        }
+
+        return 0;
+}
+
 
 
 SAPI_API struct uwsgi_plugin php_plugin = {
@@ -415,5 +488,7 @@ SAPI_API struct uwsgi_plugin php_plugin = {
 	.init = uwsgi_php_init,
 	.request = uwsgi_php_request,
 	.after_request = uwsgi_php_after_request,
+	.options = uwsgi_php_options,
+        .manage_opt = uwsgi_php_manage_options,
 };
 
