@@ -1688,18 +1688,3 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
         return -1;
 
 }
-
-char *uwsgi_get_var(struct wsgi_request *wsgi_req, char *key, uint16_t *len) {
-
-	int i;
-	*len = 0;
-	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
-		if (!uwsgi_strncmp(key, strlen(key), wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) {
-			*len = wsgi_req->hvec[i + 1].iov_len;
-			return wsgi_req->hvec[i + 1].iov_base;
-		}
-        }
-
-	return NULL;
-
-}

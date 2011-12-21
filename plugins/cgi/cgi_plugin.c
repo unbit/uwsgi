@@ -415,7 +415,7 @@ int uwsgi_cgi_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
 			// not a directory, stop walking
                         if (!S_ISDIR(st.st_mode)) {
 				if (i < (wsgi_req->path_info_len-discard_base)-1) {
-                        		*path_info = ptr + i + 1;
+                        		*path_info = ptr + i;
 				}
 
 				return 0;
@@ -733,6 +733,11 @@ clear:
 	}
 
 	if (setenv("SERVER_SOFTWARE", uwsgi_concat2("uWSGI/", UWSGI_VERSION), 0)) {
+		uwsgi_error("setenv()");
+	}
+
+	// for newer php
+	if (setenv("REDIRECT_STATUS", "200", 0)) {
 		uwsgi_error("setenv()");
 	}
 

@@ -9,21 +9,43 @@
 
 extern struct uwsgi_server uwsgi;
 
+// http status codes list
+extern struct http_status_codes hsc[];
+
 static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
-	size_t len = wsgi_req->socket->proto_write(wsgi_req, (char *) str, str_length);
+	ssize_t len = wsgi_req->socket->proto_write(wsgi_req, (char *) str, str_length);
+	if (len != str_length) {
+		php_handle_aborted_connection();
+		return -1;
+	}
 	wsgi_req->response_size += len;
-	return len;
+	return str_length;
 }
+
+void uwsgi_php_404(struct wsgi_request *wsgi_req) {
+
+        wsgi_req->status = 404;
+        wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\n\r\nNot Found", 35);
+}
+
+void uwsgi_php_403(struct wsgi_request *wsgi_req) {
+
+        wsgi_req->status = 403;
+        wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\n\r\nForbidden", 35);
+
+}
+
 
 static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 {
 	sapi_header_struct *h;
 	zend_llist_position pos;
-	struct iovec iov[4];
+	struct iovec iov[6];
 	char status[4];
+	struct http_status_codes *http_sc;
 
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 	wsgi_req->status = SG(sapi_headers).http_response_code;
@@ -41,10 +63,27 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 	iov[2].iov_base = status;
 	iov[2].iov_len = 3;
 
-	iov[3].iov_base = " Test\r\n";
-	iov[3].iov_len = 7;
+	iov[3].iov_base = " ";
+	iov[3].iov_len = 1;
 
-	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
+	// get the status code
+        for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+                if (!strncmp(http_sc->key, status, 3)) {
+                        iov[4].iov_base = (char *) http_sc->message;
+                        iov[4].iov_len = http_sc->message_size;
+                        break;
+                }
+        }
+
+        if (iov[4].iov_len == 0) {
+                iov[4].iov_base = "Unknown";
+                iov[4].iov_len =  7;
+        }
+
+	iov[5].iov_base = "\r\n";
+	iov[5].iov_len = 2;
+
+	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 6);
 	
 	h = zend_llist_get_first_ex(&sapi_headers->headers, &pos);
 	while (h) {
@@ -66,29 +105,54 @@ static int sapi_uwsgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	uint read_bytes = 0;
 	size_t len;
+	int fd = -1;
 	
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
+	if (wsgi_req->body_as_file) {
+                fd = fileno((FILE *)wsgi_req->async_post);
+        }
+        else if (uwsgi.post_buffering > 0) {
+                if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
+                        fd = fileno((FILE *)wsgi_req->async_post);
+                }
+        }
+        else {
+                fd = wsgi_req->poll.fd;
+        }
+
+
         count_bytes = MIN(count_bytes, wsgi_req->post_cl - SG(read_post_bytes));
+
+	// data in memory
+	if (fd == -1) {
+		if (count_bytes > 0) {
+			memcpy(buffer, wsgi_req->post_buffering_buf + wsgi_req->post_pos, count_bytes);
+			wsgi_req->post_pos += count_bytes;
+		}
+		return count_bytes;
+	}
+
         while (read_bytes < count_bytes) {
-                len = read(wsgi_req->poll.fd, buffer + read_bytes, count_bytes - read_bytes);
+                len = read(fd, buffer + read_bytes, count_bytes - read_bytes);
 		if (len <= 0) {
 			break;
 		}
                 read_bytes += len;
         }
+
         return read_bytes;
 }
 
+
 static char *sapi_uwsgi_read_cookies(void)
 {
-	int i;
+	uint16_t len = 0;
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
-	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
-		if (!uwsgi_strncmp((char *)"HTTP_COOKIE", 11, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) {
-			return estrndup(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
-		}
+	char *cookie = uwsgi_get_var(wsgi_req, (char *)"HTTP_COOKIE", 11, &len);
+	if (cookie) {
+		return estrndup(cookie, len);
 	}
 
 	return NULL;
@@ -106,7 +170,21 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 			track_vars_array TSRMLS_CC);
         }
 
-	php_register_variable_safe("PHP_SELF", wsgi_req->path_info, wsgi_req->path_info_len, track_vars_array TSRMLS_CC);
+	php_register_variable_safe("PATH_INFO", wsgi_req->path_info, wsgi_req->path_info_len, track_vars_array TSRMLS_CC);
+
+	php_register_variable_safe("SCRIPT_NAME", wsgi_req->script_name, wsgi_req->script_name_len, track_vars_array TSRMLS_CC);
+	php_register_variable_safe("SCRIPT_FILENAME", wsgi_req->file, wsgi_req->file_len, track_vars_array TSRMLS_CC);
+
+
+	if (wsgi_req->path_info_len) {
+		char *path_translated = ecalloc(1, (wsgi_req->file_len - wsgi_req->script_name_len) + wsgi_req->path_info_len + 1);
+
+		memcpy(path_translated, wsgi_req->file, (wsgi_req->file_len - wsgi_req->script_name_len));
+		memcpy(path_translated + (wsgi_req->file_len - wsgi_req->script_name_len), wsgi_req->path_info, wsgi_req->path_info_len);
+		php_register_variable_safe("PATH_TRANSLATED", path_translated, (wsgi_req->file_len - wsgi_req->script_name_len) + wsgi_req->path_info_len , track_vars_array TSRMLS_CC);
+	}
+
+	php_register_variable_safe("PHP_SELF", wsgi_req->script_name, wsgi_req->script_name_len, track_vars_array TSRMLS_CC);
 
 
 }
@@ -123,8 +201,6 @@ static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 }
 
 static void sapi_uwsgi_log_message(char *message) {
-
-	TSRMLS_FETCH();
 
 	uwsgi_log(message);
 }
@@ -162,22 +238,141 @@ static sapi_module_struct uwsgi_sapi_module = {
 
 int uwsgi_php_init(void) {
 
+	struct http_status_codes *http_sc;
+
 	sapi_startup(&uwsgi_sapi_module);
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
 
-	uwsgi_log("*** PHP plugin initialized ***\n");
+	// filling http status codes
+        for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+                http_sc->message_size = strlen(http_sc->message);
+        }
+
+
+	uwsgi_log("*** PHP %s plugin initialized ***\n", PHP_VERSION);
 
 	return 0;
 }
 
+int uwsgi_php_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot, size_t docroot_len, char **path_info) {
+
+        // and now start walking...
+        uint16_t i;
+        char *ptr = wsgi_req->path_info;
+        char *dst = full_path+docroot_len;
+        char *part = ptr;
+        int part_size = 0;
+        struct stat st;
+
+        if (ptr[0] == '/') part_size++;
+
+        for(i=0;i<wsgi_req->path_info_len;i++) {
+                if (ptr[i] == '/') {
+                        memcpy(dst, part, part_size-1);
+                        *(dst+part_size-1) = 0;
+
+                        if (stat(full_path, &st)) {
+				uwsgi_php_404(wsgi_req);
+                                return -1;
+                        }
+
+
+                        // not a directory, stop walking
+                        if (!S_ISDIR(st.st_mode)) {
+                                if (i < (wsgi_req->path_info_len)-1) {
+                                        *path_info = ptr + i;
+                                }
+
+                                return 0;
+                        }
+
+
+                        // check for buffer overflow !!!
+                        *(dst+part_size-1) = '/';
+                        *(dst+part_size) = 0;
+
+                        dst += part_size ;
+                        part_size = 0;
+                        part = ptr + i + 1;
+                }
+
+                part_size++;
+        }
+
+        if (part < wsgi_req->path_info+wsgi_req->path_info_len) {
+                memcpy(dst, part, part_size-1);
+                *(dst+part_size-1) = 0;
+        }
+
+        return 0;
+
+
+}
+
+
 int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
+	char real_filename[PATH_MAX+1];
+	uint16_t docroot_len = 0;
+	char *path_info = NULL;
+
 	zend_file_handle file_handle;
+
 	SG(server_context) = (void *) wsgi_req;
 
 	if (uwsgi_parse_vars(wsgi_req)) {
 		return -1;
 	}
+
+	char *docroot = uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &docroot_len);
+
+	if (!docroot) {
+		docroot = uwsgi.cwd;
+		docroot_len = strlen(uwsgi.cwd);
+	}
+
+	char *filename = uwsgi_concat4n(docroot, docroot_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+
+	if (uwsgi_php_walk(wsgi_req, filename, docroot, docroot_len, &path_info)) {
+		free(filename);
+		return -1;
+	}
+
+	if (path_info) {
+		wsgi_req->path_info = path_info;
+		wsgi_req->path_info_len = strlen(wsgi_req->path_info);
+	}
+	else {
+		wsgi_req->path_info = "";
+		wsgi_req->path_info_len = 0;
+	}
+
+
+	if (!realpath(filename, real_filename)) {
+		free(filename);
+		uwsgi_php_404(wsgi_req);
+		return -1;
+	}
+
+	free(filename);
+
+	wsgi_req->file = real_filename;
+	wsgi_req->file_len = strlen(wsgi_req->file);
+
+	if (docroot[docroot_len-1] == '/') {
+		wsgi_req->script_name = real_filename + (docroot_len-1);
+	}
+	else {
+		wsgi_req->script_name = real_filename + docroot_len;
+	}
+
+	wsgi_req->script_name_len = strlen(wsgi_req->script_name);
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("php filename = %s\n", real_filename);
+#endif
+
+	// now check for allowed paths and extensions
 
 	SG(request_info).request_uri = estrndup(wsgi_req->uri, wsgi_req->uri_len);
         SG(request_info).request_method = estrndup(wsgi_req->method, wsgi_req->method_len);
@@ -187,12 +382,16 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
         SG(request_info).content_length = wsgi_req->post_cl;
 	SG(request_info).content_type = estrndup(wsgi_req->content_type, wsgi_req->content_type_len);
 
+	SG(request_info).path_translated = wsgi_req->file;
+
         file_handle.type = ZEND_HANDLE_FILENAME;
-        file_handle.filename = uwsgi_concat3n("/root/uwsgi/", 12, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
-        file_handle.free_filename = 1;
+        file_handle.filename = real_filename;
+        file_handle.free_filename = 0;
         file_handle.opened_path = NULL;
 
+
         if (php_request_startup(TSRMLS_C) == FAILURE) {
+		internal_server_error(wsgi_req, "unable to start php request");
                 return -1;
         }
 

@@ -40,7 +40,7 @@ extern "C" int uwsgi_cplusplus_request(struct wsgi_request *wsgi_req) {
 
 	fc = new FakeClass();
 	// get PATH_INFO
-        fc->foobar = uwsgi_get_var(wsgi_req, (char *) "PATH_INFO", &fc->foobar_len);
+        fc->foobar = uwsgi_get_var(wsgi_req, (char *) "PATH_INFO", 9, &fc->foobar_len);
 
 	if (fc->foobar) {
 		// send output

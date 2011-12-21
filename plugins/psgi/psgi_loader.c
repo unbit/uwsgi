@@ -87,7 +87,7 @@ XS(XS_input_read) {
         }
         else if (uwsgi.post_buffering > 0) {
                 fd = -1;
-                if (wsgi_req->post_cl <= (size_t) uwsgi.post_buffering) {
+                if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
                         fd = fileno((FILE *)wsgi_req->async_post);
                 }
         }

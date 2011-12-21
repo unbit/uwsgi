@@ -3553,6 +3553,20 @@ void http_url_decode(char *buf, uint16_t *len, char *dst) {
 
 }
 
+char *uwsgi_get_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, uint16_t *len) {
+
+	int i;
+
+	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
+                if (!uwsgi_strncmp(key, keylen, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len)) {
+			*len = wsgi_req->hvec[i + 1].iov_len;
+                        return wsgi_req->hvec[i + 1].iov_base;
+                }
+        }
+
+	return NULL;
+}
+
 void uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_len) {
 
 	struct uwsgi_app *wi = &uwsgi_apps[id];

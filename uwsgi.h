@@ -2436,8 +2436,6 @@ int uwsgi_signal_registered(uint8_t);
 
 int uwsgi_endswith(char *, char *);
 
-char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t *);
-
 int uwsgi_cache_server(char *, int);
 
 void uwsgi_chown(char *, char *);
@@ -2574,6 +2572,7 @@ void uwsgi_register_logger(char *, ssize_t (*func)(struct uwsgi_logger *, char *
 struct uwsgi_logger *uwsgi_get_logger(char *);
 
 char *uwsgi_getsockname(int);
+char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
