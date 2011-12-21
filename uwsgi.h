@@ -558,6 +558,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_EXEC_AS_USER		17170
 #define LONG_ARGS_STATIC_SKIP_EXT	17171
 #define LONG_ARGS_LOGGER		17172
+#define LONG_ARGS_STATIC_INDEX		17173
 
 
 #define UWSGI_OK	0
@@ -1229,6 +1230,7 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *check_static;
 	struct uwsgi_dyn_dict *mimetypes;
 	struct uwsgi_string_list *static_skip_ext;
+	struct uwsgi_string_list *static_index;
 
 	char *logfile;
 	int logfile_chown;

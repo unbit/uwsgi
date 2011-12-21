@@ -277,8 +277,10 @@ static struct option long_base_options[] = {
 #endif
 	{"add-header", required_argument, 0, LONG_ARGS_ADD_HEADER},
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC},
+	{"static-check", required_argument, 0, LONG_ARGS_CHECK_STATIC},
 	{"static-skip-ext", required_argument, 0, LONG_ARGS_STATIC_SKIP_EXT},
 	{"static-map", required_argument, 0, LONG_ARGS_STATIC_MAP},
+	{"static-index", required_argument, 0, LONG_ARGS_STATIC_INDEX},
 	{"mimefile", required_argument, 0, LONG_ARGS_MIMEFILE},
 	{"mime-file", required_argument, 0, LONG_ARGS_MIMEFILE},
 	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE},
@@ -3448,6 +3450,9 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_STATIC_SKIP_EXT:
 		uwsgi_string_new_list(&uwsgi.static_skip_ext, optarg);
+		return 1;
+	case LONG_ARGS_STATIC_INDEX:
+		uwsgi_string_new_list(&uwsgi.static_index, optarg);
 		return 1;
 	case LONG_ARGS_STATIC_MAP:
 		mountpoint = uwsgi_str(optarg);

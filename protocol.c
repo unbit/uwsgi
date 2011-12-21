@@ -865,69 +865,67 @@ next:
 
 	
 	// check for static files
-	if (wsgi_req->path_info_len > 1) {
 
-		// skip extensions
-		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
-		while(sse) {
-			if (wsgi_req->path_info_len >= sse->len) {
-				if (!uwsgi_strncmp(wsgi_req->path_info+(wsgi_req->path_info_len - sse->len), sse->len, sse->value, sse->len)) {
-					return 0;
-				} 
-			}
-			sse = sse->next;
+	// skip extensions
+	struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
+	while(sse) {
+		if (wsgi_req->path_info_len >= sse->len) {
+			if (!uwsgi_strncmp(wsgi_req->path_info+(wsgi_req->path_info_len - sse->len), sse->len, sse->value, sse->len)) {
+				return 0;
+			} 
 		}
-		// check if a file named uwsgi.check_static+env['PATH_INFO'] exists
-		udd = uwsgi.check_static;
-		while(udd) {
-			// need to build the path ?
-			if (udd->value == NULL) {
+		sse = sse->next;
+	}
+	// check if a file named uwsgi.check_static+env['PATH_INFO'] exists
+	udd = uwsgi.check_static;
+	while(udd) {
+		// need to build the path ?
+		if (udd->value == NULL) {
 #ifdef UWSGI_THREADING
-				if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
+			if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
 #endif
-				udd->value = realpath(udd->key, NULL);
+			udd->value = realpath(udd->key, NULL);
 #ifdef UWSGI_THREADING
-				if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
+			if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
 #endif
-				if (!udd->value) goto nextcs;				
-				udd->vallen = strlen(udd->value);
-			}
+			if (!udd->value) goto nextcs;				
+			udd->vallen = strlen(udd->value);
+		}
 
-			if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info, wsgi_req->path_info_len)) {
+		if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info, wsgi_req->path_info_len)) {
+			return -1;
+		}
+nextcs:
+		udd = udd->next;
+	}
+
+	// check static-map
+	udd = uwsgi.static_maps;
+	while(udd) {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
+#endif
+		if (udd->status == 0) {
+#ifdef UWSGI_THREADING
+			if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
+#endif
+			char *real_docroot = realpath(udd->value, NULL);
+#ifdef UWSGI_THREADING
+			if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
+#endif
+			if (!real_docroot) goto nextsm;
+			udd->value = real_docroot;
+			udd->vallen = strlen(udd->value);
+			udd->status = 1;
+		}
+
+		if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, udd->key, udd->keylen)) {
+			if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info+udd->keylen, wsgi_req->path_info_len-udd->keylen)) {
 				return -1;
 			}
-nextcs:
-			udd = udd->next;
 		}
-
-		// check static-map
-		udd = uwsgi.static_maps;
-		while(udd) {
-#ifdef UWSGI_DEBUG
-			uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
-#endif
-			if (udd->status == 0) {
-#ifdef UWSGI_THREADING
-				if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
-#endif
-				char *real_docroot = realpath(udd->value, NULL);
-#ifdef UWSGI_THREADING
-				if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
-#endif
-				if (!real_docroot) goto nextsm;
-				udd->value = real_docroot;
-				udd->vallen = strlen(udd->value);
-				udd->status = 1;
-			}
-
-			if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, udd->key, udd->keylen)) {
-				if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info+udd->keylen, wsgi_req->path_info_len-udd->keylen)) {
-					return -1;
-				}
-			}
 nextsm:
-			udd = udd->next;
-		}
+		udd = udd->next;
 	}
 
 	return 0;
@@ -1485,13 +1483,66 @@ char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
 	return NULL;
 }
 
+int uwsgi_append_static_path(char *dir, char *file, int file_len) {
+
+	size_t len = strlen(dir);
+	
+	if (len + 1 + file_len > PATH_MAX) {
+		return -1;
+	}
+
+	if (dir[len-1] == '/') {
+		memcpy(dir+len, file, file_len);
+		dir[len+file_len] = 0;
+	}
+	else {
+		dir[len] = '/';
+		memcpy(dir+len+1, file, file_len);
+		dir[len+1+file_len] = 0;
+	}
+
+	return len;
+}
+
+int uwsgi_static_stat(char *filename, struct stat *st) {
+
+	int ret = stat(filename, st);
+	// if non-existant return -1
+	if (ret < 0) return -1;
+
+	if (S_ISREG(st->st_mode)) return 0;
+
+	// check for index
+	if (S_ISDIR(st->st_mode)) {
+		struct uwsgi_string_list *usl = uwsgi.static_index;
+		while(usl) {
+			ret = uwsgi_append_static_path(filename, usl->value, usl->len);
+			if (ret >= 0) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("checking for %s\n", filename);
+#endif
+				if (!uwsgi_static_stat(filename, st)) {
+					return 0;
+				}
+				// reset to original name
+				filename[ret] = 0;
+			}
+			usl = usl->next;
+		}
+	}
+
+	return -1;
+}
+
 int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len) {
 
         struct stat st;
 	struct iovec headers_vec[8];
-        char real_filename[PATH_MAX];
-        char *filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
+        char real_filename[PATH_MAX+1];
 	char content_length[sizeof(UMAX64_STR)+1];
+	size_t real_filename_len = 0;
+
+        char *filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
 
 #ifdef UWSGI_DEBUG
         uwsgi_log("[uwsgi-fileserve] checking for %s\n", filename);
@@ -1511,9 +1562,11 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                 return -1;
         }
 
-        if (!stat(real_filename, &st)) {
+        if (!uwsgi_static_stat(real_filename, &st)) {
 		int mime_type_size = 0;
-		char *mime_type = uwsgi_get_mime_type(path_info, path_info_len, &mime_type_size);
+                char http_last_modified[49];
+		real_filename_len = strlen(real_filename);
+		char *mime_type = uwsgi_get_mime_type(real_filename, real_filename_len, &mime_type_size);
                 if (wsgi_req->if_modified_since_len) {
                         time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
                         if (st.st_mtime <= ims) {
@@ -1540,18 +1593,16 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                                 return 0;
                         }
                 }
-                if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
-                        char http_last_modified[49];
 #ifdef UWSGI_DEBUG
-                        uwsgi_log("[uwsgi-fileserve] file %s found\n", real_filename);
+                uwsgi_log("[uwsgi-fileserve] file %s found\n", real_filename);
 #endif
 
-			// HTTP status
-			headers_vec[0].iov_base = wsgi_req->protocol;
-                        headers_vec[0].iov_len = wsgi_req->protocol_len;
-			headers_vec[1].iov_base = " 200 OK\r\n";
-                        headers_vec[1].iov_len = 9;
-                        wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
+		// HTTP status
+		headers_vec[0].iov_base = wsgi_req->protocol;
+                headers_vec[0].iov_len = wsgi_req->protocol_len;
+		headers_vec[1].iov_base = " 200 OK\r\n";
+                headers_vec[1].iov_len = 9;
+                wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
 
 			// uWSGI additional headers
 			struct uwsgi_string_list *ah = uwsgi.additional_headers;
@@ -1600,18 +1651,9 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 			// apache
 			else if (uwsgi.file_serve_mode == 2) {
 				headers_vec[0].iov_base = "X-Sendfile: "; headers_vec[0].iov_len = 12 ;
-				headers_vec[1].iov_base = document_root; headers_vec[1].iov_len = document_root_len;
-				if (document_root[document_root_len-1] != '/') {
-					headers_vec[2].iov_base = "/"; headers_vec[2].iov_len = 1;
-					headers_vec[3].iov_base = path_info; headers_vec[3].iov_len = path_info_len;
-					headers_vec[4].iov_base = "\r\n"; headers_vec[4].iov_len = 2;
-					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 5);
-				}
-				else {
-					headers_vec[2].iov_base = path_info; headers_vec[2].iov_len = path_info_len;
-					headers_vec[3].iov_base = "\r\n"; headers_vec[3].iov_len = 2;
-					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
-				}
+				headers_vec[1].iov_base = real_filename; headers_vec[1].iov_len = real_filename_len;
+				headers_vec[2].iov_base = "\r\n"; headers_vec[2].iov_len = 2;
+				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
 				// this is the final header (\r\n added)
                         	set_http_date(st.st_mtime, http_last_modified);
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
@@ -1641,7 +1683,6 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 
                         wsgi_req->status = 200;
                         return 0;
-                }
         }
 
         return -1;
