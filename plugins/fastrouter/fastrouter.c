@@ -203,7 +203,7 @@ static void close_session(struct fastrouter_session **fr_table, struct fastroute
 
 	close(fr_session->fd);
 	fr_table[fr_session->fd] = NULL;
-	if (fr_session->instance_fd != -1) {
+
 		if (ufr.subscriptions && fr_session->un && fr_session->un->len > 0) {
 			// decrease reference count
 #ifdef UWSGI_DEBUG
@@ -228,6 +228,8 @@ static void close_session(struct fastrouter_session **fr_table, struct fastroute
 
 			}
 		}
+
+	if (fr_session->instance_fd != -1) {
 		close(fr_session->instance_fd);
 		fr_table[fr_session->instance_fd] = NULL;
 	}
