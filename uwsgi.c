@@ -375,7 +375,7 @@ void uwsgi_configure(void) {
 					*aopt->flag = aopt->val;
 				else if (val) {
 					if (aopt->has_arg == optional_argument) {
-						if (!strcasecmp("true", val)) {
+						if (!strcasecmp("true", val) || !strcmp("1", val)) {
 							val = NULL;
 						}
 					}
