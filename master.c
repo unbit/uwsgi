@@ -633,7 +633,7 @@ int master_loop(char **argv, char **environ) {
 		}
 
 		// cheaper management
-		if (uwsgi.cheaper) {
+		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell) {
 			for (i = 1; i <= uwsgi.numproc; i++) {
 				if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 					if (uwsgi.workers[i].busy == 0) {
@@ -648,15 +648,18 @@ int master_loop(char **argv, char **environ) {
 		}
 
 	      healthy:
-		if (uwsgi.cheaper) {
+		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell) {
 			if (overload_count > 3) {
 				// activate the first available worker
+				int decheaped = 0;
 				for (i = 1; i <= uwsgi.numproc; i++) {
 					if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
 						if (uwsgi_respawn_worker(i))
 							return 0;
 						overload_count = 0;
-						break;
+						decheaped++;
+						if (decheaped >= uwsgi.cheaper_step)
+							break;
 					}
 				}
 			}
@@ -1001,7 +1004,11 @@ int master_loop(char **argv, char **environ) {
 							found = 1;
 							uwsgi.cheap = 0;
 							uwsgi_del_sockets_from_queue(uwsgi.master_queue);
-							for (i = 1; i <= uwsgi.numproc; i++) {
+							int needed = uwsgi.numproc;
+							if (uwsgi.cheaper) {
+								needed = uwsgi.cheaper_count;
+							}
+							for (i = 1; i <= needed; i++) {
 								if (uwsgi_respawn_worker(i))
 									return 0;
 							}

@@ -258,6 +258,7 @@ static struct option long_base_options[] = {
 	{"lazy", no_argument, &uwsgi.lazy, 1},
 	{"cheap", no_argument, &uwsgi.cheap, 1},
 	{"cheaper", required_argument, 0, LONG_ARGS_CHEAPER},
+	{"cheaper-step", required_argument, 0, LONG_ARGS_CHEAPER_STEP},
 	{"idle", required_argument, 0, LONG_ARGS_IDLE},
 	{"die-on-idle", no_argument, &uwsgi.die_on_idle, 1},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT},
@@ -3142,6 +3143,9 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.master_process = 1;
 		uwsgi.cheaper = 1;
 		uwsgi.cheaper_count = atoi(optarg);
+		return 1;
+	case LONG_ARGS_CHEAPER_STEP:
+		uwsgi.cheaper_step = atoi(optarg);
 		return 1;
 	case LONG_ARGS_CHDIR:
 		uwsgi.chdir = optarg;

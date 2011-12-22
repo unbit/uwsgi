@@ -559,6 +559,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_STATIC_SKIP_EXT	17171
 #define LONG_ARGS_LOGGER		17172
 #define LONG_ARGS_STATIC_INDEX		17173
+#define LONG_ARGS_CHEAPER_STEP		17174
 
 
 #define UWSGI_OK	0
@@ -1085,6 +1086,7 @@ struct uwsgi_server {
 	int cheap;
 	// enable cheaper mode
 	int cheaper;
+	int cheaper_step;
 	// minimal number of running workers in cheaper mode
 	int cheaper_count;
 	// enable idle mode
