@@ -1099,7 +1099,7 @@ void parse_sys_envs(char **envs) {
 	char *earg, *eq_pos;
 
 	while (*uenvs) {
-		if (!strncmp(*uenvs, "UWSGI_", 6) && strncmp(*uenvs, "UWSGI_RELOADS=", 14)) {
+		if (!strncmp(*uenvs, "UWSGI_", 6) && strncmp(*uenvs, "UWSGI_RELOADS=", 14) && strncmp(*uenvs, "UWSGI_ORIGINAL_PROC_NAME=", 25)) {
 			earg = uwsgi_malloc(strlen(*uenvs + 6) + 1);
 			env_to_arg(*uenvs + 6, earg);
 			eq_pos = strchr(earg, '=');
