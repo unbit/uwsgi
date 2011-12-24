@@ -1289,8 +1289,9 @@ int master_loop(char **argv, char **environ) {
 					last_request_timecheck = uwsgi.current_time;
 					last_request_count = uwsgi.workers[0].requests;
 				}
-				else if (uwsgi.current_time - last_request_timecheck > uwsgi.idle) {
-					uwsgi_log("workers have been inactive for more than %d seconds\n", uwsgi.idle);
+				// a bit of over-engeneering to avoid clock skews
+				else if (last_request_timecheck < uwsgi.current_time && (uwsgi.current_time - last_request_timecheck > uwsgi.idle)) {
+					uwsgi_log("workers have been inactive for more than %d seconds (%llu-%llu)\n", uwsgi.idle, (unsigned long long) uwsgi.current_time, (unsigned long long) last_request_timecheck);
 					uwsgi.cheap = 1;
 					master_has_children = 0;
 					if (uwsgi.die_on_idle) {
