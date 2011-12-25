@@ -9,6 +9,7 @@ NAME='fiber'
 CFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['CFLAGS']\"").read().rstrip().split()
 
 CFLAGS.append('-Wno-unused-parameter')
+CFLAGS.append('-DRUBY19')
 
 includedir = os.popen(RUBYPATH + " -e \"require 'rbconfig';print Config::CONFIG['rubyhdrdir']\"").read().rstrip()
 if includedir == 'nil':
