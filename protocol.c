@@ -1631,18 +1631,9 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 			// nginx
 			if (uwsgi.file_serve_mode == 1) {
 				headers_vec[0].iov_base = "X-Accel-Redirect: "; headers_vec[0].iov_len = 18 ;
-				headers_vec[1].iov_base = document_root; headers_vec[1].iov_len = document_root_len;
-				if (document_root[document_root_len-1] != '/') {
-					headers_vec[2].iov_base = "/"; headers_vec[2].iov_len = 1;
-					headers_vec[3].iov_base = path_info; headers_vec[3].iov_len = path_info_len;
-					headers_vec[4].iov_base = "\r\n"; headers_vec[4].iov_len = 2;
-					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 5);
-				}
-				else {
-					headers_vec[2].iov_base = path_info; headers_vec[2].iov_len = path_info_len;
-					headers_vec[3].iov_base = "\r\n"; headers_vec[3].iov_len = 2;
-					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
-				}
+				headers_vec[1].iov_base = real_filename; headers_vec[1].iov_len = real_filename_len;
+				headers_vec[2].iov_base = "\r\n"; headers_vec[2].iov_len = 2;
+				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
 				// this is the final header (\r\n added)
                         	set_http_date(st.st_mtime, http_last_modified);
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
