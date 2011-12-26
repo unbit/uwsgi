@@ -58,11 +58,13 @@ void fiber_loop() {
         uwsgi.schedule_to_main = fiber_schedule_to_main;
         uwsgi.schedule_to_req = fiber_schedule_to_req;
 
+	ur.unprotected = 1;
+
         rb_protect(protected_async_loop, 0, &error);
 
         if (error) {
                 uwsgi_ruby_exception();
-                exit(1);
+		exit(1);
         }
 
         // never here

@@ -69,6 +69,8 @@ struct uwsgi_rack {
 	int rb_shell;
 	int app_id;
 
+	int unprotected;
+
 	struct uwsgi_string_list *rbrequire;
 
 };

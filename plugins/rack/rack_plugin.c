@@ -590,7 +590,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
-
 	ret = rb_protect( call_dispatch, env, &error);
 	if (error) {
 		uwsgi_ruby_exception();
@@ -674,9 +673,14 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			}
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {
-			rb_protect( iterate_body, body, &error);
-			if (error) {
-				uwsgi_ruby_exception();
+			if (ur.unprotected) {
+				iterate_body(body);
+			}
+			else {
+				rb_protect( iterate_body, body, &error);
+				if (error) {
+					uwsgi_ruby_exception();
+				}
 			}
 		}
 
