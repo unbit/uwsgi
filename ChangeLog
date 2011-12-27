@@ -1,3 +1,28 @@
+*** december 2011 ***
+
+ * 1.0 [20111230]
+
+- adaptive process spawning (--cheaper option)
+- new control options --stop, --reload, --suspend, --resume, --pause
+- stats framework
+- new subscription system
+- support for mime types in static file serving
+- posix capablities support
+- uWSGI mules and farms
+- support for multiple --touch-reload options
+- new logging subsystem
+- new custom locking subsystem
+- process name handling 
+- better (and faster) HTTP parser
+- perl and python threading improvements
+- new plugins: rrdtool, carbon, cgi, php
+- various improvements in the Rack/ruby plugin
+- Linux KSM support
+- refactored ping and nagios plugins
+- support for signals in lazy mode
+- optimized static-file serving
+- support for linux unshare()
+
 *** august 2011 ***
 
  * 0.9.9 [20110829]
