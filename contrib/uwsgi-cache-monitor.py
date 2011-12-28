@@ -68,8 +68,8 @@ class Cache:
         self.samples += 1
         block_sizes = sum([x[3] for x in data])
         self.block_sizes += block_sizes
-        self.history.append({'full': full, 'empty': empty, 'data': data, 'items':
-            items, 'block_sizes': block_sizes})
+        self.history.append({'full': full, 'empty': empty, 'data': data, \
+            'items': items, 'block_sizes': block_sizes})
 
     def dump(self):
         return {
@@ -86,14 +86,14 @@ class Cache:
     def show_dump(self):
         d = self.dump()
         print
-        print "Recorded %d samples (%d second(s) sleep between samples)" %
+        print "Recorded %d samples (%d second(s) sleep between samples)" % \
             (d['samples'], d['sample_sleep'])
-        print "Cache empty %d times, full %d times, %.2f items on average" %
+        print "Cache empty %d times, full %d times, %.2f items on average" % \
             (d['cache_empty'], d['cache_full'], d['cache_items'] / d['samples'])
-        print "Block size average size: %d bytes" % (d['block_sizes'] /
-            d['cache_items'] * 8)
-        print "Data in cache average: %d bytes" % (d['block_sizes'] / d['samples']
-            * 8)
+        print "Block size average size: %d bytes" % \
+            (d['block_sizes'] / d['cache_items'] * 8)
+        print "Data in cache average: %d bytes" % \
+            (d['block_sizes'] / d['samples'] * 8)
 
 def main(options):
     cache = Cache(options.cache_store, options.cache_slots, options.block_size,
@@ -110,4 +110,14 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("-s", "--cache-slots", dest="cache_slots", type="int",
         help="Slots available in the cache, uwsgi cache option")
-    parser.add_option("-c", "--cache-store", dest="cache_store",
+    parser.add_option("-c", "--cache-store", dest="cache_store", default="uwsgi.cache",
+        help="The filename of the cache store, uwsgi cache-store option. Default: uwsgi.cache")
+    parser.add_option("-b", "--block-size", dest="block_size", default=65536, type="int",
+        help="The size of the cache block, uwsgi cache-blocksize option. Default: 65536")
+    parser.add_option("-t", "--sleep-time", dest="sleep_time", default=1, type="int",
+        help="The time to sleep between each sample. Default: 1")
+
+    (options, args) = parser.parse_args()
+    if not options.cache_slots:
+        parser.error('Option -s / --cache-slots is mandatory')
+    main(options)
