@@ -30,12 +30,12 @@ def serve_logo(e, sr):
 def serve_options(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
     for opt in xrange(0,256):
-        yield "%d = %d<br/>" % (opt, uwsgi.get_option(opt))
+        yield "<b>%d</b> = %d<br/>" % (opt, uwsgi.get_option(opt))
 
 def serve_config(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
     for opt in uwsgi.opt.keys():
-        yield "%s = %s<br/>" % (opt, uwsgi.opt[opt])
+        yield "<b>%s</b> = %s<br/>" % (opt, uwsgi.opt[opt])
 
 routes = {}
 routes['/xsendfile'] = xsendfile
