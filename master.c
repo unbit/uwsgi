@@ -96,6 +96,8 @@ void *logger_thread_loop(void *noarg) {
 			master_log();
 		}
 	}
+
+	return NULL;
 }
 
 void uwsgi_subscribe(char *subscription, uint8_t cmd) {
