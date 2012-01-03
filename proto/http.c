@@ -256,6 +256,7 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	ssize_t remains;
 	// make this buffer configurable
 	char post_buf[8192];
+	char *post_tail = NULL;
 
 	// first round ? this memory area will be freed by async_loop
 	if (!wsgi_req->proto_parser_buf) {
@@ -317,6 +318,10 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 		else if (*ptr == '\n' && wsgi_req->proto_parser_status == 3) {
 			ptr++;
 			remains = len - (j + 1);
+			if (remains > 0) {
+				post_tail = uwsgi_malloc(remains);
+				memcpy(post_tail, ptr, remains);
+			}
 			http_parse(wsgi_req, ptr);
 			//is there a Content_Length ?
 			if (wsgi_req->post_cl > 0) {
@@ -328,13 +333,15 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 				}
 				wsgi_req->proto_parser_pos = 0;
 				remains = UMIN((size_t) remains, wsgi_req->post_cl);
-				if (remains) {
-					if (!fwrite(ptr, remains, 1, wsgi_req->async_post)) {
+				if (remains && post_tail) {
+					if (!fwrite(post_tail, remains, 1, wsgi_req->async_post)) {
+						free(post_tail);
 						free(wsgi_req->proto_parser_buf);
 						uwsgi_error("fwrite()");
 						fclose(wsgi_req->async_post);
 						return -1;
 					}
+					free(post_tail);
 					wsgi_req->proto_parser_pos += remains;
 					if (wsgi_req->proto_parser_pos >= wsgi_req->post_cl) {
 						free(wsgi_req->proto_parser_buf);
