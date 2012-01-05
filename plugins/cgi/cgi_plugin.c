@@ -365,8 +365,8 @@ char *uwsgi_cgi_get_docroot(char *path_info, uint16_t path_info_len, int *need_f
 	}
 
 	if (choosen_udd->status == 0) {
-		char *tmp_udd = realpath(path, NULL);
-		if (!tmp_udd) {
+		char *tmp_udd = uwsgi_malloc(PATH_MAX+1);
+		if (!realpath(path, tmp_udd)) {
 			return NULL;
 		}
 
