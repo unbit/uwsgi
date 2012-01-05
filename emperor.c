@@ -515,7 +515,11 @@ reconnect:
 			exit(1);
 		}
 		globfree(&g);
-		emperor_absolute_dir = realpath(".", NULL);
+		emperor_absolute_dir = uwsgi_malloc(PATH_MAX+1);
+		if (realpath(".", emperor_absolute_dir) == NULL) {
+			uwsgi_error("realpath()");
+			exit(1);
+		}
 	}
 
 	ui = &ui_base;

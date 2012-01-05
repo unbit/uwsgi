@@ -884,7 +884,11 @@ next:
 #ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
 #endif
-			udd->value = realpath(udd->key, NULL);
+			udd->value = uwsgi_malloc(PATH_MAX+1);
+			if (!realpath(udd->key, udd->value)) {
+				free(udd->value);
+				udd->value = NULL;
+			}
 #ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
 #endif
@@ -909,7 +913,11 @@ nextcs:
 #ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
 #endif
-			char *real_docroot = realpath(udd->value, NULL);
+			char *real_docroot = uwsgi_malloc(PATH_MAX+1);
+			if (!realpath(udd->value, real_docroot)) {
+				free(udd->value);
+				udd->value = NULL;
+			}
 #ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
 #endif

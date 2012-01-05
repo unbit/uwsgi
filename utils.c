@@ -3083,8 +3083,8 @@ char *uwsgi_get_binary_path(char *argvzero) {
 			return buf;
 		}
 
-		char *newbuf = realpath(buf, NULL);
-		if (newbuf) {
+		char *newbuf = uwsgi_malloc(PATH_MAX+1);
+		if (realpath(buf, newbuf)) {
 			return newbuf;	
 		}
 	}	

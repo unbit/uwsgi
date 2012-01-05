@@ -117,11 +117,12 @@ void rrdtool_post_init() {
 				exit(1);
 			}
 		}
-		usl->value = realpath(usl->value, NULL);
-		if (!usl->value) {
+		char *new_usl_value = uwsgi_malloc(PATH_MAX+1);
+		if (!realpath(usl->value, new_usl_value)) {
 			uwsgi_error("realpath()");
 			exit(1);
 		}
+		usl->value = new_usl_value;
 		usl = usl->next;
 	}
 

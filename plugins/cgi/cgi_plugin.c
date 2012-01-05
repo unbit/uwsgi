@@ -223,6 +223,7 @@ int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 		if (buf[i] == '\n') {
 			// end of headers
 			if (key == NULL) {
+				i++;
 				goto send_body;
 			}
 			// invalid header
