@@ -915,7 +915,7 @@ nextcs:
 #endif
 			char *real_docroot = uwsgi_malloc(PATH_MAX+1);
 			if (!realpath(udd->value, real_docroot)) {
-				free(udd->value);
+				free(real_docroot);
 				udd->value = NULL;
 			}
 #ifdef UWSGI_THREADING
