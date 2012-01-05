@@ -3062,6 +3062,17 @@ char *uwsgi_get_binary_path(char *argvzero) {
 		return buf;
 	}
 	free(buf);
+#elif defined(__NetBSD__)
+	char *buf = uwsgi_malloc(PATH_MAX+1);
+        ssize_t len = readlink("/proc/curproc/exe", buf, PATH_MAX);
+        if (len > 0) {
+                return buf;
+        }               
+
+	if (realpath(argvzero, buf)) {
+		return buf;
+	}
+        free(buf);
 #elif defined(__APPLE__)
 	char *buf = uwsgi_malloc(uwsgi.page_size);
 	uint32_t len = uwsgi.page_size;
