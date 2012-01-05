@@ -548,6 +548,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 				// add + 1 to ensure null byte
 				memcpy(full_path+full_path_len, ci->value, ci->len + 1);
 				if (!access(full_path, R_OK)) {
+					
 					found = 1;
 					break;
 				}
@@ -563,9 +564,8 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		}
 
 	}
-	else {
-		full_path_len = strlen(full_path);
-	}
+
+	full_path_len = strlen(full_path);
 
 	int cgi_allowed = 1;
 	struct uwsgi_string_list *allowed = uc.allowed_ext;
