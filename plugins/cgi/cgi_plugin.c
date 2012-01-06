@@ -450,7 +450,8 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	int i;
 	pid_t cgi_pid;
 	int waitpid_status;
-	char *argv[3];
+	char **argv;
+	int nargs = 0;
 	char full_path[PATH_MAX];
 	char tmp_path[PATH_MAX];
 	int cgi_pipe[2];
@@ -813,6 +814,41 @@ clear:
 		drop_env = drop_env->next;
 	}
 
+	argv = uwsgi_malloc(sizeof(char *) * 3);
+
+	// check if we need to parse indexed QUERY_STRING
+	if (wsgi_req->query_string_len > 0) {
+		if (!memchr(wsgi_req->query_string, '=', wsgi_req->query_string_len)) {
+			nargs = 1;
+			for(i=0;i<wsgi_req->query_string_len;i++) {
+				if (wsgi_req->query_string[i] == '+')
+					nargs++;
+			}
+
+			
+			// reallocate argv and qs
+			argv = uwsgi_malloc(sizeof(char *) * (3+nargs));
+			char *qs = uwsgi_concat2n(wsgi_req->query_string, wsgi_req->query_string_len, "", 0);
+			// set the start position of args in argv
+			i = 1;
+			if (helper) i = 2;
+			char *p = strtok(qs, "+");
+			while(p) {
+				// create a copy for the url_decoded string
+				char *arg_copy = uwsgi_str(p);
+				uint16_t arg_copy_len = strlen(p);
+				http_url_decode(p, &arg_copy_len, arg_copy);
+				// and a final copy for shell escaped arg
+				argv[i] = uwsgi_malloc( (arg_copy_len * 2) +1);
+				escape_shell_arg(arg_copy, arg_copy_len, argv[i]);	
+				i++;
+				p = strtok(NULL, "+");
+			}	
+		}
+		else {
+		}
+	}
+
 	if (helper) {
 		if (!uwsgi_starts_with(helper, strlen(helper), "sym://", 6)) {
 			void (*cgi_func)(char *) = dlsym(RTLD_DEFAULT, helper+6);
@@ -826,11 +862,11 @@ clear:
 		}
 		argv[0] = helper;
 		argv[1] = command;
-		argv[2] = NULL;
+		argv[nargs+2] = NULL;
 	}
 	else {
 		argv[0] = command;
-		argv[1] = NULL;
+		argv[nargs+1] = NULL;
 	}
 
 	if (execvp(argv[0], argv)) {

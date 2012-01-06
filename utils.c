@@ -3519,6 +3519,21 @@ pid_t uwsgi_fork(char *name) {
 	return pid;
 }
 
+void escape_shell_arg(char *src, size_t len, char *dst) {
+
+	size_t i;
+	char *ptr = dst;
+
+	for(i=0;i<len;i++) {
+		if (strchr("&;`'\"|*?~<>^()[]{}$\\\n", src[i])) {
+			*ptr++= '\\';
+		}
+		*ptr++= src[i];
+	}
+	
+	*ptr++= 0;
+}
+
 void http_url_decode(char *buf, uint16_t *len, char *dst) {
 
 	uint16_t i;
