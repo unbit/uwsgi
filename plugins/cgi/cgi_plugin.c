@@ -703,13 +703,24 @@ clear:
 	// close all the fd except wsgi_req->poll.fd and 2;
 
 	for(i=0;i< (int)uwsgi.max_fd;i++) {
+		if (wsgi_req->async_post) {
+			if (fileno(wsgi_req->async_post) == i) {
+				continue;
+			}
+		}
 		if (i != wsgi_req->poll.fd && i != 2 && i != cgi_pipe[1]) {
 			close(i);
 		}
 	}
 
-	// now map wsgi_req->poll.fd to 0 & cgi_pipe[1] to 1
-	if (wsgi_req->poll.fd != 0) {
+	// now map wsgi_req->poll.fd (or async_post) to 0 & cgi_pipe[1] to 1
+	if (wsgi_req->async_post) {
+		if (fileno(wsgi_req->async_post) != 0) {
+			dup2(fileno(wsgi_req->async_post), 0);
+			fclose(wsgi_req->async_post);
+		}
+	}
+	else if (wsgi_req->poll.fd != 0) {
 		dup2(wsgi_req->poll.fd, 0);
 		close(wsgi_req->poll.fd);
 	}
