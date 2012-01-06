@@ -742,14 +742,21 @@ clear:
 		uwsgi_error("setenv()");
 	}
 
-	if (path_info && wsgi_req->path_info_len-discard_base > 0) {
-		if (setenv("PATH_INFO", uwsgi_concat2n(path_info, wsgi_req->path_info_len-discard_base, "", 0), 1)) {
+
+
+	if (path_info) {
+
+		size_t pi_len = wsgi_req->path_info_len - (path_info - wsgi_req->path_info);
+
+		if (setenv("PATH_INFO", uwsgi_concat2n(path_info, pi_len, "", 0), 1)) {
 			uwsgi_error("setenv()");
 		}
 
-		if (setenv("PATH_TRANSLATED", uwsgi_concat4n(docroot, docroot_len, "/", 1, path_info, wsgi_req->path_info_len-discard_base, "", 0) , 1)) {
+		
+		if (setenv("PATH_TRANSLATED", uwsgi_concat3n(docroot, docroot_len, path_info, pi_len, "", 0) , 1)) {
 			uwsgi_error("setenv()");
 		}
+
 	}
 	else {
 		unsetenv("PATH_INFO");
@@ -780,7 +787,7 @@ clear:
 			uwsgi_error("setenv()");
 		}
 
-		if (setenv("SCRIPT_NAME", full_path+(docroot_len-discard_base), 1)) {
+		if (setenv("SCRIPT_NAME", uwsgi_concat2n(wsgi_req->path_info, discard_base, full_path+docroot_len, strlen(full_path+docroot_len)), 1)) {
 			uwsgi_error("setenv()");
 		}
 
