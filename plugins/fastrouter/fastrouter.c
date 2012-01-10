@@ -23,6 +23,7 @@
 #define LONG_ARGS_FASTROUTER_TOLERANCE			150009
 #define LONG_ARGS_FASTROUTER_STATS			150010
 #define LONG_ARGS_FASTROUTER_ZERG			150011
+#define LONG_ARGS_FASTROUTER_HARAKIRI			150012
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -81,6 +82,7 @@ struct uwsgi_fastrouter {
 	int i_am_cheap;
 
 	int tolerance;
+	int harakiri;
 } ufr;
 
 static void fastrouter_go_cheap(void) {
@@ -143,6 +145,7 @@ struct option fastrouter_options[] = {
 	{"fastrouter-stats", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-stats-server", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-ss", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
+	{"fastrouter-harakiri", required_argument, 0, LONG_ARGS_FASTROUTER_HARAKIRI},
 	{0, 0, 0, 0},	
 };
 
@@ -290,7 +293,7 @@ struct fastrouter_session *alloc_fr_session() {
 	return uwsgi_malloc(sizeof(struct fastrouter_session));
 }
 
-void fastrouter_loop() {
+void fastrouter_loop(int id) {
 
 	int nevents;
 	int interesting_fd;
@@ -434,7 +437,15 @@ void fastrouter_loop() {
 			}
 		}
 
+		if (uwsgi.master_process && ufr.harakiri > 0) {
+			uwsgi.shared->gateways_harakiri[id] = 0;
+		}
+
 		nevents = event_queue_wait_multi(ufr.queue, delta, events, ufr.nevents);
+
+		if (uwsgi.master_process && ufr.harakiri > 0) {
+			uwsgi.shared->gateways_harakiri[id] = time(NULL) + ufr.harakiri;
+		}
 
 		if (nevents == 0) {
 			expire_timeouts(fr_table);
@@ -846,6 +857,9 @@ int fastrouter_opt(int i, char *optarg) {
 			return 1;
 		case LONG_ARGS_FASTROUTER_EVENTS:
 			ufr.nevents = atoi(optarg);
+			return 1;
+		case LONG_ARGS_FASTROUTER_HARAKIRI:
+			ufr.harakiri = atoi(optarg);
 			return 1;
 		case LONG_ARGS_FASTROUTER_USE_PATTERN:
 			ufr.pattern = optarg;

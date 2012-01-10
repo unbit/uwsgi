@@ -244,7 +244,7 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 	
 }
 
-void erlang_loop() {
+void erlang_loop(int id) {
 
 	ErlConnect econn;
 	//ErlMessage em;

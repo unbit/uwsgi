@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_gateway *register_fat_gateway(char *name, void (*loop)(void)) {
+struct uwsgi_gateway *register_fat_gateway(char *name, void (*loop)(int)) {
 
         struct uwsgi_gateway *ug;
         int num=1,i;
@@ -29,7 +29,7 @@ struct uwsgi_gateway *register_fat_gateway(char *name, void (*loop)(void)) {
         return ug;
 }
 
-struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
+struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
 
 	pid_t gw_pid;
 	pid_t orig_pid = getpid();
@@ -46,6 +46,9 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 			num++;
 		}
 	}
+
+	if (uwsgi.master_process)
+		uwsgi.shared->gateways_harakiri[uwsgi.gateways_cnt] = 0;
 
 	gw_pid = uwsgi_fork(name);
 	if (gw_pid < 0) {
@@ -65,7 +68,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 			// wait for child end
 			//waitpid(-1, &i, 0);
 		}
-			loop();
+			loop(uwsgi.gateways_cnt);
 			// never here !!! (i hope)
 			exit(1);	
 		}
@@ -76,7 +79,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(void)) {
 	else {
 		if (gw_pid == 0) {
 			if (uwsgi.master_as_root) uwsgi_as_root();
-			loop();
+			loop(uwsgi.gateways_cnt);
 			// never here !!! (i hope)
 			exit(1);	
 		}
@@ -102,6 +105,9 @@ void gateway_respawn(int id) {
 
 	pid_t gw_pid;
 	struct uwsgi_gateway *ug = &uwsgi.gateways[id];
+
+	if (uwsgi.master_process)
+		uwsgi.shared->gateways_harakiri[id] = 0;
 	
 	gw_pid = uwsgi_fork(ug->name);
 	if (gw_pid < 0) {
@@ -116,7 +122,7 @@ void gateway_respawn(int id) {
                         uwsgi_error("prctl()");
                 }
 #endif
-		ug->loop();
+		ug->loop(id);
 		// never here !!! (i hope)
 		exit(1);	
 	}

@@ -1422,6 +1422,18 @@ int master_loop(char **argv, char **environ) {
 				// need to find a better way
 				//uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
 			}
+
+			for (i = 0; i < uwsgi.gateways_cnt; i++) {
+				if (ushared->gateways_harakiri[i] > 0) {
+					if (ushared->gateways_harakiri[i] < (time_t) uwsgi.current_time) {
+						if (uwsgi.gateways[i].pid > 0) {
+							kill(uwsgi.gateways[i].pid, SIGKILL);
+						}
+						ushared->gateways_harakiri[i] = 0;
+					}
+				}
+			}
+
 			for (i = 0; i < uwsgi.mules_cnt; i++) {
 				if (uwsgi.mules[i].harakiri > 0) {
 					if (uwsgi.mules[i].harakiri < (time_t) uwsgi.current_time) {

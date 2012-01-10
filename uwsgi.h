@@ -321,7 +321,7 @@ union uwsgi_sockaddr_ptr {
 struct uwsgi_gateway {
 
 	char *name;
-	void (*loop) (void);
+	void (*loop) (int);
 	pid_t pid;
 	int num;
 	int use_signals;
@@ -1746,6 +1746,8 @@ struct uwsgi_shared {
 	uint64_t load;
 	struct uwsgi_cron cron[MAX_CRONS];
 	int cron_cnt;
+
+	time_t gateways_harakiri[MAX_GATEWAYS];
 };
 
 struct uwsgi_core {
@@ -2146,8 +2148,8 @@ char *uwsgi_cheap_string(char *, int);
 int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 
 
-struct uwsgi_gateway *register_gateway(char *, void (*)(void));
-struct uwsgi_gateway *register_fat_gateway(char *, void (*)(void));
+struct uwsgi_gateway *register_gateway(char *, void (*)(int));
+struct uwsgi_gateway *register_fat_gateway(char *, void (*)(int));
 void gateway_respawn(int);
 
 char *uwsgi_open_and_read(char *, int *, int, char *[]);

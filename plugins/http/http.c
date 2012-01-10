@@ -429,7 +429,7 @@ int http_parse(struct http_session *h_session) {
 	
 }
 
-void http_loop() {
+void http_loop(int id) {
 
 	int uhttp_queue;
 	int uhttp_subserver = -1;
