@@ -25,6 +25,17 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 	struct uwsgi_subscribe_slot *current_slot = *slot;
 
 	if (keylen > 0xff) return NULL;
+	
+#ifdef UWSGI_DEBUG
+	uwsgi_log("****************************\n");
+	while(current_slot) {
+		uwsgi_log("slot %.*s %d\n", current_slot->keylen, current_slot->key, current_slot->hits);
+		current_slot = current_slot->next;
+	}
+	uwsgi_log("****************************\n");
+#endif
+
+	current_slot = *slot;
 
 	while(current_slot) {
 #ifdef UWSGI_PCRE
@@ -45,6 +56,10 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
                                                 }
 						else {
 							*slot = current_slot;
+						}
+
+						if (current_slot->next) {
+							current_slot->next->prev = slot_prev;
 						}
 
                                                 slot_prev->prev = current_slot;
@@ -197,11 +212,6 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 #endif
 
 		free(node_slot);
-		struct uwsgi_subscribe_slot *x_slot = *slot;
-		while(x_slot) {
-			x_slot = x_slot->next;
-		}
-
 	}
 
 end:
