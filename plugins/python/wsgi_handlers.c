@@ -513,6 +513,17 @@ clear2:
 
 void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 
+	if (up.after_req_hook) {
+		PyObject *arh = python_call(up.after_req_hook, up.after_req_hook_args, 0, NULL);
+        	if (!arh) {
+			PyErr_Print();
+                }
+		else {
+			Py_DECREF(arh);
+		}
+		PyErr_Clear();
+	}
+
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING] || wsgi_req->log_this) {
 		log_request(wsgi_req);
 	}

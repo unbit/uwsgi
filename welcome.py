@@ -18,6 +18,10 @@ except:
     DEBUG = False
 
 
+def after_request_hook():
+    print "request finished"
+
+uwsgi.after_req_hook = after_request_hook
 
 def xsendfile(e, sr):
     sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])

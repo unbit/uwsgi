@@ -1053,6 +1053,16 @@ void uwsgi_python_init_apps() {
 #endif
 	}
 
+	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+        if (uwsgi_dict) {
+                up.after_req_hook = PyDict_GetItemString(uwsgi_dict, "after_req_hook");
+                if (up.after_req_hook) {
+			Py_INCREF(up.after_req_hook);
+			up.after_req_hook_args = PyTuple_New(0);
+			Py_INCREF(up.after_req_hook_args);
+		}
+	}
+
 }
 
 void uwsgi_python_master_fixup(int step) {
