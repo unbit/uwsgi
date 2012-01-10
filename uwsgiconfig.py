@@ -536,7 +536,7 @@ class uConf(object):
                     self.gcc_list.append('regexp')
                     self.cflags.append("-DUWSGI_PCRE")
 
-        if self.has_include('sys/capability.h'):
+        if self.has_include('sys/capability.h') and uwsgi_os == 'Linux':
             self.cflags.append("-DUWSGI_CAP")
             self.libs.append('-lcap')
 
