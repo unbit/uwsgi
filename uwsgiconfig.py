@@ -256,7 +256,6 @@ class uConf(object):
 
         if uwsgi_os == 'Linux':
             self.gcc_list.append('lib/linux_ns')
-            self.gcc_list.append('lib/netlink')
             try:
                 lk_ver = uwsgi_os_k.split('.')
                 if int(lk_ver[0]) <= 2 and int(lk_ver[1]) <= 6 and int(lk_ver[2]) <= 9:
@@ -380,6 +379,12 @@ class uConf(object):
 
         if uwsgi_os == 'Darwin':
             self.cflags.append('-mmacosx-version-min=10.5')
+
+        # compile extras
+        extras = self.get('extras', None)
+        if extras:
+            for extra in extras.split(','):
+                self.gcc_list.append(extra)
 
         # set locking subsystem
         locking_mode = self.get('locking','auto')
