@@ -50,6 +50,9 @@ static struct option long_base_options[] = {
 	{"workers", required_argument, 0, 'p'},
 	{"harakiri", required_argument, 0, 't'},
 	{"harakiri-verbose", no_argument, &uwsgi.harakiri_verbose, 1},
+	{"harakiri-no-arh", no_argument, &uwsgi.harakiri_no_arh, 1},
+	{"no-harakiri-arh", no_argument, &uwsgi.harakiri_no_arh, 1},
+	{"no-harakiri-after-req-hook", no_argument, &uwsgi.harakiri_no_arh, 1},
 	{"spooler-harakiri", required_argument, 0, LONG_ARGS_SPOOLER_HARAKIRI},
 	{"mule-harakiri", required_argument, 0, LONG_ARGS_MULE_HARAKIRI},
 #ifdef UWSGI_XML

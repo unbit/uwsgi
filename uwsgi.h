@@ -1338,6 +1338,7 @@ struct uwsgi_server {
 	char *pidfile2;
 
 	int harakiri_verbose;
+	int harakiri_no_arh;
 
 	char *magic_table[256];
 
