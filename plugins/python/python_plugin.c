@@ -195,6 +195,18 @@ void uwsgi_python_reset_random_seed() {
 #endif
 }
 
+void uwsgi_python_atexit() {
+
+	// no need to worry about freeing memory
+	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
+	if (uwsgi_dict) {
+		PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
+		if (ae) {
+			python_call(ae, PyTuple_New(0), 0, NULL);
+		}
+	}
+}
+
 void uwsgi_python_post_fork() {
 
 #ifdef UWSGI_SPOOLER
@@ -1441,6 +1453,7 @@ void uwsgi_python_fixup() {
 	uwsgi.p[30] = uwsgi_malloc( sizeof(struct uwsgi_plugin) );
 	memcpy(uwsgi.p[30], uwsgi.p[0], sizeof(struct uwsgi_plugin) );
 	uwsgi.p[30]->init_thread = NULL;
+	uwsgi.p[30]->atexit = NULL;
 }
 
 void uwsgi_python_hijack(void) {
@@ -1549,6 +1562,8 @@ struct uwsgi_plugin python_plugin = {
 	.mule_msg = uwsgi_python_mule_msg,
 
 	.spooler = uwsgi_python_spooler,
+
+	.atexit = uwsgi_python_atexit,
 
 	.code_string = uwsgi_python_code_string,
 

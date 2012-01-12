@@ -694,6 +694,7 @@ struct uwsgi_plugin {
 
 	void (*hijack_worker) (void);
 	void (*spooler_init) (void);
+	void (*atexit) (void);
 
 	int (*magic) (char *, char *);
 

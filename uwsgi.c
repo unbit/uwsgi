@@ -1093,6 +1093,27 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 }
 
 
+void uwsgi_plugins_atexit(void) {
+
+	int j;
+
+	// the master cannot run atexit handlers...
+	if (uwsgi.master_process && uwsgi.workers[0].pid == getpid())
+		return;
+
+	for (j = 0; j< uwsgi.gp_cnt; j++) {
+        	if (uwsgi.gp[j]->atexit) {
+                	uwsgi.gp[j]->atexit();
+		}
+	}
+
+	for (j = 0; j<0xFF; j++) {
+        	if (uwsgi.p[j]->atexit) {
+                	uwsgi.p[j]->atexit();
+		}
+	}
+
+}
 
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
@@ -1144,6 +1165,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	init_magic_table(uwsgi.magic_table);
 
 	atexit(vacuum);
+	atexit(uwsgi_plugins_atexit);
 
 
 #ifdef UWSGI_DEBUG
