@@ -1097,6 +1097,8 @@ void uwsgi_plugins_atexit(void) {
 
 	int j;
 
+	if (!uwsgi.workers) return;
+
 	// the master cannot run atexit handlers...
 	if (uwsgi.master_process && uwsgi.workers[0].pid == getpid())
 		return;
