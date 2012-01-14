@@ -210,10 +210,8 @@ void uwsgi_python_atexit() {
 void uwsgi_python_post_fork() {
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.shared->spooler_pid > 0) {
-		if (uwsgi.shared->spooler_pid == getpid()) {
-			UWSGI_GET_GIL
-		}
+	if (uwsgi.i_am_a_spooler) {
+		UWSGI_GET_GIL
 	}	
 #endif
 
@@ -665,7 +663,7 @@ void init_uwsgi_embedded_module() {
 	init_uwsgi_module_advanced(new_uwsgi_module);
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir != NULL) {
+	if (uwsgi.spoolers) {
 		init_uwsgi_module_spooler(new_uwsgi_module);
 	}
 #endif

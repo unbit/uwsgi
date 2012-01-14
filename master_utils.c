@@ -52,7 +52,7 @@ void uwsgi_fixup_fds(int wid, int muleid) {
                                 }
                         }
 #ifdef UWSGI_SPOOLER
-			if (uwsgi.shared->spooler_pid != getpid()) {
+			if (uwsgi.i_am_a_spooler && uwsgi.i_am_a_spooler->pid != getpid()) {
                         	if (uwsgi.shared->spooler_signal_pipe[0] != -1) close (uwsgi.shared->spooler_signal_pipe[0]);
                         	if (uwsgi.shared->spooler_signal_pipe[1] != -1) close (uwsgi.shared->spooler_signal_pipe[1]);
 			}

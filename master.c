@@ -317,11 +317,13 @@ int master_loop(char **argv, char **environ) {
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+	while(uspool) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("adding %d to signal poll (spooler)\n", uwsgi.shared->spooler_signal_pipe[0]);
+		uwsgi_log("adding %d to signal poll (spooler)\n", uspool->signal_pipe[0]);
 #endif
-		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
+		event_queue_add_fd_read(uwsgi.master_queue, uspool->signal_pipe[0]);
+		uspool = uspool->next;
 	}
 #endif
 
@@ -786,7 +788,7 @@ int master_loop(char **argv, char **environ) {
 				master_has_children = 1;
 			}
 #ifdef UWSGI_SPOOLER
-			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+			if (uwsgi.spoolers) {
 				master_has_children = 1;
 			}
 #endif
@@ -1195,7 +1197,7 @@ int master_loop(char **argv, char **environ) {
 
 #ifdef UWSGI_SPOOLER
 				// check for spooler signal
-				if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
+				if (uwsgi.spoolers) {
 					if (interesting_fd == uwsgi.shared->spooler_signal_pipe[0]) {
 						rlen = read(interesting_fd, &uwsgi_signal, 1);
 						if (rlen < 0) {
@@ -1212,6 +1214,28 @@ int master_loop(char **argv, char **environ) {
 							close(interesting_fd);
 						}
 						goto health_cycle;
+					}
+
+					struct uwsgi_spooler *uspool = uwsgi.spoolers;
+					while(uspool) {
+						if (interesting_fd == uspool->signal_pipe[0]) {
+							rlen = read(interesting_fd, &uwsgi_signal, 1);
+							if (rlen < 0) {
+                                                        	uwsgi_error("read()");
+                                                	}
+                                                	else if (rlen > 0) {
+#ifdef UWSGI_DEBUG
+                                                        	uwsgi_log_verbose("received uwsgi signal %d from the spooler\n", uwsgi_signal);
+#endif
+                                                        	uwsgi_route_signal(uwsgi_signal);
+                                                	}
+                                                	else {
+                                                        	uwsgi_log_verbose("lost connection with the spooler\n");
+                                                        	close(interesting_fd);
+                                                	}
+                                                	goto health_cycle;
+						}
+						uspool = uspool->next;
 					}
 				}
 #endif
@@ -1444,12 +1468,14 @@ int master_loop(char **argv, char **environ) {
 				}
 			}
 #ifdef UWSGI_SPOOLER
-			if (uwsgi.shared->spooler_pid > 0 && uwsgi.shared->spooler_harakiri > 0) {
-				if (uwsgi.shared->spooler_harakiri < (time_t) uwsgi.current_time) {
-					uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uwsgi.shared->spooler_pid);
-					kill(uwsgi.shared->spooler_pid, SIGKILL);
-					uwsgi.shared->spooler_harakiri = 0;
+			struct uwsgi_spooler *uspool = uwsgi.spoolers;
+			while(uspool) {
+				if (uspool->harakiri > 0 && uspool->harakiri < (time_t) uwsgi.current_time) {
+					uwsgi_log("*** HARAKIRI ON THE SPOOLER (pid: %d) ***\n", uspool->pid);
+					kill(uspool->pid, SIGKILL);
+					uspool->harakiri = 0;
 				}
+				uspool = uspool->next;
 			}
 #endif
 
@@ -1522,15 +1548,21 @@ int master_loop(char **argv, char **environ) {
 
 #ifdef UWSGI_SPOOLER
 			/* reload the spooler */
-			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-				if (diedpid == uwsgi.shared->spooler_pid) {
+			struct uwsgi_spooler *uspool = uwsgi.spoolers;
+			pid_found = 0;
+			while(uspool) {
+				if (uspool->pid > 0 && diedpid == uspool->pid) {
 					uwsgi_log("OOOPS the spooler is no more...trying respawn...\n");
-					uwsgi.spooler_respawned++;
-					uwsgi.shared->spooler_pid = spooler_start();
-					//event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
-					continue;
+					uspool->respawned++;
+					uspool->pid = spooler_start(uspool);
+					pid_found = 1;
+					break;
 				}
+				uspool = uspool->next;
 			}
+
+			if (pid_found)
+				continue;
 #endif
 
 			pid_found = 0;
@@ -1593,11 +1625,13 @@ int master_loop(char **argv, char **environ) {
 		if (uwsgi.mywid <= 0) {
 			// check spooler, mules, gateways and daemons
 #ifdef UWSGI_SPOOLER
-			if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-				if (diedpid == uwsgi.shared->spooler_pid) {
+			struct uwsgi_spooler *uspool = uwsgi.spoolers;
+			while(uspool) {
+				if (uspool->pid > 0 && diedpid == uspool->pid) {
 					uwsgi_log("spooler (pid: %d) annihilated\n", (int) diedpid);
 					goto next;
 				}
+				uspool = uspool->next;
 			}
 #endif
 

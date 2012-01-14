@@ -884,7 +884,7 @@ PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_i_am_the_spooler(PyObject * self, PyObject * args) {
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+	if (uwsgi.i_am_a_spooler) {
 		Py_INCREF(Py_True);
 		return Py_True;
 	}
@@ -900,7 +900,7 @@ PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 
 	// the spooler cannot lock resources
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+	if (uwsgi.i_am_a_spooler) {
 		return PyErr_Format(PyExc_ValueError, "The spooler cannot lock/unlock resources");
 	}
 #endif
@@ -924,7 +924,7 @@ PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
 	int lock_num = 0;
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+	if (uwsgi.i_am_a_spooler) {
 		return PyErr_Format(PyExc_ValueError, "The spooler cannot lock/unlock resources");
 	}
 #endif
@@ -1452,23 +1452,25 @@ PyObject *py_uwsgi_spooler_jobs(PyObject * self, PyObject * args) {
 
 	PyObject *jobslist = PyList_New(0);
 
-	sdir = opendir(uwsgi.spool_dir);
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+
+	sdir = opendir(uspool->dir);
 
 	if (sdir) {
 		while ((dp = readdir(sdir)) != NULL) {
 			if (!strncmp("uwsgi_spoolfile_on_", dp->d_name, 19)) {
-				abs_path = malloc(strlen(uwsgi.spool_dir) + 1 + strlen(dp->d_name) + 1);
+				abs_path = malloc(strlen(uspool->dir) + 1 + strlen(dp->d_name) + 1);
 				if (!abs_path) {
 					uwsgi_error("malloc()");
 					closedir(sdir);
 					goto clear;
 				}
 
-				memset(abs_path, 0, strlen(uwsgi.spool_dir) + 1 + strlen(dp->d_name) + 1);
+				memset(abs_path, 0, strlen(uspool->dir) + 1 + strlen(dp->d_name) + 1);
 
-				memcpy(abs_path, uwsgi.spool_dir, strlen(uwsgi.spool_dir));
-				memcpy(abs_path + strlen(uwsgi.spool_dir), "/", 1);
-				memcpy(abs_path + strlen(uwsgi.spool_dir) + 1, dp->d_name, strlen(dp->d_name));
+				memcpy(abs_path, uspool->dir, strlen(uspool->dir));
+				memcpy(abs_path + strlen(uspool->dir), "/", 1);
+				memcpy(abs_path + strlen(uspool->dir) + 1, dp->d_name, strlen(dp->d_name));
 
 
 				if (lstat(abs_path, &sf_lstat)) {
@@ -1631,7 +1633,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	if (numprio) {
 		priority = uwsgi_num2str(numprio);
 	} 
-	i = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
+	i = spool_request(uwsgi.spoolers, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
 	if (priority) {
 		free(priority);
 	}
@@ -1651,7 +1653,9 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 }
 
 PyObject *py_uwsgi_spooler_pid(PyObject * self, PyObject * args) {
-	return PyInt_FromLong(uwsgi.shared->spooler_pid ? uwsgi.shared->spooler_pid : 0);
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+	if (!uwsgi.spoolers) return PyInt_FromLong(0);
+	return PyInt_FromLong(uspool->pid);
 }
 #endif
 

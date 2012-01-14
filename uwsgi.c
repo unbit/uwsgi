@@ -616,6 +616,19 @@ void goodbye_cruel_world() {
 	exit(0);
 }
 
+static void uwsgi_signal_spoolers(int signum) {
+
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+	while(uspool) {
+        	if (uspool->pid > 0) {
+                	kill(uspool->pid, SIGKILL);
+                	uwsgi_log("killing the spooler with pid %d\n", uspool->pid);
+        	}
+		uspool = uspool->next;
+	}
+
+}
+
 void kill_them_all(int signum) {
 	int i;
 	uwsgi.to_hell = 1;
@@ -643,11 +656,7 @@ void kill_them_all(int signum) {
 	}
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-		kill(uwsgi.shared->spooler_pid, SIGKILL);
-		uwsgi_log("killing the spooler with pid %d\n", uwsgi.shared->spooler_pid);
-	}
-
+	uwsgi_signal_spoolers(SIGKILL);
 #endif
 
 	if (uwsgi.emperor_pid >= 0) {
@@ -695,10 +704,7 @@ void grace_them_all(int signum) {
 	}
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0) {
-		kill(uwsgi.shared->spooler_pid, SIGKILL);
-		uwsgi_log("killing the spooler with pid %d\n", uwsgi.shared->spooler_pid);
-	}
+	uwsgi_signal_spoolers(SIGKILL);
 #endif
 
 	if (uwsgi.emperor_pid >= 0) {
@@ -1974,13 +1980,6 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_lock_init(uwsgi.cron_table_lock);
 	}
 
-#ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir) {
-		// spooler lock
-		uwsgi.spooler_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.spooler_lock);
-	}
-#endif
 
 	uwsgi.rpc_table_lock = uwsgi_mmap_shared_lock();
 	uwsgi_lock_init(uwsgi.rpc_table_lock);
@@ -2486,25 +2485,6 @@ skipzero:
 		
 	}
 
-	/*
-
-	   uwsgi.shared->hooks[0] = uwsgi_request_wsgi;
-	   uwsgi.shared->after_hooks[0] = uwsgi_after_request_wsgi;
-
-	   uwsgi.shared->hooks[UWSGI_MODIFIER_ADMIN_REQUEST] = uwsgi_request_admin;     //10
-	   #ifdef UWSGI_SPOOLER
-	   uwsgi.shared->hooks[UWSGI_MODIFIER_SPOOL_REQUEST] = uwsgi_request_spooler;   //17
-	   #endif
-	   uwsgi.shared->hooks[UWSGI_MODIFIER_EVAL] = uwsgi_request_eval;       //22
-	   uwsgi.shared->hooks[UWSGI_MODIFIER_FASTFUNC] = uwsgi_request_fastfunc;       //26
-
-	   uwsgi.shared->hooks[UWSGI_MODIFIER_MANAGE_PATH_INFO] = uwsgi_request_wsgi;   // 30
-	   uwsgi.shared->after_hooks[UWSGI_MODIFIER_MANAGE_PATH_INFO] = uwsgi_after_request_wsgi;       // 30
-
-	   uwsgi.shared->hooks[UWSGI_MODIFIER_MESSAGE_MARSHAL] = uwsgi_request_marshal; //33
-	   uwsgi.shared->hooks[UWSGI_MODIFIER_PING] = uwsgi_request_ping;       //100
-	 */
-
 	if (!uwsgi.numproc) {
 		uwsgi_log("*** Operational MODE: no-workers ***\n");
 	}
@@ -2613,9 +2593,14 @@ skipzero:
 
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.spool_dir != NULL && uwsgi.sockets) {
+	if (uwsgi.spoolers != NULL && uwsgi.sockets) {
 		create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
-		uwsgi.shared->spooler_pid = spooler_start();
+		struct uwsgi_spooler *uspool = uwsgi.spoolers;
+		while(uspool) {
+			create_signal_pipe(uspool->signal_pipe);
+			uspool->pid = spooler_start(uspool);
+			uspool = uspool->next;
+		}
 	}
 #endif
 
@@ -3735,15 +3720,11 @@ static int manage_base_opt(int i, char *optarg) {
 #endif
 #ifdef UWSGI_SPOOLER
 	case 'Q':
-		uwsgi.spool_dir = uwsgi_malloc(PATH_MAX);
 		if (access(optarg, R_OK | W_OK | X_OK)) {
 			uwsgi_error("[spooler directory] access()");
 			exit(1);
 		}
-		if (!realpath(optarg, uwsgi.spool_dir)) {
-			uwsgi_error("realpath()");
-			exit(1);
-		}
+		uwsgi_new_spooler(optarg);
 		uwsgi.master_process = 1;
 		return 1;
 #endif

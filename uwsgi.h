@@ -772,6 +772,18 @@ struct uwsgi_app {
 	uint64_t avg_response_time;
 };
 
+struct uwsgi_spooler {
+
+	char dir[PATH_MAX];
+	pid_t pid;
+	uint64_t respawned;
+	void *lock;
+	time_t harakiri;
+
+	int signal_pipe[2];
+
+	struct uwsgi_spooler *next;
+};
 
 #ifdef UWSGI_ROUTING
 struct uwsgi_route {
@@ -1298,10 +1310,10 @@ struct uwsgi_server {
 #endif
 
 #ifdef UWSGI_SPOOLER
-	char *spool_dir;
+	struct uwsgi_spooler *spoolers;
+	struct uwsgi_spooler *i_am_a_spooler;
 	char *spooler_chdir;
 	int spooler_ordered;
-	uint64_t spooler_respawned;
 #endif
 
 #ifdef UWSGI_SNMP
@@ -1580,9 +1592,6 @@ struct uwsgi_server {
 	void *cron_table_lock;
 	void *rpc_table_lock;
         void *sa_lock;
-#ifdef UWSGI_SPOOLER
-	void *spooler_lock;
-#endif
 
 	// subscription client
 	int subscribe_freq;
@@ -1695,12 +1704,6 @@ struct uwsgi_shared {
 
 	off_t logsize;
 
-#ifdef UWSGI_SPOOLER
-	pid_t spooler_pid;
-	int spooler_frequency;
-	time_t spooler_harakiri;
-#endif
-
 #ifdef UWSGI_SNMP
 	char snmp_community[72 + 1];
 	struct uwsgi_snmp_server_value snmp_gvalue[100];
@@ -1718,6 +1721,7 @@ struct uwsgi_shared {
 
 	int worker_signal_pipe[2];
 #ifdef UWSGI_SPOOLER
+	int spooler_frequency;
 	int spooler_signal_pipe[2];
 #endif
 	int mule_signal_pipe[2];
@@ -1910,9 +1914,9 @@ void snmp_init(void);
 #endif
 
 #ifdef UWSGI_SPOOLER
-int spool_request(char *, int, int, char *, int, char *, time_t, char *, size_t);
-void spooler(void);
-pid_t spooler_start(void);
+int spool_request(struct uwsgi_spooler *uspool, char *, int, int, char *, int, char *, time_t, char *, size_t);
+void spooler(struct uwsgi_spooler *);
+pid_t spooler_start(struct uwsgi_spooler *);
 #endif
 
 void set_harakiri(int);
@@ -2581,6 +2585,10 @@ char *uwsgi_getsockname(int);
 char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
 void escape_shell_arg(char *, size_t, char *);
+
+void *uwsgi_malloc_shared(size_t);
+
+struct uwsgi_spooler *uwsgi_new_spooler(char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

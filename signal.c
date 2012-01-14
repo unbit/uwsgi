@@ -53,7 +53,7 @@ int uwsgi_signal_handler(uint8_t sig) {
 		}
 	}
 #ifdef UWSGI_SPOOLER
-        else if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0 && (getpid() == uwsgi.shared->spooler_pid)) {
+        else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
 		if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
                         set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
                 }
@@ -75,7 +75,7 @@ int uwsgi_signal_handler(uint8_t sig) {
 		}
         }
 #ifdef UWSGI_SPOOLER
-        else if (uwsgi.spool_dir && uwsgi.shared->spooler_pid > 0 && (getpid() == uwsgi.shared->spooler_pid)) {
+	else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
 		if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
                         set_spooler_harakiri(0);
                 }

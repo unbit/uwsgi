@@ -125,10 +125,10 @@ void set_mule_harakiri(int sec) {
 #ifdef UWSGI_SPOOLER
 void set_spooler_harakiri(int sec) {
         if (sec == 0) {
-                uwsgi.shared->spooler_harakiri = 0;
+                uwsgi.i_am_a_spooler->harakiri = 0;
         }
         else {
-                uwsgi.shared->spooler_harakiri = time(NULL) + sec;
+                uwsgi.i_am_a_spooler->harakiri = time(NULL) + sec;
         }
         if (!uwsgi.master_process) {
                 alarm(sec);
@@ -2752,6 +2752,51 @@ void uwsgi_dyn_dict_del(struct uwsgi_dyn_dict *item) {
 	}
 
 	free(item);
+}
+
+void *uwsgi_malloc_shared(size_t size) {
+
+        void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+
+        if (addr == NULL) {
+                uwsgi_error("mmap()");
+                exit(1);
+        }
+
+        return addr;
+}
+
+
+struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
+
+        struct uwsgi_spooler *uspool = uwsgi.spoolers;
+
+        if (!uspool) {
+                uwsgi.spoolers = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
+                uspool = uwsgi.spoolers;
+        }
+        else {
+                while(uspool) {
+			if (uspool->next == NULL) {
+				uspool->next = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
+				uspool = uspool->next;
+				break;
+			}
+			uspool = uspool->next;
+                }
+        }
+
+	if (!realpath(dir, uspool->dir)) {
+		uwsgi_error("[spooler] realpath()");
+		exit(1);
+	}
+
+	uspool->lock = uwsgi_mmap_shared_lock();
+        uwsgi_lock_init(uspool->lock);
+
+        uspool->next = NULL;
+
+        return uspool;
 }
 
 
