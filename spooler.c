@@ -12,6 +12,20 @@ void spooler_manage_task(char *, char *);
 // fake function to allow waking the spooler
 void spooler_wakeup() {}
 
+struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *name) {
+
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+
+	while(uspool) {
+		if (!strcmp(uspool->dir, name)) {
+			return uspool;
+		}
+		uspool = uspool->next;
+	}
+	
+	return NULL;
+}
+
 pid_t spooler_start(struct uwsgi_spooler *uspool) {
 	
 	int i;

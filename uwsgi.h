@@ -2590,6 +2590,8 @@ void *uwsgi_malloc_shared(size_t);
 
 struct uwsgi_spooler *uwsgi_new_spooler(char *);
 
+struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif

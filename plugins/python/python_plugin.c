@@ -500,6 +500,28 @@ void init_uwsgi_embedded_module() {
 		}
 	}
 
+	if (uwsgi.spoolers) {
+		int sc = 0;
+		struct uwsgi_spooler *uspool = uwsgi.spoolers;
+		while(uspool) { sc++; uspool = uspool->next;}
+
+		PyObject *py_spooler_tuple = PyTuple_New(sc);
+
+		uspool = uwsgi.spoolers;
+		sc = 0;
+
+		while(uspool) {
+			PyTuple_SetItem(py_spooler_tuple, sc, PyString_FromString(uspool->dir));
+			sc++;
+			uspool = uspool->next;
+		}
+
+		if (PyDict_SetItemString(up.embedded_dict, "spoolers", py_spooler_tuple)) {
+                	PyErr_Print();
+                	exit(1);
+        	}
+	}
+
 
 	if (PyDict_SetItemString(up.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(-1))) {
 		PyErr_Print();

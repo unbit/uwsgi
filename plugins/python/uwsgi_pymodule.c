@@ -1512,6 +1512,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	char *body = NULL;
 	size_t body_len= 0;
 
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+
 	spool_dict = PyTuple_GetItem(args, 0);
 
 	if (spool_dict) {
@@ -1529,6 +1531,17 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	
 	if (!spool_dict) {
 		return PyErr_Format(PyExc_ValueError, "The argument of spooler callable must be a dictionary");
+	}
+
+	// TODO if "spooler"  is a num, get the spooler by id, otherwise get it by directory
+	PyObject *py_spooler = uwsgi_py_dict_get(spool_dict, "spooler");
+	if (py_spooler) {
+		if (PyString_Check(py_spooler)) {
+			uspool = uwsgi_get_spooler_by_name(PyString_AsString(py_spooler));
+			if (!uspool) {
+				return PyErr_Format(PyExc_ValueError, "Unknown spooler requested");
+			}
+		}
 	}
 
 	PyObject *pyprio = uwsgi_py_dict_get(spool_dict, "priority");
@@ -1633,7 +1646,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	if (numprio) {
 		priority = uwsgi_num2str(numprio);
 	} 
-	i = spool_request(uwsgi.spoolers, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
+	i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
 	if (priority) {
 		free(priority);
 	}
