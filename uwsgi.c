@@ -1123,6 +1123,38 @@ void uwsgi_plugins_atexit(void) {
 
 }
 
+#ifdef __linux__
+
+#include <execinfo.h>
+
+void uwsgi_backtrace(int signum) {
+
+	void *btrace[64];
+	size_t bt_size, i;
+	char **bt_strings;
+
+	uwsgi_log("!!! uWSGI process %d got Segmentation Fault !!!\n", (int) getpid());
+
+	bt_size = backtrace(btrace, 64);
+
+	bt_strings = backtrace_symbols(btrace, bt_size);
+
+	uwsgi_log("*** backtrace ***\n");
+	for(i=0;i<bt_size;i++) {
+		uwsgi_log("%s\n", bt_strings[i]);
+	}
+	uwsgi_log("*** end of  backtrace ***\n");
+
+	// restore default handler to generate core
+	signal(signum, SIG_DFL);
+    	kill(getpid(), signum);
+
+	// never here...
+	exit(1);
+
+}
+#endif
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
@@ -1159,6 +1191,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	char *emperor_env;
 	char *optname;
 
+#ifdef __linux__
+	signal(SIGSEGV, uwsgi_backtrace);
+#endif
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
