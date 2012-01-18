@@ -197,6 +197,9 @@ void uwsgi_python_reset_random_seed() {
 
 void uwsgi_python_atexit() {
 
+	// this time we use this higher level function
+	// as this code can be executed in a signal handler
+	PyGILState_Ensure();
 	// no need to worry about freeing memory
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
 	if (uwsgi_dict) {
