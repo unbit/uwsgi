@@ -503,6 +503,7 @@ void init_uwsgi_embedded_module() {
 		}
 	}
 
+#ifdef UWSGI_SPOOLER
 	if (uwsgi.spoolers) {
 		int sc = 0;
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
@@ -524,6 +525,7 @@ void init_uwsgi_embedded_module() {
                 	exit(1);
         	}
 	}
+#endif
 
 
 	if (PyDict_SetItemString(up.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(-1))) {

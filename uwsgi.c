@@ -618,6 +618,7 @@ void goodbye_cruel_world() {
 	exit(0);
 }
 
+#ifdef UWSGI_SPOOLER
 static void uwsgi_signal_spoolers(int signum) {
 
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
@@ -630,6 +631,7 @@ static void uwsgi_signal_spoolers(int signum) {
 	}
 
 }
+#endif
 
 void kill_them_all(int signum) {
 	int i;

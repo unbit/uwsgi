@@ -2767,6 +2767,7 @@ void *uwsgi_malloc_shared(size_t size) {
 }
 
 
+#ifdef UWSGI_SPOOLER
 struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
 
         struct uwsgi_spooler *uspool = uwsgi.spoolers;
@@ -2798,6 +2799,7 @@ struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
 
         return uspool;
 }
+#endif
 
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list, char *value) {
