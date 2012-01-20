@@ -153,6 +153,8 @@ static struct option long_base_options[] = {
 #ifdef __linux__
 	{"unshare", required_argument,0, LONG_ARGS_UNSHARE},
 #endif
+	{"exec-pre-jail", required_argument,0, LONG_ARGS_EXEC_PRE_JAIL},
+	{"exec-post-jail", required_argument,0, LONG_ARGS_EXEC_POST_JAIL},
 	{"exec-as-root", required_argument,0, LONG_ARGS_EXEC_AS_ROOT},
 	{"exec-as-user", required_argument,0, LONG_ARGS_EXEC_AS_USER},
 #ifdef UWSGI_INI
@@ -1723,6 +1725,18 @@ int main(int argc, char *argv[], char *envp[]) {
 			exit(1);
 		}
 	}
+
+	// run the pre-jail scripts
+        struct uwsgi_string_list *usl = uwsgi.exec_pre_jail;
+        while(usl) {
+        	uwsgi_log("running \"%s\" (pre-jail)...\n", usl->value);
+                int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                if (ret != 0) {
+                	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        exit(1);
+                }
+                usl = usl->next;
+        }
 
 
 	// call jail systems
@@ -3593,6 +3607,12 @@ static int manage_base_opt(int i, char *optarg) {
 	case LONG_ARGS_TOUCH_RELOAD:
 		uwsgi_string_new_list(&uwsgi.touch_reload, optarg);
 		uwsgi.master_process = 1;
+		return 1;
+	case LONG_ARGS_EXEC_PRE_JAIL:
+		uwsgi_string_new_list(&uwsgi.exec_pre_jail, optarg);
+		return 1;
+	case LONG_ARGS_EXEC_POST_JAIL:
+		uwsgi_string_new_list(&uwsgi.exec_post_jail, optarg);
 		return 1;
 	case LONG_ARGS_EXEC_AS_ROOT:
 		uwsgi_string_new_list(&uwsgi.exec_as_root, optarg);

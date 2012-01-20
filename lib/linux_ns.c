@@ -33,6 +33,22 @@ void linux_namespace_start(void *argv) {
 			uwsgi_error("clone()");
 			exit(1);
 		}
+
+		// run the post-jail scripts
+		if (setenv("UWSGI_JAIL_PID", uwsgi_num2str((int) pid), 1)) {
+			uwsgi_error("setenv()");
+		}
+        	struct uwsgi_string_list *usl = uwsgi.exec_post_jail;
+        	while(usl) {
+                	uwsgi_log("running \"%s\" (post-jail)...\n", usl->value);
+                	int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                	if (ret != 0) {
+                        	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        	exit(1);
+                	}
+                	usl = usl->next;
+        	}
+
 		uwsgi_log("waiting for jailed master (pid: %d) death...\n", (int) pid);
 		pid = waitpid(pid, &waitpid_status, 0);
 		if (pid < 0) {
