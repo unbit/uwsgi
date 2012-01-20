@@ -94,6 +94,10 @@ void carbon_master_cycle() {
 			// put the socket in non-blocking mode
 			uwsgi_socket_nb(fd);
 
+			unsigned long long total_rss = 0;
+			unsigned long long total_vsz = 0;
+			unsigned long long avg_rt = 0;
+
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) uwsgi.workers[0].requests, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
@@ -102,12 +106,42 @@ void carbon_master_cycle() {
 				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].requests, (unsigned long long ) uwsgi.current_time);
 				if (rlen < 1) goto clear;
 				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+				total_rss += uwsgi.workers[i].rss_size;
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].rss_size, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+				total_vsz += uwsgi.workers[i].vsz_size;
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.vsz_size %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].vsz_size, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+				avg_rt += uwsgi.workers[i].avg_response_time;
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].avg_response_time, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
 			}
+
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_rss, (unsigned long long ) uwsgi.current_time);
+			if (rlen < 1) goto clear;
+			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.vsz_size %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_vsz, (unsigned long long ) uwsgi.current_time);
+			if (rlen < 1) goto clear;
+			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) avg_rt / uwsgi.numproc, (unsigned long long ) uwsgi.current_time);
+			if (rlen < 1) goto clear;
+			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
 clear:
 			close(fd);
 nxt:
 			usl = usl->next;
 		}
+		last_update = time(NULL);
 	}
 }
 
