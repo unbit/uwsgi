@@ -155,6 +155,7 @@ static struct option long_base_options[] = {
 #endif
 	{"exec-pre-jail", required_argument,0, LONG_ARGS_EXEC_PRE_JAIL},
 	{"exec-post-jail", required_argument,0, LONG_ARGS_EXEC_POST_JAIL},
+	{"exec-in-jail", required_argument,0, LONG_ARGS_EXEC_IN_JAIL},
 	{"exec-as-root", required_argument,0, LONG_ARGS_EXEC_AS_ROOT},
 	{"exec-as-user", required_argument,0, LONG_ARGS_EXEC_AS_USER},
 #ifdef UWSGI_INI
@@ -3615,6 +3616,9 @@ static int manage_base_opt(int i, char *optarg) {
 		return 1;
 	case LONG_ARGS_EXEC_POST_JAIL:
 		uwsgi_string_new_list(&uwsgi.exec_post_jail, optarg);
+		return 1;
+	case LONG_ARGS_EXEC_IN_JAIL:
+		uwsgi_string_new_list(&uwsgi.exec_in_jail, optarg);
 		return 1;
 	case LONG_ARGS_EXEC_AS_ROOT:
 		uwsgi_string_new_list(&uwsgi.exec_as_root, optarg);

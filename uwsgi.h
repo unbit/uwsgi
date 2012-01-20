@@ -562,6 +562,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_CHEAPER_STEP		17174
 #define LONG_ARGS_EXEC_PRE_JAIL		17175
 #define LONG_ARGS_EXEC_POST_JAIL	17176
+#define LONG_ARGS_EXEC_IN_JAIL		17177
 
 
 #define UWSGI_OK	0
@@ -1233,6 +1234,7 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *exec_pre_jail;
 	struct uwsgi_string_list *exec_post_jail;
+	struct uwsgi_string_list *exec_in_jail;
 	struct uwsgi_string_list *exec_as_root;
 	struct uwsgi_string_list *exec_as_user;
 
