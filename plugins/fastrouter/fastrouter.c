@@ -27,6 +27,7 @@
 #define LONG_ARGS_FASTROUTER_USE_SOCKET			150013
 #define LONG_ARGS_FASTROUTER_TO				150014
 #define LONG_ARGS_FASTROUTER_POST_BUFFERING		150015
+#define LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR		150016
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -160,6 +161,7 @@ struct option fastrouter_options[] = {
 	{"fastrouter-subscription-use-regexp", no_argument, &ufr.subscription_regexp, 1},
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
 	{"fastrouter-post-buffering", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING},
+	{"fastrouter-post-buffering-dir", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR},
 	{"fastrouter-stats", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-stats-server", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-ss", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
@@ -1047,6 +1049,9 @@ int fastrouter_opt(int i, char *optarg) {
 			return -1;
 		case LONG_ARGS_FASTROUTER_POST_BUFFERING:
 			ufr.post_buffering = uwsgi_str_num(optarg, strlen(optarg));
+			return -1;
+		case LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR:
+			ufr.pb_base_dir = optarg;
 			return -1;
 		case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT:
 			ufr.subscription_slot = atoi(optarg);
