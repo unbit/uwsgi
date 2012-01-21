@@ -24,6 +24,9 @@
 #define LONG_ARGS_FASTROUTER_STATS			150010
 #define LONG_ARGS_FASTROUTER_ZERG			150011
 #define LONG_ARGS_FASTROUTER_HARAKIRI			150012
+#define LONG_ARGS_FASTROUTER_USE_SOCKET			150013
+#define LONG_ARGS_FASTROUTER_TO				150014
+#define LONG_ARGS_FASTROUTER_POST_BUFFERING		150015
 
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
@@ -62,7 +65,16 @@ struct uwsgi_fastrouter {
         char *base;
         int base_len;
 
+	int post_buffering;
+
+	char *to;
+	int to_len;
+
 	char *stats_server;
+
+	int use_socket;
+	int socket_num;
+	struct uwsgi_socket *to_socket;
 
         char *subscription_server;
         struct uwsgi_subscribe_slot *subscriptions;
@@ -136,12 +148,15 @@ struct option fastrouter_options[] = {
 	{"fastrouter-use-pattern", required_argument, 0, LONG_ARGS_FASTROUTER_USE_PATTERN},
 	{"fastrouter-use-base", required_argument, 0, LONG_ARGS_FASTROUTER_USE_BASE},
 	{"fastrouter-use-code-string", required_argument, 0, LONG_ARGS_FASTROUTER_USE_CODE_STRING},
+	{"fastrouter-use-socket", optional_argument, 0, LONG_ARGS_FASTROUTER_USE_SOCKET},
+	{"fastrouter-to", required_argument, 0, LONG_ARGS_FASTROUTER_TO},
 	{"fastrouter-events", required_argument, 0, LONG_ARGS_FASTROUTER_EVENTS},
 	{"fastrouter-cheap", no_argument, &ufr.cheap, 1},
 	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
 	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
 	{"fastrouter-subscription-use-regexp", no_argument, &ufr.subscription_regexp, 1},
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
+	{"fastrouter-post-buffering", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING},
 	{"fastrouter-stats", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-stats-server", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-ss", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
@@ -196,6 +211,8 @@ struct fastrouter_session {
 
 	struct uwsgi_rb_timer *timeout;
 	int instance_failed;
+
+	int post_cl;
 
 	uint8_t modifier1;
 
@@ -285,6 +302,13 @@ void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, voi
 		fr_session->hostname = val;
 		fr_session->hostname_len = vallen;
 		return;
+	}
+
+	if (ufr.post_buffering > 0) {
+		if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
+			fr_session->post_cl = uwsgi_str_num(val, vallen);
+			return;
+		}
 	}
 }
 
@@ -420,6 +444,16 @@ void fastrouter_loop(int id) {
 
 	if (ufr.pattern) {
 		init_magic_table(magic_table);
+	}
+
+	if (ufr.use_socket) {
+		ufr.to_socket = uwsgi_get_socket_by_num(ufr.socket_num);
+		if (ufr.to_socket) {
+			// fix socket name_len
+			if (ufr.to_socket->name_len == 0 && ufr.to_socket->name) {
+				ufr.to_socket->name_len = strlen(ufr.to_socket->name);		
+			}
+		}
 	}
 
 
@@ -632,6 +666,14 @@ void fastrouter_loop(int id) {
 										}
 									}
 								}
+							}
+							else if (ufr.to_socket) {
+								fr_session->instance_address = ufr.to_socket->name;	
+								fr_session->instance_address_len = ufr.to_socket->name_len;
+							}
+							else if (ufr.to_len > 0) {
+								fr_session->instance_address = ufr.to;	
+								fr_session->instance_address_len = ufr.to_len;
 							}
 
 							// no address found
@@ -871,6 +913,12 @@ int fastrouter_opt(int i, char *optarg) {
 			// optimization
 			ufr.base_len = strlen(ufr.base);
 			return 1;
+		case LONG_ARGS_FASTROUTER_USE_SOCKET:
+			ufr.use_socket = 1;
+			if (optarg) {
+				ufr.socket_num = atoi(optarg);
+			}
+			return 1;
 		case LONG_ARGS_FASTROUTER_USE_CODE_STRING:
 			cs = uwsgi_str(optarg);
 			cs_code = strchr(cs, ':');
@@ -891,6 +939,13 @@ int fastrouter_opt(int i, char *optarg) {
 			return 1;
 		case LONG_ARGS_FASTROUTER_TIMEOUT:
 			ufr.socket_timeout = atoi(optarg);
+			return -1;
+		case LONG_ARGS_FASTROUTER_TO:
+			ufr.to = optarg;
+			ufr.to_len = strlen(ufr.to);
+			return -1;
+		case LONG_ARGS_FASTROUTER_POST_BUFFERING:
+			ufr.post_buffering = atoi(optarg);
 			return -1;
 		case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT:
 			ufr.subscription_slot = atoi(optarg);

@@ -1037,6 +1037,29 @@ struct uwsgi_socket *uwsgi_get_shared_socket_by_num(int num) {
         return NULL;
 }
 
+struct uwsgi_socket *uwsgi_get_socket_by_num(int num) {
+
+        int counter = 0;
+
+        struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.sockets;
+
+        while(uwsgi_sock) {
+                if (counter == num) {
+                        found_sock = uwsgi_sock;
+                        break;
+                }
+                counter++;
+                uwsgi_sock = uwsgi_sock->next;
+        }
+
+        if (found_sock) {
+                return found_sock;
+        }
+
+        return NULL;
+}
+
+
 
 void uwsgi_add_sockets_to_queue(int queue) {
 

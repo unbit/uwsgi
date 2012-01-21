@@ -2427,6 +2427,8 @@ socklen_t socket_to_un_addr(char *, struct sockaddr_un *);
 int uwsgi_get_shared_socket_fd_by_num(int);
 struct uwsgi_socket *uwsgi_get_shared_socket_by_num(int);
 
+struct uwsgi_socket *uwsgi_get_socket_by_num(int);
+
 int uwsgi_get_shared_socket_num(struct uwsgi_socket *);
 
 #ifdef __linux__
