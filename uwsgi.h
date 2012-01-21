@@ -1339,9 +1339,9 @@ struct uwsgi_server {
 	int signal_bufsize;
 
 	// post buffering
-	int post_buffering;
+	size_t post_buffering;
 	int post_buffering_harakiri;
-	int post_buffering_bufsize;
+	size_t post_buffering_bufsize;
 
 	int master_process;
 	int master_queue;
@@ -2345,7 +2345,7 @@ time_t timegm(struct tm *);
 
 
 
-int uwsgi_str_num(char *, int);
+size_t uwsgi_str_num(char *, int);
 
 
 int uwsgi_proto_uwsgi_parser(struct wsgi_request *);

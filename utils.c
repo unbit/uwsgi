@@ -2552,12 +2552,12 @@ int uwsgi_str4_num(char *str) {
 	return num;
 }
 
-int uwsgi_str_num(char *str, int len) {
+size_t uwsgi_str_num(char *str, int len) {
 
 	int i;
-	int num = 0;
+	size_t num = 0;
 
-	int delta = pow(10, len);
+	size_t delta = pow(10, len);
 
 	for (i = 0; i < len; i++) {
 		delta = delta / 10;

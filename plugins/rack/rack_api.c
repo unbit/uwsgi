@@ -36,7 +36,7 @@ VALUE rack_uwsgi_log(VALUE *class, VALUE msg) {
 
 VALUE rack_uwsgi_i_am_the_spooler(VALUE *class) {
 #ifdef UWSGI_SPOOLER
-        if (uwsgi.mypid == uwsgi.shared->spooler_pid) {
+        if (uwsgi.i_am_a_spooler) {
                 return Qtrue;
         }
 #endif
@@ -838,7 +838,7 @@ VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
                 priority = uwsgi_num2str(numprio);
         }
 
-        int ret = spool_request(spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, argv[0] - spool_buffer, priority, at, body, body_len);
+        int ret = spool_request(uwsgi.spoolers, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, argv[0] - spool_buffer, priority, at, body, body_len);
 
         if (priority) {
                 free(priority);

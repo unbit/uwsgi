@@ -2733,7 +2733,7 @@ skipzero:
 		while (usl) {
 
 			char *colon = strchr(usl->value, ':');
-			if (uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
+			if ((int)uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
 				enabled = 0;
 				char *p = strtok(colon + 1, ",");
 				while (p != NULL) {
@@ -3633,10 +3633,10 @@ static int manage_base_opt(int i, char *optarg) {
 		uwsgi.cpu_affinity = (int) strtol(optarg, NULL, 10);
 		return 1;
 	case LONG_ARGS_POST_BUFFERING:
-		uwsgi.post_buffering = atoi(optarg);
+		uwsgi.post_buffering = uwsgi_str_num(optarg, strlen(optarg));
 		return 1;
 	case LONG_ARGS_POST_BUFFERING_SIZE:
-		uwsgi.post_buffering_bufsize = atoi(optarg);
+		uwsgi.post_buffering_bufsize = uwsgi_str_num(optarg, strlen(optarg));
 		return 1;
 	case LONG_ARGS_UPLOAD_PROGRESS:
 		uwsgi.upload_progress = optarg;

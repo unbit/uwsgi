@@ -677,6 +677,15 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->file_len = strsize;
 							wsgi_req->dynamic = 1;
 						}
+						else if (!uwsgi_strncmp("UWSGI_POSTFILE", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							char *postfile = uwsgi_concat2n(ptrbuf, strsize, "", 0);
+							wsgi_req->async_post = fopen(postfile, "r");
+							if (!wsgi_req->async_post) {
+								uwsgi_error_open(postfile);
+							}
+							free(postfile);
+							wsgi_req->body_as_file = 1;
+						}
 						else if (!uwsgi_strncmp("UWSGI_TOUCH_RELOAD", 18, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->touch_reload = ptrbuf;
 							wsgi_req->touch_reload_len = strsize;

@@ -33,6 +33,7 @@
 #define FASTROUTER_STATUS_RECV_HDR 2
 #define FASTROUTER_STATUS_RECV_VARS 3
 #define FASTROUTER_STATUS_RESPONSE 4
+#define FASTROUTER_STATUS_BUFFERING 5
 
 #define add_timeout(x) uwsgi_add_rb_timer(ufr.timeouts, time(NULL)+ufr.socket_timeout, x)
 #define add_check_timeout(x) uwsgi_add_rb_timer(ufr.timeouts, time(NULL)+x, NULL)
@@ -65,7 +66,8 @@ struct uwsgi_fastrouter {
         char *base;
         int base_len;
 
-	int post_buffering;
+	size_t post_buffering;
+	char *pb_base_dir;
 
 	char *to;
 	int to_len;
@@ -92,6 +94,7 @@ struct uwsgi_fastrouter {
 
 	int cheap;
 	int i_am_cheap;
+
 
 	int tolerance;
 	int harakiri;
@@ -212,9 +215,15 @@ struct fastrouter_session {
 	struct uwsgi_rb_timer *timeout;
 	int instance_failed;
 
-	int post_cl;
+	size_t post_cl;
+	size_t post_remains;
+
+	char *buf_file_name;
+	FILE *buf_file;
 
 	uint8_t modifier1;
+
+	char *tmp_socket_name;
 
 	char buffer[0xffff];
 };
@@ -223,6 +232,20 @@ static void close_session(struct fastrouter_session **fr_table, struct fastroute
 
 	close(fr_session->fd);
 	fr_table[fr_session->fd] = NULL;
+
+	if (fr_session->buf_file)
+		fclose(fr_session->buf_file);
+
+	if (fr_session->buf_file_name) {
+		if (unlink(fr_session->buf_file_name)) {
+			uwsgi_error("unlink()");
+		}
+		free(fr_session->buf_file_name);
+	}
+
+
+	if (fr_session->tmp_socket_name)
+		free(fr_session->buf_file_name);
 
 		if (ufr.subscriptions && fr_session->un && fr_session->un->len > 0) {
 			// decrease reference count
@@ -330,7 +353,7 @@ void fastrouter_loop(int id) {
 
 	char *tcp_port;
 
-	char *tmp_socket_name;
+	char *post_tmp_buf[0xffff];
 	int tmp_socket_name_len;
 
 	struct uwsgi_subscribe_req usr;
@@ -456,6 +479,11 @@ void fastrouter_loop(int id) {
 		}
 	}
 
+	if (!ufr.pb_base_dir) {
+		ufr.pb_base_dir = getenv("TMPDIR");
+		if (!ufr.pb_base_dir) ufr.pb_base_dir = "/tmp";
+	}
+
 
 	for (;;) {
 
@@ -487,7 +515,6 @@ void fastrouter_loop(int id) {
 
 		for (i=0;i<nevents;i++) {
 
-			tmp_socket_name = NULL;
 			interesting_fd = event_queue_interesting_fd(events, i);
 
 
@@ -633,10 +660,10 @@ void fastrouter_loop(int id) {
 							}
 							else if (ufr.pattern) {
 								magic_table['s'] = uwsgi_concat2n(fr_session->hostname, fr_session->hostname_len, "", 0);	
-								tmp_socket_name = magic_sub(ufr.pattern, ufr.pattern_len, &tmp_socket_name_len, magic_table);
+								fr_session->tmp_socket_name = magic_sub(ufr.pattern, ufr.pattern_len, &tmp_socket_name_len, magic_table);
 								free(magic_table['s']);
 								fr_session->instance_address_len = tmp_socket_name_len;
-								fr_session->instance_address = tmp_socket_name;
+								fr_session->instance_address = fr_session->tmp_socket_name;
 							}
 							else if (ufr.subscription_server) {
 								fr_session->un = uwsgi_get_subscribe_node(&ufr.subscriptions, fr_session->hostname, fr_session->hostname_len, ufr.subscription_regexp);
@@ -650,9 +677,9 @@ void fastrouter_loop(int id) {
                                 				}
 							}
 							else if (ufr.base) {
-								tmp_socket_name = uwsgi_concat2nn(ufr.base, ufr.base_len, fr_session->hostname, fr_session->hostname_len, &tmp_socket_name_len);
+								fr_session->tmp_socket_name = uwsgi_concat2nn(ufr.base, ufr.base_len, fr_session->hostname, fr_session->hostname_len, &tmp_socket_name_len);
 								fr_session->instance_address_len = tmp_socket_name_len;
-								fr_session->instance_address = tmp_socket_name;
+								fr_session->instance_address = fr_session->tmp_socket_name;
 							}
 							else if (ufr.code_string_code && ufr.code_string_function) {
 								if (uwsgi.p[ufr.code_string_modifier1]->code_string) {
@@ -682,23 +709,60 @@ void fastrouter_loop(int id) {
                                                         	break;
 							}
 
+							if (ufr.post_buffering > 0 && fr_session->post_cl > ufr.post_buffering) {
+								fr_session->status = FASTROUTER_STATUS_BUFFERING;
+								fr_session->buf_file_name = tempnam(ufr.pb_base_dir, "uwsgi");
+								if (!fr_session->buf_file_name) {
+									uwsgi_error("tempnam()");
+									close_session(fr_table, fr_session);
+                                                        		break;
+								}
+								fr_session->post_remains = fr_session->post_cl;
 
-							fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
+								// 2 + UWSGI_POSTFILE + 2 + fr_session->buf_file_name
+								if (fr_session->uh.pktsize + (2 + 14 + 2 + strlen(fr_session->buf_file_name)) > 0xffff) {
+									uwsgi_log("unable to buffer request body to file %s: not enough space\n", fr_session->buf_file_name);
+									close_session(fr_table, fr_session);
+                                                        		break;
+								}
 
-							fr_session->instance_fd = uwsgi_connectn(fr_session->instance_address, fr_session->instance_address_len, 0, 1);
+								char *ptr = fr_session->buffer + fr_session->uh.pktsize;
+								uint16_t bfn_len = strlen(fr_session->buf_file_name);
+								*ptr++= 14;
+								*ptr++= 0;
+								memcpy(ptr, "UWSGI_POSTFILE", 14); ptr+=14;
+								*ptr++= (char) (bfn_len & 0xff);
+        							*ptr++= (char) ((bfn_len >> 8) & 0xff);
+								memcpy(ptr, fr_session->buf_file_name, bfn_len);
+								fr_session->uh.pktsize += 2 + 14 + 2 + bfn_len;
+								
 
-							if (tmp_socket_name) free(tmp_socket_name);
+								fr_session->buf_file = fopen(fr_session->buf_file_name, "w");
+								if (!fr_session->buf_file) {
+									uwsgi_error_open(fr_session->buf_file_name);
+									close_session(fr_table, fr_session);
+									break;
+								}
 
-							if (fr_session->instance_fd < 0) {
-								fr_session->instance_failed = 1;
-								close_session(fr_table, fr_session);
-                                                        	break;
 							}
 
+							else {
 
-							fr_session->status = FASTROUTER_STATUS_CONNECTING;
-							fr_table[fr_session->instance_fd] = fr_session;
-							event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
+								fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
+
+								fr_session->instance_fd = uwsgi_connectn(fr_session->instance_address, fr_session->instance_address_len, 0, 1);
+
+								if (fr_session->instance_fd < 0) {
+									fr_session->instance_failed = 1;
+									close_session(fr_table, fr_session);
+                                                        		break;
+								}
+
+
+								fr_session->status = FASTROUTER_STATUS_CONNECTING;
+								fr_table[fr_session->instance_fd] = fr_session;
+								event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
+							}
                                                 }
                                                 break;
 
@@ -769,7 +833,6 @@ void fastrouter_loop(int id) {
 						}
 
 						break;
-
 					case FASTROUTER_STATUS_RESPONSE:
 						
 						// data from instance
@@ -815,6 +878,44 @@ void fastrouter_loop(int id) {
 						}
 
 						break;
+
+					case FASTROUTER_STATUS_BUFFERING:
+						len = recv(fr_session->fd, post_tmp_buf, UMIN(0xffff, fr_session->post_remains), 0);
+						if (len <= 0) {
+							if (len < 0) uwsgi_error("recv()");
+                                                        close_session(fr_table, fr_session);
+                                                        break;
+						}
+
+						if (fwrite(post_tmp_buf, len, 1, fr_session->buf_file) != 1) {
+							uwsgi_error("fwrite()");
+                                                        close_session(fr_table, fr_session);
+                                                        break;
+						}
+
+						fr_session->post_remains -= len;
+
+						if (fr_session->post_remains == 0) {
+							// close the buf_file ASAP
+							fclose(fr_session->buf_file);
+							fr_session->buf_file = NULL;
+
+							fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
+
+                                                        fr_session->instance_fd = uwsgi_connectn(fr_session->instance_address, fr_session->instance_address_len, 0, 1);
+
+                                                        if (fr_session->instance_fd < 0) {
+                                                        	fr_session->instance_failed = 1;
+                                                                close_session(fr_table, fr_session);
+                                                                break;
+                                                        }
+
+                                                        fr_session->status = FASTROUTER_STATUS_CONNECTING;
+                                                        fr_table[fr_session->instance_fd] = fr_session;
+                                                        event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
+						}
+						break;
+
 
 
 
@@ -945,7 +1046,7 @@ int fastrouter_opt(int i, char *optarg) {
 			ufr.to_len = strlen(ufr.to);
 			return -1;
 		case LONG_ARGS_FASTROUTER_POST_BUFFERING:
-			ufr.post_buffering = atoi(optarg);
+			ufr.post_buffering = uwsgi_str_num(optarg, strlen(optarg));
 			return -1;
 		case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT:
 			ufr.subscription_slot = atoi(optarg);
