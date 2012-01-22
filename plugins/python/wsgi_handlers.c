@@ -229,7 +229,7 @@ static PyMethodDef uwsgi_Input_methods[] = {
 
 PyTypeObject uwsgi_InputType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-                "uwsgi._Input",  /*tp_name */
+        "uwsgi._Input",  /*tp_name */
         sizeof(uwsgi_Input),     /*tp_basicsize */
         0,                      /*tp_itemsize */
         (destructor) uwsgi_Input_free,	/*tp_dealloc */

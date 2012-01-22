@@ -175,7 +175,6 @@ struct uwsgi_python {
 	PyObject *workers_tuple;
 	PyObject *embedded_dict;
 	PyObject *embedded_args;
-	PyObject *fastfuncslist;
 
 	char *pymodule_alias[MAX_PYMODULE_ALIAS];
 	int pymodule_alias_cnt;

@@ -1148,7 +1148,7 @@ void uwsgi_backtrace(int signum) {
 	for(i=0;i<bt_size;i++) {
 		uwsgi_log("%s\n", bt_strings[i]);
 	}
-	uwsgi_log("*** end of  backtrace ***\n");
+	uwsgi_log("*** end of backtrace ***\n");
 
 	// restore default handler to generate core
 	signal(signum, SIG_DFL);

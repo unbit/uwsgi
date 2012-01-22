@@ -98,11 +98,6 @@ void uwsgi_python_pthread_child(void) {
 	pthread_mutex_init(&up.lock_pyloaders, NULL);
 }
 
-// fake method
-PyMethodDef null_methods[] = {
-	{NULL, NULL},
-};
-
 PyMethodDef uwsgi_spit_method[] = { {"uwsgi_spit", py_uwsgi_spit, METH_VARARGS, ""} };
 PyMethodDef uwsgi_write_method[] = { {"uwsgi_write", py_uwsgi_write, METH_VARARGS, ""} };
 
@@ -412,19 +407,21 @@ void init_uwsgi_vars() {
 
 
 
+PyDoc_STRVAR(uwsgi_py_doc, "uWSGI api module.");
+
+
 #ifdef PYTHREE
 static PyModuleDef uwsgi_module3 = {
 	PyModuleDef_HEAD_INIT,
 	"uwsgi",
-	NULL,
+	uwsgi_py_doc,
 	-1,
-	null_methods,
+	NULL,
 };
 PyObject *init_uwsgi3(void) {
 	return PyModule_Create(&uwsgi_module3);
 }
 #endif
-
 
 #ifdef UWSGI_EMBEDDED
 void init_uwsgi_embedded_module() {
@@ -442,17 +439,18 @@ void init_uwsgi_embedded_module() {
 	}
 
 
-
 #ifdef PYTHREE
 	PyImport_AppendInittab("uwsgi", init_uwsgi3);
 	new_uwsgi_module = PyImport_AddModule("uwsgi");
 #else
-	new_uwsgi_module = Py_InitModule("uwsgi", null_methods);
+	new_uwsgi_module = Py_InitModule3("uwsgi", NULL, uwsgi_py_doc);
 #endif
 	if (new_uwsgi_module == NULL) {
 		uwsgi_log("could not initialize the uwsgi python module\n");
 		exit(1);
 	}
+
+
 
 	Py_INCREF((PyObject *) &uwsgi_InputType);
 
@@ -482,6 +480,7 @@ void init_uwsgi_embedded_module() {
 		PyErr_Print();
 		exit(1);
 	}
+
 
 
 	if (PyDict_SetItemString(up.embedded_dict, "hostname", PyString_FromStringAndSize(uwsgi.hostname, uwsgi.hostname_len))) {
@@ -526,6 +525,7 @@ void init_uwsgi_embedded_module() {
         	}
 	}
 #endif
+
 
 
 	if (PyDict_SetItemString(up.embedded_dict, "SPOOL_RETRY", PyInt_FromLong(-1))) {
@@ -646,11 +646,6 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
-	if (PyDict_SetItemString(up.embedded_dict, "fastfuncs", PyList_New(256))) {
-		PyErr_Print();
-		exit(1);
-	}
-
 
 	if (PyDict_SetItemString(up.embedded_dict, "applications", Py_None)) {
 		PyErr_Print();
@@ -677,12 +672,6 @@ void init_uwsgi_embedded_module() {
 	}
 
 	if (PyDict_SetItemString(up.embedded_dict, "message_manager_marshal", Py_None)) {
-		PyErr_Print();
-		exit(1);
-	}
-
-	up.fastfuncslist = PyDict_GetItemString(up.embedded_dict, "fastfuncs");
-	if (!up.fastfuncslist) {
 		PyErr_Print();
 		exit(1);
 	}

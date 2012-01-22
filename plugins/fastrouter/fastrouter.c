@@ -36,10 +36,10 @@
 #define FASTROUTER_STATUS_RESPONSE 4
 #define FASTROUTER_STATUS_BUFFERING 5
 
-#define add_timeout(x) uwsgi_add_rb_timer(ufr.timeouts, time(NULL)+ufr.socket_timeout, x)
-#define add_check_timeout(x) uwsgi_add_rb_timer(ufr.timeouts, time(NULL)+x, NULL)
-#define del_check_timeout(x) rb_erase(&x->rbt, ufr.timeouts);
-#define del_timeout(x) rb_erase(&x->timeout->rbt, ufr.timeouts); free(x->timeout);
+#define add_timeout(x) uwsgi_add_rb_timer(x->rbt_root, time(NULL)+ufr.socket_timeout, x)
+#define add_check_timeout(x) uwsgi_add_rb_timer(timeouts, time(NULL)+x, NULL)
+#define del_check_timeout(x) rb_erase(&x->rbt, timeouts);
+#define del_timeout(x) rb_erase(&x->timeout->rbt, x->rbt_root); free(x->timeout);
 
 void fastrouter_send_stats(int);
 
@@ -89,7 +89,6 @@ struct uwsgi_fastrouter {
 	char *code_string_code;
 	char *code_string_function;
 
-        struct rb_root *timeouts;
 
 	struct uwsgi_rb_timer *subscriptions_check;
 
@@ -99,6 +98,11 @@ struct uwsgi_fastrouter {
 
 	int tolerance;
 	int harakiri;
+
+	struct fastrouter_session *fr_table[2048];
+
+	int fr_subserver;
+	int fr_stats_server;
 } ufr;
 
 static void fastrouter_go_cheap(void) {
@@ -215,6 +219,7 @@ struct fastrouter_session {
 	int pass_fd;
 
 	struct uwsgi_rb_timer *timeout;
+	struct rb_root *rbt_root;
 	int instance_failed;
 
 	size_t post_cl;
@@ -287,13 +292,13 @@ static struct uwsgi_rb_timer *reset_timeout(struct fastrouter_session *fr_sessio
 	return add_timeout(fr_session);
 }
 
-static void expire_timeouts(struct fastrouter_session **fr_table) {
+static void expire_timeouts(struct rb_root *timeouts, struct fastrouter_session **fr_table) {
 
 	time_t current = time(NULL);
 	struct uwsgi_rb_timer *urbt;
 
 	for(;;) {
-		urbt = uwsgi_min_rb_timer(ufr.timeouts);
+		urbt = uwsgi_min_rb_timer(timeouts);
 		if (urbt == NULL) return;
 
 		if (urbt->key <= current) {
@@ -342,53 +347,20 @@ struct fastrouter_session *alloc_fr_session() {
 	return uwsgi_malloc(sizeof(struct fastrouter_session));
 }
 
+void fastrouter_thread(void *);
+
 void fastrouter_loop(int id) {
 
-	int nevents;
-	int interesting_fd;
-	int new_connection;
-	ssize_t len;
 	int i;
-
-	time_t delta;
-	char bbuf[UMAX16];
 
 	char *tcp_port;
 
-	char *post_tmp_buf[0xffff];
-	int tmp_socket_name_len;
+	ufr.fr_subserver = -1;
+	ufr.fr_stats_server = -1;
 
-	struct uwsgi_subscribe_req usr;
-
-	char *magic_table[0xff];
-
-	struct uwsgi_rb_timer *min_timeout;
-
-	void *events;
-	struct msghdr msg;
-	union {
-                struct cmsghdr cmsg;
-                char control [CMSG_SPACE (sizeof (int))];
-        } msg_control;
-        struct cmsghdr *cmsg;
-
-	struct sockaddr_un fr_addr;
-        socklen_t fr_addr_len = sizeof(struct sockaddr_un);
-	
-	struct fastrouter_session *fr_session;
-
-	struct fastrouter_session *fr_table[2048];
-
-	struct iovec iov[2];
-
-	int soopt;
-        socklen_t solen = sizeof(int);
-
-	int ufr_subserver = -1;
-	int ufr_stats_server = -1;
 
 	for(i=0;i<2048;i++) {
-		fr_table[i] = NULL;
+		ufr.fr_table[i] = NULL;
 	}
 
 	ufr.queue = event_queue_init();
@@ -436,15 +408,13 @@ void fastrouter_loop(int id) {
 	}
 
 
-	events = event_queue_alloc(ufr.nevents);
 
-	ufr.timeouts = uwsgi_init_rb_timer();
 	if (!ufr.socket_timeout) ufr.socket_timeout = 30;
 
 
 	if (ufr.subscription_server) {
-		ufr_subserver = bind_to_udp(ufr.subscription_server, 0, 0);
-		event_queue_add_fd_read(ufr.queue, ufr_subserver);
+		ufr.fr_subserver = bind_to_udp(ufr.subscription_server, 0, 0);
+		event_queue_add_fd_read(ufr.queue, ufr.fr_subserver);
 		if (!ufr.subscription_slot) ufr.subscription_slot = 30;
 		// check for node status every 10 seconds
 		//ufr.subscriptions_check = add_check_timeout(10);
@@ -456,20 +426,17 @@ void fastrouter_loop(int id) {
                         // disable deferred accept for this socket
                         int current_defer_accept = uwsgi.no_defer_accept;
                         uwsgi.no_defer_accept = 1;
-                        ufr_stats_server = bind_to_tcp(ufr.stats_server, uwsgi.listen_queue, tcp_port);
+                        ufr.fr_stats_server = bind_to_tcp(ufr.stats_server, uwsgi.listen_queue, tcp_port);
                         uwsgi.no_defer_accept = current_defer_accept;
                 }
                 else {
-                        ufr_stats_server = bind_to_unix(ufr.stats_server, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                        ufr.fr_stats_server = bind_to_unix(ufr.stats_server, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
                 }
 
-                event_queue_add_fd_read(ufr.queue, ufr_stats_server);
-                uwsgi_log("*** FastRouter stats server enabled on %s fd: %d ***\n", ufr.stats_server, ufr_stats_server);
+                event_queue_add_fd_read(ufr.queue, ufr.fr_stats_server);
+                uwsgi_log("*** FastRouter stats server enabled on %s fd: %d ***\n", ufr.stats_server, ufr.fr_stats_server);
 	}
 
-	if (ufr.pattern) {
-		init_magic_table(magic_table);
-	}
 
 	if (ufr.use_socket) {
 		ufr.to_socket = uwsgi_get_socket_by_num(ufr.socket_num);
@@ -486,33 +453,86 @@ void fastrouter_loop(int id) {
 		if (!ufr.pb_base_dir) ufr.pb_base_dir = "/tmp";
 	}
 
+	fastrouter_thread((void *) &id);
+
+}
+
+
+
+void fastrouter_thread(void *arg) {
+
+	int *id = (int *) arg;
+	char bbuf[UMAX16];
+
+	int nevents;
+
+	time_t delta;
+
+	char *post_tmp_buf[0xffff];
+	int tmp_socket_name_len;
+
+	struct uwsgi_subscribe_req usr;
+
+	struct uwsgi_rb_timer *min_timeout;
+
+	struct msghdr msg;
+	union {
+                struct cmsghdr cmsg;
+                char control [CMSG_SPACE (sizeof (int))];
+        } msg_control;
+        struct cmsghdr *cmsg;
+
+	int interesting_fd;
+	int new_connection;
+	ssize_t len;
+
+	char *magic_table[0xff];
+
+	if (ufr.pattern) {
+		init_magic_table(magic_table);
+	}
+
+	struct sockaddr_un fr_addr;
+        socklen_t fr_addr_len = sizeof(struct sockaddr_un);
+	
+	int i;
+	struct fastrouter_session *fr_session;
+
+	struct iovec iov[2];
+
+	int soopt;
+        socklen_t solen = sizeof(int);
+
+	struct rb_root *timeouts = uwsgi_init_rb_timer();
+
+	void *events = event_queue_alloc(ufr.nevents);
 
 	for (;;) {
 
-		min_timeout = uwsgi_min_rb_timer(ufr.timeouts);
+		min_timeout = uwsgi_min_rb_timer(timeouts);
 		if (min_timeout == NULL ) {
 			delta = -1;
 		}
 		else {
 			delta = min_timeout->key - time(NULL);
 			if (delta <= 0) {
-				expire_timeouts(fr_table);
+				expire_timeouts(timeouts, ufr.fr_table);
 				delta = 0;
 			}
 		}
 
 		if (uwsgi.master_process && ufr.harakiri > 0) {
-			uwsgi.shared->gateways_harakiri[id] = 0;
+			uwsgi.shared->gateways_harakiri[*id] = 0;
 		}
 
 		nevents = event_queue_wait_multi(ufr.queue, delta, events, ufr.nevents);
 
 		if (uwsgi.master_process && ufr.harakiri > 0) {
-			uwsgi.shared->gateways_harakiri[id] = time(NULL) + ufr.harakiri;
+			uwsgi.shared->gateways_harakiri[*id] = time(NULL) + ufr.harakiri;
 		}
 
 		if (nevents == 0) {
-			expire_timeouts(fr_table);
+			expire_timeouts(timeouts, ufr.fr_table);
 		}
 
 		for (i=0;i<nevents;i++) {
@@ -529,19 +549,20 @@ void fastrouter_loop(int id) {
 						continue;
 					}
 
-					fr_table[new_connection] = alloc_fr_session();
-					fr_table[new_connection]->fd = new_connection;
-					fr_table[new_connection]->instance_fd = -1; 
-					fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
-					fr_table[new_connection]->h_pos = 0;
-					fr_table[new_connection]->pos = 0;
-					fr_table[new_connection]->un = NULL;
-					fr_table[new_connection]->instance_failed = 0;
-					fr_table[new_connection]->instance_address_len = 0;
-					fr_table[new_connection]->hostname_len = 0;
-					fr_table[new_connection]->hostname = NULL;
+					ufr.fr_table[new_connection] = alloc_fr_session();
+					ufr.fr_table[new_connection]->fd = new_connection;
+					ufr.fr_table[new_connection]->instance_fd = -1; 
+					ufr.fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
+					ufr.fr_table[new_connection]->h_pos = 0;
+					ufr.fr_table[new_connection]->pos = 0;
+					ufr.fr_table[new_connection]->un = NULL;
+					ufr.fr_table[new_connection]->instance_failed = 0;
+					ufr.fr_table[new_connection]->instance_address_len = 0;
+					ufr.fr_table[new_connection]->hostname_len = 0;
+					ufr.fr_table[new_connection]->hostname = NULL;
 		
-					fr_table[new_connection]->timeout = add_timeout(fr_table[new_connection]);
+					ufr.fr_table[new_connection]->rbt_root = timeouts;
+					ufr.fr_table[new_connection]->timeout = add_timeout(ufr.fr_table[new_connection]);
 
 					event_queue_add_fd_read(ufr.queue, new_connection);
 					taken = 1;
@@ -555,11 +576,11 @@ void fastrouter_loop(int id) {
 				continue;
 			}
 
-			if (interesting_fd == ufr_stats_server) {
-                        	fastrouter_send_stats(ufr_stats_server);
+			if (interesting_fd == ufr.fr_stats_server) {
+                        	fastrouter_send_stats(ufr.fr_stats_server);
 			}
-			else if (interesting_fd == ufr_subserver) {
-				len = recv(ufr_subserver, bbuf, 4096, 0);
+			else if (interesting_fd == ufr.fr_subserver) {
+				len = recv(ufr.fr_subserver, bbuf, 4096, 0);
 #ifdef UWSGI_EVENT_USE_PORT
 				event_queue_add_fd_read(ufr.queue, ufr_subserver);
 #endif
@@ -598,13 +619,13 @@ void fastrouter_loop(int id) {
 				}
 			}
 			else {
-				fr_session = fr_table[interesting_fd];
+				fr_session = ufr.fr_table[interesting_fd];
 
 				// something is going wrong...
 				if (fr_session == NULL) continue;
 
 				if (event_queue_interesting_fd_has_error(events, i)) {
-					close_session(fr_table, fr_session);
+					close_session(ufr.fr_table, fr_session);
 					continue;
 				}
 
@@ -617,7 +638,7 @@ void fastrouter_loop(int id) {
 						if (len <= 0) {
 							if (len < 0)
 								uwsgi_error("recv()");
-							close_session(fr_table, fr_session);
+							close_session(ufr.fr_table, fr_session);
 							break;
 						}
 						fr_session->h_pos += len;
@@ -634,18 +655,18 @@ void fastrouter_loop(int id) {
                                                 len = recv(fr_session->fd, fr_session->buffer + fr_session->pos, fr_session->uh.pktsize - fr_session->pos, 0);
                                                 if (len <= 0) {
                                                         uwsgi_error("recv()");
-							close_session(fr_table, fr_session);
+							close_session(ufr.fr_table, fr_session);
                                                         break;
                                                 }
                                                 fr_session->pos += len;
                                                 if (fr_session->pos == fr_session->uh.pktsize) {
 							if (uwsgi_hooked_parse(fr_session->buffer, fr_session->uh.pktsize, fr_get_hostname, (void *) fr_session)) {
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
 							if (fr_session->hostname_len == 0) {
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
@@ -707,7 +728,7 @@ void fastrouter_loop(int id) {
 
 							// no address found
 							if (!fr_session->instance_address_len) {
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
@@ -716,7 +737,7 @@ void fastrouter_loop(int id) {
 								fr_session->buf_file_name = tempnam(ufr.pb_base_dir, "uwsgi");
 								if (!fr_session->buf_file_name) {
 									uwsgi_error("tempnam()");
-									close_session(fr_table, fr_session);
+									close_session(ufr.fr_table, fr_session);
                                                         		break;
 								}
 								fr_session->post_remains = fr_session->post_cl;
@@ -724,7 +745,7 @@ void fastrouter_loop(int id) {
 								// 2 + UWSGI_POSTFILE + 2 + fr_session->buf_file_name
 								if (fr_session->uh.pktsize + (2 + 14 + 2 + strlen(fr_session->buf_file_name)) > 0xffff) {
 									uwsgi_log("unable to buffer request body to file %s: not enough space\n", fr_session->buf_file_name);
-									close_session(fr_table, fr_session);
+									close_session(ufr.fr_table, fr_session);
                                                         		break;
 								}
 
@@ -742,7 +763,7 @@ void fastrouter_loop(int id) {
 								fr_session->buf_file = fopen(fr_session->buf_file_name, "w");
 								if (!fr_session->buf_file) {
 									uwsgi_error_open(fr_session->buf_file_name);
-									close_session(fr_table, fr_session);
+									close_session(ufr.fr_table, fr_session);
 									break;
 								}
 
@@ -756,13 +777,13 @@ void fastrouter_loop(int id) {
 
 								if (fr_session->instance_fd < 0) {
 									fr_session->instance_failed = 1;
-									close_session(fr_table, fr_session);
+									close_session(ufr.fr_table, fr_session);
                                                         		break;
 								}
 
 
 								fr_session->status = FASTROUTER_STATUS_CONNECTING;
-								fr_table[fr_session->instance_fd] = fr_session;
+								ufr.fr_table[fr_session->instance_fd] = fr_session;
 								event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
 							}
                                                 }
@@ -777,14 +798,14 @@ void fastrouter_loop(int id) {
 							if (getsockopt(fr_session->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
                                                 		uwsgi_error("getsockopt()");
 								fr_session->instance_failed = 1;
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
                                         		}
 
 							if (soopt) {
 								uwsgi_log("unable to connect() to uwsgi instance: %s\n", strerror(soopt));
 								fr_session->instance_failed = 1;
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
@@ -820,13 +841,13 @@ void fastrouter_loop(int id) {
 									uwsgi_error("sendmsg()");
 								}
 
-								close_session(fr_table, fr_session);	
+								close_session(ufr.fr_table, fr_session);	
                                                                 break;
 							}
 
 							if (writev(fr_session->instance_fd, iov, 2) < 0) {
 								uwsgi_error("writev()");
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
@@ -842,7 +863,7 @@ void fastrouter_loop(int id) {
 							len = recv(fr_session->instance_fd, fr_session->buffer, 0xffff, 0);
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("recv()");
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
@@ -850,7 +871,7 @@ void fastrouter_loop(int id) {
 							
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("send()");
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
@@ -865,7 +886,7 @@ void fastrouter_loop(int id) {
 							len = recv(fr_session->fd, fr_session->buffer, 0xffff, 0);
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("recv()");
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 
@@ -874,7 +895,7 @@ void fastrouter_loop(int id) {
 							
 							if (len <= 0) {
 								if (len < 0) uwsgi_error("send()");
-								close_session(fr_table, fr_session);
+								close_session(ufr.fr_table, fr_session);
                                                         	break;
 							}
 						}
@@ -885,13 +906,13 @@ void fastrouter_loop(int id) {
 						len = recv(fr_session->fd, post_tmp_buf, UMIN(0xffff, fr_session->post_remains), 0);
 						if (len <= 0) {
 							if (len < 0) uwsgi_error("recv()");
-                                                        close_session(fr_table, fr_session);
+                                                        close_session(ufr.fr_table, fr_session);
                                                         break;
 						}
 
 						if (fwrite(post_tmp_buf, len, 1, fr_session->buf_file) != 1) {
 							uwsgi_error("fwrite()");
-                                                        close_session(fr_table, fr_session);
+                                                        close_session(ufr.fr_table, fr_session);
                                                         break;
 						}
 
@@ -908,12 +929,12 @@ void fastrouter_loop(int id) {
 
                                                         if (fr_session->instance_fd < 0) {
                                                         	fr_session->instance_failed = 1;
-                                                                close_session(fr_table, fr_session);
+                                                                close_session(ufr.fr_table, fr_session);
                                                                 break;
                                                         }
 
                                                         fr_session->status = FASTROUTER_STATUS_CONNECTING;
-                                                        fr_table[fr_session->instance_fd] = fr_session;
+                                                        ufr.fr_table[fr_session->instance_fd] = fr_session;
                                                         event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
 						}
 						break;
@@ -924,7 +945,7 @@ void fastrouter_loop(int id) {
 					// fallback to destroy !!!
 					default:
 						uwsgi_log("unknown event: closing session\n");
-						close_session(fr_table, fr_session);
+						close_session(ufr.fr_table, fr_session);
 						break;
 					
 				}
