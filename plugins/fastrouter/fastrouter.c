@@ -99,7 +99,7 @@ struct uwsgi_fastrouter {
 	int tolerance;
 	int harakiri;
 
-	struct fastrouter_session *fr_table[2048];
+	struct fastrouter_session **fr_table;
 
 	int fr_subserver;
 	int fr_stats_server;
@@ -358,8 +358,9 @@ void fastrouter_loop(int id) {
 	ufr.fr_subserver = -1;
 	ufr.fr_stats_server = -1;
 
+	ufr.fr_table = uwsgi_malloc(sizeof(struct fastrouter_session) * uwsgi.max_fd);
 
-	for(i=0;i<2048;i++) {
+	for(i=0;i<(int)uwsgi.max_fd;i++) {
 		ufr.fr_table[i] = NULL;
 	}
 
@@ -525,7 +526,9 @@ void fastrouter_thread(void *arg) {
 			uwsgi.shared->gateways_harakiri[*id] = 0;
 		}
 
+		//FASTROUTER_LOCK
 		nevents = event_queue_wait_multi(ufr.queue, delta, events, ufr.nevents);
+		//FASTROUTER_UNLOCK
 
 		if (uwsgi.master_process && ufr.harakiri > 0) {
 			uwsgi.shared->gateways_harakiri[*id] = time(NULL) + ufr.harakiri;

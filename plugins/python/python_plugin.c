@@ -194,7 +194,12 @@ void uwsgi_python_atexit() {
 
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
-	PyGILState_Ensure();
+	if (!Py_IsInitialized()) {
+		return;
+	}
+
+	if (uwsgi.has_threads)
+		PyGILState_Ensure();
 	// no need to worry about freeing memory
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
 	if (uwsgi_dict) {

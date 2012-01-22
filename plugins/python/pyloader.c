@@ -539,7 +539,7 @@ PyObject *uwsgi_mount_loader(void *arg1) {
 
 	if ( !strcmp(what+strlen(what)-3, ".py") || !strcmp(what+strlen(what)-5, ".wsgi")) {
 		callable = uwsgi_file_loader((void *)what);
-		if (!callable) exit(1);
+		if (!callable) exit(UWSGI_FAILED_APP_CODE);
 	}
 	else if (!strcmp(what+strlen(what)-4, ".ini")) {
 		callable = uwsgi_paste_loader((void *)what);
@@ -658,36 +658,36 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 	paste_module = PyImport_ImportModule("paste.deploy");
 	if (!paste_module) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 	paste_dict = PyModule_GetDict(paste_module);
 	if (!paste_dict) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 	paste_loadapp = PyDict_GetItemString(paste_dict, "loadapp");
 	if (!paste_loadapp) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 	paste_arg = PyTuple_New(1);
 	if (!paste_arg) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 	if (PyTuple_SetItem(paste_arg, 0, PyString_FromString(paste))) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 	paste_app = PyEval_CallObject(paste_loadapp, paste_arg);
 	if (!paste_app) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 
@@ -709,7 +709,7 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 	if (!wsgi_eval_node) {
 		PyErr_Print();
 		uwsgi_log( "failed to parse <eval> code\n");
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 	wsgi_compiled_node = (PyObject *) PyNode_Compile(wsgi_eval_node, "uwsgi_eval_config");
@@ -717,14 +717,14 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 	if (!wsgi_compiled_node) {
 		PyErr_Print();
 		uwsgi_log( "failed to compile eval code\n");
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 
 	wsgi_eval_module = PyImport_ExecCodeModule("uwsgi_eval_config", wsgi_compiled_node);
 	if (!wsgi_eval_module) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 
@@ -733,7 +733,7 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 	up.loader_dict = PyModule_GetDict(wsgi_eval_module);
 	if (!up.loader_dict) {
 		PyErr_Print();
-		exit(1);
+		exit(UWSGI_FAILED_APP_CODE);
 	}
 
 
@@ -748,7 +748,7 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 	if (wsgi_eval_callable) {
 		if (!PyFunction_Check(wsgi_eval_callable) && !PyCallable_Check(wsgi_eval_callable)) {
 			uwsgi_log( "you must define a callable object in your code\n");
-			exit(1);
+			exit(UWSGI_FAILED_APP_CODE);
 		}
 	}
 

@@ -1695,8 +1695,10 @@ int master_loop(char **argv, char **environ) {
 				uwsgi.workers[uwsgi.mywid].harakiri = 0;
 			}
 
-
-			if (uwsgi.workers[uwsgi.mywid].manage_next_request) {
+			if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_FAILED_APP_CODE) {
+				uwsgi_log("OOPS ! failed loading app in worker %d (pid %d) :( trying again...\n", uwsgi.mywid, (int) diedpid);
+			}
+			else if (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
 			}
 

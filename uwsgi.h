@@ -563,6 +563,7 @@ struct uwsgi_opt {
 #define LONG_ARGS_EXEC_PRE_JAIL		17175
 #define LONG_ARGS_EXEC_POST_JAIL	17176
 #define LONG_ARGS_EXEC_IN_JAIL		17177
+#define LONG_ARGS_MAX_FD		17178
 
 
 #define UWSGI_OK	0
@@ -624,6 +625,7 @@ struct uwsgi_opt {
 #define UWSGI_RELOAD_CODE 17
 #define UWSGI_END_CODE 30
 #define UWSGI_EXILE_CODE 26
+#define UWSGI_FAILED_APP_CODE 22
 
 #define MAX_VARS 64
 #define MAX_LOOPS 60
@@ -1399,6 +1401,7 @@ struct uwsgi_server {
 	int mules_cnt;
 	int farms_cnt;
 
+	rlim_t requested_max_fd;
 	rlim_t max_fd;
 
 	struct timeval start_tv;

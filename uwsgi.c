@@ -231,6 +231,7 @@ static struct option long_base_options[] = {
 #ifdef UWSGI_ASYNC
 	{"async", required_argument, 0, LONG_ARGS_ASYNC},
 #endif
+	{"max-fd", required_argument, 0, LONG_ARGS_MAX_FD},
 	{"logto", required_argument, 0, LONG_ARGS_LOGTO},
 	{"logto2", required_argument, 0, LONG_ARGS_LOGTO2},
 	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1},
@@ -636,6 +637,8 @@ static void uwsgi_signal_spoolers(int signum) {
 
 void kill_them_all(int signum) {
 	int i;
+
+	if (uwsgi.to_hell == 1) return;
 	uwsgi.to_hell = 1;
 
 	if (uwsgi.reload_mercy > 0) {
@@ -1932,9 +1935,18 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 #endif
+	
+	if (uwsgi.requested_max_fd) {
+		uwsgi.rl.rlim_cur = uwsgi.requested_max_fd;
+		uwsgi.rl.rlim_max = uwsgi.requested_max_fd;
+		if (setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
+			uwsgi_error("setrlimit()");
+		}
+	}
 
 	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 		uwsgi.max_fd = uwsgi.rl.rlim_cur;
+		uwsgi_log("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
 	}
 
 	uwsgi.wsgi_requests = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.cores);
@@ -3256,6 +3268,9 @@ static int manage_base_opt(int i, char *optarg) {
 #endif
 	case LONG_ARGS_LOGTO:
 		logto(optarg);
+		return 1;
+	case LONG_ARGS_MAX_FD:
+		uwsgi.requested_max_fd = atoi(optarg);
 		return 1;
 	case LONG_ARGS_LOGTO2:
 		uwsgi.logto2 = optarg;
