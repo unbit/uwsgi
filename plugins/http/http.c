@@ -498,7 +498,8 @@ void http_loop(int id) {
 		ugs = ugs->next;
 	}
 
-	event_queue_add_fd_read(uhttp_queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
+	if (uhttp.has_subscription_sockets)
+		event_queue_add_fd_read(uhttp_queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
 
 	if (uhttp.pattern) {
 		init_magic_table(magic_table);

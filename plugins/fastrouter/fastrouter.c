@@ -343,7 +343,8 @@ void fastrouter_loop(int id) {
 		ugs = ugs->next;
 	}
 
-	event_queue_add_fd_read(ufr.queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
+	if (ufr.has_subscription_sockets)
+		event_queue_add_fd_read(ufr.queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
 
 
 	if (!ufr.socket_timeout)
@@ -551,7 +552,50 @@ void fastrouter_loop(int id) {
 				continue;
 			}
 
-			if (interesting_fd == ufr.fr_stats_server) {
+			if (interesting_fd == uwsgi.gateways[id].internal_subscription_pipe[1]) {
+				len = recv(interesting_fd, bbuf, 4096, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                                event_queue_add_fd_read(ufr.queue, interesting_fd);
+#endif
+                                                if (len > 0) {
+                                                        memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
+                                                        uwsgi_hooked_parse(bbuf + 4, len - 4, fastrouter_manage_subscription, &usr);
+
+                                                        // subscribe request ?
+                                        if (bbuf[3] == 0) {
+                                                if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, ufr.subscription_regexp) && ufr.i_am_cheap) {
+                                                        struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
+                                                        while (ugs) {
+                                                                if (!strcmp(ugs->owner, "uWSGI fastrouter") && !ugs->subscription) {
+                                                                        event_queue_add_fd_read(ufr.queue, ugs->fd);
+                                                                }
+                                                                ugs = ugs->next;
+                                                        }
+                                                        ufr.i_am_cheap = 0;
+                                                        uwsgi_log("[uwsgi-fastrouter] leaving cheap mode...\n");
+                                                }
+                                        }
+                                        //unsubscribe 
+                                        else {
+                                                struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ufr.subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ufr.subscription_regexp);
+                                                if (node && node->len) {
+                                                        if (node->death_mark == 0)
+                                                                uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
+                                                        node->failcnt++;
+                                                        node->death_mark = 1;
+                                                        // check if i can remove the node
+                                                        if (node->reference == 0) {
+                                                                uwsgi_remove_subscribe_node(&ufr.subscriptions, node);
+                                                        }
+                                                        if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
+                                                                fastrouter_go_cheap();
+                                                        }
+                                                }
+                                        }
+				}
+
+			}
+			else if (interesting_fd == ufr.fr_stats_server) {
 				fastrouter_send_stats(ufr.fr_stats_server);
 			}
 			else {
@@ -1017,6 +1061,9 @@ int fastrouter_opt(int i, char *optarg) {
 		if (optarg) {
 			ufr.socket_num = atoi(optarg);
 		}
+		return 1;
+	case LONG_ARGS_FASTROUTER_PROCESSES:
+		ufr.processes = atoi(optarg);
 		return 1;
 	case LONG_ARGS_FASTROUTER_USE_CODE_STRING:
 		cs = uwsgi_str(optarg);
