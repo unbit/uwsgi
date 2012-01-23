@@ -1629,6 +1629,7 @@ struct uwsgi_server {
 	// subscription client
 	int subscribe_freq;
 	int subscription_tolerance;
+	int unsubscribe_on_graceful_reload;
 	struct uwsgi_string_list *subscriptions;
 
 #ifdef __linux__
@@ -2618,6 +2619,9 @@ struct uwsgi_logger *uwsgi_get_logger(char *);
 char *uwsgi_getsockname(int);
 char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
+struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *, char *);
+struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int, char *);
+
 void escape_shell_arg(char *, size_t, char *);
 
 void *uwsgi_malloc_shared(size_t);
@@ -2635,4 +2639,3 @@ int uwsgi_init(int, char **, char **);
 #endif
 
 
-struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *, char *);

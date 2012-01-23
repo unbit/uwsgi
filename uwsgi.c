@@ -221,6 +221,7 @@ static struct option long_base_options[] = {
 	{"subscribe", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO},
 	{"subscribe-freq", required_argument, 0, LONG_ARGS_SUBSCRIBE_FREQ},
 	{"subscription-tolerance", required_argument, 0, LONG_ARGS_SUBSCR_TOLERANCE},
+	{"unsubscribe-on-graceful-reload", no_argument, &uwsgi.unsubscribe_on_graceful_reload, 1},
 #ifdef UWSGI_SNMP
 	{"snmp", optional_argument, 0, LONG_ARGS_SNMP},
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY},
@@ -741,12 +742,13 @@ void grace_them_all(int signum) {
 
 	uwsgi_log("...gracefully killing workers...\n");
 
-	// unsubscribe if needed
-	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
-        while(subscriptions) {
-                uwsgi_subscribe(subscriptions->value, 1);
-                subscriptions = subscriptions->next;
-        }
+	if (uwsgi.unsubscribe_on_graceful_reload) {	
+		struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+        	while(subscriptions) {
+                	uwsgi_subscribe(subscriptions->value, 1);
+                	subscriptions = subscriptions->next;
+        	}
+	}
 
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.auto_snapshot) {

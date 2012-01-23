@@ -102,9 +102,37 @@ struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *name, char *owner) {
         }
 
         memset(uwsgi_sock, 0, sizeof(struct uwsgi_gateway_socket));
+	uwsgi_sock->fd = -1;
         uwsgi_sock->name = name;
 	uwsgi_sock->owner = owner;
 
         return uwsgi_sock;
 }
+
+struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int fd, char *owner) {
+
+        struct uwsgi_gateway_socket *uwsgi_sock = uwsgi.gateway_sockets, *old_uwsgi_sock;
+
+        if (!uwsgi_sock) {
+                uwsgi.gateway_sockets = uwsgi_malloc(sizeof(struct uwsgi_gateway_socket));
+                uwsgi_sock = uwsgi.gateway_sockets;
+        }
+        else {
+                while(uwsgi_sock) {
+                        old_uwsgi_sock = uwsgi_sock;
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+                uwsgi_sock = uwsgi_malloc(sizeof(struct uwsgi_gateway_socket));
+                old_uwsgi_sock->next = uwsgi_sock;
+        }
+
+        memset(uwsgi_sock, 0, sizeof(struct uwsgi_gateway_socket));
+	uwsgi_sock->fd = fd;
+        uwsgi_sock->name = uwsgi_getsockname(fd);
+        uwsgi_sock->owner = owner;
+
+        return uwsgi_sock;
+}
+
 

@@ -14,6 +14,9 @@
 
 extern struct uwsgi_server uwsgi;
 
+#include "../../lib/corerouter.h"
+
+
 #define LONG_ARGS_FASTROUTER				150001
 #define LONG_ARGS_FASTROUTER_EVENTS			150002
 #define LONG_ARGS_FASTROUTER_USE_PATTERN		150003
@@ -94,26 +97,12 @@ struct uwsgi_fastrouter {
 	int cheap;
 	int i_am_cheap;
 
-
 	int tolerance;
 	int harakiri;
 
 	struct fastrouter_session **fr_table;
 
 } ufr;
-
-static void fastrouter_go_cheap(void) {
-
-	uwsgi_log("[uwsgi-fastrouter] no more nodes available. Going cheap...\n");
-	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-	while (ugs) {
-		if (!strcmp(ugs->owner, "uWSGI fastrouter") && !ugs->subscription) {
-			event_queue_del_fd(ufr.queue, ugs->fd, event_queue_read());
-		}
-		ugs = ugs->next;
-	}
-	ufr.i_am_cheap = 1;
-}
 
 struct option fastrouter_options[] = {
 	{"fastrouter", required_argument, 0, LONG_ARGS_FASTROUTER},
@@ -241,7 +230,7 @@ static void close_session(struct fastrouter_session *fr_session) {
 				uwsgi_remove_subscribe_node(&ufr.subscriptions, fr_session->un);
 			}
 			if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
-				fastrouter_go_cheap();
+				uwsgi_corerouter_go_cheap("uWSGI fastrouter", ufr.queue, &ufr.i_am_cheap);
 			}
 
 		}
@@ -330,18 +319,9 @@ void fastrouter_loop(int id) {
 		ufr.fr_table[i] = NULL;
 	}
 
-	ufr.queue = event_queue_init();
+	ufr.i_am_cheap = ufr.cheap;
 
-	void *events = event_queue_alloc(ufr.nevents);
-
-	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-	while (ugs) {
-		if (!strcmp("uWSGI fastrouter", ugs->owner)) {
-			event_queue_add_fd_read(ufr.queue, ugs->fd);
-			ugs->gateway = &uwsgi.gateways[id];
-		}
-		ugs = ugs->next;
-	}
+	void *events = uwsgi_corerouter_setup_event_queue("uWSGI fastrouter", id, ufr.nevents, &ufr.queue, ufr.i_am_cheap);
 
 	if (ufr.has_subscription_sockets)
 		event_queue_add_fd_read(ufr.queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
@@ -384,8 +364,6 @@ void fastrouter_loop(int id) {
 			ufr.pb_base_dir = "/tmp";
 	}
 
-	char bbuf[UMAX16];
-
 	int nevents;
 
 	time_t delta;
@@ -393,7 +371,6 @@ void fastrouter_loop(int id) {
 	char *post_tmp_buf[0xffff];
 	int tmp_socket_name_len;
 
-	struct uwsgi_subscribe_req usr;
 
 	struct uwsgi_rb_timer *min_timeout;
 
@@ -487,57 +464,8 @@ void fastrouter_loop(int id) {
 						event_queue_add_fd_read(ufr.queue, new_connection);
 					}
 					else {
-						len = recv(ugs->fd, bbuf, 4096, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-						event_queue_add_fd_read(ufr.queue, ugs->fd);
-#endif
-						if (len > 0) {
-							memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
-							uwsgi_hooked_parse(bbuf + 4, len - 4, fastrouter_manage_subscription, &usr);
-
-							// subscribe request ?
-                                        if (bbuf[3] == 0) {
-                                                if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, ufr.subscription_regexp) && ufr.i_am_cheap) {
-                                                        struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-                                                        while (ugs) {
-                                                                if (!strcmp(ugs->owner, "uWSGI fastrouter") && !ugs->subscription) {
-                                                                        event_queue_add_fd_read(ufr.queue, ugs->fd);
-                                                                }
-                                                                ugs = ugs->next;
-                                                        }
-                                                        ufr.i_am_cheap = 0;
-                                                        uwsgi_log("[uwsgi-fastrouter] leaving cheap mode...\n");
-                                                }
-                                        }
-                                        //unsubscribe 
-                                        else {
-                                                struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ufr.subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ufr.subscription_regexp);
-                                                if (node && node->len) {
-                                                        if (node->death_mark == 0)
-                                                                uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
-                                                        node->failcnt++;
-                                                        node->death_mark = 1;
-                                                        // check if i can remove the node
-                                                        if (node->reference == 0) {
-                                                                uwsgi_remove_subscribe_node(&ufr.subscriptions, node);
-                                                        }
-                                                        if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
-                                                                fastrouter_go_cheap();
-                                                        }
-                                                }
-                                        }
-	
-							// propagate the subscription to other nodes
-							for (i = 0; i < uwsgi.gateways_cnt; i++) {
-								if (i == id)
-									continue;
-								if (!strcmp(uwsgi.gateways[i].name, "uWSGI fastrouter")) {
-									if (send(uwsgi.gateways[i].internal_subscription_pipe[0], bbuf, len, 0) != len) {
-										uwsgi_error("send()");
-									}
-								}
-							}
-						}
+						uwsgi_corerouter_manage_subscription("uWSGI fastrouter", id, ugs, ufr.queue, ufr.subscriptions,
+							ufr.subscription_regexp, fastrouter_manage_subscription, ufr.cheap, &ufr.i_am_cheap);
 					}
 
 					taken = 1;
@@ -553,47 +481,8 @@ void fastrouter_loop(int id) {
 			}
 
 			if (interesting_fd == uwsgi.gateways[id].internal_subscription_pipe[1]) {
-				len = recv(interesting_fd, bbuf, 4096, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-                                                event_queue_add_fd_read(ufr.queue, interesting_fd);
-#endif
-                                                if (len > 0) {
-                                                        memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
-                                                        uwsgi_hooked_parse(bbuf + 4, len - 4, fastrouter_manage_subscription, &usr);
-
-                                                        // subscribe request ?
-                                        if (bbuf[3] == 0) {
-                                                if (uwsgi_add_subscribe_node(&ufr.subscriptions, &usr, ufr.subscription_regexp) && ufr.i_am_cheap) {
-                                                        struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-                                                        while (ugs) {
-                                                                if (!strcmp(ugs->owner, "uWSGI fastrouter") && !ugs->subscription) {
-                                                                        event_queue_add_fd_read(ufr.queue, ugs->fd);
-                                                                }
-                                                                ugs = ugs->next;
-                                                        }
-                                                        ufr.i_am_cheap = 0;
-                                                        uwsgi_log("[uwsgi-fastrouter] leaving cheap mode...\n");
-                                                }
-                                        }
-                                        //unsubscribe 
-                                        else {
-                                                struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ufr.subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ufr.subscription_regexp);
-                                                if (node && node->len) {
-                                                        if (node->death_mark == 0)
-                                                                uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
-                                                        node->failcnt++;
-                                                        node->death_mark = 1;
-                                                        // check if i can remove the node
-                                                        if (node->reference == 0) {
-                                                                uwsgi_remove_subscribe_node(&ufr.subscriptions, node);
-                                                        }
-                                                        if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
-                                                                fastrouter_go_cheap();
-                                                        }
-                                                }
-                                        }
-				}
-
+				uwsgi_corerouter_manage_internal_subscription("uWSGI fastrouter", ufr.queue, interesting_fd, ufr.subscriptions,
+					ufr.subscription_regexp, fastrouter_manage_subscription, ufr.cheap, &ufr.i_am_cheap);	
 			}
 			else if (interesting_fd == ufr.fr_stats_server) {
 				fastrouter_send_stats(ufr.fr_stats_server);
@@ -677,7 +566,7 @@ void fastrouter_loop(int id) {
 								fr_session->modifier1 = fr_session->un->modifier1;
 							}
 							else if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
-								fastrouter_go_cheap();
+								uwsgi_corerouter_go_cheap("uWSGI fastrouter", ufr.queue, &ufr.i_am_cheap);
 							}
 						}
 						else if (ufr.base) {
@@ -956,34 +845,13 @@ int fastrouter_init() {
 		if (!ufr.nevents)
 			ufr.nevents = 64;
 
-		struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-		while (ugs) {
-			if (!strcmp("uWSGI fastrouter", ugs->owner)) {
-				if (!ugs->subscription) {
-					ugs->port = strchr(ugs->name, ':');
-					if (ugs->port) {
-						ugs->fd = bind_to_tcp(ugs->name, uwsgi.listen_queue, ugs->port);
-					}
-					else {
-						ugs->fd = bind_to_unix(ugs->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-					}
-					// put socket in non-blocking mode
-					uwsgi_socket_nb(ugs->fd);
-					ugs->port++;
-					ugs->port_len = strlen(ugs->port);
-					uwsgi_log("uwsgi fastrouter bound on %s fd %d\n", ugs->name, ugs->fd);
-				}
-				else {
-					ugs->fd = bind_to_udp(ugs->name, 0, 0);
-					uwsgi_log("uwsgi fastrouter subscription server bound on %s fd %d\n", ugs->name, ugs->fd);
-				}
-			}
-			ugs = ugs->next;
-		}
-
+		uwsgi_corerouter_setup_sockets("uWSGI fastrouter");
 
 		if (ufr.processes < 1)
 			ufr.processes = 1;
+		if (ufr.cheap) {
+			uwsgi_log("starting fastrouter in cheap mode\n");
+		}
 		for (i = 0; i < ufr.processes; i++) {
 			if (register_gateway("uWSGI fastrouter", fastrouter_loop) == NULL) {
 				uwsgi_log("unable to register the fastrouter gateway\n");
@@ -1000,11 +868,9 @@ int fastrouter_opt(int i, char *optarg) {
 	char *cs;
 	char *cs_code;
 	char *cs_func;
-/*
 	int j;
 	int zerg_fd;
 	int *zerg;
-*/
 	struct uwsgi_gateway_socket *ugs;
 
 	switch (i) {
@@ -1013,7 +879,6 @@ int fastrouter_opt(int i, char *optarg) {
 		ufr.has_sockets++;
 		return 1;
 	case LONG_ARGS_FASTROUTER_ZERG:
-/*
 			zerg_fd = uwsgi_connect(optarg, 30, 0);
                 	if (zerg_fd < 0) {
                         	uwsgi_log("--- unable to connect to zerg server ---\n");
@@ -1027,10 +892,9 @@ int fastrouter_opt(int i, char *optarg) {
                 	close(zerg_fd);
 			for(j=0;j<8;j++) {
 				if (zerg[j] == -1) break;
-				fr_sock = uwsgi_fastrouter_new_socket(NULL, zerg[j]);
-				fr_sock->zerg = optarg;
+				ugs = uwsgi_new_gateway_socket_from_fd(zerg[j], "uWSGI fastrouter");
+				ugs->zerg = optarg;
 			}
-*/
 		return 1;
 	case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER:
 		ugs = uwsgi_new_gateway_socket(optarg, "uWSGI fastrouter");

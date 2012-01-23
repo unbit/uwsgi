@@ -12,6 +12,10 @@
 
 #include "../../uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
+#include "../../lib/corerouter.h"
+
 #define MAX_HTTP_VEC 128
 #define MAX_HTTP_EXTRA_VARS 64
 
@@ -40,6 +44,9 @@ struct uwsgi_http {
 	int use_cache;
 	int use_cluster;
 	int nevents;
+
+	int cheap;
+	int i_am_cheap;
 
 	int has_subscription_sockets;
 	int subscription_regexp;
@@ -475,7 +482,8 @@ void http_loop(int id) {
 	struct http_session *uhttp_session;
 
 	struct http_session **uhttp_table;
-	struct uwsgi_subscribe_req usr;
+
+	int uhttp_queue;
 
 	int soopt;
 	socklen_t solen = sizeof(int);
@@ -485,18 +493,7 @@ void http_loop(int id) {
 		uhttp_table[i] = NULL;
 	}
 
-	int uhttp_queue = event_queue_init();
-
-	void *events = event_queue_alloc(uhttp.nevents);
-
-	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-	while (ugs) {
-		if (!strcmp("uWSGI http", ugs->owner)) {
-			event_queue_add_fd_read(uhttp_queue, ugs->fd);
-			ugs->gateway = &uwsgi.gateways[id];
-		}
-		ugs = ugs->next;
-	}
+	void *events = uwsgi_corerouter_setup_event_queue("uWSGI http", id, uhttp.nevents, &uhttp_queue, 0);
 
 	if (uhttp.has_subscription_sockets)
 		event_queue_add_fd_read(uhttp_queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
@@ -575,24 +572,8 @@ void http_loop(int id) {
 						event_queue_add_fd_read(uhttp_queue, new_connection);
 					}
 					else {
-						len = recv(ugs->fd, bbuf, 4096, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-						event_queue_add_fd_read(uhttp_queue, ugs->fd);
-#endif
-						if (len > 0) {
-							memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
-							uwsgi_hooked_parse(bbuf + 4, len - 4, http_manage_subscription, &usr);
-							uwsgi_add_subscribe_node(&uhttp.subscriptions, &usr, uhttp.subscription_regexp);
-							// propagate the subscription to other nodes
-							for(i=0;i<uwsgi.gateways_cnt;i++) {
-								if (i == id) continue;
-								if (!strcmp(uwsgi.gateways[i].name, "uWSGI http")) {
-									if (send(uwsgi.gateways[i].internal_subscription_pipe[0], bbuf, len, 0) != len) {
-										uwsgi_error("send()");
-									}
-								}
-							}
-						}
+						uwsgi_corerouter_manage_subscription("uWSGI http", id, ugs, uhttp_queue, uhttp.subscriptions,
+							uhttp.subscription_regexp, http_manage_subscription, 0, &uhttp.i_am_cheap);
 					}
 
 					taken = 1;
@@ -607,15 +588,8 @@ void http_loop(int id) {
 				continue;
 
 			if (interesting_fd == uwsgi.gateways[id].internal_subscription_pipe[1]) {
-				len = recv(interesting_fd, bbuf, 4096, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(uhttp_queue, interesting_fd);
-#endif
-				if (len > 0) {
-					memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
-					uwsgi_hooked_parse(bbuf + 4, len - 4, http_manage_subscription, &usr);
-					uwsgi_add_subscribe_node(&uhttp.subscriptions, &usr, uhttp.subscription_regexp);
-				}
+				uwsgi_corerouter_manage_internal_subscription("uWSGI http", uhttp_queue, interesting_fd, uhttp.subscriptions,
+                                        uhttp.subscription_regexp, http_manage_subscription, 0, &uhttp.i_am_cheap);
 			} 
 
 			// process already active sessions;
@@ -952,29 +926,7 @@ int http_init() {
 			uwsgi_new_socket(uwsgi_concat2("127.0.0.1:0", ""));
 		}
 
-		struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-		while (ugs) {
-			if (!strcmp("uWSGI http", ugs->owner)) {
-				if (!ugs->subscription) {
-					ugs->port = strchr(ugs->name, ':');
-					if (!ugs->port) {
-						uwsgi_log("invalid HTTP ip:port syntax\n");
-						exit(1);
-					}
-					ugs->fd = bind_to_tcp(ugs->name, uwsgi.listen_queue, ugs->port);
-					// put socket in non-blocking mode
-					uwsgi_socket_nb(ugs->fd);
-					ugs->port++;
-					ugs->port_len = strlen(ugs->port);
-					uwsgi_log("HTTP router/proxy bound on %s fd %d\n", ugs->name, ugs->fd);
-				}
-				else {
-					ugs->fd = bind_to_udp(ugs->name, 0, 0);
-					uwsgi_log("HTTP subscription server bound on %s fd %d\n", ugs->name, ugs->fd);
-				}
-			}
-			ugs = ugs->next;
-		}
+		uwsgi_corerouter_setup_sockets("uWSGI http");	
 
 		if (uhttp.processes < 1)
 			uhttp.processes = 1;
