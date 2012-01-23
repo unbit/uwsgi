@@ -67,7 +67,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_go_cheap(char *gw_id, int 
 	*i_am_cheap = 1;
 }
 
-static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *gw_id, int id, struct uwsgi_gateway_socket *ugs, int queue, struct uwsgi_subscribe_slot *subscriptions, int regexp, void (*parse_hook) (char *, uint16_t, char *, uint16_t, void *), int cheap, int *i_am_cheap) {
+static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *gw_id, int id, struct uwsgi_gateway_socket *ugs, int queue, struct uwsgi_subscribe_slot **subscriptions, int regexp, void (*parse_hook) (char *, uint16_t, char *, uint16_t, void *), int cheap, int *i_am_cheap) {
 
 	int i;
 	struct uwsgi_subscribe_req usr;
@@ -83,7 +83,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 
 		// subscribe request ?
 		if (bbuf[3] == 0) {
-			if (uwsgi_add_subscribe_node(&subscriptions, &usr, regexp) && *i_am_cheap) {
+			if (uwsgi_add_subscribe_node(subscriptions, &usr, regexp) && *i_am_cheap) {
 				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 				while (ugs) {
 					if (!strcmp(ugs->owner, gw_id) && !ugs->subscription) {
@@ -97,7 +97,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 		}
 		//unsubscribe 
 		else {
-			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, regexp);
+			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, regexp);
 			if (node && node->len) {
 				if (node->death_mark == 0)
 					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", gw_id, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
@@ -105,9 +105,9 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 				node->death_mark = 1;
 				// check if i can remove the node
 				if (node->reference == 0) {
-					uwsgi_remove_subscribe_node(&subscriptions, node);
+					uwsgi_remove_subscribe_node(subscriptions, node);
 				}
-				if (subscriptions == NULL && cheap && !*i_am_cheap) {
+				if (*subscriptions == NULL && cheap && !*i_am_cheap) {
 					uwsgi_corerouter_go_cheap(gw_id, queue, i_am_cheap);
 				}
 			}
@@ -127,7 +127,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 
 }
 
-static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscription(char *gw_id, int queue, int fd, struct uwsgi_subscribe_slot *subscriptions, int regexp, void (*parse_hook) (char *, uint16_t, char *, uint16_t, void *), int cheap, int *i_am_cheap) {
+static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscription(char *gw_id, int queue, int fd, struct uwsgi_subscribe_slot **subscriptions, int regexp, void (*parse_hook) (char *, uint16_t, char *, uint16_t, void *), int cheap, int *i_am_cheap) {
 
 
 	struct uwsgi_subscribe_req usr;
@@ -143,7 +143,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscripti
 
 		// subscribe request ?
 		if (bbuf[3] == 0) {
-			if (uwsgi_add_subscribe_node(&subscriptions, &usr, regexp) && *i_am_cheap) {
+			if (uwsgi_add_subscribe_node(subscriptions, &usr, regexp) && *i_am_cheap) {
 				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 				while (ugs) {
 					if (!strcmp(ugs->owner, gw_id) && !ugs->subscription) {
@@ -157,7 +157,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscripti
 		}
 		//unsubscribe 
 		else {
-			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, regexp);
+			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, regexp);
 			if (node && node->len) {
 				if (node->death_mark == 0)
 					uwsgi_log("[%s] %.*s => marking %.*s as failed\n", gw_id, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
@@ -165,9 +165,9 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscripti
 				node->death_mark = 1;
 				// check if i can remove the node
 				if (node->reference == 0) {
-					uwsgi_remove_subscribe_node(&subscriptions, node);
+					uwsgi_remove_subscribe_node(subscriptions, node);
 				}
-				if (subscriptions == NULL && cheap && !*i_am_cheap) {
+				if (*subscriptions == NULL && cheap && !*i_am_cheap) {
 					uwsgi_corerouter_go_cheap(gw_id, queue, i_am_cheap);
 				}
 			}

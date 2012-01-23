@@ -572,7 +572,7 @@ void http_loop(int id) {
 						event_queue_add_fd_read(uhttp_queue, new_connection);
 					}
 					else {
-						uwsgi_corerouter_manage_subscription("uWSGI http", id, ugs, uhttp_queue, uhttp.subscriptions,
+						uwsgi_corerouter_manage_subscription("uWSGI http", id, ugs, uhttp_queue, &uhttp.subscriptions,
 							uhttp.subscription_regexp, http_manage_subscription, 0, &uhttp.i_am_cheap);
 					}
 
@@ -588,7 +588,7 @@ void http_loop(int id) {
 				continue;
 
 			if (interesting_fd == uwsgi.gateways[id].internal_subscription_pipe[1]) {
-				uwsgi_corerouter_manage_internal_subscription("uWSGI http", uhttp_queue, interesting_fd, uhttp.subscriptions,
+				uwsgi_corerouter_manage_internal_subscription("uWSGI http", uhttp_queue, interesting_fd, &uhttp.subscriptions,
                                         uhttp.subscription_regexp, http_manage_subscription, 0, &uhttp.i_am_cheap);
 			} 
 

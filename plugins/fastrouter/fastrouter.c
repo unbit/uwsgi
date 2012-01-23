@@ -464,7 +464,7 @@ void fastrouter_loop(int id) {
 						event_queue_add_fd_read(ufr.queue, new_connection);
 					}
 					else {
-						uwsgi_corerouter_manage_subscription("uWSGI fastrouter", id, ugs, ufr.queue, ufr.subscriptions,
+						uwsgi_corerouter_manage_subscription("uWSGI fastrouter", id, ugs, ufr.queue, &ufr.subscriptions,
 							ufr.subscription_regexp, fastrouter_manage_subscription, ufr.cheap, &ufr.i_am_cheap);
 					}
 
@@ -481,7 +481,7 @@ void fastrouter_loop(int id) {
 			}
 
 			if (interesting_fd == uwsgi.gateways[id].internal_subscription_pipe[1]) {
-				uwsgi_corerouter_manage_internal_subscription("uWSGI fastrouter", ufr.queue, interesting_fd, ufr.subscriptions,
+				uwsgi_corerouter_manage_internal_subscription("uWSGI fastrouter", ufr.queue, interesting_fd, &ufr.subscriptions,
 					ufr.subscription_regexp, fastrouter_manage_subscription, ufr.cheap, &ufr.i_am_cheap);	
 			}
 			else if (interesting_fd == ufr.fr_stats_server) {
