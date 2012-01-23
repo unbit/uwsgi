@@ -2612,7 +2612,7 @@ skipzero:
 	if (!uwsgi.master_process && uwsgi.numproc == 0) {
 		exit(0);
 	}
-	if (!uwsgi.single_interpreter) {
+	if (!uwsgi.single_interpreter && uwsgi.numproc > 0) {
 		uwsgi_log("*** uWSGI is running in multiple interpreter mode ***\n");
 	}
 
@@ -4547,7 +4547,7 @@ void uwsgi_init_all_apps() {
 	}
 
 	// no app initialized and virtualhosting enabled
-	if (uwsgi_apps_cnt == 0) {
+	if (uwsgi_apps_cnt == 0 && uwsgi.numproc > 0) {
 		uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
 	}
 

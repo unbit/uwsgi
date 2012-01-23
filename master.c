@@ -1644,7 +1644,7 @@ int master_loop(char **argv, char **environ) {
 
 			for (i = 0; i < uwsgi.gateways_cnt; i++) {
 				if (uwsgi.gateways[i].pid == diedpid) {
-					uwsgi_log("gateway %d (pid: %d) annihilated\n", i + 1, (int) diedpid);
+					uwsgi_log("gateway %d (%s, pid: %d) annihilated\n", i + 1, uwsgi.gateways[i].fullname, (int) diedpid);
 					goto next;
 				}
 			}

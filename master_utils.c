@@ -33,7 +33,7 @@ void master_check_cluster_nodes() {
 	}
 }
 
-void uwsgi_fixup_fds(int wid, int muleid) {
+void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 
 	int i;
 
@@ -43,6 +43,24 @@ void uwsgi_fixup_fds(int wid, int muleid) {
 	}
 
 	if (uwsgi.master_process) {
+			if (uwsgi.master_queue > -1)
+				close(uwsgi.master_queue);
+			// close gateways
+			if (!ug) {
+				for (i = 0; i < uwsgi.gateways_cnt; i++) {
+					close(uwsgi.gateways[i].internal_subscription_pipe[0]);
+					close(uwsgi.gateways[i].internal_subscription_pipe[1]);
+        			}
+			}
+			struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
+			while(ugs) {
+				if (ug && !strcmp(ug->name, ugs->owner)) {
+					ugs = ugs->next;
+					continue;
+				}
+				close(ugs->fd);
+				ugs = ugs->next;
+			}
                         // fix the communication pipe
                         close(uwsgi.shared->worker_signal_pipe[0]);
                         for(i=1;i<=uwsgi.numproc;i++) {
@@ -121,7 +139,7 @@ int uwsgi_respawn_worker(int wid) {
 		// reset the apps count with a copy from the master 
 		uwsgi.workers[uwsgi.mywid].apps_cnt = uwsgi.workers[0].apps_cnt;
 
-		uwsgi_fixup_fds(wid, 0);
+		uwsgi_fixup_fds(wid, 0, NULL);
 
                 uwsgi.my_signal_socket = uwsgi.workers[wid].signal_pipe[1];
 

@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_gateway *register_fat_gateway(char *name, void (*loop)(int)) {
+struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
 
         struct uwsgi_gateway *ug;
         int num=1,i;
@@ -18,87 +18,22 @@ struct uwsgi_gateway *register_fat_gateway(char *name, void (*loop)(int)) {
                 }
         }
 
+	char *fullname = uwsgi_concat3(name, " ", uwsgi_num2str(num));
+
         ug = &uwsgi.gateways[uwsgi.gateways_cnt];
         ug->pid = 0;
         ug->name = name;
         ug->loop = loop;
         ug->num = num;
+	ug->fullname = fullname;
+
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ug->internal_subscription_pipe)) {
+		uwsgi_error("socketpair()");
+	}
 
         uwsgi.gateways_cnt++;
 
         return ug;
-}
-
-struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
-
-	pid_t gw_pid;
-	pid_t orig_pid = getpid();
-	struct uwsgi_gateway *ug;
-	int num=1,i;
-
-	if (uwsgi.gateways_cnt >= MAX_GATEWAYS) {
-		uwsgi_log("you can register max %d gateways\n", MAX_GATEWAYS);
-		return NULL;
-	}
-
-	for(i=0;i<uwsgi.gateways_cnt;i++) {
-		if (!strcmp(name, uwsgi.gateways[i].name)) {
-			num++;
-		}
-	}
-
-	if (uwsgi.master_process)
-		uwsgi.shared->gateways_harakiri[uwsgi.gateways_cnt] = 0;
-
-	gw_pid = uwsgi_fork(name);
-	if (gw_pid < 0) {
-		uwsgi_error("fork()");
-		return NULL;
-	}
-
-	if (!uwsgi.master_process) {
-		if (gw_pid > 0) {
-#ifdef __linux__
-                if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0,0,0)) {
-                        uwsgi_error("prctl()");
-                }
-#endif
-
-		if (!uwsgi.sockets) {
-			// wait for child end
-			//waitpid(-1, &i, 0);
-		}
-			loop(uwsgi.gateways_cnt);
-			// never here !!! (i hope)
-			exit(1);	
-		}
-
-		ug = &uwsgi.gateways[uwsgi.gateways_cnt];
-		ug->pid = orig_pid;
-	}
-	else {
-		if (gw_pid == 0) {
-			if (uwsgi.master_as_root) uwsgi_as_root();
-			loop(uwsgi.gateways_cnt);
-			// never here !!! (i hope)
-			exit(1);	
-		}
-
-		ug = &uwsgi.gateways[uwsgi.gateways_cnt];
-		ug->pid = gw_pid;
-	}
-
-
-	ug->name = name;
-	ug->loop = loop;
-	ug->num = num;
-
-	uwsgi_log( "spawned %s %d (pid: %d)\n", ug->name, ug->num, (int) ug->pid);
-
-	uwsgi.gateways_cnt++;
-
-	return ug;
-		
 }
 
 void gateway_respawn(int id) {
@@ -109,19 +44,21 @@ void gateway_respawn(int id) {
 	if (uwsgi.master_process)
 		uwsgi.shared->gateways_harakiri[id] = 0;
 	
-	gw_pid = uwsgi_fork(ug->name);
+	gw_pid = uwsgi_fork(ug->fullname);
 	if (gw_pid < 0) {
                 uwsgi_error("fork()");
 		return;
 	}
 
 	if (gw_pid == 0) {
+		uwsgi_fixup_fds(0, 0, ug);
 		if (uwsgi.master_as_root) uwsgi_as_root();
 #ifdef __linux__
                 if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0,0,0)) {
                         uwsgi_error("prctl()");
                 }
 #endif
+		uwsgi.mypid = getpid();
 		ug->loop(id);
 		// never here !!! (i hope)
 		exit(1);	
@@ -137,3 +74,29 @@ void gateway_respawn(int id) {
 	}
 	
 }
+
+struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *name, char *owner) {
+
+        struct uwsgi_gateway_socket *uwsgi_sock = uwsgi.gateway_sockets, *old_uwsgi_sock;
+
+        if (!uwsgi_sock) {
+                uwsgi.gateway_sockets = uwsgi_malloc(sizeof(struct uwsgi_gateway_socket));
+                uwsgi_sock = uwsgi.gateway_sockets;
+        }
+        else {
+                while(uwsgi_sock) {
+                        old_uwsgi_sock = uwsgi_sock;
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+                uwsgi_sock = uwsgi_malloc(sizeof(struct uwsgi_gateway_socket));
+                old_uwsgi_sock->next = uwsgi_sock;
+        }
+
+        memset(uwsgi_sock, 0, sizeof(struct uwsgi_gateway_socket));
+        uwsgi_sock->name = name;
+	uwsgi_sock->owner = owner;
+
+        return uwsgi_sock;
+}
+

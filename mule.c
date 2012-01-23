@@ -41,7 +41,7 @@ void uwsgi_mule(int id) {
 		uwsgi.mules[id-1].id = id;
 		uwsgi.mules[id-1].pid = getpid();
 
-		uwsgi_fixup_fds(0, id);
+		uwsgi_fixup_fds(0, id, NULL);
 
 		uwsgi.my_signal_socket = uwsgi.mules[id-1].signal_pipe[1];
 		uwsgi.signal_socket = uwsgi.shared->mule_signal_pipe[1];

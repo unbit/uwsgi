@@ -99,7 +99,7 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			// is the node alive ?
 			if (current - node->last_check > uwsgi.subscription_tolerance) {
 				if (node->death_mark == 0)
-					uwsgi_log("[uwsgi-subscription] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
+					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
 				node->failcnt++;
 				node->death_mark = 1;
 			}
@@ -259,7 +259,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			old_node->next = node;
 		}
 		node->next = NULL;
-                uwsgi_log("[uwsgi-subscription] %.*s => new node: %.*s\n", usr->keylen, usr->key, usr->address_len, usr->address);
+                uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s\n",(int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address);
                 return node;
         }
         else {
@@ -361,8 +361,8 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			*slot = current_slot;
 		}
 
-		uwsgi_log("[uwsgi-subscription] new pool: %.*s\n", usr->keylen, usr->key);
-		uwsgi_log("[uwsgi-subscription] %.*s => new node: %.*s\n", usr->keylen, usr->key, usr->address_len, usr->address);
+		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s\n",(int) uwsgi.mypid, usr->keylen, usr->key);
+		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s\n",(int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address);
                 return current_slot->nodes;
         }
 

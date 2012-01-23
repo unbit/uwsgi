@@ -321,12 +321,35 @@ union uwsgi_sockaddr_ptr {
 struct uwsgi_gateway {
 
 	char *name;
+	char *fullname;
 	void (*loop) (int);
 	pid_t pid;
 	int num;
 	int use_signals;
+
+	int internal_subscription_pipe[2];
 	uint64_t respawns;
 };
+
+struct uwsgi_gateway_socket {
+
+        char *name;
+        int fd;
+        char *zerg;
+
+	char *port;
+	int port_len;
+
+	void *data;
+	int subscription;
+
+	char *owner;
+	struct uwsgi_gateway *gateway;
+
+        struct uwsgi_gateway_socket *next;
+	
+};
+
 
 
 // Daemons are external processes maintained by the master
@@ -1204,6 +1227,7 @@ struct uwsgi_server {
 	// gateways
 	struct uwsgi_gateway gateways[MAX_GATEWAYS];
 	int gateways_cnt;
+	struct uwsgi_gateway_socket *gateway_sockets;
 
 
 	int ignore_script_name;
@@ -2164,7 +2188,6 @@ int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 
 
 struct uwsgi_gateway *register_gateway(char *, void (*)(int));
-struct uwsgi_gateway *register_fat_gateway(char *, void (*)(int));
 void gateway_respawn(int);
 
 char *uwsgi_open_and_read(char *, int *, int, char *[]);
@@ -2483,7 +2506,7 @@ void uwsgi_mule(int);
 
 char *uwsgi_string_get_list(struct uwsgi_string_list **, int, size_t *);
 
-void uwsgi_fixup_fds(int, int);
+void uwsgi_fixup_fds(int, int, struct uwsgi_gateway *);
 
 void uwsgi_set_processname(char *);
 
@@ -2612,3 +2635,4 @@ int uwsgi_init(int, char **, char **);
 #endif
 
 
+struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *, char *);

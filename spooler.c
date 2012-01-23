@@ -44,7 +44,7 @@ pid_t spooler_start(struct uwsgi_spooler *uspool) {
 		// avoid race conditions !!!
 		uwsgi.i_am_a_spooler = uspool;
 
-		uwsgi_fixup_fds(0, 0);
+		uwsgi_fixup_fds(0, 0, NULL);
 		uwsgi_close_all_sockets();
 
 		for (i = 0; i < 0xFF; i++) {
