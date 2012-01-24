@@ -142,7 +142,7 @@ struct http_session {
 
 	int pass_fd;
 
-	int remains;
+	size_t remains;
 
 	char *port;
 	int port_len;
@@ -155,6 +155,9 @@ struct http_session {
 	char buffer[UMAX16];
 	char path_info[UMAX16];
 	uint16_t path_info_len;
+
+	size_t content_length;
+	size_t received_body;
 
 	struct uwsgi_subscribe_node *un;
 
@@ -257,6 +260,10 @@ uint16_t http_add_uwsgi_header(struct http_session *h_session, struct iovec *iov
 	if (!uwsgi_strncmp("HOST", 4, hh, keylen)) {
 		h_session->hostname = val;
 		h_session->hostname_len = vallen;
+	}
+
+	if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
+		h_session->content_length = uwsgi_str_num(val, vallen);
 	}
 
 	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
@@ -579,6 +586,9 @@ void http_loop(int id) {
 						uhttp_table[new_connection]->ip_addr = ((struct sockaddr_in *) &uhttp_addr)->sin_addr.s_addr;
 						uhttp_table[new_connection]->instance_failed = 0;
 
+						uhttp_table[new_connection]->content_length = 0;
+						uhttp_table[new_connection]->received_body = 0;
+
 						uhttp_table[new_connection]->port = ugs->port;
 						uhttp_table[new_connection]->port_len = ugs->port_len;
 
@@ -768,7 +778,11 @@ void http_loop(int id) {
 
 					if (uhttp_session->remains > 0) {
 						uhttp_session->iov[uhttp_session->iov_len].iov_base = uhttp_session->ptr;
+						if (uhttp_session->remains > uhttp_session->content_length) {
+							uhttp_session->remains = uhttp_session->content_length;
+						}
 						uhttp_session->iov[uhttp_session->iov_len].iov_len = uhttp_session->remains;
+						uhttp_session->received_body += uhttp_session->remains;
 						uhttp_session->iov_len++;
 					}
 
@@ -891,6 +905,14 @@ void http_loop(int id) {
 					}
 
 
+					if (uhttp_session->received_body >= uhttp_session->content_length) {
+						break;
+					}
+
+					if (len + uhttp_session->received_body > uhttp_session->content_length) {
+						len = uhttp_session->content_length - uhttp_session->received_body;
+					}
+
 					len = send(uhttp_session->instance_fd, bbuf, len, 0);
 
 					if (len <= 0) {
@@ -899,6 +921,9 @@ void http_loop(int id) {
 						close_session(uhttp_table, uhttp_session);
 						break;
 					}
+
+					uhttp_session->received_body += len;
+
 				}
 
 				break;

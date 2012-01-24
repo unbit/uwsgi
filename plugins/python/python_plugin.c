@@ -192,8 +192,11 @@ void uwsgi_python_reset_random_seed() {
 
 void uwsgi_python_atexit() {
 
+	// if hijacked do not run atexit hooks
+
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
+
 	if (!Py_IsInitialized()) {
 		return;
 	}
@@ -1480,6 +1483,7 @@ void uwsgi_python_hijack(void) {
 
 #ifndef UWSGI_PYPY
 	if (up.pyshell && uwsgi.mywid == 1) {
+		uwsgi.workers[uwsgi.mywid].hijacked = 1;
 		// re-map stdin to stdout and stderr if we are logging to a file
 		if (uwsgi.logfile) {
 			if (dup2(0, 1) < 0) {

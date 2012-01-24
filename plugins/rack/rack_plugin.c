@@ -61,12 +61,26 @@ VALUE rb_uwsgi_io_init(int argc, VALUE *argv, VALUE self) {
 
 VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 
+	size_t i;
 	struct wsgi_request *wsgi_req;
+	VALUE line;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 
-	// return the whole body as string
+	// return a line of body
+	for(i=wsgi_req->buf_pos;i<wsgi_req->post_cl;i++) {
+		if (wsgi_req->post_buffering_buf[i] == '\n') {
+			line = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, (i+1)-wsgi_req->buf_pos);
+			wsgi_req->buf_pos = i+1;
+			return line;
+		}
+	}
 
-	rb_raise(rb_eRuntimeError, "rack.input::gets is not implemented (req %p)\n", wsgi_req);
+	if (wsgi_req->buf_pos < wsgi_req->post_cl) {
+		line = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, wsgi_req->post_cl-wsgi_req->buf_pos);
+                wsgi_req->buf_pos = wsgi_req->post_cl;
+                return line;
+	}
+	
 	return Qnil;
 }
 
