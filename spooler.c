@@ -439,9 +439,6 @@ void spooler_manage_task(char *dir, char *task) {
 					if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
                         			set_spooler_harakiri(0);
                 			}
-					if (body) {
-						free(body);
-					}
 					if (ret == 0) continue;
 					callable_found = 1;
 					if (ret == -2) {
@@ -452,6 +449,10 @@ void spooler_manage_task(char *dir, char *task) {
 					break;	
 				}
 			}
+
+			if (body)
+				free(body);
+
 			if (!callable_found) {
 				uwsgi_log("unable to find the spooler function, have you loaded it into the spooler process ?\n");
 			}
