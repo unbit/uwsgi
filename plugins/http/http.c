@@ -70,6 +70,8 @@ struct uwsgi_http {
 
 	struct uwsgi_subscribe_slot *subscriptions;
 
+	int manage_expect;
+
 	struct rb_root *timeouts;
 } uhttp;
 
@@ -88,6 +90,7 @@ struct option http_options[] = {
 	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
 	{"http-subscription-use-regexp", no_argument, &uhttp.subscription_regexp, 1},
 	{"http-timeout", required_argument, 0, LONG_ARGS_HTTP_TIMEOUT},
+	{"http-manage-expect", no_argument, &uhttp.manage_expect, 1},
 	{0, 0, 0, 0},
 };
 
@@ -333,6 +336,7 @@ int http_parse(struct http_session *h_session) {
 	// leave a slot for uwsgi header
 	int c = 1;
 	char *query_string = NULL;
+	char *protocol = NULL; size_t protocol_len = 0;
 
 	// REQUEST_METHOD 
 	while (ptr < watermark) {
@@ -381,6 +385,7 @@ int http_parse(struct http_session *h_session) {
 			if (*(ptr + 1) != '\n')
 				return 0;
 			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "SERVER_PROTOCOL", 15, base, ptr - base, &c);
+			protocol = base; protocol_len = ptr - base;
 			ptr += 2;
 			break;
 		}
@@ -427,6 +432,18 @@ int http_parse(struct http_session *h_session) {
 				if (*(ptr + 2) == ' ' || *(ptr + 2) == '\t') {
 					ptr += 2;
 					continue;
+				}
+			}
+			if (uhttp.manage_expect) {
+				if (!uwsgi_strncmp("Expect: 100-continue", 20, base, ptr - base)) {
+					if (send(h_session->fd, protocol, protocol_len, 0) == (ssize_t) protocol_len) {
+						if (send(h_session->fd, " 100 Continue\r\n\r\n", 17, 0) != 17) { 
+							uwsgi_error("send()");
+						}
+					}
+					else {
+						uwsgi_error("send()");
+					}
 				}
 			}
 			h_session->uh.pktsize += http_add_uwsgi_header(h_session, h_session->iov, h_session->uss + c, h_session->uss + c + 2, base, ptr - base, &c);
