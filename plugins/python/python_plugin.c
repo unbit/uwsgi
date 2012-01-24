@@ -193,6 +193,8 @@ void uwsgi_python_reset_random_seed() {
 void uwsgi_python_atexit() {
 
 	// if hijacked do not run atexit hooks
+	if (uwsgi.workers[uwsgi.mywid].hijacked)
+		return;
 
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
