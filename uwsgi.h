@@ -104,6 +104,8 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <math.h>
 #include <netinet/in.h>
 
+#include <termios.h>
+
 #ifdef UWSGI_UUID
 #include <uuid/uuid.h>
 #endif
@@ -649,6 +651,8 @@ struct uwsgi_opt {
 #define UWSGI_END_CODE 30
 #define UWSGI_EXILE_CODE 26
 #define UWSGI_FAILED_APP_CODE 22
+#define UWSGI_DE_HIJACKED_CODE 173
+#define UWSGI_QUIET_CODE 29
 
 #define MAX_VARS 64
 #define MAX_LOOPS 60
@@ -1240,6 +1244,8 @@ struct uwsgi_server {
 	int log_x_forwarded_for;
 
 	int honour_stdin;
+	struct termios termios;
+	int restore_tc;
 
 	// route all of the logs to the master process
 	int log_master;

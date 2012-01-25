@@ -965,6 +965,12 @@ static void vacuum(void) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
+	if (uwsgi.restore_tc) {
+		if (tcsetattr(0, TCSANOW, &uwsgi.termios)) {
+			uwsgi_error("tcsetattr()");
+		}
+	}
+
 	if (uwsgi.vacuum) {
 		if (getpid() == masterpid) {
 			if (chdir(uwsgi.cwd)) {
@@ -2261,6 +2267,11 @@ int uwsgi_start(void *v_argv) {
 						exit(1);
 					}
 					close(fd);
+				}
+			}
+			else if (uwsgi.honour_stdin) {
+				if (!tcgetattr(0, &uwsgi.termios)) {
+					uwsgi.restore_tc = 1;	
 				}
 			}
 

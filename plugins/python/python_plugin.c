@@ -191,6 +191,7 @@ void uwsgi_python_reset_random_seed() {
 #endif
 }
 
+
 void uwsgi_python_atexit() {
 
 	// if hijacked do not run atexit hooks
@@ -1495,6 +1496,7 @@ void uwsgi_python_hijack(void) {
 		return;
 	}
 	if (up.pyshell && uwsgi.mywid == 1) {
+		uwsgi.workers[uwsgi.mywid].hijacked = 1;
 		uwsgi.workers[uwsgi.mywid].hijacked_count++;
 		// re-map stdin to stdout and stderr if we are logging to a file
 		if (uwsgi.logfile) {
@@ -1507,7 +1509,15 @@ void uwsgi_python_hijack(void) {
 		}
 		UWSGI_GET_GIL;
 		PyImport_ImportModule("readline");
-		PyRun_InteractiveLoop(stdin, "uwsgi");
+		int ret = PyRun_InteractiveLoop(stdin, "uwsgi");
+
+		if (up.pyshell_oneshot) {
+			exit(UWSGI_DE_HIJACKED_CODE);
+		}
+
+		if (ret == 0) {
+			exit(UWSGI_QUIET_CODE);
+		}
 		exit(0);
 	}
 #endif
