@@ -22,6 +22,7 @@
 #define LONG_ARGS_SPOOLER_PYIMPORT	LONG_ARGS_PYTHON_BASE + 12
 #define LONG_ARGS_PYTHON_RUN		LONG_ARGS_PYTHON_BASE + 13
 #define LONG_ARGS_SHARED_PYIMPORT	LONG_ARGS_PYTHON_BASE + 14
+#define LONG_ARGS_PYSHELL_ONESHOT	LONG_ARGS_PYTHON_BASE + 15
 
 #define PYTHON_APP_TYPE_WSGI		0
 #define PYTHON_APP_TYPE_WEB3		1
@@ -131,6 +132,7 @@ struct uwsgi_python {
 	char *test_module;
 
 	int pyshell;
+	int pyshell_oneshot;
 
 	struct uwsgi_string_list *python_path;
 	struct uwsgi_string_list *import_list;

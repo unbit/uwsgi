@@ -55,6 +55,7 @@ struct option uwsgi_python_options[] = {
 	{"no-site", no_argument, &Py_NoSiteFlag, 1},
 #endif
 	{"pyshell", no_argument, 0, LONG_ARGS_PYSHELL},
+	{"pyshell-oneshot", no_argument, 0, LONG_ARGS_PYSHELL_ONESHOT},
 	{"python", required_argument, 0, LONG_ARGS_PYTHON_RUN},
 	{"py", required_argument, 0, LONG_ARGS_PYTHON_RUN},
 
@@ -779,6 +780,11 @@ int uwsgi_python_manage_options(int i, char *optarg) {
 		uwsgi.honour_stdin = 1;
 		up.pyshell = 1;
 		return 1;
+	case LONG_ARGS_PYSHELL_ONESHOT:
+		uwsgi.honour_stdin = 1;
+		up.pyshell = 1;
+		up.pyshell_oneshot = 1;
+		return 1;
 	case LONG_ARGS_SHARED_PYIMPORT:
 		uwsgi_string_new_list(&up.shared_import_list, optarg);
 		return 1;
@@ -1484,8 +1490,12 @@ void uwsgi_python_hijack(void) {
 	// the pyshell will be execute only in the first worker
 
 #ifndef UWSGI_PYPY
+	if (up.pyshell_oneshot && uwsgi.workers[uwsgi.mywid].hijacked_count > 0) {
+		uwsgi.workers[uwsgi.mywid].hijacked = 0;
+		return;
+	}
 	if (up.pyshell && uwsgi.mywid == 1) {
-		uwsgi.workers[uwsgi.mywid].hijacked = 1;
+		uwsgi.workers[uwsgi.mywid].hijacked_count++;
 		// re-map stdin to stdout and stderr if we are logging to a file
 		if (uwsgi.logfile) {
 			if (dup2(0, 1) < 0) {

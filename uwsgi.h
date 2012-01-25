@@ -1849,6 +1849,7 @@ struct uwsgi_worker {
 	uint64_t tx;
 
 	int hijacked;
+	uint64_t hijacked_count;
 	int busy;
 	int cheaped;
 	int suspended;
