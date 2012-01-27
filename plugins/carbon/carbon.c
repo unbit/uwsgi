@@ -15,12 +15,14 @@ struct uwsgi_carbon {
 	char *id;
 } u_carbon;
 
-struct option carbon_options[] = {
+struct uwsgi_option carbon_options[] = {
+/*
 	{"carbon", required_argument, 0, CARBON_OPT_CARBON},
 	{"carbon-timeout", required_argument, 0, CARBON_OPT_CARBON_TIMEOUT},
 	{"carbon-freq", required_argument, 0, CARBON_OPT_CARBON_FREQ},
 	{"carbon-id", required_argument, 0, CARBON_OPT_CARBON_ID},
-	{0, 0, 0, 0},
+*/
+	{0, 0, 0, 0, 0, 0, 0},
 
 };
 
@@ -29,6 +31,7 @@ int carbon_init() {
 	return 0;
 }
 
+/*
 int carbon_opt(int i, char *optarg) {
 
 	switch(i) {
@@ -49,6 +52,7 @@ int carbon_opt(int i, char *optarg) {
 
 	return 0;
 }
+*/
 
 void carbon_post_init() {
 
@@ -97,6 +101,7 @@ void carbon_master_cycle() {
 			unsigned long long total_rss = 0;
 			unsigned long long total_vsz = 0;
 			unsigned long long avg_rt = 0;
+			unsigned long long total_tx = 0;
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) uwsgi.workers[0].requests, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
@@ -122,6 +127,10 @@ void carbon_master_cycle() {
 				if (rlen < 1) goto clear;
 				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
+				total_tx += uwsgi.workers[i].tx;
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.tx %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].tx, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 			}
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_rss, (unsigned long long ) uwsgi.current_time);
@@ -133,6 +142,10 @@ void carbon_master_cycle() {
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) avg_rt / uwsgi.numproc, (unsigned long long ) uwsgi.current_time);
+			if (rlen < 1) goto clear;
+			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.tx %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_tx, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
@@ -148,7 +161,6 @@ nxt:
 struct uwsgi_plugin carbon_plugin = {
 	
 	.options = carbon_options,
-	.manage_opt = carbon_opt,
 
 	.master_cycle = carbon_master_cycle,
 	

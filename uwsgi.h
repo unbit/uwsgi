@@ -275,12 +275,6 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
 
-struct uwsgi_help_item {
-
-	char *key;
-	char *value;
-};
-
 struct uwsgi_config_template {
 	char *filename;
 	int applied;
@@ -559,8 +553,6 @@ struct uwsgi_plugin {
 	void (*post_init) (void);
 	void (*post_fork) (void);
 	struct uwsgi_option *options;
-	const char *short_options;
-	int (*manage_opt) (int, char *);
 	void (*enable_threads) (void);
 	void (*init_thread) (int);
 	int (*request) (struct wsgi_request *);
@@ -595,7 +587,6 @@ struct uwsgi_plugin {
 
 	int (*mule)(char *);
 	int (*mule_msg)(char *, size_t);
-	struct uwsgi_help_item *help;
 
 };
 

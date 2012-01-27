@@ -3,12 +3,10 @@
 extern struct uwsgi_server uwsgi;
 int use_nagios = 0;
 
-#define LONG_ARGS_NAGIOS 40000
+struct uwsgi_option nagios_options[] = {
 
-struct option nagios_options[] = {
-
-	{"nagios", no_argument, 0, LONG_ARGS_NAGIOS},
-        {0, 0, 0, 0},
+	//{"nagios", no_argument, 0, LONG_ARGS_NAGIOS},
+        {0, 0, 0, 0, 0, 0, 0},
 
 };
 
@@ -70,6 +68,7 @@ int nagios() {
 	exit(3);
 }
 
+/*
 int nagios_opt(int i, char *optarg) {
 
 	switch(i) {
@@ -81,10 +80,10 @@ int nagios_opt(int i, char *optarg) {
 
 	return 0;
 }
+*/
 
 struct uwsgi_plugin nagios_plugin = {
 	
 	.options = nagios_options,
-	.manage_opt = nagios_opt,
 	.init = nagios,
 };

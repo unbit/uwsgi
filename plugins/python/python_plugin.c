@@ -9,21 +9,25 @@ extern struct http_status_codes hsc[];
 
 extern PyTypeObject uwsgi_InputType;
 
-struct option uwsgi_python_options[] = {
-	{"wsgi-file", required_argument, 0, LONG_ARGS_WSGI_FILE},
-	{"file", required_argument, 0, LONG_ARGS_FILE_CONFIG},
-	{"eval", required_argument, 0, LONG_ARGS_EVAL_CONFIG},
-	{"module", required_argument, 0, 'w'},
-	{"wsgi", required_argument, 0, 'w'},
-	{"callable", required_argument, 0, LONG_ARGS_CALLABLE},
-	{"test", required_argument, 0, 'J'},
-	{"home", required_argument, 0, 'H'},
-	{"virtualenv", required_argument, 0, 'H'},
-	{"venv", required_argument, 0, 'H'},
-	{"pyhome", required_argument, 0, 'H'},
+struct uwsgi_option uwsgi_python_options[] = {
+	{"wsgi-file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
+	{"file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
+	{"eval", required_argument, 0, "eval python code", uwsgi_opt_set_str, &up.eval, 0},
+	{"module", required_argument,'w', "load a WSGI module", uwsgi_opt_set_str, &up.wsgi_config, 0},
+	{"wsgi", required_argument, 'w', "load a WSGI module", uwsgi_opt_set_str, &up.wsgi_config, 0},
+	{"callable", required_argument, 0, "set default WSGI callable name", uwsgi_opt_set_str, &up.callable, 0},
+	{"test", required_argument, 'J', "test a mdule import", uwsgi_opt_set_str, &up.test_module, 0},
+	{"home", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
+	{"virtualenv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
+	{"venv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
+	{"pyhome", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
+
+/*
 	{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
+	{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
 	{"pymodule-alias", required_argument, 0, LONG_ARGS_PYMODULE_ALIAS},
+
 	{"post-pymodule-alias", required_argument, 0, LONG_ARGS_POST_PYMODULE_ALIAS},
 	{"import", required_argument, 0, LONG_ARGS_PYIMPORT},
 	{"pyimport", required_argument, 0, LONG_ARGS_PYIMPORT},
@@ -37,17 +41,24 @@ struct option uwsgi_python_options[] = {
 	{"spooler-pyimport", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
 	{"spooler-py-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
 	{"spooler-python-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
-	{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
-	{"pyargv", required_argument, 0, LONG_ARGS_PYARGV},
-	{"optimize", required_argument, 0, 'O'},
-	{"paste", required_argument, 0, LONG_ARGS_PASTE},
+*/
+
+	{"pyargv", required_argument, 0, "manually set sys.argv", uwsgi_opt_set_str, &up.argv, 0},
+	{"optimize", required_argument, 'O', "set python optimization level", uwsgi_opt_set_int, &up.optimize, 0},
+
+	//{"paste", required_argument, 0, LONG_ARGS_PASTE},
+
+
+/*
 	{"web3", required_argument, 0, LONG_ARGS_WEB3},
 	{"pump", required_argument, 0, LONG_ARGS_PUMP},
 	{"wsgi-lite", required_argument, 0, LONG_ARGS_WSGI_LITE},
+*/
 #ifdef UWSGI_INI
-	{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
+	//{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
 #endif
-	{"catch-exceptions", no_argument, &up.catch_exceptions, 1},
+	{"catch-exceptions", no_argument, 0, "report exception has http output (discouraged)", uwsgi_opt_true, &up.catch_exceptions, 0},
+/*
 	{"ignore-script-name", no_argument, &up.ignore_script_name, 1},
 	{"pep3333-input", no_argument, &up.pep3333_input, 1},
 	{"reload-os-env", no_argument, &up.reload_os_env, 1},
@@ -58,32 +69,9 @@ struct option uwsgi_python_options[] = {
 	{"pyshell-oneshot", no_argument, 0, LONG_ARGS_PYSHELL_ONESHOT},
 	{"python", required_argument, 0, LONG_ARGS_PYTHON_RUN},
 	{"py", required_argument, 0, LONG_ARGS_PYTHON_RUN},
+*/
 
-	{0, 0, 0, 0},
-};
-
-struct uwsgi_help_item uwsgi_python_help[] = {
-
-{"module <module>" ,"name of python config module"},
-{"optimize <n>", "set python optimization level to <n>"},
-{"home <path>", "set python home/virtualenv"},
-{"pyhome <path>", "set python home/virtualenv"},
-{"virtualenv <path>", "set python home/virtualenv"},
-{"venv <path>", "set python home/virtualenv"},
-{"callable <callable>", "set the callable (default 'application')"},
-{"paste <config:/egg:>", "load applications using paste.deploy.loadapp()"},
-{"pythonpath <dir>", "add <dir> to PYTHONPATH"},
-{"python-path <dir>", "add <dir> to PYTHONPATH"},
-{"pp <dir>", "add <dir> to PYTHONPATH"},
-{"pyargv <args>", "assign args to python sys.argv"},
-{"wsgi-file <file>", "load the <file> wsgi file"},
-{"file <file>", "use python file instead of python module for configuration"},
-{"eval <code>", "evaluate code for app configuration"},
-{"ini-paste <inifile>", "path of ini config file that contains paste configuration"},
-{"pyshell", "run a python interactive shell in the uwsgi environment (steals a worker)"},
-
-
- { 0, 0},
+	{0, 0, 0, 0, 0, 0, 0},
 };
 
 /* this routine will be called after each fork to reinitialize the various locks */
@@ -750,110 +738,6 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 	}
 	return 0;
 
-}
-
-int uwsgi_python_manage_options(int i, char *optarg) {
-
-	glob_t g;
-	int j;
-
-	switch (i) {
-	case 'w':
-		up.wsgi_config = optarg;
-		return 1;
-	case LONG_ARGS_WSGI_FILE:
-	case LONG_ARGS_FILE_CONFIG:
-		up.file_config = optarg;
-		return 1;
-	case LONG_ARGS_EVAL_CONFIG:
-		up.eval = optarg;
-		return 1;
-	case LONG_ARGS_PYMODULE_ALIAS:
-		if (up.pymodule_alias_cnt < MAX_PYMODULE_ALIAS) {
-			up.pymodule_alias[up.pymodule_alias_cnt] = optarg;
-			up.pymodule_alias_cnt++;
-		}
-		else {
-			uwsgi_log("you can specify at most %d --pymodule-alias options\n", MAX_PYMODULE_ALIAS);
-		}
-		return 1;
-	case LONG_ARGS_PYSHELL:
-		uwsgi.honour_stdin = 1;
-		up.pyshell = 1;
-		return 1;
-	case LONG_ARGS_PYSHELL_ONESHOT:
-		uwsgi.honour_stdin = 1;
-		up.pyshell = 1;
-		up.pyshell_oneshot = 1;
-		return 1;
-	case LONG_ARGS_SHARED_PYIMPORT:
-		uwsgi_string_new_list(&up.shared_import_list, optarg);
-		return 1;
-	case LONG_ARGS_PYIMPORT:
-		uwsgi_string_new_list(&up.import_list, optarg);
-		return 1;
-	case LONG_ARGS_SPOOLER_PYIMPORT:
-		uwsgi_string_new_list(&up.spooler_import_list, optarg);
-		return 1;
-	case LONG_ARGS_POST_PYMODULE_ALIAS:
-		uwsgi_string_new_list(&up.post_pymodule_alias, optarg);
-		return 1;
-	case LONG_ARGS_PYTHONPATH:
-		if (glob(optarg, GLOB_MARK, NULL, &g)) {
-			uwsgi_string_new_list(&up.python_path, optarg);
-		}
-		else {
-			for (j = 0; j < (int) g.gl_pathc; j++) {
-				uwsgi_string_new_list(&up.python_path, g.gl_pathv[j]);
-			}
-		}
-		return 1;
-	case LONG_ARGS_PYARGV:
-		up.argv = optarg;
-		return 1;
-	case 'J':
-		up.test_module = optarg;
-		return 1;
-	case 'H':
-		up.home = optarg;
-		return 1;
-	case 'O':
-		up.optimize = atoi(optarg);
-		return 1;
-	case LONG_ARGS_CALLABLE:
-		up.callable = optarg;
-		return 1;
-
-
-#ifdef UWSGI_INI
-	case LONG_ARGS_INI_PASTE:
-		uwsgi_string_new_list(&uwsgi.ini,optarg);
-		if (optarg[0] != '/') {
-			up.paste = uwsgi_concat4("config:", uwsgi.cwd, "/", optarg);
-		}
-		else {
-			up.paste = uwsgi_concat2("config:", optarg);
-		}
-		return 1;
-#endif
-	case LONG_ARGS_WEB3:
-		up.web3 = optarg;
-		return 1;
-	case LONG_ARGS_PUMP:
-		up.pump = optarg;
-		return 1;
-	case LONG_ARGS_WSGI_LITE:
-		up.wsgi_lite = optarg;
-		return 1;
-	case LONG_ARGS_PASTE:
-		up.paste = optarg;
-		return 1;
-
-
-
-	}
-
-	return 0;
 }
 
 int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
@@ -1573,8 +1457,6 @@ struct uwsgi_plugin python_plugin = {
 	.init = uwsgi_python_init,
 	.post_fork = uwsgi_python_post_fork,
 	.options = uwsgi_python_options,
-	.manage_opt = uwsgi_python_manage_options,
-	.short_options = "w:O:H:J:",
 	.request = uwsgi_request_wsgi,
 	.after_request = uwsgi_after_request_wsgi,
 
@@ -1612,6 +1494,5 @@ struct uwsgi_plugin python_plugin = {
 
 	.code_string = uwsgi_python_code_string,
 
-	.help = uwsgi_python_help,
 
 };

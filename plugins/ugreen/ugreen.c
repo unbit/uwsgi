@@ -21,10 +21,10 @@ struct uwsgi_ugreen {
 
 extern struct uwsgi_server uwsgi;
 
-struct option ugreen_options[] = {
-	{"ugreen", no_argument, &ug.ugreen, 1},
-	{"ugreen-stacksize", required_argument, 0, LONG_ARGS_UGREEN_PAGES},
-	{ 0, 0, 0, 0 }
+struct uwsgi_option ugreen_options[] = {
+	{"ugreen", no_argument, 0, "enable ugreen coroutine subsystem", uwsgi_opt_true, &ug.ugreen, 1},
+	{"ugreen-stacksize", required_argument, 0, "set ugreen stack size in pages", uwsgi_opt_set_int, &ug.stackpages, 0},
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 void u_green_request() {
@@ -126,21 +126,9 @@ int u_green_init() {
 
 }
 
-int uwsgi_ugreen_manage_opt(int i, char *optarg) {
-
-	switch(i) {
-		case LONG_ARGS_UGREEN_PAGES:
-                        ug.stackpages = atoi(optarg);
-                        return 1;
-	}
-
-	return 0;
-}
-
 struct uwsgi_plugin ugreen_plugin = {
 
 	.name = "ugreen",
 	.init = u_green_init,
 	.options = ugreen_options,
-	.manage_opt = uwsgi_ugreen_manage_opt,
 };

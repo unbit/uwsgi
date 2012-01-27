@@ -17,24 +17,6 @@ extern struct uwsgi_server uwsgi;
 #include "../../lib/corerouter.h"
 
 
-#define LONG_ARGS_FASTROUTER				150001
-#define LONG_ARGS_FASTROUTER_EVENTS			150002
-#define LONG_ARGS_FASTROUTER_USE_PATTERN		150003
-#define LONG_ARGS_FASTROUTER_USE_BASE			150004
-#define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER	150005
-#define LONG_ARGS_FASTROUTER_TIMEOUT			150006
-#define LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT		150007
-#define LONG_ARGS_FASTROUTER_USE_CODE_STRING		150008
-#define LONG_ARGS_FASTROUTER_TOLERANCE			150009
-#define LONG_ARGS_FASTROUTER_STATS			150010
-#define LONG_ARGS_FASTROUTER_ZERG			150011
-#define LONG_ARGS_FASTROUTER_HARAKIRI			150012
-#define LONG_ARGS_FASTROUTER_USE_SOCKET			150013
-#define LONG_ARGS_FASTROUTER_TO				150014
-#define LONG_ARGS_FASTROUTER_POST_BUFFERING		150015
-#define LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR		150016
-#define LONG_ARGS_FASTROUTER_PROCESSES			150017
-
 #define FASTROUTER_STATUS_FREE 0
 #define FASTROUTER_STATUS_CONNECTING 1
 #define FASTROUTER_STATUS_RECV_HDR 2
@@ -104,7 +86,8 @@ struct uwsgi_fastrouter {
 
 } ufr;
 
-struct option fastrouter_options[] = {
+struct uwsgi_option fastrouter_options[] = {
+/*
 	{"fastrouter", required_argument, 0, LONG_ARGS_FASTROUTER},
 	{"fastrouter-processes", required_argument, 0, LONG_ARGS_FASTROUTER_PROCESSES},
 	{"fastrouter-workers", required_argument, 0, LONG_ARGS_FASTROUTER_PROCESSES},
@@ -127,7 +110,8 @@ struct option fastrouter_options[] = {
 	{"fastrouter-stats-server", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-ss", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
 	{"fastrouter-harakiri", required_argument, 0, LONG_ARGS_FASTROUTER_HARAKIRI},
-	{0, 0, 0, 0},
+*/
+	{0, 0, 0, 0, 0, 0, 0},
 };
 
 extern struct uwsgi_server uwsgi;
@@ -863,6 +847,7 @@ int fastrouter_init() {
 	return 0;
 }
 
+/*
 int fastrouter_opt(int i, char *optarg) {
 
 	char *cs;
@@ -966,13 +951,13 @@ int fastrouter_opt(int i, char *optarg) {
 	}
 	return 0;
 }
+*/
 
 
 struct uwsgi_plugin fastrouter_plugin = {
 
 	.name = "fastrouter",
 	.options = fastrouter_options,
-	.manage_opt = fastrouter_opt,
 	.init = fastrouter_init,
 };
 

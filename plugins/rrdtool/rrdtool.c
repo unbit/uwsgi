@@ -18,11 +18,13 @@ struct uwsgi_rrdtool {
 	char *update_area;
 } u_rrd;
 
-struct option rrdtool_options[] = {
+struct uwsgi_option rrdtool_options[] = {
+/*
 	{"rrdtool", required_argument, 0, RRDTOOL_OPT_RRDTOOL},
 	{"rrdtool-freq", required_argument, 0, RRDTOOL_OPT_RRDTOOL_FREQ},
 	{"rrdtool-max-ds", required_argument, 0, RRDTOOL_OPT_RRDTOOL_MAX_DS},
-	{0, 0, 0, 0},
+*/
+	{0, 0, 0, 0, 0, 0, 0},
 
 };
 
@@ -51,6 +53,7 @@ int rrdtool_init() {
 	return 0;
 }
 
+/*
 int rrdtool_opt(int i, char *optarg) {
 
 	switch(i) {
@@ -68,6 +71,7 @@ int rrdtool_opt(int i, char *optarg) {
 
 	return 0;
 }
+*/
 
 void rrdtool_post_init() {
 
@@ -188,7 +192,6 @@ void rrdtool_master_cycle() {
 struct uwsgi_plugin rrdtool_plugin = {
 	
 	.options = rrdtool_options,
-	.manage_opt = rrdtool_opt,
 
 	.master_cycle = rrdtool_master_cycle,
 	

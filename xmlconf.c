@@ -90,7 +90,7 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, int app_tag
 		for (node = element->children; node; node = node->next) {
 			if (node->type == XML_CDATA_SECTION_NODE) {
 				if (node->content) {
-					manage_opt(LONG_ARGS_EVAL_CONFIG, (char *) node->content);
+					uwsgi_manage_opt("eval", (char *) node->content);
 				}
 			}
 			else if (node->type == XML_ELEMENT_NODE) {

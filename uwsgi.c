@@ -72,14 +72,14 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_CGI_MODE,0},
 	{"abstract-socket", no_argument, 'a', "force UNIX socket in abstract mode (Linux only)", uwsgi_opt_true, &uwsgi.abstract_socket,0},
 	//{"chmod-socket|chmod", optional_argument, 'C', "chmod-socket", uwsgi_opt_set_mode, &uwsgi.chmod_socket,0},
-//	{"chown-socket", required_argument, 0, LONG_ARGS_CHOWN_SOCKET,0},
+	{"chown-socket", required_argument, 0, "chown unix sockets", uwsgi_opt_set_str, &uwsgi.chown_socket, 0},
 	//{"umask", required_argument, 0, "set umask", uwsgi_opt_set_umask, NULL, UWSGI_OPT_IMMEDIATE},
 #ifdef __linux__
 	{"freebind", no_argument, 0, "put socket in freebind mode", uwsgi_opt_true, &uwsgi.freebind,0},
 #endif
 //	{"map-socket", required_argument, 0, LONG_ARGS_MAP_SOCKET,0},
 #ifdef UWSGI_THREADING
-//	{"enable-threads", no_argument, 0, 'T',0},
+	{"enable-threads", no_argument, 'T', "enable threads", uwsgi_opt_true, &uwsgi.has_threads, 0},
 #endif
 	{"auto-procname", no_argument, 0, "automatically set processes name to something meaningful", uwsgi_opt_true, &uwsgi.auto_procname,0},
 /*
@@ -88,15 +88,15 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"procname-append", required_argument, 0, LONG_ARGS_PROCNAME_APPEND,0},
 	{"procname", required_argument, 0, LONG_ARGS_PROCNAME,0},
 	{"procname-master", required_argument, 0, LONG_ARGS_PROCNAME_MASTER,0},
-	{"single-interpreter", no_argument, 0, 'i',0},
 */
+	{"single-interpreter", no_argument, 'i', "do not use multiple interpreters (where available)", uwsgi_opt_true, &uwsgi.single_interpreter, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process,0},
 	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_set_str, &uwsgi.emperor_dir,0},
 	{"emperor-tyrant", no_argument, 0, "put the Emperor in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant,0},
+	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
+	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
+	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},
 /*
-	{"emperor-stats", required_argument, 0, LONG_ARGS_EMPEROR_STATS,0},
-	{"emperor-stats-server", required_argument, 0, LONG_ARGS_EMPEROR_STATS,0},
-	{"early-emperor", no_argument, &uwsgi.early_emperor, 1,0},
 	{"emperor-broodlord", required_argument, 0, LONG_ARGS_EMPEROR_BROODLORD,0},
 	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST,0},
 	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME,0},
@@ -107,10 +107,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"vassals-stop-hook", required_argument, 0, LONG_ARGS_VASSALS_STOP_HOOK,0},
 	{"vassal-sos-backlog", required_argument, 0, LONG_ARGS_VASSAL_SOS_BACKLOG,0},
 	{"auto-snapshot", optional_argument, 0, LONG_ARGS_AUTO_SNAPSHOT,0},
-	{"reload-mercy", required_argument, 0, LONG_ARGS_RELOAD_MERCY,0},
 */
+	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"exit-on-reload", no_argument, 0, "force exit even if a reload is requested", uwsgi_opt_true, &uwsgi.exit_on_reload,0},
-//	{"die-on-term", no_argument, &uwsgi.die_on_term, 1,0},
+	{"die-on-term", no_argument, 0, "exit instead of brutal reload on SIGTERM", uwsgi_opt_true, &uwsgi.die_on_term, 0},
 	//{"help|usage", no_argument, 'h', "show this help", uwsgi_opt_help, NULL,0},
 	//{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_true, &uwsgi.process_reaper,0},
 	//{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_long, &uwsgi.max_requests,0},
@@ -118,13 +118,15 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"socket-timeout", required_argument, 0, 'z',0},
 	{"no-fd-passing", no_argument, &uwsgi.no_fd_passing, 1,0},
 	{"locks", required_argument, 0, LONG_ARGS_LOCKS,0},
-	{"sharedarea", required_argument, 0, 'A',0},
 */
-	//{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_create_cache, NULL,0},
+	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
+	{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_set_int, &uwsgi.cache_max_items, 0},
 /*
 	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE,0},
 	{"cache-store", required_argument, 0, LONG_ARGS_CACHE_STORE,0},
-	{"cache-store-sync", required_argument, 0, LONG_ARGS_CACHE_STORE_SYNC,0},
+*/
+	{"cache-store-sync", required_argument, 0, "set frequency of sync for persistent cache", uwsgi_opt_set_int, &uwsgi.cache_store_sync,0},
+/*
 	{"cache-server", required_argument, 0, LONG_ARGS_CACHE_SERVER,0},
 	{"cache-server-threads", required_argument, 0, LONG_ARGS_CACHE_SERVER_THREADS,0},
 	{"queue", required_argument, 0, LONG_ARGS_QUEUE,0},
@@ -135,7 +137,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_SPOOLER
 	//{"spooler", required_argument, 'Q', "run a spooler on the specified directory", uwsgi_opt_new_spooler, NULL,0},
 	{"spooler-ordered", no_argument, 0, "try to order the execution of spooler tasks", uwsgi_opt_true, &uwsgi.spooler_ordered,0},
-//	{"spooler-chdir", required_argument, 0, LONG_ARGS_SPOOLER_CHDIR,0},
+	{"spooler-chdir", required_argument, 0, "chdir() to specified directory before each spooler task", uwsgi_opt_set_str, &uwsgi.spooler_chdir,0},
 #endif
 /*
 	{"mule", optional_argument, 0, LONG_ARGS_MULE,0},
@@ -144,8 +146,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"signal-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE,0},
 	{"signals-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE,0},
 	{"farm", required_argument, 0, LONG_ARGS_FARM,0},
-	{"disable-logging", no_argument, 0, 'L',0},
 */
+	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOGGING, 0},
 
 	{"pidfile", required_argument, 0, "create pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile,0},
 	{"pidfile2", required_argument, 0, "create pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile2,0},
@@ -274,26 +276,30 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root,0},
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
+	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
+	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, 0},
 /*
-	{"lazy", no_argument, &uwsgi.lazy, 1,0},
-	{"cheap", no_argument, &uwsgi.cheap, 1,0},
 	{"cheaper", required_argument, 0, LONG_ARGS_CHEAPER,0},
 	{"cheaper-step", required_argument, 0, LONG_ARGS_CHEAPER_STEP,0},
 */
-	{"idle", required_argument, 0, "set idle mode", uwsgi_opt_set_int, &uwsgi.idle, 0},
+	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, 0},
+	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 /*
-	{"die-on-idle", no_argument, &uwsgi.die_on_idle, 1,0},
 	{"mount", required_argument, 0, LONG_ARGS_MOUNT,0},
 #ifdef UWSGI_PCRE
 	{"regexp-mount", required_argument, 0, LONG_ARGS_REGEXP_MOUNT,0},
 #endif
-	{"grunt", no_argument, &uwsgi.grunt, 1,0},
+*/
+	{"grunt", no_argument, 0, "enable grunt mode (in-request fork)", uwsgi_opt_true, &uwsgi.grunt, 0},
+/*
 	{"threads", required_argument, 0, LONG_ARGS_THREADS,0},
 	{"threads-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
 	{"thread-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
 	{"threads-stack-size", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
 	{"thread-stack-size", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
-	{"vhost", no_argument, &uwsgi.vhost, 1,0},
+*/
+	{"vhost", no_argument, 0, "enable virtualhosting mode (based on SERVER_NAME variable)", uwsgi_opt_true, &uwsgi.vhost, 0},
+/*
 	{"vhost-host", no_argument, 0, LONG_ARGS_VHOSTHOST,0},
 #ifdef UWSGI_ROUTING
 	{"routing", no_argument, &uwsgi.routing, 1,0},
@@ -309,8 +315,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE,0},
 	{"fileserve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE,0},
 	{"check-cache", no_argument, &uwsgi.check_cache, 1,0},
-	{"close-on-exec", no_argument, &uwsgi.close_on_exec, 1,0},
 */
+	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode,0},
 /*
 	{"env", required_argument, 0, LONG_ARGS_ENV,0},
@@ -342,8 +348,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options,0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config,0},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL,0},
-	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION,0},
-	{0, 0, 0, 0}
+	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
+	{0, 0, 0, 0, 0, 0, 0}
 };
 
 void show_config(void) {

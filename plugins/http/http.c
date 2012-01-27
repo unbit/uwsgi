@@ -19,14 +19,6 @@ extern struct uwsgi_server uwsgi;
 #define MAX_HTTP_VEC 128
 #define MAX_HTTP_EXTRA_VARS 64
 
-#define LONG_ARGS_HTTP_EVENTS			300001
-#define LONG_ARGS_HTTP_USE_PATTERN		300002
-#define LONG_ARGS_HTTP_USE_BASE			300003
-#define LONG_ARGS_HTTP_USE_TO			300004
-#define LONG_ARGS_HTTP_SUBSCRIPTION_SERVER	300005
-#define LONG_ARGS_HTTP_TIMEOUT			300006
-#define LONG_ARGS_HTTP_PROCESSES		300007
-
 #define HTTP_STATUS_FREE 0
 #define HTTP_STATUS_CONNECTING 1
 #define HTTP_STATUS_RECV 2
@@ -75,7 +67,8 @@ struct uwsgi_http {
 	struct rb_root *timeouts;
 } uhttp;
 
-struct option http_options[] = {
+struct uwsgi_option http_options[] = {
+/*
 	{"http", required_argument, 0, LONG_ARGS_HTTP},
 	{"http-processes", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
 	{"http-workers", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
@@ -91,7 +84,8 @@ struct option http_options[] = {
 	{"http-subscription-use-regexp", no_argument, &uhttp.subscription_regexp, 1},
 	{"http-timeout", required_argument, 0, LONG_ARGS_HTTP_TIMEOUT},
 	{"http-manage-expect", no_argument, &uhttp.manage_expect, 1},
-	{0, 0, 0, 0},
+*/
+	{0, 0, 0, 0, 0, 0, 0},
 };
 
 extern struct uwsgi_server uwsgi;
@@ -984,11 +978,7 @@ int http_init() {
 	return 0;
 }
 
-struct uwsgi_help_item http_help[] = {
-	{"http-to <addr>", "forward http requests to uwsgi instance bound at <addr>"},
-	{0, 0}
-};
-
+/*
 int http_opt(int i, char *optarg) {
 
 	struct uwsgi_gateway_socket *ugs;	
@@ -1042,6 +1032,7 @@ int http_opt(int i, char *optarg) {
 	}
 	return 0;
 }
+*/
 
 
 
@@ -1049,7 +1040,5 @@ struct uwsgi_plugin http_plugin = {
 
 	.name = "http",
 	.options = http_options,
-	.manage_opt = http_opt,
-	.help = http_help,
 	.init = http_init,
 };
