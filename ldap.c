@@ -108,7 +108,7 @@ struct uwsgi_ldap_entry *search_ldap_cache(struct uwsgi_ldap_entry *root, char *
 
 struct uwsgi_ldap_entry *get_ldap_names(int *count) {
 
-	struct option *aopt, *lopt;
+	struct uwsgi_option *aopt, *lopt;
 	struct uwsgi_ldap_entry *ule, *entry;
 	char ldap_name[1024];
 	static int counter = 30000000;
@@ -116,7 +116,7 @@ struct uwsgi_ldap_entry *get_ldap_names(int *count) {
 	*count = 0;
 	lopt = uwsgi.long_options;
 
-	ule = uwsgi_malloc(sizeof(struct uwsgi_ldap_entry)*count_options(lopt));
+	ule = uwsgi_malloc(sizeof(struct uwsgi_ldap_entry)*uwsgi_count_options(lopt));
 
 	while( (aopt = lopt) ) {
                 if (!aopt->name)

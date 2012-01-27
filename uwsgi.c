@@ -32,9 +32,6 @@ char **environ;
 extern char **environ;
 #endif
 
-static char *short_options = NULL;
-
-//static char *base_short_options = "s:S:p:t:x:d:l:v:b:mcaCTiMhrR:z:A:Q:Ly:";
 
 UWSGI_DECLARE_EMBEDDED_PLUGINS;
 
@@ -172,7 +169,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_YAML
-	//{"yaml|yml", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yaml, NULL,0},
+	{"yaml", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL,UWSGI_OPT_IMMEDIATE},
+	{"yal", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL,UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_JSON
 	//{"json|js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL,0},
@@ -1329,15 +1327,20 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.option_index = -1;
 
-	short_options = "";	
 	char *optname;
-	while ((i = getopt_long(uwsgi.argc, uwsgi.argv, short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
+	while ((i = getopt_long(uwsgi.argc, uwsgi.argv, uwsgi.short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
+
+		if (i == '?') exit(1);
 
 		if (uwsgi.option_index > -1) {
 			optname = (char *) uwsgi.long_options[uwsgi.option_index].name;
 		}
 		else {
 			optname = uwsgi_get_optname_by_index(i);
+		}
+		if (!optname) {
+			uwsgi_log("unable to parse command line options\n");
+			exit(1);
 		}
 		uwsgi.option_index = -1;
 		add_exported_option(optname, optarg, 0);
@@ -1357,20 +1360,20 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_XML
 				else if (!strcmp(lazy + strlen(lazy) - 4, ".xml")) {
-					uwsgi.xml_config = lazy;
+					uwsgi_opt_load_xml(NULL, lazy, 0, NULL);
 				}
 #endif
 #ifdef UWSGI_INI
 				else if (!strcmp(lazy + strlen(lazy) - 4, ".ini")) {
-					uwsgi_opt_load_ini("ini", lazy, 0, NULL);
+					uwsgi_opt_load_ini(NULL, lazy, 0, NULL);
 				}
 #endif
 #ifdef UWSGI_YAML
 				else if (!strcmp(lazy + strlen(lazy) - 4, ".yml")) {
-					uwsgi.yaml = lazy;
+					uwsgi_opt_load_yml(NULL, lazy, 0, NULL);
 				}
 				else if (!strcmp(lazy + strlen(lazy) - 5, ".yaml")) {
-					uwsgi.yaml = lazy;
+					uwsgi_opt_load_yml(NULL, lazy, 0, NULL);
 				}
 #endif
 #ifdef UWSGI_JSON
@@ -3013,25 +3016,71 @@ void build_options() {
 
 	int options_count = 0;
 	int pos = 0;
+	int i;
 	// first count the base options
-
-	uwsgi.options = uwsgi_base_options;
 
 	struct uwsgi_option *op = uwsgi_base_options;
 	while(op->name) {
-		uwsgi_log("option name = %s\n", op->name);
 		options_count++;
 		op++;
 	}
 
-	uwsgi.long_options = uwsgi_calloc(sizeof(struct option) * options_count+1);
-	
+	for(i=0;i<0xFF;i++) {
+		if (uwsgi.p[i]->options) {
+			options_count += uwsgi_count_options(uwsgi.p[i]->options);
+		}
+	}
+
+	for(i=0;i<uwsgi.gp_cnt;i++) {
+		if (uwsgi.gp[i]->options) {
+			options_count += uwsgi_count_options(uwsgi.gp[i]->options);
+		}
+	}
+
+	uwsgi.options = uwsgi_calloc(sizeof(struct uwsgi_option) * options_count+1);
+
 	op = uwsgi_base_options;
+        while(op->name) {
+		memcpy(&uwsgi.options[pos], op, sizeof(struct uwsgi_option));	
+		pos++;
+		op++;
+	}
+
+	for(i=0;i<0xFF;i++) {
+		if (uwsgi.p[i]->options) {
+			int c = uwsgi_count_options(uwsgi.p[i]->options);
+			memcpy(&uwsgi.options[pos], uwsgi.p[i]->options, sizeof(struct uwsgi_option) * c);
+			pos += c;
+		}
+	}
+
+	for(i=0;i<uwsgi.gp_cnt;i++) {
+		if (uwsgi.gp[i]->options) {
+			int c = uwsgi_count_options(uwsgi.gp[i]->options);
+			memcpy(&uwsgi.options[pos], uwsgi.gp[i]->options, sizeof(struct uwsgi_option) * c);
+			pos += c;
+		}
+	}
+
+	pos = 0;
+
+	uwsgi.long_options = uwsgi_calloc(sizeof(struct option) * options_count+1);
+
+	uwsgi.short_options = uwsgi_calloc( (options_count * 2) + 1) ;
+	
+	op = uwsgi.options;
 	while(op->name) {
 		uwsgi.long_options[pos].name = op->name;
 		uwsgi.long_options[pos].has_arg = op->type;
 		uwsgi.long_options[pos].flag = 0;
 		uwsgi.long_options[pos].val = pos+1;
+		if (op->shortcut) {
+			char shortcut = (char) op->shortcut;
+			strncat(uwsgi.short_options, &shortcut, 1);
+			if (op->type != no_argument) {
+				strcat(uwsgi.short_options, ":");
+			}
+		}
 		op++;
 		pos++;	
 	}
@@ -3373,5 +3422,12 @@ void uwsgi_opt_load_ini(char *opt, char *filename, int id, void *none) {
 void uwsgi_opt_load_xml(char *opt, char *filename, int id, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_xml_config(filename, uwsgi.wsgi_req, 0, uwsgi.magic_table);
+}
+#endif
+
+#ifdef UWSGI_YAML
+void uwsgi_opt_load_yml(char *opt, char *filename, int id, void *none) {
+	config_magic_table_fill(filename, uwsgi.magic_table);
+	uwsgi_yaml_config(filename, uwsgi.magic_table);
 }
 #endif

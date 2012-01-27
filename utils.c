@@ -1520,15 +1520,16 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 	return -1;
 }
 
-int count_options(struct option *lopt) {
-	struct option *aopt;
+int uwsgi_count_options(struct uwsgi_option *uopt) {
+
+	struct uwsgi_option *aopt;
 	int count = 0;
 
-	while ((aopt = lopt)) {
+	while ((aopt = uopt)) {
 		if (!aopt->name)
 			break;
 		count++;
-		lopt++;
+		uopt++;
 	}
 
 	return count;
@@ -2468,16 +2469,13 @@ char *uwsgi_get_exported_opt(char *key) {
 
 char *uwsgi_get_optname_by_index(int index) {
 
-	struct option *aopt;
-	struct option *lopt = uwsgi.long_options;
+	struct uwsgi_option *op = uwsgi.options;
 
-	while ((aopt = lopt)) {
-		if (!aopt->name)
-			break;
-		if (aopt->val == index) {
-			return (char *) aopt->name;
+	while (op->name) {
+		if (op->shortcut == index) {
+			return op->name;
 		}
-		lopt++;
+		op++;
 	}
 
 	return NULL;

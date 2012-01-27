@@ -10,7 +10,7 @@ struct uwsgi_ping {
 struct uwsgi_option uwsgi_ping_options[] = {
 	//{"ping", required_argument, 0, "ping specified uwsgi host", uwsgi_opt_ping, NULL, 0},
 	{"ping-timeout", required_argument, 0, "set ping timeout", uwsgi_opt_set_int, &uping.ping_timeout, 0},
-	{ 0, 0, 0, 0 }
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 static void ping() {

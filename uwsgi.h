@@ -1028,6 +1028,7 @@ struct uwsgi_server {
 	int option_index;
 	struct uwsgi_option *options;
 	struct option *long_options;
+	char *short_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
 
@@ -1931,7 +1932,7 @@ int find_worker_id(pid_t);
 void *simple_loop(void *);
 void *zeromq_loop(void *);
 
-int count_options(struct option *);
+int uwsgi_count_options(struct uwsgi_option *);
 
 #ifdef UWSGI_SENDFILE
 ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t *, int);
@@ -2495,6 +2496,9 @@ void uwsgi_opt_load_ini(char *, char *, int, void *);
 #endif
 #ifdef UWSGI_XML
 void uwsgi_opt_load_xml(char *, char *, int, void *);
+#endif
+#ifdef UWSGI_YAML
+void uwsgi_opt_load_yml(char *, char *, int, void *);
 #endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
