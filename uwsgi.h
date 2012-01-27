@@ -37,6 +37,12 @@ extern "C" {
 
 #define ushared uwsgi.shared
 
+#define UWSGI_OPT_PRIO_NORMAL	0
+#define UWSGI_OPT_IMMEDIATE	1
+#define UWSGI_OPT_PRIO_HIGH	1
+#define UWSGI_OPT_PRIO_HIGHER	2
+#define UWSGI_OPT_PRIO_HIGHEST	3
+
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
@@ -415,181 +421,27 @@ struct uwsgi_cache_item {
 	char key[UWSGI_CACHE_MAX_KEY_SIZE];
 } __attribute__ ((__packed__));
 
+struct uwsgi_option {
+	char *name;
+	int type;
+	int shortcut;
+	char *help;
+	void (*func)(char *, char *, int, void *);
+	void *data;
+	int prio;
+};
+
 struct uwsgi_opt {
 	char *key;
 	char *value;
 	int configured;
+	int prio;
 };
 
 #define MAX_CLUSTER_NODES	100
 
 #define UWSGI_NODE_OK		0
 #define UWSGI_NODE_FAILED	1
-
-#define LONG_ARGS_PIDFILE		17001
-#define LONG_ARGS_CHROOT		17002
-#define LONG_ARGS_GID			17003
-#define LONG_ARGS_UID			17004
-#define LONG_ARGS_CHECK_INTERVAL	17007
-#define LONG_ARGS_LIMIT_AS		17009
-#define LONG_ARGS_UDP			17010
-#define LONG_ARGS_WSGI_FILE             17011
-#define LONG_ARGS_BINARY_PATH		17014
-#define LONG_ARGS_PROXY			17015
-#define LONG_ARGS_PROXY_NODE		17016
-#define LONG_ARGS_PROXY_MAX_CONNECTIONS	17017
-#define LONG_ARGS_VERSION		17018
-#define LONG_ARGS_SNMP			17019
-#define LONG_ARGS_SNMP_COMMUNITY	17020
-#define LONG_ARGS_ASYNC			17021
-#define LONG_ARGS_UGREEN_PAGES		17022
-#define LONG_ARGS_FILE_CONFIG		17023
-#define LONG_ARGS_MULTICAST		17024
-#define LONG_ARGS_LOGTO			17025
-#define LONG_ARGS_PRIO			17026
-#define LONG_ARGS_POST_BUFFERING	17027
-#define LONG_ARGS_POST_BUFFERING_SIZE	17028
-#define LONG_ARGS_LIMIT_POST		17029
-#define LONG_ARGS_HTTP			17030
-#define LONG_ARGS_MODE			17031
-#define LONG_ARGS_CHDIR			17032
-#define LONG_ARGS_ENV			17033
-#define LONG_ARGS_CHDIR2		17034
-#define LONG_ARGS_INI			17035
-#define LONG_ARGS_LDAP_SCHEMA		17036
-#define LONG_ARGS_LDAP			17037
-#define LONG_ARGS_LDAP_SCHEMA_LDIF	17038
-#define LONG_ARGS_PING			17039
-#define LONG_ARGS_PING_TIMEOUT		17040
-#define LONG_ARGS_INI_PASTE		17041
-#define LONG_ARGS_CALLABLE		17042
-#define LONG_ARGS_HTTP_VAR		17043
-#define LONG_ARGS_NO_DEFAULT_APP	17044
-#define LONG_ARGS_EVAL_CONFIG		17045
-#define LONG_ARGS_CGROUP		17046
-#define LONG_ARGS_CGROUP_OPT		17047
-#define LONG_ARGS_LOG_ZERO		17048
-#define LONG_ARGS_LOG_SLOW		17049
-#define LONG_ARGS_LOG_4xx		17050
-#define LONG_ARGS_LOG_5xx		17051
-#define LONG_ARGS_LOG_BIG		17052
-#define LONG_ARGS_MOUNT			17053
-#define LONG_ARGS_THREADS		17054
-#define LONG_ARGS_LOG_SENDFILE		17055
-#define LONG_ARGS_HTTP_MODIFIER1	17056
-#define LONG_ARGS_PLUGINS		17057
-#define LONG_ARGS_LOOP			17058
-#define LONG_ARGS_VHOSTHOST		17059
-#define LONG_ARGS_UPLOAD_PROGRESS	17060
-#define LONG_ARGS_REMAP_MODIFIER	17061
-#define LONG_ARGS_CLUSTER		17062
-#define LONG_ARGS_CLUSTER_RELOAD	17063
-#define LONG_ARGS_CLUSTER_LOG		17064
-#define LONG_ARGS_CACHE			17065
-#define LONG_ARGS_LINUX_NS		17066
-#define LONG_ARGS_LOG_DATE		17067
-#define LONG_ARGS_LOG_SYSLOG		17068
-#define LONG_ARGS_LOG_MASTER		17069
-#define LONG_ARGS_CHECK_STATIC		17070
-#define LONG_ARGS_WORKER_EXEC		17071
-#define LONG_ARGS_EMPEROR		17072
-#define LONG_ARGS_PRINT			17073
-#define LONG_ARGS_CACHE_BLOCKSIZE	17074
-#define LONG_ARGS_QUEUE			17075
-#define LONG_ARGS_QUEUE_BLOCKSIZE	17076
-#define LONG_ARGS_ATTACH_DAEMON		17077
-#define LONG_ARGS_SUBSCRIBE_TO		17078
-#define LONG_ARGS_CLUSTER_NODES		17079
-#define LONG_ARGS_RELOAD_MERCY		17080
-#define LONG_ARGS_ALLOWED_MODIFIERS	17081
-#define LONG_ARGS_LINUX_NS_NET		17082
-#define LONG_ARGS_CPU_AFFINITY		17083
-#define LONG_ARGS_CACHE_STORE		17084
-#define LONG_ARGS_CACHE_STORE_SYNC	17085
-#define LONG_ARGS_QUEUE_STORE		17086
-#define LONG_ARGS_QUEUE_STORE_SYNC	17087
-#define LONG_ARGS_PIDFILE2		17088
-#define LONG_ARGS_MAP_SOCKET		17089
-#define LONG_ARGS_SHARED_SOCKET		17090
-#define LONG_ARGS_STATIC_MAP		17091
-#define LONG_ARGS_FILE_SERVE_MODE	17092
-#define LONG_ARGS_RELOAD_ON_AS		17093
-#define LONG_ARGS_RELOAD_ON_RSS		17094
-#define LONG_ARGS_TOUCH_RELOAD		17095
-#define LONG_ARGS_EMPEROR_AMQP_VHOST	17096
-#define LONG_ARGS_EMPEROR_AMQP_USERNAME	17097
-#define LONG_ARGS_EMPEROR_AMQP_PASSWORD	17098
-#define LONG_ARGS_PROTOCOL		17099
-#define LONG_ARGS_ZEROMQ		17100
-#define LONG_ARGS_INHERIT		17101
-#define LONG_ARGS_VASSALS_INHERIT	17102
-#define LONG_ARGS_SOCKET_PROTOCOL	17103
-#define LONG_ARGS_LOG_ZEROMQ		17104
-#define LONG_ARGS_PROFILER		17105
-#define LONG_ARGS_SQLITE3		17106
-#define LONG_ARGS_AUTO_SNAPSHOT		17107
-#define LONG_ARGS_LOG_SOCKET		17108
-#define LONG_ARGS_ADD_HEADER		17109
-#define LONG_ARGS_IDLE			17120
-#define LONG_ARGS_VASSALS_START_HOOK	17121
-#define LONG_ARGS_VASSALS_STOP_HOOK	17122
-#define LONG_ARGS_CRON			17123
-#define LONG_ARGS_ZERG			17124
-#define LONG_ARGS_ZERG_SERVER		17125
-#define LONG_ARGS_LOGTO2		17126
-#define LONG_ARGS_VASSAL_SOS_BACKLOG	17127
-#define LONG_ARGS_EMPEROR_BROODLORD	17128
-#define LONG_ARGS_CACHE_SERVER		17129
-#define LONG_ARGS_CACHE_SERVER_THREADS	17130
-#define LONG_ARGS_CHOWN_SOCKET		17131
-#define LONG_ARGS_HTTP_SOCKET		17132
-#define LONG_ARGS_FASTCGI_SOCKET	17133
-#define LONG_ARGS_THREADS_STACKSIZE	17134
-#define LONG_ARGS_EMPEROR_THROTTLE	17135
-#define LONG_ARGS_STOP			17136
-#define LONG_ARGS_RELOAD		17137
-#define LONG_ARGS_REGEXP_MOUNT		17138
-#define LONG_ARGS_MIMEFILE		17139
-#define LONG_ARGS_CHEAPER		17140
-#define LONG_ARGS_CAP			17141
-#define LONG_ARGS_STATS			17142
-#define LONG_ARGS_MULE			17143
-#define LONG_ARGS_LOG_MAXSIZE		17144
-#define LONG_ARGS_LOG_BACKUPNAME	17145
-#define LONG_ARGS_EVIL_RELOAD_ON_AS	17146
-#define LONG_ARGS_EVIL_RELOAD_ON_RSS	17147
-#define LONG_ARGS_SPOOLER_HARAKIRI	17148
-#define LONG_ARGS_MULE_HARAKIRI		17149
-#define LONG_ARGS_EMPEROR_STATS		17150
-#define LONG_ARGS_SPOOLER_CHDIR		17151
-#define LONG_ARGS_LOCKS			17152
-#define LONG_ARGS_PROCNAME_PREFIX	17153
-#define LONG_ARGS_PROCNAME_APPEND	17154
-#define LONG_ARGS_PROCNAME		17155
-#define LONG_ARGS_PROCNAME_MASTER	17156
-#define LONG_ARGS_FARM			17157
-#define LONG_ARGS_MULES			17158
-#define LONG_ARGS_PROCNAME_PREFIX_SP	17159
-#define LONG_ARGS_UMASK			17160
-#define LONG_ARGS_PAUSE			17161
-#define LONG_ARGS_SIGNAL_BUFSIZE	17162
-#define LONG_ARGS_SIGNAL		17163
-#define LONG_ARGS_KSM			17164
-#define LONG_ARGS_LOGFILE_CHMOD		17165
-#define LONG_ARGS_SUBSCRIBE_FREQ	17166
-#define LONG_ARGS_SUBSCR_TOLERANCE	17167
-#define LONG_ARGS_UNSHARE		17168
-#define LONG_ARGS_EXEC_AS_ROOT		17169
-#define LONG_ARGS_EXEC_AS_USER		17170
-#define LONG_ARGS_STATIC_SKIP_EXT	17171
-#define LONG_ARGS_LOGGER		17172
-#define LONG_ARGS_STATIC_INDEX		17173
-#define LONG_ARGS_CHEAPER_STEP		17174
-#define LONG_ARGS_EXEC_PRE_JAIL		17175
-#define LONG_ARGS_EXEC_POST_JAIL	17176
-#define LONG_ARGS_EXEC_IN_JAIL		17177
-#define LONG_ARGS_MAX_FD		17178
-
 
 #define UWSGI_OK	0
 #define UWSGI_AGAIN	1
@@ -706,7 +558,7 @@ struct uwsgi_plugin {
 	int (*init) (void);
 	void (*post_init) (void);
 	void (*post_fork) (void);
-	struct option *options;
+	struct uwsgi_option *options;
 	const char *short_options;
 	int (*manage_opt) (int, char *);
 	void (*enable_threads) (void);
@@ -1182,7 +1034,10 @@ struct uwsgi_server {
 	int exit_on_reload;
 
 	// store options
+	int dirty_config;
+	int config_depth;
 	int option_index;
+	struct uwsgi_option *options;
 	struct option *long_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
@@ -1469,10 +1324,6 @@ struct uwsgi_server {
 
 #ifdef UWSGI_JSON
 	char *json;
-#endif
-
-#ifdef UWSGI_INI
-	struct uwsgi_string_list *ini;
 #endif
 
 #ifdef UWSGI_SQLITE3
@@ -2153,6 +2004,7 @@ void uwsgi_wlock(void *);
 void uwsgi_rwunlock(void *);
 
 inline void *uwsgi_malloc(size_t);
+inline void *uwsgi_calloc(size_t);
 
 
 
@@ -2591,7 +2443,7 @@ void uwsgi_add_app(int, uint8_t, char *, int);
 int uwsgi_signal_send(int, uint8_t);
 int uwsgi_remote_signal_send(char *, uint8_t); 
 
-void uwsgi_configure(void);
+void uwsgi_configure();
 void cluster_setup(void);
 void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
 
@@ -2637,6 +2489,21 @@ void *uwsgi_malloc_shared(size_t);
 struct uwsgi_spooler *uwsgi_new_spooler(char *);
 
 struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *);
+
+int uwsgi_manage_opt(char *, char *);
+
+void uwsgi_opt_print(char *, char *, int, void *);
+void uwsgi_opt_true(char *, char *, int, void *);
+void uwsgi_opt_set_str(char *, char *, int, void *);
+void uwsgi_opt_add_string_list(char *, char *, int, void *);
+void uwsgi_opt_set_int(char *, char *, int, void *);
+void uwsgi_opt_set_dyn(char *, char *, int, void *);
+void uwsgi_opt_add_shared_socket(char *, char *, int, void *);
+void uwsgi_opt_add_socket(char *, char *, int, void *);
+void uwsgi_opt_daemonize(char *, char *, int, void *);
+#ifdef UWSGI_INI
+void uwsgi_opt_load_ini(char *, char *, int, void *);
+#endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

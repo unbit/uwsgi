@@ -112,6 +112,7 @@ check:
 		}
                 if (up) {
 			if (has_option) {
+/*
 				struct option *lopt = up->options, *aopt;
 				int found = 0;
 				while ((aopt = lopt)) {
@@ -131,6 +132,7 @@ check:
 					free(plugin_entry_symbol);
 					return NULL;
 				}
+*/
 				
 			}
 			if (modifier != -1) {

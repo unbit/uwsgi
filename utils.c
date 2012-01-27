@@ -1733,6 +1733,19 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 	return 0;
 }
 
+struct uwsgi_option *uwsgi_opt_get(char *name) {
+	struct uwsgi_option *op = uwsgi.options;
+
+	while(op->name) {
+		if (!strcmp(name, op->name)) {
+			return op;
+		}
+		op++;
+	}
+
+	return NULL;
+}
+
 void add_exported_option(char *key, char *value, int configured) {
 
 	if (!uwsgi.exported_opts) {
@@ -1746,11 +1759,22 @@ void add_exported_option(char *key, char *value, int configured) {
                         }
                 }
 
-                uwsgi.exported_opts[uwsgi.exported_opts_cnt] = uwsgi_malloc(sizeof(struct uwsgi_opt));
-                uwsgi.exported_opts[uwsgi.exported_opts_cnt]->key = key;
-                uwsgi.exported_opts[uwsgi.exported_opts_cnt]->value = value;
-                uwsgi.exported_opts[uwsgi.exported_opts_cnt]->configured = configured;
+		int id = uwsgi.exported_opts_cnt;
+                uwsgi.exported_opts[id] = uwsgi_malloc(sizeof(struct uwsgi_opt));
+                uwsgi.exported_opts[id]->key = key;
+                uwsgi.exported_opts[id]->value = value;
+                uwsgi.exported_opts[id]->configured = configured;
+                uwsgi.exported_opts[id]->prio = uwsgi.config_depth;
                 uwsgi.exported_opts_cnt++;
+		uwsgi.dirty_config = 1;
+
+		struct uwsgi_option *op = uwsgi_opt_get(key);
+		// immediate ?
+		if (op && op->prio == UWSGI_OPT_IMMEDIATE) {
+			op->func(key, value, 0, op->data);
+			uwsgi.exported_opts[id]->configured = 1;
+		}
+
 }
 
 int uwsgi_waitfd(int fd, int timeout) {
@@ -1804,6 +1828,13 @@ inline void *uwsgi_malloc(size_t size) {
 		exit(1);
 	}
 
+	return ptr;
+}
+
+inline void *uwsgi_calloc(size_t size) {
+
+	char *ptr = uwsgi_malloc(size);
+	memset(ptr, 0, size);
 	return ptr;
 }
 
