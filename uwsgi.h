@@ -429,7 +429,6 @@ struct uwsgi_opt {
 	char *key;
 	char *value;
 	int configured;
-	int prio;
 };
 
 #define MAX_CLUSTER_NODES	100
@@ -1026,7 +1025,6 @@ struct uwsgi_server {
 
 	// store options
 	int dirty_config;
-	int config_depth;
 	int option_index;
 	struct uwsgi_option *options;
 	struct option *long_options;
@@ -2494,6 +2492,9 @@ void uwsgi_opt_add_socket(char *, char *, int, void *);
 void uwsgi_opt_daemonize(char *, char *, int, void *);
 #ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *, char *, int, void *);
+#endif
+#ifdef UWSGI_XML
+void uwsgi_opt_load_xml(char *, char *, int, void *);
 #endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

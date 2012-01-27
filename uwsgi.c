@@ -56,7 +56,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"spooler-harakiri", required_argument, 0, "set harakiri timeout for spooler tasks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_SPOOLER_HARAKIRI,0},
 	{"mule-harakiri", required_argument, 0, "set harakiri timeout for mule tasks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MULE_HARAKIRI,0},
 #ifdef UWSGI_XML
-	//{"xmlconfig|xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL,0},
+	{"xmlconfig", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
+	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	//{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL,0},
 	//{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_add_template, NULL,0},
@@ -1360,11 +1361,9 @@ int main(int argc, char *argv[], char *envp[]) {
 				}
 #endif
 #ifdef UWSGI_INI
-/*
 				else if (!strcmp(lazy + strlen(lazy) - 4, ".ini")) {
-					uwsgi_string_new_list(&uwsgi.ini, lazy);
+					uwsgi_opt_load_ini("ini", lazy, 0, NULL);
 				}
-*/
 #endif
 #ifdef UWSGI_YAML
 				else if (!strcmp(lazy + strlen(lazy) - 4, ".yml")) {
@@ -1423,38 +1422,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	
-#ifdef UWSGI_XML
-	if (uwsgi.xml_config != NULL) {
-		config_magic_table_fill(uwsgi.xml_config, uwsgi.magic_table);
-		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 0, uwsgi.magic_table);
-		uwsgi.xml_config = uwsgi.magic_table['p'];
-	}
-#endif
-#ifdef UWSGI_YAML
-	if (uwsgi.yaml != NULL) {
-		config_magic_table_fill(uwsgi.yaml, uwsgi.magic_table);
-		uwsgi_yaml_config(uwsgi.yaml, uwsgi.magic_table);
-	}
-#endif
-#ifdef UWSGI_JSON
-	if (uwsgi.json != NULL) {
-		config_magic_table_fill(uwsgi.json, uwsgi.magic_table);
-		uwsgi_json_config(uwsgi.json, uwsgi.magic_table);
-	}
-#endif
-#ifdef UWSGI_SQLITE3
-	if (uwsgi.sqlite3 != NULL) {
-		config_magic_table_fill(uwsgi.sqlite3, uwsgi.magic_table);
-		uwsgi_sqlite3_config(uwsgi.sqlite3, uwsgi.magic_table);
-	}
-#endif
-#ifdef UWSGI_LDAP
-	if (uwsgi.ldap != NULL) {
-		uwsgi_ldap_config();
-	}
-#endif
-
-
 	// second pass: ENVs
 	uwsgi_apply_config_pass('$', (char *(*)(char *))getenv);
 
@@ -1463,10 +1430,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	// last pass: REFERENCEs
 	uwsgi_apply_config_pass('%', uwsgi_get_exported_opt);
-
-	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-		uwsgi_log("CONF %s = %s prio = %d\n", uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value, uwsgi.exported_opts[i]->prio);
-	}
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
@@ -3401,8 +3364,14 @@ void uwsgi_opt_daemonize(char *opt, char *logfile, int id, void *none) {
 
 #ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *opt, char *filename, int id, void *none) {
-	uwsgi.config_depth++;
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_ini_config(filename, uwsgi.magic_table);
+}
+#endif
+
+#ifdef UWSGI_XML
+void uwsgi_opt_load_xml(char *opt, char *filename, int id, void *none) {
+	config_magic_table_fill(filename, uwsgi.magic_table);
+	uwsgi_xml_config(filename, uwsgi.wsgi_req, 0, uwsgi.magic_table);
 }
 #endif

@@ -1764,7 +1764,6 @@ void add_exported_option(char *key, char *value, int configured) {
                 uwsgi.exported_opts[id]->key = key;
                 uwsgi.exported_opts[id]->value = value;
                 uwsgi.exported_opts[id]->configured = configured;
-                uwsgi.exported_opts[id]->prio = uwsgi.config_depth;
                 uwsgi.exported_opts_cnt++;
 		uwsgi.dirty_config = 1;
 
