@@ -2,7 +2,15 @@
 
 extern struct uwsgi_server uwsgi;
 
+
 #ifdef UWSGI_UDP
+
+static void cluster_manage_opt(char *key, uint16_t keylen, char *value, uint16_t vallen, void *foobar) {
+
+	add_exported_option( uwsgi_concat2n(key, keylen, "", 0), uwsgi_concat2n(value, vallen, "", 0), 0);
+
+}
+
 void cluster_setup() {
 
 	int rlen;
@@ -31,7 +39,7 @@ void cluster_setup() {
                                 else if (rlen > 0) {
                                         // receive the packet
                                         char clusterbuf[4096];
-                                        if (!uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, manage_string_opt, NULL)) {
+                                        if (!uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, cluster_manage_opt, NULL)) {
                                                 uwsgi_configure(-1);
                                                 goto options_parsed;
                                         }

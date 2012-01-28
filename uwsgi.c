@@ -32,7 +32,6 @@ char **environ;
 extern char **environ;
 #endif
 
-
 UWSGI_DECLARE_EMBEDDED_PLUGINS;
 
 static struct uwsgi_option uwsgi_base_options[] = {
@@ -65,9 +64,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue,0},
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_set_int, &uwsgi.max_vars,0},
 	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_int, &uwsgi.buffer_size,0},
-	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MEMORY_DEBUG,0},
+	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_MEMORY_DEBUG,0},
 	{"profiler", required_argument, 0, "enable the specified profiler", uwsgi_opt_set_str, &uwsgi.profiler,0},
-	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_CGI_MODE,0},
+	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_CGI_MODE,0},
 	{"abstract-socket", no_argument, 'a', "force UNIX socket in abstract mode (Linux only)", uwsgi_opt_true, &uwsgi.abstract_socket,0},
 	//{"chmod-socket|chmod", optional_argument, 'C', "chmod-socket", uwsgi_opt_set_mode, &uwsgi.chmod_socket,0},
 	{"chown-socket", required_argument, 0, "chown unix sockets", uwsgi_opt_set_str, &uwsgi.chown_socket, 0},
@@ -111,11 +110,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"die-on-term", no_argument, 0, "exit instead of brutal reload on SIGTERM", uwsgi_opt_true, &uwsgi.die_on_term, 0},
 	{"help", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
 	{"usage", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
-	//{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_true, &uwsgi.process_reaper,0},
-	//{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_long, &uwsgi.max_requests,0},
-/*
-	{"socket-timeout", required_argument, 0, 'z',0},
-*/
+
+	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_REAPER ,0},
+	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MAX_REQUESTS,0},
+
+	{"socket-timeout", required_argument, 'z', "set internal sockets timeout", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_SOCKET_TIMEOUT, 0},
 	{"no-fd-passing", no_argument, 0, "disable file descriptor passing", uwsgi_opt_true, &uwsgi.no_fd_passing, 0},
 	{"locks", required_argument, 0, "create the specified number of shared locks", uwsgi_opt_set_int, &uwsgi.locks, 0},
 	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
@@ -146,7 +145,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"signals-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE,0},
 	{"farm", required_argument, 0, LONG_ARGS_FARM,0},
 */
-	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOGGING, 0},
+	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOGGING, 0},
 
 	{"pidfile", required_argument, 0, "create pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile,0},
 	{"pidfile2", required_argument, 0, "create pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile2,0},
@@ -217,11 +216,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING,0},
 	{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE,0},
 	{"upload-progress", required_argument, 0, LONG_ARGS_UPLOAD_PROGRESS,0},
-	{"no-default-app", no_argument, &uwsgi.no_default_app, 1,0},
-	{"manage-script-name", no_argument, &uwsgi.manage_script_name, 1,0},
+*/
+	{"no-default-app", no_argument, 0, "do not fallback to default app", uwsgi_opt_true, &uwsgi.no_default_app, 0},
+	{"manage-script-name", no_argument, 0, "automatically rewrite SCRIPT_NAME and PATH_INFO", uwsgi_opt_true, &uwsgi.manage_script_name, 0},
 #ifdef UWSGI_UDP
-	{"udp", required_argument, 0, LONG_ARGS_UDP,0},
+	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 #endif
+/*
 	{"stats", required_argument, 0, LONG_ARGS_STATS,0},
 	{"stats-server", required_argument, 0, LONG_ARGS_STATS,0},
 #ifdef UWSGI_MULTICAST
@@ -1446,35 +1447,25 @@ int main(int argc, char *argv[], char *envp[]) {
 		exit(0);
 	}
 
-	if (uwsgi.show_config) {
-		show_config();
-	}
+	if (uwsgi.show_config) show_config();
 
-
+	// call cluster initialization procedures
 	cluster_setup();
-
-	//call after_opt hooks
 
 	if (uwsgi.binary_path == uwsgi.argv[0]) {
 		uwsgi.binary_path = uwsgi_str(uwsgi.argv[0]);
 	}
 
-
-		if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
-			uwsgi_log_initial("*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
-		}
-		else {
-			uwsgi_log_initial("*** Starting uWSGI %s (CGI mode) (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
-		}
+	uwsgi_log_initial("*** Starting uWSGI %s (%dbit) on [%.*s] ***\n", UWSGI_VERSION, (int) (sizeof(void *)) * 8, 24, ctime((const time_t *) &uwsgi.start_tv.tv_sec));
 
 #ifdef UWSGI_DEBUG
-		uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, please disable debug in your build profile and recompile it ***\n***\n");
+	uwsgi_log("***\n*** You are running a DEBUG version of uWSGI, please disable debug in your build profile and recompile it ***\n***\n");
 #endif
 
-		uwsgi_log_initial("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
+	uwsgi_log_initial("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
 
 #ifdef __BIG_ENDIAN__
-		uwsgi_log_initial("*** big endian arch detected ***\n");
+	uwsgi_log_initial("*** big endian arch detected ***\n");
 #endif
 
 
@@ -1606,6 +1597,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	return 0;
 }
 
+
 int uwsgi_start(void *v_argv) {
 
 #ifdef UWSGI_DEBUG
@@ -1698,6 +1690,7 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log("invalid buffer size.\n");
 		exit(1);
 	}
+
 	sanitize_args();
 
 	if (uwsgi.build_mime_dict) {
@@ -1710,7 +1703,6 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	// end of generic initialization
-
 
 	// start the Emperor if needed
 	if (!uwsgi.early_emperor && uwsgi.emperor_dir) {
@@ -1828,7 +1820,6 @@ int uwsgi_start(void *v_argv) {
 #ifdef UWSGI_DEBUG
 	uwsgi_log("cores allocated...\n");
 #endif
-
 
 	//by default set wsgi_req to the first slot
 	uwsgi.wsgi_req = uwsgi.wsgi_requests[0];
@@ -2448,7 +2439,6 @@ skipzero:
 	}
 
 
-
 	if (!uwsgi.master_process && uwsgi.numproc == 0) {
 		exit(0);
 	}
@@ -2463,8 +2453,6 @@ skipzero:
 	}
 #endif
 #endif
-
-
 
 	if (uwsgi.master_process) {
 		if (uwsgi.is_a_reload) {
@@ -2511,9 +2499,6 @@ skipzero:
 #ifdef UWSGI_ROUTING
 	routing_setup();
 #endif
-
-
-
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
@@ -2802,7 +2787,6 @@ skipzero:
 #endif
 
 
-
 	uwsgi.async_hvec = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
 	for (i = 0; i < uwsgi.cores; i++) {
 		uwsgi.async_hvec[i] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.vec_size);
@@ -2821,10 +2805,7 @@ skipzero:
 
 
 	uwsgi_unix_signal(SIGUSR1, stats);
-
 	signal(SIGUSR2, (void *) &what_i_am_doing);
-
-
 	signal(SIGPIPE, (void *) &warn_pipe);
 
 	//initialization done
@@ -2979,10 +2960,12 @@ what happens here ?
 
 we transform the uwsgi_option structure to a struct option
 for passing it to getopt_long
+A short options string is built.
 
-
+This function could be called multiple times, so it will free previous areas
 
 */
+
 void build_options() {
 
 	int options_count = 0;
@@ -3063,20 +3046,6 @@ void build_options() {
 	}
 }
 
-
-void manage_string_opt(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
-
-	// never free this value
-	char *key2 = uwsgi_concat2n(key, keylen, "", 0);
-	char *val2 = uwsgi_concat2n(val, vallen, "", 0);
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("%s = %s\n", key2, val2);
-#endif
-	add_exported_option(key2, val2, 0);
-}
-
-
 void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2) {
 
 	char buf[4096];
@@ -3102,6 +3071,11 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 
 }
 
+/*
+
+this function build the help output from the uwsgi.options structure
+
+*/
 void uwsgi_help(char *opt, char *val, int id, void *none) {
 
 	size_t max_size = 0;
@@ -3132,6 +3106,11 @@ void uwsgi_help(char *opt, char *val, int id, void *none) {
 	exit(0);
 }
 
+/*
+
+initialize all apps
+
+*/
 void uwsgi_init_all_apps() {
 
 	int i, j;
@@ -3209,6 +3188,12 @@ void uwsgi_opt_set_dyn(char *opt, char *value, int id, void *key) {
 
 	uint8_t dyn_opt_id = *((uint8_t *) key);
 	uwsgi.shared->options[dyn_opt_id] = atoi(value);
+}
+
+void uwsgi_opt_dyn_true(char *opt, char *value, int id, void *key) {
+
+	uint8_t dyn_opt_id = *((uint8_t *) key);
+	uwsgi.shared->options[dyn_opt_id] = 1;
 }
 
 void uwsgi_opt_set_str(char *opt, char *value, int id, void *key) {
@@ -3298,6 +3283,10 @@ void uwsgi_opt_load(char *opt, char *filename, int id, void *none) {
 #endif
 #ifdef UWSGI_XML
 	if (uwsgi_endswith(filename, ".xml")) { uwsgi_opt_load_xml(opt, filename, id, none); return;}
+#endif
+#ifdef UWSGI_YAML
+	if (uwsgi_endswith(filename, ".yaml")) { uwsgi_opt_load_yml(opt, filename, id, none); return;}
+	if (uwsgi_endswith(filename, ".yml")) { uwsgi_opt_load_yml(opt, filename, id, none); return;}
 #endif
 }
 

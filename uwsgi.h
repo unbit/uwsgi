@@ -1954,7 +1954,6 @@ int uwsgi_waitfd(int, int);
 
 int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
 int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
-void manage_string_opt(char *, uint16_t, char *, uint16_t, void *);
 
 int uwsgi_get_dgram(int, struct wsgi_request *);
 
@@ -2485,6 +2484,7 @@ void uwsgi_opt_add_string_list(char *, char *, int, void *);
 void uwsgi_opt_set_int(char *, char *, int, void *);
 void uwsgi_opt_set_megabytes(char *, char *, int, void *);
 void uwsgi_opt_set_dyn(char *, char *, int, void *);
+void uwsgi_opt_dyn_true(char *, char *, int, void *);
 void uwsgi_opt_set_placeholder(char *, char *, int, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, int, void *);
 void uwsgi_opt_add_socket(char *, char *, int, void *);
