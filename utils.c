@@ -1769,10 +1769,41 @@ void add_exported_option(char *key, char *value, int configured) {
 		uwsgi.dirty_config = 1;
 
 		struct uwsgi_option *op = uwsgi_opt_get(key);
-		// immediate ?
-		if (op && op->prio == UWSGI_OPT_IMMEDIATE) {
-			op->func(key, value, 0, op->data);
-			uwsgi.exported_opts[id]->configured = 1;
+		if (op) {
+			// requires master ?
+			if (op->flags & UWSGI_OPT_MASTER) {
+				uwsgi.master_process = 1;
+			}
+			// requires log_master ?
+			if (op->flags & UWSGI_OPT_LOG_MASTER) {
+				uwsgi.master_process = 1;
+				uwsgi.log_master = 1;
+			}
+			// requires threads ?
+			if (op->flags & UWSGI_OPT_THREADS) {
+				uwsgi.has_threads = 1;
+			}
+			// requires cheaper mode ?
+			if (op->flags & UWSGI_OPT_CHEAPER) {
+				uwsgi.cheaper = 1;
+			}
+			// requires virtualhosting ?
+			if (op->flags & UWSGI_OPT_VHOST) {
+				uwsgi.vhost = 1;
+			}
+			// requires memusage ?
+			if (op->flags & UWSGI_OPT_MEMORY) {
+				uwsgi.force_get_memusage = 1;
+                        }
+			// requires auto procname ?
+			if (op->flags & UWSGI_OPT_PROCNAME) {
+				uwsgi.auto_procname = 1;
+                        }
+			// immediate ?
+			if (op->flags & UWSGI_OPT_IMMEDIATE) {
+				op->func(key, value, 0, op->data);
+				uwsgi.exported_opts[id]->configured = 1;
+			}
 		}
 
 }

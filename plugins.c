@@ -112,17 +112,14 @@ check:
 		}
                 if (up) {
 			if (has_option) {
-/*
-				struct option *lopt = up->options, *aopt;
+				struct uwsgi_option *op = uwsgi.options;
 				int found = 0;
-				while ((aopt = lopt)) {
-                			if (!aopt->name)
-                        			break;
-					if (!strcmp(has_option, aopt->name)) {
+				while (op && op->name) {
+					if (!strcmp(has_option, op->name)) {
 						found = 1;
 						break;
 					}	
-                			lopt++;
+                			op++;
 				}
 				if (!found) {
 					if (dlclose(plugin_handle)) {
@@ -132,7 +129,6 @@ check:
 					free(plugin_entry_symbol);
 					return NULL;
 				}
-*/
 				
 			}
 			if (modifier != -1) {

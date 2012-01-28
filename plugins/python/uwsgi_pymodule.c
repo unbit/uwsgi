@@ -1864,24 +1864,6 @@ PyObject *py_uwsgi_set_option(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(value);
 }
 
-PyObject *py_uwsgi_load_plugin(PyObject * self, PyObject * args) {
-	int modifier;
-	char *plugin_name = NULL;
-	char *pargs = NULL;
-
-	if (!PyArg_ParseTuple(args, "is|s:load_plugin", &modifier, &plugin_name, &pargs)) {
-		return NULL;
-	}
-
-	if (uwsgi_load_plugin(modifier, plugin_name, pargs, 1)) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-
-	Py_INCREF(Py_True);
-	return Py_True;
-}
-
 #ifdef UWSGI_MULTICAST
 PyObject *py_uwsgi_multicast(PyObject * self, PyObject * args) {
 
@@ -2956,7 +2938,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
 	{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
-	{"load_plugin", py_uwsgi_load_plugin, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"cl", py_uwsgi_cl, METH_VARARGS, ""},

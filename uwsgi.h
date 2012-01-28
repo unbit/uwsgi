@@ -37,11 +37,14 @@ extern "C" {
 
 #define ushared uwsgi.shared
 
-#define UWSGI_OPT_PRIO_NORMAL	0
-#define UWSGI_OPT_IMMEDIATE	1
-#define UWSGI_OPT_PRIO_HIGH	1
-#define UWSGI_OPT_PRIO_HIGHER	2
-#define UWSGI_OPT_PRIO_HIGHEST	3
+#define UWSGI_OPT_IMMEDIATE	(1 << 0)
+#define UWSGI_OPT_MASTER	(1 << 1)
+#define UWSGI_OPT_LOG_MASTER	(1 << 2)
+#define UWSGI_OPT_THREADS	(1 << 3)
+#define UWSGI_OPT_CHEAPER	(1 << 4)
+#define UWSGI_OPT_VHOST		(1 << 5)
+#define UWSGI_OPT_MEMORY	(1 << 6)
+#define UWSGI_OPT_PROCNAME	(1 << 7)
 
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
@@ -422,7 +425,7 @@ struct uwsgi_option {
 	char *help;
 	void (*func)(char *, char *, int, void *);
 	void *data;
-	int prio;
+	uint64_t flags;
 };
 
 struct uwsgi_opt {
@@ -2485,12 +2488,15 @@ int uwsgi_manage_opt(char *, char *);
 void uwsgi_opt_print(char *, char *, int, void *);
 void uwsgi_opt_true(char *, char *, int, void *);
 void uwsgi_opt_set_str(char *, char *, int, void *);
+void uwsgi_opt_set_str_spaced(char *, char *, int, void *);
 void uwsgi_opt_add_string_list(char *, char *, int, void *);
 void uwsgi_opt_set_int(char *, char *, int, void *);
+void uwsgi_opt_set_megabytes(char *, char *, int, void *);
 void uwsgi_opt_set_dyn(char *, char *, int, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, int, void *);
 void uwsgi_opt_add_socket(char *, char *, int, void *);
 void uwsgi_opt_daemonize(char *, char *, int, void *);
+void uwsgi_opt_logto(char *, char *, int, void *);
 void uwsgi_opt_load_plugin(char *, char *, int, void *);
 #ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *, char *, int, void *);

@@ -79,14 +79,14 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_THREADING
 	{"enable-threads", no_argument, 'T', "enable threads", uwsgi_opt_true, &uwsgi.has_threads, 0},
 #endif
+
 	{"auto-procname", no_argument, 0, "automatically set processes name to something meaningful", uwsgi_opt_true, &uwsgi.auto_procname,0},
-/*
-	{"procname-prefix", required_argument, 0, LONG_ARGS_PROCNAME_PREFIX,0},
-	{"procname-prefix-spaced", required_argument, 0, LONG_ARGS_PROCNAME_PREFIX_SP,0},
-	{"procname-append", required_argument, 0, LONG_ARGS_PROCNAME_APPEND,0},
-	{"procname", required_argument, 0, LONG_ARGS_PROCNAME,0},
-	{"procname-master", required_argument, 0, LONG_ARGS_PROCNAME_MASTER,0},
-*/
+	{"procname-prefix", required_argument, 0, "add a prefix to the process names", uwsgi_opt_set_str, &uwsgi.procname_prefix, UWSGI_OPT_PROCNAME},
+	{"procname-prefix-spaced", required_argument, 0, "add a spaced prefix to the process names", uwsgi_opt_set_str_spaced, &uwsgi.procname_prefix, UWSGI_OPT_PROCNAME},
+	{"procname-append", required_argument, 0, "append a string to process names", uwsgi_opt_set_str, &uwsgi.procname_append, UWSGI_OPT_PROCNAME},
+	{"procname", required_argument, 0, "set process names", uwsgi_opt_set_str, &uwsgi.procname, UWSGI_OPT_PROCNAME},
+	{"procname-master", required_argument, 0, "set master process name", uwsgi_opt_set_str, &uwsgi.procname_master, UWSGI_OPT_PROCNAME},
+
 	{"single-interpreter", no_argument, 'i', "do not use multiple interpreters (where available)", uwsgi_opt_true, &uwsgi.single_interpreter, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process,0},
 	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_set_str, &uwsgi.emperor_dir,0},
@@ -94,16 +94,18 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},
+	{"emperor-broodlord", required_argument, 0, "run the emperor in BroodLord mode", uwsgi_opt_set_int, &uwsgi.emperor_broodlord, 0},
+	{"emperor-amqp-vhost", required_argument, 0, "set emperor amqp virtualhost", uwsgi_opt_set_str, &uwsgi.emperor_amqp_vhost, 0},
+	{"emperor-amqp-username", required_argument, 0, "set emperor amqp username", uwsgi_opt_set_str, &uwsgi.emperor_amqp_username, 0},
+	{"emperor-amqp-password", required_argument, 0, "set emperor amqp password", uwsgi_opt_set_str, &uwsgi.emperor_amqp_password, 0},
+	{"emperor-throttle", required_argument, 0, "throttle each vassal spawn (in seconds)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
 /*
-	{"emperor-broodlord", required_argument, 0, LONG_ARGS_EMPEROR_BROODLORD,0},
-	{"emperor-amqp-vhost", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_VHOST,0},
-	{"emperor-amqp-username", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_USERNAME,0},
-	{"emperor-amqp-password", required_argument, 0, LONG_ARGS_EMPEROR_AMQP_PASSWORD,0},
-	{"emperor-throttle", required_argument, 0, LONG_ARGS_EMPEROR_THROTTLE,0},
 	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT,0},
-	{"vassals-start-hook", required_argument, 0, LONG_ARGS_VASSALS_START_HOOK,0},
-	{"vassals-stop-hook", required_argument, 0, LONG_ARGS_VASSALS_STOP_HOOK,0},
-	{"vassal-sos-backlog", required_argument, 0, LONG_ARGS_VASSAL_SOS_BACKLOG,0},
+*/
+	{"vassals-start-hook", required_argument, 0, "run the specified command before each vassal starts", uwsgi_opt_set_str, &uwsgi.vassals_start_hook, 0},
+	{"vassals-stop-hook", required_argument, 0, "run the specified command after vassal's death", uwsgi_opt_set_str, &uwsgi.vassals_stop_hook,0},
+	{"vassal-sos-backlog", required_argument, 0, "ask emperor for sos if backlog queue has more items than the value specified", uwsgi_opt_set_int, &uwsgi.vassal_sos_backlog, 0},
+/*
 	{"auto-snapshot", optional_argument, 0, LONG_ARGS_AUTO_SNAPSHOT,0},
 */
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
@@ -114,9 +116,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	//{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_long, &uwsgi.max_requests,0},
 /*
 	{"socket-timeout", required_argument, 0, 'z',0},
-	{"no-fd-passing", no_argument, &uwsgi.no_fd_passing, 1,0},
-	{"locks", required_argument, 0, LONG_ARGS_LOCKS,0},
 */
+	{"no-fd-passing", no_argument, 0, "disable file descriptor passing", uwsgi_opt_true, &uwsgi.no_fd_passing, 0},
+	{"locks", required_argument, 0, "create the specified number of shared locks", uwsgi_opt_set_int, &uwsgi.locks, 0},
 	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
 	{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_set_int, &uwsgi.cache_max_items, 0},
 /*
@@ -193,17 +195,22 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept,0},
 /*
 	{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS,0},
-	{"reload-on-as", required_argument, 0, LONG_ARGS_RELOAD_ON_AS,0},
-	{"reload-on-rss", required_argument, 0, LONG_ARGS_RELOAD_ON_RSS,0},
-	{"evil-reload-on-as", required_argument, 0, LONG_ARGS_EVIL_RELOAD_ON_AS,0},
-	{"evil-reload-on-rss", required_argument, 0, LONG_ARGS_EVIL_RELOAD_ON_RSS,0},
+*/
+	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},
+	{"reload-on-rss", required_argument, 0, "reload if rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_rss, UWSGI_OPT_MEMORY },
+	{"evil-reload-on-as", required_argument, 0, "force the master to reload a worker if its address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_as, UWSGI_OPT_MASTER|UWSGI_OPT_MEMORY},
+	{"evil-reload-on-rss", required_argument, 0, "force the master to reload a worker if its rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_rss, UWSGI_OPT_MASTER|UWSGI_OPT_MEMORY},
+
+/*
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 	{"ksm", optional_argument, 0, LONG_ARGS_KSM,0},
 #endif
 #endif
-	{"touch-reload", required_argument, 0, LONG_ARGS_TOUCH_RELOAD,0},
-	{"propagate-touch", no_argument, &uwsgi.propagate_touch, 1,0},
+*/
+	{"touch-reload", required_argument, 0, "reload uWSGI if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_reload, UWSGI_OPT_MASTER},
+	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal mamagement", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
+/*
 	{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST,0},
 	{"no-orphans", no_argument, &uwsgi.no_orphans, 1,0},
 	{"prio", required_argument, 0, LONG_ARGS_PRIO,0},
@@ -225,12 +232,14 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD,0},
 	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG,0},
 #endif
-	{"subscribe-to", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO,0},
-	{"st", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO,0},
-	{"subscribe", required_argument, 0, LONG_ARGS_SUBSCRIBE_TO,0},
-	{"subscribe-freq", required_argument, 0, LONG_ARGS_SUBSCRIBE_FREQ,0},
-	{"subscription-tolerance", required_argument, 0, LONG_ARGS_SUBSCR_TOLERANCE,0},
-	{"unsubscribe-on-graceful-reload", no_argument, &uwsgi.unsubscribe_on_graceful_reload, 1,0},
+*/
+	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
+	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
+	{"subscribe", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
+	{"subscribe-freq", required_argument, 0, "send subscription announce at the specified interval", uwsgi_opt_set_int, &uwsgi.subscribe_freq, 0},
+	{"subscription-tolerance", required_argument, 0, "set tolerance for subscription servers", uwsgi_opt_set_int, &uwsgi.subscription_tolerance, 0},
+	{"unsubscribe-on-graceful-reload", no_argument, 0, "force unsubscribe request even during graceful reload", uwsgi_opt_true, &uwsgi.unsubscribe_on_graceful_reload, 0},
+/*
 #ifdef UWSGI_SNMP
 	{"snmp", optional_argument, 0, LONG_ARGS_SNMP,0},
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY,0},
@@ -243,7 +252,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
 #endif
 	{"max-fd", required_argument, 0, "set maximum number of file descriptors (requires root privileges)", uwsgi_opt_set_int, &uwsgi.requested_max_fd, 0},
-	//{"logto", required_argument, 0, "set logfile/udp address", ,0},
+	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_logto, NULL, UWSGI_OPT_IMMEDIATE},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
 /*
 	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1,0},
@@ -255,9 +264,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, LONG_ARGS_LOG_ZEROMQ,0},
 #endif
-	{"log-master", no_argument, 0, LONG_ARGS_LOG_MASTER,0},
-	{"log-reopen", no_argument, &uwsgi.log_reopen, 1,0},
-	{"log-truncate", no_argument, &uwsgi.log_truncate, 1,0},
+*/
+	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, 0},
+	{"log-reopen", no_argument, 0, "reopen log after reload", uwsgi_opt_true, &uwsgi.log_reopen, 0},
+	{"log-truncate", no_argument, 0, "truncate log on startup", uwsgi_opt_true, &uwsgi.log_truncate, 0},
+/*
 	{"log-maxsize", required_argument, 0, LONG_ARGS_LOG_MAXSIZE,0},
 	{"log-backupname", required_argument, 0, LONG_ARGS_LOG_BACKUPNAME,0},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE,0},
@@ -277,10 +288,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
 	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, 0},
-/*
-	{"cheaper", required_argument, 0, LONG_ARGS_CHEAPER,0},
-	{"cheaper-step", required_argument, 0, LONG_ARGS_CHEAPER_STEP,0},
-*/
+	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
+	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, 0},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 /*
@@ -290,31 +299,35 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 */
 	{"grunt", no_argument, 0, "enable grunt mode (in-request fork)", uwsgi_opt_true, &uwsgi.grunt, 0},
-/*
-	{"threads", required_argument, 0, LONG_ARGS_THREADS,0},
-	{"threads-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
-	{"thread-stacksize", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
-	{"threads-stack-size", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
-	{"thread-stack-size", required_argument, 0, LONG_ARGS_THREADS_STACKSIZE,0},
-*/
+
+	{"threads", required_argument, 0, "run each worker in prethreaded mode with the specified number of threads", uwsgi_opt_set_int, &uwsgi.threads, UWSGI_OPT_THREADS},
+	{"thread-stacksize", required_argument, 0, "set threads stacksize", uwsgi_opt_set_int, &uwsgi.threads_stacksize, UWSGI_OPT_THREADS},
+	{"threads-stacksize", required_argument, 0, "set threads stacksize", uwsgi_opt_set_int, &uwsgi.threads_stacksize, UWSGI_OPT_THREADS},
+	{"thread-stack-size", required_argument, 0, "set threads stacksize", uwsgi_opt_set_int, &uwsgi.threads_stacksize, UWSGI_OPT_THREADS},
+	{"threads-stack-size", required_argument, 0, "set threads stacksize", uwsgi_opt_set_int, &uwsgi.threads_stacksize, UWSGI_OPT_THREADS},
+
 	{"vhost", no_argument, 0, "enable virtualhosting mode (based on SERVER_NAME variable)", uwsgi_opt_true, &uwsgi.vhost, 0},
+	{"vhost-host", no_argument, 0, "enable virtualhosting mode (based on HTTP_HOST variable)", uwsgi_opt_true, &uwsgi.vhost_host, UWSGI_OPT_VHOST},
 /*
-	{"vhost-host", no_argument, 0, LONG_ARGS_VHOSTHOST,0},
 #ifdef UWSGI_ROUTING
 	{"routing", no_argument, &uwsgi.routing, 1,0},
 #endif
-	{"add-header", required_argument, 0, LONG_ARGS_ADD_HEADER,0},
+*/
+	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
+/*
 	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC,0},
 	{"static-check", required_argument, 0, LONG_ARGS_CHECK_STATIC,0},
-	{"static-skip-ext", required_argument, 0, LONG_ARGS_STATIC_SKIP_EXT,0},
 	{"static-map", required_argument, 0, LONG_ARGS_STATIC_MAP,0},
-	{"static-index", required_argument, 0, LONG_ARGS_STATIC_INDEX,0},
-	{"mimefile", required_argument, 0, LONG_ARGS_MIMEFILE,0},
-	{"mime-file", required_argument, 0, LONG_ARGS_MIMEFILE,0},
+*/
+	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, 0},
+	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, 0},
+	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, 0},
+	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, 0},
+/*
 	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE,0},
 	{"fileserve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE,0},
-	{"check-cache", no_argument, &uwsgi.check_cache, 1,0},
 */
+	{"check-cache", no_argument, 0, "check for response data in the cache", uwsgi_opt_true, &uwsgi.check_cache, 0},
 	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode,0},
 /*
@@ -330,7 +343,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"namespace-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET,0},
 	{"ns-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET,0},
 #endif
-	{"reuse-port", no_argument, &uwsgi.reuse_port, 1,0},
+*/
+	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
+/*
 	{"zerg", required_argument, 0, LONG_ARGS_ZERG,0},
 	{"zerg-server", required_argument, 0, LONG_ARGS_ZERG_SERVER,0},
 	{"cron", required_argument, 0, LONG_ARGS_CRON,0},
@@ -341,7 +356,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"attach-daemon", required_argument, 0, LONG_ARGS_ATTACH_DAEMON,0},
 */
 	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
-	{"autoload", no_argument, 0, "try to automatically load plugins when unknown options are found", uwsgi_opt_true, &uwsgi.autoload, 0},
+	{"autoload", no_argument, 0, "try to automatically load plugins when unknown options are found", uwsgi_opt_true, &uwsgi.autoload, UWSGI_OPT_IMMEDIATE},
 	{"allowed-modifiers", required_argument, 0,"comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options,0},
@@ -3366,6 +3381,11 @@ void uwsgi_opt_set_int(char *opt, char *value, int id, void *key) {
 	*ptr = atoi((char *)value);
 }
 
+void uwsgi_opt_set_megabytes(char *opt, char *value, int id, void *key) {
+	uint64_t *ptr = (uint64_t *) key;
+	*ptr = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
+}
+
 void uwsgi_opt_set_dyn(char *opt, char *value, int id, void *key) {
 
 	uint8_t dyn_opt_id = *((uint8_t *) key);
@@ -3375,6 +3395,11 @@ void uwsgi_opt_set_dyn(char *opt, char *value, int id, void *key) {
 void uwsgi_opt_set_str(char *opt, char *value, int id, void *key) {
 	char **ptr = (char **) key;
 	*ptr = (char *) value;
+}
+
+void uwsgi_opt_set_str_spaced(char *opt, char *value, int id, void *key) {
+	char **ptr = (char **) key;
+	*ptr = uwsgi_concat2((char *) value, " ");
 }
 
 void uwsgi_opt_add_string_list(char *opt, char *value, int id, void *list) {
@@ -3415,6 +3440,10 @@ void uwsgi_opt_daemonize(char *opt, char *logfile, int id, void *none) {
 			logto(logfile);	
 		}
 	}
+}
+
+void uwsgi_opt_logto(char *opt, char *logfile, int id, void *none) {
+	logto(logfile);
 }
 
 void uwsgi_opt_load_plugin(char *opt, char *value, int id, void *none) {
