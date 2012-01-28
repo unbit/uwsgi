@@ -278,12 +278,6 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
 
-struct uwsgi_config_template {
-	char *filename;
-	int applied;
-	struct uwsgi_config_template *next;
-};
-
 struct uwsgi_string_list {
 
 	char *value;
@@ -1001,7 +995,7 @@ struct uwsgi_server {
 	int	emperor_broodlord_count;
 	char *emperor_stats;
 	int 	emperor_stats_fd;
-	struct uwsgi_config_template *vassals_templates;
+	struct uwsgi_string_list *vassals_templates;
 	// true if loyal to the emperor
 	int loyal;
 
@@ -1322,8 +1316,6 @@ struct uwsgi_server {
 #ifdef UWSGI_SQLITE3
 	char *sqlite3;
 #endif
-
-	struct uwsgi_config_template *config_templates;
 
 	int single_interpreter;
 
@@ -2493,11 +2485,13 @@ void uwsgi_opt_add_string_list(char *, char *, int, void *);
 void uwsgi_opt_set_int(char *, char *, int, void *);
 void uwsgi_opt_set_megabytes(char *, char *, int, void *);
 void uwsgi_opt_set_dyn(char *, char *, int, void *);
+void uwsgi_opt_set_placeholder(char *, char *, int, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, int, void *);
 void uwsgi_opt_add_socket(char *, char *, int, void *);
 void uwsgi_opt_daemonize(char *, char *, int, void *);
 void uwsgi_opt_logto(char *, char *, int, void *);
 void uwsgi_opt_load_plugin(char *, char *, int, void *);
+void uwsgi_opt_load(char *, char *, int, void *);
 #ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *, char *, int, void *);
 #endif

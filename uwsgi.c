@@ -56,8 +56,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"xmlconfig", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
-	//{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL,0},
-	//{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_add_template, NULL,0},
+	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
+	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_daemonize, NULL, UWSGI_OPT_IMMEDIATE},
 	//{"stop", required_argument, 0, "stop an instance", uwsgi_opt_cmd, uwsgi_stop_pidfile,0},
 	//{"reload", required_argument, 0, "reload an instance", uwsgi_opt_cmd, uwsgi_reload_pidfile,0},
@@ -99,9 +99,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-amqp-username", required_argument, 0, "set emperor amqp username", uwsgi_opt_set_str, &uwsgi.emperor_amqp_username, 0},
 	{"emperor-amqp-password", required_argument, 0, "set emperor amqp password", uwsgi_opt_set_str, &uwsgi.emperor_amqp_password, 0},
 	{"emperor-throttle", required_argument, 0, "throttle each vassal spawn (in seconds)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
-/*
-	{"vassals-inherit", required_argument, 0, LONG_ARGS_VASSALS_INHERIT,0},
-*/
+	{"vassals-inherit", required_argument, 0, "add config templates to vassals config", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
 	{"vassals-start-hook", required_argument, 0, "run the specified command before each vassal starts", uwsgi_opt_set_str, &uwsgi.vassals_start_hook, 0},
 	{"vassals-stop-hook", required_argument, 0, "run the specified command after vassal's death", uwsgi_opt_set_str, &uwsgi.vassals_stop_hook,0},
 	{"vassal-sos-backlog", required_argument, 0, "ask emperor for sos if backlog queue has more items than the value specified", uwsgi_opt_set_int, &uwsgi.vassal_sos_backlog, 0},
@@ -1371,67 +1369,24 @@ int main(int argc, char *argv[], char *envp[]) {
 		for(i=optind;i<uwsgi.argc;i++) {
 			char *lazy = uwsgi.argv[i];
 			if (lazy[0] != '[') {
-				if (0) {
-				}
-
-#ifdef UWSGI_XML
-				else if (!strcmp(lazy + strlen(lazy) - 4, ".xml")) {
-					uwsgi_opt_load_xml(NULL, lazy, 0, NULL);
-				}
-#endif
-#ifdef UWSGI_INI
-				else if (!strcmp(lazy + strlen(lazy) - 4, ".ini")) {
-					uwsgi_opt_load_ini(NULL, lazy, 0, NULL);
-				}
-#endif
-#ifdef UWSGI_YAML
-				else if (!strcmp(lazy + strlen(lazy) - 4, ".yml")) {
-					uwsgi_opt_load_yml(NULL, lazy, 0, NULL);
-				}
-				else if (!strcmp(lazy + strlen(lazy) - 5, ".yaml")) {
-					uwsgi_opt_load_yml(NULL, lazy, 0, NULL);
-				}
-#endif
-#ifdef UWSGI_JSON
-				else if (!strcmp(lazy + strlen(lazy) - 3, ".js")) {
-					uwsgi.json = lazy;
-				}
-				else if (!strcmp(lazy + strlen(lazy) - 5, ".json")) {
-					uwsgi.json = lazy;
-				}
-#endif
-#ifdef UWSGI_SQLITE3
-				else if (!strcmp(lazy + strlen(lazy) - 3, ".db")) {
-					uwsgi.sqlite3 = lazy;
-				}
-				else if (!strcmp(lazy + strlen(lazy) - 7, ".sqlite")) {
-					uwsgi.sqlite3 = lazy;
-				}
-				else if (!strcmp(lazy + strlen(lazy) - 8, ".sqlite3")) {
-					uwsgi.sqlite3 = lazy;
-				}
-#endif
+				uwsgi_opt_load(NULL, lazy, 0, NULL);
 				// manage magic mountpoint
-				else if ((lazy[0] == '/' || strchr(lazy, '|')) && strchr(lazy, '=')) {
-				}
-				else {
-					int magic = 0;
-					int j;
-					for (j = 0; j< uwsgi.gp_cnt; j++) {
-						if (uwsgi.gp[j]->magic) {
-							if (uwsgi.gp[j]->magic(NULL, lazy)) {
-								magic = 1;
-								break;
-							}
+				int magic = 0;
+				int j;
+				for (j = 0; j< uwsgi.gp_cnt; j++) {
+					if (uwsgi.gp[j]->magic) {
+						if (uwsgi.gp[j]->magic(NULL, lazy)) {
+							magic = 1;
+							break;
 						}
 					}
-					if (!magic) {
-						for (j = 0; j < 0xFF; j++) {
-							if (uwsgi.p[j]->magic) {
-								if (uwsgi.p[j]->magic(NULL, lazy)) {
-									magic = 1;
-									break;
-								}
+				}
+				if (!magic) {
+					for (j = 0; j < 0xFF; j++) {
+						if (uwsgi.p[j]->magic) {
+							if (uwsgi.p[j]->magic(NULL, lazy)) {
+								magic = 1;
+								break;
 							}
 						}
 					}
@@ -3280,6 +3235,20 @@ void uwsgi_opt_add_socket(char *opt, char *value, int id, void *protocol) {
         uwsgi_sock->proto_name = protocol;
 }
 
+void uwsgi_opt_set_placeholder(char *opt, char *value, int id, void *none) {
+	
+	char *p = strchr(optarg, '=');
+	if (!p) {
+		uwsgi_log("invalid placeholder/--set value\n");
+		exit(1);
+	}	
+
+	p[0] = 0;
+	add_exported_option(uwsgi_str(value), p+1, 1);
+	p[1] = '=';
+	
+}
+
 void uwsgi_opt_set_umask(char *opt, char *value, int id, void *mode) {
 	
 }
@@ -3320,6 +3289,16 @@ void uwsgi_opt_load_plugin(char *opt, char *value, int id, void *none) {
 		p = strtok(NULL, ",");
 	}
 	build_options();
+}
+
+void uwsgi_opt_load(char *opt, char *filename, int id, void *none) {
+
+#ifdef UWSGI_INI
+	if (uwsgi_endswith(filename, ".ini")) { uwsgi_opt_load_ini(opt, filename, id, none); return;}
+#endif
+#ifdef UWSGI_XML
+	if (uwsgi_endswith(filename, ".xml")) { uwsgi_opt_load_xml(opt, filename, id, none); return;}
+#endif
 }
 
 #ifdef UWSGI_INI
