@@ -70,7 +70,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"abstract-socket", no_argument, 'a', "force UNIX socket in abstract mode (Linux only)", uwsgi_opt_true, &uwsgi.abstract_socket,0},
 	//{"chmod-socket|chmod", optional_argument, 'C', "chmod-socket", uwsgi_opt_set_mode, &uwsgi.chmod_socket,0},
 	{"chown-socket", required_argument, 0, "chown unix sockets", uwsgi_opt_set_str, &uwsgi.chown_socket, 0},
-	//{"umask", required_argument, 0, "set umask", uwsgi_opt_set_umask, NULL, UWSGI_OPT_IMMEDIATE},
+	{"umask", required_argument, 0, "set umask", uwsgi_opt_set_umask, NULL, UWSGI_OPT_IMMEDIATE},
 #ifdef __linux__
 	{"freebind", no_argument, 0, "put socket in freebind mode", uwsgi_opt_true, &uwsgi.freebind,0},
 #endif
@@ -132,7 +132,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"queue-store-sync", required_argument, 0, "set frequency of sync for persistent queue", uwsgi_opt_set_int, &uwsgi.queue_store_sync,0},
 
 #ifdef UWSGI_SPOOLER
-	//{"spooler", required_argument, 'Q', "run a spooler on the specified directory", uwsgi_opt_new_spooler, NULL,0},
+	{"spooler", required_argument, 'Q', "run a spooler on the specified directory", uwsgi_opt_add_spooler, NULL, UWSGI_OPT_MASTER},
 	{"spooler-ordered", no_argument, 0, "try to order the execution of spooler tasks", uwsgi_opt_true, &uwsgi.spooler_ordered,0},
 	{"spooler-chdir", required_argument, 0, "chdir() to specified directory before each spooler task", uwsgi_opt_set_str, &uwsgi.spooler_chdir,0},
 #endif
@@ -3180,7 +3180,7 @@ void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 
 void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
-	*ptr = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
+	*ptr = (strtoul(value, NULL, 10)) * 1024 * 1024;
 }
 
 void uwsgi_opt_set_dyn(char *opt, char *value, void *key) {
@@ -3225,7 +3225,7 @@ void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {
 
 void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 	
-	char *p = strchr(optarg, '=');
+	char *p = strchr(value, '=');
 	if (!p) {
 		uwsgi_log("invalid placeholder/--set value\n");
 		exit(1);
@@ -3239,7 +3239,23 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 
 void uwsgi_opt_set_umask(char *opt, char *value,  void *mode) {
 
+	mode_t umask_mode = 0;
 
+	if (strlen(value) < 3) {
+                        uwsgi_log("invalid umask: %s\n", value);
+                }
+                umask_mode = 0;
+                if (strlen(value) == 3) {
+                        umask_mode = (umask_mode << 3) + (value[0] - '0');
+                        umask_mode = (umask_mode << 3) + (value[1] - '0');
+                        umask_mode = (umask_mode << 3) + (value[2] - '0');
+                }
+                else {
+                        umask_mode = (umask_mode << 3) + (value[1] - '0');
+                        umask_mode = (umask_mode << 3) + (value[2] - '0');
+                        umask_mode = (umask_mode << 3) + (value[3] - '0');
+                }
+                umask(umask_mode);
 	
 }
 
@@ -3267,6 +3283,16 @@ void uwsgi_opt_daemonize(char *opt, char *logfile, void *none) {
 
 void uwsgi_opt_logto(char *opt, char *logfile, void *none) {
 	logto(logfile);
+}
+
+void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
+
+	if (access(directory, R_OK | W_OK | X_OK)) {
+        	uwsgi_error("[spooler directory] access()");
+                exit(1);
+	}
+	uwsgi_new_spooler(directory);
+	
 }
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
