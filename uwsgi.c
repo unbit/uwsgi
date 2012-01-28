@@ -118,20 +118,19 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"no-fd-passing", no_argument, 0, "disable file descriptor passing", uwsgi_opt_true, &uwsgi.no_fd_passing, 0},
 	{"locks", required_argument, 0, "create the specified number of shared locks", uwsgi_opt_set_int, &uwsgi.locks, 0},
 	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
+
 	{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_set_int, &uwsgi.cache_max_items, 0},
-/*
-	{"cache-blocksize", required_argument, 0, LONG_ARGS_CACHE_BLOCKSIZE,0},
-	{"cache-store", required_argument, 0, LONG_ARGS_CACHE_STORE,0},
-*/
+	{"cache-blocksize", required_argument, 0, "set cache blocksize", uwsgi_opt_set_int, &uwsgi.cache_blocksize, 0},
+	{"cache-store", required_argument, 0, "enable persistent cache to disk", uwsgi_opt_set_str, &uwsgi.cache_store , UWSGI_OPT_MASTER},
 	{"cache-store-sync", required_argument, 0, "set frequency of sync for persistent cache", uwsgi_opt_set_int, &uwsgi.cache_store_sync,0},
-/*
-	{"cache-server", required_argument, 0, LONG_ARGS_CACHE_SERVER,0},
-	{"cache-server-threads", required_argument, 0, LONG_ARGS_CACHE_SERVER_THREADS,0},
-	{"queue", required_argument, 0, LONG_ARGS_QUEUE,0},
-	{"queue-blocksize", required_argument, 0, LONG_ARGS_QUEUE_BLOCKSIZE,0},
-	{"queue-store", required_argument, 0, LONG_ARGS_QUEUE_STORE,0},
-	{"queue-store-sync", required_argument, 0, LONG_ARGS_QUEUE_STORE_SYNC,0},
-*/
+	{"cache-server", required_argument, 0, "enable the threaded cache server", uwsgi_opt_set_str, &uwsgi.cache_server, 0},
+	{"cache-server-threads", required_argument, 0, "set the number of threads for the cache server", uwsgi_opt_set_int, &uwsgi.cache_server_threads,0},
+
+	{"queue", required_argument, 0, "enable shared queue", uwsgi_opt_set_int, &uwsgi.queue_size, 0},
+	{"queue-blocksize", required_argument, 0, "set queue blocksize", uwsgi_opt_set_int, &uwsgi.queue_store_sync, 0},
+	{"queue-store", required_argument, 0, "enable persistent queue to disk", uwsgi_opt_set_str, &uwsgi.queue_store, UWSGI_OPT_MASTER},
+	{"queue-store-sync", required_argument, 0, "set frequency of sync for persistent queue", uwsgi_opt_set_int, &uwsgi.queue_store_sync,0},
+
 #ifdef UWSGI_SPOOLER
 	//{"spooler", required_argument, 'Q', "run a spooler on the specified directory", uwsgi_opt_new_spooler, NULL,0},
 	{"spooler-ordered", no_argument, 0, "try to order the execution of spooler tasks", uwsgi_opt_true, &uwsgi.spooler_ordered,0},
@@ -223,15 +222,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
 	{"stats-server", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
-/*
 #ifdef UWSGI_MULTICAST
-	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST,0},
-	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER,0},
-	{"cluster-nodes", required_argument, 0, LONG_ARGS_CLUSTER_NODES,0},
-	{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD,0},
-	{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG,0},
+	{"multicast", required_argument, 0, "subscribe to specified multicast group", uwsgi_opt_set_str, &uwsgi.multicast_group, UWSGI_OPT_MASTER},
+	{"cluster", required_argument, 0, "join specified uWSGI cluster", uwsgi_opt_set_str, &uwsgi.cluster, UWSGI_OPT_MASTER},
+	//{"cluster-nodes", required_argument, 0, LONG_ARGS_CLUSTER_NODES,0},
+	//{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD,0},
+	//{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG,0},
 #endif
-*/
 	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"subscribe", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
@@ -3241,6 +3238,8 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 }
 
 void uwsgi_opt_set_umask(char *opt, char *value,  void *mode) {
+
+
 	
 }
 
