@@ -262,6 +262,35 @@ int uwsgi_add_timer(uint8_t sig, int secs) {
 
 }
 
+void uwsgi_opt_add_cron(char *opt, char *value, void *foobar) {
+
+	int i;
+
+	struct uwsgi_cron *old_uc, *uc = uwsgi.crons;
+                if (!uc) {
+                        uc = uwsgi_malloc(sizeof(struct uwsgi_cron));
+                        uwsgi.crons = uc;
+                }
+                else {
+                        old_uc = uc;
+                        while(uc->next) {
+                                uc = uc->next;
+                                old_uc = uc;
+                        }
+
+                        old_uc->next = uwsgi_malloc(sizeof(struct uwsgi_cron));
+                        uc = old_uc->next;
+                }
+
+                memset(uc, 0, sizeof(struct uwsgi_cron));
+
+                if (sscanf(value, "%d %d %d %d %d %n", &uc->minute, &uc->hour, &uc->day, &uc->month, &uc->week, &i) != 5) {
+                        uwsgi_log("invalid cron syntax\n");
+                        exit(1);
+                }
+                uc->command = optarg+i;
+}
+
 int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month, int week) {
 
 	uwsgi_lock(uwsgi.cron_table_lock);

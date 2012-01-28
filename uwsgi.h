@@ -417,7 +417,7 @@ struct uwsgi_option {
 	int type;
 	int shortcut;
 	char *help;
-	void (*func)(char *, char *, int, void *);
+	void (*func)(char *, char *, void *);
 	void *data;
 	uint64_t flags;
 };
@@ -2185,7 +2185,7 @@ struct uwsgi_async_request {
 inline int event_queue_read(void);
 inline int event_queue_write(void);
 
-void uwsgi_help(char *opt, char *val, int id, void *);
+void uwsgi_help(char *opt, char *val, void *);
 
 int uwsgi_str2_num(char *);
 int uwsgi_str3_num(char *);
@@ -2476,30 +2476,31 @@ struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *);
 
 int uwsgi_manage_opt(char *, char *);
 
-void uwsgi_opt_print(char *, char *, int, void *);
-void uwsgi_opt_true(char *, char *, int, void *);
-void uwsgi_opt_set_str(char *, char *, int, void *);
-void uwsgi_opt_set_str_spaced(char *, char *, int, void *);
-void uwsgi_opt_add_string_list(char *, char *, int, void *);
-void uwsgi_opt_set_int(char *, char *, int, void *);
-void uwsgi_opt_set_megabytes(char *, char *, int, void *);
-void uwsgi_opt_set_dyn(char *, char *, int, void *);
-void uwsgi_opt_dyn_true(char *, char *, int, void *);
-void uwsgi_opt_set_placeholder(char *, char *, int, void *);
-void uwsgi_opt_add_shared_socket(char *, char *, int, void *);
-void uwsgi_opt_add_socket(char *, char *, int, void *);
-void uwsgi_opt_daemonize(char *, char *, int, void *);
-void uwsgi_opt_logto(char *, char *, int, void *);
-void uwsgi_opt_load_plugin(char *, char *, int, void *);
-void uwsgi_opt_load(char *, char *, int, void *);
+void uwsgi_opt_print(char *, char *, void *);
+void uwsgi_opt_true(char *, char *, void *);
+void uwsgi_opt_set_str(char *, char *, void *);
+void uwsgi_opt_set_str_spaced(char *, char *, void *);
+void uwsgi_opt_add_string_list(char *, char *, void *);
+void uwsgi_opt_set_int(char *, char *, void *);
+void uwsgi_opt_set_megabytes(char *, char *, void *);
+void uwsgi_opt_set_dyn(char *, char *, void *);
+void uwsgi_opt_dyn_true(char *, char *, void *);
+void uwsgi_opt_set_placeholder(char *, char *, void *);
+void uwsgi_opt_add_shared_socket(char *, char *, void *);
+void uwsgi_opt_add_socket(char *, char *, void *);
+void uwsgi_opt_add_cron(char *, char *, void *);
+void uwsgi_opt_daemonize(char *, char *, void *);
+void uwsgi_opt_logto(char *, char *, void *);
+void uwsgi_opt_load_plugin(char *, char *, void *);
+void uwsgi_opt_load(char *, char *, void *);
 #ifdef UWSGI_INI
-void uwsgi_opt_load_ini(char *, char *, int, void *);
+void uwsgi_opt_load_ini(char *, char *, void *);
 #endif
 #ifdef UWSGI_XML
-void uwsgi_opt_load_xml(char *, char *, int, void *);
+void uwsgi_opt_load_xml(char *, char *, void *);
 #endif
 #ifdef UWSGI_YAML
-void uwsgi_opt_load_yml(char *, char *, int, void *);
+void uwsgi_opt_load_yml(char *, char *, void *);
 #endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

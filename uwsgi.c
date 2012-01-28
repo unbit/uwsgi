@@ -182,13 +182,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"zeromq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_set_str, &uwsgi.zeromq,0},
 	{"zmq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_set_str, &uwsgi.zeromq,0},
 #endif
-/*
 #ifdef UWSGI_LDAP
-	{"ldap", required_argument, 0, LONG_ARGS_LDAP,0},
-	{"ldap-schema", no_argument, 0, LONG_ARGS_LDAP_SCHEMA,0},
-	{"ldap-schema-ldif", no_argument, 0, LONG_ARGS_LDAP_SCHEMA_LDIF,0},
+	{"ldap", required_argument, 0, "load configuration from ldap server", uwsgi_opt_set_str, &uwsgi.ldap, 0},
+	//{"ldap-schema", no_argument, 0, "dump uWSGI ldap schema",0},
+	//{"ldap-schema-ldif", no_argument, 0, LONG_ARGS_LDAP_SCHEMA_LDIF,0},
 #endif
-*/
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server,0},
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept,0},
 /*
@@ -215,16 +213,16 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cpu-affinity", required_argument, 0, LONG_ARGS_CPU_AFFINITY,0},
 	{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING,0},
 	{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE,0},
-	{"upload-progress", required_argument, 0, LONG_ARGS_UPLOAD_PROGRESS,0},
 */
+	{"upload-progress", required_argument, 0, "enable creation of .json files in the specified directory during a file upload", uwsgi_opt_set_str, &uwsgi.upload_progress,0},
 	{"no-default-app", no_argument, 0, "do not fallback to default app", uwsgi_opt_true, &uwsgi.no_default_app, 0},
 	{"manage-script-name", no_argument, 0, "automatically rewrite SCRIPT_NAME and PATH_INFO", uwsgi_opt_true, &uwsgi.manage_script_name, 0},
 #ifdef UWSGI_UDP
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 #endif
+	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
+	{"stats-server", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
 /*
-	{"stats", required_argument, 0, LONG_ARGS_STATS,0},
-	{"stats-server", required_argument, 0, LONG_ARGS_STATS,0},
 #ifdef UWSGI_MULTICAST
 	{"multicast", required_argument, 0, LONG_ARGS_MULTICAST,0},
 	{"cluster", required_argument, 0, LONG_ARGS_CLUSTER,0},
@@ -244,9 +242,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"snmp", optional_argument, 0, LONG_ARGS_SNMP,0},
 	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY,0},
 #endif
-	{"check-interval", required_argument, 0, LONG_ARGS_CHECK_INTERVAL,0},
-
 */
+	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MASTER_INTERVAL, 0},
 	{"binary-path", required_argument, 0, "force binary path", uwsgi_opt_set_str, &uwsgi.binary_path, 0},
 #ifdef UWSGI_ASYNC
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
@@ -268,21 +265,21 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, 0},
 	{"log-reopen", no_argument, 0, "reopen log after reload", uwsgi_opt_true, &uwsgi.log_reopen, 0},
 	{"log-truncate", no_argument, 0, "truncate log on startup", uwsgi_opt_true, &uwsgi.log_truncate, 0},
+	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_int, &uwsgi.log_maxsize, UWSGI_OPT_LOG_MASTER},
+	{"log-backupname", required_argument, 0, "set logfile name after rotation", uwsgi_opt_set_str, &uwsgi.log_backupname, 0},
 /*
-	{"log-maxsize", required_argument, 0, LONG_ARGS_LOG_MAXSIZE,0},
-	{"log-backupname", required_argument, 0, LONG_ARGS_LOG_BACKUPNAME,0},
 	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE,0},
 	{"log-date", optional_argument, 0, LONG_ARGS_LOG_DATE,0},
 	{"log-prefix", optional_argument, 0, LONG_ARGS_LOG_DATE,0},
-	{"log-zero", no_argument, 0, LONG_ARGS_LOG_ZERO,0},
-	{"log-slow", required_argument, 0, LONG_ARGS_LOG_SLOW,0},
-	{"log-4xx", no_argument, 0, LONG_ARGS_LOG_4xx,0},
-	{"log-5xx", no_argument, 0, LONG_ARGS_LOG_5xx,0},
-	{"log-big", required_argument, 0, LONG_ARGS_LOG_BIG,0},
-	{"log-sendfile", required_argument, 0, LONG_ARGS_LOG_SENDFILE,0},
-	{"log-micros", no_argument, &uwsgi.log_micros, 1,0},
-	{"log-x-forwarded-for", no_argument, &uwsgi.log_x_forwarded_for, 1,0},
 */
+	{"log-zero", no_argument, 0, "log responses without body", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_ZERO,0},
+	{"log-slow", required_argument, 0, "log requestes slower than the specified numbr of seconds", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOG_SLOW, 0},
+	{"log-4xx", no_argument, 0, "log requests with a 4xx response", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_4xx,0},
+	{"log-5xx", no_argument, 0, "log requests with a 5xx response", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_5xx,0},
+	{"log-big", required_argument, 0, "log requestes bigger than the specified size", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOG_BIG, 0},
+	{"log-sendfile", required_argument, 0, "log sendfile requests", uwsgi_opt_dyn_true,  (void *) UWSGI_OPTION_LOG_SENDFILE, 0},
+	{"log-micros", no_argument, 0, "report response time in microseconds instead of milliseconds", uwsgi_opt_true, &uwsgi.log_micros, 0},
+	{"log-x-forwarded-for", no_argument, 0, "use the ip from X-Forwarded-For header instead of REMOTE_ADDR", uwsgi_opt_true, &uwsgi.log_x_forwarded_for, 0},
 	{"master-as-root", no_argument, 0, "leave master process running as root", uwsgi_opt_true, &uwsgi.master_as_root,0},
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
@@ -347,9 +344,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
 /*
 	{"zerg", required_argument, 0, LONG_ARGS_ZERG,0},
-	{"zerg-server", required_argument, 0, LONG_ARGS_ZERG_SERVER,0},
-	{"cron", required_argument, 0, LONG_ARGS_CRON,0},
 */
+	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
+	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
 /*
@@ -386,7 +383,7 @@ int uwsgi_manage_opt(char *key, char *value) {
 	struct uwsgi_option *op = uwsgi.options;
 	while(op->name) {
 		if (!strcmp(key, op->name)) {
-			op->func(key, value, 0, op->data);
+			op->func(key, value, op->data);
 			return 1;
 		}
 		op++;
@@ -1370,7 +1367,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		for(i=optind;i<uwsgi.argc;i++) {
 			char *lazy = uwsgi.argv[i];
 			if (lazy[0] != '[') {
-				uwsgi_opt_load(NULL, lazy, 0, NULL);
+				uwsgi_opt_load(NULL, lazy, NULL);
 				// manage magic mountpoint
 				int magic = 0;
 				int j;
@@ -3076,7 +3073,7 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 this function build the help output from the uwsgi.options structure
 
 */
-void uwsgi_help(char *opt, char *val, int id, void *none) {
+void uwsgi_help(char *opt, char *val, void *none) {
 
 	size_t max_size = 0;
 
@@ -3168,59 +3165,59 @@ void uwsgi_init_all_apps() {
 
 }
 
-void uwsgi_opt_true(char *opt, char *value, int id, void *key) {
+void uwsgi_opt_true(char *opt, char *value, void *key) {
 
 	int *ptr = (int *) key;
 	*ptr = 1;
 }
 
-void uwsgi_opt_set_int(char *opt, char *value, int id, void *key) {
+void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	int *ptr = (int *) key;
 	*ptr = atoi((char *)value);
 }
 
-void uwsgi_opt_set_megabytes(char *opt, char *value, int id, void *key) {
+void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
 	*ptr = (strtoul(optarg, NULL, 10)) * 1024 * 1024;
 }
 
-void uwsgi_opt_set_dyn(char *opt, char *value, int id, void *key) {
+void uwsgi_opt_set_dyn(char *opt, char *value, void *key) {
 
 	uint8_t dyn_opt_id = *((uint8_t *) key);
 	uwsgi.shared->options[dyn_opt_id] = atoi(value);
 }
 
-void uwsgi_opt_dyn_true(char *opt, char *value, int id, void *key) {
+void uwsgi_opt_dyn_true(char *opt, char *value, void *key) {
 
 	uint8_t dyn_opt_id = *((uint8_t *) key);
 	uwsgi.shared->options[dyn_opt_id] = 1;
 }
 
-void uwsgi_opt_set_str(char *opt, char *value, int id, void *key) {
+void uwsgi_opt_set_str(char *opt, char *value, void *key) {
 	char **ptr = (char **) key;
 	*ptr = (char *) value;
 }
 
-void uwsgi_opt_set_str_spaced(char *opt, char *value, int id, void *key) {
+void uwsgi_opt_set_str_spaced(char *opt, char *value, void *key) {
 	char **ptr = (char **) key;
 	*ptr = uwsgi_concat2((char *) value, " ");
 }
 
-void uwsgi_opt_add_string_list(char *opt, char *value, int id, void *list) {
+void uwsgi_opt_add_string_list(char *opt, char *value, void *list) {
 	struct uwsgi_string_list **ptr = (struct uwsgi_string_list **) list;
 	uwsgi_string_new_list(ptr, value);
 }
 
-void uwsgi_opt_add_shared_socket(char *opt, char *value, int id, void *protocol) {
+void uwsgi_opt_add_shared_socket(char *opt, char *value, void *protocol) {
 	uwsgi_new_shared_socket(generate_socket_name(value));
 }
 
-void uwsgi_opt_add_socket(char *opt, char *value, int id, void *protocol) {
+void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {
 	struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
         uwsgi_sock->proto_name = protocol;
 }
 
-void uwsgi_opt_set_placeholder(char *opt, char *value, int id, void *none) {
+void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 	
 	char *p = strchr(optarg, '=');
 	if (!p) {
@@ -3234,11 +3231,11 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, int id, void *none) {
 	
 }
 
-void uwsgi_opt_set_umask(char *opt, char *value, int id, void *mode) {
+void uwsgi_opt_set_umask(char *opt, char *value,  void *mode) {
 	
 }
 
-void uwsgi_opt_print(char *opt, char *value, int id, void *str) {
+void uwsgi_opt_print(char *opt, char *value, void *str) {
 	if (str) {
 		fprintf(stdout, "%s\n", (char *) str);
 		exit(0);
@@ -3246,7 +3243,7 @@ void uwsgi_opt_print(char *opt, char *value, int id, void *str) {
 	fprintf(stdout, "%s\n", value);
 }
 
-void uwsgi_opt_daemonize(char *opt, char *logfile, int id, void *none) {
+void uwsgi_opt_daemonize(char *opt, char *logfile, void *none) {
 	if (uwsgi.has_emperor) {
 		logto(logfile);
 	}
@@ -3260,11 +3257,11 @@ void uwsgi_opt_daemonize(char *opt, char *logfile, int id, void *none) {
 	}
 }
 
-void uwsgi_opt_logto(char *opt, char *logfile, int id, void *none) {
+void uwsgi_opt_logto(char *opt, char *logfile, void *none) {
 	logto(logfile);
 }
 
-void uwsgi_opt_load_plugin(char *opt, char *value, int id, void *none) {
+void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 	char *p = strtok(uwsgi_concat2(value, ""), ",");
 	while (p != NULL) {
 #ifdef UWSGI_DEBUG
@@ -3276,36 +3273,36 @@ void uwsgi_opt_load_plugin(char *opt, char *value, int id, void *none) {
 	build_options();
 }
 
-void uwsgi_opt_load(char *opt, char *filename, int id, void *none) {
+void uwsgi_opt_load(char *opt, char *filename, void *none) {
 
 #ifdef UWSGI_INI
-	if (uwsgi_endswith(filename, ".ini")) { uwsgi_opt_load_ini(opt, filename, id, none); return;}
+	if (uwsgi_endswith(filename, ".ini")) { uwsgi_opt_load_ini(opt, filename, none); return;}
 #endif
 #ifdef UWSGI_XML
-	if (uwsgi_endswith(filename, ".xml")) { uwsgi_opt_load_xml(opt, filename, id, none); return;}
+	if (uwsgi_endswith(filename, ".xml")) { uwsgi_opt_load_xml(opt, filename, none); return;}
 #endif
 #ifdef UWSGI_YAML
-	if (uwsgi_endswith(filename, ".yaml")) { uwsgi_opt_load_yml(opt, filename, id, none); return;}
-	if (uwsgi_endswith(filename, ".yml")) { uwsgi_opt_load_yml(opt, filename, id, none); return;}
+	if (uwsgi_endswith(filename, ".yaml")) { uwsgi_opt_load_yml(opt, filename, none); return;}
+	if (uwsgi_endswith(filename, ".yml")) { uwsgi_opt_load_yml(opt, filename, none); return;}
 #endif
 }
 
 #ifdef UWSGI_INI
-void uwsgi_opt_load_ini(char *opt, char *filename, int id, void *none) {
+void uwsgi_opt_load_ini(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_ini_config(filename, uwsgi.magic_table);
 }
 #endif
 
 #ifdef UWSGI_XML
-void uwsgi_opt_load_xml(char *opt, char *filename, int id, void *none) {
+void uwsgi_opt_load_xml(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_xml_config(filename, uwsgi.wsgi_req, 0, uwsgi.magic_table);
 }
 #endif
 
 #ifdef UWSGI_YAML
-void uwsgi_opt_load_yml(char *opt, char *filename, int id, void *none) {
+void uwsgi_opt_load_yml(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_yaml_config(filename, uwsgi.magic_table);
 }

@@ -1801,7 +1801,7 @@ void add_exported_option(char *key, char *value, int configured) {
                         }
 			// immediate ?
 			if (op->flags & UWSGI_OPT_IMMEDIATE) {
-				op->func(key, value, 0, op->data);
+				op->func(key, value, op->data);
 				uwsgi.exported_opts[id]->configured = 1;
 			}
 		}
