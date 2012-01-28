@@ -204,6 +204,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 #endif
 */
+	{"never-swap", no_argument, 0, "lock all memory pages avoiding swapping", uwsgi_opt_true, &uwsgi.never_swap, 0},
 	{"touch-reload", required_argument, 0, "reload uWSGI if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_reload, UWSGI_OPT_MASTER},
 	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal mamagement", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
 /*
@@ -331,16 +332,14 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"env", required_argument, 0, LONG_ARGS_ENV,0},
 */
 	{"vacuum", no_argument, 0, "try to remove all of the generated file/sockets", uwsgi_opt_true, &uwsgi.vacuum,0},
-/*
 #ifdef __linux__
 	{"cgroup", required_argument, 0, "put the processes in the specified cgroup", uwsgi_opt_add_string_list, &uwsgi.cgroup,0},
-	{"cgroup-opt", required_argument, 0, LONG_ARGS_CGROUP_OPT,0},
-	{"namespace", required_argument, 0, LONG_ARGS_LINUX_NS,0},
-	{"ns", required_argument, 0, LONG_ARGS_LINUX_NS,0},
-	{"namespace-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET,0},
-	{"ns-net", required_argument, 0, LONG_ARGS_LINUX_NS_NET,0},
+	{"cgroup-opt", required_argument, 0, "set value in specified cgroup option", uwsgi_opt_add_string_list, &uwsgi.cgroup_opt,0},
+	{"namespace", required_argument, 0, "run in a new namespace under the specified rootfs", uwsgi_opt_set_str, &uwsgi.ns,0},
+	{"ns", required_argument, 0, "run in a new namespace under the specified rootfs", uwsgi_opt_set_str, &uwsgi.ns,0},
+	{"namespace-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
+	{"ns-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
 #endif
-*/
 	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
 /*
 	{"zerg", required_argument, 0, LONG_ARGS_ZERG,0},
@@ -1405,6 +1404,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
+
+	if (uwsgi.never_swap) {
+		if (mlockall( MCL_CURRENT | MCL_FUTURE )) {
+			uwsgi_error("mlockall()");
+		}
+	}
 
 	// setup master logging
 	if (uwsgi.log_master) {

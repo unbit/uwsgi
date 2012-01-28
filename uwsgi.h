@@ -1474,6 +1474,8 @@ struct uwsgi_server {
 	int unsubscribe_on_graceful_reload;
 	struct uwsgi_string_list *subscriptions;
 
+	int never_swap;
+
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 	int linux_ksm;

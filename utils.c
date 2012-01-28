@@ -3605,6 +3605,13 @@ pid_t uwsgi_fork(char *name) {
 
 	pid_t pid = fork();
 	if (pid == 0) {
+
+		if (uwsgi.never_swap) {
+                	if (mlockall( MCL_CURRENT | MCL_FUTURE )) {
+                        	uwsgi_error("mlockall()");
+                	}
+        	}
+
 #if defined(__linux__) || defined(__sun__)
 		int i;
 		for(i=0;i<uwsgi.argc;i++) {
