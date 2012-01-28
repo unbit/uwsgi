@@ -339,9 +339,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
 /*
 	{"attach-daemon", required_argument, 0, LONG_ARGS_ATTACH_DAEMON,0},
-	{"plugins", required_argument, 0, LONG_ARGS_PLUGINS,0},
-	{"autoload", no_argument, &uwsgi.autoload, 1,0},
 */
+	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
+	{"autoload", no_argument, 0, "try to automatically load plugins when unknown options are found", uwsgi_opt_true, &uwsgi.autoload, 0},
 	{"allowed-modifiers", required_argument, 0,"comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options,0},
@@ -3037,6 +3037,8 @@ void build_options() {
 		}
 	}
 
+	if (uwsgi.options) free(uwsgi.options);
+
 	uwsgi.options = uwsgi_calloc(sizeof(struct uwsgi_option) * options_count+1);
 
 	op = uwsgi_base_options;
@@ -3064,7 +3066,11 @@ void build_options() {
 
 	pos = 0;
 
+	if (uwsgi.long_options) free(uwsgi.long_options);
+
 	uwsgi.long_options = uwsgi_calloc(sizeof(struct option) * options_count+1);
+
+	if (uwsgi.short_options) free(uwsgi.short_options);
 
 	uwsgi.short_options = uwsgi_calloc( (options_count * 2) + 1) ;
 	
@@ -3409,6 +3415,18 @@ void uwsgi_opt_daemonize(char *opt, char *logfile, int id, void *none) {
 			logto(logfile);	
 		}
 	}
+}
+
+void uwsgi_opt_load_plugin(char *opt, char *value, int id, void *none) {
+	char *p = strtok(uwsgi_concat2(value, ""), ",");
+	while (p != NULL) {
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("loading plugin %s\n", p);
+#endif
+		uwsgi_load_plugin(-1, p, NULL, 0);
+		p = strtok(NULL, ",");
+	}
+	build_options();
 }
 
 #ifdef UWSGI_INI

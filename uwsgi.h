@@ -2491,6 +2491,7 @@ void uwsgi_opt_set_dyn(char *, char *, int, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, int, void *);
 void uwsgi_opt_add_socket(char *, char *, int, void *);
 void uwsgi_opt_daemonize(char *, char *, int, void *);
+void uwsgi_opt_load_plugin(char *, char *, int, void *);
 #ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *, char *, int, void *);
 #endif
