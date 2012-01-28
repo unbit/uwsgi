@@ -2481,6 +2481,7 @@ int uwsgi_manage_opt(char *, char *);
 void uwsgi_opt_print(char *, char *, void *);
 void uwsgi_opt_true(char *, char *, void *);
 void uwsgi_opt_set_str(char *, char *, void *);
+void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
 void uwsgi_opt_set_int(char *, char *, void *);

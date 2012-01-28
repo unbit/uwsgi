@@ -252,17 +252,17 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"max-fd", required_argument, 0, "set maximum number of file descriptors (requires root privileges)", uwsgi_opt_set_int, &uwsgi.requested_max_fd, 0},
 	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_logto, NULL, UWSGI_OPT_IMMEDIATE},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
+	{"logfile-chown", no_argument, 0, "chown logfiles", uwsgi_opt_true, &uwsgi.logfile_chown, 0},
 /*
-	{"logfile-chown", no_argument, &uwsgi.logfile_chown, 1,0},
 	{"logfile-chmod", required_argument, 0, LONG_ARGS_LOGFILE_CHMOD,0},
 	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG,0},
-	{"log-socket", required_argument, 0, LONG_ARGS_LOG_SOCKET,0},
-	{"logger", required_argument, 0, LONG_ARGS_LOGGER,0},
-	{"threaded-logger", no_argument, &uwsgi.threaded_logger, 1,0},
-#ifdef UWSGI_ZEROMQ
-	{"log-zeromq", required_argument, 0, LONG_ARGS_LOG_ZEROMQ,0},
-#endif
 */
+	{"log-socket", required_argument, 0, "send logs to the specified socket", uwsgi_opt_set_logger, "socket:", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
+	{"logger", required_argument, 0, "set logger system", uwsgi_opt_set_logger, "", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER },
+	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, 0},
+#ifdef UWSGI_ZEROMQ
+	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq:", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
+#endif
 	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, 0},
 	{"log-reopen", no_argument, 0, "reopen log after reload", uwsgi_opt_true, &uwsgi.log_reopen, 0},
 	{"log-truncate", no_argument, 0, "truncate log on startup", uwsgi_opt_true, &uwsgi.log_truncate, 0},
@@ -3201,6 +3201,10 @@ void uwsgi_opt_dyn_true(char *opt, char *value, void *key) {
 void uwsgi_opt_set_str(char *opt, char *value, void *key) {
 	char **ptr = (char **) key;
 	*ptr = (char *) value;
+}
+
+void uwsgi_opt_set_logger(char *opt, char *value, void *prefix) {
+	uwsgi.requested_logger = uwsgi_concat2((char *)prefix, (char *) value);
 }
 
 void uwsgi_opt_set_str_spaced(char *opt, char *value, void *key) {
