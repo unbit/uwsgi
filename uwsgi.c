@@ -111,7 +111,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"exit-on-reload", no_argument, 0, "force exit even if a reload is requested", uwsgi_opt_true, &uwsgi.exit_on_reload,0},
 	{"die-on-term", no_argument, 0, "exit instead of brutal reload on SIGTERM", uwsgi_opt_true, &uwsgi.die_on_term, 0},
-	//{"help|usage", no_argument, 'h', "show this help", uwsgi_opt_help, NULL,0},
+	{"help", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
+	{"usage", no_argument, 'h', "show this help", uwsgi_help, NULL, UWSGI_OPT_IMMEDIATE},
 	//{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_true, &uwsgi.process_reaper,0},
 	//{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_long, &uwsgi.max_requests,0},
 /*
@@ -3146,170 +3147,33 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 
 }
 
-void uwsgi_help(void) {
+void uwsgi_help(char *opt, char *val, int id, void *none) {
 
-/*
-	struct uwsgi_help_item *uhi, *all_help;
-	int max_size = 0;
-	struct option *lopt;
-	int found;
-	char *space;
-	char *tmp_option = NULL;
-	int i;
-
-	all_help = main_help;
-
-	build_options();
-
-	while ((uhi = all_help)) {
-
-		if (uhi->key == 0)
-			break;
-
-		if ((int) strlen(uhi->key) > max_size) {
-			max_size = (int) strlen(uhi->key);
-		}
-
-		all_help++;
-	}
-
-
-	for (i = 0; i < 0xFF; i++) {
-		if (uwsgi.p[i]->help) {
-
-			all_help = uwsgi.p[i]->help;
-			while ((uhi = all_help)) {
-				if (uhi->key == 0)
-					break;
-				if ((int) strlen(uhi->key) > max_size)
-					max_size = (int) strlen(uhi->key);
-				all_help++;
-			}
-
-		}
-	}
-
-	for (i = 0; i < uwsgi.gp_cnt; i++) {
-		if (uwsgi.gp[i]->help) {
-
-			all_help = uwsgi.gp[i]->help;
-			while ((uhi = all_help)) {
-				if (uhi->key == 0)
-					break;
-				if ((int) strlen(uhi->key) > max_size)
-					max_size = (int) strlen(uhi->key);
-				all_help++;
-			}
-
-		}
-	}
+	size_t max_size = 0;
 
 	fprintf(stdout, "Usage: %s [options...]\n", uwsgi.binary_path);
 
-	lopt = uwsgi.long_options;
-
-	max_size += 4;
-
-	while (lopt->name) {
-
-		found = 0;
-
-		all_help = main_help;
-		while ((uhi = all_help)) {
-			if (uhi->key == 0)
-				break;
-
-			tmp_option = uwsgi_concat2(uhi->key, "");
-			space = strchr(tmp_option, ' ');
-			if (!space)
-				space = strstr(tmp_option, "[=");
-			if (space)
-				space[0] = 0;
-
-			if (!strcmp(tmp_option, lopt->name)) {
-				found = 1;
-				break;
-			}
-
-			free(tmp_option);
-			all_help++;
+	struct uwsgi_option *op = uwsgi.options;
+	while(op && op->name) {
+		if (strlen(op->name) > max_size) {
+			max_size = strlen(op->name);
 		}
-
-		if (!found) {
-			for (i = 0; i < 0xFF; i++) {
-				if (uwsgi.p[i]->help) {
-					all_help = uwsgi.p[i]->help;
-					while ((uhi = all_help)) {
-						if (uhi->key == 0)
-							break;
-						tmp_option = uwsgi_concat2(uhi->key, "");
-						space = strchr(tmp_option, ' ');
-						if (!space)
-							space = strstr(tmp_option, "[=");
-						if (space)
-							space[0] = 0;
-
-						if (!strcmp(tmp_option, lopt->name)) {
-							found = 1;
-							break;
-						}
-
-						free(tmp_option);
-						all_help++;
-					}
-				}
-				if (found)
-					break;
-			}
-		}
-
-		if (!found) {
-			for (i = 0; i < uwsgi.gp_cnt; i++) {
-				if (uwsgi.gp[i]->help) {
-					all_help = uwsgi.gp[i]->help;
-					while ((uhi = all_help)) {
-						if (uhi->key == 0)
-							break;
-						tmp_option = uwsgi_concat2(uhi->key, "");
-						space = strchr(tmp_option, ' ');
-						if (!space)
-							space = strstr(tmp_option, "[=");
-						if (space)
-							space[0] = 0;
-
-						if (!strcmp(tmp_option, lopt->name)) {
-							found = 1;
-							break;
-						}
-
-						free(tmp_option);
-						all_help++;
-					}
-				}
-				if (found)
-					break;
-			}
-		}
-
-
-		if (found) {
-			if (!lopt->flag && ((lopt->val >= 'a' && lopt->val <= 'z') || (lopt->val >= 'A' && lopt->val <= 'Z'))) {
-				fprintf(stdout, "    -%c|--%-*s %s\n", lopt->val, max_size - 3, uhi->key, uhi->value);
-			}
-			else {
-				fprintf(stdout, "    --%-*s %s\n", max_size, uhi->key, uhi->value);
-			}
-			if (tmp_option)
-				free(tmp_option);
-		}
-		else {
-			fprintf(stdout, "    --%-*s *** UNDOCUMENTED OPTION ***\n", max_size, lopt->name);
-		}
-
-		lopt++;
+		op++;
 	}
 
-*/
+	max_size++;
+
+	op = uwsgi.options;
+	while(op && op->name) {
+		if (op->shortcut) {
+			fprintf(stdout,"    -%c|--%-*s %s\n", op->shortcut, (int) max_size-3, op->name, op->help);
+		}
+		else {
+			fprintf(stdout,"    --%-*s %s\n", (int) max_size, op->name, op->help);
+		}
+		op++;
+	}
+
 	exit(0);
 }
 

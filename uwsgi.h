@@ -2194,7 +2194,7 @@ struct uwsgi_async_request {
 inline int event_queue_read(void);
 inline int event_queue_write(void);
 
-void uwsgi_help(void);
+void uwsgi_help(char *opt, char *val, int id, void *);
 
 int uwsgi_str2_num(char *);
 int uwsgi_str3_num(char *);
