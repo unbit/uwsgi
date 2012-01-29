@@ -173,7 +173,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	//{"json|js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL,0},
 #endif
 #ifdef UWSGI_SQLITE3
-	//{"sqlite3|sqlite", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL,0},
+	{"sqlite3", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL, UWSGI_OPT_IMMEDIATE},
+	{"sqlite", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_ZEROMQ
 	{"zeromq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_set_str, &uwsgi.zeromq,0},
@@ -186,9 +187,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server,0},
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept,0},
-/*
-	{"limit-as", required_argument, 0, LONG_ARGS_LIMIT_AS,0},
-*/
+	{"limit-as", required_argument, 0, "limit processes address space/vsz", uwsgi_opt_set_megabytes, &uwsgi.rl.rlim_cur,0},
 	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},
 	{"reload-on-rss", required_argument, 0, "reload if rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_rss, UWSGI_OPT_MEMORY },
 	{"evil-reload-on-as", required_argument, 0, "force the master to reload a worker if its address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_as, UWSGI_OPT_MASTER|UWSGI_OPT_MEMORY},
@@ -204,14 +203,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"never-swap", no_argument, 0, "lock all memory pages avoiding swapping", uwsgi_opt_true, &uwsgi.never_swap, 0},
 	{"touch-reload", required_argument, 0, "reload uWSGI if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_reload, UWSGI_OPT_MASTER},
 	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal mamagement", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
-/*
-	{"limit-post", required_argument, 0, LONG_ARGS_LIMIT_POST,0},
-	{"no-orphans", no_argument, &uwsgi.no_orphans, 1,0},
-	{"prio", required_argument, 0, LONG_ARGS_PRIO,0},
-	{"cpu-affinity", required_argument, 0, LONG_ARGS_CPU_AFFINITY,0},
-	{"post-buffering", required_argument, 0, LONG_ARGS_POST_BUFFERING,0},
-	{"post-buffering-bufsize", required_argument, 0, LONG_ARGS_POST_BUFFERING_SIZE,0},
-*/
+	{"limit-post", required_argument, 0, "limit request body", uwsgi_opt_set_64bit, &uwsgi.limit_post, 0},
+	{"no-orphans", no_argument, 0, "automatically kill workers if master dies (can be dangerous for availability)", uwsgi_opt_true, &uwsgi.no_orphans, 0},
+	{"prio", required_argument, 0, "set processes/threads priority", uwsgi_opt_set_int, &uwsgi.prio, 0},
+	{"cpu-affinity", required_argument, 0, "set cpu affinity", uwsgi_opt_set_int, &uwsgi.cpu_affinity, 0},
+	{"post-buffering", required_argument, 0, "enable post buffering", uwsgi_opt_set_64bit, &uwsgi.post_buffering, 0},
+	{"post-buffering-bufsize", required_argument, 0, "set buffer size for read() in post buffering mode", uwsgi_opt_set_64bit, &uwsgi.post_buffering_bufsize,0},
 	{"upload-progress", required_argument, 0, "enable creation of .json files in the specified directory during a file upload", uwsgi_opt_set_str, &uwsgi.upload_progress,0},
 	{"no-default-app", no_argument, 0, "do not fallback to default app", uwsgi_opt_true, &uwsgi.no_default_app, 0},
 	{"manage-script-name", no_argument, 0, "automatically rewrite SCRIPT_NAME and PATH_INFO", uwsgi_opt_true, &uwsgi.manage_script_name, 0},
@@ -323,9 +320,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"check-cache", no_argument, 0, "check for response data in the cache", uwsgi_opt_true, &uwsgi.check_cache, 0},
 	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode,0},
-/*
-	{"env", required_argument, 0, LONG_ARGS_ENV,0},
-*/
+	{"env", required_argument, 0, "set environment variable", uwsgi_opt_set_env, NULL, UWSGI_OPT_IMMEDIATE},
 	{"vacuum", no_argument, 0, "try to remove all of the generated file/sockets", uwsgi_opt_true, &uwsgi.vacuum,0},
 #ifdef __linux__
 	{"cgroup", required_argument, 0, "put the processes in the specified cgroup", uwsgi_opt_add_string_list, &uwsgi.cgroup,0},
@@ -343,9 +338,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
-/*
-	{"attach-daemon", required_argument, 0, LONG_ARGS_ATTACH_DAEMON,0},
-*/
+	{"attach-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"autoload", no_argument, 0, "try to automatically load plugins when unknown options are found", uwsgi_opt_true, &uwsgi.autoload, UWSGI_OPT_IMMEDIATE},
 	{"allowed-modifiers", required_argument, 0,"comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
@@ -3176,6 +3169,11 @@ void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	*ptr = atoi((char *)value);
 }
 
+void uwsgi_opt_set_64bit(char *opt, char *value, void *key) {
+	uint64_t *ptr = (uint64_t *) key;
+	*ptr = (strtoul(value, NULL, 10)) ;
+}
+
 void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
 	*ptr = (strtoul(value, NULL, 10)) * 1024 * 1024;
@@ -3318,6 +3316,15 @@ void uwsgi_opt_set_unshare(char *opt, char *value, void *none) {
 }
 #endif
 
+void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
+	uwsgi_daemon_new(&uwsgi.daemons, value);
+}
+
+void uwsgi_opt_set_env(char *opt, char *value, void *none) {
+	if (putenv(value)) {
+        	uwsgi_error("putenv()");
+        }
+}
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 	char *p = strtok(uwsgi_concat2(value, ""), ",");
@@ -3363,5 +3370,12 @@ void uwsgi_opt_load_xml(char *opt, char *filename, void *none) {
 void uwsgi_opt_load_yml(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_yaml_config(filename, uwsgi.magic_table);
+}
+#endif
+
+#ifdef UWSGI_SQLITE3
+void uwsgi_opt_load_sqlite3(char *opt, char *filename, void *none) {
+	config_magic_table_fill(filename, uwsgi.magic_table);
+	uwsgi_sqlite3_config(filename, uwsgi.magic_table);
 }
 #endif

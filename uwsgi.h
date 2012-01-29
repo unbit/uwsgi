@@ -2485,6 +2485,7 @@ void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
 void uwsgi_opt_set_int(char *, char *, void *);
+void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);
 void uwsgi_opt_set_dyn(char *, char *, void *);
 void uwsgi_opt_dyn_true(char *, char *, void *);
@@ -2505,11 +2506,16 @@ void uwsgi_opt_load_xml(char *, char *, void *);
 #ifdef UWSGI_YAML
 void uwsgi_opt_load_yml(char *, char *, void *);
 #endif
+#ifdef UWSGI_SQLITE3
+void uwsgi_opt_load_sqlite3(char *, char *, void *);
+#endif
 
 void uwsgi_opt_set_umask(char *, char *, void *);
 void uwsgi_opt_add_spooler(char *, char *, void *);
+void uwsgi_opt_add_daemon(char *, char *, void *);
 void uwsgi_opt_set_uid(char *, char *, void *);
 void uwsgi_opt_set_gid(char *, char *, void *);
+void uwsgi_opt_set_env(char *, char *, void *);
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);
 #endif
