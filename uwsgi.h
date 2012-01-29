@@ -2510,6 +2510,13 @@ void uwsgi_opt_set_umask(char *, char *, void *);
 void uwsgi_opt_add_spooler(char *, char *, void *);
 void uwsgi_opt_set_uid(char *, char *, void *);
 void uwsgi_opt_set_gid(char *, char *, void *);
+#ifdef UWSGI_CAP
+void uwsgi_opt_set_cap(char *, char *, void *);
+#endif
+#ifdef __linux__
+void uwsgi_opt_set_unshare(char *, char *, void *);
+#endif
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

@@ -151,14 +151,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot,0},
 	{"uid", required_argument, 0, "setuid to the specified user/uid", uwsgi_opt_set_uid, NULL, 0},
 	{"gid", required_argument, 0, "setgid to the specified group/gid", uwsgi_opt_set_gid, NULL, 0},
-/*
 #ifdef UWSGI_CAP
-	{"cap", required_argument,0, LONG_ARGS_CAP,0},
+	{"cap", required_argument,0, "set process capability", uwsgi_opt_set_cap, NULL, 0},
 #endif
 #ifdef __linux__
-	{"unshare", required_argument,0, LONG_ARGS_UNSHARE,0},
+	{"unshare", required_argument,0, "unshare() part of the processes and put it in a new namespace", uwsgi_opt_set_unshare, 0},
 #endif
-*/
 	{"exec-pre-jail", required_argument,0, "run the specified command before jailing", uwsgi_opt_add_string_list, &uwsgi.exec_pre_jail ,0},
 	{"exec-post-jail", required_argument,0, "run the specified command after jailing", uwsgi_opt_add_string_list, &uwsgi.exec_post_jail,0},
 	{"exec-in-jail", required_argument,0, "run the specified command in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.exec_in_jail,0},
@@ -3308,6 +3306,18 @@ void uwsgi_opt_set_gid(char *opt, char *value, void *none) {
         if (!uwsgi.gid)
         	uwsgi.gidname = value;
 }
+
+#ifdef UWSGI_CAP
+void uwsgi_opt_set_cap(char *opt, char *value, void *none) {
+	uwsgi_build_cap(value);
+}
+#endif
+#ifdef __linux__
+void uwsgi_opt_set_unshare(char *opt, char *value, void *none) {
+	uwsgi_build_unshare(value);
+}
+#endif
+
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 	char *p = strtok(uwsgi_concat2(value, ""), ",");
