@@ -58,9 +58,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_daemonize, NULL, UWSGI_OPT_IMMEDIATE},
-	//{"stop", required_argument, 0, "stop an instance", uwsgi_opt_cmd, uwsgi_stop_pidfile,0},
-	//{"reload", required_argument, 0, "reload an instance", uwsgi_opt_cmd, uwsgi_reload_pidfile,0},
-	//{"pause|suspend|resume", required_argument, 0, "pause/suspend/resume an instance", uwsgi_opt_cmd, uwsgi_pause_pidfile,0},
+	{"stop", required_argument, 0, "stop an instance", uwsgi_opt_pidfile_signal, (void *) SIGINT, UWSGI_OPT_IMMEDIATE},
+	{"reload", required_argument, 0, "reload an instance", uwsgi_opt_pidfile_signal, (void *) SIGHUP, UWSGI_OPT_IMMEDIATE},
+	{"pause", required_argument, 0, "pause an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
+	{"suspend", required_argument, 0, "suspend an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
+	{"resume", required_argument, 0, "resume an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue,0},
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_set_int, &uwsgi.max_vars,0},
 	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_int, &uwsgi.buffer_size,0},
@@ -187,7 +189,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server,0},
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept,0},
-	{"limit-as", required_argument, 0, "limit processes address space/vsz", uwsgi_opt_set_megabytes, &uwsgi.rl.rlim_cur,0},
+	{"limit-as", required_argument, 0, "limit processes address space/vsz", uwsgi_opt_set_megabytes, &uwsgi.rl.rlim_max,0},
 	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},
 	{"reload-on-rss", required_argument, 0, "reload if rss memory is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_rss, UWSGI_OPT_MEMORY },
 	{"evil-reload-on-as", required_argument, 0, "force the master to reload a worker if its address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.evil_reload_on_as, UWSGI_OPT_MASTER|UWSGI_OPT_MEMORY},
@@ -247,13 +249,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"logfile-chown", no_argument, 0, "chown logfiles", uwsgi_opt_true, &uwsgi.logfile_chown, 0},
 /*
 	{"logfile-chmod", required_argument, 0, LONG_ARGS_LOGFILE_CHMOD,0},
-	{"log-syslog", optional_argument, 0, LONG_ARGS_LOG_SYSLOG,0},
 */
-	{"log-socket", required_argument, 0, "send logs to the specified socket", uwsgi_opt_set_logger, "socket:", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
-	{"logger", required_argument, 0, "set logger system", uwsgi_opt_set_logger, "", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER },
+	{"log-syslog", optional_argument, 0, "log to syslog", uwsgi_opt_set_logger, "syslog", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
+	{"log-socket", required_argument, 0, "send logs to the specified socket", uwsgi_opt_set_logger, "socket", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
+	{"logger", required_argument, 0, "set logger system", uwsgi_opt_set_logger, NULL, UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER },
 	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, 0},
 #ifdef UWSGI_ZEROMQ
-	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq:", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
+	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 #endif
 	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, 0},
 	{"log-reopen", no_argument, 0, "reopen log after reload", uwsgi_opt_true, &uwsgi.log_reopen, 0},
@@ -3166,12 +3168,23 @@ void uwsgi_opt_true(char *opt, char *value, void *key) {
 
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	int *ptr = (int *) key;
-	*ptr = atoi((char *)value);
+	if (value) {
+		*ptr = atoi((char *)value);
+	}
+	else {
+		*ptr = 1;
+	}
 }
 
 void uwsgi_opt_set_64bit(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
-	*ptr = (strtoul(value, NULL, 10)) ;
+
+	if (value) {
+		*ptr = (strtoul(value, NULL, 10)) ;
+	}
+	else {
+		*ptr = 1;
+	}
 }
 
 void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
@@ -3197,7 +3210,12 @@ void uwsgi_opt_set_str(char *opt, char *value, void *key) {
 }
 
 void uwsgi_opt_set_logger(char *opt, char *value, void *prefix) {
-	uwsgi.requested_logger = uwsgi_concat2((char *)prefix, (char *) value);
+	if (value) {
+		uwsgi.requested_logger = uwsgi_concat3((char *)prefix, ":", (char *) value);
+	}
+	else {
+		uwsgi.requested_logger = uwsgi_str((char *) prefix);
+	}
 }
 
 void uwsgi_opt_set_str_spaced(char *opt, char *value, void *key) {
@@ -3324,6 +3342,14 @@ void uwsgi_opt_set_env(char *opt, char *value, void *none) {
 	if (putenv(value)) {
         	uwsgi_error("putenv()");
         }
+}
+
+void uwsgi_opt_pidfile_signal(char *opt, char *pidfile, void *sig) {
+
+	long *signum_fake_ptr = (long *) sig;
+	int signum = (long) signum_fake_ptr;
+	signal_pidfile(signum, pidfile);
+	exit(0);
 }
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {

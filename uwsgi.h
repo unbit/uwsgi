@@ -2516,6 +2516,7 @@ void uwsgi_opt_add_daemon(char *, char *, void *);
 void uwsgi_opt_set_uid(char *, char *, void *);
 void uwsgi_opt_set_gid(char *, char *, void *);
 void uwsgi_opt_set_env(char *, char *, void *);
+void uwsgi_opt_pidfile_signal(char *, char *, void *);
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);
 #endif
