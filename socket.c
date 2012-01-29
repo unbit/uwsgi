@@ -960,7 +960,8 @@ void uwsgi_close_all_sockets() {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
 	while(uwsgi_sock) {
-		close(uwsgi_sock->fd);
+		if (uwsgi_sock->bound)
+			close(uwsgi_sock->fd);
 		uwsgi_sock = uwsgi_sock->next;
 	}
 }

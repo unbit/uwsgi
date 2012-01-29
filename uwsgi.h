@@ -33,7 +33,7 @@ extern "C" {
 #define thunder_lock if (uwsgi.threads > 1) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
 #define thunder_unlock if (uwsgi.threads > 1) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
 
-#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5))
+#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7))
 
 #define ushared uwsgi.shared
 
@@ -2314,7 +2314,7 @@ void uwsgi_del_sockets_from_queue(int);
 int uwsgi_run_command_and_wait(char *, char *);
 
 void uwsgi_manage_signal_cron(time_t);
-int uwsgi_run_command(char *);
+int uwsgi_run_command(char *, int);
 
 void uwsgi_manage_command_cron(time_t);
 

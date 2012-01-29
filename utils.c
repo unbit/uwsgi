@@ -1989,6 +1989,18 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		fd = atoi(url+5);
 		buffer = uwsgi_read_fd(fd, size, add_zero);
 	}
+	// exec ?
+	else if (!strncmp("exec://", url, 5)) {
+		int cpipe[2];
+		if (pipe(cpipe)) {
+			uwsgi_error("pipe()");
+			exit(1);
+		}
+		uwsgi_run_command(url+7, cpipe[1]);
+		buffer = uwsgi_read_fd(cpipe[0], size, add_zero);
+		close(cpipe[0]);
+		close(cpipe[1]);
+	}
 	// http url ?
 	else if (!strncmp("http://", url, 7)) {
 		domain = url + 7;
@@ -2984,7 +2996,7 @@ int uwsgi_run_command_and_wait(char *command, char *arg) {
 	exit(1);
 }
 
-int uwsgi_run_command(char *command) {
+int uwsgi_run_command(char *command, int stdout_fd) {
 
 	char *argv[4];
 
@@ -2995,6 +3007,9 @@ int uwsgi_run_command(char *command) {
         }
 
         if (pid > 0) {
+		if (stdout_fd > -1) {
+			close(stdout_fd);
+		}
                 if (waitpid(pid, &waitpid_status, WNOHANG) < 0) {
                         uwsgi_error("waitpid()");
                         return -1;
@@ -3004,6 +3019,13 @@ int uwsgi_run_command(char *command) {
         }
 
 	uwsgi_close_all_sockets();
+
+	if (stdout_fd > -1 && stdout_fd != 1) {
+		if (dup2(stdout_fd, 1) < 0) {
+			uwsgi_error("dup2()");
+			exit(1);
+		}
+	}
 
 	if (setsid() < 0) {
 		uwsgi_error("setsid()");
