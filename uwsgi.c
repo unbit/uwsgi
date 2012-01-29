@@ -3194,13 +3194,15 @@ void uwsgi_opt_set_megabytes(char *opt, char *value, void *key) {
 
 void uwsgi_opt_set_dyn(char *opt, char *value, void *key) {
 
-	uint8_t dyn_opt_id = *((uint8_t *) key);
+	long *fake_ptr = (long *) key;
+	uint8_t dyn_opt_id = (long) fake_ptr;
 	uwsgi.shared->options[dyn_opt_id] = atoi(value);
 }
 
 void uwsgi_opt_dyn_true(char *opt, char *value, void *key) {
 
-	uint8_t dyn_opt_id = *((uint8_t *) key);
+	long *fake_ptr = (long *) key;
+	uint8_t dyn_opt_id = (long) fake_ptr;
 	uwsgi.shared->options[dyn_opt_id] = 1;
 }
 
