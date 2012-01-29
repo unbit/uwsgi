@@ -2508,6 +2508,8 @@ void uwsgi_opt_load_yml(char *, char *, void *);
 
 void uwsgi_opt_set_umask(char *, char *, void *);
 void uwsgi_opt_add_spooler(char *, char *, void *);
+void uwsgi_opt_set_uid(char *, char *, void *);
+void uwsgi_opt_set_gid(char *, char *, void *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

@@ -149,9 +149,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"pidfile", required_argument, 0, "create pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile,0},
 	{"pidfile2", required_argument, 0, "create pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile2,0},
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot,0},
+	{"uid", required_argument, 0, "setuid to the specified user/uid", uwsgi_opt_set_uid, NULL, 0},
+	{"gid", required_argument, 0, "setgid to the specified group/gid", uwsgi_opt_set_gid, NULL, 0},
 /*
-	{"gid", required_argument, 0, LONG_ARGS_GID,0},
-	{"uid", required_argument, 0, LONG_ARGS_UID,0},
 #ifdef UWSGI_CAP
 	{"cap", required_argument,0, LONG_ARGS_CAP,0},
 #endif
@@ -3293,6 +3293,20 @@ void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
 	}
 	uwsgi_new_spooler(directory);
 	
+}
+
+void uwsgi_opt_set_uid(char *opt, char *value, void *none) {
+
+	uwsgi.uid = atoi(value);
+        if (!uwsgi.uid)
+        	uwsgi.uidname = value;
+}
+
+void uwsgi_opt_set_gid(char *opt, char *value, void *none) {
+
+	uwsgi.gid = atoi(value);
+        if (!uwsgi.gid)
+        	uwsgi.gidname = value;
 }
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
