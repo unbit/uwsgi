@@ -1305,18 +1305,6 @@ struct uwsgi_server {
 	struct uwsgi_route routes[MAX_UWSGI_ROUTES];
 #endif
 
-#ifdef UWSGI_YAML
-	char *yaml;
-#endif
-
-#ifdef UWSGI_JSON
-	char *json;
-#endif
-
-#ifdef UWSGI_SQLITE3
-	char *sqlite3;
-#endif
-
 	int single_interpreter;
 
 	struct uwsgi_shared *shared;
@@ -2509,6 +2497,9 @@ void uwsgi_opt_load_yml(char *, char *, void *);
 #ifdef UWSGI_SQLITE3
 void uwsgi_opt_load_sqlite3(char *, char *, void *);
 #endif
+#ifdef UWSGI_JSON
+void uwsgi_opt_load_json(char *, char *, void *);
+#endif
 
 void uwsgi_opt_set_umask(char *, char *, void *);
 void uwsgi_opt_add_spooler(char *, char *, void *);
@@ -2526,6 +2517,8 @@ void uwsgi_opt_static_map(char *, char *, void *);
 void uwsgi_opt_add_mule(char *, char *, void *);
 void uwsgi_opt_add_mules(char *, char *, void *);
 void uwsgi_opt_add_farm(char *, char *, void *);
+
+void uwsgi_opt_zerg(char *, char *, void *);
 
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);

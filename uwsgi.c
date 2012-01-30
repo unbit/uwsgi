@@ -172,7 +172,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"yal", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL,UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_JSON
-	//{"json|js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL,0},
+	{"json", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL,0},
+	{"js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL,0},
 #endif
 #ifdef UWSGI_SQLITE3
 	{"sqlite3", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL, UWSGI_OPT_IMMEDIATE},
@@ -327,9 +328,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ns-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
 #endif
 	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
-/*
-	{"zerg", required_argument, 0, LONG_ARGS_ZERG,0},
-*/
+	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_zerg, NULL, 0},
 	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
@@ -3417,6 +3416,20 @@ void uwsgi_opt_static_map(char *opt, char *value, void *foobar) {
                 uwsgi.build_mime_dict = 1;
 }
 
+void uwsgi_opt_zerg(char *opt, char *value, void *foobar) {
+	int zerg_fd = uwsgi_connect(value, 30, 0);
+                if (zerg_fd < 0) {
+                        uwsgi_log("--- unable to connect to zerg server ---\n");
+                        exit(1);
+                }
+                uwsgi.zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
+                if (uwsgi.zerg == NULL) {
+                        uwsgi_log("--- invalid data received from zerg-server ---\n");
+                        exit(1);
+                }
+                close(zerg_fd);
+}
+
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
 
 #ifdef UWSGI_INI
@@ -3428,6 +3441,10 @@ void uwsgi_opt_load(char *opt, char *filename, void *none) {
 #ifdef UWSGI_YAML
 	if (uwsgi_endswith(filename, ".yaml")) { uwsgi_opt_load_yml(opt, filename, none); return;}
 	if (uwsgi_endswith(filename, ".yml")) { uwsgi_opt_load_yml(opt, filename, none); return;}
+#endif
+#ifdef UWSGI_JSON
+	if (uwsgi_endswith(filename, ".json")) { uwsgi_opt_load_json(opt, filename, none); return;}
+	if (uwsgi_endswith(filename, ".js")) { uwsgi_opt_load_json(opt, filename, none); return;}
 #endif
 }
 
@@ -3456,5 +3473,12 @@ void uwsgi_opt_load_yml(char *opt, char *filename, void *none) {
 void uwsgi_opt_load_sqlite3(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_sqlite3_config(filename, uwsgi.magic_table);
+}
+#endif
+
+#ifdef UWSGI_JSON
+void uwsgi_opt_load_json(char *opt, char *filename, void *none) {
+	config_magic_table_fill(filename, uwsgi.magic_table);
+	uwsgi_json_config(filename, uwsgi.magic_table);
 }
 #endif
