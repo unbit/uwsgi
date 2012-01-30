@@ -64,7 +64,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"suspend", required_argument, 0, "suspend an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
 	{"resume", required_argument, 0, "resume an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue,0},
-	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_set_int, &uwsgi.max_vars,0},
+	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_max_vars, NULL,0},
 	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_int, &uwsgi.buffer_size,0},
 	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_MEMORY_DEBUG,0},
 	{"profiler", required_argument, 0, "enable the specified profiler", uwsgi_opt_set_str, &uwsgi.profiler,0},
@@ -3483,6 +3483,12 @@ void uwsgi_opt_logfile_chmod(char *opt, char *value, void *foobar) {
                 uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[1] - '0');
                 uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[2] - '0');
 
+}
+
+void uwsgi_opt_max_vars(char *opt, char *value, void *foobar) {
+
+	uwsgi.max_vars = atoi(value);
+        uwsgi.vec_size = 4 + 1 + (4 * uwsgi.max_vars);
 }
 
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
