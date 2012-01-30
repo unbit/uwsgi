@@ -45,6 +45,7 @@ extern "C" {
 #define UWSGI_OPT_VHOST		(1 << 5)
 #define UWSGI_OPT_MEMORY	(1 << 6)
 #define UWSGI_OPT_PROCNAME	(1 << 7)
+#define UWSGI_OPT_LAZY		(1 << 8)
 
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
@@ -2519,6 +2520,11 @@ void uwsgi_opt_add_mules(char *, char *, void *);
 void uwsgi_opt_add_farm(char *, char *, void *);
 
 void uwsgi_opt_zerg(char *, char *, void *);
+
+void uwsgi_opt_signal(char *, char *, void *);
+
+void uwsgi_opt_snmp(char *, char *, void *);
+void uwsgi_opt_snmp_community(char *, char *, void *);
 
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);

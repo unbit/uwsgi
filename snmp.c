@@ -350,6 +350,20 @@ static int get_snmp_integer(uint8_t * ptr, uint64_t * val) {
 			return size + oid_sz;
 
 		}
+
+void uwsgi_opt_snmp(char *opt, char *value, void *foobar) {
+	uwsgi.snmp = 1;
+        if (value) {
+                      uwsgi.snmp_addr = optarg;
+                      uwsgi.master_process = 1;
+        }
+
+}
+
+void uwsgi_opt_snmp_community(char *opt, char *value, void *foobar) {
+	uwsgi.snmp = 1;
+        uwsgi.snmp_community = value;
+}
 #else
 #warning "*** SNMP support is disabled ***"
 #endif

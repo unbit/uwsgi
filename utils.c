@@ -1799,6 +1799,10 @@ void add_exported_option(char *key, char *value, int configured) {
 			if (op->flags & UWSGI_OPT_PROCNAME) {
 				uwsgi.auto_procname = 1;
                         }
+			// requires lazy ?
+			if (op->flags & UWSGI_OPT_LAZY) {
+				uwsgi.lazy = 1;
+                        }
 			// immediate ?
 			if (op->flags & UWSGI_OPT_IMMEDIATE) {
 				op->func(key, value, op->data);

@@ -104,9 +104,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"vassals-start-hook", required_argument, 0, "run the specified command before each vassal starts", uwsgi_opt_set_str, &uwsgi.vassals_start_hook, 0},
 	{"vassals-stop-hook", required_argument, 0, "run the specified command after vassal's death", uwsgi_opt_set_str, &uwsgi.vassals_stop_hook,0},
 	{"vassal-sos-backlog", required_argument, 0, "ask emperor for sos if backlog queue has more items than the value specified", uwsgi_opt_set_int, &uwsgi.vassal_sos_backlog, 0},
-/*
-	{"auto-snapshot", optional_argument, 0, LONG_ARGS_AUTO_SNAPSHOT,0},
-*/
+	{"auto-snapshot", optional_argument, 0, "automatically make workers snaphost after reload", uwsgi_opt_set_int, &uwsgi.auto_snapshot, UWSGI_OPT_LAZY},
 	{"reload-mercy", required_argument, 0, "set the maximum time (in seconds) a worker can take to reload/shutdown", uwsgi_opt_set_int, &uwsgi.reload_mercy, 0},
 	{"exit-on-reload", no_argument, 0, "force exit even if a reload is requested", uwsgi_opt_true, &uwsgi.exit_on_reload,0},
 	{"die-on-term", no_argument, 0, "exit instead of brutal reload on SIGTERM", uwsgi_opt_true, &uwsgi.die_on_term, 0},
@@ -140,12 +138,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"mule", optional_argument, 0, "add a mule", uwsgi_opt_add_mule, NULL, UWSGI_OPT_MASTER},
 	{"mules", required_argument, 0, "add the specified number of mules", uwsgi_opt_add_mules, NULL, UWSGI_OPT_MASTER},
-	{"signal", required_argument, 0, "add a mule farm", uwsgi_opt_add_farm, NULL, UWSGI_OPT_MASTER},
+	{"farm", required_argument, 0, "add a mule farm", uwsgi_opt_add_farm, NULL, UWSGI_OPT_MASTER},
+
+	{"signal", required_argument, 0, "send a uwsgi signal to a server", uwsgi_opt_signal, NULL, UWSGI_OPT_IMMEDIATE},
 	{"signal-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
 	{"signals-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
-/*
-	{"farm", required_argument, 0, LONG_ARGS_FARM,0},
-*/
+
 	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOGGING, 0},
 
 	{"pidfile", required_argument, 0, "create pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile,0},
@@ -231,12 +229,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"subscribe-freq", required_argument, 0, "send subscription announce at the specified interval", uwsgi_opt_set_int, &uwsgi.subscribe_freq, 0},
 	{"subscription-tolerance", required_argument, 0, "set tolerance for subscription servers", uwsgi_opt_set_int, &uwsgi.subscription_tolerance, 0},
 	{"unsubscribe-on-graceful-reload", no_argument, 0, "force unsubscribe request even during graceful reload", uwsgi_opt_true, &uwsgi.unsubscribe_on_graceful_reload, 0},
-/*
 #ifdef UWSGI_SNMP
-	{"snmp", optional_argument, 0, LONG_ARGS_SNMP,0},
-	{"snmp-community", required_argument, 0, LONG_ARGS_SNMP_COMMUNITY,0},
+	{"snmp", optional_argument, 0, "enable the embedded snmp server", uwsgi_opt_snmp, NULL, 0},
+	{"snmp-community", required_argument, 0, "set the snmp community string", uwsgi_opt_snmp_community, NULL, 0},
 #endif
-*/
 	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MASTER_INTERVAL, 0},
 	{"binary-path", required_argument, 0, "force binary path", uwsgi_opt_set_str, &uwsgi.binary_path, 0},
 #ifdef UWSGI_ASYNC
@@ -299,7 +295,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"vhost-host", no_argument, 0, "enable virtualhosting mode (based on HTTP_HOST variable)", uwsgi_opt_true, &uwsgi.vhost_host, UWSGI_OPT_VHOST},
 /*
 #ifdef UWSGI_ROUTING
-	{"routing", no_argument, &uwsgi.routing, 1,0},
+	{"routing", no_argument, 0, "enable routing subsystem", uwsgi_opt_set_str, &uwsgi.routing, 0},
 #endif
 */
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
@@ -3428,6 +3424,10 @@ void uwsgi_opt_zerg(char *opt, char *value, void *foobar) {
                         exit(1);
                 }
                 close(zerg_fd);
+}
+
+void uwsgi_opt_signal(char *opt, char *value, void *foobar) {
+	uwsgi_command_signal(value);
 }
 
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
