@@ -2529,6 +2529,7 @@ void uwsgi_opt_snmp_community(char *, char *, void *);
 void uwsgi_opt_logfile_chmod(char *, char *, void *);
 
 void uwsgi_opt_log_date(char *, char *, void *);
+void uwsgi_opt_chmod_socket(char *, char *, void *);
 
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);

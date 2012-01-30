@@ -70,7 +70,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"profiler", required_argument, 0, "enable the specified profiler", uwsgi_opt_set_str, &uwsgi.profiler,0},
 	{"cgi-mode", no_argument, 'c', "force CGI-mode for plugins supporting it", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_CGI_MODE,0},
 	{"abstract-socket", no_argument, 'a', "force UNIX socket in abstract mode (Linux only)", uwsgi_opt_true, &uwsgi.abstract_socket,0},
-	//{"chmod-socket|chmod", optional_argument, 'C', "chmod-socket", uwsgi_opt_set_mode, &uwsgi.chmod_socket,0},
+	{"chmod-socket", optional_argument, 'C', "chmod-socket", uwsgi_opt_chmod_socket, NULL,0},
+	{"chmod", optional_argument, 'C', "chmod-socket", uwsgi_opt_chmod_socket, NULL,0},
 	{"chown-socket", required_argument, 0, "chown unix sockets", uwsgi_opt_set_str, &uwsgi.chown_socket, 0},
 	{"umask", required_argument, 0, "set umask", uwsgi_opt_set_umask, NULL, UWSGI_OPT_IMMEDIATE},
 #ifdef __linux__
@@ -3434,6 +3435,33 @@ void uwsgi_opt_log_date(char *opt, char *value, void *foobar) {
                 if (value) {
                         uwsgi.log_strftime = value;
                 }
+}
+
+void uwsgi_opt_chmod_socket(char *opt, char *value, void *foobar) {
+
+	int i;
+
+	uwsgi.chmod_socket = 1;
+                if (value) {
+                        if (strlen(value) == 1 && *value == '1') {
+                                return;
+                        }
+                        if (strlen(value) != 3) {
+                                uwsgi_log("invalid chmod value: %s\n", value);
+                                exit(1);
+                        }
+                        for (i = 0; i < 3; i++) {
+                                if (value[i] < '0' || value[i] > '7') {
+                                        uwsgi_log("invalid chmod value: %s\n", value);
+                                        exit(1);
+                                }
+                        }
+
+                        uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (value[0] - '0');
+                        uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (value[1] - '0');
+                        uwsgi.chmod_socket_value = (uwsgi.chmod_socket_value << 3) + (value[2] - '0');
+                }
+
 }
 
 void uwsgi_opt_logfile_chmod(char *opt, char *value, void *foobar) {
