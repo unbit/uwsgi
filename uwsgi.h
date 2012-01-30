@@ -2523,6 +2523,10 @@ void uwsgi_opt_check_static(char *, char *, void *);
 void uwsgi_opt_fileserve_mode(char *, char *, void *);
 void uwsgi_opt_static_map(char *, char *, void *);
 
+void uwsgi_opt_add_mule(char *, char *, void *);
+void uwsgi_opt_add_mules(char *, char *, void *);
+void uwsgi_opt_add_farm(char *, char *, void *);
+
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);
 #endif

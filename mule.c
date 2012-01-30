@@ -356,3 +356,24 @@ clear:
         return len;
 }
 
+
+void uwsgi_opt_add_mule(char *opt, char *value, void *foobar) {
+
+	uwsgi.mules_cnt++;
+        uwsgi_string_new_list(&uwsgi.mules_patches, value);
+}
+
+void uwsgi_opt_add_mules(char *opt, char *value, void *foobar) {
+	int i;
+
+	for(i=0;i<atoi(value);i++) {
+                        uwsgi.mules_cnt++;
+                        uwsgi_string_new_list(&uwsgi.mules_patches, NULL);
+                }
+}
+
+void uwsgi_opt_add_farm(char *opt, char *value, void *foobar) {
+	uwsgi.farms_cnt++;
+                uwsgi_string_new_list(&uwsgi.farms_list, value);
+
+}
