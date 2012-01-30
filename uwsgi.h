@@ -2517,6 +2517,12 @@ void uwsgi_opt_set_uid(char *, char *, void *);
 void uwsgi_opt_set_gid(char *, char *, void *);
 void uwsgi_opt_set_env(char *, char *, void *);
 void uwsgi_opt_pidfile_signal(char *, char *, void *);
+void uwsgi_opt_add_app(char *, char *, void *);
+
+void uwsgi_opt_check_static(char *, char *, void *);
+void uwsgi_opt_fileserve_mode(char *, char *, void *);
+void uwsgi_opt_static_map(char *, char *, void *);
+
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);
 #endif

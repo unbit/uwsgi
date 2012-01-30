@@ -284,12 +284,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, 0},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
-/*
-	{"mount", required_argument, 0, LONG_ARGS_MOUNT,0},
+	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_app, NULL,0},
 #ifdef UWSGI_PCRE
-	{"regexp-mount", required_argument, 0, LONG_ARGS_REGEXP_MOUNT,0},
+	{"regexp-mount", required_argument, 0, "load application under a regexp-based mountpoint", uwsgi_opt_add_app, (void *) 1, 0},
 #endif
-*/
 	{"grunt", no_argument, 0, "enable grunt mode (in-request fork)", uwsgi_opt_true, &uwsgi.grunt, 0},
 
 	{"threads", required_argument, 0, "run each worker in prethreaded mode with the specified number of threads", uwsgi_opt_set_int, &uwsgi.threads, UWSGI_OPT_THREADS},
@@ -306,19 +304,17 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 */
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
-/*
-	{"check-static", required_argument, 0, LONG_ARGS_CHECK_STATIC,0},
-	{"static-check", required_argument, 0, LONG_ARGS_CHECK_STATIC,0},
-	{"static-map", required_argument, 0, LONG_ARGS_STATIC_MAP,0},
-*/
+	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
+	{"static-check", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
+	{"static-map", required_argument, 0, "map mountpoint to static directory", uwsgi_opt_static_map, NULL, 0},
 	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, 0},
 	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, 0},
 	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, 0},
 	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, 0},
-/*
-	{"file-serve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE,0},
-	{"fileserve-mode", required_argument, 0, LONG_ARGS_FILE_SERVE_MODE,0},
-*/
+
+	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL,0},
+	{"fileserve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL,0},
+
 	{"check-cache", no_argument, 0, "check for response data in the cache", uwsgi_opt_true, &uwsgi.check_cache, 0},
 	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode,0},
@@ -3364,6 +3360,63 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 		p = strtok(NULL, ",");
 	}
 	build_options();
+}
+
+void uwsgi_opt_add_app(char *opt, char *value, void *regexp) {
+	if (uwsgi.mounts_cnt < MAX_APPS) {
+		if (regexp) {
+			uwsgi.mounts[uwsgi.mounts_cnt] = uwsgi_concat2("regexp://", value);
+		}
+		else {
+			uwsgi.mounts[uwsgi.mounts_cnt] = value;
+		}
+		uwsgi.mounts_cnt++;
+	}
+	else {
+		uwsgi_log("you can specify at most %d --%s options\n", opt, MAX_APPS);
+	}
+}
+
+void uwsgi_opt_check_static(char *opt, char *value, void *foobar) {
+
+	uwsgi_dyn_dict_new(&uwsgi.check_static, value, strlen(value), NULL, 0);
+        uwsgi_log("[uwsgi-static] added check for %s\n", value);
+        uwsgi.build_mime_dict = 1;
+
+}
+
+void uwsgi_opt_fileserve_mode(char *opt, char *value, void *foobar) {
+
+	if (!strcasecmp("x-sendfile", value)) {
+                        uwsgi.file_serve_mode = 2;
+                }
+                else if (!strcasecmp("xsendfile", value)) {
+                        uwsgi.file_serve_mode = 2;
+                }
+                else if (!strcasecmp("x-accel-redirect", value)) {
+                        uwsgi.file_serve_mode = 1;
+                }
+                else if (!strcasecmp("xaccelredirect", value)) {
+                        uwsgi.file_serve_mode = 1;
+                }
+                else if (!strcasecmp("nginx", value)) {
+                        uwsgi.file_serve_mode = 1;
+                }
+
+}
+
+void uwsgi_opt_static_map(char *opt, char *value, void *foobar) {
+	char *mountpoint = uwsgi_str(value);
+                char *docroot = strchr(mountpoint, '=');
+                if (!docroot) {
+                        uwsgi_log("invalid document root in static map, syntax mountpoint=docroot\n");
+                        exit(1);
+                }
+                docroot[0] = 0;
+                docroot++;
+                uwsgi_dyn_dict_new(&uwsgi.static_maps, mountpoint, strlen(mountpoint), docroot, strlen(docroot));
+                uwsgi_log("[uwsgi-static] added mapping for %s => %s\n", mountpoint, docroot);
+                uwsgi.build_mime_dict = 1;
 }
 
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
