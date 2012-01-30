@@ -242,9 +242,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_logto, NULL, UWSGI_OPT_IMMEDIATE},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
 	{"logfile-chown", no_argument, 0, "chown logfiles", uwsgi_opt_true, &uwsgi.logfile_chown, 0},
-/*
-	{"logfile-chmod", required_argument, 0, LONG_ARGS_LOGFILE_CHMOD,0},
-*/
+	{"logfile-chmod", required_argument, 0, "chmod logfiles", uwsgi_opt_logfile_chmod, NULL, 0},
 	{"log-syslog", optional_argument, 0, "log to syslog", uwsgi_opt_set_logger, "syslog", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 	{"log-socket", required_argument, 0, "send logs to the specified socket", uwsgi_opt_set_logger, "socket", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 	{"logger", required_argument, 0, "set logger system", uwsgi_opt_set_logger, NULL, UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER },
@@ -257,11 +255,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-truncate", no_argument, 0, "truncate log on startup", uwsgi_opt_true, &uwsgi.log_truncate, 0},
 	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_int, &uwsgi.log_maxsize, UWSGI_OPT_LOG_MASTER},
 	{"log-backupname", required_argument, 0, "set logfile name after rotation", uwsgi_opt_set_str, &uwsgi.log_backupname, 0},
-/*
-	{"logdate", optional_argument, 0, LONG_ARGS_LOG_DATE,0},
-	{"log-date", optional_argument, 0, LONG_ARGS_LOG_DATE,0},
-	{"log-prefix", optional_argument, 0, LONG_ARGS_LOG_DATE,0},
-*/
+
+	{"logdate", optional_argument, 0, "prefix logs with date or a strftime string", uwsgi_opt_log_date, NULL, 0},
+	{"log-date", optional_argument, 0, "prefix logs with date or a strftime string", uwsgi_opt_log_date, NULL, 0},
+	{"log-prefix", optional_argument, 0, "prefix logs with a string", uwsgi_opt_log_date, NULL, 0},
+
 	{"log-zero", no_argument, 0, "log responses without body", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_ZERO,0},
 	{"log-slow", required_argument, 0, "log requestes slower than the specified numbr of seconds", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_LOG_SLOW, 0},
 	{"log-4xx", no_argument, 0, "log requests with a 4xx response", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOG_4xx,0},
@@ -3428,6 +3426,35 @@ void uwsgi_opt_zerg(char *opt, char *value, void *foobar) {
 
 void uwsgi_opt_signal(char *opt, char *value, void *foobar) {
 	uwsgi_command_signal(value);
+}
+
+void uwsgi_opt_log_date(char *opt, char *value, void *foobar) {
+
+	uwsgi.logdate = 1;
+                if (value) {
+                        uwsgi.log_strftime = value;
+                }
+}
+
+void uwsgi_opt_logfile_chmod(char *opt, char *value, void *foobar) {
+
+	int i;
+
+	if (strlen(value) != 3) {
+                        uwsgi_log("invalid chmod value: %s\n", value);
+                        exit(1);
+                }
+                for (i = 0; i < 3; i++) {
+                        if (value[i] < '0' || value[i] > '7') {
+                                uwsgi_log("invalid chmod value: %s\n", value);
+                                exit(1);
+                        }
+                }
+
+                uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[0] - '0');
+                uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[1] - '0');
+                uwsgi.chmod_logfile_value = (uwsgi.chmod_logfile_value << 3) + (value[2] - '0');
+
 }
 
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
