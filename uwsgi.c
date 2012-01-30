@@ -76,7 +76,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef __linux__
 	{"freebind", no_argument, 0, "put socket in freebind mode", uwsgi_opt_true, &uwsgi.freebind,0},
 #endif
-//	{"map-socket", required_argument, 0, LONG_ARGS_MAP_SOCKET,0},
+	{"map-socket", required_argument, 0, "map sockets to specific workers", uwsgi_opt_add_string_list, &uwsgi.map_socket,0},
 #ifdef UWSGI_THREADING
 	{"enable-threads", no_argument, 'T', "enable threads", uwsgi_opt_true, &uwsgi.has_threads, 0},
 #endif
@@ -142,8 +142,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"mule", optional_argument, 0, LONG_ARGS_MULE,0},
 	{"mules", required_argument, 0, LONG_ARGS_MULES,0},
 	{"signal", required_argument, 0, LONG_ARGS_SIGNAL,0},
-	{"signal-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE,0},
-	{"signals-bufsize", required_argument, 0, LONG_ARGS_SIGNAL_BUFSIZE,0},
+*/
+	{"signal-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
+	{"signals-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
+/*
 	{"farm", required_argument, 0, LONG_ARGS_FARM,0},
 */
 	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOGGING, 0},
