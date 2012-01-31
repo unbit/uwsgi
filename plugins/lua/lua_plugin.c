@@ -12,14 +12,11 @@ struct uwsgi_lua {
 	char *filename;
 } ulua;
 
-#define LONG_ARGS_LUA_BASE	17000 + (6 * 100)
-#define LONG_ARGS_LUA		LONG_ARGS_LUA_BASE + 1
-
 #define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
 
 struct option uwsgi_lua_options[] = {
 
-	{"lua", required_argument, 0, LONG_ARGS_LUA},
+	{"lua", required_argument, 0, "load lua wsapi app", uwsgi_opt_set_str, &uwsgi.ulua.filename, 0},
 
 	{0, 0, 0, 0},
 
@@ -583,16 +580,6 @@ void uwsgi_lua_after_request(struct wsgi_request *wsgi_req) {
 		log_request(wsgi_req);
 }
 
-int uwsgi_lua_manage_options(int i, char *optarg) {
-
-	switch(i) {
-		case LONG_ARGS_LUA:
-			ulua.filename = optarg;
-			return 1;
-	}
-
-	return 0;
-}
 
 int uwsgi_lua_magic(char *mountpoint, char *lazy) {
 
@@ -726,7 +713,6 @@ struct uwsgi_plugin lua_plugin = {
 	.modifier1 = 6,
 	.init = uwsgi_lua_init,
 	.options = uwsgi_lua_options,
-	.manage_opt = uwsgi_lua_manage_options,
 	.request = uwsgi_lua_request,
 	.after_request = uwsgi_lua_after_request,
 	.init_apps = uwsgi_lua_app,
