@@ -3196,14 +3196,14 @@ void uwsgi_chown(char *filename, char *owner) {
 char *uwsgi_get_binary_path(char *argvzero) {
 
 #if defined(__linux__)
-	char *buf = uwsgi_malloc(uwsgi.page_size);
-	ssize_t len = readlink("/proc/self/exe", buf, uwsgi.page_size);
+	char *buf = uwsgi_calloc(PATH_MAX+1);
+	ssize_t len = readlink("/proc/self/exe", buf, PATH_MAX);
 	if (len > 0) {
 		return buf;
 	}
 	free(buf);
 #elif defined(__NetBSD__)
-	char *buf = uwsgi_malloc(PATH_MAX+1);
+	char *buf = uwsgi_calloc(PATH_MAX+1);
         ssize_t len = readlink("/proc/curproc/exe", buf, PATH_MAX);
         if (len > 0) {
                 return buf;
