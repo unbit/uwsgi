@@ -9,10 +9,10 @@ extern struct uwsgi_perl uperl;
 struct uwsgi_perl uperl;
 #endif
 
-struct option uwsgi_perl_options[] = {
+struct uwsgi_option uwsgi_perl_options[] = {
 
-        {"psgi", required_argument, 0, LONG_ARGS_PSGI},
-        {"perl-local-lib", required_argument, 0, LONG_ARGS_PERL_LOCAL_LIB},
+        {"psgi", required_argument, 0, "load a psgi app", uwsgi_opt_set_str, &uperl.psgi, 0},
+        {"perl-local-lib", required_argument, 0, "set perl locallib path", uwsgi_opt_set_str, &uperl.locallib, 0},
         {0, 0, 0, 0},
 
 };
@@ -514,7 +514,6 @@ struct uwsgi_plugin psgi_plugin = {
 	.enable_threads = uwsgi_perl_enable_threads,
 	.init_thread = uwsgi_perl_init_thread,
 #endif
-	.manage_opt = uwsgi_perl_manage_options,
 	.request = uwsgi_perl_request,
 	.after_request = uwsgi_perl_after_request,
 
