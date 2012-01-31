@@ -31,7 +31,11 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
 		uwsgi_error("socketpair()");
 	}
 
+	if (!uwsgi.master_process)
+		gateway_respawn(uwsgi.gateways_cnt);
+
         uwsgi.gateways_cnt++;
+
 
         return ug;
 }

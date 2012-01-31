@@ -67,9 +67,15 @@ struct uwsgi_http {
 	struct rb_root *timeouts;
 } uhttp;
 
+void uwsgi_opt_http(char *opt, char *value, void *foobar) {
+
+	uwsgi_new_gateway_socket(value, "uWSGI http");
+	uhttp.has_sockets++;
+}
+
 struct uwsgi_option http_options[] = {
+	{"http", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_http, NULL, 0},
 /*
-	{"http", required_argument, 0, LONG_ARGS_HTTP},
 	{"http-processes", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
 	{"http-workers", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
 	{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
