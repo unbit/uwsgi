@@ -2,11 +2,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-#define RRDTOOL_OPT_BASE 177000
-#define RRDTOOL_OPT_RRDTOOL		RRDTOOL_OPT_BASE+1
-#define RRDTOOL_OPT_RRDTOOL_MAX_DS	RRDTOOL_OPT_BASE+2
-#define RRDTOOL_OPT_RRDTOOL_FREQ	RRDTOOL_OPT_BASE+3
-
 struct uwsgi_rrdtool {
 	void *lib;
 	int (*create)(int, char **);
@@ -19,11 +14,9 @@ struct uwsgi_rrdtool {
 } u_rrd;
 
 struct uwsgi_option rrdtool_options[] = {
-/*
-	{"rrdtool", required_argument, 0, RRDTOOL_OPT_RRDTOOL},
-	{"rrdtool-freq", required_argument, 0, RRDTOOL_OPT_RRDTOOL_FREQ},
-	{"rrdtool-max-ds", required_argument, 0, RRDTOOL_OPT_RRDTOOL_MAX_DS},
-*/
+	{"rrdtool", required_argument, 0, "collect requests data in the specified rrd file", uwsgi_opt_add_string_list, &u_rrd.rrd, UWSGI_OPT_MASTER},
+	{"rrdtool-freq", required_argument, 0, "set collect frequency", uwsgi_opt_set_int, &u_rrd.freq, 0},
+	{"rrdtool-max-ds", required_argument, 0, "set maximum number of data sources", uwsgi_opt_set_int, &u_rrd.max_ds, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -52,26 +45,6 @@ int rrdtool_init() {
 
 	return 0;
 }
-
-/*
-int rrdtool_opt(int i, char *optarg) {
-
-	switch(i) {
-		case RRDTOOL_OPT_RRDTOOL:
-			uwsgi.master_process = 1;
-			uwsgi_string_new_list(&u_rrd.rrd, optarg);
-			return 1;
-		case RRDTOOL_OPT_RRDTOOL_MAX_DS:
-			u_rrd.max_ds = atoi(optarg);
-			return 1;
-		case RRDTOOL_OPT_RRDTOOL_FREQ:
-			u_rrd.freq = atoi(optarg);
-			return 1;
-	}
-
-	return 0;
-}
-*/
 
 void rrdtool_post_init() {
 
