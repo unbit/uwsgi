@@ -5,11 +5,13 @@
 with javap -s -p <class>
 you can get method signatures
 
+This plugin is the core for all of the JVM-based ones
+
 */
 
 struct uwsgi_jvm ujvm;
 
-struct option uwsgi_jvm_options[] = {
+struct uwsgi_option uwsgi_jvm_options[] = {
         {"jvm-main-class", required_argument, 0, LONG_ARGS_JVM_CLASS},
         {"jvm-classpath", required_argument, 0, LONG_ARGS_JVM_CLASSPATH},
         {0, 0, 0, 0},
@@ -199,6 +201,7 @@ int uwsgi_jvm_strlen2c(jobject obj) {
 	return (*ujvm.env)->GetStringUTFLength(ujvm.env, obj);
 }
 
+/*
 int uwsgi_jvm_manage_opt(int i, char *optarg) {
 
 	switch(i) {
@@ -218,6 +221,7 @@ int uwsgi_jvm_manage_opt(int i, char *optarg) {
 
 	return 0;
 }
+*/
 
 struct uwsgi_plugin jvm_plugin = {
 
