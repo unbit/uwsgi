@@ -10,9 +10,9 @@ struct ugreenlet {
 	PyGreenlet **gl;
 } ugl;
 
-struct option greenlet_options[] = {
-	{"greenlet", no_argument, &ugl.enabled, 1},
-	{ 0, 0, 0, 0 }
+struct uwsgi_option greenlet_options[] = {
+	{"greenlet", no_argument, 0, "enable greenlet as suspend engine", uwsgi_opt_true, &ugl.enabled, 0},
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 PyObject *py_uwsgi_greenlet_request(PyObject * self, PyObject *args) {

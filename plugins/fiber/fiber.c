@@ -7,10 +7,6 @@ struct ufib {
 	VALUE *fib;
 } ufiber;
 
-struct option fiber_options[] = {
-	{ 0, 0, 0, 0 }
-};
-
 VALUE uwsgi_fiber_request() {
 
 	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);
@@ -80,5 +76,4 @@ struct uwsgi_plugin fiber_plugin = {
 
 	.name = "fiber",
 	.init = fiber_init,
-	.options = fiber_options,
 };

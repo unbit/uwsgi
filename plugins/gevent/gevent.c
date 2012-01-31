@@ -3,10 +3,6 @@
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
-struct option gevent_options[] = {
-	{ 0, 0, 0, 0 }
-};
-
 #define GEVENT_SWITCH PyObject *gswitch = python_call(ugevent.greenlet_switch, ugevent.greenlet_switch_args, 0, NULL); Py_DECREF(gswitch)
 #define GET_CURRENT_GREENLET python_call(ugevent.get_current, ugevent.get_current_args, 0, NULL)
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req
@@ -352,5 +348,4 @@ struct uwsgi_plugin gevent_plugin = {
 
 	.name = "gevent",
 	.init = gevent_init,
-	.options = gevent_options,
 };

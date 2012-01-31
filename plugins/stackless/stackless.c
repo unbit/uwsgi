@@ -9,8 +9,8 @@ struct ustackless {
 	PyTaskletObject **sl;
 } usl;
 
-struct option stackless_options[] = {
-	{"stackless", no_argument, &usl.enabled, 1},
+struct uwsgi_option stackless_options[] = {
+	{"stackless", no_argument, 0, "use stackless as suspend engine", uwsgi_opt_true, &usl.enabled, 0},
 	{ 0, 0, 0, 0 }
 };
 
