@@ -5,7 +5,7 @@ int use_nagios = 0;
 
 struct uwsgi_option nagios_options[] = {
 
-	//{"nagios", no_argument, 0, LONG_ARGS_NAGIOS},
+	{"nagios", no_argument, 0, "nagios check", uwsgi_opt_true, &use_nagios, UWSGI_OPT_NO_INITIAL},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -67,20 +67,6 @@ int nagios() {
 	fprintf(stdout, "UWSGI UNKNOWN: probably you hit a bug of uWSGI !!!\n");
 	exit(3);
 }
-
-/*
-int nagios_opt(int i, char *optarg) {
-
-	switch(i) {
-		case LONG_ARGS_NAGIOS:
-			uwsgi.no_initial_output = 1;
-			use_nagios = 1;
-			return 1;
-	}
-
-	return 0;
-}
-*/
 
 struct uwsgi_plugin nagios_plugin = {
 	

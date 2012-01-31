@@ -46,6 +46,8 @@ extern "C" {
 #define UWSGI_OPT_MEMORY	(1 << 6)
 #define UWSGI_OPT_PROCNAME	(1 << 7)
 #define UWSGI_OPT_LAZY		(1 << 8)
+#define UWSGI_OPT_NO_INITIAL	(1 << 9)
+#define UWSGI_OPT_NO_SERVER	(1 << 10)
 
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64

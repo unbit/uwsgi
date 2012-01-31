@@ -1803,6 +1803,14 @@ void add_exported_option(char *key, char *value, int configured) {
 			if (op->flags & UWSGI_OPT_LAZY) {
 				uwsgi.lazy = 1;
                         }
+			// requires no_initial ?
+			if (op->flags & UWSGI_OPT_NO_INITIAL) {
+				uwsgi.no_initial_output = 1;
+                        }
+			// requires no_server ?
+			if (op->flags & UWSGI_OPT_NO_SERVER) {
+				uwsgi.no_server = 1;
+                        }
 			// immediate ?
 			if (op->flags & UWSGI_OPT_IMMEDIATE) {
 				op->func(key, value, op->data);
