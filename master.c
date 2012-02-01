@@ -1538,10 +1538,32 @@ int master_loop(char **argv, char **environ) {
 
 
 			// now check for lb pool
-
-
 			continue;
 
+		}
+
+		if (diedpid > 0) {
+			// check for deadlocks first
+			struct uwsgi_lock_item *uli = uwsgi.registered_locks;
+			while(uli) {
+				pid_t locked_pid = 0;
+				if (uli->rw) {
+					locked_pid = uwsgi_rwlock_check(uli->lock_ptr);
+				}
+				else {
+					locked_pid = uwsgi_lock_check(uli->lock_ptr);
+				}
+				if (locked_pid == diedpid) {
+					uwsgi_log("[deadlock-detector] pid %d was holding lock %p\n", (int) diedpid, uli->lock_ptr);
+					if (uli->rw) {
+						uwsgi_rwunlock(uli->lock_ptr);
+					}
+					else {
+						uwsgi_unlock(uli->lock_ptr);
+					}
+				}
+				uli = uli->next;
+			}
 		}
 		// reload gateways and daemons only on normal workflow
 		if (!uwsgi.to_heaven && !uwsgi.to_hell) {

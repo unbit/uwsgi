@@ -1,5 +1,31 @@
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
+static void uwsgi_register_lock(void *ptr, int rw) {
+
+	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
+	if (!uli) {
+		uwsgi.registered_locks = uwsgi_malloc(sizeof(struct uwsgi_lock_item));
+		uwsgi.registered_locks->lock_ptr = ptr;
+		uwsgi.registered_locks->rw = rw;
+		uwsgi.registered_locks->next = NULL;
+	}
+	else {
+		while(uli) {
+			if (!uli->next) {
+				uli->next = uwsgi_malloc(sizeof(struct uwsgi_lock_item));
+				uli->next->lock_ptr = ptr;
+				uli->rw = rw;
+				uli->next->next = NULL;
+				return;
+			}
+			uli = uli->next;
+		}
+	}
+
+}
+
 
 #ifdef UWSGI_LOCK_USE_MUTEX
 
@@ -123,29 +149,51 @@ void uwsgi_unlock(void *lock) {
 
 #ifdef UWSGI_LOCK_USE_OSX_SPINLOCK
 
-#define UWSGI_LOCK_SIZE		sizeof(OSSpinLock)
-#define UWSGI_RWLOCK_SIZE	sizeof(OSSpinLock)
+#define UWSGI_LOCK_SIZE		sizeof(OSSpinLock) + sizeof(pid_t)
+#define UWSGI_RWLOCK_SIZE	sizeof(OSSpinLock) + sizeof(pid_t)
 
 
 void uwsgi_lock_init(void *lock) {
 
-	memset(lock, 0, sizeof(OSSpinLock));
+	memset(lock, 0, UWSGI_LOCK_SIZE);
+	uwsgi_register_lock(lock, 0);
 }
 
 void uwsgi_lock(void *lock) {
 
 	OSSpinLockLock((OSSpinLock *) lock);
+	pid_t *pid = (pid_t *) lock + sizeof(OSSpinLock);
+	*pid = uwsgi.mypid;
 }
 
 void uwsgi_unlock(void *lock) {
 
 	OSSpinLockUnlock((OSSpinLock *) lock);
+	pid_t *pid = (pid_t *) lock + sizeof(OSSpinLock);
+	*pid = 0;
 }
 
-void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
+pid_t uwsgi_lock_check(void *lock) {
+	if (OSSpinLockTry((OSSpinLock *) lock)) {
+		OSSpinLockUnlock((OSSpinLock *) lock);
+		return 0;
+	}
+	pid_t *pid = (pid_t *) lock + sizeof(OSSpinLock);	
+	return *pid;
+}
+
+void uwsgi_rwlock_init(void *lock) { 
+	memset(lock, 0, UWSGI_LOCK_SIZE);
+        uwsgi_register_lock(lock, 1);
+}
+
 void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
 void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
+
+pid_t uwsgi_rwlock_check(void *lock) { return uwsgi_lock_check(lock); }
+
 void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
+
 
 
 #endif

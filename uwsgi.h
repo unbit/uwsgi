@@ -289,6 +289,13 @@ struct uwsgi_string_list {
 	struct uwsgi_string_list *next;
 };
 
+struct uwsgi_lock_item {
+	void *lock_ptr;
+	int rw;
+	struct uwsgi_lock_item *next;
+};
+
+
 struct uwsgi_dyn_dict {
 
 	char *key;
@@ -1414,6 +1421,8 @@ struct uwsgi_server {
 	int cluster_fd;
 	struct sockaddr_in mc_cluster_addr;
 
+	struct uwsgi_lock_item *registered_locks;
+
 	int check_cache;
 
 	uint32_t cache_max_items;
@@ -1972,10 +1981,12 @@ char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
 void uwsgi_lock_init(void *);
+pid_t uwsgi_lock_check(void *);
 void uwsgi_lock(void *);
 void uwsgi_unlock(void *);
 
 void uwsgi_rwlock_init(void *);
+pid_t uwsgi_rwlock_check(void *);
 void uwsgi_rlock(void *);
 void uwsgi_wlock(void *);
 void uwsgi_rwunlock(void *);
