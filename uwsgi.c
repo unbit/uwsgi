@@ -276,6 +276,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, 0},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
+	{"cheaper-overload", required_argument, 0, "increase workers after specified overload", uwsgi_opt_set_64bit, &uwsgi.cheaper_overload, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, 0},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_app, NULL,0},
@@ -1171,6 +1172,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.async = 1;
 	uwsgi.listen_queue = 100;
+
+	uwsgi.cheaper_overload = 3;
 
 	uwsgi.max_vars = MAX_VARS;
 	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);

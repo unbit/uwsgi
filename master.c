@@ -653,7 +653,7 @@ int master_loop(char **argv, char **environ) {
 
 	      healthy:
 		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell) {
-			if (overload_count > 3) {
+			if (overload_count > uwsgi.cheaper_overload) {
 				// activate the first available worker
 				int decheaped = 0;
 				for (i = 1; i <= uwsgi.numproc; i++) {

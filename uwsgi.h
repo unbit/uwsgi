@@ -981,6 +981,7 @@ struct uwsgi_server {
 	// enable cheaper mode
 	int cheaper;
 	int cheaper_step;
+	uint64_t cheaper_overload;
 	// minimal number of running workers in cheaper mode
 	int cheaper_count;
 	// enable idle mode
