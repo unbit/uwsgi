@@ -3155,6 +3155,11 @@ void uwsgi_opt_true(char *opt, char *value, void *key) {
 
 	int *ptr = (int *) key;
 	*ptr = 1;
+	if (value) {
+		if (!strcasecmp("false", value) || !strcasecmp("off", value) || !strcasecmp("no", value) || !strcmp("0", value)) {
+			*ptr = 0;
+		}
+	}
 }
 
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {

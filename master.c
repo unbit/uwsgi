@@ -984,6 +984,8 @@ int master_loop(char **argv, char **environ) {
 							}
 							// reload me
 							else if (byte == 1) {
+								// un-lazy the stack to trigger a real reload
+								uwsgi.lazy = 0;
 								grace_them_all(0);
 							}
 						}
