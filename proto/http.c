@@ -269,14 +269,13 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 			remains = UMIN(remains, 8192);
 			len = read(wsgi_req->poll.fd, post_buf, remains);
 			if (len <= 0) {
-				uwsgi_error("read()");
-				fclose(wsgi_req->async_post);
+				if (len < 0)
+					uwsgi_error("read()");
 				return -1;
 			}
 
 			if (!fwrite(post_buf, len, 1, wsgi_req->async_post)) {
 				uwsgi_error("fwrite()");
-				fclose(wsgi_req->async_post);
 				return -1;
 			}
 			wsgi_req->proto_parser_pos += len;
@@ -338,7 +337,6 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 						free(post_tail);
 						free(wsgi_req->proto_parser_buf);
 						uwsgi_error("fwrite()");
-						fclose(wsgi_req->async_post);
 						return -1;
 					}
 					free(post_tail);
