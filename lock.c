@@ -29,12 +29,12 @@ static void uwsgi_register_lock(void *ptr, int rw) {
 
 #ifdef UWSGI_LOCK_USE_MUTEX
 
-#define UWSGI_LOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)
+#define UWSGI_LOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) + sizeof(pid_t)
 
 #ifdef OBSOLETE_LINUX_KERNEL
-#define UWSGI_RWLOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)
+#define UWSGI_RWLOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) + sizeof(pid_t)
 #else
-#define UWSGI_RWLOCK_SIZE	sizeof(pthread_rwlockattr_t) + sizeof(pthread_rwlock_t)
+#define UWSGI_RWLOCK_SIZE	sizeof(pthread_rwlockattr_t) + sizeof(pthread_rwlock_t) + sizeof(pid_t)
 #endif
 
 // REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!! 
@@ -53,8 +53,33 @@ void uwsgi_lock_init(void *lock) {
         	uwsgi_log("unable to initialize mutex\n");
                 exit(1);
         }
+        uwsgi_register_lock(lock, 0);
 
 
+}
+
+pid_t uwsgi_lock_check(void *lock) {
+
+	if (pthread_mutex_trylock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t)) ) {
+		pthread_mutex_unlock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t));	
+		return 0;
+	}
+	pid_t *pid = (pid_t *) lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) ;
+        return *pid;
+}
+
+pid_t uwsgi_rwlock_check(void *lock) {
+#ifdef OBSOLETE_LINUX_KERNEL
+	return uwsgi_lock_check(lock);
+#else
+
+	if (pthread_rwlock_trywrlock((pthread_rwlock_t *) lock + sizeof(pthread_mutexattr_t)) ) {
+		pthread_rwlock_unlock((pthread_rwlock_t *) lock + sizeof(pthread_mutexattr_t));	
+		return 0;
+	}
+	pid_t *pid = (pid_t *) lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) ;
+        return *pid;
+#endif
 }
 
 void uwsgi_rlock(void *lock) {
@@ -70,6 +95,8 @@ void uwsgi_wlock(void *lock) {
 	uwsgi_lock(lock);
 #else
 	pthread_rwlock_wrlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+	pid_t *pid = (pid_t *) lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) ;
+        *pid = uwsgi.mypid;
 #endif
 }
 
@@ -78,17 +105,23 @@ void uwsgi_rwunlock(void *lock) {
 	uwsgi_unlock(lock);
 #else
 	pthread_rwlock_unlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+	pid_t *pid = (pid_t *) lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) ;
+        *pid = 0;
 #endif
 }
 
 void uwsgi_lock(void *lock) {
 
 	pthread_mutex_lock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t));
+	pid_t *pid = (pid_t *) lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) ;
+        *pid = uwsgi.mypid;
 }
 
 void uwsgi_unlock(void *lock) {
 
 	pthread_mutex_unlock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t));
+	pid_t *pid = (pid_t *) lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t) ;
+	*pid = 0;
 
 }
 
@@ -111,6 +144,8 @@ void uwsgi_rwlock_init(void *lock) {
                 exit(1);
         }
 #endif
+
+	uwsgi_register_lock(lock, 1);
 
 
 }
