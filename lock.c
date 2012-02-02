@@ -49,7 +49,7 @@ void uwsgi_lock_init(void *lock) {
                 exit(1);
         }
 
-        if (pthread_mutex_init((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t), (pthread_mutexattr_t *) lock)) {
+        if (pthread_mutex_init((pthread_mutex_t *) (lock + sizeof(pthread_mutexattr_t)), (pthread_mutexattr_t *) lock)) {
         	uwsgi_log("unable to initialize mutex\n");
                 exit(1);
         }
@@ -60,8 +60,8 @@ void uwsgi_lock_init(void *lock) {
 
 pid_t uwsgi_lock_check(void *lock) {
 
-	if (pthread_mutex_trylock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t)) ) {
-		pthread_mutex_unlock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t));	
+	if (pthread_mutex_trylock((pthread_mutex_t *) (lock + sizeof(pthread_mutexattr_t))) == 0 ) {
+		pthread_mutex_unlock((pthread_mutex_t *) (lock + sizeof(pthread_mutexattr_t)));	
 		return 0;
 	}
 	pid_t *pid = (pid_t *) (lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)) ;
@@ -73,8 +73,8 @@ pid_t uwsgi_rwlock_check(void *lock) {
 	return uwsgi_lock_check(lock);
 #else
 
-	if (pthread_rwlock_trywrlock((pthread_rwlock_t *) lock + sizeof(pthread_mutexattr_t)) ) {
-		pthread_rwlock_unlock((pthread_rwlock_t *) lock + sizeof(pthread_mutexattr_t));	
+	if (pthread_rwlock_trywrlock((pthread_rwlock_t *) (lock + sizeof(pthread_mutexattr_t)) ) == 0 ) {
+		pthread_rwlock_unlock((pthread_rwlock_t *) (lock + sizeof(pthread_mutexattr_t)));	
 		return 0;
 	}
 	pid_t *pid = (pid_t *) (lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)) ;
@@ -86,7 +86,7 @@ void uwsgi_rlock(void *lock) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock(lock);
 #else
-	pthread_rwlock_rdlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+	pthread_rwlock_rdlock((pthread_rwlock_t *) (lock + sizeof(pthread_rwlockattr_t)));
 #endif
 }
 
@@ -94,7 +94,7 @@ void uwsgi_wlock(void *lock) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock(lock);
 #else
-	pthread_rwlock_wrlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+	pthread_rwlock_wrlock((pthread_rwlock_t *) (lock + sizeof(pthread_rwlockattr_t)));
 	pid_t *pid = (pid_t *) (lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)) ;
         *pid = uwsgi.mypid;
 #endif
@@ -104,7 +104,7 @@ void uwsgi_rwunlock(void *lock) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_unlock(lock);
 #else
-	pthread_rwlock_unlock((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t));
+	pthread_rwlock_unlock((pthread_rwlock_t *) (lock + sizeof(pthread_rwlockattr_t)));
 	pid_t *pid = (pid_t *) (lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)) ;
         *pid = 0;
 #endif
@@ -112,14 +112,14 @@ void uwsgi_rwunlock(void *lock) {
 
 void uwsgi_lock(void *lock) {
 
-	pthread_mutex_lock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t));
+	pthread_mutex_lock((pthread_mutex_t *) (lock + sizeof(pthread_mutexattr_t)));
 	pid_t *pid = (pid_t *) (lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)) ;
         *pid = uwsgi.mypid;
 }
 
 void uwsgi_unlock(void *lock) {
 
-	pthread_mutex_unlock((pthread_mutex_t *) lock + sizeof(pthread_mutexattr_t));
+	pthread_mutex_unlock((pthread_mutex_t *) (lock + sizeof(pthread_mutexattr_t)));
 	pid_t *pid = (pid_t *) (lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)) ;
 	*pid = 0;
 
@@ -139,7 +139,7 @@ void uwsgi_rwlock_init(void *lock) {
                 exit(1);
         }
 
-        if (pthread_rwlock_init((pthread_rwlock_t *) lock + sizeof(pthread_rwlockattr_t), (pthread_rwlockattr_t *) lock)) {
+        if (pthread_rwlock_init((pthread_rwlock_t *) (lock + sizeof(pthread_rwlockattr_t)), (pthread_rwlockattr_t *) lock)) {
                 uwsgi_log("unable to initialize rwlock\n");
                 exit(1);
         }
