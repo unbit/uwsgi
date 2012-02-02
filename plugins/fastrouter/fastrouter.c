@@ -104,18 +104,20 @@ struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-use-socket", optional_argument, 0, LONG_ARGS_FASTROUTER_USE_SOCKET},
 	{"fastrouter-to", required_argument, 0, LONG_ARGS_FASTROUTER_TO},
 	{"fastrouter-events", required_argument, 0, LONG_ARGS_FASTROUTER_EVENTS},
-	{"fastrouter-cheap", no_argument, &ufr.cheap, 1},
+*/
+	{"fastrouter-cheap", no_argument, 0, "run the fastrouter in cheap mode", uwsgi_opt_true, &ufr.cheap, 0},
+/*
 	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
 	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
 	{"fastrouter-subscription-use-regexp", no_argument, &ufr.subscription_regexp, 1},
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
 	{"fastrouter-post-buffering", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING},
 	{"fastrouter-post-buffering-dir", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR},
-	{"fastrouter-stats", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
-	{"fastrouter-stats-server", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
-	{"fastrouter-ss", required_argument, 0, LONG_ARGS_FASTROUTER_STATS},
-	{"fastrouter-harakiri", required_argument, 0, LONG_ARGS_FASTROUTER_HARAKIRI},
 */
+	{"fastrouter-stats", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.stats_server, 0},
+	{"fastrouter-stats-server", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.stats_server, 0},
+	{"fastrouter-ss", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.stats_server, 0},
+	{"fastrouter-harakiri", required_argument, 0, "enable fastrouter harakiri", uwsgi_opt_set_int, &ufr.harakiri, 0 },
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
