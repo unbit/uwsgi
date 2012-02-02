@@ -37,9 +37,9 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"venv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 	{"pyhome", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 
-	{"pythonpath", required_argument, 0, "add directory (or glob) to pythonpath", 0, uwsgi_opt_pythonpath, 0},
-	{"python-path", required_argument, 0, "add directory (or glob) to pythonpath", 0, uwsgi_opt_pythonpath, 0},
-	{"pp", required_argument, 0, "add directory (or glob) to pythonpath", 0, uwsgi_opt_pythonpath, 0},
+	{"pythonpath", required_argument, 0, "add directory (or glob) to pythonpath", uwsgi_opt_pythonpath, NULL,  0},
+	{"python-path", required_argument, 0, "add directory (or glob) to pythonpath", uwsgi_opt_pythonpath, NULL, 0},
+	{"pp", required_argument, 0, "add directory (or glob) to pythonpath", uwsgi_opt_pythonpath, NULL, 0},
 
 	{"pymodule-alias", required_argument, 0, "add a python alias module", uwsgi_opt_add_string_list, &up.pymodule_alias, 0},
 	{"post-pymodule-alias", required_argument, 0, "add a python module alias after uwsgi module initialization", uwsgi_opt_add_string_list, &up.post_pymodule_alias, 0},
