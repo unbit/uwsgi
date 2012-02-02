@@ -2554,6 +2554,8 @@ void uwsgi_opt_set_cap(char *, char *, void *);
 void uwsgi_opt_set_unshare(char *, char *, void *);
 #endif
 
+char *uwsgi_tmpname(char *, char *);
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

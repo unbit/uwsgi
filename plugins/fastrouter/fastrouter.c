@@ -595,7 +595,7 @@ void fastrouter_loop(int id) {
 
 						if (ufr.post_buffering > 0 && fr_session->post_cl > ufr.post_buffering) {
 							fr_session->status = FASTROUTER_STATUS_BUFFERING;
-							fr_session->buf_file_name = tempnam(ufr.pb_base_dir, "uwsgi");
+							fr_session->buf_file_name = uwsgi_tmpname(ufr.pb_base_dir, "uwsgiXXXXX");
 							if (!fr_session->buf_file_name) {
 								uwsgi_error("tempnam()");
 								close_session(fr_session);

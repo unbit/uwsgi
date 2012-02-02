@@ -3760,3 +3760,13 @@ void uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_l
         }
 }
 
+
+char *uwsgi_tmpname(char *base, char *id) {
+	char *template = uwsgi_concat3(base, "/", id);
+	if (mkstemp(template) < 0) {
+		free(template);
+		return NULL;
+	}
+
+	return template;
+}
