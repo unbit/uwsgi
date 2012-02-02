@@ -4,8 +4,9 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_rack ur;
 
-struct option uwsgi_rack_options[] = {
+struct uwsgi_option uwsgi_rack_options[] = {
 
+/*
         {"rails", required_argument, 0, LONG_ARGS_RAILS},
         {"rack", required_argument, 0, LONG_ARGS_RACK},
         {"ruby-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
@@ -16,8 +17,9 @@ struct option uwsgi_rack_options[] = {
         {"rubyrequire", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
         {"require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
         {"rbshell", optional_argument, 0, LONG_ARGS_RUBY_SHELL},
+*/
 
-        {0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0 ,0},
 
 };
 
@@ -1036,7 +1038,7 @@ struct uwsgi_plugin rack_plugin = {
 	.modifier1 = 7,
 	.init = uwsgi_rack_init,
 	.options = uwsgi_rack_options,
-	.manage_opt = uwsgi_rack_manage_options,
+
 	.request = uwsgi_rack_request,
 	.after_request = uwsgi_rack_after_request,
 
