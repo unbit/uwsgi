@@ -72,7 +72,8 @@ void init_pyargv() {
 #endif
 
 	up.argc = 1;
-	char *tmp_ptr = uwsgi_str(up.argv);
+	if (up.argv) {
+		char *tmp_ptr = uwsgi_str(up.argv);
 #ifdef __sun__
                 // FIX THIS !!!
                 ap = strtok(tmp_ptr, " ");
@@ -85,7 +86,8 @@ void init_pyargv() {
 			}
 		}
 
-	free(tmp_ptr);
+		free(tmp_ptr);
+	}
 
 #ifdef PYTHREE
 	up.py_argv = uwsgi_calloc(sizeof(wchar_t *) * up.argc+1);
