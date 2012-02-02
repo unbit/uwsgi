@@ -9,6 +9,21 @@ extern struct http_status_codes hsc[];
 
 extern PyTypeObject uwsgi_InputType;
 
+void uwsgi_opt_pythonpath(char *opt, char *value, void *foobar) {
+
+	int i;
+	glob_t g;
+
+	if (glob(value, GLOB_MARK, NULL, &g)) {
+		uwsgi_string_new_list(&up.python_path, value);
+	}
+	else {
+		for (i = 0; i < (int) g.gl_pathc; i++) {
+	        	uwsgi_string_new_list(&up.python_path, g.gl_pathv[i]);
+	        }
+	}
+}
+
 struct uwsgi_option uwsgi_python_options[] = {
 	{"wsgi-file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
 	{"file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
@@ -22,26 +37,27 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"venv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 	{"pyhome", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 
-/*
-	{"pythonpath", required_argument, 0, LONG_ARGS_PYTHONPATH},
-	{"python-path", required_argument, 0, LONG_ARGS_PYTHONPATH},
-	{"pp", required_argument, 0, LONG_ARGS_PYTHONPATH},
-	{"pymodule-alias", required_argument, 0, LONG_ARGS_PYMODULE_ALIAS},
+	{"pythonpath", required_argument, 0, "add directory (or glob) to pythonpath", 0, uwsgi_opt_pythonpath, 0},
+	{"python-path", required_argument, 0, "add directory (or glob) to pythonpath", 0, uwsgi_opt_pythonpath, 0},
+	{"pp", required_argument, 0, "add directory (or glob) to pythonpath", 0, uwsgi_opt_pythonpath, 0},
 
-	{"post-pymodule-alias", required_argument, 0, LONG_ARGS_POST_PYMODULE_ALIAS},
-	{"import", required_argument, 0, LONG_ARGS_PYIMPORT},
-	{"pyimport", required_argument, 0, LONG_ARGS_PYIMPORT},
-	{"py-import", required_argument, 0, LONG_ARGS_PYIMPORT},
-	{"python-import", required_argument, 0, LONG_ARGS_PYIMPORT},
-	{"shared-import", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
-	{"shared-pyimport", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
-	{"shared-py-import", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
-	{"shared-python-import", required_argument, 0, LONG_ARGS_SHARED_PYIMPORT},
-	{"spooler-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
-	{"spooler-pyimport", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
-	{"spooler-py-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
-	{"spooler-python-import", required_argument, 0, LONG_ARGS_SPOOLER_PYIMPORT},
-*/
+	{"pymodule-alias", required_argument, 0, "add a python alias module", uwsgi_opt_add_string_list, &up.pymodule_alias, 0},
+	{"post-pymodule-alias", required_argument, 0, "add a python module alias after uwsgi module initialization", uwsgi_opt_add_string_list, &up.post_pymodule_alias, 0},
+
+	{"import", required_argument, 0, "import a python module", uwsgi_opt_add_string_list, &up.import_list, 0},
+	{"pyimport", required_argument, 0, "import a python module", uwsgi_opt_add_string_list, &up.import_list, 0},
+	{"py-import", required_argument, 0, "import a python module", uwsgi_opt_add_string_list, &up.import_list, 0},
+	{"python-import", required_argument, 0, "import a python module", uwsgi_opt_add_string_list, &up.import_list, 0},
+
+	{"shared-import", required_argument, 0, "import a python module in all of the processes", uwsgi_opt_add_string_list, &up.shared_import_list, 0},
+	{"shared-pyimport", required_argument, 0, "import a python module in all of the processes", uwsgi_opt_add_string_list, &up.shared_import_list, 0},
+	{"shared-py-import", required_argument, 0, "import a python module in all of the processes", uwsgi_opt_add_string_list, &up.shared_import_list, 0},
+	{"shared-python-import", required_argument, 0, "import a python module in all of the processes", uwsgi_opt_add_string_list, &up.shared_import_list, 0},
+
+	{"spooler-import", required_argument, 0, "import a python module in the spooler", uwsgi_opt_add_string_list, &up.spooler_import_list},
+	{"spooler-pyimport", required_argument, 0, "import a python module in the spooler", uwsgi_opt_add_string_list, &up.spooler_import_list},
+	{"spooler-py-import", required_argument, 0, "import a python module in the spooler", uwsgi_opt_add_string_list, &up.spooler_import_list},
+	{"spooler-python-import", required_argument, 0, "import a python module in the spooler", uwsgi_opt_add_string_list, &up.spooler_import_list},
 
 	{"pyargv", required_argument, 0, "manually set sys.argv", uwsgi_opt_set_str, &up.argv, 0},
 	{"optimize", required_argument, 'O', "set python optimization level", uwsgi_opt_set_int, &up.optimize, 0},
@@ -58,13 +74,12 @@ struct uwsgi_option uwsgi_python_options[] = {
 	//{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
 #endif
 	{"catch-exceptions", no_argument, 0, "report exception has http output (discouraged)", uwsgi_opt_true, &up.catch_exceptions, 0},
-/*
-	{"ignore-script-name", no_argument, &up.ignore_script_name, 1},
-	{"pep3333-input", no_argument, &up.pep3333_input, 1},
-	{"reload-os-env", no_argument, &up.reload_os_env, 1},
+	{"ignore-script-name", no_argument, 0, "ignore SCRIPT_NAME", uwsgi_opt_true, &up.ignore_script_name, 0},
+	{"reload-os-env", no_argument, 0, "force reload of os.environ at each request", uwsgi_opt_true, &up.reload_os_env, 0},
 #ifndef UWSGI_PYPY
-	{"no-site", no_argument, &Py_NoSiteFlag, 1},
+	{"no-site", no_argument, 0, "do not import site module", uwsgi_opt_true, &Py_NoSiteFlag, 0},
 #endif
+/*
 	{"pyshell", no_argument, 0, LONG_ARGS_PYSHELL},
 	{"pyshell-oneshot", no_argument, 0, LONG_ARGS_PYSHELL_ONESHOT},
 	{"python", required_argument, 0, LONG_ARGS_PYTHON_RUN},
@@ -184,6 +199,10 @@ void uwsgi_python_atexit() {
 
 	// if hijacked do not run atexit hooks
 	if (uwsgi.workers[uwsgi.mywid].hijacked)
+		return;
+
+	// if busy do not run atexit hooks
+	if (uwsgi.workers[uwsgi.mywid].busy)
 		return;
 
 	// this time we use this higher level function
@@ -328,7 +347,6 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 void init_uwsgi_vars() {
 
-	int i;
 	PyObject *pysys, *pysys_dict, *pypath;
 
 	PyObject *modules = PyImport_GetModuleDict();
@@ -372,9 +390,10 @@ void init_uwsgi_vars() {
 		uppp = uppp->next;
 	}
 
-	for (i = 0; i < up.pymodule_alias_cnt; i++) {
+	struct uwsgi_string_list *uppma = up.pymodule_alias;
+	while(uppma) {
 		// split key=value
-		char *value = strchr(up.pymodule_alias[i], '=');
+		char *value = strchr(uppma->value, '=');
 		if (!value) {
 			uwsgi_log("invalid pymodule-alias syntax\n");
 			continue;
@@ -388,19 +407,21 @@ void init_uwsgi_vars() {
 				exit(1);
 			}
 
-			PyDict_SetItemString(modules, up.pymodule_alias[i], tmp_module);
+			PyDict_SetItemString(modules, uppma->value, tmp_module);
 		}
 		else {
 			// this is a filepath that need to be mapped
-			tmp_module = uwsgi_pyimport_by_filename(up.pymodule_alias[i], value + 1);
+			tmp_module = uwsgi_pyimport_by_filename(uppma->value, value + 1);
 			if (!tmp_module) {
 				PyErr_Print();
 				exit(1);
 			}
 		}
-		uwsgi_log("mapped virtual pymodule \"%s\" to real pymodule \"%s\"\n", up.pymodule_alias[i], value + 1);
+		uwsgi_log("mapped virtual pymodule \"%s\" to real pymodule \"%s\"\n", uppma->value, value + 1);
 		// reset original value
 		value[0] = '=';
+
+		uppma = uppma->next;
 	}
 
 }

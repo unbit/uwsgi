@@ -3,9 +3,6 @@
 
 #include <frameobject.h>
 
-#define MAX_PYMODULE_ALIAS 64
-#define MAX_PYARGV 10
-
 #define PYTHON_APP_TYPE_WSGI		0
 #define PYTHON_APP_TYPE_WEB3		1
 #define PYTHON_APP_TYPE_WSGI2		2
@@ -101,9 +98,9 @@ struct uwsgi_python {
 	int argc;
 
 #ifdef PYTHREE
-	wchar_t *py_argv[MAX_PYARGV];
+	wchar_t **py_argv;
 #else
-	char *py_argv[MAX_PYARGV];
+	char **py_argv;
 #endif
 
 	PyObject *wsgi_spitout;
@@ -121,6 +118,7 @@ struct uwsgi_python {
 	struct uwsgi_string_list *shared_import_list;
 	struct uwsgi_string_list *spooler_import_list;
 	struct uwsgi_string_list *post_pymodule_alias;
+	struct uwsgi_string_list *pymodule_alias;
 
 	PyObject *loader_dict;
 	PyObject* (*loaders[LOADER_MAX]) (void *);
@@ -160,8 +158,6 @@ struct uwsgi_python {
 	PyObject *embedded_dict;
 	PyObject *embedded_args;
 
-	char *pymodule_alias[MAX_PYMODULE_ALIAS];
-	int pymodule_alias_cnt;
 
 	int pep3333_input;
 

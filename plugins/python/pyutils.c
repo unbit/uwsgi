@@ -67,21 +67,36 @@ void init_pyargv() {
 #ifdef PYTHREE
 	wchar_t pname[6];
 	mbstowcs(pname, "uwsgi", 6);
-	up.py_argv[0] = pname;
 #else
-	up.py_argv[0] = "uwsgi";
+	char *pname = "uwsgi";
 #endif
 
 	up.argc = 1;
+#ifdef __sun__
+                // FIX THIS !!!
+                ap = strtok(up.argv, " ");
+                while ((ap = strtok(NULL, " ")) != NULL) {
+#else
+                while ((ap = strsep(&up.argv, " \t")) != NULL) {
+#endif
+			if (*ap != '\0') {
+				up.argc++;
+			}
+		}
+
+#ifdef PYTHREE
+	up.py_argv = uwsgi_calloc(sizeof(wchar_t *) * up.argc+1);
+#else
+	up.py_argv = uwsgi_calloc(sizeof(char *) * up.argc+1);
+#endif
+
+	up.py_argv[0] = pname;
 
 	if (up.argv != NULL) {
+
+		up.argc = 1;
 #ifdef PYTHREE
-		wchar_t *wcargv = malloc( sizeof( wchar_t ) * (strlen(up.argv)+1));
-		if (!wcargv) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-		memset(wcargv, 0, sizeof( wchar_t ) * (strlen(up.argv)+1));
+		wchar_t *wcargv = uwsgi_calloc( sizeof( wchar_t ) * (strlen(up.argv)+1));
 #endif
 
 #ifdef __sun__
@@ -89,7 +104,7 @@ void init_pyargv() {
 		ap = strtok(up.argv, " ");
 		while ((ap = strtok(NULL, " ")) != NULL) {
 #else
-			while ((ap = strsep(&up.argv, " \t")) != NULL) {
+		while ((ap = strsep(&up.argv, " \t")) != NULL) {
 #endif
 				if (*ap != '\0') {
 #ifdef PYTHREE
@@ -100,8 +115,6 @@ void init_pyargv() {
 #endif
 					up.argc++;
 				}
-				if (up.argc + 1 > MAX_PYARGV)
-					break;
 			}
 		}
 
