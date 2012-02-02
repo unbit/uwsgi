@@ -86,9 +86,14 @@ struct uwsgi_fastrouter {
 
 } ufr;
 
+void uwsgi_opt_fastrouter(char *opt, char *value, void *foobar) {
+	uwsgi_new_gateway_socket(value, "uWSGI fastrouter");
+        ufr.has_sockets++;
+}
+
 struct uwsgi_option fastrouter_options[] = {
+	{"fastrouter", required_argument, 0, "run the fastrouter on the specified port", uwsgi_opt_fastrouter, NULL, 0},
 /*
-	{"fastrouter", required_argument, 0, LONG_ARGS_FASTROUTER},
 	{"fastrouter-processes", required_argument, 0, LONG_ARGS_FASTROUTER_PROCESSES},
 	{"fastrouter-workers", required_argument, 0, LONG_ARGS_FASTROUTER_PROCESSES},
 	{"fastrouter-zerg", required_argument, 0, LONG_ARGS_FASTROUTER_ZERG},
