@@ -513,6 +513,10 @@ class uConf(object):
         if self.get('udp'):
             self.cflags.append("-DUWSGI_UDP")
 
+        if self.get('routing'):
+            self.gcc_list.append('routing')
+            self.cflags.append("-DUWSGI_ROUTING")
+
         # re-enable after pcre fix
         if self.get('pcre'):
             if self.get('pcre') == 'auto':

@@ -2479,10 +2479,6 @@ skipzero:
 	}
 #endif
 
-#ifdef UWSGI_ROUTING
-	routing_setup();
-#endif
-
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
 			uwsgi_log("spawned uWSGI worker 1 (and the only) (pid: %d, cores: %d)\n", masterpid, uwsgi.cores);

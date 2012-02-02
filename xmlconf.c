@@ -100,17 +100,6 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, int app_tag
 					continue;
 				}
 
-#ifdef UWSGI_ROUTING
-				if (!strcmp((char *) node->name, "route")) {
-					uwsgi.xml_round2 = 1;
-					continue;
-				}
-				if (!strcmp((char *) node->name, "routing")) {
-					uwsgi.xml_round2 = 1;
-					continue;
-				}
-#endif
-
 				node_mode = xmlGetProp(node, (const xmlChar *) "mode");
 				if (uwsgi.mode && node_mode) {
 					if (strcmp(uwsgi.mode, (char *) node_mode)) {
@@ -170,81 +159,13 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, int app_tag
 						}
 					}
 				}
-#ifdef UWSGI_ROUTING
-				else if (!strcmp((char *) node->name, "routing")) {
-					unsigned char *default_route_mountpoint = NULL;
-					unsigned char *default_route_callbase = NULL;
-					xmlChar *tmp_val;
-					int default_route_modifier1 = 0;
-					int default_route_modifier2 = 0;
-					const char *errstr;
-					int erroff;
-
-					default_route_mountpoint = xmlGetProp(node, (const xmlChar *) "mountpoint");
-					default_route_callbase = xmlGetProp(node, (const xmlChar *) "base");
-
-					tmp_val = xmlGetProp(node, (const xmlChar *) "modifier1");
-					if (tmp_val) {
-						default_route_modifier1 = atoi( (char *)tmp_val);
-					}
-
-					tmp_val = xmlGetProp(node, (const xmlChar *) "modifier2");
-					if (tmp_val) {
-						default_route_modifier2 = atoi( (char *) tmp_val);
-					}
-
-
-					for (node2 = node->children; node2; node2 = node2->next) {
-						if (node2->type == XML_ELEMENT_NODE) {
-							if (!strcmp((char *) node2->name, "route") && uwsgi.nroutes < MAX_UWSGI_ROUTES) {
-								if (!node2->children) {
-									uwsgi_log( "no route callable defined. skip.\n");
-									continue;
-								}
-								uwsgi.routes[uwsgi.nroutes].mountpoint = (char *) default_route_mountpoint;
-								uwsgi.routes[uwsgi.nroutes].callbase = (char *) default_route_callbase;
-								uwsgi.routes[uwsgi.nroutes].modifier1 = default_route_modifier1;
-								uwsgi.routes[uwsgi.nroutes].modifier2 = default_route_modifier2;
-								// TODO check for action
-								uwsgi.routes[uwsgi.nroutes].action = NULL;
-								uwsgi.routes[uwsgi.nroutes].call = (char *) node2->children->content;
-								if (uwsgi.routes[uwsgi.nroutes].call == NULL) {
-									uwsgi_log( "no route callable defined. skip.\n");
-									continue;
-								}
-
-								tmp_val = xmlGetProp(node2, (const xmlChar *) "pattern");
-								if (!tmp_val) {
-									uwsgi_log( "no route pattern defined. skip.\n");
-									continue;
-								}
-
-								uwsgi.routes[uwsgi.nroutes].pattern = pcre_compile( (char *) tmp_val, 0, &errstr, &erroff, NULL);
-								uwsgi.routes[uwsgi.nroutes].pattern_extra = pcre_study(uwsgi.routes[uwsgi.nroutes].pattern, 0, &errstr);
-
-
-								pcre_fullinfo(uwsgi.routes[uwsgi.nroutes].pattern, uwsgi.routes[uwsgi.nroutes].pattern_extra, PCRE_INFO_CAPTURECOUNT, &uwsgi.routes[uwsgi.nroutes].args);
-
-								uwsgi_log("route call: %s %d\n", uwsgi.routes[uwsgi.nroutes].call, uwsgi.routes[uwsgi.nroutes].args);	
-
-								uwsgi.nroutes++;
-							}
-						}
-					}
-
-				}
-#endif
 			}
 		}
 
 	}
 
 	/* We cannot free xml resources on the first round (and with routing enabled) as the string pointer must be valid for all the server lifecycle */
-#ifdef UWSGI_ROUTING
-	if (app_tag && !uwsgi.routing) {
-#else
 		if (app_tag) {
-#endif
 			xmlFreeDoc (doc);
 			xmlCleanupParser ();
 		}

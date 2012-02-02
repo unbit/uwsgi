@@ -669,24 +669,9 @@ struct uwsgi_spooler {
 #ifdef UWSGI_ROUTING
 struct uwsgi_route {
 
-	const char *mountpoint;
-	const char *callbase;
+	uint8_t modifier1;
+	uint8_t modifier2;
 
-	pcre *pattern;
-	pcre_extra *pattern_extra;
-	pcre *method;
-	pcre_extra *method_extra;
-
-	const char *call;
-
-	int modifier1;
-	int modifier2;
-
-	void *callable;
-	void *callable_args;
-	int args;
-
-	void (*action) (struct wsgi_request *, struct uwsgi_route *);
 };
 #endif
 
@@ -1162,10 +1147,6 @@ struct uwsgi_server {
 	struct wsgi_request **async_queue_unused;
 
 
-#ifdef UWSGI_ROUTING
-	int **async_ovector;
-#endif
-
 	// store rlimit
 	struct rlimit rl;
 	size_t limit_post;
@@ -1308,12 +1289,7 @@ struct uwsgi_server {
 
 
 #ifdef UWSGI_ROUTING
-#ifndef MAX_UWSGI_ROUTES
-#define MAX_UWSGI_ROUTES 64
-#endif
-	int routing;
-	int nroutes;
-	struct uwsgi_route routes[MAX_UWSGI_ROUTES];
+	struct uwsgi_route *routes;
 #endif
 
 	int single_interpreter;
@@ -2556,6 +2532,9 @@ void uwsgi_opt_set_unshare(char *, char *, void *);
 
 char *uwsgi_tmpname(char *, char *);
 
+#ifdef UWSGI_ROUTING
+int uwsgi_apply_routes(struct wsgi_request *);
+#endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

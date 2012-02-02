@@ -156,17 +156,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", wi->uwsgi_node);
 
-
-#ifdef UWSGI_ROUTING
-	uwsgi_log("routing %d routes %d\n", uwsgi.routing, uwsgi.nroutes);
-	if (uwsgi.routing && uwsgi.nroutes > 0) {
-		check_route(uwsgi, wsgi_req);
-	}
-#endif
-
-
 	// call
-
 
 	PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
 	return python_call(wsgi_req->async_app, wsgi_req->async_args, up.catch_exceptions, wsgi_req);
