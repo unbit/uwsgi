@@ -81,7 +81,9 @@ struct uwsgi_option http_options[] = {
 	{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
 	{"http-to", required_argument, 0, LONG_ARGS_HTTP_USE_TO},
 	{"http-modifier1", required_argument, 0, LONG_ARGS_HTTP_MODIFIER1},
-	{"http-use-cache", no_argument, &uhttp.use_cache, 1},
+*/
+	{"http-use-cache", no_argument, 0, "use uWSGI cache as key->value virtualhost mapper", uwsgi_opt_true, &uhttp.use_cache, 0},
+/*
 	{"http-use-pattern", required_argument, 0, LONG_ARGS_HTTP_USE_PATTERN},
 	{"http-use-base", required_argument, 0, LONG_ARGS_HTTP_USE_BASE},
 	{"http-use-cluster", no_argument, &uhttp.use_cluster, 1},
