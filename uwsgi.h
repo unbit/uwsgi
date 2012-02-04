@@ -669,8 +669,14 @@ struct uwsgi_spooler {
 #ifdef UWSGI_ROUTING
 struct uwsgi_route {
 
-	uint8_t modifier1;
-	uint8_t modifier2;
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+
+	int (*func)(struct wsgi_request *, void *);
+
+	void *data;
+
+	struct uwsgi_route *next;
 
 };
 #endif
@@ -1039,6 +1045,7 @@ struct uwsgi_server {
 	// enable zerg mode
 	int *zerg;
 	char *zerg_server;
+	char *zerg_node;
 	int zerg_server_fd;
 
 	// security
@@ -2455,6 +2462,8 @@ struct uwsgi_spooler *uwsgi_new_spooler(char *);
 
 struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *);
 
+int uwsgi_zerg_attach(char *);
+
 int uwsgi_manage_opt(char *, char *);
 
 void uwsgi_opt_print(char *, char *, void *);
@@ -2509,8 +2518,6 @@ void uwsgi_opt_add_mule(char *, char *, void *);
 void uwsgi_opt_add_mules(char *, char *, void *);
 void uwsgi_opt_add_farm(char *, char *, void *);
 
-void uwsgi_opt_zerg(char *, char *, void *);
-
 void uwsgi_opt_signal(char *, char *, void *);
 
 void uwsgi_opt_snmp(char *, char *, void *);
@@ -2533,6 +2540,7 @@ void uwsgi_opt_set_unshare(char *, char *, void *);
 char *uwsgi_tmpname(char *, char *);
 
 #ifdef UWSGI_ROUTING
+void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
 #endif
 

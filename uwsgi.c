@@ -293,11 +293,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"vhost", no_argument, 0, "enable virtualhosting mode (based on SERVER_NAME variable)", uwsgi_opt_true, &uwsgi.vhost, 0},
 	{"vhost-host", no_argument, 0, "enable virtualhosting mode (based on HTTP_HOST variable)", uwsgi_opt_true, &uwsgi.vhost_host, UWSGI_OPT_VHOST},
-/*
 #ifdef UWSGI_ROUTING
-	{"routing", no_argument, 0, "enable routing subsystem", uwsgi_opt_set_str, &uwsgi.routing, 0},
+	{"route", no_argument, 0, "add a route", uwsgi_opt_add_route, NULL, 0},
 #endif
-*/
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
 	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
 	{"static-check", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
@@ -324,8 +322,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ns-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
 #endif
 	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
-	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_zerg, NULL, 0},
+	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_set_str, &uwsgi.zerg_node, 0},
 	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
+	//{"zerg-pool", required_argument, 0, "create a zerg pool", uwsgi_opt_zerg_pool, NULL, 0},
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
@@ -1917,6 +1916,10 @@ int uwsgi_start(void *v_argv) {
 			}
 		}
 
+		if (uwsgi.zerg_node) {
+			if (uwsgi_zerg_attach(uwsgi.zerg_node)) {
+			}
+		}
 
 		//check for inherited sockets
 		if (uwsgi.is_a_reload || uwsgi.zerg) {
@@ -3415,18 +3418,21 @@ void uwsgi_opt_static_map(char *opt, char *value, void *foobar) {
                 uwsgi.build_mime_dict = 1;
 }
 
-void uwsgi_opt_zerg(char *opt, char *value, void *foobar) {
+
+int uwsgi_zerg_attach(char *value) {
+
 	int zerg_fd = uwsgi_connect(value, 30, 0);
-                if (zerg_fd < 0) {
-                        uwsgi_log("--- unable to connect to zerg server ---\n");
-                        exit(1);
-                }
-                uwsgi.zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
-                if (uwsgi.zerg == NULL) {
-                        uwsgi_log("--- invalid data received from zerg-server ---\n");
-                        exit(1);
-                }
-                close(zerg_fd);
+        if (zerg_fd < 0) {
+        	uwsgi_log("--- unable to connect to zerg server ---\n");
+		return -1;
+        }
+        uwsgi.zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
+        if (uwsgi.zerg == NULL) {
+        	uwsgi_log("--- invalid data received from zerg-server ---\n");
+		return -1;
+        }
+        close(zerg_fd);
+	return 0;
 }
 
 void uwsgi_opt_signal(char *opt, char *value, void *foobar) {
