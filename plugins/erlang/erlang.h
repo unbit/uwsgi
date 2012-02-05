@@ -1,10 +1,5 @@
 #include <ei.h>
 
-#define LONG_ARGS_ERLANG                17012
-#define LONG_ARGS_ERLANG_COOKIE         17013
-
-
-
 struct uwsgi_erlang_process {
 	
 	char name[0xff];

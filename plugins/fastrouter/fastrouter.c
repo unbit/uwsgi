@@ -109,7 +109,9 @@ struct uwsgi_option fastrouter_options[] = {
 /*
 	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
 	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
-	{"fastrouter-subscription-use-regexp", no_argument, &ufr.subscription_regexp, 1},
+*/
+	{"fastrouter-subscription-use-regexp", no_argument, 0, "enable regexp for subscription system", uwsgi_opt_true, &ufr.subscription_regexp, 0},
+/*
 	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
 	{"fastrouter-post-buffering", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING},
 	{"fastrouter-post-buffering-dir", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR},
