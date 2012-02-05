@@ -598,8 +598,11 @@ struct uwsgi_plugin {
 
 #ifdef UWSGI_PCRE
 #include <pcre.h>
-int uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra);
-int uwsgi_regexp_match(pcre *pattern, pcre_extra *pattern_extra, char *subject, int length);
+int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
+int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
+int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
+int uwsgi_regexp_ovector(pcre *, pcre_extra *);
+char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
 #endif
 
 
@@ -671,14 +674,26 @@ struct uwsgi_route {
 
 	pcre *pattern;
 	pcre_extra *pattern_extra;
+	int ovn;
+	int *ovector;
 
-	int (*func)(struct wsgi_request *, void *);
+	int (*func)(struct wsgi_request *, struct uwsgi_route *);
 
 	void *data;
+	size_t data_len;
 
 	struct uwsgi_route *next;
 
 };
+
+struct uwsgi_router {
+
+	char *name;
+	int (*func)(struct uwsgi_route *, char *);
+	struct uwsgi_router *next;
+
+};
+
 #endif
 
 struct __attribute__ ((packed)) uwsgi_header {
@@ -1296,6 +1311,7 @@ struct uwsgi_server {
 
 
 #ifdef UWSGI_ROUTING
+	struct uwsgi_router *routers;
 	struct uwsgi_route *routes;
 #endif
 
@@ -2540,6 +2556,7 @@ void uwsgi_opt_set_unshare(char *, char *, void *);
 char *uwsgi_tmpname(char *, char *);
 
 #ifdef UWSGI_ROUTING
+struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *, char *));
 void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
 #endif

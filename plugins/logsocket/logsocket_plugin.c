@@ -64,15 +64,10 @@ void uwsgi_logsocket_register() {
 	uwsgi_register_logger("socket", uwsgi_socket_logger);
 }
 
-int uwsgi_logsocket_init() {
-	return 0;
-}
-
 struct uwsgi_plugin logsocket_plugin = {
 
         .name = "logsocket",
         .on_load = uwsgi_logsocket_register,
-	.init = uwsgi_logsocket_init
 
 };
 

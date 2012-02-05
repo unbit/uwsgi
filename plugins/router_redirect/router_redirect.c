@@ -1,0 +1,48 @@
+#include "../../uwsgi.h"
+
+extern struct uwsgi_server uwsgi;
+
+int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        struct iovec iov[4];
+
+        if (wsgi_req->protocol_len == 0) return 0;
+
+        iov[0].iov_base = wsgi_req->protocol;
+        iov[0].iov_len = wsgi_req->protocol_len;
+
+        iov[1].iov_base = " 302 Found\r\nLocation: ";
+        iov[1].iov_len = 22;
+
+	iov[2].iov_base = uwsgi_regexp_apply_ovec(wsgi_req->path_info, wsgi_req->path_info_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
+	iov[2].iov_len = strlen(iov[2].iov_base);
+
+	iov[3].iov_base = "\r\n\r\n";
+	iov[3].iov_len = 4;
+
+        wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
+
+	free(iov[2].iov_base);
+	return 1;
+}
+
+
+int uwsgi_router_redirect(struct uwsgi_route *ur, char *args) {
+
+	ur->func = uwsgi_routing_func_redirect;
+	ur->data = args;
+	ur->data_len = strlen(args);
+	return 0;
+}
+
+
+void router_redirect_register(void) {
+
+	uwsgi_register_router("redirect", uwsgi_router_redirect);
+}
+
+struct uwsgi_plugin router_redirect_plugin = {
+
+	.name = "router_redirect",
+	.on_load = router_redirect_register,
+};

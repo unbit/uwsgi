@@ -14,25 +14,13 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
         }
 
 	while(routes) {
-
-		if (uwsgi_regexp_match(routes->pattern, routes->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
-
-			uwsgi_log("regexp match for %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info);
-			return routes->func(wsgi_req, routes->data);
+		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len, routes->ovector, routes->ovn);
+		if (n>= 0) {
+			return routes->func(wsgi_req, routes);
 		}
 		
 		routes = routes->next;
 	}
-
-	return 0;
-}
-
-int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, void *data) {
-
-	struct uwsgi_header *uh = (struct uwsgi_header *) data;
-
-	wsgi_req->uh.modifier1 = uh->modifier1;
-	wsgi_req->uh.modifier2 = uh->modifier2;
 
 	return 0;
 }
@@ -69,6 +57,11 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		exit(1);
 	}
 
+	ur->ovn = uwsgi_regexp_ovector(ur->pattern, ur->pattern_extra);
+	if (ur->ovn > 0) {
+		ur->ovector = uwsgi_calloc(sizeof(int) * (3 * (ur->ovn + 1)) );
+	}
+
 	char *command = space+1;
 
 	char *colon = strchr(command, ':');
@@ -79,32 +72,41 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	*colon = 0;
 
-	if (!strcmp(command, "uwsgi")) {
-		char *args = colon+1;
-		// check for commas
-		char *comma1 = strchr(args, ',');
-		if (!comma1) {
-			uwsgi_log("invalid route syntax\n");
-			exit(1);
+	struct uwsgi_router *r = uwsgi.routers;
+	while(r) {
+		if (!strcmp(r->name, command)) {
+			if (r->func(ur, colon+1) == 0) {
+				return;
+			}
 		}
-
-		char *comma2 = strchr(comma1+1, ',');
-		if (!comma2) {
-			uwsgi_log("invalid route syntax\n");
-			exit(1);
-		}
-
-		*comma1 = 0;
-		*comma2 = 0;
-		// simple modifier remapper
-		if (*args == 0) {
-			struct uwsgi_header *uh = uwsgi_calloc(sizeof(struct uwsgi_header));
-			ur->func = uwsgi_routing_func_uwsgi_simple;
-			ur->data = (void *) uh;
-
-			uh->modifier1 = atoi(comma1+1);
-			uh->modifier2 = atoi(comma2+1);
-		}
+		r = r->next;
 	}
+
+	uwsgi_log("unable to register route \"%s\"\n", value);
+	exit(1);
+}
+
+struct uwsgi_router *uwsgi_register_router(char *name, int (*func)(struct uwsgi_route *, char *)) {
+
+	struct uwsgi_router *ur = uwsgi.routers;
+	if (!ur) {
+		uwsgi.routers = uwsgi_calloc(sizeof(struct uwsgi_router));
+		uwsgi.routers->name = name;
+		uwsgi.routers->func = func;
+		return uwsgi.routers;
+	}
+
+	while(ur) {
+		if (!ur->next) {
+			ur->next = uwsgi_calloc(sizeof(struct uwsgi_router));
+			ur->next->name = name;
+			ur->next->func = func;
+			return ur->next;
+		}
+		ur = ur->next;
+	}
+
+	return NULL;
+
 }
 #endif
