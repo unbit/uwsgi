@@ -159,8 +159,8 @@ void uwsgi_rwlock_init(void *lock) {
 #include <machine/atomic.h>
 #include <sys/umtx.h>
 
-#define UWSGI_LOCK_SIZE		sizeof(struct umtx)
-#define UWSGI_RWLOCK_SIZE	sizeof(struct umtx)
+#define UWSGI_LOCK_SIZE		sizeof(struct umtx) + sizeof(pid_t)
+#define UWSGI_RWLOCK_SIZE	sizeof(struct umtx) + sizeof(pid_t)
 
 void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
 void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
@@ -169,15 +169,31 @@ void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
 
 void uwsgi_lock_init(void *lock) {
 	umtx_init((struct umtx*) lock);
+	uwsgi_register_lock(lock, 0);
 }
 
 void uwsgi_lock(void *lock) {
 	umtx_lock(lock, 1);
+	pid_t *pid = (pid_t *) (lock + sizeof(struct umtx));
+	*pid = uwsgi.mypid;
 }
 
 void uwsgi_unlock(void *lock) {
 	umtx_unlock(lock, 1);
+	pid_t *pid = (pid_t *) (lock + sizeof(struct umtx));
+	*pid = 0;
 }
+
+pid_t uwsgi_lock_check(void *lock) {
+	if (umtx_trylock(lock, 1)) {
+		umtx_unlock(lock, 1);
+		return 0;
+	}
+	pid_t *pid = (pid_t *) (lock + sizeof(struct umtx));	
+	return *pid;
+}
+
+pid_t uwsgi_rwlock_check(void *lock) { return uwsgi_lock_check(lock); }
 
 #endif
 
