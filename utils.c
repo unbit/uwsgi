@@ -1811,6 +1811,10 @@ void add_exported_option(char *key, char *value, int configured) {
 			if (op->flags & UWSGI_OPT_NO_SERVER) {
 				uwsgi.no_server = 1;
                         }
+			// requires post_buffering ?
+			if (op->flags & UWSGI_OPT_POST_BUFFERING) {
+				if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
+			}
 			// immediate ?
 			if (op->flags & UWSGI_OPT_IMMEDIATE) {
 				op->func(key, value, op->data);

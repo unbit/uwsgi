@@ -2,13 +2,6 @@
 
 #include <ruby.h>
 
-#define LONG_ARGS_RACK_BASE     17000 + ((7 + 1) * 100)
-#define LONG_ARGS_RAILS         LONG_ARGS_RACK_BASE + 1
-#define LONG_ARGS_RUBY_GC_FREQ  LONG_ARGS_RACK_BASE + 2
-#define LONG_ARGS_RACK          LONG_ARGS_RACK_BASE + 3
-#define LONG_ARGS_RUBY_SHELL    LONG_ARGS_RACK_BASE + 4
-#define LONG_ARGS_RUBY_REQUIRE  LONG_ARGS_RACK_BASE + 5
-
 #ifndef RUBY19
 #include <st.h>
         #define rb_errinfo() ruby_errinfo

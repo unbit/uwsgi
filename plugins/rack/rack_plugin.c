@@ -6,18 +6,18 @@ struct uwsgi_rack ur;
 
 struct uwsgi_option uwsgi_rack_options[] = {
 
-/*
-        {"rails", required_argument, 0, LONG_ARGS_RAILS},
-        {"rack", required_argument, 0, LONG_ARGS_RACK},
-        {"ruby-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
-        {"rb-gc-freq", required_argument, 0, LONG_ARGS_RUBY_GC_FREQ},
-        {"rb-require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
-        {"ruby-require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
-        {"rbrequire", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
-        {"rubyrequire", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
-        {"require", required_argument, 0, LONG_ARGS_RUBY_REQUIRE},
-        {"rbshell", optional_argument, 0, LONG_ARGS_RUBY_SHELL},
-*/
+        {"rails", required_argument, 0, "load a rails <= 2.x app", uwsgi_opt_set_str, &ur.rails, UWSGI_OPT_POST_BUFFERING},
+        {"rack", required_argument, 0, "load a rack app", uwsgi_opt_set_str, &ur.rack, UWSGI_OPT_POST_BUFFERING},
+        {"ruby-gc-freq", required_argument, 0, "set ruby GC frequency", uwsgi_opt_set_int, &ur.gc_freq, 0},
+        {"rb-gc-freq", required_argument, 0, "set ruby GC frequency", uwsgi_opt_set_int, &ur.gc_freq, 0},
+
+        {"rb-require", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
+        {"ruby-require", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
+        {"rbrequire", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
+        {"rubyrequire", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
+        {"require", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
+
+        {"rbshell", optional_argument, 0, "run  a ruby/irb shell", uwsgi_opt_true, &ur.rb_shell, 0},
 
         {0, 0, 0, 0, 0, 0 ,0},
 
@@ -733,31 +733,6 @@ void uwsgi_rack_after_request(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
 		log_request(wsgi_req);
-}
-
-int uwsgi_rack_manage_options(int i, char *optarg) {
-
-
-	switch(i) {
-		case LONG_ARGS_RAILS:
-			// HACK: can be overridden with --post-buffering
-			if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
-			ur.rails = optarg;
-			return 1;
-		case LONG_ARGS_RACK:
-			// HACK: can be overridden with --post-buffering
-			if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
-			ur.rack = optarg;
-			return 1;
-		case LONG_ARGS_RUBY_GC_FREQ:
-			ur.gc_freq = atoi(optarg);
-			return 1;
-		case LONG_ARGS_RUBY_REQUIRE:
-			uwsgi_string_new_list(&ur.rbrequire, optarg);
-			return 1;
-	}
-
-	return 0;
 }
 
 void uwsgi_rack_suspend(struct wsgi_request *wsgi_req) {

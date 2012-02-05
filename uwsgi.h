@@ -37,17 +37,18 @@ extern "C" {
 
 #define ushared uwsgi.shared
 
-#define UWSGI_OPT_IMMEDIATE	(1 << 0)
-#define UWSGI_OPT_MASTER	(1 << 1)
-#define UWSGI_OPT_LOG_MASTER	(1 << 2)
-#define UWSGI_OPT_THREADS	(1 << 3)
-#define UWSGI_OPT_CHEAPER	(1 << 4)
-#define UWSGI_OPT_VHOST		(1 << 5)
-#define UWSGI_OPT_MEMORY	(1 << 6)
-#define UWSGI_OPT_PROCNAME	(1 << 7)
-#define UWSGI_OPT_LAZY		(1 << 8)
-#define UWSGI_OPT_NO_INITIAL	(1 << 9)
-#define UWSGI_OPT_NO_SERVER	(1 << 10)
+#define UWSGI_OPT_IMMEDIATE		(1 << 0)
+#define UWSGI_OPT_MASTER		(1 << 1)
+#define UWSGI_OPT_LOG_MASTER		(1 << 2)
+#define UWSGI_OPT_THREADS		(1 << 3)
+#define UWSGI_OPT_CHEAPER		(1 << 4)
+#define UWSGI_OPT_VHOST			(1 << 5)
+#define UWSGI_OPT_MEMORY		(1 << 6)
+#define UWSGI_OPT_PROCNAME		(1 << 7)
+#define UWSGI_OPT_LAZY			(1 << 8)
+#define UWSGI_OPT_NO_INITIAL		(1 << 9)
+#define UWSGI_OPT_NO_SERVER		(1 << 10)
+#define UWSGI_OPT_POST_BUFFERING	(1 << 11)
 
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
