@@ -471,20 +471,6 @@ void uwsgi_perl_init_thread(int core_id) {
 }
 #endif
 
-int uwsgi_perl_manage_options(int i, char *optarg) {
-
-        switch(i) {
-                case LONG_ARGS_PSGI:
-                        uperl.psgi = optarg;
-                        return 1;
-                case LONG_ARGS_PERL_LOCAL_LIB:
-                        uperl.locallib = optarg;
-                        return 1;
-        }
-
-        return 0;
-}
-
 int uwsgi_perl_magic(char *mountpoint, char *lazy) {
 
         if (!strcmp(lazy+strlen(lazy)-5, ".psgi")) {
