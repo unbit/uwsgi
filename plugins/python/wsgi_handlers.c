@@ -519,6 +519,7 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
         		if (uwsgi.workers[uwsgi.mywid].harakiri > 0)
                 		set_harakiri(0);
 		}
+		UWSGI_GET_GIL
 		PyObject *arh = python_call(up.after_req_hook, up.after_req_hook_args, 0, NULL);
         	if (!arh) {
 			PyErr_Print();
@@ -527,6 +528,7 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 			Py_DECREF(arh);
 		}
 		PyErr_Clear();
+		UWSGI_RELEASE_GIL
 	}
 
 	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING] || wsgi_req->log_this) {

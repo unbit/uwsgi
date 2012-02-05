@@ -19,7 +19,7 @@ struct uwsgi_cgi {
 
 void uwsgi_opt_add_cgi(char *opt, char *value, void *foobar) {
 
-	char *val = strchr(optarg, '=');
+	char *val = strchr(value, '=');
         if (!val) {
         	uwsgi_dyn_dict_new(&uc.mountpoint, value, strlen(value), NULL, 0);
         }
