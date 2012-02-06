@@ -91,31 +91,105 @@ void uwsgi_opt_fastrouter(char *opt, char *value, void *foobar) {
         ufr.has_sockets++;
 }
 
+void uwsgi_opt_fastrouter_use_socket(char *opt, char *value, void *foobar) {
+	ufr.use_socket = 1;
+
+	if (value) {
+		ufr.socket_num = atoi(value);
+	}
+}
+
+void uwsgi_opt_fastrouter_zerg(char *opt, char *value, void *foobar) {
+
+	int j;
+	struct uwsgi_gateway_socket *ugs;
+
+	int zerg_fd = uwsgi_connect(value, 30, 0);
+                        if (zerg_fd < 0) {
+                                uwsgi_log("--- unable to connect to zerg server ---\n");
+                                exit(1);
+                        }
+                        int *zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
+                        if (zerg == NULL) {
+                                uwsgi_log("--- invalid data received from zerg-server ---\n");
+                                exit(1);
+                        }
+                        close(zerg_fd);
+                        for(j=0;j<8;j++) {
+                                if (zerg[j] == -1) break;
+                                ugs = uwsgi_new_gateway_socket_from_fd(zerg[j], "uWSGI fastrouter");
+                                ugs->zerg = optarg;
+                        }
+}
+
+void uwsgi_opt_fastrouter_to(char *opt, char *value, void *foobar) {
+
+	ufr.to = value;
+	ufr.to_len = strlen(ufr.to);
+}
+
+void uwsgi_opt_fastrouter_cs(char *opt, char *value, void *foobar) {
+
+	char *cs = uwsgi_str(value);
+               char *cs_code = strchr(cs, ':');
+                if (!cs_code) {
+                        uwsgi_log("invalid code_string option\n");
+                        exit(1);
+                }
+                cs_code[0] = 0;
+                char *cs_func = strchr(cs_code + 1, ':');
+                if (!cs_func) {
+                        uwsgi_log("invalid code_string option\n");
+                        exit(1);
+                }
+                cs_func[0] = 0;
+                ufr.code_string_modifier1 = atoi(cs);
+                ufr.code_string_code = cs_code + 1;
+                ufr.code_string_function = cs_func + 1;
+	
+}
+
+void uwsgi_opt_fastrouter_ss(char *opt, char *value, void *foobar) {
+
+	struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(value, "uWSGI fastrouter");
+        ugs->subscription = 1;
+        ufr.has_subscription_sockets++;
+
+}
+
+void uwsgi_opt_fastrouter_use_base(char *opt, char *value, void *foobar) {
+	ufr.base = value;
+	ufr.base_len = strlen(ufr.base);
+}
+
+void uwsgi_opt_fastrouter_use_pattern(char *opt, char *value, void *foobar) {
+	ufr.pattern = value;
+	ufr.pattern_len = strlen(ufr.base);
+}
+
 struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter", required_argument, 0, "run the fastrouter on the specified port", uwsgi_opt_fastrouter, NULL, 0},
-/*
-	{"fastrouter-processes", required_argument, 0, LONG_ARGS_FASTROUTER_PROCESSES},
-	{"fastrouter-workers", required_argument, 0, LONG_ARGS_FASTROUTER_PROCESSES},
-	{"fastrouter-zerg", required_argument, 0, LONG_ARGS_FASTROUTER_ZERG},
-	{"fastrouter-use-cache", no_argument, &ufr.use_cache, 1},
-	{"fastrouter-use-pattern", required_argument, 0, LONG_ARGS_FASTROUTER_USE_PATTERN},
-	{"fastrouter-use-base", required_argument, 0, LONG_ARGS_FASTROUTER_USE_BASE},
-	{"fastrouter-use-code-string", required_argument, 0, LONG_ARGS_FASTROUTER_USE_CODE_STRING},
-	{"fastrouter-use-socket", optional_argument, 0, LONG_ARGS_FASTROUTER_USE_SOCKET},
-	{"fastrouter-to", required_argument, 0, LONG_ARGS_FASTROUTER_TO},
-	{"fastrouter-events", required_argument, 0, LONG_ARGS_FASTROUTER_EVENTS},
-*/
+	{"fastrouter-processes", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.processes, 0},
+	{"fastrouter-workers", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.processes, 0},
+	{"fastrouter-zerg", required_argument, 0, "attach the fastrouter to a zerg server", uwsgi_opt_fastrouter_zerg, NULL, 0 },
+	{"fastrouter-use-cache", no_argument, 0, "use uWSGI cache as hostname->server mapper for the fastrouter", uwsgi_opt_true, &ufr.use_cache, 0},
+
+	{"fastrouter-use-pattern", required_argument, 0, "use a pattern for fastrouter hostname->server mapping", uwsgi_opt_fastrouter_use_pattern, NULL, 0},
+	{"fastrouter-use-base", required_argument, 0, "use a base dir for fastrouter hostname->server mapping", uwsgi_opt_fastrouter_use_base, NULL, 0},
+
+	{"fastrouter-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the fastrouter", uwsgi_opt_fastrouter_cs, NULL, 0},
+	{"fastrouter-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_fastrouter_use_socket, NULL, 0},
+	{"fastrouter-to", required_argument, 0, "forward requests to the specified uwsgi server", uwsgi_opt_fastrouter_to, NULL, 0},
+	{"fastrouter-events", required_argument, 0, "set the maximum number of concurrent events", uwsgi_opt_set_int, &ufr.nevents, 0},
 	{"fastrouter-cheap", no_argument, 0, "run the fastrouter in cheap mode", uwsgi_opt_true, &ufr.cheap, 0},
-/*
-	{"fastrouter-subscription-server", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER},
-	{"fastrouter-subscription-slot", required_argument, 0, LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT},
-*/
+	{"fastrouter-subscription-server", required_argument, 0, "run the fastrouter subscription server on the spcified address", uwsgi_opt_fastrouter_ss, NULL, 0},
+	{"fastrouter-subscription-slot", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "useless thanks to the new implementation", 0},
 	{"fastrouter-subscription-use-regexp", no_argument, 0, "enable regexp for subscription system", uwsgi_opt_true, &ufr.subscription_regexp, 0},
-/*
-	{"fastrouter-timeout", required_argument, 0, LONG_ARGS_FASTROUTER_TIMEOUT},
-	{"fastrouter-post-buffering", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING},
-	{"fastrouter-post-buffering-dir", required_argument, 0, LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR},
-*/
+
+	{"fastrouter-timeout", required_argument, 0, "set fastrouter timeout", uwsgi_opt_set_int, &ufr.socket_timeout, 0},
+	{"fastrouter-post-buffering", required_argument, 0, "enable fastrouter post buffering", uwsgi_opt_set_64bit, &ufr.post_buffering, 0},
+	{"fastrouter-post-buffering-dir", required_argument, 0, "put fastrouter buffered files to the specified directory", uwsgi_opt_set_str, &ufr.pb_base_dir, 0},
+
 	{"fastrouter-stats", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.stats_server, 0},
 	{"fastrouter-stats-server", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.stats_server, 0},
 	{"fastrouter-ss", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.stats_server, 0},
@@ -855,112 +929,6 @@ int fastrouter_init() {
 
 	return 0;
 }
-
-/*
-int fastrouter_opt(int i, char *optarg) {
-
-	char *cs;
-	char *cs_code;
-	char *cs_func;
-	int j;
-	int zerg_fd;
-	int *zerg;
-	struct uwsgi_gateway_socket *ugs;
-
-	switch (i) {
-	case LONG_ARGS_FASTROUTER:
-		uwsgi_new_gateway_socket(optarg, "uWSGI fastrouter");
-		ufr.has_sockets++;
-		return 1;
-	case LONG_ARGS_FASTROUTER_ZERG:
-			zerg_fd = uwsgi_connect(optarg, 30, 0);
-                	if (zerg_fd < 0) {
-                        	uwsgi_log("--- unable to connect to zerg server ---\n");
-                        	exit(1);
-                	}
-                	zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
-                	if (zerg == NULL) {
-                        	uwsgi_log("--- invalid data received from zerg-server ---\n");
-                        	exit(1);
-                	}
-                	close(zerg_fd);
-			for(j=0;j<8;j++) {
-				if (zerg[j] == -1) break;
-				ugs = uwsgi_new_gateway_socket_from_fd(zerg[j], "uWSGI fastrouter");
-				ugs->zerg = optarg;
-			}
-		return 1;
-	case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SERVER:
-		ugs = uwsgi_new_gateway_socket(optarg, "uWSGI fastrouter");
-		ugs->subscription = 1;
-		ufr.has_subscription_sockets++;
-		return 1;
-	case LONG_ARGS_FASTROUTER_STATS:
-		ufr.stats_server = optarg;
-		return 1;
-	case LONG_ARGS_FASTROUTER_EVENTS:
-		ufr.nevents = atoi(optarg);
-		return 1;
-	case LONG_ARGS_FASTROUTER_HARAKIRI:
-		ufr.harakiri = atoi(optarg);
-		return 1;
-	case LONG_ARGS_FASTROUTER_USE_PATTERN:
-		ufr.pattern = optarg;
-		// optimization
-		ufr.pattern_len = strlen(ufr.pattern);
-		return 1;
-	case LONG_ARGS_FASTROUTER_USE_BASE:
-		ufr.base = optarg;
-		// optimization
-		ufr.base_len = strlen(ufr.base);
-		return 1;
-	case LONG_ARGS_FASTROUTER_USE_SOCKET:
-		ufr.use_socket = 1;
-		if (optarg) {
-			ufr.socket_num = atoi(optarg);
-		}
-		return 1;
-	case LONG_ARGS_FASTROUTER_PROCESSES:
-		ufr.processes = atoi(optarg);
-		return 1;
-	case LONG_ARGS_FASTROUTER_USE_CODE_STRING:
-		cs = uwsgi_str(optarg);
-		cs_code = strchr(cs, ':');
-		if (!cs_code) {
-			uwsgi_log("invalid code_string option\n");
-			exit(1);
-		}
-		cs_code[0] = 0;
-		cs_func = strchr(cs_code + 1, ':');
-		if (!cs_func) {
-			uwsgi_log("invalid code_string option\n");
-			exit(1);
-		}
-		cs_func[0] = 0;
-		ufr.code_string_modifier1 = atoi(cs);
-		ufr.code_string_code = cs_code + 1;
-		ufr.code_string_function = cs_func + 1;
-		return 1;
-	case LONG_ARGS_FASTROUTER_TIMEOUT:
-		ufr.socket_timeout = atoi(optarg);
-		return -1;
-	case LONG_ARGS_FASTROUTER_TO:
-		ufr.to = optarg;
-		ufr.to_len = strlen(ufr.to);
-		return -1;
-	case LONG_ARGS_FASTROUTER_POST_BUFFERING:
-		ufr.post_buffering = uwsgi_str_num(optarg, strlen(optarg));
-		return -1;
-	case LONG_ARGS_FASTROUTER_POST_BUFFERING_DIR:
-		ufr.pb_base_dir = optarg;
-		return -1;
-	case LONG_ARGS_FASTROUTER_SUBSCRIPTION_SLOT:
-		// now useless
-		return 1;
-	}
-	return 0;
-}
-*/
 
 
 struct uwsgi_plugin fastrouter_plugin = {

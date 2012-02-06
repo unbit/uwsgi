@@ -3514,6 +3514,10 @@ void uwsgi_opt_max_vars(char *opt, char *value, void *foobar) {
         uwsgi.vec_size = 4 + 1 + (4 * uwsgi.max_vars);
 }
 
+void uwsgi_opt_deprecated(char *opt, char *value, void *message) {
+	uwsgi_log("[WARNING] option %s is deprecated: %s\n", opt, (char *)message);
+}
+
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
 
 #ifdef UWSGI_INI
