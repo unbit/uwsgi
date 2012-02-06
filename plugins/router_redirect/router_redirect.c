@@ -1,5 +1,7 @@
 #include "../../uwsgi.h"
 
+#ifdef UWSGI_ROUTING
+
 extern struct uwsgi_server uwsgi;
 
 int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -46,3 +48,8 @@ struct uwsgi_plugin router_redirect_plugin = {
 	.name = "router_redirect",
 	.on_load = router_redirect_register,
 };
+#else
+struct uwsgi_plugin router_redirect_plugin = {
+	.name = "router_redirect",
+};
+#endif

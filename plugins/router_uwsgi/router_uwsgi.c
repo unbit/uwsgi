@@ -1,4 +1,5 @@
 #include "../../uwsgi.h"
+#ifdef UWSGI_ROUTING
 
 extern struct uwsgi_server uwsgi;
 
@@ -114,7 +115,11 @@ void router_uwsgi_register(void) {
 }
 
 struct uwsgi_plugin router_uwsgi_plugin = {
-
 	.name = "router_uwsgi",
 	.on_load = router_uwsgi_register,
 };
+#else
+struct uwsgi_plugin router_uwsgi_plugin = {
+	.name = "router_uwsgi",
+};
+#endif

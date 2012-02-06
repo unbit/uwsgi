@@ -513,9 +513,7 @@ class uConf(object):
         if self.get('udp'):
             self.cflags.append("-DUWSGI_UDP")
 
-        if self.get('routing'):
-            self.gcc_list.append('routing')
-            self.cflags.append("-DUWSGI_ROUTING")
+        has_pcre = False
 
         # re-enable after pcre fix
         if self.get('pcre'):
@@ -527,6 +525,7 @@ class uConf(object):
                     self.cflags.append(pcreconf)
                     self.gcc_list.append('regexp')
                     self.cflags.append("-DUWSGI_PCRE")
+                    has_pcre = True
 
             else:
                 pcreconf = spcall('pcre-config --libs')
@@ -539,6 +538,17 @@ class uConf(object):
                     self.cflags.append(pcreconf)
                     self.gcc_list.append('regexp')
                     self.cflags.append("-DUWSGI_PCRE")
+                    has_pcre = True
+
+        if self.get('routing'):
+            if self.get('pcre') == 'auto':
+                if has_pcre:
+                    self.gcc_list.append('routing')
+                    self.cflags.append("-DUWSGI_ROUTING") 
+            else:
+                self.gcc_list.append('routing')
+                self.cflags.append("-DUWSGI_ROUTING")
+
 
         if self.has_include('sys/capability.h') and uwsgi_os == 'Linux':
             self.cflags.append("-DUWSGI_CAP")
