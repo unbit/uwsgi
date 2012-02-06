@@ -13,8 +13,8 @@ NAME='jvm'
 # UWSGICONFIG_JVM_INCPATH="/usr/java/include -I /usr/java/include/solaris" UWSGICONFIG_JVM_LIBPATH="/usr/java/jre/lib/i386/" python uwsgiconfig.py --plugin plugins/jvm
 
 # Ubuntu
-JVM_INCPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/include/ -I/usr/lib/jvm/java-6-sun-1.6.0.15/include/linux"
-JVM_LIBPATH = "/usr/lib/jvm/java-6-sun-1.6.0.15/jre/lib/i386/server/"
+JVM_INCPATH = "/usr/lib/jvm/java-6-openjdk/include/ -I/usr/lib/jvm/java-6-openjdk/include/linux"
+JVM_LIBPATH = "/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/"
 
 try: 
     JVM_INCPATH = os.environ['UWSGICONFIG_JVM_INCPATH'] 

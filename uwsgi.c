@@ -2,7 +2,7 @@
 
  *** uWSGI ***
 
- Copyright (C) 2009-2011 Unbit S.a.s. <info@unbit.it>
+ Copyright (C) 2009-2012 Unbit S.a.s. <info@unbit.it>
 
  This program is free software; you can redistribute it and/or
  modify it under the terms of the GNU General Public License
@@ -327,6 +327,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
 	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_set_str, &uwsgi.zerg_node, 0},
 	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
+	// FUTURE additions
 	//{"zerg-pool", required_argument, 0, "create a zerg pool", uwsgi_opt_zerg_pool, NULL, 0},
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},

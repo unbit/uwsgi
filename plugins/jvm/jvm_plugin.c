@@ -12,8 +12,8 @@ This plugin is the core for all of the JVM-based ones
 struct uwsgi_jvm ujvm;
 
 struct uwsgi_option uwsgi_jvm_options[] = {
-        {"jvm-main-class", required_argument, 0, LONG_ARGS_JVM_CLASS},
-        {"jvm-classpath", required_argument, 0, LONG_ARGS_JVM_CLASSPATH},
+        {"jvm-main-class", required_argument, 0, "load the specified class", uwsgi_opt_set_str, &ujvm.class, 0},
+        {"jvm-classpath", required_argument, 0, "add the specified directory to the classpath", uwsgi_opt_add_string_list, &ujvm.classpath, 0},
         {0, 0, 0, 0},
 };
 
@@ -89,7 +89,6 @@ int jvm_init(void) {
         JavaVMOption    options[1];
 	jmethodID mmid;
 
-	int i;
 	char *old_cp = NULL ;
 
 
@@ -99,17 +98,17 @@ int jvm_init(void) {
 
         options[0].optionString = "-Djava.class.path=.";
 
-	if (ujvm.classpath_cnt > 0) {
-		for(i=0;i<ujvm.classpath_cnt;i++) {
+	struct uwsgi_string_list *cp = ujvm.classpath;
+	while(cp) {
 			if (old_cp) {
-				options[0].optionString = uwsgi_concat3(old_cp, ":", ujvm.classpath[i]);
+				options[0].optionString = uwsgi_concat3(old_cp, ":", cp->value);
 				free(old_cp);
 			}	
 			else {
-				options[0].optionString = uwsgi_concat3(options[0].optionString, ":", ujvm.classpath[i]);
+				options[0].optionString = uwsgi_concat3(options[0].optionString, ":", cp->value);
 			}
 			old_cp = options[0].optionString ;
-		}
+		cp = cp->next;
 	}
 
         vm_args.options  = options;
@@ -201,34 +200,11 @@ int uwsgi_jvm_strlen2c(jobject obj) {
 	return (*ujvm.env)->GetStringUTFLength(ujvm.env, obj);
 }
 
-/*
-int uwsgi_jvm_manage_opt(int i, char *optarg) {
-
-	switch(i) {
-		case LONG_ARGS_JVM_CLASS:
-			ujvm.class = optarg;
-			return 1;
-		case LONG_ARGS_JVM_CLASSPATH:
-                	if (ujvm.classpath_cnt < MAX_CLASSPATH) {
-                        	ujvm.classpath[ujvm.classpath_cnt] = optarg;
-                                ujvm.classpath_cnt++;
-                        }
-                        else {
-                        	uwsgi_log( "you can specify at most %d --jvm-classpath options\n", MAX_CLASSPATH);
-                        }
-                        return 1;
-	}
-
-	return 0;
-}
-*/
-
 struct uwsgi_plugin jvm_plugin = {
 
 	.name = "jvm",
 	.init = jvm_init,
 	.options = uwsgi_jvm_options,
-	.manage_opt = uwsgi_jvm_manage_opt,
 };
 
 

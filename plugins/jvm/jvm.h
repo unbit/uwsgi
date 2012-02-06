@@ -1,16 +1,9 @@
 #include "../../uwsgi.h"
 #include <jni.h>
 
-#define MAX_CLASSPATH 64
-
-#define LONG_ARGS_JVM_BASE      17000 + (300 * 100)
-#define LONG_ARGS_JVM_CLASS     LONG_ARGS_JVM_BASE + 1
-#define LONG_ARGS_JVM_CLASSPATH LONG_ARGS_JVM_BASE + 2
-
 struct uwsgi_jvm {
 
-        char *classpath[MAX_CLASSPATH];
-        int classpath_cnt;
+        struct uwsgi_string_list *classpath;
 
         JNIEnv  *env;
         char *class;
