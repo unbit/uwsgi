@@ -1183,7 +1183,10 @@ struct uwsgi_server {
 	rlim_t reload_on_rss;
 	rlim_t evil_reload_on_as;
 	rlim_t evil_reload_on_rss;
+
 	struct uwsgi_string_list *touch_reload;
+	struct uwsgi_string_list *touch_logrotate;
+	struct uwsgi_string_list *touch_logreopen;
 
 	int propagate_touch;
 
@@ -2565,6 +2568,8 @@ int uwsgi_apply_routes(struct wsgi_request *);
 #endif
 
 void uwsgi_backtrace(int);
+void uwsgi_check_logrotate(void);
+char *uwsgi_check_touches(struct uwsgi_string_list *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

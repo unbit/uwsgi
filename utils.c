@@ -3765,6 +3765,29 @@ void uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_l
 }
 
 
+char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
+
+	struct uwsgi_string_list *touch = touch_list;
+        while (touch) {
+                struct stat tr_st;
+                if (stat(touch->value, &tr_st)) {
+                        uwsgi_log("unable to stat() %s, events will be triggered as soon as the file is created\n", touch->value);
+                        touch->custom = 0;
+                }
+                else {
+			if ((uint64_t) tr_st.st_mtime > touch->custom) {
+                        	touch->custom = (uint64_t) tr_st.st_mtime;
+				return touch->value;
+			}
+                        touch->custom = (uint64_t) tr_st.st_mtime;
+                }
+                touch = touch->next;
+        }
+
+	return NULL;
+}
+
+
 char *uwsgi_tmpname(char *base, char *id) {
 	char *template = uwsgi_concat3(base, "/", id);
 	if (mkstemp(template) < 0) {

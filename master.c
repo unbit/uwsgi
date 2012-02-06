@@ -534,19 +534,10 @@ int master_loop(char **argv, char **environ) {
 		}
 	}
 
-	struct uwsgi_string_list *touch_reload = uwsgi.touch_reload;
-	while (touch_reload) {
-		struct stat tr_st;
-		if (stat(touch_reload->value, &tr_st)) {
-			uwsgi_log("unable to stat() %s, reload will be triggered as soon as the file is created\n", touch_reload->value);
-			touch_reload->custom = 0;
-		}
-		else {
-			touch_reload->custom = (uint64_t) tr_st.st_mtime;
-		}
-		touch_reload = touch_reload->next;
-
-	}
+	// update touches timestamps
+	uwsgi_check_touches(uwsgi.touch_reload);
+	uwsgi_check_touches(uwsgi.touch_logrotate);
+	uwsgi_check_touches(uwsgi.touch_logreopen);
 
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
@@ -1251,50 +1242,11 @@ int master_loop(char **argv, char **environ) {
 				continue;
 			}
 			uwsgi.current_time = now;
+
 			// checking logsize
 			if (uwsgi.logfile) {
-				if (uwsgi.log_master) {
-					uwsgi.shared->logsize = lseek(uwsgi.original_log_fd, 0, SEEK_CUR);
-				}
-				else {
-					uwsgi.shared->logsize = lseek(2, 0, SEEK_CUR);
-				}
-				if (uwsgi.log_maxsize > 0 && uwsgi.shared->logsize > uwsgi.log_maxsize) {
-					char *rot_name = uwsgi.log_backupname;
-					int need_free = 0;
-					if (rot_name == NULL) {
-						char *ts_str = uwsgi_num2str((int) time(NULL));
-						rot_name = uwsgi_concat3(uwsgi.logfile, ".", ts_str);
-						free(ts_str);
-						need_free = 1;
-					}
-					char message[1024];
-					int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) time(NULL), (unsigned long long) uwsgi.shared->logsize, rot_name);
-					if (ret > 0) {
-						rlen = write(uwsgi.original_log_fd, message, ret);
-
-					}
-					if (rename(uwsgi.logfile, rot_name) == 0) {
-						// close 2, reopen logfile dup'it and gracefully reload workers;
-						int fd = open(uwsgi.logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
-						if (fd < 0) {
-							uwsgi_error_open(uwsgi.logfile);
-							grace_them_all(0);
-						}
-						if (dup2(fd, uwsgi.original_log_fd) < 0) {
-							uwsgi_error("dup2()");
-							grace_them_all(0);
-						}
-
-					}
-					else {
-						uwsgi_error("unable to rotate log: rename()");
-					}
-					if (need_free)
-						free(rot_name);
-				}
+				uwsgi_check_logrotate();
 			}
-
 
 			// this will be incremented at (more or less) regular intervals
 			uwsgi.master_cycles++;
@@ -1522,24 +1474,15 @@ int master_loop(char **argv, char **environ) {
 			}
 
 			// check touch_reload
-			struct uwsgi_string_list *touch_reload = uwsgi.touch_reload;
-			while (touch_reload && !uwsgi.to_heaven && !uwsgi.to_hell) {
-				struct stat tr_st;
-				if (stat(touch_reload->value, &tr_st)) {
-					touch_reload->custom = 0;
+			if (!uwsgi.to_heaven && !uwsgi.to_hell) {
+				char *touched = uwsgi_check_touches(uwsgi.touch_reload);
+				if (touched) {
+					uwsgi_log("*** %s has been touched... grace them all !!! ***\n", touched);
+					grace_them_all(0);
+					break;
 				}
-				else {
-					if ((uint64_t) tr_st.st_mtime > touch_reload->custom) {
-						uwsgi_log("*** %s has been touched... grace them all !!! ***\n", touch_reload->value);
-						grace_them_all(0);
-						break;
-					}
-				}
-				touch_reload = touch_reload->next;
 			}
 
-
-			// now check for lb pool
 			continue;
 
 		}
@@ -1759,4 +1702,6 @@ int master_loop(char **argv, char **environ) {
 		}
 	}
 
+	// never here
+	return -1;
 }
