@@ -655,6 +655,25 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 	PyObject *paste_arg, *paste_app;
 
 	uwsgi_log( "Loading paste environment: %s\n", paste);
+
+	if (up.paste_logger) {
+		PyObject *paste_logger_dict = get_uwsgi_pydict("paste.script.util.logging_config");	
+		if (paste_logger_dict) {
+			PyObject *paste_logger_fileConfig = PyDict_GetItemString(paste_logger_dict, "fileConfig");
+			if (paste_logger_fileConfig) {
+				PyObject *paste_logger_arg = PyTuple_New(1);
+				if (!paste_logger_arg) {
+					PyErr_Print();
+					exit(UWSGI_FAILED_APP_CODE);
+				}
+				PyTuple_SetItem(paste_logger_arg, 0, PyString_FromString(paste));
+				if (python_call(paste_logger_fileConfig, paste_logger_arg, 0, NULL)) {
+					PyErr_Print();
+				}
+			}
+		}
+	}
+
 	paste_module = PyImport_ImportModule("paste.deploy");
 	if (!paste_module) {
 		PyErr_Print();

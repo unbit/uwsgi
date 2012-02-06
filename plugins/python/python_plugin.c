@@ -45,6 +45,10 @@ void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 	else {
 		up.paste = uwsgi_concat2("config:", value);
         }
+
+	if (!strcmp("ini-paste-logged", opt)) {
+		up.paste_logger = 1;
+	}
 	
 }
 #endif
@@ -88,6 +92,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"optimize", required_argument, 'O', "set python optimization level", uwsgi_opt_set_int, &up.optimize, 0},
 
 	{"paste", required_argument, 0, "load a paste.deploy config file", uwsgi_opt_set_str, &up.paste, 0},
+	{"paste-logger", required_argument, 0, "enable paste fileConfig logger", uwsgi_opt_true, &up.paste_logger, 0},
 
 
 	{"web3", required_argument, 0, "load a web3 app", uwsgi_opt_set_str, &up.web3, 0},
@@ -95,6 +100,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"wsgi-lite", required_argument, 0, "load a wsgi-lite app", uwsgi_opt_set_str, &up.wsgi_lite, 0},
 #ifdef UWSGI_INI
 	{"ini-paste", required_argument, 0, "load a paste.deploy config file containing uwsgi section", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
+	{"ini-paste-logged", required_argument, 0, "load a paste.deploy config file containing uwsgi section (load loggers too)", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"catch-exceptions", no_argument, 0, "report exception has http output (discouraged)", uwsgi_opt_true, &up.catch_exceptions, 0},
 	{"ignore-script-name", no_argument, 0, "ignore SCRIPT_NAME", uwsgi_opt_true, &up.ignore_script_name, 0},
