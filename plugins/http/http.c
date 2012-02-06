@@ -91,8 +91,8 @@ struct uwsgi_option http_options[] = {
 	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
 	{"http-subscription-use-regexp", no_argument, &uhttp.subscription_regexp, 1},
 	{"http-timeout", required_argument, 0, LONG_ARGS_HTTP_TIMEOUT},
-	{"http-manage-expect", no_argument, &uhttp.manage_expect, 1},
 */
+	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
