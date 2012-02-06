@@ -24,6 +24,31 @@ void uwsgi_opt_pythonpath(char *opt, char *value, void *foobar) {
 	}
 }
 
+void uwsgi_opt_pyshell(char *opt, char *value, void *foobar) {
+
+	uwsgi.honour_stdin = 1;
+	up.pyshell = 1;
+
+	if (!strcmp("pyshell-oneshot", opt)) {
+		up.pyshell_oneshot = 1;
+	}
+}
+
+#ifdef UWSGI_INI
+void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
+
+	uwsgi_opt_load_ini(opt, value, NULL);
+
+	if (value[0] != '/') {
+		up.paste = uwsgi_concat4("config:", uwsgi.cwd, "/", value);
+	}
+	else {
+		up.paste = uwsgi_concat2("config:", value);
+        }
+	
+}
+#endif
+
 struct uwsgi_option uwsgi_python_options[] = {
 	{"wsgi-file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
 	{"file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
@@ -62,16 +87,14 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"pyargv", required_argument, 0, "manually set sys.argv", uwsgi_opt_set_str, &up.argv, 0},
 	{"optimize", required_argument, 'O', "set python optimization level", uwsgi_opt_set_int, &up.optimize, 0},
 
-	//{"paste", required_argument, 0, LONG_ARGS_PASTE},
+	{"paste", required_argument, 0, "load a paste.deploy config file", uwsgi_opt_set_str, &up.paste, 0},
 
 
-/*
-	{"web3", required_argument, 0, LONG_ARGS_WEB3},
-	{"pump", required_argument, 0, LONG_ARGS_PUMP},
-	{"wsgi-lite", required_argument, 0, LONG_ARGS_WSGI_LITE},
-*/
+	{"web3", required_argument, 0, "load a web3 app", uwsgi_opt_set_str, &up.web3, 0},
+	{"pump", required_argument, 0, "load a pump app", uwsgi_opt_set_str, &up.pump, 0},
+	{"wsgi-lite", required_argument, 0, "load a wsgi-lite app", uwsgi_opt_set_str, &up.wsgi_lite, 0},
 #ifdef UWSGI_INI
-	//{"ini-paste", required_argument, 0, LONG_ARGS_INI_PASTE},
+	{"ini-paste", required_argument, 0, "load a paste.deploy config file containing uwsgi section", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"catch-exceptions", no_argument, 0, "report exception has http output (discouraged)", uwsgi_opt_true, &up.catch_exceptions, 0},
 	{"ignore-script-name", no_argument, 0, "ignore SCRIPT_NAME", uwsgi_opt_true, &up.ignore_script_name, 0},
@@ -79,11 +102,12 @@ struct uwsgi_option uwsgi_python_options[] = {
 #ifndef UWSGI_PYPY
 	{"no-site", no_argument, 0, "do not import site module", uwsgi_opt_true, &Py_NoSiteFlag, 0},
 #endif
+	{"pyshell", no_argument, 0, "run an interactive python shell in the uWSGI environment", uwsgi_opt_pyshell, NULL, 0},
+	{"pyshell-oneshot", no_argument, 0, "run an interactive python shell in the uWSGI environment (one-shot variant)", uwsgi_opt_pyshell, NULL, 0},
 /*
-	{"pyshell", no_argument, 0, LONG_ARGS_PYSHELL},
-	{"pyshell-oneshot", no_argument, 0, LONG_ARGS_PYSHELL_ONESHOT},
-	{"python", required_argument, 0, LONG_ARGS_PYTHON_RUN},
-	{"py", required_argument, 0, LONG_ARGS_PYTHON_RUN},
+	FUTURE additions...
+	{"python", required_argument, 0, ...},
+	{"py", required_argument, 0, ...},
 */
 
 	{0, 0, 0, 0, 0, 0, 0},
