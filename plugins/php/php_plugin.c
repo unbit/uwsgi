@@ -17,18 +17,18 @@ struct uwsgi_php {
 	struct uwsgi_string_list *allowed_ext;
 } uphp;
 
-#define LONG_ARGS_PHP_BASE		17000 + ((14 + 1) * 1000)
-#define LONG_ARGS_PHP_INI		LONG_ARGS_PHP_BASE + 1
-#define LONG_ARGS_PHP_ALLOWED_DOCROOT	LONG_ARGS_PHP_BASE + 2
-#define LONG_ARGS_PHP_ALLOWED_EXT	LONG_ARGS_PHP_BASE + 3
+void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
+	uwsgi_sapi_module.php_ini_path_override = uwsgi_str(value);
+        uwsgi_sapi_module.php_ini_ignore = 1;
+}
 
 struct option uwsgi_php_options[] = {
 
-        {"php-ini", required_argument, 0, LONG_ARGS_PHP_INI},
-        {"php-config", required_argument, 0, LONG_ARGS_PHP_INI},
-        {"php-allowed-docroot", required_argument, 0, LONG_ARGS_PHP_ALLOWED_DOCROOT},
-        {"php-allowed-ext", required_argument, 0, LONG_ARGS_PHP_ALLOWED_EXT},
-        {0, 0, 0, 0},
+        {"php-ini", required_argument, 0, "set php.ini path", uwsgi_opt_php_ini, NULL, 0},
+        {"php-config", required_argument, 0, "set php.ini path", uwsgi_opt_php_ini, NULL, 0},
+        {"php-allowed-docroot", required_argument, 0, "list the allowed document roots", uwsgi_opt_add_string_list, &uphp.allowed_docroot, 0},
+        {"php-allowed-ext", required_argument, 0, "list the allowed php file extensions", uwsgi_opt_add_string_list, &uphp.allowed_ext, 0},
+        {0, 0, 0, 0, 0, 0, 0},
 
 };
 
@@ -463,25 +463,6 @@ void uwsgi_php_after_request(struct wsgi_request *wsgi_req) {
                 log_request(wsgi_req);
 }
 
-int uwsgi_php_manage_options(int i, char *optarg) {
-
-        switch(i) {
-                case LONG_ARGS_PHP_INI:
-			uwsgi_sapi_module.php_ini_path_override = uwsgi_str(optarg);
-                        uwsgi_sapi_module.php_ini_ignore = 1;
-                        return 1;
-		case LONG_ARGS_PHP_ALLOWED_DOCROOT:
-			uwsgi_string_new_list(&uphp.allowed_docroot, optarg);
-			return 1;
-		case LONG_ARGS_PHP_ALLOWED_EXT:
-			uwsgi_string_new_list(&uphp.allowed_ext, optarg);
-			return 1;
-        }
-
-        return 0;
-}
-
-
 
 SAPI_API struct uwsgi_plugin php_plugin = {
 	.modifier1 = 14,
@@ -489,6 +470,5 @@ SAPI_API struct uwsgi_plugin php_plugin = {
 	.request = uwsgi_php_request,
 	.after_request = uwsgi_php_after_request,
 	.options = uwsgi_php_options,
-        .manage_opt = uwsgi_php_manage_options,
 };
 
