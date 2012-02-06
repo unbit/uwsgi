@@ -49,6 +49,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"harakiri-no-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh,0},
 	{"no-harakiri-arh", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh,0},
 	{"no-harakiri-after-req-hook", no_argument, 0, "do not enable harakiri during after-request-hook", uwsgi_opt_true, &uwsgi.harakiri_no_arh,0},
+	{"backtrace-depth", no_argument, 0, "set backtrace depth", uwsgi_opt_set_int, &uwsgi.backtrace_depth, 0},
 	{"spooler-harakiri", required_argument, 0, "set harakiri timeout for spooler tasks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_SPOOLER_HARAKIRI,0},
 	{"mule-harakiri", required_argument, 0, "set harakiri timeout for mule tasks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MULE_HARAKIRI,0},
 #ifdef UWSGI_XML
@@ -799,6 +800,8 @@ void what_i_am_doing() {
 	struct wsgi_request *wsgi_req;
 	int i;
 
+	uwsgi_backtrace(uwsgi.backtrace_depth);
+
 	if (uwsgi.cores > 1) {
 		for (i = 0; i < uwsgi.cores; i++) {
 			wsgi_req = uwsgi.wsgi_requests[i];
@@ -1027,27 +1030,37 @@ void uwsgi_plugins_atexit(void) {
 
 }
 
-#ifdef __linux__
+void uwsgi_backtrace(int depth) {
+
+#if defined(__linux__) || defined(__APPLE__)
 
 #include <execinfo.h>
 
-void uwsgi_backtrace(int signum) {
-
-	void *btrace[64];
+	void **btrace = uwsgi_malloc(sizeof(void *) * depth);
 	size_t bt_size, i;
 	char **bt_strings;
 
-	uwsgi_log("!!! uWSGI process %d got Segmentation Fault !!!\n", (int) getpid());
-
-	bt_size = backtrace(btrace, 64);
+	bt_size = backtrace(btrace, depth);
 
 	bt_strings = backtrace_symbols(btrace, bt_size);
 
-	uwsgi_log("*** backtrace ***\n");
+	uwsgi_log("*** backtrace of %d ***\n", (int) getpid());
 	for(i=0;i<bt_size;i++) {
 		uwsgi_log("%s\n", bt_strings[i]);
 	}
+
+	free(btrace);
 	uwsgi_log("*** end of backtrace ***\n");
+
+
+#endif
+
+}
+
+void uwsgi_segfault(int signum) {
+
+	uwsgi_log("!!! uWSGI process %d got Segmentation Fault !!!\n", (int) getpid());
+	uwsgi_backtrace(uwsgi.backtrace_depth);
 
 	// restore default handler to generate core
 	signal(signum, SIG_DFL);
@@ -1055,9 +1068,7 @@ void uwsgi_backtrace(int signum) {
 
 	// never here...
 	exit(1);
-
 }
-#endif
 
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
@@ -1095,9 +1106,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	char *emperor_env;
 	//char *optname;
 
-#ifdef __linux__
-	signal(SIGSEGV, uwsgi_backtrace);
-#endif
+	signal(SIGSEGV, uwsgi_segfault);
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
@@ -1144,6 +1153,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	for (i = 0; i < 0xFF; i++) {
 		uwsgi.p[i] = &unconfigured_plugin;
 	}
+
+	uwsgi.backtrace_depth = 64;
 
 	uwsgi.master_queue = -1;
 

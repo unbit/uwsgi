@@ -403,7 +403,8 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
         }
 
         if (ret < 0) {
-                uwsgi_error("kevent()");
+		if (errno != EINTR)
+                	uwsgi_error("kevent()");
         }
 
         return ret;
@@ -443,7 +444,8 @@ int event_queue_wait(int eq, int timeout, int *interesting_fd) {
         }
 
         if (ret < 0) {
-                uwsgi_error("kevent()");
+		if (errno != EINTR)
+                	uwsgi_error("kevent()");
         }
 
 	if (ret > 0) {

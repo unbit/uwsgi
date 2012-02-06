@@ -1245,6 +1245,8 @@ struct uwsgi_server {
 	char *pidfile;
 	char *pidfile2;
 
+	int backtrace_depth;
+
 	int harakiri_verbose;
 	int harakiri_no_arh;
 
@@ -2561,6 +2563,8 @@ struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *,
 void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
 #endif
+
+void uwsgi_backtrace(int);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
