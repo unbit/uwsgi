@@ -2507,7 +2507,6 @@ void uwsgi_opt_set_placeholder(char *, char *, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
-void uwsgi_opt_logto(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
 #ifdef UWSGI_INI

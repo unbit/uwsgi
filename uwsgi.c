@@ -243,7 +243,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
 #endif
 	{"max-fd", required_argument, 0, "set maximum number of file descriptors (requires root privileges)", uwsgi_opt_set_int, &uwsgi.requested_max_fd, 0},
-	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_logto, NULL, UWSGI_OPT_IMMEDIATE},
+	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_set_str, &uwsgi.logfile, 0},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
 	{"logfile-chown", no_argument, 0, "chown logfiles", uwsgi_opt_true, &uwsgi.logfile_chown, 0},
 	{"logfile-chmod", required_argument, 0, "chmod logfiles", uwsgi_opt_logfile_chmod, NULL, 0},
@@ -1412,6 +1412,9 @@ int main(int argc, char *argv[], char *envp[]) {
                 	}
 		}
         }
+	else if (uwsgi.logfile) {
+		logto(uwsgi.logfile);
+	}
 
 	if (uwsgi.never_swap) {
 		if (mlockall( MCL_CURRENT | MCL_FUTURE )) {
@@ -3301,10 +3304,6 @@ void uwsgi_opt_print(char *opt, char *value, void *str) {
 		exit(0);
 	}
 	fprintf(stdout, "%s\n", value);
-}
-
-void uwsgi_opt_logto(char *opt, char *logfile, void *none) {
-	logto(logfile);
 }
 
 void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
