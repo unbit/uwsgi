@@ -166,49 +166,47 @@ struct uwsgi_lock_item *uwsgi_rwlock_init(char *id) {
 #include <machine/atomic.h>
 #include <sys/umtx.h>
 
-#define UWSGI_LOCK_SIZE		sizeof(struct umtx) + sizeof(pid_t)
-#define UWSGI_RWLOCK_SIZE	sizeof(struct umtx) + sizeof(pid_t)
+#define UWSGI_LOCK_SIZE		sizeof(struct umtx)
+#define UWSGI_RWLOCK_SIZE	sizeof(struct umtx)
 
-void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
-void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
-void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
-void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
+struct uwsgi_lock_item *uwsgi_rwlock_init(char *id) { return uwsgi_lock_init(id) ;}
+void uwsgi_rlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
+void uwsgi_wlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
+void uwsgi_rwunlock(struct uwsgi_lock_item *uli) { uwsgi_unlock(uli); }
 
-void uwsgi_lock_init(void *lock) {
-	umtx_init((struct umtx*) lock);
-	uwsgi_register_lock(lock, 0);
+struct uwsgi_lock_item *uwsgi_lock_init(char *id) {
+	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
+	umtx_init((struct umtx*) uli->lock_ptr);
+	return uli;
 }
 
-void uwsgi_lock(void *lock) {
-	umtx_lock(lock, 1);
-	pid_t *pid = (pid_t *) (lock + sizeof(struct umtx));
-	*pid = uwsgi.mypid;
+void uwsgi_lock(struct uwsgi_lock_item *uli) {
+	umtx_lock((struct umtx*) uli->lock_ptr, 1);
+	uli->pid = uwsgi.mypid;
 }
 
-void uwsgi_unlock(void *lock) {
-	umtx_unlock(lock, 1);
-	pid_t *pid = (pid_t *) (lock + sizeof(struct umtx));
-	*pid = 0;
+void uwsgi_unlock(struct uwsgi_lock_item *uli) {
+	umtx_unlock((struct umtx*) uli->lock_ptr, 1);
+	uli->pid = 0;
 }
 
-pid_t uwsgi_lock_check(void *lock) {
-	if (umtx_trylock(lock, 1)) {
-		umtx_unlock(lock, 1);
+pid_t uwsgi_lock_check(struct uwsgi_lock_item *uli) {
+	if (umtx_trylock((struct umtx*) uli->lock_ptr, 1)) {
+		umtx_unlock((struct umtx*) uli->lock_ptr, 1);
 		return 0;
 	}
-	pid_t *pid = (pid_t *) (lock + sizeof(struct umtx));	
-	return *pid;
+	return uli->pid;
 }
 
-pid_t uwsgi_rwlock_check(void *lock) { return uwsgi_lock_check(lock); }
+pid_t uwsgi_rwlock_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_check(uli); }
 
 #endif
 
 
 #ifdef UWSGI_LOCK_USE_OSX_SPINLOCK
 
-#define UWSGI_LOCK_SIZE		sizeof(OSSpinLock) + sizeof(pid_t)
-#define UWSGI_RWLOCK_SIZE	sizeof(OSSpinLock) + sizeof(pid_t)
+#define UWSGI_LOCK_SIZE		sizeof(OSSpinLock)
+#define UWSGI_RWLOCK_SIZE	sizeof(OSSpinLock)
 
 
 struct uwsgi_lock_item *uwsgi_lock_init(char *id) {
