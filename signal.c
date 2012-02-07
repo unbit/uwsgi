@@ -293,6 +293,8 @@ void uwsgi_opt_add_cron(char *opt, char *value, void *foobar) {
 
 int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month, int week) {
 
+	if (!uwsgi.master_process) return -1;
+
 	uwsgi_lock(uwsgi.cron_table_lock);
 
         if (ushared->cron_cnt < MAX_CRONS) {
@@ -317,6 +319,8 @@ int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month,
 }
 
 int uwsgi_signal_add_rb_timer(uint8_t sig, int secs, int iterations) {
+
+	if (!uwsgi.master_process) return -1;
 
         uwsgi_lock(uwsgi.rb_timer_table_lock);
 

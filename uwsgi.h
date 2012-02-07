@@ -1148,6 +1148,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *static_skip_ext;
 	struct uwsgi_string_list *static_index;
 
+	char *daemonize;
 	char *logfile;
 	int logfile_chown;
 
@@ -2506,7 +2507,6 @@ void uwsgi_opt_set_placeholder(char *, char *, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
-void uwsgi_opt_daemonize(char *, char *, void *);
 void uwsgi_opt_logto(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);

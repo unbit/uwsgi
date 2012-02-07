@@ -58,7 +58,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
-	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_daemonize, NULL, UWSGI_OPT_IMMEDIATE},
+	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
 	{"stop", required_argument, 0, "stop an instance", uwsgi_opt_pidfile_signal, (void *) SIGINT, UWSGI_OPT_IMMEDIATE},
 	{"reload", required_argument, 0, "reload an instance", uwsgi_opt_pidfile_signal, (void *) SIGHUP, UWSGI_OPT_IMMEDIATE},
 	{"pause", required_argument, 0, "pause an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
@@ -1398,6 +1398,20 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
+
+	if (uwsgi.daemonize) {
+		if (uwsgi.has_emperor) {
+                	logto(uwsgi.daemonize);
+        	}
+        	else {
+                	if (!uwsgi.is_a_reload) {
+                        	daemonize(uwsgi.daemonize);
+                	}
+                	else if (uwsgi.log_reopen) {
+                        	logto(uwsgi.daemonize);
+                	}
+		}
+        }
 
 	if (uwsgi.never_swap) {
 		if (mlockall( MCL_CURRENT | MCL_FUTURE )) {
@@ -3287,20 +3301,6 @@ void uwsgi_opt_print(char *opt, char *value, void *str) {
 		exit(0);
 	}
 	fprintf(stdout, "%s\n", value);
-}
-
-void uwsgi_opt_daemonize(char *opt, char *logfile, void *none) {
-	if (uwsgi.has_emperor) {
-		logto(logfile);
-	}
-	else {
-		if (!uwsgi.is_a_reload) {
-			daemonize(logfile);
-		}
-		else if (uwsgi.log_reopen) {
-			logto(logfile);	
-		}
-	}
 }
 
 void uwsgi_opt_logto(char *opt, char *logfile, void *none) {
