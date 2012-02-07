@@ -146,7 +146,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"signal-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
 	{"signals-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
 
-	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_LOGGING, 0},
+	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_false, (void *) UWSGI_OPTION_LOGGING, 0},
 
 	{"pidfile", required_argument, 0, "create pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile,0},
 	{"pidfile2", required_argument, 0, "create pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile2,0},
@@ -3213,6 +3213,13 @@ void uwsgi_opt_dyn_true(char *opt, char *value, void *key) {
 	long *fake_ptr = (long *) key;
 	uint8_t dyn_opt_id = (long) fake_ptr;
 	uwsgi.shared->options[dyn_opt_id] = 1;
+}
+
+void uwsgi_opt_dyn_false(char *opt, char *value, void *key) {
+
+	long *fake_ptr = (long *) key;
+	uint8_t dyn_opt_id = (long) fake_ptr;
+	uwsgi.shared->options[dyn_opt_id] = 0;
 }
 
 void uwsgi_opt_set_str(char *opt, char *value, void *key) {
