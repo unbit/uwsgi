@@ -288,7 +288,7 @@ void uwsgi_opt_add_cron(char *opt, char *value, void *foobar) {
                         uwsgi_log("invalid cron syntax\n");
                         exit(1);
                 }
-                uc->command = optarg+i;
+                uc->command = value+i;
 }
 
 int uwsgi_signal_add_cron(uint8_t sig, int minute, int hour, int day, int month, int week) {
