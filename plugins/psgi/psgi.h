@@ -28,10 +28,6 @@ struct uwsgi_perl {
 
 };
 
-#define LONG_ARGS_PERL_BASE      	17000 + ((5 + 1) * 1000)
-#define LONG_ARGS_PSGI           	LONG_ARGS_PERL_BASE + 1
-#define LONG_ARGS_PERL_LOCAL_LIB	LONG_ARGS_PERL_BASE + 2
-
 void init_perl_embedded_module(void);
 void uwsgi_psgi_app(void);
 int psgi_response(struct wsgi_request *, AV*);

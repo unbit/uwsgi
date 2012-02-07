@@ -841,7 +841,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)
 
-    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(p_ldflags), ' '.join(gcc_list), ' '.join(p_libs) )
+    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(gcc_list), ' '.join(p_ldflags), ' '.join(p_libs) )
     print("[%s] %s.so" % (GCC, plugin_dest))
 
     ret = os.system(gccline)

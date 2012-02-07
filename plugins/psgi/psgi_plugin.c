@@ -486,6 +486,22 @@ int uwsgi_perl_magic(char *mountpoint, char *lazy) {
 
 }
 
+// taken from Torsten Foertsch AfterFork.xs
+void uwsgi_perl_post_fork() {
+/*
+	GV *tmpgv;
+
+	PL_ppid = (IV)getppid();
+	hv_clear(PL_pidstatus);
+
+	tmpgv = gv_fetchpv("$", TRUE, SVt_PV);
+	if (tmpgv) {
+		SvREADONLY_off(GvSV(tmpgv));
+		sv_setiv(GvSV(tmpgv), (IV)getpid());
+		SvREADONLY_on(GvSV(tmpgv));
+	}
+*/
+}
 
 struct uwsgi_plugin psgi_plugin = {
 
@@ -500,6 +516,7 @@ struct uwsgi_plugin psgi_plugin = {
 	.enable_threads = uwsgi_perl_enable_threads,
 	.init_thread = uwsgi_perl_init_thread,
 #endif
+	.post_fork = uwsgi_perl_post_fork,
 	.request = uwsgi_perl_request,
 	.after_request = uwsgi_perl_after_request,
 
