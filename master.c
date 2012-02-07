@@ -1493,18 +1493,18 @@ int master_loop(char **argv, char **environ) {
 			while(uli) {
 				pid_t locked_pid = 0;
 				if (uli->rw) {
-					locked_pid = uwsgi_rwlock_check(uli->lock_ptr);
+					locked_pid = uwsgi_rwlock_check(uli);
 				}
 				else {
-					locked_pid = uwsgi_lock_check(uli->lock_ptr);
+					locked_pid = uwsgi_lock_check(uli);
 				}
 				if (locked_pid == diedpid) {
 					uwsgi_log("[deadlock-detector] pid %d was holding lock %s (%p)\n", (int) diedpid, uli->id, uli->lock_ptr);
 					if (uli->rw) {
-						uwsgi_rwunlock(uli->lock_ptr);
+						uwsgi_rwunlock(uli);
 					}
 					else {
-						uwsgi_unlock(uli->lock_ptr);
+						uwsgi_unlock(uli);
 					}
 				}
 				uli = uli->next;

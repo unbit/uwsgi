@@ -294,6 +294,7 @@ struct uwsgi_lock_item {
 	char *id;
 	void *lock_ptr;
 	int rw;
+	pid_t pid;
 	struct uwsgi_lock_item *next;
 };
 
@@ -663,7 +664,7 @@ struct uwsgi_spooler {
 	char dir[PATH_MAX];
 	pid_t pid;
 	uint64_t respawned;
-	void *lock;
+	struct uwsgi_lock_item *lock;
 	time_t harakiri;
 
 	int signal_pipe[2];
@@ -1463,17 +1464,17 @@ struct uwsgi_server {
 
 	int locks;
 
-	void *cache_lock;
-	void *queue_lock;
-	void **user_lock;
-	void *signal_table_lock;
-	void *fmon_table_lock;
-	void *timer_table_lock;
-	void *probe_table_lock;
-	void *rb_timer_table_lock;
-	void *cron_table_lock;
-	void *rpc_table_lock;
-        void *sa_lock;
+	struct uwsgi_lock_item *cache_lock;
+	struct uwsgi_lock_item *queue_lock;
+	struct uwsgi_lock_item **user_lock;
+	struct uwsgi_lock_item *signal_table_lock;
+	struct uwsgi_lock_item *fmon_table_lock;
+	struct uwsgi_lock_item *timer_table_lock;
+	struct uwsgi_lock_item *probe_table_lock;
+	struct uwsgi_lock_item *rb_timer_table_lock;
+	struct uwsgi_lock_item *cron_table_lock;
+	struct uwsgi_lock_item *rpc_table_lock;
+        struct uwsgi_lock_item *sa_lock;
 
 	// subscription client
 	int subscribe_freq;
@@ -1987,18 +1988,16 @@ int uwsgi_cache_del(char *, uint16_t);
 char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
-void uwsgi_lock_init(void *, char *);
-pid_t uwsgi_lock_check(void *);
-void uwsgi_lock(void *);
-void uwsgi_unlock(void *);
+struct uwsgi_lock_item *uwsgi_lock_init(char *);
+pid_t uwsgi_lock_check(struct uwsgi_lock_item *);
+void uwsgi_lock(struct uwsgi_lock_item *);
+void uwsgi_unlock(struct uwsgi_lock_item *);
 
-void uwsgi_rwlock_init(void *, char *);
-pid_t uwsgi_rwlock_check(void *);
-void uwsgi_rlock(void *);
-void uwsgi_wlock(void *);
-void uwsgi_rwunlock(void *);
-
-pid_t uwsgi_lock_pid(void *);
+struct uwsgi_lock_item *uwsgi_rwlock_init(char *);
+pid_t uwsgi_rwlock_check(struct uwsgi_lock_item *);
+void uwsgi_rlock(struct uwsgi_lock_item *);
+void uwsgi_wlock(struct uwsgi_lock_item *);
+void uwsgi_rwunlock(struct uwsgi_lock_item *);
 
 inline void *uwsgi_malloc(size_t);
 inline void *uwsgi_calloc(size_t);

@@ -369,10 +369,10 @@ void uwsgi_send_stats(int fd) {
 	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
         while(uli) {
 		if (uli->next) {
-			fprintf(output, "\t{ \"%s\": %d },\n", uli->id, (int) uwsgi_lock_pid(uli->lock_ptr));
+			fprintf(output, "\t{ \"%s\": %d },\n", uli->id, (int) uli->pid);
 		}
 		else {
-			fprintf(output, "\t{ \"%s\": %d }\n", uli->id, (int) uwsgi_lock_pid(uli->lock_ptr));
+			fprintf(output, "\t{ \"%s\": %d }\n", uli->id, (int) uli->pid);
 		}
 		uli = uli->next;
 	}

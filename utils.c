@@ -2879,8 +2879,7 @@ struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
 		exit(1);
 	}
 
-	uspool->lock = uwsgi_mmap_shared_lock();
-        uwsgi_lock_init(uspool->lock, uwsgi_concat2("spooler on ", uspool->dir) );
+        uspool->lock = uwsgi_lock_init( uwsgi_concat2("spooler on ", uspool->dir) );
 
         uspool->next = NULL;
 

@@ -63,8 +63,7 @@ void uwsgi_init_queue() {
 
 
 
-                uwsgi.queue_lock = uwsgi_mmap_shared_rwlock();
-                uwsgi_rwlock_init(uwsgi.queue_lock, "queue");
+                uwsgi.queue_lock = uwsgi_rwlock_init("queue");
 
                 uwsgi_log("*** Queue subsystem initialized: %dMB preallocated ***\n", (uwsgi.queue_blocksize * uwsgi.queue_size) / (1024 * 1024));
 }
