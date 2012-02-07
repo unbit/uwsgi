@@ -316,16 +316,13 @@ int master_loop(char **argv, char **environ) {
 #endif
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
-#ifdef UWSGI_SPOOLER
-	struct uwsgi_spooler *uspool = uwsgi.spoolers;
-	while(uspool) {
-#ifdef UWSGI_DEBUG
-		uwsgi_log("adding %d to signal poll (spooler)\n", uspool->signal_pipe[0]);
-#endif
-		event_queue_add_fd_read(uwsgi.master_queue, uspool->signal_pipe[0]);
-		uspool = uspool->next;
+	if (uwsgi.spoolers) {
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
 	}
-#endif
+
+	if (uwsgi.mules_cnt > 0) {
+		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->mule_signal_pipe[0]);
+	}
 
 	if (uwsgi.log_master) {
 		if (!uwsgi.threaded_logger) {
@@ -1183,7 +1180,6 @@ int master_loop(char **argv, char **environ) {
 					else {
 						uwsgi_log_verbose("lost connection with worker %d\n", i);
 						close(interesting_fd);
-						//uwsgi.workers[i].pipe[0] = -1;
 					}
 					goto health_cycle;
 				}
@@ -1198,7 +1194,7 @@ int master_loop(char **argv, char **environ) {
 						}
 						else if (rlen > 0) {
 #ifdef UWSGI_DEBUG
-							uwsgi_log_verbose("received uwsgi signal %d from the spooler\n", uwsgi_signal);
+							uwsgi_log_verbose("received uwsgi signal %d from a spooler\n", uwsgi_signal);
 #endif
 							uwsgi_route_signal(uwsgi_signal);
 						}
@@ -1209,29 +1205,30 @@ int master_loop(char **argv, char **environ) {
 						goto health_cycle;
 					}
 
-					struct uwsgi_spooler *uspool = uwsgi.spoolers;
-					while(uspool) {
-						if (interesting_fd == uspool->signal_pipe[0]) {
-							rlen = read(interesting_fd, &uwsgi_signal, 1);
-							if (rlen < 0) {
-                                                        	uwsgi_error("read()");
-                                                	}
-                                                	else if (rlen > 0) {
-#ifdef UWSGI_DEBUG
-                                                        	uwsgi_log_verbose("received uwsgi signal %d from the spooler\n", uwsgi_signal);
-#endif
-                                                        	uwsgi_route_signal(uwsgi_signal);
-                                                	}
-                                                	else {
-                                                        	uwsgi_log_verbose("lost connection with the spooler\n");
-                                                        	close(interesting_fd);
-                                                	}
-                                                	goto health_cycle;
-						}
-						uspool = uspool->next;
-					}
 				}
 #endif
+
+				// check for mules signal
+				if (uwsgi.mules_cnt > 0) {
+					if (interesting_fd == uwsgi.shared->mule_signal_pipe[0]) {
+						rlen = read(interesting_fd, &uwsgi_signal, 1);
+						if (rlen < 0) {
+							uwsgi_error("read()");
+						}
+						else if (rlen > 0) {
+#ifdef UWSGI_DEBUG
+							uwsgi_log_verbose("received uwsgi signal %d from a mule\n", uwsgi_signal);
+#endif
+							uwsgi_route_signal(uwsgi_signal);
+						}
+						else {
+							uwsgi_log_verbose("lost connection with a mule\n");
+							close(interesting_fd);
+						}
+						goto health_cycle;
+					}
+
+				}
 
 
 			}
