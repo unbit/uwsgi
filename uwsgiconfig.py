@@ -824,6 +824,11 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         pass
 
     try:
+        p_ldflags.remove('-Wwrite-strings')
+    except:
+        pass
+
+    try:
         p_cflags.remove('-Wdeclaration-after-statement')
     except:
         pass
