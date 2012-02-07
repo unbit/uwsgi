@@ -1436,7 +1436,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (uwsgi.dump_options) {
 		struct option *lopt = uwsgi.long_options;
-		while (lopt->name) {
+		while (lopt && lopt->name) {
 			fprintf(stdout, "%s\n", lopt->name);
 			lopt++;
 		}
@@ -3364,15 +3364,17 @@ void uwsgi_opt_pidfile_signal(char *opt, char *pidfile, void *sig) {
 }
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
+
 	char *p = strtok(uwsgi_concat2(value, ""), ",");
 	while (p != NULL) {
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("loading plugin %s\n", p);
 #endif
-		uwsgi_load_plugin(-1, p, NULL, 0);
+		if (uwsgi_load_plugin(-1, p, NULL, 0)) {
+			build_options();
+		}
 		p = strtok(NULL, ",");
 	}
-	build_options();
 }
 
 void uwsgi_opt_add_app(char *opt, char *value, void *regexp) {
