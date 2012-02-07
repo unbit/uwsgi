@@ -380,7 +380,7 @@ void fastrouter_loop(int id) {
 
 	ufr.fr_stats_server = -1;
 
-	ufr.fr_table = uwsgi_malloc(sizeof(struct fastrouter_session) * uwsgi.max_fd);
+	ufr.fr_table = uwsgi_malloc(sizeof(struct fastrouter_session *) * uwsgi.max_fd);
 
 	for (i = 0; i < (int) uwsgi.max_fd; i++) {
 		ufr.fr_table[i] = NULL;
@@ -521,6 +521,8 @@ void fastrouter_loop(int id) {
 						ufr.fr_table[new_connection]->h_pos = 0;
 						ufr.fr_table[new_connection]->pos = 0;
 						ufr.fr_table[new_connection]->un = NULL;
+						ufr.fr_table[new_connection]->buf_file = NULL;
+						ufr.fr_table[new_connection]->buf_file_name = NULL;
 						ufr.fr_table[new_connection]->instance_failed = 0;
 						ufr.fr_table[new_connection]->instance_address_len = 0;
 						ufr.fr_table[new_connection]->hostname_len = 0;

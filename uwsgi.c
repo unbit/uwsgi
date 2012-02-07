@@ -3221,11 +3221,11 @@ void uwsgi_opt_set_str(char *opt, char *value, void *key) {
 }
 
 void uwsgi_opt_set_logger(char *opt, char *value, void *prefix) {
-	if (value) {
-		uwsgi.requested_logger = uwsgi_concat3((char *)prefix, ":", (char *) value);
+	if (prefix) {
+		uwsgi.requested_logger = uwsgi_concat3((char *)prefix, ":", value);
 	}
 	else {
-		uwsgi.requested_logger = uwsgi_str((char *) prefix);
+		uwsgi.requested_logger = uwsgi_str(value);
 	}
 }
 

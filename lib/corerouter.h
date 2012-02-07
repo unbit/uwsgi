@@ -13,6 +13,8 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 				if (ugs->fd == -1) {
 					if (ugs->port) {
 						ugs->fd = bind_to_tcp(ugs->name, uwsgi.listen_queue, ugs->port);
+						ugs->port++;
+						ugs->port_len = strlen(ugs->port);
 					}
 					else {
 						ugs->fd = bind_to_unix(ugs->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
@@ -20,8 +22,6 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 				}
 				// put socket in non-blocking mode
 				uwsgi_socket_nb(ugs->fd);
-				ugs->port++;
-				ugs->port_len = strlen(ugs->port);
 				uwsgi_log("%s bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
 			}
 			else {
