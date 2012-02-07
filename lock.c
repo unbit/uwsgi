@@ -211,46 +211,45 @@ pid_t uwsgi_rwlock_check(void *lock) { return uwsgi_lock_check(lock); }
 #define UWSGI_RWLOCK_SIZE	sizeof(OSSpinLock) + sizeof(pid_t)
 
 
-void uwsgi_lock_init(void *lock) {
+struct uwsgi_lock_item *uwsgi_lock_init(char *id) {
 
-	memset(lock, 0, UWSGI_LOCK_SIZE);
-	uwsgi_register_lock(lock, 0);
+	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
+	memset(uli->lock_ptr, 0, UWSGI_LOCK_SIZE);
+	return uli;
 }
 
-void uwsgi_lock(void *lock) {
+void uwsgi_lock(struct uwsgi_lock_item *uli) {
 
-	OSSpinLockLock((OSSpinLock *) lock);
-	pid_t *pid = (pid_t *) (lock + sizeof(OSSpinLock));
-	*pid = uwsgi.mypid;
+	OSSpinLockLock((OSSpinLock *) uli->lock_ptr);
+	uli->pid = uwsgi.mypid;
 }
 
-void uwsgi_unlock(void *lock) {
+void uwsgi_unlock(struct uwsgi_lock_item *uli) {
 
-	OSSpinLockUnlock((OSSpinLock *) lock);
-	pid_t *pid = (pid_t *) (lock + sizeof(OSSpinLock));
-	*pid = 0;
+	OSSpinLockUnlock((OSSpinLock *) uli->lock_ptr);
+	uli->pid = 0;
 }
 
-pid_t uwsgi_lock_check(void *lock) {
-	if (OSSpinLockTry((OSSpinLock *) lock)) {
-		OSSpinLockUnlock((OSSpinLock *) lock);
+pid_t uwsgi_lock_check(struct uwsgi_lock_item *uli) {
+	if (OSSpinLockTry((OSSpinLock *) uli->lock_ptr)) {
+		OSSpinLockUnlock((OSSpinLock *) uli->lock_ptr);
 		return 0;
 	}
-	pid_t *pid = (pid_t *) (lock + sizeof(OSSpinLock));	
-	return *pid;
+	return uli->pid;
 }
 
-void uwsgi_rwlock_init(void *lock) { 
-	memset(lock, 0, UWSGI_LOCK_SIZE);
-        uwsgi_register_lock(lock, 1);
+struct uwsgi_lock_item *uwsgi_rwlock_init(char *id) { 
+	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 1);
+	memset(uli->lock_ptr, 0, UWSGI_LOCK_SIZE);
+	return uli;
 }
 
-void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
-void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
+void uwsgi_rlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
+void uwsgi_wlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
 
-pid_t uwsgi_rwlock_check(void *lock) { return uwsgi_lock_check(lock); }
+pid_t uwsgi_rwlock_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_check(uli); }
 
-void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
+void uwsgi_rwunlock(struct uwsgi_lock_item *uli) { uwsgi_unlock(uli); }
 
 
 
