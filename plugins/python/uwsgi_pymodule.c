@@ -894,6 +894,35 @@ PyObject *py_uwsgi_i_am_the_spooler(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_is_locked(PyObject * self, PyObject * args) {
+
+        int lock_num = 0;
+
+        // the spooler cannot lock resources
+#ifdef UWSGI_SPOOLER
+        if (uwsgi.i_am_a_spooler) {
+                return PyErr_Format(PyExc_ValueError, "The spooler cannot lock/unlock resources");
+        }
+#endif
+
+        if (!PyArg_ParseTuple(args, "|i:is_locked", &lock_num)) {
+                return NULL;
+        }
+
+        if (lock_num < 0 || lock_num > uwsgi.locks) {
+                return PyErr_Format(PyExc_ValueError, "Invalid lock number");
+        }
+
+        if (uwsgi_lock_check(uwsgi.user_lock[lock_num]) == 0) {
+		Py_INCREF(Py_False);
+		return Py_False;
+	}
+
+        Py_INCREF(Py_True);
+        return Py_True;
+}
+
+
 PyObject *py_uwsgi_lock(PyObject * self, PyObject * args) {
 
 	int lock_num = 0;
@@ -2939,6 +2968,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
 	{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},
+	{"is_locked", py_uwsgi_is_locked, METH_VARARGS, ""},
 	{"unlock", py_uwsgi_unlock, METH_VARARGS, ""},
 	{"cl", py_uwsgi_cl, METH_VARARGS, ""},
 
