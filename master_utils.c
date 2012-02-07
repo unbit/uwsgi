@@ -364,6 +364,21 @@ void uwsgi_send_stats(int fd) {
 		fprintf(output, "],\n");
 	}
 
+	fprintf(output, "\"locks\": [\n");
+
+	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
+        while(uli) {
+		if (uli->next) {
+			fprintf(output, "\t{ \"%s\": %d },\n", uli->id, (int) uwsgi_lock_pid(uli->lock_ptr));
+		}
+		else {
+			fprintf(output, "\t{ \"%s\": %d }\n", uli->id, (int) uwsgi_lock_pid(uli->lock_ptr));
+		}
+		uli = uli->next;
+	}
+
+	fprintf(output, "],\n");
+
 	fprintf(output, "\"workers\": [\n");
 
 	for (i = 0; i < uwsgi.numproc; i++) {

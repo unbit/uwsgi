@@ -1499,7 +1499,7 @@ int master_loop(char **argv, char **environ) {
 					locked_pid = uwsgi_lock_check(uli->lock_ptr);
 				}
 				if (locked_pid == diedpid) {
-					uwsgi_log("[deadlock-detector] pid %d was holding lock %p\n", (int) diedpid, uli->lock_ptr);
+					uwsgi_log("[deadlock-detector] pid %d was holding lock %s (%p)\n", (int) diedpid, uli->id, uli->lock_ptr);
 					if (uli->rw) {
 						uwsgi_rwunlock(uli->lock_ptr);
 					}

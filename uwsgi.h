@@ -291,6 +291,7 @@ struct uwsgi_string_list {
 };
 
 struct uwsgi_lock_item {
+	char *id;
 	void *lock_ptr;
 	int rw;
 	struct uwsgi_lock_item *next;
@@ -1986,16 +1987,18 @@ int uwsgi_cache_del(char *, uint16_t);
 char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
-void uwsgi_lock_init(void *);
+void uwsgi_lock_init(void *, char *);
 pid_t uwsgi_lock_check(void *);
 void uwsgi_lock(void *);
 void uwsgi_unlock(void *);
 
-void uwsgi_rwlock_init(void *);
+void uwsgi_rwlock_init(void *, char *);
 pid_t uwsgi_rwlock_check(void *);
 void uwsgi_rlock(void *);
 void uwsgi_wlock(void *);
 void uwsgi_rwunlock(void *);
+
+pid_t uwsgi_lock_pid(void *);
 
 inline void *uwsgi_malloc(size_t);
 inline void *uwsgi_calloc(size_t);

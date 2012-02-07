@@ -1837,38 +1837,38 @@ int uwsgi_start(void *v_argv) {
 	uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks+1));
 	for(i=0;i<uwsgi.locks+1;i++) {
 		uwsgi.user_lock[i] = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.user_lock[i]);
+		uwsgi_lock_init(uwsgi.user_lock[i], uwsgi_concat2("user ", uwsgi_num2str(i)) );
 	}
 
 	if (uwsgi.master_process) {
 		// signal table lock
 		uwsgi.signal_table_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.signal_table_lock);
+		uwsgi_lock_init(uwsgi.signal_table_lock, "signal");
 
 		// fmon table lock
 		uwsgi.fmon_table_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.fmon_table_lock);
+		uwsgi_lock_init(uwsgi.fmon_table_lock, "filemon");
 
 		// timer table lock
 		uwsgi.timer_table_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.timer_table_lock);
+		uwsgi_lock_init(uwsgi.timer_table_lock, "timer");
 
 		// probe table lock
 		uwsgi.probe_table_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.probe_table_lock);
+		uwsgi_lock_init(uwsgi.probe_table_lock, "probe");
 
 		// rb_timer table lock
 		uwsgi.rb_timer_table_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.rb_timer_table_lock);
+		uwsgi_lock_init(uwsgi.rb_timer_table_lock, "rbtimer");
 
 		// cron table lock
 		uwsgi.cron_table_lock = uwsgi_mmap_shared_lock();
-		uwsgi_lock_init(uwsgi.cron_table_lock);
+		uwsgi_lock_init(uwsgi.cron_table_lock, "cron");
 	}
 
 
 	uwsgi.rpc_table_lock = uwsgi_mmap_shared_lock();
-	uwsgi_lock_init(uwsgi.rpc_table_lock);
+	uwsgi_lock_init(uwsgi.rpc_table_lock, "rpc");
 
 	if (uwsgi.sharedareasize > 0) {
 
@@ -1882,7 +1882,7 @@ int uwsgi_start(void *v_argv) {
 		}
 
 		uwsgi.sa_lock = uwsgi_mmap_shared_rwlock();
-                uwsgi_rwlock_init(uwsgi.sa_lock);
+                uwsgi_rwlock_init(uwsgi.sa_lock, "sharedarea");
 	}
 
 	if (uwsgi.queue_size > 0) {

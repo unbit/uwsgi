@@ -2,11 +2,12 @@
 
 extern struct uwsgi_server uwsgi;
 
-static void uwsgi_register_lock(void *ptr, int rw) {
+static void uwsgi_register_lock(void *ptr, int rw, char *id) {
 
 	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
 	if (!uli) {
 		uwsgi.registered_locks = uwsgi_malloc(sizeof(struct uwsgi_lock_item));
+		uwsgi.registered_locks->id = id;
 		uwsgi.registered_locks->lock_ptr = ptr;
 		uwsgi.registered_locks->rw = rw;
 		uwsgi.registered_locks->next = NULL;
@@ -16,7 +17,8 @@ static void uwsgi_register_lock(void *ptr, int rw) {
 			if (!uli->next) {
 				uli->next = uwsgi_malloc(sizeof(struct uwsgi_lock_item));
 				uli->next->lock_ptr = ptr;
-				uli->rw = rw;
+				uli->next->id = id;
+				uli->next->rw = rw;
 				uli->next->next = NULL;
 				return;
 			}
@@ -38,7 +40,7 @@ static void uwsgi_register_lock(void *ptr, int rw) {
 #endif
 
 // REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!! 
-void uwsgi_lock_init(void *lock) {
+void uwsgi_lock_init(void *lock, char *id) {
 
 	if (pthread_mutexattr_init((pthread_mutexattr_t *) lock)) {
         	uwsgi_log("unable to allocate mutexattr structure\n");
@@ -53,9 +55,14 @@ void uwsgi_lock_init(void *lock) {
         	uwsgi_log("unable to initialize mutex\n");
                 exit(1);
         }
-        uwsgi_register_lock(lock, 0);
+        uwsgi_register_lock(lock, 0, id);
 
 
+}
+
+pid_t uwsgi_lock_pid(void *lock) {
+	pid_t *pid = (pid_t *) (lock + sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)) ;
+	return *pid;
 }
 
 pid_t uwsgi_lock_check(void *lock) {
@@ -125,7 +132,7 @@ void uwsgi_unlock(void *lock) {
 
 }
 
-void uwsgi_rwlock_init(void *lock) {
+void uwsgi_rwlock_init(void *lock, char *id) {
 
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock_init(lock);
@@ -145,7 +152,7 @@ void uwsgi_rwlock_init(void *lock) {
         }
 #endif
 
-	uwsgi_register_lock(lock, 1);
+	uwsgi_register_lock(lock, 1, id);
 
 
 }

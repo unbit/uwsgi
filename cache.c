@@ -84,7 +84,7 @@ void uwsgi_init_cache() {
                 uwsgi.cache = ((void *) uwsgi.cache_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items);
 
                 uwsgi.cache_lock = uwsgi_mmap_shared_rwlock();
-                uwsgi_rwlock_init(uwsgi.cache_lock);
+                uwsgi_rwlock_init(uwsgi.cache_lock, "cache");
 
                 uwsgi_log("*** Cache subsystem initialized: %dMB (key: %llu bytes, keys: %llu bytes, data: %llu bytes) preallocated ***\n", ((uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024 * 1024),
 				 (unsigned long long) sizeof(struct uwsgi_cache_item), (unsigned long long) sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, (unsigned long long) uwsgi.cache_blocksize * uwsgi.cache_max_items);
