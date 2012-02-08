@@ -2257,7 +2257,7 @@ skipzero:
 	if (uwsgi.command_mode) {
 		uwsgi.sockets = NULL;
 		uwsgi.numproc = 1;
-		uwsgi.master_process = 0;
+		uwsgi.to_hell = 1;
 	}
 
 #ifdef UWSGI_DEBUG
