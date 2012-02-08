@@ -189,6 +189,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	//{"ldap-schema-ldif", no_argument, 0, LONG_ARGS_LDAP_SCHEMA_LDIF,0},
 #endif
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server,0},
+	{"command-mode", no_argument, 0, "force command mode", uwsgi_opt_true, &uwsgi.command_mode, UWSGI_OPT_IMMEDIATE},
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept,0},
 	{"limit-as", required_argument, 0, "limit processes address space/vsz", uwsgi_opt_set_megabytes, &uwsgi.rl.rlim_max,0},
 	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},
@@ -1663,7 +1664,7 @@ int uwsgi_start(void *v_argv) {
 		fclose(pidfile2);
 	}
 
-		if (!uwsgi.master_process) {
+		if (!uwsgi.master_process && !uwsgi.command_mode) {
 			uwsgi_log_initial("*** WARNING: you are running uWSGI without its master process manager ***\n");
 		}
 #ifndef __OpenBSD__
@@ -2190,7 +2191,7 @@ skipzero:
 
 
 	// initialize request plugin only if workers or master are available
-	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server) {
+	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
 		for (i = 0; i < 0xFF; i++) {
 			if (uwsgi.p[i]->init) {
 				uwsgi.p[i]->init();
@@ -2240,7 +2241,7 @@ skipzero:
 	}
 #endif
 
-	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir) {
+	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir && !uwsgi.command_mode) {
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
@@ -2252,6 +2253,11 @@ skipzero:
 
 	if (!uwsgi.sockets)
 		uwsgi.numproc = 0;
+
+	if (uwsgi.command_mode) {
+		uwsgi.sockets = NULL;
+		uwsgi.numproc = 1;
+	}
 
 #ifdef UWSGI_DEBUG
 	uwsgi_sock = uwsgi.sockets;
@@ -2277,7 +2283,8 @@ skipzero:
 
 
 #ifndef UNBIT
-	uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
+	if (uwsgi.sockets)
+		uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
 
 	if (uwsgi.crons) {
@@ -2387,7 +2394,10 @@ skipzero:
 		
 	}
 
-	if (!uwsgi.numproc) {
+	if (uwsgi.command_mode) {
+		uwsgi_log("*** Operational MODE: command ***\n");
+	}
+	else if (!uwsgi.numproc) {
 		uwsgi_log("*** Operational MODE: no-workers ***\n");
 	}
 	else if (uwsgi.threads > 1) {
@@ -3165,7 +3175,7 @@ void uwsgi_init_all_apps() {
 	}
 
 	// no app initialized and virtualhosting enabled
-	if (uwsgi_apps_cnt == 0 && uwsgi.numproc > 0) {
+	if (uwsgi_apps_cnt == 0 && uwsgi.numproc > 0 && !uwsgi.command_mode) {
 		uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
 	}
 

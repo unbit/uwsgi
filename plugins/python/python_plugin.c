@@ -34,6 +34,12 @@ void uwsgi_opt_pyshell(char *opt, char *value, void *foobar) {
 	}
 }
 
+void uwsgi_opt_pyrun(char *opt, char *value, void *foobar) {
+	uwsgi.honour_stdin = 1;
+	uwsgi.command_mode = 1;
+	up.pyrun = value;
+}
+
 #ifdef UWSGI_INI
 void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 
@@ -110,11 +116,10 @@ struct uwsgi_option uwsgi_python_options[] = {
 #endif
 	{"pyshell", no_argument, 0, "run an interactive python shell in the uWSGI environment", uwsgi_opt_pyshell, NULL, 0},
 	{"pyshell-oneshot", no_argument, 0, "run an interactive python shell in the uWSGI environment (one-shot variant)", uwsgi_opt_pyshell, NULL, 0},
-/*
-	FUTURE additions...
-	{"python", required_argument, 0, ...},
-	{"py", required_argument, 0, ...},
-*/
+
+	{"python", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
+	{"py", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
+	{"pyrun", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -1423,7 +1428,21 @@ void uwsgi_python_fixup() {
 }
 
 void uwsgi_python_hijack(void) {
+
 	// the pyshell will be execute only in the first worker
+
+	FILE *pyfile;
+	if (up.pyrun) {
+		uwsgi.workers[uwsgi.mywid].hijacked = 1;
+		pyfile = fopen(up.pyrun, "r");
+		if (!pyfile) {
+			uwsgi_error_open(up.pyrun);
+			exit(1);
+		}
+		PyRun_SimpleFile(pyfile, up.pyrun);	
+		// could be never executed
+		exit(0);
+	}
 
 #ifndef UWSGI_PYPY
 	if (up.pyshell_oneshot && uwsgi.workers[uwsgi.mywid].hijacked_count > 0) {

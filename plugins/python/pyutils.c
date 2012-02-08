@@ -97,7 +97,8 @@ void init_pyargv() {
 
 	up.py_argv[0] = pname;
 
-	if (up.argv != NULL) {
+
+	if (up.argv) {
 
 		up.argc = 1;
 #ifdef PYTHREE
@@ -120,12 +121,11 @@ void init_pyargv() {
 #endif
 					up.argc++;
 				}
-			}
 		}
 
-#ifndef UWSGI_PYPY
-		PySys_SetArgv(up.argc, up.py_argv);
-#endif
+	}
+
+	PySys_SetArgv(up.argc, up.py_argv);
 
 	PyObject *sys_dict = get_uwsgi_pydict("sys");
 	if (!sys_dict) {

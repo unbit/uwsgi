@@ -112,6 +112,7 @@ struct uwsgi_python {
 
 	int pyshell;
 	int pyshell_oneshot;
+
 	
 	struct uwsgi_string_list *python_path;
 	struct uwsgi_string_list *import_list;
@@ -168,6 +169,8 @@ struct uwsgi_python {
 
 	PyObject *after_req_hook;
 	PyObject *after_req_hook_args;
+
+	char *pyrun;
 
 };
 

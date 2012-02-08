@@ -1337,6 +1337,7 @@ struct uwsgi_server {
 
 	int vacuum;
 	int no_server;
+	int command_mode;
 
 #ifdef UWSGI_LDAP
 	char *ldap;
