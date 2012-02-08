@@ -1,0 +1,21 @@
+#!/bin/bash
+
+COMMAND=./uwsgi
+CONFIG_FILE=
+
+
+FIRST=0
+
+for ARG in $@;do
+  if [ $FIRST -eq 0 ];then
+    FIRST=1
+  else
+    ARGS="$ARGS $ARG"
+  fi
+done
+
+export UWSGI_INHERIT=CONFIG_FILE
+export UWSGI_PYRUN=$1
+export UWSGI_PYARGV=$ARGS
+
+exec $COMMAND

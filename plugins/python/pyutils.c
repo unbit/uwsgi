@@ -64,11 +64,17 @@ void init_pyargv() {
 
 	char *ap;
 
+	char *argv0 = "uwsgi";
+
+	if (up.pyrun) {
+		argv0 = up.pyrun;
+	}
+
 #ifdef PYTHREE
-	wchar_t pname[6];
-	mbstowcs(pname, "uwsgi", 6);
+	wchar_t *pname = uwsgi_calloc(strlen(argv0)+1);
+	mbstowcs(pname, argv0, strlen(argv0)+1);
 #else
-	char *pname = "uwsgi";
+	char *pname = argv0;
 #endif
 
 	up.argc = 1;
