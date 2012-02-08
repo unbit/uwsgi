@@ -2217,7 +2217,6 @@ skipzero:
 
 
 #ifdef UWSGI_THREADING
-	if (uwsgi.sockets || uwsgi.gateways_cnt) {
 		if (uwsgi.has_threads) {
 			if (uwsgi.threads > 1)
 				uwsgi.current_wsgi_req = threaded_current_wsgi_req;
@@ -2238,7 +2237,6 @@ skipzero:
 					uwsgi.p[i]->enable_threads();
 			}
 		}
-	}
 #endif
 
 	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir && !uwsgi.command_mode) {

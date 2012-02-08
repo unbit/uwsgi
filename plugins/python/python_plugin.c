@@ -1434,6 +1434,7 @@ void uwsgi_python_hijack(void) {
 	FILE *pyfile;
 	if (up.pyrun) {
 		uwsgi.workers[uwsgi.mywid].hijacked = 1;
+		UWSGI_GET_GIL;
 		pyfile = fopen(up.pyrun, "r");
 		if (!pyfile) {
 			uwsgi_error_open(up.pyrun);
