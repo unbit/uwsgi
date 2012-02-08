@@ -80,8 +80,8 @@ pid_t uwsgi_rwlock_check(struct uwsgi_lock_item *uli) {
 	return uwsgi_lock_check(uli);
 #else
 
-	if (pthread_rwlock_trywrlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)) ) == 0 ) {
-		pthread_rwlock_unlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)));	
+	if (pthread_rwlock_trywrlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)) ) == 0 ) {
+		pthread_rwlock_unlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));	
 		return 0;
 	}
         return uli->pid;
@@ -92,7 +92,7 @@ void uwsgi_rlock(struct uwsgi_lock_item *uli) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock(uli);
 #else
-	pthread_rwlock_rdlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)));
+	pthread_rwlock_rdlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));
         uli->pid = uwsgi.mypid;
 #endif
 }
@@ -101,7 +101,7 @@ void uwsgi_wlock(struct uwsgi_lock_item *uli) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock(uli);
 #else
-	pthread_rwlock_wrlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)));
+	pthread_rwlock_wrlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));
         uli->pid = uwsgi.mypid;
 #endif
 }
@@ -110,7 +110,7 @@ void uwsgi_rwunlock(struct uwsgi_lock_item *uli) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_unlock(uli);
 #else
-	pthread_rwlock_unlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)));
+	pthread_rwlock_unlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));
         uli->pid = 0;
 #endif
 }
@@ -145,7 +145,7 @@ struct uwsgi_lock_item *uwsgi_rwlock_init(char *id) {
                 exit(1);
         }
 
-        if (pthread_rwlock_init((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)), (pthread_rwlockattr_t *) uli->lock_ptr)) {
+        if (pthread_rwlock_init((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)), (pthread_rwlockattr_t *) uli->lock_ptr)) {
                 uwsgi_log("unable to initialize rwlock\n");
                 exit(1);
         }
