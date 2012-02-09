@@ -1580,9 +1580,25 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
         }
 
         if (!uwsgi_static_stat(real_filename, &st)) {
+
+		real_filename_len = strlen(real_filename);
+
+		// check for skippable ext
+		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
+        	while(sse) {
+                	if (real_filename_len >= sse->len) {
+                        	if (!uwsgi_strncmp(real_filename+(real_filename_len - sse->len), sse->len, sse->value, sse->len)) {
+#ifdef UWSGI_ROUTING
+					if (uwsgi_apply_routes_fast(wsgi_req, real_filename, real_filename_len)) return 0;
+#endif
+					return -1;
+                        	}
+                	}
+                	sse = sse->next;
+        	}
+
 		int mime_type_size = 0;
                 char http_last_modified[49];
-		real_filename_len = strlen(real_filename);
 		char *mime_type = uwsgi_get_mime_type(real_filename, real_filename_len, &mime_type_size);
                 if (wsgi_req->if_modified_since_len) {
                         time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);

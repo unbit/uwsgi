@@ -13,7 +13,7 @@ int uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra) {
 	}
 
 	*pattern_extra = (pcre_extra *) pcre_study((const pcre*)*pattern, 0, &errstr);
-        if (!*pattern_extra) {
+        if (*pattern_extra == NULL && errstr != NULL) {
 		pcre_free(*pattern);
 		uwsgi_log("pcre (study) error: %s\n", errstr);
 		return -1;

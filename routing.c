@@ -25,6 +25,25 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
+int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *uri, int len) {
+
+        struct uwsgi_route *routes = uwsgi.routes;
+
+        if (!routes) return 0;
+
+        while(routes) {
+                int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, uri, len, routes->ovector, routes->ovn);
+                if (n>= 0) {
+                        return routes->func(wsgi_req, routes);
+                }
+
+                routes = routes->next;
+        }
+
+        return 0;
+}
+
+
 void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	char *route = uwsgi_str(value);
