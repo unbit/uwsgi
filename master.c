@@ -1476,7 +1476,6 @@ int master_loop(char **argv, char **environ) {
 				if (touched) {
 					uwsgi_log("*** %s has been touched... grace them all !!! ***\n", touched);
 					grace_them_all(0);
-					break;
 				}
 			}
 
@@ -1700,5 +1699,4 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	// never here
-	return -1;
 }
