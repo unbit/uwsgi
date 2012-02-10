@@ -2443,11 +2443,11 @@ char *magic_sub(char *buffer, int len, int *size, char *magic_table[]) {
 	char *old_magic_buf;
 
 	for (i = 0; i < len; i++) {
-		if (buffer[i] == '%' && (i + 1) < len && magic_table[(int) buffer[i + 1]]) {
+		if (buffer[i] == '%' && (i + 1) < len && magic_table[(unsigned char) buffer[i + 1]]) {
 			old_magic_buf = magic_buf;
-			magic_buf = uwsgi_concat3n(old_magic_buf, magic_len, magic_table[(int) buffer[i + 1]], strlen(magic_table[(int) buffer[i + 1]]), buffer + i + 2, len - i);
+			magic_buf = uwsgi_concat3n(old_magic_buf, magic_len, magic_table[(unsigned char) buffer[i + 1]], strlen(magic_table[(unsigned char) buffer[i + 1]]), buffer + i + 2, len - i);
 			free(old_magic_buf);
-			magic_len += strlen(magic_table[(int) buffer[i + 1]]);
+			magic_len += strlen(magic_table[(unsigned char) buffer[i + 1]]);
 			magic_ptr = magic_buf + magic_len;
 			i++;
 		}
