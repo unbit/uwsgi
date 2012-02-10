@@ -1747,7 +1747,64 @@ struct uwsgi_option *uwsgi_opt_get(char *name) {
 	return NULL;
 }
 
+char *uwsgi_substitue(char *src, char *what, char *with) {
+
+	size_t len = strlen(src)+1;
+	size_t wlen = strlen(with)+1;
+	char *dst = uwsgi_calloc(len);
+	char *ptr = src;
+
+	char *p = strstr(ptr, what);
+	while(p) {
+		strncat(dst, ptr, (p-ptr)); 
+		ptr = p + (wlen-2);
+		len += wlen;	
+		dst = realloc(dst, len);
+		strcat(dst, with);
+		p = strstr(ptr, what);
+	}
+
+	return dst;
+}
+
+int uwsgi_logic_opt_for(char *key, char *value) {
+
+	char *p = strtok(uwsgi.logic_opt_data, " ");
+	while(p) {
+		uwsgi.logic_opt_running = 1;
+		add_exported_option(key, uwsgi_substitue(value, "%(_)", p), 0);
+		uwsgi.logic_opt_running = 0;
+		p = strtok(NULL, " ");
+	}
+
+	return 0;
+}
+
 void add_exported_option(char *key, char *value, int configured) {
+
+	if (uwsgi.logic_opt_running) goto add;
+
+	if (!strcmp(key, "end") || !strcmp(key, "endfor") || !strcmp(key, "endif")) {
+		if (uwsgi.logic_opt_data) {
+			free(uwsgi.logic_opt_data);
+		}
+		uwsgi.logic_opt = NULL;
+		uwsgi.logic_opt_arg = NULL;
+		uwsgi.logic_opt_cycles = 0;
+		uwsgi.logic_opt_data = NULL;
+	}
+
+	if (uwsgi.logic_opt) {
+		if (uwsgi.logic_opt_data) {
+			free(uwsgi.logic_opt_data);
+		}
+		uwsgi.logic_opt_data = uwsgi_str(uwsgi.logic_opt_arg);
+		uwsgi.logic_opt_cycles++;
+		uwsgi.logic_opt(key, value);
+		return;
+	}
+
+add:
 
 	if (!uwsgi.exported_opts) {
                         uwsgi.exported_opts = uwsgi_malloc(sizeof(struct uwsgi_opt *));

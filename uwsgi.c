@@ -57,6 +57,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
+
+	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
+	{"endfor", optional_argument, 0, "(opt logic) end for cycle", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
+
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
 	{"stop", required_argument, 0, "stop an instance", uwsgi_opt_pidfile_signal, (void *) SIGINT, UWSGI_OPT_IMMEDIATE},
@@ -3542,6 +3546,20 @@ void uwsgi_opt_load(char *opt, char *filename, void *none) {
 	if (uwsgi_endswith(filename, ".json")) { uwsgi_opt_load_json(opt, filename, none); return;}
 	if (uwsgi_endswith(filename, ".js")) { uwsgi_opt_load_json(opt, filename, none); return;}
 #endif
+}
+
+void uwsgi_opt_logic(char *opt, char *arg, void *func) {
+	uwsgi.logic_opt = (int (*)(char *, char *)) func; 
+	uwsgi.logic_opt_cycles = 0;
+	if (arg) {
+		uwsgi.logic_opt_arg = uwsgi_str(arg);
+	}
+	else {
+		uwsgi.logic_opt_arg = NULL;
+	}
+}
+
+void uwsgi_opt_noop(char *opt, char *foo, void *bar) {
 }
 
 #ifdef UWSGI_INI

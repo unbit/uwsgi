@@ -1043,6 +1043,11 @@ struct uwsgi_server {
 	// store options
 	int dirty_config;
 	int option_index;
+	int (*logic_opt)(char *, char *);
+	char *logic_opt_arg;
+	char *logic_opt_data;
+	int logic_opt_running;
+	int logic_opt_cycles;
 	struct uwsgi_option *options;
 	struct option *long_options;
 	char *short_options;
@@ -2555,6 +2560,12 @@ void uwsgi_opt_chmod_socket(char *, char *, void *);
 
 void uwsgi_opt_max_vars(char *, char *, void *);
 void uwsgi_opt_deprecated(char *, char *, void *);
+
+void uwsgi_opt_noop(char *, char *, void *);
+
+void uwsgi_opt_logic(char *, char *, void *);
+int uwsgi_logic_opt_for(char *, char *);
+
 
 #ifdef UWSGI_CAP
 void uwsgi_opt_set_cap(char *, char *, void *);
