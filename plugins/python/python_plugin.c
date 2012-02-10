@@ -257,6 +257,19 @@ void uwsgi_python_atexit() {
 			python_call(ae, PyTuple_New(0), 0, NULL);
 		}
 	}
+
+	// this part is a 1:1 copy of mod_wsgi 3.x
+        // it is required to fix some atexit bug with python 3
+	// and to shutdown useless threads complaints
+	PyObject *module = PyImport_ImportModule("atexit");
+	Py_XDECREF(module);
+
+	if (uwsgi.threads > 1) {
+		if (!PyImport_AddModule("dummy_threading"))
+			PyErr_Clear();
+	}
+
+	Py_Finalize();
 }
 
 void uwsgi_python_post_fork() {

@@ -1747,37 +1747,114 @@ struct uwsgi_option *uwsgi_opt_get(char *name) {
 	return NULL;
 }
 
-char *uwsgi_substitue(char *src, char *what, char *with) {
+char *uwsgi_substitute(char *src, char *what, char *with) {
 
-	size_t len = strlen(src)+1;
-	size_t wlen = strlen(with)+1;
-	char *dst = uwsgi_calloc(len);
+	int count = 0;
+	if (!with) return src;
+
+	size_t len = strlen(src);
+	size_t wlen = strlen(what);
+
+	char *p = strstr(src, what);
+	if (!p) {
+		return src;
+	}
+	
+	while(p) {
+		count++;
+		p = strstr(p+wlen, what);
+	}
+
+	len += (count * wlen) + 1;
+
+	char *dst = uwsgi_calloc( len );
 	char *ptr = src;
 
-	char *p = strstr(ptr, what);
+	p = strstr(ptr, what);
 	while(p) {
-		strncat(dst, ptr, (p-ptr)); 
-		ptr = p + (wlen-2);
-		len += wlen;	
-		dst = realloc(dst, len);
+		strncat(dst, ptr, (p-ptr));
 		strcat(dst, with);
+		ptr = p + wlen ;
 		p = strstr(ptr, what);
 	}
 
+	strcat(dst, ptr);
+
 	return dst;
 }
+
+int uwsgi_is_file(char *filename) {
+	struct stat st;
+	if (stat(filename, &st)) {
+		return 0;
+	}
+	if (S_ISREG(st.st_mode))
+		return 1;
+	return 0;
+}
+
+int uwsgi_is_dir(char *filename) {
+	struct stat st;
+	if (stat(filename, &st)) {
+		return 0;
+	}
+	if (S_ISDIR(st.st_mode))
+		return 1;
+	return 0;
+}
+
+int uwsgi_logic_opt_if_env(char *key, char *value) {
+
+	char *p = getenv(uwsgi.logic_opt_data);
+	if (p) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
+int uwsgi_logic_opt_if_file(char *key, char *value) {
+
+	if (uwsgi_is_file(uwsgi.logic_opt_data)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
+int uwsgi_logic_opt_if_dir(char *key, char *value) {
+
+	if (uwsgi_is_dir(uwsgi.logic_opt_data)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
+
+int uwsgi_logic_opt_if_exists(char *key, char *value) {
+
+	if (uwsgi_file_exists(uwsgi.logic_opt_data)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
 
 int uwsgi_logic_opt_for(char *key, char *value) {
 
 	char *p = strtok(uwsgi.logic_opt_data, " ");
 	while(p) {
-		uwsgi.logic_opt_running = 1;
-		add_exported_option(key, uwsgi_substitue(value, "%(_)", p), 0);
-		uwsgi.logic_opt_running = 0;
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
 		p = strtok(NULL, " ");
 	}
 
-	return 0;
+	return 1;
 }
 
 void add_exported_option(char *key, char *value, int configured) {
@@ -1800,7 +1877,9 @@ void add_exported_option(char *key, char *value, int configured) {
 		}
 		uwsgi.logic_opt_data = uwsgi_str(uwsgi.logic_opt_arg);
 		uwsgi.logic_opt_cycles++;
+		uwsgi.logic_opt_running = 1;
 		uwsgi.logic_opt(key, value);
+		uwsgi.logic_opt_running = 0;
 		return;
 	}
 

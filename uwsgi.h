@@ -2565,6 +2565,10 @@ void uwsgi_opt_noop(char *, char *, void *);
 
 void uwsgi_opt_logic(char *, char *, void *);
 int uwsgi_logic_opt_for(char *, char *);
+int uwsgi_logic_opt_if_env(char *, char *);
+int uwsgi_logic_opt_if_exists(char *, char *);
+int uwsgi_logic_opt_if_file(char *, char *);
+int uwsgi_logic_opt_if_dir(char *, char *);
 
 
 #ifdef UWSGI_CAP
