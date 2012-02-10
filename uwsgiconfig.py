@@ -824,7 +824,12 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         pass
 
     try:
-        p_ldflags.remove('-Wwrite-strings')
+        p_cflags.remove('-Wwrite-strings')
+    except:
+        pass
+
+    try:
+        p_cflags.remove('-Werror=write-strings')
     except:
         pass
 
@@ -843,10 +848,12 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     except:
         pass
 
+
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)
 
     gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(gcc_list), ' '.join(p_ldflags), ' '.join(p_libs) )
+    print  gccline
     print("[%s] %s.so" % (GCC, plugin_dest))
 
     ret = os.system(gccline)
