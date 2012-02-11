@@ -997,8 +997,8 @@ void fixup_argv_and_environ(int argc, char **argv, char **environ) {
 	}
 
 	// required by execve
-	uwsgi.argv[i+1] = NULL;
-	
+	uwsgi.argv[i] = NULL;
+
 	uwsgi.max_procname++;
 
 	for (i = 0; environ[i] != NULL; i++) {
