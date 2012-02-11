@@ -183,7 +183,7 @@ def build_uwsgi(uc, print_only=False):
 
                 for cfile in up.GCC_LIST:
                     if not cfile.endswith('.a'):
-                        compile(' '.join(p_cflags),
+                        compile(' '.join(set(p_cflags)),
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
@@ -216,8 +216,8 @@ def build_uwsgi(uc, print_only=False):
         gcc_list.append("build/%s" % ef)
 
     print("*** uWSGI linking ***")
-    ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(ldflags),
-        ' '.join(map(add_o, gcc_list)), ' '.join(libs))
+    ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(set(ldflags)),
+        ' '.join(map(add_o, gcc_list)), ' '.join(set(libs)))
     print(ldline)
     ret = os.system(ldline)
     if ret != 0:
@@ -862,7 +862,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)
 
-    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(p_cflags), ' '.join(gcc_list), ' '.join(p_ldflags), ' '.join(p_libs) )
+    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(set(p_cflags)), ' '.join(gcc_list), ' '.join(set(p_ldflags)), ' '.join(set(p_libs)) )
     print("[%s] %s.so" % (GCC, plugin_dest))
 
     ret = os.system(gccline)
