@@ -344,6 +344,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
 	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_set_str, &uwsgi.zerg_node, 0},
+	{"zerg-fallback", no_argument, 0, "fallback to normal sockets if the zerg server is not available", uwsgi_opt_true, &uwsgi.zerg_fallback, 0},
 	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
 	// FUTURE additions
 	//{"zerg-pool", required_argument, 0, "create a zerg pool", uwsgi_opt_zerg_pool, NULL, 0},
@@ -1957,6 +1958,9 @@ int uwsgi_start(void *v_argv) {
 
 		if (uwsgi.zerg_node) {
 			if (uwsgi_zerg_attach(uwsgi.zerg_node)) {
+				if (!uwsgi.zerg_fallback) {
+					exit(1);
+				}
 			}
 		}
 

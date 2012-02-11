@@ -1069,6 +1069,7 @@ struct uwsgi_server {
 	int *zerg;
 	char *zerg_server;
 	char *zerg_node;
+	int zerg_fallback;
 	int zerg_server_fd;
 
 	// security
