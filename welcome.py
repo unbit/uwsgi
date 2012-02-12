@@ -99,7 +99,7 @@ def application(env, start_response):
         """ % (w['id'], w['pid'], w['status'], w['running_time']/1000, w['avg_rt']/1000, w['tx'], apps)
 
     return """
-<img src="/logo"/> version %s running on %s<br/>
+<img src="/logo"/> version %s running on %s (remote user: %s)<br/>
 <hr size="1"/>
 
 Configuration<br/>
@@ -119,7 +119,7 @@ Workers and applications<br/>
 %s
 </table>
 
-    """ % (uwsgi.version, uwsgi.hostname, workers)
+    """ % (uwsgi.version, uwsgi.hostname, env.get('REMOTE_USER','None'), workers)
 
 
 

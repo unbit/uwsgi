@@ -2110,6 +2110,7 @@ void init_magic_table(char *[]);
 char *uwsgi_simple_message_string(char *, uint8_t, uint8_t, char *, uint16_t, char *, uint16_t *, int);
 int uwsgi_simple_send_string2(char *, uint8_t, uint8_t, char *, uint16_t, char *, uint16_t, int);
 int uwsgi_simple_send_string(char *, uint8_t, uint8_t, char *, uint16_t, int);
+char *uwsgi_req_append(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 int is_unix(char *, int);
 int is_a_number(char *);

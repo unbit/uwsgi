@@ -4,6 +4,10 @@
 
 #ifdef __linux__
 #include <crypt.h>
+#else
+#ifdef UWSGI_THREADING
+pthread_mutex_t ur_basicauth_crypt_mutex;
+#endif
 #endif
 
 extern struct uwsgi_server uwsgi;
@@ -74,7 +78,7 @@ static char *http_basic_auth_get(char *authorization, uint16_t len) {
 	
 }
 
-uint16_t check_htpasswd(char *filename, char *auth) {
+static uint16_t htpasswd_check(char *filename, char *auth) {
 
 	char line[1024];
 
@@ -102,13 +106,17 @@ uint16_t check_htpasswd(char *filename, char *auth) {
 		cd.current_salt[0] = ~cpwd[0];
 		char *crypted = crypt_r( colon+1, cpwd, &cd);
 #else
+		if (uwsgi.threads > 1) pthread_mutex_lock(&ur_basicauth_crypt_mutex);
 		char *crypted = crypt( colon+1, cpwd);
+		if (uwsgi.threads > 1) pthread_mutex_unlock(&ur_basicauth_crypt_mutex);
 #endif
 		if (!crypted) continue;
 
 		if (!strcmp( crypted, cpwd )) {
-			fclose(htpasswd);
-			return colon-auth;
+			if (!uwsgi_strncmp(auth, colon-auth, line, colon2-line)) {
+				fclose(htpasswd);
+				return colon-auth;
+			}
 		}
 	}
 	
@@ -137,11 +145,22 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 
 		char *auth = http_basic_auth_get(wsgi_req->authorization+6, wsgi_req->authorization_len-6);
 		if (auth) {
-			if (ur->custom) {
+			if (!ur->custom) {
 				// check htpasswd-like file
+				uint16_t ulen = htpasswd_check(ur->data2, auth);
+				if (ulen > 0) {
+					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ulen); 
+					if (wsgi_req->remote_user)
+						wsgi_req->remote_user_len = ulen;
+					free(auth);
+					return UWSGI_ROUTE_CONTINUE;
+				}
 			}
 			else {
 				if (!strcmp(auth, ur->data2)) {
+					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ur->custom); 
+					if (wsgi_req->remote_user)
+						wsgi_req->remote_user_len = ur->custom;
 					free(auth);
 					return UWSGI_ROUTE_CONTINUE;
 				}
@@ -170,6 +189,11 @@ forbidden:
 	return UWSGI_ROUTE_BREAK;
 }
 
+#ifndef __linux__
+void router_basicauth_init_lock() {
+	pthread_mutex_init(&ur_basicauth_crypt_mutex, NULL);
+}
+#endif
 
 int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 
@@ -186,7 +210,10 @@ int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 	char *colon = strchr(comma+1, ':');
 	// is an htpasswd-like file ?
 	if (!colon) {
-		ur->custom = 1;
+		ur->custom = 0;
+	}
+	else {
+		ur->custom = colon-(comma+1);
 	}
 
 	ur->data = args;
@@ -212,5 +239,8 @@ struct uwsgi_plugin router_basicauth_plugin = {
 #else
 struct uwsgi_plugin router_basicauth_plugin = {
 	.name = "router_basicauth",
+#ifndef __linux__
+	.enable_threads = router_basicauth_init_lock;
+#endif
 };
 #endif

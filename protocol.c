@@ -1423,6 +1423,30 @@ int uwsgi_simple_send_string2(char *socket_name, uint8_t modifier1, uint8_t modi
 	return 0;
 }
 
+char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+
+	if (wsgi_req->uh.pktsize + (2+keylen+2+vallen) > uwsgi.buffer_size) {
+		uwsgi_log("not enough buffer space to add %.*s variable, consider increasing it with the --buffer-size option\n", keylen, key);
+		return NULL;
+	}
+
+	char *ptr = wsgi_req->buffer + wsgi_req->uh.pktsize;
+
+	*ptr++= (uint8_t) (keylen & 0xff);
+        *ptr++= (uint8_t) ((keylen >> 8) & 0xff);
+
+	memcpy(ptr, key, keylen); ptr+=keylen;
+
+        *ptr++= (uint8_t) (vallen & 0xff);
+        *ptr++= (uint8_t) ((vallen >> 8) & 0xff);
+
+	memcpy(ptr, val, vallen);
+
+	wsgi_req->uh.pktsize += (2+keylen+2+vallen);
+
+	return ptr;
+}
+
 int uwsgi_simple_send_string(char *socket_name, uint8_t modifier1, uint8_t modifier2, char *item1, uint16_t item1_len, int timeout) {
 
         struct uwsgi_header uh;
