@@ -1,6 +1,11 @@
+import os
 NAME='router_basicauth'
 
 CFLAGS = []
 LDFLAGS = []
-LIBS = ['-lcrypt']
+LIBS = []
+
+if os.uname()[0] == 'Linux':
+    LIBS.append('-lcrypt')
+
 GCC_LIST = ['router_basicauth']

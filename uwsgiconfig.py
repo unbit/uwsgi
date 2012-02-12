@@ -42,6 +42,18 @@ def spcall(cmd):
     else:
         return None
 
+# commodity function to remove -W* duplicates
+def uniq_warnings(elements):
+    new_elements = []
+    for element in elements:
+        if element.startswith('-W'):
+            if not element in elements:
+                new_elements.append(element)
+        else:
+            new_elements.append(element)
+
+    return new_elements
+
 if uwsgi_version.endswith('-dev') and os.path.exists('%s/.hg' % os.path.dirname(os.path.abspath( __file__ ))):
     try:
         uwsgi_version += spcall('hg tip --template "-{rev}"')
@@ -183,7 +195,7 @@ def build_uwsgi(uc, print_only=False):
 
                 for cfile in up.GCC_LIST:
                     if not cfile.endswith('.a'):
-                        compile(' '.join(set(p_cflags)),
+                        compile(' '.join(uniq_warnings(p_cflags)),
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
@@ -216,8 +228,8 @@ def build_uwsgi(uc, print_only=False):
         gcc_list.append("build/%s" % ef)
 
     print("*** uWSGI linking ***")
-    ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(set(ldflags)),
-        ' '.join(map(add_o, gcc_list)), ' '.join(set(libs)))
+    ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(uniq_warnings(ldflags)),
+        ' '.join(map(add_o, gcc_list)), ' '.join(uniq_warnings(libs)))
     print(ldline)
     ret = os.system(ldline)
     if ret != 0:
@@ -862,7 +874,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)
 
-    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(set(p_cflags)), ' '.join(gcc_list), ' '.join(set(p_ldflags)), ' '.join(set(p_libs)) )
+    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(uniq_warnings(p_cflags)), ' '.join(gcc_list), ' '.join(uniq_warnings(p_ldflags)), ' '.join(uwsgi_warnings(p_libs)) )
     print("[%s] %s.so" % (GCC, plugin_dest))
 
     ret = os.system(gccline)
