@@ -8,10 +8,14 @@ int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_rout
 
         struct iovec iov[4];
 
-        if (wsgi_req->protocol_len == 0) return 0;
-
-        iov[0].iov_base = wsgi_req->protocol;
-        iov[0].iov_len = wsgi_req->protocol_len;
+        if (wsgi_req->protocol_len > 0) {
+        	iov[0].iov_base = wsgi_req->protocol;
+        	iov[0].iov_len = wsgi_req->protocol_len;
+	}
+	else {
+        	iov[0].iov_base = "HTTP/1.0";
+        	iov[0].iov_len = 8;
+	}
 
         iov[1].iov_base = " 302 Found\r\nLocation: ";
         iov[1].iov_len = 22;
@@ -24,8 +28,10 @@ int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_rout
 
         wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
 
+	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "Moved", 5);
+
 	free(iov[2].iov_base);
-	return 1;
+	return UWSGI_ROUTE_BREAK;
 }
 
 

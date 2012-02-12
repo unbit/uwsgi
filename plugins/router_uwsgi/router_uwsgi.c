@@ -10,7 +10,7 @@ int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, struct uwsgi_
 	wsgi_req->uh.modifier1 = uh->modifier1;
 	wsgi_req->uh.modifier2 = uh->modifier2;
 
-	return 0;
+	return UWSGI_ROUTE_CONTINUE;
 }
 
 int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
@@ -26,12 +26,12 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 	int uwsgi_fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (uwsgi_fd < 0) {
 		uwsgi_log("unable to connect to host %s\n", addr);
-		return 1;
+		return UWSGI_ROUTE_NEXT;
 	}
 
 	if (uwsgi_send_message(uwsgi_fd, uh->modifier1, uh->modifier2, wsgi_req->buffer, wsgi_req->uh.pktsize, wsgi_req->poll.fd, wsgi_req->post_cl, 0) < 0) {
 		uwsgi_log("unable to send uwsgi request to host %s", addr);
-		return 1;
+		return UWSGI_ROUTE_NEXT;
 	}
 
 	for(;;) {
@@ -59,7 +59,7 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 
 
 	close(uwsgi_fd);
-	return 1;
+	return UWSGI_ROUTE_BREAK;
 
 }
 
@@ -68,13 +68,13 @@ int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 	// check for commas
 	char *comma1 = strchr(args, ',');
 	if (!comma1) {
-		uwsgi_log("invalid route syntax\n");
+		uwsgi_log("invalid route syntax: %s\n", args);
 		exit(1);
 	}
 
 	char *comma2 = strchr(comma1+1, ',');
 	if (!comma2) {
-		uwsgi_log("invalid route syntax\n");
+		uwsgi_log("invalid route syntax: %s\n", args);
 		exit(1);
 	}
 

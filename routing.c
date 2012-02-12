@@ -7,40 +7,46 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_route *routes = uwsgi.routes;
 
-	if (!routes) return 0;
+	if (!routes) return UWSGI_ROUTE_CONTINUE;
 
 	if (uwsgi_parse_vars(wsgi_req)) {
-                return -1;
+                return UWSGI_ROUTE_BREAK;
         }
 
 	while(routes) {
 		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len, routes->ovector, routes->ovn);
 		if (n>= 0) {
-			return routes->func(wsgi_req, routes);
+			int ret = routes->func(wsgi_req, routes);
+			if (ret != UWSGI_ROUTE_NEXT) {
+				return ret;
+			}
 		}
 		
 		routes = routes->next;
 	}
 
-	return 0;
+	return UWSGI_ROUTE_CONTINUE;
 }
 
 int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *uri, int len) {
 
         struct uwsgi_route *routes = uwsgi.routes;
 
-        if (!routes) return 0;
+        if (!routes) return UWSGI_ROUTE_CONTINUE;
 
         while(routes) {
                 int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, uri, len, routes->ovector, routes->ovn);
                 if (n>= 0) {
-                        return routes->func(wsgi_req, routes);
+			int ret = routes->func(wsgi_req, routes);
+			if (ret != UWSGI_ROUTE_NEXT) {
+				return ret;
+			}
                 }
 
                 routes = routes->next;
         }
 
-        return 0;
+        return UWSGI_ROUTE_CONTINUE;
 }
 
 
@@ -95,6 +101,16 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 	while(r) {
 		if (!strcmp(r->name, command)) {
 			if (r->func(ur, colon+1) == 0) {
+				// apply is_last
+				struct uwsgi_route *last_ur = ur;
+				ur = uwsgi.routes;
+				while(ur) {
+					if (ur->func == last_ur->func) {
+						ur->is_last = 0;
+					}
+					ur = ur->next;	
+				}
+				last_ur->is_last = 1;
 				return;
 			}
 		}

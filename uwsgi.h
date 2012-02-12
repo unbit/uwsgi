@@ -673,6 +673,11 @@ struct uwsgi_spooler {
 };
 
 #ifdef UWSGI_ROUTING
+
+#define UWSGI_ROUTE_NEXT 0
+#define UWSGI_ROUTE_CONTINUE 1
+#define UWSGI_ROUTE_BREAK 2
+
 struct uwsgi_route {
 
 	pcre *pattern;
@@ -684,6 +689,15 @@ struct uwsgi_route {
 
 	void *data;
 	size_t data_len;
+
+	void *data2;
+	size_t data2_len;
+
+	// 64bit value for custom usage
+	uint64_t custom;
+
+	// true ifthis is the last rule of this kind
+	int is_last;
 
 	struct uwsgi_route *next;
 
@@ -763,6 +777,9 @@ struct wsgi_request {
 	char *path_info;
 	uint16_t path_info_len;
 	int path_info_pos;
+
+	char *authorization;
+	uint16_t authorization_len;
 
 	char *script;
 	uint16_t script_len;

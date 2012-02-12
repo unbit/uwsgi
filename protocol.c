@@ -727,6 +727,10 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->if_modified_since = ptrbuf;
 							wsgi_req->if_modified_since_len = strsize;
 						}
+						else if (!uwsgi_strncmp("HTTP_AUTHORIZATION", 18, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->authorization = ptrbuf;
+							wsgi_req->authorization_len = strsize;
+						}
 						else if (uwsgi.log_x_forwarded_for && !uwsgi_strncmp("HTTP_X_FORWARDED_FOR", 20, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->remote_addr = ptrbuf;
 							wsgi_req->remote_addr_len = strsize;
@@ -1589,7 +1593,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                 	if (real_filename_len >= sse->len) {
                         	if (!uwsgi_strncmp(real_filename+(real_filename_len - sse->len), sse->len, sse->value, sse->len)) {
 #ifdef UWSGI_ROUTING
-					if (uwsgi_apply_routes_fast(wsgi_req, real_filename, real_filename_len)) return 0;
+					if (uwsgi_apply_routes_fast(wsgi_req, real_filename, real_filename_len) == UWSGI_ROUTE_BREAK) return 0;
 #endif
 					return -1;
                         	}

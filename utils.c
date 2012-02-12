@@ -920,7 +920,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	}
 
 #ifdef UWSGI_ROUTING
-	if (uwsgi_apply_routes(wsgi_req)) return 0;
+	if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK) return 0;
 #endif
 
 	wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
