@@ -343,7 +343,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ns-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
 #endif
 	{"reuse-port", no_argument, 0, "enable REUSE_PORT flag on socket (BSD only)", uwsgi_opt_true, &uwsgi.reuse_port, 0},
-	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_set_str, &uwsgi.zerg_node, 0},
+	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_add_string_list, &uwsgi.zerg_node, 0},
 	{"zerg-fallback", no_argument, 0, "fallback to normal sockets if the zerg server is not available", uwsgi_opt_true, &uwsgi.zerg_fallback, 0},
 	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
 	// FUTURE additions
@@ -1956,13 +1956,16 @@ int uwsgi_start(void *v_argv) {
 			}
 		}
 
-		if (uwsgi.zerg_node) {
-			if (uwsgi_zerg_attach(uwsgi.zerg_node)) {
+		struct uwsgi_string_list *zn = uwsgi.zerg_node;
+		while (zn) {
+			if (uwsgi_zerg_attach(zn->value)) {
 				if (!uwsgi.zerg_fallback) {
 					exit(1);
 				}
 			}
+			zn = zn->next;
 		}
+
 
 		//check for inherited sockets
 		if (uwsgi.is_a_reload || uwsgi.zerg) {
@@ -3465,29 +3468,48 @@ int uwsgi_zerg_attach(char *value) {
 	int count = 8;
 	int zerg_fd = uwsgi_connect(value, 30, 0);
         if (zerg_fd < 0) {
-        	uwsgi_log("--- unable to connect to zerg server ---\n");
+        	uwsgi_log("--- unable to connect to zerg server %s ---\n", value);
 		return -1;
         }
 
 	int last_count = count;
 
-        uwsgi.zerg = uwsgi_attach_fd(zerg_fd, &count, "uwsgi-zerg", 10);
-        if (uwsgi.zerg == NULL) {
+        int *zerg = uwsgi_attach_fd(zerg_fd, &count, "uwsgi-zerg", 10);
+        if (zerg == NULL) {
 		if (last_count != count) {
 			close(zerg_fd);
 			zerg_fd = uwsgi_connect(value, 30, 0);
 			if (zerg_fd < 0) {
-				uwsgi_log("--- unable to connect to zerg server ---\n");
+				uwsgi_log("--- unable to connect to zerg server %s ---\n", value);
 				return -1;
 			}
-			uwsgi.zerg = uwsgi_attach_fd(zerg_fd, &count, "uwsgi-zerg", 10);
+			zerg = uwsgi_attach_fd(zerg_fd, &count, "uwsgi-zerg", 10);
 		}
 	}
 
-	if (uwsgi.zerg == NULL) {
+	if (zerg == NULL) {
         	uwsgi_log("--- invalid data received from zerg-server ---\n");
 		return -1;
         }
+
+	if (!uwsgi.zerg) {
+		uwsgi.zerg = zerg;
+	}
+	else {
+		int pos = 0;
+		for(;;) {
+			if (uwsgi.zerg[pos] == -1) {
+				uwsgi.zerg = realloc(uwsgi.zerg, (sizeof(int) * (pos)) + (sizeof(int) * count+1));
+				if (!uwsgi.zerg) {
+					uwsgi_error("realloc()");
+					exit(1);
+				}
+				memcpy(&uwsgi.zerg[pos], zerg, (sizeof(int) * count+1));
+				break;
+			}
+			pos++;
+		}
+	}
 
         close(zerg_fd);
 	return 0;

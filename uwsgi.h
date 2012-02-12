@@ -1085,7 +1085,7 @@ struct uwsgi_server {
 	// enable zerg mode
 	int *zerg;
 	char *zerg_server;
-	char *zerg_node;
+	struct uwsgi_string_list *zerg_node;
 	int zerg_fallback;
 	int zerg_server_fd;
 
