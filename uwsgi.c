@@ -1990,7 +1990,7 @@ int uwsgi_start(void *v_argv) {
 			while (uwsgi_sock) {
 				//a bit overengineering
 				if (uwsgi_sock->name[0] != 0 && !uwsgi_sock->bound) {
-					for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
+					for (j = 3; j < (int) uwsgi.max_fd; j++) {
 						uwsgi_add_socket_from_fd(uwsgi_sock, j);
 					}
 				}
@@ -1998,7 +1998,7 @@ int uwsgi_start(void *v_argv) {
 			}
 
 			//now close all the unbound fd
-			for (j = 3; j < sysconf(_SC_OPEN_MAX); j++) {
+			for (j = 3; j < (int)uwsgi.max_fd; j++) {
 				int useless = 1;
 #ifdef UWSGI_MULTICAST
 				if (j == uwsgi.cluster_fd)
@@ -3462,16 +3462,33 @@ void uwsgi_opt_static_map(char *opt, char *value, void *foobar) {
 
 int uwsgi_zerg_attach(char *value) {
 
+	int count = 8;
 	int zerg_fd = uwsgi_connect(value, 30, 0);
         if (zerg_fd < 0) {
         	uwsgi_log("--- unable to connect to zerg server ---\n");
 		return -1;
         }
-        uwsgi.zerg = uwsgi_attach_fd(zerg_fd, 8, "uwsgi-zerg", 11);
+
+	int last_count = count;
+
+        uwsgi.zerg = uwsgi_attach_fd(zerg_fd, &count, "uwsgi-zerg", 10);
         if (uwsgi.zerg == NULL) {
+		if (last_count != count) {
+			close(zerg_fd);
+			zerg_fd = uwsgi_connect(value, 30, 0);
+			if (zerg_fd < 0) {
+				uwsgi_log("--- unable to connect to zerg server ---\n");
+				return -1;
+			}
+			uwsgi.zerg = uwsgi_attach_fd(zerg_fd, &count, "uwsgi-zerg", 10);
+		}
+	}
+
+	if (uwsgi.zerg == NULL) {
         	uwsgi_log("--- invalid data received from zerg-server ---\n");
 		return -1;
         }
+
         close(zerg_fd);
 	return 0;
 }

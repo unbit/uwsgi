@@ -2354,7 +2354,7 @@ int uwsgi_run_command(char *, int);
 
 void uwsgi_manage_command_cron(time_t);
 
-int *uwsgi_attach_fd(int, int, char *, size_t);
+int *uwsgi_attach_fd(int, int *, char *, size_t);
 
 int uwsgi_count_sockets(struct uwsgi_socket *);
 int uwsgi_file_exists(char *);
@@ -2609,6 +2609,8 @@ int uwsgi_apply_routes_fast(struct wsgi_request *, char *, int);
 void uwsgi_backtrace(int);
 void uwsgi_check_logrotate(void);
 char *uwsgi_check_touches(struct uwsgi_string_list *);
+
+void uwsgi_manage_zerg(int, int, int *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

@@ -3195,7 +3195,7 @@ int uwsgi_run_command(char *command, int stdout_fd) {
         exit(1);
 }
 
-int *uwsgi_attach_fd(int fd, int count, char *code, size_t code_len) {
+int *uwsgi_attach_fd(int fd, int *count_ptr, char *code, size_t code_len) {
 
 	struct msghdr   msg;
 	ssize_t len;
@@ -3205,26 +3205,32 @@ int *uwsgi_attach_fd(int fd, int count, char *code, size_t code_len) {
 	struct cmsghdr *cmsg;
 	int *ret;
 	int i;
+	int count = *count_ptr;
 
 	void *msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * count));
 	
 	memset( msg_control, 0, CMSG_SPACE(sizeof(int) * count));
 
 	if (code && code_len > 0) {
-		id = uwsgi_malloc(code_len);
+		// allocate space for code and num_sockets
+		id = uwsgi_malloc(code_len + sizeof(int));
 		memset(id, 0, code_len);
+        	iov.iov_len = code_len + sizeof(int);
 	}
 
 	iov.iov_base = id;
-        iov.iov_len = code_len;
+
         memset(&msg, 0, sizeof(msg));
 
 	msg.msg_name = NULL;
         msg.msg_namelen = 0;
+
         msg.msg_iov = &iov;
         msg.msg_iovlen = 1;
+
         msg.msg_control = msg_control;
         msg.msg_controllen = CMSG_SPACE(sizeof(int) * count);
+
         msg.msg_flags = 0;
 
         len = recvmsg(fd, &msg, 0);
@@ -3234,8 +3240,18 @@ int *uwsgi_attach_fd(int fd, int count, char *code, size_t code_len) {
 	}
 	
 	if (code && code_len > 0) {
-		if (strcmp(id, code)) {
+		if (uwsgi_strncmp(id, code_len, code, code_len)) {
 			return NULL;
+		}
+
+		if ((size_t)len == code_len + sizeof(int)) {
+			memcpy(&i, id + code_len, sizeof(int));
+			if (i > count) {
+				*count_ptr = i;
+				free(msg_control);
+				free(id);		
+				return NULL;
+			}
 		}
 	}
 	

@@ -8,33 +8,33 @@ char *uwsgi_getsockname(int fd) {
 	union uwsgi_sockaddr usa;
 	union uwsgi_sockaddr_ptr gsa;
 	char computed_port[6];
-        char ipv4a[INET_ADDRSTRLEN + 1];
+	char ipv4a[INET_ADDRSTRLEN + 1];
 
-        gsa.sa = (struct sockaddr *) &usa;
+	gsa.sa = (struct sockaddr *) &usa;
 
-        if (!getsockname(fd, gsa.sa, &socket_type_len)) {
-        	if (gsa.sa->sa_family == AF_UNIX) {
-                	if (usa.sa_un.sun_path[0] == 0) {
-				return uwsgi_concat2("@", usa.sa_un.sun_path+1);
+	if (!getsockname(fd, gsa.sa, &socket_type_len)) {
+		if (gsa.sa->sa_family == AF_UNIX) {
+			if (usa.sa_un.sun_path[0] == 0) {
+				return uwsgi_concat2("@", usa.sa_un.sun_path + 1);
 			}
 			else {
 				return uwsgi_str(usa.sa_un.sun_path);
 			}
-                }
-                else {
-                        memset(ipv4a, 0, INET_ADDRSTRLEN + 1);
-                        memset(computed_port, 0, 6);
-                        if (snprintf(computed_port, 6, "%d", ntohs(gsa.sa_in->sin_port)) > 0) {
+		}
+		else {
+			memset(ipv4a, 0, INET_ADDRSTRLEN + 1);
+			memset(computed_port, 0, 6);
+			if (snprintf(computed_port, 6, "%d", ntohs(gsa.sa_in->sin_port)) > 0) {
 				if (inet_ntop(AF_INET, (const void *) &gsa.sa_in->sin_addr.s_addr, ipv4a, INET_ADDRSTRLEN)) {
-                                        if (!strcmp("0.0.0.0", ipv4a)) {
-                                                return uwsgi_concat2(":", computed_port);
-                                        }
-                                        else {
-                                                return uwsgi_concat3(ipv4a, ":", computed_port);
-                                        }
+					if (!strcmp("0.0.0.0", ipv4a)) {
+						return uwsgi_concat2(":", computed_port);
+					}
+					else {
+						return uwsgi_concat3(ipv4a, ":", computed_port);
+					}
 				}
 			}
-                }
+		}
 	}
 	return NULL;
 }
@@ -82,17 +82,17 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 	uws_addr->sun_family = AF_UNIX;
 	if (socket_name[0] == '@') {
-		memcpy(uws_addr->sun_path + abstract_socket, socket_name+1, UMIN(strlen(socket_name+1), 101));
+		memcpy(uws_addr->sun_path + abstract_socket, socket_name + 1, UMIN(strlen(socket_name + 1), 101));
 		len = strlen(socket_name) + 1;
 	}
 	else if (strlen(socket_name) > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
-		memcpy(uws_addr->sun_path + abstract_socket, socket_name+2, UMIN(strlen(socket_name+2), 101));
-		len = strlen(socket_name+1) + 1;
-		
+		memcpy(uws_addr->sun_path + abstract_socket, socket_name + 2, UMIN(strlen(socket_name + 2), 101));
+		len = strlen(socket_name + 1) + 1;
+
 	}
 	else if (abstract_socket) {
 		memcpy(uws_addr->sun_path + 1, socket_name, UMIN(strlen(socket_name), 101));
-		len = strlen(socket_name)+1;
+		len = strlen(socket_name) + 1;
 	}
 	else {
 		memcpy(uws_addr->sun_path + abstract_socket, socket_name, UMIN(strlen(socket_name), 102));
@@ -318,13 +318,13 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 
 	uws_addr.sun_family = AF_UNIX;
 
-	if (socket_name[0] == '@'){
+	if (socket_name[0] == '@') {
 		un_size = sizeof(uws_addr.sun_family) + strlen(socket_name) + 1;
-		memcpy(uws_addr.sun_path+1, socket_name+1, UMIN(strlen(socket_name+1), 101));
+		memcpy(uws_addr.sun_path + 1, socket_name + 1, UMIN(strlen(socket_name + 1), 101));
 	}
 	else if (strlen(socket_name) > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
-		un_size = sizeof(uws_addr.sun_family) + strlen(socket_name+1) + 1;
-		memcpy(uws_addr.sun_path+1, socket_name+2, UMIN(strlen(socket_name+2), 101));
+		un_size = sizeof(uws_addr.sun_family) + strlen(socket_name + 1) + 1;
+		memcpy(uws_addr.sun_path + 1, socket_name + 2, UMIN(strlen(socket_name + 2), 101));
 	}
 	else {
 		memcpy(uws_addr.sun_path, socket_name, UMIN(strlen(socket_name), 102));
@@ -468,7 +468,7 @@ char *generate_socket_name(char *socket_name) {
 	return socket_name;
 }
 
-socklen_t socket_to_un_addr(char *socket_name, struct sockaddr_un *sun_addr) {
+socklen_t socket_to_un_addr(char *socket_name, struct sockaddr_un * sun_addr) {
 
 	size_t len = strlen(socket_name);
 
@@ -479,28 +479,28 @@ socklen_t socket_to_un_addr(char *socket_name, struct sockaddr_un *sun_addr) {
 
 	memset(sun_addr, 0, sizeof(struct sockaddr_un));
 
-        sun_addr->sun_family = AF_UNIX;
+	sun_addr->sun_family = AF_UNIX;
 
 	// abstract socket
-        if (socket_name[0] == '@') {
-		memcpy(sun_addr->sun_path+1, socket_name+1, UMIN(len-1, 101));
+	if (socket_name[0] == '@') {
+		memcpy(sun_addr->sun_path + 1, socket_name + 1, UMIN(len - 1, 101));
 		len = strlen(socket_name) + 1;
-        }
-	else if (len > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
-		memcpy(sun_addr->sun_path+1, socket_name+2, UMIN(len-2, 101));
-		len = strlen(socket_name+1) + 1;
 	}
-        else {
+	else if (len > 1 && socket_name[0] == '\\' && socket_name[1] == '0') {
+		memcpy(sun_addr->sun_path + 1, socket_name + 2, UMIN(len - 2, 101));
+		len = strlen(socket_name + 1) + 1;
+	}
+	else {
 		memcpy(sun_addr->sun_path, socket_name, UMIN(len, 102));
-        }
+	}
 
-        return sizeof(sun_addr->sun_family)+len;
+	return sizeof(sun_addr->sun_family) + len;
 }
 
 socklen_t socket_to_in_addr(char *socket_name, char *port, int portn, struct sockaddr_in *sin_addr) {
 
 	memset(sin_addr, 0, sizeof(struct sockaddr_in));
-	
+
 	sin_addr->sin_family = AF_INET;
 	if (port) {
 		*port = 0;
@@ -511,24 +511,24 @@ socklen_t socket_to_in_addr(char *socket_name, char *port, int portn, struct soc
 	}
 
 	if (socket_name[0] == 0) {
-                sin_addr->sin_addr.s_addr = INADDR_ANY;
-        }
-        else {
+		sin_addr->sin_addr.s_addr = INADDR_ANY;
+	}
+	else {
 		char *resolved = uwsgi_resolve_ip(socket_name);
 		if (resolved) {
-                	sin_addr->sin_addr.s_addr = inet_addr(resolved);
+			sin_addr->sin_addr.s_addr = inet_addr(resolved);
 		}
 		else {
-                	sin_addr->sin_addr.s_addr = inet_addr(socket_name);
+			sin_addr->sin_addr.s_addr = inet_addr(socket_name);
 		}
-        }
+	}
 
 	if (port) {
 		*port = ':';
 	}
 
 	return sizeof(struct sockaddr_in);
-	
+
 }
 
 int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
@@ -615,15 +615,15 @@ void uwsgi_socket_nb(int fd) {
 	int arg;
 
 	arg = fcntl(fd, F_GETFL, NULL);
-        if (arg < 0) {
-                uwsgi_error("fcntl()");
-                return;
-        }
-        arg |= O_NONBLOCK;
-        if (fcntl(fd, F_SETFL, arg) < 0) {
-                uwsgi_error("fcntl()");
-                return;
-        }
+	if (arg < 0) {
+		uwsgi_error("fcntl()");
+		return;
+	}
+	arg |= O_NONBLOCK;
+	if (fcntl(fd, F_SETFL, arg) < 0) {
+		uwsgi_error("fcntl()");
+		return;
+	}
 
 }
 
@@ -708,7 +708,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 int uwsgi_count_sockets(struct uwsgi_socket *uwsgi_sock) {
 
 	int count = 0;
-	while(uwsgi_sock) {
+	while (uwsgi_sock) {
 		count++;
 		uwsgi_sock = uwsgi_sock->next;
 	}
@@ -721,7 +721,7 @@ int uwsgi_get_socket_num(struct uwsgi_socket *uwsgi_sock) {
 	int count = 0;
 	struct uwsgi_socket *current_sock = uwsgi.sockets;
 
-	while(current_sock) {
+	while (current_sock) {
 		if (uwsgi_sock == current_sock) {
 			return count;
 		}
@@ -734,43 +734,43 @@ int uwsgi_get_socket_num(struct uwsgi_socket *uwsgi_sock) {
 
 int uwsgi_get_shared_socket_num(struct uwsgi_socket *uwsgi_sock) {
 
-        int count = 0;
-        struct uwsgi_socket *current_sock = uwsgi.shared_sockets;
+	int count = 0;
+	struct uwsgi_socket *current_sock = uwsgi.shared_sockets;
 
-        while(current_sock) {
-                if (uwsgi_sock == current_sock) {
-                        return count;
-                }
-                count++;
-                current_sock = current_sock->next;
-        }
+	while (current_sock) {
+		if (uwsgi_sock == current_sock) {
+			return count;
+		}
+		count++;
+		current_sock = current_sock->next;
+	}
 
-        return -1;
+	return -1;
 }
 
 
 struct uwsgi_socket *uwsgi_new_shared_socket(char *name) {
 
-        struct uwsgi_socket *uwsgi_sock = uwsgi.shared_sockets, *old_uwsgi_sock;
+	struct uwsgi_socket *uwsgi_sock = uwsgi.shared_sockets, *old_uwsgi_sock;
 
-        if (!uwsgi_sock) {
-                uwsgi.shared_sockets = uwsgi_malloc(sizeof(struct uwsgi_socket));
-                uwsgi_sock = uwsgi.shared_sockets;
-        }
-        else {
-                while(uwsgi_sock) {
-                        old_uwsgi_sock = uwsgi_sock;
-                        uwsgi_sock = uwsgi_sock->next;
-                }
+	if (!uwsgi_sock) {
+		uwsgi.shared_sockets = uwsgi_malloc(sizeof(struct uwsgi_socket));
+		uwsgi_sock = uwsgi.shared_sockets;
+	}
+	else {
+		while (uwsgi_sock) {
+			old_uwsgi_sock = uwsgi_sock;
+			uwsgi_sock = uwsgi_sock->next;
+		}
 
-                uwsgi_sock = uwsgi_malloc(sizeof(struct uwsgi_socket));
-                old_uwsgi_sock->next = uwsgi_sock;
-        }
+		uwsgi_sock = uwsgi_malloc(sizeof(struct uwsgi_socket));
+		old_uwsgi_sock->next = uwsgi_sock;
+	}
 
-        memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket));
-        uwsgi_sock->name = name;
+	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket));
+	uwsgi_sock->name = name;
 
-        return uwsgi_sock;
+	return uwsgi_sock;
 }
 
 
@@ -785,7 +785,7 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 		uwsgi_sock = uwsgi.sockets;
 	}
 	else {
-		while(uwsgi_sock) {
+		while (uwsgi_sock) {
 			old_uwsgi_sock = uwsgi_sock;
 			uwsgi_sock = uwsgi_sock->next;
 		}
@@ -794,55 +794,56 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 		old_uwsgi_sock->next = uwsgi_sock;
 	}
 
-	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket)); 
+	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket));
 	uwsgi_sock->name = name;
 
-	if (!name) return uwsgi_sock;
+	if (!name)
+		return uwsgi_sock;
 
 	if (name[0] == '=') {
-		int shared_socket = atoi(uwsgi_sock->name+1);
-                if (shared_socket >= 0) {
-                	struct uwsgi_socket *uss = uwsgi_get_shared_socket_by_num(shared_socket);
-                        if (!uss) {
-                        	uwsgi_log("unable to use shared socket %d\n", shared_socket);
+		int shared_socket = atoi(uwsgi_sock->name + 1);
+		if (shared_socket >= 0) {
+			struct uwsgi_socket *uss = uwsgi_get_shared_socket_by_num(shared_socket);
+			if (!uss) {
+				uwsgi_log("unable to use shared socket %d\n", shared_socket);
 				exit(1);
-                        }
+			}
 			uwsgi_sock->bound = 1;
 			uwsgi_sock->shared = 1;
 			uwsgi_sock->from_shared = shared_socket;
 			return uwsgi_sock;
-                }
+		}
 	}
 	char *tcp_port = strchr(name, ':');
 	if (tcp_port) {
 		// INET socket, check for 0 port
 		if (tcp_port[1] == 0 || tcp_port[1] == '0') {
 			uwsgi_sock->fd = bind_to_tcp(name, uwsgi.listen_queue, tcp_port);
-                        uwsgi_sock->family = AF_INET;
+			uwsgi_sock->family = AF_INET;
 			uwsgi_sock->bound = 1;
 
 			uwsgi_sock->auto_port = 1;
 
 			socket_type_len = sizeof(struct sockaddr_in);
 
-			if (getsockname(uwsgi_sock->fd, (struct sockaddr *)&sin, &socket_type_len)) {
+			if (getsockname(uwsgi_sock->fd, (struct sockaddr *) &sin, &socket_type_len)) {
 				uwsgi_error("getsockname()");
 				exit(1);
 			}
 
 
 			char *auto_port = uwsgi_num2str(ntohs(sin.sin_port));
-			uwsgi_sock->name = uwsgi_concat3n(name, tcp_port-name, ":", 1, auto_port, strlen(auto_port));
+			uwsgi_sock->name = uwsgi_concat3n(name, tcp_port - name, ":", 1, auto_port, strlen(auto_port));
 		}
 		// is it fd 0 ?
 		else if (tcp_port[1] == ':') {
 			uwsgi_sock->fd = 0;
-                        uwsgi_sock->family = AF_INET;
+			uwsgi_sock->family = AF_INET;
 			uwsgi_sock->bound = 1;
 
 			socket_type_len = sizeof(struct sockaddr_in);
 
-			if (getsockname(0, (struct sockaddr *)&sin, &socket_type_len)) {
+			if (getsockname(0, (struct sockaddr *) &sin, &socket_type_len)) {
 				uwsgi_error("getsockname()");
 				exit(1);
 			}
@@ -853,7 +854,7 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 			uwsgi_sock->name = uwsgi_concat3n(auto_ip, strlen(auto_ip), ":", 1, auto_port, strlen(auto_port));
 		}
 	}
-	
+
 	return uwsgi_sock;
 }
 
@@ -876,22 +877,23 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 			return;
 		}
 		if (gsa.sa->sa_family == AF_UNIX) {
-			if (usa.sa_un.sun_path[0] == 0) abstract = 1;
+			if (usa.sa_un.sun_path[0] == 0)
+				abstract = 1;
 			// is it a zerg ?
 			if (uwsgi_sock->name == NULL) {
 				uwsgi_sock->fd = fd;
 				uwsgi_sock->family = AF_UNIX;
 				uwsgi_sock->bound = 1;
-				uwsgi_sock->name = uwsgi_concat2(usa.sa_un.sun_path+abstract, "");
+				uwsgi_sock->name = uwsgi_concat2(usa.sa_un.sun_path + abstract, "");
 				if (uwsgi.zerg) {
-					uwsgi_log("uwsgi zerg socket %d attached to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), usa.sa_un.sun_path+abstract, uwsgi_sock->fd);
+					uwsgi_log("uwsgi zerg socket %d attached to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), usa.sa_un.sun_path + abstract, uwsgi_sock->fd);
 				}
 				else {
-					uwsgi_log("uwsgi socket %d attached to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), usa.sa_un.sun_path+abstract, uwsgi_sock->fd);
+					uwsgi_log("uwsgi socket %d attached to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), usa.sa_un.sun_path + abstract, uwsgi_sock->fd);
 				}
 				return;
 			}
-			if (!strcmp(usa.sa_un.sun_path+abstract, uwsgi_sock->name+abstract)) {
+			if (!strcmp(usa.sa_un.sun_path + abstract, uwsgi_sock->name + abstract)) {
 				uwsgi_sock->fd = fd;
 				uwsgi_sock->family = AF_UNIX;
 				uwsgi_sock->bound = 1;
@@ -918,7 +920,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 					}
 
 					// is it a zerg ?
-                        		if (uwsgi_sock->name == NULL) {
+					if (uwsgi_sock->name == NULL) {
 						uwsgi_sock->fd = fd;
 						uwsgi_sock->family = AF_INET;
 						uwsgi_sock->bound = 1;
@@ -959,7 +961,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 void uwsgi_close_all_sockets() {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
-	while(uwsgi_sock) {
+	while (uwsgi_sock) {
 		if (uwsgi_sock->bound)
 			close(uwsgi_sock->fd);
 		uwsgi_sock = uwsgi_sock->next;
@@ -968,28 +970,28 @@ void uwsgi_close_all_sockets() {
 
 struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *uwsgi_sock) {
 
-        struct uwsgi_socket *uwsgi_current_sock = uwsgi.sockets, *old_sock = NULL;
+	struct uwsgi_socket *uwsgi_current_sock = uwsgi.sockets, *old_sock = NULL;
 
-        while(uwsgi_current_sock) {
-                if (uwsgi_current_sock == uwsgi_sock) {
-                        // parent instance ?
-                        if (old_sock == NULL) {
-                                uwsgi.sockets = uwsgi_current_sock->next;
-                        	free(uwsgi_current_sock);
-                        	return uwsgi.sockets;
-                        }
-                        else {
-                                old_sock->next = uwsgi_current_sock->next;
-                        	free(uwsgi_current_sock);
-                        	return old_sock->next;
-                        }
+	while (uwsgi_current_sock) {
+		if (uwsgi_current_sock == uwsgi_sock) {
+			// parent instance ?
+			if (old_sock == NULL) {
+				uwsgi.sockets = uwsgi_current_sock->next;
+				free(uwsgi_current_sock);
+				return uwsgi.sockets;
+			}
+			else {
+				old_sock->next = uwsgi_current_sock->next;
+				free(uwsgi_current_sock);
+				return old_sock->next;
+			}
 
-                }
+		}
 
-                old_sock = uwsgi_current_sock;
-                uwsgi_current_sock = uwsgi_current_sock->next;
-        }
-	
+		old_sock = uwsgi_current_sock;
+		uwsgi_current_sock = uwsgi_current_sock->next;
+	}
+
 	return NULL;
 }
 
@@ -997,10 +999,10 @@ struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *uwsgi_sock) {
 int uwsgi_get_shared_socket_fd_by_num(int num) {
 
 	int counter = 0;
-	
-	struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.shared_sockets;	
 
-	while(uwsgi_sock) {
+	struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.shared_sockets;
+
+	while (uwsgi_sock) {
 		if (counter == num) {
 			found_sock = uwsgi_sock;
 			break;
@@ -1012,52 +1014,52 @@ int uwsgi_get_shared_socket_fd_by_num(int num) {
 	if (found_sock) {
 		return found_sock->fd;
 	}
-	
+
 	return -1;
 }
 
 struct uwsgi_socket *uwsgi_get_shared_socket_by_num(int num) {
 
-        int counter = 0;
+	int counter = 0;
 
-        struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.shared_sockets;
+	struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.shared_sockets;
 
-        while(uwsgi_sock) {
-                if (counter == num) {
-                        found_sock = uwsgi_sock;
-                        break;
-                }
-                counter++;
-                uwsgi_sock = uwsgi_sock->next;
-        }
+	while (uwsgi_sock) {
+		if (counter == num) {
+			found_sock = uwsgi_sock;
+			break;
+		}
+		counter++;
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
-        if (found_sock) {
-                return found_sock;
-        }
+	if (found_sock) {
+		return found_sock;
+	}
 
-        return NULL;
+	return NULL;
 }
 
 struct uwsgi_socket *uwsgi_get_socket_by_num(int num) {
 
-        int counter = 0;
+	int counter = 0;
 
-        struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.sockets;
+	struct uwsgi_socket *found_sock = NULL, *uwsgi_sock = uwsgi.sockets;
 
-        while(uwsgi_sock) {
-                if (counter == num) {
-                        found_sock = uwsgi_sock;
-                        break;
-                }
-                counter++;
-                uwsgi_sock = uwsgi_sock->next;
-        }
+	while (uwsgi_sock) {
+		if (counter == num) {
+			found_sock = uwsgi_sock;
+			break;
+		}
+		counter++;
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
-        if (found_sock) {
-                return found_sock;
-        }
+	if (found_sock) {
+		return found_sock;
+	}
 
-        return NULL;
+	return NULL;
 }
 
 
@@ -1065,27 +1067,27 @@ struct uwsgi_socket *uwsgi_get_socket_by_num(int num) {
 void uwsgi_add_sockets_to_queue(int queue) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-                while(uwsgi_sock) {
-                        event_queue_add_fd_read(queue, uwsgi_sock->fd);
-                        uwsgi_sock = uwsgi_sock->next;
-                }
+	while (uwsgi_sock) {
+		event_queue_add_fd_read(queue, uwsgi_sock->fd);
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
 }
 
 void uwsgi_del_sockets_from_queue(int queue) {
 
-        struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-                while(uwsgi_sock) {
-                        event_queue_del_fd(queue, uwsgi_sock->fd, event_queue_read());
-                        uwsgi_sock = uwsgi_sock->next;
-                }
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while (uwsgi_sock) {
+		event_queue_del_fd(queue, uwsgi_sock->fd, event_queue_read());
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
 }
 
 int uwsgi_is_bad_connection(int fd) {
 
 	int soopt = 0;
-	socklen_t solen = sizeof(int) ;
+	socklen_t solen = sizeof(int);
 
 	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
 		return -1;
@@ -1095,3 +1097,65 @@ int uwsgi_is_bad_connection(int fd) {
 	return soopt;
 }
 
+void uwsgi_manage_zerg(int fd, int num_sockets, int *sockets) {
+	struct sockaddr_un zsun;
+	socklen_t zsun_len = sizeof(struct sockaddr_un);
+
+	int zerg_client = accept(fd, (struct sockaddr *) &zsun, &zsun_len);
+	if (zerg_client < 0) {
+		uwsgi_error("zerg: accept()");
+		return;
+	}
+
+	if (!num_sockets) {
+		num_sockets = uwsgi_count_sockets(uwsgi.sockets);
+	}
+
+	struct msghdr zerg_msg;
+	void *zerg_msg_control = uwsgi_malloc(CMSG_SPACE(sizeof(int) * num_sockets));
+	struct iovec zerg_iov[2];
+	struct cmsghdr *cmsg;
+
+	zerg_iov[0].iov_base = "uwsgi-zerg";
+	zerg_iov[0].iov_len = 10;
+	zerg_iov[1].iov_base = &num_sockets;
+	zerg_iov[1].iov_len = sizeof(int);
+
+	zerg_msg.msg_name = NULL;
+	zerg_msg.msg_namelen = 0;
+
+	zerg_msg.msg_iov = zerg_iov;
+	zerg_msg.msg_iovlen = 2;
+
+	zerg_msg.msg_flags = 0;
+	zerg_msg.msg_control = zerg_msg_control;
+	zerg_msg.msg_controllen = CMSG_SPACE(sizeof(int) * num_sockets);
+
+	cmsg = CMSG_FIRSTHDR(&zerg_msg);
+	cmsg->cmsg_len = CMSG_LEN(sizeof(int) * num_sockets);
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
+
+	unsigned char *zerg_fd_ptr = CMSG_DATA(cmsg);
+
+	if (!sockets) {
+		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+		while (uwsgi_sock) {
+			memcpy(zerg_fd_ptr, &uwsgi_sock->fd, sizeof(int));
+			zerg_fd_ptr += sizeof(int);
+			uwsgi_sock = uwsgi_sock->next;
+		}
+	}
+	else {
+		memcpy(zerg_fd_ptr, sockets, sizeof(int) * num_sockets);
+	}
+
+	if (sendmsg(zerg_client, &zerg_msg, 0) < 0) {
+		uwsgi_error("sendmsg()");
+	}
+
+	free(zerg_msg_control);
+
+	close(zerg_client);
+
+}
