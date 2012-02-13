@@ -996,7 +996,7 @@ void fastrouter_send_stats(int fd) {
 	fprintf(output, "\"fastrouter\": [");
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 	while (ugs) {
-		if (!strcmp(ugs->owner, "uWSGI fastrouter") && !ugs->subscription) {
+		if (!strcmp(ugs->owner, "uWSGI fastrouter")) {
 			if (ugs->next) {
 				stats_send("\"%s\",", ugs->name);
 			}
