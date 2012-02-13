@@ -186,6 +186,8 @@ forbidden:
 
 	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req,"Unauthorized", 12);
 
+	wsgi_req->status = 401;
+
 	return UWSGI_ROUTE_BREAK;
 }
 

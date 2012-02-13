@@ -29,6 +29,7 @@ int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_rout
         wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
 
 	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "Moved", 5);
+	wsgi_req->status = 302;
 
 	free(iov[2].iov_base);
 	return UWSGI_ROUTE_BREAK;
