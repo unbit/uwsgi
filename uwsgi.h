@@ -974,6 +974,7 @@ struct uwsgi_server {
 
 	// autoload plugins
 	int autoload;
+	struct uwsgi_string_list *plugins_dir;
 
 	int snapshot;
 
@@ -1908,7 +1909,7 @@ void uwsgi_log(const char *, ...);
 void uwsgi_log_verbose(const char *, ...);
 
 
-void *uwsgi_load_plugin(int, char *, char *, int);
+void *uwsgi_load_plugin(int, char *, char *);
 
 int unconfigured_hook(struct wsgi_request *);
 

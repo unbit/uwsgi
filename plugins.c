@@ -2,30 +2,16 @@
 
 extern struct uwsgi_server uwsgi;
 
-void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option, int absolute) {
-
-	void *plugin_handle;
-
-	char *plugin_name;
-	char *plugin_entry_symbol;
-	struct uwsgi_plugin *up;
-	char linkpath_buf[1024], linkpath[1024];
-	int linkpath_size;
+static int plugin_already_loaded(const char *plugin) {
 	int i;
 
-	char *colon = strchr(plugin, ':');
-	if (colon) {
-		colon[0] = 0;
-	}
-
-check:
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->name) {
 			if (!strcmp(plugin, uwsgi.p[i]->name)) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
 #endif
-				return NULL;
+				return 1;
 			}	
 		}
 		if (uwsgi.p[i]->alias) {
@@ -33,7 +19,7 @@ check:
 #ifdef UWSGI_DEBUG
 				uwsgi_log("%s plugin already available\n", plugin);
 #endif
-				return NULL;
+				return 1;
 			}	
 		}
 	}
@@ -45,7 +31,7 @@ check:
 #ifdef UWSGI_DEBUG
                                 uwsgi_log("%s plugin already available\n", plugin);
 #endif
-                                return NULL;
+                                return 1;
                         }       
                 }
                 if (uwsgi.gp[i]->alias) {
@@ -53,37 +39,78 @@ check:
 #ifdef UWSGI_DEBUG
                                 uwsgi_log("%s plugin already available\n", plugin);
 #endif
-                                return NULL;
+                                return 1;
                         }
                 }
         }
 
+	return 0;
+}
+
+void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
+
+	void *plugin_handle = NULL;
+
+	int need_free = 0;
+	char *plugin_name = plugin;
+	char *plugin_symbol_name_start = plugin;
+
+
+	struct uwsgi_plugin *up;
+	char linkpath_buf[1024], linkpath[1024];
+	int linkpath_size;
+
+	char *colon = strchr(plugin_name, ':');
 	if (colon) {
-		plugin = colon+1;
+		colon[0] = 0;
+		modifier = atoi(plugin_name);
+		plugin_name = colon+1;
 		colon[0] = ':';
-		colon = NULL;
-		goto check;
 	}
 
-	if (absolute == 1) {
-		plugin_name = uwsgi_concat2(plugin, "");
-		// need to fix this... postpone until needed
-		plugin_entry_symbol = uwsgi_concat2n(plugin, strlen(plugin)-3 ,"", 0);
-	}	
-	else if (absolute == 2) {
-		plugin_name = uwsgi_concat3(UWSGI_PLUGIN_DIR, "/", plugin);
-		plugin_entry_symbol = uwsgi_concat2n(plugin, strlen(plugin)-3 ,"", 0);
+	if (!uwsgi_endswith(plugin_name, "_plugin.so")) {
+		plugin_name = uwsgi_concat2(plugin_name, "_plugin.so");
+		need_free = 1;
 	}
-	else {
-		plugin_name = uwsgi_concat4(UWSGI_PLUGIN_DIR, "/", plugin, "_plugin.so");
-		plugin_entry_symbol = uwsgi_concat2(plugin, "_plugin");
+
+	plugin_symbol_name_start = plugin_name;
+
+	// step 1: check for absolute plugin (stop if it fails)
+	if (strchr(plugin_name, '/')) {
+		plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
+		if (!plugin_handle) {
+			uwsgi_log( "%s\n", dlerror());
+			goto end;
+		}
+		plugin_symbol_name_start = uwsgi_get_last_char(plugin_name, '/');
+		plugin_symbol_name_start++;
 	}
-	plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
+
+	// step dir, check for user-supplied plugins directory
+	struct uwsgi_string_list *pdir = uwsgi.plugins_dir;
+	while(pdir) {
+		char *plugin_filename = uwsgi_concat3(pdir->value, "/", plugin_name);
+		plugin_handle = dlopen(plugin_filename, RTLD_NOW | RTLD_GLOBAL);
+		if (plugin_handle) {
+			free(plugin_filename);
+			break;
+		}
+		free(plugin_filename);
+		pdir = pdir->next;
+	}
+
+	// last step: search in compile-time plugin_dir
+	if (!plugin_handle) {
+		char *plugin_filename = uwsgi_concat3(UWSGI_PLUGIN_DIR, "/", plugin_name);
+		plugin_handle = dlopen(plugin_filename, RTLD_NOW | RTLD_GLOBAL);
+		free(plugin_filename);
+	}
 
         if (!plugin_handle) {
                 uwsgi_log( "%s\n", dlerror());
         }
         else {
+		char *plugin_entry_symbol = uwsgi_concat2n(plugin_symbol_name_start, strlen(plugin_symbol_name_start)-3, "", 0);
                 up = dlsym(plugin_handle, plugin_entry_symbol);
 		if (!up) {
 			// is it a link ?
@@ -111,6 +138,15 @@ check:
 			}
 		}
                 if (up) {
+			if (plugin_already_loaded(up->name)) {
+				if (dlclose(plugin_handle)) {
+                                	uwsgi_error("dlclose()");
+                                }
+				if (need_free)
+					free(plugin_name);
+				free(plugin_entry_symbol);
+				return NULL;
+			}
 			if (has_option) {
 				struct uwsgi_option *op = uwsgi.options;
 				int found = 0;
@@ -125,7 +161,8 @@ check:
 					if (dlclose(plugin_handle)) {
 						uwsgi_error("dlclose()");
 					}
-					free(plugin_name);
+					if (need_free)
+						free(plugin_name);
 					free(plugin_entry_symbol);
 					return NULL;
 				}
@@ -137,7 +174,8 @@ check:
 			else {
 				fill_plugin_table(up->modifier1, up);			
 			}
-			free(plugin_name);
+			if (need_free)
+				free(plugin_name);
 			free(plugin_entry_symbol);
 
 			if (up->on_load)
@@ -147,7 +185,9 @@ check:
                 uwsgi_log( "%s\n", dlerror());
         }
 
-	free(plugin_name);
+end:
+	if (need_free)
+		free(plugin_name);
 
 	return NULL;
 }
