@@ -975,6 +975,8 @@ struct uwsgi_server {
 	// autoload plugins
 	int autoload;
 	struct uwsgi_string_list *plugins_dir;
+	struct uwsgi_string_list *blacklist;
+	struct uwsgi_string_list *whitelist;
 
 	int snapshot;
 
@@ -2607,6 +2609,8 @@ int uwsgi_apply_routes(struct wsgi_request *);
 int uwsgi_apply_routes_fast(struct wsgi_request *, char *, int);
 #endif
 
+char *uwsgi_chomp(char *);
+int uwsgi_file_to_string_list(char *, struct uwsgi_string_list **);
 void uwsgi_backtrace(int);
 void uwsgi_check_logrotate(void);
 char *uwsgi_check_touches(struct uwsgi_string_list *);

@@ -1859,6 +1859,32 @@ int uwsgi_logic_opt_for(char *key, char *value) {
 
 void add_exported_option(char *key, char *value, int configured) {
 
+	struct uwsgi_string_list *blacklist = uwsgi.blacklist;
+	struct uwsgi_string_list *whitelist = uwsgi.whitelist;
+
+	while(blacklist) {
+		if (!strcmp(key, blacklist->value)) {
+			uwsgi_log("uWSGI error: forbidden option \"%s\"\n", key);
+			exit(1);
+		}
+		blacklist = blacklist->next;
+	}
+
+	if (whitelist) {
+		int allowed = 0;
+		while(whitelist) {
+			if (!strcmp(key, whitelist->value)) {
+				allowed = 1;
+				break;
+			}
+			whitelist = whitelist->next;
+		}
+		if (!allowed) {
+			uwsgi_log("uWSGI error: forbidden option \"%s\"\n", key);
+			exit(1);
+		}
+	}
+
 	if (uwsgi.logic_opt_running) goto add;
 
 	if (!strcmp(key, "end") || !strcmp(key, "endfor") || !strcmp(key, "endif")) {
@@ -3938,6 +3964,17 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 	return NULL;
 }
 
+char *uwsgi_chomp(char *str) {
+	size_t i;
+	for(i=0;i<strlen(str);i++) {
+		if (str[i] == '\r' || str[i] == '\n') {
+			str[i] = 0;
+			return str;
+		}
+	}
+
+	return str;
+}
 
 char *uwsgi_tmpname(char *base, char *id) {
 	char *template = uwsgi_concat3(base, "/", id);
@@ -3947,4 +3984,20 @@ char *uwsgi_tmpname(char *base, char *id) {
 	}
 
 	return template;
+}
+
+int uwsgi_file_to_string_list(char *filename, struct uwsgi_string_list **list) {
+
+        char line[1024];
+
+	FILE *fh = fopen(filename, "r");
+        if (fh) {
+                while(fgets(line, 1024, fh)) {
+                        uwsgi_string_new_list(list, uwsgi_chomp(uwsgi_str(line)));
+                }
+                fclose(fh);
+		return 1;
+        }
+        uwsgi_error_open(filename);
+	return 0;
 }

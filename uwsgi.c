@@ -1231,6 +1231,20 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.mime_file = "/etc/mime.types";
 
+#ifdef UWSGI_BLACKLIST
+	if (!uwsgi_file_to_string_list(UWSGI_BLACKLIST, &uwsgi.blacklist)) {
+		uwsgi_log("you cannot run this build of uWSGI without a blacklist file\n");
+		exit(1);
+	}
+#endif
+
+#ifdef UWSGI_WHITELIST
+	if (!uwsgi_file_to_string_list(UWSGI_WHITELIST, &uwsgi.whitelist)) {
+		uwsgi_log("you cannot run this build of uWSGI without a whitelist file\n");
+		exit(1);
+	}
+#endif
+
 
 	gettimeofday(&uwsgi.start_tv, NULL);
 

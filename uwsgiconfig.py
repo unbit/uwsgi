@@ -535,6 +535,12 @@ class uConf(object):
         if self.get('udp'):
             self.cflags.append("-DUWSGI_UDP")
 
+        if self.get('blacklist'):
+            self.cflags.append('-DUWSGI_BLACKLIST="\\"%s\\""' % self.get('blacklist'))
+
+        if self.get('whitelist'):
+            self.cflags.append('-DUWSGI_WHITELIST="\\"%s\\""' % self.get('whitelist'))
+
         has_pcre = False
 
         # re-enable after pcre fix
