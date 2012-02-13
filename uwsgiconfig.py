@@ -47,7 +47,7 @@ def uniq_warnings(elements):
     new_elements = []
     for element in elements:
         if element.startswith('-W'):
-            if not element in elements:
+            if not element in new_elements:
                 new_elements.append(element)
         else:
             new_elements.append(element)
@@ -874,7 +874,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)
 
-    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(uniq_warnings(p_cflags)), ' '.join(gcc_list), ' '.join(uniq_warnings(p_ldflags)), ' '.join(uwsgi_warnings(p_libs)) )
+    gccline = "%s -fPIC %s -o %s.so %s %s %s %s" % (GCC, shared_flag, plugin_dest, ' '.join(uniq_warnings(p_cflags)), ' '.join(gcc_list), ' '.join(uniq_warnings(p_ldflags)), ' '.join(uniq_warnings(p_libs)) )
     print("[%s] %s.so" % (GCC, plugin_dest))
 
     ret = os.system(gccline)

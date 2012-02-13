@@ -117,11 +117,10 @@ struct zergpool_socket *add_zergpool_socket(char *name, char *sockets) {
 		p = strtok(NULL, ",");
 	}
 
+	return z_sock;
 }
 
 int zergpool_init() {
-
-	int i;
 
 	if (!zergpool_socket_names) return 0;
 
