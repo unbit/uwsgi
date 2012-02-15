@@ -17,15 +17,16 @@ struct uwsgi_perl {
 	char *locallib;
 	char *embedding[3];
         PerlInterpreter *main;
-        pthread_key_t u_interpreter;
-        PerlInterpreter **interp;
+        //pthread_key_t u_interpreter;
+        //PerlInterpreter **interp;
         SV *psgi_main;
-        SV **psgi_func;
-        CV *stream_responder;
-	HV *streaming_stash;
-	HV *input_stash;
-	HV *error_stash;
 
+	// this field must be heavy protected in threaded modes
+	HV *tmp_streaming_stash;
+	HV *tmp_input_stash;
+	HV *tmp_error_stash;
+
+	CV *tmp_stream_responder;
 };
 
 void init_perl_embedded_module(void);
@@ -37,3 +38,5 @@ int psgi_response(struct wsgi_request *, AV*);
 
 SV *uwsgi_perl_obj_call(SV *, char *);
 int uwsgi_perl_obj_can(SV *, char *, size_t);
+int init_psgi_app(struct wsgi_request *, char *, uint16_t, PerlInterpreter *);
+PerlInterpreter *uwsgi_perl_new_interpreter(void);

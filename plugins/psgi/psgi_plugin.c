@@ -48,6 +48,8 @@ SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 SV *uwsgi_perl_call_stream(SV *func) {
 
 	SV *ret = NULL;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
         // set current context ?
         dTHX;
         dSP;
@@ -55,7 +57,7 @@ SV *uwsgi_perl_call_stream(SV *func) {
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
-        XPUSHs( sv_2mortal(newRV((SV*) uperl.stream_responder)));
+        XPUSHs( sv_2mortal(newRV((SV*) wi->responder0)));
         PUTBACK;
 
 	call_sv( func, G_SCALAR | G_EVAL);
@@ -296,34 +298,25 @@ int uwsgi_perl_init(){
 		uwsgi_error("setenv()");
 	}
 
-#ifdef PERL_VERSION_STRING
-	uwsgi_log("initializing Perl %s environment\n", PERL_VERSION_STRING);
-#else
-	uwsgi_log("initializing Perl environment\n");
-#endif
-
 	argc = 3;
 
 	PERL_SYS_INIT3(&argc, (char ***) &uperl.embedding, &environ);
-	uperl.main = perl_alloc();
+
+	uperl.main = uwsgi_perl_new_interpreter();
 	if (!uperl.main) {
-		uwsgi_log("unable to allocate perl interpreter\n");
 		return -1;
 	}
-
-	dTHXa(uperl.main);
-	PERL_SET_CONTEXT(uperl.main);
-
-	PL_perl_destruct_level = 2;
-	PL_origalen = 1;
-	perl_construct(uperl.main);
 
 	// filling http status codes
 	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
 		http_sc->message_size = strlen(http_sc->message);
 	}
 
-	PL_origalen = 1;
+#ifdef PERL_VERSION_STRING
+	uwsgi_log("initialized Perl %s main interpreter at %p\n", PERL_VERSION_STRING, uperl.main);
+#else
+	uwsgi_log("initialized Perl main interpreter at %p\n", uperl.main);
+#endif
 
 	return 1;
 
@@ -332,6 +325,7 @@ int uwsgi_perl_init(){
 #ifdef USE_ITHREADS
 void uwsgi_perl_enable_threads() {
 	
+/*
 	if (pthread_key_create(&uperl.u_interpreter, NULL)) {
         	uwsgi_error("pthread_key_create()");
                 exit(1);
@@ -341,6 +335,7 @@ void uwsgi_perl_enable_threads() {
 	uperl.interp[0] = uperl.main;
 
 	uperl.psgi_func = uwsgi_malloc( sizeof(SV*) * uwsgi.threads );
+*/
 
 
 }
@@ -351,27 +346,52 @@ void uwsgi_perl_enable_threads() {
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	SV **harakiri;
-	SV *psgi_func = uperl.psgi_main;
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		return psgi_response(wsgi_req, wsgi_req->async_placeholder);	
 	}
 #endif
-
 	/* Standard PSGI request */
 	if (!wsgi_req->uh.pktsize) {
 		uwsgi_log("Invalid PSGI request. skip.\n");
 		return -1;
 	}
 
-
 	if (uwsgi_parse_vars(wsgi_req)) {
 		return -1;
 	}
 
+	wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, 5);
+	// if it is -1, try to load a dynamic app
+	if (wsgi_req->app_id == -1) {
+		if (wsgi_req->dynamic) {
+			if (wsgi_req->script_len > 0) {
+				wsgi_req->app_id = init_psgi_app(wsgi_req, wsgi_req->script, wsgi_req->script_len, NULL);	
+			}
+			else if (wsgi_req->file_len > 0) {
+				wsgi_req->app_id = init_psgi_app(wsgi_req, wsgi_req->file, wsgi_req->file_len, NULL);	
+			}
+		}
+
+		if (wsgi_req->app_id == -1) {
+			internal_server_error(wsgi_req, "Perl application not found");	
+			// nothing to clear/free
+			return UWSGI_OK;
+		}
+	}
+
+	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
+	wi->requests++;
+
+	if (wi->interpreter != uperl.main) {
+		dTHXa(wi->interpreter);
+		PERL_SET_CONTEXT(wi->interpreter);
+	}
+
+	// CHECK HERE !!!
 	if (uwsgi.threads > 1) {
-		psgi_func = uperl.psgi_func[wsgi_req->async_id];
+		//psgi_func = uperl.psgi_func[wsgi_req->async_id];
 	}
 
 	
@@ -381,7 +401,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_environ = build_psgi_env(wsgi_req);
 	if (!wsgi_req->async_environ) goto clear;
 
-	wsgi_req->async_result = psgi_call(wsgi_req, psgi_func, wsgi_req->async_environ);
+	wsgi_req->async_result = psgi_call(wsgi_req, wi->callable, wsgi_req->async_environ);
 	if (!wsgi_req->async_result) goto clear;
 
 	if (SvTYPE((AV *)wsgi_req->async_result) == SVt_PVCV) {
@@ -419,6 +439,12 @@ clear:
 	FREETMPS;
 	LEAVE;
 
+	// restore main interpreter if needed
+	if (wi->interpreter != uperl.main) {
+		dTHXa(uperl.main);
+		PERL_SET_CONTEXT(uperl.main);
+	}
+
 	return UWSGI_OK;
 }
 
@@ -439,6 +465,7 @@ void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 void uwsgi_perl_init_thread(int core_id) {
 
 
+/*
 
 	if (core_id > 0) {
 		uperl.interp[core_id] = perl_clone(uperl.main, CLONEf_KEEP_PTR_TABLE);
@@ -447,6 +474,7 @@ void uwsgi_perl_init_thread(int core_id) {
                         exit(1);
                 }
 	}
+
 
 	dTHXa(uperl.interp[core_id]);
 	PERL_SET_CONTEXT(uperl.interp[core_id]);
@@ -467,6 +495,7 @@ void uwsgi_perl_init_thread(int core_id) {
                 	exit(1);
         	}
 	}
+*/
 
 }
 #endif
@@ -503,15 +532,26 @@ void uwsgi_perl_post_fork() {
 */
 }
 
+int uwsgi_perl_mount_app(char *mountpoint, char *app, int regexp) {
+
+        uwsgi.wsgi_req->appid = mountpoint;
+        uwsgi.wsgi_req->appid_len = strlen(mountpoint);
+
+        return init_psgi_app(uwsgi.wsgi_req, app, strlen(app), NULL);
+
+}
+
+
 struct uwsgi_plugin psgi_plugin = {
 
 	.name = "psgi",
 	.modifier1 = 5,
 	.init = uwsgi_perl_init,
 	.options = uwsgi_perl_options,
+
 	.init_apps = uwsgi_psgi_app,
-	//.magic = uwsgi_perl_magic,
-	//.help = uwsgi_perl_help,
+	.mount_app = uwsgi_perl_mount_app,
+
 #ifdef USE_ITHREADS
 	.enable_threads = uwsgi_perl_enable_threads,
 	.init_thread = uwsgi_perl_init_thread,

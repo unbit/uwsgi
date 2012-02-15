@@ -15,19 +15,23 @@ XS(XS_input_seek) {
 
 XS(XS_error) {
 	dXSARGS;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
 
         psgi_check_args(0);
 
-        ST(0) = sv_bless(newRV(sv_newmortal()), uperl.error_stash);
+        ST(0) = sv_bless(newRV(sv_newmortal()), wi->error);
         XSRETURN(1);
 }
 
 XS(XS_input) {
 
         dXSARGS;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
         psgi_check_args(0);
 
-        ST(0) = sv_bless(newRV(sv_newmortal()), uperl.input_stash);
+        ST(0) = sv_bless(newRV(sv_newmortal()), wi->input);
         XSRETURN(1);
 }
 
@@ -35,6 +39,7 @@ XS(XS_stream)
 {
     dXSARGS;
     struct wsgi_request *wsgi_req = current_wsgi_req();
+    struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
 
     psgi_check_args(1);
 
@@ -47,7 +52,7 @@ XS(XS_stream)
 		while (psgi_response(wsgi_req, response) != UWSGI_OK);
 
 		SvREFCNT_dec(response);
-                ST(0) = sv_bless(newRV(sv_newmortal()), uperl.streaming_stash);
+                ST(0) = sv_bless(newRV(sv_newmortal()), wi->stream);
                 XSRETURN(1);
 	}
 	else {
@@ -203,18 +208,18 @@ xs_init(pTHX)
         newXS("uwsgi::input::read", XS_input_read, "uwsgi::input");
         newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input");
 
-        uperl.input_stash = gv_stashpv("uwsgi::input", 0);
+        uperl.tmp_input_stash = gv_stashpv("uwsgi::input", 0);
 
         newXS("uwsgi::error::new", XS_error, "uwsgi::error");
         newXS("uwsgi::error::print", XS_error_print, "uwsgi::print");
-        uperl.error_stash = gv_stashpv("uwsgi::error", 0);
+        uperl.tmp_error_stash = gv_stashpv("uwsgi::error", 0);
 
-        uperl.stream_responder = newXS("uwsgi::stream", XS_stream, "uwsgi");
+        uperl.tmp_stream_responder = newXS("uwsgi::stream", XS_stream, "uwsgi");
 
         newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
         newXS("uwsgi::streaming::close", XS_streaming_close, "uwsgi::streaming");
 
-        uperl.streaming_stash = gv_stashpv("uwsgi::streaming", 0);
+        uperl.tmp_streaming_stash = gv_stashpv("uwsgi::streaming", 0);
 
 #ifdef UWSGI_EMBEDDED
         init_perl_embedded_module();
@@ -224,19 +229,50 @@ xs_init(pTHX)
 
 /* end of automagically generated part */
 
+PerlInterpreter *uwsgi_perl_new_interpreter(void) {
 
-void uwsgi_psgi_app() {
+	PerlInterpreter *pi = perl_alloc();
+        if (!pi) {
+                uwsgi_log("unable to allocate perl interpreter\n");
+                return NULL;
+        }
 
-        struct stat stat_psgi;
-	int id = uwsgi_apps_cnt;
+        dTHXa(pi);
+        PERL_SET_CONTEXT(pi);
 
-        if (uperl.psgi) {
+        PL_perl_destruct_level = 2;
+        PL_origalen = 1;
+        perl_construct(pi);
+	// over-engeneering
+        PL_origalen = 1;
 
-                // two-pass loading: parse the script -> eval the script
+	return pi;
+}
 
 
+int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, PerlInterpreter *pi) {
 
-                if (uperl.locallib) {
+	struct stat st;
+
+	char *app_name = uwsgi_concat2n(app, app_len, "", 0);
+
+	// the first (default) app, should be always loaded in the main interpreter
+	if (pi == NULL) {
+		if (uwsgi_apps_cnt) {
+			pi = uwsgi_perl_new_interpreter();
+		}
+		else {
+			pi = uperl.main;
+		}		
+	}
+
+	if (!pi) {
+		free(app_name);
+		return -1;
+	}
+
+/*
+	if (uperl.locallib) {
                         uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
                         uperl.embedding[1] = uwsgi_concat2("-Mlocal::lib=", uperl.locallib);
                         uperl.embedding[2] = uperl.psgi;
@@ -244,67 +280,119 @@ void uwsgi_psgi_app() {
                                 exit(1);
                         }
                 }
-                else {
-                        uperl.embedding[1] = uperl.psgi;
-                        if (perl_parse(uperl.main, xs_init, 2, uperl.embedding, NULL)) {
-                                exit(1);
-                        }
+*/
+
+	// we could be in the new perl context...
+	uperl.embedding[1] = app_name;
+	if (perl_parse(pi, xs_init, 2, uperl.embedding, NULL)) {
+		goto clear;
+        }
+		
+	perl_eval_pv("use IO::Handle;", 0);
+	perl_eval_pv("use IO::File;", 0);
+
+	SV *dollar_zero = get_sv("0", GV_ADD);
+	sv_setsv(dollar_zero, newSVpv(app, app_len));
+	
+	int fd = open(app_name, O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error_open(app_name);
+		goto clear;
+	}
+
+	if (fstat(fd, &st)) {
+		uwsgi_error("fstat()");
+		close(fd);
+		goto clear;
+	}
+
+	char *buf = uwsgi_calloc(st.st_size+1);
+	if (read(fd, buf, st.st_size) != st.st_size) {
+		uwsgi_error("read()");
+		close(fd);
+		free(buf);
+		goto clear;
+	}
+
+	close(fd);
+
+	SV *callable = perl_eval_pv(uwsgi_concat4("#line 1 ", app_name, "\n", buf), 0);
+	if (!callable) {
+		uwsgi_log("unable to find PSGI function entry point.\n");
+		free(buf);
+		goto clear;
+	}
+
+	free(buf);
+
+	if(SvTRUE(ERRSV)) {
+        	uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+		goto clear;
+        }
+
+	int id = uwsgi_apps_cnt;
+	struct uwsgi_app *wi = NULL;
+
+	if (wsgi_req) {
+		// we need a copy of app_id
+		wi = uwsgi_add_app(id, 5, uwsgi_concat2n(wsgi_req->appid, wsgi_req->appid_len, "", 0), wsgi_req->appid_len, pi, callable);
+	}
+	else {
+		wi = uwsgi_add_app(id, 5, "", 0, pi, callable);
+	}
+
+        uwsgi_log("PSGI app %d (%s) loaded at %p (interpreter %p)\n", id, app_name, callable, pi);
+	free(app_name);
+
+	// copy global data to app-specific areas
+	wi->stream = uperl.tmp_streaming_stash;
+	wi->input = uperl.tmp_input_stash;
+	wi->error = uperl.tmp_error_stash;
+	wi->responder0 = uperl.tmp_stream_responder;
+
+	// check if we need to emulate fork() COW
+        int i;
+        if (uwsgi.mywid == 0) {
+                for(i=1;i<=uwsgi.numproc;i++) {
+                        memcpy(&uwsgi.workers[i].apps[id], &uwsgi.workers[0].apps[id], sizeof(struct uwsgi_app));
+                        uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
                 }
+        }
 
-                perl_eval_pv("use IO::Handle;", 0);
-                perl_eval_pv("use IO::File;", 0);
 
-                SV *dollar_zero = get_sv("0", GV_ADD);
-                sv_setsv(dollar_zero, newSVpv(uperl.psgi, 0));
+	// restore context if required
+	if (pi != uperl.main) {
+		dTHXa(uperl.main);
+		PERL_SET_CONTEXT(uperl.main);
+	}
 
-                SV *dollar_slash = get_sv("/", GV_ADD);
-                sv_setsv(dollar_slash, newRV_inc(newSViv(uwsgi.buffer_size)));
+	return id;
 
-                uperl.fd = open(uperl.psgi, O_RDONLY);
-                if (uperl.fd < 0) {
-                        uwsgi_error_open(uperl.psgi);
-                        exit(1);
-                }
+clear:
+	free(app_name);
+	if (pi != uperl.main) {
+		perl_destruct(pi);
+		perl_free(pi);
+	}
 
-                if (fstat(uperl.fd, &stat_psgi)) {
-                        uwsgi_error("fstat()");
-                        exit(1);
-                }
+	dTHXa(uperl.main);
+	PERL_SET_CONTEXT(uperl.main);
+       	return -1; 
+}
 
-                uperl.psgibuffer = malloc(stat_psgi.st_size + 1);
-                if (!uperl.psgibuffer) {
-                        uwsgi_error("malloc()");
-                        exit(1);
-                }
+void uwsgi_psgi_app() {
 
-                if (read(uperl.fd, uperl.psgibuffer, stat_psgi.st_size) != stat_psgi.st_size) {
-                        uwsgi_error("read()");
-                        exit(1);
-                }
+        if (uperl.psgi) {
+		//load app in the main interpreter
+		init_psgi_app(NULL, uperl.psgi, strlen(uperl.psgi), uperl.main);
 
-                uperl.psgibuffer[stat_psgi.st_size] = 0;
-
-                        uperl.psgi_main = perl_eval_pv(uwsgi_concat4("#line 1 ", uperl.psgi, "\n", uperl.psgibuffer), 0);
-                        if (!uperl.psgi_main) {
-                                uwsgi_log("unable to find PSGI function entry point.\n");
-                                exit(1);
-                        }
-
-                        if(SvTRUE(ERRSV)) {
-                                uwsgi_log("%s\n", SvPV_nolen(ERRSV));
-                                exit(1);
-                        }
-
+/*
                 if (uwsgi.threads < 2) {
                         free(uperl.psgibuffer);
                         close(uperl.fd);
 		}
-
-		uwsgi_add_app(id, 5, "", 0);
-                uwsgi_log("PSGI app %d (%s) loaded at %p\n", id, uperl.psgi, uperl.psgi_main);
-
+*/
         }
-
 
 }
 

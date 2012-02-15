@@ -3921,7 +3921,7 @@ char *uwsgi_get_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, u
 	return NULL;
 }
 
-void uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_len) {
+struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_len, void *interpreter, void *callable) {
 
 	struct uwsgi_app *wi = &uwsgi_apps[id];
         memset(wi, 0, sizeof(struct uwsgi_app));
@@ -3929,6 +3929,8 @@ void uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_l
         wi->modifier1 = modifier1;
         wi->mountpoint = mountpoint;
         wi->mountpoint_len = mountpoint_len;
+	wi->interpreter = interpreter;
+	wi->callable = callable;
         
         uwsgi_apps_cnt++;
         // check if we need to emulate fork() COW
@@ -3939,6 +3941,8 @@ void uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_l
                         uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
                 }
         }
+
+	return wi;
 }
 
 

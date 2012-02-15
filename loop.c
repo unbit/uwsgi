@@ -55,6 +55,7 @@ void *simple_loop(void *arg1) {
 		if (core_id > 0) {
 			// block all signals on new threads
 			sigfillset(&smask);
+			sigdelset(&smask, SIGSEGV);
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
 			for (i = 0; i < 0xFF; i++) {
 				if (uwsgi.p[i]->init_thread) {
@@ -128,6 +129,7 @@ void *zeromq_loop(void *arg1) {
 		if (core_id > 0) {
 			// block all signals on new threads
 			sigfillset(&smask);
+			sigdelset(&smask, SIGSEGV);
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
 			for (i = 0; i < 0xFF; i++) {
 				if (uwsgi.p[i]->init_thread) {

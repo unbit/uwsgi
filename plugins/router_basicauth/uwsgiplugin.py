@@ -5,7 +5,8 @@ CFLAGS = []
 LDFLAGS = []
 LIBS = []
 
-if os.uname()[0] == 'Linux':
+# osx does not need libcrypt
+if os.uname()[0] != 'Darwin':
     LIBS.append('-lcrypt')
 
 GCC_LIST = ['router_basicauth']

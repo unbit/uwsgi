@@ -635,6 +635,12 @@ struct uwsgi_app {
 #endif
 
 	void *sendfile;
+	void *input;
+	void *error;
+	void *stream;
+	void *responder0;
+	void *responder1;
+	void *responder2;
 
 #ifdef UWSGI_ASYNC
 	void *eventfd_read;
@@ -2464,7 +2470,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 ssize_t uwsgi_mule_get_msg(int, int, char *, size_t, int);
 
 uint8_t uwsgi_signal_wait(int);
-void uwsgi_add_app(int, uint8_t, char *, int);
+struct uwsgi_app *uwsgi_add_app(int, uint8_t, char *, int, void *, void *);
 int uwsgi_signal_send(int, uint8_t);
 int uwsgi_remote_signal_send(char *, uint8_t); 
 
