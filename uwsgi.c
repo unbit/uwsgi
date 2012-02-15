@@ -2248,9 +2248,12 @@ skipzero:
 		}
 	}
 
-	for (i = 0; i < 0xff; i++) {
-		if (uwsgi.p[i]->post_init) {
-			uwsgi.p[i]->post_init();
+	// again check for workers/sockets...
+	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
+		for (i = 0; i < 0xff; i++) {
+			if (uwsgi.p[i]->post_init) {
+				uwsgi.p[i]->post_init();
+			}
 		}
 	}
 
@@ -2273,9 +2276,12 @@ skipzero:
 
 			pthread_mutex_init(&uwsgi.lock_static, NULL);
 
-			for (i = 0; i < 0xFF; i++) {
-				if (uwsgi.p[i]->enable_threads)
-					uwsgi.p[i]->enable_threads();
+			// again check for workers/sockets...
+			if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
+				for (i = 0; i < 0xFF; i++) {
+					if (uwsgi.p[i]->enable_threads)
+						uwsgi.p[i]->enable_threads();
+				}
 			}
 		}
 #endif
