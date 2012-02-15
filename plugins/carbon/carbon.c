@@ -19,10 +19,6 @@ struct uwsgi_option carbon_options[] = {
 };
 
 
-int carbon_init() {
-	return 0;
-}
-
 void carbon_post_init() {
 
 	int i;
@@ -139,11 +135,10 @@ nxt:
 }
 
 struct uwsgi_plugin carbon_plugin = {
+
+	.name = "carbon",
 	
 	.options = carbon_options,
-
 	.master_cycle = carbon_master_cycle,
-	
 	.post_init = carbon_post_init,
-	.init = carbon_init,
 };

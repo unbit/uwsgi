@@ -138,6 +138,16 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 			}
 		}
                 if (up) {
+			if (!up->name) {
+				uwsgi_log("the loaded plugin (%s) has no .name attribute\n", plugin_name);
+				if (dlclose(plugin_handle)) {
+                                	uwsgi_error("dlclose()");
+                                }
+				if (need_free)
+					free(plugin_name);
+				free(plugin_entry_symbol);
+				return NULL;
+			}
 			if (plugin_already_loaded(up->name)) {
 				if (dlclose(plugin_handle)) {
                                 	uwsgi_error("dlclose()");
