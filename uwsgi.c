@@ -1199,6 +1199,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
+	uwsgi.threads = 1;
 
 	uwsgi.default_app = -1;
 
