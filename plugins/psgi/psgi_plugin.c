@@ -313,7 +313,6 @@ int uwsgi_perl_init(){
 	}
 
 	for(i=1;i<uwsgi.threads;i++) {
-		//uperl.main[i] = perl_clone(uperl.main[0], CLONEf_KEEP_PTR_TABLE);
 		uperl.main[i] = uwsgi_perl_new_interpreter();
                 if (!uperl.main[i]) {
                 	uwsgi_log("unable to create new perl interpreter for thread %d\n", i+1);
@@ -361,12 +360,20 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	// if it is -1, try to load a dynamic app
 	if (wsgi_req->app_id == -1) {
 		if (wsgi_req->dynamic) {
+			if (uwsgi.threads > 1) {
+                                pthread_mutex_lock(&uperl.lock_loader);
+                        }
+
 			if (wsgi_req->script_len > 0) {
 				wsgi_req->app_id = init_psgi_app(wsgi_req, wsgi_req->script, wsgi_req->script_len, NULL);	
 			}
 			else if (wsgi_req->file_len > 0) {
 				wsgi_req->app_id = init_psgi_app(wsgi_req, wsgi_req->file, wsgi_req->file_len, NULL);	
 			}
+
+			if (uwsgi.threads > 1) {
+                                pthread_mutex_unlock(&uperl.lock_loader);
+                        }
 		}
 
 		if (wsgi_req->app_id == -1) {
@@ -499,6 +506,26 @@ void uwsgi_perl_init_thread(int core_id) {
 #endif
 }
 
+void uwsgi_perl_pthread_prepare(void) {
+        pthread_mutex_lock(&uperl.lock_loader);
+}
+
+void uwsgi_perl_pthread_parent(void) {
+        pthread_mutex_unlock(&uperl.lock_loader);
+}
+
+void uwsgi_perl_pthread_child(void) {
+        pthread_mutex_init(&uperl.lock_loader, NULL);
+}
+
+
+void uwsgi_perl_enable_threads(void) {
+#ifdef USE_ITHREADS
+	pthread_mutex_init(&uperl.lock_loader, NULL);
+	pthread_atfork(uwsgi_perl_pthread_prepare, uwsgi_perl_pthread_parent, uwsgi_perl_pthread_child);
+#endif
+}
+
 struct uwsgi_plugin psgi_plugin = {
 
 	.name = "psgi",
@@ -514,6 +541,7 @@ struct uwsgi_plugin psgi_plugin = {
 	.post_fork = uwsgi_perl_post_fork,
 	.request = uwsgi_perl_request,
 	.after_request = uwsgi_perl_after_request,
+	.enable_threads = uwsgi_perl_enable_threads,
 
 	.magic = uwsgi_perl_magic,
 };

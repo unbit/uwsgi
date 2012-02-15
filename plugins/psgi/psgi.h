@@ -22,6 +22,9 @@ struct uwsgi_perl {
 	// this is a pointer to the main list of interpreters (required for signals, rpc....);
         PerlInterpreter **main;
 
+	// a lock for dynamic apps
+	pthread_mutex_t lock_loader;
+
 	// this fields must be heavy protected in threaded modes
 	int tmp_current_i;
 	HV **tmp_streaming_stash;

@@ -248,6 +248,12 @@ PerlInterpreter *uwsgi_perl_new_interpreter(void) {
 	return pi;
 }
 
+static void uwsgi_perl_free_stashes(void) {
+        free(uperl.tmp_streaming_stash);
+        free(uperl.tmp_input_stash);
+        free(uperl.tmp_error_stash);
+        free(uperl.tmp_stream_responder);
+}
 
 int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, PerlInterpreter **interpreters) {
 
@@ -259,14 +265,6 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 
 /*
-	if (uperl.locallib) {
-                        uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
-                        uperl.embedding[1] = uwsgi_concat2("-Mlocal::lib=", uperl.locallib);
-                        uperl.embedding[2] = uperl.psgi;
-                        if (perl_parse(uperl.main, xs_init, 3, uperl.embedding, NULL)) {
-                                exit(1);
-                        }
-                }
 */
 
 	// prepare for $0
@@ -275,13 +273,13 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	int fd = open(app_name, O_RDONLY);
 	if (fd < 0) {
 		uwsgi_error_open(app_name);
-		goto clear;
+		goto clear2;
 	}
 
 	if (fstat(fd, &st)) {
 		uwsgi_error("fstat()");
 		close(fd);
-		goto clear;
+		goto clear2;
 	}
 
 	char *buf = uwsgi_calloc(st.st_size+1);
@@ -289,7 +287,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		uwsgi_error("read()");
 		close(fd);
 		free(buf);
-		goto clear;
+		goto clear2;
 	}
 
 	close(fd);
@@ -299,6 +297,11 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		if (uwsgi_apps_cnt) {
 			interpreters = uwsgi_calloc(sizeof(PerlInterpreter *) * uwsgi.threads);
 			interpreters[0] = uwsgi_perl_new_interpreter();
+			if (!interpreters[0]) {
+				uwsgi_log("unable to create new perl interpreter\n");
+				free(interpreters);
+				goto clear2;
+			}
 		}
 		else {
 			interpreters = uperl.main;
@@ -306,8 +309,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	}
 
 	if (!interpreters) {
-		free(app_name);
-		return -1;
+		goto clear2;
 	}
 
 
@@ -321,12 +323,17 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 		if (i > 0 && interpreters != uperl.main) {
 		
-			//interpreters[i] = perl_clone(interpreters[0], CLONEf_KEEP_PTR_TABLE);
 			interpreters[i] = uwsgi_perl_new_interpreter();
 			if (!interpreters[i]) {
 				uwsgi_log("unable to create new perl interpreter\n");
-				// what to do here ? i hope no-one will use threads with dynamic apps...
-				exit(1);
+				// what to do here ? i hope no-one will use threads with dynamic apps...but clear the whole stuff...
+				free(callables);
+				uwsgi_perl_free_stashes();
+				while(i>=0) {
+					perl_destruct(interpreters[i]);	
+					perl_free(interpreters[i]);
+					goto clear2;
+				}
 			}
 		}
 
@@ -334,11 +341,30 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 		uperl.tmp_current_i = i;
 
-		if (perl_parse(interpreters[i], xs_init, 2, uperl.embedding, NULL)) {
-			// what to do here ? i hope no-one will use threads with dynamic apps...
-			exit(1);
-			goto clear;
-        	}
+
+		if (uperl.locallib) {
+                        uwsgi_log("using %s as local::lib directory\n", uperl.locallib);
+                        uperl.embedding[1] = uwsgi_concat2("-Mlocal::lib=", uperl.locallib);
+                        uperl.embedding[2] = app_name;
+                        if (perl_parse(interpreters[i], xs_init, 3, uperl.embedding, NULL)) {
+				// what to do here ? i hope no-one will use threads with dynamic apps... but clear the whole stuff...
+				free(uperl.embedding[1]);
+				uperl.embedding[1] = app_name;
+				free(callables);
+				uwsgi_perl_free_stashes();
+				goto clear;
+                        }
+			free(uperl.embedding[1]);
+			uperl.embedding[1] = app_name;
+                }
+		else {
+			if (perl_parse(interpreters[i], xs_init, 2, uperl.embedding, NULL)) {
+				// what to do here ? i hope no-one will use threads with dynamic apps... but clear the whole stuff...
+				free(callables);
+				uwsgi_perl_free_stashes();
+				goto clear;
+        		}
+		}
 
 		perl_eval_pv("use IO::Handle;", 0);
 		perl_eval_pv("use IO::File;", 0);
@@ -350,7 +376,9 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		if (!callables[i]) {
 			uwsgi_log("unable to find PSGI function entry point.\n");
 			// what to do here ? i hope no-one will use threads with dynamic apps...
-			exit(1);
+			free(callables);
+			uwsgi_perl_free_stashes();
+                	goto clear;
 		}
 
 		PERL_SET_CONTEXT(interpreters[0]);
@@ -360,6 +388,8 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 	if(SvTRUE(ERRSV)) {
         	uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+		free(callables);
+		uwsgi_perl_free_stashes();
 		goto clear;
         }
 
@@ -400,7 +430,6 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	return id;
 
 clear:
-	free(app_name);
 	if (interpreters != uperl.main) {
 		for(i=0;i<uwsgi.threads;i++) {
 			perl_destruct(interpreters[i]);
@@ -410,6 +439,8 @@ clear:
 	}
 
 	PERL_SET_CONTEXT(uperl.main[0]);
+clear2:
+	free(app_name);
        	return -1; 
 }
 
