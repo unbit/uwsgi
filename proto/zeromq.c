@@ -333,7 +333,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 
 			json_decref(root);
 #else
-			uwsgi_log("JSON support not enabled. skip request\n");
+			uwsgi_log("JSON support not enabled (recompile uWSGI with libjansson support, or re-configure mongrel2 with \"protocol='tnetstring'\". skip request\n");
 #endif
 		}
 
