@@ -739,6 +739,7 @@ struct wsgi_request {
 
 	int app_id;
 	int dynamic;
+	int parsed;
 
 	char *appid;
 	uint16_t appid_len;

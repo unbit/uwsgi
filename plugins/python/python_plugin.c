@@ -812,12 +812,14 @@ int uwsgi_python_magic(char *mountpoint, char *lazy) {
 int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
 
 	int id;
-	uwsgi.wsgi_req->appid = mountpoint;
-	uwsgi.wsgi_req->appid_len = strlen(mountpoint);
-	if (uwsgi.single_interpreter) {
-		id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
-	}
-	id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
+
+	if (strchr(app, ':') || uwsgi_endswith(app, ".py") || uwsgi_endswith(app, ".wsgi")) {
+		uwsgi.wsgi_req->appid = mountpoint;
+		uwsgi.wsgi_req->appid_len = strlen(mountpoint);
+		if (uwsgi.single_interpreter) {
+			id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
+		}
+		id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
 
 #ifdef UWSGI_PCRE
 	int i;
@@ -833,7 +835,9 @@ int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
 	}
 #endif
 
-	return id;
+		return id;
+	}
+	return -1;
 
 }
 

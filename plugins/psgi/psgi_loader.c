@@ -237,8 +237,7 @@ PerlInterpreter *uwsgi_perl_new_interpreter(void) {
                 return NULL;
         }
 
-        dTHXa(pi);
-        PERL_SET_CONTEXT(pi);
+	PERL_SET_CONTEXT(pi);
 
         PL_perl_destruct_level = 2;
         PL_origalen = 1;
@@ -249,10 +248,6 @@ PerlInterpreter *uwsgi_perl_new_interpreter(void) {
 	return pi;
 }
 
-void uwsgi_perl_set_context(PerlInterpreter *interpreter) {
-	dTHXa(interpreter);
-        PERL_SET_CONTEXT(interpreter);
-}
 
 int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, PerlInterpreter **interpreters) {
 
@@ -335,7 +330,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 			}
 		}
 
-		uwsgi_perl_set_context(interpreters[i]);
+		PERL_SET_CONTEXT(interpreters[i]);
 
 		uperl.tmp_current_i = i;
 
@@ -358,7 +353,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 			exit(1);
 		}
 
-		uwsgi_perl_set_context(interpreters[0]);
+		PERL_SET_CONTEXT(interpreters[0]);
 	}
 
 	free(buf);
@@ -399,7 +394,6 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 	// restore context if required
 	if (interpreters != uperl.main) {
-		dTHXa(uperl.main[0]);
 		PERL_SET_CONTEXT(uperl.main[0]);
 	}
 
@@ -415,7 +409,6 @@ clear:
 		free(interpreters);
 	}
 
-	dTHXa(uperl.main[0]);
 	PERL_SET_CONTEXT(uperl.main[0]);
        	return -1; 
 }

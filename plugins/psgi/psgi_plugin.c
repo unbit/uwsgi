@@ -22,8 +22,7 @@ extern struct http_status_codes hsc[];
 SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 
 	SV *newobj;
-	// set current context ?
-	dTHX;
+
 	dSP;
 
 	ENTER;
@@ -50,10 +49,8 @@ SV *uwsgi_perl_call_stream(SV *func) {
 	SV *ret = NULL;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
-        // set current context ?
-        dTHX;
-        dSP;
 
+        dSP;
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
@@ -80,8 +77,7 @@ SV *uwsgi_perl_call_stream(SV *func) {
 int uwsgi_perl_obj_can(SV *obj, char *method, size_t len) {
 
 	int ret;
-        // set current context ? needed for threading
-        dTHX;
+
         dSP;
 
         ENTER;
@@ -109,7 +105,6 @@ SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
         SV *ret = NULL;
 
-	dTHX;
         dSP;
 
         ENTER;
@@ -143,7 +138,6 @@ AV *psgi_call(struct wsgi_request *wsgi_req, SV *psgi_func, SV *env) {
 
 	AV *ret = NULL;
 
-	dTHX;
         dSP;
 
         ENTER;
@@ -292,6 +286,13 @@ int uwsgi_perl_init(){
 	uperl.embedding[1] = "-e";
 	uperl.embedding[2] = "0";
 
+#ifndef USE_ITHREADS
+	if (uwsgi.threads > 1) {
+		uwsgi_log("your Perl environment does not support threads\n");
+		exit(1);
+	} 
+#endif
+
 	if (setenv("PLACK_ENV", "uwsgi", 0)) {
 		uwsgi_error("setenv()");
 	}
@@ -319,6 +320,8 @@ int uwsgi_perl_init(){
                         exit(1);
                 }
 	}
+
+	PERL_SET_CONTEXT(uperl.main[0]);
 
 	// filling http status codes
 	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
@@ -377,7 +380,6 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	wi->requests++;
 
 	if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
-		dTHXa(((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id]);
 		PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id]);
 	}
 
@@ -427,7 +429,6 @@ clear:
 
 	// restore main interpreter if needed
 	if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
-		dTHXa(uperl.main[wsgi_req->async_id]);
 		PERL_SET_CONTEXT(uperl.main[wsgi_req->async_id]);
 	}
 
@@ -481,17 +482,21 @@ void uwsgi_perl_post_fork() {
 
 int uwsgi_perl_mount_app(char *mountpoint, char *app, int regexp) {
 
-        uwsgi.wsgi_req->appid = mountpoint;
-        uwsgi.wsgi_req->appid_len = strlen(mountpoint);
+	if (uwsgi_endswith(app, ".pl") || uwsgi_endswith(app, ".psgi")) {
+        	uwsgi.wsgi_req->appid = mountpoint;
+        	uwsgi.wsgi_req->appid_len = strlen(mountpoint);
 
-        return init_psgi_app(uwsgi.wsgi_req, app, strlen(app), NULL);
+        	return init_psgi_app(uwsgi.wsgi_req, app, strlen(app), NULL);
+	}
+	return -1;
 
 }
 
 void uwsgi_perl_init_thread(int core_id) {
 
-	dTHXa(uperl.main[core_id]);
+#ifdef USE_ITHREADS
         PERL_SET_CONTEXT(uperl.main[core_id]);
+#endif
 }
 
 struct uwsgi_plugin psgi_plugin = {

@@ -564,14 +564,19 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	/* set an HTTP 500 status as default */
 	wsgi_req->status = 500;
-	
+
+	// skip if already parsed
+	if (wsgi_req->parsed) return 0;
+
 	// has the protocol already parsed the request ?
 	if (wsgi_req->uri_len > 0) {
+		wsgi_req->parsed = 1;
 		i = uwsgi_simple_parse_vars(wsgi_req, ptrbuf, bufferend);
 		if (i == 0) goto next;
 		return i;
 	}
 
+	wsgi_req->parsed = 1;
 	wsgi_req->path_info_pos = -1;
 
 	while (ptrbuf < bufferend) {
