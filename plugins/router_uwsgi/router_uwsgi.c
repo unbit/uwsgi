@@ -10,6 +10,24 @@ int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, struct uwsgi_
 	wsgi_req->uh.modifier1 = uh->modifier1;
 	wsgi_req->uh.modifier2 = uh->modifier2;
 
+	// set appid
+	if (ur->data2_len > 0) {
+		wsgi_req->appid = ur->data2;
+		wsgi_req->appid_len = ur->data2_len;
+		char *ptr = uwsgi_req_append(wsgi_req, "UWSGI_APPID", 11, ur->data2, ur->data2_len);
+		if (ptr) {
+			// fill iovec
+			if (wsgi_req->var_cnt + 2 < uwsgi.vec_size - (4 + 1)) {
+				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptr - (2 + 11);
+                        	wsgi_req->hvec[wsgi_req->var_cnt].iov_len = 11;	
+                		wsgi_req->var_cnt++;
+				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptr;
+                        	wsgi_req->hvec[wsgi_req->var_cnt].iov_len = ur->data2_len;	
+                		wsgi_req->var_cnt++;
+                	}
+		}
+	}
+
 	return UWSGI_ROUTE_CONTINUE;
 }
 
@@ -22,6 +40,11 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 	
 	// mark a route request
         wsgi_req->status = -17;
+
+	// append appid
+	if (ur->data2_len > 0) {
+		uwsgi_req_append(wsgi_req, "UWSGI_APPID", 11, ur->data2, ur->data2_len);
+	}
 
 	int uwsgi_fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (uwsgi_fd < 0) {
@@ -78,6 +101,11 @@ int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 		exit(1);
 	}
 
+	char *comma3 = strchr(comma2+1, ',');
+	if (comma3) {
+		*comma3 = 0;
+	}
+
 	*comma1 = 0;
 	*comma2 = 0;
 
@@ -89,6 +117,11 @@ int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 
 		uh->modifier1 = atoi(comma1+1);
 		uh->modifier2 = atoi(comma2+1);
+
+		if (comma3) {
+			ur->data2 = comma3+1;
+			ur->data2_len = strlen(ur->data2);
+		}
 		return 0;
 	}
 	else {
@@ -98,6 +131,11 @@ int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 
 		uh->modifier1 = atoi(comma1+1);
 		uh->modifier2 = atoi(comma2+1);
+
+		if (comma3) {
+			ur->data2 = comma3+1;
+			ur->data2_len = strlen(ur->data2);
+		}
 
 		void *ptr = (void *) uh;
 		strcpy(ptr+sizeof(struct uwsgi_header), args);
