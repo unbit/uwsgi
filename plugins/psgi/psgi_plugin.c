@@ -61,7 +61,7 @@ SV *uwsgi_perl_call_stream(SV *func) {
 
 	SPAGAIN;
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
         }
         else {
                 ret = SvREFCNT_inc(POPs);
@@ -99,7 +99,6 @@ int uwsgi_perl_obj_can(SV *obj, char *method, size_t len) {
         return ret;
 
 }
-
 
 SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
@@ -152,7 +151,7 @@ AV *psgi_call(struct wsgi_request *wsgi_req, SV *psgi_func, SV *env) {
 
         if(SvTRUE(ERRSV)) {
                 internal_server_error(wsgi_req, "exception raised");
-                uwsgi_log("%s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
         }
 	else {
 		ret = (AV *) SvREFCNT_inc(SvRV(POPs));

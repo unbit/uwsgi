@@ -19,6 +19,9 @@ struct uwsgi_perl {
 	// perl argv for initialization
 	char *embedding[3];
 
+	// check for Devel::StackTrace
+	int stacktrace_available;
+
 	// this is a pointer to the main list of interpreters (required for signals, rpc....);
         PerlInterpreter **main;
 
