@@ -710,14 +710,14 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 								free(env_value);
 							}
 						}
-						else if (!uwsgi_strncmp("SERVER_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len) && !uwsgi.vhost_host) {
+						else if (!uwsgi_strncmp("SERVER_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len) && !wsgi_req->host_len) {
 							wsgi_req->host = ptrbuf;
 							wsgi_req->host_len = strsize;
 #ifdef UWSGI_DEBUG
 							uwsgi_debug("SERVER_NAME=%.*s\n", wsgi_req->host_len, wsgi_req->host);
 #endif
 						}
-						else if (!uwsgi_strncmp("HTTP_HOST", 9, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len) && uwsgi.vhost_host) {
+						else if (!uwsgi_strncmp("HTTP_HOST", 9, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->host = ptrbuf;
 							wsgi_req->host_len = strsize;
 #ifdef UWSGI_DEBUG

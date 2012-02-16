@@ -263,10 +263,6 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 	char *app_name = uwsgi_concat2n(app, app_len, "", 0);
 
-
-/*
-*/
-
 	// prepare for $0
 	uperl.embedding[1] = app_name;
 		

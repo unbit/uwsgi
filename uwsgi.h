@@ -113,6 +113,7 @@ extern char UWSGI_EMBED_CONFIG_END;
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <signal.h>
 #include <math.h>
 #include <netinet/in.h>
@@ -690,6 +691,9 @@ struct uwsgi_route {
 	pcre_extra *pattern_extra;
 	int ovn;
 	int *ovector;
+
+	size_t subject;
+	size_t subject_len;
 
 	int (*func)(struct wsgi_request *, struct uwsgi_route *);
 

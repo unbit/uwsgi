@@ -14,7 +14,12 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
         }
 
 	while(routes) {
-		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len, routes->ovector, routes->ovn);
+		char **subject = (char **) (((char *)(wsgi_req))+routes->subject);
+		uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+routes->subject_len);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("route subject = %.*s\n", *subject_len, *subject);
+#endif
+		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, *subject, *subject_len, routes->ovector, routes->ovn);
 		if (n>= 0) {
 			int ret = routes->func(wsgi_req, routes);
 			if (ret != UWSGI_ROUTE_NEXT) {
@@ -76,6 +81,23 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 			}
 			ur = ur->next;
 		}
+	}
+
+	if (!strcmp(foobar, "http_host")) {
+		ur->subject = offsetof(struct wsgi_request, host);
+		ur->subject_len = offsetof(struct wsgi_request, host_len);
+	}
+	else if (!strcmp(foobar, "request_uri")) {
+		ur->subject = offsetof(struct wsgi_request, uri);
+		ur->subject_len = offsetof(struct wsgi_request, uri_len);
+	}
+	else if (!strcmp(foobar, "query_string")) {
+		ur->subject = offsetof(struct wsgi_request, query_string);
+		ur->subject_len = offsetof(struct wsgi_request, query_string_len);
+	}
+	else {
+		ur->subject = offsetof(struct wsgi_request, path_info);
+		ur->subject_len = offsetof(struct wsgi_request, path_info_len);
 	}
 
 	if (uwsgi_regexp_build(route, &ur->pattern, &ur->pattern_extra)) {
