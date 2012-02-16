@@ -571,6 +571,7 @@ void kill_them_all(int signum) {
 	// unsubscribe if needed
 	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
         while(subscriptions) {
+		uwsgi_log("unsubscribing from %s\n", subscriptions->value);
                 uwsgi_subscribe(subscriptions->value, 1);
                 subscriptions = subscriptions->next;
         }
@@ -662,6 +663,7 @@ void grace_them_all(int signum) {
 	if (uwsgi.unsubscribe_on_graceful_reload) {	
 		struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
         	while(subscriptions) {
+			uwsgi_log("unsubscribing from %s\n", subscriptions->value);
                 	uwsgi_subscribe(subscriptions->value, 1);
                 	subscriptions = subscriptions->next;
         	}
@@ -754,6 +756,7 @@ void reap_them_all(int signum) {
 	// unsubscribe if needed
 	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
         while(subscriptions) {
+		uwsgi_log("unsubscribing from %s\n", subscriptions->value);
                 uwsgi_subscribe(subscriptions->value, 1);
                 subscriptions = subscriptions->next;
         }
