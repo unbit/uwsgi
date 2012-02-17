@@ -96,12 +96,12 @@ void *logger_thread_loop(void *noarg) {
 	logpoll.fd = uwsgi.shared->worker_log_pipe[0];
 
 	for(;;) {
-		pthread_mutex_lock(&uwsgi.threaded_logger_lock);
 		int ret = poll(&logpoll, 1, -1);
 		if (ret > 0 && logpoll.revents & POLLIN) {
+			pthread_mutex_lock(&uwsgi.threaded_logger_lock);
 			master_log();
+			pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
 		}
-		pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
 	}
 
 	return NULL;
@@ -339,7 +339,6 @@ int master_loop(char **argv, char **environ) {
 			event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_log_pipe[0]);
 		}
 		else {
-			pthread_mutex_init(&uwsgi.threaded_logger_lock, NULL);
 			if (pthread_create(&logger_thread, NULL, logger_thread_loop, NULL)) {
 				uwsgi_error("pthread_create()");
 				uwsgi_log("falling back to non-threaded logger...\n");

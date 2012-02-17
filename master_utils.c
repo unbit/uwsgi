@@ -113,6 +113,7 @@ int uwsgi_respawn_worker(int wid) {
 	if (uwsgi.threaded_logger) {
 		pthread_mutex_lock(&uwsgi.threaded_logger_lock);
 	}
+
 	pid_t pid = uwsgi_fork(uwsgi.workers[wid].name);
 
 	if (pid == 0) {
@@ -159,15 +160,9 @@ int uwsgi_respawn_worker(int wid) {
 		return 1;
 	}
 	else if (pid < 1) {
-		if (uwsgi.threaded_logger) {
-			pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
-		}
 		uwsgi_error("fork()");
 	}
 	else {
-		if (uwsgi.threaded_logger) {
-			pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
-		}
 		if (respawns > 0) {
 			uwsgi_log("Respawned uWSGI worker %d (new pid: %d)\n", wid, (int) pid);
 		}
@@ -175,6 +170,11 @@ int uwsgi_respawn_worker(int wid) {
 			uwsgi_log("spawned uWSGI worker %d (pid: %d, cores: %d)\n", wid, pid, uwsgi.cores);
 		}
 	}
+
+	if (uwsgi.threaded_logger) {
+		pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
+	}
+
 
 	return 0;
 }

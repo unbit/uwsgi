@@ -268,7 +268,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-syslog", optional_argument, 0, "log to syslog", uwsgi_opt_set_logger, "syslog", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 	{"log-socket", required_argument, 0, "send logs to the specified socket", uwsgi_opt_set_logger, "socket", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 	{"logger", required_argument, 0, "set logger system", uwsgi_opt_set_logger, NULL, UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER },
-	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, 0},
+	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 #endif
@@ -2524,6 +2524,11 @@ skipzero:
 #endif
 
 	if (uwsgi.master_process) {
+		// initialize a mutex to avoid glibc problem with pthread+fork()
+		if (uwsgi.threaded_logger) {
+			pthread_mutex_init(&uwsgi.threaded_logger_lock, NULL);
+		}
+
 		if (uwsgi.is_a_reload) {
 			uwsgi_log("gracefully (RE)spawned uWSGI master process (pid: %d)\n", uwsgi.mypid);
 		}
@@ -2564,6 +2569,7 @@ skipzero:
 		}
 	}
 #endif
+
 
 	if (!uwsgi.master_process) {
 		if (uwsgi.numproc == 1) {
