@@ -9,15 +9,28 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 	while (ugs) {
 		if (!strcmp(gw_id, ugs->owner)) {
 			if (!ugs->subscription) {
-				ugs->port = strchr(ugs->name, ':');
-				if (ugs->fd == -1) {
-					if (ugs->port) {
-						ugs->fd = bind_to_tcp(ugs->name, uwsgi.listen_queue, ugs->port);
-						ugs->port++;
-						ugs->port_len = strlen(ugs->port);
-					}
-					else {
-						ugs->fd = bind_to_unix(ugs->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+				if (ugs->name[0] == '=') {
+					int shared_socket = atoi(ugs->name+1);
+                        		if (shared_socket >= 0) {
+                                		ugs->fd = uwsgi_get_shared_socket_fd_by_num(shared_socket);
+                                		if (ugs->fd == -1) {
+                                        		uwsgi_log("unable to use shared socket %d\n", shared_socket);
+							exit(1);
+                                		}
+						ugs->name = uwsgi_getsockname(ugs->fd);
+                        		}
+				}
+				else {
+					ugs->port = strchr(ugs->name, ':');
+					if (ugs->fd == -1) {
+						if (ugs->port) {
+							ugs->fd = bind_to_tcp(ugs->name, uwsgi.listen_queue, ugs->port);
+							ugs->port++;
+							ugs->port_len = strlen(ugs->port);
+						}
+						else {
+							ugs->fd = bind_to_unix(ugs->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+						}
 					}
 				}
 				// put socket in non-blocking mode
