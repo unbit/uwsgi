@@ -745,71 +745,9 @@ int master_loop(char **argv, char **environ) {
 			exit(0);
 		}
 		if ((uwsgi.cheap || ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
-			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
-			for (i = 0; i < (uwsgi.gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
-				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
-			}
-
-			if (uwsgi.exit_on_reload) {
-				uwsgi_log("uWSGI: GAME OVER (insert coin)\n");
-				exit(0);
-			}
-
-			uwsgi_log("binary reloading uWSGI...\n");
-			uwsgi_log("chdir() to %s\n", uwsgi.cwd);
-			if (chdir(uwsgi.cwd)) {
-				uwsgi_error("chdir()");
-			}
-
-			/* check fd table (a module can obviosly open some fd on initialization...) */
-			uwsgi_log("closing all non-uwsgi socket fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
-			for (i = 3; i < sysconf(_SC_OPEN_MAX); i++) {
-				int found = 0;
-
-				struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-				while (uwsgi_sock) {
-					if (i == uwsgi_sock->fd) {
-						uwsgi_log("found fd %d mapped to socket %d (%s)\n", i, uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
-						found = 1;
-						break;
-					}
-					uwsgi_sock = uwsgi_sock->next;
-				}
-
-				if (!found) {
-					if (uwsgi.has_emperor) {
-						if (i == uwsgi.emperor_fd) {
-							found = 1;
-						}
-					}
-				}
-
-				if (uwsgi.original_log_fd > -1) {
-					if (i == uwsgi.original_log_fd) {
-						dup2(uwsgi.original_log_fd, 1);
-						dup2(1, 2);
-					}
-				}
-				if (!found) {
-#ifdef __APPLE__
-					fcntl(i, F_SETFD, FD_CLOEXEC);
-#else
-					close(i);
-#endif
-				}
-			}
-
-#ifdef UWSGI_AS_SHARED_LIBRARY
+			uwsgi_reload(argv);
+			// never here (unless in shared library mode)
 			return -1;
-#else
-			uwsgi_log("running %s\n", uwsgi.binary_path);
-			argv[0] = uwsgi.binary_path;
-			//strcpy (argv[0], uwsgi.binary_path);
-			execvp(uwsgi.binary_path, argv);
-			uwsgi_error("execvp()");
-			// never here
-			exit(1);
-#endif
 		}
 
 		if (!uwsgi.cheap) {

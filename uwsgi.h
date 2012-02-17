@@ -2630,6 +2630,8 @@ int uwsgi_apply_routes(struct wsgi_request *);
 int uwsgi_apply_routes_fast(struct wsgi_request *, char *, int);
 #endif
 
+void uwsgi_reload(char **);
+
 char *uwsgi_chomp(char *);
 int uwsgi_file_to_string_list(char *, struct uwsgi_string_list **);
 void uwsgi_backtrace(int);
