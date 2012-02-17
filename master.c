@@ -652,11 +652,11 @@ int master_loop(char **argv, char **environ) {
 
 	-- Cheaper, algorithm, adapted from old-fashioned spare system --
 	
-	every time all of the workers are busy the overload_count is incremented
-	as soon as this value is higher than uwsgi.cheaper_overload (--cheaper-overload options)
-        a new worker is spawned.
+	when all of the workers are busy, the overload_count is incremented.
+	as soon as overload_count is higher than uwsgi.cheaper_overload (--cheaper-overload options)
+        cheaper_step (default to 1) new workers are spawned.
 
-        every time at least one workers is free the overload_count is decremented and the idle_count is incremented.
+        when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
         If overload_count reaches 0, idle_count is higher than uwsgi.cheaper_overload*10 and the number of active workers is higher than uwsgi.cheaper_count (--cheaper option)
 	the oldest worker will be cheaped and the "cheap them all" procedure will start.
 
@@ -666,6 +666,7 @@ int master_loop(char **argv, char **environ) {
 	Example:
             10 processes
             2 cheaper
+	    1 cheaper step
             3 cheaper_overload 
             1 second master cycle
     
@@ -681,7 +682,7 @@ int master_loop(char **argv, char **environ) {
 		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell) {
 			if (overload_count > uwsgi.cheaper_overload) {
 				last_decheap = 0;
-				// activate the first available worker
+				// activate the first available worker (taking step into account)
 				int decheaped = 0;
 				for (i = 1; i <= uwsgi.numproc; i++) {
 					if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
