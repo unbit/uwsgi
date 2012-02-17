@@ -1191,6 +1191,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *static_index;
 
 	char *daemonize;
+	int do_not_change_umask;
 	char *logfile;
 	int logfile_chown;
 

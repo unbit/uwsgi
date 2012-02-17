@@ -171,7 +171,9 @@ void daemonize(char *logfile) {
 		exit(0);
 	}
 
-	umask(0);
+	if (!uwsgi.do_not_change_umask) {
+		umask(0);
+	}
 
 	/*if (chdir("/") != 0) {
 	   uwsgi_error("chdir()");

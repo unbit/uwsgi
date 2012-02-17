@@ -3365,6 +3365,8 @@ void uwsgi_opt_set_umask(char *opt, char *value,  void *mode) {
                         umask_mode = (umask_mode << 3) + (value[3] - '0');
                 }
                 umask(umask_mode);
+
+	uwsgi.do_not_change_umask = 1;
 	
 }
 
