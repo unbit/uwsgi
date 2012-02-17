@@ -205,6 +205,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	//{"ldap-schema", no_argument, 0, "dump uWSGI ldap schema",0},
 	//{"ldap-schema-ldif", no_argument, 0, LONG_ARGS_LDAP_SCHEMA_LDIF,0},
 #endif
+	{"weight", required_argument, 0, "weight of the instance (used by clustering/lb/subscriptions)", uwsgi_opt_set_64bit, &uwsgi.weight, 0},
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server,0},
 	{"command-mode", no_argument, 0, "force command mode", uwsgi_opt_true, &uwsgi.command_mode, UWSGI_OPT_IMMEDIATE},
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept,0},

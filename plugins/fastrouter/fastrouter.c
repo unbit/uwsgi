@@ -242,6 +242,9 @@ void fastrouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 	else if (!uwsgi_strncmp("load", 4, key, keylen)) {
 		usr->load = uwsgi_str_num(val, vallen);
 	}
+	else if (!uwsgi_strncmp("weight", 5, key, keylen)) {
+		usr->weight = uwsgi_str_num(val, vallen);
+	}
 }
 
 struct fastrouter_session {
@@ -1017,7 +1020,7 @@ void fastrouter_send_stats(int fd) {
 			fprintf(output, "\t\t\"nodes\": [\n");
 			struct uwsgi_subscribe_node *s_node = s_slot->nodes;
 			while (s_node) {
-				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"cores\": %llu, \"load\": %llu, \"ref\": %llu, \"failcnt\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2, (unsigned long long) s_node->last_check, (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred, (unsigned long long) s_node->cores, (unsigned long long) s_node->load, (unsigned long long) s_node->reference, (unsigned long long) s_node->failcnt, s_node->death_mark);
+				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"cores\": %llu, \"load\": %llu, \"weight\": %llu, \"wrr\": %llu, \"ref\": %llu, \"failcnt\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2, (unsigned long long) s_node->last_check, (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred, (unsigned long long) s_node->cores, (unsigned long long) s_node->load, (unsigned long long) s_node->weight, (unsigned long long) s_node->wrr, (unsigned long long) s_node->reference, (unsigned long long) s_node->failcnt, s_node->death_mark);
 				if (s_node->next) {
 					fprintf(output, ",\n");
 				}

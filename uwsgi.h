@@ -1122,6 +1122,9 @@ struct uwsgi_server {
 	// still working on it
 	char *profiler;
 
+	// the weight of the instance, used by various cluster/lb components
+	uint64_t weight;
+
 	// mostly useless
 	char *mode;
 
@@ -2194,6 +2197,7 @@ struct uwsgi_subscribe_req {
 
 	uint64_t cores;
 	uint64_t load;
+	uint64_t weight;
 };
 
 #ifndef _NO_UWSGI_RB
@@ -2438,6 +2442,9 @@ struct uwsgi_subscribe_node {
 	uint64_t cores;
 	uint64_t load;
 	uint64_t failcnt;
+
+	uint64_t weight;
+	uint64_t wrr;
 
 	struct uwsgi_subscribe_slot *slot;
 
