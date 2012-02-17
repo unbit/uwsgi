@@ -7,9 +7,9 @@ extern struct uwsgi_python up;
 #define GET_CURRENT_GREENLET python_call(ugevent.get_current, ugevent.get_current_args, 0, NULL)
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req
 #define stop_the_watchers ret = PyObject_CallMethod(timer, "stop", NULL);\
-                          if (ret) Py_DECREF(ret);\
+                          if (ret) { Py_DECREF(ret); }\
                           ret = PyObject_CallMethod(watcher, "stop", NULL);\
-                          if (ret) Py_DECREF(ret);
+                          if (ret) { Py_DECREF(ret); }
 
 struct uwsgi_gevent {
 	PyObject *greenlet_switch;
