@@ -1174,7 +1174,9 @@ struct uwsgi_server {
 	struct uwsgi_logger *choosen_logger;
 	char *requested_logger;
 	char *choosen_logger_arg;
+
 	int threaded_logger;
+	pthread_mutex_t threaded_logger_lock;
 
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
