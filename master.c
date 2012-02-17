@@ -544,6 +544,8 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_check_touches(uwsgi.touch_logrotate);
 	uwsgi_check_touches(uwsgi.touch_logreopen);
 
+	// here really starts the master loop
+
 	for (;;) {
 		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
 
@@ -1255,6 +1257,7 @@ int master_loop(char **argv, char **environ) {
 
 
 #ifdef __linux__
+			// get listen_queue status
 			struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 			while (uwsgi_sock) {
 				if (uwsgi_sock->family == AF_INET) {
@@ -1482,7 +1485,7 @@ int master_loop(char **argv, char **environ) {
 
 
 			/* reload the gateways */
-			// TODO reload_gateway(diedpid);
+			// TODO reload_gateways(diedpid);
 			pid_found = 0;
 			for (i = 0; i < uwsgi.gateways_cnt; i++) {
 				if (uwsgi.gateways[i].pid == diedpid) {
@@ -1496,7 +1499,7 @@ int master_loop(char **argv, char **environ) {
 				continue;
 
 			/* reload the daemons */
-			// TODO reload_gateway(diedpid);
+			// TODO reload_daemons(diedpid);
 			pid_found = 0;
 			struct uwsgi_daemon *ud = uwsgi.daemons;
 			while (ud) {
