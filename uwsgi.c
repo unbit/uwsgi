@@ -351,8 +351,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"zerg", required_argument, 0, "attach to a zerg server", uwsgi_opt_add_string_list, &uwsgi.zerg_node, 0},
 	{"zerg-fallback", no_argument, 0, "fallback to normal sockets if the zerg server is not available", uwsgi_opt_true, &uwsgi.zerg_fallback, 0},
 	{"zerg-server", required_argument, 0, "enable the zerg server on the specified UNIX socket", uwsgi_opt_set_str, &uwsgi.zerg_server, UWSGI_OPT_MASTER},
-	// FUTURE additions
-	//{"zerg-pool", required_argument, 0, "create a zerg pool", uwsgi_opt_zerg_pool, NULL, 0},
+
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
@@ -364,6 +363,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"autoload", no_argument, 0, "try to automatically load plugins when unknown options are found", uwsgi_opt_true, &uwsgi.autoload, UWSGI_OPT_IMMEDIATE},
 	{"allowed-modifiers", required_argument, 0,"comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
+
+	{"app", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "use the more advanced \"mount\" option",0},
+
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options,0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config,0},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL,0},
@@ -3616,7 +3618,7 @@ void uwsgi_opt_max_vars(char *opt, char *value, void *foobar) {
 }
 
 void uwsgi_opt_deprecated(char *opt, char *value, void *message) {
-	uwsgi_log("[WARNING] option %s is deprecated: %s\n", opt, (char *)message);
+	uwsgi_log("[WARNING] option \"%s\" is deprecated: %s\n", opt, (char *)message);
 }
 
 void uwsgi_opt_load(char *opt, char *filename, void *none) {
