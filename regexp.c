@@ -56,7 +56,7 @@ char *uwsgi_regexp_apply_ovec(char *src, int src_n, char *dst, int dst_n, int *o
 
 	for(i=0;i<dst_n;i++) {
 		if (dollar) {
-			if (isdigit(dst[i])) {
+			if (isdigit((int)dst[i])) {
 				int pos = (dst[i] - 48);
 				if (pos <= n) {
 					pos = pos * 2;

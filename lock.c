@@ -259,8 +259,9 @@ void uwsgi_rwunlock(struct uwsgi_lock_item *uli) { uwsgi_unlock(uli); }
 #define UWSGI_LOCK_SIZE 8
 #define UWSGI_RWLOCK_SIZE 8
 
-void uwsgi_lock_init(void *lock) {
+struct uwsgi_lock_item *uwsgi_lock_init(char *id) {
 
+	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 	FILE *tf = tmpfile();
 	int fd;
 
@@ -270,27 +271,45 @@ void uwsgi_lock_init(void *lock) {
 	}
 	
 	fd = fileno(tf);
-
-	memcpy(lock, &fd, sizeof(int));
+	memcpy(uli->lock_ptr, &fd, sizeof(int));
+	return uli;
 }
 
-void uwsgi_lock(void *lock) {
+void uwsgi_lock(struct uwsgi_lock_item *uli) {
 
 	int fd;
-	memcpy(&fd, lock, sizeof(int));
+	memcpy(&fd, uli->lock_ptr, sizeof(int));
 	if (flock(fd, LOCK_EX)) { uwsgi_error("flock()"); }
 }
 
-void uwsgi_unlock(void *lock) {
+void uwsgi_unlock(struct uwsgi_lock_item *uli) {
 	int fd;
-	memcpy(&fd, lock, sizeof(int));
+	memcpy(&fd, uli->lock_ptr, sizeof(int));
 	if (flock(fd, LOCK_UN)) { uwsgi_error("flock()"); }
 }
 
-void uwsgi_rwlock_init(void *lock) { uwsgi_lock_init(lock) ;}
-void uwsgi_rlock(void *lock) { uwsgi_lock(lock);}
-void uwsgi_wlock(void *lock) { uwsgi_lock(lock);}
-void uwsgi_rwunlock(void *lock) { uwsgi_unlock(lock); }
+struct uwsgi_lock_item *uwsgi_rwlock_init(char *id) { return uwsgi_lock_init(id);}
+void uwsgi_rlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
+void uwsgi_wlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
+void uwsgi_rwunlock(struct uwsgi_lock_item *uli) { uwsgi_unlock(uli); }
+
+pid_t uwsgi_lock_check(struct uwsgi_lock_item *uli) {
+	int fd;
+	memcpy(&fd, uli->lock_ptr, sizeof(int));
+        if (flock(fd, LOCK_EX|LOCK_NB) < 0) {
+		if (errno == EWOULDBLOCK) {
+        		return uli->pid;
+		}
+        	return 0;
+        }
+	
+	// unlock
+	flock(fd, LOCK_UN);
+        return 0;
+}
+
+
+pid_t uwsgi_rwlock_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_check(uli); }
 
 #endif
 

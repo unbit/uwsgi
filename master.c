@@ -709,7 +709,7 @@ int master_loop(char **argv, char **environ) {
 
 				// find the oldest worker and cheap it
 				//if (active_workers > uwsgi.cheaper_count + 1 || (idle_count > 60 && active_workers > uwsgi.cheaper_count)) {
-				if ( active_workers > uwsgi.cheaper_count && ( (last_decheap && uwsgi.current_time-last_decheap > (uint32_t) uwsgi.cheaper_overload) || idle_count > (uint32_t)uwsgi.cheaper_overload*10)) {
+				if ( active_workers > uwsgi.cheaper_count && ( ( last_decheap > 0 && (uint32_t) (uwsgi.current_time-last_decheap) > (uint32_t) uwsgi.cheaper_overload) || idle_count > (uint32_t)uwsgi.cheaper_overload*10)) {
 					time_t oldest_worker_spawn = INT_MAX;
 					int oldest_worker = 0;
 					idle_count = 0;
