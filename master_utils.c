@@ -53,7 +53,7 @@ int uwsgi_calc_cheaper(void) {
         
         when all of the workers are busy, the overload_count is incremented.
         as soon as overload_count is higher than uwsgi.cheaper_overload (--cheaper-overload options)
-        t most cheaper_step (default to 1) new workers are spawned.
+        at most cheaper_step (default to 1) new workers are spawned.
 
         when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
         If overload_count reaches 0, the system will count active workers (the ones uncheaped) and busy workers (the ones running a request)
