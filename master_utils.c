@@ -5,6 +5,165 @@ extern struct uwsgi_server uwsgi;
 void worker_wakeup() {
 }
 
+int uwsgi_calc_cheaper(void) {
+
+	int i;
+
+	int needed_workers = uwsgi_cheaper_algo_spare();
+
+	if (needed_workers > 0) {
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
+				if (uwsgi_respawn_worker(i))
+					return 0;
+				needed_workers--;
+			}
+			if (needed_workers == 0)
+				break;
+		}
+	}
+	else if (needed_workers < 0) {
+		int oldest_worker = 0;
+		time_t oldest_worker_spawn = INT_MAX;
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+				if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
+					oldest_worker_spawn = uwsgi.workers[i].last_spawn;
+					oldest_worker = i;
+				}
+			}
+		}
+		if (oldest_worker > 0) {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("worker %d should die...\n", oldest_worker);
+#endif
+			uwsgi.workers[oldest_worker].cheaped = 1;
+			uwsgi.workers[oldest_worker].manage_next_request = 0;
+			// wakeup task in case of wait
+			(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
+		}
+	}
+
+	return 1;
+}
+
+/*
+
+        -- Cheaper, spare algorithm, adapted from old-fashioned spare system --
+        
+        when all of the workers are busy, the overload_count is incremented.
+        as soon as overload_count is higher than uwsgi.cheaper_overload (--cheaper-overload options)
+        t most cheaper_step (default to 1) new workers are spawned.
+
+        when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
+        If overload_count reaches 0, the system will count active workers (the ones uncheaped) and busy workers (the ones running a request)
+	if there is exacly 1 free worker we are in "stable state" (1 spare worker available). no worker will be touched.
+	if the number of active workers is higher than uwsgi.cheaper_count and at least uwsgi.cheaper_overload cycles are passed from the last
+        "cheap it" procedure, then cheap a worker.
+
+        Example:
+            10 processes
+            2 cheaper
+            2 cheaper step
+            3 cheaper_overload 
+            1 second master cycle
+    
+            there are 7 workers running (triggered by some kind of spike activity).
+	    Of this, 6 are busy, 1 is free. We are in stable state.
+            After a bit the spike disappear and idle_count start to increase.
+
+	    After 3 seconds (uwsgi.cheaper_overload cycles) the oldest worker will be cheaped. This will happens
+	    every  seconds (uwsgi.cheaper_overload cycles) til the number of workers is == uwsgi.cheaper_count.
+
+	    If during the "cheap them all" procedure, an overload condition come again (another spike) the "cheap them all"
+            will be interrupted.
+
+
+*/
+
+
+int uwsgi_cheaper_algo_spare(void) {
+
+	int i;
+	static uint64_t overload_count = 0;
+	static uint64_t idle_count = 0;
+
+	// step 1 -> count the number of busy workers
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+			// if a non-busy worker is found, the overload_count is decremented and stop the cycle
+			if (uwsgi.workers[i].busy == 0) {
+				if (overload_count > 0)
+					overload_count--;
+				goto healthy;
+			}
+		}
+	}
+
+	overload_count++;
+	idle_count = 0;
+
+      healthy:
+
+	// are we overloaded ?
+	if (overload_count > uwsgi.cheaper_overload) {
+
+#ifdef UWSGI_DEBUG
+		uwsgi_log("overloaded !!!\n");
+#endif
+
+		// activate the first available worker (taking step into account)
+		int decheaped = 0;
+		// search for cheaped workers
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
+				decheaped++;
+				if (decheaped >= uwsgi.cheaper_step)
+					break;
+			}
+		}
+		// reset overload
+		overload_count = 0;
+		// return the maxium number of workers to spawn
+		return decheaped;
+	}
+	// we are no more overloaded
+	else if (overload_count == 0) {
+		// how many active workers ?
+		int active_workers = 0;
+		int busy_workers = 0;
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+				active_workers++;
+				if (uwsgi.workers[i].busy == 1)
+					busy_workers++;
+			}
+		}
+
+#ifdef UWSGI_DEBUG
+		uwsgi_log("active workers %d busy_workers %d\n", active_workers, busy_workers);
+#endif
+
+		// special condition: uwsgi.cheaper running workers and 1 free
+		if (active_workers > busy_workers && active_workers - busy_workers == 1) {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("stable status: 1 spare worker\n");
+#endif
+			return 0;
+		}
+
+		idle_count++;
+
+		if (active_workers > uwsgi.cheaper_count && idle_count % uwsgi.cheaper_overload == 0) {
+			// we are in "cheap them all"
+			return -1;
+		}
+	}
+
+	return 0;
+
+}
+
 void uwsgi_reload(char **argv) {
 	int i;
 	int waitpid_status;

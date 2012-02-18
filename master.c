@@ -279,9 +279,6 @@ int master_loop(char **argv, char **environ) {
 	int rlen;
 
 	int check_interval = 1;
-	uint64_t overload_count = 0;
-	uint64_t idle_count = 0;
-	time_t last_decheap = 0;
 
 	struct uwsgi_rb_timer *min_timeout;
 	struct rb_root *rb_timers = uwsgi_init_rb_timer();
@@ -636,104 +633,7 @@ int master_loop(char **argv, char **environ) {
 
 		// cheaper management
 		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell) {
-			for (i = 1; i <= uwsgi.numproc; i++) {
-				if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-					if (uwsgi.workers[i].busy == 0) {
-						if (overload_count > 0)
-							overload_count--;
-						goto healthy;
-					}
-				}
-			}
-			overload_count++;
-			idle_count = 0;
-		}
-
-	      healthy:
-/*
-
-	-- Cheaper, algorithm, adapted from old-fashioned spare system --
-	
-	when all of the workers are busy, the overload_count is incremented.
-	as soon as overload_count is higher than uwsgi.cheaper_overload (--cheaper-overload options)
-        cheaper_step (default to 1) new workers are spawned.
-
-        when at least one worker is free, the overload_count is decremented and the idle_count is incremented.
-        If overload_count reaches 0, idle_count is higher than uwsgi.cheaper_overload*10 and the number of active workers is higher than uwsgi.cheaper_count (--cheaper option)
-	the oldest worker will be cheaped and the "cheap them all" procedure will start.
-
-        while in "cheap them all" mode, the master will start "cheaping" the un-needed workers with an interval of uwsgi.cheaper_overload cycles (normally a cycle map to 1 second)
-	If an overload condition is detected, "cheap them all" mode will be interrupted.
-
-	Example:
-            10 processes
-            2 cheaper
-	    1 cheaper step
-            3 cheaper_overload 
-            1 second master cycle
-    
-	    there are 7 workers running (triggered by some kind of spike activity).
-            After a bit the spike disappear and idle_count start to increase.
-
-	    After 30 seconds (cheaper_overload*10) of this status, the oldest worker will be cheaped (we have now 6 workers)
-            every 3 seconds (cheaper_overload*master_cycle) another worker  will be cheaped, til only 2 (cheaper) workers will be available.
-	    
-
-
-*/
-		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell) {
-			if (overload_count > uwsgi.cheaper_overload) {
-				last_decheap = 0;
-				// activate the first available worker (taking step into account)
-				int decheaped = 0;
-				for (i = 1; i <= uwsgi.numproc; i++) {
-					if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
-						if (uwsgi_respawn_worker(i))
-							return 0;
-						overload_count = 0;
-						decheaped++;
-						if (decheaped >= uwsgi.cheaper_step)
-							break;
-					}
-				}
-			}
-			else if (overload_count == 0) {
-				// how many active workers ?
-				idle_count++;
-				int active_workers = 0;
-				for (i = 1; i <= uwsgi.numproc; i++) {
-					if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-						active_workers++;
-					}
-				}
-
-				// find the oldest worker and cheap it
-				//if (active_workers > uwsgi.cheaper_count + 1 || (idle_count > 60 && active_workers > uwsgi.cheaper_count)) {
-				if ( active_workers > uwsgi.cheaper_count && ( ( last_decheap > 0 && (uint32_t) (uwsgi.current_time-last_decheap) > (uint32_t) uwsgi.cheaper_overload) || idle_count > (uint32_t)uwsgi.cheaper_overload*10)) {
-					time_t oldest_worker_spawn = INT_MAX;
-					int oldest_worker = 0;
-					idle_count = 0;
-					for (i = 1; i <= uwsgi.numproc; i++) {
-						if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-							if (uwsgi.workers[i].last_spawn < oldest_worker_spawn) {
-								oldest_worker_spawn = uwsgi.workers[i].last_spawn;
-								oldest_worker = i;
-							}
-						}
-					}
-					if (oldest_worker > 0) {
-#ifdef UWSGI_DEBUG
-						uwsgi_log("worker %d should die...\n", oldest_worker);
-#endif
-						uwsgi.workers[oldest_worker].cheaped = 1;
-						uwsgi.workers[oldest_worker].manage_next_request = 0;
-						// wakeup task in case of wait
-						(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
-						overload_count = 0;
-						last_decheap = uwsgi.current_time;
-					}
-				}
-			}
+			if (!uwsgi_calc_cheaper()) return 0;
 		}
 
 
