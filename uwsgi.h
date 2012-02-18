@@ -1124,6 +1124,7 @@ struct uwsgi_server {
 
 	// the weight of the instance, used by various cluster/lb components
 	uint64_t weight;
+	int auto_weight;
 
 	// mostly useless
 	char *mode;

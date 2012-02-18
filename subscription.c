@@ -403,7 +403,15 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 
 	int value_cores_size = uwsgi_long2str2n(uwsgi.numproc*uwsgi.cores, value_cores, sizeof(UMAX64_STR));
 	int value_load_size = uwsgi_long2str2n(uwsgi.shared->load, value_load, sizeof(UMAX64_STR));
-	int value_weight_size = uwsgi_long2str2n(uwsgi.weight, value_weight, sizeof(UMAX64_STR));
+
+	int value_weight_size = 0;
+	
+	if (uwsgi.auto_weight) {
+		value_weight_size = uwsgi_long2str2n(uwsgi.numproc*uwsgi.cores, value_weight, sizeof(UMAX64_STR));
+	}
+	else {
+		value_weight_size = uwsgi_long2str2n(uwsgi.weight, value_weight, sizeof(UMAX64_STR));
+	}
 
 	char value_modifier1[4];
 	char value_modifier2[4];
