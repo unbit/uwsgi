@@ -819,7 +819,9 @@ int uwsgi_python_mount_app(char *mountpoint, char *app, int regexp) {
 		if (uwsgi.single_interpreter) {
 			id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, up.main_thread, PYTHON_APP_TYPE_WSGI);
 		}
-		id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
+		else {
+			id = init_uwsgi_app(LOADER_MOUNT, app, uwsgi.wsgi_req, NULL, PYTHON_APP_TYPE_WSGI);
+		}
 
 #ifdef UWSGI_PCRE
 	int i;
