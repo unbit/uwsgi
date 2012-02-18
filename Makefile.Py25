@@ -1,2 +1,0 @@
-all:
-	python2.5 uwsgiconfig.py --build
