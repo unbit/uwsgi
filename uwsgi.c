@@ -3201,13 +3201,6 @@ void uwsgi_init_all_apps() {
 		}
 	}
 
-	/*parse xml for <app> tags */
-#ifdef UWSGI_XML
-	if (uwsgi.xml_round2 && uwsgi.xml_config != NULL) {
-		uwsgi_xml_config(uwsgi.xml_config, uwsgi.wsgi_req, 1, NULL);
-	}
-#endif
-
 	for (i = 0; i < uwsgi.mounts_cnt; i++) {
 		char *what = strchr(uwsgi.mounts[i], '=');
 		if (what) {
@@ -3673,7 +3666,7 @@ void uwsgi_opt_load_ini(char *opt, char *filename, void *none) {
 #ifdef UWSGI_XML
 void uwsgi_opt_load_xml(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
-	uwsgi_xml_config(filename, uwsgi.wsgi_req, 0, uwsgi.magic_table);
+	uwsgi_xml_config(filename, uwsgi.wsgi_req, uwsgi.magic_table);
 }
 #endif
 

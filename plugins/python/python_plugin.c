@@ -1159,56 +1159,6 @@ void uwsgi_python_init_thread(int core_id) {
 
 }
 
-int uwsgi_python_xml(char *node, char *content) {
-
-	PyThreadState *interpreter = NULL;
-
-	if (uwsgi.single_interpreter) {
-		interpreter = up.main_thread;
-	}
-
-	if (!strcmp("script", node)) {
-		return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
-	}
-	else if (!strcmp("file", node)) {
-		return init_uwsgi_app(LOADER_FILE, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
-	}
-	else if (!strcmp("eval", node)) {
-		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
-	}
-	else if (!strcmp("wsgi", node)) {
-		return init_uwsgi_app(LOADER_EVAL, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
-	}
-	else if (!strcmp("module", node)) {
-		uwsgi.wsgi_req->module = content;
-		uwsgi.wsgi_req->module_len = strlen(content);
-		uwsgi.wsgi_req->callable = strchr(uwsgi.wsgi_req->module, ':');
-		if (uwsgi.wsgi_req->callable) {
-			uwsgi.wsgi_req->callable[0] = 0;
-			uwsgi.wsgi_req->callable++;
-			uwsgi.wsgi_req->callable_len = strlen(uwsgi.wsgi_req->callable);
-			uwsgi.wsgi_req->module_len = strlen(uwsgi.wsgi_req->module);
-			return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
-		}
-		else {
-			return init_uwsgi_app(LOADER_UWSGI, content, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
-		}
-		return 1;
-	}
-	else if (!strcmp("pyhome", node)) {
-		uwsgi.wsgi_req->pyhome = content;
-		uwsgi.wsgi_req->pyhome_len = strlen(content);
-		return 1;
-	}
-	else if (!strcmp("callable", node)) {
-		uwsgi.wsgi_req->callable = content;
-		uwsgi.wsgi_req->callable_len = strlen(content);
-		return init_uwsgi_app(LOADER_DYN, uwsgi.wsgi_req, uwsgi.wsgi_req, interpreter, PYTHON_APP_TYPE_WSGI);
-	}
-
-	return 0;
-}
-
 #ifndef UWSGI_PYPY
 void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
@@ -1558,7 +1508,6 @@ struct uwsgi_plugin python_plugin = {
 
 	.enable_threads = uwsgi_python_enable_threads,
 	.init_thread = uwsgi_python_init_thread,
-	.manage_xml = uwsgi_python_xml,
 
 	.magic = uwsgi_python_magic,
 

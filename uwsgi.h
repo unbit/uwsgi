@@ -574,7 +574,6 @@ struct uwsgi_plugin {
 	void (*master_cycle) (void);
 	int (*mount_app) (char *, char *, int);
 	int (*manage_udp) (char *, int, char *, int);
-	int (*manage_xml) (char *, char *);
 	void (*suspend) (struct wsgi_request *);
 	void (*resume) (struct wsgi_request *);
 
@@ -1356,12 +1355,7 @@ struct uwsgi_server {
 	mode_t chmod_logfile_value;
 	int listen_queue;
 
-#ifdef UWSGI_XML
-	char *xml_config;
-#endif
-
 	char *file_config;
-
 
 #ifdef UWSGI_ROUTING
 	struct uwsgi_router *routers;
@@ -1837,7 +1831,7 @@ void harakiri(void);
 void stats(int);
 
 #ifdef UWSGI_XML
-void uwsgi_xml_config(char *, struct wsgi_request *, int, char *[]);
+void uwsgi_xml_config(char *, struct wsgi_request *, char *[]);
 #endif
 
 void internal_server_error(struct wsgi_request *, char *);
