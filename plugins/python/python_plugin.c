@@ -180,6 +180,7 @@ int uwsgi_python_init() {
 
 	Py_OptimizeFlag = up.optimize;
 
+	uwsgi_log("AAAA\n");
 	Py_Initialize();
 
 
@@ -243,9 +244,13 @@ void uwsgi_python_atexit() {
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
 
+	uwsgi_log("FOO 0\n");
+
 	if (!Py_IsInitialized()) {
 		return;
 	}
+
+	uwsgi_log("FOO\n");
 
 	if (uwsgi.has_threads)
 		PyGILState_Ensure();
@@ -1092,6 +1097,7 @@ void uwsgi_python_master_fixup(int step) {
 
 void uwsgi_python_enable_threads() {
 
+	uwsgi_log("ALEE\n");
 	PyEval_InitThreads();
 	if (pthread_key_create(&up.upt_save_key, NULL)) {
 		uwsgi_error("pthread_key_create()");

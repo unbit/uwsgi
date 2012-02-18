@@ -819,22 +819,6 @@ VALUE init_rack_app( VALUE script ) {
         return RARRAY_PTR(rackup)[0] ;
 }
 
-int uwsgi_rack_xml(char *node, char *content) {
-
-	int error;
-
-	if (!strcmp("rack", node)) {
-		ur.dispatcher = rb_protect(init_rack_app, rb_str_new2(content), &error);
-		if (ur.dispatcher != Qnil) {
-			rb_gc_register_address(&ur.dispatcher);
-			uwsgi_log("Rack application ready\n");
-			return 1;
-		}
-        }
-
-	return 0;
-}
-
 int uwsgi_rack_magic(char *mountpoint, char *lazy) {
 
 	if (!strcmp(lazy+strlen(lazy)-3, ".ru")) {
@@ -1026,7 +1010,6 @@ struct uwsgi_plugin rack_plugin = {
 
 	.init_apps = uwsgi_rack_init_apps,
 	//.mount_app = uwsgi_rack_mount_app,
-	.manage_xml = uwsgi_rack_xml,
 
 	.magic = uwsgi_rack_magic,
 
