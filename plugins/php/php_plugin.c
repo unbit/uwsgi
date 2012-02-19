@@ -12,9 +12,15 @@ extern struct uwsgi_server uwsgi;
 // http status codes list
 extern struct http_status_codes hsc[];
 
+static sapi_module_struct uwsgi_sapi_module;
+
 struct uwsgi_php {
 	struct uwsgi_string_list *allowed_docroot;
 	struct uwsgi_string_list *allowed_ext;
+	struct uwsgi_string_list *index;
+	struct uwsgi_string_list *set;
+	char *docroot;
+	size_t ini_size;
 } uphp;
 
 void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
@@ -22,15 +28,56 @@ void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
         uwsgi_sapi_module.php_ini_ignore = 1;
 }
 
-struct option uwsgi_php_options[] = {
+
+struct uwsgi_option uwsgi_php_options[] = {
 
         {"php-ini", required_argument, 0, "set php.ini path", uwsgi_opt_php_ini, NULL, 0},
         {"php-config", required_argument, 0, "set php.ini path", uwsgi_opt_php_ini, NULL, 0},
+        {"php-set", required_argument, 0, "set a php config directive", uwsgi_opt_add_string_list, &uphp.set, 0},
+        {"php-index", required_argument, 0, "list the php index files", uwsgi_opt_add_string_list, &uphp.index, 0},
+        {"php-docroot", required_argument, 0, "force php DOCUMENT_ROOT", uwsgi_opt_set_str, &uphp.docroot, 0},
         {"php-allowed-docroot", required_argument, 0, "list the allowed document roots", uwsgi_opt_add_string_list, &uphp.allowed_docroot, 0},
         {"php-allowed-ext", required_argument, 0, "list the allowed php file extensions", uwsgi_opt_add_string_list, &uphp.allowed_ext, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
+
+void uwsgi_php_redirect_to_slash(struct wsgi_request *wsgi_req) {
+
+        struct iovec iov[6];
+
+        wsgi_req->status = 301;
+        iov[0].iov_base = wsgi_req->protocol;
+        iov[0].iov_len = wsgi_req->protocol_len;
+        iov[1].iov_base = " 301 Moved Permanently\r\n";
+        iov[1].iov_len = 24;
+        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
+
+        iov[0].iov_base = "Location: ";
+        iov[0].iov_len = 10;
+        iov[1].iov_base = wsgi_req->path_info;
+        iov[1].iov_len = wsgi_req->path_info_len;
+        iov[2].iov_base = "/";
+        iov[2].iov_len = 1;
+
+        if (wsgi_req->query_string_len > 0) {
+                iov[3].iov_base = "?";
+                iov[3].iov_len = 1;
+                iov[4].iov_base = wsgi_req->query_string;
+                iov[4].iov_len = wsgi_req->query_string_len;
+                iov[5].iov_base = "\r\n\r\n";
+                iov[5].iov_len = 4;
+                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 6);
+                wsgi_req->header_cnt++;
+        }
+        else {
+                iov[3].iov_base = "\r\n\r\n";
+                iov[3].iov_len = 4;
+                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
+                wsgi_req->header_cnt++;
+        }
+}
+
 
 
 static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
@@ -68,9 +115,22 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 	char status[4];
 	struct http_status_codes *http_sc;
 
+	if (SG(request_info).no_headers == 1) {
+                return SAPI_HEADER_SENT_SUCCESSFULLY;
+        }
+
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
+	uwsgi_log("http status = %d\n", SG(sapi_headers).http_response_code);
 	wsgi_req->status = SG(sapi_headers).http_response_code;
 	if (!wsgi_req->status) wsgi_req->status = 200;
+
+	uwsgi_log("STATUS: %s\n", SG(sapi_headers).http_status_line);
+	h = (sapi_header_struct*)zend_llist_get_first_ex(&sapi_headers->headers, &pos);
+	uwsgi_log("pos = %d\n", pos);
+	while (h) {
+		uwsgi_log("%s\n", h->header);
+		h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);	
+	}
 
 	iov[0].iov_base = wsgi_req->protocol;
 	iov[0].iov_len = wsgi_req->protocol_len;
@@ -185,6 +245,8 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 	php_import_environment_variables(track_vars_array TSRMLS_CC);
 
+	php_register_variable_safe("SERVER_SOFTWARE", "uWSGI", 5, track_vars_array TSRMLS_CC);
+
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 		php_register_variable_safe( estrndup(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len),
 			wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len,
@@ -212,9 +274,47 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 
 static sapi_module_struct uwsgi_sapi_module;
 
+
+
+
+
+void uwsgi_php_set(char *opt) {
+
+	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + strlen(opt)+2);
+	if (uphp.ini_size == 0) {
+		memcpy(uwsgi_sapi_module.ini_entries, opt, strlen(opt));
+	}
+	else {
+		memcpy(uwsgi_sapi_module.ini_entries + (uphp.ini_size -1), opt, strlen(opt));
+	}
+	uphp.ini_size += strlen(opt)+2;
+	uwsgi_sapi_module.ini_entries[uphp.ini_size-2] = '\n';
+	uwsgi_sapi_module.ini_entries[uphp.ini_size-1] = 0;
+}
+
+// future implementation...
+PHP_MINIT_FUNCTION(uwsgi_php_minit) {
+	return SUCCESS;
+}
+
+static zend_module_entry uwsgi_module_entry = {
+        STANDARD_MODULE_HEADER,
+        "uwsgi",
+        NULL,
+        PHP_MINIT(uwsgi_php_minit),
+	NULL,
+        NULL,
+        NULL,
+        NULL,
+        UWSGI_VERSION,
+        STANDARD_MODULE_PROPERTIES
+};
+
+
 static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 {
-	if (php_module_startup(&uwsgi_sapi_module, NULL, 0)==FAILURE) {
+
+	if (php_module_startup(&uwsgi_sapi_module, &uwsgi_module_entry, 1)==FAILURE) {
 		return FAILURE;
 	} else {
 		return SUCCESS;
@@ -261,14 +361,22 @@ int uwsgi_php_init(void) {
 
 	struct http_status_codes *http_sc;
 
+	struct uwsgi_string_list *pset = uphp.set;
+
 	sapi_startup(&uwsgi_sapi_module);
+
+	// applying custom options
+       	while(pset) {
+               	uwsgi_php_set(pset->value);
+               	pset = pset->next;
+       	}
+
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
 
 	// filling http status codes
         for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
                 http_sc->message_size = strlen(http_sc->message);
         }
-
 
 	uwsgi_log("PHP %s initialized\n", PHP_VERSION);
 
@@ -337,6 +445,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	uint16_t docroot_len = 0;
 	char *path_info = NULL;
 	size_t real_filename_len = 0;
+	struct stat php_stat;
 
 	zend_file_handle file_handle;
 
@@ -346,11 +455,19 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	char *docroot = uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &docroot_len);
+	char *docroot = uphp.docroot;
 
 	if (!docroot) {
-		docroot = uwsgi.cwd;
-		docroot_len = strlen(uwsgi.cwd);
+
+		uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &docroot_len);
+
+		if (!docroot) {
+			docroot = uwsgi.cwd;
+			docroot_len = strlen(uwsgi.cwd);
+		}
+	}
+	else {
+		docroot_len = strlen(docroot);
 	}
 
 	char *filename = uwsgi_concat4n(docroot, docroot_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
@@ -359,6 +476,9 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 		free(filename);
 		return -1;
 	}
+
+	char *orig_path_info = wsgi_req->path_info;
+	uint16_t orig_path_info_len = wsgi_req->path_info_len;
 
 	if (path_info) {
 		wsgi_req->path_info = path_info;
@@ -394,6 +514,47 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 secure:
 
+	if (stat(real_filename, &php_stat)) {
+                uwsgi_php_404(wsgi_req);
+                return UWSGI_OK;
+        }
+
+        if (S_ISDIR(php_stat.st_mode)) {
+
+                // add / to directories
+                if (orig_path_info_len == 0 || orig_path_info[orig_path_info_len-1] != '/') {
+			wsgi_req->path_info = orig_path_info;
+			wsgi_req->path_info_len = orig_path_info_len;
+                        uwsgi_php_redirect_to_slash(wsgi_req);
+                        return UWSGI_OK;
+                }
+                struct uwsgi_string_list *upi = uphp.index;
+                real_filename[real_filename_len] = '/';
+                real_filename_len++;
+                int found = 0;
+                while(upi) {
+                        if (real_filename_len + upi->len + 1 < PATH_MAX) {
+                                // add + 1 to ensure null byte
+                                memcpy(real_filename+real_filename_len, upi->value, upi->len + 1);
+                                if (!access(real_filename, R_OK)) {
+
+                                        found = 1;
+                                        break;
+                                }
+                        }
+                        upi = upi->next;
+                }
+
+                if (!found) {
+                        uwsgi_php_404(wsgi_req);
+                        return UWSGI_OK;
+                }
+
+		real_filename_len = strlen(real_filename);
+
+        }
+
+
 	if (uphp.allowed_ext) {
 		struct uwsgi_string_list *usl = uphp.allowed_ext;
                 while(usl) {
@@ -427,6 +588,9 @@ secure2:
 	uwsgi_log("php filename = %s\n", real_filename);
 #endif
 
+
+
+
 	// now check for allowed paths and extensions
 
 	SG(request_info).request_uri = estrndup(wsgi_req->uri, wsgi_req->uri_len);
@@ -438,6 +602,7 @@ secure2:
 	SG(request_info).content_type = estrndup(wsgi_req->content_type, wsgi_req->content_type_len);
 
 	SG(request_info).path_translated = wsgi_req->file;
+
 
         file_handle.type = ZEND_HANDLE_FILENAME;
         file_handle.filename = real_filename;
@@ -465,6 +630,7 @@ void uwsgi_php_after_request(struct wsgi_request *wsgi_req) {
 
 
 SAPI_API struct uwsgi_plugin php_plugin = {
+	.name = "php",
 	.modifier1 = 14,
 	.init = uwsgi_php_init,
 	.request = uwsgi_php_request,

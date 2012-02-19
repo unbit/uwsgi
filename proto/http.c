@@ -64,6 +64,10 @@ static uint16_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, i
 	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		wsgi_req->post_cl = uwsgi_str_num(val, vallen);
 	}
+	else if (!uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen)) {
+		wsgi_req->content_type = val;
+		wsgi_req->content_type_len = vallen;
+	}
 
 	if (buffer + keylen + vallen + 2 + 2 >= watermark) {
 		if (prefix) {
