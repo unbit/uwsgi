@@ -260,6 +260,8 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 	php_register_variable_safe("SCRIPT_NAME", wsgi_req->script_name, wsgi_req->script_name_len, track_vars_array TSRMLS_CC);
 	php_register_variable_safe("SCRIPT_FILENAME", wsgi_req->file, wsgi_req->file_len, track_vars_array TSRMLS_CC);
 
+	php_register_variable_safe("DOCUMENT_ROOT", wsgi_req->document_root, wsgi_req->document_root_len, track_vars_array TSRMLS_CC);
+
 
 	if (wsgi_req->path_info_len) {
 		char *path_translated = ecalloc(1, (wsgi_req->file_len - wsgi_req->script_name_len) + wsgi_req->path_info_len + 1);
@@ -267,6 +269,9 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 		memcpy(path_translated, wsgi_req->file, (wsgi_req->file_len - wsgi_req->script_name_len));
 		memcpy(path_translated + (wsgi_req->file_len - wsgi_req->script_name_len), wsgi_req->path_info, wsgi_req->path_info_len);
 		php_register_variable_safe("PATH_TRANSLATED", path_translated, (wsgi_req->file_len - wsgi_req->script_name_len) + wsgi_req->path_info_len , track_vars_array TSRMLS_CC);
+	}
+	else {
+		php_register_variable_safe("PATH_TRANSLATED", "", 0, track_vars_array TSRMLS_CC);
 	}
 
 	php_register_variable_safe("PHP_SELF", wsgi_req->script_name, wsgi_req->script_name_len, track_vars_array TSRMLS_CC);
@@ -325,7 +330,7 @@ static int php_uwsgi_startup(sapi_module_struct *sapi_module)
 
 static void sapi_uwsgi_log_message(char *message) {
 
-	uwsgi_log(message);
+	uwsgi_log("%s\n", message);
 }
 
 static sapi_module_struct uwsgi_sapi_module = {
@@ -444,7 +449,6 @@ int uwsgi_php_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
 int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 	char real_filename[PATH_MAX+1];
-	uint16_t docroot_len = 0;
 	char *path_info = NULL;
 	size_t real_filename_len = 0;
 	struct stat php_stat;
@@ -457,24 +461,24 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	char *docroot = uphp.docroot;
+	wsgi_req->document_root = uphp.docroot;
 
-	if (!docroot) {
+	if (!wsgi_req->document_root) {
 
-		uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &docroot_len);
+		uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &wsgi_req->document_root_len);
 
-		if (!docroot) {
-			docroot = uwsgi.cwd;
-			docroot_len = strlen(uwsgi.cwd);
+		if (!wsgi_req->document_root) {
+			wsgi_req->document_root = uwsgi.cwd;
+			wsgi_req->document_root_len = strlen(uwsgi.cwd);
 		}
 	}
 	else {
-		docroot_len = strlen(docroot);
+		wsgi_req->document_root_len = strlen(wsgi_req->document_root);
 	}
 
-	char *filename = uwsgi_concat4n(docroot, docroot_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+	char *filename = uwsgi_concat4n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
 
-	if (uwsgi_php_walk(wsgi_req, filename, docroot, docroot_len, &path_info)) {
+	if (uwsgi_php_walk(wsgi_req, filename, wsgi_req->document_root, wsgi_req->document_root_len, &path_info)) {
 		free(filename);
 		return -1;
 	}
@@ -577,11 +581,11 @@ secure2:
 	wsgi_req->file = real_filename;
 	wsgi_req->file_len = strlen(wsgi_req->file);
 
-	if (docroot[docroot_len-1] == '/') {
-		wsgi_req->script_name = real_filename + (docroot_len-1);
+	if (wsgi_req->document_root[wsgi_req->document_root_len-1] == '/') {
+		wsgi_req->script_name = real_filename + (wsgi_req->document_root_len-1);
 	}
 	else {
-		wsgi_req->script_name = real_filename + docroot_len;
+		wsgi_req->script_name = real_filename + wsgi_req->document_root_len;
 	}
 
 	wsgi_req->script_name_len = strlen(wsgi_req->script_name);

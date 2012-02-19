@@ -784,6 +784,9 @@ struct wsgi_request {
 	char *content_type;
 	uint16_t content_type_len;
 
+	char *document_root;
+	uint16_t document_root_len;
+
 	char *path_info;
 	uint16_t path_info_len;
 	int path_info_pos;
