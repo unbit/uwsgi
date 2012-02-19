@@ -85,7 +85,7 @@ static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
 	ssize_t len = wsgi_req->socket->proto_write(wsgi_req, (char *) str, str_length);
-	if (len != str_length) {
+	if (len != (ssize_t) str_length) {
 		php_handle_aborted_connection();
 		return -1;
 	}
@@ -120,51 +120,52 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
         }
 
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
-	uwsgi_log("http status = %d\n", SG(sapi_headers).http_response_code);
 	wsgi_req->status = SG(sapi_headers).http_response_code;
 	if (!wsgi_req->status) wsgi_req->status = 200;
 
-	uwsgi_log("STATUS: %s\n", SG(sapi_headers).http_status_line);
-	h = (sapi_header_struct*)zend_llist_get_first_ex(&sapi_headers->headers, &pos);
-	uwsgi_log("pos = %d\n", pos);
-	while (h) {
-		uwsgi_log("%s\n", h->header);
-		h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);	
+	if (!SG(sapi_headers).http_status_line) {
+
+		iov[0].iov_base = wsgi_req->protocol;
+		iov[0].iov_len = wsgi_req->protocol_len;
+
+
+		iov[1].iov_base = " ";
+		iov[1].iov_len = 1;
+
+		uwsgi_num2str2n(wsgi_req->status, status, 4);
+
+		iov[2].iov_base = status;
+		iov[2].iov_len = 3;
+
+		iov[3].iov_base = " ";
+		iov[3].iov_len = 1;
+
+		// get the status code
+        	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+                	if (!strncmp(http_sc->key, status, 3)) {
+                        	iov[4].iov_base = (char *) http_sc->message;
+                        	iov[4].iov_len = http_sc->message_size;
+                        	break;
+                	}
+        	}
+
+        	if (iov[4].iov_len == 0) {
+                	iov[4].iov_base = "Unknown";
+                	iov[4].iov_len =  7;
+        	}
+
+		iov[5].iov_base = "\r\n";
+		iov[5].iov_len = 2;
+
+		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 6);
 	}
-
-	iov[0].iov_base = wsgi_req->protocol;
-	iov[0].iov_len = wsgi_req->protocol_len;
-
-
-	iov[1].iov_base = " ";
-	iov[1].iov_len = 1;
-
-	uwsgi_num2str2n(wsgi_req->status, status, 4);
-
-	iov[2].iov_base = status;
-	iov[2].iov_len = 3;
-
-	iov[3].iov_base = " ";
-	iov[3].iov_len = 1;
-
-	// get the status code
-        for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                if (!strncmp(http_sc->key, status, 3)) {
-                        iov[4].iov_base = (char *) http_sc->message;
-                        iov[4].iov_len = http_sc->message_size;
-                        break;
-                }
-        }
-
-        if (iov[4].iov_len == 0) {
-                iov[4].iov_base = "Unknown";
-                iov[4].iov_len =  7;
-        }
-
-	iov[5].iov_base = "\r\n";
-	iov[5].iov_len = 2;
-
-	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 6);
+	else {
+		iov[0].iov_base = SG(sapi_headers).http_status_line;
+		iov[0].iov_len = strlen(iov[0].iov_base);
+		iov[1].iov_base = "\r\n";
+		iov[1].iov_len = 2;
+		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
+	}
 	
 	h = zend_llist_get_first_ex(&sapi_headers->headers, &pos);
 	while (h) {
@@ -172,6 +173,7 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 		iov[0].iov_len = h->header_len;
 		iov[1].iov_base = "\r\n";
 		iov[1].iov_len = 2;
+
 		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);	
 		wsgi_req->header_cnt++;
 		h = zend_llist_get_next_ex(&sapi_headers->headers, &pos);
@@ -585,7 +587,7 @@ secure2:
 	wsgi_req->script_name_len = strlen(wsgi_req->script_name);
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("php filename = %s\n", real_filename);
+	uwsgi_log("php filename = %s %.*s\n", real_filename, wsgi_req->script_name_len, wsgi_req->script_name);
 #endif
 
 
@@ -601,14 +603,15 @@ secure2:
         SG(request_info).content_length = wsgi_req->post_cl;
 	SG(request_info).content_type = estrndup(wsgi_req->content_type, wsgi_req->content_type_len);
 
-	SG(request_info).path_translated = wsgi_req->file;
+	// reinitialize it at every request !!!
+	SG(sapi_headers).http_response_code = 200;	
 
+	SG(request_info).path_translated = wsgi_req->file;
 
         file_handle.type = ZEND_HANDLE_FILENAME;
         file_handle.filename = real_filename;
         file_handle.free_filename = 0;
         file_handle.opened_path = NULL;
-
 
         if (php_request_startup(TSRMLS_C) == FAILURE) {
 		internal_server_error(wsgi_req, "unable to start php request");
