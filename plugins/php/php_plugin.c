@@ -5,7 +5,7 @@
 
 #include "ext/standard/php_smart_str.h"
 
-#include <uwsgi.h>
+#include "../../uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
 
