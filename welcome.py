@@ -23,6 +23,17 @@ def after_request_hook():
 
 uwsgi.after_req_hook = after_request_hook
 
+@rpc('hello')
+def hello_rpc(one, two, three):
+    arg0 = one[::-1]
+    arg1 = two[::-1]
+    arg2 = three[::-1]
+    return "!%s-%s-%s!" % (arg1, arg2, arg0)
+
+@signal(17)
+def ciao_mondo(signum):
+    print("Hello World")
+
 def xsendfile(e, sr):
     sr('200 OK', [('Content-Type', 'image/png'), ('X-Sendfile', os.path.abspath('logo_uWSGI.png'))])
     return ''

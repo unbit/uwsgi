@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-print "rpc value = ".uwsgi::call('hello')."\n";
+print "rpc value = ".uwsgi::call('hello', 'foo', 'bar', 'test')."\n";
 
 my $app = sub {
       my $env = shift;

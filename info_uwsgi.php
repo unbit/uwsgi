@@ -1,0 +1,21 @@
+uWSGI version <b><?=uwsgi_version()?></b><br/>
+workerd id: <b><?=uwsgi_worker_id()?></b><br/>
+master pid: <b><?=uwsgi_masterpid()?></b><br/>
+
+<? uwsgi_signal(17) ?>
+
+<? uwsgi_setprocname("test test test"); ?>
+
+rpc result:<br/>
+<? echo uwsgi_rpc("", "hello", "one", "two", "three"); ?>
+
+<?
+	if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+		uwsgi_cache_update('foobar', $_POST['cache_val']);
+	}
+
+?>
+<form method="POST">
+	<input type="text" name="cache_val" value="<?=uwsgi_cache_get('foobar')?>"/>
+	<input type="submit" value="cache set" />
+</form>

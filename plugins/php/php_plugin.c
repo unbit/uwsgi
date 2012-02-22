@@ -4,6 +4,7 @@
 #include "php_variables.h"
 
 #include "ext/standard/php_smart_str.h"
+#include "ext/standard/info.h"
 
 #include "../../uwsgi.h"
 
@@ -304,15 +305,250 @@ PHP_MINIT_FUNCTION(uwsgi_php_minit) {
 	return SUCCESS;
 }
 
+PHP_FUNCTION(uwsgi_version) {
+	RETURN_STRING(UWSGI_VERSION, 1);
+}
+
+PHP_FUNCTION(uwsgi_worker_id) {
+	RETURN_LONG(uwsgi.mywid);
+}
+
+PHP_FUNCTION(uwsgi_masterpid) {
+	if (uwsgi.master_process) {
+		RETURN_LONG(uwsgi.workers[0].pid);
+	}
+	RETURN_LONG(0);
+}
+
+PHP_FUNCTION(uwsgi_cache_del) {
+	
+	char *key = NULL;
+        int keylen = 0;
+
+        if (!uwsgi.cache_max_items)
+                RETURN_NULL();
+
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen) == FAILURE) {
+                RETURN_NULL();
+        }
+
+	uwsgi_wlock(uwsgi.cache_lock);
+        if (uwsgi_cache_del(key, keylen)) {
+                uwsgi_rwunlock(uwsgi.cache_lock);
+		RETURN_TRUE;
+        }
+
+        uwsgi_rwunlock(uwsgi.cache_lock);
+	RETURN_NULL();
+}
+
+PHP_FUNCTION(uwsgi_cache_get) {
+
+	char *key = NULL;
+	int keylen = 0;
+	uint64_t valsize;
+
+	if (!uwsgi.cache_max_items)
+		RETURN_NULL();
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen) == FAILURE) {
+                RETURN_NULL();
+        }
+
+	uwsgi_rlock(uwsgi.cache_lock);
+	char *value = uwsgi_cache_get(key, keylen, &valsize);
+	if (value) {
+		char *ret = estrndup(value, valsize);
+		uwsgi_rwunlock(uwsgi.cache_lock);
+		RETURN_STRING(ret, 0);
+	}
+	uwsgi_rwunlock(uwsgi.cache_lock);
+	RETURN_NULL();
+}
+
+PHP_FUNCTION(uwsgi_cache_set) {
+	char *key = NULL;	
+	int keylen;
+	char *value = NULL;
+	int vallen;
+	uint64_t expires = 0;
+
+	if (!uwsgi.cache_max_items)
+		RETURN_NULL();
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &key, &keylen, &value, &vallen, &expires) == FAILURE) {
+                RETURN_NULL();
+        }
+
+	if ((uint64_t)vallen > uwsgi.cache_blocksize) {
+		RETURN_NULL();
+	}
+	
+	uwsgi_wlock(uwsgi.cache_lock);
+	if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
+		uwsgi_rwunlock(uwsgi.cache_lock);
+		RETURN_TRUE;
+	}
+	uwsgi_rwunlock(uwsgi.cache_lock);
+	RETURN_NULL();
+	
+}
+
+PHP_FUNCTION(uwsgi_cache_update) {
+        char *key = NULL;
+        int keylen;
+        char *value = NULL;
+        int vallen;
+        uint64_t expires = 0;
+
+	if (!uwsgi.cache_max_items)
+		RETURN_NULL();
+
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &key, &keylen, &value, &vallen, &expires) == FAILURE) {
+                RETURN_NULL();
+        }
+
+        if ((uint64_t)vallen > uwsgi.cache_blocksize) {
+                RETURN_NULL();
+        }
+
+        uwsgi_wlock(uwsgi.cache_lock);
+        if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
+                uwsgi_rwunlock(uwsgi.cache_lock);
+                RETURN_TRUE;
+        }
+        uwsgi_rwunlock(uwsgi.cache_lock);
+        RETURN_NULL();
+
+}
+
+
+PHP_FUNCTION(uwsgi_rpc) {
+
+
+	int num_args = 0;
+	int i;
+	char *node = NULL;
+	char *func = NULL;
+	zval ***varargs = NULL;
+	zval *z_current_obj;
+	char *argv[256];
+        uint16_t argvs[256];
+	uint16_t size = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "+", &varargs, &num_args) == FAILURE) {
+		RETURN_NULL();
+	}
+
+        if (num_args < 2)
+		goto clear;
+
+	if (num_args > 256 + 2)
+		goto clear;
+
+	z_current_obj = *varargs[0];
+	if (Z_TYPE_P(z_current_obj) != IS_STRING) {
+		goto clear;
+	}
+
+	node = Z_STRVAL_P(z_current_obj);
+
+	z_current_obj = *varargs[1];
+	if (Z_TYPE_P(z_current_obj) != IS_STRING) {
+		goto clear;
+	}
+
+	func = Z_STRVAL_P(z_current_obj);
+
+	for(i=0;i<(num_args-2);i++) {
+		z_current_obj = *varargs[i+2];
+		if (Z_TYPE_P(z_current_obj) != IS_STRING) {
+			goto clear;
+		}
+		argv[i] = Z_STRVAL_P(z_current_obj);
+		argvs[i] = Z_STRLEN_P(z_current_obj);
+	}
+
+        char *response = uwsgi_do_rpc(node, func, num_args - 2, argv, argvs, &size);
+
+        if (size > 0) {
+		// here we do not free varargs for performance reasons
+		char *ret = estrndup(response, size);
+		free(response);
+		RETURN_STRING(ret, 0);
+        }
+
+clear:
+	efree(varargs);
+	RETURN_NULL();
+
+}
+
+
+PHP_FUNCTION(uwsgi_setprocname) {
+
+	char *name;
+	int name_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name, &name_len) == FAILURE) {
+		RETURN_NULL();
+	}
+
+	uwsgi_set_processname(estrndup(name, name_len));
+
+	RETURN_NULL();
+}
+
+PHP_FUNCTION(uwsgi_signal) {
+
+	long long_signum;
+	uint8_t signum = 0;
+
+        if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &long_signum) == FAILURE) {
+                RETURN_NULL();
+        }
+
+	signum = (uint8_t) long_signum;
+	uwsgi_signal_send(uwsgi.signal_socket, signum);
+
+        RETURN_NULL();
+}
+
+function_entry uwsgi_php_functions[] = {
+	PHP_FE(uwsgi_version,   NULL)
+	PHP_FE(uwsgi_setprocname,   NULL)
+	PHP_FE(uwsgi_worker_id,   NULL)
+	PHP_FE(uwsgi_masterpid,   NULL)
+	PHP_FE(uwsgi_signal,   NULL)
+	PHP_FE(uwsgi_rpc,   NULL)
+	PHP_FE(uwsgi_cache_get,   NULL)
+	PHP_FE(uwsgi_cache_set,   NULL)
+	PHP_FE(uwsgi_cache_update,   NULL)
+	PHP_FE(uwsgi_cache_del,   NULL)
+	{ NULL, NULL, NULL},
+};
+
+PHP_MINFO_FUNCTION(uwsgi_php_minfo) {
+	php_info_print_table_start( );
+	php_info_print_table_row(2, "uwsgi api", "enabled");
+	if (uwsgi.cache_max_items > 0) {
+		php_info_print_table_row(2, "uwsgi cache", "enabled");
+	}
+	else {
+		php_info_print_table_row(2, "uwsgi cache", "disabled");
+	}
+	php_info_print_table_end( );
+}
+
 static zend_module_entry uwsgi_module_entry = {
         STANDARD_MODULE_HEADER,
         "uwsgi",
-        NULL,
+        uwsgi_php_functions,
         PHP_MINIT(uwsgi_php_minit),
 	NULL,
         NULL,
         NULL,
-        NULL,
+        PHP_MINFO(uwsgi_php_minfo),
         UWSGI_VERSION,
         STANDARD_MODULE_PROPERTIES
 };
