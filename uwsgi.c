@@ -1105,6 +1105,19 @@ void uwsgi_segfault(int signum) {
 	exit(1);
 }
 
+void uwsgi_fpe(int signum) {
+
+	uwsgi_log("!!! uWSGI process %d got Floating Point Exception !!!\n", (int) getpid());
+	uwsgi_backtrace(uwsgi.backtrace_depth);
+
+	// restore default handler to generate core
+	signal(signum, SIG_DFL);
+    	kill(getpid(), signum);
+
+	// never here...
+	exit(1);
+}
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
@@ -1142,6 +1155,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	//char *optname;
 
 	signal(SIGSEGV, uwsgi_segfault);
+	signal(SIGFPE, uwsgi_fpe);
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);

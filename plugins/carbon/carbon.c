@@ -117,7 +117,7 @@ void carbon_master_cycle() {
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
-			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_avg_rt / avg_rt_workers, (unsigned long long ) uwsgi.current_time);
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) avg_rt_workers ? total_avg_rt / avg_rt_workers : 0, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
