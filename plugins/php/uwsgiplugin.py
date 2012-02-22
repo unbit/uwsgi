@@ -2,9 +2,14 @@ import os
 
 NAME='php'
 
-CFLAGS = [os.popen('php-config --includes').read().rstrip()]
+try:
+    PHPPATH = os.environ['UWSGICONFIG_PHPPATH']
+except:
+    PHPPATH = 'php-config'
 
-LDFLAGS = os.popen('php-config --ldflags').read().rstrip().split()
-LIBS = [os.popen('php-config --libs').read().rstrip(), '-lphp5']
+CFLAGS = [os.popen(PHPPATH + ' --includes').read().rstrip()]
+
+LDFLAGS = os.popen(PHPPATH + ' --ldflags').read().rstrip().split()
+LIBS = [os.popen(PHPPATH + ' --libs').read().rstrip(), '-lphp5']
 
 GCC_LIST = ['php_plugin']
