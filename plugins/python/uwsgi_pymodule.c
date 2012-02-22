@@ -2542,6 +2542,8 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			PyDict_SetItemString(apps_dict, "mountpoint", zero);
 			Py_DECREF(zero);
 
+			PyDict_SetItemString(apps_dict, "startup_time", PyInt_FromLong((long) ua->startup_time));
+
 			PyDict_SetItemString(apps_dict, "interpreter", PyInt_FromLong((long)ua->interpreter));
 			PyDict_SetItemString(apps_dict, "callable", PyInt_FromLong((long)ua->interpreter));
 

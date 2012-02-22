@@ -88,9 +88,9 @@ def application(env, start_response):
 
     workers = ''
     for w in uwsgi.workers():
-        apps = '<table border="1"><tr><th>id</th><th>mountpoint</th><th>requests</th></tr>'
+        apps = '<table border="1"><tr><th>id</th><th>mountpoint</th><th>startup time</th><th>requests</th></tr>'
         for app in w['apps']:
-            apps += '<tr><td>%d</td><td>%s</td><td>%d</td></tr>' % (app['id'], app['mountpoint'], app['requests']) 
+            apps += '<tr><td>%d</td><td>%s</td><td>%d</td><td>%d</td></tr>' % (app['id'], app['mountpoint'], app['startup_time'], app['requests']) 
         apps += '</table>'
         workers += """
 <tr>
