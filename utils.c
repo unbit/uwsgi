@@ -4007,3 +4007,8 @@ int uwsgi_file_to_string_list(char *filename, struct uwsgi_string_list **list) {
         uwsgi_error_open(filename);
 	return 0;
 }
+
+// in the future we will need to use the best clock source for each os/system
+time_t uwsgi_now() {
+	return time(NULL);
+}

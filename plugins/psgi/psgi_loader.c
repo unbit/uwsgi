@@ -279,6 +279,8 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	int i;
 	SV **callables;
 
+	time_t now = uwsgi_now();
+
 	char *app_name = uwsgi_concat2n(app, app_len, "", 0);
 
 	// prepare for $0
@@ -423,7 +425,10 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		wi = uwsgi_add_app(id, 5, "", 0, interpreters, callables);
 	}
 
-        uwsgi_log("PSGI app %d (%s) loaded at %p (interpreter %p)\n", id, app_name, callables[0], interpreters[0]);
+	wi->started_at = now;
+	wi->startup_time = uwsgi_now() - now;
+
+        uwsgi_log("PSGI app %d (%s) loaded in %d seconds at %p (interpreter %p)\n", id, app_name, (int) wi->startup_time, callables[0], interpreters[0]);
 	free(app_name);
 
 	// copy global data to app-specific areas

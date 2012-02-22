@@ -681,6 +681,9 @@ void uwsgi_send_stats(int fd) {
 			fprintf(output, "\"modifier1\": %d, ", ua->modifier1);
 			fprintf(output, "\"mountpoint\": \"%.*s\", ", ua->mountpoint_len, ua->mountpoint);
 
+
+			stats_send_llu("\"startup_time\": %llu, ", ua->startup_time);
+
 			stats_send_llu("\"requests\": %llu, ", ua->requests);
 			stats_send_llu("\"exceptions\": %llu, ", ua->exceptions);
 

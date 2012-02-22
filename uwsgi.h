@@ -662,6 +662,9 @@ struct uwsgi_app {
         void *uwsgi_version;
         void *uwsgi_node;
 
+	time_t started_at;
+	time_t startup_time;
+
 	uint64_t avg_response_time;
 };
 
@@ -2637,6 +2640,8 @@ void uwsgi_check_logrotate(void);
 char *uwsgi_check_touches(struct uwsgi_string_list *);
 
 void uwsgi_manage_zerg(int, int, int *);
+
+time_t uwsgi_now(void);
 
 int uwsgi_calc_cheaper(void);
 int uwsgi_cheaper_algo_spare(void);

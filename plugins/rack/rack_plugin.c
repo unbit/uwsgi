@@ -266,6 +266,8 @@ void uwsgi_rack_init_apps(void) {
 	ur.app_id = uwsgi_apps_cnt;
 	struct uwsgi_string_list *usl = ur.rbrequire;
 
+	time_t now = uwsgi_now();
+
 	while(usl) {
 		error = 0;
 		rb_protect( uwsgi_require_file, rb_str_new2(usl->value), &error ) ;
@@ -380,12 +382,14 @@ ready:
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
 
-	uwsgi_add_app(ur.app_id, 7, (char*)"", 0, NULL, NULL);
+	struct uwsgi_app *ua = uwsgi_add_app(ur.app_id, 7, (char*)"", 0, NULL, NULL);
+	ua->started_at = now;
+	ua->startup_time = uwsgi_now() - now;
 	if (ur.gc_freq <= 1) {
-        	uwsgi_log("RACK app %d loaded at %p (GC frequency: AGGRESSIVE)\n", ur.app_id, ur.call);
+        	uwsgi_log("RACK app %d loaded in %d seconds at %p (GC frequency: AGGRESSIVE)\n", ur.app_id, (int) ua->startup_time, ur.call);
 	}
 	else {
-        	uwsgi_log("RACK app %d loaded at %p (GC frequency: %d)\n", ur.app_id, ur.call, ur.gc_freq);
+        	uwsgi_log("RACK app %d loaded in %d seconds at %p (GC frequency: %d)\n", ur.app_id, (int) ua->startup_time, ur.call, ur.gc_freq);
 	}
 
 }
