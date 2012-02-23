@@ -1118,6 +1118,24 @@ void uwsgi_fpe(int signum) {
 	exit(1);
 }
 
+void uwsgi_flush_logs() {
+
+	struct pollfd pfd;
+
+	if (!uwsgi.workers) return;
+	if (!uwsgi.master_process) return;
+	if (!uwsgi.log_master) return;
+
+	if (getpid() == uwsgi.workers[0].pid) {
+		// check for data in logpipe
+		pfd.events = POLLIN;
+		pfd.fd = uwsgi.shared->worker_log_pipe[0];
+		while(poll(&pfd, 1, 0) > 0) {
+			uwsgi_master_log();	
+		}
+	}
+}
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
@@ -1170,6 +1188,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	init_magic_table(uwsgi.magic_table);
 
 	atexit(vacuum);
+	atexit(uwsgi_flush_logs);
 	atexit(uwsgi_plugins_atexit);
 
 

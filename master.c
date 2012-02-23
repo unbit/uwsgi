@@ -68,7 +68,7 @@ void expire_rb_timeouts(struct rb_root *root) {
 	}
 }
 
-void master_log(void) {
+void uwsgi_master_log(void) {
 
 	char log_buf[4096];
 
@@ -99,7 +99,7 @@ void *logger_thread_loop(void *noarg) {
 		int ret = poll(&logpoll, 1, -1);
 		if (ret > 0 && logpoll.revents & POLLIN) {
 			pthread_mutex_lock(&uwsgi.threaded_logger_lock);
-			master_log();
+			uwsgi_master_log();
 			pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
 		}
 	}
@@ -777,7 +777,7 @@ int master_loop(char **argv, char **environ) {
 
 				if (uwsgi.log_master && !uwsgi.threaded_logger) {
 					if (interesting_fd == uwsgi.shared->worker_log_pipe[0]) {
-						master_log();
+						uwsgi_master_log();
 						goto health_cycle;
 					}
 				}
