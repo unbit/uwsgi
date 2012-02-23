@@ -186,7 +186,7 @@ void uwsgi_reload(char **argv) {
 
 	/* check fd table (a module can obviosly open some fd on initialization...) */
 	uwsgi_log("closing all non-uwsgi socket fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
-	for (i = 3; i < sysconf(_SC_OPEN_MAX); i++) {
+	for (i = 3; i < (int)uwsgi.max_fd; i++) {
 		int found = 0;
 
 		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;

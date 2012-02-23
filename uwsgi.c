@@ -1122,17 +1122,28 @@ void uwsgi_flush_logs() {
 
 	struct pollfd pfd;
 
-	if (!uwsgi.workers) return;
 	if (!uwsgi.master_process) return;
 	if (!uwsgi.log_master) return;
 
-	if (getpid() == uwsgi.workers[0].pid) {
-		// check for data in logpipe
-		pfd.events = POLLIN;
-		pfd.fd = uwsgi.shared->worker_log_pipe[0];
-		while(poll(&pfd, 1, 0) > 0) {
-			uwsgi_master_log();	
+	if (uwsgi.workers) {
+		if (uwsgi.workers[0].pid == getpid()) {
+			goto check;
 		}
+	}
+	
+	if (uwsgi.mywid == 0)
+		goto check;
+
+	return ;
+
+check:
+	// check for data in logpipe
+	pfd.events = POLLIN;
+	pfd.fd = uwsgi.shared->worker_log_pipe[0];
+	if (pfd.fd == -1) pfd.fd = 2;
+
+	while(poll(&pfd, 1, 0) > 0) {
+		uwsgi_master_log();	
 	}
 }
 
@@ -1187,8 +1198,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	init_magic_table(uwsgi.magic_table);
 
-	atexit(vacuum);
 	atexit(uwsgi_flush_logs);
+	atexit(vacuum);
 	atexit(uwsgi_plugins_atexit);
 
 
@@ -1785,6 +1796,8 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	sanitize_args();
+
+	// initialize workers
 
 	if (uwsgi.build_mime_dict) {
 		if (!access(uwsgi.mime_file, R_OK)) {
