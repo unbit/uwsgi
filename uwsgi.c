@@ -3393,7 +3393,7 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 
 	p[0] = 0;
 	add_exported_option(uwsgi_str(value), p+1, 1);
-	p[1] = '=';
+	p[0] = '=';
 	
 }
 
