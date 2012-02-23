@@ -1864,9 +1864,7 @@ uint32_t uwsgi_swap32(uint32_t);
 uint64_t uwsgi_swap64(uint64_t);
 #endif
 
-#ifdef UWSGI_UDP
 ssize_t send_udp_message(uint8_t, uint8_t, char *, char *, uint16_t);
-#endif
 
 int uwsgi_parse_packet(struct wsgi_request *, int);
 int uwsgi_parse_vars(struct wsgi_request *);

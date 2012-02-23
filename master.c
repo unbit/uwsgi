@@ -321,9 +321,11 @@ int master_loop(char **argv, char **environ) {
 #endif
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
+#ifdef UWSGI_SPOOLER
 	if (uwsgi.spoolers) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
 	}
+#endif
 
 	if (uwsgi.mules_cnt > 0) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->mule_signal_pipe[0]);

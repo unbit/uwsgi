@@ -122,7 +122,6 @@ time_t parse_http_date(char *date, uint16_t len) {
 	
 }
 
-#ifdef UWSGI_UDP
 ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char *message, uint16_t message_size) {
 
 	int fd;
@@ -180,7 +179,6 @@ ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char 
 	return ret;
 	
 }
-#endif
 
 int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modifier2, char *message, int size, int timeout) {
 

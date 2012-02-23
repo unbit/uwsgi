@@ -1554,7 +1554,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.show_config) show_config();
 
 	// call cluster initialization procedures
+#ifdef UWSGI_MULTICAST
 	cluster_setup();
+#endif
 
 	if (uwsgi.binary_path == uwsgi.argv[0]) {
 		uwsgi.binary_path = uwsgi_str(uwsgi.argv[0]);
@@ -2342,7 +2344,11 @@ skipzero:
 		}
 #endif
 
+#ifdef UWSGI_UDP
 	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir && !uwsgi.command_mode) {
+#else
+	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.emperor_dir && !uwsgi.command_mode) {
+#endif
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
@@ -3423,6 +3429,7 @@ void uwsgi_opt_print(char *opt, char *value, void *str) {
 	fprintf(stdout, "%s\n", value);
 }
 
+#ifdef UWSGI_SPOOLER
 void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
 
 	if (access(directory, R_OK | W_OK | X_OK)) {
@@ -3432,6 +3439,7 @@ void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
 	uwsgi_new_spooler(directory);
 	
 }
+#endif
 
 void uwsgi_opt_set_uid(char *opt, char *value, void *none) {
 

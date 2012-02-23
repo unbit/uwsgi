@@ -22,6 +22,8 @@ struct uwsgi_php {
 	struct uwsgi_string_list *set;
 	char *docroot;
 	size_t ini_size;
+	char *server_software;
+	size_t server_software_len;
 } uphp;
 
 void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
@@ -39,6 +41,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-docroot", required_argument, 0, "force php DOCUMENT_ROOT", uwsgi_opt_set_str, &uphp.docroot, 0},
         {"php-allowed-docroot", required_argument, 0, "list the allowed document roots", uwsgi_opt_add_string_list, &uphp.allowed_docroot, 0},
         {"php-allowed-ext", required_argument, 0, "list the allowed php file extensions", uwsgi_opt_add_string_list, &uphp.allowed_ext, 0},
+        {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -248,7 +251,13 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 	php_import_environment_variables(track_vars_array TSRMLS_CC);
 
-	php_register_variable_safe("SERVER_SOFTWARE", "uWSGI", 5, track_vars_array TSRMLS_CC);
+	if (uphp.server_software) {
+		if (!uphp.server_software_len) uphp.server_software_len = strlen(uphp.server_software);
+		php_register_variable_safe("SERVER_SOFTWARE", uphp.server_software, uphp.server_software_len, track_vars_array TSRMLS_CC);
+	}
+	else {
+		php_register_variable_safe("SERVER_SOFTWARE", "uWSGI", 5, track_vars_array TSRMLS_CC);
+	}
 
 	for (i = 0; i < wsgi_req->var_cnt; i += 2) {
 		php_register_variable_safe( estrndup(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len),
