@@ -185,7 +185,7 @@ void uwsgi_reload(char **argv) {
 	}
 
 	/* check fd table (a module can obviosly open some fd on initialization...) */
-	uwsgi_log("closing all non-uwsgi socket fds > 2 (_SC_OPEN_MAX = %ld)...\n", sysconf(_SC_OPEN_MAX));
+	uwsgi_log("closing all non-uwsgi socket fds > 2 (max_fd = %d)...\n", (int)uwsgi.max_fd);
 	for (i = 3; i < (int)uwsgi.max_fd; i++) {
 		int found = 0;
 
@@ -207,12 +207,27 @@ void uwsgi_reload(char **argv) {
 			}
 		}
 
-		if (uwsgi.original_log_fd > -1) {
-			if (i == uwsgi.original_log_fd) {
-				dup2(uwsgi.original_log_fd, 1);
-				dup2(1, 2);
+		if (uwsgi.log_master) {
+			if (uwsgi.original_log_fd > -1) {
+				if (i == uwsgi.original_log_fd) {
+					found = 1;
+				}
 			}
+
+			if (uwsgi.shared->worker_log_pipe[0] > -1) {
+				if (i == uwsgi.shared->worker_log_pipe[0]) {
+					found = 1;
+				}
+			}
+
+			if (uwsgi.shared->worker_log_pipe[1] > -1) {
+				if (i == uwsgi.shared->worker_log_pipe[1]) {
+					found = 1;
+				}
+			}
+			
 		}
+
 		if (!found) {
 #ifdef __APPLE__
 			fcntl(i, F_SETFD, FD_CLOEXEC);
@@ -226,8 +241,21 @@ void uwsgi_reload(char **argv) {
 	return;
 #else
 	uwsgi_log("running %s\n", uwsgi.binary_path);
+	uwsgi_flush_logs();
 	argv[0] = uwsgi.binary_path;
 	//strcpy (argv[0], uwsgi.binary_path);
+	if (uwsgi.log_master) {
+		if (uwsgi.original_log_fd > -1) {
+			dup2(uwsgi.original_log_fd, 1);
+			dup2(1, 2);
+		}
+		if (uwsgi.shared->worker_log_pipe[0] > -1) {
+			close(uwsgi.shared->worker_log_pipe[0]);
+		}
+		if (uwsgi.shared->worker_log_pipe[1] > -1) {
+			close(uwsgi.shared->worker_log_pipe[1]);
+		}
+	}
 	execvp(uwsgi.binary_path, argv);
 	uwsgi_error("execvp()");
 	// never here

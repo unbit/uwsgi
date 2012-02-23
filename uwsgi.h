@@ -2646,6 +2646,7 @@ int uwsgi_cheaper_algo_spare(void);
 int uwsgi_cheaper_algo_backlog(void);
 
 void uwsgi_master_log(void);
+void uwsgi_flush_logs(void);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
