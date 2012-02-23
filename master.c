@@ -543,6 +543,29 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_check_touches(uwsgi.touch_logrotate);
 	uwsgi_check_touches(uwsgi.touch_logreopen);
 
+	// setup cheaper algos
+	uwsgi_register_cheaper_algo("spare", uwsgi_cheaper_algo_spare);
+	uwsgi_register_cheaper_algo("backlog", uwsgi_cheaper_algo_backlog);
+
+	uwsgi.cheaper_algo = uwsgi_cheaper_algo_spare;
+	if (uwsgi.requested_cheaper_algo) {
+		uwsgi.cheaper_algo = NULL;
+		struct uwsgi_cheaper_algo *uca = uwsgi.cheaper_algos;
+		while(uca) {
+			if (!strcmp(uca->name, uwsgi.requested_cheaper_algo)) {
+				uwsgi.cheaper_algo = uca->func;
+				break;
+			}
+			uca = uca->next;
+		}
+
+		if (!uwsgi.cheaper_algo) {
+			uwsgi_log("unable to find requested cheaper algorithm, falling back to spare\n");
+			uwsgi.cheaper_algo = uwsgi_cheaper_algo_spare;
+		}
+
+	}
+
 	// here really starts the master loop
 
 	for (;;) {

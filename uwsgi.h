@@ -958,6 +958,13 @@ struct uwsgi_probe {
 	struct uwsgi_probe *next;
 };
 
+struct uwsgi_cheaper_algo {
+
+	char *name;
+	int (*func)(void);
+	struct uwsgi_cheaper_algo *next;
+};
+
 
 struct uwsgi_server {
 
@@ -1025,6 +1032,9 @@ struct uwsgi_server {
 	int cheap;
 	// enable cheaper mode
 	int cheaper;
+	char *requested_cheaper_algo;
+	struct uwsgi_cheaper_algo *cheaper_algos;
+	int (*cheaper_algo)(void);
 	int cheaper_step;
 	uint64_t cheaper_overload;
 	// minimal number of running workers in cheaper mode
@@ -2644,9 +2654,12 @@ time_t uwsgi_now(void);
 int uwsgi_calc_cheaper(void);
 int uwsgi_cheaper_algo_spare(void);
 int uwsgi_cheaper_algo_backlog(void);
+int uwsgi_cheaper_algo_backlog2(void);
 
 void uwsgi_master_log(void);
 void uwsgi_flush_logs(void);
+
+void uwsgi_register_cheaper_algo(char *, int(*) (void));
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

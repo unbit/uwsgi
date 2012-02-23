@@ -9,7 +9,7 @@ int uwsgi_calc_cheaper(void) {
 
 	int i;
 
-	int needed_workers = uwsgi_cheaper_algo_spare();
+	int needed_workers = uwsgi.cheaper_algo();
 
 	if (needed_workers > 0) {
 		for (i = 1; i <= uwsgi.numproc; i++) {
@@ -124,7 +124,7 @@ int uwsgi_cheaper_algo_spare(void) {
 		}
 		// reset overload
 		overload_count = 0;
-		// return the maxium number of workers to spawn
+		// return the maximum number of workers to spawn
 		return decheaped;
 	}
 	// we are no more overloaded
@@ -163,6 +163,59 @@ int uwsgi_cheaper_algo_spare(void) {
 	return 0;
 
 }
+
+
+/*
+
+	-- Cheaper,  backlog algorithm (supported only on Linux) --
+
+        increse the number of workers when the listen queue is higher than uwsgi.cheaper_overload.
+	Decrese when lower.
+
+*/
+
+int uwsgi_cheaper_algo_backlog(void) {
+
+	int i;
+#ifdef __linux__
+	int backlog = uwsgi.shared->ti.tcpi_unacked;
+#else
+	int backlog = 0;
+#endif
+
+	if (backlog > (int)uwsgi.cheaper_overload) {
+		// activate the first available worker (taking step into account)
+                int decheaped = 0;
+                // search for cheaped workers
+                for (i = 1; i <= uwsgi.numproc; i++) {
+                        if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
+                                decheaped++;
+                                if (decheaped >= uwsgi.cheaper_step)
+                                        break;
+                        }
+                }
+                // return the maximum number of workers to spawn
+                return decheaped;
+
+	}
+	else if (backlog < (int) uwsgi.cheaper_overload) {
+		int active_workers = 0;
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+				active_workers++;
+			}
+		}
+
+		if (active_workers > uwsgi.cheaper_count) {
+			return -1;
+		}
+	}
+	
+	return 0;
+}
+
+
+// reload uWSGI, close unneded file descriptor, restore the original environment and re-exec the binary
 
 void uwsgi_reload(char **argv) {
 	int i;
@@ -743,3 +796,33 @@ void uwsgi_send_stats(int fd) {
 	fprintf(output, "]}\n");
 	fclose(output);
 }
+
+void uwsgi_register_cheaper_algo(char *name, int(*func) (void)) {
+
+        struct uwsgi_cheaper_algo *uca = uwsgi.cheaper_algos;
+
+        if (!uca) {
+                uwsgi.cheaper_algos = uwsgi_malloc(sizeof(struct uwsgi_cheaper_algo));
+                uca = uwsgi.cheaper_algos;
+        }
+        else {
+                while (uca) {
+			if (!uca->next) {
+				uca->next = uwsgi_malloc(sizeof(struct uwsgi_cheaper_algo));
+				uca = uca->next;	
+				break;
+			}
+                        uca = uca->next;
+                }
+
+        }
+
+        uca->name = name;
+        uca->func = func;
+        uca->next = NULL;
+
+#ifdef UWSGI_DEBUG
+        uwsgi_log("[uwsgi-cheaper-algo] registered \"%s\"\n", uca->name);
+#endif
+}
+

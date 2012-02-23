@@ -298,6 +298,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
 	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, 0},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
+	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning)", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"cheaper-overload", required_argument, 0, "increase workers after specified overload", uwsgi_opt_set_64bit, &uwsgi.cheaper_overload, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, 0},
