@@ -385,6 +385,9 @@ ready:
 	struct uwsgi_app *ua = uwsgi_add_app(ur.app_id, 7, (char*)"", 0, NULL, NULL);
 	ua->started_at = now;
 	ua->startup_time = uwsgi_now() - now;
+
+	uwsgi_emulate_cow_for_apps(ur.app_id);
+	
 	if (ur.gc_freq <= 1) {
         	uwsgi_log("RACK app %d loaded in %d seconds at %p (GC frequency: AGGRESSIVE)\n", ur.app_id, (int) ua->startup_time, ur.call);
 	}

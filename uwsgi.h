@@ -2661,6 +2661,8 @@ void uwsgi_flush_logs(void);
 
 void uwsgi_register_cheaper_algo(char *, int(*) (void));
 
+void uwsgi_emulate_cow_for_apps(int);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif

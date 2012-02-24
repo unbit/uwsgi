@@ -437,13 +437,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	wi->error = uperl.tmp_error_stash;
 	wi->responder0 = uperl.tmp_stream_responder;
 
-	// check if we need to emulate fork() COW
-        if (uwsgi.mywid == 0) {
-                for(i=1;i<=uwsgi.numproc;i++) {
-                        memcpy(&uwsgi.workers[i].apps[id], &uwsgi.workers[0].apps[id], sizeof(struct uwsgi_app));
-                        uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
-                }
-        }
+	uwsgi_emulate_cow_for_apps(id);
 
 
 	// restore context if required

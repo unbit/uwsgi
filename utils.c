@@ -4008,6 +4008,18 @@ int uwsgi_file_to_string_list(char *filename, struct uwsgi_string_list **list) {
 	return 0;
 }
 
+void uwsgi_emulate_cow_for_apps(int id) {
+	int i;
+	// check if we need to emulate fork() COW
+        if (uwsgi.mywid == 0) {
+                for(i=1;i<=uwsgi.numproc;i++) {
+                        memcpy(&uwsgi.workers[i].apps[id], &uwsgi.workers[0].apps[id], sizeof(struct uwsgi_app));
+                        uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
+                }
+        }
+}
+
+
 // in the future we will need to use the best clock source for each os/system
 time_t uwsgi_now() {
 	return time(NULL);

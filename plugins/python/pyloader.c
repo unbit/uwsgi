@@ -418,13 +418,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		}
 	}
 
-	// check if we need to emulate fork() COW
-	if (uwsgi.mywid == 0) {
-		for(i=1;i<=uwsgi.numproc;i++) {
-			memcpy(&uwsgi.workers[i].apps[id], &uwsgi.workers[0].apps[id], sizeof(struct uwsgi_app));
-			uwsgi.workers[i].apps_cnt = uwsgi_apps_cnt;
-		}
-	}
+	// emulate COW
+	uwsgi_emulate_cow_for_apps(id);
 
 	return id;
 
