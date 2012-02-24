@@ -96,6 +96,8 @@ XS(XS_cache_set) {
 	char *key, *val;
 	STRLEN keylen;
 	STRLEN vallen;
+
+	if (uwsgi.cache_max_items == 0) goto clear;
 	
 	psgi_check_args(2);
 
@@ -104,6 +106,7 @@ XS(XS_cache_set) {
 
 	uwsgi_cache_set(key, (uint16_t) keylen, val, (uint64_t) vallen, 0, 0);
 
+clear:
 	XSRETURN_UNDEF;
 }
 
@@ -113,6 +116,8 @@ XS(XS_cache_get) {
 	char *key, *val;
 	STRLEN keylen;
 	uint64_t vallen;
+
+	if (uwsgi.cache_max_items == 0) goto clear;
 	
 	psgi_check_args(1);
 
@@ -121,6 +126,7 @@ XS(XS_cache_get) {
 	val = uwsgi_cache_get(key, (uint16_t) keylen, &vallen);
 
 	if (!val)
+clear:
 		XSRETURN_UNDEF;
 
 	ST(0) = newSVpv(val, vallen);
