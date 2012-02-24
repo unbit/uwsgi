@@ -66,13 +66,13 @@ struct uwsgi_option uwsgi_cgi_options[] = {
 void uwsgi_cgi_404(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->status = 404;
-	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\n\r\nNot Found", 35);
+	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\nContent-Type: text/plain\r\n\r\nNot Found", 61);
 }
 
 void uwsgi_cgi_403(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->status = 403;
-	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\n\r\nForbidden", 35);
+	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\nContent-Type: text/plain\r\n\r\nForbidden", 61);
 
 }
 

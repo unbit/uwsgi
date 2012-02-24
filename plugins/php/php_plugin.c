@@ -102,13 +102,13 @@ static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 void uwsgi_php_404(struct wsgi_request *wsgi_req) {
 
         wsgi_req->status = 404;
-        wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\n\r\nNot Found", 35);
+        wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\nContent-Type: text/plain\r\n\r\nNot Found", 61);
 }
 
 void uwsgi_php_403(struct wsgi_request *wsgi_req) {
 
         wsgi_req->status = 403;
-        wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\n\r\nForbidden", 35);
+        wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\nContent-Type: text/plain\r\n\r\nForbidden", 61);
 
 }
 
@@ -273,7 +273,6 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 	php_register_variable_safe("SCRIPT_FILENAME", wsgi_req->file, wsgi_req->file_len, track_vars_array TSRMLS_CC);
 
 	php_register_variable_safe("DOCUMENT_ROOT", wsgi_req->document_root, wsgi_req->document_root_len, track_vars_array TSRMLS_CC);
-
 
 	if (wsgi_req->path_info_len) {
 		char *path_translated = ecalloc(1, (wsgi_req->file_len - wsgi_req->script_name_len) + wsgi_req->path_info_len + 1);
@@ -712,8 +711,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 	if (!wsgi_req->document_root) {
 
-		uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &wsgi_req->document_root_len);
-
+		wsgi_req->document_root = uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &wsgi_req->document_root_len);
 		if (!wsgi_req->document_root) {
 			wsgi_req->document_root = uwsgi.cwd;
 			wsgi_req->document_root_len = strlen(uwsgi.cwd);
