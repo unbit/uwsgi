@@ -2,6 +2,8 @@ uWSGI version <b><?=uwsgi_version()?></b><br/>
 workerd id: <b><?=uwsgi_worker_id()?></b><br/>
 master pid: <b><?=uwsgi_masterpid()?></b><br/>
 
+uri: <b><?= $_SERVER['REQUEST_URI'] ?></b><br/>
+
 <? uwsgi_signal(17) ?>
 
 <? uwsgi_setprocname("test test test"); ?>

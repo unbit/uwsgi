@@ -21,6 +21,7 @@ struct uwsgi_php {
 	struct uwsgi_string_list *index;
 	struct uwsgi_string_list *set;
 	char *docroot;
+	char *app;
 	size_t ini_size;
 	char *server_software;
 	size_t server_software_len;
@@ -42,6 +43,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-allowed-docroot", required_argument, 0, "list the allowed document roots", uwsgi_opt_add_string_list, &uphp.allowed_docroot, 0},
         {"php-allowed-ext", required_argument, 0, "list the allowed php file extensions", uwsgi_opt_add_string_list, &uphp.allowed_ext, 0},
         {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
+        {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -719,6 +721,13 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	}
 	else {
 		wsgi_req->document_root_len = strlen(wsgi_req->document_root);
+	}
+
+	if (uphp.app) {
+		strcpy(real_filename, uphp.app);	
+		wsgi_req->path_info = "";
+		wsgi_req->path_info_len = 0;
+		goto secure2;
 	}
 
 	char *filename = uwsgi_concat4n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
