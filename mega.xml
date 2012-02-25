@@ -19,4 +19,8 @@
 		<module>trac.web.main:dispatch_request</module>
 	</uwsgi>
 
+	<uwsgi>
+		<socket>:3031</socket>
+	</uwsgi>
+
 </unbit>

@@ -753,7 +753,19 @@ class uConf(object):
             self.gcc_list.append('sendfile')
 
         if self.get('xml'):
-            if self.get('xml_implementation') == 'libxml2':
+            if self.get('xml') == 'auto':
+                xmlconf = spcall('xml2-config --libs')
+                if xmlconf:
+                    self.libs.append(xmlconf)
+                    xmlconf = spcall("xml2-config --cflags")
+                    self.cflags.append(xmlconf)
+                    self.cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
+                    self.gcc_list.append('xmlconf')
+                elif self.has_include('expat.h'):
+                    self.cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
+                    self.libs.append('-lexpat')
+                    self.gcc_list.append('xmlconf')
+            elif self.get('xml_implementation') == 'libxml2':
                 xmlconf = spcall('xml2-config --libs')
                 if xmlconf is None:
                     print("*** libxml2 headers unavailable. uWSGI build is interrupted. You have to install libxml2 development package or use libexpat or disable XML")

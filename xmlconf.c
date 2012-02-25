@@ -120,6 +120,106 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 
 #include <expat.h>
 
+int uwsgi_xml_found_stanza = 0;
+char *uwsgi_xml_found_opt_key = NULL;
+
+static void startElement(void *xml_id, const XML_Char *name, const XML_Char **attrs) {
+
+
+	if (!uwsgi_xml_found_stanza) {
+		if (xml_id) {
+			if (!attrs[0]) return;			
+			if (!attrs[1]) return;
+			if (strcmp("id", attrs[0])) return;
+			if (strcmp((char *)xml_id, attrs[1])) return;
+		}
+		if (!strcmp("uwsgi", name)) uwsgi_xml_found_stanza = 1;
+	}
+	else {
+		uwsgi_xml_found_opt_key = (char *) name;
+	}
+}
+
+
+static void textElement(void *xml_id, const char *s, int len) {
+
+	if (!uwsgi_xml_found_stanza) return ;
+	if (uwsgi_xml_found_opt_key) {
+		add_exported_option(strdup(uwsgi_xml_found_opt_key), uwsgi_concat2n((char *)s, len, (char *)"", 0), 0);
+		uwsgi_xml_found_opt_key = NULL;
+	}
+}
+
+static void endElement(void *xml_id, const XML_Char *name) {
+
+	if (!uwsgi_xml_found_stanza) return ;
+
+	if (!strcmp(name, "uwsgi")) {
+		uwsgi_xml_found_stanza = 0;
+		return;
+	}
+
+	if (!uwsgi_xml_found_opt_key) return;
+
+	add_exported_option(strdup(uwsgi_xml_found_opt_key), strdup("1"), 0);
+	uwsgi_xml_found_opt_key = NULL;
+}
+
+void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic_table[]) {
+
+	char *colon;
+
+        char *xml_content;
+        int xml_size = 0;
+	int done = 0;
+
+        if (uwsgi_check_scheme(filename)) {
+                colon = uwsgi_get_last_char(filename, '/');
+                colon = uwsgi_get_last_char(colon, ':');
+        }
+        else {
+                colon = uwsgi_get_last_char(filename, ':');
+        }
+        if (colon) {
+                colon[0] = 0;
+                colon++;
+                if (*colon == 0) {
+                        uwsgi_log("invalid xml id\n");
+                        exit(1);
+                }
+                uwsgi_log( "[uWSGI] using xml uwsgi id: %s\n", colon);
+        }
+
+        xml_content = uwsgi_open_and_read(filename, &xml_size, 0, magic_table);
+
+	uwsgi_log( "[uWSGI] parsing config file %s\n", filename);
+
+	XML_Parser parser = XML_ParserCreate(NULL);
+	XML_SetUserData(parser, NULL);
+	if (colon) {
+		XML_SetUserData(parser, colon);
+	}
+
+	XML_SetElementHandler(parser, startElement, endElement);
+	XML_SetCharacterDataHandler(parser, textElement);
+
+	do {
+		if (!XML_Parse(parser, xml_content, xml_size, done)) {
+			if (XML_GetErrorCode(parser) != XML_ERROR_JUNK_AFTER_DOC_ELEMENT) {
+				uwsgi_log("unable to parse xml file: %s (line %d)\n", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
+				exit(1);
+			}
+			else {
+				break;
+			}
+		}
+
+	} while(!done);
+
+	
+	// we can safely free, as we have a copy of datas
+	XML_ParserFree(parser);
+}
 
 #endif
 
