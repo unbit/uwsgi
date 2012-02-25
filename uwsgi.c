@@ -500,11 +500,11 @@ void wait_for_threads() {
 
 
 void gracefully_kill(int signum) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 #ifdef UWSGI_THREADING
+	struct wsgi_request *wsgi_req = current_wsgi_req();
 	if (uwsgi.threads > 1) {
 		wait_for_threads();
 		if (!uwsgi.core[wsgi_req->async_id]->in_request) {
@@ -3035,6 +3035,7 @@ void uwsgi_ignition() {
 		if (uwsgi.zeromq && uwsgi.async < 2 && !uwsgi.sockets->next) {
 
 			if (uwsgi.threads > 1) {
+#ifdef UWSGI_THREADING
 				if (pthread_key_create(&uwsgi.tur_key, NULL)) {
 					uwsgi_error("pthread_key_create()");
 					exit(1);
@@ -3043,6 +3044,7 @@ void uwsgi_ignition() {
 					long j = i;
 					pthread_create(&uwsgi.core[i]->thread_id, &uwsgi.threads_attr, zeromq_loop, (void *) j);
 				}
+#endif
 			}
 
 			long y = 0;
@@ -3053,6 +3055,7 @@ void uwsgi_ignition() {
 		if (uwsgi.threads > 1) {
 #endif
 
+#ifdef UWSGI_THREADING
 			if (pthread_key_create(&uwsgi.tur_key, NULL)) {
 				uwsgi_error("pthread_key_create()");
 				exit(1);
@@ -3061,6 +3064,7 @@ void uwsgi_ignition() {
 				long j = i;
 				pthread_create(&uwsgi.core[i]->thread_id, &uwsgi.threads_attr, simple_loop, (void *) j);
 			}
+#endif
 		}
 
 		if (uwsgi.async < 2) {

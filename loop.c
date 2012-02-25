@@ -40,9 +40,9 @@ void *simple_loop(void *arg1) {
 	long core_id = (long) arg1;
 
 	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
-	int i;
 
 #ifdef UWSGI_THREADING
+	int i;
 	//PyThreadState *pts;
 	sigset_t smask;
 
