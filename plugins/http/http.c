@@ -71,26 +71,47 @@ void uwsgi_opt_http(char *opt, char *value, void *foobar) {
 	uhttp.has_sockets++;
 }
 
+void uwsgi_opt_http_ss(char *opt, char *value, void *foobar) {
+
+        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(value, "uWSGI http");
+        ugs->subscription = 1;
+        uhttp.has_subscription_sockets++;
+
+}
+
+void uwsgi_opt_http_use_pattern(char *opt, char *value, void *foobar) {
+	uhttp.pattern = value;
+        // optimization
+        uhttp.pattern_len = strlen(uhttp.pattern);
+}
+
+void uwsgi_opt_http_use_base(char *opt, char *value, void *foobar) {
+	uhttp.base = value;
+        // optimization
+        uhttp.base_len = strlen(uhttp.base);
+}
+
+void uwsgi_opt_http_use_to(char *opt, char *value, void *foobar) {
+        uhttp.to = value;
+        // optimization
+	uhttp.to_len = strlen(uhttp.to);
+}
+
+
 struct uwsgi_option http_options[] = {
 	{"http", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_http, NULL, 0},
 	{"http-processes", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.processes, 0},
 	{"http-workers", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.processes, 0},
 	{"http-var", required_argument, 0, "add a key=value item to the generated uwsgi packet", uwsgi_opt_add_string_list, &uhttp.http_vars, 0},
-/*
-	{"http-to", required_argument, 0, LONG_ARGS_HTTP_USE_TO},
-*/
+	{"http-to", required_argument, 0, "forward requests to the specified node", uwsgi_opt_http_use_to, NULL, 0 },
 	{"http-modifier1", required_argument, 0, "set uwsgi protocol modifier1", uwsgi_opt_set_int, &uhttp.modifier1, 0},
 	{"http-use-cache", no_argument, 0, "use uWSGI cache as key->value virtualhost mapper", uwsgi_opt_true, &uhttp.use_cache, 0},
-/*
-	{"http-use-pattern", required_argument, 0, LONG_ARGS_HTTP_USE_PATTERN},
-	{"http-use-base", required_argument, 0, LONG_ARGS_HTTP_USE_BASE},
-	{"http-use-cluster", no_argument, &uhttp.use_cluster, 1},
-*/
+	{"http-use-pattern", required_argument, 0, "use the specified pattern for mapping requests to unix sockets", uwsgi_opt_http_use_pattern, NULL, 0},
+	{"http-use-base", required_argument, 0, "use the specified base for mapping requests to unix sockets", uwsgi_opt_http_use_base, NULL, 0},
+	{"http-use-cluster", no_argument, 0, "load balance to nodes subscribed to the cluster", uwsgi_opt_true, &uhttp.use_cluster, 0},
 	{"http-events", required_argument, 0, "set the number of concurrent http async events", uwsgi_opt_set_int, &uhttp.nevents, 0},
-/*
-	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
-	{"http-subscription-use-regexp", no_argument, &uhttp.subscription_regexp, 1},
-*/
+	{"http-subscription-server", required_argument, 0, "enable the subscription server", uwsgi_opt_http_ss, NULL, 0},
+	{"http-subscription-use-regexp", no_argument, 0, "enable regexp usage in subscription system", uwsgi_opt_true, &uhttp.subscription_regexp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
 	{0, 0, 0, 0, 0, 0, 0},
@@ -986,43 +1007,6 @@ int http_init() {
 
 	return 0;
 }
-
-/*
-int http_opt(int i, char *optarg) {
-
-	struct uwsgi_gateway_socket *ugs;	
-
-	switch (i) {
-	case LONG_ARGS_HTTP_PROCESSES:
-		uhttp.processes = atoi(optarg);
-		return 1;
-	case LONG_ARGS_HTTP_SUBSCRIPTION_SERVER:
-		ugs = uwsgi_new_gateway_socket(optarg, "uWSGI http");
-		ugs->subscription = 1;
-		uhttp.has_subscription_sockets++;
-		return 1;
-	case LONG_ARGS_HTTP_EVENTS:
-		uhttp.nevents = atoi(optarg);
-		return 1;
-	case LONG_ARGS_HTTP_USE_PATTERN:
-		uhttp.pattern = optarg;
-		// optimization
-		uhttp.pattern_len = strlen(uhttp.pattern);
-		return 1;
-	case LONG_ARGS_HTTP_USE_BASE:
-		uhttp.base = optarg;
-		// optimization
-		uhttp.base_len = strlen(uhttp.base);
-		return 1;
-	case LONG_ARGS_HTTP_USE_TO:
-		uhttp.to = optarg;
-		// optimization
-		uhttp.to_len = strlen(uhttp.to);
-		return 1;
-	return 0;
-}
-*/
-
 
 
 struct uwsgi_plugin http_plugin = {
