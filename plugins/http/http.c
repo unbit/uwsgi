@@ -73,10 +73,8 @@ void uwsgi_opt_http(char *opt, char *value, void *foobar) {
 
 struct uwsgi_option http_options[] = {
 	{"http", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_http, NULL, 0},
-/*
-	{"http-processes", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
-	{"http-workers", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
-*/
+	{"http-processes", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.processes, 0},
+	{"http-workers", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.processes, 0},
 	{"http-var", required_argument, 0, "add a key=value item to the generated uwsgi packet", uwsgi_opt_add_string_list, &uhttp.http_vars, 0},
 /*
 	{"http-to", required_argument, 0, LONG_ARGS_HTTP_USE_TO},
@@ -87,11 +85,13 @@ struct uwsgi_option http_options[] = {
 	{"http-use-pattern", required_argument, 0, LONG_ARGS_HTTP_USE_PATTERN},
 	{"http-use-base", required_argument, 0, LONG_ARGS_HTTP_USE_BASE},
 	{"http-use-cluster", no_argument, &uhttp.use_cluster, 1},
-	{"http-events", required_argument, 0, LONG_ARGS_HTTP_EVENTS},
+*/
+	{"http-events", required_argument, 0, "set the number of concurrent http async events", uwsgi_opt_set_int, &uhttp.nevents, 0},
+/*
 	{"http-subscription-server", required_argument, 0, LONG_ARGS_HTTP_SUBSCRIPTION_SERVER},
 	{"http-subscription-use-regexp", no_argument, &uhttp.subscription_regexp, 1},
-	{"http-timeout", required_argument, 0, LONG_ARGS_HTTP_TIMEOUT},
 */
+	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -1019,13 +1019,6 @@ int http_opt(int i, char *optarg) {
 		// optimization
 		uhttp.to_len = strlen(uhttp.to);
 		return 1;
-	case LONG_ARGS_HTTP_MODIFIER1:
-		uhttp.modifier1 = (uint8_t) atoi(optarg);
-		return 1;
-	case LONG_ARGS_HTTP_TIMEOUT:
-		uhttp.socket_timeout = atoi(optarg);
-		return 1;
-	}
 	return 0;
 }
 */
