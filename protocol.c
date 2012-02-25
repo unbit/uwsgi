@@ -734,6 +734,10 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->authorization = ptrbuf;
 							wsgi_req->authorization_len = strsize;
 						}
+						else if (!uwsgi_strncmp("DOCUMENT_ROOT", 13, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+							wsgi_req->document_root = ptrbuf;
+							wsgi_req->document_root_len = strsize;
+						}
 						else if (uwsgi.log_x_forwarded_for && !uwsgi_strncmp("HTTP_X_FORWARDED_FOR", 20, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->remote_addr = ptrbuf;
 							wsgi_req->remote_addr_len = strsize;
@@ -950,6 +954,13 @@ nextcs:
 		}
 nextsm:
 		udd = udd->next;
+	}
+
+	// finally check for docroot
+	if (uwsgi.check_static_docroot && wsgi_req->document_root_len > 0) {
+		if (!uwsgi_file_serve(wsgi_req, wsgi_req->document_root, wsgi_req->document_root_len, wsgi_req->path_info, wsgi_req->path_info_len)) {
+                        return -1;
+                }
 	}
 
 	return 0;

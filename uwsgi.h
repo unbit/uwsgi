@@ -1205,6 +1205,7 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *mimetypes;
 	struct uwsgi_string_list *static_skip_ext;
 	struct uwsgi_string_list *static_index;
+	int check_static_docroot;
 
 	char *daemonize;
 	int do_not_change_umask;

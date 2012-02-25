@@ -707,18 +707,14 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	wsgi_req->document_root = uphp.docroot;
-
-	if (!wsgi_req->document_root) {
-
-		wsgi_req->document_root = uwsgi_get_var(wsgi_req, (char *) "DOCUMENT_ROOT", 13, &wsgi_req->document_root_len);
-		if (!wsgi_req->document_root) {
-			wsgi_req->document_root = uwsgi.cwd;
-			wsgi_req->document_root_len = strlen(uwsgi.cwd);
-		}
-	}
-	else {
+	if (uphp.docroot) {
+		wsgi_req->document_root = uphp.docroot;
 		wsgi_req->document_root_len = strlen(wsgi_req->document_root);
+	}
+	// fallback to cwd
+	else if (!wsgi_req->document_root_len) {
+		wsgi_req->document_root = uwsgi.cwd;
+		wsgi_req->document_root_len = strlen(uwsgi.cwd);
 	}
 
 	if (uphp.app) {

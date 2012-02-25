@@ -325,6 +325,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
 	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
+	{"check-static-docroot", no_argument, 0, "check for static files in the requested DOCUMENT_ROOT", uwsgi_opt_true, &uwsgi.check_static_docroot, 0},
 	{"static-check", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
 	{"static-map", required_argument, 0, "map mountpoint to static directory", uwsgi_opt_static_map, NULL, 0},
 	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, 0},
