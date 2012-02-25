@@ -1816,9 +1816,30 @@ int uwsgi_logic_opt_if_env(char *key, char *value) {
         return 0;
 }
 
+int uwsgi_logic_opt_if_not_env(char *key, char *value) {
+
+	char *p = getenv(uwsgi.logic_opt_data);
+	if (!p) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
 int uwsgi_logic_opt_if_file(char *key, char *value) {
 
 	if (uwsgi_is_file(uwsgi.logic_opt_data)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
+int uwsgi_logic_opt_if_not_file(char *key, char *value) {
+
+	if (!uwsgi_is_file(uwsgi.logic_opt_data)) {
 		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
 		return 1;
 	}
@@ -1836,10 +1857,30 @@ int uwsgi_logic_opt_if_dir(char *key, char *value) {
         return 0;
 }
 
+int uwsgi_logic_opt_if_not_dir(char *key, char *value) {
+
+	if (!uwsgi_is_dir(uwsgi.logic_opt_data)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
 
 int uwsgi_logic_opt_if_exists(char *key, char *value) {
 
 	if (uwsgi_file_exists(uwsgi.logic_opt_data)) {
+		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+		return 1;
+	}
+
+        return 0;
+}
+
+int uwsgi_logic_opt_if_not_exists(char *key, char *value) {
+
+	if (!uwsgi_file_exists(uwsgi.logic_opt_data)) {
 		add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
 		return 1;
 	}
