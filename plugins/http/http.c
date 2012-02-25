@@ -17,7 +17,6 @@ extern struct uwsgi_server uwsgi;
 #include "../../lib/corerouter.h"
 
 #define MAX_HTTP_VEC 128
-#define MAX_HTTP_EXTRA_VARS 64
 
 #define HTTP_STATUS_FREE 0
 #define HTTP_STATUS_CONNECTING 1
@@ -52,8 +51,7 @@ struct uwsgi_http {
 	char *to;
 	int to_len;
 
-	char *http_vars[MAX_HTTP_EXTRA_VARS];
-	int http_vars_cnt;
+	struct uwsgi_string_list *http_vars;
 
 	uint8_t modifier1;
 	int load;
@@ -78,7 +76,9 @@ struct uwsgi_option http_options[] = {
 /*
 	{"http-processes", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
 	{"http-workers", required_argument, 0, LONG_ARGS_HTTP_PROCESSES},
-	{"http-var", required_argument, 0, LONG_ARGS_HTTP_VAR},
+*/
+	{"http-var", required_argument, 0, "add a key=value item to the generated uwsgi packet", uwsgi_opt_add_string_list, &uhttp.http_vars, 0},
+/*
 	{"http-to", required_argument, 0, LONG_ARGS_HTTP_USE_TO},
 */
 	{"http-modifier1", required_argument, 0, "set uwsgi protocol modifier1", uwsgi_opt_set_int, &uhttp.modifier1, 0},
@@ -462,12 +462,13 @@ int http_parse(struct http_session *h_session) {
 		ptr++;
 	}
 
-	int i;
-	for (i = 0; i < uhttp.http_vars_cnt; i++) {
-		char *equal = strchr(uhttp.http_vars[i], '=');
+	struct uwsgi_string_list *hv = uhttp.http_vars;
+	while(hv) {
+		char *equal = strchr(hv->value, '=');
 		if (equal) {
-			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, uhttp.http_vars[i], equal - uhttp.http_vars[i], equal + 1, strlen(equal + 1), &c);
+			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, hv->value, equal - hv->value, equal + 1, strlen(equal + 1), &c);
 		}
+		hv = hv->next;
 	}
 
 #ifdef UWSGI_DEBUG
@@ -992,10 +993,6 @@ int http_opt(int i, char *optarg) {
 	struct uwsgi_gateway_socket *ugs;	
 
 	switch (i) {
-	case LONG_ARGS_HTTP:
-		uwsgi_new_gateway_socket(optarg, "uWSGI http");
-		uhttp.has_sockets++;
-		return 1;
 	case LONG_ARGS_HTTP_PROCESSES:
 		uhttp.processes = atoi(optarg);
 		return 1;
@@ -1021,15 +1018,6 @@ int http_opt(int i, char *optarg) {
 		uhttp.to = optarg;
 		// optimization
 		uhttp.to_len = strlen(uhttp.to);
-		return 1;
-	case LONG_ARGS_HTTP_VAR:
-		if (uhttp.http_vars_cnt < MAX_HTTP_EXTRA_VARS) {
-			uhttp.http_vars[uhttp.http_vars_cnt] = optarg;
-			uhttp.http_vars_cnt++;
-		}
-		else {
-			uwsgi_log("you can specify at most 64 --http-var options\n");
-		}
 		return 1;
 	case LONG_ARGS_HTTP_MODIFIER1:
 		uhttp.modifier1 = (uint8_t) atoi(optarg);
