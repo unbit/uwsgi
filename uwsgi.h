@@ -49,6 +49,7 @@ extern "C" {
 #define UWSGI_OPT_NO_INITIAL		(1 << 9)
 #define UWSGI_OPT_NO_SERVER		(1 << 10)
 #define UWSGI_OPT_POST_BUFFERING	(1 << 11)
+#define UWSGI_OPT_CLUSTER		(1 << 12)
 
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
@@ -2568,6 +2569,8 @@ void uwsgi_opt_add_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
+void uwsgi_opt_cluster_log(char *, char *, void *);
+void uwsgi_opt_cluster_reload(char *, char *, void *);
 #ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *, char *, void *);
 #endif

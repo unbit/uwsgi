@@ -2016,6 +2016,10 @@ add:
 			if (op->flags & UWSGI_OPT_NO_SERVER) {
 				uwsgi.no_server = 1;
                         }
+			// requires cluster ?
+			if (op->flags & UWSGI_OPT_CLUSTER) {
+				uwsgi.cluster = value;
+                        }
 			// requires post_buffering ?
 			if (op->flags & UWSGI_OPT_POST_BUFFERING) {
 				if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;

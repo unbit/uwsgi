@@ -248,9 +248,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_MULTICAST
 	{"multicast", required_argument, 0, "subscribe to specified multicast group", uwsgi_opt_set_str, &uwsgi.multicast_group, UWSGI_OPT_MASTER},
 	{"cluster", required_argument, 0, "join specified uWSGI cluster", uwsgi_opt_set_str, &uwsgi.cluster, UWSGI_OPT_MASTER},
-	//{"cluster-nodes", required_argument, 0, LONG_ARGS_CLUSTER_NODES,0},
-	//{"cluster-reload", required_argument, 0, LONG_ARGS_CLUSTER_RELOAD,0},
-	//{"cluster-log", required_argument, 0, LONG_ARGS_CLUSTER_LOG,0},
+	{"cluster-nodes", required_argument, 0, "get nodes list from the specified cluster", uwsgi_opt_true, &uwsgi.cluster_nodes, UWSGI_OPT_MASTER|UWSGI_OPT_CLUSTER},
+	{"cluster-reload", required_argument, 0, "send a reload message to the cluster", uwsgi_opt_cluster_reload, NULL, 0},
+	{"cluster-log", required_argument, 0, "send a log line to the cluster", uwsgi_opt_cluster_log, NULL, 0},
 #endif
 	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
@@ -3309,6 +3309,14 @@ void uwsgi_opt_true(char *opt, char *value, void *key) {
 			*ptr = 0;
 		}
 	}
+}
+
+void uwsgi_opt_cluster_reload(char *opt, char *value, void *foobar) {
+	send_udp_message(98, 0, value, NULL, 0);
+}
+
+void uwsgi_opt_cluster_log(char *opt, char *value, void *foobar) {
+	uwsgi_stdin_sendto(value, 96, 0);
 }
 
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {
