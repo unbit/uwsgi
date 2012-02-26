@@ -249,8 +249,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"multicast", required_argument, 0, "subscribe to specified multicast group", uwsgi_opt_set_str, &uwsgi.multicast_group, UWSGI_OPT_MASTER},
 	{"cluster", required_argument, 0, "join specified uWSGI cluster", uwsgi_opt_set_str, &uwsgi.cluster, UWSGI_OPT_MASTER},
 	{"cluster-nodes", required_argument, 0, "get nodes list from the specified cluster", uwsgi_opt_true, &uwsgi.cluster_nodes, UWSGI_OPT_MASTER|UWSGI_OPT_CLUSTER},
-	{"cluster-reload", required_argument, 0, "send a reload message to the cluster", uwsgi_opt_cluster_reload, NULL, 0},
-	{"cluster-log", required_argument, 0, "send a log line to the cluster", uwsgi_opt_cluster_log, NULL, 0},
+	{"cluster-reload", required_argument, 0, "send a reload message to the cluster", uwsgi_opt_cluster_reload, NULL, UWSGI_OPT_IMMEDIATE},
+	{"cluster-log", required_argument, 0, "send a log line to the cluster", uwsgi_opt_cluster_log, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
@@ -3195,7 +3195,9 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 
 	rlen = read(0, ptr, delta);
 	while (rlen > 0) {
+#ifdef UWSGI_DEBUG
 		uwsgi_log("%.*s\n", rlen, ptr);
+#endif
 		ptr += rlen;
 		delta -= rlen;
 		if (delta <= 0)
@@ -3205,7 +3207,7 @@ void uwsgi_stdin_sendto(char *socket_name, uint8_t modifier1, uint8_t modifier2)
 
 	if (ptr > buf+4) {
 		send_udp_message(modifier1, modifier2, socket_name, buf, (ptr - buf)-4);
-		uwsgi_log("sent string \"%.*s\" to cluster node %s", (ptr - buf)-4, buf+4, socket_name);
+		uwsgi_log("sent string \"%.*s\" to cluster node %s\n", (ptr - buf)-4, buf+4, socket_name);
 	}
 
 }
@@ -3313,10 +3315,12 @@ void uwsgi_opt_true(char *opt, char *value, void *key) {
 
 void uwsgi_opt_cluster_reload(char *opt, char *value, void *foobar) {
 	send_udp_message(98, 0, value, NULL, 0);
+	exit(0);
 }
 
 void uwsgi_opt_cluster_log(char *opt, char *value, void *foobar) {
 	uwsgi_stdin_sendto(value, 96, 0);
+	exit(0);
 }
 
 void uwsgi_opt_set_int(char *opt, char *value, void *key) {
