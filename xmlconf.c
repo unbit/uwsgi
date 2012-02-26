@@ -83,7 +83,7 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 		for (node = element->children; node; node = node->next) {
 			if (node->type == XML_CDATA_SECTION_NODE) {
 				if (node->content) {
-					uwsgi_manage_opt("eval", (char *) node->content);
+					add_exported_option((char *) "eval", strdup((char *) node->content), 0);
 				}
 			}
 			else if (node->type == XML_ELEMENT_NODE) {
@@ -103,16 +103,20 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 				}
 
 				if (node->children) {
-					add_exported_option((char *) node->name, (char *) node->children->content, 0);
+					add_exported_option(strdup((char *) node->name), strdup((char *) node->children->content), 0);
 				}
 				else {
-					add_exported_option((char *) node->name, strdup("1"), 0);
+					add_exported_option(strdup((char *) node->name), strdup("1"), 0);
 				}
 			}
 		}
-	}
+	/* We can safely free resources */
 
-	/* We cannot free xml resources on the first round (and with routing enabled) as the string pointer must be valid for all the server lifecycle */
+	xmlFreeDoc(doc);
+	xmlCleanupParser();
+
+}
+
 
 #endif
 
