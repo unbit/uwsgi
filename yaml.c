@@ -30,7 +30,7 @@ char *yaml_lstrip(char *line) {
         char *ptr = line;
 
         for(i=0;i< (int) strlen(line);i++) {
-                if (line[i] == ' ' || line[i] == '\t') {
+                if (line[i] == ' ' || line[i] == '\t' || line[i] == '\r') {
                         ptr++;
                         continue;
                 }
@@ -51,7 +51,7 @@ int yaml_get_depth(char *line) {
 			depth++;
 			continue;
 		}
-		else if (line[i] == '\t') {
+		else if (line[i] == '\t' || line[i] == '\r') {
 			depth+=8;
 			continue;
 		}
