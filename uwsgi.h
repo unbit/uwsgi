@@ -1160,6 +1160,8 @@ struct uwsgi_server {
 	// exit if no-app is loaded
 	int need_app;
 
+	int forkbomb_delay;
+
 	int logdate;
 	int log_micros;
 	char *log_strftime;

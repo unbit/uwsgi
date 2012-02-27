@@ -1545,12 +1545,14 @@ int master_loop(char **argv, char **environ) {
 				continue;
 			}
 			gettimeofday(&last_respawn, NULL);
-			if (last_respawn.tv_sec == uwsgi.respawn_delta) {
+			if (last_respawn.tv_sec <= uwsgi.respawn_delta + check_interval) {
 				last_respawn_rate++;
 				if (last_respawn_rate > uwsgi.numproc) {
-					uwsgi_log("worker respawning too fast !!! i have to sleep a bit...\n");
-					/* TODO, user configurable fork throttler */
-					sleep(2);
+					if (uwsgi.forkbomb_delay > 0) {
+						uwsgi_log("worker respawning too fast !!! i have to sleep a bit (%d seconds)...\n", uwsgi.forkbomb_delay);
+						/* use --forkbomb-delay 0 to disable sleeping */
+						sleep(uwsgi.forkbomb_delay);
+					}
 					last_respawn_rate = 0;
 				}
 			}

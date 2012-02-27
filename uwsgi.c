@@ -264,6 +264,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"snmp-community", required_argument, 0, "set the snmp community string", uwsgi_opt_snmp_community, NULL, 0},
 #endif
 	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MASTER_INTERVAL, 0},
+	{"forkbomb-delay", required_argument, 0, "sleep for the specified number of seconds when a forkbomb is detected", uwsgi_opt_set_int, &uwsgi.forkbomb_delay, UWSGI_OPT_MASTER},
 	{"binary-path", required_argument, 0, "force binary path", uwsgi_opt_set_str, &uwsgi.binary_path, 0},
 #ifdef UWSGI_ASYNC
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
@@ -1267,6 +1268,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.buffer_size = 4096;
 	uwsgi.numproc = 1;
+
+	uwsgi.forkbomb_delay = 2;
 
 	uwsgi.async = 1;
 	uwsgi.listen_queue = 100;
@@ -3305,7 +3308,8 @@ void uwsgi_init_all_apps() {
 	// no app initialized and virtualhosting enabled
 	if (uwsgi_apps_cnt == 0 && uwsgi.numproc > 0 && !uwsgi.command_mode) {
 		if (uwsgi.need_app) {
-			uwsgi_log("*** no app loaded. GAME OVER ***\n");
+			if (!uwsgi.lazy)
+				uwsgi_log("*** no app loaded. GAME OVER ***\n");
 			exit(UWSGI_FAILED_APP_CODE);
 		}
 		else {
