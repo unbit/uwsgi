@@ -1434,8 +1434,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.option_index = -1;
 
-	uwsgi_log("short options = %s\n", uwsgi.short_options);
-
 	char *optname;
 	while ((i = getopt_long(uwsgi.argc, uwsgi.argv, uwsgi.short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
 
