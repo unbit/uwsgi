@@ -68,7 +68,7 @@ void expire_rb_timeouts(struct rb_root *root) {
 	}
 }
 
-void uwsgi_master_log(void) {
+int uwsgi_master_log(void) {
 
 	char log_buf[4096];
 
@@ -81,7 +81,10 @@ void uwsgi_master_log(void) {
 			rlen = write(uwsgi.original_log_fd, log_buf, rlen);
 		}
 		// TODO allow uwsgi.logger = func
+		return 0;
 	}
+
+	return -1;
 }
 
 void *logger_thread_loop(void *noarg) {

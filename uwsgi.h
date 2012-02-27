@@ -2668,7 +2668,7 @@ int uwsgi_cheaper_algo_spare(void);
 int uwsgi_cheaper_algo_backlog(void);
 int uwsgi_cheaper_algo_backlog2(void);
 
-void uwsgi_master_log(void);
+int uwsgi_master_log(void);
 void uwsgi_flush_logs(void);
 
 void uwsgi_register_cheaper_algo(char *, int(*) (void));

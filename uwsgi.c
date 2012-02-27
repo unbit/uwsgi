@@ -1152,7 +1152,9 @@ check:
 	if (pfd.fd == -1) pfd.fd = 2;
 
 	while(poll(&pfd, 1, 0) > 0) {
-		uwsgi_master_log();	
+		if (uwsgi_master_log()) {
+			break;
+		}
 	}
 }
 
