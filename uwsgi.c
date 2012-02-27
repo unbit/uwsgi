@@ -1775,6 +1775,7 @@ int uwsgi_start(void *v_argv) {
 #ifndef __OpenBSD__
 
 	if (uwsgi.rl.rlim_max > 0) {
+		uwsgi.rl.rlim_cur = uwsgi.rl.rlim_max;
 		uwsgi_log("limiting address space of processes...\n");
 		if (setrlimit(RLIMIT_AS, &uwsgi.rl)) {
 			uwsgi_error("setrlimit()");
