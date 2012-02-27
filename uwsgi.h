@@ -1157,6 +1157,8 @@ struct uwsgi_server {
 	int ignore_script_name;
 	int manage_script_name;
 	int no_default_app;
+	// exit if no-app is loaded
+	int need_app;
 
 	int logdate;
 	int log_micros;
@@ -1752,7 +1754,7 @@ struct uwsgi_worker {
 	uint64_t exceptions;
 
 	int destroy;
-
+	
 	int apps_cnt;
 	struct uwsgi_app apps[MAX_APPS];
 

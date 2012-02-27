@@ -113,6 +113,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"procname-master", required_argument, 0, "set master process name", uwsgi_opt_set_str, &uwsgi.procname_master, UWSGI_OPT_PROCNAME},
 
 	{"single-interpreter", no_argument, 'i', "do not use multiple interpreters (where available)", uwsgi_opt_true, &uwsgi.single_interpreter, 0},
+	{"need-app", no_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process,0},
 	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_set_str, &uwsgi.emperor_dir,0},
 	{"emperor-tyrant", no_argument, 0, "put the Emperor in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant,0},
@@ -1430,10 +1431,12 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.option_index = -1;
 
+	uwsgi_log("short options = %s\n", uwsgi.short_options);
+
 	char *optname;
 	while ((i = getopt_long(uwsgi.argc, uwsgi.argv, uwsgi.short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
 
-		if (i == '?') exit(1);
+		if (i == '?') { uwsgi_log("getopt_long() error\n"); exit(1); }
 
 		if (uwsgi.option_index > -1) {
 			optname = (char *) uwsgi.long_options[uwsgi.option_index].name;
@@ -3172,12 +3175,16 @@ void build_options() {
 		uwsgi.long_options[pos].name = op->name;
 		uwsgi.long_options[pos].has_arg = op->type;
 		uwsgi.long_options[pos].flag = 0;
-		uwsgi.long_options[pos].val = pos;
+		// add 1000 to avoid short_options collision
+		uwsgi.long_options[pos].val = 1000+pos;
 		if (op->shortcut) {
 			char shortcut = (char) op->shortcut;
-			strncat(uwsgi.short_options, &shortcut, 1);
-			if (op->type != no_argument) {
-				strcat(uwsgi.short_options, ":");
+			// avoid duplicates in short_options
+			if (!strchr(uwsgi.short_options, shortcut)) {
+				strncat(uwsgi.short_options, &shortcut, 1);
+				if (op->type != no_argument) {
+					strcat(uwsgi.short_options, ":");
+				}
 			}
 		}
 		op++;
@@ -3297,7 +3304,13 @@ void uwsgi_init_all_apps() {
 
 	// no app initialized and virtualhosting enabled
 	if (uwsgi_apps_cnt == 0 && uwsgi.numproc > 0 && !uwsgi.command_mode) {
-		uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
+		if (uwsgi.need_app) {
+			uwsgi_log("*** no app loaded. GAME OVER ***\n");
+			exit(UWSGI_FAILED_APP_CODE);
+		}
+		else {
+			uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
+		}
 	}
 
 }
