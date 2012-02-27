@@ -1,5 +1,11 @@
 #include "../../uwsgi.h"
 
+/*
+
+this plugin, allows remote spooling of jobs
+
+*/
+
 extern struct uwsgi_server uwsgi;
 
 int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
