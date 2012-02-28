@@ -183,29 +183,30 @@ struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
 
 #define UWSGI_LOCK_SIZE		sizeof(struct umtx)
 #define UWSGI_RWLOCK_SIZE	sizeof(struct umtx)
+#define UWSGI_LOCK_ENGINE_NAME	"FreeBSD umtx"
 
-struct uwsgi_lock_item *uwsgi_rwlock_init(char *id) { return uwsgi_lock_init(id) ;}
-void uwsgi_rlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
-void uwsgi_wlock(struct uwsgi_lock_item *uli) { uwsgi_lock(uli);}
-void uwsgi_rwunlock(struct uwsgi_lock_item *uli) { uwsgi_unlock(uli); }
+struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) { return uwsgi_lock_fast_init(id) ;}
+void uwsgi_rlock_fast(struct uwsgi_lock_item *uli) { uwsgi_lock_fast(uli);}
+void uwsgi_wlock_fast(struct uwsgi_lock_item *uli) { uwsgi_lock_fast(uli);}
+void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) { uwsgi_unlock_fast(uli); }
 
-struct uwsgi_lock_item *uwsgi_lock_init(char *id) {
+struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 	umtx_init((struct umtx*) uli->lock_ptr);
 	return uli;
 }
 
-void uwsgi_lock(struct uwsgi_lock_item *uli) {
+void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 	umtx_lock((struct umtx*) uli->lock_ptr, (u_long) getpid() );
 	uli->pid = uwsgi.mypid;
 }
 
-void uwsgi_unlock(struct uwsgi_lock_item *uli) {
+void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
 	umtx_unlock((struct umtx*) uli->lock_ptr, (u_long) getpid() );
 	uli->pid = 0;
 }
 
-pid_t uwsgi_lock_check(struct uwsgi_lock_item *uli) {
+pid_t uwsgi_lock_fast_check(struct uwsgi_lock_item *uli) {
 	if (umtx_trylock((struct umtx*) uli->lock_ptr, (u_long) getpid() )) {
 		umtx_unlock((struct umtx*) uli->lock_ptr, (u_long) getpid() );
 		return 0;
@@ -213,7 +214,7 @@ pid_t uwsgi_lock_check(struct uwsgi_lock_item *uli) {
 	return uli->pid;
 }
 
-pid_t uwsgi_rwlock_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_check(uli); }
+pid_t uwsgi_rwlock_fast_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_fast_check(uli); }
 
 #elif defined(UWSGI_LOCK_USE_OSX_SPINLOCK)
 
