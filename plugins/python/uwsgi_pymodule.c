@@ -2466,7 +2466,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		if (uwsgi.workers[i + 1].cheaped) {
 			zero = PyString_FromString("cheap");
 		}
-		else if (uwsgi.workers[i + 1].suspended) {
+		else if (uwsgi.workers[i + 1].suspended && !uwsgi.workers[i + 1].busy) {
 			zero = PyString_FromString("pause");
 		}
 		else {

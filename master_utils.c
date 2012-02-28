@@ -728,7 +728,7 @@ void uwsgi_send_stats(int fd) {
 		if (uwsgi.workers[i + 1].cheaped) {
 			fprintf(output, "\"status\": \"cheap\", ");
 		}
-		else if (uwsgi.workers[i + 1].suspended) {
+		else if (uwsgi.workers[i + 1].suspended && !uwsgi.workers[i + 1].busy) {
 			fprintf(output, "\"status\": \"pause\", ");
 		}
 		else {

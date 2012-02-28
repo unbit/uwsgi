@@ -83,7 +83,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
 	{"stop", required_argument, 0, "stop an instance", uwsgi_opt_pidfile_signal, (void *) SIGINT, UWSGI_OPT_IMMEDIATE},
 	{"reload", required_argument, 0, "reload an instance", uwsgi_opt_pidfile_signal, (void *) SIGHUP, UWSGI_OPT_IMMEDIATE},
-	{"pause", required_argument, 0, "pause an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
+	{"pause", required_argument, 0, "pause an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP, UWSGI_OPT_IMMEDIATE},
 	{"suspend", required_argument, 0, "suspend an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
 	{"resume", required_argument, 0, "resume an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP,UWSGI_OPT_IMMEDIATE},
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue,0},
