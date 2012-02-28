@@ -67,6 +67,8 @@ struct uwsgi_fastrouter {
 	struct uwsgi_subscribe_slot *subscriptions;
 	int subscription_regexp;
 
+	struct uwsgi_string_list *fallback;
+
 	int socket_timeout;
 
 	uint8_t code_string_modifier1;
@@ -186,7 +188,7 @@ void uwsgi_opt_fastrouter_use_base(char *opt, char *value, void *foobar) {
 
 void uwsgi_opt_fastrouter_use_pattern(char *opt, char *value, void *foobar) {
 	ufr.pattern = value;
-	ufr.pattern_len = strlen(ufr.base);
+	ufr.pattern_len = strlen(ufr.pattern);
 }
 
 struct uwsgi_option fastrouter_options[] = {
@@ -198,6 +200,8 @@ struct uwsgi_option fastrouter_options[] = {
 
 	{"fastrouter-use-pattern", required_argument, 0, "use a pattern for fastrouter hostname->server mapping", uwsgi_opt_fastrouter_use_pattern, NULL, 0},
 	{"fastrouter-use-base", required_argument, 0, "use a base dir for fastrouter hostname->server mapping", uwsgi_opt_fastrouter_use_base, NULL, 0},
+
+	{"fastrouter-fallback", required_argument, 0, "fallback to the specified node in case of error", uwsgi_opt_add_string_list, &ufr.fallback, 0},
 
 	{"fastrouter-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the fastrouter", uwsgi_opt_fastrouter_cs, NULL, 0},
 	{"fastrouter-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_fastrouter_use_socket, NULL, 0},
@@ -273,6 +277,8 @@ struct fastrouter_session {
 	size_t post_cl;
 	size_t post_remains;
 
+	struct uwsgi_string_list *fallback;
+
 	char *buf_file_name;
 	FILE *buf_file;
 
@@ -286,18 +292,6 @@ struct fastrouter_session {
 
 static void close_session(struct fastrouter_session *fr_session) {
 
-	close(fr_session->fd);
-	ufr.fr_table[fr_session->fd] = NULL;
-
-	if (fr_session->buf_file)
-		fclose(fr_session->buf_file);
-
-	if (fr_session->buf_file_name) {
-		if (unlink(fr_session->buf_file_name)) {
-			uwsgi_error("unlink()");
-		}
-		free(fr_session->buf_file_name);
-	}
 
 
 	if (fr_session->tmp_socket_name)
@@ -327,11 +321,63 @@ static void close_session(struct fastrouter_session *fr_session) {
 
 		}
 	}
+	else if (fr_session->instance_failed) {
 
 	if (fr_session->instance_fd != -1) {
+		event_queue_del_fd(ufr.queue, fr_session->instance_fd, event_queue_write());
 		close(fr_session->instance_fd);
 		ufr.fr_table[fr_session->instance_fd] = NULL;
 	}
+
+	if (ufr.fallback) {
+		// ok let's try with the fallback nodes
+		if (!fr_session->fallback) {
+			fr_session->fallback = ufr.fallback;
+		}
+		else {
+			fr_session->fallback = fr_session->fallback->next;
+			if (!fr_session->fallback) goto end;
+		}
+
+		fr_session->instance_address = fr_session->fallback->value;
+		fr_session->instance_address_len = fr_session->fallback->len;
+
+		fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
+
+
+                fr_session->instance_fd = uwsgi_connectn(fr_session->instance_address, fr_session->instance_address_len, 0, 1);
+
+                if (fr_session->instance_fd < 0) {
+                	fr_session->instance_failed = 1;
+                        close_session(fr_session);
+			return;
+		}
+  
+		ufr.fr_table[fr_session->instance_fd] = fr_session;
+
+                fr_session->status = FASTROUTER_STATUS_CONNECTING;
+                ufr.fr_table[fr_session->instance_fd] = fr_session;
+                event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
+		return;
+
+	}
+	}
+
+end:
+
+	if (fr_session->buf_file)
+		fclose(fr_session->buf_file);
+
+	if (fr_session->buf_file_name) {
+		if (unlink(fr_session->buf_file_name)) {
+			uwsgi_error("unlink()");
+		}
+		free(fr_session->buf_file_name);
+	}
+
+	close(fr_session->fd);
+	ufr.fr_table[fr_session->fd] = NULL;
+
 	del_timeout(fr_session);
 	free(fr_session);
 }
@@ -552,6 +598,7 @@ void fastrouter_loop(int id) {
 						ufr.fr_table[new_connection]->instance_address_len = 0;
 						ufr.fr_table[new_connection]->hostname_len = 0;
 						ufr.fr_table[new_connection]->hostname = NULL;
+						ufr.fr_table[new_connection]->fallback = NULL;
 
 						ufr.fr_table[new_connection]->timeout = add_timeout(ufr.fr_table[new_connection]);
 
@@ -768,7 +815,7 @@ void fastrouter_loop(int id) {
 						}
 
 						if (soopt) {
-							uwsgi_log("unable to connect() to uwsgi instance: %s\n", strerror(soopt));
+							uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": %s\n", fr_session->instance_address_len, fr_session->instance_address, strerror(soopt));
 							fr_session->instance_failed = 1;
 							close_session(fr_session);
 							break;
