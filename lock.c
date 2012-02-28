@@ -318,7 +318,7 @@ void uwsgi_unlock_flock(struct uwsgi_lock_item *uli) {
 	int fd;
 	memcpy(&fd, uli->lock_ptr, sizeof(int));
 #ifdef __sun__
-	if (lockf(fd, F_UNLOCK, 0)) { uwsgi_error("lockf()"); }
+	if (lockf(fd, F_ULOCK, 0)) { uwsgi_error("lockf()"); }
 #else
 	if (flock(fd, LOCK_UN)) { uwsgi_error("flock()"); }
 #endif
