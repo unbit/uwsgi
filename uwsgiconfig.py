@@ -414,19 +414,19 @@ class uConf(object):
         if locking_mode == 'auto':
             if uwsgi_os == 'Linux' or uwsgi_os == 'SunOS':
                 locking_mode = 'pthread_mutex'
-            elif uwsgi_os == 'FreeBSD':
-                locking_mode = 'umtx'
+            # FreeBSD umtx is still not ready for process shared locking
+            #elif uwsgi_os == 'FreeBSD':
+            #    locking_mode = 'umtx'
             elif uwsgi_os == 'Darwin':
                 locking_mode = 'osx_spinlock'
 
         if locking_mode == 'pthread_mutex':
             self.cflags.append('-DUWSGI_LOCK_USE_MUTEX')
-        elif locking_mode == 'umtx':
-            self.cflags.append('-DUWSGI_LOCK_USE_UMTX')
+        # FreeBSD umtx is still not ready for process shared locking
+        #elif locking_mode == 'umtx':
+        #    self.cflags.append('-DUWSGI_LOCK_USE_UMTX')
         elif locking_mode == 'osx_spinlock':
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
-        else:
-            self.cflags.append('-DUWSGI_LOCK_USE_FLOCK')
 
         # set event subsystem
         event_mode = self.get('event','auto')

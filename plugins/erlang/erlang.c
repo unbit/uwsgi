@@ -363,8 +363,7 @@ int erlang_init() {
 	char *nodename;
 	struct in_addr addr;
 
-	uerl.lock = uwsgi_mmap_shared_lock();
-        uwsgi_lock_init(uerl.lock);
+        uerl.lock = uwsgi_lock_init("erlang");
 
         if (uerl.name) {
 

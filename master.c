@@ -1357,6 +1357,7 @@ int master_loop(char **argv, char **environ) {
 			// check for deadlocks first
 			struct uwsgi_lock_item *uli = uwsgi.registered_locks;
 			while(uli) {
+				if (!uli->can_deadlock) goto nextlock;
 				pid_t locked_pid = 0;
 				if (uli->rw) {
 					locked_pid = uwsgi_rwlock_check(uli);
@@ -1373,6 +1374,7 @@ int master_loop(char **argv, char **environ) {
 						uwsgi_unlock(uli);
 					}
 				}
+nextlock:
 				uli = uli->next;
 			}
 		}

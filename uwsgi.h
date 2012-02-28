@@ -297,8 +297,34 @@ struct uwsgi_lock_item {
 	void *lock_ptr;
 	int rw;
 	pid_t pid;
+	int can_deadlock;
 	struct uwsgi_lock_item *next;
 };
+
+
+struct uwsgi_lock_ops {
+	struct uwsgi_lock_item* (*lock_init)(char *);
+	pid_t (*lock_check)(struct uwsgi_lock_item *);
+	void (*lock)(struct uwsgi_lock_item *);
+	void (*unlock)(struct uwsgi_lock_item *);
+
+	struct uwsgi_lock_item * (*rwlock_init)(char *);
+	pid_t (*rwlock_check)(struct uwsgi_lock_item *);
+	void (*rlock)(struct uwsgi_lock_item *);
+	void (*wlock)(struct uwsgi_lock_item *);
+	void (*rwunlock)(struct uwsgi_lock_item *);
+};
+
+#define uwsgi_lock_init(x) uwsgi.lock_ops.lock_init(x)
+#define uwsgi_lock_check(x) uwsgi.lock_ops.lock_check(x)
+#define uwsgi_lock(x) uwsgi.lock_ops.lock(x)
+#define uwsgi_unlock(x) uwsgi.lock_ops.unlock(x)
+
+#define uwsgi_rwlock_init(x) uwsgi.lock_ops.rwlock_init(x)
+#define uwsgi_rwlock_check(x) uwsgi.lock_ops.rwlock_check(x)
+#define uwsgi_rlock(x) uwsgi.lock_ops.rlock(x)
+#define uwsgi_wlock(x) uwsgi.lock_ops.wlock(x)
+#define uwsgi_rwunlock(x) uwsgi.lock_ops.rwunlock(x)
 
 
 struct uwsgi_dyn_dict {
@@ -1492,6 +1518,11 @@ struct uwsgi_server {
 	struct sockaddr_in mc_cluster_addr;
 
 	struct uwsgi_lock_item *registered_locks;
+	struct uwsgi_lock_ops lock_ops;
+	char *lock_engine;
+	char *lock_id;
+	size_t lock_size;
+	size_t rwlock_size;
 
 	int check_cache;
 
@@ -2048,16 +2079,6 @@ int uwsgi_cache_del(char *, uint16_t);
 char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
-struct uwsgi_lock_item *uwsgi_lock_init(char *);
-pid_t uwsgi_lock_check(struct uwsgi_lock_item *);
-void uwsgi_lock(struct uwsgi_lock_item *);
-void uwsgi_unlock(struct uwsgi_lock_item *);
-
-struct uwsgi_lock_item *uwsgi_rwlock_init(char *);
-pid_t uwsgi_rwlock_check(struct uwsgi_lock_item *);
-void uwsgi_rlock(struct uwsgi_lock_item *);
-void uwsgi_wlock(struct uwsgi_lock_item *);
-void uwsgi_rwunlock(struct uwsgi_lock_item *);
 
 inline void *uwsgi_malloc(size_t);
 inline void *uwsgi_calloc(size_t);
@@ -2081,9 +2102,6 @@ struct uwsgi_timer *event_queue_ack_timer(int);
 int event_queue_add_file_monitor(int, char *, int *);
 struct uwsgi_fmon *event_queue_ack_file_monitor(int, int);
 
-
-void *uwsgi_mmap_shared_lock(void);
-void *uwsgi_mmap_shared_rwlock(void);
 
 int uwsgi_register_signal(uint8_t, char *, void *, uint8_t);
 int uwsgi_add_file_monitor(uint8_t, char *);
@@ -2672,6 +2690,8 @@ int uwsgi_master_log(void);
 void uwsgi_flush_logs(void);
 
 void uwsgi_register_cheaper_algo(char *, int(*) (void));
+
+void uwsgi_setup_locking(void);
 
 void uwsgi_emulate_cow_for_apps(int);
 

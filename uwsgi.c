@@ -142,6 +142,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"socket-timeout", required_argument, 'z', "set internal sockets timeout", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_SOCKET_TIMEOUT, 0},
 	{"no-fd-passing", no_argument, 0, "disable file descriptor passing", uwsgi_opt_true, &uwsgi.no_fd_passing, 0},
 	{"locks", required_argument, 0, "create the specified number of shared locks", uwsgi_opt_set_int, &uwsgi.locks, 0},
+	{"lock-engine", required_argument, 0, "set the lock engine", uwsgi_opt_set_str, &uwsgi.lock_engine, 0},
 	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
 
 	{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_set_int, &uwsgi.cache_max_items, 0},
@@ -1503,6 +1504,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
 
+
 	if (uwsgi.daemonize) {
 		if (uwsgi.has_emperor) {
                 	logto(uwsgi.daemonize);
@@ -1953,6 +1955,9 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
 	}
 
+	
+	// setup locking
+	uwsgi_setup_locking();
 
 	// event queue lock (mitigate same event on multiple queues)
 	if (uwsgi.threads > 1) {
