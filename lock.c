@@ -307,13 +307,21 @@ void uwsgi_lock_flock(struct uwsgi_lock_item *uli) {
 
 	int fd;
 	memcpy(&fd, uli->lock_ptr, sizeof(int));
+#ifdef __sun__
+	if (lockf(fd, F_LOCK, 0)) { uwsgi_error("lockf()"); }
+#else
 	if (flock(fd, LOCK_EX)) { uwsgi_error("flock()"); }
+#endif
 }
 
 void uwsgi_unlock_flock(struct uwsgi_lock_item *uli) {
 	int fd;
 	memcpy(&fd, uli->lock_ptr, sizeof(int));
+#ifdef __sun__
+	if (lockf(fd, F_UNLOCK, 0)) { uwsgi_error("lockf()"); }
+#else
 	if (flock(fd, LOCK_UN)) { uwsgi_error("flock()"); }
+#endif
 }
 
 struct uwsgi_lock_item *uwsgi_rwlock_flock_init(char *id) { return uwsgi_lock_flock_init(id);}
@@ -324,16 +332,22 @@ void uwsgi_rwunlock_flock(struct uwsgi_lock_item *uli) { uwsgi_unlock_flock(uli)
 pid_t uwsgi_lock_flock_check(struct uwsgi_lock_item *uli) {
 	int fd;
 	memcpy(&fd, uli->lock_ptr, sizeof(int));
+#ifdef __sun__
+	if (lockf(fd, F_TEST, 0)) {
+		return uli->pid;	
+	}
+	return 0;
+#else
         if (flock(fd, LOCK_EX|LOCK_NB) < 0) {
 		if (errno == EWOULDBLOCK) {
         		return uli->pid;
 		}
         	return 0;
         }
-	
 	// unlock
 	flock(fd, LOCK_UN);
         return 0;
+#endif
 }
 
 
