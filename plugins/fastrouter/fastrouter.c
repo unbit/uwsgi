@@ -54,8 +54,9 @@ struct uwsgi_fastrouter {
 	size_t post_buffering;
 	char *pb_base_dir;
 
-	char *to;
-	int to_len;
+	struct uwsgi_string_list *static_nodes;
+	struct uwsgi_string_list *current_static_node;
+	int static_node_gracetime;
 
 	char *stats_server;
 	int fr_stats_server;
@@ -146,12 +147,6 @@ void uwsgi_opt_fastrouter_zerg(char *opt, char *value, void *foobar) {
                         }
 }
 
-void uwsgi_opt_fastrouter_to(char *opt, char *value, void *foobar) {
-
-	ufr.to = value;
-	ufr.to_len = strlen(ufr.to);
-}
-
 void uwsgi_opt_fastrouter_cs(char *opt, char *value, void *foobar) {
 
 	char *cs = uwsgi_str(value);
@@ -205,7 +200,8 @@ struct uwsgi_option fastrouter_options[] = {
 
 	{"fastrouter-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the fastrouter", uwsgi_opt_fastrouter_cs, NULL, 0},
 	{"fastrouter-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_fastrouter_use_socket, NULL, 0},
-	{"fastrouter-to", required_argument, 0, "forward requests to the specified uwsgi server", uwsgi_opt_fastrouter_to, NULL, 0},
+	{"fastrouter-to", required_argument, 0, "forward requests to the specified uwsgi server (you can specify it multiple times for load balancing)", uwsgi_opt_add_string_list, &ufr.static_nodes, 0},
+	{"fastrouter-gracetime", required_argument, 0, "retry connections to dead static nodes after the specified amount of seconds", uwsgi_opt_set_int, &ufr.static_node_gracetime, 0},
 	{"fastrouter-events", required_argument, 0, "set the maximum number of concurrent events", uwsgi_opt_set_int, &ufr.nevents, 0},
 	{"fastrouter-cheap", no_argument, 0, "run the fastrouter in cheap mode", uwsgi_opt_true, &ufr.cheap, 0},
 	{"fastrouter-subscription-server", required_argument, 0, "run the fastrouter subscription server on the spcified address", uwsgi_opt_fastrouter_ss, NULL, 0},
@@ -269,6 +265,7 @@ struct fastrouter_session {
 	uint64_t instance_address_len;
 
 	struct uwsgi_subscribe_node *un;
+	struct uwsgi_string_list *static_node;
 	int pass_fd;
 	int soopt;
 	int timed_out;
@@ -296,36 +293,15 @@ static struct uwsgi_rb_timer *reset_timeout(struct fastrouter_session *);
 
 static void close_session(struct fastrouter_session *fr_session) {
 
-
-
 	if (fr_session->tmp_socket_name)
 		free(fr_session->buf_file_name);
 
-	if (ufr.subscriptions && fr_session->un && fr_session->un->len > 0) {
-		// decrease reference count
-#ifdef UWSGI_DEBUG
-		uwsgi_log("[1] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
-#endif
-		fr_session->un->reference--;
-#ifdef UWSGI_DEBUG
-		uwsgi_log("[2] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
-#endif
-		if (fr_session->instance_failed || fr_session->status == FASTROUTER_STATUS_CONNECTING) {
-			if (fr_session->un->death_mark == 0)
-				uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len, fr_session->instance_address);
-			fr_session->un->failcnt++;
-			fr_session->un->death_mark = 1;
-			// check if i can remove the node
-			if (fr_session->un->reference == 0) {
-				uwsgi_remove_subscribe_node(&ufr.subscriptions, fr_session->un);
-			}
-			if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap) {
-				uwsgi_corerouter_go_cheap("uWSGI fastrouter", ufr.queue, &ufr.i_am_cheap);
-			}
-
-		}
+	if (fr_session->instance_fd != -1) {
+		close(fr_session->instance_fd);
+		ufr.fr_table[fr_session->instance_fd] = NULL;
 	}
-	else if (fr_session->instance_failed) {
+
+	if (fr_session->instance_failed) {
 
 		if (fr_session->soopt) {
 			uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": %s\n", fr_session->instance_address_len, fr_session->instance_address, strerror(fr_session->soopt));
@@ -341,13 +317,37 @@ static void close_session(struct fastrouter_session *fr_session) {
 			}
 		}
 
-		if (fr_session->instance_fd != -1) {
-			event_queue_del_fd(ufr.queue, fr_session->instance_fd, event_queue_write());
-			close(fr_session->instance_fd);
-			ufr.fr_table[fr_session->instance_fd] = NULL;
+		// now check for dead nodes
+		if (ufr.subscriptions && fr_session->un && fr_session->un->len > 0) {
+                	// decrease reference count
+#ifdef UWSGI_DEBUG
+                	uwsgi_log("[1] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
+#endif
+                	fr_session->un->reference--;
+#ifdef UWSGI_DEBUG
+                	uwsgi_log("[2] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
+#endif
+                        if (fr_session->un->death_mark == 0)
+                                uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len, fr_session->instance_address);
+
+                        fr_session->un->failcnt++;
+                        fr_session->un->death_mark = 1;
+                        // check if i can remove the node
+                        if (fr_session->un->reference == 0) {
+                                uwsgi_remove_subscribe_node(&ufr.subscriptions, fr_session->un);
+                        }
+                        if (ufr.subscriptions == NULL && ufr.cheap && !ufr.i_am_cheap && !ufr.fallback) {
+                                uwsgi_corerouter_go_cheap("uWSGI fastrouter", ufr.queue, &ufr.i_am_cheap);
+                        }
+
+        	}
+		else if (fr_session->static_node) {
+			fr_session->static_node->custom = uwsgi_now();
+			uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len, fr_session->instance_address);
 		}
 
-	if (ufr.fallback) {
+
+		if (ufr.fallback) {
 			// ok let's try with the fallback nodes
 			if (!fr_session->fallback) {
 				fr_session->fallback = ufr.fallback;
@@ -364,6 +364,10 @@ static void close_session(struct fastrouter_session *fr_session) {
 			fr_session->timeout = reset_timeout(fr_session);
 			fr_session->timed_out = 0;
 			fr_session->soopt = 0;
+
+			// reset nodes
+			fr_session->un = NULL;
+			fr_session->static_node = NULL;
 
 			fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
 
@@ -495,6 +499,9 @@ void fastrouter_loop(int id) {
 	if (!ufr.socket_timeout)
 		ufr.socket_timeout = 30;
 
+	if (!ufr.static_node_gracetime)
+		ufr.static_node_gracetime = 30;
+
 	if (ufr.stats_server) {
 		char *tcp_port = strchr(ufr.stats_server, ':');
 		if (tcp_port) {
@@ -619,6 +626,7 @@ void fastrouter_loop(int id) {
 						ufr.fr_table[new_connection]->h_pos = 0;
 						ufr.fr_table[new_connection]->pos = 0;
 						ufr.fr_table[new_connection]->un = NULL;
+						ufr.fr_table[new_connection]->static_node = NULL;
 						ufr.fr_table[new_connection]->buf_file = NULL;
 						ufr.fr_table[new_connection]->buf_file_name = NULL;
 						ufr.fr_table[new_connection]->instance_failed = 0;
@@ -761,9 +769,55 @@ void fastrouter_loop(int id) {
 							fr_session->instance_address = ufr.to_socket->name;
 							fr_session->instance_address_len = ufr.to_socket->name_len;
 						}
-						else if (ufr.to_len > 0) {
-							fr_session->instance_address = ufr.to;
-							fr_session->instance_address_len = ufr.to_len;
+						else if (ufr.static_nodes) {
+							if (!ufr.current_static_node) {
+								ufr.current_static_node = ufr.static_nodes;
+							}
+
+							fr_session->static_node = ufr.current_static_node;
+
+							// is it a dead node ?
+							if (fr_session->static_node->custom > 0) {
+
+								// gracetime passed ?
+								if (fr_session->static_node->custom + ufr.static_node_gracetime <= (uint64_t) uwsgi_now()) {
+									fr_session->static_node->custom = 0;
+								}
+								else {
+									struct uwsgi_string_list *tmp_node = fr_session->static_node;
+									struct uwsgi_string_list *next_node = fr_session->static_node->next;
+									fr_session->static_node = NULL;
+									// needed for 1-node only setups
+									if (!next_node) next_node = ufr.static_nodes;
+
+									while(tmp_node != next_node) {
+										if (!next_node) {
+											next_node = ufr.static_nodes;	
+										}
+
+										if (tmp_node == next_node) break;
+
+										if (next_node->custom == 0) {
+											fr_session->static_node = next_node;
+											break;
+										}
+										next_node = next_node->next;
+									}
+								}
+							}
+
+							if (fr_session->static_node) {
+
+								fr_session->instance_address = fr_session->static_node->value;
+								fr_session->instance_address_len = fr_session->static_node->len;
+								// set the next one
+								ufr.current_static_node = fr_session->static_node->next;
+							}
+							else {
+								// set the next one
+								ufr.current_static_node = ufr.current_static_node->next;
+							}
+
 						}
 
 						// no address found
