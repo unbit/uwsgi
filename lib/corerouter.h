@@ -20,6 +20,17 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 						ugs->name = uwsgi_getsockname(ugs->fd);
                         		}
 				}
+				else if (!uwsgi_startswith("fd://", ugs->name, 5 )) {
+					int fd_socket = atoi(ugs->name+5);
+					if (fd_socket >= 0) {
+						ugs->fd = fd_socket;
+						ugs->name = uwsgi_getsockname(ugs->fd);
+						if (!ugs->name) {
+                                        		uwsgi_log("unable to use file descriptor %d as socket\n", fd_socket);
+							exit(1);
+						}
+					}
+				}
 				else {
 					ugs->port = strchr(ugs->name, ':');
 					if (ugs->fd == -1) {
