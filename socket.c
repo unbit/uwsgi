@@ -339,7 +339,8 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 	uwsgi_poll.events = POLLIN;
 
 	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &uws_addr, un_size, timeout, async)) {
-		uwsgi_error("connect()");
+		// avoid error storm
+		//uwsgi_error("connect()");
 		close(uwsgi_poll.fd);
 		return -1;
 	}

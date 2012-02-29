@@ -37,6 +37,7 @@ struct uwsgi_fastrouter {
 	int has_subscription_sockets;
 
 	int processes;
+	int quiet;
 
 	struct rb_root *timeouts;
 
@@ -203,6 +204,7 @@ struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-to", required_argument, 0, "forward requests to the specified uwsgi server (you can specify it multiple times for load balancing)", uwsgi_opt_add_string_list, &ufr.static_nodes, 0},
 	{"fastrouter-gracetime", required_argument, 0, "retry connections to dead static nodes after the specified amount of seconds", uwsgi_opt_set_int, &ufr.static_node_gracetime, 0},
 	{"fastrouter-events", required_argument, 0, "set the maximum number of concurrent events", uwsgi_opt_set_int, &ufr.nevents, 0},
+	{"fastrouter-quiet", required_argument, 0, "do not report failed connections to instances", uwsgi_opt_true, &ufr.quiet, 0},
 	{"fastrouter-cheap", no_argument, 0, "run the fastrouter in cheap mode", uwsgi_opt_true, &ufr.cheap, 0},
 	{"fastrouter-subscription-server", required_argument, 0, "run the fastrouter subscription server on the spcified address", uwsgi_opt_fastrouter_ss, NULL, 0},
 	{"fastrouter-subscription-slot", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "useless thanks to the new implementation", 0},
@@ -293,8 +295,6 @@ static struct uwsgi_rb_timer *reset_timeout(struct fastrouter_session *);
 
 static void close_session(struct fastrouter_session *fr_session) {
 
-	if (fr_session->tmp_socket_name)
-		free(fr_session->buf_file_name);
 
 	if (fr_session->instance_fd != -1) {
 		close(fr_session->instance_fd);
@@ -304,15 +304,17 @@ static void close_session(struct fastrouter_session *fr_session) {
 	if (fr_session->instance_failed) {
 
 		if (fr_session->soopt) {
-			uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": %s\n", fr_session->instance_address_len, fr_session->instance_address, strerror(fr_session->soopt));
+			if (!ufr.quiet)
+				uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": %s\n", (int) fr_session->instance_address_len, fr_session->instance_address, strerror(fr_session->soopt));
 		}
 		else if (fr_session->timed_out) {
 			if (fr_session->instance_address_len > 0) {
 				if (fr_session->status == FASTROUTER_STATUS_CONNECTING) {
-					uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": timeout\n", fr_session->instance_address_len, fr_session->instance_address);
+					if (!ufr.quiet)
+						uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": timeout\n", (int) fr_session->instance_address_len, fr_session->instance_address);
 				}
 				else if (fr_session->status  == FASTROUTER_STATUS_RESPONSE) {
-					uwsgi_log("timeout waiting for instance \"%.*s\"\n", fr_session->instance_address_len, fr_session->instance_address);
+					uwsgi_log("timeout waiting for instance \"%.*s\"\n", (int) fr_session->instance_address_len, fr_session->instance_address);
 				}
 			}
 		}
@@ -346,6 +348,11 @@ static void close_session(struct fastrouter_session *fr_session) {
 			uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len, fr_session->instance_address);
 		}
 
+
+		if (fr_session->tmp_socket_name) {
+			free(fr_session->tmp_socket_name);
+			fr_session->tmp_socket_name = NULL;
+		}
 
 		if (ufr.fallback) {
 			// ok let's try with the fallback nodes
@@ -392,6 +399,10 @@ static void close_session(struct fastrouter_session *fr_session) {
 	}
 
 end:
+
+	if (fr_session->tmp_socket_name) {
+		free(fr_session->tmp_socket_name);
+	}
 
 	if (fr_session->buf_file)
 		fclose(fr_session->buf_file);
