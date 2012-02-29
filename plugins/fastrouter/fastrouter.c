@@ -270,6 +270,8 @@ struct fastrouter_session {
 
 	struct uwsgi_subscribe_node *un;
 	int pass_fd;
+	int soopt;
+	int timed_out;
 
 	struct uwsgi_rb_timer *timeout;
 	int instance_failed;
@@ -289,6 +291,8 @@ struct fastrouter_session {
 
 	char buffer[0xffff];
 };
+
+static struct uwsgi_rb_timer *reset_timeout(struct fastrouter_session *);
 
 static void close_session(struct fastrouter_session *fr_session) {
 
@@ -323,44 +327,64 @@ static void close_session(struct fastrouter_session *fr_session) {
 	}
 	else if (fr_session->instance_failed) {
 
-	if (fr_session->instance_fd != -1) {
-		event_queue_del_fd(ufr.queue, fr_session->instance_fd, event_queue_write());
-		close(fr_session->instance_fd);
-		ufr.fr_table[fr_session->instance_fd] = NULL;
-	}
+		if (fr_session->soopt) {
+			uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": %s\n", fr_session->instance_address_len, fr_session->instance_address, strerror(fr_session->soopt));
+		}
+		else if (fr_session->timed_out) {
+			if (fr_session->instance_address_len > 0) {
+				if (fr_session->status == FASTROUTER_STATUS_CONNECTING) {
+					uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": timeout\n", fr_session->instance_address_len, fr_session->instance_address);
+				}
+				else if (fr_session->status  == FASTROUTER_STATUS_RESPONSE) {
+					uwsgi_log("timeout waiting for instance \"%.*s\"\n", fr_session->instance_address_len, fr_session->instance_address);
+				}
+			}
+		}
+
+		if (fr_session->instance_fd != -1) {
+			event_queue_del_fd(ufr.queue, fr_session->instance_fd, event_queue_write());
+			close(fr_session->instance_fd);
+			ufr.fr_table[fr_session->instance_fd] = NULL;
+		}
 
 	if (ufr.fallback) {
-		// ok let's try with the fallback nodes
-		if (!fr_session->fallback) {
-			fr_session->fallback = ufr.fallback;
-		}
-		else {
-			fr_session->fallback = fr_session->fallback->next;
-			if (!fr_session->fallback) goto end;
-		}
+			// ok let's try with the fallback nodes
+			if (!fr_session->fallback) {
+				fr_session->fallback = ufr.fallback;
+			}
+			else {
+				fr_session->fallback = fr_session->fallback->next;
+				if (!fr_session->fallback) goto end;
+			}
 
-		fr_session->instance_address = fr_session->fallback->value;
-		fr_session->instance_address_len = fr_session->fallback->len;
+			fr_session->instance_address = fr_session->fallback->value;
+			fr_session->instance_address_len = fr_session->fallback->len;
 
-		fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
+			// reset error and timeout
+			fr_session->timeout = reset_timeout(fr_session);
+			fr_session->timed_out = 0;
+			fr_session->soopt = 0;
+
+			fr_session->pass_fd = is_unix(fr_session->instance_address, fr_session->instance_address_len);
 
 
-                fr_session->instance_fd = uwsgi_connectn(fr_session->instance_address, fr_session->instance_address_len, 0, 1);
+                	fr_session->instance_fd = uwsgi_connectn(fr_session->instance_address, fr_session->instance_address_len, 0, 1);
 
-                if (fr_session->instance_fd < 0) {
-                	fr_session->instance_failed = 1;
-                        close_session(fr_session);
-			return;
-		}
+                	if (fr_session->instance_fd < 0) {
+                		fr_session->instance_failed = 1;
+				fr_session->soopt = errno;
+                        	close_session(fr_session);
+				return;
+			}
   
-		ufr.fr_table[fr_session->instance_fd] = fr_session;
+			ufr.fr_table[fr_session->instance_fd] = fr_session;
 
-                fr_session->status = FASTROUTER_STATUS_CONNECTING;
-                ufr.fr_table[fr_session->instance_fd] = fr_session;
-                event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
-		return;
+                	fr_session->status = FASTROUTER_STATUS_CONNECTING;
+                	ufr.fr_table[fr_session->instance_fd] = fr_session;
+                	event_queue_add_fd_write(ufr.queue, fr_session->instance_fd);
+			return;
 
-	}
+		}
 	}
 
 end:
@@ -391,6 +415,7 @@ static void expire_timeouts() {
 
 	time_t current = time(NULL);
 	struct uwsgi_rb_timer *urbt;
+	struct fastrouter_session *fr_session;
 
 	for (;;) {
 		urbt = uwsgi_min_rb_timer(ufr.timeouts);
@@ -398,7 +423,9 @@ static void expire_timeouts() {
 			return;
 
 		if (urbt->key <= current) {
-			close_session((struct fastrouter_session *) urbt->data);
+			fr_session = (struct fastrouter_session *) urbt->data;
+			fr_session->timed_out = 1;
+			close_session(fr_session);
 			continue;
 		}
 
@@ -536,7 +563,6 @@ void fastrouter_loop(int id) {
 
 	struct iovec iov[2];
 
-	int soopt;
 	socklen_t solen = sizeof(int);
 
 	ufr.timeouts = uwsgi_init_rb_timer();
@@ -587,6 +613,7 @@ void fastrouter_loop(int id) {
 
 						ufr.fr_table[new_connection] = alloc_fr_session();
 						ufr.fr_table[new_connection]->fd = new_connection;
+						ufr.fr_table[new_connection]->modifier1 = 0;
 						ufr.fr_table[new_connection]->instance_fd = -1;
 						ufr.fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
 						ufr.fr_table[new_connection]->h_pos = 0;
@@ -599,6 +626,8 @@ void fastrouter_loop(int id) {
 						ufr.fr_table[new_connection]->hostname_len = 0;
 						ufr.fr_table[new_connection]->hostname = NULL;
 						ufr.fr_table[new_connection]->fallback = NULL;
+						ufr.fr_table[new_connection]->soopt = 0;
+						ufr.fr_table[new_connection]->timed_out = 0;
 
 						ufr.fr_table[new_connection]->timeout = add_timeout(ufr.fr_table[new_connection]);
 
@@ -789,6 +818,7 @@ void fastrouter_loop(int id) {
 
 							if (fr_session->instance_fd < 0) {
 								fr_session->instance_failed = 1;
+								fr_session->soopt = errno;
 								close_session(fr_session);
 								break;
 							}
@@ -807,15 +837,14 @@ void fastrouter_loop(int id) {
 
 					if (interesting_fd == fr_session->instance_fd) {
 
-						if (getsockopt(fr_session->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&soopt), &solen) < 0) {
+						if (getsockopt(fr_session->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&fr_session->soopt), &solen) < 0) {
 							uwsgi_error("getsockopt()");
 							fr_session->instance_failed = 1;
 							close_session(fr_session);
 							break;
 						}
 
-						if (soopt) {
-							uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": %s\n", fr_session->instance_address_len, fr_session->instance_address, strerror(soopt));
+						if (fr_session->soopt) {
 							fr_session->instance_failed = 1;
 							close_session(fr_session);
 							break;
