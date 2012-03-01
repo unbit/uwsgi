@@ -1479,19 +1479,18 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 		return Py_None;
 	}
 
+	PyObject *ret = PyString_FromStringAndSize(NULL, len);
+	char *storage = PyString_AS_STRING(ret);
+
 	UWSGI_RELEASE_GIL
 
 	uwsgi_wlock(uwsgi.sa_lock);
 
-	char *chunk = uwsgi_concat2n(uwsgi.sharedarea + pos, len, "", 0);
+	memcpy(storage, uwsgi.sharedarea + pos, len);
 
 	uwsgi_rwunlock(uwsgi.sa_lock);
 
 	UWSGI_GET_GIL
-
-	PyObject *ret = PyString_FromStringAndSize( chunk, len);
-
-	free(chunk);
 
 	return ret;
 }
@@ -3486,7 +3485,6 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 	char *value = NULL;
 	char *remote = NULL;
 	char buffer[0xffff];
-	PyObject *res;
 
 #ifdef UWSGI_DEBUG
 	struct timeval tv, tv2;
@@ -3518,18 +3516,20 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
-		char *chunk = uwsgi_concat2n(value, valsize, "", 0);
+		UWSGI_GET_GIL
+		PyObject *ret = PyString_FromStringAndSize(NULL, valsize);
+		char *storage = PyString_AS_STRING(ret);
+		UWSGI_RELEASE_GIL
 #ifdef UWSGI_DEBUG
 		gettimeofday(&tv2, NULL); 
 		if ((tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec) > 30000) {
 			uwsgi_log("[slow] cache get done in %d microseconds (%llu bytes value)\n", (tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec), (unsigned long long) valsize);
 		}
 #endif
+		memcpy(storage, value, valsize);
 		uwsgi_rwunlock(uwsgi.cache_lock);
 		UWSGI_GET_GIL
-		res = PyString_FromStringAndSize(chunk, valsize);
-		free(chunk);
-		return res;
+		return ret;
 	}
 
 	if (value) {
