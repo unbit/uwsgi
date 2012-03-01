@@ -2221,7 +2221,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			uwsgi_error("pipe()");
 			exit(1);
 		}
-		uwsgi_run_command(url+7, cpipe[1]);
+		uwsgi_run_command(url+7, NULL, cpipe[1]);
 		buffer = uwsgi_read_fd(cpipe[0], size, add_zero);
 		close(cpipe[0]);
 		close(cpipe[1]);
@@ -3186,7 +3186,7 @@ int uwsgi_run_command_and_wait(char *command, char *arg) {
 	exit(1);
 }
 
-int uwsgi_run_command(char *command, int stdout_fd) {
+pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 
 	char *argv[4];
 
@@ -3197,6 +3197,9 @@ int uwsgi_run_command(char *command, int stdout_fd) {
         }
 
         if (pid > 0) {
+		if (stdin_fd && stdin_fd[0] > -1) {
+			close(stdin_fd[0]);
+		}
 		if (stdout_fd > -1) {
 			close(stdout_fd);
 		}
@@ -3205,10 +3208,14 @@ int uwsgi_run_command(char *command, int stdout_fd) {
                         return -1;
                 }
 
-                return WEXITSTATUS(waitpid_status);
+                return pid;
         }
 
 	uwsgi_close_all_sockets();
+
+	if (stdin_fd) {
+		close(stdin_fd[1]);
+	}
 
 	if (stdout_fd > -1 && stdout_fd != 1) {
 		if (dup2(stdout_fd, 1) < 0) {
@@ -3216,6 +3223,13 @@ int uwsgi_run_command(char *command, int stdout_fd) {
 			exit(1);
 		}
 	}
+
+	if (stdin_fd && stdin_fd[0] > -1 && stdin_fd[0] != 0) {
+                if (dup2(stdin_fd[0], 0) < 0) {
+                        uwsgi_error("dup2()");
+                        exit(1);
+                }
+        }
 
 	if (setsid() < 0) {
 		uwsgi_error("setsid()");

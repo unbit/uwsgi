@@ -65,6 +65,9 @@ struct uwsgi_rack {
 	int unprotected;
 
 	struct uwsgi_string_list *rbrequire;
+	struct uwsgi_string_list *rvm_path;
+
+	char *gemset;
 
 };
 

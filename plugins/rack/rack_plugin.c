@@ -17,6 +17,11 @@ struct uwsgi_option uwsgi_rack_options[] = {
         {"rubyrequire", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
         {"require", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
 
+        {"gemset", required_argument, 0, "load the specified gemset (rvm)", uwsgi_opt_set_str, &ur.gemset, 0},
+        {"rvm", required_argument, 0, "load the specified gemset (rvm)", uwsgi_opt_set_str, &ur.gemset, 0},
+
+        {"rvm-path", required_argument, 0, "search for rvm in the specifiied directory", uwsgi_opt_add_string_list, &ur.rvm_path, 0},
+
         {"rbshell", optional_argument, 0, "run  a ruby/irb shell", uwsgi_opt_true, &ur.rb_shell, 0},
 
         {0, 0, 0, 0, 0, 0 ,0},
@@ -215,6 +220,99 @@ uint16_t uwsgi_ruby_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[],
 
 }
 
+void uwsgi_ruby_gem_set_apply(char *gemset) {
+
+	int in_pipe[2];
+	int out_pipe[2];
+	int size;
+	int waitpid_status;
+	int i;
+
+        if (pipe(in_pipe)) {
+        	uwsgi_error("pipe()");
+                exit(1);
+        }
+
+        if (pipe(out_pipe)) {
+        	uwsgi_error("pipe()");
+                exit(1);
+        }
+
+        pid_t pid = uwsgi_run_command("bash", in_pipe, out_pipe[1] );
+
+	char *gemset_code = uwsgi_open_and_read(gemset, &size, 0, NULL);
+
+	if (write(in_pipe[1], gemset_code, size) != size ) {
+		uwsgi_error("write()");
+	}
+
+	free(gemset_code);
+
+	if (write(in_pipe[1], "printenv\n", 9) != 9 ) {
+		uwsgi_error("write()");
+	}
+
+        close(in_pipe[1]);
+
+	size = 0;
+        char *buffer = uwsgi_read_fd(out_pipe[0], &size, 0);
+
+        close(out_pipe[0]);
+
+	char *ptr = buffer;
+
+	for(i=0;i<size;i++) {
+		if (buffer[i] == '\n') {
+			buffer[i] = 0;
+			if (putenv(ptr)) {
+				uwsgi_error("putenv()");
+			}
+			ptr = buffer + i + 1;
+		}
+	}
+
+	free(buffer);
+
+	if (waitpid(pid, &waitpid_status, 0) <0) {
+		uwsgi_error("waitpid()");
+	}
+}
+
+void uwsgi_ruby_gemset(char *gemset) {
+
+	char *home = getenv("HOME");
+
+	if (home) {
+		char *filename = uwsgi_concat3(home, "/.rvm/environments/", gemset);
+		if (uwsgi_file_exists(filename)) {
+			uwsgi_ruby_gem_set_apply(filename);
+			free(filename);
+			return;
+		}
+		free(filename);
+	}
+
+	char *filename = uwsgi_concat2("/usr/local/rvm/environments/", gemset);
+	if (uwsgi_file_exists(filename)) {
+		uwsgi_ruby_gem_set_apply(filename);
+                free(filename);
+                return;
+        }
+        free(filename);
+
+	struct uwsgi_string_list *rvm_paths = ur.rvm_path;
+	while(rvm_paths) {
+		char *filename = uwsgi_concat3(rvm_paths->value, "/environments/", gemset);
+                if (uwsgi_file_exists(filename)) {
+			uwsgi_ruby_gem_set_apply(filename);
+                        free(filename);
+                        return;
+                }
+                free(filename);
+		rvm_paths = rvm_paths->next;
+	}
+	
+}
 
 int uwsgi_rack_init(){
 
@@ -230,6 +328,10 @@ int uwsgi_rack_init(){
         for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
                 http_sc->message_size = (int) strlen(http_sc->message);
         }
+
+	if (ur.gemset) {
+		uwsgi_ruby_gemset(ur.gemset);
+	}
 
 #ifdef RUBY19
 	ruby_sysinit(&argc, &argv);
@@ -248,6 +350,7 @@ int uwsgi_rack_init(){
 	ur.rpc_protector = rb_ary_new();
 	rb_gc_register_address(&ur.signals_protector);
 	rb_gc_register_address(&ur.rpc_protector);
+
 
 #ifdef UWSGI_EMBEDDED
 	uwsgi_rack_init_api();	

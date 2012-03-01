@@ -1221,6 +1221,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_in_jail;
 	struct uwsgi_string_list *exec_as_root;
 	struct uwsgi_string_list *exec_as_user;
+	struct uwsgi_string_list *exec_pre_app;
 
 	struct uwsgi_logger *loggers;
 	struct uwsgi_logger *choosen_logger;
@@ -2407,7 +2408,7 @@ void uwsgi_del_sockets_from_queue(int);
 int uwsgi_run_command_and_wait(char *, char *);
 
 void uwsgi_manage_signal_cron(time_t);
-int uwsgi_run_command(char *, int);
+pid_t uwsgi_run_command(char *, int *, int);
 
 void uwsgi_manage_command_cron(time_t);
 
@@ -2700,6 +2701,7 @@ int uwsgi_fcntl_is_locked(int);
 
 void uwsgi_emulate_cow_for_apps(int);
 
+char *uwsgi_read_fd(int, int *, int);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

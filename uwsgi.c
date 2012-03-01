@@ -189,6 +189,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-in-jail", required_argument,0, "run the specified command in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.exec_in_jail,0},
 	{"exec-as-root", required_argument,0, "run the specified command before privileges drop", uwsgi_opt_add_string_list, &uwsgi.exec_as_root,0},
 	{"exec-as-user", required_argument,0, "run the specified command after privileges drop", uwsgi_opt_add_string_list, &uwsgi.exec_as_user,0},
+	{"exec-pre-app", required_argument,0, "run the specified command before app loading", uwsgi_opt_add_string_list, &uwsgi.exec_pre_app,0},
 #ifdef UWSGI_INI
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
@@ -3273,6 +3274,19 @@ initialize all apps
 void uwsgi_init_all_apps() {
 
 	int i, j;
+
+	// now run the pre-app scripts
+        struct uwsgi_string_list *usl = uwsgi.exec_pre_app;
+        while(usl) {
+        	uwsgi_log("running \"%s\" (pre app)...\n", usl->value);
+                int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                if (ret != 0) {
+                	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        exit(1);
+                }
+                usl = usl->next;
+	}
+
 
 	for (i = 0; i < 0xFF; i++) {
 		if (uwsgi.p[i]->init_apps) {

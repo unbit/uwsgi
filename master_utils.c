@@ -629,7 +629,7 @@ void uwsgi_manage_command_cron(time_t now) {
 			if (uwsgi.current_time - current_cron->last_job > 60) {
 				//call command
 				if (current_cron->command) {
-					if (uwsgi_run_command(current_cron->command, -1) >= 0) {
+					if (uwsgi_run_command(current_cron->command, NULL, -1) >= 0) {
 						uwsgi_log_verbose("[uWSGI-cron] running %s\n", current_cron->command);
 					}
 				}
