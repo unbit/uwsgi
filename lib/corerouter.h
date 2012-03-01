@@ -51,6 +51,7 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 			else {
 				if (ugs->fd == -1) {
 					ugs->fd = bind_to_udp(ugs->name, 0, 0);
+					uwsgi_socket_nb(ugs->fd);
 				}
 				uwsgi_log("%s subscription server bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
 			}
@@ -70,7 +71,7 @@ static void *uwsgi_corerouter_setup_event_queue(char *gw_id, int id, int nevents
 			if (!cheap || ugs->subscription) {
 				event_queue_add_fd_read(*efd, ugs->fd);
 			}
-			ugs->gateway = &uwsgi.gateways[id];
+			ugs->gateway = &ushared->gateways[id];
 		}
 		ugs = ugs->next;
 	}
@@ -138,11 +139,11 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 		}
 
 		// propagate the subscription to other nodes
-		for (i = 0; i < uwsgi.gateways_cnt; i++) {
+		for (i = 0; i < ushared->gateways_cnt; i++) {
 			if (i == id)
 				continue;
-			if (!strcmp(uwsgi.gateways[i].name, gw_id)) {
-				if (send(uwsgi.gateways[i].internal_subscription_pipe[0], bbuf, len, 0) != len) {
+			if (!strcmp(ushared->gateways[i].name, gw_id)) {
+				if (send(ushared->gateways[i].internal_subscription_pipe[0], bbuf, len, 0) != len) {
 					uwsgi_error("send()");
 				}
 			}
@@ -184,7 +185,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscripti
 			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, regexp);
 			if (node && node->len) {
 				if (node->death_mark == 0)
-					uwsgi_log("[%s] %.*s => marking %.*s as failed\n", gw_id, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
+					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", gw_id, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
 				node->failcnt++;
 				node->death_mark = 1;
 				// check if i can remove the node

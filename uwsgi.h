@@ -1176,9 +1176,7 @@ struct uwsgi_server {
 	// binary path the worker image
 	char *worker_exec;
 
-	// gateways
-	struct uwsgi_gateway gateways[MAX_GATEWAYS];
-	int gateways_cnt;
+	// this must be UN-shared
 	struct uwsgi_gateway_socket *gateway_sockets;
 
 
@@ -1736,6 +1734,9 @@ struct uwsgi_shared {
 	struct uwsgi_cron cron[MAX_CRONS];
 	int cron_cnt;
 
+	// gateways
+	struct uwsgi_gateway gateways[MAX_GATEWAYS];
+	int gateways_cnt;
 	time_t gateways_harakiri[MAX_GATEWAYS];
 };
 

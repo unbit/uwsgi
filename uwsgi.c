@@ -616,9 +616,9 @@ void kill_them_all(int signum) {
 		ud = ud->next;
 	}
 
-	for (i = 0; i < uwsgi.gateways_cnt; i++) {
-		if (uwsgi.gateways[i].pid > 0)
-			kill(uwsgi.gateways[i].pid, SIGKILL);
+	for (i = 0; i < ushared->gateways_cnt; i++) {
+		if (ushared->gateways[i].pid > 0)
+			kill(ushared->gateways[i].pid, SIGKILL);
 	}
 
 	for (i = 0; i < uwsgi.mules_cnt; i++) {
@@ -663,9 +663,9 @@ void grace_them_all(int signum) {
                 ud = ud->next;
         }
 
-	for (i = 0; i < uwsgi.gateways_cnt; i++) {
-		if (uwsgi.gateways[i].pid > 0)
-			kill(uwsgi.gateways[i].pid, SIGKILL);
+	for (i = 0; i < ushared->gateways_cnt; i++) {
+		if (ushared->gateways[i].pid > 0)
+			kill(ushared->gateways[i].pid, SIGKILL);
 	}
 
 	for (i = 0; i < uwsgi.mules_cnt; i++) {
@@ -747,9 +747,9 @@ void reap_them_all(int signum) {
                 ud = ud->next;
         }
 
-	for (i = 0; i < uwsgi.gateways_cnt; i++) {
-		if (uwsgi.gateways[i].pid > 0)
-			kill(uwsgi.gateways[i].pid, SIGKILL);
+	for (i = 0; i < ushared->gateways_cnt; i++) {
+		if (ushared->gateways[i].pid > 0)
+			kill(ushared->gateways[i].pid, SIGKILL);
 	}
 
 	for (i = 0; i < uwsgi.mules_cnt; i++) {
@@ -1657,7 +1657,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	// start the Emperor if needed
 	if (uwsgi.early_emperor && uwsgi.emperor_dir) {
 
-		if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
+		if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
 			uwsgi_notify_ready();
 			emperor_loop();
 			// never here
@@ -1833,7 +1833,7 @@ int uwsgi_start(void *v_argv) {
 	// start the Emperor if needed
 	if (!uwsgi.early_emperor && uwsgi.emperor_dir) {
 
-		if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.master_process) {
+		if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
 			uwsgi_notify_ready();
 			emperor_loop();
 			// never here
@@ -2366,14 +2366,14 @@ skipzero:
 #endif
 
 #ifdef UWSGI_UDP
-	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir && !uwsgi.command_mode) {
+	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir && !uwsgi.command_mode) {
 #else
-	if (!uwsgi.sockets && !uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.emperor_dir && !uwsgi.command_mode) {
+	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.emperor_dir && !uwsgi.command_mode) {
 #endif
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
-	else if (!uwsgi.sockets && uwsgi.gateways_cnt && !uwsgi.no_server && !uwsgi.master_process) {
+	else if (!uwsgi.sockets && ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.master_process) {
 		// here we will have a zombie... sorry
 		uwsgi_log("...you should enable the master process... really...\n");
 		exit(0);

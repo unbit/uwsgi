@@ -504,7 +504,7 @@ void fastrouter_loop(int id) {
 	void *events = uwsgi_corerouter_setup_event_queue("uWSGI fastrouter", id, ufr.nevents, &ufr.queue, ufr.i_am_cheap);
 
 	if (ufr.has_subscription_sockets)
-		event_queue_add_fd_read(ufr.queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
+		event_queue_add_fd_read(ufr.queue, ushared->gateways[id].internal_subscription_pipe[1]);
 
 
 	if (!ufr.socket_timeout)
@@ -600,13 +600,13 @@ void fastrouter_loop(int id) {
 		}
 
 		if (uwsgi.master_process && ufr.harakiri > 0) {
-			uwsgi.shared->gateways_harakiri[id] = 0;
+			ushared->gateways_harakiri[id] = 0;
 		}
 
 		nevents = event_queue_wait_multi(ufr.queue, delta, events, ufr.nevents);
 
 		if (uwsgi.master_process && ufr.harakiri > 0) {
-			uwsgi.shared->gateways_harakiri[id] = time(NULL) + ufr.harakiri;
+			ushared->gateways_harakiri[id] = time(NULL) + ufr.harakiri;
 		}
 
 		if (nevents == 0) {
@@ -620,7 +620,7 @@ void fastrouter_loop(int id) {
 			struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 			int taken = 0;
 			while (ugs) {
-				if (ugs->gateway == &uwsgi.gateways[id] && interesting_fd == ugs->fd) {
+				if (ugs->gateway == &ushared->gateways[id] && interesting_fd == ugs->fd) {
 					if (!ugs->subscription) {
 
 						new_connection = accept(interesting_fd, (struct sockaddr *) &fr_addr, &fr_addr_len);
@@ -670,7 +670,7 @@ void fastrouter_loop(int id) {
 				continue;
 			}
 
-			if (interesting_fd == uwsgi.gateways[id].internal_subscription_pipe[1]) {
+			if (interesting_fd == ushared->gateways[id].internal_subscription_pipe[1]) {
 				uwsgi_corerouter_manage_internal_subscription("uWSGI fastrouter", ufr.queue, interesting_fd, &ufr.subscriptions,
 					ufr.subscription_regexp, fastrouter_manage_subscription, ufr.cheap, &ufr.i_am_cheap);	
 			}
@@ -834,6 +834,10 @@ void fastrouter_loop(int id) {
 
 						// no address found
 						if (!fr_session->instance_address_len) {
+							// if fallback nodes are configured, trigger them
+							if (ufr.fallback) {
+								fr_session->instance_failed = 1;	
+							}
 							close_session(fr_session);
 							break;
 						}

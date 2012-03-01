@@ -19,7 +19,7 @@ except:
 
 
 def after_request_hook():
-    print "request finished"
+    print("request finished")
 
 uwsgi.after_req_hook = after_request_hook
 
@@ -81,7 +81,7 @@ def application(env, start_response):
     if DEBUG:
         print(env['wsgi.input'].fileno())
 
-    if routes.has_key(env['PATH_INFO']):
+    if env['PATH_INFO'] in routes:
         return routes[env['PATH_INFO']](env, start_response)
 
     start_response('200 OK', [('Content-Type', 'text/html')])

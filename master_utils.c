@@ -222,7 +222,7 @@ void uwsgi_reload(char **argv) {
 	int waitpid_status;
 
 	// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
-	for (i = 0; i < (uwsgi.gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
+	for (i = 0; i < (ushared->gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
 		waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 	}
 
@@ -360,9 +360,9 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 			close(uwsgi.master_queue);
 		// close gateways
 		if (!ug) {
-			for (i = 0; i < uwsgi.gateways_cnt; i++) {
-				close(uwsgi.gateways[i].internal_subscription_pipe[0]);
-				close(uwsgi.gateways[i].internal_subscription_pipe[1]);
+			for (i = 0; i < ushared->gateways_cnt; i++) {
+				close(ushared->gateways[i].internal_subscription_pipe[0]);
+				close(ushared->gateways[i].internal_subscription_pipe[1]);
 			}
 		}
 		struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;

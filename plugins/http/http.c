@@ -544,7 +544,7 @@ void http_loop(int id) {
 	void *events = uwsgi_corerouter_setup_event_queue("uWSGI http", id, uhttp.nevents, &uhttp_queue, 0);
 
 	if (uhttp.has_subscription_sockets)
-		event_queue_add_fd_read(uhttp_queue, uwsgi.gateways[id].internal_subscription_pipe[1]);
+		event_queue_add_fd_read(uhttp_queue, ushared->gateways[id].internal_subscription_pipe[1]);
 
 	if (uhttp.pattern) {
 		init_magic_table(magic_table);
@@ -582,7 +582,7 @@ void http_loop(int id) {
 			int taken = 0;
 			while (ugs) {
 
-				if (ugs->gateway == &uwsgi.gateways[id] && interesting_fd == ugs->fd) {
+				if (ugs->gateway == &ushared->gateways[id] && interesting_fd == ugs->fd) {
 					if (!ugs->subscription) {
 						new_connection = accept(ugs->fd, (struct sockaddr *) &uhttp_addr, &uhttp_addr_len);
 #ifdef UWSGI_EVENT_USE_PORT
@@ -638,7 +638,7 @@ void http_loop(int id) {
 			if (taken)
 				continue;
 
-			if (interesting_fd == uwsgi.gateways[id].internal_subscription_pipe[1]) {
+			if (interesting_fd == ushared->gateways[id].internal_subscription_pipe[1]) {
 				uwsgi_corerouter_manage_internal_subscription("uWSGI http", uhttp_queue, interesting_fd, &uhttp.subscriptions,
                                         uhttp.subscription_regexp, http_manage_subscription, 0, &uhttp.i_am_cheap);
 			} 

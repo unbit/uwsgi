@@ -503,9 +503,9 @@ int master_loop(char **argv, char **environ) {
 		uwsgi_mule(i + 1);
 	}
 
-	// spawn fat gateways
-	for (i = 0; i < uwsgi.gateways_cnt; i++) {
-		if (uwsgi.gateways[i].pid == 0) {
+	// spawn gateways
+	for (i = 0; i < ushared->gateways_cnt; i++) {
+		if (ushared->gateways[i].pid == 0) {
 			gateway_respawn(i);
 		}
 	}
@@ -667,7 +667,7 @@ int master_loop(char **argv, char **environ) {
 
 		if ((uwsgi.cheap || ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
 			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
-			for (i = 0; i < (uwsgi.gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
+			for (i = 0; i < (ushared->gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 			}
 
@@ -682,7 +682,7 @@ int master_loop(char **argv, char **environ) {
 
 		if (!uwsgi.cheap) {
 
-			if (uwsgi.numproc > 0 || uwsgi.gateways_cnt > 0 || uwsgi.daemons_cnt > 0) {
+			if (uwsgi.numproc > 0 || ushared->gateways_cnt > 0 || uwsgi.daemons_cnt > 0) {
 				master_has_children = 1;
 			}
 #ifdef UWSGI_SPOOLER
@@ -1268,11 +1268,11 @@ int master_loop(char **argv, char **environ) {
 				//uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
 			}
 
-			for (i = 0; i < uwsgi.gateways_cnt; i++) {
+			for (i = 0; i < ushared->gateways_cnt; i++) {
 				if (ushared->gateways_harakiri[i] > 0) {
 					if (ushared->gateways_harakiri[i] < (time_t) uwsgi.current_time) {
-						if (uwsgi.gateways[i].pid > 0) {
-							kill(uwsgi.gateways[i].pid, SIGKILL);
+						if (ushared->gateways[i].pid > 0) {
+							kill(ushared->gateways[i].pid, SIGKILL);
 						}
 						ushared->gateways_harakiri[i] = 0;
 					}
@@ -1415,10 +1415,9 @@ nextlock:
 
 
 			/* reload the gateways */
-			// TODO reload_gateways(diedpid);
 			pid_found = 0;
-			for (i = 0; i < uwsgi.gateways_cnt; i++) {
-				if (uwsgi.gateways[i].pid == diedpid) {
+			for (i = 0; i < ushared->gateways_cnt; i++) {
+				if (ushared->gateways[i].pid == diedpid) {
 					gateway_respawn(i);
 					pid_found = 1;
 					break;
@@ -1477,9 +1476,9 @@ nextlock:
 				}
 			}
 
-			for (i = 0; i < uwsgi.gateways_cnt; i++) {
-				if (uwsgi.gateways[i].pid == diedpid) {
-					uwsgi_log("gateway %d (%s, pid: %d) annihilated\n", i + 1, uwsgi.gateways[i].fullname, (int) diedpid);
+			for (i = 0; i < ushared->gateways_cnt; i++) {
+				if (ushared->gateways[i].pid == diedpid) {
+					uwsgi_log("gateway %d (%s, pid: %d) annihilated\n", i + 1, ushared->gateways[i].fullname, (int) diedpid);
 					goto next;
 				}
 			}

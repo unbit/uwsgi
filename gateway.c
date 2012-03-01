@@ -7,20 +7,20 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
         struct uwsgi_gateway *ug;
         int num=1,i;
 
-        if (uwsgi.gateways_cnt >= MAX_GATEWAYS) {
+        if (ushared->gateways_cnt >= MAX_GATEWAYS) {
                 uwsgi_log("you can register max %d gateways\n", MAX_GATEWAYS);
                 return NULL;
         }
 
-        for(i=0;i<uwsgi.gateways_cnt;i++) {
-                if (!strcmp(name, uwsgi.gateways[i].name)) {
+        for(i=0;i<ushared->gateways_cnt;i++) {
+                if (!strcmp(name, ushared->gateways[i].name)) {
                         num++;
                 }
         }
 
 	char *fullname = uwsgi_concat3(name, " ", uwsgi_num2str(num));
 
-        ug = &uwsgi.gateways[uwsgi.gateways_cnt];
+        ug = &ushared->gateways[ushared->gateways_cnt];
         ug->pid = 0;
         ug->name = name;
         ug->loop = loop;
@@ -32,9 +32,9 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
 	}
 
 	if (!uwsgi.master_process)
-		gateway_respawn(uwsgi.gateways_cnt);
+		gateway_respawn(ushared->gateways_cnt);
 
-        uwsgi.gateways_cnt++;
+        ushared->gateways_cnt++;
 
 
         return ug;
@@ -43,7 +43,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
 void gateway_respawn(int id) {
 
 	pid_t gw_pid;
-	struct uwsgi_gateway *ug = &uwsgi.gateways[id];
+	struct uwsgi_gateway *ug = &ushared->gateways[id];
 
 	if (uwsgi.master_process)
 		uwsgi.shared->gateways_harakiri[id] = 0;
