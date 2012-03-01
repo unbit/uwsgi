@@ -1480,7 +1480,11 @@ PyObject *py_uwsgi_sharedarea_read(PyObject * self, PyObject * args) {
 	}
 
 	PyObject *ret = PyString_FromStringAndSize(NULL, len);
+#ifdef PYTHREE
+	char *storage = PyBytes_AsString(ret);
+#else
 	char *storage = PyString_AS_STRING(ret);
+#endif
 
 	UWSGI_RELEASE_GIL
 
@@ -3518,7 +3522,11 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 		}
 		UWSGI_GET_GIL
 		PyObject *ret = PyString_FromStringAndSize(NULL, valsize);
+#ifdef PYTHREE
+		char *storage = PyBytes_AsString(ret);
+#else
 		char *storage = PyString_AS_STRING(ret);
+#endif
 		UWSGI_RELEASE_GIL
 #ifdef UWSGI_DEBUG
 		gettimeofday(&tv2, NULL); 
