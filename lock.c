@@ -309,7 +309,7 @@ struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
 
 	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
-	int semid = semget(IPC_PRIVATE, 1, IPC_CREAT|IPC_EXCL);
+	int semid = semget(IPC_PRIVATE, 1, IPC_CREAT|IPC_EXCL| 0600);
 	if (semid < 0) {
 		uwsgi_error("semget()");
 		exit(1);
