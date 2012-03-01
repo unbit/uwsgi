@@ -647,6 +647,7 @@ void fastrouter_loop(int id) {
 						ufr.fr_table[new_connection]->fallback = NULL;
 						ufr.fr_table[new_connection]->soopt = 0;
 						ufr.fr_table[new_connection]->timed_out = 0;
+						ufr.fr_table[new_connection]->tmp_socket_name = NULL;
 
 						ufr.fr_table[new_connection]->timeout = add_timeout(ufr.fr_table[new_connection]);
 
