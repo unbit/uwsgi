@@ -161,6 +161,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"spooler", required_argument, 'Q', "run a spooler on the specified directory", uwsgi_opt_add_spooler, NULL, UWSGI_OPT_MASTER},
 	{"spooler-ordered", no_argument, 0, "try to order the execution of spooler tasks", uwsgi_opt_true, &uwsgi.spooler_ordered,0},
 	{"spooler-chdir", required_argument, 0, "chdir() to specified directory before each spooler task", uwsgi_opt_set_str, &uwsgi.spooler_chdir,0},
+	{"spooler-processes", required_argument, 0, "set the number of processes for spoolers", uwsgi_opt_set_int, &uwsgi.spooler_numproc, 0},
 #endif
 	{"mule", optional_argument, 0, "add a mule", uwsgi_opt_add_mule, NULL, UWSGI_OPT_MASTER},
 	{"mules", required_argument, 0, "add the specified number of mules", uwsgi_opt_add_mules, NULL, UWSGI_OPT_MASTER},
@@ -2639,6 +2640,7 @@ skipzero:
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
 		while(uspool) {
 			create_signal_pipe(uspool->signal_pipe);
+			uspool->lock = uwsgi_lock_init( uwsgi_concat2("spooler on ", uspool->dir) );
 			uspool->pid = spooler_start(uspool);
 			uspool = uspool->next;
 		}
@@ -3474,18 +3476,6 @@ void uwsgi_opt_print(char *opt, char *value, void *str) {
 	}
 	fprintf(stdout, "%s\n", value);
 }
-
-#ifdef UWSGI_SPOOLER
-void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
-
-	if (access(directory, R_OK | W_OK | X_OK)) {
-        	uwsgi_error("[spooler directory] access()");
-                exit(1);
-	}
-	uwsgi_new_spooler(directory);
-	
-}
-#endif
 
 void uwsgi_opt_set_uid(char *opt, char *value, void *none) {
 

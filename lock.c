@@ -437,3 +437,35 @@ void uwsgi_setup_locking() {
 	uwsgi.rwlock_size = UWSGI_RWLOCK_SIZE;
 }
 
+
+int uwsgi_fcntl_lock(int fd) {
+	struct flock fl;
+	fl.l_type = F_WRLCK;
+	fl.l_whence = SEEK_CUR;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	fl.l_pid = 0;
+
+	int ret = fcntl(fd, F_SETLKW, &fl);
+	if (ret < 0)
+		uwsgi_error("fcntl()");
+
+	return ret;
+}
+
+int uwsgi_fcntl_is_locked(int fd) {
+
+	struct flock fl;
+        fl.l_type = F_WRLCK;
+        fl.l_whence = SEEK_CUR;
+        fl.l_start = 0;
+        fl.l_len = 0;
+        fl.l_pid = 0;
+
+        if (fcntl(fd, F_SETLK, &fl)) {
+		return 1;
+	}
+
+	return 0;
+	
+}

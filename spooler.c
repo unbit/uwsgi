@@ -3,14 +3,65 @@
 
 extern struct uwsgi_server uwsgi;
 
-static void spooler_readdir(char *);
+static void spooler_readdir(struct uwsgi_spooler *, char *dir);
 #ifdef __linux__
-static void spooler_scandir(char *);
+static void spooler_scandir(struct uwsgi_spooler *, char *dir);
 #endif
-void spooler_manage_task(char *, char *);
+static void spooler_manage_task(struct uwsgi_spooler *, char *, char *);
 
 // fake function to allow waking the spooler
 void spooler_wakeup() {}
+
+void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
+
+	int i;
+
+        if (access(directory, R_OK | W_OK | X_OK)) {
+                uwsgi_error("[spooler directory] access()");
+                exit(1);
+        }
+
+	if (uwsgi.spooler_numproc > 0) {
+		for(i=0;i<uwsgi.spooler_numproc;i++) {
+			uwsgi_new_spooler(directory);
+		}
+	}
+	else {
+        	uwsgi_new_spooler(directory);
+	}
+
+}
+
+
+struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
+
+        struct uwsgi_spooler *uspool = uwsgi.spoolers;
+
+        if (!uspool) {
+                uwsgi.spoolers = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
+                uspool = uwsgi.spoolers;
+        }
+        else {
+                while(uspool) {
+                        if (uspool->next == NULL) {
+                                uspool->next = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
+                                uspool = uspool->next;
+                                break;
+                        }
+                        uspool = uspool->next;
+                }
+        }
+
+        if (!realpath(dir, uspool->dir)) {
+                uwsgi_error("[spooler] realpath()");
+                exit(1);
+        }
+
+        uspool->next = NULL;
+
+        return uspool;
+}
+
 
 struct uwsgi_spooler *uwsgi_get_spooler_by_name(char *name) {
 
@@ -103,6 +154,7 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		uspool = uwsgi.spoolers;
 	}
 
+	// this lock is for threads, the pid value in filename will avoid multiprocess races
 	uwsgi_lock(uspool->lock);
 
 	gettimeofday(&tv, NULL);
@@ -134,13 +186,10 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		return 0;
 	}
 
-#ifdef __sun__
-	if (lockf(fd, F_LOCK, 0)) {
-		uwsgi_error("lockf()");
-#else
-	if (flock(fd, LOCK_EX)) {
-		uwsgi_error("flock()");
-#endif
+	// now lock the file, it will no be runnable, until the lock is not removed
+	// a race could come if the spooler take the file before fcntl is called
+        // in such case the spooler will detect a zeroed file and will retry later
+	if (uwsgi_fcntl_lock(fd)) {
 		close(fd);
 		uwsgi_unlock(uspool->lock);
 		return 0;
@@ -182,15 +231,27 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		}
 	}
 
+	// here the file will be unlocked too
 	close(fd);
 
 	uwsgi_log("[spooler] written %d bytes to file %s\n", size + body_len + 4, filename);
 	
+	// and here waiting threads can continue
 	uwsgi_unlock(uspool->lock);
 
-/*	wake up the spooler ... (HACKY) */
-	if (uspool->pid > 0 ) {
-		(void) kill(uspool->pid, SIGUSR1);
+/*	wake up the spoolers attached to the specified dir ... (HACKY) 
+	no need to fear races, as USR1 is harmless an all of the uWSGI processes...
+	it could be a problem if a new process takes the old pid, but modern systems should avoid that
+*/
+
+	struct uwsgi_spooler *spoolers = uwsgi.spoolers;
+	while(spoolers) {
+		if (!strcmp(spoolers->dir, uspool->dir)) {
+			if (spoolers->pid > 0 && spoolers->running == 0) {
+				(void) kill(spoolers->pid, SIGUSR1);
+			}
+		}
+		spoolers = spoolers->next;
 	}
 
 	return 1;
@@ -202,6 +263,7 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	if (unlink(filename)) {
 		uwsgi_error("unlink()");
 	}
+	// unlock the file too
 	close(fd);
 	return 0;
 }
@@ -254,13 +316,13 @@ void spooler(struct uwsgi_spooler *uspool) {
 
 		if (uwsgi.spooler_ordered) {
 #ifdef __linux__
-			spooler_scandir(uspool->dir);
+			spooler_scandir(uspool, NULL);
 #else
-			spooler_readdir(uspool->dir);
+			spooler_readdir(uspool, NULL);
 #endif
 		}
 		else {
-			spooler_readdir(uspool->dir);
+			spooler_readdir(uspool, NULL);
 		}
 
 		if (event_queue_wait(spooler_event_queue, uwsgi.shared->spooler_frequency, &interesting_fd) > 0) {
@@ -287,10 +349,12 @@ void spooler(struct uwsgi_spooler *uspool) {
 }
 
 #ifdef __linux__
-static void spooler_scandir(char *dir) {
+static void spooler_scandir(struct uwsgi_spooler *uspool, char *dir) {
 
 	struct dirent **tasklist;
 	int n;
+
+	if (!dir) dir = uspool->dir;
 
 	n = scandir(dir, &tasklist, 0, versionsort);
 	if (n < 0) {
@@ -299,7 +363,7 @@ static void spooler_scandir(char *dir) {
 	}
 	
 	while(n--) {
-		spooler_manage_task(dir, tasklist[n]->d_name);
+		spooler_manage_task(uspool, dir, tasklist[n]->d_name);
 		free(tasklist[n]);	
 	}
 
@@ -308,15 +372,17 @@ static void spooler_scandir(char *dir) {
 #endif
 
 
-static void spooler_readdir(char *dir) {
+static void spooler_readdir(struct uwsgi_spooler *uspool, char *dir) {
 
 	DIR *sdir;
 	struct dirent *dp;
 
+	if (!dir) dir = uspool->dir;
+
 	sdir = opendir(dir);
 	if (sdir) {
 		while ((dp = readdir(sdir)) != NULL) {
-			spooler_manage_task(dir, dp->d_name);
+			spooler_manage_task(uspool, dir, dp->d_name);
 		}
 		closedir(sdir);
 	}
@@ -325,7 +391,7 @@ static void spooler_readdir(char *dir) {
 	}
 }
 
-void spooler_manage_task(char *dir, char *task) {
+void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 
 	int i, ret;
 
@@ -335,6 +401,8 @@ void spooler_manage_task(char *dir, char *task) {
 	size_t body_len = 0;
 
 	int spool_fd;
+
+	if (!dir) dir = uspool->dir;
 
 	if (!strncmp("uwsgi_spoolfile_on_", task, 19) || (uwsgi.spooler_ordered && is_a_number(task))) {
 		struct stat sf_lstat;
@@ -354,7 +422,7 @@ void spooler_manage_task(char *dir, char *task) {
 				return;
 			}
 			char *prio_path = realpath(".", NULL);
-			spooler_scandir(prio_path);
+			spooler_scandir(uspool, prio_path);
 			free(prio_path);
 			if (chdir(dir)) {
 				uwsgi_error("chdir()");
@@ -366,31 +434,22 @@ void spooler_manage_task(char *dir, char *task) {
 			return;
 		}
 		if (!access(task, R_OK | W_OK)) {
-			uwsgi_log("[spooler] managing request %s ...\n", task);
 
-#ifdef __sun__
-			// lockf needs write permission
 			spool_fd = open(task, O_RDWR);
-#else
-			spool_fd = open(task, O_RDONLY);
-#endif
+
 			if (spool_fd < 0) {
 				uwsgi_error_open(task);
 				return;
 			}
 
-#ifdef __sun__
-			if (lockf(spool_fd, F_LOCK, 0)) {
-				uwsgi_error("lockf()");
-#else
-			if (flock(spool_fd, LOCK_EX)) {
-				uwsgi_error("flock()");
-#endif
+			// check if the file is locked by anther process
+			if (uwsgi_fcntl_is_locked(spool_fd)) {
 				close(spool_fd);
 				return;
 			}
 
 			if (read(spool_fd, &uh, 4) != 4) {
+				// it could be here for broken file or just opened one
 				uwsgi_error("read()");
 				close(spool_fd);
 				return;
@@ -420,8 +479,13 @@ void spooler_manage_task(char *dir, char *task) {
 				}
 			}
 
-			close(spool_fd);
+			// not the task is running and should not be waken
+			uspool->running = 1;
 
+			uwsgi_log("[spooler %s pid: %d] managing request %s ...\n", uspool->dir, (int) uwsgi.mypid, task);
+
+
+			// chdir before running the task (if requested)
 			if (uwsgi.spooler_chdir) {
 				if (chdir(uwsgi.spooler_chdir)) {
 					uwsgi_error("chdir()");
@@ -442,7 +506,7 @@ void spooler_manage_task(char *dir, char *task) {
 					if (ret == 0) continue;
 					callable_found = 1;
 					if (ret == -2) {
-						uwsgi_log("[spooler] done with task %s after %d seconds\n", task, time(NULL)-now);
+						uwsgi_log("[spooler %s pid: %d] done with task %s after %d seconds\n", uspool->dir, (int) uwsgi.mypid, task, time(NULL)-now);
 						destroy_spool(dir, task);	
 					}
 					// re-spool it
@@ -452,6 +516,10 @@ void spooler_manage_task(char *dir, char *task) {
 
 			if (body)
 				free(body);
+
+			// here we free and unlock the task
+			close(spool_fd);
+			uspool->running = 0;
 
 			if (!callable_found) {
 				uwsgi_log("unable to find the spooler function, have you loaded it into the spooler process ?\n");

@@ -703,6 +703,8 @@ struct uwsgi_spooler {
 	struct uwsgi_lock_item *lock;
 	time_t harakiri;
 
+	int running;
+
 	int signal_pipe[2];
 
 	struct uwsgi_spooler *next;
@@ -1303,6 +1305,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SPOOLER
 	struct uwsgi_spooler *spoolers;
+	int spooler_numproc;
 	struct uwsgi_spooler *i_am_a_spooler;
 	char *spooler_chdir;
 	int spooler_ordered;
@@ -2692,8 +2695,11 @@ void uwsgi_flush_logs(void);
 void uwsgi_register_cheaper_algo(char *, int(*) (void));
 
 void uwsgi_setup_locking(void);
+int uwsgi_fcntl_lock(int);
+int uwsgi_fcntl_is_locked(int);
 
 void uwsgi_emulate_cow_for_apps(int);
+
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

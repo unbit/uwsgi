@@ -3063,40 +3063,6 @@ void *uwsgi_malloc_shared(size_t size) {
 }
 
 
-#ifdef UWSGI_SPOOLER
-struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
-
-        struct uwsgi_spooler *uspool = uwsgi.spoolers;
-
-        if (!uspool) {
-                uwsgi.spoolers = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
-                uspool = uwsgi.spoolers;
-        }
-        else {
-                while(uspool) {
-			if (uspool->next == NULL) {
-				uspool->next = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
-				uspool = uspool->next;
-				break;
-			}
-			uspool = uspool->next;
-                }
-        }
-
-	if (!realpath(dir, uspool->dir)) {
-		uwsgi_error("[spooler] realpath()");
-		exit(1);
-	}
-
-        uspool->lock = uwsgi_lock_init( uwsgi_concat2("spooler on ", uspool->dir) );
-
-        uspool->next = NULL;
-
-        return uspool;
-}
-#endif
-
-
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list, char *value) {
 
 	struct uwsgi_string_list *uwsgi_string = *list, *old_uwsgi_string;
