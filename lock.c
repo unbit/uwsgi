@@ -275,129 +275,155 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) { uwsgi_unlock_fast(uli); 
 
 #else
 
-#define uwsgi_lock_fast_init uwsgi_lock_fcntl_init
-#define uwsgi_lock_fast_check uwsgi_lock_fcntl_check
-#define uwsgi_lock_fast uwsgi_lock_fcntl
-#define uwsgi_unlock_fast uwsgi_unlock_fcntl
+#define uwsgi_lock_fast_init uwsgi_lock_ipcsem_init
+#define uwsgi_lock_fast_check uwsgi_lock_ipcsem_check
+#define uwsgi_lock_fast uwsgi_lock_ipcsem
+#define uwsgi_unlock_fast uwsgi_unlock_ipcsem
 
-#define uwsgi_rwlock_fast_init uwsgi_rwlock_fcntl_init
-#define uwsgi_rwlock_fast_check uwsgi_rwlock_fcntl_check
+#define uwsgi_rwlock_fast_init uwsgi_rwlock_ipcsem_init
+#define uwsgi_rwlock_fast_check uwsgi_rwlock_ipcsem_check
 
-#define uwsgi_rlock_fast uwsgi_rlock_fcntl
-#define uwsgi_wlock_fast uwsgi_wlock_fcntl
-#define uwsgi_rwunlock_fast uwsgi_rwunlock_fcntl
+#define uwsgi_rlock_fast uwsgi_rlock_ipcsem
+#define uwsgi_wlock_fast uwsgi_wlock_ipcsem
+#define uwsgi_rwunlock_fast uwsgi_rwunlock_ipcsem
 
-#define UWSGI_LOCK_SIZE 8
-#define UWSGI_RWLOCK_SIZE 8
+#define UWSGI_LOCK_SIZE sizeof(int)
+#define UWSGI_RWLOCK_SIZE (sizeof(int)
 
-#define UWSGI_LOCK_ENGINE_NAME "fcntl"
+#define UWSGI_LOCK_ENGINE_NAME "ipcsem"
+
+#define UWSGI_IPCSEM_ATEXIT	1
 
 #endif
 
+#include <sys/ipc.h>
+#include <sys/sem.h>
 
-struct uwsgi_lock_item *uwsgi_lock_fcntl_init(char *id) {
+struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
+
+	union semun {
+ 		int val;
+		struct semid_ds *buf;
+		ushort *array;
+	} semu ;
 
 	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
-	FILE *tf = tmpfile();
+	int semid = semget(IPC_PRIVATE, 1, IPC_CREAT|IPC_EXCL);
+	if (semid < 0) {
+		uwsgi_error("semget()");
+		exit(1);
+	}
+	// do this now, to allows triggering fo atexit hook in case of problems
+	memcpy(uli->lock_ptr, &semid, sizeof(int));
 
-	if (!tf) {
-		uwsgi_error_open("temp lock file");
+	semu.val = 1;
+	if (semctl(semid, 0, SETVAL, semu)) {
+		uwsgi_error("semctl()");
 		exit(1);
 	}
 	
-	int fd = fileno(tf);
-	memcpy(uli->lock_ptr, &fd, sizeof(int));
 	return uli;
 }
 
-void uwsgi_lock_fcntl(struct uwsgi_lock_item *uli) {
+void uwsgi_lock_ipcsem(struct uwsgi_lock_item *uli) {
 
-	int fd;
-	struct flock fl;
-	fl.l_type = F_WRLCK;
-	fl.l_whence = SEEK_CUR;
-	fl.l_start = 0;
-	fl.l_len = 0;
-	fl.l_pid = 0;
+	int semid;
+	struct sembuf sb;
+	sb.sem_num = 0;
+	sb.sem_op = -1;
+	sb.sem_flg = SEM_UNDO;
 
-	memcpy(&fd, uli->lock_ptr, sizeof(int));
-	if (fcntl(fd, F_SETLKW, &fl)) { uwsgi_error("fcntl()"); }	
+	memcpy(&semid, uli->lock_ptr, sizeof(int));
+
+	if (semop(semid, &sb, 1)) {
+		uwsgi_error("semop()");
+	} 
 }
 
-void uwsgi_unlock_fcntl(struct uwsgi_lock_item *uli) {
-	int fd;
-	struct flock fl;
-	fl.l_type = F_UNLCK;
-	fl.l_whence = SEEK_CUR;
-	fl.l_start = 0;
-	fl.l_len = 0;
-	fl.l_pid = 0;
-	memcpy(&fd, uli->lock_ptr, sizeof(int));
-	if (fcntl(fd, F_SETLKW, &fl)) { uwsgi_error("fcntl()"); }	
+void uwsgi_unlock_ipcsem(struct uwsgi_lock_item *uli) {
+
+	int semid;
+	struct sembuf sb;
+	sb.sem_num = 0;
+	sb.sem_op = 1;
+	sb.sem_flg = SEM_UNDO;
+
+	memcpy(&semid, uli->lock_ptr, sizeof(int));
+
+	if (semop(semid, &sb, 1)) {
+		uwsgi_error("semop()");
+	} 
+
 }
 
-struct uwsgi_lock_item *uwsgi_rwlock_fcntl_init(char *id) { return uwsgi_lock_fcntl_init(id);}
-void uwsgi_rlock_fcntl(struct uwsgi_lock_item *uli) { uwsgi_lock_fcntl(uli);}
-void uwsgi_wlock_fcntl(struct uwsgi_lock_item *uli) { uwsgi_lock_fcntl(uli);}
-void uwsgi_rwunlock_fcntl(struct uwsgi_lock_item *uli) { uwsgi_unlock_fcntl(uli); }
+struct uwsgi_lock_item *uwsgi_rwlock_ipcsem_init(char *id) { return uwsgi_lock_ipcsem_init(id);}
+void uwsgi_rlock_ipcsem(struct uwsgi_lock_item *uli) { uwsgi_lock_ipcsem(uli);}
+void uwsgi_wlock_ipcsem(struct uwsgi_lock_item *uli) { uwsgi_lock_ipcsem(uli);}
+void uwsgi_rwunlock_ipcsem(struct uwsgi_lock_item *uli) { uwsgi_unlock_ipcsem(uli); }
 
-pid_t uwsgi_lock_fcntl_check(struct uwsgi_lock_item *uli) {
-	int fd;
-	memcpy(&fd, uli->lock_ptr, sizeof(int));
-/*
-#ifdef __sun__
-	if (lockf(fd, F_TEST, 0)) {
-		return uli->pid;	
-	}
+// ipc cannot deadlock
+pid_t uwsgi_lock_ipcsem_check(struct uwsgi_lock_item *uli) {
 	return 0;
-#else
-        if (fcntl(fd, LOCK_EX|LOCK_NB) < 0) {
-		if (errno == EWOULDBLOCK) {
-        		return uli->pid;
-		}
-        	return 0;
-        }
-	// unlock
-	fcntl(fd, LOCK_UN);
-        return 0;
+}
+
+void uwsgi_ipcsem_clear(void) {
+
+	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
+
+	if (!uwsgi.workers) goto clear;
+
+	if (uwsgi.mywid == 0) goto clear;
+
+	if (uwsgi.master_process && getpid() == uwsgi.workers[0].pid) goto clear;
+
+	return;
+
+clear:
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("removing sysvipc semaphores...\n");
 #endif
-*/
-	return 0;
+        while(uli) {
+		int semid = 0;
+		memcpy(&semid, uli->lock_ptr, sizeof(int));
+		if (semctl(semid, 0, IPC_RMID)) {
+			uwsgi_log("semctl()");
+		}
+		uli = uli->next;
+	}
 }
 
 
-pid_t uwsgi_rwlock_fcntl_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_fcntl_check(uli); }
+pid_t uwsgi_rwlock_ipcsem_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_ipcsem_check(uli); }
 
 
 void uwsgi_setup_locking() {
 
 	// use the fastest avaikable locking
 	if (uwsgi.lock_engine) {
-		if (!strcmp(uwsgi.lock_engine, "fcntl")) {
-			uwsgi_log("lock engine: fcntl\n");
-			uwsgi.lock_ops.lock_init = uwsgi_lock_fcntl_init;
-			uwsgi.lock_ops.lock_check = uwsgi_lock_fcntl_check;
-			uwsgi.lock_ops.lock = uwsgi_lock_fcntl;
-			uwsgi.lock_ops.unlock = uwsgi_unlock_fcntl;
-			uwsgi.lock_ops.rwlock_init = uwsgi_rwlock_fcntl_init;
-			uwsgi.lock_ops.rwlock_check = uwsgi_rwlock_fcntl_check;
-			uwsgi.lock_ops.rlock = uwsgi_rlock_fcntl;
-			uwsgi.lock_ops.wlock = uwsgi_wlock_fcntl;
-			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_fcntl;
+		if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
+			uwsgi_log("lock engine: ipcsem\n");
+			atexit(uwsgi_ipcsem_clear);
+			uwsgi.lock_ops.lock_init = uwsgi_lock_ipcsem_init;
+			uwsgi.lock_ops.lock_check = uwsgi_lock_ipcsem_check;
+			uwsgi.lock_ops.lock = uwsgi_lock_ipcsem;
+			uwsgi.lock_ops.unlock = uwsgi_unlock_ipcsem;
+			uwsgi.lock_ops.rwlock_init = uwsgi_rwlock_ipcsem_init;
+			uwsgi.lock_ops.rwlock_check = uwsgi_rwlock_ipcsem_check;
+			uwsgi.lock_ops.rlock = uwsgi_rlock_ipcsem;
+			uwsgi.lock_ops.wlock = uwsgi_wlock_ipcsem;
+			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_ipcsem;
 			uwsgi.lock_size = 8;
 			uwsgi.rwlock_size = 8;
-			return;
-		}
-		else if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
-			uwsgi_log("lock engine: ipc semaphores\n");
-			uwsgi_log("the requested lock engine is unsupported on this platform\n");
-			exit(1);
 			return;
 		}
 	}
 
 	uwsgi_log("lock engine: %s\n", UWSGI_LOCK_ENGINE_NAME);
+#ifdef UWSGI_IPCSEM_ATEXIT
+	atexit(uwsgi_ipcsem_clear);
+#endif
 	uwsgi.lock_ops.lock_init = uwsgi_lock_fast_init;
 	uwsgi.lock_ops.lock_check = uwsgi_lock_fast_check;
 	uwsgi.lock_ops.lock = uwsgi_lock_fast;
