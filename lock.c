@@ -62,8 +62,6 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 	
         struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
-	uwsgi_log("initializing lock %s\n", id);
-
 	if (pthread_mutexattr_init(&attr)) {
         	uwsgi_log("unable to allocate mutexattr structure\n");
                 exit(1);
@@ -136,18 +134,13 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 
 void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 
-	uwsgi_log("locking\n");
 	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
-	uwsgi_log("in-locking\n");
         uli->pid = uwsgi.mypid;
-	uwsgi_log("in-locking 2\n");
 }
 
 void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
 
-	uwsgi_log("unlock !!!\n");
 	pthread_mutex_unlock((pthread_mutex_t *) uli->lock_ptr);
-	uwsgi_log("unlocked !!!\n");
 	uli->pid = 0;
 
 }
@@ -282,27 +275,27 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) { uwsgi_unlock_fast(uli); 
 
 #else
 
-#define uwsgi_lock_fast_init uwsgi_lock_flock_init
-#define uwsgi_lock_fast_check uwsgi_lock_flock_check
-#define uwsgi_lock_fast uwsgi_lock_flock
-#define uwsgi_unlock_fast uwsgi_unlock_flock
+#define uwsgi_lock_fast_init uwsgi_lock_fcntl_init
+#define uwsgi_lock_fast_check uwsgi_lock_fcntl_check
+#define uwsgi_lock_fast uwsgi_lock_fcntl
+#define uwsgi_unlock_fast uwsgi_unlock_fcntl
 
-#define uwsgi_rwlock_fast_init uwsgi_rwlock_flock_init
-#define uwsgi_rwlock_fast_check uwsgi_rwlock_flock_check
+#define uwsgi_rwlock_fast_init uwsgi_rwlock_fcntl_init
+#define uwsgi_rwlock_fast_check uwsgi_rwlock_fcntl_check
 
-#define uwsgi_rlock_fast uwsgi_rlock_flock
-#define uwsgi_wlock_fast uwsgi_wlock_flock
-#define uwsgi_rwunlock_fast uwsgi_rwunlock_flock
+#define uwsgi_rlock_fast uwsgi_rlock_fcntl
+#define uwsgi_wlock_fast uwsgi_wlock_fcntl
+#define uwsgi_rwunlock_fast uwsgi_rwunlock_fcntl
 
 #define UWSGI_LOCK_SIZE 8
 #define UWSGI_RWLOCK_SIZE 8
 
-#define UWSGI_LOCK_ENGINE_NAME "flock"
+#define UWSGI_LOCK_ENGINE_NAME "fcntl"
 
 #endif
 
 
-struct uwsgi_lock_item *uwsgi_lock_flock_init(char *id) {
+struct uwsgi_lock_item *uwsgi_lock_fcntl_init(char *id) {
 
 	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
@@ -318,75 +311,80 @@ struct uwsgi_lock_item *uwsgi_lock_flock_init(char *id) {
 	return uli;
 }
 
-void uwsgi_lock_flock(struct uwsgi_lock_item *uli) {
+void uwsgi_lock_fcntl(struct uwsgi_lock_item *uli) {
 
 	int fd;
+	struct flock fl;
+	fl.l_type = F_WRLCK;
+	fl.l_whence = SEEK_CUR;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	fl.l_pid = 0;
+
 	memcpy(&fd, uli->lock_ptr, sizeof(int));
-#ifdef __sun__
-	if (lockf(fd, F_LOCK, 0)) { uwsgi_error("lockf()"); }
-#else
-	uwsgi_log("flocking %d\n", fd);
-	if (flock(fd, LOCK_EX)) { uwsgi_error("flock()"); }
-	uwsgi_log("inflocking %d\n", fd);
-#endif
+	if (fcntl(fd, F_SETLKW, &fl)) { uwsgi_error("fcntl()"); }	
 }
 
-void uwsgi_unlock_flock(struct uwsgi_lock_item *uli) {
+void uwsgi_unlock_fcntl(struct uwsgi_lock_item *uli) {
 	int fd;
+	struct flock fl;
+	fl.l_type = F_UNLCK;
+	fl.l_whence = SEEK_CUR;
+	fl.l_start = 0;
+	fl.l_len = 0;
+	fl.l_pid = 0;
 	memcpy(&fd, uli->lock_ptr, sizeof(int));
-#ifdef __sun__
-	if (lockf(fd, F_ULOCK, 0)) { uwsgi_error("lockf()"); }
-#else
-	uwsgi_log("un-flocking %d\n", fd);
-	if (flock(fd, LOCK_UN)) { uwsgi_error("flock()"); }
-#endif
+	if (fcntl(fd, F_SETLKW, &fl)) { uwsgi_error("fcntl()"); }	
 }
 
-struct uwsgi_lock_item *uwsgi_rwlock_flock_init(char *id) { return uwsgi_lock_flock_init(id);}
-void uwsgi_rlock_flock(struct uwsgi_lock_item *uli) { uwsgi_lock_flock(uli);}
-void uwsgi_wlock_flock(struct uwsgi_lock_item *uli) { uwsgi_lock_flock(uli);}
-void uwsgi_rwunlock_flock(struct uwsgi_lock_item *uli) { uwsgi_unlock_flock(uli); }
+struct uwsgi_lock_item *uwsgi_rwlock_fcntl_init(char *id) { return uwsgi_lock_fcntl_init(id);}
+void uwsgi_rlock_fcntl(struct uwsgi_lock_item *uli) { uwsgi_lock_fcntl(uli);}
+void uwsgi_wlock_fcntl(struct uwsgi_lock_item *uli) { uwsgi_lock_fcntl(uli);}
+void uwsgi_rwunlock_fcntl(struct uwsgi_lock_item *uli) { uwsgi_unlock_fcntl(uli); }
 
-pid_t uwsgi_lock_flock_check(struct uwsgi_lock_item *uli) {
+pid_t uwsgi_lock_fcntl_check(struct uwsgi_lock_item *uli) {
 	int fd;
 	memcpy(&fd, uli->lock_ptr, sizeof(int));
+/*
 #ifdef __sun__
 	if (lockf(fd, F_TEST, 0)) {
 		return uli->pid;	
 	}
 	return 0;
 #else
-        if (flock(fd, LOCK_EX|LOCK_NB) < 0) {
+        if (fcntl(fd, LOCK_EX|LOCK_NB) < 0) {
 		if (errno == EWOULDBLOCK) {
         		return uli->pid;
 		}
         	return 0;
         }
 	// unlock
-	flock(fd, LOCK_UN);
+	fcntl(fd, LOCK_UN);
         return 0;
 #endif
+*/
+	return 0;
 }
 
 
-pid_t uwsgi_rwlock_flock_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_flock_check(uli); }
+pid_t uwsgi_rwlock_fcntl_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_fcntl_check(uli); }
 
 
 void uwsgi_setup_locking() {
 
 	// use the fastest avaikable locking
 	if (uwsgi.lock_engine) {
-		if (!strcmp(uwsgi.lock_engine, "flock")) {
-			uwsgi_log("lock engine: flock\n");
-			uwsgi.lock_ops.lock_init = uwsgi_lock_flock_init;
-			uwsgi.lock_ops.lock_check = uwsgi_lock_flock_check;
-			uwsgi.lock_ops.lock = uwsgi_lock_flock;
-			uwsgi.lock_ops.unlock = uwsgi_unlock_flock;
-			uwsgi.lock_ops.rwlock_init = uwsgi_rwlock_flock_init;
-			uwsgi.lock_ops.rwlock_check = uwsgi_rwlock_flock_check;
-			uwsgi.lock_ops.rlock = uwsgi_rlock_flock;
-			uwsgi.lock_ops.wlock = uwsgi_wlock_flock;
-			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_flock;
+		if (!strcmp(uwsgi.lock_engine, "fcntl")) {
+			uwsgi_log("lock engine: fcntl\n");
+			uwsgi.lock_ops.lock_init = uwsgi_lock_fcntl_init;
+			uwsgi.lock_ops.lock_check = uwsgi_lock_fcntl_check;
+			uwsgi.lock_ops.lock = uwsgi_lock_fcntl;
+			uwsgi.lock_ops.unlock = uwsgi_unlock_fcntl;
+			uwsgi.lock_ops.rwlock_init = uwsgi_rwlock_fcntl_init;
+			uwsgi.lock_ops.rwlock_check = uwsgi_rwlock_fcntl_check;
+			uwsgi.lock_ops.rlock = uwsgi_rlock_fcntl;
+			uwsgi.lock_ops.wlock = uwsgi_wlock_fcntl;
+			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_fcntl;
 			uwsgi.lock_size = 8;
 			uwsgi.rwlock_size = 8;
 			return;
