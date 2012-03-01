@@ -47,32 +47,38 @@ static struct uwsgi_lock_item *uwsgi_register_lock(char *id, int rw) {
 
 #define UWSGI_LOCK_ENGINE_NAME "pthread mutexes"
 
-#define UWSGI_LOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)
+#define UWSGI_LOCK_SIZE	sizeof(pthread_mutex_t)
 
 #ifdef OBSOLETE_LINUX_KERNEL
-#define UWSGI_RWLOCK_SIZE	sizeof(pthread_mutexattr_t) + sizeof(pthread_mutex_t)
+#define UWSGI_RWLOCK_SIZE	sizeof(pthread_mutex_t)
 #else
-#define UWSGI_RWLOCK_SIZE	sizeof(pthread_rwlockattr_t) + sizeof(pthread_rwlock_t)
+#define UWSGI_RWLOCK_SIZE	sizeof(pthread_rwlock_t)
 #endif
 
 // REMEMBER lock must contains space for both pthread_mutex_t and pthread_mutexattr_t !!! 
 struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
+
+	pthread_mutexattr_t attr;
 	
         struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
-	if (pthread_mutexattr_init((pthread_mutexattr_t *) uli->lock_ptr)) {
+	uwsgi_log("initializing lock %s\n", id);
+
+	if (pthread_mutexattr_init(&attr)) {
         	uwsgi_log("unable to allocate mutexattr structure\n");
                 exit(1);
 	}
-        if (pthread_mutexattr_setpshared((pthread_mutexattr_t *) uli->lock_ptr, PTHREAD_PROCESS_SHARED)) {
+        if (pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) {
         	uwsgi_log("unable to share mutex\n");
                 exit(1);
         }
 
-        if (pthread_mutex_init((pthread_mutex_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)), (pthread_mutexattr_t *) uli->lock_ptr)) {
+        if (pthread_mutex_init((pthread_mutex_t *) uli->lock_ptr, &attr)) {
         	uwsgi_log("unable to initialize mutex\n");
                 exit(1);
         }
+
+	pthread_mutexattr_destroy(&attr);
 
 	uli->can_deadlock = 1;
 
@@ -81,8 +87,8 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 
 pid_t uwsgi_lock_fast_check(struct uwsgi_lock_item *uli) {
 
-	if (pthread_mutex_trylock((pthread_mutex_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t))) == 0 ) {
-		pthread_mutex_unlock((pthread_mutex_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)));	
+	if (pthread_mutex_trylock((pthread_mutex_t *) uli->lock_ptr) == 0 ) {
+		pthread_mutex_unlock((pthread_mutex_t *) uli->lock_ptr);	
 		return 0;
 	}
 	return uli->pid;
@@ -93,8 +99,8 @@ pid_t uwsgi_rwlock_fast_check(struct uwsgi_lock_item *uli) {
 	return uwsgi_lock_fast_check(uli);
 #else
 
-	if (pthread_rwlock_trywrlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)) ) == 0 ) {
-		pthread_rwlock_unlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));	
+	if (pthread_rwlock_trywrlock((pthread_rwlock_t *) uli->lock_ptr) == 0 ) {
+		pthread_rwlock_unlock((pthread_rwlock_t *) uli->lock_ptr);	
 		return 0;
 	}
         return uli->pid;
@@ -105,7 +111,7 @@ void uwsgi_rlock_fast(struct uwsgi_lock_item *uli) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock_fast(uli);
 #else
-	pthread_rwlock_rdlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));
+	pthread_rwlock_rdlock((pthread_rwlock_t *) uli->lock_ptr);
         uli->pid = uwsgi.mypid;
 #endif
 }
@@ -114,7 +120,7 @@ void uwsgi_wlock_fast(struct uwsgi_lock_item *uli) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock_fast(uli);
 #else
-	pthread_rwlock_wrlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));
+	pthread_rwlock_wrlock((pthread_rwlock_t *) uli->lock_ptr);
         uli->pid = uwsgi.mypid;
 #endif
 }
@@ -123,20 +129,25 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_unlock_fast(uli);
 #else
-	pthread_rwlock_unlock((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)));
+	pthread_rwlock_unlock((pthread_rwlock_t *) uli->lock_ptr);
         uli->pid = 0;
 #endif
 }
 
 void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 
-	pthread_mutex_lock((pthread_mutex_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)));
+	uwsgi_log("locking\n");
+	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
+	uwsgi_log("in-locking\n");
         uli->pid = uwsgi.mypid;
+	uwsgi_log("in-locking 2\n");
 }
 
 void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
 
-	pthread_mutex_unlock((pthread_mutex_t *) (uli->lock_ptr + sizeof(pthread_mutexattr_t)));
+	uwsgi_log("unlock !!!\n");
+	pthread_mutex_unlock((pthread_mutex_t *) uli->lock_ptr);
+	uwsgi_log("unlocked !!!\n");
 	uli->pid = 0;
 
 }
@@ -147,21 +158,25 @@ struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
 	return uwsgi_lock_fast_init(uli);
 #else
 
+	pthread_rwlockattr_t attr;
+
 	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 1);
 
-        if (pthread_rwlockattr_init((pthread_rwlockattr_t *) uli->lock_ptr)) {
+        if (pthread_rwlockattr_init(&attr)) {
                 uwsgi_log("unable to allocate rwlock structure\n");
                 exit(1);
         }
-        if (pthread_rwlockattr_setpshared((pthread_rwlockattr_t *) uli->lock_ptr, PTHREAD_PROCESS_SHARED)) {
+        if (pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) {
                 uwsgi_log("unable to share rwlock\n");
                 exit(1);
         }
 
-        if (pthread_rwlock_init((pthread_rwlock_t *) (uli->lock_ptr + sizeof(pthread_rwlockattr_t)), (pthread_rwlockattr_t *) uli->lock_ptr)) {
+        if (pthread_rwlock_init((pthread_rwlock_t *) uli->lock_ptr, &attr)) {
                 uwsgi_log("unable to initialize rwlock\n");
                 exit(1);
         }
+
+	pthread_rwlockattr_destroy(&attr);
 
 	uli->can_deadlock = 1;
 
@@ -290,15 +305,15 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) { uwsgi_unlock_fast(uli); 
 struct uwsgi_lock_item *uwsgi_lock_flock_init(char *id) {
 
 	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
+
 	FILE *tf = tmpfile();
-	int fd;
 
 	if (!tf) {
 		uwsgi_error_open("temp lock file");
 		exit(1);
 	}
 	
-	fd = fileno(tf);
+	int fd = fileno(tf);
 	memcpy(uli->lock_ptr, &fd, sizeof(int));
 	return uli;
 }
@@ -310,7 +325,9 @@ void uwsgi_lock_flock(struct uwsgi_lock_item *uli) {
 #ifdef __sun__
 	if (lockf(fd, F_LOCK, 0)) { uwsgi_error("lockf()"); }
 #else
+	uwsgi_log("flocking %d\n", fd);
 	if (flock(fd, LOCK_EX)) { uwsgi_error("flock()"); }
+	uwsgi_log("inflocking %d\n", fd);
 #endif
 }
 
@@ -320,6 +337,7 @@ void uwsgi_unlock_flock(struct uwsgi_lock_item *uli) {
 #ifdef __sun__
 	if (lockf(fd, F_ULOCK, 0)) { uwsgi_error("lockf()"); }
 #else
+	uwsgi_log("un-flocking %d\n", fd);
 	if (flock(fd, LOCK_UN)) { uwsgi_error("flock()"); }
 #endif
 }
@@ -362,15 +380,15 @@ void uwsgi_setup_locking() {
 			uwsgi_log("lock engine: flock\n");
 			uwsgi.lock_ops.lock_init = uwsgi_lock_flock_init;
 			uwsgi.lock_ops.lock_check = uwsgi_lock_flock_check;
-			uwsgi.lock_ops.lock = uwsgi_lock_fast;
-			uwsgi.lock_ops.unlock = uwsgi_unlock_fast;
+			uwsgi.lock_ops.lock = uwsgi_lock_flock;
+			uwsgi.lock_ops.unlock = uwsgi_unlock_flock;
 			uwsgi.lock_ops.rwlock_init = uwsgi_rwlock_flock_init;
 			uwsgi.lock_ops.rwlock_check = uwsgi_rwlock_flock_check;
-			uwsgi.lock_ops.rlock = uwsgi_rlock_fast;
-			uwsgi.lock_ops.wlock = uwsgi_wlock_fast;
-			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_fast;
-			uwsgi.lock_size = UWSGI_LOCK_SIZE;
-			uwsgi.rwlock_size = UWSGI_RWLOCK_SIZE;
+			uwsgi.lock_ops.rlock = uwsgi_rlock_flock;
+			uwsgi.lock_ops.wlock = uwsgi_wlock_flock;
+			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_flock;
+			uwsgi.lock_size = 8;
+			uwsgi.rwlock_size = 8;
 			return;
 		}
 		else if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
