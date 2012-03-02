@@ -81,6 +81,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
+	{"daemonize2", required_argument, 0, "daemonize uWSGI after app loading", uwsgi_opt_set_str, &uwsgi.daemonize2, 0},
 	{"stop", required_argument, 0, "stop an instance", uwsgi_opt_pidfile_signal, (void *) SIGINT, UWSGI_OPT_IMMEDIATE},
 	{"reload", required_argument, 0, "reload an instance", uwsgi_opt_pidfile_signal, (void *) SIGHUP, UWSGI_OPT_IMMEDIATE},
 	{"pause", required_argument, 0, "pause an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP, UWSGI_OPT_IMMEDIATE},
@@ -2578,6 +2579,25 @@ skipzero:
 	if (!uwsgi.lazy) {
 		uwsgi_init_all_apps();
 	}
+
+	if (uwsgi.daemonize2) {
+		if (uwsgi.has_emperor) {
+                	logto(uwsgi.daemonize2);
+        	}
+        	else {
+                	if (!uwsgi.is_a_reload) {
+				uwsgi_log("*** daemonizing uWSGI ***\n");
+                        	daemonize(uwsgi.daemonize2);
+                	}
+                	else if (uwsgi.log_reopen) {
+                        	logto(uwsgi.daemonize2);
+                	}
+		}
+		uwsgi.mypid = getpid();
+		masterpid = uwsgi.mypid;
+
+		uwsgi.workers[0].pid = masterpid;
+        }
 
 	if (uwsgi.no_server) {
 		uwsgi_log("no-server mode requested. Goodbye.\n");

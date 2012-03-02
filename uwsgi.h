@@ -1240,6 +1240,7 @@ struct uwsgi_server {
 	int check_static_docroot;
 
 	char *daemonize;
+	char *daemonize2;
 	int do_not_change_umask;
 	char *logfile;
 	int logfile_chown;

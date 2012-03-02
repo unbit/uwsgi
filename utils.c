@@ -180,7 +180,6 @@ void daemonize(char *logfile) {
 	   exit(1);
 	   } */
 
-
 	fdin = open("/dev/null", O_RDWR);
 	if (fdin < 0) {
 		uwsgi_error_open("/dev/null");
