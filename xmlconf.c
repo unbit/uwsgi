@@ -81,34 +81,73 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 
 		// first check for options
 		for (node = element->children; node; node = node->next) {
-			if (node->type == XML_CDATA_SECTION_NODE) {
-				if (node->content) {
-					add_exported_option((char *) "eval", strdup((char *) node->content), 0);
-				}
-			}
-			else if (node->type == XML_ELEMENT_NODE) {
 
 				node_mode = xmlGetProp(node, (const xmlChar *) "mode");
 				if (uwsgi.mode && node_mode) {
 					if (strcmp(uwsgi.mode, (char *) node_mode)) {
 						continue;	
-					}	
+					}		
 				}
 
 				xml_id = (char *) xmlGetProp(node, (const xmlChar *) "id");
 				if (colon && xml_id) {
 					if (strcmp(colon, xml_id)) {
 						continue;	
-					}	
+					}
 				}
 
-				if (node->children) {
-					add_exported_option(strdup((char *) node->name), strdup((char *) node->children->content), 0);
+				if (node->type == XML_CDATA_SECTION_NODE) {
+					if (node->content) {
+						add_exported_option((char *) "eval", strdup((char *) node->content), 0);
+					}
 				}
-				else {
-					add_exported_option(strdup((char *) node->name), strdup("1"), 0);
+				else if (node->type == XML_ELEMENT_NODE) {
+		
+					if (!strcmp((char *) node->name, (char *) "app")) {
+
+						char *mountpoint = (char *) xmlGetProp(node, (const xmlChar *) "mountpoint");
+						char *domain = (char *) xmlGetProp(node, (const xmlChar *) "domain");
+
+						if (!node->children) {
+							add_exported_option("app", strdup(""), 0);
+						}
+						else if (node->children && node->children->content && !node->children->next) {
+							char *opt_value = strdup((char *) node->children->content);
+
+                                                        if (mountpoint) {
+                                                                opt_value = uwsgi_concat3(mountpoint,"=", opt_value);
+                                                        }
+                                                        else if (domain) {
+                                                                opt_value = uwsgi_concat3(domain,"|=", opt_value);
+                                                        }
+							add_exported_option("mount", opt_value, 0);
+							add_exported_option("app", strdup(""), 0);
+						}
+						else if (node->children && node->children->next && node->children->next->children && node->children->next->children->content) {
+
+							char *opt_value = strdup((char *) node->children->next->children->content);
+
+							if (mountpoint) {
+								opt_value = uwsgi_concat3(mountpoint,"=", opt_value);
+							}
+							else if (domain) {
+								opt_value = uwsgi_concat3(domain,"|=", opt_value);
+							}
+
+							add_exported_option("mount", opt_value, 0);
+							add_exported_option("app", strdup(""), 0);
+						}
+					}
+					else {
+
+						if (node->children) {
+							add_exported_option(strdup((char *) node->name), strdup((char *) node->children->content), 0);
+						}
+						else {
+							add_exported_option(strdup((char *) node->name), strdup("1"), 0);
+						}
+					}
 				}
-			}
 		}
 	/* We can safely free resources */
 

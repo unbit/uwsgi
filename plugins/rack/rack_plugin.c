@@ -944,17 +944,17 @@ int uwsgi_rack_magic(char *mountpoint, char *lazy) {
 	return 0;
 }
 
-/*
-int uwsgi_rack_mount_app(char *mountpoint, char *app) {
+int uwsgi_rack_mount_app(char *mountpoint, char *app, int regexp) {
 
 	
-        if ( !strcmp(what+strlen(what)-3, ".ru") || !strcmp(what+strlen(what)-3, ".rb")) {
-                return = uwsgi_rack_load(mountpoint, what);
+	if (uwsgi_endswith(app, ".ru") || uwsgi_endswith(app, ".rb")) {
+                ur.rack = app;
+		uwsgi_rack_init_apps();
+		return 0;
         }
 
         return -1;
 }
-*/
 
 void uwsgi_rack_hijack(void) {
 }
@@ -1119,7 +1119,7 @@ struct uwsgi_plugin rack_plugin = {
 	.spooler = uwsgi_rack_spooler,
 
 	.init_apps = uwsgi_rack_init_apps,
-	//.mount_app = uwsgi_rack_mount_app,
+	.mount_app = uwsgi_rack_mount_app,
 
 	.magic = uwsgi_rack_magic,
 
