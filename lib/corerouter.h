@@ -8,7 +8,11 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 	while (ugs) {
 		if (!strcmp(gw_id, ugs->owner)) {
+#ifdef UWSGI_SCTP
+			if (!ugs->subscription && !ugs->sctp) {
+#else
 			if (!ugs->subscription) {
+#endif
 				if (ugs->name[0] == '=') {
 					int shared_socket = atoi(ugs->name+1);
                         		if (shared_socket >= 0) {
@@ -48,13 +52,21 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 				uwsgi_socket_nb(ugs->fd);
 				uwsgi_log("%s bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
 			}
-			else {
+			else if (ugs->subscription) {
 				if (ugs->fd == -1) {
 					ugs->fd = bind_to_udp(ugs->name, 0, 0);
 					uwsgi_socket_nb(ugs->fd);
 				}
 				uwsgi_log("%s subscription server bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
 			}
+#ifdef UWSGI_SCTP
+			else if (ugs->sctp) {
+				if (ugs->fd == -1) {
+					ugs->fd = bind_to_sctp(ugs->name);
+				}				
+				uwsgi_log("%s SCTP server bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
+			}
+#endif
 		}
 		ugs = ugs->next;
 	}

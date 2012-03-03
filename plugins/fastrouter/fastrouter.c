@@ -24,6 +24,11 @@ extern struct uwsgi_server uwsgi;
 #define FASTROUTER_STATUS_RESPONSE 4
 #define FASTROUTER_STATUS_BUFFERING 5
 
+#ifdef UWSGI_SCTP
+#define FASTROUTER_STATUS_SCTP_NODE_FREE 6
+#define FASTROUTER_STATUS_SCTP_RESPONSE	7
+#endif
+
 #define add_timeout(x) uwsgi_add_rb_timer(ufr.timeouts, time(NULL)+ufr.socket_timeout, x)
 #define add_check_timeout(x) uwsgi_add_rb_timer(timeouts, time(NULL)+x, NULL)
 #define del_check_timeout(x) rb_erase(&x->rbt, timeouts);
@@ -31,64 +36,9 @@ extern struct uwsgi_server uwsgi;
 
 void fastrouter_send_stats(int);
 
-struct uwsgi_fastrouter {
+#include "fr.h"
 
-	int has_sockets;
-	int has_subscription_sockets;
-
-	int processes;
-	int quiet;
-
-	struct rb_root *timeouts;
-
-	int use_cache;
-	int nevents;
-
-	int queue;
-
-	char *pattern;
-	int pattern_len;
-
-	char *base;
-	int base_len;
-
-	size_t post_buffering;
-	char *pb_base_dir;
-
-	struct uwsgi_string_list *static_nodes;
-	struct uwsgi_string_list *current_static_node;
-	int static_node_gracetime;
-
-	char *stats_server;
-	int fr_stats_server;
-
-	int use_socket;
-	int socket_num;
-	struct uwsgi_socket *to_socket;
-
-	struct uwsgi_subscribe_slot *subscriptions;
-	int subscription_regexp;
-
-	struct uwsgi_string_list *fallback;
-
-	int socket_timeout;
-
-	uint8_t code_string_modifier1;
-	char *code_string_code;
-	char *code_string_function;
-
-
-	struct uwsgi_rb_timer *subscriptions_check;
-
-	int cheap;
-	int i_am_cheap;
-
-	int tolerance;
-	int harakiri;
-
-	struct fastrouter_session **fr_table;
-
-} ufr;
+struct uwsgi_fastrouter ufr;
 
 void uwsgi_opt_fastrouter(char *opt, char *value, void *foobar) {
 	uwsgi_new_gateway_socket(value, "uWSGI fastrouter");
@@ -210,6 +160,10 @@ struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-subscription-slot", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "useless thanks to the new implementation", 0},
 	{"fastrouter-subscription-use-regexp", no_argument, 0, "enable regexp for subscription system", uwsgi_opt_true, &ufr.subscription_regexp, 0},
 
+#ifdef UWSGI_SCTP
+	{"fastrouter-sctp", required_argument, 0, "run the fastrouter SCTP server on the spcified address", uwsgi_opt_fastrouter_sctp, NULL, 0},
+#endif
+
 	{"fastrouter-timeout", required_argument, 0, "set fastrouter timeout", uwsgi_opt_set_int, &ufr.socket_timeout, 0},
 	{"fastrouter-post-buffering", required_argument, 0, "enable fastrouter post buffering", uwsgi_opt_set_64bit, &ufr.post_buffering, 0},
 	{"fastrouter-post-buffering-dir", required_argument, 0, "put fastrouter buffered files to the specified directory", uwsgi_opt_set_str, &ufr.pb_base_dir, 0},
@@ -262,6 +216,7 @@ struct fastrouter_session {
 	uint16_t hostname_len;
 
 	int has_key;
+	int persistent;
 
 	char *instance_address;
 	uint64_t instance_address_len;
@@ -297,8 +252,10 @@ static void close_session(struct fastrouter_session *fr_session) {
 
 
 	if (fr_session->instance_fd != -1) {
-		close(fr_session->instance_fd);
-		ufr.fr_table[fr_session->instance_fd] = NULL;
+		if (!ufr.fr_table[fr_session->instance_fd]->persistent) {
+			close(fr_session->instance_fd);
+			ufr.fr_table[fr_session->instance_fd] = NULL;
+		}
 	}
 
 	if (fr_session->instance_failed) {
@@ -482,7 +439,7 @@ void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, voi
 
 struct fastrouter_session *alloc_fr_session() {
 
-	return uwsgi_malloc(sizeof(struct fastrouter_session));
+	return uwsgi_calloc(sizeof(struct fastrouter_session));
 }
 
 void fastrouter_thread_loop(void *);
@@ -621,7 +578,11 @@ void fastrouter_loop(int id) {
 			int taken = 0;
 			while (ugs) {
 				if (ugs->gateway == &ushared->gateways[id] && interesting_fd == ugs->fd) {
+#ifdef UWSGI_SCTP
+					if (!ugs->subscription && !ugs->sctp) {
+#else
 					if (!ugs->subscription) {
+#endif
 
 						new_connection = accept(interesting_fd, (struct sockaddr *) &fr_addr, &fr_addr_len);
 						if (new_connection < 0) {
@@ -631,9 +592,10 @@ void fastrouter_loop(int id) {
 
 						ufr.fr_table[new_connection] = alloc_fr_session();
 						ufr.fr_table[new_connection]->fd = new_connection;
-						ufr.fr_table[new_connection]->modifier1 = 0;
+						//ufr.fr_table[new_connection]->modifier1 = 0;
 						ufr.fr_table[new_connection]->instance_fd = -1;
 						ufr.fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
+						/*
 						ufr.fr_table[new_connection]->h_pos = 0;
 						ufr.fr_table[new_connection]->pos = 0;
 						ufr.fr_table[new_connection]->un = NULL;
@@ -647,16 +609,50 @@ void fastrouter_loop(int id) {
 						ufr.fr_table[new_connection]->fallback = NULL;
 						ufr.fr_table[new_connection]->soopt = 0;
 						ufr.fr_table[new_connection]->timed_out = 0;
+						ufr.fr_table[new_connection]->do_not_close = 0;
 						ufr.fr_table[new_connection]->tmp_socket_name = NULL;
+						*/
 
 						ufr.fr_table[new_connection]->timeout = add_timeout(ufr.fr_table[new_connection]);
 
 						event_queue_add_fd_read(ufr.queue, new_connection);
 					}
-					else {
+					else if (ugs->subscription) {
 						uwsgi_corerouter_manage_subscription("uWSGI fastrouter", id, ugs, ufr.queue, &ufr.subscriptions,
 							ufr.subscription_regexp, fastrouter_manage_subscription, ufr.cheap, &ufr.i_am_cheap);
 					}
+#ifdef UWSGI_SCTP
+					else if (ugs->sctp) {
+						new_connection = accept(interesting_fd, (struct sockaddr *) &fr_addr, &fr_addr_len);
+						if (new_connection < 0) {
+                                                        taken = 1;
+							break;
+						}
+						uwsgi_fr_sctp_add_node(new_connection);
+						uwsgi_log("new SCTP peer:\n");
+						struct uwsgi_fr_sctp_node *ufsn = uwsgi_fastrouter_sctp_nodes;
+						while(ufsn) {
+							uwsgi_log("\tfd = %d\n", ufsn->fd);
+							if (ufsn->next == uwsgi_fastrouter_sctp_nodes) {
+								break;
+							}
+							ufsn = ufsn->next;
+						}
+
+						ufr.fr_table[new_connection] = alloc_fr_session();
+                                                ufr.fr_table[new_connection]->instance_fd = new_connection;
+						ufr.fr_table[new_connection]->persistent = 1;
+                                                ufr.fr_table[new_connection]->status = FASTROUTER_STATUS_SCTP_NODE_FREE;
+
+						struct sctp_event_subscribe events;
+						memset(&events, 0, sizeof(events) );
+						events.sctp_data_io_event = 1;
+						// check for errors
+						setsockopt(new_connection, SOL_SCTP, SCTP_EVENTS, &events, sizeof(events) );
+
+                                                event_queue_add_fd_read(ufr.queue, new_connection);
+					}
+#endif
 
 					taken = 1;
 					break;
@@ -689,7 +685,9 @@ void fastrouter_loop(int id) {
 					continue;
 				}
 
-				fr_session->timeout = reset_timeout(fr_session);
+				if (!fr_session->persistent) {
+					fr_session->timeout = reset_timeout(fr_session);
+				}
 
 				switch (fr_session->status) {
 
@@ -831,6 +829,38 @@ void fastrouter_loop(int id) {
 							}
 
 						}
+#ifdef UWSGI_SCTP
+						else if (ufr.has_sctp_sockets > 0) {
+
+							struct uwsgi_fr_sctp_node *ufsn = uwsgi_fastrouter_sctp_nodes;
+							int choosen_fd = -1;
+							while(ufsn) {
+								if (ufr.fr_table[ufsn->fd]->status == FASTROUTER_STATUS_SCTP_NODE_FREE) {
+									choosen_fd = ufsn->fd;
+									break;
+								}
+								if (ufsn->next == uwsgi_fastrouter_sctp_nodes) {
+									break;
+								}
+
+								ufsn = ufsn->next;
+							}
+
+							// no nodes available
+							if (choosen_fd == -1) break;
+
+							struct sctp_sndrcvinfo sinfo;
+							memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+							sinfo.sinfo_stream = 0;
+							memcpy(&sinfo.sinfo_ppid, &fr_session->uh, sizeof(uint32_t));
+							len = sctp_send(choosen_fd, fr_session->buffer, fr_session->uh.pktsize, &sinfo, 0);
+							fr_session->instance_fd = choosen_fd;
+							fr_session->status = FASTROUTER_STATUS_SCTP_RESPONSE;
+							ufr.fr_table[fr_session->instance_fd]->status = FASTROUTER_STATUS_SCTP_RESPONSE;
+							ufr.fr_table[fr_session->instance_fd]->fd = fr_session->fd;
+							break;
+						}
+#endif
 
 						// no address found
 						if (!fr_session->instance_address_len) {
@@ -967,6 +997,87 @@ void fastrouter_loop(int id) {
 					}
 
 					break;
+#ifdef UWSGI_SCTP
+				case FASTROUTER_STATUS_SCTP_NODE_FREE:
+
+					{
+						struct sctp_sndrcvinfo sinfo;
+                                        	int msg_flags;
+
+                                        	memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+                                        	len = sctp_recvmsg(fr_session->instance_fd, fr_session->buffer, 0xffff, NULL, NULL, &sinfo, &msg_flags);
+					}
+					close(interesting_fd);
+				
+					break;
+				case FASTROUTER_STATUS_SCTP_RESPONSE:
+
+					// data from instance
+                                        if (interesting_fd == fr_session->instance_fd) {
+						struct sctp_sndrcvinfo sinfo;
+						int msg_flags;
+                        			memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+                                                len = sctp_recvmsg(fr_session->instance_fd, fr_session->buffer, 0xffff, NULL, NULL, &sinfo, &msg_flags);
+                                                if (len <= 0) {
+                                                        if (len < 0)
+                                                                uwsgi_error("recv()");
+							if (!msg_flags) {
+								// REMOVE THE NODE
+							}
+                                                        close_session(ufr.fr_table[fr_session->fd]);
+                                                        break;
+                                                }
+
+						// check for close packet
+						if (sinfo.sinfo_stream == 2) {
+							uwsgi_log("C L O S I N G\n");
+							fr_session->status = FASTROUTER_STATUS_SCTP_NODE_FREE; 
+							close_session(ufr.fr_table[fr_session->fd]);
+							break;
+						}
+
+                                                len = send(fr_session->fd, fr_session->buffer, len, 0);
+
+                                                if (len <= 0) {
+                                                        if (len < 0)
+                                                                uwsgi_error("send()");
+                                                        close_session(ufr.fr_table[fr_session->fd]);
+                                                        break;
+                                                }
+
+                                                // update transfer statistics
+                                                if (fr_session->un)
+                                                        fr_session->un->transferred += len;
+
+                                        }
+                                        // body from client
+                                        else if (interesting_fd == fr_session->fd) {
+
+                                                //uwsgi_log("receiving body...\n");
+                                                len = recv(fr_session->fd, fr_session->buffer, 0xffff, 0);
+                                                if (len <= 0) {
+                                                        if (len < 0)
+                                                                uwsgi_error("recv()");
+                                                        close_session(fr_session);
+                                                        break;
+                                                }
+
+						struct sctp_sndrcvinfo sinfo;
+						memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+						sinfo.sinfo_stream = 1;
+
+                                                len = sctp_send(fr_session->instance_fd, fr_session->buffer, len, &sinfo, 0);
+
+                                                if (len <= 0) {
+                                                        if (len < 0)
+                                                                uwsgi_error("send()");
+                                                        close_session(fr_session);
+                                                        break;
+                                                }
+                                        }
+
+                                        break;
+#endif
 				case FASTROUTER_STATUS_RESPONSE:
 
 					// data from instance

@@ -230,32 +230,44 @@ clear:
 }
 
 /* sctp address format 127.0.0.1:3031,192.168.0.17:3031 */
-int bind_to_sctp(char *socket_name, int listen_queue) {
+int bind_to_sctp(char *socket_names) {
+
 	int serverfd;
-	//struct sockaddr_in uws_addr[MAX_SCTP_ADDRESS];
+	struct sockaddr_in *sins;
+	int addresses = 0;
 
-	//int num_ip = 0;
+	char *peers = uwsgi_str(socket_names);
 
-	struct sctp_initmsg sctp_im;
+	// first step: count required addresses;
+        char *p = strtok(peers, ",");
+        while(p) {
+#ifdef UWSGI_DEBUG
+                uwsgi_log("p = %s\n", p);
+#endif
+                addresses++;
+                p = strtok(NULL, ",");
+        }
 
+        free(peers);
+        peers = uwsgi_str(socket_names);
 
-	//sctp_port[0] = 0;
-	//memset(uws_addr, 0, sizeof(struct sockaddr_in) * MAX_SCTP_ADDRESS);
-	memset(&sctp_im, 0, sizeof(struct sctp_initmsg));
+        sins = uwsgi_calloc(sizeof(struct sockaddr_in) * addresses);
 
-/*
-	while (socket_name != NULL && num_ip < MAX_SCTP_ADDRESS) {
-		char *ap;
-		while ((ap = strsep(&socket_name, ",")) != NULL) {
-			if (*ap != '\0') {
-				uws_addr[num_ip].sin_family = AF_INET;
-				uws_addr[num_ip].sin_port = htons(atoi(sctp_port + 1));
-				uws_addr[num_ip].sin_addr.s_addr = inet_addr(ap);
-				num_ip++;
-			}
-		}
-	}
-*/
+        addresses = 0;
+        p = strtok(peers, ",");
+        while(p) {
+                char *port = strchr(p, ':');
+                if (!port) {
+                        uwsgi_log("invalid SCTP address/port, please fix it and restart\n");
+			uwsgi_nuclear_blast();
+                }
+                sins[addresses].sin_family = AF_INET;
+                *port = 0;
+                sins[addresses].sin_addr.s_addr = inet_addr(p);
+                sins[addresses].sin_port = htons( atoi(port+1) );
+                addresses++;
+                p = strtok(NULL, ",");
+        }
 
 	serverfd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if (serverfd < 0) {
@@ -263,28 +275,46 @@ int bind_to_sctp(char *socket_name, int listen_queue) {
 		uwsgi_nuclear_blast();
 	}
 
-	//uwsgi_log("binding on %d SCTP interfaces on port: %d\n", num_ip, ntohs(uws_addr[0].sin_port));
+	struct sctp_event_subscribe events;
+        struct sctp_initmsg initmsg;
 
+        memset(&initmsg, 0, sizeof(initmsg));
+        initmsg.sinit_max_instreams = 17;
+        initmsg.sinit_num_ostreams = 17;
 
+        if (setsockopt(serverfd, IPPROTO_SCTP,
+                       SCTP_INITMSG, &initmsg, sizeof(initmsg))) {
+                uwsgi_error("setsockopt()");
+		uwsgi_nuclear_blast();
+        }
+
+        memset( (void *)&events, 0, sizeof(events) );
+        events.sctp_data_io_event = 1;
 /*
-	if (sctp_bindx(serverfd, (struct sockaddr *) uws_addr, num_ip, SCTP_BINDX_ADD_ADDR) != 0) {
+        events.sctp_peer_error_event = 1;
+        events.sctp_shutdown_event = 1;
+*/
+
+        if (setsockopt( serverfd, SOL_SCTP, SCTP_EVENTS,
+               (const void *)&events, sizeof(events) )) {
+                uwsgi_error("setsockopt()");
+		uwsgi_nuclear_blast();
+        }
+
+
+	if (sctp_bindx(serverfd, (struct sockaddr *) sins, addresses, SCTP_BINDX_ADD_ADDR) < 0) {
 		uwsgi_error("sctp_bindx()");
 		uwsgi_nuclear_blast();
 	}
-*/
 
-	sctp_im.sinit_max_instreams = 17;
-	sctp_im.sinit_num_ostreams = 17;
 
-	if (setsockopt(serverfd, IPPROTO_SCTP, SCTP_INITMSG, &sctp_im, sizeof(sctp_im))) {
-		uwsgi_error("setsockopt()");
-		uwsgi_nuclear_blast();
-	}
-
-	if (listen(serverfd, listen_queue) != 0) {
+	if (listen(serverfd, uwsgi.listen_queue) != 0) {
 		uwsgi_error("listen()");
 		uwsgi_nuclear_blast();
 	}
+
+	free(peers);
+	free(sins);
 
 	return serverfd;
 }

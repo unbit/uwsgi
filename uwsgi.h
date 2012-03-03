@@ -381,7 +381,12 @@ struct uwsgi_gateway_socket {
 	int port_len;
 
 	void *data;
+	// this requires UDP
 	int subscription;
+#ifdef UWSGI_SCTP
+	// this requires SCTP
+	int sctp;
+#endif
 
 	char *owner;
 	struct uwsgi_gateway *gateway;
@@ -1881,7 +1886,7 @@ int uwsgi_connectn(char *, uint16_t, int, int);
 int connect_to_tcp(char *, int, int, int);
 int connect_to_unix(char *, int, int);
 #ifdef UWSGI_SCTP
-int bind_to_sctp(char *, int);
+int bind_to_sctp(char *);
 int connect_to_sctp(char *, int);
 #endif
 

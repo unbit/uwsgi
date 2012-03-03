@@ -4,4 +4,4 @@ CFLAGS = []
 LDFLAGS = []
 LIBS = []
 
-GCC_LIST = ['fastrouter']
+GCC_LIST = ['fr_sctp', 'fastrouter']
