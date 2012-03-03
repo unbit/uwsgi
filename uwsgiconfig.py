@@ -946,7 +946,7 @@ if __name__ == "__main__":
     elif cmd == '--unbit':
         build_uwsgi(uConf('buildconf/unbit.ini'))
     elif cmd == '--plugin':
-        bconf = 'default.ini'
+        bconf = os.environ.get('UWSGI_PROFILE','default.ini')
         try:
             bconf = sys.argv[3]
             if not bconf.endswith('.ini'):

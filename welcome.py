@@ -44,7 +44,7 @@ def serve_logo(e, sr):
 
 def serve_options(e, sr):
     sr('200 OK', [('Content-Type', 'text/html')])
-    for opt in xrange(0,256):
+    for opt in range(0,256):
         yield "<b>%d</b> = %d<br/>" % (opt, uwsgi.get_option(opt))
 
 def serve_config(e, sr):
@@ -109,7 +109,7 @@ def application(env, start_response):
 </tr>
         """ % (w['id'], w['pid'], w['status'], w['running_time']/1000, w['avg_rt']/1000, w['tx'], apps)
 
-    return """
+    output = """
 <img src="/logo"/> version %s running on %s (remote user: %s)<br/>
 <hr size="1"/>
 
@@ -132,6 +132,8 @@ Workers and applications<br/>
 
     """ % (uwsgi.version, uwsgi.hostname, env.get('REMOTE_USER','None'), workers)
 
+    #return bytes(output.encode('latin1'))
+    return output
 
 
 

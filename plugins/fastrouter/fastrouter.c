@@ -216,7 +216,9 @@ struct fastrouter_session {
 	uint16_t hostname_len;
 
 	int has_key;
+#ifdef UWSGI_SCTP
 	int persistent;
+#endif
 
 	char *instance_address;
 	uint64_t instance_address_len;
@@ -252,10 +254,14 @@ static void close_session(struct fastrouter_session *fr_session) {
 
 
 	if (fr_session->instance_fd != -1) {
+#ifdef UWSGI_SCTP
 		if (!ufr.fr_table[fr_session->instance_fd]->persistent) {
+#endif
 			close(fr_session->instance_fd);
 			ufr.fr_table[fr_session->instance_fd] = NULL;
+#ifdef UWSGI_SCTP
 		}
+#endif
 	}
 
 	if (fr_session->instance_failed) {
@@ -685,9 +691,13 @@ void fastrouter_loop(int id) {
 					continue;
 				}
 
+#ifdef UWSGI_SCTP
 				if (!fr_session->persistent) {
+#endif
 					fr_session->timeout = reset_timeout(fr_session);
+#ifdef UWSGI_SCTP
 				}
+#endif
 
 				switch (fr_session->status) {
 
