@@ -1017,6 +1017,10 @@ void fastrouter_loop(int id) {
                                         	memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
                                         	len = sctp_recvmsg(fr_session->instance_fd, fr_session->buffer, 0xffff, NULL, NULL, &sinfo, &msg_flags);
 					}
+					// remove the SCTP node
+					uwsgi_fr_sctp_add_node(fr_session->instance_fd);
+					ufr.fr_table[fr_session->instance_fd] = NULL;
+					free(fr_session);
 					close(interesting_fd);
 				
 					break;
@@ -1033,6 +1037,10 @@ void fastrouter_loop(int id) {
                                                                 uwsgi_error("recv()");
 							if (!msg_flags) {
 								// REMOVE THE NODE
+								uwsgi_fr_sctp_add_node(fr_session->instance_fd);
+								ufr.fr_table[fr_session->instance_fd] = NULL;
+								free(fr_session);
+								close(interesting_fd);
 							}
                                                         close_session(ufr.fr_table[fr_session->fd]);
                                                         break;
@@ -1074,6 +1082,7 @@ void fastrouter_loop(int id) {
 
 						struct sctp_sndrcvinfo sinfo;
 						memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+						// stream 1 is for BODY
 						sinfo.sinfo_stream = 1;
 
                                                 len = sctp_send(fr_session->instance_fd, fr_session->buffer, len, &sinfo, 0);

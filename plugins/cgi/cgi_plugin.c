@@ -419,6 +419,8 @@ int uwsgi_cgi_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
         int part_size = 0;
 	struct stat st;
 
+	if (wsgi_req->path_info_len == 0) return 0;
+
         if (ptr[0] == '/') part_size++;
 
         for(i=0;i<wsgi_req->path_info_len-discard_base;i++) {
@@ -555,7 +557,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	if (S_ISDIR(cgi_stat.st_mode)) {
 
 		// add / to directories
-		if (wsgi_req->path_info_len == 0 || wsgi_req->path_info[wsgi_req->path_info_len-1] != '/') {
+		if (wsgi_req->path_info_len == 0 || (wsgi_req->path_info_len > 0 && wsgi_req->path_info[wsgi_req->path_info_len-1] != '/')) {
 			uwsgi_cgi_redirect_to_slash(wsgi_req);
 			if (need_free)
                         	free(docroot);

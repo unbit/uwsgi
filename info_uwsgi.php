@@ -4,6 +4,7 @@ master pid: <b><?=uwsgi_masterpid()?></b><br/>
 
 uri: <b><?= $_SERVER['REQUEST_URI'] ?></b><br/>
 docroot: <b><?= $_SERVER['DOCUMENT_ROOT'] ?></b><br/>
+PATH_INFO: <b><?= $_SERVER['PATH_INFO'] ?></b><br/>
 
 <? uwsgi_signal(17) ?>
 

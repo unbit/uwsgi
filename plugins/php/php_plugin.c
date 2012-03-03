@@ -646,6 +646,8 @@ int uwsgi_php_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
         int part_size = 0;
         struct stat st;
 
+	if (wsgi_req->path_info_len == 0) return 0;
+
         if (ptr[0] == '/') part_size++;
 
         for(i=0;i<wsgi_req->path_info_len;i++) {
@@ -736,7 +738,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 	if (path_info) {
 		wsgi_req->path_info = path_info;
-		wsgi_req->path_info_len = strlen(wsgi_req->path_info);
+		wsgi_req->path_info_len = orig_path_info_len - (path_info - orig_path_info);
 	}
 	else {
 		wsgi_req->path_info = "";
@@ -776,7 +778,7 @@ secure:
         if (S_ISDIR(php_stat.st_mode)) {
 
                 // add / to directories
-                if (orig_path_info_len == 0 || orig_path_info[orig_path_info_len-1] != '/') {
+                if (orig_path_info_len == 0 || (orig_path_info_len > 0 && orig_path_info[orig_path_info_len-1] != '/')) {
 			wsgi_req->path_info = orig_path_info;
 			wsgi_req->path_info_len = orig_path_info_len;
                         uwsgi_php_redirect_to_slash(wsgi_req);
