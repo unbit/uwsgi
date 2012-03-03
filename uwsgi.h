@@ -556,7 +556,11 @@ struct uwsgi_socket {
 	int arg;
 	void *ctx;
 
+	int queue;
+
 	int auto_port;
+	// true if connection must be initialized for each core
+	int per_core;
 
 	char *proto_name;
 
@@ -1877,7 +1881,8 @@ int uwsgi_connectn(char *, uint16_t, int, int);
 int connect_to_tcp(char *, int, int, int);
 int connect_to_unix(char *, int, int);
 #ifdef UWSGI_SCTP
-int bind_to_sctp(char *, int, char *);
+int bind_to_sctp(char *, int);
+int connect_to_sctp(char *, int);
 #endif
 
 void daemonize(char *);
@@ -2323,6 +2328,16 @@ ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
 
+#ifdef UWSGI_SCTP
+int uwsgi_proto_sctp_parser(struct wsgi_request *);
+ssize_t uwsgi_proto_sctp_writev_header(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_sctp_writev(struct wsgi_request *, struct iovec *, size_t);
+ssize_t uwsgi_proto_sctp_write(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_proto_sctp_write_header(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_sctp_accept(struct wsgi_request *, int);
+void uwsgi_proto_sctp_close(struct wsgi_request *);
+#endif
+
 int uwsgi_proto_http_parser(struct wsgi_request *);
 ssize_t uwsgi_proto_http_writev_header(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_http_writev(struct wsgi_request *, struct iovec *, size_t);
@@ -2704,6 +2719,8 @@ int uwsgi_fcntl_is_locked(int);
 void uwsgi_emulate_cow_for_apps(int);
 
 char *uwsgi_read_fd(int, int *, int);
+
+void uwsgi_setup_post_buffering(void);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

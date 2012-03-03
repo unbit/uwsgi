@@ -136,20 +136,114 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 
 #ifdef UWSGI_SCTP
 
-#define MAX_SCTP_ADDRESS 4
-	/* sctp address format sctp:127.0.0.1,192.168.0.17:3031 */
-int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
+int connect_to_sctp(char *socket_names, int queue) {
+
+	char *peers = uwsgi_str(socket_names);
+	int addresses = 0;
+	
+	struct sockaddr_in *sins;
+	
+	// first step: count required addresses;
+	char *p = strtok(peers, ",");
+	while(p) {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("p = %s\n", p);
+#endif
+		addresses++;	
+		p = strtok(NULL, ",");
+	}
+
+	free(peers);
+	peers = uwsgi_str(socket_names);
+
+	sins = uwsgi_calloc(sizeof(struct sockaddr_in) * addresses);
+
+	addresses = 0;
+	p = strtok(peers, ",");
+	while(p) {
+		char *port = strchr(p, ':');
+		if (!port) {
+			uwsgi_log("invalid SCTP address/port, please fix it and restart\n");
+			goto clear;
+		}
+		sins[addresses].sin_family = AF_INET;
+		*port = 0;
+		sins[addresses].sin_addr.s_addr = inet_addr(p);
+		sins[addresses].sin_port = htons( atoi(port+1) );
+		addresses++;	
+		p = strtok(NULL, ",");
+	}
+
+	int serverfd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
+	if (serverfd < 0) {
+		uwsgi_error("socket()");
+		goto clear;
+	}
+
+	struct sctp_event_subscribe events;
+        struct sctp_initmsg initmsg;
+
+	memset(&initmsg, 0, sizeof(initmsg));
+        initmsg.sinit_max_instreams = 17;
+        initmsg.sinit_num_ostreams = 17;
+
+	if (setsockopt(serverfd, IPPROTO_SCTP,
+                       SCTP_INITMSG, &initmsg, sizeof(initmsg))) {
+		uwsgi_error("setsockopt()");
+		goto clear;
+        }
+
+	memset( (void *)&events, 0, sizeof(events) );
+        events.sctp_data_io_event = 1;
+/*
+	events.sctp_peer_error_event = 1;
+	events.sctp_shutdown_event = 1;
+*/
+        
+        if (setsockopt( serverfd, SOL_SCTP, SCTP_EVENTS,
+               (const void *)&events, sizeof(events) )) {
+		uwsgi_error("setsockopt()");
+		goto clear;
+	}
+
+	if (sctp_connectx(serverfd, (struct sockaddr *) sins, addresses, NULL)) {
+		uwsgi_error("sctp_connectx()");
+		goto clear;
+	}
+
+	
+
+	free(sins);
+	free(peers);
+
+	event_queue_add_fd_read(queue, serverfd);
+
+	uwsgi_log("connected to SCTP server %s\n", socket_names);
+
+	return serverfd;
+
+clear:
+	free(sins);
+	free(peers);
+	sleep(1);
+	return connect_to_sctp(socket_names, queue);
+}
+
+/* sctp address format 127.0.0.1:3031,192.168.0.17:3031 */
+int bind_to_sctp(char *socket_name, int listen_queue) {
 	int serverfd;
-	struct sockaddr_in uws_addr[MAX_SCTP_ADDRESS];
-	int num_ip = 0;
+	//struct sockaddr_in uws_addr[MAX_SCTP_ADDRESS];
+
+	//int num_ip = 0;
 
 	struct sctp_initmsg sctp_im;
 
 
-	sctp_port[0] = 0;
-	memset(uws_addr, 0, sizeof(struct sockaddr_in) * MAX_SCTP_ADDRESS);
+	//sctp_port[0] = 0;
+	//memset(uws_addr, 0, sizeof(struct sockaddr_in) * MAX_SCTP_ADDRESS);
 	memset(&sctp_im, 0, sizeof(struct sctp_initmsg));
 
+/*
 	while (socket_name != NULL && num_ip < MAX_SCTP_ADDRESS) {
 		char *ap;
 		while ((ap = strsep(&socket_name, ",")) != NULL) {
@@ -161,6 +255,7 @@ int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
 			}
 		}
 	}
+*/
 
 	serverfd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if (serverfd < 0) {
@@ -168,19 +263,22 @@ int bind_to_sctp(char *socket_name, int listen_queue, char *sctp_port) {
 		uwsgi_nuclear_blast();
 	}
 
-	uwsgi_log("binding on %d SCTP interfaces on port: %d\n", num_ip, ntohs(uws_addr[0].sin_port));
+	//uwsgi_log("binding on %d SCTP interfaces on port: %d\n", num_ip, ntohs(uws_addr[0].sin_port));
 
 
+/*
 	if (sctp_bindx(serverfd, (struct sockaddr *) uws_addr, num_ip, SCTP_BINDX_ADD_ADDR) != 0) {
 		uwsgi_error("sctp_bindx()");
 		uwsgi_nuclear_blast();
 	}
+*/
 
-	sctp_im.sinit_max_instreams = 0xFFFF;
-	sctp_im.sinit_num_ostreams = 0xFFFF;
+	sctp_im.sinit_max_instreams = 17;
+	sctp_im.sinit_num_ostreams = 17;
 
 	if (setsockopt(serverfd, IPPROTO_SCTP, SCTP_INITMSG, &sctp_im, sizeof(sctp_im))) {
 		uwsgi_error("setsockopt()");
+		uwsgi_nuclear_blast();
 	}
 
 	if (listen(serverfd, listen_queue) != 0) {
@@ -1069,7 +1167,18 @@ void uwsgi_add_sockets_to_queue(int queue) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
+#ifdef UWSGI_SCTP
+		if (uwsgi_sock->fd == -1 && uwsgi_sock->proto_name && !strcmp(uwsgi_sock->proto_name, "sctp")) {
+			// continue until a connection is ready
+			uwsgi_sock->fd = connect_to_sctp(uwsgi_sock->name, queue);
+			uwsgi_sock->queue = queue;
+		}
+		else {
+#endif
 		event_queue_add_fd_read(queue, uwsgi_sock->fd);
+#ifdef UWSGI_SCTP
+		}
+#endif
 		uwsgi_sock = uwsgi_sock->next;
 	}
 

@@ -4032,6 +4032,17 @@ int uwsgi_file_to_string_list(char *filename, struct uwsgi_string_list **list) {
 	return 0;
 }
 
+void uwsgi_setup_post_buffering(void) {
+	uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
+                if (!uwsgi.post_buffering_bufsize)
+                        uwsgi.post_buffering_bufsize = 8192;
+                if (uwsgi.post_buffering_bufsize < uwsgi.post_buffering) {
+                        uwsgi.post_buffering_bufsize = uwsgi.post_buffering;
+                        uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
+                }
+
+}
+
 void uwsgi_emulate_cow_for_apps(int id) {
 	int i;
 	// check if we need to emulate fork() COW

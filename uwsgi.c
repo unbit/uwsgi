@@ -39,6 +39,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"uwsgi-socket", required_argument, 's', "bind to the specified UNIX/TCP socket using uwsgi protocol", uwsgi_opt_add_socket, "uwsgi",0},
 	{"http-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTP protocol", uwsgi_opt_add_socket, "http",0},
 	{"fastcgi-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using FastCGI protocol", uwsgi_opt_add_socket, "fastcgi",0},
+#ifdef UWSGI_SCTP
+	{"sctp-socket", required_argument, 's', "bind to the specified SCTP socket using uwsgi protocol", uwsgi_opt_add_socket, "sctp",0},
+#endif
 	{"protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol,0},
 	{"socket-protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol,0},
 	{"shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL,0},
@@ -1929,13 +1932,7 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (uwsgi.post_buffering > 0) {
-		uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
-		if (!uwsgi.post_buffering_bufsize)
-			uwsgi.post_buffering_bufsize = 8192;
-		if (uwsgi.post_buffering_bufsize < uwsgi.post_buffering) {
-			uwsgi.post_buffering_bufsize = uwsgi.post_buffering;
-			uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
-		}
+		uwsgi_setup_post_buffering();
 	}
 	for (i = 0; i < uwsgi.cores; i++) {
 		uwsgi.async_buf[i] = uwsgi_malloc(uwsgi.buffer_size);
@@ -2160,12 +2157,24 @@ int uwsgi_start(void *v_argv) {
 					uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 				}
 				else {
+#ifdef UWSGI_SCTP
+					if (strchr(uwsgi_sock->name, ',') || (uwsgi_sock->proto_name && !strcmp(uwsgi_sock->proto_name, "sctp"))) {
+						uwsgi_sock->fd = -1;
+						uwsgi_sock->per_core = 1;
+						uwsgi_sock->proto_name = "sctp";
+						uwsgi_log("uwsgi persistent (SCTP) socket %d mapped to %s\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
+					}
+					else {
+#endif
 					uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
-					uwsgi_sock->family = AF_INET;
 					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+#ifdef UWSGI_SCTP
+					}
+#endif
+					uwsgi_sock->family = AF_INET;
 				}
 
-				if (uwsgi_sock->fd < 0) {
+				if (uwsgi_sock->fd < 0 && !uwsgi_sock->per_core) {
 					uwsgi_log("unable to create server socket on: %s\n", uwsgi_sock->name);
 					exit(1);
 				}
@@ -2240,15 +2249,17 @@ skipzero:
 		// put listening socket in non-blocking state and set the protocol
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
-			uwsgi_sock->arg = fcntl(uwsgi_sock->fd, F_GETFL, NULL);
-			if (uwsgi_sock->arg < 0) {
-				uwsgi_error("fcntl()");
-				exit(1);
-			}
-			uwsgi_sock->arg |= O_NONBLOCK;
-			if (fcntl(uwsgi_sock->fd, F_SETFL, uwsgi_sock->arg) < 0) {
-				uwsgi_error("fcntl()");
-				exit(1);
+			if (!uwsgi_sock->per_core) {
+				uwsgi_sock->arg = fcntl(uwsgi_sock->fd, F_GETFL, NULL);
+				if (uwsgi_sock->arg < 0) {
+					uwsgi_error("fcntl()");
+					exit(1);
+				}
+				uwsgi_sock->arg |= O_NONBLOCK;
+				if (fcntl(uwsgi_sock->fd, F_SETFL, uwsgi_sock->arg) < 0) {
+					uwsgi_error("fcntl()");
+					exit(1);
+				}
 			}
 
 			char *requested_protocol = uwsgi_sock->proto_name;
@@ -2279,6 +2290,22 @@ skipzero:
 				uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;
 				uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
 			}
+#ifdef UWSGI_SCTP
+			else if (requested_protocol && !strcmp("sctp", requested_protocol)) {
+				if (!uwsgi.post_buffering) {
+					uwsgi.post_buffering = 4096;
+					uwsgi_setup_post_buffering();
+				}
+				uwsgi_sock->proto = uwsgi_proto_sctp_parser;
+				uwsgi_sock->proto_accept = uwsgi_proto_sctp_accept;
+				uwsgi_sock->proto_write = uwsgi_proto_sctp_write;
+				uwsgi_sock->proto_writev = uwsgi_proto_sctp_writev;
+				uwsgi_sock->proto_write_header = uwsgi_proto_sctp_write_header;
+				uwsgi_sock->proto_writev_header = uwsgi_proto_sctp_writev_header;
+				uwsgi_sock->proto_sendfile = NULL;
+				uwsgi_sock->proto_close = uwsgi_proto_sctp_close;
+			}
+#endif
 			else {
 				uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
 				uwsgi_sock->proto_accept = uwsgi_proto_base_accept;

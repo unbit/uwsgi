@@ -524,7 +524,7 @@ PHP_FUNCTION(uwsgi_signal) {
         RETURN_NULL();
 }
 
-function_entry uwsgi_php_functions[] = {
+zend_function_entry uwsgi_php_functions[] = {
 	PHP_FE(uwsgi_version,   NULL)
 	PHP_FE(uwsgi_setprocname,   NULL)
 	PHP_FE(uwsgi_worker_id,   NULL)
