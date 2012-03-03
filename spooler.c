@@ -9,8 +9,11 @@ static void spooler_scandir(struct uwsgi_spooler *, char *dir);
 #endif
 static void spooler_manage_task(struct uwsgi_spooler *, char *, char *);
 
-// fake function to allow waking the spooler
-void spooler_wakeup() {}
+// increment it whenever a signal is raised
+static uint64_t wakeup = 0;
+
+// function to allow waking up the spooler if blocked in event_wait
+void spooler_wakeup() { wakeup++; }
 
 void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
 
@@ -88,7 +91,7 @@ pid_t spooler_start(struct uwsgi_spooler *uspool) {
 	}
 	else if (pid == 0) {
 		// USR1 will be used to wake up the spooler
-		signal(SIGUSR1, spooler_wakeup);
+		uwsgi_unix_signal(SIGUSR1, spooler_wakeup);
 		uwsgi.mywid = -1;
 		uwsgi.mypid = getpid();
 		uspool->pid = uwsgi.mypid;
@@ -325,7 +328,12 @@ void spooler(struct uwsgi_spooler *uspool) {
 			spooler_readdir(uspool, NULL);
 		}
 
-		if (event_queue_wait(spooler_event_queue, uwsgi.shared->spooler_frequency, &interesting_fd) > 0) {
+		int timeout = uwsgi.shared->spooler_frequency;
+		if (wakeup > 0) {
+			timeout = 0;
+		}
+
+		if (event_queue_wait(spooler_event_queue, timeout, &interesting_fd) > 0) {
 			if (uwsgi.master_process) {
 				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
 					uint8_t uwsgi_signal;
@@ -344,6 +352,13 @@ void spooler(struct uwsgi_spooler *uspool) {
 				}
 			}
 		}
+
+		// avoid races
+		uint64_t tmp_wakeup = wakeup;
+		if (tmp_wakeup > 0) {
+			tmp_wakeup--;
+		}
+		wakeup = tmp_wakeup;
 
 	}
 }
