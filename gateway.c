@@ -140,3 +140,16 @@ struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int fd, char *owne
 }
 
 
+void uwsgi_gateway_go_cheap(char *gw_id, int queue, int *i_am_cheap) {
+
+        uwsgi_log("[%s pid %d] no more nodes available. Going cheap...\n", gw_id, (int) uwsgi.mypid);
+        struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
+        while (ugs) {
+                if (!strcmp(ugs->owner, gw_id) && !ugs->subscription) {
+                        event_queue_del_fd(queue, ugs->fd, event_queue_read());
+                }
+                ugs = ugs->next;
+        }
+        *i_am_cheap = 1;
+}
+

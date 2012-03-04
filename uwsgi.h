@@ -934,6 +934,8 @@ struct wsgi_request {
 	int sigwait;
 	int signal_received;
 
+	uint16_t stream_id;
+
 	struct msghdr msg;
 	union {
 		struct cmsghdr cmsg;
@@ -2141,6 +2143,8 @@ int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 struct uwsgi_gateway *register_gateway(char *, void (*)(int));
 void gateway_respawn(int);
 
+void uwsgi_gateway_go_cheap(char *, int, int *);
+
 char *uwsgi_open_and_read(char *, int *, int, char *[]);
 char *uwsgi_get_last_char(char *, char);
 
@@ -2341,6 +2345,7 @@ ssize_t uwsgi_proto_sctp_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_sctp_write_header(struct wsgi_request *, char *, size_t);
 int uwsgi_proto_sctp_accept(struct wsgi_request *, int);
 void uwsgi_proto_sctp_close(struct wsgi_request *);
+ssize_t uwsgi_proto_sctp_sendfile(struct wsgi_request *);
 #endif
 
 int uwsgi_proto_http_parser(struct wsgi_request *);

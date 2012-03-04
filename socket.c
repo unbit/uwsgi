@@ -184,30 +184,40 @@ int connect_to_sctp(char *socket_names, int queue) {
         struct sctp_initmsg initmsg;
 
 	memset(&initmsg, 0, sizeof(initmsg));
-        initmsg.sinit_max_instreams = 17;
-        initmsg.sinit_num_ostreams = 17;
+        initmsg.sinit_max_instreams = 0xffff;
+        initmsg.sinit_num_ostreams = 0xffff;
 
 	if (setsockopt(serverfd, IPPROTO_SCTP,
                        SCTP_INITMSG, &initmsg, sizeof(initmsg))) {
 		uwsgi_error("setsockopt()");
+		close(serverfd);
 		goto clear;
         }
 
 	memset( (void *)&events, 0, sizeof(events) );
         events.sctp_data_io_event = 1;
-/*
+	/*
 	events.sctp_peer_error_event = 1;
 	events.sctp_shutdown_event = 1;
-*/
+	*/
         
         if (setsockopt( serverfd, SOL_SCTP, SCTP_EVENTS,
                (const void *)&events, sizeof(events) )) {
 		uwsgi_error("setsockopt()");
+		close(serverfd);
+		goto clear;
+	}
+
+	int sctp_nodelay = 1;
+	if (setsockopt( serverfd, SOL_SCTP, SCTP_NODELAY, &sctp_nodelay, sizeof(sctp_nodelay))) {
+		uwsgi_error("setsockopt()");
+		close(serverfd);
 		goto clear;
 	}
 
 	if (sctp_connectx(serverfd, (struct sockaddr *) sins, addresses, NULL)) {
 		uwsgi_error("sctp_connectx()");
+		close(serverfd);
 		goto clear;
 	}
 
@@ -279,8 +289,8 @@ int bind_to_sctp(char *socket_names) {
         struct sctp_initmsg initmsg;
 
         memset(&initmsg, 0, sizeof(initmsg));
-        initmsg.sinit_max_instreams = 17;
-        initmsg.sinit_num_ostreams = 17;
+        initmsg.sinit_max_instreams = 0xffff;
+        initmsg.sinit_num_ostreams = 0xffff;
 
         if (setsockopt(serverfd, IPPROTO_SCTP,
                        SCTP_INITMSG, &initmsg, sizeof(initmsg))) {
@@ -290,10 +300,10 @@ int bind_to_sctp(char *socket_names) {
 
         memset( (void *)&events, 0, sizeof(events) );
         events.sctp_data_io_event = 1;
-/*
+	/*
         events.sctp_peer_error_event = 1;
         events.sctp_shutdown_event = 1;
-*/
+	*/
 
         if (setsockopt( serverfd, SOL_SCTP, SCTP_EVENTS,
                (const void *)&events, sizeof(events) )) {

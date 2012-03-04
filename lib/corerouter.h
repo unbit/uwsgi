@@ -91,19 +91,6 @@ static void *uwsgi_corerouter_setup_event_queue(char *gw_id, int id, int nevents
 	return event_queue_alloc(nevents);
 }
 
-static void __attribute__ ((unused)) uwsgi_corerouter_go_cheap(char *gw_id, int queue, int *i_am_cheap) {
-
-	uwsgi_log("[%s pid %d] no more nodes available. Going cheap...\n", gw_id, (int) uwsgi.mypid);
-	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
-	while (ugs) {
-		if (!strcmp(ugs->owner, gw_id) && !ugs->subscription) {
-			event_queue_del_fd(queue, ugs->fd, event_queue_read());
-		}
-		ugs = ugs->next;
-	}
-	*i_am_cheap = 1;
-}
-
 static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *gw_id, int id, struct uwsgi_gateway_socket *ugs, int queue, struct uwsgi_subscribe_slot **subscriptions, int regexp, void (*parse_hook) (char *, uint16_t, char *, uint16_t, void *), int cheap, int *i_am_cheap) {
 
 	int i;
@@ -145,7 +132,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 					uwsgi_remove_subscribe_node(subscriptions, node);
 				}
 				if (*subscriptions == NULL && cheap && !*i_am_cheap) {
-					uwsgi_corerouter_go_cheap(gw_id, queue, i_am_cheap);
+					uwsgi_gateway_go_cheap(gw_id, queue, i_am_cheap);
 				}
 			}
 		}
@@ -205,7 +192,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscripti
 					uwsgi_remove_subscribe_node(subscriptions, node);
 				}
 				if (*subscriptions == NULL && cheap && !*i_am_cheap) {
-					uwsgi_corerouter_go_cheap(gw_id, queue, i_am_cheap);
+					uwsgi_gateway_go_cheap(gw_id, queue, i_am_cheap);
 				}
 			}
 		}

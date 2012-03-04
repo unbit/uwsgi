@@ -2302,7 +2302,7 @@ skipzero:
 				uwsgi_sock->proto_writev = uwsgi_proto_sctp_writev;
 				uwsgi_sock->proto_write_header = uwsgi_proto_sctp_write_header;
 				uwsgi_sock->proto_writev_header = uwsgi_proto_sctp_writev_header;
-				uwsgi_sock->proto_sendfile = NULL;
+				uwsgi_sock->proto_sendfile = uwsgi_proto_sctp_sendfile;
 				uwsgi_sock->proto_close = uwsgi_proto_sctp_close;
 			}
 #endif

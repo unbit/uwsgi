@@ -40,6 +40,37 @@ struct uwsgi_fr_sctp_node *uwsgi_fr_sctp_add_node(int fd) {
 
 }
 
+void uwsgi_fr_sctp_del_node(int fd) {
+
+	struct uwsgi_fr_sctp_node *ufsn = uwsgi_fastrouter_sctp_nodes;
+	while(ufsn) {
+	
+		if (ufsn->fd == fd) {
+			struct uwsgi_fr_sctp_node *prev = ufsn->prev;		
+			struct uwsgi_fr_sctp_node *next = ufsn->next;		
+
+			prev->next = next;
+			next->prev = prev;
+
+			// check: am i the only node ?
+			if ( ufsn == prev || ufsn == next ) {
+				free(uwsgi_fastrouter_sctp_nodes);
+				uwsgi_fastrouter_sctp_nodes = NULL;
+				break;
+			}
+
+			free(ufsn);
+			break;
+		}
+
+		if (ufsn->next == uwsgi_fastrouter_sctp_nodes) {
+			break;
+		}
+
+		ufsn = ufsn->next;
+	}
+}
+
 void uwsgi_opt_fastrouter_sctp(char *opt, char *value, void *foobar) {
 
         struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(value, "uWSGI fastrouter");

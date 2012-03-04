@@ -4,10 +4,45 @@
 
 extern struct uwsgi_server uwsgi;
 
+#ifdef __linux__
+ssize_t sctp_sendv(int s, struct iovec *iov, size_t iov_len,
+          const struct sctp_sndrcvinfo *sinfo, int flags)
+{
+        struct msghdr outmsg;
+
+        outmsg.msg_name = NULL;
+        outmsg.msg_namelen = 0;
+        outmsg.msg_iov = iov;
+        outmsg.msg_iovlen = iov_len;
+        outmsg.msg_controllen = 0;
+
+        if (sinfo) {
+                char outcmsg[CMSG_SPACE(sizeof(struct sctp_sndrcvinfo))];
+                struct cmsghdr *cmsg;
+
+                outmsg.msg_control = outcmsg;
+                outmsg.msg_controllen = sizeof(outcmsg);
+                outmsg.msg_flags = 0;
+
+                cmsg = CMSG_FIRSTHDR(&outmsg);
+                cmsg->cmsg_level = IPPROTO_SCTP;
+                cmsg->cmsg_type = SCTP_SNDRCV;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct sctp_sndrcvinfo));
+
+                outmsg.msg_controllen = cmsg->cmsg_len;
+                memcpy(CMSG_DATA(cmsg), sinfo, sizeof(struct sctp_sndrcvinfo));
+        }
+
+        return sendmsg(s, &outmsg, flags);
+}
+
+#endif
+
 int uwsgi_proto_sctp_parser(struct wsgi_request *wsgi_req) {
 
 	struct sctp_sndrcvinfo sinfo;
-	int msg_flags;
+	memset(&sinfo, 0, sizeof(sinfo));
+	int msg_flags = 0;
 
 	ssize_t len = sctp_recvmsg(wsgi_req->socket->fd, wsgi_req->buffer, uwsgi.buffer_size, NULL, NULL, &sinfo, &msg_flags);
 
@@ -17,24 +52,31 @@ int uwsgi_proto_sctp_parser(struct wsgi_request *wsgi_req) {
 			// connection lost, retrigger it
 			close(wsgi_req->socket->fd);
 			wsgi_req->socket->fd = connect_to_sctp(wsgi_req->socket->name, wsgi_req->socket->queue);
+			// avoid closing connection
+			wsgi_req->fd_closed = 1;
 		}
 		return -1;
 	}
 	else if (len == 0) {
-		uwsgi_log("lost connection with the SCTP server\n");
+		uwsgi_log("lost connection with the SCTP server %d\n", msg_flags);
 		// connection lost, retrigger it
 		close(wsgi_req->socket->fd);
 		wsgi_req->socket->fd = connect_to_sctp(wsgi_req->socket->name, wsgi_req->socket->queue);
+		// avoid closing connection
+		wsgi_req->fd_closed = 1;
 		return -2;
 	}
 
-	// check for a request stream
-	if (sinfo.sinfo_stream != 0) {
-		uwsgi_log("invalid SCTP stream id (must be 0)\n");
+	// get the uwsgi 4 bytes header from ppid
+	memcpy(&wsgi_req->uh, &sinfo.sinfo_ppid, sizeof(uint32_t));
+
+	// check for invalid modifiers
+	if (wsgi_req->uh.modifier1 == 199 || wsgi_req->uh.modifier1 == 200) {
+		uwsgi_log("invalid SCTP uwsgi modifier1: %d\n", wsgi_req->uh.modifier1);
 		return -1;
 	}
 
-	memcpy(&wsgi_req->uh, &sinfo.sinfo_ppid, sizeof(uint32_t));
+	wsgi_req->stream_id = sinfo.sinfo_stream;
 	
 /* big endian ? */
 #ifdef __BIG_ENDIAN__
@@ -56,25 +98,37 @@ int uwsgi_proto_sctp_parser(struct wsgi_request *wsgi_req) {
 }
 
 ssize_t uwsgi_proto_sctp_writev_header(struct wsgi_request * wsgi_req, struct iovec * iovec, size_t iov_len) {
-	ssize_t wlen = writev(wsgi_req->poll.fd, iovec, iov_len);
-	if (wlen < 0) {
-		uwsgi_req_error("writev()");
-		return 0;
-	}
-	return wlen;
+	struct sctp_sndrcvinfo sinfo;
+        memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+	sinfo.sinfo_stream = wsgi_req->stream_id;
+
+        ssize_t wlen = sctp_sendv(wsgi_req->poll.fd, iovec, iov_len, &sinfo, 0);
+        if (wlen < 0) {
+                uwsgi_req_error("writev()");
+                return 0;
+        }
+        return wlen;
 }
 
 ssize_t uwsgi_proto_sctp_writev(struct wsgi_request * wsgi_req, struct iovec * iovec, size_t iov_len) {
-	ssize_t wlen = writev(wsgi_req->poll.fd, iovec, iov_len);
-	if (wlen < 0) {
-		uwsgi_req_error("writev()");
-		return 0;
-	}
-	return wlen;
+	struct sctp_sndrcvinfo sinfo;
+        memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+	sinfo.sinfo_stream = wsgi_req->stream_id;
+
+        ssize_t wlen = sctp_sendv(wsgi_req->poll.fd, iovec, iov_len, &sinfo, 0);
+        if (wlen < 0) {
+                uwsgi_req_error("writev()");
+                return 0;
+        }
+        return wlen;
 }
 
 ssize_t uwsgi_proto_sctp_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-	ssize_t wlen = write(wsgi_req->poll.fd, buf, len);
+	struct sctp_sndrcvinfo sinfo;
+        memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+	sinfo.sinfo_stream = wsgi_req->stream_id;
+
+        ssize_t wlen = sctp_send(wsgi_req->poll.fd, buf, len, &sinfo, 0);
 	if (wlen < 0) {
 		uwsgi_req_error("write()");
 		return 0;
@@ -83,7 +137,11 @@ ssize_t uwsgi_proto_sctp_write(struct wsgi_request * wsgi_req, char *buf, size_t
 }
 
 ssize_t uwsgi_proto_sctp_write_header(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-	ssize_t wlen = write(wsgi_req->poll.fd, buf, len);
+	struct sctp_sndrcvinfo sinfo;
+        memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
+	sinfo.sinfo_stream = wsgi_req->stream_id;
+
+	ssize_t wlen = sctp_send(wsgi_req->poll.fd, buf, len, &sinfo, 0);
 	if (wlen < 0) {
 		uwsgi_req_error("write()");
 		return 0;
@@ -98,15 +156,57 @@ int uwsgi_proto_sctp_accept(struct wsgi_request *wsgi_req, int fd) {
 
 void uwsgi_proto_sctp_close(struct wsgi_request *wsgi_req) {
 
+	// this function could be called in uwsgi_destroy_request too
+	if (wsgi_req->fd_closed) return;
+
+	struct uwsgi_header uh;
+	uh.modifier1 = 200;
+	uh.pktsize = 0;
+	uh.modifier2 = 0;
+
 	struct sctp_sndrcvinfo sinfo;
         memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
-	// stream 2 is used for closing requests
-        sinfo.sinfo_stream = 2;
-        memcpy(&sinfo.sinfo_ppid, &wsgi_req->uh, sizeof(uint32_t));
+	// ppid->modifier1 200 is used for closing requests
+        memcpy(&sinfo.sinfo_ppid, &uh, sizeof(uint32_t));
+	sinfo.sinfo_stream = wsgi_req->stream_id;
 
         if (wsgi_req->async_post) {
                 fclose(wsgi_req->async_post);
         }
-	sctp_send(wsgi_req->poll.fd, &wsgi_req->uh , sizeof(uint32_t), &sinfo, 0);
+
+	sctp_send(wsgi_req->poll.fd, &uh, sizeof(uh), &sinfo, 0);
+}
+
+ssize_t uwsgi_proto_sctp_sendfile(struct wsgi_request * wsgi_req) {
+
+        ssize_t len;
+        char buf[65536];
+        size_t remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
+
+        wsgi_req->sendfile_fd_chunk = 65536;
+
+        if (uwsgi.async > 1) {
+                len = read(wsgi_req->sendfile_fd, buf, UMIN(remains, wsgi_req->sendfile_fd_chunk));
+                if (len != (int) UMIN(remains, wsgi_req->sendfile_fd_chunk)) {
+                        uwsgi_error("read()");
+                        return -1;
+                }
+                wsgi_req->sendfile_fd_pos += len;
+                return uwsgi_proto_sctp_write(wsgi_req, buf, len);
+        }
+
+        while (remains) {
+                len = read(wsgi_req->sendfile_fd, buf, UMIN(remains, wsgi_req->sendfile_fd_chunk));
+                if (len != (int) UMIN(remains, wsgi_req->sendfile_fd_chunk)) {
+                        uwsgi_error("read()");
+                        return -1;
+                }
+                wsgi_req->sendfile_fd_pos += len;
+                len = uwsgi_proto_sctp_write(wsgi_req, buf, len);
+                remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
+        }
+
+        return wsgi_req->sendfile_fd_pos;
+
 }
 
