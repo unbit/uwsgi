@@ -18,7 +18,8 @@ extern struct uwsgi_server uwsgi;
 
 
 #ifdef UWSGI_SCTP
-extern struct uwsgi_fr_sctp_node *uwsgi_fastrouter_sctp_nodes;
+extern struct uwsgi_fr_sctp_node **uwsgi_fastrouter_sctp_nodes;
+extern struct uwsgi_fr_sctp_node **uwsgi_fastrouter_sctp_nodes_current;
 #endif
 
 void fastrouter_send_stats(int);
@@ -148,7 +149,7 @@ struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-subscription-use-regexp", no_argument, 0, "enable regexp for subscription system", uwsgi_opt_true, &ufr.subscription_regexp, 0},
 
 #ifdef UWSGI_SCTP
-	{"fastrouter-sctp", required_argument, 0, "run the fastrouter SCTP server on the spcified address", uwsgi_opt_fastrouter_sctp, NULL, 0},
+	{"fastrouter-sctp", required_argument, 0, "run the fastrouter SCTP server on the specified address", uwsgi_opt_fastrouter_sctp, NULL, 0},
 #endif
 
 	{"fastrouter-timeout", required_argument, 0, "set fastrouter timeout", uwsgi_opt_set_int, &ufr.socket_timeout, 0},
@@ -479,6 +480,11 @@ void fastrouter_loop(int id) {
 		init_magic_table(ufr.magic_table);
 	}
 
+#ifdef UWSGI_SCTP
+	uwsgi_fastrouter_sctp_nodes = uwsgi_calloc(sizeof(struct uwsgi_fastrouter_sctp_nodes*));
+	uwsgi_fastrouter_sctp_nodes_current = uwsgi_calloc(sizeof(struct uwsgi_fastrouter_sctp_nodes*));
+#endif
+
 	struct sockaddr_un fr_addr;
 	socklen_t fr_addr_len = sizeof(struct sockaddr_un);
 
@@ -537,26 +543,8 @@ void fastrouter_loop(int id) {
 
 						ufr.fr_table[new_connection] = alloc_fr_session();
 						ufr.fr_table[new_connection]->fd = new_connection;
-						//ufr.fr_table[new_connection]->modifier1 = 0;
 						ufr.fr_table[new_connection]->instance_fd = -1;
 						ufr.fr_table[new_connection]->status = FASTROUTER_STATUS_RECV_HDR;
-						/*
-						ufr.fr_table[new_connection]->h_pos = 0;
-						ufr.fr_table[new_connection]->pos = 0;
-						ufr.fr_table[new_connection]->un = NULL;
-						ufr.fr_table[new_connection]->static_node = NULL;
-						ufr.fr_table[new_connection]->buf_file = NULL;
-						ufr.fr_table[new_connection]->buf_file_name = NULL;
-						ufr.fr_table[new_connection]->instance_failed = 0;
-						ufr.fr_table[new_connection]->instance_address_len = 0;
-						ufr.fr_table[new_connection]->hostname_len = 0;
-						ufr.fr_table[new_connection]->hostname = NULL;
-						ufr.fr_table[new_connection]->fallback = NULL;
-						ufr.fr_table[new_connection]->soopt = 0;
-						ufr.fr_table[new_connection]->timed_out = 0;
-						ufr.fr_table[new_connection]->do_not_close = 0;
-						ufr.fr_table[new_connection]->tmp_socket_name = NULL;
-						*/
 
 						ufr.fr_table[new_connection]->timeout = add_timeout(ufr.fr_table[new_connection]);
 
@@ -574,15 +562,7 @@ void fastrouter_loop(int id) {
 							break;
 						}
 						uwsgi_fr_sctp_add_node(new_connection);
-						uwsgi_log("new SCTP peer:\n");
-						struct uwsgi_fr_sctp_node *ufsn = uwsgi_fastrouter_sctp_nodes;
-						while(ufsn) {
-							uwsgi_log("\tfd = %d\n", ufsn->fd);
-							if (ufsn->next == uwsgi_fastrouter_sctp_nodes) {
-								break;
-							}
-							ufsn = ufsn->next;
-						}
+						uwsgi_log("new SCTP peer: %s:%d\n", inet_ntoa(((struct sockaddr_in *)&fr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &fr_addr)->sin_port));
 
 						ufr.fr_table[new_connection] = alloc_fr_session();
                                                 ufr.fr_table[new_connection]->instance_fd = new_connection;

@@ -6,7 +6,8 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_fastrouter ufr;
 
 #ifdef UWSGI_SCTP
-extern struct uwsgi_fr_sctp_node *uwsgi_fastrouter_sctp_nodes;
+extern struct uwsgi_fr_sctp_node **uwsgi_fastrouter_sctp_nodes;
+extern struct uwsgi_fr_sctp_node **uwsgi_fastrouter_sctp_nodes_current;
 #endif
 
 void uwsgi_fastrouter_switch_events(struct fastrouter_session *fr_session, int interesting_fd, char **magic_table) {
@@ -25,6 +26,7 @@ void uwsgi_fastrouter_switch_events(struct fastrouter_session *fr_session, int i
 	 char *post_tmp_buf[0xffff];
 
 	int tmp_socket_name_len;
+
 
 			switch (fr_session->status) {
 
@@ -174,7 +176,11 @@ choose_node:
 #ifdef UWSGI_SCTP
 						else if (ufr.has_sctp_sockets > 0) {
 
-							struct uwsgi_fr_sctp_node *ufsn = uwsgi_fastrouter_sctp_nodes;
+
+							if (!*uwsgi_fastrouter_sctp_nodes_current)
+								*uwsgi_fastrouter_sctp_nodes_current = *uwsgi_fastrouter_sctp_nodes;
+
+							struct uwsgi_fr_sctp_node *ufsn = *uwsgi_fastrouter_sctp_nodes_current;
 							int choosen_fd = -1;
 							// find the first available server
 							while(ufsn) {
@@ -182,7 +188,7 @@ choose_node:
 									choosen_fd = ufsn->fd;
 									break;
 								}
-								if (ufsn->next == uwsgi_fastrouter_sctp_nodes) {
+								if (ufsn->next == *uwsgi_fastrouter_sctp_nodes_current) {
 									break;
 								}
 
@@ -190,17 +196,26 @@ choose_node:
 							}
 
 							// no nodes available
-							if (choosen_fd == -1) { fr_session->retry = 1; break; }
+							if (choosen_fd == -1) {
+								fr_session->retry = 1;
+								del_timeout(fr_session);
+								fr_session->timeout = add_fake_timeout(fr_session);
+								break;
+							}
 
 							struct sctp_sndrcvinfo sinfo;
 							memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
 							memcpy(&sinfo.sinfo_ppid, &fr_session->uh, sizeof(uint32_t));
 							sinfo.sinfo_stream = fr_session->fd;
 							len = sctp_send(choosen_fd, fr_session->buffer, fr_session->uh.pktsize, &sinfo, 0);
+
 							fr_session->instance_fd = choosen_fd;
 							fr_session->status = FASTROUTER_STATUS_SCTP_RESPONSE;
 							ufr.fr_table[fr_session->instance_fd]->status = FASTROUTER_STATUS_SCTP_RESPONSE;
 							ufr.fr_table[fr_session->instance_fd]->fd = fr_session->fd;
+
+							// round robin
+							*uwsgi_fastrouter_sctp_nodes_current = (*uwsgi_fastrouter_sctp_nodes_current)->next;
 							break;
 						}
 #endif
@@ -350,7 +365,7 @@ choose_node:
                                         	memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
                                         	len = sctp_recvmsg(interesting_fd, fr_session->buffer, 0xffff, NULL, NULL, &sinfo, &msg_flags);
 						// remove the SCTP node
-						uwsgi_log("removing SCTP node %d flags = %d len = %d\n", interesting_fd, msg_flags, len);
+						uwsgi_log("[0] removing SCTP node %d flags = %d len = %d\n", interesting_fd, msg_flags, len);
 						uwsgi_fr_sctp_del_node(interesting_fd);
 						if (ufr.fr_table[interesting_fd]->timeout) {
 							del_timeout(ufr.fr_table[interesting_fd]);
@@ -375,7 +390,7 @@ choose_node:
                                                                 uwsgi_error("recv()");
                                                         close_session(ufr.fr_table[fr_session->fd]);
 							// REMOVE THE NODE
-							uwsgi_log("removing SCTP node %d flags = %d len = %d\n", interesting_fd, msg_flags, len);
+							uwsgi_log("[1] removing SCTP node %d flags = %d len = %d\n", interesting_fd, msg_flags, len);
 							uwsgi_fr_sctp_del_node(interesting_fd);
 							if (ufr.fr_table[interesting_fd]->timeout) {
 								del_timeout(ufr.fr_table[interesting_fd]);
@@ -383,11 +398,12 @@ choose_node:
 							free(ufr.fr_table[interesting_fd]);
 							ufr.fr_table[interesting_fd] = NULL;
 							close(interesting_fd);
+							uwsgi_log("DONE\n");
                                                         break;
                                                 }
 
 						if (sinfo.sinfo_stream != fr_session->fd) {
-							uwsgi_log("INVALID STREAM !!!\n");
+							uwsgi_log("INVALID SCTP STREAM !!!\n");
                                                         close_session(ufr.fr_table[fr_session->fd]);
                                                         break;
 						}
