@@ -288,7 +288,7 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) { uwsgi_unlock_fast(uli); 
 #define uwsgi_rwunlock_fast uwsgi_rwunlock_ipcsem
 
 #define UWSGI_LOCK_SIZE sizeof(int)
-#define UWSGI_RWLOCK_SIZE (sizeof(int)
+#define UWSGI_RWLOCK_SIZE sizeof(int)
 
 #define UWSGI_LOCK_ENGINE_NAME "ipcsem"
 
