@@ -761,7 +761,7 @@ clear2:
 			}
 		}
 		if (wsgi_req->async_post) {
-			if (fileno(wsgi_req->async_post) == i) {
+			if (fileno((FILE*)wsgi_req->async_post) == i) {
 				continue;
 			}
 		}
@@ -778,8 +778,8 @@ clear2:
 		}
 	}
 	else if (wsgi_req->async_post) {
-		if (fileno(wsgi_req->async_post) != 0) {
-			dup2(fileno(wsgi_req->async_post), 0);
+		if (fileno((FILE*)wsgi_req->async_post) != 0) {
+			dup2(fileno((FILE*)wsgi_req->async_post), 0);
 			fclose(wsgi_req->async_post);
 		}
 	}
