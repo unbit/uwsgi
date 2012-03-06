@@ -119,7 +119,7 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 			if ((linkpath_size = readlink(plugin_name, linkpath_buf, 1023)) > 0) {
 				do {
 					linkpath_buf[linkpath_size] = '\0';
-					strcpy(linkpath, linkpath_buf);
+					strncpy(linkpath, linkpath_buf, linkpath_size+1);
 				} while ((linkpath_size = readlink(linkpath, linkpath_buf, 1023)) > 0);
 #ifdef UWSGI_DEBUG
 				uwsgi_log("%s\n", linkpath);

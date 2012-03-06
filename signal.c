@@ -109,7 +109,7 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 		return -1;
 	}
 
-	strcpy(use->receiver, receiver);
+	strncpy(use->receiver, receiver, strlen(receiver)+1);
 	use->handler = handler;
 	use->modifier1 = modifier1;
 	use->wid = uwsgi.mywid;

@@ -1755,6 +1755,7 @@ char *uwsgi_substitute(char *src, char *what, char *with) {
 
 	size_t len = strlen(src);
 	size_t wlen = strlen(what);
+	size_t with_len = strlen(with);
 
 	char *p = strstr(src, what);
 	if (!p) {
@@ -1766,7 +1767,7 @@ char *uwsgi_substitute(char *src, char *what, char *with) {
 		p = strstr(p+wlen, what);
 	}
 
-	len += (count * wlen) + 1;
+	len += (count * with_len) + 1;
 
 	char *dst = uwsgi_calloc( len );
 	char *ptr = src;
@@ -1774,12 +1775,12 @@ char *uwsgi_substitute(char *src, char *what, char *with) {
 	p = strstr(ptr, what);
 	while(p) {
 		strncat(dst, ptr, (p-ptr));
-		strcat(dst, with);
+		strncat(dst, with, with_len);
 		ptr = p + wlen ;
 		p = strstr(ptr, what);
 	}
 
-	strcat(dst, ptr);
+	strncat(dst, ptr, strlen(ptr));
 
 	return dst;
 }

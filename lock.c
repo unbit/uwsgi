@@ -388,7 +388,7 @@ clear:
 		int semid = 0;
 		memcpy(&semid, uli->lock_ptr, sizeof(int));
 		if (semctl(semid, 0, IPC_RMID)) {
-			uwsgi_log("semctl()");
+			uwsgi_error("semctl()");
 		}
 		uli = uli->next;
 	}
