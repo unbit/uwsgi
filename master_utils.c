@@ -511,8 +511,7 @@ void uwsgi_manage_signal_cron(time_t now) {
 	struct tm *uwsgi_cron_delta;
 	int i;
 
-	uwsgi.current_time = now;
-	uwsgi_cron_delta = localtime(&uwsgi.current_time);
+	uwsgi_cron_delta = localtime(&now);
 
 	if (uwsgi_cron_delta) {
 
@@ -558,9 +557,9 @@ void uwsgi_manage_signal_cron(time_t now) {
 
 			if (run_task == 1) {
 				// date match, signal it ?
-				if (uwsgi.current_time - ucron->last_job > 60) {
+				if (now - ucron->last_job > 60) {
 					uwsgi_route_signal(ucron->sig);
-					ucron->last_job = uwsgi.current_time;
+					ucron->last_job = now;
 				}
 			}
 
@@ -580,8 +579,7 @@ void uwsgi_manage_command_cron(time_t now) {
 	struct uwsgi_cron *current_cron = uwsgi.crons;
 	int uc_minute, uc_hour, uc_day, uc_month, uc_week;
 
-	uwsgi.current_time = now;
-	uwsgi_cron_delta = localtime(&uwsgi.current_time);
+	uwsgi_cron_delta = localtime(&now);
 
 
 	if (!uwsgi_cron_delta) {
@@ -626,14 +624,14 @@ void uwsgi_manage_command_cron(time_t now) {
 		if (run_task == 1) {
 
 			// date match, run command ?
-			if (uwsgi.current_time - current_cron->last_job > 60) {
+			if (now - current_cron->last_job > 60) {
 				//call command
 				if (current_cron->command) {
 					if (uwsgi_run_command(current_cron->command, NULL, -1) >= 0) {
 						uwsgi_log_verbose("[uWSGI-cron] running %s\n", current_cron->command);
 					}
 				}
-				current_cron->last_job = uwsgi.current_time;
+				current_cron->last_job = now;
 			}
 		}
 
