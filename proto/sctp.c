@@ -4,7 +4,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__sun__)
 ssize_t sctp_sendv(int s, struct iovec *iov, size_t iov_len,
           const struct sctp_sndrcvinfo *sinfo, int flags)
 {

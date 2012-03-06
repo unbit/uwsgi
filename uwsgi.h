@@ -184,6 +184,9 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 #ifdef UWSGI_SCTP
 #include <netinet/sctp.h>
+#ifndef SOL_SCTP
+#define SOL_SCTP IPPROTO_SCTP
+#endif
 #endif
 
 #ifndef UWSGI_PLUGIN_BASE

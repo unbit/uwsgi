@@ -215,7 +215,15 @@ int connect_to_sctp(char *socket_names, int queue) {
 		goto clear;
 	}
 
+// solaris has no sctp_connectx support
+#ifdef __sun__
+	if (addresses > 1) {
+		uwsgi_log("*** You will only connect to the first specified SCTP address !!! ***\n");
+	}
+	if (connect(serverfd, (struct sockaddr *) sins, sizeof(struct sockaddr_in))) {
+#else
 	if (sctp_connectx(serverfd, (struct sockaddr *) sins, addresses, NULL)) {
+#endif
 		uwsgi_error("sctp_connectx()");
 		close(serverfd);
 		goto clear;
