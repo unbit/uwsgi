@@ -574,9 +574,38 @@ void uwsgi_as_root() {
 				uwsgi_error("setgid()");
 				exit(1);
 			}
-			if (setgroups(0, NULL)) {
-				uwsgi_error("setgroups()");
-				exit(1);
+			if (uwsgi.no_initgroups || !uwsgi.uid) {
+				if (setgroups(0, NULL)) {
+					uwsgi_error("setgroups()");
+					exit(1);
+				}
+			}
+			else {
+				char *uidname = uwsgi.uidname;
+				if (!uidname) {
+					struct passwd *pw = getpwuid(uwsgi.uid);
+					uidname = pw->pw_name;
+				}
+				if (!uidname) uidname = uwsgi_num2str(uwsgi.uid);
+				if (initgroups(uidname, uwsgi.gid)) {
+					uwsgi_error("setgroups()");
+					exit(1);
+				}
+			}
+			int additional_groups = getgroups(0, NULL);
+			gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);
+			int i;
+			if (getgroups(additional_groups, gids) > 0) {
+				for(i=0;i<additional_groups;i++) {
+					if (gids[i] == uwsgi.gid) continue;
+					struct group *gr = getgrgid(gids[i]);
+					if (gr) {	
+						uwsgi_log("set additional group %d (%s)\n", gids[i], gr->gr_name);
+					}
+					else {
+						uwsgi_log("set additional group %d\n", gids[i]);
+					}
+				}
 			}
 		}
 		if (uwsgi.uid) {

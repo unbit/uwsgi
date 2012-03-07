@@ -1168,6 +1168,7 @@ struct uwsgi_server {
 	uid_t uid;
 	char *uidname;
 	char *gidname;
+	int no_initgroups;
 
 #ifdef UWSGI_CAP
 	cap_value_t *cap;

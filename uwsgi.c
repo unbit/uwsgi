@@ -182,6 +182,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot,0},
 	{"uid", required_argument, 0, "setuid to the specified user/uid", uwsgi_opt_set_uid, NULL, 0},
 	{"gid", required_argument, 0, "setgid to the specified group/gid", uwsgi_opt_set_gid, NULL, 0},
+	{"no-initgroups", no_argument, 0, "disable additional groups set via initgroups()", uwsgi_opt_true, &uwsgi.no_initgroups, 0},
 #ifdef UWSGI_CAP
 	{"cap", required_argument,0, "set process capability", uwsgi_opt_set_cap, NULL, 0},
 #endif
