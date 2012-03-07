@@ -546,9 +546,7 @@ VALUE send_header(VALUE obj, VALUE headers) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
-	size_t len;
 	VALUE hkey, hval;
-
 	
 	//uwsgi_log("HEADERS %d\n", TYPE(obj));
 	if (TYPE(obj) == T_ARRAY) {
@@ -581,18 +579,16 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	size_t header_value_len = RSTRING_LEN(hval);
 	size_t i,cnt=0;
 	char *this_header = header_value;
+	struct iovec iov[4];
 
 	for(i=0;i<header_value_len;i++) {
 		// multiline header, send it !!!
 		if (header_value[i] == '\n') {
-			len = wsgi_req->socket->proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
-			wsgi_req->headers_size += len;
-                        len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)": ", 2);
-                        wsgi_req->headers_size += len;
-			len = wsgi_req->socket->proto_write_header( wsgi_req, this_header, cnt);
-			wsgi_req->headers_size += len;
-			len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)"\r\n", 2);
-                	wsgi_req->headers_size += len;
+			iov[0].iov_base = RSTRING_PTR(hkey); iov[0].iov_len = RSTRING_LEN(hkey);
+			iov[1].iov_base = (char *)": "; iov[1].iov_len = 2;
+			iov[2].iov_base = this_header; iov[2].iov_len = cnt;
+			iov[3].iov_base = (char *)"\r\n"; iov[3].iov_len = 2;
+                	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header( wsgi_req, iov, 4);
 
 			//uwsgi_log("(multi) --%.*s: %.*s--\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), cnt, this_header);
 
@@ -606,14 +602,11 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	}
 
 	if (cnt > 0) {
-		len = wsgi_req->socket->proto_write_header( wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey));
-		wsgi_req->headers_size += len;
-                len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)": ", 2);
-                wsgi_req->headers_size += len;
-		len = wsgi_req->socket->proto_write_header( wsgi_req, this_header, cnt);
-		wsgi_req->headers_size += len;
-		len = wsgi_req->socket->proto_write_header( wsgi_req, (char *)"\r\n", 2);
-                wsgi_req->headers_size += len;
+		iov[0].iov_base = RSTRING_PTR(hkey); iov[0].iov_len = RSTRING_LEN(hkey);
+		iov[1].iov_base = (char *)": "; iov[1].iov_len = 2;
+		iov[2].iov_base = this_header; iov[2].iov_len = cnt;
+		iov[3].iov_base = (char *)"\r\n"; iov[3].iov_len = 2;
+                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header( wsgi_req, iov, 4);
 		wsgi_req->header_cnt++;
 		//uwsgi_log("--%.*s: %.*s--\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), cnt, this_header);
 	}

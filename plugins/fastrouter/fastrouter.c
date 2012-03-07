@@ -566,6 +566,7 @@ void fastrouter_loop(int id) {
 
 						ufr.fr_table[new_connection] = alloc_fr_session();
                                                 ufr.fr_table[new_connection]->instance_fd = new_connection;
+                                                ufr.fr_table[new_connection]->fd = -1;
 						ufr.fr_table[new_connection]->persistent = 1;
                                                 ufr.fr_table[new_connection]->status = FASTROUTER_STATUS_SCTP_NODE_FREE;
 

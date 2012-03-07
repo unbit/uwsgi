@@ -1936,9 +1936,6 @@ int uwsgi_start(void *v_argv) {
 	}
 	for (i = 0; i < uwsgi.cores; i++) {
 		uwsgi.async_buf[i] = uwsgi_malloc(uwsgi.buffer_size);
-		if (uwsgi.post_buffering > 0) {
-			uwsgi.async_post_buf[i] = uwsgi_malloc(uwsgi.post_buffering_bufsize);
-		}
 	}
 
 #ifdef UWSGI_DEBUG
@@ -2304,6 +2301,7 @@ skipzero:
 				uwsgi_sock->proto_writev_header = uwsgi_proto_sctp_writev_header;
 				uwsgi_sock->proto_sendfile = uwsgi_proto_sctp_sendfile;
 				uwsgi_sock->proto_close = uwsgi_proto_sctp_close;
+				uwsgi_sock->proto_read_body = uwsgi_proto_sctp_read_body;
 			}
 #endif
 			else {

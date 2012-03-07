@@ -46,25 +46,17 @@ int uwsgi_proto_sctp_parser(struct wsgi_request *wsgi_req) {
 
 	ssize_t len = sctp_recvmsg(wsgi_req->socket->fd, wsgi_req->buffer, uwsgi.buffer_size, NULL, NULL, &sinfo, &msg_flags);
 
-	if (len < 0) {
-		uwsgi_error("sctp_recvmsg()");
-		if (msg_flags == 0) {
-			// connection lost, retrigger it
-			close(wsgi_req->socket->fd);
-			wsgi_req->socket->fd = connect_to_sctp(wsgi_req->socket->name, wsgi_req->socket->queue);
-			// avoid closing connection
-			wsgi_req->fd_closed = 1;
-		}
-		return -1;
-	}
-	else if (len == 0) {
+	if (len <= 0) {
+		if (len < 0)
+			uwsgi_error("sctp_recvmsg()");
 		uwsgi_log("lost connection with the SCTP server %d\n", msg_flags);
 		// connection lost, retrigger it
 		close(wsgi_req->socket->fd);
 		wsgi_req->socket->fd = connect_to_sctp(wsgi_req->socket->name, wsgi_req->socket->queue);
 		// avoid closing connection
 		wsgi_req->fd_closed = 1;
-		return -2;
+		// no special message needed
+		return -3;
 	}
 
 	// get the uwsgi 4 bytes header from ppid
@@ -160,13 +152,13 @@ void uwsgi_proto_sctp_close(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->fd_closed) return;
 
 	struct uwsgi_header uh;
+	// ppid->modifier1 200 is used for closing requests
 	uh.modifier1 = 200;
 	uh.pktsize = 0;
 	uh.modifier2 = 0;
 
 	struct sctp_sndrcvinfo sinfo;
         memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
-	// ppid->modifier1 200 is used for closing requests
         memcpy(&sinfo.sinfo_ppid, &uh, sizeof(uint32_t));
 	sinfo.sinfo_stream = wsgi_req->stream_id;
 
@@ -208,5 +200,32 @@ ssize_t uwsgi_proto_sctp_sendfile(struct wsgi_request * wsgi_req) {
 
         return wsgi_req->sendfile_fd_pos;
 
+}
+
+ssize_t uwsgi_proto_sctp_read_body(struct wsgi_request * wsgi_req, char *buf, size_t len) {
+
+	struct sctp_sndrcvinfo sinfo;
+        memset(&sinfo, 0, sizeof(sinfo));
+	int msg_flags = 0;
+	struct uwsgi_header *uh;
+
+	ssize_t slen = sctp_recvmsg(wsgi_req->socket->fd, buf, len, NULL, NULL, &sinfo, &msg_flags);
+
+	if (slen <= 0) {
+		return -1;
+	}
+
+	if (wsgi_req->stream_id != sinfo.sinfo_stream) {
+		return -1;
+	}
+
+	uh = (struct uwsgi_header *) &sinfo.sinfo_ppid;
+
+	if (uh->modifier1 != 199) {
+		return -1;
+	}
+
+	return slen;
+	
 }
 

@@ -1558,7 +1558,12 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
 			return 0;
 		}
 
-		len = read(wsgi_req->poll.fd, ptr, post_remains);
+		if (wsgi_req->socket->proto_read_body) {
+			len = wsgi_req->socket->proto_read_body(wsgi_req, ptr, post_remains);
+		}
+		else {
+			len = read(wsgi_req->poll.fd, ptr, post_remains);
+		}
 
 		if (len <= 0) {
 			uwsgi_error("read()");
@@ -1581,7 +1586,6 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 	char *upload_progress_filename = NULL;
 	const char *x_progress_id = "X-Progress-ID=";
 	char *xpi_ptr = (char *) x_progress_id;
-
 
 	wsgi_req->async_post = tmpfile();
 	if (!wsgi_req->async_post) {
@@ -1668,10 +1672,20 @@ int uwsgi_read_whole_body(struct wsgi_request *wsgi_req, char *buf, size_t len) 
 		}
 
 		if (post_remains > len) {
-			post_chunk = read(wsgi_req->poll.fd, buf, len);
+			if (wsgi_req->socket->proto_read_body) {
+				post_chunk = wsgi_req->socket->proto_read_body(wsgi_req, buf, len);
+			}
+			else {
+				post_chunk = read(wsgi_req->poll.fd, buf, len);
+			}
 		}
 		else {
-			post_chunk = read(wsgi_req->poll.fd, buf, post_remains);
+			if (wsgi_req->socket->proto_read_body) {
+				post_chunk = wsgi_req->socket->proto_read_body(wsgi_req, buf, len);
+			}
+			else {
+				post_chunk = read(wsgi_req->poll.fd, buf, post_remains);
+			}
 		}
 
 		if (post_chunk < 0) {
@@ -4034,6 +4048,7 @@ int uwsgi_file_to_string_list(char *filename, struct uwsgi_string_list **list) {
 }
 
 void uwsgi_setup_post_buffering(void) {
+	int i;
 	uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
                 if (!uwsgi.post_buffering_bufsize)
                         uwsgi.post_buffering_bufsize = 8192;
@@ -4041,6 +4056,10 @@ void uwsgi_setup_post_buffering(void) {
                         uwsgi.post_buffering_bufsize = uwsgi.post_buffering;
                         uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
                 }
+
+	for(i=0;i<uwsgi.cores;i++) {
+		uwsgi.async_post_buf[i] = uwsgi_malloc(uwsgi.post_buffering_bufsize);
+	}
 
 }
 

@@ -579,6 +579,7 @@ struct uwsgi_socket {
 	 ssize_t(*proto_write_header) (struct wsgi_request *, char *, size_t);
 	 ssize_t(*proto_writev_header) (struct wsgi_request *, struct iovec *, size_t);
 	 ssize_t(*proto_sendfile) (struct wsgi_request *);
+	 ssize_t(*proto_read_body) (struct wsgi_request *, char *, size_t);
 	void (*proto_close) (struct wsgi_request *);
 	int edge_trigger;
 
@@ -2349,6 +2350,7 @@ ssize_t uwsgi_proto_sctp_write_header(struct wsgi_request *, char *, size_t);
 int uwsgi_proto_sctp_accept(struct wsgi_request *, int);
 void uwsgi_proto_sctp_close(struct wsgi_request *);
 ssize_t uwsgi_proto_sctp_sendfile(struct wsgi_request *);
+ssize_t uwsgi_proto_sctp_read_body(struct wsgi_request *, char *, size_t);
 #endif
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
