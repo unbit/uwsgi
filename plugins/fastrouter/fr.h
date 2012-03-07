@@ -85,6 +85,7 @@ struct uwsgi_fastrouter {
 struct uwsgi_fr_sctp_node {
 
         int fd;
+	char name[64];
         uint64_t requests;
         struct uwsgi_fr_sctp_node *prev;
         struct uwsgi_fr_sctp_node *next;

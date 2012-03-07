@@ -188,6 +188,7 @@ void uwsgi_fastrouter_switch_events(struct fastrouter_session *fr_session, int i
 				// find the first available server
 				while (ufsn) {
 					if (ufr.fr_table[ufsn->fd]->status == FASTROUTER_STATUS_SCTP_NODE_FREE) {
+						ufsn->requests++;
 						choosen_fd = ufsn->fd;
 						break;
 					}

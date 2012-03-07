@@ -561,7 +561,8 @@ void fastrouter_loop(int id) {
                                                         taken = 1;
 							break;
 						}
-						uwsgi_fr_sctp_add_node(new_connection);
+						struct uwsgi_fr_sctp_node *sctp_node = uwsgi_fr_sctp_add_node(new_connection);
+						snprintf(sctp_node->name, 64, "%s:%d", inet_ntoa(((struct sockaddr_in *)&fr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &fr_addr)->sin_port));
 						uwsgi_log("new SCTP peer: %s:%d\n", inet_ntoa(((struct sockaddr_in *)&fr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &fr_addr)->sin_port));
 
 						ufr.fr_table[new_connection] = alloc_fr_session();
@@ -752,6 +753,23 @@ void fastrouter_send_stats(int fd) {
 		}
 		fprintf(output, "],\n");
 	}
+
+#ifdef UWSGI_SCTP
+	if (ufr.has_sctp_sockets > 0) {
+		fprintf(output, "\"sctp_nodes\": [\n");
+		struct uwsgi_fr_sctp_node *sctp_node = *uwsgi_fastrouter_sctp_nodes;
+		while(sctp_node) {
+			fprintf(output, "\t{ \"node\": \"%s\", \"requests\": %llu }", sctp_node->name, (unsigned long long) sctp_node->requests);
+			if (sctp_node->next == *uwsgi_fastrouter_sctp_nodes) {
+				fprintf(output, "\n");
+				break;
+			}
+			sctp_node = sctp_node->next;
+			fprintf(output, ",\n");
+		}
+		fprintf(output, "],\n");
+	}
+#endif
 
 	fprintf(output, "\"cheap\": %d\n", ufr.i_am_cheap);
 
