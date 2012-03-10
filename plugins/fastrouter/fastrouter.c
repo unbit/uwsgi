@@ -404,8 +404,6 @@ struct fastrouter_session *alloc_fr_session() {
 	return uwsgi_calloc(sizeof(struct fastrouter_session));
 }
 
-void fastrouter_thread_loop(void *);
-
 void fastrouter_loop(int id) {
 
 	int i;
@@ -432,7 +430,15 @@ void fastrouter_loop(int id) {
 	if (!ufr.static_node_gracetime)
 		ufr.static_node_gracetime = 30;
 
-	if (ufr.stats_server) {
+	int i_am_the_first = 1;
+	for(i=0;i<id;i++) {
+		if (!strcmp(ushared->gateways[i].name, "uWSGI fastrouter")) {
+			i_am_the_first = 0;
+			break;
+		}
+	}
+
+	if (ufr.stats_server && i_am_the_first) {
 		char *tcp_port = strchr(ufr.stats_server, ':');
 		if (tcp_port) {
 			// disable deferred accept for this socket

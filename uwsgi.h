@@ -1179,6 +1179,8 @@ struct uwsgi_server {
 	int unshare;
 #endif
 
+	int ignore_sigpipe;
+
 	// still working on it
 	char *profiler;
 

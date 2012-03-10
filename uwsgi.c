@@ -82,6 +82,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
+	{"ignore-sigpipe", no_argument, 0, "do not report (annoying) SIGPIPE", uwsgi_opt_true, &uwsgi.ignore_sigpipe,0},
+
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
 	{"daemonize2", required_argument, 0, "daemonize uWSGI after app loading", uwsgi_opt_set_str, &uwsgi.daemonize2, 0},
@@ -3001,7 +3003,9 @@ skipzero:
 
 	uwsgi_unix_signal(SIGUSR1, stats);
 	signal(SIGUSR2, (void *) &what_i_am_doing);
-	signal(SIGPIPE, (void *) &warn_pipe);
+	if (!uwsgi.ignore_sigpipe) {
+		signal(SIGPIPE, (void *) &warn_pipe);
+	}
 
 	//initialization done
 
