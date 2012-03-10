@@ -490,6 +490,36 @@ void fastrouter_loop(int id) {
 
 	struct fastrouter_session *fr_session;
 
+	ufr.mapper = uwsgi_fr_map_use_void;
+
+	if (ufr.use_cache) {
+                        ufr.mapper = uwsgi_fr_map_use_cache;
+                        }
+                        else if (ufr.pattern) {
+                                ufr.mapper = uwsgi_fr_map_use_pattern;
+                        }
+                        else if (ufr.has_subscription_sockets) {
+                                ufr.mapper = uwsgi_fr_map_use_subscription;
+                        }
+                        else if (ufr.base) {
+                                ufr.mapper = uwsgi_fr_map_use_base;
+                        }
+                        else if (ufr.code_string_code && ufr.code_string_function) {
+                                ufr.mapper = uwsgi_fr_map_use_cache;
+                        }
+                        else if (ufr.to_socket) {
+                                ufr.mapper = uwsgi_fr_map_use_to;
+                        }
+                        else if (ufr.static_nodes) {
+                                ufr.mapper = uwsgi_fr_map_use_static_nodes;
+                        }
+#ifdef UWSGI_SCTP
+                        else if (ufr.has_sctp_sockets > 0) {
+                                ufr.mapper = uwsgi_fr_map_use_sctp;
+                        }
+#endif
+
+
 
 	ufr.timeouts = uwsgi_init_rb_timer();
 

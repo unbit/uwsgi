@@ -16,8 +16,11 @@
 #define del_check_timeout(x) rb_erase(&x->rbt, timeouts);
 #define del_timeout(x) rb_erase(&x->timeout->rbt, ufr.timeouts); free(x->timeout);
 
+struct fastrouter_session;
 
 struct uwsgi_fastrouter {
+
+	int (*mapper)(struct fastrouter_session *, char **);
 
         int has_sockets;
         int has_subscription_sockets;
@@ -147,3 +150,15 @@ struct fastrouter_session {
 void uwsgi_fastrouter_switch_events(struct fastrouter_session *, int intersting_fd, char **);
 void close_session(struct fastrouter_session *);
 void fr_get_hostname(char *, uint16_t, char *, uint16_t, void *);
+
+int uwsgi_fr_map_use_void(struct fastrouter_session *, char **);
+int uwsgi_fr_map_use_cache(struct fastrouter_session *, char **);
+int uwsgi_fr_map_use_pattern(struct fastrouter_session *, char **);
+int uwsgi_fr_map_use_subscription(struct fastrouter_session *, char **);
+int uwsgi_fr_map_use_base(struct fastrouter_session *, char **);
+int uwsgi_fr_map_use_cs(struct fastrouter_session *, char **);
+int uwsgi_fr_map_use_to(struct fastrouter_session *, char **);
+int uwsgi_fr_map_use_static_nodes(struct fastrouter_session *, char **);
+#ifdef UWSGI_SCTP
+int uwsgi_fr_map_use_sctp(struct fastrouter_session *, char **);
+#endif
