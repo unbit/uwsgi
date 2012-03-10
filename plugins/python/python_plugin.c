@@ -240,6 +240,12 @@ void uwsgi_python_atexit() {
 	if (uwsgi.workers[uwsgi.mywid].busy)
 		return;
 
+#ifdef UWSGI_ASYNC
+	// managing atexit in async mode is a real pain...skip it for now
+	if (uwsgi.async > 1)
+		return;
+#endif
+
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
 
