@@ -2024,8 +2024,8 @@ void uwsgi_sqlite3_config(char *, char *[]);
 
 
 #ifdef UWSGI_LDAP
-void uwsgi_ldap_schema_dump(void);
-void uwsgi_ldap_schema_dump_ldif(void);
+void uwsgi_opt_ldap_dump(char *, char *, void *);
+void uwsgi_opt_ldap_dump_ldif(char *, char *, void *);
 void uwsgi_ldap_config(void);
 #endif
 

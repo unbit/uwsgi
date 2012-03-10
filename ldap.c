@@ -138,7 +138,7 @@ next:
 	return ule;
 }
 
-void uwsgi_ldap_schema_dump_ldif() {
+void uwsgi_opt_ldap_dump_ldif(char *opt, char *foo, void *bar) {
 
 	int i;
 	int items;
@@ -191,7 +191,7 @@ void uwsgi_ldap_schema_dump_ldif() {
 	exit(0);
 }
 
-void uwsgi_ldap_schema_dump() {
+void uwsgi_opt_ldap_dump(char *opt, char *foo, void *bar) {
 
 	int i;
 	int items;

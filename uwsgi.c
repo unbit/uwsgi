@@ -224,8 +224,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 #ifdef UWSGI_LDAP
 	{"ldap", required_argument, 0, "load configuration from ldap server", uwsgi_opt_set_str, &uwsgi.ldap, 0},
-	//{"ldap-schema", no_argument, 0, "dump uWSGI ldap schema",0},
-	//{"ldap-schema-ldif", no_argument, 0, LONG_ARGS_LDAP_SCHEMA_LDIF,0},
+	{"ldap-schema", no_argument, 0, "dump uWSGI ldap schema", uwsgi_opt_ldap_dump, NULL, UWSGI_OPT_IMMEDIATE},
+	{"ldap-schema-ldif", no_argument, 0, "dump uWSGI ldap schema in ldif format", uwsgi_opt_ldap_dump_ldif, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 	{"weight", required_argument, 0, "weight of the instance (used by clustering/lb/subscriptions)", uwsgi_opt_set_64bit, &uwsgi.weight, 0},
 	{"auto-weight", required_argument, 0, "set weight of the instance (used by clustering/lb/subscriptions) automatically", uwsgi_opt_true, &uwsgi.auto_weight, 0},
