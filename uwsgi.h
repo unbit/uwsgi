@@ -1363,6 +1363,9 @@ struct uwsgi_server {
 	char *pidfile;
 	char *pidfile2;
 
+	char *flock2;
+	char *flock_wait2;
+
 	int backtrace_depth;
 
 	int harakiri_verbose;
@@ -2632,6 +2635,9 @@ void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
 void uwsgi_opt_cluster_log(char *, char *, void *);
 void uwsgi_opt_cluster_reload(char *, char *, void *);
+
+void uwsgi_opt_flock(char *, char *, void *);
+void uwsgi_opt_flock_wait(char *, char *, void *);
 #ifdef UWSGI_INI
 void uwsgi_opt_load_ini(char *, char *, void *);
 #endif

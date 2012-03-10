@@ -2859,12 +2859,15 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 		uwsgi_error("fork()");
 		goto clear;
 	}
+	// now i am a grunt, avoid it making mess
 	else if (grunt_pid == 0) {
+		// it will no more accepts requests
 		uwsgi_close_all_sockets();
 		// create a new session
 		setsid();
 		// exit on SIGPIPE
 		signal(SIGPIPE, (void *) &end_me);
+		// here we create a new worker. Each grunt will race on this datas, so do not rely on them
 		uwsgi.mywid = uwsgi.numproc + 1;
 		uwsgi.mypid = getpid();
 		memset(&uwsgi.workers[uwsgi.mywid], 0, sizeof(struct uwsgi_worker));
@@ -2881,7 +2884,7 @@ PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 		return Py_True;
 	}
 
-	// close connection on the worker
+	// close connection on the original worker
 	if (PyTuple_Size(args) == 0) {
 		if (wsgi_req->socket) {
 			wsgi_req->socket->proto_close(wsgi_req);

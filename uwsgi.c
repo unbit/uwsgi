@@ -179,6 +179,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_false, (void *) UWSGI_OPTION_LOGGING, 0},
 
+	{"flock", required_argument, 0, "lock the specified file before starting, exit if locked", uwsgi_opt_flock, NULL, UWSGI_OPT_IMMEDIATE},
+	{"flock-wait", required_argument, 0, "lock the specified file before starting, wait if locked", uwsgi_opt_flock_wait, NULL, UWSGI_OPT_IMMEDIATE},
+
+	{"flock2", required_argument, 0, "lock the specified file after logging/daemon setup, exit if locked", uwsgi_opt_set_str, &uwsgi.flock2, UWSGI_OPT_IMMEDIATE},
+	{"flock-wait2", required_argument, 0, "lock the specified file after logging/daemon setup, wait if locked", uwsgi_opt_set_str, &uwsgi.flock_wait2, UWSGI_OPT_IMMEDIATE},
+
 	{"pidfile", required_argument, 0, "create pidfile (before privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile,0},
 	{"pidfile2", required_argument, 0, "create pidfile (after privileges drop)", uwsgi_opt_set_str, &uwsgi.pidfile2,0},
 	{"chroot", required_argument, 0, "chroot() to the specified directory", uwsgi_opt_set_str, &uwsgi.chroot,0},
@@ -1535,6 +1541,14 @@ int main(int argc, char *argv[], char *envp[]) {
 		if (mlockall( MCL_CURRENT | MCL_FUTURE )) {
 			uwsgi_error("mlockall()");
 		}
+	}
+
+	if (uwsgi.flock2) {
+		uwsgi_opt_flock(NULL, uwsgi.flock2, NULL);
+	}
+
+	if (uwsgi.flock_wait2) {
+		uwsgi_opt_flock(NULL, uwsgi.flock_wait2, NULL);
 	}
 
 	// setup master logging
@@ -3849,3 +3863,32 @@ void uwsgi_opt_load_json(char *opt, char *filename, void *none) {
 	uwsgi_json_config(filename, uwsgi.magic_table);
 }
 #endif
+
+void uwsgi_opt_flock(char *opt, char *filename, void *none) {
+
+	int fd = open(filename, O_RDWR);
+	if (fd < 0) {
+		uwsgi_error_open(filename);
+		exit(1);
+	}
+
+	if (uwsgi_fcntl_is_locked(fd)) {
+		uwsgi_log("uWSGI ERROR: %s is locked by another instance\n", filename);
+		exit(1);
+	}
+	
+}
+
+void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
+
+	int fd = open(filename, O_RDWR);
+	if (fd < 0) {
+		uwsgi_error_open(filename);
+		exit(1);
+	}
+
+	if (uwsgi_fcntl_lock(fd)) {
+		exit(1);
+	}
+	
+}
