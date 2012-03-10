@@ -141,7 +141,7 @@ int uwsgi_fr_map_use_static_nodes(struct fastrouter_session *fr_session, char **
 
 #ifdef UWSGI_SCTP
 
-void uwsgi_fr_map_use_sctp(struct fastrouter_session *fr_session, char **magic_table) {	
+int uwsgi_fr_map_use_sctp(struct fastrouter_session *fr_session, char **magic_table) {	
 
 	if (!*uwsgi_fastrouter_sctp_nodes_current)
 		*uwsgi_fastrouter_sctp_nodes_current = *uwsgi_fastrouter_sctp_nodes;
@@ -174,7 +174,9 @@ void uwsgi_fr_map_use_sctp(struct fastrouter_session *fr_session, char **magic_t
 	memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
 	memcpy(&sinfo.sinfo_ppid, &fr_session->uh, sizeof(uint32_t));
 	sinfo.sinfo_stream = fr_session->fd;
-	len = sctp_send(choosen_fd, fr_session->buffer, fr_session->uh.pktsize, &sinfo, 0);
+	ssize_t len = sctp_send(choosen_fd, fr_session->buffer, fr_session->uh.pktsize, &sinfo, 0);
+	if (len < 0)
+		uwsgi_error("sctp_send()");
 
 	fr_session->instance_fd = choosen_fd;
 	fr_session->status = FASTROUTER_STATUS_SCTP_RESPONSE;
