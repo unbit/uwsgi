@@ -223,7 +223,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"zmq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_set_str, &uwsgi.zeromq,0},
 #endif
 #ifdef UWSGI_LDAP
-	{"ldap", required_argument, 0, "load configuration from ldap server", uwsgi_opt_set_str, &uwsgi.ldap, 0},
+	{"ldap", required_argument, 0, "load configuration from ldap server", uwsgi_opt_load_ldap, NULL, UWSGI_OPT_IMMEDIATE},
 	{"ldap-schema", no_argument, 0, "dump uWSGI ldap schema", uwsgi_opt_ldap_dump, NULL, UWSGI_OPT_IMMEDIATE},
 	{"ldap-schema-ldif", no_argument, 0, "dump uWSGI ldap schema in ldif format", uwsgi_opt_ldap_dump_ldif, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
@@ -3861,6 +3861,12 @@ void uwsgi_opt_load_sqlite3(char *opt, char *filename, void *none) {
 void uwsgi_opt_load_json(char *opt, char *filename, void *none) {
 	config_magic_table_fill(filename, uwsgi.magic_table);
 	uwsgi_json_config(filename, uwsgi.magic_table);
+}
+#endif
+
+#ifdef UWSGI_LDAP
+void uwsgi_opt_load_ldap(char *opt, char *url, void *none) {
+	uwsgi_ldap_config(url);
 }
 #endif
 

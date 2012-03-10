@@ -1449,10 +1449,6 @@ struct uwsgi_server {
 	int no_server;
 	int command_mode;
 
-#ifdef UWSGI_LDAP
-	char *ldap;
-#endif
-
 	int xml_round2;
 
 	char *cwd;
@@ -2026,7 +2022,7 @@ void uwsgi_sqlite3_config(char *, char *[]);
 #ifdef UWSGI_LDAP
 void uwsgi_opt_ldap_dump(char *, char *, void *);
 void uwsgi_opt_ldap_dump_ldif(char *, char *, void *);
-void uwsgi_ldap_config(void);
+void uwsgi_ldap_config(char *);
 #endif
 
 inline int uwsgi_strncmp(char *, int, char *, int);
@@ -2652,6 +2648,9 @@ void uwsgi_opt_load_sqlite3(char *, char *, void *);
 #endif
 #ifdef UWSGI_JSON
 void uwsgi_opt_load_json(char *, char *, void *);
+#endif
+#ifdef UWSGI_LDAP
+void uwsgi_opt_load_ldap(char *, char *, void *);
 #endif
 
 void uwsgi_opt_set_umask(char *, char *, void *);

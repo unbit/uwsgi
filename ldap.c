@@ -239,7 +239,7 @@ void uwsgi_opt_ldap_dump(char *opt, char *foo, void *bar) {
 	exit(0);
 }
 
-void uwsgi_ldap_config() {
+void uwsgi_ldap_config(char *url) {
 
 	LDAP *ldp;
 	LDAPMessage *results, *entry;
@@ -248,17 +248,12 @@ void uwsgi_ldap_config() {
 	char *attr;
 	char *uwsgi_attr;
 
-	char *url = "ldap:///";
 	char *url_slash;
 
 	int desired_version = LDAP_VERSION3;
 	int ret;
 
 	LDAPURLDesc *ldap_url;
-
-	if (uwsgi.ldap) {
-		url = uwsgi.ldap;
-	}
 
 	if (!ldap_is_ldap_url(url)) {
 		uwsgi_log("invalid LDAP url.\n");
