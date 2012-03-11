@@ -200,7 +200,6 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 				wsgi_req->async_post = fopen(post_filename, "r");
 				if (!wsgi_req->async_post) {
 					uwsgi_error_open(post_filename);
-					free(post_filename);
 					wsgi_req->do_not_log = 1;
 				}
 				async_upload += 2;

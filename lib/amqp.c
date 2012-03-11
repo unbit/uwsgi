@@ -164,7 +164,9 @@ char *uwsgi_amqp_consume(int fd, uint64_t *msgsize, char **routing_key) {
         ptr = amqp_get_longlong(ptr, watermark, msgsize); if (!ptr) goto clear2;
 
 	free(frame);
+	frame = NULL;
 	free(header);
+	header = NULL;
 
 	char *fullbody = uwsgi_malloc(*msgsize);
 	char *message;
