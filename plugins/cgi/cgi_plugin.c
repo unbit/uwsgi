@@ -12,6 +12,7 @@ struct uwsgi_cgi {
 	struct uwsgi_string_list *unset;
 	struct uwsgi_string_list *loadlib;
 	int optimize;
+	int from_docroot;
 	int has_mountpoints;
 	struct uwsgi_dyn_dict *default_cgi;
 	int path_info;
@@ -44,6 +45,8 @@ struct uwsgi_option uwsgi_cgi_options[] = {
 
         {"cgi-map-helper", required_argument, 0, "add a cgi map-helper", uwsgi_opt_add_cgi_maphelper, NULL, 0},
         {"cgi-helper", required_argument, 0, "add a cgi map-helper", uwsgi_opt_add_cgi_maphelper, NULL, 0},
+
+        {"cgi-from-docroot", no_argument, 0, "blindly enable cgi in DOCUMENT_ROOT", uwsgi_opt_true, &uc.from_docroot, 0},
 
         {"cgi-buffer-size", required_argument, 0, "set cgi buffer size", uwsgi_opt_set_64bit, &uc.buffer_size, 0},
         {"cgi-timeout", required_argument, 0, "set cgi script timeout", uwsgi_opt_set_int, &uc.timeout, 0},
@@ -500,16 +503,23 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
+	char *docroot = NULL;
+
 	// check for file availability (and 'runnability')
+	if (uc.from_docroot) {
+		docroot = wsgi_req->document_root;	
+		docroot_len = wsgi_req->document_root_len;	
+	}
+	else {
+		docroot = uwsgi_cgi_get_docroot(wsgi_req->path_info, wsgi_req->path_info_len, &need_free, &is_a_file, &discard_base, &script_name);
+		docroot_len = strlen(docroot);
+	}
 
-	char *docroot = uwsgi_cgi_get_docroot(wsgi_req->path_info, wsgi_req->path_info_len, &need_free, &is_a_file, &discard_base, &script_name);
-
-	if (docroot == NULL) {
+	if (docroot == NULL || docroot_len == 0) {
 		uwsgi_cgi_404(wsgi_req);
 		return UWSGI_OK;
 	}
 
-	docroot_len = strlen(docroot);
 	memcpy(full_path, docroot, docroot_len);
 
 	if (!is_a_file) {

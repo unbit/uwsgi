@@ -299,15 +299,11 @@ static sapi_module_struct uwsgi_sapi_module;
 void uwsgi_php_set(char *opt) {
 
 	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + strlen(opt)+2);
-	if (uphp.ini_size == 0) {
-		memcpy(uwsgi_sapi_module.ini_entries, opt, strlen(opt));
-	}
-	else {
-		memcpy(uwsgi_sapi_module.ini_entries + (uphp.ini_size -1), opt, strlen(opt));
-	}
-	uphp.ini_size += strlen(opt)+2;
-	uwsgi_sapi_module.ini_entries[uphp.ini_size-2] = '\n';
-	uwsgi_sapi_module.ini_entries[uphp.ini_size-1] = 0;
+	memcpy(uwsgi_sapi_module.ini_entries + uphp.ini_size, opt, strlen(opt));
+
+	uphp.ini_size += strlen(opt)+1;
+	uwsgi_sapi_module.ini_entries[uphp.ini_size-1] = '\n';
+	uwsgi_sapi_module.ini_entries[uphp.ini_size] = 0;
 }
 
 // future implementation...

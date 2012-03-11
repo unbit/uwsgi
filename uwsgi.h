@@ -50,6 +50,7 @@ extern "C" {
 #define UWSGI_OPT_NO_SERVER		(1 << 10)
 #define UWSGI_OPT_POST_BUFFERING	(1 << 11)
 #define UWSGI_OPT_CLUSTER		(1 << 12)
+#define UWSGI_OPT_MIME			(1 << 13)
 
 #define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64

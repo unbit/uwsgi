@@ -26,7 +26,6 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 				return ret;
 			}
 		}
-		
 		routes = routes->next;
 	}
 

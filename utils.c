@@ -2067,6 +2067,10 @@ add:
 			if (op->flags & UWSGI_OPT_POST_BUFFERING) {
 				if (!uwsgi.post_buffering) uwsgi.post_buffering = 4096;
 			}
+			// requires building mime dict ?
+			if (op->flags & UWSGI_OPT_MIME) {
+				uwsgi.build_mime_dict = 1;
+			}
 			// immediate ?
 			if (op->flags & UWSGI_OPT_IMMEDIATE) {
 				op->func(key, value, op->data);
