@@ -16,7 +16,7 @@ struct uwsgi_lua {
 
 struct uwsgi_option uwsgi_lua_options[] = {
 
-	{"lua", required_argument, 0, "load lua wsapi app", uwsgi_opt_set_str, &uwsgi.ulua.filename, 0},
+	{"lua", required_argument, 0, "load lua wsapi app", uwsgi_opt_set_str, &ulua.filename, 0},
 
 	{0, 0, 0, 0},
 
