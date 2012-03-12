@@ -567,6 +567,41 @@ void uwsgi_as_root() {
 				exit(1);
 			}
 		}
+
+		// fix ipcsem owner
+		if (uwsgi.lock_ops.lock_init == uwsgi_lock_ipcsem_init) {
+			struct uwsgi_lock_item *uli = uwsgi.registered_locks;
+
+        		while(uli) {
+				union semun {
+                			int val;
+                			struct semid_ds *buf;
+                			ushort *array;
+        			} semu ;
+
+				struct semid_ds sds;
+				memset(&sds, 0, sizeof(sds));
+				semu.buf = &sds;
+                		int semid = 0;
+                		memcpy(&semid, uli->lock_ptr, sizeof(int));
+
+                		if (semctl(semid, 0, IPC_STAT, semu)) {
+                        		uwsgi_error("semctl()");
+					exit(1);
+                		}
+
+				semu.buf->sem_perm.uid = uwsgi.uid;
+				semu.buf->sem_perm.gid = uwsgi.gid;
+
+                		if (semctl(semid, 0, IPC_SET, semu)) {
+                        		uwsgi_error("semctl()");
+					exit(1);
+                		}
+                		uli = uli->next;
+			}
+
+		}
+
 		if (uwsgi.gid) {
 			if (!uwsgi.master_as_root)
 				uwsgi_log("setgid() to %d\n", uwsgi.gid);

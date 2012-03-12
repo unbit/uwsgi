@@ -296,25 +296,38 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) { uwsgi_unlock_fast(uli); 
 
 #endif
 
-#include <sys/ipc.h>
-#include <sys/sem.h>
-
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *id) {
 
+	// used by ftok
+	static int counter = 1;
 	union semun {
  		int val;
 		struct semid_ds *buf;
 		ushort *array;
 	} semu ;
+	int semid;
+	key_t myKey;
 
 	struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
-	int semid = semget(IPC_PRIVATE, 1, IPC_CREAT|IPC_EXCL| 0600);
+	if (uwsgi.ftok) {
+		myKey = ftok(uwsgi.ftok, counter);
+		if (myKey < 0) {
+			uwsgi_error("ftok()");
+			exit(1);
+		}
+		counter++;
+		semid = semget(myKey, 1, IPC_CREAT|0666);
+	}
+	else {
+		semid = semget(IPC_PRIVATE, 1, IPC_CREAT|IPC_EXCL| 0666);
+	}
+
 	if (semid < 0) {
 		uwsgi_error("semget()");
 		exit(1);
 	}
-	// do this now, to allows triggering fo atexit hook in case of problems
+	// do this now, to allows triggering of atexit hook in case of problems
 	memcpy(uli->lock_ptr, &semid, sizeof(int));
 
 	semu.val = 1;

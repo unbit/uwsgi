@@ -141,6 +141,9 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <sys/sysctl.h>
 #endif
 
+#include <sys/ipc.h>
+#include <sys/sem.h>
+
 #include <stdarg.h>
 #include <errno.h>
 #ifndef __USE_ISOC99
@@ -1541,6 +1544,7 @@ struct uwsgi_server {
 	struct uwsgi_lock_item *registered_locks;
 	struct uwsgi_lock_ops lock_ops;
 	char *lock_engine;
+	char *ftok;
 	char *lock_id;
 	size_t lock_size;
 	size_t rwlock_size;
@@ -2745,6 +2749,8 @@ void uwsgi_emulate_cow_for_apps(int);
 char *uwsgi_read_fd(int, int *, int);
 
 void uwsgi_setup_post_buffering(void);
+
+struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
