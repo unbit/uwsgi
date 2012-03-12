@@ -390,6 +390,8 @@ void uwsgi_ipcsem_clear(void) {
 
 	if (uwsgi.master_process && getpid() == uwsgi.workers[0].pid) goto clear;
 
+	if (!uwsgi.master_process && uwsgi.mywid == 1) goto clear;
+
 	return;
 
 clear:
