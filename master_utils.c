@@ -371,7 +371,10 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 				ugs = ugs->next;
 				continue;
 			}
-			close(ugs->fd);
+			// do not close shared sockets !!!
+			if (!ugs->shared) {
+				close(ugs->fd);
+			}
 			ugs = ugs->next;
 		}
 		// fix the communication pipe

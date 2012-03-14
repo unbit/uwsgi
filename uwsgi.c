@@ -1670,7 +1670,7 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi_sock->fd = shared_sock->fd;
                 	uwsgi_sock->family = shared_sock->family;
                 	uwsgi_sock->name = shared_sock->name;
-			uwsgi_log("uwsgi socket %d mapped to shared socket %d (%s)\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_get_shared_socket_num(shared_sock), shared_sock->name);
+			uwsgi_log("uwsgi socket %d mapped to shared socket %d (%s) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, uwsgi_sock->fd);
 		}
 
 		uwsgi_sock = uwsgi_sock->next;

@@ -17,6 +17,7 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 					int shared_socket = atoi(ugs->name+1);
                         		if (shared_socket >= 0) {
                                 		ugs->fd = uwsgi_get_shared_socket_fd_by_num(shared_socket);
+						ugs->shared = 1;
                                 		if (ugs->fd == -1) {
                                         		uwsgi_log("unable to use shared socket %d\n", shared_socket);
 							exit(1);

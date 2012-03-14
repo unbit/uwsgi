@@ -107,6 +107,7 @@ struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *name, char *owner) {
 
         memset(uwsgi_sock, 0, sizeof(struct uwsgi_gateway_socket));
 	uwsgi_sock->fd = -1;
+	uwsgi_sock->shared = 0;
         uwsgi_sock->name = name;
 	uwsgi_sock->owner = owner;
 

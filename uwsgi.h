@@ -394,6 +394,7 @@ struct uwsgi_gateway_socket {
 	// this requires SCTP
 	int sctp;
 #endif
+	int shared;
 
 	char *owner;
 	struct uwsgi_gateway *gateway;
