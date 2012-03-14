@@ -24,7 +24,7 @@ static struct uwsgi_lock_item *uwsgi_register_lock(char *id, int rw) {
 		if (!uli->next) {
 			uli->next = uwsgi_malloc_shared(sizeof(struct uwsgi_lock_item));
 			if (rw) {
-				uwsgi_malloc_shared(uwsgi.rwlock_size);
+				uli->next->lock_ptr = uwsgi_malloc_shared(uwsgi.rwlock_size);
 			}
 			else {
 				uli->next->lock_ptr = uwsgi_malloc_shared(uwsgi.lock_size);
@@ -159,6 +159,7 @@ struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
                 uwsgi_log("unable to allocate rwlock structure\n");
                 exit(1);
         }
+
         if (pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) {
                 uwsgi_log("unable to share rwlock\n");
                 exit(1);

@@ -3276,16 +3276,20 @@ PyObject *py_uwsgi_queue_push(PyObject * self, PyObject * args) {
         }
 	
 	if (uwsgi.queue_size) {
+		UWSGI_RELEASE_GIL
                 uwsgi_wlock(uwsgi.queue_lock);
                 if (uwsgi_queue_push(message, msglen)) {
+                	uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
 			Py_INCREF(Py_True);
                         res = Py_True;
                 }
                 else {
+                	uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
                         Py_INCREF(Py_None);
                         res = Py_None;
                 }
-                uwsgi_rwunlock(uwsgi.queue_lock);
                 return res;
         }
 
@@ -3306,16 +3310,20 @@ PyObject *py_uwsgi_queue_set(PyObject * self, PyObject * args) {
         }
 
         if (uwsgi.queue_size) {
+		UWSGI_RELEASE_GIL
                 uwsgi_wlock(uwsgi.queue_lock);
                 if (uwsgi_queue_set(pos, message, msglen)) {
+                	uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
                         Py_INCREF(Py_True);
                         res = Py_True;
                 }
                 else {
+                	uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
                         Py_INCREF(Py_None);
                         res = Py_None;
                 }
-                uwsgi_rwunlock(uwsgi.queue_lock);
                 return res;
         }
 
@@ -3343,16 +3351,27 @@ PyObject *py_uwsgi_queue_pull(PyObject * self, PyObject * args) {
 	PyObject *res;
 
 	if (uwsgi.queue_size) {
+		UWSGI_RELEASE_GIL
 		uwsgi_wlock(uwsgi.queue_lock);
 		message = uwsgi_queue_pull(&size);
+		UWSGI_GET_GIL
 		if (message && size > 0) {
-                        res = PyString_FromStringAndSize(message, size);
+			res = PyString_FromStringAndSize(NULL, size);
+#ifdef PYTHREE
+                	char *storage = PyBytes_AsString(res);
+#else
+                	char *storage = PyString_AS_STRING(res);
+#endif
+			UWSGI_RELEASE_GIL
+			memcpy(storage, message, size);
                 }
                 else {
                         Py_INCREF(Py_None);
                         res = Py_None;
+			UWSGI_RELEASE_GIL
                 }
                 uwsgi_rwunlock(uwsgi.queue_lock);
+		UWSGI_GET_GIL
                 return res;
 	}
 
@@ -3368,16 +3387,27 @@ PyObject *py_uwsgi_queue_pop(PyObject * self, PyObject * args) {
         PyObject *res;
 
         if (uwsgi.queue_size) {
+		UWSGI_RELEASE_GIL
                 uwsgi_wlock(uwsgi.queue_lock);
                 message = uwsgi_queue_pop(&size);
-                if (message && size > 0) {
-                        res = PyString_FromStringAndSize(message, size);
+		UWSGI_GET_GIL
+		if (message && size > 0) {
+                        res = PyString_FromStringAndSize(NULL, size);
+#ifdef PYTHREE
+                        char *storage = PyBytes_AsString(res);
+#else
+                        char *storage = PyString_AS_STRING(res);
+#endif
+                        UWSGI_RELEASE_GIL
+                        memcpy(storage, message, size);
                 }
                 else {
                         Py_INCREF(Py_None);
                         res = Py_None;
+                        UWSGI_RELEASE_GIL
                 }
                 uwsgi_rwunlock(uwsgi.queue_lock);
+		UWSGI_GET_GIL
                 return res;
         }
 
@@ -3399,16 +3429,27 @@ PyObject *py_uwsgi_queue_get(PyObject * self, PyObject * args) {
         }
 
 	if (uwsgi.queue_size) {
+		UWSGI_RELEASE_GIL
 		uwsgi_rlock(uwsgi.queue_lock);
 		message = uwsgi_queue_get(index, &size);
-		if (message && size > 0) {
-			res = PyString_FromStringAndSize(message, size);
-		}
-		else {
-			Py_INCREF(Py_None);
-			res = Py_None;
-		}
+		UWSGI_GET_GIL
+                if (message && size > 0) {
+                        res = PyString_FromStringAndSize(NULL, size);
+#ifdef PYTHREE  
+                        char *storage = PyBytes_AsString(res);
+#else
+                        char *storage = PyString_AS_STRING(res);
+#endif  
+                        UWSGI_RELEASE_GIL
+                        memcpy(storage, message, size);
+                }
+                else {
+                        Py_INCREF(Py_None);
+                        res = Py_None;
+                        UWSGI_RELEASE_GIL
+                }
 		uwsgi_rwunlock(uwsgi.queue_lock);
+		UWSGI_GET_GIL
 		return res;
 	}	
 
@@ -3421,7 +3462,7 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
         long num = 0;
         uint64_t size = 0;
         char *message;
-        PyObject *res = NULL, *zero;
+        PyObject *res = NULL;
 	uint64_t base;
 
         if (!PyArg_ParseTuple(args, "|l:queue_last", &num)) {
@@ -3434,6 +3475,7 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 			res = PyList_New(0);
 		}
 
+		UWSGI_RELEASE_GIL
                 uwsgi_rlock(uwsgi.queue_lock);
 
 		if (uwsgi.queue_header->pos > 0) {
@@ -3445,15 +3487,24 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 
 		if (num == 0) {
                 	message = uwsgi_queue_get(base, &size);
-                	if (message && size) {
-                        	res = PyString_FromStringAndSize(message, size);
+			UWSGI_GET_GIL
+                	if (message && size > 0) {
+                        	res = PyString_FromStringAndSize(NULL, size);
+#ifdef PYTHREE  
+                        	char *storage = PyBytes_AsString(res);
+#else
+                        	char *storage = PyString_AS_STRING(res);
+#endif
+                        	UWSGI_RELEASE_GIL
+                        	memcpy(storage, message, size);
                 	}
                 	else {
-				Py_INCREF(Py_None);
-				res = Py_None;
+                        	Py_INCREF(Py_None);
+                        	res = Py_None;
+                        	UWSGI_RELEASE_GIL
                 	}
-
                 	uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
 			return res;
 		}
 
@@ -3461,13 +3512,23 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 
 		while(num) {
                 	message = uwsgi_queue_get(base, &size);
+			UWSGI_GET_GIL
                 	if (message && size) {
-                        	zero = PyString_FromStringAndSize(message, size);
+				PyObject *zero = PyString_FromStringAndSize(NULL, size);
 				PyList_Append(res, zero);
 				Py_DECREF(zero);
+#ifdef PYTHREE  
+                                char *storage = PyBytes_AsString(res);
+#else           
+                                char *storage = PyString_AS_STRING(res);
+#endif
+				UWSGI_RELEASE_GIL
+				memcpy(storage, message, size);
                 	}
                 	else {
+				UWSGI_RELEASE_GIL
                 		uwsgi_rwunlock(uwsgi.queue_lock);
+				UWSGI_GET_GIL
 				return res;
                 	}
 			if (base > 0) {
@@ -3478,7 +3539,9 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 			}
 			num--;
 		}
+		UWSGI_RELEASE_GIL
                 uwsgi_rwunlock(uwsgi.queue_lock);
+		UWSGI_GET_GIL
                 return res;
         }
 
@@ -3496,6 +3559,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 	char *value = NULL;
 	char *remote = NULL;
 	char buffer[0xffff];
+	PyObject *ret;
 
 #ifdef UWSGI_DEBUG
 	struct timeval tv, tv2;
@@ -3528,7 +3592,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 			return Py_None;
 		}
 		UWSGI_GET_GIL
-		PyObject *ret = PyString_FromStringAndSize(NULL, valsize);
+		ret = PyString_FromStringAndSize(NULL, valsize);
 #ifdef PYTHREE
 		char *storage = PyBytes_AsString(ret);
 #else
