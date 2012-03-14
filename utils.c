@@ -4065,6 +4065,7 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
                         touch->custom = 0;
                 }
                 else {
+			if (!touch->custom) touch->custom = (uint64_t) tr_st.st_mtime;
 			if ((uint64_t) tr_st.st_mtime > touch->custom) {
                         	touch->custom = (uint64_t) tr_st.st_mtime;
 				return touch->value;
