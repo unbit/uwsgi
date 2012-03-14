@@ -395,6 +395,10 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 
 		// close all of the unneded fd
 		for(i=3;i<(int)uwsgi.max_fd;i++) {
+			if (n_ui->use_config) {
+				if (i == n_ui->pipe_config[1])
+					continue;
+			}
 			if (i != n_ui->pipe[1]) {
 				close(i);
 			}
@@ -653,7 +657,9 @@ reconnect:
 					ssize_t rlen = read(interesting_fd, &byte, 1);
 					if (rlen <= 0) {
 						// SAFE
-						emperor_del(ui_current);
+						if (!ui_current->config_len) {
+							emperor_del(ui_current);
+						}
 					}
 					else {
 						if (byte == 17) {

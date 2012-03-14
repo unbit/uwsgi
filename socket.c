@@ -777,7 +777,7 @@ void uwsgi_socket_nb(int fd) {
 int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_size, int timeout, int async) {
 
 	int arg, ret;
-	int soopt;
+	int soopt = 0;
 	socklen_t solen = sizeof(int);
 	int cnt;
 	/* set non-blocking socket */
@@ -845,7 +845,6 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 			return -1;
 		}
 	}
-
 
 
 	return 0;
