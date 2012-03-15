@@ -12,6 +12,7 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
 
         int i;
         char spool_filename[1024];
+	struct uwsgi_header uh;
 
         // get the spooler from the modifier2
 
@@ -24,11 +25,11 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
         }
 
         i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, wsgi_req->buffer, wsgi_req->uh.pktsize, NULL, 0, NULL, 0);
-        wsgi_req->uh.modifier1 = 255;
-        wsgi_req->uh.pktsize = 0;
+        uh.modifier1 = 255;
+        uh.pktsize = 0;
         if (i > 0) {
-                wsgi_req->uh.modifier2 = 1;
-                if (write(wsgi_req->poll.fd, wsgi_req, 4) != 4) {
+                uh.modifier2 = 1;
+                if (write(wsgi_req->poll.fd, &uh, 4) != 4) {
                         uwsgi_log("disconnected client, remove spool file.\n");
                         /* client disconnect, remove spool file */
                         if (unlink(spool_filename)) {
@@ -41,8 +42,8 @@ int uwsgi_request_spooler(struct wsgi_request *wsgi_req) {
         }
         else {
                 /* announce a failed spool request */
-                wsgi_req->uh.modifier2 = 0;
-                i = write(wsgi_req->poll.fd, wsgi_req, 4);
+                uh.modifier2 = 0;
+                i = write(wsgi_req->poll.fd, &uh, 4);
                 if (i != 4) {
                         uwsgi_error("write()");
                 }
