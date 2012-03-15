@@ -1529,7 +1529,7 @@ struct uwsgi_server {
 	struct uwsgi_loop loops[MAX_LOOPS];
 	int loops_cnt;
 
-	struct uwsgi_plugin *p[0xFF];
+	struct uwsgi_plugin *p[256];
 	struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
 	int gp_cnt;
 

@@ -101,7 +101,7 @@ pid_t spooler_start(struct uwsgi_spooler *uspool) {
 		uwsgi_fixup_fds(0, 0, NULL);
 		uwsgi_close_all_sockets();
 
-		for (i = 0; i < 0xFF; i++) {
+		for (i = 0; i < 256; i++) {
                 	if (uwsgi.p[i]->post_fork) {
                         	uwsgi.p[i]->post_fork();
                 	}
@@ -109,7 +109,7 @@ pid_t spooler_start(struct uwsgi_spooler *uspool) {
 
 		uwsgi.signal_socket = uwsgi.shared->spooler_signal_pipe[1];
 
-		for (i = 0; i < 0xFF; i++) {
+		for (i = 0; i < 256; i++) {
                 	if (uwsgi.p[i]->spooler_init) {
                         	uwsgi.p[i]->spooler_init();
                 	}
@@ -508,7 +508,7 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			}
 
 			int callable_found = 0;
-			for(i=0;i<0xff;i++) {
+			for(i=0;i<256;i++) {
 				if (uwsgi.p[i]->spooler) {
 					time_t now = time(NULL);
 					if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {

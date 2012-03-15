@@ -48,13 +48,13 @@ void uwsgi_mule(int id) {
 
 		uwsgi_close_all_sockets();
 
-		for (i = 0; i < 0xFF; i++) {
+		for (i = 0; i < 256; i++) {
                 	if (uwsgi.p[i]->master_fixup) {
                 		uwsgi.p[i]->master_fixup(1);
                 	}
                 }
 
-		for (i = 0; i < 0xFF; i++) {
+		for (i = 0; i < 256; i++) {
                         if (uwsgi.p[i]->post_fork) {
                                 uwsgi.p[i]->post_fork();
                         }
@@ -62,7 +62,7 @@ void uwsgi_mule(int id) {
 
 
 		if (uwsgi.mules[id-1].patch) {
-			for (i = 0; i < 0xFF; i++) {
+			for (i = 0; i < 256; i++) {
                         	if (uwsgi.p[i]->mule) {
                                 	if (uwsgi.p[i]->mule(uwsgi.mules[id-1].patch) == 1) {
 						// never here
@@ -184,7 +184,7 @@ void uwsgi_mule_handler() {
 			}	
 			else {
 				int i,found = 0;
-				for(i=0;i<0xff;i++) {
+				for(i=0;i<256;i++) {
                                 	if (uwsgi.p[i]->mule_msg) {
                                         	if (uwsgi.p[i]->mule_msg(message, len)) {
 							found = 1;

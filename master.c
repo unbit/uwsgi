@@ -579,7 +579,7 @@ int master_loop(char **argv, char **environ) {
 				uwsgi.gp[i]->master_cycle();
 			}
 		}
-		for (i = 0; i < 0xFF; i++) {
+		for (i = 0; i < 256; i++) {
 			if (uwsgi.p[i]->master_cycle) {
 				uwsgi.p[i]->master_cycle();
 			}
@@ -918,7 +918,7 @@ int master_loop(char **argv, char **environ) {
 
 								// loop the various udp manager until one returns true
 								udp_managed = 0;
-								for (i = 0; i < 0xFF; i++) {
+								for (i = 0; i < 256; i++) {
 									if (uwsgi.p[i]->manage_udp) {
 										if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
 											udp_managed = 1;

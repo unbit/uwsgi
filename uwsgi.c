@@ -1083,7 +1083,7 @@ void uwsgi_plugins_atexit(void) {
 		}
 	}
 
-	for (j = 0; j<0xFF; j++) {
+	for (j = 0; j<256; j++) {
         	if (uwsgi.p[j]->atexit) {
                 	uwsgi.p[j]->atexit();
 		}
@@ -1257,7 +1257,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->spooler_frequency = 30;
 #endif
 
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i < 256; i++) {
 		uwsgi.p[i] = &unconfigured_plugin;
 	}
 
@@ -1494,7 +1494,7 @@ int main(int argc, char *argv[], char *envp[]) {
 					}
 				}
 				if (!magic) {
-					for (j = 0; j < 0xFF; j++) {
+					for (j = 0; j < 256; j++) {
 						if (uwsgi.p[j]->magic) {
 							if (uwsgi.p[j]->magic(NULL, lazy)) {
 								magic = 1;
@@ -2357,7 +2357,7 @@ skipzero:
 
 	// initialize request plugin only if workers or master are available
 	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
-		for (i = 0; i < 0xFF; i++) {
+		for (i = 0; i < 256; i++) {
 			if (uwsgi.p[i]->init) {
 				uwsgi.p[i]->init();
 			}
@@ -2373,7 +2373,7 @@ skipzero:
 
 	// again check for workers/sockets...
 	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
-		for (i = 0; i < 0xff; i++) {
+		for (i = 0; i < 256; i++) {
 			if (uwsgi.p[i]->post_init) {
 				uwsgi.p[i]->post_init();
 			}
@@ -2401,7 +2401,7 @@ skipzero:
 
 			// again check for workers/sockets...
 			if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
-				for (i = 0; i < 0xFF; i++) {
+				for (i = 0; i < 256; i++) {
 					if (uwsgi.p[i]->enable_threads)
 						uwsgi.p[i]->enable_threads();
 				}
@@ -2606,7 +2606,7 @@ skipzero:
 	}
 
 	// preinit apps (create the language environment)
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->preinit_apps) {
 			uwsgi.p[i]->preinit_apps();
 		}
@@ -2681,7 +2681,7 @@ skipzero:
 
 	// security in multiuser environment: allow only a subset of modifiers
 	if (uwsgi.allowed_modifiers) {
-		for (i = 0; i < 0xFF; i++) {
+		for (i = 0; i < 256; i++) {
 			if (!uwsgi_list_has_num(uwsgi.allowed_modifiers, i)) {
 				uwsgi.p[i]->request = unconfigured_hook;
 				uwsgi.p[i]->after_request = unconfigured_after_hook;
@@ -2690,7 +2690,7 @@ skipzero:
 	}
 
 	// master fixup
-        for (i = 0; i < 0xFF; i++) {
+        for (i = 0; i < 256; i++) {
                 if (uwsgi.p[i]->master_fixup) {
                         uwsgi.p[i]->master_fixup(0);
                 }
@@ -2891,7 +2891,7 @@ skipzero:
 		uwsgi_init_all_apps();
 	}
 
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->post_fork) {
 			uwsgi.p[i]->post_fork();
 		}
@@ -3025,7 +3025,7 @@ skipzero:
 	//initialization done
 
 	// run fixup handler
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->fixup) {
 			uwsgi.p[i]->fixup();
 		}
@@ -3091,7 +3091,7 @@ void uwsgi_ignition() {
 		uwsgi_log("[snapshot] process %d is the new worker %d\n", (int) getpid(), uwsgi.mywid);
 	}
 
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i < 256; i++) {
                 if (uwsgi.p[i]->hijack_worker) {
                         uwsgi.p[i]->hijack_worker();
                 }
@@ -3197,7 +3197,7 @@ void build_options() {
 		op++;
 	}
 
-	for(i=0;i<0xFF;i++) {
+	for(i=0;i<256;i++) {
 		if (uwsgi.p[i]->options) {
 			options_count += uwsgi_count_options(uwsgi.p[i]->options);
 		}
@@ -3220,7 +3220,7 @@ void build_options() {
 		op++;
 	}
 
-	for(i=0;i<0xFF;i++) {
+	for(i=0;i<256;i++) {
 		if (uwsgi.p[i]->options) {
 			int c = uwsgi_count_options(uwsgi.p[i]->options);
 			memcpy(&uwsgi.options[pos], uwsgi.p[i]->options, sizeof(struct uwsgi_option) * c);
@@ -3353,7 +3353,7 @@ void uwsgi_init_all_apps() {
 	}
 
 
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->init_apps) {
 			uwsgi.p[i]->init_apps();
 		}
@@ -3371,7 +3371,7 @@ void uwsgi_init_all_apps() {
 			what[0] = 0;
 			what++;
 			uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
-			for (j = 0; j < 0xFF; j++) {
+			for (j = 0; j < 256; j++) {
 				if (uwsgi.p[j]->mount_app) {
 					if (!uwsgi_startswith(uwsgi.mounts[i], "regexp://", 9)) {
 						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i]+9, what, 1) != -1)

@@ -59,7 +59,7 @@ void *simple_loop(void *arg1) {
 			sigdelset(&smask, SIGSEGV);
 #endif
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
-			for (i = 0; i < 0xFF; i++) {
+			for (i = 0; i < 256; i++) {
 				if (uwsgi.p[i]->init_thread) {
 					uwsgi.p[i]->init_thread(core_id);
 				}
@@ -135,7 +135,7 @@ void *zeromq_loop(void *arg1) {
 			sigdelset(&smask, SIGSEGV);
 #endif
 			pthread_sigmask(SIG_BLOCK, &smask, NULL);
-			for (i = 0; i < 0xFF; i++) {
+			for (i = 0; i < 256; i++) {
 				if (uwsgi.p[i]->init_thread) {
 					uwsgi.p[i]->init_thread(core_id);
 				}

@@ -478,7 +478,7 @@ int uwsgi_respawn_worker(int wid) {
 
 		if (uwsgi.master_process) {
 			if ((uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.cheap)) {
-				for (i = 0; i < 0xFF; i++) {
+				for (i = 0; i < 256; i++) {
 					if (uwsgi.p[i]->master_fixup) {
 						uwsgi.p[i]->master_fixup(1);
 					}

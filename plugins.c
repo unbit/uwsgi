@@ -5,7 +5,7 @@ extern struct uwsgi_server uwsgi;
 static int plugin_already_loaded(const char *plugin) {
 	int i;
 
-	for (i = 0; i < 0xFF; i++) {
+	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->name) {
 			if (!strcmp(plugin, uwsgi.p[i]->name)) {
 #ifdef UWSGI_DEBUG
