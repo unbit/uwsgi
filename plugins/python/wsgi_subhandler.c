@@ -233,6 +233,20 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 			uwsgi_apps[wsgi_req->app_id].exceptions++;
 			PyErr_Print();
 		}	
+		if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
+			PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
+			PyObject *close_method_args = PyTuple_New(0);
+#ifdef UWSGI_DEBUG
+			uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
+#endif
+			PyObject *close_method_output = PyEval_CallObject(close_method, close_method_args);
+			if (PyErr_Occurred()) {
+				PyErr_Print();
+			}
+			Py_DECREF(close_method_args);
+			Py_XDECREF(close_method_output);
+			Py_DECREF(close_method);
+		}
 		goto clear;
 	}
 
