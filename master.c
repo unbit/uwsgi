@@ -230,6 +230,29 @@ void get_linux_tcp_info(int fd) {
 		}
 	}
 }
+
+#include <linux/sockios.h>
+
+#ifdef UNBIT
+#define SIOBKLGQ 0x8908
+#endif
+
+#ifdef SIOBKLGQ
+
+void get_linux_unbit_SIOBKLGQ(int fd) {
+
+	int queue = 0;
+	if (ioctl(fd, SIOBKLGQ, &queue) >= 0) {
+		uwsgi.shared->load = queue;
+		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = queue;
+		if (queue >= uwsgi.listen_queue) {
+			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, queue, uwsgi.listen_queue);
+			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
+		}
+	}
+
+}
+#endif
 #endif
 
 
@@ -1191,6 +1214,11 @@ int master_loop(char **argv, char **environ) {
 				if (uwsgi_sock->family == AF_INET) {
 					get_linux_tcp_info(uwsgi_sock->fd);
 				}
+#ifdef SIOBKLGQ
+				else if (uwsgi_sock->family == AF_UNIX) {
+					get_linux_unbit_SIOBKLGQ(uwsgi_sock->fd);
+				}
+#endif
 				uwsgi_sock = uwsgi_sock->next;
 			}
 #endif
