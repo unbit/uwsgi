@@ -538,7 +538,7 @@ void fastrouter_loop(int id) {
 		else {
 			delta = min_timeout->key - time(NULL);
 			if (delta <= 0) {
-				expire_timeouts(ufr.timeouts, ufr.fr_table);
+				expire_timeouts();
 				delta = 0;
 			}
 		}
@@ -554,7 +554,7 @@ void fastrouter_loop(int id) {
 		}
 
 		if (nevents == 0) {
-			expire_timeouts(ufr.timeouts, ufr.fr_table);
+			expire_timeouts();
 		}
 
 		for (i = 0; i < nevents; i++) {
