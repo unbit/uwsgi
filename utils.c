@@ -4148,3 +4148,16 @@ void uwsgi_emulate_cow_for_apps(int id) {
 time_t uwsgi_now() {
 	return time(NULL);
 }
+
+void uwsgi_write_pidfile(char *pidfile_name) {
+	uwsgi_log("writing pidfile to %s\n", pidfile_name);
+        FILE *pidfile = fopen(pidfile_name, "w");
+        if (!pidfile) {
+        	uwsgi_error_open(pidfile_name);
+                exit(1);
+	}
+        if (fprintf(pidfile, "%d\n", (int) getpid()) < 0) {
+        	uwsgi_log("could not write pidfile.\n");
+        }
+        fclose(pidfile);
+}

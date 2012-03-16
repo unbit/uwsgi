@@ -1191,8 +1191,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	int i;
 	int rlen;
 
-	FILE *pidfile;
-
 	char *env_reloads;
 	char env_reload_buf[11];
 
@@ -1621,16 +1619,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	if (uwsgi.pidfile && !uwsgi.is_a_reload) {
-		uwsgi_log("writing pidfile to %s\n", uwsgi.pidfile);
-		pidfile = fopen(uwsgi.pidfile, "w");
-		if (!pidfile) {
-			uwsgi_error_open(uwsgi.pidfile);
-			exit(1);
-		}
-		if (fprintf(pidfile, "%d\n", (int) getpid()) < 0) {
-			uwsgi_log("could not write pidfile.\n");
-		}
-		fclose(pidfile);
+		uwsgi_write_pidfile(uwsgi.pidfile);
 	}
 
 	uwsgi_log_initial("detected binary path: %s\n", uwsgi.binary_path);
@@ -1783,16 +1772,7 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (uwsgi.pidfile2 && !uwsgi.is_a_reload) {
-		uwsgi_log("writing pidfile2 to %s\n", uwsgi.pidfile2);
-		FILE *pidfile2 = fopen(uwsgi.pidfile2, "w");
-		if (!pidfile2) {
-			uwsgi_error_open(uwsgi.pidfile2);
-			exit(1);
-		}
-		if (fprintf(pidfile2, "%d\n", (int) getpid()) < 0) {
-			uwsgi_log("could not write pidfile2.\n");
-		}
-		fclose(pidfile2);
+		uwsgi_write_pidfile(uwsgi.pidfile2);
 	}
 
 		if (!uwsgi.master_process && !uwsgi.command_mode) {
@@ -2642,6 +2622,14 @@ skipzero:
 		masterpid = uwsgi.mypid;
 
 		uwsgi.workers[0].pid = masterpid;
+
+		if (uwsgi.pidfile && !uwsgi.is_a_reload) {
+                	uwsgi_write_pidfile(uwsgi.pidfile);
+        	}
+
+		if (uwsgi.pidfile2 && !uwsgi.is_a_reload) {
+                	uwsgi_write_pidfile(uwsgi.pidfile2);
+        	}
         }
 
 	if (uwsgi.no_server) {

@@ -2753,6 +2753,8 @@ void uwsgi_setup_post_buffering(void);
 
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 
+void uwsgi_write_pidfile(char *);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif
