@@ -363,7 +363,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"check-cache", no_argument, 0, "check for response data in the cache", uwsgi_opt_true, &uwsgi.check_cache, 0},
 	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
 	{"mode", required_argument, 0, "set uWSGI custom mode", uwsgi_opt_set_str, &uwsgi.mode,0},
-	{"env", required_argument, 0, "set environment variable", uwsgi_opt_set_env, NULL, UWSGI_OPT_IMMEDIATE},
+	{"env", required_argument, 0, "set environment variable", uwsgi_opt_set_env, NULL, 0},
 	{"vacuum", no_argument, 0, "try to remove all of the generated file/sockets", uwsgi_opt_true, &uwsgi.vacuum,0},
 #ifdef __linux__
 	{"cgroup", required_argument, 0, "put the processes in the specified cgroup", uwsgi_opt_add_string_list, &uwsgi.cgroup,0},
