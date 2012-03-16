@@ -17,7 +17,7 @@ int cheaper_backlog2_algo(void) {
 
         int i;
 #ifdef __linux__
-        int backlog = uwsgi.shared->ti.tcpi_unacked;
+        int backlog = uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS];
 #else
         int backlog = 0;
 #endif

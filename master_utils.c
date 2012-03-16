@@ -178,7 +178,7 @@ int uwsgi_cheaper_algo_backlog(void) {
 
 	int i;
 #ifdef __linux__
-	int backlog = uwsgi.shared->ti.tcpi_unacked;
+	int backlog = uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS];
 #else
 	int backlog = 0;
 #endif
@@ -671,7 +671,8 @@ void uwsgi_send_stats(int fd) {
 	stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
 
 #ifdef __linux__
-	stats_send_llu("\"listen_queue\": %llu,\n", uwsgi.shared->ti.tcpi_unacked);
+	stats_send_llu("\"listen_queue\": %llu,\n", (unsigned long long) uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS]);
+	stats_send_llu("\"listen_queue_errors\": %llu,\n", (unsigned long long) uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]);
 #endif
 
 	stats_send_llu("\"load\": %llu,\n", uwsgi.shared->load);

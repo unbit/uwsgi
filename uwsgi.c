@@ -2220,10 +2220,12 @@ int uwsgi_start(void *v_argv) {
 			if (!getsockname(0, gsa.sa, &socket_type_len)) {
 				if (gsa.sa->sa_family == AF_UNIX) {
 					uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
+					uwsgi_sock->family = AF_UNIX;
 					uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 				}
 				else {
 					uwsgi_sock = uwsgi_new_socket(uwsgi_concat2("::",""));
+					uwsgi_sock->family = AF_INET;
 					uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 				}
 			}
