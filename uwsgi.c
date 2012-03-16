@@ -3732,9 +3732,11 @@ void uwsgi_opt_signal(char *opt, char *value, void *foobar) {
 void uwsgi_opt_log_date(char *opt, char *value, void *foobar) {
 
 	uwsgi.logdate = 1;
-                if (value) {
-                        uwsgi.log_strftime = value;
-                }
+        if (value) {
+		if (strcasecmp("true", value) && strcasecmp("1", value) && strcasecmp("on", value) && strcasecmp("yes", value)) {
+        		uwsgi.log_strftime = value;
+		}
+        }
 }
 
 void uwsgi_opt_chmod_socket(char *opt, char *value, void *foobar) {
