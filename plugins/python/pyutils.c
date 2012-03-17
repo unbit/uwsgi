@@ -71,7 +71,7 @@ void init_pyargv() {
 	}
 
 #ifdef PYTHREE
-	wchar_t *pname = uwsgi_calloc(strlen(argv0)+1);
+	wchar_t *pname = uwsgi_calloc(sizeof(wchar_t) * (strlen(argv0)+1));
 	mbstowcs(pname, argv0, strlen(argv0)+1);
 #else
 	char *pname = argv0;
