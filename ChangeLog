@@ -1,3 +1,30 @@
+*** march 2012 ***
+
+ * 1.1 [20120317]
+
+- new options parser subsystem
+- improved php support
+- multiple spooler with multiprocessing
+- segmentation fault and floating point exceptions manager
+- never-swap option
+- zergpool plugin
+- perl/psgi multiple interpreters support
+- deadlock detector
+- pluggable cheaper algos
+- new internal routing susbsystem
+- preliminary support for config logic
+- log rotation infrastructure
+- support for paste loggers
+- threading improvements
+- plugins can now mapped to specific modifiers
+- <app> tag is deprecated (use mount option)
+- report startup time for apps
+- reintroduced expat support
+- reintroduced remote spooler plugin
+- various fastrouter optimizations
+- added ruby rvm support
+
+
 *** december 2011 ***
 
  * 1.0 [20111230]
