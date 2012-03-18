@@ -159,7 +159,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	// call
 
 	PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
-	return python_call(wsgi_req->async_app, wsgi_req->async_args, up.catch_exceptions, wsgi_req);
+	return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi.catch_exceptions, wsgi_req);
 }
 
 int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
@@ -279,12 +279,6 @@ clear:
 
 	if (wsgi_req->sendfile_fd != -1) {
 		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
-	}
-	if (wsgi_req->async_input) {
-		Py_DECREF((PyObject *)wsgi_req->async_input);
-	}
-	if (wsgi_req->async_environ) {
-		PyDict_Clear(wsgi_req->async_environ);
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
 clear2:

@@ -108,8 +108,6 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"ini-paste", required_argument, 0, "load a paste.deploy config file containing uwsgi section", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 	{"ini-paste-logged", required_argument, 0, "load a paste.deploy config file containing uwsgi section (load loggers too)", uwsgi_opt_ini_paste, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
-	{"catch-exceptions", no_argument, 0, "report exception has http output (discouraged)", uwsgi_opt_true, &up.catch_exceptions, 0},
-	{"ignore-script-name", no_argument, 0, "ignore SCRIPT_NAME", uwsgi_opt_true, &up.ignore_script_name, 0},
 	{"reload-os-env", no_argument, 0, "force reload of os.environ at each request", uwsgi_opt_true, &up.reload_os_env, 0},
 #ifndef UWSGI_PYPY
 	{"no-site", no_argument, 0, "do not import site module", uwsgi_opt_true, &Py_NoSiteFlag, 0},

@@ -1563,6 +1563,9 @@ nextlock:
 			else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_DE_HIJACKED_CODE) {
 				uwsgi_log("...restoring worker %d (pid: %d)...\n", uwsgi.mywid, (int) diedpid);
 			}
+			else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_EXCEPTION_CODE) {
+				uwsgi_log("... monitored exception detected, respawning worker %d (pid: %d)...\n", uwsgi.mywid, (int) diedpid);
+			}
 			else if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_QUIET_CODE) {
 				// noop
 			}

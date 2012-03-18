@@ -548,6 +548,7 @@ struct uwsgi_opt {
 #define UWSGI_EXILE_CODE 26
 #define UWSGI_FAILED_APP_CODE 22
 #define UWSGI_DE_HIJACKED_CODE 173
+#define UWSGI_EXCEPTION_CODE 5
 #define UWSGI_QUIET_CODE 29
 
 #define MAX_VARS 64
@@ -1205,6 +1206,13 @@ struct uwsgi_server {
 
 	int ignore_script_name;
 	int manage_script_name;
+	int reload_on_exception;
+	int catch_exceptions;
+	struct uwsgi_string_list *reload_on_exception_type;
+	struct uwsgi_string_list *reload_on_exception_value;
+	struct uwsgi_string_list *reload_on_exception_repr;
+
+
 	int no_default_app;
 	// exit if no-app is loaded
 	int need_app;
@@ -1448,7 +1456,6 @@ struct uwsgi_server {
 
 	char *chdir;
 	char *chdir2;
-	int catch_exceptions;
 
 	int vacuum;
 	int no_server;
@@ -2754,6 +2761,7 @@ void uwsgi_setup_post_buffering(void);
 struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 
 void uwsgi_write_pidfile(char *);
+int uwsgi_manage_exception(char *, char *, char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

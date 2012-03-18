@@ -363,7 +363,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	if (wsgi_req->appid_len == 0) {
-		if (!up.ignore_script_name) {
+		if (!uwsgi.ignore_script_name) {
 			wsgi_req->appid = wsgi_req->script_name;
 			wsgi_req->appid_len = wsgi_req->script_name_len;
 		}
@@ -466,7 +466,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	}
 
-	else if (up.catch_exceptions) {
+	else if (uwsgi.catch_exceptions) {
 
 		// LOCK THIS PART
 
@@ -500,6 +500,14 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		}
 		close(tmp_stderr);
 	}
+
+	// this object must be freed/cleared always
+	if (wsgi_req->async_input) {
+                Py_DECREF((PyObject *)wsgi_req->async_input);
+        }
+        if (wsgi_req->async_environ) {
+                PyDict_Clear(wsgi_req->async_environ);
+        }
 
 clear:
 

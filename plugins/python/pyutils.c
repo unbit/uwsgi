@@ -8,20 +8,103 @@ int manage_python_response(struct wsgi_request *wsgi_req) {
 	return uwsgi_response_subhandler_wsgi(wsgi_req);
 }
 
+char *uwsgi_python_get_exception_type(PyObject *exc) {
+	char *class_name = NULL;
+	if (PyClass_Check(exc)) {
+		class_name = PyString_AsString( ((PyClassObject*)(exc))->cl_name );
+	}
+	else {
+		class_name = (char *) ((PyTypeObject*)exc)->tp_name;
+	}
+
+	if (class_name) {
+		char *dot = strrchr(class_name, '.');
+		if (dot) class_name = dot+1;
+
+		PyObject *module_name = PyObject_GetAttrString(exc, "__module__");
+		if (module_name) {
+			char *mod_name = PyString_AsString(module_name);
+			if (mod_name && strcmp(mod_name, "exceptions") ) {
+				char *ret = uwsgi_concat3(mod_name, ".", class_name);
+				Py_DECREF(module_name);
+				return ret;
+			}
+			Py_DECREF(module_name);
+			return uwsgi_str(class_name);
+		}
+	}
+
+	return NULL;
+}
+
+char *uwsgi_python_get_exception_value(PyObject *value) {
+	return PyString_AsString( PyObject_Str(value) );
+}
+
+char *uwsgi_python_get_exception_repr(PyObject *exc, PyObject *value) {
+	char *exc_type = uwsgi_python_get_exception_type(exc);
+	char *exc_value = uwsgi_python_get_exception_value(value);
+
+	if (exc_type && exc_value) {
+		return uwsgi_concat3(exc_type, ": ", exc_value);
+	}
+
+	return NULL;
+}
+
+int uwsgi_python_manage_exceptions(void) {
+	PyObject *type = NULL;
+	PyObject *value = NULL;
+	PyObject *traceback = NULL;
+
+	char *exc_type = NULL;
+	char *exc_value = NULL;
+	char *exc_repr = NULL;
+
+	PyErr_Fetch(&type, &value, &traceback);
+	PyErr_NormalizeException(&type, &value, &traceback);
+
+	if (uwsgi.reload_on_exception_type) {
+		exc_type = uwsgi_python_get_exception_type(type);
+	}
+
+	if (uwsgi.reload_on_exception_value) {
+		exc_value = uwsgi_python_get_exception_value(value);
+	}
+
+	if (uwsgi.reload_on_exception_repr) {
+		exc_repr = uwsgi_python_get_exception_repr(type, value);
+	}
+
+	int ret = uwsgi_manage_exception(exc_type, exc_value, exc_repr);
+
+	// free memory allocated for strcmp
+	if (exc_type) free(exc_type);
+	if (exc_repr) free(exc_repr);
+
+	PyErr_Restore(type, value, traceback);
+
+	return ret;
+}
+
 PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi_request *wsgi_req) {
 
 	PyObject *pyret;
 
 	//uwsgi_log("ready to call %p %p\n", callable, args);
 
-	pyret =  PyEval_CallObject(callable, args);
+	pyret = PyEval_CallObject(callable, args);
 
 	//uwsgi_log("called\n");
 
 	if (PyErr_Occurred()) {
+
+		int do_exit = uwsgi_python_manage_exceptions();
+
 		if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
 			uwsgi_log("Memory Error detected !!!\n");
 		}
+
 		// this can be in a spooler or in the master
 		if (uwsgi.mywid > 0) {
 			uwsgi.workers[uwsgi.mywid].exceptions++;
@@ -31,6 +114,10 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 		}
 		if (!catch) {
 			PyErr_Print();
+		}
+
+		if (do_exit) {
+			exit(UWSGI_EXCEPTION_CODE);
 		}
 	}
 

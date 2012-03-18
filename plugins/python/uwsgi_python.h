@@ -136,9 +136,6 @@ struct uwsgi_python {
 
 	char *callable;
 
-	int ignore_script_name;
-	int catch_exceptions;
-
 	int *current_recursion_depth;
 	struct _frame **current_frame;
 
