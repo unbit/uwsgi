@@ -354,8 +354,8 @@ static int get_snmp_integer(uint8_t * ptr, uint64_t * val) {
 void uwsgi_opt_snmp(char *opt, char *value, void *foobar) {
 	uwsgi.snmp = 1;
         if (value) {
-                      uwsgi.snmp_addr = optarg;
-                      uwsgi.master_process = 1;
+        	uwsgi.snmp_addr = value; 
+                uwsgi.master_process = 1;
         }
 
 }
