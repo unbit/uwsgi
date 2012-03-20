@@ -2763,6 +2763,9 @@ struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 void uwsgi_write_pidfile(char *);
 int uwsgi_manage_exception(char *, char *, char *);
 
+void uwsgi_protected_close(int);
+ssize_t uwsgi_protected_read(int, void *, size_t);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif
@@ -2770,5 +2773,4 @@ int uwsgi_init(int, char **, char **);
 #ifdef __cplusplus
 }
 #endif
-
 

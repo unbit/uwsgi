@@ -4204,3 +4204,37 @@ int uwsgi_manage_exception(char *type, char *value, char *repr) {
 
 	return 0;
 }
+
+void uwsgi_protected_close(int fd) {
+
+	sigset_t mask, oset;
+	sigfillset(&mask);
+	if (sigprocmask(SIG_BLOCK, &mask, &oset)) {
+		uwsgi_error("sigprocmask()");
+		exit(1);
+	}
+	close(fd);
+	if (sigprocmask(SIG_SETMASK, &oset, NULL)) {
+		uwsgi_error("sigprocmask()");
+		exit(1);
+	}
+}
+
+ssize_t uwsgi_protected_read(int fd, void *buf, size_t len) {
+
+        sigset_t mask, oset;
+        sigfillset(&mask);
+        if (sigprocmask(SIG_BLOCK, &mask, &oset)) {
+                uwsgi_error("sigprocmask()");
+                exit(1);
+        }
+
+	ssize_t ret = read(fd, buf, len);
+
+        if (sigprocmask(SIG_SETMASK, &oset, NULL)) {
+                uwsgi_error("sigprocmask()");
+                exit(1);
+        }
+	return ret;
+}
+

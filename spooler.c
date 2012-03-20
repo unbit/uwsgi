@@ -453,20 +453,30 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			spool_fd = open(task, O_RDWR);
 
 			if (spool_fd < 0) {
-				uwsgi_error_open(task);
+				if (errno != ENOENT)
+					uwsgi_error_open(task);
 				return;
 			}
 
-			// check if the file is locked by anther process
+			// check if the file is locked by another process
 			if (uwsgi_fcntl_is_locked(spool_fd)) {
-				close(spool_fd);
+				uwsgi_protected_close(spool_fd);
 				return;
 			}
 
-			if (read(spool_fd, &uh, 4) != 4) {
+			// unlink() can destroy the lock !!!
+			if (access(task, R_OK | W_OK)) {
+				uwsgi_protected_close(spool_fd);
+				return;
+			}
+
+			ssize_t rlen = uwsgi_protected_read(spool_fd, &uh, 4);
+
+			if (rlen != 4) {
 				// it could be here for broken file or just opened one
-				uwsgi_error("read()");
-				close(spool_fd);
+				if (rlen < 0)
+					uwsgi_error("read()");
+				uwsgi_protected_close(spool_fd);
 				return;
 			}
 
@@ -474,10 +484,10 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			uh.pktsize = uwsgi_swap16(uh.pktsize);
 #endif
 
-			if (read(spool_fd, spool_buf, uh.pktsize) != uh.pktsize) {
+			if (uwsgi_protected_read(spool_fd, spool_buf, uh.pktsize) != uh.pktsize) {
 				uwsgi_error("read()");
 				destroy_spool(dir, task);	
-				close(spool_fd);
+				uwsgi_protected_close(spool_fd);
 				return;
 			}			
 					
@@ -485,16 +495,16 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			if (sf_lstat.st_size > (uh.pktsize+4)) {
 				body_len = sf_lstat.st_size - (uh.pktsize+4);
 				body = uwsgi_malloc(body_len);
-				if ((size_t)read(spool_fd, body, body_len) != body_len) {
+				if ((size_t)uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
 					uwsgi_error("read()");
 					destroy_spool(dir, task);
-					close(spool_fd);
+					uwsgi_protected_close(spool_fd);
 					free(body);
 					return;
 				}
 			}
 
-			// not the task is running and should not be waken
+			// now the task is running and should not be waken up
 			uspool->running = 1;
 
 			uwsgi_log("[spooler %s pid: %d] managing request %s ...\n", uspool->dir, (int) uwsgi.mypid, task);
@@ -533,7 +543,7 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 				free(body);
 
 			// here we free and unlock the task
-			close(spool_fd);
+			uwsgi_protected_close(spool_fd);
 			uspool->running = 0;
 
 			if (!callable_found) {

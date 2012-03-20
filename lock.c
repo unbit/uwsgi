@@ -457,7 +457,7 @@ void uwsgi_setup_locking() {
 int uwsgi_fcntl_lock(int fd) {
 	struct flock fl;
 	fl.l_type = F_WRLCK;
-	fl.l_whence = SEEK_CUR;
+	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
 	fl.l_pid = 0;
@@ -473,7 +473,7 @@ int uwsgi_fcntl_is_locked(int fd) {
 
 	struct flock fl;
         fl.l_type = F_WRLCK;
-        fl.l_whence = SEEK_CUR;
+        fl.l_whence = SEEK_SET;
         fl.l_start = 0;
         fl.l_len = 0;
         fl.l_pid = 0;

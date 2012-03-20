@@ -1715,6 +1715,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		}
 	}
 
+	UWSGI_RELEASE_GIL
+
 	if (numprio) {
 		priority = uwsgi_num2str(numprio);
 	} 
@@ -1724,6 +1726,8 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	}
 		
 	free(spool_buffer);
+
+	UWSGI_GET_GIL
 
 	Py_DECREF(spool_vars);
 
