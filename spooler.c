@@ -237,7 +237,8 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	// here the file will be unlocked too
 	close(fd);
 
-	uwsgi_log("[spooler] written %d bytes to file %s\n", size + body_len + 4, filename);
+	if (!uwsgi.spooler_quiet)
+		uwsgi_log("[spooler] written %d bytes to file %s\n", size + body_len + 4, filename);
 	
 	// and here waiting threads can continue
 	uwsgi_unlock(uspool->lock);
@@ -507,7 +508,8 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			// now the task is running and should not be waken up
 			uspool->running = 1;
 
-			uwsgi_log("[spooler %s pid: %d] managing request %s ...\n", uspool->dir, (int) uwsgi.mypid, task);
+			if (!uwsgi.spooler_quiet)
+				uwsgi_log("[spooler %s pid: %d] managing request %s ...\n", uspool->dir, (int) uwsgi.mypid, task);
 
 
 			// chdir before running the task (if requested)
@@ -531,7 +533,8 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 					if (ret == 0) continue;
 					callable_found = 1;
 					if (ret == -2) {
-						uwsgi_log("[spooler %s pid: %d] done with task %s after %d seconds\n", uspool->dir, (int) uwsgi.mypid, task, time(NULL)-now);
+						if (!uwsgi.spooler_quiet)
+							uwsgi_log("[spooler %s pid: %d] done with task %s after %d seconds\n", uspool->dir, (int) uwsgi.mypid, task, time(NULL)-now);
 						destroy_spool(dir, task);	
 					}
 					// re-spool it

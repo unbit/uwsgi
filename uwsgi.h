@@ -1340,6 +1340,7 @@ struct uwsgi_server {
 	struct uwsgi_spooler *i_am_a_spooler;
 	char *spooler_chdir;
 	int spooler_ordered;
+	int spooler_quiet;
 #endif
 
 #ifdef UWSGI_SNMP
