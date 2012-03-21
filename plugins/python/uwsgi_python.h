@@ -253,6 +253,8 @@ void uwsgi_python_reset_random_seed(void);
 
 char *uwsgi_pythonize(char *);
 
+int uwsgi_python_manage_exceptions(void);
+
 #ifdef UWSGI_PYPY
 #undef UWSGI_MINTERPRETERS
 #endif

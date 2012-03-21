@@ -222,12 +222,16 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (!pychunk) {
 		if (PyErr_Occurred()) { 
+			int do_exit = uwsgi_python_manage_exceptions();
 		        if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
 				uwsgi_log("Memory Error detected !!!\n");	
 			}		
 			uwsgi.workers[uwsgi.mywid].exceptions++;
 			uwsgi_apps[wsgi_req->app_id].exceptions++;
 			PyErr_Print();
+			if (do_exit) {
+                        	exit(UWSGI_EXCEPTION_CODE);
+                	}
 		}	
 		if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
 			PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
