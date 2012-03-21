@@ -1,3 +1,4 @@
+# uwsgi --async 1000 --ugreen
 import uwsgi
 import psycopg2
 
@@ -12,9 +13,11 @@ def async_wait(conn):
 		if state == psycopg2.extensions.POLL_OK:
 			break
 		elif state == psycopg2.extensions.POLL_READ:
-			uwsgi.green_wait_fdread(conn.fileno())
+			uwsgi.wait_fd_read(conn.fileno())
+                        uwsgi.suspend()
 		elif state == psycopg2.extensions.POLL_WRITE:
-			uwsgi.green_wait_fdwrite(conn.fileno())
+			uwsgi.wait_fd_write(conn.fileno())
+                        uwsgi.suspend()
 		else:
 			raise Exception("Unexpected result from poll: %r", state)
 
@@ -26,7 +29,7 @@ def application(env, start_response):
 
 	start_response('200 Ok', [('Content-type', 'text/html')])
 
-	conn = psycopg2.connect("dbname=prova user=postgres", async=True)
+	conn = psycopg2.connect("dbname=template1 user=postgres", async=True)
 
 	# suspend until connection
 	async_wait(conn)
