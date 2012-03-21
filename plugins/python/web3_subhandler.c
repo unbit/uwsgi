@@ -136,8 +136,6 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 	PyObject *pychunk;
 	ssize_t wsize;
 
-	UWSGI_GET_GIL
-
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
 		if (PyTuple_Check((PyObject *)wsgi_req->async_result)) {
@@ -189,7 +187,6 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 			}
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
-				UWSGI_RELEASE_GIL
 				return UWSGI_AGAIN;
 			}
 #endif
@@ -221,7 +218,6 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 
 
 	Py_DECREF(pychunk);
-	UWSGI_RELEASE_GIL
 	return UWSGI_AGAIN;
 
 clear:
@@ -230,7 +226,6 @@ clear:
 	Py_DECREF((PyObject *)wsgi_req->async_result);
 	PyErr_Clear();
 
-	UWSGI_RELEASE_GIL
 	return UWSGI_OK;
 }
 
