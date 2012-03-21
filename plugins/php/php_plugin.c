@@ -837,7 +837,8 @@ secure2:
 	wsgi_req->script_name_len = strlen(wsgi_req->script_name);
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("php filename = %s %.*s\n", real_filename, wsgi_req->script_name_len, wsgi_req->script_name);
+	uwsgi_log("php filename = %s script_name = %.*s (%d) document_root = %.*s (%d)\n", real_filename, wsgi_req->script_name_len, wsgi_req->script_name, wsgi_req->script_name_len,
+		wsgi_req->document_root_len, wsgi_req->document_root, wsgi_req->document_root_len);
 #endif
 
 
