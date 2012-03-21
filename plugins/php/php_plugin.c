@@ -707,13 +707,30 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 	if (uphp.docroot) {
 		wsgi_req->document_root = uphp.docroot;
-		wsgi_req->document_root_len = strlen(wsgi_req->document_root);
 	}
 	// fallback to cwd
 	else if (!wsgi_req->document_root_len) {
 		wsgi_req->document_root = uwsgi.cwd;
-		wsgi_req->document_root_len = strlen(uwsgi.cwd);
 	}
+	else {
+		// explode DOCUMENT_ROOT (both for security and sanity checks)
+		char *zeroed_docroot = uwsgi_malloc(wsgi_req->document_root_len+1);
+		memcpy(zeroed_docroot, wsgi_req->document_root, wsgi_req->document_root_len);
+		zeroed_docroot[wsgi_req->document_root_len] = 0;
+		// this memory will be cleared on request end
+		char *sanitized_docroot = ecalloc(1, PATH_MAX+1);
+		if (!realpath(zeroed_docroot, sanitized_docroot)) {
+			uwsgi_error("realpath()");
+			free(zeroed_docroot);
+			efree(sanitized_docroot);
+			return -1;
+		}
+		free(zeroed_docroot);
+		wsgi_req->document_root = sanitized_docroot;
+	}
+
+	// fix document_root_len
+	wsgi_req->document_root_len = strlen(wsgi_req->document_root);
 
 	if (uphp.app) {
 		strcpy(real_filename, uphp.app);	
