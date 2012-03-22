@@ -1254,6 +1254,21 @@ int uwsgi_is_bad_connection(int fd) {
 	return soopt;
 }
 
+int uwsgi_socket_uniq(struct uwsgi_socket *list, struct uwsgi_socket *item) {
+	int found = 0;
+
+	if (list == item) return 1;
+	struct uwsgi_socket *uwsgi_sock = list;
+	while(uwsgi_sock && uwsgi_sock != item) {
+		if (!strcmp(uwsgi_sock->name, item->name)) {
+			found = 1;
+			break;
+		}
+		uwsgi_sock = uwsgi_sock->next;	
+	}
+	return found;
+}
+
 void uwsgi_manage_zerg(int fd, int num_sockets, int *sockets) {
 	struct sockaddr_un zsun;
 	socklen_t zsun_len = sizeof(struct sockaddr_un);
@@ -1297,11 +1312,16 @@ void uwsgi_manage_zerg(int fd, int num_sockets, int *sockets) {
 
 	if (!sockets) {
 		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+		int uniq_count = 0;
 		while (uwsgi_sock) {
-			memcpy(zerg_fd_ptr, &uwsgi_sock->fd, sizeof(int));
-			zerg_fd_ptr += sizeof(int);
+			if (uwsgi_socket_uniq(uwsgi.sockets, uwsgi_sock)) {
+				memcpy(zerg_fd_ptr, &uwsgi_sock->fd, sizeof(int));
+				zerg_fd_ptr += sizeof(int);
+				uniq_count++;
+			}
 			uwsgi_sock = uwsgi_sock->next;
 		}
+		zerg_iov[1].iov_base = &uniq_count;
 	}
 	else {
 		memcpy(zerg_fd_ptr, sockets, sizeof(int) * num_sockets);
