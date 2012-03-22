@@ -2053,19 +2053,18 @@ int uwsgi_start(void *v_argv) {
 			}
 		}
 
-		struct uwsgi_string_list *zn = uwsgi.zerg_node;
-		while (zn) {
-			if (uwsgi_zerg_attach(zn->value)) {
-				if (!uwsgi.zerg_fallback) {
-					exit(1);
+		if (!uwsgi.is_a_reload) {
+			struct uwsgi_string_list *zn = uwsgi.zerg_node;
+			while (zn) {
+				if (uwsgi_zerg_attach(zn->value)) {
+					if (!uwsgi.zerg_fallback) {
+						exit(1);
+					}
 				}
+				zn = zn->next;
 			}
-			zn = zn->next;
-		}
 
 
-		//check for inherited sockets
-		if (uwsgi.is_a_reload || uwsgi.zerg) {
 
 			if (uwsgi.zerg) {
 #ifdef UWSGI_DEBUG
@@ -2085,6 +2084,10 @@ int uwsgi_start(void *v_argv) {
 
 				uwsgi_log("zerg sockets attached\n");
 			}
+		}
+
+		//check for inherited sockets
+		if (uwsgi.is_a_reload) {
 
 			uwsgi_sock = uwsgi.sockets;
 			while (uwsgi_sock) {
@@ -2148,7 +2151,7 @@ int uwsgi_start(void *v_argv) {
 		//now bind all the unbound sockets
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
-			if (!uwsgi_sock->bound) {
+			if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
 				char *tcp_port = strchr(uwsgi_sock->name, ':');
 				if (tcp_port == NULL) {
 					uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
@@ -2253,6 +2256,7 @@ skipzero:
 		// put listening socket in non-blocking state and set the protocol
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
+			if (!uwsgi_sock->bound || uwsgi_sock->fd == -1) goto nextsock;
 			if (!uwsgi_sock->per_core) {
 				uwsgi_sock->arg = fcntl(uwsgi_sock->fd, F_GETFL, NULL);
 				if (uwsgi_sock->arg < 0) {
@@ -2321,7 +2325,7 @@ skipzero:
 				uwsgi_sock->proto_sendfile = NULL;
 				uwsgi_sock->proto_close = uwsgi_proto_base_close;
 			}
-
+nextsock:
 			uwsgi_sock = uwsgi_sock->next;
 		}
 

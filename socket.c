@@ -915,6 +915,7 @@ struct uwsgi_socket *uwsgi_new_shared_socket(char *name) {
 
 	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket));
 	uwsgi_sock->name = name;
+	uwsgi_sock->fd = -1;
 
 	return uwsgi_sock;
 }
@@ -942,6 +943,7 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 
 	memset(uwsgi_sock, 0, sizeof(struct uwsgi_socket));
 	uwsgi_sock->name = name;
+	uwsgi_sock->fd = -1;
 
 	if (!name)
 		return uwsgi_sock;
@@ -1220,12 +1222,11 @@ void uwsgi_add_sockets_to_queue(int queue) {
 			uwsgi_sock->fd = connect_to_sctp(uwsgi_sock->name, queue);
 			uwsgi_sock->queue = queue;
 		}
-		else {
+		else
 #endif
-		event_queue_add_fd_read(queue, uwsgi_sock->fd);
-#ifdef UWSGI_SCTP
+		if (uwsgi_sock->fd > -1) {
+			event_queue_add_fd_read(queue, uwsgi_sock->fd);
 		}
-#endif
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
@@ -1235,7 +1236,9 @@ void uwsgi_del_sockets_from_queue(int queue) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
+		if (uwsgi_sock->fd == -1) goto nextsock;
 		event_queue_del_fd(queue, uwsgi_sock->fd, event_queue_read());
+nextsock:
 		uwsgi_sock = uwsgi_sock->next;
 	}
 
@@ -1254,16 +1257,29 @@ int uwsgi_is_bad_connection(int fd) {
 	return soopt;
 }
 
+int uwsgi_socket_is_already_bound(char *name) {
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		if (uwsgi_sock->name && !strcmp(uwsgi_sock->name, name) && uwsgi_sock->bound) {
+			return 1;
+		}
+		uwsgi_sock = uwsgi_sock->next;
+	}
+	return 0;
+}
+
 int uwsgi_socket_uniq(struct uwsgi_socket *list, struct uwsgi_socket *item) {
 	int found = 0;
 
-	if (list == item) return 1;
+	if (list == item) return 0;
 	struct uwsgi_socket *uwsgi_sock = list;
 	while(uwsgi_sock && uwsgi_sock != item) {
+		if (uwsgi_sock->fd == -1) goto nextsock;
 		if (!strcmp(uwsgi_sock->name, item->name)) {
 			found = 1;
 			break;
 		}
+nextsock:
 		uwsgi_sock = uwsgi_sock->next;	
 	}
 	return found;
@@ -1314,14 +1330,17 @@ void uwsgi_manage_zerg(int fd, int num_sockets, int *sockets) {
 		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 		int uniq_count = 0;
 		while (uwsgi_sock) {
-			if (uwsgi_socket_uniq(uwsgi.sockets, uwsgi_sock)) {
+			if (uwsgi_sock->fd == -1) goto nextsock;
+			if (!uwsgi_socket_uniq(uwsgi.sockets, uwsgi_sock)) {
 				memcpy(zerg_fd_ptr, &uwsgi_sock->fd, sizeof(int));
 				zerg_fd_ptr += sizeof(int);
 				uniq_count++;
 			}
+nextsock:
 			uwsgi_sock = uwsgi_sock->next;
 		}
 		zerg_iov[1].iov_base = &uniq_count;
+		cmsg->cmsg_len = CMSG_LEN(sizeof(int) * uniq_count);
 	}
 	else {
 		memcpy(zerg_fd_ptr, sockets, sizeof(int) * num_sockets);

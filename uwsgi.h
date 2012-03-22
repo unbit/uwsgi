@@ -2766,6 +2766,8 @@ int uwsgi_manage_exception(char *, char *, char *);
 
 void uwsgi_protected_close(int);
 ssize_t uwsgi_protected_read(int, void *, size_t);
+int uwsgi_socket_uniq(struct uwsgi_socket *, struct uwsgi_socket *);
+int uwsgi_socket_is_already_bound(char *name);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
