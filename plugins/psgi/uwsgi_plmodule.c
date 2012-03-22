@@ -76,13 +76,21 @@ XS(XS_wait_fd_write) {
 
 #endif
 
+XS(XS_signal) {
+	dXSARGS;
+
+	psgi_check_args(1);
+
+	uwsgi_signal_send(uwsgi.signal_socket, SvIV(ST(0)));
+
+	XSRETURN_UNDEF;
+}
 
 XS(XS_reload) {
     dXSARGS;
 
-	psgi_check_args(0);
+    psgi_check_args(0);
 
-    uwsgi_log("SENDING HUP TO %d\n", (int) uwsgi.workers[0].pid);
     if (kill(uwsgi.workers[0].pid, SIGHUP)) {
     	uwsgi_error("kill()");
         XSRETURN_NO;
@@ -104,7 +112,9 @@ XS(XS_cache_set) {
 	key = SvPV(ST(0), keylen);
 	val = SvPV(ST(1), vallen);
 
+	uwsgi_wlock(uwsgi.cache_lock);
 	uwsgi_cache_set(key, (uint16_t) keylen, val, (uint64_t) vallen, 0, 0);
+	uwsgi_rwunlock(uwsgi.cache_lock);
 
 clear:
 	XSRETURN_UNDEF;
@@ -123,13 +133,16 @@ XS(XS_cache_get) {
 
 	key = SvPV(ST(0), keylen);
 
+	uwsgi_rlock(uwsgi.cache_lock);
 	val = uwsgi_cache_get(key, (uint16_t) keylen, &vallen);
 
 	if (!val)
+		uwsgi_rwunlock(uwsgi.cache_lock);
 clear:
 		XSRETURN_UNDEF;
 
 	ST(0) = newSVpv(val, vallen);
+	uwsgi_rwunlock(uwsgi.cache_lock);
 	sv_2mortal(ST(0));
 	
 	XSRETURN(1);
@@ -215,5 +228,6 @@ void init_perl_embedded_module() {
 	psgi_xs(log);
 	psgi_xs(async_connect);
 	psgi_xs(suspend);
+	psgi_xs(signal);
 }
 
