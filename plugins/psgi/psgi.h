@@ -20,6 +20,7 @@ struct uwsgi_perl {
 	char *embedding[3];
 
 	// check for Devel::StackTrace
+	int no_die_catch;
 	int stacktrace_available;
 
 	// this is a pointer to the main list of interpreters (required for signals, rpc....);
