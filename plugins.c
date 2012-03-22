@@ -50,6 +50,8 @@ static int plugin_already_loaded(const char *plugin) {
 void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 
 	void *plugin_handle = NULL;
+	char *plugin_abs_path = NULL;
+	char *plugin_filename = NULL;
 
 	int need_free = 0;
 	char *plugin_name = plugin;
@@ -84,28 +86,34 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 		}
 		plugin_symbol_name_start = uwsgi_get_last_char(plugin_name, '/');
 		plugin_symbol_name_start++;
+		plugin_abs_path = plugin_name;
+		goto success;
 	}
 
 	// step dir, check for user-supplied plugins directory
 	struct uwsgi_string_list *pdir = uwsgi.plugins_dir;
 	while(pdir) {
-		char *plugin_filename = uwsgi_concat3(pdir->value, "/", plugin_name);
+		plugin_filename = uwsgi_concat3(pdir->value, "/", plugin_name);
 		plugin_handle = dlopen(plugin_filename, RTLD_NOW | RTLD_GLOBAL);
 		if (plugin_handle) {
-			free(plugin_filename);
-			break;
+			plugin_abs_path = plugin_filename;
+			//free(plugin_filename);
+			goto success;
 		}
 		free(plugin_filename);
+		plugin_filename = NULL;
 		pdir = pdir->next;
 	}
 
 	// last step: search in compile-time plugin_dir
 	if (!plugin_handle) {
-		char *plugin_filename = uwsgi_concat3(UWSGI_PLUGIN_DIR, "/", plugin_name);
+		plugin_filename = uwsgi_concat3(UWSGI_PLUGIN_DIR, "/", plugin_name);
 		plugin_handle = dlopen(plugin_filename, RTLD_NOW | RTLD_GLOBAL);
-		free(plugin_filename);
+		plugin_abs_path = plugin_filename;
+		//free(plugin_filename);
 	}
 
+success:
         if (!plugin_handle) {
                 uwsgi_log( "%s\n", dlerror());
         }
@@ -116,7 +124,7 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 			// is it a link ?
 			memset(linkpath_buf, 0, 1024);
 			memset(linkpath, 0, 1024);
-			if ((linkpath_size = readlink(plugin_name, linkpath_buf, 1023)) > 0) {
+			if ((linkpath_size = readlink(plugin_abs_path, linkpath_buf, 1023)) > 0) {
 				do {
 					linkpath_buf[linkpath_size] = '\0';
 					strncpy(linkpath, linkpath_buf, linkpath_size+1);
@@ -145,6 +153,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
                                 }
 				if (need_free)
 					free(plugin_name);
+				if (plugin_filename)
+					free(plugin_filename);
 				free(plugin_entry_symbol);
 				return NULL;
 			}
@@ -154,6 +164,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
                                 }
 				if (need_free)
 					free(plugin_name);
+				if (plugin_filename)
+					free(plugin_filename);
 				free(plugin_entry_symbol);
 				return NULL;
 			}
@@ -173,6 +185,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 					}
 					if (need_free)
 						free(plugin_name);
+					if (plugin_filename)
+						free(plugin_filename);
 					free(plugin_entry_symbol);
 					return NULL;
 				}
@@ -186,6 +200,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 			}
 			if (need_free)
 				free(plugin_name);
+			if (plugin_filename)
+				free(plugin_filename);
 			free(plugin_entry_symbol);
 
 			if (up->on_load)
@@ -198,6 +214,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 end:
 	if (need_free)
 		free(plugin_name);
+	if (plugin_filename)
+		free(plugin_filename);
 
 	return NULL;
 }
