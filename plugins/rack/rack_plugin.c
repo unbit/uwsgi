@@ -110,7 +110,18 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	int chunk_size;
 
 	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
-		return Qnil;
+/*
+	When EOF is reached, this method returns nil if length is given and not nil, or "" if length is not given or is nil.
+	If buffer is given, then the read data will be placed into buffer instead of a newly created String object.
+*/
+		if (RARRAY_LEN(args) > 0) {
+			if (RARRAY_PTR(args)[0] == Qnil) {
+				return rb_str_new("", 0);
+			}
+			return Qnil;
+		}
+
+		return rb_str_new("", 0);
 	}
 	
 	if (RARRAY_LEN(args) == 0) {
