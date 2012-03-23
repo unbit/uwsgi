@@ -498,8 +498,8 @@ void fastrouter_loop(int id) {
 
 	ufr.mapper = uwsgi_fr_map_use_void;
 
-	if (ufr.use_cache) {
-                        ufr.mapper = uwsgi_fr_map_use_cache;
+			if (ufr.use_cache) {
+                        	ufr.mapper = uwsgi_fr_map_use_cache;
                         }
                         else if (ufr.pattern) {
                                 ufr.mapper = uwsgi_fr_map_use_pattern;
@@ -511,8 +511,8 @@ void fastrouter_loop(int id) {
                                 ufr.mapper = uwsgi_fr_map_use_base;
                         }
                         else if (ufr.code_string_code && ufr.code_string_function) {
-                                ufr.mapper = uwsgi_fr_map_use_cache;
-                        }
+                                ufr.mapper = uwsgi_fr_map_use_cs;
+			}
                         else if (ufr.to_socket) {
                                 ufr.mapper = uwsgi_fr_map_use_to;
                         }

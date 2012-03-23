@@ -630,7 +630,6 @@ char *uwsgi_lua_code_string(char *id, char *code, char *func, char *key, uint16_
 #endif
 
         if (lua_pcall(L, 1, 1, 0) != 0) {
-		uwsgi_log("CAZZO\n");
                 uwsgi_log("error running function `f': %s",
                  lua_tostring(L, -1));
                 return NULL;
