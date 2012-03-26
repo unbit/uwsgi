@@ -277,6 +277,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->response_subhandler = uwsgi_response_subhandler_wsgi;
 		wi->argc = 2;
 	}
+#ifndef UWSGI_PYPY
 	else if (app_type == PYTHON_APP_TYPE_WEB3) {
 #ifdef UWSGI_DEBUG
 		uwsgi_log("-- Web3 callable selected --\n");
@@ -291,6 +292,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->request_subhandler = uwsgi_request_subhandler_pump;
 		wi->response_subhandler = uwsgi_response_subhandler_pump;
 	}
+#endif
 
 #ifdef UWSGI_ASYNC
 	wi->args = malloc(sizeof(PyObject*)*uwsgi.cores);
