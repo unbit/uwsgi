@@ -5,6 +5,11 @@ import os
 
 def application(env, start_response):
 
+    print(env.__class__)
+    print(env['PATH_INFO'])
+    print(env['REQUEST_METHOD'])
+    print(env['wsgi.input'])
+
     if env['PATH_INFO'].startswith('/progress/'):
         start_response('200 Ok', [('Content-type', 'application/json')])
         filename = 'foobar/' + env['PATH_INFO'][10:]

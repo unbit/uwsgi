@@ -99,11 +99,14 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 
 	//uwsgi_log("ready to call %p %p\n", callable, args);
 
+	Py_INCREF(args);
+
 	pyret = PyEval_CallObject(callable, args);
 
 	//uwsgi_log("called\n");
 
 	if (PyErr_Occurred()) {
+
 
 #ifndef UWSGI_PYPY
 		int do_exit = uwsgi_python_manage_exceptions();

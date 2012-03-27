@@ -28,7 +28,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 #endif
                 PyDict_SetItem(wsgi_req->async_environ, pydictkey, pydictvalue);
                 Py_DECREF(pydictkey);
-                Py_DECREF(pydictvalue);
+		Py_DECREF(pydictvalue);
         }
 
         if (wsgi_req->uh.modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
@@ -48,13 +48,16 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
         }
 
 
-#ifndef UWSGI_PYPY
         // if async_post is mapped as a file, directly use it as wsgi.input
         if (wsgi_req->async_post) {
+#ifdef UWSGI_PYPY
+		uwsgi_log("wsgi.input mapped to a file is not supported under PyPy\n");
+#else
 #ifdef PYTHREE
                 wsgi_req->async_input = PyFile_FromFd(fileno(wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
 #else
                 wsgi_req->async_input = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
+#endif
 #endif
         }
         else {
@@ -69,7 +72,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_req->async_input);
-#endif
 
 #ifdef UWSGI_SENDFILE
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
@@ -108,6 +110,8 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_True);
 	}
 
+/*
+
 	if (wsgi_req->scheme_len > 0) {
 		zero = UWSGI_PYFROMSTRINGSIZE(wsgi_req->scheme, wsgi_req->scheme_len);
 	}
@@ -124,6 +128,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	}
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
 	Py_DECREF(zero);
+*/
 
 
 	wsgi_req->async_app = wi->callable;
@@ -219,6 +224,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	pychunk = PyIter_Next(wsgi_req->async_placeholder);
+
 
 	if (!pychunk) {
 		if (PyErr_Occurred()) { 

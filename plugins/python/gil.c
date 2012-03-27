@@ -3,14 +3,9 @@
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_python up;
 
-#ifdef UWSGI_PYPY
-void gil_real_get() {}
-void gil_real_release() {}
-#else
-
 void gil_real_get() {
 	//uwsgi_log("LOCK %d\n", uwsgi.mywid);
-#ifndef PYTHREE
+#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
 	PyEval_AcquireLock();
 	PyThreadState_Swap((PyThreadState *) pthread_getspecific(up.upt_gil_key));
 #else
@@ -22,7 +17,7 @@ void gil_real_get() {
 
 void gil_real_release() {
 	//uwsgi_log("UNLOCK %d\n", uwsgi.mywid);
-#ifndef PYTHREE
+#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
 	pthread_setspecific(up.upt_gil_key, (void *) PyThreadState_Swap(NULL));
 	PyEval_ReleaseLock();	
 #else
@@ -31,7 +26,6 @@ void gil_real_release() {
 #endif
 }
 
-#endif
 
 void gil_fake_get() {}
 void gil_fake_release() {}

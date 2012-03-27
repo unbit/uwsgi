@@ -8,6 +8,18 @@ void worker_wakeup() {
 int uwsgi_calc_cheaper(void) {
 
 	int i;
+	static time_t last_check = 0;
+	int check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
+
+	if (!last_check) last_check = time(NULL);
+
+	time_t now = time(NULL);
+        if (!check_interval)
+        	check_interval = 1;
+
+	if ( (now - last_check) < check_interval) return 1;
+
+	last_check = now;
 
 	int needed_workers = uwsgi.cheaper_algo();
 

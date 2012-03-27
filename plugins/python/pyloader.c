@@ -483,9 +483,7 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 
 	PyObject *tmp_callable;
 	PyObject *applications;
-#ifndef UWSGI_PYPY
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
-#endif
 
 	char *module = (char *) arg1;
 
@@ -508,11 +506,8 @@ PyObject *uwsgi_uwsgi_loader(void *arg1) {
 		return NULL;
 	}
 
-#ifndef UWSGI_PYPY
 	applications = PyDict_GetItemString(uwsgi_dict, "applications");
 	if (applications && PyDict_Check(applications)) return applications;
-#endif
-
 
 	applications = PyDict_GetItemString(wsgi_dict, "applications");
 	if (applications && PyDict_Check(applications)) return applications;
