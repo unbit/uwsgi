@@ -20,9 +20,11 @@ struct uwsgi_php {
 	struct uwsgi_string_list *allowed_ext;
 	struct uwsgi_string_list *index;
 	struct uwsgi_string_list *set;
+	struct uwsgi_string_list *append_config;
 	char *docroot;
 	char *app;
 	size_t ini_size;
+	int dump_config;
 	char *server_software;
 	size_t server_software_len;
 } uphp;
@@ -32,11 +34,12 @@ void uwsgi_opt_php_ini(char *opt, char *value, void *foobar) {
         uwsgi_sapi_module.php_ini_ignore = 1;
 }
 
-
 struct uwsgi_option uwsgi_php_options[] = {
 
         {"php-ini", required_argument, 0, "set php.ini path", uwsgi_opt_php_ini, NULL, 0},
         {"php-config", required_argument, 0, "set php.ini path", uwsgi_opt_php_ini, NULL, 0},
+        {"php-ini-append", required_argument, 0, "set php.ini path (append mode)", uwsgi_opt_add_string_list, &uphp.append_config, 0},
+        {"php-config-append", required_argument, 0, "set php.ini path (append mode)", uwsgi_opt_add_string_list, &uphp.append_config, 0},
         {"php-set", required_argument, 0, "set a php config directive", uwsgi_opt_add_string_list, &uphp.set, 0},
         {"php-index", required_argument, 0, "list the php index files", uwsgi_opt_add_string_list, &uphp.index, 0},
         {"php-docroot", required_argument, 0, "force php DOCUMENT_ROOT", uwsgi_opt_set_str, &uphp.docroot, 0},
@@ -44,6 +47,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-allowed-ext", required_argument, 0, "list the allowed php file extensions", uwsgi_opt_add_string_list, &uphp.allowed_ext, 0},
         {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
+        {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -295,6 +299,14 @@ static sapi_module_struct uwsgi_sapi_module;
 
 
 
+void uwsgi_php_append_config(char *filename) {
+	int file_size = 0;
+        char *file_content = uwsgi_open_and_read(filename, &file_size, 1, NULL);
+	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + file_size);
+	memcpy(uwsgi_sapi_module.ini_entries + uphp.ini_size, file_content, file_size);
+	uphp.ini_size += file_size-1;
+	free(file_content);
+}
 
 void uwsgi_php_set(char *opt) {
 
@@ -611,14 +623,25 @@ int uwsgi_php_init(void) {
 	struct http_status_codes *http_sc;
 
 	struct uwsgi_string_list *pset = uphp.set;
+	struct uwsgi_string_list *append_config = uphp.append_config;
 
 	sapi_startup(&uwsgi_sapi_module);
 
 	// applying custom options
+	while(append_config) {
+		uwsgi_php_append_config(append_config->value);
+		append_config = append_config->next;
+	}
        	while(pset) {
                	uwsgi_php_set(pset->value);
                	pset = pset->next;
        	}
+
+	if (uphp.dump_config) {
+		uwsgi_log("--- PHP custom config ---\n\n");
+		uwsgi_log("%s\n", uwsgi_sapi_module.ini_entries);
+		uwsgi_log("--- end of PHP custom config ---\n");
+	}
 
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
 
