@@ -661,6 +661,9 @@ void init_uwsgi_embedded_module() {
 			exit(1);
 		}
 	}
+	else {
+		PyDict_SetItemString(up.embedded_dict, "loop", Py_None);
+	}
 
 	PyObject *py_opt_dict = PyDict_New();
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
