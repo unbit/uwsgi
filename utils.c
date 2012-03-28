@@ -153,7 +153,7 @@ void daemonize(char *logfile) {
 		exit(1);
 	}
 	if (pid != 0) {
-		exit(0);
+		_exit(0);
 	}
 
 	if (setsid() < 0) {
@@ -168,7 +168,7 @@ void daemonize(char *logfile) {
 		exit(1);
 	}
 	if (pid != 0) {
-		exit(0);
+		_exit(0);
 	}
 
 	if (!uwsgi.do_not_change_umask) {
