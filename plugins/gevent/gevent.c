@@ -107,7 +107,6 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 
 	// accept the connection
 	if (wsgi_req_simple_accept(wsgi_req, uwsgi.sockets->fd)) {
-		uwsgi_close_request(wsgi_req);
 		free_req_queue;
 		goto clear;
 	}
