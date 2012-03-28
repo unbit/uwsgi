@@ -11,6 +11,7 @@ extern "C" {
 #define UMAX64_STR "18446744073709551616"
 
 #define uwsgi_error(x)  uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
+#define uwsgi_error_realpath(x)  uwsgi_log("realpath() of %s failed: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log(x);
 #define uwsgi_error_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_initial if (!uwsgi.no_initial_output) uwsgi_log
@@ -2768,6 +2769,8 @@ void uwsgi_protected_close(int);
 ssize_t uwsgi_protected_read(int, void *, size_t);
 int uwsgi_socket_uniq(struct uwsgi_socket *, struct uwsgi_socket *);
 int uwsgi_socket_is_already_bound(char *name);
+
+char *uwsgi_expand_path(char *, int, char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

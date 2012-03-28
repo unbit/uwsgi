@@ -958,20 +958,14 @@ nextsm:
 
 	// finally check for docroot
 	if (uwsgi.check_static_docroot && wsgi_req->document_root_len > 0) {
-		char *orig_docroot = uwsgi_concat2n(wsgi_req->document_root, wsgi_req->document_root_len, "", 0);
-		char *real_docroot = uwsgi_malloc(PATH_MAX+1);
-		if (!realpath(orig_docroot, real_docroot)) {
-			uwsgi_error("realpath()");
-			free(orig_docroot);
-			free(real_docroot);
+		char *real_docroot = uwsgi_expand_path(wsgi_req->document_root, wsgi_req->document_root_len, NULL);
+		if (!real_docroot) {
                         return -1;
 		}
 		if (!uwsgi_file_serve(wsgi_req, real_docroot, strlen(real_docroot), wsgi_req->path_info, wsgi_req->path_info_len)) {
-			free(orig_docroot);
 			free(real_docroot);
                         return -1;
                 }
-		free(orig_docroot);
 		free(real_docroot);
 	}
 
