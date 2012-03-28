@@ -9,6 +9,8 @@ try:
 except:
     pass
 def application(env, start_response):
+    if uwsgi.loop == 'gevent':
+        gevent.sleep()
     start_response('200 OK', [('Content-Type', 'text/html')])
     yield "foobar<br/>"
     if uwsgi.loop == 'gevent':

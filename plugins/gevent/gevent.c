@@ -5,7 +5,7 @@ extern struct uwsgi_python up;
 
 #define GEVENT_SWITCH PyObject *gswitch = python_call(ugevent.greenlet_switch, ugevent.greenlet_switch_args, 0, NULL); Py_DECREF(gswitch)
 #define GET_CURRENT_GREENLET python_call(ugevent.get_current, ugevent.get_current_args, 0, NULL)
-#define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req
+#define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req
 #define stop_the_watchers ret = PyObject_CallMethod(timer, "stop", NULL);\
                           if (ret) { Py_DECREF(ret); }\
                           ret = PyObject_CallMethod(watcher, "stop", NULL);\
@@ -22,6 +22,14 @@ struct uwsgi_gevent {
 	PyObject *greenlet_args;
 	PyObject *signal_args;
 } ugevent;
+
+
+struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
+	PyObject *current_greenlet = GET_CURRENT_GREENLET;
+	PyObject *py_wsgi_req = PyObject_GetAttrString(current_greenlet, "uwsgi_wsgi_req");
+	return (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
+}
+
 
 
 PyObject *py_uwsgi_gevent_signal_handler(PyObject * self, PyObject * args) {
@@ -90,7 +98,6 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 		uwsgi_log("async queue is full !!!\n");
 		goto clear;
 	}
-	uwsgi.wsgi_req = wsgi_req;
 
 	// fill wsgi_request structure
 	wsgi_req_setup(wsgi_req, wsgi_req->async_id, uwsgi.sockets );
@@ -149,9 +156,9 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	int status ;
 
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
+	// another hack to retrieve the current wsgi_req;
+	PyObject_SetAttrString(current_greenlet, "uwsgi_wsgi_req", py_wsgi_req);
 	PyObject *greenlet_switch = PyObject_GetAttrString(current_greenlet, "switch");
-
-	uwsgi.wsgi_req = wsgi_req;
 
 	// create a watcher for request socket
 	PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
@@ -165,9 +172,6 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 		// wait for data in the socket
 		PyObject *ret = uwsgi_gevent_wait(watcher, timer, greenlet_switch);
 		if (!ret) goto clear_and_stop;
-
-		// do not forget to overwrite this pointer each time !!!
-		uwsgi.wsgi_req = wsgi_req;
 
 		// we can safely decref here as watcher and timer has got a +1 for start() method
 		Py_DECREF(ret);
@@ -195,7 +199,6 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	}
 
 	for(;;) {
-		uwsgi.wsgi_req = wsgi_req;
 		wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
 		if (wsgi_req->async_status <= UWSGI_OK) {
 			goto clear;
@@ -218,8 +221,6 @@ clear1:
 	Py_DECREF(greenlet_switch);
 	Py_DECREF(current_greenlet);
 	uwsgi_close_request(wsgi_req);
-
-	uwsgi.wsgi_req = wsgi_req;
 
 	free_req_queue;
 
@@ -245,6 +246,7 @@ void gevent_loop() {
 		exit(1);
 	}
 
+	uwsgi.current_wsgi_req = uwsgi_gevent_current_wsgi_req;
 
 	PyObject *gevent_dict = get_uwsgi_pydict("gevent");
 	if (!gevent_dict) uwsgi_pyexit;
