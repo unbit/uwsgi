@@ -95,13 +95,9 @@ int uwsgi_python_manage_exceptions(void) {
 
 PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi_request *wsgi_req) {
 
-	PyObject *pyret;
-
 	//uwsgi_log("ready to call %p %p\n", callable, args);
 
-	Py_INCREF(args);
-
-	pyret = PyEval_CallObject(callable, args);
+	PyObject *pyret = PyEval_CallObject(callable, args);
 
 	//uwsgi_log("called\n");
 
