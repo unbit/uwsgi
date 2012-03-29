@@ -472,7 +472,7 @@ void init_uwsgi_vars() {
 		char *value = strchr(uppma->value, '=');
 		if (!value) {
 			uwsgi_log("invalid pymodule-alias syntax\n");
-			continue;
+			goto next;
 		}
 		value[0] = 0;
 		if (!strchr(value + 1, '/')) {
@@ -497,6 +497,7 @@ void init_uwsgi_vars() {
 		// reset original value
 		value[0] = '=';
 
+next:
 		uppma = uppma->next;
 	}
 
