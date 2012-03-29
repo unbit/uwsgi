@@ -207,6 +207,18 @@ void close_session(struct fastrouter_session *fr_session) {
 #endif
 	}
 
+	if (ufr.subscriptions && fr_session->un && fr_session->un->len > 0) {
+        	// decrease reference count
+#ifdef UWSGI_DEBUG
+               uwsgi_log("[1] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
+#endif
+               fr_session->un->reference--;
+#ifdef UWSGI_DEBUG
+               uwsgi_log("[2] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
+#endif
+	}
+
+
 	if (fr_session->instance_failed) {
 
 		if (fr_session->soopt) {
@@ -227,14 +239,7 @@ void close_session(struct fastrouter_session *fr_session) {
 
 		// now check for dead nodes
 		if (ufr.subscriptions && fr_session->un && fr_session->un->len > 0) {
-                	// decrease reference count
-#ifdef UWSGI_DEBUG
-                	uwsgi_log("[1] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
-#endif
-                	fr_session->un->reference--;
-#ifdef UWSGI_DEBUG
-                	uwsgi_log("[2] node %.*s refcnt: %llu\n", fr_session->un->len, fr_session->un->name, fr_session->un->reference);
-#endif
+
                         if (fr_session->un->death_mark == 0)
                                 uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) fr_session->hostname_len, fr_session->hostname, (int) fr_session->instance_address_len, fr_session->instance_address);
 
