@@ -400,6 +400,14 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 		return NULL;
 	}
 
+	if (is_a_package) {
+		py_file_module = PyImport_AddModule(name);
+		if (py_file_module) {
+			PyModule_AddObject(py_file_module, "__path__", Py_BuildValue("[O]", PyString_FromString(filename)));
+		}
+		free(real_filename);
+	}
+
 	py_file_module = PyImport_ExecCodeModule(name, py_compiled_node);
 	if (!py_file_module) {
 		PyErr_Print();
@@ -407,14 +415,6 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 	}
 
 	Py_DECREF(py_compiled_node);
-
-	if (is_a_package) {
-		PyObject *py_file_module_dict = PyModule_GetDict(py_file_module);
-		if (py_file_module_dict) {
-			PyDict_SetItemString(py_file_module_dict, "__path__", Py_BuildValue("[O]", PyString_FromString(filename)));
-		}
-		free(real_filename);
-	}
 
 	return py_file_module;
 #endif
@@ -1019,7 +1019,7 @@ void uwsgi_python_init_apps() {
                 char *value = strchr(uppa->value, '=');
                 if (!value) {
                         uwsgi_log("invalid pymodule-alias syntax\n");
-                        continue;
+			goto next;
                 }
                 value[0] = 0;
                 if (!strchr(value + 1, '/')) {
@@ -1044,6 +1044,7 @@ void uwsgi_python_init_apps() {
                 // reset original value
                 value[0] = '=';
 
+next:
 		uppa = uppa->next;
         }
 
