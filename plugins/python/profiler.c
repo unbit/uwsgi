@@ -15,11 +15,11 @@ int PyFrame_GetLineNumber(PyFrameObject *frame) {
 
 int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
+#ifndef UWSGI_PYPY
 	static uint64_t last_ts = 0;
         uint64_t now = uwsgi_micros();
         uint64_t delta = 0;
 
-#ifndef UWSGI_PYPY
 	switch(what) {
 		case PyTrace_CALL:
 			if (last_ts == 0) delta = 0;
@@ -49,11 +49,11 @@ int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, Py
 
 int uwsgi_python_tracer(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
+#ifndef UWSGI_PYPY
 	static uint64_t last_ts = 0;
 	uint64_t now = uwsgi_micros();
 	uint64_t delta = 0;
 
-#ifndef UWSGI_PYPY
 	if (what == PyTrace_LINE) {
 		if (last_ts == 0) {
 			delta = 0;
