@@ -151,6 +151,7 @@ struct uwsgi_python {
 	pthread_mutex_t lock_pyloaders;
 	void (*gil_get) (void);
 	void (*gil_release) (void);
+	int auto_reload;
 #endif
 
 	PyObject *workers_tuple;
@@ -253,6 +254,7 @@ int uwsgi_python_tracer(PyObject *, PyFrameObject *, int, PyObject *);
 void uwsgi_python_reset_random_seed(void);
 
 char *uwsgi_pythonize(char *);
+void *uwsgi_python_autoreloader_thread(void *);
 
 int uwsgi_python_manage_exceptions(void);
 

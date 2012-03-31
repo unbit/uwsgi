@@ -67,7 +67,6 @@ def setprocname():
         uwsgi.setprocname("i am the worker %d" % uwsgi.worker_id())
 
 def application(env, start_response):
-
     try:
         uwsgi.mule_msg(env['REQUEST_URI'], 1)
     except:

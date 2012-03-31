@@ -144,6 +144,13 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"py", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 	{"pyrun", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 
+#ifdef UWSGI_THREADING
+	{"py-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
+	{"py-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
+	{"python-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
+	{"python-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
+#endif
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -322,6 +329,16 @@ void uwsgi_python_post_fork() {
 	}
 	PyErr_Clear();
 #endif
+
+	if (uwsgi.mywid > 0) {
+#ifdef UWSGI_THREADING
+		if (up.auto_reload) {
+			// spawn the reloader thread
+			pthread_t par_tid;
+			pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread, NULL);
+		}
+#endif
+	}
 
 UWSGI_RELEASE_GIL
 
@@ -1192,6 +1209,140 @@ void uwsgi_python_init_thread(int core_id) {
 	
 
 }
+
+#ifdef UWSGI_THREADING
+int uwsgi_check_python_mtime(PyObject *times_dict, uint64_t cycles, char *filename) {
+	struct stat st;
+
+	PyObject *py_mtime = PyDict_GetItemString(times_dict, filename); 
+	if (!py_mtime) {
+		if (cycles == 0) {
+			if (stat(filename, &st)) {
+				return 0;
+			}
+			PyDict_SetItemString(times_dict, filename, PyLong_FromLong(st.st_mtime));
+		}
+		else {
+			uwsgi_log("[uwsgi-python-reloader] found new module/file: %s\n", filename);
+			kill(uwsgi.workers[0].pid, SIGHUP);
+			return 1;
+		}
+	}
+	// the record is already tracked;
+	else {
+		long mtime = PyLong_AsLong(py_mtime);
+
+		if (stat(filename, &st)) {
+			return 0;
+		}
+
+		if ((long) st.st_mtime != mtime) {
+			uwsgi_log("[uwsgi-python-reloader] module/file %s has been modified\n", filename);
+			kill(uwsgi.workers[0].pid, SIGHUP);
+			return 1;
+		}
+	}
+	return 0;
+}
+void *uwsgi_python_autoreloader_thread(void *foobar) {
+
+	PyObject *modules;
+
+	// block signals on this thread
+	sigset_t smask;
+        sigfillset(&smask);
+#ifndef UWSGI_DEBUG
+        sigdelset(&smask, SIGSEGV);
+#endif
+        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+
+	PyThreadState *pts = PyThreadState_New(up.main_thread->interp);
+	pthread_setspecific(up.upt_save_key, (void *) pts);
+        pthread_setspecific(up.upt_gil_key, (void *) pts);
+	UWSGI_GET_GIL;
+	PyObject *threading_module = PyImport_ImportModule("threading");
+	if (threading_module) {
+		PyObject *threading_module_dict = PyModule_GetDict(threading_module);
+                if (threading_module_dict) {
+#ifdef PYTHREE
+                        PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "current_thread");
+#else
+                        PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "currentThread");
+#endif
+                        if (threading_current) {
+                                PyObject *current_thread = PyEval_CallObject(threading_current, (PyObject *)NULL);
+                                if (!current_thread) {
+                                        // ignore the error
+                                        PyErr_Clear();
+                                }
+                                else {
+                                        PyObject_SetAttrString(current_thread, "name", PyString_FromString("uWSGIAutoReloader"));
+                                        Py_INCREF(current_thread);
+					modules = PyImport_GetModuleDict();
+					goto cycle;
+                                }
+                        }
+                }
+
+	}
+	return NULL;
+cycle:
+	if (uwsgi.mywid == 1) {
+		uwsgi_log("Python auto-reloader enabled\n");
+	}
+	PyObject *times_dict = PyDict_New();
+	char *filename;
+	uint64_t cycles = 0;
+	for(;;) {
+		UWSGI_RELEASE_GIL;
+		sleep(up.auto_reload);
+		UWSGI_GET_GIL;
+		// do not start monitoring til the first app is loaded (required for lazy mode)
+		if (uwsgi_apps_cnt == 0) continue;
+#ifdef UWSGI_PYTHON_OLD
+                int hhpos = 0;
+#else
+                Py_ssize_t pos = 0;
+#endif
+		PyObject *mod_name, *mod;
+                while (PyDict_Next(modules, &pos, &mod_name, &mod)) {
+			if (!PyObject_HasAttrString(mod, "__file__")) continue;
+			PyObject *mod_file = PyObject_GetAttrString(mod, "__file__");
+			if (!mod_file) continue;
+#ifdef PYTHREE
+			PyObject *zero = PyUnicode_AsUTF8String(mod_file);
+			char *mod_filename = PyString_AsString(zero);
+#else
+			char *mod_filename = PyString_AsString(mod_file);
+#endif
+			if (!mod_filename) {
+#ifdef PYTHREE
+				Py_DECREF(zero);
+#endif
+				continue;
+			}
+			char *ext = strrchr(mod_filename, '.');
+			if (ext && (!strcmp(ext+1, "pyc") || !strcmp(ext+1, "pyd") || !strcmp(ext+1, "pyo"))) {
+				filename = uwsgi_concat2n(mod_filename, strlen(mod_filename)-1, "", 0);
+			}
+			else {
+				filename = uwsgi_concat2(mod_filename, "");
+			}
+			if (uwsgi_check_python_mtime(times_dict, cycles, filename)) {
+				UWSGI_RELEASE_GIL;
+				return NULL;
+			}
+			free(filename);
+#ifdef PYTHREE
+			Py_DECREF(zero);
+#endif
+		}
+		cycles++;	
+	}
+
+	return NULL;
+}
+#endif
 
 #ifndef UWSGI_PYPY
 void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
