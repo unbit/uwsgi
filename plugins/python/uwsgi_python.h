@@ -248,6 +248,7 @@ void simple_reset_ts(struct wsgi_request *, struct uwsgi_app *);
 void simple_threaded_reset_ts(struct wsgi_request *, struct uwsgi_app *);
 
 int uwsgi_python_profiler_call(PyObject *, PyFrameObject *, int, PyObject *);
+int uwsgi_python_tracer(PyObject *, PyFrameObject *, int, PyObject *);
 
 void uwsgi_python_reset_random_seed(void);
 

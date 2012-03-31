@@ -4149,6 +4149,12 @@ time_t uwsgi_now() {
 	return time(NULL);
 }
 
+uint64_t uwsgi_micros() {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (tv.tv_sec * 1000000) + tv.tv_usec;
+}
+
 void uwsgi_write_pidfile(char *pidfile_name) {
 	uwsgi_log("writing pidfile to %s\n", pidfile_name);
         FILE *pidfile = fopen(pidfile_name, "w");

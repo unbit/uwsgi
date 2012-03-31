@@ -1081,6 +1081,9 @@ next:
 		if (!strcmp(uwsgi.profiler, "pycall")) {
 			PyEval_SetProfile(uwsgi_python_profiler_call, NULL);
 		}
+		else if (!strcmp(uwsgi.profiler, "pyline")) {
+			PyEval_SetTrace(uwsgi_python_tracer, NULL);
+		}
 	}
 #endif
 

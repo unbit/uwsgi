@@ -2772,6 +2772,8 @@ int uwsgi_socket_is_already_bound(char *name);
 
 char *uwsgi_expand_path(char *, int, char *);
 
+uint64_t uwsgi_micros(void);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif

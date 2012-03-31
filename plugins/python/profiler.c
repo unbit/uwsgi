@@ -15,16 +15,28 @@ int PyFrame_GetLineNumber(PyFrameObject *frame) {
 
 int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
 
+	static uint64_t last_ts = 0;
+        uint64_t now = uwsgi_micros();
+        uint64_t delta = 0;
+
 #ifndef UWSGI_PYPY
 	switch(what) {
 		case PyTrace_CALL:
-			uwsgi_log("[uWSGI Python profiler] CALL: %s (line %d) -> %s %d args, stacksize %d\n",
+			if (last_ts == 0) delta = 0;
+                	else delta = now - last_ts;
+                	last_ts = now;
+			uwsgi_log("[uWSGI Python profiler %llu] CALL: %s (line %d) -> %s %d args, stacksize %d\n",
+				(unsigned long long) delta,
 				PyString_AsString(frame->f_code->co_filename),
 				PyFrame_GetLineNumber(frame),
 				PyString_AsString(frame->f_code->co_name), frame->f_code->co_argcount, frame->f_code->co_stacksize);
 			break;
 		case PyTrace_C_CALL:
-			uwsgi_log("[uWSGI Python profiler] C CALL: %s (line %d) -> %s %d args, stacksize %d\n",
+			if (last_ts == 0) delta = 0;
+                	else delta = now - last_ts;
+                	last_ts = now;
+			uwsgi_log("[uWSGI Python profiler %llu] C CALL: %s (line %d) -> %s %d args, stacksize %d\n",
+				(unsigned long long) delta,
 				PyString_AsString(frame->f_code->co_filename),
 				PyFrame_GetLineNumber(frame),
 				PyEval_GetFuncName(arg), frame->f_code->co_argcount, frame->f_code->co_stacksize);
@@ -34,3 +46,26 @@ int uwsgi_python_profiler_call(PyObject *obj, PyFrameObject *frame, int what, Py
 
 	return 0;
 }
+
+int uwsgi_python_tracer(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg) {
+
+	static uint64_t last_ts = 0;
+	uint64_t now = uwsgi_micros();
+	uint64_t delta = 0;
+
+#ifndef UWSGI_PYPY
+	if (what == PyTrace_LINE) {
+		if (last_ts == 0) {
+			delta = 0;
+		}
+		else {
+			delta = now - last_ts;
+		}
+		last_ts = now;
+		uwsgi_log("[uWSGI Python profiler %llu] file %s line %d: %s argc:%d\n", (unsigned long long)delta,  PyString_AsString(frame->f_code->co_filename), PyFrame_GetLineNumber(frame), PyString_AsString(frame->f_code->co_name), frame->f_code->co_argcount);
+	}
+#endif
+
+        return 0;
+}
+
