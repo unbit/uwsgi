@@ -2771,6 +2771,7 @@ int uwsgi_socket_uniq(struct uwsgi_socket *, struct uwsgi_socket *);
 int uwsgi_socket_is_already_bound(char *name);
 
 char *uwsgi_expand_path(char *, int, char *);
+int uwsgi_try_autoload(char *);
 
 uint64_t uwsgi_micros(void);
 

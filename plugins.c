@@ -81,7 +81,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 	if (strchr(plugin_name, '/')) {
 		plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
 		if (!plugin_handle) {
-			uwsgi_log( "%s\n", dlerror());
+			if (!has_option)
+				uwsgi_log( "%s\n", dlerror());
 			goto end;
 		}
 		plugin_symbol_name_start = uwsgi_get_last_char(plugin_name, '/');
@@ -115,7 +116,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 
 success:
         if (!plugin_handle) {
-                uwsgi_log( "%s\n", dlerror());
+		if (!has_option)
+                	uwsgi_log( "%s\n", dlerror());
         }
         else {
 		char *plugin_entry_symbol = uwsgi_concat2n(plugin_symbol_name_start, strlen(plugin_symbol_name_start)-3, "", 0);
@@ -170,7 +172,7 @@ success:
 				return NULL;
 			}
 			if (has_option) {
-				struct uwsgi_option *op = uwsgi.options;
+				struct uwsgi_option *op = up->options;
 				int found = 0;
 				while (op && op->name) {
 					if (!strcmp(has_option, op->name)) {
@@ -208,7 +210,8 @@ success:
 				up->on_load();
 			return plugin_handle;
                 }
-                uwsgi_log( "%s\n", dlerror());
+		if (!has_option)
+                	uwsgi_log( "%s\n", dlerror());
         }
 
 end:
@@ -218,4 +221,56 @@ end:
 		free(plugin_filename);
 
 	return NULL;
+}
+
+int uwsgi_try_autoload(char *option) {
+	DIR *d;
+	struct dirent *dp;
+	// step dir, check for user-supplied plugins directory
+        struct uwsgi_string_list *pdir = uwsgi.plugins_dir;
+        while(pdir) {
+		d = opendir(pdir->value);
+		if (d) {
+			while ((dp = readdir(d)) != NULL) {
+				if (uwsgi_endswith(dp->d_name, "_plugin.so")) {
+					char *filename = uwsgi_concat3(pdir->value, "/", dp->d_name);
+					if (uwsgi_load_plugin(-1, filename, option)) {	
+						uwsgi_log("option \"%s\" found in plugin %s\n", option, filename);
+						free(filename);
+						closedir(d);
+						// add new options
+						build_options();
+						return 1;
+					}
+					free(filename);
+				}
+			}
+			closedir(d);
+		}
+                pdir = pdir->next;
+        }
+
+        // last step: search in compile-time plugin_dir
+	d = opendir(UWSGI_PLUGIN_DIR);
+	if (!d) return 0;
+
+	while((dp = readdir(d)) != NULL) {
+		if (uwsgi_endswith(dp->d_name, "_plugin.so")) {
+				char *filename = uwsgi_concat3(UWSGI_PLUGIN_DIR, "/", dp->d_name);
+				if (uwsgi_load_plugin(-1, filename, option)) {
+					uwsgi_log("option \"%s\" found in plugin %s\n", option, filename);
+					free(filename);
+					closedir(d);
+					// add new options
+					build_options();
+					return 1;
+				}
+				free(filename);
+		}
+        }
+
+	closedir(d);
+
+	return 0;
+
 }

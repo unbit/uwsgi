@@ -446,6 +446,9 @@ restart:
                        	continue;
 		uwsgi.dirty_config = 0;
 		uwsgi.exported_opts[i]->configured = uwsgi_manage_opt(uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
+		if (uwsgi.exported_opts[i]->configured == 0 && uwsgi.autoload) {
+			uwsgi.dirty_config = uwsgi_try_autoload(uwsgi.exported_opts[i]->key);
+		}
 		if (uwsgi.dirty_config) goto restart;
 	}
 
