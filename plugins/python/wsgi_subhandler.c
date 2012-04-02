@@ -110,7 +110,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		PyDict_SetItemString(wsgi_req->async_environ, "wsgi.multiprocess", Py_True);
 	}
 
-/*
 
 	if (wsgi_req->scheme_len > 0) {
 		zero = UWSGI_PYFROMSTRINGSIZE(wsgi_req->scheme, wsgi_req->scheme_len);
@@ -128,11 +127,8 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	}
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.url_scheme", zero);
 	Py_DECREF(zero);
-*/
-
 
 	wsgi_req->async_app = wi->callable;
-
 
 	// export .env only in non-threaded mode
 #ifndef UWSGI_PYPY
