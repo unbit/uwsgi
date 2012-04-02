@@ -1303,7 +1303,7 @@ cycle:
 		// do not start monitoring til the first app is loaded (required for lazy mode)
 		if (uwsgi_apps_cnt == 0) continue;
 #ifdef UWSGI_PYTHON_OLD
-                int hhpos = 0;
+                int pos = 0;
 #else
                 Py_ssize_t pos = 0;
 #endif
