@@ -5,31 +5,6 @@ struct uwsgi_python up;
 
 extern struct http_status_codes hsc[];
 
-#ifdef UWSGI_PYPY
-
-#define pypy_asm_stack_bottom()  asm volatile ("/* GC_STACK_BOTTOM */" : : : \
-                                               "memory")
-
-char *RPython_StartupCode(void);
-
-extern struct pypy_pypy_module_cpyext_state_State0 pypy_g_pypy_module_cpyext_state_State;
-extern struct pypy_pypy_interpreter_baseobjspace_W_Root0 *pypy_g_call_startup(void);
-void pypy_g_State_startup(struct pypy_pypy_module_cpyext_state_State0 *);
-
-void Py_Initialize(void) {
-
-	pypy_asm_stack_bottom();
-	char *errmsg = RPython_StartupCode();
-	if (errmsg) {
-		uwsgi_log("unable to initialize PyPy: %s\n", errmsg);
-		exit(1);
-	}
-
-	pypy_g_call_startup();
-        pypy_g_State_startup(&pypy_g_pypy_module_cpyext_state_State);
-}
-#endif
-
 #include <glob.h>
 
 extern PyTypeObject uwsgi_InputType;
