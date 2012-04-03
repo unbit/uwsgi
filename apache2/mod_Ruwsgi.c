@@ -160,20 +160,35 @@ static int uwsgi_map_location(request_rec *r)
 	return DECLINED;
 }
 
-static void log_err(const char *file, int line, request_rec *r,
+
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+static void log_err(const char *file, int line, int ami, request_rec *r,
 		apr_status_t status, const char *msg)
 {
+	ap_log_rerror(file, line, APLOG_MODULE_INDEX, APLOG_ERR, status, r, "uwsgi: %s", msg);
+#else
+static void log_err(const char *file, int line, request_rec *r,
+                apr_status_t status, const char *msg)
+{
+
 	ap_log_rerror(file, line, APLOG_ERR, status, r, "uwsgi: %s", msg);
+#endif
 }
 
-static void log_debug(const char *file, int line, request_rec *r, const
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+static void log_debug(const char *file, int line, int ami, request_rec *r, const
 		char *msg)
 {
 	/*
 	   ap_log_rerror(file, line, APLOG_DEBUG, APR_SUCCESS, r, msg);
 	   ap_log_rerror(file, line, APLOG_WARNING, APR_SUCCESS, r, "uwsgi: %s", msg);
 	   */
+	ap_log_rerror(file, line, APLOG_MODULE_INDEX, APLOG_DEBUG, APR_SUCCESS, r, "uwsgi: %s", msg);
+#else
+static void log_debug(const char *file, int line, request_rec *r, const
+		char *msg)
 	ap_log_rerror(file, line, APLOG_DEBUG, APR_SUCCESS, r, "uwsgi: %s", msg);
+#endif
 }
 
 /* buffered socket implementation (buckets are overkill) */
@@ -412,7 +427,11 @@ send_headers(request_rec *r, struct sockbuff *s)
 	apr_table_t *t;
 	apr_status_t rv = 0;
 	apr_port_t  port = 0;
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+	GET_PORT(port, r->useragent_addr);
+#else
 	GET_PORT(port, r->connection->remote_addr);
+#endif
 	uwsgi_cfg *cfg = our_dconfig(r);
 
 	log_debug(APLOG_MARK,r, "sending headers");
@@ -430,7 +449,11 @@ send_headers(request_rec *r, struct sockbuff *s)
 
 	add_header(t, "REQUEST_METHOD", (char *) r->method);
 	add_header(t, "QUERY_STRING", r->args ? r->args : "");
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+	add_header(t, "SERVER_SOFTWARE", ap_get_server_description());
+#else
 	add_header(t, "SERVER_SOFTWARE", ap_get_server_version());
+#endif
 	add_header(t, "SERVER_ADMIN", r->server->server_admin);
 	add_header(t, "SERVER_NAME", (char *) ap_get_server_name(r));
 	add_header(t, "SERVER_PORT", apr_psprintf(r->pool, "%u",ap_get_server_port(r)));
@@ -438,7 +461,11 @@ send_headers(request_rec *r, struct sockbuff *s)
 	add_header(t, "SERVER_PROTOCOL", r->protocol);
 
 	add_header(t, "REQUEST_URI", original_uri(r));
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+	add_header(t, "REMOTE_ADDR", r->useragent_ip);
+#else
 	add_header(t, "REMOTE_ADDR", r->connection->remote_ip);
+#endif
 	add_header(t, "REMOTE_PORT", apr_psprintf(r->pool, "%d", port));
 	add_header(t, "REMOTE_USER", r->user);
 	add_header(t, "DOCUMENT_ROOT", (char *) ap_document_root(r));
