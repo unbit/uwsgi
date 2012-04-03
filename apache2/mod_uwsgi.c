@@ -2,7 +2,7 @@
         
 *** uWSGI/mod_uwsgi ***
 
-Copyright 2009-2011 Unbit S.a.s. <info@unbit.it>
+Copyright 2009-2012 Unbit S.a.s. <info@unbit.it>
      
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -37,11 +37,18 @@ LoadModule uwsgi_module <path_of_apache_modules>/mod_uwsgi.so
 
 */
 
+#include <unistd.h>
+#include <ctype.h>
 #include "apr_strings.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "httpd.h"
 #include "http_core.h"
+#include "http_protocol.h"
 #include "http_config.h"
 #include "http_log.h"
+#include "util_script.h"
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -346,7 +353,11 @@ static int uwsgi_handler(request_rec *r) {
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SERVER_PORT", apr_psprintf(r->pool, "%u",ap_get_server_port(r)), &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "SERVER_PROTOCOL", r->protocol, &pkt_size) ;
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REQUEST_URI", r->unparsed_uri, &pkt_size) ;
+#if AP_MODULE_MAGIC_AT_LEAST(20111130,0)
+	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_ADDR", r->useragent_ip, &pkt_size) ;
+#else
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_ADDR", r->connection->remote_ip, &pkt_size) ;
+#endif
 
 	// 
 	if (r->user) {
