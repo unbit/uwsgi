@@ -720,6 +720,7 @@ struct uwsgi_spooler {
 	char dir[PATH_MAX];
 	pid_t pid;
 	uint64_t respawned;
+	uint64_t tasks;
 	struct uwsgi_lock_item *lock;
 	time_t harakiri;
 
@@ -1340,6 +1341,7 @@ struct uwsgi_server {
 	int spooler_numproc;
 	struct uwsgi_spooler *i_am_a_spooler;
 	char *spooler_chdir;
+	int spooler_max_tasks;
 	int spooler_ordered;
 	int spooler_quiet;
 #endif

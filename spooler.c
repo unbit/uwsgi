@@ -310,6 +310,9 @@ void spooler(struct uwsgi_spooler *uspool) {
 		event_queue_add_fd_read(spooler_event_queue, uwsgi.shared->spooler_signal_pipe[1]);
 	}
 
+	// reset the tasks counter
+	uspool->tasks = 0;
+
 	for (;;) {
 
 
@@ -360,6 +363,12 @@ void spooler(struct uwsgi_spooler *uspool) {
 			tmp_wakeup--;
 		}
 		wakeup = tmp_wakeup;
+
+		// need to recycle ?
+		if (uwsgi.spooler_max_tasks > 0 && uspool->tasks >= (uint64_t)uwsgi.spooler_max_tasks) {
+			uwsgi_log("[spooler %s pid: %d] maximum number of tasks reached (%d) recycling ...\n", uspool->dir, (int) uwsgi.mypid, uwsgi.spooler_max_tasks);
+			end_me(0);
+		}
 
 	}
 }
@@ -532,6 +541,8 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
                 			}
 					if (ret == 0) continue;
 					callable_found = 1;
+					// increase task counter
+					uspool->tasks++;
 					if (ret == -2) {
 						if (!uwsgi.spooler_quiet)
 							uwsgi_log("[spooler %s pid: %d] done with task %s after %d seconds\n", uspool->dir, (int) uwsgi.mypid, task, time(NULL)-now);
