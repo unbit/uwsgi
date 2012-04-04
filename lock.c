@@ -150,7 +150,7 @@ void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 #ifdef EOWNERDEAD
 	if (pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr) == EOWNERDEAD) {
 		uwsgi_log("[deadlock-detector] a process holding a robust mutex died. recovering...\n");
-		pthread_mutex_consistent((pthread_mutex_t *) uli->lock_ptr);
+		pthread_mutex_consistent_np((pthread_mutex_t *) uli->lock_ptr);
 	}
 #else
 	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
