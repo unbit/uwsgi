@@ -427,7 +427,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 doh:
 	free(mountpoint);
-	PyErr_Print();
+	if (PyErr_Occurred())
+		PyErr_Print();
 #ifdef UWSGI_MINTERPRETERS
 	if (interpreter == NULL && id) {
 		Py_EndInterpreter(wi->interpreter);

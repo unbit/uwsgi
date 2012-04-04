@@ -154,7 +154,6 @@ int uwsgi_python_init() {
 	uwsgi_log_initial("PyPy version: %s\n", PYPY_VERSION);
 #endif
 
-#ifndef UWSGI_PYPY
 	if (up.home != NULL) {
 #ifdef PYTHREE
 		wchar_t *wpyhome;
@@ -173,16 +172,15 @@ int uwsgi_python_init() {
 		uwsgi_log("Set PythonHome to %s\n", up.home);
 	}
 
+
 #ifdef PYTHREE
 	wchar_t pname[6];
 	mbstowcs(pname, "uWSGI", 6);
 	Py_SetProgramName(pname);
 #else
-
 	Py_SetProgramName("uWSGI");
 #endif
 
-#endif
 
 #ifndef UWSGI_PYPY
 	Py_OptimizeFlag = up.optimize;
@@ -281,9 +279,7 @@ void uwsgi_python_atexit() {
 			PyErr_Clear();
 	}
 
-#ifndef UWSGI_PYPY
 	Py_Finalize();
-#endif
 }
 
 void uwsgi_python_post_fork() {
