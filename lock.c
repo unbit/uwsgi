@@ -45,7 +45,7 @@ static struct uwsgi_lock_item *uwsgi_register_lock(char *id, int rw) {
 
 #ifdef UWSGI_LOCK_USE_MUTEX
 
-#ifdef PTHREAD_MUTEX_ROBUST
+#ifdef EOWNERDEAD
 #define UWSGI_LOCK_ENGINE_NAME "pthread robust mutexes"
 #else
 #define UWSGI_LOCK_ENGINE_NAME "pthread mutexes"
@@ -75,8 +75,8 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
                 exit(1);
         }
 
-#ifdef PTHREAD_MUTEX_ROBUST
-        if (pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) {
+#ifdef EOWNERDEAD
+        if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP)) {
         	uwsgi_log("unable to make the mutex 'robust'\n");
                 exit(1);
         }
@@ -89,7 +89,9 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 
 	pthread_mutexattr_destroy(&attr);
 
+#ifndef EOWNERDEAD
 	uli->can_deadlock = 1;
+#endif
 
 	return uli;
 }
@@ -145,7 +147,14 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 
 void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
 
+#ifdef EOWNERDEAD
+	if (pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr) == EOWNERDEAD) {
+		uwsgi_log("[deadlock-detector] a process holding a robust mutex died. recovering...\n");
+		pthread_mutex_consistent((pthread_mutex_t *) uli->lock_ptr);
+	}
+#else
 	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
+#endif
         uli->pid = uwsgi.mypid;
 }
 
@@ -175,13 +184,6 @@ struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
                 uwsgi_log("unable to share rwlock\n");
                 exit(1);
         }
-
-#ifdef PTHREAD_MUTEX_ROBUST
-        if (pthread_rwlockattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) {
-        	uwsgi_log("unable to make the mutex 'robust'\n");
-                exit(1);
-        }
-#endif
 
         if (pthread_rwlock_init((pthread_rwlock_t *) uli->lock_ptr, &attr)) {
                 uwsgi_log("unable to initialize rwlock\n");
