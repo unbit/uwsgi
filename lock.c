@@ -45,7 +45,11 @@ static struct uwsgi_lock_item *uwsgi_register_lock(char *id, int rw) {
 
 #ifdef UWSGI_LOCK_USE_MUTEX
 
+#ifdef PTHREAD_MUTEX_ROBUST
+#define UWSGI_LOCK_ENGINE_NAME "pthread robust mutexes"
+#else
 #define UWSGI_LOCK_ENGINE_NAME "pthread mutexes"
+#endif
 
 #define UWSGI_LOCK_SIZE	sizeof(pthread_mutex_t)
 
@@ -70,6 +74,13 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
         	uwsgi_log("unable to share mutex\n");
                 exit(1);
         }
+
+#ifdef PTHREAD_MUTEX_ROBUST
+        if (pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) {
+        	uwsgi_log("unable to make the mutex 'robust'\n");
+                exit(1);
+        }
+#endif
 
         if (pthread_mutex_init((pthread_mutex_t *) uli->lock_ptr, &attr)) {
         	uwsgi_log("unable to initialize mutex\n");
@@ -164,6 +175,13 @@ struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
                 uwsgi_log("unable to share rwlock\n");
                 exit(1);
         }
+
+#ifdef PTHREAD_MUTEX_ROBUST
+        if (pthread_rwlockattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) {
+        	uwsgi_log("unable to make the mutex 'robust'\n");
+                exit(1);
+        }
+#endif
 
         if (pthread_rwlock_init((pthread_rwlock_t *) uli->lock_ptr, &attr)) {
                 uwsgi_log("unable to initialize rwlock\n");
