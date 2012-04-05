@@ -1104,7 +1104,7 @@ void uwsgi_plugins_atexit(void) {
 
 void uwsgi_backtrace(int depth) {
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(UWSGI_HAS_EXECINFO)
 
 #include <execinfo.h>
 

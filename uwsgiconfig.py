@@ -383,6 +383,11 @@ class uConf(object):
         if self.has_include('ifaddrs.h'):
             self.cflags.append('-DUWSGI_HAS_IFADDRS')
 
+        if uwsgi_os == 'FreeBSD':
+            if self.has_include('execinfo.h') or os.path.exists('/usr/local/include/execinfo.h'):
+                self.cflags.append('-DUWSGI_HAS_EXECINFO')
+                self.libs.append('-lexecinfo')
+
         if uwsgi_os == 'SunOS':
             self.libs.append('-lsendfile')
             self.gcc_list.append('lib/sun_fixes')
