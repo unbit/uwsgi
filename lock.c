@@ -245,6 +245,47 @@ pid_t uwsgi_lock_fast_check(struct uwsgi_lock_item *uli) {
 
 pid_t uwsgi_rwlock_fast_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_fast_check(uli); }
 
+#elif defined(UWSGI_LOCK_USE_POSIX_SEM)
+
+#define UWSGI_LOCK_SIZE         sizeof(sem_t)
+#define UWSGI_RWLOCK_SIZE       sizeof(sem_t)
+#define UWSGI_LOCK_ENGINE_NAME  "POSIX semaphores"
+
+#include <semaphore.h>
+
+struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
+        struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
+        sem_init((sem_t*) uli->lock_ptr, 1, 1);
+	uli->can_deadlock = 1;
+        return uli;
+}
+
+struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) { return uwsgi_lock_fast_init(id) ;}
+
+void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
+        sem_wait((sem_t *) uli->lock_ptr);
+        uli->pid = uwsgi.mypid;
+}
+
+void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
+        sem_post((sem_t*) uli->lock_ptr);
+        uli->pid = 0;
+}
+
+pid_t uwsgi_lock_fast_check(struct uwsgi_lock_item *uli) {
+	if (sem_trywait((sem_t *) uli->lock_ptr) == 0) {
+		sem_post((sem_t*) uli->lock_ptr);
+                return 0;
+        }
+        return uli->pid;
+}
+
+pid_t uwsgi_rwlock_fast_check(struct uwsgi_lock_item *uli) { return uwsgi_lock_fast_check(uli); }
+void uwsgi_rlock_fast(struct uwsgi_lock_item *uli) { uwsgi_lock_fast(uli);}
+void uwsgi_wlock_fast(struct uwsgi_lock_item *uli) { uwsgi_lock_fast(uli);}
+void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) { uwsgi_unlock_fast(uli); }
+
+
 #elif defined(UWSGI_LOCK_USE_OSX_SPINLOCK)
 
 #define UWSGI_LOCK_ENGINE_NAME "OSX spinlocks"

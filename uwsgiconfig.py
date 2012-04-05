@@ -415,16 +415,22 @@ class uConf(object):
             if uwsgi_os == 'Linux' or uwsgi_os == 'SunOS':
                 locking_mode = 'pthread_mutex'
             # FreeBSD umtx is still not ready for process shared locking
-            #elif uwsgi_os == 'FreeBSD':
-            #    locking_mode = 'umtx'
+            # starting from FreeBSD 9 posix semaphores can be shared between processes
+            elif uwsgi_os == 'FreeBSD':
+                 try:
+                     fbsd_major = int(uwsgi_os_k.split('.')[0])
+                     if fbsd_major >= 9:
+                         locking_mode = 'posix_sem'
+                 except:
+                     pass
             elif uwsgi_os == 'Darwin':
                 locking_mode = 'osx_spinlock'
 
         if locking_mode == 'pthread_mutex':
             self.cflags.append('-DUWSGI_LOCK_USE_MUTEX')
         # FreeBSD umtx is still not ready for process shared locking
-        #elif locking_mode == 'umtx':
-        #    self.cflags.append('-DUWSGI_LOCK_USE_UMTX')
+        elif locking_mode == 'posix_sem':
+            self.cflags.append('-DUWSGI_LOCK_USE_POSIX_SEM')
         elif locking_mode == 'osx_spinlock':
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
 
