@@ -50,14 +50,10 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         // if async_post is mapped as a file, directly use it as wsgi.input
         if (wsgi_req->async_post) {
-#ifdef UWSGI_PYPY
-		uwsgi_log("wsgi.input mapped to a file is not supported under PyPy\n");
-#else
 #ifdef PYTHREE
                 wsgi_req->async_input = PyFile_FromFd(fileno(wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
 #else
                 wsgi_req->async_input = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
-#endif
 #endif
         }
         else {
@@ -87,11 +83,9 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", wi->gateway_version);
 
-#ifndef UWSGI_PYPY
 	zero = PyFile_FromFile(stderr, "wsgi_errors", "w", NULL);
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.errors", zero);
 	Py_DECREF(zero);
-#endif
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.run_once", Py_False);
 
@@ -131,11 +125,9 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	wsgi_req->async_app = wi->callable;
 
 	// export .env only in non-threaded mode
-#ifndef UWSGI_PYPY
 	if (uwsgi.threads < 2) {
 		PyDict_SetItemString(up.embedded_dict, "env", wsgi_req->async_environ);
 	}
-#endif
 
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.version", wi->uwsgi_version);
 
