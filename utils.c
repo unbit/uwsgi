@@ -1189,6 +1189,7 @@ void uwsgi_log(const char *fmt, ...) {
 
 	struct timeval tv;
 	char sftime[64];
+	char ctime_storage[26];
 	time_t now;
 
 	if (uwsgi.logdate) {
@@ -1201,8 +1202,8 @@ void uwsgi_log(const char *fmt, ...) {
 		}
 		else {
 			gettimeofday(&tv, NULL);
-
-			memcpy(logpkt, ctime((const time_t *) &tv.tv_sec), 24);
+			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+			memcpy(logpkt, ctime_storage, 24);
 			memcpy(logpkt + 24, " - ", 3);
 
 			rlen = 24 + 3;
@@ -1238,6 +1239,7 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 	struct timeval tv;
 	char sftime[64];
         time_t now;
+	char ctime_storage[26];
 
 		if (uwsgi.log_strftime) {
                         now = time(NULL);
@@ -1248,8 +1250,8 @@ void uwsgi_log_verbose(const char *fmt, ...) {
                 }
                 else {
                         gettimeofday(&tv, NULL);
-
-                        memcpy(logpkt, ctime((const time_t *) &tv.tv_sec), 24);
+			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+                        memcpy(logpkt, ctime_storage, 24);
                         memcpy(logpkt + 24, " - ", 3);
 
                         rlen = 24 + 3;

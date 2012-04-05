@@ -7,6 +7,7 @@ extern struct uwsgi_server uwsgi;
 ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 
 	char buf[MAX_SYSLOG_PKT];
+	char ctime_storage[26];
 	time_t current_time;
 	int portn = 514;
 	int rlen;
@@ -55,8 +56,8 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 
 	// drop newline
 	if (message[len-1] == '\n') len--;
-
- 	rlen = snprintf(buf, MAX_SYSLOG_PKT, "<29>%.*s %s: %.*s", 15, ctime(&current_time)+4, (char *) ul->data, (int) len, message);
+	ctime_r(&current_time, ctime_storage);
+ 	rlen = snprintf(buf, MAX_SYSLOG_PKT, "<29>%.*s %s: %.*s", 15, ctime_storage+4, (char *) ul->data, (int) len, message);
 	if (rlen > 0) {
 		return sendto(ul->fd, buf, rlen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);
 	}

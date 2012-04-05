@@ -113,7 +113,7 @@ void uwsgi_check_logrotate(void) {
 void log_request(struct wsgi_request *wsgi_req) {
 
 	// optimize this (please)
-	char *time_request;
+	char time_request[26];
 	time_t microseconds, microseconds2;
 	int rlen;
 	int app_req = -1;
@@ -160,7 +160,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 		via = msg3;
 	}
 
-	time_request = ctime((const time_t *) &wsgi_req->start_of_request.tv_sec);
+	ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, time_request);
 	microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
 	microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
 
