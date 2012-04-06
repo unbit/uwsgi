@@ -1573,6 +1573,7 @@ struct uwsgi_server {
 	size_t cache_filesize;
 	int cache_store_sync;
 	int cache_no_expire;
+	int cache_expire_freq;
 
 	char *cache_server;
 	int cache_server_threads;

@@ -118,9 +118,11 @@ void *cache_sweeper_loop(void *noarg) {
         sigfillset(&smask);
         pthread_sigmask(SIG_BLOCK, &smask, NULL);
 
+	if (!uwsgi.cache_expire_freq) uwsgi.cache_expire_freq = 3;
+
 	// remove expired cache items TODO use rb_tree timeouts
 	for(;;) {
-		sleep(1);
+		sleep(uwsgi.cache_expire_freq);
                 for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
                 	uwsgi_wlock(uwsgi.cache_lock);
                         if (uwsgi.cache_items[i].expires) {
