@@ -196,17 +196,18 @@ void init_pyargv() {
 
 	if (up.argv) {
 
+		char *py_argv_copy = uwsgi_str(up.argv);
 		up.argc = 1;
 #ifdef PYTHREE
-		wchar_t *wcargv = uwsgi_calloc( sizeof( wchar_t ) * (strlen(up.argv)+1));
+		wchar_t *wcargv = uwsgi_calloc( sizeof( wchar_t ) * (strlen(py_argv_copy)+1));
 #endif
 
 #ifdef __sun__
 		// FIX THIS !!!
-		ap = strtok(up.argv, " ");
+		ap = strtok(py_argv_copy, " ");
 		while ((ap = strtok(NULL, " ")) != NULL) {
 #else
-		while ((ap = strsep(&up.argv, " \t")) != NULL) {
+		while ((ap = strsep(&py_argv_copy, " \t")) != NULL) {
 #endif
 				if (*ap != '\0') {
 #ifdef PYTHREE
