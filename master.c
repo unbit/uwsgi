@@ -110,6 +110,30 @@ void *logger_thread_loop(void *noarg) {
 	return NULL;
 }
 
+void *cache_sweeper_loop(void *noarg) {
+
+	int i;
+	// block all signals
+        sigset_t smask;
+        sigfillset(&smask);
+        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+
+	// remove expired cache items TODO use rb_tree timeouts
+	for(;;) {
+		sleep(1);
+                for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
+                	uwsgi_wlock(uwsgi.cache_lock);
+                        if (uwsgi.cache_items[i].expires) {
+                        	if (uwsgi.cache_items[i].expires < (uint64_t) uwsgi.current_time) {
+                                	uwsgi_cache_del(uwsgi.cache_items[i].key, uwsgi.cache_items[i].keysize);
+                                }
+                        }
+                        uwsgi_rwunlock(uwsgi.cache_lock);
+        	}
+	};
+
+}
+
 void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 
 	int subfile_size;
@@ -279,6 +303,7 @@ int master_loop(char **argv, char **environ) {
 	uint64_t last_request_count = 0;
 
 	pthread_t logger_thread;
+	pthread_t cache_sweeper;
 
 #ifdef UWSGI_UDP
 	struct sockaddr_in udp_client;
@@ -371,6 +396,16 @@ int master_loop(char **argv, char **environ) {
 				event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_log_pipe[0]);
 				uwsgi.threaded_logger = 0;
 			}
+		}
+	}
+
+	if (uwsgi.cache_max_items > 0 && !uwsgi.cache_no_expire) {
+		if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, NULL)) {
+                	uwsgi_error("pthread_create()");
+			uwsgi_log("unable to run the cache sweeper !!!\n");
+                }
+		else {
+			uwsgi_log("cache sweeper thread enabled\n");
 		}
 	}
 
@@ -1186,19 +1221,6 @@ int master_loop(char **argv, char **environ) {
 					uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
 					last_request_timecheck = 0;
 					continue;
-				}
-			}
-
-			// remove expired cache items TODO use rb_tree timeouts
-			if (uwsgi.cache_max_items > 0) {
-				for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
-					uwsgi_wlock(uwsgi.cache_lock);
-					if (uwsgi.cache_items[i].expires) {
-						if (uwsgi.cache_items[i].expires < (uint64_t) uwsgi.current_time) {
-							uwsgi_cache_del(uwsgi.cache_items[i].key, uwsgi.cache_items[i].keysize);
-						}
-					}
-					uwsgi_rwunlock(uwsgi.cache_lock);
 				}
 			}
 

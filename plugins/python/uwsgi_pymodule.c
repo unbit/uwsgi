@@ -3363,29 +3363,29 @@ PyObject *py_uwsgi_queue_pull(PyObject * self, PyObject * args) {
 	char *message;
 	uint64_t size;
 	PyObject *res;
+	char *storage;
 
 	if (uwsgi.queue_size) {
 		UWSGI_RELEASE_GIL
 		uwsgi_wlock(uwsgi.queue_lock);
+
 		message = uwsgi_queue_pull(&size);
-		UWSGI_GET_GIL
-		if (message && size > 0) {
-			res = PyString_FromStringAndSize(NULL, size);
-#ifdef PYTHREE
-                	char *storage = PyBytes_AsString(res);
-#else
-                	char *storage = PyString_AS_STRING(res);
-#endif
-			UWSGI_RELEASE_GIL
-			memcpy(storage, message, size);
-                }
-                else {
+
+                if (!message || size == 0) {
+                	uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
                         Py_INCREF(Py_None);
-                        res = Py_None;
-			UWSGI_RELEASE_GIL
+                        return Py_None;
                 }
+
+                storage = uwsgi_malloc(size);
+		memcpy(storage, message, size);
+
                 uwsgi_rwunlock(uwsgi.queue_lock);
 		UWSGI_GET_GIL
+
+		res = PyString_FromStringAndSize(storage, size);
+		free(storage);
                 return res;
 	}
 
@@ -3399,29 +3399,29 @@ PyObject *py_uwsgi_queue_pop(PyObject * self, PyObject * args) {
         char *message;
         uint64_t size;
         PyObject *res;
+	char *storage;
 
         if (uwsgi.queue_size) {
+
 		UWSGI_RELEASE_GIL
                 uwsgi_wlock(uwsgi.queue_lock);
+
                 message = uwsgi_queue_pop(&size);
-		UWSGI_GET_GIL
-		if (message && size > 0) {
-                        res = PyString_FromStringAndSize(NULL, size);
-#ifdef PYTHREE
-                        char *storage = PyBytes_AsString(res);
-#else
-                        char *storage = PyString_AS_STRING(res);
-#endif
-                        UWSGI_RELEASE_GIL
-                        memcpy(storage, message, size);
-                }
-                else {
+		if (!message || size == 0) {
+                	uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
                         Py_INCREF(Py_None);
-                        res = Py_None;
-                        UWSGI_RELEASE_GIL
-                }
+			return Py_None;
+		}
+
+		storage = uwsgi_malloc(size);
+                memcpy(storage, message, size);
+
                 uwsgi_rwunlock(uwsgi.queue_lock);
 		UWSGI_GET_GIL
+
+		res = PyString_FromStringAndSize(storage, size);
+		free(storage);
                 return res;
         }
 
@@ -3437,6 +3437,7 @@ PyObject *py_uwsgi_queue_get(PyObject * self, PyObject * args) {
 	uint64_t size = 0;
 	char *message;
 	PyObject *res;
+	char *storage;
 
 	if (!PyArg_ParseTuple(args, "l:queue_get", &index)) {
                 return NULL;
@@ -3445,25 +3446,23 @@ PyObject *py_uwsgi_queue_get(PyObject * self, PyObject * args) {
 	if (uwsgi.queue_size) {
 		UWSGI_RELEASE_GIL
 		uwsgi_rlock(uwsgi.queue_lock);
+
 		message = uwsgi_queue_get(index, &size);
-		UWSGI_GET_GIL
-                if (message && size > 0) {
-                        res = PyString_FromStringAndSize(NULL, size);
-#ifdef PYTHREE  
-                        char *storage = PyBytes_AsString(res);
-#else
-                        char *storage = PyString_AS_STRING(res);
-#endif  
-                        UWSGI_RELEASE_GIL
-                        memcpy(storage, message, size);
-                }
-                else {
+                if (!message || size == 0) {
+			uwsgi_rwunlock(uwsgi.queue_lock);
+			UWSGI_GET_GIL
                         Py_INCREF(Py_None);
-                        res = Py_None;
-                        UWSGI_RELEASE_GIL
-                }
+			return Py_None;
+		}
+
+		storage = uwsgi_malloc(size);
+                memcpy(storage, message, size);
+
 		uwsgi_rwunlock(uwsgi.queue_lock);
 		UWSGI_GET_GIL
+
+                res = PyString_FromStringAndSize(storage, size);
+		free(storage);
 		return res;
 	}	
 
@@ -3473,11 +3472,12 @@ PyObject *py_uwsgi_queue_get(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 
-        long num = 0;
+        long i, num = 0;
         uint64_t size = 0;
         char *message;
         PyObject *res = NULL;
 	uint64_t base;
+	char *storage;
 
         if (!PyArg_ParseTuple(args, "|l:queue_last", &num)) {
                 return NULL;
@@ -3501,50 +3501,41 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 
 		if (num == 0) {
                 	message = uwsgi_queue_get(base, &size);
-			UWSGI_GET_GIL
-                	if (message && size > 0) {
-                        	res = PyString_FromStringAndSize(NULL, size);
-#ifdef PYTHREE  
-                        	char *storage = PyBytes_AsString(res);
-#else
-                        	char *storage = PyString_AS_STRING(res);
-#endif
-                        	UWSGI_RELEASE_GIL
-                        	memcpy(storage, message, size);
-                	}
-                	else {
+                	if (!message || size == 0) {
+                		uwsgi_rwunlock(uwsgi.queue_lock);
+				UWSGI_GET_GIL
                         	Py_INCREF(Py_None);
-                        	res = Py_None;
-                        	UWSGI_RELEASE_GIL
-                	}
+				return Py_None;
+			}
+
+			storage = uwsgi_malloc(size);
+                        memcpy(storage, message, size);
+
                 	uwsgi_rwunlock(uwsgi.queue_lock);
 			UWSGI_GET_GIL
+
+			res = PyString_FromStringAndSize(storage, size);
+			free(storage);
 			return res;
 		}
 
 		if (num > (long)uwsgi.queue_size) num = uwsgi.queue_size;
 
+		char **queue_items = uwsgi_malloc(sizeof(char *) * num);
+		uint64_t *queue_items_size = uwsgi_malloc(sizeof(uint64_t) * num);
+		long item_pos = 0;
 		while(num) {
                 	message = uwsgi_queue_get(base, &size);
-			UWSGI_GET_GIL
-                	if (message && size) {
-				PyObject *zero = PyString_FromStringAndSize(NULL, size);
-				PyList_Append(res, zero);
-				Py_DECREF(zero);
-#ifdef PYTHREE  
-                                char *storage = PyBytes_AsString(res);
-#else           
-                                char *storage = PyString_AS_STRING(res);
-#endif
-				UWSGI_RELEASE_GIL
-				memcpy(storage, message, size);
+                	if (!message || size == 0) {
+				queue_items[item_pos] = NULL;
+				queue_items_size[item_pos] = 0;
                 	}
-                	else {
-				UWSGI_RELEASE_GIL
-                		uwsgi_rwunlock(uwsgi.queue_lock);
-				UWSGI_GET_GIL
-				return res;
-                	}
+			else {
+				queue_items[item_pos] = uwsgi_malloc(size);
+				memcpy(queue_items[item_pos], message, size);
+				queue_items_size[item_pos] = size;
+			}
+			item_pos++;
 			if (base > 0) {
 				base--;
 			}
@@ -3553,9 +3544,24 @@ PyObject *py_uwsgi_queue_last(PyObject * self, PyObject * args) {
 			}
 			num--;
 		}
-		UWSGI_RELEASE_GIL
+
                 uwsgi_rwunlock(uwsgi.queue_lock);
 		UWSGI_GET_GIL
+
+		for(i=0;i<item_pos;i++) {
+			if (queue_items[i]) {
+				PyObject *zero = PyString_FromStringAndSize(queue_items[i], queue_items_size[i]);
+				PyList_Append(res, zero);
+				Py_DECREF(zero);
+				free(queue_items[i]);
+			}
+			else {
+				Py_INCREF(Py_None);
+				PyList_Append(res, Py_None);
+			}
+		}
+		free(queue_items);
+		free(queue_items_size);
                 return res;
         }
 
@@ -3605,14 +3611,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
-		UWSGI_GET_GIL
-		ret = PyString_FromStringAndSize(NULL, valsize);
-#ifdef PYTHREE
-		char *storage = PyBytes_AsString(ret);
-#else
-		char *storage = PyString_AS_STRING(ret);
-#endif
-		UWSGI_RELEASE_GIL
+		char *storage = uwsgi_malloc(valsize);
 #ifdef UWSGI_DEBUG
 		gettimeofday(&tv2, NULL); 
 		if ((tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec) > 30000) {
@@ -3622,6 +3621,8 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 		memcpy(storage, value, valsize);
 		uwsgi_rwunlock(uwsgi.cache_lock);
 		UWSGI_GET_GIL
+		ret = PyString_FromStringAndSize(storage, valsize);
+		free(storage);
 		return ret;
 	}
 
