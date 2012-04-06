@@ -216,11 +216,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	if (!pychunk) {
 		if (PyErr_Occurred()) { 
-#ifndef UWSGI_PYPY
 			int do_exit = uwsgi_python_manage_exceptions();
-#else
-			int do_exit = 0;
-#endif
 		        if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
 				uwsgi_log("Memory Error detected !!!\n");	
 			}		

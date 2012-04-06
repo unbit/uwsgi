@@ -8,17 +8,16 @@ int manage_python_response(struct wsgi_request *wsgi_req) {
 	return uwsgi_response_subhandler_wsgi(wsgi_req);
 }
 
-#ifndef UWSGI_PYPY
 char *uwsgi_python_get_exception_type(PyObject *exc) {
 	char *class_name = NULL;
-#ifndef PYTHREE
+#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
 	if (PyClass_Check(exc)) {
 		class_name = PyString_AsString( ((PyClassObject*)(exc))->cl_name );
 	}
 	else {
 #endif
 		class_name = (char *) ((PyTypeObject*)exc)->tp_name;
-#ifndef PYTHREE
+#if !defined(PYTHREE) && !defined(UWSGI_PYPY)
 	}
 #endif
 
@@ -91,7 +90,6 @@ int uwsgi_python_manage_exceptions(void) {
 
 	return ret;
 }
-#endif
 
 PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi_request *wsgi_req) {
 
@@ -104,11 +102,7 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 	if (PyErr_Occurred()) {
 
 
-#ifndef UWSGI_PYPY
 		int do_exit = uwsgi_python_manage_exceptions();
-#else
-		int do_exit = 0;
-#endif
 
 		if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
 			uwsgi_log("Memory Error detected !!!\n");
@@ -227,9 +221,7 @@ void init_pyargv() {
 
 	}
 
-#ifndef UWSGI_PYPY
 	PySys_SetArgv(up.argc, up.py_argv);
-#endif
 
 	PyObject *sys_dict = get_uwsgi_pydict("sys");
 	if (!sys_dict) {

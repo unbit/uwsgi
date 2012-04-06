@@ -277,7 +277,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->response_subhandler = uwsgi_response_subhandler_wsgi;
 		wi->argc = 2;
 	}
-#ifndef UWSGI_PYPY
 	else if (app_type == PYTHON_APP_TYPE_WEB3) {
 #ifdef UWSGI_DEBUG
 		uwsgi_log("-- Web3 callable selected --\n");
@@ -292,7 +291,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		wi->request_subhandler = uwsgi_request_subhandler_pump;
 		wi->response_subhandler = uwsgi_response_subhandler_pump;
 	}
-#endif
 
 #ifdef UWSGI_ASYNC
 	wi->args = malloc(sizeof(PyObject*)*uwsgi.cores);
@@ -712,8 +710,10 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 
 PyObject *uwsgi_eval_loader(void *arg1) {
 
-#ifndef UWSGI_PYPY
-
+#ifdef UWSGI_PYPY
+	uwsgi_log("the eval loader is currently not supported under PyPy !!!\n");
+	return NULL;
+#else
 	char *code = (char *) arg1;
 
 	PyObject *wsgi_eval_module, *wsgi_eval_callable = NULL;
@@ -769,8 +769,6 @@ PyObject *uwsgi_eval_loader(void *arg1) {
 	}
 
 	return wsgi_eval_callable;
-#else
-	return NULL;
 #endif
 
 }

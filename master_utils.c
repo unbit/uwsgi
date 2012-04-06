@@ -545,20 +545,36 @@ void uwsgi_manage_signal_cron(time_t now) {
 			uc_month = ucron->month;
 			uc_week = ucron->week;
 
-			if (ucron->minute == -1)
-				uc_minute = uwsgi_cron_delta->tm_min;
-			if (ucron->hour == -1)
-				uc_hour = uwsgi_cron_delta->tm_hour;
-			if (ucron->month == -1)
-				uc_month = uwsgi_cron_delta->tm_mon;
-			if (ucron->day == -1)
-				uc_day = uwsgi_cron_delta->tm_mday;
-			if (ucron->week == -1)
-				uc_week = uwsgi_cron_delta->tm_wday;
+			// negative values as interval -1 = * , -5 = */5
+			if (ucron->minute < 0) {
+				if ((uwsgi_cron_delta->tm_min % abs(ucron->minute)) == 0) {
+					uc_minute = uwsgi_cron_delta->tm_min;
+				}
+			}
+			if (ucron->hour < 0) {
+				if ((uwsgi_cron_delta->tm_hour % abs(ucron->hour)) == 0) {
+					uc_hour = uwsgi_cron_delta->tm_hour;
+				}
+			}
+			if (ucron->month < 0) {
+				if ((uwsgi_cron_delta->tm_mon % abs(ucron->month)) == 0) {
+					uc_month = uwsgi_cron_delta->tm_mon;
+				}
+			}
+			if (ucron->day < 0) {
+				if ((uwsgi_cron_delta->tm_mday % abs(ucron->day)) == 0) {
+					uc_day = uwsgi_cron_delta->tm_mday;
+				}
+			}
+			if (ucron->week < 0) {
+				if ((uwsgi_cron_delta->tm_wday % abs(ucron->week)) == 0) {	
+					uc_week = uwsgi_cron_delta->tm_wday;
+				}
+			}
 
 			int run_task = 0;
 			// mday and wday are ORed
-			if (ucron->day != -1 && ucron->week != -1) {
+			if (ucron->day >= 0 && ucron->week >= 0) {
 				if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
 					run_task = 1;
 				}
@@ -602,8 +618,10 @@ void uwsgi_manage_command_cron(time_t now) {
 		return;
 	}
 
-	while (current_cron) {
+	// fix month
+	uwsgi_cron_delta->tm_mon++;
 
+	while (current_cron) {
 
 		uc_minute = current_cron->minute;
 		uc_hour = current_cron->hour;
@@ -611,20 +629,36 @@ void uwsgi_manage_command_cron(time_t now) {
 		uc_month = current_cron->month;
 		uc_week = current_cron->week;
 
-		if (current_cron->minute == -1)
-			uc_minute = uwsgi_cron_delta->tm_min;
-		if (current_cron->hour == -1)
-			uc_hour = uwsgi_cron_delta->tm_hour;
-		if (current_cron->month == -1)
-			uc_month = uwsgi_cron_delta->tm_mon;
-		if (current_cron->day == -1)
-			uc_day = uwsgi_cron_delta->tm_mday;
-		if (current_cron->week == -1)
-			uc_week = uwsgi_cron_delta->tm_wday;
+		// negative values as interval -1 = * , -5 = */5
+		if (current_cron->minute < 0) {
+			if ((uwsgi_cron_delta->tm_min % abs(current_cron->minute)) == 0) {
+				uc_minute = uwsgi_cron_delta->tm_min;
+			}
+		}
+		if (current_cron->hour < 0) {
+			if ((uwsgi_cron_delta->tm_hour % abs(current_cron->hour)) == 0) {
+				uc_hour = uwsgi_cron_delta->tm_hour;
+			}
+		}
+		if (current_cron->month < 0) {
+			if ((uwsgi_cron_delta->tm_hour % abs(current_cron->month)) == 0) {
+				uc_month = uwsgi_cron_delta->tm_mon;
+			}
+		}
+		if (current_cron->day < 0) {
+			if ((uwsgi_cron_delta->tm_mday % abs(current_cron->day)) == 0) {
+				uc_day = uwsgi_cron_delta->tm_mday;
+			}
+		}
+		if (current_cron->week < 0) {
+			if ((uwsgi_cron_delta->tm_wday % abs(current_cron->week)) == 0) {
+				uc_week = uwsgi_cron_delta->tm_wday;
+			}
+		}
 
 		int run_task = 0;
 		// mday and wday are ORed
-		if (current_cron->day != -1 && current_cron->week != -1) {
+		if (current_cron->day >= 0 && current_cron->week >= 0) {
 			if (uwsgi_cron_delta->tm_min == uc_minute && uwsgi_cron_delta->tm_hour == uc_hour && uwsgi_cron_delta->tm_mon == uc_month && (uwsgi_cron_delta->tm_mday == uc_day || uwsgi_cron_delta->tm_wday == uc_week)) {
 				run_task = 1;
 			}

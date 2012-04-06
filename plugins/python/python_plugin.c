@@ -321,9 +321,9 @@ UWSGI_RELEASE_GIL
 PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 
 #ifdef UWSGI_PYPY
+	uwsgi_log("import by filename is currently not supported on PyPy !!!\n");
 	return NULL;
 #else
-
 	FILE *pyfile;
 	struct _node *py_file_node = NULL;
 	PyObject *py_compiled_node, *py_file_module;
