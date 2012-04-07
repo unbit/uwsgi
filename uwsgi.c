@@ -158,9 +158,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cache-store-sync", required_argument, 0, "set frequency of sync for persistent cache", uwsgi_opt_set_int, &uwsgi.cache_store_sync,0},
 	{"cache-server", required_argument, 0, "enable the threaded cache server", uwsgi_opt_set_str, &uwsgi.cache_server, 0},
 	{"cache-server-threads", required_argument, 0, "set the number of threads for the cache server", uwsgi_opt_set_int, &uwsgi.cache_server_threads,0},
-	{"cache-no-expire", required_argument, 0, "disable auto sweep of expired items", uwsgi_opt_true, &uwsgi.cache_no_expire,0},
+	{"cache-no-expire", no_argument, 0, "disable auto sweep of expired items", uwsgi_opt_true, &uwsgi.cache_no_expire,0},
 	{"cache-expire-freq", required_argument, 0, "set the frequency of cache sweeper scans (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.cache_expire_freq,0},
-	{"cache-report-freed-items", required_argument, 0, "constantly report the cache item freed by the sweeper (use only for debug)", uwsgi_opt_true, &uwsgi.cache_report_freed_items,0},
+	{"cache-report-freed-items", no_argument, 0, "constantly report the cache item freed by the sweeper (use only for debug)", uwsgi_opt_true, &uwsgi.cache_report_freed_items,0},
 
 	{"queue", required_argument, 0, "enable shared queue", uwsgi_opt_set_int, &uwsgi.queue_size, 0},
 	{"queue-blocksize", required_argument, 0, "set queue blocksize", uwsgi_opt_set_int, &uwsgi.queue_store_sync, 0},
