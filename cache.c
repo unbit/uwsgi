@@ -111,13 +111,14 @@ inline uint64_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
 	uint64_t slot = uwsgi.cache_hashtable[hash_key];
 
 	struct uwsgi_cache_item *uci;
+	uint64_t rounds = 0;
 
 	//uwsgi_log("found slot %d for key %d\n", slot, hash_key);
 
 	uci = &uwsgi.cache_items[slot];
 
 	// first round
-	if (uci->djbhash != hash) goto cycle;
+	if (uci->djbhash != hash) return 0;
 	if (uci->keysize != keylen) goto cycle;
 	if (memcmp(uci->key, key, keylen)) goto cycle;
 
@@ -127,7 +128,20 @@ cycle:
 	while(uci->next) {
 		slot = uci->next;
 		uci = &uwsgi.cache_items[slot];
-		if (uci->djbhash != hash) continue;
+		rounds++;
+		if (rounds > uwsgi.cache_max_items) {
+			uwsgi_log("ALARM !!! cache-loop (and potential deadlock) detected slot = %llu prev = %llu next = %llu\n", uci->next, slot, uci->prev, uci->next);	
+			// terrible case: the whole uWSGI stack can deadlock, leaving only the master alive
+			// if the master is avalable, trigger a brutal reload
+			if (uwsgi.master_process) {
+				kill(uwsgi.workers[0].pid, SIGTERM);
+			}
+			// otherwise kill the current worker (could be pretty useless...)
+			else {
+				exit(1);
+			}
+		}
+		if (uci->djbhash != hash) return 0;
 		if (uci->keysize != keylen) continue;
 		if (!memcmp(uci->key, key, keylen)) return slot;
 	}
@@ -154,13 +168,14 @@ char *uwsgi_cache_get(char *key, uint16_t keylen, uint64_t *valsize) {
 	return NULL;
 }
 
-int uwsgi_cache_del(char *key, uint16_t keylen) {
+int uwsgi_cache_del(char *key, uint16_t keylen, uint64_t index) {
 
-	uint64_t index = 0;
 	struct uwsgi_cache_item *uci;
 	int ret = -1;
 
-	index = uwsgi_cache_get_index(key, keylen);
+	if (!index)
+		index = uwsgi_cache_get_index(key, keylen);
+
 	if (index) {
 		uci = &uwsgi.cache_items[index] ;
 		uci->keysize = 0;
@@ -177,9 +192,15 @@ int uwsgi_cache_del(char *key, uint16_t keylen) {
 		if (uci->prev) {
 			uwsgi.cache_items[uci->prev].next = uci->next;	
 		}
+		else {
+			// set next as the new entry point (could be 0)
+			uwsgi.cache_hashtable[uci->djbhash % 0xffff] = uci->next;
+		}
+
 		if (uci->next) {
 			uwsgi.cache_items[uci->next].prev = uci->prev;	
 		}
+
 		if (!uci->prev && !uci->next) {
 			// reset hashtable entry
 			//uwsgi_log("!!! resetted hashtable entry !!!\n");
@@ -188,6 +209,7 @@ int uwsgi_cache_del(char *key, uint16_t keylen) {
 		uci->djbhash = 0;
 		uci->prev = 0;
 		uci->next = 0;
+		uci->expires = 0;
 	}
 
 	return ret;
@@ -262,6 +284,9 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		ret = 0;
 		// now put the value in the 16bit hashtable
 		slot = uci->djbhash % 0xffff;
+		// reset values
+		uci->prev = 0;
+		uci->next = 0;
 
 		if (uwsgi.cache_hashtable[slot] == 0) {
 			uwsgi.cache_hashtable[slot] = index;

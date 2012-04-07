@@ -3138,7 +3138,7 @@ PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 	else if (uwsgi.cache_max_items) {
 		UWSGI_RELEASE_GIL
 		uwsgi_wlock(uwsgi.cache_lock);
-		if (uwsgi_cache_del(key, keylen)) {
+		if (uwsgi_cache_del(key, keylen, 0)) {
 			uwsgi_rwunlock(uwsgi.cache_lock);
 			UWSGI_GET_GIL
 			Py_INCREF(Py_None);

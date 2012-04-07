@@ -123,15 +123,21 @@ void *cache_sweeper_loop(void *noarg) {
 	// remove expired cache items TODO use rb_tree timeouts
 	for(;;) {
 		sleep(uwsgi.cache_expire_freq);
-                for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
+		uint64_t freed_items = 0;
+		// skip the first slot
+                for (i = 1; i < (int) uwsgi.cache_max_items; i++) {
                 	uwsgi_wlock(uwsgi.cache_lock);
                         if (uwsgi.cache_items[i].expires) {
                         	if (uwsgi.cache_items[i].expires < (uint64_t) uwsgi.current_time) {
-                                	uwsgi_cache_del(uwsgi.cache_items[i].key, uwsgi.cache_items[i].keysize);
+                                	uwsgi_cache_del(NULL, 0, i);
+					freed_items++;
                                 }
                         }
                         uwsgi_rwunlock(uwsgi.cache_lock);
         	}
+		if (uwsgi.cache_report_freed_items && freed_items > 0) {
+			uwsgi_log("freed %llu cache items\n", (unsigned long long) freed_items);
+		}
 	};
 
 }
