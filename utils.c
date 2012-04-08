@@ -619,7 +619,9 @@ void uwsgi_as_root() {
 				char *uidname = uwsgi.uidname;
 				if (!uidname) {
 					struct passwd *pw = getpwuid(uwsgi.uid);
-					uidname = pw->pw_name;
+					if (pw)
+						uidname = pw->pw_name;
+					
 				}
 				if (!uidname) uidname = uwsgi_num2str(uwsgi.uid);
 				if (initgroups(uidname, uwsgi.gid)) {

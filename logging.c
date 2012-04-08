@@ -263,6 +263,13 @@ void get_memusage(uint64_t * rss, uint64_t * vsz) {
 			*vsz = kproc->ki_size;
 			*rss = kproc->ki_rssize * uwsgi.page_size;
 		}
+#elif defined(UWSGI_NEW_OPENBSD)
+		struct kinfo_proc *kproc; 
+		kproc = kvm_getprocs(kv, KERN_PROC_PID, uwsgi.mypid, sizeof(struct kinfo_proc), &cnt);
+		if (kproc && cnt > 0) { 
+			*vsz = (kproc->p_vm_dsize + kproc->p_vm_ssize + kproc->p_vm_tsize) * uwsgi.page_size;
+			*rss = kproc->p_vm_rssize * uwsgi.page_size;
+		}
 #elif defined(__NetBSD__) || defined(__OpenBSD__)
 		struct kinfo_proc2 *kproc2;
 
