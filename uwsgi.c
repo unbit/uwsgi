@@ -131,6 +131,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-amqp-username", required_argument, 0, "set emperor amqp username", uwsgi_opt_set_str, &uwsgi.emperor_amqp_username, 0},
 	{"emperor-amqp-password", required_argument, 0, "set emperor amqp password", uwsgi_opt_set_str, &uwsgi.emperor_amqp_password, 0},
 	{"emperor-throttle", required_argument, 0, "throttle each vassal spawn (in seconds)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
+	{"emperor-magic-exec", no_argument, 0, "prefix vassals config files with exec:// if they have the executable bit", uwsgi_opt_true, &uwsgi.emperor_magic_exec, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
 	{"vassals-start-hook", required_argument, 0, "run the specified command before each vassal starts", uwsgi_opt_set_str, &uwsgi.vassals_start_hook, 0},
 	{"vassals-stop-hook", required_argument, 0, "run the specified command after vassal's death", uwsgi_opt_set_str, &uwsgi.vassals_stop_hook,0},

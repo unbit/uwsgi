@@ -352,6 +352,9 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 				colon[0] = 0;
 			}
 		}
+		// initialize to a default value
+		vassal_argv[1] = "--inherit";
+
 		if (!strcmp(name + (strlen(name) - 4), ".xml"))
 			vassal_argv[1] = "--xml";
 		if (!strcmp(name + (strlen(name) - 4), ".ini"))
@@ -368,7 +371,16 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 		if (colon) {
 			colon[0] = ':';
 		}
+
+
 		vassal_argv[2] = name;
+		if (uwsgi.emperor_magic_exec) {
+			if (!access(name, R_OK|X_OK)) {
+				vassal_argv[2] = uwsgi_concat2("exec://", name);
+			}
+
+		}
+
 		counter = 3;
 		uct = uwsgi.vassals_templates;
         	while(uct) {

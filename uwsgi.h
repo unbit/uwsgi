@@ -1107,6 +1107,7 @@ struct uwsgi_server {
 	int emperor_fd_config;
 	int early_emperor;
         int emperor_throttle;
+	int emperor_magic_exec;
 	char *emperor_dir;
 	pid_t emperor_pid;
 	int	emperor_broodlord;
