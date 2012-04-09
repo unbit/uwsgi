@@ -31,15 +31,15 @@ def patch_bin_path(cmd, conf):
 
     bin_name = conf.get('bin_name')
 
-    try:
-        if not os.path.exists(cmd.install_scripts):
-            os.makedirs(cmd.install_scripts)
-        if not os.path.isabs(bin_name):
-            print('Patching "bin_name" to properly install_scripts dir')
+    if not os.path.isabs(bin_name):
+        print('Patching "bin_name" to properly install_scripts dir')
+        try:
+            if not os.path.exists(cmd.install_scripts):
+                os.makedirs(cmd.install_scripts)
             conf.set('bin_name',
-                os.path.join(cmd.install_scripts, conf.get('bin_name')))
-    except:
-        conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
+                     os.path.join(cmd.install_scripts, conf.get('bin_name')))
+        except:
+            conf.set('bin_name', sys.prefix + '/bin/' + bin_name)
 
 
 class uWSGIBuilder(build_ext):
