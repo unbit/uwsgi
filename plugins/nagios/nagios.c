@@ -28,7 +28,10 @@ int nagios() {
 
 	int fd = uwsgi_connect(uwsgi.sockets->name, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (fd < 0) {
-		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers\n");
+		fprintf(stdout, "UWSGI CRITICAL: could not connect() to workers %s\n", strerror(errno));
+		if (errno == EPERM || errno == EACCES) {
+			exit(3);
+		}
 		exit(2);
 	}
 
