@@ -118,7 +118,6 @@ ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request * wsgi_req, struct i
 	ssize_t wlen = writev(wsgi_req->poll.fd, iovec, iov_len);
 	if (wlen < 0) {
 		uwsgi_req_error("writev()");
-		return 0;
 	}
 	return wlen;
 }
@@ -127,7 +126,6 @@ ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request * wsgi_req, struct iovec * 
 	ssize_t wlen = writev(wsgi_req->poll.fd, iovec, iov_len);
 	if (wlen < 0) {
 		uwsgi_req_error("writev()");
-		return 0;
 	}
 	return wlen;
 }
@@ -136,7 +134,6 @@ ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request * wsgi_req, char *buf, size_
 	ssize_t wlen = write(wsgi_req->poll.fd, buf, len);
 	if (wlen < 0) {
 		uwsgi_req_error("write()");
-		return 0;
 	}
 	return wlen;
 }
@@ -145,7 +142,6 @@ ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request * wsgi_req, char *buf
 	ssize_t wlen = write(wsgi_req->poll.fd, buf, len);
 	if (wlen < 0) {
 		uwsgi_req_error("write()");
-		return 0;
 	}
 	return wlen;
 }
