@@ -424,6 +424,12 @@ class uConf(object):
             for extra in extras.split(','):
                 self.gcc_list.append(extra)
 
+        # additional includes
+        add_inc_paths = self.get('additional_include_paths', None)
+        if add_inc_paths:
+            for add_inc_path in add_inc_paths.split(','):
+                self.include_path.append(add_inc_path)
+
         # set locking subsystem
         locking_mode = self.get('locking','auto')
 
