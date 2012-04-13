@@ -2821,9 +2821,8 @@ nextsock:
 		}
 
 		if (!enabled) {
-			int fd = uwsgi_sock->fd;
-			close(fd);
-			fd = open("/dev/null", O_RDONLY);
+			close(uwsgi_sock->fd);
+			int fd = open("/dev/null", O_RDONLY);
 			if (fd < 0) {
 				uwsgi_error_open("/dev/null");
 				exit(1);
