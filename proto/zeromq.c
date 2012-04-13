@@ -415,7 +415,8 @@ ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *wsgi_req, struct i
 	for (i = 0; i < (int) iov_len; i++) {
 		len = uwsgi_proto_zeromq_write(wsgi_req, iovec[i].iov_base, iovec[i].iov_len);
 		if (len <= 0) {
-			return len;
+			wsgi_req->write_errors++;
+			return 0;
 		}
 		ret += len;
 	}
@@ -441,10 +442,13 @@ ssize_t uwsgi_proto_zeromq_write(struct wsgi_request * wsgi_req, char *buf, size
 	zmq_msg_init_data(&reply, zmq_body, wsgi_req->proto_parser_pos + len, uwsgi_proto_zeromq_free, NULL);
 	if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.zmq_lock);
 	if (zmq_send(uwsgi.zmq_pub, &reply, 0)) {
-		uwsgi_error("zmq_send()");
+		if (!uwsgi.ignore_write_errors) {
+			uwsgi_error("zmq_send()");
+		}
+		wsgi_req->write_errors++;
 		if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
 		zmq_msg_close(&reply);
-		return -1;
+		return 0;
 	}
 	if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
 	zmq_msg_close(&reply);
