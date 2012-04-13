@@ -520,17 +520,14 @@ VALUE call_dispatch(VALUE env) {
 static VALUE send_body(VALUE obj) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	ssize_t len = 0;
 
 	//uwsgi_log("sending body\n");
 	if (TYPE(obj) == T_STRING) {
-		len = wsgi_req->socket->proto_write( wsgi_req, RSTRING_PTR(obj), RSTRING_LEN(obj));
+		wsgi_req->response_size += wsgi_req->socket->proto_write( wsgi_req, RSTRING_PTR(obj), RSTRING_LEN(obj));
 	}
 	else {
 		uwsgi_log("UNMANAGED BODY TYPE %d\n", TYPE(obj));
 	}
-
-	wsgi_req->response_size += len;
 
 	return Qnil;
 }
@@ -765,9 +762,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         	wsgi_req->hvec[5].iov_base = (char *) "\r\n";
         	wsgi_req->hvec[5].iov_len = 2 ;
 
-		if ( !(wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 6)) ) {
-                	uwsgi_error("writev()");
-        	}
+		wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 6);
 
 		headers = RARRAY_PTR(ret)[1] ;
 		if (rb_respond_to( headers, rb_intern("each") )) {
@@ -778,9 +773,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			}
 		}
 
-		if (wsgi_req->socket->proto_write(wsgi_req, (char *)"\r\n", 2) != 2) {
-			uwsgi_error("write()");
-		}
+		wsgi_req->socket->proto_write(wsgi_req, (char *)"\r\n", 2);
 
 		body = RARRAY_PTR(ret)[2] ;
 

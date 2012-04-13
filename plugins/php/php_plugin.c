@@ -94,12 +94,11 @@ static int sapi_uwsgi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
-	ssize_t len = wsgi_req->socket->proto_write(wsgi_req, (char *) str, str_length);
-	if (len != (ssize_t) str_length) {
+	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, (char *) str, str_length);
+	if (wsgi_req->write_errors > 0) {
 		php_handle_aborted_connection();
 		return -1;
 	}
-	wsgi_req->response_size += len;
 	return str_length;
 }
 

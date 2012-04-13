@@ -114,38 +114,44 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 	return -1;
 }
 
-ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request * wsgi_req, struct iovec * iovec, size_t iov_len) {
+ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request *wsgi_req, struct iovec * iovec, size_t iov_len) {
+	if (iov_len == 0) return 0;
 	ssize_t wlen = writev(wsgi_req->poll.fd, iovec, iov_len);
 	if (wlen < 0) {
-		uwsgi_req_error("writev()");
+		if (!uwsgi.ignore_write_errors) {
+			uwsgi_req_error("writev()");
+		}
+		wsgi_req->write_errors++;
 		return 0;
 	}
 	return wlen;
 }
 
-ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request * wsgi_req, struct iovec * iovec, size_t iov_len) {
-	ssize_t wlen = writev(wsgi_req->poll.fd, iovec, iov_len);
-	if (wlen < 0) {
-		uwsgi_req_error("writev()");
-		return 0;
-	}
-	return wlen;
+ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *wsgi_req, struct iovec * iovec, size_t iov_len) {
+	return uwsgi_proto_uwsgi_writev_header(wsgi_req, iovec, iov_len);
 }
 
 ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-	ssize_t wlen = write(wsgi_req->poll.fd, buf, len);
-	if (wlen < 0) {
-		uwsgi_req_error("write()");
-		return 0;
+	ssize_t wlen;
+	char *ptr = buf;
+	if (len == 0) return 0;
+
+	while(len > 0) {
+		wlen = write(wsgi_req->poll.fd, ptr, len);
+		if (wlen <= 0) {
+			if (!uwsgi.ignore_write_errors) {
+				uwsgi_req_error("write()");
+			}
+			wsgi_req->write_errors++;
+			return ptr-buf;
+		}
+		ptr+=wlen;
+		len -= wlen;
 	}
-	return wlen;
+
+	return ptr-buf;
 }
 
-ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-	ssize_t wlen = write(wsgi_req->poll.fd, buf, len);
-	if (wlen < 0) {
-		uwsgi_req_error("write()");
-		return 0;
-	}
-	return wlen;
+ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	return uwsgi_proto_uwsgi_write(wsgi_req, buf, len);
 }
