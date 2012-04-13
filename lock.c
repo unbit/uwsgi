@@ -118,6 +118,27 @@ pid_t uwsgi_rwlock_fast_check(struct uwsgi_lock_item *uli) {
 #endif
 }
 
+
+void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
+
+#ifdef EOWNERDEAD
+	if (pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr) == EOWNERDEAD) {
+		uwsgi_log("[deadlock-detector] a process holding a robust mutex died. recovering...\n");
+		pthread_mutex_consistent_np((pthread_mutex_t *) uli->lock_ptr);
+	}
+#else
+	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
+#endif
+        uli->pid = uwsgi.mypid;
+}
+
+void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
+
+	pthread_mutex_unlock((pthread_mutex_t *) uli->lock_ptr);
+	uli->pid = 0;
+
+}
+
 void uwsgi_rlock_fast(struct uwsgi_lock_item *uli) {
 #ifdef OBSOLETE_LINUX_KERNEL
 	uwsgi_lock_fast(uli);
@@ -145,30 +166,10 @@ void uwsgi_rwunlock_fast(struct uwsgi_lock_item *uli) {
 #endif
 }
 
-void uwsgi_lock_fast(struct uwsgi_lock_item *uli) {
-
-#ifdef EOWNERDEAD
-	if (pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr) == EOWNERDEAD) {
-		uwsgi_log("[deadlock-detector] a process holding a robust mutex died. recovering...\n");
-		pthread_mutex_consistent_np((pthread_mutex_t *) uli->lock_ptr);
-	}
-#else
-	pthread_mutex_lock((pthread_mutex_t *) uli->lock_ptr);
-#endif
-        uli->pid = uwsgi.mypid;
-}
-
-void uwsgi_unlock_fast(struct uwsgi_lock_item *uli) {
-
-	pthread_mutex_unlock((pthread_mutex_t *) uli->lock_ptr);
-	uli->pid = 0;
-
-}
-
 struct uwsgi_lock_item *uwsgi_rwlock_fast_init(char *id) {
 
 #ifdef OBSOLETE_LINUX_KERNEL
-	return uwsgi_lock_fast_init(uli);
+	return uwsgi_lock_fast_init(id);
 #else
 
 	pthread_rwlockattr_t attr;
