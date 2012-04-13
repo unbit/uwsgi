@@ -193,22 +193,42 @@ ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, siz
 	if (len <= 65535) {
 		rlen = write(wsgi_req->poll.fd, &fr, 8);
 		if (rlen <= 0) {
-			return rlen;
+			if (!uwsgi.ignore_write_errors) {
+				uwsgi_req_error("write()");
+			}
+			wsgi_req->write_errors++;
+			return 0;
 		}
-		return write(wsgi_req->poll.fd, buf, len);
+		rlen = write(wsgi_req->poll.fd, buf, len);
+		if (rlen <= 0) {
+			if (!uwsgi.ignore_write_errors) {
+				uwsgi_req_error("write()");
+			}
+			wsgi_req->write_errors++;
+			return 0;
+		}
+		return rlen;	
 	}	
 	else {
 		while(len > 0) {
 			chunk_len = UMIN(65535, len);	
 			fr.cl = htons(chunk_len);
 			rlen = write(wsgi_req->poll.fd, &fr, 8);
-			if (rlen <= 0) {
-				return rlen;
-			}
+			if (rlen != 8) {
+                        	if (!uwsgi.ignore_write_errors) {
+                                	uwsgi_req_error("write()");
+                        	}
+                        	wsgi_req->write_errors++;
+                        	return 0;
+                	}
 			rlen = write(wsgi_req->poll.fd, ptr, chunk_len);
-			if (rlen <= 0) {
-				return rlen;
-			}
+			if (rlen != 8) {
+                        	if (!uwsgi.ignore_write_errors) {
+                                	uwsgi_req_error("write()");
+                        	}
+                        	wsgi_req->write_errors++;
+                        	return 0;
+                	}
 			ptr += rlen;
 			len -= rlen;
 		}
@@ -224,7 +244,7 @@ ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request * wsgi_req, char *b
 void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 
 	if (write(wsgi_req->poll.fd, FCGI_END_REQUEST, 24) <= 0) {
-		uwsgi_error("write()");
+		uwsgi_req_error("write()");
 	}
 
 	uwsgi_proto_base_close(wsgi_req);
