@@ -2144,6 +2144,31 @@ int uwsgi_start(void *v_argv) {
 						continue;
 				}
 
+				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
+				int found = 0;
+                		while (ugs) {
+					if (ugs->fd == j) {
+						found = 1;break;
+					}
+                        		ugs = ugs->next;
+                		}
+				if (found) continue;
+
+
+				int y;
+				found = 0;
+				for(y=0;y<ushared->gateways_cnt;y++) {
+                			if (ushared->gateways[y].internal_subscription_pipe[0] == j) {
+						found = 1; break;
+					}
+                			if (ushared->gateways[y].internal_subscription_pipe[1] == j) {
+						found = 1; break;
+					}
+        			}
+
+				if (found) continue;
+
+
 				socket_type_len = sizeof(struct sockaddr_un);
 				gsa.sa = (struct sockaddr *) &usa;
 				if (!getsockname(j, gsa.sa, &socket_type_len)) {
@@ -2156,8 +2181,10 @@ int uwsgi_start(void *v_argv) {
 						uwsgi_sock = uwsgi_sock->next;
 					}
 				}
-				if (useless)
+
+				if (useless) {
 					close(j);
+				}
 			}
 		}
 		//now bind all the unbound sockets
