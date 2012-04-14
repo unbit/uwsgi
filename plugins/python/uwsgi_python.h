@@ -38,6 +38,14 @@
 #define PyVarObject_HEAD_INIT(x, y) PyObject_HEAD_INIT(x) y,
 #endif
 
+#define uwsgi_py_write_set_exception(x) PyErr_SetString(PyExc_IOError, "write error");
+#define uwsgi_py_write_exception(x) uwsgi_py_write_set_exception(x); PyErr_Print();
+
+
+#define uwsgi_py_check_write_errors if (wsgi_req->write_errors > 0 && uwsgi.write_errors_exception_only) {\
+                        uwsgi_py_write_set_exception(wsgi_req);\
+                }\
+                else if (wsgi_req->write_errors > uwsgi.write_errors_tolerance)\
 
 PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
 PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
@@ -152,6 +160,7 @@ struct uwsgi_python {
 	void (*gil_get) (void);
 	void (*gil_release) (void);
 	int auto_reload;
+	struct uwsgi_string_list *auto_reload_ignore;
 #endif
 
 	PyObject *workers_tuple;

@@ -158,18 +158,20 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	PyObject *pychunk;
-	ssize_t wsize;
 #ifdef UWSGI_SENDFILE
 	ssize_t sf_len = 0;
 #endif
 
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
-		if ((wsize = wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(wsgi_req->async_result), PyString_Size(wsgi_req->async_result))) < 0) {
-			uwsgi_error("write()");
-			goto clear;
+		char *content = PyString_AsString(wsgi_req->async_result);
+		size_t content_len = PyString_Size(wsgi_req->async_result);
+		UWSGI_RELEASE_GIL
+		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
+		UWSGI_GET_GIL
+		uwsgi_py_check_write_errors {
+			uwsgi_py_write_exception(wsgi_req);
 		}
-		wsgi_req->response_size += wsize;
 		goto clear;
 	}
 
@@ -248,12 +250,16 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	if (PyString_Check(pychunk)) {
-		if ((wsize = wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
-			uwsgi_error("write()");
+		char *content = PyString_AsString(pychunk);
+		size_t content_len = PyString_Size(pychunk);
+		UWSGI_RELEASE_GIL
+		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
+		UWSGI_GET_GIL
+		uwsgi_py_check_write_errors {
+			uwsgi_py_write_exception(wsgi_req);
 			Py_DECREF(pychunk);
 			goto clear;
 		}
-		wsgi_req->response_size += wsize;
 	}
 
 #ifdef UWSGI_SENDFILE

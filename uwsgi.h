@@ -672,7 +672,6 @@ struct uwsgi_app {
 	void *interpreter;
 	void *callable;
 
-
 #ifdef UWSGI_ASYNC
 	void **args;
 	void **environ;
@@ -918,6 +917,7 @@ struct wsgi_request {
 	int async_plagued;
 
 	int suspended;
+	int write_errors;
 
 	int *ovector;
 	size_t post_cl;
@@ -1189,6 +1189,9 @@ struct uwsgi_server {
 #endif
 
 	int ignore_sigpipe;
+	int ignore_write_errors;
+	int write_errors_tolerance;
+	int write_errors_exception_only;
 
 	// still working on it
 	char *profiler;
@@ -2377,10 +2380,6 @@ ssize_t uwsgi_proto_sctp_read_body(struct wsgi_request *, char *, size_t);
 #endif
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
-ssize_t uwsgi_proto_http_writev_header(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_http_writev(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_http_write(struct wsgi_request *, char *, size_t);
-ssize_t uwsgi_proto_http_write_header(struct wsgi_request *, char *, size_t);
 
 int uwsgi_proto_fastcgi_parser(struct wsgi_request *);
 ssize_t uwsgi_proto_fastcgi_writev_header(struct wsgi_request *, struct iovec *, size_t);

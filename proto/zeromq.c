@@ -96,6 +96,17 @@ static int uwsgi_mongrel2_json_parse(json_t * root, struct wsgi_request *wsgi_re
 		}
 	}
 
+	if ((json_val = uwsgi_mongrel2_json_get_string(root, "x-forwarded-for"))) {
+		char *colon = strchr(json_val, ',');
+                if (colon) {
+                	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - json_val);
+                }
+                else {
+                	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, json_val, strlen(json_val));
+                }
+	}
+
+
 	if ((json_val = uwsgi_mongrel2_json_get_string(root, "content-length"))) {
 		wsgi_req->post_cl = atoi(json_val);
 	}
@@ -204,6 +215,15 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 				}
 				async_upload += 2;
 				free(post_filename);
+			}
+			else if (!uwsgi_strncmp("x-forwarded-for", 15, key, keylen)) {
+				char *colon = strchr(val, ',');
+				if (colon) {
+                                        wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - val);
+                                }
+                                else {
+                                        wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, val, vallen);
+                                }
 			}
 			else if (!uwsgi_strncmp("x-mongrel2-upload-start", 23, key, keylen)) {
 				async_upload += 1;
@@ -415,7 +435,8 @@ ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *wsgi_req, struct i
 	for (i = 0; i < (int) iov_len; i++) {
 		len = uwsgi_proto_zeromq_write(wsgi_req, iovec[i].iov_base, iovec[i].iov_len);
 		if (len <= 0) {
-			return len;
+			wsgi_req->write_errors++;
+			return 0;
 		}
 		ret += len;
 	}
@@ -441,10 +462,13 @@ ssize_t uwsgi_proto_zeromq_write(struct wsgi_request * wsgi_req, char *buf, size
 	zmq_msg_init_data(&reply, zmq_body, wsgi_req->proto_parser_pos + len, uwsgi_proto_zeromq_free, NULL);
 	if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.zmq_lock);
 	if (zmq_send(uwsgi.zmq_pub, &reply, 0)) {
-		uwsgi_error("zmq_send()");
+		if (!uwsgi.ignore_write_errors) {
+			uwsgi_error("zmq_send()");
+		}
+		wsgi_req->write_errors++;
 		if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
 		zmq_msg_close(&reply);
-		return -1;
+		return 0;
 	}
 	if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
 	zmq_msg_close(&reply);

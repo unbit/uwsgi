@@ -160,7 +160,11 @@ void log_request(struct wsgi_request *wsgi_req) {
 		via = msg3;
 	}
 
+#ifdef __sun__
+	ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, time_request, 26);
+#else
 	ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, time_request);
+#endif
 	microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
 	microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
 

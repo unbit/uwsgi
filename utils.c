@@ -187,9 +187,12 @@ void daemonize(char *logfile) {
 	}
 
 	/* stdin */
-	if (dup2(fdin, 0) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
+	if (fdin != 0) {
+		if (dup2(fdin, 0) < 0) {
+			uwsgi_error("dup2()");
+			exit(1);
+		}
+		close(fdin);
 	}
 
 
@@ -1127,6 +1130,11 @@ void sanitize_args() {
 		uwsgi.vacuum = 1;
 	}
 #endif
+
+	if (uwsgi.write_errors_exception_only) {
+		uwsgi.ignore_sigpipe = 1;
+		uwsgi.ignore_write_errors = 1;
+	}
 }
 
 void env_to_arg(char *src, char *dst) {
@@ -1204,7 +1212,11 @@ void uwsgi_log(const char *fmt, ...) {
 		}
 		else {
 			gettimeofday(&tv, NULL);
+#ifdef __sun__
+			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
+#else
 			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+#endif
 			memcpy(logpkt, ctime_storage, 24);
 			memcpy(logpkt + 24, " - ", 3);
 
@@ -1252,7 +1264,11 @@ void uwsgi_log_verbose(const char *fmt, ...) {
                 }
                 else {
                         gettimeofday(&tv, NULL);
+#ifdef __sun__
+			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
+#else
 			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+#endif
                         memcpy(logpkt, ctime_storage, 24);
                         memcpy(logpkt + 24, " - ", 3);
 
@@ -2696,6 +2712,7 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 				uwsgi_error("dup2()");
 				exit(1);
 			}
+			close(devnull);
 		}
 
 		if (setsid() < 0) {

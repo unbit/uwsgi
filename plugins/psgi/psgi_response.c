@@ -126,9 +126,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 	vi = (i*2)+base;
         wsgi_req->hvec[vi].iov_base = "\r\n"; wsgi_req->hvec[vi].iov_len = 2;
 
-        if ( !(wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, vi+1)) ) {
-                uwsgi_error("writev()");
-        }
+        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, vi+1);
 
         hitem = av_fetch(response, 2, 0);
 
