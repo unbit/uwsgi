@@ -12,10 +12,14 @@ struct uwsgi_syslog_facility {
 struct uwsgi_syslog_facility usf[] = {
 
 	{ "auth",       LOG_AUTH,       },
+#ifdef LOG_AUTHPRIV
         { "authpriv",   LOG_AUTHPRIV,   },
+#endif
         { "cron",       LOG_CRON,       },
         { "daemon",     LOG_DAEMON,     },
+#ifdef LOG_FTP
         { "ftp",        LOG_FTP,        },
+#endif
 #ifdef LOG_INSTALL
         { "install",    LOG_INSTALL     },
 #endif

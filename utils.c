@@ -1212,7 +1212,11 @@ void uwsgi_log(const char *fmt, ...) {
 		}
 		else {
 			gettimeofday(&tv, NULL);
+#ifdef __sun__
+			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
+#else
 			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+#endif
 			memcpy(logpkt, ctime_storage, 24);
 			memcpy(logpkt + 24, " - ", 3);
 
@@ -1260,7 +1264,11 @@ void uwsgi_log_verbose(const char *fmt, ...) {
                 }
                 else {
                         gettimeofday(&tv, NULL);
+#ifdef __sun__
+			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
+#else
 			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+#endif
                         memcpy(logpkt, ctime_storage, 24);
                         memcpy(logpkt + 24, " - ", 3);
 
