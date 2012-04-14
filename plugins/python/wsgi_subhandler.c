@@ -169,7 +169,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		UWSGI_RELEASE_GIL
 		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
 		UWSGI_GET_GIL
-		if (wsgi_req->write_errors > 0) {
+		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
 		}
 		goto clear;
@@ -255,7 +255,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		UWSGI_RELEASE_GIL
 		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
 		UWSGI_GET_GIL
-		if (wsgi_req->write_errors > 0) {
+		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
 			Py_DECREF(pychunk);
 			goto clear;

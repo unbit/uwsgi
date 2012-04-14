@@ -278,6 +278,8 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 		UWSGI_RELEASE_GIL
 			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, content, len);
 		UWSGI_GET_GIL
+		// this is a special case for the write callable
+		// no need to honout write-errors-exception-only
 		if (wsgi_req->write_errors > 0) {
                         uwsgi_py_write_set_exception(wsgi_req);
 			return NULL;

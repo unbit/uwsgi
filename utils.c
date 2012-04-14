@@ -1130,6 +1130,11 @@ void sanitize_args() {
 		uwsgi.vacuum = 1;
 	}
 #endif
+
+	if (uwsgi.write_errors_exception_only) {
+		uwsgi.ignore_sigpipe = 1;
+		uwsgi.ignore_write_errors = 1;
+	}
 }
 
 void env_to_arg(char *src, char *dst) {

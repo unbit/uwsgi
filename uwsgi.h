@@ -1190,6 +1190,8 @@ struct uwsgi_server {
 
 	int ignore_sigpipe;
 	int ignore_write_errors;
+	int write_errors_tolerance;
+	int write_errors_exception_only;
 
 	// still working on it
 	char *profiler;

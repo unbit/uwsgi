@@ -41,6 +41,12 @@
 #define uwsgi_py_write_set_exception(x) PyErr_SetString(PyExc_IOError, "write error");
 #define uwsgi_py_write_exception(x) uwsgi_py_write_set_exception(x); PyErr_Print();
 
+
+#define uwsgi_py_check_write_errors if (wsgi_req->write_errors > 0 && uwsgi.write_errors_exception_only) {\
+                        uwsgi_py_write_set_exception(wsgi_req);\
+                }\
+                else if (wsgi_req->write_errors > uwsgi.write_errors_tolerance)\
+
 PyAPI_FUNC(PyObject *) PyMarshal_WriteObjectToString(PyObject *, int);
 PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
