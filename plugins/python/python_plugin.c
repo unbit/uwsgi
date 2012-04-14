@@ -124,6 +124,7 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"py-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"python-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"python-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
+	{"py-auto-reload-ignore", required_argument, 0, "ignore the specified module during auto-reload scan (can be specified multiple times)", uwsgi_opt_add_string_list, &up.auto_reload_ignore, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 #endif
 
 	{0, 0, 0, 0, 0, 0, 0},
@@ -1281,6 +1282,16 @@ cycle:
 #endif
 		PyObject *mod_name, *mod;
                 while (PyDict_Next(modules, &pos, &mod_name, &mod)) {
+			int found = 0;
+			struct uwsgi_string_list *usl = up.auto_reload_ignore;
+			while(usl) {
+				if (!strcmp(usl->value, PyString_AsString(mod_name))) {
+					found = 1;
+					break;
+				}
+				usl = usl->next;
+			}
+			if (found) continue;
 			if (!PyObject_HasAttrString(mod, "__file__")) continue;
 			PyObject *mod_file = PyObject_GetAttrString(mod, "__file__");
 			if (!mod_file) continue;

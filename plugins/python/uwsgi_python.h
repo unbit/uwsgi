@@ -160,6 +160,7 @@ struct uwsgi_python {
 	void (*gil_get) (void);
 	void (*gil_release) (void);
 	int auto_reload;
+	struct uwsgi_string_list *auto_reload_ignore;
 #endif
 
 	PyObject *workers_tuple;
