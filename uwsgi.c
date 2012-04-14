@@ -83,6 +83,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"ignore-sigpipe", no_argument, 0, "do not report (annoying) SIGPIPE", uwsgi_opt_true, &uwsgi.ignore_sigpipe,0},
+	{"ignore-write-errors", no_argument, 0, "do not report (annoying) write()/writev() errors", uwsgi_opt_true, &uwsgi.ignore_write_errors,0},
 
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
@@ -2143,6 +2144,31 @@ int uwsgi_start(void *v_argv) {
 						continue;
 				}
 
+				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
+				int found = 0;
+                		while (ugs) {
+					if (ugs->fd == j) {
+						found = 1;break;
+					}
+                        		ugs = ugs->next;
+                		}
+				if (found) continue;
+
+
+				int y;
+				found = 0;
+				for(y=0;y<ushared->gateways_cnt;y++) {
+                			if (ushared->gateways[y].internal_subscription_pipe[0] == j) {
+						found = 1; break;
+					}
+                			if (ushared->gateways[y].internal_subscription_pipe[1] == j) {
+						found = 1; break;
+					}
+        			}
+
+				if (found) continue;
+
+
 				socket_type_len = sizeof(struct sockaddr_un);
 				gsa.sa = (struct sockaddr *) &usa;
 				if (!getsockname(j, gsa.sa, &socket_type_len)) {
@@ -2155,8 +2181,10 @@ int uwsgi_start(void *v_argv) {
 						uwsgi_sock = uwsgi_sock->next;
 					}
 				}
-				if (useless)
+
+				if (useless) {
 					close(j);
+				}
 			}
 		}
 		//now bind all the unbound sockets
@@ -2293,10 +2321,10 @@ skipzero:
 			if (requested_protocol && !strcmp("http", requested_protocol)) {
 				uwsgi_sock->proto = uwsgi_proto_http_parser;
 				uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-				uwsgi_sock->proto_write = uwsgi_proto_http_write;
-				uwsgi_sock->proto_writev = uwsgi_proto_http_writev;
-				uwsgi_sock->proto_write_header = uwsgi_proto_http_write_header;
-				uwsgi_sock->proto_writev_header = uwsgi_proto_http_writev_header;
+				uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
+				uwsgi_sock->proto_writev = uwsgi_proto_uwsgi_writev;
+				uwsgi_sock->proto_write_header = uwsgi_proto_uwsgi_write_header;
+				uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
 				uwsgi_sock->proto_sendfile = NULL;
 				uwsgi_sock->proto_close = uwsgi_proto_base_close;
 			}
@@ -2820,9 +2848,8 @@ nextsock:
 		}
 
 		if (!enabled) {
-			int fd = uwsgi_sock->fd;
-			close(fd);
-			fd = open("/dev/null", O_RDONLY);
+			close(uwsgi_sock->fd);
+			int fd = open("/dev/null", O_RDONLY);
 			if (fd < 0) {
 				uwsgi_error_open("/dev/null");
 				exit(1);

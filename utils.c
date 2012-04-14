@@ -187,9 +187,12 @@ void daemonize(char *logfile) {
 	}
 
 	/* stdin */
-	if (dup2(fdin, 0) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
+	if (fdin != 0) {
+		if (dup2(fdin, 0) < 0) {
+			uwsgi_error("dup2()");
+			exit(1);
+		}
+		close(fdin);
 	}
 
 
@@ -2696,6 +2699,7 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 				uwsgi_error("dup2()");
 				exit(1);
 			}
+			close(devnull);
 		}
 
 		if (setsid() < 0) {

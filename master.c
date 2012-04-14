@@ -140,6 +140,7 @@ void *cache_sweeper_loop(void *noarg) {
 		}
 	};
 
+	return NULL;
 }
 
 void uwsgi_subscribe(char *subscription, uint8_t cmd) {
