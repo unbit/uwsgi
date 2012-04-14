@@ -96,6 +96,17 @@ static int uwsgi_mongrel2_json_parse(json_t * root, struct wsgi_request *wsgi_re
 		}
 	}
 
+	if ((json_val = uwsgi_mongrel2_json_get_string(root, "x-forwarded-for"))) {
+		char *colon = strchr(json_val, ',');
+                if (colon) {
+                	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - json_val);
+                }
+                else {
+                	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, json_val, strlen(json_val));
+                }
+	}
+
+
 	if ((json_val = uwsgi_mongrel2_json_get_string(root, "content-length"))) {
 		wsgi_req->post_cl = atoi(json_val);
 	}
@@ -204,6 +215,15 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 				}
 				async_upload += 2;
 				free(post_filename);
+			}
+			else if (!uwsgi_strncmp("x-forwarded-for", 15, key, keylen)) {
+				char *colon = strchr(val, ',');
+				if (colon) {
+                                        wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - val);
+                                }
+                                else {
+                                        wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, val, vallen);
+                                }
 			}
 			else if (!uwsgi_strncmp("x-mongrel2-upload-start", 23, key, keylen)) {
 				async_upload += 1;

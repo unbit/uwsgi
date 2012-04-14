@@ -280,7 +280,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 		UWSGI_GET_GIL
 		// this is a special case for the write callable
 		// no need to honout write-errors-exception-only
-		if (wsgi_req->write_errors > 0) {
+		if (wsgi_req->write_errors > uwsgi.write_errors_tolerance) {
                         uwsgi_py_write_set_exception(wsgi_req);
 			return NULL;
 		}

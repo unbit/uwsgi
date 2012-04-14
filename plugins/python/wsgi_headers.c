@@ -201,6 +201,11 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	UWSGI_GET_GIL
 #endif
 
+	if (wsgi_req->write_errors > uwsgi.write_errors_tolerance) {
+        	uwsgi_py_write_set_exception(wsgi_req);
+                return NULL;
+        }
+
 	//uwsgi_log("%d %p\n", wsgi_req->poll.fd, up.wsgi_writeout);
 	Py_INCREF(up.wsgi_writeout);
 
