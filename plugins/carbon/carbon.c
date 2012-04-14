@@ -7,6 +7,7 @@ struct uwsgi_carbon {
 	int freq;
 	int timeout;
 	char *id;
+	int no_workers;
 } u_carbon;
 
 struct uwsgi_option carbon_options[] = {
@@ -14,6 +15,7 @@ struct uwsgi_option carbon_options[] = {
 	{"carbon-timeout", required_argument, 0, "set carbon connection timeout", uwsgi_opt_set_int, &u_carbon.timeout, 0},
 	{"carbon-freq", required_argument, 0, "set carbon push frequency", uwsgi_opt_set_int, &u_carbon.freq, 0},
 	{"carbon-id", required_argument, 0, "set carbon id", uwsgi_opt_set_str, &u_carbon.id, 0},
+	{"carbon-no-workers", no_argument, 0, "disable generation of single worker metrics", uwsgi_opt_true, &u_carbon.no_workers, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 
 };
@@ -73,6 +75,8 @@ void carbon_master_cycle() {
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) uwsgi.workers[0].requests, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+		
+			if (u_carbon.no_workers) goto gmetrics;
 
 			for(i=1;i<=uwsgi.numproc;i++) {
 				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].requests, (unsigned long long ) uwsgi.current_time);
@@ -108,6 +112,8 @@ void carbon_master_cycle() {
 				if (rlen < 1) goto clear;
 				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 			}
+
+gmetrics:
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_rss, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
