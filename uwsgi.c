@@ -1930,7 +1930,7 @@ int uwsgi_start(void *v_argv) {
 
 	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 		uwsgi.max_fd = uwsgi.rl.rlim_cur;
-		uwsgi_log("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
+		uwsgi_log_initial("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
 	}
 
 	uwsgi.wsgi_requests = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.cores);

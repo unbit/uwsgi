@@ -481,7 +481,7 @@ void uwsgi_setup_locking() {
 	// use the fastest avaikable locking
 	if (uwsgi.lock_engine) {
 		if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
-			uwsgi_log("lock engine: ipcsem\n");
+			uwsgi_log_initial("lock engine: ipcsem\n");
 			atexit(uwsgi_ipcsem_clear);
 			uwsgi.lock_ops.lock_init = uwsgi_lock_ipcsem_init;
 			uwsgi.lock_ops.lock_check = uwsgi_lock_ipcsem_check;
@@ -498,7 +498,7 @@ void uwsgi_setup_locking() {
 		}
 	}
 
-	uwsgi_log("lock engine: %s\n", UWSGI_LOCK_ENGINE_NAME);
+	uwsgi_log_initial("lock engine: %s\n", UWSGI_LOCK_ENGINE_NAME);
 #ifdef UWSGI_IPCSEM_ATEXIT
 	atexit(uwsgi_ipcsem_clear);
 #endif
