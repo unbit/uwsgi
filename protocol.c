@@ -1520,31 +1520,41 @@ char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
 		count++;
 	}
 
-	if (ext) {
-		struct uwsgi_dyn_dict *udd = uwsgi.mimetypes;
-		while(udd) {
-			if (!uwsgi_strncmp(ext, count, udd->key, udd->keylen)) {
-				udd->hits++;
-				// auto optimization
-				if (udd->prev) {
-					if (udd->hits > udd->prev->hits) {
-						struct uwsgi_dyn_dict *udd_parent = udd->prev->prev, *udd_prev = udd->prev;
-						if (udd_parent) {
-							udd_parent->next = udd;
-						}
-						udd_prev->prev = udd;
-						udd_prev->next = udd->next;
+	if (!ext) return NULL;
 
-						udd->prev = udd_parent;
-						udd->next = udd_prev;
+	struct uwsgi_dyn_dict *udd = uwsgi.mimetypes;
+	while(udd) {
+		if (!uwsgi_strncmp(ext, count, udd->key, udd->keylen)) {
+			udd->hits++;
+			// auto optimization
+			if (udd->prev) {
+				if (udd->hits > udd->prev->hits) {
+					struct uwsgi_dyn_dict *udd_parent = udd->prev->prev, *udd_prev = udd->prev;
+					if (udd_parent) {
+						udd_parent->next = udd;
+					}
+
+					if (udd->next) {
+						udd->next->prev = udd_prev;
+					}
+
+					udd_prev->prev = udd;
+					udd_prev->next = udd->next;
+
+					udd->prev = udd_parent;
+					udd->next = udd_prev;
+
+					if (udd->prev == NULL) {
+						uwsgi.mimetypes = udd;
 					}
 				}
-				*size = udd->vallen;
-				return udd->value;
 			}
-			udd = udd->next;
+			*size = udd->vallen;
+			return udd->value;
 		}
+		udd = udd->next;
 	}
+
 	return NULL;
 }
 
