@@ -1274,6 +1274,10 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *mimetypes;
 	struct uwsgi_string_list *static_skip_ext;
 	struct uwsgi_string_list *static_index;
+
+	struct uwsgi_dyn_dict *static_expires_type;
+	struct uwsgi_dyn_dict *static_expires_type_mtime;
+
 	int check_static_docroot;
 
 	char *daemonize;
@@ -2637,6 +2641,7 @@ void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
+void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 void uwsgi_opt_set_int(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);

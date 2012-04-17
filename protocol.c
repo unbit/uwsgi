@@ -16,7 +16,8 @@ static size_t get_content_length(char *buf, uint16_t size) {
 	return val;
 }
 
-void set_http_date(time_t t, char *dst) {
+
+int set_http_date(time_t t, char *header, int header_len, char *dst, int last) {
 
 	static char  *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 	static char  *months[] = {
@@ -26,11 +27,57 @@ void set_http_date(time_t t, char *dst) {
 			};
 
 	struct tm *hdtm = gmtime(&t);
-	snprintf(dst, 49, "Last-Modified: %s, %02d %s %4d %02d:%02d:%02d GMT\r\n\r\n",
+
+	if (last) {
+		return snprintf(dst, 36+header_len, "%.*s: %s, %02d %s %4d %02d:%02d:%02d GMT\r\n\r\n",
+			header_len, header,
+			week[hdtm->tm_wday], hdtm->tm_mday,
+			months[hdtm->tm_mon], hdtm->tm_year+1900,
+			hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
+	}
+
+	return snprintf(dst, 34+header_len, "%.*s: %s, %02d %s %4d %02d:%02d:%02d GMT\r\n",
+		header_len, header,
 		week[hdtm->tm_wday], hdtm->tm_mday,
 		months[hdtm->tm_mon], hdtm->tm_year+1900,
 		hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
 }
+
+void uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int mime_type_len, struct stat *st) {
+
+	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_type;
+	time_t now = wsgi_req->start_of_request.tv_sec;
+	// Expires+34+1
+	char expires[42];
+
+	while(udd) {
+		if (!uwsgi_strncmp(udd->key, udd->keylen, mime_type, mime_type_len)) {
+			int delta = uwsgi_str_num(udd->value, udd->vallen);
+			int size = set_http_date(now+delta, "Expires", 7, expires, 0);
+			if (size > 0) {
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
+				wsgi_req->header_cnt++;
+			}
+			return;
+		}
+		udd = udd->next;
+	}
+
+	udd = uwsgi.static_expires_type_mtime;
+	while(udd) {
+		if (!uwsgi_strncmp(udd->key, udd->keylen, mime_type, mime_type_len)) {
+			int delta = uwsgi_str_num(udd->value, udd->vallen);
+			int size = set_http_date(st->st_mtime+delta, "Expires", 7, expires, 0);
+			if (size > 0) {
+				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
+				wsgi_req->header_cnt++;
+			}
+			return;
+		}
+		udd = udd->next;
+	}
+}
+
 
 // only RFC 1123 is supported
 time_t parse_http_date(char *date, uint16_t len) {
@@ -1723,6 +1770,9 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 				headers_vec[2].iov_len = 2;
 				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
 				wsgi_req->header_cnt++;
+
+				// check for content-type related headers
+				uwsgi_add_expires_type(wsgi_req, mime_type, mime_type_size, &st);
 			}
 
 			// nginx
@@ -1732,7 +1782,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 				headers_vec[2].iov_base = "\r\n"; headers_vec[2].iov_len = 2;
 				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
 				// this is the final header (\r\n added)
-                        	set_http_date(st.st_mtime, http_last_modified);
+                        	set_http_date(st.st_mtime, "Last-Modified", 13, http_last_modified, 1);
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
                                 wsgi_req->header_cnt += 2;
 			}
@@ -1743,7 +1793,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 				headers_vec[2].iov_base = "\r\n"; headers_vec[2].iov_len = 2;
 				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
 				// this is the final header (\r\n added)
-                        	set_http_date(st.st_mtime, http_last_modified);
+                        	set_http_date(st.st_mtime, "Last-Modified", 13,  http_last_modified, 1);
                         	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
                                 wsgi_req->header_cnt += 2;
 			}
@@ -1757,7 +1807,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 				headers_vec[2].iov_base = "\r\n";
 				headers_vec[2].iov_len = 2;
 				// this is the final header (\r\n added)
-                        	set_http_date(st.st_mtime, http_last_modified);
+                        	set_http_date(st.st_mtime, "Last-Modified", 13,  http_last_modified, 1);
 				headers_vec[3].iov_base = http_last_modified;
 				headers_vec[3].iov_len = 48;
                         	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
