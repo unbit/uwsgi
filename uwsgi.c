@@ -370,8 +370,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-map", required_argument, 0, "map mountpoint to static directory", uwsgi_opt_static_map, NULL, UWSGI_OPT_MIME},
 	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, UWSGI_OPT_MIME},
 	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, UWSGI_OPT_MIME},
-	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, UWSGI_OPT_MIME},
-	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, UWSGI_OPT_MIME},
+	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
+	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
 
 	{"static-expires-type", required_argument, 0, "set the Expires header base on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
 	{"static-expires-type-mtime", required_argument, 0, "set the Expires header base on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
@@ -1345,7 +1345,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->worker_log_pipe[0] = -1;
         uwsgi.shared->worker_log_pipe[1] = -1; 
 
-	uwsgi.mime_file = "/etc/mime.types";
 
 #ifdef UWSGI_BLACKLIST
 	if (!uwsgi_file_to_string_list(UWSGI_BLACKLIST, &uwsgi.blacklist)) {
@@ -1853,14 +1852,16 @@ int uwsgi_start(void *v_argv) {
 	sanitize_args();
 
 	// initialize workers
-
-	if (uwsgi.build_mime_dict) {
-		if (!access(uwsgi.mime_file, R_OK)) {
-			uwsgi_build_mime_dict(uwsgi.mime_file);
+	if (!uwsgi.mime_file) uwsgi_string_new_list(&uwsgi.mime_file, "/etc/mime.types");
+	struct uwsgi_string_list *umd = uwsgi.mime_file;
+	while(umd) {
+		if (!access(umd->value, R_OK)) {
+			uwsgi_build_mime_dict(umd->value);
 		}
 		else {
-			uwsgi_log("!!! no mime.types file found !!!\n");
+			uwsgi_log("!!! no %s file found !!!\n", umd->value);
 		}
+		umd = umd->next;
 	}
 
 	// end of generic initialization

@@ -1247,7 +1247,8 @@ struct uwsgi_server {
 	// static file serving
 	int file_serve_mode;
 	int build_mime_dict;
-	char *mime_file;
+
+	struct uwsgi_string_list *mime_file;
 
 	struct uwsgi_probe *probes;
 

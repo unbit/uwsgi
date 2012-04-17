@@ -1702,6 +1702,9 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                 	sse = sse->next;
         	}
 
+		// Ok, the file must be served as static from uWSGI
+		// we can now offload to a thread or a threadpool
+
 		int mime_type_size = 0;
                 char http_last_modified[49];
 #ifdef UWSGI_THREADING
