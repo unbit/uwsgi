@@ -376,6 +376,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-expires-type", required_argument, 0, "set the Expires header base on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
 	{"static-expires-type-mtime", required_argument, 0, "set the Expires header base on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
 
+	{"static-offload-to-thread", required_argument, 0, "offload static file serving to a thread (upto the specified number of threads)", uwsgi_opt_set_int, &uwsgi.static_offload_to_thread, UWSGI_OPT_MIME},
+
 	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
 	{"fileserve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
 
@@ -1862,6 +1864,11 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_log("!!! no %s file found !!!\n", umd->value);
 		}
 		umd = umd->next;
+	}
+
+	if (uwsgi.static_offload_to_thread) {
+		pthread_attr_init(&uwsgi.static_offload_thread_attr);
+		pthread_attr_setdetachstate(&uwsgi.static_offload_thread_attr, PTHREAD_CREATE_DETACHED);
 	}
 
 	// end of generic initialization

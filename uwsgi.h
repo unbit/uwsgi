@@ -1280,6 +1280,8 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *static_expires_type_mtime;
 
 	int check_static_docroot;
+	int static_offload_to_thread;
+	pthread_attr_t static_offload_thread_attr;
 
 	char *daemonize;
 	char *daemonize2;
@@ -1638,6 +1640,17 @@ struct uwsgi_server {
 #endif
 
 };
+
+struct uwsgi_offload_request {
+	pthread_t tid;
+	struct wsgi_request wsgi_req;
+	char *buffer;
+	struct iovec *hvec;
+	char real_filename[PATH_MAX+1];
+	size_t real_filename_len;
+	struct stat st;
+};
+
 
 struct uwsgi_rpc {
 	char name[0xff];
