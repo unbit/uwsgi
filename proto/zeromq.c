@@ -195,7 +195,7 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 		else {
 			// add header
 			if (!uwsgi_strncmp("host", 4, key, keylen)) {
-				char *colon = strchr(val, ':');
+				char *colon = memchr(val, ':', vallen);
 				if (colon) {
 					wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon + 1, (colon + 1) - val);
 				}
@@ -217,7 +217,7 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 				free(post_filename);
 			}
 			else if (!uwsgi_strncmp("x-forwarded-for", 15, key, keylen)) {
-				char *colon = strchr(val, ',');
+				char *colon = memchr(val, ',', vallen);
 				if (colon) {
                                         wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, colon + 1, (colon + 1) - val);
                                 }
