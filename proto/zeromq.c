@@ -197,7 +197,7 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 			if (!uwsgi_strncmp("host", 4, key, keylen)) {
 				char *colon = memchr(val, ':', vallen);
 				if (colon) {
-					wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon + 1, (colon + 1) - val);
+					wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, colon + 1, vallen - ((colon + 1)-val));
 				}
 				else {
 					wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
