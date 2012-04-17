@@ -512,7 +512,8 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	}
 	else {
 		docroot = uwsgi_cgi_get_docroot(wsgi_req->path_info, wsgi_req->path_info_len, &need_free, &is_a_file, &discard_base, &script_name);
-		docroot_len = strlen(docroot);
+		if (docroot)
+			docroot_len = strlen(docroot);
 	}
 
 	if (docroot == NULL || docroot_len == 0) {

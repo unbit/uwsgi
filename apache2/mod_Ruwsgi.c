@@ -186,7 +186,7 @@ static void log_debug(const char *file, int line, int ami, request_rec *r, const
 	ap_log_rerror(file, line, APLOG_MODULE_INDEX, APLOG_DEBUG, APR_SUCCESS, r, "uwsgi: %s", msg);
 #else
 static void log_debug(const char *file, int line, request_rec *r, const
-		char *msg)
+		char *msg) {
 	ap_log_rerror(file, line, APLOG_DEBUG, APR_SUCCESS, r, "uwsgi: %s", msg);
 #endif
 }

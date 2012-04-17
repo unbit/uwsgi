@@ -363,17 +363,23 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"route-qs", required_argument, 0, "add a route based on QUERY_STRING", uwsgi_opt_add_route, "query_string", 0},
 #endif
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
-	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
-	{"check-static-docroot", no_argument, 0, "check for static files in the requested DOCUMENT_ROOT", uwsgi_opt_true, &uwsgi.check_static_docroot, UWSGI_OPT_MIME},
-	{"static-check", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, 0},
-	{"static-map", required_argument, 0, "map mountpoint to static directory", uwsgi_opt_static_map, NULL, 0},
-	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, 0},
-	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, 0},
-	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, 0},
-	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_set_str, &uwsgi.mime_file, 0},
 
-	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL,0},
-	{"fileserve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL,0},
+	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
+	{"check-static-docroot", no_argument, 0, "check for static files in the requested DOCUMENT_ROOT", uwsgi_opt_true, &uwsgi.check_static_docroot, UWSGI_OPT_MIME},
+	{"static-check", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
+	{"static-map", required_argument, 0, "map mountpoint to static directory", uwsgi_opt_static_map, NULL, UWSGI_OPT_MIME},
+	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, UWSGI_OPT_MIME},
+	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, UWSGI_OPT_MIME},
+	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
+	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
+
+	{"static-expires-type", required_argument, 0, "set the Expires header base on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
+	{"static-expires-type-mtime", required_argument, 0, "set the Expires header base on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
+
+	{"static-offload-to-thread", required_argument, 0, "offload static file serving to a thread (upto the specified number of threads)", uwsgi_opt_set_int, &uwsgi.static_offload_to_thread, UWSGI_OPT_MIME},
+
+	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
+	{"fileserve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
 
 	{"check-cache", no_argument, 0, "check for response data in the cache", uwsgi_opt_true, &uwsgi.check_cache, 0},
 	{"close-on-exec", no_argument, 0, "set close-on-exec on sockets (could be required for spawning processes in requests)", uwsgi_opt_true, &uwsgi.close_on_exec, 0},
@@ -1341,7 +1347,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.shared->worker_log_pipe[0] = -1;
         uwsgi.shared->worker_log_pipe[1] = -1; 
 
-	uwsgi.mime_file = "/etc/mime.types";
 
 #ifdef UWSGI_BLACKLIST
 	if (!uwsgi_file_to_string_list(UWSGI_BLACKLIST, &uwsgi.blacklist)) {
@@ -1849,14 +1854,24 @@ int uwsgi_start(void *v_argv) {
 	sanitize_args();
 
 	// initialize workers
-
-	if (uwsgi.build_mime_dict) {
-		if (!access(uwsgi.mime_file, R_OK)) {
-			uwsgi_build_mime_dict(uwsgi.mime_file);
+	if (!uwsgi.mime_file) uwsgi_string_new_list(&uwsgi.mime_file, "/etc/mime.types");
+	struct uwsgi_string_list *umd = uwsgi.mime_file;
+	while(umd) {
+		if (!access(umd->value, R_OK)) {
+			uwsgi_build_mime_dict(umd->value);
 		}
 		else {
-			uwsgi_log("!!! no mime.types file found !!!\n");
+			uwsgi_log("!!! no %s file found !!!\n", umd->value);
 		}
+		umd = umd->next;
+	}
+
+	if (uwsgi.static_offload_to_thread) {
+		pthread_attr_init(&uwsgi.static_offload_thread_attr);
+		pthread_attr_setdetachstate(&uwsgi.static_offload_thread_attr, PTHREAD_CREATE_DETACHED);
+		// 512K should be enough...
+		pthread_attr_setstacksize(&uwsgi.static_offload_thread_attr, 512*1024);
+		pthread_mutex_init(&uwsgi.static_offload_thread_lock, NULL);
 	}
 
 	// end of generic initialization
@@ -1930,7 +1945,7 @@ int uwsgi_start(void *v_argv) {
 
 	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 		uwsgi.max_fd = uwsgi.rl.rlim_cur;
-		uwsgi_log("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
+		uwsgi_log_initial("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
 	}
 
 	uwsgi.wsgi_requests = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.cores);
@@ -3686,6 +3701,20 @@ void uwsgi_opt_check_static(char *opt, char *value, void *foobar) {
 	uwsgi_dyn_dict_new(&uwsgi.check_static, value, strlen(value), NULL, 0);
         uwsgi_log("[uwsgi-static] added check for %s\n", value);
         uwsgi.build_mime_dict = 1;
+
+}
+
+void uwsgi_opt_add_dyn_dict(char *opt, char *value, void *dict) {
+
+	char *equal = strchr(value, '=');
+	if (!equal) {
+		uwsgi_log("invalid dictionary syntax for %s\n", opt);
+		exit(1);
+	}
+
+	struct uwsgi_dyn_dict **udd = (struct uwsgi_dyn_dict **) dict;
+
+	uwsgi_dyn_dict_new(udd, value, equal-value, equal+1, strlen(equal+1));
 
 }
 

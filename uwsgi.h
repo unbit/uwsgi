@@ -1247,7 +1247,8 @@ struct uwsgi_server {
 	// static file serving
 	int file_serve_mode;
 	int build_mime_dict;
-	char *mime_file;
+
+	struct uwsgi_string_list *mime_file;
 
 	struct uwsgi_probe *probes;
 
@@ -1274,7 +1275,14 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *mimetypes;
 	struct uwsgi_string_list *static_skip_ext;
 	struct uwsgi_string_list *static_index;
+
+	struct uwsgi_dyn_dict *static_expires_type;
+	struct uwsgi_dyn_dict *static_expires_type_mtime;
+
 	int check_static_docroot;
+	int static_offload_to_thread;
+	pthread_attr_t static_offload_thread_attr;
+	pthread_mutex_t static_offload_thread_lock;
 
 	char *daemonize;
 	char *daemonize2;
@@ -1634,6 +1642,17 @@ struct uwsgi_server {
 
 };
 
+struct uwsgi_offload_request {
+	pthread_t tid;
+	struct wsgi_request wsgi_req;
+	char *buffer;
+	struct iovec *hvec;
+	char real_filename[PATH_MAX+1];
+	size_t real_filename_len;
+	struct stat st;
+};
+
+
 struct uwsgi_rpc {
 	char name[0xff];
 	void *func;
@@ -1854,6 +1873,8 @@ struct uwsgi_worker {
 	int signal_pipe[2];
 
 	uint64_t avg_response_time;
+
+	uint64_t static_offload_threads;
 
 	char name[0xff];
 };
@@ -2637,6 +2658,7 @@ void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
+void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 void uwsgi_opt_set_int(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);

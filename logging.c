@@ -136,6 +136,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 	char *msg1 = " via sendfile() ";
 #endif
 	char *msg3 = " via route() ";
+	char *msg4 = " via offload() ";
 
 	struct uwsgi_app *wi;
 
@@ -158,6 +159,9 @@ void log_request(struct wsgi_request *wsgi_req) {
 	// mark route() requests
 	if (wsgi_req->status == -17) {
 		via = msg3;
+	}
+	else if (wsgi_req->status == -30) {
+		via = msg4;
 	}
 
 #ifdef __sun__
