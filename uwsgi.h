@@ -1282,6 +1282,7 @@ struct uwsgi_server {
 	int check_static_docroot;
 	int static_offload_to_thread;
 	pthread_attr_t static_offload_thread_attr;
+	pthread_mutex_t static_offload_thread_lock;
 
 	char *daemonize;
 	char *daemonize2;
@@ -1872,6 +1873,8 @@ struct uwsgi_worker {
 	int signal_pipe[2];
 
 	uint64_t avg_response_time;
+
+	uint64_t static_offload_threads;
 
 	char name[0xff];
 };

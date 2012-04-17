@@ -1803,6 +1803,10 @@ void *uwsgi_static_offload_thread(void *req) {
 	free(uof_req->hvec);
 	free(uof_req);
 
+	pthread_mutex_lock(&uwsgi.static_offload_thread_lock);
+	uwsgi.workers[uwsgi.mywid].static_offload_threads--;
+	pthread_mutex_unlock(&uwsgi.static_offload_thread_lock);
+
 	return NULL;
 }
  
@@ -1853,6 +1857,15 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 
 		// Ok, the file must be served as static from uWSGI
 		if (uwsgi.static_offload_to_thread) {
+			pthread_mutex_lock(&uwsgi.static_offload_thread_lock);
+			uint64_t offload_thread_count = uwsgi.workers[uwsgi.mywid].static_offload_threads;
+			pthread_mutex_unlock(&uwsgi.static_offload_thread_lock);
+
+			if (offload_thread_count > (uint64_t) uwsgi.static_offload_to_thread) {
+				uwsgi_log_verbose("OVERLOAD !!! unable to offload static file serving\n");
+				return uwsgi_real_file_serve(wsgi_req, real_filename, real_filename_len, &st);
+			}
+			
 			struct uwsgi_offload_request *uor = uwsgi_malloc(sizeof(struct uwsgi_offload_request));
 
 			// buffer
@@ -1875,6 +1888,10 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 
 			// avoid closing the connection
 			wsgi_req->fd_closed = 1;
+
+			pthread_mutex_lock(&uwsgi.static_offload_thread_lock);
+			uwsgi.workers[uwsgi.mywid].static_offload_threads++;
+			pthread_mutex_unlock(&uwsgi.static_offload_thread_lock);
 
 			if (pthread_create(&uor->tid, &uwsgi.static_offload_thread_attr, uwsgi_static_offload_thread, (void *) uor)) {
 				uwsgi_error("pthread_create()");
