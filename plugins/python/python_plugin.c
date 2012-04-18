@@ -275,7 +275,7 @@ void uwsgi_python_atexit() {
 	PyObject *module = PyImport_ImportModule("atexit");
 	Py_XDECREF(module);
 
-	if (uwsgi.threads > 1) {
+	if (uwsgi.has_threads) {
 		if (!PyImport_AddModule("dummy_threading"))
 			PyErr_Clear();
 	}
