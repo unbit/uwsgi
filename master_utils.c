@@ -772,6 +772,7 @@ void uwsgi_send_stats(int fd) {
 		stats_send_llu("\"delta_requests\": %llu, ", uwsgi.workers[i + 1].delta_requests);
 		stats_send_llu("\"exceptions\": %llu, ", uwsgi.workers[i + 1].exceptions);
 		stats_send_llu("\"signals\": %llu, ", uwsgi.workers[i + 1].signals);
+		stats_send_llu("\"static_offload_threads\": %llu, ", uwsgi.workers[i + 1].static_offload_threads);
 
 		if (uwsgi.workers[i + 1].cheaped) {
 			fprintf(output, "\"status\": \"cheap\", ");
