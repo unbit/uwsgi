@@ -376,6 +376,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-expires-type", required_argument, 0, "set the Expires header based on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
 	{"static-expires-type-mtime", required_argument, 0, "set the Expires header based on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
 
+#ifdef UWSGI_PCRE
+	{"static-expires", required_argument, 0, "set the Expires header based on filename regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires, UWSGI_OPT_MIME},
+	{"static-expires-mtime", required_argument, 0, "set the Expires header based on filename regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_mtime, UWSGI_OPT_MIME},
+#endif
+
 	{"static-offload-to-thread", required_argument, 0, "offload static file serving to a thread (upto the specified number of threads)", uwsgi_opt_set_int, &uwsgi.static_offload_to_thread, UWSGI_OPT_MIME},
 
 	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
@@ -3717,6 +3722,30 @@ void uwsgi_opt_add_dyn_dict(char *opt, char *value, void *dict) {
 	uwsgi_dyn_dict_new(udd, value, equal-value, equal+1, strlen(equal+1));
 
 }
+
+#ifdef UWSGI_PCRE
+void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
+
+        char *space = strchr(value, ' ');
+        if (!space) {
+                uwsgi_log("invalid dictionary syntax for %s\n", opt);
+                exit(1);
+        }
+
+        struct uwsgi_dyn_dict **udd = (struct uwsgi_dyn_dict **) dict;
+
+        struct uwsgi_dyn_dict *new_udd = uwsgi_dyn_dict_new(udd, value, space-value, space+1, strlen(space+1));
+
+	char *regexp = uwsgi_concat2n(value, space-value, "", 0);
+
+	if (uwsgi_regexp_build(regexp, &new_udd->pattern, &new_udd->pattern_extra)) {
+		exit(1);
+	}
+
+	free(regexp);
+}
+#endif
+
 
 void uwsgi_opt_fileserve_mode(char *opt, char *value, void *foobar) {
 

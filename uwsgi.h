@@ -334,6 +334,9 @@ struct uwsgi_lock_ops {
 #define uwsgi_wlock(x) uwsgi.lock_ops.wlock(x)
 #define uwsgi_rwunlock(x) uwsgi.lock_ops.rwunlock(x)
 
+#ifdef UWSGI_PCRE
+#include <pcre.h>
+#endif
 
 struct uwsgi_dyn_dict {
 
@@ -344,6 +347,11 @@ struct uwsgi_dyn_dict {
 
 	uint64_t hits;
 	int status;
+
+#ifdef UWSGI_PCRE
+	pcre *pattern;
+        pcre_extra *pattern_extra;
+#endif
 
 	struct uwsgi_dyn_dict *prev;
 	struct uwsgi_dyn_dict *next;
@@ -647,7 +655,6 @@ struct uwsgi_plugin {
 };
 
 #ifdef UWSGI_PCRE
-#include <pcre.h>
 int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
 int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
 int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
@@ -1278,6 +1285,9 @@ struct uwsgi_server {
 
 	struct uwsgi_dyn_dict *static_expires_type;
 	struct uwsgi_dyn_dict *static_expires_type_mtime;
+
+	struct uwsgi_dyn_dict *static_expires;
+	struct uwsgi_dyn_dict *static_expires_mtime;
 
 	int check_static_docroot;
 	int static_offload_to_thread;
@@ -2659,6 +2669,9 @@ void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
+#ifdef UWSGI_PCRE
+void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);
+#endif
 void uwsgi_opt_set_int(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);
