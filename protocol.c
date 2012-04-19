@@ -1001,7 +1001,7 @@ next:
 			udd->vallen = strlen(udd->value);
 		}
 
-		if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info, wsgi_req->path_info_len)) {
+		if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info, wsgi_req->path_info_len, 0)) {
 			return -1;
 		}
 nextcs:
@@ -1029,11 +1029,11 @@ nextcs:
 			if (!real_docroot) goto nextsm;
 			udd->value = real_docroot;
 			udd->vallen = strlen(udd->value);
-			udd->status = 1;
+			udd->status = 1 + uwsgi_is_file(real_docroot);
 		}
 
 		if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, udd->key, udd->keylen)) {
-			if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info+udd->keylen, wsgi_req->path_info_len-udd->keylen)) {
+			if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info+udd->keylen, wsgi_req->path_info_len-udd->keylen, udd->status-1)) {
 				return -1;
 			}
 		}
@@ -1047,7 +1047,7 @@ nextsm:
 		if (!real_docroot) {
                         return -1;
 		}
-		if (!uwsgi_file_serve(wsgi_req, real_docroot, strlen(real_docroot), wsgi_req->path_info, wsgi_req->path_info_len)) {
+		if (!uwsgi_file_serve(wsgi_req, real_docroot, strlen(real_docroot), wsgi_req->path_info, wsgi_req->path_info_len, 0)) {
 			free(real_docroot);
                         return -1;
                 }
@@ -1853,13 +1853,20 @@ void *uwsgi_static_offload_thread(void *req) {
 }
  
 
-int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len) {
+int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len, int is_a_file) {
 
         struct stat st;
         char real_filename[PATH_MAX+1];
 	size_t real_filename_len = 0;
+	char *filename = NULL;
 
-        char *filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
+
+	if (!is_a_file) {
+        	filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
+	}
+	else {
+		filename = uwsgi_concat2n(document_root, document_root_len, "", 0);
+	}
 	
 #ifdef UWSGI_DEBUG
         uwsgi_log("[uwsgi-fileserve] checking for %s\n", filename);

@@ -2380,7 +2380,7 @@ int uwsgi_netlink_del(char *);
 int uwsgi_amqp_consume_queue(int, char *, char *, char *, char *, char *, char *);
 char *uwsgi_amqp_consume(int, uint64_t *, char **);
 
-int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t, int);
 inline int uwsgi_starts_with(char *, int, char *, int);
 
 #ifdef __sun__
@@ -2814,6 +2814,7 @@ char *uwsgi_expand_path(char *, int, char *);
 int uwsgi_try_autoload(char *);
 
 uint64_t uwsgi_micros(void);
+int uwsgi_is_file(char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
