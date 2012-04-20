@@ -59,6 +59,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"xmlconfig", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
+
+	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero,0},
+
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
@@ -2071,10 +2074,9 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-
 	if (!uwsgi.no_server) {
 
-		// systemd socket activation
+		// systemd/upstart/zerg socket activation
 		if (!uwsgi.is_a_reload) {
 			char *listen_pid = getenv("LISTEN_PID");
 			if (listen_pid) {
@@ -2083,20 +2085,33 @@ int uwsgi_start(void *v_argv) {
 					if (listen_fds) {
 						int systemd_fds = atoi(listen_fds);
 						if (systemd_fds > 0) {
+							uwsgi_log("- SystemD socket activation detected -\n");
 							for(i=3;i<3+systemd_fds;i++) {
 								uwsgi_sock = uwsgi_new_socket(NULL);
 								uwsgi_add_socket_from_fd(uwsgi_sock, i);
 							}
+							uwsgi.skip_zero = 1;
 						}
 						unsetenv("LISTEN_PID");
 						unsetenv("LISTEN_FDS");
-						goto skipzero;
 					}
 				}
 			}
-		}
 
-		if (!uwsgi.is_a_reload) {
+			char *upstart_events = getenv("UPSTART_EVENTS");
+			if (upstart_events && !strcmp(upstart_events, "socket")) {
+				char *upstart_fds = getenv("UPSTART_FDS");
+				if (upstart_fds) {
+					uwsgi_log("- Upstart socket bridge detected (job: %s) -\n", getenv("UPSTART_JOB"));
+					uwsgi_sock = uwsgi_new_socket(NULL);
+					uwsgi_add_socket_from_fd(uwsgi_sock, atoi(upstart_fds));
+					uwsgi.skip_zero = 1;
+				}
+				unsetenv("UPSTART_EVENTS");
+				unsetenv("UPSTART_FDS");
+			}
+
+
 			struct uwsgi_string_list *zn = uwsgi.zerg_node;
 			while (zn) {
 				if (uwsgi_zerg_attach(zn->value)) {
@@ -2128,6 +2143,7 @@ int uwsgi_start(void *v_argv) {
 				uwsgi_log("zerg sockets attached\n");
 			}
 		}
+
 
 		//check for inherited sockets
 		if (uwsgi.is_a_reload) {
@@ -2218,6 +2234,8 @@ int uwsgi_start(void *v_argv) {
 				}
 			}
 		}
+
+
 		//now bind all the unbound sockets
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
@@ -2277,7 +2295,7 @@ int uwsgi_start(void *v_argv) {
 		if (!zero_used) {
 			socket_type_len = sizeof(struct sockaddr_un);
 			gsa.sa = (struct sockaddr *) &usa;
-			if (!getsockname(0, gsa.sa, &socket_type_len)) {
+			if (!uwsgi.skip_zero && !getsockname(0, gsa.sa, &socket_type_len)) {
 				if (gsa.sa->sa_family == AF_UNIX) {
 					uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
 					uwsgi_sock->family = AF_UNIX;
@@ -2315,8 +2333,6 @@ int uwsgi_start(void *v_argv) {
 
 		}
 
-skipzero:
-	
 		// check for auto_port socket
 		uwsgi_sock = uwsgi.sockets;
                 while (uwsgi_sock) {

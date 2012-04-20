@@ -1480,6 +1480,7 @@ struct uwsgi_server {
 
 
 	int no_orphans;
+	int skip_zero;
 
 	char *chdir;
 	char *chdir2;
