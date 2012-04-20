@@ -263,7 +263,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal mamagement", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
 	{"limit-post", required_argument, 0, "limit request body", uwsgi_opt_set_64bit, &uwsgi.limit_post, 0},
 	{"no-orphans", no_argument, 0, "automatically kill workers if master dies (can be dangerous for availability)", uwsgi_opt_true, &uwsgi.no_orphans, 0},
-	{"prio", required_argument, 0, "set processes/threads priority", uwsgi_opt_set_int, &uwsgi.prio, 0},
+	{"prio", required_argument, 0, "set processes/threads priority", uwsgi_opt_set_rawint, &uwsgi.prio, 0},
 	{"cpu-affinity", required_argument, 0, "set cpu affinity", uwsgi_opt_set_int, &uwsgi.cpu_affinity, 0},
 	{"post-buffering", required_argument, 0, "enable post buffering", uwsgi_opt_set_64bit, &uwsgi.post_buffering, 0},
 	{"post-buffering-bufsize", required_argument, 0, "set buffer size for read() in post buffering mode", uwsgi_opt_set_64bit, &uwsgi.post_buffering_bufsize,0},
@@ -3525,7 +3525,23 @@ void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	else {
 		*ptr = 1;
 	}
+
+	if (*ptr < 0) {
+		uwsgi_log("invalid value for option \"%s\": must be > 0\n", opt);
+		exit(1);
+	}
 }
+
+void uwsgi_opt_set_rawint(char *opt, char *value, void *key) {
+        int *ptr = (int *) key;
+        if (value) {
+                *ptr = atoi((char *)value);
+        }
+        else {
+                *ptr = 1;
+        }
+}
+
 
 void uwsgi_opt_set_64bit(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;

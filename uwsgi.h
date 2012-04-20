@@ -2675,6 +2675,7 @@ void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);
 #endif
 void uwsgi_opt_set_int(char *, char *, void *);
+void uwsgi_opt_set_rawint(char *, char *, void *);
 void uwsgi_opt_set_64bit(char *, char *, void *);
 void uwsgi_opt_set_megabytes(char *, char *, void *);
 void uwsgi_opt_set_dyn(char *, char *, void *);
