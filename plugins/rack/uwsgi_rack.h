@@ -52,6 +52,8 @@ struct uwsgi_rack {
 	VALUE signals_protector;
 	VALUE rpc_protector;
 
+	VALUE dollar_zero;
+
         VALUE dispatcher;
         VALUE rb_uwsgi_io_class;
         ID call;
