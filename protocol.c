@@ -1041,6 +1041,40 @@ nextsm:
 		udd = udd->next;
 	}
 
+	// check for static_maps in append mode
+	udd = uwsgi.static_maps2;
+        while(udd) {
+#ifdef UWSGI_DEBUG
+                uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
+#endif
+                if (udd->status == 0) {
+#ifdef UWSGI_THREADING
+                        if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.lock_static);
+#endif
+                        char *real_docroot = uwsgi_malloc(PATH_MAX+1);
+                        if (!realpath(udd->value, real_docroot)) {
+                                free(real_docroot);
+                                udd->value = NULL;
+                        }
+#ifdef UWSGI_THREADING
+                        if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.lock_static);
+#endif
+                        if (!real_docroot) goto nextsm2;
+                        udd->value = real_docroot;
+                        udd->vallen = strlen(udd->value);
+                        udd->status = 1 + uwsgi_is_file(real_docroot);
+                }
+
+                if (!uwsgi_starts_with(wsgi_req->path_info, wsgi_req->path_info_len, udd->key, udd->keylen)) {
+                        if (!uwsgi_file_serve(wsgi_req, udd->value, udd->vallen, wsgi_req->path_info, wsgi_req->path_info_len, udd->status-1)) {
+                                return -1;
+                        }
+                }
+nextsm2:
+                udd = udd->next;
+        }
+
+
 	// finally check for docroot
 	if (uwsgi.check_static_docroot && wsgi_req->document_root_len > 0) {
 		char *real_docroot = uwsgi_expand_path(wsgi_req->document_root, wsgi_req->document_root_len, NULL);

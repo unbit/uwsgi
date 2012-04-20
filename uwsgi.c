@@ -367,7 +367,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
 	{"check-static-docroot", no_argument, 0, "check for static files in the requested DOCUMENT_ROOT", uwsgi_opt_true, &uwsgi.check_static_docroot, UWSGI_OPT_MIME},
 	{"static-check", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
-	{"static-map", required_argument, 0, "map mountpoint to static directory", uwsgi_opt_static_map, NULL, UWSGI_OPT_MIME},
+	{"static-map", required_argument, 0, "map mountpoint to static directory (or file)", uwsgi_opt_static_map, &uwsgi.static_maps, UWSGI_OPT_MIME},
+	{"static-map2", required_argument, 0, "like static-map but completely appending the requested resource to the docroot", uwsgi_opt_static_map, &uwsgi.static_maps2, UWSGI_OPT_MIME},
 	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, UWSGI_OPT_MIME},
 	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, UWSGI_OPT_MIME},
 	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
@@ -3767,16 +3768,20 @@ void uwsgi_opt_fileserve_mode(char *opt, char *value, void *foobar) {
 
 }
 
-void uwsgi_opt_static_map(char *opt, char *value, void *foobar) {
+void uwsgi_opt_static_map(char *opt, char *value, void *static_maps) {
+
+	struct uwsgi_dyn_dict **maps = (struct uwsgi_dyn_dict **) static_maps;
 	char *mountpoint = uwsgi_str(value);
-                char *docroot = strchr(mountpoint, '=');
+
+        char *docroot = strchr(mountpoint, '=');
+
                 if (!docroot) {
                         uwsgi_log("invalid document root in static map, syntax mountpoint=docroot\n");
                         exit(1);
                 }
                 docroot[0] = 0;
                 docroot++;
-                uwsgi_dyn_dict_new(&uwsgi.static_maps, mountpoint, strlen(mountpoint), docroot, strlen(docroot));
+                uwsgi_dyn_dict_new(maps, mountpoint, strlen(mountpoint), docroot, strlen(docroot));
                 uwsgi_log("[uwsgi-static] added mapping for %s => %s\n", mountpoint, docroot);
                 uwsgi.build_mime_dict = 1;
 }

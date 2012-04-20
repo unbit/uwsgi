@@ -1278,6 +1278,7 @@ struct uwsgi_server {
 	int daemons_cnt;
 
 	struct uwsgi_dyn_dict *static_maps;
+	struct uwsgi_dyn_dict *static_maps2;
 	struct uwsgi_dyn_dict *check_static;
 	struct uwsgi_dyn_dict *mimetypes;
 	struct uwsgi_string_list *static_skip_ext;
