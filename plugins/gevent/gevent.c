@@ -99,6 +99,8 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 		goto clear;
 	}
 
+	UWSGI_RELEASE_GIL
+
 	// fill wsgi_request structure
 	wsgi_req_setup(wsgi_req, wsgi_req->async_id, uwsgi.sockets );
 
@@ -114,9 +116,12 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 
 	// accept the connection
 	if (wsgi_req_simple_accept(wsgi_req, uwsgi.sockets->fd)) {
+		UWSGI_GET_GIL
 		free_req_queue;
 		goto clear;
 	}
+
+	UWSGI_GET_GIL
 
 	// hack to easily pass wsgi_req pointer to the greenlet
 	PyTuple_SetItem(ugevent.greenlet_args, 1, PyLong_FromLong((long)wsgi_req));
@@ -180,8 +185,9 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 			goto clear_and_stop;
 		}
 		else if (ret == watcher) {
-
+			UWSGI_RELEASE_GIL
 			status = wsgi_req->socket->proto(wsgi_req);
+			UWSGI_GET_GIL
 			if (status < 0) {
 				goto clear_and_stop;
 			}
@@ -198,11 +204,14 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 		stop_the_watchers;
 	}
 
+	UWSGI_RELEASE_GIL
+
 	for(;;) {
 		wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
 		if (wsgi_req->async_status <= UWSGI_OK) {
 			goto clear;
 		}
+		wsgi_req->switches++;
 		// switch after each yield
 		GEVENT_SWITCH;
 	}
@@ -238,6 +247,9 @@ PyMethodDef uwsgi_gevent_signal_handler_def[] = { {"uwsgi_gevent_signal_handler"
 
 
 void gevent_loop() {
+
+	// get the GIL
+	UWSGI_GET_GIL
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
