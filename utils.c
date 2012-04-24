@@ -1018,7 +1018,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	int ret;
 	int interesting_fd;
-	char uwsgi_signal;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
 	thunder_lock;
@@ -1037,23 +1036,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 		thunder_unlock;
 
-		if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
-			if (uwsgi.no_orphans) {
-				uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
-				end_me(0);
-			}
-			else {
-				close(interesting_fd);
-			}
-		}
-		else {
-#ifdef UWSGI_DEBUG
-			uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
-#endif
-			if (uwsgi_signal_handler(uwsgi_signal)) {
-				uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
-			}
-		}
+		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
 
 #ifdef UWSGI_THREADING
         	if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);

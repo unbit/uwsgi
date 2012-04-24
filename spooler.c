@@ -340,19 +340,7 @@ void spooler(struct uwsgi_spooler *uspool) {
 		if (event_queue_wait(spooler_event_queue, timeout, &interesting_fd) > 0) {
 			if (uwsgi.master_process) {
 				if (interesting_fd == uwsgi.shared->spooler_signal_pipe[1]) {
-					uint8_t uwsgi_signal;
-					if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
-                                                	uwsgi_log_verbose("uWSGI spooler screams: UAAAAAAH my master died, i will follow him...\n");
-                                               		end_me(0); 
-                                	}
-                                	else {
-#ifdef UWSGI_DEBUG
-                                        	uwsgi_log_verbose("master sent signal %d to the spooler\n", uwsgi_signal);
-#endif
-                                        	if (uwsgi_signal_handler(uwsgi_signal)) {
-                                                	uwsgi_log_verbose("error managing signal %d on the spooler\n", uwsgi_signal);
-                                        	}
-                                	}
+					uwsgi_receive_signal(interesting_fd, "spooler", (int) getpid());
 				}
 			}
 		}

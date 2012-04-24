@@ -14,7 +14,7 @@ def application(env, start_response):
     start_response('200 OK', [('Content-Type', 'text/html')])
     yield "foobar<br/>"
     if uwsgi.loop == 'gevent':
-        gevent.sleep(10)
+        gevent.sleep(3)
     yield str(env['wsgi.input'].fileno())
     yield "<h1>Hello World</h1>"
     try:

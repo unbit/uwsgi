@@ -2819,6 +2819,8 @@ int uwsgi_try_autoload(char *);
 uint64_t uwsgi_micros(void);
 int uwsgi_is_file(char *);
 
+void uwsgi_receive_signal(int, char *, int);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif
