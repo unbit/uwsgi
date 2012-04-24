@@ -225,6 +225,10 @@ PyMethodDef uwsgi_gevent_signal_handler_def[] = { {"uwsgi_gevent_signal_handler"
 
 void gevent_loop() {
 
+	if (!uwsgi.has_threads && uwsgi.mywid == 1) {
+		uwsgi_log("!!! Running gevent without threads IS NOT recommended, enable them with --enable-threads !!!\n");
+	}
+
 	// get the GIL
 	UWSGI_GET_GIL
 

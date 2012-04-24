@@ -24,7 +24,7 @@ extern "C" {
 #define uwsgi_str(x) uwsgi_concat2(x, "")
 
 #define uwsgi_notify(x) if (uwsgi.notify) uwsgi.notify(x)
-#define uwsgi_notify_ready() if (uwsgi.notify_ready) uwsgi.notify_ready()
+#define uwsgi_notify_ready() uwsgi.shared->ready = 1 ; if (uwsgi.notify_ready) uwsgi.notify_ready()
 
 #define uwsgi_apps uwsgi.workers[uwsgi.mywid].apps
 #define uwsgi_apps_cnt uwsgi.workers[uwsgi.mywid].apps_cnt
@@ -1811,6 +1811,8 @@ struct uwsgi_shared {
 	struct uwsgi_gateway gateways[MAX_GATEWAYS];
 	int gateways_cnt;
 	time_t gateways_harakiri[MAX_GATEWAYS];
+
+	int ready;
 };
 
 struct uwsgi_core {

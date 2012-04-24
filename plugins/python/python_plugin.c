@@ -189,6 +189,10 @@ int uwsgi_python_init() {
 
 	Py_Initialize();
 
+	if (!uwsgi.has_threads) {
+		uwsgi_log("*** Python threads support is disabled. You can enable it with --enable-threads ***\n");
+	}
+
 	up.wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
 	up.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
 
