@@ -562,8 +562,8 @@ void gracefully_kill(int signum) {
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 #ifdef UWSGI_THREADING
-	struct wsgi_request *wsgi_req = current_wsgi_req();
 	if (uwsgi.threads > 1) {
+		struct wsgi_request *wsgi_req = current_wsgi_req();
 		wait_for_threads();
 		if (!uwsgi.core[wsgi_req->async_id]->in_request) {
 			exit(UWSGI_RELOAD_CODE);
