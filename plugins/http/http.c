@@ -592,6 +592,9 @@ void http_loop(int id) {
 							taken = 1;
 							break;
 						}
+#ifndef __linux__
+						uwsgi_socket_b(new_connection);
+#endif
 
 						uhttp_table[new_connection] = alloc_uhttp_session();
 						uhttp_table[new_connection]->fd = new_connection;
@@ -892,10 +895,9 @@ void http_loop(int id) {
 						break;
 					}
 
-					len = send(uhttp_session->fd, bbuf, len, 0);
-
-					if (len <= 0) {
-						if (len < 0)
+					ssize_t s_len = send(uhttp_session->fd, bbuf, len, 0);
+					if (s_len <= 0) {
+						if (s_len < 0)
 							uwsgi_error("send()");
 						close(uhttp_session->fd);
 						close(uhttp_session->instance_fd);

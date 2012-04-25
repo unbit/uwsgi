@@ -582,6 +582,10 @@ void fastrouter_loop(int id) {
 							break;
 						}
 
+#ifndef __linux__
+                                                uwsgi_socket_b(new_connection);
+#endif
+
 						ufr.fr_table[new_connection] = alloc_fr_session();
 						ufr.fr_table[new_connection]->fd = new_connection;
 						ufr.fr_table[new_connection]->instance_fd = -1;
