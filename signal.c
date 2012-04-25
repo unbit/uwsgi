@@ -559,3 +559,33 @@ cycle:
         return received_signal;
 }
 
+void uwsgi_receive_signal(int fd, char *name, int id) {
+
+	uint8_t uwsgi_signal;
+
+	ssize_t ret = read(fd, &uwsgi_signal, 1);
+
+        if (ret == 0) {
+		goto destroy;
+        }
+        else if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                uwsgi_error("[uwsgi-signal] read()");
+		goto destroy;
+        }
+        else if (ret > 0) {
+#ifdef UWSGI_DEBUG
+                uwsgi_log_verbose("master sent signal %d to %s %d\n", uwsgi_signal, name, id);
+#endif
+                if (uwsgi_signal_handler(uwsgi_signal)) {
+                        uwsgi_log_verbose("error managing signal %d on %s %d\n", uwsgi_signal, name, id);
+                }
+        }
+
+	return;
+
+destroy:
+	// better to kill the whole worker...
+        uwsgi_log_verbose("uWSGI %s %d screams: UAAAAAAH my master disconnected: i will kill myself !!!\n", name, id);
+	end_me(0);
+
+}

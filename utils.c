@@ -1018,7 +1018,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	int ret;
 	int interesting_fd;
-	char uwsgi_signal;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
 	thunder_lock;
@@ -1037,23 +1036,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 		thunder_unlock;
 
-		if (read(interesting_fd, &uwsgi_signal, 1) <= 0) {
-			if (uwsgi.no_orphans) {
-				uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
-				end_me(0);
-			}
-			else {
-				close(interesting_fd);
-			}
-		}
-		else {
-#ifdef UWSGI_DEBUG
-			uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
-#endif
-			if (uwsgi_signal_handler(uwsgi_signal)) {
-				uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
-			}
-		}
+		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
 
 #ifdef UWSGI_THREADING
         	if (uwsgi.threads > 1) pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
@@ -1134,6 +1117,11 @@ void sanitize_args() {
 	if (uwsgi.write_errors_exception_only) {
 		uwsgi.ignore_sigpipe = 1;
 		uwsgi.ignore_write_errors = 1;
+	}
+
+	if (uwsgi.cheaper_count > 0 && uwsgi.cheaper_count >= uwsgi.numproc) {
+		uwsgi_log("invalid cheaper value: must be lower than processes\n");
+		exit(1);
 	}
 }
 
@@ -3190,6 +3178,7 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list,
         	uwsgi_string->len = strlen(value);
 	}
 	uwsgi_string->next = NULL;
+	uwsgi_string->custom = 0;
 
         return uwsgi_string;
 }
@@ -3920,7 +3909,11 @@ void uwsgi_set_processname(char *name) {
 		strncat(uwsgi.orig_argv[0], uwsgi.procname_append, uwsgi.max_procname-(amount+1));
 	}
 
-	memset(uwsgi.orig_argv[0]+amount+1, ' ', uwsgi.max_procname-(amount-1));
+	// fill with spaces...
+	memset(uwsgi.orig_argv[0]+amount+1, ' ', uwsgi.max_procname-(amount));
+	// end with \0
+	memset(uwsgi.orig_argv[0]+amount+1+(uwsgi.max_procname-(amount)), '\0', 1);
+
 #elif defined(__FreeBSD__)
 	if (uwsgi.procname_prefix) {
 		if (!uwsgi.procname_append) {
@@ -4088,6 +4081,10 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
                 else {
 			if (!touch->custom) touch->custom = (uint64_t) tr_st.st_mtime;
 			if ((uint64_t) tr_st.st_mtime > touch->custom) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("[uwsgi-check-touches] modification detected on %s: %llu -> %llu\n", touch->value, (unsigned long long) touch->custom,
+					(unsigned long long) tr_st.st_mtime);
+#endif
                         	touch->custom = (uint64_t) tr_st.st_mtime;
 				return touch->value;
 			}

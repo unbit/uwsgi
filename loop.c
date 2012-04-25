@@ -120,7 +120,6 @@ void *zeromq_loop(void *arg1) {
 	struct wsgi_request *wsgi_req = uwsgi.wsgi_requests[core_id];
 	uwsgi.zeromq_recv_flag = 0;
 	zmq_pollitem_t zmq_poll_items[3];
-	char uwsgi_signal;
 
 	if (uwsgi.threads > 1) {
 
@@ -188,38 +187,12 @@ void *zeromq_loop(void *arg1) {
 			}
 
 			if (zmq_poll_items[1].revents & ZMQ_POLLIN) {
-                		if (read(uwsgi.signal_socket, &uwsgi_signal, 1) <= 0) {
-                        		if (uwsgi.no_orphans) {
-                                		uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
-                                		end_me(0);
-                        		}
-                		}
-                		else {
-#ifdef UWSGI_DEBUG
-                        		uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
-#endif
-                        		if (uwsgi_signal_handler(uwsgi_signal)) {
-                                		uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
-                        		}
-                		}
+				uwsgi_receive_signal(uwsgi.signal_socket, "worker", uwsgi.mywid);
 				continue;
 			}
 
 			if (zmq_poll_items[2].revents & ZMQ_POLLIN) {
-                                if (read(uwsgi.my_signal_socket, &uwsgi_signal, 1) <= 0) {
-                                        if (uwsgi.no_orphans) {
-                                                uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
-                                                end_me(0);
-                                        }
-                                }
-                                else {
-#ifdef UWSGI_DEBUG
-                                        uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
-#endif
-                                        if (uwsgi_signal_handler(uwsgi_signal)) {
-                                                uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
-                                        }
-                                }
+				uwsgi_receive_signal(uwsgi.my_signal_socket, "worker", uwsgi.mywid);
                                 continue;
                         }
 

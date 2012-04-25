@@ -421,7 +421,8 @@ int event_queue_interesting_fd(void *events, int id) {
 int event_queue_interesting_fd_has_error(void *events, int id) {
 	struct kevent *ev = (struct kevent *) events;
 
-        if (  ( (ev[id].flags == EV_ERROR) || (ev[id].flags == EV_EOF) || (ev[id].flags == (EV_EOF|EV_ERROR))) ) {
+	// DO NOT CHECK FOR EOF !!!
+        if ( ev[id].flags & EV_ERROR ) {
                 return 1;
         }
         return 0;

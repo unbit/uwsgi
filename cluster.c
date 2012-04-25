@@ -40,7 +40,7 @@ void cluster_setup() {
                                         // receive the packet
                                         char clusterbuf[4096];
                                         if (!uwsgi_hooked_parse_dict_dgram(uwsgi.cluster_fd, clusterbuf, 4096, 99, 1, cluster_manage_opt, NULL)) {
-                                                uwsgi_configure(-1);
+                                                uwsgi_configure();
                                                 goto options_parsed;
                                         }
                                         else {

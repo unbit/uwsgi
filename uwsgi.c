@@ -59,6 +59,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"xmlconfig", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 	{"xml", required_argument, 'x', "load config from xml file", uwsgi_opt_load_xml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
+
+	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero,0},
+
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
@@ -260,7 +263,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"propagate-touch", no_argument, 0, "over-engineering option for system with flaky signal mamagement", uwsgi_opt_true, &uwsgi.propagate_touch, 0},
 	{"limit-post", required_argument, 0, "limit request body", uwsgi_opt_set_64bit, &uwsgi.limit_post, 0},
 	{"no-orphans", no_argument, 0, "automatically kill workers if master dies (can be dangerous for availability)", uwsgi_opt_true, &uwsgi.no_orphans, 0},
-	{"prio", required_argument, 0, "set processes/threads priority", uwsgi_opt_set_int, &uwsgi.prio, 0},
+	{"prio", required_argument, 0, "set processes/threads priority", uwsgi_opt_set_rawint, &uwsgi.prio, 0},
 	{"cpu-affinity", required_argument, 0, "set cpu affinity", uwsgi_opt_set_int, &uwsgi.cpu_affinity, 0},
 	{"post-buffering", required_argument, 0, "enable post buffering", uwsgi_opt_set_64bit, &uwsgi.post_buffering, 0},
 	{"post-buffering-bufsize", required_argument, 0, "set buffer size for read() in post buffering mode", uwsgi_opt_set_64bit, &uwsgi.post_buffering_bufsize,0},
@@ -367,14 +370,20 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
 	{"check-static-docroot", no_argument, 0, "check for static files in the requested DOCUMENT_ROOT", uwsgi_opt_true, &uwsgi.check_static_docroot, UWSGI_OPT_MIME},
 	{"static-check", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
-	{"static-map", required_argument, 0, "map mountpoint to static directory", uwsgi_opt_static_map, NULL, UWSGI_OPT_MIME},
+	{"static-map", required_argument, 0, "map mountpoint to static directory (or file)", uwsgi_opt_static_map, &uwsgi.static_maps, UWSGI_OPT_MIME},
+	{"static-map2", required_argument, 0, "like static-map but completely appending the requested resource to the docroot", uwsgi_opt_static_map, &uwsgi.static_maps2, UWSGI_OPT_MIME},
 	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, UWSGI_OPT_MIME},
 	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, UWSGI_OPT_MIME},
 	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
 	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
 
-	{"static-expires-type", required_argument, 0, "set the Expires header base on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
-	{"static-expires-type-mtime", required_argument, 0, "set the Expires header base on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
+	{"static-expires-type", required_argument, 0, "set the Expires header based on content type", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type, UWSGI_OPT_MIME},
+	{"static-expires-type-mtime", required_argument, 0, "set the Expires header based on content type and file mtime", uwsgi_opt_add_dyn_dict, &uwsgi.static_expires_type_mtime, UWSGI_OPT_MIME},
+
+#ifdef UWSGI_PCRE
+	{"static-expires", required_argument, 0, "set the Expires header based on filename regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires, UWSGI_OPT_MIME},
+	{"static-expires-mtime", required_argument, 0, "set the Expires header based on filename regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_mtime, UWSGI_OPT_MIME},
+#endif
 
 	{"static-offload-to-thread", required_argument, 0, "offload static file serving to a thread (upto the specified number of threads)", uwsgi_opt_set_int, &uwsgi.static_offload_to_thread, UWSGI_OPT_MIME},
 
@@ -553,8 +562,8 @@ void gracefully_kill(int signum) {
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 #ifdef UWSGI_THREADING
-	struct wsgi_request *wsgi_req = current_wsgi_req();
 	if (uwsgi.threads > 1) {
+		struct wsgi_request *wsgi_req = current_wsgi_req();
 		wait_for_threads();
 		if (!uwsgi.core[wsgi_req->async_id]->in_request) {
 			exit(UWSGI_RELOAD_CODE);
@@ -1645,6 +1654,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_log_initial("*** big endian arch detected ***\n");
 #endif
 
+#if defined(_SC_NPROCESSORS_ONLN)
+	uwsgi_log_initial("detected number of CPU cores: %d\n", sysconf(_SC_NPROCESSORS_ONLN));
+#elif defined(_SC_NPROCESSORS_CONF)
+	uwsgi_log_initial("detected number of CPU cores: %d\n", sysconf(_SC_NPROCESSORS_CONF));
+#endif
+
 
 	uwsgi_log_initial("current working directory: %s\n", uwsgi.cwd);
 
@@ -1854,17 +1869,21 @@ int uwsgi_start(void *v_argv) {
 	sanitize_args();
 
 	// initialize workers
-	if (!uwsgi.mime_file) uwsgi_string_new_list(&uwsgi.mime_file, "/etc/mime.types");
-	struct uwsgi_string_list *umd = uwsgi.mime_file;
-	while(umd) {
-		if (!access(umd->value, R_OK)) {
-			uwsgi_build_mime_dict(umd->value);
+
+	
+	if (uwsgi.build_mime_dict) {
+		if (!uwsgi.mime_file) uwsgi_string_new_list(&uwsgi.mime_file, "/etc/mime.types");
+		struct uwsgi_string_list *umd = uwsgi.mime_file;
+		while(umd) {
+			if (!access(umd->value, R_OK)) {
+				uwsgi_build_mime_dict(umd->value);
+			}
+			else {
+				uwsgi_log("!!! no %s file found !!!\n", umd->value);
+			}
+			umd = umd->next;
 		}
-		else {
-			uwsgi_log("!!! no %s file found !!!\n", umd->value);
-		}
-		umd = umd->next;
-	}
+	}	
 
 	if (uwsgi.static_offload_to_thread) {
 		pthread_attr_init(&uwsgi.static_offload_thread_attr);
@@ -2065,10 +2084,9 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-
 	if (!uwsgi.no_server) {
 
-		// systemd socket activation
+		// systemd/upstart/zerg socket activation
 		if (!uwsgi.is_a_reload) {
 			char *listen_pid = getenv("LISTEN_PID");
 			if (listen_pid) {
@@ -2077,20 +2095,33 @@ int uwsgi_start(void *v_argv) {
 					if (listen_fds) {
 						int systemd_fds = atoi(listen_fds);
 						if (systemd_fds > 0) {
+							uwsgi_log("- SystemD socket activation detected -\n");
 							for(i=3;i<3+systemd_fds;i++) {
 								uwsgi_sock = uwsgi_new_socket(NULL);
 								uwsgi_add_socket_from_fd(uwsgi_sock, i);
 							}
+							uwsgi.skip_zero = 1;
 						}
 						unsetenv("LISTEN_PID");
 						unsetenv("LISTEN_FDS");
-						goto skipzero;
 					}
 				}
 			}
-		}
 
-		if (!uwsgi.is_a_reload) {
+			char *upstart_events = getenv("UPSTART_EVENTS");
+			if (upstart_events && !strcmp(upstart_events, "socket")) {
+				char *upstart_fds = getenv("UPSTART_FDS");
+				if (upstart_fds) {
+					uwsgi_log("- Upstart socket bridge detected (job: %s) -\n", getenv("UPSTART_JOB"));
+					uwsgi_sock = uwsgi_new_socket(NULL);
+					uwsgi_add_socket_from_fd(uwsgi_sock, atoi(upstart_fds));
+					uwsgi.skip_zero = 1;
+				}
+				unsetenv("UPSTART_EVENTS");
+				unsetenv("UPSTART_FDS");
+			}
+
+
 			struct uwsgi_string_list *zn = uwsgi.zerg_node;
 			while (zn) {
 				if (uwsgi_zerg_attach(zn->value)) {
@@ -2122,6 +2153,7 @@ int uwsgi_start(void *v_argv) {
 				uwsgi_log("zerg sockets attached\n");
 			}
 		}
+
 
 		//check for inherited sockets
 		if (uwsgi.is_a_reload) {
@@ -2212,6 +2244,8 @@ int uwsgi_start(void *v_argv) {
 				}
 			}
 		}
+
+
 		//now bind all the unbound sockets
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
@@ -2252,6 +2286,7 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_sock = uwsgi_sock->next;
 		}
 
+
 		if (uwsgi.chown_socket) {
 			if (!uwsgi.master_as_root) {
 				uwsgi_as_root();
@@ -2271,7 +2306,7 @@ int uwsgi_start(void *v_argv) {
 		if (!zero_used) {
 			socket_type_len = sizeof(struct sockaddr_un);
 			gsa.sa = (struct sockaddr *) &usa;
-			if (!getsockname(0, gsa.sa, &socket_type_len)) {
+			if (!uwsgi.skip_zero && !getsockname(0, gsa.sa, &socket_type_len)) {
 				if (gsa.sa->sa_family == AF_UNIX) {
 					uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
 					uwsgi_sock->family = AF_UNIX;
@@ -2309,8 +2344,6 @@ int uwsgi_start(void *v_argv) {
 
 		}
 
-skipzero:
-	
 		// check for auto_port socket
 		uwsgi_sock = uwsgi.sockets;
                 while (uwsgi_sock) {
@@ -3503,7 +3536,23 @@ void uwsgi_opt_set_int(char *opt, char *value, void *key) {
 	else {
 		*ptr = 1;
 	}
+
+	if (*ptr < 0) {
+		uwsgi_log("invalid value for option \"%s\": must be > 0\n", opt);
+		exit(1);
+	}
 }
+
+void uwsgi_opt_set_rawint(char *opt, char *value, void *key) {
+        int *ptr = (int *) key;
+        if (value) {
+                *ptr = atoi((char *)value);
+        }
+        else {
+                *ptr = 1;
+        }
+}
+
 
 void uwsgi_opt_set_64bit(char *opt, char *value, void *key) {
 	uint64_t *ptr = (uint64_t *) key;
@@ -3718,6 +3767,30 @@ void uwsgi_opt_add_dyn_dict(char *opt, char *value, void *dict) {
 
 }
 
+#ifdef UWSGI_PCRE
+void uwsgi_opt_add_regexp_dyn_dict(char *opt, char *value, void *dict) {
+
+        char *space = strchr(value, ' ');
+        if (!space) {
+                uwsgi_log("invalid dictionary syntax for %s\n", opt);
+                exit(1);
+        }
+
+        struct uwsgi_dyn_dict **udd = (struct uwsgi_dyn_dict **) dict;
+
+        struct uwsgi_dyn_dict *new_udd = uwsgi_dyn_dict_new(udd, value, space-value, space+1, strlen(space+1));
+
+	char *regexp = uwsgi_concat2n(value, space-value, "", 0);
+
+	if (uwsgi_regexp_build(regexp, &new_udd->pattern, &new_udd->pattern_extra)) {
+		exit(1);
+	}
+
+	free(regexp);
+}
+#endif
+
+
 void uwsgi_opt_fileserve_mode(char *opt, char *value, void *foobar) {
 
 	if (!strcasecmp("x-sendfile", value)) {
@@ -3738,16 +3811,20 @@ void uwsgi_opt_fileserve_mode(char *opt, char *value, void *foobar) {
 
 }
 
-void uwsgi_opt_static_map(char *opt, char *value, void *foobar) {
+void uwsgi_opt_static_map(char *opt, char *value, void *static_maps) {
+
+	struct uwsgi_dyn_dict **maps = (struct uwsgi_dyn_dict **) static_maps;
 	char *mountpoint = uwsgi_str(value);
-                char *docroot = strchr(mountpoint, '=');
+
+        char *docroot = strchr(mountpoint, '=');
+
                 if (!docroot) {
                         uwsgi_log("invalid document root in static map, syntax mountpoint=docroot\n");
                         exit(1);
                 }
                 docroot[0] = 0;
                 docroot++;
-                uwsgi_dyn_dict_new(&uwsgi.static_maps, mountpoint, strlen(mountpoint), docroot, strlen(docroot));
+                uwsgi_dyn_dict_new(maps, mountpoint, strlen(mountpoint), docroot, strlen(docroot));
                 uwsgi_log("[uwsgi-static] added mapping for %s => %s\n", mountpoint, docroot);
                 uwsgi.build_mime_dict = 1;
 }

@@ -150,7 +150,12 @@ int uwsgi_python_init() {
 
 #ifndef UWSGI_PYPY
 	char *pyversion = strchr(Py_GetVersion(), '\n');
-        uwsgi_log_initial("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
+	if (!pyversion) {
+        	uwsgi_log_initial("Python version: %s\n", Py_GetVersion());
+	}
+	else {
+        	uwsgi_log_initial("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
+	}
 #else
 	uwsgi_log_initial("PyPy version: %s\n", PYPY_VERSION);
 #endif
@@ -188,6 +193,10 @@ int uwsgi_python_init() {
 #endif
 
 	Py_Initialize();
+
+	if (!uwsgi.has_threads) {
+		uwsgi_log("*** Python threads support is disabled. You can enable it with --enable-threads ***\n");
+	}
 
 	up.wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
 	up.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
@@ -275,7 +284,7 @@ void uwsgi_python_atexit() {
 	PyObject *module = PyImport_ImportModule("atexit");
 	Py_XDECREF(module);
 
-	if (uwsgi.threads > 1) {
+	if (uwsgi.has_threads) {
 		if (!PyImport_AddModule("dummy_threading"))
 			PyErr_Clear();
 	}

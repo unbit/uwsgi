@@ -758,6 +758,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	return serverfd;
 }
 
+// set non-blocking socket
 void uwsgi_socket_nb(int fd) {
 	int arg;
 
@@ -773,6 +774,24 @@ void uwsgi_socket_nb(int fd) {
 	}
 
 }
+
+// set blocking socket
+void uwsgi_socket_b(int fd) {
+        int arg;
+
+        arg = fcntl(fd, F_GETFL, NULL);
+        if (arg < 0) {
+                uwsgi_error("fcntl()");
+                return;
+        }
+	arg &= (~O_NONBLOCK);
+        if (fcntl(fd, F_SETFL, arg) < 0) {
+                uwsgi_error("fcntl()");
+                return;
+        }
+
+}
+
 
 int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_size, int timeout, int async) {
 
@@ -1012,10 +1031,6 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 	union uwsgi_sockaddr_ptr gsa, isa;
 	union uwsgi_sockaddr usa;
 	int abstract = 0;
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("creating socket from fd %d\n", fd);
-#endif
 
 	socket_type_len = sizeof(struct sockaddr_un);
 	gsa.sa = &usa.sa;

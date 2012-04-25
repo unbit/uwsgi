@@ -1025,6 +1025,17 @@ PyObject *py_uwsgi_setprocname(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_ready(PyObject * self, PyObject * args) {
+
+	if (ushared->ready) {
+		Py_INCREF(Py_True);
+		return Py_True;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_in_farm(PyObject * self, PyObject * args) {
 
 	char *farm_name = NULL;
@@ -3103,6 +3114,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"mule_get_msg", (PyCFunction) py_uwsgi_mule_get_msg, METH_VARARGS|METH_KEYWORDS, ""},
 	{"farm_get_msg", py_uwsgi_farm_get_msg, METH_VARARGS, ""},
 	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
+
+	{"ready", py_uwsgi_ready, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{NULL, NULL},

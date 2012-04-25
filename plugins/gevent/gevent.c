@@ -34,34 +34,20 @@ struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
 
 PyObject *py_uwsgi_gevent_signal_handler(PyObject * self, PyObject * args) {
 
-	uint8_t uwsgi_signal;
 	int signal_socket;
 
 	if (!PyArg_ParseTuple(args, "i:uwsgi_gevent_signal_handler", &signal_socket)) {
         	return NULL;
 	}
 
-	if (read(signal_socket, &uwsgi_signal, 1) <= 0) {
-        	if (uwsgi.no_orphans) {
-                	uwsgi_log_verbose("uWSGI worker %d screams: UAAAAAAH my master died, i will follow him...\n", uwsgi.mywid);
-                        end_me(0);
-                }
-		// close the socket to end the mess...from now on the worker is alone (no master)
-                else close(signal_socket);
-        }
-        else {
-#ifdef UWSGI_DEBUG
-        	uwsgi_log_verbose("master sent signal %d to worker %d\n", uwsgi_signal, uwsgi.mywid);
-#endif
-		if (uwsgi_signal_handler(uwsgi_signal)) {
-                	uwsgi_log_verbose("error managing signal %d on worker %d\n", uwsgi_signal, uwsgi.mywid);
-                }
-        }
+	uwsgi_receive_signal(signal_socket, "worker", uwsgi.mywid);
 
 	Py_INCREF(Py_None);
 	return Py_None;
 }
 
+// the following twi functions are called whenever an event is available in the signal queue
+// they both trigger the same function
 PyObject *py_uwsgi_gevent_signal(PyObject * self, PyObject * args) {
 
 	PyTuple_SetItem(ugevent.signal_args, 1, PyInt_FromLong(uwsgi.signal_socket));
@@ -180,7 +166,6 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 			goto clear_and_stop;
 		}
 		else if (ret == watcher) {
-
 			status = wsgi_req->socket->proto(wsgi_req);
 			if (status < 0) {
 				goto clear_and_stop;
@@ -203,6 +188,7 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 		if (wsgi_req->async_status <= UWSGI_OK) {
 			goto clear;
 		}
+		wsgi_req->switches++;
 		// switch after each yield
 		GEVENT_SWITCH;
 	}
@@ -238,6 +224,17 @@ PyMethodDef uwsgi_gevent_signal_handler_def[] = { {"uwsgi_gevent_signal_handler"
 
 
 void gevent_loop() {
+
+	if (!uwsgi.has_threads && uwsgi.mywid == 1) {
+		uwsgi_log("!!! Running gevent without threads IS NOT recommended, enable them with --enable-threads !!!\n");
+	}
+
+	// get the GIL
+	UWSGI_GET_GIL
+
+	// ..then reset GIL subsystem as noop (gevent IO will take care of it...)
+	up.gil_get = gil_fake_get;
+        up.gil_release = gil_fake_release;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 

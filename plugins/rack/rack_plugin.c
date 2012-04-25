@@ -325,6 +325,11 @@ void uwsgi_ruby_gemset(char *gemset) {
 	
 }
 
+static void rack_hack_dollar_zero(VALUE name, ID id) {
+	ur.dollar_zero = rb_obj_as_string(name);
+	rb_obj_taint(ur.dollar_zero);
+}
+
 int uwsgi_rack_init(){
 
 	struct http_status_codes *http_sc;
@@ -356,6 +361,10 @@ int uwsgi_rack_init(){
 	ruby_show_version();
 
 	ruby_script("uwsgi");
+
+	ur.dollar_zero = Qnil;
+	rb_define_hooked_variable("$0", &ur.dollar_zero, 0, rack_hack_dollar_zero);
+	rb_define_hooked_variable("$PROGRAM_NAME", &ur.dollar_zero, 0, rack_hack_dollar_zero);
 
 	ur.signals_protector = rb_ary_new();
 	ur.rpc_protector = rb_ary_new();
@@ -709,7 +718,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	VALUE dws_wr = Data_Wrap_Struct(ur.rb_uwsgi_io_class, 0, 0, wsgi_req);
 
 	if (wsgi_req->async_post) {
-		rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(fileno(wsgi_req->async_post)), rb_str_new("r",1) ));
+		rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(fileno((FILE*)wsgi_req->async_post)), rb_str_new("r",1) ));
 	}
 	else {
 		rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall(ur.rb_uwsgi_io_class, rb_intern("new"), 1, dws_wr ));
