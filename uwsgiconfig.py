@@ -392,6 +392,7 @@ class uConf(object):
             if self.has_include('execinfo.h') or os.path.exists('/usr/local/include/execinfo.h'):
                 if os.path.exists('/usr/local/include/execinfo.h'):
                     self.cflags.append('-I/usr/local/include')
+                    self.ldflags.append('-L/usr/local/lib')
                 self.cflags.append('-DUWSGI_HAS_EXECINFO')
                 self.libs.append('-lexecinfo')
 
