@@ -1654,6 +1654,12 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_log_initial("*** big endian arch detected ***\n");
 #endif
 
+#if defined(_SC_NPROCESSORS_ONLN)
+	uwsgi_log_initial("detected number of CPU cores: %d\n", sysconf(_SC_NPROCESSORS_ONLN));
+#elif defined(_SC_NPROCESSORS_CONF)
+	uwsgi_log_initial("detected number of CPU cores: %d\n", sysconf(_SC_NPROCESSORS_CONF));
+#endif
+
 
 	uwsgi_log_initial("current working directory: %s\n", uwsgi.cwd);
 
