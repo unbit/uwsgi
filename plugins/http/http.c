@@ -912,7 +912,6 @@ void http_loop(int id) {
 				// body from client
 				else if (interesting_fd == uhttp_session->fd) {
 
-					//uwsgi_log("receiving body...\n");
 					len = recv(uhttp_session->fd, bbuf, UMAX16, 0);
 #ifdef UWSGI_EVENT_USE_PORT
 					event_queue_add_fd_read(uhttp_queue, uhttp_session->fd);
