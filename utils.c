@@ -4080,6 +4080,10 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
                 else {
 			if (!touch->custom) touch->custom = (uint64_t) tr_st.st_mtime;
 			if ((uint64_t) tr_st.st_mtime > touch->custom) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("[uwsgi-check-touches] modification detected on %s: %llu -> %llu\n", touch->value, (unsigned long long) touch->custom,
+					(unsigned long long) tr_st.st_mtime);
+#endif
                         	touch->custom = (uint64_t) tr_st.st_mtime;
 				return touch->value;
 			}

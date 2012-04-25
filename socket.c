@@ -1013,10 +1013,6 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 	union uwsgi_sockaddr usa;
 	int abstract = 0;
 
-#ifdef UWSGI_DEBUG
-	uwsgi_log("creating socket from fd %d\n", fd);
-#endif
-
 	socket_type_len = sizeof(struct sockaddr_un);
 	gsa.sa = &usa.sa;
 	if (!getsockname(fd, gsa.sa, &socket_type_len)) {
