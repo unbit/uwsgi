@@ -1863,17 +1863,21 @@ int uwsgi_start(void *v_argv) {
 	sanitize_args();
 
 	// initialize workers
-	if (!uwsgi.mime_file) uwsgi_string_new_list(&uwsgi.mime_file, "/etc/mime.types");
-	struct uwsgi_string_list *umd = uwsgi.mime_file;
-	while(umd) {
-		if (!access(umd->value, R_OK)) {
-			uwsgi_build_mime_dict(umd->value);
+
+	
+	if (uwsgi.build_mime_dict) {
+		if (!uwsgi.mime_file) uwsgi_string_new_list(&uwsgi.mime_file, "/etc/mime.types");
+		struct uwsgi_string_list *umd = uwsgi.mime_file;
+		while(umd) {
+			if (!access(umd->value, R_OK)) {
+				uwsgi_build_mime_dict(umd->value);
+			}
+			else {
+				uwsgi_log("!!! no %s file found !!!\n", umd->value);
+			}
+			umd = umd->next;
 		}
-		else {
-			uwsgi_log("!!! no %s file found !!!\n", umd->value);
-		}
-		umd = umd->next;
-	}
+	}	
 
 	if (uwsgi.static_offload_to_thread) {
 		pthread_attr_init(&uwsgi.static_offload_thread_attr);
@@ -2275,6 +2279,7 @@ int uwsgi_start(void *v_argv) {
 			uwsgi_sock->bound = 1;
 			uwsgi_sock = uwsgi_sock->next;
 		}
+
 
 		if (uwsgi.chown_socket) {
 			if (!uwsgi.master_as_root) {

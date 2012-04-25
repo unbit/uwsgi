@@ -150,7 +150,12 @@ int uwsgi_python_init() {
 
 #ifndef UWSGI_PYPY
 	char *pyversion = strchr(Py_GetVersion(), '\n');
-        uwsgi_log_initial("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
+	if (!pyversion) {
+        	uwsgi_log_initial("Python version: %s %s\n", Py_GetVersion(), Py_GetCompiler()+1);
+	}
+	else {
+        	uwsgi_log_initial("Python version: %.*s %s\n", pyversion-Py_GetVersion(), Py_GetVersion(), Py_GetCompiler()+1);
+	}
 #else
 	uwsgi_log_initial("PyPy version: %s\n", PYPY_VERSION);
 #endif
