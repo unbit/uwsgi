@@ -2720,6 +2720,7 @@ void uwsgi_opt_add_daemon(char *, char *, void *);
 void uwsgi_opt_set_uid(char *, char *, void *);
 void uwsgi_opt_set_gid(char *, char *, void *);
 void uwsgi_opt_set_env(char *, char *, void *);
+void uwsgi_opt_unset_env(char *, char *, void *);
 void uwsgi_opt_pidfile_signal(char *, char *, void *);
 void uwsgi_opt_add_app(char *, char *, void *);
 
@@ -2756,6 +2757,8 @@ int uwsgi_logic_opt_if_file(char *, char *);
 int uwsgi_logic_opt_if_not_file(char *, char *);
 int uwsgi_logic_opt_if_dir(char *, char *);
 int uwsgi_logic_opt_if_not_dir(char *, char *);
+int uwsgi_logic_opt_if_reload(char *, char *);
+int uwsgi_logic_opt_if_not_reload(char *, char *);
 
 
 #ifdef UWSGI_CAP
