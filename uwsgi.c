@@ -71,8 +71,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-not-env", required_argument, 0, "(opt logic) check for environment variable", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_env, UWSGI_OPT_IMMEDIATE},
 	{"ifenv", required_argument, 0, "(opt logic) check for environment variable", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_env, UWSGI_OPT_IMMEDIATE},
 
-	{"if-reload", required_argument, 0, "(opt logic) check for reload", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_reload, UWSGI_OPT_IMMEDIATE},
-	{"if-not-reload", required_argument, 0, "(opt logic) check for reload", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_reload, UWSGI_OPT_IMMEDIATE},
+	{"if-reload", no_argument, 0, "(opt logic) check for reload", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_reload, UWSGI_OPT_IMMEDIATE},
+	{"if-not-reload", no_argument, 0, "(opt logic) check for reload", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_reload, UWSGI_OPT_IMMEDIATE},
 
 	{"if-exists", required_argument, 0, "(opt logic) check for file/directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_exists, UWSGI_OPT_IMMEDIATE},
 	{"if-not-exists", required_argument, 0, "(opt logic) check for file/directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_exists, UWSGI_OPT_IMMEDIATE},

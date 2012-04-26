@@ -1915,6 +1915,7 @@ int uwsgi_logic_opt_if_not_env(char *key, char *value) {
 
 int uwsgi_logic_opt_if_reload(char *key, char *value) {
 	if (uwsgi.is_a_reload) {
+		add_exported_option(key, value, 0);
 		return 1;
 	}
 	return 0;
@@ -1922,6 +1923,7 @@ int uwsgi_logic_opt_if_reload(char *key, char *value) {
 
 int uwsgi_logic_opt_if_not_reload(char *key, char *value) {
 	if (!uwsgi.is_a_reload) {
+		add_exported_option(key, value, 0);
 		return 1;
 	}
 	return 0;
