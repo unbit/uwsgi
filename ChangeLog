@@ -1,3 +1,23 @@
+*** april 2012 ***
+
+ * 1.2 [20120430]
+
+- PyPy support 
+- Improved gevent support with threads
+- Python auto-reload subsystem
+- added --spooler-max-tasks
+- pthread robust mutexes support in Linux and Solaris
+- posix semaphores support in FreeBSD9
+- thread-safe ctime() reporting
+- interval support in cron subsystem
+- improved syslog support
+- better management of disconnected clients
+- static files serving improvements
+- another set of multithreading optimizations
+- minor fixes in the Rack plugin
+- Upstart socket-activation support
+
+
 *** march 2012 ***
 
  * 1.1 [20120317]
