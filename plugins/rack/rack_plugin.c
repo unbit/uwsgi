@@ -362,7 +362,7 @@ int uwsgi_rack_init(){
 
 	ruby_script("uwsgi");
 
-	ur.dollar_zero = Qnil;
+	ur.dollar_zero = rb_str_new2("uwsgi");
 	rb_define_hooked_variable("$0", &ur.dollar_zero, 0, rack_hack_dollar_zero);
 	rb_define_hooked_variable("$PROGRAM_NAME", &ur.dollar_zero, 0, rack_hack_dollar_zero);
 

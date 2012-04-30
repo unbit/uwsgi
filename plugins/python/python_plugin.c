@@ -1196,22 +1196,15 @@ void uwsgi_python_init_thread(int core_id) {
 }
 
 #ifdef UWSGI_THREADING
-int uwsgi_check_python_mtime(PyObject *times_dict, uint64_t cycles, char *filename) {
+int uwsgi_check_python_mtime(PyObject *times_dict, char *filename) {
 	struct stat st;
 
 	PyObject *py_mtime = PyDict_GetItemString(times_dict, filename); 
 	if (!py_mtime) {
-		if (cycles == 0) {
-			if (stat(filename, &st)) {
-				return 0;
-			}
-			PyDict_SetItemString(times_dict, filename, PyLong_FromLong(st.st_mtime));
+		if (stat(filename, &st)) {
+			return 0;
 		}
-		else {
-			uwsgi_log("[uwsgi-python-reloader] found new module/file: %s\n", filename);
-			kill(uwsgi.workers[0].pid, SIGHUP);
-			return 1;
-		}
+		PyDict_SetItemString(times_dict, filename, PyLong_FromLong(st.st_mtime));
 	}
 	// the record is already tracked;
 	else {
@@ -1277,7 +1270,6 @@ cycle:
 	}
 	PyObject *times_dict = PyDict_New();
 	char *filename;
-	uint64_t cycles = 0;
 	for(;;) {
 		UWSGI_RELEASE_GIL;
 		sleep(up.auto_reload);
@@ -1323,7 +1315,7 @@ cycle:
 			else {
 				filename = uwsgi_concat2(mod_filename, "");
 			}
-			if (uwsgi_check_python_mtime(times_dict, cycles, filename)) {
+			if (uwsgi_check_python_mtime(times_dict, filename)) {
 				UWSGI_RELEASE_GIL;
 				return NULL;
 			}
@@ -1332,7 +1324,6 @@ cycle:
 			Py_DECREF(zero);
 #endif
 		}
-		cycles++;	
 	}
 
 	return NULL;

@@ -1601,7 +1601,12 @@ nextlock:
 				// noop
 			}
 			else if (uwsgi.workers[uwsgi.mywid].manage_next_request) {
-				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
+				if (WIFSIGNALED(waitpid_status)) {
+					uwsgi_log("DAMN ! worker %d (pid: %d) died, killed by signal %d :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
+				}
+				else {
+					uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
+				}
 			}
 
 			if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {
