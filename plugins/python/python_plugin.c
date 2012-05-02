@@ -127,6 +127,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"py-auto-reload-ignore", required_argument, 0, "ignore the specified module during auto-reload scan (can be specified multiple times)", uwsgi_opt_add_string_list, &up.auto_reload_ignore, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 #endif
 
+	{"start_response-nodelay", no_argument, 0, "send WSGI http headers as soon as possible (PEP violation)", uwsgi_opt_true, &up.start_response_nodelay, 0},
+
 	{0, 0, 0, 0, 0, 0, 0},
 };
 

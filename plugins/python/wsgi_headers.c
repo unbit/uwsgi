@@ -19,6 +19,11 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	int base = 0;
 
+	// avoid double sending of headers
+	if (wsgi_req->headers_sent) {
+		return PyErr_Format(PyExc_IOError, "headers already sent");
+	}
+
 	// this must be done before headers management
 	if (PyTuple_Size(args) > 2) {
 		exc_info = PyTuple_GetItem(args, 2);
@@ -45,7 +50,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 	head = PyTuple_GetItem(args, 0);
 	if (!head) {
-		goto clear;
+		return PyErr_Format(PyExc_TypeError, "start_response() takes at least 2 arguments");
 	}
 
 #ifdef PYTHREE
@@ -53,8 +58,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 #else
 	if (!PyString_Check(head)) {
 #endif
-		uwsgi_log( "http status must be a string !\n");
-		goto clear;
+		return PyErr_Format(PyExc_TypeError, "http status must be a string");
 	}
 
 
@@ -101,12 +105,13 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	}
 
 	headers = PyTuple_GetItem(args, 1);
-	if (!headers) goto clear;
+	if (!headers) {
+		return PyErr_Format(PyExc_TypeError, "start_response() takes at least 2 arguments");
+	}
 
 
 	if (!PyList_Check(headers)) {
-		uwsgi_log( "http headers must be in a python list\n");
-		goto clear;
+		return PyErr_Format(PyExc_TypeError, "http headers must be in a python list");
 	}
 	wsgi_req->header_cnt = PyList_Size(headers);
 
@@ -117,20 +122,36 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		j = (i * 4) + base;
 		head = PyList_GetItem(headers, i);
 		if (!head) {
+			PyErr_Print();
 			goto clear;
 		}
 		if (!PyTuple_Check(head)) {
-			uwsgi_log( "http header must be defined in a tuple !\n");
-			goto clear;
+			return PyErr_Format(PyExc_TypeError, "http header must be defined in a tuple");
 		}
 		h_key = PyTuple_GetItem(head, 0);
 		if (!h_key) {
-			goto clear;
+			return PyErr_Format(PyExc_TypeError, "http header must be a 2-item tuple");
+		}
+#ifdef PYTHREE
+       		if (!PyUnicode_Check(h_key)) {
+#else
+        	if (!PyString_Check(h_key)) {
+#endif
+			return PyErr_Format(PyExc_TypeError, "http header key must be a string");
 		}
 		h_value = PyTuple_GetItem(head, 1);
 		if (!h_value) {
-			goto clear;
+			return PyErr_Format(PyExc_TypeError, "http header must be a 2-item tuple");
 		}
+#ifdef PYTHREE
+       		if (!PyUnicode_Check(h_value)) {
+#else
+        	if (!PyString_Check(h_value)) {
+#endif
+			return PyErr_Format(PyExc_TypeError, "http header value must be a string");
+		}
+
+		
 
 #ifdef PYTHREE
 		wsgi_req->hvec[j].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_key));
@@ -181,30 +202,13 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	wsgi_req->hvec[j].iov_base = nl;
 	wsgi_req->hvec[j].iov_len = NL_SIZE;
 
-#ifdef __sun__
-	int remains = j + 1;
-	int iov_size;
-	struct iovec* iov_ptr = wsgi_req->hvec;
-	ssize_t iov_ret;
-	while(remains) {
-		iov_size = UMIN(remains, IOV_MAX);
-		UWSGI_RELEASE_GIL
-		iov_ret = wsgi_req->socket->proto_writev_header(wsgi_req, iov_ptr, iov_size);
-		UWSGI_GET_GIL
-		wsgi_req->headers_size += iov_ret;
-		iov_ptr += iov_size;
-		remains -= iov_size;
-	}
-#else
-	UWSGI_RELEASE_GIL
-		wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, j + 1);
-	UWSGI_GET_GIL
-#endif
+	wsgi_req->headers_hvec = j;
 
-	if (wsgi_req->write_errors > uwsgi.write_errors_tolerance) {
-        	uwsgi_py_write_set_exception(wsgi_req);
-                return NULL;
-        }
+	if (up.start_response_nodelay) {
+		if (uwsgi_python_do_send_headers(wsgi_req)) {
+			return NULL;
+		}
+	}
 
 	//uwsgi_log("%d %p\n", wsgi_req->poll.fd, up.wsgi_writeout);
 	Py_INCREF(up.wsgi_writeout);
@@ -215,4 +219,37 @@ clear:
 
 	Py_INCREF(Py_None);
 	return Py_None;
+}
+
+int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
+
+#ifdef __sun__
+        int remains = wsgi_req->headers_hvec + 1;
+        int iov_size;
+        struct iovec* iov_ptr = wsgi_req->hvec;
+        ssize_t iov_ret;
+        while(remains) {
+                iov_size = UMIN(remains, IOV_MAX);
+                UWSGI_RELEASE_GIL
+                iov_ret = wsgi_req->socket->proto_writev_header(wsgi_req, iov_ptr, iov_size);
+                UWSGI_GET_GIL
+                wsgi_req->headers_size += iov_ret;
+                iov_ptr += iov_size;
+                remains -= iov_size;
+        }
+#else
+        UWSGI_RELEASE_GIL
+                wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, wsgi_req->headers_hvec + 1);
+        UWSGI_GET_GIL
+#endif
+
+	wsgi_req->headers_sent = 1;
+
+        if (wsgi_req->write_errors > uwsgi.write_errors_tolerance) {
+                uwsgi_py_write_set_exception(wsgi_req);
+                return -1;
+        }
+
+	return 0;
+
 }

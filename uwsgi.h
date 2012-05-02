@@ -935,6 +935,10 @@ struct wsgi_request {
 	// current socket mapped to request
 	struct uwsgi_socket *socket;
 
+	// check if headers are already sent
+	int headers_sent;
+	int headers_hvec;
+
 	int body_as_file;
 	//for generic use
 	size_t buf_pos;

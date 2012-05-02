@@ -178,6 +178,7 @@ struct uwsgi_python {
 	PyObject *after_req_hook_args;
 
 	char *pyrun;
+	int start_response_nodelay;
 
 };
 
@@ -266,6 +267,7 @@ char *uwsgi_pythonize(char *);
 void *uwsgi_python_autoreloader_thread(void *);
 
 int uwsgi_python_manage_exceptions(void);
+int uwsgi_python_do_send_headers(struct wsgi_request *);
 
 #ifdef UWSGI_PYPY
 #undef UWSGI_MINTERPRETERS
