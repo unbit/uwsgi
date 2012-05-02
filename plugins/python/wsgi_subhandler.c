@@ -291,6 +291,11 @@ clear:
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
 clear2:
+
+	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
+		uwsgi_python_do_send_headers(wsgi_req);
+	}
+
 	Py_DECREF((PyObject *)wsgi_req->async_result);
 	PyErr_Clear();
 
