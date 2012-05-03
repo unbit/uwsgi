@@ -47,6 +47,7 @@ static struct uwsgi_lock_item *uwsgi_register_lock(char *id, int rw) {
 
 #ifdef EOWNERDEAD
 #define UWSGI_LOCK_ENGINE_NAME "pthread robust mutexes"
+int uwsgi_pthread_robust_mutexes_enabled = 1;
 #else
 #define UWSGI_LOCK_ENGINE_NAME "pthread mutexes"
 #endif
@@ -66,23 +67,36 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 	
         struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
+retry:
 	if (pthread_mutexattr_init(&attr)) {
         	uwsgi_log("unable to allocate mutexattr structure\n");
                 exit(1);
 	}
+
         if (pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) {
         	uwsgi_log("unable to share mutex\n");
                 exit(1);
         }
 
 #ifdef EOWNERDEAD
-        if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP)) {
-        	uwsgi_log("unable to make the mutex 'robust'\n");
-                exit(1);
-        }
+	if (uwsgi_pthread_robust_mutexes_enabled) {
+        	if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP)) {
+        		uwsgi_log("unable to make the mutex 'robust'\n");
+                	exit(1);
+        	}
+	}
 #endif
 
         if (pthread_mutex_init((pthread_mutex_t *) uli->lock_ptr, &attr)) {
+#ifdef EOWNERDEAD
+		if (uwsgi_pthread_robust_mutexes_enabled) {
+			uwsgi_log("!!! it looks like your kernel does not support pthread robust mutexes !!!\n");
+			uwsgi_log("!!! falling back to standard pthread mutexes !!!\n");
+			uwsgi_pthread_robust_mutexes_enabled = 0;
+			pthread_mutexattr_destroy(&attr);
+			goto retry;
+		}
+#endif
         	uwsgi_log("unable to initialize mutex\n");
                 exit(1);
         }
@@ -90,7 +104,9 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 	pthread_mutexattr_destroy(&attr);
 
 #ifndef EOWNERDEAD
-	uli->can_deadlock = 1;
+	if (!uwsgi_pthread_robust_mutexes_enabled) {
+		uli->can_deadlock = 1;
+	}
 #endif
 
 	return uli;
@@ -478,7 +494,7 @@ pid_t uwsgi_rwlock_ipcsem_check(struct uwsgi_lock_item *uli) { return uwsgi_lock
 
 void uwsgi_setup_locking() {
 
-	// use the fastest avaikable locking
+	// use the fastest available locking
 	if (uwsgi.lock_engine) {
 		if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
 			uwsgi_log_initial("lock engine: ipcsem\n");

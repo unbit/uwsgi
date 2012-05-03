@@ -292,6 +292,7 @@ clear:
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
 clear2:
 
+	// sent the headers if not already sent
 	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
 		uwsgi_python_do_send_headers(wsgi_req);
 	}
