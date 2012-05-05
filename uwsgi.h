@@ -1268,6 +1268,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_in_jail;
 	struct uwsgi_string_list *exec_as_root;
 	struct uwsgi_string_list *exec_as_user;
+	struct uwsgi_string_list *exec_as_user_atexit;
 	struct uwsgi_string_list *exec_pre_app;
 
 	struct uwsgi_logger *loggers;

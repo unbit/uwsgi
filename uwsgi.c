@@ -218,6 +218,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-in-jail", required_argument,0, "run the specified command in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.exec_in_jail,0},
 	{"exec-as-root", required_argument,0, "run the specified command before privileges drop", uwsgi_opt_add_string_list, &uwsgi.exec_as_root,0},
 	{"exec-as-user", required_argument,0, "run the specified command after privileges drop", uwsgi_opt_add_string_list, &uwsgi.exec_as_user,0},
+	{"exec-as-user-atexit", required_argument,0, "run the specified command before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.exec_as_user_atexit,0},
 	{"exec-pre-app", required_argument,0, "run the specified command before app loading", uwsgi_opt_add_string_list, &uwsgi.exec_pre_app,0},
 #ifdef UWSGI_INI
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
@@ -961,6 +962,21 @@ struct uwsgi_plugin unconfigured_plugin = {
 	.after_request = unconfigured_after_hook,
 };
 
+static void uwsgi_exec_atexit(void) {
+	if (getpid() == masterpid) {
+        	// now run exit scripts needed by the user
+                struct uwsgi_string_list *usl = uwsgi.exec_as_user_atexit;
+                while(usl) {
+                	uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
+                        int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                        if (ret != 0) {
+                        	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        }
+                        usl = usl->next;
+               }
+	}
+}
+
 static void vacuum(void) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
@@ -1272,8 +1288,13 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	init_magic_table(uwsgi.magic_table);
 
+	// manage/flush logs
 	atexit(uwsgi_flush_logs);
+	// clear sockets, pidfiles...
 	atexit(vacuum);
+	// call user scripts
+	atexit(uwsgi_exec_atexit);
+	// call plugin specific exit hooks
 	atexit(uwsgi_plugins_atexit);
 
 
