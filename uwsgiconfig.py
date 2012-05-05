@@ -126,6 +126,8 @@ def build_uwsgi(uc, print_only=False):
         epc = "-DUWSGI_DECLARE_EMBEDDED_PLUGINS=\""
         eplc = "-DUWSGI_LOAD_EMBEDDED_PLUGINS=\""
         for p in ep:
+            if p is None or p == 'None':
+                continue
             p = p.strip()
             if p == 'ugreen':
                 if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
@@ -158,6 +160,8 @@ def build_uwsgi(uc, print_only=False):
         if len(ep) > 0:
             print("*** uWSGI compiling embedded plugins ***")
             for p in ep:
+                if p is None or p == 'None':
+                    continue
                 p = p.strip()
 
                 if p == 'ugreen':
