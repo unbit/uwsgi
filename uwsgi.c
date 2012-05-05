@@ -3350,7 +3350,7 @@ void build_options() {
 
 	if (uwsgi.short_options) free(uwsgi.short_options);
 
-	uwsgi.short_options = uwsgi_calloc( (options_count * 2) + 1) ;
+	uwsgi.short_options = uwsgi_calloc( (options_count * 3) + 1) ;
 	
 	op = uwsgi.options;
 	while(op->name) {
@@ -3364,7 +3364,10 @@ void build_options() {
 			// avoid duplicates in short_options
 			if (!strchr(uwsgi.short_options, shortcut)) {
 				strncat(uwsgi.short_options, &shortcut, 1);
-				if (op->type != no_argument) {
+				if (op->type == optional_argument) {
+					strcat(uwsgi.short_options, "::");
+				}
+				else if (op->type == required_argument) {
 					strcat(uwsgi.short_options, ":");
 				}
 			}
