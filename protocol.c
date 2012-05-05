@@ -1968,6 +1968,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 			// filename
 			memcpy(uor->real_filename, real_filename, real_filename_len);
 			uor->real_filename_len = real_filename_len;
+			uor->real_filename[uor->real_filename_len] = 0;
 
 			// avoid closing the connection
 			wsgi_req->fd_closed = 1;
