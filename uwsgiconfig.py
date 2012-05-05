@@ -340,7 +340,10 @@ class uConf(object):
             if not inherit.endswith('.ini'):
                 inherit = '%s.ini' % inherit
 
-            iconfig = ConfigParser.ConfigParser()
+            interpolations = {}
+            for option in self.config.options('uwsgi'):
+                interpolations[option] = self.get(option)
+            iconfig = ConfigParser.ConfigParser(interpolations)
             iconfig.read(inherit)
             for opt in iconfig.options('uwsgi'):
                 if not self.config.has_option('uwsgi', opt):
