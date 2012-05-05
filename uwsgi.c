@@ -92,6 +92,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ignore-write-errors", no_argument, 0, "do not report (annoying) write()/writev() errors", uwsgi_opt_true, &uwsgi.ignore_write_errors,0},
 	{"write-errors-tolerance", required_argument, 0, "set the maximum number of allowed write errors (default: no tolerance)", uwsgi_opt_set_int, &uwsgi.write_errors_tolerance,0},
 	{"write-errors-exception-only", no_argument, 0, "only raise an exception on write errors giving control to the app itself", uwsgi_opt_true, &uwsgi.write_errors_exception_only,0},
+	{"disable-write-exception", no_argument, 0, "disable exception generation on write()/writev()", uwsgi_opt_true, &uwsgi.disable_write_exception,0},
 
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},

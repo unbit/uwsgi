@@ -1203,6 +1203,7 @@ struct uwsgi_server {
 	int ignore_write_errors;
 	int write_errors_tolerance;
 	int write_errors_exception_only;
+	int disable_write_exception;
 
 	// still working on it
 	char *profiler;

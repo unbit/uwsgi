@@ -258,7 +258,7 @@ int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->headers_sent = 1;
 
-        if (wsgi_req->write_errors > uwsgi.write_errors_tolerance) {
+        if (wsgi_req->write_errors > uwsgi.write_errors_tolerance && !uwsgi.disable_write_exception) {
                 uwsgi_py_write_set_exception(wsgi_req);
                 return -1;
         }

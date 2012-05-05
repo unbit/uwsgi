@@ -38,7 +38,7 @@
 #define PyVarObject_HEAD_INIT(x, y) PyObject_HEAD_INIT(x) y,
 #endif
 
-#define uwsgi_py_write_set_exception(x) PyErr_SetString(PyExc_IOError, "write error");
+#define uwsgi_py_write_set_exception(x) if (!uwsgi.disable_write_exception) { PyErr_SetString(PyExc_IOError, "write error"); };
 #define uwsgi_py_write_exception(x) uwsgi_py_write_set_exception(x); PyErr_Print();
 
 
