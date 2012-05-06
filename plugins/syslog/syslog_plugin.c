@@ -102,15 +102,10 @@ void uwsgi_syslog_register() {
 	uwsgi_register_logger("syslog", uwsgi_syslog_logger);
 }
 
-int uwsgi_syslog_init() {
-	return 0;
-}
-
 struct uwsgi_plugin syslog_plugin = {
 
         .name = "syslog",
         .on_load = uwsgi_syslog_register,
-	.init = uwsgi_syslog_init
 
 };
 

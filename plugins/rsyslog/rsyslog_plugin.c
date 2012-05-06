@@ -73,15 +73,10 @@ void uwsgi_rsyslog_register() {
 	uwsgi_register_logger("rsyslog", uwsgi_rsyslog_logger);
 }
 
-int uwsgi_rsyslog_init() {
-	return 0;
-}
-
 struct uwsgi_plugin rsyslog_plugin = {
 
         .name = "rsyslog",
         .on_load = uwsgi_rsyslog_register,
-	.init = uwsgi_rsyslog_init
 
 };
 
