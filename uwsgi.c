@@ -1636,6 +1636,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 			if (colon) {
 				uwsgi.choosen_logger_arg = colon+1;
+				if (*uwsgi.choosen_logger_arg == 0) {
+					uwsgi.choosen_logger_arg = NULL;
+				}
 				*colon = ':';
 			}
 
