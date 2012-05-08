@@ -896,6 +896,7 @@ struct wsgi_request {
 	int do_not_add_to_async_queue;
 
 	int status;
+	void *status_header;
 	size_t response_size;
 	ssize_t headers_size;
 

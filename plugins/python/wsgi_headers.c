@@ -114,6 +114,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[2].iov_len = NL_SIZE;
 	}
 
+	// incref status line
+	wsgi_req->status_header = head;
+	Py_INCREF((PyObject *)wsgi_req->status_header);
+
 	headers = PyTuple_GetItem(args, 1);
 	if (!headers) {
 		return PyErr_Format(PyExc_TypeError, "start_response() takes at least 2 arguments");
@@ -257,6 +261,8 @@ int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
 #endif
 
 	wsgi_req->headers_sent = 1;
+
+	Py_DECREF((PyObject *)wsgi_req->status_header);
 
         if (wsgi_req->write_errors > uwsgi.write_errors_tolerance && !uwsgi.disable_write_exception) {
                 uwsgi_py_write_set_exception(wsgi_req);
