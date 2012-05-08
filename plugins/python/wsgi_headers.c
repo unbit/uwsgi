@@ -24,6 +24,12 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_IOError, "headers already sent");
 	}
 
+	// decref old status line
+	if (wsgi_req->status_header) {
+		Py_DECREF((PyObject *)wsgi_req->status_header);
+		wsgi_req->status_header = NULL;
+	}
+
 	// this must be done before headers management
 	if (PyTuple_Size(args) > 2) {
 		exc_info = PyTuple_GetItem(args, 2);
@@ -262,7 +268,11 @@ int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->headers_sent = 1;
 
-	Py_DECREF((PyObject *)wsgi_req->status_header);
+	// decref status line
+	if (wsgi_req->status_header) {
+		Py_DECREF((PyObject *)wsgi_req->status_header);
+		wsgi_req->status_header = NULL;
+	}
 
         if (wsgi_req->write_errors > uwsgi.write_errors_tolerance && !uwsgi.disable_write_exception) {
                 uwsgi_py_write_set_exception(wsgi_req);
