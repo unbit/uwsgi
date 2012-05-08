@@ -224,7 +224,7 @@ def build_uwsgi(uc, print_only=False):
                 print("*** building plugin: %s ***" % p)
                 build_plugin("plugins/%s" % p, uc, cflags, ldflags, libs)
 
-    bin_name = uc.get('bin_name')
+    bin_name = os.environ.get('UWSGI_BIN_NAME', uc.get('bin_name'))
 
     if uc.get('embed_config'):
         gcc_list.append(uc.get('embed_config'))
