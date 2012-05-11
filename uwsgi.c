@@ -963,7 +963,7 @@ struct uwsgi_plugin unconfigured_plugin = {
 	.after_request = unconfigured_after_hook,
 };
 
-static void uwsgi_exec_atexit(void) {
+void uwsgi_exec_atexit(void) {
 	if (getpid() == masterpid) {
         	// now run exit scripts needed by the user
                 struct uwsgi_string_list *usl = uwsgi.exec_as_user_atexit;

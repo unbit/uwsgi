@@ -238,6 +238,9 @@ void uwsgi_reload(char **argv) {
 		waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 	}
 
+	// call atexit user exec
+	uwsgi_exec_atexit();
+
 	if (uwsgi.exit_on_reload) {
 		uwsgi_log("uWSGI: GAME OVER (insert coin)\n");
 		exit(0);
