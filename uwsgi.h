@@ -897,6 +897,7 @@ struct wsgi_request {
 
 	int status;
 	void *status_header;
+	void *headers;
 	size_t response_size;
 	ssize_t headers_size;
 

@@ -30,6 +30,11 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->status_header = NULL;
 	}
 
+	if (wsgi_req->headers) {
+		Py_DECREF((PyObject *)wsgi_req->headers);
+		wsgi_req->headers = NULL;
+	}
+
 	// this must be done before headers management
 	if (PyTuple_Size(args) > 2) {
 		exc_info = PyTuple_GetItem(args, 2);
@@ -129,6 +134,8 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_TypeError, "start_response() takes at least 2 arguments");
 	}
 
+	wsgi_req->headers = headers;
+	Py_INCREF((PyObject *)wsgi_req->headers);
 
 	if (!PyList_Check(headers)) {
 		return PyErr_Format(PyExc_TypeError, "http headers must be in a python list");
@@ -246,6 +253,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
 
+	uwsgi_log("- headers = %d\n", ((PyObject *)wsgi_req->headers)->ob_refcnt);
+        uwsgi_log("- status = %p\n", wsgi_req->status_header);
+        uwsgi_log("- status = %d\n", ((PyObject *)wsgi_req->status_header)->ob_refcnt);
+
 #ifdef __sun__
         int remains = wsgi_req->headers_hvec + 1;
         int iov_size;
@@ -272,6 +283,11 @@ int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->status_header) {
 		Py_DECREF((PyObject *)wsgi_req->status_header);
 		wsgi_req->status_header = NULL;
+	}
+
+	if (wsgi_req->headers) {
+		Py_DECREF((PyObject *)wsgi_req->headers);
+		wsgi_req->headers = NULL;
 	}
 
         if (wsgi_req->write_errors > uwsgi.write_errors_tolerance && !uwsgi.disable_write_exception) {

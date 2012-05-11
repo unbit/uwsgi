@@ -160,6 +160,7 @@ struct uwsgi_python {
 	void (*gil_get) (void);
 	void (*gil_release) (void);
 	int auto_reload;
+	char *tracebacker;
 	struct uwsgi_string_list *auto_reload_ignore;
 #endif
 
@@ -265,6 +266,7 @@ void uwsgi_python_reset_random_seed(void);
 
 char *uwsgi_pythonize(char *);
 void *uwsgi_python_autoreloader_thread(void *);
+void *uwsgi_python_tracebacker_thread(void *);
 
 int uwsgi_python_manage_exceptions(void);
 int uwsgi_python_do_send_headers(struct wsgi_request *);
