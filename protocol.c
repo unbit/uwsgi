@@ -211,6 +211,7 @@ ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char 
 
 	int fd;
 	struct sockaddr_in udp_addr;
+	struct sockaddr_un un_addr;
 	char *udp_port;
 	ssize_t ret;
 
@@ -224,22 +225,33 @@ ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char 
 	}
 
 	udp_port = strchr(host, ':');
-	if (udp_port == NULL) {
-		return -1;
+	if (udp_port) {
+		udp_port[0] = 0; 
+
+		fd = socket(AF_INET, SOCK_DGRAM, 0);
+		if (fd < 0) {
+			uwsgi_error("socket()");
+			return -1;
+		}
+
+		memset(&udp_addr, 0, sizeof(struct sockaddr_in));
+		udp_addr.sin_family = AF_INET;
+		udp_addr.sin_port = htons(atoi(udp_port+1));
+		udp_addr.sin_addr.s_addr = inet_addr(host);
 	}
+	else {
+		fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+		if (fd < 0) {
+			uwsgi_error("socket()");
+			return -1;
+		}
 
-	udp_port[0] = 0; 
+		memset(&un_addr, 0, sizeof(struct sockaddr_un));
+		un_addr.sun_family = AF_UNIX;
+		// use 102 as the magic number
+		strncat(un_addr.sun_path, host, 102);
 
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd < 0) {
-		uwsgi_error("socket()");
-		return -1;
 	}
-
-	memset(&udp_addr, 0, sizeof(struct sockaddr_in));
-	udp_addr.sin_family = AF_INET;
-	udp_addr.sin_port = htons(atoi(udp_port+1));
-	udp_addr.sin_addr.s_addr = inet_addr(host);
 
 	uh->modifier1 = modifier1;
 #ifdef __BIG_ENDIAN__
@@ -249,13 +261,17 @@ ssize_t send_udp_message(uint8_t modifier1, uint8_t modifier2, char *host, char 
 #endif
 	uh->modifier2 = modifier2;
 
-	ret = sendto(fd, (char *) uh, message_size+4, 0, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
+	if (udp_port) {
+		ret = sendto(fd, (char *) uh, message_size+4, 0, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
+		udp_port[0] = ':';
+	}
+	else {
+		ret = sendto(fd, (char *) uh, message_size+4, 0, (struct sockaddr *) &un_addr, sizeof(un_addr));
+	}
 	if (ret < 0) {
 		uwsgi_error("sendto()");
 	}
 	close(fd);
-
-	udp_port[0] = ':';
 
 	if ((char *)uh != message) {
 		free(uh);

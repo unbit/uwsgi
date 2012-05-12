@@ -160,10 +160,13 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 	int keysize = 0;
 	char *modifier1 = NULL;
 	int modifier1_len = 0;
+	char *udp_address = subscription;
 
-	char *udp_address = strchr(subscription, ':');
-	if (!udp_address)
-		return;
+	if (subscription[0] != '/') {
+		udp_address = strchr(subscription, ':');
+		if (!udp_address)
+			return;
+	}
 
 	char *subscription_key = strchr(udp_address + 1, ':');
 	if (!subscription_key)

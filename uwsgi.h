@@ -1957,6 +1957,7 @@ void end_me(int);
 int bind_to_unix(char *, int, int, int);
 int bind_to_tcp(char *, int, char *);
 int bind_to_udp(char *, int, int);
+int bind_to_unix_dgram(char *);
 int timed_connect(struct pollfd *, const struct sockaddr *, int, int, int);
 int uwsgi_connect(char *, int, int);
 int uwsgi_connectn(char *, uint16_t, int, int);

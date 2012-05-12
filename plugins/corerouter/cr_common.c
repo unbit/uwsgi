@@ -62,7 +62,12 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 			}
 			else if (ugs->subscription) {
 				if (ugs->fd == -1) {
-					ugs->fd = bind_to_udp(ugs->name, 0, 0);
+					if (strchr(ugs->name, ':')) {
+						ugs->fd = bind_to_udp(ugs->name, 0, 0);
+					}
+					else {
+						ugs->fd = bind_to_unix_dgram(ugs->name);
+					}
 					uwsgi_socket_nb(ugs->fd);
 				}
 				uwsgi_log("%s subscription server bound on %s fd %d\n", ucr->name, ugs->name, ugs->fd);
