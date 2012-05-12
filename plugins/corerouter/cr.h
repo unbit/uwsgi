@@ -14,8 +14,10 @@ struct corerouter_session;
 struct uwsgi_corerouter {
 
 	char *name;
+	char *short_name;
 	size_t session_size;
 
+	void (*alloc_session)(struct uwsgi_corerouter *, struct uwsgi_gateway_socket *, struct corerouter_session *, struct sockaddr *, socklen_t);
 	int (*mapper)(struct uwsgi_corerouter *, struct corerouter_session *);
 	void (*switch_events)(struct uwsgi_corerouter *, struct corerouter_session *, int);
 
@@ -102,7 +104,6 @@ struct corerouter_session {
         int fd;
         int instance_fd;
         int status;
-        struct uwsgi_header uh;
         uint8_t h_pos;
         uint16_t pos;
 
@@ -139,6 +140,9 @@ struct corerouter_session {
         uint8_t modifier2;
 
         char *tmp_socket_name;
+
+	struct sockaddr_un addr;
+        socklen_t addr_len;
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);

@@ -57,10 +57,14 @@ struct uwsgi_option fastrouter_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
+void fastrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
+}
+
 int fastrouter_init() {
 
 	ufr.cr.session_size = sizeof(struct fastrouter_session);
 	ufr.cr.switch_events = uwsgi_fastrouter_switch_events;
+	ufr.cr.alloc_session = fastrouter_alloc_session;
 	uwsgi_corerouter_init((struct uwsgi_corerouter *) &ufr);	
 
 	return 0;
@@ -68,6 +72,7 @@ int fastrouter_init() {
 
 void fastrouter_setup() {
 	ufr.cr.name = uwsgi_str("uWSGI fastrouter");
+	ufr.cr.short_name = uwsgi_str("fastrouter");
 }
 
 

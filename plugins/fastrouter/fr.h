@@ -12,6 +12,7 @@ struct uwsgi_fastrouter {
 struct fastrouter_session {
 
 	struct corerouter_session crs;
+	struct uwsgi_header uh;
         char buffer[UMAX16];
 };
 

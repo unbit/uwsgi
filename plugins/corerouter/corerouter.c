@@ -427,8 +427,8 @@ void uwsgi_corerouter_loop(int id, void *data) {
 	uwsgi_fastrouter_sctp_nodes_current = uwsgi_calloc(sizeof(struct uwsgi_fastrouter_sctp_nodes*));
 #endif
 
-	struct sockaddr_un fr_addr;
-	socklen_t fr_addr_len = sizeof(struct sockaddr_un);
+	union uwsgi_sockaddr cr_addr;
+	socklen_t cr_addr_len = sizeof(struct sockaddr_un);
 
 	struct corerouter_session *cr_session;
 
@@ -507,7 +507,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 					if (!ugs->subscription) {
 #endif
 
-						new_connection = accept(interesting_fd, (struct sockaddr *) &fr_addr, &fr_addr_len);
+						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
 						if (new_connection < 0) {
 							taken = 1;
 							break;
@@ -523,6 +523,8 @@ void uwsgi_corerouter_loop(int id, void *data) {
 						ucr->cr_table[new_connection]->status = COREROUTER_STATUS_RECV_HDR;
 
 						ucr->cr_table[new_connection]->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
+						
+						ucr->alloc_session(ucr, ugs, ucr->cr_table[new_connection], (struct sockaddr *) &cr_addr, cr_addr_len);
 
 						event_queue_add_fd_read(ucr->queue, new_connection);
 					}
@@ -531,14 +533,14 @@ void uwsgi_corerouter_loop(int id, void *data) {
 					}
 #ifdef UWSGI_SCTP
 					else if (ugs->sctp) {
-						new_connection = accept(interesting_fd, (struct sockaddr *) &fr_addr, &fr_addr_len);
+						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
 						if (new_connection < 0) {
                                                         taken = 1;
 							break;
 						}
 						struct uwsgi_fr_sctp_node *sctp_node = uwsgi_fr_sctp_add_node(new_connection);
-						snprintf(sctp_node->name, 64, "%s:%d", inet_ntoa(((struct sockaddr_in *)&fr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &fr_addr)->sin_port));
-						uwsgi_log("new SCTP peer: %s:%d\n", inet_ntoa(((struct sockaddr_in *)&fr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &fr_addr)->sin_port));
+						snprintf(sctp_node->name, 64, "%s:%d", inet_ntoa(((struct sockaddr_in *)&cr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &cr_addr)->sin_port));
+						uwsgi_log("new SCTP peer: %s:%d\n", inet_ntoa(((struct sockaddr_in *)&cr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &cr_addr)->sin_port));
 
 						ucr->cr_table[new_connection] = alloc_cr_session();
                                                 ucr->cr_table[new_connection]->instance_fd = new_connection;
@@ -679,10 +681,10 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 	stats_send("\"cwd\": \"%s\",\n", cwd);
 	free(cwd);
 
-	fprintf(output, "\"fastrouter\": [");
+	fprintf(output, "\"%s\": [", ucr->short_name);
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 	while (ugs) {
-		if (!strcmp(ugs->owner, "uWSGI fastrouter")) {
+		if (!strcmp(ugs->owner, ucr->name)) {
 			if (ugs->next) {
 				stats_send("\"%s\",", ugs->name);
 			}

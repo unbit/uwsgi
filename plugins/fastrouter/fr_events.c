@@ -58,7 +58,10 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 	switch (cs->status) {
 
 	case COREROUTER_STATUS_RECV_HDR:
-		len = recv(cs->fd, (char *) (&cs->uh) + cs->h_pos, 4 - cs->h_pos, 0);
+		len = recv(cs->fd, (char *) (&fr_session->uh) + cs->h_pos, 4 - cs->h_pos, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ufr->queue, cs->fd);
+#endif
 		if (len <= 0) {
 			if (len < 0)
 				uwsgi_error("recv()");
@@ -68,7 +71,7 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 		cs->h_pos += len;
 		if (cs->h_pos == 4) {
 #ifdef UWSGI_DEBUG
-			uwsgi_log("modifier1: %d pktsize: %d modifier2: %d\n", cs->uh.modifier1, cs->uh.pktsize, cs->uh.modifier2);
+			uwsgi_log("modifier1: %d pktsize: %d modifier2: %d\n", fr_session->uh.modifier1, fr_session->uh.pktsize, fr_session->uh.modifier2);
 #endif
 			cs->status = FASTROUTER_STATUS_RECV_VARS;
 		}
@@ -81,15 +84,18 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 			goto choose_node;
 		}
 
-		len = recv(cs->fd, fr_session->buffer + cs->pos, cs->uh.pktsize - cs->pos, 0);
+		len = recv(cs->fd, fr_session->buffer + cs->pos, fr_session->uh.pktsize - cs->pos, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ufr->queue, cs->fd);
+#endif
 		if (len <= 0) {
 			uwsgi_error("recv()");
 			corerouter_close_session(ucr, cs);
 			break;
 		}
 		cs->pos += len;
-		if (cs->pos == cs->uh.pktsize) {
-			if (uwsgi_hooked_parse(fr_session->buffer, cs->uh.pktsize, fr_get_hostname, (void *) fr_session)) {
+		if (cs->pos == fr_session->uh.pktsize) {
+			if (uwsgi_hooked_parse(fr_session->buffer, fr_session->uh.pktsize, fr_get_hostname, (void *) fr_session)) {
 				corerouter_close_session(ucr, cs);
 				break;
 			}
@@ -99,12 +105,9 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 				break;
 			}
 
-#ifdef UWSGI_DEBUG
-			//uwsgi_log("requested domain %.*s\n", cs->hostname_len, cs->hostname);
-#endif
 
 			// the mapper hook
-		      choose_node:
+choose_node:
 			if (ucr->mapper(ucr, cs))
 				break;
 
@@ -129,13 +132,13 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 				cs->post_remains = cs->post_cl;
 
 				// 2 + UWSGI_POSTFILE + 2 + cs->buf_file_name
-				if (cs->uh.pktsize + (2 + 14 + 2 + strlen(cs->buf_file_name)) > UMAX16) {
+				if (fr_session->uh.pktsize + (2 + 14 + 2 + strlen(cs->buf_file_name)) > UMAX16) {
 					uwsgi_log("unable to buffer request body to file %s: not enough space\n", cs->buf_file_name);
 					corerouter_close_session(ucr, cs);
 					break;
 				}
 
-				char *ptr = fr_session->buffer + cs->uh.pktsize;
+				char *ptr = fr_session->buffer + fr_session->uh.pktsize;
 				uint16_t bfn_len = strlen(cs->buf_file_name);
 				*ptr++ = 14;
 				*ptr++ = 0;
@@ -144,7 +147,7 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 				*ptr++ = (char) (bfn_len & 0xff);
 				*ptr++ = (char) ((bfn_len >> 8) & 0xff);
 				memcpy(ptr, cs->buf_file_name, bfn_len);
-				cs->uh.pktsize += 2 + 14 + 2 + bfn_len;
+				fr_session->uh.pktsize += 2 + 14 + 2 + bfn_len;
 
 
 				cs->buf_file = fopen(cs->buf_file_name, "w");
@@ -196,12 +199,12 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 				break;
 			}
 
-			cs->uh.modifier1 = cs->modifier1;
+			fr_session->uh.modifier1 = cs->modifier1;
 
-			iov[0].iov_base = &cs->uh;
+			iov[0].iov_base = &fr_session->uh;
 			iov[0].iov_len = 4;
 			iov[1].iov_base = fr_session->buffer;
-			iov[1].iov_len = cs->uh.pktsize;
+			iov[1].iov_len = fr_session->uh.pktsize;
 
 			// increment node requests counter
 			if (cs->un)
@@ -273,6 +276,9 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 			int msg_flags = 0;
 			memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
 			len = sctp_recvmsg(cs->instance_fd, cs->buffer, UMAX16, NULL, NULL, &sinfo, &msg_flags);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ufr->queue, cs->instance_fd);
+#endif
 			if (len <= 0) {
 				if (len < 0)
 					uwsgi_error("recv()");
@@ -331,6 +337,9 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 		else if (interesting_fd == cs->fd) {
 
 			len = recv(cs->fd, fr_session->buffer, UMAX16, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ufr->queue, cs->fd);
+#endif
 			if (len <= 0) {
 				if (len < 0)
 					uwsgi_error("recv()");
@@ -367,6 +376,9 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 		// data from instance
 		if (interesting_fd == cs->instance_fd) {
 			len = recv(cs->instance_fd, fr_session->buffer, UMAX16, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ufr->queue, cs->instance_fd);
+#endif
 			if (len <= 0) {
 				if (len < 0)
 					uwsgi_error("recv()");
@@ -392,6 +404,9 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 
 			//uwsgi_log("receiving body...\n");
 			len = recv(cs->fd, fr_session->buffer, UMAX16, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ufr->queue, cs->fd);
+#endif
 			if (len <= 0) {
 				if (len < 0)
 					uwsgi_error("recv()");
@@ -414,6 +429,9 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 
 	case FASTROUTER_STATUS_BUFFERING:
 		len = recv(cs->fd, post_tmp_buf, UMIN(UMAX16, cs->post_remains), 0);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ufr->queue, cs->fd);
+#endif
 		if (len <= 0) {
 			if (len < 0)
 				uwsgi_error("recv()");
