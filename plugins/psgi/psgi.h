@@ -35,6 +35,7 @@ struct uwsgi_perl {
 	HV **tmp_input_stash;
 	HV **tmp_error_stash;
 
+	CV **tmp_psgix_logger;
 	CV **tmp_stream_responder;
 };
 

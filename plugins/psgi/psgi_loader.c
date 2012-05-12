@@ -35,6 +35,19 @@ XS(XS_input) {
         XSRETURN(1);
 }
 
+XS(XS_psgix_logger) {
+	dXSARGS;
+	psgi_check_args(1);
+	HV *hv_args = (HV *) (SvRV(ST(0)));
+	if (!hv_exists(hv_args, "level", 5) || !hv_exists(hv_args, "message", 7)) {
+		Perl_croak(aTHX_ "psgix.logger requires bot level and message items");
+	}
+	char *level = SvPV_nolen(*(hv_fetch(hv_args, "level", 5, 0)));
+	char *message = SvPV_nolen(*(hv_fetch(hv_args, "message", 7, 0)));
+	uwsgi_log("[uwsgi-perl %s] %s\n", level, message); 
+	XSRETURN(0);
+}
+
 XS(XS_stream)
 {
     dXSARGS;
@@ -228,7 +241,7 @@ xs_init(pTHX)
         newXS("uwsgi::error::new", XS_error, "uwsgi::error");
         newXS("uwsgi::error::print", XS_error_print, "uwsgi::print");
         uperl.tmp_error_stash[uperl.tmp_current_i] = gv_stashpv("uwsgi::error", 0);
-
+	uperl.tmp_psgix_logger[uperl.tmp_current_i] = newXS("uwsgi::psgix_logger", XS_psgix_logger, "uwsgi");
         uperl.tmp_stream_responder[uperl.tmp_current_i] = newXS("uwsgi::stream", XS_stream, "uwsgi");
 
         newXS("uwsgi::streaming::write", XS_streaming_write, "uwsgi::streaming");
@@ -271,6 +284,7 @@ static void uwsgi_perl_free_stashes(void) {
         free(uperl.tmp_input_stash);
         free(uperl.tmp_error_stash);
         free(uperl.tmp_stream_responder);
+        free(uperl.tmp_psgix_logger);
 }
 
 int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, PerlInterpreter **interpreters) {
@@ -334,6 +348,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	uperl.tmp_input_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
 	uperl.tmp_error_stash = uwsgi_calloc(sizeof(HV *) * uwsgi.threads);
 	uperl.tmp_stream_responder = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
+	uperl.tmp_psgix_logger = uwsgi_calloc(sizeof(CV *) * uwsgi.threads);
 
 	for(i=0;i<uwsgi.threads;i++) {
 
@@ -439,6 +454,7 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 	wi->input = uperl.tmp_input_stash;
 	wi->error = uperl.tmp_error_stash;
 	wi->responder0 = uperl.tmp_stream_responder;
+	wi->responder1 = uperl.tmp_psgix_logger;
 
 	uwsgi_emulate_cow_for_apps(id);
 
