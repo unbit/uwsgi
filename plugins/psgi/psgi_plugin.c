@@ -101,6 +101,34 @@ int uwsgi_perl_obj_can(SV *obj, char *method, size_t len) {
 
 }
 
+int uwsgi_perl_obj_isa(SV *obj, char *class) {
+
+	int ret = 0;
+
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs(obj);
+        PUTBACK;
+
+        call_pv( "Scalar::Util::reftype", G_SCALAR|G_EVAL);
+
+        SPAGAIN;
+        char *reftype = POPp;
+	if (reftype && !strcmp(reftype, class)) {
+		ret = 1;
+	}
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return ret;
+
+}
+
+
 SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
         SV *ret = NULL;
