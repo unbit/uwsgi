@@ -508,6 +508,9 @@ void uwsgi_corerouter_loop(int id, void *data) {
 #endif
 
 						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ucr->queue, interesting_fd);
+#endif
 						if (new_connection < 0) {
 							taken = 1;
 							break;
@@ -534,6 +537,9 @@ void uwsgi_corerouter_loop(int id, void *data) {
 #ifdef UWSGI_SCTP
 					else if (ugs->sctp) {
 						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
+#ifdef UWSGI_EVENT_USE_PORT
+                                event_queue_add_fd_read(ucr->queue, interesting_fd);
+#endif
 						if (new_connection < 0) {
                                                         taken = 1;
 							break;
@@ -659,6 +665,9 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 	struct sockaddr_un client_src;
 	socklen_t client_src_len = 0;
 	int client_fd = accept(ucr->cr_stats_server, (struct sockaddr *) &client_src, &client_src_len);
+#ifdef UWSGI_EVENT_USE_PORT
+        event_queue_add_fd_read(ucr->queue, ucr->cr_stats_server);
+#endif
 	if (client_fd < 0) {
 		uwsgi_error("accept()");
 		return;
