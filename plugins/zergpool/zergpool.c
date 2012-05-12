@@ -28,7 +28,7 @@ struct zergpool_socket {
 
 struct zergpool_socket *zergpool_sockets;
 
-void zergpool_loop(int id) {
+void zergpool_loop(int id, void *foobar) {
 
 	int i;
 
@@ -137,7 +137,7 @@ int zergpool_init() {
 		zpsn = zpsn->next;		
 	}
 
-	if (register_gateway("uWSGI zergpool", zergpool_loop) == NULL) {
+	if (register_gateway("uWSGI zergpool", zergpool_loop, NULL) == NULL) {
 		uwsgi_log("unable to register the zergpool gateway\n");
 		exit(1);
 	}

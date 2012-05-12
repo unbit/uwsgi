@@ -378,13 +378,15 @@ struct uwsgi_gateway {
 
 	char *name;
 	char *fullname;
-	void (*loop) (int);
+	void (*loop) (int, void *);
 	pid_t pid;
 	int num;
 	int use_signals;
 
 	int internal_subscription_pipe[2];
 	uint64_t respawns;
+	
+	void *data;
 };
 
 struct uwsgi_gateway_socket {
@@ -2213,7 +2215,7 @@ char *uwsgi_cheap_string(char *, int);
 int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 
 
-struct uwsgi_gateway *register_gateway(char *, void (*)(int));
+struct uwsgi_gateway *register_gateway(char *, void (*)(int, void *), void *);
 void gateway_respawn(int);
 
 void uwsgi_gateway_go_cheap(char *, int, int *);
