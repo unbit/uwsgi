@@ -28,6 +28,15 @@ void suspend_resume_them_all(int signum) {
 		uwsgi.workers[0].suspended = 1;
 	}
 
+	// subscribe/unsubscribe if needed
+        struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+        while(subscriptions) {
+                uwsgi_log("%s %s\n", suspend ? "unsubscribing from" : "subscribing to", subscriptions->value);
+                uwsgi_subscribe(subscriptions->value, suspend);
+                subscriptions = subscriptions->next;
+        }
+
+
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		uwsgi.workers[i].suspended = suspend;
 		if (uwsgi.workers[i].pid > 0) {
