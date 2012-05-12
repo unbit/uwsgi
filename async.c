@@ -289,15 +289,15 @@ void *async_loop(void *arg1) {
 
 // on linux we do not need to reset the socket to blocking state
 #ifndef __linux__
-					if (uwsgi.numproc > 1) {
-	                                	/* re-set blocking socket */
-	                                	if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, uwsgi_sock->arg) < 0) {
-	                                        	uwsgi_error("fcntl()");
-							uwsgi.async_queue_unused_ptr++;
-							uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
-	                                		break;
-						}
-					}
+					 /* re-set blocking socket */
+    					int arg = uwsgi_sock->arg;
+   					arg &= (~O_NONBLOCK);
+    	                                if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, arg) < 0) {
+   	                                       	uwsgi_error("fcntl()");
+    						uwsgi.async_queue_unused_ptr++;
+    						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
+   	                                	break;
+      					}
 #endif
 
 					if (wsgi_req_async_recv(uwsgi.wsgi_req)) {
