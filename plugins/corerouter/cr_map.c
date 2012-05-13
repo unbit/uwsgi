@@ -83,6 +83,15 @@ int uwsgi_cr_map_use_to(struct uwsgi_corerouter *ucr, struct corerouter_session 
 	return 0;
 }
 
+int uwsgi_cr_map_use_cluster(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
+        cr_session->instance_address = uwsgi_cluster_best_node();
+	if (cr_session->instance_address) {
+        	cr_session->instance_address_len = strlen(cr_session->instance_address);
+	}
+        return 0;
+}
+
+
 int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
 		if (!ucr->current_static_node) {
 			ucr->current_static_node = ucr->static_nodes;

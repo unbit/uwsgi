@@ -22,6 +22,7 @@ struct uwsgi_corerouter {
 	void (*switch_events)(struct uwsgi_corerouter *, struct corerouter_session *, int);
 
         int has_sockets;
+	int has_backends;
         int has_subscription_sockets;
 #ifdef UWSGI_SCTP
         int has_sctp_sockets;
@@ -58,6 +59,8 @@ struct uwsgi_corerouter {
         int use_socket;
         int socket_num;
         struct uwsgi_socket *to_socket;
+
+	int use_cluster;
 
         struct uwsgi_subscribe_slot *subscriptions;
         int subscription_regexp;
@@ -167,6 +170,7 @@ void corerouter_close_session(struct uwsgi_corerouter *, struct corerouter_sessi
 int uwsgi_cr_map_use_void(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_cache(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *, struct corerouter_session *);
+int uwsgi_cr_map_use_cluster(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_base(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_cs(struct uwsgi_corerouter *, struct corerouter_session *);
