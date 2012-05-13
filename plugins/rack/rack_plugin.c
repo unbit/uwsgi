@@ -107,7 +107,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 	VALUE chunk;
-	int chunk_size;
+	unsigned int chunk_size;
 
 	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
 /*
@@ -130,7 +130,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		return chunk;
 	}
 	else if (RARRAY_LEN(args) > 0) {
-		chunk_size = NUM2INT(RARRAY_PTR(args)[0]);
+		chunk_size = NUM2UINT(RARRAY_PTR(args)[0]);
 		if (wsgi_req->buf_pos+chunk_size > wsgi_req->post_cl) {
 			chunk_size = wsgi_req->post_cl-wsgi_req->buf_pos;
 		}

@@ -340,9 +340,19 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr) {
 	}
 }
 
-struct corerouter_session *corerouter_alloc_session(size_t size) {
+struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, int new_connection, struct sockaddr *cr_addr, socklen_t cr_addr_len) {
 
-	return uwsgi_calloc(size);
+	ucr->cr_table[new_connection] = uwsgi_calloc(ucr->session_size);
+        ucr->cr_table[new_connection]->fd = new_connection;
+        ucr->cr_table[new_connection]->instance_fd = -1;
+        ucr->cr_table[new_connection]->status = COREROUTER_STATUS_RECV_HDR;
+
+        ucr->cr_table[new_connection]->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
+
+	ucr->alloc_session(ucr, ugs, ucr->cr_table[new_connection], cr_addr, cr_addr_len);
+	event_queue_add_fd_read(ucr->queue, new_connection);
+
+	return ucr->cr_table[new_connection];
 }
 
 void uwsgi_corerouter_loop(int id, void *data) {
@@ -530,16 +540,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
                                                 uwsgi_socket_b(new_connection);
 #endif
 
-						ucr->cr_table[new_connection] = corerouter_alloc_session(ucr->session_size);
-						ucr->cr_table[new_connection]->fd = new_connection;
-						ucr->cr_table[new_connection]->instance_fd = -1;
-						ucr->cr_table[new_connection]->status = COREROUTER_STATUS_RECV_HDR;
-
-						ucr->cr_table[new_connection]->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
-						
-						ucr->alloc_session(ucr, ugs, ucr->cr_table[new_connection], (struct sockaddr *) &cr_addr, cr_addr_len);
-
-						event_queue_add_fd_read(ucr->queue, new_connection);
+						corerouter_alloc_session(ucr, ugs, new_connection, (struct sockaddr *) &cr_addr, cr_addr_len);
 					}
 					else if (ugs->subscription) {
 						uwsgi_corerouter_manage_subscription(ucr, id, ugs);

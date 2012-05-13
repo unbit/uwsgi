@@ -165,6 +165,7 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *);
 
 int uwsgi_corerouter_init(struct uwsgi_corerouter *);
 
+struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *, struct uwsgi_gateway_socket *, int, struct sockaddr *, socklen_t);
 void corerouter_close_session(struct uwsgi_corerouter *, struct corerouter_session *);
 
 int uwsgi_cr_map_use_void(struct uwsgi_corerouter *, struct corerouter_session *);
