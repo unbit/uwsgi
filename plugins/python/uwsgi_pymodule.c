@@ -794,11 +794,6 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	wsgi_req->sendfile_fd_chunk = chunk;
 	wsgi_req->sendfile_fd_pos = pos;
 
-	// send the headers if not already sent
-        if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
-                uwsgi_python_do_send_headers(wsgi_req);
-        }
-
 	// do sendfile
 	if (uwsgi.async > 1) {
 		ssize_t sf_len = uwsgi_sendfile(wsgi_req);
