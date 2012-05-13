@@ -207,7 +207,7 @@ XS(XS_uwsgi_stacktrace) {
 	dXSARGS;
 
         psgi_check_args(0);
-
+	uwsgi_log("%s", SvPV_nolen(ERRSV));
 	uwsgi_log("*** uWSGI perl stacktrace ***\n");
 	SV *ret = perl_eval_pv("Devel::StackTrace->new->as_string;", 0);
         uwsgi_log("%s", SvPV_nolen(ret));
