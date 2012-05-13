@@ -214,6 +214,7 @@ void *async_loop(void *arg1) {
 
 	if (uwsgi.signal_socket > -1) {
 		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);
+		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.my_signal_socket);
 	}
 
 	// set a default request manager
@@ -253,6 +254,12 @@ void *async_loop(void *arg1) {
 			// manage events
 			interesting_fd = event_queue_interesting_fd(events, i);
 
+			if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
+                		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
+				continue;
+        		}
+
+
 			is_a_new_connection = 0;
 
 			// new request coming in ?
@@ -271,7 +278,7 @@ void *async_loop(void *arg1) {
 							uwsgi_log("async queue is full !!!\n");
 							last_now = now;
 						}
-						break;;
+						break;
 					}
 
 					wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id, uwsgi_sock );
