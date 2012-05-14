@@ -685,14 +685,11 @@ struct uwsgi_plugin corerouter_plugin = {
 	.name = "courerouter",
 };
 
-
-#define stats_send_llu(x, y) fprintf(output, x, (long long unsigned int) y)
-#define stats_send(x, y) fprintf(output, x, y)
-
 void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 
 	struct sockaddr_un client_src;
 	socklen_t client_src_len = 0;
+
 	int client_fd = accept(ucr->cr_stats_server, (struct sockaddr *) &client_src, &client_src_len);
 #ifdef UWSGI_EVENT_USE_PORT
         event_queue_add_fd_read(ucr->queue, ucr->cr_stats_server);
@@ -702,91 +699,136 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 		return;
 	}
 
-	FILE *output = fdopen(client_fd, "w");
-	if (!output) {
-		uwsgi_error("fdopen()");
-		close(client_fd);
-		return;
-	}
+	struct uwsgi_stats *us = uwsgi_stats_new(8192);
 
-	stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
+        if (uwsgi_stats_keyval_comma(us, "version", UWSGI_VERSION)) goto end;
+        if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) getpid())) goto end;
+        if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) getuid())) goto end;
+        if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) getgid())) goto end;
 
-	fprintf(output, "\"pid\": %d,\n", (int) (getpid()));
-	fprintf(output, "\"uid\": %d,\n", (int) (getuid()));
-	fprintf(output, "\"gid\": %d,\n", (int) (getgid()));
+        char *cwd = uwsgi_get_cwd();
+        if (uwsgi_stats_keyval_comma(us, "cwd", cwd)) goto end0;
 
-	char *cwd = uwsgi_get_cwd();
-	stats_send("\"cwd\": \"%s\",\n", cwd);
-	free(cwd);
+	if (uwsgi_stats_key(us , ucr->short_name)) goto end0;
+        if (uwsgi_stats_list_open(us)) goto end0;
 
-	fprintf(output, "\"%s\": [", ucr->short_name);
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 	while (ugs) {
 		if (!strcmp(ugs->owner, ucr->name)) {
+			if (uwsgi_stats_str(us, ugs->name)) goto end0;
 			if (ugs->next) {
-				stats_send("\"%s\",", ugs->name);
-			}
-			else {
-				stats_send("\"%s\"", ugs->name);
+				if (uwsgi_stats_comma(us)) goto end0;
 			}
 		}
 		ugs = ugs->next;
 	}
-	fprintf(output, "],\n");
+	if (uwsgi_stats_list_close(us)) goto end0;
+	if (uwsgi_stats_comma(us)) goto end0;
 
 	if (ucr->has_subscription_sockets) {
-		fprintf(output, "\"subscriptions\": [\n");
+		if (uwsgi_stats_key(us , "subscriptions")) goto end0;
+		if (uwsgi_stats_list_open(us)) goto end0;
+
 		struct uwsgi_subscribe_slot *s_slot = ucr->subscriptions;
 		while (s_slot) {
-			fprintf(output, "\t{ \"key\": \"%.*s\",\n", s_slot->keylen, s_slot->key);
-			fprintf(output, "\t\t\"hits\": %llu,\n", (unsigned long long) s_slot->hits);
-			fprintf(output, "\t\t\"nodes\": [\n");
+			if (uwsgi_stats_object_open(us)) goto end0;
+			if (uwsgi_stats_keyvaln_comma(us, "key", s_slot->key, s_slot->keylen)) goto end0;
+			if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) s_slot->hits)) goto end0;
+
+			if (uwsgi_stats_key(us , "nodes")) goto end0;
+			if (uwsgi_stats_list_open(us)) goto end0;
+
 			struct uwsgi_subscribe_node *s_node = s_slot->nodes;
 			while (s_node) {
-				fprintf(output, "\t\t\t{\"name\": \"%.*s\", \"modifier1\": %d, \"modifier2\": %d, \"last_check\": %llu, \"requests\": %llu, \"tx\": %llu, \"cores\": %llu, \"load\": %llu, \"weight\": %llu, \"wrr\": %llu, \"ref\": %llu, \"failcnt\": %llu, \"death_mark\": %d}", s_node->len, s_node->name, s_node->modifier1, s_node->modifier2, (unsigned long long) s_node->last_check, (unsigned long long) s_node->requests, (unsigned long long) s_node->transferred, (unsigned long long) s_node->cores, (unsigned long long) s_node->load, (unsigned long long) s_node->weight, (unsigned long long) s_node->wrr, (unsigned long long) s_node->reference, (unsigned long long) s_node->failcnt, s_node->death_mark);
+				if (uwsgi_stats_object_open(us)) goto end0;
+
+				if (uwsgi_stats_keyvaln_comma(us, "name", s_node->name, s_node->len)) goto end0;
+
+				if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) s_node->modifier1)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "modifier2", (unsigned long long) s_node->modifier2)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "last_check", (unsigned long long) s_node->last_check)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) s_node->requests)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "tx", (unsigned long long) s_node->transferred)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "cores", (unsigned long long) s_node->cores)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "load", (unsigned long long) s_node->load)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "weight", (unsigned long long) s_node->weight)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "wrr", (unsigned long long) s_node->wrr)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "ref", (unsigned long long) s_node->reference)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "failcnt", (unsigned long long) s_node->failcnt)) goto end0;
+				if (uwsgi_stats_keylong(us, "death_mark", (unsigned long long) s_node->death_mark)) goto end0;
+
+				if (uwsgi_stats_object_close(us)) goto end0;
 				if (s_node->next) {
-					fprintf(output, ",\n");
-				}
-				else {
-					fprintf(output, "\n");
+					if (uwsgi_stats_comma(us)) goto end0;
 				}
 				s_node = s_node->next;
 			}
-			fprintf(output, "\t\t]\n");
+
+			if (uwsgi_stats_list_close(us)) goto end0;
+			if (uwsgi_stats_object_close(us)) goto end0;
 			if (s_slot->next) {
-				fprintf(output, "\t},\n");
-			}
-			else {
-				fprintf(output, "\t}\n");
+				if (uwsgi_stats_comma(us)) goto end0;
 			}
 			s_slot = s_slot->next;
 			// check for loopy optimization
 			if (s_slot == ucr->subscriptions)
 				break;
 		}
-		fprintf(output, "],\n");
+
+		if (uwsgi_stats_list_close(us)) goto end0;
+		if (uwsgi_stats_comma(us)) goto end0;
 	}
 
 #ifdef UWSGI_SCTP
 	if (ucr->has_sctp_sockets > 0) {
-		fprintf(output, "\"sctp_nodes\": [\n");
+		if (uwsgi_stats_key(us , "sctp_nodes")) goto end0;
+		if (uwsgi_stats_list_open(us)) goto end0;
+
+
 		struct uwsgi_fr_sctp_node *sctp_node = *uwsgi_fastrouter_sctp_nodes;
 		while(sctp_node) {
-			fprintf(output, "\t{ \"node\": \"%s\", \"requests\": %llu }", sctp_node->name, (unsigned long long) sctp_node->requests);
+			if (uwsgi_stats_object_open(us)) goto end0;
+
+			if (uwsgi_stats_keyval_comma(us, "node", sctp_node->name)) goto end0;
+			if (uwsgi_stats_keyval(us, "requests", (unsigned long long) sctp_node->requests)) goto end0;
+
+			if (uwsgi_stats_object_close(us)) goto end0;
+
 			if (sctp_node->next == *uwsgi_fastrouter_sctp_nodes) {
-				fprintf(output, "\n");
 				break;
 			}
 			sctp_node = sctp_node->next;
-			fprintf(output, ",\n");
+			if (uwsgi_stats_comma(us)) goto end0;
 		}
-		fprintf(output, "],\n");
+		if (uwsgi_stats_list_close(us)) goto end0;
+		if (uwsgi_stats_comma(us)) goto end0;
 	}
 #endif
 
-	fprintf(output, "\"cheap\": %d\n", ucr->i_am_cheap);
+	if (uwsgi_stats_keylong(us, "cheap", (unsigned long long) ucr->i_am_cheap)) goto end0;	
 
-	fprintf(output, "}\n");
-	fclose(output);
+	if (uwsgi_stats_object_close(us)) goto end0;
+
+        size_t remains = us->pos;
+        off_t pos = 0;
+        while(remains > 0) {
+                ssize_t res = write(client_fd, us->base + pos, remains);
+                if (res <= 0) {
+                        if (res < 0) {
+                                uwsgi_error("write()");
+                        }
+                        goto end0;
+                }
+                pos += res;
+                remains -= res;
+        }
+
+end0:
+        free(cwd);
+end:
+        free(us->base);
+        free(us);
+        close(client_fd);
+
 
 }

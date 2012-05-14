@@ -159,6 +159,30 @@ int uwsgi_stats_key(struct uwsgi_stats *us, char *key) {
         return 0;
 }
 
+int uwsgi_stats_str(struct uwsgi_stats *us, char *str) {
+
+        char *ptr = us->base + us->pos;
+        char *watermark = us->base + us->size;
+        size_t available = watermark - ptr ;
+
+        int ret = snprintf(ptr, available, "\"%s\"", str);
+        if (ret < 0) return -1;
+        while (ret >= (int) available) {
+                char *new_base = realloc(us->base, us->size + us->chunk);
+                if (!new_base) return -1;
+                us->size += us->chunk;
+                watermark = us->base + us->size;
+                available = watermark - ptr ;
+                ret = snprintf(ptr, available, "\"%s\"", str);
+                if (ret < 0) return -1;
+        }
+
+        us->pos += ret;
+        return 0;
+}
+
+
+
 
 int uwsgi_stats_keylong(struct uwsgi_stats *us, char *key, unsigned long long num) {
 

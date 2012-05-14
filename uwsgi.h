@@ -2862,6 +2862,7 @@ int uwsgi_stats_keyvaln_comma(struct uwsgi_stats *, char *, char *, int);
 int uwsgi_stats_key(struct uwsgi_stats *, char *);
 int uwsgi_stats_keylong(struct uwsgi_stats *, char *, unsigned long long);
 int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
+int uwsgi_stats_str(struct uwsgi_stats *, char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
