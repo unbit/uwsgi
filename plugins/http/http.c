@@ -47,7 +47,7 @@ struct uwsgi_option http_options[] = {
 	{"http-subscription-use-regexp", no_argument, 0, "enable regexp usage in subscription system", uwsgi_opt_true, &uhttp.cr.subscription_regexp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
-	{"http-keepalive", no_argument, 0, "support HTTP keepalive requests", uwsgi_opt_true, &uhttp.keepalive, 0},
+	{"http-keepalive", no_argument, 0, "support HTTP keepalive/pipelined requests (highly-experimental, maybe useless and broken)", uwsgi_opt_true, &uhttp.keepalive, 0},
 
 	{"http-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the http router", uwsgi_opt_corerouter_cs, &uhttp, 0},
         {"http-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_corerouter_use_socket, &uhttp, 0},
@@ -580,7 +580,8 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 		// body from client
 		else if (interesting_fd == cs->fd) {
 
-			// Keep-Alive ?
+#ifdef UWSGI_EXPERIMENTAL
+			// pipeline ?
 			if (uhttp.keepalive && hs->received_body >= cs->post_cl) {
 				// duplicate the socket
 				int new_ka_connection = dup(cs->fd);
@@ -593,6 +594,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 				}
 				break;
 			}
+#endif
 
 			len = recv(cs->fd, bbuf, UMAX16, 0);
 #ifdef UWSGI_EVENT_USE_PORT
