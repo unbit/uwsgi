@@ -695,9 +695,6 @@ void uwsgi_manage_command_cron(time_t now) {
 
 }
 
-#define stats_send_llu(x, y) fprintf(output, x, (long long unsigned int) y)
-#define stats_send(x, y) fprintf(output, x, y)
-
 void uwsgi_send_stats(int fd) {
 
 	int i, j;
