@@ -2839,6 +2839,30 @@ int uwsgi_is_file(char *);
 void uwsgi_receive_signal(int, char *, int);
 void uwsgi_exec_atexit(void);
 
+struct uwsgi_stats {
+	char *base;
+	off_t pos;
+	size_t chunk;
+	size_t size;
+};
+
+struct uwsgi_stats *uwsgi_stats_new(size_t);
+int uwsgi_stats_symbol(struct uwsgi_stats *, char);
+int uwsgi_stats_comma(struct uwsgi_stats *);
+int uwsgi_stats_object_open(struct uwsgi_stats *);
+int uwsgi_stats_object_close(struct uwsgi_stats *);
+int uwsgi_stats_list_open(struct uwsgi_stats *);
+int uwsgi_stats_list_close(struct uwsgi_stats *);
+int uwsgi_stats_keyval(struct uwsgi_stats *, char *, char *);
+int uwsgi_stats_keyval_comma(struct uwsgi_stats *, char *, char *);
+int uwsgi_stats_keyvalnum(struct uwsgi_stats *, char *, char *, unsigned long long);
+int uwsgi_stats_keyvalnum_comma(struct uwsgi_stats *, char *, char *, unsigned long long);
+int uwsgi_stats_keyvaln(struct uwsgi_stats *, char *, char *, int);
+int uwsgi_stats_keyvaln_comma(struct uwsgi_stats *, char *, char *, int);
+int uwsgi_stats_key(struct uwsgi_stats *, char *);
+int uwsgi_stats_keylong(struct uwsgi_stats *, char *, unsigned long long);
+int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif
