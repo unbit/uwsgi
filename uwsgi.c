@@ -541,12 +541,19 @@ void warn_pipe() {
 void wait_for_threads() {
 	int i, ret;
 
+	int sudden_death = 0;
+
 	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
 	for (i = 0; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-			pthread_cancel(uwsgi.core[i]->thread_id);
+			if (pthread_cancel(uwsgi.core[i]->thread_id)) {
+				uwsgi_error("pthread_cancel()\n");
+				sudden_death = 1;
+			}
 		}
 	}
+
+	if (sudden_death) goto end;
 
 	// wait for thread termination
 	for (i = 0; i < uwsgi.threads; i++) {
@@ -557,6 +564,8 @@ void wait_for_threads() {
 			}
 		}
 	}
+
+end:
 
 	pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 }

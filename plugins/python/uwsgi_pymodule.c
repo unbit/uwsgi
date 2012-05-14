@@ -709,7 +709,9 @@ PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 	PyObject *data;
 	PyObject *arg1, *arg2;
 
-	int uwsgi_fd = uwsgi.wsgi_req->poll.fd;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	int uwsgi_fd = wsgi_req->poll.fd;
 
 	if (!PyArg_ParseTuple(args, "O|O:send", &arg1, &arg2)) {
 		return NULL;
