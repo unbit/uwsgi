@@ -607,6 +607,11 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 				break;
 			}
 
+			// avoid pipelined input
+			if (hs->received_body >= cs->post_cl) {
+				break;
+			}
+
 
 			if (len + hs->received_body > cs->post_cl) {
 				len = cs->post_cl - hs->received_body;
