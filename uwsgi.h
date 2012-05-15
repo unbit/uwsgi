@@ -1252,6 +1252,8 @@ struct uwsgi_server {
 
 	// route all of the logs to the master process
 	int log_master;
+	char *log_master_buf;
+	size_t log_master_bufsize;
 
 	int log_reopen;
 	int log_truncate;

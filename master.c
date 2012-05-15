@@ -79,15 +79,13 @@ void expire_rb_timeouts(struct rb_root *root) {
 
 int uwsgi_master_log(void) {
 
-	char log_buf[4096];
-
-	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], log_buf, 4096);
+	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
 	if (rlen > 0) {
 		if (uwsgi.choosen_logger) {
-			uwsgi.choosen_logger->func(uwsgi.choosen_logger, log_buf, rlen);
+			uwsgi.choosen_logger->func(uwsgi.choosen_logger, uwsgi.log_master_buf, rlen);
 		}
 		else {
-			rlen = write(uwsgi.original_log_fd, log_buf, rlen);
+			rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);
 		}
 		// TODO allow uwsgi.logger = func
 		return 0;
@@ -404,6 +402,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	if (uwsgi.log_master) {
+		uwsgi.log_master_buf = uwsgi_malloc(uwsgi.log_master_bufsize);
 		if (!uwsgi.threaded_logger) {
 #ifdef UWSGI_DEBUG
 			uwsgi_log("adding %d to master logging\n", uwsgi.shared->worker_log_pipe[0]);
