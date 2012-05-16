@@ -267,6 +267,17 @@ void uwsgi_reload(char **argv) {
 			uwsgi_sock = uwsgi_sock->next;
 		}
 
+		uwsgi_sock = uwsgi.shared_sockets;
+                while (uwsgi_sock) {
+                        if (i == uwsgi_sock->fd) {
+                                uwsgi_log("found fd %d mapped to shared socket %d (%s)\n", i, uwsgi_get_shared_socket_num(uwsgi_sock), uwsgi_sock->name);
+                                found = 1;
+                                break;
+                        }
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+
 		if (!found) {
 			if (uwsgi.has_emperor) {
 				if (i == uwsgi.emperor_fd) {

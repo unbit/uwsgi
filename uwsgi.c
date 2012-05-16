@@ -1714,26 +1714,55 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log_initial("detected binary path: %s\n", uwsgi.binary_path);
 
+	if (uwsgi.is_a_reload) {
+		struct rlimit rl;
+		if (!getrlimit(RLIMIT_NOFILE, &rl)) {
+                	uwsgi.max_fd = rl.rlim_cur;
+        	}
+	}
+
 	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
 	while (shared_sock) {
-		char *tcp_port = strchr(shared_sock->name, ':');
-		if (tcp_port == NULL) {
-			shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-			shared_sock->family = AF_UNIX;
-			uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+		if (!uwsgi.is_a_reload) {
+			char *tcp_port = strchr(shared_sock->name, ':');
+			if (tcp_port == NULL) {
+				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+				shared_sock->family = AF_UNIX;
+				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+			}
+			else {
+				shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
+				shared_sock->family = AF_INET;
+				uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+			}
+
+			if (shared_sock->fd < 0) {
+				uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
+				exit(1);
+			}
 		}
 		else {
-			shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
-			shared_sock->family = AF_INET;
-			uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-		}
-
-		if (shared_sock->fd < 0) {
-			uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
-			exit(1);
+			for(i=3;i<(int)uwsgi.max_fd;i++) {
+				char *sock = uwsgi_getsockname(i);
+				if (sock) {
+					if (!strcmp(sock, shared_sock->name)) {
+						if (strchr(sock, ':')) {
+							uwsgi_log("uwsgi shared socket %d inherited TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);	
+							shared_sock->family = AF_INET;
+						}
+						else {
+							uwsgi_log("uwsgi shared socket %d inherited UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);	
+							shared_sock->family = AF_UNIX;
+						}
+						shared_sock->fd = i;
+					}
+					else {
+						free(sock);
+					}
+				}
+			}	
 		}
 		shared_sock->bound = 1;
-
 		shared_sock = shared_sock->next;
 	}
 
@@ -2277,6 +2306,17 @@ int uwsgi_start(void *v_argv) {
 							break;
 						}
 						uwsgi_sock = uwsgi_sock->next;
+					}
+
+					if (useless) {
+						uwsgi_sock = uwsgi.shared_sockets;
+                                        	while (uwsgi_sock) {
+                                                	if (uwsgi_sock->fd == j && uwsgi_sock->bound) {
+                                                        	useless = 0;
+                                                        	break;
+                                                	}
+                                                	uwsgi_sock = uwsgi_sock->next;
+                                        	}
 					}
 				}
 
