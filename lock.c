@@ -67,7 +67,9 @@ struct uwsgi_lock_item *uwsgi_lock_fast_init(char *id) {
 	
         struct uwsgi_lock_item *uli = uwsgi_register_lock(id, 0);
 
+#ifdef EOWNERDEAD
 retry:
+#endif
 	if (pthread_mutexattr_init(&attr)) {
         	uwsgi_log("unable to allocate mutexattr structure\n");
                 exit(1);
@@ -103,10 +105,12 @@ retry:
 
 	pthread_mutexattr_destroy(&attr);
 
-#ifndef EOWNERDEAD
+#ifdef EOWNERDEAD
 	if (!uwsgi_pthread_robust_mutexes_enabled) {
 		uli->can_deadlock = 1;
 	}
+#else
+	uli->can_deadlock = 1;
 #endif
 
 	return uli;
