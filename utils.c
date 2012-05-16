@@ -4292,3 +4292,58 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 	}
 	return dst;
 }
+
+#ifdef UWSGI_SSL
+void uwsgi_ssl_init(void) {
+	OPENSSL_config(NULL);
+        SSL_library_init();
+        OpenSSL_add_all_algorithms();
+	uwsgi.ssl_initialized = 1;
+}
+
+SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key) {
+	
+	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
+        if (!ctx) {
+                uwsgi_log("unable to initialize ssl context\n");
+                exit(1);
+        }
+
+	// this part is taken 1:1 from nginx, removing unneeded functionality
+
+	// client-related bugs...
+	SSL_CTX_set_options(ctx, SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG);
+    	SSL_CTX_set_options(ctx, SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER);
+    	/* this option allow a potential SSL 2.0 rollback (CAN-2005-2969) */
+    	SSL_CTX_set_options(ctx, SSL_OP_MSIE_SSLV2_RSA_PADDING);
+    	SSL_CTX_set_options(ctx, SSL_OP_SSLEAY_080_CLIENT_DH_BUG);
+    	SSL_CTX_set_options(ctx, SSL_OP_TLS_D5_BUG);
+    	SSL_CTX_set_options(ctx, SSL_OP_TLS_BLOCK_PADDING_BUG);
+    	SSL_CTX_set_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
+
+	// always recreate dh keys
+    	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_DH_USE);
+
+// disable compression (if possibile)
+#ifdef SSL_OP_NO_COMPRESSION
+    	SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
+#endif
+
+// release/reuse buffers as soon as possibile
+#ifdef SSL_MODE_RELEASE_BUFFERS
+    	SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
+#endif
+
+	if (SSL_CTX_use_certificate_file(ctx, crt, SSL_FILETYPE_PEM) <= 0) {
+		uwsgi_log("unable to assign ssl certificate %s\n", crt);
+		exit(1);
+	}
+
+	if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
+		uwsgi_log("unable to assign key certificate %s\n", key);
+		exit(1);
+	}
+	return ctx;
+}
+
+#endif

@@ -293,6 +293,10 @@ end:
 		free(cr_session->buf_file_name);
 	}
 
+	// could be used to free additional resources
+	if (cr_session->close)
+		cr_session->close(ucr, cr_session);
+
 	close(cr_session->fd);
 	ucr->cr_table[cr_session->fd] = NULL;
 
@@ -348,6 +352,7 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
         ucr->cr_table[new_connection]->status = COREROUTER_STATUS_RECV_HDR;
 
         ucr->cr_table[new_connection]->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
+	ucr->cr_table[new_connection]->ugs = ugs;
 
 	ucr->alloc_session(ucr, ugs, ucr->cr_table[new_connection], cr_addr, cr_addr_len);
 	event_queue_add_fd_read(ucr->queue, new_connection);
@@ -529,15 +534,22 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
 #ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(ucr->queue, interesting_fd);
+                                		event_queue_add_fd_read(ucr->queue, interesting_fd);
 #endif
 						if (new_connection < 0) {
 							taken = 1;
 							break;
 						}
 
+						// set socket blocking mode, on non-linux platforms, clients get the server mode
 #ifndef __linux__
-                                                uwsgi_socket_b(new_connection);
+						if (!ugs->nb) {
+                                                	uwsgi_socket_b(new_connection);
+						}
+#else
+						if (ugs->nb) {
+                                                	uwsgi_socket_nb(new_connection);
+						}
 #endif
 
 						corerouter_alloc_session(ucr, ugs, new_connection, (struct sockaddr *) &cr_addr, cr_addr_len);

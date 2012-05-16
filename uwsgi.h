@@ -406,11 +406,17 @@ struct uwsgi_gateway_socket {
 	int sctp;
 #endif
 	int shared;
+	int nb;
 
 	char *owner;
 	struct uwsgi_gateway *gateway;
 
         struct uwsgi_gateway_socket *next;
+
+	// could be useful for ssl
+	void *ctx;
+	// could be useful ofr plugins
+	int mode;
 	
 };
 
@@ -1653,6 +1659,10 @@ struct uwsgi_server {
 
 	int never_swap;
 
+#ifdef UWSGI_SSL
+	int ssl_initialized;
+#endif
+
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 	int linux_ksm;
@@ -2191,6 +2201,7 @@ int event_queue_wait_multi(int, int, void *, int);
 int event_queue_interesting_fd(void *, int);
 int event_queue_interesting_fd_has_error(void *, int);
 int event_queue_fd_write_to_read(int, int);
+int event_queue_fd_read_to_write(int, int);
 
 int event_queue_add_timer(int, int *, int);
 struct uwsgi_timer *event_queue_ack_timer(int);
@@ -2865,6 +2876,13 @@ int uwsgi_stats_key(struct uwsgi_stats *, char *);
 int uwsgi_stats_keylong(struct uwsgi_stats *, char *, unsigned long long);
 int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
 int uwsgi_stats_str(struct uwsgi_stats *, char *);
+
+#ifdef UWSGI_SSL
+#include "openssl/conf.h"
+#include "openssl/ssl.h"
+void uwsgi_ssl_init(void);
+SSL_CTX *uwsgi_ssl_new_server_context(char *, char *);
+#endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

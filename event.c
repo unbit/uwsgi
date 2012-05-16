@@ -42,6 +42,18 @@ int event_queue_fd_write_to_read(int eq, int fd) {
 
 }
 
+int event_queue_fd_read_to_write(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return fd;
+
+}
+
+
 
 int event_queue_interesting_fd_has_error(void *events, int id) {
 	port_event_t *pe = (port_event_t *) events;
@@ -216,6 +228,23 @@ int event_queue_fd_write_to_read(int eq, int fd) {
         return fd;
 }
 
+int event_queue_fd_read_to_write(int eq, int fd) {
+
+        struct epoll_event ee;
+
+        memset(&ee, 0, sizeof(struct epoll_event));
+        ee.events = EPOLLOUT;
+        ee.data.fd = fd;
+
+        if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
+                uwsgi_error("epoll_ctl()");
+                return -1;
+        }
+
+        return fd;
+}
+
+
 int event_queue_del_fd(int eq, int fd, int event) {
 
         struct epoll_event ee;
@@ -344,6 +373,28 @@ int event_queue_fd_write_to_read(int eq, int fd) {
 	
 	return fd;
 }
+
+int event_queue_fd_read_to_write(int eq, int fd) {
+
+        struct kevent kev;
+
+#ifndef __FreeBSD__
+        EV_SET(&kev, fd, EVFILT_READ, EV_DISABLE, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+#endif
+
+        EV_SET(&kev, fd, EVFILT_WRITE, EV_ADD, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+
+        return fd;
+}
+
 
 int event_queue_del_fd(int eq, int fd, int event) {
 

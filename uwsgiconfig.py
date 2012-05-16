@@ -760,6 +760,16 @@ class uConf(object):
                 self.gcc_list.append('ldap')
                 self.libs.append('-lldap')
 
+        if self.get('ssl'):
+            if self.get('ssl') == 'auto':
+                if self.has_include('openssl/ssl.h'):
+                    self.cflags.append("-DUWSGI_SSL")
+                    self.libs.append('-lssl')
+            else:
+                self.cflags.append("-DUWSGI_SSL")
+                self.libs.append('-lssl')
+
+
         if self.get('sctp'):
             if self.get('sctp') == 'auto':
                 if self.has_include('netinet/sctp.h'):

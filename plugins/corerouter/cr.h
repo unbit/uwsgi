@@ -110,6 +110,8 @@ struct corerouter_session {
         uint8_t h_pos;
         uint16_t pos;
 
+	struct uwsgi_gateway_socket *ugs;
+
         char *hostname;
         uint16_t hostname_len;
 
@@ -146,6 +148,8 @@ struct corerouter_session {
 
 	struct sockaddr_un addr;
         socklen_t addr_len;
+
+	void (*close)(struct uwsgi_corerouter *, struct corerouter_session *);
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);
