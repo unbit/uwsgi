@@ -298,6 +298,9 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	SV *pe = uwsgi_perl_obj_new("uwsgi::error", 12);
         if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
 
+	(void) hv_delete(env, "HTTP_CONTENT_LENGTH", 19, G_DISCARD);
+	(void) hv_delete(env, "HTTP_CONTENT_TYPE", 17, G_DISCARD);
+
 	return newRV_noinc((SV *)env);
 
 clear:

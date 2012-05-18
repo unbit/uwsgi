@@ -436,7 +436,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 		event_queue_add_fd_read(ucs->queue, cs->fd);
 #endif
 		if (len <= 0) {
-			// check for blocking operation non non-blocking socket
+			// check for blocking operation non on-blocking socket
                         if (len < 0 && cs->ugs->nb && errno == EINPROGRESS) break;
 			corerouter_close_session(ucr, cs);
 			break;
@@ -469,6 +469,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			      choose_node:
 				if (ucr->mapper(ucr, cs))
 					break;
+
 
 				// no address found
 				if (!cs->instance_address_len) {
@@ -888,12 +889,12 @@ int http_init() {
 	uhttp.cr.session_size = sizeof(struct http_session);
 	uhttp.cr.switch_events = uwsgi_http_switch_events;
 	uhttp.cr.alloc_session = http_alloc_session;
-	uwsgi_corerouter_init((struct uwsgi_corerouter *) &uhttp);
-	if (uhttp.cr.has_sockets && !uwsgi.sockets && !uhttp.cr.has_backends) {
+	if (uhttp.cr.has_sockets && !uwsgi.sockets && !uwsgi_courerouter_has_has_backends(&uhttp.cr)) {
 		uwsgi_new_socket(uwsgi_concat2("127.0.0.1:0", ""));
 		uhttp.cr.use_socket = 1;
 		uhttp.cr.socket_num = 0;
 	}
+	uwsgi_corerouter_init((struct uwsgi_corerouter *) &uhttp);
 
 	return 0;
 }

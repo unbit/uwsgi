@@ -641,6 +641,31 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 }
 
+int uwsgi_courerouter_has_has_backends(struct uwsgi_corerouter *ucr) {
+
+	if (ucr->has_backends) return 1;
+
+	// check if the router has configured backends
+                if (ucr->use_cache ||
+                        ucr->pattern ||
+                        ucr->has_subscription_sockets ||
+                        ucr->base ||
+                        (ucr->code_string_code && ucr->code_string_function) ||
+                        ucr->to_socket ||
+                        ucr->static_nodes ||
+                        ucr->use_cluster
+#ifdef UWSGI_SCTP
+                        || ucr->has_sctp_sockets
+#endif
+                ) {
+                        return 1;
+                }
+
+	
+	return 0;
+
+}
+
 int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 
 	int i;
@@ -656,21 +681,7 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 			ucr->nevents = 64;
 
 
-		// check if the router has configured backends
-		if (ucr->use_cache ||
-                        ucr->pattern ||
-                        ucr->has_subscription_sockets ||
-                        ucr->base ||
-                        (ucr->code_string_code && ucr->code_string_function) ||
-                        ucr->to_socket ||
-                        ucr->static_nodes ||
-                        ucr->use_cluster
-#ifdef UWSGI_SCTP
-                        || ucr->has_sctp_sockets
-#endif
-		) {
-			ucr->has_backends = 1;
-		}
+		ucr->has_backends = uwsgi_courerouter_has_has_backends(ucr);
 
 
 		uwsgi_corerouter_setup_sockets(ucr);

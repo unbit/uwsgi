@@ -726,6 +726,10 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
+	// remove HTTP_CONTENT_LENGTH and HTTP_CONTENT_TYPE
+	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_LENGTH"));
+	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_TYPE"));
+
 	ret = rb_protect( call_dispatch, env, &error);
 	if (error) {
 		uwsgi_ruby_exception();
