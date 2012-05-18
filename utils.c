@@ -4294,6 +4294,14 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 }
 
 #ifdef UWSGI_SSL
+/*
+
+ssl additional datas are retrieved via indexes.
+
+You can create an index with SSL_CTX_get_ex_new_index and
+set data in it with SSL_CTX_set_ex_data
+
+*/
 void uwsgi_ssl_init(void) {
 	OPENSSL_config(NULL);
         SSL_library_init();
@@ -4323,6 +4331,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key) {
 
 	// always recreate dh keys
     	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_DH_USE);
+
+	// disable ssl2
+	SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
 
 // disable compression (if possibile)
 #ifdef SSL_OP_NO_COMPRESSION

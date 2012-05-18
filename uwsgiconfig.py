@@ -765,9 +765,10 @@ class uConf(object):
                 if self.has_include('openssl/ssl.h'):
                     self.cflags.append("-DUWSGI_SSL")
                     self.libs.append('-lssl')
+                    self.libs.append('-lcrypto')
             else:
                 self.cflags.append("-DUWSGI_SSL")
-                self.libs.append('-lssl')
+                self.libs.append('-lcrypto')
 
 
         if self.get('sctp'):
