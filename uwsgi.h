@@ -1678,12 +1678,12 @@ struct uwsgi_server {
 
 struct uwsgi_offload_request {
 	pthread_t tid;
-	struct wsgi_request wsgi_req;
 	char *buffer;
 	struct iovec *hvec;
 	char real_filename[PATH_MAX+1];
 	size_t real_filename_len;
 	struct stat st;
+	struct wsgi_request wsgi_req;
 };
 
 
