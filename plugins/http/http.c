@@ -51,6 +51,11 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 	}
 	*key = '\0'; key++;
 
+	char *ciphers = strchr(key, ',');
+	if (ciphers) {
+		*ciphers = '\0'; ciphers++;
+	}
+
         struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(sock, ucr->name);
 	// ok we have the socket, initialize ssl if required
 	if (!uwsgi.ssl_initialized) {
@@ -58,7 +63,7 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 	}
 
 	// initialize ssl context
-	ugs->ctx = uwsgi_ssl_new_server_context(crt, key);
+	ugs->ctx = uwsgi_ssl_new_server_context(crt, key, ciphers);
 	// the clients must be put in non-blocking mode
 	ugs->nb = 1;
 	// set the ssl mode

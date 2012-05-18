@@ -4294,6 +4294,7 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 }
 
 #ifdef UWSGI_SSL
+
 /*
 
 ssl additional datas are retrieved via indexes.
@@ -4302,6 +4303,7 @@ You can create an index with SSL_CTX_get_ex_new_index and
 set data in it with SSL_CTX_set_ex_data
 
 */
+
 void uwsgi_ssl_init(void) {
 	OPENSSL_config(NULL);
         SSL_library_init();
@@ -4309,7 +4311,7 @@ void uwsgi_ssl_init(void) {
 	uwsgi.ssl_initialized = 1;
 }
 
-SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key) {
+SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key, char *ciphers) {
 	
 	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
         if (!ctx) {
@@ -4317,28 +4319,15 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key) {
                 exit(1);
         }
 
-	// this part is taken 1:1 from nginx, removing unneeded functionality
+	// this part is taken from nginx and stud, removing unneeded functionality
+	// stud (for me) has made the best choice on choosing DH approach
 
-	// client-related bugs...
-	SSL_CTX_set_options(ctx, SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG);
-    	SSL_CTX_set_options(ctx, SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER);
-    	/* this option allow a potential SSL 2.0 rollback (CAN-2005-2969) */
-    	SSL_CTX_set_options(ctx, SSL_OP_MSIE_SSLV2_RSA_PADDING);
-    	SSL_CTX_set_options(ctx, SSL_OP_SSLEAY_080_CLIENT_DH_BUG);
-    	SSL_CTX_set_options(ctx, SSL_OP_TLS_D5_BUG);
-    	SSL_CTX_set_options(ctx, SSL_OP_TLS_BLOCK_PADDING_BUG);
-    	SSL_CTX_set_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
-
-	// always recreate dh keys
-    	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_DH_USE);
-
-	// disable ssl2
-	SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
-
+	long ssloptions = SSL_OP_NO_SSLv2 | SSL_OP_ALL | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
 // disable compression (if possibile)
 #ifdef SSL_OP_NO_COMPRESSION
-    	SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
+	ssloptions |= SSL_OP_NO_COMPRESSION;
 #endif
+	SSL_CTX_set_options(ctx, ssloptions);
 
 // release/reuse buffers as soon as possibile
 #ifdef SSL_MODE_RELEASE_BUFFERS
@@ -4350,10 +4339,34 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key) {
 		exit(1);
 	}
 
+// this part is based from stud
+	BIO *bio = BIO_new_file(crt, "r");
+	if (bio) {
+		DH *dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+		BIO_free(bio);
+		if (dh) {
+			SSL_CTX_set_tmp_dh(ctx, dh);
+			DH_free(dh);
+#ifdef NID_X9_62_prime256v1
+			EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+			SSL_CTX_set_tmp_ecdh(ctx,ecdh);
+			EC_KEY_free(ecdh);
+#endif
+		}
+	}
+
 	if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
 		uwsgi_log("unable to assign key certificate %s\n", key);
 		exit(1);
 	}
+
+	if (ciphers) {
+		if (SSL_CTX_set_cipher_list(ctx, ciphers) == 0) {
+			uwsgi_log("unable to set ssl requested ciphers: %s\n", ciphers);
+			exit(1);
+		}
+	}
+
 	return ctx;
 }
 

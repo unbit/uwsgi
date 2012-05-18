@@ -2881,7 +2881,7 @@ int uwsgi_stats_str(struct uwsgi_stats *, char *);
 #include "openssl/conf.h"
 #include "openssl/ssl.h"
 void uwsgi_ssl_init(void);
-SSL_CTX *uwsgi_ssl_new_server_context(char *, char *);
+SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *);
 #endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
