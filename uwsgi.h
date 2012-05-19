@@ -1173,6 +1173,7 @@ struct uwsgi_server {
 	char *short_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
+	struct uwsgi_string_list *custom_options;
 
 	// dump the whole set of options
 	int dump_options;
@@ -2876,6 +2877,8 @@ int uwsgi_stats_key(struct uwsgi_stats *, char *);
 int uwsgi_stats_keylong(struct uwsgi_stats *, char *, unsigned long long);
 int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
 int uwsgi_stats_str(struct uwsgi_stats *, char *);
+
+char *uwsgi_substitute(char *, char *, char *);
 
 #ifdef UWSGI_SSL
 #include "openssl/conf.h"

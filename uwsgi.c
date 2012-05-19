@@ -63,6 +63,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero,0},
 
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
+	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_string_list, &uwsgi.custom_options, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
 	{"endfor", optional_argument, 0, "(opt logic) end for cycle", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
@@ -451,6 +452,89 @@ void show_config(void) {
 
 }
 
+int uwsgi_manage_custom_option(struct uwsgi_string_list *usl, char *key, char *value) {
+	size_t i,count = 1;
+	size_t value_len = strlen(value);
+	off_t pos = 0;
+	char **opt_argv;
+	char *equal = memchr(usl->value, '=', usl->len);
+	if (!equal) {
+		return 0;
+	}
+
+	if (uwsgi_strncmp(usl->value, equal-usl->value, key, strlen(key))) {
+		return 0;
+	}
+
+	// now count the number of args
+	for(i=0;i<value_len;i++) {
+		if (value[i] == ' ') {
+			count++;
+		}
+	}
+
+	// allocate a tmp array
+	opt_argv = uwsgi_calloc(sizeof(char *) * count);
+	//make a copy of the value;
+	char *tmp_val = uwsgi_str(value);
+	// fill the array of options
+	char *p = strtok(tmp_val, " ");
+	while(p) {
+		opt_argv[pos] = p;
+		pos++;
+		p = strtok(NULL, " ");
+	}
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("found custom option %s with %d args\n", key, count);
+#endif
+	// now make a copy of the option template
+	char *tmp_opt = uwsgi_concat2n(equal+1, usl->len - (equal-usl->value), "", 0);
+	// split it
+	p = strtok(tmp_opt, ";");
+	while(p) {
+		equal = strchr(p, '=');
+		if (!equal) goto clear;
+		*equal = '\0';
+
+		// build the key
+		char *new_key = uwsgi_str(p);
+		for(i=0;i<count;i++) {
+			char *old_key = new_key;
+			char *tmp_num = uwsgi_num2str(i+1);
+			char *placeholder = uwsgi_concat2((char *)"$", tmp_num);
+			free(tmp_num);
+			new_key = uwsgi_substitute(old_key, placeholder, opt_argv[i]);
+			if (new_key != old_key)
+				free(old_key);
+			free(placeholder);
+		}
+
+		// build the value
+		char *new_value = uwsgi_str(equal+1);
+                for(i=0;i<count;i++) {
+			char *old_value = new_value;
+                        char *tmp_num = uwsgi_num2str(i+1);
+                        char *placeholder = uwsgi_concat2((char *)"$", tmp_num);
+                        free(tmp_num);
+                        new_value = uwsgi_substitute(old_value, placeholder, opt_argv[i]);
+			if (new_value != old_value)
+				free(old_value);
+                        free(placeholder);
+                }
+		// we can ignore its return value
+		(void) uwsgi_manage_opt(new_key, new_value);
+		p = strtok(NULL, ";");
+	}
+
+clear:
+	free(tmp_val);
+	free(tmp_opt);
+	free(opt_argv);
+	return 1;
+	
+}
+
 int uwsgi_manage_opt(char *key, char *value) {
 
 	struct uwsgi_option *op = uwsgi.options;
@@ -460,6 +544,14 @@ int uwsgi_manage_opt(char *key, char *value) {
 			return 1;
 		}
 		op++;
+	}
+
+	struct uwsgi_string_list *usl = uwsgi.custom_options;
+	while(usl) {
+		if (uwsgi_manage_custom_option(usl, key, value)) {
+			return 1;
+		}
+		usl = usl->next;
 	}
 	return 0;
 	
@@ -3724,6 +3816,7 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 	p[0] = '=';
 	
 }
+
 
 void uwsgi_opt_set_umask(char *opt, char *value,  void *mode) {
 
