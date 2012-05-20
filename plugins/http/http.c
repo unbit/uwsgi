@@ -812,8 +812,9 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
                 errno = EINPROGRESS;
 		return -1;
         }
-
-        uwsgi_error("SSL_read()");
+	
+	if (err == SSL_ERROR_SYSCALL)
+        	uwsgi_error("SSL_read()");
         return -1;
 
 }
@@ -846,7 +847,8 @@ ssize_t uwsgi_http_ssl_send(struct http_session *hs, char *buf, size_t len) {
 		return -1;
 	}
 
-	uwsgi_error("SSL_write()");
+	if (err == SSL_ERROR_SYSCALL)
+		uwsgi_error("SSL_write()");
 	return -1;
 }
 

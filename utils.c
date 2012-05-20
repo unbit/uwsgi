@@ -4311,6 +4311,14 @@ void uwsgi_ssl_init(void) {
 	uwsgi.ssl_initialized = 1;
 }
 
+void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
+	if (where & SSL_CB_HANDSHAKE_DONE) {
+		if (ssl->s3) {
+            		ssl->s3->flags |= SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS;
+		}
+	}
+}
+
 SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key, char *ciphers) {
 	
 	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
@@ -4360,12 +4368,18 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key, char *ciphers) {
 		exit(1);
 	}
 
+	// if ciphers are specified, prefer server ciphers
 	if (ciphers) {
 		if (SSL_CTX_set_cipher_list(ctx, ciphers) == 0) {
 			uwsgi_log("unable to set ssl requested ciphers: %s\n", ciphers);
 			exit(1);
 		}
+
+		SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	}
+
+
+	SSL_CTX_set_info_callback(ctx, uwsgi_ssl_info_cb);
 
 	return ctx;
 }
