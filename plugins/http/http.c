@@ -63,7 +63,7 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 	}
 
 	// initialize ssl context
-	ugs->ctx = uwsgi_ssl_new_server_context(crt, key, ciphers);
+	ugs->ctx = uwsgi_ssl_new_server_context(uwsgi_concat3(ucr->short_name, "-", ugs->name),crt, key, ciphers);
 	// the clients must be put in non-blocking mode
 	ugs->nb = 1;
 	// set the ssl mode

@@ -4319,7 +4319,7 @@ void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
 	}
 }
 
-SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key, char *ciphers) {
+SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers) {
 	
 	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
         if (!ctx) {
@@ -4380,6 +4380,16 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *crt, char *key, char *ciphers) {
 
 
 	SSL_CTX_set_info_callback(ctx, uwsgi_ssl_info_cb);
+
+	if (name) {
+		SSL_CTX_set_session_id_context(ctx, (unsigned char *)name, strlen(name));
+		SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("[uwsgi-ssl] initialized ssl session cache: %s\n", name);
+#endif
+		//SSL_CTX_set_timeout
+		//SSL_CTX_sess_set_cache_size
+	}
 
 	return ctx;
 }
