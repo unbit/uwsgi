@@ -28,6 +28,15 @@ void suspend_resume_them_all(int signum) {
 		uwsgi.workers[0].suspended = 1;
 	}
 
+	// subscribe/unsubscribe if needed
+        struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+        while(subscriptions) {
+                uwsgi_log("%s %s\n", suspend ? "unsubscribing from" : "subscribing to", subscriptions->value);
+                uwsgi_subscribe(subscriptions->value, suspend);
+                subscriptions = subscriptions->next;
+        }
+
+
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		uwsgi.workers[i].suspended = suspend;
 		if (uwsgi.workers[i].pid > 0) {
@@ -70,15 +79,13 @@ void expire_rb_timeouts(struct rb_root *root) {
 
 int uwsgi_master_log(void) {
 
-	char log_buf[4096];
-
-	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], log_buf, 4096);
+	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
 	if (rlen > 0) {
 		if (uwsgi.choosen_logger) {
-			uwsgi.choosen_logger->func(uwsgi.choosen_logger, log_buf, rlen);
+			uwsgi.choosen_logger->func(uwsgi.choosen_logger, uwsgi.log_master_buf, rlen);
 		}
 		else {
-			rlen = write(uwsgi.original_log_fd, log_buf, rlen);
+			rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);
 		}
 		// TODO allow uwsgi.logger = func
 		return 0;
@@ -151,10 +158,13 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 	int keysize = 0;
 	char *modifier1 = NULL;
 	int modifier1_len = 0;
+	char *udp_address = subscription;
 
-	char *udp_address = strchr(subscription, ':');
-	if (!udp_address)
-		return;
+	if (subscription[0] != '/') {
+		udp_address = strchr(subscription, ':');
+		if (!udp_address)
+			return;
+	}
 
 	char *subscription_key = strchr(udp_address + 1, ':');
 	if (!subscription_key)
@@ -392,6 +402,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	if (uwsgi.log_master) {
+		uwsgi.log_master_buf = uwsgi_malloc(uwsgi.log_master_bufsize);
 		if (!uwsgi.threaded_logger) {
 #ifdef UWSGI_DEBUG
 			uwsgi_log("adding %d to master logging\n", uwsgi.shared->worker_log_pipe[0]);
@@ -727,7 +738,7 @@ int master_loop(char **argv, char **environ) {
 		}
 
 		// cheaper management
-		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell) {
+		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell && !uwsgi.workers[0].suspended) {
 			if (!uwsgi_calc_cheaper()) return 0;
 		}
 
@@ -1377,7 +1388,7 @@ int master_loop(char **argv, char **environ) {
 			}
 
 			// resubscribe every 10 cycles by default
-			if ((uwsgi.subscriptions && ((uwsgi.master_cycles % uwsgi.subscribe_freq) == 0 || uwsgi.master_cycles == 1)) && !uwsgi.to_heaven && !uwsgi.to_hell) {
+			if ((uwsgi.subscriptions && ((uwsgi.master_cycles % uwsgi.subscribe_freq) == 0 || uwsgi.master_cycles == 1)) && !uwsgi.to_heaven && !uwsgi.to_hell  && !uwsgi.workers[0].suspended) {
 				struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
 				while (subscriptions) {
 					uwsgi_subscribe(subscriptions->value, 0);

@@ -3,11 +3,18 @@
 common functions for various routers (fastrouter, http...)
 
 */
-static void uwsgi_corerouter_setup_sockets(char *gw_id) {
+
+#include "../../uwsgi.h"
+
+extern struct uwsgi_server uwsgi;
+
+#include "cr.h"
+
+void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 	while (ugs) {
-		if (!strcmp(gw_id, ugs->owner)) {
+		if (!strcmp(ucr->name, ugs->owner)) {
 #ifdef UWSGI_SCTP
 			if (!ugs->subscription && !ugs->sctp) {
 #else
@@ -51,14 +58,19 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 				}
 				// put socket in non-blocking mode
 				uwsgi_socket_nb(ugs->fd);
-				uwsgi_log("%s bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
+				uwsgi_log("%s bound on %s fd %d\n", ucr->name, ugs->name, ugs->fd);
 			}
 			else if (ugs->subscription) {
 				if (ugs->fd == -1) {
-					ugs->fd = bind_to_udp(ugs->name, 0, 0);
+					if (strchr(ugs->name, ':')) {
+						ugs->fd = bind_to_udp(ugs->name, 0, 0);
+					}
+					else {
+						ugs->fd = bind_to_unix_dgram(ugs->name);
+					}
 					uwsgi_socket_nb(ugs->fd);
 				}
-				uwsgi_log("%s subscription server bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
+				uwsgi_log("%s subscription server bound on %s fd %d\n", ucr->name, ugs->name, ugs->fd);
 			}
 #ifdef UWSGI_SCTP
 			else if (ugs->sctp) {
@@ -74,25 +86,25 @@ static void uwsgi_corerouter_setup_sockets(char *gw_id) {
 
 }
 
-static void *uwsgi_corerouter_setup_event_queue(char *gw_id, int id, int nevents, int *efd, int cheap) {
+void *uwsgi_corerouter_setup_event_queue(struct uwsgi_corerouter *ucr, int id) {
 
-	*efd = event_queue_init();
+	ucr->queue = event_queue_init();
 
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 	while (ugs) {
-		if (!strcmp(gw_id, ugs->owner)) {
-			if (!cheap || ugs->subscription) {
-				event_queue_add_fd_read(*efd, ugs->fd);
+		if (!strcmp(ucr->name, ugs->owner)) {
+			if (!ucr->cheap || ugs->subscription) {
+				event_queue_add_fd_read(ucr->queue, ugs->fd);
 			}
 			ugs->gateway = &ushared->gateways[id];
 		}
 		ugs = ugs->next;
 	}
 
-	return event_queue_alloc(nevents);
+	return event_queue_alloc(ucr->nevents);
 }
 
-static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *gw_id, int id, struct uwsgi_gateway_socket *ugs, int queue, struct uwsgi_subscribe_slot **subscriptions, int regexp, void (*parse_hook) (char *, uint16_t, char *, uint16_t, void *), int cheap, int *i_am_cheap) {
+void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, struct uwsgi_gateway_socket *ugs) {
 
 	int i;
 	struct uwsgi_subscribe_req usr;
@@ -100,40 +112,40 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 
 	ssize_t len = recv(ugs->fd, bbuf, 4096, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-	event_queue_add_fd_read(queue, ugs->fd);
+	event_queue_add_fd_read(ucr->queue, ugs->fd);
 #endif
 	if (len > 0) {
 		memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
-		uwsgi_hooked_parse(bbuf + 4, len - 4, parse_hook, &usr);
+		uwsgi_hooked_parse(bbuf + 4, len - 4, corerouter_manage_subscription, &usr);
 
 		// subscribe request ?
 		if (bbuf[3] == 0) {
-			if (uwsgi_add_subscribe_node(subscriptions, &usr, regexp) && *i_am_cheap) {
+			if (uwsgi_add_subscribe_node(&ucr->subscriptions, &usr, ucr->subscription_regexp) && ucr->i_am_cheap) {
 				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 				while (ugs) {
-					if (!strcmp(ugs->owner, gw_id) && !ugs->subscription) {
-						event_queue_add_fd_read(queue, ugs->fd);
+					if (!strcmp(ugs->owner, ucr->name) && !ugs->subscription) {
+						event_queue_add_fd_read(ucr->queue, ugs->fd);
 					}
 					ugs = ugs->next;
 				}
-				*i_am_cheap = 0;
-				uwsgi_log("[%s pid %d] leaving cheap mode...\n", gw_id, (int) uwsgi.mypid);
+				ucr->i_am_cheap = 0;
+				uwsgi_log("[%s pid %d] leaving cheap mode...\n", ucr->name, (int) uwsgi.mypid);
 			}
 		}
 		//unsubscribe 
 		else {
-			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, regexp);
+			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ucr->subscription_regexp);
 			if (node && node->len) {
 				if (node->death_mark == 0)
-					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", gw_id, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
+					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", ucr->name, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
 				node->failcnt++;
 				node->death_mark = 1;
 				// check if i can remove the node
 				if (node->reference == 0) {
-					uwsgi_remove_subscribe_node(subscriptions, node);
+					uwsgi_remove_subscribe_node(&ucr->subscriptions, node);
 				}
-				if (*subscriptions == NULL && cheap && !*i_am_cheap) {
-					uwsgi_gateway_go_cheap(gw_id, queue, i_am_cheap);
+				if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap) {
+					uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
 				}
 			}
 		}
@@ -142,7 +154,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 		for (i = 0; i < ushared->gateways_cnt; i++) {
 			if (i == id)
 				continue;
-			if (!strcmp(ushared->gateways[i].name, gw_id)) {
+			if (!strcmp(ushared->gateways[i].name, ucr->name)) {
 				if (send(ushared->gateways[i].internal_subscription_pipe[0], bbuf, len, 0) != len) {
 					uwsgi_error("send()");
 				}
@@ -152,7 +164,7 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_subscription(char *
 
 }
 
-static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscription(char *gw_id, int queue, int fd, struct uwsgi_subscribe_slot **subscriptions, int regexp, void (*parse_hook) (char *, uint16_t, char *, uint16_t, void *), int cheap, int *i_am_cheap) {
+void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr, int fd) {
 
 
 	struct uwsgi_subscribe_req usr;
@@ -160,40 +172,40 @@ static void __attribute__ ((unused)) uwsgi_corerouter_manage_internal_subscripti
 
 	ssize_t len = recv(fd, bbuf, 4096, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-	event_queue_add_fd_read(queue, fd);
+	event_queue_add_fd_read(ucr->queue, fd);
 #endif
 	if (len > 0) {
 		memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
-		uwsgi_hooked_parse(bbuf + 4, len - 4, parse_hook, &usr);
+		uwsgi_hooked_parse(bbuf + 4, len - 4, corerouter_manage_subscription, &usr);
 
 		// subscribe request ?
 		if (bbuf[3] == 0) {
-			if (uwsgi_add_subscribe_node(subscriptions, &usr, regexp) && *i_am_cheap) {
+			if (uwsgi_add_subscribe_node(&ucr->subscriptions, &usr, ucr->subscription_regexp) && ucr->i_am_cheap) {
 				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 				while (ugs) {
-					if (!strcmp(ugs->owner, gw_id) && !ugs->subscription) {
-						event_queue_add_fd_read(queue, ugs->fd);
+					if (!strcmp(ugs->owner, ucr->name) && !ugs->subscription) {
+						event_queue_add_fd_read(ucr->queue, ugs->fd);
 					}
 					ugs = ugs->next;
 				}
-				*i_am_cheap = 0;
-				uwsgi_log("[%s pid %d] leaving cheap mode...\n", gw_id, (int) uwsgi.mypid);
+				ucr->i_am_cheap = 0;
+				uwsgi_log("[%s pid %d] leaving cheap mode...\n", ucr->name, (int) uwsgi.mypid);
 			}
 		}
 		//unsubscribe 
 		else {
-			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, regexp);
+			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ucr->subscription_regexp);
 			if (node && node->len) {
 				if (node->death_mark == 0)
-					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", gw_id, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
+					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", ucr->name, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
 				node->failcnt++;
 				node->death_mark = 1;
 				// check if i can remove the node
 				if (node->reference == 0) {
-					uwsgi_remove_subscribe_node(subscriptions, node);
+					uwsgi_remove_subscribe_node(&ucr->subscriptions, node);
 				}
-				if (*subscriptions == NULL && cheap && !*i_am_cheap) {
-					uwsgi_gateway_go_cheap(gw_id, queue, i_am_cheap);
+				if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap) {
+					uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
 				}
 			}
 		}

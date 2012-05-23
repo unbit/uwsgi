@@ -158,11 +158,16 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 			Py_INCREF(headers);
 			PyTuple_SetItem(spit_args, 1, headers);
 
-			if (py_uwsgi_spit(NULL, spit_args) == Py_None) { 
+			if (py_uwsgi_spit(Py_None, spit_args) == NULL) { 
+				PyErr_Print();
 				Py_DECREF(spit_args);
 				goto clear; 
 			} 
 
+			// send the headers if not already sent
+        		if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
+                		uwsgi_python_do_send_headers(wsgi_req);
+        		}
 
 			Py_DECREF(spit_args);
 

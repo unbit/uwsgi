@@ -39,6 +39,40 @@ char *uwsgi_getsockname(int fd) {
 	return NULL;
 }
 
+int bind_to_unix_dgram(char *socket_name) {
+
+	int serverfd;
+	struct sockaddr_un *uws_addr;
+	socklen_t len;
+
+	serverfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+        if (serverfd < 0) {
+                uwsgi_error("socket()");
+                uwsgi_nuclear_blast();
+        }
+
+	if (unlink(socket_name) != 0 && errno != ENOENT) {
+        	uwsgi_error("unlink()");
+        }
+
+	uws_addr = uwsgi_calloc(sizeof(struct sockaddr_un));
+	uws_addr->sun_family = AF_UNIX;	
+
+	memcpy(uws_addr->sun_path, socket_name, UMIN(strlen(socket_name), 102));
+        len = strlen(socket_name);
+
+	#ifdef __HAIKU__
+        if (bind(serverfd, (struct sockaddr *) uws_addr, sizeof(struct sockaddr_un))) {
+#else
+        if (bind(serverfd, (struct sockaddr *) uws_addr, len + ((void *) uws_addr->sun_path - (void *) uws_addr)) != 0) {
+#endif
+                uwsgi_error("bind()");
+                uwsgi_nuclear_blast();
+        }
+
+	return serverfd;
+}
+
 int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abstract_socket) {
 
 	int serverfd;

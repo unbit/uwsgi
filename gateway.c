@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
+struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int, void *), void *data) {
 
         struct uwsgi_gateway *ug;
         int num=1,i;
@@ -26,6 +26,7 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop)(int)) {
         ug->loop = loop;
         ug->num = num;
 	ug->fullname = fullname;
+	ug->data = data;
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ug->internal_subscription_pipe)) {
 		uwsgi_error("socketpair()");
@@ -71,7 +72,7 @@ void gateway_respawn(int id) {
         	signal(SIGUSR2, SIG_IGN);
         	signal(SIGPIPE, SIG_IGN);
 
-		ug->loop(id);
+		ug->loop(id, ug->data);
 		// never here !!! (i hope)
 		exit(1);	
 	}

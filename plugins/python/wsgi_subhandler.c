@@ -166,6 +166,11 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
 		char *content = PyString_AsString(wsgi_req->async_result);
 		size_t content_len = PyString_Size(wsgi_req->async_result);
+		if (content_len > 0 && !wsgi_req->headers_sent) {
+			if (uwsgi_python_do_send_headers(wsgi_req)) {
+				goto clear;
+			}
+		}
 		UWSGI_RELEASE_GIL
 		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
 		UWSGI_GET_GIL
@@ -182,6 +187,10 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 #else
 	if (wsgi_req->sendfile_obj == wsgi_req->async_result && wsgi_req->sendfile_fd != -1) {
 #endif
+		// send the headers if not already sent
+        	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
+                	uwsgi_python_do_send_headers(wsgi_req);
+        	}
 		sf_len = uwsgi_sendfile(wsgi_req);
 		if (sf_len < 1) goto clear;
 		wsgi_req->response_size += sf_len;
@@ -252,6 +261,11 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	if (PyString_Check(pychunk)) {
 		char *content = PyString_AsString(pychunk);
 		size_t content_len = PyString_Size(pychunk);
+		if (content_len > 0 && !wsgi_req->headers_sent) {
+                        if (uwsgi_python_do_send_headers(wsgi_req)) {
+                                goto clear;
+                        }
+                }
 		UWSGI_RELEASE_GIL
 		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
 		UWSGI_GET_GIL
@@ -264,6 +278,10 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 #ifdef UWSGI_SENDFILE
 	else if (wsgi_req->sendfile_obj == pychunk && wsgi_req->sendfile_fd != -1) {
+		// send the headers if not already sent
+        	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
+                	uwsgi_python_do_send_headers(wsgi_req);
+        	}
 		sf_len = uwsgi_sendfile(wsgi_req);
 		if (sf_len < 1) goto clear;
 		wsgi_req->response_size += sf_len;
@@ -281,8 +299,16 @@ clear:
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
 clear2:
+
+	// send the headers if not already sent
+	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
+		uwsgi_python_do_send_headers(wsgi_req);
+	}
+
+
 	Py_DECREF((PyObject *)wsgi_req->async_result);
 	PyErr_Clear();
+
 
 	return UWSGI_OK;
 }

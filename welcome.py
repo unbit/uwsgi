@@ -42,7 +42,8 @@ def xsendfile(e, sr):
     return ''
 
 def serve_logo(e, sr):
-    sr('200 OK', [('Content-Type', 'image/png')])
+    # use raw facilities
+    uwsgi.send("%s 200 OK\r\nContent-Type: image/png\r\n\r\n" % e['SERVER_PROTOCOL'])
     return uwsgi.sendfile('logo_uWSGI.png')
 
 def serve_options(e, sr):

@@ -517,7 +517,22 @@ static int uwsgi_handler(request_rec *r) {
 						free(uwsgi_vars);
 						return HTTP_INTERNAL_SERVER_ERROR;
 					}
-					apr_brigade_write(bb, NULL, NULL, buf, cnt);
+					if (!c->cgi_mode) {
+						b = apr_bucket_transient_create(buf, cnt, r->connection->bucket_alloc);
+						APR_BRIGADE_INSERT_TAIL(bb, b);
+						b = apr_bucket_flush_create(r->connection->bucket_alloc);
+						APR_BRIGADE_INSERT_TAIL(bb, b);
+						if (ap_pass_brigade(r->output_filters, bb) != APR_SUCCESS) {
+							close(uwsgi_poll.fd);
+							apr_brigade_destroy(bb);
+							free(uwsgi_vars);
+							return HTTP_INTERNAL_SERVER_ERROR;
+						}
+						apr_brigade_cleanup(bb);
+					}
+					else {
+						apr_brigade_write(bb, NULL, NULL, buf, cnt);
+					}
 				}
 				else {
 					// EOF

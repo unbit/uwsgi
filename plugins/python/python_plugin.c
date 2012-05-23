@@ -120,12 +120,15 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"pyrun", required_argument, 0, "run a python script in the uWSGI environment", uwsgi_opt_pyrun, NULL, 0},
 
 #ifdef UWSGI_THREADING
+	{"py-tracebacker", required_argument, 0, "enable the uWSGI python tracebacker", uwsgi_opt_set_str, &up.tracebacker, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"py-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"py-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"python-auto-reload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"python-autoreload", required_argument, 0, "monitor python modules mtime to trigger reload (use only in development)", uwsgi_opt_set_int, &up.auto_reload, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 	{"py-auto-reload-ignore", required_argument, 0, "ignore the specified module during auto-reload scan (can be specified multiple times)", uwsgi_opt_add_string_list, &up.auto_reload_ignore, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 #endif
+
+	{"start_response-nodelay", no_argument, 0, "send WSGI http headers as soon as possible (PEP violation)", uwsgi_opt_true, &up.start_response_nodelay, 0},
 
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -246,6 +249,8 @@ void uwsgi_python_reset_random_seed() {
 
 void uwsgi_python_atexit() {
 
+	if (uwsgi.mywid == -1) goto realstuff;
+
 	// if hijacked do not run atexit hooks
 	if (uwsgi.workers[uwsgi.mywid].hijacked)
 		return;
@@ -259,6 +264,8 @@ void uwsgi_python_atexit() {
 	if (uwsgi.async > 1)
 		return;
 #endif
+
+realstuff:
 
 	// this time we use this higher level function
 	// as this code can be executed in a signal handler
@@ -320,6 +327,11 @@ void uwsgi_python_post_fork() {
 			// spawn the reloader thread
 			pthread_t par_tid;
 			pthread_create(&par_tid, NULL, uwsgi_python_autoreloader_thread, NULL);
+		}
+		if (up.tracebacker) {
+			// spawn the tracebacker thread
+			pthread_t ptb_tid;
+			pthread_create(&ptb_tid, NULL, uwsgi_python_tracebacker_thread, NULL);
 		}
 #endif
 	}
@@ -1222,25 +1234,25 @@ int uwsgi_check_python_mtime(PyObject *times_dict, char *filename) {
 	}
 	return 0;
 }
-void *uwsgi_python_autoreloader_thread(void *foobar) {
 
-	PyObject *modules;
-
+PyObject *uwsgi_python_setup_thread(char *name) {
 	// block signals on this thread
-	sigset_t smask;
+        sigset_t smask;
         sigfillset(&smask);
 #ifndef UWSGI_DEBUG
         sigdelset(&smask, SIGSEGV);
 #endif
         pthread_sigmask(SIG_BLOCK, &smask, NULL);
 
-	PyThreadState *pts = PyThreadState_New(up.main_thread->interp);
-	pthread_setspecific(up.upt_save_key, (void *) pts);
+        PyThreadState *pts = PyThreadState_New(up.main_thread->interp);
+        pthread_setspecific(up.upt_save_key, (void *) pts);
         pthread_setspecific(up.upt_gil_key, (void *) pts);
-	UWSGI_GET_GIL;
-	PyObject *threading_module = PyImport_ImportModule("threading");
-	if (threading_module) {
-		PyObject *threading_module_dict = PyModule_GetDict(threading_module);
+
+        UWSGI_GET_GIL;
+
+        PyObject *threading_module = PyImport_ImportModule("threading");
+        if (threading_module) {
+                PyObject *threading_module_dict = PyModule_GetDict(threading_module);
                 if (threading_module_dict) {
 #ifdef PYTHREE
                         PyObject *threading_current = PyDict_GetItemString(threading_module_dict, "current_thread");
@@ -1254,20 +1266,131 @@ void *uwsgi_python_autoreloader_thread(void *foobar) {
                                         PyErr_Clear();
                                 }
                                 else {
-                                        PyObject_SetAttrString(current_thread, "name", PyString_FromString("uWSGIAutoReloader"));
+                                        PyObject_SetAttrString(current_thread, "name", PyString_FromString(name));
                                         Py_INCREF(current_thread);
-					modules = PyImport_GetModuleDict();
-					goto cycle;
+					return current_thread;
                                 }
                         }
                 }
 
+        }
+
+        return NULL;
+}
+
+void *uwsgi_python_tracebacker_thread(void *foobar) {
+
+	struct iovec iov[9];
+
+	PyObject *new_thread = uwsgi_python_setup_thread("uWSGITraceBacker");
+	if (!new_thread) return NULL;
+
+	struct sockaddr_un so_sun;
+	socklen_t so_sun_len = 0;
+
+	char *str_wid = uwsgi_num2str(uwsgi.mywid);
+	char *sock_path = uwsgi_concat2(up.tracebacker, str_wid);
+
+	int current_defer_accept = uwsgi.no_defer_accept;
+        uwsgi.no_defer_accept = 1;
+	int fd = bind_to_unix(sock_path, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+        uwsgi.no_defer_accept = current_defer_accept;
+	PyObject *threading_module = PyImport_ImportModule("threading");
+	if (!threading_module) return NULL;
+	//PyObject *threading_dict = PyModule_GetDict(threading_module);
+
+	PyObject *traceback_module = PyImport_ImportModule("traceback");
+	if (!traceback_module) return NULL;
+	PyObject *traceback_dict = PyModule_GetDict(traceback_module);
+	PyObject *extract_stack = PyDict_GetItemString(traceback_dict, "extract_stack");
+
+	PyObject *sys_module = PyImport_ImportModule("sys");
+	PyObject *sys_dict = PyModule_GetDict(sys_module);
+
+
+	PyObject *_current_frames = PyDict_GetItemString(sys_dict, "_current_frames");
+
+	uwsgi_log("python tracebacker for worker %d available on %s\n", uwsgi.mywid, sock_path);
+	for(;;) {
+		UWSGI_RELEASE_GIL;
+		int client_fd = accept(fd, (struct sockaddr *) &so_sun, &so_sun_len);
+		if (client_fd < 0) {
+			uwsgi_error("accept()");
+			UWSGI_GET_GIL;
+			continue;
+		}
+		UWSGI_GET_GIL;
+// here is the core of the tracebacker
+		PyObject *current_frames = PyEval_CallObject(_current_frames, (PyObject *)NULL);
+		if (!current_frames) goto end;
+		uwsgi_log("current_frames = %p\n", current_frames);
+		PyObject *current_frames_items = PyObject_GetAttrString(current_frames, "items");
+		if (!current_frames_items) goto end;
+		uwsgi_log("current_frames_items = %p\n", current_frames_items);
+		PyObject *frames_ret = PyEval_CallObject(current_frames_items, (PyObject *)NULL);
+		if (!frames_ret) goto end;
+		uwsgi_log("frames_ret = %p\n", frames_ret);
+		PyObject *frames_iter = PyObject_GetIter(frames_ret);
+		uwsgi_log("frames_iter = %p\n", frames_iter);
+		PyObject *frame = PyIter_Next(frames_iter);
+		while(frame) {
+			uwsgi_log("frame = %p\n", frame);
+			PyObject *stack = PyTuple_GetItem(frame, 1);
+			uwsgi_log("stack = %p\n", stack);
+			PyObject *arg_tuple = PyTuple_New(1);
+			PyTuple_SetItem(arg_tuple, 0, stack);
+			PyObject *stacktrace = PyEval_CallObject( extract_stack, arg_tuple);
+			uwsgi_log("stacktrace = %p\n", stacktrace);
+			PyObject *stacktrace_iter = PyObject_GetIter(stacktrace);
+			PyObject *st_items = PyIter_Next(stacktrace_iter);
+			while(st_items) {
+				uwsgi_log("st_items = %p\n", st_items);
+				PyObject *st_filename = PyTuple_GetItem(st_items, 0);
+				PyObject *st_lineno = PyTuple_GetItem(st_items, 1);
+				PyObject *st_name = PyTuple_GetItem(st_items, 2);
+				PyObject *st_line = PyTuple_GetItem(st_items, 3);
+				iov[0].iov_base = "filename = ";
+				iov[0].iov_len = 11;
+				iov[1].iov_base = PyString_AsString(st_filename);
+				iov[1].iov_len = strlen(iov[1].iov_base);
+				iov[2].iov_base = " lineno = ";
+				iov[2].iov_len = 10 ;
+				iov[3].iov_base = uwsgi_num2str(PyInt_AsLong(st_lineno));
+				iov[3].iov_len = strlen(iov[3].iov_base);
+				iov[4].iov_base = " function = ";
+				iov[4].iov_len = 12 ;
+				iov[5].iov_base = PyString_AsString(st_name);
+                                iov[5].iov_len = strlen(iov[5].iov_base);
+				iov[6].iov_base = "\n";
+				iov[6].iov_len = 1 ;
+				if (st_line) {
+				}
+				if (writev(client_fd, iov, 7) < 0) {
+					uwsgi_error("writev()");
+				}
+				st_items = PyIter_Next(stacktrace_iter);
+			}
+			frame = PyIter_Next(frames_iter);
+		}
+
+	
+end:
+		close(client_fd);
 	}
 	return NULL;
-cycle:
+}
+
+void *uwsgi_python_autoreloader_thread(void *foobar) {
+
+	PyObject *new_thread = uwsgi_python_setup_thread("uWSGIAutoReloader");
+	if (!new_thread) return NULL;
+
+	PyObject *modules = PyImport_GetModuleDict();
+
 	if (uwsgi.mywid == 1) {
 		uwsgi_log("Python auto-reloader enabled\n");
 	}
+
 	PyObject *times_dict = PyDict_New();
 	char *filename;
 	for(;;) {

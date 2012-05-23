@@ -106,15 +106,10 @@ void uwsgi_graylog2_register() {
 	uwsgi_register_logger("graylog2", uwsgi_graylog2_logger);
 }
 
-int uwsgi_graylog2_init() {
-	return 0;
-}
-
 struct uwsgi_plugin graylog2_plugin = {
 
         .name = "graylog2",
         .on_load = uwsgi_graylog2_register,
-	.init = uwsgi_graylog2_init
 
 };
 

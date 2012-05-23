@@ -4292,3 +4292,109 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 	}
 	return dst;
 }
+
+#ifdef UWSGI_SSL
+
+/*
+
+ssl additional datas are retrieved via indexes.
+
+You can create an index with SSL_CTX_get_ex_new_index and
+set data in it with SSL_CTX_set_ex_data
+
+*/
+
+void uwsgi_ssl_init(void) {
+	OPENSSL_config(NULL);
+        SSL_library_init();
+        OpenSSL_add_all_algorithms();
+	uwsgi.ssl_initialized = 1;
+}
+
+void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
+	if (where & SSL_CB_HANDSHAKE_DONE) {
+		if (ssl->s3) {
+            		ssl->s3->flags |= SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS;
+		}
+	}
+}
+
+SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers) {
+	
+	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
+        if (!ctx) {
+                uwsgi_log("unable to initialize ssl context\n");
+                exit(1);
+        }
+
+	// this part is taken from nginx and stud, removing unneeded functionality
+	// stud (for me) has made the best choice on choosing DH approach
+
+	long ssloptions = SSL_OP_NO_SSLv2 | SSL_OP_ALL | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+// disable compression (if possibile)
+#ifdef SSL_OP_NO_COMPRESSION
+	ssloptions |= SSL_OP_NO_COMPRESSION;
+#endif
+	SSL_CTX_set_options(ctx, ssloptions);
+
+// release/reuse buffers as soon as possibile
+#ifdef SSL_MODE_RELEASE_BUFFERS
+    	SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
+#endif
+
+	if (SSL_CTX_use_certificate_file(ctx, crt, SSL_FILETYPE_PEM) <= 0) {
+		uwsgi_log("unable to assign ssl certificate %s\n", crt);
+		exit(1);
+	}
+
+// this part is based from stud
+	BIO *bio = BIO_new_file(crt, "r");
+	if (bio) {
+		DH *dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+		BIO_free(bio);
+		if (dh) {
+			SSL_CTX_set_tmp_dh(ctx, dh);
+			DH_free(dh);
+#ifdef NID_X9_62_prime256v1
+			EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+			SSL_CTX_set_tmp_ecdh(ctx,ecdh);
+			EC_KEY_free(ecdh);
+#endif
+		}
+	}
+
+	if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
+		uwsgi_log("unable to assign key certificate %s\n", key);
+		exit(1);
+	}
+
+	// if ciphers are specified, prefer server ciphers
+	if (ciphers) {
+		if (SSL_CTX_set_cipher_list(ctx, ciphers) == 0) {
+			uwsgi_log("unable to set ssl requested ciphers: %s\n", ciphers);
+			exit(1);
+		}
+
+		SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+	}
+
+
+	SSL_CTX_set_info_callback(ctx, uwsgi_ssl_info_cb);
+
+/*
+	if (name) {
+		//SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
+		SSL_CTX_set_session_id_context(ctx, (unsigned char *)name, strlen(name));
+		SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("[uwsgi-ssl] initialized ssl session cache: %s\n", name);
+#endif
+		//SSL_CTX_set_timeout
+		//SSL_CTX_sess_set_cache_size
+	}
+*/
+
+	return ctx;
+}
+
+#endif

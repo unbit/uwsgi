@@ -63,6 +63,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero,0},
 
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
+	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_string_list, &uwsgi.custom_options, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
 	{"endfor", optional_argument, 0, "(opt logic) end for cycle", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
@@ -92,6 +93,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ignore-write-errors", no_argument, 0, "do not report (annoying) write()/writev() errors", uwsgi_opt_true, &uwsgi.ignore_write_errors,0},
 	{"write-errors-tolerance", required_argument, 0, "set the maximum number of allowed write errors (default: no tolerance)", uwsgi_opt_set_int, &uwsgi.write_errors_tolerance,0},
 	{"write-errors-exception-only", no_argument, 0, "only raise an exception on write errors giving control to the app itself", uwsgi_opt_true, &uwsgi.write_errors_exception_only,0},
+	{"disable-write-exception", no_argument, 0, "disable exception generation on write()/writev()", uwsgi_opt_true, &uwsgi.disable_write_exception,0},
 
 	{"inherit", required_argument, 0, "use the specified file as config template", uwsgi_opt_load, NULL,0},
 	{"daemonize", required_argument, 'd', "daemonize uWSGI", uwsgi_opt_set_str, &uwsgi.daemonize, 0},
@@ -218,6 +220,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"exec-in-jail", required_argument,0, "run the specified command in jail after initialization", uwsgi_opt_add_string_list, &uwsgi.exec_in_jail,0},
 	{"exec-as-root", required_argument,0, "run the specified command before privileges drop", uwsgi_opt_add_string_list, &uwsgi.exec_as_root,0},
 	{"exec-as-user", required_argument,0, "run the specified command after privileges drop", uwsgi_opt_add_string_list, &uwsgi.exec_as_user,0},
+	{"exec-as-user-atexit", required_argument,0, "run the specified command before app exit and reload", uwsgi_opt_add_string_list, &uwsgi.exec_as_user_atexit,0},
 	{"exec-pre-app", required_argument,0, "run the specified command before app loading", uwsgi_opt_add_string_list, &uwsgi.exec_pre_app,0},
 #ifdef UWSGI_INI
 	{"ini", required_argument, 0, "load config from ini file", uwsgi_opt_load_ini, NULL, UWSGI_OPT_IMMEDIATE},
@@ -320,6 +323,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER|UWSGI_OPT_LOG_MASTER},
 #endif
 	{"log-master", no_argument, 0, "delegate logging to master process", uwsgi_opt_true, &uwsgi.log_master, 0},
+	{"log-master-bufsize", required_argument, 0, "set the buffer size for the master logger. bigger log messages will be truncated", uwsgi_opt_set_64bit, &uwsgi.log_master_bufsize, 0},
 	{"log-reopen", no_argument, 0, "reopen log after reload", uwsgi_opt_true, &uwsgi.log_reopen, 0},
 	{"log-truncate", no_argument, 0, "truncate log on startup", uwsgi_opt_true, &uwsgi.log_truncate, 0},
 	{"log-maxsize", required_argument, 0, "set maximum logfile size", uwsgi_opt_set_int, &uwsgi.log_maxsize, UWSGI_OPT_LOG_MASTER},
@@ -341,12 +345,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
-	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, 0},
+	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, UWSGI_OPT_MASTER},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning)", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
 	{"cheaper-overload", required_argument, 0, "increase workers after specified overload", uwsgi_opt_set_64bit, &uwsgi.cheaper_overload, UWSGI_OPT_MASTER|UWSGI_OPT_CHEAPER},
-	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, 0},
+	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, UWSGI_OPT_MASTER},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_app, NULL,0},
 #ifdef UWSGI_PCRE
@@ -448,6 +452,89 @@ void show_config(void) {
 
 }
 
+int uwsgi_manage_custom_option(struct uwsgi_string_list *usl, char *key, char *value) {
+	size_t i,count = 1;
+	size_t value_len = strlen(value);
+	off_t pos = 0;
+	char **opt_argv;
+	char *equal = memchr(usl->value, '=', usl->len);
+	if (!equal) {
+		return 0;
+	}
+
+	if (uwsgi_strncmp(usl->value, equal-usl->value, key, strlen(key))) {
+		return 0;
+	}
+
+	// now count the number of args
+	for(i=0;i<value_len;i++) {
+		if (value[i] == ' ') {
+			count++;
+		}
+	}
+
+	// allocate a tmp array
+	opt_argv = uwsgi_calloc(sizeof(char *) * count);
+	//make a copy of the value;
+	char *tmp_val = uwsgi_str(value);
+	// fill the array of options
+	char *p = strtok(tmp_val, " ");
+	while(p) {
+		opt_argv[pos] = p;
+		pos++;
+		p = strtok(NULL, " ");
+	}
+
+#ifdef UWSGI_DEBUG
+	uwsgi_log("found custom option %s with %d args\n", key, count);
+#endif
+	// now make a copy of the option template
+	char *tmp_opt = uwsgi_concat2n(equal+1, usl->len - (equal-usl->value), "", 0);
+	// split it
+	p = strtok(tmp_opt, ";");
+	while(p) {
+		equal = strchr(p, '=');
+		if (!equal) goto clear;
+		*equal = '\0';
+
+		// build the key
+		char *new_key = uwsgi_str(p);
+		for(i=0;i<count;i++) {
+			char *old_key = new_key;
+			char *tmp_num = uwsgi_num2str(i+1);
+			char *placeholder = uwsgi_concat2((char *)"$", tmp_num);
+			free(tmp_num);
+			new_key = uwsgi_substitute(old_key, placeholder, opt_argv[i]);
+			if (new_key != old_key)
+				free(old_key);
+			free(placeholder);
+		}
+
+		// build the value
+		char *new_value = uwsgi_str(equal+1);
+                for(i=0;i<count;i++) {
+			char *old_value = new_value;
+                        char *tmp_num = uwsgi_num2str(i+1);
+                        char *placeholder = uwsgi_concat2((char *)"$", tmp_num);
+                        free(tmp_num);
+                        new_value = uwsgi_substitute(old_value, placeholder, opt_argv[i]);
+			if (new_value != old_value)
+				free(old_value);
+                        free(placeholder);
+                }
+		// we can ignore its return value
+		(void) uwsgi_manage_opt(new_key, new_value);
+		p = strtok(NULL, ";");
+	}
+
+clear:
+	free(tmp_val);
+	free(tmp_opt);
+	free(opt_argv);
+	return 1;
+	
+}
+
 int uwsgi_manage_opt(char *key, char *value) {
 
 	struct uwsgi_option *op = uwsgi.options;
@@ -457,6 +544,14 @@ int uwsgi_manage_opt(char *key, char *value) {
 			return 1;
 		}
 		op++;
+	}
+
+	struct uwsgi_string_list *usl = uwsgi.custom_options;
+	while(usl) {
+		if (uwsgi_manage_custom_option(usl, key, value)) {
+			return 1;
+		}
+		usl = usl->next;
 	}
 	return 0;
 	
@@ -539,12 +634,19 @@ void warn_pipe() {
 void wait_for_threads() {
 	int i, ret;
 
+	int sudden_death = 0;
+
 	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
 	for (i = 0; i < uwsgi.threads; i++) {
 		if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-			pthread_cancel(uwsgi.core[i]->thread_id);
+			if (pthread_cancel(uwsgi.core[i]->thread_id)) {
+				uwsgi_error("pthread_cancel()\n");
+				sudden_death = 1;
+			}
 		}
 	}
+
+	if (sudden_death) goto end;
 
 	// wait for thread termination
 	for (i = 0; i < uwsgi.threads; i++) {
@@ -555,6 +657,8 @@ void wait_for_threads() {
 			}
 		}
 	}
+
+end:
 
 	pthread_mutex_unlock(&uwsgi.six_feet_under_lock);
 }
@@ -961,6 +1065,21 @@ struct uwsgi_plugin unconfigured_plugin = {
 	.after_request = unconfigured_after_hook,
 };
 
+void uwsgi_exec_atexit(void) {
+	if (getpid() == masterpid) {
+        	// now run exit scripts needed by the user
+                struct uwsgi_string_list *usl = uwsgi.exec_as_user_atexit;
+                while(usl) {
+                	uwsgi_log("running \"%s\" (as uid: %d gid: %d) ...\n", usl->value, (int) getuid(), (int) getgid());
+                        int ret = uwsgi_run_command_and_wait(NULL, usl->value);
+                        if (ret != 0) {
+                        	uwsgi_log("command \"%s\" exited with non-zero code: %d\n", usl->value, ret);
+                        }
+                        usl = usl->next;
+               }
+	}
+}
+
 static void vacuum(void) {
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
@@ -1272,8 +1391,13 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	init_magic_table(uwsgi.magic_table);
 
+	// manage/flush logs
 	atexit(uwsgi_flush_logs);
+	// clear sockets, pidfiles...
 	atexit(vacuum);
+	// call user scripts
+	atexit(uwsgi_exec_atexit);
+	// call plugin specific exit hooks
 	atexit(uwsgi_plugins_atexit);
 
 
@@ -1340,6 +1464,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.listen_queue = 100;
 
 	uwsgi.cheaper_overload = 3;
+
+	uwsgi.log_master_bufsize = 8192;
 
 	uwsgi.max_vars = MAX_VARS;
 	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);
@@ -1614,6 +1740,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 			if (colon) {
 				uwsgi.choosen_logger_arg = colon+1;
+				if (*uwsgi.choosen_logger_arg == 0) {
+					uwsgi.choosen_logger_arg = NULL;
+				}
 				*colon = ':';
 			}
 
@@ -1677,26 +1806,55 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi_log_initial("detected binary path: %s\n", uwsgi.binary_path);
 
+	if (uwsgi.is_a_reload) {
+		struct rlimit rl;
+		if (!getrlimit(RLIMIT_NOFILE, &rl)) {
+                	uwsgi.max_fd = rl.rlim_cur;
+        	}
+	}
+
 	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
 	while (shared_sock) {
-		char *tcp_port = strchr(shared_sock->name, ':');
-		if (tcp_port == NULL) {
-			shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-			shared_sock->family = AF_UNIX;
-			uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+		if (!uwsgi.is_a_reload) {
+			char *tcp_port = strchr(shared_sock->name, ':');
+			if (tcp_port == NULL) {
+				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+				shared_sock->family = AF_UNIX;
+				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+			}
+			else {
+				shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
+				shared_sock->family = AF_INET;
+				uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+			}
+
+			if (shared_sock->fd < 0) {
+				uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
+				exit(1);
+			}
 		}
 		else {
-			shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
-			shared_sock->family = AF_INET;
-			uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-		}
-
-		if (shared_sock->fd < 0) {
-			uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
-			exit(1);
+			for(i=3;i<(int)uwsgi.max_fd;i++) {
+				char *sock = uwsgi_getsockname(i);
+				if (sock) {
+					if (!strcmp(sock, shared_sock->name)) {
+						if (strchr(sock, ':')) {
+							uwsgi_log("uwsgi shared socket %d inherited TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);	
+							shared_sock->family = AF_INET;
+						}
+						else {
+							uwsgi_log("uwsgi shared socket %d inherited UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);	
+							shared_sock->family = AF_UNIX;
+						}
+						shared_sock->fd = i;
+					}
+					else {
+						free(sock);
+					}
+				}
+			}	
 		}
 		shared_sock->bound = 1;
-
 		shared_sock = shared_sock->next;
 	}
 
@@ -2240,6 +2398,17 @@ int uwsgi_start(void *v_argv) {
 							break;
 						}
 						uwsgi_sock = uwsgi_sock->next;
+					}
+
+					if (useless) {
+						uwsgi_sock = uwsgi.shared_sockets;
+                                        	while (uwsgi_sock) {
+                                                	if (uwsgi_sock->fd == j && uwsgi_sock->bound) {
+                                                        	useless = 0;
+                                                        	break;
+                                                	}
+                                                	uwsgi_sock = uwsgi_sock->next;
+                                        	}
 					}
 				}
 
@@ -3350,7 +3519,7 @@ void build_options() {
 
 	if (uwsgi.short_options) free(uwsgi.short_options);
 
-	uwsgi.short_options = uwsgi_calloc( (options_count * 2) + 1) ;
+	uwsgi.short_options = uwsgi_calloc( (options_count * 3) + 1) ;
 	
 	op = uwsgi.options;
 	while(op->name) {
@@ -3364,7 +3533,10 @@ void build_options() {
 			// avoid duplicates in short_options
 			if (!strchr(uwsgi.short_options, shortcut)) {
 				strncat(uwsgi.short_options, &shortcut, 1);
-				if (op->type != no_argument) {
+				if (op->type == optional_argument) {
+					strcat(uwsgi.short_options, "::");
+				}
+				else if (op->type == required_argument) {
 					strcat(uwsgi.short_options, ":");
 				}
 			}
@@ -3644,6 +3816,7 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 	p[0] = '=';
 	
 }
+
 
 void uwsgi_opt_set_umask(char *opt, char *value,  void *mode) {
 

@@ -101,6 +101,34 @@ int uwsgi_perl_obj_can(SV *obj, char *method, size_t len) {
 
 }
 
+int uwsgi_perl_obj_isa(SV *obj, char *class) {
+
+	int ret = 0;
+
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs(obj);
+        PUTBACK;
+
+        call_pv( "Scalar::Util::reftype", G_SCALAR|G_EVAL);
+
+        SPAGAIN;
+        char *reftype = POPp;
+	if (reftype && !strcmp(reftype, class)) {
+		ret = 1;
+	}
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+        return ret;
+
+}
+
+
 SV *uwsgi_perl_obj_call(SV *obj, char *method) {
 
         SV *ret = NULL;
@@ -168,6 +196,7 @@ AV *psgi_call(struct wsgi_request *wsgi_req, SV *psgi_func, SV *env) {
 
 SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	int i;
+	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
 	HV *env = newHV();
 
 	// fill perl hash
@@ -260,12 +289,17 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	
 	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(wsgi_req->body_as_file), 0)) goto clear;
 
+	if (!hv_store(env, "psgix.logger", 12,newRV((SV*) ((SV **)wi->responder1)[wsgi_req->async_id]) ,0)) goto clear;
+
 	if (uwsgi.master_process) {
 		if (!hv_store(env, "psgix.harakiri", 14, newSViv(1), 0)) goto clear;
 	}
 
 	SV *pe = uwsgi_perl_obj_new("uwsgi::error", 12);
         if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
+
+	(void) hv_delete(env, "HTTP_CONTENT_LENGTH", 19, G_DISCARD);
+	(void) hv_delete(env, "HTTP_CONTENT_TYPE", 17, G_DISCARD);
 
 	return newRV_noinc((SV *)env);
 

@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '1.2'
+uwsgi_version = '1.3-dev'
 
 import os
 import re
@@ -126,6 +126,8 @@ def build_uwsgi(uc, print_only=False):
         epc = "-DUWSGI_DECLARE_EMBEDDED_PLUGINS=\""
         eplc = "-DUWSGI_LOAD_EMBEDDED_PLUGINS=\""
         for p in ep:
+            if p is None or p == 'None':
+                continue
             p = p.strip()
             if p == 'ugreen':
                 if uwsgi_os == 'OpenBSD' or uwsgi_cpu[0:3] == 'arm' or uwsgi_os == 'Haiku':
@@ -158,6 +160,8 @@ def build_uwsgi(uc, print_only=False):
         if len(ep) > 0:
             print("*** uWSGI compiling embedded plugins ***")
             for p in ep:
+                if p is None or p == 'None':
+                    continue
                 p = p.strip()
 
                 if p == 'ugreen':
@@ -220,7 +224,7 @@ def build_uwsgi(uc, print_only=False):
                 print("*** building plugin: %s ***" % p)
                 build_plugin("plugins/%s" % p, uc, cflags, ldflags, libs)
 
-    bin_name = uc.get('bin_name')
+    bin_name = os.environ.get('UWSGI_BIN_NAME', uc.get('bin_name'))
 
     if uc.get('embed_config'):
         gcc_list.append(uc.get('embed_config'))
@@ -265,7 +269,7 @@ class uConf(object):
         ulp.close()
 
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'master_utils', 'emperor', 'notify', 'mule', 'subscription',
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'master_utils', 'emperor', 'notify', 'mule', 'subscription', 'stats',
             'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'cluster', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')
@@ -340,7 +344,10 @@ class uConf(object):
             if not inherit.endswith('.ini'):
                 inherit = '%s.ini' % inherit
 
-            iconfig = ConfigParser.ConfigParser()
+            interpolations = {}
+            for option in self.config.options('uwsgi'):
+                interpolations[option] = self.get(option)
+            iconfig = ConfigParser.ConfigParser(interpolations)
             iconfig.read(inherit)
             for opt in iconfig.options('uwsgi'):
                 if not self.config.has_option('uwsgi', opt):
@@ -758,6 +765,17 @@ class uConf(object):
                 self.cflags.append("-DUWSGI_LDAP")
                 self.gcc_list.append('ldap')
                 self.libs.append('-lldap')
+
+        if self.get('ssl'):
+            if self.get('ssl') == 'auto':
+                if self.has_include('openssl/ssl.h'):
+                    self.cflags.append("-DUWSGI_SSL")
+                    self.libs.append('-lssl')
+                    self.libs.append('-lcrypto')
+            else:
+                self.cflags.append("-DUWSGI_SSL")
+                self.libs.append('-lcrypto')
+
 
         if self.get('sctp'):
             if self.get('sctp') == 'auto':

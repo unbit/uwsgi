@@ -267,20 +267,25 @@ PyTypeObject uwsgi_InputType = {
 PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 	PyObject *data;
 	char *content;
-	int len;
+	size_t content_len;
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 
 	data = PyTuple_GetItem(args, 0);
 	if (PyString_Check(data)) {
 		content = PyString_AsString(data);
-		len = PyString_Size(data);
+		content_len = PyString_Size(data);
+		if (content_len > 0 && !wsgi_req->headers_sent) {
+                        if (uwsgi_python_do_send_headers(wsgi_req)) {
+                                return NULL;
+                        }
+                }
 		UWSGI_RELEASE_GIL
-			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, content, len);
+			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, content, content_len);
 		UWSGI_GET_GIL
 		// this is a special case for the write callable
 		// no need to honout write-errors-exception-only
-		if (wsgi_req->write_errors > uwsgi.write_errors_tolerance) {
+		if (wsgi_req->write_errors > uwsgi.write_errors_tolerance && !uwsgi.disable_write_exception) {
                         uwsgi_py_write_set_exception(wsgi_req);
 			return NULL;
 		}

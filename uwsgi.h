@@ -378,13 +378,15 @@ struct uwsgi_gateway {
 
 	char *name;
 	char *fullname;
-	void (*loop) (int);
+	void (*loop) (int, void *);
 	pid_t pid;
 	int num;
 	int use_signals;
 
 	int internal_subscription_pipe[2];
 	uint64_t respawns;
+	
+	void *data;
 };
 
 struct uwsgi_gateway_socket {
@@ -404,11 +406,17 @@ struct uwsgi_gateway_socket {
 	int sctp;
 #endif
 	int shared;
+	int nb;
 
 	char *owner;
 	struct uwsgi_gateway *gateway;
 
         struct uwsgi_gateway_socket *next;
+
+	// could be useful for ssl
+	void *ctx;
+	// could be useful ofr plugins
+	int mode;
 	
 };
 
@@ -896,6 +904,8 @@ struct wsgi_request {
 	int do_not_add_to_async_queue;
 
 	int status;
+	void *status_header;
+	void *headers;
 	size_t response_size;
 	ssize_t headers_size;
 
@@ -934,6 +944,10 @@ struct wsgi_request {
 
 	// current socket mapped to request
 	struct uwsgi_socket *socket;
+
+	// check if headers are already sent
+	int headers_sent;
+	int headers_hvec;
 
 	int body_as_file;
 	//for generic use
@@ -1159,6 +1173,7 @@ struct uwsgi_server {
 	char *short_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
+	struct uwsgi_string_list *custom_options;
 
 	// dump the whole set of options
 	int dump_options;
@@ -1199,6 +1214,7 @@ struct uwsgi_server {
 	int ignore_write_errors;
 	int write_errors_tolerance;
 	int write_errors_exception_only;
+	int disable_write_exception;
 
 	// still working on it
 	char *profiler;
@@ -1243,6 +1259,8 @@ struct uwsgi_server {
 
 	// route all of the logs to the master process
 	int log_master;
+	char *log_master_buf;
+	size_t log_master_bufsize;
 
 	int log_reopen;
 	int log_truncate;
@@ -1264,6 +1282,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_in_jail;
 	struct uwsgi_string_list *exec_as_root;
 	struct uwsgi_string_list *exec_as_user;
+	struct uwsgi_string_list *exec_as_user_atexit;
 	struct uwsgi_string_list *exec_pre_app;
 
 	struct uwsgi_logger *loggers;
@@ -1641,6 +1660,10 @@ struct uwsgi_server {
 
 	int never_swap;
 
+#ifdef UWSGI_SSL
+	int ssl_initialized;
+#endif
+
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 	int linux_ksm;
@@ -1656,12 +1679,12 @@ struct uwsgi_server {
 
 struct uwsgi_offload_request {
 	pthread_t tid;
-	struct wsgi_request wsgi_req;
 	char *buffer;
 	struct iovec *hvec;
 	char real_filename[PATH_MAX+1];
 	size_t real_filename_len;
 	struct stat st;
+	struct wsgi_request wsgi_req;
 };
 
 
@@ -1947,6 +1970,7 @@ void end_me(int);
 int bind_to_unix(char *, int, int, int);
 int bind_to_tcp(char *, int, char *);
 int bind_to_udp(char *, int, int);
+int bind_to_unix_dgram(char *);
 int timed_connect(struct pollfd *, const struct sockaddr *, int, int, int);
 int uwsgi_connect(char *, int, int);
 int uwsgi_connectn(char *, uint16_t, int, int);
@@ -2178,6 +2202,7 @@ int event_queue_wait_multi(int, int, void *, int);
 int event_queue_interesting_fd(void *, int);
 int event_queue_interesting_fd_has_error(void *, int);
 int event_queue_fd_write_to_read(int, int);
+int event_queue_fd_read_to_write(int, int);
 
 int event_queue_add_timer(int, int *, int);
 struct uwsgi_timer *event_queue_ack_timer(int);
@@ -2205,7 +2230,7 @@ char *uwsgi_cheap_string(char *, int);
 int uwsgi_parse_array(char *, uint16_t, char **, uint16_t *, uint8_t *);
 
 
-struct uwsgi_gateway *register_gateway(char *, void (*)(int));
+struct uwsgi_gateway *register_gateway(char *, void (*)(int, void *), void *);
 void gateway_respawn(int);
 
 void uwsgi_gateway_go_cheap(char *, int, int *);
@@ -2826,6 +2851,41 @@ uint64_t uwsgi_micros(void);
 int uwsgi_is_file(char *);
 
 void uwsgi_receive_signal(int, char *, int);
+void uwsgi_exec_atexit(void);
+
+struct uwsgi_stats {
+	char *base;
+	off_t pos;
+	size_t chunk;
+	size_t size;
+};
+
+struct uwsgi_stats *uwsgi_stats_new(size_t);
+int uwsgi_stats_symbol(struct uwsgi_stats *, char);
+int uwsgi_stats_comma(struct uwsgi_stats *);
+int uwsgi_stats_object_open(struct uwsgi_stats *);
+int uwsgi_stats_object_close(struct uwsgi_stats *);
+int uwsgi_stats_list_open(struct uwsgi_stats *);
+int uwsgi_stats_list_close(struct uwsgi_stats *);
+int uwsgi_stats_keyval(struct uwsgi_stats *, char *, char *);
+int uwsgi_stats_keyval_comma(struct uwsgi_stats *, char *, char *);
+int uwsgi_stats_keyvalnum(struct uwsgi_stats *, char *, char *, unsigned long long);
+int uwsgi_stats_keyvalnum_comma(struct uwsgi_stats *, char *, char *, unsigned long long);
+int uwsgi_stats_keyvaln(struct uwsgi_stats *, char *, char *, int);
+int uwsgi_stats_keyvaln_comma(struct uwsgi_stats *, char *, char *, int);
+int uwsgi_stats_key(struct uwsgi_stats *, char *);
+int uwsgi_stats_keylong(struct uwsgi_stats *, char *, unsigned long long);
+int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
+int uwsgi_stats_str(struct uwsgi_stats *, char *);
+
+char *uwsgi_substitute(char *, char *, char *);
+
+#ifdef UWSGI_SSL
+#include "openssl/conf.h"
+#include "openssl/ssl.h"
+void uwsgi_ssl_init(void);
+SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *);
+#endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

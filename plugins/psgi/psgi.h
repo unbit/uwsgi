@@ -35,6 +35,7 @@ struct uwsgi_perl {
 	HV **tmp_input_stash;
 	HV **tmp_error_stash;
 
+	CV **tmp_psgix_logger;
 	CV **tmp_stream_responder;
 };
 
@@ -47,5 +48,6 @@ int psgi_response(struct wsgi_request *, AV*);
 
 SV *uwsgi_perl_obj_call(SV *, char *);
 int uwsgi_perl_obj_can(SV *, char *, size_t);
+int uwsgi_perl_obj_isa(SV *, char *);
 int init_psgi_app(struct wsgi_request *, char *, uint16_t, PerlInterpreter **);
 PerlInterpreter *uwsgi_perl_new_interpreter(void);

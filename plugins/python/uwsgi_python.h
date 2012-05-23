@@ -38,7 +38,7 @@
 #define PyVarObject_HEAD_INIT(x, y) PyObject_HEAD_INIT(x) y,
 #endif
 
-#define uwsgi_py_write_set_exception(x) PyErr_SetString(PyExc_IOError, "write error");
+#define uwsgi_py_write_set_exception(x) if (!uwsgi.disable_write_exception) { PyErr_SetString(PyExc_IOError, "write error"); };
 #define uwsgi_py_write_exception(x) uwsgi_py_write_set_exception(x); PyErr_Print();
 
 
@@ -160,6 +160,7 @@ struct uwsgi_python {
 	void (*gil_get) (void);
 	void (*gil_release) (void);
 	int auto_reload;
+	char *tracebacker;
 	struct uwsgi_string_list *auto_reload_ignore;
 #endif
 
@@ -178,6 +179,7 @@ struct uwsgi_python {
 	PyObject *after_req_hook_args;
 
 	char *pyrun;
+	int start_response_nodelay;
 
 };
 
@@ -264,8 +266,10 @@ void uwsgi_python_reset_random_seed(void);
 
 char *uwsgi_pythonize(char *);
 void *uwsgi_python_autoreloader_thread(void *);
+void *uwsgi_python_tracebacker_thread(void *);
 
 int uwsgi_python_manage_exceptions(void);
+int uwsgi_python_do_send_headers(struct wsgi_request *);
 
 #ifdef UWSGI_PYPY
 #undef UWSGI_MINTERPRETERS

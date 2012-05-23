@@ -871,72 +871,83 @@ reconnect:
 
 }
 
-#define stats_send_llu(x, y) fprintf(output, x, (long long unsigned int) y)
-#define stats_send(x, y) fprintf(output, x, y)
-
 void emperor_send_stats(int fd) {
 
         struct sockaddr_un client_src;
         socklen_t client_src_len = 0;
+
         int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
         if (client_fd < 0) {
                 uwsgi_error("accept()");
                 return;
         }
 
-        FILE *output = fdopen(client_fd, "w");
-        if (!output) {
-                uwsgi_error("fdopen()");
-                close(client_fd);
-                return;
-        }
+	struct uwsgi_stats *us = uwsgi_stats_new(8192);
 
-        stats_send("{ \"version\": \"%s\",\n", UWSGI_VERSION);
+	if (uwsgi_stats_keyval_comma(us, "version", UWSGI_VERSION)) goto end;
+	if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) getpid())) goto end;
+        if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) getuid())) goto end;
+        if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) getgid())) goto end;
 
-        fprintf(output,"\"pid\": %d,\n", (int)(getpid()));
-        fprintf(output,"\"uid\": %d,\n", (int)(getuid()));
-        fprintf(output,"\"gid\": %d,\n", (int)(getgid()));
+        char *cwd = uwsgi_get_cwd();
+        if (uwsgi_stats_keyval_comma(us, "cwd", cwd)) goto end0;
 
-	char *cwd = uwsgi_get_cwd();
-        stats_send("\"cwd\": \"%s\",\n", cwd);
-        free(cwd);
-
-	stats_send("\"emperor\": \"%s\",\n", uwsgi.emperor_dir);
-
-        fprintf(output,"\"emperor_tyrant\": %d,\n", uwsgi.emperor_tyrant);
+	if (uwsgi_stats_keyval_comma(us, "emperor", uwsgi.emperor_dir)) goto end0;
+	if (uwsgi_stats_keylong_comma(us, "emperor_tyrant", (unsigned long long) uwsgi.emperor_tyrant)) goto end0;
 
 
-        fprintf(output, "\"vassals\": [\n");
+	if (uwsgi_stats_key(us ,"vassals")) goto end0;
+        if (uwsgi_stats_list_open(us)) goto end0;
 
 	struct uwsgi_instance *c_ui = ui->ui_next;
 
         while (c_ui) {
-                fprintf(output,"\t{");
-                stats_send("\"id\": \"%s\", ", c_ui->name);
-                fprintf(output,"\"pid\": %d, ", (int) c_ui->pid);
+		if (uwsgi_stats_object_open(us)) goto end0;
 
-		stats_send_llu( "\"born\": %llu, ", c_ui->born);
-		stats_send_llu( "\"last_mod\": %llu, ", c_ui->last_mod);
+		if (uwsgi_stats_keyval_comma(us, "id", c_ui->name)) goto end0;
 
-                fprintf(output,"\"loyal\": %d, ", c_ui->loyal);
-                fprintf(output,"\"zerg\": %d, ", c_ui->zerg);
+		if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) c_ui->pid)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "born", (unsigned long long) c_ui->born)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "last_mod", (unsigned long long) c_ui->last_mod)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "loyal", (unsigned long long) c_ui->loyal)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "zerg", (unsigned long long) c_ui->zerg)) goto end0;
 
-                fprintf(output,"\"uid\": %d, ", (int)c_ui->uid);
-                fprintf(output,"\"gid\": %d, ", (int)c_ui->gid);
+		if (uwsgi_stats_keylong_comma(us, "uid", (unsigned long long) c_ui->uid)) goto end0;
+		if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) c_ui->gid)) goto end0;
 
-		stats_send_llu( "\"respawns\": %llu ", c_ui->respawns);
+		if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) c_ui->respawns)) goto end0;
+
+		if (uwsgi_stats_object_close(us)) goto end0;
+
         	c_ui = c_ui->ui_next;
 
 		if (c_ui) {
-                	fprintf(output,"},\n");
-                }
-                else {
-                	fprintf(output,"}\n");
+			if (uwsgi_stats_comma(us)) goto end0;
                 }
         }
 
 
-	fprintf(output,"]}\n");
-        fclose(output);
+	if (uwsgi_stats_list_close(us)) goto end0;
+        if (uwsgi_stats_object_close(us)) goto end0;
 
+        size_t remains = us->pos;
+        off_t pos = 0;
+        while(remains > 0) {
+                ssize_t res = write(client_fd, us->base + pos, remains);
+                if (res <= 0) {
+                        if (res < 0) {
+                                uwsgi_error("write()");
+                        }
+                        goto end0;
+                }
+                pos += res;
+                remains -= res;
+        }
+
+end0:
+        free(cwd);
+end:
+        free(us->base);
+        free(us);
+        close(client_fd);
 }

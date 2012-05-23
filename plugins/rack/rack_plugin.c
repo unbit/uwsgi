@@ -107,7 +107,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 	VALUE chunk;
-	int chunk_size;
+	unsigned int chunk_size;
 
 	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
 /*
@@ -130,7 +130,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		return chunk;
 	}
 	else if (RARRAY_LEN(args) > 0) {
-		chunk_size = NUM2INT(RARRAY_PTR(args)[0]);
+		chunk_size = NUM2UINT(RARRAY_PTR(args)[0]);
 		if (wsgi_req->buf_pos+chunk_size > wsgi_req->post_cl) {
 			chunk_size = wsgi_req->post_cl-wsgi_req->buf_pos;
 		}
@@ -725,6 +725,10 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	}
 
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
+
+	// remove HTTP_CONTENT_LENGTH and HTTP_CONTENT_TYPE
+	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_LENGTH"));
+	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_TYPE"));
 
 	ret = rb_protect( call_dispatch, env, &error);
 	if (error) {

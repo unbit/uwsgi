@@ -140,15 +140,22 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
 		// respond to fileno ?
 		if (uwsgi.async < 2) {
-			if (uwsgi_perl_obj_can(*hitem, "fileno", 6)) {
+			// check for fileno() method, IO class or GvIO
+			if (uwsgi_perl_obj_can(*hitem, "fileno", 6) || uwsgi_perl_obj_isa(*hitem, "IO") || (uwsgi_perl_obj_isa(*hitem, "GLOB") && GvIO(SvRV(*hitem)))  ) {
 				SV *fn = uwsgi_perl_obj_call(*hitem, "fileno");
-				wsgi_req->sendfile_fd = SvIV(fn);
-				SvREFCNT_dec(fn);	
-				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
-				// no need to close here as perl GC will do the close()
-				return UWSGI_OK;
+				if (fn) {
+					if (SvTYPE(fn) == SVt_IV && SvIV(fn) >= 0) {
+						wsgi_req->sendfile_fd = SvIV(fn);
+						SvREFCNT_dec(fn);	
+						wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+						// no need to close here as perl GC will do the close()
+						return UWSGI_OK;
+					}
+					SvREFCNT_dec(fn);	
+				}
 			}
 			
+			// check for path method
 			if (uwsgi_perl_obj_can(*hitem, "path", 4)) {
 				SV *p = uwsgi_perl_obj_call(*hitem, "path");
 				wsgi_req->sendfile_fd = open(SvPV_nolen(p), O_RDONLY);
@@ -167,6 +174,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 				internal_server_error(wsgi_req, "exception raised");
 				break;
 			}
+
                         chitem = SvPV( chunk, hlen);
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1 && wsgi_req->async_force_again) {
@@ -190,6 +198,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			}
 #endif
                 }
+
 
 		SV *closed = uwsgi_perl_obj_call(*hitem, "close");
 		if (closed) {
