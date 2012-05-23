@@ -314,8 +314,6 @@ int master_loop(char **argv, char **environ) {
 	int ready_to_reload = 0;
 	int ready_to_die = 0;
 
-	int master_has_children = 0;
-
 	uint8_t uwsgi_signal;
 
 	time_t last_request_timecheck = 0, now = 0;
@@ -758,34 +756,22 @@ int master_loop(char **argv, char **environ) {
 			return -1;
 		}
 
-		if (!uwsgi.cheap) {
-
-			if (uwsgi.numproc > 0 || ushared->gateways_cnt > 0 || uwsgi.daemons_cnt > 0) {
-				master_has_children = 1;
-			}
-#ifdef UWSGI_SPOOLER
-			if (uwsgi.spoolers) {
-				master_has_children = 1;
-			}
-#endif
-		}
-
-		if (!master_has_children) {
-			diedpid = 0;
-		}
-		else {
-			diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
-			if (diedpid == -1) {
-				if (errno == ECHILD && uwsgi.cheaper) {
-					if (uwsgi.to_heaven) {
-						ready_to_reload = uwsgi.numproc;
-						continue;
-					}
-					else if (uwsgi.to_hell) {
-						ready_to_die = uwsgi.numproc;
-						continue;
-					}
+		diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
+		if (diedpid == -1) {
+			if (errno == ECHILD && uwsgi.cheaper) {
+				if (uwsgi.to_heaven) {
+					ready_to_reload = uwsgi.numproc;
+					continue;
 				}
+				else if (uwsgi.to_hell) {
+					ready_to_die = uwsgi.numproc;
+					continue;
+				}
+			}
+			else if (errno == ECHILD && uwsgi.cheap) {
+				diedpid = 0;
+			}
+			else {
 				uwsgi_error("waitpid()");
 				/* here is better to reload all the uWSGI stack */
 				uwsgi_log("something horrible happened...\n");
@@ -1214,7 +1200,6 @@ int master_loop(char **argv, char **environ) {
 				else if (last_request_timecheck < uwsgi.current_time && (uwsgi.current_time - last_request_timecheck > uwsgi.idle)) {
 					uwsgi_log("workers have been inactive for more than %d seconds (%llu-%llu)\n", uwsgi.idle, (unsigned long long) uwsgi.current_time, (unsigned long long) last_request_timecheck);
 					uwsgi.cheap = 1;
-					master_has_children = 0;
 					if (uwsgi.die_on_idle) {
 						if (uwsgi.has_emperor) {
 							char byte = 22;
