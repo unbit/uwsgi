@@ -24,9 +24,6 @@ struct uwsgi_corerouter {
         int has_sockets;
 	int has_backends;
         int has_subscription_sockets;
-#ifdef UWSGI_SCTP
-        int has_sctp_sockets;
-#endif
 
         int processes;
         int quiet;
@@ -86,22 +83,6 @@ struct uwsgi_corerouter {
 
 };
 
-#ifdef UWSGI_SCTP
-struct uwsgi_fr_sctp_node {
-
-        int fd;
-	char name[64];
-        uint64_t requests;
-        struct uwsgi_fr_sctp_node *prev;
-        struct uwsgi_fr_sctp_node *next;
-};
-
-struct uwsgi_fr_sctp_node *uwsgi_fr_sctp_add_node(int);
-void uwsgi_fr_sctp_del_node(int);
-void uwsgi_opt_fastrouter_sctp(char *, char *, void *);
-
-#endif
-
 struct corerouter_session {
 
         int fd;
@@ -117,9 +98,6 @@ struct corerouter_session {
 
         int has_key;
         int retry;
-#ifdef UWSGI_SCTP
-        int persistent;
-#endif
 
         char *instance_address;
         uint64_t instance_address_len;
@@ -183,6 +161,3 @@ int uwsgi_cr_map_use_to(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *, struct corerouter_session *);
 
 int uwsgi_courerouter_has_has_backends(struct uwsgi_corerouter *);
-#ifdef UWSGI_SCTP
-int uwsgi_cr_map_use_sctp(struct fastrouter_session *, char **);
-#endif

@@ -4,4 +4,4 @@ CFLAGS = []
 LDFLAGS = []
 LIBS = []
 
-GCC_LIST = ['cr_common', 'cr_sctp', 'cr_map', 'corerouter']
+GCC_LIST = ['cr_common', 'cr_map', 'corerouter']

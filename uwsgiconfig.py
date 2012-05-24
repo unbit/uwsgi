@@ -771,18 +771,6 @@ class uConf(object):
                 self.libs.append('-lcrypto')
 
 
-        if self.get('sctp'):
-            if self.get('sctp') == 'auto':
-                if self.has_include('netinet/sctp.h'):
-                    if os.path.exists('/usr/lib/libsctp.so') or os.path.exists('/usr/local/lib/libsctp.so') or os.path.exists('/usr/lib64/libsctp.so') or os.path.exists('/usr/local/lib64/libsctp.so'):
-                        self.gcc_list.append('proto/sctp')
-                        self.cflags.append("-DUWSGI_SCTP")
-                        self.libs.append('-lsctp')
-            else:
-                self.gcc_list.append('proto/sctp')
-                self.cflags.append("-DUWSGI_SCTP")
-                self.libs.append('-lsctp')
-
         if has_uuid and self.get('zeromq'):
             if self.get('zeromq') == 'auto':
                 if self.has_include('zmq.h'):

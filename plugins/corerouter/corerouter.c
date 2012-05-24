@@ -165,14 +165,8 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 
 	if (cr_session->instance_fd != -1) {
-#ifdef UWSGI_SCTP
-		if (!ucr->cr_table[cr_session->instance_fd]->persistent) {
-#endif
-			close(cr_session->instance_fd);
-			ucr->cr_table[cr_session->instance_fd] = NULL;
-#ifdef UWSGI_SCTP
-		}
-#endif
+		close(cr_session->instance_fd);
+		ucr->cr_table[cr_session->instance_fd] = NULL;
 	}
 
 	if (ucr->subscriptions && cr_session->un && cr_session->un->len > 0) {
@@ -444,11 +438,6 @@ void uwsgi_corerouter_loop(int id, void *data) {
 		init_magic_table(ucr->magic_table);
 	}
 
-#ifdef UWSGI_SCTP
-	uwsgi_fastrouter_sctp_nodes = uwsgi_calloc(sizeof(struct uwsgi_fastrouter_sctp_nodes*));
-	uwsgi_fastrouter_sctp_nodes_current = uwsgi_calloc(sizeof(struct uwsgi_fastrouter_sctp_nodes*));
-#endif
-
 	union uwsgi_sockaddr cr_addr;
 	socklen_t cr_addr_len = sizeof(struct sockaddr_un);
 
@@ -480,12 +469,6 @@ void uwsgi_corerouter_loop(int id, void *data) {
                         else if (ucr->use_cluster) {
                                 ucr->mapper = uwsgi_cr_map_use_cluster;
                         }
-#ifdef UWSGI_SCTP
-                        else if (ucr->has_sctp_sockets > 0) {
-                                ucr->mapper = uwsgi_cr_map_use_sctp;
-                        }
-#endif
-
 
 
 	ucr->timeouts = uwsgi_init_rb_timer();
@@ -526,12 +509,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 			int taken = 0;
 			while (ugs) {
 				if (ugs->gateway == &ushared->gateways[id] && interesting_fd == ugs->fd) {
-#ifdef UWSGI_SCTP
-					if (!ugs->subscription && !ugs->sctp) {
-#else
 					if (!ugs->subscription) {
-#endif
-
 						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
 #ifdef UWSGI_EVENT_USE_PORT
                                 		event_queue_add_fd_read(ucr->queue, interesting_fd);
@@ -557,35 +535,6 @@ void uwsgi_corerouter_loop(int id, void *data) {
 					else if (ugs->subscription) {
 						uwsgi_corerouter_manage_subscription(ucr, id, ugs);
 					}
-#ifdef UWSGI_SCTP
-					else if (ugs->sctp) {
-						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
-#ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(ucr->queue, interesting_fd);
-#endif
-						if (new_connection < 0) {
-                                                        taken = 1;
-							break;
-						}
-						struct uwsgi_fr_sctp_node *sctp_node = uwsgi_fr_sctp_add_node(new_connection);
-						snprintf(sctp_node->name, 64, "%s:%d", inet_ntoa(((struct sockaddr_in *)&cr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &cr_addr)->sin_port));
-						uwsgi_log("new SCTP peer: %s:%d\n", inet_ntoa(((struct sockaddr_in *)&cr_addr)->sin_addr), ntohs(((struct sockaddr_in *) &cr_addr)->sin_port));
-
-						ucr->cr_table[new_connection] = alloc_cr_session();
-                                                ucr->cr_table[new_connection]->instance_fd = new_connection;
-                                                ucr->cr_table[new_connection]->fd = -1;
-						ucr->cr_table[new_connection]->persistent = 1;
-                                                ucr->cr_table[new_connection]->status = FASTROUTER_STATUS_SCTP_NODE_FREE;
-
-						struct sctp_event_subscribe events;
-						memset(&events, 0, sizeof(events) );
-						events.sctp_data_io_event = 1;
-						// check for errors
-						setsockopt(new_connection, SOL_SCTP, SCTP_EVENTS, &events, sizeof(events) );
-
-                                                event_queue_add_fd_read(ucr->queue, new_connection);
-					}
-#endif
 
 					taken = 1;
 					break;
@@ -613,23 +562,11 @@ void uwsgi_corerouter_loop(int id, void *data) {
 					continue;
 
 				if (event_queue_interesting_fd_has_error(events, i)) {
-#ifdef UWSGI_SCTP
-					if (!cr_session->persistent) {
-#endif
 						corerouter_close_session(ucr, cr_session);
 						continue;
-#ifdef UWSGI_SCTP
-					}
-#endif
 				}
 
-#ifdef UWSGI_SCTP
-				if (!cr_session->persistent) {
-#endif
 					cr_session->timeout = corerouter_reset_timeout(ucr, cr_session);
-#ifdef UWSGI_SCTP
-				}
-#endif
 				
 				// mplementation specific cycle;
 				ucr->switch_events(ucr, cr_session, interesting_fd);
@@ -654,9 +591,6 @@ int uwsgi_courerouter_has_has_backends(struct uwsgi_corerouter *ucr) {
                         ucr->to_socket ||
                         ucr->static_nodes ||
                         ucr->use_cluster
-#ifdef UWSGI_SCTP
-                        || ucr->has_sctp_sockets
-#endif
                 ) {
                         return 1;
                 }
@@ -801,32 +735,6 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 		if (uwsgi_stats_list_close(us)) goto end0;
 		if (uwsgi_stats_comma(us)) goto end0;
 	}
-
-#ifdef UWSGI_SCTP
-	if (ucr->has_sctp_sockets > 0) {
-		if (uwsgi_stats_key(us , "sctp_nodes")) goto end0;
-		if (uwsgi_stats_list_open(us)) goto end0;
-
-
-		struct uwsgi_fr_sctp_node *sctp_node = *uwsgi_fastrouter_sctp_nodes;
-		while(sctp_node) {
-			if (uwsgi_stats_object_open(us)) goto end0;
-
-			if (uwsgi_stats_keyval_comma(us, "node", sctp_node->name)) goto end0;
-			if (uwsgi_stats_keyval(us, "requests", (unsigned long long) sctp_node->requests)) goto end0;
-
-			if (uwsgi_stats_object_close(us)) goto end0;
-
-			if (sctp_node->next == *uwsgi_fastrouter_sctp_nodes) {
-				break;
-			}
-			sctp_node = sctp_node->next;
-			if (uwsgi_stats_comma(us)) goto end0;
-		}
-		if (uwsgi_stats_list_close(us)) goto end0;
-		if (uwsgi_stats_comma(us)) goto end0;
-	}
-#endif
 
 	if (uwsgi_stats_keylong(us, "cheap", (unsigned long long) ucr->i_am_cheap)) goto end0;	
 

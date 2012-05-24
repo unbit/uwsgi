@@ -187,13 +187,6 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 #include <dirent.h>
 
-#ifdef UWSGI_SCTP
-#include <netinet/sctp.h>
-#ifndef SOL_SCTP
-#define SOL_SCTP IPPROTO_SCTP
-#endif
-#endif
-
 #ifndef UWSGI_PLUGIN_BASE
 #define UWSGI_PLUGIN_BASE ""
 #endif
@@ -401,10 +394,6 @@ struct uwsgi_gateway_socket {
 	void *data;
 	// this requires UDP
 	int subscription;
-#ifdef UWSGI_SCTP
-	// this requires SCTP
-	int sctp;
-#endif
 	int shared;
 	int nb;
 
@@ -1976,10 +1965,6 @@ int uwsgi_connect(char *, int, int);
 int uwsgi_connectn(char *, uint16_t, int, int);
 int connect_to_tcp(char *, int, int, int);
 int connect_to_unix(char *, int, int);
-#ifdef UWSGI_SCTP
-int bind_to_sctp(char *);
-int connect_to_sctp(char *, int);
-#endif
 
 void daemonize(char *);
 void logto(char *);
@@ -2426,18 +2411,6 @@ ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request *, struct iovec *, s
 ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
-
-#ifdef UWSGI_SCTP
-int uwsgi_proto_sctp_parser(struct wsgi_request *);
-ssize_t uwsgi_proto_sctp_writev_header(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_sctp_writev(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_sctp_write(struct wsgi_request *, char *, size_t);
-ssize_t uwsgi_proto_sctp_write_header(struct wsgi_request *, char *, size_t);
-int uwsgi_proto_sctp_accept(struct wsgi_request *, int);
-void uwsgi_proto_sctp_close(struct wsgi_request *);
-ssize_t uwsgi_proto_sctp_sendfile(struct wsgi_request *);
-ssize_t uwsgi_proto_sctp_read_body(struct wsgi_request *, char *, size_t);
-#endif
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
 
