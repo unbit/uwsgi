@@ -500,12 +500,12 @@ struct uwsgi_opt {
 
 #ifdef __linux__
 #include <endian.h>
-#elif __sun__
+#elif defined(__sun__)
 #include <sys/byteorder.h>
 #ifdef _BIG_ENDIAN
 #define __BIG_ENDIAN__ 1
 #endif
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
 #elif defined(__HAIKU__)
 #else
