@@ -1500,6 +1500,8 @@ nextlock:
 
 		}
 
+		if (diedpid <= 0) continue;
+
 		/* What happens here ?
 
 		   case 1) the diedpid is not a worker, report it and continue
