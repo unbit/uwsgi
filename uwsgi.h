@@ -1737,6 +1737,8 @@ struct uwsgi_snmp_custom_value {
 	uint64_t val;
 };
 
+int uwsgi_setup_snmp(void);
+
 struct uwsgi_snmp_server_value {
 	uint8_t type;
 	uint64_t *val;

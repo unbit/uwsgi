@@ -364,6 +364,47 @@ void uwsgi_opt_snmp_community(char *opt, char *value, void *foobar) {
 	uwsgi.snmp = 1;
         uwsgi.snmp_community = value;
 }
+
+int uwsgi_setup_snmp(void) {
+	int snmp_fd = -1;
+	int i;
+	if (uwsgi.snmp) {
+                if (uwsgi.snmp_community) {
+                        if (strlen(uwsgi.snmp_community) > 72) {
+                                uwsgi_log("*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
+                                memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 72);
+                        }
+                        else {
+                                memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, strlen(uwsgi.snmp_community) + 1);
+                        }
+                }
+
+                uwsgi.shared->snmp_gvalue[0].type = SNMP_COUNTER64;
+                uwsgi.shared->snmp_gvalue[0].val = &uwsgi.workers[0].requests;
+
+                for (i = 0; i < uwsgi.numproc; i++) {
+                        uwsgi.shared->snmp_gvalue[30 + i].type = SNMP_COUNTER64;
+                        uwsgi.shared->snmp_gvalue[30 + i].val = &uwsgi.workers[i + 1].requests;
+                }
+
+                if (uwsgi.snmp_addr) {
+                        snmp_fd = bind_to_udp(uwsgi.snmp_addr, 0, 0);
+                        if (snmp_fd < 0) {
+                                uwsgi_log("unable to bind to udp socket. SNMP service will be disabled.\n");
+                        }
+                        else {
+                                uwsgi_log("SNMP server enabled on %s\n", uwsgi.snmp_addr);
+                                event_queue_add_fd_read(uwsgi.master_queue, snmp_fd);
+                        }
+                }
+                else {
+                        uwsgi_log("SNMP agent enabled.\n");
+                }
+
+        }
+
+	return snmp_fd;
+}
 #else
 #warning "*** SNMP support is disabled ***"
 #endif
