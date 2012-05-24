@@ -195,6 +195,25 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	uws_addr.sin_family = AF_INET;
 	uws_addr.sin_port = htons(atoi(udp_port + 1));
 
+#ifdef UWSGI_MULTICAST
+	if (!broadcast && !multicast) {
+		char quad[4];
+		char *first_part = strchr(socket_name, '.');
+		if (first_part-socket_name < 4) {
+			memset(quad, 0, 4);
+			memcpy(quad, socket_name, first_part-socket_name);
+			if (atoi(quad) >= 224 && atoi(quad) <= 239) {
+				multicast = 1;
+			}
+		}
+#else
+	if (!broadcast) {
+#endif
+		if (!strcmp(socket_name, "255.255.255.255")) {
+			broadcast = 1;
+		}
+	}
+
 	if (broadcast) {
 		uws_addr.sin_addr.s_addr = INADDR_BROADCAST;
 	}
