@@ -1,6 +1,6 @@
 /* uWSGI */
 
-/* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
+/* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 -il0 */
 
 #ifdef __cplusplus
 extern "C" {
@@ -2852,6 +2852,8 @@ int uwsgi_stats_keylong_comma(struct uwsgi_stats *, char *, unsigned long long);
 int uwsgi_stats_str(struct uwsgi_stats *, char *);
 
 char *uwsgi_substitute(char *, char *, char *);
+
+void manage_cluster_message(char *, int);
 
 #ifdef UWSGI_SSL
 #include "openssl/conf.h"
