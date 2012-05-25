@@ -60,7 +60,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero, 0},
 
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
-	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_string_list, &uwsgi.custom_options, UWSGI_OPT_IMMEDIATE},
+	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_custom_option, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
 	{"endfor", optional_argument, 0, "(opt logic) end for cycle", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
@@ -449,17 +449,15 @@ void show_config(void) {
 
 }
 
-int uwsgi_manage_custom_option(struct uwsgi_string_list *usl, char *key, char *value) {
+int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char *value) {
 	size_t i, count = 1;
-	size_t value_len = strlen(value);
+	size_t value_len = 0;
+	if (value) value_len = strlen(value);
 	off_t pos = 0;
 	char **opt_argv;
-	char *equal = memchr(usl->value, '=', usl->len);
-	if (!equal) {
-		return 0;
-	}
+	char *tmp_val = NULL, *p = NULL;
 
-	if (uwsgi_strncmp(usl->value, equal - usl->value, key, strlen(key))) {
+	if (strcmp(uco->name, key)) {
 		return 0;
 	}
 
@@ -473,24 +471,31 @@ int uwsgi_manage_custom_option(struct uwsgi_string_list *usl, char *key, char *v
 	// allocate a tmp array
 	opt_argv = uwsgi_calloc(sizeof(char *) * count);
 	//make a copy of the value;
-	char *tmp_val = uwsgi_str(value);
-	// fill the array of options
-	char *p = strtok(tmp_val, " ");
-	while (p) {
-		opt_argv[pos] = p;
-		pos++;
-		p = strtok(NULL, " ");
+	if (value_len > 0) {
+		tmp_val = uwsgi_str(value);
+		// fill the array of options
+		p = strtok(tmp_val, " ");
+		while (p) {
+			opt_argv[pos] = p;
+			pos++;
+			p = strtok(NULL, " ");
+		}
+	}
+	else {
+		// no argument specified
+		opt_argv[0] = "";
 	}
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("found custom option %s with %d args\n", key, count);
 #endif
+
 	// now make a copy of the option template
-	char *tmp_opt = uwsgi_concat2n(equal + 1, usl->len - (equal - usl->value), "", 0);
+	char *tmp_opt = uwsgi_str(uco->value);
 	// split it
 	p = strtok(tmp_opt, ";");
 	while (p) {
-		equal = strchr(p, '=');
+		char *equal = strchr(p, '=');
 		if (!equal)
 			goto clear;
 		*equal = '\0';
@@ -544,12 +549,12 @@ int uwsgi_manage_opt(char *key, char *value) {
 		op++;
 	}
 
-	struct uwsgi_string_list *usl = uwsgi.custom_options;
-	while (usl) {
-		if (uwsgi_manage_custom_option(usl, key, value)) {
+	struct uwsgi_custom_option *uco = uwsgi.custom_options;
+	while (uco) {
+		if (uwsgi_manage_custom_option(uco, key, value)) {
 			return 1;
 		}
-		usl = usl->next;
+		uco = uco->next;
 	}
 	return 0;
 
@@ -1630,6 +1635,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_EMBED_CONFIG
 	uwsgi_ini_config("", uwsgi.magic_table);
+	// rebuild options if a custom ini is set
+	build_options();
 #endif
 
 	//parse environ
@@ -3479,9 +3486,18 @@ void build_options() {
 		}
 	}
 
+	// add custom options
+	struct uwsgi_custom_option *uco = uwsgi.custom_options;
+	while(uco) {
+		options_count++;
+		uco = uco->next;
+	}
+
 	if (uwsgi.options)
 		free(uwsgi.options);
 
+
+	// rebuild uwsgi.options area
 	uwsgi.options = uwsgi_calloc(sizeof(struct uwsgi_option) * (options_count + 1));
 
 	op = uwsgi_base_options;
@@ -3506,6 +3522,7 @@ void build_options() {
 			pos += c;
 		}
 	}
+	// custom_options are not added to uwsgi.options
 
 
 	pos = 0;
@@ -3520,6 +3537,7 @@ void build_options() {
 
 	uwsgi.short_options = uwsgi_calloc((options_count * 3) + 1);
 
+	// build long_options (this time with custom_options)
 	op = uwsgi.options;
 	while (op->name) {
 		uwsgi.long_options[pos].name = op->name;
@@ -3542,6 +3560,21 @@ void build_options() {
 		}
 		op++;
 		pos++;
+	}
+	uco = uwsgi.custom_options;
+	while(uco) {
+		uwsgi.long_options[pos].name = uco->name;
+		if (uco->has_args) {
+                	uwsgi.long_options[pos].has_arg = required_argument;
+		}
+		else {
+                	uwsgi.long_options[pos].has_arg = no_argument;
+		}
+                uwsgi.long_options[pos].flag = 0;
+                // add 1000 to avoid short_options collision
+                uwsgi.long_options[pos].val = 1000 + pos;
+		pos++;
+		uco = uco->next;
 	}
 }
 
@@ -4232,6 +4265,44 @@ void uwsgi_opt_load_ldap(char *opt, char *url, void *none) {
 	uwsgi_ldap_config(url);
 }
 #endif
+
+void uwsgi_opt_add_custom_option(char *opt, char *value, void *none) {
+
+        struct uwsgi_custom_option *uco = uwsgi.custom_options, *old_uco;
+
+        if (!uco) {
+                uwsgi.custom_options = uwsgi_malloc(sizeof(struct uwsgi_custom_option));
+                uco = uwsgi.custom_options;
+        }
+        else {
+                while (uco) {
+                        old_uco = uco;
+                        uco = uco->next;
+                }
+
+		uco = uwsgi_malloc(sizeof(struct uwsgi_custom_option));
+                old_uco->next = uco;
+        }
+
+	char *copy = uwsgi_str(value);
+	char *equal = strchr(copy, '=');
+	if (!equal) {
+		uwsgi_log("invalid %s syntax, must be newoption=template\n");
+		exit(1);
+	}
+	*equal = 0;
+
+        uco->name = copy;
+        uco->value = equal+1;
+	uco->has_args = 0;
+	// a little hack, we allow the user to skip the first 2 arguments (yes.. it is silly...but users tend to make silly things...)
+	if (strstr(uco->value, "$1") || strstr(uco->value, "$2") || strstr(uco->value, "$3")) {
+		uco->has_args = 1;
+	}
+        uco->next = NULL;
+	build_options();
+}
+
 
 void uwsgi_opt_flock(char *opt, char *filename, void *none) {
 

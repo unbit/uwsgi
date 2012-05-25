@@ -293,6 +293,14 @@ struct uwsgi_string_list {
 	struct uwsgi_string_list *next;
 };
 
+struct uwsgi_custom_option {
+
+	char *name;
+	char *value;
+	int has_args;
+	struct uwsgi_custom_option *next;
+};
+
 struct uwsgi_lock_item {
 	char *id;
 	void *lock_ptr;
@@ -1162,7 +1170,7 @@ struct uwsgi_server {
 	char *short_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
-	struct uwsgi_string_list *custom_options;
+	struct uwsgi_custom_option *custom_options;
 
 	// dump the whole set of options
 	int dump_options;
@@ -2856,6 +2864,7 @@ int uwsgi_stats_str(struct uwsgi_stats *, char *);
 char *uwsgi_substitute(char *, char *, char *);
 
 void manage_cluster_message(char *, int);
+void uwsgi_opt_add_custom_option(char *, char *, void *);
 
 #ifdef UWSGI_SSL
 #include "openssl/conf.h"
