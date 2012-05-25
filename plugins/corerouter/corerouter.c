@@ -1,6 +1,6 @@
 /*
 
-   uWSGI fastrouter
+   uWSGI corerouter
 
    requires:
 
@@ -203,7 +203,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 		if (ucr->subscriptions && cr_session->un && cr_session->un->len > 0) {
 
                         if (cr_session->un->death_mark == 0)
-                                uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) cr_session->hostname_len, cr_session->hostname, (int) cr_session->instance_address_len, cr_session->instance_address);
+                                uwsgi_log("[uwsgi-%s] %.*s => marking %.*s as failed\n", ucr->short_name, (int) cr_session->hostname_len, cr_session->hostname, (int) cr_session->instance_address_len, cr_session->instance_address);
 
                         cr_session->un->failcnt++;
                         cr_session->un->death_mark = 1;
@@ -212,13 +212,13 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
                                 uwsgi_remove_subscribe_node(&ucr->subscriptions, cr_session->un);
                         }
                         if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap && !ucr->fallback) {
-                                uwsgi_gateway_go_cheap("uWSGI fastrouter", ucr->queue, &ucr->i_am_cheap);
+                                uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
                         }
 
         	}
 		else if (cr_session->static_node) {
 			cr_session->static_node->custom = uwsgi_now();
-			uwsgi_log("[uwsgi-fastrouter] %.*s => marking %.*s as failed\n", (int) cr_session->hostname_len, cr_session->hostname, (int) cr_session->instance_address_len, cr_session->instance_address);
+			uwsgi_log("[uwsgi-%s] %.*s => marking %.*s as failed\n", ucr->short_name, (int) cr_session->hostname_len, cr_session->hostname, (int) cr_session->instance_address_len, cr_session->instance_address);
 		}
 
 
@@ -404,7 +404,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 		}
 
 		event_queue_add_fd_read(ucr->queue, ucr->cr_stats_server);
-		uwsgi_log("*** FastRouter stats server enabled on %s fd: %d ***\n", ucr->stats_server, ucr->cr_stats_server);
+		uwsgi_log("*** %s stats server enabled on %s fd: %d ***\n", ucr->short_name, ucr->stats_server, ucr->cr_stats_server);
 	}
 
 

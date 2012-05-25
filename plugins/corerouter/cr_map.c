@@ -38,7 +38,7 @@ int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct coreroute
 		cr_session->modifier1 = cr_session->un->modifier1;
 	}
 	else if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap) {
-		uwsgi_gateway_go_cheap("uWSGI fastrouter", ucr->queue, &ucr->i_am_cheap);
+		uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
 	}
 
 	return 0;
@@ -58,7 +58,9 @@ int uwsgi_cr_map_use_base(struct uwsgi_corerouter *ucr, struct corerouter_sessio
 
 int uwsgi_cr_map_use_cs(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
 	if (uwsgi.p[ucr->code_string_modifier1]->code_string) {
-		cr_session->instance_address = uwsgi.p[ucr->code_string_modifier1]->code_string("uwsgi_fastrouter", ucr->code_string_code, ucr->code_string_function, cr_session->hostname, cr_session->hostname_len);
+		char *name = uwsgi_concat2("uwsgi_", ucr->short_name);
+		cr_session->instance_address = uwsgi.p[ucr->code_string_modifier1]->code_string(name, ucr->code_string_code, ucr->code_string_function, cr_session->hostname, cr_session->hostname_len);
+		free(name);
 		if (cr_session->instance_address) {
 			cr_session->instance_address_len = strlen(cr_session->instance_address);
 			char *cs_mod = uwsgi_str_contains(cr_session->instance_address, cr_session->instance_address_len, ',');

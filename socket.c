@@ -199,7 +199,7 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	if (!broadcast && !multicast) {
 		char quad[4];
 		char *first_part = strchr(socket_name, '.');
-		if (first_part-socket_name < 4) {
+		if (first_part && first_part-socket_name < 4) {
 			memset(quad, 0, 4);
 			memcpy(quad, socket_name, first_part-socket_name);
 			if (atoi(quad) >= 224 && atoi(quad) <= 239) {

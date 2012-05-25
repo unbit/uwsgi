@@ -393,6 +393,7 @@ struct uwsgi_gateway {
 struct uwsgi_gateway_socket {
 
         char *name;
+	size_t name_len;
         int fd;
         char *zerg;
 
