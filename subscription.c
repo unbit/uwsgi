@@ -394,7 +394,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 }
 
 
-void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd) {
+void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd, char *socket_name) {
 
 	char value_cores[sizeof(UMAX64_STR)+1];
 	char value_load[sizeof(UMAX64_STR)+1];
@@ -418,9 +418,13 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 	int value_modifier1_size = uwsgi_long2str2n(modifier1, value_modifier1, 3);
 	int value_modifier2_size = uwsgi_long2str2n(modifier2, value_modifier2, 3);
 
-	if (!uwsgi.sockets) return;
+	if (socket_name == NULL && !uwsgi.sockets) return;
 
-	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(uwsgi.sockets->name)) + (2+9 + 2+value_modifier1_size) +
+	if (!socket_name) {
+		socket_name = uwsgi.sockets->name;
+	}
+
+	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(socket_name)) + (2+9 + 2+value_modifier1_size) +
 		(2+9 + 2+value_modifier2_size) + (2+5 + 2+value_cores_size) + (2+4 + 2+value_load_size) + (2+5 + 2+value_weight_size);
 
         char *subscrbuf = uwsgi_malloc(ssb_size);
@@ -447,10 +451,10 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
         memcpy(ssb, "address", ustrlen);
         ssb+=ustrlen;
 
-        ustrlen = strlen(uwsgi.sockets->name);
+        ustrlen = strlen(socket_name);
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
-        memcpy(ssb, uwsgi.sockets->name, ustrlen);
+        memcpy(ssb, socket_name, ustrlen);
         ssb+=ustrlen;
 
 	// modifier1 = "modifier1"

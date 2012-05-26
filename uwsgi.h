@@ -2632,7 +2632,7 @@ void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
 int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
 
-void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t);
+void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t, char *);
 
 void uwsgi_subscribe(char *, uint8_t);
 

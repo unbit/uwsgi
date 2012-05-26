@@ -159,19 +159,38 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 	int keysize = 0;
 	char *modifier1 = NULL;
 	int modifier1_len = 0;
+	char *socket_name = NULL;
 	char *udp_address = subscription;
+	char *udp_port = NULL;
+	char *subscription_key = NULL;
 
-	if (subscription[0] != '/') {
-		udp_address = strchr(subscription, ':');
-		if (!udp_address)
-			return;
+	// check for explicit socket_name
+	char *equal = strchr(subscription,'=');
+	if (equal) {
+		socket_name = subscription;
+		*equal = '\0';
+		udp_address = equal+1;
 	}
 
-	char *subscription_key = strchr(udp_address + 1, ':');
-	if (!subscription_key)
-		return;
+	// check for unix socket
+	if (udp_address[0] != '/') {
+		udp_port = strchr(udp_address, ':');	
+		if (!udp_port) {
+			if (equal) *equal = '=';
+			return;
+		}
+		subscription_key = strchr(udp_port + 1, ':');
+	}
+	else {
+		subscription_key = strchr(udp_address + 1, ':');
+	}
 
-	udp_address = uwsgi_concat2n(subscription, subscription_key - subscription, "", 0);
+	if (!subscription_key) {
+		if (equal) *equal = '=';
+		return;
+	}
+
+	udp_address = uwsgi_concat2n(udp_address, subscription_key - udp_address, "", 0);
 
 	if (subscription_key[1] == '@') {
 		if (!uwsgi_file_exists(subscription_key + 2))
@@ -190,7 +209,7 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 								modifier1_len = strlen(modifier1);
 								keysize = strlen(key);
 							}
-							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd);
+							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name);
 							modifier1 = NULL;
 							modifier1_len = 0;
 						}
@@ -208,7 +227,7 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 								modifier1_len = strlen(modifier1);
 								keysize = strlen(key);
 							}
-							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd);
+							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name);
 							modifier1 = NULL;
 							modifier1_len = 0;
 							lines[i] = '\n';
@@ -232,13 +251,13 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 			modifier1_len = strlen(modifier1);
 		}
 
-		uwsgi_send_subscription(udp_address, subscription_key + 1, strlen(subscription_key + 1), uwsgi_str_num(modifier1, modifier1_len), 0, cmd);
+		uwsgi_send_subscription(udp_address, subscription_key + 1, strlen(subscription_key + 1), uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name);
 		if (modifier1)
 			modifier1[-1] = ',';
 	}
 
 clear:
-
+	if (equal) *equal = '=';
 	free(udp_address);
 
 }
