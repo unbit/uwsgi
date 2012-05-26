@@ -4414,6 +4414,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 
 	SSL_CTX_set_info_callback(ctx, uwsgi_ssl_info_cb);
 
+	// disable session caching by default
+	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
+
 /*
 	if (name) {
 		//SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
