@@ -168,6 +168,14 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 	char *equal = strchr(subscription,'=');
 	if (equal) {
 		socket_name = subscription;
+		if (socket_name[0] == '=') {
+			equal = strchr(socket_name+1, '=');
+			if (!equal) return;
+			*equal = '\0';
+			struct uwsgi_socket *us = uwsgi_get_shared_socket_by_num(atoi(socket_name+1));
+			if (!us) return;
+			socket_name = us->name;
+		}
 		*equal = '\0';
 		udp_address = equal+1;
 	}

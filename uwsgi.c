@@ -1849,6 +1849,8 @@ int main(int argc, char *argv[], char *envp[]) {
 			else {
 				shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
 				shared_sock->family = AF_INET;
+				// fix socket name
+				shared_sock->name = uwsgi_getsockname(shared_sock->fd);
 				uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 			}
 
