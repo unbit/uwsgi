@@ -2934,6 +2934,21 @@ nextsock:
 		uwsgi_log("*** uWSGI is running in multiple interpreter mode ***\n");
 	}
 
+	// check for request plugins, and eventually print a warning
+	int rp_available = 0;
+	for(i=0;i<256;i++) {
+		if (uwsgi.p[i] != &unconfigured_plugin) {
+			rp_available = 1;
+			break;
+		}
+	}
+	if (!rp_available) {
+		uwsgi_log("!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!\n");
+		uwsgi_log("no request plugin is loaded, you will not be able to manage requests.\n");
+		uwsgi_log("you may need to install the package for your language of choice, or simply load it with --plugin.\n");
+		uwsgi_log("!!!!!!!!!!! END OF WARNING !!!!!!!!!!\n");
+	}
+
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
 	if (uwsgi.linux_ksm > 0) {
