@@ -1660,6 +1660,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SSL
 	int ssl_initialized;
+	int ssl_verbose;
 #endif
 
 #ifdef __linux__
@@ -2870,8 +2871,9 @@ void uwsgi_opt_add_custom_option(char *, char *, void *);
 #ifdef UWSGI_SSL
 #include "openssl/conf.h"
 #include "openssl/ssl.h"
+#include <openssl/err.h>
 void uwsgi_ssl_init(void);
-SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *);
+SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *, char *);
 #endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

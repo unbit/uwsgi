@@ -4340,6 +4340,7 @@ set data in it with SSL_CTX_set_ex_data
 void uwsgi_ssl_init(void) {
 	OPENSSL_config(NULL);
 	SSL_library_init();
+	SSL_load_error_strings();
 	OpenSSL_add_all_algorithms();
 	uwsgi.ssl_initialized = 1;
 }
@@ -4352,7 +4353,11 @@ void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
 	}
 }
 
-SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers) {
+int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX *x509_store) {
+	return 1;
+}
+
+SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers, char *client_ca) {
 
 	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
 	if (!ctx) {
@@ -4402,13 +4407,41 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 	}
 
 	// if ciphers are specified, prefer server ciphers
-	if (ciphers) {
+	if (ciphers && strlen(ciphers) > 0) {
 		if (SSL_CTX_set_cipher_list(ctx, ciphers) == 0) {
 			uwsgi_log("unable to set ssl requested ciphers: %s\n", ciphers);
 			exit(1);
 		}
 
 		SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+	}
+
+	// set session context (if possibile), this is required for client certificate authentication
+	if (name) {
+		SSL_CTX_set_session_id_context(ctx, (unsigned char *)name, strlen(name));
+	}
+
+	if (client_ca) {
+		if (client_ca[0] == '!') {
+			SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, uwsgi_ssl_verify_callback);
+			client_ca++;
+		}
+		else {
+			SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, uwsgi_ssl_verify_callback);
+		}
+		// in the future we should allow to set the verify depth
+		SSL_CTX_set_verify_depth(ctx, 1);
+		if (SSL_CTX_load_verify_locations(ctx, client_ca, NULL) == 0) {
+			uwsgi_log("unable to set ssl verify locations for: %s\n", client_ca);
+			exit(1);
+		}	
+		STACK_OF(X509_NAME) *list = SSL_load_client_CA_file(client_ca);
+		if (!list) {
+			uwsgi_log("unable to load client CA certificate: %s\n", client_ca);
+			exit(1);
+		}
+
+		SSL_CTX_set_client_CA_list(ctx, list);
 	}
 
 
@@ -4418,15 +4451,12 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
 
 /*
-	if (name) {
-		//SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
-		SSL_CTX_set_session_id_context(ctx, (unsigned char *)name, strlen(name));
-		SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
+	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
 #ifdef UWSGI_DEBUG
-		uwsgi_log("[uwsgi-ssl] initialized ssl session cache: %s\n", name);
+	uwsgi_log("[uwsgi-ssl] initialized ssl session cache: %s\n", name);
 #endif
-		//SSL_CTX_set_timeout
-		//SSL_CTX_sess_set_cache_size
+	//SSL_CTX_set_timeout
+	//SSL_CTX_sess_set_cache_size
 	}
 */
 

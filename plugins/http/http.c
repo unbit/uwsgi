@@ -35,6 +35,7 @@ struct uwsgi_http {
 #ifdef UWSGI_SSL
 void uwsgi_opt_https(char *opt, char *value, void *cr) {
         struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
+	char *client_ca = NULL;
 
 	// build socket, certificate and key file
 	char *sock = uwsgi_str(value);
@@ -54,6 +55,10 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 	char *ciphers = strchr(key, ',');
 	if (ciphers) {
 		*ciphers = '\0'; ciphers++;
+		client_ca = strchr(ciphers, ',');
+		if (client_ca) {
+			*client_ca = '\0'; client_ca++;
+		}
 	}
 
         struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(sock, ucr->name);
@@ -63,7 +68,7 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 	}
 
 	// initialize ssl context
-	ugs->ctx = uwsgi_ssl_new_server_context(uwsgi_concat3(ucr->short_name, "-", ugs->name),crt, key, ciphers);
+	ugs->ctx = uwsgi_ssl_new_server_context(uwsgi_concat3(ucr->short_name, "-", ugs->name),crt, key, ciphers, client_ca);
 	// the clients must be put in non-blocking mode
 	ugs->nb = 1;
 	// set the ssl mode
@@ -796,6 +801,7 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
         }
 	if (ret == 0) return 0;
         int err = SSL_get_error(hs->ssl, ret);
+
         if (err == SSL_ERROR_WANT_READ) {
                 if (hs->fd_state) {
                         event_queue_fd_write_to_read(uhttp.cr.queue, hs->crs.fd);
@@ -804,6 +810,7 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
                 errno = EINPROGRESS;
 		return -1;
         }
+
         else if (err == SSL_ERROR_WANT_WRITE) {
                 if (!hs->fd_state) {
                         event_queue_fd_read_to_write(uhttp.cr.queue, hs->crs.fd);
@@ -813,8 +820,14 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
 		return -1;
         }
 	
-	if (err == SSL_ERROR_SYSCALL)
+	else if (err == SSL_ERROR_SYSCALL) {
         	uwsgi_error("SSL_read()");
+	}
+
+	else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
+		ERR_print_errors_fp(stderr);
+	}
+
         return -1;
 
 }
@@ -847,8 +860,15 @@ ssize_t uwsgi_http_ssl_send(struct http_session *hs, char *buf, size_t len) {
 		return -1;
 	}
 
-	if (err == SSL_ERROR_SYSCALL)
+	else if (err == SSL_ERROR_SYSCALL) {
 		uwsgi_error("SSL_write()");
+	}
+
+	else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
+		ERR_print_errors_fp(stderr);
+		return 0;
+	}
+
 	return -1;
 }
 
