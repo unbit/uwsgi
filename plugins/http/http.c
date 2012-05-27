@@ -103,7 +103,7 @@ struct uwsgi_option http_options[] = {
 	{"http-subscription-use-regexp", no_argument, 0, "enable regexp usage in subscription system", uwsgi_opt_true, &uhttp.cr.subscription_regexp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
-	{"http-keepalive", no_argument, 0, "support HTTP keepalive/pipelined requests (highly-experimental, maybe useless and broken)", uwsgi_opt_true, &uhttp.keepalive, 0},
+	{"http-keepalive", no_argument, 0, "support HTTP keepalive (non-pipelined) requests (requires backend support)", uwsgi_opt_true, &uhttp.keepalive, 0},
 
 	{"http-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the http router", uwsgi_opt_corerouter_cs, &uhttp, 0},
         {"http-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_corerouter_use_socket, &uhttp, 0},
@@ -652,8 +652,35 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			event_queue_add_fd_read(uhttp_queue, cs->instance_fd);
 #endif
 			if (len <= 0) {
-				if (len < 0)
+				if (len < 0) {
 					uwsgi_error("recv()");
+				}
+/*
+Keep-Alive implementation.
+As soon as the backend close the connection, enable it.
+The server will start waiting for another request (for a maximum of --http-socket seconds timeout)
+To have a reliable implementation, we need to reset a bunch of values
+*/
+				else if (uhttp.keepalive) {
+#ifdef UWSGI_DEBUG
+					uwsgi_log("Keep-Alive enabled\n");
+#endif
+					cs->keepalive = 1;
+					corerouter_close_session(ucr, cs);
+					cs->status = COREROUTER_STATUS_RECV_HDR;
+					hs->ptr = hs->buffer;
+					hs->rnrn = 0;
+					cs->pos = 0;
+					cs->h_pos = 0;
+					hs->received_body = 0;
+					cs->post_cl = 0;
+					cs->instance_fd = -1;
+					hs->uh.pktsize = 0;
+					cs->post_remains = 0;
+					cs->instance_address_len = 0;
+					cs->hostname_len = 0;
+					break;
+				}
 #ifdef UWSGI_SSL
 				if (len == 0 && cs->ugs->mode == UWSGI_HTTP_SSL) {
 					int ssd_ret = SSL_shutdown(hs->ssl);
@@ -690,22 +717,6 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 		// body from client
 		else if (interesting_fd == cs->fd) {
-
-#ifdef UWSGI_EXPERIMENTAL
-			// pipeline ?
-			if (uhttp.keepalive && hs->received_body >= cs->post_cl) {
-				// duplicate the socket
-				int new_ka_connection = dup(cs->fd);
-				if (new_ka_connection >= 0) {
-					uwsgi_log("keepalive to %d\n", new_ka_connection);
-					struct http_session *new_hs = (struct http_session *) corerouter_alloc_session(&uhttp.cr, NULL, new_ka_connection, NULL, -1);
-					new_hs->ip_addr = hs->ip_addr;
-					new_hs->port = hs->port;
-					new_hs->port_len = hs->port_len;
-				}
-				break;
-			}
-#endif
 
 			len = hs->recv(hs, bbuf, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT
@@ -920,7 +931,9 @@ void uwsgi_ssl_close(struct uwsgi_corerouter *ucr, struct corerouter_session *cs
 	if (hs->ssl_client_cert) {
 		X509_free(hs->ssl_client_cert);
 	}
-	SSL_free(hs->ssl);
+
+	if (!cs->keepalive)
+		SSL_free(hs->ssl);
 
 }
 #endif

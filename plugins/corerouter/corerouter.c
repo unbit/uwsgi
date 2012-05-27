@@ -291,6 +291,11 @@ end:
 	if (cr_session->close)
 		cr_session->close(ucr, cr_session);
 
+	if (cr_session->keepalive) {
+		cr_session->keepalive = 0;
+		return;
+	}
+
 	close(cr_session->fd);
 	ucr->cr_table[cr_session->fd] = NULL;
 

@@ -127,6 +127,8 @@ struct corerouter_session {
 	struct sockaddr_un addr;
         socklen_t addr_len;
 
+	int keepalive;
+
 	void (*close)(struct uwsgi_corerouter *, struct corerouter_session *);
 };
 
