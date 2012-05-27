@@ -2945,7 +2945,7 @@ nextsock:
 			break;
 		}
 	}
-	if (!rp_available) {
+	if (!rp_available && !ushared->gateways_cnt) {
 		uwsgi_log("!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!\n");
 		uwsgi_log("no request plugin is loaded, you will not be able to manage requests.\n");
 		uwsgi_log("you may need to install the package for your language of choice, or simply load it with --plugin.\n");

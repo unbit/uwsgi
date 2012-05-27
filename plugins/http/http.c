@@ -28,6 +28,9 @@ struct uwsgi_http {
 	struct uwsgi_string_list *http_vars;
 	int manage_expect;
 	int keepalive;
+#ifdef UWSGI_SSL
+	int https_export_cert;
+#endif
 
 } uhttp;
 
@@ -82,6 +85,7 @@ struct uwsgi_option http_options[] = {
 	{"http", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_corerouter, &uhttp, 0},
 #ifdef UWSGI_SSL
 	{"https", required_argument, 0, "add an https router/server on the specified address with specified certificate and key", uwsgi_opt_https, &uhttp, 0},
+	{"https-export-cert", no_argument, 0, "export uwsgi variable HTTPS_CC containing the raw client certificate", uwsgi_opt_true, &uhttp.https_export_cert, 0},
 #endif
 	{"http-processes", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.cr.processes, 0},
 	{"http-workers", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.cr.processes, 0},
@@ -139,6 +143,10 @@ struct http_session {
 
 #ifdef UWSGI_SSL
 	SSL *ssl;
+	X509 *ssl_client_cert;
+	char *ssl_client_dn;
+	BIO *ssl_bio;
+	char *ssl_cc;
 #endif
 	int fd_state;
 
@@ -349,10 +357,31 @@ int http_parse(struct http_session *h_session) {
 	// UWSGI_ROUTER
 	h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "UWSGI_ROUTER", 12, "http", 4, &c);
 
-	// HTTPS
+#ifdef UWSGI_SSL
+	// HTTPS (adapted from nginx)
 	if (h_session->crs.ugs->mode == UWSGI_HTTP_SSL) {
 		h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "HTTPS", 5, "on", 2, &c);
+		h_session->ssl_client_cert = SSL_get_peer_certificate(h_session->ssl);
+		if (h_session->ssl_client_cert) {
+			X509_NAME *name = X509_get_subject_name(h_session->ssl_client_cert);
+			if (name) {
+				h_session->ssl_client_dn = X509_NAME_oneline(name, NULL, 0);
+				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "HTTPS_DN", 8, h_session->ssl_client_dn, strlen(h_session->ssl_client_dn), &c);
+			}
+			if (uhttp.https_export_cert) {
+			h_session->ssl_bio = BIO_new(BIO_s_mem());
+			if (h_session->ssl_bio) {
+				if (PEM_write_bio_X509(h_session->ssl_bio, h_session->ssl_client_cert) > 0) {
+					size_t cc_len = BIO_pending(h_session->ssl_bio);
+					h_session->ssl_cc = uwsgi_malloc(cc_len);
+					BIO_read(h_session->ssl_bio, h_session->ssl_cc, cc_len);
+					h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "HTTPS_CC", 8, h_session->ssl_cc, cc_len, &c);
+				}
+			}
+			}
+		}
 	}
+#endif
 
 	// REMOTE_ADDR
 	if (inet_ntop(AF_INET, &h_session->ip_addr, h_session->ip, INET_ADDRSTRLEN)) {
@@ -876,6 +905,21 @@ ssize_t uwsgi_http_ssl_send(struct http_session *hs, char *buf, size_t len) {
 void uwsgi_ssl_close(struct uwsgi_corerouter *ucr, struct corerouter_session *cs) {
 	struct http_session *hs = (struct http_session *) cs;
 
+	if (hs->ssl_client_dn) {
+		OPENSSL_free(hs->ssl_client_dn);
+	}
+
+	if (hs->ssl_cc) {
+		free(hs->ssl_cc);
+	}
+
+	if (hs->ssl_bio) {
+		BIO_free(hs->ssl_bio);
+	}
+
+	if (hs->ssl_client_cert) {
+		X509_free(hs->ssl_client_cert);
+	}
 	SSL_free(hs->ssl);
 
 }
