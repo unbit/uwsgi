@@ -787,10 +787,11 @@ class uConf(object):
         if self.get('yaml'):
             self.cflags.append("-DUWSGI_YAML")
             self.gcc_list.append('yaml')
+            report['yaml'] = True
             if self.get('yaml_implementation') == 'libyaml':
                 self.cflags.append("-DUWSGI_LIBYAML")
                 self.libs.append('-lyaml')
-                report['yaml'] = True
+                report['yaml'] = 'libyaml'
             if self.get('yaml_implementation') == 'auto':
                 if self.has_include('yaml.h'):
                     self.cflags.append("-DUWSGI_LIBYAML")
