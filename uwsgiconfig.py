@@ -28,6 +28,37 @@ if not GCC:
 CPP = os.environ.get('CPP', 'cpp')
 
 binary_list = []
+
+# this is used for reporting (at the end of the build)
+# the server configuration
+report = {}
+report['kernel'] = False
+report['execinfo'] = False
+report['ifaddrs'] = False
+report['locking'] = False
+report['event'] = False
+report['timer'] = False
+report['filemonitor'] = False
+report['udp'] = False
+report['pcre'] = False
+report['routing'] = False
+report['capabilities'] = False
+report['async'] = False
+report['minterpreters'] = False
+report['ini'] = False
+report['yaml'] = False
+report['json'] = False
+report['ldap'] = False
+report['ssl'] = False
+report['zeromq'] = False
+report['snmp'] = False
+report['threading'] = False
+report['sendfile'] = False
+report['xml'] = False
+report['sqlite3'] = False
+report['spooler'] = False
+report['debug'] = False
+report['plugin_dir'] = False
 	
 def binarize(name):
     return name.replace('/', '_').replace('.','_').replace('-','_')
@@ -240,6 +271,13 @@ def build_uwsgi(uc, print_only=False):
         print("*** error linking uWSGI ***")
         sys.exit(1)
 
+    print("################# uWSGI configuration #################")
+    print("")
+    for report_key in report:
+        print("%s = %s" % (report_key, report[report_key]))
+    print("")
+    print("############## end of uWSGI configuration #############")
+
     if bin_name.find("/") < 0:
         bin_name = './' + bin_name
     if uc.get('as_shared_library'):
@@ -280,12 +318,15 @@ class uConf(object):
 
         self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 
+        report['kernel'] = uwsgi_os
+
         if uwsgi_os == 'Linux':
             self.gcc_list.append('lib/linux_ns')
             try:
                 lk_ver = uwsgi_os_k.split('.')
                 if int(lk_ver[0]) <= 2 and int(lk_ver[1]) <= 6 and int(lk_ver[2]) <= 9:
                     self.cflags.append('-DOBSOLETE_LINUX_KERNEL')                    
+                    report['kernel'] = 'Old Linux'
             except:
                 pass
 
@@ -394,6 +435,7 @@ class uConf(object):
 
         if self.has_include('ifaddrs.h'):
             self.cflags.append('-DUWSGI_HAS_IFADDRS')
+            report['ifaddrs'] = True
 
         if uwsgi_os in ('FreeBSD', 'OpenBSD'):
             if self.has_include('execinfo.h') or os.path.exists('/usr/local/include/execinfo.h'):
@@ -402,6 +444,7 @@ class uConf(object):
                     self.ldflags.append('-L/usr/local/lib')
                 self.cflags.append('-DUWSGI_HAS_EXECINFO')
                 self.libs.append('-lexecinfo')
+                report['execinfo'] = True
 
         if uwsgi_os == 'OpenBSD':
             try:
@@ -409,6 +452,7 @@ class uConf(object):
                 obsd_minor = int(uwsgi_os_k.split('.')[1])
                 if obsd_major >= 5 and obsd_minor > 0:
                     self.cflags.append('-DUWSGI_NEW_OPENBSD')
+                    report['kernel'] = 'New OpenBSD'
             except:
                 pass
 
@@ -463,6 +507,8 @@ class uConf(object):
         elif locking_mode == 'osx_spinlock':
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
 
+        report['locking'] = locking_mode
+
         # set event subsystem
         event_mode = self.get('event','auto')
 
@@ -486,6 +532,8 @@ class uConf(object):
             self.cflags.append('-DUWSGI_EVENT_USE_DEVPOLL')
         elif event_mode == 'port':
             self.cflags.append('-DUWSGI_EVENT_USE_PORT')
+
+        report['event'] = event_mode
 
         # set timer subsystem
         timer_mode = self.get('timer','auto')
@@ -526,6 +574,8 @@ class uConf(object):
         else:
             self.cflags.append('-DUWSGI_EVENT_TIMER_USE_NONE')
 
+        report['timer'] = timer_mode
+
         # set filemonitor subsystem
         filemonitor_mode = self.get('filemonitor','auto')
 
@@ -550,11 +600,16 @@ class uConf(object):
             self.cflags.append('-DUWSGI_EVENT_FILEMONITOR_USE_NONE')
 
 
+        report['filemonitor'] = filemonitor_mode
+
         if self.get('malloc_implementation') != 'libc':
             if self.get('malloc_implementation') == 'tcmalloc':
                 self.libs.append('-ltcmalloc')
             if self.get('malloc_implementation') == 'jemalloc':
                 self.libs.append('-ljemalloc')
+
+        report['malloc'] = self.get('malloc_implementation')
+
 
         if self.get('as_shared_library'):
             self.ldflags.append('-shared')
@@ -568,6 +623,7 @@ class uConf(object):
             self.cflags.append('-DUWSGI_EMBEDDED')
 
         if self.get('udp'):
+            report['udp'] = True
             self.cflags.append("-DUWSGI_UDP")
 
         if self.get('blacklist'):
@@ -603,19 +659,25 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_PCRE")
                     has_pcre = True
 
+        if has_pcre:
+            report['pcre'] = True
+
         if self.get('routing'):
             if self.get('pcre') == 'auto':
                 if has_pcre:
                     self.gcc_list.append('routing')
                     self.cflags.append("-DUWSGI_ROUTING") 
+                    report['routing'] = True
             else:
                 self.gcc_list.append('routing')
                 self.cflags.append("-DUWSGI_ROUTING")
+                report['routing'] = True
 
 
         if self.has_include('sys/capability.h') and uwsgi_os == 'Linux':
             self.cflags.append("-DUWSGI_CAP")
             self.libs.append('-lcap')
+            report['capabilities'] = True
 
         has_json = False
         has_uuid = False
@@ -706,17 +768,21 @@ class uConf(object):
         if self.get('async'):
             self.cflags.append("-DUWSGI_ASYNC")
             self.gcc_list.append('async')
+            report['async'] = True
 
         if self.get('multicast'):
             self.depends_on('multicast', ['udp'])
             self.cflags.append("-DUWSGI_MULTICAST")
+            report['multicast'] = True
 
         if self.get('minterpreters'):
             self.cflags.append("-DUWSGI_MINTERPRETERS")
+            report['minterpreters'] = True
 
         if self.get('ini'):
             self.cflags.append("-DUWSGI_INI")
             self.gcc_list.append('ini')
+            report['ini'] = True
 
         if self.get('yaml'):
             self.cflags.append("-DUWSGI_YAML")
@@ -724,10 +790,12 @@ class uConf(object):
             if self.get('yaml_implementation') == 'libyaml':
                 self.cflags.append("-DUWSGI_LIBYAML")
                 self.libs.append('-lyaml')
+                report['yaml'] = True
             if self.get('yaml_implementation') == 'auto':
                 if self.has_include('yaml.h'):
                     self.cflags.append("-DUWSGI_LIBYAML")
                     self.libs.append('-lyaml')
+                    report['yaml'] = 'libyaml'
 
         if self.get('json'):
             if self.get('json') == 'auto':
@@ -749,16 +817,21 @@ class uConf(object):
                 self.libs.append('-ljansson')
                 has_json = True
 
+        if has_json:
+            report['json'] = True
+
         if self.get('ldap'):
             if self.get('ldap') == 'auto':
                 if self.has_include('ldap.h'):
                     self.cflags.append("-DUWSGI_LDAP")
                     self.gcc_list.append('ldap')
                     self.libs.append('-lldap')
+                    report['ldap'] = True
             else:
                 self.cflags.append("-DUWSGI_LDAP")
                 self.gcc_list.append('ldap')
                 self.libs.append('-lldap')
+                report['ldap'] = True
 
         if self.get('ssl'):
             if self.get('ssl') == 'auto':
@@ -766,9 +839,12 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_SSL")
                     self.libs.append('-lssl')
                     self.libs.append('-lcrypto')
+                    report['ssl'] = True
             else:
                 self.cflags.append("-DUWSGI_SSL")
+                self.libs.append('-lssl')
                 self.libs.append('-lcrypto')
+                report['ssl'] = True
 
 
         if has_uuid and self.get('zeromq'):
@@ -777,26 +853,27 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_ZEROMQ")
                     self.gcc_list.append('proto/zeromq')
                     self.libs.append('-lzmq')
+                    report['zeromq'] = True
             else:
                 self.cflags.append("-DUWSGI_ZEROMQ")
                 self.gcc_list.append('proto/zeromq')
                 self.libs.append('-lzmq')
-
-        if self.get('evdis'):
-            self.cflags.append("-DUWSGI_EVDIS")
-            self.gcc_list.append('evdis')
+                report['zeromq'] = True
 
         if self.get('snmp'):
             self.depends_on("snmp", ['udp'])
             self.cflags.append("-DUWSGI_SNMP")
             self.gcc_list.append('snmp')
+            report['snmp'] = True
 
         if self.get('threading'):
             self.cflags.append("-DUWSGI_THREADING")
+            report['threading'] = True
 
         if self.get('sendfile'):
             self.cflags.append("-DUWSGI_SENDFILE")
             self.gcc_list.append('sendfile')
+            report['sendfile'] = True
 
         if self.get('xml'):
             if self.get('xml') == 'auto':
@@ -807,10 +884,12 @@ class uConf(object):
                     self.cflags.append(xmlconf)
                     self.cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
                     self.gcc_list.append('xmlconf')
+                    report['xml'] = 'libxml2'
                 elif self.has_include('expat.h'):
                     self.cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
                     self.libs.append('-lexpat')
                     self.gcc_list.append('xmlconf')
+                    report['xml'] = 'expat'
             elif self.get('xml_implementation') == 'libxml2':
                 xmlconf = spcall('xml2-config --libs')
                 if xmlconf is None:
@@ -826,10 +905,12 @@ class uConf(object):
                         self.cflags.append(xmlconf)
                         self.cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
                         self.gcc_list.append('xmlconf')
+                        report['xml'] = 'libxml2'
             elif self.get('xml_implementation') == 'expat':
                 self.cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
                 self.libs.append('-lexpat')
                 self.gcc_list.append('xmlconf')
+                report['xml'] = 'expat'
 
         if self.get('sqlite3'):
             if self.get('sqlite3') == 'auto':
@@ -837,23 +918,28 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_SQLITE3")
                     self.libs.append('-lsqlite3')
                     self.gcc_list.append('sqlite3')
+                    report['sqlite3'] = True
             else:
                 self.cflags.append("-DUWSGI_SQLITE3")
                 self.libs.append('-lsqlite3')
                 self.gcc_list.append('sqlite3')
+                report['sqlite3'] = True
 
 
         if self.get('plugin_dir'):
             self.cflags.append('-DUWSGI_PLUGIN_DIR=\\"%s\\"' % self.get('plugin_dir'))
+            report['plugin_dir'] = self.get('plugin_dir')
 
         if self.get('spooler'):
             self.depends_on("spooler", ['embedded'])
             self.cflags.append("-DUWSGI_SPOOLER")
             self.gcc_list.append('spooler')
+            report['spooler'] = True
 
         if self.get('debug'):
             self.cflags.append("-DUWSGI_DEBUG")
             self.cflags.append("-g")
+            report['debug'] = True
 
         if self.get('unbit'):
             self.cflags.append("-DUNBIT")
