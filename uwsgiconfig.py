@@ -507,7 +507,10 @@ class uConf(object):
         elif locking_mode == 'osx_spinlock':
             self.cflags.append('-DUWSGI_LOCK_USE_OSX_SPINLOCK')
 
-        report['locking'] = locking_mode
+        if locking_mode == 'auto':
+            report['locking'] = 'sysv semaphores'
+        else:
+            report['locking'] = locking_mode
 
         # set event subsystem
         event_mode = self.get('event','auto')
