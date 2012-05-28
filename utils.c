@@ -4393,10 +4393,12 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 		if (dh) {
 			SSL_CTX_set_tmp_dh(ctx, dh);
 			DH_free(dh);
+#ifndef OPENSSL_NO_ECDH
 #ifdef NID_X9_62_prime256v1
 			EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 			SSL_CTX_set_tmp_ecdh(ctx, ecdh);
 			EC_KEY_free(ecdh);
+#endif
 #endif
 		}
 	}
