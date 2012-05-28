@@ -129,12 +129,14 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 		else {
 			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ucr->subscription_regexp);
 			if (node && node->len) {
+#ifdef UWSGI_SSL
 				if (uwsgi.subscriptions_sign_check_dir) {
 					if (usr.sign_len == 0 || usr.base_len == 0) return;
 					if (!uwsgi_subscription_sign_check(node->slot, &usr)) {
 						return;
 					}
 				}
+#endif
 				if (node->death_mark == 0)
 					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", ucr->name, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
 				node->failcnt++;
