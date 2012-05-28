@@ -202,6 +202,20 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 
 		// first check if i am the only node
 		if ((!prev_slot && !next_slot) || next_slot == node_slot) {
+#ifdef UWSGI_PCRE
+		if (node_slot->pattern) {
+			pcre_free(node_slot->pattern);
+		}
+		if (node_slot->pattern_extra) {
+			pcre_free(node_slot->pattern_extra);
+		}
+#endif
+#ifdef UWSGI_SSL
+		if (uwsgi.subscriptions_sign_check_dir) {
+			EVP_PKEY_free(node_slot->sign_public_key);
+			EVP_MD_CTX_destroy(node_slot->sign_ctx);		
+		}
+#endif
 			free(node_slot);
 			*slot = NULL;
 			goto end;
@@ -227,7 +241,12 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 			pcre_free(node_slot->pattern_extra);
 		}
 #endif
-
+#ifdef UWSGI_SSL
+		if (uwsgi.subscriptions_sign_check_dir) {
+			EVP_PKEY_free(node_slot->sign_public_key);
+			EVP_MD_CTX_destroy(node_slot->sign_ctx);		
+		}
+#endif
 		free(node_slot);
 	}
 
@@ -243,7 +262,18 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 	if (usr->address_len > 0xff) return NULL;
 
+#ifdef UWSGI_SSL
+	if (uwsgi.subscriptions_sign_check_dir) {
+		if (usr->sign_len == 0 || usr->base_len == 0) return NULL;
+	}
+#endif
+
         if (current_slot) {
+#ifdef UWSGI_SSL
+		if (uwsgi.subscriptions_sign_check_dir && !uwsgi_subscription_sign_check(current_slot, usr)) {
+			return NULL;
+		}
+#endif
 		node = current_slot->nodes;
 		while(node) {
                         if (!uwsgi_strncmp(node->name, node->len, usr->address, usr->address_len)) {
@@ -285,8 +315,41 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
                 return node;
         }
         else {
-
+#ifdef UWSGI_SSL
+		FILE *kf = NULL;
+		if (uwsgi.subscriptions_sign_check_dir) {
+			char *keyfile = uwsgi_sanitize_cert_filename(uwsgi.subscriptions_sign_check_dir, usr->key, usr->keylen);
+			kf = fopen(keyfile, "r");
+			free(keyfile);
+			if (!kf) return NULL;
+		
+		}
+#endif
 		current_slot = uwsgi_malloc(sizeof(struct uwsgi_subscribe_slot));
+#ifdef UWSGI_SSL
+		if (uwsgi.subscriptions_sign_check_dir) {
+			current_slot->sign_public_key = PEM_read_PUBKEY(kf, NULL, NULL, NULL);
+			fclose(kf);
+			if (!current_slot->sign_public_key) {
+				uwsgi_log("unable to load public key for %.*s\n", usr->keylen, usr->key);
+				free(current_slot);
+				return NULL;
+			}
+			current_slot->sign_ctx = EVP_MD_CTX_create();
+			if (!current_slot->sign_ctx) {
+				uwsgi_log("unable to initialize EVP context for %.*s\n", usr->keylen, usr->key);
+				EVP_PKEY_free(current_slot->sign_public_key);
+				free(current_slot);
+				return NULL;
+			}
+
+			if (!uwsgi_subscription_sign_check(current_slot, usr)) {
+				EVP_PKEY_free(current_slot->sign_public_key);
+				EVP_MD_CTX_destroy(current_slot->sign_ctx);
+				free(current_slot);
+			}
+		}
+#endif
 		current_slot->keylen = usr->keylen;
 		memcpy(current_slot->key, usr->key, usr->keylen);
 		current_slot->key[usr->keylen] = 0;
@@ -394,7 +457,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 }
 
 
-void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd, char *socket_name) {
+void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd, char *socket_name, char *sign) {
 
 	char value_cores[sizeof(UMAX64_STR)+1];
 	char value_load[sizeof(UMAX64_STR)+1];
@@ -425,7 +488,7 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 	}
 
 	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(socket_name)) + (2+9 + 2+value_modifier1_size) +
-		(2+9 + 2+value_modifier2_size) + (2+5 + 2+value_cores_size) + (2+4 + 2+value_load_size) + (2+5 + 2+value_weight_size);
+		(2+9 + 2+value_modifier2_size) + (2+5 + 2+value_cores_size) + (2+4 + 2+value_load_size) + (2+6 + 2+value_weight_size);
 
         char *subscrbuf = uwsgi_malloc(ssb_size);
 	// leave space for uwsgi header
@@ -510,7 +573,7 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
         ssb+=ustrlen;
 
 	// weight
-        ustrlen = 5;
+        ustrlen = 6;
         *ssb++ = (uint8_t) (ustrlen  & 0xff);
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
         memcpy(ssb, "weight", ustrlen);
@@ -521,9 +584,66 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
         *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
         memcpy(ssb, value_weight, value_weight_size);
         ssb+=ustrlen;
+
+#ifdef UWSGI_SSL
+	if (sign) {
+		unsigned int signature_len = 0;
+		char *signature = uwsgi_rsa_sign(sign, subscrbuf+4, ssb_size-4, &signature_len);
+		if (signature && signature_len > 0) {
+			// add space for "sign" item
+			ssb_size += 2 + 4 + 2 + signature_len;
+			char *new_buf = realloc(subscrbuf, ssb_size);	
+			if (!new_buf) {
+				uwsgi_error("realloc()");
+				free(signature);
+				free(subscrbuf);
+				return;
+			}
+
+			// fix ssb (new_buf base could be changed)
+			ssb = (new_buf + (ssb-subscrbuf));
+			subscrbuf = new_buf;
+
+			ustrlen = 4;
+        		*ssb++ = (uint8_t) (ustrlen  & 0xff);
+        		*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        		memcpy(ssb, "sign", ustrlen);
+        		ssb+=ustrlen;
+
+        		ustrlen = signature_len;
+        		*ssb++ = (uint8_t) (ustrlen  & 0xff);
+        		*ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+        		memcpy(ssb, signature, signature_len);
+        		ssb+=ustrlen;
+
+			free(signature);
+		}
+	}
+#endif
 	
 
         send_udp_message(224, cmd, udp_address, subscrbuf, ssb_size-4);
 	free(subscrbuf);
 }
 
+
+#ifdef UWSGI_SSL
+int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *slot, struct uwsgi_subscribe_req *usr) {
+
+	if (EVP_VerifyInit_ex(slot->sign_ctx, uwsgi.subscriptions_sign_check_md, NULL) == 0) {
+                ERR_print_errors_fp(stderr);
+		return 0;
+	}
+
+	if (EVP_VerifyUpdate(slot->sign_ctx, usr->base, usr->base_len) == 0) {
+                ERR_print_errors_fp(stderr);
+		return 0;
+	}
+
+	if (EVP_VerifyFinal(slot->sign_ctx, (unsigned char *)usr->sign, usr->sign_len, slot->sign_public_key) <= 0) {
+		return 0;
+	}
+
+	return 1;
+}
+#endif

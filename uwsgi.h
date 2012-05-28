@@ -284,6 +284,13 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
+#ifdef UWSGI_SSL
+#include "openssl/conf.h"
+#include "openssl/ssl.h"
+#include <openssl/err.h>
+#endif
+
+
 
 struct uwsgi_string_list {
 
@@ -1293,6 +1300,11 @@ struct uwsgi_server {
 
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
+
+#ifdef UWSGI_SSL
+	char *subscriptions_sign_check_dir;
+	const EVP_MD *subscriptions_sign_check_md;	
+#endif
 
 	struct uwsgi_dyn_dict *static_maps;
 	struct uwsgi_dyn_dict *static_maps2;
@@ -2339,6 +2351,11 @@ struct uwsgi_subscribe_req {
 	uint64_t cores;
 	uint64_t load;
 	uint64_t weight;
+	char *sign;
+	uint16_t sign_len;
+
+	char *base;
+	uint16_t base_len;
 };
 
 #ifndef _NO_UWSGI_RB
@@ -2604,6 +2621,12 @@ struct uwsgi_subscribe_slot {
 	// used for round robin
 	uint64_t rr;
 
+#ifdef UWSGI_SSL
+	EVP_PKEY *sign_public_key;
+	EVP_MD_CTX *sign_ctx;
+#endif
+
+
         struct uwsgi_subscribe_node *nodes;
 
         struct uwsgi_subscribe_slot *prev;
@@ -2633,7 +2656,7 @@ void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
 int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
 
-void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t, char *);
+void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t, char *, char *);
 
 void uwsgi_subscribe(char *, uint8_t);
 
@@ -2869,11 +2892,12 @@ void manage_cluster_message(char *, int);
 void uwsgi_opt_add_custom_option(char *, char *, void *);
 
 #ifdef UWSGI_SSL
-#include "openssl/conf.h"
-#include "openssl/ssl.h"
-#include <openssl/err.h>
 void uwsgi_ssl_init(void);
 SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *, char *);
+char *uwsgi_rsa_sign(char *, char *, size_t, unsigned int *);
+char *uwsgi_sanitize_cert_filename(char *, char *, uint16_t);
+void uwsgi_opt_scd(char *, char *, void *);
+int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
 #endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

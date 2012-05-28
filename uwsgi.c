@@ -291,6 +291,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cluster-reload", required_argument, 0, "send a reload message to the cluster", uwsgi_opt_cluster_reload, NULL, UWSGI_OPT_IMMEDIATE},
 	{"cluster-log", required_argument, 0, "send a log line to the cluster", uwsgi_opt_cluster_log, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
+#ifdef UWSGI_SSL
+	{"subscriptions-sign-check", required_argument, 0, "set digest algorithm and certificate directory for secured subscription system", uwsgi_opt_scd, NULL, UWSGI_OPT_MASTER},
+#endif
 	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"subscribe", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
@@ -3870,6 +3873,30 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 
 }
 
+#ifdef UWSGI_SSL
+void uwsgi_opt_scd(char *opt, char *value, void *foobar) {
+	 // openssl could not be initialized
+        if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+
+	char *colon = strchr(value, ':');
+	if (!colon) {
+		uwsgi_log("invalid syntax for '%s', must be: <digest>:<directory>\n", opt);
+		exit(1);
+	}
+	
+	char *algo = uwsgi_concat2n(value, (colon-value), "", 0);
+	uwsgi.subscriptions_sign_check_md = EVP_get_digestbyname(algo);
+	if (!uwsgi.subscriptions_sign_check_md) {
+		uwsgi_log("unable to find digest algorithm: %s\n", algo);
+		exit(1);
+	}
+	free(algo);
+
+	uwsgi.subscriptions_sign_check_dir = colon+1;
+}
+#endif
 
 void uwsgi_opt_set_umask(char *opt, char *value, void *mode) {
 

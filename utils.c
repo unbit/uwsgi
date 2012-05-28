@@ -4463,4 +4463,112 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 	return ctx;
 }
 
+
+char *uwsgi_rsa_sign(char *algo_key, char *message, size_t message_len, unsigned int *s_len) {
+
+	// openssl could not be initialized
+	if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+
+	*s_len = 0;
+	EVP_PKEY *pk = NULL;
+
+	char *algo = uwsgi_str(algo_key);
+	char *colon = strchr(algo, ':');
+	if (!colon) {
+		uwsgi_log("invalid RSA signature syntax, must be: <digest>:<pemfile>\n");
+		free(algo);
+		return NULL;
+	}
+
+	*colon = 0;
+	char *keyfile = colon+1;
+	char *signature = NULL;
+
+	FILE *kf = fopen(keyfile,"r");
+	if (!kf) {
+		uwsgi_error_open(keyfile);
+		free(algo);
+		return NULL;
+	}
+
+	if (PEM_read_PrivateKey(kf, &pk, NULL, NULL) == 0) {
+		uwsgi_log("unable to load private key: %s\n", keyfile);
+		free(algo);
+		fclose(kf);
+		return NULL;
+	}
+
+	fclose(kf);
+
+	EVP_MD_CTX *ctx = EVP_MD_CTX_create();
+	if (!ctx) {
+		free(algo);
+		EVP_PKEY_free(pk);
+		return NULL;
+	}
+
+	const EVP_MD *md = EVP_get_digestbyname(algo);
+	if (!md) {
+		uwsgi_log("unknown digest algo: %s\n", algo);
+		free(algo);
+		EVP_PKEY_free(pk);
+		EVP_MD_CTX_destroy(ctx);
+		return NULL;
+	}
+
+	*s_len = EVP_PKEY_size(pk);
+	signature = uwsgi_malloc(*s_len);
+
+	if (EVP_SignInit_ex(ctx, md, NULL) == 0) {
+		ERR_print_errors_fp(stderr);
+		free(signature);
+		signature = NULL;
+		*s_len = 0;
+		goto clear;
+	}
+
+	if (EVP_SignUpdate(ctx, message, message_len) == 0) {
+		ERR_print_errors_fp(stderr);
+		free(signature);
+		signature = NULL;
+		*s_len = 0;
+		goto clear;
+	}
+
+
+	if (EVP_SignFinal(ctx, (unsigned char *) signature, s_len, pk) == 0) {
+		ERR_print_errors_fp(stderr);
+		free(signature);
+		signature = NULL;
+		*s_len = 0;
+		goto clear;
+	}
+	
+clear:
+	free(algo);
+	EVP_PKEY_free(pk);
+	EVP_MD_CTX_destroy(ctx);
+	return signature;
+	
+}
+
+char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
+	uint16_t i;
+	char *filename = uwsgi_concat4n(base, strlen(base), "/", 1, key, keylen, ".pem\0", 5);
+
+	for(i=strlen(base)+1;i<keylen;i++) {
+		if (filename[i] >= '0' && filename[i] <= '9') continue;
+		if (filename[i] >= 'A' && filename[i] <= 'Z') continue;
+		if (filename[i] >= 'a' && filename[i] <= 'z') continue;
+		if (filename[i] == '.') continue;
+		if (filename[i] == '-') continue;
+		if (filename[i] == '_') continue;
+		filename[i] = '_';
+	}
+
+	return filename;
+}
+
 #endif

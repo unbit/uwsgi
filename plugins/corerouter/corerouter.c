@@ -154,8 +154,12 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 	else if (!uwsgi_strncmp("load", 4, key, keylen)) {
 		usr->load = uwsgi_str_num(val, vallen);
 	}
-	else if (!uwsgi_strncmp("weight", 5, key, keylen)) {
+	else if (!uwsgi_strncmp("weight", 6, key, keylen)) {
 		usr->weight = uwsgi_str_num(val, vallen);
+	}
+	else if (!uwsgi_strncmp("sign", 4, key, keylen)) {
+		usr->sign = val;
+                usr->sign_len = vallen;
 	}
 }
 
