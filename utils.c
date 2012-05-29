@@ -385,6 +385,19 @@ void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
 	uwsgi.wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, message, strlen(message));
 }
 
+struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *list, char *key, size_t keylen) {
+	struct uwsgi_string_list *usl = list;
+	while(usl) {
+		if (keylen == usl->len) {
+			if (!memcmp(key, usl->value, keylen)) {
+				return usl;
+			}
+		}
+		usl = usl->next;
+	}
+	return NULL;
+}
+
 #ifdef __linux__
 void uwsgi_set_cgroup() {
 

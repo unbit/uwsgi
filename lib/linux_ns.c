@@ -130,6 +130,17 @@ void linux_namespace_jail() {
 		uwsgi_error("mount()");
 	}
 
+	struct uwsgi_string_list *usl = uwsgi.ns_keep_mount;
+	while(usl) {
+		// bind mounting keep-mount items
+		char *ks = uwsgi_concat2("/.uwsgi_ns_tmp_mountpoint", usl->value);
+		if (mount(ks, usl->value, "none", MS_BIND, NULL)) {
+			uwsgi_error("mount()");
+		}
+		free(ks);
+		usl = usl->next;
+	}
+
 	while (unmounted) {
 
 		unmounted = 0;
@@ -139,6 +150,7 @@ void linux_namespace_jail() {
 			delim0++;
 			delim1 = strchr(delim0, ' ');
 			*delim1 = 0;
+			if (uwsgi_string_list_has_item(uwsgi.ns_keep_mount, delim0, strlen(delim0))) continue;
 			if (!strcmp(delim0, "/") || !strcmp(delim0, "/proc"))
 				continue;
 			if (!umount(delim0)) {

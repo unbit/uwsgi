@@ -1533,6 +1533,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *cgroup_opt;
 	char *ns;
 	char *ns_net;
+	struct uwsgi_string_list *ns_keep_mount;
 #endif
 
 	char *protocol;
@@ -2890,6 +2891,8 @@ char *uwsgi_substitute(char *, char *, char *);
 
 void manage_cluster_message(char *, int);
 void uwsgi_opt_add_custom_option(char *, char *, void *);
+
+struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
 
 #ifdef UWSGI_SSL
 void uwsgi_ssl_init(void);

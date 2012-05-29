@@ -410,6 +410,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cgroup", required_argument, 0, "put the processes in the specified cgroup", uwsgi_opt_add_string_list, &uwsgi.cgroup, 0},
 	{"cgroup-opt", required_argument, 0, "set value in specified cgroup option", uwsgi_opt_add_string_list, &uwsgi.cgroup_opt, 0},
 	{"namespace", required_argument, 0, "run in a new namespace under the specified rootfs", uwsgi_opt_set_str, &uwsgi.ns, 0},
+	{"namespace-keep-mount", required_argument, 0, "keep the specified mountpoint in your namespace", uwsgi_opt_add_string_list, &uwsgi.ns_keep_mount, 0},
 	{"ns", required_argument, 0, "run in a new namespace under the specified rootfs", uwsgi_opt_set_str, &uwsgi.ns, 0},
 	{"namespace-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
 	{"ns-net", required_argument, 0, "add network namespace", uwsgi_opt_set_str, &uwsgi.ns_net, 0},
