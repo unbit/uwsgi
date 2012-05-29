@@ -582,6 +582,9 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 				hs->iov_len++;
 			}
 
+			// increment node requests counter
+                        if (cs->un)
+                                cs->un->requests++;
 
 #ifndef __sun__
 			// fd passing: PERFORMANCE EXTREME BOOST !!!

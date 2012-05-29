@@ -69,6 +69,10 @@ void uwsgi_rawrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerout
 				break;
 			}
 
+			// increment node requests counter
+                        if (cs->un)
+                                cs->un->requests++;	
+
 			event_queue_fd_write_to_read(ucr->queue, cs->instance_fd);
 			cs->status = COREROUTER_STATUS_RESPONSE;
 		}
