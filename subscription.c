@@ -587,6 +587,37 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 
 #ifdef UWSGI_SSL
 	if (sign) {
+		// add space for "unix" item
+		char unix_dst[sizeof(UMAX64_STR)+1];
+                if (snprintf(unix_dst, sizeof(UMAX64_STR)+1, "%lu", (unsigned long) uwsgi_now()) < 1) {
+                	uwsgi_error("unable to generate unix time for subscription !!!\n");
+                        free(subscrbuf);
+                        return;
+                }
+                ssb_size += 2 + 4 + 2 + strlen(unix_dst);
+		char *new_buf = realloc(subscrbuf, ssb_size);
+		if (!new_buf) {
+                        uwsgi_error("realloc()");
+                        free(subscrbuf);
+                	return;
+                }
+
+		// fix ssb (new_buf base could be changed)
+		ssb = (new_buf + (ssb-subscrbuf));
+		subscrbuf = new_buf;
+
+		ustrlen = 4;
+                *ssb++ = (uint8_t) (ustrlen  & 0xff);
+                *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                memcpy(ssb, "unix", ustrlen);
+                ssb+=ustrlen;
+
+                ustrlen = strlen(unix_dst);
+                *ssb++ = (uint8_t) (ustrlen  & 0xff);
+                *ssb++ = (uint8_t) ((ustrlen >>8) & 0xff);
+                memcpy(ssb, unix_dst, strlen(unix_dst));
+                ssb+=ustrlen;
+		
 		unsigned int signature_len = 0;
 		char *signature = uwsgi_rsa_sign(sign, subscrbuf+4, ssb_size-4, &signature_len);
 		if (signature && signature_len > 0) {
