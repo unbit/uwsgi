@@ -293,6 +293,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 #ifdef UWSGI_SSL
 	{"subscriptions-sign-check", required_argument, 0, "set digest algorithm and certificate directory for secured subscription system", uwsgi_opt_scd, NULL, UWSGI_OPT_MASTER},
+	{"subscriptions-sign-check-tolerance", required_argument, 0, "set the maximum tolerance (in seconds) of clock skew for secured subscription system", uwsgi_opt_set_int, &uwsgi.subscriptions_sign_check_tolerance, UWSGI_OPT_MASTER},
 #endif
 	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
@@ -1509,6 +1510,11 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.shared->worker_log_pipe[0] = -1;
 	uwsgi.shared->worker_log_pipe[1] = -1;
+
+#ifdef UWSGI_SSL
+	// 1 day of tolerance
+	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24 ;
+#endif
 
 
 #ifdef UWSGI_BLACKLIST

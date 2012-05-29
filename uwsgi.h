@@ -1303,6 +1303,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SSL
 	char *subscriptions_sign_check_dir;
+	int subscriptions_sign_check_tolerance;
 	const EVP_MD *subscriptions_sign_check_md;	
 #endif
 
@@ -2355,6 +2356,8 @@ struct uwsgi_subscribe_req {
 	char *sign;
 	uint16_t sign_len;
 
+	time_t unix_check;
+
 	char *base;
 	uint16_t base_len;
 };
@@ -2601,6 +2604,8 @@ struct uwsgi_subscribe_node {
 
 	uint64_t weight;
 	uint64_t wrr;
+
+	time_t unix_check;
 
 	struct uwsgi_subscribe_slot *slot;
 

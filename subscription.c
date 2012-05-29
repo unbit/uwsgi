@@ -277,6 +277,13 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node = current_slot->nodes;
 		while(node) {
                         if (!uwsgi_strncmp(node->name, node->len, usr->address, usr->address_len)) {
+#ifdef UWSGI_SSL
+				// this should avoid sending sniffed packets...
+				if (uwsgi.subscriptions_sign_check_dir && usr->unix_check <= node->unix_check) {
+                			uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n",(int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
+					return NULL;
+				}
+#endif
 				// remove death mark and update cores and load
 				node->death_mark = 0;
                                 node->last_check = time(NULL);
@@ -290,6 +297,13 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 			node = node->next;
                 }
 
+#ifdef UWSGI_SSL
+		if (uwsgi.subscriptions_sign_check_dir && usr->unix_check < (uwsgi_now()-(time_t)uwsgi.subscriptions_sign_check_tolerance)) {
+			uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n",(int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
+			return NULL;
+		}
+#endif
+
 		node = uwsgi_malloc(sizeof(struct uwsgi_subscribe_node));
 		node->len = usr->address_len;
 		node->modifier1 = usr->modifier1;
@@ -302,6 +316,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->cores = usr->cores;
 		node->load = usr->load;
 		node->weight = usr->weight;
+		node->unix_check = usr->unix_check;
 		if (!node->weight) node->weight = 1;
 		node->wrr = node->weight;
 		node->last_check = time(NULL);
@@ -318,6 +333,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 #ifdef UWSGI_SSL
 		FILE *kf = NULL;
 		if (uwsgi.subscriptions_sign_check_dir) {
+			if (usr->unix_check < (uwsgi_now()-(time_t)uwsgi.subscriptions_sign_check_tolerance)) {
+				uwsgi_log("[uwsgi-subscription for pid %d] invalid (sniffed ?) packet sent for slot: %.*s node: %.*s unix_check: %lu\n",(int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address, (unsigned long) usr->unix_check);
+				return NULL;
+			}
 			char *keyfile = uwsgi_sanitize_cert_filename(uwsgi.subscriptions_sign_check_dir, usr->key, usr->keylen);
 			kf = fopen(keyfile, "r");
 			free(keyfile);
@@ -347,6 +366,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				EVP_PKEY_free(current_slot->sign_public_key);
 				EVP_MD_CTX_destroy(current_slot->sign_ctx);
 				free(current_slot);
+				return NULL;
 			}
 		}
 #endif
@@ -380,6 +400,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->cores = usr->cores;
 		current_slot->nodes->load = usr->load;
 		current_slot->nodes->weight = usr->weight;
+		current_slot->nodes->unix_check = usr->unix_check;
 		if (!current_slot->nodes->weight) current_slot->nodes->weight = 1;
 		current_slot->nodes->wrr = current_slot->nodes->weight;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
@@ -589,7 +610,7 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 	if (sign) {
 		// add space for "unix" item
 		char unix_dst[sizeof(UMAX64_STR)+1];
-                if (snprintf(unix_dst, sizeof(UMAX64_STR)+1, "%lu", (unsigned long) uwsgi_now()) < 1) {
+                if (snprintf(unix_dst, sizeof(UMAX64_STR)+1, "%lu", (unsigned long) (uwsgi_now() + (time_t)cmd)) < 1) {
                 	uwsgi_error("unable to generate unix time for subscription !!!\n");
                         free(subscrbuf);
                         return;
@@ -671,9 +692,13 @@ int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *slot, struct uwsg
 		return 0;
 	}
 
-	if (EVP_VerifyFinal(slot->sign_ctx, (unsigned char *)usr->sign, usr->sign_len, slot->sign_public_key) <= 0) {
+	if (EVP_VerifyFinal(slot->sign_ctx, (unsigned char *)usr->sign, usr->sign_len, slot->sign_public_key) != 1) {
+#ifdef UWSGI_DEBUG
+                ERR_print_errors_fp(stderr);
+#endif
 		return 0;
 	}
+
 
 	return 1;
 }

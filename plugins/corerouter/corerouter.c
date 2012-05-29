@@ -157,6 +157,9 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 	else if (!uwsgi_strncmp("weight", 6, key, keylen)) {
 		usr->weight = uwsgi_str_num(val, vallen);
 	}
+	else if (!uwsgi_strncmp("unix", 4, key, keylen)) {
+		usr->unix_check = uwsgi_str_num(val, vallen);
+	}
 	else if (!uwsgi_strncmp("sign", 4, key, keylen)) {
 		usr->sign = val;
                 usr->sign_len = vallen;

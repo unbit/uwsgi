@@ -132,6 +132,7 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 #ifdef UWSGI_SSL
 				if (uwsgi.subscriptions_sign_check_dir) {
 					if (usr.sign_len == 0 || usr.base_len == 0) return;
+					if (usr.unix_check <= node->unix_check) return ;
 					if (!uwsgi_subscription_sign_check(node->slot, &usr)) {
 						return;
 					}
