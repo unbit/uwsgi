@@ -44,10 +44,6 @@ struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-subscription-slot", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "useless thanks to the new implementation", 0},
 	{"fastrouter-subscription-use-regexp", no_argument, 0, "enable regexp for subscription system", uwsgi_opt_true, &ufr.cr.subscription_regexp, 0},
 
-#ifdef UWSGI_SCTP
-	{"fastrouter-sctp", required_argument, 0, "run the fastrouter SCTP server on the specified address", uwsgi_opt_corerouter_sctp, ufr, 0},
-#endif
-
 	{"fastrouter-timeout", required_argument, 0, "set fastrouter timeout", uwsgi_opt_set_int, &ufr.cr.socket_timeout, 0},
 	{"fastrouter-post-buffering", required_argument, 0, "enable fastrouter post buffering", uwsgi_opt_set_64bit, &ufr.cr.post_buffering, 0},
 	{"fastrouter-post-buffering-dir", required_argument, 0, "put fastrouter buffered files to the specified directory", uwsgi_opt_set_str, &ufr.cr.pb_base_dir, 0},

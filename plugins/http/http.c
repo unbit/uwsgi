@@ -28,6 +28,9 @@ struct uwsgi_http {
 	struct uwsgi_string_list *http_vars;
 	int manage_expect;
 	int keepalive;
+#ifdef UWSGI_SSL
+	int https_export_cert;
+#endif
 
 } uhttp;
 
@@ -35,6 +38,7 @@ struct uwsgi_http {
 #ifdef UWSGI_SSL
 void uwsgi_opt_https(char *opt, char *value, void *cr) {
         struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
+	char *client_ca = NULL;
 
 	// build socket, certificate and key file
 	char *sock = uwsgi_str(value);
@@ -54,6 +58,10 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 	char *ciphers = strchr(key, ',');
 	if (ciphers) {
 		*ciphers = '\0'; ciphers++;
+		client_ca = strchr(ciphers, ',');
+		if (client_ca) {
+			*client_ca = '\0'; client_ca++;
+		}
 	}
 
         struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(sock, ucr->name);
@@ -63,7 +71,7 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 	}
 
 	// initialize ssl context
-	ugs->ctx = uwsgi_ssl_new_server_context(uwsgi_concat3(ucr->short_name, "-", ugs->name),crt, key, ciphers);
+	ugs->ctx = uwsgi_ssl_new_server_context(uwsgi_concat3(ucr->short_name, "-", ugs->name),crt, key, ciphers, client_ca);
 	// the clients must be put in non-blocking mode
 	ugs->nb = 1;
 	// set the ssl mode
@@ -77,6 +85,7 @@ struct uwsgi_option http_options[] = {
 	{"http", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_corerouter, &uhttp, 0},
 #ifdef UWSGI_SSL
 	{"https", required_argument, 0, "add an https router/server on the specified address with specified certificate and key", uwsgi_opt_https, &uhttp, 0},
+	{"https-export-cert", no_argument, 0, "export uwsgi variable HTTPS_CC containing the raw client certificate", uwsgi_opt_true, &uhttp.https_export_cert, 0},
 #endif
 	{"http-processes", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.cr.processes, 0},
 	{"http-workers", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.cr.processes, 0},
@@ -94,7 +103,7 @@ struct uwsgi_option http_options[] = {
 	{"http-subscription-use-regexp", no_argument, 0, "enable regexp usage in subscription system", uwsgi_opt_true, &uhttp.cr.subscription_regexp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
-	{"http-keepalive", no_argument, 0, "support HTTP keepalive/pipelined requests (highly-experimental, maybe useless and broken)", uwsgi_opt_true, &uhttp.keepalive, 0},
+	{"http-keepalive", no_argument, 0, "support HTTP keepalive (non-pipelined) requests (requires backend support)", uwsgi_opt_true, &uhttp.keepalive, 0},
 
 	{"http-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the http router", uwsgi_opt_corerouter_cs, &uhttp, 0},
         {"http-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_corerouter_use_socket, &uhttp, 0},
@@ -134,6 +143,10 @@ struct http_session {
 
 #ifdef UWSGI_SSL
 	SSL *ssl;
+	X509 *ssl_client_cert;
+	char *ssl_client_dn;
+	BIO *ssl_bio;
+	char *ssl_cc;
 #endif
 	int fd_state;
 
@@ -344,10 +357,31 @@ int http_parse(struct http_session *h_session) {
 	// UWSGI_ROUTER
 	h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "UWSGI_ROUTER", 12, "http", 4, &c);
 
-	// HTTPS
+#ifdef UWSGI_SSL
+	// HTTPS (adapted from nginx)
 	if (h_session->crs.ugs->mode == UWSGI_HTTP_SSL) {
 		h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "HTTPS", 5, "on", 2, &c);
+		h_session->ssl_client_cert = SSL_get_peer_certificate(h_session->ssl);
+		if (h_session->ssl_client_cert) {
+			X509_NAME *name = X509_get_subject_name(h_session->ssl_client_cert);
+			if (name) {
+				h_session->ssl_client_dn = X509_NAME_oneline(name, NULL, 0);
+				h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "HTTPS_DN", 8, h_session->ssl_client_dn, strlen(h_session->ssl_client_dn), &c);
+			}
+			if (uhttp.https_export_cert) {
+			h_session->ssl_bio = BIO_new(BIO_s_mem());
+			if (h_session->ssl_bio) {
+				if (PEM_write_bio_X509(h_session->ssl_bio, h_session->ssl_client_cert) > 0) {
+					size_t cc_len = BIO_pending(h_session->ssl_bio);
+					h_session->ssl_cc = uwsgi_malloc(cc_len);
+					BIO_read(h_session->ssl_bio, h_session->ssl_cc, cc_len);
+					h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "HTTPS_CC", 8, h_session->ssl_cc, cc_len, &c);
+				}
+			}
+			}
+		}
 	}
+#endif
 
 	// REMOTE_ADDR
 	if (inet_ntop(AF_INET, &h_session->ip_addr, h_session->ip, INET_ADDRSTRLEN)) {
@@ -548,6 +582,9 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 				hs->iov_len++;
 			}
 
+			// increment node requests counter
+                        if (cs->un)
+                                cs->un->requests++;
 
 #ifndef __sun__
 			// fd passing: PERFORMANCE EXTREME BOOST !!!
@@ -618,8 +655,35 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			event_queue_add_fd_read(uhttp_queue, cs->instance_fd);
 #endif
 			if (len <= 0) {
-				if (len < 0)
+				if (len < 0) {
 					uwsgi_error("recv()");
+				}
+/*
+Keep-Alive implementation.
+As soon as the backend close the connection, enable it.
+The server will start waiting for another request (for a maximum of --http-socket seconds timeout)
+To have a reliable implementation, we need to reset a bunch of values
+*/
+				else if (uhttp.keepalive) {
+#ifdef UWSGI_DEBUG
+					uwsgi_log("Keep-Alive enabled\n");
+#endif
+					cs->keepalive = 1;
+					corerouter_close_session(ucr, cs);
+					cs->status = COREROUTER_STATUS_RECV_HDR;
+					hs->ptr = hs->buffer;
+					hs->rnrn = 0;
+					cs->pos = 0;
+					cs->h_pos = 0;
+					hs->received_body = 0;
+					cs->post_cl = 0;
+					cs->instance_fd = -1;
+					hs->uh.pktsize = 0;
+					cs->post_remains = 0;
+					cs->instance_address_len = 0;
+					cs->hostname_len = 0;
+					break;
+				}
 #ifdef UWSGI_SSL
 				if (len == 0 && cs->ugs->mode == UWSGI_HTTP_SSL) {
 					int ssd_ret = SSL_shutdown(hs->ssl);
@@ -656,22 +720,6 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 		// body from client
 		else if (interesting_fd == cs->fd) {
-
-#ifdef UWSGI_EXPERIMENTAL
-			// pipeline ?
-			if (uhttp.keepalive && hs->received_body >= cs->post_cl) {
-				// duplicate the socket
-				int new_ka_connection = dup(cs->fd);
-				if (new_ka_connection >= 0) {
-					uwsgi_log("keepalive to %d\n", new_ka_connection);
-					struct http_session *new_hs = (struct http_session *) corerouter_alloc_session(&uhttp.cr, NULL, new_ka_connection, NULL, -1);
-					new_hs->ip_addr = hs->ip_addr;
-					new_hs->port = hs->port;
-					new_hs->port_len = hs->port_len;
-				}
-				break;
-			}
-#endif
 
 			len = hs->recv(hs, bbuf, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT
@@ -796,6 +844,7 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
         }
 	if (ret == 0) return 0;
         int err = SSL_get_error(hs->ssl, ret);
+
         if (err == SSL_ERROR_WANT_READ) {
                 if (hs->fd_state) {
                         event_queue_fd_write_to_read(uhttp.cr.queue, hs->crs.fd);
@@ -804,6 +853,7 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
                 errno = EINPROGRESS;
 		return -1;
         }
+
         else if (err == SSL_ERROR_WANT_WRITE) {
                 if (!hs->fd_state) {
                         event_queue_fd_read_to_write(uhttp.cr.queue, hs->crs.fd);
@@ -813,8 +863,14 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
 		return -1;
         }
 	
-	if (err == SSL_ERROR_SYSCALL)
+	else if (err == SSL_ERROR_SYSCALL) {
         	uwsgi_error("SSL_read()");
+	}
+
+	else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
+		ERR_print_errors_fp(stderr);
+	}
+
         return -1;
 
 }
@@ -847,8 +903,15 @@ ssize_t uwsgi_http_ssl_send(struct http_session *hs, char *buf, size_t len) {
 		return -1;
 	}
 
-	if (err == SSL_ERROR_SYSCALL)
+	else if (err == SSL_ERROR_SYSCALL) {
 		uwsgi_error("SSL_write()");
+	}
+
+	else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
+		ERR_print_errors_fp(stderr);
+		return 0;
+	}
+
 	return -1;
 }
 
@@ -856,7 +919,24 @@ ssize_t uwsgi_http_ssl_send(struct http_session *hs, char *buf, size_t len) {
 void uwsgi_ssl_close(struct uwsgi_corerouter *ucr, struct corerouter_session *cs) {
 	struct http_session *hs = (struct http_session *) cs;
 
-	SSL_free(hs->ssl);
+	if (hs->ssl_client_dn) {
+		OPENSSL_free(hs->ssl_client_dn);
+	}
+
+	if (hs->ssl_cc) {
+		free(hs->ssl_cc);
+	}
+
+	if (hs->ssl_bio) {
+		BIO_free(hs->ssl_bio);
+	}
+
+	if (hs->ssl_client_cert) {
+		X509_free(hs->ssl_client_cert);
+	}
+
+	if (!cs->keepalive)
+		SSL_free(hs->ssl);
 
 }
 #endif

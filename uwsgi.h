@@ -1,6 +1,6 @@
 /* uWSGI */
 
-/* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 */
+/* indent -i8 -br -brs -brf -l0 -npsl -nip -npcs -npsl -di1 -il0 */
 
 #ifdef __cplusplus
 extern "C" {
@@ -187,13 +187,6 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 #include <dirent.h>
 
-#ifdef UWSGI_SCTP
-#include <netinet/sctp.h>
-#ifndef SOL_SCTP
-#define SOL_SCTP IPPROTO_SCTP
-#endif
-#endif
-
 #ifndef UWSGI_PLUGIN_BASE
 #define UWSGI_PLUGIN_BASE ""
 #endif
@@ -291,6 +284,13 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
+#ifdef UWSGI_SSL
+#include "openssl/conf.h"
+#include "openssl/ssl.h"
+#include <openssl/err.h>
+#endif
+
+
 
 struct uwsgi_string_list {
 
@@ -298,6 +298,14 @@ struct uwsgi_string_list {
 	size_t len;
 	uint64_t custom;
 	struct uwsgi_string_list *next;
+};
+
+struct uwsgi_custom_option {
+
+	char *name;
+	char *value;
+	int has_args;
+	struct uwsgi_custom_option *next;
 };
 
 struct uwsgi_lock_item {
@@ -392,6 +400,7 @@ struct uwsgi_gateway {
 struct uwsgi_gateway_socket {
 
         char *name;
+	size_t name_len;
         int fd;
         char *zerg;
 
@@ -401,10 +410,6 @@ struct uwsgi_gateway_socket {
 	void *data;
 	// this requires UDP
 	int subscription;
-#ifdef UWSGI_SCTP
-	// this requires SCTP
-	int sctp;
-#endif
 	int shared;
 	int nb;
 
@@ -511,12 +516,12 @@ struct uwsgi_opt {
 
 #ifdef __linux__
 #include <endian.h>
-#elif __sun__
+#elif defined(__sun__)
 #include <sys/byteorder.h>
 #ifdef _BIG_ENDIAN
 #define __BIG_ENDIAN__ 1
 #endif
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
 #elif defined(__HAIKU__)
 #else
@@ -1173,7 +1178,7 @@ struct uwsgi_server {
 	char *short_options;
 	struct uwsgi_opt **exported_opts;
 	int exported_opts_cnt;
-	struct uwsgi_string_list *custom_options;
+	struct uwsgi_custom_option *custom_options;
 
 	// dump the whole set of options
 	int dump_options;
@@ -1295,6 +1300,12 @@ struct uwsgi_server {
 
 	struct uwsgi_daemon *daemons;
 	int daemons_cnt;
+
+#ifdef UWSGI_SSL
+	char *subscriptions_sign_check_dir;
+	int subscriptions_sign_check_tolerance;
+	const EVP_MD *subscriptions_sign_check_md;	
+#endif
 
 	struct uwsgi_dyn_dict *static_maps;
 	struct uwsgi_dyn_dict *static_maps2;
@@ -1523,6 +1534,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *cgroup_opt;
 	char *ns;
 	char *ns_net;
+	struct uwsgi_string_list *ns_keep_mount;
 #endif
 
 	char *protocol;
@@ -1662,6 +1674,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SSL
 	int ssl_initialized;
+	int ssl_verbose;
 #endif
 
 #ifdef __linux__
@@ -1747,6 +1760,8 @@ struct uwsgi_snmp_custom_value {
 	uint8_t type;
 	uint64_t val;
 };
+
+int uwsgi_setup_snmp(void);
 
 struct uwsgi_snmp_server_value {
 	uint8_t type;
@@ -1976,10 +1991,6 @@ int uwsgi_connect(char *, int, int);
 int uwsgi_connectn(char *, uint16_t, int, int);
 int connect_to_tcp(char *, int, int, int);
 int connect_to_unix(char *, int, int);
-#ifdef UWSGI_SCTP
-int bind_to_sctp(char *);
-int connect_to_sctp(char *, int);
-#endif
 
 void daemonize(char *);
 void logto(char *);
@@ -2342,6 +2353,13 @@ struct uwsgi_subscribe_req {
 	uint64_t cores;
 	uint64_t load;
 	uint64_t weight;
+	char *sign;
+	uint16_t sign_len;
+
+	time_t unix_check;
+
+	char *base;
+	uint16_t base_len;
 };
 
 #ifndef _NO_UWSGI_RB
@@ -2426,18 +2444,6 @@ ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request *, struct iovec *, s
 ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *, struct iovec *, size_t);
 ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
-
-#ifdef UWSGI_SCTP
-int uwsgi_proto_sctp_parser(struct wsgi_request *);
-ssize_t uwsgi_proto_sctp_writev_header(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_sctp_writev(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_sctp_write(struct wsgi_request *, char *, size_t);
-ssize_t uwsgi_proto_sctp_write_header(struct wsgi_request *, char *, size_t);
-int uwsgi_proto_sctp_accept(struct wsgi_request *, int);
-void uwsgi_proto_sctp_close(struct wsgi_request *);
-ssize_t uwsgi_proto_sctp_sendfile(struct wsgi_request *);
-ssize_t uwsgi_proto_sctp_read_body(struct wsgi_request *, char *, size_t);
-#endif
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
 
@@ -2599,6 +2605,8 @@ struct uwsgi_subscribe_node {
 	uint64_t weight;
 	uint64_t wrr;
 
+	time_t unix_check;
+
 	struct uwsgi_subscribe_slot *slot;
 
         struct uwsgi_subscribe_node *next;
@@ -2618,6 +2626,12 @@ struct uwsgi_subscribe_slot {
 
 	// used for round robin
 	uint64_t rr;
+
+#ifdef UWSGI_SSL
+	EVP_PKEY *sign_public_key;
+	EVP_MD_CTX *sign_ctx;
+#endif
+
 
         struct uwsgi_subscribe_node *nodes;
 
@@ -2648,7 +2662,7 @@ void manage_cluster_announce(char *, uint16_t, char *, uint16_t, void *);
 int uwsgi_read_response(int, struct uwsgi_header *, int, char **);
 char *uwsgi_simple_file_read(char *);
 
-void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t);
+void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t, char *, char *);
 
 void uwsgi_subscribe(char *, uint8_t);
 
@@ -2880,11 +2894,18 @@ int uwsgi_stats_str(struct uwsgi_stats *, char *);
 
 char *uwsgi_substitute(char *, char *, char *);
 
+void manage_cluster_message(char *, int);
+void uwsgi_opt_add_custom_option(char *, char *, void *);
+
+struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
+
 #ifdef UWSGI_SSL
-#include "openssl/conf.h"
-#include "openssl/ssl.h"
 void uwsgi_ssl_init(void);
-SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *);
+SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *, char *);
+char *uwsgi_rsa_sign(char *, char *, size_t, unsigned int *);
+char *uwsgi_sanitize_cert_filename(char *, char *, uint16_t);
+void uwsgi_opt_scd(char *, char *, void *);
+int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
 #endif
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

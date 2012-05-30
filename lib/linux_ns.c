@@ -19,6 +19,39 @@ extern struct uwsgi_server uwsgi;
 #define CLONE_NEWNET 0x40000000
 #endif
 
+int uwsgi_is_a_keep_mount(char *mp) {
+	struct uwsgi_string_list *usl = uwsgi.ns_keep_mount;
+	while(usl) {
+		char *colon = strchr(usl->value, ':');
+		if (colon) {
+			if (!strcmp(colon+1, mp)) {
+				return 1;
+			}
+		}
+		else {
+			// slip first part
+			if (!uwsgi_startswith(usl->value, uwsgi.ns, strlen(uwsgi.ns))) {
+				char *skipped = usl->value + strlen(uwsgi.ns);
+				if (uwsgi.ns[strlen(uwsgi.ns)-1] == '/') {
+					skipped--;
+				}	
+				if (!strcmp(skipped, mp)) {
+					return 1;
+				}
+			}
+			else {
+				if (!strcmp(usl->value, mp)) {
+					return 1;
+				}
+			}
+		}
+		usl = usl->next;
+	}
+
+	return 0;
+	
+}
+
 void linux_namespace_start(void *argv) {
 	for (;;) {
 		char stack[PTHREAD_STACK_MIN];
@@ -130,6 +163,40 @@ void linux_namespace_jail() {
 		uwsgi_error("mount()");
 	}
 
+	struct uwsgi_string_list *usl = uwsgi.ns_keep_mount;
+	while(usl) {
+		// bind mounting keep-mount items
+		char *keep_mountpoint = usl->value;
+		char *destination = strchr(usl->value, ':');
+		if (destination) {
+			keep_mountpoint = uwsgi_concat2n(usl->value, destination - usl->value, "", 0);
+		}
+		char *ks = uwsgi_concat2("/.uwsgi_ns_tmp_mountpoint", keep_mountpoint);
+		if (!destination) {
+			destination = usl->value;
+			// skip first part of the name if under the jail
+			if (!uwsgi_startswith(destination, uwsgi.ns, strlen(uwsgi.ns))) {
+				if (uwsgi.ns[strlen(uwsgi.ns)-1] == '/') {
+					destination += strlen(uwsgi.ns)-1;
+				}
+				else {
+					destination += strlen(uwsgi.ns);
+				}
+			}
+		}
+		else {
+			free(keep_mountpoint);
+			destination++;
+		}
+
+		uwsgi_log("remounting %s to %s\n", ks+25, destination);
+		if (mount(ks, destination, "none", MS_BIND, NULL)) {
+			uwsgi_error("mount()");
+		}
+		free(ks);
+		usl = usl->next;
+	}
+
 	while (unmounted) {
 
 		unmounted = 0;
@@ -139,6 +206,8 @@ void linux_namespace_jail() {
 			delim0++;
 			delim1 = strchr(delim0, ' ');
 			*delim1 = 0;
+			// and now check for keep-mounts
+			if (uwsgi_is_a_keep_mount(delim0)) continue;
 			if (!strcmp(delim0, "/") || !strcmp(delim0, "/proc"))
 				continue;
 			if (!umount(delim0)) {

@@ -4,12 +4,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-#ifdef UWSGI_SCTP
-extern struct uwsgi_fr_sctp_node **uwsgi_fastrouter_sctp_nodes;
-extern struct uwsgi_fr_sctp_node **uwsgi_fastrouter_sctp_nodes_current;
-#endif
-
-
 int uwsgi_cr_map_use_void(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
 	return 0;
 }
@@ -44,7 +38,7 @@ int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct coreroute
 		cr_session->modifier1 = cr_session->un->modifier1;
 	}
 	else if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap) {
-		uwsgi_gateway_go_cheap("uWSGI fastrouter", ucr->queue, &ucr->i_am_cheap);
+		uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
 	}
 
 	return 0;
@@ -64,7 +58,9 @@ int uwsgi_cr_map_use_base(struct uwsgi_corerouter *ucr, struct corerouter_sessio
 
 int uwsgi_cr_map_use_cs(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
 	if (uwsgi.p[ucr->code_string_modifier1]->code_string) {
-		cr_session->instance_address = uwsgi.p[ucr->code_string_modifier1]->code_string("uwsgi_fastrouter", ucr->code_string_code, ucr->code_string_function, cr_session->hostname, cr_session->hostname_len);
+		char *name = uwsgi_concat2("uwsgi_", ucr->short_name);
+		cr_session->instance_address = uwsgi.p[ucr->code_string_modifier1]->code_string(name, ucr->code_string_code, ucr->code_string_function, cr_session->hostname, cr_session->hostname_len);
+		free(name);
 		if (cr_session->instance_address) {
 			cr_session->instance_address_len = strlen(cr_session->instance_address);
 			char *cs_mod = uwsgi_str_contains(cr_session->instance_address, cr_session->instance_address_len, ',');
@@ -146,53 +142,3 @@ int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *ucr, struct coreroute
 	return 0;
 
 }
-
-#ifdef UWSGI_SCTP
-
-int uwsgi_fr_map_use_sctp(struct fastrouter_session *cr_session, char **magic_table) {	
-
-	if (!*uwsgi_fastrouter_sctp_nodes_current)
-		*uwsgi_fastrouter_sctp_nodes_current = *uwsgi_fastrouter_sctp_nodes;
-
-	struct uwsgi_fr_sctp_node *ufsn = *uwsgi_fastrouter_sctp_nodes_current;
-	int choosen_fd = -1;
-	// find the first available server
-	while (ufsn) {
-		if (ucr->fr_table[ufsn->fd]->status == FASTROUTER_STATUS_SCTP_NODE_FREE) {
-			ufsn->requests++;
-			choosen_fd = ufsn->fd;
-			break;
-		}
-		if (ufsn->next == *uwsgi_fastrouter_sctp_nodes_current) {
-			break;
-		}
-
-		ufsn = ufsn->next;
-	}
-
-	// no nodes available
-	if (choosen_fd == -1) {
-		cr_session->retry = 1;
-		del_timeout(cr_session);
-		cr_session->timeout = add_fake_timeout(cr_session);
-		return -1;
-	}
-
-	struct sctp_sndrcvinfo sinfo;
-	memset(&sinfo, 0, sizeof(struct sctp_sndrcvinfo));
-	memcpy(&sinfo.sinfo_ppid, &cr_session->uh, sizeof(uint32_t));
-	sinfo.sinfo_stream = cr_session->fd;
-	ssize_t len = sctp_send(choosen_fd, cr_session->buffer, cr_session->uh.pktsize, &sinfo, 0);
-	if (len < 0)
-		uwsgi_error("sctp_send()");
-
-	cr_session->instance_fd = choosen_fd;
-	cr_session->status = FASTROUTER_STATUS_SCTP_RESPONSE;
-	ucr->fr_table[cr_session->instance_fd]->status = FASTROUTER_STATUS_SCTP_RESPONSE;
-	ucr->fr_table[cr_session->instance_fd]->fd = cr_session->fd;
-
-	// round robin
-	*uwsgi_fastrouter_sctp_nodes_current = (*uwsgi_fastrouter_sctp_nodes_current)->next;
-	return -1;
-}
-#endif

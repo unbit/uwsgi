@@ -75,24 +75,11 @@ void carbon_master_cycle() {
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) uwsgi.workers[0].requests, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
-		
-			if (u_carbon.no_workers) goto gmetrics;
 
 			for(i=1;i<=uwsgi.numproc;i++) {
-				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].requests, (unsigned long long ) uwsgi.current_time);
-				if (rlen < 1) goto clear;
-				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
-
 				total_rss += uwsgi.workers[i].rss_size;
-				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].rss_size, (unsigned long long ) uwsgi.current_time);
-				if (rlen < 1) goto clear;
-				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
-
 				total_vsz += uwsgi.workers[i].vsz_size;
-				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.vsz_size %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].vsz_size, (unsigned long long ) uwsgi.current_time);
-				if (rlen < 1) goto clear;
-				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
-
+				total_tx += uwsgi.workers[i].tx;
 				if (uwsgi.workers[i].cheaped) {
 					// also if worker is cheaped than we report its average response time as zero, sending last value might be confusing
 					avg_rt = 0;
@@ -103,17 +90,30 @@ void carbon_master_cycle() {
 					avg_rt_workers++;
 					total_avg_rt += uwsgi.workers[i].avg_response_time;
 				}
+
+				//skip per worker metrics when disabled
+				if (!u_carbon.no_workers) continue;
+
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].requests, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].rss_size, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.vsz_size %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].vsz_size, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
 				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) avg_rt, (unsigned long long ) uwsgi.current_time);
 				if (rlen < 1) goto clear;
 				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
-				total_tx += uwsgi.workers[i].tx;
 				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.tx %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].tx, (unsigned long long ) uwsgi.current_time);
 				if (rlen < 1) goto clear;
 				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 			}
-
-gmetrics:
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_rss, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;

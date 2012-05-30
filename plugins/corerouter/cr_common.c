@@ -15,11 +15,7 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 	while (ugs) {
 		if (!strcmp(ucr->name, ugs->owner)) {
-#ifdef UWSGI_SCTP
-			if (!ugs->subscription && !ugs->sctp) {
-#else
 			if (!ugs->subscription) {
-#endif
 				if (ugs->name[0] == '=') {
 					int shared_socket = atoi(ugs->name+1);
                         		if (shared_socket >= 0) {
@@ -72,14 +68,6 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 				}
 				uwsgi_log("%s subscription server bound on %s fd %d\n", ucr->name, ugs->name, ugs->fd);
 			}
-#ifdef UWSGI_SCTP
-			else if (ugs->sctp) {
-				if (ugs->fd == -1) {
-					ugs->fd = bind_to_sctp(ugs->name);
-				}				
-				uwsgi_log("%s SCTP server bound on %s fd %d\n", gw_id, ugs->name, ugs->fd);
-			}
-#endif
 		}
 		ugs = ugs->next;
 	}
@@ -117,6 +105,11 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 	if (len > 0) {
 		memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 		uwsgi_hooked_parse(bbuf + 4, len - 4, corerouter_manage_subscription, &usr);
+		if (usr.sign_len > 0) {
+			// calc the base size
+			usr.base = bbuf + 4;
+			usr.base_len = len - 4 - (2 + 4 + 2 + usr.sign_len);
+		}
 
 		// subscribe request ?
 		if (bbuf[3] == 0) {
@@ -136,6 +129,15 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 		else {
 			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(&ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ucr->subscription_regexp);
 			if (node && node->len) {
+#ifdef UWSGI_SSL
+				if (uwsgi.subscriptions_sign_check_dir) {
+					if (usr.sign_len == 0 || usr.base_len == 0) return;
+					if (usr.unix_check <= node->unix_check) return ;
+					if (!uwsgi_subscription_sign_check(node->slot, &usr)) {
+						return;
+					}
+				}
+#endif
 				if (node->death_mark == 0)
 					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", ucr->name, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);
 				node->failcnt++;

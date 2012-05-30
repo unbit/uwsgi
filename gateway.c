@@ -110,6 +110,7 @@ struct uwsgi_gateway_socket *uwsgi_new_gateway_socket(char *name, char *owner) {
 	uwsgi_sock->fd = -1;
 	uwsgi_sock->shared = 0;
         uwsgi_sock->name = name;
+	uwsgi_sock->name_len = strlen(name);
 	uwsgi_sock->owner = owner;
 
         return uwsgi_sock;
@@ -136,6 +137,7 @@ struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int fd, char *owne
         memset(uwsgi_sock, 0, sizeof(struct uwsgi_gateway_socket));
 	uwsgi_sock->fd = fd;
         uwsgi_sock->name = uwsgi_getsockname(fd);
+	uwsgi_sock->name_len = strlen(uwsgi_sock->name);
         uwsgi_sock->owner = owner;
 
         return uwsgi_sock;
