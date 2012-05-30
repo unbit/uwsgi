@@ -141,14 +141,14 @@ XS(XS_input_read) {
 
         if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
                 free(tmp_buf);
-                croak("error waiting for wsgi.input data");
+                croak("error waiting for psgi.input data");
                 goto ret;
         }
 
         bytes = read(fd, tmp_buf, remains);
         if (bytes < 0) {
                 free(tmp_buf);
-                croak("error reading wsgi.input data");
+                croak("error reading psgi.input data");
                 goto ret;
         }
 
