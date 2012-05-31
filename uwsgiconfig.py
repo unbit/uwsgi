@@ -992,7 +992,10 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     except:
         pass
 
-    plugin_dest = uc.get('plugin_dir') + '/' + name + '_plugin'
+    if uc:
+        plugin_dest = uc.get('plugin_dir') + '/' + name + '_plugin'
+    else:
+        plugin_dest = name + '_plugin'
 
     shared_flag = '-shared'
 
@@ -1102,6 +1105,14 @@ if __name__ == "__main__":
             name = None
         print("*** uWSGI building and linking plugin %s ***" % sys.argv[2] )
         build_plugin(sys.argv[2], uc, cflags, ldflags, libs, name)
+    elif cmd == '--extra-plugin':
+        print("*** uWSGI building and linking plugin ***")
+        cflags = spcall("%s --cflags" % sys.argv[2]).split()
+        try:
+            cflags.append('-I%s' % sys.argv[3]) 
+        except:
+            pass
+        build_plugin('.', None, cflags, [], [], None)
     elif cmd == '--clean':
         os.system("rm -f *.o")
         os.system("rm -f proto/*.o")
