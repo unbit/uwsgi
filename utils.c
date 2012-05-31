@@ -4575,7 +4575,7 @@ char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
 	uint16_t i;
 	char *filename = uwsgi_concat4n(base, strlen(base), "/", 1, key, keylen, ".pem\0", 5);
 
-	for(i=strlen(base)+1;i<keylen;i++) {
+	for(i=strlen(base)+1;i<(strlen(base)+1)+keylen;i++) {
 		if (filename[i] >= '0' && filename[i] <= '9') continue;
 		if (filename[i] >= 'A' && filename[i] <= 'Z') continue;
 		if (filename[i] >= 'a' && filename[i] <= 'z') continue;
