@@ -177,6 +177,18 @@ def build_uwsgi(uc, print_only=False):
 
     print("configured CFLAGS: %s" % ' '.join(cflags))
 
+    uwsgi_cflags = ' '.join(cflags).encode('hex')
+
+    if os.path.exists('uwsgibuild.lastcflags'):
+            ulc = open('uwsgibuild.lastcflags','r')
+            last_cflags = ulc.read()
+            ulc.close()
+            if uwsgi_cflags != last_cflags:
+                os.environ['UWSGI_FORCE_REBUILD'] = '1'
+
+    cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
+    cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
+
     print("*** uWSGI compiling server core ***")
     for file in gcc_list:
         objfile = file
@@ -261,6 +273,10 @@ def build_uwsgi(uc, print_only=False):
         gcc_list.append(uc.get('embed_config'))
     for ef in binary_list:
         gcc_list.append("build/%s" % ef)
+
+    ulc = open('uwsgibuild.lastcflags','w')
+    ulc.write(uwsgi_cflags)
+    ulc.close()
 
     print("*** uWSGI linking ***")
     ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(uniq_warnings(ldflags)),
@@ -430,7 +446,6 @@ class uConf(object):
 
         global uwsgi_version
 
-        self.cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
         kvm_list = ['FreeBSD', 'OpenBSD', 'NetBSD', 'DragonFly']
 
         if self.has_include('ifaddrs.h'):

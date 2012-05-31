@@ -438,6 +438,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options, 0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
 	{"print", required_argument, 0, "simple print", uwsgi_opt_print, NULL, 0},
+	{"cflags", no_argument, 0, "report uWSGI CFLAGS (useful for buildign external plugins)", uwsgi_opt_cflags, NULL, UWSGI_OPT_IMMEDIATE},
 	{"version", no_argument, 0, "print uWSGI version", uwsgi_opt_print, UWSGI_VERSION, 0},
 	{0, 0, 0, 0, 0, 0, 0}
 };
@@ -4385,4 +4386,21 @@ void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
 		exit(1);
 	}
 
+}
+
+// report CFLAGS used for compiling the server
+// use that values to build external plugins
+void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
+	size_t len = sizeof(UWSGI_CFLAGS);
+	char *src = UWSGI_CFLAGS;
+	char *ptr = uwsgi_malloc(len/2);
+	char *base = ptr;
+	size_t i;
+	unsigned int u;
+	for(i=0;i<len;i+=2) {
+		sscanf(src+i,"%2x", &u);
+		*ptr++= (char) u;
+	}	
+	uwsgi_log("%.*s\n", len/2, base);
+	exit(0);
 }
