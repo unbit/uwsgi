@@ -437,6 +437,12 @@ int http_parse(struct http_session *h_session) {
 		hv = hv->next;
 	}
 
+	// security check
+	if (c >= MAX_HTTP_VEC-4) {
+		uwsgi_log("too much headers in request. skipping it.\n");
+		return 0;
+	}
+
 	return c;
 
 }
