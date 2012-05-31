@@ -4401,6 +4401,6 @@ void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
 		sscanf(src+i,"%2x", &u);
 		*ptr++= (char) u;
 	}	
-	uwsgi_log("%.*s\n", len/2, base);
+	fprintf(stdout, "%.*s\n", (int) len/2, base);
 	exit(0);
 }
