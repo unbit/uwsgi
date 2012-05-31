@@ -134,7 +134,7 @@ XS(XS_input_read) {
                 sv_setpvn(read_buf, wsgi_req->post_buffering_buf, remains);
                 bytes = remains;
                 wsgi_req->post_pos += remains;
-
+		goto ret;
         }
 
         tmp_buf = uwsgi_malloc(remains);
