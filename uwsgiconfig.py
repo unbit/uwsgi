@@ -177,7 +177,11 @@ def build_uwsgi(uc, print_only=False):
 
     print("configured CFLAGS: %s" % ' '.join(cflags))
 
-    uwsgi_cflags = ' '.join(cflags).encode('hex')
+    try:
+        uwsgi_cflags = ' '.join(cflags).encode('hex')
+    except:
+        import binascii
+        uwsgi_cflags = binascii.b2a_hex(' '.join(cflags).encode('ascii')).decode('ascii')
 
     if os.path.exists('uwsgibuild.lastcflags'):
             ulc = open('uwsgibuild.lastcflags','r')
