@@ -956,16 +956,18 @@ void uwsgi_python_spooler_init(void) {
 // and it is a bit faster than the "holy" allocator
 void *uwsgi_python_create_env_cheat(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 #ifdef UWSGI_ASYNC
+        wsgi_req->async_args = wi->args[wsgi_req->async_id];
 	Py_INCREF((PyObject *)wi->environ[wsgi_req->async_id]);
 	return wi->environ[wsgi_req->async_id];
 #else
+        wsgi_req->async_args = wi->args;
 	Py_INCREF((PyObject *)wi->environ);
 	return wi->environ;
 #endif
 }
 
 void uwsgi_python_destroy_env_cheat(struct wsgi_request *wsgi_req) {
-	PyDict_Clear(wsgi_req->async_environ);
+	PyDict_Clear((PyObject *)wsgi_req->async_environ);
 }
 
 // this is the "holy" allocator for WSGI's env
@@ -979,11 +981,22 @@ void uwsgi_python_destroy_env_cheat(struct wsgi_request *wsgi_req) {
 
 
 void *uwsgi_python_create_env_holy(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
-	return PyDict_New();
+	wsgi_req->async_args = PyTuple_New(2);
+	// set start_response()
+	Py_INCREF(up.wsgi_spitout);
+	PyTuple_SetItem((PyObject *)wsgi_req->async_args, 1, up.wsgi_spitout);
+	PyObject *env = PyDict_New();
+	Py_INCREF(env);
+	return env;
 }
 
 void uwsgi_python_destroy_env_holy(struct wsgi_request *wsgi_req) {
 	Py_DECREF((PyObject *)wsgi_req->async_environ);
+	Py_DECREF((PyObject *) wsgi_req->async_args);
+	// in non-multithread modes, we set uwsgi.env incrementing the refcount of the environ
+	if (uwsgi.threads < 2) {
+		Py_DECREF((PyObject *)wsgi_req->async_environ);
+	}
 }
 
 

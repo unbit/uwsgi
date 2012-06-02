@@ -444,12 +444,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	// no fear of race conditions for this counter as it is already protected by the GIL
 	wi->requests++;
 
-#ifdef UWSGI_ASYNC
-        wsgi_req->async_args = wi->args[wsgi_req->async_id];
-#else
-        wsgi_req->async_args = wi->args;
-#endif
-
 	// create WSGI environ
 	wsgi_req->async_environ = up.wsgi_env_create(wsgi_req, wi);
 

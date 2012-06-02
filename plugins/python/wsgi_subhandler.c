@@ -150,7 +150,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", wi->uwsgi_node);
 
 	// call
-
 	PyTuple_SetItem(wsgi_req->async_args, 0, wsgi_req->async_environ);
 	return python_call(wsgi_req->async_app, wsgi_req->async_args, uwsgi.catch_exceptions, wsgi_req);
 }
@@ -219,11 +218,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 	}
 
-
-
-
 	pychunk = PyIter_Next(wsgi_req->async_placeholder);
-
 
 	if (!pychunk) {
 		if (PyErr_Occurred()) { 
@@ -308,7 +303,6 @@ clear2:
 
 	Py_DECREF((PyObject *)wsgi_req->async_result);
 	PyErr_Clear();
-
 
 	return UWSGI_OK;
 }
