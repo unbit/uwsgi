@@ -1225,53 +1225,13 @@ health_cycle:
 				/* first check for harakiri */
 				if (uwsgi.workers[i].harakiri > 0) {
 					if (uwsgi.workers[i].harakiri < (time_t) uwsgi.current_time) {
-						/* first try to invoke the harakiri() custom handler */
-						/* TODO */
-						/* then brutally kill the worker */
-						uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d) ***\n", i, uwsgi.workers[i].pid);
-						if (uwsgi.harakiri_verbose) {
-#ifdef __linux__
-							int proc_file;
-							char proc_buf[4096];
-							char proc_name[64];
-							ssize_t proc_len;
-
-							if (snprintf(proc_name, 64, "/proc/%d/syscall", uwsgi.workers[i].pid) > 0) {
-								memset(proc_buf, 0, 4096);
-								proc_file = open(proc_name, O_RDONLY);
-								if (proc_file >= 0) {
-									proc_len = read(proc_file, proc_buf, 4096);
-									if (proc_len > 0) {
-										uwsgi_log("HARAKIRI: -- syscall> %s", proc_buf);
-									}
-									close(proc_file);
-								}
-							}
-
-							if (snprintf(proc_name, 64, "/proc/%d/wchan", uwsgi.workers[i].pid) > 0) {
-								memset(proc_buf, 0, 4096);
-
-								proc_file = open(proc_name, O_RDONLY);
-								if (proc_file >= 0) {
-									proc_len = read(proc_file, proc_buf, 4096);
-									if (proc_len > 0) {
-										uwsgi_log("HARAKIRI: -- wchan> %s\n", proc_buf);
-									}
-									close(proc_file);
-								}
-							}
-
-#endif
-						}
-
-						if (uwsgi.workers[i].pid > 0) {
-							kill(uwsgi.workers[i].pid, SIGUSR2);
-							// allow SIGUSR2 to be delivered
-							sleep(1);
-							kill(uwsgi.workers[i].pid, SIGKILL);
-						}
-						// to avoid races
-						uwsgi.workers[i].harakiri = 0;
+						trigger_harakiri(i);
+					}
+				}
+				/* then user-defined harakiri */
+				if (uwsgi.workers[i].user_harakiri > 0) {
+					if (uwsgi.workers[i].user_harakiri < (time_t) uwsgi.current_time) {
+						trigger_harakiri(i);
 					}
 				}
 				// then for evil memory checkers

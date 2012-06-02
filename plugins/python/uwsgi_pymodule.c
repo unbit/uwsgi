@@ -888,6 +888,18 @@ PyObject *py_uwsgi_log(PyObject * self, PyObject * args) {
 	return Py_True;
 }
 
+PyObject *py_uwsgi_set_user_harakiri(PyObject * self, PyObject * args) {
+	int sec = 0;
+	if (!PyArg_ParseTuple(args, "i:set_user_harakiri", &sec)) {
+                return NULL;
+        }
+
+	set_user_harakiri(sec);
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
 PyObject *py_uwsgi_i_am_the_spooler(PyObject * self, PyObject * args) {
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.i_am_a_spooler) {
@@ -3139,6 +3151,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"in_farm", py_uwsgi_in_farm, METH_VARARGS, ""},
 
 	{"ready", py_uwsgi_ready, METH_VARARGS, ""},
+
+	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{NULL, NULL},

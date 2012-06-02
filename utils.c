@@ -110,6 +110,19 @@ void set_harakiri(int sec) {
 	}
 }
 
+void set_user_harakiri(int sec) {
+	if (!uwsgi.master_process) {
+		uwsgi_log("!!! unable to set user harakiri without the master process !!!\n");
+		return;
+	}
+	if (sec == 0) {
+		uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
+	}
+	else {
+		uwsgi.workers[uwsgi.mywid].user_harakiri = time(NULL) + sec;
+	}
+}
+
 void set_mule_harakiri(int sec) {
 	if (sec == 0) {
 		uwsgi.mules[uwsgi.muleid - 1].harakiri = 0;
@@ -791,6 +804,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	// leave harakiri mode
 	if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
 		set_harakiri(0);
+	}
+
+	// leave user harakiri mode
+	if (uwsgi.workers[uwsgi.mywid].user_harakiri > 0) {
+		set_user_harakiri(0);
 	}
 
 	// this is racy in multithread mode

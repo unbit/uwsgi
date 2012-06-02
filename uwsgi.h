@@ -1894,6 +1894,7 @@ struct uwsgi_worker {
 	uint64_t failed_requests;
 
 	time_t harakiri;
+	time_t user_harakiri;
 
 	uint64_t vsz_size;
 	uint64_t rss_size;
@@ -2019,6 +2020,7 @@ pid_t spooler_start(struct uwsgi_spooler *);
 #endif
 
 void set_harakiri(int);
+void set_user_harakiri(int);
 void set_mule_harakiri(int);
 void set_spooler_harakiri(int);
 void inc_harakiri(int);
@@ -2899,6 +2901,8 @@ void uwsgi_opt_add_custom_option(char *, char *, void *);
 void uwsgi_opt_cflags(char *, char *, void *);
 
 struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
+
+void trigger_harakiri(int);
 
 #ifdef UWSGI_SSL
 void uwsgi_ssl_init(void);
