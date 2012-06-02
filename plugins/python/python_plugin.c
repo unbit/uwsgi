@@ -128,6 +128,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"py-auto-reload-ignore", required_argument, 0, "ignore the specified module during auto-reload scan (can be specified multiple times)", uwsgi_opt_add_string_list, &up.auto_reload_ignore, UWSGI_OPT_THREADS|UWSGI_OPT_MASTER},
 #endif
 
+	{"wsgi-env-behaviour", required_argument, 0, "set the strategy for allocating/deallocating the WSGI env", uwsgi_opt_set_str, &up.wsgi_env_behaviour, 0},
+	{"wsgi-env-behavior", required_argument, 0, "set the strategy for allocating/deallocating the WSGI env", uwsgi_opt_set_str, &up.wsgi_env_behaviour, 0},
 	{"start_response-nodelay", no_argument, 0, "send WSGI http headers as soon as possible (PEP violation)", uwsgi_opt_true, &up.start_response_nodelay, 0},
 
 	{0, 0, 0, 0, 0, 0, 0},
@@ -947,6 +949,44 @@ void uwsgi_python_spooler_init(void) {
 
 }
 
+// this is the default (fake) allocator for WSGI's env
+// the dictionary is created on app loading (one for each async core/thread) and reused (clearing it after each request, constantly)
+//
+// from a python-programmer point of view it is a hack/cheat but it does not violate the WSGI standard
+// and it is a bit faster than the "holy" allocator
+void *uwsgi_python_create_env_cheat(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+#ifdef UWSGI_ASYNC
+	Py_INCREF((PyObject *)wi->environ[wsgi_req->async_id]);
+	return wi->environ[wsgi_req->async_id];
+#else
+	Py_INCREF((PyObject *)wi->environ);
+	return wi->environ;
+#endif
+}
+
+void uwsgi_python_destroy_env_cheat(struct wsgi_request *wsgi_req) {
+	PyDict_Clear(wsgi_req->async_environ);
+}
+
+// this is the "holy" allocator for WSGI's env
+// Armin Ronacher told me this is what most of python programmers expect
+// I cannot speak for that as i am a perl guy, and i expect only black-magic things :P
+//
+// this should be the default one, but changing default behaviours (even if they are wrong)
+// always make my customers going berserk...
+//
+// it is only slightly (better: irrelevant) slower, so no fear in enabling it...
+
+
+void *uwsgi_python_create_env_holy(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
+	return PyDict_New();
+}
+
+void uwsgi_python_destroy_env_holy(struct wsgi_request *wsgi_req) {
+	Py_DECREF((PyObject *)wsgi_req->async_environ);
+}
+
+
 // this hook will be executed by master (or worker1 when master is not requested, so COW is in place)
 void uwsgi_python_preinit_apps() {
 
@@ -968,6 +1008,19 @@ void uwsgi_python_preinit_apps() {
                 }
                 exit(1);
         }
+
+	if (!up.wsgi_env_behaviour) {
+		up.wsgi_env_create = uwsgi_python_create_env_cheat;
+		up.wsgi_env_destroy = uwsgi_python_destroy_env_cheat;
+	}
+	else if (!strcmp(up.wsgi_env_behaviour, "holy")) {
+		up.wsgi_env_create = uwsgi_python_create_env_holy;
+		up.wsgi_env_destroy = uwsgi_python_destroy_env_holy;
+	}
+	else if (!strcmp(up.wsgi_env_behaviour, "cheat")) {
+		up.wsgi_env_create = uwsgi_python_create_env_cheat;
+		up.wsgi_env_destroy = uwsgi_python_destroy_env_cheat;
+	}
 
         init_uwsgi_vars();
 

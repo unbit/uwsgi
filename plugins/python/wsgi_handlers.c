@@ -439,20 +439,19 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
-#ifdef UWSGI_ASYNC
-	wsgi_req->async_environ = wi->environ[wsgi_req->async_id];
-	wsgi_req->async_args = wi->args[wsgi_req->async_id];
-#else
-	wsgi_req->async_environ = wi->environ;
-	wsgi_req->async_args = wi->args;
-#endif
-
 	UWSGI_GET_GIL
 
 	// no fear of race conditions for this counter as it is already protected by the GIL
 	wi->requests++;
 
-	Py_INCREF((PyObject *)wsgi_req->async_environ);
+#ifdef UWSGI_ASYNC
+        wsgi_req->async_args = wi->args[wsgi_req->async_id];
+#else
+        wsgi_req->async_args = wi->args;
+#endif
+
+	// create WSGI environ
+	wsgi_req->async_environ = up.wsgi_env_create(wsgi_req, wi);
 
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
 
@@ -515,7 +514,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
                 Py_DECREF((PyObject *)wsgi_req->async_input);
         }
         if (wsgi_req->async_environ) {
-                PyDict_Clear(wsgi_req->async_environ);
+		up.wsgi_env_destroy(wsgi_req);
         }
 
 	UWSGI_RELEASE_GIL

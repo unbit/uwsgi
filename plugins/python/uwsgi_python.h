@@ -168,6 +168,11 @@ struct uwsgi_python {
 	PyObject *embedded_dict;
 	PyObject *embedded_args;
 
+	char *wsgi_env_behaviour;
+
+	void *(*wsgi_env_create)(struct wsgi_request *, struct uwsgi_app *);
+	void (*wsgi_env_destroy)(struct wsgi_request *);
+
 
 	int pep3333_input;
 
