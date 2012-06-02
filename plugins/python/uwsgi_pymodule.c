@@ -2492,6 +2492,11 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			goto clear;
 		}
 
+		apps_tuple = PyDict_GetItemString(worker_dict, "apps");
+		if (apps_tuple) {
+			Py_DECREF(apps_tuple);
+		}	
+
 		PyDict_Clear(worker_dict);
 
 		zero = PyInt_FromLong(uwsgi.workers[i + 1].id);
@@ -2601,21 +2606,37 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			apps_dict = PyDict_New();
 			ua = &uwsgi.workers[i+1].apps[j];
 
-			PyDict_SetItemString(apps_dict, "id", PyInt_FromLong(j));
+			zero = PyInt_FromLong(j);
+			PyDict_SetItemString(apps_dict, "id", zero);
+			Py_DECREF(zero);
 
-			PyDict_SetItemString(apps_dict, "modifier1", PyInt_FromLong(ua->modifier1));
+			zero = PyInt_FromLong(ua->modifier1);
+			PyDict_SetItemString(apps_dict, "modifier1", zero);
+			Py_DECREF(zero);
 
 			zero = PyString_FromStringAndSize(ua->mountpoint, ua->mountpoint_len);
 			PyDict_SetItemString(apps_dict, "mountpoint", zero);
 			Py_DECREF(zero);
 
-			PyDict_SetItemString(apps_dict, "startup_time", PyInt_FromLong((long) ua->startup_time));
+			zero = PyInt_FromLong((long) ua->startup_time);
+			PyDict_SetItemString(apps_dict, "startup_time", zero);
+			Py_DECREF(zero);
 
-			PyDict_SetItemString(apps_dict, "interpreter", PyInt_FromLong((long)ua->interpreter));
-			PyDict_SetItemString(apps_dict, "callable", PyInt_FromLong((long)ua->interpreter));
+			zero = PyInt_FromLong((long)ua->interpreter);
+			PyDict_SetItemString(apps_dict, "interpreter", zero);
+			Py_DECREF(zero);
 
-			PyDict_SetItemString(apps_dict, "requests", PyLong_FromUnsignedLongLong(ua->requests));
-			PyDict_SetItemString(apps_dict, "exceptions", PyLong_FromUnsignedLongLong(ua->exceptions));
+			zero = PyInt_FromLong((long)ua->callable);
+			PyDict_SetItemString(apps_dict, "callable", zero);
+			Py_DECREF(zero);
+
+			zero = PyLong_FromUnsignedLongLong(ua->requests);
+			PyDict_SetItemString(apps_dict, "requests", zero);
+			Py_DECREF(zero);
+
+			zero = PyLong_FromUnsignedLongLong(ua->exceptions);
+			PyDict_SetItemString(apps_dict, "exceptions", zero);
+			Py_DECREF(zero);
 
 			if (ua->chdir) {
 				zero = PyString_FromString(ua->chdir);
