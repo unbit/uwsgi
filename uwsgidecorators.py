@@ -319,3 +319,19 @@ class thread(object):
         t.daemon = True
         t.start()
         return self.f
+
+
+class harakiri(object):
+
+    def __init__(self, seconds):
+        self.s = seconds
+
+    def real_call(self, *args):
+        uwsgi.set_user_harakiri(self.s)
+        r = self.f(*args)
+        uwsgi.set_user_harakiri(0)
+        return r
+
+    def __call__(self, f):
+        self.f = f
+        return self.real_call
