@@ -275,6 +275,8 @@ void *uwsgi_python_tracebacker_thread(void *);
 
 int uwsgi_python_manage_exceptions(void);
 int uwsgi_python_do_send_headers(struct wsgi_request *);
+void *uwsgi_python_tracebacker_thread(void *);
+PyObject *uwsgi_python_setup_thread(char *);
 
 #ifdef UWSGI_PYPY
 #undef UWSGI_MINTERPRETERS

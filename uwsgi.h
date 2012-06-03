@@ -2899,6 +2899,7 @@ char *uwsgi_substitute(char *, char *, char *);
 void manage_cluster_message(char *, int);
 void uwsgi_opt_add_custom_option(char *, char *, void *);
 void uwsgi_opt_cflags(char *, char *, void *);
+void uwsgi_opt_connect_and_read(char *, char *, void *);
 
 struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *, char *, size_t);
 

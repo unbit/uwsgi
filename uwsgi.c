@@ -100,6 +100,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"pause", required_argument, 0, "pause an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP, UWSGI_OPT_IMMEDIATE},
 	{"suspend", required_argument, 0, "suspend an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP, UWSGI_OPT_IMMEDIATE},
 	{"resume", required_argument, 0, "resume an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP, UWSGI_OPT_IMMEDIATE},
+
+	{"connect-and-read", required_argument, 0, "connect to a scoekt and wait for data from it", uwsgi_opt_connect_and_read, NULL, UWSGI_OPT_IMMEDIATE},
+
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue, 0},
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_max_vars, NULL, 0},
 	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_int, &uwsgi.buffer_size, 0},
@@ -4403,4 +4406,22 @@ void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
 	}	
 	fprintf(stdout, "%.*s\n", (int) len/2, base);
 	exit(0);
+}
+
+void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
+
+	char buf[8192];
+
+	int fd = uwsgi_connect(address, -1, 0);
+	for(;;) {
+		int ret = uwsgi_waitfd(fd, -1);
+                if (ret <= 0) {
+			exit(0);
+                }
+		ssize_t len = read(fd, buf, 8192);
+		if (len <= 0) {
+			exit(0);
+		}
+		uwsgi_log("%.*s", (int) len, buf);
+	}
 }
