@@ -272,6 +272,7 @@ void uwsgi_ruby_gem_set_apply(char *gemset) {
 
 	char *ptr = buffer;
 
+
 	for(i=0;i<size;i++) {
 		if (buffer[i] == '\n') {
 			buffer[i] = 0;
@@ -282,7 +283,9 @@ void uwsgi_ruby_gem_set_apply(char *gemset) {
 		}
 	}
 
-	free(buffer);
+	// do not free the buffer
+        // environ will reuse it !!!
+	//free(buffer);
 
 	if (waitpid(pid, &waitpid_status, 0) <0) {
 		uwsgi_error("waitpid()");
@@ -322,6 +325,9 @@ void uwsgi_ruby_gemset(char *gemset) {
                 free(filename);
 		rvm_paths = rvm_paths->next;
 	}
+
+	uwsgi_log("ERROR: unable to load gemset %s !!!\n", gemset);
+	exit(1);
 	
 }
 
