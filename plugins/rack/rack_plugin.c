@@ -20,7 +20,7 @@ struct uwsgi_option uwsgi_rack_options[] = {
         {"gemset", required_argument, 0, "load the specified gemset (rvm)", uwsgi_opt_set_str, &ur.gemset, 0},
         {"rvm", required_argument, 0, "load the specified gemset (rvm)", uwsgi_opt_set_str, &ur.gemset, 0},
 
-        {"rvm-path", required_argument, 0, "search for rvm in the specifiied directory", uwsgi_opt_add_string_list, &ur.rvm_path, 0},
+        {"rvm-path", required_argument, 0, "search for rvm in the specified directory", uwsgi_opt_add_string_list, &ur.rvm_path, 0},
 
         {"rbshell", optional_argument, 0, "run  a ruby/irb shell", uwsgi_opt_true, &ur.rb_shell, 0},
 
