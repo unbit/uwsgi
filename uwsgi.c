@@ -2472,6 +2472,10 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
 			if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
+				if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) {
+					uwsgi_add_socket_from_fd(uwsgi_sock, atoi(uwsgi_sock->name+5));
+					goto next;
+				}
 				char *tcp_port = strchr(uwsgi_sock->name, ':');
 				if (tcp_port == NULL) {
 					uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
@@ -2492,6 +2496,7 @@ int uwsgi_start(void *v_argv) {
 					exit(1);
 				}
 			}
+next:
 			uwsgi_sock->bound = 1;
 			uwsgi_sock = uwsgi_sock->next;
 		}

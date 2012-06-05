@@ -905,7 +905,16 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 				}
 				return;
 			}
-			if (!strcmp(usa.sa_un.sun_path + abstract, uwsgi_sock->name + abstract)) {
+			if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) {
+				if (atoi(uwsgi_sock->name+5) == fd) {
+					uwsgi_sock->fd = fd;
+					uwsgi_sock->family = AF_UNIX;
+					uwsgi_sock->bound = 1;
+					uwsgi_sock->name = uwsgi_str(usa.sa_un.sun_path + abstract);
+					uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+				}
+			}
+			else if (!strcmp(usa.sa_un.sun_path + abstract, uwsgi_sock->name + abstract)) {
 				uwsgi_sock->fd = fd;
 				uwsgi_sock->family = AF_UNIX;
 				uwsgi_sock->bound = 1;
@@ -954,7 +963,19 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 						asterisk[0] = '*';
 					}
 					else {
-						match = strcmp(computed_addr, uwsgi_sock->name);
+						if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) {
+							if (atoi(uwsgi_sock->name+5) == fd) {
+								uwsgi_sock->fd = fd;
+								uwsgi_sock->family = AF_INET;
+                                                		uwsgi_sock->bound = 1;
+								uwsgi_sock->name = uwsgi_str(computed_addr);
+								uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+								match = 1;
+							}
+						}
+						else {
+							match = strcmp(computed_addr, uwsgi_sock->name);
+						}
 					}
 					if (!match) {
 						uwsgi_sock->fd = fd;
