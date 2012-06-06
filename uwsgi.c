@@ -464,7 +464,8 @@ void show_config(void) {
 int uwsgi_manage_custom_option(struct uwsgi_custom_option *uco, char *key, char *value) {
 	size_t i, count = 1;
 	size_t value_len = 0;
-	if (value) value_len = strlen(value);
+	if (value)
+		value_len = strlen(value);
 	off_t pos = 0;
 	char **opt_argv;
 	char *tmp_val = NULL, *p = NULL;
@@ -1517,7 +1518,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #ifdef UWSGI_SSL
 	// 1 day of tolerance
-	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24 ;
+	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24;
 #endif
 
 
@@ -1867,18 +1868,18 @@ int main(int argc, char *argv[], char *envp[]) {
 #ifdef UWSGI_IPV6
 				if (shared_sock->name[0] == '[' && tcp_port[-1] == ']') {
 					shared_sock->fd = bind_to_tcp6(shared_sock->name, uwsgi.listen_queue, tcp_port);
-                               		shared_sock->family = AF_INET6;
-                                	// fix socket name
-                                	shared_sock->name = uwsgi_getsockname(shared_sock->fd);
-                                	uwsgi_log("uwsgi shared socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+					shared_sock->family = AF_INET6;
+					// fix socket name
+					shared_sock->name = uwsgi_getsockname(shared_sock->fd);
+					uwsgi_log("uwsgi shared socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 				}
 				else {
 #endif
-				shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
-				shared_sock->family = AF_INET;
-				// fix socket name
-				shared_sock->name = uwsgi_getsockname(shared_sock->fd);
-				uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+					shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
+					shared_sock->family = AF_INET;
+					// fix socket name
+					shared_sock->name = uwsgi_getsockname(shared_sock->fd);
+					uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 #ifdef UWSGI_IPV6
 				}
 #endif
@@ -2503,9 +2504,9 @@ int uwsgi_start(void *v_argv) {
 					}
 					else {
 #endif
-					uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
-					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-					uwsgi_sock->family = AF_INET;
+						uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
+						uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+						uwsgi_sock->family = AF_INET;
 #ifdef UWSGI_IPV6
 					}
 #endif
@@ -2588,7 +2589,7 @@ int uwsgi_start(void *v_argv) {
 				}
 				else {
 #endif
-				uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+					uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 #ifdef UWSGI_IPV6
 				}
 #endif
@@ -2986,7 +2987,7 @@ nextsock:
 
 	// check for request plugins, and eventually print a warning
 	int rp_available = 0;
-	for(i=0;i<256;i++) {
+	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i] != &unconfigured_plugin) {
 			rp_available = 1;
 			break;
@@ -3555,7 +3556,7 @@ void build_options() {
 
 	// add custom options
 	struct uwsgi_custom_option *uco = uwsgi.custom_options;
-	while(uco) {
+	while (uco) {
 		options_count++;
 		uco = uco->next;
 	}
@@ -3629,17 +3630,17 @@ void build_options() {
 		pos++;
 	}
 	uco = uwsgi.custom_options;
-	while(uco) {
+	while (uco) {
 		uwsgi.long_options[pos].name = uco->name;
 		if (uco->has_args) {
-                	uwsgi.long_options[pos].has_arg = required_argument;
+			uwsgi.long_options[pos].has_arg = required_argument;
 		}
 		else {
-                	uwsgi.long_options[pos].has_arg = no_argument;
+			uwsgi.long_options[pos].has_arg = no_argument;
 		}
-                uwsgi.long_options[pos].flag = 0;
-                // add 1000 to avoid short_options collision
-                uwsgi.long_options[pos].val = 1000 + pos;
+		uwsgi.long_options[pos].flag = 0;
+		// add 1000 to avoid short_options collision
+		uwsgi.long_options[pos].val = 1000 + pos;
 		pos++;
 		uco = uco->next;
 	}
@@ -3919,18 +3920,18 @@ void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 
 #ifdef UWSGI_SSL
 void uwsgi_opt_scd(char *opt, char *value, void *foobar) {
-	 // openssl could not be initialized
-        if (!uwsgi.ssl_initialized) {
-                uwsgi_ssl_init();
-        }
+	// openssl could not be initialized
+	if (!uwsgi.ssl_initialized) {
+		uwsgi_ssl_init();
+	}
 
 	char *colon = strchr(value, ':');
 	if (!colon) {
 		uwsgi_log("invalid syntax for '%s', must be: <digest>:<directory>\n", opt);
 		exit(1);
 	}
-	
-	char *algo = uwsgi_concat2n(value, (colon-value), "", 0);
+
+	char *algo = uwsgi_concat2n(value, (colon - value), "", 0);
 	uwsgi.subscriptions_sign_check_md = EVP_get_digestbyname(algo);
 	if (!uwsgi.subscriptions_sign_check_md) {
 		uwsgi_log("unable to find digest algorithm: %s\n", algo);
@@ -3938,7 +3939,7 @@ void uwsgi_opt_scd(char *opt, char *value, void *foobar) {
 	}
 	free(algo);
 
-	uwsgi.subscriptions_sign_check_dir = colon+1;
+	uwsgi.subscriptions_sign_check_dir = colon + 1;
 }
 #endif
 
@@ -4359,21 +4360,21 @@ void uwsgi_opt_load_ldap(char *opt, char *url, void *none) {
 
 void uwsgi_opt_add_custom_option(char *opt, char *value, void *none) {
 
-        struct uwsgi_custom_option *uco = uwsgi.custom_options, *old_uco;
+	struct uwsgi_custom_option *uco = uwsgi.custom_options, *old_uco;
 
-        if (!uco) {
-                uwsgi.custom_options = uwsgi_malloc(sizeof(struct uwsgi_custom_option));
-                uco = uwsgi.custom_options;
-        }
-        else {
-                while (uco) {
-                        old_uco = uco;
-                        uco = uco->next;
-                }
+	if (!uco) {
+		uwsgi.custom_options = uwsgi_malloc(sizeof(struct uwsgi_custom_option));
+		uco = uwsgi.custom_options;
+	}
+	else {
+		while (uco) {
+			old_uco = uco;
+			uco = uco->next;
+		}
 
 		uco = uwsgi_malloc(sizeof(struct uwsgi_custom_option));
-                old_uco->next = uco;
-        }
+		old_uco->next = uco;
+	}
 
 	char *copy = uwsgi_str(value);
 	char *equal = strchr(copy, '=');
@@ -4383,14 +4384,14 @@ void uwsgi_opt_add_custom_option(char *opt, char *value, void *none) {
 	}
 	*equal = 0;
 
-        uco->name = copy;
-        uco->value = equal+1;
+	uco->name = copy;
+	uco->value = equal + 1;
 	uco->has_args = 0;
 	// a little hack, we allow the user to skip the first 2 arguments (yes.. it is silly...but users tend to make silly things...)
 	if (strstr(uco->value, "$1") || strstr(uco->value, "$2") || strstr(uco->value, "$3")) {
 		uco->has_args = 1;
 	}
-        uco->next = NULL;
+	uco->next = NULL;
 	build_options();
 }
 
@@ -4429,15 +4430,15 @@ void uwsgi_opt_flock_wait(char *opt, char *filename, void *none) {
 void uwsgi_opt_cflags(char *opt, char *filename, void *foobar) {
 	size_t len = sizeof(UWSGI_CFLAGS);
 	char *src = UWSGI_CFLAGS;
-	char *ptr = uwsgi_malloc(len/2);
+	char *ptr = uwsgi_malloc(len / 2);
 	char *base = ptr;
 	size_t i;
 	unsigned int u;
-	for(i=0;i<len;i+=2) {
-		sscanf(src+i,"%2x", &u);
-		*ptr++= (char) u;
-	}	
-	fprintf(stdout, "%.*s\n", (int) len/2, base);
+	for (i = 0; i < len; i += 2) {
+		sscanf(src + i, "%2x", &u);
+		*ptr++ = (char) u;
+	}
+	fprintf(stdout, "%.*s\n", (int) len / 2, base);
 	exit(0);
 }
 
@@ -4446,11 +4447,11 @@ void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
 	char buf[8192];
 
 	int fd = uwsgi_connect(address, -1, 0);
-	for(;;) {
+	for (;;) {
 		int ret = uwsgi_waitfd(fd, -1);
-                if (ret <= 0) {
+		if (ret <= 0) {
 			exit(0);
-                }
+		}
 		ssize_t len = read(fd, buf, 8192);
 		if (len <= 0) {
 			exit(0);

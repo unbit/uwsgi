@@ -400,7 +400,7 @@ void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
 
 struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *list, char *key, size_t keylen) {
 	struct uwsgi_string_list *usl = list;
-	while(usl) {
+	while (usl) {
 		if (keylen == usl->len) {
 			if (!memcmp(key, usl->value, keylen)) {
 				return usl;
@@ -2271,9 +2271,9 @@ char *uwsgi_resolve_ip(char *domain) {
 	he = gethostbyname(domain);
 	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
 #ifdef UWSGI_IPV6
-	&& he->h_addrtype != AF_INET6
+					 && he->h_addrtype != AF_INET6
 #endif
-)) {
+	    )) {
 		return NULL;
 	}
 
@@ -4388,7 +4388,7 @@ void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
 	}
 }
 
-int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX *x509_store) {
+int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
 	return 1;
 }
 
@@ -4457,12 +4457,12 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 
 	// set session context (if possibile), this is required for client certificate authentication
 	if (name) {
-		SSL_CTX_set_session_id_context(ctx, (unsigned char *)name, strlen(name));
+		SSL_CTX_set_session_id_context(ctx, (unsigned char *) name, strlen(name));
 	}
 
 	if (client_ca) {
 		if (client_ca[0] == '!') {
-			SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, uwsgi_ssl_verify_callback);
+			SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, uwsgi_ssl_verify_callback);
 			client_ca++;
 		}
 		else {
@@ -4473,8 +4473,8 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 		if (SSL_CTX_load_verify_locations(ctx, client_ca, NULL) == 0) {
 			uwsgi_log("unable to set ssl verify locations for: %s\n", client_ca);
 			exit(1);
-		}	
-		STACK_OF(X509_NAME) *list = SSL_load_client_CA_file(client_ca);
+		}
+		STACK_OF(X509_NAME) * list = SSL_load_client_CA_file(client_ca);
 		if (!list) {
 			uwsgi_log("unable to load client CA certificate: %s\n", client_ca);
 			exit(1);
@@ -4507,8 +4507,8 @@ char *uwsgi_rsa_sign(char *algo_key, char *message, size_t message_len, unsigned
 
 	// openssl could not be initialized
 	if (!uwsgi.ssl_initialized) {
-                uwsgi_ssl_init();
-        }
+		uwsgi_ssl_init();
+	}
 
 	*s_len = 0;
 	EVP_PKEY *pk = NULL;
@@ -4522,10 +4522,10 @@ char *uwsgi_rsa_sign(char *algo_key, char *message, size_t message_len, unsigned
 	}
 
 	*colon = 0;
-	char *keyfile = colon+1;
+	char *keyfile = colon + 1;
 	char *signature = NULL;
 
-	FILE *kf = fopen(keyfile,"r");
+	FILE *kf = fopen(keyfile, "r");
 	if (!kf) {
 		uwsgi_error_open(keyfile);
 		free(algo);
@@ -4584,26 +4584,32 @@ char *uwsgi_rsa_sign(char *algo_key, char *message, size_t message_len, unsigned
 		*s_len = 0;
 		goto clear;
 	}
-	
+
 clear:
 	free(algo);
 	EVP_PKEY_free(pk);
 	EVP_MD_CTX_destroy(ctx);
 	return signature;
-	
+
 }
 
 char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
 	uint16_t i;
 	char *filename = uwsgi_concat4n(base, strlen(base), "/", 1, key, keylen, ".pem\0", 5);
 
-	for(i=strlen(base)+1;i<(strlen(base)+1)+keylen;i++) {
-		if (filename[i] >= '0' && filename[i] <= '9') continue;
-		if (filename[i] >= 'A' && filename[i] <= 'Z') continue;
-		if (filename[i] >= 'a' && filename[i] <= 'z') continue;
-		if (filename[i] == '.') continue;
-		if (filename[i] == '-') continue;
-		if (filename[i] == '_') continue;
+	for (i = strlen(base) + 1; i < (strlen(base) + 1) + keylen; i++) {
+		if (filename[i] >= '0' && filename[i] <= '9')
+			continue;
+		if (filename[i] >= 'A' && filename[i] <= 'Z')
+			continue;
+		if (filename[i] >= 'a' && filename[i] <= 'z')
+			continue;
+		if (filename[i] == '.')
+			continue;
+		if (filename[i] == '-')
+			continue;
+		if (filename[i] == '_')
+			continue;
 		filename[i] = '_';
 	}
 
