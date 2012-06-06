@@ -1857,18 +1857,31 @@ int main(int argc, char *argv[], char *envp[]) {
 	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
 	while (shared_sock) {
 		if (!uwsgi.is_a_reload) {
-			char *tcp_port = strchr(shared_sock->name, ':');
+			char *tcp_port = strrchr(shared_sock->name, ':');
 			if (tcp_port == NULL) {
 				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				shared_sock->family = AF_UNIX;
 				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 			}
 			else {
+#ifdef UWSGI_IPV6
+				if (shared_sock->name[0] == '[' && tcp_port[-1] == ']') {
+					shared_sock->fd = bind_to_tcp6(shared_sock->name, uwsgi.listen_queue, tcp_port);
+                               		shared_sock->family = AF_INET6;
+                                	// fix socket name
+                                	shared_sock->name = uwsgi_getsockname(shared_sock->fd);
+                                	uwsgi_log("uwsgi shared socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+				}
+				else {
+#endif
 				shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
 				shared_sock->family = AF_INET;
 				// fix socket name
 				shared_sock->name = uwsgi_getsockname(shared_sock->fd);
 				uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+#ifdef UWSGI_IPV6
+				}
+#endif
 			}
 
 			if (shared_sock->fd < 0) {
@@ -2472,11 +2485,7 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
 			if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
-				if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) {
-					uwsgi_add_socket_from_fd(uwsgi_sock, atoi(uwsgi_sock->name+5));
-					goto next;
-				}
-				char *tcp_port = strchr(uwsgi_sock->name, ':');
+				char *tcp_port = strrchr(uwsgi_sock->name, ':');
 				if (tcp_port == NULL) {
 					uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 					uwsgi_sock->family = AF_UNIX;
@@ -2486,9 +2495,20 @@ int uwsgi_start(void *v_argv) {
 					uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 				}
 				else {
+#ifdef UWSGI_IPV6
+					if (uwsgi_sock->name[0] == '[' && tcp_port[-1] == ']') {
+						uwsgi_sock->fd = bind_to_tcp6(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
+						uwsgi_log("uwsgi socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+						uwsgi_sock->family = AF_INET6;
+					}
+					else {
+#endif
 					uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
 					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 					uwsgi_sock->family = AF_INET;
+#ifdef UWSGI_IPV6
+					}
+#endif
 				}
 
 				if (uwsgi_sock->fd < 0 && !uwsgi_sock->per_core) {
@@ -2496,7 +2516,6 @@ int uwsgi_start(void *v_argv) {
 					exit(1);
 				}
 			}
-next:
 			uwsgi_sock->bound = 1;
 			uwsgi_sock = uwsgi_sock->next;
 		}
@@ -2563,7 +2582,16 @@ next:
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
 			if (uwsgi_sock->auto_port) {
+#ifdef UWSGI_IPV6
+				if (uwsgi_sock->family == AF_INET6) {
+					uwsgi_log("uwsgi socket %d bound to TCP6 address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+				}
+				else {
+#endif
 				uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+#ifdef UWSGI_IPV6
+				}
+#endif
 			}
 			uwsgi_sock = uwsgi_sock->next;
 		}

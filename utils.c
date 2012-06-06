@@ -2269,7 +2269,11 @@ char *uwsgi_resolve_ip(char *domain) {
 	struct hostent *he;
 
 	he = gethostbyname(domain);
-	if (!he || !*he->h_addr_list || he->h_addrtype != AF_INET) {
+	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
+#ifdef UWSGI_IPV6
+	&& he->h_addrtype != AF_INET6
+#endif
+)) {
 		return NULL;
 	}
 

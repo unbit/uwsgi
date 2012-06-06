@@ -59,6 +59,7 @@ report['sqlite3'] = False
 report['spooler'] = False
 report['debug'] = False
 report['plugin_dir'] = False
+report['ipv6'] = False
 	
 def binarize(name):
     return name.replace('/', '_').replace('.','_').replace('-','_')
@@ -647,6 +648,10 @@ class uConf(object):
         if self.get('udp'):
             report['udp'] = True
             self.cflags.append("-DUWSGI_UDP")
+
+        if self.get('ipv6'):
+            report['ipv6'] = True
+            self.cflags.append("-DUWSGI_IPV6")
 
         if self.get('blacklist'):
             self.cflags.append('-DUWSGI_BLACKLIST="\\"%s\\""' % self.get('blacklist'))

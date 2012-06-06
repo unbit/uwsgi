@@ -830,7 +830,13 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 			return uwsgi_sock;
 		}
 	}
-	char *tcp_port = strchr(name, ':');
+
+	if (!uwsgi_startswith(name, "fd://", 5)) {
+		uwsgi_add_socket_from_fd(uwsgi_sock, atoi(name+5));	
+		return uwsgi_sock;
+	}
+
+	char *tcp_port = strrchr(name, ':');
 	if (tcp_port) {
 		// INET socket, check for 0 port
 		if (tcp_port[1] == 0 || tcp_port[1] == '0') {
@@ -905,15 +911,15 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 				}
 				return;
 			}
-			if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) {
-				if (atoi(uwsgi_sock->name+5) == fd) {
-					uwsgi_sock->fd = fd;
-					uwsgi_sock->family = AF_UNIX;
-					uwsgi_sock->bound = 1;
-					uwsgi_sock->name = uwsgi_str(usa.sa_un.sun_path + abstract);
-					uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-				}
-			}
+			if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) { 
+ 		                                if (atoi(uwsgi_sock->name+5) == fd) { 
+ 		                                        uwsgi_sock->fd = fd; 
+ 		                                        uwsgi_sock->family = AF_UNIX; 
+ 	                                        uwsgi_sock->bound = 1; 
+ 		                                        uwsgi_sock->name = uwsgi_str(usa.sa_un.sun_path + abstract); 
+ 		                                        uwsgi_log("uwsgi socket %d inherited UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd); 
+ 		                                } 
+ 	                        } 
 			else if (!strcmp(usa.sa_un.sun_path + abstract, uwsgi_sock->name + abstract)) {
 				uwsgi_sock->fd = fd;
 				uwsgi_sock->family = AF_UNIX;
@@ -963,19 +969,19 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 						asterisk[0] = '*';
 					}
 					else {
-						if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) {
-							if (atoi(uwsgi_sock->name+5) == fd) {
-								uwsgi_sock->fd = fd;
-								uwsgi_sock->family = AF_INET;
-                                                		uwsgi_sock->bound = 1;
-								uwsgi_sock->name = uwsgi_str(computed_addr);
-								uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-								match = 1;
-							}
-						}
-						else {
-							match = strcmp(computed_addr, uwsgi_sock->name);
-						}
+						if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) { 
+ 		                                                        if (atoi(uwsgi_sock->name+5) == fd) { 
+ 		                                                                uwsgi_sock->fd = fd; 
+ 		                                                                uwsgi_sock->family = AF_INET; 
+ 		                                                                uwsgi_sock->bound = 1; 
+ 		                                                                uwsgi_sock->name = uwsgi_str(computed_addr); 
+ 		                                                                uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd); 
+ 		                                                                match = 1; 
+ 		                                                        } 
+ 	                                                } 
+ 		                                                else { 
+ 		                                                        match = strcmp(computed_addr, uwsgi_sock->name); 
+ 		                                                } 
 					}
 					if (!match) {
 						uwsgi_sock->fd = fd;
@@ -987,6 +993,68 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 				}
 			}
 		}
+#ifdef UWSGI_IPV6
+		else if (gsa.sa->sa_family == AF_INET6) {
+                        char *computed_addr;
+                        char computed_port[6];
+                        isa.sa_in6 = (struct sockaddr_in6 *) &usa;
+                        char ipv6a[INET6_ADDRSTRLEN + 1];
+                        memset(ipv6a, 0, INET_ADDRSTRLEN + 1);
+                        memset(computed_port, 0, 6);
+			int match = 0;
+
+
+                        if (snprintf(computed_port, 6, "%d", ntohs(isa.sa_in6->sin6_port)) > 0) {
+                                if (inet_ntop(AF_INET6, (const void *) &isa.sa_in6->sin6_addr.s6_addr, ipv6a, INET6_ADDRSTRLEN)) {
+					uwsgi_log("ipv6a = %s\n", ipv6a);
+                                        if (!strcmp("::", ipv6a)) {
+                                                computed_addr = uwsgi_concat2("[::]:", computed_port);
+                                        }
+                                        else {
+                                                computed_addr = uwsgi_concat4("[", ipv6a, "]:", computed_port);
+                                        }
+                                        // is it a zerg ?
+                                        if (uwsgi_sock->name == NULL) {
+                                                uwsgi_sock->fd = fd;
+                                                uwsgi_sock->family = AF_INET6;
+                                                uwsgi_sock->bound = 1;
+                                                uwsgi_sock->name = uwsgi_concat2(computed_addr, "");
+                                                if (uwsgi.zerg) {
+                                                        uwsgi_log("uwsgi zerg socket %d attached to INET6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
+                                                }
+                                                else {
+                                                        uwsgi_log("uwsgi socket %d attached to INET6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), computed_addr, uwsgi_sock->fd);
+                                                }
+                                                free(computed_addr);
+                                                return;
+                                        }
+
+                                        if (!uwsgi_startswith(uwsgi_sock->name, "fd://", 5)) {
+                                                                        if (atoi(uwsgi_sock->name+5) == fd) {
+                                                                                uwsgi_sock->fd = fd;
+                                                                                uwsgi_sock->family = AF_INET6;
+                                                                                uwsgi_sock->bound = 1;
+                                                                                uwsgi_sock->name = uwsgi_str(computed_addr);
+                                                                                uwsgi_log("uwsgi socket %d inherited INET address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+                                                                                match = 1;
+                                                                        }
+                                                       }
+                                                       else {
+                                                           match = strcmp(computed_addr, uwsgi_sock->name);
+                                        }
+
+                                        if (!match) {
+                                                uwsgi_sock->fd = fd;
+                                                uwsgi_sock->family = AF_INET;
+                                                uwsgi_sock->bound = 1;
+                                                uwsgi_log("uwsgi socket %d inherited INET6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+                                        }
+                                        free(computed_addr);
+                                }
+                	}
+		}
+
+#endif
 	}
 
 }
@@ -1232,3 +1300,124 @@ nextsock:
 	close(zerg_client);
 
 }
+
+
+#ifdef UWSGI_IPV6
+int bind_to_tcp6(char *socket_name, int listen_queue, char *tcp_port) {
+
+        int serverfd;
+        struct sockaddr_in6 uws_addr;
+        int reuse = 1;
+
+        socket_to_in_addr6(socket_name, tcp_port, 0, &uws_addr);
+
+        serverfd = socket(AF_INET6, SOCK_STREAM, 0);
+        if (serverfd < 0) {
+                uwsgi_error("socket()");
+                uwsgi_nuclear_blast();
+        }
+
+        if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
+                uwsgi_error("setsockopt()");
+                uwsgi_nuclear_blast();
+        }
+
+#ifdef __linux__
+#ifdef IP_FREEBIND
+        if (uwsgi.freebind) {
+                if (setsockopt(serverfd, SOL_IP, IP_FREEBIND, (const void *) &uwsgi.freebind, sizeof(int)) < 0) {
+                        uwsgi_error("setsockopt()");
+                        uwsgi_nuclear_blast();
+                }
+        }
+#endif
+#endif
+
+        if (uwsgi.reuse_port) {
+#ifdef SO_REUSEPORT
+                if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, (const void *) &uwsgi.reuse_port, sizeof(int)) < 0) {
+                        uwsgi_error("setsockopt()");
+                        uwsgi_nuclear_blast();
+                }
+#else
+                uwsgi_log("!!! your system does not support SO_REUSEPORT !!!\n");
+#endif
+        }
+
+        if (!uwsgi.no_defer_accept) {
+
+#ifdef __linux__
+                if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
+                        uwsgi_error("setsockopt()");
+                }
+                // OSX has no SO_ACCEPTFILTER !!!
+#elif defined(__freebsd__)
+                struct accept_filter_arg afa;
+                strcpy(afa.af_name, "dataready");
+                afa.af_arg[0] = 0;
+                if (setsockopt(serverfd, SOL_SOCKET, SO_ACCEPTFILTER, &afa, sizeof(struct accept_filter_arg))) {
+                        uwsgi_error("setsockopt()");
+                }
+#endif
+
+        }
+
+
+        if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
+                if (errno == EADDRINUSE) {
+                        uwsgi_log("probably another instance of uWSGI is running on the same address.\n");
+                }
+                uwsgi_error("bind()");
+                uwsgi_nuclear_blast();
+        }
+
+        if (listen(serverfd, listen_queue) != 0) {
+                uwsgi_error("listen()");
+                uwsgi_nuclear_blast();
+        }
+
+
+        if (tcp_port)
+                tcp_port[0] = ':';
+
+        return serverfd;
+}
+
+socklen_t socket_to_in_addr6(char *socket_name, char *port, int portn, struct sockaddr_in6 *sin_addr) {
+
+        memset(sin_addr, 0, sizeof(struct sockaddr_in6));
+
+        sin_addr->sin6_family = AF_INET6;
+        if (port) {
+                *port = 0;
+                sin_addr->sin6_port = htons(atoi(port + 1));
+        }
+        else {
+                sin_addr->sin6_port = htons(portn);
+        }
+
+        if ( !strcmp(socket_name, "[::]") ) {
+                sin_addr->sin6_addr = in6addr_any;
+        }
+        else {
+		char *sanitized_sn = uwsgi_concat2n(socket_name+1, strlen(socket_name+1)-1, "", 0);
+                char *resolved = uwsgi_resolve_ip(sanitized_sn);
+                if (resolved) {
+			inet_pton(AF_INET6, resolved, sin_addr->sin6_addr.s6_addr);
+                }
+                else {
+			inet_pton(AF_INET6, sanitized_sn, sin_addr->sin6_addr.s6_addr);
+                }
+		free(sanitized_sn);
+        }
+
+        if (port) {
+                *port = ':';
+        }
+
+        return sizeof(struct sockaddr_in6);
+
+}
+
+
+#endif

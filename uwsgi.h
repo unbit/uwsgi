@@ -370,12 +370,18 @@ union uwsgi_sockaddr {
 	struct sockaddr sa;
 	struct sockaddr_in sa_in;
 	struct sockaddr_un sa_un;
+#ifdef UWSGI_IPV6
+	struct sockaddr_in6 sa_in6;
+#endif
 };
 
 union uwsgi_sockaddr_ptr {
 	struct sockaddr *sa;
 	struct sockaddr_in *sa_in;
 	struct sockaddr_un *sa_un;
+#ifdef UWSGI_IPV6
+	struct sockaddr_in6 *sa_in6;
+#endif
 };
 
 // Gateways are processes (managed by the master) that extends the
@@ -1985,6 +1991,9 @@ void grace_them_all(int);
 void end_me(int);
 int bind_to_unix(char *, int, int, int);
 int bind_to_tcp(char *, int, char *);
+#ifdef UWSGI_IPV6
+int bind_to_tcp6(char *, int, char *);
+#endif
 int bind_to_udp(char *, int, int);
 int bind_to_unix_dgram(char *);
 int timed_connect(struct pollfd *, const struct sockaddr *, int, int, int);
@@ -2513,6 +2522,9 @@ int uwsgi_respawn_worker(int);
 
 socklen_t socket_to_in_addr(char *, char *, int, struct sockaddr_in *);
 socklen_t socket_to_un_addr(char *, struct sockaddr_un *);
+#ifdef UWSGI_IPV6
+socklen_t socket_to_in_addr6(char *, char *, int, struct sockaddr_in6 *);
+#endif
 
 int uwsgi_get_shared_socket_fd_by_num(int);
 struct uwsgi_socket *uwsgi_get_shared_socket_by_num(int);
