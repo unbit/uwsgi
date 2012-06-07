@@ -3170,6 +3170,23 @@ static PyMethodDef uwsgi_sa_methods[] = {
 	{NULL, NULL},
 };
 
+PyObject *py_uwsgi_cache_clear(PyObject * self, PyObject * args) {
+
+	uint64_t i;
+        // skip the first slot
+        for (i = 1; i < uwsgi.cache_max_items; i++) {
+		UWSGI_RELEASE_GIL
+                uwsgi_wlock(uwsgi.cache_lock);
+                uwsgi_cache_del(NULL, 0, i);
+                uwsgi_rwunlock(uwsgi.cache_lock);
+		UWSGI_GET_GIL
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
 PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 
 	char *key;
@@ -3691,6 +3708,7 @@ static PyMethodDef uwsgi_cache_methods[] = {
 	{"cache_update", py_uwsgi_cache_update, METH_VARARGS, ""},
 	{"cache_del", py_uwsgi_cache_del, METH_VARARGS, ""},
 	{"cache_exists", py_uwsgi_cache_exists, METH_VARARGS, ""},
+	{"cache_clear", py_uwsgi_cache_clear, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
