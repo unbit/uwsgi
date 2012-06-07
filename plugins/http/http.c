@@ -18,6 +18,7 @@ extern struct uwsgi_server uwsgi;
 
 #define MAX_HTTP_VEC 128
 #define UWSGI_HTTP_SSL 1
+#define UWSGI_HTTP_FORCE_SSL 2
 #define HTTP_SSL_STATUS_SHUTDOWN 10
 
 struct uwsgi_http {
@@ -79,6 +80,27 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 
         ucr->has_sockets++;
 }
+
+void uwsgi_opt_http_to_https(char *opt, char *value, void *cr) {
+        struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
+
+        char *sock = uwsgi_str(value);
+        char *port = strchr(sock, ',');
+        if (port) {
+		*port = '\0';
+		port++;
+        }
+
+        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(sock, ucr->name);
+
+        // set context to the port
+        ugs->ctx = port;
+        // force SSL mode
+        ugs->mode = UWSGI_HTTP_FORCE_SSL;
+
+        ucr->has_sockets++;
+}
+
 #endif
 
 struct uwsgi_option http_options[] = {
@@ -86,6 +108,7 @@ struct uwsgi_option http_options[] = {
 #ifdef UWSGI_SSL
 	{"https", required_argument, 0, "add an https router/server on the specified address with specified certificate and key", uwsgi_opt_https, &uhttp, 0},
 	{"https-export-cert", no_argument, 0, "export uwsgi variable HTTPS_CC containing the raw client certificate", uwsgi_opt_true, &uhttp.https_export_cert, 0},
+	{"http-to-https", required_argument, 0, "add an http router/server on the specified address and redirect all of the requests to https", uwsgi_opt_http_to_https, &uhttp, 0},
 #endif
 	{"http-processes", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.cr.processes, 0},
 	{"http-workers", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.cr.processes, 0},
@@ -138,6 +161,9 @@ struct http_session {
 	char buffer[UMAX16];
 	char path_info[UMAX16];
 	uint16_t path_info_len;
+
+	char *request_uri;
+	uint16_t request_uri_len;
 
 	size_t received_body;
 
@@ -309,6 +335,8 @@ int http_parse(struct http_session *h_session) {
 			query_string = ptr + 1;
 		}
 		else if (*ptr == ' ') {
+			h_session->request_uri = base;
+			h_session->request_uri_len = ptr - base;
 			h_session->uh.pktsize += http_add_uwsgi_var(h_session->iov, h_session->uss + c, h_session->uss + c + 2, "REQUEST_URI", 11, base, ptr - base, &c);
 			if (!query_string) {
 				// PATH_INFO must be url-decoded !!!
@@ -504,6 +532,46 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 					corerouter_close_session(ucr, cs);
 					break;
 				}
+
+#ifdef UWSGI_SSL
+				if (cs->ugs->mode == UWSGI_HTTP_FORCE_SSL) {
+					if (hs->request_uri_len > 0) {
+						char *https_url;
+						char *colon = memchr(cs->hostname, ':', cs->hostname_len);
+						if (colon) {
+							if (cs->ugs->ctx) {
+								https_url = uwsgi_concat4n(cs->hostname, colon-cs->hostname, ":", 1, cs->ugs->ctx, strlen(cs->ugs->ctx), hs->request_uri, hs->request_uri_len);
+							}
+							else {
+								https_url = uwsgi_concat2n(cs->hostname, colon-cs->hostname, hs->request_uri, hs->request_uri_len);
+							}
+						}
+						else {
+							if (cs->ugs->ctx) {
+								https_url = uwsgi_concat4n(cs->hostname, cs->hostname_len, ":", 1, cs->ugs->ctx, strlen(cs->ugs->ctx), hs->request_uri, hs->request_uri_len);
+							}
+							else {
+								https_url = uwsgi_concat2n(cs->hostname, cs->hostname_len, hs->request_uri, hs->request_uri_len);
+							}
+						}
+						struct iovec iov[4];
+						iov[0].iov_base = "HTTP/1.0 301 Moved Permanently\r\n";
+						iov[0].iov_len = 32;
+						iov[1].iov_base = "Location: https://";
+						iov[1].iov_len = 18;
+						iov[2].iov_base = https_url;
+						iov[2].iov_len = strlen(https_url);
+						iov[3].iov_base = "\r\n\r\n";
+						iov[3].iov_len = 4;
+						if (writev(cs->fd, iov, 4) <= 0) {
+							uwsgi_error("writev()");
+						}
+						free(https_url);
+					}		
+					corerouter_close_session(ucr, cs);
+					break;
+				}
+#endif
 
 				// the mapper hook
 			      choose_node:
