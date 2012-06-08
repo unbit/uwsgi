@@ -548,6 +548,12 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			uwsgi_protected_close(spool_fd);
 			uspool->running = 0;
 
+			if (chdir(dir)) {
+				uwsgi_error("chdir()");		
+                		uwsgi_log("[spooler] something horrible happened to the spooler. Better to kill it.\n");
+				exit(1);
+			}
+
 			if (!callable_found) {
 				uwsgi_log("unable to find the spooler function, have you loaded it into the spooler process ?\n");
 			}
