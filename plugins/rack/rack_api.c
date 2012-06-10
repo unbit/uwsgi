@@ -3,6 +3,7 @@
 extern struct uwsgi_server uwsgi;
 
 extern struct uwsgi_rack ur;
+extern struct uwsgi_plugin rack_plugin;
 
 #define uwsgi_rack_api(x, y, z) rb_define_module_function(rb_uwsgi_embedded, x, y, z)
 
@@ -683,7 +684,7 @@ VALUE uwsgi_ruby_register_rpc(int argc, VALUE *argv, VALUE *class) {
         void *func = (void *) argv[1];
 
 
-        if (uwsgi_register_rpc(name, 7, rb_argc, func)) {
+        if (uwsgi_register_rpc(name, rack_plugin.modifier1, rb_argc, func)) {
 clear:
                 rb_raise(rb_eRuntimeError, "unable to register rpc function");
                 return Qnil;
@@ -702,7 +703,7 @@ VALUE uwsgi_ruby_register_signal(VALUE *class, VALUE signum, VALUE sigkind, VALU
         uint8_t uwsgi_signal = NUM2INT(signum);
         char *signal_kind = RSTRING_PTR(sigkind);
 
-        if (uwsgi_register_signal(uwsgi_signal, signal_kind, (void *) rbhandler, 7)) {
+        if (uwsgi_register_signal(uwsgi_signal, signal_kind, (void *) rbhandler, rack_plugin.modifier1)) {
                 rb_raise(rb_eRuntimeError, "unable to register signal %d", uwsgi_signal);
                 return Qnil;
         }

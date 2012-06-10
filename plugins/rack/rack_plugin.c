@@ -3,6 +3,7 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_rack ur;
+struct uwsgi_plugin rack_plugin;
 
 struct uwsgi_option uwsgi_rack_options[] = {
 
@@ -511,7 +512,7 @@ ready:
 	rb_define_method(ur.rb_uwsgi_io_class, "read", rb_uwsgi_io_read, -2);
 	rb_define_method(ur.rb_uwsgi_io_class, "rewind", rb_uwsgi_io_rewind, 0);
 
-	struct uwsgi_app *ua = uwsgi_add_app(ur.app_id, 7, (char*)"", 0, NULL, NULL);
+	struct uwsgi_app *ua = uwsgi_add_app(ur.app_id, rack_plugin.modifier1, (char*)"", 0, NULL, NULL);
 	ua->started_at = now;
 	ua->startup_time = uwsgi_now() - now;
 

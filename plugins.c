@@ -196,6 +196,7 @@ success:
 			}
 			if (modifier != -1) {
 				fill_plugin_table(modifier, up);			
+				up->modifier1 = modifier;
 			}
 			else {
 				fill_plugin_table(up->modifier1, up);			
