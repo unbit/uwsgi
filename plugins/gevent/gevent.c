@@ -27,7 +27,10 @@ struct uwsgi_gevent {
 struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	PyObject *py_wsgi_req = PyObject_GetAttrString(current_greenlet, "uwsgi_wsgi_req");
-	return (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
+	struct wsgi_request *wsgi_req = (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
+	Py_DECREF(py_wsgi_req);
+	Py_DECREF(current_greenlet);
+	return wsgi_req;
 }
 
 
@@ -77,6 +80,9 @@ PyObject *py_uwsgi_gevent_my_signal(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 
+	// hack to retrieve the socket address
+	PyObject *py_uwsgi_sock = PyTuple_GetItem(args, 0);
+        struct uwsgi_socket *uwsgi_sock = (struct uwsgi_socket *) PyLong_AsLong(py_uwsgi_sock);
 
 	struct wsgi_request *wsgi_req = find_first_available_wsgi_req();
 
@@ -86,7 +92,7 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 	}
 
 	// fill wsgi_request structure
-	wsgi_req_setup(wsgi_req, wsgi_req->async_id, uwsgi.sockets );
+	wsgi_req_setup(wsgi_req, wsgi_req->async_id, uwsgi_sock );
 
 	// mark core as used
 	uwsgi.core[wsgi_req->async_id]->in_request = 1;
@@ -99,7 +105,7 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
         }
 
 	// accept the connection
-	if (wsgi_req_simple_accept(wsgi_req, uwsgi.sockets->fd)) {
+	if (wsgi_req_simple_accept(wsgi_req, uwsgi_sock->fd)) {
 		free_req_queue;
 		goto clear;
 	}
@@ -206,6 +212,7 @@ clear0:
 clear1:
 	Py_DECREF(greenlet_switch);
 	Py_DECREF(current_greenlet);
+
 	uwsgi_close_request(wsgi_req);
 
 	free_req_queue;
@@ -281,11 +288,7 @@ void gevent_loop() {
 	ugevent.hub_loop = PyObject_GetAttrString(ugevent.hub, "loop");
 	if (!ugevent.hub_loop) uwsgi_pyexit;
 
-	// this is the watcher for server socket
-	PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", uwsgi_sock->fd, 1);
-	if (!watcher) uwsgi_pyexit;
-
-	// main greenlet waiting for connection
+	// main greenlet waiting for connection (one greenlet per-socket)
 	PyObject *uwsgi_gevent_main = PyCFunction_New(uwsgi_gevent_main_def, NULL);
 	Py_INCREF(uwsgi_gevent_main);
 
@@ -323,9 +326,17 @@ void gevent_loop() {
 		if (!PyObject_CallMethod(my_signal_watcher, "start", "O", uwsgi_greenlet_my_signal)) uwsgi_pyexit;
 
 	}
+
+	// start a greenlet for each socket
+	while(uwsgi_sock) {
+		// this is the watcher for server socket
+		PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", uwsgi_sock->fd, 1);
+		if (!watcher) uwsgi_pyexit;
 	
-	// start the main greenlet
-	PyObject_CallMethod(watcher, "start", "O", uwsgi_gevent_main);
+		// start the main greenlet
+		PyObject_CallMethod(watcher, "start", "Ol", uwsgi_gevent_main,(long)uwsgi_sock);
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
 	if (!PyObject_CallMethod(ugevent.hub, "join", NULL)) {
 		PyErr_Print();
