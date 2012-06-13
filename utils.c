@@ -1167,6 +1167,11 @@ void sanitize_args() {
 		uwsgi_log("invalid cheaper value: must be lower than processes\n");
 		exit(1);
 	}
+
+	if (uwsgi.auto_snapshot > 0 && uwsgi.auto_snapshot > uwsgi.numproc) {
+		uwsgi_log("invalid auto-snapshot value: must be <= than processes\n");
+		exit(1);
+	}
 }
 
 void env_to_arg(char *src, char *dst) {

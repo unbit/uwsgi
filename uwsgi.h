@@ -1935,6 +1935,7 @@ struct uwsgi_worker {
 	uint64_t static_offload_threads;
 
 	char name[0xff];
+	char snapshot_name[0xff];
 };
 
 

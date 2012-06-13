@@ -879,11 +879,13 @@ void grace_them_all(int signum) {
 			if (uwsgi.workers[i].pid > 0) {
 				if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
 					uwsgi.workers[i].snapshot = 0;
+					uwsgi.workers[i].destroy = 1;
 					kill(uwsgi.workers[i].pid, SIGHUP);
 				}
 				else {
 					uwsgi.workers[i].snapshot = uwsgi.workers[i].pid;
 					kill(uwsgi.workers[i].pid, SIGURG);
+					uwsgi.lazy_respawned++;
 				}
 			}
 		}
@@ -895,7 +897,8 @@ void grace_them_all(int signum) {
 	}
 
 	if (uwsgi.auto_snapshot) {
-		uwsgi.respawn_workers = 1;
+		uwsgi.respawn_workers = uwsgi.numproc-uwsgi.auto_snapshot;
+		if (!uwsgi.respawn_workers) uwsgi.respawn_workers = 1;
 	}
 
 }
@@ -984,6 +987,7 @@ void snapshot_me(int signum) {
 	// wakeup !!!
 	if (uwsgi.snapshot) {
 		uwsgi.snapshot = 0;
+		uwsgi_set_processname(uwsgi.workers[uwsgi.mywid].name);
 		return;
 	}
 
@@ -994,6 +998,7 @@ void snapshot_me(int signum) {
 	}
 #endif
 	uwsgi.snapshot = 1;
+	uwsgi_set_processname(uwsgi.workers[uwsgi.mywid].snapshot_name);
 	uwsgi_log("[snapshot] process %d taken\n", (int) getpid());
 }
 
@@ -2816,6 +2821,7 @@ nextsock:
 		uwsgi.workers[i].signal_pipe[0] = -1;
 		uwsgi.workers[i].signal_pipe[1] = -1;
 		snprintf(uwsgi.workers[i].name, 0xff, "uWSGI worker %d", i);
+		snprintf(uwsgi.workers[i].snapshot_name, 0xff, "uWSGI snapshot %d", i);
 	}
 
 	if (uwsgi.master_process) {

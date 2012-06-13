@@ -707,7 +707,7 @@ int master_loop(char **argv, char **environ) {
 			}
 		}
 		if (uwsgi.respawn_workers) {
-			for (i = 1; i <= uwsgi.numproc; i++) {
+			for (i = 1; i <= uwsgi.respawn_workers; i++) {
 				if (uwsgi_respawn_worker(i))
 					return 0;
 			}
@@ -740,7 +740,7 @@ int master_loop(char **argv, char **environ) {
 		}
 
 		// cheaper management
-		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell && !uwsgi.workers[0].suspended) {
+		if (uwsgi.cheaper && !uwsgi.cheap && !uwsgi.to_heaven && !uwsgi.to_hell && !uwsgi.to_outworld && !uwsgi.workers[0].suspended) {
 			if (!uwsgi_calc_cheaper())
 				return 0;
 		}
@@ -771,6 +771,10 @@ int master_loop(char **argv, char **environ) {
 					}
 					else if (uwsgi.to_hell) {
 						ready_to_die = uwsgi.numproc;
+						continue;
+					}
+					else if (uwsgi.to_outworld) {
+						uwsgi.lazy_respawned = uwsgi.numproc;
 						continue;
 					}
 				}
@@ -1369,7 +1373,7 @@ nextlock:
 		}
 
 
-		// reload gateways and daemons only on normal workflow
+		// reload gateways and daemons only on normal workflow (+outworld status)
 		if (!uwsgi.to_heaven && !uwsgi.to_hell) {
 
 #ifdef UWSGI_SPOOLER
