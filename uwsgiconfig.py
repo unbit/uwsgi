@@ -254,7 +254,21 @@ def build_uwsgi(uc, print_only=False):
                         gcc_list.append(cfile)
 
                 libs += up.LIBS
-                ldflags += up.LDFLAGS
+
+                if uwsgi_os == 'Darwin':
+                    found_arch = False
+                    sanitized_ldflags = []
+                    for flag in up.LDFLAGS:
+                        if flag == '-arch':
+                            found_arch = True
+                            continue
+                        if found_arch:
+                            found_arch = False
+                            continue
+                        sanitized_ldflags.append(flag)
+                    ldflags += sanitized_ldflags
+                else:
+                    ldflags += up.LDFLAGS
 
                 up.CFLAGS = None
                 up.LDFLAGS = None
