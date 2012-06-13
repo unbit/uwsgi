@@ -1747,7 +1747,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 	else if (uwsgi.logfile) {
-		logto(uwsgi.logfile);
+		if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
+			logto(uwsgi.logfile);
+		}
 	}
 
 	if (uwsgi.never_swap) {
@@ -2029,7 +2031,9 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	if (uwsgi.logto2) {
-		logto(uwsgi.logto2);
+		if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
+			logto(uwsgi.logto2);
+		}
 	}
 
 	if (uwsgi.chdir) {
