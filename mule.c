@@ -36,6 +36,11 @@ void uwsgi_mule(int id) {
 
 	pid_t pid = uwsgi_fork(uwsgi.mules[id-1].name);
 	if (pid == 0) {
+#ifdef __linux__
+                if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0,0,0)) {
+                        uwsgi_error("prctl()");
+                }
+#endif
 		uwsgi.muleid = id;
 		// avoid race conditions
 		uwsgi.mules[id-1].id = id;
