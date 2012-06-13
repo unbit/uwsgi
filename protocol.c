@@ -114,6 +114,78 @@ void uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filena
         }
 }
 
+void uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) {
+
+        struct uwsgi_dyn_dict *udd = uwsgi.static_expires_path_info;
+        time_t now = wsgi_req->start_of_request.tv_sec;
+        // Expires+34+1
+        char expires[42];
+
+        while(udd) {
+                if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+                        int delta = uwsgi_str_num(udd->value, udd->vallen);
+                        int size = set_http_date(now+delta, "Expires", 7, expires, 0);
+                        if (size > 0) {
+                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
+                                wsgi_req->header_cnt++;
+                        }
+                        return;
+                }
+                udd = udd->next;
+        }
+
+        udd = uwsgi.static_expires_path_info_mtime;
+        while(udd) {
+                if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
+                        int delta = uwsgi_str_num(udd->value, udd->vallen);
+                        int size = set_http_date(st->st_mtime+delta, "Expires", 7, expires, 0);
+                        if (size > 0) {
+                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
+                                wsgi_req->header_cnt++;
+                        }
+                        return;
+                }
+                udd = udd->next;
+        }
+}
+
+void uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
+
+        struct uwsgi_dyn_dict *udd = uwsgi.static_expires_uri;
+        time_t now = wsgi_req->start_of_request.tv_sec;
+        // Expires+34+1
+        char expires[42];
+
+        while(udd) {
+                if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+                        int delta = uwsgi_str_num(udd->value, udd->vallen);
+                        int size = set_http_date(now+delta, "Expires", 7, expires, 0);
+                        if (size > 0) {
+                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
+                                wsgi_req->header_cnt++;
+                        }
+                        return;
+                }
+                udd = udd->next;
+        }
+
+        udd = uwsgi.static_expires_uri_mtime;
+        while(udd) {
+                if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+                        int delta = uwsgi_str_num(udd->value, udd->vallen);
+                        int size = set_http_date(st->st_mtime+delta, "Expires", 7, expires, 0);
+                        if (size > 0) {
+                                wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
+                                wsgi_req->header_cnt++;
+                        }
+                        return;
+                }
+                udd = udd->next;
+        }
+}
+
+
+
 #endif
 
 
@@ -1812,6 +1884,8 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 #ifdef UWSGI_PCRE
 			uwsgi_add_expires(wsgi_req, real_filename, real_filename_len, st);
+			uwsgi_add_expires_path_info(wsgi_req, st);
+			uwsgi_add_expires_uri(wsgi_req, st);
 #endif
 
 			// Content-Type (if available)

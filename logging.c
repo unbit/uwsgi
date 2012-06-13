@@ -139,9 +139,38 @@ void log_request(struct wsgi_request *wsgi_req) {
 	char *msg4 = " via offload() ";
 
 	struct uwsgi_app *wi;
+	int log_it = uwsgi.shared->options[UWSGI_OPTION_LOGGING];
 
 	if (wsgi_req->do_not_log)
 		return;
+
+	if (wsgi_req->log_this) {
+		goto logit;
+        }
+
+/* conditional logging */
+        if (uwsgi.shared->options[UWSGI_OPTION_LOG_ZERO] && wsgi_req->response_size == 0) {
+		goto logit;
+	}
+        if (uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW] && (uint32_t) wsgi_req_time >= uwsgi.shared->options[UWSGI_OPTION_LOG_SLOW]) {
+		goto logit;
+	}
+        if (uwsgi.shared->options[UWSGI_OPTION_LOG_4xx] && (wsgi_req->status >= 400 && wsgi_req->status <= 499)) {
+		goto logit;
+	}
+        if (uwsgi.shared->options[UWSGI_OPTION_LOG_5xx] && (wsgi_req->status >= 500 && wsgi_req->status <= 599)) {
+		goto logit;
+	}
+        if (uwsgi.shared->options[UWSGI_OPTION_LOG_BIG] && (wsgi_req->response_size >= uwsgi.shared->options[UWSGI_OPTION_LOG_BIG])) {
+		goto logit;
+	}
+        if (uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] && (wsgi_req->sendfile_fd > -1 && wsgi_req->sendfile_obj == wsgi_req->async_result)) {
+		goto logit;
+        }
+
+	if (!log_it) return;
+
+logit:
 
 	if (wsgi_req->app_id >= 0) {
 		wi = &uwsgi_apps[wsgi_req->app_id];

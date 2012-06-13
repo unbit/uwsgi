@@ -1319,6 +1319,12 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *static_expires;
 	struct uwsgi_dyn_dict *static_expires_mtime;
 
+	struct uwsgi_dyn_dict *static_expires_uri;
+	struct uwsgi_dyn_dict *static_expires_uri_mtime;
+
+	struct uwsgi_dyn_dict *static_expires_path_info;
+	struct uwsgi_dyn_dict *static_expires_path_info_mtime;
+
 	int check_static_docroot;
 	int static_offload_to_thread;
 	pthread_attr_t static_offload_thread_attr;

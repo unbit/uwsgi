@@ -397,6 +397,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_PCRE
 	{"static-expires", required_argument, 0, "set the Expires header based on filename regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires, UWSGI_OPT_MIME},
 	{"static-expires-mtime", required_argument, 0, "set the Expires header based on filename regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_mtime, UWSGI_OPT_MIME},
+
+	{"static-expires-uri", required_argument, 0, "set the Expires header based on REQUEST_URI regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_uri, UWSGI_OPT_MIME},
+	{"static-expires-uri-mtime", required_argument, 0, "set the Expires header based on REQUEST_URI regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_uri_mtime, UWSGI_OPT_MIME},
+
+	{"static-expires-path-info", required_argument, 0, "set the Expires header based on PATH_INFO regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_path_info, UWSGI_OPT_MIME},
+	{"static-expires-path-info-mtime", required_argument, 0, "set the Expires header based on PATH_INFO regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_path_info_mtime, UWSGI_OPT_MIME},
 #endif
 
 	{"static-offload-to-thread", required_argument, 0, "offload static file serving to a thread (upto the specified number of threads)", uwsgi_opt_set_int, &uwsgi.static_offload_to_thread, UWSGI_OPT_MIME},

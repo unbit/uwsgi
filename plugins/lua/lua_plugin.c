@@ -576,8 +576,7 @@ clear2:
 
 void uwsgi_lua_after_request(struct wsgi_request *wsgi_req) {
 
-	if (uwsgi.shared->options[UWSGI_OPTION_LOGGING])
-		log_request(wsgi_req);
+	log_request(wsgi_req);
 }
 
 
