@@ -1233,7 +1233,7 @@ void uwsgi_python_enable_threads() {
 		up.reset_ts = threaded_reset_ts;
 	}
 
-	uwsgi_log("threads support enabled\n");
+	uwsgi_log("python threads support enabled\n");
 	
 
 }
