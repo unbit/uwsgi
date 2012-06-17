@@ -253,6 +253,8 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
 
+	if (!wsgi_req->headers_hvec) return 0;
+
 #ifdef __sun__
         int remains = wsgi_req->headers_hvec + 1;
         int iov_size;
