@@ -997,6 +997,11 @@ PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_connection_fd(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	return PyInt_FromLong(wsgi_req->poll.fd);
+}
+
 PyObject *py_uwsgi_embedded_data(PyObject * self, PyObject * args) {
 
 	char *name;
@@ -3130,6 +3135,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 #endif
 
 	{"connect", py_uwsgi_connect, METH_VARARGS, ""},
+	{"connection_fd", py_uwsgi_connection_fd, METH_VARARGS, ""},
 	{"is_connected", py_uwsgi_is_connected, METH_VARARGS, ""},
 	{"send", py_uwsgi_send, METH_VARARGS, ""},
 	{"recv", py_uwsgi_recv, METH_VARARGS, ""},

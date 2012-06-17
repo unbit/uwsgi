@@ -28,6 +28,9 @@ struct uwsgi_http {
 	uint8_t modifier1;
 	struct uwsgi_string_list *http_vars;
 	int manage_expect;
+
+	int raw_body;
+
 	int keepalive;
 #ifdef UWSGI_SSL
 	int https_export_cert;
@@ -127,6 +130,8 @@ struct uwsgi_option http_options[] = {
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
 	{"http-keepalive", no_argument, 0, "support HTTP keepalive (non-pipelined) requests (requires backend support)", uwsgi_opt_true, &uhttp.keepalive, 0},
+
+	{"http-raw-body", no_argument, 0, "blindly send HTTP body to backends (required for WebSockets and Icecast support)", uwsgi_opt_true, &uhttp.raw_body, 0},
 
 	{"http-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the http router", uwsgi_opt_corerouter_cs, &uhttp, 0},
         {"http-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_corerouter_use_socket, &uhttp, 0},
@@ -806,6 +811,8 @@ To have a reliable implementation, we need to reset a bunch of values
 				break;
 			}
 
+			if (cs->post_cl == 0 && uhttp.raw_body) goto raw;
+
 			// avoid pipelined input
 			if (hs->received_body >= cs->post_cl) {
 				break;
@@ -816,6 +823,7 @@ To have a reliable implementation, we need to reset a bunch of values
 				len = cs->post_cl - hs->received_body;
 			}
 
+raw:
 			len = send(cs->instance_fd, bbuf, len, 0);
 
 			if (len <= 0) {
