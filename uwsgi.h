@@ -1594,6 +1594,8 @@ struct uwsgi_server {
 	void (*schedule_to_main) (struct wsgi_request *);
 	void (*schedule_to_req) (void);
 
+	void (*gbcw_hook)(void);
+
 	int close_on_exec;
 
 	char *loop;

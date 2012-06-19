@@ -49,6 +49,13 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	return Py_None;
 }
 
+void uwsgi_gevent_gbcw() {
+	
+	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
+
+	py_uwsgi_gevent_graceful(NULL, NULL);
+}
+
 struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	PyObject *py_wsgi_req = PyObject_GetAttrString(current_greenlet, "uwsgi_wsgi_req");
@@ -371,6 +378,9 @@ void gevent_loop() {
 		uwsgi_sock = uwsgi_sock->next;
 		i++;
 	}
+
+	// patch goodbye_cruel_world
+	uwsgi.gbcw_hook = uwsgi_gevent_gbcw;
 
 	// map SIGHUP with gevent.signal
 	PyObject *ge_signal_tuple = PyTuple_New(2);

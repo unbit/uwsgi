@@ -720,8 +720,7 @@ void end_me(int signum) {
 	exit(UWSGI_END_CODE);
 }
 
-
-void goodbye_cruel_world() {
+void simple_goodbye_cruel_world() {
 
 #ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1 && !uwsgi.to_hell) {
@@ -732,6 +731,16 @@ void goodbye_cruel_world() {
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
 	exit(0);
+}
+
+void goodbye_cruel_world() {
+
+	if (!uwsgi.gbcw_hook) {
+		simple_goodbye_cruel_world();	
+	}
+	else {
+		uwsgi.gbcw_hook();
+	}
 }
 
 #ifdef UWSGI_SPOOLER
