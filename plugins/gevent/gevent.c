@@ -59,6 +59,11 @@ void uwsgi_gevent_gbcw() {
 struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	PyObject *py_wsgi_req = PyObject_GetAttrString(current_greenlet, "uwsgi_wsgi_req");
+	// not in greenlet
+	if (!py_wsgi_req) {
+		PyErr_Clear();
+		return NULL;
+	}
 	struct wsgi_request *wsgi_req = (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
 	Py_DECREF(py_wsgi_req);
 	Py_DECREF(current_greenlet);

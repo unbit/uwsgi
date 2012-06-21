@@ -1614,6 +1614,9 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	char *body = NULL;
 	size_t body_len= 0;
 
+	// this is a counter for non-request-related tasks (like threads or greenlet)
+	static int internal_counter = 0xffff;
+
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 
 	spool_dict = PyTuple_GetItem(args, 0);
@@ -1745,19 +1748,34 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 		}
 	}
 
-	UWSGI_RELEASE_GIL
 
 	if (numprio) {
 		priority = uwsgi_num2str(numprio);
 	} 
-	i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, wsgi_req->async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
+
+	int async_id;
+
+	if (wsgi_req) {
+		async_id = wsgi_req->async_id;
+	}
+	else {
+		// the GIL is protecting this counter...
+		async_id = internal_counter;
+		internal_counter++;
+	}
+
+	UWSGI_RELEASE_GIL
+
+	i = spool_request(uspool, spool_filename, uwsgi.workers[0].requests + 1, async_id, spool_buffer, cur_buf - spool_buffer, priority, at, body, body_len);
+
+	UWSGI_GET_GIL
+	
 	if (priority) {
 		free(priority);
 	}
 		
 	free(spool_buffer);
 
-	UWSGI_GET_GIL
 
 	Py_DECREF(spool_vars);
 
