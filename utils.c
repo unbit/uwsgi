@@ -1058,14 +1058,16 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	int ret;
-	int interesting_fd;
+	int interesting_fd = -1;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	int retry = 0;
 
+
+	thunder_lock;
 	// need edge trigger ?
 	if (uwsgi.is_et) {
 		while(uwsgi_sock) {
-			if (uwsgi_sock->retry) {
+			if (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) {
 				retry = 1;
 				break;
 			}
@@ -1075,7 +1077,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 		uwsgi_sock = uwsgi.sockets;
 	}
 
-	thunder_lock;
 	ret = event_queue_wait(queue, -1 + retry , &interesting_fd);
 	if (ret < 0) {
 		thunder_unlock;
@@ -1103,7 +1104,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 
 	while (uwsgi_sock) {
-		if (interesting_fd == uwsgi_sock->fd || uwsgi_sock->retry) {
+		if (interesting_fd == uwsgi_sock->fd || (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) || (uwsgi_sock->fd_threads && interesting_fd == uwsgi_sock->fd_threads[wsgi_req->async_id])) {
 			wsgi_req->socket = uwsgi_sock;
 			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			thunder_unlock;

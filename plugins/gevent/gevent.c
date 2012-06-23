@@ -161,7 +161,7 @@ edge:
 	// accept the connection
 	if (wsgi_req_simple_accept(wsgi_req, uwsgi_sock->fd)) {
 		free_req_queue;
-		if (uwsgi_sock->retry) {
+		if (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) {
 			goto edge;
 		}	
 		goto clear;

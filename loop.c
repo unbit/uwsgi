@@ -63,7 +63,7 @@ void *simple_loop(void *arg1) {
 			struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 			while(uwsgi_sock) {
 				if (uwsgi_sock->proto_thread_fixup) {
-					uwsgi_sock->proto_thread_fixup(uwsgi_sock);
+					uwsgi_sock->proto_thread_fixup(uwsgi_sock, core_id);
 				}
 				uwsgi_sock = uwsgi_sock->next;
 			}
@@ -80,7 +80,7 @@ void *simple_loop(void *arg1) {
 	// initialize the main event queue to monitor sockets
 	int main_queue = event_queue_init();
 
-	uwsgi_add_sockets_to_queue(main_queue);
+	uwsgi_add_sockets_to_queue(main_queue, core_id);
 
 	if (uwsgi.signal_socket > -1) {
 		event_queue_add_fd_read(main_queue, uwsgi.signal_socket);

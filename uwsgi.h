@@ -31,8 +31,8 @@ extern "C" {
 
 #define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
 
-#define thunder_lock if (uwsgi.threads > 1) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
-#define thunder_unlock if (uwsgi.threads > 1) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
+#define thunder_lock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
+#define thunder_unlock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
 
 #define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7))
 
@@ -608,10 +608,13 @@ struct uwsgi_socket {
 	 ssize_t(*proto_sendfile) (struct wsgi_request *);
 	 ssize_t(*proto_read_body) (struct wsgi_request *, char *, size_t);
 	void (*proto_close) (struct wsgi_request *);
-	void (*proto_thread_fixup) (struct uwsgi_socket *);
+	void (*proto_thread_fixup) (struct uwsgi_socket *, int);
 	int edge_trigger;
 
-	int retry;
+	int *retry;
+
+	// this is a special map for having socket->thread mapping
+	int *fd_threads;
 
 #ifdef UWSGI_UUID
 	char uuid[37];
@@ -2605,7 +2608,7 @@ int uwsgi_get_shared_socket_num(struct uwsgi_socket *);
 void uwsgi_set_cgroup(void);
 #endif
 
-void uwsgi_add_sockets_to_queue(int);
+void uwsgi_add_sockets_to_queue(int, int);
 void uwsgi_del_sockets_from_queue(int);
 
 int uwsgi_run_command_and_wait(char *, char *);

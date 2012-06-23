@@ -505,7 +505,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	if (uwsgi.cheap) {
-		uwsgi_add_sockets_to_queue(uwsgi.master_queue);
+		uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			uwsgi.workers[i].cheaped = 1;
 		}
@@ -1197,7 +1197,7 @@ health_cycle:
 							uwsgi_error("waitpid()");
 						}
 					}
-					uwsgi_add_sockets_to_queue(uwsgi.master_queue);
+					uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
 					uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
 					last_request_timecheck = 0;
 					continue;

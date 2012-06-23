@@ -3131,7 +3131,7 @@ zmq_next:
 			exit(1);
 		}
 
-		uwsgi_add_sockets_to_queue(uwsgi.async_queue);
+		uwsgi_add_sockets_to_queue(uwsgi.async_queue, -1);
 
 		uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();
 

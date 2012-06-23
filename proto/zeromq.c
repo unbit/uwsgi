@@ -250,7 +250,7 @@ int uwsgi_proto_zeromq_parser(struct wsgi_request *wsgi_req) {
 	return UWSGI_OK;
 }
 
-void uwsgi_proto_zeromq_thread_fixup(struct uwsgi_socket *uwsgi_sock) {
+void uwsgi_proto_zeromq_thread_fixup(struct uwsgi_socket *uwsgi_sock, int async_id) {
 
 	void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
         if (tmp_zmq_pull == NULL) {
@@ -265,7 +265,16 @@ void uwsgi_proto_zeromq_thread_fixup(struct uwsgi_socket *uwsgi_sock) {
 
 	pthread_setspecific(uwsgi_sock->key, tmp_zmq_pull);
 
-
+#ifdef ZMQ_FD
+	if (uwsgi.threads > 1) {
+        	size_t zmq_socket_len = sizeof(int);
+        	if (zmq_getsockopt(pthread_getspecific(uwsgi_sock->key), ZMQ_FD, &uwsgi_sock->fd_threads[async_id], &zmq_socket_len) < 0) {
+        		uwsgi_error("zmq_getsockopt()");
+                	exit(1);
+		}
+		uwsgi_sock->retry[async_id] = 1;
+	}
+#endif
 }
 
 void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
@@ -314,7 +323,8 @@ void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
                         uwsgi_sock->proto_thread_fixup = uwsgi_proto_zeromq_thread_fixup;
 
                         uwsgi_sock->edge_trigger = 1;
-                        uwsgi_sock->retry = 1;
+                        uwsgi_sock->retry = uwsgi_malloc(sizeof(int) * uwsgi.threads);
+			uwsgi_sock->retry[0] = 1;
 
                         // inform loop engine about edge trigger status
                         uwsgi.is_et = 1;
@@ -349,6 +359,10 @@ void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
                                 uwsgi_error("zmq_getsockopt()");
                                 exit(1);
                         }
+			if (uwsgi.threads > 1) {
+				uwsgi_sock->fd_threads = uwsgi_malloc(sizeof(int) * uwsgi.threads);
+				uwsgi_sock->fd_threads[0] = uwsgi_sock->fd;
+			}
 #else
                         uwsgi_sock->fd = -1;
 #endif
@@ -390,7 +404,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 	}
 #endif
 
-	if (events & ZMQ_POLLIN || wsgi_req->socket->retry) {
+	if (events & ZMQ_POLLIN || (wsgi_req->socket->retry && wsgi_req->socket->retry[wsgi_req->async_id])) {
 		wsgi_req->do_not_add_to_async_queue = 1;
 		wsgi_req->proto_parser_status = 0;
 		zmq_msg_init(&message);
@@ -496,19 +510,19 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 		zmq_msg_close(&message);
 
 		// retry by default
-		wsgi_req->socket->retry = 1;
+		wsgi_req->socket->retry[wsgi_req->async_id] = 1;
 
 		return 0;
 	}
 
 repoll:
 	// force polling of the socket
-	wsgi_req->socket->retry = 0;
+	wsgi_req->socket->retry[wsgi_req->async_id] = 0;
 	return -1;
 retry:
 	// retry til EAGAIN;
 	wsgi_req->do_not_log = 1;
-	wsgi_req->socket->retry = 1;
+	wsgi_req->socket->retry[wsgi_req->async_id] = 1;
 	return -1;
 }
 
