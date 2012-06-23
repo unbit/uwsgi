@@ -238,8 +238,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"sqlite", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_ZEROMQ
-	{"zeromq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_set_str, &uwsgi.zeromq, 0},
-	{"zmq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_set_str, &uwsgi.zeromq, 0},
+	{"zeromq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
+	{"zmq", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
+	{"zeromq-socket", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
+	{"zmq-socket", required_argument, 0, "create a zeromq pub/sub pair", uwsgi_opt_add_lazy_socket, "zmq", 0},
 #endif
 #ifdef UWSGI_LDAP
 	{"ldap", required_argument, 0, "load configuration from ldap server", uwsgi_opt_load_ldap, NULL, UWSGI_OPT_IMMEDIATE},
@@ -2464,6 +2466,9 @@ int uwsgi_start(void *v_argv) {
 		// put listening socket in non-blocking state and set the protocol
 		uwsgi_sock = uwsgi.sockets;
 		while (uwsgi_sock) {
+			char *requested_protocol = uwsgi_sock->proto_name;
+
+			if (uwsgi_sock->lazy) goto setup_proto;
 			if (!uwsgi_sock->bound || uwsgi_sock->fd == -1)
 				goto nextsock;
 			if (!uwsgi_sock->per_core) {
@@ -2479,7 +2484,7 @@ int uwsgi_start(void *v_argv) {
 				}
 			}
 
-			char *requested_protocol = uwsgi_sock->proto_name;
+setup_proto:
 			if (!requested_protocol) {
 				requested_protocol = uwsgi.protocol;
 			}
@@ -2507,6 +2512,11 @@ int uwsgi_start(void *v_argv) {
 				uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;
 				uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
 			}
+#ifdef UWSGI_ZEROMQ
+			else if (requested_protocol && !strcmp("zmq", requested_protocol)) {
+				uwsgi.zeromq = 1;
+			}
+#endif
 			else {
 				uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
 				uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
@@ -2520,22 +2530,6 @@ int uwsgi_start(void *v_argv) {
 nextsock:
 			uwsgi_sock = uwsgi_sock->next;
 		}
-
-#ifdef UWSGI_ZEROMQ
-		if (uwsgi.zeromq) {
-			uwsgi.zmq_responder = strchr(uwsgi.zeromq, ',');
-			if (!uwsgi.zmq_responder) {
-				uwsgi_log("invalid zeromq address\n");
-				exit(1);
-			}
-			uwsgi.zmq_receiver = uwsgi_concat2n(uwsgi.zeromq, uwsgi.zmq_responder - uwsgi.zeromq, "", 0);
-			uwsgi.zmq_responder++;
-			uwsgi_log("zmq receiver: %s\n", uwsgi.zmq_receiver);
-			uwsgi_log("zmq responder: %s\n", uwsgi.zmq_responder);
-
-			uwsgi.zmq_socket = uwsgi_new_socket(uwsgi.zmq_receiver);
-		}
-#endif
 
 	}
 
@@ -3107,79 +3101,24 @@ nextsock:
 	}
 
 #ifdef UWSGI_ZEROMQ
-	if (uwsgi.zmq_receiver && uwsgi.zmq_responder) {
+	// setup zeromq context (if required) one per-worker
+	if (uwsgi.zeromq) {
 		uwsgi.zmq_context = zmq_init(1);
 		if (uwsgi.zmq_context == NULL) {
 			uwsgi_error("zmq_init()");
 			exit(1);
 		}
 
-		if (uwsgi.threads > 1) {
-			pthread_mutex_init(&uwsgi.zmq_lock, NULL);
+		struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+		while(uwsgi_sock) {
+			if (!uwsgi_sock->proto_name || strcmp(uwsgi_sock->proto_name, "zmq")) {
+				goto zmq_next;
+			}
+			uwsgi_proto_zeromq_setup(uwsgi_sock);
+zmq_next:
+			uwsgi_sock = uwsgi_sock->next;
+
 		}
-
-		uwsgi.zmq_pub = zmq_socket(uwsgi.zmq_context, ZMQ_PUB);
-		if (uwsgi.zmq_pub == NULL) {
-			uwsgi_error("zmq_socket()");
-			exit(1);
-		}
-
-		uuid_t uuid_zmq;
-		char uuid_zmq_str[37];
-		uuid_generate(uuid_zmq);
-		uuid_unparse(uuid_zmq, uuid_zmq_str);
-
-		uwsgi_log("%.*s\n", 36, uuid_zmq_str);
-		if (zmq_setsockopt(uwsgi.zmq_pub, ZMQ_IDENTITY, uuid_zmq_str, 36) < 0) {
-			uwsgi_error("zmq_setsockopt()");
-			exit(1);
-		}
-
-		if (zmq_connect(uwsgi.zmq_pub, uwsgi.zmq_responder) < 0) {
-			uwsgi_error("zmq_connect()");
-			exit(1);
-		}
-
-		uwsgi.zmq_socket->proto = uwsgi_proto_zeromq_parser;
-		uwsgi.zmq_socket->proto_accept = uwsgi_proto_zeromq_accept;
-		uwsgi.zmq_socket->proto_close = uwsgi_proto_zeromq_close;
-		uwsgi.zmq_socket->proto_write = uwsgi_proto_zeromq_write;
-		uwsgi.zmq_socket->proto_writev = uwsgi_proto_zeromq_writev;
-		uwsgi.zmq_socket->proto_write_header = uwsgi_proto_zeromq_write_header;
-		uwsgi.zmq_socket->proto_writev_header = uwsgi_proto_zeromq_writev_header;
-		uwsgi.zmq_socket->proto_sendfile = uwsgi_proto_zeromq_sendfile;
-
-		uwsgi.zmq_socket->edge_trigger = 1;
-
-		if (pthread_key_create(&uwsgi.zmq_pull, NULL)) {
-			uwsgi_error("pthread_key_create()");
-			exit(1);
-		}
-
-		void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
-		if (tmp_zmq_pull == NULL) {
-			uwsgi_error("zmq_socket()");
-			exit(1);
-		}
-		if (zmq_connect(tmp_zmq_pull, uwsgi.zmq_receiver) < 0) {
-			uwsgi_error("zmq_connect()");
-			exit(1);
-		}
-
-		pthread_setspecific(uwsgi.zmq_pull, tmp_zmq_pull);
-
-#ifdef ZMQ_FD
-		size_t zmq_socket_len = sizeof(int);
-		if (zmq_getsockopt(pthread_getspecific(uwsgi.zmq_pull), ZMQ_FD, &uwsgi.zmq_socket->fd, &zmq_socket_len) < 0) {
-			uwsgi_error("zmq_getsockopt()");
-			exit(1);
-		}
-#else
-		uwsgi.zmq_socket->fd = -1;
-#endif
-
-		uwsgi.zmq_socket->bound = 1;
-		uwsgi.zeromq_recv_flag = ZMQ_NOBLOCK;
 	}
 #endif
 
@@ -3326,30 +3265,7 @@ wait_for_call_of_duty:
 		uwsgi_log("your loop engine died. R.I.P.\n");
 	}
 	else {
-#ifdef UWSGI_ZEROMQ
-		if (uwsgi.zeromq && uwsgi.async < 2 && !uwsgi.sockets->next) {
-
-			if (uwsgi.threads > 1) {
-#ifdef UWSGI_THREADING
-				if (pthread_key_create(&uwsgi.tur_key, NULL)) {
-					uwsgi_error("pthread_key_create()");
-					exit(1);
-				}
-				for (i = 1; i < uwsgi.threads; i++) {
-					long j = i;
-					pthread_create(&uwsgi.core[i]->thread_id, &uwsgi.threads_attr, zeromq_loop, (void *) j);
-				}
-#endif
-			}
-
-			long y = 0;
-			zeromq_loop((void *) y);
-		}
-		else if (uwsgi.threads > 1) {
-#else
 		if (uwsgi.threads > 1) {
-#endif
-
 #ifdef UWSGI_THREADING
 			if (pthread_key_create(&uwsgi.tur_key, NULL)) {
 				uwsgi_error("pthread_key_create()");
@@ -3767,6 +3683,14 @@ void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {
 	struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
 	uwsgi_sock->proto_name = protocol;
 }
+
+void uwsgi_opt_add_lazy_socket(char *opt, char *value, void *protocol) {
+        struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
+        uwsgi_sock->proto_name = protocol;
+	uwsgi_sock->bound = 1;
+	uwsgi_sock->lazy = 1;
+}
+
 
 void uwsgi_opt_set_placeholder(char *opt, char *value, void *none) {
 

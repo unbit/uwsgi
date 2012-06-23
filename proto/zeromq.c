@@ -250,6 +250,116 @@ int uwsgi_proto_zeromq_parser(struct wsgi_request *wsgi_req) {
 	return UWSGI_OK;
 }
 
+void uwsgi_proto_zeromq_thread_fixup(struct uwsgi_socket *uwsgi_sock) {
+
+	void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
+        if (tmp_zmq_pull == NULL) {
+        	uwsgi_error("zmq_socket()");
+                exit(1);
+        }
+
+        if (zmq_connect(tmp_zmq_pull, uwsgi_sock->receiver) < 0) {
+        	uwsgi_error("zmq_connect()");
+                exit(1);
+        }
+
+	pthread_setspecific(uwsgi_sock->key, tmp_zmq_pull);
+
+
+}
+
+void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
+
+	           char *responder = strchr(uwsgi_sock->name, ',');
+                        if (!responder) {
+                                uwsgi_log("invalid zeromq address\n");
+                                exit(1);
+                        }
+                        uwsgi_sock->receiver = uwsgi_concat2n(uwsgi_sock->name, responder - uwsgi_sock->name, "", 0);
+                        responder++;
+
+                        uwsgi_sock->pub = zmq_socket(uwsgi.zmq_context, ZMQ_PUB);
+                        if (uwsgi_sock->pub == NULL) {
+                                uwsgi_error("zmq_socket()");
+                                exit(1);
+                        }
+
+
+                        // generate uuid
+                        uuid_t uuid_zmq;
+                        uuid_generate(uuid_zmq);
+                        uuid_unparse(uuid_zmq, uwsgi_sock->uuid);
+
+                        if (zmq_setsockopt(uwsgi_sock->pub, ZMQ_IDENTITY, uwsgi_sock->uuid, 36) < 0) {
+                                uwsgi_error("zmq_setsockopt()");
+                                exit(1);
+                        }
+
+                        if (zmq_connect(uwsgi_sock->pub, responder) < 0) {
+                                uwsgi_error("zmq_connect()");
+                                exit(1);
+                        }
+
+                        uwsgi_log("zeromq UUID for responder %s on worker %d: %.*s\n", responder, uwsgi.mywid, 36, uwsgi_sock->uuid);
+
+                        uwsgi_sock->proto = uwsgi_proto_zeromq_parser;
+                        uwsgi_sock->proto_accept = uwsgi_proto_zeromq_accept;
+                        uwsgi_sock->proto_close = uwsgi_proto_zeromq_close;
+                        uwsgi_sock->proto_write = uwsgi_proto_zeromq_write;
+                        uwsgi_sock->proto_writev = uwsgi_proto_zeromq_writev;
+                        uwsgi_sock->proto_write_header = uwsgi_proto_zeromq_write_header;
+                        uwsgi_sock->proto_writev_header = uwsgi_proto_zeromq_writev_header;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_zeromq_sendfile;
+
+                        uwsgi_sock->proto_thread_fixup = uwsgi_proto_zeromq_thread_fixup;
+
+                        uwsgi_sock->edge_trigger = 1;
+                        uwsgi_sock->retry = 1;
+
+                        // inform loop engine about edge trigger status
+                        uwsgi.is_et = 1;
+
+
+                        // initialize a lock for multithread usage
+                        if (uwsgi.threads > 1) {
+                                pthread_mutex_init(&uwsgi_sock->lock, NULL);
+                        }
+
+                        // one pull per-thread
+                        if (pthread_key_create(&uwsgi_sock->key, NULL)) {
+                                uwsgi_error("pthread_key_create()");
+                                exit(1);
+                        }
+
+                        void *tmp_zmq_pull = zmq_socket(uwsgi.zmq_context, ZMQ_PULL);
+                        if (tmp_zmq_pull == NULL) {
+                                uwsgi_error("zmq_socket()");
+                                exit(1);
+                        }
+                        if (zmq_connect(tmp_zmq_pull, uwsgi_sock->receiver) < 0) {
+                                uwsgi_error("zmq_connect()");
+                                exit(1);
+                        }
+
+                        pthread_setspecific(uwsgi_sock->key, tmp_zmq_pull);
+
+#ifdef ZMQ_FD
+                        size_t zmq_socket_len = sizeof(int);
+                        if (zmq_getsockopt(pthread_getspecific(uwsgi_sock->key), ZMQ_FD, &uwsgi_sock->fd, &zmq_socket_len) < 0) {
+                                uwsgi_error("zmq_getsockopt()");
+                                exit(1);
+                        }
+#else
+                        uwsgi_sock->fd = -1;
+#endif
+
+                        uwsgi_sock->bound = 1;
+                        uwsgi_sock->recv_flag = ZMQ_NOBLOCK;
+
+}
+
+
+
 int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 
 	zmq_msg_t message;
@@ -274,37 +384,32 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 
 #ifdef ZMQ_EVENTS
 	size_t events_len = sizeof(uint32_t);
-	if (uwsgi.edge_triggered == 0) {
-		if (zmq_getsockopt(pthread_getspecific(uwsgi.zmq_pull), ZMQ_EVENTS, &events, &events_len) < 0) {
-			uwsgi_error("zmq_getsockopt()");
-			uwsgi.edge_triggered = 0;
-			return -1;
-		}
+	if (zmq_getsockopt(pthread_getspecific(wsgi_req->socket->key), ZMQ_EVENTS, &events, &events_len) < 0) {
+		uwsgi_error("zmq_getsockopt()");
+		goto retry;
 	}
 #endif
 
-	if (events & ZMQ_POLLIN || uwsgi.edge_triggered) {
+	if (events & ZMQ_POLLIN || wsgi_req->socket->retry) {
 		wsgi_req->do_not_add_to_async_queue = 1;
 		wsgi_req->proto_parser_status = 0;
 		zmq_msg_init(&message);
-		if (zmq_recv(pthread_getspecific(uwsgi.zmq_pull), &message, uwsgi.zeromq_recv_flag) < 0) {
+		if (zmq_recv(pthread_getspecific(wsgi_req->socket->key), &message, wsgi_req->socket->recv_flag) < 0) {
 			if (errno == EAGAIN) {
-				uwsgi.edge_triggered = 0;
+				zmq_msg_close(&message);
+				goto repoll;
 			}
-			else {
-				uwsgi_error("zmq_recv()");
-			}
+			uwsgi_error("zmq_recv()");
 			zmq_msg_close(&message);
-			return -1;
+			goto retry;
 		}
-		uwsgi.edge_triggered = 1;
+
 		message_size = zmq_msg_size(&message);
 		//uwsgi_log("%.*s\n", (int) wsgi_req->proto_parser_pos, zmq_msg_data(&message));
 		if (message_size > 0xffff) {
 			uwsgi_log("too much big message %d\n", message_size);
 			zmq_msg_close(&message);
-			wsgi_req->do_not_log = 1;
-			return -1;
+			goto retry;
 		}
 
 		message_ptr = zmq_msg_data(&message);
@@ -314,8 +419,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 		if (post_data == NULL) {
 			uwsgi_log("cannot parse message (split4 phase)\n");
 			zmq_msg_close(&message);
-			wsgi_req->do_not_log = 1;
-			return -1;
+			goto retry;
 		}
 
 		// fix post_data, mongrel2_req and mongrel2_req_size
@@ -323,16 +427,14 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 		if (post_data == NULL) {
 			uwsgi_log("cannot parse message (body netstring phase)\n");
 			zmq_msg_close(&message);
-			wsgi_req->do_not_log = 1;
-			return -1;
+			goto retry;
 		}
 
 		// ok ready to parse tnetstring/json data and build uwsgi request
 		if (mongrel2_req[mongrel2_req_size] == '}') {
 			if (uwsgi_mongrel2_tnetstring_parse(wsgi_req, mongrel2_req, mongrel2_req_size)) {
 				zmq_msg_close(&message);
-				wsgi_req->do_not_log = 1;
-				return -1;
+				goto retry;
 			}
 		}
 		else {
@@ -346,15 +448,13 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 			if (!root) {
 				uwsgi_log("error parsing JSON data: line %d %s\n", error.line, error.text);
 				zmq_msg_close(&message);
-				wsgi_req->do_not_log = 1;
-				return -1;
+				goto retry;
 			}
 
 			if (uwsgi_mongrel2_json_parse(root, wsgi_req)) {
 				json_decref(root);
 				zmq_msg_close(&message);
-				wsgi_req->do_not_log = 1;
-				return -1;
+				goto retry;
 			}
 
 			json_decref(root);
@@ -385,7 +485,7 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 				if (fwrite(message_ptr, wsgi_req->post_cl, 1, wsgi_req->async_post) != 1) {
 					uwsgi_error("fwrite()");
 					zmq_msg_close(&message);
-					return -1;
+					goto retry;
 				}
 				rewind(wsgi_req->async_post);
 				wsgi_req->body_as_file = 1;
@@ -395,9 +495,20 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 
 		zmq_msg_close(&message);
 
+		// retry by default
+		wsgi_req->socket->retry = 1;
+
 		return 0;
 	}
 
+repoll:
+	// force polling of the socket
+	wsgi_req->socket->retry = 0;
+	return -1;
+retry:
+	// retry til EAGAIN;
+	wsgi_req->do_not_log = 1;
+	wsgi_req->socket->retry = 1;
 	return -1;
 }
 
@@ -413,11 +524,11 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 		return;
 
 	zmq_msg_init_data(&reply, wsgi_req->proto_parser_buf, wsgi_req->proto_parser_pos, uwsgi_proto_zeromq_free, NULL);
-	if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.zmq_lock);
-	if (zmq_send(uwsgi.zmq_pub, &reply, 0)) {
+	if (uwsgi.threads > 1) pthread_mutex_lock(&wsgi_req->socket->lock);
+	if (zmq_send(wsgi_req->socket->pub, &reply, 0)) {
 		uwsgi_error("zmq_send()");
 	}
-	if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
+	if (uwsgi.threads > 1) pthread_mutex_unlock(&wsgi_req->socket->lock);
 	zmq_msg_close(&reply);
 
 	if (wsgi_req->async_post && wsgi_req->body_as_file) {
@@ -460,17 +571,17 @@ ssize_t uwsgi_proto_zeromq_write(struct wsgi_request * wsgi_req, char *buf, size
 	//uwsgi_log("|%.*s|\n", (int)wsgi_req->proto_parser_pos+len, zmq_body);
 
 	zmq_msg_init_data(&reply, zmq_body, wsgi_req->proto_parser_pos + len, uwsgi_proto_zeromq_free, NULL);
-	if (uwsgi.threads > 1) pthread_mutex_lock(&uwsgi.zmq_lock);
-	if (zmq_send(uwsgi.zmq_pub, &reply, 0)) {
+	if (uwsgi.threads > 1) pthread_mutex_lock(&wsgi_req->socket->lock);
+	if (zmq_send(wsgi_req->socket->pub, &reply, 0)) {
 		if (!uwsgi.ignore_write_errors) {
 			uwsgi_error("zmq_send()");
 		}
 		wsgi_req->write_errors++;
-		if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
+		if (uwsgi.threads > 1) pthread_mutex_unlock(&wsgi_req->socket->lock);
 		zmq_msg_close(&reply);
 		return 0;
 	}
-	if (uwsgi.threads > 1) pthread_mutex_unlock(&uwsgi.zmq_lock);
+	if (uwsgi.threads > 1) pthread_mutex_unlock(&wsgi_req->socket->lock);
 	zmq_msg_close(&reply);
 
 	return len;

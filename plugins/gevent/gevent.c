@@ -161,7 +161,11 @@ edge:
 	// accept the connection
 	if (wsgi_req_simple_accept(wsgi_req, uwsgi_sock->fd)) {
 		free_req_queue;
+		if (uwsgi_sock->retry) {
+			goto edge;
+		}	
 		goto clear;
+		
 	}
 
 	// hack to easily pass wsgi_req pointer to the greenlet
@@ -173,7 +177,7 @@ edge:
 
 	if (uwsgi_sock->edge_trigger) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("i am a edge triggered socket !!!\n");
+		uwsgi_log("i am an edge triggered socket !!!\n");
 #endif
 		goto edge;
 	}
@@ -203,30 +207,36 @@ PyObject *uwsgi_gevent_wait(PyObject *watcher, PyObject *timer, PyObject *curren
 
 PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 
-	PyObject *ret;
 	PyObject *py_wsgi_req = PyTuple_GetItem(args, 0);
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) PyLong_AsLong(py_wsgi_req);
 	int status ;
+	PyObject *ret = NULL, *watcher = NULL, *timer = NULL;
 
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	// another hack to retrieve the current wsgi_req;
 	PyObject_SetAttrString(current_greenlet, "uwsgi_wsgi_req", py_wsgi_req);
 	PyObject *greenlet_switch = PyObject_GetAttrString(current_greenlet, "switch");
 
+	// if in edge-triggered mode read from socket now !!!
+	if (wsgi_req->socket->edge_trigger) {
+		status = wsgi_req->socket->proto(wsgi_req);
+		if (status < 0) {
+			goto clear1;
+		}
+		goto request;
+	}
+
 	// create a watcher for request socket
-	PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
+	watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
 	if (!watcher) goto clear1;
 
 	// a timer to implement timeoit (thanks Denis)
-	PyObject *timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	if (!timer) goto clear0;
 
 	for(;;) {
-wait:
-		// if in edge-triggered mode read from socket now, and eventually come back to wait...
-		if (wsgi_req->socket->edge_trigger) goto edge;
 		// wait for data in the socket
-		PyObject *ret = uwsgi_gevent_wait(watcher, timer, greenlet_switch);
+		ret = uwsgi_gevent_wait(watcher, timer, greenlet_switch);
 		if (!ret) goto clear_and_stop;
 
 		// we can safely decref here as watcher and timer has got a +1 for start() method
@@ -236,13 +246,8 @@ wait:
 			goto clear_and_stop;
 		}
 		else if (ret == watcher) {
-edge:
 			status = wsgi_req->socket->proto(wsgi_req);
 			if (status < 0) {
-				// if in edge-triggered, came back to wait-mode
-				if (wsgi_req->socket->edge_trigger && errno == EAGAIN) {	
-					goto wait;
-				}
 				goto clear_and_stop;
 			}
 			else if (status == 0) {
@@ -258,6 +263,7 @@ edge:
 		stop_the_watchers;
 	}
 
+request:
 	for(;;) {
 		wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
 		if (wsgi_req->async_status <= UWSGI_OK) {
@@ -275,6 +281,7 @@ clear_and_stop:
 	stop_the_watchers;
 
 clear:
+	if (wsgi_req->socket->edge_trigger) goto clear1;
 	Py_DECREF(timer);
 clear0:
 	Py_DECREF(watcher);

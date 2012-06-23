@@ -608,11 +608,29 @@ struct uwsgi_socket {
 	 ssize_t(*proto_sendfile) (struct wsgi_request *);
 	 ssize_t(*proto_read_body) (struct wsgi_request *, char *, size_t);
 	void (*proto_close) (struct wsgi_request *);
+	void (*proto_thread_fixup) (struct uwsgi_socket *);
 	int edge_trigger;
 
+	int retry;
+
+#ifdef UWSGI_UUID
+	char uuid[37];
+#endif
+
+	// currently used by zeromq handlers
+	void *pub;
+	void *pull;
+	pthread_key_t key;
+
+	pthread_mutex_t lock;
+
+	char *receiver;
+
 	int disabled;
+	int recv_flag;
 
 	struct uwsgi_socket *next;
+	int lazy;
 	int shared;
 	int from_shared;
 };
@@ -1454,8 +1472,6 @@ struct uwsgi_server {
 	int async_queue;
 	int async_nevents;
 
-	int edge_triggered;
-
 	int max_vars;
 	int vec_size;
 
@@ -1548,19 +1564,12 @@ struct uwsgi_server {
 	int my_signal_socket;
 
 #ifdef UWSGI_ZEROMQ
-	char *zeromq;
-	char *zmq_receiver;
-	char *zmq_responder;
-	struct uwsgi_socket *zmq_socket;
+	int zeromq;
 	void *zmq_context;
-	//void *zmq_pull;
-	void *zmq_pub;
-	int zeromq_recv_flag;
-	pthread_mutex_t zmq_lock;
-	pthread_key_t zmq_pull;
 #endif
 	struct uwsgi_socket *sockets;
 	struct uwsgi_socket *shared_sockets;
+	int is_et;
 
 	struct uwsgi_string_list *map_socket;
 
@@ -2157,7 +2166,6 @@ int find_worker_id(pid_t);
 
 
 void *simple_loop(void *);
-void *zeromq_loop(void *);
 
 int uwsgi_count_options(struct uwsgi_option *);
 
@@ -2532,6 +2540,7 @@ uint16_t proto_base_add_uwsgi_header(struct wsgi_request *, char *, uint16_t, ch
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 #ifdef UWSGI_ZEROMQ
+void uwsgi_proto_zeromq_setup(struct uwsgi_socket *);
 ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *, char *, size_t len);
 int uwsgi_proto_zeromq_accept(struct wsgi_request *, int);
 void uwsgi_proto_zeromq_close(struct wsgi_request *);
@@ -2799,6 +2808,7 @@ void uwsgi_opt_dyn_false(char *, char *, void *);
 void uwsgi_opt_set_placeholder(char *, char *, void *);
 void uwsgi_opt_add_shared_socket(char *, char *, void *);
 void uwsgi_opt_add_socket(char *, char *, void *);
+void uwsgi_opt_add_lazy_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);

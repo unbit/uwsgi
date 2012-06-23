@@ -1016,6 +1016,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 
+	// edge triggered sockets get the whole request during accept() phase
 	if (!wsgi_req->socket->edge_trigger) {
 		if (!uwsgi_parse_packet(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 			return -1;
@@ -1046,7 +1047,8 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 		return -1;
 	}
 
-	if (wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
+	// set close on exec (if not a new socket)
+	if (!wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
 		fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
 	}
 
@@ -1058,9 +1060,23 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	int ret;
 	int interesting_fd;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	int retry = 0;
+
+	// need edge trigger ?
+	if (uwsgi.is_et) {
+		while(uwsgi_sock) {
+			if (uwsgi_sock->retry) {
+				retry = 1;
+				break;
+			}
+			uwsgi_sock = uwsgi_sock->next;
+		}
+		// reset pointer
+		uwsgi_sock = uwsgi.sockets;
+	}
 
 	thunder_lock;
-	ret = event_queue_wait(queue, uwsgi.edge_triggered - 1, &interesting_fd);
+	ret = event_queue_wait(queue, -1 + retry , &interesting_fd);
 	if (ret < 0) {
 		thunder_unlock;
 		return -1;
@@ -1087,7 +1103,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 
 	while (uwsgi_sock) {
-		if (interesting_fd == uwsgi_sock->fd || (uwsgi.edge_triggered && uwsgi_sock->edge_trigger)) {
+		if (interesting_fd == uwsgi_sock->fd || uwsgi_sock->retry) {
 			wsgi_req->socket = uwsgi_sock;
 			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			thunder_unlock;
