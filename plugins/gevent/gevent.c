@@ -28,6 +28,22 @@ struct uwsgi_gevent {
 	PyObject **watchers;
 } ugevent;
 
+void uwsgi_opt_setup_gevent(char *opt, char *value, void *null) {
+
+	// set async mode
+	uwsgi_opt_set_int(opt, value, &uwsgi.async);
+	// set loop engine
+	uwsgi.loop = "gevent";
+
+}
+
+struct uwsgi_option gevent_options[] = {
+        {"gevent", required_argument, 0, "a shortcut enabling gevent loop engine with the specified number of async cores and optimal parameters", uwsgi_opt_setup_gevent, NULL, UWSGI_OPT_THREADS},
+        {0, 0, 0, 0, 0, 0, 0},
+
+};
+
+
 
 PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 
@@ -120,8 +136,9 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 	// hack to retrieve the socket address
 	PyObject *py_uwsgi_sock = PyTuple_GetItem(args, 0);
         struct uwsgi_socket *uwsgi_sock = (struct uwsgi_socket *) PyLong_AsLong(py_uwsgi_sock);
-
-	struct wsgi_request *wsgi_req = find_first_available_wsgi_req();
+	struct wsgi_request *wsgi_req = NULL;
+edge:
+	wsgi_req = find_first_available_wsgi_req();
 
 	if (wsgi_req == NULL) {
 		uwsgi_log("async queue is full !!!\n");
@@ -153,6 +170,13 @@ PyObject *py_uwsgi_gevent_main(PyObject * self, PyObject * args) {
 	// spawn the request greenlet
 	PyObject *new_gl = python_call(ugevent.spawn, ugevent.greenlet_args, 0, NULL);
 	Py_DECREF(new_gl);
+
+	if (uwsgi_sock->edge_trigger) {
+#ifdef UWSGI_DEBUG
+		uwsgi_log("i am a edge triggered socket !!!\n");
+#endif
+		goto edge;
+	}
 
 clear:
 	Py_INCREF(Py_None);
@@ -198,6 +222,9 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	if (!timer) goto clear0;
 
 	for(;;) {
+wait:
+		// if in edge-triggered mode read from socket now, and eventually come back to wait...
+		if (wsgi_req->socket->edge_trigger) goto edge;
 		// wait for data in the socket
 		PyObject *ret = uwsgi_gevent_wait(watcher, timer, greenlet_switch);
 		if (!ret) goto clear_and_stop;
@@ -209,8 +236,13 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 			goto clear_and_stop;
 		}
 		else if (ret == watcher) {
+edge:
 			status = wsgi_req->socket->proto(wsgi_req);
 			if (status < 0) {
+				// if in edge-triggered, came back to wait-mode
+				if (wsgi_req->socket->edge_trigger && errno == EAGAIN) {	
+					goto wait;
+				}
 				goto clear_and_stop;
 			}
 			else if (status == 0) {
@@ -419,5 +451,6 @@ int gevent_init() {
 struct uwsgi_plugin gevent_plugin = {
 
 	.name = "gevent",
+	.options = gevent_options,
 	.init = gevent_init,
 };

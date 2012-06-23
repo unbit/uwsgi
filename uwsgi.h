@@ -2976,6 +2976,11 @@ struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *,
 
 void trigger_harakiri(int);
 
+void uwsgi_setup_systemd();
+void uwsgi_setup_upstart();
+void uwsgi_setup_zerg();
+void uwsgi_setup_inherited_sockets();
+
 #ifdef UWSGI_SSL
 void uwsgi_ssl_init(void);
 SSL_CTX *uwsgi_ssl_new_server_context(char *, char *, char *, char *, char *);
