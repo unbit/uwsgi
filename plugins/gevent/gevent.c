@@ -210,18 +210,17 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	PyObject *py_wsgi_req = PyTuple_GetItem(args, 0);
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) PyLong_AsLong(py_wsgi_req);
 	int status ;
-	PyObject *ret = NULL, *watcher = NULL, *timer = NULL;
+	PyObject *ret = NULL, *watcher = NULL, *timer = NULL, *greenlet_switch = NULL;
 
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	// another hack to retrieve the current wsgi_req;
 	PyObject_SetAttrString(current_greenlet, "uwsgi_wsgi_req", py_wsgi_req);
-	PyObject *greenlet_switch = PyObject_GetAttrString(current_greenlet, "switch");
 
 	// if in edge-triggered mode read from socket now !!!
 	if (wsgi_req->socket->edge_trigger) {
 		status = wsgi_req->socket->proto(wsgi_req);
 		if (status < 0) {
-			goto clear1;
+			goto clear2;
 		}
 		goto request;
 	}
@@ -233,6 +232,8 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	// a timer to implement timeoit (thanks Denis)
 	timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	if (!timer) goto clear0;
+
+	greenlet_switch = PyObject_GetAttrString(current_greenlet, "switch");
 
 	for(;;) {
 		// wait for data in the socket
@@ -281,12 +282,13 @@ clear_and_stop:
 	stop_the_watchers;
 
 clear:
-	if (wsgi_req->socket->edge_trigger) goto clear1;
+	if (wsgi_req->socket->edge_trigger) goto clear2;
 	Py_DECREF(timer);
 clear0:
 	Py_DECREF(watcher);
 clear1:
 	Py_DECREF(greenlet_switch);
+clear2:
 	Py_DECREF(current_greenlet);
 
 	uwsgi_close_request(wsgi_req);
