@@ -383,7 +383,7 @@ void gevent_loop() {
 	// pre-fill the greenlet args
 	ugevent.greenlet_args = PyTuple_New(2);
 	PyTuple_SetItem(ugevent.greenlet_args, 0, uwsgi_request_greenlet);
-
+		
 	if (uwsgi.signal_socket > -1) {
 		// and these are the watcher for signal sockets
 
