@@ -102,7 +102,7 @@ PyObject *py_uwsgi_gevent_signal_handler(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
-// the following twi functions are called whenever an event is available in the signal queue
+// the following two functions are called whenever an event is available in the signal queue
 // they both trigger the same function
 PyObject *py_uwsgi_gevent_signal(PyObject * self, PyObject * args) {
 
