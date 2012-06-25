@@ -170,6 +170,9 @@ static int uwsgi_mongrel2_tnetstring_parse(struct wsgi_request *wsgi_req, char *
 
 		if (key[0] < 97) {
 			if (!uwsgi_strncmp("METHOD", 6, key, keylen)) {
+				if (!uwsgi_strncmp("JSON", 4, val, vallen)) {
+					return -1;
+				}
 				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "REQUEST_METHOD", 14, val, vallen);
 			}
 			else if (!uwsgi_strncmp("VERSION", 7, key, keylen)) {
