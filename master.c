@@ -1398,7 +1398,7 @@ nextlock:
 			pid_found = 0;
 			for (i = 0; i < uwsgi.mules_cnt; i++) {
 				if (uwsgi.mules[i].pid == diedpid) {
-					uwsgi_log("OOOPS mule %d crippled...trying respawn...\n", i + 1);
+					uwsgi_log("OOOPS mule %d (pid: %d) crippled...trying respawn...\n", i + 1, uwsgi.mules[i].pid);
 					uwsgi_mule(i + 1);
 					pid_found = 1;
 					break;
