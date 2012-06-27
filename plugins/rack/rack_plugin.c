@@ -673,7 +673,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->app_id = ur.app_id;
 	uwsgi_apps[wsgi_req->app_id].requests++;
 
-
         env = rb_hash_new();
 
         // fill ruby hash
@@ -718,8 +717,20 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
         }
 
 
-	rb_hash_aset(env, rb_str_new2("rack.multithread"), Qfalse);
-	rb_hash_aset(env, rb_str_new2("rack.multiprocess"), Qtrue);
+	if (uwsgi.threads > 1) {
+		rb_hash_aset(env, rb_str_new2("rack.multithread"), Qtrue);
+	}
+	else {
+		rb_hash_aset(env, rb_str_new2("rack.multithread"), Qfalse);
+	}
+
+	if (uwsgi.numproc > 1) {
+		rb_hash_aset(env, rb_str_new2("rack.multiprocess"), Qtrue);
+	}
+	else {
+		rb_hash_aset(env, rb_str_new2("rack.multiprocess"), Qfalse);
+	}
+
 	rb_hash_aset(env, rb_str_new2("rack.run_once"), Qfalse);
 
 	VALUE dws_wr = Data_Wrap_Struct(ur.rb_uwsgi_io_class, 0, 0, wsgi_req);
@@ -846,12 +857,13 @@ clear:
 #ifdef UWSGI_DEBUG
 			uwsgi_log("calling ruby GC\n");
 #endif
-			rb_gc();
+			// try to limit damanges if threads are enabled...
+			if (wsgi_req->async_id == 0) {
+				rb_gc();
+			}
 	}
 
 	ur.cycles++;
-
-
 
 	return 0;
 }
@@ -1114,7 +1126,13 @@ int uwsgi_rack_spooler(char *filename, char *buf, uint16_t len, char *body, size
 }
 
 
+void uwsgi_ruby_enable_native_threads() {
+	uwsgi_log("DANGER: native threads do not work under ruby !!!\n");
+}
 
+void uwsgi_ruby_init_thread(int core_id) {
+	uwsgi_log("DANGER: native threads do not work under ruby !!!\n");
+}
 
 
 struct uwsgi_plugin rack_plugin = {
@@ -1142,6 +1160,9 @@ struct uwsgi_plugin rack_plugin = {
 	.mule = uwsgi_rack_mule,
 	.mule_msg = uwsgi_rack_mule_msg,
 	.rpc = uwsgi_ruby_rpc,
+
+	.enable_threads = uwsgi_ruby_enable_native_threads,
+	.init_thread = uwsgi_ruby_init_thread,
 
 	.suspend = uwsgi_rack_suspend,
 	.resume = uwsgi_rack_resume,
