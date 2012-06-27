@@ -655,8 +655,9 @@ struct uwsgi_plugin {
 	void (*init_thread) (int);
 	int (*request) (struct wsgi_request *);
 	void (*after_request) (struct wsgi_request *);
-	void (*init_apps) (void);
 	void (*preinit_apps) (void);
+	void (*init_apps) (void);
+	void (*postinit_apps) (void);
 	void (*fixup) (void);
 	void (*master_fixup) (int);
 	void (*master_cycle) (void);

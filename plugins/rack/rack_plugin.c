@@ -25,6 +25,12 @@ struct uwsgi_option uwsgi_rack_options[] = {
 
         {"rbshell", optional_argument, 0, "run  a ruby/irb shell", uwsgi_opt_true, &ur.rb_shell, 0},
 
+#ifdef RUBY19
+        {"rb-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
+        {"rbthreads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
+        {"ruby-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
+#endif
+
         {0, 0, 0, 0, 0, 0 ,0},
 
 };
@@ -1134,6 +1140,12 @@ void uwsgi_ruby_init_thread(int core_id) {
 	uwsgi_log("DANGER: native threads do not work under ruby !!!\n");
 }
 
+void uwsgi_rack_postinit_apps(void) {
+
+	if (ur.rb_threads > 1) {
+	}
+}
+
 
 struct uwsgi_plugin rack_plugin = {
 
@@ -1154,6 +1166,8 @@ struct uwsgi_plugin rack_plugin = {
 
 	.init_apps = uwsgi_rack_init_apps,
 	.mount_app = uwsgi_rack_mount_app,
+	
+	.postinit_apps = uwsgi_rack_postinit_apps,
 
 	.magic = uwsgi_rack_magic,
 

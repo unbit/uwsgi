@@ -2803,6 +2803,20 @@ nextsock:
 		uwsgi_init_all_apps();
 	}
 
+	// postinit apps (setup specific features after app initialization)
+        for (i = 0; i < 256; i++) {
+                if (uwsgi.p[i]->postinit_apps) {
+                        uwsgi.p[i]->postinit_apps();
+                }
+        }
+
+        for (i = 0; i < uwsgi.gp_cnt; i++) {
+                if (uwsgi.gp[i]->postinit_apps) {
+                        uwsgi.gp[i]->postinit_apps();
+                }
+        }
+
+
 	if (uwsgi.daemonize2) {
 		if (uwsgi.has_emperor) {
 			logto(uwsgi.daemonize2);

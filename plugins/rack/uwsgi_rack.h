@@ -71,6 +71,8 @@ struct uwsgi_rack {
 
 	char *gemset;
 
+	int rb_threads;
+
 };
 
 void uwsgi_ruby_exception(void);
