@@ -127,7 +127,7 @@ void uwsgi_opt_corerouter_ss(char *opt, char *value, void *cr) {
         ucr->has_subscription_sockets++;
 
 	// this is the subscription hash table
-	ucr->subscriptions = uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * 65536);
+	ucr->subscriptions = uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * UMAX16);
 
 	ucr->has_backends++;
 
@@ -221,7 +221,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
                         if (cr_session->un->reference == 0) {
                                 uwsgi_remove_subscribe_node(ucr->subscriptions, cr_session->un);
                         }
-                        if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap && !ucr->fallback) {
+                        if (ucr->cheap && !ucr->i_am_cheap && !ucr->fallback && uwsgi_no_subscriptions(ucr->subscriptions)) {
                                 uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
                         }
 
@@ -703,7 +703,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 
 		int i;
 		int first_processed = 0;
-		for(i=0;i<65536;i++) {
+		for(i=0;i<UMAX16;i++) {
 			struct uwsgi_subscribe_slot *s_slot = ucr->subscriptions[i];
 			if (s_slot && first_processed) {
 				if (uwsgi_stats_comma(us)) goto end0;

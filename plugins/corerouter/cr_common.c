@@ -146,7 +146,7 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 				if (node->reference == 0) {
 					uwsgi_remove_subscribe_node(ucr->subscriptions, node);
 				}
-				if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap) {
+				if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
 					uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
 				}
 			}
@@ -206,7 +206,7 @@ void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr,
 				if (node->reference == 0) {
 					uwsgi_remove_subscribe_node(ucr->subscriptions, node);
 				}
-				if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap) {
+				if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
 					uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
 				}
 			}

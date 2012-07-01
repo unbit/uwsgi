@@ -712,3 +712,11 @@ int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *slot, struct uwsg
 	return 1;
 }
 #endif
+
+int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **slot) {
+	int i;
+	for(i=0;i<UMAX16;i++) {
+		if (slot[i]) return 0;
+	}
+	return 1;
+}

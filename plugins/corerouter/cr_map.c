@@ -37,7 +37,7 @@ int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct coreroute
 		cr_session->instance_address_len = cr_session->un->len;
 		cr_session->modifier1 = cr_session->un->modifier1;
 	}
-	else if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap) {
+	else if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
 		uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
 	}
 
