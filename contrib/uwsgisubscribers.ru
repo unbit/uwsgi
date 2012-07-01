@@ -5,16 +5,12 @@ require 'json'
 module USubscribers
   def self.uwsgi_get_stats(server)
     parts = server.split(':')
-    begin 
       if parts.length > 1:
         s = TCPSocket.open(parts[0], parts[1])
       else
         s = UNIXSocket.open(server)
       end
       return JSON.parse(s.read())
-    rescue
-      nil
-    end
   end
 end
 

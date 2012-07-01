@@ -2324,6 +2324,7 @@ int uwsgi_queue_push(char *, uint64_t);
 char *uwsgi_queue_pop(uint64_t *);
 int uwsgi_queue_set(uint64_t, char *, uint64_t);
 
+/*
 // maintain alignment here !!!
 struct uwsgi_dict_item {
 	// size of the value (64bit)
@@ -2360,6 +2361,7 @@ struct uwsgi_dict {
 
 	struct uwsgi_dict_item *items;
 };
+*/
 
 
 struct uwsgi_subscribe_req {
@@ -2703,6 +2705,8 @@ struct uwsgi_subscribe_slot {
         char key[0xff];
         uint16_t keylen;
 
+	uint32_t hash;
+
 #ifdef UWSGI_PCRE
 	pcre *pattern;
 	pcre_extra *pattern_extra;
@@ -3003,6 +3007,8 @@ char *uwsgi_sanitize_cert_filename(char *, char *, uint16_t);
 void uwsgi_opt_scd(char *, char *, void *);
 int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
 #endif
+
+uint32_t djb33x_hash(char *, int);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

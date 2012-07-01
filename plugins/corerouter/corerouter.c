@@ -126,6 +126,9 @@ void uwsgi_opt_corerouter_ss(char *opt, char *value, void *cr) {
         ugs->subscription = 1;
         ucr->has_subscription_sockets++;
 
+	// this is the subscription hash table
+	ucr->subscriptions = uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * 65536);
+
 	ucr->has_backends++;
 
 }
@@ -216,7 +219,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
                         cr_session->un->death_mark = 1;
                         // check if i can remove the node
                         if (cr_session->un->reference == 0) {
-                                uwsgi_remove_subscribe_node(&ucr->subscriptions, cr_session->un);
+                                uwsgi_remove_subscribe_node(ucr->subscriptions, cr_session->un);
                         }
                         if (ucr->subscriptions == NULL && ucr->cheap && !ucr->i_am_cheap && !ucr->fallback) {
                                 uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
@@ -698,54 +701,64 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 		if (uwsgi_stats_key(us , "subscriptions")) goto end0;
 		if (uwsgi_stats_list_open(us)) goto end0;
 
-		struct uwsgi_subscribe_slot *s_slot = ucr->subscriptions;
-		while (s_slot) {
-			if (uwsgi_stats_object_open(us)) goto end0;
-			if (uwsgi_stats_keyvaln_comma(us, "key", s_slot->key, s_slot->keylen)) goto end0;
-			if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) s_slot->hits)) goto end0;
-
-			if (uwsgi_stats_key(us , "nodes")) goto end0;
-			if (uwsgi_stats_list_open(us)) goto end0;
-
-			struct uwsgi_subscribe_node *s_node = s_slot->nodes;
-			while (s_node) {
-				if (uwsgi_stats_object_open(us)) goto end0;
-
-				if (uwsgi_stats_keyvaln_comma(us, "name", s_node->name, s_node->len)) goto end0;
-
-				if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) s_node->modifier1)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "modifier2", (unsigned long long) s_node->modifier2)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "last_check", (unsigned long long) s_node->last_check)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) s_node->requests)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "tx", (unsigned long long) s_node->transferred)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "cores", (unsigned long long) s_node->cores)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "load", (unsigned long long) s_node->load)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "weight", (unsigned long long) s_node->weight)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "wrr", (unsigned long long) s_node->wrr)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "ref", (unsigned long long) s_node->reference)) goto end0;
-				if (uwsgi_stats_keylong_comma(us, "failcnt", (unsigned long long) s_node->failcnt)) goto end0;
-				if (uwsgi_stats_keylong(us, "death_mark", (unsigned long long) s_node->death_mark)) goto end0;
-
-				if (uwsgi_stats_object_close(us)) goto end0;
-				if (s_node->next) {
-					if (uwsgi_stats_comma(us)) goto end0;
-				}
-				s_node = s_node->next;
-			}
-
-			if (uwsgi_stats_list_close(us)) goto end0;
-			if (uwsgi_stats_object_close(us)) goto end0;
-			if (s_slot->next) {
+		int i;
+		int first_processed = 0;
+		for(i=0;i<65536;i++) {
+			struct uwsgi_subscribe_slot *s_slot = ucr->subscriptions[i];
+			if (s_slot && first_processed) {
 				if (uwsgi_stats_comma(us)) goto end0;
 			}
-			s_slot = s_slot->next;
-			// check for loopy optimization
-			if (s_slot == ucr->subscriptions)
-				break;
+			while (s_slot) {
+				first_processed = 1;
+				if (uwsgi_stats_object_open(us)) goto end0;
+				if (uwsgi_stats_keyvaln_comma(us, "key", s_slot->key, s_slot->keylen)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "hash", (unsigned long long) s_slot->hash)) goto end0;
+				if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) s_slot->hits)) goto end0;
+
+				if (uwsgi_stats_key(us , "nodes")) goto end0;
+				if (uwsgi_stats_list_open(us)) goto end0;
+
+				struct uwsgi_subscribe_node *s_node = s_slot->nodes;
+				while (s_node) {
+					if (uwsgi_stats_object_open(us)) goto end0;
+
+					if (uwsgi_stats_keyvaln_comma(us, "name", s_node->name, s_node->len)) goto end0;
+
+					if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) s_node->modifier1)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "modifier2", (unsigned long long) s_node->modifier2)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "last_check", (unsigned long long) s_node->last_check)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) s_node->requests)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "tx", (unsigned long long) s_node->transferred)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "cores", (unsigned long long) s_node->cores)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "load", (unsigned long long) s_node->load)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "weight", (unsigned long long) s_node->weight)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "wrr", (unsigned long long) s_node->wrr)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "ref", (unsigned long long) s_node->reference)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "failcnt", (unsigned long long) s_node->failcnt)) goto end0;
+					if (uwsgi_stats_keylong(us, "death_mark", (unsigned long long) s_node->death_mark)) goto end0;
+
+					if (uwsgi_stats_object_close(us)) goto end0;
+					if (s_node->next) {
+						if (uwsgi_stats_comma(us)) goto end0;
+					}
+					s_node = s_node->next;
+				}
+
+				if (uwsgi_stats_list_close(us)) goto end0;
+				if (uwsgi_stats_object_close(us)) goto end0;
+				if (s_slot->next) {
+					if (uwsgi_stats_comma(us)) goto end0;
+				}
+
+				s_slot = s_slot->next;
+				// check for loopy optimization
+				if (s_slot == ucr->subscriptions[i])
+					break;
+			}
 		}
 
-		if (uwsgi_stats_list_close(us)) goto end0;
-		if (uwsgi_stats_comma(us)) goto end0;
+			if (uwsgi_stats_list_close(us)) goto end0;
+			if (uwsgi_stats_comma(us)) goto end0;
 	}
 
 	if (uwsgi_stats_keylong(us, "cheap", (unsigned long long) ucr->i_am_cheap)) goto end0;	

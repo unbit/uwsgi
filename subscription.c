@@ -18,13 +18,18 @@
 
 */
 
+
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
 
-	struct uwsgi_subscribe_slot *current_slot = *slot;
-
 	if (keylen > 0xff) return NULL;
+	
+	uint32_t hash = djb33x_hash(key, keylen);
+	int hash_key = hash % 0xffff;
+
+	struct uwsgi_subscribe_slot *current_slot = slot[hash_key];
+
 	
 #ifdef UWSGI_DEBUG
 	uwsgi_log("****************************\n");
@@ -33,9 +38,8 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 		current_slot = current_slot->next;
 	}
 	uwsgi_log("****************************\n");
+	current_slot = slot[hash_key];
 #endif
-
-	current_slot = *slot;
 
 	while(current_slot) {
 #ifdef UWSGI_PCRE
@@ -55,7 +59,7 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
                                                        slot_parent->next = current_slot;
                                                 }
 						else {
-							*slot = current_slot;
+							slot[hash_key] = current_slot;
 						}
 
 						if (current_slot->next) {
@@ -77,7 +81,7 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 #endif
 		current_slot = current_slot->next;
 		// check for loopy optimization
-		if (current_slot == *slot) break;
+		if (current_slot == slot[hash_key]) break;
 	}
 
         return NULL;
@@ -177,6 +181,8 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 	struct uwsgi_subscribe_slot *prev_slot = node_slot->prev;
 	struct uwsgi_subscribe_slot *next_slot = node_slot->next;
 
+	int hash_key = node_slot->hash;
+
 	// over-engineering to avoid race conditions
 	node->len = 0;
 
@@ -217,13 +223,13 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 		}
 #endif
 			free(node_slot);
-			*slot = NULL;
+			slot[hash_key] = NULL;
 			goto end;
 		}
 
 		// if i am the main entry point, set the next value
-		if (node_slot == *slot) {
-			*slot = next_slot;
+		if (node_slot == slot[hash_key]) {
+			slot[hash_key] = next_slot;
 		}
 			
 		if (prev_slot) {	
@@ -260,7 +266,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, usr->key, usr->keylen, 0), *old_slot = NULL, *a_slot;
 	struct uwsgi_subscribe_node *node, *old_node = NULL;
 
-	if (usr->address_len > 0xff) return NULL;
+	if (usr->address_len > 0xff || usr->address_len == 0) return NULL;
 
 #ifdef UWSGI_SSL
 	if (uwsgi.subscriptions_sign_check_dir) {
@@ -345,6 +351,9 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		}
 #endif
 		current_slot = uwsgi_malloc(sizeof(struct uwsgi_subscribe_slot));
+		uint32_t hash = djb33x_hash(usr->key, usr->keylen);
+        	int hash_key = hash % 0xffff;
+		current_slot->hash = hash_key;
 #ifdef UWSGI_SSL
 		if (uwsgi.subscriptions_sign_check_dir) {
 			current_slot->sign_public_key = PEM_read_PUBKEY(kf, NULL, NULL, NULL);
@@ -412,7 +421,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		// if key is a regexp, order it by keylen
 		if (regexp) {
 			old_slot = NULL;
-			a_slot = *slot;
+			a_slot = slot[hash_key];
 			while(a_slot) {
 				if (a_slot->keylen > current_slot->keylen) {
 					old_slot = a_slot;
@@ -431,7 +440,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				current_slot->next = old_slot;
 			}
 			else {
-				a_slot = *slot;
+				a_slot = slot[hash_key];
                         	while(a_slot) {
                                 	old_slot = a_slot;
                                 	a_slot = a_slot->next;
@@ -448,7 +457,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		}
 		else {
 #endif
-			a_slot = *slot;
+			a_slot = slot[hash_key];
 			while(a_slot) {
 				old_slot = a_slot;
 				a_slot = a_slot->next;
@@ -466,11 +475,11 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		}
 #endif
 
-		if (!*slot || current_slot->prev == NULL) {
-			*slot = current_slot;
+		if (!slot[hash_key] || current_slot->prev == NULL) {
+			slot[hash_key] = current_slot;
 		}
 
-		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s\n",(int) uwsgi.mypid, usr->keylen, usr->key);
+		uwsgi_log("[uwsgi-subscription for pid %d] new pool: %.*s (hash key: %d)\n",(int) uwsgi.mypid, usr->keylen, usr->key, current_slot->hash);
 		uwsgi_log("[uwsgi-subscription for pid %d] %.*s => new node: %.*s\n",(int) uwsgi.mypid, usr->keylen, usr->key, usr->address_len, usr->address);
                 return current_slot->nodes;
         }
