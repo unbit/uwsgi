@@ -341,6 +341,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
+		UWSGI_GET_GIL
 		// get rid of timeout
 		if (wsgi_req->async_timed_out) {
 			PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_True);
@@ -357,7 +358,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		else {
 			PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", Py_None);
 		}
-		return manage_python_response(wsgi_req);
+		int ret = manage_python_response(wsgi_req);
+		UWSGI_RELEASE_GIL
+		return ret;
 	}
 #endif
 
@@ -455,6 +458,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
+				UWSGI_RELEASE_GIL
 				return UWSGI_AGAIN;
 			}
 			else {

@@ -343,8 +343,9 @@ void *async_loop(void *arg1) {
 						runqueue_push(uwsgi.wsgi_req);
 						continue;
 					}
-					else if (proto_parser_status == -1) {
-						uwsgi_log("error parsing request\n");
+					else if (proto_parser_status < 0) {
+						if (proto_parser_status == -1)
+							uwsgi_log("error parsing request\n");
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
 						close(interesting_fd);
 						continue;

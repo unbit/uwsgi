@@ -262,7 +262,7 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	int j;
 	char *ptr;
 	ssize_t remains;
-	// make this buffer configurable
+	// TODO make this buffer configurable
 	char post_buf[8192];
 	char *post_tail = NULL;
 
