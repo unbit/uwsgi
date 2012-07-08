@@ -53,38 +53,38 @@ int uwsgi_master_check_mercy() {
 	int i, waitpid_status;
 
 	if (uwsgi.master_mercy) {
-                        if (uwsgi.master_mercy < time(NULL)) {
-                                for (i = 1; i <= uwsgi.numproc; i++) {
-                                        if (uwsgi.workers[i].pid > 0) {
-                                                if (uwsgi.lazy && uwsgi.workers[i].destroy == 0)
-							continue;
-                                                uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
-                                                if (!kill(uwsgi.workers[i].pid, SIGKILL)) {
-                                                        if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
-                                                                uwsgi_error("waitpid()");
-                                                        }
-                                                        uwsgi.workers[i].pid = 0;
-                                                        if (uwsgi.to_hell) {
-                                                                uwsgi.ready_to_die++;
-                                                        }
-                                                        else if (uwsgi.to_heaven) {
-                                                                uwsgi.ready_to_reload++;
-                                                        }
-                                                        else if (uwsgi.to_outworld) {
-                                                                uwsgi.lazy_respawned++;
-                                                                if (uwsgi_respawn_worker(i))
-                                                                        return -1;
-                                                        }
-                                                }
-                                                else {
-                                                        uwsgi_error("kill()");
-                                                }
-                                        }
-                                }
-                                uwsgi.master_mercy = 0;
-                        }
-        }
-		
+		if (uwsgi.master_mercy < time(NULL)) {
+			for (i = 1; i <= uwsgi.numproc; i++) {
+				if (uwsgi.workers[i].pid > 0) {
+					if (uwsgi.lazy && uwsgi.workers[i].destroy == 0)
+						continue;
+					uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
+					if (!kill(uwsgi.workers[i].pid, SIGKILL)) {
+						if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+							uwsgi_error("waitpid()");
+						}
+						uwsgi.workers[i].pid = 0;
+						if (uwsgi.to_hell) {
+							uwsgi.ready_to_die++;
+						}
+						else if (uwsgi.to_heaven) {
+							uwsgi.ready_to_reload++;
+						}
+						else if (uwsgi.to_outworld) {
+							uwsgi.lazy_respawned++;
+							if (uwsgi_respawn_worker(i))
+								return -1;
+						}
+					}
+					else {
+						uwsgi_error("kill()");
+					}
+				}
+			}
+			uwsgi.master_mercy = 0;
+		}
+	}
+
 
 	return 0;
 }
@@ -209,26 +209,29 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 	char *sign = NULL;
 
 	// check for explicit socket_name
-	char *equal = strchr(subscription,'=');
+	char *equal = strchr(subscription, '=');
 	if (equal) {
 		socket_name = subscription;
 		if (socket_name[0] == '=') {
-			equal = strchr(socket_name+1, '=');
-			if (!equal) return;
+			equal = strchr(socket_name + 1, '=');
+			if (!equal)
+				return;
 			*equal = '\0';
-			struct uwsgi_socket *us = uwsgi_get_shared_socket_by_num(atoi(socket_name+1));
-			if (!us) return;
+			struct uwsgi_socket *us = uwsgi_get_shared_socket_by_num(atoi(socket_name + 1));
+			if (!us)
+				return;
 			socket_name = us->name;
 		}
 		*equal = '\0';
-		udp_address = equal+1;
+		udp_address = equal + 1;
 	}
 
 	// check for unix socket
 	if (udp_address[0] != '/') {
-		udp_port = strchr(udp_address, ':');	
+		udp_port = strchr(udp_address, ':');
 		if (!udp_port) {
-			if (equal) *equal = '=';
+			if (equal)
+				*equal = '=';
 			return;
 		}
 		subscription_key = strchr(udp_port + 1, ':');
@@ -238,7 +241,8 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 	}
 
 	if (!subscription_key) {
-		if (equal) *equal = '=';
+		if (equal)
+			*equal = '=';
 		return;
 	}
 
@@ -301,9 +305,9 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 			modifier1[0] = 0;
 			modifier1++;
 
-			sign = strchr(modifier1+1, ',');
+			sign = strchr(modifier1 + 1, ',');
 			if (sign) {
-				*sign = 0; 
+				*sign = 0;
 				sign++;
 			}
 			modifier1_len = strlen(modifier1);
@@ -317,7 +321,8 @@ void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 	}
 
 clear:
-	if (equal) *equal = '=';
+	if (equal)
+		*equal = '=';
 	free(udp_address);
 
 }
@@ -554,12 +559,12 @@ int master_loop(char **argv, char **environ) {
 #endif
 
 	if (uwsgi.cheap) {
-                uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
-                for (i = 1; i <= uwsgi.numproc; i++) {
-                        uwsgi.workers[i].cheaped = 1;
-                }
-                uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
-        }
+		uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			uwsgi.workers[i].cheaped = 1;
+		}
+		uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
+	}
 
 
 	// spawn mules
@@ -662,7 +667,8 @@ int master_loop(char **argv, char **environ) {
 		}
 
 
-		if (uwsgi_master_check_mercy()) return 0;
+		if (uwsgi_master_check_mercy())
+			return 0;
 
 		if (uwsgi.respawn_workers) {
 			for (i = 1; i <= uwsgi.respawn_workers; i++) {
