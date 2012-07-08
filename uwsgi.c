@@ -362,8 +362,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, UWSGI_OPT_MASTER},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_app, NULL, 0},
+	{"worker-mount", required_argument, 0, "load application under mountpoint in the specified worker or after workers spawn", uwsgi_opt_add_app, NULL, 0},
 #ifdef UWSGI_PCRE
-	{"regexp-mount", required_argument, 0, "load application under a regexp-based mountpoint", uwsgi_opt_add_app, (void *) 1, 0},
+	{"regexp-mount", required_argument, 0, "load application under a regexp-based mountpoint", uwsgi_opt_add_app, NULL, 0},
 #endif
 	{"grunt", no_argument, 0, "enable grunt mode (in-request fork)", uwsgi_opt_true, &uwsgi.grunt, 0},
 
@@ -3108,6 +3109,8 @@ nextsock:
 		uwsgi_init_all_apps();
 	}
 
+	uwsgi_init_worker_mount_apps();
+
 	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->post_fork) {
 			uwsgi.p[i]->post_fork();
@@ -3541,14 +3544,19 @@ void uwsgi_init_all_apps() {
 		if (what) {
 			what[0] = 0;
 			what++;
-			uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
 			for (j = 0; j < 256; j++) {
 				if (uwsgi.p[j]->mount_app) {
 					if (!uwsgi_startswith(uwsgi.mounts[i], "regexp://", 9)) {
+						uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]+9);
 						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i] + 9, what, 1) != -1)
 							break;
 					}
+					// skip worker-mount
+					else if (!uwsgi_startswith(uwsgi.mounts[i], "worker://", 9)) {
+						continue;
+					}
 					else {
+						uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
 						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what, 0) != -1)
 							break;
 					}
@@ -3574,6 +3582,33 @@ void uwsgi_init_all_apps() {
 			uwsgi_log("*** no app loaded. going in full dynamic mode ***\n");
 		}
 	}
+
+}
+
+void uwsgi_init_worker_mount_apps() {
+	int i,j;
+	for (i = 0; i < uwsgi.mounts_cnt; i++) {
+                char *what = strchr(uwsgi.mounts[i], '=');
+                if (what) {
+                        what[0] = 0;
+                        what++;
+                        for (j = 0; j < 256; j++) {
+                                if (uwsgi.p[j]->mount_app) {
+                                        if (!uwsgi_startswith(uwsgi.mounts[i], "worker://", 9)) {
+                        			uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]+9);
+                                                if (uwsgi.p[j]->mount_app(uwsgi.mounts[i] + 9, what, 1) != -1)
+                                                        break;
+                                        }
+                                }
+                        }
+                        what--;
+                        what[0] = '=';
+                }
+                else {
+                        uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
+                        exit(1);
+                }
+        }
 
 }
 
@@ -3840,10 +3875,13 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 	}
 }
 
-void uwsgi_opt_add_app(char *opt, char *value, void *regexp) {
+void uwsgi_opt_add_app(char *opt, char *value, void *foo) {
 	if (uwsgi.mounts_cnt < MAX_APPS) {
-		if (regexp) {
+		if (!strcmp(opt, "mount-regexp")) {
 			uwsgi.mounts[uwsgi.mounts_cnt] = uwsgi_concat2("regexp://", value);
+		}
+		else if (!strcmp(opt, "worker-mount")) {
+			uwsgi.mounts[uwsgi.mounts_cnt] = uwsgi_concat2("worker://", value);
 		}
 		else {
 			uwsgi.mounts[uwsgi.mounts_cnt] = value;

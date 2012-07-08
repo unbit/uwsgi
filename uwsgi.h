@@ -2583,6 +2583,7 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, cha
 void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list *);
 
 void uwsgi_init_all_apps(void);
+void uwsgi_init_worker_mount_apps(void);
 void uwsgi_socket_nb(int);
 void uwsgi_socket_b(int);
 
