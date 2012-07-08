@@ -667,7 +667,7 @@ int master_loop(char **argv, char **environ) {
 
 		if (uwsgi.to_outworld) {
 			//uwsgi_log("%d/%d\n", uwsgi.lazy_respawned, uwsgi.numproc);
-			if (uwsgi.lazy_respawned >= uwsgi.numproc) {
+			if (uwsgi.lazy_respawned >= uwsgi.numproc || (uwsgi.cheaper && uwsgi.lazy_respawned == uwsgi.cheaper_count)) {
 				uwsgi.to_outworld = 0;
 				uwsgi.master_mercy = 0;
 				uwsgi.lazy_respawned = 0;
@@ -775,6 +775,7 @@ int master_loop(char **argv, char **environ) {
 				}
 				else if (uwsgi.to_outworld) {
 					uwsgi.lazy_respawned = uwsgi.numproc;
+					uwsgi_log("*** no workers to reload found ***\n");
 					continue;
 				}
 				diedpid = 0;
@@ -1193,7 +1194,8 @@ health_cycle:
 							continue;
 						kill(uwsgi.workers[i].pid, SIGKILL);
 						if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
-							uwsgi_error("waitpid()");
+							if (errno != ECHILD)
+								uwsgi_error("waitpid()");
 						}
 					}
 					uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
