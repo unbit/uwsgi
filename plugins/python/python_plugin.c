@@ -370,6 +370,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 		}
 
 		if (fstat(fileno(pyfile), &pystat)) {
+			fclose(pyfile);
 			uwsgi_error("fstat()");
 			return NULL;
 		}
