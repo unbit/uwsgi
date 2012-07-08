@@ -1143,6 +1143,8 @@ struct uwsgi_server {
 
 	// enable lazy mode
 	int lazy;
+	// enable lazy-apps mode
+	int lazy_apps;
 	// enable cheap mode
 	int cheap;
 	// enable cheaper mode

@@ -358,6 +358,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chdir", required_argument, 0, "chdir to specified directory before apps loading", uwsgi_opt_set_str, &uwsgi.chdir, 0},
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
+	{"lazy-apps", no_argument, 0, "load apps in each worker instead of the master", uwsgi_opt_true, &uwsgi.lazy_apps, 0},
 	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, UWSGI_OPT_MASTER},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning)", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
@@ -2819,7 +2820,7 @@ nextsock:
 	}
 
 	//init apps hook (if not lazy)
-	if (!uwsgi.lazy) {
+	if (!uwsgi.lazy && !uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
 	}
 
@@ -3124,7 +3125,7 @@ nextsock:
 		uwsgi_as_root();
 	}
 
-	if (uwsgi.lazy) {
+	if (uwsgi.lazy || uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
 	}
 
