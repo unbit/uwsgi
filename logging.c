@@ -19,6 +19,52 @@
 
 extern struct uwsgi_server uwsgi;
 
+struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *wsgi_req, char *key, uint8_t keylen) {
+	struct uwsgi_logvar *lv = wsgi_req->logvars;
+	while(lv) {
+		if (!uwsgi_strncmp(key, keylen, lv->key, lv->keylen)) {
+			return lv;
+		}
+		lv = lv->next;
+	}
+	return NULL;
+}
+
+void uwsgi_logvar_add(struct wsgi_request *wsgi_req, char *key, uint8_t keylen, char *val, uint8_t vallen) {
+
+	struct uwsgi_logvar *lv = uwsgi_logvar_get(wsgi_req, key, keylen);
+	if (lv) {
+		memcpy(lv->val, val, vallen);
+        	lv->vallen = vallen;
+		return;
+	}
+
+	// add a new log object
+
+	lv = wsgi_req->logvars;
+	if (lv) {
+		while(lv) {
+			if (!lv->next) {
+				lv->next = uwsgi_malloc(sizeof(struct uwsgi_logvar));
+				lv = lv->next;
+				break;
+			}
+			lv = lv->next;
+		}
+	}
+	else {
+		lv = uwsgi_malloc(sizeof(struct uwsgi_logvar));
+		wsgi_req->logvars = lv;
+	}
+
+	memcpy(lv->key, key, keylen);
+        lv->keylen = keylen;
+	memcpy(lv->val, val, vallen);
+        lv->vallen = vallen;
+	lv->next = NULL;
+	
+}
+
 void uwsgi_check_logrotate(void) {
 
 	char message[1024];
@@ -112,33 +158,6 @@ void uwsgi_check_logrotate(void) {
 
 void log_request(struct wsgi_request *wsgi_req) {
 
-	// optimize this (please)
-	char time_request[26];
-	time_t microseconds, microseconds2;
-	int rlen;
-	int app_req = -1;
-	char *msg2 = " ";
-	char *via = msg2;
-
-	char mempkt[4096];
-	char logpkt[4096];
-
-	struct iovec logvec[4];
-	int logvecpos = 0;
-
-	const char *msecs = "msecs";
-	const char *micros = "micros";
-
-	long int rt;
-	char *tsize = (char *) msecs;
-
-#ifdef UWSGI_SENDFILE
-	char *msg1 = " via sendfile() ";
-#endif
-	char *msg3 = " via route() ";
-	char *msg4 = " via offload() ";
-
-	struct uwsgi_app *wi;
 	int log_it = uwsgi.shared->options[UWSGI_OPTION_LOGGING];
 
 	if (wsgi_req->do_not_log)
@@ -171,6 +190,39 @@ void log_request(struct wsgi_request *wsgi_req) {
 	if (!log_it) return;
 
 logit:
+
+	uwsgi.logit(wsgi_req);
+}
+
+void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
+
+	// optimize this (please)
+        char time_request[26];
+        time_t microseconds, microseconds2;
+        int rlen;
+        int app_req = -1;
+        char *msg2 = " ";
+        char *via = msg2;
+
+        char mempkt[4096];
+        char logpkt[4096];
+
+        struct iovec logvec[4];
+        int logvecpos = 0;
+
+        const char *msecs = "msecs";
+        const char *micros = "micros";
+
+        long int rt;
+        char *tsize = (char *) msecs;
+
+#ifdef UWSGI_SENDFILE
+        char *msg1 = " via sendfile() ";
+#endif
+        char *msg3 = " via route() ";
+        char *msg4 = " via offload() ";
+
+        struct uwsgi_app *wi;
 
 	if (wsgi_req->app_id >= 0) {
 		wi = &uwsgi_apps[wsgi_req->app_id];
@@ -382,3 +434,216 @@ struct uwsgi_logger *uwsgi_get_logger(char *name) {
 
 	return NULL;
 }
+
+void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
+	struct uwsgi_logchunk *logchunk = uwsgi.logchunks;
+	ssize_t rlen = 0;
+	while(logchunk) {
+		int pos = logchunk->vec;
+		// raw string
+		if (logchunk->type == 0) {
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = logchunk->ptr;
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = logchunk->len;
+		}
+		// offsetof
+		else if (logchunk->type == 1) {
+			char **var = (char **) (((char *) wsgi_req) + logchunk->pos);
+			uint16_t *varlen = (uint16_t *) (((char *) wsgi_req) + logchunk->pos_len);
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = *var;
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = *varlen;
+		}
+		// logvar
+		else if (logchunk->type == 2) {
+			struct uwsgi_logvar *lv = uwsgi_logvar_get(wsgi_req, logchunk->ptr, logchunk->len);
+			if (lv) {
+				uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = lv->val;
+				uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = lv->vallen;
+			}
+			else {
+				uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = NULL;
+				uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 0;
+			}
+		}
+		// func
+		else if (logchunk->type == 3) {
+			rlen = logchunk->func(wsgi_req, (char **) &uwsgi.logvectors[wsgi_req->async_id][pos].iov_base);
+			if (rlen > 0) {
+				uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = rlen;
+			}
+			else {
+				uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 0;
+			}
+		}
+		logchunk = logchunk->next;
+	}
+
+	// do not check for errors
+        rlen = writev(2, uwsgi.logvectors[wsgi_req->async_id], uwsgi.logformat_vectors);
+
+	// free allocated memory
+	logchunk = uwsgi.logchunks;
+	while(logchunk) {
+		if (logchunk->free) {
+			if (uwsgi.logvectors[wsgi_req->async_id][logchunk->vec].iov_len > 0) {
+				free(uwsgi.logvectors[wsgi_req->async_id][logchunk->vec].iov_base);
+			}
+		}
+		logchunk = logchunk->next;
+	}
+}
+
+void uwsgi_logit_lf_strftime(struct wsgi_request *wsgi_req) {
+	uwsgi_log("lf strftime\n");
+}
+
+void uwsgi_build_log_format(char *format) {
+	int state = 0;
+	char *ptr = format;
+	char *current = ptr;
+	char *logvar = NULL;
+	// get the number of required iovec
+	while(*ptr) {
+		if (*ptr == '%') {
+			if (state == 0) {
+				state = 1;
+			}
+		}
+		// start of the variable
+		else if (*ptr == '(') {
+			if (state == 1) {
+				state = 2;
+			}
+		}
+		// end of the variable
+		else if (*ptr == ')') {
+			if (logvar) {
+				uwsgi_add_logchunk(1, uwsgi.logformat_vectors, logvar, ptr-logvar);
+				uwsgi.logformat_vectors++;
+				state = 0;
+				logvar = NULL;
+				current = ptr+1;
+			}
+		}
+		else {
+			if (state == 2) {
+				uwsgi_add_logchunk(0, uwsgi.logformat_vectors, current, (ptr-current)-2);
+				uwsgi.logformat_vectors++;
+				logvar = ptr;
+			}
+			state = 0;
+		}
+		ptr++;
+	}
+
+	if (ptr-current > 0) {
+		uwsgi_add_logchunk(0, uwsgi.logformat_vectors, current, ptr-current);
+        	uwsgi.logformat_vectors++;
+	}
+
+	// +1 for "\n"
+
+        uwsgi.logformat_vectors++;
+
+}
+
+ssize_t uwsgi_lf_status(struct wsgi_request *wsgi_req, char **buf) {
+	*buf = uwsgi_num2str(wsgi_req->status);
+	return strlen(*buf);
+}
+
+ssize_t uwsgi_lf_epoch(struct wsgi_request *wsgi_req, char **buf) {
+        *buf = uwsgi_num2str(time(NULL));
+        return strlen(*buf);
+}
+
+ssize_t uwsgi_lf_micros(struct wsgi_request *wsgi_req, char **buf) {
+	int microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
+	int microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
+        *buf = uwsgi_num2str(microseconds - microseconds2);
+	return strlen(*buf);
+}
+
+ssize_t uwsgi_lf_msecs(struct wsgi_request *wsgi_req, char **buf) {
+        int microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
+        int microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
+        *buf = uwsgi_num2str((microseconds - microseconds2)/1000);
+        return strlen(*buf);
+}
+
+
+void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
+
+        struct uwsgi_logchunk *logchunk = uwsgi.logchunks;
+
+        if (logchunk) {
+                while(logchunk) {
+                        if (!logchunk->next) {
+                                logchunk->next = uwsgi_calloc(sizeof(struct uwsgi_logchunk));
+                                logchunk = logchunk->next;
+                                break;
+                        }
+                        logchunk = logchunk->next;
+                }
+        }
+        else {
+                uwsgi.logchunks = uwsgi_calloc(sizeof(struct uwsgi_logchunk));
+                logchunk = uwsgi.logchunks;
+        }
+
+        /*
+                0 -> raw test
+                1 -> offsetof variable
+                2 -> logvar
+                3 -> func
+        */
+
+        logchunk->type = variable;
+        logchunk->vec = pos;
+        // normal text
+        logchunk->ptr = ptr;
+        logchunk->len = len;
+        // variable
+        if (variable) {
+                if (!uwsgi_strncmp(ptr, len, "uri", 3)) {
+                        logchunk->pos = offsetof(struct wsgi_request, uri);
+                        logchunk->pos_len = offsetof(struct wsgi_request, uri_len);
+                }
+                else if (!uwsgi_strncmp(ptr, len, "method", 6)) {
+                        logchunk->pos = offsetof(struct wsgi_request, method);
+                        logchunk->pos_len = offsetof(struct wsgi_request, method_len);
+                }
+                else if (!uwsgi_strncmp(ptr, len, "user", 4)) {
+                        logchunk->pos = offsetof(struct wsgi_request, remote_user);
+                        logchunk->pos_len = offsetof(struct wsgi_request, remote_user_len);
+                }
+                else if (!uwsgi_strncmp(ptr, len, "addr", 4)) {
+                        logchunk->pos = offsetof(struct wsgi_request, remote_addr);
+                        logchunk->pos_len = offsetof(struct wsgi_request, remote_addr_len);
+                }
+                else if (!uwsgi_strncmp(ptr, len, "status", 6)) {
+                        logchunk->type = 3;
+			logchunk->func = uwsgi_lf_status;
+			logchunk->free = 1;
+                }
+                else if (!uwsgi_strncmp(ptr, len, "micros", 6)) {
+                        logchunk->type = 3;
+			logchunk->func = uwsgi_lf_micros;
+			logchunk->free = 1;
+                }
+                else if (!uwsgi_strncmp(ptr, len, "msecs", 5)) {
+                        logchunk->type = 3;
+			logchunk->func = uwsgi_lf_msecs;
+			logchunk->free = 1;
+                }
+                else if (!uwsgi_strncmp(ptr, len, "epoch", 5)) {
+                        logchunk->type = 3;
+			logchunk->func = uwsgi_lf_epoch;
+			logchunk->free = 1;
+                }
+		// logvar
+                else {
+                        logchunk->type = 2;
+                }
+        }
+}
+

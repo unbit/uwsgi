@@ -498,6 +498,46 @@ PyObject *py_uwsgi_log_this(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_get_logvar(PyObject * self, PyObject * args) {
+
+	char *key = NULL;
+        Py_ssize_t keylen = 0;
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	if (!PyArg_ParseTuple(args, "s#:get_logvar", &key, &keylen)) {
+                return NULL;
+        }
+
+	struct uwsgi_logvar *lv = uwsgi_logvar_get(wsgi_req, key, keylen);
+
+	if (lv) {
+		return PyString_FromStringAndSize(lv->val, lv->vallen);
+	}
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+PyObject *py_uwsgi_set_logvar(PyObject * self, PyObject * args) {
+
+        char *key = NULL;
+        Py_ssize_t keylen = 0;
+        char *val = NULL;
+        Py_ssize_t vallen = 0;
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (!PyArg_ParseTuple(args, "s#s#:set_logvar", &key, &keylen, &val, &vallen)) {
+                return NULL;
+        }
+
+        uwsgi_logvar_add(wsgi_req, key, keylen, val, vallen);
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
+
 PyObject *py_uwsgi_recv_frame(PyObject * self, PyObject * args) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -3101,6 +3141,8 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"mule_id", py_uwsgi_mule_id, METH_VARARGS, ""},
 	{"log", py_uwsgi_log, METH_VARARGS, ""},
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
+	{"set_logvar", py_uwsgi_set_logvar, METH_VARARGS, ""},
+	{"get_logvar", py_uwsgi_get_logvar, METH_VARARGS, ""},
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
 	{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},

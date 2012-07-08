@@ -824,6 +824,15 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		while (waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0);
 	}
 
+	// free logvars
+	struct uwsgi_logvar *lv = wsgi_req->logvars;
+	while(lv) {
+		struct uwsgi_logvar *ptr = lv;
+		lv = lv->next;
+		free(ptr);
+	}
+
+
 	// reset request
 	tmp_id = wsgi_req->async_id;
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));

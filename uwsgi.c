@@ -322,6 +322,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"max-fd", required_argument, 0, "set maximum number of file descriptors (requires root privileges)", uwsgi_opt_set_int, &uwsgi.requested_max_fd, 0},
 	{"logto", required_argument, 0, "set logfile/udp address", uwsgi_opt_set_str, &uwsgi.logfile, 0},
 	{"logto2", required_argument, 0, "log to specified file or udp address after privileges drop", uwsgi_opt_set_str, &uwsgi.logto2, 0},
+	{"log-format", required_argument, 0, "set advanced format for request logging", uwsgi_opt_set_str, &uwsgi.logformat, 0},
+	{"logformat", required_argument, 0, "set advanced format for request logging", uwsgi_opt_set_str, &uwsgi.logformat, 0},
+	{"logformat-strftime", no_argument, 0, "apply strftime to logformat output", uwsgi_opt_true, &uwsgi.logformat_strftime, 0},
+	{"log-format-strftime", no_argument, 0, "apply strftime to logformat output", uwsgi_opt_true, &uwsgi.logformat_strftime, 0},
 	{"logfile-chown", no_argument, 0, "chown logfiles", uwsgi_opt_true, &uwsgi.logfile_chown, 0},
 	{"logfile-chmod", required_argument, 0, "chmod logfiles", uwsgi_opt_logfile_chmod, NULL, 0},
 	{"log-syslog", optional_argument, 0, "log to syslog", uwsgi_opt_set_logger, "syslog", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -1539,6 +1543,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	uwsgi.shared->worker_log_pipe[0] = -1;
 	uwsgi.shared->worker_log_pipe[1] = -1;
+
+	// set default logit hook
+	uwsgi.logit = uwsgi_logit_simple;
 
 #ifdef UWSGI_SSL
 	// 1 day of tolerance
@@ -2784,6 +2791,21 @@ nextsock:
 	for (j = 0; j < uwsgi.cores; j++) {
 		uwsgi.core[j] = uwsgi_malloc(sizeof(struct uwsgi_core));
 		memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
+	}
+
+	// cores are now allocated, lets allocate logformat (if required)
+	if (uwsgi.logformat) {
+		uwsgi_build_log_format(uwsgi.logformat);
+		uwsgi.logit = uwsgi_logit_lf;
+		if (uwsgi.logformat_strftime) {
+			uwsgi.logit = uwsgi_logit_lf_strftime;
+		}
+		uwsgi.logvectors = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
+		for (j = 0; j < uwsgi.cores; j++) {
+			uwsgi.logvectors[j] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.logformat_vectors);
+			uwsgi.logvectors[j][uwsgi.logformat_vectors-1].iov_base = "\n";
+			uwsgi.logvectors[j][uwsgi.logformat_vectors-1].iov_len = 1;
+		}
 	}
 
 	// preinit apps (create the language environment)

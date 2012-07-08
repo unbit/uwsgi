@@ -828,6 +828,14 @@ struct uwsgi_async_fd {
 	struct uwsgi_async_fd *next;
 };
 
+struct uwsgi_logvar {
+	char key[256];
+	uint8_t keylen;
+	char val[256];
+	uint8_t vallen;
+	struct uwsgi_logvar *next;
+};
+
 
 struct wsgi_request {
 	struct uwsgi_header uh;
@@ -993,6 +1001,8 @@ struct wsgi_request {
 	int sigwait;
 	int signal_received;
 
+	struct uwsgi_logvar *logvars;
+
 	uint16_t stream_id;
 
 	struct msghdr msg;
@@ -1093,6 +1103,12 @@ struct uwsgi_server {
 	int default_app;
 
 	char *logto2;
+	char *logformat;
+	int logformat_strftime;
+	int logformat_vectors;
+	struct uwsgi_logchunk *logchunks;
+	void (*logit)(struct wsgi_request *);
+	struct iovec **logvectors;
 
 	// autoload plugins
 	int autoload;
@@ -3017,6 +3033,29 @@ int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **);
 void uwsgi_deadlock_check(pid_t);
 
 char *uwsgi_setup_clusterbuf(size_t *);
+
+struct uwsgi_logchunk {
+	char *ptr;
+	size_t len;
+	int vec;
+	long pos;
+	long pos_len;
+	int type;
+	int free;
+	ssize_t (*func)(struct wsgi_request *, char **);
+	struct uwsgi_logchunk *next;
+};
+
+void uwsgi_build_log_format(char *);
+
+void uwsgi_add_logchunk(int, int, char *, size_t);
+
+void uwsgi_logit_simple(struct wsgi_request *);
+void uwsgi_logit_lf(struct wsgi_request *);
+void uwsgi_logit_lf_strftime(struct wsgi_request *);
+
+struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
+void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
