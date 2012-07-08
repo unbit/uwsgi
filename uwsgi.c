@@ -1427,9 +1427,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	//struct uidsec_struct us;
 #endif
 
-#ifdef UWSGI_DEBUG
 	struct utsname uuts;
-#endif
 
 	char *emperor_env;
 	//char *optname;
@@ -1457,21 +1455,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	atexit(uwsgi_exec_atexit);
 	// call plugin specific exit hooks
 	atexit(uwsgi_plugins_atexit);
-
-
-#ifdef UWSGI_DEBUG
-#ifdef __sun__
-	if (uname(&uuts) < 0) {
-#else
-	if (uname(&uuts)) {
-#endif
-		uwsgi_error("uname()");
-	}
-	else {
-		uwsgi_log("SYSNAME: %s\nNODENAME: %s\nRELEASE: %s\nVERSION: %s\nMACHINE: %s\n", uuts.sysname, uuts.nodename, uuts.release, uuts.version, uuts.machine);
-	}
-#endif
-
 
 	uwsgi.shared = (struct uwsgi_shared *) mmap(NULL, sizeof(struct uwsgi_shared), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (!uwsgi.shared) {
@@ -1857,6 +1840,20 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	uwsgi_log_initial("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
+
+	#ifdef __sun__
+        if (uname(&uuts) < 0) {
+#else
+        if (uname(&uuts)) {
+#endif
+                uwsgi_error("uname()");
+        }
+        else {
+                uwsgi_log_initial("os: %s-%s %s\n", uuts.sysname, uuts.release, uuts.version);
+                uwsgi_log_initial("nodename: %s\n", uuts.nodename);
+                uwsgi_log_initial("machine: %s\n", uuts.machine);
+        }
+
 
 #ifdef __BIG_ENDIAN__
 	uwsgi_log_initial("*** big endian arch detected ***\n");
