@@ -47,6 +47,49 @@ void suspend_resume_them_all(int signum) {
 	}
 }
 
+
+int uwsgi_master_check_mercy() {
+
+	int i, waitpid_status;
+
+	if (uwsgi.master_mercy) {
+                        if (uwsgi.master_mercy < time(NULL)) {
+                                for (i = 1; i <= uwsgi.numproc; i++) {
+                                        if (uwsgi.workers[i].pid > 0) {
+                                                if (uwsgi.lazy && uwsgi.workers[i].destroy == 0)
+							continue;
+                                                uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
+                                                if (!kill(uwsgi.workers[i].pid, SIGKILL)) {
+                                                        if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+                                                                uwsgi_error("waitpid()");
+                                                        }
+                                                        uwsgi.workers[i].pid = 0;
+                                                        if (uwsgi.to_hell) {
+                                                                uwsgi.ready_to_die++;
+                                                        }
+                                                        else if (uwsgi.to_heaven) {
+                                                                uwsgi.ready_to_reload++;
+                                                        }
+                                                        else if (uwsgi.to_outworld) {
+                                                                uwsgi.lazy_respawned++;
+                                                                if (uwsgi_respawn_worker(i))
+                                                                        return -1;
+                                                        }
+                                                }
+                                                else {
+                                                        uwsgi_error("kill()");
+                                                }
+                                        }
+                                }
+                                uwsgi.master_mercy = 0;
+                        }
+        }
+		
+
+	return 0;
+}
+
+
 void expire_rb_timeouts(struct rb_root *root) {
 
 	time_t current = time(NULL);
@@ -348,9 +391,6 @@ int master_loop(char **argv, char **environ) {
 	pid_t diedpid;
 	int waitpid_status;
 
-	int ready_to_reload = 0;
-	int ready_to_die = 0;
-
 	uint8_t uwsgi_signal;
 
 	time_t last_request_timecheck = 0, now = 0;
@@ -598,7 +638,7 @@ int master_loop(char **argv, char **environ) {
 	// here really starts the master loop
 
 	for (;;) {
-		//uwsgi_log("ready_to_reload %d %d\n", ready_to_reload, uwsgi.numproc);
+		//uwsgi_log("uwsgi.ready_to_reload %d %d\n", uwsgi.ready_to_reload, uwsgi.numproc);
 
 		// run master_cycle hook for every plugin
 		for (i = 0; i < uwsgi.gp_cnt; i++) {
@@ -621,38 +661,9 @@ int master_loop(char **argv, char **environ) {
 			}
 		}
 
-		if (uwsgi.master_mercy) {
-			if (uwsgi.master_mercy < time(NULL)) {
-				for (i = 1; i <= uwsgi.numproc; i++) {
-					if (uwsgi.workers[i].pid > 0) {
-						if (uwsgi.lazy && uwsgi.workers[i].destroy == 0)
-							continue;
-						uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
-						if (!kill(uwsgi.workers[i].pid, SIGKILL)) {
-							if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
-								uwsgi_error("waitpid()");
-							}
-							uwsgi.workers[i].pid = 0;
-							if (uwsgi.to_hell) {
-								ready_to_die++;
-							}
-							else if (uwsgi.to_heaven) {
-								ready_to_reload++;
-							}
-							else if (uwsgi.to_outworld) {
-								uwsgi.lazy_respawned++;
-								if (uwsgi_respawn_worker(i))
-									return 0;
-							}
-						}
-						else {
-							uwsgi_error("kill()");
-						}
-					}
-				}
-				uwsgi.master_mercy = 0;
-			}
-		}
+
+		if (uwsgi_master_check_mercy()) return 0;
+
 		if (uwsgi.respawn_workers) {
 			for (i = 1; i <= uwsgi.respawn_workers; i++) {
 				if (uwsgi_respawn_worker(i))
@@ -661,6 +672,7 @@ int master_loop(char **argv, char **environ) {
 
 			uwsgi.respawn_workers = 0;
 		}
+
 		if (uwsgi.restore_snapshot) {
 			uwsgi_log("[snapshot] restoring workers...\n");
 			for (i = 1; i <= uwsgi.numproc; i++) {
@@ -693,7 +705,7 @@ int master_loop(char **argv, char **environ) {
 		}
 
 
-		if ((uwsgi.cheap || ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
+		if ((uwsgi.cheap || uwsgi.ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
 			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
 			for (i = 0; i < (ushared->gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
@@ -702,7 +714,7 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_log("goodbye to uWSGI.\n");
 			exit(0);
 		}
-		if ((uwsgi.cheap || ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
+		if ((uwsgi.cheap || uwsgi.ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
 			uwsgi_reload(argv);
 			// never here (unless in shared library mode)
 			return -1;
@@ -713,11 +725,11 @@ int master_loop(char **argv, char **environ) {
 			if (errno == ECHILD) {
 				// something did not work as expected, just assume all has been cleared
 				if (uwsgi.to_heaven) {
-					ready_to_reload = uwsgi.numproc;
+					uwsgi.ready_to_reload = uwsgi.numproc;
 					continue;
 				}
 				else if (uwsgi.to_hell) {
-					ready_to_die = uwsgi.numproc;
+					uwsgi.ready_to_die = uwsgi.numproc;
 					continue;
 				}
 				else if (uwsgi.to_outworld) {
@@ -1370,8 +1382,8 @@ health_cycle:
 
 		   case 1) the diedpid is not a worker, report it and continue
 		   case 2) the diedpid is a worker and we are not in a reload procedure -> reload it
-		   case 3) the diedpid is a worker and we are in graceful reload -> ready_to_reload++ and continue
-		   case 3) the diedpid is a worker and we are in brutal reload -> ready_to_die++ and continue
+		   case 3) the diedpid is a worker and we are in graceful reload -> uwsgi.ready_to_reload++ and continue
+		   case 3) the diedpid is a worker and we are in brutal reload -> uwsgi.ready_to_die++ and continue
 
 
 		 */
@@ -1429,14 +1441,14 @@ next:
 
 		// ok a worker died...
 		if (uwsgi.to_heaven) {
-			ready_to_reload++;
+			uwsgi.ready_to_reload++;
 			uwsgi.workers[uwsgi.mywid].pid = 0;
 			// only to be safe :P
 			uwsgi.workers[uwsgi.mywid].harakiri = 0;
 			continue;
 		}
 		else if (uwsgi.to_hell) {
-			ready_to_die++;
+			uwsgi.ready_to_die++;
 			uwsgi.workers[uwsgi.mywid].pid = 0;
 			// only to be safe :P
 			uwsgi.workers[uwsgi.mywid].harakiri = 0;

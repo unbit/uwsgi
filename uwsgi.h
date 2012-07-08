@@ -1437,6 +1437,9 @@ struct uwsgi_server {
 	int to_hell;
 	int to_outworld;
 
+	int ready_to_die;
+	int ready_to_reload;
+
 	int lazy_respawned;
 
 	int buffer_size;
