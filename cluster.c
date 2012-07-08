@@ -405,3 +405,60 @@ void manage_cluster_message(char *cluster_opt_buf, int cluster_opt_size) {
 
 #endif
 
+
+char *uwsgi_setup_clusterbuf(size_t *size) {
+
+	size_t cluster_opt_size = 4;
+	int i;
+
+	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+                        //uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
+                        cluster_opt_size += 2 + strlen(uwsgi.exported_opts[i]->key);
+                        if (uwsgi.exported_opts[i]->value) {
+                                cluster_opt_size += 2 + strlen(uwsgi.exported_opts[i]->value);
+                        }
+                        else {
+                                cluster_opt_size += 2 + 1;
+                        }
+                }
+
+                //uwsgi_log("cluster opts size: %d\n", cluster_opt_size);
+                char *cluster_opt_buf = uwsgi_malloc(cluster_opt_size);
+
+                struct uwsgi_header *uh = (struct uwsgi_header *) cluster_opt_buf;
+
+                uh->modifier1 = 99;
+                uh->pktsize = cluster_opt_size - 4;
+                uh->modifier2 = 1;
+
+#ifdef __BIG_ENDIAN__
+                uh->pktsize = uwsgi_swap16(uh->pktsize);
+#endif
+
+                char *cptrbuf = cluster_opt_buf + 4;
+
+                for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
+                        //uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
+                        uint16_t ustrlen = strlen(uwsgi.exported_opts[i]->key);
+                        *cptrbuf++ = (uint8_t) (ustrlen & 0xff);
+                        *cptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
+                        memcpy(cptrbuf, uwsgi.exported_opts[i]->key, ustrlen);
+                        cptrbuf += ustrlen;
+
+                        if (uwsgi.exported_opts[i]->value) {
+                                ustrlen = strlen(uwsgi.exported_opts[i]->value);
+                                *cptrbuf++ = (uint8_t) (ustrlen & 0xff);
+                                *cptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
+                                memcpy(cptrbuf, uwsgi.exported_opts[i]->value, ustrlen);
+                        }
+                        else {
+                                ustrlen = 1;
+                                *cptrbuf++ = (uint8_t) (ustrlen & 0xff);
+                                *cptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
+                                *cptrbuf = '1';
+                        }
+                        cptrbuf += ustrlen;
+                }
+
+		return cluster_opt_buf;
+}

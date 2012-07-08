@@ -3012,6 +3012,8 @@ uint32_t djb33x_hash(char *, int);
 int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **);
 void uwsgi_deadlock_check(pid_t);
 
+char *uwsgi_setup_clusterbuf(size_t *);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif

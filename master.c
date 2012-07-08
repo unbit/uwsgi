@@ -365,16 +365,13 @@ int master_loop(char **argv, char **environ) {
 	char udp_client_addr[16];
 	int udp_managed = 0;
 	int udp_fd = -1;
-
 #ifdef UWSGI_MULTICAST
 	char *cluster_opt_buf = NULL;
+	size_t cluster_opt_size = 4;
+#endif
+#endif
 
-	int cluster_opt_size = 4;
-	char *cptrbuf;
-	uint16_t ustrlen;
-	struct uwsgi_header *uh;
-#endif
-#endif
+
 
 #ifdef UWSGI_SNMP
 	int snmp_fd = -1;
@@ -504,68 +501,10 @@ int master_loop(char **argv, char **environ) {
 		}
 	}
 
-	if (uwsgi.cheap) {
-		uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
-		for (i = 1; i <= uwsgi.numproc; i++) {
-			uwsgi.workers[i].cheaped = 1;
-		}
-		uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
-	}
-
 #ifdef UWSGI_MULTICAST
 	if (uwsgi.cluster) {
-
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.cluster_fd);
-
-		for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-			//uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
-			cluster_opt_size += 2 + strlen(uwsgi.exported_opts[i]->key);
-			if (uwsgi.exported_opts[i]->value) {
-				cluster_opt_size += 2 + strlen(uwsgi.exported_opts[i]->value);
-			}
-			else {
-				cluster_opt_size += 2 + 1;
-			}
-		}
-
-		//uwsgi_log("cluster opts size: %d\n", cluster_opt_size);
-		cluster_opt_buf = uwsgi_malloc(cluster_opt_size);
-
-		uh = (struct uwsgi_header *) cluster_opt_buf;
-
-		uh->modifier1 = 99;
-		uh->pktsize = cluster_opt_size - 4;
-		uh->modifier2 = 1;
-
-#ifdef __BIG_ENDIAN__
-		uh->pktsize = uwsgi_swap16(uh->pktsize);
-#endif
-
-		cptrbuf = cluster_opt_buf + 4;
-
-		for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
-			//uwsgi_log("%s\n", uwsgi.exported_opts[i]->key);
-			ustrlen = strlen(uwsgi.exported_opts[i]->key);
-			*cptrbuf++ = (uint8_t) (ustrlen & 0xff);
-			*cptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-			memcpy(cptrbuf, uwsgi.exported_opts[i]->key, ustrlen);
-			cptrbuf += ustrlen;
-
-			if (uwsgi.exported_opts[i]->value) {
-				ustrlen = strlen(uwsgi.exported_opts[i]->value);
-				*cptrbuf++ = (uint8_t) (ustrlen & 0xff);
-				*cptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-				memcpy(cptrbuf, uwsgi.exported_opts[i]->value, ustrlen);
-			}
-			else {
-				ustrlen = 1;
-				*cptrbuf++ = (uint8_t) (ustrlen & 0xff);
-				*cptrbuf++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-				*cptrbuf = '1';
-			}
-			cptrbuf += ustrlen;
-		}
-
+		cluster_opt_buf = uwsgi_setup_clusterbuf(&cluster_opt_size);
 	}
 #endif
 #endif
@@ -573,6 +512,14 @@ int master_loop(char **argv, char **environ) {
 #ifdef UWSGI_SNMP
 	snmp_fd = uwsgi_setup_snmp();
 #endif
+
+	if (uwsgi.cheap) {
+                uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
+                for (i = 1; i <= uwsgi.numproc; i++) {
+                        uwsgi.workers[i].cheaped = 1;
+                }
+                uwsgi_log("cheap mode enabled: waiting for socket connection...\n");
+        }
 
 
 	// spawn mules
