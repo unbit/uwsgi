@@ -13,32 +13,98 @@ void uwsgi_restore_auto_snapshot(int signum) {
 
 }
 
-void uwsgi_master_manage_emperor() {
-	char byte;
-                                                ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
-                                                if (rlen > 0) {
-                                                        uwsgi_log_verbose("received message %d from emperor\n", byte);
-                                                        // remove me
-                                                        if (byte == 0) {
-                                                                close(uwsgi.emperor_fd);
-                                                                if (!uwsgi.to_hell)
-                                                                        kill_them_all(0);
+#ifdef UWSGI_SNMP
+void uwsgi_master_manage_snmp(int snmp_fd) {
+	struct sockaddr_in udp_client;
+socklen_t udp_len = sizeof(udp_client);
+                                        ssize_t rlen = recvfrom(snmp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+
+                                        if (rlen < 0) {
+                                                uwsgi_error("recvfrom()");
+                                        }
+                                        else if (rlen > 0) {
+                                                manage_snmp(snmp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+                                        }
+}
+
+#endif
+
+#ifdef UWSGI_UDP
+void uwsgi_master_manage_udp(int udp_fd) {
+	struct sockaddr_in udp_client;
+        char udp_client_addr[16];
+	int i;
+
+	socklen_t udp_len = sizeof(udp_client);
+        ssize_t rlen = recvfrom(udp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
+
+                                        if (rlen < 0) {
+                                                uwsgi_error("recvfrom()");
+                                        }
+                                        else if (rlen > 0) {
+
+	memset(udp_client_addr, 0, 16);
+                                                if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
+                                                        if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
                                                         }
-                                                        // reload me
-                                                        else if (byte == 1) {
-                                                                // un-lazy the stack to trigger a real reload
-                                                                uwsgi.lazy = 0;
-                                                                grace_them_all(0);
+#ifdef UWSGI_SNMP
+                                                        else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
+                                                                manage_snmp(udp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
+                                                        }
+#endif
+                                                        else {
+
+                                                                // loop the various udp manager until one returns true
+                                                                int udp_managed = 0;
+                                                                for (i = 0; i < 256; i++) {
+                                                                        if (uwsgi.p[i]->manage_udp) {
+                                                                                if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
+                                                                                        udp_managed = 1;
+                                                                                        break;
+                                                                                }
+                                                                        }
+                                                                }
+
+                                                                // else a simple udp logger
+                                                                if (!udp_managed) {
+                                                                        uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
+                                                                }
                                                         }
                                                 }
                                                 else {
-                                                        uwsgi_log("lost connection with my emperor !!!\n");
-                                                        close(uwsgi.emperor_fd);
-                                                        if (!uwsgi.to_hell)
-                                                                kill_them_all(0);
-                                                        sleep(2);
-                                                        exit(1);
+                                                        uwsgi_error("inet_ntop()");
                                                 }
+
+	}
+}
+#endif
+
+void uwsgi_master_manage_emperor() {
+	char byte;
+	ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
+	if (rlen > 0) {
+		uwsgi_log_verbose("received message %d from emperor\n", byte);
+		// remove me
+		if (byte == 0) {
+			close(uwsgi.emperor_fd);
+			if (!uwsgi.to_hell)
+				kill_them_all(0);
+		}
+		// reload me
+		else if (byte == 1) {
+			// un-lazy the stack to trigger a real reload
+			uwsgi.lazy = 0;
+			grace_them_all(0);
+		}
+	}
+	else {
+		uwsgi_log("lost connection with my emperor !!!\n");
+		close(uwsgi.emperor_fd);
+		if (!uwsgi.to_hell)
+			kill_them_all(0);
+		sleep(2);
+		exit(1);
+	}
 
 }
 
@@ -460,10 +526,6 @@ int master_loop(char **argv, char **environ) {
 	pthread_t cache_sweeper;
 
 #ifdef UWSGI_UDP
-	struct sockaddr_in udp_client;
-	socklen_t udp_len;
-	char udp_client_addr[16];
-	int udp_managed = 0;
 	int udp_fd = -1;
 #ifdef UWSGI_MULTICAST
 	char *cluster_opt_buf = NULL;
@@ -934,62 +996,14 @@ int master_loop(char **argv, char **environ) {
 				}
 #ifdef UWSGI_SNMP
 				if (uwsgi.snmp_addr && interesting_fd == snmp_fd) {
-					udp_len = sizeof(udp_client);
-					rlen = recvfrom(snmp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
-
-					if (rlen < 0) {
-						uwsgi_error("recvfrom()");
-					}
-					else if (rlen > 0) {
-						manage_snmp(snmp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
-					}
+					uwsgi_master_manage_snmp(snmp_fd);
 					goto health_cycle;
 				}
 #endif
 
 #ifdef UWSGI_UDP
 				if (uwsgi.udp_socket && interesting_fd == udp_fd) {
-					udp_len = sizeof(udp_client);
-					rlen = recvfrom(udp_fd, uwsgi.wsgi_req->buffer, uwsgi.buffer_size, 0, (struct sockaddr *) &udp_client, &udp_len);
-
-					if (rlen < 0) {
-						uwsgi_error("recvfrom()");
-					}
-					else if (rlen > 0) {
-
-						memset(udp_client_addr, 0, 16);
-						if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
-							if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
-							}
-#ifdef UWSGI_SNMP
-							else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
-								manage_snmp(udp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
-							}
-#endif
-							else {
-
-								// loop the various udp manager until one returns true
-								udp_managed = 0;
-								for (i = 0; i < 256; i++) {
-									if (uwsgi.p[i]->manage_udp) {
-										if (uwsgi.p[i]->manage_udp(udp_client_addr, udp_client.sin_port, uwsgi.wsgi_req->buffer, rlen)) {
-											udp_managed = 1;
-											break;
-										}
-									}
-								}
-
-								// else a simple udp logger
-								if (!udp_managed) {
-									uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
-								}
-							}
-						}
-						else {
-							uwsgi_error("inet_ntop()");
-						}
-					}
-
+					uwsgi_master_manage_udp(udp_fd);
 					goto health_cycle;
 				}
 
