@@ -556,6 +556,23 @@ ssize_t uwsgi_lf_epoch(struct wsgi_request *wsgi_req, char **buf) {
         return strlen(*buf);
 }
 
+ssize_t uwsgi_lf_ctime(struct wsgi_request *wsgi_req, char **buf) {
+	*buf = uwsgi_malloc(26);
+#ifdef __sun__
+        ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, *buf, 26);
+#else
+        ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, *buf);
+#endif
+	return 24;
+}
+
+ssize_t uwsgi_lf_time(struct wsgi_request *wsgi_req, char **buf) {
+        *buf = uwsgi_num2str(wsgi_req->start_of_request.tv_sec);
+        return strlen(*buf);
+}
+
+
+
 ssize_t uwsgi_lf_micros(struct wsgi_request *wsgi_req, char **buf) {
 	int microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
 	int microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
@@ -620,6 +637,10 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
                         logchunk->pos = offsetof(struct wsgi_request, remote_addr);
                         logchunk->pos_len = offsetof(struct wsgi_request, remote_addr_len);
                 }
+                else if (!uwsgi_strncmp(ptr, len, "host", 4)) {
+                        logchunk->pos = offsetof(struct wsgi_request, host);
+                        logchunk->pos_len = offsetof(struct wsgi_request, host_len);
+                }
                 else if (!uwsgi_strncmp(ptr, len, "status", 6)) {
                         logchunk->type = 3;
 			logchunk->func = uwsgi_lf_status;
@@ -633,6 +654,16 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
                 else if (!uwsgi_strncmp(ptr, len, "msecs", 5)) {
                         logchunk->type = 3;
 			logchunk->func = uwsgi_lf_msecs;
+			logchunk->free = 1;
+                }
+                else if (!uwsgi_strncmp(ptr, len, "time", 4)) {
+                        logchunk->type = 3;
+			logchunk->func = uwsgi_lf_time;
+			logchunk->free = 1;
+                }
+                else if (!uwsgi_strncmp(ptr, len, "ctime", 5)) {
+                        logchunk->type = 3;
+			logchunk->func = uwsgi_lf_ctime;
 			logchunk->free = 1;
                 }
                 else if (!uwsgi_strncmp(ptr, len, "epoch", 5)) {
