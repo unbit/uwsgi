@@ -13,6 +13,31 @@ void uwsgi_restore_auto_snapshot(int signum) {
 
 }
 
+
+void uwsgi_master_restore_snapshot() {
+	uwsgi_log("[snapshot] restoring workers...\n");
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].pid == 0)
+			continue;
+		kill(uwsgi.workers[i].pid, SIGKILL);
+		if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
+			uwsgi_error("waitpid()");
+		}
+		if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
+			uwsgi.workers[i].pid = 0;
+			uwsgi.workers[i].snapshot = 0;
+		}
+		else {
+			uwsgi.workers[i].pid = uwsgi.workers[i].snapshot;
+			uwsgi.workers[i].snapshot = 0;
+			kill(uwsgi.workers[i].pid, SIGURG);
+			uwsgi_log("Restored uWSGI worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
+		}
+	}
+
+	uwsgi.restore_snapshot = 0;
+}
+
 void suspend_resume_them_all(int signum) {
 
 	int i;
@@ -680,27 +705,7 @@ int master_loop(char **argv, char **environ) {
 		}
 
 		if (uwsgi.restore_snapshot) {
-			uwsgi_log("[snapshot] restoring workers...\n");
-			for (i = 1; i <= uwsgi.numproc; i++) {
-				if (uwsgi.workers[i].pid == 0)
-					continue;
-				kill(uwsgi.workers[i].pid, SIGKILL);
-				if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
-					uwsgi_error("waitpid()");
-				}
-				if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
-					uwsgi.workers[i].pid = 0;
-					uwsgi.workers[i].snapshot = 0;
-				}
-				else {
-					uwsgi.workers[i].pid = uwsgi.workers[i].snapshot;
-					uwsgi.workers[i].snapshot = 0;
-					kill(uwsgi.workers[i].pid, SIGURG);
-					uwsgi_log("Restored uWSGI worker %d (pid: %d)\n", i, (int) uwsgi.workers[i].pid);
-				}
-			}
-
-			uwsgi.restore_snapshot = 0;
+			uwsgi_master_restore_snapshot();
 			continue;
 		}
 
