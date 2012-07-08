@@ -764,19 +764,18 @@ int master_loop(char **argv, char **environ) {
 		diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 		if (diedpid == -1) {
 			if (errno == ECHILD) {
-				if (uwsgi.cheaper) {
-					if (uwsgi.to_heaven) {
-						ready_to_reload = uwsgi.numproc;
-						continue;
-					}
-					else if (uwsgi.to_hell) {
-						ready_to_die = uwsgi.numproc;
-						continue;
-					}
-					else if (uwsgi.to_outworld) {
-						uwsgi.lazy_respawned = uwsgi.numproc;
-						continue;
-					}
+				// something did not work as expected, just assume all has been cleared
+				if (uwsgi.to_heaven) {
+					ready_to_reload = uwsgi.numproc;
+					continue;
+				}
+				else if (uwsgi.to_hell) {
+					ready_to_die = uwsgi.numproc;
+					continue;
+				}
+				else if (uwsgi.to_outworld) {
+					uwsgi.lazy_respawned = uwsgi.numproc;
+					continue;
 				}
 				diedpid = 0;
 			}
