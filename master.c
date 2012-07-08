@@ -1349,30 +1349,7 @@ health_cycle:
 			continue;
 
 		// check for deadlocks first
-		struct uwsgi_lock_item *uli = uwsgi.registered_locks;
-		while (uli) {
-			if (!uli->can_deadlock)
-				goto nextlock;
-			pid_t locked_pid = 0;
-			if (uli->rw) {
-				locked_pid = uwsgi_rwlock_check(uli);
-			}
-			else {
-				locked_pid = uwsgi_lock_check(uli);
-			}
-			if (locked_pid == diedpid) {
-				uwsgi_log("[deadlock-detector] pid %d was holding lock %s (%p)\n", (int) diedpid, uli->id, uli->lock_ptr);
-				if (uli->rw) {
-					uwsgi_rwunlock(uli);
-				}
-				else {
-					uwsgi_unlock(uli);
-				}
-			}
-nextlock:
-			uli = uli->next;
-		}
-
+		uwsgi_deadlock_check(diedpid);
 
 		// reload gateways and daemons only on normal workflow (+outworld status)
 		if (!uwsgi.to_heaven && !uwsgi.to_hell) {

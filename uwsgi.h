@@ -3010,6 +3010,7 @@ int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_su
 
 uint32_t djb33x_hash(char *, int);
 int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **);
+void uwsgi_deadlock_check(pid_t);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
