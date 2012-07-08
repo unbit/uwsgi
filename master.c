@@ -13,8 +13,38 @@ void uwsgi_restore_auto_snapshot(int signum) {
 
 }
 
+void uwsgi_master_manage_emperor() {
+	char byte;
+                                                ssize_t rlen = read(uwsgi.emperor_fd, &byte, 1);
+                                                if (rlen > 0) {
+                                                        uwsgi_log_verbose("received message %d from emperor\n", byte);
+                                                        // remove me
+                                                        if (byte == 0) {
+                                                                close(uwsgi.emperor_fd);
+                                                                if (!uwsgi.to_hell)
+                                                                        kill_them_all(0);
+                                                        }
+                                                        // reload me
+                                                        else if (byte == 1) {
+                                                                // un-lazy the stack to trigger a real reload
+                                                                uwsgi.lazy = 0;
+                                                                grace_them_all(0);
+                                                        }
+                                                }
+                                                else {
+                                                        uwsgi_log("lost connection with my emperor !!!\n");
+                                                        close(uwsgi.emperor_fd);
+                                                        if (!uwsgi.to_hell)
+                                                                kill_them_all(0);
+                                                        sleep(2);
+                                                        exit(1);
+                                                }
+
+}
+
 
 void uwsgi_master_restore_snapshot() {
+	int i, waitpid_status;
 	uwsgi_log("[snapshot] restoring workers...\n");
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid == 0)
@@ -725,6 +755,7 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_log("goodbye to uWSGI.\n");
 			exit(0);
 		}
+
 		if ((uwsgi.cheap || uwsgi.ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
 			uwsgi_reload(argv);
 			// never here (unless in shared library mode)
@@ -871,31 +902,7 @@ int master_loop(char **argv, char **environ) {
 
 				if (uwsgi.has_emperor) {
 					if (interesting_fd == uwsgi.emperor_fd) {
-						char byte;
-						rlen = read(uwsgi.emperor_fd, &byte, 1);
-						if (rlen > 0) {
-							uwsgi_log_verbose("received message %d from emperor\n", byte);
-							// remove me
-							if (byte == 0) {
-								close(uwsgi.emperor_fd);
-								if (!uwsgi.to_hell)
-									kill_them_all(0);
-							}
-							// reload me
-							else if (byte == 1) {
-								// un-lazy the stack to trigger a real reload
-								uwsgi.lazy = 0;
-								grace_them_all(0);
-							}
-						}
-						else {
-							uwsgi_log("lost connection with my emperor !!!\n");
-							close(uwsgi.emperor_fd);
-							if (!uwsgi.to_hell)
-								kill_them_all(0);
-							sleep(2);
-							exit(1);
-						}
+						uwsgi_master_manage_emperor();
 						goto health_cycle;
 					}
 				}
