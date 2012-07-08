@@ -324,7 +324,11 @@ ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 	zmq_msg_t msg;
 	if (zmq_msg_init_size(&msg, len) == 0) {
 		memcpy(zmq_msg_data(&msg), message, len);
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
+		zmq_sendmsg(ul->data, &msg, 0);
+#else
 		zmq_send(ul->data, &msg, 0);
+#endif
 		zmq_msg_close(&msg);
 	}
 
