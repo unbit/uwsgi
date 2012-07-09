@@ -371,8 +371,11 @@ void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
 #endif
 
                         uwsgi_sock->bound = 1;
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
+			uwsgi_sock->recv_flag = ZMQ_DONTWAIT;
+#else
                         uwsgi_sock->recv_flag = ZMQ_NOBLOCK;
-
+#endif
 }
 
 
@@ -411,7 +414,11 @@ int uwsgi_proto_zeromq_accept(struct wsgi_request *wsgi_req, int fd) {
 		wsgi_req->do_not_add_to_async_queue = 1;
 		wsgi_req->proto_parser_status = 0;
 		zmq_msg_init(&message);
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
+		if (zmq_recvmsg(pthread_getspecific(wsgi_req->socket->key), &message, wsgi_req->socket->recv_flag) < 0) {
+#else
 		if (zmq_recv(pthread_getspecific(wsgi_req->socket->key), &message, wsgi_req->socket->recv_flag) < 0) {
+#endif
 			if (errno == EAGAIN) {
 				zmq_msg_close(&message);
 				goto repoll;
@@ -542,7 +549,11 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 
 	zmq_msg_init_data(&reply, wsgi_req->proto_parser_buf, wsgi_req->proto_parser_pos, uwsgi_proto_zeromq_free, NULL);
 	if (uwsgi.threads > 1) pthread_mutex_lock(&wsgi_req->socket->lock);
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
+	if (zmq_sendmsg(wsgi_req->socket->pub, &reply, 0)) {
+#else
 	if (zmq_send(wsgi_req->socket->pub, &reply, 0)) {
+#endif
 		uwsgi_error("zmq_send()");
 	}
 	if (uwsgi.threads > 1) pthread_mutex_unlock(&wsgi_req->socket->lock);
@@ -589,7 +600,11 @@ ssize_t uwsgi_proto_zeromq_write(struct wsgi_request * wsgi_req, char *buf, size
 
 	zmq_msg_init_data(&reply, zmq_body, wsgi_req->proto_parser_pos + len, uwsgi_proto_zeromq_free, NULL);
 	if (uwsgi.threads > 1) pthread_mutex_lock(&wsgi_req->socket->lock);
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
+	if (zmq_sendmsg(wsgi_req->socket->pub, &reply, 0)) {
+#else
 	if (zmq_send(wsgi_req->socket->pub, &reply, 0)) {
+#endif
 		if (!uwsgi.ignore_write_errors) {
 			uwsgi_error("zmq_send()");
 		}
