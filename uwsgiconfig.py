@@ -342,9 +342,9 @@ class uConf(object):
         ulp.close()
 
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'src/master', 'src/master_utils', 'emperor', 'notify', 'mule', 'subscription', 'stats',
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'core/master', 'core/master_utils', 'core/emperor', 'notify', 'mule', 'subscription', 'stats',
             'setup_utils',
-            'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'cluster', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
+            'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'cluster', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'core/uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')
         self.gcc_list.append('proto/uwsgi')
