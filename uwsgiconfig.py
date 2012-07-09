@@ -342,9 +342,12 @@ class uConf(object):
         ulp.close()
 
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'core/master', 'core/master_utils', 'core/emperor', 'notify', 'mule', 'subscription', 'stats',
-            'setup_utils',
-            'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'cluster', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'core/uwsgi']
+        self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
+            'core/notify', 'core/mule', 'core/subscription', 'core/stats',
+            'core/setup_utils',
+            'core/plugins', 'core/lock', 'core/cache',
+            'core/queue', 'core/event', 'core/signal', 'core/cluster',
+            'core/rpc', 'core/gateway', 'core/loop', 'lib/rbtree', 'lib/amqp', 'core/rb_timers', 'core/uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')
         self.gcc_list.append('proto/uwsgi')
@@ -684,7 +687,7 @@ class uConf(object):
                     self.libs.append(pcreconf)
                     pcreconf = spcall("pcre-config --cflags")
                     self.cflags.append(pcreconf)
-                    self.gcc_list.append('regexp')
+                    self.gcc_list.append('core/regexp')
                     self.cflags.append("-DUWSGI_PCRE")
                     has_pcre = True
 
@@ -697,7 +700,7 @@ class uConf(object):
                     self.libs.append(pcreconf)
                     pcreconf = spcall("pcre-config --cflags")
                     self.cflags.append(pcreconf)
-                    self.gcc_list.append('regexp')
+                    self.gcc_list.append('core/regexp')
                     self.cflags.append("-DUWSGI_PCRE")
                     has_pcre = True
 
@@ -707,11 +710,11 @@ class uConf(object):
         if self.get('routing'):
             if self.get('pcre') == 'auto':
                 if has_pcre:
-                    self.gcc_list.append('routing')
+                    self.gcc_list.append('core/routing')
                     self.cflags.append("-DUWSGI_ROUTING") 
                     report['routing'] = True
             else:
-                self.gcc_list.append('routing')
+                self.gcc_list.append('core/routing')
                 self.cflags.append("-DUWSGI_ROUTING")
                 report['routing'] = True
 
@@ -809,7 +812,7 @@ class uConf(object):
 
         if self.get('async'):
             self.cflags.append("-DUWSGI_ASYNC")
-            self.gcc_list.append('async')
+            self.gcc_list.append('core/async')
             report['async'] = True
 
         if self.get('multicast'):
@@ -823,12 +826,12 @@ class uConf(object):
 
         if self.get('ini'):
             self.cflags.append("-DUWSGI_INI")
-            self.gcc_list.append('ini')
+            self.gcc_list.append('core/ini')
             report['ini'] = True
 
         if self.get('yaml'):
             self.cflags.append("-DUWSGI_YAML")
-            self.gcc_list.append('yaml')
+            self.gcc_list.append('core/yaml')
             report['yaml'] = True
             if self.get('yaml_implementation') == 'libyaml':
                 self.cflags.append("-DUWSGI_LIBYAML")
@@ -846,17 +849,17 @@ class uConf(object):
                 if jsonconf:
                     self.cflags.append(jsonconf)
                     self.cflags.append("-DUWSGI_JSON")
-                    self.gcc_list.append('json')
+                    self.gcc_list.append('core/json')
                     self.libs.append(spcall("pkg-config --libs jansson"))
                     has_json = True
                 elif self.has_include('jansson.h'):
                     self.cflags.append("-DUWSGI_JSON")
-                    self.gcc_list.append('json')
+                    self.gcc_list.append('core/json')
                     self.libs.append('-ljansson')
                     has_json = True
             else:
                 self.cflags.append("-DUWSGI_JSON")
-                self.gcc_list.append('json')
+                self.gcc_list.append('core/json')
                 self.libs.append('-ljansson')
                 has_json = True
 
@@ -867,12 +870,12 @@ class uConf(object):
             if self.get('ldap') == 'auto':
                 if self.has_include('ldap.h'):
                     self.cflags.append("-DUWSGI_LDAP")
-                    self.gcc_list.append('ldap')
+                    self.gcc_list.append('core/ldap')
                     self.libs.append('-lldap')
                     report['ldap'] = True
             else:
                 self.cflags.append("-DUWSGI_LDAP")
-                self.gcc_list.append('ldap')
+                self.gcc_list.append('core/ldap')
                 self.libs.append('-lldap')
                 report['ldap'] = True
 
@@ -906,7 +909,7 @@ class uConf(object):
         if self.get('snmp'):
             self.depends_on("snmp", ['udp'])
             self.cflags.append("-DUWSGI_SNMP")
-            self.gcc_list.append('snmp')
+            self.gcc_list.append('core/snmp')
             report['snmp'] = True
 
         if self.get('threading'):
@@ -915,7 +918,7 @@ class uConf(object):
 
         if self.get('sendfile'):
             self.cflags.append("-DUWSGI_SENDFILE")
-            self.gcc_list.append('sendfile')
+            self.gcc_list.append('core/sendfile')
             report['sendfile'] = True
 
         if self.get('xml'):
@@ -926,12 +929,12 @@ class uConf(object):
                     xmlconf = spcall("xml2-config --cflags")
                     self.cflags.append(xmlconf)
                     self.cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
-                    self.gcc_list.append('xmlconf')
+                    self.gcc_list.append('core/xmlconf')
                     report['xml'] = 'libxml2'
                 elif self.has_include('expat.h'):
                     self.cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
                     self.libs.append('-lexpat')
-                    self.gcc_list.append('xmlconf')
+                    self.gcc_list.append('core/xmlconf')
                     report['xml'] = 'expat'
             elif self.get('xml_implementation') == 'libxml2':
                 xmlconf = spcall('xml2-config --libs')
@@ -947,12 +950,12 @@ class uConf(object):
                     else:
                         self.cflags.append(xmlconf)
                         self.cflags.append("-DUWSGI_XML -DUWSGI_XML_LIBXML2")
-                        self.gcc_list.append('xmlconf')
+                        self.gcc_list.append('core/xmlconf')
                         report['xml'] = 'libxml2'
             elif self.get('xml_implementation') == 'expat':
                 self.cflags.append("-DUWSGI_XML -DUWSGI_XML_EXPAT")
                 self.libs.append('-lexpat')
-                self.gcc_list.append('xmlconf')
+                self.gcc_list.append('core/xmlconf')
                 report['xml'] = 'expat'
 
         if self.get('sqlite3'):
@@ -960,12 +963,12 @@ class uConf(object):
                 if self.has_include('sqlite3.h'):
                     self.cflags.append("-DUWSGI_SQLITE3")
                     self.libs.append('-lsqlite3')
-                    self.gcc_list.append('sqlite3')
+                    self.gcc_list.append('core/sqlite3')
                     report['sqlite3'] = True
             else:
                 self.cflags.append("-DUWSGI_SQLITE3")
                 self.libs.append('-lsqlite3')
-                self.gcc_list.append('sqlite3')
+                self.gcc_list.append('core/sqlite3')
                 report['sqlite3'] = True
 
 
@@ -976,7 +979,7 @@ class uConf(object):
         if self.get('spooler'):
             self.depends_on("spooler", ['embedded'])
             self.cflags.append("-DUWSGI_SPOOLER")
-            self.gcc_list.append('spooler')
+            self.gcc_list.append('core/spooler')
             report['spooler'] = True
 
         if self.get('debug'):
