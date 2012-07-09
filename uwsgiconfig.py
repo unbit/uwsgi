@@ -342,7 +342,7 @@ class uConf(object):
         ulp.close()
 
         self.config.read(filename)
-        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'master', 'master_utils', 'emperor', 'notify', 'mule', 'subscription', 'stats',
+        self.gcc_list = ['utils', 'protocol', 'socket', 'logging', 'src/master', 'src/master_utils', 'emperor', 'notify', 'mule', 'subscription', 'stats',
             'setup_utils',
             'plugins', 'lock', 'cache', 'queue', 'event', 'signal', 'cluster', 'rpc', 'gateway', 'loop', 'lib/rbtree', 'lib/amqp', 'rb_timers', 'uwsgi']
         # add protocols
@@ -352,7 +352,7 @@ class uConf(object):
         self.gcc_list.append('proto/fastcgi')
         self.include_path = []
 
-        self.cflags = ['-O2', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
+        self.cflags = ['-O2', '-I.', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()
 
         report['kernel'] = uwsgi_os
 
