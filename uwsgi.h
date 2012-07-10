@@ -3069,6 +3069,47 @@ void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
 
 
 void uwsgi_register_imperial_monitor(char *, void (*)(char *), void (*)(char *));
+int uwsgi_emperor_is_valid(char *);
+
+// an instance (called vassal) is a uWSGI stack running
+// it is identified by the name of its config file
+// a vassal is 'loyal' as soon as it manages a request
+struct uwsgi_instance {
+        struct uwsgi_instance *ui_prev;
+        struct uwsgi_instance *ui_next;
+
+        char name[0xff];
+        pid_t pid;
+
+        int status;
+        time_t born;
+        time_t last_mod;
+        time_t last_loyal;
+
+        time_t last_heartbeat;
+
+        uint64_t respawns;
+        int use_config;
+
+        int pipe[2];
+        int pipe_config[2];
+
+        char *config;
+        uint32_t config_len;
+
+        int loyal;
+
+        int zerg;
+
+        uid_t uid;
+        gid_t gid;
+};
+
+struct uwsgi_instance *emperor_get_by_fd(int);
+struct uwsgi_instance *emperor_get(char *);
+void emperor_stop(struct uwsgi_instance *);
+void emperor_respawn(struct uwsgi_instance *, time_t);
+void emperor_add(char *, time_t, char *, uint32_t, uid_t, gid_t);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
