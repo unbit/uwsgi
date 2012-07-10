@@ -27,6 +27,8 @@ struct uwsgi_instance {
         time_t last_mod;
         time_t last_loyal;
 
+	time_t last_heartbeat;
+
         uint64_t respawns;
         int use_config;
 
@@ -963,6 +965,10 @@ void emperor_loop() {
 							// remove it from the blacklist
 							uwsgi_emperor_blacklist_remove(ui_current->name);	
 							// TODO post-start hook
+						}
+						// heartbeat can be used for spotting blocked instances
+						else if (byte == 26) {
+							ui_current->last_heartbeat = uwsgi_now();
 						}
 						else if (byte == 22) {
 							emperor_stop(ui_current);
