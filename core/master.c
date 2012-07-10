@@ -13,6 +13,24 @@ void uwsgi_restore_auto_snapshot(int signum) {
 
 }
 
+void uwsgi_block_signal(int signum) {
+	sigset_t smask;
+        sigemptyset(&smask);
+	sigaddset(&smask, signum);	
+	if (sigprocmask(SIG_BLOCK, &smask, NULL)) {
+		uwsgi_error("sigprocmask()");
+	}
+}
+
+void uwsgi_unblock_signal(int signum) {
+	sigset_t smask;
+        sigemptyset(&smask);
+	sigaddset(&smask, signum);	
+	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
+		uwsgi_error("sigprocmask()");
+	}
+}
+
 #ifdef UWSGI_SNMP
 void uwsgi_master_manage_snmp(int snmp_fd) {
 	struct sockaddr_in udp_client;
@@ -94,7 +112,9 @@ void uwsgi_master_manage_emperor() {
 		else if (byte == 1) {
 			// un-lazy the stack to trigger a real reload
 			uwsgi.lazy = 0;
+			uwsgi_block_signal(SIGHUP);
 			grace_them_all(0);
+			uwsgi_unblock_signal(SIGHUP);
 		}
 	}
 	else {
@@ -1327,7 +1347,9 @@ health_cycle:
 				char *touched = uwsgi_check_touches(uwsgi.touch_reload);
 				if (touched) {
 					uwsgi_log("*** %s has been touched... grace them all !!! ***\n", touched);
+					uwsgi_block_signal(SIGHUP);
 					grace_them_all(0);
+					uwsgi_unblock_signal(SIGHUP);
 				}
 			}
 

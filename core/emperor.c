@@ -308,6 +308,15 @@ static void royal_death(int signum) {
 	exit(0);
 }
 
+static void emperor_massive_reload(int signum) {
+	struct uwsgi_instance *c_ui = ui->ui_next;
+
+        while (c_ui) {
+		emperor_respawn(c_ui, uwsgi_now());
+		c_ui = c_ui->ui_next;
+	}	
+}
+
 
 void emperor_stats() {
 
@@ -867,6 +876,7 @@ void emperor_loop() {
         uwsgi_unix_signal(SIGTERM, royal_death);
         uwsgi_unix_signal(SIGQUIT, royal_death);
         uwsgi_unix_signal(SIGUSR1, emperor_stats);
+        uwsgi_unix_signal(SIGHUP, emperor_massive_reload);
 
 	memset(&ui_base, 0, sizeof(struct uwsgi_instance));
 
