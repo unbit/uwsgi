@@ -887,6 +887,10 @@ void emperor_loop() {
 
 	uwsgi.emperor_stats_fd = -1;
 
+	if (uwsgi.emperor_pidfile) {
+		uwsgi_write_pidfile(uwsgi.emperor_pidfile);
+	}
+
 	signal(SIGPIPE, SIG_IGN);
 	uwsgi_unix_signal(SIGINT, royal_death);
 	uwsgi_unix_signal(SIGTERM, royal_death);

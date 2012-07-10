@@ -1186,6 +1186,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *emperor;
 	struct uwsgi_imperial_monitor *emperor_monitors;
 	char *emperor_absolute_dir;
+	char *emperor_pidfile;
 	pid_t emperor_pid;
 	int	emperor_broodlord;
 	int	emperor_broodlord_count;
