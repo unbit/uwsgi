@@ -927,7 +927,7 @@ void emperor_loop() {
 		}
 
 		nevents = event_queue_wait_multi(uwsgi.emperor_queue, freq, events, 64);
-		freq = 3;
+		freq = uwsgi.emperor_freq;
 
 		for (i = 0; i<nevents;i++) {
 			interesting_fd = event_queue_interesting_fd(events, i);

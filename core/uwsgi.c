@@ -133,6 +133,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"need-app", no_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process, 0},
 	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_add_string_list, &uwsgi.emperor, 0},
+	{"emperor-freq", required_argument, 0, "set the Emperor scan frequency (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.emperor_freq, 0},
 	{"emperor-tyrant", no_argument, 0, "put the Emperor in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant, 0},
 	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
@@ -1483,6 +1484,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.original_log_fd = -1;
 
 	uwsgi.emperor_fd_config = -1;
+	// default emperor scan frequency
+	uwsgi.emperor_freq = 3;
 	uwsgi.emperor_throttle = 1000;
 	// max 3 minutes throttling
 	uwsgi.emperor_max_throttle = 1000 * 180;

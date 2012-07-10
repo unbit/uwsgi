@@ -1180,6 +1180,7 @@ struct uwsgi_server {
 	int emperor_fd_config;
 	int early_emperor;
         int emperor_throttle;
+        int emperor_freq;
         int emperor_max_throttle;
 	int emperor_magic_exec;
 	struct uwsgi_string_list *emperor;
