@@ -347,7 +347,7 @@ class uConf(object):
             'core/setup_utils',
             'core/plugins', 'core/lock', 'core/cache',
             'core/queue', 'core/event', 'core/signal', 'core/cluster',
-            'core/rpc', 'core/gateway', 'core/loop', 'lib/rbtree', 'lib/amqp', 'core/rb_timers', 'core/uwsgi']
+            'core/rpc', 'core/gateway', 'core/loop', 'lib/rbtree', 'core/rb_timers', 'core/uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')
         self.gcc_list.append('proto/uwsgi')
@@ -1141,7 +1141,7 @@ if __name__ == "__main__":
             pass
         build_plugin('.', None, cflags, [], [], None)
     elif cmd == '--clean':
-        os.system("rm -f *.o")
+        os.system("rm -f core/*.o")
         os.system("rm -f proto/*.o")
         os.system("rm -f lib/*.o")
         os.system("rm -f plugins/*/*.o")

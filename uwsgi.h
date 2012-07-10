@@ -1074,6 +1074,13 @@ struct uwsgi_cheaper_algo {
 	struct uwsgi_cheaper_algo *next;
 };
 
+struct uwsgi_imperial_monitor {
+        char *scheme;
+        void (*init)(char *);
+        void (*func)(char *);
+        struct uwsgi_imperial_monitor *next;
+};
+
 
 struct uwsgi_server {
 
@@ -1168,12 +1175,15 @@ struct uwsgi_server {
 	// true if run under the emperor
 	int has_emperor;
 	int emperor_fd;
+	int emperor_queue;
 	int emperor_tyrant;
 	int emperor_fd_config;
 	int early_emperor;
         int emperor_throttle;
 	int emperor_magic_exec;
-	char *emperor_dir;
+	struct uwsgi_string_list *emperor;
+	struct uwsgi_imperial_monitor *emperor_monitors;
+	char *emperor_absolute_dir;
 	pid_t emperor_pid;
 	int	emperor_broodlord;
 	int	emperor_broodlord_count;
@@ -1182,11 +1192,6 @@ struct uwsgi_server {
 	struct uwsgi_string_list *vassals_templates;
 	// true if loyal to the emperor
 	int loyal;
-
-	// amqp support
-	char *emperor_amqp_vhost;
-	char *emperor_amqp_username;
-	char *emperor_amqp_password;
 
 	// emperor hook (still in development)
 	char *vassals_start_hook;
@@ -3058,6 +3063,9 @@ void uwsgi_logit_lf_strftime(struct wsgi_request *);
 
 struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
 void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
+
+
+void uwsgi_register_imperial_monitor(char *, void (*)(char *), void (*)(char *));
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

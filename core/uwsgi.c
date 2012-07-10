@@ -132,15 +132,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"single-interpreter", no_argument, 'i', "do not use multiple interpreters (where available)", uwsgi_opt_true, &uwsgi.single_interpreter, 0},
 	{"need-app", no_argument, 0, "exit if no app can be loaded", uwsgi_opt_true, &uwsgi.need_app, 0},
 	{"master", no_argument, 'M', "enable master process", uwsgi_opt_true, &uwsgi.master_process, 0},
-	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_set_str, &uwsgi.emperor_dir, 0},
+	{"emperor", required_argument, 0, "run the Emperor", uwsgi_opt_add_string_list, &uwsgi.emperor, 0},
 	{"emperor-tyrant", no_argument, 0, "put the Emperor in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant, 0},
 	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},
 	{"emperor-broodlord", required_argument, 0, "run the emperor in BroodLord mode", uwsgi_opt_set_int, &uwsgi.emperor_broodlord, 0},
-	{"emperor-amqp-vhost", required_argument, 0, "set emperor amqp virtualhost", uwsgi_opt_set_str, &uwsgi.emperor_amqp_vhost, 0},
-	{"emperor-amqp-username", required_argument, 0, "set emperor amqp username", uwsgi_opt_set_str, &uwsgi.emperor_amqp_username, 0},
-	{"emperor-amqp-password", required_argument, 0, "set emperor amqp password", uwsgi_opt_set_str, &uwsgi.emperor_amqp_password, 0},
 	{"emperor-throttle", required_argument, 0, "throttle each vassal spawn (in seconds)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
 	{"emperor-magic-exec", no_argument, 0, "prefix vassals config files with exec:// if they have the executable bit", uwsgi_opt_true, &uwsgi.emperor_magic_exec, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
@@ -1965,7 +1962,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	// start the Emperor if needed
-	if (uwsgi.early_emperor && uwsgi.emperor_dir) {
+	if (uwsgi.early_emperor && uwsgi.emperor) {
 
 		if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
 			uwsgi_notify_ready();
@@ -2149,7 +2146,7 @@ int uwsgi_start(void *v_argv) {
 	// end of generic initialization
 
 	// start the Emperor if needed
-	if (!uwsgi.early_emperor && uwsgi.emperor_dir) {
+	if (!uwsgi.early_emperor && uwsgi.emperor) {
 
 		if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
 			uwsgi_notify_ready();
@@ -2595,9 +2592,9 @@ nextsock:
 #endif
 
 #ifdef UWSGI_UDP
-	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor_dir && !uwsgi.command_mode) {
+	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor && !uwsgi.command_mode) {
 #else
-	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.emperor_dir && !uwsgi.command_mode) {
+	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.emperor && !uwsgi.command_mode) {
 #endif
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
