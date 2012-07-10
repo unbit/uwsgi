@@ -51,6 +51,102 @@ struct uwsgi_emperor_scanner {
 	struct uwsgi_emperor_scanner *next;
 };
 
+struct uwsgi_emperor_blacklist_item {
+	char id[0xff];
+	struct timeval first_attempt;
+	struct timeval last_attempt;
+	int throttle_level;
+	int attempt;
+	struct uwsgi_emperor_blacklist_item *prev;
+	struct uwsgi_emperor_blacklist_item *next;
+};
+
+struct uwsgi_emperor_blacklist_item *emperor_blacklist;
+
+struct uwsgi_emperor_blacklist_item *uwsgi_emperor_blacklist_check(char *id) {
+	struct uwsgi_emperor_blacklist_item *uebi = emperor_blacklist;
+	while(uebi) {
+		if (!strcmp(uebi->id, id)) {
+			return uebi;
+		}
+		uebi = uebi->next;
+	}	
+	return NULL;
+}
+
+
+void uwsgi_emperor_blacklist_add(char *id) {
+
+	// check if the item is already in the blacklist	
+	struct uwsgi_emperor_blacklist_item *uebi = uwsgi_emperor_blacklist_check(id);
+	if (uebi) {
+		gettimeofday(&uebi->last_attempt, NULL);
+		if (uebi->throttle_level < (uwsgi.emperor_max_throttle*1000)) {
+			uebi->throttle_level+=(uwsgi.emperor_throttle*1000);
+		}
+		else {
+			uwsgi_log("[uwsgi-emperor] maximum throttle level for vassal %s reached !!!\n", id);
+			uebi->throttle_level = uebi->throttle_level/2;
+		}
+		uebi->attempt++;
+		if (uebi->attempt == 2) {
+			uwsgi_log("[uwsgi-emperor] unloyal bad behaving vassal found: %s throttling it...\n", id);
+		}
+		return;
+	}
+
+	uebi = emperor_blacklist;
+	if (!uebi) {
+		uebi = uwsgi_calloc(sizeof(struct uwsgi_emperor_blacklist_item));
+		uebi->prev = NULL;
+		emperor_blacklist = uebi;
+	}
+	else {
+		while(uebi) {
+			if (!uebi->next) {
+				uebi->next = uwsgi_calloc(sizeof(struct uwsgi_emperor_blacklist_item));
+				uebi->next->prev = uebi;
+				uebi = uebi->next;
+				break;
+			}
+			uebi = uebi->next;
+		}
+	}
+
+	strcpy(uebi->id, id);
+	gettimeofday(&uebi->first_attempt, NULL);
+	memcpy(&uebi->last_attempt, &uebi->first_attempt, sizeof(struct timeval));
+	uebi->throttle_level = uwsgi.emperor_throttle;
+	uebi->next = NULL;
+
+}
+
+void uwsgi_emperor_blacklist_remove(char *id) {
+
+	struct uwsgi_emperor_blacklist_item *uebi = uwsgi_emperor_blacklist_check(id);
+	if (!uebi) return;
+
+	// ok let's remove the item
+	//is it the first item ?
+	if (emperor_blacklist == uebi) {
+		emperor_blacklist = uebi->next;
+		// only if it is not the last item
+		if (uebi->next) {
+			uebi->next->prev = emperor_blacklist;
+		}
+		free(uebi);
+		return;
+	}
+
+	struct uwsgi_emperor_blacklist_item *next = uebi->next;
+	struct uwsgi_emperor_blacklist_item *prev = uebi->prev;
+
+	next->prev = prev;
+	prev->next = next;
+	free(uebi);
+}
+
+
 struct uwsgi_emperor_scanner *emperor_scanners;
 
 void uwsgi_imperial_monitor_directory(char *arg) {
@@ -284,6 +380,10 @@ void emperor_del(struct uwsgi_instance *c_ui) {
                 }
 
 	uwsgi_log("[uwsgi-emperor] removed uwsgi instance %s\n", c_ui->name);
+	// put the instance in the blacklist (or update its throttling value)
+	if (!c_ui->loyal) {
+		uwsgi_emperor_blacklist_add(c_ui->name);
+	}
 
 	if (c_ui->zerg) {
 		uwsgi.emperor_broodlord_count--;
@@ -336,8 +436,28 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 	int counter;
 	char *colon = NULL;
 	int i;
+	struct timeval tv;
 
-	if (uwsgi_now() - emperor_throttle < 1) {
+	if (strlen(name) > (0xff -1)) {
+		uwsgi_log("[uwsgi-emperor] invalid vassal name\n", name);
+		return;
+	}
+
+	
+	gettimeofday(&tv, NULL);
+	int now = tv.tv_sec;
+	uint64_t micros = (tv.tv_sec * 1000 * 1000) + tv.tv_usec;
+
+	// blacklist check
+	struct uwsgi_emperor_blacklist_item *uebi = uwsgi_emperor_blacklist_check(name);
+	if (uebi) {
+		uint64_t i_micros = (uebi->last_attempt.tv_sec * 1000 * 1000) + uebi->last_attempt.tv_usec + uebi->throttle_level;
+		if (i_micros > micros) {
+			return;
+		}
+	}
+
+	if (now - emperor_throttle < 1) {
 		emperor_throttle_level = emperor_throttle_level*2;
 	}
 	else {
@@ -350,7 +470,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 		}
 	}
 
-	emperor_throttle = uwsgi_now();
+	emperor_throttle = now;
 #ifdef UWSGI_DEBUG
 	uwsgi_log("emperor throttle = %d\n", emperor_throttle_level);
 #endif
@@ -830,7 +950,8 @@ void emperor_loop() {
 						if (byte == 17) {
 							ui_current->loyal = 1;
 							uwsgi_log("*** vassal %s is now loyal ***\n", ui_current->name);
-							
+							// remove it from the blacklist
+							uwsgi_emperor_blacklist_remove(ui_current->name);	
 							// TODO post-start hook
 						}
 						else if (byte == 22) {
@@ -839,7 +960,7 @@ void emperor_loop() {
 						else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
 							uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
 							char *zerg_name = uwsgi_concat3(ui_current->name,":","zerg");
-							emperor_add(zerg_name, time(NULL), NULL, 0, ui_current->uid, ui_current->gid);
+							emperor_add(zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid);
 							free(zerg_name);
 						}
 					}
