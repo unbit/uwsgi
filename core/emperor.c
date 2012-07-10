@@ -432,6 +432,10 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 	int i;
 	struct timeval tv;
 
+#ifdef UWSGI_DEBUG
+	uwsgi_log("\n\nVASSAL %s %d %.*s %d %d\n", name, born, config_size, config, uid, gid);
+#endif
+
 	if (strlen(name) > (0xff - 1)) {
 		uwsgi_log("[emperor] invalid vassal name\n", name);
 		return;

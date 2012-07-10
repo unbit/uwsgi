@@ -38,7 +38,8 @@ void emperor_pg_do(char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
 		}
 	}
 	else {
-		emperor_add(name, ts, config, strlen(config), uid, gid);
+		// make a copy of the config as it will be freed
+		emperor_add(name, ts, uwsgi_str(config), strlen(config), uid, gid);
 	}
 }
 
