@@ -3,8 +3,8 @@
 
 extern struct uwsgi_server uwsgi;
 
-void uwsgi_imperial_monitor_pg_init(char *);
-void uwsgi_imperial_monitor_pg(char *);
+void uwsgi_imperial_monitor_pg_init(struct uwsgi_emperor_scanner *);
+void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *);
 void emperor_pg_init(void);
 void emperor_pg_do(char *, char *, time_t, uid_t, gid_t);
 
@@ -12,7 +12,7 @@ void emperor_pg_init(void) {
 	uwsgi_register_imperial_monitor("pg", uwsgi_imperial_monitor_pg_init, uwsgi_imperial_monitor_pg);
 }
 
-void uwsgi_imperial_monitor_pg_init(char *arg) {
+void uwsgi_imperial_monitor_pg_init(struct uwsgi_emperor_scanner *ues) {
 	uwsgi_log("[emperor] enabled emperor PostgreSQL monitor\n");
 }
 
@@ -44,13 +44,13 @@ void emperor_pg_do(char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
 }
 
 
-void uwsgi_imperial_monitor_pg(char *arg) {
+void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *ues) {
 
 	PGconn *conn = NULL;
 	PGresult *res = NULL;
 	const char *query = "SELECT name,config,EXTRACT(epoch FROM ts) FROM vassals";
 
-	char *conn_string = uwsgi_str(arg + 5);
+	char *conn_string = uwsgi_str(ues->arg + 5);
 
 	char *semicolon = strchr(conn_string, ';');
 	if (semicolon) {

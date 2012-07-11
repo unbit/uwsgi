@@ -17,12 +17,7 @@ void emperor_send_stats(int);
 time_t emperor_throttle;
 int emperor_throttle_level;
 
-// scanners are instances of 'imperial_monitor'
-struct uwsgi_emperor_scanner {
-	char *arg;
-	struct uwsgi_imperial_monitor *monitor;
-	struct uwsgi_emperor_scanner *next;
-};
+struct uwsgi_instance *ui;
 
 /*
 
@@ -149,12 +144,12 @@ int uwsgi_emperor_is_valid(char *name) {
 }
 
 // this is the monitor for non-glob directories
-void uwsgi_imperial_monitor_directory(char *arg) {
+void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 	struct uwsgi_instance *ui_current;
 	struct dirent *de;
 	struct stat st;
 
-	if (chdir(arg)) {
+	if (chdir(ues->arg)) {
 		uwsgi_error("chdir()");
 		return;
 	}
@@ -188,21 +183,33 @@ void uwsgi_imperial_monitor_directory(char *arg) {
 				}
 			}
 			else {
-				emperor_add(de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
+				emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
 			}
 	}
 	closedir(dir);
+
+	// now check for removed instances
+	struct uwsgi_instance *c_ui = ui->ui_next;
+
+        while (c_ui) {
+		if (c_ui->scanner == ues) {
+			if (stat(c_ui->name, &st)) {
+				emperor_stop(c_ui);
+			}
+		}
+                c_ui = c_ui->ui_next;
+        }
 }
 
 // this is the monitor for glob patterns
-void uwsgi_imperial_monitor_glob(char *arg) {
+void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 
 	glob_t g;
 	int i;
 	struct stat st;
 	struct uwsgi_instance *ui_current;
 
-	if (glob(arg, GLOB_MARK | GLOB_NOCHECK, NULL, &g)) {
+	if (glob(ues->arg, GLOB_MARK | GLOB_NOCHECK, NULL, &g)) {
 		uwsgi_error("glob()");
 		return;
 	}
@@ -235,14 +242,28 @@ void uwsgi_imperial_monitor_glob(char *arg) {
 				}
 			}
 			else {
-				emperor_add(g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
+				emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
 			}
 
 	}
 	globfree(&g);
+
+	// now check for removed instances
+        struct uwsgi_instance *c_ui = ui->ui_next;
+
+        while (c_ui) {
+                if (c_ui->scanner == ues) {
+                        if (stat(c_ui->name, &st)) {
+                                emperor_stop(c_ui);
+                        }
+                }
+                c_ui = c_ui->ui_next;
+        }
+
+
 }
 
-void uwsgi_register_imperial_monitor(char *name, void (*init) (char *), void (*func) (char *)) {
+void uwsgi_register_imperial_monitor(char *name, void (*init) (struct uwsgi_emperor_scanner *), void (*func) (struct uwsgi_emperor_scanner *)) {
 
 	struct uwsgi_imperial_monitor *uim = uwsgi.emperor_monitors;
 	if (!uim) {
@@ -266,7 +287,6 @@ void uwsgi_register_imperial_monitor(char *name, void (*init) (char *), void (*f
 	uim->next = NULL;
 }
 
-struct uwsgi_instance *ui;
 
 // the sad death of an Emperor
 static void royal_death(int signum) {
@@ -419,7 +439,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 	uwsgi_log("[emperor] reload the uwsgi instance %s\n", c_ui->name);
 }
 
-void emperor_add(char *name, time_t born, char *config, uint32_t config_size, uid_t uid, gid_t gid) {
+void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, char *config, uint32_t config_size, uid_t uid, gid_t gid) {
 
 	struct uwsgi_instance *c_ui = ui;
 	struct uwsgi_instance *n_ui = NULL;
@@ -505,6 +525,7 @@ void emperor_add(char *name, time_t born, char *config, uint32_t config_size, ui
 		uwsgi.emperor_broodlord_count++;
 	}
 
+	n_ui->scanner = ues;
 	memcpy(n_ui->name, name, strlen(name));
 	n_ui->born = born;
 	n_ui->uid = uid;
@@ -733,7 +754,7 @@ clear:
 
 }
 
-void uwsgi_imperial_monitor_glob_init(char *arg) {
+void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *ues) {
 	if (chdir(uwsgi.cwd)) {
 		uwsgi_error("chdir()");
 		exit(1);
@@ -742,8 +763,8 @@ void uwsgi_imperial_monitor_glob_init(char *arg) {
 	uwsgi.emperor_absolute_dir = uwsgi.cwd;
 }
 
-void uwsgi_imperial_monitor_directory_init(char *arg) {
-	if (chdir(arg)) {
+void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *ues) {
+	if (chdir(ues->arg)) {
 		uwsgi_error("chdir()");
 		exit(1);
 	}
@@ -803,13 +824,13 @@ void emperor_add_scanner(struct uwsgi_imperial_monitor *monitor, char *arg) {
 	ues->next = NULL;
 
 	// run the init hook
-	ues->monitor->init(arg);
+	ues->monitor->init(ues);
 }
 
 void uwsgi_emperor_run_scanners(void) {
 	struct uwsgi_emperor_scanner *ues = emperor_scanners;
 	while (ues) {
-		ues->monitor->func(ues->arg);
+		ues->monitor->func(ues);
 		ues = ues->next;
 	}
 }
@@ -971,7 +992,7 @@ void emperor_loop() {
 						else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
 							uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
 							char *zerg_name = uwsgi_concat3(ui_current->name, ":", "zerg");
-							emperor_add(zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid);
+							emperor_add(NULL, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid);
 							free(zerg_name);
 						}
 					}
@@ -1030,7 +1051,7 @@ void emperor_loop() {
 					}
 					else {
 						// UNSAFE
-						emperor_add(ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid);
+						emperor_add(ui_current->scanner, ui_current->name, ui_current->last_mod, ui_current->config, ui_current->config_len, ui_current->uid, ui_current->gid);
 						emperor_del(ui_current);
 					}
 					break;

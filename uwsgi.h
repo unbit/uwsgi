@@ -1074,10 +1074,12 @@ struct uwsgi_cheaper_algo {
 	struct uwsgi_cheaper_algo *next;
 };
 
+struct uwsgi_emperor_scanner;
+
 struct uwsgi_imperial_monitor {
         char *scheme;
-        void (*init)(char *);
-        void (*func)(char *);
+        void (*init)(struct uwsgi_emperor_scanner *);
+        void (*func)(struct uwsgi_emperor_scanner  *);
         struct uwsgi_imperial_monitor *next;
 };
 
@@ -3067,8 +3069,18 @@ void uwsgi_logit_lf_strftime(struct wsgi_request *);
 struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *, char *, uint8_t);
 void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
 
+// scanners are instances of 'imperial_monitor'
+struct uwsgi_emperor_scanner {
+        char *arg;
+	int fd;
+	void (*event_func)(struct uwsgi_emperor_scanner *);
+        struct uwsgi_imperial_monitor *monitor;
+        struct uwsgi_emperor_scanner *next;
+};
 
-void uwsgi_register_imperial_monitor(char *, void (*)(char *), void (*)(char *));
+
+
+void uwsgi_register_imperial_monitor(char *, void (*)(struct uwsgi_emperor_scanner *), void (*)(struct uwsgi_emperor_scanner *));
 int uwsgi_emperor_is_valid(char *);
 
 // an instance (called vassal) is a uWSGI stack running
@@ -3101,6 +3113,8 @@ struct uwsgi_instance {
 
         int zerg;
 
+	struct uwsgi_emperor_scanner *scanner;
+
         uid_t uid;
         gid_t gid;
 };
@@ -3109,7 +3123,7 @@ struct uwsgi_instance *emperor_get_by_fd(int);
 struct uwsgi_instance *emperor_get(char *);
 void emperor_stop(struct uwsgi_instance *);
 void emperor_respawn(struct uwsgi_instance *, time_t);
-void emperor_add(char *, time_t, char *, uint32_t, uid_t, gid_t);
+void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
