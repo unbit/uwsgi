@@ -2,11 +2,12 @@
 #include <libpq-fe.h>
 
 extern struct uwsgi_server uwsgi;
+extern struct uwsgi_instance *ui;
 
 void uwsgi_imperial_monitor_pg_init(struct uwsgi_emperor_scanner *);
 void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *);
 void emperor_pg_init(void);
-void emperor_pg_do(char *, char *, time_t, uid_t, gid_t);
+void emperor_pg_do(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t);
 
 void emperor_pg_init(void) {
 	uwsgi_register_imperial_monitor("pg", uwsgi_imperial_monitor_pg_init, uwsgi_imperial_monitor_pg);
@@ -16,7 +17,7 @@ void uwsgi_imperial_monitor_pg_init(struct uwsgi_emperor_scanner *ues) {
 	uwsgi_log("[emperor] enabled emperor PostgreSQL monitor\n");
 }
 
-void emperor_pg_do(char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
+void emperor_pg_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
 
 	if (!uwsgi_emperor_is_valid(name))
 		return;
@@ -39,7 +40,7 @@ void emperor_pg_do(char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
 	}
 	else {
 		// make a copy of the config as it will be freed
-		emperor_add(name, ts, uwsgi_str(config), strlen(config), uid, gid);
+		emperor_add(ues, name, ts, uwsgi_str(config), strlen(config), uid, gid);
 	}
 }
 
@@ -96,9 +97,31 @@ void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *ues) {
 				vassal_uid = uwsgi_str_num(q_uid, strlen(q_uid));
 				vassal_gid = uwsgi_str_num(q_gid, strlen(q_gid));
 			}
-			emperor_pg_do(name, config, uwsgi_str_num(ts, len), vassal_uid, vassal_gid);
+			emperor_pg_do(ues, name, config, uwsgi_str_num(ts, len), vassal_uid, vassal_gid);
 		}
 	}
+
+	// now check for removed instances
+        struct uwsgi_instance *c_ui = ui->ui_next;
+
+        while (c_ui) {
+                if (c_ui->scanner == ues) {
+			int found = 0;
+			for (i = 0; i < PQntuples(res); i++) {
+				if (PQnfields(res) >= 3) {
+					if (!strcmp(PQgetvalue(res, i, 0), c_ui->name)) {
+						found = 1;
+						break;
+					}
+				}
+			}
+			if (!found) {
+                                emperor_stop(c_ui);
+                        }
+                }
+                c_ui = c_ui->ui_next;
+        }
+
 
 end:
 	if (res)
