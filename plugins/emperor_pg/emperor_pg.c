@@ -35,6 +35,11 @@ void emperor_pg_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, 
 		}
 		// check if mtime is changed and the uWSGI instance must be reloaded
 		if (ts > ui_current->last_mod) {
+			// make a new config (free the old one)
+                        free(ui_current->config);
+                        ui_current->config = config;
+                        ui_current->config_len = strlen(config);
+			// always respawn (no need for amqp-style rules)
 			emperor_respawn(ui_current, ts);
 		}
 	}
@@ -124,6 +129,8 @@ void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *ues) {
 
 
 end:
+	free(conn_string);
+
 	if (res)
 		PQclear(res);
 	if (conn)

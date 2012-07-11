@@ -822,7 +822,7 @@ void emperor_add_scanner(struct uwsgi_imperial_monitor *monitor, char *arg) {
 	ues->arg = arg;
 	ues->monitor = monitor;
 	ues->next = NULL;
-
+	ues->fd = -1;
 	// run the init hook
 	ues->monitor->init(ues);
 }
@@ -862,6 +862,21 @@ dir:
 next:
 		usl = usl->next;
 	}
+}
+
+int uwsgi_emperor_scanner_event(int fd) {
+
+	struct uwsgi_emperor_scanner *ues = emperor_scanners;
+        while (ues) {
+		if (ues->fd > -1 && ues->fd == fd) {
+			ues->event_func(ues);
+			return 1;
+		}
+                ues = ues->next;
+        }
+
+	return 0;
+
 }
 
 void emperor_loop() {
@@ -910,9 +925,10 @@ void emperor_loop() {
 	uwsgi_register_imperial_monitor("dir", uwsgi_imperial_monitor_directory_init, uwsgi_imperial_monitor_directory);
 	uwsgi_register_imperial_monitor("glob", uwsgi_imperial_monitor_glob_init, uwsgi_imperial_monitor_glob);
 
-	emperor_build_scanners();
-
+	// the queue must be initialized before adding scanners
 	uwsgi.emperor_queue = event_queue_init();
+
+	emperor_build_scanners();
 
 	events = event_queue_alloc(64);
 
@@ -963,45 +979,49 @@ void emperor_loop() {
 			if (uwsgi.emperor_stats && uwsgi.emperor_stats_fd > -1 && interesting_fd == uwsgi.emperor_stats_fd) {
 				emperor_send_stats(uwsgi.emperor_stats_fd);
 			}
-			else {
-				ui_current = emperor_get_by_fd(interesting_fd);
-				if (ui_current) {
-					char byte;
-					ssize_t rlen = read(interesting_fd, &byte, 1);
-					if (rlen <= 0) {
-						// SAFE
-						if (!ui_current->config_len) {
-							emperor_del(ui_current);
-						}
-					}
-					else {
-						if (byte == 17) {
-							ui_current->loyal = 1;
-							uwsgi_log("[emperor] vassal %s is now loyal\n", ui_current->name);
-							// remove it from the blacklist
-							uwsgi_emperor_blacklist_remove(ui_current->name);
-							// TODO post-start hook
-						}
-						// heartbeat can be used for spotting blocked instances
-						else if (byte == 26) {
-							ui_current->last_heartbeat = uwsgi_now();
-						}
-						else if (byte == 22) {
-							emperor_stop(ui_current);
-						}
-						else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
-							uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
-							char *zerg_name = uwsgi_concat3(ui_current->name, ":", "zerg");
-							emperor_add(NULL, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid);
-							free(zerg_name);
-						}
+
+			// check if a monitor is mapped to that file descriptor
+			if (uwsgi_emperor_scanner_event(interesting_fd)) continue;
+
+			
+			ui_current = emperor_get_by_fd(interesting_fd);
+			if (ui_current) {
+				char byte;
+				ssize_t rlen = read(interesting_fd, &byte, 1);
+				if (rlen <= 0) {
+					// SAFE
+					if (!ui_current->config_len) {
+						emperor_del(ui_current);
 					}
 				}
 				else {
-					uwsgi_log("[emperor] unrecognized vassal event on fd %d\n", interesting_fd);
-					close(interesting_fd);
+					if (byte == 17) {
+						ui_current->loyal = 1;
+						uwsgi_log("[emperor] vassal %s is now loyal\n", ui_current->name);
+						// remove it from the blacklist
+						uwsgi_emperor_blacklist_remove(ui_current->name);
+						// TODO post-start hook
+					}
+					// heartbeat can be used for spotting blocked instances
+					else if (byte == 26) {
+						ui_current->last_heartbeat = uwsgi_now();
+					}
+					else if (byte == 22) {
+						emperor_stop(ui_current);
+					}
+					else if (byte == 30 && uwsgi.emperor_broodlord > 0 && uwsgi.emperor_broodlord_count < uwsgi.emperor_broodlord) {
+						uwsgi_log("[emperor] going in broodlord mode: launching zergs for %s\n", ui_current->name);
+						char *zerg_name = uwsgi_concat3(ui_current->name, ":", "zerg");
+						emperor_add(NULL, zerg_name, uwsgi_now(), NULL, 0, ui_current->uid, ui_current->gid);
+						free(zerg_name);
+					}
 				}
 			}
+			else {
+				uwsgi_log("[emperor] unrecognized vassal event on fd %d\n", interesting_fd);
+				close(interesting_fd);
+			}
+
 		}
 
 		uwsgi_emperor_run_scanners();

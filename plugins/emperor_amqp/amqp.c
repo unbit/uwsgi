@@ -1,4 +1,4 @@
-#include "../uwsgi.h"
+#include "../../uwsgi.h"
 
 #define AMQP_CONNECTION_HEADER "AMQP\0\0\x09\x01"
 
@@ -453,12 +453,13 @@ static int amqp_wait_connection_tune(int fd) {
 static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh) {
 
 	char *ptr = (char *) fh;
-        size_t len = 0, rlen;
+        ssize_t len = 0, rlen;
 
         while(len < 7) {
                 rlen = recv(fd, ptr, 7-len, 0);
                 if (rlen <= 0) {
-                        uwsgi_error("recv()");
+			if (rlen < 0)
+                        	uwsgi_error("recv()");
                         return NULL;
                 }
                 len += rlen;
@@ -476,7 +477,8 @@ static char *amqp_simple_get_frame(int fd, struct amqp_frame_header *fh) {
         while(len < fh->size+1) {
                 rlen = recv(fd, ptr, (fh->size+1)-len, 0);
                 if (rlen <= 0) {
-                        uwsgi_error("recv()");
+			if (rlen < 0)
+                        	uwsgi_error("recv()");
                         return NULL;
                 }
                 len += rlen;
