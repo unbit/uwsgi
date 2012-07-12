@@ -764,9 +764,18 @@ void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *ues) {
 	}
 
 	uwsgi.emperor_absolute_dir = uwsgi.cwd;
+
+	if (!uwsgi_startswith(ues->arg, "glob://", 7)) {
+		ues->arg+=7;	
+	}
 }
 
 void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *ues) {
+
+	if (!uwsgi_startswith(ues->arg, "dir://", 6)) {
+		ues->arg+=6;	
+	}
+
 	if (chdir(ues->arg)) {
 		uwsgi_error("chdir()");
 		exit(1);
