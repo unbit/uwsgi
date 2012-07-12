@@ -980,6 +980,7 @@ void uwsgi_register_cheaper_algo(char *name, int (*func) (void)) {
 }
 
 void trigger_harakiri(int i) {
+	int j;
 	uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d) ***\n", i, uwsgi.workers[i].pid);
 	if (uwsgi.harakiri_verbose) {
 #ifdef __linux__
@@ -1017,6 +1018,17 @@ void trigger_harakiri(int i) {
 	}
 
 	if (uwsgi.workers[i].pid > 0) {
+		 for (j = 0; j < uwsgi.gp_cnt; j++) {
+                        if (uwsgi.gp[j]->harakiri) {
+                                uwsgi.gp[j]->harakiri(i);
+                        }
+                }
+                for (j = 0; j < 256; j++) {
+                        if (uwsgi.p[j]->harakiri) {
+                                uwsgi.p[j]->harakiri(i);
+                        }
+                }
+
 		kill(uwsgi.workers[i].pid, SIGUSR2);
 		// allow SIGUSR2 to be delivered
 		sleep(1);

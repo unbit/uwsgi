@@ -1755,6 +1755,30 @@ int uwsgi_python_mule_msg(char *message, size_t len) {
 	return 1;
 }
 
+void uwsgi_python_harakiri(int wid) {
+
+	if (up.tracebacker) {
+
+        	char buf[8192];
+		char *address = uwsgi_concat2(up.tracebacker, uwsgi_num2str(wid));
+
+        	int fd = uwsgi_connect(address, -1, 0);
+        	for (;;) {
+                	int ret = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                	if (ret <= 0) {
+				break;
+                	}
+                	ssize_t len = read(fd, buf, 8192);
+                	if (len <= 0) {
+				break;
+                	}
+                	uwsgi_log("%.*s", (int) len, buf);
+        	}
+
+		free(address);
+	}
+
+}
 
 #ifndef UWSGI_PYPY
 struct uwsgi_plugin python_plugin = {
@@ -1788,6 +1812,8 @@ struct uwsgi_plugin pypy_plugin = {
 	.suspend = uwsgi_python_suspend,
 	.resume = uwsgi_python_resume,
 #endif
+
+	.harakiri = uwsgi_python_harakiri,
 
 	.hijack_worker = uwsgi_python_hijack,
 	.spooler_init = uwsgi_python_spooler_init,

@@ -666,6 +666,8 @@ struct uwsgi_plugin {
 	void (*suspend) (struct wsgi_request *);
 	void (*resume) (struct wsgi_request *);
 
+	void (*harakiri) (int);
+
 	void (*hijack_worker) (void);
 	void (*spooler_init) (void);
 	void (*atexit) (void);
