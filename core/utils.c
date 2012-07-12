@@ -1068,20 +1068,42 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 	return 0;
 }
 
+void uwsgi_heartbeat() {
+
+	if (!uwsgi.has_emperor) return;
+
+	time_t now = uwsgi_now();
+	if (uwsgi.next_heartbeat < now) {
+		char byte = 26;
+                if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
+                        uwsgi_error("write()");
+                }
+                uwsgi.next_heartbeat = now + uwsgi.heartbeat;
+	}
+	
+}
+
 int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	int ret;
 	int interesting_fd = -1;
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-	int retry = 0;
+	int timeout = -1;
 
 
 	thunder_lock;
+
+	// heartbeat
+	// in multithreaded mode we are now locked
+	if (uwsgi.has_emperor && uwsgi.heartbeat) {
+		timeout = uwsgi.heartbeat;
+	}
+
 	// need edge trigger ?
 	if (uwsgi.is_et) {
 		while(uwsgi_sock) {
 			if (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) {
-				retry = 1;
+				timeout = 0;
 				break;
 			}
 			uwsgi_sock = uwsgi_sock->next;
@@ -1090,10 +1112,17 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 		uwsgi_sock = uwsgi.sockets;
 	}
 
-	ret = event_queue_wait(queue, -1 + retry , &interesting_fd);
+	ret = event_queue_wait(queue, timeout , &interesting_fd);
 	if (ret < 0) {
 		thunder_unlock;
 		return -1;
+	}
+
+	// check for heartbeat
+	if (timeout > 0) {
+		uwsgi_heartbeat();
+		// no need to continue if timed-out
+		if (ret == 0) return -1;
 	}
 
 #ifdef UWSGI_THREADING

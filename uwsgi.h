@@ -1187,6 +1187,9 @@ struct uwsgi_server {
         int emperor_freq;
         int emperor_max_throttle;
 	int emperor_magic_exec;
+	int emperor_heartbeat;
+	time_t next_heartbeat;
+	int heartbeat;
 	struct uwsgi_string_list *emperor;
 	struct uwsgi_imperial_monitor *emperor_monitors;
 	char *emperor_absolute_dir;

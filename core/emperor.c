@@ -292,9 +292,10 @@ void uwsgi_register_imperial_monitor(char *name, void (*init) (struct uwsgi_empe
 static void royal_death(int signum) {
 
 
+	struct uwsgi_instance *c_ui = ui->ui_next;
+
 	if (uwsgi.vassals_stop_hook) {
 
-		struct uwsgi_instance *c_ui = ui->ui_next;
 
 		while (c_ui) {
 			uwsgi_log("[emperor] running vassal stop-hook: %s %s\n", uwsgi.vassals_stop_hook, c_ui->name);
@@ -308,6 +309,8 @@ static void royal_death(int signum) {
 			c_ui = c_ui->ui_next;
 		}
 	}
+
+	uwsgi_log("[emperor] *** RAGNAROK EVOKED ***\n");	
 	uwsgi_notify("The Emperor is buried.");
 	exit(0);
 }
@@ -1026,8 +1029,21 @@ void emperor_loop() {
 
 		uwsgi_emperor_run_scanners();
 
-		// check for removed instances
+		// check for heartbeat (if required)
+		ui_current = ui->ui_next;
+		while(ui_current) {
+			if (ui_current->last_heartbeat > 0) {
+				if ( (ui_current->last_heartbeat + uwsgi.emperor_heartbeat) < uwsgi_now()) {
+					uwsgi_log("[emperor] vassal %s sent no heartbeat in last %d seconds, respawning it...\n", ui_current->name, uwsgi.emperor_heartbeat);
+					// set last_heartbeat to 0 avoiding races
+					ui_current->last_heartbeat = 0;
+					emperor_respawn(ui_current, uwsgi_now());
+				}
+			}
+			ui_current = ui_current->ui_next;
+		}
 
+		// check for removed instances
 		ui_current = ui;
 		has_children = 0;
 		while (ui_current->ui_next) {
