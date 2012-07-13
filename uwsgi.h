@@ -3103,6 +3103,9 @@ struct uwsgi_instance {
         time_t last_mod;
         time_t last_loyal;
 
+	time_t last_run;
+	time_t first_run;
+
         time_t last_heartbeat;
 
         uint64_t respawns;

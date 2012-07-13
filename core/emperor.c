@@ -438,6 +438,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
 	c_ui->respawns++;
 	c_ui->last_mod = mod;
+	c_ui->last_run = uwsgi_now();
 
 	uwsgi_log("[emperor] reload the uwsgi instance %s\n", c_ui->name);
 }
@@ -535,8 +536,11 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 	n_ui->gid = gid;
 	n_ui->last_mod = born;
 	// start without loyalty
-	n_ui->last_loyal = born;
+	n_ui->last_loyal = 0;
 	n_ui->loyal = 0;
+
+	n_ui->first_run = uwsgi_now();
+	n_ui->last_run = n_ui->first_run;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, n_ui->pipe)) {
 		uwsgi_error("socketpair()");
@@ -1010,6 +1014,7 @@ void emperor_loop() {
 				else {
 					if (byte == 17) {
 						ui_current->loyal = 1;
+						ui_current->last_loyal = uwsgi_now();
 						uwsgi_log("[emperor] vassal %s is now loyal\n", ui_current->name);
 						// remove it from the blacklist
 						uwsgi_emperor_blacklist_remove(ui_current->name);
@@ -1193,6 +1198,12 @@ void emperor_send_stats(int fd) {
 		if (uwsgi_stats_keylong_comma(us, "last_heartbeat", (unsigned long long) c_ui->last_heartbeat))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "loyal", (unsigned long long) c_ui->loyal))
+			goto end0;
+		if (uwsgi_stats_keylong_comma(us, "last_loyal", (unsigned long long) c_ui->last_loyal))
+			goto end0;
+		if (uwsgi_stats_keylong_comma(us, "first_run", (unsigned long long) c_ui->first_run))
+			goto end0;
+		if (uwsgi_stats_keylong_comma(us, "last_run", (unsigned long long) c_ui->last_run))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "zerg", (unsigned long long) c_ui->zerg))
 			goto end0;
