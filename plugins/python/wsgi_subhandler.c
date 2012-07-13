@@ -209,7 +209,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	if (!wsgi_req->async_placeholder) {
 		wsgi_req->async_placeholder = PyObject_GetIter(wsgi_req->async_result);
 		if (!wsgi_req->async_placeholder) {
-			goto clear2;
+			goto exception;
 		}
 #ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
@@ -221,6 +221,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	pychunk = PyIter_Next(wsgi_req->async_placeholder);
 
 	if (!pychunk) {
+exception:
 		if (PyErr_Occurred()) { 
 			int do_exit = uwsgi_python_manage_exceptions();
 		        if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
@@ -293,7 +294,6 @@ clear:
 		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
 	}
 	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
-clear2:
 
 	// send the headers if not already sent
 	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
