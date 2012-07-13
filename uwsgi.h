@@ -704,7 +704,7 @@ struct uwsgi_app {
 
 	uint8_t modifier1;
 
-	char *mountpoint;
+	char mountpoint[0xff];
 	int mountpoint_len;
 
 #ifdef UWSGI_PCRE
@@ -742,9 +742,10 @@ struct uwsgi_app {
 	int argc;
 	uint64_t requests;
 	uint64_t exceptions;
-	char *chdir;
 
-	char *touch_reload;
+	char chdir[0xff];
+	char touch_reload[0xff];
+
 	time_t touch_reload_mtime;
 
 	void *gateway_version;

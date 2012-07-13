@@ -4197,8 +4197,8 @@ struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int
 	memset(wi, 0, sizeof(struct uwsgi_app));
 
 	wi->modifier1 = modifier1;
-	wi->mountpoint = mountpoint;
-	wi->mountpoint_len = mountpoint_len;
+	wi->mountpoint_len = mountpoint_len < 0xff ? mountpoint_len : (0xff-1);
+	strncpy(wi->mountpoint, mountpoint, wi->mountpoint_len);
 	wi->interpreter = interpreter;
 	wi->callable = callable;
 

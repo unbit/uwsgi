@@ -82,30 +82,24 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	int i;
 
-	char *mountpoint;
-
 	struct uwsgi_app *wi;
 
 	time_t now = uwsgi_now();
 
-	mountpoint = uwsgi_strncopy(wsgi_req->appid, wsgi_req->appid_len);
-
-	if (uwsgi_get_app_id(mountpoint, strlen(mountpoint), -1) != -1) {
-		uwsgi_log( "mountpoint %.*s already configured. skip.\n", strlen(mountpoint), mountpoint);
-		free(mountpoint);
+	if (uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, -1) != -1) {
+		uwsgi_log( "mountpoint %.*s already configured. skip.\n", wsgi_req->appid_len, wsgi_req->appid);
 		return -1;
 	}
-
 
 	wi = &uwsgi_apps[id];
 
 	memset(wi, 0, sizeof(struct uwsgi_app));
-	wi->mountpoint = mountpoint;
-	wi->mountpoint_len = strlen(mountpoint);
+	wi->mountpoint_len = wsgi_req->appid_len < 0xff ? wsgi_req->appid_len : (0xff-1);
+	strncpy(wi->mountpoint, wsgi_req->appid, wi->mountpoint_len);
 
 	// dynamic chdir ?
 	if (wsgi_req->chdir_len > 0) {
-		wi->chdir = uwsgi_strncopy(wsgi_req->chdir, wsgi_req->chdir_len);
+		strncpy(wi->chdir, wsgi_req->chdir, wsgi_req->chdir_len < 0xff ? wsgi_req->chdir_len : (0xff-1));
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("chdir to %s\n", wi->chdir);
 #endif
@@ -193,11 +187,10 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	wi->interpreter = up.main_thread;
 #endif
 
-	if (wsgi_req->touch_reload_len) {
+	if (wsgi_req->touch_reload_len > 0 && wsgi_req->touch_reload_len < 0xff) {
 		struct stat trst;
-		char *touch_reload = uwsgi_strncopy(wsgi_req->touch_reload, wsgi_req->touch_reload_len);
-		if (!stat(touch_reload, &trst)) {
-			wi->touch_reload = touch_reload;
+		strncpy(wi->touch_reload, wsgi_req->touch_reload, wsgi_req->touch_reload_len);
+		if (!stat(wi->touch_reload, &trst)) {
 			wi->touch_reload_mtime = trst.st_mtime;
 		}
 	}
@@ -205,7 +198,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	wi->callable = up.loaders[loader](arg1);
 
 	if (!wi->callable) {
-		uwsgi_log("unable to load app %d (mountpoint='%s') (callable not found or import error)\n", id, mountpoint);
+		uwsgi_log("unable to load app %d (mountpoint='%s') (callable not found or import error)\n", id, wi->mountpoint);
 		goto doh;
 	}
 
@@ -227,8 +220,9 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			uwsgi_log("the app mountpoint must be a string\n");
 			goto doh;
 		}
-		wi->mountpoint = PyString_AsString(app_mnt);
-		wi->mountpoint_len = strlen(wi->mountpoint);
+		char *tmp_mountpoint = PyString_AsString(app_mnt);
+		wi->mountpoint_len = strlen(wi->mountpoint) < 0xff ? strlen(wi->mountpoint) : (0xff-1);
+		strncpy(wi->mountpoint, tmp_mountpoint, wi->mountpoint_len);
 		wsgi_req->appid = wi->mountpoint;
 		wsgi_req->appid_len = wi->mountpoint_len;
 #ifdef UWSGI_DEBUG
@@ -359,7 +353,7 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 			//uwsgi_log("%p\n", uwsgi.core[i]->ts[id]);
 			uwsgi.core[i]->ts[id] = PyThreadState_New( ((PyThreadState *)wi->interpreter)->interp);
 			if (!uwsgi.core[i]->ts[id]) {
-				uwsgi_log("unable to allocate new PyThreadState structure for app %s", mountpoint);
+				uwsgi_log("unable to allocate new PyThreadState structure for app %s", wi->mountpoint);
 				goto doh;
 			}
 		}
@@ -424,7 +418,6 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 	return id;
 
 doh:
-	free(mountpoint);
 	if (PyErr_Occurred())
 		PyErr_Print();
 #ifdef UWSGI_MINTERPRETERS
