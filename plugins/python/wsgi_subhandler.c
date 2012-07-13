@@ -51,7 +51,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
         // if async_post is mapped as a file, directly use it as wsgi.input
         if (wsgi_req->async_post) {
 #ifdef PYTHREE
-                wsgi_req->async_input = PyFile_FromFd(fileno(wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
+                wsgi_req->async_input = PyFile_FromFd(fileno((FILE *)wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
 #else
                 wsgi_req->async_input = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
 #endif
