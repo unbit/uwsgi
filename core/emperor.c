@@ -990,6 +990,7 @@ void emperor_loop() {
 
 			if (uwsgi.emperor_stats && uwsgi.emperor_stats_fd > -1 && interesting_fd == uwsgi.emperor_stats_fd) {
 				emperor_send_stats(uwsgi.emperor_stats_fd);
+				continue;
 			}
 
 			// check if a monitor is mapped to that file descriptor
@@ -1159,7 +1160,13 @@ void emperor_send_stats(int fd) {
 	if (uwsgi_stats_list_close(us))
 		goto end0;
 
+	if (uwsgi_stats_comma(us))
+		goto end0;
+
 	if (uwsgi_stats_keylong_comma(us, "emperor_tyrant", (unsigned long long) uwsgi.emperor_tyrant))
+		goto end0;
+
+	if (uwsgi_stats_keylong_comma(us, "throttle_level", (unsigned long long) emperor_throttle_level / 1000))
 		goto end0;
 
 
@@ -1182,6 +1189,8 @@ void emperor_send_stats(int fd) {
 		if (uwsgi_stats_keylong_comma(us, "born", (unsigned long long) c_ui->born))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "last_mod", (unsigned long long) c_ui->last_mod))
+			goto end0;
+		if (uwsgi_stats_keylong_comma(us, "last_heartbeat", (unsigned long long) c_ui->last_heartbeat))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "loyal", (unsigned long long) c_ui->loyal))
 			goto end0;
@@ -1210,6 +1219,52 @@ void emperor_send_stats(int fd) {
 
 	if (uwsgi_stats_list_close(us))
 		goto end0;
+
+	if (uwsgi_stats_comma(us))
+        	goto end0;
+
+	if (uwsgi_stats_key(us, "blacklist"))
+                goto end0;
+        if (uwsgi_stats_list_open(us))
+                goto end0;
+
+	struct uwsgi_emperor_blacklist_item *uebi = emperor_blacklist;
+        while (uebi) {
+
+		if (uwsgi_stats_object_open(us))
+                        goto end0;
+
+                if (uwsgi_stats_keyval_comma(us, "id", uebi->id))
+                        goto end0;
+
+
+                if (uwsgi_stats_keylong_comma(us, "throttle_level", uebi->throttle_level/1000))
+                        goto end0;
+
+                if (uwsgi_stats_keylong_comma(us, "attempt", (unsigned long long) uebi->attempt))
+                        goto end0;
+
+                if (uwsgi_stats_keylong_comma(us, "first_attempt", (unsigned long long) uebi->first_attempt.tv_sec))
+                        goto end0;
+
+                if (uwsgi_stats_keylong(us, "last_attempt", (unsigned long long) uebi->last_attempt.tv_sec))
+                        goto end0;
+
+		if (uwsgi_stats_object_close(us))
+                        goto end0;
+
+
+                uebi = uebi->next;
+		if (uebi) {
+			if (uwsgi_stats_comma(us))
+				goto end0;
+		}
+        }
+
+
+	if (uwsgi_stats_list_close(us))
+                goto end0;
+
 	if (uwsgi_stats_object_close(us))
 		goto end0;
 
