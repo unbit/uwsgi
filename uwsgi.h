@@ -113,6 +113,10 @@ extern char UWSGI_EMBED_CONFIG_END;
 
 
 
+#ifndef __need_IOV_MAX 
+#define __need_IOV_MAX 
+#endif 
+
 
 #include <stdio.h>
 #include <stdlib.h>

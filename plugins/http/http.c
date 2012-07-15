@@ -16,10 +16,19 @@ extern struct uwsgi_server uwsgi;
 
 #include "../corerouter/cr.h"
 
+#ifdef __sun__
+#define MAX_HTTP_VEC IOV_MAX*64
+#else
+#ifdef IOV_MAX
+#define MAX_HTTP_VEC IOV_MAX
+#else
 #define MAX_HTTP_VEC 128
+#endif
+
 #define UWSGI_HTTP_SSL 1
 #define UWSGI_HTTP_FORCE_SSL 2
 #define HTTP_SSL_STATUS_SHUTDOWN 10
+#endif
 
 struct uwsgi_http {
 
