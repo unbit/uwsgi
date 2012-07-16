@@ -320,6 +320,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"binary-path", required_argument, 0, "force binary path", uwsgi_opt_set_str, &uwsgi.binary_path, 0},
 	{"privileged-binary-patch", required_argument, 0, "patch the uwsgi binary with a new command (before privileges drop)", uwsgi_opt_set_str, &uwsgi.privileged_binary_patch, 0},
 	{"unprivileged-binary-patch", required_argument, 0, "patch the uwsgi binary with a new command (after privileges drop)", uwsgi_opt_set_str, &uwsgi.unprivileged_binary_patch, 0},
+	{"privileged-binary-patch-arg", required_argument, 0, "patch the uwsgi binary with a new command and arguments (before privileges drop)", uwsgi_opt_set_str, &uwsgi.privileged_binary_patch_arg, 0},
+	{"unprivileged-binary-patch-arg", required_argument, 0, "patch the uwsgi binary with a new command and arguments (after privileges drop)", uwsgi_opt_set_str, &uwsgi.unprivileged_binary_patch_arg, 0},
 #ifdef UWSGI_ASYNC
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
 #endif
