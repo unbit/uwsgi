@@ -318,6 +318,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MASTER_INTERVAL, 0},
 	{"forkbomb-delay", required_argument, 0, "sleep for the specified number of seconds when a forkbomb is detected", uwsgi_opt_set_int, &uwsgi.forkbomb_delay, UWSGI_OPT_MASTER},
 	{"binary-path", required_argument, 0, "force binary path", uwsgi_opt_set_str, &uwsgi.binary_path, 0},
+	{"privileged-binary-patch", required_argument, 0, "patch the uwsgi binary with a new command (before privileges drop)", uwsgi_opt_set_str, &uwsgi.privileged_binary_patch, 0},
+	{"unprivileged-binary-patch", required_argument, 0, "patch the uwsgi binary with a new command (after privileges drop)", uwsgi_opt_set_str, &uwsgi.unprivileged_binary_patch, 0},
 #ifdef UWSGI_ASYNC
 	{"async", required_argument, 0, "enable async mode with specified cores", uwsgi_opt_set_int, &uwsgi.async, 0},
 #endif
@@ -2009,6 +2011,15 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 		usl = usl->next;
 	}
+
+	// we could now patch the binary
+                if (uwsgi.privileged_binary_patch) {
+                        uwsgi.argv[0] = uwsgi.privileged_binary_patch;
+                        execvp(uwsgi.privileged_binary_patch, uwsgi.argv);
+                        uwsgi_error("execvp()");
+                        exit(1);
+                }
+
 
 
 	// call jail systems

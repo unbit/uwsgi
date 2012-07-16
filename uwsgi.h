@@ -1349,6 +1349,9 @@ struct uwsgi_server {
 	struct uwsgi_string_list *exec_as_user_atexit;
 	struct uwsgi_string_list *exec_pre_app;
 
+	char *privileged_binary_patch;
+	char *unprivileged_binary_patch;
+
 	struct uwsgi_logger *loggers;
 	struct uwsgi_logger *choosen_logger;
 	char *requested_logger;

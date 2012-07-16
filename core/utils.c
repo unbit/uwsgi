@@ -729,6 +729,14 @@ void uwsgi_as_root() {
 			}
 			usl = usl->next;
 		}
+
+		// we could now patch the binary
+		if (uwsgi.unprivileged_binary_patch) {
+			uwsgi.argv[0] = uwsgi.unprivileged_binary_patch;
+			execvp(uwsgi.unprivileged_binary_patch, uwsgi.argv);
+			uwsgi_error("execvp()");
+			exit(1);
+		}
 	}
 	else {
 		if (uwsgi.chroot && !uwsgi.is_a_reload) {
