@@ -737,6 +737,10 @@ void uwsgi_as_root() {
 			uwsgi_error("execvp()");
 			exit(1);
 		}
+
+		if (uwsgi.unprivileged_binary_patch_arg) {
+                	uwsgi_exec_command_with_args(uwsgi.unprivileged_binary_patch_arg);
+        	}
 	}
 	else {
 		if (uwsgi.chroot && !uwsgi.is_a_reload) {
@@ -3373,6 +3377,17 @@ void uwsgi_sig_pause() {
 	sigset_t mask;
 	sigemptyset(&mask);
 	sigsuspend(&mask);
+}
+
+void uwsgi_exec_command_with_args(char *cmdline) {
+	char *argv[4];
+	argv[0] = "/bin/sh";
+        argv[1] = "-c";
+        argv[2] = cmdline;
+        argv[3] = NULL;
+        execvp(argv[0], argv);
+	uwsgi_error("execvp()");
+	exit(1);
 }
 
 int uwsgi_run_command_and_wait(char *command, char *arg) {

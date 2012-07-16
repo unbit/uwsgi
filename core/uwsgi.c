@@ -2013,12 +2013,16 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	// we could now patch the binary
-                if (uwsgi.privileged_binary_patch) {
-                        uwsgi.argv[0] = uwsgi.privileged_binary_patch;
-                        execvp(uwsgi.privileged_binary_patch, uwsgi.argv);
-                        uwsgi_error("execvp()");
-                        exit(1);
-                }
+        if (uwsgi.privileged_binary_patch) {
+        	uwsgi.argv[0] = uwsgi.privileged_binary_patch;
+                execvp(uwsgi.privileged_binary_patch, uwsgi.argv);
+                uwsgi_error("execvp()");
+                exit(1);
+        }
+
+        if (uwsgi.privileged_binary_patch_arg) {
+		uwsgi_exec_command_with_args(uwsgi.privileged_binary_patch_arg);
+        }
 
 
 

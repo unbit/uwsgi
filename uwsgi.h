@@ -1351,6 +1351,8 @@ struct uwsgi_server {
 
 	char *privileged_binary_patch;
 	char *unprivileged_binary_patch;
+	char *privileged_binary_patch_arg;
+	char *unprivileged_binary_patch_arg;
 
 	struct uwsgi_logger *loggers;
 	struct uwsgi_logger *choosen_logger;
@@ -3140,6 +3142,8 @@ struct uwsgi_instance *emperor_get(char *);
 void emperor_stop(struct uwsgi_instance *);
 void emperor_respawn(struct uwsgi_instance *, time_t);
 void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t);
+
+void uwsgi_exec_command_with_args(char *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
