@@ -432,7 +432,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	up.swap_ts(wsgi_req, wi);
 	
-	if (wi->chdir) {
+	if (wi->chdir[0] != 0) {
 #ifdef UWSGI_DEBUG
 		uwsgi_debug("chdir to %s\n", wi->chdir);
 #endif
