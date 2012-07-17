@@ -422,6 +422,23 @@ void uwsgi_register_logger(char *name, ssize_t(*func) (struct uwsgi_logger *, ch
 #endif
 }
 
+void uwsgi_append_logger(struct uwsgi_logger *ul) {
+
+	if (!uwsgi.choosen_logger) {
+		uwsgi.choosen_logger = ul;
+		return ;
+	}
+
+	struct uwsgi_logger *ucl = uwsgi.choosen_logger;
+	while(ucl) {
+		if (!ucl->next) {
+			ucl->next = ul;
+			return;
+		}
+		ucl = ucl->next;
+	}
+}
+
 struct uwsgi_logger *uwsgi_get_logger(char *name) {
 	struct uwsgi_logger *ul = uwsgi.loggers;
 

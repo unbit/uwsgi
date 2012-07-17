@@ -456,6 +456,8 @@ struct uwsgi_logger {
 	socklen_t addr_len;
 	int count;
 	struct msghdr msg;
+	// used by choosen logger
+	char *arg;
 	struct uwsgi_logger *next;
 };
 
@@ -1356,8 +1358,7 @@ struct uwsgi_server {
 
 	struct uwsgi_logger *loggers;
 	struct uwsgi_logger *choosen_logger;
-	char *requested_logger;
-	char *choosen_logger_arg;
+	struct uwsgi_string_list *requested_logger;
 
 	int threaded_logger;
 	pthread_mutex_t threaded_logger_lock;
@@ -2823,6 +2824,7 @@ void uwsgi_build_cap(char *);
 #endif
 
 void uwsgi_register_logger(char *, ssize_t (*func)(struct uwsgi_logger *, char *, size_t));
+void uwsgi_append_logger(struct uwsgi_logger *);
 struct uwsgi_logger *uwsgi_get_logger(char *);
 
 char *uwsgi_getsockname(int);

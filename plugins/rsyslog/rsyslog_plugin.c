@@ -14,7 +14,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 
 	if (!ul->configured) {
 
-                if (!uwsgi.choosen_logger_arg) {
+                if (!ul->arg) {
 			uwsgi_log_safe("invalid rsyslog syntax\n");
 			exit(1);
 		}
@@ -27,7 +27,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 
 		uwsgi_socket_nb(ul->fd);
 
-                char *comma = strchr(uwsgi.choosen_logger_arg, ',');
+                char *comma = strchr(ul->arg, ',');
 		if (comma) {
 			ul->data = comma+1;
                 	*comma = 0;
@@ -37,13 +37,13 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
 		}
 
 
-                char *port = strchr(uwsgi.choosen_logger_arg, ':');
+                char *port = strchr(ul->arg, ':');
                 if (port) {
 			portn = atoi(port+1);
 			*port = 0;
 		}
 
-		ul->addr_len = socket_to_in_addr(uwsgi.choosen_logger_arg, NULL, portn, &ul->addr.sa_in);
+		ul->addr_len = socket_to_in_addr(ul->arg, NULL, portn, &ul->addr.sa_in);
 
 		if (port) *port = ':';
 		if (comma) *comma = ',';

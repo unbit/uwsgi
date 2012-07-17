@@ -8,19 +8,19 @@ ssize_t uwsgi_socket_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 
 	if (!ul->configured) {
 
-		char *comma = strchr(uwsgi.choosen_logger_arg, ',');
+		char *comma = strchr(ul->arg, ',');
 		if (comma) {
 			ul->data = comma+1;
 			*comma = 0;
 		}
 
-        	char *colon = strchr(uwsgi.choosen_logger_arg, ':');
+        	char *colon = strchr(ul->arg, ':');
         	if (colon) {
                 	family = AF_INET;
-                	ul->addr_len = socket_to_in_addr(uwsgi.choosen_logger_arg, colon, 0, &ul->addr.sa_in);
+                	ul->addr_len = socket_to_in_addr(ul->arg, colon, 0, &ul->addr.sa_in);
         	}
         	else {
-                	ul->addr_len = socket_to_un_addr(uwsgi.choosen_logger_arg, &ul->addr.sa_un);
+                	ul->addr_len = socket_to_un_addr(ul->arg, &ul->addr.sa_un);
         	}
 
         	ul->fd = socket(family, SOCK_DGRAM, 0);

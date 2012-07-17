@@ -296,7 +296,7 @@ ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 
 	if (!ul->configured) {
 
-		if (!uwsgi.choosen_logger_arg) {
+		if (!ul->arg) {
 			uwsgi_log_safe("invalid zeromq syntax\n");
 			exit(1);
 		}
@@ -313,7 +313,7 @@ ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 			exit(1);
 		}
 
-		if (zmq_connect(ul->data, uwsgi.choosen_logger_arg) < 0) {
+		if (zmq_connect(ul->data, ul->arg) < 0) {
 			uwsgi_error_safe("zmq_connect()");
 			exit(1);
 		}

@@ -19,7 +19,7 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 
 	if (!ul->configured) {
 
-		if (!uwsgi.choosen_logger_arg) {
+		if (!ul->arg) {
 			uwsgi_log_safe("invalid graylog2 syntax\n");
 			exit(1);
 		}
@@ -32,7 +32,7 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 
 		uwsgi_socket_nb(ul->fd);
 
-		char *comma = strchr(uwsgi.choosen_logger_arg, ',');
+		char *comma = strchr(ul->arg, ',');
 		if (!comma) {
 			uwsgi_log_safe("invalid graylog2 syntax\n");
                         exit(1);
@@ -42,13 +42,13 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 
 		*comma = 0;
 
-		char *colon = strchr(uwsgi.choosen_logger_arg, ':');
+		char *colon = strchr(ul->arg, ':');
 		if (!colon) {
 			uwsgi_log_safe("invalid graylog2 syntax\n");
                         exit(1);
 		}
 
-		ul->addr_len = socket_to_in_addr(uwsgi.choosen_logger_arg, colon, 0, &ul->addr.sa_in);
+		ul->addr_len = socket_to_in_addr(ul->arg, colon, 0, &ul->addr.sa_in);
 
 		*comma = ',';
 

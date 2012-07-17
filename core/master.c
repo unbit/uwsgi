@@ -266,7 +266,11 @@ int uwsgi_master_log(void) {
 	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
 	if (rlen > 0) {
 		if (uwsgi.choosen_logger) {
-			uwsgi.choosen_logger->func(uwsgi.choosen_logger, uwsgi.log_master_buf, rlen);
+			struct uwsgi_logger *ul = uwsgi.choosen_logger; 
+			while(ul) {
+				ul->func(ul, uwsgi.log_master_buf, rlen);
+				ul = ul->next;
+			}
 		}
 		else {
 			rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);

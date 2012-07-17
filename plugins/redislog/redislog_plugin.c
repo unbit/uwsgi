@@ -56,8 +56,8 @@ ssize_t uwsgi_redis_logger(struct uwsgi_logger *ul, char *message, size_t len) {
 
 	if (!ul->configured) {
 
-        	if (uwsgi.choosen_logger_arg != NULL) {
-			char *logarg = uwsgi_str(uwsgi.choosen_logger_arg);
+        	if (ul->arg != NULL) {
+			char *logarg = uwsgi_str(ul->arg);
 			char *comma1 = strchr(logarg, ',');
 			if (!comma1) {
 				uredislog.address = logarg;

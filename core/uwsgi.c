@@ -336,7 +336,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"logfile-chmod", required_argument, 0, "chmod logfiles", uwsgi_opt_logfile_chmod, NULL, 0},
 	{"log-syslog", optional_argument, 0, "log to syslog", uwsgi_opt_set_logger, "syslog", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-socket", required_argument, 0, "send logs to the specified socket", uwsgi_opt_set_logger, "socket", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
-	{"logger", required_argument, 0, "set logger system", uwsgi_opt_set_logger, NULL, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"logger", required_argument, 0, "set/append a logger", uwsgi_opt_set_logger, NULL, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -1795,25 +1795,37 @@ int main(int argc, char *argv[], char *envp[]) {
 	// setup master logging
 	if (uwsgi.log_master) {
 
-		if (uwsgi.requested_logger) {
-			char *colon = strchr(uwsgi.requested_logger, ':');
+		struct uwsgi_string_list *usl = uwsgi.requested_logger;
+		while(usl) {
+			char *colon = strchr(usl->value, ':');
 			if (colon) {
 				*colon = 0;
 			}
 
-			uwsgi.choosen_logger = uwsgi_get_logger(uwsgi.requested_logger);
-			if (!uwsgi.choosen_logger) {
-				uwsgi_log("unable to find logger %s\n", uwsgi.requested_logger);
+			struct uwsgi_logger *choosen_logger = uwsgi_get_logger(usl->value);
+			if (!choosen_logger) {
+				uwsgi_log("unable to find logger %s\n", usl->value);
 				exit(1);
 			}
 
+			// make a copy of the logger
+			struct uwsgi_logger *copy_of_choosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
+			memcpy(copy_of_choosen_logger, choosen_logger, sizeof(struct uwsgi_logger));
+			choosen_logger = copy_of_choosen_logger;
+			choosen_logger->next = NULL;
+
 			if (colon) {
-				uwsgi.choosen_logger_arg = colon + 1;
-				if (*uwsgi.choosen_logger_arg == 0) {
-					uwsgi.choosen_logger_arg = NULL;
+				choosen_logger->arg = colon + 1;
+				// check for empty string
+				if (*choosen_logger->arg == 0) {
+					choosen_logger->arg = NULL;
 				}
 				*colon = ':';
 			}
+
+			uwsgi_append_logger(choosen_logger);
+
+			usl = usl->next;
 
 		}
 
@@ -3751,10 +3763,10 @@ void uwsgi_opt_set_logger(char *opt, char *value, void *prefix) {
 		value = "";
 
 	if (prefix) {
-		uwsgi.requested_logger = uwsgi_concat3((char *) prefix, ":", value);
+		uwsgi_string_new_list(&uwsgi.requested_logger, uwsgi_concat3((char *) prefix, ":", value));
 	}
 	else {
-		uwsgi.requested_logger = uwsgi_str(value);
+		uwsgi_string_new_list(&uwsgi.requested_logger, uwsgi_str(value));
 	}
 }
 

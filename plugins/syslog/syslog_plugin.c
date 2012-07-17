@@ -66,11 +66,11 @@ ssize_t uwsgi_syslog_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 
         	setlinebuf(stderr);
 
-        	if (uwsgi.choosen_logger_arg == NULL) {
+        	if (ul->arg == NULL) {
                 	syslog_opts = "uwsgi";
         	}
 		else {
-			char *colon = strchr(uwsgi.choosen_logger_arg, ',');
+			char *colon = strchr(ul->arg, ',');
 			if (colon) {
 				struct uwsgi_syslog_facility *fn = usf;
 				while(fn->name) {
@@ -80,11 +80,11 @@ ssize_t uwsgi_syslog_logger(struct uwsgi_logger *ul, char *message, size_t len) 
 					}
 					fn++;
 				}
-				syslog_opts = uwsgi_str(uwsgi.choosen_logger_arg);
-				syslog_opts[colon-uwsgi.choosen_logger_arg] = 0;
+				syslog_opts = uwsgi_str(ul->arg);
+				syslog_opts[colon-ul->arg] = 0;
 			}
 			else {
-				syslog_opts = uwsgi.choosen_logger_arg;
+				syslog_opts = ul->arg;
 			}
 		}
 
