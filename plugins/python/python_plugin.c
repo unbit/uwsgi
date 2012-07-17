@@ -1780,6 +1780,48 @@ void uwsgi_python_harakiri(int wid) {
 
 }
 
+ssize_t uwsgi_python_logger(struct uwsgi_logger *ul, char *message, size_t len) {
+	if (!Py_IsInitialized()) return -1;
+
+	UWSGI_GET_GIL
+
+	if (!ul->configured) {
+		PyObject *py_logging = PyImport_ImportModule("logging");
+		if (!py_logging) goto clear;
+		PyObject *py_logging_dict = PyModule_GetDict(py_logging);
+		if (!py_logging_dict) goto clear;
+		PyObject *py_getLogger = PyDict_GetItemString(py_logging_dict, "getLogger");
+		if (!py_getLogger) goto clear;
+		PyObject *py_getLogger_args = NULL;
+		if (ul->arg) {
+			py_getLogger_args = PyTuple_New(1);
+			PyTuple_SetItem(py_getLogger_args, 0, PyString_FromString(ul->arg));
+		}
+                ul->data = (void *) PyEval_CallObject(py_getLogger, py_getLogger_args);
+                if (PyErr_Occurred()) {
+                	PyErr_Clear();
+                }
+		Py_XDECREF(py_getLogger_args);
+		if (!ul->data) goto clear;
+		ul->configured = 1;
+	}
+
+	PyObject_CallMethod((PyObject *) ul->data, "error", "(s#)", message, len);
+        if (PyErr_Occurred()) {
+        	PyErr_Clear();
+        }
+	UWSGI_RELEASE_GIL
+	return len;
+clear:
+
+	UWSGI_RELEASE_GIL
+	return -1;
+}
+
+void uwsgi_python_on_load() {
+	uwsgi_register_logger("python", uwsgi_python_logger);
+}
+
 #ifndef UWSGI_PYPY
 struct uwsgi_plugin python_plugin = {
 	.name = "python",
@@ -1823,6 +1865,8 @@ struct uwsgi_plugin pypy_plugin = {
 
 	.mule = uwsgi_python_mule,
 	.mule_msg = uwsgi_python_mule_msg,
+
+	.on_load = uwsgi_python_on_load,
 
 	.spooler = uwsgi_python_spooler,
 
