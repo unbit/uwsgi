@@ -654,7 +654,7 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 					PyErr_Print();
 					exit(UWSGI_FAILED_APP_CODE);
 				}
-				PyTuple_SetItem(paste_logger_arg, 0, PyString_FromString(paste+7));
+				PyTuple_SetItem(paste_logger_arg, 0, UWSGI_PYFROMSTRING(paste+7));
 				if (python_call(paste_logger_fileConfig, paste_logger_arg, 0, NULL)) {
 					PyErr_Print();
 				}
@@ -686,7 +686,7 @@ PyObject *uwsgi_paste_loader(void *arg1) {
 		exit(UWSGI_FAILED_APP_CODE);
 	}
 
-	if (PyTuple_SetItem(paste_arg, 0, PyString_FromString(paste))) {
+	if (PyTuple_SetItem(paste_arg, 0, UWSGI_PYFROMSTRING(paste))) {
 		PyErr_Print();
 		exit(UWSGI_FAILED_APP_CODE);
 	}
