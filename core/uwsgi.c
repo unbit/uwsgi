@@ -232,8 +232,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"yal", required_argument, 'y', "load config from yaml file", uwsgi_opt_load_yml, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_JSON
-	{"json", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, 0},
-	{"js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, 0},
+	{"json", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
+	{"js", required_argument, 'j', "load config from json file", uwsgi_opt_load_json, NULL, UWSGI_OPT_IMMEDIATE},
 #endif
 #ifdef UWSGI_SQLITE3
 	{"sqlite3", required_argument, 0, "load config from sqlite3 db", uwsgi_opt_load_sqlite3, NULL, UWSGI_OPT_IMMEDIATE},
