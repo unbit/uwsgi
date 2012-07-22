@@ -1427,7 +1427,9 @@ void *uwsgi_python_autoreloader_thread(void *foobar) {
 #ifndef UWSGI_PYPY
 void uwsgi_python_suspend(struct wsgi_request *wsgi_req) {
 
+	PyGILState_STATE pgst = PyGILState_Ensure();
 	PyThreadState *tstate = PyThreadState_GET();
+	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
 		up.current_recursion_depth[wsgi_req->async_id] = tstate->recursion_depth;
@@ -1637,7 +1639,9 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 #ifndef UWSGI_PYPY
 void uwsgi_python_resume(struct wsgi_request *wsgi_req) {
 
+	PyGILState_STATE pgst = PyGILState_Ensure();
 	PyThreadState *tstate = PyThreadState_GET();
+	PyGILState_Release(pgst);
 
 	if (wsgi_req) {
 		tstate->recursion_depth = up.current_recursion_depth[wsgi_req->async_id];
