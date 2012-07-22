@@ -341,6 +341,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
+		wi = &uwsgi_apps[wsgi_req->app_id];
 		UWSGI_GET_GIL
 		// get rid of timeout
 		if (wsgi_req->async_timed_out) {
@@ -359,6 +360,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.ready_fd", Py_None);
 		}
 		int ret = manage_python_response(wsgi_req);
+		if (ret == UWSGI_OK) goto end;
 		UWSGI_RELEASE_GIL
 		return ret;
 	}
@@ -508,6 +510,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	// this object must be freed/cleared always
+end:
 	if (wsgi_req->async_input) {
                 Py_DECREF((PyObject *)wsgi_req->async_input);
         }
