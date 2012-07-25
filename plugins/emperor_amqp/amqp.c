@@ -610,8 +610,8 @@ static int amqp_send_queue_declare(int fd, char *queue) {
 	amqp_send(fd, &shortsize, 1);
 	amqp_send(fd, queue, shortsize);
 
-	// empty bits
-	amqp_send(fd, "\0", 1);
+	// set auto-delete bit
+	amqp_send(fd, "\x08", 1);
 	// empty table
 	amqp_send(fd, "\0\0\0\0", 4);
 
