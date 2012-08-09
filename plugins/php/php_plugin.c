@@ -188,6 +188,18 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 		h = zend_llist_get_next_ex(&sapi_headers->headers, &pos);
 	}
 
+	struct uwsgi_string_list *ah = uwsgi.additional_headers;
+        while(ah) {
+                        iov[0].iov_base = ah->value;
+                        iov[0].iov_len = ah->len;
+                        iov[1].iov_base = "\r\n";
+                        iov[1].iov_len = 2;
+                        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
+                        wsgi_req->header_cnt++;
+                        ah = ah->next;
+        }
+
+
 	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
 	
 	return SAPI_HEADER_SENT_SUCCESSFULLY;

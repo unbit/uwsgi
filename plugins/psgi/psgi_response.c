@@ -104,7 +104,10 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
         // put them in hvec
         for(i=0; i<=av_len(headers); i++) {
-
+		if (wsgi_req->header_cnt+1 > uwsgi.max_vars) {
+			uwsgi_log("no more space in iovec. consider increasing max-vars...\n");
+			break;
+		}
                 vi = (i*2)+base;
                 hitem = av_fetch(headers,i,0);
                 chitem = SvPV(*hitem, hlen);
@@ -123,10 +126,26 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                 i++;
         }
 
-	vi = (i*2)+base;
-        wsgi_req->hvec[vi].iov_base = "\r\n"; wsgi_req->hvec[vi].iov_len = 2;
+	int j = (i*2)+base;
+	struct uwsgi_string_list *ah = uwsgi.additional_headers;
+        while(ah) {
+		if (wsgi_req->header_cnt+1 > uwsgi.max_vars) {
+			uwsgi_log("no more space in iovec. consider increasing max-vars...\n");
+			break;
+		}
+                wsgi_req->header_cnt++;
+                wsgi_req->hvec[j].iov_base = ah->value;
+                wsgi_req->hvec[j].iov_len = ah->len;
+                j++;
+                wsgi_req->hvec[j].iov_base = "\r\n";
+                wsgi_req->hvec[j].iov_len = 2;
+                j++;
+                ah = ah->next;
+ 	}
 
-        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, vi+1);
+        wsgi_req->hvec[j].iov_base = "\r\n"; wsgi_req->hvec[j].iov_len = 2;
+
+        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, j+1);
 
         hitem = av_fetch(response, 2, 0);
 
