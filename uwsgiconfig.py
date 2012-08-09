@@ -218,6 +218,10 @@ def build_uwsgi(uc, print_only=False):
                 path = 'plugins/%s' % p
                 path = path.rstrip('/')
 
+                if not os.path.isdir(path):
+                    print("Error: plugin '%s' not found" % p)
+                    sys.exit(1)
+
                 sys.path.insert(0, path)
                 import uwsgiplugin as up
                 reload(up)
@@ -994,6 +998,10 @@ class uConf(object):
 
 def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     path = path.rstrip('/')
+
+    if not os.path.isdir(path):
+        print("Error: unable to find directory '%s'" % path)
+        sys.exit(1)
 
     sys.path.insert(0, path)
     import uwsgiplugin as up
