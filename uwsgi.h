@@ -690,6 +690,7 @@ struct uwsgi_plugin {
 	uint16_t(*rpc) (void *, uint8_t, char **, uint16_t *, char *);
 
 	void (*jail) (int (*)(void *), char **);
+	void (*before_privileges_drop)(void);
 
 	int (*mule)(char *);
 	int (*mule_msg)(char *, size_t);

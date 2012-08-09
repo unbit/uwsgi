@@ -636,6 +636,14 @@ void uwsgi_as_root() {
 
 		}
 
+		// ok try to call some special hook before finally dropping privileges
+		int i;
+		for (i = 0; i < uwsgi.gp_cnt; i++) {
+                	if (uwsgi.gp[i]->before_privileges_drop) {
+                        	uwsgi.gp[i]->before_privileges_drop();
+                	}
+        	}
+
 		if (uwsgi.gid) {
 			if (!uwsgi.master_as_root)
 				uwsgi_log("setgid() to %d\n", uwsgi.gid);
