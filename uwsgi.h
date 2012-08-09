@@ -1427,6 +1427,7 @@ struct uwsgi_server {
 
 	// store rlimit
 	struct rlimit rl;
+	struct rlimit rl_nproc;
 	size_t limit_post;
 
 	// set process priority
