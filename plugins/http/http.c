@@ -518,7 +518,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 		event_queue_add_fd_read(ucs->queue, cs->fd);
 #endif
 		if (len <= 0) {
-			// check for blocking operation non on-blocking socket
+			// check for blocking operation on non-blocking socket
                         if (len < 0 && cs->ugs->nb && errno == EINPROGRESS) break;
 			corerouter_close_session(ucr, cs);
 			break;

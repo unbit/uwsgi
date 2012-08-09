@@ -367,6 +367,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"lazy-apps", no_argument, 0, "load apps in each worker instead of the master", uwsgi_opt_true, &uwsgi.lazy_apps, 0},
 	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, UWSGI_OPT_MASTER},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
+	{"cheaper-initial", required_argument, 0, "set the initial number of processes to spawn in cheaper mode", uwsgi_opt_set_int, &uwsgi.cheaper_initial, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning)", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-overload", required_argument, 0, "increase workers after specified overload", uwsgi_opt_set_64bit, &uwsgi.cheaper_overload, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
@@ -3013,8 +3014,10 @@ nextsock:
 
 	if (!uwsgi.cheap) {
 		if (uwsgi.cheaper && uwsgi.cheaper_count) {
+			int nproc = uwsgi.cheaper_initial;
+			if (!nproc) nproc = uwsgi.cheaper_count;
 			for (i = 1; i <= uwsgi.numproc; i++) {
-				if (i <= uwsgi.cheaper_count) {
+				if (i <= nproc) {
 					if (uwsgi_respawn_worker(i))
 						break;
 					gettimeofday(&last_respawn, NULL);
