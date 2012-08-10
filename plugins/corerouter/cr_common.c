@@ -36,17 +36,21 @@ ssize_t uwsgi_cr_simple_instance_recv(struct uwsgi_corerouter *uc, struct corero
 
 
 ssize_t uwsgi_cr_simple_send(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
-        ssize_t ret;
+        ssize_t ret = -1;
         char *tmp_buf;
+	off_t pos = 0;
+
+	size_t partial_len = len;
+	off_t partial_pos = 0;
+
         if (cs->write_queue_len > 0) {
                 ret = send(cs->fd, cs->write_queue, cs->write_queue_len, 0);
                 if (ret > 0) {
                         cs->write_queue_len-=ret;
-                        cs->write_queue_pos+=ret;
+			pos = ret;
                         if (cs->write_queue_len == 0) {
                                 free(cs->write_queue);
                                 cs->write_queue = NULL;
-                                cs->write_queue_pos = 0;
                                 if (cs->fd_state) {
                                         event_queue_fd_write_to_read(uc->queue, cs->fd);
                                         cs->fd_state = 0;
@@ -68,9 +72,13 @@ ssize_t uwsgi_cr_simple_send(struct uwsgi_corerouter *uc, struct corerouter_sess
         }
 
 next:
+	if (len == 0) goto end;
+
         ret = send(cs->fd, buf, len, 0);
         if (ret > 0) {
                 if ((size_t)ret == len) return len;
+		partial_len-=ret;
+		partial_pos = ret;
                 goto blocking;
         }
 
@@ -84,6 +92,12 @@ next:
         uwsgi_error("send()");
         return -1;
 
+end:
+	if (cs->write_queue_close) {
+		return 0;
+	}
+	return ret;
+
 blocking:
         // wait for write
         if (!cs->fd_state) {
@@ -91,19 +105,18 @@ blocking:
                 cs->fd_state = 1;
         }
         // add new datas to the buffer
-	tmp_buf = malloc(cs->write_queue_len+len);
+	tmp_buf = malloc(cs->write_queue_len+partial_len);
         if (!tmp_buf) {
                 uwsgi_error("malloc()");
                 return -1;
         }
 	if (cs->write_queue_len>0) {
-        	memcpy(tmp_buf, cs->write_queue+cs->write_queue_pos, cs->write_queue_len);
+        	memcpy(tmp_buf, cs->write_queue+pos, cs->write_queue_len);
 		free(cs->write_queue);
 	}
-        memcpy(tmp_buf+cs->write_queue_len, buf, len);
+        memcpy(tmp_buf+cs->write_queue_len, buf+partial_pos, partial_len);
 	cs->write_queue = tmp_buf;
-	cs->write_queue_pos = 0;
-        cs->write_queue_len+=len;
+        cs->write_queue_len+=partial_len;
         errno = EINPROGRESS;
         return -1;
 }
@@ -111,15 +124,19 @@ blocking:
 ssize_t uwsgi_cr_simple_instance_send(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
         ssize_t ret;
         char *tmp_buf;
+	off_t pos = 0;
+
+	size_t partial_len = len;
+        off_t partial_pos = 0;
+
         if (cs->instance_write_queue_len > 0) {
                 ret = send(cs->instance_fd, cs->instance_write_queue, cs->instance_write_queue_len, 0);
                 if (ret > 0) {
                         cs->instance_write_queue_len-=ret;
-                        cs->instance_write_queue_pos+=ret;
+                        pos=ret;
                         if (cs->instance_write_queue_len == 0) {
                                 free(cs->instance_write_queue);
                                 cs->instance_write_queue = NULL;
-                                cs->instance_write_queue_pos = 0;
                                 if (cs->instance_fd_state) {
                                         event_queue_fd_write_to_read(uc->queue, cs->instance_fd);
                                         cs->instance_fd_state = 0;
@@ -144,6 +161,8 @@ next:
         ret = send(cs->instance_fd, buf, len, 0);
         if (ret > 0) {
                 if ((size_t)ret == len) return len;
+		partial_len-=ret;
+                partial_pos = ret;
                 goto blocking;
         }
 
@@ -164,19 +183,18 @@ blocking:
                 cs->instance_fd_state = 1;
         }
 	// add new datas to the buffer
-        tmp_buf = malloc(cs->instance_write_queue_len+len);
+        tmp_buf = malloc(cs->instance_write_queue_len+partial_len);
         if (!tmp_buf) {
                 uwsgi_error("malloc()");
                 return -1;
         }
         if (cs->instance_write_queue_len>0) {
-                memcpy(tmp_buf, cs->instance_write_queue+cs->instance_write_queue_pos, cs->instance_write_queue_len);
+                memcpy(tmp_buf, cs->instance_write_queue+pos, cs->instance_write_queue_len);
 		free(cs->instance_write_queue);
         }
-        memcpy(tmp_buf+cs->instance_write_queue_len, buf, len);
+        memcpy(tmp_buf+cs->instance_write_queue_len, buf+partial_pos, partial_len);
         cs->instance_write_queue = tmp_buf;
-        cs->instance_write_queue_pos = 0;
-        cs->instance_write_queue_len+=len;
+        cs->instance_write_queue_len+=partial_len;
         errno = EINPROGRESS;
         return -1;
 }

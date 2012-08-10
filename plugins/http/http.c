@@ -728,6 +728,19 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 		// data from instance
 		if (interesting_fd == cs->instance_fd) {
+			// writable ?
+			if (cs->instance_fd_state) {
+				len = cs->instance_send(&uhttp.cr, cs, NULL, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+				event_queue_add_fd_write(uhttp_queue, cs->instance_fd);
+#endif
+                        	if (len <= 0) {
+                                	if (len < 0 && errno == EINPROGRESS) break;
+                                	corerouter_close_session(ucr, cs);
+                        	}
+                                break;
+			}
+
 			len = cs->instance_recv(&uhttp.cr, cs, hs->buffer, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT
 			event_queue_add_fd_read(uhttp_queue, cs->instance_fd);
@@ -775,6 +788,11 @@ To have a reliable implementation, we need to reset a bunch of values
 						}
 						break;
 					}
+					// something to send in the queue ?
+					if (cs->write_queue) {
+						cs->write_queue_close = 1;
+						break;
+					}
 #endif
 				}
 				corerouter_close_session(ucr, cs);
@@ -795,8 +813,21 @@ To have a reliable implementation, we need to reset a bunch of values
 				cs->un->transferred += len;
 		}
 
-		// body from client
+		// body from client or client ready to receive
 		else if (interesting_fd == cs->fd) {
+
+			// writable ?
+			if (cs->fd_state) {
+				len = cs->send(&uhttp.cr, cs, NULL, 0);
+#ifdef UWSGI_EVENT_USE_PORT
+				event_queue_add_fd_write(uhttp_queue, cs->fd);
+#endif
+                        	if (len <= 0) {
+                                	if (len < 0 && errno == EINPROGRESS) break;
+                                	corerouter_close_session(ucr, cs);
+                        	}
+                                break;
+			}
 
 			len = cs->recv(&uhttp.cr, cs, bbuf, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT

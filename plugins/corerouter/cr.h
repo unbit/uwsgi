@@ -135,11 +135,10 @@ struct corerouter_session {
 
 	char *write_queue;
 	size_t write_queue_len;
-	off_t write_queue_pos;
+	int write_queue_close;
 
 	char *instance_write_queue;
 	size_t instance_write_queue_len;
-	off_t instance_write_queue_pos;
 
 	void (*close)(struct uwsgi_corerouter *, struct corerouter_session *);
 
