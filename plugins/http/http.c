@@ -171,6 +171,7 @@ struct http_session {
 	char uss[MAX_HTTP_VEC * 2];
 
 	char buffer[UMAX16];
+	size_t buffer_len;
 	char path_info[UMAX16];
 	uint16_t path_info_len;
 
@@ -799,6 +800,7 @@ To have a reliable implementation, we need to reset a bunch of values
 				break;
 			}
 
+			hs->buffer_len = len;
 			len = cs->send(&uhttp.cr, cs, hs->buffer, len);
 			if (len <= 0) {
 				if (len < 0 && errno == EINPROGRESS) break;
@@ -817,8 +819,13 @@ To have a reliable implementation, we need to reset a bunch of values
 		else if (interesting_fd == cs->fd) {
 
 			// writable ?
-			if (cs->fd_state && !cs->ugs->mode == UWSGI_HTTP_SSL) {
-				len = cs->send(&uhttp.cr, cs, NULL, 0);
+			if (cs->fd_state) {
+				if (!cs->ugs->mode == UWSGI_HTTP_SSL) {
+					len = cs->send(&uhttp.cr, cs, NULL, 0);
+				}
+				else {
+					len = cs->send(&uhttp.cr, cs, hs->buffer,hs->buffer_len);
+				}
 #ifdef UWSGI_EVENT_USE_PORT
 				event_queue_add_fd_write(uhttp_queue, cs->fd);
 #endif
@@ -961,25 +968,36 @@ ssize_t uwsgi_http_ssl_send(struct uwsgi_corerouter *cr, struct corerouter_sessi
 	struct http_session *hs = (struct http_session *) cs;
         int ret = SSL_write(hs->ssl, buf, len);
 	if (ret > 0) {
-		if (hs->crs.fd_state) {
-			event_queue_fd_write_to_read(cr->queue, hs->crs.fd);
-			hs->crs.fd_state = 0;
+		if (cs->instance_stopped) {
+			event_queue_add_fd_read(cr->queue, cs->instance_fd);
+			cs->instance_stopped = 0;	
+		}
+		if (cs->fd_state) {
+			event_queue_fd_write_to_read(cr->queue, cs->fd);
+			cs->fd_state = 0;
 		}
 		return ret;
 	}
-	if (ret == 0) return 0;
 	int err = SSL_get_error(hs->ssl, ret);
 	if (err == SSL_ERROR_WANT_READ) {
-		if (hs->crs.fd_state) {
-			event_queue_fd_write_to_read(cr->queue, hs->crs.fd);
-			hs->crs.fd_state = 0;
+		if (cs->instance_fd != -1) {
+			event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
+			cs->instance_stopped = 1;
+		}
+		if (cs->fd_state) {
+			event_queue_fd_write_to_read(cr->queue, cs->fd);
+			cs->fd_state = 0;
 		}
 		errno = EINPROGRESS;
 		return -1;
 	}
 	else if (err == SSL_ERROR_WANT_WRITE) {
-		if (!hs->crs.fd_state) {
-			event_queue_fd_read_to_write(cr->queue, hs->crs.fd);
+		if (cs->instance_fd != -1) {
+			event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
+			cs->instance_stopped = 1;
+		}
+		if (!cs->fd_state) {
+			event_queue_fd_read_to_write(cr->queue, cs->fd);
 			cs->fd_state = 1;
 		}
 		errno = EINPROGRESS;
@@ -992,6 +1010,9 @@ ssize_t uwsgi_http_ssl_send(struct uwsgi_corerouter *cr, struct corerouter_sessi
 
 	else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
 		ERR_print_errors_fp(stderr);
+	}
+	
+	else if (err == SSL_ERROR_ZERO_RETURN) {
 		return 0;
 	}
 

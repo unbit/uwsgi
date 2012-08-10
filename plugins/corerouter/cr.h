@@ -87,6 +87,7 @@ struct corerouter_session {
 
         int fd;
         int instance_fd;
+        int instance_stopped;
         int status;
         uint8_t h_pos;
         uint16_t pos;
