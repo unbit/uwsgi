@@ -1504,6 +1504,7 @@ struct uwsgi_server {
 	int vassal_sos_backlog;
 
 	int no_defer_accept;
+	int so_keepalive;
 
 	int page_size;
 

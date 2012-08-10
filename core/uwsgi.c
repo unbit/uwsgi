@@ -255,6 +255,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server, 0},
 	{"command-mode", no_argument, 0, "force command mode", uwsgi_opt_true, &uwsgi.command_mode, UWSGI_OPT_IMMEDIATE},
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept, 0},
+	{"so-keepalive", no_argument, 0, "enable TCP KEEPALIVEs", uwsgi_opt_true, &uwsgi.so_keepalive, 0},
 	{"limit-as", required_argument, 0, "limit processes address space/vsz", uwsgi_opt_set_megabytes, &uwsgi.rl.rlim_max, 0},
 	{"limit-nproc", required_argument, 0, "limit the number of spawnable processes", uwsgi_opt_set_int, &uwsgi.rl_nproc.rlim_max, 0},
 	{"reload-on-as", required_argument, 0, "reload if address space is higher than specified megabytes", uwsgi_opt_set_megabytes, &uwsgi.reload_on_as, UWSGI_OPT_MEMORY},

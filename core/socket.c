@@ -586,6 +586,12 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	}
 
+	if (uwsgi.so_keepalive) {
+		if (setsockopt(serverfd, SOL_SOCKET, SO_KEEPALIVE, &uwsgi.so_keepalive, sizeof(int))) {
+			uwsgi_error("setsockopt()");
+		}
+	}
+
 
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
 		if (errno == EADDRINUSE) {
