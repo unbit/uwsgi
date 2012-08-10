@@ -817,7 +817,7 @@ To have a reliable implementation, we need to reset a bunch of values
 		else if (interesting_fd == cs->fd) {
 
 			// writable ?
-			if (cs->fd_state) {
+			if (cs->fd_state && !cs->ugs->mode == UWSGI_HTTP_SSL) {
 				len = cs->send(&uhttp.cr, cs, NULL, 0);
 #ifdef UWSGI_EVENT_USE_PORT
 				event_queue_add_fd_write(uhttp_queue, cs->fd);
