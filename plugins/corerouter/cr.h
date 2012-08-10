@@ -108,6 +108,10 @@ struct corerouter_session {
         int soopt;
         int timed_out;
 
+	// used for tracking required event
+	int fd_state;
+	int instance_fd_state;
+
         struct uwsgi_rb_timer *timeout;
         int instance_failed;
 
@@ -129,7 +133,21 @@ struct corerouter_session {
 
 	int keepalive;
 
+	char *write_queue;
+	size_t write_queue_len;
+	off_t write_queue_pos;
+
+	char *instance_write_queue;
+	size_t instance_write_queue_len;
+	off_t instance_write_queue_pos;
+
 	void (*close)(struct uwsgi_corerouter *, struct corerouter_session *);
+
+	ssize_t (*recv)(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);
+        ssize_t (*send)(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);
+
+	ssize_t (*instance_recv)(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);
+        ssize_t (*instance_send)(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);
@@ -163,3 +181,9 @@ int uwsgi_cr_map_use_to(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *, struct corerouter_session *);
 
 int uwsgi_courerouter_has_has_backends(struct uwsgi_corerouter *);
+
+ssize_t uwsgi_cr_simple_recv(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);
+ssize_t uwsgi_cr_simple_send(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);
+
+ssize_t uwsgi_cr_simple_instance_recv(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);
+ssize_t uwsgi_cr_simple_instance_send(struct uwsgi_corerouter *, struct corerouter_session *, char *, size_t);

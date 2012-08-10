@@ -10,6 +10,179 @@ extern struct uwsgi_server uwsgi;
 
 #include "cr.h"
 
+ssize_t uwsgi_cr_simple_recv(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
+        ssize_t ret = recv(cs->fd, buf, len, 0);
+        if (ret < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                        errno = EINPROGRESS;
+                        return -1;
+                }
+                uwsgi_error("recv()");
+        }
+        return ret;
+}
+
+ssize_t uwsgi_cr_simple_instance_recv(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
+        ssize_t ret = recv(cs->instance_fd, buf, len, 0);
+        if (ret < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                        errno = EINPROGRESS;
+                        return -1;
+                }
+                uwsgi_error("recv()");
+        }
+        return ret;
+}
+
+
+ssize_t uwsgi_cr_simple_send(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
+        ssize_t ret;
+        char *tmp_buf;
+        if (cs->write_queue_len > 0) {
+                ret = send(cs->fd, cs->write_queue, cs->write_queue_len, 0);
+                if (ret > 0) {
+                        cs->write_queue_len-=ret;
+                        cs->write_queue_pos+=ret;
+                        if (cs->write_queue_len == 0) {
+                                free(cs->write_queue);
+                                cs->write_queue = NULL;
+                                cs->write_queue_pos = 0;
+                                if (cs->fd_state) {
+                                        event_queue_fd_write_to_read(uc->queue, cs->fd);
+                                        cs->fd_state = 0;
+                                }
+                                goto next;
+                        }
+                        goto blocking;
+                }
+                else if (ret == 0) {
+                        return 0;
+                }
+                else {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                                goto blocking;
+                        }
+                        uwsgi_error("send()");
+                        return -1;
+                }
+        }
+
+next:
+        ret = send(cs->fd, buf, len, 0);
+        if (ret > 0) {
+                if ((size_t)ret == len) return len;
+                goto blocking;
+        }
+
+        if (ret == 0) {
+                return 0;
+        }
+
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                goto blocking;
+        }
+        uwsgi_error("send()");
+        return -1;
+
+blocking:
+        // wait for write
+        if (!cs->fd_state) {
+                event_queue_fd_read_to_write(uc->queue, cs->fd);
+                cs->fd_state = 1;
+        }
+        // add new datas to the buffer
+	tmp_buf = malloc(cs->write_queue_len+len);
+        if (!tmp_buf) {
+                uwsgi_error("malloc()");
+                return -1;
+        }
+	if (cs->write_queue_len>0) {
+        	memcpy(tmp_buf, cs->write_queue+cs->write_queue_pos, cs->write_queue_len);
+		free(cs->write_queue);
+	}
+        memcpy(tmp_buf+cs->write_queue_len, buf, len);
+	cs->write_queue = tmp_buf;
+	cs->write_queue_pos = 0;
+        cs->write_queue_len+=len;
+        errno = EINPROGRESS;
+        return -1;
+}
+
+ssize_t uwsgi_cr_simple_instance_send(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
+        ssize_t ret;
+        char *tmp_buf;
+        if (cs->instance_write_queue_len > 0) {
+                ret = send(cs->instance_fd, cs->instance_write_queue, cs->instance_write_queue_len, 0);
+                if (ret > 0) {
+                        cs->instance_write_queue_len-=ret;
+                        cs->instance_write_queue_pos+=ret;
+                        if (cs->instance_write_queue_len == 0) {
+                                free(cs->instance_write_queue);
+                                cs->instance_write_queue = NULL;
+                                cs->instance_write_queue_pos = 0;
+                                if (cs->instance_fd_state) {
+                                        event_queue_fd_write_to_read(uc->queue, cs->instance_fd);
+                                        cs->instance_fd_state = 0;
+                                }
+                                goto next;
+                        }
+                        goto blocking;
+                }
+                else if (ret == 0) {
+                        return 0;
+                }
+                else {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                                goto blocking;
+                        }
+                        uwsgi_error("send()");
+                        return -1;
+                }
+        }
+
+next:
+        ret = send(cs->instance_fd, buf, len, 0);
+        if (ret > 0) {
+                if ((size_t)ret == len) return len;
+                goto blocking;
+        }
+
+        if (ret == 0) {
+                return 0;
+        }
+
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                goto blocking;
+        }
+        uwsgi_error("send()");
+        return -1;
+
+blocking:
+        // wait for write
+        if (!cs->instance_fd_state) {
+                event_queue_fd_read_to_write(uc->queue, cs->instance_fd);
+                cs->instance_fd_state = 1;
+        }
+	// add new datas to the buffer
+        tmp_buf = malloc(cs->instance_write_queue_len+len);
+        if (!tmp_buf) {
+                uwsgi_error("malloc()");
+                return -1;
+        }
+        if (cs->instance_write_queue_len>0) {
+                memcpy(tmp_buf, cs->instance_write_queue+cs->instance_write_queue_pos, cs->instance_write_queue_len);
+		free(cs->instance_write_queue);
+        }
+        memcpy(tmp_buf+cs->instance_write_queue_len, buf, len);
+        cs->instance_write_queue = tmp_buf;
+        cs->instance_write_queue_pos = 0;
+        cs->instance_write_queue_len+=len;
+        errno = EINPROGRESS;
+        return -1;
+}
+
+
+
 void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;

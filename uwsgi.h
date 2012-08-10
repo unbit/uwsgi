@@ -414,7 +414,6 @@ struct uwsgi_gateway_socket {
 	// this requires UDP
 	int subscription;
 	int shared;
-	int nb;
 
 	char *owner;
 	struct uwsgi_gateway *gateway;

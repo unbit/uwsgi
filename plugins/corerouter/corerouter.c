@@ -297,6 +297,12 @@ end:
 		free(cr_session->buf_file_name);
 	}
 
+	if (cr_session->write_queue)
+		free(cr_session->write_queue);
+
+	if (cr_session->instance_write_queue)
+		free(cr_session->instance_write_queue);
+
 	// could be used to free additional resources
 	if (cr_session->close)
 		cr_session->close(ucr, cr_session);
@@ -362,6 +368,11 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 
         ucr->cr_table[new_connection]->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
 	ucr->cr_table[new_connection]->ugs = ugs;
+
+	ucr->cr_table[new_connection]->recv = uwsgi_cr_simple_recv;
+	ucr->cr_table[new_connection]->send = uwsgi_cr_simple_send;
+	ucr->cr_table[new_connection]->instance_recv = uwsgi_cr_simple_instance_recv;
+	ucr->cr_table[new_connection]->instance_send = uwsgi_cr_simple_instance_send;
 
 	ucr->alloc_session(ucr, ugs, ucr->cr_table[new_connection], cr_addr, cr_addr_len);
 	event_queue_add_fd_read(ucr->queue, new_connection);
@@ -534,15 +545,9 @@ void uwsgi_corerouter_loop(int id, void *data) {
 							break;
 						}
 
-						// set socket blocking mode, on non-linux platforms, clients get the server mode
-#ifndef __linux__
-						if (!ugs->nb) {
-                                                	uwsgi_socket_b(new_connection);
-						}
-#else
-						if (ugs->nb) {
-                                                	uwsgi_socket_nb(new_connection);
-						}
+						// set socket in non-blocking mode, on non-linux platforms, clients get the server mode
+#ifdef __linux__
+                                                uwsgi_socket_nb(new_connection);
 #endif
 
 						corerouter_alloc_session(ucr, ugs, new_connection, (struct sockaddr *) &cr_addr, cr_addr_len);

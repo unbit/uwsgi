@@ -85,8 +85,6 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 
 	// initialize ssl context
 	ugs->ctx = uwsgi_ssl_new_server_context(uwsgi_concat3(ucr->short_name, "-", ugs->name),crt, key, ciphers, client_ca);
-	// the clients must be put in non-blocking mode
-	ugs->nb = 1;
 	// set the ssl mode
 	ugs->mode = UWSGI_HTTP_SSL;
 
@@ -188,10 +186,6 @@ struct http_session {
 	BIO *ssl_bio;
 	char *ssl_cc;
 #endif
-	int fd_state;
-
-	ssize_t (*recv)(struct http_session *, char *, size_t);
-	ssize_t (*send)(struct http_session *, char *, size_t);
 
 	in_addr_t ip_addr;
 	char ip[INET_ADDRSTRLEN];
@@ -451,16 +445,12 @@ int http_parse(struct http_session *h_session) {
 					continue;
 				}
 			}
+
+			// this is an hack with dumb/wrong/useless error checking
 			if (uhttp.manage_expect) {
 				if (!uwsgi_strncmp("Expect: 100-continue", 20, base, ptr - base)) {
-					if (send(h_session->crs.fd, protocol, protocol_len, 0) == (ssize_t) protocol_len) {
-						if (send(h_session->crs.fd, " 100 Continue\r\n\r\n", 17, 0) != 17) {
-							uwsgi_error("send()");
-						}
-					}
-					else {
-						uwsgi_error("send()");
-					}
+					if (h_session->crs.send(&uhttp.cr, &h_session->crs, protocol, protocol_len) == (ssize_t) protocol_len)
+						h_session->crs.send(&uhttp.cr, &h_session->crs, " 100 Continue\r\n\r\n", 17);
 				}
 			}
 			h_session->uh.pktsize += http_add_uwsgi_header(h_session, h_session->iov, h_session->uss + c, h_session->uss + c + 2, base, ptr - base, &c);
@@ -513,13 +503,13 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			goto choose_node;
 		}
 
-		len = hs->recv(hs, hs->buffer + cs->h_pos, UMAX16 - cs->h_pos);
+		len = cs->recv(&uhttp.cr, cs, hs->buffer + cs->h_pos, UMAX16 - cs->h_pos);
 #ifdef UWSGI_EVENT_USE_PORT
 		event_queue_add_fd_read(ucs->queue, cs->fd);
 #endif
 		if (len <= 0) {
 			// check for blocking operation on non-blocking socket
-                        if (len < 0 && cs->ugs->nb && errno == EINPROGRESS) break;
+                        if (len < 0 && errno == EINPROGRESS) break;
 			corerouter_close_session(ucr, cs);
 			break;
 		}
@@ -738,26 +728,25 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 		// data from instance
 		if (interesting_fd == cs->instance_fd) {
-			len = recv(cs->instance_fd, hs->buffer, UMAX16, 0);
+			len = cs->instance_recv(&uhttp.cr, cs, hs->buffer, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT
 			event_queue_add_fd_read(uhttp_queue, cs->instance_fd);
 #endif
-			if (len <= 0) {
-				if (len < 0) {
-					uwsgi_error("recv()");
-				}
+			if (len <=  0) {
+				if (len < 0 && errno == EINPROGRESS) break;
 /*
 Keep-Alive implementation.
 As soon as the backend close the connection, enable it.
 The server will start waiting for another request (for a maximum of --http-socket seconds timeout)
 To have a reliable implementation, we need to reset a bunch of values
 */
-				else if (uhttp.keepalive) {
+				if (len == 0) {
+					if (uhttp.keepalive) {
 #ifdef UWSGI_DEBUG
-					uwsgi_log("Keep-Alive enabled\n");
+						uwsgi_log("Keep-Alive enabled\n");
 #endif
-					cs->keepalive = 1;
-					corerouter_close_session(ucr, cs);
+						cs->keepalive = 1;
+						corerouter_close_session(ucr, cs);
 					cs->status = COREROUTER_STATUS_RECV_HDR;
 					hs->ptr = hs->buffer;
 					hs->rnrn = 0;
@@ -771,30 +760,30 @@ To have a reliable implementation, we need to reset a bunch of values
 					cs->instance_address_len = 0;
 					cs->hostname_len = 0;
 					break;
-				}
+					}
 #ifdef UWSGI_SSL
-				if (len == 0 && cs->ugs->mode == UWSGI_HTTP_SSL) {
-					int ssd_ret = SSL_shutdown(hs->ssl);
-					// it could fail or success, in both cases close the connection
-					if (ssd_ret != 0) {
-						corerouter_close_session(ucr, cs);
+					if (cs->ugs->mode == UWSGI_HTTP_SSL) {
+						int ssd_ret = SSL_shutdown(hs->ssl);
+						// it could fail or success, in both cases close the connection
+						if (ssd_ret != 0) {
+							corerouter_close_session(ucr, cs);
+							break;
+						}
+						cs->status = HTTP_SSL_STATUS_SHUTDOWN;
+						if (uwsgi_http_ssl_shutdown(hs, 1) != 0) {
+							corerouter_close_session(ucr, cs);
+						}
 						break;
 					}
-					cs->status = HTTP_SSL_STATUS_SHUTDOWN;
-					if (uwsgi_http_ssl_shutdown(hs, 1) != 0) {
-						corerouter_close_session(ucr, cs);
-					}
-					break;
-				}
 #endif
+				}
 				corerouter_close_session(ucr, cs);
 				break;
 			}
 
-			len = hs->send(hs, hs->buffer, len);
-
+			len = cs->send(&uhttp.cr, cs, hs->buffer, len);
 			if (len <= 0) {
-				if (len < 0 && cs->ugs->nb && errno == EINPROGRESS) break;
+				if (len < 0 && errno == EINPROGRESS) break;
 				// check for blocking operation non non-blocking socket
 				corerouter_close_session(ucr, cs);
 				break;
@@ -809,13 +798,13 @@ To have a reliable implementation, we need to reset a bunch of values
 		// body from client
 		else if (interesting_fd == cs->fd) {
 
-			len = hs->recv(hs, bbuf, UMAX16);
+			len = cs->recv(&uhttp.cr, cs, bbuf, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT
 			event_queue_add_fd_read(uhttp_queue, cs->fd);
 #endif
 			if (len <= 0) {
-				// check for blocking operation non non-blocking socket
-                        	if (len < 0 && cs->ugs->nb && errno == EINPROGRESS) break;
+				// check for blocking operation on non-blocking socket
+                        	if (len < 0 && errno == EINPROGRESS) break;
 				corerouter_close_session(ucr, cs);
 				break;
 			}
@@ -833,11 +822,10 @@ To have a reliable implementation, we need to reset a bunch of values
 			}
 
 raw:
-			len = send(cs->instance_fd, bbuf, len, 0);
+			len = cs->instance_send(&uhttp.cr, cs, bbuf, len);
 
 			if (len <= 0) {
-				if (len < 0)
-					uwsgi_error("send()");
+				if (len < 0 && errno == EINPROGRESS) break;
 				corerouter_close_session(ucr, cs);
 				break;
 			}
@@ -871,35 +859,6 @@ void http_setup() {
 	uhttp.cr.short_name = uwsgi_str("http");
 }
 
-ssize_t uwsgi_http_simple_recv(struct http_session *hs, char *buf, size_t len) {
-	ssize_t ret = recv(hs->crs.fd, buf, len, 0);
-	if (ret < 0) {
-		uwsgi_error("recv()");
-	}
-	return ret;
-}
-
-ssize_t uwsgi_http_simple_send(struct http_session *hs, char *buf, size_t len) {
-	size_t remains = len;
-	char *ptr = buf;
-	while(remains > 0) {
-		ssize_t ret = send(hs->crs.fd, ptr, remains, 0);
-		if (ret > 0) {
-			remains -= ret;
-			ptr+=ret;
-		}
-		else if (ret == 0) {
-			return -1;
-		}
-		// error
-		else {
-			uwsgi_error("send()");
-			return -1;
-		}
-	}
-	return len;
-}
-
 #ifdef UWSGI_SSL
 int uwsgi_http_ssl_shutdown(struct http_session *hs, int state) {
 	int ret = 0;
@@ -909,27 +868,28 @@ int uwsgi_http_ssl_shutdown(struct http_session *hs, int state) {
 	if (ret == 1) return 1;
 	int err = SSL_get_error(hs->ssl, ret);
         if (err == SSL_ERROR_WANT_READ) {
-                if (hs->fd_state) {
+                if (hs->crs.fd_state) {
                         event_queue_fd_write_to_read(uhttp.cr.queue, hs->crs.fd);
-                        hs->fd_state = 0;
+                        hs->crs.fd_state = 0;
                 }
                 return 0;
         }
         else if (err == SSL_ERROR_WANT_WRITE) {
-                if (!hs->fd_state) {
+                if (!hs->crs.fd_state) {
                         event_queue_fd_read_to_write(uhttp.cr.queue, hs->crs.fd);
-                        hs->fd_state = 1;
+                        hs->crs.fd_state = 1;
                 }
                 return 0;
         }
         return -1;
 }
-ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
+ssize_t uwsgi_http_ssl_recv(struct uwsgi_corerouter *cr, struct corerouter_session *cs, char *buf, size_t len) {
+	struct http_session *hs = (struct http_session *) cs;
 	int ret = SSL_read(hs->ssl, buf, len);
 	if (ret > 0) {
-                if (hs->fd_state) {
-                        event_queue_fd_write_to_read(uhttp.cr.queue, hs->crs.fd);
-                        hs->fd_state = 0;
+                if (hs->crs.fd_state) {
+                        event_queue_fd_write_to_read(cr->queue, hs->crs.fd);
+                        hs->crs.fd_state = 0;
                 }
                 return ret;
         }
@@ -937,18 +897,18 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
         int err = SSL_get_error(hs->ssl, ret);
 
         if (err == SSL_ERROR_WANT_READ) {
-                if (hs->fd_state) {
-                        event_queue_fd_write_to_read(uhttp.cr.queue, hs->crs.fd);
-                        hs->fd_state = 0;
+                if (hs->crs.fd_state) {
+                        event_queue_fd_write_to_read(cr->queue, hs->crs.fd);
+                        hs->crs.fd_state = 0;
                 }
                 errno = EINPROGRESS;
 		return -1;
         }
 
         else if (err == SSL_ERROR_WANT_WRITE) {
-                if (!hs->fd_state) {
-                        event_queue_fd_read_to_write(uhttp.cr.queue, hs->crs.fd);
-                        hs->fd_state = 1;
+                if (!hs->crs.fd_state) {
+                        event_queue_fd_read_to_write(cr->queue, hs->crs.fd);
+                        hs->crs.fd_state = 1;
                 }
                 errno = EINPROGRESS;
 		return -1;
@@ -966,29 +926,30 @@ ssize_t uwsgi_http_ssl_recv(struct http_session *hs, char *buf, size_t len) {
 
 }
 
-ssize_t uwsgi_http_ssl_send(struct http_session *hs, char *buf, size_t len) {
+ssize_t uwsgi_http_ssl_send(struct uwsgi_corerouter *cr, struct corerouter_session *cs, char *buf, size_t len) {
+	struct http_session *hs = (struct http_session *) cs;
         int ret = SSL_write(hs->ssl, buf, len);
 	if (ret > 0) {
-		if (hs->fd_state) {
-			event_queue_fd_write_to_read(uhttp.cr.queue, hs->crs.fd);
-			hs->fd_state = 0;
+		if (hs->crs.fd_state) {
+			event_queue_fd_write_to_read(cr->queue, hs->crs.fd);
+			hs->crs.fd_state = 0;
 		}
 		return ret;
 	}
 	if (ret == 0) return 0;
 	int err = SSL_get_error(hs->ssl, ret);
 	if (err == SSL_ERROR_WANT_READ) {
-		if (hs->fd_state) {
-			event_queue_fd_write_to_read(uhttp.cr.queue, hs->crs.fd);
-			hs->fd_state = 0;
+		if (hs->crs.fd_state) {
+			event_queue_fd_write_to_read(cr->queue, hs->crs.fd);
+			hs->crs.fd_state = 0;
 		}
 		errno = EINPROGRESS;
 		return -1;
 	}
 	else if (err == SSL_ERROR_WANT_WRITE) {
-		if (!hs->fd_state) {
-			event_queue_fd_read_to_write(uhttp.cr.queue, hs->crs.fd);
-			hs->fd_state = 1;
+		if (!hs->crs.fd_state) {
+			event_queue_fd_read_to_write(cr->queue, hs->crs.fd);
+			cs->fd_state = 1;
 		}
 		errno = EINPROGRESS;
 		return -1;
@@ -1039,8 +1000,6 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 	if (sa && sa->sa_family == AF_INET) {
 		hs->ip_addr = ((struct sockaddr_in *) sa)->sin_addr.s_addr;
 	}
-	hs->recv = uwsgi_http_simple_recv;
-	hs->send = uwsgi_http_simple_send;
 	if (ugs) {
 		hs->port = ugs->port;
 		hs->port_len = ugs->port_len;
@@ -1049,8 +1008,8 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 			hs->ssl = SSL_new(ugs->ctx);		
 			SSL_set_fd(hs->ssl, cs->fd);
 			SSL_set_accept_state(hs->ssl);
-			hs->recv = uwsgi_http_ssl_recv;
-			hs->send = uwsgi_http_ssl_send;
+			cs->recv = uwsgi_http_ssl_recv;
+			cs->send = uwsgi_http_ssl_send;
 			cs->close = uwsgi_ssl_close;
 		}
 #endif
