@@ -367,7 +367,7 @@ static int uwsgi_handler(request_rec *r) {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "REMOTE_USER", "", &pkt_size) ;
 	}
 
-	if (r->user) {
+	if (ap_auth_type(r) != NULL) {
 		vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "AUTH_TYPE", (char *) ap_auth_type(r), &pkt_size) ;
 	}
 	vecptr = uwsgi_add_var(uwsgi_vars, vecptr, r, "DOCUMENT_ROOT", (char *) ap_document_root(r), &pkt_size) ;
