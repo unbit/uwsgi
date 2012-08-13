@@ -89,20 +89,30 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 
 #elif defined(__linux__) || defined(__sun__)
 	int sf_ret;
+	size_t written = 0;
 
 	if (async > 1) {
 		sf_ret = sendfile(sockfd, filefd, pos, chunk);
-	}
-	else {
-		sf_ret = sendfile(sockfd, filefd, pos, filesize);
-	}
-
-	if (sf_ret < 0) {
-		uwsgi_error("sendfile()");
-		return 0;
+		if (sf_ret < 0) {
+			uwsgi_error("sendfile()");
+			return 0;
+		}
+		return sf_ret;
 	}
 
-	return sf_ret;
+	while(written < filesize) {
+		sf_ret = sendfile(sockfd, filefd, pos, filesize-written);
+		if (sf_ret < 0) {
+			uwsgi_error("sendfile()");
+			return 0;
+		}
+		else if (sf_ret == 0) {
+			return 0;
+		}
+		written+= sf_ret;
+	}
+	return written;
+
 #else
 	static size_t nosf_buf_size = 0;
 	static char *nosf_buf;
