@@ -92,7 +92,7 @@ void carbon_master_cycle() {
 				}
 
 				//skip per worker metrics when disabled
-				if (!u_carbon.no_workers) continue;
+				if (u_carbon.no_workers) continue;
 
 				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].requests, (unsigned long long ) uwsgi.current_time);
 				if (rlen < 1) goto clear;
