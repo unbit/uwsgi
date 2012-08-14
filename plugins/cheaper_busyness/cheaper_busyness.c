@@ -59,7 +59,9 @@ int cheaper_busyness_algo(void) {
 			// calculate the busyness %
 			uint64_t percent = ((uwsgi_cheaper_busyness_global.current_values[i]*100)/t);
 			// overload detected ?
+			uwsgi_log("[busyness] worker %d percent: %d\n", i+1, percent);
 			if (percent >= uwsgi_cheaper_busyness_global.busyness) {
+				uwsgi_log("[busyness] overload detected for worker %d\n", i+1);
 				uwsgi_cheaper_busyness_global.overload++;
 				overload = 1;
 			}
@@ -79,10 +81,11 @@ int cheaper_busyness_algo(void) {
 	if (overload > 0)  {
         	int decheaped = 0;
         	for (i = 1; i <= uwsgi.numproc; i++) {
+			uwsgi_log("[busyness] start decheaping workers...\n");
         		if (uwsgi.workers[i].cheaped == 1 && uwsgi.workers[i].pid == 0) {
-                	decheaped++;
-                	if (decheaped >= uwsgi.cheaper_step)
-                		break;
+                		decheaped++;
+                		if (decheaped >= uwsgi.cheaper_step)
+                			break;
                 	}
 		}
                 // return the maximum number of workers to spawn
@@ -100,6 +103,7 @@ int cheaper_busyness_algo(void) {
 
 		// cheap a worker if too much are running
                 if (active_workers > uwsgi.cheaper_count) {
+			uwsgi_log("[busyness] %d active workers, cheap one of them...\n", active_workers);
                         return -1;
                 }
         }
