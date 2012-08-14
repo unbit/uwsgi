@@ -856,7 +856,7 @@ void uwsgi_send_stats(int fd) {
 
 		if (uwsgi_stats_keylong_comma(us, "running_time", (unsigned long long) uwsgi.workers[i + 1].running_time))
 			goto end0;
-		if (uwsgi_stats_keylong_comma(us, "last_spwan", (unsigned long long) uwsgi.workers[i + 1].last_spawn))
+		if (uwsgi_stats_keylong_comma(us, "last_spawn", (unsigned long long) uwsgi.workers[i + 1].last_spawn))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "respawn_count", (unsigned long long) uwsgi.workers[i + 1].respawn_count))
 			goto end0;
