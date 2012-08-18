@@ -144,8 +144,13 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			if (current_slot->nodes->wrr == 0) current_slot->nodes->wrr = current_slot->nodes->weight;
 			current_slot->nodes->wrr--;
 			if (current_slot->nodes->wrr > 0) {
-				// reset rr counter
+				// reset rr counter and all weights/wrr
 				current_slot->rr = 0;
+				struct uwsgi_subscribe_node *r_node = current_slot->nodes;
+				while(r_node) {
+					r_node->wrr = r_node->weight;
+					r_node = r_node->next;
+				}
 			}
 			current_slot->nodes->reference++;
 		}
