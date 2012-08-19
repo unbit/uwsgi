@@ -2765,9 +2765,6 @@ struct uwsgi_subscribe_slot {
 
         uint64_t hits;
 
-	// used for round robin
-	uint64_t rr;
-
 #ifdef UWSGI_SSL
 	EVP_PKEY *sign_public_key;
 	EVP_MD_CTX *sign_ctx;

@@ -92,21 +92,21 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 	if (keylen > 0xff) return NULL;
 
 	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, key, keylen, regexp);
-	uint64_t rr_pos = 0;
 
 	if (current_slot) {
-		// node found, move up in the list increasing hits
+		// slot found, move up in the list increasing hits
 		current_slot->hits++;
-		time_t current = time(NULL);
+		time_t now = uwsgi_now();
 		struct uwsgi_subscribe_node *node = current_slot->nodes;
 		while(node) {
 			// is the node alive ?
-			if (current - node->last_check > uwsgi.subscription_tolerance) {
+			if (now - node->last_check > uwsgi.subscription_tolerance) {
 				if (node->death_mark == 0)
 					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
 				node->failcnt++;
 				node->death_mark = 1;
 			}
+			// is the node must be removed ?
 			if (node->death_mark && node->reference == 0) {
 				// remove the node and move to next
 				struct uwsgi_subscribe_node *dead_node = node;
@@ -118,43 +118,37 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 				continue;
 			}
 
-			if (node->death_mark == 0 && rr_pos == current_slot->rr && node->wrr > 0) {
+			if (node->death_mark == 0 && node->wrr > 0) {
 				node->wrr--;
-				if (node->wrr == 0) {
-					current_slot->rr++;
-					// if this is the last node, recalculate wrr
-					if (node->next == NULL) {
-						struct uwsgi_subscribe_node *r_node = current_slot->nodes;
-						while(r_node) {
-							r_node->wrr = r_node->weight;
-							r_node = r_node->next;
-						}
-					}
-				}
 				node->reference++;
 				return node;
 			}
 			node = node->next;
-			rr_pos++;
 		}
-		current_slot->rr = 1;
-		if (current_slot->nodes) {
-			if (current_slot->nodes->death_mark)
-				return NULL;
-			if (current_slot->nodes->wrr == 0) current_slot->nodes->wrr = current_slot->nodes->weight;
-			current_slot->nodes->wrr--;
-			if (current_slot->nodes->wrr > 0) {
-				// reset rr counter and all weights/wrr
-				current_slot->rr = 0;
-				struct uwsgi_subscribe_node *r_node = current_slot->nodes;
-				while(r_node) {
-					r_node->wrr = r_node->weight;
-					r_node = r_node->next;
-				}
+
+		// no wrr > 0 node found, reset them
+		node = current_slot->nodes;
+		uint64_t min_weight = 0;
+		while(node) {
+			if (!node->death_mark) {
+				if (min_weight == 0 || node->weight < min_weight) min_weight = node->weight;
 			}
-			current_slot->nodes->reference++;
+			node = node->next;
 		}
-		return current_slot->nodes;
+
+		// now set wrr
+		node = current_slot->nodes;
+		struct uwsgi_subscribe_node *choosen_node = NULL;
+		while(node) {
+			if (!node->death_mark) {
+				node->wrr = node->weight/min_weight;
+				choosen_node = node;
+			}
+			node = node->next;
+		}
+
+		return choosen_node;
+	
 	}
 
 	return NULL;
@@ -329,7 +323,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->weight = usr->weight;
 		node->unix_check = usr->unix_check;
 		if (!node->weight) node->weight = 1;
-		node->wrr = node->weight;
+		node->wrr = 0;
 		node->last_check = time(NULL);
 		node->slot = current_slot;
                 memcpy(node->name, usr->address, usr->address_len);
@@ -388,7 +382,6 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		memcpy(current_slot->key, usr->key, usr->keylen);
 		current_slot->key[usr->keylen] = 0;
 		current_slot->hits = 0;
-		current_slot->rr = 0;
 
 #ifdef UWSGI_PCRE
 		current_slot->pattern = NULL;
@@ -416,7 +409,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->weight = usr->weight;
 		current_slot->nodes->unix_check = usr->unix_check;
 		if (!current_slot->nodes->weight) current_slot->nodes->weight = 1;
-		current_slot->nodes->wrr = current_slot->nodes->weight;
+		current_slot->nodes->wrr = 0;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
 		current_slot->nodes->last_check = time(NULL);
 
