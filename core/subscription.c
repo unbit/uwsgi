@@ -146,7 +146,10 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			}
 			node = node->next;
 		}
-
+		if (choosen_node) {
+			choosen_node->wrr--;
+			choosen_node->reference++;
+		}
 		return choosen_node;
 	
 	}
