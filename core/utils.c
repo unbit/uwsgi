@@ -1754,7 +1754,7 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
 		}
 
 		if (!ret) {
-			uwsgi_log("buffering POST data timed-out !!!\n");
+			uwsgi_log("buffering POST data to memory timed-out !!! (Content-Length: %llu received: %llu)\n", (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
 			return 0;
 		}
 
@@ -1765,10 +1765,16 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *wsgi_req, char *buf) {
 			len = read(wsgi_req->poll.fd, ptr, post_remains);
 		}
 
-		if (len <= 0) {
+		if (len < 0) {
 			uwsgi_error("read()");
 			return 0;
 		}
+
+		if (len == 0) {
+			uwsgi_log("client did not send the whole body: %s (Content-Length: %llu received: %llu)\n", strerror(errno), (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
+			return 0;
+		}
+
 		ptr += len;
 		post_remains -= len;
 	}
@@ -1867,7 +1873,7 @@ cycle:
 		}
 
 		if (!ret) {
-			uwsgi_log("buffering POST data timed-out !!!\n");
+			uwsgi_log("buffering POST data to disk timed-out !!! (Content-Length: %llu received: %llu)\n", (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
 			goto end;
 		}
 
@@ -1894,7 +1900,7 @@ cycle:
 		}
 
 		if (post_chunk == 0) {
-			uwsgi_log("client did not send the whole body: %s\n", strerror(errno));
+			uwsgi_log("client did not send the whole body: %s (Content-Length: %llu received: %llu)\n", strerror(errno), (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_cl - post_remains);
 			goto end;
 		}
 

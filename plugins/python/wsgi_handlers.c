@@ -43,7 +43,7 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
 	UWSGI_RELEASE_GIL;
 	if (uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
                 UWSGI_GET_GIL
-                return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data");
+                return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data (readline/getline)");
         }
 
 	if (self->readline_max_size > 0 && self->readline_max_size < UWSGI_PY_READLINE_BUFSIZE) {
@@ -54,7 +54,7 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
 	}
         if (rlen <= 0) {
                 UWSGI_GET_GIL
-                return PyErr_Format(PyExc_IOError, "error reading wsgi.input data");
+                return PyErr_Format(PyExc_IOError, "error reading wsgi.input data (readline/getline)");
         }
 
 	self->readline_size = rlen;
@@ -152,14 +152,14 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 		if (uwsgi_waitfd(self->wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
                        	free(tmp_buf);
                        	UWSGI_GET_GIL
-                       	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data");
+                       	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data: Content-Length %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long) self->wsgi_req->post_cl - remains);
                	}
 
 		rlen = read(self->wsgi_req->poll.fd, tmp_buf+tmp_pos, remains);
 		if (rlen <= 0) {
                        	free(tmp_buf);
                        	UWSGI_GET_GIL
-                       	return PyErr_Format(PyExc_IOError, "error reading wsgi.input data");
+                       	return PyErr_Format(PyExc_IOError, "error reading wsgi.input data: Content-Length %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long) self->wsgi_req->post_cl - remains);
                	}
 		tmp_pos += rlen;
 		remains -= rlen;
