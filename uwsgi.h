@@ -3010,6 +3010,7 @@ void uwsgi_exec_atexit(void);
 struct uwsgi_stats {
 	char *base;
 	off_t pos;
+	size_t tabs;
 	size_t chunk;
 	size_t size;
 };
