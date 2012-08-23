@@ -123,11 +123,15 @@ def add_o(x):
     return x
 
 
-def compile(cflags, objfile, srcfile):
+def compile(cflags, last_cflags_ts, objfile, srcfile):
     source_stat = os.stat(srcfile)
     header_stat = os.stat('uwsgi.h')
     try:
         if os.environ.get('UWSGI_FORCE_REBUILD', None):
+            raise
+        if source_stat[8] >= last_cflags_ts:
+            raise
+        if header_stat[8] >= last_cflags_ts:
             raise
         object_stat = os.stat(objfile)
         if object_stat[8] <= source_stat[8]:
@@ -184,12 +188,21 @@ def build_uwsgi(uc, print_only=False):
         import binascii
         uwsgi_cflags = binascii.b2a_hex(' '.join(cflags).encode('ascii')).decode('ascii')
 
+    last_cflags_ts = 0
+    
     if os.path.exists('uwsgibuild.lastcflags'):
             ulc = open('uwsgibuild.lastcflags','r')
             last_cflags = ulc.read()
             ulc.close()
             if uwsgi_cflags != last_cflags:
                 os.environ['UWSGI_FORCE_REBUILD'] = '1'
+            else:
+                last_cflags_ts = os.stat('uwsgibuild.lastcflags')[8]
+            
+
+    ulc = open('uwsgibuild.lastcflags','w')
+    ulc.write(uwsgi_cflags)
+    ulc.close()
 
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
@@ -200,7 +213,7 @@ def build_uwsgi(uc, print_only=False):
         if objfile == 'uwsgi':
             objfile = 'main'
         if not objfile.endswith('.a'):
-            compile(' '.join(cflags), objfile + '.o', file + '.c')
+            compile(' '.join(cflags), last_cflags_ts, objfile + '.o', file + '.c')
 
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
@@ -251,7 +264,7 @@ def build_uwsgi(uc, print_only=False):
 
                 for cfile in up.GCC_LIST:
                     if not cfile.endswith('.a'):
-                        compile(' '.join(uniq_warnings(p_cflags)),
+                        compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
@@ -296,10 +309,6 @@ def build_uwsgi(uc, print_only=False):
         gcc_list.append(uc.get('embed_config'))
     for ef in binary_list:
         gcc_list.append("build/%s" % ef)
-
-    ulc = open('uwsgibuild.lastcflags','w')
-    ulc.write(uwsgi_cflags)
-    ulc.close()
 
     print("*** uWSGI linking ***")
     ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(uniq_warnings(ldflags)),

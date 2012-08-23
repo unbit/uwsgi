@@ -450,10 +450,9 @@ void gevent_loop() {
 
 }
 
-int gevent_init() {
+void gevent_init() {
 
 	uwsgi_register_loop( (char *) "gevent", gevent_loop);
-	return 0;
 }
 
 
@@ -461,5 +460,5 @@ struct uwsgi_plugin gevent_plugin = {
 
 	.name = "gevent",
 	.options = gevent_options,
-	.init = gevent_init,
+	.on_load = gevent_init,
 };

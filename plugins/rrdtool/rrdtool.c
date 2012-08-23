@@ -163,6 +163,8 @@ void rrdtool_master_cycle() {
 }
 
 struct uwsgi_plugin rrdtool_plugin = {
+
+	.name = "rrdtool",
 	
 	.options = rrdtool_options,
 

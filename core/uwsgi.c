@@ -144,6 +144,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-throttle", required_argument, 0, "set throttling level (in milliseconds) for bad behaving vassals (default 1000)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
 	{"emperor-max-throttle", required_argument, 0, "set max throttling level (in milliseconds) for bad behaving vassals (default 3 minutes)", uwsgi_opt_set_int, &uwsgi.emperor_max_throttle, 0},
 	{"emperor-magic-exec", no_argument, 0, "prefix vassals config files with exec:// if they have the executable bit", uwsgi_opt_true, &uwsgi.emperor_magic_exec, 0},
+	{"imperial-monitor-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
+	{"imperial-monitors-list", no_argument, 0, "list enabled imperial monitors", uwsgi_opt_true, &uwsgi.imperial_monitor_list, 0},
 	{"vassals-inherit", required_argument, 0, "add config templates to vassals config", uwsgi_opt_add_string_list, &uwsgi.vassals_templates, 0},
 	{"vassals-start-hook", required_argument, 0, "run the specified command before each vassal starts", uwsgi_opt_set_str, &uwsgi.vassals_start_hook, 0},
 	{"vassals-stop-hook", required_argument, 0, "run the specified command after vassal's death", uwsgi_opt_set_str, &uwsgi.vassals_stop_hook, 0},
@@ -339,6 +341,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-syslog", optional_argument, 0, "log to syslog", uwsgi_opt_set_logger, "syslog", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-socket", required_argument, 0, "send logs to the specified socket", uwsgi_opt_set_logger, "socket", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"logger", required_argument, 0, "set/append a logger", uwsgi_opt_set_logger, NULL, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"logger-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
+	{"loggers-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -373,6 +377,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning)", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
 	{"cheaper-step", required_argument, 0, "number of additional processes to spawn at each overload", uwsgi_opt_set_int, &uwsgi.cheaper_step, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-overload", required_argument, 0, "increase workers after specified overload", uwsgi_opt_set_64bit, &uwsgi.cheaper_overload, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
+	{"cheaper-algo-list", no_argument, 0, "list of available cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
+	{"cheaper-algos-list", no_argument, 0, "list of available cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
+	{"cheaper-list", no_argument, 0, "list of available cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, UWSGI_OPT_MASTER},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_app, NULL, 0},
@@ -395,6 +402,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"route-host", required_argument, 0, "add a route based on Host header", uwsgi_opt_add_route, "http_host", 0},
 	{"route-uri", required_argument, 0, "add a route based on REQUEST_URI", uwsgi_opt_add_route, "request_uri", 0},
 	{"route-qs", required_argument, 0, "add a route based on QUERY_STRING", uwsgi_opt_add_route, "query_string", 0},
+	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
+	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
 
@@ -449,12 +458,16 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"cron", required_argument, 0, "add a cron task", uwsgi_opt_add_cron, NULL, UWSGI_OPT_MASTER},
 	{"loop", required_argument, 0, "select the uWSGI loop engine", uwsgi_opt_set_str, &uwsgi.loop, 0},
+	{"loop-list", no_argument, 0, "list available loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
+	{"loops-list", no_argument, 0, "list available loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
 	{"attach-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugin", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugins-dir", required_argument, 0, "add a directory to uWSGI plugin search path", uwsgi_opt_add_string_list, &uwsgi.plugins_dir, UWSGI_OPT_IMMEDIATE},
 	{"plugin-dir", required_argument, 0, "add a directory to uWSGI plugin search path", uwsgi_opt_add_string_list, &uwsgi.plugins_dir, UWSGI_OPT_IMMEDIATE},
+	{"plugins-list", no_argument, 0, "list enabled plugins", uwsgi_opt_true, &uwsgi.plugins_list, 0},
+	{"plugin-list", no_argument, 0, "list enabled plugins", uwsgi_opt_true, &uwsgi.plugins_list, 0},
 	{"autoload", no_argument, 0, "try to automatically load plugins when unknown options are found", uwsgi_opt_true, &uwsgi.autoload, UWSGI_OPT_IMMEDIATE},
 	{"allowed-modifiers", required_argument, 0, "comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
@@ -471,16 +484,16 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 void show_config(void) {
 	int i;
-	fprintf(stdout, "\n;uWSGI instance configuration\n[uwsgi]\n");
+	uwsgi_log("\n;uWSGI instance configuration\n[uwsgi]\n");
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
 		if (uwsgi.exported_opts[i]->value) {
-			fprintf(stdout, "%s = %s\n", uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
+			uwsgi_log("%s = %s\n", uwsgi.exported_opts[i]->key, uwsgi.exported_opts[i]->value);
 		}
 		else {
-			fprintf(stdout, "%s = true\n", uwsgi.exported_opts[i]->key);
+			uwsgi_log("%s = true\n", uwsgi.exported_opts[i]->key);
 		}
 	}
-	fprintf(stdout, ";end of configuration\n\n");
+	uwsgi_log(";end of configuration\n\n");
 
 }
 
@@ -1416,6 +1429,70 @@ check:
 	}
 }
 
+static void plugins_list(void) {
+	int i;
+	uwsgi_log("\n*** uWSGI loaded generic plugins ***\n");
+	for(i=0;i<uwsgi.gp_cnt;i++) {
+		uwsgi_log("%s\n", uwsgi.gp[i]->name);
+	}
+
+	uwsgi_log("\n*** uWSGI loaded request plugins ***\n");
+	for(i=0;i<256;i++) {
+		if (uwsgi.p[i] == &unconfigured_plugin) continue;
+		uwsgi_log("%d: %s\n", i, uwsgi.p[i]->name);
+	}
+
+	uwsgi_log("--- end of plugins list ---\n\n");
+}
+
+static void loggers_list(void) {
+	struct uwsgi_logger *ul = uwsgi.loggers;
+	uwsgi_log("\n*** uWSGI loaded loggers ***\n");
+	while(ul) {
+		uwsgi_log("%s\n", ul->name);
+		ul = ul->next;
+	}	
+	uwsgi_log("--- end of loggers list ---\n\n");
+}
+
+static void cheaper_algo_list(void) {
+	struct uwsgi_cheaper_algo *uca = uwsgi.cheaper_algos;
+	uwsgi_log("\n*** uWSGI loaded cheaper algorithms ***\n");
+	while(uca) {
+		uwsgi_log("%s\n", uca->name);
+		uca = uca->next;
+	}	
+	uwsgi_log("--- end of cheaper algorithms list ---\n\n");
+}
+
+static void router_list(void) {
+        struct uwsgi_router *ur = uwsgi.routers;
+        uwsgi_log("\n*** uWSGI loaded routers ***\n");
+        while(ur) {
+                uwsgi_log("%s\n", ur->name);
+                ur = ur->next;
+        }
+        uwsgi_log("--- end of routers list ---\n\n");
+}
+
+static void loop_list(void) {
+	int i;
+	uwsgi_log("\n*** uWSGI loaded loop engines ***\n");
+	for(i=0;i<uwsgi.loops_cnt;i++) {
+		uwsgi_log("%s\n", uwsgi.loops[i].name);
+	}
+	uwsgi_log("--- end of loop engines list ---\n\n");
+}
+
+static void imperial_monitor_list(void) {
+	struct uwsgi_imperial_monitor *uim = uwsgi.emperor_monitors;
+	uwsgi_log("\n*** uWSGI loaded imperial monitors ***\n");
+	while(uim) {
+		uwsgi_log("%s\n", uim->scheme);
+                uim = uim->next;
+	}
+	uwsgi_log("--- end of imperial monitors list ---\n\n");
+}
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
@@ -1843,6 +1920,20 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	}
 
+	// setup loops
+	uwsgi_register_loop("simple", simple_loop);
+#ifdef UWSGI_ASYNC
+        uwsgi_register_loop("async", async_loop);
+#endif
+
+	// setup cheaper algos
+        uwsgi_register_cheaper_algo("spare", uwsgi_cheaper_algo_spare);
+        uwsgi_register_cheaper_algo("backlog", uwsgi_cheaper_algo_backlog);
+
+	// setup imperial monitors
+	uwsgi_register_imperial_monitor("dir", uwsgi_imperial_monitor_directory_init, uwsgi_imperial_monitor_directory);
+        uwsgi_register_imperial_monitor("glob", uwsgi_imperial_monitor_glob_init, uwsgi_imperial_monitor_glob);
+
 	/* uWSGI IS CONFIGURED !!! */
 
 	if (uwsgi.dump_options) {
@@ -1856,6 +1947,26 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (uwsgi.show_config)
 		show_config();
+
+	if (uwsgi.plugins_list)
+		plugins_list();
+
+	if (uwsgi.loggers_list)
+		loggers_list();
+
+	if (uwsgi.cheaper_algo_list)
+		cheaper_algo_list();
+
+
+	if (uwsgi.router_list)
+		router_list();
+
+
+	if (uwsgi.loop_list)
+		loop_list();
+
+	if (uwsgi.imperial_monitor_list)
+		imperial_monitor_list();
 
 	// call cluster initialization procedures
 #ifdef UWSGI_MULTICAST
@@ -2231,10 +2342,7 @@ int uwsgi_start(void *v_argv) {
 	}
 
 
-	uwsgi_register_loop("simple", simple_loop);
 #ifdef UWSGI_ASYNC
-	uwsgi_register_loop("async", async_loop);
-
 
 	// TODO rewrite to use uwsgi.max_fd
 	if (uwsgi.async > 1) {

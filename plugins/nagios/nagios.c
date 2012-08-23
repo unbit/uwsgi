@@ -73,6 +73,7 @@ int nagios() {
 
 struct uwsgi_plugin nagios_plugin = {
 	
+	.name = "nagios",
 	.options = nagios_options,
 	.init = nagios,
 };

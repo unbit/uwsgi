@@ -1247,6 +1247,16 @@ struct uwsgi_server {
 	// show ini representation of the current config
 	int show_config;
 
+	// list loaded features
+	int cheaper_algo_list;
+#ifdef UWSGI_ROUTING
+	int router_list;
+#endif
+	int imperial_monitor_list;
+	int plugins_list;
+	int loggers_list;
+	int loop_list;
+
 	//base for all the requests(even on async mode)
 	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;
@@ -3147,6 +3157,11 @@ void emperor_respawn(struct uwsgi_instance *, time_t);
 void emperor_add(struct uwsgi_emperor_scanner *, char *, time_t, char *, uint32_t, uid_t, gid_t);
 
 void uwsgi_exec_command_with_args(char *);
+
+void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *);
+void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *);
+void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *);
+void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

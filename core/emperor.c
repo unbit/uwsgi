@@ -938,9 +938,6 @@ void emperor_loop() {
 
 	emperor_throttle_level = uwsgi.emperor_throttle;
 
-	uwsgi_register_imperial_monitor("dir", uwsgi_imperial_monitor_directory_init, uwsgi_imperial_monitor_directory);
-	uwsgi_register_imperial_monitor("glob", uwsgi_imperial_monitor_glob_init, uwsgi_imperial_monitor_glob);
-
 	// the queue must be initialized before adding scanners
 	uwsgi.emperor_queue = event_queue_init();
 
