@@ -761,7 +761,7 @@ void uwsgi_send_stats(int fd) {
 				goto end0;
 			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) ud->pid))
 				goto end0;
-			if (uwsgi_stats_keylong_comma(us, "respawns", (unsigned long long) (ud->respawns - 1)))
+			if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) (ud->respawns - 1)))
 				goto end0;
 			if (uwsgi_stats_object_close(us))
 				goto end0;
