@@ -8,6 +8,8 @@ struct uwsgi_carbon {
 	int timeout;
 	char *id;
 	int no_workers;
+	unsigned long long *last_busyness_values;
+	unsigned long long *current_busyness_values;
 } u_carbon;
 
 struct uwsgi_option carbon_options[] = {
@@ -43,6 +45,14 @@ void carbon_post_init() {
 		}
 	}
 
+	if (!u_carbon.last_busyness_values) {
+		u_carbon.last_busyness_values = uwsgi_calloc(sizeof(unsigned long long) * uwsgi.numproc);
+	}
+
+	if (!u_carbon.current_busyness_values) {
+		u_carbon.current_busyness_values = uwsgi_calloc(sizeof(unsigned long long) * uwsgi.numproc);
+	}
+
 }
 
 void carbon_master_cycle() {
@@ -59,6 +69,12 @@ void carbon_master_cycle() {
 
 	// update
 	if (uwsgi.current_time - last_update >= u_carbon.freq) {
+
+		for (i = 0; i < uwsgi.numproc; i++) {
+			u_carbon.current_busyness_values[i] = uwsgi.workers[i+1].running_time - u_carbon.last_busyness_values[i];
+			u_carbon.last_busyness_values[i] = uwsgi.workers[i+1].running_time;
+		}
+
 		while(usl) {
 			fd = uwsgi_connect(usl->value, u_carbon.timeout, 0);
 			if (fd < 0) goto nxt;
@@ -70,25 +86,39 @@ void carbon_master_cycle() {
 			unsigned long long total_tx = 0;
 			unsigned long long total_avg_rt = 0; // total avg_rt
 			unsigned long long avg_rt = 0; // per worker avg_rt reported to carbon
-			unsigned long long avg_rt_workers = 0; // number of workers used to calculate total avg_rt
+			unsigned long long active_workers = 0; // number of workers used to calculate total avg_rt
+			unsigned long long total_busyness = 0;
+			unsigned long long total_avg_busyness = 0;
+			unsigned long long worker_busyness = 0;
+			unsigned long long total_harakiri = 0;
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.requests %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) uwsgi.workers[0].requests, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
 			for(i=1;i<=uwsgi.numproc;i++) {
-				total_rss += uwsgi.workers[i].rss_size;
-				total_vsz += uwsgi.workers[i].vsz_size;
 				total_tx += uwsgi.workers[i].tx;
 				if (uwsgi.workers[i].cheaped) {
 					// also if worker is cheaped than we report its average response time as zero, sending last value might be confusing
 					avg_rt = 0;
+					worker_busyness = 0;
 				}
 				else {
 					// global average response time is calcucalted from active/idle workers, cheaped workers are excluded, otherwise it is not accurate
 					avg_rt = uwsgi.workers[i].avg_response_time;
-					avg_rt_workers++;
+					active_workers++;
 					total_avg_rt += uwsgi.workers[i].avg_response_time;
+
+					// calculate worker busyness
+					worker_busyness = ((u_carbon.current_busyness_values[i-1]*100) / (u_carbon.freq*1000000));
+					if (worker_busyness > 100) worker_busyness = 100;
+					total_busyness += worker_busyness;
+
+					// only running workers are counted in total memory stats
+					total_rss += uwsgi.workers[i].rss_size;
+					total_vsz += uwsgi.workers[i].vsz_size;
+
+					total_harakiri += uwsgi.workers[i].harakiri_count/2;
 				}
 
 				//skip per worker metrics when disabled
@@ -113,6 +143,15 @@ void carbon_master_cycle() {
 				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.tx %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].tx, (unsigned long long ) uwsgi.current_time);
 				if (rlen < 1) goto clear;
 				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.busyness %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) worker_busyness, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.worker%d.harakiri %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long ) uwsgi.workers[i].harakiri_count/2, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
 			}
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.rss_size %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_rss, (unsigned long long ) uwsgi.current_time);
@@ -123,11 +162,35 @@ void carbon_master_cycle() {
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
-			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) (avg_rt_workers ? total_avg_rt / avg_rt_workers : 0), (unsigned long long ) uwsgi.current_time);
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.avg_rt %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) (active_workers ? total_avg_rt / active_workers : 0), (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 
 			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.tx %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_tx, (unsigned long long ) uwsgi.current_time);
+			if (rlen < 1) goto clear;
+			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+			if (active_workers > 0) {
+				total_avg_busyness = total_busyness / active_workers;
+				if (total_avg_busyness > 100) total_avg_busyness = 100;
+			} else {
+				total_avg_busyness = 0;
+			}
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.busyness %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_avg_busyness, (unsigned long long ) uwsgi.current_time);
+			if (rlen < 1) goto clear;
+			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.active_workers %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) active_workers, (unsigned long long ) uwsgi.current_time);
+			if (rlen < 1) goto clear;
+			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+
+			if (uwsgi.cheaper) {
+				rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.cheaped_workers %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) uwsgi.numproc - active_workers, (unsigned long long ) uwsgi.current_time);
+				if (rlen < 1) goto clear;
+				if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
+			}
+
+			rlen = snprintf(ptr, 4096, "uwsgi.%s.%s.harakiri %llu %llu\n", uwsgi.hostname, u_carbon.id, (unsigned long long ) total_harakiri, (unsigned long long ) uwsgi.current_time);
 			if (rlen < 1) goto clear;
 			if (write(fd, ptr, rlen) <= 0) { uwsgi_error("write()"); goto clear;}
 

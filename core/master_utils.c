@@ -821,6 +821,8 @@ void uwsgi_send_stats(int fd) {
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "exceptions", (unsigned long long) uwsgi.workers[i + 1].exceptions))
 			goto end0;
+		if (uwsgi_stats_keylong_comma(us, "harakiri_count", (unsigned long long) uwsgi.workers[i + 1].harakiri_count))
+			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "signals", (unsigned long long) uwsgi.workers[i + 1].signals))
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "static_offload_threads", (unsigned long long) uwsgi.workers[i + 1].static_offload_threads))
@@ -1033,6 +1035,7 @@ void trigger_harakiri(int i) {
 		// allow SIGUSR2 to be delivered
 		sleep(1);
 		kill(uwsgi.workers[i].pid, SIGKILL);
+		uwsgi.workers[i].harakiri_count++;
 	}
 	// to avoid races
 
