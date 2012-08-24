@@ -104,21 +104,19 @@ void uwsgi_emperor_blacklist_remove(char *id) {
 
 	// ok let's remove the item
 	//is it the first item ?
-	if (emperor_blacklist == uebi) {
+	if (uebi == emperor_blacklist) {
 		emperor_blacklist = uebi->next;
-		// only if it is not the last item
-		if (uebi->next) {
-			uebi->next->prev = emperor_blacklist;
-		}
-		free(uebi);
-		return;
 	}
 
 	struct uwsgi_emperor_blacklist_item *next = uebi->next;
 	struct uwsgi_emperor_blacklist_item *prev = uebi->prev;
 
-	next->prev = prev;
-	prev->next = next;
+	if (next)
+		next->prev = prev;
+
+	if (prev)
+		prev->next = next;
+
 	free(uebi);
 }
 
