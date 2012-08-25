@@ -294,7 +294,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 #endif
 				// remove death mark and update cores and load
 				node->death_mark = 0;
-                                node->last_check = time(NULL);
+                                node->last_check = uwsgi_now();
 				node->cores = usr->cores;
 				node->load = usr->load;
 				node->weight = usr->weight;
@@ -327,7 +327,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->unix_check = usr->unix_check;
 		if (!node->weight) node->weight = 1;
 		node->wrr = 0;
-		node->last_check = time(NULL);
+		node->last_check = uwsgi_now();
 		node->slot = current_slot;
                 memcpy(node->name, usr->address, usr->address_len);
 		if (old_node) {
@@ -414,7 +414,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		if (!current_slot->nodes->weight) current_slot->nodes->weight = 1;
 		current_slot->nodes->wrr = 0;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
-		current_slot->nodes->last_check = time(NULL);
+		current_slot->nodes->last_check = uwsgi_now();
 
 		current_slot->nodes->next = NULL;
 

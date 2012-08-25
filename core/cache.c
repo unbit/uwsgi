@@ -269,7 +269,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 			}
 		}
 		uci = &uwsgi.cache_items[index] ;
-		if (expires) expires += time(NULL);
+		if (expires) expires += uwsgi_now();
 		uci->expires = expires;
 		uci->djbhash = djb33x_hash(key, keylen);
 		uci->hits = 0;
@@ -307,7 +307,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = &uwsgi.cache_items[index] ;
 		if (expires) {
-			expires += time(NULL);
+			expires += uwsgi_now();
 			uci->expires = expires;
 		}
 		memcpy(uwsgi.cache+(index*uwsgi.cache_blocksize), val, vallen);

@@ -95,12 +95,12 @@ void uwsgi_check_logrotate(void) {
 		char *rot_name = uwsgi.log_backupname;
 		int need_free = 0;
 		if (rot_name == NULL) {
-			char *ts_str = uwsgi_num2str((int) time(NULL));
+			char *ts_str = uwsgi_num2str((int) uwsgi_now());
 			rot_name = uwsgi_concat3(uwsgi.logfile, ".", ts_str);
 			free(ts_str);
 			need_free = 1;
 		}
-		int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) time(NULL), (unsigned long long) uwsgi.shared->logsize, rot_name);
+		int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering rotation to %s...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize, rot_name);
 		if (ret > 0) {
 			if (write(uwsgi.original_log_fd, message, ret) != ret) {
 				// very probably this will never be printed
@@ -129,7 +129,7 @@ void uwsgi_check_logrotate(void) {
 			free(rot_name);
 	}
 	else if (need_reopen) {
-		int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int) time(NULL), (unsigned long long) uwsgi.shared->logsize);
+		int ret = snprintf(message, 1024, "[%d] logsize: %llu, triggering log-reopen...\n", (int) uwsgi_now(), (unsigned long long) uwsgi.shared->logsize);
                 if (ret > 0) {
                         if (write(uwsgi.original_log_fd, message, ret) != ret) {
                                 // very probably this will never be printed
@@ -144,7 +144,7 @@ void uwsgi_check_logrotate(void) {
                 	uwsgi_error_open(uwsgi.logfile);
                 	grace_them_all(0);
                 }
-		ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) time(NULL), uwsgi.logfile);
+		ret = snprintf(message, 1024, "[%d] %s reopened.\n", (int) uwsgi_now(), uwsgi.logfile);
                 if (ret > 0) {
                         if (write(uwsgi.original_log_fd, message, ret) != ret) {
                                 // very probably this will never be printed
@@ -569,7 +569,7 @@ ssize_t uwsgi_lf_status(struct wsgi_request *wsgi_req, char **buf) {
 }
 
 ssize_t uwsgi_lf_epoch(struct wsgi_request *wsgi_req, char **buf) {
-        *buf = uwsgi_num2str(time(NULL));
+        *buf = uwsgi_num2str(uwsgi_now());
         return strlen(*buf);
 }
 

@@ -326,7 +326,7 @@ static struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *
 
 static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr) {
 
-	time_t current = time(NULL);
+	time_t current = uwsgi_now();
 	struct uwsgi_rb_timer *urbt;
 	struct corerouter_session *cr_session;
 
@@ -506,7 +506,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 			delta = -1;
 		}
 		else {
-			delta = min_timeout->key - time(NULL);
+			delta = min_timeout->key - uwsgi_now();
 			if (delta <= 0) {
 				corerouter_expire_timeouts(ucr);
 				delta = 0;
@@ -520,7 +520,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 		nevents = event_queue_wait_multi(ucr->queue, delta, events, ucr->nevents);
 
 		if (uwsgi.master_process && ucr->harakiri > 0) {
-			ushared->gateways_harakiri[id] = time(NULL) + ucr->harakiri;
+			ushared->gateways_harakiri[id] = uwsgi_now() + ucr->harakiri;
 		}
 
 		if (nevents == 0) {

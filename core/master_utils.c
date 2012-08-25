@@ -12,9 +12,9 @@ int uwsgi_calc_cheaper(void) {
 	int check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
 
 	if (!last_check)
-		last_check = time(NULL);
+		last_check = uwsgi_now();
 
-	time_t now = time(NULL);
+	time_t now = uwsgi_now();
 	if (!check_interval)
 		check_interval = 1;
 

@@ -87,7 +87,7 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
                 if (ucn->name[0] != 0) {
                         if (!strcmp(ucn->name, nucn->name)) {
                                 ucn->status = UWSGI_NODE_OK;
-                                ucn->last_seen = time(NULL);
+                                ucn->last_seen = uwsgi_now();
                                 // update requests
                                 ucn->requests = nucn->requests;
                                 return;
@@ -122,7 +122,7 @@ void uwsgi_cluster_add_node(struct uwsgi_cluster_node *nucn, int type) {
                         if (type != CLUSTER_NODE_DYNAMIC && tcp_port) {
                                 tcp_port[0] = ':';
                         }
-                        ucn->last_seen = time(NULL);
+                        ucn->last_seen = uwsgi_now();
                         ucn->requests = nucn->requests;
                         uwsgi_log("[uWSGI cluster] added node %s\n", ucn->name);
                         return;
@@ -324,7 +324,7 @@ char *uwsgi_cluster_best_node() {
                 return NULL;
         }
 
-        uwsgi.shared->nodes[best_node].last_choosen = time(NULL);
+        uwsgi.shared->nodes[best_node].last_choosen = uwsgi_now();
         return uwsgi.shared->nodes[best_node].name;
 }
 

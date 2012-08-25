@@ -47,6 +47,8 @@ struct uwsgi_option gevent_options[] = {
 
 PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 
+	uwsgi_log("%p %p\n", self, args);
+
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	
@@ -66,11 +68,11 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 }
 
 void uwsgi_gevent_gbcw() {
+
+	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
 	
 	py_uwsgi_gevent_graceful(NULL, NULL);
 
-	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
-	exit(0);
 }
 
 struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {

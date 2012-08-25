@@ -65,7 +65,7 @@ void carbon_master_cycle() {
 
 	if (!u_carbon.servers) return ;
 
-	if (last_update == 0) last_update = time(NULL);
+	if (last_update == 0) last_update = uwsgi_now();
 
 	// update
 	if (uwsgi.current_time - last_update >= u_carbon.freq) {
@@ -199,7 +199,7 @@ clear:
 nxt:
 			usl = usl->next;
 		}
-		last_update = time(NULL);
+		last_update = uwsgi_now();
 	}
 }
 

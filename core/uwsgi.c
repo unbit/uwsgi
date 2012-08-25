@@ -796,10 +796,10 @@ void kill_them_all(int signum) {
 	uwsgi.to_hell = 1;
 
 	if (uwsgi.reload_mercy > 0) {
-		uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
+		uwsgi.master_mercy = uwsgi_now() + uwsgi.reload_mercy;
 	}
 	else {
-		uwsgi.master_mercy = time(NULL) + 5;
+		uwsgi.master_mercy = uwsgi_now() + 5;
 	}
 
 	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
@@ -861,11 +861,11 @@ void grace_them_all(int signum) {
 		uwsgi.to_outworld = 1;
 
 	if (uwsgi.reload_mercy > 0) {
-		uwsgi.master_mercy = time(NULL) + uwsgi.reload_mercy;
+		uwsgi.master_mercy = uwsgi_now() + uwsgi.reload_mercy;
 	}
 	else {
 		// wait max 60 seconds for graceful reload
-		uwsgi.master_mercy = time(NULL) + 60;
+		uwsgi.master_mercy = uwsgi_now() + 60;
 	}
 
 #ifdef UWSGI_SPOOLER
@@ -1091,7 +1091,7 @@ void what_i_am_doing() {
 #else
 				ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage);
 #endif
-				if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL)) {
+				if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
 					uwsgi_log("HARAKIRI: --- uWSGI worker %d core %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, i, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 				}
 				else {
@@ -1108,14 +1108,14 @@ void what_i_am_doing() {
 #else
 			ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage);
 #endif
-			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL)) {
+			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
 				uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 			}
 			else {
 				uwsgi_log("SIGUSR2: --- uWSGI worker %d (pid: %d) is managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
 			}
 		}
-		else if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < time(NULL) && uwsgi.workers[uwsgi.mywid].sig) {
+		else if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now() && uwsgi.workers[uwsgi.mywid].sig) {
 			uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS handling signal %d ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, uwsgi.workers[uwsgi.mywid].signum);
 		}
 	}
@@ -1494,6 +1494,22 @@ static void imperial_monitor_list(void) {
 	uwsgi_log("--- end of imperial monitors list ---\n\n");
 }
 
+static time_t uwsgi_unix_seconds() {
+	return time(NULL);
+}
+
+static uint64_t uwsgi_unix_microseconds() {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (tv.tv_sec * 1000000) + tv.tv_usec;
+}
+
+static struct uwsgi_clock uwsgi_unix_clock = {
+	.name = "unix",
+	.seconds = uwsgi_unix_seconds,
+	.microseconds = uwsgi_unix_microseconds,
+};
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int argc, char *argv[], char *envp[]) {
 
@@ -1539,6 +1555,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi.cwd = uwsgi_get_cwd();
 
 	init_magic_table(uwsgi.magic_table);
+
+	// initialize the clock
+	uwsgi_register_clock(&uwsgi_unix_clock);
+	uwsgi_set_clock("unix");
 
 	// manage/flush logs
 	atexit(uwsgi_flush_logs);
@@ -3122,7 +3142,7 @@ nextsock:
 		}
 		uwsgi.workers[1].pid = masterpid;
 		uwsgi.workers[1].id = 1;
-		uwsgi.workers[1].last_spawn = time(NULL);
+		uwsgi.workers[1].last_spawn = uwsgi_now();
 		uwsgi.workers[1].manage_next_request = 1;
 		uwsgi.mywid = 1;
 		gettimeofday(&last_respawn, NULL);
@@ -3136,7 +3156,7 @@ nextsock:
 
 	// uWSGI is ready
 	uwsgi_notify_ready();
-	uwsgi.current_time = time(NULL);
+	uwsgi.current_time = uwsgi_now();
 
 	if (!uwsgi.cheap) {
 		if (uwsgi.cheaper && uwsgi.cheaper_count) {

@@ -150,7 +150,7 @@ int uwsgi_queue_push(char *message, uint64_t size) {
 	ptr += sizeof(struct uwsgi_queue_item);
 
 	uqi->size = size;
-	uqi->ts = time(NULL);
+	uqi->ts = uwsgi_now();
 	memcpy(ptr, message, size);
 
 	uwsgi.queue_header->pos++;
@@ -178,7 +178,7 @@ int uwsgi_queue_set(uint64_t pos, char *message, uint64_t size) {
         ptr += sizeof(struct uwsgi_queue_item);
 
         uqi->size = size;
-        uqi->ts = time(NULL);
+        uqi->ts = uwsgi_now();
         memcpy(ptr, message, size);
 
         return 1;

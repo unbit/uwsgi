@@ -103,7 +103,7 @@ void set_harakiri(int sec) {
 		uwsgi.workers[uwsgi.mywid].harakiri = 0;
 	}
 	else {
-		uwsgi.workers[uwsgi.mywid].harakiri = time(NULL) + sec;
+		uwsgi.workers[uwsgi.mywid].harakiri = uwsgi_now() + sec;
 	}
 	if (!uwsgi.master_process) {
 		alarm(sec);
@@ -119,7 +119,7 @@ void set_user_harakiri(int sec) {
 		uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
 	}
 	else {
-		uwsgi.workers[uwsgi.mywid].user_harakiri = time(NULL) + sec;
+		uwsgi.workers[uwsgi.mywid].user_harakiri = uwsgi_now() + sec;
 	}
 }
 
@@ -128,7 +128,7 @@ void set_mule_harakiri(int sec) {
 		uwsgi.mules[uwsgi.muleid - 1].harakiri = 0;
 	}
 	else {
-		uwsgi.mules[uwsgi.muleid - 1].harakiri = time(NULL) + sec;
+		uwsgi.mules[uwsgi.muleid - 1].harakiri = uwsgi_now() + sec;
 	}
 	if (!uwsgi.master_process) {
 		alarm(sec);
@@ -141,7 +141,7 @@ void set_spooler_harakiri(int sec) {
 		uwsgi.i_am_a_spooler->harakiri = 0;
 	}
 	else {
-		uwsgi.i_am_a_spooler->harakiri = time(NULL) + sec;
+		uwsgi.i_am_a_spooler->harakiri = uwsgi_now() + sec;
 	}
 	if (!uwsgi.master_process) {
 		alarm(sec);
@@ -1320,7 +1320,7 @@ void uwsgi_log(const char *fmt, ...) {
 
 	if (uwsgi.logdate) {
 		if (uwsgi.log_strftime) {
-			now = time(NULL);
+			now = uwsgi_now();
 			rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
 			memcpy(logpkt, sftime, rlen);
 			memcpy(logpkt + rlen, " - ", 3);
@@ -1372,7 +1372,7 @@ void uwsgi_log_verbose(const char *fmt, ...) {
 	char ctime_storage[26];
 
 	if (uwsgi.log_strftime) {
-		now = time(NULL);
+		now = uwsgi_now();
 		rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
 		memcpy(logpkt, sftime, rlen);
 		memcpy(logpkt + rlen, " - ", 3);
@@ -2835,11 +2835,11 @@ void spawn_daemon(struct uwsgi_daemon *ud) {
 		ud->pid = pid;
 		ud->status = 1;
 		if (ud->respawns == 0) {
-			ud->born = time(NULL);
+			ud->born = uwsgi_now();
 		}
 
 		ud->respawns++;
-		ud->last_spawn = time(NULL);
+		ud->last_spawn = uwsgi_now();
 
 	}
 	else {
@@ -4345,17 +4345,6 @@ void uwsgi_emulate_cow_for_apps(int id) {
 	}
 }
 
-
-// in the future we will need to use the best clock source for each os/system
-time_t uwsgi_now() {
-	return time(NULL);
-}
-
-uint64_t uwsgi_micros() {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (tv.tv_sec * 1000000) + tv.tv_usec;
-}
 
 void uwsgi_write_pidfile(char *pidfile_name) {
 	uwsgi_log("writing pidfile to %s\n", pidfile_name);

@@ -194,7 +194,7 @@ int uwsgi_master_check_mercy() {
 	int i, waitpid_status;
 
 	if (uwsgi.master_mercy) {
-		if (uwsgi.master_mercy < time(NULL)) {
+		if (uwsgi.master_mercy < uwsgi_now()) {
 			for (i = 1; i <= uwsgi.numproc; i++) {
 				if (uwsgi.workers[i].pid > 0) {
 					if (uwsgi.lazy && uwsgi.workers[i].destroy == 0)
@@ -233,7 +233,7 @@ int uwsgi_master_check_mercy() {
 
 void expire_rb_timeouts(struct rb_root *root) {
 
-	time_t current = time(NULL);
+	time_t current = uwsgi_now();
 	struct uwsgi_rb_timer *urbt;
 	struct uwsgi_signal_rb_timer *usrbt;
 
@@ -252,7 +252,7 @@ void expire_rb_timeouts(struct rb_root *root) {
 			usrbt->iterations_done++;
 			uwsgi_route_signal(usrbt->sig);
 			if (!usrbt->iterations || usrbt->iterations_done < usrbt->iterations) {
-				usrbt->uwsgi_rb_timer = uwsgi_add_rb_timer(root, time(NULL) + usrbt->value, usrbt);
+				usrbt->uwsgi_rb_timer = uwsgi_add_rb_timer(root, uwsgi_now() + usrbt->value, usrbt);
 			}
 			continue;
 		}
@@ -582,7 +582,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 
-	uwsgi.current_time = time(NULL);
+	uwsgi.current_time = uwsgi_now();
 
 	uwsgi_unix_signal(SIGTSTP, suspend_resume_them_all);
 	uwsgi_unix_signal(SIGHUP, grace_them_all);
@@ -904,7 +904,7 @@ int master_loop(char **argv, char **environ) {
 			// locking is not needed as rb_timers can only increase
 			for (i = 0; i < ushared->rb_timers_cnt; i++) {
 				if (!ushared->rb_timers[i].registered) {
-					ushared->rb_timers[i].uwsgi_rb_timer = uwsgi_add_rb_timer(rb_timers, time(NULL) + ushared->rb_timers[i].value, &ushared->rb_timers[i]);
+					ushared->rb_timers[i].uwsgi_rb_timer = uwsgi_add_rb_timer(rb_timers, uwsgi_now() + ushared->rb_timers[i].value, &ushared->rb_timers[i]);
 					ushared->rb_timers[i].registered = 1;
 				}
 			}
@@ -917,7 +917,7 @@ int master_loop(char **argv, char **environ) {
 					check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
 				}
 				else {
-					check_interval = min_timeout->key - time(NULL);
+					check_interval = min_timeout->key - uwsgi_now();
 					if (check_interval <= 0) {
 						expire_rb_timeouts(rb_timers);
 						check_interval = 0;
@@ -937,11 +937,11 @@ int master_loop(char **argv, char **environ) {
 
 			// check uwsgi-cron table
 			if (ushared->cron_cnt) {
-				uwsgi_manage_signal_cron(time(NULL));
+				uwsgi_manage_signal_cron(uwsgi_now());
 			}
 
 			if (uwsgi.crons) {
-				uwsgi_manage_command_cron(time(NULL));
+				uwsgi_manage_command_cron(uwsgi_now());
 			}
 
 
@@ -1151,7 +1151,7 @@ int master_loop(char **argv, char **environ) {
 			}
 
 health_cycle:
-			now = time(NULL);
+			now = uwsgi_now();
 			if (now - uwsgi.current_time < 1) {
 				continue;
 			}
@@ -1176,7 +1176,7 @@ health_cycle:
 			}
 
 			if (uwsgi.idle > 0 && !uwsgi.cheap) {
-				uwsgi.current_time = time(NULL);
+				uwsgi.current_time = uwsgi_now();
 				if (!last_request_timecheck)
 					last_request_timecheck = uwsgi.current_time;
 				if (last_request_count != uwsgi.workers[0].requests) {

@@ -52,7 +52,7 @@ ssize_t uwsgi_rsyslog_logger(struct uwsgi_logger *ul, char *message, size_t len)
         }
 
 
-	current_time = time(NULL);
+	current_time = uwsgi_now();
 
 	// drop newline
 	if (message[len-1] == '\n') len--;

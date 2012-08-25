@@ -424,7 +424,7 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 		}
 
 		// a spool request for the future
-		if (sf_lstat.st_mtime > time(NULL)) {
+		if (sf_lstat.st_mtime > uwsgi_now()) {
 			return;
 		}
 
@@ -519,7 +519,7 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			int callable_found = 0;
 			for(i=0;i<256;i++) {
 				if (uwsgi.p[i]->spooler) {
-					time_t now = time(NULL);
+					time_t now = uwsgi_now();
 					if(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
                         			set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
                 			}
@@ -533,7 +533,7 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 					uspool->tasks++;
 					if (ret == -2) {
 						if (!uwsgi.spooler_quiet)
-							uwsgi_log("[spooler %s pid: %d] done with task %s after %d seconds\n", uspool->dir, (int) uwsgi.mypid, task, time(NULL)-now);
+							uwsgi_log("[spooler %s pid: %d] done with task %s after %d seconds\n", uspool->dir, (int) uwsgi.mypid, task, uwsgi_now()-now);
 						destroy_spool(dir, task);	
 					}
 					// re-spool it

@@ -130,7 +130,7 @@ void rrdtool_master_cycle() {
 
 	if (!u_rrd.lib || !u_rrd.create || !u_rrd.rrd) return ;
 
-	if (last_update == 0) last_update = time(NULL);
+	if (last_update == 0) last_update = uwsgi_now();
 
 	// update
 	if (uwsgi.current_time - last_update >= u_rrd.freq) {

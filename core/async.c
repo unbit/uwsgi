@@ -76,7 +76,7 @@ struct wsgi_request *find_first_available_wsgi_req() {
 void async_expire_timeouts() {
 
 	struct wsgi_request *wsgi_req;
-	time_t current_time = time(NULL);
+	time_t current_time = uwsgi_now();
 	struct uwsgi_async_fd *uaf = NULL, *current_uaf;
 
 	struct uwsgi_rb_timer *urbt;
@@ -150,7 +150,7 @@ void async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 void async_add_timeout(struct wsgi_request *wsgi_req, int timeout) {
 
 	if (timeout > 0 && wsgi_req->async_timeout == NULL) {
-        	wsgi_req->async_timeout = uwsgi_add_rb_timer(uwsgi.rb_async_timeouts, time(NULL)+timeout, wsgi_req);
+        	wsgi_req->async_timeout = uwsgi_add_rb_timer(uwsgi.rb_async_timeouts, uwsgi_now()+timeout, wsgi_req);
         }
 
 }
@@ -231,7 +231,7 @@ void *async_loop(void *arg1) {
                         	timeout = 0;
 			}
                 	if (min_timeout) {
-                        	timeout = min_timeout->key - time(NULL);
+                        	timeout = min_timeout->key - uwsgi_now();
                         	if (timeout <= 0) {
                                 	async_expire_timeouts();
                                 	timeout = 0;
@@ -273,7 +273,7 @@ void *async_loop(void *arg1) {
 
 					uwsgi.wsgi_req = find_first_available_wsgi_req();
 					if (uwsgi.wsgi_req == NULL) {
-						now = time(NULL);
+						now = uwsgi_now();
 						if (now > last_now) {
 							uwsgi_log("async queue is full !!!\n");
 							last_now = now;

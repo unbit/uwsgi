@@ -1092,6 +1092,12 @@ struct uwsgi_imperial_monitor {
         struct uwsgi_imperial_monitor *next;
 };
 
+struct uwsgi_clock {
+	char *name;
+	time_t (*seconds)(void);
+	uint64_t (*microseconds)(void);
+	struct uwsgi_clock *next;
+};
 
 struct uwsgi_server {
 
@@ -1110,6 +1116,9 @@ struct uwsgi_server {
 	char *procname_append;
 	char *procname_master;
 	char *procname;
+
+	struct uwsgi_clock *clocks;
+	struct uwsgi_clock *clock;
 
 	// quiet startup
 	int no_initial_output;
@@ -3163,6 +3172,9 @@ void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *);
 void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *);
 void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *);
 void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *);
+
+void uwsgi_register_clock(struct uwsgi_clock *);
+void uwsgi_set_clock(char *name);
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
