@@ -1117,6 +1117,7 @@ struct uwsgi_server {
 	char *procname_master;
 	char *procname;
 
+	char *requested_clock;
 	struct uwsgi_clock *clocks;
 	struct uwsgi_clock *clock;
 
@@ -1265,6 +1266,7 @@ struct uwsgi_server {
 	int plugins_list;
 	int loggers_list;
 	int loop_list;
+	int clock_list;
 
 	//base for all the requests(even on async mode)
 	struct wsgi_request **wsgi_requests;

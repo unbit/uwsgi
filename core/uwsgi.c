@@ -405,6 +405,12 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
+
+	{"clock", required_argument, 0, "set a clock source", uwsgi_opt_set_str, &uwsgi.requested_clock, 0},
+
+	{"clock-list", no_argument, 0, "list enabled clocks", uwsgi_opt_true, &uwsgi.clock_list, 0},
+	{"clocks-list", no_argument, 0, "list enabled clocks", uwsgi_opt_true, &uwsgi.clock_list, 0},
+
 	{"add-header", required_argument, 0, "automatically add HTTP headers to response", uwsgi_opt_add_string_list, &uwsgi.additional_headers, 0},
 
 	{"check-static", required_argument, 0, "check for static files in the specified directory", uwsgi_opt_check_static, NULL, UWSGI_OPT_MIME},
@@ -1494,6 +1500,16 @@ static void imperial_monitor_list(void) {
 	uwsgi_log("--- end of imperial monitors list ---\n\n");
 }
 
+static void clocks_list(void) {
+	struct uwsgi_clock *clocks = uwsgi.clocks;
+	uwsgi_log("\n*** uWSGI loaded clocks ***\n");
+	while(clocks) {
+		uwsgi_log("%s\n", clocks->name);
+		clocks = clocks->next;
+	}
+	uwsgi_log("--- end of clocks list ---\n\n");
+}
+
 static time_t uwsgi_unix_seconds() {
 	return time(NULL);
 }
@@ -1987,6 +2003,13 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (uwsgi.imperial_monitor_list)
 		imperial_monitor_list();
+
+	if (uwsgi.clock_list)
+		clocks_list();
+
+	// set the clock
+	if (uwsgi.requested_clock)
+		uwsgi_set_clock(uwsgi.requested_clock);
 
 	// call cluster initialization procedures
 #ifdef UWSGI_MULTICAST

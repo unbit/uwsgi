@@ -14,11 +14,18 @@ uint64_t uwsgi_micros() {
 
 void uwsgi_register_clock(struct uwsgi_clock *clock) {
 	struct uwsgi_clock *clocks = uwsgi.clocks;
+
+	clock->next = NULL;
+
+	if (!clocks) {
+		uwsgi.clocks = clock;
+		return;
+	}
+
 	while(clocks) {
 		if (!clocks->next) {
 			clocks->next = clock;
-			clock->next = NULL;
-			break;
+			return;
 		}
 		clocks = clocks->next;
 	}
