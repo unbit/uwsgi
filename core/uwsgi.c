@@ -2041,6 +2041,8 @@ int main(int argc, char *argv[], char *envp[]) {
                 uwsgi_log_initial("machine: %s\n", uuts.machine);
         }
 
+	uwsgi_log_initial("clock source: %s\n", uwsgi.clock->name);
+
 
 #ifdef __BIG_ENDIAN__
 	uwsgi_log_initial("*** big endian arch detected ***\n");
