@@ -235,7 +235,7 @@ void router_basicauth_register(void) {
 
 struct uwsgi_plugin router_basicauth_plugin = {
 
-	.name = "router_redirect",
+	.name = "router_basicauth",
 	.on_load = router_basicauth_register,
 #ifndef __linux__
 	.enable_threads = router_basicauth_init_lock,

@@ -20,7 +20,10 @@ int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_rout
         iov[1].iov_base = " 302 Found\r\nLocation: ";
         iov[1].iov_len = 22;
 
-	iov[2].iov_base = uwsgi_regexp_apply_ovec(wsgi_req->path_info, wsgi_req->path_info_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
+	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+	iov[2].iov_base = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
 	iov[2].iov_len = strlen(iov[2].iov_base);
 
 	iov[3].iov_base = "\r\n\r\n";
