@@ -1471,6 +1471,7 @@ static void cheaper_algo_list(void) {
 	uwsgi_log("--- end of cheaper algorithms list ---\n\n");
 }
 
+#ifdef UWSGI_ROUTING
 static void router_list(void) {
         struct uwsgi_router *ur = uwsgi.routers;
         uwsgi_log("\n*** uWSGI loaded routers ***\n");
@@ -1480,6 +1481,7 @@ static void router_list(void) {
         }
         uwsgi_log("--- end of routers list ---\n\n");
 }
+#endif
 
 static void loop_list(void) {
 	int i;
@@ -1994,8 +1996,10 @@ int main(int argc, char *argv[], char *envp[]) {
 		cheaper_algo_list();
 
 
+#ifdef UWSGI_ROUTING
 	if (uwsgi.router_list)
 		router_list();
+#endif
 
 
 	if (uwsgi.loop_list)

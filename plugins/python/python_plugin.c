@@ -526,7 +526,9 @@ next:
 
 
 
+#ifdef UWSGI_EMBEDDED
 PyDoc_STRVAR(uwsgi_py_doc, "uWSGI api module.");
+#endif
 
 
 #ifdef PYTHREE
