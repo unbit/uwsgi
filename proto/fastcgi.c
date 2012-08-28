@@ -222,7 +222,7 @@ ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, siz
                         	return 0;
                 	}
 			rlen = write(wsgi_req->poll.fd, ptr, chunk_len);
-			if (rlen != 8) {
+			if (rlen <= 0) {
                         	if (!uwsgi.ignore_write_errors) {
                                 	uwsgi_req_error("write()");
                         	}
