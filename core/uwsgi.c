@@ -1094,9 +1094,9 @@ void what_i_am_doing() {
 			wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[i].req;
 			if (wsgi_req->uri_len > 0) {
 #ifdef __sun__
-				ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage, 26);
+				ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage, 26);
 #else
-				ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage);
+				ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);
 #endif
 				if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
 					uwsgi_log("HARAKIRI: --- uWSGI worker %d core %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, i, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
@@ -1111,9 +1111,9 @@ void what_i_am_doing() {
 		wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
 		if (wsgi_req->uri_len > 0) {
 #ifdef __sun__
-			ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage, 26);
+			ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage, 26);
 #else
-			ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage);
+			ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, ctime_storage);
 #endif
 			if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && uwsgi.workers[uwsgi.mywid].harakiri < uwsgi_now()) {
 				uwsgi_log("HARAKIRI: --- uWSGI worker %d (pid: %d) WAS managing request %.*s since %.*s ---\n", (int) uwsgi.mywid, (int) uwsgi.mypid, wsgi_req->uri_len, wsgi_req->uri, 24, ctime_storage);
@@ -3771,8 +3771,6 @@ void uwsgi_init_all_apps() {
 			uwsgi.gp[i]->init_apps();
 		}
 	}
-
-	uwsgi_log("APPS COUNT %d\n", uwsgi_apps_cnt);
 
 	struct uwsgi_string_list *app_mps = uwsgi.mounts;
 	while(app_mps) {

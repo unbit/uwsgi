@@ -198,7 +198,6 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 
 	// optimize this (please)
         char time_request[26];
-        time_t microseconds, microseconds2;
         int rlen;
         int app_req = -1;
         char *msg2 = " ";
@@ -213,7 +212,6 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
         const char *msecs = "msecs";
         const char *micros = "micros";
 
-        long int rt;
         char *tsize = (char *) msecs;
 
 #ifdef UWSGI_SENDFILE
@@ -246,14 +244,12 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 	}
 
 #ifdef __sun__
-	ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, time_request, 26);
+	ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, time_request, 26);
 #else
-	ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, time_request);
+	ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, time_request);
 #endif
-	microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
-	microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
 
-	rt = (long int) (microseconds - microseconds2);
+	uint64_t rt = wsgi_req->end_of_request-wsgi_req->start_of_request;
 
 	if (uwsgi.log_micros) {
 		tsize = (char *) micros;
@@ -576,31 +572,27 @@ ssize_t uwsgi_lf_epoch(struct wsgi_request *wsgi_req, char **buf) {
 ssize_t uwsgi_lf_ctime(struct wsgi_request *wsgi_req, char **buf) {
 	*buf = uwsgi_malloc(26);
 #ifdef __sun__
-        ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, *buf, 26);
+        ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, *buf, 26);
 #else
-        ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, *buf);
+        ctime_r((const time_t *) &wsgi_req->start_of_request_in_sec, *buf);
 #endif
 	return 24;
 }
 
 ssize_t uwsgi_lf_time(struct wsgi_request *wsgi_req, char **buf) {
-        *buf = uwsgi_num2str(wsgi_req->start_of_request.tv_sec);
+        *buf = uwsgi_num2str(wsgi_req->start_of_request/1000000);
         return strlen(*buf);
 }
 
 
 
 ssize_t uwsgi_lf_micros(struct wsgi_request *wsgi_req, char **buf) {
-	int microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
-	int microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
-        *buf = uwsgi_num2str(microseconds - microseconds2);
+        *buf = uwsgi_num2str(wsgi_req->end_of_request-wsgi_req->start_of_request);
 	return strlen(*buf);
 }
 
 ssize_t uwsgi_lf_msecs(struct wsgi_request *wsgi_req, char **buf) {
-        int microseconds = wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec;
-        int microseconds2 = wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec;
-        *buf = uwsgi_num2str((microseconds - microseconds2)/1000);
+        *buf = uwsgi_num2str((wsgi_req->end_of_request-wsgi_req->start_of_request)/1000);
         return strlen(*buf);
 }
 

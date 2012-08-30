@@ -868,6 +868,7 @@ void uwsgi_send_stats(int fd) {
 		if (uwsgi_stats_keylong_comma(us, "avg_rt", (unsigned long long) uwsgi.workers[i + 1].avg_response_time))
 			goto end0;
 
+		// applications list
 		if (uwsgi_stats_key(us, "apps"))
 			goto end0;
 		if (uwsgi_stats_list_open(us))
@@ -912,6 +913,38 @@ void uwsgi_send_stats(int fd) {
 			}
 		}
 
+
+		if (uwsgi_stats_list_close(us))
+			goto end0;
+
+		if (uwsgi_stats_comma(us))
+                        goto end0;
+
+		// cores list
+		if (uwsgi_stats_key(us, "cores"))
+                        goto end0;
+                if (uwsgi_stats_list_open(us))
+                        goto end0;
+
+		for (j = 0; j < uwsgi.cores; j++) {
+			struct uwsgi_core *uc = &uwsgi.workers[i + 1].cores[j];
+			if (uwsgi_stats_object_open(us))
+                                goto end0;
+			if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) j))
+                                goto end0;
+
+			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))
+                                goto end0;	
+			
+
+			if (uwsgi_stats_object_close(us))
+                                goto end0;
+
+			if (j < uwsgi.cores-1) {
+				if (uwsgi_stats_comma(us))
+                                        goto end0;
+			}
+		}
 
 		if (uwsgi_stats_list_close(us))
 			goto end0;

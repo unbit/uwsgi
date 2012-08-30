@@ -789,9 +789,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
 
-	gettimeofday(&wsgi_req->end_of_request, NULL);
+	wsgi_req->end_of_request = uwsgi_micros();
 
-	tmp_rt = (wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec);
+	tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request; 
 
 	uwsgi.workers[uwsgi.mywid].running_time += tmp_rt;
 	uwsgi.workers[uwsgi.mywid].avg_response_time = (uwsgi.workers[uwsgi.mywid].avg_response_time + tmp_rt) / 2;
@@ -811,6 +811,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
 	// this is used for MAX_REQUESTS
 	uwsgi.workers[uwsgi.mywid].delta_requests++;
 
@@ -1021,7 +1022,8 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 	uwsgi.workers[uwsgi.mywid].busy = 1;
 
-	gettimeofday(&wsgi_req->start_of_request, NULL);
+	wsgi_req->start_of_request = uwsgi_micros();
+	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
 	if (!wsgi_req->do_not_add_to_async_queue) {
 		if (event_queue_add_fd_read(uwsgi.async_queue, wsgi_req->poll.fd) < 0)
@@ -1047,7 +1049,8 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 	uwsgi.workers[uwsgi.mywid].busy = 1;
 
-	gettimeofday(&wsgi_req->start_of_request, NULL);
+	wsgi_req->start_of_request = uwsgi_micros();
+	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
 	// edge triggered sockets get the whole request during accept() phase
 	if (!wsgi_req->socket->edge_trigger) {

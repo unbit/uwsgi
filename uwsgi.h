@@ -29,7 +29,7 @@ extern "C" {
 #define uwsgi_apps uwsgi.workers[uwsgi.mywid].apps
 #define uwsgi_apps_cnt uwsgi.workers[uwsgi.mywid].apps_cnt
 
-#define wsgi_req_time ((wsgi_req->end_of_request.tv_sec * 1000000 + wsgi_req->end_of_request.tv_usec) - (wsgi_req->start_of_request.tv_sec * 1000000 + wsgi_req->start_of_request.tv_usec))/1000
+#define wsgi_req_time ((wsgi_req->end_of_request-wsgi_req->start_of_request)/1000)
 
 #define thunder_lock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
 #define thunder_unlock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
@@ -865,8 +865,9 @@ struct wsgi_request {
 	//iovec
 	struct iovec *hvec;
 
-	struct timeval start_of_request;
-	struct timeval end_of_request;
+	uint64_t start_of_request;
+	uint64_t start_of_request_in_sec;
+	uint64_t end_of_request;
 
 	char *uri;
 	uint16_t uri_len;
@@ -1941,12 +1942,9 @@ struct uwsgi_shared {
 
 struct uwsgi_core {
 
-	int id;
-	int worker_id;
+	//time_t harakiri;
 
-	time_t harakiri;
-
-	//uint64_t        requests;
+	uint64_t        requests;
 	uint64_t failed_requests;
 
 #ifdef UWSGI_THREADING

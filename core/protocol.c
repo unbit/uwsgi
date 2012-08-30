@@ -46,7 +46,7 @@ int set_http_date(time_t t, char *header, int header_len, char *dst, int last) {
 void uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int mime_type_len, struct stat *st) {
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_type;
-	time_t now = wsgi_req->start_of_request.tv_sec;
+	time_t now = wsgi_req->start_of_request/1000000;
 	// Expires+34+1
 	char expires[42];
 
@@ -82,7 +82,7 @@ void uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int 
 void uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filename_len, struct stat *st) {
 
         struct uwsgi_dyn_dict *udd = uwsgi.static_expires;
-        time_t now = wsgi_req->start_of_request.tv_sec;
+        time_t now = wsgi_req->start_of_request/1000000;
         // Expires+34+1
         char expires[42];
 
@@ -117,7 +117,7 @@ void uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filena
 void uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) {
 
         struct uwsgi_dyn_dict *udd = uwsgi.static_expires_path_info;
-        time_t now = wsgi_req->start_of_request.tv_sec;
+        time_t now = wsgi_req->start_of_request/1000000;
         // Expires+34+1
         char expires[42];
 
@@ -152,7 +152,7 @@ void uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st)
 void uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 
         struct uwsgi_dyn_dict *udd = uwsgi.static_expires_uri;
-        time_t now = wsgi_req->start_of_request.tv_sec;
+        time_t now = wsgi_req->start_of_request/1000000;
         // Expires+34+1
         char expires[42];
 
