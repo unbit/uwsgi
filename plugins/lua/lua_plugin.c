@@ -105,11 +105,7 @@ static char *encode_lua_table(lua_State *L, int index, uint16_t *size) {
 		lua_pop(L, 1);
 	}
 
-	buf = malloc(*size);
-	if (!buf) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	buf = uwsgi_malloc(*size);
 
 	ptrbuf = buf;
 	lua_pushnil(L);
@@ -326,10 +322,7 @@ static int uwsgi_lua_input(lua_State *L) {
 		uwsgi_log("requested %d bytes\n", sum);
 	}
 
-	buf = malloc(sum);
-	if (!buf) {
-		uwsgi_error("malloc()");
-	}
+	buf = uwsgi_malloc(sum);
 
 	total = sum;
 
@@ -350,11 +343,7 @@ int uwsgi_lua_init(){
 
 	uwsgi_log("Initializing Lua environment... (%d cores)\n", uwsgi.cores);
 
-	ulua.L = malloc( sizeof(lua_State*) * uwsgi.cores );
-	if (!ulua.L) {
-		uwsgi_error("malloc()");
-		exit(1);
-	}
+	ulua.L = uwsgi_malloc( sizeof(lua_State*) * uwsgi.cores );
 
 	// ok the lua engine is ready
 	return 0;
@@ -374,10 +363,24 @@ void uwsgi_lua_app() {
 				uwsgi_log("unable to load file %s: %s\n", ulua.filename, lua_tostring(ulua.L[i], -1));
 				exit(1);
 			}
+			
 			// use a pcall
 			//lua_call(ulua.L[i], 0, 1);
 			if (lua_pcall(ulua.L[i], 0, 1, 0) != 0) {
 				uwsgi_log("%s\n", lua_tostring(ulua.L[i], -1));
+				exit(1);
+			}
+			
+			// if the loaded lua app returns as a table, fetch the
+			// run function.
+			if (lua_istable(ulua.L[i], 2)) {
+				lua_pushstring(ulua.L[i], "run" );
+				lua_gettable(ulua.L[i], 2);
+				lua_replace(ulua.L[i], 2);
+			}
+					
+			if (! lua_isfunction(ulua.L[i], 2))	{
+				uwsgi_log("Can't find WSAPI entry point (no function, nor a table with function'run').\n");
 				exit(1);
 			}
 		}
