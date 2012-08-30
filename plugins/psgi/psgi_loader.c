@@ -432,6 +432,11 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		goto clear;
         }
 
+	if (uwsgi_apps_cnt >= uwsgi.max_apps) {
+		uwsgi_log("ERROR: you cannot load more than %d apps in a worker\n", uwsgi.max_apps);
+		goto clear;
+	}
+
 	int id = uwsgi_apps_cnt;
 	struct uwsgi_app *wi = NULL;
 

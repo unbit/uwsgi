@@ -1031,7 +1031,7 @@ int master_loop(char **argv, char **environ) {
 #ifdef UWSGI_MULTICAST
 				if (interesting_fd == uwsgi.cluster_fd) {
 
-					if (uwsgi_get_dgram(uwsgi.cluster_fd, uwsgi.wsgi_requests[0])) {
+					if (uwsgi_get_dgram(uwsgi.cluster_fd, &uwsgi.workers[0].cores[0].req)) {
 						goto health_cycle;
 					}
 

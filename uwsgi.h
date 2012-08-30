@@ -53,7 +53,6 @@ extern "C" {
 #define UWSGI_OPT_CLUSTER		(1 << 12)
 #define UWSGI_OPT_MIME			(1 << 13)
 
-#define MAX_APPS 64
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
 #define MAX_GATEWAYS 64
@@ -1268,8 +1267,6 @@ struct uwsgi_server {
 	int loop_list;
 	int clock_list;
 
-	//base for all the requests(even on async mode)
-	struct wsgi_request **wsgi_requests;
 	struct wsgi_request *wsgi_req;
 
 	char *remap_modifier;
@@ -1563,6 +1560,7 @@ struct uwsgi_server {
 
 	/* the list of workers */
 	struct uwsgi_worker *workers;
+	int max_apps;
 
 	/* the list of mules */
 	struct uwsgi_string_list *mules_patches;
@@ -1652,12 +1650,9 @@ struct uwsgi_server {
 
 	time_t respawn_delta;
 
-	char *mounts[MAX_APPS];
-	int mounts_cnt;
+	struct uwsgi_string_list *mounts;
 
 	int cores;
-
-	struct uwsgi_core **core;
 
 	int threads;
 	pthread_attr_t threads_attr;
@@ -1958,10 +1953,11 @@ struct uwsgi_core {
 	pthread_t thread_id;
 #endif
 
-	//multiple ts per - core are needed only with multiple_interpreter + threads
-	void *ts[MAX_APPS];
+	// one ts-perapp
+	void **ts;
 
 	int in_request;
+	struct wsgi_request req;
 };
 
 struct uwsgi_snapshot {
@@ -2000,7 +1996,7 @@ struct uwsgi_worker {
 	int destroy;
 	
 	int apps_cnt;
-	struct uwsgi_app apps[MAX_APPS];
+	struct uwsgi_app *apps;
 
 	uint64_t tx;
 
@@ -2020,6 +2016,8 @@ struct uwsgi_worker {
 	uint64_t avg_response_time;
 
 	uint64_t static_offload_threads;
+
+	struct uwsgi_core *cores;
 
 	char name[0xff];
 	char snapshot_name[0xff];
@@ -2858,6 +2856,7 @@ struct uwsgi_gateway_socket *uwsgi_new_gateway_socket_from_fd(int, char *);
 void escape_shell_arg(char *, size_t, char *);
 
 void *uwsgi_malloc_shared(size_t);
+void *uwsgi_calloc_shared(size_t);
 
 struct uwsgi_spooler *uwsgi_new_spooler(char *);
 
@@ -2923,7 +2922,6 @@ void uwsgi_opt_set_gid(char *, char *, void *);
 void uwsgi_opt_set_env(char *, char *, void *);
 void uwsgi_opt_unset_env(char *, char *, void *);
 void uwsgi_opt_pidfile_signal(char *, char *, void *);
-void uwsgi_opt_add_app(char *, char *, void *);
 
 void uwsgi_opt_check_static(char *, char *, void *);
 void uwsgi_opt_fileserve_mode(char *, char *, void *);

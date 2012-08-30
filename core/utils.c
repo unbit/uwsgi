@@ -1000,7 +1000,7 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 		wsgi_req->socket = uwsgi_sock;
 	}
 
-	uwsgi.core[wsgi_req->async_id]->in_request = 0;
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 	uwsgi.workers[uwsgi.mywid].busy = 0;
 
 	// now check for suspend request
@@ -1018,7 +1018,7 @@ cycle:
 #ifdef UWSGI_ASYNC
 int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
-	uwsgi.core[wsgi_req->async_id]->in_request = 1;
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 	uwsgi.workers[uwsgi.mywid].busy = 1;
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
@@ -1044,7 +1044,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
-	uwsgi.core[wsgi_req->async_id]->in_request = 1;
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 	uwsgi.workers[uwsgi.mywid].busy = 1;
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
@@ -3312,6 +3312,12 @@ void *uwsgi_malloc_shared(size_t size) {
 	return addr;
 }
 
+void *uwsgi_calloc_shared(size_t size) {
+	void *ptr = uwsgi_malloc_shared(size);
+	memset(ptr, 0, size);
+	return ptr;
+}
+
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list, char *value) {
 
@@ -4229,6 +4235,11 @@ char *uwsgi_get_var(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, u
 }
 
 struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int mountpoint_len, void *interpreter, void *callable) {
+
+	if (id > uwsgi.max_apps) {
+		uwsgi_log("FATAL ERROR: you cannot load more than %d apps in a worker\n", uwsgi.max_apps);
+		exit(1);
+	}
 
 	struct uwsgi_app *wi = &uwsgi_apps[id];
 	memset(wi, 0, sizeof(struct uwsgi_app));

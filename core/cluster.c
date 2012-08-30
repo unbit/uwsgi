@@ -363,23 +363,23 @@ void manage_cluster_message(char *cluster_opt_buf, int cluster_opt_size) {
 
 		struct uwsgi_cluster_node nucn;
 
-		switch (uwsgi.wsgi_requests[0]->uh.modifier1) {
+		switch (uwsgi.workers[0].cores[0].req.uh.modifier1) {
                                         case 95:
                                                 memset(&nucn, 0, sizeof(struct uwsgi_cluster_node));
 
 #ifdef __BIG_ENDIAN__
-                                                uwsgi.wsgi_requests[0]->uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+                                                uwsgi.workers[0].cores[0].req.uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
 #endif
-                                                uwsgi_hooked_parse(uwsgi.wsgi_requests[0]->buffer, uwsgi.wsgi_requests[0]->uh.pktsize, manage_cluster_announce, &nucn);
+                                                uwsgi_hooked_parse(uwsgi.workers[0].cores[0].req.buffer, uwsgi.workers[0].cores[0].req.uh.pktsize, manage_cluster_announce, &nucn);
                                                 if (nucn.name[0] != 0) {
                                                         uwsgi_cluster_add_node(&nucn, CLUSTER_NODE_DYNAMIC);
                                                 }
                                                 break;
                                         case 96:
 #ifdef __BIG_ENDIAN__
-                                                uwsgi.wsgi_requests[0]->uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+                                                uwsgi.workers[0].cores[0].req.uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
 #endif
-                                                uwsgi_log_verbose("%.*s\n", uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
+                                                uwsgi_log_verbose("%.*s\n", uwsgi.workers[0].cores[0].req.uh.pktsize, uwsgi.workers[0].cores[0].req.buffer);
                                                 break;
                                         case 98:
                                                 if (kill(getpid(), SIGHUP)) {
@@ -389,16 +389,16 @@ void manage_cluster_message(char *cluster_opt_buf, int cluster_opt_size) {
                                         case 99:
                                                 if (uwsgi.cluster_nodes)
                                                         break;
-                                                if (uwsgi.wsgi_requests[0]->uh.modifier2 == 0) {
+                                                if (uwsgi.workers[0].cores[0].req.uh.modifier2 == 0) {
                                                         uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
                                                         sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
                                                 }
                                                 break;
                                         case 73:
 #ifdef __BIG_ENDIAN__
-                                                uwsgi.wsgi_requests[0]->uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+                                                uwsgi.workers[0].cores[0].req.uh.pktsize = uwsgi_swap16(uwsgi.workers[0].cores[0].req.uh.pktsize);
 #endif
-                                                uwsgi_log_verbose("[uWSGI cluster %s] new node available: %.*s\n", uwsgi.cluster, uwsgi.wsgi_requests[0]->uh.pktsize, uwsgi.wsgi_requests[0]->buffer);
+                                                uwsgi_log_verbose("[uWSGI cluster %s] new node available: %.*s\n", uwsgi.cluster, uwsgi.workers[0].cores[0].req.uh.pktsize, uwsgi.workers[0].cores[0].req.buffer);
                                                 break;
                                         }
 }

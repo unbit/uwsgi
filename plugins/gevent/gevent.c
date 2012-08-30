@@ -156,7 +156,7 @@ edge:
 	wsgi_req_setup(wsgi_req, wsgi_req->async_id, uwsgi_sock );
 
 	// mark core as used
-	uwsgi.core[wsgi_req->async_id]->in_request = 1;
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 
 	gettimeofday(&wsgi_req->start_of_request, NULL);
 

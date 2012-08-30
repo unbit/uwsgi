@@ -584,7 +584,7 @@ void threaded_swap_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
 	if (uwsgi.single_interpreter == 0 && wi->interpreter != up.main_thread) {
 		UWSGI_GET_GIL
-                PyThreadState_Swap(uwsgi.core[wsgi_req->async_id]->ts[wsgi_req->app_id]);
+                PyThreadState_Swap(uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].ts[wsgi_req->app_id]);
 		UWSGI_RELEASE_GIL
 	}
 

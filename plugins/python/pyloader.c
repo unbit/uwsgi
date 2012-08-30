@@ -77,7 +77,15 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 
 	PyObject *app_list = NULL, *applications = NULL;
 
+
+	if (uwsgi_apps_cnt >= uwsgi.max_apps) {
+		uwsgi_log("ERROR: you cannot load more than %d apps in a worker\n", uwsgi.max_apps);
+		return -1;
+	}
+
+
 	int id = uwsgi_apps_cnt;
+
 	int multiapp = 0;
 
 	int i;
@@ -351,8 +359,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 		// if we have multiple threads we need to initialize a PyThreadState for each one
 		for(i=0;i<uwsgi.threads;i++) {
 			//uwsgi_log("%p\n", uwsgi.core[i]->ts[id]);
-			uwsgi.core[i]->ts[id] = PyThreadState_New( ((PyThreadState *)wi->interpreter)->interp);
-			if (!uwsgi.core[i]->ts[id]) {
+			uwsgi.workers[uwsgi.mywid].cores[i].ts[id] = PyThreadState_New( ((PyThreadState *)wi->interpreter)->interp);
+			if (!uwsgi.workers[uwsgi.mywid].cores[i].ts[id]) {
 				uwsgi_log("unable to allocate new PyThreadState structure for app %s", wi->mountpoint);
 				goto doh;
 			}

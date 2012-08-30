@@ -399,6 +399,13 @@ VALUE uwsgi_rb_call_new(VALUE obj) {
 void uwsgi_rack_init_apps(void) {
 
 	int error;
+
+	if (uwsgi_apps_cnt >= uwsgi.max_apps) {
+                uwsgi_log("ERROR: you cannot load more than %d apps in a worker\n", uwsgi.max_apps);
+		return;
+        }
+
+
 	ur.app_id = uwsgi_apps_cnt;
 	struct uwsgi_string_list *usl = ur.rbrequire;
 

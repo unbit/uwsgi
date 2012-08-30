@@ -105,6 +105,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue, 0},
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_max_vars, NULL, 0},
+	{"max-apps", required_argument, 0, "set the maximum number of per-worker applications", uwsgi_opt_set_int, &uwsgi.max_apps, 0},
 	{"buffer-size", required_argument, 'b', "set internal buffer size", uwsgi_opt_set_int, &uwsgi.buffer_size, 0},
 	{"memory-report", no_argument, 'm', "enable memory report", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_MEMORY_DEBUG, 0},
 	{"profiler", required_argument, 0, "enable the specified profiler", uwsgi_opt_set_str, &uwsgi.profiler, 0},
@@ -382,10 +383,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cheaper-list", no_argument, 0, "list enabled cheapers algorithms", uwsgi_opt_true, &uwsgi.cheaper_algo_list, 0},
 	{"idle", required_argument, 0, "set idle mode (put uWSGI in cheap mode after inactivity)", uwsgi_opt_set_int, &uwsgi.idle, UWSGI_OPT_MASTER},
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
-	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_app, NULL, 0},
-	{"worker-mount", required_argument, 0, "load application under mountpoint in the specified worker or after workers spawn", uwsgi_opt_add_app, NULL, 0},
+	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
+	{"worker-mount", required_argument, 0, "load application under mountpoint in the specified worker or after workers spawn", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
 #ifdef UWSGI_PCRE
-	{"regexp-mount", required_argument, 0, "load application under a regexp-based mountpoint", uwsgi_opt_add_app, NULL, 0},
+	{"regexp-mount", required_argument, 0, "load application under a regexp-based mountpoint", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
 #endif
 	{"grunt", no_argument, 0, "enable grunt mode (in-request fork)", uwsgi_opt_true, &uwsgi.grunt, 0},
 
@@ -698,8 +699,8 @@ void wait_for_threads() {
 
 	pthread_mutex_lock(&uwsgi.six_feet_under_lock);
 	for (i = 0; i < uwsgi.threads; i++) {
-		if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-			if (pthread_cancel(uwsgi.core[i]->thread_id)) {
+		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
+			if (pthread_cancel(uwsgi.workers[uwsgi.mywid].cores[i].thread_id)) {
 				uwsgi_error("pthread_cancel()\n");
 				sudden_death = 1;
 			}
@@ -711,8 +712,8 @@ void wait_for_threads() {
 
 	// wait for thread termination
 	for (i = 0; i < uwsgi.threads; i++) {
-		if (!pthread_equal(uwsgi.core[i]->thread_id, pthread_self())) {
-			ret = pthread_join(uwsgi.core[i]->thread_id, NULL);
+		if (!pthread_equal(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, pthread_self())) {
+			ret = pthread_join(uwsgi.workers[uwsgi.mywid].cores[i].thread_id, NULL);
 			if (ret) {
 				uwsgi_log("pthread_join() = %d\n", ret);
 			}
@@ -734,7 +735,7 @@ void gracefully_kill(int signum) {
 	if (uwsgi.threads > 1) {
 		struct wsgi_request *wsgi_req = current_wsgi_req();
 		wait_for_threads();
-		if (!uwsgi.core[wsgi_req->async_id]->in_request) {
+		if (!uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request) {
 			exit(UWSGI_RELOAD_CODE);
 		}
 		return;
@@ -747,7 +748,7 @@ void gracefully_kill(int signum) {
 		exit(UWSGI_RELOAD_CODE);
 	}
 
-	if (!uwsgi.core[0]->in_request) {
+	if (!uwsgi.workers[uwsgi.mywid].cores[0].in_request) {
 		exit(UWSGI_RELOAD_CODE);
 	}
 }
@@ -1090,7 +1091,7 @@ void what_i_am_doing() {
 
 	if (uwsgi.cores > 1) {
 		for (i = 0; i < uwsgi.cores; i++) {
-			wsgi_req = uwsgi.wsgi_requests[i];
+			wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[i].req;
 			if (wsgi_req->uri_len > 0) {
 #ifdef __sun__
 				ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage, 26);
@@ -1107,7 +1108,7 @@ void what_i_am_doing() {
 		}
 	}
 	else {
-		wsgi_req = uwsgi.wsgi_requests[0];
+		wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
 		if (wsgi_req->uri_len > 0) {
 #ifdef __sun__
 			ctime_r((const time_t *) &wsgi_req->start_of_request.tv_sec, ctime_storage, 26);
@@ -1604,6 +1605,7 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	uwsgi.backtrace_depth = 64;
+	uwsgi.max_apps = 64;
 
 	uwsgi.master_queue = -1;
 
@@ -2432,13 +2434,6 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log_initial("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
 	}
 
-	uwsgi.wsgi_requests = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.cores);
-
-	for (i = 0; i < uwsgi.cores; i++) {
-		uwsgi.wsgi_requests[i] = uwsgi_malloc(sizeof(struct wsgi_request));
-		memset(uwsgi.wsgi_requests[i], 0, sizeof(struct wsgi_request));
-	}
-
 	uwsgi.async_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
 
 	if (uwsgi.async > 1) {
@@ -2468,12 +2463,10 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_log("cores allocated...\n");
 #endif
 
-	//by default set wsgi_req to the first slot
-	uwsgi.wsgi_req = uwsgi.wsgi_requests[0];
-
 	if (uwsgi.cores > 1) {
-		uwsgi_log("allocated %llu bytes (%llu KB) for %d cores per worker.\n", (uint64_t) (sizeof(struct wsgi_request) * uwsgi.cores), (uint64_t) ((sizeof(struct wsgi_request) * uwsgi.cores) / 1024), uwsgi.cores);
+		uwsgi_log("allocated %llu bytes (%llu KB) for %d cores per worker.\n", (uint64_t) (sizeof(struct uwsgi_core) * uwsgi.cores), (uint64_t) ((sizeof(struct uwsgi_core) * uwsgi.cores) / 1024), uwsgi.cores);
 	}
+
 	if (uwsgi.vhost) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
 	}
@@ -2867,17 +2860,22 @@ nextsock:
 
 
 
-	// apps are now per-worker
-	//memset(uwsgi.apps, 0, sizeof(uwsgi.apps));
+	// allocate shared memory for workers + master
+	uwsgi.workers = (struct uwsgi_worker *) uwsgi_calloc_shared(sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt));
 
-	uwsgi.workers = (struct uwsgi_worker *) mmap(NULL, sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-	if (!uwsgi.workers) {
-		uwsgi_error("mmap()");
-		exit(1);
-	}
-	memset(uwsgi.workers, 0, sizeof(struct uwsgi_worker) * uwsgi.numproc + 1);
+	for (i = 0; i <= uwsgi.numproc; i++) {
+		// allocate memory for apps
+		uwsgi.workers[i].apps = (struct uwsgi_app *) uwsgi_calloc_shared(sizeof(struct uwsgi_app) * uwsgi.max_apps);
 
-	for (i = 1; i <= uwsgi.numproc; i++) {
+		// allocate memory for cores
+		uwsgi.workers[i].cores = (struct uwsgi_core *) uwsgi_calloc_shared(sizeof(struct uwsgi_core) * uwsgi.cores);
+
+		// allocate shared memory for thread states (required for some language, like python)
+        	for (j = 0; j < uwsgi.cores; j++) {
+			uwsgi.workers[i].cores[j].ts = uwsgi_calloc_shared(sizeof(void *) * uwsgi.max_apps);
+        	}
+		// master does not need to following steps...
+		if (i == 0) continue;
 		uwsgi.workers[i].signal_pipe[0] = -1;
 		uwsgi.workers[i].signal_pipe[1] = -1;
 		snprintf(uwsgi.workers[i].name, 0xff, "uWSGI worker %d", i);
@@ -2996,14 +2994,10 @@ nextsock:
 		uwsgi_log("*** Operational MODE: single process ***\n");
 	}
 
-	// even the master has cores..
-	uwsgi.core = uwsgi_malloc(sizeof(struct uwsgi_core *) * uwsgi.cores);
-	for (j = 0; j < uwsgi.cores; j++) {
-		uwsgi.core[j] = uwsgi_malloc(sizeof(struct uwsgi_core));
-		memset(uwsgi.core[j], 0, sizeof(struct uwsgi_core));
-	}
+	// set a default request structure (for loading apps...)
+	uwsgi.wsgi_req = &uwsgi.workers[0].cores[0].req;
 
-	// cores are now allocated, lets allocate logformat (if required)
+	// cores are allocated, lets allocate logformat (if required)
 	if (uwsgi.logformat) {
 		uwsgi_build_log_format(uwsgi.logformat);
 		uwsgi.logit = uwsgi_logit_lf;
@@ -3338,6 +3332,16 @@ nextsock:
 	if (uwsgi.master_as_root) {
 		uwsgi_as_root();
 	}
+ 
+	// set default wsgi_req (for loading apps);
+	uwsgi.wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
+
+	// must be run before running apps
+	for (i = 0; i < 256; i++) {
+		if (uwsgi.p[i]->post_fork) {
+			uwsgi.p[i]->post_fork();
+		}
+	}
 
 	if (uwsgi.lazy || uwsgi.lazy_apps) {
 		uwsgi_init_all_apps();
@@ -3345,11 +3349,6 @@ nextsock:
 
 	uwsgi_init_worker_mount_apps();
 
-	for (i = 0; i < 256; i++) {
-		if (uwsgi.p[i]->post_fork) {
-			uwsgi.p[i]->post_fork();
-		}
-	}
 
 #ifdef UWSGI_ZEROMQ
 	// setup zeromq context (if required) one per-worker
@@ -3389,7 +3388,7 @@ zmq_next:
 		uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
 
 		for (i = 0; i < uwsgi.async; i++) {
-			uwsgi.async_queue_unused[i] = uwsgi.wsgi_requests[i];
+			uwsgi.async_queue_unused[i] = &uwsgi.workers[uwsgi.mywid].cores[i].req;
 		}
 
 		uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
@@ -3440,8 +3439,8 @@ zmq_next:
 
 	//re - initialize wsgi_req(can be full of init_uwsgi_app data)
 	for (i = 0; i < uwsgi.cores; i++) {
-		memset(uwsgi.wsgi_requests[i], 0, sizeof(struct wsgi_request));
-		uwsgi.wsgi_requests[i]->async_id = i;
+		memset(&uwsgi.workers[uwsgi.mywid].cores[i].req, 0, sizeof(struct wsgi_request));
+		uwsgi.workers[uwsgi.mywid].cores[i].req.async_id = i;
 	}
 
 
@@ -3464,7 +3463,7 @@ zmq_next:
 
 #ifdef UWSGI_THREADING
 	if (uwsgi.cores > 1) {
-		uwsgi.core[0]->thread_id = pthread_self();
+		uwsgi.workers[uwsgi.mywid].cores[0].thread_id = pthread_self();
 		pthread_mutex_init(&uwsgi.six_feet_under_lock, NULL);
 	}
 #endif
@@ -3524,7 +3523,7 @@ wait_for_call_of_duty:
 			}
 			for (i = 1; i < uwsgi.threads; i++) {
 				long j = i;
-				pthread_create(&uwsgi.core[i]->thread_id, &uwsgi.threads_attr, simple_loop, (void *) j);
+				pthread_create(&uwsgi.workers[uwsgi.mywid].cores[i].thread_id, &uwsgi.threads_attr, simple_loop, (void *) j);
 			}
 #endif
 		}
@@ -3773,14 +3772,18 @@ void uwsgi_init_all_apps() {
 		}
 	}
 
-	for (i = 0; i < uwsgi.mounts_cnt; i++) {
-		char *what = strchr(uwsgi.mounts[i], '=');
+	uwsgi_log("APPS COUNT %d\n", uwsgi_apps_cnt);
+
+	struct uwsgi_string_list *app_mps = uwsgi.mounts;
+	while(app_mps) {
+		char *what = strchr(app_mps->value, '=');
 		if (what) {
 			what[0] = 0;
 			what++;
 			for (j = 0; j < 256; j++) {
 				if (uwsgi.p[j]->mount_app) {
-					if (!uwsgi_startswith(uwsgi.mounts[i], "regexp://", 9)) {
+/*
+					if (!uwsgi_startswith(uwsgin[i], "regexp://", 9)) {
 						uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]+9);
 						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i] + 9, what, 1) != -1)
 							break;
@@ -3790,19 +3793,20 @@ void uwsgi_init_all_apps() {
 						continue;
 					}
 					else {
-						uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]);
-						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i], what, 0) != -1)
-							break;
-					}
+*/
+					uwsgi_log("mounting %s on %s\n", what, app_mps->value);
+					if (uwsgi.p[j]->mount_app(app_mps->value, what, 0) != -1)
+						break;
 				}
 			}
 			what--;
 			what[0] = '=';
 		}
 		else {
-			uwsgi_log("invalid mountpoint: %s\n", uwsgi.mounts[i]);
+			uwsgi_log("invalid mountpoint: %s\n", app_mps->value);
 			exit(1);
 		}
+		app_mps = app_mps->next;
 	}
 
 	// no app initialized and virtualhosting enabled
@@ -3820,6 +3824,7 @@ void uwsgi_init_all_apps() {
 }
 
 void uwsgi_init_worker_mount_apps() {
+/*
 	int i,j;
 	for (i = 0; i < uwsgi.mounts_cnt; i++) {
                 char *what = strchr(uwsgi.mounts[i], '=');
@@ -3843,6 +3848,7 @@ void uwsgi_init_worker_mount_apps() {
                         exit(1);
                 }
         }
+*/
 
 }
 
@@ -4106,24 +4112,6 @@ void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
 			build_options();
 		}
 		p = strtok(NULL, ",");
-	}
-}
-
-void uwsgi_opt_add_app(char *opt, char *value, void *foo) {
-	if (uwsgi.mounts_cnt < MAX_APPS) {
-		if (!strcmp(opt, "mount-regexp")) {
-			uwsgi.mounts[uwsgi.mounts_cnt] = uwsgi_concat2("regexp://", value);
-		}
-		else if (!strcmp(opt, "worker-mount")) {
-			uwsgi.mounts[uwsgi.mounts_cnt] = uwsgi_concat2("worker://", value);
-		}
-		else {
-			uwsgi.mounts[uwsgi.mounts_cnt] = value;
-		}
-		uwsgi.mounts_cnt++;
-	}
-	else {
-		uwsgi_log("you can specify at most %d --%s options\n", opt, MAX_APPS);
 	}
 }
 
