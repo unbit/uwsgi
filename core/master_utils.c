@@ -933,6 +933,9 @@ void uwsgi_send_stats(int fd) {
 			if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) j))
                                 goto end0;
 
+			if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) uc->requests))
+                                goto end0;
+
 			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))
                                 goto end0;	
 			
