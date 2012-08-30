@@ -158,7 +158,8 @@ edge:
 	// mark core as used
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 
-	gettimeofday(&wsgi_req->start_of_request, NULL);
+	wsgi_req->start_of_request = uwsgi_micros();
+	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request/1000000;
 
 	// enter harakiri mode
         if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {

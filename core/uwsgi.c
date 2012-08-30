@@ -1130,8 +1130,6 @@ void what_i_am_doing() {
 
 
 pid_t masterpid;
-struct timeval last_respawn;
-
 
 int unconfigured_hook(struct wsgi_request *wsgi_req) {
 	uwsgi_log("-- unavailable modifier requested: %d --\n", wsgi_req->uh.modifier1);
@@ -3168,8 +3166,7 @@ nextsock:
 		uwsgi.workers[1].last_spawn = uwsgi_now();
 		uwsgi.workers[1].manage_next_request = 1;
 		uwsgi.mywid = 1;
-		gettimeofday(&last_respawn, NULL);
-		uwsgi.respawn_delta = last_respawn.tv_sec;
+		uwsgi.respawn_delta = uwsgi_now();
 	}
 	else {
 		// setup internal signalling system
@@ -3189,8 +3186,7 @@ nextsock:
 				if (i <= nproc) {
 					if (uwsgi_respawn_worker(i))
 						break;
-					gettimeofday(&last_respawn, NULL);
-					uwsgi.respawn_delta = last_respawn.tv_sec;
+					uwsgi.respawn_delta = uwsgi_now();
 				}
 				else {
 					uwsgi.workers[i].cheaped = 1;
@@ -3201,8 +3197,7 @@ nextsock:
 			for (i = 2 - uwsgi.master_process; i < uwsgi.numproc + 1; i++) {
 				if (uwsgi_respawn_worker(i))
 					break;
-				gettimeofday(&last_respawn, NULL);
-				uwsgi.respawn_delta = last_respawn.tv_sec;
+				uwsgi.respawn_delta = uwsgi_now();
 			}
 		}
 	}
