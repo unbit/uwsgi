@@ -15,7 +15,7 @@ void uwsgi_rawrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerout
 
 		case COREROUTER_STATUS_RECV_HDR:
 #ifdef UWSGI_EVENT_USE_PORT
-			event_queue_add_fd_read(ufr->queue, cs->fd);
+			event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 			// use the address as hostname
 			cs->hostname = cs->ugs->name;
@@ -85,7 +85,7 @@ void uwsgi_rawrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerout
 		if (interesting_fd == cs->instance_fd) {
 			len = recv(cs->instance_fd, buf, 8192, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-                        event_queue_add_fd_read(ufr->queue, cs->instance_fd);
+                        event_queue_add_fd_read(ucr->queue, cs->instance_fd);
 #endif
 			if (len <= 0) {
 				if (len < 0)
@@ -113,7 +113,7 @@ void uwsgi_rawrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerout
 			//uwsgi_log("receiving body...\n");
 			len = recv(cs->fd, buf, 8192, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-                        event_queue_add_fd_read(ufr->queue, cs->fd);
+                        event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 			if (len <= 0) {
 				if (len < 0)

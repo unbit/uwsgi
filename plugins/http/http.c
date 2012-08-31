@@ -24,7 +24,9 @@ extern struct uwsgi_server uwsgi;
 #else
 #define MAX_HTTP_VEC 128
 #endif
+#endif
 
+#ifdef UWSGI_SSL
 #define UWSGI_HTTP_SSL 1
 #define UWSGI_HTTP_FORCE_SSL 2
 #define HTTP_SSL_STATUS_SHUTDOWN 10
@@ -506,7 +508,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 		len = cs->recv(&uhttp.cr, cs, hs->buffer + cs->h_pos, UMAX16 - cs->h_pos);
 #ifdef UWSGI_EVENT_USE_PORT
-		event_queue_add_fd_read(ucs->queue, cs->fd);
+		event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 		if (len <= 0) {
 			// check for blocking operation on non-blocking socket
@@ -693,8 +695,8 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 #endif
 #ifdef __sun__
-			if (cs->iov_len > IOV_MAX) {
-				int remains = cs->iov_len;
+			if (hs->iov_len > IOV_MAX) {
+				int remains = hs->iov_len;
 				int iov_len;
 				while (remains) {
 					if (remains > IOV_MAX) {
@@ -703,7 +705,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 					else {
 						iov_len = remains;
 					}
-					if (writev(cs->instance_fd, cs->iov + (cs->iov_len - remains), iov_len) <= 0) {
+					if (writev(cs->instance_fd, hs->iov + (hs->iov_len - remains), iov_len) <= 0) {
 						uwsgi_error("writev()");
 						corerouter_close_session(ucr, cs);
 						break;
@@ -733,7 +735,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			if (cs->instance_fd_state) {
 				len = cs->instance_send(&uhttp.cr, cs, NULL, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-				event_queue_add_fd_write(uhttp_queue, cs->instance_fd);
+				event_queue_add_fd_write(ucr->queue, cs->instance_fd);
 #endif
                         	if (len <= 0) {
                                 	if (len < 0 && errno == EINPROGRESS) break;
@@ -744,7 +746,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 			len = cs->instance_recv(&uhttp.cr, cs, hs->buffer, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT
-			event_queue_add_fd_read(uhttp_queue, cs->instance_fd);
+			event_queue_add_fd_read(ucr->queue, cs->instance_fd);
 #endif
 			if (len <=  0) {
 				if (len < 0 && errno == EINPROGRESS) break;
@@ -827,7 +829,7 @@ To have a reliable implementation, we need to reset a bunch of values
 					len = cs->send(&uhttp.cr, cs, hs->buffer,hs->buffer_len);
 				}
 #ifdef UWSGI_EVENT_USE_PORT
-				event_queue_add_fd_write(uhttp_queue, cs->fd);
+				event_queue_add_fd_write(ucr->queue, cs->fd);
 #endif
                         	if (len <= 0) {
                                 	if (len < 0 && errno == EINPROGRESS) break;
@@ -838,7 +840,7 @@ To have a reliable implementation, we need to reset a bunch of values
 
 			len = cs->recv(&uhttp.cr, cs, bbuf, UMAX16);
 #ifdef UWSGI_EVENT_USE_PORT
-			event_queue_add_fd_read(uhttp_queue, cs->fd);
+			event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 			if (len <= 0) {
 				// check for blocking operation on non-blocking socket
