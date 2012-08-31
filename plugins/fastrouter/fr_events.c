@@ -60,7 +60,7 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 	case COREROUTER_STATUS_RECV_HDR:
 		len = recv(cs->fd, (char *) (&fr_session->uh) + cs->h_pos, 4 - cs->h_pos, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(ufr->queue, cs->fd);
+                event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 		if (len <= 0) {
 			if (len < 0)
@@ -86,7 +86,7 @@ void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerou
 
 		len = recv(cs->fd, fr_session->buffer + cs->pos, fr_session->uh.pktsize - cs->pos, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(ufr->queue, cs->fd);
+                event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 		if (len <= 0) {
 			uwsgi_error("recv()");
@@ -252,7 +252,7 @@ choose_node:
 		if (interesting_fd == cs->instance_fd) {
 			len = recv(cs->instance_fd, fr_session->buffer, UMAX16, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(ufr->queue, cs->instance_fd);
+                        event_queue_add_fd_read(ucr->queue, cs->instance_fd);
 #endif
 			if (len <= 0) {
 				if (len < 0)
@@ -280,7 +280,7 @@ choose_node:
 			//uwsgi_log("receiving body...\n");
 			len = recv(cs->fd, fr_session->buffer, UMAX16, 0);
 #ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(ufr->queue, cs->fd);
+                        event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 			if (len <= 0) {
 				if (len < 0)
@@ -305,7 +305,7 @@ choose_node:
 	case FASTROUTER_STATUS_BUFFERING:
 		len = recv(cs->fd, post_tmp_buf, UMIN(UMAX16, cs->post_remains), 0);
 #ifdef UWSGI_EVENT_USE_PORT
-                                event_queue_add_fd_read(ufr->queue, cs->fd);
+                event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
 		if (len <= 0) {
 			if (len < 0)

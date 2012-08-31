@@ -4719,7 +4719,6 @@ char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
 #endif
 
 void uwsgi_set_cpu_affinity() {
-	int i;
 	if (uwsgi.cpu_affinity) {
 #ifdef __linux__
                 cpu_set_t cpuset;
@@ -4730,6 +4729,7 @@ void uwsgi_set_cpu_affinity() {
                         base_cpu = base_cpu % ncpu;
                 }
                 uwsgi_log("set cpu affinity for worker %d to", uwsgi.mywid);
+		int i;
                 for (i = 0; i < uwsgi.cpu_affinity; i++) {
                         if (base_cpu >= ncpu)
                                 base_cpu = 0;
