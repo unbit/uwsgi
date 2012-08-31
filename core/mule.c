@@ -382,3 +382,67 @@ void uwsgi_opt_add_farm(char *opt, char *value, void *foobar) {
                 uwsgi_string_new_list(&uwsgi.farms_list, value);
 
 }
+
+void uwsgi_setup_mules_and_farms() {
+	int i;
+	if (uwsgi.mules_cnt > 0) {
+                uwsgi.mules = (struct uwsgi_mule *) uwsgi_calloc_shared(sizeof(struct uwsgi_mule) * uwsgi.mules_cnt);
+
+                create_signal_pipe(uwsgi.shared->mule_signal_pipe);
+                create_signal_pipe(uwsgi.shared->mule_queue_pipe);
+
+                for (i = 0; i < uwsgi.mules_cnt; i++) {
+                        // create the socket pipe
+                        create_signal_pipe(uwsgi.mules[i].signal_pipe);
+                        create_signal_pipe(uwsgi.mules[i].queue_pipe);
+
+                        uwsgi.mules[i].id = i + 1;
+
+                        snprintf(uwsgi.mules[i].name, 0xff, "uWSGI mule %d", i + 1);
+                }
+        }
+
+        if (uwsgi.farms_cnt > 0) {
+                uwsgi.farms = (struct uwsgi_farm *) uwsgi_calloc_shared(sizeof(struct uwsgi_farm) * uwsgi.farms_cnt);
+
+                struct uwsgi_string_list *farm_name = uwsgi.farms_list;
+                for (i = 0; i < uwsgi.farms_cnt; i++) {
+
+                        char *farm_value = uwsgi_str(farm_name->value);
+
+                        char *mules_list = strchr(farm_value, ':');
+                        if (!mules_list) {
+                                uwsgi_log("invalid farm value (%s) must be in the form name:mule[,muleN].\n", farm_value);
+                                exit(1);
+                        }
+
+                        mules_list[0] = 0;
+                        mules_list++;
+
+                        strncpy(uwsgi.farms[i].name, farm_value, 0xff);
+
+                        // create the socket pipe
+                        create_signal_pipe(uwsgi.farms[i].signal_pipe);
+                        create_signal_pipe(uwsgi.farms[i].queue_pipe);
+
+                        char *p = strtok(mules_list, ",");
+                        while (p != NULL) {
+                                struct uwsgi_mule *um = get_mule_by_id(atoi(p));
+                                if (!um) {
+                                        uwsgi_log("invalid mule id: %s\n", p);
+                                        exit(1);
+                                }
+
+                                uwsgi_mule_farm_new(&uwsgi.farms[i].mules, um);
+
+                                p = strtok(NULL, ",");
+                        }
+                        uwsgi_log("created farm %d name: %s mules:%s\n", i + 1, uwsgi.farms[i].name, strchr(farm_name->value, ':') + 1);
+
+                        farm_name = farm_name->next;
+
+                }
+
+        }
+
+}
