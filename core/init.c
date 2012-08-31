@@ -199,3 +199,35 @@ void uwsgi_commandline_config() {
         }
 
 }
+
+void uwsgi_setup_workers() {
+	int i,j;
+	// allocate shared memory for workers + master
+        uwsgi.workers = (struct uwsgi_worker *) uwsgi_calloc_shared(sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt));
+
+        for (i = 0; i <= uwsgi.numproc; i++) {
+                // allocate memory for apps
+                uwsgi.workers[i].apps = (struct uwsgi_app *) uwsgi_calloc_shared(sizeof(struct uwsgi_app) * uwsgi.max_apps);
+
+                // allocate memory for cores
+                uwsgi.workers[i].cores = (struct uwsgi_core *) uwsgi_calloc_shared(sizeof(struct uwsgi_core) * uwsgi.cores);
+
+                for (j = 0; j < uwsgi.cores; j++) {
+                        // allocate shared memory for thread states (required for some language, like python)
+                        uwsgi.workers[i].cores[j].ts = uwsgi_calloc_shared(sizeof(void *) * uwsgi.max_apps);
+                        // raw per-request buffer
+                        uwsgi.workers[i].cores[j].buffer = uwsgi_malloc_shared(uwsgi.buffer_size);
+                        // iovec for uwsgi vars
+                        uwsgi.workers[i].cores[j].hvec = uwsgi_malloc_shared(sizeof(struct iovec) * uwsgi.vec_size);
+                        if (uwsgi.post_buffering > 0)
+                                uwsgi.workers[i].cores[j].post_buf = uwsgi_malloc_shared(uwsgi.post_buffering_bufsize);
+                }
+                // master does not need to following steps...
+                if (i == 0) continue;
+                uwsgi.workers[i].signal_pipe[0] = -1;
+                uwsgi.workers[i].signal_pipe[1] = -1;
+                snprintf(uwsgi.workers[i].name, 0xff, "uWSGI worker %d", i);
+                snprintf(uwsgi.workers[i].snapshot_name, 0xff, "uWSGI snapshot %d", i);
+        }
+
+}

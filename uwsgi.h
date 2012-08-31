@@ -3187,6 +3187,8 @@ void uwsgi_setup_shared_sockets(void);
 
 void uwsgi_setup_mules_and_farms(void);
 
+void uwsgi_setup_workers();
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif
