@@ -1805,10 +1805,12 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 #if defined(_SC_NPROCESSORS_ONLN)
-	uwsgi_log_initial("detected number of CPU cores: %d\n", sysconf(_SC_NPROCESSORS_ONLN));
+	uwsgi.cpus = sysconf(_SC_NPROCESSORS_ONLN);
 #elif defined(_SC_NPROCESSORS_CONF)
-	uwsgi_log_initial("detected number of CPU cores: %d\n", sysconf(_SC_NPROCESSORS_CONF));
+	uwsgi.cpus = sysconf(_SC_NPROCESSORS_CONF);
 #endif
+
+	uwsgi_log_initial("detected number of CPU cores: %d\n", uwsgi.cpus);
 
 
 	uwsgi_log_initial("current working directory: %s\n", uwsgi.cwd);

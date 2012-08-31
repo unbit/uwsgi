@@ -4719,29 +4719,51 @@ char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
 #endif
 
 void uwsgi_set_cpu_affinity() {
+	char buf[4096];
+	int ret;
+	int pos = 0;
 	if (uwsgi.cpu_affinity) {
+		int base_cpu = (uwsgi.mywid - 1) * uwsgi.cpu_affinity;
+		if (base_cpu >= uwsgi.cpus) {
+                        base_cpu = base_cpu % uwsgi.cpus;
+                }
+                ret = snprintf(buf, 4096, "mapping worker %d to CPUs:", uwsgi.mywid);
+		if (ret < 25) {
+			uwsgi_log("unable to initialize cpu affinity !!!\n");
+			exit(1);
+		}
+		pos += ret;
 #ifdef __linux__
                 cpu_set_t cpuset;
+#elif defined(__FreeBSD__)
+		cpuset_t cpuset;
+#endif
+#if defined(__linux__) || defined(__FreeBSD__)
                 CPU_ZERO(&cpuset);
-                int ncpu = sysconf(_SC_NPROCESSORS_ONLN);
-                int base_cpu = (uwsgi.mywid - 1) * uwsgi.cpu_affinity;
-                if (base_cpu >= ncpu) {
-                        base_cpu = base_cpu % ncpu;
-                }
-                uwsgi_log("set cpu affinity for worker %d to", uwsgi.mywid);
 		int i;
                 for (i = 0; i < uwsgi.cpu_affinity; i++) {
-                        if (base_cpu >= ncpu)
+                        if (base_cpu >= uwsgi.cpus)
                                 base_cpu = 0;
                         CPU_SET(base_cpu, &cpuset);
-                        uwsgi_log(" %d", base_cpu);
+                        ret = snprintf(buf+pos, 4096-pos," %d", base_cpu);
+			if (ret < 2) {
+				uwsgi_log("unable to initialize cpu affinity !!!\n");
+				exit(1);
+			}
+			pos += ret;
                         base_cpu++;
                 }
+#endif
+#ifdef __linux__
                 if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
                         uwsgi_error("sched_setaffinity()");
                 }
-                uwsgi_log("\n");
+#elif defined(__FreeBSD__)
+                if (cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset), &cpuset)) {
+                        uwsgi_error("cpuset_setaffinity");
+                }
 #endif
+		uwsgi_log("%s\n", buf);
         }
 
 }

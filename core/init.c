@@ -4,6 +4,8 @@ extern struct uwsgi_server uwsgi;
 
 void uwsgi_init_default() {
 
+	uwsgi.cpus = 1;
+
 	uwsgi.backtrace_depth = 64;
         uwsgi.max_apps = 64;
 

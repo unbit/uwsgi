@@ -143,6 +143,8 @@ extern char UWSGI_EMBED_CONFIG_END;
 
 #ifdef __FreeBSD__
 #include <sys/sysctl.h>
+#include <sys/param.h>
+#include <sys/cpuset.h>
 #endif
 
 #include <sys/ipc.h>
@@ -1521,6 +1523,7 @@ struct uwsgi_server {
 	int so_keepalive;
 
 	int page_size;
+	int cpus;
 
 	char *pidfile;
 	char *pidfile2;
