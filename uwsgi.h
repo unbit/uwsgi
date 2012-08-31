@@ -2143,7 +2143,7 @@ struct http_status_codes {
 };
 
 #ifdef UWSGI_ASYNC
-
+void uwsgi_async_init(void);
 void *async_loop(void *);
 struct wsgi_request *find_first_available_wsgi_req(void);
 struct wsgi_request *find_first_accepting_wsgi_req(void);
@@ -2625,6 +2625,7 @@ ssize_t uwsgi_proto_zeromq_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_zeromq_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_zeromq_sendfile(struct wsgi_request *);
 int uwsgi_proto_zeromq_parser(struct wsgi_request *);
+void uwsgi_zeromq_init(void);
 #endif
 
 int uwsgi_num2str2(int, char *);
@@ -3192,6 +3193,12 @@ void uwsgi_map_sockets(void);
 
 void uwsgi_set_cpu_affinity(void);
 
+void uwsgi_emperor_start(void);
+
+void uwsgi_bind_sockets(void);
+void uwsgi_set_sockets_protocols(void);
+
+void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif

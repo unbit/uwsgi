@@ -533,6 +533,41 @@ void uwsgi_setup_locking() {
 	uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_fast;
 	uwsgi.lock_size = UWSGI_LOCK_SIZE;
 	uwsgi.rwlock_size = UWSGI_RWLOCK_SIZE;
+
+	// application generic lock
+	int i;
+        uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks + 1));
+        for (i = 0; i < uwsgi.locks + 1; i++) {
+                uwsgi.user_lock[i] = uwsgi_lock_init(uwsgi_concat2("user ", uwsgi_num2str(i)));
+        }
+
+	// event queue lock (mitigate same event on multiple queues)
+        if (uwsgi.threads > 1) {
+                pthread_mutex_init(&uwsgi.thunder_mutex, NULL);
+        }
+
+        if (uwsgi.master_process) {
+                // signal table lock
+                uwsgi.signal_table_lock = uwsgi_lock_init("signal");
+
+                // fmon table lock
+                uwsgi.fmon_table_lock = uwsgi_lock_init("filemon");
+
+                // timer table lock
+                uwsgi.timer_table_lock = uwsgi_lock_init("timer");
+
+                // probe table lock
+                uwsgi.probe_table_lock = uwsgi_lock_init("probe");
+
+                // rb_timer table lock
+                uwsgi.rb_timer_table_lock = uwsgi_lock_init("rbtimer");
+
+                // cron table lock
+                uwsgi.cron_table_lock = uwsgi_lock_init("cron");
+        }
+
+        uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");
+
 }
 
 

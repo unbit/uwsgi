@@ -1580,3 +1580,196 @@ void uwsgi_map_sockets() {
         }
 
 }
+
+void uwsgi_bind_sockets() {
+	socklen_t socket_type_len;
+	union uwsgi_sockaddr usa;
+        union uwsgi_sockaddr_ptr gsa;
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                while (uwsgi_sock) {
+                        if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
+                                char *tcp_port = strrchr(uwsgi_sock->name, ':');
+                                if (tcp_port == NULL) {
+                                        uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                                        uwsgi_sock->family = AF_UNIX;
+                                        if (uwsgi.chown_socket) {
+                                                uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
+                                        }
+                                        uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+                                }
+                                else {
+#ifdef UWSGI_IPV6
+                                        if (uwsgi_sock->name[0] == '[' && tcp_port[-1] == ']') {
+                                                uwsgi_sock->fd = bind_to_tcp6(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
+                                                uwsgi_log("uwsgi socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+                                                uwsgi_sock->family = AF_INET6;
+                                        }
+                                        else {
+#endif
+                                                uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
+                                                uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+                                                uwsgi_sock->family = AF_INET;
+#ifdef UWSGI_IPV6
+                                        }
+#endif
+                                }
+
+                                if (uwsgi_sock->fd < 0 && !uwsgi_sock->per_core) {
+                                        uwsgi_log("unable to create server socket on: %s\n", uwsgi_sock->name);
+                                        exit(1);
+                                }
+                        }
+                        uwsgi_sock->bound = 1;
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+
+                if (uwsgi.chown_socket) {
+                        if (!uwsgi.master_as_root) {
+                                uwsgi_as_root();
+                        }
+                }
+
+	int zero_used = 0;
+                uwsgi_sock = uwsgi.sockets;
+                while (uwsgi_sock) {
+                        if (uwsgi_sock->bound && uwsgi_sock->fd == 0) {
+                                zero_used = 1;
+                                break;
+                        }
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+                if (!zero_used) {
+                        socket_type_len = sizeof(struct sockaddr_un);
+                        gsa.sa = (struct sockaddr *) &usa;
+                        if (!uwsgi.skip_zero && !getsockname(0, gsa.sa, &socket_type_len)) {
+                                if (gsa.sa->sa_family == AF_UNIX) {
+                                        uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
+                                        uwsgi_sock->family = AF_UNIX;
+                                        uwsgi_sock->fd = 0;
+                                        uwsgi_sock->bound = 1;
+                                        uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
+                                }
+                                else {
+                                        uwsgi_sock = uwsgi_new_socket(uwsgi_concat2("::", ""));
+                                        uwsgi_sock->family = AF_INET;
+                                        uwsgi_sock->fd = 0;
+                                        uwsgi_sock->bound = 1;
+                                        uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
+                                }
+                        }
+                        else if (!uwsgi.honour_stdin) {
+                                int fd = open("/dev/null", O_RDONLY);
+                                if (fd < 0) {
+                                        uwsgi_error_open("/dev/null");
+                                        exit(1);
+                                }
+                                if (fd != 0) {
+                                        if (dup2(fd, 0)) {
+                                                uwsgi_error("dup2()");
+                                                exit(1);
+                                        }
+                                        close(fd);
+                                }
+                        }
+                        else if (uwsgi.honour_stdin) {
+                                if (!tcgetattr(0, &uwsgi.termios)) {
+                                        uwsgi.restore_tc = 1;
+                                }
+                        }
+
+                }
+
+	// check for auto_port socket
+                uwsgi_sock = uwsgi.sockets;
+                while (uwsgi_sock) {
+                        if (uwsgi_sock->auto_port) {
+#ifdef UWSGI_IPV6
+                                if (uwsgi_sock->family == AF_INET6) {
+                                        uwsgi_log("uwsgi socket %d bound to TCP6 address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+                                }
+                                else {
+#endif
+                                        uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+#ifdef UWSGI_IPV6
+                                }
+#endif
+                        }
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+
+}
+
+void uwsgi_set_sockets_protocols() {
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                while (uwsgi_sock) {
+                        char *requested_protocol = uwsgi_sock->proto_name;
+
+                        if (uwsgi_sock->lazy) goto setup_proto;
+                        if (!uwsgi_sock->bound || uwsgi_sock->fd == -1)
+                                goto nextsock;
+                        if (!uwsgi_sock->per_core) {
+                                uwsgi_sock->arg = fcntl(uwsgi_sock->fd, F_GETFL, NULL);
+                                if (uwsgi_sock->arg < 0) {
+                                        uwsgi_error("fcntl()");
+                                        exit(1);
+                                }
+                                uwsgi_sock->arg |= O_NONBLOCK;
+                                if (fcntl(uwsgi_sock->fd, F_SETFL, uwsgi_sock->arg) < 0) {
+                                        uwsgi_error("fcntl()");
+                                        exit(1);
+                                }
+                        }
+
+setup_proto:
+                        if (!requested_protocol) {
+                                requested_protocol = uwsgi.protocol;
+                        }
+
+                        if (requested_protocol && !strcmp("http", requested_protocol)) {
+                                uwsgi_sock->proto = uwsgi_proto_http_parser;
+                                uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+                                uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
+                                uwsgi_sock->proto_writev = uwsgi_proto_uwsgi_writev;
+                                uwsgi_sock->proto_write_header = uwsgi_proto_uwsgi_write_header;
+                                uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
+                                uwsgi_sock->proto_sendfile = NULL;
+                                uwsgi_sock->proto_close = uwsgi_proto_base_close;
+                        }
+                        else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
+                                if (!strcmp(uwsgi.protocol, "fastcgi") || !strcmp(uwsgi.protocol, "fcgi")) {
+                                        uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
+                                }
+                                uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
+                                uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+                                uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
+                                uwsgi_sock->proto_writev = uwsgi_proto_fastcgi_writev;
+                                uwsgi_sock->proto_write_header = uwsgi_proto_fastcgi_write_header;
+                                uwsgi_sock->proto_writev_header = uwsgi_proto_fastcgi_writev_header;
+                                uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;
+                                uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
+                        }
+#ifdef UWSGI_ZEROMQ
+                        else if (requested_protocol && !strcmp("zmq", requested_protocol)) {
+                                uwsgi.zeromq = 1;
+                        }
+#endif
+                        else {
+                                uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
+                                uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+                                uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
+                                uwsgi_sock->proto_writev = uwsgi_proto_uwsgi_writev;
+                                uwsgi_sock->proto_write_header = uwsgi_proto_uwsgi_write_header;
+                                uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
+                                uwsgi_sock->proto_sendfile = NULL;
+                                uwsgi_sock->proto_close = uwsgi_proto_base_close;
+                        }
+nextsock:
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+
+
+}

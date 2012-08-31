@@ -165,7 +165,7 @@ void uwsgi_commandline_config() {
 
 
 #ifdef UWSGI_DEBUG
-        uwsgi_log("optind:%d argc:%d\n", optind, argc);
+        uwsgi_log("optind:%d argc:%d\n", optind, uwsgi.argc);
 #endif
 
         if (optind < uwsgi.argc) {

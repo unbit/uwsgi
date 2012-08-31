@@ -1295,3 +1295,46 @@ end:
 	free(us);
 	close(client_fd);
 }
+
+void uwsgi_emperor_start() {
+
+	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
+                        uwsgi_notify_ready();
+                        emperor_loop();
+                        // never here
+                        exit(1);
+                }
+
+                uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
+                if (uwsgi.emperor_pid < 0) {
+                        uwsgi_error("pid()");
+                        exit(1);
+                }
+                else if (uwsgi.emperor_pid == 0) {
+#ifdef __linux__
+                        if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+                                uwsgi_error("prctl()");
+                        }
+#endif
+                        emperor_loop();
+                        // never here
+                        exit(1);
+                }
+
+}
+
+void uwsgi_check_emperor() {
+	char *emperor_env = getenv("UWSGI_EMPEROR_FD");
+        if (emperor_env) {
+                uwsgi.has_emperor = 1;
+                uwsgi.emperor_fd = atoi(emperor_env);
+                uwsgi.master_process = 1;
+                uwsgi.no_orphans = 1;
+                uwsgi_log("*** has_emperor mode detected (fd: %d) ***\n", uwsgi.emperor_fd);
+
+                if (getenv("UWSGI_EMPEROR_FD_CONFIG")) {
+                        uwsgi.emperor_fd_config = atoi(getenv("UWSGI_EMPEROR_FD_CONFIG"));
+                }
+        }
+
+}

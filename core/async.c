@@ -2,6 +2,29 @@
 
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_async_init() {
+	int i;
+
+	uwsgi.async_queue = event_queue_init();
+
+        if (uwsgi.async_queue < 0) {
+        	exit(1);
+        }
+
+                uwsgi_add_sockets_to_queue(uwsgi.async_queue, -1);
+
+                uwsgi.rb_async_timeouts = uwsgi_init_rb_timer();
+
+                uwsgi.async_queue_unused = uwsgi_malloc(sizeof(struct wsgi_request *) * uwsgi.async);
+
+                for (i = 0; i < uwsgi.async; i++) {
+                        uwsgi.async_queue_unused[i] = &uwsgi.workers[uwsgi.mywid].cores[i].req;
+                }
+
+                uwsgi.async_queue_unused_ptr = uwsgi.async - 1;
+
+}
+
 struct wsgi_request *find_wsgi_req_proto_by_fd(int fd) {
 	return uwsgi.async_proto_fd_table[fd];
 }
