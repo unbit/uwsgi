@@ -1540,14 +1540,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 	int i;
-	int rlen;
-
-	char *env_reloads;
-	char env_reload_buf[11];
-
-	char *plugins_requested;
-
-
 
 #ifdef UNBIT
 	//struct uidsec_struct us;
@@ -1586,91 +1578,19 @@ int main(int argc, char *argv[], char *envp[]) {
 	// call plugin specific exit hooks
 	atexit(uwsgi_plugins_atexit);
 
-	uwsgi.shared = (struct uwsgi_shared *) mmap(NULL, sizeof(struct uwsgi_shared), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-	if (!uwsgi.shared) {
-		uwsgi_error("mmap()");
-		exit(1);
-	}
-	memset(uwsgi.shared, 0, sizeof(struct uwsgi_shared));
+	// allocate main shared memory
+	uwsgi.shared = (struct uwsgi_shared *) uwsgi_calloc_shared(sizeof(struct uwsgi_shared));
 
-#ifdef UWSGI_SPOOLER
-	//set the spooler frequency to 30 seconds by default
-	uwsgi.shared->spooler_frequency = 30;
-#endif
-
+	// initialize request plugin to void
 	for (i = 0; i < 256; i++) {
 		uwsgi.p[i] = &unconfigured_plugin;
 	}
 
-	uwsgi.backtrace_depth = 64;
-	uwsgi.max_apps = 64;
-
-	uwsgi.master_queue = -1;
-
-	uwsgi.signal_socket = -1;
-	uwsgi.my_signal_socket = -1;
-	uwsgi.cache_server_fd = -1;
-	uwsgi.stats_fd = -1;
-
-	uwsgi.original_log_fd = -1;
-
-	uwsgi.emperor_fd_config = -1;
-	// default emperor scan frequency
-	uwsgi.emperor_freq = 3;
-	uwsgi.emperor_throttle = 1000;
-	uwsgi.emperor_heartbeat = 30;
-	// max 3 minutes throttling
-	uwsgi.emperor_max_throttle = 1000 * 180;
-	uwsgi.emperor_pid = -1;
-
-	uwsgi.subscribe_freq = 10;
-	uwsgi.subscription_tolerance = 17;
-
-	uwsgi.cluster_fd = -1;
-	uwsgi.cores = 1;
-	uwsgi.threads = 1;
-
-	uwsgi.default_app = -1;
-
-	uwsgi.buffer_size = 4096;
-	uwsgi.numproc = 1;
-
-	uwsgi.forkbomb_delay = 2;
-
-	uwsgi.async = 1;
-	uwsgi.listen_queue = 100;
-
-	uwsgi.cheaper_overload = 3;
-
-	uwsgi.log_master_bufsize = 8192;
-
-	uwsgi.max_vars = MAX_VARS;
-	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);
-
-	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
-	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
-
-#ifdef UWSGI_SPOOLER
-	uwsgi.shared->spooler_signal_pipe[0] = -1;
-	uwsgi.shared->spooler_signal_pipe[1] = -1;
-#endif
-	uwsgi.shared->mule_signal_pipe[0] = -1;
-	uwsgi.shared->mule_signal_pipe[1] = -1;
-
-	uwsgi.shared->mule_queue_pipe[0] = -1;
-	uwsgi.shared->mule_queue_pipe[1] = -1;
-
-	uwsgi.shared->worker_log_pipe[0] = -1;
-	uwsgi.shared->worker_log_pipe[1] = -1;
+	// set default values
+	uwsgi_init_default();
 
 	// set default logit hook
 	uwsgi.logit = uwsgi_logit_simple;
-
-#ifdef UWSGI_SSL
-	// 1 day of tolerance
-	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24;
-#endif
-
 
 #ifdef UWSGI_BLACKLIST
 	if (!uwsgi_file_to_string_list(UWSGI_BLACKLIST, &uwsgi.blacklist)) {
@@ -1722,26 +1642,9 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	env_reloads = getenv("UWSGI_RELOADS");
-	if (env_reloads) {
-		//convert env value to int
-		uwsgi.reloads = atoi(env_reloads);
-		uwsgi.reloads++;
-		//convert reloads to string
-		rlen = snprintf(env_reload_buf, 10, "%u", uwsgi.reloads);
-		if (rlen > 0) {
-			env_reload_buf[rlen] = 0;
-			if (setenv("UWSGI_RELOADS", env_reload_buf, 1)) {
-				uwsgi_error("setenv()");
-			}
-		}
-		uwsgi.is_a_reload = 1;
-	}
-	else {
-		if (setenv("UWSGI_RELOADS", "0", 1)) {
-			uwsgi_error("setenv()");
-		}
-	}
+	
+	// count/set the current reload status
+	uwsgi_setup_reload();
 
 	uwsgi.page_size = getpagesize();
 	uwsgi.binary_path = uwsgi_get_binary_path(argv[0]);
@@ -1761,114 +1664,33 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
-		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
-		// try to automatically load a plugin
+
+	// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
+	// try to automatically load a plugin
 #ifdef UWSGI_DEBUG
-		uwsgi_log("executable name: %s\n", uwsgi.binary_path);
+	uwsgi_log("executable name: %s\n", uwsgi.binary_path);
 #endif
+	uwsgi_autoload_plugins_by_name(argv[0]);
 
-	char *original_proc_name = getenv("UWSGI_ORIGINAL_PROC_NAME");
-	if (!original_proc_name) {
-		// here we use argv[0];
-		original_proc_name = argv[0];
-		setenv("UWSGI_ORIGINAL_PROC_NAME", original_proc_name, 1);
-	}
-	char *p = strrchr(original_proc_name, '/');
-	if (p == NULL)
-		p = original_proc_name;
-	p = strstr(p, "uwsgi_");
-	if (p != NULL) {
-		plugins_requested = strtok(uwsgi_str(p + 6), "_");
-		while (plugins_requested) {
-			uwsgi_log("[uwsgi] implicit plugin requested %s\n", plugins_requested);
-			uwsgi_load_plugin(-1, plugins_requested, NULL);
-			plugins_requested = strtok(NULL, "_");
-		}
-	}
 
-	plugins_requested = getenv("UWSGI_PLUGINS");
-	if (plugins_requested) {
-		plugins_requested = uwsgi_concat2(plugins_requested, "");
-		char *p = strtok(plugins_requested, ",");
-		while (p != NULL) {
-			uwsgi_load_plugin(-1, p, NULL);
-			p = strtok(NULL, ",");
-		}
-	}
-
+	// build the options structure
 	build_options();
 
+	// set a couple of 'static' magic vars
 	uwsgi.magic_table['v'] = uwsgi.cwd;
 	uwsgi.magic_table['h'] = uwsgi.hostname;
 
+	// you can embed a ini file in the uWSGi binary with default options
 #ifdef UWSGI_EMBED_CONFIG
 	uwsgi_ini_config("", uwsgi.magic_table);
 	// rebuild options if a custom ini is set
 	build_options();
 #endif
-
 	//parse environ
 	parse_sys_envs(environ);
 
-	uwsgi.option_index = -1;
-
-	char *optname;
-	while ((i = getopt_long(uwsgi.argc, uwsgi.argv, uwsgi.short_options, uwsgi.long_options, &uwsgi.option_index)) != -1) {
-
-		if (i == '?') {
-			uwsgi_log("getopt_long() error\n");
-			exit(1);
-		}
-
-		if (uwsgi.option_index > -1) {
-			optname = (char *) uwsgi.long_options[uwsgi.option_index].name;
-		}
-		else {
-			optname = uwsgi_get_optname_by_index(i);
-		}
-		if (!optname) {
-			uwsgi_log("unable to parse command line options\n");
-			exit(1);
-		}
-		uwsgi.option_index = -1;
-		add_exported_option(optname, optarg, 0);
-	}
-
-
-#ifdef UWSGI_DEBUG
-	uwsgi_log("optind:%d argc:%d\n", optind, argc);
-#endif
-
-	if (optind < argc) {
-		for (i = optind; i < uwsgi.argc; i++) {
-			char *lazy = uwsgi.argv[i];
-			if (lazy[0] != '[') {
-				uwsgi_opt_load(NULL, lazy, NULL);
-				// manage magic mountpoint
-				int magic = 0;
-				int j;
-				for (j = 0; j < uwsgi.gp_cnt; j++) {
-					if (uwsgi.gp[j]->magic) {
-						if (uwsgi.gp[j]->magic(NULL, lazy)) {
-							magic = 1;
-							break;
-						}
-					}
-				}
-				if (!magic) {
-					for (j = 0; j < 256; j++) {
-						if (uwsgi.p[j]->magic) {
-							if (uwsgi.p[j]->magic(NULL, lazy)) {
-								magic = 1;
-								break;
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
+	// parse commandline options
+	uwsgi_commandline_config();
 
 	// second pass: ENVs
 	uwsgi_apply_config_pass('$', (char *(*)(char *)) getenv);
@@ -1908,57 +1730,17 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	if (uwsgi.flock2) {
+	if (uwsgi.flock2)
 		uwsgi_opt_flock(NULL, uwsgi.flock2, NULL);
-	}
 
-	if (uwsgi.flock_wait2) {
+	if (uwsgi.flock_wait2)
 		uwsgi_opt_flock(NULL, uwsgi.flock_wait2, NULL);
-	}
 
 	// setup master logging
-	if (uwsgi.log_master) {
+	if (uwsgi.log_master)
+		uwsgi_setup_log_master();
 
-		struct uwsgi_string_list *usl = uwsgi.requested_logger;
-		while(usl) {
-			char *colon = strchr(usl->value, ':');
-			if (colon) {
-				*colon = 0;
-			}
-
-			struct uwsgi_logger *choosen_logger = uwsgi_get_logger(usl->value);
-			if (!choosen_logger) {
-				uwsgi_log("unable to find logger %s\n", usl->value);
-				exit(1);
-			}
-
-			// make a copy of the logger
-			struct uwsgi_logger *copy_of_choosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
-			memcpy(copy_of_choosen_logger, choosen_logger, sizeof(struct uwsgi_logger));
-			choosen_logger = copy_of_choosen_logger;
-			choosen_logger->next = NULL;
-
-			if (colon) {
-				choosen_logger->arg = colon + 1;
-				// check for empty string
-				if (*choosen_logger->arg == 0) {
-					choosen_logger->arg = NULL;
-				}
-				*colon = ':';
-			}
-
-			uwsgi_append_logger(choosen_logger);
-
-			usl = usl->next;
-
-		}
-
-		uwsgi.original_log_fd = dup(1);
-		create_logpipe();
-
-	}
-
-	// setup loops
+	// setup main loops
 	uwsgi_register_loop("simple", simple_loop);
 #ifdef UWSGI_ASYNC
         uwsgi_register_loop("async", async_loop);
@@ -2078,83 +1860,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
-	while (shared_sock) {
-		if (!uwsgi.is_a_reload) {
-			char *tcp_port = strrchr(shared_sock->name, ':');
-			if (tcp_port == NULL) {
-				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-				shared_sock->family = AF_UNIX;
-				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-			}
-			else {
-#ifdef UWSGI_IPV6
-				if (shared_sock->name[0] == '[' && tcp_port[-1] == ']') {
-					shared_sock->fd = bind_to_tcp6(shared_sock->name, uwsgi.listen_queue, tcp_port);
-					shared_sock->family = AF_INET6;
-					// fix socket name
-					shared_sock->name = uwsgi_getsockname(shared_sock->fd);
-					uwsgi_log("uwsgi shared socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-				}
-				else {
-#endif
-					shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
-					shared_sock->family = AF_INET;
-					// fix socket name
-					shared_sock->name = uwsgi_getsockname(shared_sock->fd);
-					uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-#ifdef UWSGI_IPV6
-				}
-#endif
-			}
-
-			if (shared_sock->fd < 0) {
-				uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
-				exit(1);
-			}
-		}
-		else {
-			for (i = 3; i < (int) uwsgi.max_fd; i++) {
-				char *sock = uwsgi_getsockname(i);
-				if (sock) {
-					if (!strcmp(sock, shared_sock->name)) {
-						if (strchr(sock, ':')) {
-							uwsgi_log("uwsgi shared socket %d inherited TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
-							shared_sock->family = AF_INET;
-						}
-						else {
-							uwsgi_log("uwsgi shared socket %d inherited UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
-							shared_sock->family = AF_UNIX;
-						}
-						shared_sock->fd = i;
-					}
-					else {
-						free(sock);
-					}
-				}
-			}
-		}
-		shared_sock->bound = 1;
-		shared_sock = shared_sock->next;
-	}
-
-	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-	while (uwsgi_sock) {
-
-		if (uwsgi_sock->shared) {
-			shared_sock = uwsgi_get_shared_socket_by_num(uwsgi_sock->from_shared);
-			if (!shared_sock) {
-				uwsgi_log("unable to find shared socket %d\n", uwsgi_sock->from_shared);
-				exit(1);
-			}
-			uwsgi_sock->fd = shared_sock->fd;
-			uwsgi_sock->family = shared_sock->family;
-			uwsgi_sock->name = shared_sock->name;
-			uwsgi_log("uwsgi socket %d mapped to shared socket %d (%s) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, uwsgi_sock->fd);
-		}
-
-		uwsgi_sock = uwsgi_sock->next;
-	}
+	// initialize shared sockets
+	uwsgi_setup_shared_sockets();
 
 	// start the Emperor if needed
 	if (uwsgi.early_emperor && uwsgi.emperor) {

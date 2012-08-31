@@ -19,6 +19,46 @@
 
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_setup_log_master(void) {
+
+	struct uwsgi_string_list *usl = uwsgi.requested_logger;
+                while(usl) {
+                        char *colon = strchr(usl->value, ':');
+                        if (colon) {
+                                *colon = 0;
+                        }
+
+                        struct uwsgi_logger *choosen_logger = uwsgi_get_logger(usl->value);
+                        if (!choosen_logger) {
+                                uwsgi_log("unable to find logger %s\n", usl->value);
+                                exit(1);
+                        }
+
+                        // make a copy of the logger
+                        struct uwsgi_logger *copy_of_choosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
+                        memcpy(copy_of_choosen_logger, choosen_logger, sizeof(struct uwsgi_logger));
+                        choosen_logger = copy_of_choosen_logger;
+                        choosen_logger->next = NULL;
+
+                        if (colon) {
+                                choosen_logger->arg = colon + 1;
+                                // check for empty string
+                                if (*choosen_logger->arg == 0) {
+                                        choosen_logger->arg = NULL;
+                                }
+                                *colon = ':';
+                        }
+
+                        uwsgi_append_logger(choosen_logger);
+
+                        usl = usl->next;
+
+                }
+
+                uwsgi.original_log_fd = dup(1);
+                create_logpipe();
+}
+
 struct uwsgi_logvar *uwsgi_logvar_get(struct wsgi_request *wsgi_req, char *key, uint8_t keylen) {
 	struct uwsgi_logvar *lv = wsgi_req->logvars;
 	while(lv) {
@@ -690,4 +730,5 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
                 }
         }
 }
+
 

@@ -1434,3 +1434,86 @@ socklen_t socket_to_in_addr6(char *socket_name, char *port, int portn, struct so
 
 
 #endif
+
+void uwsgi_setup_shared_sockets() {
+	int i;
+	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
+        while (shared_sock) {
+                if (!uwsgi.is_a_reload) {
+                        char *tcp_port = strrchr(shared_sock->name, ':');
+                        if (tcp_port == NULL) {
+                                shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+                                shared_sock->family = AF_UNIX;
+                                uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+                        }
+                        else {
+#ifdef UWSGI_IPV6
+                                if (shared_sock->name[0] == '[' && tcp_port[-1] == ']') {
+                                        shared_sock->fd = bind_to_tcp6(shared_sock->name, uwsgi.listen_queue, tcp_port);
+                                        shared_sock->family = AF_INET6;
+                                        // fix socket name
+                                        shared_sock->name = uwsgi_getsockname(shared_sock->fd);
+                                        uwsgi_log("uwsgi shared socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+                                }
+                                else {
+#endif
+                                        shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
+                                        shared_sock->family = AF_INET;
+                                        // fix socket name
+                                        shared_sock->name = uwsgi_getsockname(shared_sock->fd);
+                                        uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+#ifdef UWSGI_IPV6
+                                }
+#endif
+                        }
+
+                        if (shared_sock->fd < 0) {
+                                uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
+                                exit(1);
+                        }
+                }
+                else {
+                        for (i = 3; i < (int) uwsgi.max_fd; i++) {
+                                char *sock = uwsgi_getsockname(i);
+                                if (sock) {
+                                        if (!strcmp(sock, shared_sock->name)) {
+                                                if (strchr(sock, ':')) {
+                                                        uwsgi_log("uwsgi shared socket %d inherited TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
+                                                        shared_sock->family = AF_INET;
+                                                }
+                                                else {
+                                                        uwsgi_log("uwsgi shared socket %d inherited UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
+                                                        shared_sock->family = AF_UNIX;
+                                                }
+                                                shared_sock->fd = i;
+                                        }
+                                        else {
+                                                free(sock);
+                                        }
+                                }
+                        }
+                }
+                shared_sock->bound = 1;
+                shared_sock = shared_sock->next;
+        }
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+        while (uwsgi_sock) {
+
+                if (uwsgi_sock->shared) {
+                        shared_sock = uwsgi_get_shared_socket_by_num(uwsgi_sock->from_shared);
+                        if (!shared_sock) {
+                                uwsgi_log("unable to find shared socket %d\n", uwsgi_sock->from_shared);
+                                exit(1);
+                        }
+                        uwsgi_sock->fd = shared_sock->fd;
+                        uwsgi_sock->family = shared_sock->family;
+                        uwsgi_sock->name = shared_sock->name;
+                        uwsgi_log("uwsgi socket %d mapped to shared socket %d (%s) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, uwsgi_sock->fd);
+                }
+
+                uwsgi_sock = uwsgi_sock->next;
+        }
+
+
+}

@@ -3174,6 +3174,15 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *);
 void uwsgi_register_clock(struct uwsgi_clock *);
 void uwsgi_set_clock(char *name);
 
+void uwsgi_init_default(void);
+void uwsgi_setup_reload(void);
+void uwsgi_autoload_plugins_by_name(char *);
+void uwsgi_commandline_config(void);
+
+void uwsgi_setup_log_master(void);
+
+void uwsgi_setup_shared_sockets(void);
+
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);
 #endif
