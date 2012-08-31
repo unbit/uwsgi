@@ -3,6 +3,7 @@
 extern struct uwsgi_server uwsgi;
 struct uwsgi_perl uperl;
 
+extern struct uwsgi_plugin psgi_plugin;
 
 
 XS(XS_input_seek) {
@@ -442,10 +443,10 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 
 	if (wsgi_req) {
 		// we need a copy of app_id
-		wi = uwsgi_add_app(id, 5, uwsgi_concat2n(wsgi_req->appid, wsgi_req->appid_len, "", 0), wsgi_req->appid_len, interpreters, callables);
+		wi = uwsgi_add_app(id, psgi_plugin.modifier1, uwsgi_concat2n(wsgi_req->appid, wsgi_req->appid_len, "", 0), wsgi_req->appid_len, interpreters, callables);
 	}
 	else {
-		wi = uwsgi_add_app(id, 5, "", 0, interpreters, callables);
+		wi = uwsgi_add_app(id, psgi_plugin.modifier1, "", 0, interpreters, callables);
 	}
 
 	wi->started_at = now;

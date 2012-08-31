@@ -667,7 +667,7 @@ struct uwsgi_plugin {
 	void (*fixup) (void);
 	void (*master_fixup) (int);
 	void (*master_cycle) (void);
-	int (*mount_app) (char *, char *, int);
+	int (*mount_app) (char *, char *);
 	int (*manage_udp) (char *, int, char *, int);
 	void (*suspend) (struct wsgi_request *);
 	void (*resume) (struct wsgi_request *);
@@ -714,11 +714,6 @@ struct uwsgi_app {
 	char mountpoint[0xff];
 	int mountpoint_len;
 
-#ifdef UWSGI_PCRE
-	pcre *pattern;
-        pcre_extra *pattern_extra;
-#endif
-	
 	void *interpreter;
 	void *callable;
 

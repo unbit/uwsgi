@@ -9,6 +9,8 @@ extern struct uwsgi_perl uperl;
 struct uwsgi_perl uperl;
 #endif
 
+struct uwsgi_plugin psgi_plugin;
+
 struct uwsgi_option uwsgi_perl_options[] = {
 
         {"psgi", required_argument, 0, "load a psgi app", uwsgi_opt_set_str, &uperl.psgi, 0},
@@ -390,7 +392,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, 5);
+	wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, psgi_plugin.modifier1);
 	// if it is -1, try to load a dynamic app
 	if (wsgi_req->app_id == -1) {
 		if (wsgi_req->dynamic) {
@@ -514,7 +516,7 @@ void uwsgi_perl_post_fork() {
 	}
 }
 
-int uwsgi_perl_mount_app(char *mountpoint, char *app, int regexp) {
+int uwsgi_perl_mount_app(char *mountpoint, char *app) {
 
 	if (uwsgi_endswith(app, ".pl") || uwsgi_endswith(app, ".psgi")) {
         	uwsgi.wsgi_req->appid = mountpoint;

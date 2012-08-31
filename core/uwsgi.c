@@ -385,9 +385,6 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"die-on-idle", no_argument, 0, "shutdown uWSGI when idle", uwsgi_opt_true, &uwsgi.die_on_idle, 0},
 	{"mount", required_argument, 0, "load application under mountpoint", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
 	{"worker-mount", required_argument, 0, "load application under mountpoint in the specified worker or after workers spawn", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
-#ifdef UWSGI_PCRE
-	{"regexp-mount", required_argument, 0, "load application under a regexp-based mountpoint", uwsgi_opt_add_string_list, &uwsgi.mounts, 0},
-#endif
 	{"grunt", no_argument, 0, "enable grunt mode (in-request fork)", uwsgi_opt_true, &uwsgi.grunt, 0},
 
 	{"threads", required_argument, 0, "run each worker in prethreaded mode with the specified number of threads", uwsgi_opt_set_int, &uwsgi.threads, UWSGI_OPT_THREADS},
@@ -2981,20 +2978,8 @@ void uwsgi_init_all_apps() {
 			what++;
 			for (j = 0; j < 256; j++) {
 				if (uwsgi.p[j]->mount_app) {
-/*
-					if (!uwsgi_startswith(uwsgin[i], "regexp://", 9)) {
-						uwsgi_log("mounting %s on %s\n", what, uwsgi.mounts[i]+9);
-						if (uwsgi.p[j]->mount_app(uwsgi.mounts[i] + 9, what, 1) != -1)
-							break;
-					}
-					// skip worker-mount
-					else if (!uwsgi_startswith(uwsgi.mounts[i], "worker://", 9)) {
-						continue;
-					}
-					else {
-*/
 					uwsgi_log("mounting %s on %s\n", what, app_mps->value);
-					if (uwsgi.p[j]->mount_app(app_mps->value, what, 0) != -1)
+					if (uwsgi.p[j]->mount_app(app_mps->value, what) != -1)
 						break;
 				}
 			}

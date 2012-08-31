@@ -998,7 +998,7 @@ int uwsgi_rack_magic(char *mountpoint, char *lazy) {
 	return 0;
 }
 
-int uwsgi_rack_mount_app(char *mountpoint, char *app, int regexp) {
+int uwsgi_rack_mount_app(char *mountpoint, char *app) {
 
 	
 	if (uwsgi_endswith(app, ".ru") || uwsgi_endswith(app, ".rb")) {

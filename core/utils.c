@@ -1686,14 +1686,6 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 			continue;
 		}
 
-#ifdef UWSGI_PCRE
-		if (uwsgi_apps[i].pattern) {
-			if (uwsgi_regexp_match(uwsgi_apps[i].pattern, uwsgi_apps[i].pattern_extra, app_name, app_name_len) >= 0) {
-				found = 1;
-			}
-		}
-		else
-#endif
 		if (!uwsgi_strncmp(uwsgi_apps[i].mountpoint, uwsgi_apps[i].mountpoint_len, app_name, app_name_len)) {
 			found = 1;
 		}
