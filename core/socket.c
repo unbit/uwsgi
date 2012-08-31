@@ -1517,3 +1517,66 @@ void uwsgi_setup_shared_sockets() {
 
 
 }
+
+void uwsgi_map_sockets() {
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+        while (uwsgi_sock) {
+                struct uwsgi_string_list *usl = uwsgi.map_socket;
+                int enabled = 1;
+                while (usl) {
+
+                        char *colon = strchr(usl->value, ':');
+                        if ((int) uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
+                                enabled = 0;
+                                char *p = strtok(colon + 1, ",");
+                                while (p != NULL) {
+                                        int w = atoi(p);
+                                        if (w < 1 || w > uwsgi.numproc) {
+                                                uwsgi_log("invalid worker num: %d\n", w);
+                                                exit(1);
+                                        }
+                                        if (w == uwsgi.mywid) {
+                                                enabled = 1;
+                                                uwsgi_log("mapped socket %d (%s) to worker %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi.mywid);
+                                                break;
+                                        }
+                                        p = strtok(NULL, ",");
+                                }
+                        }
+
+                        usl = usl->next;
+                }
+
+                if (!enabled) {
+                        close(uwsgi_sock->fd);
+                        int fd = open("/dev/null", O_RDONLY);
+                        if (fd < 0) {
+                                uwsgi_error_open("/dev/null");
+                                exit(1);
+                        }
+                        if (fd != uwsgi_sock->fd) {
+                                if (dup2(fd, uwsgi_sock->fd)) {
+                                        uwsgi_error("dup2()");
+                                        exit(1);
+                                }
+                                close(fd);
+                        }
+                        uwsgi_sock->disabled = 1;
+                }
+
+
+                uwsgi_sock = uwsgi_sock->next;
+
+        }
+
+        uwsgi_sock = uwsgi.sockets;
+        while (uwsgi_sock) {
+                if (uwsgi_sock->disabled) {
+                        uwsgi_sock = uwsgi_del_socket(uwsgi_sock);
+                }
+                else {
+                        uwsgi_sock = uwsgi_sock->next;
+                }
+        }
+
+}

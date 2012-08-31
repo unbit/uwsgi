@@ -2772,6 +2772,7 @@ nextsock:
 	uwsgi_notify_ready();
 	uwsgi.current_time = uwsgi_now();
 
+	// here we spawn the workers...
 	if (!uwsgi.cheap) {
 		if (uwsgi.cheaper && uwsgi.cheaper_count) {
 			int nproc = uwsgi.cheaper_initial;
@@ -2796,6 +2797,9 @@ nextsock:
 		}
 	}
 
+	// END OF INITIALIZATION
+
+	// !!! from now on, we could be in the master or in a worker !!!
 
 
 	if (getpid() == masterpid && uwsgi.master_process == 1) {
@@ -2810,91 +2814,11 @@ nextsock:
 		//from now on the process is a real worker
 	}
 
+	// eventually maps (or disable) sockets for the  worker
+	uwsgi_map_sockets();
 
-	uwsgi_sock = uwsgi.sockets;
-	while (uwsgi_sock) {
-		struct uwsgi_string_list *usl = uwsgi.map_socket;
-		int enabled = 1;
-		while (usl) {
-
-			char *colon = strchr(usl->value, ':');
-			if ((int) uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
-				enabled = 0;
-				char *p = strtok(colon + 1, ",");
-				while (p != NULL) {
-					int w = atoi(p);
-					if (w < 1 || w > uwsgi.numproc) {
-						uwsgi_log("invalid worker num: %d\n", w);
-						exit(1);
-					}
-					if (w == uwsgi.mywid) {
-						enabled = 1;
-						uwsgi_log("mapped socket %d (%s) to worker %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi.mywid);
-						break;
-					}
-					p = strtok(NULL, ",");
-				}
-			}
-
-			usl = usl->next;
-		}
-
-		if (!enabled) {
-			close(uwsgi_sock->fd);
-			int fd = open("/dev/null", O_RDONLY);
-			if (fd < 0) {
-				uwsgi_error_open("/dev/null");
-				exit(1);
-			}
-			if (fd != uwsgi_sock->fd) {
-				if (dup2(fd, uwsgi_sock->fd)) {
-					uwsgi_error("dup2()");
-					exit(1);
-				}
-				close(fd);
-			}
-			uwsgi_sock->disabled = 1;
-		}
-
-
-		uwsgi_sock = uwsgi_sock->next;
-
-	}
-
-	uwsgi_sock = uwsgi.sockets;
-	while (uwsgi_sock) {
-		if (uwsgi_sock->disabled) {
-			uwsgi_sock = uwsgi_del_socket(uwsgi_sock);
-		}
-		else {
-			uwsgi_sock = uwsgi_sock->next;
-		}
-	}
-
-	if (uwsgi.cpu_affinity) {
-#ifdef __linux__
-		cpu_set_t cpuset;
-		CPU_ZERO(&cpuset);
-		int ncpu = sysconf(_SC_NPROCESSORS_ONLN);
-		int base_cpu = (uwsgi.mywid - 1) * uwsgi.cpu_affinity;
-		if (base_cpu >= ncpu) {
-			base_cpu = base_cpu % ncpu;
-		}
-		uwsgi_log("set cpu affinity for worker %d to", uwsgi.mywid);
-		for (i = 0; i < uwsgi.cpu_affinity; i++) {
-			if (base_cpu >= ncpu)
-				base_cpu = 0;
-			CPU_SET(base_cpu, &cpuset);
-			uwsgi_log(" %d", base_cpu);
-			base_cpu++;
-		}
-		if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
-			uwsgi_error("sched_setaffinity()");
-		}
-		uwsgi_log("\n");
-#endif
-	}
-
+	// eventually set cpu affinity poilicies (OS-dependent)
+	uwsgi_set_cpu_affinity();
 
 	if (uwsgi.worker_exec) {
 		char *w_argv[2];

@@ -4717,3 +4717,31 @@ char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
 }
 
 #endif
+
+void uwsgi_set_cpu_affinity() {
+	int i;
+	if (uwsgi.cpu_affinity) {
+#ifdef __linux__
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                int ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+                int base_cpu = (uwsgi.mywid - 1) * uwsgi.cpu_affinity;
+                if (base_cpu >= ncpu) {
+                        base_cpu = base_cpu % ncpu;
+                }
+                uwsgi_log("set cpu affinity for worker %d to", uwsgi.mywid);
+                for (i = 0; i < uwsgi.cpu_affinity; i++) {
+                        if (base_cpu >= ncpu)
+                                base_cpu = 0;
+                        CPU_SET(base_cpu, &cpuset);
+                        uwsgi_log(" %d", base_cpu);
+                        base_cpu++;
+                }
+                if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset)) {
+                        uwsgi_error("sched_setaffinity()");
+                }
+                uwsgi_log("\n");
+#endif
+        }
+
+}
