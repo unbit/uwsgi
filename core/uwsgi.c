@@ -1704,26 +1704,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
 
+	// initial log setup (files and daemonization)
+	uwsgi_setup_log();
 
-	if (uwsgi.daemonize) {
-		if (uwsgi.has_emperor) {
-			logto(uwsgi.daemonize);
-		}
-		else {
-			if (!uwsgi.is_a_reload) {
-				daemonize(uwsgi.daemonize);
-			}
-			else if (uwsgi.log_reopen) {
-				logto(uwsgi.daemonize);
-			}
-		}
-	}
-	else if (uwsgi.logfile) {
-		if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
-			logto(uwsgi.logfile);
-		}
-	}
-
+	// enable never-swap mode
 	if (uwsgi.never_swap) {
 		if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
 			uwsgi_error("mlockall()");
@@ -2139,8 +2123,6 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log_initial("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
 	}
 
-	uwsgi.async_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
-
 	if (uwsgi.async > 1) {
 		uwsgi_log("async fd table size: %d\n", uwsgi.max_fd);
 		uwsgi.async_waiting_fd_table = malloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
@@ -2155,13 +2137,6 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 		memset(uwsgi.async_proto_fd_table, 0, sizeof(struct wsgi_request *) * uwsgi.max_fd);
-	}
-
-	if (uwsgi.post_buffering > 0) {
-		uwsgi_setup_post_buffering();
-	}
-	for (i = 0; i < uwsgi.cores; i++) {
-		uwsgi.async_buf[i] = uwsgi_malloc(uwsgi.buffer_size);
 	}
 
 #ifdef UWSGI_DEBUG
@@ -2215,14 +2190,8 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.sharedareasize > 0) {
 
-		uwsgi.sharedarea = mmap(NULL, uwsgi.page_size * uwsgi.sharedareasize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-		if (uwsgi.sharedarea) {
-			uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
-		}
-		else {
-			uwsgi_error("mmap()");
-			exit(1);
-		}
+		uwsgi.sharedarea = uwsgi_calloc_shared(uwsgi.page_size * uwsgi.sharedareasize);
+		uwsgi_log("shared area mapped at %p, you can access it with uwsgi.sharedarea* functions.\n", uwsgi.sharedarea);
 
 		uwsgi.sa_lock = uwsgi_rwlock_init("sharedarea");
 	}
@@ -2564,6 +2533,9 @@ nextsock:
 	}
 
 
+	// initialize post buffering values
+	if (uwsgi.post_buffering > 0)
+		uwsgi_setup_post_buffering();
 
 	// allocate shared memory for workers + master
 	uwsgi.workers = (struct uwsgi_worker *) uwsgi_calloc_shared(sizeof(struct uwsgi_worker) * (uwsgi.numproc + 1 + uwsgi.grunt));
@@ -2575,9 +2547,15 @@ nextsock:
 		// allocate memory for cores
 		uwsgi.workers[i].cores = (struct uwsgi_core *) uwsgi_calloc_shared(sizeof(struct uwsgi_core) * uwsgi.cores);
 
-		// allocate shared memory for thread states (required for some language, like python)
         	for (j = 0; j < uwsgi.cores; j++) {
+			// allocate shared memory for thread states (required for some language, like python)
 			uwsgi.workers[i].cores[j].ts = uwsgi_calloc_shared(sizeof(void *) * uwsgi.max_apps);
+			// raw per-request buffer
+			uwsgi.workers[i].cores[j].buffer = uwsgi_malloc_shared(uwsgi.buffer_size);
+			// iovec for uwsgi vars
+			uwsgi.workers[i].cores[j].hvec = uwsgi_malloc_shared(sizeof(struct iovec) * uwsgi.vec_size);
+			if (uwsgi.post_buffering > 0)
+				uwsgi.workers[i].cores[j].post_buf = uwsgi_malloc_shared(uwsgi.post_buffering_bufsize);
         	}
 		// master does not need to following steps...
 		if (i == 0) continue;
@@ -3097,12 +3075,6 @@ zmq_next:
 
 	}
 #endif
-
-
-	uwsgi.async_hvec = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
-	for (i = 0; i < uwsgi.cores; i++) {
-		uwsgi.async_hvec[i] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.vec_size);
-	}
 
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0 && !uwsgi.master_process) {
 		signal(SIGALRM, (void *) &harakiri);

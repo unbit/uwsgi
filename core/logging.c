@@ -19,6 +19,29 @@
 
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_setup_log() {
+
+	if (uwsgi.daemonize) {
+                if (uwsgi.has_emperor) {
+                        logto(uwsgi.daemonize);
+                }
+                else {
+                        if (!uwsgi.is_a_reload) {
+                                daemonize(uwsgi.daemonize);
+                        }
+                        else if (uwsgi.log_reopen) {
+                                logto(uwsgi.daemonize);
+                        }
+                }
+        }
+        else if (uwsgi.logfile) {
+                if (!uwsgi.is_a_reload || uwsgi.log_reopen) {
+                        logto(uwsgi.logfile);
+                }
+        }
+
+}
+
 void uwsgi_setup_log_master(void) {
 
 	struct uwsgi_string_list *usl = uwsgi.requested_logger;

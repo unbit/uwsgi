@@ -647,7 +647,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 
-	uwsgi.wsgi_req->buffer = uwsgi.async_buf[0];
+	uwsgi.wsgi_req->buffer = uwsgi.workers[0].cores[0].buffer;
 
 	if (uwsgi.has_emperor) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.emperor_fd);

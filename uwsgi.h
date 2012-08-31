@@ -1426,10 +1426,6 @@ struct uwsgi_server {
 	int vhost;
 	int vhost_host;
 
-	struct iovec **async_hvec;
-	char **async_buf;
-	char **async_post_buf;
-
 	// async commodity
 	struct wsgi_request **async_waiting_fd_table;
 	struct wsgi_request **async_proto_fd_table;
@@ -1955,6 +1951,11 @@ struct uwsgi_core {
 	void **ts;
 
 	int in_request;
+
+	char *buffer;
+	struct iovec *hvec;
+	char *post_buf;
+
 	struct wsgi_request req;
 };
 
@@ -3179,6 +3180,7 @@ void uwsgi_setup_reload(void);
 void uwsgi_autoload_plugins_by_name(char *);
 void uwsgi_commandline_config(void);
 
+void uwsgi_setup_log(void);
 void uwsgi_setup_log_master(void);
 
 void uwsgi_setup_shared_sockets(void);

@@ -990,11 +990,11 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 	wsgi_req->sendfile_fd = -1;
 #endif
 
-	wsgi_req->hvec = uwsgi.async_hvec[wsgi_req->async_id];
-	wsgi_req->buffer = uwsgi.async_buf[wsgi_req->async_id];
+	wsgi_req->hvec = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].hvec;
+	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer;
 
 	if (uwsgi.post_buffering > 0) {
-		wsgi_req->post_buffering_buf = uwsgi.async_post_buf[wsgi_req->async_id];
+		wsgi_req->post_buffering_buf = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].post_buf;
 	}
 
 	if (uwsgi_sock) {
@@ -4332,18 +4332,14 @@ int uwsgi_file_to_string_list(char *filename, struct uwsgi_string_list **list) {
 	return 0;
 }
 
-void uwsgi_setup_post_buffering(void) {
-	int i;
-	uwsgi.async_post_buf = uwsgi_malloc(sizeof(char *) * uwsgi.cores);
+void uwsgi_setup_post_buffering() {
+
 	if (!uwsgi.post_buffering_bufsize)
 		uwsgi.post_buffering_bufsize = 8192;
+
 	if (uwsgi.post_buffering_bufsize < uwsgi.post_buffering) {
 		uwsgi.post_buffering_bufsize = uwsgi.post_buffering;
 		uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
-	}
-
-	for (i = 0; i < uwsgi.cores; i++) {
-		uwsgi.async_post_buf[i] = uwsgi_malloc(uwsgi.post_buffering_bufsize);
 	}
 
 }
