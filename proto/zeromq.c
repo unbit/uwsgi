@@ -597,18 +597,24 @@ void uwsgi_proto_zeromq_close(struct wsgi_request *wsgi_req) {
 ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *wsgi_req, struct iovec *iovec, size_t iov_len) {
 	int i;
 	ssize_t len;
-	ssize_t ret = 0;
+
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
 
 	for (i = 0; i < (int) iov_len; i++) {
-		len = uwsgi_proto_zeromq_write(wsgi_req, iovec[i].iov_base, iovec[i].iov_len);
-		if (len <= 0) {
+		if (uwsgi_buffer_append(ub, iovec[i].iov_base, iovec[i].iov_len)) {
 			wsgi_req->write_errors++;
 			return 0;
 		}
-		ret += len;
 	}
 
-	return ret;
+	len = uwsgi_proto_zeromq_write(wsgi_req, ub->buf, ub->pos);
+	if (len <= 0) {
+		wsgi_req->write_errors++;
+		return 0;
+	}
+
+	uwsgi_buffer_destroy(ub);
+	return len;
 }
 
 ssize_t uwsgi_proto_zeromq_writev(struct wsgi_request * wsgi_req, struct iovec * iovec, size_t iov_len) {
