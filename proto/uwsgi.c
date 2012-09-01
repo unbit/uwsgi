@@ -37,6 +37,8 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 		}
 
 		if (len <= 0) {
+			// ignore empty packets
+			if (len == 0 && wsgi_req->proto_parser_pos == 0) return -3;
 			uwsgi_error(wsgi_req->proto_parser_pos > 0 ? "read()" : "recvmsg()");
 			return -1;
 		}
