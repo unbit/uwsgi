@@ -2023,8 +2023,17 @@ int uwsgi_is_dir(char *filename) {
 
 int uwsgi_logic_opt_if_env(char *key, char *value) {
 
+	// check for env-value syntax
+	char *equal = strchr(uwsgi.logic_opt_data, '=');
+	if (equal) *equal = 0;
+
 	char *p = getenv(uwsgi.logic_opt_data);
+	if (equal) *equal = '=';
+
 	if (p) {
+		if (equal) {
+			if (strcmp(equal+1, p)) return 0;
+		}
 		add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
 		return 1;
 	}
@@ -2034,13 +2043,24 @@ int uwsgi_logic_opt_if_env(char *key, char *value) {
 
 int uwsgi_logic_opt_if_not_env(char *key, char *value) {
 
+	// check for env-value syntax
+        char *equal = strchr(uwsgi.logic_opt_data, '=');
+        if (equal) *equal = 0;	
+
 	char *p = getenv(uwsgi.logic_opt_data);
-	if (!p) {
-		add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
-		return 1;
+	if (equal) *equal = '=';
+
+	if (p) {
+		if (equal) {
+			if (!strcmp(equal+1, p)) return 0;
+		}
+		else {
+			return 0;
+		}
 	}
 
-	return 0;
+	add_exported_option(key, uwsgi_substitute(value, "%(_)", p), 0);
+	return 1;
 }
 
 int uwsgi_logic_opt_if_reload(char *key, char *value) {
