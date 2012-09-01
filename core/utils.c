@@ -76,6 +76,7 @@ uint64_t uwsgi_swap64(uint64_t x) {
 
 #endif
 
+// check if a string is a valid hex number
 int check_hex(char *str, int len) {
 	int i;
 	for (i = 0; i < len; i++) {
@@ -89,6 +90,7 @@ int check_hex(char *str, int len) {
 
 }
 
+// increase worker harakiri
 void inc_harakiri(int sec) {
 	if (uwsgi.master_process) {
 		uwsgi.workers[uwsgi.mywid].harakiri += sec;
@@ -98,6 +100,7 @@ void inc_harakiri(int sec) {
 	}
 }
 
+// set worker harakiri
 void set_harakiri(int sec) {
 	if (sec == 0) {
 		uwsgi.workers[uwsgi.mywid].harakiri = 0;
@@ -110,6 +113,7 @@ void set_harakiri(int sec) {
 	}
 }
 
+// set user harakiri
 void set_user_harakiri(int sec) {
 	if (!uwsgi.master_process) {
 		uwsgi_log("!!! unable to set user harakiri without the master process !!!\n");
@@ -123,6 +127,7 @@ void set_user_harakiri(int sec) {
 	}
 }
 
+// set mule harakiri
 void set_mule_harakiri(int sec) {
 	if (sec == 0) {
 		uwsgi.mules[uwsgi.muleid - 1].harakiri = 0;
@@ -136,6 +141,7 @@ void set_mule_harakiri(int sec) {
 }
 
 #ifdef UWSGI_SPOOLER
+// set spooler harakiri
 void set_spooler_harakiri(int sec) {
 	if (sec == 0) {
 		uwsgi.i_am_a_spooler->harakiri = 0;
@@ -150,6 +156,7 @@ void set_spooler_harakiri(int sec) {
 #endif
 
 
+// daemonize to the specified logfile
 void daemonize(char *logfile) {
 	pid_t pid;
 	int fdin;
@@ -212,158 +219,7 @@ void daemonize(char *logfile) {
 	logto(logfile);
 }
 
-void logto(char *logfile) {
-
-	int fd;
-
-#ifdef UWSGI_UDP
-	char *udp_port;
-	struct sockaddr_in udp_addr;
-
-	udp_port = strchr(logfile, ':');
-	if (udp_port) {
-		udp_port[0] = 0;
-		if (!udp_port[1] || !logfile[0]) {
-			uwsgi_log("invalid udp address\n");
-			exit(1);
-		}
-
-		fd = socket(AF_INET, SOCK_DGRAM, 0);
-		if (fd < 0) {
-			uwsgi_error("socket()");
-			exit(1);
-		}
-
-		memset(&udp_addr, 0, sizeof(struct sockaddr_in));
-
-		udp_addr.sin_family = AF_INET;
-		udp_addr.sin_port = htons(atoi(udp_port + 1));
-		char *resolved = uwsgi_resolve_ip(logfile);
-		if (resolved) {
-			udp_addr.sin_addr.s_addr = inet_addr(resolved);
-		}
-		else {
-			udp_addr.sin_addr.s_addr = inet_addr(logfile);
-		}
-
-		if (connect(fd, (const struct sockaddr *) &udp_addr, sizeof(struct sockaddr_in)) < 0) {
-			uwsgi_error("connect()");
-			exit(1);
-		}
-	}
-	else {
-#endif
-		if (uwsgi.log_truncate) {
-			fd = open(logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
-		}
-		else {
-			fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
-		}
-		if (fd < 0) {
-			uwsgi_error_open(logfile);
-			exit(1);
-		}
-		uwsgi.logfile = logfile;
-
-		if (uwsgi.chmod_logfile_value) {
-			if (chmod(uwsgi.logfile, uwsgi.chmod_logfile_value)) {
-				uwsgi_error("chmod()");
-			}
-		}
-#ifdef UWSGI_UDP
-	}
-#endif
-
-
-	/* stdout */
-	if (fd != 1) {
-		if (dup2(fd, 1) < 0) {
-			uwsgi_error("dup2()");
-			exit(1);
-		}
-		close(fd);
-	}
-
-	/* stderr */
-	if (dup2(1, 2) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
-	}
-}
-
-#ifdef UWSGI_ZEROMQ
-ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) {
-
-	if (!ul->configured) {
-
-		if (!ul->arg) {
-			uwsgi_log_safe("invalid zeromq syntax\n");
-			exit(1);
-		}
-
-		void *ctx = zmq_init(1);
-		if (ctx == NULL) {
-			uwsgi_error_safe("zmq_init()");
-			exit(1);
-		}
-
-		ul->data = zmq_socket(ctx, ZMQ_PUSH);
-		if (ul->data == NULL) {
-			uwsgi_error_safe("zmq_socket()");
-			exit(1);
-		}
-
-		if (zmq_connect(ul->data, ul->arg) < 0) {
-			uwsgi_error_safe("zmq_connect()");
-			exit(1);
-		}
-
-		ul->configured = 1;
-	}
-
-	zmq_msg_t msg;
-	if (zmq_msg_init_size(&msg, len) == 0) {
-		memcpy(zmq_msg_data(&msg), message, len);
-#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
-		zmq_sendmsg(ul->data, &msg, 0);
-#else
-		zmq_send(ul->data, &msg, 0);
-#endif
-		zmq_msg_close(&msg);
-	}
-
-	return 0;
-}
-#endif
-
-void create_logpipe(void) {
-
-#if defined(SOCK_SEQPACKET) && defined(__linux__)
-	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_log_pipe)) {
-#else
-	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
-#endif
-		uwsgi_error("socketpair()\n");
-		exit(1);
-	}
-
-	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
-	uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
-
-	if (uwsgi.shared->worker_log_pipe[1] != 1) {
-		if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
-			uwsgi_error("dup2()");
-			exit(1);
-		}
-	}
-
-	if (dup2(1, 2) < 0) {
-		uwsgi_error("dup2()");
-		exit(1);
-	}
-
-}
-
+// get current working directory
 char *uwsgi_get_cwd() {
 
 	// set this to static to avoid useless reallocations in stats mode
@@ -386,6 +242,7 @@ char *uwsgi_get_cwd() {
 
 }
 
+// generate internal server error message
 void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
 
 	if (uwsgi.wsgi_req->headers_size == 0) {
@@ -402,6 +259,7 @@ void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
 	uwsgi.wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, message, strlen(message));
 }
 
+// check if a string_list containes an item
 struct uwsgi_string_list *uwsgi_string_list_has_item(struct uwsgi_string_list *list, char *key, size_t keylen) {
 	struct uwsgi_string_list *usl = list;
 	while (usl) {
@@ -491,6 +349,7 @@ void uwsgi_set_cgroup() {
 }
 #endif
 
+// drop privileges (as root)
 void uwsgi_as_root() {
 
 
@@ -766,6 +625,7 @@ void uwsgi_as_root() {
 	}
 }
 
+// destroy a request
 void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->socket->proto_close(wsgi_req);
@@ -783,6 +643,7 @@ void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
 }
 
+// finalize/close/free a request
 void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 	int waitpid_status;
@@ -979,6 +840,7 @@ void uwsgi_linux_ksm_map(void) {
 #endif
 #endif
 
+// setup for a new request
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
 	wsgi_req->poll.events = POLLIN;
@@ -1044,6 +906,7 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 }
 #endif
 
+// receive a new request
 int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
@@ -1075,6 +938,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 }
 
 
+// accept a new request
 int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
 	wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, fd);
@@ -1091,6 +955,7 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 	return 0;
 }
 
+// send heartbeat to the emperor
 void uwsgi_heartbeat() {
 
 	if (!uwsgi.has_emperor) return;
@@ -1106,6 +971,7 @@ void uwsgi_heartbeat() {
 	
 }
 
+// accept a request
 int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 	int ret;
@@ -1217,6 +1083,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	return -1;
 }
 
+// fix related options
 void sanitize_args() {
 
 	if (uwsgi.async > 1) {
@@ -1256,6 +1123,7 @@ void sanitize_args() {
 	}
 }
 
+// translate a OS env to a uWSGI option
 void env_to_arg(char *src, char *dst) {
 	int i;
 	int val = 0;
@@ -1278,6 +1146,7 @@ void env_to_arg(char *src, char *dst) {
 	dst[strlen(src)] = 0;
 }
 
+// lower a string
 char *uwsgi_lower(char *str, size_t size) {
 	size_t i;
 	for (i = 0; i < size; i++) {
@@ -1287,6 +1156,7 @@ char *uwsgi_lower(char *str, size_t size) {
 	return str;
 }
 
+// parse OS envs
 void parse_sys_envs(char **envs) {
 
 	char **uenvs = envs;
@@ -1309,101 +1179,7 @@ void parse_sys_envs(char **envs) {
 
 }
 
-//use this instead of fprintf to avoid buffering mess with udp logging
-void uwsgi_log(const char *fmt, ...) {
-	va_list ap;
-	char logpkt[4096];
-	int rlen = 0;
-	int ret;
-
-	struct timeval tv;
-	char sftime[64];
-	char ctime_storage[26];
-	time_t now;
-
-	if (uwsgi.logdate) {
-		if (uwsgi.log_strftime) {
-			now = uwsgi_now();
-			rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
-			memcpy(logpkt, sftime, rlen);
-			memcpy(logpkt + rlen, " - ", 3);
-			rlen += 3;
-		}
-		else {
-			gettimeofday(&tv, NULL);
-#ifdef __sun__
-			ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
-#else
-			ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
-#endif
-			memcpy(logpkt, ctime_storage, 24);
-			memcpy(logpkt + 24, " - ", 3);
-
-			rlen = 24 + 3;
-		}
-	}
-
-	va_start(ap, fmt);
-	ret = vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
-	va_end(ap);
-
-	if (ret >= 4096) {
-		char *tmp_buf = uwsgi_malloc(rlen + ret + 1);
-		memcpy(tmp_buf, logpkt, rlen);
-		va_start(ap, fmt);
-		ret = vsnprintf(tmp_buf + rlen, ret + 1, fmt, ap);
-		va_end(ap);
-		rlen = write(2, tmp_buf, rlen + ret);
-		free(tmp_buf);
-		return;
-	}
-
-	rlen += ret;
-	// do not check for errors
-	rlen = write(2, logpkt, rlen);
-}
-
-void uwsgi_log_verbose(const char *fmt, ...) {
-
-	va_list ap;
-	char logpkt[4096];
-	int rlen = 0;
-
-	struct timeval tv;
-	char sftime[64];
-	time_t now;
-	char ctime_storage[26];
-
-	if (uwsgi.log_strftime) {
-		now = uwsgi_now();
-		rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
-		memcpy(logpkt, sftime, rlen);
-		memcpy(logpkt + rlen, " - ", 3);
-		rlen += 3;
-	}
-	else {
-		gettimeofday(&tv, NULL);
-#ifdef __sun__
-		ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
-#else
-		ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
-#endif
-		memcpy(logpkt, ctime_storage, 24);
-		memcpy(logpkt + 24, " - ", 3);
-
-		rlen = 24 + 3;
-	}
-
-
-
-	va_start(ap, fmt);
-	rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
-	va_end(ap);
-
-	// do not check for errors
-	rlen = write(2, logpkt, rlen);
-}
-
+// check if a string is contained in another one
 char *uwsgi_str_contains(char *str, int slen, char what) {
 
 	int i;
@@ -1415,6 +1191,7 @@ char *uwsgi_str_contains(char *str, int slen, char what) {
 	return NULL;
 }
 
+// fast compare 2 sized strings
 inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 
 	if (slen != dlen)
@@ -1424,6 +1201,7 @@ inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 
 }
 
+// fast sized check of initial part of a string
 inline int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
 
 	if (slen < dlen)
@@ -1432,6 +1210,7 @@ inline int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
 	return memcmp(src, dst, dlen);
 }
 
+// unsized check
 inline int uwsgi_startswith(char *src, char *what, int wlen) {
 
 	int i;
@@ -1444,6 +1223,7 @@ inline int uwsgi_startswith(char *src, char *what, int wlen) {
 	return 0;
 }
 
+// concatenate strings
 char *uwsgi_concatn(int c, ...) {
 
 	va_list s;
@@ -1612,6 +1392,7 @@ char *uwsgi_concat4n(char *one, int s1, char *two, int s2, char *three, int s3, 
 
 
 
+// concat unsized strings
 char *uwsgi_concat(int c, ...) {
 
 	va_list s;
@@ -1670,6 +1451,7 @@ char *uwsgi_strncopy(char *s, int len) {
 }
 
 
+// get the application id
 int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 
 	int i;
@@ -2336,13 +2118,10 @@ add:
 
 }
 
-int uwsgi_waitfd(int fd, int timeout) {
+int uwsgi_waitfd_event(int fd, int timeout, int event) {
 
 	int ret;
-	struct pollfd upoll[1];
-	char oob;
-	ssize_t rlen;
-
+	struct pollfd upoll;
 
 	if (!timeout)
 		timeout = uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT];
@@ -2351,33 +2130,23 @@ int uwsgi_waitfd(int fd, int timeout) {
 	if (timeout < 0)
 		timeout = -1;
 
-	upoll[0].fd = fd;
-	upoll[0].events = POLLIN | POLLPRI;
-	upoll[0].revents = 0;
-	ret = poll(upoll, 1, timeout);
+	upoll.fd = fd;
+	upoll.events = event;
+	upoll.revents = 0;
+	ret = poll(&upoll, 1, timeout);
 
 	if (ret < 0) {
 		uwsgi_error("poll()");
 	}
 	else if (ret > 0) {
-		if (upoll[0].revents & POLLIN) {
+		if (upoll.revents & event) {
 			return ret;
 		}
-
-		if (upoll[0].revents & POLLPRI) {
-			uwsgi_log("DETECTED PRI DATA\n");
-			rlen = recv(fd, &oob, 1, MSG_OOB);
-			uwsgi_log("RECEIVE OOB DATA %d !!!\n", rlen);
-			if (rlen < 0) {
-				return -1;
-			}
-			return 0;
-		}
+		return -1;
 	}
 
 	return ret;
 }
-
 
 inline void *uwsgi_malloc(size_t size) {
 
@@ -4774,6 +4543,119 @@ char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
 }
 
 #endif
+
+ssize_t uwsgi_pipe(int src, int dst, int timeout) {
+	char buf[8192];
+	size_t written = -1;
+	ssize_t len;
+
+	for(;;) {
+                int ret = uwsgi_waitfd(src, timeout);
+                if (ret > 0) {
+                        len = read(src, buf, 8192);
+                        if (len == 0) {
+                                return written;
+                        }
+                        else if (len < 0) {
+                                uwsgi_error("read()");
+				return -1;
+                        }
+
+			size_t remains = len;
+			while(remains > 0) {
+				int ret = uwsgi_waitfd_write(dst, timeout);
+				if (ret > 0) {
+                        		len = write(dst, buf, remains);
+					if (len > 0) {
+						remains-=len;
+						written+=len;
+					}
+					else if (len == 0) {
+						return written;
+					}
+					else {
+                                		uwsgi_error("write()");
+						return -1;
+					}
+                        	} 
+				else if (ret == 0) {
+					goto timeout;
+				}
+				else {
+					return -1;
+				}
+			}
+                }
+                else if (ret == 0) {
+			goto timeout;
+                }
+		else {
+			return -1;
+		}
+        }
+
+	return written;
+timeout:
+        uwsgi_log("timeout while piping from %d to %d !!!\n", src, dst);
+	return -1;
+}
+
+ssize_t uwsgi_pipe_sized(int src, int dst, size_t required, int timeout) {
+        char buf[8192];
+        size_t written = -1;
+        ssize_t len;
+
+        while(written < required) {
+                int ret = uwsgi_waitfd(src, timeout);
+                if (ret > 0) {
+                        len = read(src, buf, UMIN(8192, required-written));
+                        if (len == 0) {
+                                return written;
+                        }
+                        else if (len < 0) {
+                                uwsgi_error("read()");
+                                return -1;
+                        }
+
+                        size_t remains = len;
+                        while(remains > 0) {
+                                int ret = uwsgi_waitfd_write(dst, timeout);
+                                if (ret > 0) {
+                                        len = write(dst, buf, remains);
+                                        if (len > 0) {
+                                                remains-=len;
+						written+=len;
+                                        }
+                                        else if (len == 0) {
+                                                return written;
+                                        }
+                                        else {
+                                                uwsgi_error("write()");
+                                                return -1;
+                                        }
+                                }
+                                else if (ret == 0) {
+                                        goto timeout;
+                                }
+                                else {
+                                        return -1;
+                                }
+                        }
+                }
+                else if (ret == 0) {
+                        goto timeout;
+                }
+                else {
+                        return -1;
+                }
+        }
+
+        return written;
+timeout:
+        uwsgi_log("timeout while piping from %d to %d !!!\n", src, dst);
+        return -1;
+}
+
 
 void uwsgi_set_cpu_affinity() {
 	char buf[4096];

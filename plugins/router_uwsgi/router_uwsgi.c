@@ -33,8 +33,6 @@ int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, struct uwsgi_
 
 int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-	char buf[8192];
-	ssize_t len;
 	struct uwsgi_header *uh = (struct uwsgi_header *) ur->data;
 	char *addr = ur->data + sizeof(struct uwsgi_header);
 	
@@ -62,29 +60,13 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 		return UWSGI_ROUTE_NEXT;
 	}
 
-	for(;;) {
-		int ret = uwsgi_waitfd(uwsgi_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-        	if (ret > 0) {
-          		len = read(uwsgi_fd, buf, 8192);
-			if (len == 0) {
-				break;
-			}
-			else if (len < 0) {
-				uwsgi_error("read()");
-				break;
-			}
-
-			if (write(wsgi_req->poll.fd, buf, len) != len) {
-				uwsgi_error("write()");
-				break;
-			}	
-		}
-		else {
-			uwsgi_log("timeout !!!\n");
-			break;
-		}
+	ssize_t ret = uwsgi_pipe(uwsgi_fd, wsgi_req->poll.fd, 0);
+	if (ret > 0) {
+		wsgi_req->response_size += ret;
 	}
-
+	else {
+		uwsgi_log("unable to manage uwsgi route response for %s\n", addr);
+	}
 
 	close(uwsgi_fd);
 	return UWSGI_ROUTE_BREAK;

@@ -369,3 +369,88 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 
 	return UWSGI_AGAIN;
 }
+
+void uwsgi_httpize_var(char *buf, size_t len) {
+	size_t i;
+	int upper = 1;
+	for(i=0;i<len;i++) {
+		if (upper) {
+			upper = 0;
+			continue;
+		}
+
+		if (buf[i] == '_') {
+			buf[i] = '-';
+			upper = 1;
+			continue;
+		}
+
+		buf[i] = tolower( (int) buf[i]);
+	}
+}
+
+struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req) {
+
+        struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
+
+        if (uwsgi_buffer_append(ub, wsgi_req->method, wsgi_req->method_len)) goto clear;
+        if (uwsgi_buffer_append(ub, " ", 1)) goto clear;
+
+        if (uwsgi_buffer_append(ub, wsgi_req->uri, wsgi_req->uri_len)) goto clear;
+        if (uwsgi_buffer_append(ub, " ", 1)) goto clear;
+
+        if (uwsgi_buffer_append(ub, wsgi_req->protocol, wsgi_req->protocol_len)) goto clear;
+        if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
+
+        int i;
+	char *x_forwarded_for = NULL;
+	size_t x_forwarded_for_len = 0;
+
+        // starting adding headers
+        for(i=0;i<wsgi_req->var_cnt;i++) {
+		if (!uwsgi_starts_with(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, "HTTP_", 5)) {
+
+			char *header = wsgi_req->hvec[i].iov_base+5;
+			size_t header_len = wsgi_req->hvec[i].iov_len-5;
+
+			if (!uwsgi_strncmp(header, header_len, "CONNECTION", 10)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "KEEP_ALIVE", 10)) goto next;
+			if (!uwsgi_strncmp(header, header_len, "X_FORWARDED_FOR", 15)) {
+				x_forwarded_for = wsgi_req->hvec[i+1].iov_base;
+				x_forwarded_for_len = wsgi_req->hvec[i+1].iov_len;
+				goto next;
+			}
+
+			if (uwsgi_buffer_append(ub, header, header_len)) goto clear;
+
+			// transofmr uwsgi var to http header
+			uwsgi_httpize_var((ub->buf+ub->pos) - header_len, header_len);
+
+			if (uwsgi_buffer_append(ub, ": ", 2)) goto clear;
+			if (uwsgi_buffer_append(ub, wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len)) goto clear;
+			if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
+
+		}
+next:
+		i++;
+        }
+
+	// append required headers
+	if (uwsgi_buffer_append(ub, "Connection: close\r\n", 19)) goto clear;
+	if (uwsgi_buffer_append(ub, "X-Forwarded-For: ", 17)) goto clear;
+
+	if (x_forwarded_for_len > 0) {
+		if (uwsgi_buffer_append(ub, x_forwarded_for, x_forwarded_for_len)) goto clear;
+		if (uwsgi_buffer_append(ub, ", ", 2)) goto clear;
+	}
+
+	if (uwsgi_buffer_append(ub, wsgi_req->remote_addr, wsgi_req->remote_addr_len)) goto clear;
+
+	if (uwsgi_buffer_append(ub, "\r\n\r\n", 4)) goto clear;
+
+	return ub;
+clear:
+        uwsgi_buffer_destroy(ub);
+        return NULL;
+}
+

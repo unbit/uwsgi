@@ -289,6 +289,11 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #endif
 
 
+struct uwsgi_buffer {
+	char *buf;
+	off_t pos;
+	size_t len;
+};
 
 struct uwsgi_string_list {
 
@@ -2265,7 +2270,9 @@ void add_exported_option(char *, char *, int);
 
 ssize_t uwsgi_send_empty_pkt(int, char *, uint8_t, uint8_t);
 
-int uwsgi_waitfd(int, int);
+int uwsgi_waitfd_event(int, int, int);
+#define uwsgi_waitfd(a, b) uwsgi_waitfd_event(a, b, POLLIN)
+#define uwsgi_waitfd_write(a, b) uwsgi_waitfd_event(a, b, POLLOUT)
 
 int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
 int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
@@ -2283,6 +2290,7 @@ int uwsgi_cluster_add_me(void);
 char *generate_socket_name(char *);
 
 #define UMIN(a,b) ((a)>(b)?(b):(a))
+#define UMAX(a,b) ((a)<(b)?(b):(a))
 
 ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t, int);
 
@@ -2627,7 +2635,8 @@ ssize_t uwsgi_proto_zeromq_write(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_zeromq_write_header(struct wsgi_request *, char *, size_t);
 ssize_t uwsgi_proto_zeromq_sendfile(struct wsgi_request *);
 int uwsgi_proto_zeromq_parser(struct wsgi_request *);
-void uwsgi_zeromq_init(void);
+void *uwsgi_zeromq_init(void);
+void uwsgi_zeromq_init_sockets(void);
 #endif
 
 int uwsgi_num2str2(int, char *);
@@ -3201,6 +3210,18 @@ void uwsgi_emperor_start(void);
 
 void uwsgi_bind_sockets(void);
 void uwsgi_set_sockets_protocols(void);
+
+struct uwsgi_buffer *uwsgi_buffer_new(size_t);
+int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
+void uwsgi_buffer_destroy(struct uwsgi_buffer *);
+
+void uwsgi_httpize_var(char *, size_t);
+struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *);
+
+ssize_t uwsgi_pipe(int, int, int);
+ssize_t uwsgi_pipe_sized(int, int, size_t, int);
+
+int uwsgi_buffer_send(struct uwsgi_buffer *, int);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

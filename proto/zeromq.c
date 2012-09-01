@@ -2,15 +2,23 @@
 
 extern struct uwsgi_server uwsgi;
 
-void uwsgi_zeromq_init() {
-	uwsgi.zmq_context = zmq_init(1);
+void *uwsgi_zeromq_init() {
+	if (!uwsgi.zmq_context) {
+		uwsgi.zmq_context = zmq_init(1);
                 if (uwsgi.zmq_context == NULL) {
                         uwsgi_error("zmq_init()");
                         exit(1);
                 }
+	}
+	return uwsgi.zmq_context;
+}
 
-                struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-                while(uwsgi_sock) {
+void uwsgi_zeromq_init_sockets() {
+
+	uwsgi_zeromq_init();	
+
+        struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+        while(uwsgi_sock) {
                         if (!uwsgi_sock->proto_name || strcmp(uwsgi_sock->proto_name, "zmq")) {
                                 goto zmq_next;
                         }

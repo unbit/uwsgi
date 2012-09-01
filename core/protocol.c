@@ -412,12 +412,9 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 
 ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *message, uint16_t size, int pfd, ssize_t plen, int timeout) {
 
-	struct pollfd uwsgi_mpoll;
 	ssize_t cnt;
 	struct uwsgi_header uh;
-	char buffer[4096];
 	ssize_t ret = 0;
-	int pret;
 	struct msghdr msg;
 	struct iovec  iov [1];
 	union {
@@ -478,37 +475,8 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 
 	// transfer data from one socket to another
 	if (pfd >= 0 && plen > 0) {
-		uwsgi_mpoll.fd = pfd;
-		uwsgi_mpoll.events = POLLIN;
-		
-		while(plen > 0) {
-			pret = poll(&uwsgi_mpoll, 1, timeout*1000);
-			if (pret < 0) {
-				uwsgi_error("poll()");
-				return -1;
-			}
-			else if (pret == 0) {
-				uwsgi_log("timeout waiting for socket data\n");
-				return -1;
-			}
-			else {
-				cnt = read(pfd, buffer, UMIN(4096, plen));
-				if (cnt < 0) {
-					uwsgi_error("read()");
-					return -1;
-				}
-				else if (cnt == 0) {
-					return ret;
-				}	
-				// send to peer
-				if (write(fd, buffer, cnt) != cnt) {
-					uwsgi_error("write()");
-					return -1;
-				}
-				ret += cnt;
-				plen -= cnt;	
-			}
-		}
+		ret = uwsgi_pipe_sized(pfd, fd, timeout, plen);	
+		if (ret < 0) return -1;
 	}
 
 

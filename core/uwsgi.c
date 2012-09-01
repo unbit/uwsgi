@@ -2594,7 +2594,7 @@ next:
 #ifdef UWSGI_ZEROMQ
 	// setup zeromq context (if required) one per-worker
 	if (uwsgi.zeromq) {
-		uwsgi_zeromq_init();
+		uwsgi_zeromq_init_sockets();
 	}
 #endif
 

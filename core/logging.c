@@ -19,6 +19,258 @@
 
 extern struct uwsgi_server uwsgi;
 
+//use this instead of fprintf to avoid buffering mess with udp logging
+void uwsgi_log(const char *fmt, ...) {
+        va_list ap;
+        char logpkt[4096];
+        int rlen = 0;
+        int ret;
+
+        struct timeval tv;
+        char sftime[64];
+        char ctime_storage[26];
+        time_t now;
+
+        if (uwsgi.logdate) {
+                if (uwsgi.log_strftime) {
+                        now = uwsgi_now();
+                        rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
+                        memcpy(logpkt, sftime, rlen);
+                        memcpy(logpkt + rlen, " - ", 3);
+                        rlen += 3;
+                }
+                else {
+                        gettimeofday(&tv, NULL);
+#ifdef __sun__
+                        ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
+#else
+                        ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+#endif
+                        memcpy(logpkt, ctime_storage, 24);
+                        memcpy(logpkt + 24, " - ", 3);
+
+                        rlen = 24 + 3;
+                }
+        }
+
+        va_start(ap, fmt);
+        ret = vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
+        va_end(ap);
+
+        if (ret >= 4096) {
+                char *tmp_buf = uwsgi_malloc(rlen + ret + 1);
+                memcpy(tmp_buf, logpkt, rlen);
+                va_start(ap, fmt);
+                ret = vsnprintf(tmp_buf + rlen, ret + 1, fmt, ap);
+                va_end(ap);
+                rlen = write(2, tmp_buf, rlen + ret);
+                free(tmp_buf);
+                return;
+        }
+
+        rlen += ret;
+        // do not check for errors
+        rlen = write(2, logpkt, rlen);
+}
+
+void uwsgi_log_verbose(const char *fmt, ...) {
+
+        va_list ap;
+        char logpkt[4096];
+        int rlen = 0;
+
+        struct timeval tv;
+        char sftime[64];
+        time_t now;
+        char ctime_storage[26];
+
+        if (uwsgi.log_strftime) {
+                now = uwsgi_now();
+                rlen = strftime(sftime, 64, uwsgi.log_strftime, localtime(&now));
+                memcpy(logpkt, sftime, rlen);
+                memcpy(logpkt + rlen, " - ", 3);
+                rlen += 3;
+        }
+        else {
+                gettimeofday(&tv, NULL);
+#ifdef __sun__
+                ctime_r((const time_t *) &tv.tv_sec, ctime_storage, 26);
+#else
+                ctime_r((const time_t *) &tv.tv_sec, ctime_storage);
+#endif
+                memcpy(logpkt, ctime_storage, 24);
+                memcpy(logpkt + 24, " - ", 3);
+
+                rlen = 24 + 3;
+        }
+
+
+
+        va_start(ap, fmt);
+        rlen += vsnprintf(logpkt + rlen, 4096 - rlen, fmt, ap);
+        va_end(ap);
+
+        // do not check for errors
+        rlen = write(2, logpkt, rlen);
+}
+
+
+
+
+// create the logpipe
+void create_logpipe(void) {
+
+#if defined(SOCK_SEQPACKET) && defined(__linux__)
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_log_pipe)) {
+#else
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_log_pipe)) {
+#endif
+                uwsgi_error("socketpair()\n");
+                exit(1);
+        }
+
+        uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[0]);
+        uwsgi_socket_nb(uwsgi.shared->worker_log_pipe[1]);
+
+        if (uwsgi.shared->worker_log_pipe[1] != 1) {
+                if (dup2(uwsgi.shared->worker_log_pipe[1], 1) < 0) {
+                        uwsgi_error("dup2()");
+                        exit(1);
+                }
+        }
+
+        if (dup2(1, 2) < 0) {
+                uwsgi_error("dup2()");
+                exit(1);
+        }
+
+}
+
+#ifdef UWSGI_ZEROMQ
+// the zeromq logger
+ssize_t uwsgi_zeromq_logger(struct uwsgi_logger *ul, char *message, size_t len) {
+
+        if (!ul->configured) {
+
+                if (!ul->arg) {
+                        uwsgi_log_safe("invalid zeromq syntax\n");
+                        exit(1);
+                }
+
+                void *ctx = uwsgi_zeromq_init();
+
+                ul->data = zmq_socket(ctx, ZMQ_PUSH);
+                if (ul->data == NULL) {
+                        uwsgi_error_safe("zmq_socket()");
+                        exit(1);
+                }
+
+                if (zmq_connect(ul->data, ul->arg) < 0) {
+                        uwsgi_error_safe("zmq_connect()");
+                        exit(1);
+                }
+
+                ul->configured = 1;
+        }
+
+        zmq_msg_t msg;
+        if (zmq_msg_init_size(&msg, len) == 0) {
+                memcpy(zmq_msg_data(&msg), message, len);
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
+                zmq_sendmsg(ul->data, &msg, 0);
+#else
+                zmq_send(ul->data, &msg, 0);
+#endif
+                zmq_msg_close(&msg);
+        }
+
+        return 0;
+}
+#endif
+
+
+// log to the specified file or udp address
+void logto(char *logfile) {
+
+        int fd;
+
+#ifdef UWSGI_UDP
+        char *udp_port;
+        struct sockaddr_in udp_addr;
+
+        udp_port = strchr(logfile, ':');
+        if (udp_port) {
+                udp_port[0] = 0;
+                if (!udp_port[1] || !logfile[0]) {
+                        uwsgi_log("invalid udp address\n");
+                        exit(1);
+                }
+
+                fd = socket(AF_INET, SOCK_DGRAM, 0);
+                if (fd < 0) {
+                        uwsgi_error("socket()");
+                        exit(1);
+                }
+
+                memset(&udp_addr, 0, sizeof(struct sockaddr_in));
+
+                udp_addr.sin_family = AF_INET;
+                udp_addr.sin_port = htons(atoi(udp_port + 1));
+                char *resolved = uwsgi_resolve_ip(logfile);
+                if (resolved) {
+                        udp_addr.sin_addr.s_addr = inet_addr(resolved);
+                }
+                else {
+                        udp_addr.sin_addr.s_addr = inet_addr(logfile);
+                }
+
+                if (connect(fd, (const struct sockaddr *) &udp_addr, sizeof(struct sockaddr_in)) < 0) {
+                        uwsgi_error("connect()");
+                        exit(1);
+                }
+        }
+        else {
+#endif
+                if (uwsgi.log_truncate) {
+                        fd = open(logfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
+                }
+                else {
+                        fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+                }
+                if (fd < 0) {
+                        uwsgi_error_open(logfile);
+                        exit(1);
+                }
+                uwsgi.logfile = logfile;
+
+                if (uwsgi.chmod_logfile_value) {
+                        if (chmod(uwsgi.logfile, uwsgi.chmod_logfile_value)) {
+                                uwsgi_error("chmod()");
+                        }
+                }
+#ifdef UWSGI_UDP
+        }
+#endif
+
+
+        /* stdout */
+        if (fd != 1) {
+                if (dup2(fd, 1) < 0) {
+                        uwsgi_error("dup2()");
+                        exit(1);
+                }
+                close(fd);
+        }
+
+        /* stderr */
+        if (dup2(1, 2) < 0) {
+                uwsgi_error("dup2()");
+                exit(1);
+        }
+}
+
+
+
 void uwsgi_setup_log() {
 
 	if (uwsgi.daemonize) {
