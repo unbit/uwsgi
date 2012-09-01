@@ -553,6 +553,8 @@ struct uwsgi_opt {
 #define UWSGI_OPTION_SPOOLER_HARAKIRI   17
 #define UWSGI_OPTION_MULE_HARAKIRI	18
 
+#define UWSGI_SPOOLER_EXTERNAL	1
+
 #define UWSGI_MODIFIER_ADMIN_REQUEST		10
 #define UWSGI_MODIFIER_SPOOL_REQUEST		17
 #define UWSGI_MODIFIER_EVAL			22
@@ -768,6 +770,8 @@ struct uwsgi_spooler {
 	uint64_t tasks;
 	struct uwsgi_lock_item *lock;
 	time_t harakiri;
+
+	int mode;
 
 	int running;
 

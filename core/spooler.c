@@ -15,22 +15,25 @@ static uint64_t wakeup = 0;
 // function to allow waking up the spooler if blocked in event_wait
 void spooler_wakeup() { wakeup++; }
 
-void uwsgi_opt_add_spooler(char *opt, char *directory, void *none) {
+void uwsgi_opt_add_spooler(char *opt, char *directory, void *mode) {
 
 	int i;
+	struct uwsgi_spooler *us;
 
         if (access(directory, R_OK | W_OK | X_OK)) {
-                uwsgi_error("[spooler directory] access()");
-                exit(1);
+               	uwsgi_error("[spooler directory] access()");
+               	exit(1);
         }
 
 	if (uwsgi.spooler_numproc > 0) {
 		for(i=0;i<uwsgi.spooler_numproc;i++) {
-			uwsgi_new_spooler(directory);
+			us = uwsgi_new_spooler(directory);
+			if (mode) us->mode = (long) mode;
 		}
 	}
 	else {
-        	uwsgi_new_spooler(directory);
+        	us = uwsgi_new_spooler(directory);
+		if (mode) us->mode = (long) mode;
 	}
 
 }
@@ -41,13 +44,13 @@ struct uwsgi_spooler *uwsgi_new_spooler(char *dir) {
         struct uwsgi_spooler *uspool = uwsgi.spoolers;
 
         if (!uspool) {
-                uwsgi.spoolers = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
+                uwsgi.spoolers = uwsgi_calloc_shared(sizeof(struct uwsgi_spooler));
                 uspool = uwsgi.spoolers;
         }
         else {
                 while(uspool) {
                         if (uspool->next == NULL) {
-                                uspool->next = uwsgi_malloc_shared(sizeof(struct uwsgi_spooler));
+                                uspool->next = uwsgi_calloc_shared(sizeof(struct uwsgi_spooler));
                                 uspool = uspool->next;
                                 break;
                         }
