@@ -588,7 +588,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 					cr_session->timeout = corerouter_reset_timeout(ucr, cr_session);
 				
-				// mplementation specific cycle;
+				// implementation specific cycle;
 				ucr->switch_events(ucr, cr_session, interesting_fd);
 				
 

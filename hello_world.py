@@ -9,6 +9,7 @@ try:
 except:
     pass
 def application(env, start_response):
+    print env['wsgi.input'].read()
     if uwsgi.loop == 'gevent':
         gevent.sleep()
     start_response('200 OK', [('Content-Type', 'text/html')])
