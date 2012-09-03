@@ -3133,7 +3133,8 @@ void *uwsgi_malloc_shared(size_t size) {
 
 	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 
-	if (addr == NULL) {
+	if (addr == MAP_FAILED) {
+		uwsgi_log("unable to allocate %llu bytes (%lluMB)\n", (unsigned long long )size, (unsigned long long) (size/(1024*1024)));
 		uwsgi_error("mmap()");
 		exit(1);
 	}

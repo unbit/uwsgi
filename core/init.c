@@ -214,16 +214,26 @@ void uwsgi_setup_workers() {
                 // allocate memory for cores
                 uwsgi.workers[i].cores = (struct uwsgi_core *) uwsgi_calloc_shared(sizeof(struct uwsgi_core) * uwsgi.cores);
 
+		// this is a trick for avoiding too much memory areas
+		void *ts = uwsgi_calloc_shared(sizeof(void *) * uwsgi.max_apps * uwsgi.cores);
+		void *buffers = uwsgi_malloc_shared(uwsgi.buffer_size * uwsgi.cores);
+		void *hvec = uwsgi_malloc_shared(sizeof(struct iovec) * uwsgi.vec_size * uwsgi.cores);	
+		void *post_buf = NULL;
+		if (uwsgi.post_buffering > 0)
+			post_buf = uwsgi_malloc_shared(uwsgi.post_buffering_bufsize * uwsgi.cores);	
+		
+
                 for (j = 0; j < uwsgi.cores; j++) {
                         // allocate shared memory for thread states (required for some language, like python)
-                        uwsgi.workers[i].cores[j].ts = uwsgi_calloc_shared(sizeof(void *) * uwsgi.max_apps);
+                        uwsgi.workers[i].cores[j].ts = ts + ((sizeof(void *) * uwsgi.max_apps) * j);
                         // raw per-request buffer
-                        uwsgi.workers[i].cores[j].buffer = uwsgi_malloc_shared(uwsgi.buffer_size);
+                        uwsgi.workers[i].cores[j].buffer = buffers + (uwsgi.buffer_size * j);
                         // iovec for uwsgi vars
-                        uwsgi.workers[i].cores[j].hvec = uwsgi_malloc_shared(sizeof(struct iovec) * uwsgi.vec_size);
-                        if (uwsgi.post_buffering > 0)
-                                uwsgi.workers[i].cores[j].post_buf = uwsgi_malloc_shared(uwsgi.post_buffering_bufsize);
+                        uwsgi.workers[i].cores[j].hvec = hvec + ((sizeof(struct iovec) * uwsgi.vec_size) * j);
+                        if (post_buf)
+                                uwsgi.workers[i].cores[j].post_buf = post_buf + (uwsgi.post_buffering_bufsize *j);
                 }
+
                 // master does not need to following steps...
                 if (i == 0) continue;
                 uwsgi.workers[i].signal_pipe[0] = -1;
@@ -231,5 +241,14 @@ void uwsgi_setup_workers() {
                 snprintf(uwsgi.workers[i].name, 0xff, "uWSGI worker %d", i);
                 snprintf(uwsgi.workers[i].snapshot_name, 0xff, "uWSGI snapshot %d", i);
         }
+
+	uint64_t total_memory = (sizeof(struct uwsgi_app) * uwsgi.max_apps) + (sizeof(struct uwsgi_core) * uwsgi.cores) + (sizeof(void *) * uwsgi.max_apps * uwsgi.cores) +
+				(uwsgi.buffer_size * uwsgi.cores) + (sizeof(struct iovec) * uwsgi.vec_size * uwsgi.cores);
+	if (uwsgi.post_buffering > 0) {
+		total_memory += (uwsgi.post_buffering_bufsize * uwsgi.cores);
+	}
+
+	total_memory *= (uwsgi.numproc + uwsgi.master_process);
+        uwsgi_log("mapped %llu bytes (%llu KB) for %d cores\n", total_memory, total_memory / 1024, uwsgi.cores*uwsgi.numproc);
 
 }

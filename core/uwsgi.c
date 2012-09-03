@@ -2075,10 +2075,6 @@ int uwsgi_start(void *v_argv) {
 	uwsgi_log("cores allocated...\n");
 #endif
 
-	if (uwsgi.cores > 1) {
-		uwsgi_log("allocated %llu bytes (%llu KB) for %d cores per worker.\n", (uint64_t) (sizeof(struct uwsgi_core) * uwsgi.cores), (uint64_t) ((sizeof(struct uwsgi_core) * uwsgi.cores) / 1024), uwsgi.cores);
-	}
-
 	if (uwsgi.vhost) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
 	}
