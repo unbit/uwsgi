@@ -18,12 +18,14 @@ int uwsgi_buffer_append(struct uwsgi_buffer *ub, char *buf, size_t len) {
 	size_t remains = ub->len - ub->pos;
 
 	if (len > remains) {
-		char *new_buf = realloc(ub->buf, ub->len + UMAX(len, (size_t) uwsgi.page_size));
+		size_t chunk_size = UMAX(len, (size_t) uwsgi.page_size);
+		char *new_buf = realloc(ub->buf, ub->len + chunk_size);
 		if (!new_buf) {
 			uwsgi_error("realloc()");
 			return -1;
 		}
 		ub->buf = new_buf;
+		ub->len += chunk_size;
 	}
 
 	memcpy(ub->buf + ub->pos, buf, len);
