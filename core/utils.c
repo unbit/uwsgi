@@ -4603,7 +4603,7 @@ timeout:
 
 ssize_t uwsgi_pipe_sized(int src, int dst, size_t required, int timeout) {
         char buf[8192];
-        size_t written = -1;
+        size_t written = 0;
         ssize_t len;
 
         while(written < required) {

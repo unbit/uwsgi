@@ -475,7 +475,7 @@ ssize_t uwsgi_send_message(int fd, uint8_t modifier1, uint8_t modifier2, char *m
 
 	// transfer data from one socket to another
 	if (pfd >= 0 && plen > 0) {
-		ret = uwsgi_pipe_sized(pfd, fd, timeout, plen);	
+		ret = uwsgi_pipe_sized(pfd, fd, plen, timeout);	
 		if (ret < 0) return -1;
 	}
 
