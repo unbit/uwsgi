@@ -2324,6 +2324,23 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
+#ifdef UWSGI_SPOOLER
+	// initialize locks and socket as soon as possibile, as the master could enqueue tasks
+        if (uwsgi.spoolers != NULL && uwsgi.sockets) {
+                create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
+                struct uwsgi_spooler *uspool = uwsgi.spoolers;
+                while (uspool) {
+                        // lock is required even in EXTERNAL mode
+                        uspool->lock = uwsgi_lock_init(uwsgi_concat2("spooler on ", uspool->dir));
+                        if (uspool->mode == UWSGI_SPOOLER_EXTERNAL) goto next;
+                        create_signal_pipe(uspool->signal_pipe);
+next:
+                        uspool = uspool->next;
+                }
+        }
+#endif
+
+
 	// preinit apps (create the language environment)
 	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->preinit_apps) {
@@ -2456,15 +2473,11 @@ int uwsgi_start(void *v_argv) {
 
 #ifdef UWSGI_SPOOLER
 	if (uwsgi.spoolers != NULL && uwsgi.sockets) {
-		create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
 		while (uspool) {
-			// lock is required even in EXTERNAL mode
-			uspool->lock = uwsgi_lock_init(uwsgi_concat2("spooler on ", uspool->dir));
-			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL) goto next;
-			create_signal_pipe(uspool->signal_pipe);
+			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL) goto next2;
 			uspool->pid = spooler_start(uspool);
-next:
+next2:
 			uspool = uspool->next;
 		}
 	}
