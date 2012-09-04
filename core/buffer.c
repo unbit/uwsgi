@@ -23,6 +23,7 @@ int uwsgi_buffer_append(struct uwsgi_buffer *ub, char *buf, size_t len) {
 			uwsgi_error("realloc()");
 			return -1;
 		}
+		ub->buf = new_buf;
 	}
 
 	memcpy(ub->buf + ub->pos, buf, len);
