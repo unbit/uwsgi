@@ -234,20 +234,6 @@ exception:
                         	exit(UWSGI_EXCEPTION_CODE);
                 	}
 		}	
-		if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
-			PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
-			PyObject *close_method_args = PyTuple_New(0);
-#ifdef UWSGI_DEBUG
-			uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
-#endif
-			PyObject *close_method_output = PyEval_CallObject(close_method, close_method_args);
-			if (PyErr_Occurred()) {
-				PyErr_Print();
-			}
-			Py_DECREF(close_method_args);
-			Py_XDECREF(close_method_output);
-			Py_DECREF(close_method);
-		}
 		goto clear;
 	}
 
@@ -293,7 +279,25 @@ clear:
 	if (wsgi_req->sendfile_fd != -1) {
 		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
 	}
-	Py_XDECREF((PyObject *)wsgi_req->async_placeholder);
+
+	if (wsgi_req->async_placeholder) {
+		// CALL close() ALWAYS if we are working with an iterator !!!
+		if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
+                        PyObject *close_method = PyObject_GetAttrString((PyObject *)wsgi_req->async_result, "close");
+                        PyObject *close_method_args = PyTuple_New(0);
+#ifdef UWSGI_DEBUG
+                        uwsgi_log("calling close() for %.*s %p %p\n", wsgi_req->uri_len, wsgi_req->uri, close_method, close_method_args);
+#endif
+                        PyObject *close_method_output = PyEval_CallObject(close_method, close_method_args);
+                        if (PyErr_Occurred()) {
+                                PyErr_Print();
+                        }
+                        Py_DECREF(close_method_args);
+                        Py_XDECREF(close_method_output);
+                        Py_DECREF(close_method);
+                }
+		Py_DECREF((PyObject *)wsgi_req->async_placeholder);
+	}
 
 	// send the headers if not already sent
 	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
