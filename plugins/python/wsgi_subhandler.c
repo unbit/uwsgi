@@ -280,6 +280,11 @@ clear:
 		Py_DECREF((PyObject *)wsgi_req->async_sendfile);
 	}
 
+	// send the headers if not already sent
+	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
+		uwsgi_python_do_send_headers(wsgi_req);
+	}
+
 	if (wsgi_req->async_placeholder) {
 		// CALL close() ALWAYS if we are working with an iterator !!!
 		if (PyObject_HasAttrString((PyObject *)wsgi_req->async_result, "close")) {
@@ -298,12 +303,6 @@ clear:
                 }
 		Py_DECREF((PyObject *)wsgi_req->async_placeholder);
 	}
-
-	// send the headers if not already sent
-	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
-		uwsgi_python_do_send_headers(wsgi_req);
-	}
-
 
 	Py_DECREF((PyObject *)wsgi_req->async_result);
 	PyErr_Clear();
