@@ -1179,12 +1179,23 @@ health_cycle:
 				uwsgi.current_time = uwsgi_now();
 				if (!last_request_timecheck)
 					last_request_timecheck = uwsgi.current_time;
+
+				int busy_workers = 0;
+				for (i = 1; i <= uwsgi.numproc; i++) {
+                                        if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+                                                if (uwsgi.workers[i].busy == 1) {
+                                                	busy_workers = 1;
+                                                	break;
+                                        	}
+                                	}
+				}
+
 				if (last_request_count != uwsgi.workers[0].requests) {
 					last_request_timecheck = uwsgi.current_time;
 					last_request_count = uwsgi.workers[0].requests;
 				}
 				// a bit of over-engeneering to avoid clock skews
-				else if (last_request_timecheck < uwsgi.current_time && (uwsgi.current_time - last_request_timecheck > uwsgi.idle)) {
+				else if (last_request_timecheck < uwsgi.current_time && (uwsgi.current_time - last_request_timecheck > uwsgi.idle) && !busy_workers) {
 					uwsgi_log("workers have been inactive for more than %d seconds (%llu-%llu)\n", uwsgi.idle, (unsigned long long) uwsgi.current_time, (unsigned long long) last_request_timecheck);
 					uwsgi.cheap = 1;
 					if (uwsgi.die_on_idle) {
