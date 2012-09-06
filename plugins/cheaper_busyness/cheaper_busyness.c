@@ -22,8 +22,10 @@ struct uwsgi_cheaper_busyness_global {
 	int last_action;            // 1 - spawn workers ; 2 - cheap worker
 	int verbose;                // 1 - show debug logs, 0 - only important
 	uint64_t tolerance_counter; // used to keep track of what to do if min <= busyness <= max for few cycles in row
+	int emergency_workers; // counts the number of running emergency workers
 #ifdef __linux__
 	int backlog_alert;
+	uint64_t backlog_multi; // multiplier used to cheap emergency workers
 #endif
 } uwsgi_cheaper_busyness_global;
 
@@ -52,6 +54,9 @@ struct uwsgi_option uwsgi_cheaper_busyness_options[] = {
 	{"cheaper-busyness-backlog-alert", required_argument, 0,
 		"spawn emergency worker if anytime listen queue is higher than this value (default 33)",
 		uwsgi_opt_set_int, &uwsgi_cheaper_busyness_global.backlog_alert, 0},
+	{"cheaper-busyness-backlog-multiplier", required_argument, 0,
+		"set cheaper multiplier used for emergency workers (default 3)",
+		uwsgi_opt_set_64bit, &uwsgi_cheaper_busyness_global.backlog_multi, 0},
 #endif
 
 	{0, 0, 0, 0, 0, 0 ,0},
@@ -63,10 +68,22 @@ struct uwsgi_option uwsgi_cheaper_busyness_options[] = {
 void set_next_cheap_time(void) {
 	uint64_t now = uwsgi_micros();
 
-	// we will start workers now so we will set time when workers can be cheaped to
-	// some time in the future, so that workers are cheaped only if long term busyness
-	// is low enough
-	uwsgi_cheaper_busyness_global.next_cheap = now + uwsgi.cheaper_overload*uwsgi_cheaper_busyness_global.cheap_multi*1000000;
+#ifdef __linux__
+	if (uwsgi_cheaper_busyness_global.emergency_workers > 0) {
+		// we have some emergency workers running, we will use minimum delay (2 cycles) to cheap workers
+		// to have quicker recovery from big but short load spikes
+		// otherwise we might wait a lot before cheaping all emergency workers
+		if (uwsgi_cheaper_busyness_global.verbose)
+			uwsgi_log("[busyness] %d emergency worker(s) running, using %d seconds cheaper timer\n",
+				uwsgi_cheaper_busyness_global.emergency_workers, uwsgi.cheaper_overload*uwsgi_cheaper_busyness_global.backlog_multi);
+		uwsgi_cheaper_busyness_global.next_cheap = now + uwsgi.cheaper_overload*uwsgi_cheaper_busyness_global.backlog_multi*1000000;
+	} else {
+#endif
+		// no emergency workers running, we use normal math for setting timer
+		uwsgi_cheaper_busyness_global.next_cheap = now + uwsgi.cheaper_overload*uwsgi_cheaper_busyness_global.cheap_multi*1000000;
+#ifdef __linux__
+	}
+#endif
 }
 
 
@@ -77,6 +94,25 @@ void decrease_multi(void) {
 		uwsgi_log("[busyness] decreasing cheaper multiplier to %d\n", uwsgi_cheaper_busyness_global.cheap_multi);
 	}
 }
+
+
+#ifdef __linux__
+void spawn_emergency_worker(int backlog) {
+	// reset cheaper multiplier to minimum value so we can start cheaping workers sooner
+	// if this was just random spike
+	uwsgi_cheaper_busyness_global.cheap_multi = uwsgi_cheaper_busyness_global.min_multi;
+
+	// set last action to spawn
+	uwsgi_cheaper_busyness_global.last_action = 1;
+
+	uwsgi_cheaper_busyness_global.emergency_workers++;
+
+	set_next_cheap_time();
+
+	uwsgi_log("[busyness] %d requests in listen queue, spawning emergency worker (%d)!\n",
+		backlog, uwsgi_cheaper_busyness_global.emergency_workers);
+}
+#endif
 
 
 int cheaper_busyness_algo(void) {
@@ -98,6 +134,7 @@ int cheaper_busyness_algo(void) {
 
 #ifdef __linux__
 	if (!uwsgi_cheaper_busyness_global.backlog_alert) uwsgi_cheaper_busyness_global.backlog_alert = 33;
+	if (!uwsgi_cheaper_busyness_global.backlog_multi) uwsgi_cheaper_busyness_global.backlog_multi = 3;
 #endif
 
 	if (!uwsgi_cheaper_busyness_global.min_multi) {
@@ -195,11 +232,7 @@ int cheaper_busyness_algo(void) {
 
 #ifdef __linux__
 		} else if (backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
-			// reset counters
-			set_next_cheap_time();
-			uwsgi_cheaper_busyness_global.last_action = 1;
-
-			uwsgi_log("[busyness] %d requests in listen queue, spawning emergency worker!\n", backlog);
+			spawn_emergency_worker(backlog);
 			return 1;
 #endif
 
@@ -226,6 +259,9 @@ int cheaper_busyness_algo(void) {
 					// store information that last action performed was cheaping worker
 					uwsgi_cheaper_busyness_global.last_action = 2;
 
+					if (uwsgi_cheaper_busyness_global.emergency_workers > 0)
+						uwsgi_cheaper_busyness_global.emergency_workers--;
+
 					return -1;
 				} else if (uwsgi_cheaper_busyness_global.verbose)
 					uwsgi_log("[busyness] need to wait %d more second(s) to cheap worker\n", (uwsgi_cheaper_busyness_global.next_cheap - now)/1000000);
@@ -234,6 +270,11 @@ int cheaper_busyness_algo(void) {
 		} else {
 			// with only 1 worker running there is no point in doing all that magic
 			if (active_workers == 1) return 0;
+
+			if (uwsgi_cheaper_busyness_global.emergency_workers > 0)
+				// we had emergency workers running and we went down to the busyness
+				// level that is high enough to slow down cheaping workers at extra speed
+				uwsgi_cheaper_busyness_global.emergency_workers--;
 
 			// we have min <= busyness <= max we need to check what happened before
 
@@ -260,12 +301,7 @@ int cheaper_busyness_algo(void) {
 #ifdef __linux__
 	} else if (backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
 		// we check for backlog overload every cycle
-
-		// reset counters
-		set_next_cheap_time();
-		uwsgi_cheaper_busyness_global.last_action = 1;
-
-		uwsgi_log("[busyness] %d requests in listen queue, spawning emergency worker!\n", backlog);
+		spawn_emergency_worker(backlog);
 		return 1;
 #endif
 	}
