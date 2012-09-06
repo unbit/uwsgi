@@ -135,7 +135,7 @@ Workers and applications<br/>
 
     """ % (uwsgi.version, uwsgi.hostname, env.get('REMOTE_USER','None'), workers)
 
-    start_response('200 %s' % ('x' * 10000), [('Content-Type', 'text/html'), ('Content-Length', str(len(output)) )])
+    start_response('200 OK', [('Content-Type', 'text/html'), ('Content-Length', str(len(output)) )])
 
     #return bytes(output.encode('latin1'))
     return output

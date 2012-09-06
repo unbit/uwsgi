@@ -71,6 +71,8 @@ void gateway_respawn(int id) {
         	signal(SIGUSR1, SIG_IGN);
         	signal(SIGUSR2, SIG_IGN);
         	signal(SIGPIPE, SIG_IGN);
+        	signal(SIGSTOP, SIG_IGN);
+        	signal(SIGTSTP, SIG_IGN);
 
 		ug->loop(id, ug->data);
 		// never here !!! (i hope)
