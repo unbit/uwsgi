@@ -7,8 +7,32 @@ if ($rpc_value) {
 	print "rpc value = ".$rpc_value."\n";
 }
 
+my $one = sub {
+	my $env = shift;
+	#sleep(1);
+	print "one\n";
+};
+
+my $two = sub {
+	my $env = shift;
+	#sleep(1);
+	print "two\n";
+};
+
+my $three = sub {
+	my $env = shift;
+	#sleep(1);
+	print "three\n";
+};
+
 my $app = sub {
 	my $env = shift;
+	if ($env->{'psgix.cleanup'}) {
+		print "cleanup supported\n";
+		push $env->{'psgix.cleanup.handlers'}, $one;
+		push $env->{'psgix.cleanup.handlers'}, $two;
+		push $env->{'psgix.cleanup.handlers'}, $three;
+	}
 	uwsgi::cache_set("key1", "val1");
 	if ($rpc_value) {
 		print uwsgi::call('hello')."\n";

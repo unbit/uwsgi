@@ -297,6 +297,12 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 		if (!hv_store(env, "psgix.harakiri", 14, newSViv(1), 0)) goto clear;
 	}
 
+	if (!hv_store(env, "psgix.cleanup", 13, newSViv(1), 0)) goto clear;
+	// cleanup handlers array
+	av = newAV();
+	if (!hv_store(env, "psgix.cleanup.handlers", 22, newRV_noinc((SV *)av ), 0)) goto clear;
+	
+
 	SV *pe = uwsgi_perl_obj_new("uwsgi::error", 12);
         if (!hv_store(env, "psgi.errors", 11, pe, 0)) goto clear;
 
@@ -374,8 +380,6 @@ int uwsgi_perl_init(){
 }
 
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
-
-	SV **harakiri;
 
 #ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -457,13 +461,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	}
 
 clear2:
-	// check for psgix.harakiri
-        harakiri = hv_fetch((HV*)SvRV( (SV*)wsgi_req->async_environ), "psgix.harakiri.commit", 21, 0);
-        if (harakiri) {
-                if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
-        }
-
-	SvREFCNT_dec(wsgi_req->async_environ);
+	// clear response
 	SvREFCNT_dec(wsgi_req->async_result);
 clear:
 
@@ -478,15 +476,57 @@ clear:
 	return UWSGI_OK;
 }
 
+static void psgi_call_cleanup_hook(SV *hook, SV *env) {
+	dSP;
+	ENTER;
+	SAVETMPS;
+	PUSHMARK(SP);
+	XPUSHs(env);
+	PUTBACK;
+	call_sv(hook, G_DISCARD);
+	if(SvTRUE(ERRSV)) {
+                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+        }
+	FREETMPS;
+	LEAVE;
+}
 
 void uwsgi_perl_after_request(struct wsgi_request *wsgi_req) {
 
 	log_request(wsgi_req);
 
+	// dereference %env
+	SV *env = SvRV((SV *) wsgi_req->async_environ);
+
+	// check for cleanup handlers
+	if (hv_exists((HV *)env, "psgix.cleanup.handlers", 22)) {
+		SV **cleanup_handlers = hv_fetch((HV *)env, "psgix.cleanup.handlers", 22, 0);
+		if (SvROK(*cleanup_handlers)) {
+			if (SvTYPE(SvRV(*cleanup_handlers)) == SVt_PVAV) {
+				I32 n = av_len((AV *)SvRV(*cleanup_handlers));
+				I32 i;
+				for(i=0;i<=n;i++) {
+					SV **hook = av_fetch((AV *)SvRV(*cleanup_handlers), i, 0);
+					psgi_call_cleanup_hook(*hook, (SV *) wsgi_req->async_environ);
+				}
+			}
+		}
+	}
+
+	// check for psgix.harakiri
+	if (hv_exists((HV *)env, "psgix.harakiri.commit", 21)) {
+		SV **harakiri = hv_fetch((HV *)env, "psgix.harakiri.commit", 21, 0);
+		if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
+	}
+
+	// async plagued could be defined in other areas...
 	if (wsgi_req->async_plagued) {
 		uwsgi_log("*** psgix.harakiri.commit requested ***\n");
 		goodbye_cruel_world();
 	}
+
+	// clear the env
+	SvREFCNT_dec(wsgi_req->async_environ);
 
 }
 

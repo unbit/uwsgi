@@ -190,6 +190,7 @@ XS(XS_call) {
 		argvs[i] = arg_len;
         }
 
+	// response must be always freed
         char *response = uwsgi_do_rpc(NULL, func, items-1, argv, argvs, &size);
 
         if (size > 0) {
@@ -198,6 +199,7 @@ XS(XS_call) {
 		free(response);
         	XSRETURN(1);
         }
+	free(response);
 
 	XSRETURN_UNDEF;
 }

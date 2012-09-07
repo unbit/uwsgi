@@ -498,6 +498,7 @@ PHP_FUNCTION(uwsgi_rpc) {
 		argvs[i] = Z_STRLEN_P(z_current_obj);
 	}
 
+	// response must always be freed
         char *response = uwsgi_do_rpc(node, func, num_args - 2, argv, argvs, &size);
 
         if (size > 0) {
@@ -506,6 +507,7 @@ PHP_FUNCTION(uwsgi_rpc) {
 		free(response);
 		RETURN_STRING(ret, 0);
         }
+	free(response);
 
 clear:
 	efree(varargs);

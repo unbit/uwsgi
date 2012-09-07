@@ -313,6 +313,7 @@ PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
 	}
 
 	UWSGI_RELEASE_GIL;
+	// response must always be freed
 	char *response = uwsgi_do_rpc(NULL, func, argc - 1, argv, argvs, &size);
 	UWSGI_GET_GIL;
 
@@ -322,6 +323,7 @@ PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
 		return ret;
 	}
 
+	free(response);
 	Py_INCREF(Py_None);
 	return Py_None;
 

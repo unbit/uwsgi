@@ -654,6 +654,7 @@ VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE *class) {
                 argvs[i] = RSTRING_LEN(rpc_str);
         }
 
+	// response must always be freed
         char *response = uwsgi_do_rpc(node, func, argc - 2, argv, argvs, &size);
 
         if (size > 0) {
@@ -661,7 +662,7 @@ VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE *class) {
                 free(response);
                 return ret;
         }
-
+	free(response);
 
 clear:
 
