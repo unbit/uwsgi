@@ -1938,6 +1938,16 @@ int uwsgi_start(void *v_argv) {
                         uwsgi_error("setrlimit()");
                 }
         }
+
+	if (!getrlimit(RLIMIT_NPROC, &uwsgi.rl_nproc)) {
+		if (uwsgi.rl_nproc.rlim_cur != RLIM_INFINITY) {
+			uwsgi_log("your processes number limit is %d\n", (int) uwsgi.rl_nproc.rlim_cur);
+			if ((int)uwsgi.rl_nproc.rlim_cur < uwsgi.numproc+uwsgi.master_process) {
+				uwsgi.numproc = uwsgi.rl_nproc.rlim_cur - 1;
+				uwsgi_log("!!! number of workers adjusted to %d due to system limits !!!\n", uwsgi.numproc);
+			}
+		}
+	}
 #endif
 #ifndef __OpenBSD__
 
@@ -1969,7 +1979,6 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 #endif
-
 
 	uwsgi_log_initial("your memory page size is %d bytes\n", uwsgi.page_size);
 
