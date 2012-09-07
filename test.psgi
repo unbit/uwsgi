@@ -29,9 +29,9 @@ my $app = sub {
 	my $env = shift;
 	if ($env->{'psgix.cleanup'}) {
 		print "cleanup supported\n";
-		push $env->{'psgix.cleanup.handlers'}, $one;
-		push $env->{'psgix.cleanup.handlers'}, $two;
-		push $env->{'psgix.cleanup.handlers'}, $three;
+		push @{$env->{'psgix.cleanup.handlers'}}, $one;
+		push @{$env->{'psgix.cleanup.handlers'}}, $two;
+		push @{$env->{'psgix.cleanup.handlers'}}, $three;
 	}
 	uwsgi::cache_set("key1", "val1");
 	if ($rpc_value) {
