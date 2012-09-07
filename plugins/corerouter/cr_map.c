@@ -80,10 +80,14 @@ int uwsgi_cr_map_use_to(struct uwsgi_corerouter *ucr, struct corerouter_session 
 }
 
 int uwsgi_cr_map_use_cluster(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
+#ifdef UWSGI_MULTICAST
         cr_session->instance_address = uwsgi_cluster_best_node();
 	if (cr_session->instance_address) {
         	cr_session->instance_address_len = strlen(cr_session->instance_address);
 	}
+#else
+	uwsgi_log("uWSGI has been built without multicast/clustering support !!!\n");
+#endif
         return 0;
 }
 

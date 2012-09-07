@@ -822,12 +822,16 @@ To have a reliable implementation, we need to reset a bunch of values
 
 			// writable ?
 			if (cs->fd_state) {
+#ifdef UWSGI_SSL
 				if (!cs->ugs->mode == UWSGI_HTTP_SSL) {
 					len = cs->send(&uhttp.cr, cs, NULL, 0);
 				}
 				else {
+#endif
 					len = cs->send(&uhttp.cr, cs, hs->buffer,hs->buffer_len);
+#ifdef UWSGI_SSL
 				}
+#endif
 #ifdef UWSGI_EVENT_USE_PORT
 				event_queue_add_fd_write(ucr->queue, cs->fd);
 #endif

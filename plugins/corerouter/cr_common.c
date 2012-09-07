@@ -250,7 +250,12 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 			else if (ugs->subscription) {
 				if (ugs->fd == -1) {
 					if (strchr(ugs->name, ':')) {
+#ifdef UWSGI_UDP
 						ugs->fd = bind_to_udp(ugs->name, 0, 0);
+#else
+						uwsgi_log("uWSGI has been built without UDP support !!!\n");
+						exit(1);
+#endif
 					}
 					else {
 						ugs->fd = bind_to_unix_dgram(ugs->name);
