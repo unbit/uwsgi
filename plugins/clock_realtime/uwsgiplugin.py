@@ -2,5 +2,5 @@ NAME='clock_realtime'
 
 CFLAGS = []
 LDFLAGS = []
-LIBS = []
+LIBS = ['-lrt']
 GCC_LIST = ['clock_realtime']

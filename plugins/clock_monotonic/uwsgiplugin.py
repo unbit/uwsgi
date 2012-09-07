@@ -2,5 +2,5 @@ NAME='clock_monotonic'
 
 CFLAGS = []
 LDFLAGS = []
-LIBS = []
+LIBS = ['-lrt']
 GCC_LIST = ['clock_monotonic']
