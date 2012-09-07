@@ -9,19 +9,19 @@ if ($rpc_value) {
 
 my $one = sub {
 	my $env = shift;
-	#sleep(1);
+	sleep(1);
 	print "one\n";
 };
 
 my $two = sub {
 	my $env = shift;
-	#sleep(1);
+	sleep(1);
 	print "two\n";
 };
 
 my $three = sub {
 	my $env = shift;
-	#sleep(1);
+	sleep(1);
 	print "three\n";
 };
 
