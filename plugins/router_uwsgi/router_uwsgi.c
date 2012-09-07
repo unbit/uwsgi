@@ -52,7 +52,7 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	int post_fd = wsgi_req->poll.fd;
 	if (wsgi_req->async_post) {
-		post_fd = fileno(wsgi_req->async_post);
+		post_fd = fileno((FILE*)wsgi_req->async_post);
 	}
 
 	if (uwsgi_send_message(uwsgi_fd, uh->modifier1, uh->modifier2, wsgi_req->buffer, wsgi_req->uh.pktsize, post_fd, wsgi_req->post_cl, 0) < 0) {
