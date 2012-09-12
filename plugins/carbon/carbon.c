@@ -68,7 +68,7 @@ void carbon_master_cycle() {
 	if (last_update == 0) last_update = uwsgi_now();
 
 	// update
-	if (uwsgi.current_time - last_update >= u_carbon.freq) {
+	if (uwsgi.current_time - last_update >= u_carbon.freq || uwsgi.cleaning) {
 
 		for (i = 0; i < uwsgi.numproc; i++) {
 			u_carbon.current_busyness_values[i] = uwsgi.workers[i+1].running_time - u_carbon.last_busyness_values[i];
@@ -203,10 +203,13 @@ nxt:
 	}
 }
 
+
 struct uwsgi_plugin carbon_plugin = {
 
 	.name = "carbon",
 	
+	.master_cleanup = carbon_master_cycle,
+
 	.options = carbon_options,
 	.master_cycle = carbon_master_cycle,
 	.post_init = carbon_post_init,

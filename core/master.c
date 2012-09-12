@@ -608,6 +608,8 @@ int master_loop(char **argv, char **environ) {
 		uwsgi_unix_signal(SIGURG, uwsgi_restore_auto_snapshot);
 	}
 
+	atexit(uwsgi_master_cleanup_hooks);
+
 	uwsgi.master_queue = event_queue_init();
 
 	/* route signals to workers... */

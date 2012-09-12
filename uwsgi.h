@@ -713,6 +713,8 @@ struct uwsgi_plugin {
 	int (*mule)(char *);
 	int (*mule_msg)(char *, size_t);
 
+	void (*master_cleanup) (void);
+
 };
 
 #ifdef UWSGI_PCRE
@@ -1518,6 +1520,8 @@ struct uwsgi_server {
 	int to_heaven;
 	int to_hell;
 	int to_outworld;
+
+	int cleaning;
 
 	int ready_to_die;
 	int ready_to_reload;
@@ -3241,6 +3245,7 @@ ssize_t uwsgi_pipe(int, int, int);
 ssize_t uwsgi_pipe_sized(int, int, size_t, int);
 
 int uwsgi_buffer_send(struct uwsgi_buffer *, int);
+void uwsgi_master_cleanup_hooks(void);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

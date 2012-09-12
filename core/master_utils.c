@@ -5,6 +5,27 @@ extern struct uwsgi_server uwsgi;
 void worker_wakeup() {
 }
 
+void uwsgi_master_cleanup_hooks(void) {
+
+        int j;
+	
+	uwsgi.cleaning = 1;
+
+        for (j = 0; j < uwsgi.gp_cnt; j++) {
+                if (uwsgi.gp[j]->master_cleanup) {
+                        uwsgi.gp[j]->master_cleanup();
+                }
+        }
+
+        for (j = 0; j < 256; j++) {
+                if (uwsgi.p[j]->master_cleanup) {
+                        uwsgi.p[j]->master_cleanup();
+                }
+        }
+
+}
+
+
 int uwsgi_calc_cheaper(void) {
 
 	int i;
@@ -239,6 +260,9 @@ void uwsgi_reload(char **argv) {
 	for (i = 0; i < (ushared->gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
 		waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 	}
+
+	// call master cleanup hooks
+	uwsgi_master_cleanup_hooks();
 
 	// call atexit user exec
 	uwsgi_exec_atexit();
