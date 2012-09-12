@@ -349,6 +349,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"logger-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"loggers-list", no_argument, 0, "list enabled loggers", uwsgi_opt_true, &uwsgi.loggers_list, 0},
 	{"threaded-logger", no_argument, 0, "offload log writing to a thread", uwsgi_opt_true, &uwsgi.threaded_logger, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+#ifdef UWSGI_PCRE
+	{"log-drain", required_argument, 0, "drain (do not show) log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_drain_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+#endif
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #endif
@@ -3172,6 +3175,13 @@ void uwsgi_opt_add_string_list(char *opt, char *value, void *list) {
 	struct uwsgi_string_list **ptr = (struct uwsgi_string_list **) list;
 	uwsgi_string_new_list(ptr, value);
 }
+
+#ifdef UWSGI_PCRE
+void uwsgi_opt_add_regexp_list(char *opt, char *value, void *list) {
+	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;
+	uwsgi_regexp_new_list(ptr, value);
+}
+#endif
 
 void uwsgi_opt_add_shared_socket(char *opt, char *value, void *protocol) {
 	uwsgi_new_shared_socket(generate_socket_name(value));

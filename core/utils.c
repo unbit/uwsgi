@@ -3179,6 +3179,36 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list,
 	return uwsgi_string;
 }
 
+#ifdef UWSGI_PCRE
+struct uwsgi_regexp_list *uwsgi_regexp_new_list(struct uwsgi_regexp_list **list, char *value) {
+
+        struct uwsgi_regexp_list *url = *list, *old_url;
+
+        if (!url) {
+                *list = uwsgi_malloc(sizeof(struct uwsgi_regexp_list));
+                url = *list;
+        }
+        else {
+                while (url) {
+                        old_url = url;
+                        url = url->next;
+                }
+
+                url = uwsgi_malloc(sizeof(struct uwsgi_regexp_list));
+                old_url->next = url;
+        }
+
+	if (uwsgi_regexp_build(value, &url->pattern, &url->pattern_extra)) {
+		exit(1);
+	}
+        url->next = NULL;
+        url->custom = 0;
+
+        return url;
+}
+
+#endif
+
 char *uwsgi_string_get_list(struct uwsgi_string_list **list, int pos, size_t * len) {
 
 	struct uwsgi_string_list *uwsgi_string = *list;

@@ -368,6 +368,17 @@ struct uwsgi_dyn_dict {
 	struct uwsgi_dyn_dict *next;
 };
 
+#ifdef UWSGI_PCRE
+struct uwsgi_regexp_list {
+
+	pcre *pattern;
+        pcre_extra *pattern_extra;
+
+        uint64_t custom;
+        struct uwsgi_regexp_list *next;
+};
+#endif
+
 
 union uwsgi_sockaddr {
 	struct sockaddr sa;
@@ -1385,6 +1396,10 @@ struct uwsgi_server {
 	struct uwsgi_logger *loggers;
 	struct uwsgi_logger *choosen_logger;
 	struct uwsgi_string_list *requested_logger;
+
+#ifdef UWSGI_PCRE
+	struct uwsgi_regexp_list *log_drain_rules;
+#endif
 
 	int threaded_logger;
 	pthread_mutex_t threaded_logger_lock;
@@ -2657,6 +2672,9 @@ struct uwsgi_socket *uwsgi_del_socket(struct uwsgi_socket *);
 void uwsgi_close_all_sockets(void);
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, char *);
+#ifdef UWSGI_PCRE
+struct uwsgi_regexp_list *uwsgi_regexp_new_list(struct uwsgi_regexp_list **, char *);
+#endif
 
 void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list *);
 
@@ -2886,6 +2904,7 @@ void uwsgi_opt_add_string_list(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 #ifdef UWSGI_PCRE
 void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);
+void uwsgi_opt_add_regexp_list(char *, char *, void *);
 #endif
 void uwsgi_opt_set_int(char *, char *, void *);
 void uwsgi_opt_set_rawint(char *, char *, void *);

@@ -265,6 +265,15 @@ int uwsgi_master_log(void) {
 
 	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
 	if (rlen > 0) {
+#ifdef UWSGI_PCRE
+		struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
+		while(url) {
+			if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+				return 0;
+			}
+			url = url->next;
+		}
+#endif
 		if (uwsgi.choosen_logger) {
 			struct uwsgi_logger *ul = uwsgi.choosen_logger; 
 			while(ul) {
@@ -275,7 +284,6 @@ int uwsgi_master_log(void) {
 		else {
 			rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);
 		}
-		// TODO allow uwsgi.logger = func
 		return 0;
 	}
 
