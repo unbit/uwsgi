@@ -235,9 +235,13 @@ def build_uwsgi(uc, print_only=False):
                     print("Error: plugin '%s' not found" % p)
                     sys.exit(1)
 
-                sys.path.insert(0, path)
-                import uwsgiplugin as up
-                reload(up)
+                try:
+                    import importlib
+                    up = importlib.machinery.SourceFileLoader('uwsgiplugin', '%s/uwsgiplugin.py' % path).load_module()
+                except:
+                    sys.path.insert(0, path)
+                    import uwsgiplugin as up
+                    reload(up)
 
                 p_cflags = cflags[:]
                 p_cflags += up.CFLAGS
