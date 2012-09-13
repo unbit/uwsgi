@@ -1526,6 +1526,10 @@ void uwsgi_map_sockets() {
                 while (usl) {
 
                         char *colon = strchr(usl->value, ':');
+			if (!colon) {
+				uwsgi_log("invalid socket mapping, must be socket:worker[,worker...]\n");
+				exit(1);
+			}
                         if ((int) uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
                                 enabled = 0;
                                 char *p = strtok(colon + 1, ",");
