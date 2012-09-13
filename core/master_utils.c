@@ -8,6 +8,9 @@ void worker_wakeup() {
 void uwsgi_master_cleanup_hooks(void) {
 
         int j;
+
+	// could be an inherited atexit hook
+	if (uwsgi.mywid > 0) return ;
 	
 	uwsgi.cleaning = 1;
 
