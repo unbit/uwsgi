@@ -1050,6 +1050,11 @@ void uwsgi_python_init_apps() {
 
 	struct http_status_codes *http_sc;
 
+	// lazy ?
+	if (uwsgi.mywid > 0) {
+		UWSGI_GET_GIL;
+	}
+
 #ifndef UWSGI_PYPY
 	// prepare for stack suspend/resume
 	if (uwsgi.async > 1) {
@@ -1168,6 +1173,11 @@ next:
 			up.after_req_hook_args = PyTuple_New(0);
 			Py_INCREF(up.after_req_hook_args);
 		}
+	}
+
+	// lazy ?
+	if (uwsgi.mywid > 0) {
+		UWSGI_RELEASE_GIL;
 	}
 
 }
