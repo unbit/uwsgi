@@ -117,7 +117,7 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 success:
         if (!plugin_handle) {
 		if (!has_option)
-                	uwsgi_log( "%s\n", dlerror());
+                	uwsgi_log( "!!! UNABLE to load uWSGI plugin: %s !!!\n", dlerror());
         }
         else {
 		char *plugin_entry_symbol = uwsgi_concat2n(plugin_symbol_name_start, strlen(plugin_symbol_name_start)-3, "", 0);

@@ -660,8 +660,12 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 #endif
 		*tmp = 0;
 	}
-	if (uwsgi_get_last_char(magic_table['d'], '/'))
-		magic_table['c'] = uwsgi_get_last_char(magic_table['d'], '/') + 1;
+	if (uwsgi_get_last_char(magic_table['d'], '/')) {
+		magic_table['c'] = uwsgi_str(uwsgi_get_last_char(magic_table['d'], '/') + 1);
+		if (magic_table['c'][strlen(magic_table['c']) - 1] == '/') {
+			magic_table['c'][strlen(magic_table['c']) - 1] = 0;
+		}
+	}
 
 	if (tmp)
 		*tmp = '/';
