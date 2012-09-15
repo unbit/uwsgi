@@ -2421,9 +2421,12 @@ next:
 	if (!uwsgi.master_process && uwsgi.numproc == 0) {
 		exit(0);
 	}
+
+#ifdef UWSGI_MINTERPRETERS
 	if (!uwsgi.single_interpreter && uwsgi.numproc > 0) {
 		uwsgi_log("*** uWSGI is running in multiple interpreter mode ***\n");
 	}
+#endif
 
 	// check for request plugins, and eventually print a warning
 	int rp_available = 0;

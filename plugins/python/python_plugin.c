@@ -282,6 +282,7 @@ realstuff:
 	if (uwsgi.has_threads)
 		PyGILState_Ensure();
 	// no need to worry about freeing memory
+#ifdef UWSGI_EMBEDDED
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
 	if (uwsgi_dict) {
 		PyObject *ae = PyDict_GetItemString(uwsgi_dict, "atexit");
@@ -289,6 +290,7 @@ realstuff:
 			python_call(ae, PyTuple_New(0), 0, NULL);
 		}
 	}
+#endif
 
 	// this part is a 1:1 copy of mod_wsgi 3.x
         // it is required to fix some atexit bug with python 3
@@ -1165,6 +1167,7 @@ next:
 	}
 #endif
 
+#ifdef UWSGI_EMBEDDED
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
         if (uwsgi_dict) {
                 up.after_req_hook = PyDict_GetItemString(uwsgi_dict, "after_req_hook");
@@ -1174,6 +1177,7 @@ next:
 			Py_INCREF(up.after_req_hook_args);
 		}
 	}
+#endif
 
 	// lazy ?
 	if (uwsgi.mywid > 0) {

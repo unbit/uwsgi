@@ -510,7 +510,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	// this object must be freed/cleared always
+#ifdef UWSGI_ASYNC
 end:
+#endif
 	if (wsgi_req->async_input) {
                 Py_DECREF((PyObject *)wsgi_req->async_input);
         }
