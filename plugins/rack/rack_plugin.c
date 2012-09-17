@@ -111,9 +111,18 @@ VALUE rb_uwsgi_io_each(VALUE obj, VALUE args) {
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 
-	// yield strings chunks
-	rb_raise(rb_eRuntimeError, "rack.input::each is not implemented (req %p)\n", wsgi_req);
+	if (!rb_block_given_p())
+		rb_raise(rb_eArgError, "Expected block on rack.input 'each' method");
 
+	// yield strings chunks
+	for(;;) {
+		VALUE chunk = rb_uwsgi_io_gets(obj, Qnil);
+		if (chunk == Qnil) {
+			return Qnil;
+		}
+		rb_yield(chunk);
+	}
+	// never here
 	return Qnil;
 }
 
