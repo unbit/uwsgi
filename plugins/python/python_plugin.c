@@ -530,8 +530,6 @@ next:
 
 #ifdef UWSGI_EMBEDDED
 PyDoc_STRVAR(uwsgi_py_doc, "uWSGI api module.");
-#endif
-
 
 #ifdef PYTHREE
 static PyModuleDef uwsgi_module3 = {
@@ -546,7 +544,6 @@ PyObject *init_uwsgi3(void) {
 }
 #endif
 
-#ifdef UWSGI_EMBEDDED
 void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module, *zero;
 	int i;
