@@ -2531,6 +2531,18 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		memcpy(buffer, sym_start_ptr, sym_end_ptr - sym_start_ptr);
 
 	}
+#if defined(__linux__) && !defined(__BIG_ENDIAN__)
+	else if (!strncmp("section://", url, 10)) {
+		size_t s_len = 0;
+		buffer = uwsgi_elf_section(uwsgi.binary_path, url+10, &s_len);
+		if (!buffer) {
+			uwsgi_log("unable to find section %s in %s\n", url+10, uwsgi.binary_path);
+			exit(1);
+		}
+		*size = s_len;
+		if (add_zero) *size += 1;
+	}
+#endif
 	// fallback to file
 	else {
 		fd = open(url, O_RDONLY);
@@ -4738,3 +4750,97 @@ void uwsgi_set_cpu_affinity() {
         }
 
 }
+
+#if defined(__linux__) && !defined(__BIG_ENDIAN__)
+#include <elf.h>
+char *uwsgi_elf_section(char *filename, char *s, size_t *len) {
+	struct stat st;
+	char *output = NULL;
+        int fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		uwsgi_error_open(filename);
+		return NULL;
+	}
+
+	if (fstat(fd, &st)) {
+		uwsgi_error("stat()");
+		close(fd);
+		return NULL;
+	}
+
+	if (st.st_size < EI_NIDENT) {
+		uwsgi_log("invalid elf file: %s\n", filename);
+		close(fd);
+		return NULL;
+	}
+
+        char *addr = mmap(NULL, st.st_size , PROT_READ, MAP_PRIVATE, fd, 0);
+	if (addr == MAP_FAILED) {
+		uwsgi_error("mmap()");
+		close(fd);
+		return NULL;
+	}
+
+	if (addr[0] != ELFMAG0) goto clear;
+	if (addr[1] != ELFMAG1) goto clear;
+	if (addr[2] != ELFMAG2) goto clear;
+	if (addr[3] != ELFMAG3) goto clear;
+
+	if (addr[4] == ELFCLASS32) {
+		// elf header
+        	Elf32_Ehdr *elfh = (Elf32_Ehdr *) addr;
+		// first section
+		Elf32_Shdr *sections = ((Elf32_Shdr *) (addr + elfh->e_shoff));
+		// number of sections
+		int ns = elfh->e_shnum;
+		// the names table
+		Elf32_Shdr *table = &sections[elfh->e_shstrndx];
+		// string table session pointer
+		char *names = addr + table->sh_offset;
+		Elf32_Shdr *ss = NULL; int i;
+		for(i=0;i<ns;i++) {
+			char *name = names + sections[i].sh_name;
+			if (!strcmp(name, s)) {
+				ss = &sections[i];
+				break;
+			}
+		}
+
+		if (ss) {
+			*len = ss->sh_size;
+			output = uwsgi_concat2n(addr + ss->sh_offset, ss->sh_size, "", 0);
+		}
+	}
+	else if (addr[4] == ELFCLASS64) {
+		// elf header
+        	Elf64_Ehdr *elfh = (Elf64_Ehdr *) addr;
+		// first section
+		Elf64_Shdr *sections = ((Elf64_Shdr *) (addr + elfh->e_shoff));
+		// number of sections
+		int ns = elfh->e_shnum;
+		// the names table
+		Elf64_Shdr *table = &sections[elfh->e_shstrndx];
+		// string table session pointer
+		char *names = addr + table->sh_offset;
+		Elf64_Shdr *ss = NULL; int i;
+		for(i=0;i<ns;i++) {
+			char *name = names + sections[i].sh_name;
+			if (!strcmp(name, s)) {
+				ss = &sections[i];
+				break;
+			}
+		}
+
+		if (ss) {
+			*len = ss->sh_size;
+			output = uwsgi_concat2n(addr + ss->sh_offset, ss->sh_size, "", 0);
+		}
+	}
+
+
+clear:
+	close(fd);
+	munmap(addr, st.st_size);
+	return output;
+}
+#endif

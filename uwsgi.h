@@ -34,7 +34,7 @@ extern "C" {
 #define thunder_lock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
 #define thunder_unlock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
 
-#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7))
+#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7) || !uwsgi_startswith(file, "section://", 10))
 
 #define ushared uwsgi.shared
 
@@ -3246,6 +3246,10 @@ ssize_t uwsgi_pipe_sized(int, int, size_t, int);
 
 int uwsgi_buffer_send(struct uwsgi_buffer *, int);
 void uwsgi_master_cleanup_hooks(void);
+
+#if defined(__linux__) && !defined(__BIG_ENDIAN__)
+char *uwsgi_elf_section(char *, char *, size_t *);
+#endif
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
