@@ -667,6 +667,15 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 		}
 	}
 
+	int base = '0';
+	char *to_split = uwsgi_str(magic_table['d']);
+	char *p = strtok(to_split,"/");
+	while(p && base <= '9') {
+		magic_table[base] = p;
+		base++;
+		p = strtok(NULL, "/");
+	}
+
 	if (tmp)
 		*tmp = '/';
 
