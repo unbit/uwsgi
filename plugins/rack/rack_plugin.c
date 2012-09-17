@@ -129,29 +129,48 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	If buffer is given, then the read data will be placed into buffer instead of a newly created String object.
 */
 
-/*
+	// --- disk buffering ---
+
 	if (wsgi_req->async_post) {
 		// 0 size, read the whole body from the file...
 		if (RARRAY_LEN(args) == 0) {
 			char *tmp_chunk = uwsgi_malloc(wsgi_req->post_cl);
-			size_t rlen = fread(chunk, 1, wsgi_req->post_cl, (FILE *) wsgi_req->async_post);
+			size_t rlen = fread(tmp_chunk, 1, wsgi_req->post_cl, (FILE *) wsgi_req->async_post);
 			if (rlen == 0) {
 				free(tmp_chunk);
 				return rb_str_new("", 0);
 			}
+			// return a new string
 			chunk = rb_str_new(tmp_chunk, rlen);
 			free(tmp_chunk);
 			return chunk;
 		}
+		// size specified
 		else if (RARRAY_LEN(args) > 0) {
 			chunk_size = NUM2UINT(RARRAY_PTR(args)[0]);
 			char *tmp_chunk = uwsgi_malloc(chunk_size);
-			size_t rlen = fread(chunk, 1, chunk_size, tmp_chunk, (FILE *) wsgi_req->async_post);
-			if () {
+			size_t rlen = fread(tmp_chunk, 1, chunk_size, (FILE *) wsgi_req->async_post);
+			// error, return Qnil
+			if (rlen == 0) {
+				free(tmp_chunk);
+				return Qnil;
 			}
-		}
+			// push in the specified buffer
+			if (RARRAY_LEN(args) > 1) {
+                        	rb_str_cat(RARRAY_PTR(args)[1], tmp_chunk, rlen);
+				free(tmp_chunk);
+                        	return RARRAY_PTR(args)[1];
+			}
+			// return a new string
+			chunk = rb_str_new(tmp_chunk, rlen);
+			free(tmp_chunk);
+			return chunk;
+                }
+		// never happend...
+		return Qnil;
 	}
-*/
+
+	// --- memory buffering ---
 
 	// first check for virtual EOF
 	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
