@@ -1216,7 +1216,7 @@ static void vacuum(void) {
 				}
 			}
 			while (uwsgi_sock) {
-				if (uwsgi_sock->family == AF_UNIX) {
+				if (uwsgi_sock->family == AF_UNIX && uwsgi_sock->name[0] != '@') {
 					if (unlink(uwsgi_sock->name)) {
 						uwsgi_error("unlink()");
 					}
