@@ -79,6 +79,14 @@ VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 	struct wsgi_request *wsgi_req;
 	VALUE line;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
+	char linebuf[4096];
+
+	if (wsgi_req->async_post) {
+		if (fgets(linebuf, 4096, (FILE *) wsgi_req->async_post) == NULL) {
+			return Qnil;
+		}	
+		return rb_str_new2(linebuf);
+	}
 
 	// return a line of body
 	for(i=wsgi_req->buf_pos;i<wsgi_req->post_cl;i++) {
@@ -116,11 +124,37 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	VALUE chunk;
 	unsigned int chunk_size;
 
-	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
 /*
 	When EOF is reached, this method returns nil if length is given and not nil, or "" if length is not given or is nil.
 	If buffer is given, then the read data will be placed into buffer instead of a newly created String object.
 */
+
+/*
+	if (wsgi_req->async_post) {
+		// 0 size, read the whole body from the file...
+		if (RARRAY_LEN(args) == 0) {
+			char *tmp_chunk = uwsgi_malloc(wsgi_req->post_cl);
+			size_t rlen = fread(chunk, 1, wsgi_req->post_cl, (FILE *) wsgi_req->async_post);
+			if (rlen == 0) {
+				free(tmp_chunk);
+				return rb_str_new("", 0);
+			}
+			chunk = rb_str_new(tmp_chunk, rlen);
+			free(tmp_chunk);
+			return chunk;
+		}
+		else if (RARRAY_LEN(args) > 0) {
+			chunk_size = NUM2UINT(RARRAY_PTR(args)[0]);
+			char *tmp_chunk = uwsgi_malloc(chunk_size);
+			size_t rlen = fread(chunk, 1, chunk_size, tmp_chunk, (FILE *) wsgi_req->async_post);
+			if () {
+			}
+		}
+	}
+*/
+
+	// first check for virtual EOF
+	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
 		if (RARRAY_LEN(args) > 0) {
 			if (RARRAY_PTR(args)[0] == Qnil) {
 				return rb_str_new("", 0);
@@ -163,8 +197,14 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 		return Qnil;
 	}
 
-	wsgi_req->buf_pos = 0;
-
+	// buffered to disk ?
+	if (wsgi_req->async_post) {
+		rewind((FILE *) wsgi_req->async_post);
+	}
+	// or memory ???
+	else {
+		wsgi_req->buf_pos = 0;
+	}
 	return Qnil;
 }
 
@@ -673,6 +713,11 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	struct http_status_codes *http_sc;
 
+	if (!ur.call) {
+		internal_server_error(wsgi_req, "Ruby application not found");
+		return -1;
+	}
+
 	/* Standard RACK request */
         if (!wsgi_req->uh.pktsize) {
                 uwsgi_log("Invalid RACK request. skip.\n");
@@ -748,12 +793,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	VALUE dws_wr = Data_Wrap_Struct(ur.rb_uwsgi_io_class, 0, 0, wsgi_req);
 
-	if (wsgi_req->async_post) {
-		rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(fileno((FILE*)wsgi_req->async_post)), rb_str_new("r",1) ));
-	}
-	else {
-		rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall(ur.rb_uwsgi_io_class, rb_intern("new"), 1, dws_wr ));
-	}
+	rb_hash_aset(env, rb_str_new2("rack.input"), rb_funcall(ur.rb_uwsgi_io_class, rb_intern("new"), 1, dws_wr ));
 
 	rb_hash_aset(env, rb_str_new2("rack.errors"), rb_funcall( rb_const_get(rb_cObject, rb_intern("IO")), rb_intern("new"), 2, INT2NUM(2), rb_str_new("w",1) ));
 
