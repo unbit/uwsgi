@@ -1535,7 +1535,7 @@ static time_t uwsgi_unix_seconds() {
 static uint64_t uwsgi_unix_microseconds() {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	return (tv.tv_sec * 1000000) + tv.tv_usec;
+	return ((uint64_t)tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
 static struct uwsgi_clock uwsgi_unix_clock = {
