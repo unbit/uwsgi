@@ -89,7 +89,9 @@ struct corerouter_session {
         int instance_fd;
         int instance_stopped;
         int status;
+
         uint8_t h_pos;
+
         uint16_t pos;
 
 	struct uwsgi_gateway_socket *ugs;

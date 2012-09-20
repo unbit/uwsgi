@@ -506,7 +506,8 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			goto choose_node;
 		}
 
-		len = cs->recv(&uhttp.cr, cs, hs->buffer + cs->h_pos, UMAX16 - cs->h_pos);
+
+		len = cs->recv(&uhttp.cr, cs, hs->buffer + cs->pos, UMAX16 - cs->pos);
 #ifdef UWSGI_EVENT_USE_PORT
 		event_queue_add_fd_read(ucr->queue, cs->fd);
 #endif
@@ -517,10 +518,9 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			break;
 		}
 
-		cs->h_pos += len;
+		cs->pos += len;
 
 		for (j = 0; j < len; j++) {
-			//uwsgi_log("%d %d %d\n", j, *cs->ptr, cs->rnrn);
 			if (*hs->ptr == '\r' && (hs->rnrn == 0 || hs->rnrn == 2)) {
 				hs->rnrn++;
 			}
@@ -531,6 +531,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 				hs->rnrn = 2;
 			}
 			else if (*hs->ptr == '\n' && hs->rnrn == 3) {
+
 				hs->ptr++;
 				cs->post_remains = len - (j + 1);
 				hs->iov_len = http_parse(hs);
@@ -597,7 +598,6 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 				}
 
 
-
 				cs->pass_fd = is_unix(cs->instance_address, cs->instance_address_len);
 
 				cs->instance_fd = uwsgi_connectn(cs->instance_address, cs->instance_address_len, 0, 1);
@@ -620,6 +620,7 @@ void uwsgi_http_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_se
 			else {
 				hs->rnrn = 0;
 			}
+
 			hs->ptr++;
 		}
 
@@ -767,7 +768,6 @@ To have a reliable implementation, we need to reset a bunch of values
 					hs->ptr = hs->buffer;
 					hs->rnrn = 0;
 					cs->pos = 0;
-					cs->h_pos = 0;
 					hs->received_body = 0;
 					cs->post_cl = 0;
 					cs->instance_fd = -1;
