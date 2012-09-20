@@ -3247,6 +3247,8 @@ ssize_t uwsgi_pipe_sized(int, int, size_t, int);
 int uwsgi_buffer_send(struct uwsgi_buffer *, int);
 void uwsgi_master_cleanup_hooks(void);
 
+pid_t uwsgi_daemonize2();
+
 #if defined(__linux__)
 #define UWSGI_ELF
 char *uwsgi_elf_section(char *, char *, size_t *);

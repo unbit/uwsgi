@@ -2384,30 +2384,7 @@ next:
 
 
 	if (uwsgi.daemonize2) {
-		if (uwsgi.has_emperor) {
-			logto(uwsgi.daemonize2);
-		}
-		else {
-			if (!uwsgi.is_a_reload) {
-				uwsgi_log("*** daemonizing uWSGI ***\n");
-				daemonize(uwsgi.daemonize2);
-			}
-			else if (uwsgi.log_reopen) {
-				logto(uwsgi.daemonize2);
-			}
-		}
-		uwsgi.mypid = getpid();
-		masterpid = uwsgi.mypid;
-
-		uwsgi.workers[0].pid = masterpid;
-
-		if (uwsgi.pidfile && !uwsgi.is_a_reload) {
-			uwsgi_write_pidfile(uwsgi.pidfile);
-		}
-
-		if (uwsgi.pidfile2 && !uwsgi.is_a_reload) {
-			uwsgi_write_pidfile(uwsgi.pidfile2);
-		}
+		masterpid = uwsgi_daemonize2();
 	}
 
 	if (uwsgi.no_server) {

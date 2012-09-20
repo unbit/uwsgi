@@ -252,3 +252,31 @@ void uwsgi_setup_workers() {
         uwsgi_log("mapped %llu bytes (%llu KB) for %d cores\n", total_memory, total_memory / 1024, uwsgi.cores*uwsgi.numproc);
 
 }
+
+pid_t uwsgi_daemonize2() {
+	if (uwsgi.has_emperor) {
+                        logto(uwsgi.daemonize2);
+                }
+                else {
+                        if (!uwsgi.is_a_reload) {
+                                uwsgi_log("*** daemonizing uWSGI ***\n");
+                                daemonize(uwsgi.daemonize2);
+                        }
+                        else if (uwsgi.log_reopen) {
+                                logto(uwsgi.daemonize2);
+                        }
+                }
+                uwsgi.mypid = getpid();
+
+                uwsgi.workers[0].pid = uwsgi.mypid;
+
+                if (uwsgi.pidfile && !uwsgi.is_a_reload) {
+                        uwsgi_write_pidfile(uwsgi.pidfile);
+                }
+
+                if (uwsgi.pidfile2 && !uwsgi.is_a_reload) {
+                        uwsgi_write_pidfile(uwsgi.pidfile2);
+                }
+
+	return uwsgi.mypid;
+}
