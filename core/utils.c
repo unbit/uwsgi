@@ -2531,7 +2531,7 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 		memcpy(buffer, sym_start_ptr, sym_end_ptr - sym_start_ptr);
 
 	}
-#if defined(__linux__) && !defined(__BIG_ENDIAN__)
+#ifdef UWSGI_ELF
 	else if (!strncmp("section://", url, 10)) {
 		size_t s_len = 0;
 		buffer = uwsgi_elf_section(uwsgi.binary_path, url+10, &s_len);
@@ -4751,8 +4751,10 @@ void uwsgi_set_cpu_affinity() {
 
 }
 
-#if defined(__linux__) && !defined(__BIG_ENDIAN__)
+#ifdef UWSGI_ELF
+#if defined(__linux__)
 #include <elf.h>
+#endif
 char *uwsgi_elf_section(char *filename, char *s, size_t *len) {
 	struct stat st;
 	char *output = NULL;

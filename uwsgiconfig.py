@@ -1020,12 +1020,19 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     import uwsgiplugin as up
     reload(up)
 
+    requires = []
+
     p_cflags = cflags[:]
     p_ldflags = ldflags[:]
 
     p_cflags += up.CFLAGS
     p_ldflags += up.LDFLAGS
     p_libs = up.LIBS
+
+    try:
+        requires = up.REQUIRES
+    except:
+        pass
 
     p_cflags.insert(0, '-I.')
 
@@ -1101,6 +1108,17 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     if ret != 0:
         print("*** unable to build %s plugin ***" % name)
         sys.exit(1)
+
+    try:
+        if requires:
+            f = open('.uwsgi_plugin_section', 'w')
+            for rp in requires:
+                f.write("requires=%s\n" % rp)
+            f.close()
+            os.system("objcopy %s.so --add-section uwsgi=.uwsgi_plugin_section %s.so" % (plugin_dest, plugin_dest))
+            os.unlink('.uwsgi_plugin_section')
+    except:
+        pass
 
     print("*** %s plugin built and available in %s ***" % (name, plugin_dest + '.so'))
 

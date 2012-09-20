@@ -2,6 +2,27 @@
 
 extern struct uwsgi_server uwsgi;
 
+#ifdef UWSGI_ELF
+static void uwsgi_plugin_parse_section(char *filename) {
+	size_t s_len = 0;
+	char *buf = uwsgi_elf_section(filename, "uwsgi", &s_len);
+	if (buf) {
+		char *p = strtok(buf, "\n");
+		while(p) {
+			char *equal = strchr(p, '=');
+			if (equal) {
+				*equal = 0;
+				if (!strcmp(p, "requires")) {
+					uwsgi_load_plugin(-1, equal+1, NULL);
+				}
+			}
+			p = strtok(NULL, "\n");
+		}
+		free(buf);
+	}
+}
+#endif
+
 static int plugin_already_loaded(const char *plugin) {
 	int i;
 
@@ -79,6 +100,9 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 
 	// step 1: check for absolute plugin (stop if it fails)
 	if (strchr(plugin_name, '/')) {
+#ifdef UWSGI_ELF
+		uwsgi_plugin_parse_section(plugin_name);
+#endif
 		plugin_handle = dlopen(plugin_name, RTLD_NOW | RTLD_GLOBAL);
 		if (!plugin_handle) {
 			if (!has_option)
@@ -95,6 +119,9 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 	struct uwsgi_string_list *pdir = uwsgi.plugins_dir;
 	while(pdir) {
 		plugin_filename = uwsgi_concat3(pdir->value, "/", plugin_name);
+#ifdef UWSGI_ELF
+		uwsgi_plugin_parse_section(plugin_filename);
+#endif
 		plugin_handle = dlopen(plugin_filename, RTLD_NOW | RTLD_GLOBAL);
 		if (plugin_handle) {
 			plugin_abs_path = plugin_filename;
@@ -109,6 +136,9 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 	// last step: search in compile-time plugin_dir
 	if (!plugin_handle) {
 		plugin_filename = uwsgi_concat3(UWSGI_PLUGIN_DIR, "/", plugin_name);
+#ifdef UWSGI_ELF
+		uwsgi_plugin_parse_section(plugin_filename);
+#endif
 		plugin_handle = dlopen(plugin_filename, RTLD_NOW | RTLD_GLOBAL);
 		plugin_abs_path = plugin_filename;
 		//free(plugin_filename);
