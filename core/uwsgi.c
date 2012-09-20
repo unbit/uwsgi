@@ -2039,34 +2039,6 @@ int uwsgi_start(void *v_argv) {
 		pthread_mutex_init(&uwsgi.static_offload_thread_lock, NULL);
 	}
 
-#ifdef UWSGI_ASYNC
-
-	// TODO rewrite to use uwsgi.max_fd
-	if (uwsgi.async > 1) {
-		if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-			if ((unsigned long) uwsgi.rl.rlim_cur < (unsigned long) uwsgi.async) {
-				uwsgi_log("- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.rl.rlim_cur);
-				if (uwsgi.rl.rlim_cur < uwsgi.rl.rlim_max && (unsigned long) uwsgi.rl.rlim_max > (unsigned long) uwsgi.async) {
-					unsigned long tmp_nofile = (unsigned long) uwsgi.rl.rlim_cur;
-					uwsgi.rl.rlim_cur = uwsgi.async;
-					if (!setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-						uwsgi_log("max open files limit reset to %lu\n", (unsigned long) uwsgi.rl.rlim_cur);
-						uwsgi.async = uwsgi.rl.rlim_cur;
-					}
-					else {
-						uwsgi.async = (int) tmp_nofile;
-					}
-				}
-				else {
-					uwsgi.async = uwsgi.rl.rlim_cur;
-				}
-
-				uwsgi_log("- async cores set to %d -\n", uwsgi.async);
-			}
-		}
-	}
-#endif
-
 	if (uwsgi.requested_max_fd) {
 		uwsgi.rl.rlim_cur = uwsgi.requested_max_fd;
 		uwsgi.rl.rlim_max = uwsgi.requested_max_fd;
@@ -2077,11 +2049,24 @@ int uwsgi_start(void *v_argv) {
 
 	if (!getrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
 		uwsgi.max_fd = uwsgi.rl.rlim_cur;
-		uwsgi_log_initial("detected max file descriptor number: %d\n", (int) uwsgi.max_fd);
+		uwsgi_log_initial("detected max file descriptor number: %lu\n", (unsigned long) uwsgi.max_fd);
 	}
 
 	if (uwsgi.async > 1) {
-		uwsgi_log("async fd table size: %d\n", uwsgi.max_fd);
+		if ((unsigned long) uwsgi.max_fd < (unsigned long) uwsgi.async) {
+			uwsgi_log("- your current max open files limit is %lu, this is lower than requested async cores !!! -\n", (unsigned long) uwsgi.max_fd);
+			uwsgi.rl.rlim_cur = uwsgi.async;
+			uwsgi.rl.rlim_max = uwsgi.async;
+			if (!setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
+                        	uwsgi_log("max open files limit raised to %lu\n", (unsigned long) uwsgi.rl.rlim_cur);
+                                uwsgi.async = uwsgi.rl.rlim_cur;
+				uwsgi.max_fd = uwsgi.rl.rlim_cur;
+                        }
+                        else {
+                        	uwsgi.async = (int) uwsgi.max_fd;
+                	}
+                }
+                uwsgi_log("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
 		uwsgi.async_waiting_fd_table = malloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 		if (!uwsgi.async_waiting_fd_table) {
 			uwsgi_error("malloc()");
