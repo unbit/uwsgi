@@ -29,6 +29,7 @@ struct uwsgi_option uwsgi_rack_options[] = {
         {"rb-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
         {"rbthreads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
         {"ruby-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
+	{"rb-patch-rack-bodyproxy", no_argument, 0, "some specific (old) combos of ruby 1.9+rack could require that hack...", uwsgi_opt_true, &ur.patch_bodyproxy, 0},
 #endif
 
         {0, 0, 0, 0, 0, 0 ,0},
@@ -1028,9 +1029,11 @@ VALUE init_rack_app( VALUE script ) {
         VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
 
 #ifdef RUBY19
-	VALUE ret = rb_protect(uwsgi_rack_patch_body_proxy, rack, &error);
-	if (!error && ret != Qnil) {
-		uwsgi_log("Rack::BodyProxy successfully patched for ruby 1.9.x\n");
+	if (ur.patch_bodyproxy) {
+		VALUE ret = rb_protect(uwsgi_rack_patch_body_proxy, rack, &error);
+		if (!error && ret != Qnil) {
+			uwsgi_log("Rack::BodyProxy successfully patched for ruby 1.9.x\n");
+		}
 	}
 #endif
 

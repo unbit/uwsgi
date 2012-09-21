@@ -72,6 +72,9 @@ struct uwsgi_rack {
 	char *gemset;
 
 	int rb_threads;
+#ifdef RUBY19
+	int patch_bodyproxy;
+#endif
 
 };
 
