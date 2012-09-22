@@ -498,7 +498,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 
 	if (uwsgi.emperor_tyrant) {
 		if (uid == 0 || gid == 0) {
-			uwsgi_log("[emperor-tyrant] invalid permissions for file %s\n", name);
+			uwsgi_log("[emperor-tyrant] invalid permissions for vassal %s\n", name);
 			return;
 		}
 	}

@@ -39,23 +39,25 @@ extern "C" void uwsgi_imperial_monitor_mongodb(struct uwsgi_emperor_scanner *ues
 			const char *name = p.getStringField("name");
 			if (strlen(name) == 0) continue;
 
-			// idem
 			const char *config = p.getStringField("config");
-			if (strlen(config) == 0) continue;
 
+			time_t vassal_ts = 0;
 			// ts must be a Date object !!!
 			mongo::BSONElement ts = p.getField("ts");
-			if (ts.type() != mongo::Date) continue;
-			time_t vassal_ts = ts.date();
+			if (ts.type() == mongo::Date) {
+				vassal_ts = ts.date();
+			}
 
 			uid_t vassal_uid = 0;
 			gid_t vassal_gid = 0;
 			// check for tyrant mode
 			if (uwsgi.emperor_tyrant) {
-				vassal_uid = p.getIntField("uid");
-				if (vassal_uid == 0) continue;
-				vassal_gid = p.getIntField("gid");
-				if (vassal_gid == 0) continue;
+				int tmp_uid = p.getIntField("uid");
+				int tmp_gid = p.getIntField("gid");
+				if (tmp_uid < 0) tmp_uid = 0;
+				if (tmp_gid < 0) tmp_gid = 0;
+				vassal_uid = tmp_uid;
+				vassal_gid = tmp_gid;
 			} 
 
 			uwsgi_emperor_simple_do(ues, (char *) name, (char *) config, vassal_ts/1000, vassal_uid, vassal_gid);
