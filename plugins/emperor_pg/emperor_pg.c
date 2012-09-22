@@ -7,7 +7,6 @@ extern struct uwsgi_instance *ui;
 void uwsgi_imperial_monitor_pg_init(struct uwsgi_emperor_scanner *);
 void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *);
 void emperor_pg_init(void);
-void emperor_pg_do(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t);
 
 void emperor_pg_init(void) {
 	uwsgi_register_imperial_monitor("pg", uwsgi_imperial_monitor_pg_init, uwsgi_imperial_monitor_pg);
@@ -16,39 +15,6 @@ void emperor_pg_init(void) {
 void uwsgi_imperial_monitor_pg_init(struct uwsgi_emperor_scanner *ues) {
 	uwsgi_log("[emperor] enabled emperor PostgreSQL monitor\n");
 }
-
-void emperor_pg_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
-
-	if (!uwsgi_emperor_is_valid(name))
-		return;
-
-	struct uwsgi_instance *ui_current = emperor_get(name);
-
-	if (ui_current) {
-		// check if uid or gid are changed, in such case, stop the instance
-		if (uwsgi.emperor_tyrant) {
-			if (uid != ui_current->uid || gid != ui_current->gid) {
-				uwsgi_log("[emperor-tyrant] !!! permissions of vassal %s changed. stopping the instance... !!!\n", name);
-				emperor_stop(ui_current);
-				return;
-			}
-		}
-		// check if mtime is changed and the uWSGI instance must be reloaded
-		if (ts > ui_current->last_mod) {
-			// make a new config (free the old one)
-                        free(ui_current->config);
-                        ui_current->config = config;
-                        ui_current->config_len = strlen(config);
-			// always respawn (no need for amqp-style rules)
-			emperor_respawn(ui_current, ts);
-		}
-	}
-	else {
-		// make a copy of the config as it will be freed
-		emperor_add(ues, name, ts, uwsgi_str(config), strlen(config), uid, gid);
-	}
-}
-
 
 void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *ues) {
 
@@ -102,7 +68,7 @@ void uwsgi_imperial_monitor_pg(struct uwsgi_emperor_scanner *ues) {
 				vassal_uid = uwsgi_str_num(q_uid, strlen(q_uid));
 				vassal_gid = uwsgi_str_num(q_gid, strlen(q_gid));
 			}
-			emperor_pg_do(ues, name, config, uwsgi_str_num(ts, len), vassal_uid, vassal_gid);
+			uwsgi_emperor_simple_do(ues, name, config, uwsgi_str_num(ts, len), vassal_uid, vassal_gid);
 		}
 	}
 

@@ -3240,6 +3240,8 @@ void uwsgi_master_cleanup_hooks(void);
 
 pid_t uwsgi_daemonize2();
 
+void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *, char *, char *, time_t, uid_t, gid_t);
+
 #if defined(__linux__)
 #define UWSGI_ELF
 char *uwsgi_elf_section(char *, char *, size_t *);

@@ -1338,3 +1338,36 @@ void uwsgi_check_emperor() {
         }
 
 }
+
+void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
+
+        if (!uwsgi_emperor_is_valid(name))
+                return;
+
+        struct uwsgi_instance *ui_current = emperor_get(name);
+
+        if (ui_current) {
+                // check if uid or gid are changed, in such case, stop the instance
+                if (uwsgi.emperor_tyrant) {
+                        if (uid != ui_current->uid || gid != ui_current->gid) {
+                                uwsgi_log("[emperor-tyrant] !!! permissions of vassal %s changed. stopping the instance... !!!\n", name);
+                                emperor_stop(ui_current);
+                                return;
+                        }
+                }
+                // check if mtime is changed and the uWSGI instance must be reloaded
+                if (ts > ui_current->last_mod) {
+                        // make a new config (free the old one)
+                        free(ui_current->config);
+                        ui_current->config = config;
+                        ui_current->config_len = strlen(config);
+                        // always respawn (no need for amqp-style rules)
+                        emperor_respawn(ui_current, ts);
+                }
+        }
+        else {
+                // make a copy of the config as it will be freed
+                emperor_add(ues, name, ts, uwsgi_str(config), strlen((const char *)config), uid, gid);
+        }
+}
+
