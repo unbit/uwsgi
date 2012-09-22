@@ -926,10 +926,10 @@ struct uwsgi_timer *event_queue_ack_timer(int id) {
 }
 #endif
 
-inline int event_queue_read() {
+int event_queue_read() {
 	return UWSGI_EVENT_IN;
 }
 
-inline int event_queue_write() {
+int event_queue_write() {
 	return UWSGI_EVENT_OUT;
 }

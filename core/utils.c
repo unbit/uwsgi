@@ -1193,7 +1193,7 @@ char *uwsgi_str_contains(char *str, int slen, char what) {
 }
 
 // fast compare 2 sized strings
-inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
+int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 
 	if (slen != dlen)
 		return 1;
@@ -1203,7 +1203,7 @@ inline int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 }
 
 // fast sized check of initial part of a string
-inline int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
+int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
 
 	if (slen < dlen)
 		return -1;
@@ -1212,7 +1212,7 @@ inline int uwsgi_starts_with(char *src, int slen, char *dst, int dlen) {
 }
 
 // unsized check
-inline int uwsgi_startswith(char *src, char *what, int wlen) {
+int uwsgi_startswith(char *src, char *what, int wlen) {
 
 	int i;
 
@@ -2149,7 +2149,7 @@ int uwsgi_waitfd_event(int fd, int timeout, int event) {
 	return ret;
 }
 
-inline void *uwsgi_malloc(size_t size) {
+void *uwsgi_malloc(size_t size) {
 
 	char *ptr = malloc(size);
 	if (ptr == NULL) {
@@ -2160,7 +2160,7 @@ inline void *uwsgi_malloc(size_t size) {
 	return ptr;
 }
 
-inline void *uwsgi_calloc(size_t size) {
+void *uwsgi_calloc(size_t size) {
 
 	char *ptr = uwsgi_malloc(size);
 	memset(ptr, 0, size);

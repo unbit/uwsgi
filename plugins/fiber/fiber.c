@@ -15,7 +15,7 @@ VALUE uwsgi_fiber_request() {
 	return Qnil;
 }
 
-inline static void fiber_schedule_to_req() {
+static inline void fiber_schedule_to_req() {
 
 	int id = uwsgi.wsgi_req->async_id;
 
@@ -33,7 +33,7 @@ inline static void fiber_schedule_to_req() {
 
 }
 
-inline static void fiber_schedule_to_main(struct wsgi_request *wsgi_req) {
+static inline void fiber_schedule_to_main(struct wsgi_request *wsgi_req) {
 
 	rb_fiber_yield(0, NULL);
 	uwsgi.wsgi_req = wsgi_req;

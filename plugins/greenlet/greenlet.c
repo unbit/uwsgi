@@ -28,7 +28,7 @@ PyObject *py_uwsgi_greenlet_request(PyObject * self, PyObject *args) {
 
 PyMethodDef uwsgi_greenlet_request_method[] = {{"uwsgi_greenlet_request", py_uwsgi_greenlet_request, METH_VARARGS, ""}};
 
-inline static void greenlet_schedule_to_req() {
+static inline void greenlet_schedule_to_req() {
 
 	int id = uwsgi.wsgi_req->async_id;
 
@@ -45,7 +45,7 @@ inline static void greenlet_schedule_to_req() {
 
 }
 
-inline static void greenlet_schedule_to_main(struct wsgi_request *wsgi_req) {
+static inline void greenlet_schedule_to_main(struct wsgi_request *wsgi_req) {
 
 	PyGreenlet_Switch(ugl.main, NULL, NULL);
 	uwsgi.wsgi_req = wsgi_req;

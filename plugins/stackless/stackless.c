@@ -27,7 +27,7 @@ PyObject *py_uwsgi_stackless_request(PyObject * self, PyObject *args) {
 
 PyMethodDef uwsgi_stackless_request_method[] = {{"uwsgi_stackless_request", py_uwsgi_stackless_request, METH_VARARGS, ""}};
 
-inline static void stackless_schedule_to_req() {
+static inline static void stackless_schedule_to_req() {
 
 	int id = uwsgi.wsgi_req->async_id;
 
@@ -47,7 +47,7 @@ inline static void stackless_schedule_to_req() {
 
 }
 
-inline static void stackless_schedule_to_main(struct wsgi_request *wsgi_req) {
+static inline static void stackless_schedule_to_main(struct wsgi_request *wsgi_req) {
 
 	PyStackless_Schedule(Py_None, 1);
 	uwsgi.wsgi_req = wsgi_req;

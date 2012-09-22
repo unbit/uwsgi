@@ -73,10 +73,6 @@ extern char UWSGI_EMBED_CONFIG;
 extern char UWSGI_EMBED_CONFIG_END;
 #endif
 
-#ifdef __clang__
-#define inline
-#endif
-
 #define UDEP(pname) extern struct uwsgi_plugin pname##_plugin;
 
 #define ULEP(pname)\
@@ -2179,7 +2175,7 @@ struct wsgi_request *find_wsgi_req_by_id(int);
 void async_add_fd_write(struct wsgi_request *, int, int);
 void async_add_fd_read(struct wsgi_request *, int, int);
 
-inline struct wsgi_request *next_wsgi_req(struct wsgi_request *);
+struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 
 
 void async_add_timeout(struct wsgi_request *, int);
@@ -2240,8 +2236,8 @@ void uwsgi_opt_ldap_dump_ldif(char *, char *, void *);
 void uwsgi_ldap_config(char *);
 #endif
 
-inline int uwsgi_strncmp(char *, int, char *, int);
-inline int uwsgi_startswith(char *, char *, int);
+int uwsgi_strncmp(char *, int, char *, int);
+int uwsgi_startswith(char *, char *, int);
 
 
 char *uwsgi_concat(int, ...);
@@ -2321,9 +2317,8 @@ char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
 
-inline void *uwsgi_malloc(size_t);
-inline void *uwsgi_calloc(size_t);
-
+void *uwsgi_malloc(size_t);
+void *uwsgi_calloc(size_t);
 
 
 int event_queue_init(void);
@@ -2538,14 +2533,8 @@ struct rb_root
 void rb_insert_color(struct rb_node *, struct rb_root *);
 void rb_erase(struct rb_node *, struct rb_root *);
 
-#ifdef __clang__
 void rb_link_node(struct rb_node *, struct rb_node *,
                                 struct rb_node **);
-#else
-inline void rb_link_node(struct rb_node *, struct rb_node *,
-                                struct rb_node **);
-#endif
-
 
 struct uwsgi_rb_timer {
 
@@ -2584,8 +2573,8 @@ struct uwsgi_async_request {
 	struct uwsgi_async_request *next;
 };
 
-inline int event_queue_read(void);
-inline int event_queue_write(void);
+int event_queue_read(void);
+int event_queue_write(void);
 
 void uwsgi_help(char *opt, char *val, void *);
 
@@ -2610,7 +2599,7 @@ int uwsgi_amqp_consume_queue(int, char *, char *, char *, char *, char *, char *
 char *uwsgi_amqp_consume(int, uint64_t *, char **);
 
 int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t, int);
-inline int uwsgi_starts_with(char *, int, char *, int);
+int uwsgi_starts_with(char *, int, char *, int);
 
 #ifdef __sun__
 time_t timegm(struct tm *);

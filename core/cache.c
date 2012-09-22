@@ -102,7 +102,7 @@ uint32_t djb33x_hash(char *key, int keylen) {
 }
 
 
-inline uint64_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
+static inline uint64_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
 
 	uint32_t hash = djb33x_hash(key, keylen);
 	

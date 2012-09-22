@@ -32,7 +32,7 @@ void u_green_request() {
 	uwsgi.wsgi_req->suspended = 0;
 }
 
-inline static void u_green_schedule_to_req() {
+static inline void u_green_schedule_to_req() {
 
 	int id = uwsgi.wsgi_req->async_id;
 
@@ -58,7 +58,7 @@ inline static void u_green_schedule_to_req() {
 
 }
 
-inline static void u_green_schedule_to_main(struct wsgi_request *wsgi_req) {
+static inline void u_green_schedule_to_main(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi.p[wsgi_req->uh.modifier1]->suspend) {
 		uwsgi.p[wsgi_req->uh.modifier1]->suspend(wsgi_req);
