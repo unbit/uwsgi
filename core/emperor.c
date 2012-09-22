@@ -1208,6 +1208,9 @@ void emperor_send_stats(int fd) {
 		if (uwsgi_stats_keylong_comma(us, "gid", (unsigned long long) c_ui->gid))
 			goto end0;
 
+		if (uwsgi_stats_keyval_comma(us, "monitor", c_ui->scanner->arg))
+			goto end0;
+
 		if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) c_ui->respawns))
 			goto end0;
 
