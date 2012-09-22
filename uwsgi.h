@@ -21,7 +21,7 @@ extern "C" {
 				wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri, wsgi_req->remote_addr_len, wsgi_req->remote_addr); else uwsgi_log_verbose("%s %s [%s line %d] \n",x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_debug(x, ...) uwsgi_log("[uWSGI DEBUG] " x, __VA_ARGS__);
 #define uwsgi_rawlog(x) if (write(2, x, strlen(x)) != strlen(x)) uwsgi_error("write()")
-#define uwsgi_str(x) uwsgi_concat2(x, "")
+#define uwsgi_str(x) uwsgi_concat2(x, (char *)"")
 
 #define uwsgi_notify(x) if (uwsgi.notify) uwsgi.notify(x)
 #define uwsgi_notify_ready() uwsgi.shared->ready = 1 ; if (uwsgi.notify_ready) uwsgi.notify_ready()
@@ -2923,6 +2923,7 @@ void uwsgi_opt_add_socket(char *, char *, void *);
 void uwsgi_opt_add_lazy_socket(char *, char *, void *);
 void uwsgi_opt_add_cron(char *, char *, void *);
 void uwsgi_opt_load_plugin(char *, char *, void *);
+void uwsgi_opt_load_dl(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
 void uwsgi_opt_cluster_log(char *, char *, void *);
 void uwsgi_opt_cluster_reload(char *, char *, void *);
@@ -3147,6 +3148,7 @@ void uwsgi_logvar_add(struct wsgi_request *, char *, uint8_t, char *, uint8_t);
 struct uwsgi_emperor_scanner {
         char *arg;
 	int fd;
+	void *data;
 	void (*event_func)(struct uwsgi_emperor_scanner *);
         struct uwsgi_imperial_monitor *monitor;
         struct uwsgi_emperor_scanner *next;

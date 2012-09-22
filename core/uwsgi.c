@@ -480,6 +480,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"plugins-list", no_argument, 0, "list enabled plugins", uwsgi_opt_true, &uwsgi.plugins_list, 0},
 	{"plugin-list", no_argument, 0, "list enabled plugins", uwsgi_opt_true, &uwsgi.plugins_list, 0},
 	{"autoload", no_argument, 0, "try to automatically load plugins when unknown options are found", uwsgi_opt_true, &uwsgi.autoload, UWSGI_OPT_IMMEDIATE},
+	{"dlopen", required_argument, 0, "blindly load a shared library", uwsgi_opt_load_dl, NULL, UWSGI_OPT_IMMEDIATE},
 	{"allowed-modifiers", required_argument, 0, "comma separated list of allowed modifiers", uwsgi_opt_set_str, &uwsgi.allowed_modifiers, 0},
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
 
@@ -3296,6 +3297,12 @@ void uwsgi_opt_pidfile_signal(char *opt, char *pidfile, void *sig) {
 	int signum = (long) signum_fake_ptr;
 	signal_pidfile(signum, pidfile);
 	exit(0);
+}
+
+void uwsgi_opt_load_dl(char *opt, char *value, void *none) {
+	if (!dlopen(value, RTLD_NOW | RTLD_GLOBAL)) {
+        	uwsgi_log( "%s\n", dlerror());
+	}
 }
 
 void uwsgi_opt_load_plugin(char *opt, char *value, void *none) {
