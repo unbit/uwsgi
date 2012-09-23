@@ -74,6 +74,10 @@ void uwsgi_init_default() {
         uwsgi.subscriptions_sign_check_tolerance = 3600 * 24;
 #endif
 
+#ifdef UWSGI_ALARM
+	uwsgi.alarm_freq = 3;
+#endif
+
 }
 
 void uwsgi_setup_reload() {

@@ -265,6 +265,9 @@ int uwsgi_master_log(void) {
 
 	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
 	if (rlen > 0) {
+#ifdef UWSGI_ALARM
+		uwsgi_alarm_log_check(uwsgi.log_master_buf, rlen);
+#endif
 #ifdef UWSGI_PCRE
 		struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
 		while(url) {
@@ -644,6 +647,11 @@ int master_loop(char **argv, char **environ) {
 				uwsgi.threaded_logger = 0;
 			}
 		}
+
+#ifdef UWSGI_ALARM
+		// initialize the alarm subsystem
+		uwsgi_alarms_init();
+#endif
 	}
 
 	if (uwsgi.cache_max_items > 0 && !uwsgi.cache_no_expire) {

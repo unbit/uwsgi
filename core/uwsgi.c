@@ -352,6 +352,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_PCRE
 	{"log-drain", required_argument, 0, "drain (do not show) log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_drain_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #endif
+#ifdef UWSGI_ALARM
+	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"alarm-freq", required_argument, 0, "tune the anti-loop alam system (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.alarm_freq, 0},
+	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"alarm-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
+	{"alarms-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
+#endif
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #endif
@@ -1529,6 +1536,18 @@ static void clocks_list(void) {
 	uwsgi_log("--- end of clocks list ---\n\n");
 }
 
+#ifdef UWSGI_ALARM
+static void alarms_list(void) {
+        struct uwsgi_alarm *alarms = uwsgi.alarms;
+        uwsgi_log("\n*** uWSGI loaded alarms ***\n");
+        while(alarms) {
+                uwsgi_log("%s\n", alarms->name);
+                alarms = alarms->next;
+        }
+        uwsgi_log("--- end of alarms list ---\n\n");
+}
+#endif
+
 static time_t uwsgi_unix_seconds() {
 	return time(NULL);
 }
@@ -1743,6 +1762,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_imperial_monitor("dir", uwsgi_imperial_monitor_directory_init, uwsgi_imperial_monitor_directory);
         uwsgi_register_imperial_monitor("glob", uwsgi_imperial_monitor_glob_init, uwsgi_imperial_monitor_glob);
 
+
+#ifdef UWSGI_ALARM
+	// register embedded alarms
+	uwsgi_register_embedded_alarms();
+#endif
+
+
 	/* uWSGI IS CONFIGURED !!! */
 
 	if (uwsgi.dump_options) {
@@ -1781,6 +1807,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	if (uwsgi.clock_list)
 		clocks_list();
+
+	if (uwsgi.alarms_list)
+		alarms_list();
 
 	// set the clock
 	if (uwsgi.requested_clock)

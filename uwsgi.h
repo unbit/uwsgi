@@ -838,6 +838,45 @@ struct uwsgi_router {
 
 #endif
 
+#ifdef UWSGI_ALARM
+struct uwsgi_alarm;
+struct uwsgi_alarm_instance {
+	char *name;
+	char *arg;
+	void *data_ptr;
+	uint8_t data8;
+	uint16_t data16;
+	uint32_t data32;
+
+	time_t last_run;
+
+	char *last_msg;
+	size_t last_msg_size;
+
+	struct uwsgi_alarm *alarm;
+	struct uwsgi_alarm_instance *next;
+};
+
+struct uwsgi_alarm {
+	char *name;
+	void (*init)(struct uwsgi_alarm_instance *);
+	void (*func)(struct uwsgi_alarm_instance *, char *, size_t);
+	struct uwsgi_alarm *next;
+};
+
+struct uwsgi_alarm_ll {
+	struct uwsgi_alarm_instance *alarm;
+	struct uwsgi_alarm_ll *next;
+};
+
+struct uwsgi_alarm_log {
+	pcre *pattern;
+        pcre_extra *pattern_extra;
+	struct uwsgi_alarm_ll *alarms;
+	struct uwsgi_alarm_log *next;
+};
+#endif
+
 struct __attribute__ ((packed)) uwsgi_header {
 	uint8_t modifier1;
 	uint16_t pktsize;
@@ -1282,6 +1321,9 @@ struct uwsgi_server {
 	int loggers_list;
 	int loop_list;
 	int clock_list;
+#ifdef UWSGI_ALARM
+	int alarms_list;
+#endif
 
 	struct wsgi_request *wsgi_req;
 
@@ -1397,6 +1439,15 @@ struct uwsgi_server {
 
 #ifdef UWSGI_PCRE
 	struct uwsgi_regexp_list *log_drain_rules;
+#endif
+
+#ifdef UWSGI_ALARM
+	int alarm_freq;
+	struct uwsgi_string_list *alarm_list;
+	struct uwsgi_string_list *alarm_logs_list;
+	struct uwsgi_alarm *alarms;
+	struct uwsgi_alarm_instance *alarm_instances;
+	struct uwsgi_alarm_log *alarm_logs;
 #endif
 
 	int threaded_logger;
@@ -3245,6 +3296,15 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *, char *, char *, tim
 #if defined(__linux__)
 #define UWSGI_ELF
 char *uwsgi_elf_section(char *, char *, size_t *);
+#endif
+
+#ifdef UWSGI_ALARM
+void uwsgi_alarm_log_check(char *, size_t);
+void uwsgi_alarm_run(struct uwsgi_alarm_instance *, char *, size_t);
+void uwsgi_alarm_log_run(struct uwsgi_alarm_log *, char *, size_t);
+void uwsgi_register_alarm(char *, void (*)(struct uwsgi_alarm_instance *), void (*)(struct uwsgi_alarm_instance *, char *, size_t));
+void uwsgi_register_embedded_alarms();
+void uwsgi_alarms_init();
 #endif
 
 void uwsgi_check_emperor(void);

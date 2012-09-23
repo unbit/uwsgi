@@ -42,6 +42,7 @@ report['filemonitor'] = False
 report['udp'] = False
 report['pcre'] = False
 report['routing'] = False
+report['alarm'] = False
 report['capabilities'] = False
 report['async'] = False
 report['minterpreters'] = False
@@ -725,7 +726,7 @@ class uConf(object):
             report['pcre'] = True
 
         if self.get('routing'):
-            if self.get('pcre') == 'auto':
+            if self.get('routing') == 'auto':
                 if has_pcre:
                     self.gcc_list.append('core/routing')
                     self.cflags.append("-DUWSGI_ROUTING") 
@@ -734,6 +735,17 @@ class uConf(object):
                 self.gcc_list.append('core/routing')
                 self.cflags.append("-DUWSGI_ROUTING")
                 report['routing'] = True
+
+        if self.get('alarm'):
+            if self.get('alarm') == 'auto':
+                if has_pcre:
+                    self.gcc_list.append('core/alarm')
+                    self.cflags.append("-DUWSGI_ALARM") 
+                    report['alarm'] = True
+            else:
+                self.gcc_list.append('core/alarm')
+                self.cflags.append("-DUWSGI_ALARM")
+                report['alarm'] = True
 
 
         if self.has_include('sys/capability.h') and uwsgi_os == 'Linux':
