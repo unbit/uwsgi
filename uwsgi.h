@@ -847,6 +847,7 @@ struct uwsgi_alarm_instance {
 	uint8_t data8;
 	uint16_t data16;
 	uint32_t data32;
+	uint64_t data64;
 
 	time_t last_run;
 
@@ -3306,6 +3307,23 @@ void uwsgi_register_alarm(char *, void (*)(struct uwsgi_alarm_instance *), void 
 void uwsgi_register_embedded_alarms();
 void uwsgi_alarms_init();
 #endif
+
+struct uwsgi_thread {
+	pthread_t tid;
+	int pipe[2];
+	int queue;
+	ssize_t rlen;
+	void *data;
+	char *buf;
+	off_t pos;
+	size_t len;
+	uint64_t custom0;
+	uint64_t custom1;
+	uint64_t custom2;
+	uint64_t custom3;
+	void (*func)(struct uwsgi_thread *);
+};
+struct uwsgi_thread *uwsgi_thread_new(void (*)(struct uwsgi_thread *));
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

@@ -4846,3 +4846,49 @@ clear:
 	return output;
 }
 #endif
+
+static void *uwsgi_thread_run(void *arg) {
+	struct uwsgi_thread *ut = (struct uwsgi_thread *) arg;
+        // block all signals
+        sigset_t smask;
+        sigfillset(&smask);
+        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+
+	ut->queue = event_queue_init();
+	event_queue_add_fd_read(ut->queue, ut->pipe[1]);	
+
+	ut->func(ut);
+	return NULL;
+}
+
+struct uwsgi_thread *uwsgi_thread_new(void (*func)(struct uwsgi_thread *)) {
+
+	struct uwsgi_thread *ut = uwsgi_malloc(sizeof(struct uwsgi_thread));
+
+#if defined(SOCK_SEQPACKET) && defined(__linux__)
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, ut->pipe)) {
+#else
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ut->pipe)) {
+#endif
+		free(ut);
+                return NULL;
+        }
+
+        uwsgi_socket_nb(ut->pipe[0]);
+        uwsgi_socket_nb(ut->pipe[1]);
+
+	ut->func = func;
+
+	if (pthread_create(&ut->tid, NULL, uwsgi_thread_run, ut)) {
+                uwsgi_error("pthread_create()");
+		goto error;
+	}
+
+	return ut;
+error:
+	close(ut->pipe[0]);
+	close(ut->pipe[1]);
+	free(ut);
+	return NULL;
+}
+
