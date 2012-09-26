@@ -29,7 +29,6 @@ struct uwsgi_option uwsgi_rack_options[] = {
         {"rb-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
         {"rbthreads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
         {"ruby-threads", required_argument, 0, "set the number of ruby threads to run", uwsgi_opt_set_int, &ur.rb_threads, 0},
-	{"rb-patch-rack-bodyproxy", no_argument, 0, "some specific (old) combos of ruby 1.9+rack could require that hack...", uwsgi_opt_true, &ur.patch_bodyproxy, 0},
 #endif
 
         {0, 0, 0, 0, 0, 0 ,0},
@@ -975,44 +974,6 @@ void uwsgi_rack_resume(struct wsgi_request *wsgi_req) {
 	uwsgi_log("RESUMING RUBY\n");
 }
 
-#ifdef RUBY19
-VALUE uwsgi_call_block(VALUE body, VALUE block) {
-
-	return rb_funcall(block, rb_intern("call"), 1, body );
-}
-
-VALUE uwsgi_rack_patch_body_proxy_each(int argc, VALUE *argv, VALUE self) {
-
-	VALUE block = Qnil;
-	rb_scan_args(argc, argv, "0&", &block);
-
-	if(!RTEST(block)) {
-		rb_raise(rb_eArgError, "a block is required");
-		return Qnil;
-	}
-
-	VALUE original_body = rb_iv_get(self, "@body");
-	if (original_body != Qnil) {
-		return rb_block_call(original_body, rb_intern("each"), 0, 0, uwsgi_call_block, block);
-	}
-
-	return Qnil;
-}
-
-VALUE uwsgi_rack_patch_body_proxy(VALUE foo) {
-
-	VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
-	VALUE rack_body_proxy = rb_const_get(rack, rb_intern("BodyProxy"));	
-
-	if (!rb_respond_to(rack_body_proxy, rb_intern("each"))) {
-		rb_define_method(rack_body_proxy, "each", uwsgi_rack_patch_body_proxy_each, -1);
-		return Qtrue;
-	}
-
-	return Qnil;
-}
-#endif
-
 VALUE init_rack_app( VALUE script ) {
 
 	int error;
@@ -1029,11 +990,10 @@ VALUE init_rack_app( VALUE script ) {
         VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
 
 #ifdef RUBY19
-	if (ur.patch_bodyproxy) {
-		VALUE ret = rb_protect(uwsgi_rack_patch_body_proxy, rack, &error);
-		if (!error && ret != Qnil) {
+	if (rb_eval_string("module Rack;class BodyProxy;def each(&block);@body.each(&block);end;end;end")) {
+		if (uwsgi.mywid <= 1) {
 			uwsgi_log("Rack::BodyProxy successfully patched for ruby 1.9.x\n");
-		}
+		}	
 	}
 #endif
 
