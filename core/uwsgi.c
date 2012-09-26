@@ -1808,8 +1808,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.clock_list)
 		clocks_list();
 
+#ifdef UWSGI_ALARM
 	if (uwsgi.alarms_list)
 		alarms_list();
+#endif
 
 	// set the clock
 	if (uwsgi.requested_clock)
