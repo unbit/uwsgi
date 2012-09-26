@@ -595,7 +595,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	if (bind(serverfd, (struct sockaddr *) &uws_addr, sizeof(uws_addr)) != 0) {
 		if (errno == EADDRINUSE) {
-			uwsgi_log("probably another instance of uWSGI is running on the same address.\n");
+			uwsgi_log("probably another instance of uWSGI is running on the same address (%s).\n", socket_name);
 		}
 		uwsgi_error("bind()");
 		uwsgi_nuclear_blast();
