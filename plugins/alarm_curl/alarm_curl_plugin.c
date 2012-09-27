@@ -4,6 +4,7 @@
 extern struct uwsgi_server uwsgi;
 
 struct uwsgi_alarm_curl_config {
+	int first;
 	char *arg;
 	char *subject;
 	char *to;
@@ -49,23 +50,23 @@ static struct uwsgi_alarm_curl_opt uaco[] = {
 	{"ssl", CURLOPT_USE_SSL, uwsgi_alarm_curl_ssl},
 	{"auth_user", CURLOPT_USERNAME, NULL},
 	{"auth_pass", CURLOPT_PASSWORD, NULL},
+	{"method", CURLOPT_CUSTOMREQUEST, NULL},
 	{"timeout", CURLOPT_TIMEOUT, uwsgi_alarm_curl_int},
 	{"conn_timeout", CURLOPT_CONNECTTIMEOUT, uwsgi_alarm_curl_int},
 	{NULL, 0, NULL},
 };
 
 static void uwsgi_alarm_curl_setopt(CURL *curl, char *opt, struct uwsgi_alarm_curl_config *uacc) {
-	static int first = 0;
 	struct uwsgi_alarm_curl_opt *o = uaco;
 	char *equal = strchr(opt,'=');
 	if (!equal) {
-		if (!first) {
+		if (!uacc->first) {
 			curl_easy_setopt(curl, CURLOPT_URL, opt);
-			first = 1;
+			uacc->first = 1;
 		}
 		return;
 	}
-	first = 1;
+	uacc->first = 1;
 	*equal = 0;
 	while(o->name) {
 		if (!strcmp(o->name, opt)) {
@@ -143,6 +144,10 @@ void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	curl_easy_setopt(curl, CURLOPT_READFUNCTION, uwsgi_alarm_curl_read_callback);
 	curl_easy_setopt(curl, CURLOPT_READDATA, ut);
+	curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+	curl_easy_setopt(curl, CURLOPT_POST, 1L);
+	struct curl_slist *expect = NULL; expect = curl_slist_append(expect, "Expect:");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, expect);
 
 	struct uwsgi_alarm_curl_config *uacc = (struct uwsgi_alarm_curl_config *) ut->data;
 	char *opts = uwsgi_str(uacc->arg);
@@ -164,6 +169,7 @@ void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 		ut->pos = 0;
 		ut->len = (size_t) rlen;
 		ut->custom0 = 0;
+		curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t) ut->len);
 		CURLcode res = curl_easy_perform(curl);
 		if (res != CURLE_OK) {
 			uwsgi_log("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
