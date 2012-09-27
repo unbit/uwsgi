@@ -132,7 +132,7 @@ skip:
 	return remains;	
 }
 
-void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
+static void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 	int interesting_fd;
 	ut->buf = uwsgi_malloc(uwsgi.log_master_bufsize);
 
@@ -172,7 +172,7 @@ void uwsgi_alarm_curl_loop(struct uwsgi_thread *ut) {
 		curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t) ut->len);
 		CURLcode res = curl_easy_perform(curl);
 		if (res != CURLE_OK) {
-			uwsgi_log("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+			uwsgi_log_alarm("-curl] curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
 		}
 		
 	}
@@ -193,7 +193,7 @@ static void uwsgi_alarm_curl_func(struct uwsgi_alarm_instance *uai, char *msg, s
 	ut->rlen = write(ut->pipe[0], msg, len);
 }
 
-void uwsgi_alarm_curl_load(void) {
+static void uwsgi_alarm_curl_load(void) {
 	uwsgi_register_alarm("curl", uwsgi_alarm_curl_init, uwsgi_alarm_curl_func);
 }
 

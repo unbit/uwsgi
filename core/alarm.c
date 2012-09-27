@@ -38,7 +38,7 @@ void uwsgi_alarm_func_cmd(struct uwsgi_alarm_instance *uai, char *msg, size_t le
 void uwsgi_alarm_init_mule(struct uwsgi_alarm_instance *uai) {
         uai->data32 = atoi(uai->arg);
 	if (uai->data32 > (uint32_t) uwsgi.mules_cnt) {
-		uwsgi_log("[uwsgi-alarm] invalid mule_id, fallback to 0\n");
+		uwsgi_log_alarm("] invalid mule_id (%d mules available), fallback to 0\n", uwsgi.mules_cnt);
 		uai->data32 = 0;
 	}
 }
@@ -231,6 +231,7 @@ void uwsgi_alarms_init() {
 
 // check if a log should raise an alarm
 void uwsgi_alarm_log_check(char *msg, size_t len) {
+	if (!uwsgi_strncmp(msg, len, "[uwsgi-alarm", 12)) return;
 	struct uwsgi_alarm_log *ual = uwsgi.alarm_logs;
         while(ual) {
         	if (uwsgi_regexp_match(ual->pattern, ual->pattern_extra, msg, len) >= 0) {
