@@ -1,5 +1,4 @@
 #include "../../uwsgi.h"
-#include <strophe.h>
 
 void uwsgi_alarm_xmpp_loop(struct uwsgi_thread *);
 
