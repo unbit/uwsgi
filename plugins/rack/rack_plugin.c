@@ -158,7 +158,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 			}
 			else {
 				chunk_size = NUM2LONG(RARRAY_PTR(args)[0]);
-				// hack to bypass broken middlewares
+				// hack to tolerate broken middlewares
 				if (chunk_size <= 0) {
 					chunk_size = wsgi_req->post_cl;
 				}
@@ -173,8 +173,6 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 			// push in the specified buffer
 			if (RARRAY_LEN(args) > 1) {
                         	rb_str_cat(RARRAY_PTR(args)[1], tmp_chunk, rlen);
-				free(tmp_chunk);
-                        	return RARRAY_PTR(args)[1];
 			}
 			// return a new string
 			chunk = rb_str_new(tmp_chunk, rlen);
@@ -210,7 +208,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		}
 		else {
 			chunk_size = NUM2LONG(RARRAY_PTR(args)[0]);
-			// hack to respect broken middlewares
+			// hack to tolerate broken middlewares
 			if (chunk_size <= 0) {
 				chunk_size = wsgi_req->post_cl;
 			}
@@ -220,8 +218,6 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		}
 		if (RARRAY_LEN(args) > 1) {
 			rb_str_cat(RARRAY_PTR(args)[1], wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
-			wsgi_req->buf_pos+=chunk_size;
-			return RARRAY_PTR(args)[1];
 		}
 		chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
 		wsgi_req->buf_pos+=chunk_size;
