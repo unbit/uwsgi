@@ -128,7 +128,7 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
 	VALUE chunk;
-	unsigned int chunk_size;
+	long chunk_size;
 
 /*
 	When EOF is reached, this method returns nil if length is given and not nil, or "" if length is not given or is nil.
@@ -153,7 +153,16 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		}
 		// size specified
 		else if (RARRAY_LEN(args) > 0) {
-			chunk_size = NUM2UINT(RARRAY_PTR(args)[0]);
+			if (RARRAY_PTR(args)[0] == Qnil) {
+				chunk_size = wsgi_req->post_cl;
+			}
+			else {
+				chunk_size = NUM2LONG(RARRAY_PTR(args)[0]);
+				// hack to bypass broken middlewares
+				if (chunk_size <= 0) {
+					chunk_size = wsgi_req->post_cl;
+				}
+			}
 			char *tmp_chunk = uwsgi_malloc(chunk_size);
 			size_t rlen = fread(tmp_chunk, 1, chunk_size, (FILE *) wsgi_req->async_post);
 			// error, return Qnil
@@ -196,7 +205,16 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 		return chunk;
 	}
 	else if (RARRAY_LEN(args) > 0) {
-		chunk_size = NUM2UINT(RARRAY_PTR(args)[0]);
+		if (RARRAY_PTR(args)[0] == Qnil) {
+			chunk_size = wsgi_req->post_cl;
+		}
+		else {
+			chunk_size = NUM2LONG(RARRAY_PTR(args)[0]);
+			// hack to respect broken middlewares
+			if (chunk_size <= 0) {
+				chunk_size = wsgi_req->post_cl;
+			}
+		}
 		if (wsgi_req->buf_pos+chunk_size > wsgi_req->post_cl) {
 			chunk_size = wsgi_req->post_cl-wsgi_req->buf_pos;
 		}
