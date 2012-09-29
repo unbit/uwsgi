@@ -1548,6 +1548,7 @@ struct uwsgi_server {
 #endif
 
 #ifdef UWSGI_MULTICAST
+	int multicast_ttl;
 	char *multicast_group;
 #endif
 
@@ -2885,7 +2886,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 ssize_t uwsgi_mule_get_msg(int, int, char *, size_t, int);
 
-uint8_t uwsgi_signal_wait(int);
+int uwsgi_signal_wait(int);
 struct uwsgi_app *uwsgi_add_app(int, uint8_t, char *, int, void *, void *);
 int uwsgi_signal_send(int, uint8_t);
 int uwsgi_remote_signal_send(char *, uint8_t); 

@@ -208,7 +208,7 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 static int sapi_uwsgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	uint read_bytes = 0;
-	size_t len;
+	ssize_t len;
 	int fd = -1;
 	
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);

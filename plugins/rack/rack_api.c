@@ -577,7 +577,7 @@ VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
         struct wsgi_request *wsgi_req = current_wsgi_req();
         int wait_for_specific_signal = 0;
         uint8_t uwsgi_signal = 0;
-        uint8_t received_signal;
+        int received_signal;
 
         wsgi_req->signal_received = -1;
 
@@ -594,7 +594,12 @@ VALUE uwsgi_ruby_signal_wait(int argc, VALUE *argv, VALUE *class) {
                 received_signal = uwsgi_signal_wait(-1);
         }
 
-        wsgi_req->signal_received = received_signal;
+	if (received_signal < 0) {
+		rb_raise(rb_eRuntimeError, "unable to call rpc function");
+	}
+	else {
+        	wsgi_req->signal_received = received_signal;
+	}
 
         return Qnil;
 }

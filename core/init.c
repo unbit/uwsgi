@@ -78,6 +78,11 @@ void uwsgi_init_default() {
 	uwsgi.alarm_freq = 3;
 #endif
 
+
+#ifdef UWSGI_MULTICAST
+	uwsgi.multicast_ttl = 1;
+#endif
+
 }
 
 void uwsgi_setup_reload() {

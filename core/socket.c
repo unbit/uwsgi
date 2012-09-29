@@ -174,6 +174,7 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	struct sockaddr_in uws_addr;
 	char *udp_port;
 	int bcast = 1;
+	int reuse = 1;
 
 #ifdef UWSGI_MULTICAST
 	struct ip_mreq mc;
@@ -231,6 +232,10 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 		return -1;
 	}
 
+	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
+                uwsgi_error("setsockopt()");
+        }
+
 #ifdef UWSGI_MULTICAST
 	if (multicast) {
 		// if multicast is enabled remember to bind to INADDR_ANY
@@ -264,6 +269,10 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 		if (setsockopt(serverfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc, sizeof(mc))) {
 			uwsgi_error("setsockopt()");
 		}
+
+		if (setsockopt(serverfd, IPPROTO_IP, IP_MULTICAST_TTL, &uwsgi.multicast_ttl, sizeof(uwsgi.multicast_ttl))) {
+                        uwsgi_error("setsockopt()");
+                }
 
 	}
 #endif

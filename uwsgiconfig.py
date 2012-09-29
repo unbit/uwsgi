@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '1.3-rc4'
+uwsgi_version = '1.3-rc5'
 
 import os
 import re
@@ -1202,6 +1202,8 @@ if __name__ == "__main__":
         os.system("rm -f lib/*.o")
         os.system("rm -f plugins/*/*.o")
         os.system("rm -f build/*.o")
+    elif cmd == '--check':
+        os.system("cppcheck --max-configs=1000 --enable=all -q core/ plugins/ proto/ lib/ apache2/")
 
     else:
         print("unknown uwsgiconfig command")

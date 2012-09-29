@@ -3,7 +3,6 @@
 extern struct uwsgi_server uwsgi;
 
 void uwsgi_init_cache() {
-	int i;
 
 	if (!uwsgi.cache_blocksize)
         	uwsgi.cache_blocksize = UMAX16;
@@ -64,6 +63,7 @@ void uwsgi_init_cache() {
                 }
                 else {
                         uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+			int i;
                         for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
                                 memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
                         }
@@ -243,7 +243,6 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 	struct uwsgi_cache_item *uci, *ucii;
 
 	int ret = -1;
-	int slot;
 
 	if (!keylen || !vallen) return -1;
 
@@ -283,7 +282,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		uci->keysize = keylen;	
 		ret = 0;
 		// now put the value in the 16bit hashtable
-		slot = uci->djbhash % 0xffff;
+		int slot = uci->djbhash % 0xffff;
 		// reset values
 		uci->prev = 0;
 		uci->next = 0;

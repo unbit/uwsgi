@@ -104,7 +104,6 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
         int ret;
 	uint_t nget = 1;
 	timespec_t ts;
-	port_event_t *pe;
 
 	if (timeout >= 0) {
                 ts.tv_sec = timeout;
@@ -122,8 +121,6 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
                 }
                 return 0;
         }
-
-	pe = (port_event_t *) events;
 
         return nget;
 }

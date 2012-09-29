@@ -10,7 +10,7 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
         struct wsgi_request *wsgi_req = current_wsgi_req();
 	int wait_for_specific_signal = 0;
 	uint8_t uwsgi_signal = 0;
-	uint8_t received_signal;
+	int received_signal;
 
 	wsgi_req->signal_received = -1;
 
@@ -28,6 +28,11 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 	}
 	else {
 		received_signal = uwsgi_signal_wait(-1);
+	}
+
+	if (received_signal < 0) {
+		UWSGI_GET_GIL;
+		return PyErr_Format(PyExc_SystemError, "error waiting for signal");
 	}
 
         wsgi_req->signal_received = received_signal;
