@@ -10,12 +10,27 @@
 - merged routers codebase (fastrouter, http, rawrouter)
 - https support in the http router
 - config report at the end of uWSGI build process
-- support for keepalive in the http router
 - improved subscription system (multicast and unix socket)
 - custom options
 - graceful reloads on shared sockets
 - configurable log-master buffer size
 - extreme-optimizations for the stats subsystem
+- redislog and mongodblog plugins
+- added python logger
+- mongodb and postgres imperial monitors
+- implemented psgix.logger and psgix.cleanup
+- full rack spec compliance
+- preliminary ipv6 support
+- gevent graceful reloads
+- support for multiple loggers and logformat
+- lazy-apps to load apps after fork() but without changing reloading subsystem
+- emperor heartbeat subsystem
+- cheaper busyness plugin
+- pluggable clock sources
+- added router_rewrite and router_http plugins
+- external spoolers
+- support for section:// and fd:// loaders
+- alarm subsystem (with curl and xmpp plugins)
 
 
 *** april 2012 ***
