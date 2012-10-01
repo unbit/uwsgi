@@ -852,8 +852,10 @@ void uwsgi_send_stats(int fd) {
 			goto end0;
 		if (uwsgi_stats_keylong_comma(us, "signals", (unsigned long long) uwsgi.workers[i + 1].signals))
 			goto end0;
+/*
 		if (uwsgi_stats_keylong_comma(us, "static_offload_threads", (unsigned long long) uwsgi.workers[i + 1].static_offload_threads))
 			goto end0;
+*/
 
 		if (uwsgi.workers[i + 1].cheaped) {
 			if (uwsgi_stats_keyval_comma(us, "status", "cheap"))

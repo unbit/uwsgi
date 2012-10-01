@@ -965,56 +965,6 @@ ssize_t uwsgi_http_ssl_recv(struct uwsgi_corerouter *cr, struct corerouter_sessi
 
 }
 
-ssize_t uwsgi_http_nb_send(struct uwsgi_corerouter *cr, struct corerouter_session *cs, char *buf, size_t len) {
-	struct http_session *hs = (struct http_session *) cs;
-	ssize_t ret = write(cs->fd, buf, len);
-	if (ret == (ssize_t) len) {
-		if (cs->instance_stopped) {
-                        event_queue_add_fd_read(cr->queue, cs->instance_fd);
-                        cs->instance_stopped = 0;
-                }
-                if (cs->fd_state) {
-                        event_queue_fd_write_to_read(cr->queue, cs->fd);
-                        cs->fd_state = 0;
-                }
-		return len;
-	}
-	else if (ret == 0) {
-		return -1;
-	}
-	else if (ret < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-			if (cs->instance_fd != -1) {
-                        	event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
-                        	cs->instance_stopped = 1;
-                	}
-                	if (!cs->fd_state) {
-                        	event_queue_fd_read_to_write(cr->queue, cs->fd);
-                        	cs->fd_state = 1;
-                	}
-			errno = EINPROGRESS;
-			return -1;
-		}
-		uwsgi_error("write()");
-		return -1;
-	}
-
-	// partial write
-	hs->buffer_len -= ret;
-	memcpy(hs->buffer, hs->buffer + ret, hs->buffer_len);
-	if (cs->instance_fd != -1) {
-        	event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
-                cs->instance_stopped = 1;
-        }
-        if (!cs->fd_state) {
-        	event_queue_fd_read_to_write(cr->queue, cs->fd);
-                cs->fd_state = 1;
-        }
-
-	errno = EINPROGRESS;	
-	return -1;
-}
-
 ssize_t uwsgi_http_ssl_send(struct uwsgi_corerouter *cr, struct corerouter_session *cs, char *buf, size_t len) {
 	struct http_session *hs = (struct http_session *) cs;
         int ret = SSL_write(hs->ssl, buf, len);
@@ -1095,6 +1045,58 @@ void uwsgi_ssl_close(struct uwsgi_corerouter *ucr, struct corerouter_session *cs
 
 }
 #endif
+
+
+ssize_t uwsgi_http_nb_send(struct uwsgi_corerouter *cr, struct corerouter_session *cs, char *buf, size_t len) {
+        struct http_session *hs = (struct http_session *) cs;
+        ssize_t ret = write(cs->fd, buf, len);
+        if (ret == (ssize_t) len) {
+                if (cs->instance_stopped) {
+                        event_queue_add_fd_read(cr->queue, cs->instance_fd);
+                        cs->instance_stopped = 0;
+                }
+                if (cs->fd_state) {
+                        event_queue_fd_write_to_read(cr->queue, cs->fd);
+                        cs->fd_state = 0;
+                }
+                return len;
+        }
+        else if (ret == 0) {
+                return -1;
+        }
+        else if (ret < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                        if (cs->instance_fd != -1) {
+                                event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
+                                cs->instance_stopped = 1;
+                        }
+                        if (!cs->fd_state) {
+                                event_queue_fd_read_to_write(cr->queue, cs->fd);
+                                cs->fd_state = 1;
+                        }
+                        errno = EINPROGRESS;
+                        return -1;
+                }
+                uwsgi_error("write()");
+                return -1;
+        }
+
+        // partial write
+        hs->buffer_len -= ret;
+        memcpy(hs->buffer, hs->buffer + ret, hs->buffer_len);
+        if (cs->instance_fd != -1) {
+                event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
+                cs->instance_stopped = 1;
+        }
+        if (!cs->fd_state) {
+                event_queue_fd_read_to_write(cr->queue, cs->fd);
+                cs->fd_state = 1;
+        }
+
+        errno = EINPROGRESS;
+        return -1;
+}
+
 
 void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
 	struct http_session *hs = (struct http_session *) cs;

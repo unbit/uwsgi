@@ -1908,42 +1908,23 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 				headers_vec[3].iov_len = 48;
                         	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
                                 wsgi_req->header_cnt += 2;
+
+				// Ok, the file must be transferred from uWSGI
+                		if (!wsgi_req->socket->can_offload) {
+					if (!uwsgi_offload_request_do(wsgi_req, real_filename, st->st_size)) goto done;
+                		}
+
                                 wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);
                                 wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
 				// here we need to close the sendfile fd (no-GC involved)
 				close(wsgi_req->sendfile_fd);
 			}
 
-
+done:
                         wsgi_req->status = 200;
                         return 0;
 }
 
-void *uwsgi_static_offload_thread(void *req) {
-
-	struct uwsgi_offload_request *uof_req = (struct uwsgi_offload_request *) req;
-
-	uwsgi_real_file_serve(&uof_req->wsgi_req, uof_req->real_filename, uof_req->real_filename_len, &uof_req->st);
-
-	// close the connection with the webserver
-        if (!uof_req->wsgi_req.fd_closed || !uof_req->wsgi_req.body_as_file) {
-                // NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
-                uof_req->wsgi_req.socket->proto_close(&uof_req->wsgi_req);
-        }
-
-	// free buffer
-	free(uof_req->buffer);
-	// free hvec
-	free(uof_req->hvec);
-	free(uof_req);
-
-	pthread_mutex_lock(&uwsgi.static_offload_thread_lock);
-	uwsgi.workers[uwsgi.mywid].static_offload_threads--;
-	pthread_mutex_unlock(&uwsgi.static_offload_thread_lock);
-
-	return NULL;
-}
- 
 
 int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_t document_root_len, char *path_info, uint16_t path_info_len, int is_a_file) {
 
@@ -1996,56 +1977,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
                 	sse = sse->next;
         	}
 
-		// Ok, the file must be served as static from uWSGI
-		if (uwsgi.static_offload_to_thread) {
-			pthread_mutex_lock(&uwsgi.static_offload_thread_lock);
-			uint64_t offload_thread_count = uwsgi.workers[uwsgi.mywid].static_offload_threads;
-			pthread_mutex_unlock(&uwsgi.static_offload_thread_lock);
-
-			if (offload_thread_count > (uint64_t) uwsgi.static_offload_to_thread) {
-				uwsgi_log_verbose("OVERLOAD !!! unable to offload static file serving\n");
-				return uwsgi_real_file_serve(wsgi_req, real_filename, real_filename_len, &st);
-			}
-			
-			struct uwsgi_offload_request *uor = uwsgi_malloc(sizeof(struct uwsgi_offload_request));
-
-			// buffer
-			uor->buffer = uwsgi_malloc(uwsgi.buffer_size); memcpy(uor->buffer, wsgi_req->buffer, uwsgi.buffer_size);
-			// iovec
-			uor->hvec = uwsgi_malloc(sizeof(struct iovec) * uwsgi.vec_size); memcpy(uor->hvec, wsgi_req->hvec, sizeof(struct iovec) * uwsgi.vec_size);
-
-			// wsgi_req
-			memcpy(&uor->wsgi_req, wsgi_req, sizeof(struct wsgi_request));
-
-			uor->wsgi_req.buffer = uor->buffer;
-			uor->wsgi_req.hvec = uor->hvec;
-
-			// stat
-			memcpy(&uor->st, &st, sizeof(struct stat));
-
-			// filename
-			memcpy(uor->real_filename, real_filename, real_filename_len);
-			uor->real_filename_len = real_filename_len;
-			uor->real_filename[uor->real_filename_len] = 0;
-
-			// avoid closing the connection
-			wsgi_req->fd_closed = 1;
-
-			pthread_mutex_lock(&uwsgi.static_offload_thread_lock);
-			uwsgi.workers[uwsgi.mywid].static_offload_threads++;
-			pthread_mutex_unlock(&uwsgi.static_offload_thread_lock);
-
-			if (pthread_create(&uor->tid, &uwsgi.static_offload_thread_attr, uwsgi_static_offload_thread, (void *) uor)) {
-				uwsgi_error("pthread_create()");
-				// bad condition, better to exit...
-				exit(1);
-			}
-			wsgi_req->status = -30;
-			return 0;
-		}
-		else {
-			return uwsgi_real_file_serve(wsgi_req, real_filename, real_filename_len, &st);
-		}
+		return uwsgi_real_file_serve(wsgi_req, real_filename, real_filename_len, &st);
         }
 
         return -1;

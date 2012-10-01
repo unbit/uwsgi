@@ -4881,7 +4881,12 @@ struct uwsgi_thread *uwsgi_thread_new(void (*func)(struct uwsgi_thread *)) {
 
 	ut->func = func;
 
-	if (pthread_create(&ut->tid, NULL, uwsgi_thread_run, ut)) {
+	pthread_attr_init(&ut->tattr);
+        pthread_attr_setdetachstate(&ut->tattr, PTHREAD_CREATE_DETACHED);
+        // 512K should be enough...
+        pthread_attr_setstacksize(&ut->tattr, 512 * 1024);
+
+	if (pthread_create(&ut->tid, &ut->tattr, uwsgi_thread_run, ut)) {
                 uwsgi_error("pthread_create()");
 		goto error;
 	}

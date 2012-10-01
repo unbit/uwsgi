@@ -35,6 +35,13 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->headers = NULL;
 	}
 
+#ifdef PYTHREE
+	if (wsgi_req->gc_tracker) {
+		Py_DECREF((PyObject *)wsgi_req->gc_tracker);
+		wsgi_req->gc_tracker = NULL;
+	}
+#endif
+
 	// this must be done before headers management
 	if (PyTuple_Size(args) > 2) {
 		exc_info = PyTuple_GetItem(args, 2);
@@ -72,6 +79,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_TypeError, "http status must be a string");
 	}
 
+#ifdef PYTHREE
+	// this list maintains reference to encoded strings.. ugly hack, i know, but it works...
+	wsgi_req->gc_tracker = (void *) PyList_New(0);
+#endif
 
 	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
 		base = 4;
@@ -89,7 +100,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[1].iov_len = 1;
 #ifdef PYTHREE
 		if (self != Py_None) {
-			wsgi_req->hvec[2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
+			PyObject *zero = PyUnicode_AsASCIIString(head);
+			wsgi_req->hvec[2].iov_base = PyBytes_AsString(zero);
+			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
+			Py_DECREF(zero);
 		}
 		else {
 			wsgi_req->hvec[2].iov_base = PyBytes_AsString(head);
@@ -110,7 +124,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[0].iov_len = 8;
 #ifdef PYTHREE
 		if (self != Py_None) {
-			wsgi_req->hvec[1].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(head));
+			PyObject *zero = PyUnicode_AsASCIIString(head);
+			wsgi_req->hvec[1].iov_base = PyBytes_AsString(zero);
+			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
+                        Py_DECREF(zero);
 		}
 		else {
 			wsgi_req->hvec[1].iov_base = PyBytes_AsString(head);
@@ -181,7 +198,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 
 #ifdef PYTHREE
 		if (self != Py_None) {
-			wsgi_req->hvec[j].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_key));
+			PyObject *zero = PyUnicode_AsASCIIString(h_key);
+			wsgi_req->hvec[j].iov_base = PyBytes_AsString(zero);
+			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
+                        Py_DECREF(zero);
 		}
 		else {
 			wsgi_req->hvec[j].iov_base = PyBytes_AsString(h_key);
@@ -195,7 +215,10 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		wsgi_req->hvec[j + 1].iov_len = H_SEP_SIZE;
 #ifdef PYTHREE
 		if (self != Py_None) {
-			wsgi_req->hvec[j + 2].iov_base = PyBytes_AsString(PyUnicode_AsASCIIString(h_value));
+			PyObject *zero = PyUnicode_AsASCIIString(h_value);
+			wsgi_req->hvec[j + 2].iov_base = PyBytes_AsString(zero);
+			PyList_Append((PyObject *) wsgi_req->gc_tracker, zero);
+                        Py_DECREF(zero);
 		}
 		else {
 			wsgi_req->hvec[j + 2].iov_base = PyBytes_AsString(h_value);
@@ -287,6 +310,13 @@ int uwsgi_python_do_send_headers(struct wsgi_request *wsgi_req) {
 		Py_DECREF((PyObject *)wsgi_req->headers);
 		wsgi_req->headers = NULL;
 	}
+
+#ifdef PYTHREE
+	if (wsgi_req->gc_tracker) {
+		Py_DECREF((PyObject *)wsgi_req->gc_tracker);
+		wsgi_req->gc_tracker = NULL;
+	}
+#endif
 
         if (wsgi_req->write_errors > uwsgi.write_errors_tolerance && !uwsgi.disable_write_exception) {
                 uwsgi_py_write_set_exception(wsgi_req);

@@ -636,6 +636,8 @@ struct uwsgi_socket {
 
 	int *retry;
 
+	int can_offload;
+
 	// this is a special map for having socket->thread mapping
 	int *fd_threads;
 
@@ -1007,6 +1009,7 @@ struct wsgi_request {
 	int status;
 	void *status_header;
 	void *headers;
+	void *gc_tracker;
 	size_t response_size;
 	ssize_t headers_size;
 
@@ -1487,8 +1490,7 @@ struct uwsgi_server {
 
 	int check_static_docroot;
 	int static_offload_to_thread;
-	pthread_attr_t static_offload_thread_attr;
-	pthread_mutex_t static_offload_thread_lock;
+	struct uwsgi_thread *offload_thread;
 
 	char *daemonize;
 	char *daemonize2;
@@ -1851,17 +1853,6 @@ struct uwsgi_server {
 
 };
 
-struct uwsgi_offload_request {
-	pthread_t tid;
-	char *buffer;
-	struct iovec *hvec;
-	char real_filename[PATH_MAX+1];
-	size_t real_filename_len;
-	struct stat st;
-	struct wsgi_request wsgi_req;
-};
-
-
 struct uwsgi_rpc {
 	char name[0xff];
 	void *func;
@@ -2091,8 +2082,6 @@ struct uwsgi_worker {
 	int signal_pipe[2];
 
 	uint64_t avg_response_time;
-
-	uint64_t static_offload_threads;
 
 	struct uwsgi_core *cores;
 
@@ -3314,6 +3303,7 @@ void uwsgi_alarms_init();
 
 struct uwsgi_thread {
 	pthread_t tid;
+	pthread_attr_t tattr;
 	int pipe[2];
 	int queue;
 	ssize_t rlen;
@@ -3328,6 +3318,17 @@ struct uwsgi_thread {
 	void (*func)(struct uwsgi_thread *);
 };
 struct uwsgi_thread *uwsgi_thread_new(void (*)(struct uwsgi_thread *));
+
+struct uwsgi_offload_request {
+        int s;
+        int fd;
+        off_t pos;
+        size_t len;
+        size_t written;
+};
+
+struct uwsgi_thread *uwsgi_offload_thread_start(void);
+int uwsgi_offload_request_do(struct wsgi_request *, char *, size_t);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

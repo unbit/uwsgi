@@ -1,8 +1,59 @@
-#ifdef UWSGI_SENDFILE
-
 #include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
+
+/*
+
+enqueue a file transfer to the offload thread
+
+*/
+
+int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size_t len) {
+
+	// avoid closing the connection
+        wsgi_req->fd_closed = 1;
+
+        // fill offload request
+        struct uwsgi_offload_request uor;
+        uor.fd = open(filename, O_RDONLY | O_NONBLOCK);
+        if (uor.fd < 0) {
+        	uwsgi_error_open(filename);
+		goto error;	
+	}
+        uor.s = wsgi_req->poll.fd;
+        uor.pos = 0;
+        uor.len = len;
+	uor.written = 0;
+
+	if (write(uwsgi.offload_thread->pipe[0], &uor, sizeof(struct uwsgi_offload_request)) != sizeof(struct uwsgi_offload_request)) {
+		goto error2;
+	}
+
+	return 0;
+
+error2:
+	close(uor.fd);
+error:
+	wsgi_req->fd_closed = 0;
+	return -1;
+}
+
+static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
+
+	int i;
+	void *events = event_queue_alloc(uwsgi.static_offload_to_thread);
+
+	for(;;) {
+		int nevents = event_queue_wait_multi(ut->queue, -1, events, uwsgi.static_offload_to_thread);
+		for (i=0;i<nevents;i++) {
+			//int interesting_fd = event_queue_interesting_fd(events, i);
+		}
+	}
+}
+
+struct uwsgi_thread *uwsgi_offload_thread_start() {
+	return uwsgi_thread_new(uwsgi_offload_loop);
+}
 
 ssize_t uwsgi_sendfile(struct wsgi_request *wsgi_req) {
 
@@ -173,5 +224,3 @@ ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk,
 #endif
 
 }
-
-#endif

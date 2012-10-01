@@ -2063,15 +2063,6 @@ int uwsgi_start(void *v_argv) {
 		}
 	}
 
-	// prepare offload threads
-	if (uwsgi.static_offload_to_thread) {
-		pthread_attr_init(&uwsgi.static_offload_thread_attr);
-		pthread_attr_setdetachstate(&uwsgi.static_offload_thread_attr, PTHREAD_CREATE_DETACHED);
-		// 512K should be enough...
-		pthread_attr_setstacksize(&uwsgi.static_offload_thread_attr, 512 * 1024);
-		pthread_mutex_init(&uwsgi.static_offload_thread_lock, NULL);
-	}
-
 	if (uwsgi.requested_max_fd) {
 		uwsgi.rl.rlim_cur = uwsgi.requested_max_fd;
 		uwsgi.rl.rlim_max = uwsgi.requested_max_fd;
