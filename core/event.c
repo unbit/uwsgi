@@ -354,13 +354,11 @@ int event_queue_fd_write_to_read(int eq, int fd) {
 
 	struct kevent kev;
 
-#ifndef __FreeBSD__
-        EV_SET(&kev, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, 0);
+        EV_SET(&kev, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
                 uwsgi_error("kevent()");
                 return -1;
         }
-#endif
 
         EV_SET(&kev, fd, EVFILT_READ, EV_ADD, 0, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
@@ -375,13 +373,11 @@ int event_queue_fd_read_to_write(int eq, int fd) {
 
         struct kevent kev;
 
-#ifndef __FreeBSD__
-        EV_SET(&kev, fd, EVFILT_READ, EV_DISABLE, 0, 0, 0);
+        EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
                 uwsgi_error("kevent()");
                 return -1;
         }
-#endif
 
         EV_SET(&kev, fd, EVFILT_WRITE, EV_ADD, 0, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
