@@ -309,7 +309,7 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 
 		// subscribe request ?
 		if (bbuf[3] == 0) {
-			if (uwsgi_add_subscribe_node(ucr->subscriptions, &usr, ucr->subscription_regexp) && ucr->i_am_cheap) {
+			if (uwsgi_add_subscribe_node(ucr->subscriptions, &usr) && ucr->i_am_cheap) {
 				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 				while (ugs) {
 					if (!strcmp(ugs->owner, ucr->name) && !ugs->subscription) {
@@ -323,7 +323,7 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 		}
 		//unsubscribe 
 		else {
-			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ucr->subscription_regexp);
+			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len);
 			if (node && node->len) {
 #ifdef UWSGI_SSL
 				if (uwsgi.subscriptions_sign_check_dir) {
@@ -378,7 +378,7 @@ void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr,
 
 		// subscribe request ?
 		if (bbuf[3] == 0) {
-			if (uwsgi_add_subscribe_node(ucr->subscriptions, &usr, ucr->subscription_regexp) && ucr->i_am_cheap) {
+			if (uwsgi_add_subscribe_node(ucr->subscriptions, &usr) && ucr->i_am_cheap) {
 				struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 				while (ugs) {
 					if (!strcmp(ugs->owner, ucr->name) && !ugs->subscription) {
@@ -392,7 +392,7 @@ void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr,
 		}
 		//unsubscribe 
 		else {
-			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len, ucr->subscription_regexp);
+			struct uwsgi_subscribe_node *node = uwsgi_get_subscribe_node_by_name(ucr->subscriptions, usr.key, usr.keylen, usr.address, usr.address_len);
 			if (node && node->len) {
 				if (node->death_mark == 0)
 					uwsgi_log("[%s pid %d] %.*s => marking %.*s as failed\n", ucr->name, (int) uwsgi.mypid, (int) usr.keylen, usr.key, (int) usr.address_len, usr.address);

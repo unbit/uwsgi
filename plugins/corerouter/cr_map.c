@@ -31,7 +31,7 @@ int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *ucr, struct corerouter_ses
 
 int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
 
-	cr_session->un = uwsgi_get_subscribe_node(ucr->subscriptions, cr_session->hostname, cr_session->hostname_len, ucr->subscription_regexp);
+	cr_session->un = uwsgi_get_subscribe_node(ucr->subscriptions, cr_session->hostname, cr_session->hostname_len);
 	if (cr_session->un && cr_session->un->len) {
 		cr_session->instance_address = cr_session->un->name;
 		cr_session->instance_address_len = cr_session->un->len;

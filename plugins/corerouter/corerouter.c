@@ -127,7 +127,7 @@ void uwsgi_opt_corerouter_ss(char *opt, char *value, void *cr) {
         ucr->has_subscription_sockets++;
 
 	// this is the subscription hash table
-	ucr->subscriptions = uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * UMAX16);
+	ucr->subscriptions = uwsgi_subscription_init_ht();
 
 	ucr->has_backends++;
 

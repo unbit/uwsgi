@@ -4,10 +4,9 @@
 
 	subscription subsystem
 
-	each subscription slot is as an auto-optmizing linked list. Originally it was a uwsgi_dict (now removed from uWSGI) but this
-	would have not be able to support regexp as keys.
+	each subscription slot is as an hashed item in a dictionary
 
-	each slot has another circular linked list containing the nodes names
+	each slot has a circular linked list containing the nodes names
 
 	the structure and system is very similar to uwsgi_dyn_dict already used by the mime type parser
 
@@ -21,7 +20,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
+struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen) {
 
 	if (keylen > 0xff) return NULL;
 	
@@ -42,43 +41,32 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 #endif
 
 	while(current_slot) {
-#ifdef UWSGI_PCRE
-		if (regexp) {
-			if (uwsgi_regexp_match(current_slot->pattern, current_slot->pattern_extra, key, keylen) >= 0) {
-				return current_slot;
-			}
+		if (!uwsgi_strncmp(key, keylen, current_slot->key, current_slot->keylen)) {
+                	// auto optimization
+                       	if (current_slot->prev) {
+                                if (current_slot->hits > current_slot->prev->hits) {
+                                        struct uwsgi_subscribe_slot *slot_parent = current_slot->prev->prev, *slot_prev = current_slot->prev;
+                                        if (slot_parent) {
+       	                                	slot_parent->next = current_slot;
+                                        }
+					else {
+						slot[hash_key] = current_slot;
+					}
+
+					if (current_slot->next) {
+						current_slot->next->prev = slot_prev;
+					}
+
+                                        slot_prev->prev = current_slot;
+                                        slot_prev->next = current_slot->next;
+
+                                        current_slot->next = slot_prev;
+					current_slot->prev = slot_parent;
+
+                       		}
+                       	}
+			return current_slot;
 		}
-		else {
-#endif
-			if (!uwsgi_strncmp(key, keylen, current_slot->key, current_slot->keylen)) {
-                		// auto optimization
-                        	if (current_slot->prev) {
-                                        if (current_slot->hits > current_slot->prev->hits) {
-                                                struct uwsgi_subscribe_slot *slot_parent = current_slot->prev->prev, *slot_prev = current_slot->prev;
-                                                if (slot_parent) {
-                                                       slot_parent->next = current_slot;
-                                                }
-						else {
-							slot[hash_key] = current_slot;
-						}
-
-						if (current_slot->next) {
-							current_slot->next->prev = slot_prev;
-						}
-
-                                                slot_prev->prev = current_slot;
-                                                slot_prev->next = current_slot->next;
-
-                                                current_slot->next = slot_prev;
-						current_slot->prev = slot_parent;
-
-                        		}
-                        	}
-				return current_slot;
-			}
-#ifdef UWSGI_PCRE
-		}
-#endif
 		current_slot = current_slot->next;
 		// check for loopy optimization
 		if (current_slot == slot[hash_key]) break;
@@ -87,80 +75,128 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
         return NULL;
 }
 
-struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, int regexp) {
+// least reference count
+static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node) {
+	// if node is NULL we are in the second step (in lrc mode we do not use teh first step)
+	if (node) return NULL;
 
-	if (keylen > 0xff) return NULL;
-
-	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, key, keylen, regexp);
-
-	if (current_slot) {
-		// slot found, move up in the list increasing hits
-		current_slot->hits++;
-		time_t now = uwsgi_now();
-		struct uwsgi_subscribe_node *node = current_slot->nodes;
-		while(node) {
-			// is the node alive ?
-			if (now - node->last_check > uwsgi.subscription_tolerance) {
-				if (node->death_mark == 0)
-					uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
-				node->failcnt++;
-				node->death_mark = 1;
-			}
-			// is the node must be removed ?
-			if (node->death_mark && node->reference == 0) {
-				// remove the node and move to next
-				struct uwsgi_subscribe_node *dead_node = node;
-				node = node->next;
-				// if the slot has been removed, return NULL;
-				if (uwsgi_remove_subscribe_node(slot, dead_node) == 1) {
-					return NULL;
-				}
-				continue;
-			}
-
-			if (node->death_mark == 0 && node->wrr > 0) {
-				node->wrr--;
-				node->reference++;
-				return node;
-			}
-			node = node->next;
-		}
-
-		// no wrr > 0 node found, reset them
-		node = current_slot->nodes;
-		uint64_t min_weight = 0;
-		while(node) {
-			if (!node->death_mark) {
-				if (min_weight == 0 || node->weight < min_weight) min_weight = node->weight;
-			}
-			node = node->next;
-		}
-
-		// now set wrr
-		node = current_slot->nodes;
-		struct uwsgi_subscribe_node *choosen_node = NULL;
-		while(node) {
-			if (!node->death_mark) {
-				node->wrr = node->weight/min_weight;
+	struct uwsgi_subscribe_node *choosen_node = NULL;
+	node = current_slot->nodes;
+        uint64_t min_rc = 0;
+	while(node) {
+		if (!node->death_mark) {
+			if (min_rc == 0 || node->reference < min_rc) {
+				min_rc = node->reference;
 				choosen_node = node;
 			}
-			node = node->next;
 		}
-		if (choosen_node) {
-			choosen_node->wrr--;
-			choosen_node->reference++;
-		}
-		return choosen_node;
-	
+		node = node->next;
 	}
 
-	return NULL;
+	return choosen_node;
 }
 
-struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, char *val, uint16_t vallen, int regexp) {
+// weighted round robin algo
+static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wrr(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node) {
+	// if node is NULL we are in the second step
+	if (node) {
+		if (node->death_mark == 0 && node->wrr > 0) {
+                	node->wrr--;
+                        node->reference++;
+                        return node;
+                }
+		return NULL;
+	}
+
+	// no wrr > 0 node found, reset them
+        node = current_slot->nodes;
+        uint64_t min_weight = 0;
+        while(node) {
+        	if (!node->death_mark) {
+                	if (min_weight == 0 || node->weight < min_weight) min_weight = node->weight;
+                }
+                node = node->next;
+	}
+
+        // now set wrr
+        node = current_slot->nodes;
+        struct uwsgi_subscribe_node *choosen_node = NULL;
+        while(node) {
+        	if (!node->death_mark) {
+                	node->wrr = node->weight/min_weight;
+                	choosen_node = node;
+                }
+                node = node->next;
+	}
+        if (choosen_node) {
+        	choosen_node->wrr--;
+                choosen_node->reference++;
+	}
+        return choosen_node;
+}
+
+void uwsgi_subscription_set_algo(char *algo) {
+
+	if (!algo) goto wrr;
+
+	if (!strcmp(algo,"wrr")) {
+		uwsgi.subscription_algo = uwsgi_subscription_algo_wrr;
+		return;
+	}
+
+	if (!strcmp(algo,"lrc")) {
+		uwsgi.subscription_algo = uwsgi_subscription_algo_lrc;
+		return;
+	}
+
+wrr:
+	uwsgi.subscription_algo = uwsgi_subscription_algo_wrr;
+}
+
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen) {
 
 	if (keylen > 0xff) return NULL;
-	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, key, keylen, regexp);
+
+	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, key, keylen);
+	if (!current_slot) return NULL;
+
+	// slot found, move up in the list increasing hits
+	current_slot->hits++;
+	time_t now = uwsgi_now();
+	struct uwsgi_subscribe_node *node = current_slot->nodes;
+	while(node) {
+		// is the node alive ?
+		if (now - node->last_check > uwsgi.subscription_tolerance) {
+			if (node->death_mark == 0)
+				uwsgi_log("[uwsgi-subscription for pid %d] %.*s => marking %.*s as failed (no announce received in %d seconds)\n", (int) uwsgi.mypid, (int) keylen, key, (int) node->len, node->name, uwsgi.subscription_tolerance);
+			node->failcnt++;
+			node->death_mark = 1;
+		}
+		// do i need to remove the node ?
+		if (node->death_mark && node->reference == 0) {
+			// remove the node and move to next
+			struct uwsgi_subscribe_node *dead_node = node;
+			node = node->next;
+			// if the slot has been removed, return NULL;
+			if (uwsgi_remove_subscribe_node(slot, dead_node) == 1) {
+				return NULL;
+			}
+			continue;
+		}
+
+		struct uwsgi_subscribe_node *choosen_node = uwsgi.subscription_algo(current_slot, node);
+		if (choosen_node) return choosen_node;
+
+		node = node->next;
+	}
+
+	return uwsgi.subscription_algo(current_slot, node);
+}
+
+struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **slot, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+
+	if (keylen > 0xff) return NULL;
+	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, key, keylen);
 	if (current_slot) {
 		struct uwsgi_subscribe_node *node = current_slot->nodes;
 		while(node) {
@@ -210,14 +246,6 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 
 		// first check if i am the only node
 		if ((!prev_slot && !next_slot) || next_slot == node_slot) {
-#ifdef UWSGI_PCRE
-		if (node_slot->pattern) {
-			pcre_free(node_slot->pattern);
-		}
-		if (node_slot->pattern_extra) {
-			pcre_free(node_slot->pattern_extra);
-		}
-#endif
 #ifdef UWSGI_SSL
 		if (uwsgi.subscriptions_sign_check_dir) {
 			EVP_PKEY_free(node_slot->sign_public_key);
@@ -241,14 +269,6 @@ int uwsgi_remove_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi
 			next_slot->prev = prev_slot;
 		}
 
-#ifdef UWSGI_PCRE
-		if (node_slot->pattern) {
-			pcre_free(node_slot->pattern);
-		}
-		if (node_slot->pattern_extra) {
-			pcre_free(node_slot->pattern_extra);
-		}
-#endif
 #ifdef UWSGI_SSL
 		if (uwsgi.subscriptions_sign_check_dir) {
 			EVP_PKEY_free(node_slot->sign_public_key);
@@ -263,9 +283,9 @@ end:
 	return ret;
 }
 
-struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_req *usr, int regexp) {
+struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slot **slot, struct uwsgi_subscribe_req *usr) {
 
-	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, usr->key, usr->keylen, 0), *old_slot = NULL, *a_slot;
+	struct uwsgi_subscribe_slot *current_slot = uwsgi_get_subscribe_slot(slot, usr->key, usr->keylen), *old_slot = NULL, *a_slot;
 	struct uwsgi_subscribe_node *node, *old_node = NULL;
 
 	if (usr->address_len > 0xff || usr->address_len == 0) return NULL;
@@ -386,17 +406,6 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->key[usr->keylen] = 0;
 		current_slot->hits = 0;
 
-#ifdef UWSGI_PCRE
-		current_slot->pattern = NULL;
-		current_slot->pattern_extra = NULL;
-		if (regexp) {
-			if (uwsgi_regexp_build(current_slot->key, &current_slot->pattern, &current_slot->pattern_extra)) {
-				free(current_slot);
-				return NULL;
-			}
-		}
-#endif
-
 		current_slot->nodes = uwsgi_malloc(sizeof(struct uwsgi_subscribe_node));
 		current_slot->nodes->slot = current_slot;
 		current_slot->nodes->len = usr->address_len;
@@ -418,63 +427,20 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 
 		current_slot->nodes->next = NULL;
 
-#ifdef UWSGI_PCRE
-		// if key is a regexp, order it by keylen
-		if (regexp) {
-			old_slot = NULL;
-			a_slot = slot[hash_key];
-			while(a_slot) {
-				if (a_slot->keylen > current_slot->keylen) {
-					old_slot = a_slot;
-					break;
-				}	
-				a_slot = a_slot->next;
-			}
-
-			if (old_slot) {
-				current_slot->prev = old_slot->prev;
-				old_slot->prev = current_slot;
-				if (current_slot->prev) {
-					old_slot->prev->next = current_slot;
-				}
-	
-				current_slot->next = old_slot;
-			}
-			else {
-				a_slot = slot[hash_key];
-                        	while(a_slot) {
-                                	old_slot = a_slot;
-                                	a_slot = a_slot->next;
-                        	}
-
-
-                        	if (old_slot) {
-                                	old_slot->next = current_slot;
-                        	}
-
-                        	current_slot->prev = old_slot;
-                        	current_slot->next = NULL;
-			}
+		a_slot = slot[hash_key];
+		while(a_slot) {
+			old_slot = a_slot;
+			a_slot = a_slot->next;
 		}
-		else {
-#endif
-			a_slot = slot[hash_key];
-			while(a_slot) {
-				old_slot = a_slot;
-				a_slot = a_slot->next;
-			}
 
 
-			if (old_slot) {
-				old_slot->next = current_slot;
-			}
-
-			current_slot->prev = old_slot;
-			current_slot->next = NULL;
-
-#ifdef UWSGI_PCRE
+		if (old_slot) {
+			old_slot->next = current_slot;
 		}
-#endif
+
+		current_slot->prev = old_slot;
+		current_slot->next = NULL;
+
 
 		if (!slot[hash_key] || current_slot->prev == NULL) {
 			slot[hash_key] = current_slot;
@@ -488,6 +454,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 }
 
 
+// TODO rewrite it using uwsgi buffers
 void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd, char *socket_name, char *sign) {
 
 	char value_cores[sizeof(UMAX64_STR)+1];
@@ -720,4 +687,11 @@ int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **slot) {
 		if (slot[i]) return 0;
 	}
 	return 1;
+}
+
+struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht() {
+	if (!uwsgi.subscription_algo) {
+		uwsgi_subscription_set_algo(NULL);
+	}
+	return uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * UMAX16);
 }

@@ -60,7 +60,6 @@ struct uwsgi_corerouter {
 	int use_cluster;
 
         struct uwsgi_subscribe_slot **subscriptions;
-        int subscription_regexp;
 
         struct uwsgi_string_list *fallback;
 
