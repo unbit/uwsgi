@@ -1491,6 +1491,9 @@ struct uwsgi_server {
 	int check_static_docroot;
 	int static_offload_to_thread;
 	struct uwsgi_thread *offload_thread;
+	// linked list for offloaded requests
+	struct uwsgi_offload_request *offload_requests_head;
+	struct uwsgi_offload_request *offload_requests_tail;
 
 	char *daemonize;
 	char *daemonize2;
@@ -3325,6 +3328,8 @@ struct uwsgi_offload_request {
         off_t pos;
         size_t len;
         size_t written;
+	struct uwsgi_offload_request *prev;
+	struct uwsgi_offload_request *next;
 };
 
 struct uwsgi_thread *uwsgi_offload_thread_start(void);

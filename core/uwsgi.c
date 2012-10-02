@@ -2599,6 +2599,14 @@ next2:
 	// set default wsgi_req (for loading apps);
 	uwsgi.wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
 
+	if (uwsgi.static_offload_to_thread) {
+		uwsgi.offload_thread = uwsgi_offload_thread_start();
+		if (!uwsgi.offload_thread) {
+			uwsgi_log("unable to offload static file serving !!!\n");
+			uwsgi.static_offload_to_thread = 0;
+		}
+	}
+
 	// must be run before running apps
 	for (i = 0; i < 256; i++) {
 		if (uwsgi.p[i]->post_fork) {

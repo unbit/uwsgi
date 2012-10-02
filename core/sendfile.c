@@ -13,6 +13,10 @@ int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size
 	// avoid closing the connection
         wsgi_req->fd_closed = 1;
 
+#ifdef TCP_CORK
+	// enable CORK mode (if available)
+#endif
+
         // fill offload request
         struct uwsgi_offload_request uor;
         uor.fd = open(filename, O_RDONLY | O_NONBLOCK);
@@ -24,6 +28,8 @@ int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size
         uor.pos = 0;
         uor.len = len;
 	uor.written = 0;
+	uor.prev = NULL;
+	uor.next = NULL;
 
 	if (write(uwsgi.offload_thread->pipe[0], &uor, sizeof(struct uwsgi_offload_request)) != sizeof(struct uwsgi_offload_request)) {
 		goto error2;
@@ -38,6 +44,59 @@ error:
 	return -1;
 }
 
+static void uwsgi_offload_close(struct uwsgi_offload_request *uor) {
+	// close the socket and the file descriptor
+	close(uor->s);
+	close(uor->fd);
+	// remove the structure from the linked list;
+	struct uwsgi_offload_request *prev = uor->prev;
+	struct uwsgi_offload_request *next = uor->next;
+
+	if (uor == uwsgi.offload_requests_head) {
+		uwsgi.offload_requests_head = next;
+	}
+
+	if (uor == uwsgi.offload_requests_tail) {
+		uwsgi.offload_requests_tail = prev;
+	}
+
+	if (prev) {
+		prev->next = next;
+	}
+
+	if (next) {
+		next->prev = prev;
+	}
+
+	free(uor);
+}
+
+static void uwsgi_offload_append(struct uwsgi_offload_request *uor) {
+
+	if (!uwsgi.offload_requests_head) {
+		uwsgi.offload_requests_head = uor;
+	}
+
+	if (uwsgi.offload_requests_tail) {
+		uwsgi.offload_requests_tail->next = uor;
+		uor->prev = uwsgi.offload_requests_tail;
+	}
+	
+	uwsgi.offload_requests_tail = uor;
+}
+
+static struct uwsgi_offload_request *uwsgi_offload_get_by_socket(int s) {
+		struct uwsgi_offload_request *uor = uwsgi.offload_requests_head;
+		while(uor) {
+			if (uor->s == s) {
+				return uor;
+			}
+			uor = uor->next;
+		}
+
+		return NULL;
+}
+
 static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 
 	int i;
@@ -46,7 +105,42 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 	for(;;) {
 		int nevents = event_queue_wait_multi(ut->queue, -1, events, uwsgi.static_offload_to_thread);
 		for (i=0;i<nevents;i++) {
-			//int interesting_fd = event_queue_interesting_fd(events, i);
+			int interesting_fd = event_queue_interesting_fd(events, i);
+			if (interesting_fd == uwsgi.offload_thread->pipe[1]) {
+				struct uwsgi_offload_request *uor = uwsgi_malloc(sizeof(struct uwsgi_offload_request));
+				ssize_t len = read(uwsgi.offload_thread->pipe[1], uor, sizeof(struct uwsgi_offload_request));
+				if (len != sizeof(struct uwsgi_offload_request)) {
+					uwsgi_error("read()");
+					free(uor);
+					continue;
+				}
+				// start monitoring socket for write
+				if (event_queue_add_fd_write(ut->queue, uor->s) < 0) {
+					free(uor);
+                                        continue;
+				}
+				uwsgi_offload_append(uor);
+				continue;
+			}
+			// ok check for socket writability
+			struct uwsgi_offload_request *uor = uwsgi_offload_get_by_socket(interesting_fd);
+			if (!uor) continue;
+			// sendfile() in chunks (128k is a good size...)
+#if defined(__linux__)
+			ssize_t len = sendfile(uor->s, uor->fd, &uor->pos, 128*1024);
+			if (len > 0) {
+				uor->written += len;
+				if (uor->written >= uor->len) {
+					uwsgi_offload_close(uor);
+				}
+				continue;
+			}
+			else if (len < 0) {
+				if (errno == EAGAIN) continue;
+				uwsgi_error("sendfile()");
+			}
+			uwsgi_offload_close(uor);
+#endif
 		}
 	}
 }
