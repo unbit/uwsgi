@@ -244,7 +244,7 @@ void uwsgi_erlang_rpc(int fd, erlang_pid *from, ei_x_buff *x) {
 	
 }
 
-void erlang_loop(int id) {
+void erlang_loop(int id, void *data) {
 
 	ErlConnect econn;
 	//ErlMessage em;
@@ -422,7 +422,7 @@ int erlang_init() {
 		uwsgi_log("Erlang C-Node %s registered on port %d\n", ei_thisnodename(&uerl.cnode), ntohs(sin.sin_port));
 
 	
-                if (register_gateway("uWSGI erlang c-node", erlang_loop) == NULL) {
+                if (register_gateway("uWSGI erlang c-node", erlang_loop, NULL) == NULL) {
                         uwsgi_log("unable to register the erlang gateway\n");
                         exit(1);
                 }

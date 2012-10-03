@@ -49,12 +49,14 @@ class Jabbo : public ConnectionListener{
 
 	virtual void onConnect() {
 		event_queue_add_fd_read(u_thread->queue, fd);
+		event_queue_add_fd_read(u_thread->queue, u_thread->pipe[1]);
 		u_connected = 1;
     	}
 
     	virtual void onDisconnect(ConnectionError e) {
-		if (fd >= 0) {
+		if (u_connected) {
 			event_queue_del_fd(u_thread->queue, fd, event_queue_read());
+			event_queue_del_fd(u_thread->queue, u_thread->pipe[1], event_queue_read());
 		}
         	sleep(1);
 		u_connected = 0;
@@ -109,6 +111,9 @@ extern "C" void uwsgi_alarm_xmpp_loop(struct uwsgi_thread *ut) {
                 }
                 p = strtok_r(NULL, ";", &ctx);
         }
+
+	// do not process loglines til the jabber account is connected
+	event_queue_del_fd(ut->queue, ut->pipe[1], event_queue_read());
 
 	Jabbo j(ut, xmpp_username, xmpp_password, xmpp_dests);	
 
