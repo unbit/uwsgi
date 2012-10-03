@@ -71,6 +71,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"virtualenv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 	{"venv", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
 	{"pyhome", required_argument, 'H', "set PYTHONHOME/virtualenv", uwsgi_opt_set_str, &up.home, 0},
+	{"py-programname", required_argument, 0, "set python program name", uwsgi_opt_set_str, &up.programname, 0},
+	{"py-program-name", required_argument, 0, "set python program name", uwsgi_opt_set_str, &up.programname, 0},
 
 	{"pythonpath", required_argument, 0, "add directory (or glob) to pythonpath", uwsgi_opt_pythonpath, NULL,  0},
 	{"python-path", required_argument, 0, "add directory (or glob) to pythonpath", uwsgi_opt_pythonpath, NULL, 0},
@@ -169,6 +171,16 @@ int uwsgi_python_init() {
 
 	if (up.home != NULL) {
 #ifdef PYTHREE
+		// check for PEP 405 virtualenv (starting from python 3.3)
+		char *pep405_env = uwsgi_concat2(up.home, "/pyvenv.cfg");
+		if (uwsgi_file_exists(pep405_env)) {
+			uwsgi_log("PEP 405 virtualenv detected: %s\n", up.home);
+			free(pep405_env);
+			goto pep405;
+		}
+		free(pep405_env);
+
+		// build the PYTHONHOME wchar path
 		wchar_t *wpyhome;
 		size_t len = strlen(up.home) + 1; 
 		wpyhome = uwsgi_calloc(sizeof(wchar_t) * len );
@@ -180,19 +192,30 @@ int uwsgi_python_init() {
 		Py_SetPythonHome(wpyhome);
 		// do not free this memory !!!
 		//free(wpyhome);
+pep405:
 #else
 		Py_SetPythonHome(up.home);
 #endif
 		uwsgi_log("Set PythonHome to %s\n", up.home);
 	}
 
+	char *program_name = up.programname;
+	if (!program_name) {
+		program_name = uwsgi.binary_path;
+	}
 
 #ifdef PYTHREE
-	wchar_t pname[6];
-	mbstowcs(pname, "uWSGI", 6);
+	if (!up.programname) {
+		if (up.home) {
+			program_name = uwsgi_concat2(up.home, "/bin/python");
+		}
+	}
+
+	wchar_t *pname = uwsgi_calloc(sizeof(wchar_t) * (strlen(program_name)+1));
+	mbstowcs(pname, program_name, strlen(program_name)+1);
 	Py_SetProgramName(pname);
 #else
-	Py_SetProgramName("uWSGI");
+	Py_SetProgramName(program_name);
 #endif
 
 

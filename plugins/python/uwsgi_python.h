@@ -186,6 +186,7 @@ struct uwsgi_python {
 	char *pyrun;
 	int start_response_nodelay;
 
+	char *programname;
 };
 
 
