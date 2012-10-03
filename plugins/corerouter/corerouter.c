@@ -479,6 +479,9 @@ void uwsgi_corerouter_loop(int id, void *data) {
                         }
                         else if (ucr->has_subscription_sockets) {
                                 ucr->mapper = uwsgi_cr_map_use_subscription;
+				if (uwsgi.subscription_dotsplit) {
+                                	ucr->mapper = uwsgi_cr_map_use_subscription_dotsplit;
+				}
                         }
                         else if (ucr->base) {
                                 ucr->mapper = uwsgi_cr_map_use_base;

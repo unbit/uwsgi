@@ -1839,6 +1839,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *subscriptions;
 
 	struct uwsgi_subscribe_node * (*subscription_algo)(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *);
+	int subscription_dotsplit;
 
 	int never_swap;
 

@@ -313,6 +313,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"subscriptions-sign-check-tolerance", required_argument, 0, "set the maximum tolerance (in seconds) of clock skew for secured subscription system", uwsgi_opt_set_int, &uwsgi.subscriptions_sign_check_tolerance, UWSGI_OPT_MASTER},
 #endif
 	{"subscription-algo", required_argument, 0, "set load balancing algorithm for the subscription system", uwsgi_opt_ssa, NULL, 0},
+	{"subscription-dotsplit", no_argument, 0, "try to fallback to the next part (dot based) in subscription key", uwsgi_opt_true, &uwsgi.subscription_dotsplit, 0},
 	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"subscribe", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},

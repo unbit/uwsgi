@@ -77,7 +77,7 @@ struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slo
 
 // least reference count
 static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node) {
-	// if node is NULL we are in the second step (in lrc mode we do not use teh first step)
+	// if node is NULL we are in the second step (in lrc mode we do not use the first step)
 	if (node) return NULL;
 
 	struct uwsgi_subscribe_node *choosen_node = NULL;

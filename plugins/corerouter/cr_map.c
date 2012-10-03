@@ -44,6 +44,38 @@ int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *ucr, struct coreroute
 	return 0;
 }
 
+int uwsgi_cr_map_use_subscription_dotsplit(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
+
+	char *name = cr_session->hostname;
+	uint16_t name_len = cr_session->hostname_len;
+
+split:
+#ifdef UWSGI_DEBUG
+	uwsgi_log("trying with %.*s\n", name_len, name);
+#endif
+        cr_session->un = uwsgi_get_subscribe_node(ucr->subscriptions, name, name_len);
+	if (!cr_session->un) {
+		char *next = memchr(name+1, '.', name_len-1);
+		if (next) {
+			name_len -= next - name;
+			name = next;
+			goto split;
+		}
+	}
+
+        if (cr_session->un && cr_session->un->len) {
+                cr_session->instance_address = cr_session->un->name;
+                cr_session->instance_address_len = cr_session->un->len;
+                cr_session->modifier1 = cr_session->un->modifier1;
+        }
+        else if (ucr->cheap && !ucr->i_am_cheap && uwsgi_no_subscriptions(ucr->subscriptions)) {
+                uwsgi_gateway_go_cheap(ucr->name, ucr->queue, &ucr->i_am_cheap);
+        }
+
+        return 0;
+}
+
+
 int uwsgi_cr_map_use_base(struct uwsgi_corerouter *ucr, struct corerouter_session *cr_session) {
 
 	int tmp_socket_name_len = 0;

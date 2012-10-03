@@ -176,6 +176,7 @@ int uwsgi_cr_map_use_cache(struct uwsgi_corerouter *, struct corerouter_session 
 int uwsgi_cr_map_use_pattern(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_cluster(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_subscription(struct uwsgi_corerouter *, struct corerouter_session *);
+int uwsgi_cr_map_use_subscription_dotsplit(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_base(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_cs(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_to(struct uwsgi_corerouter *, struct corerouter_session *);
