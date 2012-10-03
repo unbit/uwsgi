@@ -93,6 +93,10 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 		node = node->next;
 	}
 
+	if (choosen_node) {
+		choosen_node->reference++;
+	}
+
 	return choosen_node;
 }
 
