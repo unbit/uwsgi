@@ -20,7 +20,7 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	}
 
 	// convert the wsgi_request to an http proxy request
-	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req);	
+	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len);	
 	if (!ub) {
 		uwsgi_log("unable to generate http request for %s\n", addr);
 		close(http_fd);
@@ -73,6 +73,14 @@ int uwsgi_router_http(struct uwsgi_route *ur, char *args) {
 	ur->func = uwsgi_routing_func_http;
 	ur->data = (void *) args;
 	ur->data_len = strlen(args);
+	
+	char *comma = strchr(ur->data, ',');
+	if (comma) {
+		*comma = 0;
+		ur->data_len = strlen(ur->data);
+		ur->data2 = comma+1;
+		ur->data2_len = strlen(ur->data2);
+	}
 	return 0;
 }
 

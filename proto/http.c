@@ -389,7 +389,7 @@ void uwsgi_httpize_var(char *buf, size_t len) {
 	}
 }
 
-struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req) {
+struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req, char *host, uint16_t host_len) {
 
         struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
 
@@ -397,10 +397,8 @@ struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req) {
         if (uwsgi_buffer_append(ub, " ", 1)) goto clear;
 
         if (uwsgi_buffer_append(ub, wsgi_req->uri, wsgi_req->uri_len)) goto clear;
-        if (uwsgi_buffer_append(ub, " ", 1)) goto clear;
 
-        if (uwsgi_buffer_append(ub, wsgi_req->protocol, wsgi_req->protocol_len)) goto clear;
-        if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
+        if (uwsgi_buffer_append(ub, " HTTP/1.0\r\n", 11)) goto clear;
 
         int i;
 	char *x_forwarded_for = NULL;
@@ -412,6 +410,8 @@ struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req) {
 
 			char *header = wsgi_req->hvec[i].iov_base+5;
 			size_t header_len = wsgi_req->hvec[i].iov_len-5;
+
+			if (host && !uwsgi_strncmp(header, header_len, "HOST", 4)) goto next;
 
 			if (!uwsgi_strncmp(header, header_len, "CONNECTION", 10)) goto next;
 			if (!uwsgi_strncmp(header, header_len, "KEEP_ALIVE", 10)) goto next;
@@ -435,9 +435,18 @@ next:
 		i++;
         }
 
+
+	// append custom Host (if needed)
+	if (host) {
+		if (uwsgi_buffer_append(ub, "Host: ", 6)) goto clear;
+		if (uwsgi_buffer_append(ub, host, host_len)) goto clear;
+		if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
+	}
+
 	// append required headers
 	if (uwsgi_buffer_append(ub, "Connection: close\r\n", 19)) goto clear;
 	if (uwsgi_buffer_append(ub, "X-Forwarded-For: ", 17)) goto clear;
+
 
 	if (x_forwarded_for_len > 0) {
 		if (uwsgi_buffer_append(ub, x_forwarded_for, x_forwarded_for_len)) goto clear;

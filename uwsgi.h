@@ -3279,7 +3279,7 @@ int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
 
 void uwsgi_httpize_var(char *, size_t);
-struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *);
+struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t);
 
 ssize_t uwsgi_pipe(int, int, int);
 ssize_t uwsgi_pipe_sized(int, int, size_t, int);
