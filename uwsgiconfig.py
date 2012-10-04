@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '1.3'
+uwsgi_version = '1.3.1-dev'
 
 import os
 import re
@@ -87,9 +87,9 @@ def uniq_warnings(elements):
 
     return new_elements
 
-if uwsgi_version.endswith('-dev') and os.path.exists('%s/.hg' % os.path.dirname(os.path.abspath( __file__ ))):
+if uwsgi_version.endswith('-dev') and os.path.exists('%s/.git' % os.path.dirname(os.path.abspath( __file__ ))):
     try:
-        uwsgi_version += spcall('hg tip --template "-{rev}"')
+        uwsgi_version += spcall('git rev-parse --short HEAD')
     except:
         pass
 

@@ -3979,7 +3979,7 @@ void uwsgi_set_processname(char *name) {
 	// end with \0
 	memset(uwsgi.orig_argv[0] + amount + 1 + (uwsgi.max_procname - (amount)), '\0', 1);
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__NetBSD__)
 	if (uwsgi.procname_prefix) {
 		if (!uwsgi.procname_append) {
 			setproctitle("-%s%s", uwsgi.procname_prefix, name);
