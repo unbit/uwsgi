@@ -88,7 +88,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 			if (min_rc == 0 || node->reference < min_rc) {
 				min_rc = node->reference;
 				choosen_node = node;
-				if (min_rc == 0) break;
+				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests <= node->requests)) break;
 			}
 		}
 		node = node->next;
