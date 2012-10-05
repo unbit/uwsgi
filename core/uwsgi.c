@@ -320,6 +320,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"subscribe-freq", required_argument, 0, "send subscription announce at the specified interval", uwsgi_opt_set_int, &uwsgi.subscribe_freq, 0},
 	{"subscription-tolerance", required_argument, 0, "set tolerance for subscription servers", uwsgi_opt_set_int, &uwsgi.subscription_tolerance, 0},
 	{"unsubscribe-on-graceful-reload", no_argument, 0, "force unsubscribe request even during graceful reload", uwsgi_opt_true, &uwsgi.unsubscribe_on_graceful_reload, 0},
+	{"subscription-lrc-use-weight", no_argument, 0, "use node weight with lrc load balancing algorithm (disabled by default)", uwsgi_opt_true, &uwsgi.subscription_lrc_use_weight, 0},
 #ifdef UWSGI_SNMP
 	{"snmp", optional_argument, 0, "enable the embedded snmp server", uwsgi_opt_snmp, NULL, 0},
 	{"snmp-community", required_argument, 0, "set the snmp community string", uwsgi_opt_snmp_community, NULL, 0},
