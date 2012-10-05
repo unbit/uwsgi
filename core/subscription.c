@@ -82,13 +82,20 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 
 	struct uwsgi_subscribe_node *choosen_node = NULL;
 	node = current_slot->nodes;
-        uint64_t min_rc = 0;
+        double min_rc = 0;
 	while(node) {
 		if (!node->death_mark) {
-			if (min_rc == 0 || node->reference < min_rc) {
-				min_rc = node->reference;
+			double ref;
+			if (uwsgi.subscription_lrc_use_weight) {
+				ref = (double) node->reference / (double) (node->weight ? node->weight: 1);
+			} else {
+				ref = (double) node->reference;
+			}
+			if (min_rc == 0 || ref < min_rc) {
+				min_rc = ref;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests <= node->requests)) break;
+				if (min_rc == 0 && !(node->next && (double) node->next->reference <= ref && node->next->requests <= node->requests))
+					break;
 			}
 		}
 		node = node->next;
