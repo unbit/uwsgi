@@ -86,15 +86,21 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 	while(node) {
 		if (!node->death_mark) {
 			double ref;
+			double next_node_ref = 0;
 			if (uwsgi.subscription_lrc_use_weight) {
 				ref = (double) node->reference / (double) (node->weight ? node->weight: 1);
+				if (node->next)
+					next_node_ref = (double) node->next->reference / (double) (node->next->weight ? node->next->weight: 1);
 			} else {
 				ref = (double) node->reference;
+				if (node->next)
+					next_node_ref = (double) node->next->reference;
 			}
+				uwsgi.subscription_lrc_use_weight, node->reference, ref, next_node_ref);
 			if (min_rc == 0 || ref < min_rc) {
 				min_rc = ref;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && (double) node->next->reference <= ref && node->next->requests <= node->requests))
+				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests <= node->requests))
 					break;
 			}
 		}
