@@ -82,13 +82,47 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 
 	struct uwsgi_subscribe_node *choosen_node = NULL;
 	node = current_slot->nodes;
-        uint64_t min_rc = 0;
+	uint64_t min_rc = 0;
 	while(node) {
 		if (!node->death_mark) {
 			if (min_rc == 0 || node->reference < min_rc) {
 				min_rc = node->reference;
 				choosen_node = node;
-				if (min_rc == 0) break;
+				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests <= node->requests))
+					break;
+			}
+		}
+		node = node->next;
+	}
+
+	if (choosen_node) {
+		choosen_node->reference++;
+	}
+
+	return choosen_node;
+}
+
+// weighted least reference count
+static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_subscribe_slot *current_slot, struct uwsgi_subscribe_node *node) {
+	// if node is NULL we are in the second step (in wlrc mode we do not use the first step)
+	if (node) return NULL;
+
+	struct uwsgi_subscribe_node *choosen_node = NULL;
+	node = current_slot->nodes;
+	double min_rc = 0;
+	while(node) {
+		if (!node->death_mark) {
+			// node->weight is always >= 1, we can safely use it as divider
+			double ref = (double) node->reference / (double) node->weight;
+			double next_node_ref = 0;
+			if (node->next)
+				next_node_ref = (double) node->next->reference / (double) node->next->weight;
+
+			if (min_rc == 0 || ref < min_rc) {
+				min_rc = ref;
+				choosen_node = node;
+				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests <= node->requests))
+					break;
 			}
 		}
 		node = node->next;
@@ -151,6 +185,11 @@ void uwsgi_subscription_set_algo(char *algo) {
 
 	if (!strcmp(algo,"lrc")) {
 		uwsgi.subscription_algo = uwsgi_subscription_algo_lrc;
+		return;
+	}
+
+	if (!strcmp(algo,"wlrc")) {
+		uwsgi.subscription_algo = uwsgi_subscription_algo_wlrc;
 		return;
 	}
 
