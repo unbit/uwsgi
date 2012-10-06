@@ -449,14 +449,21 @@ struct uwsgi_gateway_socket {
 
 struct uwsgi_daemon {
 	char *command;
-	char *tmp_command;
 	pid_t pid;
 	uint64_t respawns;
 	time_t born;
 	time_t last_spawn;
 	int status;
 	int registered;
-	//int pipe[2];
+
+
+	char *pidfile;
+	int daemonize;
+
+	// this is incremented every time a pidfile is not found
+	uint64_t pidfile_checks;
+	// frequency of pidfile checks (default 10 secs)
+	int freq;
 
 	struct uwsgi_daemon *next;
 };
@@ -2444,7 +2451,8 @@ ssize_t fcgi_send_record(int, uint8_t, uint16_t, char *);
 ssize_t fcgi_send_param(int, char *, uint16_t, char *, uint16_t);
 uint16_t fcgi_get_record(int, char *);
 
-void spawn_daemon(struct uwsgi_daemon *);
+void uwsgi_spawn_daemon(struct uwsgi_daemon *);
+void uwsgi_detach_daemons();
 
 void emperor_loop(void);
 char *uwsgi_num2str(int);
@@ -2893,8 +2901,6 @@ void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t
 
 void uwsgi_subscribe(char *, uint8_t);
 
-struct uwsgi_daemon *uwsgi_daemon_new(struct uwsgi_daemon **, char *);
-
 struct uwsgi_probe *uwsgi_probe_register(struct uwsgi_probe **, char *, int (*)(int, struct uwsgi_signal_probe *));
 int uwsgi_add_probe(uint8_t sig, char *, char *, int, int);
 
@@ -3338,6 +3344,13 @@ int uwsgi_offload_request_do(struct wsgi_request *, char *, size_t);
 
 void uwsgi_subscription_set_algo(char *);
 struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht(void);
+
+int uwsgi_check_pidfile(char *);
+void uwsgi_daemons_spawn_all();
+
+int uwsgi_daemon_check_pid_death(pid_t);
+int uwsgi_daemon_check_pid_reload(pid_t);
+void uwsgi_daemons_smart_check();
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

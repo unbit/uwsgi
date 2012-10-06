@@ -363,7 +363,7 @@ class uConf(object):
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
             'core/notify', 'core/mule', 'core/subscription', 'core/stats',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer',
-            'core/plugins', 'core/lock', 'core/cache',
+            'core/plugins', 'core/lock', 'core/cache', 'core/daemons',
             'core/queue', 'core/event', 'core/signal', 'core/cluster',
             'core/rpc', 'core/gateway', 'core/loop', 'lib/rbtree', 'core/rb_timers', 'core/uwsgi']
         # add protocols

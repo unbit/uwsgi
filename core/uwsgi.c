@@ -483,6 +483,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"loops-list", no_argument, 0, "list enabled loop engines", uwsgi_opt_true, &uwsgi.loop_list, 0},
 	{"worker-exec", required_argument, 0, "run the specified command as worker", uwsgi_opt_set_str, &uwsgi.worker_exec, 0},
 	{"attach-daemon", required_argument, 0, "attach a command/daemon to the master process (the command has to not go in background)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
+	{"smart-attach-daemon", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
+	{"smart-attach-daemon2", required_argument, 0, "attach a command/daemon to the master process managed by a pidfile (the command has to NOT daemonize)", uwsgi_opt_add_daemon, NULL, UWSGI_OPT_MASTER},
 	{"plugins", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugin", required_argument, 0, "load uWSGI plugins", uwsgi_opt_load_plugin, NULL, UWSGI_OPT_IMMEDIATE},
 	{"plugins-dir", required_argument, 0, "add a directory to uWSGI plugin search path", uwsgi_opt_add_string_list, &uwsgi.plugins_dir, UWSGI_OPT_IMMEDIATE},
@@ -864,12 +866,7 @@ void kill_them_all(int signum) {
 	}
 
 
-	struct uwsgi_daemon *ud = uwsgi.daemons;
-	while (ud) {
-		if (ud->pid > 0)
-			kill(-ud->pid, SIGKILL);
-		ud = ud->next;
-	}
+	uwsgi_detach_daemons();
 
 	for (i = 0; i < ushared->gateways_cnt; i++) {
 		if (ushared->gateways[i].pid > 0)
@@ -913,12 +910,7 @@ void grace_them_all(int signum) {
 		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
 	}
 
-	struct uwsgi_daemon *ud = uwsgi.daemons;
-	while (ud) {
-		if (ud->pid > 0)
-			kill(-ud->pid, SIGKILL);
-		ud = ud->next;
-	}
+	uwsgi_detach_daemons();
 
 	for (i = 0; i < ushared->gateways_cnt; i++) {
 		if (ushared->gateways[i].pid > 0)
@@ -1004,12 +996,7 @@ void reap_them_all(int signum) {
 	else
 		uwsgi.to_outworld = 1;
 
-	struct uwsgi_daemon *ud = uwsgi.daemons;
-	while (ud) {
-		if (ud->pid > 0)
-			kill(-ud->pid, SIGKILL);
-		ud = ud->next;
-	}
+	uwsgi_detach_daemons();
 
 	for (i = 0; i < ushared->gateways_cnt; i++) {
 		if (ushared->gateways[i].pid > 0)
@@ -3311,10 +3298,6 @@ void uwsgi_opt_set_unshare(char *opt, char *value, void *none) {
 	uwsgi_build_unshare(value);
 }
 #endif
-
-void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
-	uwsgi_daemon_new(&uwsgi.daemons, value);
-}
 
 void uwsgi_opt_set_env(char *opt, char *value, void *none) {
 	if (putenv(value)) {

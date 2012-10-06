@@ -741,15 +741,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 	// spawn daemons
-	struct uwsgi_daemon *ud = uwsgi.daemons;
-	while (ud) {
-		if (!ud->registered) {
-			spawn_daemon(ud);
-			ud->registered = 1;
-		}
-		ud = ud->next;
-	}
-
+	uwsgi_daemons_spawn_all();
 
 	// first subscription
 	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
@@ -812,6 +804,8 @@ int master_loop(char **argv, char **environ) {
 				uwsgi.p[i]->master_cycle();
 			}
 		}
+
+		uwsgi_daemons_smart_check();
 
 		if (uwsgi.to_outworld) {
 			//uwsgi_log("%d/%d\n", uwsgi.lazy_respawned, uwsgi.numproc);
@@ -1444,17 +1438,7 @@ health_cycle:
 				continue;
 
 			/* reload the daemons */
-			// TODO reload_daemons(diedpid);
-			pid_found = 0;
-			struct uwsgi_daemon *ud = uwsgi.daemons;
-			while (ud) {
-				if (ud->pid == diedpid) {
-					spawn_daemon(ud);
-					pid_found = 1;
-					break;
-				}
-				ud = ud->next;
-			}
+			pid_found = uwsgi_daemon_check_pid_reload(diedpid);
 
 			if (pid_found)
 				continue;
@@ -1500,14 +1484,7 @@ health_cycle:
 				}
 			}
 
-			struct uwsgi_daemon *ud = uwsgi.daemons;
-			while (ud) {
-				if (ud->pid == diedpid) {
-					uwsgi_log("daemon \"%s\" (pid: %d) annihilated\n", ud->command, (int) diedpid);
-					goto next;
-				}
-				ud = ud->next;
-			}
+			if (uwsgi_daemon_check_pid_death(diedpid)) goto next;
 
 			if (WIFEXITED(waitpid_status)) {
 				uwsgi_log("subprocess %d exited with code %d\n", (int) diedpid, WEXITSTATUS(waitpid_status));
