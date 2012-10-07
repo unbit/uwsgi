@@ -103,10 +103,30 @@ void uwsgi_rawrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerout
 				break;
 			}
 
-			// update transfer statistics
-			if (cs->un)
-				cs->un->transferred += len;
+                        if (cs->un) {
+                                // update transfer statistics
+                                cs->un->transferred += len;
+
+                                // update node rpm
+                                time_t now = uwsgi_now();
+                                time_t target_ts = now / 60;
+
+                                // first check for clock jumps
+                                if (cs->un->rpm_timecheck == 0 || cs->un->rpm_timecheck > (now/60) || ((now/60) - cs->un->rpm_timecheck) > 70) {
+                                        // if clock go back or jumps to the future than just reset everything
+                                        cs->un->rpm_timecheck = target_ts;
+                                        cs->un->rpm_counter = 1;
+                                } else if (cs->un->rpm_timecheck != target_ts) {
+                                        // clock did not jumped, this is next minute
+                                        cs->un->requests_per_minute = cs->un->rpm_counter;
+                                        cs->un->rpm_timecheck = target_ts;
+                                        cs->un->rpm_counter = 1;
+                                } else {
+                                        cs->un->rpm_counter++;
+                                }
+                        }
 		}
+
 		// body from client
 		else if (interesting_fd == cs->fd) {
 

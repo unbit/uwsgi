@@ -2849,6 +2849,10 @@ struct uwsgi_subscribe_node {
 	time_t unix_check;
 	time_t subscribed;
 
+	uint64_t requests_per_minute;
+	uint64_t rpm_counter;
+	time_t rpm_timecheck;
+
 	struct uwsgi_subscribe_slot *slot;
 
         struct uwsgi_subscribe_node *next;
