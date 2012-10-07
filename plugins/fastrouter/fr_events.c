@@ -207,8 +207,27 @@ choose_node:
 			iov[1].iov_len = fr_session->uh.pktsize;
 
 			// increment node requests counter
-			if (cs->un)
+			if (cs->un) {
 				cs->un->requests++;
+				// update node rpm
+				time_t now = uwsgi_now();
+				time_t target_ts = now / 60;
+
+				// first check for clock jumps
+				if (cs->un->rpm_timecheck == 0 || cs->un->rpm_timecheck > target_ts || (target_ts - cs->un->rpm_timecheck) > 1) {
+					// if clock go back or jumps to the future than just reset everything
+					cs->un->rpm_timecheck = target_ts;
+					cs->un->last_minute_requests = 1;
+				} else if (cs->un->rpm_timecheck != target_ts) {
+					// clock did not jumped, this is next minute
+					cs->un->requests_per_minute = cs->un->last_minute_requests;
+					cs->un->rpm_timecheck = target_ts;
+					cs->un->last_minute_requests = 1;
+				} else {
+					cs->un->last_minute_requests++;
+				}
+			}
+
 
 			// fd passing: PERFORMANCE EXTREME BOOST !!!
 			if (cs->pass_fd && !uwsgi.no_fd_passing) {
@@ -270,28 +289,9 @@ choose_node:
 				break;
 			}
 
-			if (cs->un) {
-				// update transfer statistics
+			// update transfer statistics
+			if (cs->un)
 				cs->un->transferred += len;
-
-				// update node rpm
-				time_t now = uwsgi_now();
-				time_t target_ts = now / 60;
-
-				// first check for clock jumps
-				if (cs->un->rpm_timecheck == 0 || cs->un->rpm_timecheck > target_ts || (target_ts - cs->un->rpm_timecheck) > 1) {
-					// if clock go back or jumps to the future than just reset everything
-					cs->un->rpm_timecheck = target_ts;
-					cs->un->last_minute_requests = 1;
-				} else if (cs->un->rpm_timecheck != target_ts) {
-					// clock did not jumped, this is next minute
-					cs->un->requests_per_minute = cs->un->last_minute_requests;
-					cs->un->rpm_timecheck = target_ts;
-					cs->un->last_minute_requests = 1;
-				} else {
-					cs->un->last_minute_requests++;
-				}
-			}
 
 		}
 		// body from client
