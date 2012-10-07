@@ -88,7 +88,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 			if (min_rc == 0 || node->reference < min_rc) {
 				min_rc = node->reference;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests_per_minute <= node->requests_per_minute))
+				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests_per_minute => node->requests_per_minute))
 					break;
 			}
 		}
@@ -121,7 +121,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
 			if (min_rc == 0 || ref < min_rc) {
 				min_rc = ref;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests_per_minute <= node->requests_per_minute))
+				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests_per_minute => node->requests_per_minute))
 					break;
 			}
 		}
@@ -357,12 +357,23 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				}
 #endif
 				// remove death mark and update cores and load
+                                time_t now = uwsgi_now();
+
 				node->death_mark = 0;
-                                node->last_check = uwsgi_now();
+                                node->last_check = now;
 				node->cores = usr->cores;
 				node->load = usr->load;
 				node->weight = usr->weight;
 				if (!node->weight) node->weight = 1;
+
+				// reset rpm counters if needed
+				time_t target_ts = now / 60;
+				 if (node->rpm_timecheck != target_ts) {
+					node->requests_per_minute = node->rpm_counter;
+					node->rpm_timecheck = target_ts;
+					node->rpm_counter = 0;
+				}
+
                                 return node;
                         }
 			old_node = node;
