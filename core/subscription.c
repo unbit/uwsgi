@@ -392,6 +392,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		if (!node->weight) node->weight = 1;
 		node->wrr = 0;
 		node->last_check = uwsgi_now();
+		node->subscribed = uwsgi_now();
 		node->slot = current_slot;
                 memcpy(node->name, usr->address, usr->address_len);
 		if (old_node) {
@@ -468,6 +469,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->wrr = 0;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
 		current_slot->nodes->last_check = uwsgi_now();
+		current_slot->nodes->subscribed = uwsgi_now();
 
 		current_slot->nodes->next = NULL;
 

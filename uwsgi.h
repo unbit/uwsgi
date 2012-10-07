@@ -2847,6 +2847,7 @@ struct uwsgi_subscribe_node {
 	uint64_t wrr;
 
 	time_t unix_check;
+	time_t subscribed;
 
 	struct uwsgi_subscribe_slot *slot;
 
