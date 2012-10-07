@@ -228,6 +228,7 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			continue;
 		}
 
+
 		struct uwsgi_subscribe_node *choosen_node = uwsgi.subscription_algo(current_slot, node);
 		if (choosen_node) return choosen_node;
 
@@ -366,9 +367,15 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				node->weight = usr->weight;
 				if (!node->weight) node->weight = 1;
 
-				// reset rpm counters if needed
+				// rpm checks in case there was no requests in last minute
 				time_t target_ts = now / 60;
-				 if (node->rpm_timecheck != target_ts) {
+				// first check for clock jumps
+				if (node->rpm_timecheck == 0 || node->rpm_timecheck > target_ts || (target_ts - node->rpm_timecheck) > 1) {
+					// if clock go back or jumps to the future than just reset everything
+					node->rpm_timecheck = target_ts;
+					node->last_minute_requests = 0;
+				} else if (node->rpm_timecheck != target_ts) {
+					// clock did not jumped, this is next minute
 					node->requests_per_minute = node->last_minute_requests;
 					node->rpm_timecheck = target_ts;
 					node->last_minute_requests = 0;
