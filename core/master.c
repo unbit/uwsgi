@@ -807,9 +807,18 @@ int master_loop(char **argv, char **environ) {
 
 		uwsgi_daemons_smart_check();
 
+		// count the number of active workers
+		int active_workers = 0;
+                for (i = 1; i <= uwsgi.numproc; i++) {
+                        if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+                                active_workers++;
+                        }
+                }
+
+
 		if (uwsgi.to_outworld) {
 			//uwsgi_log("%d/%d\n", uwsgi.lazy_respawned, uwsgi.numproc);
-			if (uwsgi.lazy_respawned >= uwsgi.numproc || (uwsgi.cheaper && uwsgi.lazy_respawned == uwsgi.cheaper_count)) {
+			if (uwsgi.lazy_respawned >= active_workers) {
 				uwsgi.to_outworld = 0;
 				uwsgi.master_mercy = 0;
 				uwsgi.lazy_respawned = 0;
@@ -840,8 +849,7 @@ int master_loop(char **argv, char **environ) {
 				return 0;
 		}
 
-
-		if ((uwsgi.cheap || uwsgi.ready_to_die >= uwsgi.numproc) && uwsgi.to_hell) {
+		if ((uwsgi.cheap || uwsgi.ready_to_die >= active_workers) && uwsgi.to_hell) {
 			// call a series of waitpid to ensure all processes (gateways, mules and daemons) are dead
 			for (i = 0; i < (ushared->gateways_cnt + uwsgi.daemons_cnt + uwsgi.mules_cnt); i++) {
 				diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
@@ -851,7 +859,7 @@ int master_loop(char **argv, char **environ) {
 			exit(0);
 		}
 
-		if ((uwsgi.cheap || uwsgi.ready_to_reload >= uwsgi.numproc) && uwsgi.to_heaven) {
+		if ((uwsgi.cheap || uwsgi.ready_to_reload >= active_workers) && uwsgi.to_heaven) {
 			uwsgi_reload(argv);
 			// never here (unless in shared library mode)
 			return -1;
