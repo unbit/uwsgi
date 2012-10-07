@@ -826,14 +826,14 @@ To have a reliable implementation, we need to reset a bunch of values
                                 if (cs->un->rpm_timecheck == 0 || cs->un->rpm_timecheck > (now/60) || ((now/60) - cs->un->rpm_timecheck) > 70) {
                                         // if clock go back or jumps to the future than just reset everything
                                         cs->un->rpm_timecheck = target_ts;
-                                        cs->un->rpm_counter = 1;
+                                        cs->un->last_minute_requests = 1;
                                 } else if (cs->un->rpm_timecheck != target_ts) {
                                         // clock did not jumped, this is next minute
-                                        cs->un->requests_per_minute = cs->un->rpm_counter;
+                                        cs->un->requests_per_minute = cs->un->last_minute_requests;
                                         cs->un->rpm_timecheck = target_ts;
-                                        cs->un->rpm_counter = 1;
+                                        cs->un->last_minute_requests = 1;
                                 } else {
-                                        cs->un->rpm_counter++;
+                                        cs->un->last_minute_requests++;
                                 }
                         }
 		}

@@ -2850,7 +2850,7 @@ struct uwsgi_subscribe_node {
 	time_t subscribed;
 
 	uint64_t requests_per_minute;
-	uint64_t rpm_counter;
+	uint64_t last_minute_requests;
 	time_t rpm_timecheck;
 
 	struct uwsgi_subscribe_slot *slot;

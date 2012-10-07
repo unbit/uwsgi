@@ -88,7 +88,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 			if (min_rc == 0 || node->reference < min_rc) {
 				min_rc = node->reference;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->rpm_counter <= node->rpm_counter))
+				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_minute_requests <= node->last_minute_requests))
 					break;
 			}
 		}
@@ -121,7 +121,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
 			if (min_rc == 0 || ref < min_rc) {
 				min_rc = ref;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->rpm_counter <= node->rpm_counter))
+				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_minute_requests <= node->last_minute_requests))
 					break;
 			}
 		}
@@ -369,9 +369,9 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				// reset rpm counters if needed
 				time_t target_ts = now / 60;
 				 if (node->rpm_timecheck != target_ts) {
-					node->requests_per_minute = node->rpm_counter;
+					node->requests_per_minute = node->last_minute_requests;
 					node->rpm_timecheck = target_ts;
-					node->rpm_counter = 0;
+					node->last_minute_requests = 0;
 				}
 
                                 return node;
@@ -406,7 +406,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->subscribed = uwsgi_now();
 		node->requests_per_minute = 0;
 		node->rpm_timecheck = 0;
-		node->rpm_counter = 0;
+		node->last_minute_requests = 0;
 		node->slot = current_slot;
                 memcpy(node->name, usr->address, usr->address_len);
 		if (old_node) {
@@ -486,7 +486,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->subscribed = uwsgi_now();
 		current_slot->nodes->requests_per_minute = 0;
 		current_slot->nodes->rpm_timecheck = 0;
-		current_slot->nodes->rpm_counter = 0;
+		current_slot->nodes->last_minute_requests = 0;
 
 		current_slot->nodes->next = NULL;
 
