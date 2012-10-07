@@ -3,7 +3,7 @@ import os,sys
 try:
         LUALIB = os.environ['UWSGICONFIG_LUALIB']
 except:
-        LUALIB = 'lua'
+        LUALIB = 'lua5.1'
 
 try:
         LUAINC = os.environ['UWSGICONFIG_LUAINC']

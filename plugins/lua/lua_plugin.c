@@ -13,6 +13,8 @@ struct uwsgi_lua {
 } ulua;
 
 #define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
+#define response_append(x, y) if (uwsgi_buffer_append(status_and_headers, x, y)) { uwsgi_buffer_destroy(status_and_headers); lua_pushvalue(L, -1); goto clear;}
+#define response_append_header(x, y) if (uwsgi_buffer_append(status_and_headers, x, y)) { uwsgi_buffer_destroy(status_and_headers); lua_pop(L, 2); lua_pushvalue(L, -1); goto clear;}
 
 struct uwsgi_option uwsgi_lua_options[] = {
 
@@ -391,7 +393,6 @@ void uwsgi_lua_app() {
 int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	int i;
-	int raw;
 	const char *http;
 	size_t slen;
 	ssize_t rlen;
@@ -467,38 +468,24 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	//uwsgi_log("%d %s %s %s\n",i,lua_typename(L, lua_type(L, -3)), lua_typename(L, lua_type(L, -2)) ,  lua_typename(L, lua_type(L, -1)));
 
-	raw = 0;
+	// this buffer will contains the whole headers (+status)
+	struct uwsgi_buffer *status_and_headers = uwsgi_buffer_new(4096);
+
 	// send status
 	if (lua_type(L, -3) == LUA_TSTRING || lua_type(L, -3) == LUA_TNUMBER) {
 		http = lua_tolstring(L, -3, &slen);
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, wsgi_req->protocol, wsgi_req->protocol_len)) != wsgi_req->protocol_len) {
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, " ", 1)) != 1) {
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
-		// a performance hack
-		ptrbuf = (char *) http;
-		ptrbuf[3] = 0;
-		wsgi_req->status = atoi(ptrbuf);
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2)) != 2) {
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
+
+		response_append(wsgi_req->protocol, wsgi_req->protocol_len);
+		response_append(" ", 1);
+		response_append((char *) http, slen);
+		response_append("\r\n", 2);
+
+		// transform the first 3 bytes of the string in a number
+		wsgi_req->status = uwsgi_str3_num((char *)http);
 	}
 	else {
-		raw = 1;
-		wsgi_req->status = -1;
+		uwsgi_log("[uwsgi-lua] invalid response status !!!\n");
+		// let's continue 
 	}
 
 	// send headers
@@ -506,42 +493,23 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	lua_pushnil(L);
 	while(lua_next(L, -3) != 0) {
 		http = lua_tolstring(L, -2, &slen);
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
-			lua_pop(L, 2);
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, ": ", 2)) != 2) {
-			lua_pop(L, 2);
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
+
+		response_append_header((char *)http, slen);
+		response_append_header(": ", 2);
+
 		http = lua_tolstring(L, -1, &slen);
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
-			lua_pop(L, 2);
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2)) != 2) {
-			lua_pop(L, 2);
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
+
+		response_append_header((char *)http, slen);
+		response_append_header("\r\n", 2);
+
 		lua_pop(L, 1);
 		wsgi_req->header_cnt++;
 	}
 
-	if (!raw) {
-		if ( (rlen = wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2)) != 2) {
-			lua_pushvalue(L, -1);
-			goto clear;
-		}
-		wsgi_req->headers_size += rlen;
-	}
+	response_append("\r\n", 2);
+
+	wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, status_and_headers->buf, status_and_headers->pos);
+	uwsgi_buffer_destroy(status_and_headers);
 
 	// send body with coroutine
 	lua_pushvalue(L, -1);
@@ -566,7 +534,6 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	}
 
 clear:
-
 	lua_pop(L, 4);
 clear2:
 

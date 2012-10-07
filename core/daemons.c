@@ -215,11 +215,13 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
                         exit(1);
                 }
 
+		if (!ud->pidfile) {
 #ifdef __linux__
-                if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
-                        uwsgi_error("prctl()");
-                }
+                	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+                        	uwsgi_error("prctl()");
+                	}
 #endif
+		}
 
 
                 if (throttle) {
@@ -256,6 +258,12 @@ void uwsgi_opt_add_daemon(char *opt, char *value, void *none) {
 		}
 		*space = 0;
 		pidfile = command;
+		// check for freq
+		char *comma = strchr(pidfile, ',');
+		if (comma) {
+			*comma = 0;
+			freq = atoi(comma+1);
+		}
 		command = space + 1;
 		if (!strcmp(opt, "smart-attach-daemon2")) {
 			daemonize = 1;
