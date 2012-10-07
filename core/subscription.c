@@ -88,7 +88,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 			if (min_rc == 0 || node->reference < min_rc) {
 				min_rc = node->reference;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests <= node->requests))
+				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests_per_minute <= node->requests_per_minute))
 					break;
 			}
 		}
@@ -121,7 +121,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
 			if (min_rc == 0 || ref < min_rc) {
 				min_rc = ref;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests <= node->requests))
+				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests_per_minute <= node->requests_per_minute))
 					break;
 			}
 		}
