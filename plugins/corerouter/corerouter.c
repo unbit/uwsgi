@@ -732,7 +732,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 
 					if (uwsgi_stats_keyvaln_comma(us, "name", s_node->name, s_node->len)) goto end0;
 
-					if (uwsgi_stats_keylong_comma(us, "subscribed", (unsigned long long) s_node->subscribed)) goto end0;
+					if (uwsgi_stats_keylong_comma(us, "subscribed_at", (unsigned long long) s_node->subscribed_at)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) s_node->modifier1)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "modifier2", (unsigned long long) s_node->modifier2)) goto end0;
 					if (uwsgi_stats_keylong_comma(us, "last_check", (unsigned long long) s_node->last_check)) goto end0;

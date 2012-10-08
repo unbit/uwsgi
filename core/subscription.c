@@ -410,7 +410,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		if (!node->weight) node->weight = 1;
 		node->wrr = 0;
 		node->last_check = uwsgi_now();
-		node->subscribed = uwsgi_now();
+		node->subscribed_at = node->last_check;
 		node->requests_per_minute = 0;
 		node->rpm_timecheck = 0;
 		node->last_minute_requests = 0;
@@ -490,7 +490,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->wrr = 0;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
 		current_slot->nodes->last_check = uwsgi_now();
-		current_slot->nodes->subscribed = uwsgi_now();
+		current_slot->nodes->subscribed_at = current_slot->nodes->last_check;
 		current_slot->nodes->requests_per_minute = 0;
 		current_slot->nodes->rpm_timecheck = 0;
 		current_slot->nodes->last_minute_requests = 0;

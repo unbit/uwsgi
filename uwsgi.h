@@ -2847,7 +2847,7 @@ struct uwsgi_subscribe_node {
 	uint64_t wrr;
 
 	time_t unix_check;
-	time_t subscribed;
+	time_t subscribed_at;
 
 	uint64_t requests_per_minute;
 	uint64_t last_minute_requests;
