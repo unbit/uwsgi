@@ -2754,6 +2754,7 @@ int uwsgi_get_shared_socket_num(struct uwsgi_socket *);
 
 #ifdef __linux__
 void uwsgi_set_cgroup(void);
+int uwsgi_linux_somaxconn(void);
 #endif
 
 void uwsgi_add_sockets_to_queue(int, int);

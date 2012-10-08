@@ -610,6 +610,13 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		uwsgi_nuclear_blast();
 	}
 
+#ifdef __linux__
+        if (uwsgi.listen_queue > uwsgi_linux_somaxconn()) {
+		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%i).\n", uwsgi_linux_somaxconn());
+		uwsgi_nuclear_blast();
+	}
+#endif
+
 	if (listen(serverfd, listen_queue) != 0) {
 		uwsgi_error("listen()");
 		uwsgi_nuclear_blast();

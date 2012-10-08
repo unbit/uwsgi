@@ -840,6 +840,25 @@ void uwsgi_linux_ksm_map(void) {
 #endif
 #endif
 
+#ifdef __linux__
+int uwsgi_linux_somaxconn(void) {
+        char buf[16];
+        char *filename = "/proc/sys/net/core/somaxconn";
+	int fd = open(filename, O_RDONLY);
+        ssize_t len;
+	if (fd < 0) {
+		uwsgi_error_open(filename);
+		return -1;
+	}
+        len = read(fd, buf, sizeof(buf));
+        if (len == 0) {
+		uwsgi_log("read error %s\n", filename);
+	        return -1;
+        }
+        return (int)strtol(buf, (char **)NULL, 10);
+}
+#endif
+
 // setup for a new request
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
