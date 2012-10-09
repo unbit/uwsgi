@@ -18,6 +18,12 @@ struct uwsgi_option uwsgi_rack_options[] = {
         {"rubyrequire", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
         {"require", required_argument, 0, "import/require a ruby module/script", uwsgi_opt_add_string_list, &ur.rbrequire, 0},
 
+        {"shared-rb-require", required_argument, 0, "import/require a ruby module/script (shared)", uwsgi_opt_add_string_list, &ur.shared_rbrequire, 0},
+        {"shared-ruby-require", required_argument, 0, "import/require a ruby module/script (shared)", uwsgi_opt_add_string_list, &ur.shared_rbrequire, 0},
+        {"shared-rbrequire", required_argument, 0, "import/require a ruby module/script (shared)", uwsgi_opt_add_string_list, &ur.shared_rbrequire, 0},
+        {"shared-rubyrequire", required_argument, 0, "import/require a ruby module/script (shared)", uwsgi_opt_add_string_list, &ur.shared_rbrequire, 0},
+        {"shared-require", required_argument, 0, "import/require a ruby module/script (shared)", uwsgi_opt_add_string_list, &ur.shared_rbrequire, 0},
+
         {"gemset", required_argument, 0, "load the specified gemset (rvm)", uwsgi_opt_set_str, &ur.gemset, 0},
         {"rvm", required_argument, 0, "load the specified gemset (rvm)", uwsgi_opt_set_str, &ur.gemset, 0},
 
@@ -469,6 +475,20 @@ int uwsgi_rack_init(){
 #endif
 
 	return 0;
+}
+
+void uwsgi_rack_preinit_apps() {
+
+	struct uwsgi_string_list *usl = ur.shared_rbrequire;
+        while(usl) {
+                int error = 0;
+                rb_protect( uwsgi_require_file, rb_str_new2(usl->value), &error ) ;
+                if (error) {
+                        uwsgi_ruby_exception();
+                }
+                usl = usl->next;
+        }
+
 }
 
 VALUE uwsgi_rb_call_new(VALUE obj) {
@@ -1225,6 +1245,8 @@ struct uwsgi_plugin rack_plugin = {
 	.post_fork = uwsgi_rb_post_fork,
 
 	.spooler = uwsgi_rack_spooler,
+
+	.preinit_apps = uwsgi_rack_preinit_apps,
 
 	.init_apps = uwsgi_rack_init_apps,
 	.mount_app = uwsgi_rack_mount_app,
