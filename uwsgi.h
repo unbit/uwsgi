@@ -3333,6 +3333,9 @@ struct uwsgi_offload_request {
         int s;
         int fd;
         off_t pos;
+	char *buf;
+	off_t buf_pos;
+	size_t to_write;
         size_t len;
         size_t written;
 	struct uwsgi_offload_request *prev;

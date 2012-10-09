@@ -68,6 +68,10 @@ static void uwsgi_offload_close(struct uwsgi_offload_request *uor) {
 		next->prev = prev;
 	}
 
+	if (uor->buf) {
+		free(uor->buf);
+	}
+
 	free(uor);
 }
 
@@ -139,8 +143,40 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 				if (errno == EAGAIN) continue;
 				uwsgi_error("sendfile()");
 			}
-			uwsgi_offload_close(uor);
+#else
+			if (!uor->buf) {
+				uor->buf = uwsgi_malloc(32768);
+			}
+			if (uor->to_write == 0) {
+				ssize_t len = read(uor->fd, uor->buf, 32768);
+				if (len > 0) {
+					uor->to_write = len;
+					uor->buf_pos = 0;
+					continue;
+				}
+				else if (len < 0) {
+					uwsgi_error("read()");	
+				}
+				uwsgi_offload_close(uor);
+				continue;
+			}	
+			ssize_t len = write(uor->s, uor->buf + uor->buf_pos, uor->to_write - uor->buf_pos);
+			if (len > 0) {
+				uor->written += len;
+				uor->to_write -= len;
+				uor->buf_pos += len;
+				if (uor->written >= uor->len) {
+                                        uwsgi_offload_close(uor);
+                                }
+                                continue;
+			}
+			else if (len < 0) {
+                                if (errno == EAGAIN) continue;
+                                uwsgi_error("write()");
+                        }
+
 #endif
+			uwsgi_offload_close(uor);
 		}
 	}
 }
