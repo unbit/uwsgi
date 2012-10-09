@@ -1074,7 +1074,7 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     for cfile in up.GCC_LIST:
         if cfile.endswith('.a'): 
             gcc_list.append(cfile)
-        elif not cfile.endswith('.c') and not cfile.endswith('.cc'):
+        elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m'):
             gcc_list.append(path + '/' + cfile + '.c')
         else:
             gcc_list.append(path + '/' + cfile)
