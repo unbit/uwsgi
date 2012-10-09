@@ -370,9 +370,9 @@ int uwsgi_perl_init(){
 	}
 
 #ifdef PERL_VERSION_STRING
-	uwsgi_log("initialized Perl %s main interpreter at %p\n", PERL_VERSION_STRING, uperl.main[0]);
+	uwsgi_log_initial("initialized Perl %s main interpreter at %p\n", PERL_VERSION_STRING, uperl.main[0]);
 #else
-	uwsgi_log("initialized Perl main interpreter at %p\n", uperl.main[0]);
+	uwsgi_log_initial("initialized Perl main interpreter at %p\n", uperl.main[0]);
 #endif
 
 	return 1;

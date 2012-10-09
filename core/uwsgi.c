@@ -1971,7 +1971,7 @@ int uwsgi_start(void *v_argv) {
 #ifdef RLIMIT_NPROC
 	if (uwsgi.rl_nproc.rlim_max > 0) {
                 uwsgi.rl_nproc.rlim_cur = uwsgi.rl_nproc.rlim_max;
-                uwsgi_log("limiting number of processes to %d...\n", (int) uwsgi.rl_nproc.rlim_max);
+                uwsgi_log_initial("limiting number of processes to %d...\n", (int) uwsgi.rl_nproc.rlim_max);
                 if (setrlimit(RLIMIT_NPROC, &uwsgi.rl_nproc)) {
                         uwsgi_error("setrlimit()");
                 }
@@ -1979,10 +1979,10 @@ int uwsgi_start(void *v_argv) {
 
 	if (!getrlimit(RLIMIT_NPROC, &uwsgi.rl_nproc)) {
 		if (uwsgi.rl_nproc.rlim_cur != RLIM_INFINITY) {
-			uwsgi_log("your processes number limit is %d\n", (int) uwsgi.rl_nproc.rlim_cur);
+			uwsgi_log_initial("your processes number limit is %d\n", (int) uwsgi.rl_nproc.rlim_cur);
 			if ((int)uwsgi.rl_nproc.rlim_cur < uwsgi.numproc+uwsgi.master_process) {
 				uwsgi.numproc = uwsgi.rl_nproc.rlim_cur - 1;
-				uwsgi_log("!!! number of workers adjusted to %d due to system limits !!!\n", uwsgi.numproc);
+				uwsgi_log_initial("!!! number of workers adjusted to %d due to system limits !!!\n", uwsgi.numproc);
 			}
 		}
 	}
@@ -1991,7 +1991,7 @@ int uwsgi_start(void *v_argv) {
 
 	if (uwsgi.rl.rlim_max > 0) {
 		uwsgi.rl.rlim_cur = uwsgi.rl.rlim_max;
-		uwsgi_log("limiting address space of processes...\n");
+		uwsgi_log_initial("limiting address space of processes...\n");
 		if (setrlimit(RLIMIT_AS, &uwsgi.rl)) {
 			uwsgi_error("setrlimit()");
 		}
@@ -2007,7 +2007,7 @@ int uwsgi_start(void *v_argv) {
 
 		}
 		else {
-			uwsgi_log("scheduler priority set to %d\n", uwsgi.prio);
+			uwsgi_log_initial("scheduler priority set to %d\n", uwsgi.prio);
 		}
 	}
 	if (!getrlimit(RLIMIT_AS, &uwsgi.rl)) {
