@@ -841,22 +841,22 @@ void uwsgi_linux_ksm_map(void) {
 #endif
 
 #ifdef __linux__
-int uwsgi_linux_somaxconn(void) {
+long uwsgi_num_from_file(char *filename) {
         char buf[16];
-        char *filename = "/proc/sys/net/core/somaxconn";
-	int fd = open(filename, O_RDONLY);
         ssize_t len;
-	if (fd < 0) {
-		uwsgi_error_open(filename);
-		return -1;
-	}
+        int fd = open(filename, O_RDONLY);
+        if (fd < 0) {
+                uwsgi_error_open(filename);
+                return -1L;
+        }       
         len = read(fd, buf, sizeof(buf));
         if (len == 0) {
-		uwsgi_log("read error %s\n", filename);
-	        return -1;
-        }
-        return (int)strtol(buf, (char **)NULL, 10);
-}
+                uwsgi_log("read error %s\n", filename);
+                return -1L;
+        }       
+	close(fd);
+        return strtol(buf, (char **)NULL, 10);
+}     
 #endif
 
 // setup for a new request

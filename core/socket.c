@@ -611,8 +611,9 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 #ifdef __linux__
-        if (uwsgi.listen_queue > uwsgi_linux_somaxconn()) {
-		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%i).\n", uwsgi_linux_somaxconn());
+        long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn");
+        if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
+		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%i).\n", somaxconn);
 		uwsgi_nuclear_blast();
 	}
 #endif
