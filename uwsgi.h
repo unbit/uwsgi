@@ -2763,6 +2763,7 @@ int uwsgi_get_shared_socket_num(struct uwsgi_socket *);
 
 #ifdef __linux__
 void uwsgi_set_cgroup(void);
+long uwsgi_num_from_file(char *);
 #endif
 
 void uwsgi_add_sockets_to_queue(int, int);

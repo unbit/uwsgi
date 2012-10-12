@@ -840,6 +840,25 @@ void uwsgi_linux_ksm_map(void) {
 #endif
 #endif
 
+#ifdef __linux__
+long uwsgi_num_from_file(char *filename) {
+        char buf[16];
+        ssize_t len;
+        int fd = open(filename, O_RDONLY);
+        if (fd < 0) {
+                uwsgi_error_open(filename);
+                return -1L;
+        }       
+        len = read(fd, buf, sizeof(buf));
+        if (len == 0) {
+                uwsgi_log("read error %s\n", filename);
+                return -1L;
+        }       
+	close(fd);
+        return strtol(buf, (char **)NULL, 10);
+}     
+#endif
+
 // setup for a new request
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
