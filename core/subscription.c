@@ -88,7 +88,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 			if (min_rc == 0 || node->reference < min_rc) {
 				min_rc = node->reference;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests <= node->requests))
+				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_minute_requests <= node->last_minute_requests))
 					break;
 			}
 		}
@@ -121,7 +121,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
 			if (min_rc == 0 || ref < min_rc) {
 				min_rc = ref;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests <= node->requests))
+				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_minute_requests <= node->last_minute_requests))
 					break;
 			}
 		}
@@ -227,6 +227,7 @@ struct uwsgi_subscribe_node *uwsgi_get_subscribe_node(struct uwsgi_subscribe_slo
 			}
 			continue;
 		}
+
 
 		struct uwsgi_subscribe_node *choosen_node = uwsgi.subscription_algo(current_slot, node);
 		if (choosen_node) return choosen_node;
@@ -357,12 +358,29 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				}
 #endif
 				// remove death mark and update cores and load
+                                time_t now = uwsgi_now();
+
 				node->death_mark = 0;
-                                node->last_check = uwsgi_now();
+                                node->last_check = now;
 				node->cores = usr->cores;
 				node->load = usr->load;
 				node->weight = usr->weight;
 				if (!node->weight) node->weight = 1;
+
+				// rpm checks in case there was no requests in last minute
+				time_t target_ts = now / 60;
+				// first check for clock jumps
+				if (node->rpm_timecheck == 0 || node->rpm_timecheck > target_ts || (target_ts - node->rpm_timecheck) > 1) {
+					// if clock go back or jumps to the future than just reset everything
+					node->rpm_timecheck = target_ts;
+					node->last_minute_requests = 0;
+				} else if (node->rpm_timecheck != target_ts) {
+					// clock did not jumped, this is next minute
+					node->requests_per_minute = node->last_minute_requests;
+					node->rpm_timecheck = target_ts;
+					node->last_minute_requests = 0;
+				}
+
                                 return node;
                         }
 			old_node = node;
@@ -392,6 +410,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		if (!node->weight) node->weight = 1;
 		node->wrr = 0;
 		node->last_check = uwsgi_now();
+		node->subscribed_at = node->last_check;
+		node->requests_per_minute = 0;
+		node->rpm_timecheck = 0;
+		node->last_minute_requests = 0;
 		node->slot = current_slot;
                 memcpy(node->name, usr->address, usr->address_len);
 		if (old_node) {
@@ -468,6 +490,10 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->wrr = 0;
 		memcpy(current_slot->nodes->name, usr->address, usr->address_len);
 		current_slot->nodes->last_check = uwsgi_now();
+		current_slot->nodes->subscribed_at = current_slot->nodes->last_check;
+		current_slot->nodes->requests_per_minute = 0;
+		current_slot->nodes->rpm_timecheck = 0;
+		current_slot->nodes->last_minute_requests = 0;
 
 		current_slot->nodes->next = NULL;
 

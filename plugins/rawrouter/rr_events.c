@@ -70,8 +70,28 @@ void uwsgi_rawrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerout
 			}
 
 			// increment node requests counter
-                        if (cs->un)
-                                cs->un->requests++;	
+			if (cs->un) {
+				cs->un->requests++;
+
+				// update node rpm
+				time_t now = uwsgi_now();
+				time_t target_ts = now / 60;
+
+				// first check for clock jumps
+				if (cs->un->rpm_timecheck == 0 || cs->un->rpm_timecheck > target_ts || (target_ts - cs->un->rpm_timecheck) > 1) {
+					// if clock go back or jumps to the future than just reset everything
+					cs->un->rpm_timecheck = target_ts;
+					cs->un->last_minute_requests = 1;
+				} else if (cs->un->rpm_timecheck != target_ts) {
+					// clock did not jumped, this is next minute
+					cs->un->requests_per_minute = cs->un->last_minute_requests;
+					cs->un->rpm_timecheck = target_ts;
+					cs->un->last_minute_requests = 1;
+				} else {
+					cs->un->last_minute_requests++;
+				}
+
+			}
 
 			event_queue_fd_write_to_read(ucr->queue, cs->instance_fd);
 			cs->status = COREROUTER_STATUS_RESPONSE;
@@ -106,7 +126,9 @@ void uwsgi_rawrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerout
 			// update transfer statistics
 			if (cs->un)
 				cs->un->transferred += len;
+
 		}
+
 		// body from client
 		else if (interesting_fd == cs->fd) {
 
