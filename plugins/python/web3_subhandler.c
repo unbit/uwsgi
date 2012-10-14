@@ -32,12 +32,28 @@ void *uwsgi_request_subhandler_web3(struct wsgi_request *wsgi_req, struct uwsgi_
                 wsgi_req->uh.modifier1 = 0;
                 pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
                 if (pydictkey) {
+#ifdef PYTHREE
+                        if (PyUnicode_Check(pydictkey)) {
+#else
                         if (PyString_Check(pydictkey)) {
+#endif
                                 pydictvalue = PyDict_GetItemString(wsgi_req->async_environ, "PATH_INFO");
                                 if (pydictvalue) {
+                                        ssize_t pydictkey_len;
+#ifdef PYTHREE
+                                        if (PyUnicode_Check(pydictvalue)) {
+                                                zero = PyUnicode_AsASCIIString(pydictkey);
+                                                pydictkey_len = PyBytes_Size(zero);
+                                                Py_DECREF(zero);
+                                                zero = PyUnicode_AsASCIIString(pydictvalue);
+                                                path_info = PyBytes_AsString(zero);
+                                                Py_DECREF(zero);
+#else
                                         if (PyString_Check(pydictvalue)) {
                                                 path_info = PyString_AsString(pydictvalue);
-                                                PyDict_SetItemString(wsgi_req->async_environ, "PATH_INFO", PyString_FromString(path_info + PyString_Size(pydictkey)));
+                                                pydictkey_len = PyString_Size(pydictkey);
+#endif
+                                                PyDict_SetItemString(wsgi_req->async_environ, "PATH_INFO", UWSGI_PYFROMSTRING(path_info + pydictkey_len));
                                         }
                                 }
                         }
