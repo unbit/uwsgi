@@ -216,7 +216,12 @@ void async_schedule_to_req(void) {
 	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);
 }
 
-void *async_loop(void *arg1) {
+void async_loop() {
+
+	if (uwsgi.async < 2) {
+                uwsgi_log("the async loop engine requires async mode (--async <n>)\n");
+                exit(1);
+        }
 
 	struct uwsgi_async_fd *tmp_uaf;
 	int interesting_fd, i;
@@ -463,7 +468,5 @@ void *async_loop(void *arg1) {
 
 
 	}
-
-	return NULL;
 
 }

@@ -2226,7 +2226,7 @@ struct http_status_codes {
 
 #ifdef UWSGI_ASYNC
 void uwsgi_async_init(void);
-void *async_loop(void *);
+void async_loop();
 struct wsgi_request *find_first_available_wsgi_req(void);
 struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int);
@@ -2320,7 +2320,8 @@ int master_loop(char **, char **);
 int find_worker_id(pid_t);
 
 
-void *simple_loop(void *);
+void simple_loop();
+void *simple_loop_run(void *);
 
 int uwsgi_count_options(struct uwsgi_option *);
 
@@ -2338,7 +2339,7 @@ int uwsgi_read_whole_body_in_mem(struct wsgi_request *, char *);
 
 ssize_t uwsgi_sendfile(struct wsgi_request *);
 
-void uwsgi_register_loop(char *, void *);
+void uwsgi_register_loop(char *, void (*)(void));
 void *uwsgi_get_loop(char *);
 
 void add_exported_option(char *, char *, int);
@@ -3355,6 +3356,8 @@ void uwsgi_daemons_spawn_all();
 int uwsgi_daemon_check_pid_death(pid_t);
 int uwsgi_daemon_check_pid_reload(pid_t);
 void uwsgi_daemons_smart_check();
+
+void uwsgi_setup_thread_req(long, struct wsgi_request *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

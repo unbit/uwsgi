@@ -10,7 +10,7 @@ struct wsgi_request *simple_current_wsgi_req() {
 }
 
 
-void uwsgi_register_loop(char *name, void *loop) {
+void uwsgi_register_loop(char *name, void (*loop)(void)) {
 
 	if (uwsgi.loops_cnt >= MAX_LOOPS) {
 		uwsgi_log("you can define %d loops at max\n", MAX_LOOPS);
@@ -35,45 +35,74 @@ void *uwsgi_get_loop(char *name) {
 	return NULL;
 }
 
-void *simple_loop(void *arg1) {
+/*
+
+	this is the default (simple) loop.
+
+	it will run simple_loop_run function for each spawned thread
+
+	simple_loop_run monitors sockets and signals descriptors
+	and manages them.
+
+*/
+
+void simple_loop() {
+
+	int i;
+#ifdef UWSGI_THREADING
+	for (i = 1; i < uwsgi.threads; i++) {
+        	long j = i;
+                pthread_create(&uwsgi.workers[uwsgi.mywid].cores[i].thread_id, &uwsgi.threads_attr, simple_loop_run, (void *) j);
+	}
+#endif
+	long y = 0;
+        simple_loop_run((void *) y);
+}
+
+void uwsgi_setup_thread_req(long core_id, struct wsgi_request *wsgi_req) {
+	int i;
+                sigset_t smask;
+
+
+                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &i);
+                pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &i);
+                pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
+
+                if (core_id > 0) {
+                        // block all signals on new threads
+                        sigfillset(&smask);
+#ifdef UWSGI_DEBUG
+                        sigdelset(&smask, SIGSEGV);
+#endif
+                        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+
+                        // run per-thread socket hook
+                        struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+                        while(uwsgi_sock) {
+                                if (uwsgi_sock->proto_thread_fixup) {
+                                        uwsgi_sock->proto_thread_fixup(uwsgi_sock, core_id);
+                                }
+                                uwsgi_sock = uwsgi_sock->next;
+                        }
+
+                        for (i = 0; i < 256; i++) {
+                                if (uwsgi.p[i]->init_thread) {
+                                        uwsgi.p[i]->init_thread(core_id);
+                                }
+                        }
+                }
+
+}
+
+void *simple_loop_run(void *arg1) {
 
 	long core_id = (long) arg1;
 
 	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core_id].req;
 
 #ifdef UWSGI_THREADING
-	int i;
-	sigset_t smask;
-
 	if (uwsgi.threads > 1) {
-
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &i);
-		pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &i);
-		pthread_setspecific(uwsgi.tur_key, (void *) wsgi_req);
-
-		if (core_id > 0) {
-			// block all signals on new threads
-			sigfillset(&smask);
-#ifdef UWSGI_DEBUG
-			sigdelset(&smask, SIGSEGV);
-#endif
-			pthread_sigmask(SIG_BLOCK, &smask, NULL);
-
-			// run per-thread socket hook
-			struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-			while(uwsgi_sock) {
-				if (uwsgi_sock->proto_thread_fixup) {
-					uwsgi_sock->proto_thread_fixup(uwsgi_sock, core_id);
-				}
-				uwsgi_sock = uwsgi_sock->next;
-			}
-
-			for (i = 0; i < 256; i++) {
-				if (uwsgi.p[i]->init_thread) {
-					uwsgi.p[i]->init_thread(core_id);
-				}
-			}
-		}
+		uwsgi_setup_thread_req(core_id, wsgi_req);
 	}
 #endif
 

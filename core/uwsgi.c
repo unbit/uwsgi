@@ -2726,6 +2726,16 @@ wait_for_call_of_duty:
 		}
 	}
 
+#ifdef UWSGI_THREADING
+	// create a pthread key, storing per-thread wsgi_request structure
+	if (uwsgi.threads > 1) {
+                if (pthread_key_create(&uwsgi.tur_key, NULL)) {
+                        uwsgi_error("pthread_key_create()");
+                        exit(1);
+                }
+	}
+#endif
+
 
 	if (uwsgi.loop) {
 		void (*u_loop) (void) = uwsgi_get_loop(uwsgi.loop);
@@ -2740,29 +2750,14 @@ wait_for_call_of_duty:
 		uwsgi_log("your loop engine died. R.I.P.\n");
 	}
 	else {
-		if (uwsgi.threads > 1) {
-#ifdef UWSGI_THREADING
-			if (pthread_key_create(&uwsgi.tur_key, NULL)) {
-				uwsgi_error("pthread_key_create()");
-				exit(1);
-			}
-			for (i = 1; i < uwsgi.threads; i++) {
-				long j = i;
-				pthread_create(&uwsgi.workers[uwsgi.mywid].cores[i].thread_id, &uwsgi.threads_attr, simple_loop, (void *) j);
-			}
-#endif
-		}
-
 		if (uwsgi.async < 2) {
-			long y = 0;
-			simple_loop((void *) y);
+			simple_loop();
 		}
 #ifdef UWSGI_ASYNC
 		else {
-			async_loop(NULL);
+			async_loop();
 		}
 #endif
-
 	}
 
 	if (uwsgi.snapshot) {
