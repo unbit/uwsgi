@@ -2,6 +2,36 @@ import uwsgi
 if uwsgi.loop == 'gevent':
     import gevent
 
+from threading import Thread
+import time
+from uwsgidecorators import postfork
+
+def foobar():
+    while True:
+        time.sleep(3)
+        print "threee second elapsed in worker %d" % uwsgi.worker_id()
+
+@postfork
+def spawn_thread():
+    t = Thread(target=foobar)
+    t.daemon = True
+    t.start()
+
+@postfork
+def spawn_thread2():
+    t = Thread(target=foobar)
+    t.daemon = True
+    t.start()
+
+def gl_func():
+    while True:
+        gevent.sleep(2)
+        print "i am a greenltet running in worker %d" % uwsgi.worker_id()
+
+@postfork
+def spawn_greenlet():
+    gevent.spawn(gl_func)
+
 print uwsgi.version
 print uwsgi.workers()
 try:

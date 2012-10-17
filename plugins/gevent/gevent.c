@@ -326,10 +326,6 @@ void gevent_loop() {
 	// get the GIL
 	UWSGI_GET_GIL
 
-	// ..then reset GIL subsystem as noop (gevent IO will take care of it...)
-	up.gil_get = gil_fake_get;
-        up.gil_release = gil_fake_release;
-
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
 	if (uwsgi.async < 2) {

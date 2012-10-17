@@ -1329,6 +1329,7 @@ int uwsgi_check_python_mtime(PyObject *times_dict, char *filename) {
 }
 
 PyObject *uwsgi_python_setup_thread(char *name) {
+
 	// block signals on this thread
         sigset_t smask;
         sigfillset(&smask);
