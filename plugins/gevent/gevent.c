@@ -350,8 +350,6 @@ void gevent_loop() {
 		exit(1);
 	}
 
-
-
 	ugevent.spawn = PyDict_GetItemString(gevent_dict, "spawn");
 	if (!ugevent.spawn) uwsgi_pyexit;
 

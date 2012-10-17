@@ -10,28 +10,39 @@ struct wsgi_request *simple_current_wsgi_req() {
 }
 
 
-void uwsgi_register_loop(char *name, void (*loop)(void)) {
+void uwsgi_register_loop(char *name, void (*func)(void)) {
 
-	if (uwsgi.loops_cnt >= MAX_LOOPS) {
-		uwsgi_log("you can define %d loops at max\n", MAX_LOOPS);
-		exit(1);
+	struct uwsgi_loop *old_loop = NULL, *loop = uwsgi.loops;
+
+	while(loop) {
+		// check if the loop engine is already registered
+		if (!strcmp(name, loop->name)) return;
+		old_loop = loop;
+		loop = loop->next;
 	}
 
-	uwsgi.loops[uwsgi.loops_cnt].name = name;
-	uwsgi.loops[uwsgi.loops_cnt].loop = loop;
-	uwsgi.loops_cnt++;
+	loop = uwsgi_calloc(sizeof(struct uwsgi_loop));	
+	loop->name = name;
+	loop->loop = func;
+
+	if (old_loop) {
+		old_loop->next = loop;
+	}
+	else {
+		uwsgi.loops = loop;
+	}
 }
 
 void *uwsgi_get_loop(char *name) {
 
-	int i;
+	struct uwsgi_loop *loop = uwsgi.loops;
 
-	for (i = 0; i < uwsgi.loops_cnt; i++) {
-		if (!strcmp(name, uwsgi.loops[i].name)) {
-			return uwsgi.loops[i].loop;
+	while(loop) {
+		if (!strcmp(name, loop->name)) {
+			return loop->loop;
 		}
+		loop = loop->next;
 	}
-
 	return NULL;
 }
 

@@ -1498,10 +1498,11 @@ static void router_list(void) {
 #endif
 
 static void loop_list(void) {
-	int i;
+	struct uwsgi_loop *loop = uwsgi.loops;
 	uwsgi_log("\n*** uWSGI loaded loop engines ***\n");
-	for(i=0;i<uwsgi.loops_cnt;i++) {
-		uwsgi_log("%s\n", uwsgi.loops[i].name);
+	while(loop) {
+		uwsgi_log("%s\n", loop->name);
+		loop = loop->next;
 	}
 	uwsgi_log("--- end of loop engines list ---\n\n");
 }

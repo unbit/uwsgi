@@ -603,11 +603,11 @@ struct uwsgi_opt {
 #define UWSGI_QUIET_CODE 29
 
 #define MAX_VARS 64
-#define MAX_LOOPS 60
 
 struct uwsgi_loop {
 	char *name;
 	void (*loop) (void);
+	struct uwsgi_loop *next;
 };
 
 struct wsgi_request;
@@ -1767,8 +1767,7 @@ struct uwsgi_server {
 	int close_on_exec;
 
 	char *loop;
-	struct uwsgi_loop loops[MAX_LOOPS];
-	int loops_cnt;
+	struct uwsgi_loop *loops;
 
 	struct uwsgi_plugin *p[256];
 	struct uwsgi_plugin *gp[MAX_GENERIC_PLUGINS];
