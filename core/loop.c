@@ -58,16 +58,19 @@ void *uwsgi_get_loop(char *name) {
 */
 
 void simple_loop() {
+	uwsgi_loop_cores_run(simple_loop_run);
+}
 
+void uwsgi_loop_cores_run(void *(*func)(void *)) {
 	int i;
 #ifdef UWSGI_THREADING
 	for (i = 1; i < uwsgi.threads; i++) {
         	long j = i;
-                pthread_create(&uwsgi.workers[uwsgi.mywid].cores[i].thread_id, &uwsgi.threads_attr, simple_loop_run, (void *) j);
+                pthread_create(&uwsgi.workers[uwsgi.mywid].cores[i].thread_id, &uwsgi.threads_attr, func, (void *) j);
 	}
 #endif
 	long y = 0;
-        simple_loop_run((void *) y);
+        func((void *) y);
 }
 
 void uwsgi_setup_thread_req(long core_id, struct wsgi_request *wsgi_req) {

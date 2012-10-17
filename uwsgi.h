@@ -3357,6 +3357,7 @@ int uwsgi_daemon_check_pid_reload(pid_t);
 void uwsgi_daemons_smart_check();
 
 void uwsgi_setup_thread_req(long, struct wsgi_request *);
+void uwsgi_loop_cores_run(void *(*)(void *));
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
