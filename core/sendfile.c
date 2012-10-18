@@ -13,10 +13,6 @@ int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size
 	// avoid closing the connection
         wsgi_req->fd_closed = 1;
 
-#ifdef TCP_CORK
-	// enable CORK mode (if available)
-#endif
-
         // fill offload request
         struct uwsgi_offload_request uor;
         uor.fd = open(filename, O_RDONLY | O_NONBLOCK);
@@ -31,6 +27,9 @@ int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size
 	uor.buf = NULL;
 	uor.prev = NULL;
 	uor.next = NULL;
+
+	// put socket in non-blocking mode
+	uwsgi_socket_nb(uor.s);
 
 	if (write(uwsgi.offload_thread->pipe[0], &uor, sizeof(struct uwsgi_offload_request)) != sizeof(struct uwsgi_offload_request)) {
 		goto error2;

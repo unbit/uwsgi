@@ -1050,7 +1050,7 @@ ssize_t uwsgi_http_nb_send(struct uwsgi_corerouter *cr, struct corerouter_sessio
         struct http_session *hs = (struct http_session *) cs;
         ssize_t ret = write(cs->fd, buf, len);
         if (ret == (ssize_t) len) {
-                if (cs->instance_stopped) {
+                if (cs->instance_fd != -1 && cs->instance_stopped) {
                         event_queue_add_fd_read(cr->queue, cs->instance_fd);
                         cs->instance_stopped = 0;
                 }
@@ -1065,7 +1065,7 @@ ssize_t uwsgi_http_nb_send(struct uwsgi_corerouter *cr, struct corerouter_sessio
         }
         else if (ret < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                        if (cs->instance_fd != -1) {
+                        if (cs->instance_fd != -1 && !cs->instance_stopped) {
                                 event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
                                 cs->instance_stopped = 1;
                         }
@@ -1083,10 +1083,13 @@ ssize_t uwsgi_http_nb_send(struct uwsgi_corerouter *cr, struct corerouter_sessio
         // partial write
         hs->buffer_len -= ret;
         memcpy(hs->buffer, hs->buffer + ret, hs->buffer_len);
-        if (cs->instance_fd != -1) {
+	// stop reading from the instance
+        if (cs->instance_fd != -1 && !cs->instance_stopped) {
                 event_queue_del_fd(cr->queue, cs->instance_fd, event_queue_read());
                 cs->instance_stopped = 1;
         }
+
+	// wait for write from client
         if (!cs->fd_state) {
                 event_queue_fd_read_to_write(cr->queue, cs->fd);
                 cs->fd_state = 1;
