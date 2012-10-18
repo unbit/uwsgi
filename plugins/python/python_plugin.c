@@ -302,8 +302,9 @@ realstuff:
 		return;
 	}
 
-	if (uwsgi.has_threads)
-		PyGILState_Ensure();
+	// always call it
+	PyGILState_Ensure();
+
 	// no need to worry about freeing memory
 #ifdef UWSGI_EMBEDDED
 	PyObject *uwsgi_dict = get_uwsgi_pydict("uwsgi");
