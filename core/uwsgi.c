@@ -2162,7 +2162,7 @@ int uwsgi_start(void *v_argv) {
 
 
 	// initialize request plugin only if workers or master are available
-	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
+	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode || uwsgi.loop) {
 		for (i = 0; i < 256; i++) {
 			if (uwsgi.p[i]->init) {
 				uwsgi.p[i]->init();
@@ -2178,7 +2178,7 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	// again check for workers/sockets...
-	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
+	if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode || uwsgi.loop) {
 		for (i = 0; i < 256; i++) {
 			if (uwsgi.p[i]->post_init) {
 				uwsgi.p[i]->post_init();
@@ -2206,7 +2206,7 @@ int uwsgi_start(void *v_argv) {
 		pthread_mutex_init(&uwsgi.lock_static, NULL);
 
 		// again check for workers/sockets...
-		if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode) {
+		if (uwsgi.sockets || uwsgi.master_process || uwsgi.no_server || uwsgi.command_mode || uwsgi.loop) {
 			for (i = 0; i < 256; i++) {
 				if (uwsgi.p[i]->enable_threads)
 					uwsgi.p[i]->enable_threads();
@@ -2355,7 +2355,7 @@ unsafe:
 
 #ifdef UWSGI_SPOOLER
 	// initialize locks and socket as soon as possibile, as the master could enqueue tasks
-        if (uwsgi.spoolers != NULL && uwsgi.sockets) {
+        if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
                 create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
                 struct uwsgi_spooler *uspool = uwsgi.spoolers;
                 while (uspool) {
@@ -2481,7 +2481,7 @@ next:
 
 
 #ifdef UWSGI_SPOOLER
-	if (uwsgi.spoolers != NULL && uwsgi.sockets) {
+	if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
 		while (uspool) {
 			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL) goto next2;
