@@ -1911,7 +1911,10 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 				// Ok, the file must be transferred from uWSGI
                 		if (wsgi_req->socket->can_offload) {
-					if (!uwsgi_offload_request_do(wsgi_req, real_filename, st->st_size)) goto done;
+					if (!uwsgi_offload_request_do(wsgi_req, real_filename, st->st_size)) {
+						wsgi_req->status = -30;
+						return 0;
+					}
                 		}
 
                                 wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);
@@ -1920,7 +1923,6 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 				close(wsgi_req->sendfile_fd);
 			}
 
-done:
                         wsgi_req->status = 200;
                         return 0;
 }

@@ -28,6 +28,7 @@ int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size
         uor.pos = 0;
         uor.len = len;
 	uor.written = 0;
+	uor.buf = NULL;
 	uor.prev = NULL;
 	uor.next = NULL;
 

@@ -2221,7 +2221,9 @@ int uwsgi_start(void *v_argv) {
 #endif
 
 	// users of the --loop option should know what they are doing... really...
+#ifndef UWSGI_DEBUG
 	if (uwsgi.loop) goto unsafe;
+#endif
 
 #ifdef UWSGI_UDP
 	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor && !uwsgi.command_mode) {
@@ -2246,7 +2248,9 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.to_hell = 1;
 	}
 
+#ifndef UWSGI_DEBUG
 unsafe:
+#endif
 
 #ifdef UWSGI_DEBUG
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
