@@ -348,6 +348,10 @@ struct uwsgi_lock_ops {
 #include <pcre.h>
 #endif
 
+#ifdef UWSGI_MATHEVAL
+#include <matheval.h>
+#endif
+
 struct uwsgi_dyn_dict {
 
 	char *key;
@@ -3358,6 +3362,11 @@ void uwsgi_daemons_smart_check();
 
 void uwsgi_setup_thread_req(long, struct wsgi_request *);
 void uwsgi_loop_cores_run(void *(*)(void *));
+
+#ifdef UWSGI_MATHEVAL
+double uwsgi_matheval(char *);
+char *uwsgi_matheval_str(char *);
+#endif
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

@@ -3784,6 +3784,7 @@ void uwsgi_apply_config_pass(char symbol, char *(*hook) (char *)) {
 
 	for (i = 0; i < uwsgi.exported_opts_cnt; i++) {
 		int has_symbol = 0;
+		int depth = 0;
 		char *magic_key = NULL;
 		char *magic_val = NULL;
 		if (uwsgi.exported_opts[i]->value && !uwsgi.exported_opts[i]->configured) {
@@ -3793,10 +3794,20 @@ void uwsgi_apply_config_pass(char symbol, char *(*hook) (char *)) {
 				}
 				else if (uwsgi.exported_opts[i]->value[j] == '(' && has_symbol == 1) {
 					has_symbol = 2;
+					depth = 0;
 					magic_key = uwsgi.exported_opts[i]->value + j + 1;
 				}
 				else if (has_symbol > 1) {
-					if (uwsgi.exported_opts[i]->value[j] == ')') {
+					if (uwsgi.exported_opts[i]->value[j] == '(') {
+						has_symbol++;
+						depth++;
+					}
+					else if (uwsgi.exported_opts[i]->value[j] == ')') {
+						if (depth > 0) {
+							has_symbol++;
+							depth--;
+							continue;
+						}
 						if (has_symbol <= 2) {
 							magic_key = NULL;
 							has_symbol = 0;
@@ -4786,3 +4797,21 @@ error:
 	return NULL;
 }
 
+// evaluate a math expression
+#ifdef UWSGI_MATHEVAL
+double uwsgi_matheval(char *expr) {
+#ifdef UWSGI_DEBUG
+	uwsgi_log("matheval expr = %s\n", expr);
+#endif
+	double ret = 0.0;
+	void *e = evaluator_create(expr);
+	if (!e) return ret;
+	ret = evaluator_evaluate(e, 0, NULL, NULL);
+	evaluator_destroy(e);
+	return ret;
+}
+char *uwsgi_matheval_str(char *expr) {
+	double ret = uwsgi_matheval(expr);
+	return uwsgi_num2str((int) ret);
+}
+#endif

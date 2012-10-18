@@ -41,6 +41,7 @@ report['timer'] = False
 report['filemonitor'] = False
 report['udp'] = False
 report['pcre'] = False
+report['matheval'] = False
 report['routing'] = False
 report['alarm'] = False
 report['capabilities'] = False
@@ -752,6 +753,11 @@ class uConf(object):
             self.cflags.append("-DUWSGI_CAP")
             self.libs.append('-lcap')
             report['capabilities'] = True
+
+        if self.has_include('matheval.h'):
+            self.cflags.append("-DUWSGI_MATHEVAL")
+            self.libs.append('-lmatheval')
+            report['matheval'] = True
 
         has_json = False
         has_uuid = False

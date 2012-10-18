@@ -1716,6 +1716,11 @@ int main(int argc, char *argv[], char *envp[]) {
 	// last pass: REFERENCEs
 	uwsgi_apply_config_pass('%', uwsgi_get_exported_opt);
 
+#ifdef UWSGI_MATHEVAL
+	// optional pass: MATH
+	uwsgi_apply_config_pass('=', uwsgi_matheval_str);
+#endif
+
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
 
