@@ -316,6 +316,13 @@ PyMethodDef uwsgi_gevent_my_signal_def[] = { {"uwsgi_gevent_my_signal", py_uwsgi
 PyMethodDef uwsgi_gevent_signal_handler_def[] = { {"uwsgi_gevent_signal_handler", py_uwsgi_gevent_signal_handler, METH_VARARGS, ""} };
 PyMethodDef uwsgi_gevent_unix_signal_handler_def[] = { {"uwsgi_gevent_unix_signal_handler", py_uwsgi_gevent_graceful, METH_VARARGS, ""} };
 
+void gil_gevent_get() {
+	pthread_setspecific(up.upt_gil_key, (void *) PyGILState_Ensure());
+}
+
+void gil_gevent_release() {
+	PyGILState_Release((PyGILState_STATE) pthread_getspecific(up.upt_gil_key));
+}
 
 void gevent_loop() {
 
@@ -325,6 +332,9 @@ void gevent_loop() {
 
 	// get the GIL
 	UWSGI_GET_GIL
+
+	up.gil_get = gil_gevent_get;
+	up.gil_release = gil_gevent_release;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
