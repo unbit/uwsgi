@@ -119,7 +119,7 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 					continue;
 				}
 				// start monitoring socket for write
-				if (event_queue_add_fd_write(ut->queue, uor->s) < 0) {
+				if (event_queue_add_fd_write(ut->queue, uor->s)) {
 					free(uor);
                                         continue;
 				}
@@ -146,6 +146,7 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 #else
 			if (!uor->buf) {
 				uor->buf = uwsgi_malloc(32768);
+				uor->to_write = 0;
 			}
 			if (uor->to_write == 0) {
 				ssize_t len = read(uor->fd, uor->buf, 32768);
@@ -160,7 +161,7 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 				uwsgi_offload_close(uor);
 				continue;
 			}	
-			ssize_t len = write(uor->s, uor->buf + uor->buf_pos, uor->to_write - uor->buf_pos);
+			ssize_t len = write(uor->s, uor->buf + uor->buf_pos, uor->to_write);
 			if (len > 0) {
 				uor->written += len;
 				uor->to_write -= len;
