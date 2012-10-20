@@ -292,6 +292,7 @@ struct uwsgi_buffer {
 	char *buf;
 	off_t pos;
 	size_t len;
+	size_t limit;
 };
 
 struct uwsgi_string_list {
@@ -3294,6 +3295,7 @@ void uwsgi_set_sockets_protocols(void);
 struct uwsgi_buffer *uwsgi_buffer_new(size_t);
 int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
 int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
+int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
 
 void uwsgi_httpize_var(char *, size_t);

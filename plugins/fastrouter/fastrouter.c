@@ -8,31 +8,31 @@
 #include "../corerouter/cr.h"
 
 struct uwsgi_fastrouter {
-        struct uwsgi_corerouter cr;
+	struct uwsgi_corerouter cr;
 } ufr;
 
 extern struct uwsgi_server uwsgi;
 
 struct fastrouter_session {
-        struct corerouter_session crs;
-        struct uwsgi_buffer *post_buf;
-        size_t post_buf_max;
-        size_t post_buf_len;
-        off_t post_buf_pos;
+	struct corerouter_session crs;
+	struct uwsgi_buffer *post_buf;
+	size_t post_buf_max;
+	size_t post_buf_len;
+	off_t post_buf_pos;
 };
 
 struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter", required_argument, 0, "run the fastrouter on the specified port", uwsgi_opt_corerouter, &ufr, 0},
 	{"fastrouter-processes", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.cr.processes, 0},
 	{"fastrouter-workers", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.cr.processes, 0},
-	{"fastrouter-zerg", required_argument, 0, "attach the fastrouter to a zerg server", uwsgi_opt_corerouter_zerg, &ufr, 0 },
+	{"fastrouter-zerg", required_argument, 0, "attach the fastrouter to a zerg server", uwsgi_opt_corerouter_zerg, &ufr, 0},
 	{"fastrouter-use-cache", no_argument, 0, "use uWSGI cache as hostname->server mapper for the fastrouter", uwsgi_opt_true, &ufr.cr.use_cache, 0},
 
 	{"fastrouter-use-pattern", required_argument, 0, "use a pattern for fastrouter hostname->server mapping", uwsgi_opt_corerouter_use_pattern, &ufr, 0},
 	{"fastrouter-use-base", required_argument, 0, "use a base dir for fastrouter hostname->server mapping", uwsgi_opt_corerouter_use_base, &ufr, 0},
 
 	{"fastrouter-fallback", required_argument, 0, "fallback to the specified node in case of error", uwsgi_opt_add_string_list, &ufr.cr.fallback, 0},
-	
+
 	{"fastrouter-use-cluster", no_argument, 0, "load balance to nodes subscribed to the cluster", uwsgi_opt_true, &ufr.cr.use_cluster, 0},
 
 	{"fastrouter-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the fastrouter", uwsgi_opt_corerouter_cs, &ufr, 0},
@@ -52,7 +52,7 @@ struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-stats", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.cr.stats_server, 0},
 	{"fastrouter-stats-server", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.cr.stats_server, 0},
 	{"fastrouter-ss", required_argument, 0, "run the fastrouter stats server", uwsgi_opt_set_str, &ufr.cr.stats_server, 0},
-	{"fastrouter-harakiri", required_argument, 0, "enable fastrouter harakiri", uwsgi_opt_set_int, &ufr.cr.harakiri, 0 },
+	{"fastrouter-harakiri", required_argument, 0, "enable fastrouter harakiri", uwsgi_opt_set_int, &ufr.cr.harakiri, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -61,69 +61,70 @@ ssize_t fr_instance_read_response(struct corerouter_session *);
 ssize_t fr_read_body(struct corerouter_session *);
 
 void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
-	
-		// here i use directly corerouter_session
-	        struct corerouter_session *cs = (struct corerouter_session *) data;
-	
-	        //uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
-	        if (!uwsgi_strncmp("SERVER_NAME", 11, key, keylen) && !cs->hostname_len) {
-	                cs->hostname = val;
-	                cs->hostname_len = vallen;
-	                return;
-	        }
 
-	        if (!uwsgi_strncmp("HTTP_HOST", 9, key, keylen) && !cs->has_key) {
-	                cs->hostname = val;
-	                cs->hostname_len = vallen;
-	                return;
-	        }
-	
-	        if (!uwsgi_strncmp("UWSGI_FASTROUTER_KEY", 20, key, keylen)) {
-	                cs->has_key = 1;
-	                cs->hostname = val;
-	                cs->hostname_len = vallen;
-	                return;
-	        }
+	// here i use directly corerouter_session
+	struct corerouter_session *cs = (struct corerouter_session *) data;
 
-	        if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
-	        	cs->post_cl = uwsgi_str_num(val, vallen);
-	                return;
-	        }
+	//uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
+	if (!uwsgi_strncmp("SERVER_NAME", 11, key, keylen) && !cs->hostname_len) {
+		cs->hostname = val;
+		cs->hostname_len = vallen;
+		return;
+	}
+
+	if (!uwsgi_strncmp("HTTP_HOST", 9, key, keylen) && !cs->has_key) {
+		cs->hostname = val;
+		cs->hostname_len = vallen;
+		return;
+	}
+
+	if (!uwsgi_strncmp("UWSGI_FASTROUTER_KEY", 20, key, keylen)) {
+		cs->has_key = 1;
+		cs->hostname = val;
+		cs->hostname_len = vallen;
+		return;
+	}
+
+	if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
+		cs->post_cl = uwsgi_str_num(val, vallen);
+		return;
+	}
 }
 
-ssize_t fr_write_body(struct corerouter_session *cs) {
+ssize_t fr_write_body(struct corerouter_session * cs) {
 	struct fastrouter_session *fs = (struct fastrouter_session *) cs;
-        ssize_t len = write(cs->instance_fd, fs->post_buf->buf + fs->post_buf_pos, fs->post_buf_len - fs->post_buf_pos);
-        if (len < 0) {
-                cr_try_again;
-                uwsgi_error("fr_write_body()");
-                return -1;
-        }
+	ssize_t len = write(cs->instance_fd, fs->post_buf->buf + fs->post_buf_pos, fs->post_buf_len - fs->post_buf_pos);
+	if (len < 0) {
+		cr_try_again;
+		uwsgi_error("fr_write_body()");
+		return -1;
+	}
 
-        fs->post_buf_pos += len;
+	fs->post_buf_pos += len;
 
 	// the body chunk has been sent, start again reading from client and instance
-        if (fs->post_buf_pos == fs->post_buf_len) {
-                uwsgi_cr_hook_instance_write(cs, NULL);
+	if (fs->post_buf_pos == fs->post_buf_len) {
+		uwsgi_cr_hook_instance_write(cs, NULL);
 		uwsgi_cr_hook_instance_read(cs, fr_instance_read_response);
-                uwsgi_cr_hook_read(cs, fr_read_body);
-        }
+		uwsgi_cr_hook_read(cs, fr_read_body);
+	}
 
-        return len;
+	return len;
 }
 
 
-ssize_t fr_read_body(struct corerouter_session *cs) {
+ssize_t fr_read_body(struct corerouter_session * cs) {
 	struct fastrouter_session *fs = (struct fastrouter_session *) cs;
 	ssize_t len = read(cs->fd, fs->post_buf->buf, fs->post_buf_max);
 	if (len < 0) {
-                cr_try_again;
-                uwsgi_error("fr_read_body()");
-                return -1;
-        }
+		cr_try_again;
+		uwsgi_error("fr_read_body()");
+		return -1;
+	}
 
 	// connection closed
-	if (len == 0) return 0;
+	if (len == 0)
+		return 0;
 
 	fs->post_buf_len = len;
 	fs->post_buf_pos = 0;
@@ -132,36 +133,36 @@ ssize_t fr_read_body(struct corerouter_session *cs) {
 	uwsgi_cr_hook_read(cs, NULL);
 	uwsgi_cr_hook_instance_read(cs, NULL);
 	uwsgi_cr_hook_instance_write(cs, fr_write_body);
-	
+
 	return len;
 }
 
-ssize_t fr_write_response(struct corerouter_session *cs) {
+ssize_t fr_write_response(struct corerouter_session * cs) {
 	ssize_t len = write(cs->fd, cs->buffer->buf + cs->buffer_pos, cs->buffer_len - cs->buffer_pos);
-        if (len < 0) {
-                cr_try_again;
-                uwsgi_error("fr_write_response()");
-                return -1;
-        }
+	if (len < 0) {
+		cr_try_again;
+		uwsgi_error("fr_write_response()");
+		return -1;
+	}
 
-        cs->buffer_pos += len;
+	cs->buffer_pos += len;
 
 	// ok this response chunk is sent, let's wait for another one
-        if (cs->buffer_pos == cs->buffer_len) {
+	if (cs->buffer_pos == cs->buffer_len) {
 		uwsgi_cr_hook_write(cs, NULL);
-                uwsgi_cr_hook_instance_read(cs, fr_instance_read_response);
-        }
+		uwsgi_cr_hook_instance_read(cs, fr_instance_read_response);
+	}
 
-        return len;	
+	return len;
 }
 
-ssize_t fr_instance_read_response(struct corerouter_session *cs) {
+ssize_t fr_instance_read_response(struct corerouter_session * cs) {
 	ssize_t len = read(cs->instance_fd, cs->buffer->buf, cs->buffer->len);
 	if (len < 0) {
 		cr_try_again;
-                uwsgi_error("fr_instance_read_response()");
-                return -1;
-        }
+		uwsgi_error("fr_instance_read_response()");
+		return -1;
+	}
 
 	// end of the response
 	if (len == 0) {
@@ -176,7 +177,7 @@ ssize_t fr_instance_read_response(struct corerouter_session *cs) {
 	return len;
 }
 
-ssize_t fr_instance_send_request(struct corerouter_session *cs) {
+ssize_t fr_instance_send_request(struct corerouter_session * cs) {
 	ssize_t len = write(cs->instance_fd, cs->buffer->buf + cs->buffer_pos, cs->uh.pktsize - cs->buffer_pos);
 	if (len < 0) {
 		cr_try_again;
@@ -202,34 +203,35 @@ ssize_t fr_instance_send_request(struct corerouter_session *cs) {
 			fs->post_buf_max = UMIN(UMAX16, cs->post_cl);
 		}
 		fs->post_buf = uwsgi_buffer_new(fs->post_buf_max);
-		if (!fs->post_buf) return -1;
+		if (!fs->post_buf)
+			return -1;
 		uwsgi_cr_hook_read(cs, fr_read_body);
 	}
 
 	return len;
 }
 
-ssize_t fr_instance_send_request_header(struct corerouter_session *cs) {
+ssize_t fr_instance_send_request_header(struct corerouter_session * cs) {
 	ssize_t len = write(cs->instance_fd, &cs->uh + cs->buffer_pos, 4 - cs->buffer_pos);
-        if (len < 0) {
-                cr_try_again;
-                uwsgi_error("fr_instance_send_request_header()");
-                return -1;
-        }
+	if (len < 0) {
+		cr_try_again;
+		uwsgi_error("fr_instance_send_request_header()");
+		return -1;
+	}
 
-        cs->buffer_pos += len;
+	cs->buffer_pos += len;
 
-        // ok the request is sent, we can start sending client body (if any) and we can start waiting
-        // for response
-        if (cs->buffer_pos == 4) {
-                cs->buffer_pos = 0;
-		uwsgi_cr_hook_instance_write(cs, fr_instance_send_request);	
-        }
+	// ok the request is sent, we can start sending client body (if any) and we can start waiting
+	// for response
+	if (cs->buffer_pos == 4) {
+		cs->buffer_pos = 0;
+		uwsgi_cr_hook_instance_write(cs, fr_instance_send_request);
+	}
 
-        return len;
+	return len;
 }
 
-ssize_t fr_instance_connected(struct corerouter_session *cs) {
+ssize_t fr_instance_connected(struct corerouter_session * cs) {
 
 	socklen_t solen = sizeof(int);
 
@@ -253,16 +255,17 @@ ssize_t fr_instance_connected(struct corerouter_session *cs) {
 	return 1;
 }
 
-ssize_t fr_recv_uwsgi_vars(struct corerouter_session *cs) {
+ssize_t fr_recv_uwsgi_vars(struct corerouter_session * cs) {
 	// increase buffer if needed
-	if (uwsgi_buffer_fix(cs->buffer, cs->uh.pktsize)) return -1;
+	if (uwsgi_buffer_fix(cs->buffer, cs->uh.pktsize))
+		return -1;
 	ssize_t len = read(cs->fd, cs->buffer->buf + cs->buffer_pos, cs->uh.pktsize - cs->buffer_pos);
 	if (len < 0) {
 		cr_try_again;
 		uwsgi_error("fr_recv_uwsgi_vars()");
 		return -1;
 	}
-	
+
 	cs->buffer_pos += len;
 
 	// headers received, ready to choose the instance
@@ -273,9 +276,11 @@ ssize_t fr_recv_uwsgi_vars(struct corerouter_session *cs) {
 			return -1;
 		}
 		// check the hostname;
-		if (cs->hostname_len == 0) return -1;
+		if (cs->hostname_len == 0)
+			return -1;
 		// find an instance using the key
-		if (cs->corerouter->mapper(cs->corerouter, cs)) return -1;
+		if (cs->corerouter->mapper(cs->corerouter, cs))
+			return -1;
 		// check instance
 		if (cs->instance_address_len == 0) {
 			// if fallback nodes are configured, trigger them
@@ -304,7 +309,7 @@ ssize_t fr_recv_uwsgi_vars(struct corerouter_session *cs) {
 	return len;
 }
 
-ssize_t fr_recv_uwsgi_header(struct corerouter_session *cs) {
+ssize_t fr_recv_uwsgi_header(struct corerouter_session * cs) {
 	ssize_t len = read(cs->fd, cs->buffer->buf + cs->buffer_pos, 4 - cs->buffer_pos);
 	if (len < 0) {
 		cr_try_again;
@@ -333,7 +338,7 @@ int fastrouter_init() {
 
 	ufr.cr.session_size = sizeof(struct fastrouter_session);
 	ufr.cr.alloc_session = fastrouter_alloc_session;
-	uwsgi_corerouter_init((struct uwsgi_corerouter *) &ufr);	
+	uwsgi_corerouter_init((struct uwsgi_corerouter *) &ufr);
 
 	return 0;
 }

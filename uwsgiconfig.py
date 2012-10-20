@@ -12,6 +12,8 @@ uwsgi_cpu = os.uname()[4]
 
 import sys
 import subprocess
+from threading import Thread
+from Queue import Queue
 
 from distutils import sysconfig
 
@@ -72,6 +74,32 @@ report['spooler'] = False
 report['debug'] = False
 report['plugin_dir'] = False
 report['ipv6'] = False
+
+compile_queue = None
+thread_compilers = []
+
+def thread_compiler(num):
+    while True:
+        (objfile, cmdline) = compile_queue.get()
+        if objfile:
+            print("[thread %d][%s] %s" % (num, GCC, objfile))
+            ret = os.system(cmdline)
+            if ret != 0:
+                os._exit(1)
+        elif cmdline:
+            print cmdline
+        else:
+            return
+
+
+if CPUCOUNT > 1:
+    compile_queue = Queue(maxsize=CPUCOUNT)
+    for i in range(0,CPUCOUNT):
+        t = Thread(target=thread_compiler,args=(i,))
+        t.daemon = True
+        t.start()
+        thread_compilers.append(t)
+  
 	
 def binarize(name):
     return name.replace('/', '_').replace('.','_').replace('-','_')
@@ -134,6 +162,21 @@ def add_o(x):
     x = x + '.o'
     return x
 
+def push_print(msg):
+    if not compile_queue:
+        print(msg)
+    else:
+        compile_queue.put((None, msg))
+
+def push_command(objfile, cmdline):
+    if not compile_queue:
+        print("[%s] %s" % (GCC, objfile))
+        ret = os.system(cmdline)
+        if ret != 0:
+            sys.exit(1)
+    else:
+        compile_queue.put((objfile, cmdline))
+        
 
 def compile(cflags, last_cflags_ts, objfile, srcfile):
     source_stat = os.stat(srcfile)
@@ -159,10 +202,7 @@ def compile(cflags, last_cflags_ts, objfile, srcfile):
     except:
         pass
     cmdline = "%s -c %s -o %s %s" % (GCC, cflags, objfile, srcfile)
-    print("[%s] %s" % (GCC, objfile))
-    ret = os.system(cmdline)
-    if ret != 0:
-        sys.exit(1)
+    push_command(objfile, cmdline)
 
 
 def build_uwsgi(uc, print_only=False):
@@ -220,7 +260,7 @@ def build_uwsgi(uc, print_only=False):
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
 
-    print("*** uWSGI compiling server core ***")
+    push_print("*** uWSGI compiling server core ***")
     for file in gcc_list:
         objfile = file
         if objfile == 'uwsgi':
@@ -232,7 +272,7 @@ def build_uwsgi(uc, print_only=False):
         ep = uc.get('embedded_plugins').split(',')
 
         if len(ep) > 0:
-            print("*** uWSGI compiling embedded plugins ***")
+            push_print("*** uWSGI compiling embedded plugins ***")
             for p in ep:
                 if p is None or p == 'None':
                     continue
@@ -313,11 +353,11 @@ def build_uwsgi(uc, print_only=False):
 
         plugins = uc.get('plugins').split(',')
         if len(plugins) > 0:
-            print("*** uWSGI building plugins ***")
+            push_print("*** uWSGI building plugins ***")
 
             for p in plugins:
                 p = p.strip()
-                print("*** building plugin: %s ***" % p)
+                push_print("*** building plugin: %s ***" % p)
                 build_plugin("plugins/%s" % p, uc, cflags, ldflags, libs)
 
     bin_name = os.environ.get('UWSGI_BIN_NAME', uc.get('bin_name'))
@@ -326,6 +366,12 @@ def build_uwsgi(uc, print_only=False):
         gcc_list.append(uc.get('embed_config'))
     for ef in binary_list:
         gcc_list.append("build/%s" % ef)
+
+    if compile_queue:
+        for t in thread_compilers:
+            compile_queue.put((None, None))
+        for t in thread_compilers:
+            t.join()
 
     print("*** uWSGI linking ***")
     ldline = "%s -o %s %s %s %s" % (GCC, bin_name, ' '.join(uniq_warnings(ldflags)),
