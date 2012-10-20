@@ -121,6 +121,18 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <stddef.h>
 #include <signal.h>
 #include <math.h>
+
+#include <sys/types.h>
+#ifdef __linux__
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#ifndef __USE_GNU
+#define __USE_GNU
+#endif
+#endif
+#include <sys/socket.h>
+#undef _GNU_SOURCE
 #include <netinet/in.h>
 
 #include <termios.h>
@@ -136,7 +148,6 @@ extern char UWSGI_EMBED_CONFIG_END;
 
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
 
@@ -171,9 +182,7 @@ extern char UWSGI_EMBED_CONFIG_END;
 
 
 #ifdef __linux__
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif
+
 
 #include <sched.h>
 #include <sys/prctl.h>
@@ -212,7 +221,6 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 #include <poll.h>
 #include <sys/uio.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 
 #include <fcntl.h>

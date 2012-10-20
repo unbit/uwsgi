@@ -753,18 +753,24 @@ void uwsgi_corerouter_loop(int id, void *data) {
 			while (ugs) {
 				if (ugs->gateway == &ushared->gateways[id] && interesting_fd == ugs->fd) {
 					if (!ugs->subscription) {
-						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
-#ifdef UWSGI_EVENT_USE_PORT
-                                		event_queue_add_fd_read(ucr->queue, interesting_fd);
-#endif
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+#define _GNU_SOURCE
+						new_connection = accept4(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len, SOCK_NONBLOCK);
+#undef _GNU_SOURCE
 						if (new_connection < 0) {
 							taken = 1;
 							break;
 						}
-
+#else
+						new_connection = accept(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len);
+						if (new_connection < 0) {
+							taken = 1;
+							break;
+						}
 						// set socket in non-blocking mode, on non-linux platforms, clients get the server mode
 #ifdef __linux__
                                                 uwsgi_socket_nb(new_connection);
+#endif
 #endif
 
 						corerouter_alloc_session(ucr, ugs, new_connection, (struct sockaddr *) &cr_addr, cr_addr_len);
