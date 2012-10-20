@@ -329,7 +329,15 @@ ssize_t fr_recv_uwsgi_header(struct corerouter_session * cs) {
 	return len;
 }
 
+void fr_session_close(struct corerouter_session *cs) {
+	struct fastrouter_session *fr = (struct fastrouter_session *) cs;
+	if (fr->post_buf) {
+		uwsgi_buffer_destroy(fr->post_buf);
+	}
+}
+
 void fastrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
+	cs->close = fr_session_close;
 	// set the first hook
 	uwsgi_cr_hook_read(cs, fr_recv_uwsgi_header);
 }
