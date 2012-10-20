@@ -450,7 +450,7 @@ ssize_t hr_write_body(struct corerouter_session * cs) {
         hs->post_buf_pos += len;
 
         // the body chunk has been sent, start again reading from client and instance
-        if (hs->post_buf_pos == hs->post_buf_len) {
+        if (hs->post_buf_pos == (ssize_t) hs->post_buf_len) {
                 uwsgi_cr_hook_instance_write(cs, NULL);
                 uwsgi_cr_hook_instance_read(cs, hr_instance_read_response);
                 uwsgi_cr_hook_read(cs, hr_read_body);
@@ -497,7 +497,7 @@ ssize_t hr_write_ssl_response(struct corerouter_session * cs) {
 		// could be a partial write
 		uwsgi_cr_hook_write(cs, hr_write_ssl_response);
         	// ok this response chunk is sent, let's wait for another one
-        	if (cs->buffer_pos == cs->buffer_len) {
+        	if (cs->buffer_pos == (ssize_t) cs->buffer_len) {
                 	uwsgi_cr_hook_write(cs, NULL);
                 	uwsgi_cr_hook_instance_read(cs, hr_instance_read_response);
         	}
@@ -549,7 +549,7 @@ ssize_t hr_write_response(struct corerouter_session * cs) {
         cs->buffer_pos += len;
 
         // ok this response chunk is sent, let's wait for another one
-        if (cs->buffer_pos == cs->buffer_len) {
+        if (cs->buffer_pos == (ssize_t) cs->buffer_len) {
                 uwsgi_cr_hook_write(cs, NULL);
                 uwsgi_cr_hook_instance_read(cs, hr_instance_read_response);
         }
