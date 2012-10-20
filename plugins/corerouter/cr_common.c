@@ -104,9 +104,6 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 	char bbuf[4096];
 
 	ssize_t len = recv(ugs->fd, bbuf, 4096, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-	event_queue_add_fd_read(ucr->queue, ugs->fd);
-#endif
 	if (len > 0) {
 		memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 		uwsgi_hooked_parse(bbuf + 4, len - 4, corerouter_manage_subscription, &usr);
@@ -180,9 +177,6 @@ void uwsgi_corerouter_manage_internal_subscription(struct uwsgi_corerouter *ucr,
 	char bbuf[4096];
 
 	ssize_t len = recv(fd, bbuf, 4096, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-	event_queue_add_fd_read(ucr->queue, fd);
-#endif
 	if (len > 0) {
 		memset(&usr, 0, sizeof(struct uwsgi_subscribe_req));
 		uwsgi_hooked_parse(bbuf + 4, len - 4, corerouter_manage_subscription, &usr);

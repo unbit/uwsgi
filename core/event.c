@@ -124,7 +124,7 @@ int event_queue_interesting_fd_is_write(void *events, int id) {
 
 int event_queue_add_fd_read(int eq, int fd) {
 
-        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, (void *) eq)) {
                 uwsgi_error("port_associate");
                 return -1;
         }
@@ -153,7 +153,17 @@ int event_queue_interesting_fd(void *events, int id) {
                 return (long) pe[id].portev_user;
         }
 
-	return (int) pe[id].portev_object;
+	int fd = (int) pe[id].portev_object;
+	int eq = (int) pe[id].portev_user;
+
+	if (pe[id].portev_events == POLLOUT) {
+		event_queue_add_fd_write(eq, fd);
+	}
+	if (pe[id].portev_events == POLLIN) {
+		event_queue_add_fd_read(eq, fd);
+	}
+
+	return fd;
 }
 
 int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {

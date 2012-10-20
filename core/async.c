@@ -311,17 +311,10 @@ void async_loop() {
 
 					wsgi_req_setup(uwsgi.wsgi_req, uwsgi.wsgi_req->async_id, uwsgi_sock );
 					if (wsgi_req_simple_accept(uwsgi.wsgi_req, interesting_fd)) {
-#ifdef UWSGI_EVENT_USE_PORT
-                                		event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
-#endif
 						uwsgi.async_queue_unused_ptr++;
 						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 						break;
 					}
-#ifdef UWSGI_EVENT_USE_PORT
-                                	event_queue_add_fd_read(uwsgi.async_queue, interesting_fd);
-#endif
-
 // on linux we do not need to reset the socket to blocking state
 #ifndef __linux__
 					 /* re-set blocking socket */
@@ -363,9 +356,6 @@ void async_loop() {
 					// parsing complete
 					if (!proto_parser_status) {
 						// remove fd from event poll and fd proto table	
-#ifndef UWSGI_EVENT_USE_PORT
-						event_queue_del_fd(uwsgi.async_queue, interesting_fd, event_queue_read());
-#endif
 						uwsgi.async_proto_fd_table[interesting_fd] = NULL;
 						// put request in the runqueue
 						runqueue_push(uwsgi.wsgi_req);
@@ -393,9 +383,6 @@ void async_loop() {
 
 				// remove all the fd monitors and timeout
 				while(uwsgi.wsgi_req->waiting_fds) {
-#ifndef UWSGI_EVENT_USE_PORT
-                                        event_queue_del_fd(uwsgi.async_queue, uwsgi.wsgi_req->waiting_fds->fd, uwsgi.wsgi_req->waiting_fds->event);
-#endif
                                         tmp_uaf = uwsgi.wsgi_req->waiting_fds;
                                         uwsgi.async_waiting_fd_table[tmp_uaf->fd] = NULL;
                                         uwsgi.wsgi_req->waiting_fds = tmp_uaf->next;
@@ -432,9 +419,6 @@ void async_loop() {
 			if (uwsgi.wsgi_req->async_status <= UWSGI_OK) {
 				// remove all the monitored fds and timeout
 				while(uwsgi.wsgi_req->waiting_fds) {
-#ifndef UWSGI_EVENT_USE_PORT
-					event_queue_del_fd(uwsgi.async_queue, uwsgi.wsgi_req->waiting_fds->fd, uwsgi.wsgi_req->waiting_fds->event);
-#endif
 					tmp_uaf = uwsgi.wsgi_req->waiting_fds;
 					uwsgi.async_waiting_fd_table[tmp_uaf->fd] = NULL;
 					uwsgi.wsgi_req->waiting_fds = tmp_uaf->next;

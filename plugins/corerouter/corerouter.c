@@ -930,9 +930,6 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 	socklen_t client_src_len = 0;
 
 	int client_fd = accept(ucr->cr_stats_server, (struct sockaddr *) &client_src, &client_src_len);
-#ifdef UWSGI_EVENT_USE_PORT
-        event_queue_add_fd_read(ucr->queue, ucr->cr_stats_server);
-#endif
 	if (client_fd < 0) {
 		uwsgi_error("accept()");
 		return;
