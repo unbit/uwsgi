@@ -276,8 +276,6 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 	char *watermark = ptr + http_req_len;
 	char *base = ptr;
 	char *query_string = NULL;
-	char *protocol = NULL;
-	size_t protocol_len = 0;
 
 	h_session->uwsgi_req = uwsgi_buffer_new(uwsgi.page_size);
 	if (!h_session->uwsgi_req) return -1;
@@ -334,8 +332,6 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 			if (*(ptr + 1) != '\n')
 				return 0;
 			if (http_add_uwsgi_var(h_session, "SERVER_PROTOCOL", 15, base, ptr - base)) return -1;
-			protocol = base;
-			protocol_len = ptr - base;
 			ptr += 2;
 			break;
 		}
