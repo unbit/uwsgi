@@ -1623,6 +1623,7 @@ struct uwsgi_server {
 
 	int no_defer_accept;
 	int so_keepalive;
+	int so_send_timeout;
 
 	int page_size;
 	int cpus;

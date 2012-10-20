@@ -551,7 +551,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
-		uwsgi_error("setsockopt()");
+		uwsgi_error("SO_REUSEADDR setsockopt()");
 		uwsgi_nuclear_blast();
 	}
 
@@ -559,7 +559,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #ifdef IP_FREEBIND
 	if (uwsgi.freebind) {
 		if (setsockopt(serverfd, SOL_IP, IP_FREEBIND, (const void *) &uwsgi.freebind, sizeof(int)) < 0) {
-			uwsgi_error("setsockopt()");
+			uwsgi_error("IP_FREEBIND setsockopt()");
 			uwsgi_nuclear_blast();
 		}
 	}
@@ -569,7 +569,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	if (uwsgi.reuse_port) {
 #ifdef SO_REUSEPORT
 		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, (const void *) &uwsgi.reuse_port, sizeof(int)) < 0) {
-			uwsgi_error("setsockopt()");
+			uwsgi_error("SO_REUSEPORT setsockopt()");
 			uwsgi_nuclear_blast();
 		}
 #else
@@ -577,11 +577,21 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #endif
 	}
 
+	if (uwsgi.so_send_timeout) {
+		struct timeval tv;
+		tv.tv_sec = uwsgi.so_send_timeout;
+		tv.tv_usec = 0;
+		if (setsockopt(serverfd, SOL_SOCKET, SO_SNDTIMEO, (const void *) &tv, sizeof(struct timeval)) < 0) {
+                        uwsgi_error("SO_SNDTIMEO setsockopt()");
+                        uwsgi_nuclear_blast();
+                }
+	}
+
 	if (!uwsgi.no_defer_accept) {
 
 #ifdef __linux__
 		if (setsockopt(serverfd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], sizeof(int))) {
-			uwsgi_error("setsockopt()");
+			uwsgi_error("TCP_DEFER_ACCEPT setsockopt()");
 		}
 		// OSX has no SO_ACCEPTFILTER !!!
 #elif defined(__freebsd__)
@@ -589,7 +599,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		strcpy(afa.af_name, "dataready");
 		afa.af_arg[0] = 0;
 		if (setsockopt(serverfd, SOL_SOCKET, SO_ACCEPTFILTER, &afa, sizeof(struct accept_filter_arg))) {
-			uwsgi_error("setsockopt()");
+			uwsgi_error("SO_ACCEPTFILTER setsockopt()");
 		}
 #endif
 
@@ -597,7 +607,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 
 	if (uwsgi.so_keepalive) {
 		if (setsockopt(serverfd, SOL_SOCKET, SO_KEEPALIVE, &uwsgi.so_keepalive, sizeof(int))) {
-			uwsgi_error("setsockopt()");
+			uwsgi_error("SO_KEEPALIVE setsockopt()");
 		}
 	}
 
