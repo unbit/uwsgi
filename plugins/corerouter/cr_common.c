@@ -10,197 +10,6 @@ extern struct uwsgi_server uwsgi;
 
 #include "cr.h"
 
-ssize_t uwsgi_cr_simple_recv(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
-        ssize_t ret = recv(cs->fd, buf, len, 0);
-        if (ret < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                        errno = EINPROGRESS;
-                        return -1;
-                }
-                uwsgi_error("recv()");
-        }
-        return ret;
-}
-
-ssize_t uwsgi_cr_simple_instance_recv(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
-        ssize_t ret = recv(cs->instance_fd, buf, len, 0);
-        if (ret < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                        errno = EINPROGRESS;
-                        return -1;
-                }
-                uwsgi_error("recv()");
-        }
-        return ret;
-}
-
-
-ssize_t uwsgi_cr_simple_send(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
-        ssize_t ret = -1;
-        char *tmp_buf;
-	off_t pos = 0;
-
-	size_t partial_len = len;
-	off_t partial_pos = 0;
-
-        if (cs->write_queue_len > 0) {
-                ret = send(cs->fd, cs->write_queue, cs->write_queue_len, 0);
-                if (ret > 0) {
-                        cs->write_queue_len-=ret;
-			pos = ret;
-                        if (cs->write_queue_len == 0) {
-                                free(cs->write_queue);
-                                cs->write_queue = NULL;
-                                if (cs->fd_state) {
-                                        event_queue_fd_write_to_read(uc->queue, cs->fd);
-                                        cs->fd_state = 0;
-                                }
-                                goto next;
-                        }
-                        goto blocking;
-                }
-                else if (ret == 0) {
-                        return 0;
-                }
-                else {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                                goto blocking;
-                        }
-                        uwsgi_error("send()");
-                        return -1;
-                }
-        }
-
-next:
-	if (len == 0) goto end;
-
-        ret = send(cs->fd, buf, len, 0);
-        if (ret > 0) {
-                if ((size_t)ret == len) return len;
-		partial_len-=ret;
-		partial_pos = ret;
-                goto blocking;
-        }
-
-        if (ret == 0) {
-                return 0;
-        }
-
-        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                goto blocking;
-        }
-        uwsgi_error("send()");
-        return -1;
-
-end:
-	if (cs->write_queue_close) {
-		return 0;
-	}
-	return ret;
-
-blocking:
-        // wait for write
-        if (!cs->fd_state) {
-                event_queue_fd_read_to_write(uc->queue, cs->fd);
-                cs->fd_state = 1;
-        }
-        // add new datas to the buffer
-	tmp_buf = malloc(cs->write_queue_len+partial_len);
-        if (!tmp_buf) {
-                uwsgi_error("malloc()");
-                return -1;
-        }
-	if (cs->write_queue_len>0) {
-        	memcpy(tmp_buf, cs->write_queue+pos, cs->write_queue_len);
-		free(cs->write_queue);
-	}
-        memcpy(tmp_buf+cs->write_queue_len, buf+partial_pos, partial_len);
-	cs->write_queue = tmp_buf;
-        cs->write_queue_len+=partial_len;
-        errno = EINPROGRESS;
-        return -1;
-}
-
-ssize_t uwsgi_cr_simple_instance_send(struct uwsgi_corerouter *uc, struct corerouter_session *cs, char *buf, size_t len) {
-        ssize_t ret;
-        char *tmp_buf;
-	off_t pos = 0;
-
-	size_t partial_len = len;
-        off_t partial_pos = 0;
-
-        if (cs->instance_write_queue_len > 0) {
-                ret = send(cs->instance_fd, cs->instance_write_queue, cs->instance_write_queue_len, 0);
-                if (ret > 0) {
-                        cs->instance_write_queue_len-=ret;
-                        pos=ret;
-                        if (cs->instance_write_queue_len == 0) {
-                                free(cs->instance_write_queue);
-                                cs->instance_write_queue = NULL;
-                                if (cs->instance_fd_state) {
-                                        event_queue_fd_write_to_read(uc->queue, cs->instance_fd);
-                                        cs->instance_fd_state = 0;
-                                }
-                                goto next;
-                        }
-                        goto blocking;
-                }
-                else if (ret == 0) {
-                        return 0;
-                }
-                else {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                                goto blocking;
-                        }
-                        uwsgi_error("send()");
-                        return -1;
-                }
-        }
-
-next:
-        ret = send(cs->instance_fd, buf, len, 0);
-        if (ret > 0) {
-                if ((size_t)ret == len) return len;
-		partial_len-=ret;
-                partial_pos = ret;
-                goto blocking;
-        }
-
-        if (ret == 0) {
-                return 0;
-        }
-
-        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-                goto blocking;
-        }
-        uwsgi_error("send()");
-        return -1;
-
-blocking:
-        // wait for write
-        if (!cs->instance_fd_state) {
-                event_queue_fd_read_to_write(uc->queue, cs->instance_fd);
-                cs->instance_fd_state = 1;
-        }
-	// add new datas to the buffer
-        tmp_buf = malloc(cs->instance_write_queue_len+partial_len);
-        if (!tmp_buf) {
-                uwsgi_error("malloc()");
-                return -1;
-        }
-        if (cs->instance_write_queue_len>0) {
-                memcpy(tmp_buf, cs->instance_write_queue+pos, cs->instance_write_queue_len);
-		free(cs->instance_write_queue);
-        }
-        memcpy(tmp_buf+cs->instance_write_queue_len, buf+partial_pos, partial_len);
-        cs->instance_write_queue = tmp_buf;
-        cs->instance_write_queue_len+=partial_len;
-        errno = EINPROGRESS;
-        return -1;
-}
-
-
-
 void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 
 	struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
@@ -208,24 +17,24 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 		if (!strcmp(ucr->name, ugs->owner)) {
 			if (!ugs->subscription) {
 				if (ugs->name[0] == '=') {
-					int shared_socket = atoi(ugs->name+1);
-                        		if (shared_socket >= 0) {
-                                		ugs->fd = uwsgi_get_shared_socket_fd_by_num(shared_socket);
+					int shared_socket = atoi(ugs->name + 1);
+					if (shared_socket >= 0) {
+						ugs->fd = uwsgi_get_shared_socket_fd_by_num(shared_socket);
 						ugs->shared = 1;
-                                		if (ugs->fd == -1) {
-                                        		uwsgi_log("unable to use shared socket %d\n", shared_socket);
+						if (ugs->fd == -1) {
+							uwsgi_log("unable to use shared socket %d\n", shared_socket);
 							exit(1);
-                                		}
+						}
 						ugs->name = uwsgi_getsockname(ugs->fd);
-                        		}
+					}
 				}
-				else if (!uwsgi_startswith("fd://", ugs->name, 5 )) {
-					int fd_socket = atoi(ugs->name+5);
+				else if (!uwsgi_startswith("fd://", ugs->name, 5)) {
+					int fd_socket = atoi(ugs->name + 5);
 					if (fd_socket >= 0) {
 						ugs->fd = fd_socket;
 						ugs->name = uwsgi_getsockname(ugs->fd);
 						if (!ugs->name) {
-                                        		uwsgi_log("unable to use file descriptor %d as socket\n", fd_socket);
+							uwsgi_log("unable to use file descriptor %d as socket\n", fd_socket);
 							exit(1);
 						}
 					}
@@ -327,8 +136,10 @@ void uwsgi_corerouter_manage_subscription(struct uwsgi_corerouter *ucr, int id, 
 			if (node && node->len) {
 #ifdef UWSGI_SSL
 				if (uwsgi.subscriptions_sign_check_dir) {
-					if (usr.sign_len == 0 || usr.base_len == 0) return;
-					if (usr.unix_check <= node->unix_check) return ;
+					if (usr.sign_len == 0 || usr.base_len == 0)
+						return;
+					if (usr.unix_check <= node->unix_check)
+						return;
 					if (!uwsgi_subscription_sign_check(node->slot, &usr)) {
 						return;
 					}

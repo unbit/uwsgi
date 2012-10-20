@@ -28,7 +28,7 @@ int event_queue_del_fd(int eq, int fd, int event) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
 
 int event_queue_fd_write_to_read(int eq, int fd) {
@@ -38,7 +38,7 @@ int event_queue_fd_write_to_read(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 
 }
 
@@ -49,10 +49,53 @@ int event_queue_fd_read_to_write(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 
 }
 
+int event_queue_fd_readwrite_to_read(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return 0;
+
+}
+
+int event_queue_fd_readwrite_to_write(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLOUT, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return 0;
+
+}
+
+int event_queue_fd_write_to_readwrite(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN|POLLOUT, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return 0;
+
+}
+
+int event_queue_fd_read_to_readwrite(int eq, int fd) {
+
+        if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN|POLLOUT, NULL)) {
+                uwsgi_error("port_associate");
+                return -1;
+        }
+
+        return 0;
+
+}
 
 
 int event_queue_interesting_fd_has_error(void *events, int id) {
@@ -63,7 +106,21 @@ int event_queue_interesting_fd_has_error(void *events, int id) {
         return 0;
 }
 
+int event_queue_interesting_fd_is_read(void *events, int id) {
+	port_event_t *pe = (port_event_t *) events;
+        if (pe[id].portev_events == POLLIN) {
+                return 1;
+        }
+        return 0;
+}
 
+int event_queue_interesting_fd_is_write(void *events, int id) {
+	port_event_t *pe = (port_event_t *) events;
+        if (pe[id].portev_events == POLLOUT) {
+                return 1;
+        }
+        return 0;
+}
 
 int event_queue_add_fd_read(int eq, int fd) {
 
@@ -72,7 +129,7 @@ int event_queue_add_fd_read(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
 
 int event_queue_add_fd_write(int eq, int fd) {
@@ -82,7 +139,7 @@ int event_queue_add_fd_write(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
 
 void *event_queue_alloc(int nevents) {
@@ -206,7 +263,7 @@ int event_queue_add_fd_read(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
 
 int event_queue_fd_write_to_read(int eq, int fd) {
@@ -222,7 +279,7 @@ int event_queue_fd_write_to_read(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
 
 int event_queue_fd_read_to_write(int eq, int fd) {
@@ -238,8 +295,74 @@ int event_queue_fd_read_to_write(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
+
+int event_queue_fd_readwrite_to_read(int eq, int fd) {
+
+        struct epoll_event ee;
+
+        memset(&ee, 0, sizeof(struct epoll_event));
+        ee.events = EPOLLIN;
+        ee.data.fd = fd;
+
+        if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
+                uwsgi_error("epoll_ctl()");
+                return -1;
+        }
+
+        return 0;
+}
+
+int event_queue_fd_readwrite_to_write(int eq, int fd) {
+
+        struct epoll_event ee;
+
+        memset(&ee, 0, sizeof(struct epoll_event));
+        ee.events = EPOLLOUT;
+        ee.data.fd = fd;
+
+        if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
+                uwsgi_error("epoll_ctl()");
+                return -1;
+        }
+
+        return 0;
+}
+
+
+int event_queue_fd_read_to_readwrite(int eq, int fd) {
+
+        struct epoll_event ee;
+
+        memset(&ee, 0, sizeof(struct epoll_event));
+        ee.events = EPOLLIN|EPOLLOUT;
+        ee.data.fd = fd;
+
+        if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
+                uwsgi_error("epoll_ctl()");
+                return -1;
+        }
+
+        return 0;
+}
+
+int event_queue_fd_write_to_readwrite(int eq, int fd) {
+
+        struct epoll_event ee;
+
+        memset(&ee, 0, sizeof(struct epoll_event));
+        ee.events = EPOLLIN|EPOLLOUT;
+        ee.data.fd = fd;
+        
+        if (epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ee)) {
+                uwsgi_error("epoll_ctl()");
+                return -1;
+        }
+                
+        return 0;
+}       
+
 
 
 int event_queue_del_fd(int eq, int fd, int event) {
@@ -255,7 +378,7 @@ int event_queue_del_fd(int eq, int fd, int event) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
 
 int event_queue_add_fd_write(int eq, int fd) {
@@ -271,7 +394,7 @@ int event_queue_add_fd_write(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
 
 void *event_queue_alloc(int nevents) {
@@ -291,6 +414,23 @@ int event_queue_interesting_fd_has_error(void *events, int id) {
 	}
 	return 0;
 }
+
+int event_queue_interesting_fd_is_read(void *events, int id) {
+        struct epoll_event *ee = (struct epoll_event *) events;
+        if (ee[id].events == EPOLLIN) {
+                return 1;
+        }
+        return 0;
+}
+
+int event_queue_interesting_fd_is_write(void *events, int id) {
+        struct epoll_event *ee = (struct epoll_event *) events;
+        if (ee[id].events == EPOLLOUT) {
+                return 1;
+        }
+        return 0;
+}
+
 
 int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 
@@ -366,7 +506,7 @@ int event_queue_fd_write_to_read(int eq, int fd) {
                 return -1;
         }
 	
-	return fd;
+	return 0;
 }
 
 int event_queue_fd_read_to_write(int eq, int fd) {
@@ -385,8 +525,74 @@ int event_queue_fd_read_to_write(int eq, int fd) {
                 return -1;
         }
 
-        return fd;
+        return 0;
 }
+
+int event_queue_fd_readwrite_to_read(int eq, int fd) {
+
+        struct kevent kev;
+
+        EV_SET(&kev, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+
+        return 0;
+}
+
+int event_queue_fd_readwrite_to_write(int eq, int fd) {
+
+        struct kevent kev;
+
+        EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+
+        return 0;
+}
+
+int event_queue_fd_read_to_readwrite(int eq, int fd) {
+
+        struct kevent kev;
+
+        EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+
+        EV_SET(&kev, fd, EVFILT_READ|EVFILT_WRITE, EV_ADD, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+
+        return 0;
+}
+
+
+int event_queue_fd_write_to_readwrite(int eq, int fd) {
+
+        struct kevent kev;
+
+        EV_SET(&kev, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+        
+        EV_SET(&kev, fd, EVFILT_READ|EVFILT_WRITE, EV_ADD, 0, 0, 0);
+        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
+                uwsgi_error("kevent()");
+                return -1;
+        }
+
+        return 0;
+}
+
 
 
 int event_queue_del_fd(int eq, int fd, int event) {
@@ -399,7 +605,7 @@ int event_queue_del_fd(int eq, int fd, int event) {
                 return -1;
         }
 	
-	return fd;
+	return 0;
 }
 
 int event_queue_add_fd_read(int eq, int fd) {
@@ -412,7 +618,7 @@ int event_queue_add_fd_read(int eq, int fd) {
                 return -1;
         }
 	
-	return fd;
+	return 0;
 }
 
 int event_queue_add_fd_write(int eq, int fd) {
@@ -472,7 +678,22 @@ int event_queue_interesting_fd_has_error(void *events, int id) {
         return 0;
 }
 
+int event_queue_interesting_fd_is_read(void *events, int id) {
+        struct kevent *ev = (struct kevent *) events;
+        if ( ev[id].filter == EVFILT_READ ) {
+                return 1;
+        }
+        return 0;
+}
 
+
+int event_queue_interesting_fd_is_write(void *events, int id) {
+        struct kevent *ev = (struct kevent *) events;
+        if ( ev[id].filter == EVFILT_WRITE ) {
+                return 1;
+        }
+        return 0;
+}
 
 int event_queue_wait(int eq, int timeout, int *interesting_fd) {
 

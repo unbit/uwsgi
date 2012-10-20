@@ -7,7 +7,8 @@ static void uwsgi_plugin_parse_section(char *filename) {
 	size_t s_len = 0;
 	char *buf = uwsgi_elf_section(filename, "uwsgi", &s_len);
 	if (buf) {
-		char *p = strtok(buf, "\n");
+		char *ctx = NULL;
+		char *p = strtok_r(buf, "\n", &ctx);
 		while(p) {
 			char *equal = strchr(p, '=');
 			if (equal) {
@@ -16,7 +17,7 @@ static void uwsgi_plugin_parse_section(char *filename) {
 					uwsgi_load_plugin(-1, equal+1, NULL);
 				}
 			}
-			p = strtok(NULL, "\n");
+			p = strtok_r(NULL, "\n", &ctx);
 		}
 		free(buf);
 	}
@@ -77,7 +78,6 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 	int need_free = 0;
 	char *plugin_name = plugin;
 	char *plugin_symbol_name_start = plugin;
-
 
 	struct uwsgi_plugin *up;
 	char linkpath_buf[1024], linkpath[1024];

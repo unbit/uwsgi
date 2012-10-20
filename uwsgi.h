@@ -2396,6 +2396,12 @@ int event_queue_interesting_fd(void *, int);
 int event_queue_interesting_fd_has_error(void *, int);
 int event_queue_fd_write_to_read(int, int);
 int event_queue_fd_read_to_write(int, int);
+int event_queue_fd_readwrite_to_read(int, int);
+int event_queue_fd_readwrite_to_write(int, int);
+int event_queue_fd_read_to_readwrite(int, int);
+int event_queue_fd_write_to_readwrite(int, int);
+int event_queue_interesting_fd_is_read(void *, int);
+int event_queue_interesting_fd_is_write(void *, int);
 
 int event_queue_add_timer(int, int *, int);
 struct uwsgi_timer *event_queue_ack_timer(int);
@@ -3287,6 +3293,7 @@ void uwsgi_set_sockets_protocols(void);
 
 struct uwsgi_buffer *uwsgi_buffer_new(size_t);
 int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
+int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
 
 void uwsgi_httpize_var(char *, size_t);

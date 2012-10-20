@@ -199,6 +199,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 		}
 		else if (cr_session->timed_out) {
 			if (cr_session->instance_address_len > 0) {
+/*
 				if (cr_session->status == COREROUTER_STATUS_CONNECTING) {
 					if (!ucr->quiet)
 						uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": timeout\n", (int) cr_session->instance_address_len, cr_session->instance_address);
@@ -206,6 +207,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 				else if (cr_session->status  == COREROUTER_STATUS_RESPONSE) {
 					uwsgi_log("timeout waiting for instance \"%.*s\"\n", (int) cr_session->instance_address_len, cr_session->instance_address);
 				}
+*/
 			}
 		}
 
@@ -273,7 +275,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
   
 			ucr->cr_table[cr_session->instance_fd] = cr_session;
 
-                	cr_session->status = COREROUTER_STATUS_CONNECTING;
+                	//cr_session->status = COREROUTER_STATUS_CONNECTING;
                 	ucr->cr_table[cr_session->instance_fd] = cr_session;
                 	event_queue_add_fd_write(ucr->queue, cr_session->instance_fd);
 			return;
@@ -297,23 +299,16 @@ end:
 		free(cr_session->buf_file_name);
 	}
 
-	if (cr_session->write_queue)
-		free(cr_session->write_queue);
-
-	if (cr_session->instance_write_queue)
-		free(cr_session->instance_write_queue);
-
+/*
 	// could be used to free additional resources
 	if (cr_session->close)
 		cr_session->close(ucr, cr_session);
-
-	if (cr_session->keepalive) {
-		cr_session->keepalive = 0;
-		return;
-	}
+*/
 
 	close(cr_session->fd);
 	ucr->cr_table[cr_session->fd] = NULL;
+
+	uwsgi_buffer_destroy(cr_session->buffer);
 
 	cr_del_timeout(ucr, cr_session);
 	free(cr_session);
@@ -340,7 +335,10 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr) {
 			cr_session->timed_out = 1;
 			if (cr_session->retry) {
 				cr_session->retry = 0;
+/*
+				TODO allows retry
 				ucr->switch_events(ucr, cr_session, -1);
+*/
 				if (cr_session->retry) {
 					cr_del_timeout(ucr, cr_session);
 					cr_session->timeout = cr_add_fake_timeout(ucr, cr_session);
@@ -359,23 +357,235 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr) {
 	}
 }
 
+
+int uwsgi_cr_hook_read(struct corerouter_session *cs, ssize_t (*hook)(struct corerouter_session *)) {
+
+	struct uwsgi_corerouter *ucr = cs->corerouter;
+
+	// first check the case of event removal
+	if (hook == NULL) {
+		// nothing changed
+		if (!cs->event_hook_read) goto unchanged;
+		// if there is a write event defined, le'ts modify it
+		if (cs->event_hook_write) {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_fd_readwrite_to_write() for %d\n", cs->fd);	
+#endif
+			if (event_queue_fd_readwrite_to_write(ucr->queue, cs->fd)) return -1;
+		}
+		// simply remove the read event
+		else {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_del_fd() for %d\n", cs->fd);	
+#endif
+			if (event_queue_del_fd(ucr->queue, cs->fd, event_queue_read())) return -1;
+		}
+	}
+	else {
+		// set the hook
+		// if write is not defined, simply add a single monitor
+		if (cs->event_hook_write == NULL) {
+			if (!cs->event_hook_read) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_add_fd_read() for %d\n", cs->fd);	
+#endif
+				if (event_queue_add_fd_read(ucr->queue, cs->fd)) return -1;
+			}
+		}
+		else {
+			if (!cs->event_hook_read) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_fd_write_to_readwrite() for %d\n", cs->fd);	
+#endif
+				if (event_queue_fd_write_to_readwrite(ucr->queue, cs->fd)) return -1;
+			}
+		}
+	}
+
+unchanged:
+#ifdef UWSGI_DEBUG
+	uwsgi_log("event_hook_read set to %p for %d\n", hook, cs->fd);
+#endif
+	cs->event_hook_read = hook;
+	return 0;
+}
+
+int uwsgi_cr_hook_write(struct corerouter_session *cs, ssize_t (*hook)(struct corerouter_session *)) {
+
+        struct uwsgi_corerouter *ucr = cs->corerouter;
+
+        // first check the case of event removal
+        if (hook == NULL) {
+                // nothing changed
+                if (!cs->event_hook_write) goto unchanged;
+                // if there is a read event defined, le'ts modify it
+                if (cs->event_hook_read) {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_fd_readwrite_to_read() for %d\n", cs->fd);
+#endif
+                        if (event_queue_fd_readwrite_to_read(ucr->queue, cs->fd)) return -1;
+                }
+                // simply remove the write event
+                else {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_del_fd() for %d\n", cs->fd);
+#endif
+                        if (event_queue_del_fd(ucr->queue, cs->fd, event_queue_write())) return -1;
+                }
+        }
+        else {
+                // set the hook
+                // if read is not defined, simply add a single monitor
+                if (cs->event_hook_read == NULL) {
+                        if (!cs->event_hook_write) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_add_fd_write() for %d\n", cs->fd);
+#endif
+                                if (event_queue_add_fd_write(ucr->queue, cs->fd)) return -1;
+                        }
+                }
+                else {
+                        if (!cs->event_hook_write) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_fd_read_to_readwrite() for %d\n", cs->fd);
+#endif
+                                if (event_queue_fd_read_to_readwrite(ucr->queue, cs->fd)) return -1;
+                        }
+                }
+        }
+
+unchanged:
+#ifdef UWSGI_DEBUG
+	uwsgi_log("event_hook_write set to %p for %d\n", hook, cs->fd);
+#endif
+        cs->event_hook_write = hook;
+        return 0;
+}
+
+int uwsgi_cr_hook_instance_read(struct corerouter_session *cs, ssize_t (*hook)(struct corerouter_session *)) {
+
+        struct uwsgi_corerouter *ucr = cs->corerouter;
+
+        // first check the case of event removal
+        if (hook == NULL) {
+                // nothing changed
+                if (!cs->event_hook_instance_read) goto unchanged;
+                // if there is a write event defined, le'ts modify it
+                if (cs->event_hook_instance_write) {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_fd_readwrite_to_write() for %d\n", cs->instance_fd);
+#endif
+                        if (event_queue_fd_readwrite_to_write(ucr->queue, cs->instance_fd)) return -1;
+                }
+                // simply remove the read event
+                else {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_del_fd() for %d\n", cs->instance_fd);
+#endif
+                        if (event_queue_del_fd(ucr->queue, cs->instance_fd, event_queue_read())) return -1;
+                }
+        }
+        else {
+                // set the hook
+                // if write is not defined, simply add a single monitor
+                if (cs->event_hook_instance_write == NULL) {
+                        if (!cs->event_hook_instance_read) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_add_fd_read() for %d\n", cs->instance_fd);
+#endif
+                                if (event_queue_add_fd_read(ucr->queue, cs->instance_fd)) return -1;
+                        }
+                }
+                else {
+                        if (!cs->event_hook_instance_read) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_fd_write_to_readwrite() for %d\n", cs->instance_fd);
+#endif
+                                if (event_queue_fd_write_to_readwrite(ucr->queue, cs->instance_fd)) return -1;
+                        }
+                }
+        }
+
+unchanged:
+#ifdef UWSGI_DEBUG
+	uwsgi_log("event_hook_instance_read set to %p for %d\n", hook, cs->instance_fd);
+#endif
+        cs->event_hook_instance_read = hook;
+        return 0;
+}
+
+int uwsgi_cr_hook_instance_write(struct corerouter_session *cs, ssize_t (*hook)(struct corerouter_session *)) {
+
+        struct uwsgi_corerouter *ucr = cs->corerouter;
+
+        // first check the case of event removal
+        if (hook == NULL) {
+                // nothing changed
+                if (!cs->event_hook_instance_write) goto unchanged;
+                // if there is a read event defined, le'ts modify it
+                if (cs->event_hook_instance_read) {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_fd_readwrite_to_read() for %d\n", cs->instance_fd);
+#endif
+                        if (event_queue_fd_readwrite_to_read(ucr->queue, cs->instance_fd)) return -1;
+                }
+                // simply remove the write event
+                else {
+#ifdef UWSGI_DEBUG
+			uwsgi_log("event_queue_del_fd() for %d\n", cs->instance_fd);
+#endif
+                        if (event_queue_del_fd(ucr->queue, cs->instance_fd, event_queue_write())) return -1;
+                }
+        }
+        else {
+                // set the hook
+                // if read is not defined, simply add a single monitor
+                if (cs->event_hook_instance_read == NULL) {
+                        if (!cs->event_hook_instance_write) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_add_fd_write() for %d\n", cs->instance_fd);
+#endif
+                                if (event_queue_add_fd_write(ucr->queue, cs->instance_fd)) return -1;
+                        }
+                }
+                else {
+                        if (!cs->event_hook_instance_write) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("event_queue_fd_read_to_readwrite() for %d\n", cs->instance_fd);
+#endif
+                                if (event_queue_fd_read_to_readwrite(ucr->queue, cs->instance_fd)) return -1;
+                        }
+                }
+        }
+
+unchanged:
+#ifdef UWSGI_DEBUG
+	uwsgi_log("event_hook_instance_write set to %p for %d\n", hook, cs->instance_fd);
+#endif
+        cs->event_hook_instance_write = hook;
+        return 0;
+}
+
+
+
 struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, int new_connection, struct sockaddr *cr_addr, socklen_t cr_addr_len) {
 
 	ucr->cr_table[new_connection] = uwsgi_calloc(ucr->session_size);
         ucr->cr_table[new_connection]->fd = new_connection;
         ucr->cr_table[new_connection]->instance_fd = -1;
-        ucr->cr_table[new_connection]->status = COREROUTER_STATUS_RECV_HDR;
 
-        ucr->cr_table[new_connection]->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
+	// map courerouter and socket
+	ucr->cr_table[new_connection]->corerouter = ucr;
 	ucr->cr_table[new_connection]->ugs = ugs;
 
-	ucr->cr_table[new_connection]->recv = uwsgi_cr_simple_recv;
-	ucr->cr_table[new_connection]->send = uwsgi_cr_simple_send;
-	ucr->cr_table[new_connection]->instance_recv = uwsgi_cr_simple_instance_recv;
-	ucr->cr_table[new_connection]->instance_send = uwsgi_cr_simple_instance_send;
+	// set initial timeout
+        ucr->cr_table[new_connection]->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
 
+	// create dynamic buffer
+	ucr->cr_table[new_connection]->buffer = uwsgi_buffer_new(uwsgi.page_size);
+
+	// here we prepare the real session and set the hooks
 	ucr->alloc_session(ucr, ugs, ucr->cr_table[new_connection], cr_addr, cr_addr_len);
-	event_queue_add_fd_read(ucr->queue, new_connection);
 
 	return ucr->cr_table[new_connection];
 }
@@ -504,6 +714,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 	for (;;) {
 
+		// set timeouts and harakiri
 		min_timeout = uwsgi_min_rb_timer(ucr->timeouts);
 		if (min_timeout == NULL) {
 			delta = -1;
@@ -520,6 +731,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 			ushared->gateways_harakiri[id] = 0;
 		}
 
+		// wait for events
 		nevents = event_queue_wait_multi(ucr->queue, delta, events, ucr->nevents);
 
 		if (uwsgi.master_process && ucr->harakiri > 0) {
@@ -532,8 +744,12 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 		for (i = 0; i < nevents; i++) {
 
+			// get the interesting fd
 			interesting_fd = event_queue_interesting_fd(events, i);
+			// something bad happened
+			if (interesting_fd < 0) continue;
 
+			// check if the interesting_fd matches a gateway socket
 			struct uwsgi_gateway_socket *ugs = uwsgi.gateway_sockets;
 			int taken = 0;
 			while (ugs) {
@@ -571,9 +787,11 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				continue;
 			}
 
+			// manage internal subscription
 			if (interesting_fd == ushared->gateways[id].internal_subscription_pipe[1]) {
 				uwsgi_corerouter_manage_internal_subscription(ucr, interesting_fd);
 			}
+			// manage a stats request
 			else if (interesting_fd == ucr->cr_stats_server) {
 				corerouter_send_stats(ucr);
 			}
@@ -584,17 +802,51 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				if (cr_session == NULL)
 					continue;
 
+				// on error, destroy the session
 				if (event_queue_interesting_fd_has_error(events, i)) {
-						corerouter_close_session(ucr, cr_session);
-						continue;
+					corerouter_close_session(ucr, cr_session);
+					continue;
 				}
 
-					cr_session->timeout = corerouter_reset_timeout(ucr, cr_session);
-				
-				// implementation specific cycle;
-				ucr->switch_events(ucr, cr_session, interesting_fd);
-				
+				// set timeout
+				cr_session->timeout = corerouter_reset_timeout(ucr, cr_session);
+				// call event hook
+				ssize_t (*hook)(struct corerouter_session *) = NULL;
+				if (interesting_fd == cr_session->fd) {
+					if (event_queue_interesting_fd_is_read(events, i)) {
+						hook = cr_session->event_hook_read;	
+					}
+					else if (event_queue_interesting_fd_is_write(events, i)) {
+						hook = cr_session->event_hook_write;	
+					}	
+				}
+				else if (interesting_fd == cr_session->instance_fd) {
+					if (event_queue_interesting_fd_is_read(events, i)) {
+                                                hook = cr_session->event_hook_instance_read;
+                                        }
+                                        else if (event_queue_interesting_fd_is_write(events, i)) {
+                                                hook = cr_session->event_hook_instance_write;
+                                        }
+				}
 
+				if (!hook) {
+					uwsgi_log("[uwsgi-corerouter] BUG, unexpected event received !!!\n");
+					corerouter_close_session(ucr, cr_session);
+					continue;
+				}
+
+				ssize_t ret = hook(cr_session);
+				// connection closed
+				if (ret == 0) {
+					corerouter_close_session(ucr, cr_session);
+					continue;
+				}
+				else if (ret < 0) {
+					if (errno == EINPROGRESS) continue;
+					corerouter_close_session(ucr, cr_session);
+					continue;
+				}
+				
 			}
 		}
 	}

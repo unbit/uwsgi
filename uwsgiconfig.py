@@ -27,6 +27,16 @@ if not GCC:
 
 CPP = os.environ.get('CPP', 'cpp')
 
+CPUCOUNT = 1
+try:
+    import multiprocessing
+    CPUCOUNT = multiprocessing.cpu_count()
+except:
+    try:
+        CPUCOUNT = int(os.sysconf('SC_NPROCESSORS_ONLN'))
+    except:
+        pass
+
 binary_list = []
 
 # this is used for reporting (at the end of the build)
@@ -182,6 +192,7 @@ def build_uwsgi(uc, print_only=False):
         print(' '.join(cflags))
         sys.exit(0)
 
+    print("detected CPU cores: %d" % CPUCOUNT)
     print("configured CFLAGS: %s" % ' '.join(cflags))
 
     try:

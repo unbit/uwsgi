@@ -8,349 +8,266 @@ extern struct uwsgi_fastrouter ufr;
 void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 	
 		// here i use directly corerouter_session
-	        struct corerouter_session *fr_session = (struct corerouter_session *) data;
+	        struct corerouter_session *cs = (struct corerouter_session *) data;
 	
 	        //uwsgi_log("%.*s = %.*s\n", keylen, key, vallen, val);
-	        if (!uwsgi_strncmp("SERVER_NAME", 11, key, keylen) && !fr_session->hostname_len) {
-	                fr_session->hostname = val;
-	                fr_session->hostname_len = vallen;
+	        if (!uwsgi_strncmp("SERVER_NAME", 11, key, keylen) && !cs->hostname_len) {
+	                cs->hostname = val;
+	                cs->hostname_len = vallen;
 	                return;
 	        }
 
-	        if (!uwsgi_strncmp("HTTP_HOST", 9, key, keylen) && !fr_session->has_key) {
-	                fr_session->hostname = val;
-	                fr_session->hostname_len = vallen;
+	        if (!uwsgi_strncmp("HTTP_HOST", 9, key, keylen) && !cs->has_key) {
+	                cs->hostname = val;
+	                cs->hostname_len = vallen;
 	                return;
 	        }
 	
 	        if (!uwsgi_strncmp("UWSGI_FASTROUTER_KEY", 20, key, keylen)) {
-	                fr_session->has_key = 1;
-	                fr_session->hostname = val;
-	                fr_session->hostname_len = vallen;
+	                cs->has_key = 1;
+	                cs->hostname = val;
+	                cs->hostname_len = vallen;
 	                return;
 	        }
 
-	        if (ufr.cr.post_buffering > 0) {
-	                if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
-	                        fr_session->post_cl = uwsgi_str_num(val, vallen);
-	                        return;
-	                }
+	        if (!uwsgi_strncmp("CONTENT_LENGTH", 14, key, keylen)) {
+	        	cs->post_cl = uwsgi_str_num(val, vallen);
+	                return;
 	        }
+}
+
+ssize_t fr_instance_read_response(struct corerouter_session *);
+ssize_t fr_read_body(struct corerouter_session *);
+
+ssize_t fr_write_body(struct corerouter_session *cs) {
+	struct fastrouter_session *fs = (struct fastrouter_session *) cs;
+        ssize_t len = write(cs->instance_fd, fs->post_buf->buf + fs->post_buf_pos, fs->post_buf_len - fs->post_buf_pos);
+        if (len < 0) {
+                cr_try_again;
+                uwsgi_error("fr_write_body()");
+                return -1;
+        }
+
+        fs->post_buf_pos += len;
+
+	// the body chunk has been sent, start again reading from client and instance
+        if (fs->post_buf_pos == fs->post_buf_len) {
+                uwsgi_cr_hook_instance_write(cs, NULL);
+		uwsgi_cr_hook_instance_read(cs, fr_instance_read_response);
+                uwsgi_cr_hook_read(cs, fr_read_body);
+        }
+
+        return len;
+}
+
+
+ssize_t fr_read_body(struct corerouter_session *cs) {
+	struct fastrouter_session *fs = (struct fastrouter_session *) cs;
+	ssize_t len = read(cs->fd, fs->post_buf->buf, fs->post_buf_max);
+	if (len < 0) {
+                cr_try_again;
+                uwsgi_error("fr_read_body()");
+                return -1;
+        }
+
+	// connection closed
+	if (len == 0) return 0;
+
+	fs->post_buf_len = len;
+	fs->post_buf_pos = 0;
+
+	// ok we have a body, stop reading from the client and the instance and start writing to the instance
+	uwsgi_cr_hook_read(cs, NULL);
+	uwsgi_cr_hook_instance_read(cs, NULL);
+	uwsgi_cr_hook_instance_write(cs, fr_write_body);
+	
+	return len;
+}
+
+ssize_t fr_write_response(struct corerouter_session *cs) {
+	ssize_t len = write(cs->fd, cs->buffer->buf + cs->buffer_pos, cs->buffer_len - cs->buffer_pos);
+        if (len < 0) {
+                cr_try_again;
+                uwsgi_error("fr_write_response()");
+                return -1;
+        }
+
+        cs->buffer_pos += len;
+
+	// ok this response chunk is sent, let's wait for another one
+        if (cs->buffer_pos == cs->buffer_len) {
+		uwsgi_cr_hook_write(cs, NULL);
+                uwsgi_cr_hook_instance_read(cs, fr_instance_read_response);
+        }
+
+        return len;	
+}
+
+ssize_t fr_instance_read_response(struct corerouter_session *cs) {
+	ssize_t len = read(cs->instance_fd, cs->buffer->buf, cs->buffer->len);
+	if (len < 0) {
+		cr_try_again;
+                uwsgi_error("fr_instance_read_response()");
+                return -1;
+        }
+
+	// end of the response
+	if (len == 0) {
+		return 0;
 	}
 
-void uwsgi_fastrouter_switch_events(struct uwsgi_corerouter *ucr, struct corerouter_session *cs, int interesting_fd) {
+	cs->buffer_pos = 0;
+	cs->buffer_len = len;
+	// ok stop reading from the instance, and start writing to the client
+	uwsgi_cr_hook_instance_read(cs, NULL);
+	uwsgi_cr_hook_write(cs, fr_write_response);
+	return len;
+}
 
-	struct fastrouter_session *fr_session = (struct fastrouter_session *) cs;
+ssize_t fr_instance_send_request(struct corerouter_session *cs) {
+	ssize_t len = write(cs->instance_fd, cs->buffer->buf + cs->buffer_pos, cs->uh.pktsize - cs->buffer_pos);
+	if (len < 0) {
+		cr_try_again;
+		uwsgi_error("fr_instance_send_request()");
+		return -1;
+	}
+
+	cs->buffer_pos += len;
+
+	// ok the request is sent, we can start sending client body (if any) and we can start waiting
+	// for response
+	if (cs->buffer_pos == cs->uh.pktsize) {
+		cs->buffer_pos = 0;
+		// stop writing to the instance
+		uwsgi_cr_hook_instance_write(cs, NULL);
+		// start reading from the instance
+		uwsgi_cr_hook_instance_read(cs, fr_instance_read_response);
+		// re-start reading from the client (for body or connection close)
+		struct fastrouter_session *fs = (struct fastrouter_session *) cs;
+		// allocate a buffer for client body (could be delimited or dynamic)
+		fs->post_buf_max = UMAX16;
+		if (cs->post_cl > 0) {
+			fs->post_buf_max = UMIN(UMAX16, cs->post_cl);
+		}
+		fs->post_buf = uwsgi_buffer_new(fs->post_buf_max);
+		if (!fs->post_buf) return -1;
+		uwsgi_cr_hook_read(cs, fr_read_body);
+	}
+
+	return len;
+}
+
+ssize_t fr_instance_send_request_header(struct corerouter_session *cs) {
+	ssize_t len = write(cs->instance_fd, &cs->uh + cs->buffer_pos, 4 - cs->buffer_pos);
+        if (len < 0) {
+                cr_try_again;
+                uwsgi_error("fr_instance_send_request_header()");
+                return -1;
+        }
+
+        cs->buffer_pos += len;
+
+        // ok the request is sent, we can start sending client body (if any) and we can start waiting
+        // for response
+        if (cs->buffer_pos == 4) {
+                cs->buffer_pos = 0;
+		uwsgi_cr_hook_instance_write(cs, fr_instance_send_request);	
+        }
+
+        return len;
+}
+
+ssize_t fr_instance_connected(struct corerouter_session *cs) {
 
 	socklen_t solen = sizeof(int);
-	struct iovec iov[2];
 
-	struct msghdr msg;
-	union {
-		struct cmsghdr cmsg;
-		char control[CMSG_SPACE(sizeof(int))];
-	} msg_control;
-	struct cmsghdr *cmsg;
-
-	ssize_t len;
-	char *post_tmp_buf[UMAX16];
-
-	switch (cs->status) {
-
-	case COREROUTER_STATUS_RECV_HDR:
-		len = recv(cs->fd, (char *) (&fr_session->uh) + cs->h_pos, 4 - cs->h_pos, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-                event_queue_add_fd_read(ucr->queue, cs->fd);
-#endif
-		if (len <= 0) {
-			if (len < 0)
-				uwsgi_error("recv()");
-			corerouter_close_session(ucr, cs);
-			break;
-		}
-		cs->h_pos += len;
-		if (cs->h_pos == 4) {
-#ifdef UWSGI_DEBUG
-			uwsgi_log("modifier1: %d pktsize: %d modifier2: %d\n", fr_session->uh.modifier1, fr_session->uh.pktsize, fr_session->uh.modifier2);
-#endif
-			cs->status = FASTROUTER_STATUS_RECV_VARS;
-		}
-		break;
-
-
-	case FASTROUTER_STATUS_RECV_VARS:
-
-		if (interesting_fd == -1) {
-			goto choose_node;
-		}
-
-		len = recv(cs->fd, fr_session->buffer + cs->pos, fr_session->uh.pktsize - cs->pos, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-                event_queue_add_fd_read(ucr->queue, cs->fd);
-#endif
-		if (len <= 0) {
-			uwsgi_error("recv()");
-			corerouter_close_session(ucr, cs);
-			break;
-		}
-		cs->pos += len;
-		if (cs->pos == fr_session->uh.pktsize) {
-			if (uwsgi_hooked_parse(fr_session->buffer, fr_session->uh.pktsize, fr_get_hostname, (void *) fr_session)) {
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			if (cs->hostname_len == 0) {
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-
-			// the mapper hook
-choose_node:
-			if (ucr->mapper(ucr, cs))
-				break;
-
-			// no address found
-			if (!cs->instance_address_len) {
-				// if fallback nodes are configured, trigger them
-				if (ucr->fallback) {
-					cs->instance_failed = 1;
-				}
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			if (ucr->post_buffering > 0 && cs->post_cl > ucr->post_buffering) {
-				cs->status = FASTROUTER_STATUS_BUFFERING;
-				cs->buf_file_name = uwsgi_tmpname(ucr->pb_base_dir, "uwsgiXXXXX");
-				if (!cs->buf_file_name) {
-					uwsgi_error("tempnam()");
-					corerouter_close_session(ucr, cs);
-					break;
-				}
-				cs->post_remains = cs->post_cl;
-
-				// 2 + UWSGI_POSTFILE + 2 + cs->buf_file_name
-				if (fr_session->uh.pktsize + (2 + 14 + 2 + strlen(cs->buf_file_name)) > UMAX16) {
-					uwsgi_log("unable to buffer request body to file %s: not enough space\n", cs->buf_file_name);
-					corerouter_close_session(ucr, cs);
-					break;
-				}
-
-				char *ptr = fr_session->buffer + fr_session->uh.pktsize;
-				uint16_t bfn_len = strlen(cs->buf_file_name);
-				*ptr++ = 14;
-				*ptr++ = 0;
-				memcpy(ptr, "UWSGI_POSTFILE", 14);
-				ptr += 14;
-				*ptr++ = (char) (bfn_len & 0xff);
-				*ptr++ = (char) ((bfn_len >> 8) & 0xff);
-				memcpy(ptr, cs->buf_file_name, bfn_len);
-				fr_session->uh.pktsize += 2 + 14 + 2 + bfn_len;
-
-
-				cs->buf_file = fopen(cs->buf_file_name, "w");
-				if (!cs->buf_file) {
-					uwsgi_error_open(cs->buf_file_name);
-					corerouter_close_session(ucr, cs);
-					break;
-				}
-
-			}
-
-			else {
-
-				cs->pass_fd = is_unix(cs->instance_address, cs->instance_address_len);
-
-				cs->instance_fd = uwsgi_connectn(cs->instance_address, cs->instance_address_len, 0, 1);
-
-				if (cs->instance_fd < 0) {
-					cs->instance_failed = 1;
-					cs->soopt = errno;
-					corerouter_close_session(ucr, cs);
-					break;
-				}
-
-
-				cs->status = COREROUTER_STATUS_CONNECTING;
-				ucr->cr_table[cs->instance_fd] = cs;
-				event_queue_add_fd_write(ucr->queue, cs->instance_fd);
-			}
-		}
-		break;
-
-
-
-	case COREROUTER_STATUS_CONNECTING:
-
-		if (interesting_fd == cs->instance_fd) {
-
-			if (getsockopt(cs->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&cs->soopt), &solen) < 0) {
-				uwsgi_error("getsockopt()");
-				cs->instance_failed = 1;
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			if (cs->soopt) {
-				cs->instance_failed = 1;
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			fr_session->uh.modifier1 = cs->modifier1;
-
-			iov[0].iov_base = &fr_session->uh;
-			iov[0].iov_len = 4;
-			iov[1].iov_base = fr_session->buffer;
-			iov[1].iov_len = fr_session->uh.pktsize;
-
-			// increment node requests counter
-			if (cs->un)
-				cs->un->requests++;
-
-			// fd passing: PERFORMANCE EXTREME BOOST !!!
-			if (cs->pass_fd && !uwsgi.no_fd_passing) {
-				msg.msg_name = NULL;
-				msg.msg_namelen = 0;
-				msg.msg_iov = iov;
-				msg.msg_iovlen = 2;
-				msg.msg_flags = 0;
-				msg.msg_control = &msg_control;
-				msg.msg_controllen = sizeof(msg_control);
-
-				cmsg = CMSG_FIRSTHDR(&msg);
-				cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-				cmsg->cmsg_level = SOL_SOCKET;
-				cmsg->cmsg_type = SCM_RIGHTS;
-
-				memcpy(CMSG_DATA(cmsg), &cs->fd, sizeof(int));
-
-				if (sendmsg(cs->instance_fd, &msg, 0) < 0) {
-					uwsgi_error("sendmsg()");
-				}
-
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			if (writev(cs->instance_fd, iov, 2) < 0) {
-				uwsgi_error("writev()");
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			event_queue_fd_write_to_read(ucr->queue, cs->instance_fd);
-			cs->status = COREROUTER_STATUS_RESPONSE;
-		}
-
-		break;
-	case COREROUTER_STATUS_RESPONSE:
-
-		// data from instance
-		if (interesting_fd == cs->instance_fd) {
-			len = recv(cs->instance_fd, fr_session->buffer, UMAX16, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-                        event_queue_add_fd_read(ucr->queue, cs->instance_fd);
-#endif
-			if (len <= 0) {
-				if (len < 0)
-					uwsgi_error("recv()");
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			len = send(cs->fd, fr_session->buffer, len, 0);
-
-			if (len <= 0) {
-				if (len < 0)
-					uwsgi_error("send()");
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			// update transfer statistics
-			if (cs->un)
-				cs->un->transferred += len;
-		}
-		// body from client
-		else if (interesting_fd == cs->fd) {
-
-			//uwsgi_log("receiving body...\n");
-			len = recv(cs->fd, fr_session->buffer, UMAX16, 0);
-#ifdef UWSGI_EVENT_USE_PORT
-                        event_queue_add_fd_read(ucr->queue, cs->fd);
-#endif
-			if (len <= 0) {
-				if (len < 0)
-					uwsgi_error("recv()");
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-
-			len = send(cs->instance_fd, fr_session->buffer, len, 0);
-
-			if (len <= 0) {
-				if (len < 0)
-					uwsgi_error("send()");
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-		}
-
-		break;
-
-	case FASTROUTER_STATUS_BUFFERING:
-		len = recv(cs->fd, post_tmp_buf, UMIN(UMAX16, cs->post_remains), 0);
-#ifdef UWSGI_EVENT_USE_PORT
-                event_queue_add_fd_read(ucr->queue, cs->fd);
-#endif
-		if (len <= 0) {
-			if (len < 0)
-				uwsgi_error("recv()");
-			corerouter_close_session(ucr, cs);
-			break;
-		}
-
-		if (fwrite(post_tmp_buf, len, 1, cs->buf_file) != 1) {
-			uwsgi_error("fwrite()");
-			corerouter_close_session(ucr, cs);
-			break;
-		}
-
-		cs->post_remains -= len;
-
-		if (cs->post_remains == 0) {
-			// close the buf_file ASAP
-			fclose(cs->buf_file);
-			cs->buf_file = NULL;
-
-			cs->pass_fd = is_unix(cs->instance_address, cs->instance_address_len);
-
-			cs->instance_fd = uwsgi_connectn(cs->instance_address, cs->instance_address_len, 0, 1);
-
-			if (cs->instance_fd < 0) {
-				cs->instance_failed = 1;
-				corerouter_close_session(ucr, cs);
-				break;
-			}
-
-			cs->status = COREROUTER_STATUS_CONNECTING;
-			ucr->cr_table[cs->instance_fd] = cs;
-			event_queue_add_fd_write(ucr->queue, cs->instance_fd);
-		}
-		break;
-
-
-
-
-		// fallback to destroy !!!
-	default:
-		uwsgi_log("unknown event: closing session\n");
-		corerouter_close_session(ucr, cs);
-		break;
-
+	// first check for errors
+	if (getsockopt(cs->instance_fd, SOL_SOCKET, SO_ERROR, (void *) (&cs->soopt), &solen) < 0) {
+		uwsgi_error("fr_instance_connected()/getsockopt()");
+		cs->instance_failed = 1;
+		return -1;
 	}
+
+	if (cs->soopt) {
+		cs->instance_failed = 1;
+		return -1;
+	}
+
+	cs->buffer_pos = 0;
+
+	// ok instance is connected, wait for write again
+	uwsgi_cr_hook_instance_write(cs, fr_instance_send_request_header);
+	// return a value > 0
+	return 1;
+}
+
+ssize_t fr_recv_uwsgi_vars(struct corerouter_session *cs) {
+	// increase buffer if needed
+	if (uwsgi_buffer_fix(cs->buffer, cs->uh.pktsize)) return -1;
+	ssize_t len = read(cs->fd, cs->buffer->buf + cs->buffer_pos, cs->uh.pktsize - cs->buffer_pos);
+	if (len < 0) {
+		cr_try_again;
+		uwsgi_error("fr_recv_uwsgi_vars()");
+		return -1;
+	}
+	
+	cs->buffer_pos += len;
+
+	// headers received, ready to choose the instance
+	if (cs->buffer_pos == cs->uh.pktsize) {
+		struct uwsgi_corerouter *ucr = cs->corerouter;
+		// find the hostname
+		if (uwsgi_hooked_parse(cs->buffer->buf, cs->uh.pktsize, fr_get_hostname, (void *) cs)) {
+			return -1;
+		}
+		// check the hostname;
+		if (cs->hostname_len == 0) return -1;
+		// find an instance using the key
+		if (cs->corerouter->mapper(cs->corerouter, cs)) return -1;
+		// check instance
+		if (cs->instance_address_len == 0) {
+			// if fallback nodes are configured, trigger them
+			if (ucr->fallback) {
+				cs->instance_failed = 1;
+			}
+			return -1;
+		}
+
+		// stop receiving from the client
+		uwsgi_cr_hook_read(cs, NULL);
+
+		// start async connect
+		cs->instance_fd = uwsgi_connectn(cs->instance_address, cs->instance_address_len, 0, 1);
+		if (cs->instance_fd < 0) {
+			cs->instance_failed = 1;
+			cs->soopt = errno;
+			return -1;
+		}
+		// map the instance
+		cs->corerouter->cr_table[cs->instance_fd] = cs;
+		// wait for connection
+		uwsgi_cr_hook_instance_write(cs, fr_instance_connected);
+	}
+
+	return len;
+}
+
+ssize_t fr_recv_uwsgi_header(struct corerouter_session *cs) {
+	ssize_t len = read(cs->fd, cs->buffer->buf + cs->buffer_pos, 4 - cs->buffer_pos);
+	if (len < 0) {
+		cr_try_again;
+		uwsgi_error("fr_recv_uwsgi_header()");
+		return -1;
+	}
+
+	cs->buffer_pos += len;
+
+	// header ready
+	if (cs->buffer_pos == 4) {
+		memcpy(&cs->uh, cs->buffer->buf, 4);
+		cs->buffer_pos = 0;
+		uwsgi_cr_hook_read(cs, fr_recv_uwsgi_vars);
+	}
+
+	return len;
 }

@@ -13,6 +13,19 @@ struct uwsgi_buffer *uwsgi_buffer_new(size_t len) {
 	
 }
 
+int uwsgi_buffer_fix(struct uwsgi_buffer *ub, size_t len) {
+	if (ub->len < len) {
+		char *new_buf = realloc(ub->buf, len);
+                if (!new_buf) {
+                        uwsgi_error("uwsgi_buffer_fix()");
+                        return -1;
+                }
+                ub->buf = new_buf;
+                ub->len = len;	
+	}
+	return 0;
+}
+
 int uwsgi_buffer_append(struct uwsgi_buffer *ub, char *buf, size_t len) {
 
 	size_t remains = ub->len - ub->pos;
@@ -21,7 +34,7 @@ int uwsgi_buffer_append(struct uwsgi_buffer *ub, char *buf, size_t len) {
 		size_t chunk_size = UMAX(len, (size_t) uwsgi.page_size);
 		char *new_buf = realloc(ub->buf, ub->len + chunk_size);
 		if (!new_buf) {
-			uwsgi_error("realloc()");
+			uwsgi_error("uwsgi_buffer_append()");
 			return -1;
 		}
 		ub->buf = new_buf;
@@ -54,7 +67,7 @@ int uwsgi_buffer_send(struct uwsgi_buffer *ub, int fd) {
 				return -1;
 			}
 			else {
-				uwsgi_error("write()");
+				uwsgi_error("uwsgi_buffer_send()");
 				return -1;
 			}
 		}

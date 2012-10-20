@@ -6,4 +6,4 @@ LIBS = []
 
 REQUIRES = ['corerouter']
 
-GCC_LIST = ['fastrouter', 'fr_events']
+GCC_LIST = ['fastrouter']
