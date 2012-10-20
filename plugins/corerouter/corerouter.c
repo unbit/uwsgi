@@ -804,6 +804,9 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 				// on error, destroy the session
 				if (event_queue_interesting_fd_has_error(events, i)) {
+					if (interesting_fd == cr_session->instance_fd) {
+						cr_session->instance_failed = 1;
+					}
 					corerouter_close_session(ucr, cr_session);
 					continue;
 				}
