@@ -803,34 +803,70 @@ ssize_t hs_http_manage(struct corerouter_session * cs, ssize_t len) {
 	return len;
 }
 
+void hr_session_close(struct corerouter_session *cs) {
+	struct http_session *hs = (struct http_session *) cs;
+	if (hs->path_info) {
+		free(hs->path_info);
+	}
+	if (hs->uwsgi_req) {
+		uwsgi_buffer_destroy(hs->uwsgi_req);
+	}
+	if (hs->post_buf) {
+		uwsgi_buffer_destroy(hs->post_buf);
+	}
+}
+
+#ifdef UWSGI_SSL
+void hr_session_ssl_close(struct corerouter_session *cs) {
+	hr_session_close(cs);
+	struct http_session *hs = (struct http_session *) cs;
+	SSL_shutdown(hs->ssl);
+	if (hs->ssl_client_dn) {
+                OPENSSL_free(hs->ssl_client_dn);
+        }
+
+        if (hs->ssl_cc) {
+                free(hs->ssl_cc);
+        }
+
+        if (hs->ssl_bio) {
+                BIO_free(hs->ssl_bio);
+        }
+
+        if (hs->ssl_client_cert) {
+                X509_free(hs->ssl_client_cert);
+        }
+
+        SSL_free(hs->ssl);
+}
+#endif
+
 void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
 	struct http_session *hs = (struct http_session *) cs;
-	//hs->ptr = hs->buffer;
 	cs->modifier1 = uhttp.modifier1;
-	//cs->send = uwsgi_http_nb_send;
 	if (sa && sa->sa_family == AF_INET) {
 		hs->ip_addr = ((struct sockaddr_in *) sa)->sin_addr.s_addr;
 	}
 
 	hs->rnrn = 0;
 
-	if (ugs) {
-		hs->port = ugs->port;
-		hs->port_len = ugs->port_len;
+	hs->port = ugs->port;
+	hs->port_len = ugs->port_len;
 #ifdef UWSGI_SSL
-		if (ugs->mode == UWSGI_HTTP_SSL) {
-			hs->ssl = SSL_new(ugs->ctx);		
-			SSL_set_fd(hs->ssl, cs->fd);
-			SSL_set_accept_state(hs->ssl);
-			uwsgi_cr_hook_read(cs, hr_recv_http_ssl);
-		}
-		else {
-#endif
-			uwsgi_cr_hook_read(cs, hr_recv_http);
-#ifdef UWSGI_SSL
-		}
-#endif
+	if (ugs->mode == UWSGI_HTTP_SSL) {
+		hs->ssl = SSL_new(ugs->ctx);		
+		SSL_set_fd(hs->ssl, cs->fd);
+		SSL_set_accept_state(hs->ssl);
+		uwsgi_cr_hook_read(cs, hr_recv_http_ssl);
+		cs->close = hr_session_ssl_close;
 	}
+	else {
+#endif
+		uwsgi_cr_hook_read(cs, hr_recv_http);
+		cs->close = hr_session_close;
+#ifdef UWSGI_SSL
+	}
+#endif
 }
 
 void http_setup() {

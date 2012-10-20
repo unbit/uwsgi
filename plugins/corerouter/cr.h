@@ -138,6 +138,8 @@ struct corerouter_session {
 	ssize_t (*event_hook_instance_read)(struct corerouter_session *);
 	ssize_t (*event_hook_instance_write)(struct corerouter_session *);
 
+	void (*close)(struct corerouter_session *);
+
 	struct uwsgi_buffer *buffer;
         size_t buffer_len;
 	off_t buffer_pos;

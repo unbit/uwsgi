@@ -299,11 +299,9 @@ end:
 		free(cr_session->buf_file_name);
 	}
 
-/*
 	// could be used to free additional resources
 	if (cr_session->close)
-		cr_session->close(ucr, cr_session);
-*/
+		cr_session->close(cr_session);
 
 	close(cr_session->fd);
 	ucr->cr_table[cr_session->fd] = NULL;
