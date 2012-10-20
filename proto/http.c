@@ -137,6 +137,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 				wsgi_req->path_info_len = ptr - base;
 				http_url_decode(base, &wsgi_req->path_info_len, wsgi_req->path_info);
 				wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, wsgi_req->path_info, wsgi_req->path_info_len);
+				wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
+				wsgi_req->path_info_len = ptr - base;
 			}
 			else {
 				uwsgi_log("not enough space in wsgi_req http proto_parser_buf to encode PATH_INFO, consider tuning it with --buffer-size\n");
@@ -158,6 +160,8 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
                                 	wsgi_req->path_info_len = ptr - base;
                                 	http_url_decode(base, &wsgi_req->path_info_len, wsgi_req->path_info);
                                 	wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, wsgi_req->path_info, wsgi_req->path_info_len);
+					wsgi_req->path_info = (wsgi_req->buffer + wsgi_req->uh.pktsize) - (ptr - base);
+					wsgi_req->path_info_len = ptr - base;
                         	}
 				else {
 					uwsgi_log("not enough space in wsgi_req http proto_parser_buf to encode PATH_INFO, consider tuning it with --buffer-size\n");

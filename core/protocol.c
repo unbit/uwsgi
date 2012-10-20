@@ -1024,7 +1024,6 @@ next:
 		}
 	}
 
-	
 	// check for static files
 
 	// skip extensions
