@@ -475,6 +475,8 @@ ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
                 if (cs->event_hook_write) {
                         uwsgi_cr_hook_write(cs, NULL);
                 }
+		hs->post_buf_len = ret;
+        	hs->post_buf_pos = 0;
                 uwsgi_cr_hook_read(cs, NULL);
 		uwsgi_cr_hook_instance_read(cs, NULL);
         	uwsgi_cr_hook_instance_write(cs, hr_write_body);
