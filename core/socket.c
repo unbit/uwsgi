@@ -334,7 +334,11 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 		memcpy(uws_addr.sun_path, socket_name, UMIN(strlen(socket_name), 102));
 	}
 
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+	uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK, 0);
+#else
 	uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM, 0);
+#endif
 	if (uwsgi_poll.fd < 0) {
 		uwsgi_error("socket()");
 		return -1;
@@ -372,7 +376,11 @@ int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
 
 	socket_name[strlen(socket_name)] = ':';
 
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
+#else
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
+#endif
 	if (uwsgi_poll.fd < 0) {
 		uwsgi_error("socket()");
 		return -1;
@@ -677,13 +685,16 @@ void uwsgi_socket_b(int fd) {
 
 int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_size, int timeout, int async) {
 
-	int arg, ret;
+	int ret;
 	int soopt = 0;
 	socklen_t solen = sizeof(int);
 	int cnt;
 	/* set non-blocking socket */
 
-	arg = fcntl(fdpoll->fd, F_GETFL, NULL);
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+	// hmm, nothing to do, as we are already non-blocking
+#else
+	int arg = fcntl(fdpoll->fd, F_GETFL, NULL);
 	if (arg < 0) {
 		uwsgi_error("fcntl()");
 		return -1;
@@ -693,6 +704,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 		uwsgi_error("fcntl()");
 		return -1;
 	}
+#endif
 
 	ret = connect(fdpoll->fd, addr, addr_size);
 
@@ -700,17 +712,20 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 		if (ret < 0 && errno != EINPROGRESS) {
 			return -1;
 		}
+		return 0;
 	}
 
+
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+        // hmm, nothing to do, as we are already non-blocking
+#else
 	/* re-set blocking socket */
 	arg &= (~O_NONBLOCK);
 	if (fcntl(fdpoll->fd, F_SETFL, arg) < 0) {
 		uwsgi_error("fcntl()");
 		return -1;
 	}
-
-	if (async)
-		return 0;
+#endif
 
 	if (ret < 0) {
 		/* check what happened */

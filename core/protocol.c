@@ -368,7 +368,11 @@ int uwsgi_enqueue_message(char *host, int port, uint8_t modifier1, uint8_t modif
 		return -1;
 	}
 
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
+#else
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
+#endif
 	if (uwsgi_poll.fd < 0) {
 		uwsgi_error("socket()");
 		return -1;
@@ -1161,7 +1165,11 @@ int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
 		return 0;
 	}
 
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
+#else
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
+#endif
 	if (uwsgi_poll.fd < 0) {
 		uwsgi_error("socket()");
 		return -1;

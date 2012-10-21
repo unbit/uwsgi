@@ -754,9 +754,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				if (ugs->gateway == &ushared->gateways[id] && interesting_fd == ugs->fd) {
 					if (!ugs->subscription) {
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-#define _GNU_SOURCE
 						new_connection = accept4(interesting_fd, (struct sockaddr *) &cr_addr, &cr_addr_len, SOCK_NONBLOCK);
-#undef _GNU_SOURCE
 						if (new_connection < 0) {
 							taken = 1;
 							break;
