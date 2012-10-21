@@ -13,7 +13,11 @@ uwsgi_cpu = os.uname()[4]
 import sys
 import subprocess
 from threading import Thread,Lock
-from Queue import Queue
+
+try:
+    from queue import Queue
+except:
+    from Queue import Queue
 
 from distutils import sysconfig
 
@@ -91,7 +95,7 @@ def thread_compiler(num):
                 os._exit(1)
         elif cmdline:
             print_lock.acquire()    
-            print cmdline
+            print(cmdline)
             print_lock.release()    
         else:
             return

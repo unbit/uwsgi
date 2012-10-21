@@ -10,12 +10,6 @@ extern struct uwsgi_server uwsgi;
 
 #include "../corerouter/cr.h"
 
-#ifdef UWSGI_SSL
-#define UWSGI_HTTP_SSL 1
-#define UWSGI_HTTP_FORCE_SSL 2
-#define HTTP_SSL_STATUS_SHUTDOWN 10
-#endif
-
 struct uwsgi_http {
 
 	struct uwsgi_corerouter cr;
@@ -34,6 +28,11 @@ struct uwsgi_http {
 } uhttp;
 
 #ifdef UWSGI_SSL
+
+#define UWSGI_HTTP_NOSSL	0
+#define UWSGI_HTTP_SSL		1
+#define UWSGI_HTTP_FORCE_SSL	2
+
 void uwsgi_opt_https(char *opt, char *value, void *cr) {
         struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
         char *client_ca = NULL;
@@ -354,7 +353,7 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 
 #ifdef UWSGI_SSL
 	// HTTPS (adapted from nginx)
-	if (h_session->cs.ugs->mode == UWSGI_HTTP_SSL) {
+	if (h_session->cs.ugs->mode > UWSGI_HTTP_NOSSL) {
 		if (http_add_uwsgi_var(h_session, "HTTPS", 5, "on", 2)) return -1;
 		h_session->ssl_client_cert = SSL_get_peer_certificate(h_session->ssl);
 		if (h_session->ssl_client_cert) {
@@ -433,6 +432,9 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 
 ssize_t hr_instance_read_response(struct corerouter_session *);
 ssize_t hr_read_body(struct corerouter_session *);
+#ifdef UWSGI_SSL
+ssize_t hr_read_ssl_body(struct corerouter_session *);
+#endif
 
 ssize_t hr_write_body(struct corerouter_session * cs) {
 	struct http_session *hs = (struct http_session *) cs;
@@ -449,11 +451,68 @@ ssize_t hr_write_body(struct corerouter_session * cs) {
         if (hs->post_buf_pos == (ssize_t) hs->post_buf_len) {
                 uwsgi_cr_hook_instance_write(cs, NULL);
                 uwsgi_cr_hook_instance_read(cs, hr_instance_read_response);
-                uwsgi_cr_hook_read(cs, hr_read_body);
+#ifdef UWSGI_SSL
+		if (!hs->ssl) {
+#endif
+                	uwsgi_cr_hook_read(cs, hr_read_body);
+#ifdef UWSGI_SSL
+		}
+		else {
+                	uwsgi_cr_hook_read(cs, hr_read_ssl_body);
+		}
+#endif
         }
 
         return len;
 }
+
+#ifdef UWSGI_SSL
+ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
+        struct http_session *hs = (struct http_session *) cs;
+        int ret = SSL_read(hs->ssl, hs->post_buf->buf, hs->post_buf_max);
+        if (ret > 0) {
+                // fix waiting
+                if (cs->event_hook_write) {
+                        uwsgi_cr_hook_write(cs, NULL);
+                }
+                uwsgi_cr_hook_read(cs, NULL);
+		uwsgi_cr_hook_instance_read(cs, NULL);
+        	uwsgi_cr_hook_instance_write(cs, hr_write_body);
+		return ret;
+        }
+        if (ret == 0) return 0;
+        int err = SSL_get_error(hs->ssl, ret);
+
+        if (err == SSL_ERROR_WANT_READ) {
+                if (cs->event_hook_write) {
+                        uwsgi_cr_hook_write(cs, NULL);
+                        uwsgi_cr_hook_read(cs, hr_read_ssl_body);
+                }
+                errno = EINPROGRESS;
+                return -1;
+        }
+
+        else if (err == SSL_ERROR_WANT_WRITE) {
+                if (cs->event_hook_read) {
+                        uwsgi_cr_hook_read(cs, NULL);
+                        uwsgi_cr_hook_write(cs, hr_read_ssl_body);
+                }
+                errno = EINPROGRESS;
+                return -1;
+        }
+
+        else if (err == SSL_ERROR_SYSCALL) {
+                uwsgi_error("hr_read_ssl_body()");
+        }
+
+        else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
+                ERR_print_errors_fp(stderr);
+        }
+
+        return -1;
+}
+#endif
+
 
 
 ssize_t hr_read_body(struct corerouter_session * cs) {
@@ -574,12 +633,12 @@ ssize_t hr_instance_read_response(struct corerouter_session * cs) {
 #ifdef UWSGI_SSL
 	struct http_session *hs = (struct http_session *) cs;
 	if (!hs->ssl) {
+#endif
         	uwsgi_cr_hook_write(cs, hr_write_response);
+#ifdef UWSGI_SSL
 	}
 	else {
-#endif
         	uwsgi_cr_hook_write(cs, hr_write_ssl_response);
-#ifdef UWSGI_SSL
 	}
 #endif
         return len;
@@ -600,7 +659,16 @@ int hr_start_waiting(struct corerouter_session * cs) {
                 hs->post_buf = uwsgi_buffer_new(hs->post_buf_max);
                 if (!hs->post_buf)
                         return -1;
-               uwsgi_cr_hook_read(cs, hr_read_body);
+#ifdef UWSGI_SSL
+		if (!hs->ssl) {
+#endif
+               		uwsgi_cr_hook_read(cs, hr_read_body);
+#ifdef UWSGI_SSL
+		}
+		else {
+               		uwsgi_cr_hook_read(cs, hr_read_ssl_body);
+		}
+#endif
 	return 0;
 }
 
@@ -876,7 +944,7 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 	hs->port = ugs->port;
 	hs->port_len = ugs->port_len;
 #ifdef UWSGI_SSL
-	if (ugs->mode == UWSGI_HTTP_SSL) {
+	if (ugs->mode > UWSGI_HTTP_NOSSL) {
 		hs->ssl = SSL_new(ugs->ctx);		
 		SSL_set_fd(hs->ssl, cs->fd);
 		SSL_set_accept_state(hs->ssl);
