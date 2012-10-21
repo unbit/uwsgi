@@ -12,7 +12,7 @@ uwsgi_cpu = os.uname()[4]
 
 import sys
 import subprocess
-from threading import Thread
+from threading import Thread,Lock
 from Queue import Queue
 
 from distutils import sysconfig
@@ -76,23 +76,29 @@ report['plugin_dir'] = False
 report['ipv6'] = False
 
 compile_queue = None
+print_lock = None
 thread_compilers = []
 
 def thread_compiler(num):
     while True:
         (objfile, cmdline) = compile_queue.get()
         if objfile:
+            print_lock.acquire()    
             print("[thread %d][%s] %s" % (num, GCC, objfile))
+            print_lock.release()    
             ret = os.system(cmdline)
             if ret != 0:
                 os._exit(1)
         elif cmdline:
+            print_lock.acquire()    
             print cmdline
+            print_lock.release()    
         else:
             return
 
 
 if CPUCOUNT > 1:
+    print_lock = Lock()
     compile_queue = Queue(maxsize=CPUCOUNT)
     for i in range(0,CPUCOUNT):
         t = Thread(target=thread_compiler,args=(i,))
