@@ -1551,6 +1551,9 @@ next:
 				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
 			}
 		}
+		else {
+                	uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
+		}
 
 		if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {
 			uwsgi.workers[uwsgi.mywid].pid = 0;

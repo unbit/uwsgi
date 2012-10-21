@@ -492,6 +492,26 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 int uwsgi_respawn_worker(int wid) {
 
 	int respawns = uwsgi.workers[wid].respawn_count;
+	// we count the respawns before errors...
+	uwsgi.workers[wid].respawn_count++;
+	// ... same for update time
+	uwsgi.workers[wid].last_spawn = uwsgi.current_time;
+	// ... and memory/harakiri
+	uwsgi.workers[wid].harakiri = 0;
+	uwsgi.workers[wid].user_harakiri = 0;
+	uwsgi.workers[wid].rss_size = 0;
+	uwsgi.workers[wid].vsz_size = 0;
+
+	// internal statuses should be reset too
+
+	uwsgi.workers[wid].cheaped = 0;
+	uwsgi.workers[wid].busy = 0;
+	uwsgi.workers[wid].suspended = 0;
+	uwsgi.workers[wid].sig = 0;
+
+	// this is required for various checks
+	uwsgi.workers[wid].delta_requests = 0;
+
 	int i;
 
 	if (uwsgi.threaded_logger) {
@@ -505,25 +525,30 @@ int uwsgi_respawn_worker(int wid) {
 		signal(SIGTSTP, worker_wakeup);
 		uwsgi.mywid = wid;
 		uwsgi.mypid = getpid();
-		uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
+		// pid is updated by the master
+		//uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
+		// OVERENGINEERING (just to be safe)
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
+		/*
 		uwsgi.workers[uwsgi.mywid].harakiri = 0;
 		uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
-
 		uwsgi.workers[uwsgi.mywid].rss_size = 0;
 		uwsgi.workers[uwsgi.mywid].vsz_size = 0;
+		*/
 		// do not reset worker counters on reload !!!
 		//uwsgi.workers[uwsgi.mywid].requests = 0;
 		// ...but maintain a delta counter (yes this is racy in multithread)
-		uwsgi.workers[uwsgi.mywid].delta_requests = 0;
+		//uwsgi.workers[uwsgi.mywid].delta_requests = 0;
 		//uwsgi.workers[uwsgi.mywid].failed_requests = 0;
-		uwsgi.workers[uwsgi.mywid].respawn_count++;
-		uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
+		//uwsgi.workers[uwsgi.mywid].respawn_count++;
+		//uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
+		/*
 		uwsgi.workers[uwsgi.mywid].cheaped = 0;
 		uwsgi.workers[uwsgi.mywid].busy = 0;
 		uwsgi.workers[uwsgi.mywid].suspended = 0;
 		uwsgi.workers[uwsgi.mywid].sig = 0;
+		*/
 
 		// reset the apps count with a copy from the master 
 		uwsgi.workers[uwsgi.mywid].apps_cnt = uwsgi.workers[0].apps_cnt;
@@ -548,6 +573,9 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi_error("fork()");
 	}
 	else {
+		// the pid is set only in the master, as the worker should never use it
+		uwsgi.workers[wid].pid = pid;
+		
 		if (respawns > 0) {
 			uwsgi_log("Respawned uWSGI worker %d (new pid: %d)\n", wid, (int) pid);
 		}
