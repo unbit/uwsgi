@@ -783,6 +783,36 @@ PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 
 }
 
+PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
+	size_t len = 0;
+	char *filename = NULL;
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	if (!PyArg_ParseTuple(args, "s|i:offload_transfer", &filename, &len)) {
+                return NULL;
+        }
+
+	if (!wsgi_req->socket->can_offload) {
+		return PyErr_Format(PyExc_ValueError, "The current socket does not support offloading");
+	}
+
+	if (!wsgi_req->headers_sent) {
+        	if (uwsgi_python_do_send_headers(wsgi_req)) {
+			return PyErr_Format(PyExc_ValueError, "unable to send headers before offload transfer");
+		}
+	}
+
+
+	UWSGI_RELEASE_GIL
+        if (uwsgi_offload_request_do(wsgi_req, filename, len)) {
+		UWSGI_GET_GIL
+		return PyErr_Format(PyExc_ValueError, "Unable to offload the request");
+	}
+	UWSGI_GET_GIL
+
+	return PyString_FromString("");
+}
+
 #ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 
@@ -3179,6 +3209,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 #ifdef UWSGI_SENDFILE
 	{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
 #endif
+	{"offload_transfer", py_uwsgi_offload_transfer, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 	{"mem", py_uwsgi_mem, METH_VARARGS, ""},
 	{"has_hook", py_uwsgi_has_hook, METH_VARARGS, ""},

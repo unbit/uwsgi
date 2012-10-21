@@ -10,6 +10,8 @@ enqueue a file transfer to the offload thread
 
 int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size_t len) {
 
+	struct stat st;
+
 	// avoid closing the connection
         wsgi_req->fd_closed = 1;
 
@@ -21,6 +23,14 @@ int uwsgi_offload_request_do(struct wsgi_request *wsgi_req, char *filename, size
 		goto error;	
 	}
         uor.s = wsgi_req->poll.fd;
+	// make a fstat to get the file size
+	if (!len) {
+		if (fstat(uor.fd, &st)) {
+			uwsgi_error("fstat()");
+			goto error2;
+		}	
+		len = st.st_size;
+	}
         uor.pos = 0;
         uor.len = len;
 	uor.written = 0;
