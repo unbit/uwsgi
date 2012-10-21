@@ -108,7 +108,7 @@ int event_queue_interesting_fd_has_error(void *events, int id) {
 
 int event_queue_interesting_fd_is_read(void *events, int id) {
 	port_event_t *pe = (port_event_t *) events;
-        if (pe[id].portev_events == POLLIN) {
+        if (pe[id].portev_events = POLLIN) {
                 return 1;
         }
         return 0;
@@ -427,7 +427,7 @@ int event_queue_interesting_fd_has_error(void *events, int id) {
 
 int event_queue_interesting_fd_is_read(void *events, int id) {
         struct epoll_event *ee = (struct epoll_event *) events;
-        if (ee[id].events == EPOLLIN) {
+        if (ee[id].events & EPOLLIN) {
                 return 1;
         }
         return 0;
@@ -435,7 +435,7 @@ int event_queue_interesting_fd_is_read(void *events, int id) {
 
 int event_queue_interesting_fd_is_write(void *events, int id) {
         struct epoll_event *ee = (struct epoll_event *) events;
-        if (ee[id].events == EPOLLOUT) {
+        if (ee[id].events & EPOLLOUT) {
                 return 1;
         }
         return 0;

@@ -585,6 +585,41 @@ ssize_t hr_instance_read_response(struct corerouter_session * cs) {
         return len;
 }
 
+int hr_start_waiting(struct corerouter_session * cs) {
+	struct http_session *hs = (struct http_session *) cs;
+	// stop writing to the instance
+                uwsgi_cr_hook_instance_write(cs, NULL);
+                // start reading from the instance
+                uwsgi_cr_hook_instance_read(cs, hr_instance_read_response);
+                // re-start reading from the client (for body or connection close)
+                // allocate a buffer for client body (could be delimited or dynamic)
+                hs->post_buf_max = UMAX16;
+                if (cs->post_cl > 0) {
+                        hs->post_buf_max = UMIN(UMAX16, cs->post_cl);
+                }
+                hs->post_buf = uwsgi_buffer_new(hs->post_buf_max);
+                if (!hs->post_buf)
+                        return -1;
+               uwsgi_cr_hook_read(cs, hr_read_body);
+	return 0;
+}
+
+ssize_t hr_post_remains(struct corerouter_session * cs) {
+	char *ptr = (cs->buffer->buf + cs->buffer->pos) - cs->post_remains;
+	ssize_t len = write(cs->instance_fd, ptr + cs->buffer_pos, cs->post_remains - cs->buffer_pos);
+	if (len < 0) {
+                cr_try_again;
+                uwsgi_error("hr_post_remains()");
+                return -1;
+        }
+
+	cs->buffer_pos += len;
+	if (cs->buffer_pos == (ssize_t) cs->post_remains) {
+		if (hr_start_waiting(cs)) return -1;
+	}
+
+	return len;
+}
 
 ssize_t hr_instance_send_request(struct corerouter_session * cs) {
 	struct http_session *hs = (struct http_session *) cs;
@@ -601,20 +636,12 @@ ssize_t hr_instance_send_request(struct corerouter_session * cs) {
         // for response
         if (cs->buffer_pos == cs->uh.pktsize) {
                 cs->buffer_pos = 0;
-                // stop writing to the instance
-                uwsgi_cr_hook_instance_write(cs, NULL);
-                // start reading from the instance
-                uwsgi_cr_hook_instance_read(cs, hr_instance_read_response);
-                // re-start reading from the client (for body or connection close)
-                // allocate a buffer for client body (could be delimited or dynamic)
-                hs->post_buf_max = UMAX16;
-                if (cs->post_cl > 0) {
-                        hs->post_buf_max = UMIN(UMAX16, cs->post_cl);
-                }
-                hs->post_buf = uwsgi_buffer_new(hs->post_buf_max);
-                if (!hs->post_buf)
-                        return -1;
-                uwsgi_cr_hook_read(cs, hr_read_body);
+		// some HTTP body left ?
+		if (cs->post_remains > 0) {
+			uwsgi_cr_hook_instance_write(cs, hr_post_remains);
+			return len;
+		}
+		if (hr_start_waiting(cs)) return -1;
         }
 
         return len;
