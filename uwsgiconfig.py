@@ -209,7 +209,7 @@ def compile(cflags, last_cflags_ts, objfile, srcfile):
 
 def build_uwsgi(uc, print_only=False):
 
-    gcc_list, cflags, ldflags, libs = uc.get_gcll()
+    global print_lock, compile_queue, thread_compilers
 
     if CPUCOUNT > 1:
         print_lock = Lock()
@@ -219,6 +219,8 @@ def build_uwsgi(uc, print_only=False):
             t.daemon = True
             t.start()
             thread_compilers.append(t)
+
+    gcc_list, cflags, ldflags, libs = uc.get_gcll()
 
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
