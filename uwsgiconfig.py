@@ -101,14 +101,6 @@ def thread_compiler(num):
             return
 
 
-if CPUCOUNT > 1:
-    print_lock = Lock()
-    compile_queue = Queue(maxsize=CPUCOUNT)
-    for i in range(0,CPUCOUNT):
-        t = Thread(target=thread_compiler,args=(i,))
-        t.daemon = True
-        t.start()
-        thread_compilers.append(t)
   
 	
 def binarize(name):
@@ -218,6 +210,15 @@ def compile(cflags, last_cflags_ts, objfile, srcfile):
 def build_uwsgi(uc, print_only=False):
 
     gcc_list, cflags, ldflags, libs = uc.get_gcll()
+
+    if CPUCOUNT > 1:
+        print_lock = Lock()
+        compile_queue = Queue(maxsize=CPUCOUNT)
+        for i in range(0,CPUCOUNT):
+            t = Thread(target=thread_compiler,args=(i,))
+            t.daemon = True
+            t.start()
+            thread_compilers.append(t)
 
     if uc.get('embedded_plugins'):
         ep = uc.get('embedded_plugins').split(',')
