@@ -187,6 +187,8 @@ struct uwsgi_python {
 	int start_response_nodelay;
 
 	void (*hook_write_string)(struct wsgi_request *, PyObject *);
+	ssize_t (*hook_wsgi_input_read)(struct wsgi_request *, char *, size_t);
+	ssize_t (*hook_wsgi_input_readline)(struct wsgi_request *, char *, size_t);
 
 	char *programname;
 };
@@ -278,6 +280,9 @@ int uwsgi_python_manage_exceptions(void);
 int uwsgi_python_do_send_headers(struct wsgi_request *);
 void *uwsgi_python_tracebacker_thread(void *);
 PyObject *uwsgi_python_setup_thread(char *);
+
+ssize_t uwsgi_python_hook_simple_input_read(struct wsgi_request *, char *, size_t);
+ssize_t uwsgi_python_hook_simple_input_readline(struct wsgi_request *, char *, size_t);
 
 #ifdef UWSGI_PYPY
 #undef UWSGI_MINTERPRETERS

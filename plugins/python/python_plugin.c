@@ -239,6 +239,8 @@ pep405:
 	up.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
 
 	up.hook_write_string = python_simple_hook_write_string;
+	up.hook_wsgi_input_read = uwsgi_python_hook_simple_input_read;
+	up.hook_wsgi_input_readline = uwsgi_python_hook_simple_input_readline;
 
 	up.main_thread = PyThreadState_Get();
 

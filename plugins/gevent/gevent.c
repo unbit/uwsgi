@@ -10,6 +10,10 @@ extern struct uwsgi_python up;
                           if (ret) { Py_DECREF(ret); }\
                           ret = PyObject_CallMethod(watcher, "stop", NULL);\
                           if (ret) { Py_DECREF(ret); }
+#define stop_the_watchers_and_clear stop_the_watchers\
+                        Py_DECREF(current); Py_DECREF(current_greenlet);\
+                        Py_DECREF(watcher);\
+                        Py_DECREF(timer);
 
 
 struct uwsgi_gevent {
@@ -202,6 +206,123 @@ clear:
 	return Py_None;
 }
 
+ssize_t uwsgi_gevent_hook_input_read(struct wsgi_request *wsgi_req, char *tmp_buf, size_t remains) {
+
+        size_t tmp_pos = 0;
+	/// create a watcher for reads
+        PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
+        if (!watcher) return -1;
+
+        PyObject *timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        if (!timer) {
+                Py_DECREF(watcher);
+                return -1;
+        }
+
+        PyObject *current_greenlet = GET_CURRENT_GREENLET;
+        PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+        while(remains) {
+
+		PyObject *ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
+        	if (!ret) {
+                	stop_the_watchers_and_clear
+                	return -1;
+        	}
+        	Py_DECREF(ret);
+
+        	ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
+        	if (!ret) {
+                	stop_the_watchers_and_clear
+                	return -1;
+        	}
+        	Py_DECREF(ret);
+
+        	ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+        	if (!ret) {
+                	stop_the_watchers_and_clear
+                	return -1;
+        	}
+        	Py_DECREF(ret);
+
+        	if (ret == timer) {
+                	stop_the_watchers_and_clear
+                	return 0;
+        	}
+
+		UWSGI_RELEASE_GIL;	
+                ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+tmp_pos, remains);
+                if (rlen <= 0) {
+                        UWSGI_GET_GIL
+			stop_the_watchers_and_clear
+                        return -1;
+                }
+                tmp_pos += rlen;
+                remains -= rlen;
+		UWSGI_GET_GIL
+		stop_the_watchers
+        }
+
+        return tmp_pos;
+
+}
+
+
+ssize_t uwsgi_gevent_hook_input_readline(struct wsgi_request *wsgi_req, char *readline, size_t max_size) {
+        ssize_t rlen = 0;
+
+	/// create a watcher for reads
+        PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
+        if (!watcher) return -1;
+
+        PyObject *timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        if (!timer) {
+                Py_DECREF(watcher);
+		return -1;
+        }
+
+        PyObject *current_greenlet = GET_CURRENT_GREENLET;
+        PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+	PyObject *ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
+        if (!ret) {
+        	stop_the_watchers_and_clear
+		return -1;
+        }
+        Py_DECREF(ret);
+
+        ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
+        if (!ret) {
+        	stop_the_watchers_and_clear
+		return -1;
+        }
+        Py_DECREF(ret);
+
+        ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+        if (!ret) {
+        	stop_the_watchers_and_clear
+		return -1;
+        }
+        Py_DECREF(ret);
+
+        if (ret == timer) {
+        	stop_the_watchers_and_clear
+		return 0;
+        }
+
+        UWSGI_RELEASE_GIL;
+        if (max_size > 0 && max_size < UWSGI_PY_READLINE_BUFSIZE) {
+                rlen = read(wsgi_req->poll.fd, readline, max_size);
+        }
+        else {
+                rlen = read(wsgi_req->poll.fd, readline, UWSGI_PY_READLINE_BUFSIZE);
+        }
+        UWSGI_GET_GIL;
+        stop_the_watchers_and_clear
+        return rlen;
+}
+
+
 void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
 	PyObject *ret;
 	char *content = PyString_AsString(str);
@@ -226,30 +347,21 @@ void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
 	for(;;) {
 		ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
 		if (!ret) {
-			stop_the_watchers
-			Py_DECREF(current); Py_DECREF(current_greenlet);
-			Py_DECREF(watcher);
-			Py_DECREF(timer);
+			stop_the_watchers_and_clear
 			goto error;
 		}
 		Py_DECREF(ret);
 
 		ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
 		if (!ret) {
-			stop_the_watchers
-			Py_DECREF(current); Py_DECREF(current_greenlet);
-			Py_DECREF(watcher);
-			Py_DECREF(timer);
+			stop_the_watchers_and_clear
 			goto error;
 		}
 		Py_DECREF(ret);
 
 		ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
 		if (!ret) {
-			stop_the_watchers
-			Py_DECREF(current); Py_DECREF(current_greenlet);
-			Py_DECREF(watcher);
-			Py_DECREF(timer);
+			stop_the_watchers_and_clear
 			goto error;
 		}
 		Py_DECREF(ret);
@@ -280,10 +392,7 @@ void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
 		}
 
 fail:
-		stop_the_watchers
-		Py_DECREF(current); Py_DECREF(current_greenlet);
-		Py_DECREF(watcher);
-		Py_DECREF(timer);
+		stop_the_watchers_and_clear
 		goto error;
 	}
 		
@@ -453,6 +562,8 @@ void gevent_loop() {
 
 	uwsgi.current_wsgi_req = uwsgi_gevent_current_wsgi_req;
 	up.hook_write_string =  uwsgi_gevent_nb_write;
+	up.hook_wsgi_input_read =  uwsgi_gevent_hook_input_read;
+	up.hook_wsgi_input_readline =  uwsgi_gevent_hook_input_readline;
 
 	PyObject *gevent_dict = get_uwsgi_pydict("gevent");
 	if (!gevent_dict) uwsgi_pyexit;

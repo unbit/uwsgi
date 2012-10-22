@@ -9,6 +9,24 @@ PyObject *uwsgi_Input_iter(PyObject *self) {
         return self;
 }
 
+ssize_t uwsgi_python_hook_simple_input_readline(struct wsgi_request *wsgi_req, char *readline, size_t max_size) {
+	ssize_t rlen = 0;
+	UWSGI_RELEASE_GIL;
+        if (uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
+                UWSGI_GET_GIL
+		return 0;
+        }
+
+        if (max_size > 0 && max_size < UWSGI_PY_READLINE_BUFSIZE) {
+                rlen = read(wsgi_req->poll.fd, readline, max_size);
+        }
+        else {
+                rlen = read(wsgi_req->poll.fd, readline, UWSGI_PY_READLINE_BUFSIZE);
+        }
+        UWSGI_GET_GIL;
+	return rlen;
+}
+
 PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
 	size_t i;
 	ssize_t rlen;
@@ -40,28 +58,17 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
 	}
 
 
-	UWSGI_RELEASE_GIL;
-	if (uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-                UWSGI_GET_GIL
+	rlen = up.hook_wsgi_input_readline(wsgi_req, self->readline, self->readline_max_size);
+	if (rlen < 0) {
+                return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data (readline/getline)");
+        }
+	else if (rlen == 0) {
                 return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data (readline/getline)");
-        }
-
-	if (self->readline_max_size > 0 && self->readline_max_size < UWSGI_PY_READLINE_BUFSIZE) {
-        	rlen = read(wsgi_req->poll.fd, self->readline, self->readline_max_size);
 	}
-	else {
-        	rlen = read(wsgi_req->poll.fd, self->readline, UWSGI_PY_READLINE_BUFSIZE);
-	}
-        if (rlen <= 0) {
-                UWSGI_GET_GIL
-                return PyErr_Format(PyExc_IOError, "error reading wsgi.input data (readline/getline)");
-        }
 
 	self->readline_size = rlen;
 	self->readline_pos = 0;
         self->pos += rlen;
-
-	UWSGI_GET_GIL;
 
 	for(i=0;i<(size_t)rlen;i++) {
 		if (self->readline[i] == '\n') {
@@ -91,11 +98,37 @@ static void uwsgi_Input_free(uwsgi_Input *self) {
     	PyObject_Del(self);
 }
 
+ssize_t uwsgi_python_hook_simple_input_read(struct wsgi_request *wsgi_req, char *tmp_buf, size_t remains) {
+
+	size_t tmp_pos = 0;
+
+	UWSGI_RELEASE_GIL
+
+        while(remains) {
+                if (uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
+                        UWSGI_GET_GIL
+			return 0;
+                }
+
+                ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+tmp_pos, remains);
+                if (rlen <= 0) {
+                        UWSGI_GET_GIL
+			return -1;
+                }
+                tmp_pos += rlen;
+                remains -= rlen;
+        }
+
+        UWSGI_GET_GIL
+	return tmp_pos;
+
+}
+
 static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 	long len = 0;
-	size_t remains, tmp_pos = 0;
-	ssize_t rlen;
+	size_t remains;
+	ssize_t tmp_pos = 0;
 	char *tmp_buf;
 	PyObject *res;
 
@@ -144,28 +177,18 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 		return res;
 	}
 
-	UWSGI_RELEASE_GIL
-
 	tmp_buf = uwsgi_malloc(remains);	
 
-	while(remains) {
-		if (uwsgi_waitfd(self->wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-                       	free(tmp_buf);
-                       	UWSGI_GET_GIL
-                       	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  remains + tmp_pos, (unsigned long long) tmp_pos);
-               	}
-
-		rlen = read(self->wsgi_req->poll.fd, tmp_buf+tmp_pos, remains);
-		if (rlen <= 0) {
-                       	free(tmp_buf);
-                       	UWSGI_GET_GIL
-                       	return PyErr_Format(PyExc_IOError, "error reading wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  remains + tmp_pos, (unsigned long long) tmp_pos);
-               	}
-		tmp_pos += rlen;
-		remains -= rlen;
+	tmp_pos = up.hook_wsgi_input_read(self->wsgi_req, tmp_buf, remains);
+	if (tmp_pos < 0) {
+                free(tmp_buf);
+        	return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  (remains + (tmp_pos+1)), (unsigned long long) (tmp_pos+1));
+	}
+	else if (tmp_pos == 0) {
+                free(tmp_buf);
+        	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  (remains + tmp_pos), (unsigned long long) tmp_pos);
 	}
 
-	UWSGI_GET_GIL
 	self->pos += tmp_pos;
 	res = PyString_FromStringAndSize(tmp_buf, tmp_pos);
 	free(tmp_buf);
