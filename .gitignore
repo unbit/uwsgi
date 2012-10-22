@@ -1,0 +1,5 @@
+*.o
+*.py[co]
+
+/uwsgi
+/uwsgibuild.*
