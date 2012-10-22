@@ -71,7 +71,6 @@ report['ssl'] = False
 report['zeromq'] = False
 report['snmp'] = False
 report['threading'] = False
-report['sendfile'] = False
 report['xml'] = False
 report['sqlite3'] = False
 report['spooler'] = False
@@ -432,7 +431,7 @@ class uConf(object):
 
         self.config.read(filename)
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
-            'core/notify', 'core/mule', 'core/subscription', 'core/stats',
+            'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer',
             'core/plugins', 'core/lock', 'core/cache', 'core/daemons',
             'core/queue', 'core/event', 'core/signal', 'core/cluster',
@@ -1020,11 +1019,6 @@ class uConf(object):
         if self.get('threading'):
             self.cflags.append("-DUWSGI_THREADING")
             report['threading'] = True
-
-        if self.get('sendfile'):
-            self.cflags.append("-DUWSGI_SENDFILE")
-            self.gcc_list.append('core/sendfile')
-            report['sendfile'] = True
 
         if self.get('xml'):
             if self.get('xml') == 'auto':

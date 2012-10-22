@@ -213,9 +213,7 @@ int manage_python_response(struct wsgi_request *);
 int uwsgi_python_call(struct wsgi_request *, PyObject *, PyObject *);
 PyObject *python_call(PyObject *, PyObject *, int, struct wsgi_request *);
 
-#ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_sendfile(PyObject *, PyObject *);
-#endif
 
 PyObject *py_uwsgi_write(PyObject *, PyObject *);
 PyObject *py_uwsgi_spit(PyObject *, PyObject *);

@@ -69,9 +69,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_req->async_input);
 
-#ifdef UWSGI_SENDFILE
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
-#endif
 
 #ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
@@ -157,9 +155,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	PyObject *pychunk;
-#ifdef UWSGI_SENDFILE
 	ssize_t sf_len = 0;
-#endif
 
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
@@ -177,7 +173,6 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
-#ifdef UWSGI_SENDFILE
 #ifdef __FreeBSD__
 	if ( ((wsgi_req->sendfile_obj == wsgi_req->async_result) || ( wsgi_req->sendfile_fd_size > 0 && wsgi_req->response_size < wsgi_req->sendfile_fd_size)) && wsgi_req->sendfile_fd != -1) {
 #else
@@ -199,8 +194,6 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 #endif
 		goto clear;
 	}
-#endif
-
 
 	// ok its a yield
 	if (!wsgi_req->async_placeholder) {
@@ -252,7 +245,6 @@ exception:
 		}
 	}
 
-#ifdef UWSGI_SENDFILE
 	else if (wsgi_req->sendfile_obj == pychunk && wsgi_req->sendfile_fd != -1) {
 		// send the headers if not already sent
         	if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
@@ -262,7 +254,6 @@ exception:
 		if (sf_len < 1) goto clear;
 		wsgi_req->response_size += sf_len;
 	}
-#endif
 
 
 	Py_DECREF(pychunk);

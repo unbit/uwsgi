@@ -867,9 +867,7 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 	wsgi_req->app_id = uwsgi.default_app;
 
 	wsgi_req->async_id = async_id;
-#ifdef UWSGI_SENDFILE
 	wsgi_req->sendfile_fd = -1;
-#endif
 
 	wsgi_req->hvec = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].hvec;
 	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer;

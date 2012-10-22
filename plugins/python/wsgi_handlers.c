@@ -555,7 +555,6 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 	log_request(wsgi_req);
 }
 
-#ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -580,7 +579,6 @@ PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 	Py_INCREF((PyObject *) wsgi_req->sendfile_obj);
 	return (PyObject *) wsgi_req->sendfile_obj;
 }
-#endif
 
 void threaded_swap_ts(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 

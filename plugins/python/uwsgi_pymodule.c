@@ -813,7 +813,6 @@ PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
 	return PyString_FromString("");
 }
 
-#ifdef UWSGI_SENDFILE
 PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 
 	PyObject *what;
@@ -905,7 +904,6 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	return Py_None;
 
 }
-#endif
 
 #ifdef UWSGI_ASYNC
 
@@ -3206,9 +3204,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"rpc", py_uwsgi_rpc, METH_VARARGS, ""},
 	{"rpc_list", py_uwsgi_rpc_list, METH_VARARGS, ""},
 	{"call", py_uwsgi_call, METH_VARARGS, ""},
-#ifdef UWSGI_SENDFILE
 	{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
-#endif
 	{"offload_transfer", py_uwsgi_offload_transfer, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 	{"mem", py_uwsgi_mem, METH_VARARGS, ""},

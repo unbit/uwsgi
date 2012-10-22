@@ -2338,9 +2338,7 @@ void *simple_loop_run(void *);
 
 int uwsgi_count_options(struct uwsgi_option *);
 
-#ifdef UWSGI_SENDFILE
 ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t *, int);
-#endif
 
 struct wsgi_request *simple_current_wsgi_req(void);
 struct wsgi_request *threaded_current_wsgi_req(void);

@@ -13,9 +13,7 @@ extern struct uwsgi_python up;
 
 extern char **environ;
 
-#ifdef UWSGI_SENDFILE
 PyMethodDef uwsgi_sendfile_method[] = {{"uwsgi_sendfile", py_uwsgi_sendfile, METH_VARARGS, ""}};
-#endif
 
 #ifdef UWSGI_ASYNC
 PyMethodDef uwsgi_eventfd_read_method[] = { {"uwsgi_eventfd_read", py_eventfd_read, METH_VARARGS, ""}};
@@ -331,10 +329,8 @@ int init_uwsgi_app(int loader, void *arg1, struct wsgi_request *wsgi_req, PyThre
 #endif
 
 	if (app_type == PYTHON_APP_TYPE_WSGI) {
-#ifdef UWSGI_SENDFILE
 		// prepare sendfile() for WSGI app
 		wi->sendfile = PyCFunction_New(uwsgi_sendfile_method, NULL);
-#endif
 
 #ifdef UWSGI_ASYNC
 		wi->eventfd_read = PyCFunction_New(uwsgi_eventfd_read_method, NULL);

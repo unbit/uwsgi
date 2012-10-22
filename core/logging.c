@@ -529,9 +529,7 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 
         char *tsize = (char *) msecs;
 
-#ifdef UWSGI_SENDFILE
         char *msg1 = " via sendfile() ";
-#endif
         char *msg3 = " via route() ";
         char *msg4 = " via offload() ";
 
@@ -544,11 +542,9 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-#ifdef UWSGI_SENDFILE
 	if (wsgi_req->sendfile_fd > -1 && wsgi_req->sendfile_obj == wsgi_req->async_result) {	//wsgi_req->sendfile_fd_size > 0 ) {
 		via = msg1;
 	}
-#endif
 
 	// mark route() requests
 	if (wsgi_req->status == -17) {
