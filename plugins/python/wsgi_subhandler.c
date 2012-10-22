@@ -163,16 +163,13 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
-		char *content = PyString_AsString(wsgi_req->async_result);
-		size_t content_len = PyString_Size(wsgi_req->async_result);
+		size_t content_len = PyString_Size((PyObject *)wsgi_req->async_result);
 		if (content_len > 0 && !wsgi_req->headers_sent) {
 			if (uwsgi_python_do_send_headers(wsgi_req)) {
 				goto clear;
 			}
 		}
-		UWSGI_RELEASE_GIL
-		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
-		UWSGI_GET_GIL
+		up.hook_write_string(wsgi_req, (PyObject *) wsgi_req->async_result);
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
 		}
@@ -241,16 +238,13 @@ exception:
 
 
 	if (PyString_Check(pychunk)) {
-		char *content = PyString_AsString(pychunk);
 		size_t content_len = PyString_Size(pychunk);
 		if (content_len > 0 && !wsgi_req->headers_sent) {
                         if (uwsgi_python_do_send_headers(wsgi_req)) {
                                 goto clear;
                         }
                 }
-		UWSGI_RELEASE_GIL
-		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, content, content_len);
-		UWSGI_GET_GIL
+		up.hook_write_string(wsgi_req, pychunk);
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
 			Py_DECREF(pychunk);

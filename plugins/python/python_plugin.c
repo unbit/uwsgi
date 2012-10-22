@@ -9,6 +9,12 @@ extern struct http_status_codes hsc[];
 
 extern PyTypeObject uwsgi_InputType;
 
+void python_simple_hook_write_string(struct wsgi_request *wsgi_req, PyObject *str) {
+	UWSGI_RELEASE_GIL
+        wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(str), PyString_Size(str));
+	UWSGI_GET_GIL
+}
+
 void uwsgi_opt_pythonpath(char *opt, char *value, void *foobar) {
 
 	int i;
@@ -231,6 +237,8 @@ pep405:
 
 	up.wsgi_spitout = PyCFunction_New(uwsgi_spit_method, NULL);
 	up.wsgi_writeout = PyCFunction_New(uwsgi_write_method, NULL);
+
+	up.hook_write_string = python_simple_hook_write_string;
 
 	up.main_thread = PyThreadState_Get();
 

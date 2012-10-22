@@ -32,6 +32,9 @@ void uwsgi_opt_setup_gevent(char *opt, char *value, void *null) {
 
 	// set async mode
 	uwsgi_opt_set_int(opt, value, &uwsgi.async);
+	if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
+		uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 30;
+	}
 	// set loop engine
 	uwsgi.loop = "gevent";
 
@@ -173,8 +176,12 @@ edge:
 			goto edge;
 		}	
 		goto clear;
-		
 	}
+
+// on linux we need to set the socket in non-blocking as it is not inherited
+#ifdef __linux__
+	uwsgi_socket_nb(wsgi_req->poll.fd);
+#endif
 
 	// hack to easily pass wsgi_req pointer to the greenlet
 	PyTuple_SetItem(ugevent.greenlet_args, 1, PyLong_FromLong((long)wsgi_req));
@@ -193,6 +200,103 @@ edge:
 clear:
 	Py_INCREF(Py_None);
 	return Py_None;
+}
+
+void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
+	PyObject *ret;
+	char *content = PyString_AsString(str);
+	size_t content_len = PyString_Size(str);
+	/// create a watcher for writes
+	PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 2);
+	if (!watcher) goto error;
+
+	PyObject *timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+        if (!timer) {
+		Py_DECREF(watcher);
+		goto error;
+	}
+
+	PyObject *current_greenlet = GET_CURRENT_GREENLET;
+	PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+	char *ptr = content;
+	size_t remains = content_len;
+
+	// this is the main writing cycle, wait for writability and send...
+	for(;;) {
+		ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
+		if (!ret) {
+			stop_the_watchers
+			Py_DECREF(current); Py_DECREF(current_greenlet);
+			Py_DECREF(watcher);
+			Py_DECREF(timer);
+			goto error;
+		}
+		Py_DECREF(ret);
+
+		ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
+		if (!ret) {
+			stop_the_watchers
+			Py_DECREF(current); Py_DECREF(current_greenlet);
+			Py_DECREF(watcher);
+			Py_DECREF(timer);
+			goto error;
+		}
+		Py_DECREF(ret);
+
+		ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+		if (!ret) {
+			stop_the_watchers
+			Py_DECREF(current); Py_DECREF(current_greenlet);
+			Py_DECREF(watcher);
+			Py_DECREF(timer);
+			goto error;
+		}
+		Py_DECREF(ret);
+
+		if (ret == timer) {
+			goto fail;
+		}
+
+		// ok we can write a chunk to the socket
+		UWSGI_RELEASE_GIL
+		ssize_t len = write(wsgi_req->poll.fd, ptr, remains);
+		UWSGI_GET_GIL
+		if (len > 0) {
+			ptr += len;
+			remains -= len;
+			wsgi_req->response_size += len;
+			if (remains == 0) {
+				break;
+			}
+			stop_the_watchers
+			continue;
+		}
+		else if (len < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+				stop_the_watchers
+				continue;
+			}
+		}
+
+fail:
+		stop_the_watchers
+		Py_DECREF(current); Py_DECREF(current_greenlet);
+		Py_DECREF(watcher);
+		Py_DECREF(timer);
+		goto error;
+	}
+		
+	stop_the_watchers
+	Py_DECREF(current); Py_DECREF(current_greenlet);
+	Py_DECREF(watcher);
+        Py_DECREF(timer);
+	return ;
+	
+error:
+	if (PyErr_Occurred())
+		PyErr_Print();
+	wsgi_req->write_errors++;
 }
 
 PyObject *uwsgi_gevent_wait(PyObject *watcher, PyObject *timer, PyObject *current) {
@@ -237,7 +341,7 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
 	if (!watcher) goto clear1;
 
-	// a timer to implement timeoit (thanks Denis)
+	// a timer to implement timeout (thanks Denis)
 	timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 	if (!timer) goto clear0;
 
@@ -330,6 +434,10 @@ void gevent_loop() {
 		uwsgi_log("!!! Running gevent without threads IS NOT recommended, enable them with --enable-threads !!!\n");
 	}
 
+	if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
+		uwsgi_log("!!! Running gevent with a socket-timeout lower than 30 seconds is not recommended, tune it with --socket-timeout !!!\n");
+	}
+
 	// get the GIL
 	UWSGI_GET_GIL
 
@@ -344,6 +452,7 @@ void gevent_loop() {
 	}
 
 	uwsgi.current_wsgi_req = uwsgi_gevent_current_wsgi_req;
+	up.hook_write_string =  uwsgi_gevent_nb_write;
 
 	PyObject *gevent_dict = get_uwsgi_pydict("gevent");
 	if (!gevent_dict) uwsgi_pyexit;
