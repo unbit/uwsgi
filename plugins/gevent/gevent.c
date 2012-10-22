@@ -239,6 +239,7 @@ ssize_t uwsgi_gevent_hook_input_read(struct wsgi_request *wsgi_req, char *tmp_bu
         	Py_DECREF(ret);
 
         	ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+		wsgi_req->switches++;
         	if (!ret) {
                 	stop_the_watchers_and_clear
                 	return -1;
@@ -299,6 +300,7 @@ ssize_t uwsgi_gevent_hook_input_readline(struct wsgi_request *wsgi_req, char *re
         Py_DECREF(ret);
 
         ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+	wsgi_req->switches++;
         if (!ret) {
         	stop_the_watchers_and_clear
 		return -1;
@@ -360,6 +362,7 @@ void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
 		Py_DECREF(ret);
 
 		ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+		wsgi_req->switches++;
 		if (!ret) {
 			stop_the_watchers_and_clear
 			goto error;
@@ -459,6 +462,7 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 	for(;;) {
 		// wait for data in the socket
 		ret = uwsgi_gevent_wait(watcher, timer, greenlet_switch);
+		wsgi_req->switches++;
 		if (!ret) goto clear_and_stop;
 
 		// we can safely decref here as watcher and timer has got a +1 for start() method
