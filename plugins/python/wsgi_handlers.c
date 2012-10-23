@@ -98,9 +98,7 @@ static void uwsgi_Input_free(uwsgi_Input *self) {
     	PyObject_Del(self);
 }
 
-ssize_t uwsgi_python_hook_simple_input_read(struct wsgi_request *wsgi_req, char *tmp_buf, size_t remains) {
-
-	size_t tmp_pos = 0;
+ssize_t uwsgi_python_hook_simple_input_read(struct wsgi_request *wsgi_req, char *tmp_buf, size_t remains, size_t *tmp_pos) {
 
 	UWSGI_RELEASE_GIL
 
@@ -110,17 +108,17 @@ ssize_t uwsgi_python_hook_simple_input_read(struct wsgi_request *wsgi_req, char 
 			return 0;
                 }
 
-                ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+tmp_pos, remains);
+                ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+*tmp_pos, remains);
                 if (rlen <= 0) {
                         UWSGI_GET_GIL
 			return -1;
                 }
-                tmp_pos += rlen;
+                *tmp_pos += rlen;
                 remains -= rlen;
         }
 
         UWSGI_GET_GIL
-	return tmp_pos;
+	return *tmp_pos;
 
 }
 
@@ -128,7 +126,7 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 	long len = 0;
 	size_t remains;
-	ssize_t tmp_pos = 0;
+	size_t tmp_pos = 0;
 	char *tmp_buf;
 	PyObject *res;
 
@@ -179,10 +177,10 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
 	tmp_buf = uwsgi_malloc(remains);	
 
-	tmp_pos = up.hook_wsgi_input_read(self->wsgi_req, tmp_buf, remains);
-	if (tmp_pos < 0) {
+	ssize_t rlen = up.hook_wsgi_input_read(self->wsgi_req, tmp_buf, remains, &tmp_pos);
+	if (rlen < 0) {
                 free(tmp_buf);
-        	return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  (remains + (tmp_pos+1)), (unsigned long long) (tmp_pos+1));
+        	return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  (remains + tmp_pos), (unsigned long long) tmp_pos);
 	}
 	else if (tmp_pos == 0) {
                 free(tmp_buf);

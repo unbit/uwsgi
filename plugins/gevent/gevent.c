@@ -206,9 +206,8 @@ clear:
 	return Py_None;
 }
 
-ssize_t uwsgi_gevent_hook_input_read(struct wsgi_request *wsgi_req, char *tmp_buf, size_t remains) {
+ssize_t uwsgi_gevent_hook_input_read(struct wsgi_request *wsgi_req, char *tmp_buf, size_t remains, size_t *tmp_pos) {
 
-        size_t tmp_pos = 0;
 	/// create a watcher for reads
         PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
         if (!watcher) return -1;
@@ -252,19 +251,19 @@ ssize_t uwsgi_gevent_hook_input_read(struct wsgi_request *wsgi_req, char *tmp_bu
         	}
 
 		UWSGI_RELEASE_GIL;	
-                ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+tmp_pos, remains);
+                ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+*tmp_pos, remains);
                 if (rlen <= 0) {
                         UWSGI_GET_GIL
 			stop_the_watchers_and_clear
                         return -1;
                 }
-                tmp_pos += rlen;
+                *tmp_pos += rlen;
                 remains -= rlen;
 		UWSGI_GET_GIL
 		stop_the_watchers
         }
 
-        return tmp_pos;
+        return *tmp_pos;
 
 }
 
