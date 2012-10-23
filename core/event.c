@@ -568,13 +568,7 @@ int event_queue_fd_read_to_readwrite(int eq, int fd) {
 
         struct kevent kev;
 
-        EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
-        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
-                uwsgi_error("kevent()");
-                return -1;
-        }
-
-        EV_SET(&kev, fd, EVFILT_READ|EVFILT_WRITE, EV_ADD, 0, 0, 0);
+        EV_SET(&kev, fd, EVFILT_WRITE, EV_ADD, 0, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
                 uwsgi_error("kevent()");
                 return -1;
@@ -588,13 +582,7 @@ int event_queue_fd_write_to_readwrite(int eq, int fd) {
 
         struct kevent kev;
 
-        EV_SET(&kev, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
-        if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
-                uwsgi_error("kevent()");
-                return -1;
-        }
-        
-        EV_SET(&kev, fd, EVFILT_READ|EVFILT_WRITE, EV_ADD, 0, 0, 0);
+        EV_SET(&kev, fd, EVFILT_READ, EV_ADD, 0, 0, 0);
         if (kevent(eq, &kev, 1, NULL, 0, NULL) < 0) {
                 uwsgi_error("kevent()");
                 return -1;
