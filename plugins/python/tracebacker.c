@@ -28,10 +28,12 @@ char *uwsgi_python_get_thread_name(PyObject *thread_id) {
 			PyObject *thread_name = PyObject_GetAttrString(threads_list_next, "name");
 			if (!thread_name) goto clear2;
 			char *name = PyString_AsString(thread_name);
+			Py_DECREF(threads_list_next);
 			Py_DECREF(threads_list_iter);
 			Py_DECREF(threads_list);
 			return name;
 		}
+		Py_DECREF(threads_list_next);
 		threads_list_next = PyIter_Next(threads_list_iter);
 	}
 
@@ -110,22 +112,23 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 
 			PyObject *arg_tuple = PyTuple_New(1);
 			PyTuple_SetItem(arg_tuple, 0, stack);
+			Py_INCREF(stack);
 			PyObject *stacktrace = PyEval_CallObject( extract_stack, arg_tuple);
 			Py_DECREF(arg_tuple);
 			if (!stacktrace) goto next2;
 			
 			PyObject *stacktrace_iter = PyObject_GetIter(stacktrace);
-			if (!stacktrace_iter) goto next2;
+			if (!stacktrace_iter) { Py_DECREF(stacktrace); goto next2;}
 
 			PyObject *st_items = PyIter_Next(stacktrace_iter);
 			// we have the first traceback item
 			while(st_items) {
 				PyObject *st_filename = PyTuple_GetItem(st_items, 0);
-				if (!st_filename) goto next;
+				if (!st_filename) { Py_DECREF(st_items); goto next; }
 				PyObject *st_lineno = PyTuple_GetItem(st_items, 1);
-				if (!st_lineno) goto next;
+				if (!st_lineno) {Py_DECREF(st_items); goto next;}
 				PyObject *st_name = PyTuple_GetItem(st_items, 2);
-				if (!st_name) goto next;
+				if (!st_name) {Py_DECREF(st_items); goto next;}
 
 				PyObject *st_line = PyTuple_GetItem(st_items, 3);
 
@@ -178,6 +181,7 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 
 				// free the line_no
 				free(iov[5].iov_base);
+				Py_DECREF(st_items);
 				st_items = PyIter_Next(stacktrace_iter);
 			}
 			if (write(client_fd, "\n", 1) < 0) {
@@ -185,10 +189,13 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
 			}
 next:
 			Py_DECREF(stacktrace_iter);
+			Py_DECREF(stacktrace);
 next2:
+			Py_DECREF(frame);
 			frame = PyIter_Next(frames_iter);
 		}
 
+		Py_DECREF(frames_iter);
 end4:	
 		Py_DECREF(frames_ret);
 end3:	
