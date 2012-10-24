@@ -30,7 +30,7 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 		char *host = uwsgi_concat2n(wsgi_req->host, wsgi_req->host_len, "", 0);
 		char *remote_addr = uwsgi_concat2n(wsgi_req->remote_addr, wsgi_req->remote_addr_len, "", 0);
 
-		pass = hosts_ctl("uwsgi", wsgi_req->host, wsgi_req->remote_addr, STRING_UNKNOWN);
+		pass = hosts_ctl("uwsgi", STRING_UNKNOWN, wsgi_req->remote_addr, STRING_UNKNOWN);
 
 		free(host);
 		free(remote_addr);
