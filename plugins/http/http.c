@@ -163,7 +163,7 @@ struct http_session {
 #endif
 
 	struct uwsgi_buffer *uwsgi_req;
-	int send_excpect_100;
+	int send_expect_100;
 
 	in_addr_t ip_addr;
 	char ip[INET_ADDRSTRLEN];
@@ -407,7 +407,7 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 			// this is an hack with dumb/wrong/useless error checking
 			if (uhttp.manage_expect) {
 				if (!uwsgi_strncmp("Expect: 100-continue", 20, base, ptr - base)) {
-					h_session->send_excpect_100 = 1;
+					h_session->send_expect_100 = 1;
 				}
 			}
 			if (http_add_uwsgi_header(h_session, base, ptr - base)) return -1;
