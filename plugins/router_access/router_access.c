@@ -12,7 +12,7 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 	char *action;
 	char *host;
 
-	if (strchr((char *)ur->data, ':')){
+	if (strchr((char *)ur->data, ',')){
 		action = strtok((char *)ur->data, ",");
 		host = strtok(NULL, "");
 	}
@@ -26,7 +26,14 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 	}
 
 	if (!strcmp(action, "access:hosts")){
+		// syntax access:hosts to use hosts.allow, hosts.deny
+		char *host = uwsgi_concat2n(wsgi_req->host, wsgi_req->host_len, "", 0);
+		char *remote_addr = uwsgi_concat2n(wsgi_req->remote_addr, wsgi_req->remote_addr_len, "", 0);
+
 		pass = hosts_ctl("uwsgi", wsgi_req->host, wsgi_req->remote_addr, STRING_UNKNOWN);
+
+		free(host);
+		free(remote_addr);
 	}
 	
 	else if (!strcmp(action, "access:allow")){
@@ -34,7 +41,7 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 	}
 
 	else if (!strcmp(host, "access:deny")){
-		// implement hots deny check on syntax access:deny,addr
+		// implement hosts deny check on syntax access:deny,addr
 	}
 
 	if (pass){
@@ -48,7 +55,8 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 		uwsgi_log("Access: denying access from %s\n", wsgi_req->remote_addr);
 #endif
 		wsgi_req->status = 403;
-		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\nContent-Type: text/html\r\n\r\n<h1>403 Forbidden</h1>", 73);
+		wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "HTTP/1.0 403 Forbidden\r\nContent-Type: text/html\r\n\r\n", 51);
+		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req,"<h1>403 Forbidden</h1>", 23);
 		return UWSGI_ROUTE_BREAK;
 	}
 	return UWSGI_ROUTE_BREAK;
