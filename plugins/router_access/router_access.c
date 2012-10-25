@@ -25,8 +25,9 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 
 #ifdef UWSGI_DEBUG
     uwsgi_log("Access: Parsing router: %s\n", ur->data);
-    strncpy(access_data, ur->data, 0xff);
 #endif
+
+    strncpy(access_data, ur->data, 0xff);
 
 	if (strchr(access_data, '=')){
 	    // parse router config: action=param
@@ -45,12 +46,11 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 	    // set default access_action, access_param if no colon found
 		access_action = "hosts";
 		access_param = "uwsgi";
+	}
 
 #ifdef UWSGI_DEBUG
-        uwsgi_log("Access: Using defaults: access_action = %s, access_param = %s\n", access_action, access_param);
+        uwsgi_log("Access: access_action = %s, access_param = %s\n", access_action, access_param);
 #endif
-
-	}
 	
 	if (!strncmp(access_action, "hosts", 4)){
 		// syntax access:hosts=svcname to use hosts.allow, hosts.deny with svcname as daemon name
