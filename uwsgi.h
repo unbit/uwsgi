@@ -2079,6 +2079,7 @@ struct uwsgi_worker {
 	time_t harakiri;
 	time_t user_harakiri;
 	uint64_t harakiri_count;
+	int pending_harakiri;
 
 	uint64_t vsz_size;
 	uint64_t rss_size;
