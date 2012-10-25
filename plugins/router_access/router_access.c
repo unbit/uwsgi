@@ -34,8 +34,6 @@ int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route 
 		access_action = strtok(access_data, "=");
 		access_param = strtok(NULL, "");
 
-		uwsgi_log("Access: access_param = %d\n", access_param);
-
 		if (!access_param){
     	    // config syntax error if no access_param
     	    uwsgi_log("Access: syntax error - no paramater specified after action\n");
