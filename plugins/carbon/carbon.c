@@ -185,7 +185,7 @@ void carbon_push_stats(int retry_cycle) {
 				total_rss += uwsgi.workers[i].rss_size;
 				total_vsz += uwsgi.workers[i].vsz_size;
 
-				total_harakiri += uwsgi.workers[i].harakiri_count/2;
+				total_harakiri += uwsgi.workers[i].harakiri_count;
 			}
 
 			//skip per worker metrics when disabled
@@ -209,7 +209,7 @@ void carbon_push_stats(int retry_cycle) {
 			wok = carbon_write(&fd, "uwsgi.%s.%s.worker%d.busyness %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long) worker_busyness, (unsigned long long) uwsgi.current_time);
 			if (!wok) goto clear;
 
-			wok = carbon_write(&fd, "uwsgi.%s.%s.worker%d.harakiri %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].harakiri_count/2, (unsigned long long) uwsgi.current_time);
+			wok = carbon_write(&fd, "uwsgi.%s.%s.worker%d.harakiri %llu %llu\n", uwsgi.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].harakiri_count, (unsigned long long) uwsgi.current_time);
 			if (!wok) goto clear;
 
 		}

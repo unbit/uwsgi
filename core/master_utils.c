@@ -499,6 +499,7 @@ int uwsgi_respawn_worker(int wid) {
 	// ... and memory/harakiri
 	uwsgi.workers[wid].harakiri = 0;
 	uwsgi.workers[wid].user_harakiri = 0;
+	uwsgi.workers[wid].pending_harakiri = 0;
 	uwsgi.workers[wid].rss_size = 0;
 	uwsgi.workers[wid].vsz_size = 0;
 
@@ -1076,7 +1077,7 @@ void uwsgi_register_cheaper_algo(char *name, int (*func) (void)) {
 
 void trigger_harakiri(int i) {
 	int j;
-	uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d) ***\n", i, uwsgi.workers[i].pid);
+	uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d, try: %d) ***\n", i, uwsgi.workers[i].pid, uwsgi.workers[i].pending_harakiri+1);
 	if (uwsgi.harakiri_verbose) {
 #ifdef __linux__
 		int proc_file;
@@ -1128,7 +1129,9 @@ void trigger_harakiri(int i) {
 		// allow SIGUSR2 to be delivered
 		sleep(1);
 		kill(uwsgi.workers[i].pid, SIGKILL);
-		uwsgi.workers[i].harakiri_count++;
+		if (!uwsgi.workers[i].pending_harakiri)
+			uwsgi.workers[i].harakiri_count++;
+			uwsgi.workers[i].pending_harakiri++;
 	}
 	// to avoid races
 
