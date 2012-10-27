@@ -276,6 +276,19 @@ int uwsgi_master_log(void) {
 			}
 			url = url->next;
 		}
+		if (uwsgi.log_filter_rules) {
+			int show = 0;
+			url = uwsgi.log_filter_rules;
+			while(url) {
+				if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+					show = 1;
+					break;
+				}
+				url = url->next;
+			}
+			if (!show) return 0;
+		}
+	
 #endif
 		if (uwsgi.choosen_logger) {
 			struct uwsgi_logger *ul = uwsgi.choosen_logger; 

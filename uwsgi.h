@@ -1468,6 +1468,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_PCRE
 	struct uwsgi_regexp_list *log_drain_rules;
+	struct uwsgi_regexp_list *log_filter_rules;
 #endif
 
 #ifdef UWSGI_ALARM
