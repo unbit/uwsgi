@@ -160,6 +160,8 @@ struct http_session {
 	char *ssl_client_dn;
 	BIO *ssl_bio;
 	char *ssl_cc;
+	int force_ssl;
+	struct uwsgi_buffer *force_ssl_buf;
 #endif
 
 	struct uwsgi_buffer *uwsgi_req;
@@ -172,6 +174,7 @@ struct http_session {
         size_t post_buf_max;
         size_t post_buf_len;
         off_t post_buf_pos;
+
 
 };
 
@@ -353,7 +356,7 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 
 #ifdef UWSGI_SSL
 	// HTTPS (adapted from nginx)
-	if (h_session->cs.ugs->mode > UWSGI_HTTP_NOSSL) {
+	if (h_session->cs.ugs->mode == UWSGI_HTTP_SSL) {
 		if (http_add_uwsgi_var(h_session, "HTTPS", 5, "on", 2)) return -1;
 		h_session->ssl_client_cert = SSL_get_peer_certificate(h_session->ssl);
 		if (h_session->ssl_client_cert) {
@@ -374,6 +377,9 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 			}
 			}
 		}
+	}
+	else if (h_session->cs.ugs->mode == UWSGI_HTTP_FORCE_SSL) {
+		h_session->force_ssl = 1;
 	}
 #endif
 
@@ -434,6 +440,43 @@ ssize_t hr_instance_read_response(struct corerouter_session *);
 ssize_t hr_read_body(struct corerouter_session *);
 #ifdef UWSGI_SSL
 ssize_t hr_read_ssl_body(struct corerouter_session *);
+
+ssize_t hr_send_force_https(struct corerouter_session * cs) {
+	struct http_session *hs = (struct http_session *) cs;
+
+	if (!hs->force_ssl_buf) {
+		hs->force_ssl_buf = uwsgi_buffer_new(uwsgi.page_size);
+        	if (!hs->force_ssl_buf) return -1;
+		if (uwsgi_buffer_append(hs->force_ssl_buf, "HTTP/1.0 301 Moved Permanently\r\nLocation: https://", 50)) return -1;		
+		char *colon = memchr(cs->hostname, ':', cs->hostname_len);
+		if (colon) {
+			if (uwsgi_buffer_append(hs->force_ssl_buf, cs->hostname, colon-cs->hostname)) return -1;
+		}
+		else {
+			if (uwsgi_buffer_append(hs->force_ssl_buf, cs->hostname, cs->hostname_len)) return -1;
+		}
+		if (cs->ugs->ctx) {
+			if (uwsgi_buffer_append(hs->force_ssl_buf, ":", 1)) return -1;
+			if (uwsgi_buffer_append(hs->force_ssl_buf,cs->ugs->ctx, strlen(cs->ugs->ctx))) return -1;
+		}
+		if (uwsgi_buffer_append(hs->force_ssl_buf, hs->request_uri, hs->request_uri_len)) return -1;
+		if (uwsgi_buffer_append(hs->force_ssl_buf, "\r\n\r\n", 4)) return -1;
+	}
+
+        ssize_t len = write(cs->fd, hs->force_ssl_buf->buf + cs->buffer_pos, hs->force_ssl_buf->pos - cs->buffer_pos);
+        if (len < 0) {
+        	cr_try_again;
+                uwsgi_error("hr_send_force_https()");
+                return -1;
+	}
+
+        cs->buffer_pos += len;
+	if (cs->buffer_pos == hs->force_ssl_buf->pos) {
+		return 0;
+	}
+	return len;
+}
+
 #endif
 
 ssize_t hr_write_body(struct corerouter_session * cs) {
@@ -936,6 +979,15 @@ ssize_t hs_http_manage(struct corerouter_session * cs, ssize_t len) {
 			// check for a valid hostname
 			if (cs->hostname_len == 0) return -1;
 
+#ifdef UWSGI_SSL
+			if (hs->force_ssl) {
+				cs->buffer_pos = 0;
+                		uwsgi_cr_hook_read(cs, NULL);
+                		uwsgi_cr_hook_write(cs, hr_send_force_https);
+				break;
+			}
+#endif
+
 			// get instance name
 			if (cs->corerouter->mapper(cs->corerouter, cs))
 				return -1;
@@ -1025,7 +1077,12 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 	hs->port = ugs->port;
 	hs->port_len = ugs->port_len;
 #ifdef UWSGI_SSL
-	if (ugs->mode > UWSGI_HTTP_NOSSL) {
+	if (ugs->mode == UWSGI_HTTP_SSL) {
+		if (ugs->mode == UWSGI_HTTP_FORCE_SSL) {
+			uwsgi_cr_hook_write(cs, hr_send_force_https);
+			cs->close = hr_session_close;
+			return;
+		}
 		hs->ssl = SSL_new(ugs->ctx);		
 		SSL_set_fd(hs->ssl, cs->fd);
 		SSL_set_accept_state(hs->ssl);
