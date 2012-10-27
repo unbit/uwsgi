@@ -722,7 +722,7 @@ ssize_t hr_instance_send_request_header(struct corerouter_session * cs) {
         ssize_t len = write(cs->instance_fd, &cs->uh + cs->buffer_pos, 4 - cs->buffer_pos);
         if (len < 0) {
                 cr_try_again;
-                uwsgi_error("fr_instance_send_request_header()");
+                uwsgi_error("hr_instance_send_request_header()");
                 return -1;
         }
 
@@ -738,6 +738,79 @@ ssize_t hr_instance_send_request_header(struct corerouter_session * cs) {
         return len;
 }
 
+ssize_t hr_send_expect_continue(struct corerouter_session * cs) {
+	char *msg = "HTTP/1.0 100 Continue\r\n\r\n" ;
+	ssize_t len;
+
+#ifdef UWSGI_SSL
+	struct http_session *hs = (struct http_session *) cs;
+	if (!hs->ssl) {
+#endif
+		len = write(cs->fd, msg + cs->buffer_pos, 25 - cs->buffer_pos);
+		if (len < 0) {
+			cr_try_again;
+                	uwsgi_error("hr_send_expect_continue()");
+                	return -1;
+		}
+
+		cs->buffer_pos += len;
+#ifdef UWSGI_SSL
+	}
+	else {
+		int ret = SSL_write(hs->ssl, msg + cs->buffer_pos, 25 - cs->buffer_pos);
+		if (ret > 0) {
+			len = ret;
+			cs->buffer_pos += ret;
+			if (cs->event_hook_read) {
+                        	uwsgi_cr_hook_read(cs, NULL);
+                	}
+                	// could be a partial write
+                	uwsgi_cr_hook_write(cs, hr_send_expect_continue);
+			goto done;
+		}
+		int err = SSL_get_error(hs->ssl, ret);
+        	if (err == SSL_ERROR_WANT_READ) {
+                	if (cs->event_hook_write) {
+                        	uwsgi_cr_hook_write(cs, NULL);
+                        	uwsgi_cr_hook_read(cs, hr_write_ssl_response);
+                	}
+                	errno = EINPROGRESS;
+                	return -1;
+        	}
+        	else if (err == SSL_ERROR_WANT_WRITE) {
+                	if (cs->event_hook_read) {
+                        	uwsgi_cr_hook_read(cs, NULL);
+                        	uwsgi_cr_hook_write(cs, hr_write_ssl_response);
+                	}
+                	errno = EINPROGRESS;
+                	return -1;
+        	}
+
+        	else if (err == SSL_ERROR_SYSCALL) {
+                	uwsgi_error("hr_write_ssl_response()");
+        	}
+
+        	else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
+                	ERR_print_errors_fp(stderr);
+        	}
+
+        	else if (err == SSL_ERROR_ZERO_RETURN) {
+                	return 0;
+        	}
+
+        	return -1;
+	}
+done:
+#endif
+
+	if (cs->buffer_pos == 25) {
+		cs->buffer_pos = 0;
+		uwsgi_cr_hook_write(cs, NULL);
+		uwsgi_cr_hook_instance_write(cs, hr_instance_send_request_header);
+	}
+
+	return len;
+}
 
 ssize_t hr_instance_connected(struct corerouter_session * cs) {
 	socklen_t solen = sizeof(int);
@@ -760,6 +833,11 @@ ssize_t hr_instance_connected(struct corerouter_session * cs) {
 	struct http_session *hs = (struct http_session *) cs;
 	cs->uh.pktsize = hs->uwsgi_req->pos;
 
+	// check for expect/continue
+	if (hs->send_expect_100) {
+        	uwsgi_cr_hook_write(cs, hr_send_expect_continue);
+		return 1;
+	}
         // ok instance is connected, wait for write again
         uwsgi_cr_hook_instance_write(cs, hr_instance_send_request_header);
         // return a value > 0
