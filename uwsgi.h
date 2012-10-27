@@ -3385,6 +3385,8 @@ double uwsgi_matheval(char *);
 char *uwsgi_matheval_str(char *);
 #endif
 
+int uwsgi_kvlist_parse(char *, size_t, char, char, ...);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

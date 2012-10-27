@@ -4813,3 +4813,77 @@ char *uwsgi_matheval_str(char *expr) {
 	return uwsgi_num2str((int) ret);
 }
 #endif
+
+int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separator, ...) {
+	size_t i;
+	va_list ap;
+	struct uwsgi_string_list *itemlist = NULL;
+
+	char *buf = uwsgi_calloc(len + 1);
+
+	// ok let's start splitting the string
+	int escaped = 0;
+	char *base = buf;
+	char *ptr = buf;
+	for(i=0;i<len;i++) {
+		if (src[i] == list_separator && !escaped) {
+			*ptr++= 0;
+			uwsgi_string_new_list(&itemlist, base);
+			base = ptr;
+		}
+		else if (src[i] == '\\' && !escaped) {
+			escaped = 1;
+		}
+		else if (escaped) {
+			escaped = 0;
+		}
+		else {
+			*ptr++= src[i];
+		}
+	}
+
+	if (ptr > base) {
+		uwsgi_string_new_list(&itemlist, base);
+	}
+
+	struct uwsgi_string_list *usl = itemlist;
+	while(usl) {
+		len = strlen(usl->value);
+		char *item_buf = uwsgi_calloc(len + 1);
+		base = item_buf;
+		ptr = item_buf;
+		escaped = 0;
+		for(i=0;i<len;i++) {
+			if (usl->value[i] == kv_separator && !escaped) {
+                        	*ptr++= 0;
+				va_start(ap, kv_separator);
+				for(;;) {
+					char *p = va_arg(ap, char *);
+					if (!p) break;
+					char **pp = va_arg(ap, char **);
+					if (!pp) break;
+					if (!strcmp(p, base)) {
+						*pp = uwsgi_str(usl->value+i+1);
+					}
+				}
+				va_end(ap);
+                        	base = ptr;
+				break;
+                	}
+                	else if (usl->value[i] == '\\' && !escaped) {
+                        	escaped = 1;
+                	}
+                	else if (escaped) {
+                        	escaped = 0;
+                	}
+                	else {
+                        	*ptr++= usl->value[i];
+                	}
+		}
+		free(item_buf);
+		usl = usl->next;
+	}
+
+	free(buf);
+	return 0;
+}
