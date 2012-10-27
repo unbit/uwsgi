@@ -886,6 +886,7 @@ ssize_t hs_http_manage(struct corerouter_session * cs, ssize_t len) {
                 	cs->corerouter->cr_table[cs->instance_fd] = cs;
                 	// wait for connection
                 	uwsgi_cr_hook_instance_write(cs, hr_instance_connected);
+			break;
 		}
 		else {
 			hs->rnrn = 0;
