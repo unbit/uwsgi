@@ -288,16 +288,37 @@ int uwsgi_master_log(void) {
 			}
 			if (!show) return 0;
 		}
-	
-#endif
-		if (uwsgi.choosen_logger) {
-			struct uwsgi_logger *ul = uwsgi.choosen_logger; 
-			while(ul) {
-				ul->func(ul, uwsgi.log_master_buf, rlen);
-				ul = ul->next;
-			}
+
+		url = uwsgi.log_route;
+		int finish = 0;
+		while(url) {
+			if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+				struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
+				if (ul_route) {
+					ul_route->func(ul_route, uwsgi.log_master_buf, rlen);
+					finish = 1;
+				}
+                        }
+                        url = url->next;
 		}
-		else {
+		if (finish) return 0;
+#endif
+
+		int raw_log = 1;
+
+		struct uwsgi_logger *ul = uwsgi.choosen_logger; 
+		while(ul) {
+			// check for named logger
+			if (ul->id) {
+				goto next;
+			}
+			ul->func(ul, uwsgi.log_master_buf, rlen);
+			raw_log = 0;
+next:
+			ul = ul->next;
+		}
+
+		if (raw_log) {
 			rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);
 		}
 		return 0;

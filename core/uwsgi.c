@@ -360,6 +360,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_PCRE
 	{"log-drain", required_argument, 0, "drain (do not show) log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_drain_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-filter", required_argument, 0, "show only log lines matching the specified regexp", uwsgi_opt_add_regexp_list, &uwsgi.log_filter_rules, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"log-route", required_argument, 0, "log to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_route, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #endif
 #ifdef UWSGI_ALARM
 	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -3195,6 +3196,17 @@ void uwsgi_opt_add_string_list(char *opt, char *value, void *list) {
 void uwsgi_opt_add_regexp_list(char *opt, char *value, void *list) {
 	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;
 	uwsgi_regexp_new_list(ptr, value);
+}
+
+void uwsgi_opt_add_regexp_custom_list(char *opt, char *value, void *list) {
+	char *space = strchr(value, ' ');
+	if (!space) {
+		uwsgi_log("invalid custom regexp syntax: must be <custom> <regexp>\n");
+		exit(1);
+	}
+	char *custom = uwsgi_concat2n(value, space-value, "", 0);
+	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;
+	uwsgi_regexp_custom_new_list(ptr, space+1, custom);
 }
 #endif
 

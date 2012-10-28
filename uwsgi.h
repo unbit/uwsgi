@@ -387,6 +387,8 @@ struct uwsgi_regexp_list {
         pcre_extra *pattern_extra;
 
         uint64_t custom;
+	char *custom_str;
+	void *custom_ptr;
         struct uwsgi_regexp_list *next;
 };
 #endif
@@ -483,6 +485,7 @@ struct uwsgi_daemon {
 
 struct uwsgi_logger {
 	char *name;
+	char *id;
 	ssize_t (*func)(struct uwsgi_logger *, char *, size_t);
 	int configured;
 	int fd;
@@ -1469,6 +1472,7 @@ struct uwsgi_server {
 #ifdef UWSGI_PCRE
 	struct uwsgi_regexp_list *log_drain_rules;
 	struct uwsgi_regexp_list *log_filter_rules;
+	struct uwsgi_regexp_list *log_route;
 #endif
 
 #ifdef UWSGI_ALARM
@@ -2747,7 +2751,8 @@ void uwsgi_close_all_sockets(void);
 
 struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **, char *);
 #ifdef UWSGI_PCRE
-struct uwsgi_regexp_list *uwsgi_regexp_new_list(struct uwsgi_regexp_list **, char *);
+struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list **, char *, char *);
+#define uwsgi_regexp_new_list(x, y) uwsgi_regexp_custom_new_list(x, y, NULL);
 #endif
 
 void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list *);
@@ -2942,6 +2947,7 @@ void uwsgi_build_cap(char *);
 void uwsgi_register_logger(char *, ssize_t (*func)(struct uwsgi_logger *, char *, size_t));
 void uwsgi_append_logger(struct uwsgi_logger *);
 struct uwsgi_logger *uwsgi_get_logger(char *);
+struct uwsgi_logger *uwsgi_get_logger_from_id(char *);
 
 char *uwsgi_getsockname(int);
 char *uwsgi_get_var(struct wsgi_request *, char *, uint16_t, uint16_t *);
@@ -2972,6 +2978,7 @@ void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 #ifdef UWSGI_PCRE
 void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);
 void uwsgi_opt_add_regexp_list(char *, char *, void *);
+void uwsgi_opt_add_regexp_custom_list(char *, char *, void *);
 #endif
 void uwsgi_opt_set_int(char *, char *, void *);
 void uwsgi_opt_set_rawint(char *, char *, void *);

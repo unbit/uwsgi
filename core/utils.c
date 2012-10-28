@@ -3079,7 +3079,7 @@ struct uwsgi_string_list *uwsgi_string_new_list(struct uwsgi_string_list **list,
 }
 
 #ifdef UWSGI_PCRE
-struct uwsgi_regexp_list *uwsgi_regexp_new_list(struct uwsgi_regexp_list **list, char *value) {
+struct uwsgi_regexp_list *uwsgi_regexp_custom_new_list(struct uwsgi_regexp_list **list, char *value, char *custom) {
 
         struct uwsgi_regexp_list *url = *list, *old_url;
 
@@ -3102,9 +3102,13 @@ struct uwsgi_regexp_list *uwsgi_regexp_new_list(struct uwsgi_regexp_list **list,
 	}
         url->next = NULL;
         url->custom = 0;
+	url->custom_ptr = NULL;
+	url->custom_str = custom;
 
         return url;
 }
+
+
 
 #endif
 

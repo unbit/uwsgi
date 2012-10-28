@@ -298,14 +298,33 @@ void uwsgi_setup_log_master(void) {
 
 	struct uwsgi_string_list *usl = uwsgi.requested_logger;
                 while(usl) {
-                        char *colon = strchr(usl->value, ':');
+			char *id = NULL;
+			char *name = usl->value;
+
+			char *space = strchr(name, ' ');
+			if (space) {
+				int is_id = 1;
+				int i;
+				for(i=0;i<(space-name);i++) {
+					if (!isalnum(name[i])) {
+						is_id = 0;
+						break;
+					}
+				}
+				if (is_id) {
+					id = uwsgi_concat2n(name, space-name, "", 0);
+					name = space+1;
+				}
+			}
+
+                        char *colon = strchr(name, ':');
                         if (colon) {
                                 *colon = 0;
                         }
 
-                        struct uwsgi_logger *choosen_logger = uwsgi_get_logger(usl->value);
+                        struct uwsgi_logger *choosen_logger = uwsgi_get_logger(name);
                         if (!choosen_logger) {
-                                uwsgi_log("unable to find logger %s\n", usl->value);
+                                uwsgi_log("unable to find logger %s\n", name);
                                 exit(1);
                         }
 
@@ -313,6 +332,7 @@ void uwsgi_setup_log_master(void) {
                         struct uwsgi_logger *copy_of_choosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
                         memcpy(copy_of_choosen_logger, choosen_logger, sizeof(struct uwsgi_logger));
                         choosen_logger = copy_of_choosen_logger;
+			choosen_logger->id = id;
                         choosen_logger->next = NULL;
 
                         if (colon) {
@@ -329,6 +349,13 @@ void uwsgi_setup_log_master(void) {
                         usl = usl->next;
 
                 }
+
+		// set logger by its id
+		struct uwsgi_regexp_list *url = uwsgi.log_route;
+                while(url) {
+			url->custom_ptr = uwsgi_get_logger_from_id(url->custom_str);
+			url = url->next;
+		}
 
                 uwsgi.original_log_fd = dup(1);
                 create_logpipe();
@@ -758,6 +785,20 @@ struct uwsgi_logger *uwsgi_get_logger(char *name) {
 
 	return NULL;
 }
+
+struct uwsgi_logger *uwsgi_get_logger_from_id(char *id) {
+        struct uwsgi_logger *ul = uwsgi.choosen_logger;
+
+        while (ul) {
+                if (!strcmp(ul->id, id)) {
+                        return ul;
+                }
+                ul = ul->next;
+        }
+
+        return NULL;
+}
+
 
 void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 	struct uwsgi_logchunk *logchunk = uwsgi.logchunks;
