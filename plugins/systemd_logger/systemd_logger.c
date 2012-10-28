@@ -17,7 +17,7 @@ ssize_t uwsgi_systemd_logger(struct uwsgi_logger *ul, char *message, size_t len)
 
 	// last \n is missing...
 	if (base < message+len) {
-		sd_journal_print(LOG_INFO, "%.*s", (message+len) - base, base);
+		sd_journal_print(LOG_INFO, "%.*s", (int) ((message+len) - base), base);
 	}
 	return 0;
 

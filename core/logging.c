@@ -350,12 +350,14 @@ void uwsgi_setup_log_master(void) {
 
                 }
 
+#ifdef UWSGI_PCRE
 		// set logger by its id
 		struct uwsgi_regexp_list *url = uwsgi.log_route;
                 while(url) {
 			url->custom_ptr = uwsgi_get_logger_from_id(url->custom_str);
 			url = url->next;
 		}
+#endif
 
                 uwsgi.original_log_fd = dup(1);
                 create_logpipe();
