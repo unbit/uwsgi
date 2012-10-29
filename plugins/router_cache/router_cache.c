@@ -1,5 +1,7 @@
 #include "../../uwsgi.h"
 
+#ifdef UWSGI_ROUTING
+
 extern struct uwsgi_server uwsgi;
 
 /*
@@ -106,3 +108,9 @@ struct uwsgi_plugin router_cache_plugin = {
 	.name = "router_cache",
 	.on_load = router_cache_register,
 };
+
+#else
+struct uwsgi_plugin router_cache_plugin = {
+	.name = "router_cache",
+};
+#endif
