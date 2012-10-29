@@ -882,6 +882,7 @@ ssize_t hr_instance_connected(struct corerouter_session * cs) {
 		return 1;
 	}
         // ok instance is connected, wait for write again
+        if (cs->un) cs->un->requests++;
         uwsgi_cr_hook_instance_write(cs, hr_instance_send_request_header);
         // return a value > 0
         return 1;
