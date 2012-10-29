@@ -664,14 +664,22 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 
 	char *tmp = NULL;
 
-	magic_table['o'] = filename;
-	if (filename[0] == '/') {
-		magic_table['p'] = filename;
+	char *fullname = uwsgi_expand_path(filename, strlen(filename), NULL);
+	if (!fullname) {
+		fullname = filename;
 	}
+	// free unused memory
 	else {
-		magic_table['p'] = uwsgi_concat3(uwsgi.cwd, "/", filename);
+		char *minimal_name = uwsgi_malloc(strlen(fullname) + 1);
+		memcpy(minimal_name, fullname, strlen(fullname));
+		minimal_name[strlen(fullname)] = 0;
+		free(fullname);
+		fullname = minimal_name;
 	}
-	magic_table['s'] = uwsgi_get_last_char(magic_table['p'], '/') + 1;
+
+	magic_table['o'] = filename;
+	magic_table['p'] = fullname;
+	magic_table['s'] = uwsgi_get_last_char(fullname, '/') + 1;
 	magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s'] - magic_table['p'], "", 0);
 	if (magic_table['d'][strlen(magic_table['d']) - 1] == '/') {
 		tmp = magic_table['d'] + (strlen(magic_table['d']) - 1);
