@@ -250,7 +250,7 @@ ssize_t fr_instance_connected(struct corerouter_session * cs) {
 	cs->buffer_pos = 0;
 
 	// ok instance is connected, wait for write again
-	cs->un->requests++;
+	if (cs->un) cs->un->requests++;
 	uwsgi_cr_hook_instance_write(cs, fr_instance_send_request_header);
 	// return a value > 0
 	return 1;
