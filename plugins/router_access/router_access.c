@@ -22,7 +22,7 @@ struct uwsgi_router_access_conf {
 	char *addr;
 };
 
-int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
+static int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi_route *ur){
 
 	int pass = 0;
 	struct uwsgi_router_access_conf *urac = (struct uwsgi_router_access_conf *) ur->data2;
@@ -65,14 +65,14 @@ forbidden:
 	return UWSGI_ROUTE_BREAK;
 }
 
-int uwsgi_router_access(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_access(struct uwsgi_route *ur, char *args) {
         ur->func = uwsgi_routing_func_access;
         ur->data = args;
         ur->data_len = strlen(args);
 	return 0;
 }
 
-void router_access_register() {
+static void router_access_register() {
 	uwsgi_register_router("access", uwsgi_router_access);
 }
 
