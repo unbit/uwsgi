@@ -4893,6 +4893,14 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separ
 }
 
 int uwsgi_send_http_stats(int fd) {
+
+	char buf[4096];
+
+	int ret = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	if (ret <= 0) return -1;
+
+	if (read(fd, buf, 4096) <= 0) return -1;
+
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
 	if (!ub) return -1;
 
