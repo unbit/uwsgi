@@ -1040,6 +1040,7 @@ next:
 		}
 		sse = sse->next;
 	}
+
 	// check if a file named uwsgi.check_static+env['PATH_INFO'] exists
 	udd = uwsgi.check_static;
 	while(udd) {

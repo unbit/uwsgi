@@ -6,6 +6,7 @@ extern PyTypeObject uwsgi_InputType;
 
 void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
+
 	PyObject *zero;
 	int i;
 	PyObject *pydictkey, *pydictvalue;

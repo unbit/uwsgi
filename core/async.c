@@ -389,6 +389,7 @@ void async_loop() {
 				while (uwsgi.wsgi_req->waiting_fds) {
 					tmp_uaf = uwsgi.wsgi_req->waiting_fds;
 					uwsgi.async_waiting_fd_table[tmp_uaf->fd] = NULL;
+					event_queue_del_fd(uwsgi.async_queue, tmp_uaf->fd, tmp_uaf->event);
 					uwsgi.wsgi_req->waiting_fds = tmp_uaf->next;
 					free(tmp_uaf);
 				}
@@ -425,6 +426,7 @@ void async_loop() {
 				while (uwsgi.wsgi_req->waiting_fds) {
 					tmp_uaf = uwsgi.wsgi_req->waiting_fds;
 					uwsgi.async_waiting_fd_table[tmp_uaf->fd] = NULL;
+					event_queue_del_fd(uwsgi.async_queue, tmp_uaf->fd, tmp_uaf->event);
 					uwsgi.wsgi_req->waiting_fds = tmp_uaf->next;
 					free(tmp_uaf);
 				}

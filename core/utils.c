@@ -1491,7 +1491,7 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 		}
 
 		if (found) {
-			if (uwsgi_apps[i].touch_reload) {
+			if (uwsgi_apps[i].touch_reload[0]) {
 				if (!stat(uwsgi_apps[i].touch_reload, &st)) {
 					if (st.st_mtime != uwsgi_apps[i].touch_reload_mtime) {
 						// serve the new request and reload

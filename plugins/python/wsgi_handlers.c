@@ -416,7 +416,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 
-
 	if ( (wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, 0))  == -1) {
 		wsgi_req->app_id = uwsgi.default_app;
 		if (uwsgi.no_default_app) {
@@ -454,6 +453,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	wi = &uwsgi_apps[wsgi_req->app_id];
 
 	up.swap_ts(wsgi_req, wi);
+
 	
 	if (wi->chdir[0] != 0) {
 #ifdef UWSGI_DEBUG
@@ -473,7 +473,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	// create WSGI environ
 	wsgi_req->async_environ = up.wsgi_env_create(wsgi_req, wi);
 
+
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
+
 
 	if (wsgi_req->async_result) {
 
