@@ -1916,6 +1916,11 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
                         	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
                                 wsgi_req->header_cnt += 2;
 
+				// if it is a HEAD request just skip transfer
+				if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
+					return 0;
+				}
+
 				// Ok, the file must be transferred from uWSGI
                 		if (wsgi_req->socket->can_offload) {
 					if (!uwsgi_offload_request_do(wsgi_req, real_filename, st->st_size)) {
