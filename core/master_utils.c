@@ -865,6 +865,48 @@ void uwsgi_send_stats(int fd) {
 	if (uwsgi_stats_comma(us))
 		goto end0;
 
+	if (uwsgi_stats_key(us, "sockets"))
+                goto end0;
+
+	if (uwsgi_stats_list_open(us))
+                goto end0;
+
+	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
+	while(uwsgi_sock) {
+		if (uwsgi_stats_object_open(us))
+                        goto end0;
+
+		if (uwsgi_stats_keyval_comma(us, "name", uwsgi_sock->name))
+                	goto end0;
+
+		if (uwsgi_stats_keyval_comma(us, "proto", uwsgi_sock->proto_name ? uwsgi_sock->proto_name : "uwsgi"))
+                	goto end0;
+
+		if (uwsgi_stats_keylong_comma(us, "queue", (unsigned long long) uwsgi_sock->queue))
+                        goto end0;
+
+		if (uwsgi_stats_keylong_comma(us, "shared", (unsigned long long) uwsgi_sock->shared))
+                        goto end0;
+
+		if (uwsgi_stats_keylong(us, "can_offload", (unsigned long long) uwsgi_sock->can_offload))
+                        goto end0;
+
+		if (uwsgi_stats_object_close(us))
+                        goto end0;
+		
+		uwsgi_sock = uwsgi_sock->next;
+		if (uwsgi_sock) {
+			if (uwsgi_stats_comma(us))
+                	goto end0;
+		}
+	}
+
+	if (uwsgi_stats_list_close(us))
+                goto end0;
+
+	if (uwsgi_stats_comma(us))
+		goto end0;
+
 	if (uwsgi_stats_key(us, "workers"))
 		goto end0;
 	if (uwsgi_stats_list_open(us))
@@ -1076,6 +1118,10 @@ void uwsgi_send_stats(int fd) {
 	size_t remains = us->pos;
 	off_t pos = 0;
 	while (remains > 0) {
+		int ret = uwsgi_waitfd_write(client_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (ret <= 0) {
+			goto end0;
+		}
 		ssize_t res = write(client_fd, us->base + pos, remains);
 		if (res <= 0) {
 			if (res < 0) {

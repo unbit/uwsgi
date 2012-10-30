@@ -1287,6 +1287,10 @@ void emperor_send_stats(int fd) {
 	size_t remains = us->pos;
 	off_t pos = 0;
 	while (remains > 0) {
+		int ret = uwsgi_waitfd_write(client_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret <= 0) {
+                        goto end0;
+                }
 		ssize_t res = write(client_fd, us->base + pos, remains);
 		if (res <= 0) {
 			if (res < 0) {

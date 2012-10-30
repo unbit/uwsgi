@@ -54,7 +54,7 @@ int uwsgi_buffer_append(struct uwsgi_buffer *ub, char *buf, size_t len) {
 	if (len > remains) {
 		size_t chunk_size = UMAX(len, (size_t) uwsgi.page_size);
 		if (ub->limit >0 && ub->len + chunk_size > ub->limit) {
-			// retry with anothr minimal size
+			// retry with another minimal size
 			if (len < (size_t) uwsgi.page_size) {
 				chunk_size = len;
 			}

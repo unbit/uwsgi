@@ -1788,7 +1788,7 @@ setup_proto:
 					uwsgi_sock->can_offload = 1;
                         }
                         else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
-                                if (!strcmp(uwsgi.protocol, "fastcgi") || !strcmp(uwsgi.protocol, "fcgi")) {
+                                if (uwsgi.protocol && (!strcmp(uwsgi.protocol, "fastcgi") || !strcmp(uwsgi.protocol, "fcgi"))) {
                                         uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
                                 }
                                 uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;

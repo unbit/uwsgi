@@ -518,13 +518,13 @@ clear:
 }
 
 #ifdef __linux__
-void get_linux_tcp_info(int fd) {
+int get_linux_tcp_info(int fd) {
 	socklen_t tis = sizeof(struct tcp_info);
 
 	if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &uwsgi.shared->ti, &tis)) {
 		// a check for older linux kernels
 		if (!uwsgi.shared->ti.tcpi_sacked) {
-			return;
+			return -1;
 		}
 
 		uwsgi.shared->load = uwsgi.shared->ti.tcpi_unacked;
@@ -546,7 +546,11 @@ void get_linux_tcp_info(int fd) {
 			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, uwsgi.shared->ti.tcpi_unacked, uwsgi.shared->ti.tcpi_sacked);
 			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
 		}
+
+		return uwsgi.shared->ti.tcpi_unacked;
 	}
+
+	return -1;
 }
 
 #include <linux/sockios.h>
@@ -557,7 +561,7 @@ void get_linux_tcp_info(int fd) {
 
 #ifdef SIOBKLGQ
 
-void get_linux_unbit_SIOBKLGQ(int fd) {
+int get_linux_unbit_SIOBKLGQ(int fd) {
 
 	int queue = 0;
 	if (ioctl(fd, SIOBKLGQ, &queue) >= 0) {
@@ -567,7 +571,10 @@ void get_linux_unbit_SIOBKLGQ(int fd) {
 			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, queue, uwsgi.listen_queue);
 			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
 		}
+		return queue;
 	}
+
+	return -1;
 
 }
 #endif
@@ -1292,11 +1299,11 @@ health_cycle:
 			struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 			while (uwsgi_sock) {
 				if (uwsgi_sock->family == AF_INET) {
-					get_linux_tcp_info(uwsgi_sock->fd);
+					uwsgi_sock->queue = get_linux_tcp_info(uwsgi_sock->fd);
 				}
 #ifdef SIOBKLGQ
 				else if (uwsgi_sock->family == AF_UNIX) {
-					get_linux_unbit_SIOBKLGQ(uwsgi_sock->fd);
+					uwsgi_sock->queue = get_linux_unbit_SIOBKLGQ(uwsgi_sock->fd);
 				}
 #endif
 				uwsgi_sock = uwsgi_sock->next;

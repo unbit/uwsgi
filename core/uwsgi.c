@@ -3225,6 +3225,7 @@ void uwsgi_opt_add_shared_socket(char *opt, char *value, void *protocol) {
 
 void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {
 	struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
+	uwsgi_sock->name_len = strlen(uwsgi_sock->name);
 	uwsgi_sock->proto_name = protocol;
 }
 
