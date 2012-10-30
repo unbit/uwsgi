@@ -4891,3 +4891,21 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separ
 	free(buf);
 	return 0;
 }
+
+int uwsgi_send_http_stats(int fd) {
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+	if (!ub) return -1;
+
+	if (uwsgi_buffer_append(ub, "HTTP/1.0 200 OK\r\n", 17)) goto error;
+	if (uwsgi_buffer_append(ub, "Connection: close\r\n", 19)) goto error;
+	if (uwsgi_buffer_append(ub, "Content-Type: application/json\r\n", 32)) goto error;
+	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto error;
+
+	if (uwsgi_buffer_send(ub, fd)) goto error;
+	uwsgi_buffer_destroy(ub);
+	return 0;
+	
+error:
+	uwsgi_buffer_destroy(ub);
+	return -1;
+}

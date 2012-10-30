@@ -1129,6 +1129,13 @@ void emperor_send_stats(int fd) {
 		return;
 	}
 
+	if (uwsgi.stats_http) {
+                if (uwsgi_send_http_stats(client_fd)) {
+                        close(client_fd);
+                        return;
+                }
+        }
+
 	struct uwsgi_stats *us = uwsgi_stats_new(8192);
 
 	if (uwsgi_stats_keyval_comma(us, "version", UWSGI_VERSION))

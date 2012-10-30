@@ -1832,6 +1832,7 @@ struct uwsgi_server {
 	// the stats server
 	char *stats;
 	int stats_fd;
+	int stats_http;
 
 	uint64_t queue_size;
 	uint64_t queue_blocksize;
@@ -3394,6 +3395,7 @@ char *uwsgi_matheval_str(char *);
 #endif
 
 int uwsgi_kvlist_parse(char *, size_t, char, char, ...);
+int uwsgi_send_http_stats(int);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
