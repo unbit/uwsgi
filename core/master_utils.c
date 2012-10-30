@@ -1021,6 +1021,48 @@ void uwsgi_send_stats(int fd) {
 
 	if (uwsgi_stats_list_close(us))
 		goto end0;
+
+#ifdef UWSGI_SPOOLER
+	struct uwsgi_spooler *uspool = uwsgi.spoolers;
+	if (uspool) {
+		if (uwsgi_stats_comma(us))
+			goto end0;
+		if (uwsgi_stats_key(us, "spoolers"))
+                        goto end0;
+                if (uwsgi_stats_list_open(us))
+                        goto end0;
+        	while (uspool) {
+			if (uwsgi_stats_object_open(us))
+                                goto end0;
+
+			if (uwsgi_stats_keyval_comma(us, "dir", uspool->dir))
+                                        goto end0;
+
+			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) uspool->pid))
+                                goto end0;
+	
+			if (uwsgi_stats_keylong_comma(us, "tasks", (unsigned long long) uspool->tasks))
+                                goto end0;
+
+			if (uwsgi_stats_keylong_comma(us, "respawns", (unsigned long long) uspool->respawned))
+                                goto end0;
+
+			if (uwsgi_stats_keylong(us, "running", (unsigned long long) uspool->running))
+                                goto end0;
+			
+			if (uwsgi_stats_object_close(us))
+                                goto end0;
+                	uspool = uspool->next;
+			if (uspool) {
+				if (uwsgi_stats_comma(us))
+                                	goto end0;
+			}
+                }
+		if (uwsgi_stats_list_close(us))
+                        goto end0;
+	}
+#endif
+
 	if (uwsgi_stats_object_close(us))
 		goto end0;
 
