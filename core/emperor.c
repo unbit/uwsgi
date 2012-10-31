@@ -1076,7 +1076,20 @@ void emperor_loop() {
 			diedpid = 0;
 		}
 		if (diedpid < 0) {
-			uwsgi_error("waitpid()");
+			// it looks like it happens when OOM is triggered to Linux cgroup, but it could be a uWSGI bug :P
+			// by the way, fallback to a clean situation...
+			if (errno == ECHILD) {
+				uwsgi_log("--- MUTINY DETECTED !!! IMPALING VASSALS... ---\n");
+				ui_current = ui->ui_next;
+				while (ui_current) {
+					struct uwsgi_instance *rebel_vassal = ui_current;
+					ui_current = ui_current->ui_next;
+					emperor_del(rebel_vassal);
+				}	
+			}
+			else {
+				uwsgi_error("waitpid()");
+			}
 		}
 		ui_current = ui;
 		while (ui_current->ui_next) {
