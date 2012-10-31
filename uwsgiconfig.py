@@ -743,6 +743,7 @@ class uConf(object):
         if self.get('as_shared_library'):
             self.ldflags.append('-shared')
             self.ldflags.append('-fPIC')
+            self.cflags.append('-fPIC')
             self.cflags.append('-DUWSGI_AS_SHARED_LIBRARY')
             if uwsgi_os == 'Darwin':
                 self.ldflags.append('-dynamiclib')
