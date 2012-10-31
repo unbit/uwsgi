@@ -852,6 +852,7 @@ long uwsgi_num_from_file(char *filename) {
         len = read(fd, buf, sizeof(buf));
         if (len == 0) {
                 uwsgi_log("read error %s\n", filename);
+                close(fd);
                 return -1L;
         }       
 	close(fd);
