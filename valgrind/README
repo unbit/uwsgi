@@ -1,0 +1,9 @@
+valgrind-generate-sups.sh
+=========================
+
+This script can be used to generate valgrind suppression file.
+Valgrind will show a lot of python related errors, to filter them out You can:
+
+./valgrind-generate-sups.sh > valgrind.suppression
+valgrind --tool=memcheck --suppressions=valgrind.suppression [ARGS]
+
