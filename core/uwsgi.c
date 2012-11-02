@@ -851,6 +851,16 @@ void kill_them_all(int signum) {
 
 	if (uwsgi.to_hell == 1)
 		return;
+
+	// count the number of active workers
+        int active_workers = 0;
+        for (i = 1; i <= uwsgi.numproc; i++) {
+        	if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+                	active_workers++;
+                }
+        }
+        uwsgi.marked_workers = active_workers;
+
 	uwsgi.to_hell = 1;
 
 	if (uwsgi.reload_mercy > 0) {
@@ -907,6 +917,15 @@ void grace_them_all(int signum) {
 
 	if (uwsgi.to_heaven == 1 || uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0)
 		return;
+
+	// count the number of active workers
+        int active_workers = 0;
+        for (i = 1; i <= uwsgi.numproc; i++) {
+                if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+                        active_workers++;
+                }
+        }
+        uwsgi.marked_workers = active_workers;
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;
@@ -1011,6 +1030,15 @@ void reap_them_all(int signum) {
 	// avoid reace condition in lazy mode
 	if (uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0)
 		return;
+
+	// count the number of active workers
+        int active_workers = 0;
+        for (i = 1; i <= uwsgi.numproc; i++) {
+                if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+                        active_workers++;
+                }
+        }
+        uwsgi.marked_workers = active_workers;
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;

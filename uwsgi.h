@@ -1609,6 +1609,7 @@ struct uwsgi_server {
 
 	int cleaning;
 
+	int marked_workers;
 	int ready_to_die;
 	int ready_to_reload;
 
