@@ -1600,6 +1600,7 @@ struct uwsgi_server {
 	int snmp;
 	char *snmp_addr;
 	char *snmp_community;
+	struct uwsgi_lock_item *snmp_lock;
 #endif
 
 

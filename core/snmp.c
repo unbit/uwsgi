@@ -249,11 +249,14 @@ static uint64_t get_uwsgi_snmp_value(uint64_t val, uint8_t * oid_t) {
 static uint64_t get_uwsgi_custom_snmp_value(uint64_t val, uint8_t * oid_t) {
 
 	val--;
+        uwsgi_wlock(uwsgi.snmp_lock);
 	if (uwsgi.shared->snmp_value[val].type) {
 		*oid_t = uwsgi.shared->snmp_value[val].type;
+		uwsgi_rwunlock(uwsgi.snmp_lock);
 		return uwsgi.shared->snmp_value[val].val;
 	}
 
+	uwsgi_rwunlock(uwsgi.snmp_lock);
 	*oid_t = SNMP_NULL;
 	return 0;
 }
