@@ -886,7 +886,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 
 	ssize_t rlen = 0;
 	struct inotify_event ie, *bie, *iie;
-	int i,j;
+	int i,j, dynamic_bie;
 	int items = 0;
 
 	unsigned int isize = sizeof(struct inotify_event);
@@ -897,7 +897,8 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 		return NULL;
 	}
 
-	if (isize > sizeof(struct inotify_event)) {
+	dynamic_bie = isize > sizeof(struct inotify_event);
+	if (dynamic_bie) {
 		bie = uwsgi_malloc(isize);
 		rlen = read(id, bie, isize);
 	}
@@ -926,7 +927,7 @@ struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
 
 		}	
 
-		if (items > 1) {
+		if (dynamic_bie && items > 1) {
 			free(bie);
 		}
 
