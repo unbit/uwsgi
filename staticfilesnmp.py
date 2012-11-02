@@ -1,6 +1,5 @@
 import uwsgi
 from os import path
-from time import sleep
 
 uwsgi.snmp_set_counter64(1, 0)  # Number of requests
 uwsgi.snmp_set_counter64(2, 0)  # Number of bytes
