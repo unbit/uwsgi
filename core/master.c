@@ -1032,7 +1032,7 @@ int master_loop(char **argv, char **environ) {
 
 				if (uwsgi.stats && uwsgi.stats_fd > -1) {
 					if (interesting_fd == uwsgi.stats_fd) {
-						uwsgi_send_stats(uwsgi.stats_fd);
+						uwsgi_send_stats(uwsgi.stats_fd, uwsgi_master_generate_stats);
 						goto health_cycle;
 					}
 				}

@@ -765,25 +765,9 @@ void uwsgi_manage_command_cron(time_t now) {
 
 }
 
-void uwsgi_send_stats(int fd) {
+struct uwsgi_stats *uwsgi_master_generate_stats() {
 
-	int i, j;
-	struct sockaddr_un client_src;
-	struct uwsgi_app *ua;
-	socklen_t client_src_len = 0;
-
-	int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
-	if (client_fd < 0) {
-		uwsgi_error("accept()");
-		return;
-	}
-
-	if (uwsgi.stats_http) {
-		if (uwsgi_send_http_stats(client_fd)) {
-			close(client_fd);
-			return;
-		}
-	}
+	int i;
 
 	struct uwsgi_stats *us = uwsgi_stats_new(8192);
 
@@ -797,6 +781,14 @@ void uwsgi_send_stats(int fd) {
 		goto end;
 #endif
 
+	int signal_queue = 0;
+	if (ioctl(uwsgi.shared->worker_signal_pipe[1], FIONREAD, &signal_queue)) {
+		uwsgi_error("uwsgi_master_generate_stats() -> ioctl()\n");
+	}
+
+	if (uwsgi_stats_keylong_comma(us, "signal_queue", (unsigned long long) signal_queue))
+		goto end;
+
 	if (uwsgi_stats_keylong_comma(us, "load", (unsigned long long) uwsgi.shared->load))
 		goto end;
 	if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) getpid()))
@@ -807,338 +799,330 @@ void uwsgi_send_stats(int fd) {
 		goto end;
 
 	char *cwd = uwsgi_get_cwd();
-	if (uwsgi_stats_keyval_comma(us, "cwd", cwd))
-		goto end0;
+	if (uwsgi_stats_keyval_comma(us, "cwd", cwd)) {
+		free(cwd);
+		goto end;
+	}
+	free(cwd);
 
 	if (uwsgi.daemons) {
 		if (uwsgi_stats_key(us, "daemons"))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_list_open(us))
-			goto end0;
+			goto end;
 
 		struct uwsgi_daemon *ud = uwsgi.daemons;
 		while (ud) {
 			if (uwsgi_stats_object_open(us))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_keyval_comma(us, "cmd", ud->command))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) ud->pid))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_keylong(us, "respawns", (unsigned long long) (ud->respawns - 1)))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_object_close(us))
-				goto end0;
+				goto end;
 			if (ud->next) {
 				if (uwsgi_stats_comma(us))
-					goto end0;
+					goto end;
 			}
 			ud = ud->next;
 		}
 		if (uwsgi_stats_list_close(us))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_comma(us))
-			goto end0;
+			goto end;
 	}
 
 	if (uwsgi_stats_key(us, "locks"))
-		goto end0;
+		goto end;
 	if (uwsgi_stats_list_open(us))
-		goto end0;
+		goto end;
 
 	struct uwsgi_lock_item *uli = uwsgi.registered_locks;
 	while (uli) {
 		if (uwsgi_stats_object_open(us))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong(us, uli->id, (unsigned long long) uli->pid))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_object_close(us))
-			goto end0;
+			goto end;
 		if (uli->next) {
 			if (uwsgi_stats_comma(us))
-				goto end0;
+				goto end;
 		}
 		uli = uli->next;
 	}
 
 	if (uwsgi_stats_list_close(us))
-		goto end0;
+		goto end;
 	if (uwsgi_stats_comma(us))
-		goto end0;
+		goto end;
 
 	if (uwsgi_stats_key(us, "sockets"))
-                goto end0;
+                goto end;
 
 	if (uwsgi_stats_list_open(us))
-                goto end0;
+                goto end;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
 		if (uwsgi_stats_object_open(us))
-                        goto end0;
+                        goto end;
 
 		if (uwsgi_stats_keyval_comma(us, "name", uwsgi_sock->name))
-                	goto end0;
+                	goto end;
 
 		if (uwsgi_stats_keyval_comma(us, "proto", uwsgi_sock->proto_name ? uwsgi_sock->proto_name : "uwsgi"))
-                	goto end0;
+                	goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "queue", (unsigned long long) uwsgi_sock->queue))
-                        goto end0;
+                        goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "shared", (unsigned long long) uwsgi_sock->shared))
-                        goto end0;
+                        goto end;
 
 		if (uwsgi_stats_keylong(us, "can_offload", (unsigned long long) uwsgi_sock->can_offload))
-                        goto end0;
+                        goto end;
 
 		if (uwsgi_stats_object_close(us))
-                        goto end0;
+                        goto end;
 		
 		uwsgi_sock = uwsgi_sock->next;
 		if (uwsgi_sock) {
 			if (uwsgi_stats_comma(us))
-                	goto end0;
+                	goto end;
 		}
 	}
 
 	if (uwsgi_stats_list_close(us))
-                goto end0;
+                goto end;
 
 	if (uwsgi_stats_comma(us))
-		goto end0;
+		goto end;
 
 	if (uwsgi_stats_key(us, "workers"))
-		goto end0;
+		goto end;
 	if (uwsgi_stats_list_open(us))
-		goto end0;
+		goto end;
 
 	for (i = 0; i < uwsgi.numproc; i++) {
 		if (uwsgi_stats_object_open(us))
-			goto end0;
+			goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) uwsgi.workers[i + 1].id))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) uwsgi.workers[i + 1].pid))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) uwsgi.workers[i + 1].requests))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "delta_requests", (unsigned long long) uwsgi.workers[i + 1].delta_requests))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "exceptions", (unsigned long long) uwsgi.workers[i + 1].exceptions))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "harakiri_count", (unsigned long long) uwsgi.workers[i + 1].harakiri_count))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "signals", (unsigned long long) uwsgi.workers[i + 1].signals))
-			goto end0;
+			goto end;
+
+		if (ioctl(uwsgi.workers[i+1].signal_pipe[1], FIONREAD, &signal_queue)) {
+			uwsgi_error("uwsgi_master_generate_stats() -> ioctl()\n");
+		}
+
+		if (uwsgi_stats_keylong_comma(us, "signal_queue", (unsigned long long) signal_queue))
+			goto end;
 /*
 		if (uwsgi_stats_keylong_comma(us, "static_offload_threads", (unsigned long long) uwsgi.workers[i + 1].static_offload_threads))
-			goto end0;
+			goto end;
 */
 
 		if (uwsgi.workers[i + 1].cheaped) {
 			if (uwsgi_stats_keyval_comma(us, "status", "cheap"))
-				goto end0;
+				goto end;
 		}
 		else if (uwsgi.workers[i + 1].suspended && !uwsgi.workers[i + 1].busy) {
 			if (uwsgi_stats_keyval_comma(us, "status", "pause"))
-				goto end0;
+				goto end;
 		}
 		else {
 			if (uwsgi.workers[i + 1].sig) {
 				if (uwsgi_stats_keyvalnum_comma(us, "status", "sig", (unsigned long long) uwsgi.workers[i + 1].signum))
-					goto end0;
+					goto end;
 			}
 			else if (uwsgi.workers[i + 1].busy) {
 				if (uwsgi_stats_keyval_comma(us, "status", "busy"))
-					goto end0;
+					goto end;
 			}
 			else {
 				if (uwsgi_stats_keyval_comma(us, "status", "idle"))
-					goto end0;
+					goto end;
 			}
 		}
 
 		if (uwsgi_stats_keylong_comma(us, "rss", (unsigned long long) uwsgi.workers[i + 1].rss_size))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "vsz", (unsigned long long) uwsgi.workers[i + 1].vsz_size))
-			goto end0;
+			goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "running_time", (unsigned long long) uwsgi.workers[i + 1].running_time))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "last_spawn", (unsigned long long) uwsgi.workers[i + 1].last_spawn))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "respawn_count", (unsigned long long) uwsgi.workers[i + 1].respawn_count))
-			goto end0;
+			goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "tx", (unsigned long long) uwsgi.workers[i + 1].tx))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_keylong_comma(us, "avg_rt", (unsigned long long) uwsgi.workers[i + 1].avg_response_time))
-			goto end0;
+			goto end;
 
 		// applications list
 		if (uwsgi_stats_key(us, "apps"))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_list_open(us))
-			goto end0;
+			goto end;
 
+		int j;
 
 		for (j = 0; j < uwsgi.workers[i + 1].apps_cnt; j++) {
-			ua = &uwsgi.workers[i + 1].apps[j];
+			struct uwsgi_app *ua = &uwsgi.workers[i + 1].apps[j];
 
 			if (uwsgi_stats_object_open(us))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) j))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_keylong_comma(us, "modifier1", (unsigned long long) ua->modifier1))
-				goto end0;
+				goto end;
 
 			if (uwsgi_stats_keyvaln_comma(us, "mountpoint", ua->mountpoint, ua->mountpoint_len))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_keylong_comma(us, "startup_time", ua->startup_time))
-				goto end0;
+				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "requests", ua->requests))
-				goto end0;
+				goto end;
 			if (uwsgi_stats_keylong_comma(us, "exceptions", ua->exceptions))
-				goto end0;
+				goto end;
 
 			if (ua->chdir) {
 				if (uwsgi_stats_keyval(us, "chdir", ua->chdir))
-					goto end0;
+					goto end;
 			}
 			else {
 				if (uwsgi_stats_keyval(us, "chdir", ""))
-					goto end0;
+					goto end;
 			}
 
 			if (uwsgi_stats_object_close(us))
-				goto end0;
+				goto end;
 
 			if (j < uwsgi.workers[i + 1].apps_cnt - 1) {
 				if (uwsgi_stats_comma(us))
-					goto end0;
+					goto end;
 			}
 		}
 
 
 		if (uwsgi_stats_list_close(us))
-			goto end0;
+			goto end;
 
 		if (uwsgi_stats_comma(us))
-                        goto end0;
+                        goto end;
 
 		// cores list
 		if (uwsgi_stats_key(us, "cores"))
-                        goto end0;
+                        goto end;
                 if (uwsgi_stats_list_open(us))
-                        goto end0;
+                        goto end;
 
 		for (j = 0; j < uwsgi.cores; j++) {
 			struct uwsgi_core *uc = &uwsgi.workers[i + 1].cores[j];
 			if (uwsgi_stats_object_open(us))
-                                goto end0;
+                                goto end;
 			if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) j))
-                                goto end0;
+                                goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) uc->requests))
-                                goto end0;
+                                goto end;
 
 			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))
-                                goto end0;	
+                                goto end;	
 			
 
 			if (uwsgi_stats_object_close(us))
-                                goto end0;
+                                goto end;
 
 			if (j < uwsgi.cores-1) {
 				if (uwsgi_stats_comma(us))
-                                        goto end0;
+                                        goto end;
 			}
 		}
 
 		if (uwsgi_stats_list_close(us))
-			goto end0;
+			goto end;
 
 		if (uwsgi_stats_object_close(us))
-			goto end0;
+			goto end;
 
 		if (i < uwsgi.numproc - 1) {
 			if (uwsgi_stats_comma(us))
-				goto end0;
+				goto end;
 		}
 	}
 
 	if (uwsgi_stats_list_close(us))
-		goto end0;
+		goto end;
 
 #ifdef UWSGI_SPOOLER
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	if (uspool) {
 		if (uwsgi_stats_comma(us))
-			goto end0;
+			goto end;
 		if (uwsgi_stats_key(us, "spoolers"))
-                        goto end0;
+                        goto end;
                 if (uwsgi_stats_list_open(us))
-                        goto end0;
+                        goto end;
         	while (uspool) {
 			if (uwsgi_stats_object_open(us))
-                                goto end0;
+                                goto end;
 
 			if (uwsgi_stats_keyval_comma(us, "dir", uspool->dir))
-                                        goto end0;
+                                        goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) uspool->pid))
-                                goto end0;
+                                goto end;
 	
 			if (uwsgi_stats_keylong_comma(us, "tasks", (unsigned long long) uspool->tasks))
-                                goto end0;
+                                goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "respawns", (unsigned long long) uspool->respawned))
-                                goto end0;
+                                goto end;
 
 			if (uwsgi_stats_keylong(us, "running", (unsigned long long) uspool->running))
-                                goto end0;
+                                goto end;
 			
 			if (uwsgi_stats_object_close(us))
-                                goto end0;
+                                goto end;
                 	uspool = uspool->next;
 			if (uspool) {
 				if (uwsgi_stats_comma(us))
-                                	goto end0;
+                                	goto end;
 			}
                 }
 		if (uwsgi_stats_list_close(us))
-                        goto end0;
+                        goto end;
 	}
 #endif
 
 	if (uwsgi_stats_object_close(us))
-		goto end0;
+		goto end;
 
-	size_t remains = us->pos;
-	off_t pos = 0;
-	while (remains > 0) {
-		int ret = uwsgi_waitfd_write(client_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		if (ret <= 0) {
-			goto end0;
-		}
-		ssize_t res = write(client_fd, us->base + pos, remains);
-		if (res <= 0) {
-			if (res < 0) {
-				uwsgi_error("write()");
-			}
-			goto end0;
-		}
-		pos += res;
-		remains -= res;
-	}
-
-end0:
-	free(cwd);
+	return us;
 end:
 	free(us->base);
 	free(us);
-	close(client_fd);
+	return NULL;
 }
 
 void uwsgi_register_cheaper_algo(char *name, int (*func) (void)) {

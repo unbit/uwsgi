@@ -875,11 +875,11 @@ int event_queue_add_file_monitor(int eq, char *filename, int *id) {
 #endif
 
 	if (add_to_queue) {
-		return event_queue_add_fd_read(eq, ifd);
+		if (event_queue_add_fd_read(eq, ifd)) {
+			return -1;
+		}
 	}
-	else {
-		return ifd;
-	}
+	return ifd;
 }
 
 struct uwsgi_fmon *event_queue_ack_file_monitor(int eq, int id) {
@@ -1011,7 +1011,10 @@ int event_queue_add_timer(int eq, int *id, int sec) {
 	}
 	
 	*id = tfd;
-	return event_queue_add_fd_read(eq, tfd);
+	if (event_queue_add_fd_read(eq, tfd)) {
+		return -1;
+	}
+	return tfd;
 }
 
 struct uwsgi_timer *event_queue_ack_timer(int id) {

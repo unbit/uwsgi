@@ -276,3 +276,51 @@ int uwsgi_stats_keylong_comma(struct uwsgi_stats *us, char *key, unsigned long l
 	if (ret) return -1;
 	return uwsgi_stats_comma(us);
 }
+
+void uwsgi_send_stats(int fd, struct uwsgi_stats * (*func)(void)) {
+
+        struct sockaddr_un client_src;
+        socklen_t client_src_len = 0;
+
+        int client_fd = accept(fd, (struct sockaddr *) &client_src, &client_src_len);
+        if (client_fd < 0) {
+                uwsgi_error("accept()");
+                return;
+        }
+
+        if (uwsgi.stats_http) {
+                if (uwsgi_send_http_stats(client_fd)) {
+                        close(client_fd);
+                        return;
+                }
+        }
+
+        struct uwsgi_stats *us = func();
+        if (!us) goto end;
+
+        size_t remains = us->pos;
+        off_t pos = 0;
+        while (remains > 0) {
+                int ret = uwsgi_waitfd_write(client_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                if (ret <= 0) {
+                        goto end0;
+                }
+                ssize_t res = write(client_fd, us->base + pos, remains);
+                if (res <= 0) {
+                        if (res < 0) {
+                                uwsgi_error("write()");
+                        }
+                        goto end0;
+                }
+                pos += res;
+                remains -= res;
+        }
+
+end0:
+	free(us->base);
+	free(us);
+
+end:
+        close(client_fd);
+}
+
