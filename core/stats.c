@@ -3,15 +3,21 @@
 	utility functions for fast generating json output for the stats subsystem
 */
 
+extern struct uwsgi_server uwsgi;
+
 struct uwsgi_stats *uwsgi_stats_new(size_t chunk_size) {
 	struct uwsgi_stats *us = uwsgi_malloc(sizeof(struct uwsgi_stats));
 	us->base = uwsgi_malloc(chunk_size);
 	us->base[0] = '{';
-	us->base[1] = '\n';
-	us->pos = 2;
+	us->pos = 1;
 	us->chunk = chunk_size;
 	us->size = chunk_size;
 	us->tabs = 1;
+	us->minified = uwsgi.stats_minified;
+	if (!us->minified) {
+		us->base[1] = '\n';
+		us->pos++;
+	}
 	return us;
 }
 
@@ -36,6 +42,7 @@ int uwsgi_stats_symbol_nl(struct uwsgi_stats *us, char sym) {
 	if (uwsgi_stats_symbol(us, sym)) {
 		return -1;
 	}
+	if (us->minified) return 0;
 	return uwsgi_stats_symbol(us, '\n');
 }
 
@@ -45,6 +52,7 @@ int uwsgi_stats_comma(struct uwsgi_stats *us) {
 }
 
 int uwsgi_stats_apply_tabs(struct uwsgi_stats *us) {
+	if (us->minified) return 0;
 	size_t i;
 	for(i=0;i<us->tabs;i++) {
 		if (uwsgi_stats_symbol(us, '\t')) return -1;
@@ -55,14 +63,16 @@ int uwsgi_stats_apply_tabs(struct uwsgi_stats *us) {
 
 int uwsgi_stats_object_open(struct uwsgi_stats *us) {
 	if (uwsgi_stats_apply_tabs(us)) return -1;
-	us->tabs++;
+	if (!us->minified) us->tabs++;
 	return uwsgi_stats_symbol_nl(us, '{');
 }
 
 int uwsgi_stats_object_close(struct uwsgi_stats *us) {
-	if (uwsgi_stats_symbol(us, '\n')) return -1;
-	us->tabs--;
-	if (uwsgi_stats_apply_tabs(us)) return -1;
+	if (!us->minified) {
+		if (uwsgi_stats_symbol(us, '\n')) return -1;
+		us->tabs--;
+		if (uwsgi_stats_apply_tabs(us)) return -1;
+	}
 	return uwsgi_stats_symbol(us, '}');
 }
 
@@ -72,9 +82,11 @@ int uwsgi_stats_list_open(struct uwsgi_stats *us) {
 }
 
 int uwsgi_stats_list_close(struct uwsgi_stats *us) {
-	if (uwsgi_stats_symbol(us, '\n')) return -1;
-	us->tabs--;
-	if (uwsgi_stats_apply_tabs(us)) return -1;
+	if (!us->minified) {
+		if (uwsgi_stats_symbol(us, '\n')) return -1;
+		us->tabs--;
+		if (uwsgi_stats_apply_tabs(us)) return -1;
+	}
 	return uwsgi_stats_symbol(us, ']');
 }
 

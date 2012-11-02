@@ -1833,6 +1833,7 @@ struct uwsgi_server {
 	char *stats;
 	int stats_fd;
 	int stats_http;
+	int stats_minified;
 
 	uint64_t queue_size;
 	uint64_t queue_blocksize;
@@ -3141,6 +3142,7 @@ struct uwsgi_stats {
 	size_t tabs;
 	size_t chunk;
 	size_t size;
+	int minified;
 };
 
 struct uwsgi_stats *uwsgi_stats_new(size_t);
