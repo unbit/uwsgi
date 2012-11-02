@@ -1919,6 +1919,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 				// if it is a HEAD request just skip transfer
 				if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
+					wsgi_req->status = 200;
 					return 0;
 				}
 
