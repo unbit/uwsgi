@@ -324,3 +324,160 @@ end:
         close(client_fd);
 }
 
+struct uwsgi_stats_pusher *uwsgi_stats_pusher_get(char *name) {
+	struct uwsgi_stats_pusher *usp = uwsgi.stats_pushers;
+	while(usp) {
+		if (!strcmp(usp->name, name)) {
+			return usp;
+		}
+		usp = usp->next;
+	}
+	return usp;
+}
+
+void uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *pusher, char *arg) {
+	struct uwsgi_stats_pusher_instance *old_uspi = NULL, *uspi = uwsgi.stats_pusher_instances;
+	while(uspi) {
+		old_uspi = uspi;
+		uspi = uspi->next;
+	}
+
+	uspi = uwsgi_calloc(sizeof(struct uwsgi_stats_pusher_instance));
+	uspi->pusher = pusher;
+	uspi->arg = arg;
+	if (old_uspi) {
+		old_uspi->next = uspi;
+	}
+	else {
+		uwsgi.stats_pusher_instances = uspi;
+	}
+}
+
+void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
+	void *events = event_queue_alloc(1);
+	for(;;) {
+                int nevents = event_queue_wait_multi(ut->queue, 1, events, 1);
+		if (nevents > 0) {
+			int interesting_fd = event_queue_interesting_fd(events, 0);
+			char buf[4096];
+			ssize_t len = read(interesting_fd, buf, 4096);
+			if (len <= 0) {
+				uwsgi_log("[uwsgi-stats-pusher] goodbye...\n");
+				return;
+			}
+			uwsgi_log("[uwsgi-stats-pusher] message received from master: %.*s\n", (int) len, buf);
+			continue;
+		}
+
+		time_t now = uwsgi_now();
+		struct uwsgi_stats_pusher_instance *uspi = uwsgi.stats_pusher_instances;
+		struct uwsgi_stats *us = NULL;
+		while(uspi) {
+			int delta = uspi->freq ? uspi->freq  : uwsgi.stats_pusher_default_freq;
+			if ( (uspi->last_run + delta) <= now) {
+				if (!us) {
+					us = uwsgi_master_generate_stats();
+					if (!us) goto next;
+				}	
+				uspi->pusher->func(uspi, us->base, us->pos);
+				uspi->last_run = now;
+			}
+next:
+			uspi = uspi->next;
+		}
+
+		if (us) {
+			free(us->base);
+			free(us);
+		}
+	}
+}
+
+void uwsgi_stats_pusher_setup() {
+	struct uwsgi_string_list *usl = uwsgi.requested_stats_pushers;
+	while(usl) {
+		char *ssp = uwsgi_str(usl->value);
+		struct uwsgi_stats_pusher *pusher = NULL;
+		char *colon = strchr(ssp, ':');
+		if (colon) {
+			*colon = 0;
+		}
+		pusher = uwsgi_stats_pusher_get(ssp);
+		if (!pusher) {
+			uwsgi_log("unable to find \"%s\" stats_pusher\n", ssp);
+			exit(1);
+		}
+		char *arg = NULL;
+		if (colon) {
+			arg = colon+1;
+			*colon = ':';
+		}
+		uwsgi_stats_pusher_add(pusher, arg);
+		usl = usl->next;
+	}
+}
+
+void uwsgi_register_stats_pusher(char *name, void(*func) (struct uwsgi_stats_pusher_instance *, char *, size_t)) {
+
+        struct uwsgi_stats_pusher *pusher = uwsgi.stats_pushers, *old_pusher = NULL;
+
+	while(pusher) {
+		old_pusher = pusher;
+		pusher = pusher->next;
+	}
+
+	pusher = uwsgi_calloc(sizeof(struct uwsgi_stats_pusher));
+	pusher->name = name;
+	pusher->func = func;
+
+	if (old_pusher) {
+		old_pusher->next = pusher;
+	}
+	else {
+		uwsgi.stats_pushers = pusher;
+	}
+}
+
+struct uwsgi_stats_pusher_file_conf {
+	char *path;
+	char *freq;
+	char *separator;
+};
+
+void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *uspi, char *json, size_t json_len) {
+	struct uwsgi_stats_pusher_file_conf *uspic = (struct uwsgi_stats_pusher_file_conf *) uspi->data;
+	if (!uspi->configured) {
+		uspic = uwsgi_calloc(sizeof(struct uwsgi_stats_pusher_file_conf));
+		if (uspi->arg) {
+                	if (uwsgi_kvlist_parse(uspi->arg, strlen(uspi->arg), ',', '=',
+                        	"path", &uspic->path,
+                        	"separator", &uspic->separator,
+                        	"freq", &uspic->freq, NULL)) {
+                        	free(uspi);
+                        	return;
+                	}
+		}
+                if (!uspic->path) uspic->path = "uwsgi.stats";
+                if (!uspic->separator) uspic->separator = "\n\n";
+		if (uspic->freq) uspi->freq = atoi(uspic->freq);
+		uspi->configured = 1;
+		uspi->data = uspic;
+	}
+
+	int fd = open(uspic->path, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+	if (fd < 0) {
+		uwsgi_error_open(uspic->path);
+		return;
+	}
+	ssize_t rlen = write(fd, json, json_len);
+	if (rlen != (ssize_t) json_len) {
+		uwsgi_error("uwsgi_stats_pusher_file() -> write()\n");
+	}
+
+	rlen = write(fd, uspic->separator, strlen(uspic->separator));
+	if (rlen != (ssize_t ) strlen(uspic->separator)) {
+		uwsgi_error("uwsgi_stats_pusher_file() -> write()\n");
+	}
+
+	close(fd);
+}

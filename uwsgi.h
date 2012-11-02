@@ -1184,6 +1184,8 @@ struct uwsgi_clock {
 };
 
 struct uwsgi_subscribe_slot;
+struct uwsgi_stats_pusher;
+struct uwsgi_stats_pusher_instance;
 
 struct uwsgi_server {
 
@@ -1834,6 +1836,10 @@ struct uwsgi_server {
 	int stats_fd;
 	int stats_http;
 	int stats_minified;
+	struct uwsgi_string_list *requested_stats_pushers;
+	struct uwsgi_stats_pusher *stats_pushers;
+	struct uwsgi_stats_pusher_instance *stats_pusher_instances;
+	int stats_pusher_default_freq;
 
 	uint64_t queue_size;
 	uint64_t queue_blocksize;
@@ -3144,8 +3150,32 @@ struct uwsgi_stats {
 	int minified;
 };
 
+struct uwsgi_stats_pusher_instance;
+
+struct uwsgi_stats_pusher {
+	char *name;
+	void (*func)(struct uwsgi_stats_pusher_instance *, char *, size_t);
+	struct uwsgi_stats_pusher *next;
+};
+
+struct uwsgi_stats_pusher_instance {
+	struct uwsgi_stats_pusher *pusher;
+	char *arg;
+	void *data;
+	int configured;
+	int freq;
+	time_t last_run;
+	struct uwsgi_stats_pusher_instance *next;
+};
+
+void uwsgi_stats_pusher_loop(struct uwsgi_thread *);
+void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *, char *, size_t);
+void uwsgi_stats_pusher_socket(struct uwsgi_stats_pusher_instance *, char *, size_t);
+
+void uwsgi_stats_pusher_setup(void);
 void uwsgi_send_stats(int, struct uwsgi_stats * (*func)(void));
 struct uwsgi_stats *uwsgi_master_generate_stats(void);
+void uwsgi_register_stats_pusher(char *, void(*) (struct uwsgi_stats_pusher_instance *, char *, size_t));
 
 struct uwsgi_stats *uwsgi_stats_new(size_t);
 int uwsgi_stats_symbol(struct uwsgi_stats *, char);

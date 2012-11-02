@@ -734,6 +734,15 @@ int master_loop(char **argv, char **environ) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.stats_fd);
 		uwsgi_log("*** Stats server enabled on %s fd: %d ***\n", uwsgi.stats, uwsgi.stats_fd);
 	}
+
+
+	if (uwsgi.requested_stats_pushers) {
+		if (!uwsgi_thread_new(uwsgi_stats_pusher_loop)) {
+                	uwsgi_log("!!! unable to spawn stats pusher thread !!!\n");
+                	exit(1);
+		}
+        }
+
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
 		udp_fd = bind_to_udp(uwsgi.udp_socket, 0, 0);
