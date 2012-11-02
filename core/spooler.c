@@ -355,12 +355,6 @@ void spooler(struct uwsgi_spooler *uspool) {
 		}
 		wakeup = tmp_wakeup;
 
-		// need to recycle ?
-		if (uwsgi.spooler_max_tasks > 0 && uspool->tasks >= (uint64_t)uwsgi.spooler_max_tasks) {
-			uwsgi_log("[spooler %s pid: %d] maximum number of tasks reached (%d) recycling ...\n", uspool->dir, (int) uwsgi.mypid, uwsgi.spooler_max_tasks);
-			end_me(0);
-		}
-
 	}
 }
 
@@ -550,6 +544,14 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 			// here we free and unlock the task
 			uwsgi_protected_close(spool_fd);
 			uspool->running = 0;
+
+
+			// need to recycle ?
+                	if (uwsgi.spooler_max_tasks > 0 && uspool->tasks >= (uint64_t)uwsgi.spooler_max_tasks) {
+                        	uwsgi_log("[spooler %s pid: %d] maximum number of tasks reached (%d) recycling ...\n", uspool->dir, (int) uwsgi.mypid, uwsgi.spooler_max_tasks);
+                        	end_me(0);
+                	}
+
 
 			if (chdir(dir)) {
 				uwsgi_error("chdir()");		
