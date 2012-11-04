@@ -14,6 +14,19 @@ void uwsgi_go_post_fork() {
 	uwsgi_go_helper_post_fork_c();
 }
 
+void uwsgi_opt_setup_goroutines(char *opt, char *value, void *foobar) {
+	// set async mode
+        uwsgi_opt_set_int(opt, value, &uwsgi.async);
+        // set loop engine
+        uwsgi.loop = "goroutines";
+}
+
+struct uwsgi_option uwsgi_go_options[] = {
+        {"goroutines", required_argument, 0, "a shortcut setting optimal options for goroutine-based apps, takes the number of goroutines to spawn as argument", uwsgi_opt_setup_goroutines, NULL, UWSGI_OPT_THREADS},
+        {0, 0, 0, 0, 0, 0, 0},
+
+};
+
 int uwsgi_go_init() {
 	// build the functions table
 	uwsgi_go_helper_post_fork_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_post_fork");
@@ -99,4 +112,5 @@ struct uwsgi_plugin go_plugin = {
 	.init = uwsgi_go_init,
 	.signal_handler = uwsgi_go_signal_handler,
 	.on_load = uwsgi_go_on_load,
+	.options = uwsgi_go_options,
 };
