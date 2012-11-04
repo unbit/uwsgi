@@ -4918,3 +4918,30 @@ error:
 	uwsgi_buffer_destroy(ub);
 	return -1;
 }
+
+void uwsgi_simple_set_status(struct wsgi_request *wsgi_req, int status) {
+	wsgi_req->status = status;
+}
+
+void uwsgi_simple_inc_headers(struct wsgi_request *wsgi_req) {
+        wsgi_req->header_cnt++;
+}
+
+void uwsgi_simple_response_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, buf, len);
+}
+
+void uwsgi_simple_response_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, buf, len);
+}
+
+int uwsgi_plugin_modifier1(char *plugin) {
+	int ret = -1;
+	char *symbol_name = uwsgi_concat2(plugin, "_plugin");
+	struct uwsgi_plugin *up = dlsym(RTLD_DEFAULT, symbol_name);
+	if (!up) goto end;
+	ret = up->modifier1;
+end:
+	free(symbol_name);
+	return ret;
+}

@@ -3432,6 +3432,17 @@ char *uwsgi_matheval_str(char *);
 int uwsgi_kvlist_parse(char *, size_t, char, char, ...);
 int uwsgi_send_http_stats(int);
 
+void uwsgi_simple_response_write(struct wsgi_request *, char *, size_t);
+void uwsgi_simple_response_write_header(struct wsgi_request *, char *, size_t);
+void uwsgi_simple_set_status(struct wsgi_request *, int status);
+void uwsgi_simple_inc_headers(struct wsgi_request *);
+int uwsgi_plugin_modifier1(char *);
+
+void uwsgi_user_lock(int);
+void uwsgi_user_unlock(int);
+
+void simple_loop_run_int(int);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

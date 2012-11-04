@@ -629,3 +629,12 @@ nextlock:
                 }
 
 }
+
+void uwsgi_user_lock(int lock_num) {
+        uwsgi_lock(uwsgi.user_lock[lock_num]);
+}
+
+void uwsgi_user_unlock(int lock_num) {
+        uwsgi_unlock(uwsgi.user_lock[lock_num]);
+}
+

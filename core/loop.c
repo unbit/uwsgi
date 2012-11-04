@@ -108,6 +108,11 @@ void uwsgi_setup_thread_req(long core_id, struct wsgi_request *wsgi_req) {
 
 }
 
+void simple_loop_run_int(int core_id) {
+	long y = core_id;
+        simple_loop_run((void *) y);
+}
+
 void *simple_loop_run(void *arg1) {
 
 	long core_id = (long) arg1;
