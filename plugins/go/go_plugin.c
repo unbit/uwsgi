@@ -92,7 +92,7 @@ void uwsgi_go_on_load() {
 
 struct uwsgi_plugin go_plugin = {
 	.name = "go",
-	.modifier1 = 17,
+	.modifier1 = 11,
 	.request = uwsgi_go_request,
 	.after_request = uwsgi_go_after_request,
 	.post_fork = uwsgi_go_post_fork,
