@@ -4,7 +4,7 @@ extern struct uwsgi_server uwsgi;
 
 void (*uwsgi_go_helper_post_fork_c)();
 void (*uwsgi_go_helper_post_init_c)();
-void * (*uwsgi_go_helper_env_new_c)();
+void * (*uwsgi_go_helper_env_new_c)(struct wsgi_request *);
 void (*uwsgi_go_helper_env_add_c)(void *, char *, int, char *, int);
 void (*uwsgi_go_helper_request_c)(void *, struct wsgi_request *);
 int (*uwsgi_go_helper_signal_handler_c)(int, void *);
@@ -28,7 +28,9 @@ struct uwsgi_option uwsgi_go_options[] = {
 };
 
 int uwsgi_go_init() {
+
 	// build the functions table
+
 	uwsgi_go_helper_post_fork_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_post_fork");
 	if (!uwsgi_go_helper_post_fork_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_post_fork function\n"); exit(1); }
 
@@ -67,15 +69,16 @@ int uwsgi_go_request(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-	void *env = uwsgi_go_helper_env_new_c();
+	wsgi_req->async_environ = uwsgi_go_helper_env_new_c(wsgi_req);
 	int i;
 	for(i=0;i<wsgi_req->var_cnt;i++) {
-        	uwsgi_go_helper_env_add_c(env, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, 
+        	uwsgi_go_helper_env_add_c(wsgi_req->async_environ, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, 
 					wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
 		i++;
 	}
 
-	uwsgi_go_helper_request_c(env, wsgi_req);
+
+	uwsgi_go_helper_request_c(wsgi_req->async_environ, wsgi_req);
 
 	return UWSGI_OK;
 }
@@ -95,8 +98,7 @@ void goroutines_loop() {
 	for (i = 1; i < uwsgi.async; i++) {
 		uwsgi_go_helper_run_core_c(i);
 	}
-	long y = 0;
-        simple_loop_run((void *) y);
+	simple_loop_run_int(0);
 }
 
 void uwsgi_go_on_load() {

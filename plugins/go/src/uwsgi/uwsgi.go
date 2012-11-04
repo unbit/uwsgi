@@ -34,6 +34,8 @@ type AppInterface interface {
 // global instance
 var uwsgi_instance AppInterface
 var uwsgi_modifier1 int = -1;
+var uwsgi_env_gc = make(map[*C.struct_wsgi_request](*map[string]string))
+var uwsgi_signals_gc = make([]*func(int), 256)
 
 type App struct {
 }
@@ -86,6 +88,7 @@ func (app *App) RegisterSignal(signum int, who string, handler func(int)) bool {
 		}
 	}
 	if int(C.uwsgi_register_signal(C.uint8_t(signum), C.CString(who), unsafe.Pointer(&handler), C.uint8_t(uwsgi_modifier1))) == 0 {
+		uwsgi_signals_gc[signum] = &handler
 		return true
 	}
 	return false
@@ -115,9 +118,10 @@ func uwsgi_go_helper_post_init() {
 }
 
 //export uwsgi_go_helper_env_new
-func uwsgi_go_helper_env_new() *map[string]string {
+func uwsgi_go_helper_env_new(wsgi_req *C.struct_wsgi_request) *map[string]string {
 	var env map[string]string
 	env = make(map[string]string)
+	uwsgi_env_gc[wsgi_req] = &env
 	return &env
 }
 
