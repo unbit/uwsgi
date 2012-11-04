@@ -2172,6 +2172,10 @@ int uwsgi_start(void *v_argv) {
 		uwsgi.sa_lock = uwsgi_rwlock_init("sharedarea");
 	}
 
+#ifdef UWSGI_SNMP
+	uwsgi.snmp_lock = uwsgi_lock_init("snmp");
+#endif
+
 	// setup queue
 	if (uwsgi.queue_size > 0) {
 		uwsgi_init_queue();

@@ -3924,7 +3924,7 @@ void init_uwsgi_module_sharedarea(PyObject * current_uwsgi_module) {
 }
 
 #ifdef UWSGI_SNMP
-PyObject *py_snmp_counter32(PyObject * self, PyObject * args) {
+PyObject *py_snmp_set_counter32(PyObject * self, PyObject * args) {
 
                    uint8_t oid_num;
                    uint32_t oid_val = 0;
@@ -3936,8 +3936,14 @@ PyObject *py_snmp_counter32(PyObject * self, PyObject * args) {
                    if (oid_num > 100 || oid_num < 1)
                    goto clear;
 
+                   UWSGI_RELEASE_GIL
+                   uwsgi_wlock(uwsgi.snmp_lock);
+
                    uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER32;
                    uwsgi.shared->snmp_value[oid_num - 1].val = oid_val;
+
+                   uwsgi_rwunlock(uwsgi.snmp_lock);
+                   UWSGI_GET_GIL
 
                    Py_INCREF(Py_True);
                    return Py_True;
@@ -3948,7 +3954,7 @@ clear:
 		return Py_None;
 }
 
-PyObject *py_snmp_counter64(PyObject * self, PyObject * args) {
+PyObject *py_snmp_set_counter64(PyObject * self, PyObject * args) {
 
 	uint8_t oid_num;
 	uint64_t oid_val = 0;
@@ -3960,8 +3966,14 @@ PyObject *py_snmp_counter64(PyObject * self, PyObject * args) {
 	if (oid_num > 100 || oid_num < 1)
 	goto clear;
 
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
 	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER64;
 	uwsgi.shared->snmp_value[oid_num - 1].val = oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
 
 	Py_INCREF(Py_True);
 	return Py_True;
@@ -3972,7 +3984,7 @@ clear:
 	return Py_None;
 }
 
-PyObject *py_snmp_gauge(PyObject * self, PyObject * args) {
+PyObject *py_snmp_set_gauge(PyObject * self, PyObject * args) {
 
 	uint8_t oid_num;
 	uint32_t oid_val = 0;
@@ -3984,8 +3996,14 @@ PyObject *py_snmp_gauge(PyObject * self, PyObject * args) {
 	if (oid_num > 100 || oid_num < 1)
 		goto clear;
 
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
 	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_GAUGE;
 	uwsgi.shared->snmp_value[oid_num - 1].val = oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
 
 	Py_INCREF(Py_True);
 	return Py_True;
@@ -3996,7 +4014,205 @@ clear:
 	return Py_None;
 }
 
-PyObject *py_snmp_community(PyObject * self, PyObject * args) {
+PyObject *py_snmp_incr_counter32(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint32_t oid_val = 1;
+
+	if (!PyArg_ParseTuple(args, "bI:snmp_incr_counter32", &oid_num, &oid_val)) {
+		PyErr_Clear();
+		if (!PyArg_ParseTuple(args, "b:snmp_incr_counter32", &oid_num)) {
+			return NULL;
+		}
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+		goto clear;
+
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER32;
+	uwsgi.shared->snmp_value[oid_num - 1].val = uwsgi.shared->snmp_value[oid_num - 1].val + oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_incr_counter64(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint64_t oid_val = 1;
+
+	if (!PyArg_ParseTuple(args, "bI:snmp_incr_counter64", &oid_num, &oid_val)) {
+		PyErr_Clear();
+		if (!PyArg_ParseTuple(args, "b:snmp_incr_counter64", &oid_num)) {
+			return NULL;
+		}
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+		goto clear;
+
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER64;
+	uwsgi.shared->snmp_value[oid_num - 1].val = uwsgi.shared->snmp_value[oid_num - 1].val + oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_incr_gauge(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint64_t oid_val = 1;
+
+	if (!PyArg_ParseTuple(args, "bI:snmp_incr_gauge", &oid_num, &oid_val)) {
+		PyErr_Clear();
+		if (!PyArg_ParseTuple(args, "b:snmp_incr_gauge", &oid_num)) {
+			return NULL;
+		}
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+		goto clear;
+
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_GAUGE;
+	uwsgi.shared->snmp_value[oid_num - 1].val = uwsgi.shared->snmp_value[oid_num - 1].val + oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_decr_counter32(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint32_t oid_val = 1;
+
+	if (!PyArg_ParseTuple(args, "bI:snmp_incr_counter32", &oid_num, &oid_val)) {
+		PyErr_Clear();
+		if (!PyArg_ParseTuple(args, "b:snmp_incr_counter32", &oid_num)) {
+			return NULL;
+		}
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+		goto clear;
+
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER32;
+	uwsgi.shared->snmp_value[oid_num - 1].val = uwsgi.shared->snmp_value[oid_num - 1].val - oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_decr_counter64(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint64_t oid_val = 1;
+
+	if (!PyArg_ParseTuple(args, "bI:snmp_incr_counter64", &oid_num, &oid_val)) {
+		PyErr_Clear();
+		if (!PyArg_ParseTuple(args, "b:snmp_incr_counter64", &oid_num)) {
+			return NULL;
+		}
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+		goto clear;
+
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_COUNTER64;
+	uwsgi.shared->snmp_value[oid_num - 1].val = uwsgi.shared->snmp_value[oid_num - 1].val - oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_decr_gauge(PyObject * self, PyObject * args) {
+
+	uint8_t oid_num;
+	uint64_t oid_val = 1;
+
+	if (!PyArg_ParseTuple(args, "bI:snmp_incr_gauge", &oid_num, &oid_val)) {
+		PyErr_Clear();
+		if (!PyArg_ParseTuple(args, "b:snmp_incr_gauge", &oid_num)) {
+			return NULL;
+		}
+	}
+
+	if (oid_num > 100 || oid_num < 1)
+		goto clear;
+       
+	UWSGI_RELEASE_GIL
+	uwsgi_wlock(uwsgi.snmp_lock);
+
+	uwsgi.shared->snmp_value[oid_num - 1].type = SNMP_GAUGE;
+	uwsgi.shared->snmp_value[oid_num - 1].val = uwsgi.shared->snmp_value[oid_num - 1].val - oid_val;
+
+	uwsgi_rwunlock(uwsgi.snmp_lock);
+	UWSGI_GET_GIL
+
+	Py_INCREF(Py_True);
+	return Py_True;
+
+clear:
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyObject *py_snmp_set_community(PyObject * self, PyObject * args) {
 
         char *snmp_community;
 
@@ -4019,10 +4235,16 @@ PyObject *py_snmp_community(PyObject * self, PyObject * args) {
 
 
 static PyMethodDef uwsgi_snmp_methods[] = {
-        {"snmp_set_counter32", py_snmp_counter32, METH_VARARGS, ""},
-        {"snmp_set_counter64", py_snmp_counter64, METH_VARARGS, ""},
-        {"snmp_set_gauge", py_snmp_gauge, METH_VARARGS, ""},
-        {"snmp_set_community", py_snmp_community, METH_VARARGS, ""},
+        {"snmp_set_counter32", py_snmp_set_counter32, METH_VARARGS, ""},
+        {"snmp_set_counter64", py_snmp_set_counter64, METH_VARARGS, ""},
+        {"snmp_set_gauge", py_snmp_set_gauge, METH_VARARGS, ""},
+        {"snmp_incr_counter32", py_snmp_incr_counter32, METH_VARARGS, ""},
+        {"snmp_incr_counter64", py_snmp_incr_counter64, METH_VARARGS, ""},
+        {"snmp_incr_gauge", py_snmp_incr_gauge, METH_VARARGS, ""},
+        {"snmp_decr_counter32", py_snmp_decr_counter32, METH_VARARGS, ""},
+        {"snmp_decr_counter64", py_snmp_decr_counter64, METH_VARARGS, ""},
+        {"snmp_decr_gauge", py_snmp_decr_gauge, METH_VARARGS, ""},
+        {"snmp_set_community", py_snmp_set_community, METH_VARARGS, ""},
         {NULL, NULL},
 };
 
