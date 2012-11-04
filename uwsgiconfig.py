@@ -272,6 +272,8 @@ def build_uwsgi(uc, print_only=False):
     cflags.append('-DUWSGI_CFLAGS=\\"%s\\"' % uwsgi_cflags)
     cflags.append('-DUWSGI_BUILD_DATE="\\"%s\\""' % time.strftime("%d %B %Y %H:%M:%S"))
 
+    post_build = []
+
     push_print("*** uWSGI compiling server core ***")
     for file in gcc_list:
         objfile = file
@@ -331,9 +333,9 @@ def build_uwsgi(uc, print_only=False):
                 except:
                     pass
 
-                post_build = None
                 try:
-                    post_build = up.post_build
+                    if up.post_build:
+                        post_build.append(up.post_build)
                 except:
                     pass
 
@@ -341,8 +343,6 @@ def build_uwsgi(uc, print_only=False):
                     if not cfile.endswith('.a'):
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
-                        if post_build:
-                            post_build(uc)
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
                         gcc_list.append(cfile)
@@ -416,6 +416,9 @@ def build_uwsgi(uc, print_only=False):
         print("*** uWSGI shared library (%s) is ready, move it to a library directory ***" % bin_name)
     else:
         print("*** uWSGI is ready, launch it with %s ***" % bin_name)
+
+    for pb in post_build:
+        pb(uc)
 
 
 class uConf(object):
