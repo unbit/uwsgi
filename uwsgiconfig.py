@@ -331,10 +331,18 @@ def build_uwsgi(uc, print_only=False):
                 except:
                     pass
 
+                post_build = None
+                try:
+                    post_build = up.post_build
+                except:
+                    pass
+
                 for cfile in up.GCC_LIST:
                     if not cfile.endswith('.a'):
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
+                        if post_build:
+                            post_build(uc)
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
                         gcc_list.append(cfile)
@@ -360,6 +368,7 @@ def build_uwsgi(uc, print_only=False):
                 up.LDFLAGS = None
                 up.LIBS = None
                 up.GCC_LIST = None
+                up.post_build = None
 
     if uc.get('plugins'):
 
@@ -1112,8 +1121,15 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
     p_ldflags += up.LDFLAGS
     p_libs = up.LIBS
 
+    post_build = None
+
     try:
         requires = up.REQUIRES
+    except:
+        pass
+
+    try:
+        post_build = up.post_build
     except:
         pass
 
@@ -1207,6 +1223,9 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
             os.unlink('.uwsgi_plugin_section')
     except:
         pass
+
+    if post_build:
+        post_build(uc)
 
     print("*** %s plugin built and available in %s ***" % (name, plugin_dest + '.so'))
 

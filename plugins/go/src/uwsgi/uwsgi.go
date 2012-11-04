@@ -1,18 +1,6 @@
 package uwsgi
 
-import "os"
-import "net/http"
-import "net/http/cgi"
-import "unsafe"
-import "strings"
-import "strconv"
-
 /*
-
-#cgo CFLAGS: -I/root/uwsgi -DUWSGI_HAS_IFADDRS -DUWSGI_LOCK_USE_MUTEX -DUWSGI_EVENT_USE_EPOLL -DUWSGI_EVENT_TIMER_USE_TIMERFD -DUWSGI_EVENT_FILEMONITOR_USE_INOTIFY -fPIC -DUWSGI_AS_SHARED_LIBRARY -DUWSGI_EMBEDDED -DUWSGI_UDP  -DUWSGI_PCRE -DUWSGI_ROUTING -DUWSGI_ALARM -DUWSGI_CAP -DUWSGI_UUID -DUWSGI_VERSION="1.4-dev-9cc89a6" -DUWSGI_VERSION_BASE="1" -DUWSGI_VERSION_MAJOR="4" -DUWSGI_VERSION_MINOR="0" -DUWSGI_VERSION_REVISION="0" -DUWSGI_VERSION_CUSTOM="dev-9cc89a6" -DUWSGI_ASYNC -DUWSGI_MULTICAST -DUWSGI_MINTERPRETERS -DUWSGI_INI -DUWSGI_YAML -DUWSGI_JSON -DUWSGI_LDAP -DUWSGI_SSL -DUWSGI_ZEROMQ -DUWSGI_SNMP -DUWSGI_THREADING -I/usr/include/libxml2 -DUWSGI_XML -DUWSGI_XML_LIBXML2 -DUWSGI_SQLITE3 -DUWSGI_PLUGIN_DIR="." -DUWSGI_SPOOLER
-
-#cgo LDFLAGS: -L. -luwsgi
-
 #include <uwsgi.h>
 extern struct uwsgi_server uwsgi;
 
@@ -26,6 +14,15 @@ static void uwsgi_go_helper_set_argv(char **argv, int pos, char *item) {
 
 */
 import "C"
+
+import (
+	"os"
+	"net/http"
+	"net/http/cgi"
+	"unsafe"
+	"strings"
+	"strconv"
+)
 
 type AppInterface interface {
 	Banner()
