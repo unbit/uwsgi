@@ -41,7 +41,9 @@ type App struct {
 func (app *App) Banner() {}
 func (app *App) PostFork() {}
 func (app *App) PostInit() {}
-func (app *App) RequestHandler(http.ResponseWriter, *http.Request) {}
+func (app *App) RequestHandler(w http.ResponseWriter, r *http.Request) {
+	http.DefaultServeMux.ServeHTTP(w, r)
+}
 
 func (app *App) Signal(signum int) {
 	C.uwsgi_signal_send(C.uwsgi.signal_socket, C.uint8_t(signum))
