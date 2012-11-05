@@ -5,27 +5,19 @@ import "fmt"
 import "net/http"
 import "time"
 
-type App struct {
-	uwsgi.App
-}
-
-func (app *App) Banner() {
-	fmt.Println("I am GO !!!")
-}
-
-func (app *App) PostFork() {
-	if app.WorkerId() == 0 {
-		fmt.Println("PoSt FoRk on mule", app.MuleId(), "!!!")
+func postfork() {
+	if uwsgi.WorkerId() == 0 {
+		fmt.Println("PoSt FoRk on mule", uwsgi.MuleId(), "!!!")
 	} else {
-		fmt.Println("PoSt FoRk on worker", app.WorkerId(), "!!!")
+		fmt.Println("PoSt FoRk on worker", uwsgi.WorkerId(), "!!!")
 	}
 }
 
-func (app *App) RequestHandler(w http.ResponseWriter, r *http.Request) {
-	app.Signal(17)
+func request_handler(w http.ResponseWriter, r *http.Request) {
+	uwsgi.Signal(17)
 	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
 	fmt.Fprintf(w, "<h1>Hi there, I love %s!</h1>", r.URL.Path[1:])
-	fmt.Println("LOGSIZE: ", app.LogSize())
+	fmt.Println("LOGSIZE: ", uwsgi.LogSize())
 	go slow()
 }
 
@@ -34,7 +26,7 @@ func hello(signum int) {
 }
 
 func hello2(signum int) {
-	fmt.Println("I am an rb_timer running on mule", u.MuleId())
+	fmt.Println("I am an rb_timer running on mule", uwsgi.MuleId())
 }
 
 func slow() {
@@ -42,16 +34,18 @@ func slow() {
 	fmt.Println("8 seconds ELAPSED !!!")
 }
 
-func (app *App) PostInit() {
-	app.RegisterSignal(17, "", hello)
-	app.AddTimer(17, 3)
+func postinit() {
+	uwsgi.RegisterSignal(17, "", hello)
+	uwsgi.AddTimer(17, 3)
 
-	app.RegisterSignal(30, "mule1", hello2)
-	app.AddTimer(30, 5)
+	uwsgi.RegisterSignal(30, "mule1", hello2)
+	uwsgi.AddTimer(30, 5)
 }
 
-var u App
 
 func main() {
-	uwsgi.Run(&u)
+	uwsgi.PostInit(postinit)
+	uwsgi.PostFork(postfork)
+	uwsgi.RequestHandler(request_handler)
+	uwsgi.Run()
 }

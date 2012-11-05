@@ -26,6 +26,5 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/post/", postHandler)
-	var u uwsgi.App
-	uwsgi.Run(&u)
+	uwsgi.Run()
 }

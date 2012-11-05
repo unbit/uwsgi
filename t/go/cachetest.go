@@ -6,7 +6,7 @@ import "fmt"
 
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
-	p := u.CacheGet("foobar")
+	p := uwsgi.CacheGet("foobar")
 	if p == nil {
 		fmt.Fprintf(w, "<h1>item not found</h1>")
 		return
@@ -15,7 +15,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setHandler(w http.ResponseWriter, r *http.Request) {
-	if u.CacheSet("foobar", []byte("Hello World !"), 0) == false {
+	if uwsgi.CacheSet("foobar", []byte("Hello World !"), 0) == false {
 		fmt.Fprintf(w, "<h1>unable to set cache item</h1>")
                 return
 	}
@@ -23,7 +23,7 @@ func setHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateHandler(w http.ResponseWriter, r *http.Request) {
-	if u.CacheUpdate("foobar", []byte("Hello World ! [updated]"), 0) == false {
+	if uwsgi.CacheUpdate("foobar", []byte("Hello World ! [updated]"), 0) == false {
 		fmt.Fprintf(w, "<h1>unable to update cache item</h1>")
                 return
 	}
@@ -31,7 +31,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
-        if u.CacheDel("foobar") == false {
+        if uwsgi.CacheDel("foobar") == false {
                 fmt.Fprintf(w, "<h1>unable to delete cache item</h1>")
                 return
         }
@@ -39,7 +39,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func checkHandler(w http.ResponseWriter, r *http.Request) {
-        if !u.CacheExists("foobar")  {
+        if !uwsgi.CacheExists("foobar")  {
                 fmt.Fprintf(w, "<h1>item does not exist</h1>")
                 return
         }
@@ -47,14 +47,11 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-
-var u uwsgi.App
-
 func main() {
 	http.HandleFunc("/get/", getHandler)
 	http.HandleFunc("/update/", updateHandler)
 	http.HandleFunc("/set/", setHandler)
 	http.HandleFunc("/delete/", deleteHandler)
 	http.HandleFunc("/check/", checkHandler)
-	uwsgi.Run(&u)
+	uwsgi.Run()
 }

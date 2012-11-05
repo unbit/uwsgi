@@ -31,23 +31,6 @@ import (
 	"io"
 )
 
-/*
-This is the interface exposed to applications.
-You are free to use it or simply rely on http.DefaultServeMux
-*/
-type AppInterface interface {
-	// run this method on server startup
-	Banner()
-	// run after each fork()
-	PostFork()
-	// run after having initialized go engine
-	PostInit()
-	// run at each request
-	RequestHandler(http.ResponseWriter, *http.Request)
-}
-
-// global instances...
-var uwsgi_instance AppInterface
 // this stores the modifier used by the go plugin (default 11)
 var uwsgi_modifier1 int = -1;
 // the following to objects are used to implement a sort of GC to avoid request environ and
@@ -55,17 +38,10 @@ var uwsgi_modifier1 int = -1;
 var uwsgi_env_gc = make(map[*C.struct_wsgi_request](*map[string]string))
 var uwsgi_signals_gc = make([]*func(int), 256)
 
-// a struct implementing the AppInterface interface
-type App struct {
-}
+var uwsgi_default_handler func(http.ResponseWriter, *http.Request) = nil
+var uwsgi_post_fork_hook func() = nil
+var uwsgi_post_init_hook func() = nil
 
-func (app *App) Banner() {}
-func (app *App) PostFork() {}
-func (app *App) PostInit() {}
-// here happens the magic, supporting http.DefaultServeMux
-func (app *App) RequestHandler(w http.ResponseWriter, r *http.Request) {
-	http.DefaultServeMux.ServeHTTP(w, r)
-}
 
 /*
 
@@ -74,22 +50,22 @@ func (app *App) RequestHandler(w http.ResponseWriter, r *http.Request) {
 */
 
 // raise a uWSGI signal
-func (app *App) Signal(signum int) {
+func Signal(signum int) {
 	C.uwsgi_signal_send(C.uwsgi.signal_socket, C.uint8_t(signum))
 }
 
 // set a user lock
-func (app *App) Lock(num int) {
+func Lock(num int) {
 	C.uwsgi_user_lock(C.int(num));
 }
 
 // unset a user lock
-func (app *App) Unlock(num int) {
+func Unlock(num int) {
 	C.uwsgi_user_unlock(C.int(num));
 }
 
 // add a timer
-func (app *App) AddTimer(signum int, seconds int) bool {
+func AddTimer(signum int, seconds int) bool {
 	if int(C.uwsgi_add_timer(C.uint8_t(signum), C.int(seconds))) == 0 {
 		return true
 	}
@@ -97,7 +73,7 @@ func (app *App) AddTimer(signum int, seconds int) bool {
 }
 
 // add a red black timer
-func (app *App) AddRbTimer(signum int, seconds int) bool {
+func AddRbTimer(signum int, seconds int) bool {
 	if int(C.uwsgi_signal_add_rb_timer(C.uint8_t(signum), C.int(seconds), C.int(0))) == 0 {
 		return true
 	}
@@ -105,7 +81,7 @@ func (app *App) AddRbTimer(signum int, seconds int) bool {
 }
 
 // check if a signal is registered
-func (app *App) SignalRegistered(signum int) bool {
+func SignalRegistered(signum int) bool {
 	if int(C.uwsgi_signal_registered(C.uint8_t(signum))) == 0 {
 		return false
 	}
@@ -113,7 +89,7 @@ func (app *App) SignalRegistered(signum int) bool {
 }
 
 // register a signal
-func (app *App) RegisterSignal(signum int, who string, handler func(int)) bool {
+func RegisterSignal(signum int, who string, handler func(int)) bool {
 	if uwsgi_modifier1 == -1 {
 		c_go := C.CString("go")
 		defer C.free(unsafe.Pointer(c_go))
@@ -132,7 +108,7 @@ func (app *App) RegisterSignal(signum int, who string, handler func(int)) bool {
 }
 
 // get an item from the cache
-func (app *App) CacheGet(key string) []byte {
+func CacheGet(key string) []byte {
 	if int(C.uwsgi_cache_enabled()) == 0 {
                 return nil
         }
@@ -160,7 +136,7 @@ func (app *App) CacheGet(key string) []byte {
 }
 
 // remove an intem from the cache
-func (app *App) CacheDel(key string) bool {
+func CacheDel(key string) bool {
 	if int(C.uwsgi_cache_enabled()) == 0 {
 		return false
 	}
@@ -181,7 +157,7 @@ func (app *App) CacheDel(key string) bool {
 }
 
 // check if an item exists in the cache
-func (app *App) CacheExists(key string) bool {
+func CacheExists(key string) bool {
 	if int(C.uwsgi_cache_enabled()) == 0 {
                 return false
         }
@@ -202,7 +178,7 @@ func (app *App) CacheExists(key string) bool {
 }
 
 // put an item in the cache
-func (app *App) CacheSetFlags(key string, p []byte, expires uint64, flags int) bool {
+func CacheSetFlags(key string, p []byte, expires uint64, flags int) bool {
 
 	if int(C.uwsgi_cache_enabled()) == 0 {
 		return false
@@ -225,27 +201,39 @@ func (app *App) CacheSetFlags(key string, p []byte, expires uint64, flags int) b
 	return true
 }
 
-func (app *App) CacheSet(key string, p []byte, expires uint64) bool {
-	return app.CacheSetFlags(key, p, expires, 0);
+func CacheSet(key string, p []byte, expires uint64) bool {
+	return CacheSetFlags(key, p, expires, 0);
 }
 
-func (app *App) CacheUpdate(key string, p []byte, expires uint64) bool {
-	return app.CacheSetFlags(key, p, expires, 2);
+func CacheUpdate(key string, p []byte, expires uint64) bool {
+	return CacheSetFlags(key, p, expires, 2);
 }
 
 // get the current worker id
-func (app *App) WorkerId() int {
+func WorkerId() int {
         return int(C.uwsgi.mywid)
 }
 
 // get the current mule id
-func (app *App) MuleId() int {
+func MuleId() int {
         return int(C.uwsgi.muleid)
 }
 
 // get the current logsize (if available)
-func (app *App) LogSize() int64 {
+func LogSize() int64 {
         return int64(C.uwsgi.shared.logsize)
+}
+
+func PostFork(hook func()) {
+	uwsgi_post_fork_hook = hook
+}
+
+func PostInit(hook func()) {
+	uwsgi_post_init_hook = hook
+}
+
+func RequestHandler(hook func(http.ResponseWriter, *http.Request)) {
+	uwsgi_default_handler = hook
 }
 
 /*
@@ -256,12 +244,16 @@ func (app *App) LogSize() int64 {
 
 //export uwsgi_go_helper_post_fork
 func uwsgi_go_helper_post_fork() {
-	uwsgi_instance.PostFork()
+	if uwsgi_post_fork_hook != nil {
+		uwsgi_post_fork_hook()
+	}
 }
 
 //export uwsgi_go_helper_post_init
 func uwsgi_go_helper_post_init() {
-	uwsgi_instance.PostInit()
+	if uwsgi_post_init_hook != nil {
+		uwsgi_post_init_hook()
+	}
 }
 
 //export uwsgi_go_helper_env_new
@@ -363,7 +355,11 @@ func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_req
 	} else {
 		httpReq.Body = &BodyReader{wsgi_req}
 		w := ResponseWriter{httpReq, wsgi_req,http.Header{},false, ""}
-		uwsgi_instance.RequestHandler(&w, httpReq)
+		if uwsgi_default_handler != nil {
+			uwsgi_default_handler(&w, httpReq)
+		} else {
+			http.DefaultServeMux.ServeHTTP(&w, httpReq)
+		}
 	}
 }
 
@@ -381,14 +377,11 @@ func uwsgi_go_helper_run_core(core_id int) {
 /*
 	the main function, running the uWSGI server via libuwsgi.so
 */
-func Run(u AppInterface) {
-	uwsgi_instance = u
+func Run() {
         argc := len(os.Args)
         argv := C.uwsgi_go_helper_create_argv(C.int(argc))
         for i, s := range os.Args {
                 C.uwsgi_go_helper_set_argv(argv, C.int(i), C.CString(s))
         }
-	// just a funny banner...
-	u.Banner()
         C.uwsgi_init(C.int(argc), argv, nil)
 }
