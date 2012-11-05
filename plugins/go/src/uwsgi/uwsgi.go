@@ -51,6 +51,9 @@ var uwsgi_post_init_hook func() = nil
 
 // raise a uWSGI signal
 func Signal(signum int) {
+	if C.uwsgi.master_process == 0 {
+		return
+	}
 	C.uwsgi_signal_send(C.uwsgi.signal_socket, C.uint8_t(signum))
 }
 
@@ -66,6 +69,9 @@ func Unlock(num int) {
 
 // add a timer
 func AddTimer(signum int, seconds int) bool {
+	if C.uwsgi.master_process == 0 {
+		return false
+	}
 	if int(C.uwsgi_add_timer(C.uint8_t(signum), C.int(seconds))) == 0 {
 		return true
 	}
@@ -74,6 +80,9 @@ func AddTimer(signum int, seconds int) bool {
 
 // add a red black timer
 func AddRbTimer(signum int, seconds int) bool {
+	if C.uwsgi.master_process == 0 {
+		return false
+	}
 	if int(C.uwsgi_signal_add_rb_timer(C.uint8_t(signum), C.int(seconds), C.int(0))) == 0 {
 		return true
 	}
@@ -82,6 +91,9 @@ func AddRbTimer(signum int, seconds int) bool {
 
 // check if a signal is registered
 func SignalRegistered(signum int) bool {
+	if C.uwsgi.master_process == 0 {
+		return false
+	}
 	if int(C.uwsgi_signal_registered(C.uint8_t(signum))) == 0 {
 		return false
 	}
@@ -90,6 +102,9 @@ func SignalRegistered(signum int) bool {
 
 // register a signal
 func RegisterSignal(signum int, who string, handler func(int)) bool {
+	if C.uwsgi.master_process == 0 {
+		return false
+	}
 	if uwsgi_modifier1 == -1 {
 		c_go := C.CString("go")
 		defer C.free(unsafe.Pointer(c_go))
