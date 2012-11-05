@@ -4935,6 +4935,49 @@ void uwsgi_simple_response_write_header(struct wsgi_request *wsgi_req, char *buf
 	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, buf, len);
 }
 
+ssize_t uwsgi_simple_request_read(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	if (wsgi_req->post_cl == 0) return 0;
+	if ((size_t)wsgi_req->post_pos >= wsgi_req->post_cl) return 0;
+	size_t remains = wsgi_req->post_cl - wsgi_req->post_pos;
+	remains = UMIN(len, remains);
+
+	int fd = -1;
+
+	if (wsgi_req->body_as_file) {
+                fd = fileno((FILE *)wsgi_req->async_post);
+        }
+        else if (uwsgi.post_buffering > 0) {
+                if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
+                        fd = fileno((FILE *)wsgi_req->async_post);
+                }
+        }
+        else {
+                fd = wsgi_req->poll.fd;
+        }
+
+        // data in memory ?
+        if (fd == -1) {
+		memcpy(buf, wsgi_req->post_buffering_buf + wsgi_req->post_buffering_read, remains);
+		wsgi_req->post_buffering_read+=remains;
+                wsgi_req->post_pos += remains;
+		return remains;
+        }
+
+        if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
+                uwsgi_log("error waiting for request body");
+		return -1;
+        }
+
+        ssize_t rlen = read(fd, buf, remains);
+        if (rlen < 0) {
+                uwsgi_error("error reading request body:");
+		return -1;
+        }
+
+        wsgi_req->post_pos += rlen;
+	return rlen;
+}
+
 int uwsgi_plugin_modifier1(char *plugin) {
 	int ret = -1;
 	char *symbol_name = uwsgi_concat2(plugin, "_plugin");

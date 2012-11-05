@@ -28,6 +28,7 @@ import (
 	"unsafe"
 	"strings"
 	"strconv"
+	"io"
 )
 
 /*
@@ -165,6 +166,7 @@ func uwsgi_go_helper_post_init() {
 func uwsgi_go_helper_env_new(wsgi_req *C.struct_wsgi_request) *map[string]string {
 	var env map[string]string
 	env = make(map[string]string)
+	// track env to avoid it being garbage collected...
 	uwsgi_env_gc[wsgi_req] = &env
 	return &env
 }
@@ -231,12 +233,33 @@ func (w *ResponseWriter) Header() http.Header {
 }
 
 
+type BodyReader struct {
+	wsgi_req *C.struct_wsgi_request
+}
+
+// there is no close in request body
+func (br *BodyReader) Close() error {
+	return nil
+}
+
+func (br *BodyReader) Read(p []byte) (n int, err error) {
+	m := len(p)
+	rlen := int(C.uwsgi_simple_request_read(br.wsgi_req, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(m)))
+	if rlen < 0 {
+		err = io.ErrUnexpectedEOF
+		rlen = 0
+	} else if rlen == 0 {
+		err = io.EOF
+	}
+	return rlen, err
+}
 
 //export uwsgi_go_helper_request
 func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_request) {
 	httpReq, err := cgi.RequestFromMap(*env)
 	if err != nil {
 	} else {
+		httpReq.Body = &BodyReader{wsgi_req}
 		w := ResponseWriter{httpReq, wsgi_req,http.Header{},false, ""}
 		uwsgi_instance.RequestHandler(&w, httpReq)
 	}
