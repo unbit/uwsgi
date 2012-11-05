@@ -27,30 +27,22 @@ struct uwsgi_option uwsgi_go_options[] = {
 
 };
 
+#define uwsgi_go_get_symbol(x)	x ## _c = dlsym(RTLD_DEFAULT, #x);\
+				if (!x ## _c) {\
+					uwsgi_log("[uwsgi-go] unable to load " #x " function\n"); exit(1);\
+				}
+
 int uwsgi_go_init() {
 
 	// build the functions table
 
-	uwsgi_go_helper_post_fork_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_post_fork");
-	if (!uwsgi_go_helper_post_fork_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_post_fork function\n"); exit(1); }
-
-	uwsgi_go_helper_post_init_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_post_init");
-	if (!uwsgi_go_helper_post_init_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_post_init function\n"); exit(1); }
-
-	uwsgi_go_helper_env_new_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_env_new");
-	if (!uwsgi_go_helper_env_new_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_env_new function\n"); exit(1); }
-
-	uwsgi_go_helper_env_add_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_env_add");
-	if (!uwsgi_go_helper_env_add_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_env_add function\n"); exit(1); }
-
-	uwsgi_go_helper_request_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_request");
-	if (!uwsgi_go_helper_request_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_request function\n"); exit(1); }
-
-	uwsgi_go_helper_signal_handler_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_signal_handler");
-	if (!uwsgi_go_helper_signal_handler_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_signal_handler function\n"); exit(1); }
-
-	uwsgi_go_helper_run_core_c = dlsym(RTLD_DEFAULT, "uwsgi_go_helper_run_core");
-	if (!uwsgi_go_helper_run_core_c) { uwsgi_log("[uwsgi-go] unable to load uwsgi_go_helper_run_core function\n"); exit(1); }
+	uwsgi_go_get_symbol(uwsgi_go_helper_post_fork)
+	uwsgi_go_get_symbol(uwsgi_go_helper_post_init)
+	uwsgi_go_get_symbol(uwsgi_go_helper_env_new)
+	uwsgi_go_get_symbol(uwsgi_go_helper_env_add)
+	uwsgi_go_get_symbol(uwsgi_go_helper_request)
+	uwsgi_go_get_symbol(uwsgi_go_helper_signal_handler)
+	uwsgi_go_get_symbol(uwsgi_go_helper_run_core)
 
 	// call PostInit()
 	uwsgi_go_helper_post_init_c();
