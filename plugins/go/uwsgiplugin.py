@@ -16,6 +16,7 @@ def post_build(config):
     cflags.append('-Wno-implicit-function-declaration')
     cflags.append('-Wno-implicit-int')
     cflags.append('-Wno-unused-function')
+    cflags.append('-Wno-unused-variable')
     
     os.environ['CGO_CFLAGS'] = ' '.join(cflags).replace('\\"', '')
     base = os.path.dirname(config.get('bin_name'))

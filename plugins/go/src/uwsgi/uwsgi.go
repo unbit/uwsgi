@@ -131,6 +131,108 @@ func (app *App) RegisterSignal(signum int, who string, handler func(int)) bool {
 	return false
 }
 
+// get an item from the cache
+func (app *App) CacheGet(key string) []byte {
+	if int(C.uwsgi_cache_enabled()) == 0 {
+                return nil
+        }
+
+	k := C.CString(key)
+        defer C.free(unsafe.Pointer(k))
+        kl := len(key)
+	var vl C.uint64_t = C.uint64_t(0)
+
+	C.uwsgi_cache_rlock()
+
+	c_value := C.uwsgi_cache_get(k, C.uint16_t(kl), &vl)
+
+	var p []byte
+
+	if vl > 0 {
+		p = C.GoBytes((unsafe.Pointer)(c_value), C.int(vl))
+	} else {
+		p = nil
+	}
+
+	C.uwsgi_cache_rwunlock()
+
+	return p
+}
+
+// remove an intem from the cache
+func (app *App) CacheDel(key string) bool {
+	if int(C.uwsgi_cache_enabled()) == 0 {
+		return false
+	}
+
+	k := C.CString(key)
+	defer C.free(unsafe.Pointer(k))
+	kl := len(key)
+
+	C.uwsgi_cache_wlock()
+
+	if int(C.uwsgi_cache_del(k, C.uint16_t(kl), C.uint64_t(0))) < 0 {
+		C.uwsgi_cache_rwunlock();
+                return false;
+	}
+
+        C.uwsgi_cache_rwunlock();
+	return true
+}
+
+// check if an item exists in the cache
+func (app *App) CacheExists(key string) bool {
+	if int(C.uwsgi_cache_enabled()) == 0 {
+                return false
+        }
+
+        k := C.CString(key)
+        defer C.free(unsafe.Pointer(k))
+        kl := len(key)
+
+        C.uwsgi_cache_rlock()
+
+        if int(C.uwsgi_cache_exists(k, C.uint16_t(kl))) > 0 {
+                C.uwsgi_cache_rwunlock();
+                return true;
+        }
+
+        C.uwsgi_cache_rwunlock();
+        return false
+}
+
+// put an item in the cache
+func (app *App) CacheSetFlags(key string, p []byte, expires uint64, flags int) bool {
+
+	if int(C.uwsgi_cache_enabled()) == 0 {
+		return false
+	}
+
+	k := C.CString(key)
+	defer C.free(unsafe.Pointer(k))
+	kl := len(key)
+	v := unsafe.Pointer(&p[0])
+	vl := len(p)
+
+	C.uwsgi_cache_wlock()
+
+        if int(C.uwsgi_cache_set(k, C.uint16_t(kl), (*C.char)(v), C.uint64_t(vl), C.uint64_t(expires), C.uint16_t(flags))) < 0 {
+                C.uwsgi_cache_rwunlock();
+                return false;
+        }
+
+        C.uwsgi_cache_rwunlock();
+	return true
+}
+
+func (app *App) CacheSet(key string, p []byte, expires uint64) bool {
+	return app.CacheSetFlags(key, p, expires, 0);
+}
+
+func (app *App) CacheUpdate(key string, p []byte, expires uint64) bool {
+	return app.CacheSetFlags(key, p, expires, 2);
+}
+
 // get the current worker id
 func (app *App) WorkerId() int {
         return int(C.uwsgi.mywid)
@@ -286,6 +388,7 @@ func Run(u AppInterface) {
         for i, s := range os.Args {
                 C.uwsgi_go_helper_set_argv(argv, C.int(i), C.CString(s))
         }
+	// just a funny banner...
 	u.Banner()
         C.uwsgi_init(C.int(argc), argv, nil)
 }

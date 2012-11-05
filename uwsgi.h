@@ -3440,6 +3440,11 @@ void uwsgi_simple_inc_headers(struct wsgi_request *);
 ssize_t uwsgi_simple_request_read(struct wsgi_request *, char *, size_t);
 int uwsgi_plugin_modifier1(char *);
 
+int uwsgi_cache_enabled(void);
+void uwsgi_cache_wlock(void);
+void uwsgi_cache_rlock(void);
+void uwsgi_cache_rwunlock(void);
+
 void uwsgi_user_lock(int);
 void uwsgi_user_unlock(int);
 

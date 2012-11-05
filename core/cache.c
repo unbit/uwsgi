@@ -443,3 +443,19 @@ int uwsgi_cache_server(char *socket, int threads) {
         return *fd;
 }
 
+int uwsgi_cache_enabled() {
+	if (uwsgi.cache_max_items > 0) return 1;
+	return 0;
+}
+
+void uwsgi_cache_wlock() {
+	uwsgi.lock_ops.wlock(uwsgi.cache_lock);
+}
+
+void uwsgi_cache_rlock() {
+	uwsgi.lock_ops.rlock(uwsgi.cache_lock);
+}
+
+void uwsgi_cache_rwunlock() {
+	uwsgi.lock_ops.rwunlock(uwsgi.cache_lock);
+}
