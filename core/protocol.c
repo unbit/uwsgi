@@ -1030,6 +1030,12 @@ next:
 
 	// check for static files
 
+	// skip methods other than GET and HEAD
+	if (uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "GET", 3) &&
+	    uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {
+		return 0;
+	}
+
 	// skip extensions
 	struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
 	while(sse) {
