@@ -904,6 +904,14 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
 			uwsgi_cr_hook_write(cs, NULL);
 			uwsgi_cr_hook_read(cs, hr_recv_http_ssl);
 		}
+		int ret2 = SSL_pending(hs->ssl);
+		if (ret2 > 0) {
+			if (uwsgi_buffer_fix(cs->buffer, cs->buffer->len + ret2 )) return -1;
+			if (SSL_read(hs->ssl, cs->buffer->buf + cs->buffer_pos + ret, ret2) != ret2) {
+				return -1;
+			}
+			ret += ret2;
+		}
 		return hs_http_manage(cs, ret);
 	}
 	if (ret == 0) return 0;

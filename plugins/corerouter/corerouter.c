@@ -840,6 +840,8 @@ void uwsgi_corerouter_loop(int id, void *data) {
 					continue;
 				}
 
+				// reset errno (as we use it for internal signalling)
+				errno = 0;
 				ssize_t ret = hook(cr_session);
 				// connection closed
 				if (ret == 0) {
