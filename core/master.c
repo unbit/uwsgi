@@ -1592,6 +1592,9 @@ next:
 				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
 			}
 		}
+		else if (uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
+			// worker restarted after hitting max requests
+		}
 		else {
                 	uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
 		}
