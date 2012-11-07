@@ -49,10 +49,11 @@ void uwsgi_systemd_init(char *systemd_socket) {
 		return;
 	}
 
+	size_t len = strlen(systemd_socket);
 	sd_sun = uwsgi_malloc(sizeof(struct sockaddr_un));
 	memset(sd_sun, 0, sizeof(struct sockaddr_un));
 	sd_sun->sun_family = AF_UNIX;
-	strncpy(sd_sun->sun_path, systemd_socket, sizeof(sd_sun->sun_path));
+	strncpy(sd_sun->sun_path, systemd_socket, UMIN(len, sizeof(sd_sun->sun_path)));
 	if (sd_sun->sun_path[0] == '@') sd_sun->sun_path[0] = 0;
 
 	msghdr = uwsgi_malloc(sizeof(struct msghdr));
@@ -62,7 +63,7 @@ void uwsgi_systemd_init(char *systemd_socket) {
 	memset(msghdr->msg_iov, 0, sizeof(struct iovec)*3);
 
 	msghdr->msg_name = sd_sun;
-	msghdr->msg_namelen = sizeof(struct sockaddr_un);
+	msghdr->msg_namelen = sizeof(struct sockaddr_un) - (sizeof(sd_sun->sun_path)-len);
 
 	uwsgi.notification_object = msghdr;
 
