@@ -18,6 +18,7 @@ static sapi_module_struct uwsgi_sapi_module;
 struct uwsgi_php {
 	struct uwsgi_string_list *allowed_docroot;
 	struct uwsgi_string_list *allowed_ext;
+	struct uwsgi_string_list *allowed_scripts;
 	struct uwsgi_string_list *index;
 	struct uwsgi_string_list *set;
 	struct uwsgi_string_list *append_config;
@@ -45,6 +46,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-docroot", required_argument, 0, "force php DOCUMENT_ROOT", uwsgi_opt_set_str, &uphp.docroot, 0},
         {"php-allowed-docroot", required_argument, 0, "list the allowed document roots", uwsgi_opt_add_string_list, &uphp.allowed_docroot, 0},
         {"php-allowed-ext", required_argument, 0, "list the allowed php file extensions", uwsgi_opt_add_string_list, &uphp.allowed_ext, 0},
+        {"php-allowed-script", required_argument, 0, "list the allowed php scripts (require absolute path)", uwsgi_opt_add_string_list, &uphp.allowed_scripts, 0},
         {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
@@ -873,6 +875,22 @@ secure2:
 
 	wsgi_req->file = real_filename;
 	wsgi_req->file_len = strlen(wsgi_req->file);
+
+	if (uphp.allowed_scripts) {
+                struct uwsgi_string_list *usl = uphp.allowed_scripts;
+                while(usl) {
+                	if (!uwsgi_strncmp(wsgi_req->file, wsgi_req->file_len, usl->value, usl->len)) {
+                        	goto secure3;
+                        }
+                        usl = usl->next;
+                }
+                uwsgi_php_403(wsgi_req);
+                uwsgi_log("PHP security error: %s is not an allowed script\n", real_filename);
+                return -1;
+        }
+
+secure3:
+
 
 	if (wsgi_req->document_root[wsgi_req->document_root_len-1] == '/') {
 		wsgi_req->script_name = real_filename + (wsgi_req->document_root_len-1);
