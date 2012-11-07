@@ -38,7 +38,8 @@ var uwsgi_modifier1 int = -1;
 var uwsgi_env_gc = make(map[*C.struct_wsgi_request](*map[string]string))
 var uwsgi_signals_gc = make([]*func(int), 256)
 
-var uwsgi_default_handler func(http.ResponseWriter, *http.Request) = nil
+var uwsgi_default_request_handler func(http.ResponseWriter, *http.Request) = nil
+var uwsgi_default_handler http.Handler = nil
 var uwsgi_post_fork_hook func() = nil
 var uwsgi_post_init_hook func() = nil
 
@@ -248,7 +249,11 @@ func PostInit(hook func()) {
 }
 
 func RequestHandler(hook func(http.ResponseWriter, *http.Request)) {
-	uwsgi_default_handler = hook
+	uwsgi_default_request_handler = hook
+}
+
+func Handler(handler http.Handler) {
+	uwsgi_default_handler = handler
 }
 
 /*
@@ -370,8 +375,10 @@ func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_req
 	} else {
 		httpReq.Body = &BodyReader{wsgi_req}
 		w := ResponseWriter{httpReq, wsgi_req,http.Header{},false, ""}
-		if uwsgi_default_handler != nil {
-			uwsgi_default_handler(&w, httpReq)
+		if uwsgi_default_request_handler != nil {
+			uwsgi_default_request_handler(&w, httpReq)
+		} else if uwsgi_default_handler != nil {
+			uwsgi_default_handler.ServeHTTP(&w, httpReq)
 		} else {
 			http.DefaultServeMux.ServeHTTP(&w, httpReq)
 		}
