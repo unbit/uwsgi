@@ -1885,6 +1885,9 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 				uwsgi_add_expires_type(wsgi_req, mime_type, mime_type_size, st);
 			}
 
+			// increase static requests counter
+			uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].static_requests++;	
+
 			// nginx
 			if (uwsgi.file_serve_mode == 1) {
 				headers_vec[0].iov_base = "X-Accel-Redirect: "; headers_vec[0].iov_len = 18 ;

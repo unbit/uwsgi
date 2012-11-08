@@ -2053,7 +2053,8 @@ struct uwsgi_core {
 	//time_t harakiri;
 
 	uint64_t        requests;
-	uint64_t failed_requests;
+	uint64_t	failed_requests;
+	uint64_t        static_requests;
 
 #ifdef UWSGI_THREADING
 	pthread_t thread_id;
