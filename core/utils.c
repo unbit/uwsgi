@@ -1822,6 +1822,17 @@ int uwsgi_is_dir(char *filename) {
 	return 0;
 }
 
+int uwsgi_is_link(char *filename) {
+        struct stat st;
+        if (lstat(filename, &st)) {
+                return 0;
+        }
+        if (S_ISLNK(st.st_mode))
+                return 1;
+        return 0;
+}
+
+
 int uwsgi_logic_opt_if_opt(char *key, char *value) {
 
         // check for env-value syntax

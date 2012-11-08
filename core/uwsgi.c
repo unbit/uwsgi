@@ -669,18 +669,27 @@ restart:
 void config_magic_table_fill(char *filename, char **magic_table) {
 
 	char *tmp = NULL;
+	char *fullname = filename;
 
-	char *fullname = uwsgi_expand_path(filename, strlen(filename), NULL);
-	if (!fullname) {
-		fullname = filename;
+	// we have a special case for symlinks
+	if (uwsgi_is_link(filename)) {
+		if (filename[0] != '/') {
+			fullname = uwsgi_concat3(uwsgi.cwd, "/", filename);
+		}
 	}
-	// free unused memory
 	else {
-		char *minimal_name = uwsgi_malloc(strlen(fullname) + 1);
-		memcpy(minimal_name, fullname, strlen(fullname));
-		minimal_name[strlen(fullname)] = 0;
-		free(fullname);
-		fullname = minimal_name;
+
+		fullname = uwsgi_expand_path(filename, strlen(filename), NULL);
+		if (fullname) {
+			char *minimal_name = uwsgi_malloc(strlen(fullname) + 1);
+			memcpy(minimal_name, fullname, strlen(fullname));
+			minimal_name[strlen(fullname)] = 0;
+			free(fullname);
+			fullname = minimal_name;
+		}
+		else {
+			fullname = filename;
+		}
 	}
 
 	magic_table['o'] = filename;

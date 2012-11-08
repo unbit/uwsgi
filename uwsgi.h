@@ -3139,6 +3139,7 @@ int uwsgi_try_autoload(char *);
 
 uint64_t uwsgi_micros(void);
 int uwsgi_is_file(char *);
+int uwsgi_is_link(char *);
 
 void uwsgi_receive_signal(int, char *, int);
 void uwsgi_exec_atexit(void);
