@@ -4918,6 +4918,7 @@ int uwsgi_send_http_stats(int fd) {
 
 	if (uwsgi_buffer_append(ub, "HTTP/1.0 200 OK\r\n", 17)) goto error;
 	if (uwsgi_buffer_append(ub, "Connection: close\r\n", 19)) goto error;
+	if (uwsgi_buffer_append(ub, "Access-Control-Allow-Origin: *\r\n", 32)) goto error;
 	if (uwsgi_buffer_append(ub, "Content-Type: application/json\r\n", 32)) goto error;
 	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto error;
 
