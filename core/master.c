@@ -1592,8 +1592,9 @@ next:
 				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
 			}
 		}
-		else {
-                	uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
+		// manage_next_request is zero, but killed by signal...
+		else if (WIFSIGNALED(waitpid_status)) {
+                	uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
 		}
 
 		if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {
