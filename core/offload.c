@@ -253,7 +253,7 @@ static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *ut, struct uwsgi
         int ret = sendfile(uor->fd, uor->s, uor->pos, &len, NULL, 0);
         // transfer finished
         if (ret == -1) {
-                uor->pos += sbytes;
+                uor->pos += len;
                 uwsgi_offload_retry
                 uwsgi_error("sendfile()");
         }
