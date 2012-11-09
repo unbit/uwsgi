@@ -210,55 +210,6 @@ struct uwsgi_thread *uwsgi_offload_thread_start() {
 	return uwsgi_thread_new(uwsgi_offload_loop);
 }
 
-/* the offload task starts after having acquired the file fd
-
-	status:
-		0 -> read
-		1 -> write
-
-*/
-
-/*
-int uwsgi_offload_readwrite_transfer(struct uwsgi_offload_request *uor, int fd) {
-
-	if (!uor->buf) {
-                                uor->buf = uwsgi_malloc(32768);
-                                uor->to_write = 0;
-                        }
-                        if (uor->to_write == 0) {
-                                ssize_t len = read(uor->fd, uor->buf, 32768);
-                                if (len > 0) {
-                                        uor->to_write = len;
-                                        uor->buf_pos = 0;
-                                        continue;
-                                }
-                                else if (len < 0) {
-                                        uwsgi_error("read()");
-                                }
-                                uwsgi_offload_close(uor);
-                                continue;
-                        }
-                        ssize_t len = write(uor->s, uor->buf + uor->buf_pos, uor->to_write);
-                        if (len > 0) {
-                                uor->written += len;
-                                uor->to_write -= len;
-                                uor->buf_pos += len;
-                                if (uor->written >= uor->len) {
-                                        uwsgi_offload_close(uor);
-                                }
-                                continue;
-                        }
-                        else if (len < 0) {
-                                if (errno == EAGAIN)
-                                        continue;
-                                uwsgi_error("write()");
-                        }
-
-	return -1;
-
-}
-*/
-
 /*
 
 the offload task starts after having acquired the file fd
@@ -297,6 +248,15 @@ static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *ut, struct uwsgi
 		uwsgi_offload_retry
                 uwsgi_error("sendfile()");
 	}
+#elif defined(__APPLE__)
+	off_t len = 0;
+        int ret = sendfile(uor->fd, uor->s, uor->pos, &len, NULL, 0);
+        // transfer finished
+        if (ret == -1) {
+                uor->pos += sbytes;
+                uwsgi_offload_retry
+                uwsgi_error("sendfile()");
+        }
 #endif
 	return -1;
 
