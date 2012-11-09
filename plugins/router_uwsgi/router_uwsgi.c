@@ -44,6 +44,23 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 		uwsgi_req_append(wsgi_req, "UWSGI_APPID", 11, ur->data2, ur->data2_len);
 	}
 
+	// ok now if have offload threads, directly use them
+        if (wsgi_req->socket->can_offload) {
+		struct uwsgi_buffer *ub = uwsgi_buffer_new(4 + wsgi_req->uh.pktsize);
+		if (ub) {
+			uh->pktsize = wsgi_req->uh.pktsize;
+			if (uwsgi_buffer_append(ub, (char *) uh, 4)) goto bad;
+			if (uwsgi_buffer_append(ub, wsgi_req->buffer, uh->pktsize)) goto bad;
+                	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
+                        	wsgi_req->status = -30;
+                        	return UWSGI_ROUTE_BREAK;
+                	}
+bad:
+			uwsgi_buffer_destroy(ub);
+		}
+        }
+
+
 	int uwsgi_fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (uwsgi_fd < 0) {
 		uwsgi_log("unable to connect to host %s\n", addr);
