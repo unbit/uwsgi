@@ -1785,7 +1785,7 @@ setup_proto:
 			uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
 			uwsgi_sock->proto_sendfile = NULL;
 			uwsgi_sock->proto_close = uwsgi_proto_base_close;
-			if (uwsgi.static_offload_to_thread)
+			if (uwsgi.offload_threads > 0)
 				uwsgi_sock->can_offload = 1;
 		}
 		else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
@@ -1815,7 +1815,7 @@ setup_proto:
 			uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
 			uwsgi_sock->proto_sendfile = NULL;
 			uwsgi_sock->proto_close = uwsgi_proto_base_close;
-			if (uwsgi.static_offload_to_thread)
+			if (uwsgi.offload_threads > 0)
 				uwsgi_sock->can_offload = 1;
 		}
 nextsock:

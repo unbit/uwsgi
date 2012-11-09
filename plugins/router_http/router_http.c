@@ -12,19 +12,26 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	// get the http address from the route
 	char *addr = ur->data;
 
+	// convert the wsgi_request to an http proxy request
+	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len);	
+	if (!ub) {
+		uwsgi_log("unable to generate http request for %s\n", addr);
+                return UWSGI_ROUTE_NEXT;
+	}
+
+	// ok now if have offload threads, directly use them
+	if (wsgi_req->socket->can_offload) {
+        	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
+                	wsgi_req->status = -30;
+			return UWSGI_ROUTE_BREAK;
+                }
+	}
+
 	// connect to the http server
 	int http_fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (http_fd < 0) {
 		uwsgi_log("unable to connect to host %s\n", addr);
 		return UWSGI_ROUTE_NEXT;
-	}
-
-	// convert the wsgi_request to an http proxy request
-	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len);	
-	if (!ub) {
-		uwsgi_log("unable to generate http request for %s\n", addr);
-		close(http_fd);
-                return UWSGI_ROUTE_NEXT;
 	}
 
 	// send the request

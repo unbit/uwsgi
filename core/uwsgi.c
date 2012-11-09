@@ -468,7 +468,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-expires-path-info-mtime", required_argument, 0, "set the Expires header based on PATH_INFO regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_path_info_mtime, UWSGI_OPT_MIME},
 #endif
 
-	{"static-offload-to-thread", required_argument, 0, "offload static file serving to a thread (upto the specified number of threads)", uwsgi_opt_set_int, &uwsgi.static_offload_to_thread, UWSGI_OPT_MIME},
+	{"offload-threads", required_argument, 0, "set the number of offload threads to spawn (per-worker, default 0)", uwsgi_opt_set_int, &uwsgi.offload_threads, 0},
 
 	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
 	{"fileserve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
@@ -513,6 +513,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"remap-modifier", required_argument, 0, "remap request modifier from one id to another", uwsgi_opt_set_str, &uwsgi.remap_modifier, 0},
 
 	{"app", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "use the more advanced \"mount\" option", 0},
+	{"static-offload-to-thread", required_argument, 0, "*** deprecated ***", uwsgi_opt_deprecated, (void *) "use the more advanced \"offload-threads\" option", 0},
 
 	{"dump-options", no_argument, 0, "dump the full list of available options", uwsgi_opt_true, &uwsgi.dump_options, 0},
 	{"show-config", no_argument, 0, "show the current config reformatted as ini", uwsgi_opt_true, &uwsgi.show_config, 0},
@@ -2684,11 +2685,11 @@ next2:
 	// set default wsgi_req (for loading apps);
 	uwsgi.wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
 
-	if (uwsgi.static_offload_to_thread) {
+	if (uwsgi.offload_threads > 0) {
 		uwsgi.offload_thread = uwsgi_offload_thread_start();
 		if (!uwsgi.offload_thread) {
-			uwsgi_log("unable to offload static file serving !!!\n");
-			uwsgi.static_offload_to_thread = 0;
+			uwsgi_log("unable to start offload thread for worker %d !!!\n", uwsgi.mywid);
+			uwsgi.offload_threads = 0;
 		}
 	}
 

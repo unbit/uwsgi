@@ -804,7 +804,7 @@ PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
 
 
 	UWSGI_RELEASE_GIL
-        if (uwsgi_offload_request_do(wsgi_req, filename, len)) {
+        if (uwsgi_offload_request_sendfile_do(wsgi_req, filename, len)) {
 		UWSGI_GET_GIL
 		return PyErr_Format(PyExc_ValueError, "Unable to offload the request");
 	}

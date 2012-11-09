@@ -933,10 +933,6 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 
 		if (uwsgi_stats_keylong_comma(us, "signal_queue", (unsigned long long) signal_queue))
 			goto end;
-/*
-		if (uwsgi_stats_keylong_comma(us, "static_offload_threads", (unsigned long long) uwsgi.workers[i + 1].static_offload_threads))
-			goto end;
-*/
 
 		if (uwsgi.workers[i + 1].cheaped) {
 			if (uwsgi_stats_keyval_comma(us, "status", "cheap"))
@@ -1048,6 +1044,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "static_requests", (unsigned long long) uc->static_requests))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "routed_requests", (unsigned long long) uc->routed_requests))
 				goto end;
 
 			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))

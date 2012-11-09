@@ -23,6 +23,7 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, *subject, *subject_len, routes->ovector, routes->ovn);
 		if (n >= 0) {
 			int ret = routes->func(wsgi_req, routes);
+			if (ret == UWSGI_ROUTE_BREAK) uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
 			if (ret != UWSGI_ROUTE_NEXT) {
 				return ret;
 			}
@@ -44,6 +45,7 @@ int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *uri, int len) {
 		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, uri, len, routes->ovector, routes->ovn);
 		if (n >= 0) {
 			int ret = routes->func(wsgi_req, routes);
+			if (ret == UWSGI_ROUTE_BREAK) uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
 			if (ret != UWSGI_ROUTE_NEXT) {
 				return ret;
 			}

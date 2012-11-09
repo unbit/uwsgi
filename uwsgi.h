@@ -1518,8 +1518,11 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *static_expires_path_info;
 	struct uwsgi_dyn_dict *static_expires_path_info_mtime;
 
+	int offload_threads;
+	int offload_threads_events;
+
 	int check_static_docroot;
-	int static_offload_to_thread;
+
 	struct uwsgi_thread *offload_thread;
 	// linked list for offloaded requests
 	struct uwsgi_offload_request *offload_requests_head;
@@ -2056,6 +2059,7 @@ struct uwsgi_core {
 	uint64_t        requests;
 	uint64_t	failed_requests;
 	uint64_t        static_requests;
+	uint64_t        routed_requests;
 
 #ifdef UWSGI_THREADING
 	pthread_t thread_id;
@@ -3401,20 +3405,34 @@ struct uwsgi_thread {
 struct uwsgi_thread *uwsgi_thread_new(void (*)(struct uwsgi_thread *));
 
 struct uwsgi_offload_request {
+	// the request socket
         int s;
+	// the peer
         int fd;
+
+	// internal state
+	int status;
+
         off_t pos;
 	char *buf;
 	off_t buf_pos;
+
 	size_t to_write;
         size_t len;
         size_t written;
+
+	// a uwsgi_buffer (will be destroyed at the end of the task)
+	struct uwsgi_buffer *ubuf;
+
+	int (*func)(struct uwsgi_thread *, struct uwsgi_offload_request *, int);
+
 	struct uwsgi_offload_request *prev;
 	struct uwsgi_offload_request *next;
 };
 
 struct uwsgi_thread *uwsgi_offload_thread_start(void);
-int uwsgi_offload_request_do(struct wsgi_request *, char *, size_t);
+int uwsgi_offload_request_sendfile_do(struct wsgi_request *, char *, size_t);
+int uwsgi_offload_request_net_do(struct wsgi_request *, char *, struct uwsgi_buffer *);
 
 void uwsgi_subscription_set_algo(char *);
 struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht(void);
