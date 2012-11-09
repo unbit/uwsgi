@@ -2698,6 +2698,7 @@ next2:
 				break;
 			}
 		}
+		uwsgi_log("spawned %d offload threads for uWSGI worker %d\n", uwsgi.offload_threads, uwsgi.mywid);
 	}
 
 	// must be run before running apps
