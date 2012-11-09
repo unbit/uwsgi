@@ -276,7 +276,7 @@ static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *ut, struct uwsgi
 		if (event_queue_add_fd_write(ut->queue, uor->s)) return -1;
 		return 0;
 	}
-#if defined(__linux__)
+#if defined(__linux__) || defined(__sun__)
 	ssize_t len = sendfile(uor->s, uor->fd, &uor->pos, 128 * 1024);
 	if (len > 0) {
         	uor->written += len;
@@ -285,6 +285,15 @@ static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *ut, struct uwsgi
 		}
 	}
         else if (len < 0) {
+		uwsgi_offload_retry
+                uwsgi_error("sendfile()");
+	}
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+	off_t sbytes = 0;
+	int ret = sendfile(uor->fd, uor->s, uor->pos, 0, NULL, &sbytes, 0);
+	// transfer finished
+	if (ret == -1) {
+		uor->pos += sbytes;
 		uwsgi_offload_retry
                 uwsgi_error("sendfile()");
 	}
@@ -300,9 +309,8 @@ the offload task starts soon after the call to connect()
 		0 -> waiting for connection on fd
 		1 -> sending request to fd (write event)
 		2 -> start waiting for read on s and fd
-		3/a -> if read on s, stop all and wait for write on fd
-		3/b -> if read on fd, stop all and wait for write on s
-		3/c -> if one of the peer fail, just destroy the task
+		3 -> write to s
+		4 -> write to fd
 */
 static int uwsgi_offload_net_transfer(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor, int fd) {
 	
