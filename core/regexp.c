@@ -1,6 +1,17 @@
 #ifdef UWSGI_PCRE
 #include "uwsgi.h"
 
+extern struct uwsgi_server uwsgi;
+
+void uwsgi_opt_pcre_jit(char *opt, char *value, void *foobar) {
+#if defined(PCRE_STUDY_JIT_COMPILE) && defined(PCRE_CONFIG_JIT)
+	int  has_jit = 0, ret;
+    	ret = pcre_config(PCRE_CONFIG_JIT, &has_jit);
+	if (ret != 0 || has_jit != 1) return;
+	uwsgi.pcre_jit = PCRE_STUDY_JIT_COMPILE;
+#endif
+}
+
 int uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra) {
 
 	const char *errstr;
@@ -12,7 +23,9 @@ int uwsgi_regexp_build(char *re, pcre **pattern, pcre_extra **pattern_extra) {
 		return -1;
 	}
 
-	*pattern_extra = (pcre_extra *) pcre_study((const pcre*)*pattern, 0, &errstr);
+	int opt = uwsgi.pcre_jit;
+
+	*pattern_extra = (pcre_extra *) pcre_study((const pcre*)*pattern, opt, &errstr);
         if (*pattern_extra == NULL && errstr != NULL) {
 		pcre_free(*pattern);
 		uwsgi_log("pcre (study) error: %s\n", errstr);

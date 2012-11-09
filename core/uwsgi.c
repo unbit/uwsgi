@@ -280,6 +280,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ksm", optional_argument, 0, "enable Linux KSM", uwsgi_opt_set_int, &uwsgi.linux_ksm, 0},
 #endif
 #endif
+#ifdef UWSGI_PCRE
+	{"pcre-jit", no_argument, 0, "enable pcre jit (if available)", uwsgi_opt_pcre_jit, NULL, UWSGI_OPT_IMMEDIATE},
+#endif
 	{"never-swap", no_argument, 0, "lock all memory pages avoiding swapping", uwsgi_opt_true, &uwsgi.never_swap, 0},
 	{"touch-reload", required_argument, 0, "reload uWSGI if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_reload, UWSGI_OPT_MASTER},
 	{"touch-logrotate", required_argument, 0, "trigger logrotation if the specified file is modified/touched", uwsgi_opt_add_string_list, &uwsgi.touch_logrotate, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
@@ -1906,6 +1909,14 @@ int main(int argc, char *argv[], char *envp[]) {
         }
 
 	uwsgi_log_initial("clock source: %s\n", uwsgi.clock->name);
+#ifdef UWSGI_PCRE
+	if (uwsgi.pcre_jit) {
+		uwsgi_log_initial("pcre jit enabled\n");
+	}
+	else {
+		uwsgi_log_initial("pcre jit disabled\n");
+	}
+#endif
 
 #ifdef __BIG_ENDIAN__
 	uwsgi_log_initial("*** big endian arch detected ***\n");

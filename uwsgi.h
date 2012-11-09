@@ -1472,6 +1472,7 @@ struct uwsgi_server {
 	struct uwsgi_string_list *requested_logger;
 
 #ifdef UWSGI_PCRE
+	int pcre_jit;
 	struct uwsgi_regexp_list *log_drain_rules;
 	struct uwsgi_regexp_list *log_filter_rules;
 	struct uwsgi_regexp_list *log_route;
@@ -2986,6 +2987,7 @@ void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 #ifdef UWSGI_PCRE
+void uwsgi_opt_pcre_jit(char *, char *, void *);
 void uwsgi_opt_add_regexp_dyn_dict(char *, char *, void *);
 void uwsgi_opt_add_regexp_list(char *, char *, void *);
 void uwsgi_opt_add_regexp_custom_list(char *, char *, void *);
