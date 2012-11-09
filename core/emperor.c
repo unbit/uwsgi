@@ -125,17 +125,12 @@ struct uwsgi_emperor_scanner *emperor_scanners;
 
 int uwsgi_emperor_is_valid(char *name) {
 
-	if (uwsgi_endswith(name, ".xml") ||
-                uwsgi_endswith(name, ".ini") ||
-                uwsgi_endswith(name, ".yml") ||
-                uwsgi_endswith(name, ".yaml") ||
-                uwsgi_endswith(name, ".js") ||
-                uwsgi_endswith(name, ".json")) {
+	if (uwsgi_endswith(name, ".xml") || uwsgi_endswith(name, ".ini") || uwsgi_endswith(name, ".yml") || uwsgi_endswith(name, ".yaml") || uwsgi_endswith(name, ".js") || uwsgi_endswith(name, ".json")) {
 
 
-                        if (strlen(name) < 0xff) {
-				return 1;
-			}
+		if (strlen(name) < 0xff) {
+			return 1;
+		}
 	}
 
 	return 0;
@@ -155,48 +150,48 @@ void uwsgi_imperial_monitor_directory(struct uwsgi_emperor_scanner *ues) {
 	DIR *dir = opendir(".");
 	while ((de = readdir(dir)) != NULL) {
 
-			if (!uwsgi_emperor_is_valid(de->d_name))
-				continue;
+		if (!uwsgi_emperor_is_valid(de->d_name))
+			continue;
 
-			if (stat(de->d_name, &st))
-				continue;
+		if (stat(de->d_name, &st))
+			continue;
 
-			if (!S_ISREG(st.st_mode))
-				continue;
+		if (!S_ISREG(st.st_mode))
+			continue;
 
-			ui_current = emperor_get(de->d_name);
+		ui_current = emperor_get(de->d_name);
 
-			if (ui_current) {
-				// check if uid or gid are changed, in such case, stop the instance
-				if (uwsgi.emperor_tyrant) {
-					if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
-						uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n", de->d_name);
-						emperor_stop(ui_current);
-						continue;
-					}
-				}
-				// check if mtime is changed and the uWSGI instance must be reloaded
-				if (st.st_mtime > ui_current->last_mod) {
-					emperor_respawn(ui_current, st.st_mtime);
+		if (ui_current) {
+			// check if uid or gid are changed, in such case, stop the instance
+			if (uwsgi.emperor_tyrant) {
+				if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
+					uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n", de->d_name);
+					emperor_stop(ui_current);
+					continue;
 				}
 			}
-			else {
-				emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
+			// check if mtime is changed and the uWSGI instance must be reloaded
+			if (st.st_mtime > ui_current->last_mod) {
+				emperor_respawn(ui_current, st.st_mtime);
 			}
+		}
+		else {
+			emperor_add(ues, de->d_name, st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
+		}
 	}
 	closedir(dir);
 
 	// now check for removed instances
 	struct uwsgi_instance *c_ui = ui->ui_next;
 
-        while (c_ui) {
+	while (c_ui) {
 		if (c_ui->scanner == ues) {
 			if (stat(c_ui->name, &st)) {
 				emperor_stop(c_ui);
 			}
 		}
-                c_ui = c_ui->ui_next;
-        }
+		c_ui = c_ui->ui_next;
+	}
 }
 
 // this is the monitor for glob patterns
@@ -213,50 +208,50 @@ void uwsgi_imperial_monitor_glob(struct uwsgi_emperor_scanner *ues) {
 	}
 
 	for (i = 0; i < (int) g.gl_pathc; i++) {
-			
-			if (!uwsgi_emperor_is_valid(g.gl_pathv[i]))
-                                continue;
 
-			if (stat(g.gl_pathv[i], &st))
-				continue;
+		if (!uwsgi_emperor_is_valid(g.gl_pathv[i]))
+			continue;
 
-			if (!S_ISREG(st.st_mode))
-				continue;
+		if (stat(g.gl_pathv[i], &st))
+			continue;
 
-			ui_current = emperor_get(g.gl_pathv[i]);
+		if (!S_ISREG(st.st_mode))
+			continue;
 
-			if (ui_current) {
-				// check if uid or gid are changed, in such case, stop the instance
-				if (uwsgi.emperor_tyrant) {
-					if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
-						uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n", g.gl_pathv[i]);
-						emperor_stop(ui_current);
-						continue;
-					}
-				}
-				// check if mtime is changed and the uWSGI instance must be reloaded
-				if (st.st_mtime > ui_current->last_mod) {
-					emperor_respawn(ui_current, st.st_mtime);
+		ui_current = emperor_get(g.gl_pathv[i]);
+
+		if (ui_current) {
+			// check if uid or gid are changed, in such case, stop the instance
+			if (uwsgi.emperor_tyrant) {
+				if (st.st_uid != ui_current->uid || st.st_gid != ui_current->gid) {
+					uwsgi_log("!!! permissions of file %s changed. stopping the instance... !!!\n", g.gl_pathv[i]);
+					emperor_stop(ui_current);
+					continue;
 				}
 			}
-			else {
-				emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
+			// check if mtime is changed and the uWSGI instance must be reloaded
+			if (st.st_mtime > ui_current->last_mod) {
+				emperor_respawn(ui_current, st.st_mtime);
 			}
+		}
+		else {
+			emperor_add(ues, g.gl_pathv[i], st.st_mtime, NULL, 0, st.st_uid, st.st_gid);
+		}
 
 	}
 	globfree(&g);
 
 	// now check for removed instances
-        struct uwsgi_instance *c_ui = ui->ui_next;
+	struct uwsgi_instance *c_ui = ui->ui_next;
 
-        while (c_ui) {
-                if (c_ui->scanner == ues) {
-                        if (stat(c_ui->name, &st)) {
-                                emperor_stop(c_ui);
-                        }
-                }
-                c_ui = c_ui->ui_next;
-        }
+	while (c_ui) {
+		if (c_ui->scanner == ues) {
+			if (stat(c_ui->name, &st)) {
+				emperor_stop(c_ui);
+			}
+		}
+		c_ui = c_ui->ui_next;
+	}
 
 
 }
@@ -308,7 +303,7 @@ static void royal_death(int signum) {
 		}
 	}
 
-	uwsgi_log("[emperor] *** RAGNAROK EVOKED ***\n");	
+	uwsgi_log("[emperor] *** RAGNAROK EVOKED ***\n");
 	uwsgi_notify("The Emperor is buried.");
 	exit(0);
 }
@@ -768,14 +763,14 @@ void uwsgi_imperial_monitor_glob_init(struct uwsgi_emperor_scanner *ues) {
 	uwsgi.emperor_absolute_dir = uwsgi.cwd;
 
 	if (!uwsgi_startswith(ues->arg, "glob://", 7)) {
-		ues->arg+=7;	
+		ues->arg += 7;
 	}
 }
 
 void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *ues) {
 
 	if (!uwsgi_startswith(ues->arg, "dir://", 6)) {
-		ues->arg+=6;	
+		ues->arg += 6;
 	}
 
 	if (chdir(ues->arg)) {
@@ -881,13 +876,13 @@ next:
 int uwsgi_emperor_scanner_event(int fd) {
 
 	struct uwsgi_emperor_scanner *ues = emperor_scanners;
-        while (ues) {
+	while (ues) {
 		if (ues->fd > -1 && ues->fd == fd) {
 			ues->event_func(ues);
 			return 1;
 		}
-                ues = ues->next;
-        }
+		ues = ues->next;
+	}
 
 	return 0;
 
@@ -993,9 +988,10 @@ void emperor_loop() {
 			}
 
 			// check if a monitor is mapped to that file descriptor
-			if (uwsgi_emperor_scanner_event(interesting_fd)) continue;
+			if (uwsgi_emperor_scanner_event(interesting_fd))
+				continue;
 
-			
+
 			ui_current = emperor_get_by_fd(interesting_fd);
 			if (ui_current) {
 				char byte;
@@ -1041,9 +1037,9 @@ void emperor_loop() {
 
 		// check for heartbeat (if required)
 		ui_current = ui->ui_next;
-		while(ui_current) {
+		while (ui_current) {
 			if (ui_current->last_heartbeat > 0) {
-				if ( (ui_current->last_heartbeat + uwsgi.emperor_heartbeat) < uwsgi_now()) {
+				if ((ui_current->last_heartbeat + uwsgi.emperor_heartbeat) < uwsgi_now()) {
 					uwsgi_log("[emperor] vassal %s sent no heartbeat in last %d seconds, respawning it...\n", ui_current->name, uwsgi.emperor_heartbeat);
 					// set last_heartbeat to 0 avoiding races
 					ui_current->last_heartbeat = 0;
@@ -1085,7 +1081,7 @@ void emperor_loop() {
 					struct uwsgi_instance *rebel_vassal = ui_current;
 					ui_current = ui_current->ui_next;
 					emperor_del(rebel_vassal);
-				}	
+				}
 			}
 			else {
 				uwsgi_error("waitpid()");
@@ -1143,11 +1139,11 @@ void emperor_send_stats(int fd) {
 	}
 
 	if (uwsgi.stats_http) {
-                if (uwsgi_send_http_stats(client_fd)) {
-                        close(client_fd);
-                        return;
-                }
-        }
+		if (uwsgi_send_http_stats(client_fd)) {
+			close(client_fd);
+			return;
+		}
+	}
 
 	struct uwsgi_stats *us = uwsgi_stats_new(8192);
 
@@ -1250,49 +1246,49 @@ void emperor_send_stats(int fd) {
 		goto end0;
 
 	if (uwsgi_stats_comma(us))
-        	goto end0;
+		goto end0;
 
 	if (uwsgi_stats_key(us, "blacklist"))
-                goto end0;
-        if (uwsgi_stats_list_open(us))
-                goto end0;
+		goto end0;
+	if (uwsgi_stats_list_open(us))
+		goto end0;
 
 	struct uwsgi_emperor_blacklist_item *uebi = emperor_blacklist;
-        while (uebi) {
+	while (uebi) {
 
 		if (uwsgi_stats_object_open(us))
-                        goto end0;
+			goto end0;
 
-                if (uwsgi_stats_keyval_comma(us, "id", uebi->id))
-                        goto end0;
+		if (uwsgi_stats_keyval_comma(us, "id", uebi->id))
+			goto end0;
 
 
-                if (uwsgi_stats_keylong_comma(us, "throttle_level", uebi->throttle_level/1000))
-                        goto end0;
+		if (uwsgi_stats_keylong_comma(us, "throttle_level", uebi->throttle_level / 1000))
+			goto end0;
 
-                if (uwsgi_stats_keylong_comma(us, "attempt", (unsigned long long) uebi->attempt))
-                        goto end0;
+		if (uwsgi_stats_keylong_comma(us, "attempt", (unsigned long long) uebi->attempt))
+			goto end0;
 
-                if (uwsgi_stats_keylong_comma(us, "first_attempt", (unsigned long long) uebi->first_attempt.tv_sec))
-                        goto end0;
+		if (uwsgi_stats_keylong_comma(us, "first_attempt", (unsigned long long) uebi->first_attempt.tv_sec))
+			goto end0;
 
-                if (uwsgi_stats_keylong(us, "last_attempt", (unsigned long long) uebi->last_attempt.tv_sec))
-                        goto end0;
+		if (uwsgi_stats_keylong(us, "last_attempt", (unsigned long long) uebi->last_attempt.tv_sec))
+			goto end0;
 
 		if (uwsgi_stats_object_close(us))
-                        goto end0;
+			goto end0;
 
 
-                uebi = uebi->next;
+		uebi = uebi->next;
 		if (uebi) {
 			if (uwsgi_stats_comma(us))
 				goto end0;
 		}
-        }
+	}
 
 
 	if (uwsgi_stats_list_close(us))
-                goto end0;
+		goto end0;
 
 	if (uwsgi_stats_object_close(us))
 		goto end0;
@@ -1301,9 +1297,9 @@ void emperor_send_stats(int fd) {
 	off_t pos = 0;
 	while (remains > 0) {
 		int ret = uwsgi_waitfd_write(client_fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-                if (ret <= 0) {
-                        goto end0;
-                }
+		if (ret <= 0) {
+			goto end0;
+		}
 		ssize_t res = write(client_fd, us->base + pos, remains);
 		if (res <= 0) {
 			if (res < 0) {
@@ -1326,75 +1322,74 @@ end:
 void uwsgi_emperor_start() {
 
 	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.master_process) {
-                        uwsgi_notify_ready();
-                        emperor_loop();
-                        // never here
-                        exit(1);
-                }
+		uwsgi_notify_ready();
+		emperor_loop();
+		// never here
+		exit(1);
+	}
 
-                uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
-                if (uwsgi.emperor_pid < 0) {
-                        uwsgi_error("pid()");
-                        exit(1);
-                }
-                else if (uwsgi.emperor_pid == 0) {
+	uwsgi.emperor_pid = uwsgi_fork("uWSGI Emperor");
+	if (uwsgi.emperor_pid < 0) {
+		uwsgi_error("pid()");
+		exit(1);
+	}
+	else if (uwsgi.emperor_pid == 0) {
 #ifdef __linux__
-                        if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
-                                uwsgi_error("prctl()");
-                        }
+		if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0)) {
+			uwsgi_error("prctl()");
+		}
 #endif
-                        emperor_loop();
-                        // never here
-                        exit(1);
-                }
+		emperor_loop();
+		// never here
+		exit(1);
+	}
 
 }
 
 void uwsgi_check_emperor() {
 	char *emperor_env = getenv("UWSGI_EMPEROR_FD");
-        if (emperor_env) {
-                uwsgi.has_emperor = 1;
-                uwsgi.emperor_fd = atoi(emperor_env);
-                uwsgi.master_process = 1;
-                uwsgi.no_orphans = 1;
-                uwsgi_log("*** has_emperor mode detected (fd: %d) ***\n", uwsgi.emperor_fd);
+	if (emperor_env) {
+		uwsgi.has_emperor = 1;
+		uwsgi.emperor_fd = atoi(emperor_env);
+		uwsgi.master_process = 1;
+		uwsgi.no_orphans = 1;
+		uwsgi_log("*** has_emperor mode detected (fd: %d) ***\n", uwsgi.emperor_fd);
 
-                if (getenv("UWSGI_EMPEROR_FD_CONFIG")) {
-                        uwsgi.emperor_fd_config = atoi(getenv("UWSGI_EMPEROR_FD_CONFIG"));
-                }
-        }
+		if (getenv("UWSGI_EMPEROR_FD_CONFIG")) {
+			uwsgi.emperor_fd_config = atoi(getenv("UWSGI_EMPEROR_FD_CONFIG"));
+		}
+	}
 
 }
 
 void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char *config, time_t ts, uid_t uid, gid_t gid) {
 
-        if (!uwsgi_emperor_is_valid(name))
-                return;
+	if (!uwsgi_emperor_is_valid(name))
+		return;
 
-        struct uwsgi_instance *ui_current = emperor_get(name);
+	struct uwsgi_instance *ui_current = emperor_get(name);
 
-        if (ui_current) {
-                // check if uid or gid are changed, in such case, stop the instance
-                if (uwsgi.emperor_tyrant) {
-                        if (uid != ui_current->uid || gid != ui_current->gid) {
-                                uwsgi_log("[emperor-tyrant] !!! permissions of vassal %s changed. stopping the instance... !!!\n", name);
-                                emperor_stop(ui_current);
-                                return;
-                        }
-                }
-                // check if mtime is changed and the uWSGI instance must be reloaded
-                if (ts > ui_current->last_mod) {
-                        // make a new config (free the old one)
-                        free(ui_current->config);
-                        ui_current->config = config;
-                        ui_current->config_len = strlen(config);
-                        // always respawn (no need for amqp-style rules)
-                        emperor_respawn(ui_current, ts);
-                }
-        }
-        else {
-                // make a copy of the config as it will be freed
-                emperor_add(ues, name, ts, uwsgi_str(config), strlen((const char *)config), uid, gid);
-        }
+	if (ui_current) {
+		// check if uid or gid are changed, in such case, stop the instance
+		if (uwsgi.emperor_tyrant) {
+			if (uid != ui_current->uid || gid != ui_current->gid) {
+				uwsgi_log("[emperor-tyrant] !!! permissions of vassal %s changed. stopping the instance... !!!\n", name);
+				emperor_stop(ui_current);
+				return;
+			}
+		}
+		// check if mtime is changed and the uWSGI instance must be reloaded
+		if (ts > ui_current->last_mod) {
+			// make a new config (free the old one)
+			free(ui_current->config);
+			ui_current->config = config;
+			ui_current->config_len = strlen(config);
+			// always respawn (no need for amqp-style rules)
+			emperor_respawn(ui_current, ts);
+		}
+	}
+	else {
+		// make a copy of the config as it will be freed
+		emperor_add(ues, name, ts, uwsgi_str(config), strlen((const char *) config), uid, gid);
+	}
 }
-

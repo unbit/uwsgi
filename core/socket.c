@@ -233,8 +233,8 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	}
 
 	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &reuse, sizeof(int)) < 0) {
-                uwsgi_error("setsockopt()");
-        }
+		uwsgi_error("setsockopt()");
+	}
 
 #ifdef UWSGI_MULTICAST
 	if (multicast) {
@@ -271,8 +271,8 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 		}
 
 		if (setsockopt(serverfd, IPPROTO_IP, IP_MULTICAST_TTL, &uwsgi.multicast_ttl, sizeof(uwsgi.multicast_ttl))) {
-                        uwsgi_error("setsockopt()");
-                }
+			uwsgi_error("setsockopt()");
+		}
 
 	}
 #endif
@@ -335,7 +335,7 @@ int connect_to_unix(char *socket_name, int timeout, int async) {
 	}
 
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-	uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK, 0);
+	uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
 #else
 	uwsgi_poll.fd = socket(AF_UNIX, SOCK_STREAM, 0);
 #endif
@@ -377,7 +377,7 @@ int connect_to_tcp(char *socket_name, int port, int timeout, int async) {
 	socket_name[strlen(socket_name)] = ':';
 
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
+	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 #else
 	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
 #endif
@@ -590,9 +590,9 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 		tv.tv_sec = uwsgi.so_send_timeout;
 		tv.tv_usec = 0;
 		if (setsockopt(serverfd, SOL_SOCKET, SO_SNDTIMEO, (const void *) &tv, sizeof(struct timeval)) < 0) {
-                        uwsgi_error("SO_SNDTIMEO setsockopt()");
-                        uwsgi_nuclear_blast();
-                }
+			uwsgi_error("SO_SNDTIMEO setsockopt()");
+			uwsgi_nuclear_blast();
+		}
 	}
 
 	if (!uwsgi.no_defer_accept) {
@@ -629,8 +629,8 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 #ifdef __linux__
-        long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn");
-        if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
+	long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn");
+	if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
 		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%i).\n", somaxconn);
 		uwsgi_nuclear_blast();
 	}
@@ -717,7 +717,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 
 
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-        // hmm, nothing to do, as we are already non-blocking
+	// hmm, nothing to do, as we are already non-blocking
 #else
 	/* re-set blocking socket */
 	arg &= (~O_NONBLOCK);
@@ -1480,346 +1480,347 @@ socklen_t socket_to_in_addr6(char *socket_name, char *port, int portn, struct so
 void uwsgi_setup_shared_sockets() {
 	int i;
 	struct uwsgi_socket *shared_sock = uwsgi.shared_sockets;
-        while (shared_sock) {
-                if (!uwsgi.is_a_reload) {
-                        char *tcp_port = strrchr(shared_sock->name, ':');
-                        if (tcp_port == NULL) {
-                                shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-                                shared_sock->family = AF_UNIX;
-                                uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-                        }
-                        else {
+	while (shared_sock) {
+		if (!uwsgi.is_a_reload) {
+			char *tcp_port = strrchr(shared_sock->name, ':');
+			if (tcp_port == NULL) {
+				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+				shared_sock->family = AF_UNIX;
+				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+			}
+			else {
 #ifdef UWSGI_IPV6
-                                if (shared_sock->name[0] == '[' && tcp_port[-1] == ']') {
-                                        shared_sock->fd = bind_to_tcp6(shared_sock->name, uwsgi.listen_queue, tcp_port);
-                                        shared_sock->family = AF_INET6;
-                                        // fix socket name
-                                        shared_sock->name = uwsgi_getsockname(shared_sock->fd);
-                                        uwsgi_log("uwsgi shared socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-                                }
-                                else {
+				if (shared_sock->name[0] == '[' && tcp_port[-1] == ']') {
+					shared_sock->fd = bind_to_tcp6(shared_sock->name, uwsgi.listen_queue, tcp_port);
+					shared_sock->family = AF_INET6;
+					// fix socket name
+					shared_sock->name = uwsgi_getsockname(shared_sock->fd);
+					uwsgi_log("uwsgi shared socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+				}
+				else {
 #endif
-                                        shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
-                                        shared_sock->family = AF_INET;
-                                        // fix socket name
-                                        shared_sock->name = uwsgi_getsockname(shared_sock->fd);
-                                        uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
+					shared_sock->fd = bind_to_tcp(shared_sock->name, uwsgi.listen_queue, tcp_port);
+					shared_sock->family = AF_INET;
+					// fix socket name
+					shared_sock->name = uwsgi_getsockname(shared_sock->fd);
+					uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 #ifdef UWSGI_IPV6
-                                }
+				}
 #endif
-                        }
+			}
 
-                        if (shared_sock->fd < 0) {
-                                uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
-                                exit(1);
-                        }
-                }
-                else {
-                        for (i = 3; i < (int) uwsgi.max_fd; i++) {
-                                char *sock = uwsgi_getsockname(i);
-                                if (sock) {
-                                        if (!strcmp(sock, shared_sock->name)) {
-                                                if (strchr(sock, ':')) {
-                                                        uwsgi_log("uwsgi shared socket %d inherited TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
-                                                        shared_sock->family = AF_INET;
-                                                }
-                                                else {
-                                                        uwsgi_log("uwsgi shared socket %d inherited UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
-                                                        shared_sock->family = AF_UNIX;
-                                                }
-                                                shared_sock->fd = i;
-                                        }
-                                        else {
-                                                free(sock);
-                                        }
-                                }
-                        }
-                }
-                shared_sock->bound = 1;
-                shared_sock = shared_sock->next;
-        }
+			if (shared_sock->fd < 0) {
+				uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
+				exit(1);
+			}
+		}
+		else {
+			for (i = 3; i < (int) uwsgi.max_fd; i++) {
+				char *sock = uwsgi_getsockname(i);
+				if (sock) {
+					if (!strcmp(sock, shared_sock->name)) {
+						if (strchr(sock, ':')) {
+							uwsgi_log("uwsgi shared socket %d inherited TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
+							shared_sock->family = AF_INET;
+						}
+						else {
+							uwsgi_log("uwsgi shared socket %d inherited UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), sock, i);
+							shared_sock->family = AF_UNIX;
+						}
+						shared_sock->fd = i;
+					}
+					else {
+						free(sock);
+					}
+				}
+			}
+		}
+		shared_sock->bound = 1;
+		shared_sock = shared_sock->next;
+	}
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-        while (uwsgi_sock) {
+	while (uwsgi_sock) {
 
-                if (uwsgi_sock->shared) {
-                        shared_sock = uwsgi_get_shared_socket_by_num(uwsgi_sock->from_shared);
-                        if (!shared_sock) {
-                                uwsgi_log("unable to find shared socket %d\n", uwsgi_sock->from_shared);
-                                exit(1);
-                        }
-                        uwsgi_sock->fd = shared_sock->fd;
-                        uwsgi_sock->family = shared_sock->family;
-                        uwsgi_sock->name = shared_sock->name;
-                        uwsgi_log("uwsgi socket %d mapped to shared socket %d (%s) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, uwsgi_sock->fd);
-                }
+		if (uwsgi_sock->shared) {
+			shared_sock = uwsgi_get_shared_socket_by_num(uwsgi_sock->from_shared);
+			if (!shared_sock) {
+				uwsgi_log("unable to find shared socket %d\n", uwsgi_sock->from_shared);
+				exit(1);
+			}
+			uwsgi_sock->fd = shared_sock->fd;
+			uwsgi_sock->family = shared_sock->family;
+			uwsgi_sock->name = shared_sock->name;
+			uwsgi_log("uwsgi socket %d mapped to shared socket %d (%s) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, uwsgi_sock->fd);
+		}
 
-                uwsgi_sock = uwsgi_sock->next;
-        }
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
 
 }
 
 void uwsgi_map_sockets() {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-        while (uwsgi_sock) {
-                struct uwsgi_string_list *usl = uwsgi.map_socket;
-                int enabled = 1;
-                while (usl) {
+	while (uwsgi_sock) {
+		struct uwsgi_string_list *usl = uwsgi.map_socket;
+		int enabled = 1;
+		while (usl) {
 
-                        char *colon = strchr(usl->value, ':');
+			char *colon = strchr(usl->value, ':');
 			if (!colon) {
 				uwsgi_log("invalid socket mapping, must be socket:worker[,worker...]\n");
 				exit(1);
 			}
-                        if ((int) uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
-                                enabled = 0;
-                                char *p = strtok(colon + 1, ",");
-                                while (p != NULL) {
-                                        int w = atoi(p);
-                                        if (w < 1 || w > uwsgi.numproc) {
-                                                uwsgi_log("invalid worker num: %d\n", w);
-                                                exit(1);
-                                        }
-                                        if (w == uwsgi.mywid) {
-                                                enabled = 1;
-                                                uwsgi_log("mapped socket %d (%s) to worker %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi.mywid);
-                                                break;
-                                        }
-                                        p = strtok(NULL, ",");
-                                }
-                        }
+			if ((int) uwsgi_str_num(usl->value, colon - usl->value) == uwsgi_get_socket_num(uwsgi_sock)) {
+				enabled = 0;
+				char *p = strtok(colon + 1, ",");
+				while (p != NULL) {
+					int w = atoi(p);
+					if (w < 1 || w > uwsgi.numproc) {
+						uwsgi_log("invalid worker num: %d\n", w);
+						exit(1);
+					}
+					if (w == uwsgi.mywid) {
+						enabled = 1;
+						uwsgi_log("mapped socket %d (%s) to worker %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi.mywid);
+						break;
+					}
+					p = strtok(NULL, ",");
+				}
+			}
 
-                        usl = usl->next;
-                }
+			usl = usl->next;
+		}
 
-                if (!enabled) {
-                        close(uwsgi_sock->fd);
-                        int fd = open("/dev/null", O_RDONLY);
-                        if (fd < 0) {
-                                uwsgi_error_open("/dev/null");
-                                exit(1);
-                        }
-                        if (fd != uwsgi_sock->fd) {
-                                if (dup2(fd, uwsgi_sock->fd)) {
-                                        uwsgi_error("dup2()");
-                                        exit(1);
-                                }
-                                close(fd);
-                        }
-                        uwsgi_sock->disabled = 1;
-                }
+		if (!enabled) {
+			close(uwsgi_sock->fd);
+			int fd = open("/dev/null", O_RDONLY);
+			if (fd < 0) {
+				uwsgi_error_open("/dev/null");
+				exit(1);
+			}
+			if (fd != uwsgi_sock->fd) {
+				if (dup2(fd, uwsgi_sock->fd)) {
+					uwsgi_error("dup2()");
+					exit(1);
+				}
+				close(fd);
+			}
+			uwsgi_sock->disabled = 1;
+		}
 
 
-                uwsgi_sock = uwsgi_sock->next;
+		uwsgi_sock = uwsgi_sock->next;
 
-        }
+	}
 
-        uwsgi_sock = uwsgi.sockets;
-        while (uwsgi_sock) {
-                if (uwsgi_sock->disabled) {
-                        uwsgi_sock = uwsgi_del_socket(uwsgi_sock);
-                }
-                else {
-                        uwsgi_sock = uwsgi_sock->next;
-                }
-        }
+	uwsgi_sock = uwsgi.sockets;
+	while (uwsgi_sock) {
+		if (uwsgi_sock->disabled) {
+			uwsgi_sock = uwsgi_del_socket(uwsgi_sock);
+		}
+		else {
+			uwsgi_sock = uwsgi_sock->next;
+		}
+	}
 
 }
 
 void uwsgi_bind_sockets() {
 	socklen_t socket_type_len;
 	union uwsgi_sockaddr usa;
-        union uwsgi_sockaddr_ptr gsa;
+	union uwsgi_sockaddr_ptr gsa;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-                while (uwsgi_sock) {
-                        if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
-                                char *tcp_port = strrchr(uwsgi_sock->name, ':');
-                                if (tcp_port == NULL) {
-                                        uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
-                                        uwsgi_sock->family = AF_UNIX;
-                                        if (uwsgi.chown_socket) {
-                                                uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
-                                        }
-                                        uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-                                }
-                                else {
+	while (uwsgi_sock) {
+		if (!uwsgi_sock->bound && !uwsgi_socket_is_already_bound(uwsgi_sock->name)) {
+			char *tcp_port = strrchr(uwsgi_sock->name, ':');
+			if (tcp_port == NULL) {
+				uwsgi_sock->fd = bind_to_unix(uwsgi_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
+				uwsgi_sock->family = AF_UNIX;
+				if (uwsgi.chown_socket) {
+					uwsgi_chown(uwsgi_sock->name, uwsgi.chown_socket);
+				}
+				uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+			}
+			else {
 #ifdef UWSGI_IPV6
-                                        if (uwsgi_sock->name[0] == '[' && tcp_port[-1] == ']') {
-                                                uwsgi_sock->fd = bind_to_tcp6(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
-                                                uwsgi_log("uwsgi socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-                                                uwsgi_sock->family = AF_INET6;
-                                        }
-                                        else {
+				if (uwsgi_sock->name[0] == '[' && tcp_port[-1] == ']') {
+					uwsgi_sock->fd = bind_to_tcp6(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
+					uwsgi_log("uwsgi socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+					uwsgi_sock->family = AF_INET6;
+				}
+				else {
 #endif
-                                                uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
-                                                uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-                                                uwsgi_sock->family = AF_INET;
+					uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
+					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+					uwsgi_sock->family = AF_INET;
 #ifdef UWSGI_IPV6
-                                        }
+				}
 #endif
-                                }
+			}
 
-                                if (uwsgi_sock->fd < 0 && !uwsgi_sock->per_core) {
-                                        uwsgi_log("unable to create server socket on: %s\n", uwsgi_sock->name);
-                                        exit(1);
-                                }
-                        }
-                        uwsgi_sock->bound = 1;
-                        uwsgi_sock = uwsgi_sock->next;
-                }
+			if (uwsgi_sock->fd < 0 && !uwsgi_sock->per_core) {
+				uwsgi_log("unable to create server socket on: %s\n", uwsgi_sock->name);
+				exit(1);
+			}
+		}
+		uwsgi_sock->bound = 1;
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
 
-                if (uwsgi.chown_socket) {
-                        if (!uwsgi.master_as_root) {
-                                uwsgi_as_root();
-                        }
-                }
+	if (uwsgi.chown_socket) {
+		if (!uwsgi.master_as_root) {
+			uwsgi_as_root();
+		}
+	}
 
 	int zero_used = 0;
-                uwsgi_sock = uwsgi.sockets;
-                while (uwsgi_sock) {
-                        if (uwsgi_sock->bound && uwsgi_sock->fd == 0) {
-                                zero_used = 1;
-                                break;
-                        }
-                        uwsgi_sock = uwsgi_sock->next;
-                }
+	uwsgi_sock = uwsgi.sockets;
+	while (uwsgi_sock) {
+		if (uwsgi_sock->bound && uwsgi_sock->fd == 0) {
+			zero_used = 1;
+			break;
+		}
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
-                if (!zero_used) {
-                        socket_type_len = sizeof(struct sockaddr_un);
-                        gsa.sa = (struct sockaddr *) &usa;
-                        if (!uwsgi.skip_zero && !getsockname(0, gsa.sa, &socket_type_len)) {
-                                if (gsa.sa->sa_family == AF_UNIX) {
-                                        uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
-                                        uwsgi_sock->family = AF_UNIX;
-                                        uwsgi_sock->fd = 0;
-                                        uwsgi_sock->bound = 1;
-                                        uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
-                                }
-                                else {
-                                        uwsgi_sock = uwsgi_new_socket(uwsgi_concat2("::", ""));
-                                        uwsgi_sock->family = AF_INET;
-                                        uwsgi_sock->fd = 0;
-                                        uwsgi_sock->bound = 1;
-                                        uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
-                                }
-                        }
-                        else if (!uwsgi.honour_stdin) {
-                                int fd = open("/dev/null", O_RDONLY);
-                                if (fd < 0) {
-                                        uwsgi_error_open("/dev/null");
-                                        exit(1);
-                                }
-                                if (fd != 0) {
-                                        if (dup2(fd, 0)) {
-                                                uwsgi_error("dup2()");
-                                                exit(1);
-                                        }
-                                        close(fd);
-                                }
-                        }
-                        else if (uwsgi.honour_stdin) {
-                                if (!tcgetattr(0, &uwsgi.termios)) {
-                                        uwsgi.restore_tc = 1;
-                                }
-                        }
+	if (!zero_used) {
+		socket_type_len = sizeof(struct sockaddr_un);
+		gsa.sa = (struct sockaddr *) &usa;
+		if (!uwsgi.skip_zero && !getsockname(0, gsa.sa, &socket_type_len)) {
+			if (gsa.sa->sa_family == AF_UNIX) {
+				uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
+				uwsgi_sock->family = AF_UNIX;
+				uwsgi_sock->fd = 0;
+				uwsgi_sock->bound = 1;
+				uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
+			}
+			else {
+				uwsgi_sock = uwsgi_new_socket(uwsgi_concat2("::", ""));
+				uwsgi_sock->family = AF_INET;
+				uwsgi_sock->fd = 0;
+				uwsgi_sock->bound = 1;
+				uwsgi_log("uwsgi socket %d inherited INET address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
+			}
+		}
+		else if (!uwsgi.honour_stdin) {
+			int fd = open("/dev/null", O_RDONLY);
+			if (fd < 0) {
+				uwsgi_error_open("/dev/null");
+				exit(1);
+			}
+			if (fd != 0) {
+				if (dup2(fd, 0)) {
+					uwsgi_error("dup2()");
+					exit(1);
+				}
+				close(fd);
+			}
+		}
+		else if (uwsgi.honour_stdin) {
+			if (!tcgetattr(0, &uwsgi.termios)) {
+				uwsgi.restore_tc = 1;
+			}
+		}
 
-                }
+	}
 
 	// check for auto_port socket
-                uwsgi_sock = uwsgi.sockets;
-                while (uwsgi_sock) {
-                        if (uwsgi_sock->auto_port) {
+	uwsgi_sock = uwsgi.sockets;
+	while (uwsgi_sock) {
+		if (uwsgi_sock->auto_port) {
 #ifdef UWSGI_IPV6
-                                if (uwsgi_sock->family == AF_INET6) {
-                                        uwsgi_log("uwsgi socket %d bound to TCP6 address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-                                }
-                                else {
+			if (uwsgi_sock->family == AF_INET6) {
+				uwsgi_log("uwsgi socket %d bound to TCP6 address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+			}
+			else {
 #endif
-                                        uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
+				uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 #ifdef UWSGI_IPV6
-                                }
+			}
 #endif
-                        }
-                        uwsgi_sock = uwsgi_sock->next;
-                }
+		}
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
 
 }
 
 void uwsgi_set_sockets_protocols() {
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-                while (uwsgi_sock) {
-                        char *requested_protocol = uwsgi_sock->proto_name;
+	while (uwsgi_sock) {
+		char *requested_protocol = uwsgi_sock->proto_name;
 
-                        if (uwsgi_sock->lazy) goto setup_proto;
-                        if (!uwsgi_sock->bound || uwsgi_sock->fd == -1)
-                                goto nextsock;
-                        if (!uwsgi_sock->per_core) {
-                                uwsgi_sock->arg = fcntl(uwsgi_sock->fd, F_GETFL, NULL);
-                                if (uwsgi_sock->arg < 0) {
-                                        uwsgi_error("fcntl()");
-                                        exit(1);
-                                }
-                                uwsgi_sock->arg |= O_NONBLOCK;
-                                if (fcntl(uwsgi_sock->fd, F_SETFL, uwsgi_sock->arg) < 0) {
-                                        uwsgi_error("fcntl()");
-                                        exit(1);
-                                }
-                        }
+		if (uwsgi_sock->lazy)
+			goto setup_proto;
+		if (!uwsgi_sock->bound || uwsgi_sock->fd == -1)
+			goto nextsock;
+		if (!uwsgi_sock->per_core) {
+			uwsgi_sock->arg = fcntl(uwsgi_sock->fd, F_GETFL, NULL);
+			if (uwsgi_sock->arg < 0) {
+				uwsgi_error("fcntl()");
+				exit(1);
+			}
+			uwsgi_sock->arg |= O_NONBLOCK;
+			if (fcntl(uwsgi_sock->fd, F_SETFL, uwsgi_sock->arg) < 0) {
+				uwsgi_error("fcntl()");
+				exit(1);
+			}
+		}
 
 setup_proto:
-                        if (!requested_protocol) {
-                                requested_protocol = uwsgi.protocol;
-                        }
+		if (!requested_protocol) {
+			requested_protocol = uwsgi.protocol;
+		}
 
-                        if (requested_protocol && !strcmp("http", requested_protocol)) {
-                                uwsgi_sock->proto = uwsgi_proto_http_parser;
-                                uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                                uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
-                                uwsgi_sock->proto_writev = uwsgi_proto_uwsgi_writev;
-                                uwsgi_sock->proto_write_header = uwsgi_proto_uwsgi_write_header;
-                                uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
-                                uwsgi_sock->proto_sendfile = NULL;
-                                uwsgi_sock->proto_close = uwsgi_proto_base_close;
-				if (uwsgi.static_offload_to_thread)
-					uwsgi_sock->can_offload = 1;
-                        }
-                        else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
-                                if (uwsgi.protocol && (!strcmp(uwsgi.protocol, "fastcgi") || !strcmp(uwsgi.protocol, "fcgi"))) {
-                                        uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
-                                }
-                                uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
-                                uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                                uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
-                                uwsgi_sock->proto_writev = uwsgi_proto_fastcgi_writev;
-                                uwsgi_sock->proto_write_header = uwsgi_proto_fastcgi_write_header;
-                                uwsgi_sock->proto_writev_header = uwsgi_proto_fastcgi_writev_header;
-                                uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;
-                                uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
-                        }
+		if (requested_protocol && !strcmp("http", requested_protocol)) {
+			uwsgi_sock->proto = uwsgi_proto_http_parser;
+			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+			uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
+			uwsgi_sock->proto_writev = uwsgi_proto_uwsgi_writev;
+			uwsgi_sock->proto_write_header = uwsgi_proto_uwsgi_write_header;
+			uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
+			uwsgi_sock->proto_sendfile = NULL;
+			uwsgi_sock->proto_close = uwsgi_proto_base_close;
+			if (uwsgi.static_offload_to_thread)
+				uwsgi_sock->can_offload = 1;
+		}
+		else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
+			if (uwsgi.protocol && (!strcmp(uwsgi.protocol, "fastcgi") || !strcmp(uwsgi.protocol, "fcgi"))) {
+				uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
+			}
+			uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
+			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+			uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
+			uwsgi_sock->proto_writev = uwsgi_proto_fastcgi_writev;
+			uwsgi_sock->proto_write_header = uwsgi_proto_fastcgi_write_header;
+			uwsgi_sock->proto_writev_header = uwsgi_proto_fastcgi_writev_header;
+			uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;
+			uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
+		}
 #ifdef UWSGI_ZEROMQ
-                        else if (requested_protocol && !strcmp("zmq", requested_protocol)) {
-                                uwsgi.zeromq = 1;
-                        }
+		else if (requested_protocol && !strcmp("zmq", requested_protocol)) {
+			uwsgi.zeromq = 1;
+		}
 #endif
-                        else {
-                                uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
-                                uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-                                uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
-                                uwsgi_sock->proto_writev = uwsgi_proto_uwsgi_writev;
-                                uwsgi_sock->proto_write_header = uwsgi_proto_uwsgi_write_header;
-                                uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
-                                uwsgi_sock->proto_sendfile = NULL;
-                                uwsgi_sock->proto_close = uwsgi_proto_base_close;
-				if (uwsgi.static_offload_to_thread)
-					uwsgi_sock->can_offload = 1;
-                        }
+		else {
+			uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
+			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+			uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
+			uwsgi_sock->proto_writev = uwsgi_proto_uwsgi_writev;
+			uwsgi_sock->proto_write_header = uwsgi_proto_uwsgi_write_header;
+			uwsgi_sock->proto_writev_header = uwsgi_proto_uwsgi_writev_header;
+			uwsgi_sock->proto_sendfile = NULL;
+			uwsgi_sock->proto_close = uwsgi_proto_base_close;
+			if (uwsgi.static_offload_to_thread)
+				uwsgi_sock->can_offload = 1;
+		}
 nextsock:
-                        uwsgi_sock = uwsgi_sock->next;
-                }
+		uwsgi_sock = uwsgi_sock->next;
+	}
 
 
 }

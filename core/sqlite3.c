@@ -10,7 +10,7 @@ static int uwsgi_sqlite3_config_callback(void *magic_table, int field_count, cha
 	if (field_count >= 2) {
 		int value_len = strlen(fields[1]) + 1;
 		char *value = magic_sub(fields[1], value_len, &value_len, (char **) magic_table);
-		add_exported_option( uwsgi_strncopy(fields[0], strlen(fields[0])), value, 0);
+		add_exported_option(uwsgi_strncopy(fields[0], strlen(fields[0])), value, 0);
 	}
 
 	return 0;
@@ -20,7 +20,7 @@ static int uwsgi_sqlite3_config_callback(void *magic_table, int field_count, cha
 void uwsgi_sqlite3_config(char *file, char *magic_table[]) {
 
 	sqlite3 *db;
-	char *err = NULL;		
+	char *err = NULL;
 	char *query = "SELECT * FROM uwsgi";
 
 	char *colon = uwsgi_get_last_char(file, ':');
@@ -28,7 +28,7 @@ void uwsgi_sqlite3_config(char *file, char *magic_table[]) {
 	if (colon) {
 		colon[0] = 0;
 		if (colon[1] != 0) {
-			query = colon+1;
+			query = colon + 1;
 		}
 	}
 

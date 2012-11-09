@@ -23,9 +23,10 @@ struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct rb_root *root) {
 
 	struct rb_node *node = root->rb_node;
 
-	if (node == NULL) return NULL; 
+	if (node == NULL)
+		return NULL;
 
-	while(node->rb_left != NULL) {
+	while (node->rb_left != NULL) {
 		node = node->rb_left;
 	}
 
@@ -43,7 +44,7 @@ struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct rb_root *root, time_t key, void
 	urbt->key = key;
 	urbt->data = data;
 
-	while(*p) {
+	while (*p) {
 		parent = *p;
 
 		current_rb_timer = (struct uwsgi_rb_timer *) parent;

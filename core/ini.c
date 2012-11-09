@@ -13,7 +13,7 @@ void ini_rstrip(char *line) {
 
 	off_t i;
 
-	for(i = strlen(line)-1;i>=0; i--) {
+	for (i = strlen(line) - 1; i >= 0; i--) {
 		if (line[i] == ' ' || line[i] == '\t' || line[i] == '\r') {
 			line[i] = 0;
 			continue;
@@ -27,7 +27,7 @@ char *ini_lstrip(char *line) {
 	off_t i;
 	char *ptr = line;
 
-	for(i=0;i< (int) strlen(line);i++) {
+	for (i = 0; i < (int) strlen(line); i++) {
 		if (line[i] == ' ' || line[i] == '\t' || line[i] == '\r') {
 			ptr++;
 			continue;
@@ -43,7 +43,7 @@ char *ini_get_key(char *key) {
 	off_t i;
 	char *ptr = key;
 
-	for(i=0;i< (int) strlen(key);i++) {
+	for (i = 0; i < (int) strlen(key); i++) {
 		ptr++;
 		if (key[i] == '=') {
 			key[i] = 0;
@@ -59,7 +59,7 @@ char *ini_get_line(char *ini, off_t size) {
 	off_t i;
 	char *ptr = ini;
 
-	for(i=0;i<size;i++) {
+	for (i = 0; i < size; i++) {
 		ptr++;
 		if (ini[i] == '\n') {
 			ini[i] = 0;
@@ -93,17 +93,17 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 	char *colon;
 
 	if (uwsgi_check_scheme(file)) {
-                colon = uwsgi_get_last_char(file, '/');
-                colon = uwsgi_get_last_char(colon, ':');
-        }
-        else {
-                colon = uwsgi_get_last_char(file, ':');
-        }
+		colon = uwsgi_get_last_char(file, '/');
+		colon = uwsgi_get_last_char(colon, ':');
+	}
+	else {
+		colon = uwsgi_get_last_char(file, ':');
+	}
 
 	if (colon) {
 		colon[0] = 0;
 		if (colon[1] != 0) {
-			section_asked = colon+1;
+			section_asked = colon + 1;
 		}
 	}
 
@@ -113,7 +113,7 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 
 	ini = uwsgi_open_and_read(file, &len, 1, magic_table);
 
-	while(len) {
+	while (len) {
 		ini_line = ini_get_line(ini, len);
 		if (ini_line == NULL) {
 			break;
@@ -125,8 +125,8 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 		ini_rstrip(key);
 		if (key[0] != 0) {
 			if (key[0] == '[') {
-				section = key+1;
-				section[strlen(section)-1] = 0;
+				section = key + 1;
+				section[strlen(section) - 1] = 0;
 			}
 			else if (key[0] == ';' || key[0] == '#') {
 				// this is a comment
@@ -139,7 +139,7 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 					ini_rstrip(key);
 					val = ini_lstrip(val);
 					ini_rstrip(val);
-					add_exported_option((char *)key, val, 0);
+					add_exported_option((char *) key, val, 0);
 				}
 			}
 		}

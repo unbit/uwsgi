@@ -7,24 +7,25 @@ void worker_wakeup() {
 
 void uwsgi_master_cleanup_hooks(void) {
 
-        int j;
+	int j;
 
 	// could be an inherited atexit hook
-	if (uwsgi.mywid > 0) return ;
-	
+	if (uwsgi.mywid > 0)
+		return;
+
 	uwsgi.cleaning = 1;
 
-        for (j = 0; j < uwsgi.gp_cnt; j++) {
-                if (uwsgi.gp[j]->master_cleanup) {
-                        uwsgi.gp[j]->master_cleanup();
-                }
-        }
+	for (j = 0; j < uwsgi.gp_cnt; j++) {
+		if (uwsgi.gp[j]->master_cleanup) {
+			uwsgi.gp[j]->master_cleanup();
+		}
+	}
 
-        for (j = 0; j < 256; j++) {
-                if (uwsgi.p[j]->master_cleanup) {
-                        uwsgi.p[j]->master_cleanup();
-                }
-        }
+	for (j = 0; j < 256; j++) {
+		if (uwsgi.p[j]->master_cleanup) {
+			uwsgi.p[j]->master_cleanup();
+		}
+	}
 
 }
 
@@ -531,11 +532,11 @@ int uwsgi_respawn_worker(int wid) {
 		// OVERENGINEERING (just to be safe)
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
 		/*
-		uwsgi.workers[uwsgi.mywid].harakiri = 0;
-		uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
-		uwsgi.workers[uwsgi.mywid].rss_size = 0;
-		uwsgi.workers[uwsgi.mywid].vsz_size = 0;
-		*/
+		   uwsgi.workers[uwsgi.mywid].harakiri = 0;
+		   uwsgi.workers[uwsgi.mywid].user_harakiri = 0;
+		   uwsgi.workers[uwsgi.mywid].rss_size = 0;
+		   uwsgi.workers[uwsgi.mywid].vsz_size = 0;
+		 */
 		// do not reset worker counters on reload !!!
 		//uwsgi.workers[uwsgi.mywid].requests = 0;
 		// ...but maintain a delta counter (yes this is racy in multithread)
@@ -545,11 +546,11 @@ int uwsgi_respawn_worker(int wid) {
 		//uwsgi.workers[uwsgi.mywid].last_spawn = uwsgi.current_time;
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 		/*
-		uwsgi.workers[uwsgi.mywid].cheaped = 0;
-		uwsgi.workers[uwsgi.mywid].busy = 0;
-		uwsgi.workers[uwsgi.mywid].suspended = 0;
-		uwsgi.workers[uwsgi.mywid].sig = 0;
-		*/
+		   uwsgi.workers[uwsgi.mywid].cheaped = 0;
+		   uwsgi.workers[uwsgi.mywid].busy = 0;
+		   uwsgi.workers[uwsgi.mywid].suspended = 0;
+		   uwsgi.workers[uwsgi.mywid].sig = 0;
+		 */
 
 		// reset the apps count with a copy from the master 
 		uwsgi.workers[uwsgi.mywid].apps_cnt = uwsgi.workers[0].apps_cnt;
@@ -576,7 +577,7 @@ int uwsgi_respawn_worker(int wid) {
 	else {
 		// the pid is set only in the master, as the worker should never use it
 		uwsgi.workers[wid].pid = pid;
-		
+
 		if (respawns > 0) {
 			uwsgi_log("Respawned uWSGI worker %d (new pid: %d)\n", wid, (int) pid);
 		}
@@ -861,43 +862,43 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 
 	if (uwsgi_stats_key(us, "sockets"))
-                goto end;
+		goto end;
 
 	if (uwsgi_stats_list_open(us))
-                goto end;
+		goto end;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
-	while(uwsgi_sock) {
+	while (uwsgi_sock) {
 		if (uwsgi_stats_object_open(us))
-                        goto end;
+			goto end;
 
 		if (uwsgi_stats_keyval_comma(us, "name", uwsgi_sock->name))
-                	goto end;
+			goto end;
 
 		if (uwsgi_stats_keyval_comma(us, "proto", uwsgi_sock->proto_name ? uwsgi_sock->proto_name : "uwsgi"))
-                	goto end;
+			goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "queue", (unsigned long long) uwsgi_sock->queue))
-                        goto end;
+			goto end;
 
 		if (uwsgi_stats_keylong_comma(us, "shared", (unsigned long long) uwsgi_sock->shared))
-                        goto end;
+			goto end;
 
 		if (uwsgi_stats_keylong(us, "can_offload", (unsigned long long) uwsgi_sock->can_offload))
-                        goto end;
+			goto end;
 
 		if (uwsgi_stats_object_close(us))
-                        goto end;
-		
+			goto end;
+
 		uwsgi_sock = uwsgi_sock->next;
 		if (uwsgi_sock) {
 			if (uwsgi_stats_comma(us))
-                	goto end;
+				goto end;
 		}
 	}
 
 	if (uwsgi_stats_list_close(us))
-                goto end;
+		goto end;
 
 	if (uwsgi_stats_comma(us))
 		goto end;
@@ -926,7 +927,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_keylong_comma(us, "signals", (unsigned long long) uwsgi.workers[i + 1].signals))
 			goto end;
 
-		if (ioctl(uwsgi.workers[i+1].signal_pipe[1], FIONREAD, &signal_queue)) {
+		if (ioctl(uwsgi.workers[i + 1].signal_pipe[1], FIONREAD, &signal_queue)) {
 			uwsgi_error("uwsgi_master_generate_stats() -> ioctl()\n");
 		}
 
@@ -1028,37 +1029,37 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			goto end;
 
 		if (uwsgi_stats_comma(us))
-                        goto end;
+			goto end;
 
 		// cores list
 		if (uwsgi_stats_key(us, "cores"))
-                        goto end;
-                if (uwsgi_stats_list_open(us))
-                        goto end;
+			goto end;
+		if (uwsgi_stats_list_open(us))
+			goto end;
 
 		for (j = 0; j < uwsgi.cores; j++) {
 			struct uwsgi_core *uc = &uwsgi.workers[i + 1].cores[j];
 			if (uwsgi_stats_object_open(us))
-                                goto end;
+				goto end;
 			if (uwsgi_stats_keylong_comma(us, "id", (unsigned long long) j))
-                                goto end;
+				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "requests", (unsigned long long) uc->requests))
-                                goto end;
+				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "static_requests", (unsigned long long) uc->static_requests))
-                                goto end;
+				goto end;
 
 			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))
-                                goto end;	
-			
+				goto end;
+
 
 			if (uwsgi_stats_object_close(us))
-                                goto end;
+				goto end;
 
-			if (j < uwsgi.cores-1) {
+			if (j < uwsgi.cores - 1) {
 				if (uwsgi_stats_comma(us))
-                                        goto end;
+					goto end;
 			}
 		}
 
@@ -1083,38 +1084,38 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_comma(us))
 			goto end;
 		if (uwsgi_stats_key(us, "spoolers"))
-                        goto end;
-                if (uwsgi_stats_list_open(us))
-                        goto end;
-        	while (uspool) {
+			goto end;
+		if (uwsgi_stats_list_open(us))
+			goto end;
+		while (uspool) {
 			if (uwsgi_stats_object_open(us))
-                                goto end;
+				goto end;
 
 			if (uwsgi_stats_keyval_comma(us, "dir", uspool->dir))
-                                        goto end;
+				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "pid", (unsigned long long) uspool->pid))
-                                goto end;
-	
+				goto end;
+
 			if (uwsgi_stats_keylong_comma(us, "tasks", (unsigned long long) uspool->tasks))
-                                goto end;
+				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "respawns", (unsigned long long) uspool->respawned))
-                                goto end;
+				goto end;
 
 			if (uwsgi_stats_keylong(us, "running", (unsigned long long) uspool->running))
-                                goto end;
-			
+				goto end;
+
 			if (uwsgi_stats_object_close(us))
-                                goto end;
-                	uspool = uspool->next;
+				goto end;
+			uspool = uspool->next;
 			if (uspool) {
 				if (uwsgi_stats_comma(us))
-                                	goto end;
+					goto end;
 			}
-                }
+		}
 		if (uwsgi_stats_list_close(us))
-                        goto end;
+			goto end;
 	}
 #endif
 
@@ -1159,7 +1160,7 @@ void uwsgi_register_cheaper_algo(char *name, int (*func) (void)) {
 
 void trigger_harakiri(int i) {
 	int j;
-	uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d, try: %d) ***\n", i, uwsgi.workers[i].pid, uwsgi.workers[i].pending_harakiri+1);
+	uwsgi_log("*** HARAKIRI ON WORKER %d (pid: %d, try: %d) ***\n", i, uwsgi.workers[i].pid, uwsgi.workers[i].pending_harakiri + 1);
 	if (uwsgi.harakiri_verbose) {
 #ifdef __linux__
 		int proc_file;
@@ -1196,16 +1197,16 @@ void trigger_harakiri(int i) {
 	}
 
 	if (uwsgi.workers[i].pid > 0) {
-		 for (j = 0; j < uwsgi.gp_cnt; j++) {
-                        if (uwsgi.gp[j]->harakiri) {
-                                uwsgi.gp[j]->harakiri(i);
-                        }
-                }
-                for (j = 0; j < 256; j++) {
-                        if (uwsgi.p[j]->harakiri) {
-                                uwsgi.p[j]->harakiri(i);
-                        }
-                }
+		for (j = 0; j < uwsgi.gp_cnt; j++) {
+			if (uwsgi.gp[j]->harakiri) {
+				uwsgi.gp[j]->harakiri(i);
+			}
+		}
+		for (j = 0; j < 256; j++) {
+			if (uwsgi.p[j]->harakiri) {
+				uwsgi.p[j]->harakiri(i);
+			}
+		}
 
 		kill(uwsgi.workers[i].pid, SIGUSR2);
 		// allow SIGUSR2 to be delivered
@@ -1213,7 +1214,7 @@ void trigger_harakiri(int i) {
 		kill(uwsgi.workers[i].pid, SIGKILL);
 		if (!uwsgi.workers[i].pending_harakiri)
 			uwsgi.workers[i].harakiri_count++;
-			uwsgi.workers[i].pending_harakiri++;
+		uwsgi.workers[i].pending_harakiri++;
 	}
 	// to avoid races
 

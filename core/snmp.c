@@ -249,7 +249,7 @@ static uint64_t get_uwsgi_snmp_value(uint64_t val, uint8_t * oid_t) {
 static uint64_t get_uwsgi_custom_snmp_value(uint64_t val, uint8_t * oid_t) {
 
 	val--;
-        uwsgi_wlock(uwsgi.snmp_lock);
+	uwsgi_wlock(uwsgi.snmp_lock);
 	if (uwsgi.shared->snmp_value[val].type) {
 		*oid_t = uwsgi.shared->snmp_value[val].type;
 		uwsgi_rwunlock(uwsgi.snmp_lock);
@@ -281,130 +281,130 @@ static int get_snmp_integer(uint8_t * ptr, uint64_t * val) {
 #ifdef __BIG_ENDIAN__
 	for (i = 0; i < tlen; i++) {
 #else
-		for (i = tlen - 1; i >= 0; i--) {
+	for (i = tlen - 1; i >= 0; i--) {
 #endif
-			cval[j] = ptr[1 + i];
-			j++;
-		}
-
-		return tlen + 1;
+		cval[j] = ptr[1 + i];
+		j++;
 	}
 
-	static uint8_t snmp_int_to_snmp(uint64_t snmp_val, uint8_t oid_type, uint8_t * buffer) {
-		uint8_t tlen;
-		int i, j;
-		uint8_t *ptr = (uint8_t *) &snmp_val;
+	return tlen + 1;
+}
 
-		// check for counter, counter64 or gauge
+static uint8_t snmp_int_to_snmp(uint64_t snmp_val, uint8_t oid_type, uint8_t * buffer) {
+	uint8_t tlen;
+	int i, j;
+	uint8_t *ptr = (uint8_t *) & snmp_val;
 
-		if (oid_type == SNMP_COUNTER64) {
-			tlen = 8;
-		}
-		else if (oid_type == SNMP_NULL || oid_type == 0) {
-			tlen = 0;
-		}
-		else {
-			tlen = 4;
-		}
+	// check for counter, counter64 or gauge
 
-		buffer[0] = tlen;
+	if (oid_type == SNMP_COUNTER64) {
+		tlen = 8;
+	}
+	else if (oid_type == SNMP_NULL || oid_type == 0) {
+		tlen = 0;
+	}
+	else {
+		tlen = 4;
+	}
 
-		j = 1;
+	buffer[0] = tlen;
+
+	j = 1;
 #ifdef __BIG_ENDIAN__
-		for (i = 0; i < tlen; i++) {
+	for (i = 0; i < tlen; i++) {
 #else
-			for (i = tlen - 1; i >= 0; i--) {
+	for (i = tlen - 1; i >= 0; i--) {
 #endif
-				buffer[j] = ptr[i];
-				j++;
-			}
+		buffer[j] = ptr[i];
+		j++;
+	}
 
-			return tlen + 1;
-		}
+	return tlen + 1;
+}
 
-		static ssize_t build_snmp_response(uint8_t oid1, uint8_t oid2, uint8_t * buffer, int size, uint8_t * seq1, uint8_t * seq2, uint8_t * seq3) {
-			uint64_t snmp_val;
-			uint8_t oid_sz;
-			uint8_t oid_type;
+static ssize_t build_snmp_response(uint8_t oid1, uint8_t oid2, uint8_t * buffer, int size, uint8_t * seq1, uint8_t * seq2, uint8_t * seq3) {
+	uint64_t snmp_val;
+	uint8_t oid_sz;
+	uint8_t oid_type;
 
-			if (oid1 == 1) {
-				snmp_val = get_uwsgi_snmp_value(oid2, &oid_type);
-			}
-			else if (oid1 == 2) {
-				snmp_val = get_uwsgi_custom_snmp_value(oid2, &oid_type);
-			}
-			else {
-				return -1;
-			}
+	if (oid1 == 1) {
+		snmp_val = get_uwsgi_snmp_value(oid2, &oid_type);
+	}
+	else if (oid1 == 2) {
+		snmp_val = get_uwsgi_custom_snmp_value(oid2, &oid_type);
+	}
+	else {
+		return -1;
+	}
 
-			buffer[size - 2] = oid_type;
-			oid_sz = snmp_int_to_snmp(snmp_val, oid_type, buffer + (size - 1));
+	buffer[size - 2] = oid_type;
+	oid_sz = snmp_int_to_snmp(snmp_val, oid_type, buffer + (size - 1));
 
-			if (oid_sz < 1)
-				return -1;
+	if (oid_sz < 1)
+		return -1;
 
-			oid_sz--;
+	oid_sz--;
 
-			buffer[1] += oid_sz;
-			*seq1 += oid_sz;
-			*seq2 += oid_sz;
-			*seq3 += oid_sz;
+	buffer[1] += oid_sz;
+	*seq1 += oid_sz;
+	*seq2 += oid_sz;
+	*seq3 += oid_sz;
 
-			return size + oid_sz;
+	return size + oid_sz;
 
-		}
+}
 
 void uwsgi_opt_snmp(char *opt, char *value, void *foobar) {
 	uwsgi.snmp = 1;
-        if (value) {
-        	uwsgi.snmp_addr = value; 
-                uwsgi.master_process = 1;
-        }
+	if (value) {
+		uwsgi.snmp_addr = value;
+		uwsgi.master_process = 1;
+	}
 
 }
 
 void uwsgi_opt_snmp_community(char *opt, char *value, void *foobar) {
 	uwsgi.snmp = 1;
-        uwsgi.snmp_community = value;
+	uwsgi.snmp_community = value;
 }
 
 int uwsgi_setup_snmp(void) {
 	int snmp_fd = -1;
 	int i;
 	if (uwsgi.snmp) {
-                if (uwsgi.snmp_community) {
-                        if (strlen(uwsgi.snmp_community) > 72) {
-                                uwsgi_log("*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
-                                memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 72);
-                        }
-                        else {
-                                memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, strlen(uwsgi.snmp_community) + 1);
-                        }
-                }
+		if (uwsgi.snmp_community) {
+			if (strlen(uwsgi.snmp_community) > 72) {
+				uwsgi_log("*** warning the supplied SNMP community string will be truncated to 72 chars ***\n");
+				memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, 72);
+			}
+			else {
+				memcpy(uwsgi.shared->snmp_community, uwsgi.snmp_community, strlen(uwsgi.snmp_community) + 1);
+			}
+		}
 
-                uwsgi.shared->snmp_gvalue[0].type = SNMP_COUNTER64;
-                uwsgi.shared->snmp_gvalue[0].val = &uwsgi.workers[0].requests;
+		uwsgi.shared->snmp_gvalue[0].type = SNMP_COUNTER64;
+		uwsgi.shared->snmp_gvalue[0].val = &uwsgi.workers[0].requests;
 
-                for (i = 0; i < uwsgi.numproc; i++) {
-                        uwsgi.shared->snmp_gvalue[30 + i].type = SNMP_COUNTER64;
-                        uwsgi.shared->snmp_gvalue[30 + i].val = &uwsgi.workers[i + 1].requests;
-                }
+		for (i = 0; i < uwsgi.numproc; i++) {
+			uwsgi.shared->snmp_gvalue[30 + i].type = SNMP_COUNTER64;
+			uwsgi.shared->snmp_gvalue[30 + i].val = &uwsgi.workers[i + 1].requests;
+		}
 
-                if (uwsgi.snmp_addr) {
-                        snmp_fd = bind_to_udp(uwsgi.snmp_addr, 0, 0);
-                        if (snmp_fd < 0) {
-                                uwsgi_log("unable to bind to udp socket. SNMP service will be disabled.\n");
-                        }
-                        else {
-                                uwsgi_log("SNMP server enabled on %s\n", uwsgi.snmp_addr);
-                                event_queue_add_fd_read(uwsgi.master_queue, snmp_fd);
-                        }
-                }
-                else {
-                        uwsgi_log("SNMP agent enabled.\n");
-                }
+		if (uwsgi.snmp_addr) {
+			snmp_fd = bind_to_udp(uwsgi.snmp_addr, 0, 0);
+			if (snmp_fd < 0) {
+				uwsgi_log("unable to bind to udp socket. SNMP service will be disabled.\n");
+			}
+			else {
+				uwsgi_log("SNMP server enabled on %s\n", uwsgi.snmp_addr);
+				event_queue_add_fd_read(uwsgi.master_queue, snmp_fd);
+			}
+		}
+		else {
+			uwsgi_log("SNMP agent enabled.\n");
+		}
 
-        }
+	}
 
 	return snmp_fd;
 }

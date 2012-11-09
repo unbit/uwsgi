@@ -715,8 +715,8 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 
 	int base = '0';
 	char *to_split = uwsgi_str(magic_table['d']);
-	char *p = strtok(to_split,"/");
-	while(p && base <= '9') {
+	char *p = strtok(to_split, "/");
+	while (p && base <= '9') {
 		magic_table[base] = p;
 		base++;
 		p = strtok(NULL, "/");
@@ -865,13 +865,13 @@ void kill_them_all(int signum) {
 		return;
 
 	// count the number of active workers
-        int active_workers = 0;
-        for (i = 1; i <= uwsgi.numproc; i++) {
-        	if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-                	active_workers++;
-                }
-        }
-        uwsgi.marked_workers = active_workers;
+	int active_workers = 0;
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+			active_workers++;
+		}
+	}
+	uwsgi.marked_workers = active_workers;
 
 	uwsgi.to_hell = 1;
 
@@ -931,13 +931,13 @@ void grace_them_all(int signum) {
 		return;
 
 	// count the number of active workers
-        int active_workers = 0;
-        for (i = 1; i <= uwsgi.numproc; i++) {
-                if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-                        active_workers++;
-                }
-        }
-        uwsgi.marked_workers = active_workers;
+	int active_workers = 0;
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+			active_workers++;
+		}
+	}
+	uwsgi.marked_workers = active_workers;
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;
@@ -1044,13 +1044,13 @@ void reap_them_all(int signum) {
 		return;
 
 	// count the number of active workers
-        int active_workers = 0;
-        for (i = 1; i <= uwsgi.numproc; i++) {
-                if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-                        active_workers++;
-                }
-        }
-        uwsgi.marked_workers = active_workers;
+	int active_workers = 0;
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+			active_workers++;
+		}
+	}
+	uwsgi.marked_workers = active_workers;
 
 	if (!uwsgi.lazy)
 		uwsgi.to_heaven = 1;
@@ -1494,7 +1494,7 @@ void uwsgi_flush_logs() {
 check:
 	// this buffer could not be initialized !!!
 	if (uwsgi.log_master) {
-                uwsgi.log_master_buf = uwsgi_malloc(uwsgi.log_master_bufsize);
+		uwsgi.log_master_buf = uwsgi_malloc(uwsgi.log_master_bufsize);
 	}
 
 	// check for data in logpipe
@@ -1513,13 +1513,14 @@ check:
 static void plugins_list(void) {
 	int i;
 	uwsgi_log("\n*** uWSGI loaded generic plugins ***\n");
-	for(i=0;i<uwsgi.gp_cnt;i++) {
+	for (i = 0; i < uwsgi.gp_cnt; i++) {
 		uwsgi_log("%s\n", uwsgi.gp[i]->name);
 	}
 
 	uwsgi_log("\n*** uWSGI loaded request plugins ***\n");
-	for(i=0;i<256;i++) {
-		if (uwsgi.p[i] == &unconfigured_plugin) continue;
+	for (i = 0; i < 256; i++) {
+		if (uwsgi.p[i] == &unconfigured_plugin)
+			continue;
 		uwsgi_log("%d: %s\n", i, uwsgi.p[i]->name);
 	}
 
@@ -1529,39 +1530,39 @@ static void plugins_list(void) {
 static void loggers_list(void) {
 	struct uwsgi_logger *ul = uwsgi.loggers;
 	uwsgi_log("\n*** uWSGI loaded loggers ***\n");
-	while(ul) {
+	while (ul) {
 		uwsgi_log("%s\n", ul->name);
 		ul = ul->next;
-	}	
+	}
 	uwsgi_log("--- end of loggers list ---\n\n");
 }
 
 static void cheaper_algo_list(void) {
 	struct uwsgi_cheaper_algo *uca = uwsgi.cheaper_algos;
 	uwsgi_log("\n*** uWSGI loaded cheaper algorithms ***\n");
-	while(uca) {
+	while (uca) {
 		uwsgi_log("%s\n", uca->name);
 		uca = uca->next;
-	}	
+	}
 	uwsgi_log("--- end of cheaper algorithms list ---\n\n");
 }
 
 #ifdef UWSGI_ROUTING
 static void router_list(void) {
-        struct uwsgi_router *ur = uwsgi.routers;
-        uwsgi_log("\n*** uWSGI loaded routers ***\n");
-        while(ur) {
-                uwsgi_log("%s\n", ur->name);
-                ur = ur->next;
-        }
-        uwsgi_log("--- end of routers list ---\n\n");
+	struct uwsgi_router *ur = uwsgi.routers;
+	uwsgi_log("\n*** uWSGI loaded routers ***\n");
+	while (ur) {
+		uwsgi_log("%s\n", ur->name);
+		ur = ur->next;
+	}
+	uwsgi_log("--- end of routers list ---\n\n");
 }
 #endif
 
 static void loop_list(void) {
 	struct uwsgi_loop *loop = uwsgi.loops;
 	uwsgi_log("\n*** uWSGI loaded loop engines ***\n");
-	while(loop) {
+	while (loop) {
 		uwsgi_log("%s\n", loop->name);
 		loop = loop->next;
 	}
@@ -1571,9 +1572,9 @@ static void loop_list(void) {
 static void imperial_monitor_list(void) {
 	struct uwsgi_imperial_monitor *uim = uwsgi.emperor_monitors;
 	uwsgi_log("\n*** uWSGI loaded imperial monitors ***\n");
-	while(uim) {
+	while (uim) {
 		uwsgi_log("%s\n", uim->scheme);
-                uim = uim->next;
+		uim = uim->next;
 	}
 	uwsgi_log("--- end of imperial monitors list ---\n\n");
 }
@@ -1581,7 +1582,7 @@ static void imperial_monitor_list(void) {
 static void clocks_list(void) {
 	struct uwsgi_clock *clocks = uwsgi.clocks;
 	uwsgi_log("\n*** uWSGI loaded clocks ***\n");
-	while(clocks) {
+	while (clocks) {
 		uwsgi_log("%s\n", clocks->name);
 		clocks = clocks->next;
 	}
@@ -1590,13 +1591,13 @@ static void clocks_list(void) {
 
 #ifdef UWSGI_ALARM
 static void alarms_list(void) {
-        struct uwsgi_alarm *alarms = uwsgi.alarms;
-        uwsgi_log("\n*** uWSGI loaded alarms ***\n");
-        while(alarms) {
-                uwsgi_log("%s\n", alarms->name);
-                alarms = alarms->next;
-        }
-        uwsgi_log("--- end of alarms list ---\n\n");
+	struct uwsgi_alarm *alarms = uwsgi.alarms;
+	uwsgi_log("\n*** uWSGI loaded alarms ***\n");
+	while (alarms) {
+		uwsgi_log("%s\n", alarms->name);
+		alarms = alarms->next;
+	}
+	uwsgi_log("--- end of alarms list ---\n\n");
 }
 #endif
 
@@ -1607,7 +1608,7 @@ static time_t uwsgi_unix_seconds() {
 static uint64_t uwsgi_unix_microseconds() {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	return ((uint64_t)tv.tv_sec * 1000000) + tv.tv_usec;
+	return ((uint64_t) tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
 static struct uwsgi_clock uwsgi_unix_clock = {
@@ -1718,7 +1719,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
-	
+
 	// count/set the current reload status
 	uwsgi_setup_reload();
 
@@ -1740,11 +1741,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
-
-	// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
-	// try to automatically load a plugin
+		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
+		// try to automatically load a plugin
 #ifdef UWSGI_DEBUG
-	uwsgi_log("executable name: %s\n", uwsgi.binary_path);
+		uwsgi_log("executable name: %s\n", uwsgi.binary_path);
 #endif
 	uwsgi_autoload_plugins_by_name(argv[0]);
 
@@ -1808,16 +1808,16 @@ int main(int argc, char *argv[], char *envp[]) {
 	// setup main loops
 	uwsgi_register_loop("simple", simple_loop);
 #ifdef UWSGI_ASYNC
-        uwsgi_register_loop("async", async_loop);
+	uwsgi_register_loop("async", async_loop);
 #endif
 
 	// setup cheaper algos
-        uwsgi_register_cheaper_algo("spare", uwsgi_cheaper_algo_spare);
-        uwsgi_register_cheaper_algo("backlog", uwsgi_cheaper_algo_backlog);
+	uwsgi_register_cheaper_algo("spare", uwsgi_cheaper_algo_spare);
+	uwsgi_register_cheaper_algo("backlog", uwsgi_cheaper_algo_backlog);
 
 	// setup imperial monitors
 	uwsgi_register_imperial_monitor("dir", uwsgi_imperial_monitor_directory_init, uwsgi_imperial_monitor_directory);
-        uwsgi_register_imperial_monitor("glob", uwsgi_imperial_monitor_glob_init, uwsgi_imperial_monitor_glob);
+	uwsgi_register_imperial_monitor("glob", uwsgi_imperial_monitor_glob_init, uwsgi_imperial_monitor_glob);
 
 	// setup stats pushers
 	uwsgi_register_stats_pusher("file", uwsgi_stats_pusher_file);
@@ -1896,17 +1896,17 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_log_initial("compiled with version: %s on %s\n", __VERSION__, UWSGI_BUILD_DATE);
 
 #ifdef __sun__
-        if (uname(&uuts) < 0) {
+	if (uname(&uuts) < 0) {
 #else
-        if (uname(&uuts)) {
+	if (uname(&uuts)) {
 #endif
-                uwsgi_error("uname()");
-        }
-        else {
-                uwsgi_log_initial("os: %s-%s %s\n", uuts.sysname, uuts.release, uuts.version);
-                uwsgi_log_initial("nodename: %s\n", uuts.nodename);
-                uwsgi_log_initial("machine: %s\n", uuts.machine);
-        }
+		uwsgi_error("uname()");
+	}
+	else {
+		uwsgi_log_initial("os: %s-%s %s\n", uuts.sysname, uuts.release, uuts.version);
+		uwsgi_log_initial("nodename: %s\n", uuts.nodename);
+		uwsgi_log_initial("machine: %s\n", uuts.machine);
+	}
 
 	uwsgi_log_initial("clock source: %s\n", uwsgi.clock->name);
 #ifdef UWSGI_PCRE
@@ -1971,16 +1971,16 @@ int main(int argc, char *argv[], char *envp[]) {
 	}
 
 	// we could now patch the binary
-        if (uwsgi.privileged_binary_patch) {
-        	uwsgi.argv[0] = uwsgi.privileged_binary_patch;
-                execvp(uwsgi.privileged_binary_patch, uwsgi.argv);
-                uwsgi_error("execvp()");
-                exit(1);
-        }
+	if (uwsgi.privileged_binary_patch) {
+		uwsgi.argv[0] = uwsgi.privileged_binary_patch;
+		execvp(uwsgi.privileged_binary_patch, uwsgi.argv);
+		uwsgi_error("execvp()");
+		exit(1);
+	}
 
-        if (uwsgi.privileged_binary_patch_arg) {
+	if (uwsgi.privileged_binary_patch_arg) {
 		uwsgi_exec_command_with_args(uwsgi.privileged_binary_patch_arg);
-        }
+	}
 
 
 	// call jail systems
@@ -2049,17 +2049,17 @@ int uwsgi_start(void *v_argv) {
 
 #ifdef RLIMIT_NPROC
 	if (uwsgi.rl_nproc.rlim_max > 0) {
-                uwsgi.rl_nproc.rlim_cur = uwsgi.rl_nproc.rlim_max;
-                uwsgi_log_initial("limiting number of processes to %d...\n", (int) uwsgi.rl_nproc.rlim_max);
-                if (setrlimit(RLIMIT_NPROC, &uwsgi.rl_nproc)) {
-                        uwsgi_error("setrlimit()");
-                }
-        }
+		uwsgi.rl_nproc.rlim_cur = uwsgi.rl_nproc.rlim_max;
+		uwsgi_log_initial("limiting number of processes to %d...\n", (int) uwsgi.rl_nproc.rlim_max);
+		if (setrlimit(RLIMIT_NPROC, &uwsgi.rl_nproc)) {
+			uwsgi_error("setrlimit()");
+		}
+	}
 
 	if (!getrlimit(RLIMIT_NPROC, &uwsgi.rl_nproc)) {
 		if (uwsgi.rl_nproc.rlim_cur != RLIM_INFINITY) {
 			uwsgi_log_initial("your processes number limit is %d\n", (int) uwsgi.rl_nproc.rlim_cur);
-			if ((int)uwsgi.rl_nproc.rlim_cur < uwsgi.numproc+uwsgi.master_process) {
+			if ((int) uwsgi.rl_nproc.rlim_cur < uwsgi.numproc + uwsgi.master_process) {
 				uwsgi.numproc = uwsgi.rl_nproc.rlim_cur - 1;
 				uwsgi_log_initial("!!! number of workers adjusted to %d due to system limits !!!\n", uwsgi.numproc);
 			}
@@ -2150,15 +2150,15 @@ int uwsgi_start(void *v_argv) {
 			uwsgi.rl.rlim_cur = uwsgi.async;
 			uwsgi.rl.rlim_max = uwsgi.async;
 			if (!setrlimit(RLIMIT_NOFILE, &uwsgi.rl)) {
-                        	uwsgi_log("max open files limit raised to %lu\n", (unsigned long) uwsgi.rl.rlim_cur);
-                                uwsgi.async = uwsgi.rl.rlim_cur;
+				uwsgi_log("max open files limit raised to %lu\n", (unsigned long) uwsgi.rl.rlim_cur);
+				uwsgi.async = uwsgi.rl.rlim_cur;
 				uwsgi.max_fd = uwsgi.rl.rlim_cur;
-                        }
-                        else {
-                        	uwsgi.async = (int) uwsgi.max_fd;
-                	}
-                }
-                uwsgi_log("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
+			}
+			else {
+				uwsgi.async = (int) uwsgi.max_fd;
+			}
+		}
+		uwsgi_log("- async cores set to %d - fd table size: %d\n", uwsgi.async, (int) uwsgi.max_fd);
 		uwsgi.async_waiting_fd_table = malloc(sizeof(struct wsgi_request *) * uwsgi.max_fd);
 		if (!uwsgi.async_waiting_fd_table) {
 			uwsgi_error("malloc()");
@@ -2299,7 +2299,8 @@ int uwsgi_start(void *v_argv) {
 
 	// users of the --loop option should know what they are doing... really...
 #ifndef UWSGI_DEBUG
-	if (uwsgi.loop) goto unsafe;
+	if (uwsgi.loop)
+		goto unsafe;
 #endif
 
 #ifdef UWSGI_UDP
@@ -2434,25 +2435,26 @@ unsafe:
 		uwsgi.logvectors = uwsgi_malloc(sizeof(struct iovec *) * uwsgi.cores);
 		for (j = 0; j < uwsgi.cores; j++) {
 			uwsgi.logvectors[j] = uwsgi_malloc(sizeof(struct iovec) * uwsgi.logformat_vectors);
-			uwsgi.logvectors[j][uwsgi.logformat_vectors-1].iov_base = "\n";
-			uwsgi.logvectors[j][uwsgi.logformat_vectors-1].iov_len = 1;
+			uwsgi.logvectors[j][uwsgi.logformat_vectors - 1].iov_base = "\n";
+			uwsgi.logvectors[j][uwsgi.logformat_vectors - 1].iov_len = 1;
 		}
 	}
 
 #ifdef UWSGI_SPOOLER
 	// initialize locks and socket as soon as possibile, as the master could enqueue tasks
-        if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
-                create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
-                struct uwsgi_spooler *uspool = uwsgi.spoolers;
-                while (uspool) {
-                        // lock is required even in EXTERNAL mode
-                        uspool->lock = uwsgi_lock_init(uwsgi_concat2("spooler on ", uspool->dir));
-                        if (uspool->mode == UWSGI_SPOOLER_EXTERNAL) goto next;
-                        create_signal_pipe(uspool->signal_pipe);
+	if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
+		create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
+		struct uwsgi_spooler *uspool = uwsgi.spoolers;
+		while (uspool) {
+			// lock is required even in EXTERNAL mode
+			uspool->lock = uwsgi_lock_init(uwsgi_concat2("spooler on ", uspool->dir));
+			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL)
+				goto next;
+			create_signal_pipe(uspool->signal_pipe);
 next:
-                        uspool = uspool->next;
-                }
-        }
+			uspool = uspool->next;
+		}
+	}
 #endif
 
 
@@ -2475,17 +2477,17 @@ next:
 	}
 
 	// postinit apps (setup specific features after app initialization)
-        for (i = 0; i < 256; i++) {
-                if (uwsgi.p[i]->postinit_apps) {
-                        uwsgi.p[i]->postinit_apps();
-                }
-        }
+	for (i = 0; i < 256; i++) {
+		if (uwsgi.p[i]->postinit_apps) {
+			uwsgi.p[i]->postinit_apps();
+		}
+	}
 
-        for (i = 0; i < uwsgi.gp_cnt; i++) {
-                if (uwsgi.gp[i]->postinit_apps) {
-                        uwsgi.gp[i]->postinit_apps();
-                }
-        }
+	for (i = 0; i < uwsgi.gp_cnt; i++) {
+		if (uwsgi.gp[i]->postinit_apps) {
+			uwsgi.gp[i]->postinit_apps();
+		}
+	}
 
 
 	if (uwsgi.daemonize2) {
@@ -2570,7 +2572,8 @@ next:
 	if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
 		while (uspool) {
-			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL) goto next2;
+			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL)
+				goto next2;
 			uspool->pid = spooler_start(uspool);
 next2:
 			uspool = uspool->next;
@@ -2607,7 +2610,8 @@ next2:
 	if (!uwsgi.cheap) {
 		if (uwsgi.cheaper && uwsgi.cheaper_count) {
 			int nproc = uwsgi.cheaper_initial;
-			if (!nproc) nproc = uwsgi.cheaper_count;
+			if (!nproc)
+				nproc = uwsgi.cheaper_count;
 			for (i = 1; i <= uwsgi.numproc; i++) {
 				if (i <= nproc) {
 					if (uwsgi_respawn_worker(i))
@@ -2676,7 +2680,7 @@ next2:
 	if (uwsgi.master_as_root) {
 		uwsgi_as_root();
 	}
- 
+
 	// set default wsgi_req (for loading apps);
 	uwsgi.wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
 
@@ -2821,10 +2825,10 @@ wait_for_call_of_duty:
 #ifdef UWSGI_THREADING
 	// create a pthread key, storing per-thread wsgi_request structure
 	if (uwsgi.threads > 1) {
-                if (pthread_key_create(&uwsgi.tur_key, NULL)) {
-                        uwsgi_error("pthread_key_create()");
-                        exit(1);
-                }
+		if (pthread_key_create(&uwsgi.tur_key, NULL)) {
+			uwsgi_error("pthread_key_create()");
+			exit(1);
+		}
 	}
 #endif
 
@@ -3085,7 +3089,7 @@ void uwsgi_init_all_apps() {
 	}
 
 	struct uwsgi_string_list *app_mps = uwsgi.mounts;
-	while(app_mps) {
+	while (app_mps) {
 		char *what = strchr(app_mps->value, '=');
 		if (what) {
 			what[0] = 0;
@@ -3274,9 +3278,9 @@ void uwsgi_opt_add_regexp_custom_list(char *opt, char *value, void *list) {
 		uwsgi_log("invalid custom regexp syntax: must be <custom> <regexp>\n");
 		exit(1);
 	}
-	char *custom = uwsgi_concat2n(value, space-value, "", 0);
+	char *custom = uwsgi_concat2n(value, space - value, "", 0);
 	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;
-	uwsgi_regexp_custom_new_list(ptr, space+1, custom);
+	uwsgi_regexp_custom_new_list(ptr, space + 1, custom);
 }
 #endif
 
@@ -3291,8 +3295,8 @@ void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {
 }
 
 void uwsgi_opt_add_lazy_socket(char *opt, char *value, void *protocol) {
-        struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
-        uwsgi_sock->proto_name = protocol;
+	struct uwsgi_socket *uwsgi_sock = uwsgi_new_socket(generate_socket_name(value));
+	uwsgi_sock->proto_name = protocol;
 	uwsgi_sock->bound = 1;
 	uwsgi_sock->lazy = 1;
 }
@@ -3420,7 +3424,7 @@ void uwsgi_opt_pidfile_signal(char *opt, char *pidfile, void *sig) {
 
 void uwsgi_opt_load_dl(char *opt, char *value, void *none) {
 	if (!dlopen(value, RTLD_NOW | RTLD_GLOBAL)) {
-        	uwsgi_log( "%s\n", dlerror());
+		uwsgi_log("%s\n", dlerror());
 	}
 }
 

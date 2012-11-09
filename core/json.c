@@ -31,17 +31,17 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 	int i;
 
 	if (uwsgi_check_scheme(file)) {
-                colon = uwsgi_get_last_char(file, '/');
-                colon = uwsgi_get_last_char(colon, ':');
-        }
-        else {
-                colon = uwsgi_get_last_char(file, ':');
-        }
+		colon = uwsgi_get_last_char(file, '/');
+		colon = uwsgi_get_last_char(colon, ':');
+	}
+	else {
+		colon = uwsgi_get_last_char(file, ':');
+	}
 
 	if (colon) {
 		colon[0] = 0;
 		if (colon[1] != 0) {
-			object_asked = colon+1;
+			object_asked = colon + 1;
 		}
 	}
 
@@ -49,7 +49,7 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 
 	json_data = uwsgi_open_and_read(file, &len, 1, magic_table);
 
-#ifdef JANSSON_MAJOR_VERSION 
+#ifdef JANSSON_MAJOR_VERSION
 	root = json_loads(json_data, 0, &error);
 #else
 	root = json_loads(json_data, &error);
@@ -66,46 +66,46 @@ void uwsgi_json_config(char *file, char *magic_table[]) {
 		uwsgi_log("you must define a object named %s in your JSON data\n", object_asked);
 		exit(1);
 	}
-	
+
 	config_iter = json_object_iter(config);
 
-	while(config_iter) {
+	while (config_iter) {
 		key = json_object_iter_key(config_iter);
-		config_value = json_object_iter_value(config_iter);	
+		config_value = json_object_iter_value(config_iter);
 
 		if (json_is_string(config_value)) {
-			add_exported_option((char *)key, (char *) json_string_value(config_value), 0);
+			add_exported_option((char *) key, (char *) json_string_value(config_value), 0);
 		}
 		else if (json_is_true(config_value)) {
-			add_exported_option((char *)key, strdup("1"), 0);
+			add_exported_option((char *) key, strdup("1"), 0);
 		}
 		else if (json_is_false(config_value) || json_is_null(config_value)) {
-			add_exported_option((char *)key, strdup("0"), 0);
+			add_exported_option((char *) key, strdup("0"), 0);
 		}
 		else if (json_is_integer(config_value)) {
-			add_exported_option((char *)key, uwsgi_num2str(json_integer_value(config_value)), 0);
+			add_exported_option((char *) key, uwsgi_num2str(json_integer_value(config_value)), 0);
 		}
 		else if (json_is_array(config_value)) {
-			for(i=0;i<(int)json_array_size(config_value);i++) {
-				config_array_item = json_array_get(config_value, i);				
+			for (i = 0; i < (int) json_array_size(config_value); i++) {
+				config_array_item = json_array_get(config_value, i);
 				if (json_is_string(config_array_item)) {
-                        		add_exported_option((char *)key, (char *) json_string_value(config_array_item), 0);
-                		}
-                		else if (json_is_true(config_array_item)) {
-                        		add_exported_option((char *)key, strdup("1"), 0);
-                		}
-                		else if (json_is_false(config_array_item) || json_is_null(config_array_item)) {
-                        		add_exported_option((char *)key, strdup("0"), 0);
-                		}
-                		else if (json_is_integer(config_array_item)) {
-                        		add_exported_option((char *)key, uwsgi_num2str(json_integer_value(config_array_item)), 0);
-                		}
+					add_exported_option((char *) key, (char *) json_string_value(config_array_item), 0);
+				}
+				else if (json_is_true(config_array_item)) {
+					add_exported_option((char *) key, strdup("1"), 0);
+				}
+				else if (json_is_false(config_array_item) || json_is_null(config_array_item)) {
+					add_exported_option((char *) key, strdup("0"), 0);
+				}
+				else if (json_is_integer(config_array_item)) {
+					add_exported_option((char *) key, uwsgi_num2str(json_integer_value(config_array_item)), 0);
+				}
 			}
 		}
 
 		config_iter = json_object_iter_next(config, config_iter);
 	}
-	
+
 }
 
 #endif

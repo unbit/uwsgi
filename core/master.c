@@ -15,8 +15,8 @@ void uwsgi_restore_auto_snapshot(int signum) {
 
 void uwsgi_block_signal(int signum) {
 	sigset_t smask;
-        sigemptyset(&smask);
-	sigaddset(&smask, signum);	
+	sigemptyset(&smask);
+	sigaddset(&smask, signum);
 	if (sigprocmask(SIG_BLOCK, &smask, NULL)) {
 		uwsgi_error("sigprocmask()");
 	}
@@ -24,8 +24,8 @@ void uwsgi_block_signal(int signum) {
 
 void uwsgi_unblock_signal(int signum) {
 	sigset_t smask;
-        sigemptyset(&smask);
-	sigaddset(&smask, signum);	
+	sigemptyset(&smask);
+	sigaddset(&smask, signum);
 	if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
 		uwsgi_error("sigprocmask()");
 	}
@@ -270,7 +270,7 @@ int uwsgi_master_log(void) {
 #endif
 #ifdef UWSGI_PCRE
 		struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
-		while(url) {
+		while (url) {
 			if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
 				return 0;
 			}
@@ -279,35 +279,37 @@ int uwsgi_master_log(void) {
 		if (uwsgi.log_filter_rules) {
 			int show = 0;
 			url = uwsgi.log_filter_rules;
-			while(url) {
+			while (url) {
 				if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
 					show = 1;
 					break;
 				}
 				url = url->next;
 			}
-			if (!show) return 0;
+			if (!show)
+				return 0;
 		}
 
 		url = uwsgi.log_route;
 		int finish = 0;
-		while(url) {
+		while (url) {
 			if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
 				struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
 				if (ul_route) {
 					ul_route->func(ul_route, uwsgi.log_master_buf, rlen);
 					finish = 1;
 				}
-                        }
-                        url = url->next;
+			}
+			url = url->next;
 		}
-		if (finish) return 0;
+		if (finish)
+			return 0;
 #endif
 
 		int raw_log = 1;
 
-		struct uwsgi_logger *ul = uwsgi.choosen_logger; 
-		while(ul) {
+		struct uwsgi_logger *ul = uwsgi.choosen_logger;
+		while (ul) {
 			// check for named logger
 			if (ul->id) {
 				goto next;
@@ -738,10 +740,10 @@ int master_loop(char **argv, char **environ) {
 
 	if (uwsgi.requested_stats_pushers) {
 		if (!uwsgi_thread_new(uwsgi_stats_pusher_loop)) {
-                	uwsgi_log("!!! unable to spawn stats pusher thread !!!\n");
-                	exit(1);
+			uwsgi_log("!!! unable to spawn stats pusher thread !!!\n");
+			exit(1);
 		}
-        }
+	}
 
 #ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
@@ -1243,12 +1245,12 @@ health_cycle:
 
 				int busy_workers = 0;
 				for (i = 1; i <= uwsgi.numproc; i++) {
-                                        if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-                                                if (uwsgi.workers[i].busy == 1) {
-                                                	busy_workers = 1;
-                                                	break;
-                                        	}
-                                	}
+					if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
+						if (uwsgi.workers[i].busy == 1) {
+							busy_workers = 1;
+							break;
+						}
+					}
 				}
 
 				if (last_request_count != uwsgi.workers[0].requests) {
@@ -1533,7 +1535,8 @@ health_cycle:
 				}
 			}
 
-			if (uwsgi_daemon_check_pid_death(diedpid)) goto next;
+			if (uwsgi_daemon_check_pid_death(diedpid))
+				goto next;
 
 			if (WIFEXITED(waitpid_status)) {
 				uwsgi_log("subprocess %d exited with code %d\n", (int) diedpid, WEXITSTATUS(waitpid_status));
@@ -1594,7 +1597,7 @@ next:
 		}
 		// manage_next_request is zero, but killed by signal...
 		else if (WIFSIGNALED(waitpid_status)) {
-                	uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
+			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
 		}
 
 		if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {

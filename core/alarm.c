@@ -20,9 +20,9 @@ void uwsgi_alarm_func_cmd(struct uwsgi_alarm_instance *uai, char *msg, size_t le
 	int pipe[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, pipe)) {
 		return;
-        }
-        uwsgi_socket_nb(pipe[0]);
-        uwsgi_socket_nb(pipe[1]);	
+	}
+	uwsgi_socket_nb(pipe[0]);
+	uwsgi_socket_nb(pipe[1]);
 	if (write(pipe[1], msg, len) != (ssize_t) len) {
 		close(pipe[0]);
 		close(pipe[1]);
@@ -36,7 +36,7 @@ void uwsgi_alarm_func_cmd(struct uwsgi_alarm_instance *uai, char *msg, size_t le
 // pass the log line to a mule
 
 void uwsgi_alarm_init_mule(struct uwsgi_alarm_instance *uai) {
-        uai->data32 = atoi(uai->arg);
+	uai->data32 = atoi(uai->arg);
 	if (uai->data32 > (uint32_t) uwsgi.mules_cnt) {
 		uwsgi_log_alarm("] invalid mule_id (%d mules available), fallback to 0\n", uwsgi.mules_cnt);
 		uai->data32 = 0;
@@ -45,24 +45,25 @@ void uwsgi_alarm_init_mule(struct uwsgi_alarm_instance *uai) {
 
 void uwsgi_alarm_func_mule(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
 	// skip if mules are not available
-	if (uwsgi.mules_cnt == 0) return;
+	if (uwsgi.mules_cnt == 0)
+		return;
 	int fd = uwsgi.shared->mule_queue_pipe[0];
 	if (uai->data32 > 0) {
-		int mule_id = uai->data32-1;
-        	fd = uwsgi.mules[mule_id].queue_pipe[0];
+		int mule_id = uai->data32 - 1;
+		fd = uwsgi.mules[mule_id].queue_pipe[0];
 	}
 	mule_send_msg(fd, msg, len);
 }
 
 
 // register a new alarm
-void uwsgi_register_alarm(char *name, void (*init)(struct uwsgi_alarm_instance *), void (*func)(struct uwsgi_alarm_instance *, char *, size_t)) {
-	struct uwsgi_alarm *old_ua=NULL,*ua = uwsgi.alarms;
-	while(ua) {
+void uwsgi_register_alarm(char *name, void (*init) (struct uwsgi_alarm_instance *), void (*func) (struct uwsgi_alarm_instance *, char *, size_t)) {
+	struct uwsgi_alarm *old_ua = NULL, *ua = uwsgi.alarms;
+	while (ua) {
 		// skip already initialized alarms
 		if (!strcmp(ua->name, name)) {
 			return;
-                }
+		}
 		old_ua = ua;
 		ua = ua->next;
 	}
@@ -89,17 +90,18 @@ void uwsgi_register_embedded_alarms() {
 
 static int uwsgi_alarm_add(char *name, char *plugin, char *arg) {
 	struct uwsgi_alarm *ua = uwsgi.alarms;
-	while(ua) {
+	while (ua) {
 		if (!strcmp(ua->name, plugin)) {
 			break;
 		}
 		ua = ua->next;
 	}
 
-	if (!ua) return -1;
+	if (!ua)
+		return -1;
 
 	struct uwsgi_alarm_instance *old_uai = NULL, *uai = uwsgi.alarm_instances;
-	while(uai) {
+	while (uai) {
 		old_uai = uai;
 		uai = uai->next;
 	}
@@ -116,7 +118,7 @@ static int uwsgi_alarm_add(char *name, char *plugin, char *arg) {
 	else {
 		uwsgi.alarm_instances = uai;
 	}
-	
+
 	ua->init(uai);
 	return 0;
 }
@@ -124,7 +126,7 @@ static int uwsgi_alarm_add(char *name, char *plugin, char *arg) {
 // get an alarm instance by its name
 static struct uwsgi_alarm_instance *uwsgi_alarm_get_instance(char *name) {
 	struct uwsgi_alarm_instance *uai = uwsgi.alarm_instances;
-	while(uai) {
+	while (uai) {
 		if (!strcmp(name, uai->name)) {
 			return uai;
 		}
@@ -137,7 +139,7 @@ static struct uwsgi_alarm_instance *uwsgi_alarm_get_instance(char *name) {
 static int uwsgi_alarm_log_add(char *alarms, char *regexp) {
 
 	struct uwsgi_alarm_log *old_ual = NULL, *ual = uwsgi.alarm_logs;
-	while(ual) {
+	while (ual) {
 		old_ual = ual;
 		ual = ual->next;
 	}
@@ -145,7 +147,7 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp) {
 	ual = uwsgi_calloc(sizeof(struct uwsgi_alarm_log));
 	if (uwsgi_regexp_build(regexp, &ual->pattern, &ual->pattern_extra)) {
 		return -1;
-        }
+	}
 
 	if (old_ual) {
 		old_ual->next = ual;
@@ -157,11 +159,12 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp) {
 	// map instances to the log
 	char *list = uwsgi_str(alarms);
 	char *p = strtok(list, ",");
-	while(p) {
+	while (p) {
 		struct uwsgi_alarm_instance *uai = uwsgi_alarm_get_instance(p);
-		if (!uai) return -1;
-		struct uwsgi_alarm_ll *old_uall=NULL,*uall = ual->alarms;
-		while(uall) {
+		if (!uai)
+			return -1;
+		struct uwsgi_alarm_ll *old_uall = NULL, *uall = ual->alarms;
+		while (uall) {
 			old_uall = uall;
 			uall = uall->next;
 		}
@@ -184,7 +187,7 @@ void uwsgi_alarms_init() {
 
 	// first of all, create instance of alarms
 	struct uwsgi_string_list *usl = uwsgi.alarm_list;
-	while(usl) {
+	while (usl) {
 		char *line = uwsgi_str(usl->value);
 		char *space = strchr(line, ' ');
 		if (!space) {
@@ -192,14 +195,14 @@ void uwsgi_alarms_init() {
 			exit(1);
 		}
 		*space = 0;
-		char *plugin = space+1;
+		char *plugin = space + 1;
 		char *colon = strchr(plugin, ':');
 		if (!colon) {
 			uwsgi_log("invalid alarm syntax: %s\n", usl->value);
 			exit(1);
 		}
 		*colon = 0;
-		char *arg = colon+1;
+		char *arg = colon + 1;
 		// here the alarm is mapped to a name and initialized
 		if (uwsgi_alarm_add(line, plugin, arg)) {
 			uwsgi_log("invalid alarm: %s\n", usl->value);
@@ -210,20 +213,20 @@ void uwsgi_alarms_init() {
 
 	// then map log-alarm
 	usl = uwsgi.alarm_logs_list;
-	while(usl) {
+	while (usl) {
 		char *line = uwsgi_str(usl->value);
 		char *space = strchr(line, ' ');
-                if (!space) {
-                        uwsgi_log("invalid log-alarm syntax: %s\n", usl->value);
-                        exit(1);
-                }
-                *space = 0;
-                char *regexp = space+1;
-                // here the log-alarm is created
-                if (uwsgi_alarm_log_add(line, regexp)) {
-                        uwsgi_log("invalid log-alarm: %s\n", usl->value);
-                        exit(1);
-                }
+		if (!space) {
+			uwsgi_log("invalid log-alarm syntax: %s\n", usl->value);
+			exit(1);
+		}
+		*space = 0;
+		char *regexp = space + 1;
+		// here the log-alarm is created
+		if (uwsgi_alarm_log_add(line, regexp)) {
+			uwsgi_log("invalid log-alarm: %s\n", usl->value);
+			exit(1);
+		}
 
 		usl = usl->next;
 	}
@@ -231,13 +234,14 @@ void uwsgi_alarms_init() {
 
 // check if a log should raise an alarm
 void uwsgi_alarm_log_check(char *msg, size_t len) {
-	if (!uwsgi_strncmp(msg, len, "[uwsgi-alarm", 12)) return;
+	if (!uwsgi_strncmp(msg, len, "[uwsgi-alarm", 12))
+		return;
 	struct uwsgi_alarm_log *ual = uwsgi.alarm_logs;
-        while(ual) {
-        	if (uwsgi_regexp_match(ual->pattern, ual->pattern_extra, msg, len) >= 0) {
-                	uwsgi_alarm_log_run(ual, msg, len);
-                }
-                ual = ual->next;
+	while (ual) {
+		if (uwsgi_regexp_match(ual->pattern, ual->pattern_extra, msg, len) >= 0) {
+			uwsgi_alarm_log_run(ual, msg, len);
+		}
+		ual = ual->next;
 	}
 }
 
@@ -245,8 +249,9 @@ void uwsgi_alarm_log_check(char *msg, size_t len) {
 void uwsgi_alarm_run(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
 	time_t now = uwsgi_now();
 	// avoid alarm storming/loop if last message is the same
-	if (!uwsgi_strncmp(msg, len, uai->last_msg, uai->last_msg_size)) {	
-		if (now - uai->last_run < uwsgi.alarm_freq) return;
+	if (!uwsgi_strncmp(msg, len, uai->last_msg, uai->last_msg_size)) {
+		if (now - uai->last_run < uwsgi.alarm_freq)
+			return;
 	}
 	uai->alarm->func(uai, msg, len);
 	uai->last_run = uwsgi_now();
@@ -257,10 +262,8 @@ void uwsgi_alarm_run(struct uwsgi_alarm_instance *uai, char *msg, size_t len) {
 // call the alarms mapped to a log line
 void uwsgi_alarm_log_run(struct uwsgi_alarm_log *ual, char *msg, size_t len) {
 	struct uwsgi_alarm_ll *uall = ual->alarms;
-	while(uall) {
+	while (uall) {
 		uwsgi_alarm_run(uall->alarm, msg, len);
 		uall = uall->next;
 	}
 }
-
-
