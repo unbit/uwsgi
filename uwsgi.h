@@ -1520,10 +1520,10 @@ struct uwsgi_server {
 
 	int offload_threads;
 	int offload_threads_events;
+	struct uwsgi_thread **offload_thread;
 
 	int check_static_docroot;
 
-	struct uwsgi_thread *offload_thread;
 	// linked list for offloaded requests
 	struct uwsgi_offload_request *offload_requests_head;
 	struct uwsgi_offload_request *offload_requests_tail;
@@ -2060,10 +2060,13 @@ struct uwsgi_core {
 	uint64_t	failed_requests;
 	uint64_t        static_requests;
 	uint64_t        routed_requests;
+	uint64_t        offloaded_requests;
 
 #ifdef UWSGI_THREADING
 	pthread_t thread_id;
 #endif
+
+	int offload_rr;
 
 	// one ts-perapp
 	void **ts;
@@ -3178,6 +3181,7 @@ struct uwsgi_stats_pusher_instance {
 	struct uwsgi_stats_pusher_instance *next;
 };
 
+struct uwsgi_thread;
 void uwsgi_stats_pusher_loop(struct uwsgi_thread *);
 void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *, char *, size_t);
 void uwsgi_stats_pusher_socket(struct uwsgi_stats_pusher_instance *, char *, size_t);

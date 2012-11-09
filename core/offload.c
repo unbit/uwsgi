@@ -28,8 +28,16 @@ static void uwsgi_offload_setup(struct uwsgi_offload_request *uor, struct wsgi_r
 	
 }
 
-static int uwsgi_offload_enqueue(struct uwsgi_offload_request *uor) {
-	if (write(uwsgi.offload_thread->pipe[0], uor, sizeof(struct uwsgi_offload_request)) != sizeof(struct uwsgi_offload_request)) {
+static int uwsgi_offload_enqueue(struct wsgi_request *wsgi_req, struct uwsgi_offload_request *uor) {
+	struct uwsgi_core *uc = &uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id];
+	uc->offloaded_requests++;
+	// round robin
+	if (uc->offload_rr >= uwsgi.offload_threads) {
+		uc->offload_rr = 0;
+	}
+	struct uwsgi_thread *ut = uwsgi.offload_thread[uc->offload_rr];
+	uc->offload_rr++;
+	if (write(ut->pipe[0], uor, sizeof(struct uwsgi_offload_request)) != sizeof(struct uwsgi_offload_request)) {
 		return -1;
 	}
 	return 0;
@@ -49,7 +57,7 @@ int uwsgi_offload_request_net_do(struct wsgi_request *wsgi_req, char *socket, st
 
 	uor.ubuf = ubuf;
 
-	if (uwsgi_offload_enqueue(&uor)) {
+	if (uwsgi_offload_enqueue(wsgi_req, &uor)) {
 		goto error2;
 	}
 
@@ -86,7 +94,7 @@ int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, char *filen
 
 	uor.len = len;
 
-	if (uwsgi_offload_enqueue(&uor)) {
+	if (uwsgi_offload_enqueue(wsgi_req, &uor)) {
 		goto error2;
 	}
 
@@ -169,9 +177,9 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 		int nevents = event_queue_wait_multi(ut->queue, -1, events, uwsgi.offload_threads_events);
 		for (i = 0; i < nevents; i++) {
 			int interesting_fd = event_queue_interesting_fd(events, i);
-			if (interesting_fd == uwsgi.offload_thread->pipe[1]) {
+			if (interesting_fd == ut->pipe[1]) {
 				struct uwsgi_offload_request *uor = uwsgi_malloc(sizeof(struct uwsgi_offload_request));
-				ssize_t len = read(uwsgi.offload_thread->pipe[1], uor, sizeof(struct uwsgi_offload_request));
+				ssize_t len = read(ut->pipe[1], uor, sizeof(struct uwsgi_offload_request));
 				if (len != sizeof(struct uwsgi_offload_request)) {
 					uwsgi_error("read()");
 					free(uor);

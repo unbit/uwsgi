@@ -1044,6 +1044,9 @@ void reap_them_all(int signum) {
 	if (uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0)
 		return;
 
+
+	if (!uwsgi.workers) return;
+
 	// count the number of active workers
 	int active_workers = 0;
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -2686,10 +2689,14 @@ next2:
 	uwsgi.wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[0].req;
 
 	if (uwsgi.offload_threads > 0) {
-		uwsgi.offload_thread = uwsgi_offload_thread_start();
-		if (!uwsgi.offload_thread) {
-			uwsgi_log("unable to start offload thread for worker %d !!!\n", uwsgi.mywid);
-			uwsgi.offload_threads = 0;
+		uwsgi.offload_thread = uwsgi_malloc(sizeof(struct uwsgi_thread *) * uwsgi.offload_threads);
+		for(i=0;i<uwsgi.offload_threads;i++) {
+			uwsgi.offload_thread[i] = uwsgi_offload_thread_start();
+			if (!uwsgi.offload_thread[i]) {
+				uwsgi_log("unable to start offload thread %d for worker %d !!!\n", i, uwsgi.mywid);
+				uwsgi.offload_threads = i;
+				break;
+			}
 		}
 	}
 

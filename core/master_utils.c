@@ -1049,6 +1049,9 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keylong_comma(us, "routed_requests", (unsigned long long) uc->routed_requests))
 				goto end;
 
+			if (uwsgi_stats_keylong_comma(us, "offloaded_requests", (unsigned long long) uc->offloaded_requests))
+				goto end;
+
 			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))
 				goto end;
 
