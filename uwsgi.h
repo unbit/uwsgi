@@ -441,6 +441,8 @@ struct uwsgi_gateway_socket {
 	char *port;
 	int port_len;
 
+	int no_defer;
+
 	void *data;
 	// this requires UDP
 	int subscription;

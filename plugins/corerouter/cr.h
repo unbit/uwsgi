@@ -151,6 +151,7 @@ struct corerouter_session {
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);
+void uwsgi_opt_undeferred_corerouter(char *, char *, void *);
 void uwsgi_opt_corerouter_use_socket(char *, char *, void *);
 void uwsgi_opt_corerouter_use_base(char *, char *, void *);
 void uwsgi_opt_corerouter_use_pattern(char *, char *, void *);

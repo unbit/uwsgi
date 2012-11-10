@@ -6,4 +6,4 @@ LIBS = []
 
 REQUIRES = ['corerouter']
 
-GCC_LIST = ['rawrouter', 'rr_events']
+GCC_LIST = ['rawrouter']

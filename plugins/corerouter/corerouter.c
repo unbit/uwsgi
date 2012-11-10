@@ -22,6 +22,13 @@ void uwsgi_opt_corerouter(char *opt, char *value, void *cr) {
         ucr->has_sockets++;
 }
 
+void uwsgi_opt_undeferred_corerouter(char *opt, char *value, void *cr) {
+	struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
+        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(value, ucr->name);
+	ugs->no_defer = 1;
+        ucr->has_sockets++;
+}
+
 void uwsgi_opt_corerouter_use_socket(char *opt, char *value, void *cr) {
 	struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
         ucr->use_socket = 1;
@@ -771,7 +778,11 @@ void uwsgi_corerouter_loop(int id, void *data) {
 #endif
 #endif
 
-						corerouter_alloc_session(ucr, ugs, new_connection, (struct sockaddr *) &cr_addr, cr_addr_len);
+						struct corerouter_session *cr = corerouter_alloc_session(ucr, ugs, new_connection, (struct sockaddr *) &cr_addr, cr_addr_len);
+						//something wrong in the allocation
+						if (cr->instance_failed) {
+							corerouter_close_session(ucr, cr);
+						}
 					}
 					else if (ugs->subscription) {
 						uwsgi_corerouter_manage_subscription(ucr, id, ugs);

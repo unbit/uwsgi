@@ -41,6 +41,10 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 				}
 				else {
 					ugs->port = strchr(ugs->name, ':');
+					int current_defer_accept = uwsgi.no_defer_accept;
+					if (ugs->no_defer) {
+                        			uwsgi.no_defer_accept = 1;
+					}
 					if (ugs->fd == -1) {
 						if (ugs->port) {
 							ugs->fd = bind_to_tcp(ugs->name, uwsgi.listen_queue, ugs->port);
@@ -50,6 +54,9 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 						else {
 							ugs->fd = bind_to_unix(ugs->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 						}
+					}
+					if (ugs->no_defer) {
+                        			uwsgi.no_defer_accept = current_defer_accept;
 					}
 				}
 				// put socket in non-blocking mode
