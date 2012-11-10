@@ -21,6 +21,9 @@ struct rawrouter_session {
 	char xclient[13+INET_ADDRSTRLEN+2];
 	size_t xclient_len;
 	off_t xclient_pos;
+	size_t xclient_remains;
+	// placeholder for \r\n
+	size_t xclient_rn;
 };
 
 struct uwsgi_option rawrouter_options[] = {
@@ -125,6 +128,41 @@ ssize_t rr_instance_read(struct corerouter_session * cs) {
 	return len;
 }
 
+ssize_t rr_xclient_write(struct corerouter_session *);
+
+ssize_t rr_xclient_read(struct corerouter_session * cs) {
+	struct rawrouter_session *rr = (struct rawrouter_session *) cs;
+	cs->buffer_len = cs->buffer->len;
+        ssize_t len = read(cs->instance_fd, cs->buffer->buf + cs->buffer_pos, cs->buffer_len - cs->buffer_pos);
+	if (len < 0) {
+                cr_try_again;
+                uwsgi_error("rr_xclient_read()");
+                return -1;
+        }
+	if (len == 0) return 0;
+
+	char *ptr = cs->buffer->buf + cs->buffer_pos;
+	ssize_t i;
+	for(i=0;i<len;i++) {
+		if (rr->xclient_rn == 1) {
+			if (ptr[i] != '\n') {
+				return -1;
+			}
+			// banner received
+			cs->buffer_pos = len - (i+1);
+			uwsgi_cr_hook_instance_read(cs, NULL);
+			uwsgi_cr_hook_instance_write(cs, rr_xclient_write);
+			return len;
+		}
+		else if (ptr[i] == '\r') {
+			rr->xclient_rn = 1;
+		}
+	}
+
+	cs->buffer_pos += len;
+	return len;
+}
+
 ssize_t rr_xclient_write(struct corerouter_session * cs) {
 	struct rawrouter_session *rr = (struct rawrouter_session *) cs;
 	ssize_t len = write(cs->instance_fd, rr->xclient + rr->xclient_pos, rr->xclient_len - rr->xclient_pos);
@@ -137,8 +175,14 @@ ssize_t rr_xclient_write(struct corerouter_session * cs) {
 	rr->xclient_pos += len;
 	if (rr->xclient_pos == (ssize_t) rr->xclient_len) {
 		uwsgi_cr_hook_instance_write(cs, NULL);
-		uwsgi_cr_hook_instance_read(cs, rr_instance_read);
-		uwsgi_cr_hook_read(cs, rr_read);
+		if (cs->buffer_pos > 0) {
+			// send remaining data...
+			uwsgi_cr_hook_write(cs, rr_write);	
+		}
+		else {
+			uwsgi_cr_hook_instance_read(cs, rr_instance_read);
+			uwsgi_cr_hook_read(cs, rr_read);
+		}
 	}
 
 	return len;
@@ -167,12 +211,11 @@ ssize_t rr_instance_connected(struct corerouter_session * cs) {
 	// ok instance is connected, begin...
 	if (cs->un) cs->un->requests++;
 
+	uwsgi_cr_hook_instance_write(cs, NULL);
 	if (urr.xclient) {
-		uwsgi_cr_hook_instance_write(cs, rr_xclient_write);
+		uwsgi_cr_hook_instance_read(cs, rr_xclient_read);
 		return 1;
 	}
-
-	uwsgi_cr_hook_instance_write(cs, NULL);
 	uwsgi_cr_hook_instance_read(cs, rr_instance_read);
 	uwsgi_cr_hook_read(cs, rr_read);
 	// return a value > 0
