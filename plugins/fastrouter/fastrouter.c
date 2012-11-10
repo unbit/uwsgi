@@ -233,6 +233,8 @@ ssize_t fr_instance_send_request_header(struct corerouter_session * cs) {
 
 ssize_t fr_instance_connected(struct corerouter_session * cs) {
 
+	cs->connecting = 0;
+
 	socklen_t solen = sizeof(int);
 
 	// first check for errors
@@ -304,6 +306,7 @@ ssize_t fr_recv_uwsgi_vars(struct corerouter_session * cs) {
 		// map the instance
 		cs->corerouter->cr_table[cs->instance_fd] = cs;
 		// wait for connection
+		cs->connecting = 1;
 		uwsgi_cr_hook_instance_write(cs, fr_instance_connected);
 	}
 

@@ -202,19 +202,14 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 
 		if (cr_session->soopt) {
 			if (!ucr->quiet)
-				uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": %s\n", (int) cr_session->instance_address_len, cr_session->instance_address, strerror(cr_session->soopt));
+				uwsgi_log("[uwsgi-%s] unable to connect() to node \"%.*s\": %s\n", ucr->short_name, (int) cr_session->instance_address_len, cr_session->instance_address, strerror(cr_session->soopt));
 		}
 		else if (cr_session->timed_out) {
 			if (cr_session->instance_address_len > 0) {
-/*
-				if (cr_session->status == COREROUTER_STATUS_CONNECTING) {
+				if (cr_session->connecting) {
 					if (!ucr->quiet)
-						uwsgi_log("unable to connect() to uwsgi instance \"%.*s\": timeout\n", (int) cr_session->instance_address_len, cr_session->instance_address);
+						uwsgi_log("[uwsgi-%s] unable to connect() to node \"%.*s\": timeout\n", ucr->short_name, (int) cr_session->instance_address_len, cr_session->instance_address);
 				}
-				else if (cr_session->status  == COREROUTER_STATUS_RESPONSE) {
-					uwsgi_log("timeout waiting for instance \"%.*s\"\n", (int) cr_session->instance_address_len, cr_session->instance_address);
-				}
-*/
 			}
 		}
 
@@ -246,6 +241,29 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 			cr_session->tmp_socket_name = NULL;
 		}
 
+		if (!cr_session->retry) goto end;
+		// check for max retries
+		if (cr_session->retries >= (size_t) ucr->max_retries) goto end;
+
+		cr_session->retries++;
+
+		// reset error and timeout
+		cr_session->instance_failed = 0;
+		cr_session->timeout = corerouter_reset_timeout(ucr, cr_session);
+		cr_session->timed_out = 0;
+		cr_session->soopt = 0;
+
+		// reset nodes
+		cr_session->un = NULL;
+		cr_session->static_node = NULL;
+                cr_session->instance_fd = -1;
+
+		// reset hooks (safe as fd is closed)
+		cr_session->event_hook_read = NULL;
+		cr_session->event_hook_write = NULL;
+		cr_session->event_hook_instance_read = NULL;
+		cr_session->event_hook_instance_write = NULL;
+
 		if (ucr->fallback) {
 			// ok let's try with the fallback nodes
 			if (!cr_session->fallback) {
@@ -259,35 +277,18 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 			cr_session->instance_address = cr_session->fallback->value;
 			cr_session->instance_address_len = cr_session->fallback->len;
 
-			// reset error and timeout
-			cr_session->timeout = corerouter_reset_timeout(ucr, cr_session);
-			cr_session->timed_out = 0;
-			cr_session->soopt = 0;
-
-			// reset nodes
-			cr_session->un = NULL;
-			cr_session->static_node = NULL;
-
-			cr_session->pass_fd = is_unix(cr_session->instance_address, cr_session->instance_address_len);
-
-
-                	cr_session->instance_fd = uwsgi_connectn(cr_session->instance_address, cr_session->instance_address_len, 0, 1);
-
-                	if (cr_session->instance_fd < 0) {
-                		cr_session->instance_failed = 1;
-				cr_session->soopt = errno;
-                        	corerouter_close_session(ucr, cr_session);
-				return;
+			if (cr_session->retry(ucr, cr_session)) {
+				if (!cr_session->instance_failed) goto end;
 			}
-  
-			ucr->cr_table[cr_session->instance_fd] = cr_session;
-
-                	//cr_session->status = COREROUTER_STATUS_CONNECTING;
-                	ucr->cr_table[cr_session->instance_fd] = cr_session;
-                	event_queue_add_fd_write(ucr->queue, cr_session->instance_fd);
 			return;
-
 		}
+
+		cr_session->instance_address = NULL;
+		cr_session->instance_address_len = 0;
+		if (cr_session->retry(ucr, cr_session)) {
+                        if (!cr_session->instance_failed) goto end;
+                }
+                return;
 	}
 
 end:
@@ -338,23 +339,10 @@ static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr) {
 		if (urbt->key <= current) {
 			cr_session = (struct corerouter_session *) urbt->data;
 			cr_session->timed_out = 1;
-			if (cr_session->retry) {
-				cr_session->retry = 0;
-/*
-				TODO allows retry
-				ucr->switch_events(ucr, cr_session, -1);
-*/
-				if (cr_session->retry) {
-					cr_del_timeout(ucr, cr_session);
-					cr_session->timeout = cr_add_fake_timeout(ucr, cr_session);
-				}
-				else {
-					cr_session->timeout = corerouter_reset_timeout(ucr, cr_session);
-				}
+			if (cr_session->connecting) {
+				cr_session->instance_failed = 1;
 			}
-			else {
-				corerouter_close_session(ucr, cr_session);
-			}
+			corerouter_close_session(ucr, cr_session);
 			continue;
 		}
 
@@ -907,6 +895,9 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 		if (!ucr->nevents)
 			ucr->nevents = 64;
 
+		if (!ucr->max_retries)
+			ucr->max_retries = 3;
+	
 
 		ucr->has_backends = uwsgi_courerouter_has_has_backends(ucr);
 

@@ -42,6 +42,7 @@ struct uwsgi_option rawrouter_options[] = {
 	{"rawrouter-to", required_argument, 0, "forward requests to the specified uwsgi server (you can specify it multiple times for load balancing)", uwsgi_opt_add_string_list, &urr.cr.static_nodes, 0},
 	{"rawrouter-gracetime", required_argument, 0, "retry connections to dead static nodes after the specified amount of seconds", uwsgi_opt_set_int, &urr.cr.static_node_gracetime, 0},
 	{"rawrouter-events", required_argument, 0, "set the maximum number of concurrent events", uwsgi_opt_set_int, &urr.cr.nevents, 0},
+	{"rawrouter-max-retries", required_argument, 0, "set the maximum number of retries/fallbacks to other nodes", uwsgi_opt_set_int, &urr.cr.max_retries, 0},
 	{"rawrouter-quiet", required_argument, 0, "do not report failed connections to instances", uwsgi_opt_true, &urr.cr.quiet, 0},
 	{"rawrouter-cheap", no_argument, 0, "run the rawrouter in cheap mode", uwsgi_opt_true, &urr.cr.cheap, 0},
 	{"rawrouter-subscription-server", required_argument, 0, "run the rawrouter subscription server on the spcified address", uwsgi_opt_corerouter_ss, &urr, 0},
@@ -145,6 +146,8 @@ ssize_t rr_xclient_write(struct corerouter_session * cs) {
 
 ssize_t rr_instance_connected(struct corerouter_session * cs) {
 
+	cs->connecting = 0;
+
 	socklen_t solen = sizeof(int);
 
 	// first check for errors
@@ -196,6 +199,37 @@ ssize_t rr_read(struct corerouter_session * cs) {
 	return len;
 }
 
+int rr_retry(struct uwsgi_corerouter *ucr, struct corerouter_session *cs) {
+
+	if (cs->instance_address_len > 0) goto retry;
+
+	if (ucr->mapper(ucr, cs)) {
+                        cs->instance_failed = 1;
+                        return -1;
+                }
+
+                if (cs->instance_address_len == 0) {
+                        cs->instance_failed = 1;
+                        return -1;
+                }
+
+retry:
+                // start async connect
+                cs->instance_fd = uwsgi_connectn(cs->instance_address, cs->instance_address_len, 0, 1);
+                if (cs->instance_fd < 0) {
+                        cs->instance_failed = 1;
+                        cs->soopt = errno;
+                        return -1;
+                }
+        // map the instance
+        cs->corerouter->cr_table[cs->instance_fd] = cs;
+        // wait for connection
+        cs->connecting = 1;
+	// wait for connection
+        uwsgi_cr_hook_instance_write(cs, rr_instance_connected);
+	return 0;
+}
+
 void rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
 
 	// use the address as hostname
@@ -231,6 +265,9 @@ void rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_
                         return;
                 }
 
+		// ok, now we could retry
+		cs->retry = rr_retry;
+
                 // start async connect
                 cs->instance_fd = uwsgi_connectn(cs->instance_address, cs->instance_address_len, 0, 1);
                 if (cs->instance_fd < 0) {
@@ -241,6 +278,7 @@ void rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_
         // map the instance
         cs->corerouter->cr_table[cs->instance_fd] = cs;
         // wait for connection
+	cs->connecting = 1;
         uwsgi_cr_hook_instance_write(cs, rr_instance_connected);
 }
 

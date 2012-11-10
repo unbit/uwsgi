@@ -856,6 +856,8 @@ done:
 }
 
 ssize_t hr_instance_connected(struct corerouter_session * cs) {
+
+	cs->connecting = 0;
 	socklen_t solen = sizeof(int);
 
         // first check for errors
@@ -1024,6 +1026,7 @@ ssize_t hs_http_manage(struct corerouter_session * cs, ssize_t len) {
                 	// map the instance
                 	cs->corerouter->cr_table[cs->instance_fd] = cs;
                 	// wait for connection
+			cs->connecting = 1;
                 	uwsgi_cr_hook_instance_write(cs, hr_instance_connected);
 			break;
 		}

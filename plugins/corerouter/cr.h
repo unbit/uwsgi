@@ -38,6 +38,8 @@ struct uwsgi_corerouter {
         int use_cache;
         int nevents;
 
+	int max_retries;
+
 	char *magic_table[256];
 
         int queue;
@@ -102,14 +104,13 @@ struct corerouter_session {
         uint16_t hostname_len;
 
         int has_key;
-        int retry;
+        int connecting;
 
         char *instance_address;
         uint64_t instance_address_len;
 
         struct uwsgi_subscribe_node *un;
         struct uwsgi_string_list *static_node;
-        int pass_fd;
         int soopt;
         int timed_out;
 
@@ -139,6 +140,8 @@ struct corerouter_session {
 	ssize_t (*event_hook_instance_write)(struct corerouter_session *);
 
 	void (*close)(struct corerouter_session *);
+	int (*retry)(struct uwsgi_corerouter *, struct corerouter_session *);
+	size_t retries;
 
 	struct uwsgi_buffer *buffer;
         size_t buffer_len;
