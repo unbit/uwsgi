@@ -209,6 +209,7 @@ ssize_t rr_instance_connected(struct corerouter_session * cs) {
 	cs->buffer_pos = 0;
 
 	// ok instance is connected, begin...
+	if (cs->static_node) cs->static_node->custom2++;
 	if (cs->un) cs->un->requests++;
 
 	uwsgi_cr_hook_instance_write(cs, NULL);

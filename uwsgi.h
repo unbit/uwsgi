@@ -308,6 +308,7 @@ struct uwsgi_string_list {
 	char *value;
 	size_t len;
 	uint64_t custom;
+	uint64_t custom2;
 	struct uwsgi_string_list *next;
 };
 

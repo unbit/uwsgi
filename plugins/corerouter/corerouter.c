@@ -970,6 +970,29 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 	if (uwsgi_stats_list_close(us)) goto end0;
 	if (uwsgi_stats_comma(us)) goto end0;
 
+	if (ucr->static_nodes) {
+		if (uwsgi_stats_key(us , "static_nodes")) goto end0;
+                if (uwsgi_stats_list_open(us)) goto end0;
+
+		struct uwsgi_string_list *usl = ucr->static_nodes;
+		while(usl) {
+			if (uwsgi_stats_object_open(us)) goto end0;
+			if (uwsgi_stats_keyvaln_comma(us, "name", usl->value, usl->len)) goto end0;
+
+			if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) usl->custom2)) goto end0;
+			if (uwsgi_stats_keylong(us, "grace", (unsigned long long) usl->custom)) goto end0;
+
+			if (uwsgi_stats_object_close(us)) goto end0;
+			usl = usl->next;
+			if (usl) {
+				if (uwsgi_stats_comma(us)) goto end0;
+			}
+		}
+
+		if (uwsgi_stats_list_close(us)) goto end0;
+                if (uwsgi_stats_comma(us)) goto end0;
+        }
+
 	if (ucr->has_subscription_sockets) {
 		if (uwsgi_stats_key(us , "subscriptions")) goto end0;
 		if (uwsgi_stats_list_open(us)) goto end0;
