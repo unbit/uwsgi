@@ -42,6 +42,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"socket-protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
+	{"undeferred-shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc (undeferred mode)", uwsgi_opt_add_shared_socket, NULL, 0},
 	{"processes", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"workers", required_argument, 'p', "spawn the specified number of workers/processes", uwsgi_opt_set_int, &uwsgi.numproc, 0},
 	{"harakiri", required_argument, 't', "set harakiri timeout", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_HARAKIRI, 0},
@@ -3294,7 +3295,10 @@ void uwsgi_opt_add_regexp_custom_list(char *opt, char *value, void *list) {
 #endif
 
 void uwsgi_opt_add_shared_socket(char *opt, char *value, void *protocol) {
-	uwsgi_new_shared_socket(generate_socket_name(value));
+	struct uwsgi_socket *us = uwsgi_new_shared_socket(generate_socket_name(value));
+	if (!strcmp(opt, "undeferred-shared-socket")) {
+		us->no_defer = 1;
+	}
 }
 
 void uwsgi_opt_add_socket(char *opt, char *value, void *protocol) {

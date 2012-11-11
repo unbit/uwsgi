@@ -1484,6 +1484,10 @@ void uwsgi_setup_shared_sockets() {
 	while (shared_sock) {
 		if (!uwsgi.is_a_reload) {
 			char *tcp_port = strrchr(shared_sock->name, ':');
+			int current_defer_accept = uwsgi.no_defer_accept;
+                        if (shared_sock->no_defer) {
+                        	uwsgi.no_defer_accept = 1;
+                        }
 			if (tcp_port == NULL) {
 				shared_sock->fd = bind_to_unix(shared_sock->name, uwsgi.listen_queue, uwsgi.chmod_socket, uwsgi.abstract_socket);
 				shared_sock->family = AF_UNIX;
@@ -1514,6 +1518,11 @@ void uwsgi_setup_shared_sockets() {
 				uwsgi_log("unable to create shared socket on: %s\n", shared_sock->name);
 				exit(1);
 			}
+ 
+			if (shared_sock->no_defer) {
+                                uwsgi.no_defer_accept = current_defer_accept;
+                        }
+
 		}
 		else {
 			for (i = 3; i < (int) uwsgi.max_fd; i++) {

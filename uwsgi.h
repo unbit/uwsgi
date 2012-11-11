@@ -641,6 +641,7 @@ struct uwsgi_socket {
 	void *ctx;
 
 	int queue;
+	int no_defer;
 
 	int auto_port;
 	// true if connection must be initialized for each core
