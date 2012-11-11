@@ -564,14 +564,15 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 	}
 
 #ifdef __linux__
-#ifdef IP_FREEBIND
+#ifndef IP_FREEBIND
+#define IP_FREEBIND 15
+#endif
 	if (uwsgi.freebind) {
 		if (setsockopt(serverfd, SOL_IP, IP_FREEBIND, (const void *) &uwsgi.freebind, sizeof(int)) < 0) {
 			uwsgi_error("IP_FREEBIND setsockopt()");
 			uwsgi_nuclear_blast();
 		}
 	}
-#endif
 #endif
 
 	if (uwsgi.reuse_port) {
