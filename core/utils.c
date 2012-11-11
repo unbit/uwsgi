@@ -385,10 +385,17 @@ void uwsgi_as_root() {
 			cap_free(caps);
 
 #ifdef __linux__
+#ifdef SECBIT_KEEP_CAPS
+			if (prctl(SECBIT_KEEP_CAPS, 1, 0, 0, 0) < 0) {
+				uwsgi_error("prctl()");
+				exit(1);
+			}
+#else
 			if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
 				uwsgi_error("prctl()");
 				exit(1);
 			}
+#endif
 #endif
 		}
 #endif
