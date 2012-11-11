@@ -67,6 +67,7 @@ void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 
 struct uwsgi_option uwsgi_python_options[] = {
 	{"wsgi-file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
+	{"wsgi", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
 	{"file", required_argument, 0, "load .wsgi file", uwsgi_opt_set_str, &up.file_config, 0},
 	{"eval", required_argument, 0, "eval python code", uwsgi_opt_set_str, &up.eval, 0},
 	{"module", required_argument,'w', "load a WSGI module", uwsgi_opt_set_str, &up.wsgi_config, 0},
