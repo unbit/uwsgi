@@ -1024,10 +1024,21 @@ VALUE init_rack_app( VALUE script ) {
         VALUE rack = rb_const_get(rb_cObject, rb_intern("Rack"));
 
 #ifdef RUBY19
-	if (rb_eval_string("module Rack;class BodyProxy;def each(&block);@body.each(&block);end;end;end")) {
-		if (uwsgi.mywid <= 1) {
-			uwsgi_log("Rack::BodyProxy successfully patched for ruby 1.9.x\n");
-		}	
+	if (rb_funcall(rack, rb_intern("const_defined?"), 1, ID2SYM(rb_intern("BodyProxy"))) == Qtrue) {
+		VALUE bodyproxy = rb_const_get(rack, rb_intern("BodyProxy"));
+		// get the list of available instance_methods
+		VALUE argv = Qfalse;
+		VALUE methods_list = rb_class_instance_methods(1, &argv, bodyproxy);
+#ifdef UWSGI_DEBUG
+		uwsgi_log("%s\n", RSTRING_PTR(rb_inspect(methods_list)));
+#endif
+		if (rb_ary_includes(methods_list, ID2SYM(rb_intern("each"))) == Qfalse) {
+			if (rb_eval_string("module Rack;class BodyProxy;def each(&block);@body.each(&block);end;end;end")) {
+				if (uwsgi.mywid <= 1) {
+					uwsgi_log("Rack::BodyProxy successfully patched for ruby 1.9.x\n");
+				}
+			}
+		}
 	}
 #endif
 
