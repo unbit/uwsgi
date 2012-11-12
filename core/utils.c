@@ -4806,7 +4806,7 @@ static void *uwsgi_thread_run(void *arg) {
 
 struct uwsgi_thread *uwsgi_thread_new(void (*func) (struct uwsgi_thread *)) {
 
-	struct uwsgi_thread *ut = uwsgi_malloc(sizeof(struct uwsgi_thread));
+	struct uwsgi_thread *ut = uwsgi_calloc(sizeof(struct uwsgi_thread));
 
 #if defined(SOCK_SEQPACKET) && defined(__linux__)
 	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, ut->pipe)) {
