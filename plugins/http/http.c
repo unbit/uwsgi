@@ -1131,7 +1131,7 @@ int http_init() {
 
 	uhttp.cr.session_size = sizeof(struct http_session);
 	uhttp.cr.alloc_session = http_alloc_session;
-	if (uhttp.cr.has_sockets && !uwsgi.sockets && !uwsgi_courerouter_has_has_backends(&uhttp.cr)) {
+	if (uhttp.cr.has_sockets && !uwsgi.sockets && !uwsgi_corerouter_has_backends(&uhttp.cr)) {
 		uwsgi_new_socket(uwsgi_concat2("127.0.0.1:0", ""));
 		uhttp.cr.use_socket = 1;
 		uhttp.cr.socket_num = 0;

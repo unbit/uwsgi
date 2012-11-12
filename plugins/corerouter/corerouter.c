@@ -567,7 +567,7 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
         ucr->cr_table[new_connection]->fd = new_connection;
         ucr->cr_table[new_connection]->instance_fd = -1;
 
-	// map courerouter and socket
+	// map corerouter and socket
 	ucr->cr_table[new_connection]->corerouter = ucr;
 	ucr->cr_table[new_connection]->ugs = ugs;
 
@@ -859,7 +859,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 }
 
-int uwsgi_courerouter_has_has_backends(struct uwsgi_corerouter *ucr) {
+int uwsgi_corerouter_has_backends(struct uwsgi_corerouter *ucr) {
 
 	if (ucr->has_backends) return 1;
 
@@ -899,7 +899,7 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 			ucr->max_retries = 3;
 	
 
-		ucr->has_backends = uwsgi_courerouter_has_has_backends(ucr);
+		ucr->has_backends = uwsgi_corerouter_has_backends(ucr);
 
 
 		uwsgi_corerouter_setup_sockets(ucr);
@@ -923,7 +923,7 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 
 struct uwsgi_plugin corerouter_plugin = {
 
-	.name = "courerouter",
+	.name = "corerouter",
 };
 
 void corerouter_send_stats(struct uwsgi_corerouter *ucr) {

@@ -185,7 +185,7 @@ int uwsgi_cr_map_use_cs(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_to(struct uwsgi_corerouter *, struct corerouter_session *);
 int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *, struct corerouter_session *);
 
-int uwsgi_courerouter_has_has_backends(struct uwsgi_corerouter *);
+int uwsgi_corerouter_has_backends(struct uwsgi_corerouter *);
 
 int uwsgi_cr_hook_read(struct corerouter_session *, ssize_t (*)(struct corerouter_session *));
 int uwsgi_cr_hook_write(struct corerouter_session *, ssize_t (*)(struct corerouter_session *));
