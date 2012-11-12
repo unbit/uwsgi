@@ -107,7 +107,7 @@ error:
 	return -1;
 }
 
-static void uwsgi_offload_close(struct uwsgi_offload_request *uor) {
+static void uwsgi_offload_close(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
 	// close the socket and the file descriptor
 	close(uor->s);
 	close(uor->fd);
@@ -115,12 +115,12 @@ static void uwsgi_offload_close(struct uwsgi_offload_request *uor) {
 	struct uwsgi_offload_request *prev = uor->prev;
 	struct uwsgi_offload_request *next = uor->next;
 
-	if (uor == uwsgi.offload_requests_head) {
-		uwsgi.offload_requests_head = next;
+	if (uor == ut->offload_requests_head) {
+		ut->offload_requests_head = next;
 	}
 
-	if (uor == uwsgi.offload_requests_tail) {
-		uwsgi.offload_requests_tail = prev;
+	if (uor == ut->offload_requests_tail) {
+		ut->offload_requests_tail = prev;
 	}
 
 	if (prev) {
@@ -142,22 +142,22 @@ static void uwsgi_offload_close(struct uwsgi_offload_request *uor) {
 	free(uor);
 }
 
-static void uwsgi_offload_append(struct uwsgi_offload_request *uor) {
+static void uwsgi_offload_append(struct uwsgi_thread *ut, struct uwsgi_offload_request *uor) {
 
-	if (!uwsgi.offload_requests_head) {
-		uwsgi.offload_requests_head = uor;
+	if (!ut->offload_requests_head) {
+		ut->offload_requests_head = uor;
 	}
 
-	if (uwsgi.offload_requests_tail) {
-		uwsgi.offload_requests_tail->next = uor;
-		uor->prev = uwsgi.offload_requests_tail;
+	if (ut->offload_requests_tail) {
+		ut->offload_requests_tail->next = uor;
+		uor->prev = ut->offload_requests_tail;
 	}
 
-	uwsgi.offload_requests_tail = uor;
+	ut->offload_requests_tail = uor;
 }
 
-static struct uwsgi_offload_request *uwsgi_offload_get_by_fd(int s) {
-	struct uwsgi_offload_request *uor = uwsgi.offload_requests_head;
+static struct uwsgi_offload_request *uwsgi_offload_get_by_fd(struct uwsgi_thread *ut, int s) {
+	struct uwsgi_offload_request *uor = ut->offload_requests_head;
 	while (uor) {
 		if (uor->s == s || uor->fd == s) {
 			return uor;
@@ -187,20 +187,20 @@ static void uwsgi_offload_loop(struct uwsgi_thread *ut) {
 				}
 				// start monitoring socket for write
 				if (uor->func(ut, uor, -1)) {
-					uwsgi_offload_close(uor);
+					uwsgi_offload_close(ut, uor);
 					continue;
 				}
-				uwsgi_offload_append(uor);
+				uwsgi_offload_append(ut, uor);
 				continue;
 			}
 
 			// get the task from the interesting fd
-			struct uwsgi_offload_request *uor = uwsgi_offload_get_by_fd(interesting_fd);
+			struct uwsgi_offload_request *uor = uwsgi_offload_get_by_fd(ut, interesting_fd);
 			if (!uor)
 				continue;
 			// run the hook
 			if (uor->func(ut, uor, interesting_fd)) {
-				uwsgi_offload_close(uor);
+				uwsgi_offload_close(ut, uor);
 			}
 		}
 	}

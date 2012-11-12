@@ -1529,10 +1529,6 @@ struct uwsgi_server {
 
 	int check_static_docroot;
 
-	// linked list for offloaded requests
-	struct uwsgi_offload_request *offload_requests_head;
-	struct uwsgi_offload_request *offload_requests_tail;
-
 	char *daemonize;
 	char *daemonize2;
 	int do_not_change_umask;
@@ -3409,6 +3405,9 @@ struct uwsgi_thread {
 	uint64_t custom1;
 	uint64_t custom2;
 	uint64_t custom3;
+	// linked list for offloaded requests
+        struct uwsgi_offload_request *offload_requests_head;
+        struct uwsgi_offload_request *offload_requests_tail;
 	void (*func)(struct uwsgi_thread *);
 };
 struct uwsgi_thread *uwsgi_thread_new(void (*)(struct uwsgi_thread *));
