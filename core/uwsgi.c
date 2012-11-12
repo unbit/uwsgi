@@ -125,6 +125,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"map-socket", required_argument, 0, "map sockets to specific workers", uwsgi_opt_add_string_list, &uwsgi.map_socket, 0},
 #ifdef UWSGI_THREADING
 	{"enable-threads", no_argument, 'T', "enable threads", uwsgi_opt_true, &uwsgi.has_threads, 0},
+	{"no-threads-wait", no_argument, 0, "do not wait for threads cancellation on quit/reload", uwsgi_opt_true, &uwsgi.no_threads_wait, 0},
 #endif
 
 	{"auto-procname", no_argument, 0, "automatically set processes name to something meaningful", uwsgi_opt_true, &uwsgi.auto_procname, 0},
@@ -759,6 +760,9 @@ void warn_pipe() {
 // in threading mode we need to use the cancel pthread subsystem
 void wait_for_threads() {
 	int i, ret;
+
+	// on some platform thread cancellation is REALLY flaky
+	if (uwsgi.no_threads_wait) return;
 
 	int sudden_death = 0;
 

@@ -762,6 +762,12 @@ ssize_t hr_instance_send_request(struct corerouter_session * cs) {
 
 
 ssize_t hr_instance_send_request_header(struct corerouter_session * cs) {
+#ifdef __BIG_ENDIAN__
+	// on the first round fix endianess
+	if (cs->buffer_pos == 0) {
+		cs->uh.pktsize = uwsgi_swap16(cs->uh.pktsize);
+	}
+#endif
         ssize_t len = write(cs->instance_fd, &cs->uh + cs->buffer_pos, 4 - cs->buffer_pos);
         if (len < 0) {
                 cr_try_again;
@@ -775,6 +781,10 @@ ssize_t hr_instance_send_request_header(struct corerouter_session * cs) {
         // for response
         if (cs->buffer_pos == 4) {
                 cs->buffer_pos = 0;
+#ifdef __BIG_ENDIAN__
+	// on the last round restore endianess
+		cs->uh.pktsize = uwsgi_swap16(cs->uh.pktsize);
+#endif
                 uwsgi_cr_hook_instance_write(cs, hr_instance_send_request);
         }
 

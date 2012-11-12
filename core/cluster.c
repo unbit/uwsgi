@@ -368,7 +368,7 @@ void manage_cluster_message(char *cluster_opt_buf, int cluster_opt_size) {
 		memset(&nucn, 0, sizeof(struct uwsgi_cluster_node));
 
 #ifdef __BIG_ENDIAN__
-		uwsgi.workers[0].cores[0].req.uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+		uwsgi.workers[0].cores[0].req.uh.pktsize = uwsgi_swap16(uwsgi.workers[0].cores[0].req.uh.pktsize);
 #endif
 		uwsgi_hooked_parse(uwsgi.workers[0].cores[0].req.buffer, uwsgi.workers[0].cores[0].req.uh.pktsize, manage_cluster_announce, &nucn);
 		if (nucn.name[0] != 0) {
@@ -377,7 +377,7 @@ void manage_cluster_message(char *cluster_opt_buf, int cluster_opt_size) {
 		break;
 	case 96:
 #ifdef __BIG_ENDIAN__
-		uwsgi.workers[0].cores[0].req.uh.pktsize = uwsgi_swap16(uwsgi.wsgi_requests[0]->uh.pktsize);
+		uwsgi.workers[0].cores[0].req.uh.pktsize = uwsgi_swap16(uwsgi.workers[0].cores[0].req.uh.pktsize);
 #endif
 		uwsgi_log_verbose("%.*s\n", uwsgi.workers[0].cores[0].req.uh.pktsize, uwsgi.workers[0].cores[0].req.buffer);
 		break;

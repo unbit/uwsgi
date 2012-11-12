@@ -1218,6 +1218,7 @@ struct uwsgi_server {
 
 	// enable threads
 	int has_threads;
+	int no_threads_wait;
 
 	// default app id
 	int default_app;
