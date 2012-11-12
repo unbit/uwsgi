@@ -9,11 +9,13 @@
 - improved systemd support
 - log filtering and routing
 - improved tracebacker
-- offload transfer for static files
+- offload transfer for static files, and network transfers
 - matheval support
 - plugins can be written in Obj-C
 - smart attach daemon
 - added support for PEP 405 virtualenvs
+- rawrouter with xclient support
+- internal routing plugin for cache
 
 *** semptember 2012 ***
 
