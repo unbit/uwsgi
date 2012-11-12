@@ -1082,7 +1082,7 @@ nextcs:
 	udd = uwsgi.static_maps;
 	while (udd) {
 #ifdef UWSGI_DEBUG
-		uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
+		uwsgi_log("checking for %.*s <-> %.*s %.*s\n", (int)wsgi_req->path_info_len, wsgi_req->path_info, (int)udd->keylen, udd->key, (int) udd->vallen, udd->value);
 #endif
 		if (udd->status == 0) {
 #ifdef UWSGI_THREADING
@@ -1092,6 +1092,7 @@ nextcs:
 			char *real_docroot = uwsgi_malloc(PATH_MAX + 1);
 			if (!realpath(udd->value, real_docroot)) {
 				free(real_docroot);
+				real_docroot = NULL;
 				udd->value = NULL;
 			}
 #ifdef UWSGI_THREADING
@@ -1128,6 +1129,7 @@ nextsm:
 			char *real_docroot = uwsgi_malloc(PATH_MAX + 1);
 			if (!realpath(udd->value, real_docroot)) {
 				free(real_docroot);
+				real_docroot = NULL;
 				udd->value = NULL;
 			}
 #ifdef UWSGI_THREADING
