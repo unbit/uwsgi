@@ -718,7 +718,7 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 
 
 #if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-	// hmm, nothing to do, as we are already non-blocking
+	uwsgi_socket_b(fdpoll->fd);
 #else
 	/* re-set blocking socket */
 	arg &= (~O_NONBLOCK);
