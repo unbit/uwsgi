@@ -1,5 +1,14 @@
 *** current ***
 
+ * 1.4.1
+
+- fixed typos in corerouter plugins
+- fixed offloading when the number of threads is higher than 1
+- fixed static_maps for non-existent paths
+- fixed uwsgi_connect() on modern Linux systems to reset the socket to blocking mode
+
+*** november 2012 ***
+
  * 1.4
 
 - gevent improvements
