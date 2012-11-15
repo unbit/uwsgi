@@ -677,8 +677,13 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	char *tmp = NULL;
 	char *fullname = filename;
 
+	magic_table['o'] = filename;
+
+	if (uwsgi_check_scheme(filename) || !strcmp(filename, "-")) {
+		return;
+	}
 	// we have a special case for symlinks
-	if (uwsgi_is_link(filename)) {
+	else if (uwsgi_is_link(filename)) {
 		if (filename[0] != '/') {
 			fullname = uwsgi_concat3(uwsgi.cwd, "/", filename);
 		}
@@ -698,7 +703,6 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 		}
 	}
 
-	magic_table['o'] = filename;
 	magic_table['p'] = fullname;
 	magic_table['s'] = uwsgi_get_last_char(fullname, '/') + 1;
 	magic_table['d'] = uwsgi_concat2n(magic_table['p'], magic_table['s'] - magic_table['p'], "", 0);
