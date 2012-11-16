@@ -308,6 +308,8 @@ static const luaL_reg uwsgi_api[] = {
 static int uwsgi_lua_input(lua_State *L) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
+	int fd = wsgi_req->async_post ?
+	  fileno(wsgi_req->async_post) : wsgi_req->poll.fd;
 	ssize_t sum, len, total;
 	char *buf, *ptr;
 
@@ -330,7 +332,7 @@ static int uwsgi_lua_input(lua_State *L) {
 
 	ptr = buf;
 	while(total) {
-		len = read(wsgi_req->poll.fd, ptr, total);
+		len = read(fd, ptr, total);
 		ptr += len;
 		total -= len;
 	}
