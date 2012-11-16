@@ -1,6 +1,7 @@
 #include "psgi.h"
 
 extern struct uwsgi_server uwsgi;
+extern struct uwsgi_plugin psgi_plugin;
 
 #ifdef UWSGI_ASYNC
 
@@ -149,6 +150,27 @@ clear:
 	
 }
 
+XS(XS_register_signal) {
+	dXSARGS;
+
+	if (!uwsgi.master_process) {
+		XSRETURN_NO;
+	}
+
+	psgi_check_args(3);
+
+	uint8_t signum = SvIV(ST(0));
+	STRLEN kindlen;
+	char *kind = SvPV(ST(1), kindlen);
+
+	if (uwsgi_register_signal(signum, kind, (void *) newRV_inc(ST(2)), psgi_plugin.modifier1)) {
+		XSRETURN_NO;
+        }
+
+	XSRETURN_YES;
+	
+}
+
 XS(XS_log) {
 
 	dXSARGS;
@@ -219,6 +241,7 @@ XS(XS_suspend) {
 	XSRETURN_UNDEF;
 }
 
+
 void init_perl_embedded_module() {
 	psgi_xs(reload);
 	psgi_xs(cache_set);
@@ -231,5 +254,6 @@ void init_perl_embedded_module() {
 	psgi_xs(async_connect);
 	psgi_xs(suspend);
 	psgi_xs(signal);
+	psgi_xs(register_signal);
 }
 
