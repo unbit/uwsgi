@@ -233,6 +233,8 @@ xs_init(pTHX)
         /* DynaLoader is a special case */
         newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
 
+	if (!uperl.tmp_input_stash) goto nonworker;
+
         newXS("uwsgi::input::new", XS_input, "uwsgi::input");
         newXS("uwsgi::input::read", XS_input_read, "uwsgi::input");
         newXS("uwsgi::input::seek", XS_input_seek, "uwsgi::input");
@@ -252,6 +254,8 @@ xs_init(pTHX)
 
 
         uperl.tmp_streaming_stash[uperl.tmp_current_i] = gv_stashpv("uwsgi::streaming", 0);
+
+nonworker:
 
 #ifdef UWSGI_EMBEDDED
         init_perl_embedded_module();
@@ -493,6 +497,22 @@ void uwsgi_psgi_app() {
 		//load app in the main interpreter list
 		init_psgi_app(NULL, uperl.psgi, strlen(uperl.psgi), uperl.main);
         }
+
+}
+
+int uwsgi_perl_mule(char *opt) {
+
+        if (uwsgi_endswith(opt, ".pl")) {
+                PERL_SET_CONTEXT(uperl.main[0]);
+                uperl.embedding[1] = opt;
+                if (perl_parse(uperl.main[0], xs_init, 2, uperl.embedding, NULL)) {
+                        return 0;
+                }
+                perl_run(uperl.main[0]);
+                return 1;
+        }
+
+        return 0;
 
 }
 

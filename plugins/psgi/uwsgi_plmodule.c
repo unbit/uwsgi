@@ -241,6 +241,32 @@ XS(XS_suspend) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_signal_wait) {
+
+	dXSARGS;
+
+	psgi_check_args(0);
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        int received_signal = -1;
+
+        wsgi_req->signal_received = -1;
+
+	if (items > 0) {
+                received_signal = uwsgi_signal_wait(SvIV(ST(0)));
+        }
+        else {
+                received_signal = uwsgi_signal_wait(-1);
+        }
+
+        if (received_signal < 0) {
+		XSRETURN_NO;
+        }
+
+        wsgi_req->signal_received = received_signal;
+	XSRETURN_YES;
+}
+
 
 void init_perl_embedded_module() {
 	psgi_xs(reload);
@@ -255,5 +281,6 @@ void init_perl_embedded_module() {
 	psgi_xs(suspend);
 	psgi_xs(signal);
 	psgi_xs(register_signal);
+	psgi_xs(signal_wait);
 }
 

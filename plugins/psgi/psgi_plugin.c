@@ -621,7 +621,6 @@ int uwsgi_perl_signal_handler(uint8_t sig, void *handler) {
 	return ret;
 }
 
-
 struct uwsgi_plugin psgi_plugin = {
 
 	.name = "psgi",
@@ -634,6 +633,8 @@ struct uwsgi_plugin psgi_plugin = {
 
 	.init_thread = uwsgi_perl_init_thread,
 	.signal_handler = uwsgi_perl_signal_handler,
+
+	.mule = uwsgi_perl_mule,
 
 	.post_fork = uwsgi_perl_post_fork,
 	.request = uwsgi_perl_request,

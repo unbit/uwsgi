@@ -59,6 +59,11 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 	}
 #endif
 
+	if (SvTYPE(response) != SVt_PVAV) {
+		uwsgi_log("invalid PSGI response type\n");
+		return UWSGI_OK;
+	}
+
 	status_code = av_fetch(response, 0, 0);
 	if (!status_code) { uwsgi_log("invalid PSGI status code\n"); return UWSGI_OK;}
 
