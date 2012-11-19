@@ -682,8 +682,14 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	if (uwsgi_check_scheme(filename) || !strcmp(filename, "-")) {
 		return;
 	}
+
+        char *colon = uwsgi_get_last_char(filename, ':');
+        if (colon) {
+                *colon = 0;
+	}
+
 	// we have a special case for symlinks
-	else if (uwsgi_is_link(filename)) {
+	if (uwsgi_is_link(filename)) {
 		if (filename[0] != '/') {
 			fullname = uwsgi_concat3(uwsgi.cwd, "/", filename);
 		}
@@ -736,6 +742,10 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 		magic_table['e'] = uwsgi_get_last_char(filename, '.') + 1;
 	if (uwsgi_get_last_char(magic_table['s'], '.'))
 		magic_table['n'] = uwsgi_concat2n(magic_table['s'], uwsgi_get_last_char(magic_table['s'], '.') - magic_table['s'], "", 0);
+
+	if (colon) {
+		*colon = ':';
+	}
 }
 
 int find_worker_id(pid_t pid) {
