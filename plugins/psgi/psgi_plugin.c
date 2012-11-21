@@ -595,6 +595,32 @@ void uwsgi_perl_enable_threads(void) {
 #endif
 }
 
+int uwsgi_perl_signal_handler(uint8_t sig, void *handler) {
+
+	int ret = 0;
+
+	dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs( sv_2mortal(newSViv(sig)));
+        PUTBACK;
+
+        call_sv( SvRV((SV*)handler), G_DISCARD);
+
+	if(SvTRUE(ERRSV)) {
+                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+		ret = -1;
+        }
+
+        SPAGAIN;
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+
+	return ret;
+}
+
 struct uwsgi_plugin psgi_plugin = {
 
 	.name = "psgi",
@@ -606,6 +632,9 @@ struct uwsgi_plugin psgi_plugin = {
 	.mount_app = uwsgi_perl_mount_app,
 
 	.init_thread = uwsgi_perl_init_thread,
+	.signal_handler = uwsgi_perl_signal_handler,
+
+	.mule = uwsgi_perl_mule,
 
 	.post_fork = uwsgi_perl_post_fork,
 	.request = uwsgi_perl_request,

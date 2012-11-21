@@ -2691,15 +2691,10 @@ void init_magic_table(char *magic_table[]) {
 }
 
 char *uwsgi_get_last_char(char *what, char c) {
-	int i, j = 0;
+	int i;
 	char *ptr = NULL;
 
-	if (!strncmp("http://", what, 7))
-		j = 7;
-	if (!strncmp("emperor://", what, 10))
-		j = 10;
-
-	for (i = j; i < (int) strlen(what); i++) {
+	for (i = 0; i < (int) strlen(what); i++) {
 		if (what[i] == c) {
 			ptr = what + i;
 		}

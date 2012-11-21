@@ -1,6 +1,7 @@
 #include "psgi.h"
 
 extern struct uwsgi_server uwsgi;
+extern struct uwsgi_plugin psgi_plugin;
 
 #ifdef UWSGI_ASYNC
 
@@ -149,6 +150,27 @@ clear:
 	
 }
 
+XS(XS_register_signal) {
+	dXSARGS;
+
+	if (!uwsgi.master_process) {
+		XSRETURN_NO;
+	}
+
+	psgi_check_args(3);
+
+	uint8_t signum = SvIV(ST(0));
+	STRLEN kindlen;
+	char *kind = SvPV(ST(1), kindlen);
+
+	if (uwsgi_register_signal(signum, kind, (void *) newRV_inc(ST(2)), psgi_plugin.modifier1)) {
+		XSRETURN_NO;
+        }
+
+	XSRETURN_YES;
+	
+}
+
 XS(XS_log) {
 
 	dXSARGS;
@@ -219,6 +241,33 @@ XS(XS_suspend) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_signal_wait) {
+
+	dXSARGS;
+
+	psgi_check_args(0);
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        int received_signal = -1;
+
+        wsgi_req->signal_received = -1;
+
+	if (items > 0) {
+                received_signal = uwsgi_signal_wait(SvIV(ST(0)));
+        }
+        else {
+                received_signal = uwsgi_signal_wait(-1);
+        }
+
+        if (received_signal < 0) {
+		XSRETURN_NO;
+        }
+
+        wsgi_req->signal_received = received_signal;
+	XSRETURN_YES;
+}
+
+
 void init_perl_embedded_module() {
 	psgi_xs(reload);
 	psgi_xs(cache_set);
@@ -231,5 +280,7 @@ void init_perl_embedded_module() {
 	psgi_xs(async_connect);
 	psgi_xs(suspend);
 	psgi_xs(signal);
+	psgi_xs(register_signal);
+	psgi_xs(signal_wait);
 }
 
