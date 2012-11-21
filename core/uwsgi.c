@@ -698,16 +698,14 @@ void config_magic_table_fill(char *filename, char **magic_table) {
 	else {
 
 		fullname = uwsgi_expand_path(filename, strlen(filename), NULL);
-		if (fullname) {
-			char *minimal_name = uwsgi_malloc(strlen(fullname) + 1);
-			memcpy(minimal_name, fullname, strlen(fullname));
-			minimal_name[strlen(fullname)] = 0;
-			free(fullname);
-			fullname = minimal_name;
+		if (!fullname) {
+			exit(1);
 		}
-		else {
-			fullname = filename;
-		}
+		char *minimal_name = uwsgi_malloc(strlen(fullname) + 1);
+		memcpy(minimal_name, fullname, strlen(fullname));
+		minimal_name[strlen(fullname)] = 0;
+		free(fullname);
+		fullname = minimal_name;
 	}
 
 	magic_table['p'] = fullname;
