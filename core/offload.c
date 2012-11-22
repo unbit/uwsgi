@@ -234,6 +234,7 @@ static int uwsgi_offload_sendfile_transfer(struct uwsgi_thread *ut, struct uwsgi
                 if (uor->written >= uor->len) {
 			return -1;
 		}
+		return 0;
 	}
         else if (len < 0) {
 		uwsgi_offload_retry
