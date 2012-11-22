@@ -771,20 +771,30 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 	if (uphp.app) {
 		strcpy(real_filename, uphp.app);	
-		wsgi_req->path_info = "";
-		wsgi_req->path_info_len = 0;
-		if (wsgi_req->uri_len == 1 && wsgi_req->uri[0] == '/') {
-			goto secure2;
+		if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
+			goto appready;
 		}
 		if (uphp.app_qs) {
 			size_t app_qs_len = strlen(uphp.app_qs);
-			char *qs = ecalloc(1, wsgi_req->uri_len + 1 + app_qs_len);
+			size_t qs_len = wsgi_req->path_info_len + app_qs_len;
+			if (wsgi_req->query_string_len > 0) {
+				qs_len += 1 + wsgi_req->query_string_len;
+			}
+			char *qs = ecalloc(1, qs_len+1);
 			memcpy(qs, uphp.app_qs, app_qs_len);
-			memcpy(qs+app_qs_len, wsgi_req->uri, wsgi_req->uri_len);
+			memcpy(qs+app_qs_len, wsgi_req->path_info, wsgi_req->path_info_len);
+			if (wsgi_req->query_string_len > 0) {
+				char *ptr = qs+app_qs_len+wsgi_req->path_info_len;
+				*ptr = '&';
+				memcpy(ptr+1, wsgi_req->query_string, wsgi_req->query_string_len);
+			}
 			wsgi_req->query_string = qs;
-			wsgi_req->query_string_len = wsgi_req->uri_len + app_qs_len;
-			goto secure2;
+			wsgi_req->query_string_len = qs_len;
 		}
+appready:
+		wsgi_req->path_info = "";
+		wsgi_req->path_info_len = 0;
+		goto secure2;
 	}
 
 	char *filename = uwsgi_concat4n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
