@@ -227,17 +227,17 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	}
 
 	if (at > 0) {
-		struct timespec tv[2];
+		struct timeval tv[2];
 		tv[0].tv_sec = at;
-		tv[0].tv_nsec = 0;
+		tv[0].tv_usec = 0;
 		tv[1].tv_sec = at;
-		tv[1].tv_nsec = 0;
+		tv[1].tv_usec = 0;
 #ifdef __sun__
 		if (futimesat(fd, NULL, tv)) {
 #else
-		if (futimens(fd, tv)) {
+		if (futimes(fd, tv)) {
 #endif
-			uwsgi_error("futimens()");
+			uwsgi_error("futimes()");
 		}
 	}
 
