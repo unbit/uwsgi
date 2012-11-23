@@ -1,3 +1,5 @@
+#include <sched.h>
+
 #include "uwsgi.h"
 
 
