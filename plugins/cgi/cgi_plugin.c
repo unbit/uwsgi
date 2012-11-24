@@ -838,9 +838,15 @@ clear2:
 			uwsgi_error("setenv()");
 		}
 
-		
-		if (setenv("PATH_TRANSLATED", uwsgi_concat3n(docroot, docroot_len, path_info, pi_len, "", 0) , 1)) {
-			uwsgi_error("setenv()");
+		if (wsgi_req->document_root_len > 0) {
+			if (setenv("PATH_TRANSLATED", uwsgi_concat3n(wsgi_req->document_root, wsgi_req->document_root_len, path_info, pi_len, "", 0) , 1)) {
+				uwsgi_error("setenv()");
+			}
+		}
+		else {
+			if (setenv("PATH_TRANSLATED", uwsgi_concat3n(docroot, docroot_len, path_info, pi_len, "", 0) , 1)) {
+				uwsgi_error("setenv()");
+			}
 		}
 
 	}
