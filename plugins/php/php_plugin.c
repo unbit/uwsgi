@@ -24,6 +24,7 @@ struct uwsgi_php {
 	struct uwsgi_string_list *append_config;
 	char *docroot;
 	char *app;
+	char *app_qs;
 	size_t ini_size;
 	int dump_config;
 	char *server_software;
@@ -49,6 +50,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-allowed-script", required_argument, 0, "list the allowed php scripts (require absolute path)", uwsgi_opt_add_string_list, &uphp.allowed_scripts, 0},
         {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
+        {"php-app-qs", required_argument, 0, "when in app mode force QUERY_STRING to the specified value + PATH_INFO", uwsgi_opt_set_str, &uphp.app_qs, 0},
         {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -285,6 +287,9 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
         }
 
 	php_register_variable_safe("PATH_INFO", wsgi_req->path_info, wsgi_req->path_info_len, track_vars_array TSRMLS_CC);
+	if (wsgi_req->query_string_len > 0) {
+		php_register_variable_safe("QUERY_STRING", wsgi_req->query_string, wsgi_req->query_string_len, track_vars_array TSRMLS_CC);
+	}
 
 	php_register_variable_safe("SCRIPT_NAME", wsgi_req->script_name, wsgi_req->script_name_len, track_vars_array TSRMLS_CC);
 	php_register_variable_safe("SCRIPT_FILENAME", wsgi_req->file, wsgi_req->file_len, track_vars_array TSRMLS_CC);
@@ -766,6 +771,27 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 
 	if (uphp.app) {
 		strcpy(real_filename, uphp.app);	
+		if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
+			goto appready;
+		}
+		if (uphp.app_qs) {
+			size_t app_qs_len = strlen(uphp.app_qs);
+			size_t qs_len = wsgi_req->path_info_len + app_qs_len;
+			if (wsgi_req->query_string_len > 0) {
+				qs_len += 1 + wsgi_req->query_string_len;
+			}
+			char *qs = ecalloc(1, qs_len+1);
+			memcpy(qs, uphp.app_qs, app_qs_len);
+			memcpy(qs+app_qs_len, wsgi_req->path_info, wsgi_req->path_info_len);
+			if (wsgi_req->query_string_len > 0) {
+				char *ptr = qs+app_qs_len+wsgi_req->path_info_len;
+				*ptr = '&';
+				memcpy(ptr+1, wsgi_req->query_string, wsgi_req->query_string_len);
+			}
+			wsgi_req->query_string = qs;
+			wsgi_req->query_string_len = qs_len;
+		}
+appready:
 		wsgi_req->path_info = "";
 		wsgi_req->path_info_len = 0;
 		goto secure2;
