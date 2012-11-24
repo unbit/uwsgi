@@ -663,6 +663,16 @@ int uwsgi_php_init(void) {
 		uwsgi_log("--- end of PHP custom config ---\n");
 	}
 
+	// fix docroot
+        if (uphp.docroot) {
+		char *orig_docroot = uphp.docroot;
+		uphp.docroot = uwsgi_expand_path(uphp.docroot, strlen(uphp.docroot), NULL);
+		if (!uphp.docroot) {
+			uwsgi_log("unable to set php docroot to %s\n", orig_docroot);
+			exit(1);
+		}
+	}
+
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
 
 	// filling http status codes
@@ -916,7 +926,6 @@ secure2:
         }
 
 secure3:
-
 
 	if (wsgi_req->document_root[wsgi_req->document_root_len-1] == '/') {
 		wsgi_req->script_name = real_filename + (wsgi_req->document_root_len-1);

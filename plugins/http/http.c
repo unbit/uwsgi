@@ -399,9 +399,9 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 	while (ptr < watermark) {
 		if (*ptr == '\r') {
 			if (ptr + 1 >= watermark)
-				return 0;
+				break;
 			if (*(ptr + 1) != '\n')
-				return 0;
+				break;
 			// multiline header ?
 			if (ptr + 2 < watermark) {
 				if (*(ptr + 2) == ' ' || *(ptr + 2) == '\t') {

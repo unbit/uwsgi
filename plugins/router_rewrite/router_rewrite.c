@@ -5,6 +5,8 @@ extern struct uwsgi_server uwsgi;
 
 int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
+	char *tmp_qs = NULL;
+
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
@@ -18,10 +20,21 @@ int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route
 		path_info_len = query_string - path_info;
 		query_string++;
 		query_string_len = strlen(query_string);
-	
+		if (wsgi_req->query_string_len > 0) {
+			tmp_qs = uwsgi_concat4n(query_string, query_string_len, "&", 1, wsgi_req->query_string, wsgi_req->query_string_len, "", 0);
+			query_string = tmp_qs;
+			query_string_len = strlen(query_string);
+		}	
 	}
+	// over engineering, could be requiredin the future...
 	else {
-		query_string = "";
+		if (wsgi_req->query_string_len > 0) {
+			query_string = wsgi_req->query_string;
+			query_string_len = wsgi_req->query_string_len;
+		}
+		else {
+			query_string = "";
+		}
 	}
 
 	char *ptr = uwsgi_req_append(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
@@ -39,12 +52,14 @@ int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route
 	wsgi_req->query_string_len = query_string_len;
 
 	free(path_info);
+	if (tmp_qs) free(tmp_qs);
 	if (ur->custom)
 		return UWSGI_ROUTE_CONTINUE;
 	return UWSGI_ROUTE_NEXT;
 
 clear:
 	free(path_info);
+	if (tmp_qs) free(tmp_qs);
 	return UWSGI_ROUTE_BREAK;
 }
 
