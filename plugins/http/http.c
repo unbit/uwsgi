@@ -518,6 +518,14 @@ ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
                 if (cs->event_hook_write) {
                         uwsgi_cr_hook_write(cs, NULL);
                 }
+		int ret2 = SSL_pending(hs->ssl);
+                if (ret2 > 0) {
+			if (uwsgi_buffer_fix(hs->post_buf, hs->post_buf->len + ret2 )) return -1;
+                        if (SSL_read(hs->ssl, hs->post_buf->buf + ret, ret2) != ret2) {
+                                return -1;
+                        }
+                        ret += ret2;
+                }
 		hs->post_buf_len = ret;
         	hs->post_buf_pos = 0;
                 uwsgi_cr_hook_read(cs, NULL);
