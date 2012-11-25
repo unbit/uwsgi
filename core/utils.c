@@ -4295,7 +4295,6 @@ int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
 }
 
 int uwsgi_ssl_session_new_cb(SSL *ssl, SSL_SESSION *sess) {
-	uwsgi_log("[NEW SESSION]\n");
 	char session_blob[4096];
 	int len = i2d_SSL_SESSION(sess, NULL);
 	if (len > 4096) {
