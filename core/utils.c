@@ -4339,7 +4339,7 @@ SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, unsigned char *key, int keylen, 
 
 void uwsgi_ssl_session_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
 	uwsgi_wlock(uwsgi.cache_lock);
-        if (uwsgi_cache_del((char *) sess->session_id, sess->session_id_length, 0)) {
+        if (uwsgi_cache_del((char *) sess->session_id, sess->session_id_length, 0, 0)) {
 		if (uwsgi.ssl_verbose) {
                         uwsgi_log("[uwsgi-ssl] error removing cache item\n");
                 }

@@ -348,7 +348,7 @@ VALUE rack_uwsgi_cache_del(VALUE *class, VALUE rbkey) {
 	size_t keylen = RSTRING_LEN(rbkey);
 	
         uwsgi_wlock(uwsgi.cache_lock);
-        if (uwsgi_cache_del(key, keylen, 0)) {
+        if (uwsgi_cache_del(key, keylen, 0, 0)) {
         	uwsgi_rwunlock(uwsgi.cache_lock);
 		return Qfalse;
         }

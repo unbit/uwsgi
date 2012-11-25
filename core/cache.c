@@ -193,7 +193,7 @@ char *uwsgi_cache_get(char *key, uint16_t keylen, uint64_t * valsize) {
 	return NULL;
 }
 
-int uwsgi_cache_del(char *key, uint16_t keylen, uint64_t index) {
+int uwsgi_cache_del(char *key, uint16_t keylen, uint64_t index, uint16_t flags) {
 
 	struct uwsgi_cache_item *uci;
 	int ret = -1;
@@ -641,7 +641,7 @@ void *cache_sweeper_loop(void *noarg) {
                         uwsgi_wlock(uwsgi.cache_lock);
                         if (uwsgi.cache_items[i].expires) {
                                 if (uwsgi.cache_items[i].expires < (uint64_t) uwsgi.current_time) {
-                                        uwsgi_cache_del(NULL, 0, i);
+                                        uwsgi_cache_del(NULL, 0, i, 0);
                                         freed_items++;
                                 }
                         }
