@@ -2,6 +2,8 @@
 
 extern struct uwsgi_server uwsgi;
 
+static void cache_send_udp_command(char *, uint16_t, char *, uint16_t, uint64_t, uint8_t);
+
 void uwsgi_init_cache() {
 
 	uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * UMAX16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -237,6 +239,10 @@ int uwsgi_cache_del(char *key, uint16_t keylen, uint64_t index, uint16_t flags) 
 		uci->expires = 0;
 	}
 
+	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
+                cache_send_udp_command(key, keylen, NULL, 0, 0, 11);
+        }
+
 	return ret;
 }
 
@@ -343,6 +349,17 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 	}
 	
 	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
+		cache_send_udp_command(key, keylen, val, vallen, expires, 10);
+	}
+
+
+end:
+	return ret;
+
+}
+
+
+static void cache_send_udp_command(char *key, uint16_t keylen, char *val, uint16_t vallen, uint64_t expires, uint8_t cmd) {
 
 		struct uwsgi_header uh;
 		uint8_t u_k[2];
@@ -354,16 +371,18 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 
 		memset(&mh, 0, sizeof(struct msghdr));
 		mh.msg_iov = iov;
-		mh.msg_iovlen = 7;
-
-		u_k[0] = (uint8_t) (keylen & 0xff);
-        	u_k[1] = (uint8_t) ((keylen >> 8) & 0xff);
-
-		u_v[0] = (uint8_t) (vallen16 & 0xff);
-        	u_v[1] = (uint8_t) ((vallen16 >> 8) & 0xff);
+		if (cmd == 10) {
+			mh.msg_iovlen = 7;
+		}
+		else  {
+			mh.msg_iovlen = 3;
+		}
 
 		iov[0].iov_base = &uh;
 		iov[0].iov_len = 4;
+
+		u_k[0] = (uint8_t) (keylen & 0xff);
+        	u_k[1] = (uint8_t) ((keylen >> 8) & 0xff);
 
 		iov[1].iov_base = u_k;
 		iov[1].iov_len = 2;
@@ -371,27 +390,36 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		iov[2].iov_base = key;
 		iov[2].iov_len = keylen;
 
-		iov[3].iov_base = u_v;
-		iov[3].iov_len = 2;
+		uh.pktsize = 2 + keylen;
 
-		iov[4].iov_base = val;
-		iov[4].iov_len = vallen16;
+		if (cmd == 10) {
+			u_v[0] = (uint8_t) (vallen16 & 0xff);
+        		u_v[1] = (uint8_t) ((vallen16 >> 8) & 0xff);
 
-		char es[sizeof(UMAX64_STR) + 1];
-        	uint16_t es_size = uwsgi_long2str2n(expires, es, sizeof(UMAX64_STR));
 
-		u_e[0] = (uint8_t) (es_size & 0xff);
-        	u_e[1] = (uint8_t) ((es_size >> 8) & 0xff);
+			iov[3].iov_base = u_v;
+			iov[3].iov_len = 2;
 
-		iov[5].iov_base = u_e;
-                iov[5].iov_len = 2;
+			iov[4].iov_base = val;
+			iov[4].iov_len = vallen16;
 
-                iov[6].iov_base = es;
-                iov[6].iov_len = es_size;
+			char es[sizeof(UMAX64_STR) + 1];
+        		uint16_t es_size = uwsgi_long2str2n(expires, es, sizeof(UMAX64_STR));
+
+			u_e[0] = (uint8_t) (es_size & 0xff);
+        		u_e[1] = (uint8_t) ((es_size >> 8) & 0xff);
+
+			iov[5].iov_base = u_e;
+                	iov[5].iov_len = 2;
+
+                	iov[6].iov_base = es;
+                	iov[6].iov_len = es_size;
+
+			uh.pktsize += 2 + vallen16 + 2 + es_size;
+		}
 
 		uh.modifier1 = 111;
-		uh.modifier2 = 10;
-		uh.pktsize = 2 + keylen + 2 + vallen16 + 2 + es_size;
+		uh.modifier2 = cmd;
 
 		struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
 		while(usl) {
@@ -402,10 +430,6 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 			}
 			usl = usl->next;
 		}
-	}
-
-end:
-	return ret;
 
 }
 
@@ -590,12 +614,14 @@ void *cache_udp_server_loop(void *noarg) {
                 if (buf[0] != 111) continue;
                 memcpy(&pktsize, buf+1, 2);
                 if (pktsize != len-4) continue;
+
+                memcpy(&ss, buf + 4, 2);
+                if (4+ss > pktsize) continue;
+                uint16_t keylen = ss;
+                char *key = buf + 6;
+
                 // cache set/update
                 if (buf[3] == 10) {
-                        memcpy(&ss, buf + 4, 2);
-                        if (4+ss > pktsize) continue;
-                        uint16_t keylen = ss;
-                        char *key = buf + 6;
                         if (keylen + 2 + 2 > pktsize) continue;
                         memcpy(&ss, buf + 6 + keylen, 2);
                         if (4+keylen+ss > pktsize) continue;
@@ -615,6 +641,11 @@ void *cache_udp_server_loop(void *noarg) {
                 }
                 // cache del
                 else if (buf[3] == 11) {
+                        uwsgi_wlock(uwsgi.cache_lock);
+                        if (uwsgi_cache_del(key, keylen, 0, UWSGI_CACHE_FLAG_LOCAL)) {
+                                uwsgi_log("[cache-udp-server] unable to update cache\n");
+                        }
+                        uwsgi_rwunlock(uwsgi.cache_lock);
                 }
         }
 
