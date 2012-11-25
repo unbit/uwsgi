@@ -4294,6 +4294,59 @@ int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
 	return 1;
 }
 
+int uwsgi_ssl_session_new_cb(SSL *ssl, SSL_SESSION *sess) {
+	char session_blob[4096];
+	int len = i2d_SSL_SESSION(sess, NULL);
+	if (len > 4096) {
+		if (uwsgi.ssl_verbose) {
+			uwsgi_log("[uwsgi-ssl] unable to store session of size %d\n", len);
+		}
+		return 0;
+	}
+
+	unsigned char *p = (unsigned char *) session_blob;
+	i2d_SSL_SESSION(sess, &p);	
+
+	// ok let's write the value to the cache
+	uwsgi_wlock(uwsgi.cache_lock);
+        if (uwsgi_cache_set((char *) sess->session_id, sess->session_id_length, session_blob, len, uwsgi.ssl_sessions_timeout, 0)) {
+		if (uwsgi.ssl_verbose) {
+                        uwsgi_log("[uwsgi-ssl] unable to store session of size %d in the cache\n", len);
+                }
+	}
+        uwsgi_rwunlock(uwsgi.cache_lock);
+	return 0;	
+}
+
+SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, unsigned char *key, int keylen, int *copy) {
+
+	uint64_t valsize = 0;
+
+	*copy = 0;	
+	uwsgi_rlock(uwsgi.cache_lock);
+        char *value = uwsgi_cache_get((char *)key, keylen, &valsize);
+        if (!value) {
+        	uwsgi_rwunlock(uwsgi.cache_lock);
+		if (uwsgi.ssl_verbose) {
+                        uwsgi_log("[uwsgi-ssl] cache miss\n");
+                }
+		return NULL;
+	}
+	SSL_SESSION *sess = d2i_SSL_SESSION(NULL, (const unsigned char **)&value, valsize);
+        uwsgi_rwunlock(uwsgi.cache_lock);
+	return sess;
+}
+
+void uwsgi_ssl_session_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
+	uwsgi_wlock(uwsgi.cache_lock);
+        if (uwsgi_cache_del((char *) sess->session_id, sess->session_id_length, 0)) {
+		if (uwsgi.ssl_verbose) {
+                        uwsgi_log("[uwsgi-ssl] error removing cache item\n");
+                }
+	}
+	uwsgi_rwunlock(uwsgi.cache_lock);
+}
+
 SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers, char *client_ca) {
 
 	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
@@ -4310,7 +4363,6 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 #ifdef SSL_OP_NO_COMPRESSION
 	ssloptions |= SSL_OP_NO_COMPRESSION;
 #endif
-	SSL_CTX_set_options(ctx, ssloptions);
 
 // release/reuse buffers as soon as possibile
 #ifdef SSL_MODE_RELEASE_BUFFERS
@@ -4354,7 +4406,7 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 			exit(1);
 		}
 
-		SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+		ssloptions |= SSL_OP_CIPHER_SERVER_PREFERENCE;
 	}
 
 	// set session context (if possibile), this is required for client certificate authentication
@@ -4391,6 +4443,35 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 	// disable session caching by default
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
 
+	if (uwsgi.ssl_sessions_use_cache) {
+
+		if (!uwsgi.cache_max_items) {
+			uwsgi_log("you have to enable uWSGI cache to use it as SSL session store !!!\n");
+			exit(1);
+		}
+
+		if (uwsgi.cache_blocksize < 4096) {
+			uwsgi_log("cache blocksize for SSL session store must be at least 4096 bytes\n");
+			exit(1);
+		}
+	
+		SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER|
+			SSL_SESS_CACHE_NO_INTERNAL|
+			SSL_SESS_CACHE_NO_AUTO_CLEAR);
+
+		ssloptions |= SSL_OP_NO_TICKET;
+
+		// just for fun
+		SSL_CTX_sess_set_cache_size(ctx, 0);
+
+		// set the callback for ssl sessions
+		SSL_CTX_sess_set_new_cb(ctx, uwsgi_ssl_session_new_cb);
+        	SSL_CTX_sess_set_get_cb(ctx, uwsgi_ssl_session_get_cb);
+        	SSL_CTX_sess_set_remove_cb(ctx, uwsgi_ssl_session_remove_cb);
+	}
+
+	SSL_CTX_set_timeout(ctx, uwsgi.ssl_sessions_timeout);
+
 /*
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
 #ifdef UWSGI_DEBUG
@@ -4400,6 +4481,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 	//SSL_CTX_sess_set_cache_size
 	}
 */
+
+	SSL_CTX_set_options(ctx, ssloptions);
+
 
 	return ctx;
 }

@@ -4,9 +4,6 @@ extern struct uwsgi_server uwsgi;
 
 void uwsgi_init_cache() {
 
-	if (!uwsgi.cache_blocksize)
-		uwsgi.cache_blocksize = UMAX16;
-
 	uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * UMAX16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (!uwsgi.cache_hashtable) {
 		uwsgi_error("mmap()");

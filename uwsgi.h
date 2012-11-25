@@ -1886,6 +1886,8 @@ struct uwsgi_server {
 #ifdef UWSGI_SSL
 	int ssl_initialized;
 	int ssl_verbose;
+	int ssl_sessions_use_cache;
+	int ssl_sessions_timeout;
 #endif
 
 #ifdef __linux__

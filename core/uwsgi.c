@@ -343,6 +343,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 #ifdef UWSGI_SSL
 	{"ssl-verbose", no_argument, 0, "be verbose about SSL errors", uwsgi_opt_true, &uwsgi.ssl_verbose, 0},
+	{"ssl-sessions-use-cache", no_argument, 0, "use uWSGI cache for ssl sessions storage", uwsgi_opt_true, &uwsgi.ssl_sessions_use_cache, 0},
+	{"ssl-session-use-cache", no_argument, 0, "use uWSGI cache for ssl sessions storage", uwsgi_opt_true, &uwsgi.ssl_sessions_use_cache, 0},
+	{"ssl-sessions-timeout", required_argument, 0, "set SSL sessions timeout (default: 300 seconds)", uwsgi_opt_set_int, &uwsgi.ssl_sessions_timeout, 0},
+	{"ssl-session-timeout", required_argument, 0, "set SSL sessions timeout (default: 300 seconds)", uwsgi_opt_set_int, &uwsgi.ssl_sessions_timeout, 0},
 #endif
 	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MASTER_INTERVAL, 0},
 	{"forkbomb-delay", required_argument, 0, "sleep for the specified number of seconds when a forkbomb is detected", uwsgi_opt_set_int, &uwsgi.forkbomb_delay, UWSGI_OPT_MASTER},
