@@ -3485,6 +3485,9 @@ void uwsgi_cache_wlock(void);
 void uwsgi_cache_rlock(void);
 void uwsgi_cache_rwunlock(void);
 
+void *cache_sweeper_loop(void *);
+void *cache_udp_server_loop(void *);
+
 void uwsgi_user_lock(int);
 void uwsgi_user_unlock(int);
 
