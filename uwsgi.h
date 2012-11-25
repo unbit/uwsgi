@@ -2018,6 +2018,10 @@ struct uwsgi_shared {
 
 	uint64_t cache_first_available_item;
 	uint64_t cache_unused_stack_ptr;
+	uint64_t cache_hits;
+	uint64_t cache_miss;
+	uint64_t cache_items;
+	uint64_t cache_full;
 
 
 	int worker_signal_pipe[2];

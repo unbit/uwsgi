@@ -861,6 +861,35 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 	if (uwsgi_stats_comma(us))
 		goto end;
 
+	if (uwsgi.cache_max_items > 0) {
+		if (uwsgi_stats_key(us, "cache"))
+                goto end;
+
+		if (uwsgi_stats_object_open(us))
+                        goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "max_items", (unsigned long long) uwsgi.cache_max_items))
+			goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "blocksize", (unsigned long long) uwsgi.cache_blocksize))
+			goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "items", (unsigned long long) ushared->cache_items))
+			goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) ushared->cache_hits))
+			goto end;
+
+		if (uwsgi_stats_keylong(us, "miss", (unsigned long long) ushared->cache_miss))
+			goto end;
+
+		if (uwsgi_stats_object_close(us))
+			goto end;
+
+	if (uwsgi_stats_comma(us))
+		goto end;
+	}
+
 	if (uwsgi_stats_key(us, "sockets"))
 		goto end;
 

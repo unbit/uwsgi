@@ -189,8 +189,11 @@ char *uwsgi_cache_get(char *key, uint16_t keylen, uint64_t * valsize) {
 			return NULL;
 		*valsize = uwsgi.cache_items[index].valsize;
 		uwsgi.cache_items[index].hits++;
+		ushared->cache_hits++;
 		return uwsgi.cache + (index * uwsgi.cache_blocksize);
 	}
+
+	ushared->cache_miss++;
 
 	return NULL;
 }
@@ -237,6 +240,8 @@ int uwsgi_cache_del(char *key, uint16_t keylen, uint64_t index, uint16_t flags) 
 		uci->prev = 0;
 		uci->next = 0;
 		uci->expires = 0;
+
+		ushared->cache_items--;
 	}
 
 	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
@@ -283,6 +288,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 
 	if (uwsgi.shared->cache_first_available_item >= uwsgi.cache_max_items && !uwsgi.shared->cache_unused_stack_ptr) {
 		uwsgi_log("*** DANGER cache is FULL !!! ***\n");
+		ushared->cache_full++;
 		goto end;
 	}
 
@@ -336,6 +342,8 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 			ucii->next = index;
 			uci->prev = last_index;
 		}
+
+		ushared->cache_items++ ;
 	}
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = &uwsgi.cache_items[index];
@@ -371,11 +379,10 @@ static void cache_send_udp_command(char *key, uint16_t keylen, char *val, uint16
 
 		memset(&mh, 0, sizeof(struct msghdr));
 		mh.msg_iov = iov;
+		mh.msg_iovlen = 3;
+
 		if (cmd == 10) {
 			mh.msg_iovlen = 7;
-		}
-		else  {
-			mh.msg_iovlen = 3;
 		}
 
 		iov[0].iov_base = &uh;
@@ -395,7 +402,6 @@ static void cache_send_udp_command(char *key, uint16_t keylen, char *val, uint16
 		if (cmd == 10) {
 			u_v[0] = (uint8_t) (vallen16 & 0xff);
         		u_v[1] = (uint8_t) ((vallen16 >> 8) & 0xff);
-
 
 			iov[3].iov_base = u_v;
 			iov[3].iov_len = 2;
@@ -672,7 +678,7 @@ void *cache_sweeper_loop(void *noarg) {
                         uwsgi_wlock(uwsgi.cache_lock);
                         if (uwsgi.cache_items[i].expires) {
                                 if (uwsgi.cache_items[i].expires < (uint64_t) uwsgi.current_time) {
-                                        uwsgi_cache_del(NULL, 0, i, 0);
+                                        uwsgi_cache_del(NULL, 0, i, UWSGI_CACHE_FLAG_LOCAL);
                                         freed_items++;
                                 }
                         }
