@@ -98,6 +98,13 @@ void uwsgi_init_cache() {
 		uwsgi_log("added cache udp node %s\n", usl->value);
 		usl = usl->next;
 	}
+
+	uwsgi.cache_udp_node_socket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (uwsgi.cache_udp_node_socket < 0) {
+		uwsgi_error("[cache-udp-node] socket()");
+		exit(1);
+	}
+	uwsgi_socket_nb(uwsgi.cache_udp_node_socket);
 }
 
 uint32_t djb33x_hash(char *key, int keylen) {
@@ -335,10 +342,51 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		ret = 0;
 	}
 	
-	if (uwsgi.cache_udp_node && ret == 0) {
+	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
+
+		struct uwsgi_header uh;
+		uint8_t u_k[2];
+		uint8_t u_v[2];
+		uint16_t vallen16 = vallen;
+		struct iovec iov[5];
+		struct msghdr mh;
+
+		memset(&mh, 0, sizeof(struct msghdr));
+		mh.msg_iov = iov;
+		mh.msg_iovlen = 5;
+
+		u_k[0] = (uint8_t) (keylen & 0xff);
+        	u_k[1] = (uint8_t) ((keylen >> 8) & 0xff);
+
+		u_v[0] = (uint8_t) (vallen16 & 0xff);
+        	u_v[1] = (uint8_t) ((vallen16 >> 8) & 0xff);
+
+		iov[0].iov_base = &uh;
+		iov[0].iov_len = 4;
+
+		iov[1].iov_base = u_k;
+		iov[1].iov_len = 2;
+
+		iov[2].iov_base = key;
+		iov[2].iov_len = keylen;
+
+		iov[3].iov_base = u_v;
+		iov[3].iov_len = 2;
+
+		iov[4].iov_base = val;
+		iov[4].iov_len = vallen16;
+
+		uh.modifier1 = 111;
+		uh.modifier2 = 10;
+		uh.pktsize = 2 + keylen + 2 + vallen16;
+
 		struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
 		while(usl) {
-			uwsgi_log("sending cache update to %s\n", usl->value);
+			mh.msg_name = usl->custom_ptr;
+			mh.msg_namelen = usl->custom;
+			if (sendmsg(uwsgi.cache_udp_node_socket, &mh, 0) <= 0) {
+				uwsgi_error("[cache-udp-node] sendmsg()");
+			}
 			usl = usl->next;
 		}
 	}

@@ -378,15 +378,34 @@ void *cache_udp_server_loop(void *noarg) {
 	char *buf = uwsgi_malloc(UMAX16);
 
 	for(;;) {
+		uint16_t pktsize = 0, ss = 0;
 		int interesting_fd = -1;
 		int rlen = event_queue_wait(queue, -1, &interesting_fd);
 		if (rlen <= 0) continue;
 		if (interesting_fd < 0) continue;
 		ssize_t len = read(interesting_fd, buf, UMAX16);
-		if (len <= 0) {
+		if (len <= 7) {
 			uwsgi_error("[cache-udp-server] read()");
 		}
-		uwsgi_log("received %llu bytes\n", len);
+		if (buf[0] != 111) continue;
+		memcpy(&pktsize, buf+1, 2);
+		if (pktsize != len-4) continue;
+		// cache set/update
+		if (buf[3] == 10) {
+			memcpy(&ss, buf + 4, 2);
+			if (ss > pktsize-4) continue;
+			uint16_t keylen = ss;
+			char *key = buf + 6;
+			memcpy(&ss, buf + 6 + keylen, 2);
+			if (ss > pktsize-(4+keylen)) continue;
+			uint16_t vallen = ss;
+			char *val = buf + 8 + keylen;
+			uwsgi_wlock(uwsgi.cache_lock);
+        		if (uwsgi_cache_set(key, keylen, val, vallen, 0, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_LOCAL)) {
+				uwsgi_log("[cache-udp-server] unable to update cache\n");
+        		}
+        		uwsgi_rwunlock(uwsgi.cache_lock);
+		}
 	}
 
 	return NULL;
