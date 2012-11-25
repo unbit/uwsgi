@@ -83,6 +83,21 @@ void uwsgi_init_cache() {
 	uwsgi.cache_lock = uwsgi_rwlock_init("cache");
 
 	uwsgi_log("*** Cache subsystem initialized: %lluMB (key: %llu bytes, keys: %llu bytes, data: %llu bytes) preallocated ***\n", (unsigned long long) ((uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024 * 1024), (unsigned long long) sizeof(struct uwsgi_cache_item), (unsigned long long) (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items), (unsigned long long) (uwsgi.cache_blocksize * uwsgi.cache_max_items));
+
+	struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
+	while(usl) {
+		char *port = strchr(usl->value, ':');
+		if (!port) {
+			uwsgi_log("[cache-udp-node] invalid udp address: %s\n", usl->value);
+			exit(1);
+		}
+		// no need to zero the memory, socket_to_in_addr will do that
+		struct sockaddr_in *sin = uwsgi_malloc(sizeof(struct sockaddr_in));
+		usl->custom = socket_to_in_addr(usl->value, port, 0, sin);
+		usl->custom_ptr = sin; 
+		uwsgi_log("added cache udp node %s\n", usl->value);
+		usl = usl->next;
+	}
 }
 
 uint32_t djb33x_hash(char *key, int keylen) {

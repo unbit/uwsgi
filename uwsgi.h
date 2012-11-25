@@ -309,6 +309,7 @@ struct uwsgi_string_list {
 	size_t len;
 	uint64_t custom;
 	uint64_t custom2;
+	void *custom_ptr;
 	struct uwsgi_string_list *next;
 };
 
