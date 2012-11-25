@@ -393,15 +393,22 @@ void *cache_udp_server_loop(void *noarg) {
 		// cache set/update
 		if (buf[3] == 10) {
 			memcpy(&ss, buf + 4, 2);
-			if (ss > pktsize-4) continue;
+			if (4+ss > pktsize) continue;
 			uint16_t keylen = ss;
 			char *key = buf + 6;
+			if (keylen + 2 + 2 > pktsize) continue;
 			memcpy(&ss, buf + 6 + keylen, 2);
-			if (ss > pktsize-(4+keylen)) continue;
+			if (4+keylen+ss > pktsize) continue;
 			uint16_t vallen = ss;
 			char *val = buf + 8 + keylen;
+			uint64_t expires = 0;
+			if (2 + keylen + 2 + vallen + 2 < pktsize) {
+				memcpy(&ss, buf + 8 + keylen + vallen , 2);
+				if (6+keylen+vallen+ss > pktsize) continue;
+				expires = uwsgi_str_num(buf + 10 + keylen+vallen, ss);
+			}
 			uwsgi_wlock(uwsgi.cache_lock);
-        		if (uwsgi_cache_set(key, keylen, val, vallen, 0, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_LOCAL)) {
+        		if (uwsgi_cache_set(key, keylen, val, vallen, expires, UWSGI_CACHE_FLAG_UPDATE|UWSGI_CACHE_FLAG_LOCAL|UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 				uwsgi_log("[cache-udp-server] unable to update cache\n");
         		}
         		uwsgi_rwunlock(uwsgi.cache_lock);

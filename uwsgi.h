@@ -287,6 +287,7 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x0001
 #define UWSGI_CACHE_FLAG_UPDATE		0x0002
 #define UWSGI_CACHE_FLAG_LOCAL		0x0004
+#define UWSGI_CACHE_FLAG_ABSEXPIRE	0x0008
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 

@@ -295,7 +295,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 			}
 		}
 		uci = &uwsgi.cache_items[index];
-		if (expires)
+		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE))
 			expires += uwsgi_now();
 		uci->expires = expires;
 		uci->djbhash = djb33x_hash(key, keylen);
@@ -333,7 +333,7 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 	}
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
 		uci = &uwsgi.cache_items[index];
-		if (expires) {
+		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 			expires += uwsgi_now();
 			uci->expires = expires;
 		}
@@ -347,13 +347,14 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		struct uwsgi_header uh;
 		uint8_t u_k[2];
 		uint8_t u_v[2];
+		uint8_t u_e[2];
 		uint16_t vallen16 = vallen;
-		struct iovec iov[5];
+		struct iovec iov[7];
 		struct msghdr mh;
 
 		memset(&mh, 0, sizeof(struct msghdr));
 		mh.msg_iov = iov;
-		mh.msg_iovlen = 5;
+		mh.msg_iovlen = 7;
 
 		u_k[0] = (uint8_t) (keylen & 0xff);
         	u_k[1] = (uint8_t) ((keylen >> 8) & 0xff);
@@ -376,9 +377,21 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		iov[4].iov_base = val;
 		iov[4].iov_len = vallen16;
 
+		char es[sizeof(UMAX64_STR) + 1];
+        	uint16_t es_size = uwsgi_long2str2n(expires, es, sizeof(UMAX64_STR));
+
+		u_e[0] = (uint8_t) (es_size & 0xff);
+        	u_e[1] = (uint8_t) ((es_size >> 8) & 0xff);
+
+		iov[5].iov_base = u_e;
+                iov[5].iov_len = 2;
+
+                iov[6].iov_base = es;
+                iov[6].iov_len = es_size;
+
 		uh.modifier1 = 111;
 		uh.modifier2 = 10;
-		uh.pktsize = 2 + keylen + 2 + vallen16;
+		uh.pktsize = 2 + keylen + 2 + vallen16 + 2 + es_size;
 
 		struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
 		while(usl) {
