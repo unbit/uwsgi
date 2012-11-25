@@ -1833,6 +1833,9 @@ struct uwsgi_server {
 	int cache_expire_freq;
 	int cache_report_freed_items;
 
+	struct uwsgi_string_list *cache_udp_server;
+	struct uwsgi_string_list *cache_udp_node;
+
 	char *cache_server;
 	int cache_server_threads;
 	int cache_server_fd;

@@ -352,6 +352,46 @@ void *logger_thread_loop(void *noarg) {
 	return NULL;
 }
 
+void *cache_udp_server_loop(void *noarg) {
+	// block all signals
+        sigset_t smask;
+        sigfillset(&smask);
+        pthread_sigmask(SIG_BLOCK, &smask, NULL);
+
+	int queue = event_queue_init();
+	struct uwsgi_string_list *usl = uwsgi.cache_udp_server;
+	while(usl) {
+		if (strchr(usl->value, ':')) {
+			int fd = bind_to_udp(usl->value, 0, 0);
+			if (fd < 0) {
+				uwsgi_log("[cache-udp-server] cannot bind to %s\n", usl->value);
+				exit(1);
+			}
+			uwsgi_socket_nb(fd);
+			event_queue_add_fd_read(queue, fd);
+			uwsgi_log("*** cache udp server running on %s ***\n", usl->value);
+		}
+		usl = usl->next;
+	}
+
+	// allocate 64k chunk to receive messages
+	char *buf = uwsgi_malloc(UMAX16);
+
+	for(;;) {
+		int interesting_fd = -1;
+		int rlen = event_queue_wait(queue, -1, &interesting_fd);
+		if (rlen <= 0) continue;
+		if (interesting_fd < 0) continue;
+		ssize_t len = read(interesting_fd, buf, UMAX16);
+		if (len <= 0) {
+			uwsgi_error("[cache-udp-server] read()");
+		}
+		uwsgi_log("received %llu bytes\n", len);
+	}
+
+	return NULL;
+}
+
 void *cache_sweeper_loop(void *noarg) {
 
 	int i;
@@ -602,6 +642,7 @@ int master_loop(char **argv, char **environ) {
 
 	pthread_t logger_thread;
 	pthread_t cache_sweeper;
+	pthread_t cache_udp_server;
 
 #ifdef UWSGI_UDP
 	int udp_fd = -1;
@@ -706,6 +747,16 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_log("cache sweeper thread enabled\n");
 		}
 	}
+
+	if (uwsgi.cache_max_items > 0 && uwsgi.cache_udp_server) {
+                if (pthread_create(&cache_udp_server, NULL, cache_udp_server_loop, NULL)) {
+                        uwsgi_error("pthread_create()");
+                        uwsgi_log("unable to run the cache udp server !!!\n");
+                }
+                else {
+                        uwsgi_log("cache udp server thread enabled\n");
+                }
+        }
 
 
 	uwsgi.wsgi_req->buffer = uwsgi.workers[0].cores[0].buffer;

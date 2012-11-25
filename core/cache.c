@@ -319,6 +319,14 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 		uci->valsize = vallen;
 		ret = 0;
 	}
+	
+	if (uwsgi.cache_udp_node && ret == 0) {
+		struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
+		while(usl) {
+			uwsgi_log("sending cache update to %s\n", usl->value);
+			usl = usl->next;
+		}
+	}
 
 end:
 	return ret;
