@@ -880,7 +880,10 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) ushared->cache_hits))
 			goto end;
 
-		if (uwsgi_stats_keylong(us, "miss", (unsigned long long) ushared->cache_miss))
+		if (uwsgi_stats_keylong_comma(us, "miss", (unsigned long long) ushared->cache_miss))
+			goto end;
+
+		if (uwsgi_stats_keylong(us, "full", (unsigned long long) ushared->cache_full))
 			goto end;
 
 		if (uwsgi_stats_object_close(us))
