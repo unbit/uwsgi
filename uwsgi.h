@@ -3497,6 +3497,8 @@ void uwsgi_user_unlock(int);
 
 void simple_loop_run_int(int);
 
+char *uwsgi_strip(char *);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

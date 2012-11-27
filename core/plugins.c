@@ -76,8 +76,8 @@ void *uwsgi_load_plugin(int modifier, char *plugin, char *has_option) {
 	char *plugin_filename = NULL;
 
 	int need_free = 0;
-	char *plugin_name = plugin;
-	char *plugin_symbol_name_start = plugin;
+	char *plugin_name = uwsgi_strip(uwsgi_str(plugin));
+	char *plugin_symbol_name_start = plugin_name;
 
 	struct uwsgi_plugin *up;
 	char linkpath_buf[1024], linkpath[1024];

@@ -5123,3 +5123,28 @@ end:
 	free(symbol_name);
 	return ret;
 }
+
+char *uwsgi_strip(char *src) {
+	char *dst = src ;
+	size_t len = strlen(src);
+	int i;
+
+	for(i=0;i<(ssize_t)len;i++) {
+		if (src[i] == ' ' || src[i] == '\t') {
+			dst++;
+		}	
+	}
+
+	len -= (dst-src);
+
+	for(i=len;i>=0;i--) {
+		if (dst[i] == ' ' || dst[i] == '\t') {
+			dst[i] = 0;	
+		}
+		else {
+			break;
+		}
+	}
+
+	return dst;
+}
