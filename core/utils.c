@@ -4079,13 +4079,14 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 	while (touch) {
 		struct stat tr_st;
 		if (stat(touch->value, &tr_st)) {
-			if (touch->custom) {
+			if (touch->custom && !touch->custom2) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("[uwsgi-check-touches] File %s was removed\n", touch->value);
 #endif
+				touch->custom2 = 1;
 				return touch->value;
 			}
-			else if (!touch->custom2) {
+			else if (!touch->custom && !touch->custom2) {
 				uwsgi_log("unable to stat() %s, events will be triggered as soon as the file is created\n", touch->value);
 				touch->custom2 = 1;
 			}
@@ -4097,6 +4098,7 @@ char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 				uwsgi_log("[uwsgi-check-touches] File was created: %s\n", touch->value);
 #endif
 				touch->custom = (uint64_t) tr_st.st_mtime;
+				touch->custom2 = 0;
 				return touch->value;
 			}
 			else if (touch->custom && (uint64_t) tr_st.st_mtime > touch->custom) {
