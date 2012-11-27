@@ -33,15 +33,20 @@ if not GCC:
 
 CPP = os.environ.get('CPP', 'cpp')
 
-CPUCOUNT = 1
 try:
-    import multiprocessing
-    CPUCOUNT = multiprocessing.cpu_count()
+    CPUCOUNT = int(os.environ.get('CPUCOUNT', -1))
 except:
+    CPUCOUNT = -1
+
+if CPUCOUNT < 1:
     try:
-        CPUCOUNT = int(os.sysconf('SC_NPROCESSORS_ONLN'))
+        import multiprocessing
+        CPUCOUNT = multiprocessing.cpu_count()
     except:
-        pass
+        try:
+            CPUCOUNT = int(os.sysconf('SC_NPROCESSORS_ONLN'))
+        except:
+            CPUCOUNT = 1
 
 binary_list = []
 
