@@ -30,6 +30,16 @@ extern struct uwsgi_server uwsgi;
 */
 
 void uwsgi_daemons_smart_check() {
+	static time_t last_run = 0;
+
+	time_t now = uwsgi_now();
+
+	if (now - last_run <= 0) {
+		return;
+	}
+
+	last_run = now;
+
 	struct uwsgi_daemon *ud = uwsgi.daemons;
 	while (ud) {
 		if (ud->pidfile) {
@@ -41,14 +51,14 @@ void uwsgi_daemons_smart_check() {
 				}
 				else {
 					ud->pidfile_checks++;
-					if (ud->pidfile_checks >= (uint64_t) ud->freq) {
+					if (ud->pidfile_checks >= (unsigned int) ud->freq) {
 						uwsgi_log("[uwsgi-daemons] found changed pidfile for \"%s\" (old_pid: %d new_pid: %d)\n", ud->command, (int) ud->pid, (int) checked_pid);
 						uwsgi_spawn_daemon(ud);
 					}
 				}
 			}
 			else if (checked_pid != ud->pid) {
-				uwsgi_log("[uwsgi-daemons] found changed pidfile for \"%s\" (old_pid: %d new_pid: %d)\n", ud->command, (int) ud->pid, (int) checked_pid);
+				uwsgi_log("[uwsgi-daemons] found changed pid for \"%s\" (old_pid: %d new_pid: %d)\n", ud->command, (int) ud->pid, (int) checked_pid);
 				ud->pid = checked_pid;
 			}
 			// all ok, pidfile and process found
