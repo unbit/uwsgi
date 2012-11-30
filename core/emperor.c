@@ -1381,7 +1381,8 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 		// check if mtime is changed and the uWSGI instance must be reloaded
 		if (ts > ui_current->last_mod) {
 			// make a new config (free the old one)
-			free(ui_current->config);
+			if (ui_current->config)
+				free(ui_current->config);
 			ui_current->config = config;
 			ui_current->config_len = strlen(config);
 			// always respawn (no need for amqp-style rules)
@@ -1390,6 +1391,12 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 	}
 	else {
 		// make a copy of the config as it will be freed
-		emperor_add(ues, name, ts, uwsgi_str(config), strlen((const char *) config), uid, gid);
+		char *new_config = NULL;
+		size_t new_config_len = 0;
+		if (config) {
+			new_config = uwsgi_str(config);
+			new_config_len = strlen(new_config);
+		}
+		emperor_add(ues, name, ts, new_config, new_config_len, uid, gid);
 	}
 }
