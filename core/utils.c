@@ -4367,12 +4367,42 @@ void uwsgi_ssl_session_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
 	uwsgi_rwunlock(uwsgi.cache_lock);
 }
 
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+static int uwsgi_sni_cb(SSL *ssl, int *ad, void *arg) {
+        const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+        if (!servername) return SSL_TLSEXT_ERR_NOACK;
+        size_t servername_len = strlen(servername);
+
+	struct uwsgi_string_list *usl = uwsgi.sni;
+	while(usl) {
+		if (!uwsgi_strncmp(usl->value, usl->len, (char *)servername, servername_len)) {
+			SSL_set_SSL_CTX(ssl, usl->custom_ptr);
+			return SSL_TLSEXT_ERR_OK;
+		}
+		usl = usl->next;		
+	}
+
+#ifdef UWSGI_PCRE
+	struct uwsgi_regexp_list *url = uwsgi.sni_regexp;
+        while(url) {
+		if (uwsgi_regexp_match(url->pattern, url->pattern_extra, (char *)servername, servername_len) >= 0) {
+			SSL_set_SSL_CTX(ssl, url->custom_ptr);
+                        return SSL_TLSEXT_ERR_OK;
+		}
+		url = url->next;
+	}
+#endif
+
+        return SSL_TLSEXT_ERR_NOACK;
+}
+#endif
+
 SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers, char *client_ca) {
 
 	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
 	if (!ctx) {
-		uwsgi_log("unable to initialize ssl context\n");
-		exit(1);
+		uwsgi_log("[uwsgi-ssl] unable to initialize context \"%s\"\n", name);
+		return NULL;
 	}
 
 	// this part is taken from nginx and stud, removing unneeded functionality
@@ -4390,8 +4420,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 #endif
 
 	if (SSL_CTX_use_certificate_chain_file(ctx, crt) <= 0) {
-		uwsgi_log("unable to assign ssl certificate %s\n", crt);
-		exit(1);
+		uwsgi_log("[uwsgi-ssl] unable to assign certificate %s for context \"%s\"\n", crt, name);
+		SSL_CTX_free(ctx);
+		return NULL;
 	}
 
 // this part is based from stud
@@ -4415,15 +4446,17 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 	}
 
 	if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
-		uwsgi_log("unable to assign key certificate %s\n", key);
-		exit(1);
+		uwsgi_log("[uwsgi-ssl] unable to assign key %s for context \"%s\"\n", key, name);
+		SSL_CTX_free(ctx);
+		return NULL;
 	}
 
 	// if ciphers are specified, prefer server ciphers
 	if (ciphers && strlen(ciphers) > 0) {
 		if (SSL_CTX_set_cipher_list(ctx, ciphers) == 0) {
-			uwsgi_log("unable to set ssl requested ciphers: %s\n", ciphers);
-			exit(1);
+			uwsgi_log("[uwsgi-ssl] unable to set requested ciphers (%s) for context \"%s\"\n", ciphers, name);
+			SSL_CTX_free(ctx);
+			return NULL;
 		}
 
 		ssloptions |= SSL_OP_CIPHER_SERVER_PREFERENCE;
@@ -4445,13 +4478,15 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 		// in the future we should allow to set the verify depth
 		SSL_CTX_set_verify_depth(ctx, 1);
 		if (SSL_CTX_load_verify_locations(ctx, client_ca, NULL) == 0) {
-			uwsgi_log("unable to set ssl verify locations for: %s\n", client_ca);
-			exit(1);
+			uwsgi_log("[uwsgi-ssl] unable to set ssl verify locations (%s) for context \"%s\"\n", client_ca, name);
+			SSL_CTX_free(ctx);
+                        return NULL;
 		}
 		STACK_OF(X509_NAME) * list = SSL_load_client_CA_file(client_ca);
 		if (!list) {
-			uwsgi_log("unable to load client CA certificate: %s\n", client_ca);
-			exit(1);
+			uwsgi_log("unable to load client CA certificate (%s) for context \"%s\"\n", client_ca, name);
+			SSL_CTX_free(ctx);
+                        return NULL;
 		}
 
 		SSL_CTX_set_client_CA_list(ctx, list);
@@ -4459,6 +4494,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 
 
 	SSL_CTX_set_info_callback(ctx, uwsgi_ssl_info_cb);
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+        SSL_CTX_set_tlsext_servername_callback(ctx, uwsgi_sni_cb);
+#endif
 
 	// disable session caching by default
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
@@ -4491,16 +4529,6 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 	}
 
 	SSL_CTX_set_timeout(ctx, uwsgi.ssl_sessions_timeout);
-
-/*
-	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
-#ifdef UWSGI_DEBUG
-	uwsgi_log("[uwsgi-ssl] initialized ssl session cache: %s\n", name);
-#endif
-	//SSL_CTX_set_timeout
-	//SSL_CTX_sess_set_cache_size
-	}
-*/
 
 	SSL_CTX_set_options(ctx, ssloptions);
 

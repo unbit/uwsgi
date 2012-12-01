@@ -349,6 +349,10 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ssl-session-use-cache", no_argument, 0, "use uWSGI cache for ssl sessions storage", uwsgi_opt_true, &uwsgi.ssl_sessions_use_cache, 0},
 	{"ssl-sessions-timeout", required_argument, 0, "set SSL sessions timeout (default: 300 seconds)", uwsgi_opt_set_int, &uwsgi.ssl_sessions_timeout, 0},
 	{"ssl-session-timeout", required_argument, 0, "set SSL sessions timeout (default: 300 seconds)", uwsgi_opt_set_int, &uwsgi.ssl_sessions_timeout, 0},
+	{"sni", required_argument, 0, "add an SNI-governed SSL context", uwsgi_opt_sni, NULL, 0},
+#ifdef UWSGI_PCRE
+	{"sni-regexp", required_argument, 0, "add an SNI-governed SSL context (the key is a regexp)", uwsgi_opt_sni, NULL, 0},
+#endif
 #endif
 	{"check-interval", required_argument, 0, "set the interval (in seconds) of master checks", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MASTER_INTERVAL, 0},
 	{"forkbomb-delay", required_argument, 0, "sleep for the specified number of seconds when a forkbomb is detected", uwsgi_opt_set_int, &uwsgi.forkbomb_delay, UWSGI_OPT_MASTER},
@@ -3299,6 +3303,61 @@ void uwsgi_opt_add_string_list(char *opt, char *value, void *list) {
 	struct uwsgi_string_list **ptr = (struct uwsgi_string_list **) list;
 	uwsgi_string_new_list(ptr, value);
 }
+
+#ifdef UWSGI_SSL
+void uwsgi_opt_sni(char *opt, char *value, void *foobar) {
+	char *client_ca = NULL;
+	char *v = uwsgi_str(value);
+
+	char *space = strchr(v, ' ');
+	if (!space) {
+		uwsgi_log("invalid %s syntax, must be sni_key<space>crt,key[,ciphers,client_ca]\n", opt);
+		exit(1);
+	}
+	*space = 0;
+	char *crt = space+1;
+	char *key = strchr(crt, ',');
+        if (!key) {
+		uwsgi_log("invalid %s syntax, must be sni_key<space>crt,key[,ciphers,client_ca]\n", opt);
+                exit(1);
+        }
+        *key = '\0'; key++;
+
+        char *ciphers = strchr(key, ',');
+        if (ciphers) {
+                *ciphers = '\0'; ciphers++;
+                client_ca = strchr(ciphers, ',');
+                if (client_ca) {
+                        *client_ca = '\0'; client_ca++;
+                }
+        }
+
+	if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+
+	SSL_CTX *ctx = uwsgi_ssl_new_server_context(v, crt, key, ciphers, client_ca);
+	if (!ctx) {
+		uwsgi_log("[uwsgi-ssl] DANGER unable to initialize context for \"%s\"\n", v);
+		free(v);
+		return;
+	}
+
+#ifdef UWSGI_PCRE
+	if (!strcmp(opt, "sni-regexp")) {
+		struct uwsgi_regexp_list *url = uwsgi_regexp_new_list(&uwsgi.sni_regexp, v);
+		url->custom_ptr = ctx;
+	}
+	else {
+#endif
+		struct uwsgi_string_list *usl = uwsgi_string_new_list(&uwsgi.sni, v);
+		usl->custom_ptr = ctx;
+#ifdef UWSGI_PCRE
+	}
+#endif
+
+}
+#endif
 
 #ifdef UWSGI_PCRE
 void uwsgi_opt_add_regexp_list(char *opt, char *value, void *list) {

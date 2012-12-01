@@ -1895,6 +1895,10 @@ struct uwsgi_server {
 	int ssl_verbose;
 	int ssl_sessions_use_cache;
 	int ssl_sessions_timeout;
+#ifdef UWSGI_PCRE
+	struct uwsgi_regexp_list *sni_regexp;
+#endif
+	struct uwsgi_string_list *sni;
 #endif
 
 #ifdef __linux__
@@ -3030,6 +3034,10 @@ void uwsgi_opt_load_dl(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
 void uwsgi_opt_cluster_log(char *, char *, void *);
 void uwsgi_opt_cluster_reload(char *, char *, void *);
+
+#ifdef UWSGI_SSL
+void uwsgi_opt_sni(char *, char *, void *);
+#endif
 
 void uwsgi_opt_flock(char *, char *, void *);
 void uwsgi_opt_flock_wait(char *, char *, void *);

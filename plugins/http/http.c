@@ -74,6 +74,9 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 		name = uwsgi_concat3(ucr->short_name, "-", ugs->name);
 	}
         ugs->ctx = uwsgi_ssl_new_server_context(name, crt, key, ciphers, client_ca);
+	if (!ugs->ctx) {
+		exit(1);
+	}
         // set the ssl mode
         ugs->mode = UWSGI_HTTP_SSL;
 
