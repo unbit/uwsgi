@@ -823,14 +823,16 @@ int master_loop(char **argv, char **environ) {
 		//uwsgi_log("uwsgi.ready_to_reload %d %d\n", uwsgi.ready_to_reload, uwsgi.numproc);
 
 		// run master_cycle hook for every plugin
-		for (i = 0; i < uwsgi.gp_cnt; i++) {
-			if (uwsgi.gp[i]->master_cycle) {
-				uwsgi.gp[i]->master_cycle();
+		if (!uwsgi.to_hell && !uwsgi.to_heaven) {
+			for (i = 0; i < uwsgi.gp_cnt; i++) {
+				if (uwsgi.gp[i]->master_cycle) {
+					uwsgi.gp[i]->master_cycle();
+				}
 			}
-		}
-		for (i = 0; i < 256; i++) {
-			if (uwsgi.p[i]->master_cycle) {
-				uwsgi.p[i]->master_cycle();
+			for (i = 0; i < 256; i++) {
+				if (uwsgi.p[i]->master_cycle) {
+					uwsgi.p[i]->master_cycle();
+				}
 			}
 		}
 
