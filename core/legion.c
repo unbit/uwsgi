@@ -54,6 +54,20 @@ void legion_loop(struct uwsgi_legion *ul) {
 	}
 }
 
+void uwsgi_start_legions() {
+	struct uwsgi_legion *legion = uwsgi.legions;
+	while(legion) {
+		char *colon = strchr(legion->addr, ':');
+		if (colon) {
+			legion->socket = bind_to_udp(legion->addr, 0, 0);
+		}
+		else {
+			legion->socket = bind_to_unix_dgram(legion->addr);
+		}
+		legion = legion->next;
+	}
+}
+
 void uwsgi_legion_add(struct uwsgi_legion *ul) {
 	struct uwsgi_legion *old_legion=NULL,*legion = uwsgi.legions;
 	while(legion) {
@@ -169,6 +183,7 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 	ul->legion_len = strlen(ul->legion);
 
 	ul->valor = strtol(valor, (char **) NULL, 10);
+	ul->addr = addr;
 	
 	ul->encrypt_ctx = ctx;
 	ul->decrypt_ctx = ctx2;
