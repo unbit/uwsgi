@@ -31,7 +31,7 @@ extern struct uwsgi_server uwsgi;
 	legion-unlord = legion1 iptakeover:action=down,addr=192.168.0.100
 
 	legion-lord = legion1 cmd:foobar.sh up
-	legion-lord = legion1 cmd:foobar.sh down
+	legion-unlord = legion1 cmd:foobar.sh down
 
 	TODO
 	some option could benefit from the legions subsystem, expecially in clustered environments	
