@@ -21,7 +21,7 @@ extern struct uwsgi_server uwsgi;
 	Legions options (the legion1 is formed by 4 nodes, only one node will get the ip address, this is an ip takeover implementation)
 
 	// became a member of a legion (each legion uses a shared secret)
-	legion = legion1 192.168.0.1:4001 100 mysecret
+	legion = legion1 192.168.0.1:4001 100 algo:mysecret
 	// the other members of the legion
 	legion-node = legion1 192.168.0.2:4001
 	legion-node = legion1 192.168.0.3:4001
@@ -41,16 +41,6 @@ extern struct uwsgi_server uwsgi;
 
 */
 
-struct uwsgi_legion {
-	char *legion;
-	uint16_t legion_len;
-	uint64_t valor;
-	time_t lord;
-	int socket;
-	struct uwsgi_string_list *nodes;
-	struct uwsgi_legion *next;
-};
-
 void legion_loop(struct uwsgi_legion *ul) {
 	for(;;) {
 		// wait for event
@@ -61,6 +51,21 @@ void legion_loop(struct uwsgi_legion *ul) {
 		if (valor > ul->valor && ul->lord) {
 			// no more lord, trigger unlord event
 		}
+	}
+}
+
+void uwsgi_legion_add(struct uwsgi_legion *ul) {
+	struct uwsgi_legion *old_legion=NULL,*legion = uwsgi.legions;
+	while(legion) {
+		old_legion = legion;
+		legion = legion->next;
+	}
+
+	if (old_legion) {
+		old_legion->next = ul;
+	}
+	else {
+		uwsgi.legions = ul;
 	}
 }
 
@@ -88,4 +93,85 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 err:
 	uwsgi_buffer_destroy(ub);
 	return -1;
+}
+
+void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
+
+	// legion addr valor algo:secret
+	char *legion = uwsgi_str(value);	
+	char *space = strchr(legion, ' ');
+	if (!space) {
+		uwsgi_log("invalid legion syntax, must be <legion> <addr> <valor> <algo:secret>\n");
+		exit(1);
+	}
+	*space = 0;
+	char *addr = space+1;
+
+	space = strchr(addr, ' ');
+	if (!space) {
+                uwsgi_log("invalid legion syntax, must be <legion> <addr> <valor> <algo:secret>\n");
+                exit(1);
+        }
+	*space = 0;
+	char *valor = space+1;
+
+	space = strchr(valor, ' ');
+	if (!space) {
+                uwsgi_log("invalid legion syntax, must be <legion> <addr> <valor> <algo:secret>\n");
+                exit(1);
+        }
+	*space = 0;
+	char *algo_secret = space+1;
+
+	char *colon = strchr(algo_secret, ':');
+	if (!colon) {
+                uwsgi_log("invalid legion syntax, must be <legion> <addr> <valor> <algo:secret>\n");
+                exit(1);
+        }
+	*colon = 0;
+	char *secret = colon+1;
+	
+	if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+
+	EVP_CIPHER_CTX *ctx = uwsgi_malloc(sizeof(EVP_CIPHER_CTX));
+        EVP_CIPHER_CTX_init(ctx);
+
+        const EVP_CIPHER *cipher = EVP_get_cipherbyname(algo_secret);
+	if (!cipher) {
+		uwsgi_log("[uwsgi-legion] unable to find algorithm/cipher %s\n", algo_secret); 
+		exit(1);
+	}
+
+	char *iv = uwsgi_ssl_rand(strlen(secret));
+	if (!iv) {
+		uwsgi_log("[uwsgi-legion] unable to generate iv for legion %s\n", legion); 
+		exit(1);
+	}
+
+        if (EVP_EncryptInit_ex(ctx, cipher, NULL, (const unsigned char *)secret, (const unsigned char *) iv) <= 0) {
+        	uwsgi_error("EVP_EncryptInit_ex()");
+		exit(1);
+	}
+
+	EVP_CIPHER_CTX *ctx2 = uwsgi_malloc(sizeof(EVP_CIPHER_CTX));
+        EVP_CIPHER_CTX_init(ctx2);
+
+        if (EVP_DecryptInit_ex(ctx2, cipher, NULL, (const unsigned char *)secret, NULL) <= 0) {
+                uwsgi_error("EVP_DecryptInit_ex()");
+                exit(1);
+        }
+
+	// we use shared memory, as we want to export legion status to the api
+	struct uwsgi_legion *ul = uwsgi_calloc_shared(sizeof(struct uwsgi_legion));
+	ul->legion = legion;
+	ul->legion_len = strlen(ul->legion);
+
+	ul->valor = strtol(valor, (char **) NULL, 10);
+	
+	ul->encrypt_ctx = ctx;
+	ul->decrypt_ctx = ctx2;
+
+	uwsgi_legion_add(ul);
 }

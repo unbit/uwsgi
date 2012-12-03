@@ -505,6 +505,23 @@ struct uwsgi_logger {
 	struct uwsgi_logger *next;
 };
 
+#ifdef UWSGI_SSL
+struct uwsgi_legion {
+        char *legion;
+        uint16_t legion_len;
+        uint64_t valor;
+        char *addr;
+        time_t lord;
+        int socket;
+	EVP_CIPHER_CTX *encrypt_ctx;
+	EVP_CIPHER_CTX *decrypt_ctx;
+        struct uwsgi_string_list *nodes;
+        struct uwsgi_string_list *lord_hooks;
+        struct uwsgi_string_list *unlord_hooks;
+        struct uwsgi_legion *next;
+};
+#endif
+
 struct uwsgi_queue_header {
 	uint64_t pos;
 	uint64_t pull_pos;
@@ -1899,6 +1916,10 @@ struct uwsgi_server {
 	struct uwsgi_regexp_list *sni_regexp;
 #endif
 	struct uwsgi_string_list *sni;
+#endif
+
+#ifdef UWSGI_SSL
+	struct uwsgi_legion *legions;
 #endif
 
 #ifdef __linux__
@@ -3510,6 +3531,12 @@ void uwsgi_user_unlock(int);
 void simple_loop_run_int(int);
 
 char *uwsgi_strip(char *);
+
+#ifdef UWSGI_SSL
+void uwsgi_opt_legion(char *, char *, void *);
+void uwsgi_legion_add(struct uwsgi_legion *);
+char *uwsgi_ssl_rand(size_t);
+#endif
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

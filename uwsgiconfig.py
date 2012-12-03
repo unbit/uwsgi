@@ -449,7 +449,7 @@ class uConf(object):
         self.config.read(filename)
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
             'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile',
-            'core/offload', 'core/legion',
+            'core/offload',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer',
             'core/plugins', 'core/lock', 'core/cache', 'core/daemons',
             'core/queue', 'core/event', 'core/signal', 'core/cluster',
@@ -1009,12 +1009,14 @@ class uConf(object):
                     self.libs.append('-lssl')
                     self.libs.append('-lcrypto')
                     self.gcc_list.append('core/ssl')
+                    self.gcc_list.append('core/legion')
                     report['ssl'] = True
             else:
                 self.cflags.append("-DUWSGI_SSL")
                 self.libs.append('-lssl')
                 self.libs.append('-lcrypto')
                 self.gcc_list.append('core/ssl')
+                self.gcc_list.append('core/legion')
                 report['ssl'] = True
 
 

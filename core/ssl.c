@@ -1,4 +1,5 @@
 #include "../uwsgi.h"
+#include <openssl/rand.h>
 
 extern struct uwsgi_server uwsgi;
 /*
@@ -365,4 +366,12 @@ char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
         }
 
         return filename;
+}
+
+char *uwsgi_ssl_rand(size_t len) {
+	unsigned char *buf = uwsgi_calloc(len+1);
+	if (RAND_bytes(buf, len) <= 0) {
+		return NULL;
+	}
+	return (char *) buf;
 }
