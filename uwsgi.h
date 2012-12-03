@@ -3385,6 +3385,10 @@ int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
 int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
+int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
+int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
+int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint64_t);
+int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t);
 
 void uwsgi_httpize_var(char *, size_t);
 struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t);
