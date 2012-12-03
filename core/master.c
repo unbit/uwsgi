@@ -664,6 +664,10 @@ int master_loop(char **argv, char **environ) {
 #endif
 	}
 
+#ifdef UWSGI_SSL
+	uwsgi_start_legions();
+#endif
+
 	if (uwsgi.cache_max_items > 0 && !uwsgi.cache_no_expire) {
 		if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, NULL)) {
 			uwsgi_error("pthread_create()");

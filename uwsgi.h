@@ -1920,6 +1920,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SSL
 	struct uwsgi_legion *legions;
+	int legion_queue;
 #endif
 
 #ifdef __linux__
@@ -3536,6 +3537,7 @@ char *uwsgi_strip(char *);
 void uwsgi_opt_legion(char *, char *, void *);
 void uwsgi_legion_add(struct uwsgi_legion *);
 char *uwsgi_ssl_rand(size_t);
+void uwsgi_start_legions(void);
 #endif
 
 void uwsgi_check_emperor(void);

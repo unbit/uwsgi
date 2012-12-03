@@ -9,12 +9,8 @@ extern struct uwsgi_server uwsgi;
 	object can be owned only by the instance with the higher valor. Such an instance is the
 	Lord of the Legion. There can only be one (and only one) Lord for each Legion.
 	If a member of a Legion spawns with an higher valor than the current Lord, it became the new Lord.
-	If two (or more) member of a legion have the same valor, their name (read: ip address) is used as the delta
-	for choosing the new Lord:
 
-	each octect of the address + the port is summed to form the delta (192.168.0.1:4001 = 192 + 168 + 0 + 1 + 4001 = 4362).
-
-	The delta number is a last resort, you should always give different valors to the members of a Legion
+	If two (or more) member of a legion have the same valor, an error condition will be triggered (TODO fallback to something more useful)
 
 	{ "legion": "legion1", "valor": "100", "unix": "1354533245", "lord": "1354533245", "name": "foobar" }
 
@@ -41,20 +37,113 @@ extern struct uwsgi_server uwsgi;
 
 */
 
-void legion_loop(struct uwsgi_legion *ul) {
-	for(;;) {
-		// wait for event
-		// ensure the first 4 bytes are valid
-		// decrypt packet using the secret
-		// parse packet
-		uint64_t valor = 10;
-		if (valor > ul->valor && ul->lord) {
-			// no more lord, trigger unlord event
+struct uwsgi_legion *uwsgi_legion_get_by_socket(int fd) {
+	struct uwsgi_legion *ul = uwsgi.legions;
+	while(ul) {
+		if (ul->socket == fd) {
+			return ul;
 		}
+		ul = ul->next;
+	}
+
+	return NULL;
+}
+
+void uwsgi_parse_legion(char *key, uint16_t keylen, char *value, uint16_t vallen, void *data) {
+	struct uwsgi_legion *ul = (struct uwsgi_legion *) data;
+
+	if (!uwsgi_strncmp(key, keylen, "legion", 6)) {
+		ul->legion = value;
+		ul->legion_len = vallen;
+	} 
+	else if (!uwsgi_strncmp(key, keylen, "valor", 5)) {
+		ul->valor = uwsgi_str_num(value, vallen);
 	}
 }
 
+static void *legion_loop(void *foobar) {
+
+	time_t last_round = uwsgi_now();
+
+	unsigned char *crypted_buf = uwsgi_malloc(UMAX16-EVP_MAX_BLOCK_LENGTH-4);
+	unsigned char *clear_buf = uwsgi_malloc(UMAX16);
+
+	struct uwsgi_legion legion_msg;
+
+	for(;;) {
+		time_t now = uwsgi_now();
+		int timeout = 0;
+		if (now > last_round) {
+			timeout = now - last_round;
+		}
+		// wait for event
+		int interesting_fd = -1;
+                int rlen = event_queue_wait(uwsgi.listen_queue, timeout, &interesting_fd);
+
+		// check elapsed time
+		if (1) {
+		}
+
+		if (rlen > 0) {
+			struct uwsgi_legion *ul = uwsgi_legion_get_by_socket(interesting_fd);
+			if (!ul) continue;
+			// ensure the first 4 bytes are valid
+			ssize_t len = read(ul->socket, crypted_buf, (UMAX16-EVP_MAX_BLOCK_LENGTH-4));
+			if (len < 0) {
+				uwsgi_error("[uwsgi-legion] read()");
+				continue;
+			}
+			else if (len < 4) {
+				uwsgi_log("[uwsgi-legion] invalid packet");
+				continue;
+			}
+
+			struct uwsgi_header *uh = (struct uwsgi_header *) crypted_buf;
+			int d_len = 0;
+			int d2_len = 0;
+			// decrypt packet using the secret
+			if (EVP_DecryptInit_ex(ul->decrypt_ctx, NULL, NULL, NULL, NULL) <= 0) {
+				uwsgi_error("[uwsgi-legion] EVP_DecryptInit_ex()");
+				continue;
+			}	
+			if (EVP_DecryptUpdate(ul->decrypt_ctx, clear_buf, &d_len, crypted_buf+4, len) <= 0) {
+				uwsgi_error("[uwsgi-legion] EVP_DecryptUpdate()");
+				continue;
+			}
+			if (EVP_DecryptFinal_ex(ul->decrypt_ctx, clear_buf + d_len, &d2_len) <= 0) {
+                                uwsgi_error("[uwsgi-legion] EVP_DecryptFinal_ex()");
+                                continue;
+                        }
+
+			d_len += d2_len;
+
+			if (d_len != uh->pktsize) {
+				uwsgi_log("[uwsgi-legion] invalid packet");
+				continue;
+			}
+
+			// parse packet
+			memset(&legion_msg, 0, sizeof(struct uwsgi_legion));
+			if (uwsgi_hooked_parse((char *)clear_buf, d_len, uwsgi_parse_legion, &legion_msg)) {
+				uwsgi_log("[uwsgi-legion] invalid packet");
+				continue;
+			}
+
+			if (uwsgi_strncmp(ul->legion, ul->legion_len, legion_msg.legion, legion_msg.legion_len)) {
+				uwsgi_log("[uwsgi-legion] invalid legion name");
+				continue;
+			}
+
+			// no more lord, trigger unlord event
+		}
+	}
+
+	return NULL;
+}
+
 void uwsgi_start_legions() {
+	pthread_t legion_loop_t;
+	uwsgi.legion_queue = event_queue_init();
 	struct uwsgi_legion *legion = uwsgi.legions;
 	while(legion) {
 		char *colon = strchr(legion->addr, ':');
@@ -64,8 +153,22 @@ void uwsgi_start_legions() {
 		else {
 			legion->socket = bind_to_unix_dgram(legion->addr);
 		}
+		if (legion->socket < 0 || event_queue_add_fd_read(uwsgi.legion_queue, legion->socket)) {
+			uwsgi_log("[uwsgi-legion] unable to activate legion %s\n", legion->legion);
+			exit(1);
+		}
+		uwsgi_socket_nb(legion->socket);
 		legion = legion->next;
 	}
+
+        if (pthread_create(&legion_loop_t, NULL, legion_loop, NULL)) {
+        	uwsgi_error("pthread_create()");
+                uwsgi_log("unable to run the legion server !!!\n");
+        }
+        else {
+        	uwsgi_log("legion manager thread enabled\n");
+        }
+
 }
 
 void uwsgi_legion_add(struct uwsgi_legion *ul) {
