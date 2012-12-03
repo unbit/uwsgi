@@ -134,7 +134,12 @@ static void *legion_loop(void *foobar) {
 				continue;
 			}
 
-			// no more lord, trigger unlord event
+			if (ul->lord > 0) {
+				if (legion_msg.valor > ul->valor) {
+					uwsgi_log("[uwsgi-legion] a new Lord raised for legion %s...\n", ul->legion);
+					// no more lord, trigger unlord events
+				}
+			}
 		}
 	}
 
