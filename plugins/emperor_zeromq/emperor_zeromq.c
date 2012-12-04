@@ -73,7 +73,11 @@ static void uwsgi_imperial_monitor_zeromq_cmd(struct uwsgi_emperor_scanner *ues)
         zmq_msg_init(&msg[4]);
 
         for(i=0;i<5;i++) {
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,0,0)
+        	zmq_recvmsg(ues->data, &msg[i], ZMQ_DONTWAIT);
+#else
         	zmq_recv(ues->data, &msg[i], ZMQ_NOBLOCK);
+#endif
                 if (zmq_getsockopt(ues->data, ZMQ_RCVMORE, &more, &more_size)) {
                 	uwsgi_error("zmq_getsockopt()");
                         break;
