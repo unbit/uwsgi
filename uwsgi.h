@@ -512,6 +512,10 @@ struct uwsgi_legion {
         uint64_t valor;
         char *addr;
         time_t lord;
+	time_t last_seen_lord;
+	char *name;
+	uint16_t name_len;
+	pid_t pid;
         int socket;
 	EVP_CIPHER_CTX *encrypt_ctx;
 	EVP_CIPHER_CTX *decrypt_ctx;
@@ -1608,6 +1612,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_MULTICAST
 	int multicast_ttl;
+	int multicast_loop;
 	char *multicast_group;
 #endif
 
@@ -1921,6 +1926,8 @@ struct uwsgi_server {
 #ifdef UWSGI_SSL
 	struct uwsgi_legion *legions;
 	int legion_queue;
+	int legion_freq;
+	int legion_tolerance;
 #endif
 
 #ifdef __linux__
@@ -3535,9 +3542,11 @@ char *uwsgi_strip(char *);
 
 #ifdef UWSGI_SSL
 void uwsgi_opt_legion(char *, char *, void *);
+void uwsgi_opt_legion_node(char *, char *, void *);
 void uwsgi_legion_add(struct uwsgi_legion *);
 char *uwsgi_ssl_rand(size_t);
 void uwsgi_start_legions(void);
+int uwsgi_legion_announce(struct uwsgi_legion *);
 #endif
 
 void uwsgi_check_emperor(void);

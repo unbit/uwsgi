@@ -87,6 +87,7 @@ void uwsgi_init_default() {
 
 #ifdef UWSGI_MULTICAST
 	uwsgi.multicast_ttl = 1;
+	uwsgi.multicast_loop = 1;
 #endif
 
 }
