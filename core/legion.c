@@ -421,11 +421,14 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 		secret = secret_tmp;
 	}
 
+/*
+	TODO find a wat to manage iv
 	char *iv = uwsgi_ssl_rand(strlen(secret));
 	if (!iv) {
 		uwsgi_log("[uwsgi-legion] unable to generate iv for legion %s\n", legion); 
 		exit(1);
 	}
+*/
 
         if (EVP_EncryptInit_ex(ctx, cipher, NULL, (const unsigned char *)secret, (const unsigned char *) "12345678") <= 0) {// (const unsigned char *) iv) <= 0) {
         	uwsgi_error("EVP_EncryptInit_ex()");
