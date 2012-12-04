@@ -215,7 +215,7 @@ static void *legion_loop(void *foobar) {
 
 			if (ul->lord > 0) {
 				if (legion_msg.valor > ul->valor) {
-					uwsgi_log("[uwsgi-legion] a new Lord raised for Legion %s...\n", ul->legion);
+					uwsgi_log("[uwsgi-legion] a new Lord (name: %.*s pid: %d) raised for Legion %s...\n", legion_msg.name_len, legion_msg.name, (int) legion_msg.pid, ul->legion);
 					// no more lord, trigger unlord hooks
 					ul->last_seen_lord = uwsgi_now();
 					ul->lord = 0;
