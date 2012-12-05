@@ -155,7 +155,7 @@ static void *legion_loop(void *foobar) {
 				continue;
 			}
 			else if (len < 4) {
-				uwsgi_log("[uwsgi-legion] invalid packet");
+				uwsgi_log("[uwsgi-legion] invalid packet\n");
 				continue;
 			}
 
@@ -195,12 +195,12 @@ static void *legion_loop(void *foobar) {
 			// parse packet
 			memset(&legion_msg, 0, sizeof(struct uwsgi_legion));
 			if (uwsgi_hooked_parse((char *)clear_buf, d_len, uwsgi_parse_legion, &legion_msg)) {
-				uwsgi_log("[uwsgi-legion] invalid packet");
+				uwsgi_log("[uwsgi-legion] invalid packet\n");
 				continue;
 			}
 
 			if (uwsgi_strncmp(ul->legion, ul->legion_len, legion_msg.legion, legion_msg.legion_len)) {
-				uwsgi_log("[uwsgi-legion] invalid legion name");
+				uwsgi_log("[uwsgi-legion] invalid legion name\n");
 				continue;
 			}
 
