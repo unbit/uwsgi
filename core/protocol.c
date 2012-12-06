@@ -1376,7 +1376,7 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("RLEN: %d\n", rlen);
+	uwsgi_log("RLEN: %zd\n", rlen);
 #endif
 
 	// check for valid dict 4(header) 2(non-zero key)+1 2(value)
@@ -1415,7 +1415,7 @@ int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modi
 
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("%p %p %d\n", ptrbuf, bufferend, bufferend - ptrbuf);
+	uwsgi_log("%p %p %ld\n", ptrbuf, bufferend, bufferend - ptrbuf);
 #endif
 
 	uwsgi_hooked_parse(ptrbuf, bufferend - ptrbuf, hook, data);

@@ -153,7 +153,7 @@ cycle:
 		uci = &uwsgi.cache_items[slot];
 		rounds++;
 		if (rounds > uwsgi.cache_max_items) {
-			uwsgi_log("ALARM !!! cache-loop (and potential deadlock) detected slot = %llu prev = %llu next = %llu\n", uci->next, slot, uci->prev, uci->next);
+			uwsgi_log("ALARM !!! cache-loop (and potential deadlock) detected slot = %lu prev = %lu next = %lu\n", slot, uci->prev, uci->next);
 			// terrible case: the whole uWSGI stack can deadlock, leaving only the master alive
 			// if the master is avalable, trigger a brutal reload
 			if (uwsgi.master_process) {

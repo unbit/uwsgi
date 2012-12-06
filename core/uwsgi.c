@@ -1175,24 +1175,24 @@ void stats(int signum) {
 
 	if (uwsgi.mywid == 0) {
 		show_config();
-		uwsgi_log("\tworkers total requests: %llu\n", uwsgi.workers[0].requests);
+		uwsgi_log("\tworkers total requests: %lu\n", uwsgi.workers[0].requests);
 		uwsgi_log("-----------------\n");
 		for (j = 1; j <= uwsgi.numproc; j++) {
 			for (i = 0; i < uwsgi.workers[j].apps_cnt; i++) {
 				ua = &uwsgi.workers[j].apps[i];
 				if (ua) {
-					uwsgi_log("\tworker %d app %d [%.*s] requests: %d exceptions: %d\n", j, i, ua->mountpoint_len, ua->mountpoint, ua->requests, ua->exceptions);
+					uwsgi_log("\tworker %d app %d [%.*s] requests: %lu exceptions: %lu\n", j, i, ua->mountpoint_len, ua->mountpoint, ua->requests, ua->exceptions);
 				}
 			}
 			uwsgi_log("-----------------\n");
 		}
 	}
 	else {
-		uwsgi_log("worker %d total requests: %llu\n", uwsgi.mywid, uwsgi.workers[0].requests);
+		uwsgi_log("worker %d total requests: %lu\n", uwsgi.mywid, uwsgi.workers[0].requests);
 		for (i = 0; i < uwsgi.workers[uwsgi.mywid].apps_cnt; i++) {
 			ua = &uwsgi.workers[uwsgi.mywid].apps[i];
 			if (ua) {
-				uwsgi_log("\tapp %d [%.*s] requests: %d exceptions: %d\n", i, ua->mountpoint_len, ua->mountpoint, ua->requests, ua->exceptions);
+				uwsgi_log("\tapp %d [%.*s] requests: %lu exceptions: %lu\n", i, ua->mountpoint_len, ua->mountpoint, ua->requests, ua->exceptions);
 			}
 		}
 		uwsgi_log("-----------------\n");
@@ -2325,7 +2325,7 @@ int uwsgi_start(void *v_argv) {
 		(void) pthread_attr_init(&uwsgi.threads_attr);
 		if (uwsgi.threads_stacksize) {
 			if (pthread_attr_setstacksize(&uwsgi.threads_attr, uwsgi.threads_stacksize * 1024) == 0) {
-				uwsgi_log("threads stack size set to %dk\n", uwsgi.threads_stacksize);
+				uwsgi_log("threads stack size set to %zdk\n", uwsgi.threads_stacksize);
 			}
 			else {
 				uwsgi_log("!!! unable to set requested threads stacksize !!!\n");
@@ -3878,7 +3878,7 @@ void uwsgi_opt_add_custom_option(char *opt, char *value, void *none) {
 	char *copy = uwsgi_str(value);
 	char *equal = strchr(copy, '=');
 	if (!equal) {
-		uwsgi_log("invalid %s syntax, must be newoption=template\n");
+		uwsgi_log("invalid %s syntax, must be newoption=template\n", value);
 		exit(1);
 	}
 	*equal = 0;

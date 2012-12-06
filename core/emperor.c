@@ -325,7 +325,7 @@ static void emperor_stats() {
 
 	while (c_ui) {
 
-		uwsgi_log("vassal instance %s (last modified %d) status %d loyal %d zerg %d\n", c_ui->name, c_ui->last_mod, c_ui->status, c_ui->loyal, c_ui->zerg);
+		uwsgi_log("vassal instance %s (last modified %lld) status %d loyal %d zerg %d\n", c_ui->name, (long long) c_ui->last_mod, c_ui->status, c_ui->loyal, c_ui->zerg);
 
 		c_ui = c_ui->ui_next;
 	}
@@ -454,7 +454,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 #endif
 
 	if (strlen(name) > (0xff - 1)) {
-		uwsgi_log("[emperor] invalid vassal name\n", name);
+		uwsgi_log("[emperor] invalid vassal name: %s\n", name);
 		return;
 	}
 
