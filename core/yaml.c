@@ -122,7 +122,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 		}
 	}
 
-	uwsgi_log("[uWSGI] getting YAML configuration from %s\n", file);
+	uwsgi_log_initial("[uWSGI] getting YAML configuration from %s\n", file);
 
 	yaml = uwsgi_open_and_read(file, &len, 1, magic_table);
 

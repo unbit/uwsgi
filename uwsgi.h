@@ -1248,6 +1248,8 @@ struct uwsgi_server {
 	// quiet startup
 	int no_initial_output;
 
+	struct uwsgi_string_list *get_list;
+
 	// enable threads
 	int has_threads;
 	int no_threads_wait;
@@ -3562,6 +3564,8 @@ void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *)
 int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
 void uwsgi_legion_atexit(void);
 #endif
+
+struct uwsgi_option *uwsgi_opt_get(char *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

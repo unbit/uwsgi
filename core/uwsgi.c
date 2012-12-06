@@ -60,6 +60,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"skip-zero", no_argument, 0, "skip check of file descriptor 0", uwsgi_opt_true, &uwsgi.skip_zero, 0},
 
 	{"set", required_argument, 'S', "set a custom placeholder", uwsgi_opt_set_placeholder, NULL, UWSGI_OPT_IMMEDIATE},
+	{"get", required_argument, 0, "print the specified option value and exit", uwsgi_opt_add_string_list, &uwsgi.get_list, UWSGI_OPT_NO_INITIAL},
 	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_custom_option, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
@@ -1831,6 +1832,21 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
+
+	// --get management
+	struct uwsgi_string_list *get_list = uwsgi.get_list;
+	while(get_list) {
+		char *v = uwsgi_get_exported_opt(get_list->value);
+		if (v) {
+			fprintf(stdout, "%s\n", v);
+		}
+		get_list = get_list->next;
+	}
+
+	if (uwsgi.get_list) {
+		exit(0);
+	}
+
 
 	// initial log setup (files and daemonization)
 	uwsgi_setup_log();
@@ -3632,7 +3648,7 @@ void uwsgi_opt_static_map(char *opt, char *value, void *static_maps) {
 	docroot[0] = 0;
 	docroot++;
 	uwsgi_dyn_dict_new(maps, mountpoint, strlen(mountpoint), docroot, strlen(docroot));
-	uwsgi_log("[uwsgi-static] added mapping for %s => %s\n", mountpoint, docroot);
+	uwsgi_log_initial("[uwsgi-static] added mapping for %s => %s\n", mountpoint, docroot);
 	uwsgi.build_mime_dict = 1;
 }
 
