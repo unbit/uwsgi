@@ -78,7 +78,7 @@ void set_next_cheap_time(void) {
 		// to have quicker recovery from big but short load spikes
 		// otherwise we might wait a lot before cheaping all emergency workers
 		if (uwsgi_cheaper_busyness_global.verbose)
-			uwsgi_log("[busyness] %d emergency worker(s) running, using %d seconds cheaper timer\n",
+			uwsgi_log("[busyness] %d emergency worker(s) running, using %llu seconds cheaper timer\n",
 				uwsgi_cheaper_busyness_global.emergency_workers, uwsgi.cheaper_overload*uwsgi_cheaper_busyness_global.backlog_multi);
 		uwsgi_cheaper_busyness_global.next_cheap = now + uwsgi.cheaper_overload*uwsgi_cheaper_busyness_global.backlog_multi*1000000;
 	} else {
@@ -95,7 +95,7 @@ void decrease_multi(void) {
 	// will decrease multiplier but only down to initial value
 	if (uwsgi_cheaper_busyness_global.cheap_multi > uwsgi_cheaper_busyness_global.min_multi) {
 		uwsgi_cheaper_busyness_global.cheap_multi--;
-		uwsgi_log("[busyness] decreasing cheaper multiplier to %d\n", uwsgi_cheaper_busyness_global.cheap_multi);
+		uwsgi_log("[busyness] decreasing cheaper multiplier to %llu\n", uwsgi_cheaper_busyness_global.cheap_multi);
 	}
 }
 
@@ -157,7 +157,7 @@ int cheaper_busyness_algo(void) {
 		// store initial multiplier so we don't loose its initial value
 		uwsgi_cheaper_busyness_global.min_multi = uwsgi_cheaper_busyness_global.cheap_multi;
 		// since this is first run we will print current values
-		uwsgi_log("[busyness] settings: min=%d%%, max=%d%%, overload=%d, multiplier=%d, respawn penalty=%d\n",
+		uwsgi_log("[busyness] settings: min=%llu%%, max=%llu%%, overload=%llu, multiplier=%llu, respawn penalty=%llu\n",
 			uwsgi_cheaper_busyness_global.busyness_min, uwsgi_cheaper_busyness_global.busyness_max,
 			uwsgi.cheaper_overload, uwsgi_cheaper_busyness_global.cheap_multi, uwsgi_cheaper_busyness_global.penalty);
 #ifdef __linux__
@@ -171,7 +171,7 @@ int cheaper_busyness_algo(void) {
 
 	if (uwsgi_cheaper_busyness_global.next_cheap == 0) set_next_cheap_time();
 
-	int64_t active_workers = 0;
+	int active_workers = 0;
 	uint64_t total_busyness = 0;
 	uint64_t avg_busyness = 0;
 
@@ -195,7 +195,7 @@ int cheaper_busyness_algo(void) {
 				if (percent > 100) percent = 100;
 				total_busyness += percent;
 				if (uwsgi_cheaper_busyness_global.verbose && active_workers > 1)
-					uwsgi_log("[busyness] worker nr %d %ds average busyness is at %d%%\n",
+					uwsgi_log("[busyness] worker nr %d %llus average busyness is at %llu%%\n",
 						i+1, uwsgi.cheaper_overload, percent);
 			}
 			uwsgi_cheaper_busyness_global.last_values[i] = uwsgi.workers[i+1].running_time;
@@ -204,7 +204,7 @@ int cheaper_busyness_algo(void) {
 		avg_busyness = (active_workers ? total_busyness / active_workers : 0);
 		if (uwsgi_cheaper_busyness_global.verbose)
 			uwsgi_log("[busyness] %ds average busyness of %d worker(s) is at %d%%\n",
-				uwsgi.cheaper_overload, active_workers, avg_busyness);
+				(int) uwsgi.cheaper_overload, (int) active_workers, (int) avg_busyness);
 
 		if (avg_busyness > uwsgi_cheaper_busyness_global.busyness_max) {
 
@@ -229,7 +229,7 @@ int cheaper_busyness_algo(void) {
 					// worker was cheaped and then spawned back in less than current multiplier*cheaper_overload seconds
 					// we will increase the multiplier so that next time worker will need to wait longer before being cheaped
 					uwsgi_cheaper_busyness_global.cheap_multi += uwsgi_cheaper_busyness_global.penalty;
-					uwsgi_log("[busyness] worker(s) respawned to fast, increasing chpeaper multiplier to %d (+%d)\n",
+					uwsgi_log("[busyness] worker(s) respawned to fast, increasing chpeaper multiplier to %llu (+%llu)\n",
 						uwsgi_cheaper_busyness_global.cheap_multi, uwsgi_cheaper_busyness_global.penalty);
 				} else {
 					decrease_multi();
@@ -237,10 +237,10 @@ int cheaper_busyness_algo(void) {
 
 				set_next_cheap_time();
 
-				uwsgi_log("[busyness] %ds average busyness is at %d%%, will spawn %d new worker(s)\n",
+				uwsgi_log("[busyness] %llus average busyness is at %llu%%, will spawn %d new worker(s)\n",
 					uwsgi.cheaper_overload, avg_busyness, decheaped);
 			} else {
-				uwsgi_log("[busyness] %ds average busyness is at %d%% but we already started maximum number of workers (%d)\n",
+				uwsgi_log("[busyness] %llus average busyness is at %llu%% but we already started maximum number of workers (%d)\n",
 					uwsgi.cheaper_overload, avg_busyness, uwsgi.numproc);
 			}
 
@@ -267,8 +267,8 @@ int cheaper_busyness_algo(void) {
 					if (uwsgi_cheaper_busyness_global.last_action == 2) decrease_multi();
 					set_next_cheap_time();
 
-					uwsgi_log("[busyness] %ds average busyness is at %d%%, cheap one of %d running workers\n",
-						uwsgi.cheaper_overload, avg_busyness, active_workers);
+					uwsgi_log("[busyness] %llus average busyness is at %llu%%, cheap one of %d running workers\n",
+						uwsgi.cheaper_overload, avg_busyness, (int) active_workers);
 					// store timestamp
 					uwsgi_cheaper_busyness_global.last_cheaped = uwsgi_micros();
 
@@ -280,7 +280,7 @@ int cheaper_busyness_algo(void) {
 
 					return -1;
 				} else if (uwsgi_cheaper_busyness_global.verbose)
-					uwsgi_log("[busyness] need to wait %d more second(s) to cheap worker\n", (uwsgi_cheaper_busyness_global.next_cheap - now)/1000000);
+					uwsgi_log("[busyness] need to wait %llu more second(s) to cheap worker\n", (uwsgi_cheaper_busyness_global.next_cheap - now)/1000000);
 			}
 
 		} else {
@@ -301,14 +301,14 @@ int cheaper_busyness_algo(void) {
 				// time needed to cheap them, than a lot min<busy<max when we do not reset timer
 				// and then another idle cycle than would trigger cheaping
 				if (uwsgi_cheaper_busyness_global.verbose)
-					uwsgi_log("[busyness] %ds average busyness is at %d%%, %d non-idle cycle(s), reseting cheaper timer\n",
+					uwsgi_log("[busyness] %llus average busyness is at %llu%%, %llu non-idle cycle(s), reseting cheaper timer\n",
 						uwsgi.cheaper_overload, avg_busyness, uwsgi_cheaper_busyness_global.tolerance_counter);
 				set_next_cheap_time();
 			} else {
 				// we had < 3 idle cycles in a row so we won't reset idle timer yet since this might be just short load spike
 				// but we need to add cheaper-overload seconds to the cheaper timer so this cycle isn't counted as idle
 				if (uwsgi_cheaper_busyness_global.verbose)
-					uwsgi_log("[busyness] %ds average busyness is at %d%%, %d non-idle cycle(s), adjusting cheaper timer\n",
+					uwsgi_log("[busyness] %llus average busyness is at %llu%%, %llu non-idle cycle(s), adjusting cheaper timer\n",
 						uwsgi.cheaper_overload, avg_busyness, uwsgi_cheaper_busyness_global.tolerance_counter);
 				uwsgi_cheaper_busyness_global.next_cheap += uwsgi.cheaper_overload*1000000;
 			}
