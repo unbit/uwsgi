@@ -82,7 +82,7 @@ void carbon_post_init() {
 	// set next update to now()+retry_delay, this way we will have first flush just after start
 	u_carbon.last_update = uwsgi_now() - u_carbon.freq + u_carbon.retry_delay;
 
-	uwsgi_log("[carbon] carbon plugin started, %is frequency, %is timeout, max retries %i, retry delay %is",
+	uwsgi_log("[carbon] carbon plugin started, %is frequency, %is timeout, max retries %i, retry delay %is\n",
 		u_carbon.freq, u_carbon.timeout, u_carbon.max_retries, u_carbon.retry_delay);
 }
 
