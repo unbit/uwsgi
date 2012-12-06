@@ -523,6 +523,7 @@ struct uwsgi_legion {
         struct uwsgi_string_list *lord_hooks;
         struct uwsgi_string_list *unlord_hooks;
         struct uwsgi_string_list *setup_hooks;
+        struct uwsgi_string_list *death_hooks;
         struct uwsgi_legion *next;
 };
 
@@ -3559,6 +3560,7 @@ int uwsgi_legion_announce(struct uwsgi_legion *);
 struct uwsgi_legion_action *uwsgi_legion_action_get(char *);
 void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
 int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
+void uwsgi_legion_atexit(void);
 #endif
 
 void uwsgi_check_emperor(void);

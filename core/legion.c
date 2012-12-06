@@ -434,6 +434,9 @@ void uwsgi_opt_legion_hook(char *opt, char *value, void *foobar) {
 	else if (!strcmp(opt, "legion-setup")) {
 		usl = uwsgi_string_new_list(&ul->setup_hooks, space+1);
 	}
+	else if (!strcmp(opt, "legion-death")) {
+		usl = uwsgi_string_new_list(&ul->death_hooks, space+1);
+	}
 
 	if (!usl) return;
 
@@ -580,3 +583,20 @@ void uwsgi_legion_action_register(char *name, int (*func)(struct uwsgi_legion *,
 }
 
 
+void uwsgi_legion_atexit(void) {
+	struct uwsgi_legion *legion = uwsgi.legions;
+        while(legion) {
+		if (getpid() != legion->pid) goto next;
+                struct uwsgi_string_list *usl = legion->death_hooks;
+                while(usl) {
+                        int ret = uwsgi_legion_action_call("death", legion, usl);
+                        if (ret) {
+                                uwsgi_log("[uwsgi-legion] ERROR, death hook returned: %d\n", ret);
+                        }
+                        usl = usl->next;
+                }
+next:
+                legion = legion->next;
+        }
+
+}

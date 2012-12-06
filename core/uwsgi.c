@@ -337,6 +337,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"legion-lord", required_argument, 0, "action to call on Lord election", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-unlord", required_argument, 0, "action to call on Lord dismiss", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"legion-setup", required_argument, 0, "action to call on legion setup", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
+	{"legion-death", required_argument, 0, "action to call on legion death (shutdown of the instance)", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"subscriptions-sign-check", required_argument, 0, "set digest algorithm and certificate directory for secured subscription system", uwsgi_opt_scd, NULL, UWSGI_OPT_MASTER},
 	{"subscriptions-sign-check-tolerance", required_argument, 0, "set the maximum tolerance (in seconds) of clock skew for secured subscription system", uwsgi_opt_set_int, &uwsgi.subscriptions_sign_check_tolerance, UWSGI_OPT_MASTER},
 #endif
@@ -1706,6 +1707,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	atexit(uwsgi_exec_atexit);
 	// call plugin specific exit hooks
 	atexit(uwsgi_plugins_atexit);
+#ifdef UWSGI_SSL
+	// call legions death hooks
+	atexit(uwsgi_legion_atexit);
+#endif
 
 	// allocate main shared memory
 	uwsgi.shared = (struct uwsgi_shared *) uwsgi_calloc_shared(sizeof(struct uwsgi_shared));
