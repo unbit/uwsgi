@@ -784,7 +784,8 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->method = ptrbuf;
 							wsgi_req->method_len = strsize;
 						}
-						else if (!uwsgi.log_x_forwarded_for && !uwsgi_strncmp("REMOTE_ADDR", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+						else if ((!uwsgi.log_x_forwarded_for || uwsgi_strncmp("HTTP_X_FORWARDED_FOR", 20, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len))
+							&& !uwsgi_strncmp("REMOTE_ADDR", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->remote_addr = ptrbuf;
 							wsgi_req->remote_addr_len = strsize;
 						}
