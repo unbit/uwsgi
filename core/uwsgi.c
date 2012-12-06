@@ -332,6 +332,11 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #ifdef UWSGI_SSL
 	{"legion", required_argument, 0, "became a member of a legion", uwsgi_opt_legion, NULL, UWSGI_OPT_MASTER},
 	{"legion-node", required_argument, 0, "add a node to a legion", uwsgi_opt_legion_node, NULL, UWSGI_OPT_MASTER},
+	{"legion-freq", required_argument, 0, "set the frequency of legion packets", uwsgi_opt_set_int, &uwsgi.legion_freq, UWSGI_OPT_MASTER},
+	{"legion-tolerance", required_argument, 0, "set the tolerance of legion subsystem", uwsgi_opt_set_int, &uwsgi.legion_tolerance, UWSGI_OPT_MASTER},
+	{"legion-lord", required_argument, 0, "action to call on Lord election", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
+	{"legion-unlord", required_argument, 0, "action to call on Lord dismiss", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
+	{"legion-setup", required_argument, 0, "action to call on legion setup", uwsgi_opt_legion_hook, NULL, UWSGI_OPT_MASTER},
 	{"subscriptions-sign-check", required_argument, 0, "set digest algorithm and certificate directory for secured subscription system", uwsgi_opt_scd, NULL, UWSGI_OPT_MASTER},
 	{"subscriptions-sign-check-tolerance", required_argument, 0, "set the maximum tolerance (in seconds) of clock skew for secured subscription system", uwsgi_opt_set_int, &uwsgi.subscriptions_sign_check_tolerance, UWSGI_OPT_MASTER},
 #endif

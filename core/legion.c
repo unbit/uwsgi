@@ -97,8 +97,16 @@ static void legions_check_lord() {
 
 		if (now - legion->last_seen_lord > uwsgi.legion_tolerance) {
                         uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", legion->legion);
-                        legion->lord = now;
                         // triggering lord hooks
+			struct uwsgi_string_list *usl = legion->lord_hooks;
+			while(usl) {
+				int ret = uwsgi_legion_action_call("lord", legion, usl);
+                        	if (ret) {
+                                	uwsgi_log("[uwsgi-legion] ERROR, lord hook returned: %d\n", ret);
+                        	}
+				usl = usl->next;
+			}
+                        legion->lord = now;
                 }
 
 next:
@@ -155,7 +163,7 @@ static void *legion_loop(void *foobar) {
 				continue;
 			}
 			else if (len < 4) {
-				uwsgi_log("[uwsgi-legion] invalid packet\n");
+				uwsgi_log("[uwsgi-legion] invalid packet size: %d\n", (int) len);
 				continue;
 			}
 
@@ -217,6 +225,14 @@ static void *legion_loop(void *foobar) {
 				if (legion_msg.valor > ul->valor) {
 					uwsgi_log("[uwsgi-legion] a new Lord (name: %.*s pid: %d) raised for Legion %s...\n", legion_msg.name_len, legion_msg.name, (int) legion_msg.pid, ul->legion);
 					// no more lord, trigger unlord hooks
+                        		struct uwsgi_string_list *usl = ul->lord_hooks;
+                        		while(usl) {
+                                		int ret = uwsgi_legion_action_call("unlord", ul, usl);
+                                		if (ret) {
+                                        		uwsgi_log("[uwsgi-legion] ERROR, unlord hook returned: %d\n", ret);
+                                		}
+                                		usl = usl->next;
+                        		}
 					ul->last_seen_lord = uwsgi_now();
 					ul->lord = 0;
 					continue;
@@ -236,8 +252,27 @@ static void *legion_loop(void *foobar) {
 	return NULL;
 }
 
+int uwsgi_legion_action_call(char *phase, struct uwsgi_legion *ul, struct uwsgi_string_list *usl) {
+	struct uwsgi_legion_action *ula = uwsgi_legion_action_get(usl->custom_ptr);
+	if (!ula) { 
+		uwsgi_log("[uwsgi-legion] ERROR unable to find legion_action \"%s\"\n", usl->custom_ptr);
+		return -1;
+	}
+
+	uwsgi_log("[uwsgi-legion] (phase: %s legion: %s) calling %s\n", phase, ul->legion, usl->value);
+	return ula->func(ul, usl->value+usl->custom);
+}
+
+static int legion_action_cmd(struct uwsgi_legion *ul, char *arg) {
+	return uwsgi_run_command_and_wait(NULL, arg);
+}
+
 void uwsgi_start_legions() {
 	pthread_t legion_loop_t;
+
+	// register embedded actions
+	uwsgi_legion_action_register("cmd", legion_action_cmd);
+
 	uwsgi.legion_queue = event_queue_init();
 	struct uwsgi_legion *legion = uwsgi.legions;
 	while(legion) {
@@ -254,6 +289,14 @@ void uwsgi_start_legions() {
 		}
 		uwsgi_socket_nb(legion->socket);
 		legion->pid = uwsgi.mypid;
+		struct uwsgi_string_list *usl = legion->setup_hooks;
+		while(usl) {
+			int ret = uwsgi_legion_action_call("setup", legion, usl);
+			if (ret) {
+				uwsgi_log("[uwsgi-legion] ERROR, setup hook returned: %d\n", ret);
+			}
+			usl = usl->next;
+		}
 		legion = legion->next;
 	}
 
@@ -363,6 +406,50 @@ void uwsgi_opt_legion_node(char *opt, char *value, void *foobar) {
         usl->custom_ptr = sin;
 }
 
+void uwsgi_opt_legion_hook(char *opt, char *value, void *foobar) {
+
+        char *legion = uwsgi_str(value);
+
+        char *space = strchr(legion, ' ');
+        if (!space) {
+                uwsgi_log("invalid %s syntax, must be <legion> <action>\n", opt);
+                exit(1);
+        }
+        *space = 0;
+
+        struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
+        if (!ul) {
+                uwsgi_log("unknown legion: %s\n", legion);
+                exit(1);
+        }
+
+        struct uwsgi_string_list *usl = NULL;
+
+	if (!strcmp(opt, "legion-lord")) {
+		usl = uwsgi_string_new_list(&ul->lord_hooks, space+1);
+	}
+	else if (!strcmp(opt, "legion-unlord")) {
+		usl = uwsgi_string_new_list(&ul->unlord_hooks, space+1);
+	}
+	else if (!strcmp(opt, "legion-setup")) {
+		usl = uwsgi_string_new_list(&ul->setup_hooks, space+1);
+	}
+
+	if (!usl) return;
+
+        char *port = strchr(usl->value, ':');
+        if (!port) {
+                uwsgi_log("[uwsgi-legion] invalid %s action: %s\n", opt, usl->value);
+                exit(1);
+        }
+
+	// pointer to action plugin
+	usl->custom_ptr = uwsgi_concat2n(usl->value, port-usl->value, "", 0);
+	// add that to check the plugin value
+	usl->custom = port-usl->value+1;
+}
+
+
 void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 
 	// legion addr valor algo:secret
@@ -456,3 +543,40 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 
 	uwsgi_legion_add(ul);
 }
+
+struct uwsgi_legion_action *uwsgi_legion_action_get(char *name) {
+	struct uwsgi_legion_action *ula = uwsgi.legion_actions;
+	while(ula) {
+		if (!strcmp(name, ula->name)) {
+			return ula;
+		}
+		ula = ula->next;
+	}
+	return NULL;
+}
+
+void uwsgi_legion_action_register(char *name, int (*func)(struct uwsgi_legion *, char *)) {
+	if (uwsgi_legion_action_get(name)) {
+		uwsgi_log("[uwsgi-legion] action \"%s\" is already registered !!!\n", name);
+		return;
+	}
+
+	struct uwsgi_legion_action *old_ula = NULL,*ula = uwsgi.legion_actions;
+	while(ula) {
+		old_ula = ula;
+		ula = ula->next;
+	}
+
+	ula = uwsgi_calloc(sizeof(struct uwsgi_legion_action));
+	ula->name = name;
+	ula->func = func;
+
+	if (old_ula) {
+		old_ula->next = ula;
+	}
+	else {
+		uwsgi.legion_actions = ula;
+	}
+}
+
+

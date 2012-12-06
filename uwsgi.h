@@ -522,7 +522,14 @@ struct uwsgi_legion {
         struct uwsgi_string_list *nodes;
         struct uwsgi_string_list *lord_hooks;
         struct uwsgi_string_list *unlord_hooks;
+        struct uwsgi_string_list *setup_hooks;
         struct uwsgi_legion *next;
+};
+
+struct uwsgi_legion_action {
+        char *name;
+        int (*func)(struct uwsgi_legion *, char *);
+        struct uwsgi_legion_action *next;
 };
 #endif
 
@@ -1925,6 +1932,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_SSL
 	struct uwsgi_legion *legions;
+	struct uwsgi_legion_action *legion_actions;
 	int legion_queue;
 	int legion_freq;
 	int legion_tolerance;
@@ -3543,10 +3551,14 @@ char *uwsgi_strip(char *);
 #ifdef UWSGI_SSL
 void uwsgi_opt_legion(char *, char *, void *);
 void uwsgi_opt_legion_node(char *, char *, void *);
+void uwsgi_opt_legion_hook(char *, char *, void *);
 void uwsgi_legion_add(struct uwsgi_legion *);
 char *uwsgi_ssl_rand(size_t);
 void uwsgi_start_legions(void);
 int uwsgi_legion_announce(struct uwsgi_legion *);
+struct uwsgi_legion_action *uwsgi_legion_action_get(char *);
+void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
+int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
 #endif
 
 void uwsgi_check_emperor(void);
