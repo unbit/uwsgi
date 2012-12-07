@@ -265,7 +265,7 @@ void uwsgi_setup_workers() {
 	}
 
 	total_memory *= (uwsgi.numproc + uwsgi.master_process);
-	uwsgi_log("mapped %llu bytes (%llu KB) for %d cores\n", total_memory, total_memory / 1024, uwsgi.cores * uwsgi.numproc);
+	uwsgi_log("mapped %lu bytes (%lu KB) for %d cores\n", total_memory, total_memory / 1024, uwsgi.cores * uwsgi.numproc);
 
 }
 

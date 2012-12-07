@@ -85,6 +85,7 @@ void uwsgi_master_manage_udp(int udp_fd) {
 
 				// else a simple udp logger
 				if (!udp_managed) {
+					//FIXME error: field precision should have type ‘int’, but argument 4 has type ‘ssize_t’
 					uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
 				}
 			}
@@ -1578,7 +1579,7 @@ next:
 		}
 		// manage_next_request is zero, but killed by signal...
 		else if (WIFSIGNALED(waitpid_status)) {
-			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
+			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal %d :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
 		}
 
 		if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {

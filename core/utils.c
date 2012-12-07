@@ -229,7 +229,7 @@ char *uwsgi_get_cwd() {
 
 	if (getcwd(cwd, newsize) == NULL && errno == ERANGE) {
 		newsize += 256;
-		uwsgi_log("need a bigger buffer (%d bytes) for getcwd(). doing reallocation.\n", newsize);
+		uwsgi_log("need a bigger buffer (%zd bytes) for getcwd(). doing reallocation.\n", newsize);
 		free(cwd);
 		cwd = uwsgi_malloc(newsize);
 		if (getcwd(cwd, newsize) == NULL) {
@@ -4182,7 +4182,7 @@ void uwsgi_setup_post_buffering() {
 
 	if (uwsgi.post_buffering_bufsize < uwsgi.post_buffering) {
 		uwsgi.post_buffering_bufsize = uwsgi.post_buffering;
-		uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
+		uwsgi_log("setting request body buffering size to %zd bytes\n", uwsgi.post_buffering_bufsize);
 	}
 
 }

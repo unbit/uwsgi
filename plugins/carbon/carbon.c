@@ -137,7 +137,7 @@ void carbon_push_stats(int retry_cycle) {
 				u_carbon.need_retry = 1;
 				u_carbon.next_retry = uwsgi_now() + u_carbon.retry_delay;
 			} else {
-				uwsgi_log("[carbon] Maximum number of retries for %s (1)\n",
+				uwsgi_log("[carbon] Maximum number of retries for %s (%d)\n",
 					usl->value, u_carbon.max_retries);
 				usl->healthy = 0;
 				usl->errors = 0;
