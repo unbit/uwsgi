@@ -245,7 +245,7 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	close(fd);
 
 	if (!uwsgi.spooler_quiet)
-		uwsgi_log("[spooler] written %zd bytes to file %s\n", size + body_len + 4, filename);
+		uwsgi_log("[spooler] written %lu bytes to file %s\n", (unsigned long) size + body_len + 4, filename);
 
 	// and here waiting threads can continue
 	uwsgi_unlock(uspool->lock);

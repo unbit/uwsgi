@@ -2348,7 +2348,7 @@ int uwsgi_start(void *v_argv) {
 		(void) pthread_attr_init(&uwsgi.threads_attr);
 		if (uwsgi.threads_stacksize) {
 			if (pthread_attr_setstacksize(&uwsgi.threads_attr, uwsgi.threads_stacksize * 1024) == 0) {
-				uwsgi_log("threads stack size set to %zdk\n", uwsgi.threads_stacksize);
+				uwsgi_log("threads stack size set to %luk\n", (unsigned long) uwsgi.threads_stacksize);
 			}
 			else {
 				uwsgi_log("!!! unable to set requested threads stacksize !!!\n");
