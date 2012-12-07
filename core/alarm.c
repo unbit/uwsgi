@@ -243,7 +243,9 @@ void uwsgi_alarm_log_check(char *msg, size_t len) {
 			if (!ual->negate) {
 				uwsgi_alarm_log_run(ual, msg, len);
 			}
-			break;
+			else {
+				break;
+			}
 		}
 		ual = ual->next;
 	}
