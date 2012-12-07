@@ -585,6 +585,19 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #endif
 	}
 
+	if (uwsgi.tcp_fast_open) {
+#ifdef TCP_FASTOPEN
+		if (setsockopt(serverfd, SOL_TCP, TCP_FASTOPEN, (const void *) &uwsgi.tcp_fast_open, sizeof(int)) < 0) {
+			uwsgi_error("TCP_FASTOPEN setsockopt()");
+		}
+		else {
+			uwsgi_log("TCP_FASTOPEN enabled on %s\n", socket_name);
+		}
+#else
+		uwsgi_log("!!! your system does not support TCP_FASTOPEN !!!\n");
+#endif
+	}
+
 	if (uwsgi.so_send_timeout) {
 		struct timeval tv;
 		tv.tv_sec = uwsgi.so_send_timeout;
@@ -706,7 +719,16 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 	}
 #endif
 
-	ret = connect(fdpoll->fd, addr, addr_size);
+#ifdef MSG_FASTOPEN
+	if (addr->sa_family == AF_INET && uwsgi.tcp_fast_open_client) {
+		ret = sendto(fdpoll->fd, "", 0, MSG_FASTOPEN, addr, addr_size);
+	}
+	else {
+#endif
+		ret = connect(fdpoll->fd, addr, addr_size);
+#ifdef MSG_FASTOPEN
+	}
+#endif
 
 	if (async) {
 		if (ret < 0 && errno != EINPROGRESS) {

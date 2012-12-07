@@ -132,6 +132,11 @@ extern char UWSGI_EMBED_CONFIG_END;
 #endif
 #endif
 #include <sys/socket.h>
+#ifdef __linux__
+#ifndef MSG_FASTOPEN
+#define MSG_FASTOPEN   0x20000000
+#endif
+#endif
 #undef _GNU_SOURCE
 #include <netinet/in.h>
 
@@ -149,6 +154,11 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <string.h>
 #include <sys/stat.h>
 #include <netinet/tcp.h>
+#ifdef __linux__
+#ifndef TCP_FASTOPEN
+#define TCP_FASTOPEN 23
+#endif
+#endif
 #include <netdb.h>
 
 #ifdef __FreeBSD__
@@ -1295,6 +1305,8 @@ struct uwsgi_server {
 	uint64_t master_cycles;
 
 	int reuse_port;
+	int tcp_fast_open;
+	int tcp_fast_open_client;
 
 	// enable lazy mode
 	int lazy;
@@ -1521,6 +1533,7 @@ struct uwsgi_server {
 	int alarm_freq;
 	struct uwsgi_string_list *alarm_list;
 	struct uwsgi_string_list *alarm_logs_list;
+	struct uwsgi_string_list *not_alarm_logs_list;
 	struct uwsgi_alarm *alarms;
 	struct uwsgi_alarm_instance *alarm_instances;
 	struct uwsgi_alarm_log *alarm_logs;
