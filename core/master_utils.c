@@ -307,43 +307,44 @@ void uwsgi_reload(char **argv) {
 			uwsgi_sock = uwsgi_sock->next;
 		}
 
+		if (found) continue;
 
-		if (!found) {
-			if (uwsgi.has_emperor) {
-				if (i == uwsgi.emperor_fd) {
-					found = 1;
-				}
+		if (uwsgi.has_emperor) {
+			if (i == uwsgi.emperor_fd) {
+				continue;
+			}
+
+			if (i == uwsgi.emperor_fd_config) {
+				continue;
 			}
 		}
 
 		if (uwsgi.log_master) {
 			if (uwsgi.original_log_fd > -1) {
 				if (i == uwsgi.original_log_fd) {
-					found = 1;
+					continue;
 				}
 			}
 
 			if (uwsgi.shared->worker_log_pipe[0] > -1) {
 				if (i == uwsgi.shared->worker_log_pipe[0]) {
-					found = 1;
+					continue;
 				}
 			}
 
 			if (uwsgi.shared->worker_log_pipe[1] > -1) {
 				if (i == uwsgi.shared->worker_log_pipe[1]) {
-					found = 1;
+					continue;
 				}
 			}
 
 		}
 
-		if (!found) {
 #ifdef __APPLE__
-			fcntl(i, F_SETFD, FD_CLOEXEC);
+		fcntl(i, F_SETFD, FD_CLOEXEC);
 #else
-			close(i);
+		close(i);
 #endif
-		}
 	}
 
 #ifdef UWSGI_AS_SHARED_LIBRARY

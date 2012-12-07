@@ -113,6 +113,8 @@ void uwsgi_setup_inherited_sockets() {
 		if (uwsgi.has_emperor) {
 			if (j == uwsgi.emperor_fd)
 				continue;
+			if (j == uwsgi.emperor_fd_config)
+				continue;
 		}
 
 		if (uwsgi.shared->worker_log_pipe[0] > -1) {

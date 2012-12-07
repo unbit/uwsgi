@@ -2463,29 +2463,50 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			uwsgi_log("this is not a vassal instance\n");
 			exit(1);
 		}
-		char *tmp_buffer[4096];
-		ssize_t rlen = 1;
+		ssize_t rlen;
 		*size = 0;
-		while (rlen > 0) {
-			rlen = read(uwsgi.emperor_fd_config, tmp_buffer, 4096);
-			if (rlen > 0) {
-				*size += rlen;
-				buffer = realloc(buffer, *size);
-				if (!buffer) {
-					uwsgi_error("realloc()");
-					exit(1);
-				}
-				memcpy(buffer + (*size - rlen), tmp_buffer, rlen);
+		struct uwsgi_header uh;
+		size_t remains = 4;
+		char *ptr = (char *) &uh;
+		while(remains) {
+			int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
+			if (ret <= 0) {
+				uwsgi_log("[uwsgi-vassal] error waiting for config header %s !!!\n", url);
+				exit(1);
 			}
+			rlen = read(uwsgi.emperor_fd_config, ptr, remains);
+			if (rlen <= 0) {
+				uwsgi_log("[uwsgi-vassal] error reading config header from !!!\n", url);
+				exit(1);
+			}
+			ptr+=rlen;
+			remains-=rlen;
 		}
-		close(uwsgi.emperor_fd_config);
-		uwsgi.emperor_fd_config = -1;
 
-		if (add_zero) {
-			*size = *size + 1;
-			buffer = realloc(buffer, *size);
-			buffer[*size - 1] = 0;
+		remains = uh.pktsize;
+		if (!remains) {
+			uwsgi_log("[uwsgi-vassal] invalid config from %s\n", url);
+			exit(1);
 		}
+
+		buffer = uwsgi_calloc(remains + add_zero);
+		ptr = buffer;
+		while (remains) {
+			int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
+                        if (ret <= 0) {
+                                uwsgi_log("[uwsgi-vassal] error waiting for config %s !!!\n", url);
+                                exit(1);
+                        }
+			rlen = read(uwsgi.emperor_fd_config, ptr, remains);
+			if (rlen <= 0) {
+                                uwsgi_log("[uwsgi-vassal] error reading config from !!!\n", url);
+                                exit(1);
+                        }
+                        ptr+=rlen;
+                        remains-=rlen;
+		}
+
+		*size = uh.pktsize + add_zero;
 	}
 #ifdef UWSGI_EMBED_CONFIG
 	else if (url[0] == 0) {

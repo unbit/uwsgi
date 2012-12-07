@@ -417,17 +417,28 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 
 void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
+	struct uwsgi_header uh;
+
 	// reload the uWSGI instance
+	if (write(c_ui->pipe[0], "\1", 1) != 1) {
+		uwsgi_error("write()");
+	}
+
+	// push the config to the config pipe (if needed)
 	if (c_ui->use_config) {
-		if (write(c_ui->pipe[0], "\0", 1) != 1) {
-			uwsgi_error("write()");
+		uh.modifier1 = 115;
+		uh.pktsize = c_ui->config_len;
+		uh.modifier2 = 0;
+		if (write(c_ui->pipe_config[0], &uh, 4) != 4) {
+			uwsgi_error("[uwsgi-emperor] write() header config");
+		}
+		else {
+			if (write(c_ui->pipe_config[0], c_ui->config, c_ui->config_len) != c_ui->config_len) {
+                		uwsgi_error("[uwsgi-emperor] write() config");
+        		}
 		}
 	}
-	else {
-		if (write(c_ui->pipe[0], "\1", 1) != 1) {
-			uwsgi_error("write()");
-		}
-	}
+
 
 	c_ui->respawns++;
 	c_ui->last_mod = mod;
@@ -565,10 +576,19 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 		}
 
 		if (n_ui->use_config) {
-			if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) <= 0) {
-				uwsgi_error("write()");
-			}
-			close(n_ui->pipe_config[0]);
+			struct uwsgi_header uh;
+			uh.modifier1 = 115;
+                	uh.pktsize = n_ui->config_len;
+                	uh.modifier2 = 0;
+                	if (write(n_ui->pipe_config[0], &uh, 4) != 4) {
+                        	uwsgi_error("[uwsgi-emperor] write() header config");
+                	}
+                	else {
+                        	if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) != n_ui->config_len) {
+                                	uwsgi_error("[uwsgi-emperor] write() config");
+                        	}
+                	}
+
 		}
 		return;
 	}
@@ -1000,9 +1020,7 @@ void emperor_loop() {
 				ssize_t rlen = read(interesting_fd, &byte, 1);
 				if (rlen <= 0) {
 					// SAFE
-					if (!ui_current->config_len) {
-						emperor_del(ui_current);
-					}
+					emperor_del(ui_current);
 				}
 				else {
 					if (byte == 17) {
@@ -1382,12 +1400,14 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 		}
 		// check if mtime is changed and the uWSGI instance must be reloaded
 		if (ts > ui_current->last_mod) {
-			// make a new config (free the old one)
-			if (ui_current->config)
-				free(ui_current->config);
-			ui_current->config = uwsgi_str(config);
-			ui_current->config_len = strlen(ui_current->config);
-			// always respawn (no need for amqp-style rules)
+			// make a new config (free the old one) if needed
+			if (config) {
+				if (ui_current->config)
+					free(ui_current->config);
+				ui_current->config = uwsgi_str(config);
+				ui_current->config_len = strlen(ui_current->config);
+			}
+			// reload the instance
 			emperor_respawn(ui_current, ts);
 		}
 	}
