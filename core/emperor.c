@@ -433,7 +433,7 @@ void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 			uwsgi_error("[uwsgi-emperor] write() header config");
 		}
 		else {
-			if (write(c_ui->pipe_config[0], c_ui->config, c_ui->config_len) != c_ui->config_len) {
+			if (write(c_ui->pipe_config[0], c_ui->config, c_ui->config_len) != (long) c_ui->config_len) {
                 		uwsgi_error("[uwsgi-emperor] write() config");
         		}
 		}
@@ -584,7 +584,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
                         	uwsgi_error("[uwsgi-emperor] write() header config");
                 	}
                 	else {
-                        	if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) != n_ui->config_len) {
+                        	if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) != (long) n_ui->config_len) {
                                 	uwsgi_error("[uwsgi-emperor] write() config");
                         	}
                 	}
