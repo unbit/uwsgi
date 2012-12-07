@@ -496,6 +496,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 
 	{"offload-threads", required_argument, 0, "set the number of offload threads to spawn (per-worker, default 0)", uwsgi_opt_set_int, &uwsgi.offload_threads, 0},
+	{"offload-thread", required_argument, 0, "set the number of offload threads to spawn (per-worker, default 0)", uwsgi_opt_set_int, &uwsgi.offload_threads, 0},
 
 	{"file-serve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
 	{"fileserve-mode", required_argument, 0, "set static file serving mode", uwsgi_opt_fileserve_mode, NULL, UWSGI_OPT_MIME},
