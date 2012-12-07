@@ -3299,6 +3299,21 @@ pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 	if (stdin_fd) {
 		close(stdin_fd[1]);
 	}
+	else {
+		if (!uwsgi_valid_fd(0)) {
+			int in_fd = open("/dev/null", O_RDONLY);
+			if (in_fd < 0) {
+				uwsgi_error_open("/dev/null");
+			}
+			else {
+				if (in_fd != 0) {
+					if (dup2(in_fd, 0)) {
+						uwsgi_error("dup2()");
+					}
+				}
+			}
+		}
+	}
 
 	if (stdout_fd > -1 && stdout_fd != 1) {
 		if (dup2(stdout_fd, 1) < 0) {
@@ -4848,4 +4863,12 @@ char *uwsgi_strip(char *src) {
 	}
 
 	return dst;
+}
+
+int uwsgi_valid_fd(int fd) {
+	int ret = fcntl(fd, F_GETFL);
+	if (ret == 0) {
+		return 1;
+	}
+	return 0;
 }
