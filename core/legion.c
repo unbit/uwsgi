@@ -255,6 +255,7 @@ static void *legion_loop(void *foobar) {
 int uwsgi_legion_action_call(char *phase, struct uwsgi_legion *ul, struct uwsgi_string_list *usl) {
 	struct uwsgi_legion_action *ula = uwsgi_legion_action_get(usl->custom_ptr);
 	if (!ula) { 
+		//FIXME core/legion.c:258: error: format ‘%s’ expects type ‘char *’, but argument 2 has type ‘void *’
 		uwsgi_log("[uwsgi-legion] ERROR unable to find legion_action \"%s\"\n", usl->custom_ptr);
 		return -1;
 	}

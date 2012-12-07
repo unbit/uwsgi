@@ -198,7 +198,7 @@ void uwsgi_mule_handler() {
 					}
 				}
 				if (!found)
-					uwsgi_log("*** mule %d received a %d bytes message ***\n", uwsgi.muleid, len);
+					uwsgi_log("*** mule %d received a %zd bytes message ***\n", uwsgi.muleid, len);
 			}
 		}
 	}

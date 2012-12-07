@@ -869,7 +869,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	if (TYPE(ret) == T_ARRAY) {
 		if (RARRAY_LEN(ret) != 3) {
-			uwsgi_log("Invalid RACK response size: %d\n", RARRAY_LEN(ret));
+			uwsgi_log("Invalid RACK response size: %ld\n", RARRAY_LEN(ret));
 			return -1;
 		}
 

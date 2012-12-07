@@ -197,6 +197,7 @@ XS(XS_error_print) {
 
 	if (items > 1) {
         	body = SvPV(ST(1), blen);
+        	//FIXME error: field precision should have type ‘int’, but argument 2 has type ‘STRLEN’
 		uwsgi_log("%.*s", blen, body);
 	}
 
