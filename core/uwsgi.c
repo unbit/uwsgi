@@ -399,7 +399,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-freq", required_argument, 0, "tune the anti-loop alam system (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.alarm_freq, 0},
 	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
-	{"not-log-alarm", required_argument, 0, "raise the specified alarm when a log line DO NOT matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.not_alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"not-log-alarm", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarms-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 #endif
@@ -3337,6 +3337,12 @@ void uwsgi_opt_set_str_spaced(char *opt, char *value, void *key) {
 void uwsgi_opt_add_string_list(char *opt, char *value, void *list) {
 	struct uwsgi_string_list **ptr = (struct uwsgi_string_list **) list;
 	uwsgi_string_new_list(ptr, value);
+}
+
+void uwsgi_opt_add_string_list_custom(char *opt, char *value, void *list) {
+	struct uwsgi_string_list **ptr = (struct uwsgi_string_list **) list;
+	struct uwsgi_string_list *usl = uwsgi_string_new_list(ptr, value);
+	usl->custom = 1;
 }
 
 #ifdef UWSGI_SSL

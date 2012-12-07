@@ -947,6 +947,7 @@ struct uwsgi_alarm_ll {
 struct uwsgi_alarm_log {
 	pcre *pattern;
         pcre_extra *pattern_extra;
+	int negate;
 	struct uwsgi_alarm_ll *alarms;
 	struct uwsgi_alarm_log *next;
 };
@@ -1533,7 +1534,6 @@ struct uwsgi_server {
 	int alarm_freq;
 	struct uwsgi_string_list *alarm_list;
 	struct uwsgi_string_list *alarm_logs_list;
-	struct uwsgi_string_list *not_alarm_logs_list;
 	struct uwsgi_alarm *alarms;
 	struct uwsgi_alarm_instance *alarm_instances;
 	struct uwsgi_alarm_log *alarm_logs;
@@ -3063,6 +3063,7 @@ void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
+void uwsgi_opt_add_string_list_custom(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 #ifdef UWSGI_PCRE
 void uwsgi_opt_pcre_jit(char *, char *, void *);
