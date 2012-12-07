@@ -85,8 +85,7 @@ void uwsgi_master_manage_udp(int udp_fd) {
 
 				// else a simple udp logger
 				if (!udp_managed) {
-					//FIXME error: field precision should have type ‘int’, but argument 4 has type ‘ssize_t’
-					uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
+					uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), (int) rlen, uwsgi.wsgi_req->buffer);
 				}
 			}
 		}
