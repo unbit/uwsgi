@@ -990,9 +990,9 @@ void emperor_loop() {
 			}
 
 			// check if a monitor is mapped to that file descriptor
-			if (uwsgi_emperor_scanner_event(interesting_fd))
+			if (uwsgi_emperor_scanner_event(interesting_fd)) {
 				continue;
-
+			}
 
 			ui_current = emperor_get_by_fd(interesting_fd);
 			if (ui_current) {
@@ -1385,8 +1385,8 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 			// make a new config (free the old one)
 			if (ui_current->config)
 				free(ui_current->config);
-			ui_current->config = config;
-			ui_current->config_len = strlen(config);
+			ui_current->config = uwsgi_str(config);
+			ui_current->config_len = strlen(ui_current->config);
 			// always respawn (no need for amqp-style rules)
 			emperor_respawn(ui_current, ts);
 		}

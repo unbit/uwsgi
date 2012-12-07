@@ -270,6 +270,8 @@ static int legion_action_cmd(struct uwsgi_legion *ul, char *arg) {
 void uwsgi_start_legions() {
 	pthread_t legion_loop_t;
 
+	if (!uwsgi.legions) return;
+
 	// register embedded actions
 	uwsgi_legion_action_register("cmd", legion_action_cmd);
 
