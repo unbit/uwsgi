@@ -193,6 +193,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 	else {
 		// close uwsgi sockets
 		uwsgi_close_all_sockets();
+		uwsgi_close_all_fds();
 
 		if (ud->daemonize) {
 			/* refork... */

@@ -3581,6 +3581,7 @@ void uwsgi_legion_atexit(void);
 
 struct uwsgi_option *uwsgi_opt_get(char *);
 int uwsgi_valid_fd(int);
+void uwsgi_close_all_fds(void);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

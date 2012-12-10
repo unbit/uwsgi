@@ -3295,6 +3295,7 @@ pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 	}
 
 	uwsgi_close_all_sockets();
+	uwsgi_close_all_fds();
 
 	if (stdin_fd) {
 		close(stdin_fd[1]);
@@ -4872,3 +4873,15 @@ int uwsgi_valid_fd(int fd) {
 	}
 	return 0;
 }
+
+void uwsgi_close_all_fds(void) {
+	int i;
+	for (i = 3; i < (int) uwsgi.max_fd; i++) {
+#ifdef __APPLE__
+        	fcntl(i, F_SETFD, FD_CLOEXEC);
+#else
+                close(i);
+#endif
+	}
+}
+
