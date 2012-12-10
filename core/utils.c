@@ -1145,6 +1145,19 @@ void sanitize_args() {
 		exit(1);
 	}
 
+	if (uwsgi.cheaper && uwsgi.cheaper_count) {
+		if (uwsgi.cheaper_initial < uwsgi.cheaper_count) {
+			uwsgi_log("warning: invalid cheaper-initial value (%d), must be equal or higher than cheaper (%d), using %d as initial number of workers\n",
+				uwsgi.cheaper_initial, uwsgi.cheaper_count, uwsgi.cheaper_count);
+			uwsgi.cheaper_initial = uwsgi.cheaper_count;
+		}
+		else if (uwsgi.cheaper_initial > uwsgi.numproc) {
+			uwsgi_log("warning: invalid cheaper-initial value (%d), must be lower or equal than worker count (%d), using %d as initial number of workers\n",
+				uwsgi.cheaper_initial, uwsgi.numproc, uwsgi.numproc);
+			uwsgi.cheaper_initial = uwsgi.numproc;
+		}
+	}
+
 	if (uwsgi.auto_snapshot > 0 && uwsgi.auto_snapshot > uwsgi.numproc) {
 		uwsgi_log("invalid auto-snapshot value: must be <= than processes\n");
 		exit(1);
