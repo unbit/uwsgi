@@ -1128,12 +1128,6 @@ void sanitize_args() {
 		}
 	}
 
-#ifdef UWSGI_HTTP
-	if (uwsgi.http && !uwsgi.http_only) {
-		uwsgi.vacuum = 1;
-	}
-#endif
-
 	if (uwsgi.write_errors_exception_only) {
 		uwsgi.ignore_sigpipe = 1;
 		uwsgi.ignore_write_errors = 1;
