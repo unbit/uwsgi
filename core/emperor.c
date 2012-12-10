@@ -784,6 +784,8 @@ void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *ues) {
 		exit(1);
 	}
 
+	ues->arg = uwsgi.emperor_absolute_dir;
+
 }
 
 struct uwsgi_imperial_monitor *imperial_monitor_get_by_id(char *scheme) {
