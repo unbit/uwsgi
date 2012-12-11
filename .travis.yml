@@ -6,7 +6,7 @@ compiler:
 
 script:
   - echo -e "\n\n>>> Building uWSGI binary"
-  - /usr/bin/python uwsgiconfig.py --build base
+  - /usr/bin/python uwsgiconfig.py --build travis
   - echo -e "\n\n>>> Building python26 plugin"
   - /usr/bin/python2.6 -V
   - /usr/bin/python2.6 uwsgiconfig.py --plugin plugins/python base python26
