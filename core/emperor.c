@@ -709,7 +709,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 			exit(1);
 		}
 		if (stdin_fd != 0) {
-			if (dup2(stdin_fd, 0)) {
+			if (dup2(stdin_fd, 0) < 0) {
 				uwsgi_error("dup2()");
 				exit(1);
 			}

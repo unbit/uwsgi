@@ -3307,7 +3307,7 @@ pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 			}
 			else {
 				if (in_fd != 0) {
-					if (dup2(in_fd, 0)) {
+					if (dup2(in_fd, 0) < 0) {
 						uwsgi_error("dup2()");
 					}
 				}

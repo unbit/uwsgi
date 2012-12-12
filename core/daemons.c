@@ -215,7 +215,7 @@ void uwsgi_spawn_daemon(struct uwsgi_daemon *ud) {
 			exit(1);
 		}
 		if (devnull != 0) {
-			if (dup2(devnull, 0)) {
+			if (dup2(devnull, 0) < 0) {
 				uwsgi_error("dup2()");
 				exit(1);
 			}

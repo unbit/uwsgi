@@ -1611,7 +1611,7 @@ void uwsgi_map_sockets() {
 				exit(1);
 			}
 			if (fd != uwsgi_sock->fd) {
-				if (dup2(fd, uwsgi_sock->fd)) {
+				if (dup2(fd, uwsgi_sock->fd) < 0) {
 					uwsgi_error("dup2()");
 					exit(1);
 				}
@@ -1723,7 +1723,7 @@ void uwsgi_bind_sockets() {
 				exit(1);
 			}
 			if (fd != 0) {
-				if (dup2(fd, 0)) {
+				if (dup2(fd, 0) < 0) {
 					uwsgi_error("dup2()");
 					exit(1);
 				}
