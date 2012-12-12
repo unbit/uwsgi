@@ -2738,7 +2738,7 @@ next2:
 		}
 
 		if (uwsgi.sockets->fd != 0) {
-			if (dup2(uwsgi.sockets->fd, 0)) {
+			if (dup2(uwsgi.sockets->fd, 0) < 0) {
 				uwsgi_error("dup2()");
 			}
 		}
