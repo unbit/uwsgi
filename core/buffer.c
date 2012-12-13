@@ -114,3 +114,13 @@ int uwsgi_buffer_send(struct uwsgi_buffer *ub, int fd) {
 
 	return 0;
 }
+
+int uwsgi_buffer_num64(struct uwsgi_buffer *ub, int64_t num) {
+        char buf[sizeof(UMAX64_STR)+1];
+        int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%lld", (long long) num);
+        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+                return -1;
+        }
+        return uwsgi_buffer_append(ub, buf, ret);
+}
+

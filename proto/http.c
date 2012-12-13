@@ -393,14 +393,19 @@ void uwsgi_httpize_var(char *buf, size_t len) {
 	}
 }
 
-struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req, char *host, uint16_t host_len) {
+struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *wsgi_req, char *host, uint16_t host_len, char *uri, uint16_t uri_len) {
 
         struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
 
         if (uwsgi_buffer_append(ub, wsgi_req->method, wsgi_req->method_len)) goto clear;
         if (uwsgi_buffer_append(ub, " ", 1)) goto clear;
 
-        if (uwsgi_buffer_append(ub, wsgi_req->uri, wsgi_req->uri_len)) goto clear;
+	if (uri_len && uri) {
+        	if (uwsgi_buffer_append(ub, uri, uri_len)) goto clear;
+	}
+	else {
+        	if (uwsgi_buffer_append(ub, wsgi_req->uri, wsgi_req->uri_len)) goto clear;
+	}
 
         if (uwsgi_buffer_append(ub, " HTTP/1.0\r\n", 11)) goto clear;
 
@@ -447,10 +452,21 @@ next:
 		if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
 	}
 
+	if (wsgi_req->content_type_len > 0) {
+		if (uwsgi_buffer_append(ub, "Content-Type: ", 14)) goto clear;
+		if (uwsgi_buffer_append(ub, wsgi_req->content_type, wsgi_req->content_type_len)) goto clear;
+		if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
+	}
+
+	if (wsgi_req->post_cl > 0) {
+		if (uwsgi_buffer_append(ub, "Content-Length: ", 16)) goto clear;
+		if (uwsgi_buffer_num64(ub, (int64_t) wsgi_req->post_cl)) goto clear;
+		if (uwsgi_buffer_append(ub, "\r\n", 2)) goto clear;
+	}
+
 	// append required headers
 	if (uwsgi_buffer_append(ub, "Connection: close\r\n", 19)) goto clear;
 	if (uwsgi_buffer_append(ub, "X-Forwarded-For: ", 17)) goto clear;
-
 
 	if (x_forwarded_for_len > 0) {
 		if (uwsgi_buffer_append(ub, x_forwarded_for, x_forwarded_for_len)) goto clear;
