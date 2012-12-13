@@ -345,12 +345,16 @@ def build_uwsgi(uc, print_only=False):
                     pass
 
                 for cfile in up.GCC_LIST:
-                    if not cfile.endswith('.a'):
+                    if cfile.endswith('.a'):
+                        gcc_list.append(cfile)
+                    elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m'):
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
-                        gcc_list.append(cfile)
+                        compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
+                            path + '/' + cfile + '.o', path + '/' + cfile)
+                        gcc_list.append('%s/%s' % (path, cfile))
 
                 libs += up.LIBS
 
