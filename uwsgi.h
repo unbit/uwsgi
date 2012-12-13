@@ -892,6 +892,9 @@ struct uwsgi_route {
 	void *data2;
 	size_t data2_len;
 
+	void *data3;
+	size_t data3_len;
+
 	// 64bit value for custom usage
 	uint64_t custom;
 
@@ -3445,7 +3448,7 @@ int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, 
 int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t);
 
 void uwsgi_httpize_var(char *, size_t);
-struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t);
+struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 ssize_t uwsgi_pipe(int, int, int);
 ssize_t uwsgi_pipe_sized(int, int, size_t, int);
