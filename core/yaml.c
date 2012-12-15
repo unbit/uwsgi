@@ -137,7 +137,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 		exit(1);
 	}
 
-	yaml_parser_set_input_string(&parser, (const unsigned char *) yaml, (size_t) len - 1);
+	yaml_parser_set_input_string(&parser, (unsigned char *) yaml, (size_t) len - 1);
 
 	while (parsing) {
 		if (!yaml_parser_scan(&parser, &token)) {

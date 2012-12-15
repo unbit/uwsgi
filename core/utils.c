@@ -2894,7 +2894,7 @@ size_t uwsgi_str_num(char *str, int len) {
 	int i;
 	size_t num = 0;
 
-	size_t delta = pow(10, len);
+	uint64_t delta = pow(10, len);
 
 	for (i = 0; i < len; i++) {
 		delta = delta / 10;
