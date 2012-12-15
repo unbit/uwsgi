@@ -253,6 +253,7 @@ ssize_t uwsgi_gevent_hook_input_read(struct wsgi_request *wsgi_req, char *tmp_bu
 		UWSGI_RELEASE_GIL;	
                 ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+*tmp_pos, remains);
                 if (rlen <= 0) {
+			uwsgi_error("[uwsgi-gevent] read()");
                         UWSGI_GET_GIL
 			stop_the_watchers_and_clear
                         return -1;
