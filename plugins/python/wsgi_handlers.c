@@ -180,11 +180,11 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 	ssize_t rlen = up.hook_wsgi_input_read(self->wsgi_req, tmp_buf, remains, &tmp_pos);
 	if (rlen < 0) {
                 free(tmp_buf);
-        	return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  (remains + tmp_pos), (unsigned long long) tmp_pos);
+        	return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  remains, (unsigned long long) tmp_pos);
 	}
-	else if (tmp_pos == 0) {
+	else if (rlen == 0) {
                 free(tmp_buf);
-        	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  (remains + tmp_pos), (unsigned long long) tmp_pos);
+        	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data: Content-Length %llu requested %llu received %llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  remains, (unsigned long long) tmp_pos);
 	}
 
 	self->pos += tmp_pos;
