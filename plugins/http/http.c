@@ -529,8 +529,12 @@ ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
                 }
 		int ret2 = SSL_pending(hs->ssl);
                 if (ret2 > 0) {
-			if (uwsgi_buffer_fix(hs->post_buf, hs->post_buf->len + ret2 )) return -1;
+			if (uwsgi_buffer_fix(hs->post_buf, hs->post_buf->len + ret2 )) {
+				uwsgi_log("[uwsgi-https] cannot fix the buffer to %d\n", hs->post_buf->len + ret2);
+				return -1;
+			}
                         if (SSL_read(hs->ssl, hs->post_buf->buf + ret, ret2) != ret2) {
+				uwsgi_log("[uwsgi-https] SSL_read() on %d bytes of pending data failed\n", ret2);
                                 return -1;
                         }
                         ret += ret2;
@@ -925,7 +929,10 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
 	// be sure buffer does not grow over 64k
         cs->buffer->limit = UMAX16;
         // try to always leave 4k available
-        if (uwsgi_buffer_ensure(cs->buffer, uwsgi.page_size)) return -1;
+        if (uwsgi_buffer_ensure(cs->buffer, uwsgi.page_size))  {
+		uwsgi_log("[uwsgi-https] cannot ensure the buffer (size: %d)\n", cs->buffer->len);	 
+		return -1;
+	}
 	struct http_session *hs = (struct http_session *) cs;
 	int ret = SSL_read(hs->ssl, cs->buffer->buf + cs->buffer_pos, cs->buffer->len - cs->buffer_pos);
 	if (ret > 0) {
@@ -936,8 +943,12 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
 		}
 		int ret2 = SSL_pending(hs->ssl);
 		if (ret2 > 0) {
-			if (uwsgi_buffer_fix(cs->buffer, cs->buffer->len + ret2 )) return -1;
+			if (uwsgi_buffer_fix(cs->buffer, cs->buffer->len + ret2 )) {
+				uwsgi_log("[uwsgi-https] cannot fix the buffer to %d\n", cs->buffer->len + ret2 );
+				return -1;
+			}
 			if (SSL_read(hs->ssl, cs->buffer->buf + cs->buffer_pos + ret, ret2) != ret2) {
+				uwsgi_log("[uwsgi-https] SSL_read() on %d bytes of pending data failed\n", ret2);
 				return -1;
 			}
 			ret += ret2;
