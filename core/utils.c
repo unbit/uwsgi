@@ -657,7 +657,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
 
-	wsgi_req->end_of_request = uwsgi_micros();
+	uint64_t end_of_request = uwsgi_micros();
+	wsgi_req->end_of_request = end_of_request;
 
 	tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;
 
@@ -731,15 +732,17 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 	wsgi_req->async_id = tmp_id;
 
-	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]) {
+	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0 &&
+	    uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] &&
+	    (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.minimum_worker_lifetime*1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as) {
+	if (uwsgi.reload_on_as && (rlim_t) vsz >= uwsgi.reload_on_as && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.minimum_worker_lifetime*1000000)) {
 		goodbye_cruel_world();
 	}
 
-	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss) {
+	if (uwsgi.reload_on_rss && (rlim_t) rss >= uwsgi.reload_on_rss && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.minimum_worker_lifetime*1000000)) {
 		goodbye_cruel_world();
 	}
 
