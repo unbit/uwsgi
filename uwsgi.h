@@ -309,6 +309,7 @@ struct uwsgi_string_list {
 	size_t len;
 	uint64_t custom;
 	uint64_t custom2;
+	void *custom_ptr;
 	struct uwsgi_string_list *next;
 };
 
@@ -2996,6 +2997,7 @@ void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
+void uwsgi_opt_add_addr_list(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 #ifdef UWSGI_PCRE
 void uwsgi_opt_pcre_jit(char *, char *, void *);

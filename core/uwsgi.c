@@ -3294,6 +3294,30 @@ void uwsgi_opt_add_string_list(char *opt, char *value, void *list) {
 	uwsgi_string_new_list(ptr, value);
 }
 
+void uwsgi_opt_add_addr_list(char *opt, char *value, void *list) {
+       struct uwsgi_string_list **ptr = (struct uwsgi_string_list **) list;
+       int af = AF_INET;
+#ifdef UWSGI_IPV6
+       void *ip = uwsgi_malloc(16);
+       if (strchr(value, ':')) {
+               af = AF_INET6;
+       }
+#else
+       void *ip = uwsgi_malloc(4);
+#endif
+       
+       if (inet_pton(af, value, ip) <= 0) {
+               uwsgi_log("%s: invalid address\n", opt);
+               uwsgi_error("uwsgi_opt_add_addr_list()");
+               exit(1);
+       }
+
+        struct uwsgi_string_list *usl = uwsgi_string_new_list(ptr, ip);
+       usl->custom = af;
+       usl->custom_ptr = value;
+}
+
+
 #ifdef UWSGI_PCRE
 void uwsgi_opt_add_regexp_list(char *opt, char *value, void *list) {
 	struct uwsgi_regexp_list **ptr = (struct uwsgi_regexp_list **) list;

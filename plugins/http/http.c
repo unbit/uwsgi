@@ -24,6 +24,7 @@ struct uwsgi_http {
 #ifdef UWSGI_SSL
 	int https_export_cert;
 #endif
+	struct uwsgi_string_list *stud_prefix;
 
 } uhttp;
 
@@ -134,6 +135,7 @@ struct uwsgi_option http_options[] = {
 	{"http-stats-server", required_argument, 0, "run the http router stats server", uwsgi_opt_set_str, &uhttp.cr.stats_server, 0},
 	{"http-ss", required_argument, 0, "run the http router stats server", uwsgi_opt_set_str, &uhttp.cr.stats_server, 0},
 	{"http-harakiri", required_argument, 0, "enable http router harakiri", uwsgi_opt_set_int, &uhttp.cr.harakiri, 0},
+	{"http-stud-prefix", required_argument, 0, "expect a stud prefix (1byte family + 4/16 bytes address) on connections from the specified address", uwsgi_opt_add_addr_list, &uhttp.stud_prefix, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -174,6 +176,11 @@ struct http_session {
         size_t post_buf_max;
         size_t post_buf_len;
         off_t post_buf_pos;
+
+	// 1 (family) + 4/16 (addr)
+	char stud_prefix[17];
+	size_t stud_prefix_remains;
+	size_t stud_prefix_pos;
 
 
 };
@@ -1082,6 +1089,31 @@ void hr_session_close(struct corerouter_session *cs) {
 	}
 }
 
+static ssize_t hr_recv_stud4(struct corerouter_session * cs) {
+	struct http_session *hs = (struct http_session *) cs;
+	ssize_t len = read(cs->fd, hs->stud_prefix + hs->stud_prefix_pos, hs->stud_prefix_remains - hs->stud_prefix_pos);
+	if (len < 0) {
+                cr_try_again;
+                uwsgi_error("hr_recv_stud4()");
+                return -1;
+        }
+
+	hs->stud_prefix_pos += len;
+
+        if (hs->stud_prefix_pos == hs->stud_prefix_remains) {
+		if (hs->stud_prefix[0] != AF_INET) {
+			uwsgi_log("[uwsgi-http] invalid stud prefix\n");
+			return -1;
+		}
+		// set the passed ip address
+		memcpy(&hs->ip_addr, hs->stud_prefix + 1, 4);
+		uwsgi_cr_hook_read(cs, hr_recv_http);
+        }
+
+        return len;
+
+}
+
 #ifdef UWSGI_SSL
 void hr_session_ssl_close(struct corerouter_session *cs) {
 	hr_session_close(cs);
@@ -1112,6 +1144,17 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 	cs->modifier1 = uhttp.modifier1;
 	if (sa && sa->sa_family == AF_INET) {
 		hs->ip_addr = ((struct sockaddr_in *) sa)->sin_addr.s_addr;
+
+		struct uwsgi_string_list *usl = uhttp.stud_prefix;
+		while(usl) {
+			if (!memcmp(&hs->ip_addr, usl->value, 4)) {
+				hs->stud_prefix_remains = 5;
+				uwsgi_cr_hook_read(cs, hr_recv_stud4);
+				break;
+			}
+			usl = usl->next;
+		}
+
 	}
 
 	hs->rnrn = 0;
@@ -1133,7 +1176,9 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 	}
 	else {
 #endif
-		uwsgi_cr_hook_read(cs, hr_recv_http);
+		if (!cs->event_hook_read) {
+			uwsgi_cr_hook_read(cs, hr_recv_http);
+		}
 		cs->close = hr_session_close;
 #ifdef UWSGI_SSL
 	}
