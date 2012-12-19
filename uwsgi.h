@@ -3066,6 +3066,7 @@ void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
+void uwsgi_opt_add_addr_list(char *, char *, void *);
 void uwsgi_opt_add_string_list_custom(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 #ifdef UWSGI_PCRE
