@@ -22,6 +22,7 @@ struct uwsgi_php {
 	struct uwsgi_string_list *index;
 	struct uwsgi_string_list *set;
 	struct uwsgi_string_list *append_config;
+	struct uwsgi_regexp_list *app_bypass;
 	char *docroot;
 	char *app;
 	char *app_qs;
@@ -51,6 +52,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-server-software", required_argument, 0, "force php SERVER_SOFTWARE", uwsgi_opt_set_str, &uphp.server_software, 0},
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {"php-app-qs", required_argument, 0, "when in app mode force QUERY_STRING to the specified value + REQUEST_URI", uwsgi_opt_set_str, &uphp.app_qs, 0},
+        {"php-app-bypass", required_argument, 0, "if the regexp matches the uri the --php-app is bypassed", uwsgi_opt_add_regexp_list, &uphp.app_bypass, 0},
         {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -739,6 +741,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	char *path_info = NULL;
 	size_t real_filename_len = 0;
 	struct stat php_stat;
+	char *filename = NULL;
 
 	zend_file_handle file_handle;
 
@@ -770,6 +773,14 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->document_root_len = strlen(wsgi_req->document_root);
 
 	if (uphp.app) {
+		struct uwsgi_regexp_list *bypass = uphp.app_bypass;
+		while (bypass) {
+                        if (uwsgi_regexp_match(bypass->pattern, bypass->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
+				goto oldstyle;
+                        }
+                        bypass = bypass->next;
+                }
+
 		strcpy(real_filename, uphp.app);	
 		if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
 			goto appready;
@@ -797,7 +808,9 @@ appready:
 		goto secure2;
 	}
 
-	char *filename = uwsgi_concat4n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
+oldstyle:
+
+	filename = uwsgi_concat4n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
 
 	if (uwsgi_php_walk(wsgi_req, filename, wsgi_req->document_root, wsgi_req->document_root_len, &path_info)) {
 		free(filename);
