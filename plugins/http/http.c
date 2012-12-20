@@ -22,8 +22,10 @@ struct uwsgi_http {
 	int keepalive;
 
 #ifdef UWSGI_SSL
+	char *https_session_context;
 	int https_export_cert;
 #endif
+	struct uwsgi_string_list *stud_prefix;
 
 } uhttp;
 
@@ -68,7 +70,14 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
         }
 
         // initialize ssl context
-        ugs->ctx = uwsgi_ssl_new_server_context(uwsgi_concat3(ucr->short_name, "-", ugs->name),crt, key, ciphers, client_ca);
+	char *name = uhttp.https_session_context;
+	if (!name) {
+		name = uwsgi_concat3(ucr->short_name, "-", ugs->name);
+	}
+        ugs->ctx = uwsgi_ssl_new_server_context(name, crt, key, ciphers, client_ca);
+	if (!ugs->ctx) {
+		exit(1);
+	}
         // set the ssl mode
         ugs->mode = UWSGI_HTTP_SSL;
 
@@ -102,6 +111,7 @@ struct uwsgi_option http_options[] = {
 #ifdef UWSGI_SSL
 	{"https", required_argument, 0, "add an https router/server on the specified address with specified certificate and key", uwsgi_opt_https, &uhttp, 0},
 	{"https-export-cert", no_argument, 0, "export uwsgi variable HTTPS_CC containing the raw client certificate", uwsgi_opt_true, &uhttp.https_export_cert, 0},
+	{"https-session-context", required_argument, 0, "set the session id context to the specified value", uwsgi_opt_set_str, &uhttp.https_session_context, 0},
 	{"http-to-https", required_argument, 0, "add an http router/server on the specified address and redirect all of the requests to https", uwsgi_opt_http_to_https, &uhttp, 0},
 #endif
 	{"http-processes", required_argument, 0, "set the number of http processes to spawn", uwsgi_opt_set_int, &uhttp.cr.processes, 0},
@@ -134,6 +144,7 @@ struct uwsgi_option http_options[] = {
 	{"http-stats-server", required_argument, 0, "run the http router stats server", uwsgi_opt_set_str, &uhttp.cr.stats_server, 0},
 	{"http-ss", required_argument, 0, "run the http router stats server", uwsgi_opt_set_str, &uhttp.cr.stats_server, 0},
 	{"http-harakiri", required_argument, 0, "enable http router harakiri", uwsgi_opt_set_int, &uhttp.cr.harakiri, 0},
+	{"http-stud-prefix", required_argument, 0, "expect a stud prefix (1byte family + 4/16 bytes address) on connections from the specified address", uwsgi_opt_add_addr_list, &uhttp.stud_prefix, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -174,6 +185,11 @@ struct http_session {
         size_t post_buf_max;
         size_t post_buf_len;
         off_t post_buf_pos;
+
+	// 1 (family) + 4/16 (addr)
+	char stud_prefix[17];
+	size_t stud_prefix_remains;
+	size_t stud_prefix_pos;
 
 
 };
@@ -399,9 +415,9 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 	while (ptr < watermark) {
 		if (*ptr == '\r') {
 			if (ptr + 1 >= watermark)
-				return 0;
+				break;
 			if (*(ptr + 1) != '\n')
-				return 0;
+				break;
 			// multiline header ?
 			if (ptr + 2 < watermark) {
 				if (*(ptr + 2) == ' ' || *(ptr + 2) == '\t') {
@@ -517,6 +533,18 @@ ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
                 // fix waiting
                 if (cs->event_hook_write) {
                         uwsgi_cr_hook_write(cs, NULL);
+                }
+		int ret2 = SSL_pending(hs->ssl);
+                if (ret2 > 0) {
+			if (uwsgi_buffer_fix(hs->post_buf, hs->post_buf->len + ret2 )) {
+				uwsgi_log("[uwsgi-https] cannot fix the buffer to %d\n", hs->post_buf->len + ret2);
+				return -1;
+			}
+                        if (SSL_read(hs->ssl, hs->post_buf->buf + ret, ret2) != ret2) {
+				uwsgi_log("[uwsgi-https] SSL_read() on %d bytes of pending data failed\n", ret2);
+                                return -1;
+                        }
+                        ret += ret2;
                 }
 		hs->post_buf_len = ret;
         	hs->post_buf_pos = 0;
@@ -908,7 +936,10 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
 	// be sure buffer does not grow over 64k
         cs->buffer->limit = UMAX16;
         // try to always leave 4k available
-        if (uwsgi_buffer_ensure(cs->buffer, uwsgi.page_size)) return -1;
+        if (uwsgi_buffer_ensure(cs->buffer, uwsgi.page_size))  {
+		uwsgi_log("[uwsgi-https] cannot ensure the buffer (size: %d)\n", cs->buffer->len);	 
+		return -1;
+	}
 	struct http_session *hs = (struct http_session *) cs;
 	int ret = SSL_read(hs->ssl, cs->buffer->buf + cs->buffer_pos, cs->buffer->len - cs->buffer_pos);
 	if (ret > 0) {
@@ -919,8 +950,12 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
 		}
 		int ret2 = SSL_pending(hs->ssl);
 		if (ret2 > 0) {
-			if (uwsgi_buffer_fix(cs->buffer, cs->buffer->len + ret2 )) return -1;
+			if (uwsgi_buffer_fix(cs->buffer, cs->buffer->len + ret2 )) {
+				uwsgi_log("[uwsgi-https] cannot fix the buffer to %d\n", cs->buffer->len + ret2 );
+				return -1;
+			}
 			if (SSL_read(hs->ssl, cs->buffer->buf + cs->buffer_pos + ret, ret2) != ret2) {
+				uwsgi_log("[uwsgi-https] SSL_read() on %d bytes of pending data failed\n", ret2);
 				return -1;
 			}
 			ret += ret2;
@@ -1063,6 +1098,31 @@ void hr_session_close(struct corerouter_session *cs) {
 	}
 }
 
+static ssize_t hr_recv_stud4(struct corerouter_session * cs) {
+	struct http_session *hs = (struct http_session *) cs;
+	ssize_t len = read(cs->fd, hs->stud_prefix + hs->stud_prefix_pos, hs->stud_prefix_remains - hs->stud_prefix_pos);
+	if (len < 0) {
+                cr_try_again;
+                uwsgi_error("hr_recv_stud4()");
+                return -1;
+        }
+
+	hs->stud_prefix_pos += len;
+
+        if (hs->stud_prefix_pos == hs->stud_prefix_remains) {
+		if (hs->stud_prefix[0] != AF_INET) {
+			uwsgi_log("[uwsgi-http] invalid stud prefix\n");
+			return -1;
+		}
+		// set the passed ip address
+		memcpy(&hs->ip_addr, hs->stud_prefix + 1, 4);
+		uwsgi_cr_hook_read(cs, hr_recv_http);
+        }
+
+        return len;
+
+}
+
 #ifdef UWSGI_SSL
 void hr_session_ssl_close(struct corerouter_session *cs) {
 	hr_session_close(cs);
@@ -1093,6 +1153,17 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 	cs->modifier1 = uhttp.modifier1;
 	if (sa && sa->sa_family == AF_INET) {
 		hs->ip_addr = ((struct sockaddr_in *) sa)->sin_addr.s_addr;
+
+		struct uwsgi_string_list *usl = uhttp.stud_prefix;
+		while(usl) {
+			if (!memcmp(&hs->ip_addr, usl->value, 4)) {
+				hs->stud_prefix_remains = 5;
+				uwsgi_cr_hook_read(cs, hr_recv_stud4);
+				break;
+			}
+			usl = usl->next;
+		}
+
 	}
 
 	hs->rnrn = 0;
@@ -1114,7 +1185,9 @@ void http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socke
 	}
 	else {
 #endif
-		uwsgi_cr_hook_read(cs, hr_recv_http);
+		if (!cs->event_hook_read) {
+			uwsgi_cr_hook_read(cs, hr_recv_http);
+		}
 		cs->close = hr_session_close;
 #ifdef UWSGI_SSL
 	}

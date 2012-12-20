@@ -85,7 +85,7 @@ void uwsgi_master_manage_udp(int udp_fd) {
 
 				// else a simple udp logger
 				if (!udp_managed) {
-					uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), rlen, uwsgi.wsgi_req->buffer);
+					uwsgi_log("[udp:%s:%d] %.*s", udp_client_addr, ntohs(udp_client.sin_port), (int) rlen, uwsgi.wsgi_req->buffer);
 				}
 			}
 		}
@@ -352,40 +352,6 @@ void *logger_thread_loop(void *noarg) {
 	return NULL;
 }
 
-void *cache_sweeper_loop(void *noarg) {
-
-	int i;
-	// block all signals
-	sigset_t smask;
-	sigfillset(&smask);
-	pthread_sigmask(SIG_BLOCK, &smask, NULL);
-
-	if (!uwsgi.cache_expire_freq)
-		uwsgi.cache_expire_freq = 3;
-
-	// remove expired cache items TODO use rb_tree timeouts
-	for (;;) {
-		sleep(uwsgi.cache_expire_freq);
-		uint64_t freed_items = 0;
-		// skip the first slot
-		for (i = 1; i < (int) uwsgi.cache_max_items; i++) {
-			uwsgi_wlock(uwsgi.cache_lock);
-			if (uwsgi.cache_items[i].expires) {
-				if (uwsgi.cache_items[i].expires < (uint64_t) uwsgi.current_time) {
-					uwsgi_cache_del(NULL, 0, i);
-					freed_items++;
-				}
-			}
-			uwsgi_rwunlock(uwsgi.cache_lock);
-		}
-		if (uwsgi.cache_report_freed_items && freed_items > 0) {
-			uwsgi_log("freed %llu cache items\n", (unsigned long long) freed_items);
-		}
-	};
-
-	return NULL;
-}
-
 void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 
 	int subfile_size;
@@ -602,6 +568,7 @@ int master_loop(char **argv, char **environ) {
 
 	pthread_t logger_thread;
 	pthread_t cache_sweeper;
+	pthread_t cache_udp_server;
 
 #ifdef UWSGI_UDP
 	int udp_fd = -1;
@@ -697,6 +664,10 @@ int master_loop(char **argv, char **environ) {
 #endif
 	}
 
+#ifdef UWSGI_SSL
+	uwsgi_start_legions();
+#endif
+
 	if (uwsgi.cache_max_items > 0 && !uwsgi.cache_no_expire) {
 		if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, NULL)) {
 			uwsgi_error("pthread_create()");
@@ -706,6 +677,16 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_log("cache sweeper thread enabled\n");
 		}
 	}
+
+	if (uwsgi.cache_max_items > 0 && uwsgi.cache_udp_server) {
+                if (pthread_create(&cache_udp_server, NULL, cache_udp_server_loop, NULL)) {
+                        uwsgi_error("pthread_create()");
+                        uwsgi_log("unable to run the cache udp server !!!\n");
+                }
+                else {
+                        uwsgi_log("cache udp server thread enabled\n");
+                }
+        }
 
 
 	uwsgi.wsgi_req->buffer = uwsgi.workers[0].cores[0].buffer;
@@ -1597,7 +1578,7 @@ next:
 		}
 		// manage_next_request is zero, but killed by signal...
 		else if (WIFSIGNALED(waitpid_status)) {
-			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
+			uwsgi_log("DAMN ! worker %d (pid: %d) MISTERIOUSLY killed by signal %d :( trying respawn ...\n", uwsgi.mywid, (int) diedpid, (int) WTERMSIG(waitpid_status));
 		}
 
 		if (uwsgi.workers[uwsgi.mywid].cheaped == 1) {

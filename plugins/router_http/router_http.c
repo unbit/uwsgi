@@ -12,12 +12,23 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	// get the http address from the route
 	char *addr = ur->data;
 
+	char *uri = NULL;
+	uint16_t uri_len = 0;
+	if (ur->data3_len) {
+		uri = uwsgi_regexp_apply_ovec(wsgi_req->uri, wsgi_req->uri_len, ur->data3, ur->data3_len, ur->ovector, ur->ovn);
+		uri_len = strlen(uri);
+	}
+
+
 	// convert the wsgi_request to an http proxy request
-	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len);	
+	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len, uri, uri_len);	
 	if (!ub) {
+		if (uri) free(uri);
 		uwsgi_log("unable to generate http request for %s\n", addr);
                 return UWSGI_ROUTE_NEXT;
 	}
+
+	if (uri) free(uri);
 
 	// ok now if have offload threads, directly use them
 	if (wsgi_req->socket->can_offload) {
@@ -86,6 +97,12 @@ int uwsgi_router_http(struct uwsgi_route *ur, char *args) {
 		*comma = 0;
 		ur->data_len = strlen(ur->data);
 		ur->data2 = comma+1;
+		comma = strchr(ur->data2, ',');
+		if (comma) {
+			*comma = 0;
+			ur->data3 = comma+1;
+			ur->data3_len = strlen(ur->data3);
+		}
 		ur->data2_len = strlen(ur->data2);
 	}
 	return 0;

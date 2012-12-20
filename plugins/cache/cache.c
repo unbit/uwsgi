@@ -63,7 +63,7 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                 case 2:
                         // del
                         if (wsgi_req->uh.pktsize > 0) {
-                                uwsgi_cache_del(wsgi_req->buffer, wsgi_req->uh.pktsize, 0);
+                                uwsgi_cache_del(wsgi_req->buffer, wsgi_req->uh.pktsize, 0, 0);
                         }
                         break;
                 case 3:

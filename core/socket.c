@@ -178,7 +178,6 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 
 #ifdef UWSGI_MULTICAST
 	struct ip_mreq mc;
-	uint8_t loop = 1;
 #endif
 
 	udp_port = strchr(socket_name, ':');
@@ -262,7 +261,7 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 #ifdef UWSGI_MULTICAST
 	if (multicast) {
 		uwsgi_log("[uWSGI] joining multicast group: %s:%d\n", socket_name, ntohs(uws_addr.sin_port));
-		if (setsockopt(serverfd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop))) {
+		if (setsockopt(serverfd, IPPROTO_IP, IP_MULTICAST_LOOP, &uwsgi.multicast_loop, sizeof(uwsgi.multicast_loop))) {
 			uwsgi_error("setsockopt()");
 		}
 
@@ -586,6 +585,19 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #endif
 	}
 
+	if (uwsgi.tcp_fast_open) {
+#ifdef TCP_FASTOPEN
+		if (setsockopt(serverfd, SOL_TCP, TCP_FASTOPEN, (const void *) &uwsgi.tcp_fast_open, sizeof(int)) < 0) {
+			uwsgi_error("TCP_FASTOPEN setsockopt()");
+		}
+		else {
+			uwsgi_log("TCP_FASTOPEN enabled on %s\n", socket_name);
+		}
+#else
+		uwsgi_log("!!! your system does not support TCP_FASTOPEN !!!\n");
+#endif
+	}
+
 	if (uwsgi.so_send_timeout) {
 		struct timeval tv;
 		tv.tv_sec = uwsgi.so_send_timeout;
@@ -632,7 +644,7 @@ int bind_to_tcp(char *socket_name, int listen_queue, char *tcp_port) {
 #ifdef __linux__
 	long somaxconn = uwsgi_num_from_file("/proc/sys/net/core/somaxconn");
 	if (somaxconn > 0 && uwsgi.listen_queue > somaxconn) {
-		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%i).\n", somaxconn);
+		uwsgi_log("Listen queue size is greater than the system max net.core.somaxconn (%li).\n", somaxconn);
 		uwsgi_nuclear_blast();
 	}
 #endif
@@ -707,7 +719,16 @@ int timed_connect(struct pollfd *fdpoll, const struct sockaddr *addr, int addr_s
 	}
 #endif
 
-	ret = connect(fdpoll->fd, addr, addr_size);
+#ifdef MSG_FASTOPEN
+	if (addr->sa_family == AF_INET && uwsgi.tcp_fast_open_client) {
+		ret = sendto(fdpoll->fd, "", 0, MSG_FASTOPEN, addr, addr_size);
+	}
+	else {
+#endif
+		ret = connect(fdpoll->fd, addr, addr_size);
+#ifdef MSG_FASTOPEN
+	}
+#endif
 
 	if (async) {
 		if (ret < 0 && errno != EINPROGRESS) {
@@ -1611,7 +1632,7 @@ void uwsgi_map_sockets() {
 				exit(1);
 			}
 			if (fd != uwsgi_sock->fd) {
-				if (dup2(fd, uwsgi_sock->fd)) {
+				if (dup2(fd, uwsgi_sock->fd) < 0) {
 					uwsgi_error("dup2()");
 					exit(1);
 				}
@@ -1723,7 +1744,7 @@ void uwsgi_bind_sockets() {
 				exit(1);
 			}
 			if (fd != 0) {
-				if (dup2(fd, 0)) {
+				if (dup2(fd, 0) < 0) {
 					uwsgi_error("dup2()");
 					exit(1);
 				}

@@ -307,43 +307,44 @@ void uwsgi_reload(char **argv) {
 			uwsgi_sock = uwsgi_sock->next;
 		}
 
+		if (found) continue;
 
-		if (!found) {
-			if (uwsgi.has_emperor) {
-				if (i == uwsgi.emperor_fd) {
-					found = 1;
-				}
+		if (uwsgi.has_emperor) {
+			if (i == uwsgi.emperor_fd) {
+				continue;
+			}
+
+			if (i == uwsgi.emperor_fd_config) {
+				continue;
 			}
 		}
 
 		if (uwsgi.log_master) {
 			if (uwsgi.original_log_fd > -1) {
 				if (i == uwsgi.original_log_fd) {
-					found = 1;
+					continue;
 				}
 			}
 
 			if (uwsgi.shared->worker_log_pipe[0] > -1) {
 				if (i == uwsgi.shared->worker_log_pipe[0]) {
-					found = 1;
+					continue;
 				}
 			}
 
 			if (uwsgi.shared->worker_log_pipe[1] > -1) {
 				if (i == uwsgi.shared->worker_log_pipe[1]) {
-					found = 1;
+					continue;
 				}
 			}
 
 		}
 
-		if (!found) {
 #ifdef __APPLE__
-			fcntl(i, F_SETFD, FD_CLOEXEC);
+		fcntl(i, F_SETFD, FD_CLOEXEC);
 #else
-			close(i);
+		close(i);
 #endif
-		}
 	}
 
 #ifdef UWSGI_AS_SHARED_LIBRARY
@@ -860,6 +861,38 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 	if (uwsgi_stats_comma(us))
 		goto end;
+
+	if (uwsgi.cache_max_items > 0) {
+		if (uwsgi_stats_key(us, "cache"))
+                goto end;
+
+		if (uwsgi_stats_object_open(us))
+                        goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "max_items", (unsigned long long) uwsgi.cache_max_items))
+			goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "blocksize", (unsigned long long) uwsgi.cache_blocksize))
+			goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "items", (unsigned long long) ushared->cache_items))
+			goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) ushared->cache_hits))
+			goto end;
+
+		if (uwsgi_stats_keylong_comma(us, "miss", (unsigned long long) ushared->cache_miss))
+			goto end;
+
+		if (uwsgi_stats_keylong(us, "full", (unsigned long long) ushared->cache_full))
+			goto end;
+
+		if (uwsgi_stats_object_close(us))
+			goto end;
+
+	if (uwsgi_stats_comma(us))
+		goto end;
+	}
 
 	if (uwsgi_stats_key(us, "sockets"))
 		goto end;

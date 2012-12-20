@@ -3277,7 +3277,7 @@ PyObject *py_uwsgi_cache_clear(PyObject * self, PyObject * args) {
         for (i = 1; i < uwsgi.cache_max_items; i++) {
 		UWSGI_RELEASE_GIL
                 uwsgi_wlock(uwsgi.cache_lock);
-                uwsgi_cache_del(NULL, 0, i);
+                uwsgi_cache_del(NULL, 0, i, 0);
                 uwsgi_rwunlock(uwsgi.cache_lock);
 		UWSGI_GET_GIL
 	}
@@ -3305,7 +3305,7 @@ PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 	else if (uwsgi.cache_max_items) {
 		UWSGI_RELEASE_GIL
 		uwsgi_wlock(uwsgi.cache_lock);
-		if (uwsgi_cache_del(key, keylen, 0)) {
+		if (uwsgi_cache_del(key, keylen, 0, 0)) {
 			uwsgi_rwunlock(uwsgi.cache_lock);
 			UWSGI_GET_GIL
 			Py_INCREF(Py_None);

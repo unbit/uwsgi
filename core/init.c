@@ -14,6 +14,7 @@ void uwsgi_init_default() {
 	uwsgi.signal_socket = -1;
 	uwsgi.my_signal_socket = -1;
 	uwsgi.cache_server_fd = -1;
+	uwsgi.cache_blocksize = UMAX16;
 	uwsgi.stats_fd = -1;
 
 	uwsgi.stats_pusher_default_freq = 3;
@@ -76,6 +77,7 @@ void uwsgi_init_default() {
 #ifdef UWSGI_SSL
 	// 1 day of tolerance
 	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24;
+	uwsgi.ssl_sessions_timeout = 300;
 #endif
 
 #ifdef UWSGI_ALARM
@@ -85,6 +87,7 @@ void uwsgi_init_default() {
 
 #ifdef UWSGI_MULTICAST
 	uwsgi.multicast_ttl = 1;
+	uwsgi.multicast_loop = 1;
 #endif
 
 }
@@ -262,7 +265,7 @@ void uwsgi_setup_workers() {
 	}
 
 	total_memory *= (uwsgi.numproc + uwsgi.master_process);
-	uwsgi_log("mapped %llu bytes (%llu KB) for %d cores\n", total_memory, total_memory / 1024, uwsgi.cores * uwsgi.numproc);
+	uwsgi_log("mapped %lu bytes (%lu KB) for %d cores\n", total_memory, total_memory / 1024, uwsgi.cores * uwsgi.numproc);
 
 }
 

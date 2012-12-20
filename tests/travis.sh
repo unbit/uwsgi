@@ -95,12 +95,12 @@ test_rack() {
 
 while read PV ; do
     test_python $PV
-done < <(cat .travis.yml  | grep "plugins/python base" | awk '{print $7}')
+done < <(cat .travis.yml | grep "plugins/python base" | sed s_".*plugins/python base "_""_g)
 
 
 while read RV ; do
     test_rack $RV
-done < <(cat .travis.yml  | grep "plugins/rack base" | awk '{print $8}')
+done < <(cat .travis.yml | grep "plugins/rack base" | sed s_".*plugins/rack base "_""_g)
 
 
 echo "${bldgre}>>> $SUCCESS SUCCESSFUL PLUGIN(S)${txtrst}"

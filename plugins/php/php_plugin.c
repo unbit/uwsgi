@@ -23,6 +23,7 @@ struct uwsgi_php {
 	struct uwsgi_string_list *set;
 	struct uwsgi_string_list *append_config;
 	struct uwsgi_regexp_list *app_bypass;
+	struct uwsgi_string_list *vars;
 	char *docroot;
 	char *app;
 	char *app_qs;
@@ -53,6 +54,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {"php-app-qs", required_argument, 0, "when in app mode force QUERY_STRING to the specified value + REQUEST_URI", uwsgi_opt_set_str, &uphp.app_qs, 0},
         {"php-app-bypass", required_argument, 0, "if the regexp matches the uri the --php-app is bypassed", uwsgi_opt_add_regexp_list, &uphp.app_bypass, 0},
+        {"php-var", required_argument, 0, "add/overwrite a CGI variable at each request", uwsgi_opt_add_string_list, &uphp.vars, 0},
         {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -311,6 +313,16 @@ static void sapi_uwsgi_register_variables(zval *track_vars_array TSRMLS_DC)
 
 	php_register_variable_safe("PHP_SELF", wsgi_req->script_name, wsgi_req->script_name_len, track_vars_array TSRMLS_CC);
 
+	struct uwsgi_string_list *usl = uphp.vars;
+	while(usl) {
+		char *equal = strchr(usl->value, '=');
+		if (equal) {
+			php_register_variable_safe( estrndup(usl->value, equal-usl->value),
+				equal+1, strlen(equal+1), track_vars_array TSRMLS_CC);
+		}
+		usl = usl->next;
+	}
+
 
 }
 
@@ -371,7 +383,7 @@ PHP_FUNCTION(uwsgi_cache_del) {
         }
 
 	uwsgi_wlock(uwsgi.cache_lock);
-        if (uwsgi_cache_del(key, keylen, 0)) {
+        if (uwsgi_cache_del(key, keylen, 0, 0)) {
                 uwsgi_rwunlock(uwsgi.cache_lock);
 		RETURN_TRUE;
         }
@@ -665,6 +677,16 @@ int uwsgi_php_init(void) {
 		uwsgi_log("--- end of PHP custom config ---\n");
 	}
 
+	// fix docroot
+        if (uphp.docroot) {
+		char *orig_docroot = uphp.docroot;
+		uphp.docroot = uwsgi_expand_path(uphp.docroot, strlen(uphp.docroot), NULL);
+		if (!uphp.docroot) {
+			uwsgi_log("unable to set php docroot to %s\n", orig_docroot);
+			exit(1);
+		}
+	}
+
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
 
 	// filling http status codes
@@ -929,7 +951,6 @@ secure2:
         }
 
 secure3:
-
 
 	if (wsgi_req->document_root[wsgi_req->document_root_len-1] == '/') {
 		wsgi_req->script_name = real_filename + (wsgi_req->document_root_len-1);

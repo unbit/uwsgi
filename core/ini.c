@@ -109,7 +109,7 @@ void uwsgi_ini_config(char *file, char *magic_table[]) {
 	}
 
 	if (file[0] != 0) {
-		uwsgi_log("[uWSGI] getting INI configuration from %s\n", file);
+		uwsgi_log_initial("[uWSGI] getting INI configuration from %s\n", file);
 	}
 
 	ini = uwsgi_open_and_read(file, &len, 1, magic_table);

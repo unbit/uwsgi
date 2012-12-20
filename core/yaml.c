@@ -122,7 +122,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 		}
 	}
 
-	uwsgi_log("[uWSGI] getting YAML configuration from %s\n", file);
+	uwsgi_log_initial("[uWSGI] getting YAML configuration from %s\n", file);
 
 	yaml = uwsgi_open_and_read(file, &len, 1, magic_table);
 
@@ -137,7 +137,7 @@ void uwsgi_yaml_config(char *file, char *magic_table[]) {
 		exit(1);
 	}
 
-	yaml_parser_set_input_string(&parser, (const unsigned char *) yaml, (size_t) len - 1);
+	yaml_parser_set_input_string(&parser, (unsigned char *) yaml, (size_t) len - 1);
 
 	while (parsing) {
 		if (!yaml_parser_scan(&parser, &token)) {

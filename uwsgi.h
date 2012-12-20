@@ -37,7 +37,7 @@ extern "C" {
 #define thunder_lock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
 #define thunder_unlock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
 
-#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7) || !uwsgi_startswith(file, "section://", 10))
+#define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "emperor://", 10) || !uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7) || !uwsgi_startswith(file, "section://", 10))
 
 #define ushared uwsgi.shared
 
@@ -132,6 +132,11 @@ extern char UWSGI_EMBED_CONFIG_END;
 #endif
 #endif
 #include <sys/socket.h>
+#ifdef __linux__
+#ifndef MSG_FASTOPEN
+#define MSG_FASTOPEN   0x20000000
+#endif
+#endif
 #undef _GNU_SOURCE
 #include <netinet/in.h>
 
@@ -149,6 +154,11 @@ extern char UWSGI_EMBED_CONFIG_END;
 #include <string.h>
 #include <sys/stat.h>
 #include <netinet/tcp.h>
+#ifdef __linux__
+#ifndef TCP_FASTOPEN
+#define TCP_FASTOPEN 23
+#endif
+#endif
 #include <netdb.h>
 
 #ifdef __FreeBSD__
@@ -286,6 +296,8 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #define UWSGI_CACHE_MAX_KEY_SIZE 2048
 #define UWSGI_CACHE_FLAG_UNGETTABLE	0x0001
 #define UWSGI_CACHE_FLAG_UPDATE		0x0002
+#define UWSGI_CACHE_FLAG_LOCAL		0x0004
+#define UWSGI_CACHE_FLAG_ABSEXPIRE	0x0008
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
@@ -309,6 +321,7 @@ struct uwsgi_string_list {
 	size_t len;
 	uint64_t custom;
 	uint64_t custom2;
+	void *custom_ptr;
 	struct uwsgi_string_list *next;
 };
 
@@ -501,6 +514,35 @@ struct uwsgi_logger {
 	char *arg;
 	struct uwsgi_logger *next;
 };
+
+#ifdef UWSGI_SSL
+struct uwsgi_legion {
+        char *legion;
+        uint16_t legion_len;
+        uint64_t valor;
+        char *addr;
+        time_t lord;
+	time_t last_seen_lord;
+	char *name;
+	uint16_t name_len;
+	pid_t pid;
+        int socket;
+	EVP_CIPHER_CTX *encrypt_ctx;
+	EVP_CIPHER_CTX *decrypt_ctx;
+        struct uwsgi_string_list *nodes;
+        struct uwsgi_string_list *lord_hooks;
+        struct uwsgi_string_list *unlord_hooks;
+        struct uwsgi_string_list *setup_hooks;
+        struct uwsgi_string_list *death_hooks;
+        struct uwsgi_legion *next;
+};
+
+struct uwsgi_legion_action {
+        char *name;
+        int (*func)(struct uwsgi_legion *, char *);
+        struct uwsgi_legion_action *next;
+};
+#endif
 
 struct uwsgi_queue_header {
 	uint64_t pos;
@@ -850,6 +892,9 @@ struct uwsgi_route {
 	void *data2;
 	size_t data2_len;
 
+	void *data3;
+	size_t data3_len;
+
 	// 64bit value for custom usage
 	uint64_t custom;
 
@@ -905,6 +950,7 @@ struct uwsgi_alarm_ll {
 struct uwsgi_alarm_log {
 	pcre *pattern;
         pcre_extra *pattern_extra;
+	int negate;
 	struct uwsgi_alarm_ll *alarms;
 	struct uwsgi_alarm_log *next;
 };
@@ -1216,6 +1262,8 @@ struct uwsgi_server {
 	// quiet startup
 	int no_initial_output;
 
+	struct uwsgi_string_list *get_list;
+
 	// enable threads
 	int has_threads;
 	int no_threads_wait;
@@ -1261,6 +1309,8 @@ struct uwsgi_server {
 	uint64_t master_cycles;
 
 	int reuse_port;
+	int tcp_fast_open;
+	int tcp_fast_open_client;
 
 	// enable lazy mode
 	int lazy;
@@ -1588,6 +1638,7 @@ struct uwsgi_server {
 
 #ifdef UWSGI_MULTICAST
 	int multicast_ttl;
+	int multicast_loop;
 	char *multicast_group;
 #endif
 
@@ -1833,6 +1884,10 @@ struct uwsgi_server {
 	int cache_expire_freq;
 	int cache_report_freed_items;
 
+	struct uwsgi_string_list *cache_udp_server;
+	struct uwsgi_string_list *cache_udp_node;
+	int cache_udp_node_socket;
+
 	char *cache_server;
 	int cache_server_threads;
 	int cache_server_fd;
@@ -1886,6 +1941,20 @@ struct uwsgi_server {
 #ifdef UWSGI_SSL
 	int ssl_initialized;
 	int ssl_verbose;
+	int ssl_sessions_use_cache;
+	int ssl_sessions_timeout;
+#ifdef UWSGI_PCRE
+	struct uwsgi_regexp_list *sni_regexp;
+#endif
+	struct uwsgi_string_list *sni;
+#endif
+
+#ifdef UWSGI_SSL
+	struct uwsgi_legion *legions;
+	struct uwsgi_legion_action *legion_actions;
+	int legion_queue;
+	int legion_freq;
+	int legion_tolerance;
 #endif
 
 #ifdef __linux__
@@ -2009,6 +2078,10 @@ struct uwsgi_shared {
 
 	uint64_t cache_first_available_item;
 	uint64_t cache_unused_stack_ptr;
+	uint64_t cache_hits;
+	uint64_t cache_miss;
+	uint64_t cache_items;
+	uint64_t cache_full;
 
 
 	int worker_signal_pipe[2];
@@ -2410,7 +2483,7 @@ ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t
 char *uwsgi_cluster_best_node(void);
 
 int uwsgi_cache_set(char *, uint16_t, char *, uint64_t, uint64_t, uint16_t);
-int uwsgi_cache_del(char *, uint16_t, uint64_t);
+int uwsgi_cache_del(char *, uint16_t, uint64_t, uint16_t);
 char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists(char *, uint16_t);
 
@@ -2993,6 +3066,8 @@ void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
+void uwsgi_opt_add_addr_list(char *, char *, void *);
+void uwsgi_opt_add_string_list_custom(char *, char *, void *);
 void uwsgi_opt_add_dyn_dict(char *, char *, void *);
 #ifdef UWSGI_PCRE
 void uwsgi_opt_pcre_jit(char *, char *, void *);
@@ -3017,6 +3092,10 @@ void uwsgi_opt_load_dl(char *, char *, void *);
 void uwsgi_opt_load(char *, char *, void *);
 void uwsgi_opt_cluster_log(char *, char *, void *);
 void uwsgi_opt_cluster_reload(char *, char *, void *);
+
+#ifdef UWSGI_SSL
+void uwsgi_opt_sni(char *, char *, void *);
+#endif
 
 void uwsgi_opt_flock(char *, char *, void *);
 void uwsgi_opt_flock_wait(char *, char *, void *);
@@ -3364,9 +3443,13 @@ int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
 int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
+int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
+int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
+int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint64_t);
+int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t);
 
 void uwsgi_httpize_var(char *, size_t);
-struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t);
+struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 ssize_t uwsgi_pipe(int, int, int);
 ssize_t uwsgi_pipe_sized(int, int, size_t, int);
@@ -3476,10 +3559,33 @@ void uwsgi_cache_wlock(void);
 void uwsgi_cache_rlock(void);
 void uwsgi_cache_rwunlock(void);
 
+void *cache_sweeper_loop(void *);
+void *cache_udp_server_loop(void *);
+
 void uwsgi_user_lock(int);
 void uwsgi_user_unlock(int);
 
 void simple_loop_run_int(int);
+
+char *uwsgi_strip(char *);
+
+#ifdef UWSGI_SSL
+void uwsgi_opt_legion(char *, char *, void *);
+void uwsgi_opt_legion_node(char *, char *, void *);
+void uwsgi_opt_legion_hook(char *, char *, void *);
+void uwsgi_legion_add(struct uwsgi_legion *);
+char *uwsgi_ssl_rand(size_t);
+void uwsgi_start_legions(void);
+int uwsgi_legion_announce(struct uwsgi_legion *);
+struct uwsgi_legion_action *uwsgi_legion_action_get(char *);
+void uwsgi_legion_action_register(char *, int (*)(struct uwsgi_legion *, char *));
+int uwsgi_legion_action_call(char *, struct uwsgi_legion *, struct uwsgi_string_list *);
+void uwsgi_legion_atexit(void);
+#endif
+
+struct uwsgi_option *uwsgi_opt_get(char *);
+int uwsgi_valid_fd(int);
+void uwsgi_close_all_fds(void);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

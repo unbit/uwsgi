@@ -325,7 +325,7 @@ static void emperor_stats() {
 
 	while (c_ui) {
 
-		uwsgi_log("vassal instance %s (last modified %d) status %d loyal %d zerg %d\n", c_ui->name, c_ui->last_mod, c_ui->status, c_ui->loyal, c_ui->zerg);
+		uwsgi_log("vassal instance %s (last modified %lld) status %d loyal %d zerg %d\n", c_ui->name, (long long) c_ui->last_mod, c_ui->status, c_ui->loyal, c_ui->zerg);
 
 		c_ui = c_ui->ui_next;
 	}
@@ -417,17 +417,28 @@ void emperor_stop(struct uwsgi_instance *c_ui) {
 
 void emperor_respawn(struct uwsgi_instance *c_ui, time_t mod) {
 
+	struct uwsgi_header uh;
+
 	// reload the uWSGI instance
+	if (write(c_ui->pipe[0], "\1", 1) != 1) {
+		uwsgi_error("write()");
+	}
+
+	// push the config to the config pipe (if needed)
 	if (c_ui->use_config) {
-		if (write(c_ui->pipe[0], "\0", 1) != 1) {
-			uwsgi_error("write()");
+		uh.modifier1 = 115;
+		uh.pktsize = c_ui->config_len;
+		uh.modifier2 = 0;
+		if (write(c_ui->pipe_config[0], &uh, 4) != 4) {
+			uwsgi_error("[uwsgi-emperor] write() header config");
+		}
+		else {
+			if (write(c_ui->pipe_config[0], c_ui->config, c_ui->config_len) != (long) c_ui->config_len) {
+                		uwsgi_error("[uwsgi-emperor] write() config");
+        		}
 		}
 	}
-	else {
-		if (write(c_ui->pipe[0], "\1", 1) != 1) {
-			uwsgi_error("write()");
-		}
-	}
+
 
 	c_ui->respawns++;
 	c_ui->last_mod = mod;
@@ -454,7 +465,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 #endif
 
 	if (strlen(name) > (0xff - 1)) {
-		uwsgi_log("[emperor] invalid vassal name\n", name);
+		uwsgi_log("[emperor] invalid vassal name: %s\n", name);
 		return;
 	}
 
@@ -565,10 +576,19 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 		}
 
 		if (n_ui->use_config) {
-			if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) <= 0) {
-				uwsgi_error("write()");
-			}
-			close(n_ui->pipe_config[0]);
+			struct uwsgi_header uh;
+			uh.modifier1 = 115;
+                	uh.pktsize = n_ui->config_len;
+                	uh.modifier2 = 0;
+                	if (write(n_ui->pipe_config[0], &uh, 4) != 4) {
+                        	uwsgi_error("[uwsgi-emperor] write() header config");
+                	}
+                	else {
+                        	if (write(n_ui->pipe_config[0], n_ui->config, n_ui->config_len) != (long) n_ui->config_len) {
+                                	uwsgi_error("[uwsgi-emperor] write() config");
+                        	}
+                	}
+
 		}
 		return;
 	}
@@ -709,7 +729,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 			exit(1);
 		}
 		if (stdin_fd != 0) {
-			if (dup2(stdin_fd, 0)) {
+			if (dup2(stdin_fd, 0) < 0) {
 				uwsgi_error("dup2()");
 				exit(1);
 			}
@@ -783,6 +803,8 @@ void uwsgi_imperial_monitor_directory_init(struct uwsgi_emperor_scanner *ues) {
 		uwsgi_error("realpath()");
 		exit(1);
 	}
+
+	ues->arg = uwsgi.emperor_absolute_dir;
 
 }
 
@@ -988,9 +1010,9 @@ void emperor_loop() {
 			}
 
 			// check if a monitor is mapped to that file descriptor
-			if (uwsgi_emperor_scanner_event(interesting_fd))
+			if (uwsgi_emperor_scanner_event(interesting_fd)) {
 				continue;
-
+			}
 
 			ui_current = emperor_get_by_fd(interesting_fd);
 			if (ui_current) {
@@ -998,9 +1020,7 @@ void emperor_loop() {
 				ssize_t rlen = read(interesting_fd, &byte, 1);
 				if (rlen <= 0) {
 					// SAFE
-					if (!ui_current->config_len) {
-						emperor_del(ui_current);
-					}
+					emperor_del(ui_current);
 				}
 				else {
 					if (byte == 17) {
@@ -1380,16 +1400,25 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *ues, char *name, char
 		}
 		// check if mtime is changed and the uWSGI instance must be reloaded
 		if (ts > ui_current->last_mod) {
-			// make a new config (free the old one)
-			free(ui_current->config);
-			ui_current->config = config;
-			ui_current->config_len = strlen(config);
-			// always respawn (no need for amqp-style rules)
+			// make a new config (free the old one) if needed
+			if (config) {
+				if (ui_current->config)
+					free(ui_current->config);
+				ui_current->config = uwsgi_str(config);
+				ui_current->config_len = strlen(ui_current->config);
+			}
+			// reload the instance
 			emperor_respawn(ui_current, ts);
 		}
 	}
 	else {
 		// make a copy of the config as it will be freed
-		emperor_add(ues, name, ts, uwsgi_str(config), strlen((const char *) config), uid, gid);
+		char *new_config = NULL;
+		size_t new_config_len = 0;
+		if (config) {
+			new_config = uwsgi_str(config);
+			new_config_len = strlen(new_config);
+		}
+		emperor_add(ues, name, ts, new_config, new_config_len, uid, gid);
 	}
 }

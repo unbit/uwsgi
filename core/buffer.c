@@ -77,6 +77,41 @@ int uwsgi_buffer_append(struct uwsgi_buffer *ub, char *buf, size_t len) {
 	return 0;
 }
 
+int uwsgi_buffer_u16le(struct uwsgi_buffer *ub, uint16_t num) {
+	uint8_t buf[2];
+	buf[0] = (uint8_t) (num & 0xff);
+        buf[1] = (uint8_t) ((num >> 8) & 0xff);
+	return uwsgi_buffer_append(ub, (char *) buf, 2);
+}
+
+int uwsgi_buffer_num64(struct uwsgi_buffer *ub, int64_t num) {
+	char buf[sizeof(UMAX64_STR)+1];
+	int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%lld", (long long) num);
+	if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+		return -1;
+	}
+	return uwsgi_buffer_append(ub, buf, ret);
+}
+
+int uwsgi_buffer_append_keyval(struct uwsgi_buffer *ub, char *key, uint16_t keylen, char *val, uint64_t vallen) {
+	if (uwsgi_buffer_u16le(ub, keylen)) return -1;
+	if (uwsgi_buffer_append(ub, key, keylen)) return -1;
+	if (uwsgi_buffer_u16le(ub, vallen)) return -1;
+	return uwsgi_buffer_append(ub, val, vallen);
+}
+
+int uwsgi_buffer_append_keynum(struct uwsgi_buffer *ub, char *key, uint16_t keylen, int64_t num) {
+	char buf[sizeof(UMAX64_STR)+1];
+        int ret = snprintf(buf, (sizeof(UMAX64_STR)+1), "%lld", (long long) num);
+        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+                return -1;
+        }
+	if (uwsgi_buffer_u16le(ub, keylen)) return -1;
+	if (uwsgi_buffer_append(ub, key, keylen)) return -1;
+	if (uwsgi_buffer_u16le(ub, ret)) return -1;
+	return uwsgi_buffer_append(ub, buf, ret);
+}
+
 void uwsgi_buffer_destroy(struct uwsgi_buffer *ub) {
 	if (ub->buf)
 		free(ub->buf);

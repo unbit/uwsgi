@@ -323,7 +323,7 @@ static int uwsgi_lua_input(lua_State *L) {
 	sum = lua_tonumber(L, 2);
 
 	if (n > 1) {
-		uwsgi_log("requested %d bytes\n", sum);
+		uwsgi_log("requested %ld bytes\n", (long) sum);
 	}
 
 	buf = uwsgi_malloc(sum);
@@ -666,7 +666,7 @@ uint16_t uwsgi_lua_rpc(void * func, uint8_t argc, char **argv, uint16_t argvs[],
 	
 	sv = lua_tolstring(L, -1, &sl);
 
-	uwsgi_log("sv = %s sl = %d\n", sv, sl);
+	uwsgi_log("sv = %s sl = %lu\n", sv, (unsigned long) sl);
 	if (sl <= 0xffff) {
 		memcpy(buffer, sv, sl);
 		return sl;

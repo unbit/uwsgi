@@ -33,15 +33,20 @@ if not GCC:
 
 CPP = os.environ.get('CPP', 'cpp')
 
-CPUCOUNT = 1
 try:
-    import multiprocessing
-    CPUCOUNT = multiprocessing.cpu_count()
+    CPUCOUNT = int(os.environ.get('CPUCOUNT', -1))
 except:
+    CPUCOUNT = -1
+
+if CPUCOUNT < 1:
     try:
-        CPUCOUNT = int(os.sysconf('SC_NPROCESSORS_ONLN'))
+        import multiprocessing
+        CPUCOUNT = multiprocessing.cpu_count()
     except:
-        pass
+        try:
+            CPUCOUNT = int(os.sysconf('SC_NPROCESSORS_ONLN'))
+        except:
+            CPUCOUNT = 1
 
 binary_list = []
 
@@ -340,12 +345,16 @@ def build_uwsgi(uc, print_only=False):
                     pass
 
                 for cfile in up.GCC_LIST:
-                    if not cfile.endswith('.a'):
+                    if cfile.endswith('.a'):
+                        gcc_list.append(cfile)
+                    elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m'):
                         compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
                             path + '/' + cfile + '.o', path + '/' + cfile + '.c')
                         gcc_list.append('%s/%s' % (path, cfile))
                     else:
-                        gcc_list.append(cfile)
+                        compile(' '.join(uniq_warnings(p_cflags)), last_cflags_ts,
+                            path + '/' + cfile + '.o', path + '/' + cfile)
+                        gcc_list.append('%s/%s' % (path, cfile))
 
                 libs += up.LIBS
 
@@ -1003,11 +1012,15 @@ class uConf(object):
                     self.cflags.append("-DUWSGI_SSL")
                     self.libs.append('-lssl')
                     self.libs.append('-lcrypto')
+                    self.gcc_list.append('core/ssl')
+                    self.gcc_list.append('core/legion')
                     report['ssl'] = True
             else:
                 self.cflags.append("-DUWSGI_SSL")
                 self.libs.append('-lssl')
                 self.libs.append('-lcrypto')
+                self.gcc_list.append('core/ssl')
+                self.gcc_list.append('core/legion')
                 report['ssl'] = True
 
 

@@ -1,5 +1,18 @@
 *** current ***
 
+ * 1.5
+
+- added --not-alarm-log
+- support for TCP_FASTOPEN (Linux-only)
+- improved emperor reloading
+- added --get
+- Legion subsystem
+- emperor_zeromq plugin
+- SNI support
+- distributed SSL session cache
+
+*** november 2012 ***
+
  * 1.4
 
 - gevent improvements

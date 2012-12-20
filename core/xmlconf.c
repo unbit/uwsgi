@@ -47,7 +47,7 @@ void uwsgi_xml_config(char *filename, struct wsgi_request *wsgi_req, char *magic
 		exit(1);
 	}
 
-	uwsgi_log("[uWSGI] parsing config file %s\n", filename);
+	uwsgi_log_initial("[uWSGI] parsing config file %s\n", filename);
 
 	element = xmlDocGetRootElement(doc);
 	if (element == NULL) {

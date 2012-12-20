@@ -229,7 +229,7 @@ char *uwsgi_get_cwd() {
 
 	if (getcwd(cwd, newsize) == NULL && errno == ERANGE) {
 		newsize += 256;
-		uwsgi_log("need a bigger buffer (%d bytes) for getcwd(). doing reallocation.\n", newsize);
+		uwsgi_log("need a bigger buffer (%lu bytes) for getcwd(). doing reallocation.\n", (unsigned long) newsize);
 		free(cwd);
 		cwd = uwsgi_malloc(newsize);
 		if (getcwd(cwd, newsize) == NULL) {
@@ -1128,12 +1128,6 @@ void sanitize_args() {
 		}
 	}
 
-#ifdef UWSGI_HTTP
-	if (uwsgi.http && !uwsgi.http_only) {
-		uwsgi.vacuum = 1;
-	}
-#endif
-
 	if (uwsgi.write_errors_exception_only) {
 		uwsgi.ignore_sigpipe = 1;
 		uwsgi.ignore_write_errors = 1;
@@ -1143,6 +1137,19 @@ void sanitize_args() {
 	if (uwsgi.cheaper_count > 0 && uwsgi.cheaper_count >= uwsgi.numproc) {
 		uwsgi_log("invalid cheaper value: must be lower than processes\n");
 		exit(1);
+	}
+
+	if (uwsgi.cheaper && uwsgi.cheaper_count) {
+		if (uwsgi.cheaper_initial < uwsgi.cheaper_count) {
+			uwsgi_log("warning: invalid cheaper-initial value (%d), must be equal or higher than cheaper (%d), using %d as initial number of workers\n",
+				uwsgi.cheaper_initial, uwsgi.cheaper_count, uwsgi.cheaper_count);
+			uwsgi.cheaper_initial = uwsgi.cheaper_count;
+		}
+		else if (uwsgi.cheaper_initial > uwsgi.numproc) {
+			uwsgi_log("warning: invalid cheaper-initial value (%d), must be lower or equal than worker count (%d), using %d as initial number of workers\n",
+				uwsgi.cheaper_initial, uwsgi.numproc, uwsgi.numproc);
+			uwsgi.cheaper_initial = uwsgi.numproc;
+		}
 	}
 
 	if (uwsgi.auto_snapshot > 0 && uwsgi.auto_snapshot > uwsgi.numproc) {
@@ -2463,29 +2470,50 @@ char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[
 			uwsgi_log("this is not a vassal instance\n");
 			exit(1);
 		}
-		char *tmp_buffer[4096];
-		ssize_t rlen = 1;
+		ssize_t rlen;
 		*size = 0;
-		while (rlen > 0) {
-			rlen = read(uwsgi.emperor_fd_config, tmp_buffer, 4096);
-			if (rlen > 0) {
-				*size += rlen;
-				buffer = realloc(buffer, *size);
-				if (!buffer) {
-					uwsgi_error("realloc()");
-					exit(1);
-				}
-				memcpy(buffer + (*size - rlen), tmp_buffer, rlen);
+		struct uwsgi_header uh;
+		size_t remains = 4;
+		char *ptr = (char *) &uh;
+		while(remains) {
+			int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
+			if (ret <= 0) {
+				uwsgi_log("[uwsgi-vassal] error waiting for config header %s !!!\n", url);
+				exit(1);
 			}
+			rlen = read(uwsgi.emperor_fd_config, ptr, remains);
+			if (rlen <= 0) {
+				uwsgi_log("[uwsgi-vassal] error reading config header from !!!\n", url);
+				exit(1);
+			}
+			ptr+=rlen;
+			remains-=rlen;
 		}
-		close(uwsgi.emperor_fd_config);
-		uwsgi.emperor_fd_config = -1;
 
-		if (add_zero) {
-			*size = *size + 1;
-			buffer = realloc(buffer, *size);
-			buffer[*size - 1] = 0;
+		remains = uh.pktsize;
+		if (!remains) {
+			uwsgi_log("[uwsgi-vassal] invalid config from %s\n", url);
+			exit(1);
 		}
+
+		buffer = uwsgi_calloc(remains + add_zero);
+		ptr = buffer;
+		while (remains) {
+			int ret = uwsgi_waitfd(uwsgi.emperor_fd_config, 5);
+                        if (ret <= 0) {
+                                uwsgi_log("[uwsgi-vassal] error waiting for config %s !!!\n", url);
+                                exit(1);
+                        }
+			rlen = read(uwsgi.emperor_fd_config, ptr, remains);
+			if (rlen <= 0) {
+                                uwsgi_log("[uwsgi-vassal] error reading config from !!!\n", url);
+                                exit(1);
+                        }
+                        ptr+=rlen;
+                        remains-=rlen;
+		}
+
+		*size = uh.pktsize + add_zero;
 	}
 #ifdef UWSGI_EMBED_CONFIG
 	else if (url[0] == 0) {
@@ -2894,7 +2922,7 @@ size_t uwsgi_str_num(char *str, int len) {
 	int i;
 	size_t num = 0;
 
-	size_t delta = pow(10, len);
+	uint64_t delta = pow(10, len);
 
 	for (i = 0; i < len; i++) {
 		delta = delta / 10;
@@ -3274,9 +3302,45 @@ pid_t uwsgi_run_command(char *command, int *stdin_fd, int stdout_fd) {
 	}
 
 	uwsgi_close_all_sockets();
+	//uwsgi_close_all_fds();
+	int i;
+	for (i = 3; i < (int) uwsgi.max_fd; i++) {
+		if (stdin_fd) {
+			if (i == stdin_fd[0] || i == stdin_fd[1]) {
+				continue;
+			} 
+		}
+		if (stdout_fd > -1) {
+			if (i == stdout_fd) {
+				continue;
+			}
+		}
+#ifdef __APPLE__
+                fcntl(i, F_SETFD, FD_CLOEXEC);
+#else
+                close(i);
+#endif
+        }
+
+	
 
 	if (stdin_fd) {
 		close(stdin_fd[1]);
+	}
+	else {
+		if (!uwsgi_valid_fd(0)) {
+			int in_fd = open("/dev/null", O_RDONLY);
+			if (in_fd < 0) {
+				uwsgi_error_open("/dev/null");
+			}
+			else {
+				if (in_fd != 0) {
+					if (dup2(in_fd, 0) < 0) {
+						uwsgi_error("dup2()");
+					}
+				}
+			}
+		}
 	}
 
 	if (stdout_fd > -1 && stdout_fd != 1) {
@@ -4071,17 +4135,37 @@ struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int
 
 char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 
+	// touch->value   - file path
+	// touch->custom  - file timestamp
+	// touch->custom2 - 0 if file exists, 1 if it does not exists
+
 	struct uwsgi_string_list *touch = touch_list;
 	while (touch) {
 		struct stat tr_st;
 		if (stat(touch->value, &tr_st)) {
-			uwsgi_log("unable to stat() %s, events will be triggered as soon as the file is created\n", touch->value);
+			if (touch->custom && !touch->custom2) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("[uwsgi-check-touches] File %s was removed\n", touch->value);
+#endif
+				touch->custom2 = 1;
+				return touch->value;
+			}
+			else if (!touch->custom && !touch->custom2) {
+				uwsgi_log("unable to stat() %s, events will be triggered as soon as the file is created\n", touch->value);
+				touch->custom2 = 1;
+			}
 			touch->custom = 0;
 		}
 		else {
-			if (!touch->custom)
+			if (!touch->custom && touch->custom2) {
+#ifdef UWSGI_DEBUG
+				uwsgi_log("[uwsgi-check-touches] File was created: %s\n", touch->value);
+#endif
 				touch->custom = (uint64_t) tr_st.st_mtime;
-			if ((uint64_t) tr_st.st_mtime > touch->custom) {
+				touch->custom2 = 0;
+				return touch->value;
+			}
+			else if (touch->custom && (uint64_t) tr_st.st_mtime > touch->custom) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("[uwsgi-check-touches] modification detected on %s: %llu -> %llu\n", touch->value, (unsigned long long) touch->custom, (unsigned long long) tr_st.st_mtime);
 #endif
@@ -4141,7 +4225,7 @@ void uwsgi_setup_post_buffering() {
 
 	if (uwsgi.post_buffering_bufsize < uwsgi.post_buffering) {
 		uwsgi.post_buffering_bufsize = uwsgi.post_buffering;
-		uwsgi_log("setting request body buffering size to %d bytes\n", uwsgi.post_buffering_bufsize);
+		uwsgi_log("setting request body buffering size to %lu bytes\n", (unsigned long) uwsgi.post_buffering_bufsize);
 	}
 
 }
@@ -4263,262 +4347,6 @@ char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 	return dst;
 }
 
-#ifdef UWSGI_SSL
-
-/*
-
-ssl additional datas are retrieved via indexes.
-
-You can create an index with SSL_CTX_get_ex_new_index and
-set data in it with SSL_CTX_set_ex_data
-
-*/
-
-void uwsgi_ssl_init(void) {
-	OPENSSL_config(NULL);
-	SSL_library_init();
-	SSL_load_error_strings();
-	OpenSSL_add_all_algorithms();
-	uwsgi.ssl_initialized = 1;
-}
-
-void uwsgi_ssl_info_cb(SSL const *ssl, int where, int ret) {
-	if (where & SSL_CB_HANDSHAKE_DONE) {
-		if (ssl->s3) {
-			ssl->s3->flags |= SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS;
-		}
-	}
-}
-
-int uwsgi_ssl_verify_callback(int ok, X509_STORE_CTX * x509_store) {
-	return 1;
-}
-
-SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ciphers, char *client_ca) {
-
-	SSL_CTX *ctx = SSL_CTX_new(SSLv23_server_method());
-	if (!ctx) {
-		uwsgi_log("unable to initialize ssl context\n");
-		exit(1);
-	}
-
-	// this part is taken from nginx and stud, removing unneeded functionality
-	// stud (for me) has made the best choice on choosing DH approach
-
-	long ssloptions = SSL_OP_NO_SSLv2 | SSL_OP_ALL | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
-// disable compression (if possibile)
-#ifdef SSL_OP_NO_COMPRESSION
-	ssloptions |= SSL_OP_NO_COMPRESSION;
-#endif
-	SSL_CTX_set_options(ctx, ssloptions);
-
-// release/reuse buffers as soon as possibile
-#ifdef SSL_MODE_RELEASE_BUFFERS
-	SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
-#endif
-
-	if (SSL_CTX_use_certificate_chain_file(ctx, crt) <= 0) {
-		uwsgi_log("unable to assign ssl certificate %s\n", crt);
-		exit(1);
-	}
-
-// this part is based from stud
-	BIO *bio = BIO_new_file(crt, "r");
-	if (bio) {
-		DH *dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
-		BIO_free(bio);
-		if (dh) {
-			SSL_CTX_set_tmp_dh(ctx, dh);
-			DH_free(dh);
-#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
-#ifndef OPENSSL_NO_ECDH
-#ifdef NID_X9_62_prime256v1
-			EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-			SSL_CTX_set_tmp_ecdh(ctx, ecdh);
-			EC_KEY_free(ecdh);
-#endif
-#endif
-#endif
-		}
-	}
-
-	if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
-		uwsgi_log("unable to assign key certificate %s\n", key);
-		exit(1);
-	}
-
-	// if ciphers are specified, prefer server ciphers
-	if (ciphers && strlen(ciphers) > 0) {
-		if (SSL_CTX_set_cipher_list(ctx, ciphers) == 0) {
-			uwsgi_log("unable to set ssl requested ciphers: %s\n", ciphers);
-			exit(1);
-		}
-
-		SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
-	}
-
-	// set session context (if possibile), this is required for client certificate authentication
-	if (name) {
-		SSL_CTX_set_session_id_context(ctx, (unsigned char *) name, strlen(name));
-	}
-
-	if (client_ca) {
-		if (client_ca[0] == '!') {
-			SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, uwsgi_ssl_verify_callback);
-			client_ca++;
-		}
-		else {
-			SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, uwsgi_ssl_verify_callback);
-		}
-		// in the future we should allow to set the verify depth
-		SSL_CTX_set_verify_depth(ctx, 1);
-		if (SSL_CTX_load_verify_locations(ctx, client_ca, NULL) == 0) {
-			uwsgi_log("unable to set ssl verify locations for: %s\n", client_ca);
-			exit(1);
-		}
-		STACK_OF(X509_NAME) * list = SSL_load_client_CA_file(client_ca);
-		if (!list) {
-			uwsgi_log("unable to load client CA certificate: %s\n", client_ca);
-			exit(1);
-		}
-
-		SSL_CTX_set_client_CA_list(ctx, list);
-	}
-
-
-	SSL_CTX_set_info_callback(ctx, uwsgi_ssl_info_cb);
-
-	// disable session caching by default
-	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
-
-/*
-	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
-#ifdef UWSGI_DEBUG
-	uwsgi_log("[uwsgi-ssl] initialized ssl session cache: %s\n", name);
-#endif
-	//SSL_CTX_set_timeout
-	//SSL_CTX_sess_set_cache_size
-	}
-*/
-
-	return ctx;
-}
-
-
-char *uwsgi_rsa_sign(char *algo_key, char *message, size_t message_len, unsigned int *s_len) {
-
-	// openssl could not be initialized
-	if (!uwsgi.ssl_initialized) {
-		uwsgi_ssl_init();
-	}
-
-	*s_len = 0;
-	EVP_PKEY *pk = NULL;
-
-	char *algo = uwsgi_str(algo_key);
-	char *colon = strchr(algo, ':');
-	if (!colon) {
-		uwsgi_log("invalid RSA signature syntax, must be: <digest>:<pemfile>\n");
-		free(algo);
-		return NULL;
-	}
-
-	*colon = 0;
-	char *keyfile = colon + 1;
-	char *signature = NULL;
-
-	FILE *kf = fopen(keyfile, "r");
-	if (!kf) {
-		uwsgi_error_open(keyfile);
-		free(algo);
-		return NULL;
-	}
-
-	if (PEM_read_PrivateKey(kf, &pk, NULL, NULL) == 0) {
-		uwsgi_log("unable to load private key: %s\n", keyfile);
-		free(algo);
-		fclose(kf);
-		return NULL;
-	}
-
-	fclose(kf);
-
-	EVP_MD_CTX *ctx = EVP_MD_CTX_create();
-	if (!ctx) {
-		free(algo);
-		EVP_PKEY_free(pk);
-		return NULL;
-	}
-
-	const EVP_MD *md = EVP_get_digestbyname(algo);
-	if (!md) {
-		uwsgi_log("unknown digest algo: %s\n", algo);
-		free(algo);
-		EVP_PKEY_free(pk);
-		EVP_MD_CTX_destroy(ctx);
-		return NULL;
-	}
-
-	*s_len = EVP_PKEY_size(pk);
-	signature = uwsgi_malloc(*s_len);
-
-	if (EVP_SignInit_ex(ctx, md, NULL) == 0) {
-		ERR_print_errors_fp(stderr);
-		free(signature);
-		signature = NULL;
-		*s_len = 0;
-		goto clear;
-	}
-
-	if (EVP_SignUpdate(ctx, message, message_len) == 0) {
-		ERR_print_errors_fp(stderr);
-		free(signature);
-		signature = NULL;
-		*s_len = 0;
-		goto clear;
-	}
-
-
-	if (EVP_SignFinal(ctx, (unsigned char *) signature, s_len, pk) == 0) {
-		ERR_print_errors_fp(stderr);
-		free(signature);
-		signature = NULL;
-		*s_len = 0;
-		goto clear;
-	}
-
-clear:
-	free(algo);
-	EVP_PKEY_free(pk);
-	EVP_MD_CTX_destroy(ctx);
-	return signature;
-
-}
-
-char *uwsgi_sanitize_cert_filename(char *base, char *key, uint16_t keylen) {
-	uint16_t i;
-	char *filename = uwsgi_concat4n(base, strlen(base), "/", 1, key, keylen, ".pem\0", 5);
-
-	for (i = strlen(base) + 1; i < (strlen(base) + 1) + keylen; i++) {
-		if (filename[i] >= '0' && filename[i] <= '9')
-			continue;
-		if (filename[i] >= 'A' && filename[i] <= 'Z')
-			continue;
-		if (filename[i] >= 'a' && filename[i] <= 'z')
-			continue;
-		if (filename[i] == '.')
-			continue;
-		if (filename[i] == '-')
-			continue;
-		if (filename[i] == '_')
-			continue;
-		filename[i] = '_';
-	}
-
-	return filename;
-}
-
-#endif
 
 ssize_t uwsgi_pipe(int src, int dst, int timeout) {
 	char buf[8192];
@@ -5039,3 +4867,48 @@ end:
 	free(symbol_name);
 	return ret;
 }
+
+char *uwsgi_strip(char *src) {
+	char *dst = src ;
+	size_t len = strlen(src);
+	int i;
+
+	for(i=0;i<(ssize_t)len;i++) {
+		if (src[i] == ' ' || src[i] == '\t') {
+			dst++;
+		}	
+	}
+
+	len -= (dst-src);
+
+	for(i=len;i>=0;i--) {
+		if (dst[i] == ' ' || dst[i] == '\t') {
+			dst[i] = 0;	
+		}
+		else {
+			break;
+		}
+	}
+
+	return dst;
+}
+
+int uwsgi_valid_fd(int fd) {
+	int ret = fcntl(fd, F_GETFL);
+	if (ret == 0) {
+		return 1;
+	}
+	return 0;
+}
+
+void uwsgi_close_all_fds(void) {
+	int i;
+	for (i = 3; i < (int) uwsgi.max_fd; i++) {
+#ifdef __APPLE__
+        	fcntl(i, F_SETFD, FD_CLOEXEC);
+#else
+                close(i);
+#endif
+	}
+}
+
