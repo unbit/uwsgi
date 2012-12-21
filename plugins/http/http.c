@@ -361,6 +361,11 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 	// UWSGI_ROUTER
 	if (http_add_uwsgi_var(h_session, "UWSGI_ROUTER", 12, "http", 4)) return -1;
 
+	// stud HTTPS
+	if (h_session->stud_prefix_pos > 0) {
+		if (http_add_uwsgi_var(h_session, "HTTPS", 5, "on", 2)) return -1;
+	}
+
 #ifdef UWSGI_SSL
 	// HTTPS (adapted from nginx)
 	if (h_session->cs.ugs->mode == UWSGI_HTTP_SSL) {
