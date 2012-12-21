@@ -330,6 +330,10 @@ void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
 	PyObject *ret;
 	char *content = PyString_AsString(str);
 	size_t content_len = PyString_Size(str);
+
+	// do not try to write empty chunks
+	if (content_len == 0) return;
+
 	/// create a watcher for writes
 	PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 2);
 	if (!watcher) goto error;
