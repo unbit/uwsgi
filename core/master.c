@@ -491,17 +491,22 @@ int uwsgi_get_tcp_info(int fd) {
 	socklen_t tis = sizeof(struct tcp_info);
 
 	if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &uwsgi.shared->ti, &tis)) {
-		// a check for older linux kernels
+
+		// checks for older kernels
+#if defined(__linux__)
 		if (!uwsgi.shared->ti.tcpi_sacked) {
-			return -1;
-		}
+#elif defined(__FreeBSD__)
+		if (!uwsgi.shared->ti.__tcpi_sacked) {
+#endif
+                        return -1;
+                }
 
 #if defined(__linux__)
 		uwsgi.shared->load = uwsgi.shared->ti.tcpi_unacked;
 		uwsgi.shared->max_load = uwsgi.shared->ti.tcpi_sacked;
 #elif defined(__FreeBSD__)
-		uwsgi.shared->load = uwsgi.shared->ti.tcpi_unacked;
-		uwsgi.shared->max_load = uwsgi.shared->ti.tcpi_sacked;
+		uwsgi.shared->load = uwsgi.shared->ti.__tcpi_unacked;
+		uwsgi.shared->max_load = uwsgi.shared->ti.__tcpi_sacked;
 #endif
 
 
