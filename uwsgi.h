@@ -2111,10 +2111,11 @@ struct uwsgi_shared {
 
 	int worker_log_pipe[2];
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__FreeBSD__)
 	struct tcp_info ti;
 #endif
 	uint64_t load;
+	uint64_t max_load;
 	struct uwsgi_cron cron[MAX_CRONS];
 	int cron_cnt;
 

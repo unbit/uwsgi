@@ -175,11 +175,7 @@ char *uwsgi_encode_pydict(PyObject * pydict, uint16_t * size) {
 
 PyObject *py_uwsgi_listen_queue(PyObject * self, PyObject * args) {
 
-#ifdef __linux__
 	return PyInt_FromLong(uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS]);
-#else
-	return NULL;
-#endif
 }
 
 PyObject *py_uwsgi_close(PyObject * self, PyObject * args) {
