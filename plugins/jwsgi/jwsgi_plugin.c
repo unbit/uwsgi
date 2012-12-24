@@ -34,19 +34,19 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     int hlen;
 
     if (!wsgi_req->uh.pktsize) {
-                uwsgi_log("Invalid JWSGI request. skip.\n");
-                return -1;
-        }
+        uwsgi_log("Invalid JWSGI request. skip.\n");
+        return -1;
+    }
 
-        if (uwsgi_parse_vars(wsgi_req)) {
-                uwsgi_log("Invalid JWSGI request. skip.\n");
-                return -1;
-        }
+    if (uwsgi_parse_vars(wsgi_req)) {
+        uwsgi_log("Invalid JWSGI request. skip.\n");
+        return -1;
+    }
 
     if ((*ujvm.env)->PushLocalFrame(ujvm.env, MAX_LREFS) < 0) {
-                uwsgi_log("jwsgi can not allocate frame!");
-                return -1;
-        }
+        uwsgi_log("jwsgi can not allocate frame!");
+        return -1;
+    }
 
     jmid = uwsgi_jvm_get_static_method_id(ujvm.main_class, "jwsgi", "(Ljava/util/Hashtable;)[Ljava/lang/Object;");
 
@@ -59,9 +59,9 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     for(i=0;i<cnt;i++) {
 
         if ((*ujvm.env)->PushLocalFrame(ujvm.env, MAX_LREFS) < 0) {
-                    uwsgi_log("jwsgi can not allocate frame!");
-                    return -1;
-            }
+            uwsgi_log("jwsgi can not allocate frame!");
+            return -1;
+        }
 
         hkey = uwsgi_jvm_str_new(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
         hval = uwsgi_jvm_str_new(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
@@ -111,9 +111,9 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     for(i=0;i<hlen;i++) {
 
         if ((*ujvm.env)->PushLocalFrame(ujvm.env, MAX_LREFS) < 0) {
-                    uwsgi_log("jwsgi can not allocate frame!");
-                    return -1;
-            }
+            uwsgi_log("jwsgi can not allocate frame!");
+            return -1;
+        }
 
         header = (*ujvm.env)->CallObjectMethod(ujvm.env, headers, hh_get, i);
         hkey = uwsgi_jvm_array_get(header, 0);
