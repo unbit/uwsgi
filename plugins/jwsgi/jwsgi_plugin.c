@@ -16,7 +16,6 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     int i;
     jobject env;
     jobject hkey, hval;
-    jobject fdkey, fdval;
     jobject response;
 
     jobject status;
@@ -25,8 +24,6 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
 
     const char* body_str;
     const char* status_str;
-    const char* hkey_str;
-    const char* hval_str;
 
     jclass hc;
 
@@ -131,7 +128,6 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
 
     body = uwsgi_jvm_array_get(response, 2);
-
     body_str = (*ujvm.env)->GetStringUTFChars(ujvm.env, body, NULL);
     wsgi_req->response_size = write(wsgi_req->poll.fd, body_str, (*ujvm.env)->GetStringUTFLength(ujvm.env, body));
 

@@ -29,7 +29,7 @@ int uwsgi_jvm_exception(void) {
 }
 
 jclass uwsgi_jvm_get_object_class(jobject obj) {
-    return (*ujvm.env)->GetObjectClass(ujvm.env, obj);
+    return (*ujvm.env)->NewLocalRef(ujvm.env, (*ujvm.env)->GetObjectClass(ujvm.env, obj));
 }
 
 jclass uwsgi_jvm_get_class(char *name) {
@@ -40,7 +40,7 @@ jclass uwsgi_jvm_get_class(char *name) {
         return NULL;
     }
 
-    return my_class;
+    return (*ujvm.env)->NewLocalRef(ujvm.env, my_class);
 }
 
 jmethodID uwsgi_jvm_get_method_id(jclass cls, char *name, char *signature) {
@@ -78,11 +78,11 @@ jobject uwsgi_jvm_str_new(char *str, int len) {
     (*ujvm.env)->DeleteLocalRef(ujvm.env, ba);
     (*ujvm.env)->DeleteLocalRef(ujvm.env, enc);
 
-    return result;
+    return (*ujvm.env)->NewLocalRef(ujvm.env, result);
 }
 
 jobject uwsgi_jvm_str(char *str) {
-    return (*ujvm.env)->NewStringUTF(ujvm.env, str);
+    return (*ujvm.env)->NewLocalRef(ujvm.env, (*ujvm.env)->NewStringUTF(ujvm.env, str));
 }
 
 
@@ -160,7 +160,7 @@ jobject uwsgi_jvm_ht_new() {
         htimid = uwsgi_jvm_get_method_id(ujvm.ht_class, "<init>", "()V");
     }
 
-    return (*ujvm.env)->NewObject(ujvm.env, ujvm.ht_class, htimid);
+    return (*ujvm.env)->NewLocalRef(ujvm.env, (*ujvm.env)->NewObject(ujvm.env, ujvm.ht_class, htimid));
 }
 
 jobject uwsgi_jvm_ht_put(jobject obj, jobject key, jobject val) {
@@ -192,7 +192,7 @@ jobject uwsgi_jvm_fd(int fd) {
 
     (*ujvm.env)->SetIntField(ujvm.env, fd_obj, fd_field, fd);
 
-    return fd_obj;
+    return (*ujvm.env)->NewLocalRef(ujvm.env, fd_obj);
 }
 
 char *uwsgi_jvm_str2c(jobject obj) {
