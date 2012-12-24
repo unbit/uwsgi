@@ -485,42 +485,58 @@ clear:
 
 }
 
-#ifdef __linux__
-int get_linux_tcp_info(int fd) {
+int uwsgi_get_tcp_info(int fd) {
+
+#if defined(__linux__) || defined(__FreeBSD__)
 	socklen_t tis = sizeof(struct tcp_info);
 
 	if (!getsockopt(fd, IPPROTO_TCP, TCP_INFO, &uwsgi.shared->ti, &tis)) {
-		// a check for older linux kernels
+
+		// checks for older kernels
+#if defined(__linux__)
 		if (!uwsgi.shared->ti.tcpi_sacked) {
-			return -1;
-		}
+#elif defined(__FreeBSD__)
+		if (!uwsgi.shared->ti.__tcpi_sacked) {
+#endif
+                        return -1;
+                }
 
+#if defined(__linux__)
 		uwsgi.shared->load = uwsgi.shared->ti.tcpi_unacked;
+		uwsgi.shared->max_load = uwsgi.shared->ti.tcpi_sacked;
+#elif defined(__FreeBSD__)
+		uwsgi.shared->load = uwsgi.shared->ti.__tcpi_unacked;
+		uwsgi.shared->max_load = uwsgi.shared->ti.__tcpi_sacked;
+#endif
 
-		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->ti.tcpi_unacked;
+
+		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->load;
 		if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
-			if ((int) uwsgi.shared->ti.tcpi_unacked >= uwsgi.vassal_sos_backlog) {
+			if ((int) uwsgi.shared->load >= uwsgi.vassal_sos_backlog) {
 				// ask emperor for help
 				char byte = 30;
 				if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
 					uwsgi_error("write()");
 				}
 				else {
-					uwsgi_log("asking emperor for reinforcements (backlog: %d)...\n", (int) uwsgi.shared->ti.tcpi_unacked);
+					uwsgi_log("asking emperor for reinforcements (backlog: %d)...\n", (int) uwsgi.shared->load);
 				}
 			}
 		}
-		if (uwsgi.shared->ti.tcpi_unacked >= uwsgi.shared->ti.tcpi_sacked) {
-			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, uwsgi.shared->ti.tcpi_unacked, uwsgi.shared->ti.tcpi_sacked);
+		if (uwsgi.shared->load >= uwsgi.shared->max_load) {
+			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, uwsgi.shared->load, uwsgi.shared->max_load);
 			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
 		}
 
-		return uwsgi.shared->ti.tcpi_unacked;
+		return uwsgi.shared->load;
 	}
+#endif
 
 	return -1;
 }
 
+
+#ifdef __linux__
 #include <linux/sockios.h>
 
 #ifdef UNBIT
@@ -1277,21 +1293,21 @@ health_cycle:
 				check_interval = 1;
 
 
-#ifdef __linux__
 			// get listen_queue status
 			struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 			while (uwsgi_sock) {
 				if (uwsgi_sock->family == AF_INET) {
-					uwsgi_sock->queue = get_linux_tcp_info(uwsgi_sock->fd);
+					uwsgi_sock->queue = uwsgi_get_tcp_info(uwsgi_sock->fd);
 				}
+#ifdef __linux__
 #ifdef SIOBKLGQ
 				else if (uwsgi_sock->family == AF_UNIX) {
 					uwsgi_sock->queue = get_linux_unbit_SIOBKLGQ(uwsgi_sock->fd);
 				}
 #endif
+#endif
 				uwsgi_sock = uwsgi_sock->next;
 			}
-#endif
 
 			for (i = 1; i <= uwsgi.numproc; i++) {
 				/* first check for harakiri */

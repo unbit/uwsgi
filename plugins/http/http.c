@@ -370,6 +370,11 @@ int http_parse(struct http_session *h_session, size_t http_req_len) {
 	// UWSGI_ROUTER
 	if (http_add_uwsgi_var(h_session, "UWSGI_ROUTER", 12, "http", 4)) return -1;
 
+	// stud HTTPS
+	if (h_session->stud_prefix_pos > 0) {
+		if (http_add_uwsgi_var(h_session, "HTTPS", 5, "on", 2)) return -1;
+	}
+
 #ifdef UWSGI_SSL
 	// HTTPS (adapted from nginx)
 	if (h_session->cs.ugs->mode == UWSGI_HTTP_SSL) {
@@ -530,10 +535,6 @@ ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
         struct http_session *hs = (struct http_session *) cs;
         int ret = SSL_read(hs->ssl, hs->post_buf->buf, hs->post_buf_max);
         if (ret > 0) {
-                // fix waiting
-                if (cs->event_hook_write) {
-                        uwsgi_cr_hook_write(cs, NULL);
-                }
 		int ret2 = SSL_pending(hs->ssl);
                 if (ret2 > 0) {
 			if (uwsgi_buffer_fix(hs->post_buf, hs->post_buf->len + ret2 )) {
@@ -619,9 +620,6 @@ ssize_t hr_write_ssl_response(struct corerouter_session * cs) {
 
 	if (ret > 0) {
         	cs->buffer_pos += ret;
-		if (cs->event_hook_read) {
-			uwsgi_cr_hook_read(cs, NULL);
-		}
 		// could be a partial write
 		uwsgi_cr_hook_write(cs, hr_write_ssl_response);
         	// ok this response chunk is sent, let's wait for another one
@@ -842,9 +840,6 @@ ssize_t hr_send_expect_continue(struct corerouter_session * cs) {
 		if (ret > 0) {
 			len = ret;
 			cs->buffer_pos += ret;
-			if (cs->event_hook_read) {
-                        	uwsgi_cr_hook_read(cs, NULL);
-                	}
                 	// could be a partial write
                 	uwsgi_cr_hook_write(cs, hr_send_expect_continue);
 			goto done;
@@ -943,11 +938,6 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
 	struct http_session *hs = (struct http_session *) cs;
 	int ret = SSL_read(hs->ssl, cs->buffer->buf + cs->buffer_pos, cs->buffer->len - cs->buffer_pos);
 	if (ret > 0) {
-		// fix waiting
-		if (cs->event_hook_write) {
-			uwsgi_cr_hook_write(cs, NULL);
-			uwsgi_cr_hook_read(cs, hr_recv_http_ssl);
-		}
 		int ret2 = SSL_pending(hs->ssl);
 		if (ret2 > 0) {
 			if (uwsgi_buffer_fix(cs->buffer, cs->buffer->len + ret2 )) {
