@@ -24,6 +24,8 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
 
     const char* body_str;
     const char* status_str;
+    const char* hkey_str;
+    const char* hval_str;
 
     jclass hc;
 
@@ -115,14 +117,18 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
         header = (*ujvm.env)->CallObjectMethod(ujvm.env, headers, hh_get, i);
         hkey = uwsgi_jvm_array_get(header, 0);
         hval = uwsgi_jvm_array_get(header, 1);
+        hkey_str = uwsgi_jvm_str2c(hkey);
+        hval_str = uwsgi_jvm_str2c(hval);
 
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, uwsgi_jvm_str2c(hkey), uwsgi_jvm_strlen2c(hkey));
+        wsgi_req->headers_size += write(wsgi_req->poll.fd, hkey_str, uwsgi_jvm_strlen2c(hkey));
         wsgi_req->headers_size += write(wsgi_req->poll.fd, ": ", 2);
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, uwsgi_jvm_str2c(hval), uwsgi_jvm_strlen2c(hval));
+        wsgi_req->headers_size += write(wsgi_req->poll.fd, hval_str, uwsgi_jvm_strlen2c(hval));
         wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
 
-        (*ujvm.env)->PopLocalFrame(ujvm.env, NULL);
+        (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, hkey, hkey_str);
+        (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, hval, hval_str);
 
+        (*ujvm.env)->PopLocalFrame(ujvm.env, NULL);
     }
 
     wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
@@ -130,6 +136,7 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     body = uwsgi_jvm_array_get(response, 2);
     body_str = (*ujvm.env)->GetStringUTFChars(ujvm.env, body, NULL);
     wsgi_req->response_size = write(wsgi_req->poll.fd, body_str, (*ujvm.env)->GetStringUTFLength(ujvm.env, body));
+    (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, body, status_str);
 
     (*ujvm.env)->PopLocalFrame(ujvm.env, NULL);
 
