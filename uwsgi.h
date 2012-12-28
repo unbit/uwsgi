@@ -1892,6 +1892,7 @@ struct uwsgi_server {
 	int cache_server_threads;
 	int cache_server_fd;
 	pthread_mutex_t cache_server_lock;
+	char *cache_sync;
 
 	// the stats server
 	char *stats;
@@ -2855,6 +2856,9 @@ void uwsgi_init_all_apps(void);
 void uwsgi_init_worker_mount_apps(void);
 void uwsgi_socket_nb(int);
 void uwsgi_socket_b(int);
+int uwsgi_write_nb(int, char *, size_t, int);
+int uwsgi_read_nb(int, char *, size_t, int);
+int uwsgi_read_uh(int fd, struct uwsgi_header *, int);
 
 void uwsgi_destroy_request(struct wsgi_request *);
 
@@ -3587,6 +3591,8 @@ void uwsgi_legion_atexit(void);
 struct uwsgi_option *uwsgi_opt_get(char *);
 int uwsgi_valid_fd(int);
 void uwsgi_close_all_fds(void);
+
+int check_hex(char *, int);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

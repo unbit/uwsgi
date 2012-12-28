@@ -1,6 +1,8 @@
 #include "../../uwsgi.h"
 
-void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+extern struct uwsgi_server uwsgi;
+
+static void cache_command(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
         struct wsgi_request *wsgi_req = (struct wsgi_request *) data;
         uint64_t tmp_vallen = 0;
@@ -90,6 +92,31 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
                                 }
                         }
                         break;
+		case 6:
+			// dump
+			wsgi_req->uh.modifier2 = 7;
+			struct uwsgi_buffer *cache_dump = uwsgi_buffer_new(4096);
+			if (uwsgi_buffer_append_keynum(cache_dump, "items", 5, uwsgi.cache_max_items)) {
+				uwsgi_buffer_destroy(cache_dump);
+				break;
+			}
+			if (uwsgi_buffer_append_keynum(cache_dump, "blocksize", 9, uwsgi.cache_blocksize)) {
+				uwsgi_buffer_destroy(cache_dump);
+				break;
+			}
+
+                        wsgi_req->uh.pktsize = cache_dump->pos;
+			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, (char *)&wsgi_req->uh, 4);
+			wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, cache_dump->buf, cache_dump->pos);
+			uwsgi_buffer_destroy(cache_dump);
+			uwsgi_wlock(uwsgi.cache_lock);
+			uwsgi_socket_nb(wsgi_req->poll.fd);
+			int ret = uwsgi_write_nb(wsgi_req->poll.fd, (char *)uwsgi.cache_items, uwsgi.cache_filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+			if (!ret) {
+				wsgi_req->response_size += uwsgi.cache_filesize;
+			}
+			uwsgi_rwunlock(uwsgi.cache_lock);
+			break;
         }
 
         return 0;
