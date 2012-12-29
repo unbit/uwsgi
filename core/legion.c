@@ -205,7 +205,7 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *);
 
 static void legions_report_quorum(struct uwsgi_legion *ul, uint64_t best_valor, char *best_uuid) {
 	struct uwsgi_legion_node *nodes = ul->nodes_head;
-	uwsgi_log("\n[uwsgi-legion] --- WE HAVE QUORUM FOR LEGION %s !!! (valor: %llu uuid: %.*s) ---\n", ul->legion, best_valor, 36, best_uuid);
+	uwsgi_log("\n[uwsgi-legion] --- WE HAVE QUORUM FOR LEGION %s !!! (valor: %llu uuid: %.*s checksum: %llu) ---\n", ul->legion, best_valor, 36, best_uuid, ul->checksum);
 	while (nodes) {
 		uwsgi_log("[uwsgi-legion-node] node: %.*s valor: %llu uuid: %.*s last_seen: %d vote_valor: %llu vote_uuid: %.*s\n", nodes->name_len, nodes->name, nodes->valor, 36, nodes->uuid, nodes->last_seen, nodes->lord_valor, 36, nodes->lord_uuid);
 		nodes = nodes->next;
