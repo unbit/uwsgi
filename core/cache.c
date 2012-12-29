@@ -4,6 +4,23 @@ extern struct uwsgi_server uwsgi;
 
 static void cache_send_udp_command(char *, uint16_t, char *, uint16_t, uint64_t, uint8_t);
 
+static void cache_sync_hook(char *k, uint16_t kl, char *v, uint16_t vl, void *data) {
+	if (!uwsgi_strncmp(k, kl, "items", 5)) {
+		size_t num = uwsgi_str_num(v, vl);		
+		if (num != uwsgi.cache_max_items) {
+			uwsgi_log("[cache-sync] invalid cache size, expected %llu received %llu\n", (unsigned long long) uwsgi.cache_max_items, (unsigned long long) num);
+			exit(1);
+		}
+	}
+	if (!uwsgi_strncmp(k, kl, "blocksize", 9)) {
+		size_t num = uwsgi_str_num(v, vl);		
+		if (num != uwsgi.cache_blocksize) {
+			uwsgi_log("[cache-sync] invalid cache block size, expected %llu received %llu\n", (unsigned long long) uwsgi.cache_blocksize, (unsigned long long) num);
+			exit(1);
+		}
+	}
+}
+
 void uwsgi_init_cache() {
 
 	uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * UMAX16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -25,10 +42,10 @@ void uwsgi_init_cache() {
 	// the first cache item is always zero
 	uwsgi.shared->cache_first_available_item = 1;
 	uwsgi.shared->cache_unused_stack_ptr = 0;
+	uwsgi.cache_filesize = (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items);
 
 	//uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 	if (uwsgi.cache_store) {
-		uwsgi.cache_filesize = (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items);
 		int cache_fd;
 		struct stat cst;
 
@@ -61,24 +78,17 @@ void uwsgi_init_cache() {
 
 	}
 	else {
-		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items) + (uwsgi.cache_blocksize * uwsgi.cache_max_items), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+		uwsgi.cache_items = (struct uwsgi_cache_item *) mmap(NULL, uwsgi.cache_filesize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 		int i;
 		for (i = 0; i < (int) uwsgi.cache_max_items; i++) {
 			memset(&uwsgi.cache_items[i], 0, sizeof(struct uwsgi_cache_item));
 		}
 	}
+
 	if (!uwsgi.cache_items) {
 		uwsgi_error("mmap()");
 		exit(1);
 	}
-
-	/*
-	   uwsgi.cache = mmap(NULL, uwsgi.cache_blocksize * uwsgi.cache_max_items, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-	   if (!uwsgi.cache) {
-	   uwsgi_error("mmap()");
-	   exit(1);
-	   }
-	 */
 
 	uwsgi.cache = ((void *) uwsgi.cache_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items);
 
@@ -107,6 +117,55 @@ void uwsgi_init_cache() {
 		exit(1);
 	}
 	uwsgi_socket_nb(uwsgi.cache_udp_node_socket);
+
+	if (uwsgi.cache_sync) {
+		uwsgi_log("[cache-sync] getting cache dump from %s ...\n", uwsgi.cache_sync);
+		int fd = uwsgi_connect(uwsgi.cache_sync, 0, 0);
+		if (fd < 0) {
+			uwsgi_log("[cache-sync] unable to connect to the cache server\n");
+			exit(1);
+		}
+		struct uwsgi_header cuh;
+		cuh.modifier1 = 111;
+		cuh.modifier2 = 6;
+		cuh.pktsize = 0;
+		if (write(fd, &cuh, 4) != 4) {
+			uwsgi_log("[cache-sync] unable to write to the cache server\n");
+			exit(1);
+		}
+
+		int ret = uwsgi_read_uh(fd, &cuh, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (ret) {
+			uwsgi_log("[cache-sync] unable to read from the cache server\n");
+			exit(1);
+		}
+
+		if (cuh.modifier1 != 111 || cuh.modifier2 != 7) {
+			uwsgi_log("[cache-sync] invalid uwsgi packet received from the cache server\n");
+			exit(1);
+		}
+	
+		char *dump_buf = uwsgi_malloc(cuh.pktsize);
+		ret = uwsgi_read_nb(fd, dump_buf, cuh.pktsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (ret) {
+                        uwsgi_log("[cache-sync] unable to read from the cache server\n");
+                        exit(1);
+                }
+
+		uwsgi_hooked_parse(dump_buf, cuh.pktsize, cache_sync_hook, NULL);
+
+		ret = uwsgi_read_nb(fd, (char *) uwsgi.cache_items, uwsgi.cache_filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		if (ret) {
+                        uwsgi_log("[cache-sync] unable to read from the cache server\n");
+                        exit(1);
+                }
+
+		// reset the hashtable
+		memset(uwsgi.cache_hashtable, 0, sizeof(uint64_t) * UMAX16);
+		// re-fill the hashtable
+                uwsgi_cache_fix();
+
+	}
 }
 
 uint32_t djb33x_hash(char *key, int keylen) {
@@ -254,6 +313,7 @@ int uwsgi_cache_del(char *key, uint16_t keylen, uint64_t index, uint16_t flags) 
 void uwsgi_cache_fix() {
 
 	uint64_t i;
+	unsigned long long restored = 0;
 
 	for (i = 0; i < uwsgi.cache_max_items; i++) {
 		// valid record ?
@@ -261,6 +321,7 @@ void uwsgi_cache_fix() {
 			if (!uwsgi.cache_items[i].prev) {
 				// put value in hash_table
 				uwsgi.cache_hashtable[uwsgi.cache_items[i].djbhash % 0xffff] = i;
+				restored++;
 			}
 		}
 		else {
@@ -270,6 +331,8 @@ void uwsgi_cache_fix() {
 			uwsgi.cache_unused_stack[uwsgi.shared->cache_unused_stack_ptr] = i;
 		}
 	}
+
+	uwsgi_log("[uwsgi-cache] restored %llu items\n", restored);
 }
 
 int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint64_t expires, uint16_t flags) {
@@ -522,12 +585,14 @@ void *cache_thread_loop(void *fd_ptr) {
 		if (key + keylen > watermark)
 			goto clear;
 
+		uwsgi_rlock(uwsgi.cache_lock);
 		val = uwsgi_cache_get(key, keylen, &vallen);
 		if (val && vallen > 0) {
-			if (write(ctl_poll.fd, val, vallen) < 0) {
+			if (write(ctl_poll.fd, val, vallen) != (int64_t) vallen) {
 				uwsgi_error("cache write()");
 			}
 		}
+		uwsgi_rwunlock(uwsgi.cache_lock);
 
 clear:
 		close(ctl_poll.fd);
