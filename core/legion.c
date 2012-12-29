@@ -511,6 +511,17 @@ static int legion_action_cmd(struct uwsgi_legion *ul, char *arg) {
 	return uwsgi_run_command_and_wait(NULL, arg);
 }
 
+static int legion_action_signal(struct uwsgi_legion *ul, char *arg) {
+	return uwsgi_signal_send(uwsgi.signal_socket, atoi(arg));
+}
+
+static int legion_action_log(struct uwsgi_legion *ul, char *arg) {
+	char *logline = uwsgi_concat2(arg, "\n");
+	uwsgi_log(logline);
+	free(logline);
+	return 0;
+}
+
 void uwsgi_start_legions() {
 	pthread_t legion_loop_t;
 
@@ -519,6 +530,8 @@ void uwsgi_start_legions() {
 
 	// register embedded actions
 	uwsgi_legion_action_register("cmd", legion_action_cmd);
+	uwsgi_legion_action_register("signal", legion_action_signal);
+	uwsgi_legion_action_register("log", legion_action_log);
 
 	uwsgi.legion_queue = event_queue_init();
 	struct uwsgi_legion *legion = uwsgi.legions;
