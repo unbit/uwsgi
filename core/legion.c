@@ -196,6 +196,7 @@ static void legions_check_nodes_step2() {
 	struct uwsgi_legion *ul = uwsgi.legions;
         while(ul) {
 		// ok now we can check the status of the lord
+			int i_am_the_best = 0;
                         uint64_t best_valor = 0;
                         char best_uuid[36];
                         struct uwsgi_legion_node *node = uwsgi_legion_get_lord(ul);
@@ -208,6 +209,7 @@ static void legions_check_nodes_step2() {
                                 // no potential Lord is available, i will propose myself
                                 best_valor = ul->valor;
                                 memcpy(best_uuid, ul->uuid, 36);
+				i_am_the_best = 1;
                         }
 
                         uwsgi_log("best NODE: %llu %.*s\n", best_valor, 36, best_uuid);
@@ -220,7 +222,7 @@ static void legions_check_nodes_step2() {
                         }
                         else {
                                 struct uwsgi_legion_node *nodes = ul->nodes_head;
-                                uwsgi_log("--- legion nodes ---\n");
+                                uwsgi_log("\n--- legion nodes ---\n");
                                 while(nodes) {
                                         uwsgi_log("%llu %.*s %.*s %d\n", nodes->valor, nodes->name_len, nodes->name, 36, nodes->uuid, nodes->last_seen);
                                         if (nodes->lord_valor != best_valor) {
@@ -234,11 +236,41 @@ static void legions_check_nodes_step2() {
                                         have_quorum++;
                                         nodes = nodes->next;
                                 }
-                                uwsgi_log("--- end of legion nodes ---\n");
+                                uwsgi_log("--- end of legion nodes ---\n\n");
                         }
 
                         if (have_quorum) {
                                 uwsgi_log("WE HAVE QUORUM FOR LEGION %s %llu !!!!\n", ul->legion, best_valor);
+				if (i_am_the_best) {
+					if (!ul->i_am_the_lord) {
+						uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", ul->legion);
+                        			// triggering lord hooks
+                        			struct uwsgi_string_list *usl = ul->lord_hooks;
+                        			while(usl) {
+                                			int ret = uwsgi_legion_action_call("lord", ul, usl);
+                                			if (ret) {
+                                        			uwsgi_log("[uwsgi-legion] ERROR, lord hook returned: %d\n", ret);
+                                			}
+                                			usl = usl->next;
+                        			}
+						ul->i_am_the_lord = uwsgi_now();
+					}
+				}
+				else {
+					if (ul->i_am_the_lord) {
+						uwsgi_log("[uwsgi-legion] a new Lord (valor: %llu uuid: %.*s) raised for Legion %s...\n", ul->lord_valor, 36, ul->lord_uuid,  ul->legion);
+                                        	// no more lord, trigger unlord hooks
+                                        	struct uwsgi_string_list *usl = ul->unlord_hooks;
+                                        	while(usl) {
+                                                	int ret = uwsgi_legion_action_call("unlord", ul, usl);
+                                                	if (ret) {
+                                                        	uwsgi_log("[uwsgi-legion] ERROR, unlord hook returned: %d\n", ret);
+                                                	}
+                                                	usl = usl->next;
+                                        	}
+						ul->i_am_the_lord = 0;
+					}
+				}
                         }
 
 		ul = ul->next;
@@ -277,25 +309,6 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 	memcpy(ul->lord_uuid, best_uuid, 36);
 
 	return best_node;
-/*
-
-                        uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", legion->legion);
-                        // triggering lord hooks
-			struct uwsgi_string_list *usl = legion->lord_hooks;
-			while(usl) {
-				int ret = uwsgi_legion_action_call("lord", legion, usl);
-                        	if (ret) {
-                                	uwsgi_log("[uwsgi-legion] ERROR, lord hook returned: %d\n", ret);
-                        	}
-				usl = usl->next;
-			}
-                        legion->lord = now;
-                }
-
-next:
-		legion = legion->next;
-	}
-*/
 }
 
 
