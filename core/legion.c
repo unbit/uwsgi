@@ -811,9 +811,11 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 	if ((unsigned int) iv_len > s_iv_len) {
                 char *secret_tmp = uwsgi_malloc(iv_len);
                 memcpy(secret_tmp, iv, s_iv_len);
-                memset(secret_tmp + s_iv_len, 0, iv_len - s_iv_len);
+                memset(secret_tmp + s_iv_len, '0', iv_len - s_iv_len);
                 iv = secret_tmp;
         }
+
+	uwsgi_log("IV = %s\n", iv);
 
 	if (EVP_EncryptInit_ex(ctx, cipher, NULL, (const unsigned char *) secret, (const unsigned char *) iv) <= 0) {
 		uwsgi_error("EVP_EncryptInit_ex()");
