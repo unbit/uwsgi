@@ -203,9 +203,9 @@ static void legions_check_nodes() {
 
 struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *);
 
-static void legions_report_quorum(struct uwsgi_legion *ul, uint64_t best_valor, char *best_uuid) {
+static void legions_report_quorum(struct uwsgi_legion *ul, uint64_t best_valor, char *best_uuid, int votes) {
 	struct uwsgi_legion_node *nodes = ul->nodes_head;
-	uwsgi_log("\n[uwsgi-legion] --- WE HAVE QUORUM FOR LEGION %s !!! (valor: %llu uuid: %.*s checksum: %llu) ---\n", ul->legion, best_valor, 36, best_uuid, ul->checksum);
+	uwsgi_log("\n[uwsgi-legion] --- WE HAVE QUORUM FOR LEGION %s !!! (valor: %llu uuid: %.*s checksum: %llu votes: %d) ---\n", ul->legion, best_valor, 36, best_uuid, ul->checksum, votes);
 	while (nodes) {
 		uwsgi_log("[uwsgi-legion-node] node: %.*s valor: %llu uuid: %.*s last_seen: %d vote_valor: %llu vote_uuid: %.*s\n", nodes->name_len, nodes->name, nodes->valor, 36, nodes->uuid, nodes->last_seen, nodes->lord_valor, 36, nodes->lord_uuid);
 		nodes = nodes->next;
@@ -258,34 +258,29 @@ static void legions_check_nodes_step2() {
 
 		// ... ok let's see if all of the nodes agree on the lord
 		// ... but first check if i am not alone...
-		int have_quorum = 0;
-		if (!ul->nodes_head) {
-			have_quorum = 1;
-		}
-		else {
-			struct uwsgi_legion_node *nodes = ul->nodes_head;
-			while (nodes) {
-				if (nodes->checksum != ul->checksum) {
-					have_quorum = 0;
-					break;
-				}
-				if (nodes->lord_valor != best_valor) {
-					have_quorum = 0;
-					break;
-				}
-				if (memcmp(nodes->lord_uuid, best_uuid, 36)) {
-					have_quorum = 0;
-					break;
-				}
-				have_quorum++;
-				nodes = nodes->next;
+		int votes = 1;
+		struct uwsgi_legion_node *nodes = ul->nodes_head;
+		while (nodes) {
+			if (nodes->checksum != ul->checksum) {
+				votes = 0;
+				break;
 			}
+			if (nodes->lord_valor != best_valor) {
+				votes = 0;
+				break;
+			}
+			if (memcmp(nodes->lord_uuid, best_uuid, 36)) {
+				votes = 0;
+				break;
+			}
+			votes++;
+			nodes = nodes->next;
 		}
 
-		if (have_quorum) {
+		if (votes >= ul->quorum) {
 			if (i_am_the_best) {
 				if (!ul->i_am_the_lord) {
-					legions_report_quorum(ul, best_valor, best_uuid);
+					legions_report_quorum(ul, best_valor, best_uuid, votes);
 					uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", ul->legion);
 					// triggering lord hooks
 					struct uwsgi_string_list *usl = ul->lord_hooks;
@@ -301,7 +296,7 @@ static void legions_check_nodes_step2() {
 			}
 			else {
 				if (ul->i_am_the_lord) {
-					legions_report_quorum(ul, best_valor, best_uuid);
+					legions_report_quorum(ul, best_valor, best_uuid, votes);
 					uwsgi_log("[uwsgi-legion] a new Lord (valor: %llu uuid: %.*s) raised for Legion %s...\n", ul->lord_valor, 36, ul->lord_uuid, ul->legion);
 					// no more lord, trigger unlord hooks
 					struct uwsgi_string_list *usl = ul->unlord_hooks;
@@ -370,6 +365,7 @@ static void *legion_loop(void *foobar) {
 	if (!uwsgi.legion_tolerance)
 		uwsgi.legion_tolerance = 15;
 
+	int first_round = 1;
 	for (;;) {
 		int timeout = uwsgi.legion_freq;
 		time_t now = uwsgi_now();
@@ -489,35 +485,12 @@ static void *legion_loop(void *foobar) {
 
 		}
 
+		// skip the first round if i no packet is received
+		if (first_round) {
+			first_round = 0;
+			continue;
+		}
 		legions_check_nodes_step2();
-
-/*
-			if (ul->lord > 0) {
-				if (legion_msg.valor > ul->valor) {
-					uwsgi_log("[uwsgi-legion] a new Lord (name: %.*s pid: %d) raised for Legion %s...\n", legion_msg.name_len, legion_msg.name, (int) legion_msg.pid, ul->legion);
-					// no more lord, trigger unlord hooks
-                        		struct uwsgi_string_list *usl = ul->unlord_hooks;
-                        		while(usl) {
-                                		int ret = uwsgi_legion_action_call("unlord", ul, usl);
-                                		if (ret) {
-                                        		uwsgi_log("[uwsgi-legion] ERROR, unlord hook returned: %d\n", ret);
-                                		}
-                                		usl = usl->next;
-                        		}
-					ul->last_seen_lord = uwsgi_now();
-					ul->lord = 0;
-					continue;
-				}
-			}
-
-			if (legion_msg.valor > ul->valor) {
-				// a lord
-				ul->last_seen_lord = uwsgi_now();
-			}
-			else if (legion_msg.valor == ul->valor) {
-				uwsgi_log("[uwsgi-legion] a node with the same valor announced itself !!!\n");
-			}
-*/
 	}
 
 	return NULL;
@@ -696,6 +669,27 @@ void uwsgi_opt_legion_node(char *opt, char *value, void *foobar) {
 	usl->custom = socket_to_in_addr(usl->value, port, 0, sin);
 	usl->custom_ptr = sin;
 }
+
+void uwsgi_opt_legion_quorum(char *opt, char *value, void *foobar) {
+
+        char *legion = uwsgi_str(value);
+
+        char *space = strchr(legion, ' ');
+        if (!space) {
+                uwsgi_log("invalid legion-quorum syntax, must be <legion> <quorum>\n");
+                exit(1);
+        }
+        *space = 0;
+
+        struct uwsgi_legion *ul = uwsgi_legion_get_by_name(legion);
+        if (!ul) {
+                uwsgi_log("unknown legion: %s\n", legion);
+                exit(1);
+        }
+
+	ul->quorum = atoi(space+1);
+}
+
 
 void uwsgi_opt_legion_hook(char *opt, char *value, void *foobar) {
 

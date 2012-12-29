@@ -541,7 +541,10 @@ struct uwsgi_legion {
 	char uuid[37];
         int socket;
 
+	int quorum;
+
 	uint64_t checksum;
+	
 
 	char lord_uuid[36];
 	uint64_t lord_valor;
@@ -3606,6 +3609,7 @@ char *uwsgi_strip(char *);
 #ifdef UWSGI_SSL
 void uwsgi_opt_legion(char *, char *, void *);
 void uwsgi_opt_legion_node(char *, char *, void *);
+void uwsgi_opt_legion_quorum(char *, char *, void *);
 void uwsgi_opt_legion_hook(char *, char *, void *);
 void uwsgi_legion_add(struct uwsgi_legion *);
 char *uwsgi_ssl_rand(size_t);
