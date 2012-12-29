@@ -292,6 +292,8 @@ static void legions_check_nodes_step2() {
 						usl = usl->next;
 					}
 					ul->i_am_the_lord = uwsgi_now();
+					// trick: reduce the time needed by the old lord to unlord itself
+					uwsgi_legion_announce(ul);
 				}
 			}
 			else {
