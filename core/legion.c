@@ -775,6 +775,12 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 	*colon = 0;
 	char *secret = colon + 1;
 
+	char *iv = strchr(secret, ' ');
+	if (iv) {
+		*iv = 0;
+		iv++;
+	}
+
 	if (!uwsgi.ssl_initialized) {
 		uwsgi_ssl_init();
 	}
@@ -797,16 +803,19 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 		secret = secret_tmp;
 	}
 
-/*
-	TODO find a wat to manage iv
-	char *iv = uwsgi_ssl_rand(strlen(secret));
-	if (!iv) {
-		uwsgi_log("[uwsgi-legion] unable to generate iv for legion %s\n", legion); 
-		exit(1);
+	int iv_len = EVP_CIPHER_iv_length(cipher);
+	size_t s_iv_len = 0;
+	if (iv) {
+		s_iv_len = strlen(iv);
 	}
-*/
+	if ((unsigned int) iv_len > s_iv_len) {
+                char *secret_tmp = uwsgi_malloc(iv_len);
+                memcpy(secret_tmp, iv, s_iv_len);
+                memset(secret_tmp + s_iv_len, 0, iv_len - s_iv_len);
+                iv = secret_tmp;
+        }
 
-	if (EVP_EncryptInit_ex(ctx, cipher, NULL, (const unsigned char *) secret, (const unsigned char *) "12345678") <= 0) {	// (const unsigned char *) iv) <= 0) {
+	if (EVP_EncryptInit_ex(ctx, cipher, NULL, (const unsigned char *) secret, (const unsigned char *) iv) <= 0) {
 		uwsgi_error("EVP_EncryptInit_ex()");
 		exit(1);
 	}
@@ -814,7 +823,7 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 	EVP_CIPHER_CTX *ctx2 = uwsgi_malloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(ctx2);
 
-	if (EVP_DecryptInit_ex(ctx2, cipher, NULL, (const unsigned char *) secret, (const unsigned char *) "12345678") <= 0) {
+	if (EVP_DecryptInit_ex(ctx2, cipher, NULL, (const unsigned char *) secret, (const unsigned char *) iv) <= 0) {
 		uwsgi_error("EVP_DecryptInit_ex()");
 		exit(1);
 	}
