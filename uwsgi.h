@@ -517,8 +517,15 @@ struct uwsgi_logger {
 
 #ifdef UWSGI_SSL
 struct uwsgi_legion_node {
+	char *name;
+	uint16_t name_len;
 	uint64_t valor;
 	char uuid[37];
+	char *scroll;
+	uint16_t scroll_len;
+	uint64_t lord_valor;
+	char lord_uuid[36];
+	time_t last_seen;
 	struct uwsgi_legion_node *prev;
 	struct uwsgi_legion_node *next;
 };
@@ -527,15 +534,25 @@ struct uwsgi_legion {
         uint16_t legion_len;
         uint64_t valor;
         char *addr;
-        time_t lord;
-	time_t last_seen_lord;
 	char *name;
 	uint16_t name_len;
 	pid_t pid;
-        int socket;
 	char uuid[37];
+        int socket;
+
+	char lord_uuid[36];
+	uint64_t lord_valor;
+
+	time_t i_am_the_lord;
+
 	EVP_CIPHER_CTX *encrypt_ctx;
 	EVP_CIPHER_CTX *decrypt_ctx;
+
+	// found nodes dynamic lists
+	struct uwsgi_legion_node *nodes_head;
+	struct uwsgi_legion_node *nodes_tail;
+
+	// static list of nodes to send announces to
         struct uwsgi_string_list *nodes;
         struct uwsgi_string_list *lord_hooks;
         struct uwsgi_string_list *unlord_hooks;
@@ -3601,6 +3618,7 @@ void uwsgi_close_all_fds(void);
 
 int check_hex(char *, int);
 void uwsgi_uuid(char *);
+int uwsgi_uuid_cmp(char *, char *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

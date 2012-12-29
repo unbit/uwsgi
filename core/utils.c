@@ -4019,3 +4019,7 @@ void uwsgi_uuid(char *buf) {
 		rand());
 #endif
 }
+
+int uwsgi_uuid_cmp(char *x, char *y) {
+	return 0;
+}
