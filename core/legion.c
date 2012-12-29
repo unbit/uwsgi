@@ -190,6 +190,61 @@ static void legions_check_nodes() {
 	}
 }
 
+struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *);
+
+static void legions_check_nodes_step2() {
+	struct uwsgi_legion *ul = uwsgi.legions;
+        while(ul) {
+		// ok now we can check the status of the lord
+                        uint64_t best_valor = 0;
+                        char best_uuid[36];
+                        struct uwsgi_legion_node *node = uwsgi_legion_get_lord(ul);
+                        if (node) {
+                                // a node is the best candidate
+                                best_valor = node->valor;
+                                memcpy(best_uuid, node->uuid, 36);
+                        }
+                        else {
+                                // no potential Lord is available, i will propose myself
+                                best_valor = ul->valor;
+                                memcpy(best_uuid, ul->uuid, 36);
+                        }
+
+                        uwsgi_log("best NODE: %llu %.*s\n", best_valor, 36, best_uuid);
+
+                        // ... ok let's see if all of the nodes agree on the lord
+                        // ... but first check if i am not alone...
+                        int have_quorum = 0;
+                        if (!ul->nodes_head) {
+                                have_quorum = 1;
+                        }
+                        else {
+                                struct uwsgi_legion_node *nodes = ul->nodes_head;
+                                uwsgi_log("--- legion nodes ---\n");
+                                while(nodes) {
+                                        uwsgi_log("%llu %.*s %.*s %d\n", nodes->valor, nodes->name_len, nodes->name, 36, nodes->uuid, nodes->last_seen);
+                                        if (nodes->lord_valor != best_valor) {
+                                                have_quorum = 0;
+                                                break;
+                                        }
+                                        if (memcmp(nodes->lord_uuid, best_uuid, 36)) {
+                                                have_quorum = 0;
+                                                break;
+                                        }
+                                        have_quorum++;
+                                        nodes = nodes->next;
+                                }
+                                uwsgi_log("--- end of legion nodes ---\n");
+                        }
+
+                        if (have_quorum) {
+                                uwsgi_log("WE HAVE QUORUM FOR LEGION %s %llu !!!!\n", ul->legion, best_valor);
+                        }
+
+		ul = ul->next;
+	}
+}
+
 // check who should be the lord of the legion
 struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 
@@ -364,51 +419,9 @@ static void *legion_loop(void *foobar) {
 			node->lord_valor = legion_msg.lord_valor;
 			memcpy(node->lord_uuid, legion_msg.lord_uuid, 36);
 
-			// ok now we can check the status of the lord
-			uint64_t best_valor = 0;
-			char best_uuid[36];
-			node = uwsgi_legion_get_lord(ul);
-			if (node) {
-				// a node is the best candidate
-				best_valor = node->valor;
-				memcpy(best_uuid, node->uuid, 36);
-			}
-			else {
-				// no potential Lord is available, i will propose myself
-				best_valor = ul->valor;
-				memcpy(best_uuid, ul->uuid, 36);
-			}
+		}
 
-			uwsgi_log("best NODE: %llu %.*s\n", best_valor, 36, best_uuid);
-
-			// ... ok let's see if all of the nodes agree on the lord
-			// ... but first check if i am not alone...
-			int have_quorum = 0;
-			if (!ul->nodes_head) {
-				have_quorum = 1;	
-			}
-			else {
-				struct uwsgi_legion_node *nodes = ul->nodes_head;
-				uwsgi_log("--- legion nodes ---\n");
-				while(nodes) {
-					uwsgi_log("%llu %.*s %.*s %d\n", nodes->valor, nodes->name_len, nodes->name, 36, nodes->uuid, nodes->last_seen);
-					if (nodes->lord_valor != best_valor) {
-						have_quorum = 0;
-						break;
-					}
-					if (memcmp(nodes->lord_uuid, best_uuid, 36)) {
-						have_quorum = 0;
-						break;
-					}
-					have_quorum++;
-					nodes = nodes->next;
-				}
-				uwsgi_log("--- end of legion nodes ---\n");
-			}
-
-			if (have_quorum) {
-				uwsgi_log("WE HAVE QUORUM !!!!\n");
-			}
+		legions_check_nodes_step2();
 
 /*
 			if (ul->lord > 0) {
@@ -437,7 +450,6 @@ static void *legion_loop(void *foobar) {
 				uwsgi_log("[uwsgi-legion] a node with the same valor announced itself !!!\n");
 			}
 */
-		}
 	}
 
 	return NULL;
