@@ -277,7 +277,7 @@ static void legions_check_nodes_step2() {
 			nodes = nodes->next;
 		}
 
-		if (votes >= ul->quorum) {
+		if (votes > 0 && votes >= ul->quorum) {
 			if (i_am_the_best) {
 				if (!ul->i_am_the_lord) {
 					legions_report_quorum(ul, best_valor, best_uuid, votes);
