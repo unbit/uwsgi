@@ -3998,3 +3998,24 @@ char *uwsgi_strip(char *src) {
 
 	return dst;
 }
+
+void uwsgi_uuid(char *buf) {
+#ifdef UWSGI_UUID
+        uuid_t uuid_zmq;
+        uuid_generate(uuid_zmq);
+        uuid_unparse(uuid_zmq, buf);
+#else
+	snprintf(buf, 37, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand(),
+		rand());
+#endif
+}

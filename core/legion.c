@@ -79,6 +79,12 @@ void uwsgi_parse_legion(char *key, uint16_t keylen, char *value, uint16_t vallen
 	else if (!uwsgi_strncmp(key, keylen, "pid", 3)) {
                 ul->pid = uwsgi_str_num(value, vallen);
 	}
+	else if (!uwsgi_strncmp(key, keylen, "uuid", 4)) {
+		if (vallen == 36) {
+			memcpy(ul->uuid, value, 36);
+			uwsgi_log("UUID: %.*s\n", 36, ul->uuid);
+		}
+	}
 }
 
 static void legions_check_lord() {
@@ -216,7 +222,9 @@ static void *legion_loop(void *foobar) {
 			if (!uwsgi_strncmp(uwsgi.hostname, uwsgi.hostname_len, legion_msg.name, legion_msg.name_len)) {
 				if (legion_msg.pid == ul->pid) {
 					if (legion_msg.valor == ul->valor) {
-						continue;
+						if (!memcmp(legion_msg.uuid, ul->uuid, 36)) {
+							continue;
+						}
 					}
 				}
 			}
@@ -291,6 +299,7 @@ void uwsgi_start_legions() {
 		}
 		uwsgi_socket_nb(legion->socket);
 		legion->pid = uwsgi.mypid;
+		uwsgi_uuid(legion->uuid);
 		struct uwsgi_string_list *usl = legion->setup_hooks;
 		while(usl) {
 			int ret = uwsgi_legion_action_call("setup", legion, usl);
@@ -336,6 +345,9 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 	if (uwsgi_buffer_append_keynum(ub, "lord", 4, ul->lord ? ul->lord : 0)) goto err;
 	if (uwsgi_buffer_append_keyval(ub, "name", 4, uwsgi.hostname, uwsgi.hostname_len)) goto err;
 	if (uwsgi_buffer_append_keynum(ub, "pid", 3, ul->pid)) goto err;
+	if (uwsgi_buffer_append_keyval(ub, "uuid", 4, ul->uuid, 36)) goto err;
+#ifdef UWSGI_UUID
+#endif
 
 	unsigned char *encrypted = uwsgi_malloc(ub->pos + 4 + EVP_MAX_BLOCK_LENGTH);
 	if (EVP_EncryptInit_ex(ul->encrypt_ctx, NULL, NULL, NULL, NULL) <= 0) {

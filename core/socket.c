@@ -260,7 +260,7 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 
 #ifdef UWSGI_MULTICAST
 	if (multicast) {
-		uwsgi_log("[uWSGI] joining multicast group: %s:%d\n", socket_name, ntohs(uws_addr.sin_port));
+		uwsgi_log("[uwsgi-mcast] joining multicast group: %s:%d\n", socket_name, ntohs(uws_addr.sin_port));
 		if (setsockopt(serverfd, IPPROTO_IP, IP_MULTICAST_LOOP, &uwsgi.multicast_loop, sizeof(uwsgi.multicast_loop))) {
 			uwsgi_error("setsockopt()");
 		}

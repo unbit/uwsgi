@@ -516,6 +516,12 @@ struct uwsgi_logger {
 };
 
 #ifdef UWSGI_SSL
+struct uwsgi_legion_node {
+	uint64_t valor;
+	char uuid[37];
+	struct uwsgi_legion_node *prev;
+	struct uwsgi_legion_node *next;
+};
 struct uwsgi_legion {
         char *legion;
         uint16_t legion_len;
@@ -527,6 +533,7 @@ struct uwsgi_legion {
 	uint16_t name_len;
 	pid_t pid;
         int socket;
+	char uuid[37];
 	EVP_CIPHER_CTX *encrypt_ctx;
 	EVP_CIPHER_CTX *decrypt_ctx;
         struct uwsgi_string_list *nodes;
@@ -3593,6 +3600,7 @@ int uwsgi_valid_fd(int);
 void uwsgi_close_all_fds(void);
 
 int check_hex(char *, int);
+void uwsgi_uuid(char *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
