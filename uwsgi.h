@@ -522,6 +522,7 @@ struct uwsgi_legion_node {
 	uint64_t valor;
 	char uuid[37];
 	char *scroll;
+	uint64_t checksum;
 	uint16_t scroll_len;
 	uint64_t lord_valor;
 	char lord_uuid[36];
@@ -540,10 +541,14 @@ struct uwsgi_legion {
 	char uuid[37];
         int socket;
 
+	uint64_t checksum;
+
 	char lord_uuid[36];
 	uint64_t lord_valor;
 
 	time_t i_am_the_lord;
+
+	time_t unix_check;
 
 	EVP_CIPHER_CTX *encrypt_ctx;
 	EVP_CIPHER_CTX *decrypt_ctx;

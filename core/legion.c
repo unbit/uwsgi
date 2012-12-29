@@ -79,6 +79,12 @@ void uwsgi_parse_legion(char *key, uint16_t keylen, char *value, uint16_t vallen
 	else if (!uwsgi_strncmp(key, keylen, "pid", 3)) {
 		ul->pid = uwsgi_str_num(value, vallen);
 	}
+	else if (!uwsgi_strncmp(key, keylen, "unix", 4)) {
+		ul->unix_check = uwsgi_str_num(value, vallen);
+	}
+	else if (!uwsgi_strncmp(key, keylen, "checksum", 8)) {
+		ul->checksum = uwsgi_str_num(value, vallen);
+	}
 	else if (!uwsgi_strncmp(key, keylen, "uuid", 4)) {
 		if (vallen == 36) {
 			memcpy(ul->uuid, value, 36);
@@ -207,6 +213,26 @@ static void legions_report_quorum(struct uwsgi_legion *ul, uint64_t best_valor, 
 	uwsgi_log("[uwsgi-legion] --- END OF QUORUM REPORT ---\n\n");
 }
 
+uint64_t uwsgi_legion_checksum(struct uwsgi_legion *ul) {
+	uint16_t i;
+	uint64_t checksum = ul->valor;
+	for(i=0;i<36;i++) {
+		checksum += ul->uuid[i];
+	}
+
+	struct uwsgi_legion_node *nodes = ul->nodes_head;
+	while (nodes) {
+		checksum += nodes->valor;
+		for(i=0;i<36;i++) {
+			checksum += nodes->uuid[i];
+		}
+		nodes = nodes->next;
+	}
+
+	return checksum;	
+	
+}
+
 static void legions_check_nodes_step2() {
 	struct uwsgi_legion *ul = uwsgi.legions;
 	while (ul) {
@@ -227,6 +253,9 @@ static void legions_check_nodes_step2() {
 			i_am_the_best = 1;
 		}
 
+		// calculate the checksum
+		ul->checksum = uwsgi_legion_checksum(ul);
+
 		// ... ok let's see if all of the nodes agree on the lord
 		// ... but first check if i am not alone...
 		int have_quorum = 0;
@@ -236,6 +265,10 @@ static void legions_check_nodes_step2() {
 		else {
 			struct uwsgi_legion_node *nodes = ul->nodes_head;
 			while (nodes) {
+				if (nodes->checksum != ul->checksum) {
+					have_quorum = 0;
+					break;
+				}
 				if (nodes->lord_valor != best_valor) {
 					have_quorum = 0;
 					break;
@@ -435,6 +468,12 @@ static void *legion_loop(void *foobar) {
 				}
 			}
 
+			// check for "tolerable" unix time
+			if (legion_msg.unix_check < uwsgi_now() - uwsgi.legion_tolerance) {
+				uwsgi_log("[uwsgi-legion] untolerable packet received for Legion %s , check your clock !!!\n", ul->legion);
+				continue;
+			}
+
 			// check if the node is already accounted
 			struct uwsgi_legion_node *node = uwsgi_legion_get_node(ul, legion_msg.valor, legion_msg.name, legion_msg.name_len, legion_msg.uuid);
 			if (!node) {
@@ -445,6 +484,7 @@ static void *legion_loop(void *foobar) {
 
 			node->last_seen = uwsgi_now();
 			node->lord_valor = legion_msg.lord_valor;
+			node->checksum = legion_msg.checksum;
 			memcpy(node->lord_uuid, legion_msg.lord_uuid, 36);
 
 		}
@@ -576,6 +616,8 @@ int uwsgi_legion_announce(struct uwsgi_legion *ul) {
 	if (uwsgi_buffer_append_keynum(ub, "pid", 3, ul->pid))
 		goto err;
 	if (uwsgi_buffer_append_keyval(ub, "uuid", 4, ul->uuid, 36))
+		goto err;
+	if (uwsgi_buffer_append_keynum(ub, "checksum", 8, ul->checksum))
 		goto err;
 	if (uwsgi_buffer_append_keynum(ub, "lord_valor", 10, ul->lord_valor))
 		goto err;
