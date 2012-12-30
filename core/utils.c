@@ -4021,17 +4021,6 @@ void uwsgi_uuid(char *buf) {
 }
 
 int uwsgi_uuid_cmp(char *x, char *y) {
-#ifdef UWSGI_UUID
-	uuid_t uu1;
-	uuid_t uu2;
-	if (uuid_parse(x, uu1) < 0) {
-		return -1;
-	}
-	if (uuid_parse(y, uu2) < 0) {
-		return -1;
-	}
-	return uuid_compare(uu1, uu2);
-#else
 	int i;
 	uint64_t tot1 = 0;
 	uint64_t tot2 = 0;
@@ -4046,5 +4035,4 @@ int uwsgi_uuid_cmp(char *x, char *y) {
 		return 1;
 	}
 	return 0;
-#endif
 }

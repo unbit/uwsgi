@@ -542,6 +542,7 @@ struct uwsgi_legion {
         int socket;
 
 	int quorum;
+	int changed;
 
 	uint64_t checksum;
 	

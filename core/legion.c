@@ -254,10 +254,14 @@ static void legions_check_nodes_step2() {
 			nodes = nodes->next;
 		}
 
+		// we have quorum !!!
 		if (votes > 0 && votes >= ul->quorum) {
+			// something changed ???
+			if (ul->changed) {
+				legions_report_quorum(ul, best_valor, best_uuid, votes);
+			}
 			if (i_am_the_best) {
 				if (!ul->i_am_the_lord) {
-					legions_report_quorum(ul, best_valor, best_uuid, votes);
 					uwsgi_log("[uwsgi-legion] i am now the Lord of the Legion %s\n", ul->legion);
 					// triggering lord hooks
 					struct uwsgi_string_list *usl = ul->lord_hooks;
@@ -275,7 +279,6 @@ static void legions_check_nodes_step2() {
 			}
 			else {
 				if (ul->i_am_the_lord) {
-					legions_report_quorum(ul, best_valor, best_uuid, votes);
 					uwsgi_log("[uwsgi-legion] a new Lord (valor: %llu uuid: %.*s) raised for Legion %s...\n", ul->lord_valor, 36, ul->lord_uuid, ul->legion);
 					// no more lord, trigger unlord hooks
 					struct uwsgi_string_list *usl = ul->unlord_hooks;
@@ -302,6 +305,8 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 
 	memcpy(best_uuid, ul->uuid, 36);
 	uint64_t best_valor = ul->valor;
+	
+	ul->changed = 0;
 
 	struct uwsgi_legion_node *best_node = NULL;
 
@@ -313,6 +318,7 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 			memcpy(best_uuid, nodes->uuid, 36);
 		}
 		else if (nodes->valor == best_valor) {
+			uwsgi_log("CMP: %d\n", uwsgi_uuid_cmp(nodes->uuid, best_uuid));
 			if (uwsgi_uuid_cmp(nodes->uuid, best_uuid) > 0) {
 				best_node = nodes;
 				best_valor = nodes->valor;
@@ -322,6 +328,14 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 		nodes = nodes->next;
 	}
 
+	if (best_valor != ul->lord_valor) {
+		ul->changed = 1;
+	}
+	else {
+		if (memcmp(best_uuid, ul->lord_uuid, 36)) {
+			ul->changed = 1;
+		}
+	}
 
 	ul->lord_valor = best_valor;
 	memcpy(ul->lord_uuid, best_uuid, 36);
