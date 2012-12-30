@@ -103,8 +103,16 @@ static int uwsgi_send_headers(request_rec *r, proxy_conn_rec *conn)
 
     const char *script_name = apr_table_get(r->subprocess_env, "SCRIPT_NAME");
     const char *path_info = apr_table_get(r->subprocess_env, "PATH_INFO");
+
     if (script_name && path_info) {
-        apr_table_set(r->subprocess_env, "SCRIPT_NAME", apr_pstrndup(r->pool, script_name, strlen(script_name)-strlen(path_info)));
+        if (strcmp(path_info, "/")) {
+            apr_table_set(r->subprocess_env, "SCRIPT_NAME", apr_pstrndup(r->pool, script_name, strlen(script_name)-strlen(path_info)));
+	}
+        else {
+            if (!strcmp(script_name, "/")) {
+                apr_table_set(r->subprocess_env, "SCRIPT_NAME", "");
+            }
+        }
     }
 
     env_table = apr_table_elts(r->subprocess_env);
@@ -326,7 +334,15 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
     }
 
     // ADD PATH_INFO
-    apr_table_add(r->subprocess_env, "PATH_INFO", url+strlen(worker->name));
+    size_t w_len = strlen(worker->name);
+    char *u_path_info = r->filename + 6 + w_len;
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                      "URL %s: %s %s %s", url, worker->name, r->filename, u_path_info);
+    int delta = 0;
+    if (u_path_info[0] != '/') {
+        delta = 1;
+    }
+    apr_table_add(r->subprocess_env, "PATH_INFO", url+w_len-delta);
 
 
     /* Create space for state information */
