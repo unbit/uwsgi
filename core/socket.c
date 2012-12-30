@@ -1702,14 +1702,14 @@ void uwsgi_bind_sockets() {
 		gsa.sa = (struct sockaddr *) &usa;
 		if (!uwsgi.skip_zero && !getsockname(0, gsa.sa, &socket_type_len)) {
 			if (gsa.sa->sa_family == AF_UNIX) {
-				uwsgi_sock = uwsgi_new_socket(usa.sa_un.sun_path);
+				uwsgi_sock = uwsgi_new_socket(uwsgi_getsockname(0));
 				uwsgi_sock->family = AF_UNIX;
 				uwsgi_sock->fd = 0;
 				uwsgi_sock->bound = 1;
 				uwsgi_log("uwsgi socket %d inherited UNIX address %s fd 0\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name);
 			}
 			else {
-				uwsgi_sock = uwsgi_new_socket(uwsgi_concat2("::", ""));
+				uwsgi_sock = uwsgi_new_socket(uwsgi_getsockname(0));
 				uwsgi_sock->family = AF_INET;
 				uwsgi_sock->fd = 0;
 				uwsgi_sock->bound = 1;
