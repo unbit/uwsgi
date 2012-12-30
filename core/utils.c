@@ -848,17 +848,19 @@ void uwsgi_linux_ksm_map(void) {
 #endif
 
 #ifdef __linux__
-long uwsgi_num_from_file(char *filename) {
+long uwsgi_num_from_file(char *filename, int quiet) {
 	char buf[16];
 	ssize_t len;
 	int fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		uwsgi_error_open(filename);
+		if (!quiet)
+			uwsgi_error_open(filename);
 		return -1L;
 	}
 	len = read(fd, buf, sizeof(buf));
 	if (len == 0) {
-		uwsgi_log("read error %s\n", filename);
+		if (!quiet)
+			uwsgi_log("read error %s\n", filename);
 		close(fd);
 		return -1L;
 	}
