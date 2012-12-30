@@ -1176,7 +1176,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keyval_comma(us, "addr", legion->addr))
 				goto end;
 
-			if (uwsgi_stats_keyval_comma(us, "uid", legion->uuid))
+			if (uwsgi_stats_keyval_comma(us, "uuid", legion->uuid))
 				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "valor", (unsigned long long) legion->valor))
