@@ -4022,17 +4022,10 @@ void uwsgi_uuid(char *buf) {
 
 int uwsgi_uuid_cmp(char *x, char *y) {
 	int i;
-	uint64_t tot1 = 0;
-	uint64_t tot2 = 0;
 	for(i=0;i<36;i++) {
-		tot1 += x[i];
-	}
-	for(i=0;i<36;i++) {
-		tot2 += y[i];
-	}
-
-	if (tot1 > tot2) {
-		return 1;
+		if (x[i] > y[i]) {
+			return 1;
+		}
 	}
 	return 0;
 }
