@@ -294,6 +294,10 @@ static void legions_check_nodes_step2() {
 				}
 			}
 		}
+		else if (votes > 0 && votes < ul->quorum && (uwsgi_now() - ul->last_warning >= 60)) {
+			uwsgi_log("[uwsgi-legion] no quorum: only %d vote(s) for Legion %s, %d needed to elect a Lord\n", votes, ul->legion, ul->quorum);
+			ul->last_warning = uwsgi_now();
+		}
 
 		ul = ul->next;
 	}
