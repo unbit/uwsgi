@@ -498,7 +498,7 @@ int uwsgi_get_tcp_info(int fd) {
 #elif defined(__FreeBSD__)
 		if (!uwsgi.shared->ti.__tcpi_sacked) {
 #endif
-                        return -1;
+                        return 0;
                 }
 
 #if defined(__linux__)
@@ -532,7 +532,7 @@ int uwsgi_get_tcp_info(int fd) {
 	}
 #endif
 
-	return -1;
+	return 0;
 }
 
 
@@ -558,7 +558,7 @@ int get_linux_unbit_SIOBKLGQ(int fd) {
 		return queue;
 	}
 
-	return -1;
+	return 0;
 
 }
 #endif
