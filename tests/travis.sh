@@ -86,7 +86,7 @@ test_rack() {
     $GEMS_BINARY install sinatra || die
     echo -e "${bldyel}>>> Spawning uWSGI rack app${txtrst}"
     echo -en "${bldred}"
-    ./uwsgi --master --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --rack config2.ru --daemonize uwsgi.log
+    ./uwsgi --master --plugin 0:$1 --http :8080 --exit-on-reload --touch-reload reload.txt --rack examples/config2.ru --daemonize uwsgi.log
     echo -en "${txtrst}"
     http_test "http://localhost:8080/hi"
     echo -e "${bldyel}===================== DONE $1 =====================${txtrst}\n\n"
