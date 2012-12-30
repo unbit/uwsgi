@@ -1,6 +1,7 @@
 #include "../uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
+
 /*
 
 	uWSGI Legions subsystem
@@ -10,30 +11,6 @@ extern struct uwsgi_server uwsgi;
 	Lord of the Legion. There can only be one (and only one) Lord for each Legion.
 	If a member of a Legion spawns with an higher valor than the current Lord, it became the new Lord.
 
-	If two (or more) member of a legion have the same valor, an error condition will be triggered (TODO fallback to something more useful)
-
-	{ "legion": "legion1", "valor": "100", "unix": "1354533245", "lord": "1354533245", "name": "foobar" }
-
-	Legions options (the legion1 is formed by 4 nodes, only one node will get the ip address, this is an ip takeover implementation)
-
-	// became a member of a legion (each legion uses a shared secret)
-	legion = legion1 192.168.0.1:4001 100 algo:mysecret
-	// the other members of the legion
-	legion-node = legion1 192.168.0.2:4001
-	legion-node = legion1 192.168.0.3:4001
-	legion-node = legion1 192.168.0.4:4001
-
-	legion-lord = legion1 iptakeover:action=up,addr=192.168.0.100
-	legion-unlord = legion1 iptakeover:action=down,addr=192.168.0.100
-
-	legion-lord = legion1 cmd:foobar.sh up
-	legion-unlord = legion1 cmd:foobar.sh down
-
-	TODO
-	some option could benefit from the legions subsystem, expecially in clustered environments	
-	Cron-tasks for example could be run only by the lord and so on...
-
-	
 
 */
 
@@ -336,7 +313,7 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 			memcpy(best_uuid, nodes->uuid, 36);
 		}
 		else if (nodes->valor == best_valor) {
-			if (uwsgi_uuid_cmp(nodes->uuid, best_uuid)) {
+			if (uwsgi_uuid_cmp(nodes->uuid, best_uuid) > 0) {
 				best_node = nodes;
 				best_valor = nodes->valor;
 				memcpy(best_uuid, nodes->uuid, 36);
@@ -562,6 +539,10 @@ void uwsgi_start_legions() {
 		}
 		legion = legion->next;
 	}
+
+#ifndef UWSGI_UUID
+	uwsgi_log("WARNING: you are not using libuuid to generate Legions UUID\n");
+#endif
 
 	if (pthread_create(&legion_loop_t, NULL, legion_loop, NULL)) {
 		uwsgi_error("pthread_create()");
