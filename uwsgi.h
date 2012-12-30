@@ -554,6 +554,8 @@ struct uwsgi_legion {
 
 	time_t unix_check;
 
+	time_t last_warning;
+
 	EVP_CIPHER_CTX *encrypt_ctx;
 	EVP_CIPHER_CTX *decrypt_ctx;
 
