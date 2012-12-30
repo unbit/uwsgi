@@ -257,7 +257,6 @@ static void legions_check_nodes_step2() {
 		// we have quorum !!!
 		if (votes > 0 && votes >= ul->quorum) {
 			// something changed ???
-			uwsgi_log("quorum\n");
 			if (ul->changed) {
 				legions_report_quorum(ul, best_valor, best_uuid, votes);
 				ul->changed = 0;
@@ -327,8 +326,6 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 		nodes = nodes->next;
 	}
 
-	uwsgi_log("lord_valor: %llu lord_uuid: %.*s\n", ul->lord_valor, 36, ul->lord_uuid);
-
 	// first round ?
 	if (ul->lord_valor == 0) {
 		ul->changed = 1;
@@ -338,7 +335,6 @@ struct uwsgi_legion_node *uwsgi_legion_get_lord(struct uwsgi_legion *ul) {
 	}
 	else {
 		if (memcmp(best_uuid, ul->lord_uuid, 36)) {
-			uwsgi_log("CHANGED\n");
 			ul->changed = 1;
 		}
 	}
