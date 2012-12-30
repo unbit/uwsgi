@@ -4023,8 +4023,11 @@ void uwsgi_uuid(char *buf) {
 int uwsgi_uuid_cmp(char *x, char *y) {
 	int i;
 	for(i=0;i<36;i++) {
-		if (x[i] > y[i]) {
-			return 1;
+		if (x[i] != y[i]) {
+			if (x[i] > y[i]) {
+				return 1;
+			}
+			return 0;
 		}
 	}
 	return 0;
