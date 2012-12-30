@@ -1154,6 +1154,101 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 	}
 #endif
 
+	if (uwsgi.legions) {
+
+		if (uwsgi_stats_comma(us))
+			goto end;
+
+		if (uwsgi_stats_key(us, "legions"))
+			goto end;
+
+		if (uwsgi_stats_list_open(us))
+			goto end;
+
+		struct uwsgi_legion *legion = uwsgi.legions;
+		while (legion) {
+			if (uwsgi_stats_object_open(us))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "legion", legion->legion))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "addr", legion->addr))
+				goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "uid", legion->uuid))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "valor", (unsigned long long) legion->valor))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "checksum", (unsigned long long) legion->checksum))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "quorum", (unsigned long long) legion->quorum))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "i_am_the_lord", (unsigned long long) legion->i_am_the_lord))
+				goto end;
+
+			// legion nodes start
+			if (uwsgi_stats_key(us, "nodes"))
+				goto end;
+
+			if (uwsgi_stats_list_open(us))
+				goto end;
+
+			struct uwsgi_legion_node *node = legion->nodes_head;
+			while (node) {
+				if (uwsgi_stats_object_open(us))
+					goto end;
+
+				char name[node->name_len];
+				sprintf(name, "%.*s", node->name_len, node->name);
+				if (uwsgi_stats_keyval_comma(us, "name", name))
+					goto end;
+
+				if (uwsgi_stats_keyval_comma(us, "uid", node->uuid))
+					goto end;
+
+				if (uwsgi_stats_keylong_comma(us, "valor", (unsigned long long) node->valor))
+					goto end;
+
+				if (uwsgi_stats_keylong_comma(us, "checksum", (unsigned long long) node->checksum))
+					goto end;
+
+				if (uwsgi_stats_keylong(us, "last_seen", (unsigned long long) node->last_seen))
+					goto end;
+
+				if (uwsgi_stats_object_close(us))
+					goto end;
+
+				node = node->next;
+				if (node) {
+					if (uwsgi_stats_comma(us))
+						goto end;
+				}
+			}
+
+			if (uwsgi_stats_list_close(us))
+				goto end;
+			// legion nodes end
+
+			if (uwsgi_stats_object_close(us))
+				goto end;
+
+			legion = legion->next;
+			if (legion) {
+				if (uwsgi_stats_comma(us))
+					goto end;
+			}
+		}
+
+		if (uwsgi_stats_list_close(us))
+			goto end;
+
+	}
+
 	if (uwsgi_stats_object_close(us))
 		goto end;
 
