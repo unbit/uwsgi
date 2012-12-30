@@ -4028,7 +4028,7 @@ int uwsgi_uuid_cmp(char *x, char *y) {
 		tot1 += x[i];
 	}
 	for(i=0;i<36;i++) {
-		tot2 += x[i];
+		tot2 += y[i];
 	}
 
 	if (tot1 > tot2) {
