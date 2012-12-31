@@ -532,20 +532,35 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 
 	struct stat st;
 	char real_filename[PATH_MAX + 1];
-	size_t real_filename_len = 0;
+	uint64_t real_filename_len = 0;
 	char *filename = NULL;
+	size_t filename_len = 0;
 
 
 	if (!is_a_file) {
 		filename = uwsgi_concat3n(document_root, document_root_len, "/", 1, path_info, path_info_len);
+		filename_len = document_root_len + 1 + path_info_len;
 	}
 	else {
 		filename = uwsgi_concat2n(document_root, document_root_len, "", 0);
+		filename_len = document_root_len;
 	}
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("[uwsgi-fileserve] checking for %s\n", filename);
 #endif
+
+	if (uwsgi.static_cache_paths) {
+		uwsgi_rlock(uwsgi.cache_lock);
+		char *item = uwsgi_cache_get(filename, filename_len, &real_filename_len);
+		if (item && real_filename_len > 0 && real_filename_len <= PATH_MAX) {
+			memcpy(real_filename, item, real_filename_len);
+			uwsgi_rwunlock(uwsgi.cache_lock);
+			goto found;
+		}
+		uwsgi_rwunlock(uwsgi.cache_lock);
+	}
+
 	if (!realpath(filename, real_filename)) {
 #ifdef UWSGI_DEBUG
 		uwsgi_log("[uwsgi-fileserve] unable to get realpath() of the static file\n");
@@ -553,9 +568,16 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 		free(filename);
 		return -1;
 	}
-
-	free(filename);
 	real_filename_len = strlen(real_filename);
+
+	if (uwsgi.static_cache_paths) {
+		uwsgi_wlock(uwsgi.cache_lock);
+		uwsgi_cache_set(filename, filename_len, real_filename, real_filename_len, uwsgi.static_cache_paths, UWSGI_CACHE_FLAG_UPDATE);
+		uwsgi_rwunlock(uwsgi.cache_lock);
+	}
+
+found:
+	free(filename);
 
 	if (uwsgi_starts_with(real_filename, real_filename_len, document_root, document_root_len)) {
 		struct uwsgi_string_list *safe = uwsgi.static_safe;

@@ -1158,6 +1158,11 @@ void sanitize_args() {
 		uwsgi_log("invalid auto-snapshot value: must be <= than processes\n");
 		exit(1);
 	}
+
+	if (uwsgi.static_cache_paths > 0 && !uwsgi.cache_max_items) {
+		uwsgi_log("caching of static paths requires uWSGI caching !!!\n");
+		exit(1);
+	}
 }
 
 // translate a OS env to a uWSGI option
