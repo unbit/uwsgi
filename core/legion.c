@@ -231,7 +231,11 @@ static void legions_check_nodes_step2() {
 		}
 
 		// calculate the checksum
-		ul->checksum = uwsgi_legion_checksum(ul);
+		uint64_t new_checksum = uwsgi_legion_checksum(ul);
+		if (new_checksum != ul->checksum) {
+			ul->changed = 1;
+		}
+		ul->checksum = new_checksum;
 
 		// ... ok let's see if all of the nodes agree on the lord
 		// ... but first check if i am not alone...
