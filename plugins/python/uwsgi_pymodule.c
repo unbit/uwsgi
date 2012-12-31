@@ -440,6 +440,22 @@ PyObject *py_uwsgi_signal_registered(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_i_am_the_lord(PyObject * self, PyObject * args) {
+	char *legion_name = NULL;
+
+        if (!PyArg_ParseTuple(args, "s:i_am_the_lord", &legion_name)) {
+                return NULL;
+        }
+
+        if (uwsgi_legion_i_am_the_lord(legion_name)) {
+                Py_INCREF(Py_True);
+                return Py_True;
+        }
+
+        Py_INCREF(Py_False);
+        return Py_False;
+}
+
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 
 	uint8_t uwsgi_signal;
@@ -3212,6 +3228,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"cluster_node_name", py_uwsgi_cluster_node_name, METH_VARARGS, ""},
 	{"cluster", py_uwsgi_cluster, METH_VARARGS, ""},
 	{"cluster_best_node", py_uwsgi_cluster_best_node, METH_VARARGS, ""},
+#endif
+#ifdef UWSGI_SSL
+	{"i_am_the_lord", py_uwsgi_i_am_the_lord, METH_VARARGS, ""},
 #endif
 #ifdef UWSGI_ASYNC
 	{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},

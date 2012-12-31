@@ -924,3 +924,11 @@ next:
 	}
 
 }
+
+int uwsgi_legion_i_am_the_lord(char *name) {
+	struct uwsgi_legion *legion = uwsgi_legion_get_by_name(name);
+	if (legion && legion->i_am_the_lord) {
+		return 1;
+	}
+	return 0;
+}

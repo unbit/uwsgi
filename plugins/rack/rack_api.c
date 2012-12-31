@@ -45,6 +45,16 @@ VALUE rack_uwsgi_i_am_the_spooler(VALUE *class) {
         return Qfalse;
 }
 
+#ifdef UWSGI_SSL
+VALUE rack_uwsgi_i_am_the_lord(VALUE *class, VALUE legion_name) {
+	Check_Type(legion_name, T_STRING);
+        if (uwsgi_legion_i_am_the_lord(RSTRING_PTR(legion_name))) {
+                return Qtrue;
+        }
+        return Qfalse;
+}
+#endif
+
 
 
 VALUE rack_uwsgi_setprocname(VALUE *class, VALUE rbname) {
@@ -918,6 +928,10 @@ void uwsgi_rack_init_api() {
 
         uwsgi_rack_api("rpc", uwsgi_ruby_do_rpc, -1);
 
+
+#ifdef UWSGI_SSL
+	uwsgi_rack_api("i_am_the_lord", rack_uwsgi_i_am_the_lord, 1);
+#endif
 	
 
 	if (uwsgi.cache_max_items > 0) {

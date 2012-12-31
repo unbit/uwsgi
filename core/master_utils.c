@@ -1154,6 +1154,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 	}
 #endif
 
+#ifdef UWSGI_SSL
 	if (uwsgi.legions) {
 
 		if (uwsgi_stats_comma(us))
@@ -1281,6 +1282,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			goto end;
 
 	}
+#endif
 
 	if (uwsgi_stats_object_close(us))
 		goto end;

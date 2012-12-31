@@ -3634,6 +3634,8 @@ int check_hex(char *, int);
 void uwsgi_uuid(char *);
 int uwsgi_uuid_cmp(char *, char *);
 
+int uwsgi_legion_i_am_the_lord(char *);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

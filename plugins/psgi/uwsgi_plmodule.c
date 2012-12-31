@@ -267,6 +267,20 @@ XS(XS_signal_wait) {
 	XSRETURN_YES;
 }
 
+#ifdef UWSGI_SSL
+XS(XS_i_am_the_lord) {
+
+	dXSARGS;
+
+        psgi_check_args(1);
+
+	if (uwsgi_legion_i_am_the_lord(SvPV_nolen(ST(0)))) {
+        	XSRETURN_YES;
+	}
+        XSRETURN_NO;
+}
+
+#endif
 
 void init_perl_embedded_module() {
 	psgi_xs(reload);
@@ -282,5 +296,8 @@ void init_perl_embedded_module() {
 	psgi_xs(signal);
 	psgi_xs(register_signal);
 	psgi_xs(signal_wait);
+#ifdef UWSGI_SSL
+	psgi_xs(i_am_the_lord);
+#endif
 }
 
