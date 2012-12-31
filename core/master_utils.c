@@ -1162,9 +1162,6 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_key(us, "legions"))
 			goto end;
 
-		if (uwsgi_stats_list_open(us))
-			goto end;
-
 		struct uwsgi_legion *legion = uwsgi.legions;
 		while (legion) {
 			if (uwsgi_stats_object_open(us))
@@ -1276,9 +1273,6 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 					goto end;
 			}
 		}
-
-		if (uwsgi_stats_list_close(us))
-			goto end;
 
 	}
 
