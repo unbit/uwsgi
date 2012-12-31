@@ -514,30 +514,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 }
 
 
-// TODO rewrite it using uwsgi buffers
 void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8_t modifier1, uint8_t modifier2, uint8_t cmd, char *socket_name, char *sign) {
-
-	char value_cores[sizeof(UMAX64_STR) + 1];
-	char value_load[sizeof(UMAX64_STR) + 1];
-	char value_weight[sizeof(UMAX64_STR) + 1];
-
-
-	int value_cores_size = uwsgi_long2str2n(uwsgi.numproc * uwsgi.cores, value_cores, sizeof(UMAX64_STR));
-	int value_load_size = uwsgi_long2str2n(uwsgi.shared->load, value_load, sizeof(UMAX64_STR));
-
-	int value_weight_size = 0;
-
-	if (uwsgi.auto_weight) {
-		value_weight_size = uwsgi_long2str2n(uwsgi.numproc * uwsgi.cores, value_weight, sizeof(UMAX64_STR));
-	}
-	else {
-		value_weight_size = uwsgi_long2str2n(uwsgi.weight, value_weight, sizeof(UMAX64_STR));
-	}
-
-	char value_modifier1[4];
-	char value_modifier2[4];
-	int value_modifier1_size = uwsgi_long2str2n(modifier1, value_modifier1, 3);
-	int value_modifier2_size = uwsgi_long2str2n(modifier2, value_modifier2, 3);
 
 	if (socket_name == NULL && !uwsgi.sockets)
 		return;
@@ -546,173 +523,44 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 		socket_name = uwsgi.sockets->name;
 	}
 
-	size_t ssb_size = 4 + (2 + 3) + (2 + keysize) + (2 + 7) + (2 + strlen(socket_name)) + (2 + 9 + 2 + value_modifier1_size) + (2 + 9 + 2 + value_modifier2_size) + (2 + 5 + 2 + value_cores_size) + (2 + 4 + 2 + value_load_size) + (2 + 6 + 2 + value_weight_size);
+	struct uwsgi_buffer *ub =  uwsgi_buffer_new(4096);
 
-	char *subscrbuf = uwsgi_malloc(ssb_size);
-	// leave space for uwsgi header
-	char *ssb = subscrbuf + 4;
+	// make space for uwsgi header
+	ub->pos = 4;
 
-	// key = "domain"
-	uint16_t ustrlen = 3;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, "key", ustrlen);
-	ssb += ustrlen;
-
-	ustrlen = keysize;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, key, ustrlen);
-	ssb += ustrlen;
-
-	// address = "first uwsgi socket"
-	ustrlen = 7;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, "address", ustrlen);
-	ssb += ustrlen;
-
-	ustrlen = strlen(socket_name);
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, socket_name, ustrlen);
-	ssb += ustrlen;
-
-	// modifier1 = "modifier1"
-	ustrlen = 9;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, "modifier1", ustrlen);
-	ssb += ustrlen;
-
-	ustrlen = value_modifier1_size;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, value_modifier1, value_modifier1_size);
-	ssb += ustrlen;
-
-	// modifier2 = "modifier2"
-	ustrlen = 9;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, "modifier2", ustrlen);
-	ssb += ustrlen;
-
-	ustrlen = value_modifier2_size;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, value_modifier2, value_modifier2_size);
-	ssb += ustrlen;
-
-	// cores = uwsgi.numproc * uwsgi.cores
-	ustrlen = 5;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, "cores", ustrlen);
-	ssb += ustrlen;
-
-	ustrlen = value_cores_size;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, value_cores, value_cores_size);
-	ssb += ustrlen;
-
-	// load
-	ustrlen = 4;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, "load", ustrlen);
-	ssb += ustrlen;
-
-	ustrlen = value_load_size;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, value_load, value_load_size);
-	ssb += ustrlen;
-
-	// weight
-	ustrlen = 6;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, "weight", ustrlen);
-	ssb += ustrlen;
-
-	ustrlen = value_weight_size;
-	*ssb++ = (uint8_t) (ustrlen & 0xff);
-	*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-	memcpy(ssb, value_weight, value_weight_size);
-	ssb += ustrlen;
+	if (uwsgi_buffer_append_keyval(ub, "key", 3, key, keysize)) goto end;
+	if (uwsgi_buffer_append_keyval(ub, "address", 7, socket_name, strlen(socket_name))) goto end;
+	if (uwsgi_buffer_append_keynum(ub, "modifier1", 9, modifier1)) goto end;
+	if (uwsgi_buffer_append_keynum(ub, "modifier2", 9, modifier2)) goto end;
+	if (uwsgi_buffer_append_keynum(ub, "cores", 5, uwsgi.numproc * uwsgi.cores)) goto end;
+	if (uwsgi_buffer_append_keynum(ub, "load", 4, uwsgi.shared->load)) goto end;
+	if (uwsgi.auto_weight) {
+		if (uwsgi_buffer_append_keynum(ub, "weight", 6, uwsgi.numproc * uwsgi.cores )) goto end;
+	}
+	else {
+		if (uwsgi_buffer_append_keynum(ub, "weight", 6, uwsgi.weight )) goto end;
+	}
 
 #ifdef UWSGI_SSL
 	if (sign) {
-		// add space for "unix" item
-		char unix_dst[sizeof(UMAX64_STR) + 1];
-		if (snprintf(unix_dst, sizeof(UMAX64_STR) + 1, "%lu", (unsigned long) (uwsgi_now() + (time_t) cmd)) < 1) {
-			uwsgi_error("unable to generate unix time for subscription !!!\n");
-			free(subscrbuf);
-			return;
-		}
-		ssb_size += 2 + 4 + 2 + strlen(unix_dst);
-		char *new_buf = realloc(subscrbuf, ssb_size);
-		if (!new_buf) {
-			uwsgi_error("realloc()");
-			free(subscrbuf);
-			return;
-		}
-
-		// fix ssb (new_buf base could be changed)
-		ssb = (new_buf + (ssb - subscrbuf));
-		subscrbuf = new_buf;
-
-		ustrlen = 4;
-		*ssb++ = (uint8_t) (ustrlen & 0xff);
-		*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-		memcpy(ssb, "unix", ustrlen);
-		ssb += ustrlen;
-
-		ustrlen = strlen(unix_dst);
-		*ssb++ = (uint8_t) (ustrlen & 0xff);
-		*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-		memcpy(ssb, unix_dst, strlen(unix_dst));
-		ssb += ustrlen;
+		if (uwsgi_buffer_append_keynum(ub, "unix", 6, (uwsgi_now() + (time_t) cmd) )) goto end;
 
 		unsigned int signature_len = 0;
-		char *signature = uwsgi_rsa_sign(sign, subscrbuf + 4, ssb_size - 4, &signature_len);
+		char *signature = uwsgi_rsa_sign(sign, ub->buf, ub->pos, &signature_len);
 		if (signature && signature_len > 0) {
-			// add space for "sign" item
-			ssb_size += 2 + 4 + 2 + signature_len;
-			char *new_buf = realloc(subscrbuf, ssb_size);
-			if (!new_buf) {
-				uwsgi_error("realloc()");
+			if (uwsgi_buffer_append_keyval(ub, "sign", 4, signature, signature_len)) {
 				free(signature);
-				free(subscrbuf);
-				return;
+				goto end;
 			}
-
-			// fix ssb (new_buf base could be changed)
-			ssb = (new_buf + (ssb - subscrbuf));
-			subscrbuf = new_buf;
-
-			ustrlen = 4;
-			*ssb++ = (uint8_t) (ustrlen & 0xff);
-			*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-			memcpy(ssb, "sign", ustrlen);
-			ssb += ustrlen;
-
-			ustrlen = signature_len;
-			*ssb++ = (uint8_t) (ustrlen & 0xff);
-			*ssb++ = (uint8_t) ((ustrlen >> 8) & 0xff);
-			memcpy(ssb, signature, signature_len);
-			ssb += ustrlen;
-
 			free(signature);
 		}
 	}
 #endif
 
 
-	send_udp_message(224, cmd, udp_address, subscrbuf, ssb_size - 4);
-	free(subscrbuf);
+	send_udp_message(224, cmd, udp_address, ub->buf, ub->pos);
+end:
+	uwsgi_buffer_destroy(ub);
 }
 
 
