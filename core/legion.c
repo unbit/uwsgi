@@ -77,6 +77,7 @@ void uwsgi_parse_legion(char *key, uint16_t keylen, char *value, uint16_t vallen
 	}
 }
 
+// critical section (remember to lock when you use it)
 struct uwsgi_legion_node *uwsgi_legion_add_node(struct uwsgi_legion *ul, uint16_t valor, char *name, uint16_t name_len, char *uuid) {
 
 	struct uwsgi_legion_node *node = uwsgi_calloc(sizeof(struct uwsgi_legion_node));
@@ -107,6 +108,7 @@ error:
 	return NULL;
 }
 
+// critical section (remember to lock when you use it)
 void uwsgi_legion_remove_node(struct uwsgi_legion *ul, struct uwsgi_legion_node *node) {
 	// check if the node is the first one
 	if (node == ul->nodes_head) {
@@ -168,7 +170,9 @@ static void legions_check_nodes() {
 				struct uwsgi_legion_node *tmp_node = node;
 				node = node->next;
 				uwsgi_log("[uwsgi-legion] node: %.*s valor: %llu uuid: %.*s left Legion %s\n", tmp_node->name_len, tmp_node->name, tmp_node->valor, 36, tmp_node->uuid, legion->legion);
+				pthread_mutex_lock(&legion->lock);
 				uwsgi_legion_remove_node(legion, tmp_node);
+				pthread_mutex_unlock(&legion->lock);
 				continue;
 			}
 			node = node->next;
@@ -477,7 +481,9 @@ static void *legion_loop(void *foobar) {
 			struct uwsgi_legion_node *node = uwsgi_legion_get_node(ul, legion_msg.valor, legion_msg.name, legion_msg.name_len, legion_msg.uuid);
 			if (!node) {
 				// add the new node
+				pthread_mutex_lock(&ul->lock);
 				node = uwsgi_legion_add_node(ul, legion_msg.valor, legion_msg.name, legion_msg.name_len, legion_msg.uuid);
+				pthread_mutex_unlock(&ul->lock);
 				uwsgi_log("[uwsgi-legion] node: %.*s valor: %llu uuid: %.*s joined Legion %s\n", node->name_len, node->name, node->valor, 36, node->uuid, ul->legion);
 			}
 
@@ -858,6 +864,8 @@ void uwsgi_opt_legion(char *opt, char *value, void *foobar) {
 
 	ul->encrypt_ctx = ctx;
 	ul->decrypt_ctx = ctx2;
+
+	pthread_mutex_init(&ul->lock, NULL);
 
 	uwsgi_legion_add(ul);
 }

@@ -1191,24 +1191,56 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keylong_comma(us, "i_am_the_lord", (unsigned long long) legion->i_am_the_lord))
 				goto end;
 
+			if (uwsgi_stats_keylong_comma(us, "lord_valor", (unsigned long long) legion->lord_valor))
+				goto end;
+
+			if (uwsgi_stats_keyvaln_comma(us, "lord_uuid", legion->lord_uuid, 36))
+				goto end;
+
 			// legion nodes start
 			if (uwsgi_stats_key(us, "nodes"))
+                                goto end;
+
+                        if (uwsgi_stats_list_open(us))
+                                goto end;
+
+                        struct uwsgi_string_list *nodes = legion->nodes;
+                        while (nodes) {
+
+				if (uwsgi_stats_str(us, nodes->value))
+                                	goto end;
+
+                                nodes = nodes->next;
+                                if (nodes) {
+                                        if (uwsgi_stats_comma(us))
+                                                goto end;
+                                }
+                        }
+
+			if (uwsgi_stats_list_close(us))
+				goto end;
+
+                        if (uwsgi_stats_comma(us))
+                        	goto end;
+
+
+			// legion members start
+			if (uwsgi_stats_key(us, "members"))
 				goto end;
 
 			if (uwsgi_stats_list_open(us))
 				goto end;
 
+			pthread_mutex_lock(&legion->lock);
 			struct uwsgi_legion_node *node = legion->nodes_head;
 			while (node) {
 				if (uwsgi_stats_object_open(us))
 					goto end;
 
-				char name[node->name_len];
-				sprintf(name, "%.*s", node->name_len, node->name);
-				if (uwsgi_stats_keyval_comma(us, "name", name))
+				if (uwsgi_stats_keyvaln_comma(us, "name", node->name, node->name_len))
 					goto end;
 
-				if (uwsgi_stats_keyval_comma(us, "uid", node->uuid))
+				if (uwsgi_stats_keyval_comma(us, "uuid", node->uuid))
 					goto end;
 
 				if (uwsgi_stats_keylong_comma(us, "valor", (unsigned long long) node->valor))
@@ -1229,6 +1261,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 						goto end;
 				}
 			}
+			pthread_mutex_unlock(&legion->lock);
 
 			if (uwsgi_stats_list_close(us))
 				goto end;
