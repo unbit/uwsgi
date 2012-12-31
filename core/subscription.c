@@ -604,3 +604,223 @@ struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht() {
 	}
 	return uwsgi_calloc(sizeof(struct uwsgi_subscription_slot *) * UMAX16);
 }
+
+void uwsgi_subscribe(char *subscription, uint8_t cmd) {
+
+        int subfile_size;
+        int i;
+        char *key = NULL;
+        int keysize = 0;
+        char *modifier1 = NULL;
+        int modifier1_len = 0;
+        char *socket_name = NULL;
+        char *udp_address = subscription;
+        char *udp_port = NULL;
+        char *subscription_key = NULL;
+        char *sign = NULL;
+
+        // check for explicit socket_name
+        char *equal = strchr(subscription, '=');
+        if (equal) {
+                socket_name = subscription;
+                if (socket_name[0] == '=') {
+                        equal = strchr(socket_name + 1, '=');
+                        if (!equal)
+                                return;
+                        *equal = '\0';
+                        struct uwsgi_socket *us = uwsgi_get_shared_socket_by_num(atoi(socket_name + 1));
+                        if (!us)
+                                return;
+                        socket_name = us->name;
+                }
+                *equal = '\0';
+                udp_address = equal + 1;
+        }
+
+        // check for unix socket
+        if (udp_address[0] != '/') {
+                udp_port = strchr(udp_address, ':');
+                if (!udp_port) {
+                        if (equal)
+                                *equal = '=';
+                        return;
+                }
+                subscription_key = strchr(udp_port + 1, ':');
+        }
+        else {
+                subscription_key = strchr(udp_address + 1, ':');
+        }
+
+        if (!subscription_key) {
+                if (equal)
+                        *equal = '=';
+                return;
+        }
+
+        udp_address = uwsgi_concat2n(udp_address, subscription_key - udp_address, "", 0);
+
+	if (subscription_key[1] == '@') {
+                if (!uwsgi_file_exists(subscription_key + 2))
+                        goto clear;
+                char *lines = uwsgi_open_and_read(subscription_key + 2, &subfile_size, 1, NULL);
+                if (subfile_size > 0) {
+                        key = lines;
+                        for (i = 0; i < subfile_size; i++) {
+                                if (lines[i] == 0) {
+                                        if (keysize > 0) {
+                                                if (key[0] != '#' && key[0] != '\n') {
+                                                        modifier1 = strchr(key, ',');
+                                                        if (modifier1) {
+                                                                modifier1[0] = 0;
+                                                                modifier1++;
+                                                                modifier1_len = strlen(modifier1);
+                                                                keysize = strlen(key);
+                                                        }
+                                                        uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name, sign);
+                                                        modifier1 = NULL;
+                                                        modifier1_len = 0;
+                                                }
+                                        }
+                                        break;
+                                }
+                                else if (lines[i] == '\n') {
+                                        if (keysize > 0) {
+                                                if (key[0] != '#' && key[0] != '\n') {
+                                                        lines[i] = 0;
+                                                        modifier1 = strchr(key, ',');
+                                                        if (modifier1) {
+                                                                modifier1[0] = 0;
+                                                                modifier1++;
+                                                                modifier1_len = strlen(modifier1);
+                                                                keysize = strlen(key);
+                                                        }
+                                                        uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name, sign);
+                                                        modifier1 = NULL;
+                                                        modifier1_len = 0;
+                                                        lines[i] = '\n';
+                                                }
+                                        }
+                                        key = lines + i + 1;
+                                        keysize = 0;
+                                        continue;
+                                }
+                                keysize++;
+                        }
+
+                        free(lines);
+                }
+        }
+        else {
+                modifier1 = strchr(subscription_key + 1, ',');
+                if (modifier1) {
+                        modifier1[0] = 0;
+                        modifier1++;
+
+                        sign = strchr(modifier1 + 1, ',');
+                        if (sign) {
+                                *sign = 0;
+                                sign++;
+                        }
+                        modifier1_len = strlen(modifier1);
+                }
+
+                uwsgi_send_subscription(udp_address, subscription_key + 1, strlen(subscription_key + 1), uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name, sign);
+                if (modifier1)
+                        modifier1[-1] = ',';
+                if (sign)
+                        sign[-1] = ',';
+        }
+
+clear:
+        if (equal)
+                *equal = '=';
+        free(udp_address);
+
+}
+
+void uwsgi_subscribe2(char *arg, uint8_t cmd) {
+
+	char *s_server = NULL;
+	char *s_key = NULL;
+	char *s_socket = NULL;
+	char *s_addr = NULL;
+	char *s_weight = NULL;
+	char *s_sign = NULL;
+	char *s_modifier1 = NULL;
+	char *s_modifier2 = NULL;
+
+	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
+                        "server", &s_server,
+                        "key", &s_key,
+                        "socket", &s_socket,
+                        "addr", &s_addr,
+                        "weight", &s_weight,
+                        "modifier1", &s_modifier1,
+                        "modifier2", &s_modifier2,
+                        "sign", &s_sign,
+		NULL)) {
+		return;
+	}
+
+	if (!s_server && !s_key) goto end;
+
+	if (s_weight) {
+		uwsgi.weight = atoi(s_weight);
+	}
+
+	if (s_socket) {
+		struct uwsgi_socket *us = uwsgi_get_socket_by_num(atoi(s_socket));
+		if (us) {
+			if (s_addr) {
+				free(s_addr);
+			}
+			s_addr = uwsgi_str(us->name);
+		}
+	}
+
+	uint8_t modifier1 = 0;
+	uint8_t modifier2 = 0;
+
+	if (s_modifier1) {
+		modifier1 = atoi(s_modifier1);
+	}
+
+	if (s_modifier2) {
+		modifier2 = atoi(s_modifier2);
+	}
+
+	uwsgi_send_subscription(s_server, s_key, strlen(s_key), modifier1, modifier2, cmd, s_addr, s_sign);
+end:
+	if (s_server) free(s_server);
+	if (s_key) free(s_key);
+	if (s_socket) free(s_socket);
+	if (s_addr) free(s_addr);
+	if (s_weight) free(s_weight);
+	if (s_modifier1) free(s_modifier1);
+	if (s_modifier2) free(s_modifier2);
+	if (s_sign) free(s_sign);
+}
+
+void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
+	// -- subscribe
+	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
+        while (subscriptions) {
+		if (verbose) {
+                	uwsgi_log("%s %s\n", cmd ? "unsubscribing from" : "subscribing to", subscriptions->value);
+		}
+                uwsgi_subscribe(subscriptions->value, cmd);
+                subscriptions = subscriptions->next;
+        }
+
+	// --subscribe2
+	subscriptions = uwsgi.subscriptions2;
+        while (subscriptions) {
+        	if (verbose) {
+                        uwsgi_log("%s %s\n", cmd ? "unsubscribing from" : "subscribing to", subscriptions->value);
+        	}
+                uwsgi_subscribe2(subscriptions->value, cmd);
+                subscriptions = subscriptions->next;
+        }
+
+}
+

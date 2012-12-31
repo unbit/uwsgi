@@ -1973,6 +1973,7 @@ struct uwsgi_server {
 	int subscription_tolerance;
 	int unsubscribe_on_graceful_reload;
 	struct uwsgi_string_list *subscriptions;
+	struct uwsgi_string_list *subscriptions2;
 
 	struct uwsgi_subscribe_node * (*subscription_algo)(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_node *);
 	int subscription_dotsplit;
@@ -3063,6 +3064,7 @@ char *uwsgi_simple_file_read(char *);
 void uwsgi_send_subscription(char *, char *, size_t , uint8_t, uint8_t , uint8_t, char *, char *);
 
 void uwsgi_subscribe(char *, uint8_t);
+void uwsgi_subscribe2(char *, uint8_t);
 
 struct uwsgi_probe *uwsgi_probe_register(struct uwsgi_probe **, char *, int (*)(int, struct uwsgi_signal_probe *));
 int uwsgi_add_probe(uint8_t sig, char *, char *, int, int);
@@ -3638,6 +3640,9 @@ void uwsgi_uuid(char *);
 int uwsgi_uuid_cmp(char *, char *);
 
 int uwsgi_legion_i_am_the_lord(char *);
+
+void uwsgi_subscribe_all(uint8_t, int);
+#define uwsgi_unsubscribe_all() uwsgi_subscribe_all(1, 1)
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

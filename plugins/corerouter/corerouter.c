@@ -158,6 +158,9 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 	else if (!uwsgi_strncmp("modifier1", 9, key, keylen)) {
 		usr->modifier1 = uwsgi_str_num(val, vallen);
 	}
+	else if (!uwsgi_strncmp("modifier2", 9, key, keylen)) {
+		usr->modifier2 = uwsgi_str_num(val, vallen);
+	}
 	else if (!uwsgi_strncmp("cores", 5, key, keylen)) {
 		usr->cores = uwsgi_str_num(val, vallen);
 	}

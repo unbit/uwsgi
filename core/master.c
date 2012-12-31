@@ -170,13 +170,7 @@ void suspend_resume_them_all(int signum) {
 	}
 
 	// subscribe/unsubscribe if needed
-	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
-	while (subscriptions) {
-		uwsgi_log("%s %s\n", suspend ? "unsubscribing from" : "subscribing to", subscriptions->value);
-		uwsgi_subscribe(subscriptions->value, suspend);
-		subscriptions = subscriptions->next;
-	}
-
+	uwsgi_subscribe_all(suspend, 1);
 
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		uwsgi.workers[i].suspended = suspend;
@@ -350,139 +344,6 @@ void *logger_thread_loop(void *noarg) {
 	}
 
 	return NULL;
-}
-
-void uwsgi_subscribe(char *subscription, uint8_t cmd) {
-
-	int subfile_size;
-	int i;
-	char *key = NULL;
-	int keysize = 0;
-	char *modifier1 = NULL;
-	int modifier1_len = 0;
-	char *socket_name = NULL;
-	char *udp_address = subscription;
-	char *udp_port = NULL;
-	char *subscription_key = NULL;
-	char *sign = NULL;
-
-	// check for explicit socket_name
-	char *equal = strchr(subscription, '=');
-	if (equal) {
-		socket_name = subscription;
-		if (socket_name[0] == '=') {
-			equal = strchr(socket_name + 1, '=');
-			if (!equal)
-				return;
-			*equal = '\0';
-			struct uwsgi_socket *us = uwsgi_get_shared_socket_by_num(atoi(socket_name + 1));
-			if (!us)
-				return;
-			socket_name = us->name;
-		}
-		*equal = '\0';
-		udp_address = equal + 1;
-	}
-
-	// check for unix socket
-	if (udp_address[0] != '/') {
-		udp_port = strchr(udp_address, ':');
-		if (!udp_port) {
-			if (equal)
-				*equal = '=';
-			return;
-		}
-		subscription_key = strchr(udp_port + 1, ':');
-	}
-	else {
-		subscription_key = strchr(udp_address + 1, ':');
-	}
-
-	if (!subscription_key) {
-		if (equal)
-			*equal = '=';
-		return;
-	}
-
-	udp_address = uwsgi_concat2n(udp_address, subscription_key - udp_address, "", 0);
-
-	if (subscription_key[1] == '@') {
-		if (!uwsgi_file_exists(subscription_key + 2))
-			goto clear;
-		char *lines = uwsgi_open_and_read(subscription_key + 2, &subfile_size, 1, NULL);
-		if (subfile_size > 0) {
-			key = lines;
-			for (i = 0; i < subfile_size; i++) {
-				if (lines[i] == 0) {
-					if (keysize > 0) {
-						if (key[0] != '#' && key[0] != '\n') {
-							modifier1 = strchr(key, ',');
-							if (modifier1) {
-								modifier1[0] = 0;
-								modifier1++;
-								modifier1_len = strlen(modifier1);
-								keysize = strlen(key);
-							}
-							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name, sign);
-							modifier1 = NULL;
-							modifier1_len = 0;
-						}
-					}
-					break;
-				}
-				else if (lines[i] == '\n') {
-					if (keysize > 0) {
-						if (key[0] != '#' && key[0] != '\n') {
-							lines[i] = 0;
-							modifier1 = strchr(key, ',');
-							if (modifier1) {
-								modifier1[0] = 0;
-								modifier1++;
-								modifier1_len = strlen(modifier1);
-								keysize = strlen(key);
-							}
-							uwsgi_send_subscription(udp_address, key, keysize, uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name, sign);
-							modifier1 = NULL;
-							modifier1_len = 0;
-							lines[i] = '\n';
-						}
-					}
-					key = lines + i + 1;
-					keysize = 0;
-					continue;
-				}
-				keysize++;
-			}
-
-			free(lines);
-		}
-	}
-	else {
-		modifier1 = strchr(subscription_key + 1, ',');
-		if (modifier1) {
-			modifier1[0] = 0;
-			modifier1++;
-
-			sign = strchr(modifier1 + 1, ',');
-			if (sign) {
-				*sign = 0;
-				sign++;
-			}
-			modifier1_len = strlen(modifier1);
-		}
-
-		uwsgi_send_subscription(udp_address, subscription_key + 1, strlen(subscription_key + 1), uwsgi_str_num(modifier1, modifier1_len), 0, cmd, socket_name, sign);
-		if (modifier1)
-			modifier1[-1] = ',';
-		if (sign)
-			sign[-1] = ',';
-	}
-
-clear:
-	if (equal)
-		*equal = '=';
-	free(udp_address);
-
 }
 
 int uwsgi_get_tcp_info(int fd) {
@@ -793,11 +654,7 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_daemons_spawn_all();
 
 	// first subscription
-	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
-	while (subscriptions) {
-		uwsgi_subscribe(subscriptions->value, 0);
-		subscriptions = subscriptions->next;
-	}
+	uwsgi_subscribe_all(0, 1);
 
 	// sync the cache store if needed
 	if (uwsgi.cache_store && uwsgi.cache_filesize) {
@@ -1392,12 +1249,8 @@ health_cycle:
 			}
 
 			// resubscribe every 10 cycles by default
-			if ((uwsgi.subscriptions && ((uwsgi.master_cycles % uwsgi.subscribe_freq) == 0 || uwsgi.master_cycles == 1)) && !uwsgi.to_heaven && !uwsgi.to_hell && !uwsgi.workers[0].suspended) {
-				struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
-				while (subscriptions) {
-					uwsgi_subscribe(subscriptions->value, 0);
-					subscriptions = subscriptions->next;
-				}
+			if (( (uwsgi.subscriptions || uwsgi.subscriptions2) && ((uwsgi.master_cycles % uwsgi.subscribe_freq) == 0 || uwsgi.master_cycles == 1)) && !uwsgi.to_heaven && !uwsgi.to_hell && !uwsgi.workers[0].suspended) {
+				uwsgi_subscribe_all(0, 0);
 			}
 
 #endif

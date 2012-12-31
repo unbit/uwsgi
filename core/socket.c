@@ -473,7 +473,7 @@ char *generate_socket_name(char *socket_name) {
 
 		}
 
-		uwsgi_log("unable to find avalid socket address\n");
+		uwsgi_log("unable to find a valid socket address\n");
 #endif
 		uwsgi_nuclear_blast();
 	}

@@ -3866,6 +3866,14 @@ int uwsgi_kvlist_parse(char *src, size_t len, char list_separator, char kv_separ
 		usl = usl->next;
 	}
 
+	// destroy the list (no need to destroy the value as it is a pointer to buf)
+	usl = itemlist;
+	while(usl) {
+		struct uwsgi_string_list *tmp_usl = usl;
+		usl = usl->next;	
+		free(tmp_usl);
+	}
+
 	free(buf);
 	return 0;
 }

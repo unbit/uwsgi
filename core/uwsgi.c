@@ -349,6 +349,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"subscribe-to", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"st", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
 	{"subscribe", required_argument, 0, "subscribe to the specified subscription server", uwsgi_opt_add_string_list, &uwsgi.subscriptions, UWSGI_OPT_MASTER},
+	{"subscribe2", required_argument, 0, "subscribe to the specified subscription server using advanced keyval syntax", uwsgi_opt_add_string_list, &uwsgi.subscriptions2, UWSGI_OPT_MASTER},
 	{"subscribe-freq", required_argument, 0, "send subscription announce at the specified interval", uwsgi_opt_set_int, &uwsgi.subscribe_freq, 0},
 	{"subscription-tolerance", required_argument, 0, "set tolerance for subscription servers", uwsgi_opt_set_int, &uwsgi.subscription_tolerance, 0},
 	{"unsubscribe-on-graceful-reload", no_argument, 0, "force unsubscribe request even during graceful reload", uwsgi_opt_true, &uwsgi.unsubscribe_on_graceful_reload, 0},
@@ -938,13 +939,7 @@ void kill_them_all(int signum) {
 	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
 
 	// unsubscribe if needed
-	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
-	while (subscriptions) {
-		uwsgi_log("unsubscribing from %s\n", subscriptions->value);
-		uwsgi_subscribe(subscriptions->value, 1);
-		subscriptions = subscriptions->next;
-	}
-
+	uwsgi_unsubscribe_all();
 
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0)
@@ -1031,12 +1026,7 @@ void grace_them_all(int signum) {
 	uwsgi_log("...gracefully killing workers...\n");
 
 	if (uwsgi.unsubscribe_on_graceful_reload) {
-		struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
-		while (subscriptions) {
-			uwsgi_log("unsubscribing from %s\n", subscriptions->value);
-			uwsgi_subscribe(subscriptions->value, 1);
-			subscriptions = subscriptions->next;
-		}
+		uwsgi_unsubscribe_all();
 	}
 
 	for (i = 1; i <= uwsgi.numproc; i++) {
@@ -1139,12 +1129,7 @@ void reap_them_all(int signum) {
 	uwsgi_log("...brutally killing workers...\n");
 
 	// unsubscribe if needed
-	struct uwsgi_string_list *subscriptions = uwsgi.subscriptions;
-	while (subscriptions) {
-		uwsgi_log("unsubscribing from %s\n", subscriptions->value);
-		uwsgi_subscribe(subscriptions->value, 1);
-		subscriptions = subscriptions->next;
-	}
+	uwsgi_unsubscribe_all();
 
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0)
