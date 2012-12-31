@@ -690,6 +690,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 next:
 
+
 	if (uwsgi.post_buffering > 0 && !wsgi_req->body_as_file && !wsgi_req->async_post) {
 		// read to disk if post_cl > post_buffering (it will eventually do upload progress...)
 		if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
@@ -775,6 +776,7 @@ next:
 			}
 		}
 	}
+
 
 	// check for static files
 

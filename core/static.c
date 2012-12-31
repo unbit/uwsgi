@@ -555,15 +555,23 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 	}
 
 	free(filename);
+	real_filename_len = strlen(real_filename);
 
-	if (uwsgi_starts_with(real_filename, strlen(real_filename), document_root, document_root_len)) {
-		uwsgi_log("[uwsgi-fileserve] security error: %s is not under %.*s\n", real_filename, document_root_len, document_root);
+	if (uwsgi_starts_with(real_filename, real_filename_len, document_root, document_root_len)) {
+		struct uwsgi_string_list *safe = uwsgi.static_safe;
+		while(safe) {
+			if (!uwsgi_starts_with(real_filename, real_filename_len, safe->value, safe->len)) {
+				goto safe;
+			}		
+			safe = safe->next;
+		}
+		uwsgi_log("[uwsgi-fileserve] security error: %s is not under %.*s or a safe path\n", real_filename, document_root_len, document_root);
 		return -1;
 	}
 
-	if (!uwsgi_static_stat(real_filename, &st)) {
+safe:
 
-		real_filename_len = strlen(real_filename);
+	if (!uwsgi_static_stat(real_filename, &st)) {
 
 		// check for skippable ext
 		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;

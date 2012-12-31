@@ -1597,6 +1597,7 @@ struct uwsgi_server {
 	struct uwsgi_dyn_dict *mimetypes;
 	struct uwsgi_string_list *static_skip_ext;
 	struct uwsgi_string_list *static_index;
+	struct uwsgi_string_list *static_safe;
 
 	struct uwsgi_dyn_dict *static_expires_type;
 	struct uwsgi_dyn_dict *static_expires_type_mtime;
