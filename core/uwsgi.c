@@ -2363,11 +2363,18 @@ int uwsgi_start(void *v_argv) {
 		goto unsafe;
 #endif
 
+	if (!uwsgi.sockets &&
+		!ushared->gateways_cnt &&
+		!uwsgi.no_server &&
 #ifdef UWSGI_UDP
-	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor && !uwsgi.command_mode) {
-#else
-	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.emperor && !uwsgi.command_mode) {
+		!uwsgi.udp_socket &&
 #endif
+		!uwsgi.emperor &&
+		!uwsgi.command_mode
+#ifdef UWSGI_SSL
+&& !uwsgi.legions
+#endif
+		) {
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
 	}
