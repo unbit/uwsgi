@@ -748,6 +748,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 	char *s_sign = NULL;
 	char *s_modifier1 = NULL;
 	char *s_modifier2 = NULL;
+	char *s_check = NULL;
 
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "server", &s_server,
@@ -758,11 +759,16 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
                         "modifier1", &s_modifier1,
                         "modifier2", &s_modifier2,
                         "sign", &s_sign,
+                        "check", &s_check,
 		NULL)) {
 		return;
 	}
 
 	if (!s_server && !s_key) goto end;
+
+	if (s_check) {
+		if (uwsgi_file_exists(s_check)) goto end;
+	}
 
 	if (s_weight) {
 		uwsgi.weight = atoi(s_weight);
@@ -799,6 +805,7 @@ end:
 	if (s_modifier1) free(s_modifier1);
 	if (s_modifier2) free(s_modifier2);
 	if (s_sign) free(s_sign);
+	if (s_check) free(s_check);
 }
 
 void uwsgi_subscribe_all(uint8_t cmd, int verbose) {
