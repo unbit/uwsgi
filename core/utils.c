@@ -1112,59 +1112,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	return -1;
 }
 
-// fix related options
-void sanitize_args() {
-
-	if (uwsgi.async > 1) {
-		uwsgi.cores = uwsgi.async;
-	}
-
-	if (uwsgi.threads > 1) {
-		uwsgi.has_threads = 1;
-		uwsgi.cores = uwsgi.threads;
-	}
-
-	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
-		if (!uwsgi.post_buffering) {
-			uwsgi_log(" *** WARNING: you have enabled harakiri without post buffering. Slow upload could be rejected on post-unbuffered webservers *** \n");
-		}
-	}
-
-	if (uwsgi.write_errors_exception_only) {
-		uwsgi.ignore_sigpipe = 1;
-		uwsgi.ignore_write_errors = 1;
-	}
-
-
-	if (uwsgi.cheaper_count > 0 && uwsgi.cheaper_count >= uwsgi.numproc) {
-		uwsgi_log("invalid cheaper value: must be lower than processes\n");
-		exit(1);
-	}
-
-	if (uwsgi.cheaper && uwsgi.cheaper_count) {
-		if (uwsgi.cheaper_initial < uwsgi.cheaper_count) {
-			uwsgi_log("warning: invalid cheaper-initial value (%d), must be equal or higher than cheaper (%d), using %d as initial number of workers\n",
-				uwsgi.cheaper_initial, uwsgi.cheaper_count, uwsgi.cheaper_count);
-			uwsgi.cheaper_initial = uwsgi.cheaper_count;
-		}
-		else if (uwsgi.cheaper_initial > uwsgi.numproc) {
-			uwsgi_log("warning: invalid cheaper-initial value (%d), must be lower or equal than worker count (%d), using %d as initial number of workers\n",
-				uwsgi.cheaper_initial, uwsgi.numproc, uwsgi.numproc);
-			uwsgi.cheaper_initial = uwsgi.numproc;
-		}
-	}
-
-	if (uwsgi.auto_snapshot > 0 && uwsgi.auto_snapshot > uwsgi.numproc) {
-		uwsgi_log("invalid auto-snapshot value: must be <= than processes\n");
-		exit(1);
-	}
-
-	if (uwsgi.static_cache_paths > 0 && !uwsgi.cache_max_items) {
-		uwsgi_log("caching of static paths requires uWSGI caching !!!\n");
-		exit(1);
-	}
-}
-
 // translate a OS env to a uWSGI option
 void env_to_arg(char *src, char *dst) {
 	int i;
