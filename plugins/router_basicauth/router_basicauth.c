@@ -138,7 +138,7 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
         	iov[0].iov_len = 8;
 	}
 
-	// chec for "Basic =" string at least
+	// check for "Basic =" string at least
 	if (wsgi_req->authorization_len > 7 && ur->data2_len > 0) {
 		if (strncmp(wsgi_req->authorization, "Basic ", 6))
 			goto forbidden;

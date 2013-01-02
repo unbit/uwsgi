@@ -101,6 +101,14 @@ static int uwsgi_send_headers(request_rec *r, proxy_conn_rec *conn)
     ap_add_common_vars(r);
     ap_add_cgi_vars(r);
 
+    // this is not a security problem (in Linux) as uWSGI destroy the env memory area readable in /proc
+    // and generally if you host untrusted apps in your server and allows them to read others uid /proc/<pid>
+    // files you have higher problems...
+    const char *auth = apr_table_get(r->headers_in, "Authorization");
+    if (auth) {
+        apr_table_setn(r->subprocess_env, "HTTP_AUTHORIZATION", auth); 
+    }
+
     const char *script_name = apr_table_get(r->subprocess_env, "SCRIPT_NAME");
     const char *path_info = apr_table_get(r->subprocess_env, "PATH_INFO");
 
