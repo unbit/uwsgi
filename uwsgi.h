@@ -1331,6 +1331,8 @@ struct uwsgi_server {
 
 	int respawn_workers;
 	unsigned int reloads;
+	// minimum number of seconds between worker reloads
+	uint64_t minimum_worker_lifetime;
 
 	// leave master running as root
 	int master_as_root;

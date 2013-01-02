@@ -59,6 +59,8 @@ void uwsgi_init_default() {
 	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
+	uwsgi.minimum_worker_lifetime = 60;
+
 #ifdef UWSGI_SPOOLER
 	uwsgi.shared->spooler_frequency = 30;
 
