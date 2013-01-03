@@ -11,6 +11,10 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 	if (!routes)
 		return UWSGI_ROUTE_CONTINUE;
 
+	// avoid loops
+	if (wsgi_req->is_routing)
+		return UWSGI_ROUTE_CONTINUE;
+
 	if (uwsgi_parse_vars(wsgi_req)) {
 		return UWSGI_ROUTE_BREAK;
 	}
@@ -27,7 +31,9 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 #endif
 		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, *subject, *subject_len, routes->ovector, routes->ovn);
 		if (n >= 0) {
+			wsgi_req->is_routing = 1;
 			int ret = routes->func(wsgi_req, routes);
+			wsgi_req->is_routing = 0;
 			if (ret == UWSGI_ROUTE_BREAK) {
 				uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
 				return ret;
@@ -56,6 +62,10 @@ int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *uri, int len) {
 	if (!routes)
 		return UWSGI_ROUTE_CONTINUE;
 
+	// avoid loops
+	if (wsgi_req->is_routing)
+		return UWSGI_ROUTE_CONTINUE;
+
 	while (routes) {
 		if (goon_func && goon_func == routes->func) {
                         goto next;
@@ -63,7 +73,9 @@ int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *uri, int len) {
                 goon_func = NULL;		
 		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, uri, len, routes->ovector, routes->ovn);
 		if (n >= 0) {
+			wsgi_req->is_routing = 1;
 			int ret = routes->func(wsgi_req, routes);
+			wsgi_req->is_routing = 0;
 			if (ret == UWSGI_ROUTE_BREAK) { 
                                 uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
                                 return ret;

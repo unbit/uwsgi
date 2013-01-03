@@ -1190,6 +1190,8 @@ struct wsgi_request {
 
 	uint16_t stream_id;
 
+	int is_routing;
+
 	struct msghdr msg;
 	union {
 		struct cmsghdr cmsg;
