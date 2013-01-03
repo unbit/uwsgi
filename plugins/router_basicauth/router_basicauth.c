@@ -153,7 +153,9 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ulen;
 					free(auth);
-					return UWSGI_ROUTE_CONTINUE;
+					if (ur->data3_len > 0)
+						return UWSGI_ROUTE_CONTINUE;
+					return UWSGI_ROUTE_GOON;
 				}
 			}
 			else {
@@ -162,7 +164,9 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ur->custom;
 					free(auth);
-					return UWSGI_ROUTE_CONTINUE;
+					if (ur->data3_len > 0)
+						return UWSGI_ROUTE_CONTINUE;
+					return UWSGI_ROUTE_GOON;
 				}
 			}
 			free(auth);
@@ -197,7 +201,7 @@ void router_basicauth_init_lock() {
 }
 #endif
 
-int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 
 	ur->func = uwsgi_routing_func_basicauth;
 
@@ -227,10 +231,17 @@ int uwsgi_router_basicauth(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
+static int uwsgi_router_basicauth_last(struct uwsgi_route *ur, char *args) {
+	uwsgi_router_basicauth(ur, args);
+	ur->data3_len = 1;
+	return 0;
+}
+
 
 void router_basicauth_register(void) {
 
 	uwsgi_register_router("basicauth", uwsgi_router_basicauth);
+	uwsgi_register_router("basicauth-last", uwsgi_router_basicauth_last);
 }
 
 struct uwsgi_plugin router_basicauth_plugin = {

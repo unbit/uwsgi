@@ -6,6 +6,7 @@ extern struct uwsgi_server uwsgi;
 int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_route *routes = uwsgi.routes;
+	void *goon_func = NULL;
 
 	if (!routes)
 		return UWSGI_ROUTE_CONTINUE;
@@ -15,6 +16,10 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 	}
 
 	while (routes) {
+		if (goon_func && goon_func == routes->func) {
+			goto next;
+		}
+		goon_func = NULL;
 		char **subject = (char **) (((char *) (wsgi_req)) + routes->subject);
 		uint16_t *subject_len = (uint16_t *) (((char *) (wsgi_req)) + routes->subject_len);
 #ifdef UWSGI_DEBUG
@@ -23,11 +28,19 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, *subject, *subject_len, routes->ovector, routes->ovn);
 		if (n >= 0) {
 			int ret = routes->func(wsgi_req, routes);
-			if (ret == UWSGI_ROUTE_BREAK) uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
-			if (ret != UWSGI_ROUTE_NEXT) {
+			if (ret == UWSGI_ROUTE_BREAK) {
+				uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
 				return ret;
 			}
+			if (ret == UWSGI_ROUTE_CONTINUE) {
+				return ret;
+			}
+			
+			if (ret == UWSGI_ROUTE_GOON) {
+				goon_func = routes->func;
+			}
 		}
+next:
 		routes = routes->next;
 	}
 
@@ -36,21 +49,33 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 
 int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *uri, int len) {
 
+	void *goon_func = NULL;
+
 	struct uwsgi_route *routes = uwsgi.routes;
 
 	if (!routes)
 		return UWSGI_ROUTE_CONTINUE;
 
 	while (routes) {
+		if (goon_func && goon_func == routes->func) {
+                        goto next;
+                }
+                goon_func = NULL;		
 		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, uri, len, routes->ovector, routes->ovn);
 		if (n >= 0) {
 			int ret = routes->func(wsgi_req, routes);
-			if (ret == UWSGI_ROUTE_BREAK) uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
-			if (ret != UWSGI_ROUTE_NEXT) {
-				return ret;
-			}
+			if (ret == UWSGI_ROUTE_BREAK) { 
+                                uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
+                                return ret;
+                        }
+                        if (ret == UWSGI_ROUTE_CONTINUE) {
+                                return ret;
+                        }
+			if (ret == UWSGI_ROUTE_GOON) {
+                                goon_func = routes->func;
+                        }
 		}
-
+next:
 		routes = routes->next;
 	}
 
@@ -144,6 +169,18 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	uwsgi_log("unable to register route \"%s\"\n", value);
 	exit(1);
+}
+
+int uwsgi_router_continue(struct uwsgi_route *ur, char *arg) {
+	return UWSGI_ROUTE_CONTINUE;	
+}
+
+int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
+	return UWSGI_ROUTE_BREAK;	
+}
+
+int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
+	return UWSGI_ROUTE_GOON;	
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {

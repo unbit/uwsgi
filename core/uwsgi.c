@@ -1871,6 +1871,13 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_loop("async", async_loop);
 #endif
 
+#ifdef UWSGI_ROUTING
+	uwsgi_register_router("continue", uwsgi_router_continue);
+	uwsgi_register_router("last", uwsgi_router_continue);
+	uwsgi_register_router("break", uwsgi_router_break);
+	uwsgi_register_router("goon", uwsgi_router_goon);
+#endif
+
 	// setup cheaper algos
 	uwsgi_register_cheaper_algo("spare", uwsgi_cheaper_algo_spare);
 	uwsgi_register_cheaper_algo("backlog", uwsgi_cheaper_algo_backlog);

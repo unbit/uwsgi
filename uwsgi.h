@@ -907,9 +907,14 @@ struct uwsgi_spooler {
 
 #ifdef UWSGI_ROUTING
 
+// go to the next route
 #define UWSGI_ROUTE_NEXT 0
+// continue to the request handler
 #define UWSGI_ROUTE_CONTINUE 1
+// close the request
 #define UWSGI_ROUTE_BREAK 2
+// go to the next group of routes
+#define UWSGI_ROUTE_GOON 3
 
 struct uwsgi_route {
 
@@ -3227,6 +3232,9 @@ struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *,
 void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
 int uwsgi_apply_routes_fast(struct wsgi_request *, char *, int);
+int uwsgi_router_continue(struct uwsgi_route *, char *);
+int uwsgi_router_break(struct uwsgi_route *, char *);
+int uwsgi_router_goon(struct uwsgi_route *, char *);
 #endif
 
 void uwsgi_reload(char **);
