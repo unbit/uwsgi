@@ -3,21 +3,10 @@
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
+static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_route *routes = uwsgi.routes;
-	void *goon_func = NULL;
-
-	if (!routes)
-		return UWSGI_ROUTE_CONTINUE;
-
-	// avoid loops
-	if (wsgi_req->is_routing)
-		return UWSGI_ROUTE_CONTINUE;
-
-	if (uwsgi_parse_vars(wsgi_req)) {
-		return UWSGI_ROUTE_BREAK;
-	}
+        void *goon_func = NULL;
 
 	while (routes) {
 		if (goon_func && goon_func == routes->func) {
@@ -53,45 +42,33 @@ next:
 	return UWSGI_ROUTE_CONTINUE;
 }
 
-int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *uri, int len) {
+int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 
-	void *goon_func = NULL;
-
-	struct uwsgi_route *routes = uwsgi.routes;
-
-	if (!routes)
+	if (!uwsgi.routes)
 		return UWSGI_ROUTE_CONTINUE;
 
 	// avoid loops
 	if (wsgi_req->is_routing)
 		return UWSGI_ROUTE_CONTINUE;
 
-	while (routes) {
-		if (goon_func && goon_func == routes->func) {
-                        goto next;
-                }
-                goon_func = NULL;		
-		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, uri, len, routes->ovector, routes->ovn);
-		if (n >= 0) {
-			wsgi_req->is_routing = 1;
-			int ret = routes->func(wsgi_req, routes);
-			wsgi_req->is_routing = 0;
-			if (ret == UWSGI_ROUTE_BREAK) { 
-                                uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].routed_requests++;
-                                return ret;
-                        }
-                        if (ret == UWSGI_ROUTE_CONTINUE) {
-                                return ret;
-                        }
-			if (ret == UWSGI_ROUTE_GOON) {
-                                goon_func = routes->func;
-                        }
-		}
-next:
-		routes = routes->next;
+	if (uwsgi_parse_vars(wsgi_req)) {
+		return UWSGI_ROUTE_BREAK;
 	}
 
-	return UWSGI_ROUTE_CONTINUE;
+	return uwsgi_apply_routes_do(wsgi_req);
+}
+
+
+int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req) {
+
+	if (!uwsgi.routes)
+		return UWSGI_ROUTE_CONTINUE;
+
+	// avoid loops
+	if (wsgi_req->is_routing)
+		return UWSGI_ROUTE_CONTINUE;
+
+	return uwsgi_apply_routes_do(wsgi_req);
 }
 
 

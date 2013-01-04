@@ -3233,7 +3233,7 @@ char *uwsgi_tmpname(char *, char *);
 struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *, char *));
 void uwsgi_opt_add_route(char *, char *, void *);
 int uwsgi_apply_routes(struct wsgi_request *);
-int uwsgi_apply_routes_fast(struct wsgi_request *, char *, int);
+int uwsgi_apply_routes_fast(struct wsgi_request *);
 int uwsgi_router_continue(struct uwsgi_route *, char *);
 int uwsgi_router_break(struct uwsgi_route *, char *);
 int uwsgi_router_goon(struct uwsgi_route *, char *);

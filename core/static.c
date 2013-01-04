@@ -601,7 +601,7 @@ safe:
 			if (real_filename_len >= sse->len) {
 				if (!uwsgi_strncmp(real_filename + (real_filename_len - sse->len), sse->len, sse->value, sse->len)) {
 #ifdef UWSGI_ROUTING
-					if (uwsgi_apply_routes_fast(wsgi_req, real_filename, real_filename_len) == UWSGI_ROUTE_BREAK)
+					if (uwsgi_apply_routes_fast(wsgi_req) == UWSGI_ROUTE_BREAK)
 						return 0;
 #endif
 					return -1;
