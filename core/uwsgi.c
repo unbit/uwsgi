@@ -1784,6 +1784,10 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_logger("zmq", uwsgi_zeromq_logger);
 #endif
 
+#ifdef UWSGI_ROUTING
+	uwsgi_register_embedded_routers();
+#endif
+
 	//initialize embedded plugins
 	UWSGI_LOAD_EMBEDDED_PLUGINS
 		// now a bit of magic, if the executable basename contains a 'uwsgi_' string,
@@ -1869,13 +1873,6 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_loop("simple", simple_loop);
 #ifdef UWSGI_ASYNC
 	uwsgi_register_loop("async", async_loop);
-#endif
-
-#ifdef UWSGI_ROUTING
-	uwsgi_register_router("continue", uwsgi_router_continue);
-	uwsgi_register_router("last", uwsgi_router_continue);
-	uwsgi_register_router("break", uwsgi_router_break);
-	uwsgi_register_router("goon", uwsgi_router_goon);
 #endif
 
 	// setup cheaper algos

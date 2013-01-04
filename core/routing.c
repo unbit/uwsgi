@@ -9,10 +9,16 @@ static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req) {
         void *goon_func = NULL;
 
 	while (routes) {
+
+		if (wsgi_req->route_goto > 0 && wsgi_req->route_pc < wsgi_req->route_goto) {
+			goto next;
+		}
 		if (goon_func && goon_func == routes->func) {
 			goto next;
 		}
 		goon_func = NULL;
+		wsgi_req->route_goto = 0;
+
 		char **subject = (char **) (((char *) (wsgi_req)) + routes->subject);
 		uint16_t *subject_len = (uint16_t *) (((char *) (wsgi_req)) + routes->subject_len);
 #ifdef UWSGI_DEBUG
@@ -37,6 +43,7 @@ static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req) {
 		}
 next:
 		routes = routes->next;
+		if (routes) wsgi_req->route_pc++;
 	}
 
 	return UWSGI_ROUTE_CONTINUE;
@@ -160,16 +167,73 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 	exit(1);
 }
 
-int uwsgi_router_continue(struct uwsgi_route *ur, char *arg) {
+// continue/last route
+
+static int uwsgi_router_continue_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
 	return UWSGI_ROUTE_CONTINUE;	
 }
 
-int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
+static int uwsgi_router_continue(struct uwsgi_route *ur, char *arg) {
+	ur->func = uwsgi_router_continue_func;
+	return 0;
+}
+
+// break route
+
+static int uwsgi_router_break_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
 	return UWSGI_ROUTE_BREAK;	
 }
 
-int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
+static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
+	ur->func = uwsgi_router_break_func;
+	return 0;
+}
+
+// goon route
+static int uwsgi_router_goon_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
 	return UWSGI_ROUTE_GOON;	
+}
+static int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
+	ur->func = uwsgi_router_goon_func;
+	return 0;
+}
+
+// log route
+static int uwsgi_router_log_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	uwsgi_log("%s\n", route->data);
+	return UWSGI_ROUTE_NEXT;	
+}
+
+static int uwsgi_router_log(struct uwsgi_route *ur, char *arg) {
+	ur->func = uwsgi_router_log_func;
+	ur->data = arg;
+	return 0;
+}
+
+// goto route 
+
+static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	if (route->custom <= wsgi_req->route_pc) {
+		uwsgi_log("[uwsgi-route] ERROR \"goto\" instruction can only jump forward\n");
+		return UWSGI_ROUTE_BREAK;
+	}
+	wsgi_req->route_goto = route->custom;
+	return UWSGI_ROUTE_NEXT;	
+}
+
+static int uwsgi_router_goto(struct uwsgi_route *ur, char *arg) {
+	ur->func = uwsgi_router_goto_func;
+	ur->custom = atoi(arg);
+        return 0;
+}
+
+void uwsgi_register_embedded_routers() {
+	uwsgi_register_router("continue", uwsgi_router_continue);
+        uwsgi_register_router("last", uwsgi_router_continue);
+        uwsgi_register_router("break", uwsgi_router_break);
+        uwsgi_register_router("goon", uwsgi_router_goon);
+        uwsgi_register_router("log", uwsgi_router_log);
+        uwsgi_register_router("goto", uwsgi_router_goto);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
