@@ -34,12 +34,25 @@ int MAX_LREFS = 16;
  *
  *  - General wrappers and helpers
  *
+ *  jobject   uwsgi_jvm_global(jobject);
  *  jboolean  uwsgi_jvm_begin(jint);
  *  jboolean  uwsgi_jvm_ensure(jint);
  *  jobject   uwsgi_jvm_claim(jobject);
  *  void      uwsgi_jvm_delete(jobject);
  *  void      uwsgi_jvm_end(uwsgi_jvm *);
  */
+
+jobject uwsgi_jvm_global(jobject obj) {
+
+    return (*ujvm.env)->NewGlobalRef(ujvm.env, obj);
+
+}
+
+void uwsgi_jvm_delete(jobject obj) {
+
+    (*ujvm.env)->DeleteGlobalRef(ujvm.env, obj);
+
+}
 
 jboolean uwsgi_jvm_begin(jint max_ref_count) {
 
@@ -70,12 +83,6 @@ jboolean uwsgi_jvm_ensure(jint max_ref_count) {
 jobject uwsgi_jvm_claim(jobject obj) {
 
     return (*ujvm.env)->NewLocalRef(ujvm.env, obj);
-
-}
-
-void uwsgi_jvm_delete(jobject obj) {
-
-    (*ujvm.env)->DeleteLocalRef(ujvm.env, obj);
 
 }
 
@@ -166,19 +173,19 @@ jclass uwsgi_jvm_class_for(char * name) {
         return NULL;
     }
 
-    return uwsgi_jvm_claim(clazz);
+    return clazz;
 
 }
 
 jclass uwsgi_jvm_class_of(jobject obj) {
 
-    return uwsgi_jvm_claim((*ujvm.env)->GetObjectClass(ujvm.env, obj));
+    return (*ujvm.env)->GetObjectClass(ujvm.env, obj);
 
 }
 
 jclass uwsgi_jvm_super(jclass clazz) {
 
-    return uwsgi_jvm_claim((*ujvm.env)->GetSuperclass(ujvm.env, clazz));
+    return (*ujvm.env)->GetSuperclass(ujvm.env, clazz);
 
 }
 
@@ -235,7 +242,7 @@ jobject uwsgi_jvm_new(jclass clazz, jmethodID methodID, ...) {
 
     va_list args;
 
-    return uwsgi_jvm_claim((*ujvm.env)->NewObject(ujvm.env, clazz, methodID, args));
+    return (*ujvm.env)->NewObject(ujvm.env, clazz, methodID, args);
 
 }
 
@@ -264,13 +271,12 @@ jboolean uwsgi_jvm_is_a(jobject obj, jclass clazz) {
  *  jlong     uwsgi_jvm_get_long(jobject, jfieldID);
  *  jfloat    uwsgi_jvm_get_float(jobject, jfieldID);
  *  jdouble   uwsgi_jvm_get_double(jobject, jfieldID);
- *  jstring   uwsgi_jvm_get_string(jobject, jfieldID);
  *  char *    uwsgi_jvm_get_utf8(jobject, jfieldID);
  */
 
 jobject uwsgi_jvm_get(jobject obj, jfieldID fieldID) {
 
-    return uwsgi_jvm_claim((*ujvm.env)->GetObjectField(ujvm.env, obj, fieldID));
+    return (*ujvm.env)->GetObjectField(ujvm.env, obj, fieldID);
 
 }
 
@@ -322,12 +328,6 @@ jdouble uwsgi_jvm_get_double(jobject obj, jfieldID fieldID) {
 
 }
 
-jstring uwsgi_jvm_get_string(jobject obj, jfieldID fieldID) {
-
-    return (jstring)(uwsgi_jvm_get(obj, fieldID));
-
-}
-
 char * uwsgi_jvm_get_utf8(jobject obj, jfieldID fieldID) {
 
     return NULL; //TODO
@@ -347,7 +347,6 @@ char * uwsgi_jvm_get_utf8(jobject obj, jfieldID fieldID) {
  *  void    uwsgi_jvm_set_long(jobject, jfieldID, jlong);
  *  void    uwsgi_jvm_set_float(jobject, jfieldID, jfloat);
  *  void    uwsgi_jvm_set_double(jobject, jfieldID, jdouble);
- *  void    uwsgi_jvm_set_string(jobject, jfieldID, jstring);
  *  void    uwsgi_jvm_set_utf8(jobject, jfieldID, char *);
  */
 
@@ -405,12 +404,6 @@ void uwsgi_jvm_set_double(jobject obj, jfieldID fieldID, jdouble val) {
 
 }
 
-void uwsgi_jvm_set_string(jobject obj, jfieldID fieldID, jstring val) {
-
-    (*ujvm.env)->SetObjectField(ujvm.env, obj, fieldID, val);
-
-}
-
 void uwsgi_jvm_set_utf8(jobject obj, jfieldID fieldID, char * val) {
 
     //TODO
@@ -430,13 +423,12 @@ void uwsgi_jvm_set_utf8(jobject obj, jfieldID fieldID, char * val) {
  *  jlong     uwsgi_jvm_get_static_long(jclass, jfieldID);
  *  jfloat    uwsgi_jvm_get_static_float(jclass, jfieldID);
  *  jdouble   uwsgi_jvm_get_static_double(jclass, jfieldID);
- *  jstring   uwsgi_jvm_get_static_string(jclass, jfieldID);
  *  char *    uwsgi_jvm_get_static_utf8(jclass, jfieldID);
  */
 
 jobject uwsgi_jvm_get_static(jclass clazz, jfieldID fieldID) {
 
-    return uwsgi_jvm_claim((*ujvm.env)->GetStaticObjectField(ujvm.env, clazz, fieldID));
+    return (*ujvm.env)->GetStaticObjectField(ujvm.env, clazz, fieldID);
 
 }
 
@@ -488,12 +480,6 @@ jdouble uwsgi_jvm_get_static_double(jclass clazz, jfieldID fieldID) {
 
 }
 
-jstring uwsgi_jvm_get_static_string(jclass clazz, jfieldID fieldID) {
-
-    return (jstring)(uwsgi_jvm_get_static(clazz, fieldID));
-
-}
-
 char * uwsgi_jvm_get_static_utf8(jclass clazz, jfieldID fieldID) {
 
     return NULL; //TODO
@@ -513,7 +499,6 @@ char * uwsgi_jvm_get_static_utf8(jclass clazz, jfieldID fieldID) {
  *  void    uwsgi_jvm_set_static_long(jclass, jfieldID, jlong);
  *  void    uwsgi_jvm_set_static_float(jclass, jfieldID, jfloat);
  *  void    uwsgi_jvm_set_static_double(jclass, jfieldID, jdouble);
- *  void    uwsgi_jvm_set_static_string(jclass, jfieldID, jstring);
  *  void    uwsgi_jvm_set_static_utf8(jclass, jfieldID, char *);
  */
 
@@ -571,12 +556,6 @@ void uwsgi_jvm_set_static_double(jclass clazz, jfieldID fieldID, jdouble val) {
 
 }
 
-void uwsgi_jvm_set_static_string(jclass clazz, jfieldID fieldID, jstring val) {
-
-    (*ujvm.env)->SetStaticObjectField(ujvm.env, clazz, fieldID, val);
-
-}
-
 void uwsgi_jvm_set_static_utf8(jclass clazz, jfieldID fieldID, char * val) {
 
     //TODO
@@ -597,7 +576,6 @@ void uwsgi_jvm_set_static_utf8(jclass clazz, jfieldID fieldID, char * val) {
  *  jfloat    uwsgi_jvm_call_float(jobject, jmethodID, ...);
  *  jdouble   uwsgi_jvm_call_double(jobject, jmethodID, ...);
  *  void      uwsgi_jvm_call_void(jobject, jmethodID, ...);
- *  jstring   uwsgi_jvm_call_string(jobject, jmethodID, ...);
  *  char *    uwsgi_jvm_call_utf8(jobject, jmethodID, ...);
  */
 
@@ -605,7 +583,7 @@ jobject uwsgi_jvm_call(jobject obj, jmethodID methodID, ...) {
 
     va_list args;
 
-    return uwsgi_jvm_claim((*ujvm.env)->CallObjectMethod(ujvm.env, obj, methodID, args));
+    return (*ujvm.env)->CallObjectMethod(ujvm.env, obj, methodID, args);
 
 }
 
@@ -681,14 +659,6 @@ void uwsgi_jvm_call_void(jobject obj, jmethodID methodID, ...) {
 
 }
 
-jstring uwsgi_jvm_call_string(jobject obj, jmethodID methodID, ...) {
-
-    va_list args;
-
-    return (jstring)(uwsgi_jvm_call(obj, methodID, args));
-
-}
-
 char * uwsgi_jvm_call_utf8(jobject obj, jmethodID methodID, ...) {
 
     return NULL; // TODO
@@ -709,7 +679,6 @@ char * uwsgi_jvm_call_utf8(jobject obj, jmethodID methodID, ...) {
  *  jfloat    uwsgi_jvm_call_direct_float(jobject, jclass, jmethodID, ...);
  *  jdouble   uwsgi_jvm_call_direct_double(jobject, jclass, jmethodID, ...);
  *  void      uwsgi_jvm_call_direct_void(jobject, jclass, jmethodID, ...);
- *  jstring   uwsgi_jvm_call_direct_string(jobject, jclass, jmethodID, ...);
  *  char *    uwsgi_jvm_call_direct_utf8(jobject, jclass, jmethodID, ...);
  */
 
@@ -717,7 +686,7 @@ jobject uwsgi_jvm_call_direct(jobject obj, jclass clazz, jmethodID methodID, ...
 
     va_list args;
 
-    return uwsgi_jvm_claim((*ujvm.env)->CallNonvirtualObjectMethod(ujvm.env, obj, clazz, methodID, args));
+    return (*ujvm.env)->CallNonvirtualObjectMethod(ujvm.env, obj, clazz, methodID, args);
 
 }
 
@@ -793,14 +762,6 @@ void uwsgi_jvm_call_direct_void(jobject obj, jclass clazz, jmethodID methodID, .
 
 }
 
-jstring uwsgi_jvm_call_direct_string(jobject obj, jclass clazz, jmethodID methodID, ...) {
-
-    va_list args;
-
-    return (jstring)(uwsgi_jvm_call_direct(obj, clazz, methodID, args));
-
-}
-
 char * uwsgi_jvm_call_direct_utf8(jobject obj, jclass clazz, jmethodID methodID, ...) {
 
     return NULL; // TODO
@@ -821,7 +782,6 @@ char * uwsgi_jvm_call_direct_utf8(jobject obj, jclass clazz, jmethodID methodID,
  *  jfloat    uwsgi_jvm_call_static_float(jclass, jmethodID, ...);
  *  jdouble   uwsgi_jvm_call_static_double(jclass, jmethodID, ...);
  *  void      uwsgi_jvm_call_static_void(jclass, jmethodID, ...);
- *  jstring   uwsgi_jvm_call_static_string(jclass, jmethodID, ...);
  *  char *    uwsgi_jvm_call_static_utf8(jclass, jmethodID, ...);
  */
 
@@ -829,7 +789,7 @@ jclass uwsgi_jvm_call_static(jclass clazz, jmethodID methodID, ...) {
 
     va_list args;
 
-    return uwsgi_jvm_claim((*ujvm.env)->CallStaticObjectMethod(ujvm.env, clazz, methodID, args));
+    return (*ujvm.env)->CallStaticObjectMethod(ujvm.env, clazz, methodID, args);
 
 }
 
@@ -905,14 +865,6 @@ void uwsgi_jvm_call_static_void(jclass clazz, jmethodID methodID, ...) {
 
 }
 
-jstring uwsgi_jvm_call_static_string(jclass clazz, jmethodID methodID, ...) {
-
-    va_list args;
-
-    return (jstring)(uwsgi_jvm_call_static(clazz, methodID, args));
-
-}
-
 char * uwsgi_jvm_call_static_utf8(jclass clazz, jmethodID methodID, ...) {
 
     return NULL; // TODO
@@ -923,59 +875,59 @@ char * uwsgi_jvm_call_static_utf8(jclass clazz, jmethodID methodID, ...) {
  *
  *  - string wrapper
  *
- * jstring   uwsgi_jvm_string(jchar *, jsize);
- * jsize     uwsgi_jvm_strlen(jstring);
- * const jchar * uwsgi_jvm_strchars(jstring);
- * void      uwsgi_jvm_release_strchars(jstring, const jchar *);
- * jstring   uwsgi_jvm_utf8(char *);
- * jsize     uwsgi_jvm_utf8len(jstring);
- * const char *  uwsgi_jvm_utf8chars(jstring);
- * void      uwsgi_jvm_release_utf8chars(jstring, const char *);
+ * jobject   uwsgi_jvm_string(jchar *, jsize);
+ * jsize     uwsgi_jvm_strlen(jobject);
+ * const jchar * uwsgi_jvm_strchars(jobject);
+ * void      uwsgi_jvm_release_strchars(jobject, const jchar *);
+ * jobject   uwsgi_jvm_utf8(char *);
+ * jsize     uwsgi_jvm_utf8len(jobject);
+ * const char *  uwsgi_jvm_utf8chars(jobject);
+ * void      uwsgi_jvm_release_utf8chars(jobject, const char *);
  */
 
-jstring uwsgi_jvm_string(jchar * unicode, jsize len) {
+jobject uwsgi_jvm_string(jchar * unicode, jsize len) {
 
-    return uwsgi_jvm_claim((*ujvm.env)->NewString(ujvm.env, unicode, len));
+    return (*ujvm.env)->NewString(ujvm.env, unicode, len);
 
 }
 
-jsize uwsgi_jvm_strlen(jstring str) {
+jsize uwsgi_jvm_strlen(jobject str) {
 
     return (*ujvm.env)->GetStringLength(ujvm.env, str);
 
 }
 
-const jchar * uwsgi_jvm_strchars(jstring str) {
+const jchar * uwsgi_jvm_strchars(jobject str) {
 
     return (*ujvm.env)->GetStringChars(ujvm.env, str, NULL);
 
 }
 
-void uwsgi_jvm_release_strchars(jstring str, const jchar * chars) {
+void uwsgi_jvm_release_strchars(jobject str, const jchar * chars) {
 
     (*ujvm.env)->ReleaseStringChars(ujvm.env, str, chars);
 
 }
 
-jstring uwsgi_jvm_utf8(const char * utf) {
+jobject uwsgi_jvm_utf8(const char * utf) {
 
-    return (*ujvm.env)->NewStringUTF(ujvm.env, utf);
+    return (*ujvm.env)->NewGlobalRef(ujvm.env, (*ujvm.env)->NewStringUTF(ujvm.env, utf));
 
 }
 
-jsize uwsgi_jvm_utf8len(jstring str) {
+jsize uwsgi_jvm_utf8len(jobject str) {
 
     return (*ujvm.env)->GetStringUTFLength(ujvm.env, str);
 
 }
 
-const char * uwsgi_jvm_utf8chars(jstring str) {
+const char * uwsgi_jvm_utf8chars(jobject str) {
 
     return (*ujvm.env)->GetStringUTFChars(ujvm.env, str, NULL);
 
 }
 
-void uwsgi_jvm_release_utf8chars(jstring str, const char * chars) {
+void uwsgi_jvm_release_utf8chars(jobject str, const char * chars) {
 
     (*ujvm.env)->ReleaseStringUTFChars(ujvm.env, str, chars);
 
@@ -1012,55 +964,55 @@ jsize uwsgi_jvm_arraylen(jarray array) {
 
 jobjectArray  uwsgi_jvm_array(jclass clazz, jsize len, jobject init) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewObjectArray(ujvm.env, len, clazz, init));
+    return  (*ujvm.env)->NewObjectArray(ujvm.env, len, clazz, init);
 
 }
 
 jbooleanArray uwsgi_jvm_array_boolean(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewBooleanArray(ujvm.env, len));
+    return  (*ujvm.env)->NewBooleanArray(ujvm.env, len);
 
 }
 
 jbyteArray uwsgi_jvm_array_byte(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewByteArray(ujvm.env, len));
+    return  (*ujvm.env)->NewByteArray(ujvm.env, len);
 
 }
 
 jcharArray uwsgi_jvm_array_char(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewCharArray(ujvm.env, len));
+    return  (*ujvm.env)->NewCharArray(ujvm.env, len);
 
 }
 
 jshortArray uwsgi_jvm_array_short(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewShortArray(ujvm.env, len));
+    return  (*ujvm.env)->NewShortArray(ujvm.env, len);
 
 }
 
 jintArray uwsgi_jvm_array_int(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewIntArray(ujvm.env, len));
+    return  (*ujvm.env)->NewIntArray(ujvm.env, len);
 
 }
 
 jlongArray uwsgi_jvm_array_long(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewLongArray(ujvm.env, len));
+    return  (*ujvm.env)->NewLongArray(ujvm.env, len);
 
 }
 
 jfloatArray uwsgi_jvm_array_float(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewFloatArray(ujvm.env, len));
+    return  (*ujvm.env)->NewFloatArray(ujvm.env, len);
 
 }
 
 jdoubleArray uwsgi_jvm_array_double(jsize len) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->NewDoubleArray(ujvm.env, len));
+    return  (*ujvm.env)->NewDoubleArray(ujvm.env, len);
 
 }
 
@@ -1072,9 +1024,9 @@ jdoubleArray uwsgi_jvm_array_double(jsize len) {
  *  void uwsgi_jvm_array_set(jobjectArray, jsize, jobject);
  */
 
-jobject  uwsgi_jvm_array_get(jobjectArray array, jsize index) {
+jobject uwsgi_jvm_array_get(jobjectArray array, jsize index) {
 
-    return  uwsgi_jvm_claim((*ujvm.env)->GetObjectArrayElement(ujvm.env, array, index));
+    return (*ujvm.env)->GetObjectArrayElement(ujvm.env, array, index);;
 
 }
 
@@ -1343,20 +1295,19 @@ jboolean uwsgi_jvm_equal(jobject obj1, jobject obj2) {
 
 }
 
-jstring uwsgi_jvm_tostring(jobject obj) {
+jobject uwsgi_jvm_tostring(jobject obj) {
 
     jclass clazz = uwsgi_jvm_class_of(obj);
     uwsgi_jvm_ok();
 
     jmethodID tostring = uwsgi_jvm_method(clazz, "toString", "()Ljava/lang/String;");
 
-    return (jstring)uwsgi_jvm_call(obj, tostring);
+    return (*ujvm.env)->NewGlobalRef(ujvm.env, (*ujvm.env)->CallObjectMethod(ujvm.env, obj, tostring));
 
 }
 
-jstring uwsgi_jvm_string_from(char * chars, int length) {
+jobject uwsgi_jvm_string_from(char * chars, int length) {
 
-    const char * UTF8 = "UTF-8";
     static jmethodID construct = 0;
 
     if(!construct) {
@@ -1365,14 +1316,10 @@ jstring uwsgi_jvm_string_from(char * chars, int length) {
 
     }
 
-    jobject utf8 = uwsgi_jvm_utf8(UTF8);
     jbyteArray array = uwsgi_jvm_array_byte(length);
     uwsgi_jvm_array_set_region_byte(array, 0, length, (jbyte *) chars);
 
-    jobject result = uwsgi_jvm_new(ujvm.class_string, construct, array, utf8);
-    uwsgi_jvm_ok();
-
-    return result;
+    return (*ujvm.env)->NewGlobalRef(ujvm.env, (*ujvm.env)->NewObject(ujvm.env, ujvm.class_string, construct, array, ujvm.utf8));
 
 }
 
@@ -1386,84 +1333,6 @@ const char * uwsgi_jvm_toutf8chars(jobject obj) {
 
     return uwsgi_jvm_utf8chars(uwsgi_jvm_tostring(obj));
 
-}
-
-jobject uwsgi_jvm_hashtable() {
-
-    static jmethodID construct = 0;
-
-    if (!construct) {
-
-        construct = uwsgi_jvm_method(ujvm.class_hashtable, "<init>", "()V");
-
-    }
-
-    return uwsgi_jvm_new(ujvm.class_hashtable, construct);
-}
-
-jint uwsgi_jvm_hashtable_size(jobject obj) {
-
-    static jmethodID size = 0 ;
-
-    if (!size) {
-
-        size = uwsgi_jvm_method(ujvm.class_hashtable, "size", "()I");
-
-    }
-
-    return uwsgi_jvm_call_int(obj, size);
-}
-
-jobject uwsgi_jvm_hashtable_get(jobject obj, jobject key) {
-
-    static jmethodID get = 0 ;
-
-    if (!get) {
-
-        get = uwsgi_jvm_method(ujvm.class_hashtable, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
-
-    }
-
-    return uwsgi_jvm_call(obj, get, key);
-}
-
-jobject uwsgi_jvm_hashtable_put(jobject obj, jobject key, jobject val) {
-
-    static jmethodID put = 0 ;
-
-    if (!put) {
-
-        put = uwsgi_jvm_method(ujvm.class_hashtable, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
-
-    }
-
-    return uwsgi_jvm_call(obj, put, key, val);
-}
-
-jobject uwsgi_jvm_fd(int fd) {
-
-    static jmethodID mid_fd = 0;
-    static jfieldID fid_fd = 0;
-
-    jobject obj_fd;
-
-    if (!mid_fd) {
-
-        mid_fd = uwsgi_jvm_method(ujvm.class_file_descriptor, "<init>", "()V");
-
-    }
-
-    if (!fid_fd) {
-
-        fid_fd = uwsgi_jvm_field(ujvm.class_file_descriptor, "fd", "I");
-
-    }
-
-    obj_fd = uwsgi_jvm_new(ujvm.class_file_descriptor, mid_fd);
-
-    uwsgi_jvm_set_int(obj_fd, fid_fd, fd);
-
-    return obj_fd;
 }
 
 jobject uwsgi_jvm_in() {
@@ -1514,7 +1383,7 @@ jobject uwsgi_jvm_err() {
 
 }
 
-void uwsgi_jvm_print(jstring msg) {
+void uwsgi_jvm_print(jobject msg) {
 
     static jclass stream;
     static jmethodID print = 0;
@@ -1526,11 +1395,11 @@ void uwsgi_jvm_print(jstring msg) {
 
     }
 
-    uwsgi_jvm_call(uwsgi_jvm_out(), print, msg);
+    (*ujvm.env)->CallObjectMethod(ujvm.env, uwsgi_jvm_out(), print, uwsgi_jvm_tostring(msg));
 
 }
 
-void uwsgi_jvm_println(jstring msg) {
+void uwsgi_jvm_println(jobject msg) {
 
     static jclass stream;
     static jmethodID println = 0;
@@ -1542,7 +1411,109 @@ void uwsgi_jvm_println(jstring msg) {
 
     }
 
-    uwsgi_jvm_call(uwsgi_jvm_out(), println, msg);
+    (*ujvm.env)->CallObjectMethod(ujvm.env, uwsgi_jvm_out(), println, uwsgi_jvm_tostring(msg));
+
+}
+
+jobject uwsgi_jvm_hashtable() {
+
+    static jmethodID construct = 0;
+
+    if (!construct) {
+
+        construct = uwsgi_jvm_method(ujvm.class_hashtable, "<init>", "()V");
+
+    }
+
+    //jobject local = (*ujvm.env)->NewObject(ujvm.env, ujvm.class_hashtable, construct);
+    //jobject global = (*ujvm.env)->NewGlobalRef(ujvm.env, local);
+    // (*ujvm.env)->DeleteLocalRef(ujvm.env, local);
+
+    //return global;
+
+    return (*ujvm.env)->NewObject(ujvm.env, ujvm.class_hashtable, construct);
+}
+
+jint uwsgi_jvm_hashtable_size(jobject obj) {
+
+    static jmethodID size = 0 ;
+
+    if (!size) {
+
+        size = uwsgi_jvm_method(ujvm.class_hashtable, "size", "()I");
+
+    }
+
+    return uwsgi_jvm_call_int(obj, size);
+}
+
+jobject uwsgi_jvm_hashtable_get(jobject obj, jobject key) {
+    key = (*ujvm.env)->NewGlobalRef(ujvm.env, key);
+
+    static jmethodID get = 0 ;
+
+    if (!get) {
+
+        get = uwsgi_jvm_method(ujvm.class_hashtable, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
+
+    }
+
+    uwsgi_jvm_println(key);
+
+    jobject result = (*ujvm.env)->CallObjectMethod(ujvm.env, obj, get, key);
+
+    (*ujvm.env)->DeleteGlobalRef(ujvm.env, key);
+
+    return result;
+}
+
+jobject uwsgi_jvm_hashtable_put(jobject obj, jobject key, jobject val) {
+    key = (*ujvm.env)->NewGlobalRef(ujvm.env, key);
+    val = (*ujvm.env)->NewGlobalRef(ujvm.env, val);
+
+    static jmethodID put = 0 ;
+
+    if (!put) {
+
+        put = uwsgi_jvm_method(ujvm.class_hashtable, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+
+    }
+
+    uwsgi_jvm_println(key);
+    uwsgi_jvm_println(val);
+
+    jobject result = (*ujvm.env)->CallObjectMethod(ujvm.env, obj, put, key, val);
+
+    (*ujvm.env)->DeleteGlobalRef(ujvm.env, key);
+    (*ujvm.env)->DeleteGlobalRef(ujvm.env, val);
+
+    uwsgi_log("size = %i\n", uwsgi_jvm_hashtable_size(obj));
+
+    return result;
+}
+
+jobject uwsgi_jvm_fd(int fd) {
+
+    static jmethodID mid_fd = 0;
+    static jfieldID fid_fd = 0;
+
+    if (!mid_fd) {
+
+        mid_fd = uwsgi_jvm_method(ujvm.class_file_descriptor, "<init>", "()V");
+
+    }
+
+    if (!fid_fd) {
+
+        fid_fd = uwsgi_jvm_field(ujvm.class_file_descriptor, "fd", "I");
+
+    }
+
+    jobject obj_fd = (*ujvm.env)->NewObject(ujvm.env, ujvm.class_file_descriptor, mid_fd);
+
+    uwsgi_jvm_set_int(obj_fd, fid_fd, fd);
+
+    return obj_fd;
 
 }
 
@@ -1555,6 +1526,7 @@ int jvm_init(void) {
     JavaVMInitArgs  vm_args;
     JavaVMOption    options[1];
     jmethodID       mid_main;
+    jmethodID       mid_hashtable;
 
     char *old_cp = NULL ;
 
@@ -1591,12 +1563,22 @@ int jvm_init(void) {
 
     uwsgi_jvm_begin(MAX_LREFS);
 
-    ujvm.class_string = uwsgi_jvm_class_for("java/lang/String");
+    ujvm.class_string = uwsgi_jvm_global(uwsgi_jvm_class_for("java/lang/String"));
     uwsgi_log("JVM String class initialized\n");
-    ujvm.class_hashtable  = uwsgi_jvm_class_for("java/util/Hashtable");
+    ujvm.class_hashtable  = uwsgi_jvm_global(uwsgi_jvm_class_for("java/util/Hashtable"));
     uwsgi_log("JVM Hashtable class initialized\n");
-    ujvm.class_file_descriptor  = uwsgi_jvm_class_for("java/io/FileDescriptor");
+    ujvm.class_file_descriptor  = uwsgi_jvm_global(uwsgi_jvm_class_for("java/io/FileDescriptor"));
     uwsgi_log("JVM FileDescriptor class initialized\n");
+
+    mid_hashtable = uwsgi_jvm_method(ujvm.class_hashtable, "<init>", "()V");
+    ujvm.cache = uwsgi_jvm_new(ujvm.class_hashtable, mid_hashtable);
+    uwsgi_log("JVM cache initialized\n");
+
+    ujvm.utf8 = (*ujvm.env)->NewGlobalRef(ujvm.env, (*ujvm.env)->NewStringUTF(ujvm.env, "UTF-8"));
+
+    ujvm.jwsgi_input = (*ujvm.env)->NewGlobalRef(ujvm.env, (*ujvm.env)->NewStringUTF(ujvm.env, "jwsgi.input"));
+
+    uwsgi_log("JVM constants initialized\n");
 
     uwsgi_jvm_end();
 
@@ -1604,7 +1586,7 @@ int jvm_init(void) {
 
     if (ujvm.string_main) {
         uwsgi_log(ujvm.string_main);
-        ujvm.class_main = uwsgi_jvm_class_for(ujvm.string_main);
+        ujvm.class_main = uwsgi_jvm_global(uwsgi_jvm_class_for(ujvm.string_main));
         if (!ujvm.class_main) {
             uwsgi_log(" can not be found!\n");
             exit(1);
@@ -1616,12 +1598,6 @@ int jvm_init(void) {
             uwsgi_jvm_ok();
         }
     }
-
-    uwsgi_jvm_end();
-
-    uwsgi_jvm_begin(MAX_LREFS);
-
-    uwsgi_jvm_println(uwsgi_jvm_utf8("UTF-8"));
 
     uwsgi_jvm_end();
 

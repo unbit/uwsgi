@@ -14,7 +14,7 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     jmethodID jmid;
     int i;
     jobject env;
-    jobject hkey, hval;
+    jobject key, val;
     jobject response;
 
     jobject status;
@@ -46,6 +46,7 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     uwsgi_log("main class = %s\n", ujvm.string_main);
 
     jmid = uwsgi_jvm_method_static(ujvm.class_main, "jwsgi", "(Ljava/util/Hashtable;)[Ljava/lang/Object;");
+    uwsgi_jvm_ok();
 
     uwsgi_log("jwsgi method id = %d\n", jmid);
 
@@ -55,11 +56,11 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     int cnt = wsgi_req->var_cnt;
     for(i=0;i<cnt;i++) {
 
-        uwsgi_jvm_begin(2 * MAX_LREFS);
+        uwsgi_jvm_begin(MAX_LREFS);
 
-        hkey = uwsgi_jvm_string_from(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
-        hval = uwsgi_jvm_string_from(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
-        uwsgi_jvm_hashtable_put(env, hkey, hval);
+        key = uwsgi_jvm_string_from(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
+        val = uwsgi_jvm_string_from(wsgi_req->hvec[i+1].iov_base, wsgi_req->hvec[i+1].iov_len);
+        uwsgi_jvm_hashtable_put(env, key, val);
         uwsgi_jvm_ok();
 
         uwsgi_jvm_end();
@@ -69,7 +70,8 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
 
     uwsgi_log("env created\n");
 
-    uwsgi_jvm_hashtable_put(env, uwsgi_jvm_utf8("jwsgi.input"), uwsgi_jvm_fd(wsgi_req->poll.fd));
+    jobject fd = uwsgi_jvm_fd(wsgi_req->poll.fd);
+    uwsgi_jvm_hashtable_put(env, ujvm.jwsgi_input, fd);
 
     uwsgi_log("jwsgi.input created\n");
 
@@ -80,16 +82,19 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
 
     uwsgi_jvm_begin(MAX_LREFS);
 
+    uwsgi_log("getting status\n");
     status = uwsgi_jvm_array_get(response, 0);
     uwsgi_jvm_ok();
 
     status_str = uwsgi_jvm_utf8chars(uwsgi_jvm_tostring(status));
+    uwsgi_log("status: %s\n", status_str);
+
     wsgi_req->headers_size += write(wsgi_req->poll.fd, wsgi_req->protocol, wsgi_req->protocol_len);
     wsgi_req->headers_size += write(wsgi_req->poll.fd, " ", 1);
     wsgi_req->headers_size += write(wsgi_req->poll.fd, status_str, uwsgi_jvm_utf8len(status));
     wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
-    uwsgi_jvm_release_utf8chars(status, status_str);
 
+    uwsgi_log("getting headers\n");
     headers = uwsgi_jvm_array_get(response, 1);
 
     hc = uwsgi_jvm_class_of(headers);
@@ -97,24 +102,37 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     hh_get = uwsgi_jvm_method(hc, "get","(I)Ljava/lang/Object;");
 
     hlen = uwsgi_jvm_call_int(headers, hh_size);
+    uwsgi_log("headers length: %i\n", hlen);
 
     for(i=0;i<hlen;i++) {
 
         uwsgi_jvm_begin(MAX_LREFS);
 
+        uwsgi_log("before getting header @ %i\n", i);
         header = uwsgi_jvm_call(headers, hh_get, i);
-        hkey = uwsgi_jvm_array_get(header, 0);
-        hval = uwsgi_jvm_array_get(header, 1);
-        hkey_str = uwsgi_jvm_utf8chars(hkey);
-        hval_str = uwsgi_jvm_utf8chars(hval);
+        if (header != NULL ) {
+            uwsgi_log("after getting header\n");
+            uwsgi_log("size of header = %i\n", uwsgi_jvm_arraylen(header));
 
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, hkey_str, uwsgi_jvm_utf8len(hkey));
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, ": ", 2);
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, hval_str, uwsgi_jvm_utf8len(hval));
-        wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+            key = uwsgi_jvm_array_get(header, 0);
+            val = uwsgi_jvm_array_get(header, 1);
+            uwsgi_jvm_println(key);
+            uwsgi_jvm_println(val);
 
-        uwsgi_jvm_release_utf8chars(hkey, hkey_str);
-        uwsgi_jvm_release_utf8chars(hval, hval_str);
+            hkey_str = uwsgi_jvm_utf8chars(key);
+            hval_str = uwsgi_jvm_utf8chars(val);
+            uwsgi_log("header: %s=%s\n", hkey_str, hval_str);
+
+            wsgi_req->headers_size += write(wsgi_req->poll.fd, hkey_str, uwsgi_jvm_utf8len(key));
+            wsgi_req->headers_size += write(wsgi_req->poll.fd, ": ", 2);
+            wsgi_req->headers_size += write(wsgi_req->poll.fd, hval_str, uwsgi_jvm_utf8len(val));
+            wsgi_req->headers_size += write(wsgi_req->poll.fd, "\r\n", 2);
+
+            uwsgi_jvm_release_utf8chars(key, hkey_str);
+            uwsgi_jvm_release_utf8chars(val, hval_str);
+            uwsgi_jvm_delete(key);
+            uwsgi_jvm_delete(val);
+        }
 
         uwsgi_jvm_end();
     }
@@ -124,6 +142,10 @@ int uwsgi_jwsgi_request(struct wsgi_request *wsgi_req) {
     body = uwsgi_jvm_array_get(response, 2);
     body_str = uwsgi_jvm_utf8chars(body);
     wsgi_req->response_size = write(wsgi_req->poll.fd, body_str, uwsgi_jvm_utf8len(body));
+
+    uwsgi_log("releasing status string: %s\n", status_str);
+    uwsgi_jvm_release_utf8chars(status, status_str);
+    uwsgi_log("releasing body string: %s\n", body_str);
     uwsgi_jvm_release_utf8chars(body, body_str);
 
     uwsgi_jvm_end();
