@@ -13,6 +13,7 @@ int uwsgi_routing_func_static(struct wsgi_request *wsgi_req, struct uwsgi_route 
 	uint16_t filename_len = strlen(filename);
 	
 	uwsgi_file_serve(wsgi_req, filename, filename_len, NULL, 0, 1);
+	free(filename);
 	return UWSGI_ROUTE_BREAK;
 }
 

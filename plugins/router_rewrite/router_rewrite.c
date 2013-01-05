@@ -26,7 +26,7 @@ int uwsgi_routing_func_rewrite(struct wsgi_request *wsgi_req, struct uwsgi_route
 			query_string_len = strlen(query_string);
 		}	
 	}
-	// over engineering, could be requiredin the future...
+	// over engineering, could be required in the future...
 	else {
 		if (wsgi_req->query_string_len > 0) {
 			query_string = wsgi_req->query_string;

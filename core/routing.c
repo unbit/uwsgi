@@ -199,14 +199,22 @@ static int uwsgi_router_goon(struct uwsgi_route *ur, char *arg) {
 }
 
 // log route
-static int uwsgi_router_log_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
-	uwsgi_log("%s\n", route->data);
+static int uwsgi_router_log_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        char *logline = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
+	uwsgi_log("%s\n", logline);
+	free(logline);
+
 	return UWSGI_ROUTE_NEXT;	
 }
 
 static int uwsgi_router_log(struct uwsgi_route *ur, char *arg) {
 	ur->func = uwsgi_router_log_func;
 	ur->data = arg;
+	ur->data_len = strlen(arg);
 	return 0;
 }
 
@@ -227,6 +235,40 @@ static int uwsgi_router_goto(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+// addvar route
+static int uwsgi_router_addvar_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        char *value = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data2, ur->data2_len, ur->ovector, ur->ovn);
+        uint16_t value_len = strlen(value);
+
+	if (!uwsgi_req_append(wsgi_req, ur->data, ur->data_len, value, value_len)) {
+		free(value);
+        	return UWSGI_ROUTE_BREAK;
+	}
+	free(value);
+        return UWSGI_ROUTE_NEXT;
+}
+
+
+static int uwsgi_router_addvar(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_addvar_func;
+	char *equal = strchr(arg, '=');
+	if (!equal) {
+		uwsgi_log("[uwsgi-route] invalid addvar syntax, must be KEY=VAL\n");
+		exit(1);
+	}
+	ur->data = arg;
+	ur->data_len = equal-arg;
+	ur->data2 = equal+1;
+	ur->data2_len = strlen(ur->data2);
+        return 0;
+}
+
+
+// register embedded routers
 void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("continue", uwsgi_router_continue);
         uwsgi_register_router("last", uwsgi_router_continue);
@@ -234,6 +276,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("goon", uwsgi_router_goon);
         uwsgi_register_router("log", uwsgi_router_log);
         uwsgi_register_router("goto", uwsgi_router_goto);
+        uwsgi_register_router("addvar", uwsgi_router_addvar);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
