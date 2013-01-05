@@ -2,6 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
+// this is line uwsgi_str_num but with security checks
 static size_t get_content_length(char *buf, uint16_t size) {
         int i;
         size_t val = 0;
@@ -438,6 +439,288 @@ int uwsgi_simple_parse_vars(struct wsgi_request *wsgi_req, char *ptrbuf, char *b
 	return 0;
 }
 
+#define uwsgi_proto_key(x, y) memcmp(x, key, y)
+
+static int uwsgi_proto_check_5(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+
+	if (!uwsgi_proto_key("HTTPS", 5)) {
+		wsgi_req->https = buf;
+		wsgi_req->https_len = len;
+		return 0;
+	}
+
+	return 0;
+}
+
+static int uwsgi_proto_check_9(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+
+	if (!uwsgi_proto_key("PATH_INFO", 9)) {
+		wsgi_req->path_info = buf;
+		wsgi_req->path_info_len = len;
+		wsgi_req->path_info_pos = wsgi_req->var_cnt + 1;
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("PATH_INFO=%.*s\n", wsgi_req->path_info_len, wsgi_req->path_info);
+#endif
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("HTTP_HOST", 9)) {
+		wsgi_req->host = buf;
+		wsgi_req->host_len = len;
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("HTTP_HOST=%.*s\n", wsgi_req->host_len, wsgi_req->host);
+#endif
+		return 0;
+	}
+
+	return 0;
+}
+
+static int uwsgi_proto_check_10(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+
+	if (!uwsgi_proto_key("UWSGI_FILE", 10)) {
+		wsgi_req->file = buf;
+		wsgi_req->file_len = len;
+		wsgi_req->dynamic = 1;
+		return 0;
+	}
+
+	return 0;
+}
+
+static int uwsgi_proto_check_11(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+
+	if (!uwsgi_proto_key("SCRIPT_NAME", 11)) {
+		wsgi_req->script_name = buf;
+		wsgi_req->script_name_len = len;
+		wsgi_req->script_name_pos = wsgi_req->var_cnt + 1;
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("SCRIPT_NAME=%.*s\n", wsgi_req->script_name_len, wsgi_req->script_name);
+#endif
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("REQUEST_URI", 11)) {
+		wsgi_req->uri = buf;
+		wsgi_req->uri_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("REMOTE_USER", 11)) {
+		wsgi_req->remote_user = buf;
+		wsgi_req->remote_user_len = len;
+		return 0;
+	}
+
+	if (wsgi_req->host_len == 0 && !uwsgi_proto_key("SERVER_NAME", 11)) {
+		wsgi_req->host = buf;
+		wsgi_req->host_len = len;
+#ifdef UWSGI_DEBUG
+		uwsgi_debug("SERVER_NAME=%.*s\n", wsgi_req->host_len, wsgi_req->host);
+#endif
+		return 0;
+	}
+
+	if (wsgi_req->remote_addr_len == 0 && !uwsgi_proto_key("REMOTE_ADDR", 11)) {
+		wsgi_req->remote_addr = buf;
+                wsgi_req->remote_addr_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_APPID", 11)) {
+		wsgi_req->appid = buf;
+		wsgi_req->appid_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_CHDIR", 11)) {
+		wsgi_req->chdir = buf;
+		wsgi_req->chdir_len = len;
+		return 0;
+	}
+
+	return 0;
+}
+
+static int uwsgi_proto_check_12(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+	if (!uwsgi_proto_key("QUERY_STRING", 12)) {
+		wsgi_req->query_string = buf;
+		wsgi_req->query_string_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("CONTENT_TYPE", 12)) {
+		wsgi_req->content_type = buf;
+		wsgi_req->content_type_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_SCHEME", 12)) {
+		wsgi_req->scheme = buf;
+		wsgi_req->scheme_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_SCRIPT", 12)) {
+		wsgi_req->script = buf;
+		wsgi_req->script_len = len;
+		wsgi_req->dynamic = 1;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_MODULE", 12)) {
+		wsgi_req->module = buf;
+		wsgi_req->module_len = len;
+		wsgi_req->dynamic = 1;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_PYHOME", 12)) {
+		wsgi_req->pyhome = buf;
+		wsgi_req->pyhome_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_SETENV", 12)) {
+		char *env_value = memchr(buf, '=', len);
+		if (env_value) {
+			env_value[0] = 0;
+			env_value = uwsgi_concat2n(env_value + 1, len - ((env_value + 1) - buf), "", 0);
+			if (setenv(buf, env_value, 1)) {
+				uwsgi_error("setenv()");
+			}
+			free(env_value);
+		}
+		return 0;
+	}
+	return 0;
+}
+
+static int uwsgi_proto_check_13(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+	if (!uwsgi_proto_key("DOCUMENT_ROOT", 13)) {
+		wsgi_req->document_root = buf;
+		wsgi_req->document_root_len = len;
+		return 0;
+	}
+	return 0;
+}
+
+static int uwsgi_proto_check_14(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+	if (!uwsgi_proto_key("REQUEST_METHOD", 14)) {
+		wsgi_req->method = buf;
+		wsgi_req->method_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("CONTENT_LENGTH", 14)) {
+		wsgi_req->post_cl = get_content_length(buf, len);
+		if (uwsgi.limit_post) {
+			if (wsgi_req->post_cl > uwsgi.limit_post) {
+				uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
+				return -1;
+			}
+		}
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_POSTFILE", 14)) {
+		char *postfile = uwsgi_concat2n(buf, len, "", 0);
+		wsgi_req->async_post = fopen(postfile, "r");
+		if (!wsgi_req->async_post) {
+			uwsgi_error_open(postfile);
+		}
+		free(postfile);
+		wsgi_req->body_as_file = 1;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_CALLABLE", 14)) {
+		wsgi_req->callable = buf;
+		wsgi_req->callable_len = len;
+		wsgi_req->dynamic = 1;
+		return 0;
+	}
+
+	return 0;
+}
+
+static int uwsgi_proto_check_15(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+	if (!uwsgi_proto_key("SERVER_PROTOCOL", 15)) {
+		wsgi_req->protocol = buf;
+		wsgi_req->protocol_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("HTTP_USER_AGENT", 15)) {
+		wsgi_req->user_agent = buf;
+		wsgi_req->user_agent_len = len;
+		return 0;
+	}
+
+	if (uwsgi.cache_max_items > 0 && !uwsgi_proto_key("UWSGI_CACHE_GET", 15)) {
+		wsgi_req->cache_get = buf;
+		wsgi_req->cache_get_len = len;
+		return 0;
+	}
+
+	return 0;
+}
+
+static int uwsgi_proto_check_18(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+	if (!uwsgi_proto_key("HTTP_AUTHORIZATION", 18)) {
+		wsgi_req->authorization = buf;
+		wsgi_req->authorization_len = len;
+		return 0;
+	}
+
+	if (!uwsgi_proto_key("UWSGI_TOUCH_RELOAD", 18)) {
+		wsgi_req->touch_reload = buf;
+		wsgi_req->touch_reload_len = len;
+		return 0;
+	}
+
+	return 0;
+}
+
+
+static int uwsgi_proto_check_20(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+	if (uwsgi.log_x_forwarded_for && !uwsgi_proto_key("HTTP_X_FORWARDED_FOR", 20)) {
+		wsgi_req->remote_addr = buf;
+		wsgi_req->remote_addr_len = len;
+		return 0;
+	}
+	return 0;
+}
+
+static int uwsgi_proto_check_22(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
+	if (!uwsgi_proto_key("HTTP_IF_MODIFIED_SINCE", 22)) {
+		wsgi_req->if_modified_since = buf;
+		wsgi_req->if_modified_since_len = len;
+		return 0;
+	}
+	return 0;
+}
+
+void uwsgi_proto_hooks_setup() {
+	int i = 0;
+	for(i=0;i<UWSGI_PROTO_MAX_CHECK;i++) {
+		uwsgi.proto_hooks[i] = NULL;
+	}
+
+	uwsgi.proto_hooks[5] = uwsgi_proto_check_5;
+	uwsgi.proto_hooks[9] = uwsgi_proto_check_9;
+	uwsgi.proto_hooks[10] = uwsgi_proto_check_10;
+	uwsgi.proto_hooks[11] = uwsgi_proto_check_11;
+	uwsgi.proto_hooks[12] = uwsgi_proto_check_12;
+	uwsgi.proto_hooks[13] = uwsgi_proto_check_13;
+	uwsgi.proto_hooks[14] = uwsgi_proto_check_14;
+	uwsgi.proto_hooks[15] = uwsgi_proto_check_15;
+	uwsgi.proto_hooks[18] = uwsgi_proto_check_18;
+	uwsgi.proto_hooks[20] = uwsgi_proto_check_20;
+	uwsgi.proto_hooks[22] = uwsgi_proto_check_22;
+}
+
+
 int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	char *buffer = wsgi_req->buffer;
@@ -449,8 +732,8 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 
 	ptrbuf = buffer;
 	bufferend = ptrbuf + wsgi_req->uh.pktsize;
-	int i, script_name = -1;
-
+	int i;
+	
 	/* set an HTTP 500 status as default */
 	wsgi_req->status = 500;
 
@@ -468,6 +751,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	}
 
 	wsgi_req->parsed = 1;
+	wsgi_req->script_name_pos = -1;
 	wsgi_req->path_info_pos = -1;
 
 	while (ptrbuf < bufferend) {
@@ -496,160 +780,14 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 #endif
 					ptrbuf += 2;
 					if (ptrbuf + strsize <= bufferend) {
+						if (wsgi_req->hvec[wsgi_req->var_cnt].iov_len > UWSGI_PROTO_MIN_CHECK &&
+							wsgi_req->hvec[wsgi_req->var_cnt].iov_len < UWSGI_PROTO_MAX_CHECK &&
+								uwsgi.proto_hooks[wsgi_req->hvec[wsgi_req->var_cnt].iov_len]) {
+							if (uwsgi.proto_hooks[wsgi_req->hvec[wsgi_req->var_cnt].iov_len](wsgi_req, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, ptrbuf, strsize)) {
+								return -1;
+							}
+						}
 						//uwsgi_log("uwsgi %.*s = %.*s\n", wsgi_req->hvec[wsgi_req->var_cnt].iov_len, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, strsize, ptrbuf);
-						if (!uwsgi_strncmp("SCRIPT_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->script_name = ptrbuf;
-							wsgi_req->script_name_len = strsize;
-							script_name = wsgi_req->var_cnt + 1;
-#ifdef UWSGI_DEBUG
-							uwsgi_debug("SCRIPT_NAME=%.*s\n", wsgi_req->script_name_len, wsgi_req->script_name);
-#endif
-						}
-						else if (!uwsgi_strncmp("PATH_INFO", 9, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->path_info = ptrbuf;
-							wsgi_req->path_info_len = strsize;
-							wsgi_req->path_info_pos = wsgi_req->var_cnt + 1;
-#ifdef UWSGI_DEBUG
-							uwsgi_debug("PATH_INFO=%.*s\n", wsgi_req->path_info_len, wsgi_req->path_info);
-#endif
-						}
-						else if (!uwsgi_strncmp("SERVER_PROTOCOL", 15, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->protocol = ptrbuf;
-							wsgi_req->protocol_len = strsize;
-						}
-						else if (!uwsgi_strncmp("REQUEST_URI", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->uri = ptrbuf;
-							wsgi_req->uri_len = strsize;
-						}
-						else if (!uwsgi_strncmp("QUERY_STRING", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->query_string = ptrbuf;
-							wsgi_req->query_string_len = strsize;
-						}
-						else if (!uwsgi_strncmp("REQUEST_METHOD", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->method = ptrbuf;
-							wsgi_req->method_len = strsize;
-						}
-						else if ((!uwsgi.log_x_forwarded_for || uwsgi_strncmp("HTTP_X_FORWARDED_FOR", 20, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len))
-							&& !uwsgi_strncmp("REMOTE_ADDR", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->remote_addr = ptrbuf;
-							wsgi_req->remote_addr_len = strsize;
-						}
-						else if (!uwsgi_strncmp("REMOTE_USER", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->remote_user = ptrbuf;
-							wsgi_req->remote_user_len = strsize;
-						}
-						else if (!uwsgi_strncmp("UWSGI_SCHEME", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->scheme = ptrbuf;
-							wsgi_req->scheme_len = strsize;
-						}
-						else if (!uwsgi_strncmp("UWSGI_SCRIPT", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->script = ptrbuf;
-							wsgi_req->script_len = strsize;
-							wsgi_req->dynamic = 1;
-						}
-						else if (!uwsgi_strncmp("UWSGI_MODULE", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->module = ptrbuf;
-							wsgi_req->module_len = strsize;
-							wsgi_req->dynamic = 1;
-						}
-						else if (!uwsgi_strncmp("UWSGI_CALLABLE", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->callable = ptrbuf;
-							wsgi_req->callable_len = strsize;
-							wsgi_req->dynamic = 1;
-						}
-						else if (!uwsgi_strncmp("UWSGI_PYHOME", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->pyhome = ptrbuf;
-							wsgi_req->pyhome_len = strsize;
-						}
-						else if (!uwsgi_strncmp("UWSGI_CHDIR", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->chdir = ptrbuf;
-							wsgi_req->chdir_len = strsize;
-						}
-						else if (!uwsgi_strncmp("UWSGI_APPID", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->appid = ptrbuf;
-							wsgi_req->appid_len = strsize;
-						}
-						else if (!uwsgi_strncmp("UWSGI_FILE", 10, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->file = ptrbuf;
-							wsgi_req->file_len = strsize;
-							wsgi_req->dynamic = 1;
-						}
-						else if (!uwsgi_strncmp("UWSGI_POSTFILE", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							char *postfile = uwsgi_concat2n(ptrbuf, strsize, "", 0);
-							wsgi_req->async_post = fopen(postfile, "r");
-							if (!wsgi_req->async_post) {
-								uwsgi_error_open(postfile);
-							}
-							free(postfile);
-							wsgi_req->body_as_file = 1;
-						}
-						else if (!uwsgi_strncmp("UWSGI_TOUCH_RELOAD", 18, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->touch_reload = ptrbuf;
-							wsgi_req->touch_reload_len = strsize;
-						}
-						else if (uwsgi.cache_max_items > 0 && !uwsgi_strncmp("UWSGI_CACHE_GET", 15, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->cache_get = ptrbuf;
-							wsgi_req->cache_get_len = strsize;
-						}
-						else if (!uwsgi_strncmp("UWSGI_SETENV", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							char *env_value = memchr(ptrbuf, '=', strsize);
-							if (env_value) {
-								env_value[0] = 0;
-								env_value = uwsgi_concat2n(env_value + 1, strsize - ((env_value + 1) - ptrbuf), "", 0);
-								if (setenv(ptrbuf, env_value, 1)) {
-									uwsgi_error("setenv()");
-								}
-								free(env_value);
-							}
-						}
-						else if (!uwsgi_strncmp("SERVER_NAME", 11, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len) && !wsgi_req->host_len) {
-							wsgi_req->host = ptrbuf;
-							wsgi_req->host_len = strsize;
-#ifdef UWSGI_DEBUG
-							uwsgi_debug("SERVER_NAME=%.*s\n", wsgi_req->host_len, wsgi_req->host);
-#endif
-						}
-						else if (!uwsgi_strncmp("HTTP_HOST", 9, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->host = ptrbuf;
-							wsgi_req->host_len = strsize;
-#ifdef UWSGI_DEBUG
-							uwsgi_debug("HTTP_HOST=%.*s\n", wsgi_req->host_len, wsgi_req->host);
-#endif
-						}
-						else if (!uwsgi_strncmp("HTTPS", 5, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->https = ptrbuf;
-							wsgi_req->https_len = strsize;
-						}
-						else if (!uwsgi_strncmp("HTTP_IF_MODIFIED_SINCE", 22, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->if_modified_since = ptrbuf;
-							wsgi_req->if_modified_since_len = strsize;
-						}
-						else if (!uwsgi_strncmp("HTTP_AUTHORIZATION", 18, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->authorization = ptrbuf;
-							wsgi_req->authorization_len = strsize;
-						}
-						else if (!uwsgi_strncmp("DOCUMENT_ROOT", 13, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->document_root = ptrbuf;
-							wsgi_req->document_root_len = strsize;
-						}
-						else if (uwsgi.log_x_forwarded_for && !uwsgi_strncmp("HTTP_X_FORWARDED_FOR", 20, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->remote_addr = ptrbuf;
-							wsgi_req->remote_addr_len = strsize;
-						}
-						else if (!uwsgi_strncmp("CONTENT_TYPE", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->content_type = ptrbuf;
-							wsgi_req->content_type_len = strsize;
-						}
-						else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
-							wsgi_req->post_cl = get_content_length(ptrbuf, strsize);
-							if (uwsgi.limit_post) {
-								if (wsgi_req->post_cl > uwsgi.limit_post) {
-									uwsgi_log("Invalid (too big) CONTENT_LENGTH. skip.\n");
-									return -1;
-								}
-							}
-
-						}
 
 						if (wsgi_req->var_cnt < uwsgi.vec_size - (4 + 1)) {
 							wsgi_req->var_cnt++;
@@ -739,7 +877,7 @@ next:
 			char *orig_path_info = wsgi_req->path_info;
 			int orig_path_info_len = wsgi_req->path_info_len;
 			// if SCRIPT_NAME is not allocated, add a slot for it
-			if (script_name == -1) {
+			if (wsgi_req->script_name_pos == -1) {
 				if (wsgi_req->var_cnt >= uwsgi.vec_size - (4 + 2)) {
 					uwsgi_log("max vec size reached. skip this var.\n");
 					return -1;
@@ -747,9 +885,9 @@ next:
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = "SCRIPT_NAME";
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_len = 11;
 				wsgi_req->var_cnt++;
-				script_name = wsgi_req->var_cnt;
-				wsgi_req->hvec[script_name].iov_base = "";
-				wsgi_req->hvec[script_name].iov_len = 0;
+				wsgi_req->script_name_pos = wsgi_req->var_cnt;
+				wsgi_req->hvec[wsgi_req->script_name_pos].iov_base = "";
+				wsgi_req->hvec[wsgi_req->script_name_pos].iov_len = 0;
 				wsgi_req->var_cnt++;
 			}
 
@@ -763,8 +901,8 @@ next:
 						wsgi_req->path_info = orig_path_info + wsgi_req->script_name_len;
 						wsgi_req->path_info_len = orig_path_info_len - wsgi_req->script_name_len;
 
-						wsgi_req->hvec[script_name].iov_base = wsgi_req->script_name;
-						wsgi_req->hvec[script_name].iov_len = wsgi_req->script_name_len;
+						wsgi_req->hvec[wsgi_req->script_name_pos].iov_base = wsgi_req->script_name;
+						wsgi_req->hvec[wsgi_req->script_name_pos].iov_len = wsgi_req->script_name_len;
 
 						wsgi_req->hvec[wsgi_req->path_info_pos].iov_base = wsgi_req->path_info;
 						wsgi_req->hvec[wsgi_req->path_info_pos].iov_len = wsgi_req->path_info_len;

@@ -2,6 +2,8 @@
 #include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
+// http status codes list
+extern struct http_status_codes hsc[];
 
 static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req) {
 
@@ -119,6 +121,14 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		ur->subject = offsetof(struct wsgi_request, query_string);
 		ur->subject_len = offsetof(struct wsgi_request, query_string_len);
 	}
+	else if (!strcmp(foobar, "remote_addr")) {
+		ur->subject = offsetof(struct wsgi_request, remote_addr);
+		ur->subject_len = offsetof(struct wsgi_request, remote_addr_len);
+	}
+	else if (!strcmp(foobar, "user_agent")) {
+		ur->subject = offsetof(struct wsgi_request, user_agent);
+		ur->subject_len = offsetof(struct wsgi_request, user_agent_len);
+	}
 	else {
 		ur->subject = offsetof(struct wsgi_request, path_info);
 		ur->subject_len = offsetof(struct wsgi_request, path_info_len);
@@ -181,11 +191,55 @@ static int uwsgi_router_continue(struct uwsgi_route *ur, char *arg) {
 // break route
 
 static int uwsgi_router_break_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	if (route->data_len >= 3) {
+		wsgi_req->status = route->custom;
+		if (wsgi_req->headers_size == 0 && wsgi_req->response_size == 0) {
+			char *msg = NULL;
+			size_t msg_len = 0;
+			if (route->data_len < 5) {
+				struct http_status_codes *http_sc;
+				for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+                        		if (!memcmp(http_sc->key, route->data, 3)) {
+                                		msg = (char *) http_sc->message;
+                                		msg_len = http_sc->message_size;
+                                		break;
+                        		}
+				}
+			}
+			else {
+				msg = route->data + 4;
+				msg_len = route->data_len -4;
+			}
+			struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
+			if (uwsgi_buffer_append(ub, "HTTP/1.0 ", 9)) goto end;
+			if (uwsgi_buffer_append(ub, route->data, 3)) goto end;
+			if (msg && msg_len) {
+				if (uwsgi_buffer_append(ub, " ", 1)) goto end;
+				if (uwsgi_buffer_append(ub, msg, msg_len)) goto end;
+			}
+
+			if (uwsgi_buffer_append(ub, "\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n", 49)) goto end;
+			wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, ub->buf, ub->pos);
+			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, msg, msg_len);
+end:
+			uwsgi_buffer_destroy(ub);
+		}
+	}
 	return UWSGI_ROUTE_BREAK;	
 }
 
 static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
 	ur->func = uwsgi_router_break_func;
+	ur->data = arg;
+        ur->data_len = strlen(arg);
+	if (ur->data_len >=3 ) {
+		// filling http status codes
+		struct http_status_codes *http_sc;
+        	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
+                	http_sc->message_size = strlen(http_sc->message);
+        	}
+		ur->custom = uwsgi_str3_num(ur->data);
+	}
 	return 0;
 }
 

@@ -1061,6 +1061,7 @@ struct wsgi_request {
 	uint16_t https_len;
 	char *script_name;
 	uint16_t script_name_len;
+	int script_name_pos;
 
 	char *host;
 	uint16_t host_len;
@@ -1070,6 +1071,9 @@ struct wsgi_request {
 
 	char *document_root;
 	uint16_t document_root_len;
+
+	char *user_agent;
+	uint16_t user_agent_len;
 
 	char *path_info;
 	uint16_t path_info_len;
@@ -1286,12 +1290,17 @@ struct uwsgi_subscribe_slot;
 struct uwsgi_stats_pusher;
 struct uwsgi_stats_pusher_instance;
 
+#define UWSGI_PROTO_MIN_CHECK 4
+#define UWSGI_PROTO_MAX_CHECK 23
+
 struct uwsgi_server {
 
 
 	// store the machine hostname
 	char hostname[256];
 	int hostname_len;
+
+	int (*proto_hooks[UWSGI_PROTO_MAX_CHECK])(struct wsgi_request *, char *, char *, uint16_t);
 
 	char **orig_argv;
 	char **argv;
@@ -3654,6 +3663,8 @@ int uwsgi_uuid_cmp(char *, char *);
 
 int uwsgi_legion_i_am_the_lord(char *);
 void uwsgi_additional_header_add(struct wsgi_request *, char *, uint16_t);
+
+void uwsgi_proto_hooks_setup(void);
 
 void uwsgi_subscribe_all(uint8_t, int);
 #define uwsgi_unsubscribe_all() uwsgi_subscribe_all(1, 1)
