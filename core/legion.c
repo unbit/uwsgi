@@ -371,6 +371,8 @@ static void *legion_loop(void *foobar) {
 		uwsgi.legion_freq = 3;
 	if (!uwsgi.legion_tolerance)
 		uwsgi.legion_tolerance = 15;
+	if (!uwsgi.legion_skew_tolerance)
+		uwsgi.legion_skew_tolerance = 60;
 
 	int first_round = 1;
 	for (;;) {
@@ -472,7 +474,7 @@ static void *legion_loop(void *foobar) {
 			}
 
 			// check for "tolerable" unix time
-			if (legion_msg.unix_check < uwsgi_now() - uwsgi.legion_tolerance) {
+			if (legion_msg.unix_check < (uwsgi_now() - uwsgi.legion_skew_tolerance)) {
 				uwsgi_log("[uwsgi-legion] untolerable packet received for Legion %s , check your clock !!!\n", ul->legion);
 				continue;
 			}

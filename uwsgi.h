@@ -2018,6 +2018,7 @@ struct uwsgi_server {
 	int legion_queue;
 	int legion_freq;
 	int legion_tolerance;
+	int legion_skew_tolerance;
 #endif
 
 #ifdef __linux__
