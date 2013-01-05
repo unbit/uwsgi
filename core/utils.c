@@ -4008,3 +4008,106 @@ void uwsgi_additional_header_add(struct wsgi_request *wsgi_req, char *hh, uint16
 	uwsgi_string_new_list(&wsgi_req->additional_headers, header);
 }
 
+// based on nginx implementation
+
+static uint8_t b64_table64[] = {
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 62, 77, 77, 77, 63,
+                52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 77, 77, 77, 77, 77, 77,
+                77,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+                15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 77, 77, 77, 77, 77,
+                77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 77, 77, 77, 77, 77,
+
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+                77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77
+        };
+
+static char b64_table64_2[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+char *uwsgi_base64_decode(char *buf, size_t len, size_t *d_len) {
+
+	// find the real size and check for invalid values
+        size_t i;
+        for (i = 0; i < len; i++) {
+                if (buf[i] == '=')
+                        break;
+
+                // check for invalid content
+                if (b64_table64[ (uint8_t) buf[i] ] == 77) {
+                        return NULL;
+                }
+        }
+
+	// check for invalid size
+        if (i % 4 == 1)
+                return NULL;
+
+	// compute the new size
+        *d_len = (((len+3)/4) * 3);
+        char *dst = uwsgi_malloc(*d_len);
+
+        char *ptr = dst;
+        uint8_t *src = (uint8_t *) buf;
+        while(i > 3) {
+                *ptr++= (char) ( b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
+                *ptr++= (char) ( b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
+                *ptr++= (char) ( b64_table64[src[2]] << 6 | b64_table64[src[3]]);
+
+                src+=4;
+                i-=4;
+        }
+
+        if (i > 1) {
+                *ptr++= (char) ( b64_table64[src[0]] << 2 | b64_table64[src[1]] >> 4);
+        }
+
+        if (i > 2) {
+                *ptr++= (char) ( b64_table64[src[1]] << 4 | b64_table64[src[2]] >> 2);
+        }
+
+	*d_len = (ptr - dst);
+
+        return dst;
+
+}
+
+char *uwsgi_base64_encode(char *buf, size_t len, size_t *d_len) {
+	*d_len = ((len * 4)/3) + 5;
+	char *dst = uwsgi_malloc(*d_len);
+	char *ptr = dst;
+	while(len >= 3) {
+		*ptr++= b64_table64_2[ buf[0]  >> 2];
+		*ptr++= b64_table64_2[((buf[0] << 4) & 0x30) | (buf[1] >> 4)];
+        	*ptr++= b64_table64_2[((buf[1] << 2) & 0x3C) | (buf[2] >> 6)];
+        	*ptr++= b64_table64_2[buf[2] & 0x3F];
+        	buf += 3;
+        	len -= 3;
+    	}
+
+	if (len > 0) {
+		*ptr++= b64_table64_2[ buf[0]  >> 2];
+		uint8_t tmp = (buf[0] << 4) & 0x30;
+		if (len > 1) tmp |= buf[1] >> 4;
+		*ptr++= b64_table64_2[tmp];
+		if (len < 2) {
+			*ptr++= '=';
+		}
+		else {
+			*ptr++= b64_table64_2[buf[2] & 0x3F];
+		}
+		*ptr++= '=';
+	}
+
+	*ptr = 0;
+	*d_len = (ptr - dst);
+
+	return dst;
+}

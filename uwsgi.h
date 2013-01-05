@@ -3667,6 +3667,9 @@ void uwsgi_additional_header_add(struct wsgi_request *, char *, uint16_t);
 
 void uwsgi_proto_hooks_setup(void);
 
+char *uwsgi_base64_decode(char *, size_t, size_t *);
+char *uwsgi_base64_encode(char *, size_t, size_t *);
+
 void uwsgi_subscribe_all(uint8_t, int);
 #define uwsgi_unsubscribe_all() uwsgi_subscribe_all(1, 1)
 
