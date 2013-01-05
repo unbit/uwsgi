@@ -256,6 +256,23 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 		}
 	}
 
+	ah = wsgi_req->additional_headers;
+	while(ah) {
+                if (wsgi_req->header_cnt+1 <= uwsgi.max_vars) {
+                        wsgi_req->header_cnt++;
+                        wsgi_req->hvec[j].iov_base = ah->value;
+                        wsgi_req->hvec[j].iov_len = ah->len;
+                        j++;
+                        wsgi_req->hvec[j].iov_base = nl;
+                        wsgi_req->hvec[j].iov_len = NL_SIZE;
+                        j++;
+                        ah = ah->next;
+                }
+                else {
+                        uwsgi_log("no more space in iovec. consider increasing max-vars...\n");
+                        break;
+                }
+        }
 
 	// \r\n
 	wsgi_req->hvec[j].iov_base = nl;

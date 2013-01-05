@@ -725,6 +725,15 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		free(ptr);
 	}
 
+	// free additional headers
+	struct uwsgi_string_list *ah = wsgi_req->additional_headers;
+	while (ah) {
+		struct uwsgi_string_list *ptr = ah;
+		ah = ah->next;
+		free(ptr->value);
+		free(ptr);
+	}
+
 
 	// reset request
 	tmp_id = wsgi_req->async_id;
@@ -3992,3 +4001,10 @@ int uwsgi_uuid_cmp(char *x, char *y) {
 	}
 	return 0;
 }
+
+void uwsgi_additional_header_add(struct wsgi_request *wsgi_req, char *hh, uint16_t hh_len) {
+	// will be freed on request's end
+	char *header = uwsgi_concat2n(hh, hh_len, "", 0);
+	uwsgi_string_new_list(&wsgi_req->additional_headers, header);
+}
+

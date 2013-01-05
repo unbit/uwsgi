@@ -268,6 +268,29 @@ static int uwsgi_router_addvar(struct uwsgi_route *ur, char *arg) {
 }
 
 
+// addheader route
+static int uwsgi_router_addheader_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        char *value = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
+        uint16_t value_len = strlen(value);
+	uwsgi_additional_header_add(wsgi_req, value, value_len);
+        free(value);
+        return UWSGI_ROUTE_NEXT;
+}
+
+
+static int uwsgi_router_addheader(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_addheader_func;
+        ur->data = arg;
+        ur->data_len = strlen(arg);
+        return 0;
+}
+
+
+
 // register embedded routers
 void uwsgi_register_embedded_routers() {
 	uwsgi_register_router("continue", uwsgi_router_continue);
@@ -277,6 +300,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("log", uwsgi_router_log);
         uwsgi_register_router("goto", uwsgi_router_goto);
         uwsgi_register_router("addvar", uwsgi_router_addvar);
+        uwsgi_register_router("addheader", uwsgi_router_addheader);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {

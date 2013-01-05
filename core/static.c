@@ -408,6 +408,17 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 				ah = ah->next;
 			}
 
+			ah = wsgi_req->additional_headers;
+			while (ah) {
+                                headers_vec[0].iov_base = ah->value;
+                                headers_vec[0].iov_len = ah->len;
+                                headers_vec[1].iov_base = "\r\n";
+                                headers_vec[1].iov_len = 2;
+                                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
+                                wsgi_req->header_cnt++;
+                                ah = ah->next;
+                        }
+
 			wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
 			return 0;
 		}

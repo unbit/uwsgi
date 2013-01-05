@@ -927,6 +927,16 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
                 	wsgi_req->header_cnt++;
                 	ah = ah->next;
         	}
+		ah = wsgi_req->additional_headers;
+		while(ah) {
+                        iov[0].iov_base = ah->value;
+                        iov[0].iov_len = ah->len;
+                        iov[1].iov_base = "\r\n";
+                        iov[1].iov_len = 2;
+                        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
+                        wsgi_req->header_cnt++;
+                        ah = ah->next;
+                }
 
 
 		wsgi_req->socket->proto_write(wsgi_req, (char *)"\r\n", 2);

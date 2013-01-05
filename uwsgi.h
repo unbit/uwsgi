@@ -1019,7 +1019,6 @@ struct uwsgi_logvar {
 	struct uwsgi_logvar *next;
 };
 
-
 struct wsgi_request {
 	struct uwsgi_header uh;
 	//temporary attr
@@ -1187,6 +1186,7 @@ struct wsgi_request {
 	int signal_received;
 
 	struct uwsgi_logvar *logvars;
+	struct uwsgi_string_list *additional_headers;
 
 	uint16_t stream_id;
 
@@ -3653,6 +3653,7 @@ void uwsgi_uuid(char *);
 int uwsgi_uuid_cmp(char *, char *);
 
 int uwsgi_legion_i_am_the_lord(char *);
+void uwsgi_additional_header_add(struct wsgi_request *, char *, uint16_t);
 
 void uwsgi_subscribe_all(uint8_t, int);
 #define uwsgi_unsubscribe_all() uwsgi_subscribe_all(1, 1)
