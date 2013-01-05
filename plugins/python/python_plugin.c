@@ -46,6 +46,23 @@ void uwsgi_opt_pyrun(char *opt, char *value, void *foobar) {
 	up.pyrun = value;
 }
 
+void uwsgi_opt_pyver(char *opt, char *foo, void *bar) {
+#ifndef UWSGI_PYPY
+	const char *version = Py_GetVersion();
+#else
+	const char *version = PYPY_VERSION;
+#endif
+	const char *space = strchr(version, ' ');
+	if (space) {
+        	fprintf(stdout, "%.*s\n", (int) (space-version), version);
+	}
+	else {
+        	fprintf(stdout, "%s\n", version);
+	}
+	exit(0);
+}
+
+
 #ifdef UWSGI_INI
 void uwsgi_opt_ini_paste(char *opt, char *value, void *foobar) {
 
@@ -141,6 +158,8 @@ struct uwsgi_option uwsgi_python_options[] = {
 	{"wsgi-env-behaviour", required_argument, 0, "set the strategy for allocating/deallocating the WSGI env", uwsgi_opt_set_str, &up.wsgi_env_behaviour, 0},
 	{"wsgi-env-behavior", required_argument, 0, "set the strategy for allocating/deallocating the WSGI env", uwsgi_opt_set_str, &up.wsgi_env_behaviour, 0},
 	{"start_response-nodelay", no_argument, 0, "send WSGI http headers as soon as possible (PEP violation)", uwsgi_opt_true, &up.start_response_nodelay, 0},
+
+	{"python-version", no_argument, 0, "report python version", uwsgi_opt_pyver, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{0, 0, 0, 0, 0, 0, 0},
 };

@@ -16,6 +16,9 @@ struct uwsgi_option uwsgi_perl_options[] = {
         {"psgi", required_argument, 0, "load a psgi app", uwsgi_opt_set_str, &uperl.psgi, 0},
         {"perl-no-die-catch", no_argument, 0, "do not catch $SIG{__DIE__}", uwsgi_opt_true, &uperl.no_die_catch, 0},
         {"perl-local-lib", required_argument, 0, "set perl locallib path", uwsgi_opt_set_str, &uperl.locallib, 0},
+#ifdef PERL_VERSION_STRING
+        {"perl-version", no_argument, 0, "print perl version", uwsgi_opt_print, PERL_VERSION_STRING, UWSGI_OPT_IMMEDIATE},
+#endif
         {0, 0, 0, 0, 0, 0, 0},
 
 };
