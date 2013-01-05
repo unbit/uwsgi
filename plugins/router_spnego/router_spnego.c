@@ -82,6 +82,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, gss_cred_id_t
                 if (GSS_ERROR(ret)) {
                         uwsgi_spnego_err(ret, min_ret);
                         free(b64);
+			b64 = NULL;
                         goto end;
                 }
                 wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, output.value, output.length);
@@ -89,6 +90,7 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, gss_cred_id_t
                 if (!wsgi_req->remote_user) {
                         uwsgi_spnego_err(ret, min_ret);
                         free(b64);
+			b64 = NULL;
                         goto end;
                 }
                 wsgi_req->remote_user_len = output.length;
