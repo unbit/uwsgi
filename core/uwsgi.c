@@ -466,6 +466,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"route-qs", required_argument, 0, "add a route based on QUERY_STRING", uwsgi_opt_add_route, "query_string", 0},
 	{"route-remote-addr", required_argument, 0, "add a route based on REMOTE_ADDR", uwsgi_opt_add_route, "remote_addr", 0},
 	{"route-user-agent", required_argument, 0, "add a route based on USER_AGENT", uwsgi_opt_add_route, "user_agent", 0},
+	{"route-remote-user", required_argument, 0, "add a route based on REMOTE_USER", uwsgi_opt_add_route, "remote_user", 0},
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
