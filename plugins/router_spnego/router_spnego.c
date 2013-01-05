@@ -86,14 +86,15 @@ static char *uwsgi_spnego_new_token(struct wsgi_request *wsgi_req, gss_cred_id_t
                         goto end;
                 }
                 wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, output.value, output.length);
+		wsgi_req->remote_user_len = output.length;
                 gss_release_buffer(&min_ret, &output);
                 if (!wsgi_req->remote_user) {
+			wsgi_req->remote_user_len = 0;
                         uwsgi_spnego_err(ret, min_ret);
                         free(b64);
 			b64 = NULL;
                         goto end;
                 }
-                wsgi_req->remote_user_len = output.length;
         }
 end:
         if (context != GSS_C_NO_CONTEXT) {
