@@ -543,10 +543,10 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 
 #ifdef UWSGI_SSL
 	if (sign) {
-		if (uwsgi_buffer_append_keynum(ub, "unix", 6, (uwsgi_now() + (time_t) cmd) )) goto end;
+		if (uwsgi_buffer_append_keynum(ub, "unix", 4, (uwsgi_now() + (time_t) cmd) )) goto end;
 
 		unsigned int signature_len = 0;
-		char *signature = uwsgi_rsa_sign(sign, ub->buf, ub->pos, &signature_len);
+		char *signature = uwsgi_rsa_sign(sign, ub->buf + 4, ub->pos - 4, &signature_len);
 		if (signature && signature_len > 0) {
 			if (uwsgi_buffer_append_keyval(ub, "sign", 4, signature, signature_len)) {
 				free(signature);
@@ -558,7 +558,7 @@ void uwsgi_send_subscription(char *udp_address, char *key, size_t keysize, uint8
 #endif
 
 
-	send_udp_message(224, cmd, udp_address, ub->buf, ub->pos);
+	send_udp_message(224, cmd, udp_address, ub->buf, ub->pos - 4);
 end:
 	uwsgi_buffer_destroy(ub);
 }
