@@ -235,7 +235,9 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
                         SSL_SESS_CACHE_NO_INTERNAL|
                         SSL_SESS_CACHE_NO_AUTO_CLEAR);
 
+#ifdef SSL_OP_NO_TICKET
                 ssloptions |= SSL_OP_NO_TICKET;
+#endif
 
                 // just for fun
                 SSL_CTX_sess_set_cache_size(ctx, 0);
