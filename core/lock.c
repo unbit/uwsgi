@@ -45,6 +45,10 @@ static struct uwsgi_lock_item *uwsgi_register_lock(char *id, int rw) {
 
 #ifdef UWSGI_LOCK_USE_MUTEX
 
+#ifdef OBSOLETE_LINUX_KERNEL
+#undef EOWNERDEAD
+#endif
+
 #ifdef EOWNERDEAD
 #define UWSGI_LOCK_ENGINE_NAME "pthread robust mutexes"
 int uwsgi_pthread_robust_mutexes_enabled = 1;
