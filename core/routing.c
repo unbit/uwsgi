@@ -348,6 +348,20 @@ static int uwsgi_router_addheader(struct uwsgi_route *ur, char *arg) {
 }
 
 
+// signal route
+static int uwsgi_router_signal_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	uwsgi_signal_send(uwsgi.signal_socket, route->custom);	
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_signal(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_signal_func;
+	ur->custom = atoi(arg);
+        return 0;
+}
+
+
+
+
 
 // register embedded routers
 void uwsgi_register_embedded_routers() {
@@ -359,6 +373,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("goto", uwsgi_router_goto);
         uwsgi_register_router("addvar", uwsgi_router_addvar);
         uwsgi_register_router("addheader", uwsgi_router_addheader);
+        uwsgi_register_router("signal", uwsgi_router_signal);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
