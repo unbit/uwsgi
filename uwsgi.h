@@ -310,7 +310,7 @@ extern int pivot_root(const char *new_root, const char *put_old);
 
 struct uwsgi_buffer {
 	char *buf;
-	off_t pos;
+	size_t pos;
 	size_t len;
 	size_t limit;
 };
@@ -1192,7 +1192,18 @@ struct wsgi_request {
 	struct uwsgi_logvar *logvars;
 	struct uwsgi_string_list *additional_headers;
 
-	uint16_t stream_id;
+	struct uwsgi_buffer *websocket_buf;	
+	size_t websocket_need;
+	int websocket_phase;
+	uint8_t websocket_opcode;
+	size_t websocket_has_mask;
+	size_t websocket_size;
+	size_t websocket_pktsize;
+	time_t websocket_last_ping;
+	time_t websocket_last_pong;
+	int websocket_closed;
+
+	uint64_t stream_id;
 
 	// avoid routing loops
 	int is_routing;
@@ -2032,6 +2043,14 @@ struct uwsgi_server {
 #endif
 #endif
 
+	ssize_t (*websockets_hook_send)(struct wsgi_request *, struct uwsgi_buffer *);
+	ssize_t (*websockets_hook_recv)(struct wsgi_request *);
+	struct uwsgi_buffer *websockets_ping;
+	struct uwsgi_buffer *websockets_pong;
+	int websockets_ping_freq;
+	int websockets_pong_freq;
+	uint64_t websockets_max_size;
+
 };
 
 struct uwsgi_rpc {
@@ -2474,6 +2493,7 @@ void uwsgi_ldap_config(char *);
 #endif
 
 int uwsgi_strncmp(char *, int, char *, int);
+int uwsgi_strnicmp(char *, int, char *, int);
 int uwsgi_startswith(char *, char *, int);
 
 
@@ -3383,6 +3403,9 @@ char *uwsgi_rsa_sign(char *, char *, size_t, unsigned int *);
 char *uwsgi_sanitize_cert_filename(char *, char *, uint16_t);
 void uwsgi_opt_scd(char *, char *, void *);
 int uwsgi_subscription_sign_check(struct uwsgi_subscribe_slot *, struct uwsgi_subscribe_req *);
+
+char *uwsgi_sha1(char *, size_t, char *);
+char *uwsgi_sha1_2n(char *, size_t, char *, size_t, char *);
 #endif
 
 void uwsgi_opt_ssa(char *, char *, void *);
@@ -3513,10 +3536,20 @@ int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
 int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);
+int uwsgi_buffer_u8(struct uwsgi_buffer *, uint8_t);
+int uwsgi_buffer_byte(struct uwsgi_buffer *, char);
 int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
+int uwsgi_buffer_u16be(struct uwsgi_buffer *, uint16_t);
+int uwsgi_buffer_u32be(struct uwsgi_buffer *, uint32_t);
+int uwsgi_buffer_u64be(struct uwsgi_buffer *, uint64_t);
 int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
-int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint64_t);
+int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint16_t);
+int uwsgi_buffer_append_keyval32(struct uwsgi_buffer *, char *, uint32_t, char *, uint32_t);
 int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t);
+int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *, void *);
+int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *, char *, uint16_t, void *);
+int uwsgi_buffer_decapitate(struct uwsgi_buffer *, size_t);
+int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t);
 
 void uwsgi_httpize_var(char *, size_t);
 struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
@@ -3672,6 +3705,16 @@ char *uwsgi_base64_encode(char *, size_t, size_t *);
 
 void uwsgi_subscribe_all(uint8_t, int);
 #define uwsgi_unsubscribe_all() uwsgi_subscribe_all(1, 1)
+
+void uwsgi_websockets_init(void);
+ssize_t uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
+struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
+ssize_t uwsgi_websockets_simple_send(struct wsgi_request *, struct uwsgi_buffer *);
+ssize_t uwsgi_websockets_simple_recv(struct wsgi_request *);
+
+uint16_t uwsgi_be16(char *);
+uint32_t uwsgi_be32(char *);
+uint64_t uwsgi_be64(char *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

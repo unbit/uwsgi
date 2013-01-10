@@ -1089,6 +1089,40 @@ PyObject *py_uwsgi_connection_fd(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(wsgi_req->poll.fd);
 }
 
+PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
+	char *message = NULL;
+        Py_ssize_t message_len = 0;
+
+        if (!PyArg_ParseTuple(args, "s#:websocket_send", &message, &message_len)) {
+                return NULL;
+        }
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	UWSGI_RELEASE_GIL	
+	ssize_t len = uwsgi_websocket_send(wsgi_req, message, message_len);
+	UWSGI_GET_GIL	
+	if (len <= 0) {
+		return PyErr_Format(PyExc_IOError, "Unable to send websocket message");
+	}
+	Py_INCREF(Py_None);
+        return Py_None;
+}
+
+PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	UWSGI_RELEASE_GIL	
+	struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
+	UWSGI_GET_GIL	
+	if (!ub) {
+		return PyErr_Format(PyExc_IOError, "Unable to receive websocket message");
+	}
+
+	PyObject *ret = PyString_FromStringAndSize(ub->buf, ub->pos);
+	uwsgi_buffer_destroy(ub);
+	return ret;
+}
+
 PyObject *py_uwsgi_embedded_data(PyObject * self, PyObject * args) {
 
 	char *name;
@@ -3269,6 +3303,9 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"set_user_harakiri", py_uwsgi_set_user_harakiri, METH_VARARGS, ""},
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
+
+	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
+	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };

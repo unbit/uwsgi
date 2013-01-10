@@ -471,6 +471,15 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
 
+	{"websockets-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
+	{"websocket-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
+
+	{"websockets-pong-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic pong/keepalive packets", uwsgi_opt_set_int, &uwsgi.websockets_pong_freq, 0},
+	{"websocket-pong-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic pong/keepalive packets", uwsgi_opt_set_int, &uwsgi.websockets_pong_freq, 0},
+
+	{"websockets-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
+	{"websocket-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
+
 	{"clock", required_argument, 0, "set a clock source", uwsgi_opt_set_str, &uwsgi.requested_clock, 0},
 
 	{"clock-list", no_argument, 0, "list enabled clocks", uwsgi_opt_true, &uwsgi.clock_list, 0},

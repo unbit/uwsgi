@@ -375,3 +375,21 @@ char *uwsgi_ssl_rand(size_t len) {
 	}
 	return (char *) buf;
 }
+
+char *uwsgi_sha1(char *src, size_t len, char *dst) {
+        SHA_CTX sha;
+        SHA1_Init(&sha);
+        SHA1_Update(&sha, src, len);
+        SHA1_Final((unsigned char *)dst, &sha);
+	return dst;
+}
+
+char *uwsgi_sha1_2n(char *s1, size_t len1, char *s2, size_t len2, char *dst) {
+        SHA_CTX sha;
+        SHA1_Init(&sha);
+        SHA1_Update(&sha, s1, len1);
+        SHA1_Update(&sha, s2, len2);
+        SHA1_Final((unsigned char *)dst, &sha);
+        return dst;
+}
+

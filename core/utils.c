@@ -734,6 +734,11 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		free(ptr);
 	}
 
+	// free websocket engine
+	if (wsgi_req->websocket_buf) {
+		uwsgi_buffer_destroy(wsgi_req->websocket_buf);
+	}
+
 
 	// reset request
 	tmp_id = wsgi_req->async_id;
@@ -1196,6 +1201,16 @@ int uwsgi_strncmp(char *src, int slen, char *dst, int dlen) {
 		return 1;
 
 	return memcmp(src, dst, dlen);
+
+}
+
+// fast compare 2 sized strings (case insensitive)
+int uwsgi_strnicmp(char *src, int slen, char *dst, int dlen) {
+
+        if (slen != dlen)
+                return 1;
+
+        return strncasecmp(src, dst, dlen);
 
 }
 
@@ -4081,33 +4096,69 @@ char *uwsgi_base64_decode(char *buf, size_t len, size_t *d_len) {
 
 char *uwsgi_base64_encode(char *buf, size_t len, size_t *d_len) {
 	*d_len = ((len * 4)/3) + 5;
+	uint8_t *src = (uint8_t *) buf;
 	char *dst = uwsgi_malloc(*d_len);
 	char *ptr = dst;
 	while(len >= 3) {
-		*ptr++= b64_table64_2[ buf[0]  >> 2];
-		*ptr++= b64_table64_2[((buf[0] << 4) & 0x30) | (buf[1] >> 4)];
-        	*ptr++= b64_table64_2[((buf[1] << 2) & 0x3C) | (buf[2] >> 6)];
-        	*ptr++= b64_table64_2[buf[2] & 0x3F];
-        	buf += 3;
+		*ptr++= b64_table64_2[ src[0]  >> 2];
+		*ptr++= b64_table64_2[((src[0] << 4) & 0x30) | (src[1] >> 4)];
+        	*ptr++= b64_table64_2[((src[1] << 2) & 0x3C) | (src[2] >> 6)];
+        	*ptr++= b64_table64_2[src[2] & 0x3F];
+        	src += 3;
         	len -= 3;
     	}
 
 	if (len > 0) {
-		*ptr++= b64_table64_2[ buf[0]  >> 2];
-		uint8_t tmp = (buf[0] << 4) & 0x30;
-		if (len > 1) tmp |= buf[1] >> 4;
+		*ptr++= b64_table64_2[ src[0]  >> 2];
+		uint8_t tmp = (src[0] << 4) & 0x30;
+		if (len > 1) tmp |= src[1] >> 4;
 		*ptr++= b64_table64_2[tmp];
 		if (len < 2) {
 			*ptr++= '=';
 		}
 		else {
-			*ptr++= b64_table64_2[buf[2] & 0x3F];
+			*ptr++= b64_table64_2[(src[1] << 2) & 0x3C];
 		}
 		*ptr++= '=';
 	}
 
 	*ptr = 0;
-	*d_len = (ptr - dst);
+	*d_len = ((char *)ptr - dst);
 
 	return dst;
+}
+
+uint16_t uwsgi_be16(char *buf) {
+	uint16_t *src = (uint16_t *) buf;
+	uint16_t ret = 0;
+	uint8_t *ptr = (uint8_t *) &ret;
+	ptr[0] = (uint8_t) ((*src >> 8) & 0xff);
+        ptr[1] = (uint8_t) (*src & 0xff);
+	return ret;
+}
+
+uint32_t uwsgi_be32(char *buf) {
+	uint32_t *src = (uint32_t *) buf;
+	uint32_t ret = 0;
+	uint8_t *ptr = (uint8_t *) &ret;
+	ptr[0] = (uint8_t) ((*src >> 24) & 0xff);
+	ptr[1] = (uint8_t) ((*src >> 16) & 0xff);
+	ptr[2] = (uint8_t) ((*src >> 8) & 0xff);
+        ptr[3] = (uint8_t) (*src & 0xff);
+	return ret;
+}
+
+uint64_t uwsgi_be64(char *buf) {
+	uint64_t *src = (uint64_t *) buf;
+	uint64_t ret = 0;
+	uint8_t *ptr = (uint8_t *) &ret;
+	ptr[0] = (uint8_t) ((*src >> 56) & 0xff);
+	ptr[1] = (uint8_t) ((*src >> 48) & 0xff);
+	ptr[2] = (uint8_t) ((*src >> 40) & 0xff);
+	ptr[3] = (uint8_t) ((*src >> 32) & 0xff);
+	ptr[4] = (uint8_t) ((*src >> 24) & 0xff);
+	ptr[5] = (uint8_t) ((*src >> 16) & 0xff);
+	ptr[6] = (uint8_t) ((*src >> 8) & 0xff);
+        ptr[7] = (uint8_t) (*src & 0xff);
+	return ret;
 }
