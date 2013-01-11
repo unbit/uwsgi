@@ -105,6 +105,14 @@ int uwsgi_buffer_u16be(struct uwsgi_buffer *ub, uint16_t num) {
         return uwsgi_buffer_append(ub, (char *) buf, 2);
 }
 
+int uwsgi_buffer_u24be(struct uwsgi_buffer *ub, uint32_t num) {
+        uint8_t buf[3];
+        buf[2] = (uint8_t) (num & 0xff);
+        buf[1] = (uint8_t) ((num >> 8) & 0xff);
+        buf[0] = (uint8_t) ((num >> 16) & 0xff);
+        return uwsgi_buffer_append(ub, (char *) buf, 3);
+}
+
 int uwsgi_buffer_u32be(struct uwsgi_buffer *ub, uint32_t num) {
         uint8_t buf[4];
         buf[3] = (uint8_t) (num & 0xff);

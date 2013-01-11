@@ -519,6 +519,19 @@ ssize_t spdy_manage_rst_stream(struct http_session *hr) {
         return 0;
 }
 
+ssize_t spdy_manage_ping(struct http_session *hr) {
+	if (!hr->spdy_ping) {
+		hr->spdy_ping = uwsgi_buffer_new(12);
+	}
+	hr->spdy_ping->pos = 0;
+	if (uwsgi_buffer_append(hr->spdy_ping,  hr->session.main_peer->in->buf, 12)) return -1;
+	hr->session.main_peer->out = hr->spdy_ping;
+	hr->session.main_peer->out_pos = 0;
+	cr_write_to_main(hr->session.main_peer, hr_ssl_write);
+	uwsgi_log("PONG\n");
+	return 1;
+}
+
 
 /*
 
@@ -566,7 +579,11 @@ ssize_t spdy_parse(struct corerouter_peer *main_peer) {
 		hr->spdy_phase = UWSGI_SPDY_PHASE_HEADER;
 		hr->spdy_need = 8;
 
-		uwsgi_log("SPDY %d INITIALIZED\n", hr->spdy);
+		main_peer->out = uhttp.spdy3_settings;
+		main_peer->out->pos = uhttp.spdy3_settings_size;
+		main_peer->out_pos = 0;
+		cr_write_to_main(main_peer, hr_ssl_write);
+		return 1;
 	}
 
 
@@ -616,7 +633,12 @@ ssize_t spdy_parse(struct corerouter_peer *main_peer) {
 							if (ret == 0) goto goon;
 							goto newframe;
 						case 4:
-							//uwsgi_log("settings request...\n");
+							uwsgi_log("settings request...\n");
+							break;
+						case 6:
+							ret = spdy_manage_ping(hr);
+                                                        if (ret == 0) goto goon;
+                                                        goto newframe;
 							break;
 						default:
 							uwsgi_log("i do not know how to manage type %u\n", hr->spdy_control_type);

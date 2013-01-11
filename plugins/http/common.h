@@ -32,6 +32,8 @@ struct uwsgi_http {
 
 #ifdef UWSGI_SPDY
         int spdy_index;
+	struct uwsgi_buffer *spdy3_settings;
+	size_t spdy3_settings_size;
 #endif
 
 }; 
@@ -96,6 +98,8 @@ struct http_session {
 	uint32_t spdy_data_stream_id;
         uint8_t spdy_data_flags;
         uint32_t spdy_data_length;
+
+	struct uwsgi_buffer *spdy_ping;
 
         ssize_t (*spdy_hook)(struct corerouter_peer *);
 #endif

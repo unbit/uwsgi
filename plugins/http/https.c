@@ -104,6 +104,19 @@ void uwsgi_opt_https2(char *opt, char *value, void *cr) {
 #ifdef UWSGI_SPDY
 	if (s_spdy) {
         	uhttp.spdy_index = SSL_CTX_get_ex_new_index(0, NULL, NULL, NULL, NULL);
+		uhttp.spdy3_settings = uwsgi_buffer_new(uwsgi.page_size);
+		if (uwsgi_buffer_append(uhttp.spdy3_settings, "\x80\x03\x00\x04\x01", 5)) goto spdyerror;
+		if (uwsgi_buffer_u24be(uhttp.spdy3_settings, (8 * 2) + 4)) goto spdyerror;
+		if (uwsgi_buffer_u32be(uhttp.spdy3_settings, 2)) goto spdyerror;
+
+		// SETTINGS_ROUND_TRIP_TIME
+		if (uwsgi_buffer_append(uhttp.spdy3_settings, "\x01\x00\x00\x03", 4)) goto spdyerror;
+		if (uwsgi_buffer_u32be(uhttp.spdy3_settings, 30 * 1000)) goto spdyerror;
+		// SETTINGS_INITIAL_WINDOW_SIZE
+		if (uwsgi_buffer_append(uhttp.spdy3_settings, "\x01\x00\x00\x07", 4)) goto spdyerror;
+		if (uwsgi_buffer_u32be(uhttp.spdy3_settings, 8192)) goto spdyerror;
+
+		uhttp.spdy3_settings_size = uhttp.spdy3_settings->pos;
 	}
 #endif
 
@@ -121,6 +134,12 @@ void uwsgi_opt_https2(char *opt, char *value, void *cr) {
         ugs->mode = UWSGI_HTTP_SSL;
 
         ucr->has_sockets++;
+
+	return;
+
+spdyerror:
+	uwsgi_log("unable to inizialize SPDY settings buffers\n");
+	exit(1);
 }
 
 
@@ -219,32 +238,36 @@ int hr_https_add_vars(struct http_session *hr, struct uwsgi_buffer *out) {
 
 void hr_session_ssl_close(struct corerouter_session *cs) {
 	hr_session_close(cs);
-	struct http_session *hs = (struct http_session *) cs;
-	SSL_shutdown(hs->ssl);
-	if (hs->ssl_client_dn) {
-                OPENSSL_free(hs->ssl_client_dn);
+	struct http_session *hr = (struct http_session *) cs;
+	SSL_shutdown(hr->ssl);
+	if (hr->ssl_client_dn) {
+                OPENSSL_free(hr->ssl_client_dn);
         }
 
-        if (hs->ssl_cc) {
-                free(hs->ssl_cc);
+        if (hr->ssl_cc) {
+                free(hr->ssl_cc);
         }
 
-        if (hs->ssl_bio) {
-                BIO_free(hs->ssl_bio);
+        if (hr->ssl_bio) {
+                BIO_free(hr->ssl_bio);
         }
 
-        if (hs->ssl_client_cert) {
-                X509_free(hs->ssl_client_cert);
+        if (hr->ssl_client_cert) {
+                X509_free(hr->ssl_client_cert);
         }
 
-        SSL_free(hs->ssl);
+	if (hr->spdy_ping) {
+		uwsgi_buffer_destroy(hr->spdy_ping);
+	}
+
+        SSL_free(hr->ssl);
 }
 
 ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
         struct corerouter_session *cs = main_peer->session;
-        struct http_session *hs = (struct http_session *) cs;
+        struct http_session *hr = (struct http_session *) cs;
 
-        int ret = SSL_write(hs->ssl, main_peer->out->buf + main_peer->out_pos, main_peer->out->pos - main_peer->out_pos);
+        int ret = SSL_write(hr->ssl, main_peer->out->buf + main_peer->out_pos, main_peer->out->pos - main_peer->out_pos);
         if (ret > 0) {
                 main_peer->out_pos += ret;
                 if (main_peer->out->pos == main_peer->out_pos) {
@@ -255,7 +278,7 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
                 return ret;
         }
         if (ret == 0) return 0;
-        int err = SSL_get_error(hs->ssl, ret);
+        int err = SSL_get_error(hr->ssl, ret);
 
         if (err == SSL_ERROR_WANT_READ) {
                 cr_reset_hooks_and_read(main_peer, hr_ssl_write);
@@ -280,36 +303,36 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
 
 ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
         struct corerouter_session *cs = main_peer->session;
-        struct http_session *hs = (struct http_session *) cs;
+        struct http_session *hr = (struct http_session *) cs;
 
         // try to always leave 4k available
         if (uwsgi_buffer_ensure(main_peer->in, uwsgi.page_size)) return -1;
-        int ret = SSL_read(hs->ssl, main_peer->in->buf + main_peer->in->pos, main_peer->in->len - main_peer->in->pos);
+        int ret = SSL_read(hr->ssl, main_peer->in->buf + main_peer->in->pos, main_peer->in->len - main_peer->in->pos);
         if (ret > 0) {
                 // fix the buffer
                 main_peer->in->pos += ret;
                 // check for pending data
-                int ret2 = SSL_pending(hs->ssl);
+                int ret2 = SSL_pending(hr->ssl);
                 if (ret2 > 0) {
                         if (uwsgi_buffer_fix(main_peer->in, main_peer->in->len + ret2 )) {
                                 uwsgi_log("[uwsgi-https] cannot fix the buffer to %d\n", main_peer->in->len + ret2);
                                 return -1;
                         }
-                        if (SSL_read(hs->ssl, main_peer->in->buf + main_peer->in->pos, ret2) != ret2) {
+                        if (SSL_read(hr->ssl, main_peer->in->buf + main_peer->in->pos, ret2) != ret2) {
                                 uwsgi_log("[uwsgi-https] SSL_read() on %d bytes of pending data failed\n", ret2);
                                 return -1;
                         }
                         // fix the buffer
                         main_peer->in->pos += ret2;
                 }
-                if (hs->spdy) {
+                if (hr->spdy) {
                         uwsgi_log("RUNNING THE SPDY PARSER FOR %d bytes\n", main_peer->in->pos);
                         return spdy_parse(main_peer);
                 }
                 return http_parse(main_peer);
         }
         if (ret == 0) return 0;
-        int err = SSL_get_error(hs->ssl, ret);
+        int err = SSL_get_error(hr->ssl, ret);
 
         if (err == SSL_ERROR_WANT_READ) {
                 cr_reset_hooks_and_read(main_peer, hr_ssl_read);

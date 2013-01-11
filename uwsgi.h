@@ -3541,6 +3541,7 @@ int uwsgi_buffer_byte(struct uwsgi_buffer *, char);
 int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
 int uwsgi_buffer_u16be(struct uwsgi_buffer *, uint16_t);
 int uwsgi_buffer_u32be(struct uwsgi_buffer *, uint32_t);
+int uwsgi_buffer_u24be(struct uwsgi_buffer *, uint32_t);
 int uwsgi_buffer_u64be(struct uwsgi_buffer *, uint64_t);
 int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
 int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint16_t);
