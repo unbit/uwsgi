@@ -12,7 +12,7 @@ struct uwsgi_option http_options[] = {
 	{"http", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_corerouter, &uhttp, 0},
 #ifdef UWSGI_SSL
 	{"https", required_argument, 0, "add an https router/server on the specified address with specified certificate and key", uwsgi_opt_https, &uhttp, 0},
-	{"https2", required_argument, 0, "add an https/spdy router/server using keyval options", uwsgi_opt_https, &uhttp, 0},
+	{"https2", required_argument, 0, "add an https/spdy router/server using keyval options", uwsgi_opt_https2, &uhttp, 0},
 	{"https-export-cert", no_argument, 0, "export uwsgi variable HTTPS_CC containing the raw client certificate", uwsgi_opt_true, &uhttp.https_export_cert, 0},
 	{"https-session-context", required_argument, 0, "set the session id context to the specified value", uwsgi_opt_set_str, &uhttp.https_session_context, 0},
 	{"http-to-https", required_argument, 0, "add an http router/server on the specified address and redirect all of the requests to https", uwsgi_opt_http_to_https, &uhttp, 0},
@@ -153,6 +153,7 @@ int http_headers_parse(struct corerouter_peer *peer) {
 	char *query_string = NULL;
 
 	peer->out = uwsgi_buffer_new(uwsgi.page_size);
+	// force this buffer to be destroyed as soon as possibile
 	peer->out_need_free = 1;
 	peer->out->limit = UMAX16;
 	// leave space for the uwsgi header
@@ -331,7 +332,7 @@ ssize_t hr_instance_write(struct corerouter_peer *peer) {
         // the chunk has been sent, start (again) reading from client and instances
         if (cr_write_complete(peer)) {
 		// destroy the buffer used for the uwsgi packet
-		if (peer->out_need_free) {
+		if (peer->out_need_free == 1) {
 			uwsgi_buffer_destroy(peer->out);
 			peer->out_need_free = 0;
 			peer->out = NULL;
