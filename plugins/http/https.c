@@ -137,9 +137,11 @@ void uwsgi_opt_https2(char *opt, char *value, void *cr) {
 
 	return;
 
+#ifdef UWSGI_SPDY
 spdyerror:
 	uwsgi_log("unable to inizialize SPDY settings buffers\n");
 	exit(1);
+#endif
 }
 
 
@@ -256,9 +258,11 @@ void hr_session_ssl_close(struct corerouter_session *cs) {
                 X509_free(hr->ssl_client_cert);
         }
 
+#ifdef UWSGI_SPDY
 	if (hr->spdy_ping) {
 		uwsgi_buffer_destroy(hr->spdy_ping);
 	}
+#endif
 
         SSL_free(hr->ssl);
 }
@@ -325,10 +329,12 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
                         // fix the buffer
                         main_peer->in->pos += ret2;
                 }
+#ifdef UWSGI_SPDY
                 if (hr->spdy) {
                         //uwsgi_log("RUNNING THE SPDY PARSER FOR %d bytes\n", main_peer->in->pos);
                         return spdy_parse(main_peer);
                 }
+#endif
                 return http_parse(main_peer);
         }
         if (ret == 0) return 0;
