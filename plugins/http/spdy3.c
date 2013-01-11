@@ -503,7 +503,7 @@ ssize_t spdy_manage_settings(struct http_session *hs) {
 ssize_t spdy_manage_syn_stream(struct http_session *hr) {
 	uint8_t *buf = (uint8_t *) hr->session.main_peer->in->buf;
 	hr->spdy_data_stream_id = spdy_stream_id(buf);
-	uwsgi_log("SYN_STREAM received %u !!!\n", hr->spdy_data_stream_id) ;
+	//uwsgi_log("SYN_STREAM received %u !!!\n", hr->spdy_data_stream_id) ;
 	//uwsgi_log("associated stream %u\n", spdy_associated_stream_id(buf));
 	return spdy_inflate_http_headers(hr);
 }
@@ -511,7 +511,7 @@ ssize_t spdy_manage_syn_stream(struct http_session *hr) {
 ssize_t spdy_manage_rst_stream(struct http_session *hr) {
         uint8_t *buf = (uint8_t *) hr->session.main_peer->in->buf;
         hr->spdy_data_stream_id = spdy_stream_id(buf);
-        uwsgi_log("RST_STREAM received %u !!!\n", hr->spdy_data_stream_id) ;
+        //uwsgi_log("RST_STREAM received %u !!!\n", hr->spdy_data_stream_id) ;
 	struct corerouter_peer *peer = uwsgi_cr_peer_find_by_sid(&hr->session, hr->spdy_data_stream_id);
 	if (peer) {
 		corerouter_close_peer(hr->session.corerouter, peer);
@@ -528,7 +528,7 @@ ssize_t spdy_manage_ping(struct http_session *hr) {
 	hr->session.main_peer->out = hr->spdy_ping;
 	hr->session.main_peer->out_pos = 0;
 	cr_write_to_main(hr->session.main_peer, hr_ssl_write);
-	uwsgi_log("PONG\n");
+	//uwsgi_log("PONG\n");
 	return 1;
 }
 
@@ -596,7 +596,6 @@ ssize_t spdy_parse(struct corerouter_peer *main_peer) {
 		uint8_t *buf = (uint8_t *) main_peer->in->buf;
 		//uwsgi_log("%d bytes available\n", len);
 		switch(hr->spdy_phase) {
-			uwsgi_log("phase = %u\n", hr->spdy_phase);
 			case UWSGI_SPDY_PHASE_HEADER:
 				if (len >= hr->spdy_need) {
 					hr->spdy_frame_type = spdy_h_read_control(buf);
@@ -633,7 +632,7 @@ ssize_t spdy_parse(struct corerouter_peer *main_peer) {
 							if (ret == 0) goto goon;
 							goto newframe;
 						case 4:
-							uwsgi_log("settings request...\n");
+							//uwsgi_log("settings request...\n");
 							break;
 						case 6:
 							ret = spdy_manage_ping(hr);
@@ -697,7 +696,7 @@ void uwsgi_spdy_info_cb(SSL const *ssl, int where, int ret) {
 				//uwsgi_log("SPDY 2 !!!\n");
                         	struct http_session *hr = SSL_get_ex_data(ssl, uhttp.spdy_index);
 				hr->spdy = 2;
-				uwsgi_log("SPDY/2\n");
+				//uwsgi_log("SPDY/2\n");
 				//hr->spdy_hook = hr_recv_spdy_control_frame;
 			}
 		}

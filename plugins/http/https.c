@@ -326,7 +326,7 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
                         main_peer->in->pos += ret2;
                 }
                 if (hr->spdy) {
-                        uwsgi_log("RUNNING THE SPDY PARSER FOR %d bytes\n", main_peer->in->pos);
+                        //uwsgi_log("RUNNING THE SPDY PARSER FOR %d bytes\n", main_peer->in->pos);
                         return spdy_parse(main_peer);
                 }
                 return http_parse(main_peer);
