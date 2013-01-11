@@ -444,6 +444,7 @@ ssize_t hr_instance_connected(struct corerouter_peer* peer) {
 
 // data from instance
 ssize_t hr_instance_read(struct corerouter_peer *peer) {
+	struct http_session *hr = (struct http_session *) peer->session;
         ssize_t len = cr_read(peer, "hr_instance_read()");
         if (!len) return 0;
 
@@ -451,10 +452,8 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
         peer->session->main_peer->out = peer->in;
         peer->session->main_peer->out_pos = 0;
 
-
-
 	// set the default hook in case of blocking writes (optimistic approach)
-        cr_write_to_main(peer, hr_write);
+        cr_write_to_main(peer, hr->func_write);
 	return 1;
 }
 
@@ -620,6 +619,7 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 		hr->websockets = 1;
 	}
 #endif
+	hr->func_write = hr_write;
 
 	// be sure buffer does not grow over 64k
         cs->main_peer->in->limit = UMAX16;
