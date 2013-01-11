@@ -3717,6 +3717,8 @@ uint16_t uwsgi_be16(char *);
 uint32_t uwsgi_be32(char *);
 uint64_t uwsgi_be64(char *);
 
+int uwsgi_websockets_pong(struct wsgi_request *);
+
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
 int uwsgi_init(int, char **, char **);

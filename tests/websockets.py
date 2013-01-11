@@ -43,7 +43,7 @@ def application(env, sr):
     </body>
     </html>
         """
-    else:
+    elif env['PATH_INFO'] == '/foobar/':
         print "websockets..."
         while True:
             msg = uwsgi.websocket_recv()

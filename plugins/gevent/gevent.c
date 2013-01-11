@@ -10,10 +10,20 @@ extern struct uwsgi_python up;
                           if (ret) { Py_DECREF(ret); }\
                           ret = PyObject_CallMethod(watcher, "stop", NULL);\
                           if (ret) { Py_DECREF(ret); }
+
 #define stop_the_watchers_and_clear stop_the_watchers\
                         Py_DECREF(current); Py_DECREF(current_greenlet);\
                         Py_DECREF(watcher);\
                         Py_DECREF(timer);
+
+#define stop_the_io ret = PyObject_CallMethod(watcher, "stop", NULL);\
+                    if (ret) { Py_DECREF(ret); }
+
+#define stop_the_io_and_clear stop_the_io;\
+                        Py_DECREF(current); Py_DECREF(current_greenlet);\
+                        Py_DECREF(watcher);\
+
+
 
 
 struct uwsgi_gevent {
@@ -325,6 +335,150 @@ ssize_t uwsgi_gevent_hook_input_readline(struct wsgi_request *wsgi_req, char *re
         return rlen;
 }
 
+ssize_t uwsgi_websockets_gevent_recv(struct wsgi_request *wsgi_req) {
+
+	/// create a watcher for reads
+        PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 1);
+        if (!watcher) return -1;
+
+        PyObject *timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.websockets_pong_freq);
+        if (!timer) {
+                Py_DECREF(watcher);
+                return -1;
+        }
+
+        PyObject *current_greenlet = GET_CURRENT_GREENLET;
+        PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+        for(;;) {
+
+                PyObject *ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
+                if (!ret) {
+                        stop_the_watchers_and_clear
+                        return -1;
+                }
+                Py_DECREF(ret);
+
+                ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
+                if (!ret) {
+                        stop_the_watchers_and_clear
+                        return -1;
+                }
+                Py_DECREF(ret);
+
+                ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+                wsgi_req->switches++;
+                if (!ret) {
+                        stop_the_watchers_and_clear
+                        return -1;
+                }
+                Py_DECREF(ret);
+
+                if (ret == timer) {
+                        stop_the_watchers;
+			// destroy the old timer
+			Py_DECREF(timer);
+			//unsolicited pong
+                	if (uwsgi_websockets_pong(wsgi_req)) {
+                        	return -1;
+                	}
+			// create a new timer
+			timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.websockets_pong_freq);
+			if (!timer) {
+				stop_the_io_and_clear;
+				return -1;
+			}
+			continue;
+                }
+
+                UWSGI_RELEASE_GIL;
+		ssize_t len = read(wsgi_req->poll.fd, wsgi_req->websocket_buf->buf + wsgi_req->websocket_buf->pos, wsgi_req->websocket_buf->len - wsgi_req->websocket_buf->pos);
+                if (len <= 0)
+			uwsgi_error("[uwsgi-websocket] uwsgi_websockets_simple_recv()/read()");
+                UWSGI_GET_GIL
+                stop_the_watchers_and_clear
+                return len;
+        }
+
+	return -1;
+
+}
+
+
+ssize_t uwsgi_websockets_gevent_send(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub) {
+
+	PyObject *ret = NULL;
+
+        char *content = ub->buf;
+        size_t content_len = ub->pos;
+
+        // do not try to write empty chunks (returns 1 for making all happy...)
+        if (content_len == 0) return 1;
+
+        /// create a watcher for writes
+        PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 2);
+        if (!watcher) goto error;
+
+        PyObject *current_greenlet = GET_CURRENT_GREENLET;
+        PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+        char *ptr = content;
+        size_t remains = content_len;
+
+        // this is the main writing cycle, wait for writability and send...
+        for(;;) {
+                ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
+                if (!ret) {
+                        stop_the_io_and_clear
+                        goto error;
+                }
+                Py_DECREF(ret);
+
+                ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+                wsgi_req->switches++;
+                if (!ret) {
+                        stop_the_io_and_clear
+                        goto error;
+                }
+                Py_DECREF(ret);
+
+                // ok we can write a chunk to the socket
+                UWSGI_RELEASE_GIL
+                ssize_t len = write(wsgi_req->poll.fd, ptr, remains);
+                UWSGI_GET_GIL
+                if (len > 0) {
+                        ptr += len;
+                        remains -= len;
+                        wsgi_req->response_size += len;
+                        if (remains == 0) {
+                                break;
+                        }
+                        stop_the_io
+                        continue;
+                }
+                else if (len < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                                stop_the_io
+                                continue;
+                        }
+                }
+
+                stop_the_io_and_clear
+                goto error;
+        }
+
+        stop_the_io
+        Py_DECREF(current); Py_DECREF(current_greenlet);
+        Py_DECREF(watcher);
+        return 1;
+
+error:
+        if (PyErr_Occurred())
+                PyErr_Print();
+        wsgi_req->write_errors++;
+	return -1;
+}
+
 
 void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
 	PyObject *ret;
@@ -561,6 +715,10 @@ void gevent_loop() {
 
 	up.gil_get = gil_gevent_get;
 	up.gil_release = gil_gevent_release;
+
+	// change websockets hooks
+	uwsgi.websockets_hook_send = uwsgi_websockets_gevent_send;
+        uwsgi.websockets_hook_recv = uwsgi_websockets_gevent_recv;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 

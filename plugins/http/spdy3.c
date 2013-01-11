@@ -311,7 +311,7 @@ static ssize_t http_parse_to_spdy(struct corerouter_peer *peer) {
 			uint32_t hh = 0;
 			struct uwsgi_buffer *h_buf = spdy_http_to_spdy(ub->buf, i, &hh);
 			if (!h_buf) return -1;
-			// put the number of headers on fron of the buffer
+			// put the number of headers on front of the buffer
 			h_buf->buf[3] = (uint8_t) (hh & 0xff);
         		h_buf->buf[2] = (uint8_t) ((hh >> 8) & 0xff);
         		h_buf->buf[1] = (uint8_t) ((hh >> 16) & 0xff);
@@ -332,8 +332,10 @@ static ssize_t http_parse_to_spdy(struct corerouter_peer *peer) {
 				return -1;
 			}
 			free(compressed_buf);
-			// remains ?
 
+			// any push request ???
+			// after all of the pushed requests are sent, we have to come back here...
+			// remains ?
 			if (ub->pos-i > 1) {
 				uint32_t remains = ub->pos-(i+1);
 				if (uwsgi_buffer_append(out, "\0\0\0\0\0\0\0\0", 8)) {
