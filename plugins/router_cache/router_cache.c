@@ -20,6 +20,7 @@ extern struct uwsgi_server uwsgi;
 struct uwsgi_router_cache_conf {
 
 	char *key;
+	size_t key_len;
 	char *var;
 	char *type;
 
@@ -49,7 +50,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 		char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         	uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        	c_k = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
+        	c_k = uwsgi_regexp_apply_ovec(*subject, *subject_len, urcc->key, urcc->key_len, ur->ovector, ur->ovn);
 		c_k_len = strlen(c_k);
 		k_need_free = 1;
 	}
@@ -105,6 +106,10 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
 			exit(1);
                 }
 
+		if (urcc->key) {
+			urcc->key_len = strlen(urcc->key);
+		}
+
 		if (!urcc->key && !urcc->var) {
 			uwsgi_log("invalid route syntax: you need to specify a cache key or var\n");
 			exit(1);
@@ -115,11 +120,12 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
 
                 urcc->content_type_len = strlen(urcc->content_type);
 
-                if (!strcmp(urcc->key, "REQUEST_URI")) {
+		if (urcc->var) {
+                if (!strcmp(urcc->var, "REQUEST_URI")) {
                         urcc->var_offset = offsetof(struct wsgi_request, uri);
                         urcc->var_offset_len = offsetof(struct wsgi_request, uri_len);
                 }
-                else if (!strcmp(urcc->key, "PATH_INFO")) {
+                else if (!strcmp(urcc->var, "PATH_INFO")) {
                         urcc->var_offset = offsetof(struct wsgi_request, path_info);
                         urcc->var_offset_len = offsetof(struct wsgi_request, path_info_len);
                 }
@@ -127,6 +133,7 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                         urcc->var_offset = offsetof(struct wsgi_request, uri);
                         urcc->var_offset_len = offsetof(struct wsgi_request, uri_len);
                 }
+		}
 
                 if (!strcmp(urcc->type, "body")) {
                         urcc->type_num = 1;

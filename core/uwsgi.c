@@ -189,7 +189,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cache-udp-node", required_argument, 0, "send cache update/deletion to the specified cache udp server", uwsgi_opt_add_string_list, &uwsgi.cache_udp_node, UWSGI_OPT_MASTER},
 	{"cache-sync", required_argument, 0, "copy the whole content of another uWSGI cache server on server startup", uwsgi_opt_set_str, &uwsgi.cache_sync, 0},
 
-	{"load-file-in-cache", required_argument, 0, "load a static file in the cache", uwsgi_opt_add_string_list, &uwsgi.load_file_in_cache, UWSGI_OPT_MASTER},
+	{"load-file-in-cache", required_argument, 0, "load a static file in the cache", uwsgi_opt_add_string_list, &uwsgi.load_file_in_cache, 0},
 
 
 	{"queue", required_argument, 0, "enable shared queue", uwsgi_opt_set_int, &uwsgi.queue_size, 0},
