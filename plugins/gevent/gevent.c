@@ -265,6 +265,11 @@ ssize_t uwsgi_gevent_hook_input_read(struct wsgi_request *wsgi_req, char *tmp_bu
 		stop_the_watchers
         }
 
+	Py_DECREF(current);
+	Py_DECREF(current_greenlet);
+	Py_DECREF(watcher);
+	Py_DECREF(timer);
+
         return *tmp_pos;
 
 }
