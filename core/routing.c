@@ -360,6 +360,28 @@ static int uwsgi_router_signal(struct uwsgi_route *ur, char *arg) {
 }
 
 
+// send route
+static int uwsgi_router_send_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, route->data, route->data_len);
+	if (route->custom) {
+		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2);
+	}
+        return UWSGI_ROUTE_NEXT;
+}
+static int uwsgi_router_send(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_send_func;
+	ur->data = arg;
+	ur->data_len = strlen(arg);
+        return 0;
+}
+static int uwsgi_router_send_crnl(struct uwsgi_route *ur, char *arg) {
+	uwsgi_router_send(ur, arg);
+        ur->custom = 1;
+        return 0;
+}
+
+
+
 
 
 
@@ -374,6 +396,8 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("addvar", uwsgi_router_addvar);
         uwsgi_register_router("addheader", uwsgi_router_addheader);
         uwsgi_register_router("signal", uwsgi_router_signal);
+        uwsgi_register_router("send", uwsgi_router_send);
+        uwsgi_register_router("send-crnl", uwsgi_router_send_crnl);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
