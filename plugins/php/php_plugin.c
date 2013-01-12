@@ -343,7 +343,7 @@ static sapi_module_struct uwsgi_sapi_module;
 
 
 void uwsgi_php_append_config(char *filename) {
-	int file_size = 0;
+	size_t file_size = 0;
         char *file_content = uwsgi_open_and_read(filename, &file_size, 1, NULL);
 	uwsgi_sapi_module.ini_entries = realloc(uwsgi_sapi_module.ini_entries, uphp.ini_size + file_size);
 	memcpy(uwsgi_sapi_module.ini_entries + uphp.ini_size, file_content, file_size);

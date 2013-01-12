@@ -327,9 +327,9 @@ void uwsgi_ruby_gem_set_apply(char *gemset) {
 
 	int in_pipe[2];
 	int out_pipe[2];
-	int size;
+	size_t size;
 	int waitpid_status;
-	int i;
+	size_t i;
 
         if (pipe(in_pipe)) {
         	uwsgi_error("pipe()");
@@ -345,7 +345,7 @@ void uwsgi_ruby_gem_set_apply(char *gemset) {
 
 	char *gemset_code = uwsgi_open_and_read(gemset, &size, 0, NULL);
 
-	if (write(in_pipe[1], gemset_code, size) != size ) {
+	if (write(in_pipe[1], gemset_code, size) != (ssize_t) size ) {
 		uwsgi_error("write()");
 	}
 
