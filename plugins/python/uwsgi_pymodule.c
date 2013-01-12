@@ -1399,7 +1399,7 @@ PyObject *py_uwsgi_farm_get_msg(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_extract(PyObject * self, PyObject * args) {
 
         char *name;
-	int len;
+	size_t len;
 	char *buf;
 
         if (!PyArg_ParseTuple(args, "s:extract", &name)) {

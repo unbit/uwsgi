@@ -8,7 +8,7 @@ extern struct uwsgi_server uwsgi;
 static int uwsgi_sqlite3_config_callback(void *magic_table, int field_count, char **fields, char **col) {
 	// make a copy of the string
 	if (field_count >= 2) {
-		int value_len = strlen(fields[1]) + 1;
+		size_t value_len = strlen(fields[1]) + 1;
 		char *value = magic_sub(fields[1], value_len, &value_len, (char **) magic_table);
 		add_exported_option(uwsgi_strncopy(fields[0], strlen(fields[0])), value, 0);
 	}

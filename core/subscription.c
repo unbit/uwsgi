@@ -607,8 +607,8 @@ struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht() {
 
 void uwsgi_subscribe(char *subscription, uint8_t cmd) {
 
-        int subfile_size;
-        int i;
+        size_t subfile_size;
+        size_t i;
         char *key = NULL;
         int keysize = 0;
         char *modifier1 = NULL;

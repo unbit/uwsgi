@@ -455,7 +455,7 @@ PyObject *uwsgi_pyimport_by_filename(char *name, char *filename) {
 		fclose(pyfile);
 	}
 	else {
-		int pycontent_size = 0;
+		size_t pycontent_size = 0;
 		char *pycontent = uwsgi_open_and_read(filename, &pycontent_size, 1, NULL);
 
 		if (pycontent) {

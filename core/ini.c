@@ -78,7 +78,7 @@ char *ini_get_line(char *ini, off_t size) {
 
 void uwsgi_ini_config(char *file, char *magic_table[]) {
 
-	int len = 0;
+	size_t len = 0;
 	char *ini;
 
 	char *ini_line;

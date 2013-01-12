@@ -251,7 +251,7 @@ int uwsgi_waitfd_event(int fd, int timeout, int event) {
 	return ret;
 }
 
-char *uwsgi_read_fd(int fd, int *size, int add_zero) {
+char *uwsgi_read_fd(int fd, size_t *size, int add_zero) {
 
 	char stack_buf[4096];
 	ssize_t len;
@@ -315,7 +315,7 @@ end:
 
 }
 
-char *uwsgi_open_and_read(char *url, int *size, int add_zero, char *magic_table[]) {
+char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_table[]) {
 
 	int fd;
 	struct stat sb;

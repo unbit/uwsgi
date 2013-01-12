@@ -21,6 +21,21 @@ static void cache_sync_hook(char *k, uint16_t kl, char *v, uint16_t vl, void *da
 	}
 }
 
+static void uwsgi_cache_load_files() {
+
+	struct uwsgi_string_list *usl = uwsgi.load_file_in_cache;
+	while(usl) {
+		size_t len = 0;
+		char *value = uwsgi_open_and_read(usl->value, &len, 0, NULL);
+		if (value) {
+			if (!uwsgi_cache_set(usl->value, usl->len, value, len, 0, 0)) {
+				uwsgi_log("[cache] stored %s\n", usl->value);
+			}		
+		}
+		usl = usl->next;
+	}
+}
+
 void uwsgi_init_cache() {
 
 	uwsgi.cache_hashtable = (uint64_t *) mmap(NULL, sizeof(uint64_t) * UMAX16, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -95,6 +110,8 @@ void uwsgi_init_cache() {
 	uwsgi.cache_lock = uwsgi_rwlock_init("cache");
 
 	uwsgi_log("*** Cache subsystem initialized: %lluMB (key: %llu bytes, keys: %llu bytes, data: %llu bytes) preallocated ***\n", (unsigned long long) ((uwsgi.cache_blocksize * uwsgi.cache_max_items) + (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items)) / (1024 * 1024), (unsigned long long) sizeof(struct uwsgi_cache_item), (unsigned long long) (sizeof(struct uwsgi_cache_item) * uwsgi.cache_max_items), (unsigned long long) (uwsgi.cache_blocksize * uwsgi.cache_max_items));
+
+	uwsgi_cache_load_files();
 
 	struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
 	while(usl) {

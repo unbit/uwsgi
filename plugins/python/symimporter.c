@@ -436,7 +436,7 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
 
         char *name;
         char *prefix = NULL;
-	int len = 0;
+	size_t len = 0;
 
         if (!PyArg_ParseTuple(args, "s", &name))
                 return -1;

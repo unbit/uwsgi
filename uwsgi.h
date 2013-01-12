@@ -1941,6 +1941,7 @@ struct uwsgi_server {
 	size_t lock_size;
 	size_t rwlock_size;
 
+	struct uwsgi_string_list *load_file_in_cache;
 	int check_cache;
 
 	uint32_t cache_max_items;
@@ -2626,7 +2627,7 @@ void gateway_respawn(int);
 
 void uwsgi_gateway_go_cheap(char *, int, int *);
 
-char *uwsgi_open_and_read(char *, int *, int, char *[]);
+char *uwsgi_open_and_read(char *, size_t *, int, char *[]);
 char *uwsgi_get_last_char(char *, char);
 
 struct uwsgi_twobytes {
@@ -2659,7 +2660,7 @@ void uwsgi_detach_daemons();
 void emperor_loop(void);
 char *uwsgi_num2str(int);
 
-char *magic_sub(char *, int, int *, char *[]);
+char *magic_sub(char *, size_t, size_t *, char *[]);
 void init_magic_table(char *[]);
 
 char *uwsgi_simple_message_string(char *, uint8_t, uint8_t, char *, uint16_t, char *, uint16_t *, int);
@@ -3300,7 +3301,7 @@ int uwsgi_fcntl_is_locked(int);
 
 void uwsgi_emulate_cow_for_apps(int);
 
-char *uwsgi_read_fd(int, int *, int);
+char *uwsgi_read_fd(int, size_t *, int);
 
 void uwsgi_setup_post_buffering(void);
 

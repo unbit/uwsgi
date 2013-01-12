@@ -1993,9 +1993,9 @@ int uwsgi_file_exists(char *filename) {
 	return !access(filename, R_OK);
 }
 
-char *magic_sub(char *buffer, int len, int *size, char *magic_table[]) {
+char *magic_sub(char *buffer, size_t len, size_t *size, char *magic_table[]) {
 
-	int i;
+	size_t i;
 	size_t magic_len = 0;
 	char *magic_buf = uwsgi_malloc(len);
 	char *magic_ptr = magic_buf;
@@ -2841,7 +2841,7 @@ char *uwsgi_get_line(char *ptr, char *watermark, int *size) {
 
 void uwsgi_build_mime_dict(char *filename) {
 
-	int size = 0;
+	size_t size = 0;
 	char *buf = uwsgi_open_and_read(filename, &size, 1, NULL);
 	char *watermark = buf + size;
 

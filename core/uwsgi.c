@@ -189,6 +189,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"cache-udp-node", required_argument, 0, "send cache update/deletion to the specified cache udp server", uwsgi_opt_add_string_list, &uwsgi.cache_udp_node, UWSGI_OPT_MASTER},
 	{"cache-sync", required_argument, 0, "copy the whole content of another uWSGI cache server on server startup", uwsgi_opt_set_str, &uwsgi.cache_sync, 0},
 
+	{"load-file-in-cache", required_argument, 0, "load a static file in the cache", uwsgi_opt_add_string_list, &uwsgi.load_file_in_cache, UWSGI_OPT_MASTER},
+
+
 	{"queue", required_argument, 0, "enable shared queue", uwsgi_opt_set_int, &uwsgi.queue_size, 0},
 	{"queue-blocksize", required_argument, 0, "set queue blocksize", uwsgi_opt_set_int, &uwsgi.queue_store_sync, 0},
 	{"queue-store", required_argument, 0, "enable persistent queue to disk", uwsgi_opt_set_str, &uwsgi.queue_store, UWSGI_OPT_MASTER},
@@ -1345,7 +1348,7 @@ static void vacuum(void) {
 
 void signal_pidfile(int sig, char *filename) {
 
-	int size = 0;
+	size_t size = 0;
 
 	char *buffer = uwsgi_open_and_read(filename, &size, 1, NULL);
 
@@ -4029,12 +4032,12 @@ void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
 
 void uwsgi_opt_extract(char *opt, char *address, void *foobar) {
 
-	int len = 0;
+	size_t len = 0;
 	char *buf;
 
 	buf = uwsgi_open_and_read(address, &len, 0, NULL);
 	if (len > 0) {
-		if (write(1, buf, len) != len) {
+		if (write(1, buf, len) != (ssize_t) len) {
 			uwsgi_error("write()");
 			exit(1);
 		};
