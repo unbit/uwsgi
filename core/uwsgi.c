@@ -105,7 +105,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"suspend", required_argument, 0, "suspend an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP, UWSGI_OPT_IMMEDIATE},
 	{"resume", required_argument, 0, "resume an instance", uwsgi_opt_pidfile_signal, (void *) SIGTSTP, UWSGI_OPT_IMMEDIATE},
 
-	{"connect-and-read", required_argument, 0, "connect to a scoekt and wait for data from it", uwsgi_opt_connect_and_read, NULL, UWSGI_OPT_IMMEDIATE},
+	{"connect-and-read", required_argument, 0, "connect to a socket and wait for data from it", uwsgi_opt_connect_and_read, NULL, UWSGI_OPT_IMMEDIATE},
+	{"extract", required_argument, 0, "fetch/dump any supported address to stdout", uwsgi_opt_extract, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"listen", required_argument, 'l', "set the socket listen queue size", uwsgi_opt_set_int, &uwsgi.listen_queue, 0},
 	{"max-vars", required_argument, 'v', "set the amount of internal iovec/vars structures", uwsgi_opt_max_vars, NULL, 0},
@@ -3902,4 +3903,19 @@ void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
 		}
 		uwsgi_log("%.*s", (int) len, buf);
 	}
+}
+
+void uwsgi_opt_extract(char *opt, char *address, void *foobar) {
+
+	int len = 0;
+	char *buf;
+
+	buf = uwsgi_open_and_read(address, &len, 0, NULL);
+	if (len > 0) {
+		if (write(1, buf, len) != len) {
+			uwsgi_error("write()");
+			exit(1);
+		};
+	};
+	exit(0);
 }
