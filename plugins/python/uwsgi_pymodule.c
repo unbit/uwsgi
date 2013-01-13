@@ -818,7 +818,7 @@ PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
 	UWSGI_RELEASE_GIL
         if (uwsgi_offload_request_sendfile_do(wsgi_req, filename, len)) {
 		UWSGI_GET_GIL
-		return PyErr_Format(PyExc_ValueError, "Unable to offload the request");
+		return PyErr_Format(PyExc_ValueError, "unable to offload the request");
 	}
 	UWSGI_GET_GIL
 
@@ -1103,11 +1103,148 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
 	ssize_t len = uwsgi_websocket_send(wsgi_req, message, message_len);
 	UWSGI_GET_GIL	
 	if (len <= 0) {
-		return PyErr_Format(PyExc_IOError, "Unable to send websocket message");
+		return PyErr_Format(PyExc_IOError, "unable to send websocket message");
 	}
 	Py_INCREF(Py_None);
         return Py_None;
 }
+
+PyObject *py_uwsgi_websocket_channel_join(PyObject * self, PyObject * args) {
+        char *c_name = NULL;
+
+        if (!PyArg_ParseTuple(args, "s:channel_join", &c_name)) {
+                return NULL;
+        }
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        struct uwsgi_channel *channel = uwsgi_channel_by_name(c_name);
+        if (!channel) {
+                return PyErr_Format(PyExc_ValueError, "unable to find channel");
+        }
+
+        // release the gil as before joining we consume items in the queue
+        // could be useless as channel sockets are non-blocking
+        UWSGI_RELEASE_GIL
+        uwsgi_channel_join(wsgi_req, channel, 2);
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
+PyObject *py_uwsgi_channel_join(PyObject * self, PyObject * args) {
+        char *c_name = NULL;
+
+        if (!PyArg_ParseTuple(args, "s:channel_join", &c_name)) {
+                return NULL;
+        }
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	struct uwsgi_channel *channel = uwsgi_channel_by_name(c_name);
+	if (!channel) {
+		return PyErr_Format(PyExc_ValueError, "unable to find channel");
+	}
+
+	// release the gil as before joining we consume items in the queue
+	// could be useless as channel sockets are non-blocking
+        UWSGI_RELEASE_GIL
+	uwsgi_channel_join(wsgi_req, channel, 1);
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+PyObject *py_uwsgi_channel_leave(PyObject * self, PyObject * args) {
+        char *c_name = NULL;
+
+        if (!PyArg_ParseTuple(args, "s:channel_leave", &c_name)) {
+                return NULL;
+        }
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        struct uwsgi_channel *channel = uwsgi_channel_by_name(c_name);
+        if (!channel) {
+                return PyErr_Format(PyExc_ValueError, "unable to find channel");
+        }
+
+        // release the gil as before joining we consume items in the queue
+        // could be useless as channel sockets are non-blocking
+        UWSGI_RELEASE_GIL
+        uwsgi_channel_leave(wsgi_req, channel);
+        UWSGI_GET_GIL
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+
+PyObject *py_uwsgi_channel_send(PyObject * self, PyObject * args) {
+        char *c_name = NULL;
+	char *message = NULL;
+        Py_ssize_t message_len = 0;
+
+        if (!PyArg_ParseTuple(args, "ss#:channel_send", &c_name, &message, &message_len)) {
+                return NULL;
+        }
+
+        struct uwsgi_channel *channel = uwsgi_channel_by_name(c_name);
+        if (!channel) {
+                return PyErr_Format(PyExc_ValueError, "unable to find channel");
+        }
+
+        // release the gil even if channel sockets are non-blocking
+        UWSGI_RELEASE_GIL
+        int ret = uwsgi_channel_send(channel, message, message_len);
+        UWSGI_GET_GIL
+
+	if (ret) {
+                return PyErr_Format(PyExc_IOError, "unable to send channel message");
+        }
+
+        Py_INCREF(Py_None);
+        return Py_None;
+}
+
+PyObject *py_uwsgi_channel_recv(PyObject * self, PyObject * args) {
+	char *c_name = NULL;
+	int timeout = -1;
+
+	if (!PyArg_ParseTuple(args, "s|i:channel_recv", &c_name, &timeout)) {
+                return NULL;
+        }
+
+        struct uwsgi_channel *channel = uwsgi_channel_by_name(c_name);
+        if (!channel) {
+                return PyErr_Format(PyExc_ValueError, "unable to find channel");
+        }
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        UWSGI_RELEASE_GIL
+        struct uwsgi_buffer *ub = uwsgi_channel_recv(wsgi_req, channel, timeout);
+        UWSGI_GET_GIL
+        if (!ub) {
+                return PyErr_Format(PyExc_IOError, "unable to receive channel message");
+        }
+
+	// timeout ?
+	if (ub->pos == 0) {
+        	uwsgi_buffer_destroy(ub);
+		Py_INCREF(Py_None);
+        	return Py_None;
+	}
+
+        PyObject *ret = PyString_FromStringAndSize(ub->buf, ub->pos);
+        uwsgi_buffer_destroy(ub);
+        return ret;
+}
+
+
+
 
 PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -1115,13 +1252,14 @@ PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
 	struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
 	UWSGI_GET_GIL	
 	if (!ub) {
-		return PyErr_Format(PyExc_IOError, "Unable to receive websocket message");
+		return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
 	}
 
 	PyObject *ret = PyString_FromStringAndSize(ub->buf, ub->pos);
 	uwsgi_buffer_destroy(ub);
 	return ret;
 }
+
 
 PyObject *py_uwsgi_embedded_data(PyObject * self, PyObject * args) {
 
@@ -3306,6 +3444,12 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 
 	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
 	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
+	{"websocket_channel_join", py_uwsgi_websocket_channel_join, METH_VARARGS, ""},
+
+	{"channel_join", py_uwsgi_channel_join, METH_VARARGS, ""},
+	{"channel_leave", py_uwsgi_channel_join, METH_VARARGS, ""},
+	{"channel_send", py_uwsgi_channel_send, METH_VARARGS, ""},
+	{"channel_recv", py_uwsgi_channel_recv, METH_VARARGS, ""},
 
 	{NULL, NULL},
 };

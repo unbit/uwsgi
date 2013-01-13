@@ -446,6 +446,7 @@ int master_loop(char **argv, char **environ) {
 	pthread_t logger_thread;
 	pthread_t cache_sweeper;
 	pthread_t cache_udp_server;
+	pthread_t channels_loop;
 
 #ifdef UWSGI_UDP
 	int udp_fd = -1;
@@ -564,6 +565,17 @@ int master_loop(char **argv, char **environ) {
                         uwsgi_log("cache udp server thread enabled\n");
                 }
         }
+
+	if (uwsgi.channels) {
+		if (pthread_create(&channels_loop, NULL, uwsgi_channels_loop, NULL)) {
+                        uwsgi_error("pthread_create()");
+                        uwsgi_log("unable to run the channels dispatcher thread !!!\n");
+                }
+                else {
+                        uwsgi_log("channels dispatcher thread enabled\n");
+                }
+
+	}
 
 
 	uwsgi.wsgi_req->buffer = uwsgi.workers[0].cores[0].buffer;

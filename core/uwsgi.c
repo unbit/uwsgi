@@ -483,6 +483,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"websockets-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
 	{"websocket-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
 
+	{"channel", required_argument, 0, "create a named channel for cores messaging", uwsgi_opt_add_string_list, &uwsgi.channels_list, UWSGI_OPT_MASTER},
+
 	{"clock", required_argument, 0, "set a clock source", uwsgi_opt_set_str, &uwsgi.requested_clock, 0},
 
 	{"clock-list", no_argument, 0, "list enabled clocks", uwsgi_opt_true, &uwsgi.clock_list, 0},
@@ -2689,6 +2691,9 @@ next2:
 		create_signal_pipe(uwsgi.shared->worker_signal_pipe);
 		uwsgi.signal_socket = uwsgi.shared->worker_signal_pipe[1];
 	}
+
+	// setup channels
+	uwsgi_channels_init();
 
 	// uWSGI is ready
 	uwsgi_notify_ready();

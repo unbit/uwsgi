@@ -712,6 +712,8 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		uwsgi.workers[uwsgi.mywid].tx += wsgi_req->headers_size;
 	}
 
+	uwsgi_channels_leave(wsgi_req);
+
 	// defunct process reaper
 	if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1 || uwsgi.grunt) {
 		while (waitpid(WAIT_ANY, &waitpid_status, WNOHANG) > 0);

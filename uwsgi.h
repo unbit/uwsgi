@@ -1222,6 +1222,22 @@ struct wsgi_request {
 
 };
 
+struct uwsgi_channel {
+        char *name;
+        int write_pipe[2];
+
+        int *fd;
+        uint8_t *subscriptions;
+
+        uint64_t max_packet_size;
+	char *pktbuf;
+        uint64_t tx;
+        uint64_t rx;
+
+        struct uwsgi_channel *next;
+};
+
+
 struct uwsgi_fmon {
 	char filename[0xff];
 	int fd;
@@ -2051,6 +2067,10 @@ struct uwsgi_server {
 	int websockets_ping_freq;
 	int websockets_pong_freq;
 	uint64_t websockets_max_size;
+
+	struct uwsgi_string_list *channels_list;
+	struct uwsgi_channel *channels;
+	struct uwsgi_buffer *(*channel_recv_hook)(struct wsgi_request *, int, struct uwsgi_buffer *, int);
 
 };
 
@@ -3719,6 +3739,16 @@ uint32_t uwsgi_be32(char *);
 uint64_t uwsgi_be64(char *);
 
 int uwsgi_websockets_pong(struct wsgi_request *);
+
+void uwsgi_channels_init(void);
+struct uwsgi_channel *uwsgi_channel_new(char *);
+int uwsgi_channel_send(struct uwsgi_channel *, char *msg, size_t len);
+void uwsgi_channel_join(struct wsgi_request *, struct uwsgi_channel *, uint8_t);
+void uwsgi_channel_leave(struct wsgi_request *, struct uwsgi_channel *);
+void *uwsgi_channels_loop(void *);
+struct uwsgi_channel *uwsgi_channel_by_name(char *name);
+void uwsgi_channels_leave(struct wsgi_request *);
+struct uwsgi_buffer *uwsgi_channel_recv(struct wsgi_request *, struct uwsgi_channel *, int);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

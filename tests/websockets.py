@@ -45,6 +45,7 @@ def application(env, sr):
         """
     elif env['PATH_INFO'] == '/foobar/':
         print "websockets..."
+	uwsgi.websocket_channel_join('room001')
         while True:
             msg = uwsgi.websocket_recv()
             print len(msg)
