@@ -1,3 +1,8 @@
+/*
+
+	 apxs2 -i -c mod_proxy_uwsgi.c
+
+*/
 #define APR_WANT_MEMFUNC
 #define APR_WANT_STRFUNC
 #include "apr_strings.h"
@@ -100,6 +105,14 @@ static int uwsgi_send_headers(request_rec *r, proxy_conn_rec *conn)
 
     ap_add_common_vars(r);
     ap_add_cgi_vars(r);
+
+    // this is not a security problem (in Linux) as uWSGI destroy the env memory area readable in /proc
+    // and generally if you host untrusted apps in your server and allows them to read others uid /proc/<pid>
+    // files you have higher problems...
+    const char *auth = apr_table_get(r->headers_in, "Authorization");
+    if (auth) {
+        apr_table_setn(r->subprocess_env, "HTTP_AUTHORIZATION", auth); 
+    }
 
     const char *script_name = apr_table_get(r->subprocess_env, "SCRIPT_NAME");
     const char *path_info = apr_table_get(r->subprocess_env, "PATH_INFO");
@@ -336,8 +349,6 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
     // ADD PATH_INFO
     size_t w_len = strlen(worker->name);
     char *u_path_info = r->filename + 6 + w_len;
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                      "URL %s: %s %s %s", url, worker->name, r->filename, u_path_info);
     int delta = 0;
     if (u_path_info[0] != '/') {
         delta = 1;
