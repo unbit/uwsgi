@@ -291,6 +291,57 @@ static int uwsgi_api_req_fd(lua_State *L) {
 	return 1;
 }
 
+static int uwsgi_api_lock(lua_State *L) {
+
+	int lock_num = 0;
+
+	// the spooler cannot lock resources
+#ifdef UWSGI_SPOOLER
+	if (uwsgi.i_am_a_spooler) {
+		lua_pushstring(L, "The spooler cannot lock/unlock resources");
+		lua_error(L);
+	}
+#endif
+
+	if (lua_gettop(L) > 0) {
+		lock_num = lua_isnumber(L, 1) ? lua_tonumber(L, 1) : -1;
+		if (lock_num < 0 || lock_num > uwsgi.locks) {
+			lua_pushstring(L, "Invalid lock number");
+	    		lua_error(L);
+	  	}
+	}
+	
+	uwsgi_lock(uwsgi.user_lock[lock_num]);
+
+	return 0;
+}
+
+
+static int uwsgi_api_unlock(lua_State *L) {
+
+	int lock_num = 0;
+
+	// the spooler cannot lock resources
+#ifdef UWSGI_SPOOLER
+	if (uwsgi.i_am_a_spooler) {
+		lua_pushstring(L, "The spooler cannot lock/unlock resources");
+		lua_error(L);
+	}
+#endif
+
+	if (lua_gettop(L) > 0) {
+		lock_num = lua_isnumber(L, 1) ? lua_tonumber(L, 1) : -1;
+		if (lock_num < 0 || lock_num > uwsgi.locks) {
+			lua_pushstring(L, "Invalid lock number");
+	    		lua_error(L);
+	  	}
+	}
+	
+	uwsgi_unlock(uwsgi.user_lock[lock_num]);
+
+	return 0;
+}
+
 static const luaL_reg uwsgi_api[] = {
   {"log", uwsgi_api_log},
   {"cl", uwsgi_api_cl},
@@ -300,6 +351,8 @@ static const luaL_reg uwsgi_api[] = {
   {"cache_set", uwsgi_api_cache_set},
   {"register_signal", uwsgi_api_register_signal},
   {"register_rpc", uwsgi_api_register_rpc},
+  {"lock", uwsgi_api_lock},
+  {"unlock", uwsgi_api_unlock},
   {NULL, NULL}
 };
 
