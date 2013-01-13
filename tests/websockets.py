@@ -1,3 +1,4 @@
+#!./uwsgi --https :8443,foobar.crt,foobar.key --http-raw-body --gevent 100 --channel room001 --processes 4 --module tests.websocket
 import uwsgi
 import time
 
