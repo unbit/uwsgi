@@ -16,16 +16,13 @@ struct uwsgi_buffer *uwsgi_websocket_message(char *msg, size_t len) {
 	if (len < 126) {
 		if (uwsgi_buffer_u8(ub, len)) goto error;
 	}
-	else if (len < (1 << 16)) {
+	else if (len <= (uint16_t) 0xffff) {
 		if (uwsgi_buffer_u8(ub, 126)) goto error;
 		if (uwsgi_buffer_u16be(ub, len)) goto error;
 	}
-	else if (len < ((uint64_t)1 << 63)) {
+	else {
 		if (uwsgi_buffer_u8(ub, 127)) goto error;
                 if (uwsgi_buffer_u64be(ub, len)) goto error;
-	}
-	else {
-		goto error;
 	}
 
 	if (uwsgi_buffer_append(ub, msg, len)) goto error;
