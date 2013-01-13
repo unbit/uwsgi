@@ -38,7 +38,7 @@ def application(env, sr):
         <h1>WebSocket</h1>
         <input type="text" id="testo"/>
         <input type="button" value="invia" onClick="invia();"/>
-	<div id="blackboard" style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red">
+	<div id="blackboard" style="width:640px;height:480px;background-color:black;color:white;border: solid 2px red;overflow:auto">
 	</div>
     </body>
     </html>
@@ -49,4 +49,5 @@ def application(env, sr):
         while True:
             msg = uwsgi.websocket_recv()
             print len(msg)
-            uwsgi.websocket_send("hello %s = %s" % (time.time(), msg)) 
+            #uwsgi.websocket_send("hello %s = %s" % (time.time(), msg)) 
+            uwsgi.channel_send('room001', "channel %s = %s" % (time.time(), msg))

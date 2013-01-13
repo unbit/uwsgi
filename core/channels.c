@@ -231,6 +231,14 @@ struct uwsgi_buffer *uwsgi_channel_recv(struct wsgi_request *wsgi_req, struct uw
 	return ub;
 }
 
+void uwsgi_channels_reset_worker_subscriptions(int wid) {
+	struct uwsgi_channel *channel = uwsgi.channels;
+        while(channel) {
+		memset(channel->subscriptions + (uwsgi.cores * (wid-1)), 0, uwsgi.cores);
+		channel = channel->next;
+	}
+}
+
 void *uwsgi_channels_loop(void *foobar) {
 
 	// block all signals

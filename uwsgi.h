@@ -3749,6 +3749,7 @@ void *uwsgi_channels_loop(void *);
 struct uwsgi_channel *uwsgi_channel_by_name(char *name);
 void uwsgi_channels_leave(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_channel_recv(struct wsgi_request *, struct uwsgi_channel *, int);
+void uwsgi_channels_reset_worker_subscriptions(int);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

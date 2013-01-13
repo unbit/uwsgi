@@ -517,6 +517,9 @@ int uwsgi_respawn_worker(int wid) {
 
 	int i;
 
+	// reset channels subscriptions
+	uwsgi_channels_reset_worker_subscriptions(wid);
+
 	if (uwsgi.threaded_logger) {
 		pthread_mutex_lock(&uwsgi.threaded_logger_lock);
 	}
