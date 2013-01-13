@@ -354,6 +354,42 @@ retry:
 	return -1;
 }
 
+int uwsgi_websocket_handshake(struct wsgi_request *wsgi_req, char *key, uint16_t key_len, char *origin, uint16_t origin_len) {
+#ifdef UWSGI_SSL
+	char sha1[20];
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(uwsgi.page_size);
+        if (uwsgi_buffer_append(ub, "HTTP/1.1 101 Web Socket Protocol Handshake\r\n", 44)) goto end;
+        if (uwsgi_buffer_append(ub, "Upgrade: WebSocket\r\n", 20)) goto end;
+        if (uwsgi_buffer_append(ub, "Connection: Upgrade\r\n", 21)) goto end;
+        if (uwsgi_buffer_append(ub, "Sec-WebSocket-Origin: ", 22)) goto end;
+        if (origin_len > 0) {
+                if (uwsgi_buffer_append(ub, origin, origin_len)) goto end;
+        }
+        else {
+                if (uwsgi_buffer_append(ub, "*", 1)) goto end;
+        }
+        if (uwsgi_buffer_append(ub, "\r\nSec-WebSocket-Accept: ", 24)) goto end;
+        if (!uwsgi_sha1_2n(key, key_len, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36, sha1)) goto end;
+        if (uwsgi_buffer_append_base64(ub, sha1, 20)) goto end;
+        if (uwsgi_buffer_append(ub, "\r\n\r\n", 4)) goto end;
+
+	ssize_t len = uwsgi.buffer_write_hook(wsgi_req, ub);
+	if (len <= 0) {
+		goto end;
+	}
+	wsgi_req->headers_size += len;
+	wsgi_req->header_cnt += 4;
+	uwsgi_buffer_destroy(ub);
+	return 0;
+end:
+	uwsgi_buffer_destroy(ub);
+	return -1;
+#else
+	uwsgi_log("you need to build uWSGI with SSL support to use the websocket handshake api function !!!\n");
+	return -1;
+#endif
+}
+
 void uwsgi_websockets_init() {
 	uwsgi.websockets_hook_send = uwsgi_websockets_simple_send;
         uwsgi.websockets_hook_recv = uwsgi_websockets_simple_recv;

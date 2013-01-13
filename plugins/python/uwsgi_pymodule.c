@@ -1089,6 +1089,31 @@ PyObject *py_uwsgi_connection_fd(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(wsgi_req->poll.fd);
 }
 
+PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
+        char *key = NULL;
+        Py_ssize_t key_len = 0;
+
+        char *origin = NULL;
+        Py_ssize_t origin_len = 0;
+
+        if (!PyArg_ParseTuple(args, "s#|s#:websocket_handshake", &key, &key_len, &origin, &origin_len)) {
+                return NULL;
+        }
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	UWSGI_RELEASE_GIL
+	int ret = uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len);
+	UWSGI_GET_GIL
+
+	if (ret) {
+		return PyErr_Format(PyExc_IOError, "unable to complete websocket handshake");
+	}
+
+	Py_INCREF(Py_None);
+        return Py_None;
+}
+
 PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
 	char *message = NULL;
         Py_ssize_t message_len = 0;
@@ -3445,6 +3470,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
 	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
 	{"websocket_channel_join", py_uwsgi_websocket_channel_join, METH_VARARGS, ""},
+	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 
 	{"channel_join", py_uwsgi_channel_join, METH_VARARGS, ""},
 	{"channel_leave", py_uwsgi_channel_join, METH_VARARGS, ""},

@@ -1,3 +1,8 @@
+/*
+
+	 apxs2 -i -c mod_proxy_uwsgi.c
+
+*/
 #define APR_WANT_MEMFUNC
 #define APR_WANT_STRFUNC
 #include "apr_strings.h"
@@ -344,8 +349,6 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
     // ADD PATH_INFO
     size_t w_len = strlen(worker->name);
     char *u_path_info = r->filename + 6 + w_len;
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                      "URL %s: %s %s %s", url, worker->name, r->filename, u_path_info);
     int delta = 0;
     if (u_path_info[0] != '/') {
         delta = 1;

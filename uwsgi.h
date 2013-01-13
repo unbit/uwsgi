@@ -2072,6 +2072,8 @@ struct uwsgi_server {
 	struct uwsgi_channel *channels;
 	struct uwsgi_buffer *(*channel_recv_hook)(struct wsgi_request *, int, struct uwsgi_buffer *, int);
 
+	ssize_t (*buffer_write_hook)(struct wsgi_request *, struct uwsgi_buffer *);
+
 };
 
 struct uwsgi_rpc {
@@ -3572,6 +3574,7 @@ int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *, void *);
 int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *, char *, uint16_t, void *);
 int uwsgi_buffer_decapitate(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t);
+ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
 void uwsgi_httpize_var(char *, size_t);
 struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
@@ -3750,6 +3753,8 @@ struct uwsgi_channel *uwsgi_channel_by_name(char *name);
 void uwsgi_channels_leave(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_channel_recv(struct wsgi_request *, struct uwsgi_channel *, int);
 void uwsgi_channels_reset_worker_subscriptions(int);
+
+int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

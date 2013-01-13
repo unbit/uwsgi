@@ -23,6 +23,17 @@ extern struct uwsgi_python up;
                         Py_DECREF(current); Py_DECREF(current_greenlet);\
                         Py_DECREF(watcher);\
 
+#define stop_the_c_watchers if (c_watchers) { int j;\
+				for(j=0;j<count;j++) {\
+					if (c_watchers[j]) {\
+						ret = PyObject_CallMethod(watcher, "stop", NULL);\
+						if (ret) { Py_DECREF(ret); }\
+						Py_DECREF(c_watchers[j]);\
+					}\
+				}\
+				free(c_watchers);\
+			}
+
 
 
 
@@ -352,13 +363,46 @@ ssize_t uwsgi_websockets_gevent_recv(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
+	int count = 0;
+        struct uwsgi_channel *channel = uwsgi.channels;
+        while(channel) {
+                int pos = (uwsgi.cores * (uwsgi.mywid - 1)) + wsgi_req->async_id;
+                if (channel->subscriptions[pos] == 2) {
+                        count++;
+                }
+                channel = channel->next;
+        }
+
+
         PyObject *current_greenlet = GET_CURRENT_GREENLET;
         PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+	PyObject **c_watchers = NULL;
+	if (count > 0) {
+		c_watchers = uwsgi_calloc(sizeof(PyObject *) * count);
+		count = 0;
+		channel = uwsgi.channels;
+		while(channel) {
+                	int pos = (uwsgi.cores * (uwsgi.mywid - 1)) + wsgi_req->async_id;
+                	if (channel->subscriptions[pos] == 2) {
+				c_watchers[count] = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", channel->fd[(pos*2)+1], 1);
+				if (!c_watchers[count]) {
+					PyObject *ret;
+					stop_the_c_watchers
+                        		stop_the_watchers_and_clear
+					return -1;
+				}
+                        	count++;
+                	}
+                	channel = channel->next;
+		}
+	}
 
         for(;;) {
 
                 PyObject *ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
                 if (!ret) {
+			stop_the_c_watchers
                         stop_the_watchers_and_clear
                         return -1;
                 }
@@ -366,14 +410,30 @@ ssize_t uwsgi_websockets_gevent_recv(struct wsgi_request *wsgi_req) {
 
                 ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
                 if (!ret) {
+			stop_the_c_watchers
                         stop_the_watchers_and_clear
                         return -1;
                 }
                 Py_DECREF(ret);
 
+		if (c_watchers) {
+			int j;
+			for(j=0;j<count;j++) {
+				ret = PyObject_CallMethod(c_watchers[j], "start", "OO", current, c_watchers[j]);
+                		if (!ret) {
+                        		stop_the_c_watchers
+                        		stop_the_watchers_and_clear
+                        		return -1;
+                		}
+                		Py_DECREF(ret);
+			}
+		}
+
+
                 ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
                 wsgi_req->switches++;
                 if (!ret) {
+			stop_the_c_watchers
                         stop_the_watchers_and_clear
                         return -1;
                 }
@@ -385,30 +445,67 @@ ssize_t uwsgi_websockets_gevent_recv(struct wsgi_request *wsgi_req) {
 			Py_DECREF(timer);
 			//unsolicited pong
                 	if (uwsgi_websockets_pong(wsgi_req)) {
+				stop_the_c_watchers
+				stop_the_io_and_clear;
                         	return -1;
                 	}
 			// create a new timer
 			timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.websockets_pong_freq);
 			if (!timer) {
+				stop_the_c_watchers
 				stop_the_io_and_clear;
 				return -1;
 			}
 			continue;
                 }
 
-                UWSGI_RELEASE_GIL;
-		ssize_t len = read(wsgi_req->poll.fd, wsgi_req->websocket_buf->buf + wsgi_req->websocket_buf->pos, wsgi_req->websocket_buf->len - wsgi_req->websocket_buf->pos);
-                if (len <= 0)
-			uwsgi_error("[uwsgi-websocket] uwsgi_websockets_simple_recv()/read()");
-                UWSGI_GET_GIL
-                stop_the_watchers_and_clear
-                return len;
+		if (ret == watcher) {
+			ssize_t len = read(wsgi_req->poll.fd, wsgi_req->websocket_buf->buf + wsgi_req->websocket_buf->pos, wsgi_req->websocket_buf->len - wsgi_req->websocket_buf->pos);
+                	if (len <= 0)
+				uwsgi_error("[uwsgi-websocket] uwsgi_websockets_gevent_recv()/read()");
+			stop_the_c_watchers
+                	stop_the_watchers_and_clear
+                	return len;
+		}
+
+
+			channel = uwsgi.channels;
+			int c_pos = 0;
+			while(channel) {
+				if (ret == c_watchers[c_pos]) {
+				
+					int pos = (uwsgi.cores * (uwsgi.mywid - 1)) + wsgi_req->async_id;
+					int cfd = channel->fd[(pos*2)+1];
+					struct uwsgi_buffer *ub = uwsgi_buffer_new(channel->max_packet_size);
+					ssize_t len = read(cfd, ub->buf, ub->len);
+					if (len <= 0) {
+                                                        uwsgi_buffer_destroy(ub);
+							uwsgi_error("[uwsgi-websocket] uwsgi_websockets_gevent_recv()/read()");
+							stop_the_c_watchers
+                        				stop_the_watchers_and_clear
+                        				return -1;
+					}	
+					ub->pos += len;
+					if (uwsgi_websocket_send(wsgi_req, ub->buf, ub->pos) <= 0) {
+                                        	uwsgi_buffer_destroy(ub);
+						stop_the_c_watchers
+                        			stop_the_watchers_and_clear
+                                                return -1;
+                                        }
+                                        uwsgi_buffer_destroy(ub);
+                                        break;
+
+				}
+				c_pos++;	
+				channel = channel->next;
+			}
         }
 
 	return -1;
 
 }
 
+// not gil as it is called by api
 struct uwsgi_buffer *uwsgi_channel_gevent_recv(struct wsgi_request *wsgi_req, int fd, struct uwsgi_buffer *ub, int timeout) {
 
 	/// create a watcher for reads
@@ -459,9 +556,7 @@ struct uwsgi_buffer *uwsgi_channel_gevent_recv(struct wsgi_request *wsgi_req, in
 			return ub;
 		}
 
-		UWSGI_RELEASE_GIL;
         	ssize_t len = read(fd, ub->buf, ub->len);
-		UWSGI_GET_GIL
 		stop_the_watchers_and_clear
         	if (len <= 0) return NULL;
         	ub->pos += len;
@@ -470,6 +565,7 @@ struct uwsgi_buffer *uwsgi_channel_gevent_recv(struct wsgi_request *wsgi_req, in
 
 
 
+// no gil
 ssize_t uwsgi_websockets_gevent_send(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub) {
 
 	PyObject *ret = NULL;
@@ -508,9 +604,7 @@ ssize_t uwsgi_websockets_gevent_send(struct wsgi_request *wsgi_req, struct uwsgi
                 Py_DECREF(ret);
 
                 // ok we can write a chunk to the socket
-                UWSGI_RELEASE_GIL
                 ssize_t len = write(wsgi_req->poll.fd, ptr, remains);
-                UWSGI_GET_GIL
                 if (len > 0) {
                         ptr += len;
                         remains -= len;
@@ -543,6 +637,79 @@ error:
         wsgi_req->write_errors++;
 	return -1;
 }
+
+//no gil
+ssize_t uwsgi_buffer_gevent_write(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub) {
+
+        PyObject *ret = NULL;
+
+        char *content = ub->buf;
+        size_t content_len = ub->pos;
+
+        // do not try to write empty chunks (returns 1 for making all happy...)
+        if (content_len == 0) return 1;
+
+        /// create a watcher for writes
+        PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->poll.fd, 2);
+        if (!watcher) goto error;
+
+        PyObject *current_greenlet = GET_CURRENT_GREENLET;
+        PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+        char *ptr = content;
+        size_t remains = content_len;
+
+        // this is the main writing cycle, wait for writability and send...
+        for(;;) {
+                ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
+                if (!ret) {
+                        stop_the_io_and_clear
+                        goto error;
+                }
+                Py_DECREF(ret);
+
+                ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+                wsgi_req->switches++;
+                if (!ret) {
+                        stop_the_io_and_clear
+                        goto error;
+                }
+                Py_DECREF(ret);
+
+                // ok we can write a chunk to the socket
+                ssize_t len = write(wsgi_req->poll.fd, ptr, remains);
+                if (len > 0) {
+                        ptr += len;
+                        remains -= len;
+                        if (remains == 0) {
+                                break;
+                        }
+                        stop_the_io
+                        continue;
+                }
+                else if (len < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                                stop_the_io
+                                continue;
+                        }
+                }
+
+                stop_the_io_and_clear
+                goto error;
+        }
+
+        stop_the_io
+        Py_DECREF(current); Py_DECREF(current_greenlet);
+        Py_DECREF(watcher);
+        return 1;
+
+error:
+        if (PyErr_Occurred())
+                PyErr_Print();
+        wsgi_req->write_errors++;
+        return -1;
+}
+
 
 
 void uwsgi_gevent_nb_write(struct wsgi_request *wsgi_req, PyObject *str) {
@@ -786,6 +953,8 @@ void gevent_loop() {
         uwsgi.websockets_hook_recv = uwsgi_websockets_gevent_recv;
 	// change channels hooks
 	uwsgi.channel_recv_hook = uwsgi_channel_gevent_recv;
+	// buffer write generic hook
+	uwsgi.buffer_write_hook = uwsgi_buffer_gevent_write;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 

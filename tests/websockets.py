@@ -3,13 +3,17 @@ import time
 
 def application(env, sr):
 
+    ws_scheme = 'ws'
+    if 'HTTPS' in env or env['wsgi.scheme'] == 'https':
+        ws_scheme = 'wss'
+
     if env['PATH_INFO'] == '/':
         sr('200 OK', [('Content-Type','text/html')])
         return """
     <html>
       <head>
           <script language="Javascript">
-            var s = new WebSocket("ws://raring64.local:8181/foobar/");
+            var s = new WebSocket("%s://%s/foobar/");
             s.onopen = function() {
               alert("connected !!!");
               s.send("ciao");
@@ -42,8 +46,9 @@ def application(env, sr):
 	</div>
     </body>
     </html>
-        """
+        """ % (ws_scheme, env['HTTP_HOST'])
     elif env['PATH_INFO'] == '/foobar/':
+	uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
         print "websockets..."
 	uwsgi.websocket_channel_join('room001')
         while True:

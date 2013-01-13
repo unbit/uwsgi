@@ -90,6 +90,7 @@ void uwsgi_init_default() {
 	uwsgi.multicast_loop = 1;
 #endif
 
+	uwsgi.buffer_write_hook = uwsgi_buffer_write_simple;
 	uwsgi_websockets_init();
 }
 
