@@ -6,15 +6,15 @@ extern struct uwsgi_python up;
 #define GEVENT_SWITCH PyObject *gswitch = python_call(ugevent.greenlet_switch, ugevent.greenlet_switch_args, 0, NULL); Py_DECREF(gswitch)
 #define GET_CURRENT_GREENLET python_call(ugevent.get_current, ugevent.get_current_args, 0, NULL)
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req
-#define stop_the_watchers ret = PyObject_CallMethod(timer, "stop", NULL);\
-                          if (ret) { Py_DECREF(ret); }\
+#define stop_the_watchers if (timer) { ret = PyObject_CallMethod(timer, "stop", NULL);\
+                          if (ret) { Py_DECREF(ret); } }\
                           ret = PyObject_CallMethod(watcher, "stop", NULL);\
                           if (ret) { Py_DECREF(ret); }
 
 #define stop_the_watchers_and_clear stop_the_watchers\
                         Py_DECREF(current); Py_DECREF(current_greenlet);\
                         Py_DECREF(watcher);\
-                        Py_DECREF(timer);
+                        if (timer) Py_DECREF(timer);
 
 #define stop_the_io ret = PyObject_CallMethod(watcher, "stop", NULL);\
                     if (ret) { Py_DECREF(ret); }
@@ -409,6 +409,66 @@ ssize_t uwsgi_websockets_gevent_recv(struct wsgi_request *wsgi_req) {
 
 }
 
+struct uwsgi_buffer *uwsgi_channel_gevent_recv(struct wsgi_request *wsgi_req, int fd, struct uwsgi_buffer *ub, int timeout) {
+
+	/// create a watcher for reads
+        PyObject *watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", fd, 1);
+        if (!watcher) return NULL;
+
+	PyObject *timer = NULL;
+
+
+	if (timeout > 0) {
+        	PyObject *timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", timeout);
+        	if (!timer) {
+                	Py_DECREF(watcher);
+                	return NULL;
+        	}
+	}
+
+        PyObject *current_greenlet = GET_CURRENT_GREENLET;
+        PyObject *current = PyObject_GetAttrString(current_greenlet, "switch");
+
+
+               PyObject *ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
+                if (!ret) {
+                        stop_the_watchers_and_clear
+                        return NULL;
+                }
+                Py_DECREF(ret);
+
+		if (timer) {
+                	ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
+                	if (!ret) {
+                        	stop_the_watchers_and_clear
+                        	return NULL;
+                	}
+               		Py_DECREF(ret);
+		}
+
+                ret = PyObject_CallMethod(ugevent.hub, "switch", NULL);
+                wsgi_req->switches++;
+                if (!ret) {
+                        stop_the_watchers_and_clear
+                        return NULL;
+                }
+                Py_DECREF(ret);
+	
+		if (timer && ret == timer) {
+			stop_the_watchers_and_clear
+			return ub;
+		}
+
+		UWSGI_RELEASE_GIL;
+        	ssize_t len = read(fd, ub->buf, ub->len);
+		UWSGI_GET_GIL
+		stop_the_watchers_and_clear
+        	if (len <= 0) return NULL;
+        	ub->pos += len;
+        	return ub;
+}
+
+
 
 ssize_t uwsgi_websockets_gevent_send(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub) {
 
@@ -724,6 +784,8 @@ void gevent_loop() {
 	// change websockets hooks
 	uwsgi.websockets_hook_send = uwsgi_websockets_gevent_send;
         uwsgi.websockets_hook_recv = uwsgi_websockets_gevent_recv;
+	// change channels hooks
+	uwsgi.channel_recv_hook = uwsgi_channel_gevent_recv;
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 
