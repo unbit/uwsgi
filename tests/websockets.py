@@ -4,7 +4,7 @@ import time
 def application(env, sr):
 
     ws_scheme = 'ws'
-    if 'HTTPS' in env or env['wsgi.scheme'] == 'https':
+    if 'HTTPS' in env or env['wsgi.url_scheme'] == 'https':
         ws_scheme = 'wss'
 
     if env['PATH_INFO'] == '/':
