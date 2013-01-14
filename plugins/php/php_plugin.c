@@ -26,6 +26,7 @@ struct uwsgi_php {
 	char *docroot;
 	char *app;
 	char *app_qs;
+	char *fallback;
 	size_t ini_size;
 	int dump_config;
 	char *server_software;
@@ -53,6 +54,7 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {"php-var", required_argument, 0, "add/overwrite a CGI variable at each request", uwsgi_opt_add_string_list, &uphp.vars, 0},
         {"php-app-qs", required_argument, 0, "when in app mode force QUERY_STRING to the specified value + PATH_INFO", uwsgi_opt_set_str, &uphp.app_qs, 0},
+	{"php-fallback", required_argument, 0, "run the specified php script when the request one does not exist", uwsgi_opt_set_str, &uphp.fallback, 0},
         {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
@@ -717,7 +719,6 @@ int uwsgi_php_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
                         *(dst+part_size-1) = 0;
 
                         if (stat(full_path, &st)) {
-				uwsgi_php_404(wsgi_req);
                                 return -1;
                         }
 
@@ -727,7 +728,6 @@ int uwsgi_php_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
                                 if (i < (wsgi_req->path_info_len)-1) {
                                         *path_info = ptr + i;
                                 }
-
                                 return 0;
                         }
 
@@ -823,8 +823,15 @@ appready:
 
 	if (uwsgi_php_walk(wsgi_req, filename, wsgi_req->document_root, wsgi_req->document_root_len, &path_info)) {
 		free(filename);
-		return -1;
+		if (uphp.fallback) {
+			filename = uwsgi_str(uphp.fallback);
+		}
+		else {
+			uwsgi_php_404(wsgi_req);
+			return -1;
+		}
 	}
+
 
 	char *orig_path_info = wsgi_req->path_info;
 	uint16_t orig_path_info_len = wsgi_req->path_info_len;
