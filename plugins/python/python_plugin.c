@@ -1773,9 +1773,7 @@ int uwsgi_python_mule(char *opt) {
 
 	if (uwsgi_endswith(opt, ".py")) {
 		UWSGI_GET_GIL;
-		if (uwsgi_pyimport_by_filename("__main__", opt) == NULL) {
-			return 0;
-		}
+		uwsgi_pyimport_by_filename("__main__", opt);
 		UWSGI_RELEASE_GIL;
 		return 1;
 	}
