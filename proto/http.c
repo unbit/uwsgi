@@ -270,7 +270,7 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 	char post_buf[8192];
 	char *post_tail = NULL;
 
-	// first round ? this memory area will be freed by async_loop
+	// first round ? 
 	if (!wsgi_req->proto_parser_buf) {
 		wsgi_req->proto_parser_buf = uwsgi_malloc(uwsgi.buffer_size);
 	}
@@ -281,12 +281,15 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 			remains = UMIN(remains, 8192);
 			len = read(wsgi_req->poll.fd, post_buf, remains);
 			if (len <= 0) {
-				if (len < 0)
+				if (len < 0) {
+					free(wsgi_req->proto_parser_buf);
 					uwsgi_error("read()");
+				}
 				return -1;
 			}
 
 			if (!fwrite(post_buf, len, 1, wsgi_req->async_post)) {
+				free(wsgi_req->proto_parser_buf);
 				uwsgi_error("fwrite()");
 				return -1;
 			}
@@ -296,6 +299,7 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 				return UWSGI_AGAIN;
 
 		}
+		free(wsgi_req->proto_parser_buf);
 		rewind(wsgi_req->async_post);
 		wsgi_req->body_as_file = 1;
 		return UWSGI_OK;
@@ -339,6 +343,7 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 				wsgi_req->async_post = tmpfile();
 				if (!wsgi_req->async_post) {
 					free(wsgi_req->proto_parser_buf);
+					if (post_tail) free(post_tail);
 					uwsgi_error("tmpfile()");
 					return -1;
 				}
