@@ -18,6 +18,7 @@ struct uwsgi_carbon {
 	int no_workers;
 	unsigned long long *last_busyness_values;
 	unsigned long long *current_busyness_values;
+	int *was_busy;
 	int need_retry;
 	time_t last_update;
 	time_t next_retry;
@@ -73,10 +74,15 @@ void carbon_post_init() {
 
 	if (!u_carbon.last_busyness_values) {
 		u_carbon.last_busyness_values = uwsgi_calloc(sizeof(unsigned long long) * uwsgi.numproc);
+		
 	}
 
 	if (!u_carbon.current_busyness_values) {
 		u_carbon.current_busyness_values = uwsgi_calloc(sizeof(unsigned long long) * uwsgi.numproc);
+	}
+
+	if (!u_carbon.was_busy) {
+		u_carbon.was_busy = uwsgi_calloc(sizeof(int) * uwsgi.numproc);
 	}
 
 	// set next update to now()+retry_delay, this way we will have first flush just after start
@@ -114,6 +120,7 @@ void carbon_push_stats(int retry_cycle) {
 	for (i = 0; i < uwsgi.numproc; i++) {
 		u_carbon.current_busyness_values[i] = uwsgi.workers[i+1].running_time - u_carbon.last_busyness_values[i];
 		u_carbon.last_busyness_values[i] = uwsgi.workers[i+1].running_time;
+		u_carbon.was_busy[i-1] += uwsgi.workers[i+1].busy;
 	}
 
 	u_carbon.need_retry = 0;
@@ -177,9 +184,15 @@ void carbon_push_stats(int retry_cycle) {
 				total_avg_rt += uwsgi.workers[i].avg_response_time;
 
 				// calculate worker busyness
-				worker_busyness = ((u_carbon.current_busyness_values[i-1]*100) / (u_carbon.freq*1000000));
-				if (worker_busyness > 100) worker_busyness = 100;
+				if (u_carbon.current_busyness_values[i-1] == 0 && u_carbon.was_busy[i-1]) {
+					worker_busyness = 100;
+				}
+				else {
+					worker_busyness = ((u_carbon.current_busyness_values[i-1]*100) / (u_carbon.freq*1000000));
+					if (worker_busyness > 100) worker_busyness = 100;
+				}
 				total_busyness += worker_busyness;
+				u_carbon.was_busy[i-1] = 0;
 
 				// only running workers are counted in total memory stats
 				total_rss += uwsgi.workers[i].rss_size;
