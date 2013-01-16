@@ -2,6 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_plugin psgi_plugin;
+extern struct uwsgi_perl uperl;
 
 #ifdef UWSGI_ASYNC
 
@@ -171,6 +172,28 @@ XS(XS_register_signal) {
 	
 }
 
+XS(XS_postfork) {
+        dXSARGS;
+
+        psgi_check_args(1);
+
+	uperl.postfork = newRV_inc(ST(0));
+
+        XSRETURN_YES;
+}
+
+XS(XS_atexit) {
+        dXSARGS;
+
+        psgi_check_args(1);
+
+        uperl.atexit = newRV_inc(ST(0));
+
+        XSRETURN_YES;
+}
+
+
+
 XS(XS_log) {
 
 	dXSARGS;
@@ -282,5 +305,7 @@ void init_perl_embedded_module() {
 	psgi_xs(signal);
 	psgi_xs(register_signal);
 	psgi_xs(signal_wait);
+	psgi_xs(postfork);
+	psgi_xs(atexit);
 }
 

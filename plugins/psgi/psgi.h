@@ -37,6 +37,9 @@ struct uwsgi_perl {
 
 	CV **tmp_psgix_logger;
 	CV **tmp_stream_responder;
+	
+	SV *postfork;
+	SV *atexit;
 };
 
 void init_perl_embedded_module(void);
@@ -52,3 +55,4 @@ int uwsgi_perl_obj_isa(SV *, char *);
 int init_psgi_app(struct wsgi_request *, char *, uint16_t, PerlInterpreter **);
 PerlInterpreter *uwsgi_perl_new_interpreter(void);
 int uwsgi_perl_mule(char *);
+void uwsgi_perl_run_hook(SV *);

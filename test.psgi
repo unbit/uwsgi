@@ -55,3 +55,11 @@ my $app = sub {
           [ "Hello World\r\n", $env->{'REQUEST_URI'}, uwsgi::cache_get('key1'), uwsgi::call('hello') ],
 	];
 };
+
+uwsgi::postfork(sub {
+	print "forked !!!\n";
+});
+
+uwsgi::atexit(sub {
+	print "exited\n";
+});
