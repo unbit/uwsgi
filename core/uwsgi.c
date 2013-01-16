@@ -1058,7 +1058,6 @@ void uwsgi_nuclear_blast() {
 }
 
 void reap_them_all(int signum) {
-	uwsgi_log("aooo\n");
 	int i;
 
 	// avoid reace condition in lazy mode
