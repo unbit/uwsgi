@@ -82,7 +82,7 @@ void uwsgi_mule(int id) {
 				if (uwsgi.p[i]->mule) {
 					if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
 						// never here
-						break;
+						end_me(1);
 					}
 				}
 			}
