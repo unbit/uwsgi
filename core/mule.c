@@ -41,6 +41,17 @@ void uwsgi_mule(int id) {
 			uwsgi_error("prctl()");
 		}
 #endif
+
+		signal(SIGALRM, SIG_IGN);
+                signal(SIGHUP, SIG_IGN);
+                signal(SIGINT, end_me);
+                signal(SIGTERM, end_me);
+                signal(SIGUSR1, SIG_IGN);
+                signal(SIGUSR2, SIG_IGN);
+                signal(SIGPIPE, SIG_IGN);
+                signal(SIGSTOP, SIG_IGN);
+                signal(SIGTSTP, SIG_IGN);
+
 		uwsgi.muleid = id;
 		// avoid race conditions
 		uwsgi.mules[id - 1].id = id;
