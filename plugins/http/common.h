@@ -59,6 +59,8 @@ struct http_session {
         char *path_info;
         uint16_t path_info_len;
 
+	int can_keepalive;
+
 #ifdef UWSGI_SSL
 	int websockets;
 	char *origin;
@@ -161,3 +163,5 @@ ssize_t hr_write_body(struct corerouter_peer *);
 
 void hr_session_close(struct corerouter_session *);
 ssize_t http_parse(struct corerouter_peer *);
+
+void http_response_parse(struct http_session *, char *, size_t);

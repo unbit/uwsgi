@@ -57,7 +57,12 @@
         }\
         peer->in->pos += len;\
 
-#define cr_reset_hooks(peer) if (uwsgi_cr_set_hooks(peer->session->main_peer, peer->session->main_peer->last_hook_read, NULL)) return -1;\
+#define cr_reset_hooks(peer) if(!peer->session->main_peer->disabled) {\
+			if (uwsgi_cr_set_hooks(peer->session->main_peer, peer->session->main_peer->last_hook_read, NULL)) return -1;\
+		}\
+		else {\
+			if (uwsgi_cr_set_hooks(peer->session->main_peer, NULL, NULL)) return -1;\
+		}\
 		struct corerouter_peer *peers = peer->session->peers;\
                 while(peers) {\
                         if (uwsgi_cr_set_hooks(peers, peers->last_hook_read, NULL)) return -1;\
@@ -113,6 +118,9 @@ struct corerouter_peer {
 	int fd;
 	// the session
 	struct corerouter_session *session;
+
+	// if set do not wait for events
+	int disabled;
 
 	// hook to run on a read event
 	ssize_t (*hook_read)(struct corerouter_peer *);

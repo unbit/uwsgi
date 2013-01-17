@@ -6,4 +6,4 @@ LIBS = []
 
 REQUIRES = ['corerouter']
 
-GCC_LIST = ['http', 'https', 'spdy3']
+GCC_LIST = ['http', 'keepalive', 'https', 'spdy3']

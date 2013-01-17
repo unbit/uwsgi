@@ -32,7 +32,7 @@ struct uwsgi_option http_options[] = {
 	{"http-subscription-server", required_argument, 0, "enable the subscription server", uwsgi_opt_corerouter_ss, &uhttp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
-	{"http-keepalive", no_argument, 0, "experimental HTTP keepalive support (non-pipelined) requests (requires backend support)", uwsgi_opt_true, &uhttp.keepalive, 0},
+	{"http-keepalive", no_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_true, &uhttp.keepalive, 0},
 
 	{"http-raw-body", no_argument, 0, "blindly send HTTP body to backends (required for WebSockets and Icecast support in backends)", uwsgi_opt_true, &uhttp.raw_body, 0},
 #ifdef UWSGI_SSL
@@ -121,11 +121,18 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 
 	if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
+		hr->can_keepalive = 0;
 	}
 
 	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		keylen += 5;
 		prefix = 1;
+	}
+
+	if (!uwsgi_strncmp("CONNECTION", 10, hh, keylen)) {
+		if (!uwsgi_strnicmp(val, vallen, "close", 5)) {
+			hr->can_keepalive = 0;
+		}
 	}
 
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
@@ -213,6 +220,9 @@ int http_headers_parse(struct corerouter_peer *peer) {
 			if (*(ptr + 1) != '\n')
 				return 0;
 			if (uwsgi_buffer_append_keyval(out, "SERVER_PROTOCOL", 15, base, ptr - base)) return -1;
+			if (uhttp.keepalive && !uwsgi_strncmp("HTTP/1.1", 8, base, ptr-base)) {
+				hr->can_keepalive = 1;
+			}
 			ptr += 2;
 			break;
 		}
@@ -443,11 +453,60 @@ ssize_t hr_instance_connected(struct corerouter_peer* peer) {
         return hr_instance_write(peer);
 }
 
+// check if the response allows for keepalive
+int hr_check_response_keepalive(struct corerouter_peer *peer) {
+	struct http_session *hr = (struct http_session *) peer->session;
+	struct uwsgi_buffer *ub = peer->in;
+	size_t i;
+	for(i=0;i<ub->pos;i++) {
+                char c = ub->buf[i];
+                if (c == '\r' && (peer->r_parser_status == 0 || peer->r_parser_status == 2)) {
+                        peer->r_parser_status++;
+                }
+                else if (c == '\r') {
+                        peer->r_parser_status = 1;
+                }
+                else if (c == '\n' && peer->r_parser_status == 1) {
+                        peer->r_parser_status = 2;
+                }
+                // parsing done
+                else if (c == '\n' && peer->r_parser_status == 3) {
+			// end of headers
+			peer->r_parser_status = 4;
+			http_response_parse(hr, ub->buf, i+1);
+			return 0;
+		}
+                else {
+                        peer->r_parser_status = 0;
+                }
+        }
+
+	return 1;
+
+}
+
 // data from instance
 ssize_t hr_instance_read(struct corerouter_peer *peer) {
+        peer->in->limit = UMAX16;
+	if (uwsgi_buffer_ensure(peer->in, uwsgi.page_size)) return -1;
 	struct http_session *hr = (struct http_session *) peer->session;
         ssize_t len = cr_read(peer, "hr_instance_read()");
-        if (!len) return 0;
+        if (!len) {
+		if (hr->can_keepalive) {
+			peer->session->main_peer->disabled = 0;
+			peer->session->refcnt++;
+			hr->rnrn = 0;
+			cr_reset_hooks(peer);
+		}
+		return 0;
+	}
+
+	// need to parse response headers
+	if (hr->can_keepalive && peer->r_parser_status != 4) {
+		if (hr_check_response_keepalive(peer)) {
+			return 1;
+		}
+	}
 
         // set the input buffer as the main output one
         peer->session->main_peer->out = peer->in;
@@ -535,6 +594,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
                         	return -1;
 
 			if (hr->remains > 0) {
+				hr->can_keepalive = 0;
 				if (hr->content_length < hr->remains) { 
 					hr->remains = hr->content_length;
 					hr->content_length = 0;
@@ -543,6 +603,12 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 					hr->content_length -= hr->remains;
 				}
 				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size, hr->remains)) return -1;
+			}
+
+			if (hr->can_keepalive) {
+				main_peer->disabled = 1;
+				// stop reading from the client
+				if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
 			}
 
                 	cr_connect(new_peer, hr_instance_connected);
