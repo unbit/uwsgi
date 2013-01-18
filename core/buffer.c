@@ -48,9 +48,18 @@ int uwsgi_buffer_ensure(struct uwsgi_buffer *ub, size_t len) {
 	return 0;
 }
 
+int uwsgi_buffer_insert(struct uwsgi_buffer *ub, size_t pos, char *buf, size_t len) {
+	size_t to_move = (ub->pos-pos);
+	if (uwsgi_buffer_ensure(ub, len)) return -1;
+	memmove(ub->buf+pos+len, ub->buf+pos, to_move);
+	memcpy(ub->buf+pos, buf, len);
+	ub->pos += len;
+	return 0;
+}
+
 int uwsgi_buffer_decapitate(struct uwsgi_buffer *ub, size_t len) {
 	if (len > ub->pos) return -1;
-	ub->buf = memmove(ub->buf, ub->buf + len, ub->pos-len);
+	memmove(ub->buf, ub->buf + len, ub->pos-len);
 	ub->pos = ub->pos-len;
 	return 0;
 }

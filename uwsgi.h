@@ -3574,6 +3574,8 @@ int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *, void *);
 int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *, char *, uint16_t, void *);
 int uwsgi_buffer_decapitate(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t);
+int uwsgi_buffer_insert(struct uwsgi_buffer *, size_t, char *, size_t);
+	
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
 void uwsgi_httpize_var(char *, size_t);
