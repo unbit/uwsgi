@@ -21,6 +21,7 @@ struct uwsgi_http {
 
         int raw_body;
         int keepalive;
+        int auto_chunked;
 
 #ifdef UWSGI_SSL
         int websockets;
@@ -60,6 +61,7 @@ struct http_session {
         uint16_t path_info_len;
 
 	int can_keepalive;
+	int force_chunked;
 
 #ifdef UWSGI_SSL
 	int websockets;
@@ -115,6 +117,8 @@ struct http_session {
         size_t stud_prefix_remains;
         size_t stud_prefix_pos;
 
+	struct uwsgi_buffer *last_chunked;
+
 	ssize_t (*func_write)(struct corerouter_peer *);
 
 };
@@ -164,4 +168,4 @@ ssize_t hr_write_body(struct corerouter_peer *);
 void hr_session_close(struct corerouter_session *);
 ssize_t http_parse(struct corerouter_peer *);
 
-void http_response_parse(struct http_session *, char *, size_t);
+int http_response_parse(struct http_session *, struct uwsgi_buffer *, size_t);

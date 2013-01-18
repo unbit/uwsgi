@@ -33,6 +33,7 @@ struct uwsgi_option http_options[] = {
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
 	{"http-keepalive", no_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_true, &uhttp.keepalive, 0},
+	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
 
 	{"http-raw-body", no_argument, 0, "blindly send HTTP body to backends (required for WebSockets and Icecast support in backends)", uwsgi_opt_true, &uhttp.raw_body, 0},
 #ifdef UWSGI_SSL
@@ -121,6 +122,11 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 
 	if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
+		hr->can_keepalive = 0;
+	}
+
+	// in the future we could support chunked requests...
+	if (!uwsgi_strncmp("TRANSFER_ENCODING", 17, hh, keylen)) {
 		hr->can_keepalive = 0;
 	}
 
@@ -473,7 +479,9 @@ int hr_check_response_keepalive(struct corerouter_peer *peer) {
                 else if (c == '\n' && peer->r_parser_status == 3) {
 			// end of headers
 			peer->r_parser_status = 4;
-			http_response_parse(hr, ub->buf, i+1);
+			if (http_response_parse(hr, ub, i+1)) {
+				return -1;
+			}
 			return 0;
 		}
                 else {
@@ -496,15 +504,34 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 			peer->session->main_peer->disabled = 0;
 			peer->session->refcnt++;
 			hr->rnrn = 0;
-			cr_reset_hooks(peer);
+			if (hr->force_chunked) {
+				if (!hr->last_chunked) {
+					hr->last_chunked = uwsgi_buffer_new(3);
+					if (uwsgi_buffer_insert_chunked(hr->last_chunked, 0, 0)) return -1;
+				}
+				peer->session->main_peer->out = hr->last_chunked;
+				peer->session->main_peer->out_pos = 0;
+				cr_write_to_main(peer, hr->func_write);
+			}
+			else {
+				cr_reset_hooks(peer);
+			}
 		}
 		return 0;
 	}
 
 	// need to parse response headers
-	if (hr->can_keepalive && peer->r_parser_status != 4) {
-		if (hr_check_response_keepalive(peer)) {
-			return 1;
+	if (hr->can_keepalive) {
+		if (peer->r_parser_status != 4) {
+			int ret = hr_check_response_keepalive(peer);
+			if (ret < 0) return -1;
+			if (ret > 0) {
+				return 1;
+			}
+		}
+		else if (hr->force_chunked) {
+			if (uwsgi_buffer_insert_chunked(peer->in, 0, len)) return -1;
+			if (uwsgi_buffer_append(peer->in, "\r\n", 2)) return -1;
 		}
 	}
 
@@ -639,6 +666,10 @@ void hr_session_close(struct corerouter_session *cs) {
 	struct http_session *hr = (struct http_session *) cs;
 	if (hr->path_info) {
 		free(hr->path_info);
+	}
+
+	if (hr->last_chunked) {
+		uwsgi_buffer_destroy(hr->last_chunked);
 	}
 }
 

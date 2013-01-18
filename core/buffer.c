@@ -57,6 +57,16 @@ int uwsgi_buffer_insert(struct uwsgi_buffer *ub, size_t pos, char *buf, size_t l
 	return 0;
 }
 
+int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *ub, size_t pos, size_t len) {
+	// 0xFFFFFFFFFFFFFFFF\r\n\0
+	char chunked[19];
+	int ret = snprintf(chunked, 19, "%X\r\n", (unsigned int) len);
+        if (ret <= 0 || ret > 19) {
+                return -1;
+        }
+	return uwsgi_buffer_insert(ub, pos, chunked, ret);
+}
+
 int uwsgi_buffer_decapitate(struct uwsgi_buffer *ub, size_t len) {
 	if (len > ub->pos) return -1;
 	memmove(ub->buf, ub->buf + len, ub->pos-len);
