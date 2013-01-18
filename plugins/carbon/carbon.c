@@ -175,6 +175,8 @@ void carbon_push_stats(int retry_cycle) {
 
 		for(i=1;i<=uwsgi.numproc;i++) {
 			total_tx += uwsgi.workers[i].tx;
+			total_harakiri += uwsgi.workers[i].harakiri_count;
+
 			if (uwsgi.workers[i].cheaped) {
 				// also if worker is cheaped than we report its average response time as zero, sending last value might be confusing
 				avg_rt = 0;
@@ -197,11 +199,11 @@ void carbon_push_stats(int retry_cycle) {
 				total_busyness += worker_busyness;
 				u_carbon.was_busy[i-1] = 0;
 
-				// only running workers are counted in total memory stats
-				total_rss += uwsgi.workers[i].rss_size;
-				total_vsz += uwsgi.workers[i].vsz_size;
-
-				total_harakiri += uwsgi.workers[i].harakiri_count;
+				if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage) {
+					// only running workers are counted in total memory stats and if memory-report option is enabled
+					total_rss += uwsgi.workers[i].rss_size;
+					total_vsz += uwsgi.workers[i].vsz_size;
+				}
 			}
 
 			//skip per worker metrics when disabled
@@ -210,11 +212,13 @@ void carbon_push_stats(int retry_cycle) {
 			wok = carbon_write(&fd, "%s.%s.%s.worker%d.requests %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].requests, (unsigned long long) uwsgi.current_time);
 			if (!wok) goto clear;
 
-			wok = carbon_write(&fd, "%s.%s.%s.worker%d.rss_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].rss_size, (unsigned long long) uwsgi.current_time);
-			if (!wok) goto clear;
+			if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage) {
+				wok = carbon_write(&fd, "%s.%s.%s.worker%d.rss_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].rss_size, (unsigned long long) uwsgi.current_time);
+				if (!wok) goto clear;
 
-			wok = carbon_write(&fd, "%s.%s.%s.worker%d.vsz_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].vsz_size, (unsigned long long) uwsgi.current_time);
-			if (!wok) goto clear;
+				wok = carbon_write(&fd, "%s.%s.%s.worker%d.vsz_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, i, (unsigned long long) uwsgi.workers[i].vsz_size, (unsigned long long) uwsgi.current_time);
+				if (!wok) goto clear;
+			}
 
 			wok = carbon_write(&fd, "%s.%s.%s.worker%d.avg_rt %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, i, (unsigned long long) avg_rt, (unsigned long long) uwsgi.current_time);
 			if (!wok) goto clear;
@@ -230,11 +234,13 @@ void carbon_push_stats(int retry_cycle) {
 
 		}
 
-		wok = carbon_write(&fd, "%s.%s.%s.rss_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, (unsigned long long) total_rss, (unsigned long long) uwsgi.current_time);
-		if (!wok) goto clear;
+		if (uwsgi.shared->options[UWSGI_OPTION_MEMORY_DEBUG] == 1 || uwsgi.force_get_memusage) {
+			wok = carbon_write(&fd, "%s.%s.%s.rss_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, (unsigned long long) total_rss, (unsigned long long) uwsgi.current_time);
+			if (!wok) goto clear;
 
-		wok = carbon_write(&fd, "%s.%s.%s.vsz_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, (unsigned long long) total_vsz, (unsigned long long) uwsgi.current_time);
-		if (!wok) goto clear;
+			wok = carbon_write(&fd, "%s.%s.%s.vsz_size %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, (unsigned long long) total_vsz, (unsigned long long) uwsgi.current_time);
+			if (!wok) goto clear;
+		}
 
 		wok = carbon_write(&fd, "%s.%s.%s.avg_rt %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, (unsigned long long) (active_workers ? total_avg_rt / active_workers : 0), (unsigned long long) uwsgi.current_time);
 		if (!wok) goto clear;
