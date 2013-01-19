@@ -2073,6 +2073,7 @@ struct uwsgi_server {
 	struct uwsgi_buffer *(*channel_recv_hook)(struct wsgi_request *, int, struct uwsgi_buffer *, int);
 
 	ssize_t (*buffer_write_hook)(struct wsgi_request *, struct uwsgi_buffer *);
+	int (*nb_write_hook)(struct wsgi_request *, char *, size_t);
 
 };
 

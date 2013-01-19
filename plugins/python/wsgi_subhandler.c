@@ -160,13 +160,9 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 
 	// return or yield ?
 	if (PyString_Check((PyObject *)wsgi_req->async_result)) {
+		char *content = PyString_AsString((PyObject *)wsgi_req->async_result);
 		size_t content_len = PyString_Size((PyObject *)wsgi_req->async_result);
-		if (content_len > 0 && !wsgi_req->headers_sent) {
-			if (uwsgi_python_do_send_headers(wsgi_req)) {
-				goto clear;
-			}
-		}
-		up.hook_write_string(wsgi_req, (PyObject *) wsgi_req->async_result);
+		uwsgi.nb_write_hook(wsgi_req, content, content_len);
 		uwsgi_py_check_write_errors {
 			uwsgi_py_write_exception(wsgi_req);
 		}

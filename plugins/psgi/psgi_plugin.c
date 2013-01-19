@@ -23,8 +23,6 @@ struct uwsgi_option uwsgi_perl_options[] = {
 
 };
 
-extern struct http_status_codes hsc[];
-
 SV *uwsgi_perl_obj_new(char *class, size_t class_len) {
 
 	SV *newobj;
@@ -376,11 +374,6 @@ int uwsgi_perl_init(){
 	}
 
 	PERL_SET_CONTEXT(uperl.main[0]);
-
-	// filling http status codes
-	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-		http_sc->message_size = strlen(http_sc->message);
-	}
 
 #ifdef PERL_VERSION_STRING
 	uwsgi_log_initial("initialized Perl %s main interpreter at %p\n", PERL_VERSION_STRING, uperl.main[0]);

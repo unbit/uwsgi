@@ -67,36 +67,8 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 	status_code = av_fetch(response, 0, 0);
 	if (!status_code) { uwsgi_log("invalid PSGI status code\n"); return UWSGI_OK;}
 
-        wsgi_req->hvec[0].iov_base = "HTTP/1.1 ";
-        wsgi_req->hvec[0].iov_len = 9;
-
-        wsgi_req->hvec[1].iov_base = SvPV(*status_code, hlen);
-
-        wsgi_req->hvec[1].iov_len = 3;
-
-        wsgi_req->status = atoi(wsgi_req->hvec[1].iov_base);
-
-        wsgi_req->hvec[2].iov_base = " ";
-        wsgi_req->hvec[2].iov_len = 1;
-
-        wsgi_req->hvec[3].iov_len = 0;
-
-        // get the status code
-        for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                if (!strncmp(http_sc->key, wsgi_req->hvec[1].iov_base, 3)) {
-                        wsgi_req->hvec[3].iov_base = (char *) http_sc->message;
-                        wsgi_req->hvec[3].iov_len = http_sc->message_size;
-                        break;
-                }
-        }
-
-        if (wsgi_req->hvec[3].iov_len == 0) {
-                wsgi_req->hvec[3].iov_base = "Unknown";
-                wsgi_req->hvec[3].iov_len =  7;
-        }
-
-        wsgi_req->hvec[4].iov_base = "\r\n";
-        wsgi_req->hvec[4].iov_len = 2;
+	char *status_str = SvPV(*status_code, hlen);
+	if (uwsgi_response_prepare_headers(wsgi_req, status_str, hlen)) return UWSGI_OK;
 
         hitem = av_fetch(response, 1, 0);
 	if (!hitem) { uwsgi_log("invalid PSGI headers\n"); return UWSGI_OK;}
@@ -109,64 +81,13 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
         // put them in hvec
         for(i=0; i<=av_len(headers); i++) {
-		if (wsgi_req->header_cnt+1 > uwsgi.max_vars) {
-			uwsgi_log("no more space in iovec. consider increasing max-vars...\n");
-			break;
-		}
                 vi = (i*2)+base;
                 hitem = av_fetch(headers,i,0);
                 chitem = SvPV(*hitem, hlen);
-                wsgi_req->hvec[vi].iov_base = chitem; wsgi_req->hvec[vi].iov_len = hlen;
-
-                wsgi_req->hvec[vi+1].iov_base = ": "; wsgi_req->hvec[vi+1].iov_len = 2;
-
-                hitem = av_fetch(headers,i+1,0);
-                chitem = SvPV(*hitem, hlen);
-                wsgi_req->hvec[vi+2].iov_base = chitem; wsgi_req->hvec[vi+2].iov_len = hlen;
-
-                wsgi_req->hvec[vi+3].iov_base = "\r\n"; wsgi_req->hvec[vi+3].iov_len = 2;
-
-                wsgi_req->header_cnt++;
-
-                i++;
+                hitem2 = av_fetch(headers,i+1,0);
+                chitem2 = SvPV(*hitem, hlen);
+		if (uwsgi_response_add_header(wsgi_req, chitem, hlen, chitem2, hlen)) return UWSGI_OK;
         }
-
-	int j = (i*2)+base;
-	struct uwsgi_string_list *ah = uwsgi.additional_headers;
-        while(ah) {
-		if (wsgi_req->header_cnt+1 > uwsgi.max_vars) {
-			uwsgi_log("no more space in iovec. consider increasing max-vars...\n");
-			break;
-		}
-                wsgi_req->header_cnt++;
-                wsgi_req->hvec[j].iov_base = ah->value;
-                wsgi_req->hvec[j].iov_len = ah->len;
-                j++;
-                wsgi_req->hvec[j].iov_base = "\r\n";
-                wsgi_req->hvec[j].iov_len = 2;
-                j++;
-                ah = ah->next;
- 	}
-
-	ah = wsgi_req->additional_headers;
-	while(ah) {
-                if (wsgi_req->header_cnt+1 > uwsgi.max_vars) {
-                        uwsgi_log("no more space in iovec. consider increasing max-vars...\n");
-                        break;
-                }
-                wsgi_req->header_cnt++;
-                wsgi_req->hvec[j].iov_base = ah->value;
-                wsgi_req->hvec[j].iov_len = ah->len;
-                j++;
-                wsgi_req->hvec[j].iov_base = "\r\n";
-                wsgi_req->hvec[j].iov_len = 2;
-                j++;
-                ah = ah->next;
-        }
-
-        wsgi_req->hvec[j].iov_base = "\r\n"; wsgi_req->hvec[j].iov_len = 2;
-
-        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, j+1);
 
         hitem = av_fetch(response, 2, 0);
 
