@@ -2547,8 +2547,6 @@ void *simple_loop_run(void *);
 
 int uwsgi_count_options(struct uwsgi_option *);
 
-ssize_t uwsgi_do_sendfile(int, int, size_t, size_t, off_t *, int);
-
 struct wsgi_request *simple_current_wsgi_req(void);
 struct wsgi_request *threaded_current_wsgi_req(void);
 
@@ -2556,8 +2554,6 @@ void build_options(void);
 
 int uwsgi_read_whole_body(struct wsgi_request *, char *, size_t);
 int uwsgi_read_whole_body_in_mem(struct wsgi_request *, char *);
-
-ssize_t uwsgi_sendfile(struct wsgi_request *);
 
 void uwsgi_register_loop(char *, void (*)(void));
 void *uwsgi_get_loop(char *);
@@ -3768,6 +3764,12 @@ int uwsgi_simple_wait_write_hook(struct wsgi_request *);
 int uwsgi_response_write_headers_do(struct wsgi_request *);
 
 struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *, char *, uint16_t);
+int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
+
+int uwsgi_proto_uwsgi_sendfile(struct wsgi_request *, int, size_t, size_t);
+
+ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
+int uwsgi_proto_uwsgi_fix_headers(struct wsgi_request *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

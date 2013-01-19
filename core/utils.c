@@ -1095,21 +1095,6 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 			}
 
 			if (!uwsgi_sock->edge_trigger) {
-// in Linux, new sockets do not inherit attributes
-#ifndef __linux__
-				/* re-set blocking socket */
-				int arg = uwsgi_sock->arg;
-				arg &= (~O_NONBLOCK);
-				if (fcntl(wsgi_req->poll.fd, F_SETFL, arg) < 0) {
-					uwsgi_error("fcntl()");
-#ifdef UWSGI_THREADING
-					if (uwsgi.threads > 1)
-						pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
-					return -1;
-				}
-
-#endif
 
 				if (uwsgi.close_on_exec) {
 					fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);

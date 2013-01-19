@@ -853,7 +853,7 @@ next:
 		uint64_t cache_value_size;
 		char *cache_value = uwsgi_cache_get(wsgi_req->cache_get, wsgi_req->cache_get_len, &cache_value_size);
 		if (cache_value && cache_value_size > 0) {
-			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, cache_value, cache_value_size);
+			uwsgi_response_write_body_do(wsgi_req, cache_value, cache_value_size);
 			wsgi_req->status = -1;
 			return -1;
 		}
@@ -864,7 +864,7 @@ next:
 		uint64_t cache_value_size;
 		char *cache_value = uwsgi_cache_get(wsgi_req->uri, wsgi_req->uri_len, &cache_value_size);
 		if (cache_value && cache_value_size > 0) {
-			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, cache_value, cache_value_size);
+			uwsgi_response_write_body_do(wsgi_req, cache_value, cache_value_size);
 			wsgi_req->status = -1;
 			return -1;
 		}

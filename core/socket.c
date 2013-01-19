@@ -1781,6 +1781,7 @@ void uwsgi_bind_sockets() {
 }
 
 void uwsgi_set_sockets_protocols() {
+
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
 		char *requested_protocol = uwsgi_sock->proto_name;
@@ -1802,10 +1803,13 @@ void uwsgi_set_sockets_protocols() {
 			}
 		}
 
+
 setup_proto:
 		if (!requested_protocol) {
 			requested_protocol = uwsgi.protocol;
 		}
+
+			uwsgi_log("AAAAAAAA %s\n", requested_protocol);
 
 		if (requested_protocol && !strcmp("http", requested_protocol)) {
 			uwsgi_sock->proto = uwsgi_proto_http_parser;
@@ -1836,11 +1840,13 @@ setup_proto:
 		else {
 			uwsgi_sock->proto = uwsgi_proto_uwsgi_parser;
 			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
+			uwsgi_log("AAAAAAAA\n");
 			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
 			uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+			uwsgi_sock->proto_fix_headers = uwsgi_proto_uwsgi_fix_headers;
 			uwsgi_sock->proto_write = uwsgi_proto_uwsgi_write;
 			uwsgi_sock->proto_write_headers = uwsgi_proto_uwsgi_write;
-			uwsgi_sock->proto_sendfile = NULL;
+			uwsgi_sock->proto_sendfile = uwsgi_proto_uwsgi_sendfile;
 			uwsgi_sock->proto_close = uwsgi_proto_base_close;
 			if (uwsgi.offload_threads > 0)
 				uwsgi_sock->can_offload = 1;

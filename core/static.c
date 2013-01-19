@@ -13,8 +13,12 @@ static int set_http_date(time_t t, char *dst) {
 
         struct tm *hdtm = gmtime(&t);
 
-        return snprintf(dst, 32, "%s, %02d %s %4d %02d:%02d:%02d GMT\r\n",
+        int ret = snprintf(dst, 31, "%s, %02d %s %4d %02d:%02d:%02d GMT",
 		week[hdtm->tm_wday], hdtm->tm_mday, months[hdtm->tm_mon], hdtm->tm_year + 1900, hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
+	if (ret <= 0 || ret > 31) {
+		return 0;
+	}
+	return ret;
 }
 
 // only RFC 1123 is supported
@@ -115,8 +119,8 @@ int uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int m
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_type;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// 32+1
-	char expires[33];
+	// 30+1
+	char expires[31];
 
 	while (udd) {
 		if (!uwsgi_strncmp(udd->key, udd->keylen, mime_type, mime_type_len)) {
@@ -151,8 +155,8 @@ int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filenam
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// 32+1
-	char expires[33];
+	// 30+1
+	char expires[31];
 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
@@ -186,8 +190,8 @@ int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) 
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_path_info;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// Expires+32+1
-	char expires[33];
+	// 30+1
+	char expires[31];
 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
@@ -221,8 +225,8 @@ int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_uri;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// 32+1
-	char expires[33];
+	// 30+1
+	char expires[31];
 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
@@ -366,8 +370,6 @@ int uwsgi_static_stat(char *filename, struct stat *st) {
 
 int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, size_t real_filename_len, struct stat *st) {
 
-	struct iovec headers_vec[8];
-
 	int mime_type_size = 0;
 	char http_last_modified[49];
 
@@ -395,7 +397,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 #endif
 
 	// HTTP status
-	uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
+	if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) return -1;
 
 #ifdef UWSGI_PCRE
 	uwsgi_add_expires(wsgi_req, real_filename, real_filename_len, st);
@@ -430,18 +432,10 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	// raw
 	else {
 		// set Content-Length
-		headers_vec[0].iov_base = "Content-Length: ";
-		headers_vec[0].iov_len = 16;
-		headers_vec[1].iov_len = uwsgi_long2str2n(st->st_size, content_length, sizeof(UMAX64_STR) + 1);
-		headers_vec[1].iov_base = content_length;
-		headers_vec[2].iov_base = "\r\n";
-		headers_vec[2].iov_len = 2;
-		// this is the final header (\r\n added)
-		set_http_date(st->st_mtime, http_last_modified);
-		headers_vec[3].iov_base = http_last_modified;
-		headers_vec[3].iov_len = 48;
-		//wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
-		wsgi_req->header_cnt += 2;
+		int size = uwsgi_long2str2n(st->st_size, content_length, sizeof(UMAX64_STR) + 1);
+		if (uwsgi_response_add_header(wsgi_req, "Content-Length", 14, content_length, size)) return -1;
+		size = set_http_date(st->st_mtime, http_last_modified);
+		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 
 		// if it is a HEAD request just skip transfer
 		if (!uwsgi_strncmp(wsgi_req->method, wsgi_req->method_len, "HEAD", 4)) {

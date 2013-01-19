@@ -21,7 +21,6 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
         return 0;
 error:
         uwsgi_buffer_destroy(hh);
-
 	return -1;
 }
 
@@ -57,7 +56,7 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
                 int ret = wsgi_req->socket->proto_write_headers(wsgi_req, wsgi_req->headers->buf, wsgi_req->headers->pos);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
-                                uwsgi_error("uwsgi_response_write_body_do()");
+                                uwsgi_error("uwsgi_response_write_headers_do()");
                         }
                         return -1;
                 }
@@ -110,14 +109,20 @@ int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_
 int uwsgi_response_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 
 	if (!wsgi_req->headers_sent) {
-		return uwsgi_response_write_headers_do(wsgi_req);
+		int ret = uwsgi_response_write_headers_do(wsgi_req);
+		if (ret == UWSGI_OK) goto sendfile;
+		if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
+		return -1;
 	}
 
+sendfile:
+
         for(;;) {
+		uwsgi_log("XXXX %d %d\n", pos, len);
                 int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {
-                                uwsgi_error("uwsgi_response_write_body_do()");
+                                uwsgi_error("uwsgi_response_sendfile_do()");
                         }
                         return -1;
                 }
