@@ -196,39 +196,13 @@ static int uwsgi_router_continue(struct uwsgi_route *ur, char *arg) {
 
 static int uwsgi_router_break_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
 	if (route->data_len >= 3) {
-		wsgi_req->status = route->custom;
-		if (wsgi_req->headers_size == 0 && wsgi_req->response_size == 0) {
-			char *msg = NULL;
-			size_t msg_len = 0;
-			if (route->data_len < 5) {
-				struct http_status_codes *http_sc;
-				for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                        		if (!memcmp(http_sc->key, route->data, 3)) {
-                                		msg = (char *) http_sc->message;
-                                		msg_len = http_sc->message_size;
-                                		break;
-                        		}
-				}
-			}
-			else {
-				msg = route->data + 4;
-				msg_len = route->data_len -4;
-			}
-			struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
-			if (uwsgi_buffer_append(ub, "HTTP/1.0 ", 9)) goto end;
-			if (uwsgi_buffer_append(ub, route->data, 3)) goto end;
-			if (msg && msg_len) {
-				if (uwsgi_buffer_append(ub, " ", 1)) goto end;
-				if (uwsgi_buffer_append(ub, msg, msg_len)) goto end;
-			}
-
-			if (uwsgi_buffer_append(ub, "\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n", 49)) goto end;
-			wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, ub->buf, ub->pos);
-			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, msg, msg_len);
-end:
-			uwsgi_buffer_destroy(ub);
-		}
+		if (uwsgi_response_prepare_headers(wsgi_req, route->data, route->data_len)) goto end;
+		if (uwsgi_response_add_header(wsgi_req, "Connection", 10, "close", 5)) goto end;
+		if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/plain", 10)) goto end;
+		// no need to check for return value
+		uwsgi_response_write_headers_do(wsgi_req);
 	}
+end:
 	return UWSGI_ROUTE_BREAK;	
 }
 

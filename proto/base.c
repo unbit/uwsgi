@@ -106,3 +106,41 @@ void uwsgi_proto_base_close(struct wsgi_request *wsgi_req) {
 		close(wsgi_req->poll.fd);
 	}
 }
+
+struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *wsgi_req, char *k, uint16_t kl, char *v, uint16_t vl) {
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(kl + 2 + vl + 2);
+	if (uwsgi_buffer_append(ub, k, kl)) goto end;
+	if (uwsgi_buffer_append(ub, ": ", 2)) goto end;
+	if (uwsgi_buffer_append(ub, v, vl)) goto end;
+	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
+	return ub;
+end:
+	uwsgi_buffer_destroy(ub);
+	return NULL;
+}
+
+struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *wsgi_req, char *s, uint16_t sl) {
+        struct uwsgi_buffer *ub = NULL;
+	if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
+		if (wsgi_req->protocol_len) {
+			ub = uwsgi_buffer_new(wsgi_req->protocol_len + 1 + sl + 2);
+			if (uwsgi_buffer_append(ub, wsgi_req->protocol, wsgi_req->protocol_len)) goto end;
+			if (uwsgi_buffer_append(ub, " ", 1)) goto end;
+		}
+		else {
+			ub = uwsgi_buffer_new(8 + 1 + sl + 2);
+			if (uwsgi_buffer_append(ub, "HTTP/1.0 ", 9)) goto end;
+		}
+	}
+	else {
+		ub = uwsgi_buffer_new(7 + 1 + sl + 2);
+		if (uwsgi_buffer_append(ub, "Status: ", 8)) goto end;
+	}
+        if (uwsgi_buffer_append(ub, s, sl)) goto end;
+	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
+        return ub;
+end:
+        uwsgi_buffer_destroy(ub);
+        return NULL;
+}
+

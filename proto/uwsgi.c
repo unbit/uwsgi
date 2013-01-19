@@ -116,16 +116,19 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 	return -1;
 }
 
-size_t uwsgi_proto_uwsgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-	ssize_t wlen = write(wsgi_req->poll.fd, ptr, len);
+int uwsgi_proto_uwsgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
+	ssize_t wlen = write(wsgi_req->poll.fd, buf+wsgi_req->write_pos, len-wsgi_req->write_pos);
 	if (wlen > 0) {
-		return wlen;
+		wsgi_req->write_pos += wlen;
+		if (wsgi_req->write_pos == len) {
+			return UWSGI_OK;
+		}
+		return UWSGI_AGAIN;
 	}
-	if (wlen == 0) {
-		return -1;	
-	}
-	if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
-		return -2;
+	if (wlen < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+			return UWSGI_AGAIN;
+		}
 	}
 	return -1;
 }

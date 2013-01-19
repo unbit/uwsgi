@@ -170,7 +170,7 @@ ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request * wsgi_req, struct iovec 
 	return uwsgi_proto_fastcgi_writev_header(wsgi_req, iovec, iov_len);
 }
 
-int uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len, ssize_t *written) {
+int uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
 	struct fcgi_record fr;
 
 	// in fastcgi we need to not send 0 sized frames
@@ -185,6 +185,7 @@ int uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, size_t 
 	fr.reserved = 0;
 	fr.cl = htons(len);
 
+/*
 	// still trying to send the fcgi header ?
 	if (*written < 8) {
 		char *ptr = (char *) &fr;
@@ -249,6 +250,8 @@ body:
 		}
 		return ptr-buf;
 	}
+*/
+	return -1;
 
 }
 
@@ -261,9 +264,8 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 	uwsgi_proto_base_close(wsgi_req);
 }
 
-ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req) {
+int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 
-	ssize_t len;
 	struct fcgi_record fr;
 	char buf[65536];
 	size_t remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
@@ -306,10 +308,12 @@ ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req) {
 			return -1;
 		}
 		wsgi_req->sendfile_fd_pos += len;
+/*
 		if (write(wsgi_req->poll.fd, buf, len) != len) {
 			uwsgi_error("write()");
 			return -1;
 		}
+*/
 		remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
 	}
 

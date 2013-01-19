@@ -4,6 +4,8 @@ extern struct uwsgi_server uwsgi;
 
 ssize_t uwsgi_sendfile(struct wsgi_request * wsgi_req) {
 
+	return -1;
+/*
 	int fd = wsgi_req->sendfile_fd;
 	int sockfd = wsgi_req->poll.fd;
 	struct stat stat_buf;
@@ -36,6 +38,7 @@ ssize_t uwsgi_sendfile(struct wsgi_request * wsgi_req) {
 
 end:
 	return sst;
+*/
 }
 
 ssize_t uwsgi_do_sendfile(int sockfd, int filefd, size_t filesize, size_t chunk, off_t * pos, int async) {

@@ -345,11 +345,11 @@ void uwsgi_proto_zeromq_setup(struct uwsgi_socket *uwsgi_sock) {
                         uwsgi_sock->proto = uwsgi_proto_zeromq_parser;
                         uwsgi_sock->proto_accept = uwsgi_proto_zeromq_accept;
                         uwsgi_sock->proto_close = uwsgi_proto_zeromq_close;
+/*
                         uwsgi_sock->proto_write = uwsgi_proto_zeromq_write;
-                        uwsgi_sock->proto_writev = uwsgi_proto_zeromq_writev;
                         uwsgi_sock->proto_write_header = uwsgi_proto_zeromq_write_header;
-                        uwsgi_sock->proto_writev_header = uwsgi_proto_zeromq_writev_header;
                         uwsgi_sock->proto_sendfile = uwsgi_proto_zeromq_sendfile;
+*/
 
                         uwsgi_sock->proto_thread_fixup = uwsgi_proto_zeromq_thread_fixup;
 

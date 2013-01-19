@@ -2,7 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-static int set_http_date(time_t t, char *header, int header_len, char *dst, int last) {
+static int set_http_date(time_t t, char *dst) {
 
         static char *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
         static char *months[] = {
@@ -13,11 +13,8 @@ static int set_http_date(time_t t, char *header, int header_len, char *dst, int 
 
         struct tm *hdtm = gmtime(&t);
 
-        if (last) {
-                return snprintf(dst, 36 + header_len, "%.*s: %s, %02d %s %4d %02d:%02d:%02d GMT\r\n\r\n", header_len, header, week[hdtm->tm_wday], hdtm->tm_mday, months[hdtm->tm_mon], hdtm->tm_year + 1900, hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
-        }
-
-        return snprintf(dst, 34 + header_len, "%.*s: %s, %02d %s %4d %02d:%02d:%02d GMT\r\n", header_len, header, week[hdtm->tm_wday], hdtm->tm_mday, months[hdtm->tm_mon], hdtm->tm_year + 1900, hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
+        return snprintf(dst, 32, "%s, %02d %s %4d %02d:%02d:%02d GMT\r\n",
+		week[hdtm->tm_wday], hdtm->tm_mday, months[hdtm->tm_mon], hdtm->tm_year + 1900, hdtm->tm_hour, hdtm->tm_min, hdtm->tm_sec);
 }
 
 // only RFC 1123 is supported
@@ -114,22 +111,21 @@ static time_t parse_http_date(char *date, uint16_t len) {
 
 
 
-void uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int mime_type_len, struct stat *st) {
+int uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int mime_type_len, struct stat *st) {
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_type;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// Expires+34+1
-	char expires[42];
+	// 32+1
+	char expires[33];
 
 	while (udd) {
 		if (!uwsgi_strncmp(udd->key, udd->keylen, mime_type, mime_type_len)) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(now + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
@@ -138,34 +134,34 @@ void uwsgi_add_expires_type(struct wsgi_request *wsgi_req, char *mime_type, int 
 	while (udd) {
 		if (!uwsgi_strncmp(udd->key, udd->keylen, mime_type, mime_type_len)) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
+
+	return 0;
 }
 
 #ifdef UWSGI_PCRE
-void uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filename_len, struct stat *st) {
+int uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filename_len, struct stat *st) {
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// Expires+34+1
-	char expires[42];
+	// 32+1
+	char expires[33];
 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(now + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
@@ -174,33 +170,33 @@ void uwsgi_add_expires(struct wsgi_request *wsgi_req, char *filename, int filena
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, filename, filename_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
+
+	return 0;
 }
 
-void uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) {
+int uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st) {
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_path_info;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// Expires+34+1
-	char expires[42];
+	// Expires+32+1
+	char expires[33];
 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(now + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
@@ -209,33 +205,33 @@ void uwsgi_add_expires_path_info(struct wsgi_request *wsgi_req, struct stat *st)
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->path_info, wsgi_req->path_info_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
+
+	return 0;
 }
 
-void uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
+int uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 
 	struct uwsgi_dyn_dict *udd = uwsgi.static_expires_uri;
 	time_t now = wsgi_req->start_of_request / 1000000;
-	// Expires+34+1
-	char expires[42];
+	// 32+1
+	char expires[33];
 
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(now + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(now + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
@@ -244,15 +240,16 @@ void uwsgi_add_expires_uri(struct wsgi_request *wsgi_req, struct stat *st) {
 	while (udd) {
 		if (uwsgi_regexp_match(udd->pattern, udd->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
 			int delta = uwsgi_str_num(udd->value, udd->vallen);
-			int size = set_http_date(st->st_mtime + delta, "Expires", 7, expires, 0);
+			int size = set_http_date(st->st_mtime + delta, expires);
 			if (size > 0) {
-				wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, expires, size);
-				wsgi_req->header_cnt++;
+				if (uwsgi_response_add_header(wsgi_req, "Expires", 7, expires, size)) return -1;
 			}
-			return;
+			return 0;
 		}
 		udd = udd->next;
 	}
+
+	return 0;
 }
 
 
@@ -389,38 +386,8 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	if (wsgi_req->if_modified_since_len) {
 		time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);
 		if (st->st_mtime <= ims) {
-			wsgi_req->status = 304;
-			headers_vec[0].iov_base = wsgi_req->protocol;
-			headers_vec[0].iov_len = wsgi_req->protocol_len;
-			headers_vec[1].iov_base = " 304 Not Modified\r\n";
-			headers_vec[1].iov_len = 19;
-
-			wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
-
-			struct uwsgi_string_list *ah = uwsgi.additional_headers;
-			while (ah) {
-				headers_vec[0].iov_base = ah->value;
-				headers_vec[0].iov_len = ah->len;
-				headers_vec[1].iov_base = "\r\n";
-				headers_vec[1].iov_len = 2;
-				wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
-				wsgi_req->header_cnt++;
-				ah = ah->next;
-			}
-
-			ah = wsgi_req->additional_headers;
-			while (ah) {
-                                headers_vec[0].iov_base = ah->value;
-                                headers_vec[0].iov_len = ah->len;
-                                headers_vec[1].iov_base = "\r\n";
-                                headers_vec[1].iov_len = 2;
-                                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
-                                wsgi_req->header_cnt++;
-                                ah = ah->next;
-                        }
-
-			wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
-			return 0;
+			uwsgi_response_prepare_headers(wsgi_req, "304 Not Modified", 16); 
+			return uwsgi_response_write_headers_do(wsgi_req);
 		}
 	}
 #ifdef UWSGI_DEBUG
@@ -428,23 +395,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 #endif
 
 	// HTTP status
-	headers_vec[0].iov_base = wsgi_req->protocol;
-	headers_vec[0].iov_len = wsgi_req->protocol_len;
-	headers_vec[1].iov_base = " 200 OK\r\n";
-	headers_vec[1].iov_len = 9;
-	wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
-
-	// uWSGI additional headers
-	struct uwsgi_string_list *ah = uwsgi.additional_headers;
-	while (ah) {
-		headers_vec[0].iov_base = ah->value;
-		headers_vec[0].iov_len = ah->len;
-		headers_vec[1].iov_base = "\r\n";
-		headers_vec[1].iov_len = 2;
-		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 2);
-		wsgi_req->header_cnt++;
-		ah = ah->next;
-	}
+	uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
 
 #ifdef UWSGI_PCRE
 	uwsgi_add_expires(wsgi_req, real_filename, real_filename_len, st);
@@ -454,15 +405,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 	// Content-Type (if available)
 	if (mime_type_size > 0 && mime_type) {
-		headers_vec[0].iov_base = "Content-Type: ";
-		headers_vec[0].iov_len = 14;
-		headers_vec[1].iov_base = mime_type;
-		headers_vec[1].iov_len = mime_type_size;
-		headers_vec[2].iov_base = "\r\n";
-		headers_vec[2].iov_len = 2;
-		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
-		wsgi_req->header_cnt++;
-
+		uwsgi_response_add_header(wsgi_req, "Content-Type", 12, mime_type, mime_type_size); 
 		// check for content-type related headers
 		uwsgi_add_expires_type(wsgi_req, mime_type, mime_type_size, st);
 	}
@@ -472,31 +415,17 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 	// nginx
 	if (uwsgi.file_serve_mode == 1) {
-		headers_vec[0].iov_base = "X-Accel-Redirect: ";
-		headers_vec[0].iov_len = 18;
-		headers_vec[1].iov_base = real_filename;
-		headers_vec[1].iov_len = real_filename_len;
-		headers_vec[2].iov_base = "\r\n";
-		headers_vec[2].iov_len = 2;
-		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
+		uwsgi_response_add_header(wsgi_req, "X-Accel-Redirect", 16, real_filename, real_filename_len); 
 		// this is the final header (\r\n added)
-		set_http_date(st->st_mtime, "Last-Modified", 13, http_last_modified, 1);
-		wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
-		wsgi_req->header_cnt += 2;
+		int size = set_http_date(st->st_mtime, http_last_modified);
+		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 	}
 	// apache
 	else if (uwsgi.file_serve_mode == 2) {
-		headers_vec[0].iov_base = "X-Sendfile: ";
-		headers_vec[0].iov_len = 12;
-		headers_vec[1].iov_base = real_filename;
-		headers_vec[1].iov_len = real_filename_len;
-		headers_vec[2].iov_base = "\r\n";
-		headers_vec[2].iov_len = 2;
-		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 3);
+		uwsgi_response_add_header(wsgi_req, "X-Sendfile", 10, real_filename, real_filename_len);
 		// this is the final header (\r\n added)
-		set_http_date(st->st_mtime, "Last-Modified", 13, http_last_modified, 1);
-		wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, http_last_modified, 48);
-		wsgi_req->header_cnt += 2;
+		int size = set_http_date(st->st_mtime, http_last_modified);
+		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 	}
 	// raw
 	else {
@@ -508,10 +437,10 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 		headers_vec[2].iov_base = "\r\n";
 		headers_vec[2].iov_len = 2;
 		// this is the final header (\r\n added)
-		set_http_date(st->st_mtime, "Last-Modified", 13, http_last_modified, 1);
+		set_http_date(st->st_mtime, http_last_modified);
 		headers_vec[3].iov_base = http_last_modified;
 		headers_vec[3].iov_len = 48;
-		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
+		//wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, headers_vec, 4);
 		wsgi_req->header_cnt += 2;
 
 		// if it is a HEAD request just skip transfer
@@ -528,10 +457,9 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 			}
 		}
 
-		wsgi_req->sendfile_fd = open(real_filename, O_RDONLY);
-		wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
-		// here we need to close the sendfile fd (no-GC involved)
-		close(wsgi_req->sendfile_fd);
+		int fd = open(real_filename, O_RDONLY);
+		uwsgi_response_sendfile_do(wsgi_req, fd, 0, st->st_size);
+		close(fd);
 	}
 
 	wsgi_req->status = 200;

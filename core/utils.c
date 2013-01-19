@@ -245,6 +245,7 @@ char *uwsgi_get_cwd() {
 // generate internal server error message
 void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
 
+/*
 	if (uwsgi.wsgi_req->headers_size == 0) {
 		if (uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] == 0) {
 			uwsgi.wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, "HTTP/1.1 500 Internal Server Error\r\nContent-type: text/html\r\n\r\n", 63);
@@ -257,6 +258,7 @@ void internal_server_error(struct wsgi_request *wsgi_req, char *message) {
 
 	uwsgi.wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "<h1>uWSGI Error</h1>", 20);
 	uwsgi.wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, message, strlen(message));
+*/
 }
 
 // check if a string_list containes an item
@@ -3900,7 +3902,7 @@ void uwsgi_simple_response_write(struct wsgi_request *wsgi_req, char *buf, size_
 }
 
 void uwsgi_simple_response_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, buf, len);
+	//wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, buf, len);
 }
 
 ssize_t uwsgi_simple_request_read(struct wsgi_request *wsgi_req, char *buf, size_t len) {

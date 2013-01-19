@@ -730,12 +730,13 @@ struct uwsgi_socket {
 
 	int (*proto) (struct wsgi_request *);
 	int (*proto_accept) (struct wsgi_request *, int);
-	 ssize_t(*proto_write) (struct wsgi_request *, char *, size_t);
-	 ssize_t(*proto_writev) (struct wsgi_request *, struct iovec *, size_t);
-	 ssize_t(*proto_write_header) (struct wsgi_request *, char *, size_t);
-	 ssize_t(*proto_writev_header) (struct wsgi_request *, struct iovec *, size_t);
-	 ssize_t(*proto_sendfile) (struct wsgi_request *);
+	 int (*proto_write) (struct wsgi_request *, char *, size_t);
+	 int (*proto_write_headers) (struct wsgi_request *, char *, size_t);
+	 int (*proto_sendfile) (struct wsgi_request *, int, size_t, size_t);
 	 ssize_t(*proto_read_body) (struct wsgi_request *, char *, size_t);
+	 struct uwsgi_buffer *(*proto_prepare_headers) (struct wsgi_request *, char *, uint16_t);
+	 struct uwsgi_buffer *(*proto_add_header) (struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+	 int(*proto_fix_headers) (struct wsgi_request *);
 	void (*proto_close) (struct wsgi_request *);
 	void (*proto_thread_fixup) (struct uwsgi_socket *, int);
 	int edge_trigger;
@@ -1125,9 +1126,8 @@ struct wsgi_request {
 	int do_not_add_to_async_queue;
 
 	int status;
-	void *status_header;
-	void *headers;
-	void *gc_tracker;
+	struct uwsgi_buffer *headers;
+
 	size_t response_size;
 	ssize_t headers_size;
 
@@ -1135,6 +1135,7 @@ struct wsgi_request {
 	int async_status;
 
 	int switches;
+	size_t write_pos;
 
 	int async_timed_out;
 	int async_ready_fd;
@@ -2073,7 +2074,7 @@ struct uwsgi_server {
 	struct uwsgi_buffer *(*channel_recv_hook)(struct wsgi_request *, int, struct uwsgi_buffer *, int);
 
 	ssize_t (*buffer_write_hook)(struct wsgi_request *, struct uwsgi_buffer *);
-	int (*nb_write_hook)(struct wsgi_request *, char *, size_t);
+	int (*wait_write_hook)(struct wsgi_request *);
 
 };
 
@@ -2898,19 +2899,15 @@ size_t uwsgi_str_num(char *, int);
 
 
 int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
-ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
-ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
 
 int uwsgi_proto_fastcgi_parser(struct wsgi_request *);
-ssize_t uwsgi_proto_fastcgi_writev_header(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request *, struct iovec *, size_t);
-ssize_t uwsgi_proto_fastcgi_write(struct wsgi_request *, char *, size_t);
-ssize_t uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
-ssize_t uwsgi_proto_fastcgi_sendfile(struct wsgi_request *);
+int uwsgi_proto_fastcgi_write(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *, int, size_t, size_t);
 void uwsgi_proto_fastcgi_close(struct wsgi_request *);
 
 
@@ -3759,6 +3756,18 @@ struct uwsgi_buffer *uwsgi_channel_recv(struct wsgi_request *, struct uwsgi_chan
 void uwsgi_channels_reset_worker_subscriptions(int);
 
 int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+
+int uwsgi_response_prepare_headers(struct wsgi_request *, char *, uint16_t);
+int uwsgi_response_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+int uwsgi_response_commit_headers(struct wsgi_request *);
+int uwsgi_response_sendfile_do(struct wsgi_request *, int, size_t, size_t);
+
+struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
+
+int uwsgi_simple_wait_write_hook(struct wsgi_request *);
+int uwsgi_response_write_headers_do(struct wsgi_request *);
+
+struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *, char *, uint16_t);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
