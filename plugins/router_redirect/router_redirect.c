@@ -6,35 +6,21 @@ extern struct uwsgi_server uwsgi;
 
 int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
-        struct iovec iov[4];
+	char *url = NULL;
 
-        if (wsgi_req->protocol_len > 0) {
-        	iov[0].iov_base = wsgi_req->protocol;
-        	iov[0].iov_len = wsgi_req->protocol_len;
-	}
-	else {
-        	iov[0].iov_base = "HTTP/1.0";
-        	iov[0].iov_len = 8;
-	}
-
-        iov[1].iov_base = " 302 Found\r\nLocation: ";
-        iov[1].iov_len = 22;
-
+	if (uwsgi_response_headers_prepare(wsgi_req, "302 Found", 9)) goto end
+	
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-	iov[2].iov_base = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
-	iov[2].iov_len = strlen(iov[2].iov_base);
+	url = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
 
-	iov[3].iov_base = "\r\n\r\n";
-	iov[3].iov_len = 4;
-
-        wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
-
-	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "Moved", 5);
-	wsgi_req->status = 302;
-
-	free(iov[2].iov_base);
+	if (uwsgi_response_add_header(wsgi_req, "Location", 8, url, strlen(url))) goto end;
+	// no need to check the ret value
+	uwsgi_response_body_write_do(wsgi_req, "Moved", 5);
+end:
+	if (url)
+		free(url);
 	return UWSGI_ROUTE_BREAK;
 }
 

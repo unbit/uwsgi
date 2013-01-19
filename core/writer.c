@@ -117,6 +117,15 @@ int uwsgi_response_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos
 
 sendfile:
 
+	if (len == 0) {
+		struct stat st;
+		if (fstat(fd, &st)) {
+			uwsgi_error("fstat()");
+			return -1;
+		}
+		len = st.st_size;
+	}
+
         for(;;) {
 		uwsgi_log("XXXX %d %d\n", pos, len);
                 int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
