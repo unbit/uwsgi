@@ -1127,7 +1127,8 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
 
     sys.path.insert(0, path)
     import uwsgiplugin as up
-    reload(up)
+    if sys.argv[1] != '--plugin':
+        reload(up)
 
     requires = []
 
@@ -1217,7 +1218,6 @@ def build_plugin(path, uc, cflags, ldflags, libs, name = None):
         p_cflags.remove('-pie')
     except:
         pass
-
 
     #for ofile in up.OBJ_LIST:
     #    gcc_list.insert(0,ofile)

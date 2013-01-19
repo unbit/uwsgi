@@ -1,28 +1,11 @@
 #include "../psgi/psgi.h"
+#include "CoroAPI.h"
 
 extern struct uwsgi_server uwsgi;
 
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req
 
-static void coro_ready(SV *coro) {
-        dSP;
-        ENTER;
-        SAVETMPS;
-        PUSHMARK(SP);
-        XPUSHs(coro);
-        PUTBACK;
-        call_method("ready", G_DISCARD);
-        uwsgi_log(" R e A D Y \n");
-        SPAGAIN;
-        if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
-        }
-        PUTBACK;
-        FREETMPS;
-        LEAVE;
-}
-
-static SV * coroae_coro_new(CV *block) {
+SV * coroae_coro_new(CV *block) {
 	SV *newobj = NULL;
 	dSP;
         ENTER;
@@ -32,7 +15,6 @@ static SV * coroae_coro_new(CV *block) {
         XPUSHs(newRV_inc((SV *)block));
         PUTBACK;
         call_method("new", G_SCALAR);
-	uwsgi_log("C a L L e D\n");
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
@@ -55,10 +37,8 @@ static int coroae_wait_fd_read(int fd, int timeout) {
         XPUSHs(newSViv(fd));
         XPUSHs(newSViv(timeout));
         PUTBACK;
-	uwsgi_log("waiting for %d\n", fd);
         call_pv("Coro::AnyEvent::readable", G_SCALAR);
         SPAGAIN;
-	uwsgi_log("ok\n");
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
         }
@@ -101,26 +81,12 @@ int coroae_wait_fd_write(int fd, int timeout) {
 }
 
 
-static void coroae_cede() {
-	dSP;
-        ENTER;
-        SAVETMPS;
-        PUSHMARK(SP);
-        PUTBACK;
-        call_pv("cede", G_DISCARD);
-	SPAGAIN;
-        if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
-        }
-        FREETMPS;
-        LEAVE;
-}
-
+// this runs in another Coro object
 XS(XS_coroae_accept_request) {
 
 	dXSARGS;
         psgi_check_args(0);
-	
+
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) XSANY.any_ptr;
 
 	// if in edge-triggered mode read from socket now !!!
@@ -133,9 +99,7 @@ XS(XS_coroae_accept_request) {
         }
 
 	for(;;) {
-		uwsgi_log("W a I t I n G\n");
 		int ret = coroae_wait_fd_read(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		uwsgi_log("done\n");
 		wsgi_req->switches++;
 	
 		if (!ret) {
@@ -152,26 +116,21 @@ XS(XS_coroae_accept_request) {
 	}
 
 request:
-	uwsgi_log("ready !!!\n");
-	//coroae_cede();
-	uwsgi_log("ready (cede) !!!\n");
-	
+
         for(;;) {
-		uwsgi_log("run code [0]\n");
                 wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
-		uwsgi_log("run code [1]\n");
                 if (wsgi_req->async_status <= UWSGI_OK) {
                         goto end;
                 }
                 wsgi_req->switches++;
                 // switch after each yield
-		coroae_cede();
+		CORO_CEDE;
         }
 
 end:
 	uwsgi_close_request(wsgi_req);
         free_req_queue;
-        XSRETURN(0);
+	XSRETURN(0);
 }
 
 XS(XS_coroae_acceptor) {
@@ -221,7 +180,7 @@ edge:
 	CV *async_xs_call = newXS(NULL, XS_coroae_accept_request, "uwsgi::coroae");
 	CvXSUBANY(async_xs_call).any_ptr = wsgi_req;
 	SV *coro_req = coroae_coro_new(async_xs_call);
-	coro_ready(coro_req);
+	CORO_READY(coro_req);
 
 	if (uwsgi_sock->edge_trigger) {
 #ifdef UWSGI_DEBUG
@@ -354,6 +313,8 @@ static void coroae_loop() {
 		uwsgi_log("unable to load Coro::AnyEvent module\n");
 		exit(1);
 	}
+
+	I_CORO_API("uwsgi::coroae");
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
