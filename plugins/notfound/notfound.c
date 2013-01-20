@@ -1,11 +1,8 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
-int uwsgi_request_notfound(struct wsgi_request *wsgi_req) {
+static int uwsgi_request_notfound(struct wsgi_request *wsgi_req) {
 
-	if (uwsgi_response_prepare_headers(wsgi_req, "404 Not Found", 13)) goto end;	
-	if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/plain", 10)) goto end;
-	return uwsgi_response_write_body_do(wsgi_req, "Not Found", 9);
-end:
+	uwsgi_404(wsgi_req);
 	return UWSGI_OK;
 }
 
