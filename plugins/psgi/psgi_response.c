@@ -8,10 +8,9 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
 	SV **status_code, **hitem ;
 	AV *headers, *body =NULL;
-	STRLEN hlen;
-	struct http_status_codes *http_sc;
-	int i,vi, base;
-	char *chitem;
+	STRLEN hlen, hlen2;
+	int i;
+	char *chitem, *chitem2;
 	SV **harakiri;
 
 #ifdef UWSGI_ASYNC
@@ -52,7 +51,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			return UWSGI_OK;
                 }
 
-                wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, chitem, hlen);
+		uwsgi_response_write_body_do(wsgi_req, chitem, hlen);
 		SvREFCNT_dec(chunk);
 
 		return UWSGI_AGAIN;
@@ -76,17 +75,13 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
         headers = (AV *) SvRV(*hitem);
 	if (!headers) { uwsgi_log("invalid PSGI headers\n"); return UWSGI_OK;}
 
-        base = 5;
-
-
-        // put them in hvec
+        // generate headers
         for(i=0; i<=av_len(headers); i++) {
-                vi = (i*2)+base;
                 hitem = av_fetch(headers,i,0);
                 chitem = SvPV(*hitem, hlen);
-                hitem2 = av_fetch(headers,i+1,0);
-                chitem2 = SvPV(*hitem, hlen);
-		if (uwsgi_response_add_header(wsgi_req, chitem, hlen, chitem2, hlen)) return UWSGI_OK;
+                hitem = av_fetch(headers,i+1,0);
+                chitem2 = SvPV(*hitem, hlen2);
+		if (uwsgi_response_add_header(wsgi_req, chitem, hlen, chitem2, hlen2)) return UWSGI_OK;
         }
 
         hitem = av_fetch(response, 2, 0);
@@ -108,7 +103,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 					if (SvTYPE(fn) == SVt_IV && SvIV(fn) >= 0) {
 						wsgi_req->sendfile_fd = SvIV(fn);
 						SvREFCNT_dec(fn);	
-						wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+						uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
 						// no need to close here as perl GC will do the close()
 						return UWSGI_OK;
 					}
@@ -121,7 +116,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 				SV *p = uwsgi_perl_obj_call(*hitem, "path");
 				wsgi_req->sendfile_fd = open(SvPV_nolen(p), O_RDONLY);
 				SvREFCNT_dec(p);	
-				wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
+				uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
 				close(wsgi_req->sendfile_fd);
 				return UWSGI_OK;
 			}
@@ -149,7 +144,8 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 				SvREFCNT_dec(chunk);
                                 break;
                         }
-                        wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, chitem, hlen);
+
+			uwsgi_response_write_body_do(wsgi_req, chitem, hlen);
 			SvREFCNT_dec(chunk);
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
@@ -174,7 +170,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                 for(i=0; i<=av_len(body); i++) {
                         hitem = av_fetch(body,i,0);
                         chitem = SvPV(*hitem, hlen);
-                        wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, chitem, hlen);
+			uwsgi_response_write_body_do(wsgi_req, chitem, hlen);
                 }
 
         }

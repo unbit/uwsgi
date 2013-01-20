@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -66,53 +66,21 @@ struct uwsgi_option uwsgi_cgi_options[] = {
 
 };
 
-void uwsgi_cgi_404(struct wsgi_request *wsgi_req) {
-
-	wsgi_req->status = 404;
-	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 404 Not Found\r\nContent-Type: text/plain\r\n\r\nNot Found", 61);
-}
-
-void uwsgi_cgi_403(struct wsgi_request *wsgi_req) {
-
-	wsgi_req->status = 403;
-	wsgi_req->headers_size += wsgi_req->socket->proto_write(wsgi_req, "HTTP/1.0 403 Forbidden\r\nContent-Type: text/plain\r\n\r\nForbidden", 61);
-
-}
-
 void uwsgi_cgi_redirect_to_slash(struct wsgi_request *wsgi_req) {
 	
-	struct iovec iov[6];
-
-	wsgi_req->status = 301;
-	iov[0].iov_base = wsgi_req->protocol;
-	iov[0].iov_len = wsgi_req->protocol_len;
-	iov[1].iov_base = " 301 Moved Permanently\r\n";
-	iov[1].iov_len = 24;
-	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
-
-	iov[0].iov_base = "Location: ";
-	iov[0].iov_len = 10;
-	iov[1].iov_base = wsgi_req->path_info;
-	iov[1].iov_len = wsgi_req->path_info_len;
-	iov[2].iov_base = "/";
-	iov[2].iov_len = 1;
+	if (uwsgi_response_prepare_headers(wsgi_req, "301 Moved Permanently", 21)) return;
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(wsgi_req->path_info_len + 1 + wsgi_req->query_string_len + 1 + 8);
+	if (uwsgi_buffer_append(ub, wsgi_req->path_info, wsgi_req->path_info_len)) goto end;
+	if (uwsgi_buffer_append(ub, "/", 1)) goto end;
 
 	if (wsgi_req->query_string_len > 0) {
-		iov[3].iov_base = "?";
-		iov[3].iov_len = 1;
-		iov[4].iov_base = wsgi_req->query_string;
-		iov[4].iov_len = wsgi_req->query_string_len;
-		iov[5].iov_base = "\r\n\r\n";
-		iov[5].iov_len = 4;
-		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 6);
-		wsgi_req->header_cnt++;
+		if (uwsgi_buffer_append(ub, "?", 1)) goto end;
+		if (uwsgi_buffer_append(ub, wsgi_req->query_string, wsgi_req->query_string_len)) goto end;
 	}
-	else {
-		iov[3].iov_base = "\r\n\r\n";
-		iov[3].iov_len = 4;
-		wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
-		wsgi_req->header_cnt++;
-	}
+	uwsgi_response_add_header(wsgi_req, "Location", 8, ub->buf, ub->pos);
+end:
+	uwsgi_buffer_destroy(ub);
+	return;
 }
 
 void uwsgi_cgi_apps() {
@@ -235,10 +203,6 @@ int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	size_t header_size = 0;
 	int status_sent = 0;
 
-	struct uwsgi_string_list *ah = uwsgi.additional_headers;
-
-	struct iovec iov[4];
-
 	for(i=0;i<len;i++) {
 		// end of a line
 		if (buf[i] == '\n') {
@@ -267,16 +231,7 @@ int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 				// "Status: NNN"
 				if (header_size >= 11) {
 					if (!strncasecmp("Status: ", key, 8)) {
-						wsgi_req->status = uwsgi_str3_num(key+8);
-						iov[0].iov_base = wsgi_req->protocol;
-						iov[0].iov_len = wsgi_req->protocol_len;
-						iov[1].iov_base = " ";
-                                		iov[1].iov_len = 1;
-						iov[2].iov_base = key+8;
-						iov[2].iov_len = header_size - 8;
-						iov[3].iov_base = "\r\n";
-                                		iov[3].iov_len = 2;
-						wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
+						uwsgi_response_prepare_headers(wsgi_req, key+8, header_size - 8);
 						status_sent = 1;
 						key = NULL;
 						value = NULL;
@@ -291,34 +246,18 @@ int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 				// Location: X
 				if (header_size >= 11) {
 					if (!strncasecmp("Location: ", key, 10)) {
-
-						wsgi_req->status = 302;
-						iov[0].iov_base = wsgi_req->protocol;
-						iov[0].iov_len = wsgi_req->protocol_len;
-						iov[1].iov_base = " 302 Found\r\n";
-						iov[1].iov_len = 12;
-						wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
+						uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9);
 						status_sent = 1;
 					}
 				}
 
 				if (status_sent == 0) {
-					wsgi_req->status = 200;
-					iov[0].iov_base = wsgi_req->protocol;
-					iov[0].iov_len = wsgi_req->protocol_len;
-					iov[1].iov_base = " 200 OK\r\n";
-					iov[1].iov_len = 9;
-					wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
+					uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
 					status_sent = 1;
 				}
 			}
 
-			iov[0].iov_base = key;
-			iov[0].iov_len = header_size;
-			iov[1].iov_base = "\r\n";
-                        iov[1].iov_len = 2;
-			wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
-                        wsgi_req->header_cnt++;
+			uwsgi_response_add_header(wsgi_req, NULL, 0, key, header_size);
 
 			key = NULL;
 			value = NULL;
@@ -337,30 +276,8 @@ int uwsgi_cgi_parse(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 
 send_body:
 
-        while(ah) {
-        	iov[0].iov_base = ah->value;
-        	iov[0].iov_len = ah->len;
-                iov[1].iov_base = "\r\n";
-                iov[1].iov_len = 2;
-                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
-                wsgi_req->header_cnt++;
-        	ah = ah->next;
-        }
-
-	ah = wsgi_req->additional_headers;
-	while(ah) {
-                iov[0].iov_base = ah->value;
-                iov[0].iov_len = ah->len;
-                iov[1].iov_base = "\r\n";
-                iov[1].iov_len = 2;
-                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
-                wsgi_req->header_cnt++;
-                ah = ah->next;
-        }
-
-	wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, "\r\n", 2);
 	if (len-i > 0) {
-		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, buf+i, len-i);
+		uwsgi_response_write_body_do(wsgi_req, buf+i, len-i);
 	}
 
 	return 0;	
@@ -443,7 +360,7 @@ int uwsgi_cgi_walk(struct wsgi_request *wsgi_req, char *full_path, char *docroot
                         *(dst+part_size-1) = 0;
 
                         if (stat(full_path, &st)) {
-                        	uwsgi_cgi_404(wsgi_req);
+                        	uwsgi_404(wsgi_req);
                                 return -1;
                         }
 
@@ -528,7 +445,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (docroot == NULL || docroot_len == 0) {
-		uwsgi_cgi_404(wsgi_req);
+		uwsgi_404(wsgi_req);
 		return UWSGI_OK;
 	}
 
@@ -548,7 +465,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		if (realpath(full_path, tmp_path) == NULL) {
 			if (need_free)
 				free(docroot);
-			uwsgi_cgi_404(wsgi_req);
+			uwsgi_404(wsgi_req);
 			return UWSGI_OK;
 		}
 
@@ -570,7 +487,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (stat(full_path, &cgi_stat)) {
-		uwsgi_cgi_404(wsgi_req);
+		uwsgi_404(wsgi_req);
 		if (need_free)
 			free(docroot);
 		return UWSGI_OK;
@@ -603,7 +520,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		}
 
 		if (!found) {
-			uwsgi_cgi_404(wsgi_req);
+			uwsgi_404(wsgi_req);
 			if (need_free)
 				free(docroot);
 			return UWSGI_OK;
@@ -627,7 +544,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	}
 
 	if (!cgi_allowed) {
-		uwsgi_cgi_403(wsgi_req);
+		uwsgi_403(wsgi_req);
 		if (need_free)
 			free(docroot);
 		return UWSGI_OK;
@@ -643,7 +560,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		if (helper == NULL) {
 			if (access(full_path, X_OK)) {
 				uwsgi_error("access()");
-				uwsgi_cgi_403(wsgi_req);
+				uwsgi_403(wsgi_req);
                 		if (need_free)
                         		free(docroot);
 				return UWSGI_OK;
@@ -742,7 +659,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 			if (ret > 0) {
 				len = read(cgi_pipe[0], headers_buf, uc.buffer_size);
 				if (len > 0) {
-					wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, headers_buf, len);
+					uwsgi_response_write_body_do(wsgi_req, headers_buf, len);
 				}
 				// end of output
 				else if (len == 0) {

@@ -455,7 +455,7 @@ class uConf(object):
             'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile',
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/channels',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/writer',
-            'core/plugins', 'core/lock', 'core/cache', 'core/daemons',
+            'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors',
             'core/queue', 'core/event', 'core/signal', 'core/cluster',
             'core/rpc', 'core/gateway', 'core/loop', 'lib/rbtree', 'core/rb_timers', 'core/uwsgi']
         # add protocols

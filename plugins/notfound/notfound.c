@@ -2,28 +2,10 @@
 
 int uwsgi_request_notfound(struct wsgi_request *wsgi_req) {
 
-        struct iovec iov[3];
-
-        if (wsgi_req->protocol_len > 0) {
-        	iov[0].iov_base = wsgi_req->protocol;
-        	iov[0].iov_len = wsgi_req->protocol_len;
-	}
-	else {
-        	iov[0].iov_base = "HTTP/1.0";
-        	iov[0].iov_len = 8;
-	}
-
-        iov[1].iov_base = " 404 Not Found\r\n";
-        iov[1].iov_len = 16;
-
-        iov[2].iov_base = "Content-Type: text/plain\r\n\r\n";
-        iov[2].iov_len = 28;
-
-        wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, iov, 3);
-
-	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, "Not Found", 9);
-	wsgi_req->status = 404;
-
+	if (uwsgi_response_prepare_headers(wsgi_req, "404 Not Found", 13)) goto end;	
+	if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/plain", 10)) goto end;
+	return uwsgi_response_write_body_do(wsgi_req, "Not Found", 9);
+end:
 	return UWSGI_OK;
 }
 

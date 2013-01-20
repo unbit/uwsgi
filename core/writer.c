@@ -51,6 +51,19 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
 		return UWSGI_OK;
 	}
 
+	struct uwsgi_string_list *ah = uwsgi.additional_headers;
+	while(ah) {
+		if (uwsgi_response_add_header(wsgi_req, NULL, 0, ah->value, ah->len)) return -1;
+                ah = ah->next;
+        }
+
+        ah = wsgi_req->additional_headers;
+        while(ah) {
+		if (uwsgi_response_add_header(wsgi_req, NULL, 0, ah->value, ah->len)) return -1;
+                ah = ah->next;
+        }
+
+
 	if (wsgi_req->socket->proto_fix_headers(wsgi_req)) return -1;
 
 	for(;;) {

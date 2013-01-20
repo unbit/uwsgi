@@ -651,7 +651,7 @@ static VALUE send_body(VALUE obj) {
 
 	//uwsgi_log("sending body\n");
 	if (TYPE(obj) == T_STRING) {
-		wsgi_req->response_size += wsgi_req->socket->proto_write( wsgi_req, RSTRING_PTR(obj), RSTRING_LEN(obj));
+		uwsgi_response_write_body_do(wsgi_req, RSTRING_PTR(obj), RSTRING_LEN(obj));
 	}
 	else {
 		uwsgi_log("UNMANAGED BODY TYPE %d\n", TYPE(obj));
@@ -715,21 +715,11 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	size_t header_value_len = RSTRING_LEN(hval);
 	size_t i,cnt=0;
 	char *this_header = header_value;
-	struct iovec iov[4];
 
 	for(i=0;i<header_value_len;i++) {
 		// multiline header, send it !!!
 		if (header_value[i] == '\n') {
-			iov[0].iov_base = RSTRING_PTR(hkey); iov[0].iov_len = RSTRING_LEN(hkey);
-			iov[1].iov_base = (char *)": "; iov[1].iov_len = 2;
-			iov[2].iov_base = this_header; iov[2].iov_len = cnt;
-			iov[3].iov_base = (char *)"\r\n"; iov[3].iov_len = 2;
-                	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header( wsgi_req, iov, 4);
-
-			//uwsgi_log("(multi) --%.*s: %.*s--\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), cnt, this_header);
-
-			wsgi_req->header_cnt++;
-
+			uwsgi_response_add_header(wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey), this_header, cnt);
 			this_header += cnt+1;
 			cnt = 0;
 			continue;
@@ -738,13 +728,7 @@ VALUE send_header(VALUE obj, VALUE headers) {
 	}
 
 	if (cnt > 0) {
-		iov[0].iov_base = RSTRING_PTR(hkey); iov[0].iov_len = RSTRING_LEN(hkey);
-		iov[1].iov_base = (char *)": "; iov[1].iov_len = 2;
-		iov[2].iov_base = this_header; iov[2].iov_len = cnt;
-		iov[3].iov_base = (char *)"\r\n"; iov[3].iov_len = 2;
-                wsgi_req->headers_size += wsgi_req->socket->proto_writev_header( wsgi_req, iov, 4);
-		wsgi_req->header_cnt++;
-		//uwsgi_log("--%.*s: %.*s--\n", RSTRING_LEN(hkey), RSTRING_PTR(hkey), cnt, this_header);
+		uwsgi_response_add_header(wsgi_req, RSTRING_PTR(hkey), RSTRING_LEN(hkey), this_header, cnt);
 	}
 
 clear:
@@ -769,8 +753,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	int error = 0;
 	int i;
 	VALUE env, ret, status, headers, body;
-
-	struct http_status_codes *http_sc;
 
 	if (!ur.call) {
 		internal_server_error(wsgi_req, "Ruby application not found");
@@ -878,34 +860,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 		status = rb_obj_as_string(RARRAY_PTR(ret)[0]);
 		// get the status code
 
-		wsgi_req->hvec[0].iov_base = wsgi_req->protocol;
-        	wsgi_req->hvec[0].iov_len = wsgi_req->protocol_len ;
-
-		wsgi_req->hvec[1].iov_base = (char *) " ";
-        	wsgi_req->hvec[1].iov_len = 1 ;
-
-        	wsgi_req->hvec[2].iov_base = RSTRING_PTR(status);
-        	wsgi_req->hvec[2].iov_len = 3 ;
-
-		wsgi_req->status = atoi(RSTRING_PTR(status));
-
-        	wsgi_req->hvec[3].iov_base = (char *) " ";
-        	wsgi_req->hvec[3].iov_len = 1 ;
-
-        	wsgi_req->hvec[4].iov_len = 0 ;
-
-        	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                	if (!strncmp(http_sc->key, RSTRING_PTR(status), 3)) {
-                        	wsgi_req->hvec[4].iov_base = (char *) http_sc->message ;
-                        	wsgi_req->hvec[4].iov_len = http_sc->message_size ;
-                        	break;
-                	}
-        	}
-
-        	wsgi_req->hvec[5].iov_base = (char *) "\r\n";
-        	wsgi_req->hvec[5].iov_len = 2 ;
-
-		wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 6);
+		uwsgi_response_prepare_headers(wsgi_req, RSTRING_PTR(status), RSTRING_LEN(status));
 
 		headers = RARRAY_PTR(ret)[1] ;
 		if (rb_respond_to( headers, rb_intern("each") )) {
@@ -916,31 +871,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			}
 		}
 
-		struct uwsgi_string_list *ah = uwsgi.additional_headers;
-		struct iovec iov[2];
-		while(ah) {
-                	iov[0].iov_base = ah->value;
-                	iov[0].iov_len = ah->len;
-                	iov[1].iov_base = "\r\n";
-                	iov[1].iov_len = 2;
-                	wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
-                	wsgi_req->header_cnt++;
-                	ah = ah->next;
-        	}
-		ah = wsgi_req->additional_headers;
-		while(ah) {
-                        iov[0].iov_base = ah->value;
-                        iov[0].iov_len = ah->len;
-                        iov[1].iov_base = "\r\n";
-                        iov[1].iov_len = 2;
-                        wsgi_req->headers_size += wsgi_req->socket->proto_writev_header(wsgi_req, iov, 2);
-                        wsgi_req->header_cnt++;
-                        ah = ah->next;
-                }
-
-
-		wsgi_req->socket->proto_write(wsgi_req, (char *)"\r\n", 2);
-
 		body = RARRAY_PTR(ret)[2] ;
 
 		if (rb_respond_to( body, rb_intern("to_path") )) {
@@ -950,13 +880,7 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			}
 			else {
 				wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
-				wsgi_req->response_size = uwsgi_sendfile(wsgi_req);
-				if (wsgi_req->response_size > 0) {
-					while(wsgi_req->response_size < wsgi_req->sendfile_fd_size) {
-						//uwsgi_log("sendfile_fd_size = %d\n", wsgi_req->sendfile_fd_size);
-						wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
-					}
-				}
+				uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
 				// we need to close it...
 				close(wsgi_req->sendfile_fd);
 			}

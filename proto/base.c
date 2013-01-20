@@ -118,11 +118,19 @@ void uwsgi_proto_base_close(struct wsgi_request *wsgi_req) {
 }
 
 struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *wsgi_req, char *k, uint16_t kl, char *v, uint16_t vl) {
-	struct uwsgi_buffer *ub = uwsgi_buffer_new(kl + 2 + vl + 2);
-	if (uwsgi_buffer_append(ub, k, kl)) goto end;
-	if (uwsgi_buffer_append(ub, ": ", 2)) goto end;
-	if (uwsgi_buffer_append(ub, v, vl)) goto end;
-	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
+	struct uwsgi_buffer *ub = NULL;
+	if (kl > 0) {
+		ub = uwsgi_buffer_new(kl + 2 + vl + 2);
+		if (uwsgi_buffer_append(ub, k, kl)) goto end;
+		if (uwsgi_buffer_append(ub, ": ", 2)) goto end;
+		if (uwsgi_buffer_append(ub, v, vl)) goto end;
+		if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
+	}
+	else {
+		ub = uwsgi_buffer_new(vl + 2);
+		if (uwsgi_buffer_append(ub, v, vl)) goto end;
+                if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
+	}
 	return ub;
 end:
 	uwsgi_buffer_destroy(ub);

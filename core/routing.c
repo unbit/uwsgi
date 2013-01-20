@@ -336,9 +336,9 @@ static int uwsgi_router_signal(struct uwsgi_route *ur, char *arg) {
 
 // send route
 static int uwsgi_router_send_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, route->data, route->data_len);
+	uwsgi_response_write_body_do(wsgi_req, route->data, route->data_len);
 	if (route->custom) {
-		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2);
+		uwsgi_response_write_body_do(wsgi_req, "\r\n", 2);
 	}
         return UWSGI_ROUTE_NEXT;
 }
@@ -353,10 +353,6 @@ static int uwsgi_router_send_crnl(struct uwsgi_route *ur, char *arg) {
         ur->custom = 1;
         return 0;
 }
-
-
-
-
 
 
 // register embedded routers

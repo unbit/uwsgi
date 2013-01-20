@@ -329,9 +329,6 @@ clear:
 
 int uwsgi_perl_init(){
 
-
-	struct http_status_codes *http_sc;
-
 	int argc;
 	int i;
 

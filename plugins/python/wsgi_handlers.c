@@ -441,7 +441,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	if (wsgi_req->app_id == -1) {
-		internal_server_error(wsgi_req, "Python application not found");
+		uwsgi_500(wsgi_req);
+		uwsgi_log("--- no python application found, check your startup logs for errors ---\n");
 		goto clear2;
 	}
 

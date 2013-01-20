@@ -197,7 +197,7 @@ XS(XS_streaming_write) {
 
         body = SvPV(ST(1), blen);
 
-        wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, body, blen);
+	uwsgi_response_write_body_do(wsgi_req, body, blen);
 
         XSRETURN(0);
 }
