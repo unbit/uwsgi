@@ -1,23 +1,23 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_example_init(){
+static int uwsgi_example_init(){
 	uwsgi_log("i am the example plugin initialization function\n");
 	return 0;
 }
 
-int uwsgi_example_request(struct wsgi_request *wsgi_req) {
+static int uwsgi_example_request(struct wsgi_request *wsgi_req) {
 
-	char *http = "HTTP/1.1 200 Ok\r\nContent-type: text/html\r\n\r\n<h1>Hello World</h1>";
+	uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6);
+	uwsgi_response_add_header(wsgi_req, "Content-type", 12, "text/html", 9);
+	uwsgi_response_write_body_do(wsgi_req, "<h1>Hello World</h1>", 20);
 
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, http, strlen(http));
-
-	return 0;
+	return UWSGI_OK;
 }
 
 
-void uwsgi_example_after_request(struct wsgi_request *wsgi_req) {
+static void uwsgi_example_after_request(struct wsgi_request *wsgi_req) {
 	uwsgi_log("i am the example plugin after request function\n");
 }
 
