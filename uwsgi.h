@@ -1523,6 +1523,7 @@ struct uwsgi_server {
 	int cpu_affinity;
 
 	int reload_mercy;
+	int worker_reload_mercy;
 	// map reloads to death
 	int exit_on_reload;
 
@@ -2371,6 +2372,8 @@ struct uwsgi_worker {
 	int suspended;
         int sig;
 	uint8_t signum;
+
+	time_t stopped_at;
 
 	// signals managed by this worker
         uint64_t signals;

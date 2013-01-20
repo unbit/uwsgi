@@ -107,6 +107,8 @@ void uwsgi_init_default() {
 
 	uwsgi.log_master_bufsize = 8192;
 
+	uwsgi.worker_reload_mercy = 60;
+
 	uwsgi.max_vars = MAX_VARS;
 	uwsgi.vec_size = 4 + 1 + (4 * MAX_VARS);
 
