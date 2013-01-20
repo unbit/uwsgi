@@ -119,12 +119,17 @@ int spawn_emergency_worker(int backlog) {
 		}
 	}
 
-	uwsgi_cheaper_busyness_global.emergency_workers += decheaped;
-
+	// reset cheap timer, so that we need to start counting idle cycles from zero
 	set_next_cheap_time();
 
-	uwsgi_log("[busyness] %d requests in listen queue, spawning %d emergency worker(s) (%d)!\n",
-		backlog, decheaped, uwsgi_cheaper_busyness_global.emergency_workers);
+	if (decheaped > 0) {
+		uwsgi_cheaper_busyness_global.emergency_workers += decheaped;
+		uwsgi_log("[busyness] %d requests in listen queue, spawning %d emergency worker(s) (%d)!\n",
+			backlog, decheaped, uwsgi_cheaper_busyness_global.emergency_workers);
+	} else {
+		uwsgi_log("[busyness] %d requests in listen queue but we are already started maximum number of workers (%d)\n",
+			backlog, uwsgi.numproc);
+	}
 
 	return decheaped;
 }
