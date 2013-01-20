@@ -10,9 +10,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-// http status codes list
-extern struct http_status_codes hsc[];
-
 static sapi_module_struct uwsgi_sapi_module;
 
 struct uwsgi_php {
@@ -548,8 +545,6 @@ static sapi_module_struct uwsgi_sapi_module = {
 
 int uwsgi_php_init(void) {
 
-	struct http_status_codes *http_sc;
-
 	struct uwsgi_string_list *pset = uphp.set;
 	struct uwsgi_string_list *append_config = uphp.append_config;
 
@@ -582,11 +577,6 @@ int uwsgi_php_init(void) {
 	}
 
 	uwsgi_sapi_module.startup(&uwsgi_sapi_module);
-
-	// filling http status codes
-        for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                http_sc->message_size = strlen(http_sc->message);
-        }
 
 	uwsgi_log("PHP %s initialized\n", PHP_VERSION);
 

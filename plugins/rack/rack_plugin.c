@@ -57,11 +57,6 @@ void uwsgi_ruby_exception(void) {
 }
 
 
-
-
-extern struct http_status_codes hsc[];
-
-
 VALUE rb_uwsgi_io_new(VALUE class, VALUE wr) {
 
 	struct wsgi_request *wsgi_req;
@@ -430,18 +425,11 @@ static void rack_hack_dollar_zero(VALUE name, ID id) {
 
 int uwsgi_rack_init(){
 
-	struct http_status_codes *http_sc;
 #ifdef RUBY19
 	int argc = 2;
 	char *sargv[] = { (char *) "uwsgi", (char *) "-e0" };
 	char **argv = sargv;
 #endif
-
-
-	// filling http status codes
-        for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                http_sc->message_size = (int) strlen(http_sc->message);
-        }
 
 	if (ur.gemset) {
 		uwsgi_ruby_gemset(ur.gemset);

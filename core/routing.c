@@ -2,8 +2,6 @@
 #include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
-// http status codes list
-extern struct http_status_codes hsc[];
 
 static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req) {
 
@@ -210,14 +208,6 @@ static int uwsgi_router_break(struct uwsgi_route *ur, char *arg) {
 	ur->func = uwsgi_router_break_func;
 	ur->data = arg;
         ur->data_len = strlen(arg);
-	if (ur->data_len >=3 ) {
-		// filling http status codes
-		struct http_status_codes *http_sc;
-        	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                	http_sc->message_size = strlen(http_sc->message);
-        	}
-		ur->custom = uwsgi_str3_num(ur->data);
-	}
 	return 0;
 }
 

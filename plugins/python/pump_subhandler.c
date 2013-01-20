@@ -5,9 +5,6 @@ extern struct uwsgi_python up;
 extern PyTypeObject uwsgi_InputType;
 
 
-extern struct http_status_codes hsc[];
-
-
 void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_app *wi) {
 
 	PyObject *zero;

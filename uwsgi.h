@@ -2442,12 +2442,6 @@ void manage_opt(int, char *);
 void uwsgi_cluster_add_node(struct uwsgi_cluster_node *, int);
 int uwsgi_ping_node(int, struct wsgi_request *);
 
-struct http_status_codes {
-	const char key[3];
-	const char *message;
-	int message_size;
-};
-
 #ifdef UWSGI_ASYNC
 void uwsgi_async_init(void);
 void async_loop();
@@ -3770,6 +3764,8 @@ int uwsgi_proto_base_sendfile(struct wsgi_request *, int, size_t, size_t);
 ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
 int uwsgi_proto_base_fix_headers(struct wsgi_request *);
 int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
+
+const char *uwsgi_http_status_msg(char *, size_t *);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)

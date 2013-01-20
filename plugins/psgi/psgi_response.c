@@ -2,8 +2,6 @@
 
 extern struct uwsgi_server uwsgi;
 
-extern struct http_status_codes hsc[];
-
 int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
 	SV **status_code, **hitem ;

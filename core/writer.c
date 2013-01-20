@@ -24,7 +24,26 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 
 	// reset the buffer (could be useful for rollbacks...)
 	wsgi_req->headers->pos = 0;
-	struct uwsgi_buffer *hh = wsgi_req->socket->proto_prepare_headers(wsgi_req, status, status_len);
+	struct uwsgi_buffer *hh = NULL;
+	if (status_len <= 4) {
+		char *new_sc = NULL;
+		size_t new_sc_len = 0;
+		size_t sc_len = 0;
+		const char *sc = uwsgi_http_status_msg(status, &sc_len);
+		if (sc) {
+			new_sc = uwsgi_concat3n(status, 3, " ", 1, (char *)sc, sc_len);
+			new_sc_len = 4+sc_len;
+		}
+		else {	
+			new_sc = uwsgi_concat2n(status, 3, " Unknown", 8);
+			new_sc_len = 11;
+		}
+		hh = wsgi_req->socket->proto_prepare_headers(wsgi_req, new_sc, new_sc_len);
+		free(new_sc);
+	}
+	else {
+		hh = wsgi_req->socket->proto_prepare_headers(wsgi_req, status, status_len);
+	}
 	if (!hh) {wsgi_req->write_errors++; return -1;}
         if (uwsgi_buffer_append(wsgi_req->headers, hh->buf, hh->pos)) goto error;
         uwsgi_buffer_destroy(hh);
