@@ -91,7 +91,17 @@ uint16_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uin
 int uwsgi_proto_base_accept(struct wsgi_request *wsgi_req, int fd) {
 
 	wsgi_req->c_len = sizeof(struct sockaddr_un);
+#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
+        return accept4(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) & wsgi_req->c_len, SOCK_NONBLOCK);
+#elif defined(__linux__)
+	int client_fd = accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) & wsgi_req->c_len);
+	if (client_fd >= 0) {
+		uwsgi_socket_nb(client_fd);
+	}
+	return client_fd;
+#else
 	return accept(fd, (struct sockaddr *) &wsgi_req->c_addr, (socklen_t *) & wsgi_req->c_len);
+#endif
 }
 
 void uwsgi_proto_base_close(struct wsgi_request *wsgi_req) {

@@ -5,7 +5,7 @@ extern struct uwsgi_server uwsgi;
 // status could be NNN or NNN message
 int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, uint16_t status_len) {
 
-	if (wsgi_req->headers_sent || wsgi_req->headers_size || wsgi_req->response_size) return -1;
+	if (wsgi_req->headers_sent || wsgi_req->headers_size || wsgi_req->response_size || status_len < 3) return -1;
 
 	if (!wsgi_req->headers) {
 		wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
@@ -18,6 +18,7 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 	if (!hh) return -1;
         if (uwsgi_buffer_append(wsgi_req->headers, hh->buf, hh->pos)) goto error;
         uwsgi_buffer_destroy(hh);
+	wsgi_req->status = uwsgi_str3_num(status);
         return 0;
 error:
         uwsgi_buffer_destroy(hh);
@@ -79,8 +80,15 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
 int uwsgi_response_write_body_do(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 
 	if (!wsgi_req->headers_sent) {
-		return uwsgi_response_write_headers_do(wsgi_req);
+		int ret = uwsgi_response_write_headers_do(wsgi_req);
+                if (ret == UWSGI_OK) goto sendbody;
+                if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
+                return -1;
 	}
+
+sendbody:
+
+	if (len == 0) return UWSGI_OK;
 
 	for(;;) {
 		int ret = wsgi_req->socket->proto_write(wsgi_req, buf, len);

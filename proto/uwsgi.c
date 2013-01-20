@@ -140,6 +140,7 @@ int uwsgi_proto_uwsgi_sendfile(struct wsgi_request * wsgi_req, int fd, size_t po
                 wsgi_req->write_pos += wlen;
 		uwsgi_log("write_pos %d %d\n", wsgi_req->write_pos, len);
                 if (wsgi_req->write_pos == len) {
+			uwsgi_log("OK\n");
                         return UWSGI_OK;
                 }
                 return UWSGI_AGAIN;

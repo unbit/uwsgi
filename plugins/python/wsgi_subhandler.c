@@ -82,9 +82,7 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", wi->gateway_version);
 
-	zero = PyFile_FromFile(stderr, "wsgi_errors", "w", NULL);
-	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.errors", zero);
-	Py_DECREF(zero);
+	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.errors", wi->error);
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.run_once", Py_False);
 

@@ -171,6 +171,7 @@ ssize_t uwsgi_proto_fastcgi_writev(struct wsgi_request * wsgi_req, struct iovec 
 }
 
 int uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
+/*
 	struct fcgi_record fr;
 
 	// in fastcgi we need to not send 0 sized frames
@@ -185,7 +186,6 @@ int uwsgi_proto_fastcgi_write(struct wsgi_request * wsgi_req, char *buf, size_t 
 	fr.reserved = 0;
 	fr.cl = htons(len);
 
-/*
 	// still trying to send the fcgi header ?
 	if (*written < 8) {
 		char *ptr = (char *) &fr;

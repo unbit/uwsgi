@@ -61,6 +61,7 @@ static uint16_t htpasswd_check(char *filename, char *auth) {
 
 int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
+/*
         struct iovec iov[4];
 
         if (wsgi_req->protocol_len > 0) {
@@ -71,6 +72,7 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
         	iov[0].iov_base = "HTTP/1.0";
         	iov[0].iov_len = 8;
 	}
+*/
 
 	// check for "Basic =" string at least
 	if (wsgi_req->authorization_len > 7 && ur->data2_len > 0) {
