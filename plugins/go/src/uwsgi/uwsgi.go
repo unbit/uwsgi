@@ -312,10 +312,11 @@ func (w *ResponseWriter) Write(p []byte) (n int, err error) {
 	}
 
 	m := len(p)
-	C.uwsgi_simple_response_write(w.wsgi_req, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(m))
+	C.uwsgi_response_write_body_do(w.wsgi_req, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(m))
 	return m+n, err
 }
 
+// TODO fix it !!!
 func (w *ResponseWriter) WriteHeader(status int) {
 	proto := "HTTP/1.0"
 	if w.r.ProtoAtLeast(1, 1) {
@@ -323,7 +324,8 @@ func (w *ResponseWriter) WriteHeader(status int) {
 	}
 	codestring := http.StatusText(status)
 	w.headers_chunk += proto + " " + strconv.Itoa(status) + " " + codestring + "\r\n"
-	C.uwsgi_simple_set_status(w.wsgi_req, C.int(status))
+	c_status := C.CString(w.headers_chunk)
+	C.uwsgi_response_preare_headers(w.wsgi_req, c_status, C.size_t(len(w.headers_chunk)) )
 	if w.headers.Get("Content-Type") == "" {
 		w.headers.Set("Content-Type", "text/html; charset=utf-8")
 	}
@@ -332,10 +334,8 @@ func (w *ResponseWriter) WriteHeader(status int) {
 			v = strings.NewReplacer("\n", " ", "\r", " ").Replace(v)
 			v = strings.TrimSpace(v)
 			w.headers_chunk += k + ": " + v + "\r\n"
-			C.uwsgi_simple_inc_headers(w.wsgi_req)
 		}
 	}
-	w.headers_chunk += "\r\n"
 	c_h_chunk := C.CString(w.headers_chunk)
 	defer C.free(unsafe.Pointer(c_h_chunk))
 	C.uwsgi_simple_response_write_header(w.wsgi_req, c_h_chunk, C.size_t(len(w.headers_chunk)))
