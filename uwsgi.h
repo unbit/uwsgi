@@ -2898,8 +2898,8 @@ size_t uwsgi_str_num(char *, int);
 
 
 int uwsgi_proto_uwsgi_parser(struct wsgi_request *);
-int uwsgi_proto_uwsgi_write(struct wsgi_request *, char *, size_t);
-int uwsgi_proto_uwsgi_write_header(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_base_write(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_base_write_header(struct wsgi_request *, char *, size_t);
 
 int uwsgi_proto_http_parser(struct wsgi_request *);
 
@@ -3765,10 +3765,10 @@ int uwsgi_response_write_headers_do(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *, char *, uint16_t);
 int uwsgi_response_write_body_do(struct wsgi_request *, char *, size_t);
 
-int uwsgi_proto_uwsgi_sendfile(struct wsgi_request *, int, size_t, size_t);
+int uwsgi_proto_base_sendfile(struct wsgi_request *, int, size_t, size_t);
 
 ssize_t uwsgi_sendfile_do(int, int, size_t, size_t);
-int uwsgi_proto_uwsgi_fix_headers(struct wsgi_request *);
+int uwsgi_proto_base_fix_headers(struct wsgi_request *);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY
