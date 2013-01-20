@@ -3675,10 +3675,6 @@ char *uwsgi_matheval_str(char *);
 int uwsgi_kvlist_parse(char *, size_t, char, char, ...);
 int uwsgi_send_http_stats(int);
 
-void uwsgi_simple_response_write(struct wsgi_request *, char *, size_t);
-void uwsgi_simple_response_write_header(struct wsgi_request *, char *, size_t);
-void uwsgi_simple_set_status(struct wsgi_request *, int status);
-void uwsgi_simple_inc_headers(struct wsgi_request *);
 ssize_t uwsgi_simple_request_read(struct wsgi_request *, char *, size_t);
 int uwsgi_plugin_modifier1(char *);
 

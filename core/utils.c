@@ -3863,22 +3863,6 @@ error:
 	return -1;
 }
 
-void uwsgi_simple_set_status(struct wsgi_request *wsgi_req, int status) {
-	wsgi_req->status = status;
-}
-
-void uwsgi_simple_inc_headers(struct wsgi_request *wsgi_req) {
-	wsgi_req->header_cnt++;
-}
-
-void uwsgi_simple_response_write(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-	wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, buf, len);
-}
-
-void uwsgi_simple_response_write_header(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-	//wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, buf, len);
-}
-
 ssize_t uwsgi_simple_request_read(struct wsgi_request *wsgi_req, char *buf, size_t len) {
 	if (wsgi_req->post_cl == 0)
 		return 0;
