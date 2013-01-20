@@ -431,16 +431,8 @@ ssize_t hr_instance_connected(struct corerouter_peer* peer) {
 	
 	cr_peer_connected(peer, "hr_instance_connected()");
 
-        // fix modifiers
-        peer->out->buf[0] = peer->session->main_peer->modifier1;
-        peer->out->buf[3] = peer->session->main_peer->modifier2;
-	// fix pktsize
-	peer->out->buf[1] = (uint8_t) ((peer->out->pos-4) & 0xff);
-        peer->out->buf[2] = (uint8_t) (((peer->out->pos-4) >> 8) & 0xff);
-
 	// prepare for write
 	peer->out_pos = 0;
-
 
 #ifdef UWSGI_SSL
 	if (hr->websockets > 2 && hr->websocket_key_len > 0) {
@@ -592,7 +584,12 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 		else if (*ptr == '\n' && hr->rnrn == 3) {
 			hr->rnrn = 4;
 			hr->headers_size = j;
-			hr->remains = len - (j + 1);
+
+			// for security
+			if ((j+1) <= len) {
+				hr->remains = len - (j+1);
+			}
+
 			struct uwsgi_corerouter *ucr = main_peer->session->corerouter;
 
 			// create a new peer
@@ -620,6 +617,14 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
                 	if (new_peer->instance_address_len == 0)
                         	return -1;
 
+			uint16_t pktsize = new_peer->out->pos-4;
+        		// fix modifiers
+        		new_peer->out->buf[0] = new_peer->session->main_peer->modifier1;
+        		new_peer->out->buf[3] = new_peer->session->main_peer->modifier2;
+        		// fix pktsize
+        		new_peer->out->buf[1] = (uint8_t) (pktsize & 0xff);
+        		new_peer->out->buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
+
 			if (hr->remains > 0) {
 				hr->can_keepalive = 0;
 				if (hr->content_length < hr->remains) { 
@@ -629,7 +634,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				else {
 					hr->content_length -= hr->remains;
 				}
-				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size, hr->remains)) return -1;
+				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size + 1, hr->remains)) return -1;
 			}
 
 			if (hr->can_keepalive) {
