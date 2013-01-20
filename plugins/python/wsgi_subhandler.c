@@ -173,6 +173,9 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		UWSGI_RELEASE_GIL
 		uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
 		UWSGI_GET_GIL
+		uwsgi_py_check_write_errors {
+			uwsgi_py_write_exception(wsgi_req);
+		}
 		goto clear;
 	}
 
@@ -228,6 +231,11 @@ exception:
 		UWSGI_RELEASE_GIL
 		uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
 		UWSGI_GET_GIL
+		uwsgi_py_check_write_errors {
+			uwsgi_py_write_exception(wsgi_req);
+			Py_DECREF(pychunk);
+			goto clear;
+		}
 	}
 
 

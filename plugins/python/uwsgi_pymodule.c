@@ -887,7 +887,6 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	UWSGI_RELEASE_GIL
 	uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_size);
 	UWSGI_GET_GIL
-
 	// revert to old values
 	wsgi_req->sendfile_fd = tmp_fd;
 	wsgi_req->sendfile_fd_size = tmp_filesize;
@@ -896,6 +895,12 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	
 
 	close(fd);
+
+	uwsgi_py_check_write_errors {
+        	uwsgi_py_write_exception(wsgi_req);
+		return NULL;
+        }
+
 	Py_INCREF(Py_True);
 	return Py_True;
 

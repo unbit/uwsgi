@@ -218,7 +218,9 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 				goto clear; 
 			}
 
-			uwsgi_response_prepare_headers(wsgi_req, sc, 3);
+			if (uwsgi_response_prepare_headers(wsgi_req, sc, 3)) {
+				uwsgi_log("unable to prepare response headers\n");
+			}
 
 			PyObject *hhkey, *hhvalue;
 #ifdef UWSGI_PYTHON_OLD
@@ -237,12 +239,12 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 					for(i=0;i<PyList_Size(hhvalue);i++) {
 						PyObject *item = PyList_GetItem(hhvalue, i);
 						if (PyString_Check(item)) {
-							uwsgi_response_add_header(wsgi_req, k, kl, PyString_AsString(item), PyString_Size(item));
+							if (uwsgi_response_add_header(wsgi_req, k, kl, PyString_AsString(item), PyString_Size(item))) goto clear;
 						}
 					}	
 				}
 				else if (PyString_Check(hhvalue)) {
-					uwsgi_response_add_header(wsgi_req, k, kl, PyString_AsString(hhvalue), PyString_Size(hhvalue));
+					if (uwsgi_response_add_header(wsgi_req, k, kl, PyString_AsString(hhvalue), PyString_Size(hhvalue))) goto clear;
 				}
 			}
 
@@ -252,6 +254,9 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 				UWSGI_RELEASE_GIL
 				uwsgi_response_write_body_do(wsgi_req, PyString_AsString(wsgi_req->async_placeholder), PyString_Size(wsgi_req->async_placeholder));
 				UWSGI_GET_GIL
+				uwsgi_py_check_write_errors {
+                                        uwsgi_py_write_exception(wsgi_req);
+                                }
                 		goto clear;
         		}
 #ifdef PYTHREE
@@ -263,6 +268,9 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 				UWSGI_RELEASE_GIL
                 		uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
                 		UWSGI_GET_GIL
+				uwsgi_py_check_write_errors {
+                                        uwsgi_py_write_exception(wsgi_req);
+                                }
 				goto clear;
 			}
 
@@ -301,6 +309,11 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 		UWSGI_RELEASE_GIL
 		uwsgi_response_write_body_do(wsgi_req, PyString_AsString(pychunk), PyString_Size(pychunk));
 		UWSGI_GET_GIL
+		uwsgi_py_check_write_errors {
+                	uwsgi_py_write_exception(wsgi_req);
+			Py_DECREF(pychunk);
+			goto clear;
+                }
 	}
 
 

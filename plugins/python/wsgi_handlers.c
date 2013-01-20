@@ -498,7 +498,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		// LOCK THIS PART
 
 		uwsgi_500(wsgi_req);
-		uwsgi_response_write_headers_do(wsgi_req);
+		if (uwsgi_response_write_headers_do(wsgi_req)) goto clear;
 
 		/*
 		   sorry that is a hack to avoid the rewrite of PyErr_Print
