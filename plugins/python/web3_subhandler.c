@@ -164,11 +164,6 @@ int uwsgi_response_subhandler_web3(struct wsgi_request *wsgi_req) {
 				goto clear; 
 			} 
 
-			// send the headers if not already sent
-        		if (!wsgi_req->headers_sent && wsgi_req->headers_hvec > 0) {
-                		uwsgi_python_do_send_headers(wsgi_req);
-        		}
-
 			Py_DECREF(spit_args);
 
 			if (PyString_Check((PyObject *)wsgi_req->async_placeholder)) {

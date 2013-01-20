@@ -179,10 +179,8 @@ void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_
 int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 
 	PyObject *pychunk;
-	ssize_t wsize;
 	int i;
 
-	struct http_status_codes *http_sc;
 	char sc[4];
 
 	// ok its a yield
@@ -220,39 +218,7 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 				goto clear; 
 			}
 
-			int found = 0;
-			for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
-                		if (http_sc->key[0] == sc[0] && http_sc->key[1] == sc[1] && http_sc->key[2] == sc[2]) {
-                        		wsgi_req->hvec[4].iov_base = (char *) http_sc->message;
-                        		wsgi_req->hvec[4].iov_len = http_sc->message_size;
-					found = 1;
-                        		break;
-                		}
-        		}
-		
-			if (!found) {
-				uwsgi_log("invalid Pump response (status code).\n"); 
-				goto clear; 
-			}
-
-			wsgi_req->hvec[0].iov_base = wsgi_req->protocol;
-			wsgi_req->hvec[0].iov_len = wsgi_req->protocol_len;
-			wsgi_req->hvec[1].iov_base = " ";
-			wsgi_req->hvec[1].iov_len = 1;
-			wsgi_req->hvec[2].iov_base = sc;
-			wsgi_req->hvec[2].iov_len = 3;
-			wsgi_req->hvec[3].iov_base = " ";
-			wsgi_req->hvec[3].iov_len = 1;
-			wsgi_req->hvec[5].iov_base = "\r\n";
-			wsgi_req->hvec[5].iov_len = 2;
-
-			UWSGI_RELEASE_GIL
-                	wsize = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 6);
-                	UWSGI_GET_GIL
-                	if (wsize < 0) {
-                        	uwsgi_error("writev()");
-                	}
-                	wsgi_req->headers_size += wsize;
+			uwsgi_response_prepare_headers(wsgi_req, sc, 3);
 
 			PyObject *hhkey, *hhvalue;
 #ifdef UWSGI_PYTHON_OLD
@@ -263,53 +229,29 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 			while (PyDict_Next(headers, &hhpos, &hhkey, &hhvalue)) {
 				if (!PyString_Check(hhkey)) continue;
 
-				wsgi_req->hvec[0].iov_base = PyString_AsString(hhkey);
-				wsgi_req->hvec[0].iov_len = PyString_Size(hhkey);	
-				((char*)wsgi_req->hvec[0].iov_base)[0] = toupper((int) ((char*)wsgi_req->hvec[0].iov_base)[0]);
+				char *k = PyString_AsString(hhkey);
+				size_t kl = PyString_Size(hhkey);	
+				k[0] = toupper((int) k[0]);
 
-				wsgi_req->hvec[1].iov_base = ": ";
-                        	wsgi_req->hvec[1].iov_len = 2;
-
-				wsgi_req->hvec[3].iov_base = "\r\n";
-                        	wsgi_req->hvec[3].iov_len = 2;
 				if (PyList_Check(hhvalue)) {
 					for(i=0;i<PyList_Size(hhvalue);i++) {
 						PyObject *item = PyList_GetItem(hhvalue, i);
 						if (PyString_Check(item)) {
-							wsgi_req->hvec[2].iov_base = PyString_AsString(item);
-                                        		wsgi_req->hvec[2].iov_len = PyString_Size(item);
-                                        		UWSGI_RELEASE_GIL
-                                        		wsize = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 4);
-                                        		UWSGI_GET_GIL
-                                        		if (wsize < 0) {
-                                                		uwsgi_error("writev()");
-                                        		}
-                                        		wsgi_req->headers_size += wsize;
+							uwsgi_response_add_header(wsgi_req, k, kl, PyString_AsString(item), PyString_Size(item));
 						}
 					}	
 				}
 				else if (PyString_Check(hhvalue)) {
-					wsgi_req->hvec[2].iov_base = PyString_AsString(hhvalue);
-                                	wsgi_req->hvec[2].iov_len = PyString_Size(hhvalue);
-					UWSGI_RELEASE_GIL
-                        		wsize = wsgi_req->socket->proto_writev_header(wsgi_req, wsgi_req->hvec, 4);
-                        		UWSGI_GET_GIL
-                        		if (wsize < 0) {
-                                		uwsgi_error("writev()");
-                        		}
-                        		wsgi_req->headers_size += wsize;
+					uwsgi_response_add_header(wsgi_req, k, kl, PyString_AsString(hhvalue), PyString_Size(hhvalue));
 				}
 			}
 
-			wsgi_req->socket->proto_write(wsgi_req, "\r\n", 2);
 			Py_INCREF((PyObject *)wsgi_req->async_placeholder);
 
 			if (PyString_Check((PyObject *)wsgi_req->async_placeholder)) {
-                		if ((wsize = wsgi_req->socket->proto_write(wsgi_req, PyString_AsString(wsgi_req->async_placeholder), PyString_Size(wsgi_req->async_placeholder))) < 0) {
-                        		uwsgi_error("write()");
-                        		goto clear;
-                		}
-                		wsgi_req->response_size += wsize;
+				UWSGI_RELEASE_GIL
+				uwsgi_response_write_body_do(wsgi_req, PyString_AsString(wsgi_req->async_placeholder), PyString_Size(wsgi_req->async_placeholder));
+				UWSGI_GET_GIL
                 		goto clear;
         		}
 #ifdef PYTHREE
@@ -318,11 +260,9 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 			else if (PyFile_Check((PyObject *)wsgi_req->async_placeholder)) {
 				wsgi_req->sendfile_fd = fileno(PyFile_AsFile((PyObject *)wsgi_req->async_placeholder));
 #endif
-                		wsize = uwsgi_sendfile(wsgi_req);
-				if (wsize < 0) {
-					goto clear;
-				}
-                		wsgi_req->response_size += wsize;
+				UWSGI_RELEASE_GIL
+                		uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
+                		UWSGI_GET_GIL
 				goto clear;
 			}
 
@@ -358,12 +298,9 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 
 
 	if (PyString_Check(pychunk)) {
-		if ((wsize = wsgi_req->socket->proto_write(wsgi_req,  PyString_AsString(pychunk), PyString_Size(pychunk))) < 0) {
-			uwsgi_error("write()");
-			Py_DECREF(pychunk);
-			goto clear;
-		}
-		wsgi_req->response_size += wsize;
+		UWSGI_RELEASE_GIL
+		uwsgi_response_write_body_do(wsgi_req, PyString_AsString(pychunk), PyString_Size(pychunk));
+		UWSGI_GET_GIL
 	}
 
 

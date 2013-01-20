@@ -659,6 +659,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	int tmp_id;
 	uint64_t tmp_rt, rss = 0, vsz = 0;
 
+	// check if headers should be sent
+	if (wsgi_req->headers) {
+		if (!wsgi_req->headers_sent && !wsgi_req->headers_size && !wsgi_req->response_size) {
+			uwsgi_response_write_headers_do(wsgi_req);
+		}
+		uwsgi_buffer_destroy(wsgi_req->headers);
+	}
+
 	wsgi_req->end_of_request = uwsgi_micros();
 
 	tmp_rt = wsgi_req->end_of_request - wsgi_req->start_of_request;

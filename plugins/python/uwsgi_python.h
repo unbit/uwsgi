@@ -186,7 +186,6 @@ struct uwsgi_python {
 	char *pyrun;
 	int start_response_nodelay;
 
-	void (*hook_write_string)(struct wsgi_request *, PyObject *);
 	ssize_t (*hook_wsgi_input_read)(struct wsgi_request *, char *, size_t, size_t *);
 	ssize_t (*hook_wsgi_input_readline)(struct wsgi_request *, char *, size_t);
 

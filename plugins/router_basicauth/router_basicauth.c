@@ -112,6 +112,7 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 	}
 
 forbidden:
+/*
         iov[1].iov_base = " 401 Authorization Required\r\nWWW-Authenticate: Basic realm=\"";
         iov[1].iov_len = 60 ;
 
@@ -124,6 +125,7 @@ forbidden:
         wsgi_req->headers_size = wsgi_req->socket->proto_writev_header(wsgi_req, iov, 4);
 
 	wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req,"Unauthorized", 12);
+*/
 
 	wsgi_req->status = 401;
 

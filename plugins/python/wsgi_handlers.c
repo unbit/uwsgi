@@ -296,13 +296,8 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 	if (PyString_Check(data)) {
 		content = PyString_AsString(data);
 		content_len = PyString_Size(data);
-		if (content_len > 0 && !wsgi_req->headers_sent) {
-                        if (uwsgi_python_do_send_headers(wsgi_req)) {
-                                return NULL;
-                        }
-                }
 		UWSGI_RELEASE_GIL
-			wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req, content, content_len);
+		uwsgi_response_write_body_do(wsgi_req, content, content_len);
 		UWSGI_GET_GIL
 		// this is a special case for the write callable
 		// no need to honout write-errors-exception-only

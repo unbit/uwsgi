@@ -72,7 +72,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 			if (uwsgi_buffer_append(ub, "\r\nContent-Length: ", 18 )) goto error;
 			if (uwsgi_buffer_num64(ub, valsize)) goto error;
 			if (uwsgi_buffer_append(ub, "\r\n\r\n", 4 )) goto error;
-			wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ub->buf, ub->pos);
+			//wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ub->buf, ub->pos);
 			uwsgi_buffer_destroy(ub);
 			wsgi_req->header_cnt = 3;		
 		}

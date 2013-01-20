@@ -127,7 +127,6 @@ sendfile:
 	}
 
         for(;;) {
-		uwsgi_log("XXXX %d %d\n", pos, len);
                 int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
                 if (ret < 0) {
                         if (!uwsgi.ignore_write_errors) {

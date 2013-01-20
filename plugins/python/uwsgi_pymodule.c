@@ -809,7 +809,7 @@ PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
 	}
 
 	if (!wsgi_req->headers_sent) {
-        	if (uwsgi_python_do_send_headers(wsgi_req)) {
+        	if (uwsgi_response_write_headers_do(wsgi_req)) {
 			return PyErr_Format(PyExc_ValueError, "unable to send headers before offload transfer");
 		}
 	}
@@ -884,21 +884,9 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	wsgi_req->sendfile_fd_chunk = chunk;
 	wsgi_req->sendfile_fd_pos = pos;
 
-	// do sendfile
-	if (uwsgi.async > 1) {
-		ssize_t sf_len = uwsgi_sendfile(wsgi_req);
-		if (sf_len > 0) {
-			wsgi_req->response_size += sf_len;
-			while((size_t)wsgi_req->sendfile_fd_pos < wsgi_req->sendfile_fd_size) {
-				sf_len = uwsgi_sendfile(wsgi_req);
-				if (sf_len <= 0) break;
-				wsgi_req->response_size += sf_len;
-			}
-		}
-	}
-	else {
-		wsgi_req->response_size += uwsgi_sendfile(wsgi_req);
-	}
+	UWSGI_RELEASE_GIL
+	uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_size);
+	UWSGI_GET_GIL
 
 	// revert to old values
 	wsgi_req->sendfile_fd = tmp_fd;

@@ -964,7 +964,6 @@ void gevent_loop() {
 	}
 
 	uwsgi.current_wsgi_req = uwsgi_gevent_current_wsgi_req;
-	up.hook_write_string =  uwsgi_gevent_nb_write;
 	up.hook_wsgi_input_read =  uwsgi_gevent_hook_input_read;
 	up.hook_wsgi_input_readline =  uwsgi_gevent_hook_input_readline;
 

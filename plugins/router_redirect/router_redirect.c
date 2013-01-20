@@ -8,7 +8,7 @@ int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_rout
 
 	char *url = NULL;
 
-	if (uwsgi_response_headers_prepare(wsgi_req, "302 Found", 9)) goto end
+	if (uwsgi_response_prepare_headers(wsgi_req, "302 Found", 9)) goto end;
 	
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
@@ -17,7 +17,7 @@ int uwsgi_routing_func_redirect(struct wsgi_request *wsgi_req, struct uwsgi_rout
 
 	if (uwsgi_response_add_header(wsgi_req, "Location", 8, url, strlen(url))) goto end;
 	// no need to check the ret value
-	uwsgi_response_body_write_do(wsgi_req, "Moved", 5);
+	uwsgi_response_write_body_do(wsgi_req, "Moved", 5);
 end:
 	if (url)
 		free(url);
