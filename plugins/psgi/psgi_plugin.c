@@ -430,6 +430,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
 	wi->requests++;
 
+
 	if (uwsgi.threads < 2) {
 		if (((PerlInterpreter **)wi->interpreter)[0] != uperl.main[0]) {
 			PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[0]);
@@ -446,6 +447,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->async_environ = build_psgi_env(wsgi_req);
 	if (!wsgi_req->async_environ) goto clear;
+
 
 	if (uwsgi.threads > 1) {
 		wsgi_req->async_result = psgi_call(wsgi_req, ((SV **)wi->callable)[wsgi_req->async_id], wsgi_req->async_environ);
@@ -635,12 +637,12 @@ int uwsgi_perl_signal_handler(uint8_t sig, void *handler) {
 
         call_sv( SvRV((SV*)handler), G_DISCARD);
 
+        SPAGAIN;
 	if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
 		ret = -1;
         }
 
-        SPAGAIN;
         PUTBACK;
         FREETMPS;
         LEAVE;
@@ -653,17 +655,16 @@ void uwsgi_perl_run_hook(SV *hook) {
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
-        XPUSHs( hook );
         PUTBACK;
 
         call_sv( SvRV(hook), G_DISCARD);
 
+        SPAGAIN;
         if(SvTRUE(ERRSV)) {
                 uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
 		return;
         }
 
-        SPAGAIN;
         PUTBACK;
         FREETMPS;
         LEAVE;
