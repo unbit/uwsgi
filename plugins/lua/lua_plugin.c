@@ -13,8 +13,6 @@ struct uwsgi_lua {
 } ulua;
 
 #define lca(L, n)		ulua_check_args(L, __FUNCTION__, n)
-#define response_append(x, y) if (uwsgi_buffer_append(status_and_headers, x, y)) { uwsgi_buffer_destroy(status_and_headers); lua_pushvalue(L, -1); goto clear;}
-#define response_append_header(x, y) if (uwsgi_buffer_append(status_and_headers, x, y)) { uwsgi_buffer_destroy(status_and_headers); lua_pop(L, 2); lua_pushvalue(L, -1); goto clear;}
 
 struct uwsgi_option uwsgi_lua_options[] = {
 
@@ -448,9 +446,8 @@ void uwsgi_lua_app() {
 int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	int i;
-	const char *http;
-	size_t slen;
-	ssize_t rlen;
+	const char *http, *http2;
+	size_t slen, slen2;
 	char *ptrbuf;
 	lua_State *L = ulua.L[wsgi_req->async_id];
 
@@ -459,10 +456,7 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		if ((i = lua_pcall(L, 0, 1, 0)) == 0) {
 			if (lua_type(L, -1) == LUA_TSTRING) {
 				http = lua_tolstring(L, -1, &slen);
-				if ( (rlen = wsgi_req->socket->proto_write(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
-					return UWSGI_OK;
-				}
-				wsgi_req->response_size += rlen;
+				uwsgi_response_write_body_do(wsgi_req, (char *)http, slen);
 			}
 			lua_pop(L, 1);
 			lua_pushvalue(L, -1);
@@ -523,20 +517,10 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 
 	//uwsgi_log("%d %s %s %s\n",i,lua_typename(L, lua_type(L, -3)), lua_typename(L, lua_type(L, -2)) ,  lua_typename(L, lua_type(L, -1)));
 
-	// this buffer will contains the whole headers (+status)
-	struct uwsgi_buffer *status_and_headers = uwsgi_buffer_new(4096);
-
 	// send status
 	if (lua_type(L, -3) == LUA_TSTRING || lua_type(L, -3) == LUA_TNUMBER) {
 		http = lua_tolstring(L, -3, &slen);
-
-		response_append(wsgi_req->protocol, wsgi_req->protocol_len);
-		response_append(" ", 1);
-		response_append((char *) http, slen);
-		response_append("\r\n", 2);
-
-		// transform the first 3 bytes of the string in a number
-		wsgi_req->status = uwsgi_str3_num((char *)http);
+		uwsgi_response_prepare_headers(wsgi_req, (char *) http, slen);
 	}
 	else {
 		uwsgi_log("[uwsgi-lua] invalid response status !!!\n");
@@ -548,23 +532,10 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	lua_pushnil(L);
 	while(lua_next(L, -3) != 0) {
 		http = lua_tolstring(L, -2, &slen);
-
-		response_append_header((char *)http, slen);
-		response_append_header(": ", 2);
-
-		http = lua_tolstring(L, -1, &slen);
-
-		response_append_header((char *)http, slen);
-		response_append_header("\r\n", 2);
-
+		http2 = lua_tolstring(L, -1, &slen2);
+		uwsgi_response_add_header(wsgi_req, (char *) http, slen, (char *) http2, slen2);
 		lua_pop(L, 1);
-		wsgi_req->header_cnt++;
 	}
-
-	response_append("\r\n", 2);
-
-	wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, status_and_headers->buf, status_and_headers->pos);
-	uwsgi_buffer_destroy(status_and_headers);
 
 	// send body with coroutine
 	lua_pushvalue(L, -1);
@@ -572,12 +543,7 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	while ( (i = lua_pcall(L, 0, 1, 0)) == 0) {
 		if (lua_type(L, -1) == LUA_TSTRING) {
 			http = lua_tolstring(L, -1, &slen);
-			if ( (rlen = wsgi_req->socket->proto_write(wsgi_req, (char *)http, slen)) != (ssize_t) slen) {
-				lua_pop(L, 1);
-                		lua_pushvalue(L, -1);
-				goto clear;
-			}
-			wsgi_req->response_size += rlen;
+			uwsgi_response_write_body_do(wsgi_req, (char *)http, slen);
 		}
 		lua_pop(L, 1);
 		lua_pushvalue(L, -1);
