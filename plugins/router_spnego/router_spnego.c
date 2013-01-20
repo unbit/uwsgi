@@ -137,21 +137,25 @@ static int uwsgi_routing_func_spnego(struct wsgi_request *wsgi_req, struct uwsgi
         }
 
 forbidden:
-        ub = uwsgi_buffer_new(4096);
-        if (uwsgi_buffer_append(ub, "HTTP/1.0 401 Authorization Required\r\nConnection: close\r\nContent-Type text/plain\r\n", 81)) goto end;
-        if (uwsgi_buffer_append(ub, "WWW-Authenticate: Negotiate", 27)) goto end;
-        if (negotiate && negotiate_len) {
-                if (uwsgi_buffer_append(ub, " ", 1)) goto end;
-                if (uwsgi_buffer_append(ub, negotiate, negotiate_len)) goto end;
-        }
-        if (uwsgi_buffer_append(ub, "\r\n\r\n", 4)) goto end;
+	if (uwsgi_response_prepare_headers(wsgi_req, "401 Authorization Required", 26)) goto end;
+	if (uwsgi_response_add_connection_close(wsgi_req)) goto end;
+	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) goto end;
 
-        wsgi_req->headers_size = wsgi_req->socket->proto_write_header(wsgi_req, ub->buf, ub->pos);
-        wsgi_req->response_size = wsgi_req->socket->proto_write(wsgi_req,"Unauthorized", 12);
+	if (negotiate && negotiate_len) {
+		char *neg_token = uwsgi_concat2n("Negotiate ", 10, negotiate, negotiate_len);
+		int ret = uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, neg_token, 10 + negotiate_len);
+		free(neg_token);
+		if (ret) goto end;
+	}
+	else {
+		if (uwsgi_response_add_header(wsgi_req, "WWW-Authenticate", 16, "Negotiate", 9)) goto end;
+	}
+
+        uwsgi_response_write_body(wsgi_req, "Unauthorized", 12);
 
 end:
+	// for security
         wsgi_req->status = 401;
-        uwsgi_buffer_destroy(ub);
         return UWSGI_ROUTE_BREAK;
 }
 

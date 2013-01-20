@@ -21,7 +21,7 @@
 */
 
 
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 struct uwsgi_server uwsgi;
 

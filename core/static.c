@@ -373,8 +373,6 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	int mime_type_size = 0;
 	char http_last_modified[49];
 
-	char content_length[sizeof(UMAX64_STR) + 1];
-
 #ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1)
 		pthread_mutex_lock(&uwsgi.lock_static);
@@ -407,7 +405,7 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 	// Content-Type (if available)
 	if (mime_type_size > 0 && mime_type) {
-		uwsgi_response_add_header(wsgi_req, "Content-Type", 12, mime_type, mime_type_size); 
+		if (uwsgi_response_add_content_type(wsgi_req, mime_type, mime_type_size)) return -1;
 		// check for content-type related headers
 		uwsgi_add_expires_type(wsgi_req, mime_type, mime_type_size, st);
 	}
@@ -417,14 +415,14 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 
 	// nginx
 	if (uwsgi.file_serve_mode == 1) {
-		uwsgi_response_add_header(wsgi_req, "X-Accel-Redirect", 16, real_filename, real_filename_len); 
+		if (uwsgi_response_add_header(wsgi_req, "X-Accel-Redirect", 16, real_filename, real_filename_len)) return -1;
 		// this is the final header (\r\n added)
 		int size = set_http_date(st->st_mtime, http_last_modified);
 		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 	}
 	// apache
 	else if (uwsgi.file_serve_mode == 2) {
-		uwsgi_response_add_header(wsgi_req, "X-Sendfile", 10, real_filename, real_filename_len);
+		if (uwsgi_response_add_header(wsgi_req, "X-Sendfile", 10, real_filename, real_filename_len)) return -1;
 		// this is the final header (\r\n added)
 		int size = set_http_date(st->st_mtime, http_last_modified);
 		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
@@ -432,9 +430,8 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	// raw
 	else {
 		// set Content-Length
-		int size = uwsgi_long2str2n(st->st_size, content_length, sizeof(UMAX64_STR) + 1);
-		if (uwsgi_response_add_header(wsgi_req, "Content-Length", 14, content_length, size)) return -1;
-		size = set_http_date(st->st_mtime, http_last_modified);
+		if (uwsgi_response_add_content_length(wsgi_req, st->st_size)) return -1;
+		int size = set_http_date(st->st_mtime, http_last_modified);
 		if (uwsgi_response_add_header(wsgi_req, "Last-Modified", 13, http_last_modified, size)) return -1;
 
 		// if it is a HEAD request just skip transfer

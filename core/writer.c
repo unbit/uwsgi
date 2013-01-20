@@ -2,6 +2,16 @@
 
 extern struct uwsgi_server uwsgi;
 
+int uwsgi_response_add_content_length(struct wsgi_request *wsgi_req, uint64_t cl) {
+	char buf[sizeof(UMAX64_STR)+1];
+        int ret = snprintf(buf, sizeof(UMAX64_STR)+1, "%llu", (unsigned long long) cl);
+        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+		wsgi_req->write_errors++;
+                return -1;
+        }
+	return uwsgi_response_add_header(wsgi_req, "Content-Length", 14, buf, ret); 
+}
+
 // status could be NNN or NNN message
 int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, uint16_t status_len) {
 

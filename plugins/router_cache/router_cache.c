@@ -43,7 +43,6 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	char *c_k = NULL;
 	uint16_t c_k_len = 0;
-	struct uwsgi_buffer *ub = NULL;
 	int k_need_free = 0;
 
 	if (urcc->key) {
@@ -64,20 +63,13 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	uint64_t valsize = 0;
 	char *value = uwsgi_cache_get(c_k, c_k_len, &valsize);
 	if (value) {
-		ub = uwsgi_buffer_new(uwsgi.page_size);
 		if (urcc->type_num == 1) {
-			wsgi_req->status = 200;
-			if (uwsgi_buffer_append(ub, "HTTP/1.0 200 OK\r\nConnection: close\r\nContent-Type: ", 50)) goto error;
-			if (uwsgi_buffer_append(ub, urcc->content_type, urcc->content_type_len)) goto error;
-			if (uwsgi_buffer_append(ub, "\r\nContent-Length: ", 18 )) goto error;
-			if (uwsgi_buffer_num64(ub, valsize)) goto error;
-			if (uwsgi_buffer_append(ub, "\r\n\r\n", 4 )) goto error;
-			//wsgi_req->headers_size += wsgi_req->socket->proto_write_header(wsgi_req, ub->buf, ub->pos);
-			uwsgi_buffer_destroy(ub);
-			wsgi_req->header_cnt = 3;		
+			if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
+			if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, urcc->content_type, urcc->content_type_len)) goto error;
+			if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
 		}
 		// body only
-		wsgi_req->response_size += wsgi_req->socket->proto_write(wsgi_req, value, valsize);
+		uwsgi_response_write_body_do(wsgi_req, value, valsize);
 		if (k_need_free) free(c_k);
 		if (ur->custom)
 			return UWSGI_ROUTE_NEXT;
@@ -87,7 +79,6 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	
 	return UWSGI_ROUTE_NEXT;
 error:
-	uwsgi_buffer_destroy(ub);
 	if (k_need_free) free(c_k);
 	return UWSGI_ROUTE_BREAK;
 }

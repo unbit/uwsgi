@@ -197,8 +197,8 @@ static int uwsgi_router_continue(struct uwsgi_route *ur, char *arg) {
 static int uwsgi_router_break_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
 	if (route->data_len >= 3) {
 		if (uwsgi_response_prepare_headers(wsgi_req, route->data, route->data_len)) goto end;
-		if (uwsgi_response_add_header(wsgi_req, "Connection", 10, "close", 5)) goto end;
-		if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, "text/plain", 10)) goto end;
+		if (uwsgi_response_add_connection_close(wsgi_req)) goto end;
+		if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) goto end;
 		// no need to check for return value
 		uwsgi_response_write_headers_do(wsgi_req);
 	}
