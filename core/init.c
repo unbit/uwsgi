@@ -420,7 +420,7 @@ void sanitize_args() {
         }
 }
 
-const char *uwsgi_http_status_msg(char *status, size_t *len) {
+const char *uwsgi_http_status_msg(char *status, uint16_t *len) {
 	struct http_status_codes *http_sc;
 	for (http_sc = hsc; http_sc->message != NULL; http_sc++) {
                 if (!strncmp(http_sc->key, status, 3)) {

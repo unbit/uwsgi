@@ -28,7 +28,7 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 	if (status_len <= 4) {
 		char *new_sc = NULL;
 		size_t new_sc_len = 0;
-		size_t sc_len = 0;
+		uint16_t sc_len = 0;
 		const char *sc = uwsgi_http_status_msg(status, &sc_len);
 		if (sc) {
 			new_sc = uwsgi_concat3n(status, 3, " ", 1, (char *)sc, sc_len);

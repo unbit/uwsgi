@@ -163,7 +163,7 @@ func CacheDel(key string) bool {
 
 	C.uwsgi_cache_wlock()
 
-	if int(C.uwsgi_cache_del(k, C.uint16_t(kl), C.uint64_t(0))) < 0 {
+	if int(C.uwsgi_cache_del(k, C.uint16_t(kl), C.uint64_t(0), C.uint16_t(0))) < 0 {
 		C.uwsgi_cache_rwunlock();
                 return false;
 	}
@@ -303,7 +303,6 @@ type ResponseWriter struct {
 	wsgi_req *C.struct_wsgi_request
 	headers      http.Header
 	wroteHeader bool
-	headers_chunk string
 }
 
 func (w *ResponseWriter) Write(p []byte) (n int, err error) {
@@ -318,27 +317,25 @@ func (w *ResponseWriter) Write(p []byte) (n int, err error) {
 
 // TODO fix it !!!
 func (w *ResponseWriter) WriteHeader(status int) {
-	proto := "HTTP/1.0"
-	if w.r.ProtoAtLeast(1, 1) {
-		proto = "HTTP/1.1"
-	}
 	codestring := http.StatusText(status)
-	w.headers_chunk += proto + " " + strconv.Itoa(status) + " " + codestring + "\r\n"
-	c_status := C.CString(w.headers_chunk)
-	C.uwsgi_response_preare_headers(w.wsgi_req, c_status, C.size_t(len(w.headers_chunk)) )
+	var tmp_buf string = strconv.Itoa(status) + " " + codestring
+	c_status := C.CString(tmp_buf)
+	defer C.free(unsafe.Pointer(c_status))
+	C.uwsgi_response_prepare_headers(w.wsgi_req, c_status, C.uint16_t(len(tmp_buf)) )
 	if w.headers.Get("Content-Type") == "" {
 		w.headers.Set("Content-Type", "text/html; charset=utf-8")
 	}
 	for k := range w.headers {
+		hk_c := C.CString(k)
+		defer C.free(unsafe.Pointer(hk_c))
 		for _, v := range w.headers[k] {
 			v = strings.NewReplacer("\n", " ", "\r", " ").Replace(v)
 			v = strings.TrimSpace(v)
-			w.headers_chunk += k + ": " + v + "\r\n"
+			hv_c := C.CString(v)
+                	defer C.free(unsafe.Pointer(hv_c))
+			C.uwsgi_response_add_header(w.wsgi_req, hk_c, C.uint16_t(len(k)), hv_c, C.uint16_t(len(v)))
 		}
 	}
-	c_h_chunk := C.CString(w.headers_chunk)
-	defer C.free(unsafe.Pointer(c_h_chunk))
-	C.uwsgi_simple_response_write_header(w.wsgi_req, c_h_chunk, C.size_t(len(w.headers_chunk)))
 	w.wroteHeader = true
 }
 
@@ -374,7 +371,7 @@ func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_req
 	if err != nil {
 	} else {
 		httpReq.Body = &BodyReader{wsgi_req}
-		w := ResponseWriter{httpReq, wsgi_req,http.Header{},false, ""}
+		w := ResponseWriter{httpReq, wsgi_req,http.Header{},false}
 		if uwsgi_default_request_handler != nil {
 			uwsgi_default_request_handler(&w, httpReq)
 		} else if uwsgi_default_handler != nil {
