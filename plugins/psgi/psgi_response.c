@@ -21,7 +21,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 		wsgi_req->switches++;
                 SV *chunk = uwsgi_perl_obj_call(wsgi_req->async_placeholder, "getline");
 		if (!chunk) {
-			internal_server_error(wsgi_req, "exception raised");
+			uwsgi_500(wsgi_req);
 			return UWSGI_OK;
 		}
 
@@ -52,6 +52,10 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                 }
 
 		uwsgi_response_write_body_do(wsgi_req, chitem, hlen);
+		uwsgi_pl_check_write_errors {
+			SvREFCNT_dec(chunk);
+			return UWSGI_OK;
+		}
 		SvREFCNT_dec(chunk);
 
 		return UWSGI_AGAIN;
@@ -105,6 +109,9 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 						SvREFCNT_dec(fn);	
 						uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
 						// no need to close here as perl GC will do the close()
+						uwsgi_pl_check_write_errors {
+							// noop
+						}
 						return UWSGI_OK;
 					}
 					SvREFCNT_dec(fn);	
@@ -117,6 +124,9 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 				wsgi_req->sendfile_fd = open(SvPV_nolen(p), O_RDONLY);
 				SvREFCNT_dec(p);	
 				uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
+				uwsgi_pl_check_write_errors {
+					// noop
+				}
 				close(wsgi_req->sendfile_fd);
 				return UWSGI_OK;
 			}
@@ -127,7 +137,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			wsgi_req->switches++;
                         SV *chunk = uwsgi_perl_obj_call(*hitem, "getline");
 			if (!chunk) {
-				internal_server_error(wsgi_req, "exception raised");
+				uwsgi_500(wsgi_req);
 				break;
 			}
 
@@ -146,6 +156,10 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                         }
 
 			uwsgi_response_write_body_do(wsgi_req, chitem, hlen);
+			uwsgi_pl_check_write_errors {
+				SvREFCNT_dec(chunk);
+                                break;
+			}
 			SvREFCNT_dec(chunk);
 #ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
@@ -171,6 +185,9 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                         hitem = av_fetch(body,i,0);
                         chitem = SvPV(*hitem, hlen);
 			uwsgi_response_write_body_do(wsgi_req, chitem, hlen);
+			uwsgi_pl_check_write_errors {
+				break;
+			}
                 }
 
         }

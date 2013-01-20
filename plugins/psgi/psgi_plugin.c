@@ -70,7 +70,7 @@ SV *uwsgi_perl_call_stream(SV *func) {
 
 	SPAGAIN;
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
         else {
                 ret = SvREFCNT_inc(POPs);
@@ -187,8 +187,8 @@ AV *psgi_call(struct wsgi_request *wsgi_req, SV *psgi_func, SV *env) {
 	SPAGAIN;
 
         if(SvTRUE(ERRSV)) {
-                internal_server_error(wsgi_req, "exception raised");
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_500(wsgi_req);
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
 	else {
 		ret = (AV *) SvREFCNT_inc(SvRV(POPs));
@@ -420,7 +420,8 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 		}
 
 		if (wsgi_req->app_id == -1) {
-			internal_server_error(wsgi_req, "Perl application not found");	
+			uwsgi_500(wsgi_req);	
+			uwsgi_log("--- unable to find perl application ---\n");
 			// nothing to clear/free
 			return UWSGI_OK;
 		}
@@ -429,14 +430,14 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
 	wi->requests++;
 
-	if (uwsgi.threads < 1) {
-		if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
-			PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id]);
+	if (uwsgi.threads < 2) {
+		if (((PerlInterpreter **)wi->interpreter)[0] != uperl.main[0]) {
+			PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[0]);
 		}
 	}
 	else {
-		if (((PerlInterpreter **)wi->interpreter)[0] != uperl.main[0]) {
-			PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[0]);
+		if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
+			PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id]);
 		}
 	}
 
@@ -457,7 +458,7 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	if (SvTYPE((AV *)wsgi_req->async_result) == SVt_PVCV) {
 		SV *stream_result = uwsgi_perl_call_stream((SV*)wsgi_req->async_result);		
 		if (!stream_result) {
-			internal_server_error(wsgi_req, "exception raised");
+			uwsgi_500(wsgi_req);
 		}
 		else {
 			SvREFCNT_dec(stream_result);
@@ -507,7 +508,7 @@ static void psgi_call_cleanup_hook(SV *hook, SV *env) {
 	PUTBACK;
 	call_sv(hook, G_DISCARD);
 	if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
 	FREETMPS;
 	LEAVE;
@@ -635,7 +636,7 @@ int uwsgi_perl_signal_handler(uint8_t sig, void *handler) {
         call_sv( SvRV((SV*)handler), G_DISCARD);
 
 	if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
 		ret = -1;
         }
 
@@ -658,7 +659,7 @@ void uwsgi_perl_run_hook(SV *hook) {
         call_sv( SvRV(hook), G_DISCARD);
 
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
 		return;
         }
 

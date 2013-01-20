@@ -198,6 +198,9 @@ XS(XS_streaming_write) {
         body = SvPV(ST(1), blen);
 
 	uwsgi_response_write_body_do(wsgi_req, body, blen);
+	uwsgi_pl_check_write_errors {
+		// noop
+	}
 
         XSRETURN(0);
 }
