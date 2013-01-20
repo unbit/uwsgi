@@ -65,7 +65,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	if (value) {
 		if (urcc->type_num == 1) {
 			if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
-			if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12, urcc->content_type, urcc->content_type_len)) goto error;
+			if (uwsgi_response_add_content_type(wsgi_req, urcc->content_type, urcc->content_type_len)) goto error;
 			if (uwsgi_response_add_content_length(wsgi_req, valsize)) goto error;
 		}
 		// body only

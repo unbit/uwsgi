@@ -152,10 +152,7 @@ forbidden:
 	}
 
         uwsgi_response_write_body(wsgi_req, "Unauthorized", 12);
-
 end:
-	// for security
-        wsgi_req->status = 401;
         return UWSGI_ROUTE_BREAK;
 }
 

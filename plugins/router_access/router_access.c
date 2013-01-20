@@ -59,7 +59,7 @@ static int uwsgi_routing_func_access(struct wsgi_request *wsgi_req, struct uwsgi
 
 forbidden:
 	if (uwsgi_response_prepare_headers(wsgi_req, "403 Forbidden", 13)) goto end;	
-	if (uwsgi_response_add_header(wsgi_req, "Content-Type", 12 ,"text/plain", 10)) goto end;
+	if (uwsgi_response_add_content_type(wsgi_req, "text/plain", 10)) goto end;
 	uwsgi_response_write_body_do(wsgi_req, "Forbidden", 9);
 end:
 	return UWSGI_ROUTE_BREAK;
