@@ -66,23 +66,6 @@ struct uwsgi_option uwsgi_cgi_options[] = {
 
 };
 
-void uwsgi_cgi_redirect_to_slash(struct wsgi_request *wsgi_req) {
-	
-	if (uwsgi_response_prepare_headers(wsgi_req, "301 Moved Permanently", 21)) return;
-	struct uwsgi_buffer *ub = uwsgi_buffer_new(wsgi_req->path_info_len + 1 + wsgi_req->query_string_len + 1 + 8);
-	if (uwsgi_buffer_append(ub, wsgi_req->path_info, wsgi_req->path_info_len)) goto end;
-	if (uwsgi_buffer_append(ub, "/", 1)) goto end;
-
-	if (wsgi_req->query_string_len > 0) {
-		if (uwsgi_buffer_append(ub, "?", 1)) goto end;
-		if (uwsgi_buffer_append(ub, wsgi_req->query_string, wsgi_req->query_string_len)) goto end;
-	}
-	uwsgi_response_add_header(wsgi_req, "Location", 8, ub->buf, ub->pos);
-end:
-	uwsgi_buffer_destroy(ub);
-	return;
-}
-
 void uwsgi_cgi_apps() {
 
 	struct uwsgi_dyn_dict *udd = uc.mountpoint;
@@ -497,7 +480,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 
 		// add / to directories
 		if (wsgi_req->path_info_len == 0 || (wsgi_req->path_info_len > 0 && wsgi_req->path_info[wsgi_req->path_info_len-1] != '/')) {
-			uwsgi_cgi_redirect_to_slash(wsgi_req);
+			uwsgi_redirect_to_slash(wsgi_req);
 			if (need_free)
                         	free(docroot);
                 	return UWSGI_OK;

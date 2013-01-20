@@ -2405,6 +2405,7 @@ void uwsgi_xml_config(char *, struct wsgi_request *, char *[]);
 void uwsgi_500(struct wsgi_request *);
 void uwsgi_403(struct wsgi_request *);
 void uwsgi_404(struct wsgi_request *);
+void uwsgi_redirect_to_slash(struct wsgi_request *);
 
 #ifdef UWSGI_SNMP
 void manage_snmp(int, uint8_t *, int, struct sockaddr_in *);
