@@ -1192,6 +1192,7 @@ struct wsgi_request {
 
 	struct uwsgi_logvar *logvars;
 	struct uwsgi_string_list *additional_headers;
+	struct uwsgi_string_list *remove_headers;
 
 	struct uwsgi_buffer *websocket_buf;	
 	size_t websocket_need;
@@ -1455,6 +1456,7 @@ struct uwsgi_server {
 	char *vassals_stop_hook;
 
 	struct uwsgi_string_list *additional_headers;
+	struct uwsgi_string_list *remove_headers;
 
 	// maximum time to wait after a reload
 	time_t master_mercy;
@@ -3713,6 +3715,7 @@ int uwsgi_uuid_cmp(char *, char *);
 
 int uwsgi_legion_i_am_the_lord(char *);
 void uwsgi_additional_header_add(struct wsgi_request *, char *, uint16_t);
+void uwsgi_remove_header(struct wsgi_request *, char *, uint16_t);
 
 void uwsgi_proto_hooks_setup(void);
 

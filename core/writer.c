@@ -60,6 +60,21 @@ int uwsgi_response_add_header(struct wsgi_request *wsgi_req, char *key, uint16_t
 
 	if (wsgi_req->headers_sent || wsgi_req->headers_size || wsgi_req->response_size || wsgi_req->write_errors) return -1;
 
+	struct uwsgi_string_list *rh = uwsgi.remove_headers;
+	while(rh) {
+		if (!uwsgi_strnicmp(key, key_len, rh->value, rh->len)) {
+			return 0;
+		}
+		rh = rh->next;
+	}
+	rh = wsgi_req->remove_headers;
+	while(rh) {
+		if (!uwsgi_strnicmp(key, key_len, rh->value, rh->len)) {
+			return 0;
+		}
+		rh = rh->next;
+	}
+
 	if (!wsgi_req->headers) {
 		wsgi_req->headers = uwsgi_buffer_new(uwsgi.page_size);
 		wsgi_req->headers->limit = UMAX16;

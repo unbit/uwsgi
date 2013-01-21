@@ -678,6 +678,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		free(ptr->value);
 		free(ptr);
 	}
+	// free remove headers
+	ah = wsgi_req->remove_headers;
+	while (ah) {
+                struct uwsgi_string_list *ptr = ah;
+                ah = ah->next;
+                free(ptr->value);
+                free(ptr);
+        }
 
 	// free websocket engine
 	if (wsgi_req->websocket_buf) {
@@ -3935,6 +3943,11 @@ void uwsgi_additional_header_add(struct wsgi_request *wsgi_req, char *hh, uint16
 	// will be freed on request's end
 	char *header = uwsgi_concat2n(hh, hh_len, "", 0);
 	uwsgi_string_new_list(&wsgi_req->additional_headers, header);
+}
+
+void uwsgi_remove_header(struct wsgi_request *wsgi_req, char *hh, uint16_t hh_len) {
+	char *header = uwsgi_concat2n(hh, hh_len, "", 0);
+	uwsgi_string_new_list(&wsgi_req->remove_headers, header);
 }
 
 // based on nginx implementation

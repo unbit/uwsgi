@@ -82,6 +82,7 @@ report['spooler'] = False
 report['debug'] = False
 report['plugin_dir'] = False
 report['ipv6'] = False
+report['zlib'] = False
 
 compile_queue = None
 print_lock = None
@@ -593,6 +594,12 @@ class uConf(object):
                 self.cflags.append('-DUWSGI_HAS_EXECINFO')
                 self.libs.append('-lexecinfo')
                 report['execinfo'] = True
+
+        if self.has_include('zlib.h'):
+            self.cflags.append('-DUWSGI_ZLIB')
+            self.libs.append('-lz')
+            self.gcc_list.append('core/zlib')
+            report['zlib'] = True
 
         if uwsgi_os == 'OpenBSD':
             try:
