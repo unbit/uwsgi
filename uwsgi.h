@@ -3345,6 +3345,7 @@ struct uwsgi_stats {
 	size_t chunk;
 	size_t size;
 	int minified;
+	int dirty;
 };
 
 struct uwsgi_stats_pusher_instance;
@@ -3766,6 +3767,7 @@ int uwsgi_proto_base_fix_headers(struct wsgi_request *);
 int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
 
 const char *uwsgi_http_status_msg(char *, uint16_t *);
+int uwsgi_stats_dump_vars(struct uwsgi_stats *, struct uwsgi_core *);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)

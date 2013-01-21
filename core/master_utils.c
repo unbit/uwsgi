@@ -1093,7 +1093,18 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keylong_comma(us, "offloaded_requests", (unsigned long long) uc->offloaded_requests))
 				goto end;
 
-			if (uwsgi_stats_keylong(us, "in_request", (unsigned long long) uc->in_request))
+			if (uwsgi_stats_keylong_comma(us, "in_request", (unsigned long long) uc->in_request))
+				goto end;
+
+			if (uwsgi_stats_key(us, "vars"))
+				goto end;
+
+			if (uwsgi_stats_list_open(us))
+                        	goto end;
+
+			if (uwsgi_stats_dump_vars(us, uc)) goto end;
+
+			if (uwsgi_stats_list_close(us))
 				goto end;
 
 

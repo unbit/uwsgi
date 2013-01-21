@@ -13,6 +13,7 @@ struct uwsgi_stats *uwsgi_stats_new(size_t chunk_size) {
 	us->chunk = chunk_size;
 	us->size = chunk_size;
 	us->tabs = 1;
+	us->dirty = 0;
 	us->minified = uwsgi.stats_minified;
 	if (!us->minified) {
 		us->base[1] = '\n';
@@ -519,4 +520,50 @@ void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *uspi, char *jso
 	}
 
 	close(fd);
+}
+
+static void stats_dump_var(char *k, uint16_t kl, char *v, uint16_t vl, void *data) {
+	struct uwsgi_stats *us = (struct uwsgi_stats *) data;
+	if (us->dirty) return;
+	uint16_t i;
+	// replace " with '
+	for(i=0;i<kl;i++) {
+		if (k[i] == '"') {
+			k[i] = '\'';
+		}
+	}
+	for(i=0;i<vl;i++) {
+		if (v[i] == '"') {
+			v[i] = '\'';
+		}
+	}
+	char *var = uwsgi_concat3n(k, kl, "=", 1, v,vl);
+	if (uwsgi_stats_str(us, var)) {
+		us->dirty = 1;
+		free(var);
+		return;
+	}
+	free(var);
+	if (uwsgi_stats_comma(us)) {
+		us->dirty = 1;
+	}	
+	return;
+}
+
+int uwsgi_stats_dump_vars(struct uwsgi_stats *us, struct uwsgi_core *uc) {
+	if (!uc->in_request) return 0;
+	uint16_t pktsize = uc->req.uh.pktsize;
+	if (!pktsize) return 0;
+	char *dst = uwsgi.workers[0].cores[0].buffer;
+	memcpy(dst, uc->buffer, uwsgi.buffer_size);
+	// ok now check if something changed...
+	if (!uc->in_request) return 0;
+	if (uc->req.uh.pktsize != pktsize) return 0;
+	if (memcmp(dst, uc->buffer, uwsgi.buffer_size)) return 0;
+	// nothing changed let's dump vars
+	int ret = uwsgi_hooked_parse(dst, pktsize, stats_dump_var, us);
+	if (ret) return -1;
+	if (us->dirty) return -1;
+	if (uwsgi_stats_str(us, "")) return -1;
+	return 0;
 }
