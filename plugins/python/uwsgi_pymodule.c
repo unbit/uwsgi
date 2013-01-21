@@ -2763,7 +2763,6 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 	
 
 		PyDict_SetItemString(worker_dict, "apps", apps_tuple);
-		Py_DECREF(apps_tuple);
 
 	}
 
