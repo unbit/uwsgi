@@ -34,6 +34,9 @@ struct uwsgi_option http_options[] = {
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
 	{"http-keepalive", optional_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
 	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
+#ifdef UWSGI_ZLIB
+	{"http-auto-gzip", no_argument, 0, "automatically gzip content if Content-Encoding is set to gzip, but content is not gzipped and Content-Length is not specified", uwsgi_opt_true, &uhttp.auto_gzip, 0},
+#endif
 
 	{"http-raw-body", no_argument, 0, "blindly send HTTP body to backends (required for WebSockets and Icecast support in backends)", uwsgi_opt_true, &uhttp.raw_body, 0},
 #ifdef UWSGI_SSL
@@ -140,6 +143,15 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 			hr->session.can_keepalive = 0;
 		}
 	}
+
+#ifdef UWSGI_ZLIB
+	if (uhttp.auto_gzip && !uwsgi_strncmp("ACCEPT_ENCODING", 15, hh, keylen)) {
+		if ( uwsgi_contains_n(val, vallen, "gzip", 4) ) {
+			hr->can_gzip = 1;
+			uwsgi_log("CAN_GZIP !!!\n");
+		}
+	}
+#endif
 
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
 

@@ -457,7 +457,7 @@ class uConf(object):
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/channels',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/writer',
             'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors',
-            'core/queue', 'core/event', 'core/signal', 'core/cluster',
+            'core/queue', 'core/event', 'core/signal', 'core/cluster', 'core/strings',
             'core/rpc', 'core/gateway', 'core/loop', 'lib/rbtree', 'core/rb_timers', 'core/uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')

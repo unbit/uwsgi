@@ -22,6 +22,7 @@ struct uwsgi_http {
         int raw_body;
         int keepalive;
         int auto_chunked;
+        int auto_gzip;
 
 #ifdef UWSGI_SSL
         int websockets;
@@ -106,6 +107,9 @@ struct http_session {
 
         ssize_t (*spdy_hook)(struct corerouter_peer *);
 #endif
+
+	int can_gzip;
+	int force_gzip;
 
         int send_expect_100;
 

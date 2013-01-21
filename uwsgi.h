@@ -3772,6 +3772,8 @@ int uwsgi_response_add_content_length(struct wsgi_request *, uint64_t);
 const char *uwsgi_http_status_msg(char *, uint16_t *);
 int uwsgi_stats_dump_vars(struct uwsgi_stats *, struct uwsgi_core *);
 
+int uwsgi_contains_n(char *, size_t, char *, size_t);
+
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)
 
