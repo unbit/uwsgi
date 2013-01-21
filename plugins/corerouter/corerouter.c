@@ -57,8 +57,6 @@ struct corerouter_peer *uwsgi_cr_peer_add(struct corerouter_session *cs) {
 		cs->peers = peers;
 	}
 
-	cs->refcnt++;
-
 	return peers;
 }
 
@@ -279,8 +277,6 @@ void corerouter_manage_subscription(char *key, uint16_t keylen, char *val, uint1
 	}
 }
 
-static struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *, struct corerouter_peer *);
-
 void corerouter_close_peer(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 	struct corerouter_session *cs = peer->session;
 
@@ -380,9 +376,7 @@ end:
 		corerouter_close_session(ucr, cs);
 	}
 	else {
-		if (cs->refcnt > 0)
-			cs->refcnt--;
-		if (cs->refcnt == 0) {
+		if (cs->can_keepalive == 0) {
 			corerouter_close_session(ucr, cs);
 		}
 	}
@@ -411,7 +405,7 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 	free(cr_session);
 }
 
-static struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
+struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 	cr_del_timeout(ucr, peer);
 	return cr_add_timeout(ucr, peer);
 }
@@ -815,6 +809,8 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				}
 				else if (ret < 0) {
 					if (errno == EINPROGRESS) continue;
+					// remove keepalive on error
+					peer->session->can_keepalive = 0;
 					corerouter_close_peer(ucr, peer);
 					continue;
 				}

@@ -32,7 +32,7 @@ struct uwsgi_option http_options[] = {
 	{"http-subscription-server", required_argument, 0, "enable the subscription server", uwsgi_opt_corerouter_ss, &uhttp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
 	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
-	{"http-keepalive", no_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_true, &uhttp.keepalive, 0},
+	{"http-keepalive", optional_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
 	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
 
 	{"http-raw-body", no_argument, 0, "blindly send HTTP body to backends (required for WebSockets and Icecast support in backends)", uwsgi_opt_true, &uhttp.raw_body, 0},
@@ -122,12 +122,12 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 
 	if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
-		hr->can_keepalive = 0;
+		hr->session.can_keepalive = 0;
 	}
 
 	// in the future we could support chunked requests...
 	if (!uwsgi_strncmp("TRANSFER_ENCODING", 17, hh, keylen)) {
-		hr->can_keepalive = 0;
+		hr->session.can_keepalive = 0;
 	}
 
 	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
@@ -137,7 +137,7 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 
 	if (!uwsgi_strncmp("CONNECTION", 10, hh, keylen)) {
 		if (!uwsgi_strnicmp(val, vallen, "close", 5)) {
-			hr->can_keepalive = 0;
+			hr->session.can_keepalive = 0;
 		}
 	}
 
@@ -227,7 +227,7 @@ int http_headers_parse(struct corerouter_peer *peer) {
 				return 0;
 			if (uwsgi_buffer_append_keyval(out, "SERVER_PROTOCOL", 15, base, ptr - base)) return -1;
 			if (uhttp.keepalive && !uwsgi_strncmp("HTTP/1.1", 8, base, ptr-base)) {
-				hr->can_keepalive = 1;
+				hr->session.can_keepalive = 1;
 			}
 			ptr += 2;
 			break;
@@ -343,7 +343,7 @@ ssize_t hr_send_expect_continue(struct corerouter_peer *main_peer) {
 ssize_t hr_instance_write(struct corerouter_peer *peer) {
 	ssize_t len = cr_write(peer, "hr_instance_write()");
         // end on empty write
-        if (!len) return 0;
+        if (!len) { peer->session->can_keepalive = 0; return 0; }
 
         // the chunk has been sent, start (again) reading from client and instances
         if (cr_write_complete(peer)) {
@@ -492,10 +492,15 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 	struct http_session *hr = (struct http_session *) peer->session;
         ssize_t len = cr_read(peer, "hr_instance_read()");
         if (!len) {
-		if (hr->can_keepalive) {
+		if (hr->session.can_keepalive) {
 			peer->session->main_peer->disabled = 0;
-			peer->session->refcnt++;
 			hr->rnrn = 0;
+			if (uhttp.keepalive > 1) {
+				int orig_timeout = peer->session->corerouter->socket_timeout;
+				peer->session->corerouter->socket_timeout = uhttp.keepalive;
+				peer->session->main_peer->timeout = corerouter_reset_timeout(peer->session->corerouter, peer->session->main_peer);
+				peer->session->corerouter->socket_timeout = orig_timeout;
+			}
 			if (hr->force_chunked) {
 				if (!hr->last_chunked) {
 					hr->last_chunked = uwsgi_buffer_new(3);
@@ -513,7 +518,7 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 	}
 
 	// need to parse response headers
-	if (hr->can_keepalive) {
+	if (hr->session.can_keepalive) {
 		if (peer->r_parser_status != 4) {
 			int ret = hr_check_response_keepalive(peer);
 			if (ret < 0) return -1;
@@ -626,7 +631,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
         		new_peer->out->buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
 
 			if (hr->remains > 0) {
-				hr->can_keepalive = 0;
+				hr->session.can_keepalive = 0;
 				if (hr->content_length < hr->remains) { 
 					hr->remains = hr->content_length;
 					hr->content_length = 0;
@@ -637,7 +642,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				if (uwsgi_buffer_append(new_peer->out, main_peer->in->buf + hr->headers_size + 1, hr->remains)) return -1;
 			}
 
-			if (hr->can_keepalive) {
+			if (hr->session.can_keepalive) {
 				main_peer->disabled = 1;
 				// stop reading from the client
 				if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;

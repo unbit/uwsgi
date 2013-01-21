@@ -575,7 +575,7 @@ ssize_t spdy_parse(struct corerouter_peer *main_peer) {
 		if (deflateSetDictionary(&hr->spdy_z_out, (Bytef *) SPDY_dictionary_txt, sizeof(SPDY_dictionary_txt)) != Z_OK) {
             		return -1;
             	}
-		hr->session.refcnt++;
+		cs->can_keepalive = 1;
 		hr->spdy_initialized = 1;
 
 		hr->spdy_phase = UWSGI_SPDY_PHASE_HEADER;

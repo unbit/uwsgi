@@ -60,7 +60,6 @@ struct http_session {
         char *path_info;
         uint16_t path_info_len;
 
-	int can_keepalive;
 	int force_chunked;
 
 #ifdef UWSGI_SSL

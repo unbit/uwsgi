@@ -270,13 +270,12 @@ struct corerouter_session {
 	void (*close)(struct corerouter_session *);
 	int (*retry)(struct corerouter_peer *);
 
+	int can_keepalive;
+
 	// this is the peer of the client
 	struct corerouter_peer *main_peer;
 	// this is the linked list of backends
 	struct corerouter_peer *peers;
-
-	// when it reaches 0 the session can be destroyed
-	uint64_t refcnt;
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);
@@ -317,3 +316,4 @@ int uwsgi_cr_set_hooks(struct corerouter_peer *, ssize_t (*)(struct corerouter_p
 struct corerouter_peer *uwsgi_cr_peer_add(struct corerouter_session *);
 struct corerouter_peer *uwsgi_cr_peer_find_by_sid(struct corerouter_session *, uint32_t);
 void corerouter_close_peer(struct uwsgi_corerouter *, struct corerouter_peer *);
+struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *, struct corerouter_peer *);

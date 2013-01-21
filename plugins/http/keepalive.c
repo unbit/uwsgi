@@ -13,7 +13,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
         // protocol
         for(i=0;i<len;i++) {
                 if (buf[i] == ' ') {
-			if (hr->can_keepalive && uwsgi_strncmp("HTTP/1.1", 8, buf, i)) {
+			if (hr->session.can_keepalive && uwsgi_strncmp("HTTP/1.1", 8, buf, i)) {
 				goto end;
 			}
                         if (i+1 >= len) return -1;;
@@ -63,7 +63,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
                                 if (!colon) return -1;
                                 // security check
                                 if (colon+2 >= buf+len) return -1;
-				if (hr->can_keepalive) {
+				if (hr->session.can_keepalive) {
 					if (!uwsgi_strnicmp(key, colon-key, "Connection", 10)) {
 						if (!uwsgi_strnicmp(colon+2, h_len-((colon-key)+2), "close", 5)) {
 							goto end;
@@ -94,7 +94,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
                 }
         }
 
-	if (hr->can_keepalive && !has_size) {
+	if (hr->session.can_keepalive && !has_size) {
 		if (uhttp.auto_chunked) {
 			char cr = buf[len-2];
 			char nl = buf[len-1];
@@ -109,12 +109,12 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 				return 0;
 			}
 		}
-		hr->can_keepalive = 0;
+		hr->session.can_keepalive = 0;
 	}
         return 0;
 
 end:
-	hr->can_keepalive = 0;
+	hr->session.can_keepalive = 0;
         return 0;
 }
 
