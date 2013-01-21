@@ -168,6 +168,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"reaper", no_argument, 'r', "call waitpid(-1,...) after each request to get rid of zombies", uwsgi_opt_dyn_true, (void *) UWSGI_OPTION_REAPER, 0},
 	{"max-requests", required_argument, 'R', "reload workers after the specified amount of managed requests", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MAX_REQUESTS, 0},
+	{"min-worker-lifetime", required_argument, 0, "number of seconds worker must run before being reloaded (default is 60)", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MIN_WORKER_LIFETIME, 0},
+	{"max-worker-lifetime", required_argument, 0, "reload workers after the specified amount of seconds (default is disabled)", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_MAX_WORKER_LIFETIME, 0},
 
 	{"socket-timeout", required_argument, 'z', "set internal sockets timeout", uwsgi_opt_set_dyn, (void *) UWSGI_OPTION_SOCKET_TIMEOUT, 0},
 	{"no-fd-passing", no_argument, 0, "disable file descriptor passing", uwsgi_opt_true, &uwsgi.no_fd_passing, 0},
