@@ -22,7 +22,6 @@ except:
 
 
 def after_request_hook():
-    return
     print("request finished")
 
 uwsgi.after_req_hook = after_request_hook
