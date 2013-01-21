@@ -555,6 +555,11 @@ int uwsgi_respawn_worker(int wid) {
 		// reset the apps count with a copy from the master 
 		uwsgi.workers[uwsgi.mywid].apps_cnt = uwsgi.workers[0].apps_cnt;
 
+		// reset wsgi_request structures
+                for(i=0;i<uwsgi.cores;i++) {
+                        memset(&uwsgi.workers[uwsgi.mywid].cores[i].req, 0, sizeof(struct wsgi_request));
+                }
+
 		uwsgi_fixup_fds(wid, 0, NULL);
 
 		uwsgi.my_signal_socket = uwsgi.workers[wid].signal_pipe[1];
