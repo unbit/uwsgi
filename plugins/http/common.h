@@ -6,8 +6,9 @@ extern struct uwsgi_server uwsgi;
 
 #ifdef UWSGI_SSL
 #ifdef OPENSSL_NPN_UNSUPPORTED
+#ifdef UWSGI_ZLIB
 #define UWSGI_SPDY
-#include <zlib.h>
+#endif
 #endif
 #endif
 
@@ -108,8 +109,14 @@ struct http_session {
         ssize_t (*spdy_hook)(struct corerouter_peer *);
 #endif
 
+#ifdef UWSGI_ZLIB
 	int can_gzip;
+	int has_gzip;
 	int force_gzip;
+	uint32_t gzip_crc32;
+	uint32_t gzip_size;
+	z_stream z;
+#endif
 
         int send_expect_100;
 

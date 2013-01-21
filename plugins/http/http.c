@@ -35,7 +35,7 @@ struct uwsgi_option http_options[] = {
 	{"http-keepalive", optional_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
 	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
 #ifdef UWSGI_ZLIB
-	{"http-auto-gzip", no_argument, 0, "automatically gzip content if Content-Encoding is set to gzip, but content is not gzipped and Content-Length is not specified", uwsgi_opt_true, &uhttp.auto_gzip, 0},
+	{"http-auto-gzip", no_argument, 0, "automatically gzip content if uWSGI-Encoding header is set to gzip, but content size (Content-Length/Transfer-Encoding) and Content-Encoding are not specified", uwsgi_opt_true, &uhttp.auto_gzip, 0},
 #endif
 
 	{"http-raw-body", no_argument, 0, "blindly send HTTP body to backends (required for WebSockets and Icecast support in backends)", uwsgi_opt_true, &uhttp.raw_body, 0},
@@ -98,7 +98,7 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 	}
 
 #ifdef UWSGI_SSL
-	if (hr->websockets) {
+	else if (hr->websockets) {
 		if (!uwsgi_strncmp("UPGRADE", 7, hh, keylen)) {
 			if (!uwsgi_strnicmp(val, vallen, "websocket", 9)) {
 				hr->websockets++;
@@ -123,35 +123,35 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 	}	
 #endif
 
-	if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
+	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
 		hr->session.can_keepalive = 0;
 	}
 
 	// in the future we could support chunked requests...
-	if (!uwsgi_strncmp("TRANSFER_ENCODING", 17, hh, keylen)) {
+	else if (!uwsgi_strncmp("TRANSFER_ENCODING", 17, hh, keylen)) {
 		hr->session.can_keepalive = 0;
 	}
 
-	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
-		keylen += 5;
-		prefix = 1;
-	}
-
-	if (!uwsgi_strncmp("CONNECTION", 10, hh, keylen)) {
+	else if (!uwsgi_strncmp("CONNECTION", 10, hh, keylen)) {
 		if (!uwsgi_strnicmp(val, vallen, "close", 5)) {
 			hr->session.can_keepalive = 0;
 		}
 	}
 
 #ifdef UWSGI_ZLIB
-	if (uhttp.auto_gzip && !uwsgi_strncmp("ACCEPT_ENCODING", 15, hh, keylen)) {
+	else if (uhttp.auto_gzip && !uwsgi_strncmp("ACCEPT_ENCODING", 15, hh, keylen)) {
 		if ( uwsgi_contains_n(val, vallen, "gzip", 4) ) {
 			hr->can_gzip = 1;
-			uwsgi_log("CAN_GZIP !!!\n");
 		}
 	}
 #endif
+
+	if (uwsgi_strncmp("CONTENT_TYPE", 12, hh, keylen) && uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
+		keylen += 5;
+		prefix = 1;
+	}
+
 
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
 
@@ -507,30 +507,40 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 		if (hr->session.can_keepalive) {
 			peer->session->main_peer->disabled = 0;
 			hr->rnrn = 0;
+			hr->can_gzip = 0;
+			hr->has_gzip = 0;
 			if (uhttp.keepalive > 1) {
 				int orig_timeout = peer->session->corerouter->socket_timeout;
 				peer->session->corerouter->socket_timeout = uhttp.keepalive;
 				peer->session->main_peer->timeout = corerouter_reset_timeout(peer->session->corerouter, peer->session->main_peer);
 				peer->session->corerouter->socket_timeout = orig_timeout;
 			}
-			if (hr->force_chunked) {
-				if (!hr->last_chunked) {
-					hr->last_chunked = uwsgi_buffer_new(3);
-					if (uwsgi_buffer_insert_chunked(hr->last_chunked, 0, 0)) return -1;
-				}
-				peer->session->main_peer->out = hr->last_chunked;
-				peer->session->main_peer->out_pos = 0;
-				cr_write_to_main(peer, hr->func_write);
+		}
+		if (hr->force_chunked || hr->force_gzip) {
+			hr->force_chunked = 0;
+			if (!hr->last_chunked) {
+				hr->last_chunked = uwsgi_buffer_new(5);
 			}
-			else {
-				cr_reset_hooks(peer);
+			if (hr->force_gzip) {
+				hr->force_gzip = 0;
+				if (uwsgi_buffer_append_chunked(hr->last_chunked, 8)) return -1;
+				if (uwsgi_buffer_u32le(hr->last_chunked, hr->gzip_crc32)) return -1;
+				if (uwsgi_buffer_u32le(hr->last_chunked, hr->gzip_size)) return -1;
+				if (uwsgi_buffer_append(hr->last_chunked, "\r\n", 2)) return -1;
 			}
+			if (uwsgi_buffer_append(hr->last_chunked, "0\r\n\r\n", 5)) return -1;
+			peer->session->main_peer->out = hr->last_chunked;
+			peer->session->main_peer->out_pos = 0;
+			cr_write_to_main(peer, hr->func_write);
+		}
+		else {
+			cr_reset_hooks(peer);
 		}
 		return 0;
 	}
 
 	// need to parse response headers
-	if (hr->session.can_keepalive) {
+	if (hr->session.can_keepalive || hr->can_gzip) {
 		if (peer->r_parser_status != 4) {
 			int ret = hr_check_response_keepalive(peer);
 			if (ret < 0) return -1;
@@ -538,6 +548,23 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 				return 1;
 			}
 		}
+#ifdef UWSGI_ZLIB
+		else if (hr->force_gzip) {
+			size_t zlen = 0;
+			char *gzipped = uwsgi_deflate(&hr->z, peer->in->buf, peer->in->pos, &zlen);
+			if (!gzipped) return -1;
+			hr->gzip_size += peer->in->pos;
+			uwsgi_crc32(&hr->gzip_crc32, gzipped, len);
+			peer->in->pos = 0;
+			if (uwsgi_buffer_insert_chunked(peer->in, 0, zlen)) return -1;
+			if (uwsgi_buffer_append(peer->in, gzipped, zlen)) {
+				free(gzipped);
+				return -1;
+			}
+			free(gzipped);
+			if (uwsgi_buffer_append(peer->in, "\r\n", 2)) return -1;
+		}
+#endif
 		else if (hr->force_chunked) {
 			if (uwsgi_buffer_insert_chunked(peer->in, 0, len)) return -1;
 			if (uwsgi_buffer_append(peer->in, "\r\n", 2)) return -1;
@@ -791,8 +818,10 @@ int http_init() {
 
 	uhttp.cr.session_size = sizeof(struct http_session);
 	uhttp.cr.alloc_session = http_alloc_session;
-	if (uhttp.cr.has_sockets && !uwsgi.sockets && !uwsgi_corerouter_has_backends(&uhttp.cr)) {
-		uwsgi_new_socket(uwsgi_concat2("127.0.0.1:0", ""));
+	if (uhttp.cr.has_sockets && !uwsgi_corerouter_has_backends(&uhttp.cr)) {
+		if (!uwsgi.sockets) {
+			uwsgi_new_socket(uwsgi_concat2("127.0.0.1:0", ""));
+		}
 		uhttp.cr.use_socket = 1;
 		uhttp.cr.socket_num = 0;
 	}

@@ -3558,6 +3558,7 @@ int uwsgi_buffer_byte(struct uwsgi_buffer *, char);
 int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
 int uwsgi_buffer_u16be(struct uwsgi_buffer *, uint16_t);
 int uwsgi_buffer_u32be(struct uwsgi_buffer *, uint32_t);
+int uwsgi_buffer_u32le(struct uwsgi_buffer *, uint32_t);
 int uwsgi_buffer_u24be(struct uwsgi_buffer *, uint32_t);
 int uwsgi_buffer_u64be(struct uwsgi_buffer *, uint64_t);
 int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
@@ -3570,6 +3571,7 @@ int uwsgi_buffer_decapitate(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t);
 int uwsgi_buffer_insert(struct uwsgi_buffer *, size_t, char *, size_t);
 int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t);
+int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t);
 	
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
@@ -3776,6 +3778,13 @@ int uwsgi_contains_n(char *, size_t, char *, size_t);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)
+
+#ifdef UWSGI_ZLIB
+#include <zlib.h>
+int uwsgi_deflate_init(z_stream *, char *, size_t);
+char *uwsgi_deflate(z_stream *, char *, size_t, size_t *);
+void uwsgi_crc32(uint32_t *, char *, size_t);
+#endif
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

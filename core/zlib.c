@@ -1,40 +1,30 @@
 #include <uwsgi.h>
-#include <zlib.h>
 
-/*
 
-z_stream *uwsgi_deflate_init(int 
-	z_stream *z = uwsgi_malloc(sizeof(z_stream));
+int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
         z->zalloc = Z_NULL;
         z->zfree = Z_NULL;
         z->opaque = Z_NULL;
         if (deflateInit(z, Z_DEFAULT_COMPRESSION) != Z_OK) {
-       		goto end; 
-                }
-                if (deflateSetDictionary(&hr->spdy_z_out, (Bytef *) SPDY_dictionary_txt, sizeof(SPDY_dictionary_txt)) != Z_OK) {
+		return -1;
+	}
+	if (dict && dict_len) {
+                if (deflateSetDictionary(z, (Bytef *) dict, dict_len) != Z_OK) {
                         return -1;
                 }
-                cs->can_keepalive = 1;
-                hr->spdy_initialized = 1;
-
-                hr->spdy_phase = UWSGI_SPDY_PHASE_HEADER;
-                hr->spdy_need = 8;
-
-                main_peer->out = uhttp.spdy3_settings;
-                main_peer->out->pos = uhttp.spdy3_settings_size;
-                main_peer->out_pos = 0;
-                cr_write_to_main(main_peer, hr_ssl_write);
-                return 1;
-end:
-	return NULL
+	}
+	return 0;
 }
 
 
-char *uwsgi_deflate(char *buf, size_t len, size_t *dlen) {
+char *uwsgi_deflate(z_stream *z, char *buf, size_t len, size_t *dlen) {
 	// calculate the amount of bytes needed for output (+30 should be enough)
         Bytef *dbuf = uwsgi_malloc(len+30);
-        z_stream *z = &hr->spdy_z_out;
-z->avail_in = h_buf->pos; z->next_in = (Bytef *) h_buf->buf; z->avail_out = h_buf->pos+30; z->next_out = dbuf;
+	z->avail_in = len;
+	z->next_in = (Bytef *) buf;
+	z->avail_out = len+30;
+	z->next_out = dbuf;
+
         if (deflate(z, Z_SYNC_FLUSH) != Z_OK) {
                 free(dbuf);
                 return NULL;
@@ -42,5 +32,13 @@ z->avail_in = h_buf->pos; z->next_in = (Bytef *) h_buf->buf; z->avail_out = h_bu
 
         *dlen = z->next_out - dbuf;
         return (char *) dbuf;
+}
 
-*/
+void uwsgi_crc32(uint32_t *ctx, char *buf, size_t len) {
+	if (!buf) {
+		*ctx = crc32(*ctx, Z_NULL, 0);
+	}
+	else {
+		*ctx = crc32(*ctx, (const Bytef *) buf, len);
+	}
+}

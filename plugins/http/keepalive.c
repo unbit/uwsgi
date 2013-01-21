@@ -2,6 +2,10 @@
 
 extern struct uwsgi_http uhttp;
 
+#ifdef UWSGI_ZLIB
+static char gzheader[10] = { 0x1f, 0x8b, Z_DEFLATED, 0, 0, 0, 0, 0, 0, 3 };
+#endif
+
 int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t len) {
 
         size_t i;
@@ -63,7 +67,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
                                 if (!colon) return -1;
                                 // security check
                                 if (colon+2 >= buf+len) return -1;
-				if (hr->session.can_keepalive) {
+				if (hr->session.can_keepalive || (uhttp.auto_gzip && hr->can_gzip)) {
 					if (!uwsgi_strnicmp(key, colon-key, "Connection", 10)) {
 						if (!uwsgi_strnicmp(colon+2, h_len-((colon-key)+2), "close", 5)) {
 							goto end;
@@ -77,6 +81,16 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 					}
 					else if (!uwsgi_strnicmp(key, colon-key, "Transfer-Encoding", 17)) {
 						has_size = 1;
+					}
+				}
+				if (uhttp.auto_gzip && hr->can_gzip) {
+					if (!uwsgi_strnicmp(key, colon-key, "Content-Encoding", 16)) {
+						hr->can_gzip = 0;
+					}
+					else if (!uwsgi_strnicmp(key, colon-key, "uWSGI-Encoding", 14)) {
+						if (!uwsgi_strnicmp(colon+2, h_len-((colon-key)+2), "gzip", 4)) {
+							hr->has_gzip = 1;
+                                                }
 					}
 				}
                                 key = NULL;
@@ -94,22 +108,62 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
                 }
         }
 
-	if (hr->session.can_keepalive && !has_size) {
-		if (uhttp.auto_chunked) {
-			char cr = buf[len-2];
-			char nl = buf[len-1];
-			if (cr == '\r' && nl == '\n') {
-				if (uwsgi_buffer_insert(ub, len-2, "Transfer-Encoding: chunked\r\n", 28)) return -1;
-				size_t remains = ub->pos - (len+28);
-				if (remains > 0) {
-					if (uwsgi_buffer_insert_chunked(ub, len + 28, remains)) return -1;
-					if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
-				}
-				hr->force_chunked = 1;
-				return 0;
+	if (!has_size) {
+		if (hr->has_gzip) {
+			hr->force_gzip = 1;
+			if (uwsgi_deflate_init(&hr->z, NULL, 0)) {
+				hr->force_gzip = 0;
+				goto end;
 			}
+			hr->gzip_crc32 = 0;
+			uwsgi_crc32(&hr->gzip_crc32, NULL, 0);
+			hr->gzip_size = 0;
+			char cr = buf[len-2];
+                        char nl = buf[len-1];
+                        if (cr == '\r' && nl == '\n') {
+                        	if (uwsgi_buffer_insert(ub, len-2, "Transfer-Encoding: chunked\r\n", 28)) return -1;
+                        	if (uwsgi_buffer_insert(ub, len-2+28, "Content-Encoding: gzip\r\n", 24)) return -1;
+                                size_t remains = ub->pos - (len+28+24);
+                                if (remains > 0) {
+					size_t zlen = 0;
+					char *ptr = ub->buf + (ub->pos - remains);
+					char *gzipped = uwsgi_deflate(&hr->z, ptr, remains, &zlen);
+					if (!gzipped) return -1;
+					uwsgi_crc32(&hr->gzip_crc32, gzipped, zlen);
+					hr->gzip_size += remains;
+					ub->pos = len + 28 + 24;
+					if (uwsgi_buffer_append_chunked(ub, zlen + 10)) {free(gzipped); return -1;}
+					if (uwsgi_buffer_append(ub, gzheader, 10)) {free(gzipped); return -1;}
+					if (uwsgi_buffer_append(ub, gzipped, zlen)) {free(gzipped); return -1;}
+					free(gzipped);
+                                        if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
+                                }
+				else {
+					if (uwsgi_buffer_append_chunked(ub, 10)) return -1;
+					if (uwsgi_buffer_append(ub, gzheader, 10)) return -1;
+					if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
+					
+				}
+			}
+			hr->session.can_keepalive = hr->session.can_keepalive;
 		}
-		hr->session.can_keepalive = 0;
+		else if (hr->session.can_keepalive) {
+			if (uhttp.auto_chunked) {
+				char cr = buf[len-2];
+				char nl = buf[len-1];
+				if (cr == '\r' && nl == '\n') {
+					if (uwsgi_buffer_insert(ub, len-2, "Transfer-Encoding: chunked\r\n", 28)) return -1;
+					size_t remains = ub->pos - (len+28);
+					if (remains > 0) {
+						if (uwsgi_buffer_insert_chunked(ub, len + 28, remains)) return -1;
+						if (uwsgi_buffer_append(ub, "\r\n", 2)) return -1;
+					}
+					hr->force_chunked = 1;
+					return 0;
+				}
+			}
+			hr->session.can_keepalive = 0;
+		}
 	}
         return 0;
 

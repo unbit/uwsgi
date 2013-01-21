@@ -67,6 +67,17 @@ int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *ub, size_t pos, size_t len)
 	return uwsgi_buffer_insert(ub, pos, chunked, ret);
 }
 
+int uwsgi_buffer_append_chunked(struct uwsgi_buffer *ub, size_t len) {
+        // 0xFFFFFFFFFFFFFFFF\r\n\0
+        char chunked[19];
+        int ret = snprintf(chunked, 19, "%X\r\n", (unsigned int) len);
+        if (ret <= 0 || ret > 19) {
+                return -1;
+        }
+        return uwsgi_buffer_append(ub, chunked, ret);
+}
+
+
 int uwsgi_buffer_decapitate(struct uwsgi_buffer *ub, size_t len) {
 	if (len > ub->pos) return -1;
 	memmove(ub->buf, ub->buf + len, ub->pos-len);
@@ -138,6 +149,15 @@ int uwsgi_buffer_u32be(struct uwsgi_buffer *ub, uint32_t num) {
         buf[2] = (uint8_t) ((num >> 8) & 0xff);
         buf[1] = (uint8_t) ((num >> 16) & 0xff);
         buf[0] = (uint8_t) ((num >> 24) & 0xff);
+        return uwsgi_buffer_append(ub, (char *) buf, 4);
+}
+
+int uwsgi_buffer_u32le(struct uwsgi_buffer *ub, uint32_t num) {
+        uint8_t buf[4];
+        buf[0] = (uint8_t) (num & 0xff);
+        buf[1] = (uint8_t) ((num >> 8) & 0xff);
+        buf[2] = (uint8_t) ((num >> 16) & 0xff);
+        buf[3] = (uint8_t) ((num >> 24) & 0xff);
         return uwsgi_buffer_append(ub, (char *) buf, 4);
 }
 
