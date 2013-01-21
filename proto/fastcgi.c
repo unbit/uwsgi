@@ -266,6 +266,7 @@ void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 
 int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 
+/*
 	struct fcgi_record fr;
 	char buf[65536];
 	size_t remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
@@ -308,15 +309,15 @@ int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *wsgi_req, int fd, size_t p
 			return -1;
 		}
 		wsgi_req->sendfile_fd_pos += len;
-/*
 		if (write(wsgi_req->poll.fd, buf, len) != len) {
 			uwsgi_error("write()");
 			return -1;
 		}
-*/
 		remains = wsgi_req->sendfile_fd_size - wsgi_req->sendfile_fd_pos;
 	}
 
 	return wsgi_req->sendfile_fd_pos;
+*/
+	return -1;
 
 }
