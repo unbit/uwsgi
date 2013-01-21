@@ -743,7 +743,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	VALUE env, ret, status, headers, body;
 
 	if (!ur.call) {
-		internal_server_error(wsgi_req, "Ruby application not found");
+		uwsgi_500(wsgi_req);
+		uwsgi_log("--- ruby application not found ---\n");
 		return -1;
 	}
 
@@ -895,7 +896,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 
 	}
 	else {
-		internal_server_error(wsgi_req, (char *)"Invalid RACK response");
+		uwsgi_500(wsgi_req);
+		uwsgi_log("invalid RACK response\n");
 	}
 
 clear:
