@@ -2957,8 +2957,8 @@ wait_for_call_of_duty:
 	if (uwsgi.snapshot) {
 		uwsgi_ignition();
 	}
-	// never here
-	pthread_exit(NULL);
+	// end of the process...
+	end_me(0);
 }
 
 /*
