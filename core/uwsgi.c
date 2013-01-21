@@ -2889,7 +2889,7 @@ wait_for_call_of_duty:
 		uwsgi_ignition();
 	}
 	// never here
-	pthread_exit(NULL);
+	end_me(0);
 }
 
 /*
