@@ -162,9 +162,12 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	}
 
 	if (up.start_response_nodelay) {
+		UWSGI_RELEASE_GIL
 		if (uwsgi_response_write_headers_do(wsgi_req)) {
+			UWSGI_GET_GIL
 			return PyErr_Format(PyExc_IOError, "unable to directly send headers");
 		}
+		UWSGI_GET_GIL
 	}
 
 	Py_INCREF(up.wsgi_writeout);

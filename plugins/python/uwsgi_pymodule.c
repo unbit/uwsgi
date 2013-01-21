@@ -809,9 +809,12 @@ PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
 	}
 
 	if (!wsgi_req->headers_sent) {
+		UWSGI_RELEASE_GIL
         	if (uwsgi_response_write_headers_do(wsgi_req)) {
+			UWSGI_GET_GIL
 			return PyErr_Format(PyExc_ValueError, "unable to send headers before offload transfer");
 		}
+		UWSGI_GET_GIL
 	}
 
 
@@ -2817,6 +2820,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
+
 		zero = PyInt_FromLong(uwsgi.workers[i + 1].pid);
 		if (PyDict_SetItemString(worker_dict, "pid", zero)) {
 			goto clear;
@@ -2960,12 +2964,10 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 			Py_DECREF(zero);
 
 			PyTuple_SetItem(apps_tuple, j, apps_dict);
-
 		}
 	
 
 		PyDict_SetItemString(worker_dict, "apps", apps_tuple);
-		Py_DECREF(apps_tuple);
 
 	}
 
