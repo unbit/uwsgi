@@ -133,6 +133,7 @@ int uwsgi_response_write_headers_do(struct wsgi_request *wsgi_req) {
         wsgi_req->headers_size += wsgi_req->write_pos;
 	// reset for the next write
         wsgi_req->write_pos = 0;
+	wsgi_req->headers_sent = 1;
 
         return UWSGI_OK;
 }

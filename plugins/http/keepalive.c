@@ -129,7 +129,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 					char *ptr = ub->buf + (ub->pos - remains);
 					char *gzipped = uwsgi_deflate(&hr->z, ptr, remains, &zlen);
 					if (!gzipped) return -1;
-					uwsgi_crc32(&hr->gzip_crc32, gzipped, zlen);
+					uwsgi_crc32(&hr->gzip_crc32, ptr, remains);
 					hr->gzip_size += remains;
 					ub->pos = len + 28 + 24;
 					if (uwsgi_buffer_append_chunked(ub, zlen + 10)) {free(gzipped); return -1;}

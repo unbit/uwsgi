@@ -5,7 +5,7 @@ int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
         z->zalloc = Z_NULL;
         z->zfree = Z_NULL;
         z->opaque = Z_NULL;
-        if (deflateInit(z, Z_DEFAULT_COMPRESSION) != Z_OK) {
+        if (deflateInit2(z, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, 9, Z_DEFAULT_STRATEGY) != Z_OK) {
 		return -1;
 	}
 	if (dict && dict_len) {
@@ -29,6 +29,8 @@ char *uwsgi_deflate(z_stream *z, char *buf, size_t len, size_t *dlen) {
                 free(dbuf);
                 return NULL;
         }
+
+	uwsgi_log("%d %d\n", z->avail_in, z->next_out - dbuf);
 
         *dlen = z->next_out - dbuf;
         return (char *) dbuf;

@@ -405,6 +405,8 @@ void async_loop() {
 
 				// put the request in the runqueue again
 				runqueue_push(uwsgi.wsgi_req);
+				// avoid managing other enqueued events...
+				break;
 			}
 		}
 

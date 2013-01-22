@@ -551,10 +551,12 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 #ifdef UWSGI_ZLIB
 		else if (hr->force_gzip) {
 			size_t zlen = 0;
+			uwsgi_log("%d|%.*s|\n", peer->in->pos, peer->in->pos, peer->in->buf);
 			char *gzipped = uwsgi_deflate(&hr->z, peer->in->buf, peer->in->pos, &zlen);
+			uwsgi_log("gzipped = %d\n", zlen);
 			if (!gzipped) return -1;
 			hr->gzip_size += peer->in->pos;
-			uwsgi_crc32(&hr->gzip_crc32, gzipped, len);
+			uwsgi_crc32(&hr->gzip_crc32, peer->in->buf, peer->in->pos);
 			peer->in->pos = 0;
 			if (uwsgi_buffer_insert_chunked(peer->in, 0, zlen)) return -1;
 			if (uwsgi_buffer_append(peer->in, gzipped, zlen)) {
