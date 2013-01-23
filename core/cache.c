@@ -863,7 +863,18 @@ void uwsgi_cache_create(char *arg) {
 		char *c_hash = NULL;
 		char *c_hashsize = NULL;
 		char *c_store = NULL;
-		char *c_name = NULL;
+
+		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
+                        "name", &c_name,
+                        "max_items", &c_max_items,
+                        "blocksize", &c_blocksize,
+                        "blocks", &c_blocks,
+                        "hash", &c_hash,
+                        "hashsize", &c_hashsize,
+                        "store", &c_store,
+                NULL)) {
+                return;
+        }
 	}
 
 	uwsgi_cache_init(uc);
