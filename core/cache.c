@@ -1,6 +1,7 @@
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
+#define cache_item(x) (struct uwsgi_cache_item *) (((char *)uc->items) + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * x))
 
 // block bitmap manager
 /*
@@ -119,11 +120,11 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		uint64_t i;
 		for (i = 0; i < uc->max_items; i++) {
 			// here we only need to clear the item header
-			memset(&uc->items[i], 0, sizeof(struct uwsgi_cache_item));
+			memset(cache_item(i), 0, sizeof(struct uwsgi_cache_item));
 		}
 	}
 
-	uc->data = uc->items + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items);
+	uc->data = ((char *)uc->items) + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items);
 
 	uc->lock = uwsgi_rwlock_init("cache");
 
@@ -209,20 +210,18 @@ static inline uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, 
 
 	uint32_t hash = uc->hash->func(key, keylen);
 
-	int hash_key = hash % uc->hashsize;
+	uint32_t hash_key = hash % uc->hashsize;
 
 	uint64_t slot = uc->hashtable[hash_key];
 
-	struct uwsgi_cache_item *uci;
+	struct uwsgi_cache_item *uci = cache_item(slot);
 	uint64_t rounds = 0;
 
-	//uwsgi_log("found slot %d for key %d\n", slot, hash_key);
-
-	uci = &uc->items[slot];
-
 	// first round
-	if (uci->hash != hash)
+	if (uci->hash % uc->hashsize != hash_key)
 		return 0;
+	if (uci->hash != hash)
+		goto cycle;
 	if (uci->keysize != keylen)
 		goto cycle;
 	if (memcmp(uci->key, key, keylen))
@@ -233,7 +232,7 @@ static inline uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, 
 cycle:
 	while (uci->next) {
 		slot = uci->next;
-		uci = &uc->items[slot];
+		uci = cache_item(slot);
 		rounds++;
 		if (rounds > uc->max_items) {
 			uwsgi_log("ALARM !!! cache-loop (and potential deadlock) detected slot = %lu prev = %lu next = %lu\n", slot, uci->prev, uci->next);
@@ -248,7 +247,7 @@ cycle:
 			}
 		}
 		if (uci->hash != hash)
-			return 0;
+			continue;
 		if (uci->keysize != keylen)
 			continue;
 		if (!memcmp(uci->key, key, keylen))
@@ -268,10 +267,11 @@ char *uwsgi_cache_get2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint6
 	uint64_t index = uwsgi_cache_get_index(uc, key, keylen);
 
 	if (index) {
-		if (uc->items[index].flags & UWSGI_CACHE_FLAG_UNGETTABLE)
+		struct uwsgi_cache_item *uci = cache_item(index);
+		if (uci->flags & UWSGI_CACHE_FLAG_UNGETTABLE)
 			return NULL;
-		*valsize = uc->items[index].valsize;
-		uc->items[index].hits++;
+		*valsize = uci->valsize;
+		uci->hits++;
 		uc->hits++;
 		return uc->data + (index * uc->blocksize);
 	}
@@ -290,7 +290,7 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 		index = uwsgi_cache_get_index(uc, key, keylen);
 
 	if (index) {
-		uci = &uc->items[index];
+		uci = cache_item(index);
 		uci->keysize = 0;
 		cache_unmark_blocks(uc, index, uci->valsize);
 		uci->valsize = 0;
@@ -302,7 +302,8 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 		ret = 0;
 		// relink collisioned entry
 		if (uci->prev) {
-			uc->items[uci->prev].next = uci->next;
+			struct uwsgi_cache_item *ucii = cache_item(uci->prev);
+			ucii->next = uci->next;
 		}
 		else {
 			// set next as the new entry point (could be 0)
@@ -310,7 +311,8 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 		}
 
 		if (uci->next) {
-			uc->items[uci->next].prev = uci->prev;
+			struct uwsgi_cache_item *ucii = cache_item(uci->next);
+			ucii->prev = uci->prev;
 		}
 
 		if (!uci->prev && !uci->next) {
@@ -340,10 +342,11 @@ void uwsgi_cache_fix(struct uwsgi_cache *uc) {
 
 	for (i = 0; i < uc->max_items; i++) {
 		// valid record ?
-		if (uc->items[i].keysize) {
-			if (!uc->items[i].prev) {
+		struct uwsgi_cache_item *uci = cache_item(i);
+		if (uci->keysize) {
+			if (!uci->prev) {
 				// put value in hash_table
-				uc->hashtable[uc->items[i].hash % uc->hashsize] = i;
+				uc->hashtable[uci->hash % uc->hashsize] = i;
 				restored++;
 			}
 		}
@@ -392,7 +395,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 				uc->first_available_block++;
 			}
 		}
-		uci = &uc->items[index];
+		uci = cache_item(index);
 		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE))
 			expires += uwsgi_now();
 		uci->expires = expires;
@@ -400,30 +403,29 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		uci->hits = 0;
 		uci->flags = flags;
 		memcpy(uci->key, key, keylen);
-		memcpy(uc->data + (index * uc->blocksize), val, vallen);
+		memcpy(((char *) uc->data) + (index * uc->blocksize), val, vallen);
 
 		// set this as late as possibile (to reduce races risk)
 
 		uci->valsize = vallen;
 		uci->keysize = keylen;
 		ret = 0;
-		// now put the value in the 16bit hashtable
-		int slot = uci->hash % uc->hashsize;
+		// now put the value in the hashtable
+		uint32_t slot = uci->hash % uc->hashsize;
 		// reset values
 		uci->prev = 0;
 		uci->next = 0;
 
-		if (uc->hashtable[slot] == 0) {
+		last_index = uc->hashtable[slot];
+		if (last_index == 0) {
 			uc->hashtable[slot] = index;
 		}
 		else {
-			//uwsgi_log("HASH COLLISION !!!!\n");
 			// append to first available next
-			last_index = uc->hashtable[slot];
-			ucii = &uc->items[last_index];
+			ucii = cache_item(last_index);
 			while (ucii->next) {
 				last_index = ucii->next;
-				ucii = &uc->items[last_index];
+				ucii = cache_item(last_index);
 			}
 			ucii->next = index;
 			uci->prev = last_index;
@@ -432,7 +434,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		uc->n_items++ ;
 	}
 	else if (flags & UWSGI_CACHE_FLAG_UPDATE) {
-		uci = &uc->items[index];
+		uci = cache_item(index);
 		if (expires && !(flags & UWSGI_CACHE_FLAG_ABSEXPIRE)) {
 			expires += uwsgi_now();
 			uci->expires = expires;
@@ -762,8 +764,9 @@ void *cache_sweeper_loop(void *ucache) {
                 // skip the first slot
                 for (i = 1; i < uc->max_items; i++) {
                         uwsgi_wlock(uc->lock);
-                        if (uc->items[i].expires) {
-                                if (uc->items[i].expires < (uint64_t) uwsgi.current_time) {
+			struct uwsgi_cache_item *uci = cache_item(i);
+                        if (uci->expires) {
+                                if (uci->expires < (uint64_t) uwsgi.current_time) {
                                         uwsgi_cache_del2(uc, NULL, 0, i, UWSGI_CACHE_FLAG_LOCAL);
                                         freed_items++;
                                 }

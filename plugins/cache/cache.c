@@ -109,12 +109,12 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 			if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) return -1;
 			uwsgi_response_write_body_do(wsgi_req, cache_dump->buf, cache_dump->pos);
 			uwsgi_buffer_destroy(cache_dump);
-			uwsgi_wlock(uwsgi.cache_lock);
-			int ret = uwsgi_write_nb(wsgi_req->poll.fd, (char *)uwsgi.cache_items, uwsgi.cache_filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+			uwsgi_wlock(uwsgi.caches->lock);
+			int ret = uwsgi_write_nb(wsgi_req->poll.fd, (char *)uwsgi.caches->items, uwsgi.caches->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 			if (!ret) {
-				wsgi_req->response_size += uwsgi.cache_filesize;
+				wsgi_req->response_size += uwsgi.caches->filesize;
 			}
-			uwsgi_rwunlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.caches->lock);
 			break;
         }
 

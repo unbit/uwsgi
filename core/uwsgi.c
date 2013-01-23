@@ -176,8 +176,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"ftok", required_argument, 0, "set the ipcsem key via ftok() for avoiding duplicates", uwsgi_opt_set_str, &uwsgi.ftok, 0},
 	{"sharedarea", required_argument, 'A', "create a raw shared memory area of specified pages", uwsgi_opt_set_int, &uwsgi.sharedareasize, 0},
 
-	{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_set_int, &uwsgi.cache_max_items, 0},
-	{"cache-blocksize", required_argument, 0, "set cache blocksize", uwsgi_opt_set_int, &uwsgi.cache_blocksize, 0},
+	{"cache", required_argument, 0, "create a shared cache containing given elements", uwsgi_opt_set_64bit, &uwsgi.cache_max_items, 0},
+	{"cache-blocksize", required_argument, 0, "set cache blocksize", uwsgi_opt_set_64bit, &uwsgi.cache_blocksize, 0},
 	{"cache-store", required_argument, 0, "enable persistent cache to disk", uwsgi_opt_set_str, &uwsgi.cache_store, UWSGI_OPT_MASTER},
 	{"cache-store-sync", required_argument, 0, "set frequency of sync for persistent cache", uwsgi_opt_set_int, &uwsgi.cache_store_sync, 0},
 	{"cache-server", required_argument, 0, "enable the threaded cache server", uwsgi_opt_set_str, &uwsgi.cache_server, 0},
@@ -2286,6 +2286,9 @@ int uwsgi_start(void *v_argv) {
 	if (uwsgi.queue_size > 0) {
 		uwsgi_init_queue();
 	}
+
+	// register embedded hash algorithms
+	uwsgi_hash_algo_register_all();
 
 	// setup default cache
 	if (uwsgi.cache_max_items > 0) {

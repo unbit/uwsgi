@@ -598,6 +598,7 @@ struct uwsgi_hash_algo {
 
 struct uwsgi_hash_algo *uwsgi_hash_algo_get(char *);
 void uwsgi_hash_algo_register(char *, uint32_t (*)(char *, uint64_t));
+void uwsgi_hash_algo_register_all(void);
 
 // maintain alignment here !!!
 struct uwsgi_cache_item {
@@ -1704,8 +1705,8 @@ struct uwsgi_server {
 	int cache_expire_freq;
 	int cache_report_freed_items;
 	int cache_no_expire;
-	int cache_max_items;
-	int cache_blocksize;
+	uint64_t cache_max_items;
+	uint64_t cache_blocksize;
 	char *cache_store;
 	int cache_store_sync;
 

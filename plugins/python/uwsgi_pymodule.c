@@ -3491,11 +3491,11 @@ PyObject *py_uwsgi_cache_clear(PyObject * self, PyObject * args) {
 
 	uint64_t i;
         // skip the first slot
-        for (i = 1; i < uwsgi.cache_max_items; i++) {
+        for (i = 1; i < uwsgi.caches->max_items; i++) {
 		UWSGI_RELEASE_GIL
-                uwsgi_wlock(uwsgi.cache_lock);
+                uwsgi_wlock(uwsgi.caches->lock);
                 uwsgi_cache_del(NULL, 0, i, 0);
-                uwsgi_rwunlock(uwsgi.cache_lock);
+                uwsgi_rwunlock(uwsgi.caches->lock);
 		UWSGI_GET_GIL
 	}
 
@@ -3519,16 +3519,16 @@ PyObject *py_uwsgi_cache_del(PyObject * self, PyObject * args) {
 		uwsgi_simple_send_string(remote, 111, 2, key, keylen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 		UWSGI_GET_GIL
 	}
-	else if (uwsgi.cache_max_items) {
+	else if (uwsgi.caches) {
 		UWSGI_RELEASE_GIL
-		uwsgi_wlock(uwsgi.cache_lock);
+		uwsgi_wlock(uwsgi.caches->lock);
 		if (uwsgi_cache_del(key, keylen, 0, 0)) {
-			uwsgi_rwunlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.caches->lock);
 			UWSGI_GET_GIL
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 		UWSGI_GET_GIL
 	}
 
@@ -3552,8 +3552,8 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if ((uint64_t)vallen > uwsgi.cache_blocksize) {
-		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.cache_blocksize, (unsigned long long) vallen);
+	if ((uint64_t)vallen > uwsgi.caches->blocksize) {
+		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.caches->blocksize, (unsigned long long) vallen);
 	}
 
 	if (remote && strlen(remote) > 0) {
@@ -3561,16 +3561,16 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 		uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
 		UWSGI_GET_GIL
 	}
-	else if (uwsgi.cache_max_items) {
+	else if (uwsgi.caches) {
 		UWSGI_RELEASE_GIL
-		uwsgi_wlock(uwsgi.cache_lock);
+		uwsgi_wlock(uwsgi.caches->lock);
 		if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
-			uwsgi_rwunlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.caches->lock);
 			UWSGI_GET_GIL
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 		UWSGI_GET_GIL
 	}
 
@@ -3593,8 +3593,8 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-        if ((uint64_t)vallen > uwsgi.cache_blocksize) {
-                return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.cache_blocksize, (unsigned long long) vallen);
+        if ((uint64_t)vallen > uwsgi.caches->blocksize) {
+                return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.caches->blocksize, (unsigned long long) vallen);
         }
 
         if (remote && strlen(remote) > 0) {
@@ -3602,16 +3602,16 @@ PyObject *py_uwsgi_cache_update(PyObject * self, PyObject * args) {
                 uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		UWSGI_GET_GIL
         }
-        else if (uwsgi.cache_max_items) {
+        else if (uwsgi.caches) {
 		UWSGI_RELEASE_GIL
-                uwsgi_wlock(uwsgi.cache_lock);
+                uwsgi_wlock(uwsgi.caches->lock);
                 if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
-                        uwsgi_rwunlock(uwsgi.cache_lock);
+                        uwsgi_rwunlock(uwsgi.caches->lock);
 			UWSGI_GET_GIL
                         Py_INCREF(Py_None);
                         return Py_None;
                 }
-                uwsgi_rwunlock(uwsgi.cache_lock);
+                uwsgi_rwunlock(uwsgi.caches->lock);
 		UWSGI_GET_GIL
         }
 
@@ -3645,16 +3645,16 @@ PyObject *py_uwsgi_cache_exists(PyObject * self, PyObject * args) {
 			return Py_True;
 		}	
         }
-	else if (uwsgi.cache_max_items) {
+	else if (uwsgi.caches) {
 		UWSGI_RELEASE_GIL
-		uwsgi_rlock(uwsgi.cache_lock);
+		uwsgi_rlock(uwsgi.caches->lock);
 		if (uwsgi_cache_exists(key, keylen)) {
-			uwsgi_rwunlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.caches->lock);
 			UWSGI_GET_GIL
 			Py_INCREF(Py_True);
 			return Py_True;
 		}
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 		UWSGI_GET_GIL
 	}
 
@@ -3982,15 +3982,15 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 			valsize = valsize16;
 		}
 	}
-	else if (uwsgi.cache_max_items) {
+	else if (uwsgi.caches) {
 #ifdef UWSGI_DEBUG
 		gettimeofday(&tv, NULL); 
 #endif
 		UWSGI_RELEASE_GIL
-		uwsgi_rlock(uwsgi.cache_lock);
+		uwsgi_rlock(uwsgi.caches->lock);
 		value = uwsgi_cache_get(key, keylen, &valsize);
 		if (!value) {
-			uwsgi_rwunlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.caches->lock);
 			UWSGI_GET_GIL
 			Py_INCREF(Py_None);
 			return Py_None;
@@ -4003,7 +4003,7 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 		}
 #endif
 		memcpy(storage, value, valsize);
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 		UWSGI_GET_GIL
 		ret = PyString_FromStringAndSize(storage, valsize);
 		free(storage);
