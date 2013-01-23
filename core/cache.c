@@ -105,7 +105,7 @@ static inline uint64_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
 
 	uint32_t hash = djb33x_hash(key, keylen);
 
-	int hash_key = hash % 0xffff;
+	uint32_t hash_key = hash % 0xffff;
 
 	uint64_t slot = uwsgi.cache_hashtable[hash_key];
 
@@ -117,8 +117,9 @@ static inline uint64_t uwsgi_cache_get_index(char *key, uint16_t keylen) {
 	uci = &uwsgi.cache_items[slot];
 
 	// first round
+	if (hash_key != uci->djbhash % 0xffff) return 0;
 	if (uci->djbhash != hash)
-		return 0;
+		goto cycle;
 	if (uci->keysize != keylen)
 		goto cycle;
 	if (memcmp(uci->key, key, keylen))
@@ -144,7 +145,7 @@ cycle:
 			}
 		}
 		if (uci->djbhash != hash)
-			return 0;
+			continue;
 		if (uci->keysize != keylen)
 			continue;
 		if (!memcmp(uci->key, key, keylen))
