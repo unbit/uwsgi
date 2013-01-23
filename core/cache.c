@@ -853,8 +853,17 @@ void uwsgi_cache_create(char *arg) {
 		uc->keysize = 2048;
 		uc->hashsize = UMAX16;
 		uc->hash = uwsgi_hash_algo_get("djb33x");
+		uc->store = uwsgi.cache_store;
 	}
 	else {
+		char *c_name = NULL;
+		char *c_max_items = NULL;
+		char *c_blocksize = NULL;
+		char *c_blocks = NULL;
+		char *c_hash = NULL;
+		char *c_hashsize = NULL;
+		char *c_store = NULL;
+		char *c_name = NULL;
 	}
 
 	uwsgi_cache_init(uc);

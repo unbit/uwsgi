@@ -289,13 +289,13 @@ VALUE rack_uwsgi_cache_set(VALUE *class, VALUE rbkey, VALUE rbvalue) {
 		return Qnil;
         }
 
-        uwsgi_wlock(uwsgi.cache_lock);
+        uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
 		return Qnil;
         }
 
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return Qtrue;
 
 }
@@ -317,13 +317,13 @@ VALUE rack_uwsgi_cache_update(VALUE *class, VALUE rbkey, VALUE rbvalue) {
 		return Qnil;
         }
 
-        uwsgi_wlock(uwsgi.cache_lock);
+        uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
 		return Qnil;
         }
 
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return Qtrue;
 
 }
@@ -357,13 +357,13 @@ VALUE rack_uwsgi_cache_del(VALUE *class, VALUE rbkey) {
         char *key = RSTRING_PTR(rbkey);
 	size_t keylen = RSTRING_LEN(rbkey);
 	
-        uwsgi_wlock(uwsgi.cache_lock);
+        uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_del(key, keylen, 0, 0)) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
 		return Qfalse;
         }
 
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return Qtrue;
 
 }
@@ -395,14 +395,14 @@ VALUE rack_uwsgi_cache_get(VALUE *class, VALUE rbkey) {
         uint64_t valsize;
         char *value = NULL;
 
-        uwsgi_rlock(uwsgi.cache_lock);
+        uwsgi_rlock(uwsgi.caches->lock);
         value = uwsgi_cache_get(key, keylen, &valsize);
         if (!value) {
-        	uwsgi_rwunlock(uwsgi.cache_lock);
+        	uwsgi_rwunlock(uwsgi.caches->lock);
         	return Qnil;
         }
         VALUE res = rb_str_new(value, valsize);
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         return res;
 
 }

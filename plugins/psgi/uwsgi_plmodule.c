@@ -114,9 +114,9 @@ XS(XS_cache_set) {
 	key = SvPV(ST(0), keylen);
 	val = SvPV(ST(1), vallen);
 
-	uwsgi_wlock(uwsgi.cache_lock);
+	uwsgi_wlock(uwsgi.caches->lock);
 	uwsgi_cache_set(key, (uint16_t) keylen, val, (uint64_t) vallen, 0, 0);
-	uwsgi_rwunlock(uwsgi.cache_lock);
+	uwsgi_rwunlock(uwsgi.caches->lock);
 
 clear:
 	XSRETURN_UNDEF;
@@ -135,16 +135,16 @@ XS(XS_cache_get) {
 
 	key = SvPV(ST(0), keylen);
 
-	uwsgi_rlock(uwsgi.cache_lock);
+	uwsgi_rlock(uwsgi.caches->lock);
 	val = uwsgi_cache_get(key, (uint16_t) keylen, &vallen);
 
 	if (!val)
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 clear:
 		XSRETURN_UNDEF;
 
 	ST(0) = newSVpv(val, vallen);
-	uwsgi_rwunlock(uwsgi.cache_lock);
+	uwsgi_rwunlock(uwsgi.caches->lock);
 	sv_2mortal(ST(0));
 	
 	XSRETURN(1);
