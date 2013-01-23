@@ -870,35 +870,43 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 	if (uwsgi_stats_comma(us))
 		goto end;
 
-	if (uwsgi.cache_max_items > 0) {
-		if (uwsgi_stats_key(us, "cache"))
+	if (uwsgi.caches) {
+
+		
+		if (uwsgi_stats_key(us, "caches"))
                 goto end;
 
-		if (uwsgi_stats_object_open(us))
-                        goto end;
+		if (uwsgi_stats_list_open(us)) goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "max_items", (unsigned long long) uwsgi.cache_max_items))
-			goto end;
+		struct uwsgi_cache *uc = uwsgi.caches;
+		while(uc) {
+			if (uwsgi_stats_object_open(us))
+                        	goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "blocksize", (unsigned long long) uwsgi.cache_blocksize))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "max_items", (unsigned long long) uc->max_items))
+				goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "items", (unsigned long long) ushared->cache_items))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "blocksize", (unsigned long long) uc->blocksize))
+				goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) ushared->cache_hits))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "items", (unsigned long long) uc->n_items))
+				goto end;
 
-		if (uwsgi_stats_keylong_comma(us, "miss", (unsigned long long) ushared->cache_miss))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "hits", (unsigned long long) uc->hits))
+				goto end;
 
-		if (uwsgi_stats_keylong(us, "full", (unsigned long long) ushared->cache_full))
-			goto end;
+			if (uwsgi_stats_keylong_comma(us, "miss", (unsigned long long) uc->miss))
+				goto end;
 
-		if (uwsgi_stats_object_close(us))
-			goto end;
+			if (uwsgi_stats_keylong(us, "full", (unsigned long long) uc->full))
+				goto end;
 
-	if (uwsgi_stats_comma(us))
+			if (uwsgi_stats_object_close(us))
+				goto end;
+			uc = uc->next;
+		}
+
+		if (uwsgi_stats_comma(us))
 		goto end;
 	}
 

@@ -481,14 +481,14 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 #endif
 
 	if (uwsgi.static_cache_paths) {
-		uwsgi_rlock(uwsgi.cache_lock);
-		char *item = uwsgi_cache_get(filename, filename_len, &real_filename_len);
+		uwsgi_rlock(uwsgi.static_cache_paths->lock);
+		char *item = uwsgi_cache_get2(uwsgi.static_cache_paths, filename, filename_len, &real_filename_len);
 		if (item && real_filename_len > 0 && real_filename_len <= PATH_MAX) {
 			memcpy(real_filename, item, real_filename_len);
-			uwsgi_rwunlock(uwsgi.cache_lock);
+			uwsgi_rwunlock(uwsgi.static_cache_paths->lock);
 			goto found;
 		}
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.static_cache_paths->lock);
 	}
 
 	if (!realpath(filename, real_filename)) {
@@ -501,9 +501,9 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 	real_filename_len = strlen(real_filename);
 
 	if (uwsgi.static_cache_paths) {
-		uwsgi_wlock(uwsgi.cache_lock);
-		uwsgi_cache_set(filename, filename_len, real_filename, real_filename_len, uwsgi.static_cache_paths, UWSGI_CACHE_FLAG_UPDATE);
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_wlock(uwsgi.static_cache_paths->lock);
+		uwsgi_cache_set2(uwsgi.static_cache_paths, filename, filename_len, real_filename, real_filename_len, uwsgi.use_static_cache_paths, UWSGI_CACHE_FLAG_UPDATE);
+		uwsgi_rwunlock(uwsgi.static_cache_paths->lock);
 	}
 
 found:

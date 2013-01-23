@@ -45,13 +45,13 @@ int uwsgi_ssl_session_new_cb(SSL *ssl, SSL_SESSION *sess) {
         i2d_SSL_SESSION(sess, &p);
 
         // ok let's write the value to the cache
-        uwsgi_wlock(uwsgi.cache_lock);
-        if (uwsgi_cache_set((char *) sess->session_id, sess->session_id_length, session_blob, len, uwsgi.ssl_sessions_timeout, 0)) {
+        uwsgi_wlock(uwsgi.ssl_sessions_cache->lock);
+        if (uwsgi_cache_set2(uwsgi.ssl_sessions_cache, (char *) sess->session_id, sess->session_id_length, session_blob, len, uwsgi.ssl_sessions_timeout, 0)) {
                 if (uwsgi.ssl_verbose) {
                         uwsgi_log("[uwsgi-ssl] unable to store session of size %d in the cache\n", len);
                 }
         }
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
         return 0;
 }
 
@@ -60,28 +60,28 @@ SSL_SESSION *uwsgi_ssl_session_get_cb(SSL *ssl, unsigned char *key, int keylen, 
         uint64_t valsize = 0;
 
         *copy = 0;
-        uwsgi_rlock(uwsgi.cache_lock);
-        char *value = uwsgi_cache_get((char *)key, keylen, &valsize);
+        uwsgi_rlock(uwsgi.ssl_sessions_cache->lock);
+        char *value = uwsgi_cache_get2(uwsgi.ssl_sessions_cache, (char *)key, keylen, &valsize);
         if (!value) {
-                uwsgi_rwunlock(uwsgi.cache_lock);
+                uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
                 if (uwsgi.ssl_verbose) {
                         uwsgi_log("[uwsgi-ssl] cache miss\n");
                 }
                 return NULL;
         }
         SSL_SESSION *sess = d2i_SSL_SESSION(NULL, (const unsigned char **)&value, valsize);
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
         return sess;
 }
 
 void uwsgi_ssl_session_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
-        uwsgi_wlock(uwsgi.cache_lock);
-        if (uwsgi_cache_del((char *) sess->session_id, sess->session_id_length, 0, 0)) {
+        uwsgi_wlock(uwsgi.ssl_sessions_cache->lock);
+        if (uwsgi_cache_del2(uwsgi.ssl_sessions_cache, (char *) sess->session_id, sess->session_id_length, 0, 0)) {
                 if (uwsgi.ssl_verbose) {
                         uwsgi_log("[uwsgi-ssl] error removing cache item\n");
                 }
         }
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.ssl_sessions_cache->lock);
 }
 
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
@@ -221,12 +221,12 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 
 	if (uwsgi.ssl_sessions_use_cache) {
 
-                if (!uwsgi.cache_max_items) {
+                if (!uwsgi.ssl_sessions_cache->max_items) {
                         uwsgi_log("you have to enable uWSGI cache to use it as SSL session store !!!\n");
                         exit(1);
                 }
 
-                if (uwsgi.cache_blocksize < 4096) {
+                if (uwsgi.ssl_sessions_cache->blocksize < 4096) {
                         uwsgi_log("cache blocksize for SSL session store must be at least 4096 bytes\n");
                         exit(1);
                 }

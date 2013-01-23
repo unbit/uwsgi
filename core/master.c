@@ -444,8 +444,6 @@ int master_loop(char **argv, char **environ) {
 	uint64_t last_request_count = 0;
 
 	pthread_t logger_thread;
-	pthread_t cache_sweeper;
-	pthread_t cache_udp_server;
 	pthread_t channels_loop;
 
 #ifdef UWSGI_UDP
@@ -546,25 +544,8 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_start_legions();
 #endif
 
-	if (uwsgi.cache_max_items > 0 && !uwsgi.cache_no_expire) {
-		if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, NULL)) {
-			uwsgi_error("pthread_create()");
-			uwsgi_log("unable to run the cache sweeper !!!\n");
-		}
-		else {
-			uwsgi_log("cache sweeper thread enabled\n");
-		}
-	}
-
-	if (uwsgi.cache_max_items > 0 && uwsgi.cache_udp_server) {
-                if (pthread_create(&cache_udp_server, NULL, cache_udp_server_loop, NULL)) {
-                        uwsgi_error("pthread_create()");
-                        uwsgi_log("unable to run the cache udp server !!!\n");
-                }
-                else {
-                        uwsgi_log("cache udp server thread enabled\n");
-                }
-        }
+	uwsgi_cache_start_sweepers();
+	uwsgi_cache_start_sync_servers();
 
 	if (uwsgi.channels) {
 		if (pthread_create(&channels_loop, NULL, uwsgi_channels_loop, NULL)) {
@@ -669,11 +650,7 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_subscribe_all(0, 1);
 
 	// sync the cache store if needed
-	if (uwsgi.cache_store && uwsgi.cache_filesize) {
-		if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
-			uwsgi_error("msync()");
-		}
-	}
+	uwsgi_cache_sync_all();
 
 	if (uwsgi.queue_store && uwsgi.queue_filesize) {
 		if (msync(uwsgi.queue_header, uwsgi.queue_filesize, MS_ASYNC)) {
@@ -1267,11 +1244,7 @@ health_cycle:
 
 #endif
 
-			if (uwsgi.cache_store && uwsgi.cache_filesize && uwsgi.cache_store_sync && ((uwsgi.master_cycles % uwsgi.cache_store_sync) == 0)) {
-				if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
-					uwsgi_error("msync()");
-				}
-			}
+			uwsgi_cache_sync_all();
 
 			if (uwsgi.queue_store && uwsgi.queue_filesize && uwsgi.queue_store_sync && ((uwsgi.master_cycles % uwsgi.queue_store_sync) == 0)) {
 				if (msync(uwsgi.queue_header, uwsgi.queue_filesize, MS_ASYNC)) {

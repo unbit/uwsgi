@@ -503,6 +503,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, UWSGI_OPT_MIME},
 	{"static-safe", required_argument, 0, "skip security checks if the file is under the specified path", uwsgi_opt_add_string_list, &uwsgi.static_safe, UWSGI_OPT_MIME},
 	{"static-cache-paths", required_argument, 0, "put resolved paths in the uWSGI cache for the specified amount of seconds", uwsgi_opt_set_int, &uwsgi.static_cache_paths, UWSGI_OPT_MIME|UWSGI_OPT_MASTER},
+	{"static-cache-name", required_argument, 0, "use the specified cache for static paths", uwsgi_opt_set_str, &uwsgi.static_cache_paths_name, UWSGI_OPT_MIME|UWSGI_OPT_MASTER},
 	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
 	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
 
@@ -2286,10 +2287,12 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_init_queue();
 	}
 
-	// setup cache
+	// setup default cache
 	if (uwsgi.cache_max_items > 0) {
-		uwsgi_init_cache();
+		uwsgi_cache_create(NULL);
 	}
+
+	// setup new generation caches
 
 	// create the cache server
 	if (uwsgi.master_process && uwsgi.cache_server) {

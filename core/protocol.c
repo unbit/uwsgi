@@ -657,7 +657,7 @@ static int uwsgi_proto_check_15(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
-	if (uwsgi.cache_max_items > 0 && !uwsgi_proto_key("UWSGI_CACHE_GET", 15)) {
+	if (uwsgi.caches > 0 && !uwsgi_proto_key("UWSGI_CACHE_GET", 15)) {
 		wsgi_req->cache_get = buf;
 		wsgi_req->cache_get_len = len;
 		return 0;

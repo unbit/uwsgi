@@ -69,7 +69,6 @@ void uwsgi_init_default() {
 	uwsgi.signal_socket = -1;
 	uwsgi.my_signal_socket = -1;
 	uwsgi.cache_server_fd = -1;
-	uwsgi.cache_blocksize = UMAX16;
 	uwsgi.stats_fd = -1;
 
 	uwsgi.stats_pusher_default_freq = 3;
@@ -414,7 +413,7 @@ void sanitize_args() {
                 exit(1);
         }
 
-        if (uwsgi.static_cache_paths > 0 && !uwsgi.cache_max_items) {
+        if (uwsgi.static_cache_paths > 0 && !uwsgi.caches) {
                 uwsgi_log("caching of static paths requires uWSGI caching !!!\n");
                 exit(1);
         }

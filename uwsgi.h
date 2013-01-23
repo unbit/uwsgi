@@ -293,11 +293,10 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #include <zmq.h>
 #endif
 
-#define UWSGI_CACHE_MAX_KEY_SIZE 2048
-#define UWSGI_CACHE_FLAG_UNGETTABLE	0x0001
-#define UWSGI_CACHE_FLAG_UPDATE		0x0002
-#define UWSGI_CACHE_FLAG_LOCAL		0x0004
-#define UWSGI_CACHE_FLAG_ABSEXPIRE	0x0008
+#define UWSGI_CACHE_FLAG_UNGETTABLE	0x01
+#define UWSGI_CACHE_FLAG_UPDATE		0x02
+#define UWSGI_CACHE_FLAG_LOCAL		0x04
+#define UWSGI_CACHE_FLAG_ABSEXPIRE	0x08
 
 #define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
 
@@ -591,14 +590,23 @@ struct uwsgi_queue_item {
 	time_t ts;
 };
 
+struct uwsgi_hash_algo {
+	char *name;
+	uint32_t (*func)(char *, uint64_t);
+	struct uwsgi_hash_algo *next;
+};
+
+struct uwsgi_hash_algo *uwsgi_hash_algo_get(char *);
+void uwsgi_hash_algo_register(char *, uint32_t (*)(char *, uint64_t));
+
 // maintain alignment here !!!
 struct uwsgi_cache_item {
-	// unused
-	uint16_t flags;
+	// item specific flags
+	uint64_t flags;
 	// size of the key
-	uint16_t keysize;
-	// djb hash of the key
-	uint32_t djbhash;
+	uint64_t keysize;
+	// hash of the key
+	uint64_t hash;
 	// size of the value (64bit)
 	uint64_t valsize;
 	// 64bit expiration (0 for immortal)
@@ -609,9 +617,48 @@ struct uwsgi_cache_item {
 	uint64_t prev;
 	// next same-hash item
 	uint64_t next;
-	// key chracters follows...
-	char key[UWSGI_CACHE_MAX_KEY_SIZE];
+	// key characters follows...
+	char key[];
 } __attribute__ ((__packed__));
+
+struct uwsgi_cache {
+	char *name;
+	uint16_t name_len;
+
+	uint64_t keysize;
+	uint64_t blocks;
+	uint64_t blocksize;
+
+	struct uwsgi_hash_algo *hash;
+	uint64_t *hashtable;
+	uint32_t hashsize;
+
+	uint64_t first_available_block;
+	uint64_t *unused_blocks_stack;
+	uint64_t unused_blocks_stack_ptr;
+	uint8_t use_blocks_bitmap;
+	uint8_t *blocks_bitmap;
+
+	uint64_t max_items;
+	uint64_t n_items;
+	struct uwsgi_cache_item *items;
+
+	void *data;
+
+	uint8_t no_expire;
+	uint64_t full;
+	uint64_t hits;
+	uint64_t miss;
+
+	char *store;
+	uint64_t filesize;
+
+	int thread_server_fd;
+
+	struct uwsgi_lock_item *lock;
+
+	struct uwsgi_cache *next;
+};
 
 struct uwsgi_option {
 	char *name;
@@ -1650,7 +1697,17 @@ struct uwsgi_server {
 	struct uwsgi_string_list *static_index;
 	struct uwsgi_string_list *static_safe;
 
-	int static_cache_paths;
+	struct uwsgi_hash_algo *hash_algos;
+	int use_static_cache_paths;
+	char *static_cache_paths_name;
+	struct uwsgi_cache *static_cache_paths;
+	int cache_expire_freq;
+	int cache_report_freed_items;
+	int cache_no_expire;
+	int cache_max_items;
+	int cache_blocksize;
+	char *cache_store;
+	int cache_store_sync;
 
 	struct uwsgi_dyn_dict *static_expires_type;
 	struct uwsgi_dyn_dict *static_expires_type_mtime;
@@ -1962,19 +2019,7 @@ struct uwsgi_server {
 
 	struct uwsgi_string_list *load_file_in_cache;
 	int check_cache;
-
-	uint32_t cache_max_items;
-	uint64_t *cache_hashtable;
-	uint64_t *cache_unused_stack;
-	uint64_t cache_blocksize;
-	struct uwsgi_cache_item *cache_items;
-	void *cache;
-	char *cache_store;
-	size_t cache_filesize;
-	int cache_store_sync;
-	int cache_no_expire;
-	int cache_expire_freq;
-	int cache_report_freed_items;
+	struct uwsgi_cache *caches;
 
 	struct uwsgi_string_list *cache_udp_server;
 	struct uwsgi_string_list *cache_udp_node;
@@ -2008,7 +2053,6 @@ struct uwsgi_server {
 
 	int locks;
 
-	struct uwsgi_lock_item *cache_lock;
 	struct uwsgi_lock_item *queue_lock;
 	struct uwsgi_lock_item **user_lock;
 	struct uwsgi_lock_item *signal_table_lock;
@@ -2037,6 +2081,7 @@ struct uwsgi_server {
 	int ssl_verbose;
 	int ssl_sessions_use_cache;
 	int ssl_sessions_timeout;
+	struct uwsgi_cache *ssl_sessions_cache;
 #ifdef UWSGI_PCRE
 	struct uwsgi_regexp_list *sni_regexp;
 #endif
@@ -2185,14 +2230,6 @@ struct uwsgi_shared {
 #define SNMP_COUNTER64 0x46
 
 #endif
-
-	uint64_t cache_first_available_item;
-	uint64_t cache_unused_stack_ptr;
-	uint64_t cache_hits;
-	uint64_t cache_miss;
-	uint64_t cache_items;
-	uint64_t cache_full;
-
 
 	int worker_signal_pipe[2];
 #ifdef UWSGI_SPOOLER
@@ -2587,10 +2624,20 @@ ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t
 
 char *uwsgi_cluster_best_node(void);
 
-int uwsgi_cache_set(char *, uint16_t, char *, uint64_t, uint64_t, uint16_t);
-int uwsgi_cache_del(char *, uint16_t, uint64_t, uint16_t);
-char *uwsgi_cache_get(char *, uint16_t, uint64_t *);
-uint32_t uwsgi_cache_exists(char *, uint16_t);
+int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, uint64_t, uint64_t);
+int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
+char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
+uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
+void uwsgi_cache_create(char *);
+
+#define uwsgi_cache_set(x1, x2, x3, x4, x5, x6) uwsgi_cache_set2(uwsgi.caches, x1, x2, x3, x4, x5, x6)
+#define uwsgi_cache_del(x1, x2, x3, x4) uwsgi_cache_del2(uwsgi.caches, x1, x2, x3, x4)
+#define uwsgi_cache_get(x1, x2, x3) uwsgi_cache_get2(uwsgi.caches, x1, x2, x3)
+#define uwsgi_cache_exists(x1, x2) uwsgi_cache_exists2(uwsgi.caches, x1, x2)
+
+void uwsgi_cache_sync_all(void);
+void uwsgi_cache_start_sweepers(void);
+void uwsgi_cache_start_sync_servers(void);
 
 
 void *uwsgi_malloc(size_t);
@@ -2693,7 +2740,6 @@ int is_a_number(char *);
 char *uwsgi_resolve_ip(char *);
 
 void uwsgi_init_queue(void);
-void uwsgi_init_cache(void);
 char *uwsgi_queue_get(uint64_t, uint64_t *);
 char *uwsgi_queue_pull(uint64_t *);
 int uwsgi_queue_push(char *, uint64_t);
@@ -2847,7 +2893,7 @@ int uwsgi_list_has_num(char *, int);
 
 int uwsgi_list_has_str(char *, char *);
 
-void uwsgi_cache_fix(void);
+void uwsgi_cache_fix(struct uwsgi_cache *);
 
 struct uwsgi_async_request {
 
@@ -3098,6 +3144,7 @@ struct uwsgi_subscribe_slot {
 
 void mule_send_msg(int, char *, size_t);
 
+uint32_t djb33x_hash(char *, uint64_t);
 void create_signal_pipe(int *);
 struct uwsgi_subscribe_slot *uwsgi_get_subscribe_slot(struct uwsgi_subscribe_slot **, char *, uint16_t);
 struct uwsgi_subscribe_node *uwsgi_get_subscribe_node_by_name(struct uwsgi_subscribe_slot **, char *, uint16_t, char *, uint16_t);
@@ -3427,7 +3474,6 @@ char *uwsgi_sha1_2n(char *, size_t, char *, size_t, char *);
 
 void uwsgi_opt_ssa(char *, char *, void *);
 
-uint32_t djb33x_hash(char *, int);
 int uwsgi_no_subscriptions(struct uwsgi_subscribe_slot **);
 void uwsgi_deadlock_check(pid_t);
 
@@ -3677,10 +3723,9 @@ int uwsgi_send_http_stats(int);
 ssize_t uwsgi_simple_request_read(struct wsgi_request *, char *, size_t);
 int uwsgi_plugin_modifier1(char *);
 
-int uwsgi_cache_enabled(void);
-void uwsgi_cache_wlock(void);
-void uwsgi_cache_rlock(void);
-void uwsgi_cache_rwunlock(void);
+void uwsgi_cache_wlock(struct uwsgi_cache *);
+void uwsgi_cache_rlock(struct uwsgi_cache *);
+void uwsgi_cache_rwunlock(struct uwsgi_cache *);
 
 void *cache_sweeper_loop(void *);
 void *cache_udp_server_loop(void *);
