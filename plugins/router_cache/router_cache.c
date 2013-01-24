@@ -28,10 +28,12 @@ struct uwsgi_router_cache_conf {
 	long var_offset_len;
 
 	char *content_type;
+	char *name;
 	size_t content_type_len;
 
 	// 0 -> full, 1 -> body
 	int type_num;
+	struct uwsgi_cache *cache;
 	
 };
 
@@ -61,7 +63,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	}
 
 	uint64_t valsize = 0;
-	char *value = uwsgi_cache_get(c_k, c_k_len, &valsize);
+	char *value = uwsgi_cache_safe_get2(urcc->cache, c_k, c_k_len, &valsize);
 	if (value) {
 		if (urcc->type_num == 1) {
 			if (uwsgi_response_prepare_headers(wsgi_req, "200 OK", 6)) goto error;
@@ -70,6 +72,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 		}
 		// body only
 		uwsgi_response_write_body_do(wsgi_req, value, valsize);
+		free(value);
 		if (k_need_free) free(c_k);
 		if (ur->custom)
 			return UWSGI_ROUTE_NEXT;
@@ -79,6 +82,7 @@ static int uwsgi_routing_func_cache(struct wsgi_request *wsgi_req, struct uwsgi_
 	
 	return UWSGI_ROUTE_NEXT;
 error:
+	free(value);
 	if (k_need_free) free(c_k);
 	return UWSGI_ROUTE_BREAK;
 }
@@ -92,6 +96,7 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                         "key", &urcc->key,
                         "var", &urcc->var,
                         "content_type", &urcc->content_type,
+                        "name", &urcc->name,
                         "type", &urcc->type, NULL)) {
 			uwsgi_log("invalid route syntax: %s\n", args);
 			exit(1);
@@ -129,6 +134,17 @@ static int uwsgi_router_cache(struct uwsgi_route *ur, char *args) {
                 if (!strcmp(urcc->type, "body")) {
                         urcc->type_num = 1;
                 }
+
+		if (urcc->name) {
+			urcc->cache = uwsgi_cache_by_name(urcc->name);
+			if (!urcc->cache) {
+				uwsgi_log("unable to find cache \"%s\"\n", urcc->name);
+				exit(1);
+			}
+		}
+		else {
+			urcc->cache = uwsgi.caches;
+		}
 
                 ur->data2 = urcc;
 	return 0;

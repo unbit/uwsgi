@@ -978,3 +978,17 @@ void uwsgi_cache_create_all() {
 
 	uwsgi.cache_setup = 1;
 }
+
+char *uwsgi_cache_safe_get2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_t * valsize) {
+	uwsgi_rlock(uc->lock);
+	char *value = uwsgi_cache_get2(uc, key, keylen, valsize);
+	if (value && *valsize) {
+		char *buf = uwsgi_malloc(*valsize);
+		memcpy(buf, value, *valsize);
+		uwsgi_rwunlock(uc->lock);
+		return buf;
+	}
+	uwsgi_rwunlock(uc->lock);
+	return NULL;
+	
+}

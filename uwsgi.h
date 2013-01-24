@@ -2024,7 +2024,8 @@ struct uwsgi_server {
 	size_t rwlock_size;
 
 	struct uwsgi_string_list *load_file_in_cache;
-	int check_cache;
+	char *use_check_cache;
+	struct uwsgi_cache *check_cache;
 	struct uwsgi_cache *caches;
 
 	struct uwsgi_string_list *cache_udp_server;
@@ -2637,6 +2638,7 @@ uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
 void uwsgi_cache_create(char *);
 struct uwsgi_cache *uwsgi_cache_by_name(char *);
 void uwsgi_cache_create_all(void);
+char *uwsgi_cache_safe_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
 
 #define uwsgi_cache_set(x1, x2, x3, x4, x5, x6) uwsgi_cache_set2(uwsgi.caches, x1, x2, x3, x4, x5, x6)
 #define uwsgi_cache_del(x1, x2, x3, x4) uwsgi_cache_del2(uwsgi.caches, x1, x2, x3, x4)
