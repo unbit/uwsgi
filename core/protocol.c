@@ -657,7 +657,7 @@ static int uwsgi_proto_check_15(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
-	if (uwsgi.caches > 0 && !uwsgi_proto_key("UWSGI_CACHE_GET", 15)) {
+	if (uwsgi.caches && !uwsgi_proto_key("UWSGI_CACHE_GET", 15)) {
 		wsgi_req->cache_get = buf;
 		wsgi_req->cache_get_len = len;
 		return 0;
@@ -851,7 +851,7 @@ next:
 	// check if data are available in the local cache
 	if (wsgi_req->cache_get_len > 0) {
 		uint64_t cache_value_size;
-		char *cache_value = uwsgi_cache_get(wsgi_req->cache_get, wsgi_req->cache_get_len, &cache_value_size);
+		char *cache_value = uwsgi_cache_get2(uwsgi.caches, wsgi_req->cache_get, wsgi_req->cache_get_len, &cache_value_size);
 		if (cache_value && cache_value_size > 0) {
 			uwsgi_response_write_body_do(wsgi_req, cache_value, cache_value_size);
 			wsgi_req->status = -1;
@@ -862,7 +862,7 @@ next:
 	if (uwsgi.check_cache && wsgi_req->uri_len && wsgi_req->method_len == 3 && wsgi_req->method[0] == 'G' && wsgi_req->method[1] == 'E' && wsgi_req->method[2] == 'T') {
 
 		uint64_t cache_value_size;
-		char *cache_value = uwsgi_cache_get(wsgi_req->uri, wsgi_req->uri_len, &cache_value_size);
+		char *cache_value = uwsgi_cache_get2(uwsgi.caches, wsgi_req->uri, wsgi_req->uri_len, &cache_value_size);
 		if (cache_value && cache_value_size > 0) {
 			uwsgi_response_write_body_do(wsgi_req, cache_value, cache_value_size);
 			wsgi_req->status = -1;
