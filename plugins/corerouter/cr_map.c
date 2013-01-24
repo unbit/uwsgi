@@ -9,12 +9,14 @@ int uwsgi_cr_map_use_void(struct uwsgi_corerouter *ucr, struct corerouter_peer *
 }
 
 int uwsgi_cr_map_use_cache(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
-	peer->instance_address = uwsgi_cache_get(peer->key, peer->key_len, &peer->instance_address_len);
+	uwsgi_rlock(ucr->cache->lock);
+	peer->instance_address = uwsgi_cache_get2(ucr->cache, peer->key, peer->key_len, &peer->instance_address_len);
 	char *cs_mod = uwsgi_str_contains(peer->instance_address, peer->instance_address_len, ',');
 	if (cs_mod) {
 		peer->modifier1 = uwsgi_str_num(cs_mod + 1, (peer->instance_address_len - (cs_mod - peer->instance_address)) - 1);
 		peer->instance_address_len = (cs_mod - peer->instance_address);
 	}
+	uwsgi_rwunlock(ucr->cache->lock);
 	return 0;
 }
 

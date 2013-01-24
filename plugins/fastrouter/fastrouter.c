@@ -23,7 +23,7 @@ struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter-processes", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.cr.processes, 0},
 	{"fastrouter-workers", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.cr.processes, 0},
 	{"fastrouter-zerg", required_argument, 0, "attach the fastrouter to a zerg server", uwsgi_opt_corerouter_zerg, &ufr, 0},
-	{"fastrouter-use-cache", no_argument, 0, "use uWSGI cache as hostname->server mapper for the fastrouter", uwsgi_opt_true, &ufr.cr.use_cache, 0},
+	{"fastrouter-use-cache", optional_argument, 0, "use uWSGI cache as hostname->server mapper for the fastrouter", uwsgi_opt_set_str, &ufr.cr.use_cache, 0},
 
 	{"fastrouter-use-pattern", required_argument, 0, "use a pattern for fastrouter hostname->server mapping", uwsgi_opt_corerouter_use_pattern, &ufr, 0},
 	{"fastrouter-use-base", required_argument, 0, "use a base dir for fastrouter hostname->server mapping", uwsgi_opt_corerouter_use_base, &ufr, 0},

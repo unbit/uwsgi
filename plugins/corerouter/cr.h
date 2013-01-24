@@ -197,7 +197,8 @@ struct uwsgi_corerouter {
 
         struct rb_root *timeouts;
 
-        int use_cache;
+        char *use_cache;
+	struct uwsgi_cache *cache;
         int nevents;
 
 	int max_retries;

@@ -652,6 +652,10 @@ void uwsgi_corerouter_loop(int id, void *data) {
 	ucr->mapper = uwsgi_cr_map_use_void;
 
 			if (ucr->use_cache) {
+				ucr->cache = uwsgi_cache_by_name(ucr->use_cache);
+				if (!ucr->cache) {
+					uwsgi_log("unable to find cache \"%s\"\n", ucr->use_cache);
+				}
                         	ucr->mapper = uwsgi_cr_map_use_cache;
                         }
                         else if (ucr->pattern) {
