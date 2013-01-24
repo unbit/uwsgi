@@ -413,7 +413,7 @@ void sanitize_args() {
                 exit(1);
         }
 
-        if (uwsgi.static_cache_paths > 0 && !uwsgi.caches) {
+        if (uwsgi.static_cache_paths && !uwsgi.caches) {
                 uwsgi_log("caching of static paths requires uWSGI caching !!!\n");
                 exit(1);
         }
