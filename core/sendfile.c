@@ -31,8 +31,6 @@ ssize_t uwsgi_sendfile_do(int sockfd, int filefd, size_t pos, size_t len) {
 #elif defined(__APPLE__)
 	off_t sf_len = len;
 
-	uwsgi_log("sendfile from %d to %d\n", pos, sf_len);
-
 	int sf_ret = sendfile(filefd, sockfd, pos, &sf_len, NULL, 0);
 	if (sf_ret == 0 || (sf_ret == -1 && errno == EAGAIN)) return sf_len;
 	return -1;

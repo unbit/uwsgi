@@ -221,6 +221,16 @@ SSL_CTX *uwsgi_ssl_new_server_context(char *name, char *crt, char *key, char *ci
 
 	if (uwsgi.ssl_sessions_use_cache) {
 
+		// we need to early initialize locking and caching
+		uwsgi_setup_locking();
+		uwsgi_cache_create_all();
+
+		uwsgi.ssl_sessions_cache = uwsgi_cache_by_name(uwsgi.ssl_sessions_use_cache);
+		if (!uwsgi.ssl_sessions_cache) {
+			uwsgi_log("unable to find cache \"%s\"\n", uwsgi.ssl_sessions_use_cache ? uwsgi.ssl_sessions_use_cache : "default");
+			exit(1);
+		}
+
                 if (!uwsgi.ssl_sessions_cache->max_items) {
                         uwsgi_log("you have to enable uWSGI cache to use it as SSL session store !!!\n");
                         exit(1);

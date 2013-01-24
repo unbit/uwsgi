@@ -544,6 +544,10 @@ pid_t uwsgi_rwlock_ipcsem_check(struct uwsgi_lock_item *uli) {
 
 void uwsgi_setup_locking() {
 
+	int i;
+
+	if (uwsgi.locking_setup) return;
+
 	// use the fastest available locking
 	if (uwsgi.lock_engine) {
 		if (!strcmp(uwsgi.lock_engine, "ipcsem")) {
@@ -560,7 +564,7 @@ void uwsgi_setup_locking() {
 			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_ipcsem;
 			uwsgi.lock_size = 8;
 			uwsgi.rwlock_size = 8;
-			return;
+			goto ready;
 		}
 	}
 
@@ -580,8 +584,8 @@ void uwsgi_setup_locking() {
 	uwsgi.lock_size = UWSGI_LOCK_SIZE;
 	uwsgi.rwlock_size = UWSGI_RWLOCK_SIZE;
 
+ready:
 	// application generic lock
-	int i;
 	uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks + 1));
 	for (i = 0; i < uwsgi.locks + 1; i++) {
 		uwsgi.user_lock[i] = uwsgi_lock_init(uwsgi_concat2("user ", uwsgi_num2str(i)));
@@ -613,7 +617,7 @@ void uwsgi_setup_locking() {
 	}
 
 	uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");
-
+	uwsgi.locking_setup = 1;
 }
 
 

@@ -937,3 +937,44 @@ void uwsgi_cache_create(char *arg) {
 
 	uwsgi_cache_init(uc);
 }
+
+struct uwsgi_cache *uwsgi_cache_by_name(char *name) {
+	struct uwsgi_cache *uc = uwsgi.caches;
+	if (!name || *name == 0) {
+		return uwsgi.caches;
+	}
+	while(uc) {
+		if (uc->name && !strcmp(uc->name, name)) {
+			return uc;
+		}
+		uc = uc->next;
+	}
+	return NULL;
+}
+
+void uwsgi_cache_create_all() {
+
+	if (uwsgi.cache_setup) return;
+
+	// register embedded hash algorithms
+        uwsgi_hash_algo_register_all();
+
+        // setup default cache
+        if (uwsgi.cache_max_items > 0) {
+                uwsgi_cache_create(NULL);
+        }
+
+        // setup new generation caches
+        struct uwsgi_string_list *usl = uwsgi.cache2;
+        while(usl) {
+                uwsgi_cache_create(usl->value);
+                usl = usl->next;
+        }
+
+        // create the cache server
+        if (uwsgi.master_process && uwsgi.cache_server) {
+                uwsgi.cache_server_fd = uwsgi_cache_server(uwsgi.cache_server, uwsgi.cache_server_threads);
+        }
+
+	uwsgi.cache_setup = 1;
+}

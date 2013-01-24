@@ -1712,6 +1712,8 @@ struct uwsgi_server {
 	char *cache_store;
 	int cache_store_sync;
 	struct uwsgi_string_list *cache2;
+	int cache_setup;
+	int locking_setup;
 
 	struct uwsgi_dyn_dict *static_expires_type;
 	struct uwsgi_dyn_dict *static_expires_type_mtime;
@@ -2083,7 +2085,7 @@ struct uwsgi_server {
 #ifdef UWSGI_SSL
 	int ssl_initialized;
 	int ssl_verbose;
-	int ssl_sessions_use_cache;
+	char *ssl_sessions_use_cache;
 	int ssl_sessions_timeout;
 	struct uwsgi_cache *ssl_sessions_cache;
 #ifdef UWSGI_PCRE
@@ -2633,6 +2635,8 @@ int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t)
 char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
 void uwsgi_cache_create(char *);
+struct uwsgi_cache *uwsgi_cache_by_name(char *);
+void uwsgi_cache_create_all(void);
 
 #define uwsgi_cache_set(x1, x2, x3, x4, x5, x6) uwsgi_cache_set2(uwsgi.caches, x1, x2, x3, x4, x5, x6)
 #define uwsgi_cache_del(x1, x2, x3, x4) uwsgi_cache_del2(uwsgi.caches, x1, x2, x3, x4)

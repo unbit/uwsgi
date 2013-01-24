@@ -365,8 +365,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 #endif
 #ifdef UWSGI_SSL
 	{"ssl-verbose", no_argument, 0, "be verbose about SSL errors", uwsgi_opt_true, &uwsgi.ssl_verbose, 0},
-	{"ssl-sessions-use-cache", no_argument, 0, "use uWSGI cache for ssl sessions storage", uwsgi_opt_true, &uwsgi.ssl_sessions_use_cache, 0},
-	{"ssl-session-use-cache", no_argument, 0, "use uWSGI cache for ssl sessions storage", uwsgi_opt_true, &uwsgi.ssl_sessions_use_cache, 0},
+	// force master, as ssl sessions caching initialize locking early
+	{"ssl-sessions-use-cache", optional_argument, 0, "use uWSGI cache for ssl sessions storage", uwsgi_opt_set_str, &uwsgi.ssl_sessions_use_cache, UWSGI_OPT_MASTER},
+	{"ssl-session-use-cache", no_argument, 0, "use uWSGI cache for ssl sessions storage", uwsgi_opt_true, &uwsgi.ssl_sessions_use_cache, UWSGI_OPT_MASTER},
 	{"ssl-sessions-timeout", required_argument, 0, "set SSL sessions timeout (default: 300 seconds)", uwsgi_opt_set_int, &uwsgi.ssl_sessions_timeout, 0},
 	{"ssl-session-timeout", required_argument, 0, "set SSL sessions timeout (default: 300 seconds)", uwsgi_opt_set_int, &uwsgi.ssl_sessions_timeout, 0},
 	{"sni", required_argument, 0, "add an SNI-governed SSL context", uwsgi_opt_sni, NULL, 0},
@@ -2289,25 +2290,7 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_init_queue();
 	}
 
-	// register embedded hash algorithms
-	uwsgi_hash_algo_register_all();
-
-	// setup default cache
-	if (uwsgi.cache_max_items > 0) {
-		uwsgi_cache_create(NULL);
-	}
-
-	// setup new generation caches
-	struct uwsgi_string_list *usl = uwsgi.cache2;
-	while(usl) {
-		uwsgi_cache_create(usl->value);
-		usl = usl->next;
-	}
-
-	// create the cache server
-	if (uwsgi.master_process && uwsgi.cache_server) {
-		uwsgi.cache_server_fd = uwsgi_cache_server(uwsgi.cache_server, uwsgi.cache_server_threads);
-	}
+	uwsgi_cache_create_all();
 
 	/* plugin initialization */
 	for (i = 0; i < uwsgi.gp_cnt; i++) {
@@ -3353,6 +3336,10 @@ void uwsgi_opt_dyn_false(char *opt, char *value, void *key) {
 
 void uwsgi_opt_set_str(char *opt, char *value, void *key) {
 	char **ptr = (char **) key;
+	if (!value) {
+		*ptr = "";
+		return;	
+	}
 	*ptr = (char *) value;
 }
 
