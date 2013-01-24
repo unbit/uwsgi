@@ -251,6 +251,8 @@ struct uwsgi_corerouter {
 
 	int interesting_fd;
 
+	uint64_t active_sessions;
+
 };
 
 // a session is started when a client connect to the router
@@ -271,7 +273,10 @@ struct corerouter_session {
 	void (*close)(struct corerouter_session *);
 	int (*retry)(struct corerouter_peer *);
 
+	// leave the main peer alive
 	int can_keepalive;
+	// destroy the main peer after the last full write
+	int wait_full_write;
 
 	// this is the peer of the client
 	struct corerouter_peer *main_peer;

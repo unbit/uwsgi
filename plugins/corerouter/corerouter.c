@@ -376,7 +376,7 @@ end:
 		corerouter_close_session(ucr, cs);
 	}
 	else {
-		if (cs->can_keepalive == 0) {
+		if (cs->can_keepalive == 0 && cs->wait_full_write == 0) {
 			corerouter_close_session(ucr, cs);
 		}
 	}
@@ -403,6 +403,12 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 		cr_session->close(cr_session);
 
 	free(cr_session);
+
+	if (ucr->active_sessions == 0) {
+		uwsgi_log("[BUG] number of active sessions already 0 !!!\n");
+		return;
+	}
+	ucr->active_sessions--;
 }
 
 struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
@@ -559,6 +565,8 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 		free(cs);
 		cs = NULL;
 	}
+
+	ucr->active_sessions++;
 
 	return cs;
 }
@@ -919,6 +927,8 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
 
         char *cwd = uwsgi_get_cwd();
         if (uwsgi_stats_keyval_comma(us, "cwd", cwd)) goto end0;
+
+        if (uwsgi_stats_keylong_comma(us, "active_sessions", (unsigned long long) ucr->active_sessions)) goto end;
 
 	if (uwsgi_stats_key(us , ucr->short_name)) goto end0;
         if (uwsgi_stats_list_open(us)) goto end0;

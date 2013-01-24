@@ -431,6 +431,10 @@ ssize_t hr_write(struct corerouter_peer *main_peer) {
         if (cr_write_complete(main_peer)) {
                 // reset the original read buffer
                 main_peer->out->pos = 0;
+		if (main_peer->session->wait_full_write) {
+			main_peer->session->wait_full_write = 0;
+			return 0;
+		}
                 cr_reset_hooks(main_peer);
         }
 
@@ -523,6 +527,13 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 			}
 			if (hr->force_gzip) {
 				hr->force_gzip = 0;
+				size_t zlen = 0;
+				char *gzipped = uwsgi_deflate(&hr->z, NULL, 0, &zlen);
+				if (!gzipped) return -1;
+				if (uwsgi_buffer_append_chunked(hr->last_chunked, zlen)) {free(gzipped) ; return -1;}
+				if (uwsgi_buffer_append(hr->last_chunked, gzipped, zlen)) {free(gzipped) ; return -1;}
+				free(gzipped);
+				if (uwsgi_buffer_append(hr->last_chunked, "\r\n", 2)) return -1;
 				if (uwsgi_buffer_append_chunked(hr->last_chunked, 8)) return -1;
 				if (uwsgi_buffer_u32le(hr->last_chunked, hr->gzip_crc32)) return -1;
 				if (uwsgi_buffer_u32le(hr->last_chunked, hr->gzip_size)) return -1;
@@ -532,6 +543,9 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 			peer->session->main_peer->out = hr->last_chunked;
 			peer->session->main_peer->out_pos = 0;
 			cr_write_to_main(peer, hr->func_write);
+			if (!hr->session.can_keepalive) {
+				hr->session.wait_full_write = 1;
+			}
 		}
 		else {
 			cr_reset_hooks(peer);
@@ -551,14 +565,12 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 #ifdef UWSGI_ZLIB
 		else if (hr->force_gzip) {
 			size_t zlen = 0;
-			uwsgi_log("%d|%.*s|\n", peer->in->pos, peer->in->pos, peer->in->buf);
 			char *gzipped = uwsgi_deflate(&hr->z, peer->in->buf, peer->in->pos, &zlen);
-			uwsgi_log("gzipped = %d\n", zlen);
 			if (!gzipped) return -1;
 			hr->gzip_size += peer->in->pos;
 			uwsgi_crc32(&hr->gzip_crc32, peer->in->buf, peer->in->pos);
 			peer->in->pos = 0;
-			if (uwsgi_buffer_insert_chunked(peer->in, 0, zlen)) return -1;
+			if (uwsgi_buffer_insert_chunked(peer->in, 0, zlen)) {free(gzipped); return -1;}
 			if (uwsgi_buffer_append(peer->in, gzipped, zlen)) {
 				free(gzipped);
 				return -1;
@@ -722,6 +734,12 @@ void hr_session_close(struct corerouter_session *cs) {
 	if (hr->last_chunked) {
 		uwsgi_buffer_destroy(hr->last_chunked);
 	}
+
+#ifdef UWSGI_ZLIB
+	if (hr->z.next_in) {
+		deflateEnd(&hr->z);
+	}
+#endif
 }
 
 ssize_t hr_recv_stud4(struct corerouter_peer * main_peer) {

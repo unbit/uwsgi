@@ -262,6 +262,10 @@ void hr_session_ssl_close(struct corerouter_session *cs) {
 	if (hr->spdy_ping) {
 		uwsgi_buffer_destroy(hr->spdy_ping);
 	}
+	if (hr->spdy) {
+		deflateEnd(&hr->spdy_z_in);
+		deflateEnd(&hr->spdy_z_out);
+	}
 #endif
 
         SSL_free(hr->ssl);
@@ -277,6 +281,10 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
                 if (main_peer->out->pos == main_peer->out_pos) {
 			// reset the buffer (if needed)
 			main_peer->out->pos = 0;
+			if (main_peer->session->wait_full_write) {
+                        	main_peer->session->wait_full_write = 0;
+                        	return 0;
+                	}
                         cr_reset_hooks(main_peer);
                 }
                 return ret;

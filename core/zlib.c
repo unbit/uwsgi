@@ -6,6 +6,7 @@ int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
         z->zfree = Z_NULL;
         z->opaque = Z_NULL;
         if (deflateInit2(z, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, 9, Z_DEFAULT_STRATEGY) != Z_OK) {
+	//if (deflateInit(z, Z_DEFAULT_COMPRESSION)) {
 		return -1;
 	}
 	if (dict && dict_len) {
@@ -18,6 +19,7 @@ int uwsgi_deflate_init(z_stream *z, char *dict, size_t dict_len) {
 
 
 char *uwsgi_deflate(z_stream *z, char *buf, size_t len, size_t *dlen) {
+
 	// calculate the amount of bytes needed for output (+30 should be enough)
         Bytef *dbuf = uwsgi_malloc(len+30);
 	z->avail_in = len;
@@ -25,14 +27,21 @@ char *uwsgi_deflate(z_stream *z, char *buf, size_t len, size_t *dlen) {
 	z->avail_out = len+30;
 	z->next_out = dbuf;
 
-        if (deflate(z, Z_SYNC_FLUSH) != Z_OK) {
-                free(dbuf);
-                return NULL;
+	if (len > 0) {
+		if (deflate(z, Z_SYNC_FLUSH) != Z_OK) {
+			free(dbuf);
+			return NULL;
+		}
+	}
+	else {
+        	if (deflate(z, Z_FINISH) != Z_STREAM_END) {
+                	free(dbuf);
+                	return NULL;
+		}
+		deflateEnd(z);
         }
 
-	uwsgi_log("%d %d\n", z->avail_in, z->next_out - dbuf);
-
-        *dlen = z->next_out - dbuf;
+        *dlen = (z->next_out - dbuf);
         return (char *) dbuf;
 }
 
