@@ -126,9 +126,18 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 
 	uc->data = ((char *)uc->items) + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items);
 
-	uc->lock = uwsgi_rwlock_init("cache");
+	if (uc->name) {
+		char *lock_name = uwsgi_concat2("cache_", uc->name);
+		uc->lock = uwsgi_rwlock_init(lock_name);
+		free(lock_name);
+	}
+	else {
+		uc->lock = uwsgi_rwlock_init("cache");
+	}
 
-	uwsgi_log("*** Cache subsystem initialized: %lluMB (key: %llu bytes, keys: %llu bytes, data: %llu bytes) preallocated ***\n", (unsigned long long) uc->filesize / (1024 * 1024),
+	uwsgi_log("*** Cache \"%s\" initialized: %lluMB (key: %llu bytes, keys: %llu bytes, data: %llu bytes) preallocated ***\n",
+			uc->name ? uc->name : "default",
+			(unsigned long long) uc->filesize / (1024 * 1024),
 			(unsigned long long) sizeof(struct uwsgi_cache_item)+uc->keysize,
 			(unsigned long long) ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items), (unsigned long long) (uc->blocksize * uc->max_items));
 
@@ -862,19 +871,68 @@ void uwsgi_cache_create(char *arg) {
 		char *c_blocks = NULL;
 		char *c_hash = NULL;
 		char *c_hashsize = NULL;
+		char *c_keysize = NULL;
 		char *c_store = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
                         "max_items", &c_max_items,
+                        "maxitems", &c_max_items,
                         "blocksize", &c_blocksize,
                         "blocks", &c_blocks,
                         "hash", &c_hash,
                         "hashsize", &c_hashsize,
+                        "hash_size", &c_hashsize,
+                        "keysize", &c_keysize,
+                        "key_size", &c_keysize,
                         "store", &c_store,
-                NULL)) {
-                return;
-        }
+                	NULL)) {
+			uwsgi_log("unable to parse cache definition\n");
+			exit(1);
+        	}
+		if (!c_name) {
+			uwsgi_log("you have to specify a cache name\n");
+			exit(1);
+		}
+		if (!c_max_items) {
+			uwsgi_log("you have to specify the maximum number of cache items\n");
+			exit(1);
+		}
+
+		uc->name = c_name;
+		uc->max_items = uwsgi_n64(c_max_items);
+		if (!uc->max_items) {
+			uwsgi_log("you have to specify the maximum number of cache items\n");
+			exit(1);
+		}
+		
+		// defaults
+		uc->blocks = uc->max_items;
+		uc->blocksize = UMAX16;
+		uc->keysize = 2048;
+		uc->hashsize = UMAX16;
+		uc->hash = uwsgi_hash_algo_get("djb33x");
+
+		// customize
+		if (c_blocksize) uc->blocksize = uwsgi_n64(c_blocksize);
+		if (!uc->blocksize) { uwsgi_log("invalid cache blocksize for \"%s\"\n", uc->name); exit(1); }
+		if (c_blocks) uc->blocks = uwsgi_n64(c_blocks);
+		if (!uc->blocks) { uwsgi_log("invalid cache blocks for \"%s\"\n", uc->name); exit(1); }
+		if (c_hash) uc->hash = uwsgi_hash_algo_get(c_hash);
+		if (!uc->hash) { uwsgi_log("invalid cache hash for \"%s\"\n", uc->name); exit(1); }
+		if (c_hashsize) uc->hashsize = uwsgi_n64(c_hashsize);
+		if (!uc->hashsize) { uwsgi_log("invalid cache hashsize for \"%s\"\n", uc->name); exit(1); }
+		if (c_keysize) uc->keysize = uwsgi_n64(c_keysize);
+		if (!uc->keysize) { uwsgi_log("invalid cache keysize for \"%s\"\n", uc->name); exit(1); }
+
+
+		if (uc->blocks < uc->max_items) {
+			uwsgi_log("invalid number of cache blocks for \"%s\", must be higher than max_items (%llu)\n", uc->name, uc->max_items);
+			exit(1);
+		}
+
+		uc->store = c_store;
+		
 	}
 
 	uwsgi_cache_init(uc);

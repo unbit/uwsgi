@@ -191,6 +191,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"load-file-in-cache", required_argument, 0, "load a static file in the cache", uwsgi_opt_add_string_list, &uwsgi.load_file_in_cache, 0},
 
+	{"cache2", required_argument, 0, "create a new generation shared cache (keyval syntax)", uwsgi_opt_add_string_list, &uwsgi.cache2, 0},
+
 
 	{"queue", required_argument, 0, "enable shared queue", uwsgi_opt_set_int, &uwsgi.queue_size, 0},
 	{"queue-blocksize", required_argument, 0, "set queue blocksize", uwsgi_opt_set_int, &uwsgi.queue_store_sync, 0},
@@ -2296,6 +2298,11 @@ int uwsgi_start(void *v_argv) {
 	}
 
 	// setup new generation caches
+	struct uwsgi_string_list *usl = uwsgi.cache2;
+	while(usl) {
+		uwsgi_cache_create(usl->value);
+		usl = usl->next;
+	}
 
 	// create the cache server
 	if (uwsgi.master_process && uwsgi.cache_server) {

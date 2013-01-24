@@ -39,6 +39,8 @@ extern "C" {
 
 #define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "emperor://", 10) || !uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7) || !uwsgi_startswith(file, "section://", 10))
 
+#define uwsgi_n64(x) strtoul(x, NULL, 10)
+
 #define ushared uwsgi.shared
 
 #define UWSGI_OPT_IMMEDIATE		(1 << 0)
@@ -1709,6 +1711,7 @@ struct uwsgi_server {
 	uint64_t cache_blocksize;
 	char *cache_store;
 	int cache_store_sync;
+	struct uwsgi_string_list *cache2;
 
 	struct uwsgi_dyn_dict *static_expires_type;
 	struct uwsgi_dyn_dict *static_expires_type_mtime;
