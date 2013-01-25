@@ -559,14 +559,13 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 	// set initial timeout
         peer->timeout = cr_add_timeout(ucr, ucr->cr_table[new_connection]);
 
+	ucr->active_sessions++;
+
 	// here we prepare the real session and set the hooks
 	if (ucr->alloc_session(ucr, ugs, cs, cr_addr, cr_addr_len)) {
-		uwsgi_cr_peer_del(cs->main_peer);
-		free(cs);
+		corerouter_close_session(ucr, cs);
 		cs = NULL;
 	}
-
-	ucr->active_sessions++;
 
 	return cs;
 }
