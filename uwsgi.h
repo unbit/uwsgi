@@ -511,6 +511,7 @@ struct uwsgi_logger {
 	socklen_t addr_len;
 	int count;
 	struct msghdr msg;
+	char *buf;
 	// used by choosen logger
 	char *arg;
 	struct uwsgi_logger *next;
