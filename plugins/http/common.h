@@ -106,6 +106,8 @@ struct http_session {
 
 	struct uwsgi_buffer *spdy_ping;
 
+	uint32_t spdy_update_window;
+
         ssize_t (*spdy_hook)(struct corerouter_peer *);
 #endif
 
@@ -165,6 +167,7 @@ int uwsgi_spdy_npn(SSL *ssl, const unsigned char **, unsigned int *, void *);
 void uwsgi_spdy_info_cb(SSL const *, int, int);
 ssize_t hr_recv_spdy_control_frame(struct corerouter_peer *);
 ssize_t spdy_parse(struct corerouter_peer *);
+void spdy_window_update(char *, uint32_t, uint32_t);
 #endif
 
 ssize_t hs_http_manage(struct corerouter_peer *, ssize_t);

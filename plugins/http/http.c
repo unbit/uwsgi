@@ -363,6 +363,16 @@ ssize_t hr_instance_write(struct corerouter_peer *peer) {
 #ifdef UWSGI_SPDY
 		struct http_session *hr = (struct http_session *) peer->session;
 		if (hr->spdy) {
+			if (hr->spdy_update_window) {
+				if (uwsgi_buffer_fix(peer->in, 16)) return -1;
+				peer->in->pos = 16;
+				spdy_window_update(peer->in->buf, hr->spdy_update_window, 8192);
+				peer->session->main_peer->out = peer->in;
+                        	peer->session->main_peer->out_pos = 0;
+				hr->spdy_update_window = 0;
+                        	cr_write_to_main(peer, hr->func_write);	
+				return 1;
+			}
 			return spdy_parse(peer->session->main_peer);
 		}
 #endif

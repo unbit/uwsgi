@@ -278,6 +278,11 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
                         	return ret;
                 	}
                         cr_reset_hooks(main_peer);
+#ifdef UWSGI_SPDY
+			if (hr->spdy) {
+				return spdy_parse(main_peer);
+			}
+#endif
                 }
                 return ret;
         }
@@ -311,15 +316,12 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
 
         // try to always leave 4k available
         if (uwsgi_buffer_ensure(main_peer->in, uwsgi.page_size)) return -1;
-	uwsgi_log("REMAINS: %llu\n", (unsigned long long) main_peer->in->len - main_peer->in->pos);
         int ret = SSL_read(hr->ssl, main_peer->in->buf + main_peer->in->pos, main_peer->in->len - main_peer->in->pos);
-	uwsgi_log("ret = %d\n", ret);
         if (ret > 0) {
                 // fix the buffer
                 main_peer->in->pos += ret;
                 // check for pending data
                 int ret2 = SSL_pending(hr->ssl);
-		uwsgi_log("ret2 = %d\n", ret2);
                 if (ret2 > 0) {
                         if (uwsgi_buffer_fix(main_peer->in, main_peer->in->len + ret2 )) {
                                 uwsgi_log("[uwsgi-https] cannot fix the buffer to %d\n", main_peer->in->len + ret2);
