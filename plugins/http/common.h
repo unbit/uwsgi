@@ -170,6 +170,7 @@ ssize_t spdy_parse(struct corerouter_peer *);
 ssize_t hs_http_manage(struct corerouter_peer *, ssize_t);
 
 ssize_t hr_instance_connected(struct corerouter_peer *);
+ssize_t hr_instance_write(struct corerouter_peer *);
 
 ssize_t hr_instance_read_response(struct corerouter_peer *);
 ssize_t hr_read_body(struct corerouter_peer *);

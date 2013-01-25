@@ -360,6 +360,13 @@ ssize_t hr_instance_write(struct corerouter_peer *peer) {
 			peer->out->pos = 0;
 		}
                 cr_reset_hooks(peer);
+#ifdef UWSGI_SPDY
+		struct http_session *hr = (struct http_session *) peer->session;
+		if (hr->spdy) {
+			return spdy_parse(peer->session->main_peer);
+		}
+#endif
+		
         }
 
         return len;
