@@ -285,6 +285,11 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
                         	main_peer->session->wait_full_write = 0;
                         	return 0;
                 	}
+			if (main_peer->session->connect_peer_after_write) {
+                        	cr_connect(main_peer->session->connect_peer_after_write, hr_instance_connected);
+                        	main_peer->session->connect_peer_after_write = NULL;
+                        	return ret;
+                	}
                         cr_reset_hooks(main_peer);
                 }
                 return ret;

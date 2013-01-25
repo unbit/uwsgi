@@ -18,7 +18,7 @@ struct uwsgi_http {
 
         uint8_t modifier1;
         struct uwsgi_string_list *http_vars;
-        int manage_expect;
+        uint64_t manage_expect;
 
         int raw_body;
         int keepalive;

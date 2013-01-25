@@ -282,6 +282,9 @@ struct corerouter_session {
 	struct corerouter_peer *main_peer;
 	// this is the linked list of backends
 	struct corerouter_peer *peers;
+
+	// connect after the next successfull write
+	struct corerouter_peer *connect_peer_after_write;
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);

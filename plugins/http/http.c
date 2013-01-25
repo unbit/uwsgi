@@ -31,7 +31,7 @@ struct uwsgi_option http_options[] = {
 	{"http-events", required_argument, 0, "set the number of concurrent http async events", uwsgi_opt_set_int, &uhttp.cr.nevents, 0},
 	{"http-subscription-server", required_argument, 0, "enable the subscription server", uwsgi_opt_corerouter_ss, &uhttp, 0},
 	{"http-timeout", required_argument, 0, "set internal http socket timeout", uwsgi_opt_set_int, &uhttp.cr.socket_timeout, 0},
-	{"http-manage-expect", no_argument, 0, "manage the Expect HTTP request header", uwsgi_opt_true, &uhttp.manage_expect, 0},
+	{"http-manage-expect", optional_argument, 0, "manage the Expect HTTP request header (optionally checking for Content-Length)", uwsgi_opt_set_64bit, &uhttp.manage_expect, 0},
 	{"http-keepalive", optional_argument, 0, "HTTP 1.1 keepalive support (non-pipelined) requests", uwsgi_opt_set_int, &uhttp.keepalive, 0},
 	{"http-auto-chunked", no_argument, 0, "automatically transform output to chunked encoding during HTTP 1.1 keepalive (if needed)", uwsgi_opt_true, &uhttp.auto_chunked, 0},
 #ifdef UWSGI_ZLIB
@@ -317,40 +317,28 @@ int http_headers_parse(struct corerouter_peer *peer) {
 }
 
 
-/*
-
-// TODO fix it for ssl
-ssize_t hr_send_expect_continue(struct corerouter_peer *main_peer) {
-	struct corerouter_session *cs = main_peer->cs;
-	char *msg = "HTTP/1.0 100 Continue\r\n\r\n" ;
-	ssize_t len = -1;
-
-#ifdef UWSGI_SSL
+int hr_manage_expect_continue(struct corerouter_peer *peer) {
+	struct corerouter_session *cs = peer->session;
 	struct http_session *hr = (struct http_session *) cs;
-	if (!hr->ssl) {
-#endif
-		len = write(main_peer->fd, msg + cs->buffer_pos, 25 - cs->buffer_pos);
-		if (len < 0) {
-			cr_try_again;
-                	uwsgi_error("hr_send_expect_continue()");
-                	return -1;
+
+	if (uhttp.manage_expect > 1) {
+		if (hr->content_length > uhttp.manage_expect) {
+			if (uwsgi_buffer_append(peer->in, "HTTP/1.1 413 Request Entity Too Large\r\n\r\n", 41)) return -1;
+			hr->session.wait_full_write = 1;
+			goto ready;	
 		}
-
-		cs->buffer_pos += len;
-#ifdef UWSGI_SSL
-	}
-#endif
-
-	if (cs->buffer_pos == 25) {
-		cs->buffer_pos = 0;
-		uwsgi_cr_set_hooks(main_peer, NULL, NULL);
-		uwsgi_cr_set_hooks(cs->peers, NULL, hr_instance_send_request_header);
 	}
 
-	return len;
+	if (uwsgi_buffer_append(peer->in, "HTTP/1.1 100 Continue\r\n\r\n", 25)) return -1;
+	hr->session.connect_peer_after_write = peer;
+
+ready:
+	peer->session->main_peer->out = peer->in;
+        peer->session->main_peer->out_pos = 0;
+	cr_write_to_main(peer, hr->func_write);
+	return 0;
 }
 
-*/
 
 ssize_t hr_instance_write(struct corerouter_peer *peer) {
 	ssize_t len = cr_write(peer, "hr_instance_write()");
@@ -435,6 +423,11 @@ ssize_t hr_write(struct corerouter_peer *main_peer) {
 			main_peer->session->wait_full_write = 0;
 			return 0;
 		}
+		if (main_peer->session->connect_peer_after_write) {
+			cr_connect(main_peer->session->connect_peer_after_write, hr_instance_connected);
+			main_peer->session->connect_peer_after_write = NULL;
+			return len;
+		}
                 cr_reset_hooks(main_peer);
         }
 
@@ -458,9 +451,6 @@ ssize_t hr_instance_connected(struct corerouter_peer* peer) {
 		return 1;
 	}
 #endif
-	if (hr->send_expect_100) {
-	}
-
 	// change the write hook (we are already monitoring for write)
 	peer->hook_write = hr_instance_write;
 	// and directly call it (optimistic approach...)
@@ -700,6 +690,11 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				// stop reading from the client
 				if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
 			}
+
+			if (hr->send_expect_100) {
+				if (hr_manage_expect_continue(new_peer)) return -1;	
+				break;
+        		}
 
                 	cr_connect(new_peer, hr_instance_connected);
 			break;
