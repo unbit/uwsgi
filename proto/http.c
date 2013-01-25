@@ -282,6 +282,9 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 			len = read(wsgi_req->poll.fd, post_buf, remains);
 			if (len <= 0) {
 				if (len < 0) {
+                                	if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                                        	return UWSGI_AGAIN;
+                                	}
 					free(wsgi_req->proto_parser_buf);
 					uwsgi_error("read()");
 				}
@@ -307,12 +310,15 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 
 	len = read(wsgi_req->poll.fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
 	if (len <= 0) {
-		free(wsgi_req->proto_parser_buf);
 		if (len < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+                		return UWSGI_AGAIN;
+                	}
 			uwsgi_error("recv()");
 		}
+		free(wsgi_req->proto_parser_buf);
 		// this is simple ping packet
-		else { return -2; }
+		if (len == 0) return -2;
 		return -1;
 	}
 

@@ -106,19 +106,3 @@ int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 
 	return -1;
 }
-
-ssize_t uwsgi_proto_uwsgi_writev_header(struct wsgi_request * wsgi_req, struct iovec * iovec, size_t iov_len) {
-	return writev(wsgi_req->poll.fd, iovec, iov_len);
-}
-
-ssize_t uwsgi_proto_uwsgi_writev(struct wsgi_request * wsgi_req, struct iovec * iovec, size_t iov_len) {
-	return writev(wsgi_req->poll.fd, iovec, iov_len);
-}
-
-ssize_t uwsgi_proto_uwsgi_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-	return write(wsgi_req->poll.fd, buf, len);
-}
-
-ssize_t uwsgi_proto_uwsgi_write_header(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-	return write(wsgi_req->poll.fd, buf, len);
-}
