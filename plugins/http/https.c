@@ -166,47 +166,6 @@ void uwsgi_opt_http_to_https(char *opt, char *value, void *cr) {
         ucr->has_sockets++;
 }
 
-ssize_t hr_send_force_https(struct corerouter_peer *main_peer) {
-	return -1;
-}
-/*
-	struct corerouter_session *cs = main_peer->cs;
-	struct http_session *hs = (struct http_session *) cs;
-
-	if (!hs->force_ssl_buf) {
-		hs->force_ssl_buf = uwsgi_buffer_new(uwsgi.page_size);
-        	if (!hs->force_ssl_buf) return -1;
-		if (uwsgi_buffer_append(hs->force_ssl_buf, "HTTP/1.0 301 Moved Permanently\r\nLocation: https://", 50)) return -1;		
-		char *colon = memchr(cs->hostname, ':', cs->hostname_len);
-		if (colon) {
-			if (uwsgi_buffer_append(hs->force_ssl_buf, cs->hostname, colon-cs->hostname)) return -1;
-		}
-		else {
-			if (uwsgi_buffer_append(hs->force_ssl_buf, cs->hostname, cs->hostname_len)) return -1;
-		}
-		if (cs->ugs->ctx) {
-			if (uwsgi_buffer_append(hs->force_ssl_buf, ":", 1)) return -1;
-			if (uwsgi_buffer_append(hs->force_ssl_buf,cs->ugs->ctx, strlen(cs->ugs->ctx))) return -1;
-		}
-		if (uwsgi_buffer_append(hs->force_ssl_buf, hs->request_uri, hs->request_uri_len)) return -1;
-		if (uwsgi_buffer_append(hs->force_ssl_buf, "\r\n\r\n", 4)) return -1;
-	}
-
-        ssize_t len = write(main_peer->fd, hs->force_ssl_buf->buf + cs->buffer_pos, hs->force_ssl_buf->pos - cs->buffer_pos);
-        if (len < 0) {
-        	cr_try_again;
-                uwsgi_error("hr_send_force_https()");
-                return -1;
-	}
-
-        cs->buffer_pos += len;
-	if (cs->buffer_pos == hs->force_ssl_buf->pos) {
-		return 0;
-	}
-	return len;
-}
-*/
-
 int hr_https_add_vars(struct http_session *hr, struct uwsgi_buffer *out) {
 // HTTPS (adapted from nginx)
         if (hr->session.ugs->mode == UWSGI_HTTP_SSL) {
@@ -232,7 +191,7 @@ int hr_https_add_vars(struct http_session *hr, struct uwsgi_buffer *out) {
                 }
         }
         else if (hr->session.ugs->mode == UWSGI_HTTP_FORCE_SSL) {
-                hr->force_ssl = 1;
+                hr->force_https = 1;
         }
 
 	return 0;
@@ -269,6 +228,34 @@ void hr_session_ssl_close(struct corerouter_session *cs) {
 #endif
 
         SSL_free(hr->ssl);
+}
+
+int hr_force_https(struct corerouter_peer *peer) {
+	struct corerouter_session *cs = peer->session;
+        struct http_session *hr = (struct http_session *) cs;
+
+	if (uwsgi_buffer_append(peer->in, "HTTP/1.1 301 Moved Permanently\r\nLocation: https://", 50)) return -1;              
+
+        char *colon = memchr(peer->key, ':', peer->key_len);
+        if (colon) {
+        	if (uwsgi_buffer_append(peer->in, peer->key, colon-peer->key)) return -1;
+        }
+        else {
+        	if (uwsgi_buffer_append(peer->in, peer->key, peer->key_len)) return -1;
+        }
+
+        if (cs->ugs->ctx) {
+        	if (uwsgi_buffer_append(peer->in, ":", 1)) return -1;
+        	if (uwsgi_buffer_append(peer->in,cs->ugs->ctx, strlen(cs->ugs->ctx))) return -1;
+        }
+        if (uwsgi_buffer_append(peer->in, hr->request_uri, hr->request_uri_len)) return -1;
+        if (uwsgi_buffer_append(peer->in, "\r\n\r\n", 4)) return -1;
+
+	hr->session.wait_full_write = 1;
+        peer->session->main_peer->out = peer->in;
+        peer->session->main_peer->out_pos = 0;
+        cr_write_to_main(peer, hr->func_write);
+        return 0;
 }
 
 ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {

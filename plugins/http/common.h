@@ -80,7 +80,7 @@ struct http_session {
         char *ssl_client_dn;
         BIO *ssl_bio;
         char *ssl_cc;
-        int force_ssl;
+        int force_https;
         struct uwsgi_buffer *force_ssl_buf;
 #endif
 
@@ -148,7 +148,7 @@ ssize_t hr_recv_http_ssl(struct corerouter_peer *);
 ssize_t hr_read_ssl_body(struct corerouter_peer *);
 ssize_t hr_write_ssl_response(struct corerouter_peer *);
 
-ssize_t hr_send_force_https(struct corerouter_peer *);
+int hr_force_https(struct corerouter_peer *);
 
 void hr_session_ssl_close(struct corerouter_session *);
 

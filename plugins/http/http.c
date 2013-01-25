@@ -652,8 +652,8 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			if (new_peer->key_len == 0) return -1;
 
 #ifdef UWSGI_SSL
-			if (hr->force_ssl) {
-				//hr_send_force_https;
+			if (hr->force_https) {
+				if (hr_force_https(new_peer)) return -1;
 				break;
 			}
 #endif
@@ -809,9 +809,6 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 #ifdef UWSGI_SSL
 		case UWSGI_HTTP_SSL:
 			hr_setup_ssl(hr, ugs);
-			break;
-		case UWSGI_HTTP_FORCE_SSL:
-			uwsgi_cr_set_hooks(cs->main_peer, NULL, hr_send_force_https);
 			break;
 #endif
 		default:
