@@ -1293,6 +1293,7 @@ struct uwsgi_server {
 
 	// true if run under the emperor
 	int has_emperor;
+	char *emperor_procname;
 	int emperor_fd;
 	int emperor_queue;
 	int emperor_tyrant;
