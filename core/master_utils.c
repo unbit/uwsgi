@@ -883,7 +883,22 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_object_open(us))
                         	goto end;
 
+			if (uwsgi_stats_keyval_comma(us, "name", uc->name ? uc->name : "default"))
+                        	goto end;
+
+			if (uwsgi_stats_keyval_comma(us, "hash", uc->hash->name))
+                        	goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "hashsize", (unsigned long long) uc->hashsize))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "keysize", (unsigned long long) uc->keysize))
+				goto end;
+
 			if (uwsgi_stats_keylong_comma(us, "max_items", (unsigned long long) uc->max_items))
+				goto end;
+
+			if (uwsgi_stats_keylong_comma(us, "blocks", (unsigned long long) uc->blocks))
 				goto end;
 
 			if (uwsgi_stats_keylong_comma(us, "blocksize", (unsigned long long) uc->blocksize))
@@ -903,6 +918,11 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 
 			if (uwsgi_stats_object_close(us))
 				goto end;
+
+			if (uc->next) {
+				if (uwsgi_stats_comma(us))
+					goto end;
+			}
 			uc = uc->next;
 		}
 

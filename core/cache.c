@@ -50,9 +50,11 @@ static void uwsgi_cache_load_files(struct uwsgi_cache *uc) {
 		size_t len = 0;
 		char *value = uwsgi_open_and_read(usl->value, &len, 0, NULL);
 		if (value) {
+			uwsgi_wlock(uc->lock);
 			if (!uwsgi_cache_set2(uc,usl->value, usl->len, value, len, 0, 0)) {
 				uwsgi_log("[cache] stored %s\n", usl->value);
 			}		
+			uwsgi_rwunlock(uc->lock);
 		}
 		usl = usl->next;
 	}
@@ -383,6 +385,8 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 
 	if (keylen > uc->keysize)
 		return -1;
+
+	if (vallen > uc->blocksize) return -1;
 
 	if (uc->first_available_block >= uc->max_items && !uc->unused_blocks_stack_ptr) {
 		uwsgi_log("*** DANGER cache is FULL !!! ***\n");
@@ -753,7 +757,7 @@ void *cache_udp_server_loop(void *ucache) {
         return NULL;
 }
 
-void *cache_sweeper_loop(void *ucache) {
+static void *cache_sweeper_loop(void *ucache) {
 
         uint64_t i;
         // block all signals
@@ -768,7 +772,6 @@ void *cache_sweeper_loop(void *ucache) {
 
         // remove expired cache items TODO use rb_tree timeouts
         for (;;) {
-                sleep(uwsgi.cache_expire_freq);
                 uint64_t freed_items = 0;
                 // skip the first slot
                 for (i = 1; i < uc->max_items; i++) {
@@ -783,7 +786,7 @@ void *cache_sweeper_loop(void *ucache) {
                         uwsgi_rwunlock(uc->lock);
                 }
                 if (uwsgi.cache_report_freed_items && freed_items > 0) {
-                        uwsgi_log("freed %llu cache items\n", (unsigned long long) freed_items);
+                        uwsgi_log("freed %llu items for cache \"%s\"\n", (unsigned long long) freed_items, uc->name ? uc->name : "default");
                 }
         };
 
@@ -807,18 +810,20 @@ void uwsgi_cache_sync_all() {
 }
 
 void uwsgi_cache_start_sweepers() {
-/*
-	if (uwsgi.caches > 0 && !uwsgi.cache_no_expire) {
-                if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, NULL)) {
-                        uwsgi_error("pthread_create()");
-                        uwsgi_log("unable to run the cache sweeper !!!\n");
-                }
-                else {
-                        uwsgi_log("cache sweeper thread enabled\n");
-                }
+	struct uwsgi_cache *uc = uwsgi.caches;
+	while(uc) {
+		pthread_t cache_sweeper;
+		if (!uwsgi.cache_no_expire && !uc->no_expire) {
+                	if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, (void *) uc)) {
+                        	uwsgi_error("pthread_create()");
+                        	uwsgi_log("unable to run the sweeper for cache \"%s\" !!!\n", uc->name ? uc->name : "default");
+			}
+                	else {
+                        	uwsgi_log("sweeper thread enabled for cache \"%s\"\n", uc->name ? uc->name : "default");
+                	}
+		}
+		uc = uc->next;
         }
-*/
-
 }
 
 void uwsgi_cache_start_sync_servers() {

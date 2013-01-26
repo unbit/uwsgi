@@ -3738,7 +3738,6 @@ void uwsgi_cache_wlock(struct uwsgi_cache *);
 void uwsgi_cache_rlock(struct uwsgi_cache *);
 void uwsgi_cache_rwunlock(struct uwsgi_cache *);
 
-void *cache_sweeper_loop(void *);
 void *cache_udp_server_loop(void *);
 
 void uwsgi_user_lock(int);
