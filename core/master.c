@@ -1183,6 +1183,15 @@ health_cycle:
 						uwsgi.workers[i].rss_size = 0;
 					}
 				}
+				// check if worker was running longer than allowed lifetime
+				if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME] > 0) {
+					uint64_t lifetime = uwsgi_now() - uwsgi.workers[i].last_spawn;
+					if (lifetime > uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME] && uwsgi.workers[i].manage_next_request == 1) {
+						uwsgi_log("worker %d lifetime reached, it was running for %llu second(s)\n", i, (unsigned long long) lifetime);
+						uwsgi.workers[i].manage_next_request = 0;
+						kill(uwsgi.workers[i].pid, SIGWINCH);
+					}
+				}
 
 				// need to find a better way
 				//uwsgi.workers[i].last_running_time = uwsgi.workers[i].running_time;
