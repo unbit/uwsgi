@@ -929,6 +929,23 @@ ssize_t uwsgi_lf_status(struct wsgi_request *wsgi_req, char **buf) {
 	return strlen(*buf);
 }
 
+
+ssize_t uwsgi_lf_rsize(struct wsgi_request *wsgi_req, char **buf) {
+	*buf = uwsgi_num2str(wsgi_req->response_size);
+	return strlen(*buf);
+}
+
+ssize_t uwsgi_lf_hsize(struct wsgi_request *wsgi_req, char **buf) {
+	*buf = uwsgi_num2str(wsgi_req->headers_size);
+	return strlen(*buf);
+}
+
+ssize_t uwsgi_lf_cl(struct wsgi_request *wsgi_req, char **buf) {
+	*buf = uwsgi_num2str(wsgi_req->post_cl);
+	return strlen(*buf);
+}
+
+
 ssize_t uwsgi_lf_epoch(struct wsgi_request * wsgi_req, char **buf) {
 	*buf = uwsgi_num2str(uwsgi_now());
 	return strlen(*buf);
@@ -1022,6 +1039,21 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 		else if (!uwsgi_strncmp(ptr, len, "status", 6)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_status;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "rsize", 5)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_rsize;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "hsize", 5)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_hsize;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "cl", 2)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_cl;
 			logchunk->free = 1;
 		}
 		else if (!uwsgi_strncmp(ptr, len, "micros", 6)) {

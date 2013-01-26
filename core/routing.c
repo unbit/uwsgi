@@ -240,6 +240,34 @@ static int uwsgi_router_log(struct uwsgi_route *ur, char *arg) {
 	return 0;
 }
 
+// logvar route
+static int uwsgi_router_logvar_func(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        char *logline = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data2, ur->data2_len, ur->ovector, ur->ovn);
+	uwsgi_logvar_add(wsgi_req, ur->data, ur->data_len, logline, strlen(logline));
+        free(logline);
+
+        return UWSGI_ROUTE_NEXT;
+}
+
+static int uwsgi_router_logvar(struct uwsgi_route *ur, char *arg) {
+        ur->func = uwsgi_router_logvar_func;
+	char *equal = strchr(arg, '=');
+	if (!equal) {
+		uwsgi_log("invalid logvar syntax, must be key=value\n");
+		exit(1);
+	}
+        ur->data = arg;
+        ur->data_len = equal-arg;
+	ur->data2 = equal+1;
+	ur->data2_len = strlen(ur->data2);
+        return 0;
+}
+
+
 // goto route 
 
 static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
@@ -374,6 +402,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("break", uwsgi_router_break);
         uwsgi_register_router("goon", uwsgi_router_goon);
         uwsgi_register_router("log", uwsgi_router_log);
+        uwsgi_register_router("logvar", uwsgi_router_logvar);
         uwsgi_register_router("goto", uwsgi_router_goto);
         uwsgi_register_router("addvar", uwsgi_router_addvar);
         uwsgi_register_router("addheader", uwsgi_router_addheader);
