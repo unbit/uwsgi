@@ -129,9 +129,9 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 	uc->data = ((char *)uc->items) + ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items);
 
 	if (uc->name) {
+		// can't free that until shutdown
 		char *lock_name = uwsgi_concat2("cache_", uc->name);
 		uc->lock = uwsgi_rwlock_init(lock_name);
-		free(lock_name);
 	}
 	else {
 		uc->lock = uwsgi_rwlock_init("cache");
