@@ -724,7 +724,7 @@ void uwsgi_manage_command_cron(time_t now) {
 			}
 		}
 		if (current_cron->month < 0) {
-			if ((uwsgi_cron_delta->tm_hour % abs(current_cron->month)) == 0) {
+			if ((uwsgi_cron_delta->tm_mon % abs(current_cron->month)) == 0) {
 				uc_month = uwsgi_cron_delta->tm_mon;
 			}
 		}
