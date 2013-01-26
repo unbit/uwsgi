@@ -344,13 +344,12 @@ int cheaper_busyness_algo(void) {
 				uwsgi_cheaper_busyness_global.next_cheap += uwsgi.cheaper_overload*1000000;
 			}
 		}
+	}
 
 #ifdef __linux__
-	}
 	else if (backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
 		// we check for backlog overload every cycle
 		return spawn_emergency_worker(backlog);
-#endif
 	}
 	else if (backlog > 0) {
 		if (uwsgi_cheaper_busyness_global.backlog_is_nonzero) {
@@ -374,6 +373,7 @@ int cheaper_busyness_algo(void) {
 			uwsgi_log("[busyness] backlog is now empty\n");
 		uwsgi_cheaper_busyness_global.backlog_is_nonzero = 0;
 	}
+#endif
 
 	return 0;
 }
