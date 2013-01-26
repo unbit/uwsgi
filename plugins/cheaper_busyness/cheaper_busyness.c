@@ -28,6 +28,9 @@ struct uwsgi_cheaper_busyness_global {
 	int backlog_alert;
 	int backlog_step;
 	uint64_t backlog_multi; // multiplier used to cheap emergency workers
+	uint64_t backlog_nonzero_alert;
+	int backlog_is_nonzero;
+	uint64_t backlog_nonzero_since; // since when backlog is > 0
 #endif
 } uwsgi_cheaper_busyness_global;
 
@@ -54,7 +57,7 @@ struct uwsgi_option uwsgi_cheaper_busyness_options[] = {
 
 #ifdef __linux__
 	{"cheaper-busyness-backlog-alert", required_argument, 0,
-		"spawn emergency worker if anytime listen queue is higher than this value (default 33)",
+		"spawn emergency worker(s) if anytime listen queue is higher than this value (default 33)",
 		uwsgi_opt_set_int, &uwsgi_cheaper_busyness_global.backlog_alert, 0},
 	{"cheaper-busyness-backlog-multiplier", required_argument, 0,
 		"set cheaper multiplier used for emergency workers (default 3)",
@@ -62,6 +65,9 @@ struct uwsgi_option uwsgi_cheaper_busyness_options[] = {
 	{"cheaper-busyness-backlog-step", required_argument, 0,
 		"number of emergency workers to spawn at a time (default 1)",
 		uwsgi_opt_set_int, &uwsgi_cheaper_busyness_global.backlog_step, 0},
+	{"cheaper-busyness-backlog-nonzero", required_argument, 0,
+		"spawn emergency worker(s) if backlog is > 0 for more then N seconds (default 60)",
+		uwsgi_opt_set_64bit, &uwsgi_cheaper_busyness_global.backlog_nonzero_alert, 0},
 #endif
 
 	{0, 0, 0, 0, 0, 0 ,0},
@@ -160,6 +166,7 @@ int cheaper_busyness_algo(void) {
 	if (!uwsgi_cheaper_busyness_global.backlog_alert) uwsgi_cheaper_busyness_global.backlog_alert = 33;
 	if (!uwsgi_cheaper_busyness_global.backlog_multi) uwsgi_cheaper_busyness_global.backlog_multi = 3;
 	if (!uwsgi_cheaper_busyness_global.backlog_step) uwsgi_cheaper_busyness_global.backlog_step = 1;
+	if (!uwsgi_cheaper_busyness_global.backlog_nonzero_alert) uwsgi_cheaper_busyness_global.backlog_nonzero_alert = 60;
 #endif
 
 	if (!uwsgi_cheaper_busyness_global.min_multi) {
@@ -172,6 +179,7 @@ int cheaper_busyness_algo(void) {
 #ifdef __linux__
 		uwsgi_log("[busyness] backlog alert is set to %d request(s), step is %d\n",
 			uwsgi_cheaper_busyness_global.backlog_alert, uwsgi_cheaper_busyness_global.backlog_step);
+		uwsgi_log("[busyness] backlog non-zero alert is set to %llu second(s)\n", uwsgi_cheaper_busyness_global.backlog_nonzero_alert);
 #endif
 	}
 
@@ -338,10 +346,33 @@ int cheaper_busyness_algo(void) {
 		}
 
 #ifdef __linux__
-	} else if (backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
+	}
+	else if (backlog > uwsgi_cheaper_busyness_global.backlog_alert && active_workers < uwsgi.numproc) {
 		// we check for backlog overload every cycle
 		return spawn_emergency_worker(backlog);
 #endif
+	}
+	else if (backlog > 0) {
+		if (uwsgi_cheaper_busyness_global.backlog_is_nonzero) {
+			// backlog was > 0 last time, check timestamp and spawn workers if needed
+			if ((now - uwsgi_cheaper_busyness_global.backlog_nonzero_since)/1000000 >= uwsgi_cheaper_busyness_global.backlog_nonzero_alert) {
+				uwsgi_log("[busyness] backlog was non-zero for %llu second(s), spawning new worker(s)\n", (now - uwsgi_cheaper_busyness_global.backlog_nonzero_since)/1000000);
+				uwsgi_cheaper_busyness_global.backlog_nonzero_since = now;
+				return spawn_emergency_worker(backlog);
+			}
+		}
+		else {
+			// this is first > 0 pass, setup timer
+			if (uwsgi_cheaper_busyness_global.verbose)
+				uwsgi_log("[busyness] backlog is starting to fill (%d)\n", backlog);
+			uwsgi_cheaper_busyness_global.backlog_is_nonzero = 1;
+			uwsgi_cheaper_busyness_global.backlog_nonzero_since = now;
+		}
+	}
+	else if (uwsgi_cheaper_busyness_global.backlog_is_nonzero) {
+		if (uwsgi_cheaper_busyness_global.verbose)
+			uwsgi_log("[busyness] backlog is now empty\n");
+		uwsgi_cheaper_busyness_global.backlog_is_nonzero = 0;
 	}
 
 	return 0;
