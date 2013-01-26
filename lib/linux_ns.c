@@ -201,10 +201,16 @@ void linux_namespace_jail() {
 
 		unmounted = 0;
 		procmounts = fopen("/proc/self/mounts", "r");
+		if (!procmounts)
+			break;
 		while (fgets(line, 1024, procmounts) != NULL) {
 			delim0 = strchr(line, ' ');
+			if (!delim0)
+				continue;
 			delim0++;
 			delim1 = strchr(delim0, ' ');
+			if (!delim1)
+				continue;
 			*delim1 = 0;
 			// and now check for keep-mounts
 			if (uwsgi_is_a_keep_mount(delim0)) continue;
