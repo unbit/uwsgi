@@ -1802,7 +1802,7 @@ void uwsgi_python_harakiri(int wid) {
 		char *address = uwsgi_concat2(up.tracebacker, uwsgi_num2str(wid));
 
         	int fd = uwsgi_connect(address, -1, 0);
-        	for (;;) {
+        	while (fd >= 0) {
                 	int ret = uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
                 	if (ret <= 0) {
 				break;
