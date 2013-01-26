@@ -10,7 +10,6 @@ struct graylog2_config {
 	char json_buf[MAX_GELF];
 	char escaped_buf[MAX_GELF];
 	size_t escaped_len;
-	char buffer[MAX_GELF];
 } g2c;
 
 ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len) {
@@ -52,6 +51,8 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 
 		*comma = ',';
 
+		ul->buf = uwsgi_malloc(MAX_GELF);
+
 		ul->configured = 1;
 	}
 
@@ -91,8 +92,8 @@ ssize_t uwsgi_graylog2_logger(struct uwsgi_logger *ul, char *message, size_t len
 
 	if (rlen > 0) {
 		if (compressBound((uLong) rlen) <= MAX_GELF) {
-			if (compress((Bytef *) g2c.buffer, &destLen, (Bytef *) g2c.json_buf, (uLong) rlen) == Z_OK) {
-				return sendto(ul->fd, g2c.buffer, destLen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);
+			if (compress((Bytef *) ul->buf, &destLen, (Bytef *) g2c.json_buf, (uLong) rlen) == Z_OK) {
+				return sendto(ul->fd, ul->buf, destLen, 0, (const struct sockaddr *) &ul->addr, ul->addr_len);
 			}
 		}
 

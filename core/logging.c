@@ -761,6 +761,7 @@ void uwsgi_register_logger(char *name, ssize_t(*func) (struct uwsgi_logger *, ch
 	ul->configured = 0;
 	ul->fd = -1;
 	ul->data = NULL;
+	ul->buf = NULL;
 
 
 #ifdef UWSGI_DEBUG
