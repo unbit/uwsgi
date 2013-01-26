@@ -106,7 +106,10 @@ int uwsgi_cache_request(struct wsgi_request *wsgi_req) {
 			}
 
                         wsgi_req->uh.pktsize = cache_dump->pos;
-			if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) return -1;
+			if (uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4)) {
+				uwsgi_buffer_destroy(cache_dump);
+				return -1;
+			}
 			uwsgi_response_write_body_do(wsgi_req, cache_dump->buf, cache_dump->pos);
 			uwsgi_buffer_destroy(cache_dump);
 			uwsgi_wlock(uwsgi.caches->lock);
