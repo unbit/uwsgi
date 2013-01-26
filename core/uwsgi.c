@@ -4035,7 +4035,7 @@ void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
 	char buf[8192];
 
 	int fd = uwsgi_connect(address, -1, 0);
-	for (;;) {
+	while (fd >= 0) {
 		int ret = uwsgi_waitfd(fd, -1);
 		if (ret <= 0) {
 			exit(0);
@@ -4046,6 +4046,8 @@ void uwsgi_opt_connect_and_read(char *opt, char *address, void *foobar) {
 		}
 		uwsgi_log("%.*s", (int) len, buf);
 	}
+	uwsgi_error("uwsgi_connect()");
+	exit(1);
 }
 
 void uwsgi_opt_extract(char *opt, char *address, void *foobar) {
