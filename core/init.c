@@ -113,6 +113,8 @@ void uwsgi_init_default() {
 	uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 4;
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
+	uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] = 60;
+
 #ifdef UWSGI_SPOOLER
 	uwsgi.shared->spooler_frequency = 30;
 
@@ -417,6 +419,13 @@ void sanitize_args() {
                 uwsgi_log("caching of static paths requires uWSGI caching !!!\n");
                 exit(1);
         }
+
+	if (uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME] > 0 && uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] >= uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]) {
+		uwsgi_log("invalid min-worker-lifetime value (%d), must be lower than max-worker-lifetime (%d)\n",
+			uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME], uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]);
+		exit(1);
+	}
+
 }
 
 const char *uwsgi_http_status_msg(char *status, uint16_t *len) {
