@@ -2639,7 +2639,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, u
 int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
 char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
 uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
-void uwsgi_cache_create(char *);
+struct uwsgi_cache *uwsgi_cache_create(char *);
 struct uwsgi_cache *uwsgi_cache_by_name(char *);
 void uwsgi_cache_create_all(void);
 char *uwsgi_cache_safe_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);

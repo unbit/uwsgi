@@ -843,7 +843,7 @@ void uwsgi_cache_start_sync_servers() {
 */
 }
 
-void uwsgi_cache_create(char *arg) {
+struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 	struct uwsgi_cache *old_uc = NULL, *uc = uwsgi.caches;
 	while(uc) {
 		old_uc = uc;
@@ -941,6 +941,7 @@ void uwsgi_cache_create(char *arg) {
 	}
 
 	uwsgi_cache_init(uc);
+	return uc;
 }
 
 struct uwsgi_cache *uwsgi_cache_by_name(char *name) {
