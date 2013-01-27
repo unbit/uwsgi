@@ -460,18 +460,20 @@ void uwsgi_as_root() {
 				}
 			}
 			int additional_groups = getgroups(0, NULL);
-			gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);
-			int i;
-			if (getgroups(additional_groups, gids) > 0) {
-				for (i = 0; i < additional_groups; i++) {
-					if (gids[i] == uwsgi.gid)
-						continue;
-					struct group *gr = getgrgid(gids[i]);
-					if (gr) {
-						uwsgi_log("set additional group %d (%s)\n", gids[i], gr->gr_name);
-					}
-					else {
-						uwsgi_log("set additional group %d\n", gids[i]);
+			if (additional_groups > 0) {
+				gid_t *gids = uwsgi_calloc(sizeof(gid_t) * additional_groups);
+				if (getgroups(additional_groups, gids) > 0) {
+					int i;
+					for (i = 0; i < additional_groups; i++) {
+						if (gids[i] == uwsgi.gid)
+							continue;
+						struct group *gr = getgrgid(gids[i]);
+						if (gr) {
+							uwsgi_log("set additional group %d (%s)\n", gids[i], gr->gr_name);
+						}
+						else {
+							uwsgi_log("set additional group %d\n", gids[i]);
+						}
 					}
 				}
 			}
