@@ -997,8 +997,10 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	if (timeout > 0) {
 		uwsgi_heartbeat();
 		// no need to continue if timed-out
-		if (ret == 0)
+		if (ret == 0) {
+			thunder_unlock;
 			return -1;
+		}
 	}
 
 #ifdef UWSGI_THREADING

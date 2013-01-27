@@ -724,7 +724,7 @@ void uwsgi_manage_command_cron(time_t now) {
 			}
 		}
 		if (current_cron->month < 0) {
-			if ((uwsgi_cron_delta->tm_hour % abs(current_cron->month)) == 0) {
+			if ((uwsgi_cron_delta->tm_mon % abs(current_cron->month)) == 0) {
 				uc_month = uwsgi_cron_delta->tm_mon;
 			}
 		}
@@ -1202,6 +1202,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 #endif
 
 #ifdef UWSGI_SSL
+	struct uwsgi_legion *legion = NULL;
 	if (uwsgi.legions) {
 
 		if (uwsgi_stats_comma(us))
@@ -1213,7 +1214,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_list_open(us))
 			goto end;
 
-		struct uwsgi_legion *legion = uwsgi.legions;
+		legion = uwsgi.legions;
 		while (legion) {
 			if (uwsgi_stats_object_open(us))
 				goto end;
@@ -1283,30 +1284,30 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			struct uwsgi_legion_node *node = legion->nodes_head;
 			while (node) {
 				if (uwsgi_stats_object_open(us))
-					goto end;
+					goto unlock_legion_mutex;
 
 				if (uwsgi_stats_keyvaln_comma(us, "name", node->name, node->name_len))
-					goto end;
+					goto unlock_legion_mutex;
 
 				if (uwsgi_stats_keyval_comma(us, "uuid", node->uuid))
-					goto end;
+					goto unlock_legion_mutex;
 
 				if (uwsgi_stats_keylong_comma(us, "valor", (unsigned long long) node->valor))
-					goto end;
+					goto unlock_legion_mutex;
 
 				if (uwsgi_stats_keylong_comma(us, "checksum", (unsigned long long) node->checksum))
-					goto end;
+					goto unlock_legion_mutex;
 
 				if (uwsgi_stats_keylong(us, "last_seen", (unsigned long long) node->last_seen))
-					goto end;
+					goto unlock_legion_mutex;
 
 				if (uwsgi_stats_object_close(us))
-					goto end;
+					goto unlock_legion_mutex;
 
 				node = node->next;
 				if (node) {
 					if (uwsgi_stats_comma(us))
-						goto end;
+						goto unlock_legion_mutex;
 				}
 			}
 			pthread_mutex_unlock(&legion->lock);
@@ -1335,6 +1336,11 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		goto end;
 
 	return us;
+#ifdef UWSGI_SSL
+unlock_legion_mutex:
+	if (legion)
+		pthread_mutex_unlock(&legion->lock);
+#endif
 end:
 	free(us->base);
 	free(us);

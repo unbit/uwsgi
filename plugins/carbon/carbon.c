@@ -107,6 +107,7 @@ int carbon_write(int *fd, char *fmt,...) {
 	int rlen;
 
 	rlen = vsnprintf(ptr, 4096, fmt, ap);
+	va_end(ap);
 
 	if (rlen < 1) return 0;
 
