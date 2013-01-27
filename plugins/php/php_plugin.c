@@ -266,20 +266,20 @@ PHP_FUNCTION(uwsgi_cache_del) {
 	char *key = NULL;
         int keylen = 0;
 
-        if (!uwsgi.cache_max_items)
+        if (!uwsgi.caches)
                 RETURN_NULL();
 
         if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen) == FAILURE) {
                 RETURN_NULL();
         }
 
-	uwsgi_wlock(uwsgi.cache_lock);
+	uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_del(key, keylen, 0, 0)) {
-                uwsgi_rwunlock(uwsgi.cache_lock);
+                uwsgi_rwunlock(uwsgi.caches->lock);
 		RETURN_TRUE;
         }
 
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
 	RETURN_NULL();
 }
 
@@ -289,21 +289,21 @@ PHP_FUNCTION(uwsgi_cache_get) {
 	int keylen = 0;
 	uint64_t valsize;
 
-	if (!uwsgi.cache_max_items)
+	if (!uwsgi.caches)
 		RETURN_NULL();
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen) == FAILURE) {
                 RETURN_NULL();
         }
 
-	uwsgi_rlock(uwsgi.cache_lock);
+	uwsgi_rlock(uwsgi.caches->lock);
 	char *value = uwsgi_cache_get(key, keylen, &valsize);
 	if (value) {
 		char *ret = estrndup(value, valsize);
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 		RETURN_STRING(ret, 0);
 	}
-	uwsgi_rwunlock(uwsgi.cache_lock);
+	uwsgi_rwunlock(uwsgi.caches->lock);
 	RETURN_NULL();
 }
 
@@ -314,23 +314,23 @@ PHP_FUNCTION(uwsgi_cache_set) {
 	int vallen;
 	uint64_t expires = 0;
 
-	if (!uwsgi.cache_max_items)
+	if (!uwsgi.caches)
 		RETURN_NULL();
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &key, &keylen, &value, &vallen, &expires) == FAILURE) {
                 RETURN_NULL();
         }
 
-	if ((uint64_t)vallen > uwsgi.cache_blocksize) {
+	if ((uint64_t)vallen > uwsgi.caches->blocksize) {
 		RETURN_NULL();
 	}
 	
-	uwsgi_wlock(uwsgi.cache_lock);
+	uwsgi_wlock(uwsgi.caches->lock);
 	if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
-		uwsgi_rwunlock(uwsgi.cache_lock);
+		uwsgi_rwunlock(uwsgi.caches->lock);
 		RETURN_TRUE;
 	}
-	uwsgi_rwunlock(uwsgi.cache_lock);
+	uwsgi_rwunlock(uwsgi.caches->lock);
 	RETURN_NULL();
 	
 }
@@ -342,23 +342,23 @@ PHP_FUNCTION(uwsgi_cache_update) {
         int vallen;
         uint64_t expires = 0;
 
-	if (!uwsgi.cache_max_items)
+	if (!uwsgi.caches)
 		RETURN_NULL();
 
         if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &key, &keylen, &value, &vallen, &expires) == FAILURE) {
                 RETURN_NULL();
         }
 
-        if ((uint64_t)vallen > uwsgi.cache_blocksize) {
+        if ((uint64_t)vallen > uwsgi.caches->blocksize) {
                 RETURN_NULL();
         }
 
-        uwsgi_wlock(uwsgi.cache_lock);
+        uwsgi_wlock(uwsgi.caches->lock);
         if (uwsgi_cache_set(key, keylen, value, vallen, expires, UWSGI_CACHE_FLAG_UPDATE)) {
-                uwsgi_rwunlock(uwsgi.cache_lock);
+                uwsgi_rwunlock(uwsgi.caches->lock);
                 RETURN_TRUE;
         }
-        uwsgi_rwunlock(uwsgi.cache_lock);
+        uwsgi_rwunlock(uwsgi.caches->lock);
         RETURN_NULL();
 
 }
@@ -474,7 +474,7 @@ zend_function_entry uwsgi_php_functions[] = {
 PHP_MINFO_FUNCTION(uwsgi_php_minfo) {
 	php_info_print_table_start( );
 	php_info_print_table_row(2, "uwsgi api", "enabled");
-	if (uwsgi.cache_max_items > 0) {
+	if (uwsgi.caches) {
 		php_info_print_table_row(2, "uwsgi cache", "enabled");
 	}
 	else {
