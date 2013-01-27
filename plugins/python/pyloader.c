@@ -30,7 +30,7 @@ void set_dyn_pyhome(char *home, uint16_t pyhome_len) {
 
 	PyObject *pysys_dict = get_uwsgi_pydict("sys");
 
-	PyObject *pypath = pypath = PyDict_GetItemString(pysys_dict, "path");
+	PyObject *pypath = PyDict_GetItemString(pysys_dict, "path");
 	if (!pypath) {
 		PyErr_Print();
 		exit(1);

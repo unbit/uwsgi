@@ -88,7 +88,7 @@ void uwsgi_emperor_blacklist_add(char *id) {
 		}
 	}
 
-	strcpy(uebi->id, id);
+	strncpy(uebi->id, id, 0xff);
 	gettimeofday(&uebi->first_attempt, NULL);
 	memcpy(&uebi->last_attempt, &uebi->first_attempt, sizeof(struct timeval));
 	uebi->throttle_level = uwsgi.emperor_throttle;
