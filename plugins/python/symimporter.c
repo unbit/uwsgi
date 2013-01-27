@@ -466,6 +466,7 @@ zipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds)
 
 	PyObject *stringio = PyImport_ImportModule("StringIO");
         if (!stringio) {
+		free(body);
                 return -1;
         }
 
@@ -572,18 +573,18 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 	char *code_start = name_to_symbol(name, "start");
 	if (!code_start) {
 		PyErr_Format(PyExc_ValueError, "unable to find symbol");
-		return -1;
+		goto error;
 	}
 
 	char *code_end = name_to_symbol(name, "end");
 	if (!code_end) {
 		PyErr_Format(PyExc_ValueError, "unable to find symbol");
-		return -1;
+		goto error;
 	}
 
 	PyObject *stringio = PyImport_ImportModule("StringIO");
 	if (!stringio) {
-		return -1;
+		goto error;
 	}
 
 #ifdef PYTHREE
@@ -591,12 +592,12 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 #else
 	PyObject *stringio_dict = PyModule_GetDict(stringio);
 	if (!stringio_dict) {
-		return -1;
+		goto error;
 	}
 
 	PyObject *stringio_stringio = PyDict_GetItemString(stringio_dict, "StringIO");
 	if (!stringio_stringio) {
-		return -1;
+		goto error;
 	}
 
 	PyObject *stringio_args = PyTuple_New(1);
@@ -606,12 +607,12 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 	PyObject *source_code = PyInstance_New(stringio_stringio, stringio_args, NULL);
 #endif
 	if (!source_code) {
-		return -1;
+		goto error;
 	}
 
 	PyObject *zipfile = PyImport_ImportModule("zipfile");
 	if (!zipfile) {
-		return -1;
+		goto error;
 	}
 	
 #ifdef PYTHREE
@@ -619,12 +620,12 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 #else
 	PyObject *zipfile_dict = PyModule_GetDict(zipfile);
         if (!zipfile_dict) {
-                return -1;
+		goto error;
         }
 
         PyObject *zipfile_zipfile = PyDict_GetItemString(zipfile_dict, "ZipFile");
         if (!zipfile_zipfile) {
-                return -1;
+		goto error;
         }
 
         PyObject *zipfile_args = PyTuple_New(1);
@@ -634,14 +635,14 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 	self->zip = PyInstance_New(zipfile_zipfile, zipfile_args, NULL);
 #endif
         if (!self->zip) {
-                return -1;
+		goto error;
         }
 
 	Py_INCREF(self->zip);
 
 	self->items = PyObject_CallMethod(self->zip, "namelist", NULL);
         if (!self->items) {
-                return -1;
+		goto error;
         }
 
 	Py_INCREF(self->items);
@@ -654,6 +655,10 @@ symzipimporter_init(struct _symzipimporter *self, PyObject *args, PyObject *kwds
 
 
 	return 0;
+
+error:
+	free(name);
+	return -1;
 }
 
 static PyTypeObject SymZipImporter_Type = {
