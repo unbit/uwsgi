@@ -458,13 +458,13 @@ void uwsgi_check_logrotate(void) {
 				uwsgi_error_open(uwsgi.logfile);
 				grace_them_all(0);
 			}
-			if (dup2(fd, uwsgi.original_log_fd) < 0) {
-				uwsgi_error("dup2()");
-				grace_them_all(0);
+			else {
+				if (dup2(fd, uwsgi.original_log_fd) < 0) {
+					uwsgi_error("dup2()");
+					grace_them_all(0);
+				}
+				close(fd);
 			}
-
-			close(fd);
-
 		}
 		else {
 			uwsgi_error("unable to rotate log: rename()");
