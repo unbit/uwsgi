@@ -165,7 +165,6 @@ success:
 				uwsgi_log("%s\n", linkpath);
 #endif
 				free(plugin_entry_symbol);
-				up = dlsym(plugin_handle, plugin_entry_symbol);
 				char *slash = uwsgi_get_last_char(linkpath, '/');
 				if (!slash) {
 					slash = linkpath;

@@ -42,6 +42,7 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	int http_fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
 	if (http_fd < 0) {
 		uwsgi_log("unable to connect to host %s\n", addr);
+		free(ub);
 		return UWSGI_ROUTE_NEXT;
 	}
 

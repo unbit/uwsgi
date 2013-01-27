@@ -927,7 +927,7 @@ void corerouter_send_stats(struct uwsgi_corerouter *ucr) {
         char *cwd = uwsgi_get_cwd();
         if (uwsgi_stats_keyval_comma(us, "cwd", cwd)) goto end0;
 
-        if (uwsgi_stats_keylong_comma(us, "active_sessions", (unsigned long long) ucr->active_sessions)) goto end;
+        if (uwsgi_stats_keylong_comma(us, "active_sessions", (unsigned long long) ucr->active_sessions)) goto end0;
 
 	if (uwsgi_stats_key(us , ucr->short_name)) goto end0;
         if (uwsgi_stats_list_open(us)) goto end0;
