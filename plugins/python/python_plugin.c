@@ -592,7 +592,11 @@ void init_uwsgi_embedded_module() {
 	PyObject *new_uwsgi_module, *zero;
 	int i;
 
-	PyType_Ready(&uwsgi_InputType);
+	if (PyType_Ready(&uwsgi_InputType) < 0) {
+		PyErr_Print();
+		uwsgi_log("could not initialize the uwsgi python module\n");
+		exit(1);
+	}
 
 	/* initialize for stats */
 	up.workers_tuple = PyTuple_New(uwsgi.numproc);
