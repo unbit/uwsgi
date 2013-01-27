@@ -1522,6 +1522,11 @@ add:
 			uwsgi.master_process = 1;
 			uwsgi.log_master = 1;
 		}
+		if (op->flags & UWSGI_OPT_REQ_LOG_MASTER) {
+			uwsgi.master_process = 1;
+			uwsgi.log_master = 1;
+			uwsgi.req_log_master = 1;
+		}
 		// requires threads ?
 		if (op->flags & UWSGI_OPT_THREADS) {
 			uwsgi.has_threads = 1;

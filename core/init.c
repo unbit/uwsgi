@@ -130,6 +130,11 @@ void uwsgi_init_default() {
 	uwsgi.shared->worker_log_pipe[0] = -1;
 	uwsgi.shared->worker_log_pipe[1] = -1;
 
+	uwsgi.shared->worker_req_log_pipe[0] = -1;
+	uwsgi.shared->worker_req_log_pipe[1] = -1;
+
+	uwsgi.req_log_fd = 2;
+
 #ifdef UWSGI_SSL
 	// 1 day of tolerance
 	uwsgi.subscriptions_sign_check_tolerance = 3600 * 24;

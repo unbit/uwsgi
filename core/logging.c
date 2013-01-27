@@ -144,6 +144,21 @@ void create_logpipe(void) {
 		exit(1);
 	}
 
+	if (uwsgi.req_log_master) {
+#if defined(SOCK_SEQPACKET) && defined(__linux__)
+		if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, uwsgi.shared->worker_req_log_pipe)) {
+#else
+		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, uwsgi.shared->worker_req_log_pipe)) {
+#endif
+			uwsgi_error("socketpair()\n");
+			exit(1);
+		}
+
+		uwsgi_socket_nb(uwsgi.shared->worker_req_log_pipe[0]);
+		uwsgi_socket_nb(uwsgi.shared->worker_req_log_pipe[1]);
+		uwsgi.req_log_fd = uwsgi.shared->worker_req_log_pipe[1];
+	}
+
 }
 
 #ifdef UWSGI_ZEROMQ
@@ -294,65 +309,79 @@ void uwsgi_setup_log() {
 
 }
 
+static struct uwsgi_logger *setup_choosen_logger(struct uwsgi_string_list *usl) {
+	char *id = NULL;
+                char *name = usl->value;
+
+                char *space = strchr(name, ' ');
+                if (space) {
+                        int is_id = 1;
+                        int i;
+                        for (i = 0; i < (space - name); i++) {
+                                if (!isalnum(name[i])) {
+                                        is_id = 0;
+                                        break;
+                                }
+                        }
+                        if (is_id) {
+                                id = uwsgi_concat2n(name, space - name, "", 0);
+                                name = space + 1;
+                        }
+                }
+
+                char *colon = strchr(name, ':');
+                if (colon) {
+                        *colon = 0;
+                }
+
+                struct uwsgi_logger *choosen_logger = uwsgi_get_logger(name);
+                if (!choosen_logger) {
+                        uwsgi_log("unable to find logger %s\n", name);
+                        exit(1);
+                }
+
+                // make a copy of the logger
+                struct uwsgi_logger *copy_of_choosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
+                memcpy(copy_of_choosen_logger, choosen_logger, sizeof(struct uwsgi_logger));
+                choosen_logger = copy_of_choosen_logger;
+                choosen_logger->id = id;
+                choosen_logger->next = NULL;
+
+                if (colon) {
+                        choosen_logger->arg = colon + 1;
+                        // check for empty string
+                        if (*choosen_logger->arg == 0) {
+                                choosen_logger->arg = NULL;
+                        }
+                        *colon = ':';
+                }
+		return choosen_logger;
+}
+
 void uwsgi_setup_log_master(void) {
 
 	struct uwsgi_string_list *usl = uwsgi.requested_logger;
 	while (usl) {
-		char *id = NULL;
-		char *name = usl->value;
-
-		char *space = strchr(name, ' ');
-		if (space) {
-			int is_id = 1;
-			int i;
-			for (i = 0; i < (space - name); i++) {
-				if (!isalnum(name[i])) {
-					is_id = 0;
-					break;
-				}
-			}
-			if (is_id) {
-				id = uwsgi_concat2n(name, space - name, "", 0);
-				name = space + 1;
-			}
-		}
-
-		char *colon = strchr(name, ':');
-		if (colon) {
-			*colon = 0;
-		}
-
-		struct uwsgi_logger *choosen_logger = uwsgi_get_logger(name);
-		if (!choosen_logger) {
-			uwsgi_log("unable to find logger %s\n", name);
-			exit(1);
-		}
-
-		// make a copy of the logger
-		struct uwsgi_logger *copy_of_choosen_logger = uwsgi_malloc(sizeof(struct uwsgi_logger));
-		memcpy(copy_of_choosen_logger, choosen_logger, sizeof(struct uwsgi_logger));
-		choosen_logger = copy_of_choosen_logger;
-		choosen_logger->id = id;
-		choosen_logger->next = NULL;
-
-		if (colon) {
-			choosen_logger->arg = colon + 1;
-			// check for empty string
-			if (*choosen_logger->arg == 0) {
-				choosen_logger->arg = NULL;
-			}
-			*colon = ':';
-		}
-
+		struct uwsgi_logger *choosen_logger = setup_choosen_logger(usl);
 		uwsgi_append_logger(choosen_logger);
-
 		usl = usl->next;
-
 	}
+
+	usl = uwsgi.requested_req_logger;
+	while (usl) {
+                struct uwsgi_logger *choosen_logger = setup_choosen_logger(usl);
+                uwsgi_append_req_logger(choosen_logger);
+                usl = usl->next;
+        }
 
 #ifdef UWSGI_PCRE
 	// set logger by its id
 	struct uwsgi_regexp_list *url = uwsgi.log_route;
+	while (url) {
+		url->custom_ptr = uwsgi_get_logger_from_id(url->custom_str);
+		url = url->next;
+	}
+	url = uwsgi.log_req_route;
 	while (url) {
 		url->custom_ptr = uwsgi_get_logger_from_id(url->custom_str);
 		url = url->next;
@@ -637,7 +666,7 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 	logvec[logvecpos].iov_len = rlen;
 
 	// do not check for errors
-	rlen = writev(2, logvec, logvecpos + 1);
+	rlen = writev(uwsgi.req_log_fd, logvec, logvecpos + 1);
 }
 
 void get_memusage(uint64_t * rss, uint64_t * vsz) {
@@ -786,6 +815,24 @@ void uwsgi_append_logger(struct uwsgi_logger *ul) {
 	}
 }
 
+void uwsgi_append_req_logger(struct uwsgi_logger *ul) {
+
+        if (!uwsgi.choosen_req_logger) {
+                uwsgi.choosen_req_logger = ul;
+                return;
+        }
+
+        struct uwsgi_logger *ucl = uwsgi.choosen_req_logger;
+        while (ucl) {
+                if (!ucl->next) {
+                        ucl->next = ul;
+                        return;
+                }
+                ucl = ucl->next;
+        }
+}
+
+
 struct uwsgi_logger *uwsgi_get_logger(char *name) {
 	struct uwsgi_logger *ul = uwsgi.loggers;
 
@@ -856,7 +903,7 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 	}
 
 	// do not check for errors
-	rlen = writev(2, uwsgi.logvectors[wsgi_req->async_id], uwsgi.logformat_vectors);
+	rlen = writev(uwsgi.req_log_fd, uwsgi.logvectors[wsgi_req->async_id], uwsgi.logformat_vectors);
 
 	// free allocated memory
 	logchunk = uwsgi.logchunks;
@@ -1106,4 +1153,116 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 			logchunk->type = 2;
 		}
 	}
+}
+
+int uwsgi_master_log(void) {
+
+        ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
+        if (rlen > 0) {
+#ifdef UWSGI_ALARM
+                uwsgi_alarm_log_check(uwsgi.log_master_buf, rlen);
+#endif
+#ifdef UWSGI_PCRE
+                struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
+                while (url) {
+                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                                return 0;
+                        }
+                        url = url->next;
+                }
+                if (uwsgi.log_filter_rules) {
+                        int show = 0;
+                        url = uwsgi.log_filter_rules;
+                        while (url) {
+                                if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                                        show = 1;
+                                        break;
+                                }
+                                url = url->next;
+                        }
+                        if (!show)
+                                return 0;
+                }
+
+                url = uwsgi.log_route;
+                int finish = 0;
+                while (url) {
+                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                                struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
+                                if (ul_route) {
+                                        ul_route->func(ul_route, uwsgi.log_master_buf, rlen);
+                                        finish = 1;
+                                }
+                        }
+                        url = url->next;
+                }
+                if (finish)
+                        return 0;
+#endif
+
+                int raw_log = 1;
+
+                struct uwsgi_logger *ul = uwsgi.choosen_logger;
+                while (ul) {
+                        // check for named logger
+                        if (ul->id) {
+                                goto next;
+                        }
+                        ul->func(ul, uwsgi.log_master_buf, rlen);
+                        raw_log = 0;
+next:
+                        ul = ul->next;
+                }
+
+                if (raw_log) {
+                        rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);
+                }
+                return 0;
+        }
+
+        return -1;
+}
+
+int uwsgi_master_req_log(void) {
+
+        ssize_t rlen = read(uwsgi.shared->worker_req_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
+        if (rlen > 0) {
+#ifdef UWSGI_PCRE
+                url = uwsgi.log_req_route;
+                int finish = 0;
+                while (url) {
+                        if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
+                                struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
+                                if (ul_route) {
+                                        ul_route->func(ul_route, uwsgi.log_master_buf, rlen);
+                                        finish = 1;
+                                }
+                        }
+                        url = url->next;
+                }
+                if (finish)
+                        return 0;
+#endif
+
+                int raw_log = 1;
+
+                struct uwsgi_logger *ul = uwsgi.choosen_req_logger;
+                while (ul) {
+                        // check for named logger
+                        if (ul->id) {
+                                goto next;
+                        }
+                        ul->func(ul, uwsgi.log_master_buf, rlen);
+                        raw_log = 0;
+next:
+                        ul = ul->next;
+                }
+
+                if (raw_log) {
+                        rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);
+                }
+                return 0;
+        }
+
+        return -1;
 }

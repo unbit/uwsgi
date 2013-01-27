@@ -57,6 +57,7 @@ extern "C" {
 #define UWSGI_OPT_POST_BUFFERING	(1 << 11)
 #define UWSGI_OPT_CLUSTER		(1 << 12)
 #define UWSGI_OPT_MIME			(1 << 13)
+#define UWSGI_OPT_REQ_LOG_MASTER	(1 << 14)
 
 #define MAX_GENERIC_PLUGINS 64
 #define MAX_RPC 64
@@ -658,6 +659,9 @@ struct uwsgi_cache {
 	uint64_t filesize;
 
 	int thread_server_fd;
+
+	struct uwsgi_string_list *nodes;
+	struct uwsgi_string_list *sync_nodes;
 
 	struct uwsgi_lock_item *lock;
 
@@ -1632,6 +1636,7 @@ struct uwsgi_server {
 	int restore_tc;
 
 	// route all of the logs to the master process
+	int req_log_master;
 	int log_master;
 	char *log_master_buf;
 	size_t log_master_bufsize;
@@ -1642,6 +1647,7 @@ struct uwsgi_server {
 	char *log_backupname;
 
 	int original_log_fd;
+	int req_log_fd;
 
 	// static file serving
 	int file_serve_mode;
@@ -1666,7 +1672,9 @@ struct uwsgi_server {
 
 	struct uwsgi_logger *loggers;
 	struct uwsgi_logger *choosen_logger;
+	struct uwsgi_logger *choosen_req_logger;
 	struct uwsgi_string_list *requested_logger;
+	struct uwsgi_string_list *requested_req_logger;
 
 #ifdef UWSGI_PCRE
 	int pcre_jit;
@@ -2268,6 +2276,8 @@ struct uwsgi_shared {
 	int rpc_count;
 
 	int worker_log_pipe[2];
+	// used for request logging
+	int worker_req_log_pipe[2];
 
 #if defined(__linux__) || defined(__FreeBSD__)
 	struct tcp_info ti;
@@ -3204,6 +3214,7 @@ void uwsgi_build_cap(char *);
 
 void uwsgi_register_logger(char *, ssize_t (*func)(struct uwsgi_logger *, char *, size_t));
 void uwsgi_append_logger(struct uwsgi_logger *);
+void uwsgi_append_req_logger(struct uwsgi_logger *);
 struct uwsgi_logger *uwsgi_get_logger(char *);
 struct uwsgi_logger *uwsgi_get_logger_from_id(char *);
 
@@ -3230,6 +3241,7 @@ void uwsgi_opt_print(char *, char *, void *);
 void uwsgi_opt_true(char *, char *, void *);
 void uwsgi_opt_set_str(char *, char *, void *);
 void uwsgi_opt_set_logger(char *, char *, void *);
+void uwsgi_opt_set_req_logger(char *, char *, void *);
 void uwsgi_opt_set_str_spaced(char *, char *, void *);
 void uwsgi_opt_add_string_list(char *, char *, void *);
 void uwsgi_opt_add_addr_list(char *, char *, void *);
@@ -3367,6 +3379,7 @@ int uwsgi_cheaper_algo_backlog(void);
 int uwsgi_cheaper_algo_backlog2(void);
 
 int uwsgi_master_log(void);
+int uwsgi_master_req_log(void);
 void uwsgi_flush_logs(void);
 
 void uwsgi_register_cheaper_algo(char *, int(*) (void));

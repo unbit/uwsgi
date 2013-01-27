@@ -255,91 +255,40 @@ void expire_rb_timeouts(struct rb_root *root) {
 	}
 }
 
-int uwsgi_master_log(void) {
-
-	ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
-	if (rlen > 0) {
-#ifdef UWSGI_ALARM
-		uwsgi_alarm_log_check(uwsgi.log_master_buf, rlen);
-#endif
-#ifdef UWSGI_PCRE
-		struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
-		while (url) {
-			if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
-				return 0;
-			}
-			url = url->next;
-		}
-		if (uwsgi.log_filter_rules) {
-			int show = 0;
-			url = uwsgi.log_filter_rules;
-			while (url) {
-				if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
-					show = 1;
-					break;
-				}
-				url = url->next;
-			}
-			if (!show)
-				return 0;
-		}
-
-		url = uwsgi.log_route;
-		int finish = 0;
-		while (url) {
-			if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {
-				struct uwsgi_logger *ul_route = (struct uwsgi_logger *) url->custom_ptr;
-				if (ul_route) {
-					ul_route->func(ul_route, uwsgi.log_master_buf, rlen);
-					finish = 1;
-				}
-			}
-			url = url->next;
-		}
-		if (finish)
-			return 0;
-#endif
-
-		int raw_log = 1;
-
-		struct uwsgi_logger *ul = uwsgi.choosen_logger;
-		while (ul) {
-			// check for named logger
-			if (ul->id) {
-				goto next;
-			}
-			ul->func(ul, uwsgi.log_master_buf, rlen);
-			raw_log = 0;
-next:
-			ul = ul->next;
-		}
-
-		if (raw_log) {
-			rlen = write(uwsgi.original_log_fd, uwsgi.log_master_buf, rlen);
-		}
-		return 0;
-	}
-
-	return -1;
-}
 
 void *logger_thread_loop(void *noarg) {
-	struct pollfd logpoll;
+	struct pollfd logpoll[2];
 
 	// block all signals
 	sigset_t smask;
 	sigfillset(&smask);
 	pthread_sigmask(SIG_BLOCK, &smask, NULL);
 
-	logpoll.events = POLLIN;
-	logpoll.fd = uwsgi.shared->worker_log_pipe[0];
+	logpoll[0].events = POLLIN;
+	logpoll[0].fd = uwsgi.shared->worker_log_pipe[0];
+
+	int logpolls = 1;	
+
+	if (uwsgi.req_log_master) {
+		logpoll[1].events = POLLIN;
+		logpoll[1].fd = uwsgi.shared->worker_req_log_pipe[0];
+	}
+	
 
 	for (;;) {
-		int ret = poll(&logpoll, 1, -1);
-		if (ret > 0 && logpoll.revents & POLLIN) {
-			pthread_mutex_lock(&uwsgi.threaded_logger_lock);
-			uwsgi_master_log();
-			pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
+		int ret = poll(logpoll, logpolls, -1);
+		if (ret > 0) {
+			if (logpoll[0].revents & POLLIN) {
+				pthread_mutex_lock(&uwsgi.threaded_logger_lock);
+				uwsgi_master_log();
+				pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
+			}
+			else if (logpolls > 1 && logpoll[1].revents & POLLIN) {
+                                pthread_mutex_lock(&uwsgi.threaded_logger_lock);
+                                uwsgi_master_req_log();
+                                pthread_mutex_unlock(&uwsgi.threaded_logger_lock);
+                        }
+
 		}
 	}
 
@@ -524,12 +473,18 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_log("adding %d to master logging\n", uwsgi.shared->worker_log_pipe[0]);
 #endif
 			event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_log_pipe[0]);
+			if (uwsgi.req_log_master) {
+				event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_req_log_pipe[0]);
+			}
 		}
 		else {
 			if (pthread_create(&logger_thread, NULL, logger_thread_loop, NULL)) {
 				uwsgi_error("pthread_create()");
 				uwsgi_log("falling back to non-threaded logger...\n");
 				event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_log_pipe[0]);
+				if (uwsgi.req_log_master) {
+					event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_req_log_pipe[0]);
+				}
 				uwsgi.threaded_logger = 0;
 			}
 		}
@@ -871,6 +826,10 @@ int master_loop(char **argv, char **environ) {
 				if (uwsgi.log_master && !uwsgi.threaded_logger) {
 					if (interesting_fd == uwsgi.shared->worker_log_pipe[0]) {
 						uwsgi_master_log();
+						goto health_cycle;
+					}
+					if (uwsgi.req_log_master && interesting_fd == uwsgi.shared->worker_req_log_pipe[0]) {
+						uwsgi_master_req_log();
 						goto health_cycle;
 					}
 				}
