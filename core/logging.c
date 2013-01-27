@@ -1047,6 +1047,10 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 			logchunk->pos = offsetof(struct wsgi_request, protocol);
 			logchunk->pos_len = offsetof(struct wsgi_request, protocol_len);
 		}
+		else if (!uwsgi_strncmp(ptr, len, "uagent", 6)) {
+			logchunk->pos = offsetof(struct wsgi_request, user_agent);
+			logchunk->pos_len = offsetof(struct wsgi_request, user_agent_len);
+		}
 		else if (!uwsgi_strncmp(ptr, len, "status", 6)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_status;
