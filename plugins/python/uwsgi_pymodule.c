@@ -396,6 +396,7 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
                 return ret;
         }
 
+	free(response);
 	Py_INCREF(Py_None);
         return Py_None;
 
@@ -1569,6 +1570,8 @@ PyObject *py_uwsgi_extract(PyObject * self, PyObject * args) {
 	if (buf && len > 0) {
         	return PyString_FromStringAndSize(buf, len);
 	}
+	if (buf)
+		free(buf);
 	Py_INCREF(Py_None);
 	return Py_None;
 

@@ -944,6 +944,7 @@ struct uwsgi_socket *uwsgi_new_socket(char *name) {
 			char *auto_port = uwsgi_num2str(ntohs(sin.sin_port));
 			char *auto_ip = inet_ntoa(sin.sin_addr);
 			uwsgi_sock->name = uwsgi_concat3n(auto_ip, strlen(auto_ip), ":", 1, auto_port, strlen(auto_port));
+			free(auto_port);
 		}
 	}
 
@@ -1560,9 +1561,7 @@ void uwsgi_setup_shared_sockets() {
 						}
 						shared_sock->fd = i;
 					}
-					else {
-						free(sock);
-					}
+					free(sock);
 				}
 			}
 		}

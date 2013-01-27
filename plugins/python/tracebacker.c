@@ -63,7 +63,12 @@ void *uwsgi_python_tracebacker_thread(void *foobar) {
         uwsgi.no_defer_accept = current_defer_accept;
 
 	PyObject *traceback_module = PyImport_ImportModule("traceback");
-	if (!traceback_module) return NULL;
+	if (!traceback_module) {
+		free(str_wid);
+		free(sock_path);
+		close(fd);
+		return NULL;
+	}
 	PyObject *traceback_dict = PyModule_GetDict(traceback_module);
 	PyObject *extract_stack = PyDict_GetItemString(traceback_dict, "extract_stack");
 
