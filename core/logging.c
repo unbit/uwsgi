@@ -819,7 +819,7 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 	while (logchunk) {
 		int pos = logchunk->vec;
 		// raw string
-		if (logchunk->type == 0 && logchunk->type != 0) {
+		if (logchunk->type == 0) {
 			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = logchunk->ptr;
 			uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = logchunk->len;
 		}
@@ -853,7 +853,7 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 			}
 		}
 
-		if (uwsgi.logvectors[wsgi_req->async_id][pos].iov_len == 0) {
+		if (uwsgi.logvectors[wsgi_req->async_id][pos].iov_len == 0 && logchunk->type != 0) {
 			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = (char *) empty_var;
 			uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 1; 
 		}
