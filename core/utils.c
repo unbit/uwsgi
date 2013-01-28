@@ -936,7 +936,9 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
 	// set close on exec (if not a new socket)
 	if (!wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
-		fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
+		if (fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC) < 0) {
+			uwsgi_error("fcntl()");
+		}
 	}
 
 	return 0;
@@ -1041,7 +1043,9 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 			if (!uwsgi_sock->edge_trigger) {
 
 				if (uwsgi.close_on_exec) {
-					fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC);
+					if (fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC) < 0) {
+						uwsgi_error("fcntl()");
+					}
 				}
 
 			}
