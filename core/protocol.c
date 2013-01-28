@@ -883,6 +883,14 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 							wsgi_req->authorization = ptrbuf;
 							wsgi_req->authorization_len = strsize;
 						}
+						else if (!uwsgi_strncmp("HTTP_USER_AGENT", 15, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+                                                        wsgi_req->user_agent = ptrbuf;
+                                                        wsgi_req->user_agent_len = strsize;
+                                                }
+						else if (!uwsgi_strncmp("HTTP_REFERER", 12, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
+                                                        wsgi_req->referer = ptrbuf;
+                                                        wsgi_req->referer_len = strsize;
+                                                }
 						else if (!uwsgi_strncmp("DOCUMENT_ROOT", 13, wsgi_req->hvec[wsgi_req->var_cnt].iov_base, wsgi_req->hvec[wsgi_req->var_cnt].iov_len)) {
 							wsgi_req->document_root = ptrbuf;
 							wsgi_req->document_root_len = strsize;

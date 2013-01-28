@@ -1014,6 +1014,12 @@ struct wsgi_request {
 	char *authorization;
 	uint16_t authorization_len;
 
+	char *user_agent;
+	uint16_t user_agent_len;
+
+	char *referer;
+	uint16_t referer_len;
+
 	char *script;
 	uint16_t script_len;
 	char *module;
