@@ -863,6 +863,7 @@ struct uwsgi_logger *uwsgi_get_logger_from_id(char *id) {
 void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 	struct uwsgi_logchunk *logchunk = uwsgi.logchunks;
 	ssize_t rlen = 0;
+	const char *empty_var = "-";
 	while (logchunk) {
 		int pos = logchunk->vec;
 		// raw string
@@ -899,6 +900,11 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 				uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 0;
 			}
 		}
+
+		if (uwsgi.logvectors[wsgi_req->async_id][pos].iov_len == 0) {
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = (char *) empty_var;
+			uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 1;	
+		}
 		logchunk = logchunk->next;
 	}
 
@@ -910,7 +916,9 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 	while (logchunk) {
 		if (logchunk->free) {
 			if (uwsgi.logvectors[wsgi_req->async_id][logchunk->vec].iov_len > 0) {
-				free(uwsgi.logvectors[wsgi_req->async_id][logchunk->vec].iov_base);
+				if (uwsgi.logvectors[wsgi_req->async_id][logchunk->vec].iov_base != empty_var) {
+					free(uwsgi.logvectors[wsgi_req->async_id][logchunk->vec].iov_base);
+				}
 			}
 		}
 		logchunk = logchunk->next;
