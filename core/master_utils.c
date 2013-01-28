@@ -78,6 +78,7 @@ int uwsgi_calc_cheaper(void) {
 #endif
 			uwsgi.workers[oldest_worker].cheaped = 1;
 			uwsgi.workers[oldest_worker].manage_next_request = 0;
+			uwsgi.workers[oldest_worker].stopped_at = now;
 			// wakeup task in case of wait
 			(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
 		}
@@ -504,6 +505,8 @@ int uwsgi_respawn_worker(int wid) {
 	uwsgi.workers[wid].pending_harakiri = 0;
 	uwsgi.workers[wid].rss_size = 0;
 	uwsgi.workers[wid].vsz_size = 0;
+	// ... reset stopped_at
+	uwsgi.workers[wid].stopped_at = 0;
 
 	// internal statuses should be reset too
 

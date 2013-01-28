@@ -706,6 +706,13 @@ int master_loop(char **argv, char **environ) {
 			return -1;
 		}
 
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].stopped_at > 0 && uwsgi.workers[i].pid > 0 && (uwsgi_now() - uwsgi.workers[i].stopped_at >= uwsgi.worker_reload_mercy)) {
+				uwsgi_log("worker %d is taking too much time to die (%ds), sending SIGKILL\n",i, (int) (uwsgi_now() - uwsgi.workers[i].stopped_at));
+				kill(uwsgi.workers[i].pid, SIGKILL);
+			}
+		}
+
 		diedpid = waitpid(WAIT_ANY, &waitpid_status, WNOHANG);
 		if (diedpid == -1) {
 			if (errno == ECHILD) {
@@ -1397,6 +1404,9 @@ next:
 			else {
 				uwsgi_log("DAMN ! worker %d (pid: %d) died :( trying respawn ...\n", uwsgi.mywid, (int) diedpid);
 			}
+		}
+		else if (uwsgi.workers[uwsgi.mywid].stopped_at > 0) {
+			uwsgi_log("worker %d killed successfully (pid: %d)\n", uwsgi.mywid, (int) diedpid);
 		}
 		// manage_next_request is zero, but killed by signal...
 		else if (WIFSIGNALED(waitpid_status)) {
