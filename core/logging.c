@@ -1250,7 +1250,7 @@ int uwsgi_master_req_log(void) {
         ssize_t rlen = read(uwsgi.shared->worker_req_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
         if (rlen > 0) {
 #ifdef UWSGI_PCRE
-                url = uwsgi.log_req_route;
+                struct uwsgi_regexp_list *url = uwsgi.log_req_route;
                 int finish = 0;
                 while (url) {
                         if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {

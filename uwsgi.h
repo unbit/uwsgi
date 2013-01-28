@@ -1685,6 +1685,7 @@ struct uwsgi_server {
 	struct uwsgi_regexp_list *log_drain_rules;
 	struct uwsgi_regexp_list *log_filter_rules;
 	struct uwsgi_regexp_list *log_route;
+	struct uwsgi_regexp_list *log_req_route;
 #endif
 
 #ifdef UWSGI_ALARM
