@@ -147,6 +147,8 @@ ssize_t fr_instance_send_request(struct corerouter_peer *peer) {
         if (cr_write_complete(peer)) {
                 // reset the original read buffer
                 peer->out->pos = 0;
+		// start waiting for body
+		peer->session->main_peer->last_hook_read = fr_read_body;
                 cr_reset_hooks(peer);
         }
 
