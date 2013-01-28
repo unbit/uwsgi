@@ -391,7 +391,9 @@ void manage_cluster_message(char *cluster_opt_buf, int cluster_opt_size) {
 			break;
 		if (uwsgi.workers[0].cores[0].req.uh.modifier2 == 0) {
 			uwsgi_log("requested configuration data, sending %d bytes\n", cluster_opt_size);
-			sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr));
+			if (sendto(uwsgi.cluster_fd, cluster_opt_buf, cluster_opt_size, 0, (struct sockaddr *) &uwsgi.mc_cluster_addr, sizeof(uwsgi.mc_cluster_addr)) < 0) {
+				uwsgi_error("sendto()");
+			}
 		}
 		break;
 	case 73:
