@@ -132,10 +132,16 @@ void linux_namespace_jail() {
 
 	if (strcmp(uwsgi.ns, "/")) {
 		ns_tmp_mountpoint = uwsgi_concat2(uwsgi.ns, "/.uwsgi_ns_tmp_mountpoint");
-		mkdir(ns_tmp_mountpoint, S_IRWXU);
+		if (mkdir(ns_tmp_mountpoint, S_IRWXU) < 0) {
+			uwsgi_error("mkdir() ns_tmp_mountpoint");
+			exit(1);
+		}
 
 		ns_tmp_mountpoint2 = uwsgi_concat2(ns_tmp_mountpoint, "/.uwsgi_ns_tmp_mountpoint");
-		mkdir(ns_tmp_mountpoint2, S_IRWXU);
+		if (mkdir(ns_tmp_mountpoint2, S_IRWXU) < 0) {
+			uwsgi_error("mkdir() ns_tmp_mountpoint2");
+			exit(1);
+                }
 
 		if (mount(uwsgi.ns, ns_tmp_mountpoint, "none", MS_BIND, NULL)) {
 			uwsgi_error("mount()");
