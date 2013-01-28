@@ -1461,6 +1461,12 @@ health_cycle:
 				continue;
 #endif
 
+			if (uwsgi.emperor_pid >= 0) {
+				uwsgi_log_verbose("!!! Emperor died !!!\n");
+				uwsgi_emperor_start();
+				continue;
+			}
+
 			pid_found = 0;
 			for (i = 0; i < uwsgi.mules_cnt; i++) {
 				if (uwsgi.mules[i].pid == diedpid) {
