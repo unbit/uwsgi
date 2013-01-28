@@ -4109,30 +4109,52 @@ struct uwsgi_app *uwsgi_add_app(int id, uint8_t modifier1, char *mountpoint, int
 
 char *uwsgi_check_touches(struct uwsgi_string_list *touch_list) {
 
-	struct uwsgi_string_list *touch = touch_list;
-	while (touch) {
-		struct stat tr_st;
-		if (stat(touch->value, &tr_st)) {
-			uwsgi_log("unable to stat() %s, events will be triggered as soon as the file is created\n", touch->value);
-			touch->custom = 0;
-		}
-		else {
-			if (!touch->custom)
-				touch->custom = (uint64_t) tr_st.st_mtime;
-			if ((uint64_t) tr_st.st_mtime > touch->custom) {
-#ifdef UWSGI_DEBUG
-				uwsgi_log("[uwsgi-check-touches] modification detected on %s: %llu -> %llu\n", touch->value, (unsigned long long) touch->custom, (unsigned long long) tr_st.st_mtime);
-#endif
-				touch->custom = (uint64_t) tr_st.st_mtime;
-				return touch->value;
-			}
-			touch->custom = (uint64_t) tr_st.st_mtime;
-		}
-		touch = touch->next;
-	}
+        // touch->value   - file path
+        // touch->custom  - file timestamp
+        // touch->custom2 - 0 if file exists, 1 if it does not exists
 
-	return NULL;
+        struct uwsgi_string_list *touch = touch_list;
+        while (touch) {
+                struct stat tr_st;
+                if (stat(touch->value, &tr_st)) {
+                        if (touch->custom && !touch->custom2) {
+#ifdef UWSGI_DEBUG
+                                uwsgi_log("[uwsgi-check-touches] File %s was removed\n", touch->value);
+#endif
+                                touch->custom2 = 1;
+                                return touch->value;
+                        }
+                        else if (!touch->custom && !touch->custom2) {
+                                uwsgi_log("unable to stat() %s, events will be triggered as soon as the file is created\n", touch->value);
+                                touch->custom2 = 1;
+                        }
+                        touch->custom = 0;
+                }
+                else {
+                        if (!touch->custom && touch->custom2) {
+#ifdef UWSGI_DEBUG
+                                uwsgi_log("[uwsgi-check-touches] File was created: %s\n", touch->value);
+#endif
+                                touch->custom = (uint64_t) tr_st.st_mtime;
+                                touch->custom2 = 0;
+                                return touch->value;
+                        }
+                        else if (touch->custom && (uint64_t) tr_st.st_mtime > touch->custom) {
+#ifdef UWSGI_DEBUG
+                                uwsgi_log("[uwsgi-check-touches] modification detected on %s: %llu -> %llu\n", touch->value, (unsigned long long) touch->custom, (unsigned long long) tr_st.st_mtime);
+#endif
+                                touch->custom = (uint64_t) tr_st.st_mtime;
+                                return touch->value;
+                        }
+                        touch->custom = (uint64_t) tr_st.st_mtime;
+                }
+                touch = touch->next;
+        }
+
+        return NULL;
 }
+
+
 
 char *uwsgi_chomp(char *str) {
 	size_t i;
