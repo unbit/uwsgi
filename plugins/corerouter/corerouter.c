@@ -327,16 +327,16 @@ static struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *
 
 static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr) {
 
-	time_t current = uwsgi_now();
+	uint64_t current = (uint64_t) uwsgi_now();
 	struct uwsgi_rb_timer *urbt;
 	struct corerouter_session *cr_session;
 
 	for (;;) {
-		urbt = uwsgi_min_rb_timer(ucr->timeouts);
+		urbt = uwsgi_min_rb_timer(ucr->timeouts, NULL);
 		if (urbt == NULL)
 			return;
 
-		if (urbt->key <= current) {
+		if (urbt->value <= current) {
 			cr_session = (struct corerouter_session *) urbt->data;
 			cr_session->timed_out = 1;
 			if (cr_session->connecting) {
@@ -708,12 +708,12 @@ void uwsgi_corerouter_loop(int id, void *data) {
 	for (;;) {
 
 		// set timeouts and harakiri
-		min_timeout = uwsgi_min_rb_timer(ucr->timeouts);
+		min_timeout = uwsgi_min_rb_timer(ucr->timeouts, NULL);
 		if (min_timeout == NULL) {
 			delta = -1;
 		}
 		else {
-			delta = min_timeout->key - uwsgi_now();
+			delta = min_timeout->value - uwsgi_now();
 			if (delta <= 0) {
 				corerouter_expire_timeouts(ucr);
 				delta = 0;

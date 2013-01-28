@@ -6,8 +6,8 @@
 #define cr_add_timeout(u, x) uwsgi_add_rb_timer(u->timeouts, time(NULL)+u->socket_timeout, x)
 #define cr_add_fake_timeout(u, x) uwsgi_add_rb_timer(u->timeouts, time(NULL)+1, x)
 #define cr_add_check_timeout(x) uwsgi_add_rb_timer(timeouts, time(NULL)+x, NULL)
-#define cr_del_check_timeout(x) rb_erase(&x->rbt, timeouts);
-#define cr_del_timeout(u, x) rb_erase(&x->timeout->rbt, u->timeouts); free(x->timeout);
+#define cr_del_check_timeout(x) uwsgi_del_rb_timer(timeouts, x);
+#define cr_del_timeout(u, x) uwsgi_del_rb_timer(u->timeouts, x->timeout); free(x->timeout);
 
 #define cr_try_again if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {\
                      	errno = EINPROGRESS;\
@@ -33,7 +33,7 @@ struct uwsgi_corerouter {
         int processes;
         int quiet;
 
-        struct rb_root *timeouts;
+        struct uwsgi_rbtree *timeouts;
 
         int use_cache;
         int nevents;
