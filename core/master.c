@@ -225,28 +225,28 @@ int uwsgi_master_check_mercy() {
 }
 
 
-void expire_rb_timeouts(struct rb_root *root) {
+void expire_rb_timeouts(struct uwsgi_rbtree *tree) {
 
-	time_t current = uwsgi_now();
+	uint64_t current = (uint64_t) uwsgi_now();
 	struct uwsgi_rb_timer *urbt;
 	struct uwsgi_signal_rb_timer *usrbt;
 
 	for (;;) {
 
-		urbt = uwsgi_min_rb_timer(root);
+		urbt = uwsgi_min_rb_timer(tree, NULL);
 
 		if (urbt == NULL)
 			return;
 
-		if (urbt->key <= current) {
+		if (urbt->value <= current) {
 			// remove the timeout and add another
 			usrbt = (struct uwsgi_signal_rb_timer *) urbt->data;
-			rb_erase(&usrbt->uwsgi_rb_timer->rbt, root);
-			free(usrbt->uwsgi_rb_timer);
+			uwsgi_del_rb_timer(tree, urbt);
+			free(urbt);
 			usrbt->iterations_done++;
 			uwsgi_route_signal(usrbt->sig);
 			if (!usrbt->iterations || usrbt->iterations_done < usrbt->iterations) {
-				usrbt->uwsgi_rb_timer = uwsgi_add_rb_timer(root, uwsgi_now() + usrbt->value, usrbt);
+				usrbt->uwsgi_rb_timer = uwsgi_add_rb_timer(tree, uwsgi_now() + usrbt->value, usrbt);
 			}
 			continue;
 		}
@@ -414,7 +414,7 @@ int master_loop(char **argv, char **environ) {
 	int check_interval = 1;
 
 	struct uwsgi_rb_timer *min_timeout;
-	struct rb_root *rb_timers = uwsgi_init_rb_timer();
+	struct uwsgi_rbtree *rb_timers = uwsgi_init_rb_timer();
 
 
 	if (uwsgi.procname_master) {
@@ -780,12 +780,12 @@ int master_loop(char **argv, char **environ) {
 			int interesting_fd = -1;
 
 			if (ushared->rb_timers_cnt > 0) {
-				min_timeout = uwsgi_min_rb_timer(rb_timers);
+				min_timeout = uwsgi_min_rb_timer(rb_timers, NULL);
 				if (min_timeout == NULL) {
 					check_interval = uwsgi.shared->options[UWSGI_OPTION_MASTER_INTERVAL];
 				}
 				else {
-					check_interval = min_timeout->key - uwsgi_now();
+					check_interval = min_timeout->value - uwsgi_now();
 					if (check_interval <= 0) {
 						expire_rb_timeouts(rb_timers);
 						check_interval = 0;

@@ -4,7 +4,7 @@
 #define COREROUTER_STATUS_RESPONSE 3
 
 #define cr_add_timeout(u, x) uwsgi_add_rb_timer(u->timeouts, time(NULL)+u->socket_timeout, x)
-#define cr_del_timeout(u, x) rb_erase(&x->timeout->rbt, u->timeouts); free(x->timeout);
+#define cr_del_timeout(u, x) uwsgi_del_rb_timer(u->timeouts, x->timeout); free(x->timeout);
 
 #define cr_try_again if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {\
                      	errno = EINPROGRESS;\
@@ -195,7 +195,7 @@ struct uwsgi_corerouter {
         int processes;
         int quiet;
 
-        struct rb_root *timeouts;
+        struct uwsgi_rbtree *timeouts;
 
         char *use_cache;
 	struct uwsgi_cache *cache;
