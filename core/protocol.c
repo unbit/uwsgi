@@ -555,6 +555,12 @@ static int uwsgi_proto_check_12(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
+	if (!uwsgi_proto_key("HTTP_REFERER", 12)) {
+                wsgi_req->referer = buf;
+                wsgi_req->referer_len = len;
+                return 0;
+        }
+
 	if (!uwsgi_proto_key("UWSGI_SCHEME", 12)) {
 		wsgi_req->scheme = buf;
 		wsgi_req->scheme_len = len;

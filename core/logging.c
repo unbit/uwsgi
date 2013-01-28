@@ -901,7 +901,7 @@ void uwsgi_logit_lf(struct wsgi_request *wsgi_req) {
 			}
 		}
 
-		if (uwsgi.logvectors[wsgi_req->async_id][pos].iov_len == 0) {
+		if (uwsgi.logvectors[wsgi_req->async_id][pos].iov_len == 0 && logchunk->type != 0) {
 			uwsgi.logvectors[wsgi_req->async_id][pos].iov_base = (char *) empty_var;
 			uwsgi.logvectors[wsgi_req->async_id][pos].iov_len = 1;	
 		}
@@ -992,6 +992,11 @@ ssize_t uwsgi_lf_rsize(struct wsgi_request *wsgi_req, char **buf) {
 
 ssize_t uwsgi_lf_hsize(struct wsgi_request *wsgi_req, char **buf) {
 	*buf = uwsgi_num2str(wsgi_req->headers_size);
+	return strlen(*buf);
+}
+
+ssize_t uwsgi_lf_size(struct wsgi_request *wsgi_req, char **buf) {
+	*buf = uwsgi_num2str(wsgi_req->headers_size+wsgi_req->response_size);
 	return strlen(*buf);
 }
 
@@ -1106,6 +1111,10 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 			logchunk->pos = offsetof(struct wsgi_request, user_agent);
 			logchunk->pos_len = offsetof(struct wsgi_request, user_agent_len);
 		}
+		else if (!uwsgi_strncmp(ptr, len, "referer", 7)) {
+			logchunk->pos = offsetof(struct wsgi_request, referer);
+			logchunk->pos_len = offsetof(struct wsgi_request, referer_len);
+		}
 		else if (!uwsgi_strncmp(ptr, len, "status", 6)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_status;
@@ -1119,6 +1128,11 @@ void uwsgi_add_logchunk(int variable, int pos, char *ptr, size_t len) {
 		else if (!uwsgi_strncmp(ptr, len, "hsize", 5)) {
 			logchunk->type = 3;
 			logchunk->func = uwsgi_lf_hsize;
+			logchunk->free = 1;
+		}
+		else if (!uwsgi_strncmp(ptr, len, "size", 4)) {
+			logchunk->type = 3;
+			logchunk->func = uwsgi_lf_size;
 			logchunk->free = 1;
 		}
 		else if (!uwsgi_strncmp(ptr, len, "cl", 2)) {

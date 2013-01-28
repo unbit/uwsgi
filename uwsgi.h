@@ -1133,6 +1133,9 @@ struct wsgi_request {
 	char *user_agent;
 	uint16_t user_agent_len;
 
+	char *referer;
+	uint16_t referer_len;
+
 	char *path_info;
 	uint16_t path_info_len;
 	int path_info_pos;
