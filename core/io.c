@@ -262,7 +262,12 @@ char *uwsgi_read_fd(int fd, size_t *size, int add_zero) {
 		len = read(fd, stack_buf, 4096);
 		if (len > 0) {
 			*size += len;
-			buffer = realloc(buffer, *size);
+			char *tmp = realloc(buffer, *size);
+			if (!tmp) {
+				uwsgi_error("uwsgi_read_fd()/realloc()");
+				exit(1);
+			}
+			buffer = tmp;
 			memcpy(buffer + (*size - len), stack_buf, len);
 		}
 	}
@@ -419,11 +424,12 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 			}
 			else if (body == 4) {
 				*size = *size + 1;
-				buffer = realloc(buffer, *size);
-				if (!buffer) {
-					uwsgi_error("realloc()");
+				char *tmp = realloc(buffer, *size);
+				if (!tmp) {
+					uwsgi_error("uwsgi_open_and_read()/realloc()");
 					exit(1);
 				}
+				buffer = tmp;
 				buffer[*size - 1] = byte;
 			}
 			else {
@@ -447,7 +453,12 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 
 		if (add_zero) {
 			*size = *size + 1;
-			buffer = realloc(buffer, *size);
+			char *tmp = realloc(buffer, *size);
+			if (!tmp) {
+				uwsgi_error(
+				exit(1);
+			}
+			buffer = tmp;
 			buffer[*size - 1] = 0;
 		}
 
