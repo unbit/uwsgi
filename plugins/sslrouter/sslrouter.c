@@ -25,6 +25,55 @@ struct sslrouter_session {
 
 static void uwsgi_opt_sslrouter(char *opt, char *value, void *cr) {
         struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
+        char *client_ca = NULL;
+
+        // build socket, certificate and key file
+        char *sock = uwsgi_str(value);
+        char *crt = strchr(sock, ',');
+        if (!crt) {
+                uwsgi_log("invalid sslrouter syntax must be socket,crt,key\n");
+                exit(1);
+        }
+        *crt = '\0'; crt++;
+        char *key = strchr(crt, ',');
+        if (!key) {
+                uwsgi_log("invalid sslrouter syntax must be socket,crt,key\n");
+                exit(1);
+        }
+        *key = '\0'; key++;
+
+        char *ciphers = strchr(key, ',');
+        if (ciphers) {
+                *ciphers = '\0'; ciphers++;
+                client_ca = strchr(ciphers, ',');
+                if (client_ca) {
+                        *client_ca = '\0'; client_ca++;
+                }
+        }
+
+        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(sock, ucr->name);
+        // ok we have the socket, initialize ssl if required
+        if (!uwsgi.ssl_initialized) {
+                uwsgi_ssl_init();
+        }
+
+        // initialize ssl context
+        char *name = usr.ssl_session_context;
+        if (!name) {
+                name = uwsgi_concat3(ucr->short_name, "-", ugs->name);
+        }
+
+        ugs->ctx = uwsgi_ssl_new_server_context(name, crt, key, ciphers, client_ca);
+        if (!ugs->ctx) {
+                exit(1);
+        }
+
+        ucr->has_sockets++;
+}
+
+
+static void uwsgi_opt_sslrouter2(char *opt, char *value, void *cr) {
+        struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
 
         char *s_addr = NULL;
         char *s_cert = NULL;
@@ -72,6 +121,7 @@ static void uwsgi_opt_sslrouter(char *opt, char *value, void *cr) {
         
 static struct uwsgi_option sslrouter_options[] = {
 	{"sslrouter", required_argument, 0, "run the sslrouter on the specified port", uwsgi_opt_sslrouter, &usr, 0},
+	{"sslrouter2", required_argument, 0, "run the sslrouter on the specified port (key-value based)", uwsgi_opt_sslrouter2, &usr, 0},
 	{"sslrouter-session-context", required_argument, 0, "set the session id context to the specified value", uwsgi_opt_set_str, &usr.ssl_session_context, 0},
 	{"sslrouter-processes", required_argument, 0, "prefork the specified number of sslrouter processes", uwsgi_opt_set_int, &usr.cr.processes, 0},
 	{"sslrouter-workers", required_argument, 0, "prefork the specified number of sslrouter processes", uwsgi_opt_set_int, &usr.cr.processes, 0},
