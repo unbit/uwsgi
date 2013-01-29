@@ -455,7 +455,7 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 			*size = *size + 1;
 			char *tmp = realloc(buffer, *size);
 			if (!tmp) {
-				uwsgi_error(
+				uwsgi_error("uwsgi_open_and_read()/realloc()");
 				exit(1);
 			}
 			buffer = tmp;
