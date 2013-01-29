@@ -7,7 +7,7 @@
 #include "../../uwsgi.h"
 #include "../corerouter/cr.h"
 
-struct uwsgi_rawrouter {
+static struct uwsgi_rawrouter {
 	struct uwsgi_corerouter cr;
 	int xclient;
 } urr;
@@ -26,7 +26,7 @@ struct rawrouter_session {
 	size_t xclient_rn;
 };
 
-struct uwsgi_option rawrouter_options[] = {
+static struct uwsgi_option rawrouter_options[] = {
 	{"rawrouter", required_argument, 0, "run the rawrouter on the specified port", uwsgi_opt_undeferred_corerouter, &urr, 0},
 	{"rawrouter-processes", required_argument, 0, "prefork the specified number of rawrouter processes", uwsgi_opt_set_int, &urr.cr.processes, 0},
 	{"rawrouter-workers", required_argument, 0, "prefork the specified number of rawrouter processes", uwsgi_opt_set_int, &urr.cr.processes, 0},
@@ -64,7 +64,7 @@ struct uwsgi_option rawrouter_options[] = {
 };
 
 // write to backend
-ssize_t rr_instance_write(struct corerouter_peer *peer) {
+static ssize_t rr_instance_write(struct corerouter_peer *peer) {
 	ssize_t len = cr_write(peer, "rr_instance_write()");
 	// end on empty write
 	if (!len) return 0;
@@ -80,7 +80,7 @@ ssize_t rr_instance_write(struct corerouter_peer *peer) {
 }
 
 // write to client
-ssize_t rr_write(struct corerouter_peer *main_peer) {
+static ssize_t rr_write(struct corerouter_peer *main_peer) {
 	ssize_t len = cr_write(main_peer, "rr_write()");
 	// end on empty write
 	if (!len) return 0;
@@ -96,7 +96,7 @@ ssize_t rr_write(struct corerouter_peer *main_peer) {
 }
 
 // read from backend
-ssize_t rr_instance_read(struct corerouter_peer *peer) {
+static ssize_t rr_instance_read(struct corerouter_peer *peer) {
 	ssize_t len = cr_read(peer, "rr_instance_read()");
 	if (!len) return 0;
 
@@ -109,7 +109,7 @@ ssize_t rr_instance_read(struct corerouter_peer *peer) {
 }
 
 // write the xclient banner
-ssize_t rr_xclient_write(struct corerouter_peer *peer) {
+static ssize_t rr_xclient_write(struct corerouter_peer *peer) {
         struct corerouter_session *cs = peer->session;
         struct rawrouter_session *rr = (struct rawrouter_session *) cs;
         ssize_t len = cr_write_buf(peer, rr->xclient, "rr_xclient_write()");
@@ -130,7 +130,7 @@ ssize_t rr_xclient_write(struct corerouter_peer *peer) {
 }
 
 // read the first line from the backend and skip it
-ssize_t rr_xclient_read(struct corerouter_peer *peer) {
+static ssize_t rr_xclient_read(struct corerouter_peer *peer) {
 	struct corerouter_session *cs = peer->session;
         struct rawrouter_session *rr = (struct rawrouter_session *) cs;
         ssize_t len = cr_read(peer, "rr_xclient_read()");
@@ -161,7 +161,7 @@ ssize_t rr_xclient_read(struct corerouter_peer *peer) {
 }
 
 // the instance is connected now we cannot retry connections
-ssize_t rr_instance_connected(struct corerouter_peer *peer) {
+static ssize_t rr_instance_connected(struct corerouter_peer *peer) {
 
 	struct corerouter_session *cs = peer->session;
         struct rawrouter_session *rr = (struct rawrouter_session *) cs;
@@ -176,7 +176,7 @@ ssize_t rr_instance_connected(struct corerouter_peer *peer) {
 }
 
 // read from client
-ssize_t rr_read(struct corerouter_peer *main_peer) {
+static ssize_t rr_read(struct corerouter_peer *main_peer) {
 	ssize_t len = cr_read(main_peer, "rr_read()");
 	if (!len) return 0;
 
@@ -188,7 +188,7 @@ ssize_t rr_read(struct corerouter_peer *main_peer) {
 }
 
 // retry the connection
-int rr_retry(struct corerouter_peer *peer) {
+static int rr_retry(struct corerouter_peer *peer) {
 
 	struct corerouter_session *cs = peer->session;
 	struct uwsgi_corerouter *ucr = cs->corerouter;
@@ -209,7 +209,7 @@ retry:
 	return 0;
 }
 
-void rr_session_close(struct corerouter_session *cs) {
+static void rr_session_close(struct corerouter_session *cs) {
 	struct rawrouter_session *rr = (struct rawrouter_session *) cs;
 	if (rr->xclient) {
 		uwsgi_buffer_destroy(rr->xclient);
@@ -217,7 +217,7 @@ void rr_session_close(struct corerouter_session *cs) {
 }
 
 // allocate a new session
-int rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
+static int rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
 
 	// set default read hook
 	cs->main_peer->last_hook_read = rr_read;
@@ -260,7 +260,7 @@ int rawrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_s
 	return 0;
 }
 
-int rawrouter_init() {
+static int rawrouter_init() {
 
 	urr.cr.session_size = sizeof(struct rawrouter_session);
 	urr.cr.alloc_session = rawrouter_alloc_session;
@@ -269,7 +269,7 @@ int rawrouter_init() {
 	return 0;
 }
 
-void rawrouter_setup() {
+static void rawrouter_setup() {
 	urr.cr.name = uwsgi_str("uWSGI rawrouter");
 	urr.cr.short_name = uwsgi_str("rawrouter");
 }

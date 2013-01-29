@@ -416,9 +416,15 @@ struct uwsgi_rb_timer *corerouter_reset_timeout(struct uwsgi_corerouter *ucr, st
 	return cr_add_timeout(ucr, peer);
 }
 
-static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr) {
+struct uwsgi_rb_timer *corerouter_reset_timeout_fast(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer, time_t now) {
+        cr_del_timeout(ucr, peer);
+        return cr_add_timeout_fast(ucr, peer, now);
+}
 
-	uint64_t current = (uint64_t) uwsgi_now();
+
+static void corerouter_expire_timeouts(struct uwsgi_corerouter *ucr, time_t now) {
+
+	uint64_t current = (uint64_t) now;
 	struct uwsgi_rb_timer *urbt;
 	struct corerouter_peer *peer;
 
@@ -695,15 +701,17 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 	for (;;) {
 
+		time_t now = uwsgi_now();
+
 		// set timeouts and harakiri
 		min_timeout = uwsgi_min_rb_timer(ucr->timeouts, NULL);
 		if (min_timeout == NULL) {
 			delta = -1;
 		}
 		else {
-			delta = min_timeout->value - uwsgi_now();
+			delta = min_timeout->value - now;
 			if (delta <= 0) {
-				corerouter_expire_timeouts(ucr);
+				corerouter_expire_timeouts(ucr, now);
 				delta = 0;
 			}
 		}
@@ -715,12 +723,14 @@ void uwsgi_corerouter_loop(int id, void *data) {
 		// wait for events
 		nevents = event_queue_wait_multi(ucr->queue, delta, events, ucr->nevents);
 
+		now = uwsgi_now();
+
 		if (uwsgi.master_process && ucr->harakiri > 0) {
-			ushared->gateways_harakiri[id] = uwsgi_now() + ucr->harakiri;
+			ushared->gateways_harakiri[id] = now + ucr->harakiri;
 		}
 
 		if (nevents == 0) {
-			corerouter_expire_timeouts(ucr);
+			corerouter_expire_timeouts(ucr, now);
 		}
 
 		for (i = 0; i < nevents; i++) {
@@ -796,8 +806,8 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				}
 
 				// set timeout (in main_peer too)
-				peer->timeout = corerouter_reset_timeout(ucr, peer);
-				peer->session->main_peer->timeout = corerouter_reset_timeout(ucr, peer->session->main_peer);
+				peer->timeout = corerouter_reset_timeout_fast(ucr, peer, now);
+				peer->session->main_peer->timeout = corerouter_reset_timeout_fast(ucr, peer->session->main_peer, now);
 
 				ssize_t (*hook)(struct corerouter_peer *) = NULL;
 

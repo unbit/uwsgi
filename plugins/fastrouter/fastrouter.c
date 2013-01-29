@@ -7,7 +7,7 @@
 #include "../../uwsgi.h"
 #include "../corerouter/cr.h"
 
-struct uwsgi_fastrouter {
+static struct uwsgi_fastrouter {
 	struct uwsgi_corerouter cr;
 } ufr;
 
@@ -18,7 +18,7 @@ struct fastrouter_session {
 	int has_key;
 };
 
-struct uwsgi_option fastrouter_options[] = {
+static struct uwsgi_option fastrouter_options[] = {
 	{"fastrouter", required_argument, 0, "run the fastrouter on the specified port", uwsgi_opt_corerouter, &ufr, 0},
 	{"fastrouter-processes", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.cr.processes, 0},
 	{"fastrouter-workers", required_argument, 0, "prefork the specified number of fastrouter processes", uwsgi_opt_set_int, &ufr.cr.processes, 0},
@@ -53,7 +53,7 @@ struct uwsgi_option fastrouter_options[] = {
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
-void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
+static void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
 	struct corerouter_peer *peer = (struct corerouter_peer *) data;
 	struct fastrouter_session *fr = (struct fastrouter_session *) peer->session;
@@ -80,7 +80,7 @@ void fr_get_hostname(char *key, uint16_t keylen, char *val, uint16_t vallen, voi
 }
 
 // writing client body to the instance
-ssize_t fr_instance_write_body(struct corerouter_peer *peer) {
+static ssize_t fr_instance_write_body(struct corerouter_peer *peer) {
 	ssize_t len = cr_write(peer, "fr_instance_write_body()");
         // end on empty write
         if (!len) return 0;
@@ -97,7 +97,7 @@ ssize_t fr_instance_write_body(struct corerouter_peer *peer) {
 
 
 // read client body
-ssize_t fr_read_body(struct corerouter_peer *main_peer) {
+static ssize_t fr_read_body(struct corerouter_peer *main_peer) {
 	ssize_t len = cr_read(main_peer, "fr_read_body()");
         if (!len) return 0;
 
@@ -109,7 +109,7 @@ ssize_t fr_read_body(struct corerouter_peer *main_peer) {
 }
 
 // write to the client
-ssize_t fr_write(struct corerouter_peer *main_peer) {
+static ssize_t fr_write(struct corerouter_peer *main_peer) {
 	ssize_t len = cr_write(main_peer, "fr_write()");
         // end on empty write
         if (!len) return 0;
@@ -125,7 +125,7 @@ ssize_t fr_write(struct corerouter_peer *main_peer) {
 }
 
 // data from instance
-ssize_t fr_instance_read(struct corerouter_peer *peer) {
+static ssize_t fr_instance_read(struct corerouter_peer *peer) {
 	ssize_t len = cr_read(peer, "fr_instance_read()");
         if (!len) return 0;
 
@@ -138,7 +138,7 @@ ssize_t fr_instance_read(struct corerouter_peer *peer) {
 }
 
 // send the uwsgi request header and vars
-ssize_t fr_instance_send_request(struct corerouter_peer *peer) {
+static ssize_t fr_instance_send_request(struct corerouter_peer *peer) {
 	ssize_t len = cr_write(peer, "fr_instance_send_request()");
         // end on empty write
         if (!len) return 0;
@@ -156,7 +156,7 @@ ssize_t fr_instance_send_request(struct corerouter_peer *peer) {
 }
 
 // instance is connected
-ssize_t fr_instance_connected(struct corerouter_peer *peer) {
+static ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 
 	cr_peer_connected(peer, "fr_instance_connected()");
 
@@ -173,7 +173,7 @@ ssize_t fr_instance_connected(struct corerouter_peer *peer) {
 }
 
 // called after receaving the uwsgi header (read vars)
-ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
+static ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 	struct uwsgi_header *uh = (struct uwsgi_header *) main_peer->in->buf;
 	// increase buffer if needed
 	if (uwsgi_buffer_fix(main_peer->in, uh->pktsize+4))
@@ -212,7 +212,7 @@ ssize_t fr_recv_uwsgi_vars(struct corerouter_peer *main_peer) {
 }
 
 // called soon after accept()
-ssize_t fr_recv_uwsgi_header(struct corerouter_peer *main_peer) {
+static ssize_t fr_recv_uwsgi_header(struct corerouter_peer *main_peer) {
 	ssize_t len = cr_read_exact(main_peer, 4, "fr_recv_uwsgi_header()");
 	if (!len) return 0;
 
@@ -227,7 +227,7 @@ ssize_t fr_recv_uwsgi_header(struct corerouter_peer *main_peer) {
 }
 
 // retry connection to the backend
-int fr_retry(struct corerouter_peer *peer) {
+static int fr_retry(struct corerouter_peer *peer) {
 
         struct uwsgi_corerouter *ucr = peer->session->corerouter;
 
@@ -249,7 +249,7 @@ retry:
 
 
 // called when a new session is created
-int fastrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
+static int fastrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
 	// set the retry hook
 	cs->retry = fr_retry;
 	// wait for requests...
@@ -257,7 +257,7 @@ int fastrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_
 	return 0;
 }
 
-int fastrouter_init() {
+static int fastrouter_init() {
 
 	ufr.cr.session_size = sizeof(struct fastrouter_session);
 	ufr.cr.alloc_session = fastrouter_alloc_session;
@@ -266,7 +266,7 @@ int fastrouter_init() {
 	return 0;
 }
 
-void fastrouter_setup() {
+static void fastrouter_setup() {
 	ufr.cr.name = uwsgi_str("uWSGI fastrouter");
 	ufr.cr.short_name = uwsgi_str("fastrouter");
 }

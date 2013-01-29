@@ -200,7 +200,6 @@ int hr_https_add_vars(struct http_session *hr, struct uwsgi_buffer *out) {
 void hr_session_ssl_close(struct corerouter_session *cs) {
 	hr_session_close(cs);
 	struct http_session *hr = (struct http_session *) cs;
-	SSL_shutdown(hr->ssl);
 	if (hr->ssl_client_dn) {
                 OPENSSL_free(hr->ssl_client_dn);
         }
