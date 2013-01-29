@@ -2129,6 +2129,8 @@ struct uwsgi_server {
 	struct uwsgi_regexp_list *sni_regexp;
 #endif
 	struct uwsgi_string_list *sni;
+	char *sni_dir;
+	char *sni_dir_ciphers;
 #endif
 
 #ifdef UWSGI_SSL
@@ -3231,6 +3233,7 @@ void uwsgi_opt_cluster_reload(char *, char *, void *);
 
 #ifdef UWSGI_SSL
 void uwsgi_opt_sni(char *, char *, void *);
+struct uwsgi_string_list *uwsgi_ssl_add_sni_item(char *, char *, char *, char *, char *);
 #endif
 
 void uwsgi_opt_flock(char *, char *, void *);
