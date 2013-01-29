@@ -236,6 +236,14 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
         		// use the address as hostname
         		peer->key = cs->ugs->name;
         		peer->key_len = cs->ugs->name_len;
+
+			if (usr.sni) {
+				const char *servername = SSL_get_servername(sr->ssl, TLSEXT_NAMETYPE_host_name);
+				if (servername) {
+        				peer->key = (char *) servername;
+        				peer->key_len = strlen(servername);
+				}
+			}
         		// the mapper hook
         		if (cs->corerouter->mapper(cs->corerouter, peer)) {
                 		return -1;
