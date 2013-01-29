@@ -127,6 +127,10 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		ur->subject = offsetof(struct wsgi_request, user_agent);
 		ur->subject_len = offsetof(struct wsgi_request, user_agent_len);
 	}
+	else if (!strcmp(foobar, "referer")) {
+		ur->subject = offsetof(struct wsgi_request, referer);
+		ur->subject_len = offsetof(struct wsgi_request, referer_len);
+	}
 	else if (!strcmp(foobar, "remote_user")) {
 		ur->subject = offsetof(struct wsgi_request, remote_user);
 		ur->subject_len = offsetof(struct wsgi_request, remote_user_len);
