@@ -34,8 +34,23 @@ extern "C" {
 
 #define wsgi_req_time ((wsgi_req->end_of_request-wsgi_req->start_of_request)/1000)
 
-#define thunder_lock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_lock(&uwsgi.thunder_mutex);}
-#define thunder_unlock if (uwsgi.threads > 1 && !uwsgi.is_et) {pthread_mutex_unlock(&uwsgi.thunder_mutex);}
+#define thunder_lock if (!uwsgi.is_et) {\
+                        if (uwsgi.use_thunder_lock) {\
+                                uwsgi_lock(uwsgi.the_thunder_lock);\
+                        }\
+                        else if (uwsgi.threads > 1) {\
+                                pthread_mutex_lock(&uwsgi.thunder_mutex);\
+                        }\
+                    }
+
+#define thunder_unlock if (!uwsgi.is_et) {\
+                        if (uwsgi.use_thunder_lock) {\
+                                uwsgi_unlock(uwsgi.the_thunder_lock);\
+                        }\
+                        else if (uwsgi.threads > 1) {\
+                                pthread_mutex_unlock(&uwsgi.thunder_mutex);\
+                        }\
+                        }
 
 #define uwsgi_check_scheme(file) (!uwsgi_startswith(file, "emperor://", 10) || !uwsgi_startswith(file, "http://", 7) || !uwsgi_startswith(file, "data://", 7) || !uwsgi_startswith(file, "sym://", 6) || !uwsgi_startswith(file, "fd://", 5) || !uwsgi_startswith(file, "exec://", 7) || !uwsgi_startswith(file, "section://", 10))
 
@@ -1700,9 +1715,12 @@ struct uwsgi_server {
 
 #ifdef UWSGI_THREADING
 	// avoid thundering herd in threaded modes
+	pthread_mutex_t thunder_mutex;
 	pthread_mutex_t six_feet_under_lock;
 	pthread_mutex_t lock_static;
 #endif
+	int use_thunder_lock;
+	struct uwsgi_lock_item *the_thunder_lock;
 
 
 	/* the list of workers */
@@ -1885,8 +1903,6 @@ struct uwsgi_server {
 	char *queue_store;
 	size_t queue_filesize;
 	int queue_store_sync;
-
-	pthread_mutex_t thunder_mutex;
 
 	int locks;
 
