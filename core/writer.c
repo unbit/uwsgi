@@ -210,11 +210,26 @@ sendfile:
 	}
 
 	if (wsgi_req->socket->can_offload) {
+		// of we cannot close the socket (before the app will close it later)
+		// let's dup it
+		if (!can_close) {
+			int tmp_fd = dup(fd);
+			if (tmp_fd < 0) {
+				uwsgi_error("uwsgi_response_sendfile_do()/dup()");
+				wsgi_req->write_errors++;
+				return -1;
+			}
+			fd = tmp_fd;
+			can_close = 1;
+		}
        		if (!uwsgi_offload_request_sendfile_do(wsgi_req, NULL, fd, len)) {
                 	wsgi_req->via = UWSGI_VIA_OFFLOAD;
 			wsgi_req->response_size += len;
                         return 0;
                 }
+		wsgi_req->write_errors++;
+		if (can_close) close(fd);
+		return -1;
 	}
 
 

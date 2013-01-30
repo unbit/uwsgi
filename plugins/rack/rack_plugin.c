@@ -868,9 +868,10 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 				uwsgi_ruby_exception();
 			}
 			else {
-				wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
-				uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
-				close(wsgi_req->sendfile_fd);
+				int fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
+				if (fd < 0) goto clear;
+				// the following function will close the descriptor
+				uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
 			}
 		}
 		else if (rb_respond_to( body, rb_intern("each") )) {

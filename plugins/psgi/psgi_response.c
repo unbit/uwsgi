@@ -112,7 +112,6 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 						uwsgi_pl_check_write_errors {
 							// noop
 						}
-						close(wsgi_req->sendfile_fd);
 						return UWSGI_OK;
 					}
 					SvREFCNT_dec(fn);	
@@ -122,13 +121,13 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			// check for path method
 			if (uwsgi_perl_obj_can(*hitem, "path", 4)) {
 				SV *p = uwsgi_perl_obj_call(*hitem, "path");
-				wsgi_req->sendfile_fd = open(SvPV_nolen(p), O_RDONLY);
+				int fd = open(SvPV_nolen(p), O_RDONLY);
 				SvREFCNT_dec(p);	
-				uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
+				// the following function will close fd
+				uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
 				uwsgi_pl_check_write_errors {
 					// noop
 				}
-				close(wsgi_req->sendfile_fd);
 				return UWSGI_OK;
 			}
 		}

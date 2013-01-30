@@ -719,6 +719,12 @@ ssize_t spdy_parse(struct corerouter_peer *main_peer) {
 							if (ret < 0) return -1;
                                                         goto newframe;
 							break;
+						case 7:
+							// uwsgi_log("GO AWAY...\n");
+							break;
+						case 9:
+							// uwsgi_log("window update...\n");
+							break;
 						default:
 							uwsgi_log("i do not know how to manage type %u\n", hr->spdy_control_type);
 							break;
