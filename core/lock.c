@@ -85,8 +85,9 @@ retry:
 	}
 
 #ifdef EOWNERDEAD
-#ifndef PTHREAD_MUTEX_ROBUST_NP
-#define PTHREAD_MUTEX_ROBUST_NP PTHREAD_MUTEX_ROBUST
+
+#ifndef PTHREAD_MUTEX_ROBUST
+#define PTHREAD_MUTEX_ROBUST PTHREAD_MUTEX_ROBUST_NP
 #endif
 #ifndef PTHREAD_PRIO_INHERIT
 #define PTHREAD_PRIO_INHERIT 1
@@ -96,7 +97,7 @@ retry:
 		exit(1);
 	}
 	if (uwsgi_pthread_robust_mutexes_enabled) {
-		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP)) {
+		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
 			exit(1);
 		}
