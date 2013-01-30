@@ -59,6 +59,15 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
                         			uwsgi.no_defer_accept = current_defer_accept;
 					}
 				}
+
+				// fix SERVER_PORT
+				if (!ugs->port || !ugs->port_len) {
+					ugs->port = strchr(ugs->name, ':');
+					if (ugs->port) {
+						ugs->port++;
+						ugs->port_len = strlen(ugs->port);
+					}
+				}
 				// put socket in non-blocking mode
 				uwsgi_socket_nb(ugs->fd);
 				uwsgi_log("%s bound on %s fd %d\n", ucr->name, ugs->name, ugs->fd);
