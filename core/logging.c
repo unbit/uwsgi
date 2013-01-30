@@ -601,16 +601,19 @@ void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
 		}
 	}
 
-	if (wsgi_req->sendfile_fd > -1 && wsgi_req->sendfile_obj == wsgi_req->async_result) {	//wsgi_req->sendfile_fd_size > 0 ) {
-		via = msg1;
-	}
-
-	// mark route() requests
-	if (wsgi_req->status == -17) {
-		via = msg3;
-	}
-	else if (wsgi_req->status == -30) {
-		via = msg4;
+	// mark requests via (sendfile, route, offload...)
+	switch(wsgi_req->via) {
+		case UWSGI_VIA_SENDFILE:
+			via = msg1;
+			break;
+		case UWSGI_VIA_ROUTE:
+			via = msg3;
+			break;
+		case UWSGI_VIA_OFFLOAD:
+			via = msg4;
+			break;
+		default:
+			break;	
 	}
 
 #ifdef __sun__

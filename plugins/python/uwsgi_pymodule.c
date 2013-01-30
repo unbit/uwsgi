@@ -820,7 +820,7 @@ PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
 
 
 	UWSGI_RELEASE_GIL
-        if (uwsgi_offload_request_sendfile_do(wsgi_req, filename, len)) {
+        if (uwsgi_offload_request_sendfile_do(wsgi_req, filename, -1, len)) {
 		UWSGI_GET_GIL
 		return PyErr_Format(PyExc_ValueError, "unable to offload the request");
 	}
@@ -2681,7 +2681,7 @@ PyObject *py_uwsgi_route(PyObject * self, PyObject * args) {
         ui->func = NULL;
 
 	// mark a route request
-	wsgi_req->status = -17;
+	wsgi_req->via = UWSGI_VIA_ROUTE;
 
         return (PyObject *) ui;
 }

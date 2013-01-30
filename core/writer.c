@@ -203,6 +203,17 @@ sendfile:
 		len = st.st_size;
 	}
 
+	if (wsgi_req->socket->can_offload) {
+       		if (!uwsgi_offload_request_sendfile_do(wsgi_req, NULL, fd, len)) {
+                	wsgi_req->via = UWSGI_VIA_OFFLOAD;
+			wsgi_req->response_size += len;
+                        return 0;
+                }
+	}
+
+
+        wsgi_req->via = UWSGI_VIA_SENDFILE;
+
         for(;;) {
                 int ret = wsgi_req->socket->proto_sendfile(wsgi_req, fd, pos, len);
                 if (ret < 0) {

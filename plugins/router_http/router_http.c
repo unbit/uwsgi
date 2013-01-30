@@ -7,7 +7,7 @@ extern struct uwsgi_server uwsgi;
 int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	// mark a route request
-        wsgi_req->status = -17;
+        wsgi_req->via = UWSGI_VIA_ROUTE;
 
 	// get the http address from the route
 	char *addr = ur->data;
@@ -33,7 +33,7 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	// ok now if have offload threads, directly use them
 	if (wsgi_req->socket->can_offload) {
         	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
-                	wsgi_req->status = -30;
+                	wsgi_req->via = UWSGI_VIA_OFFLOAD;
 			return UWSGI_ROUTE_BREAK;
                 }
 	}

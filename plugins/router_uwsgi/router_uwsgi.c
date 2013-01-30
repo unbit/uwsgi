@@ -37,7 +37,7 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 	char *addr = ur->data + sizeof(struct uwsgi_header);
 	
 	// mark a route request
-        wsgi_req->status = -17;
+        wsgi_req->via = UWSGI_VIA_ROUTE;
 
 	// append appid
 	if (ur->data2_len > 0) {
@@ -52,7 +52,7 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 			if (uwsgi_buffer_append(ub, (char *) uh, 4)) goto bad;
 			if (uwsgi_buffer_append(ub, wsgi_req->buffer, uh->pktsize)) goto bad;
                 	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
-                        	wsgi_req->status = -30;
+                        	wsgi_req->via = UWSGI_VIA_OFFLOAD;
                         	return UWSGI_ROUTE_BREAK;
                 	}
 bad:

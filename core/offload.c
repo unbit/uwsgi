@@ -70,16 +70,21 @@ error:
 	return -1;
 }
 
-int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, char *filename, size_t len) {
+int uwsgi_offload_request_sendfile_do(struct wsgi_request *wsgi_req, char *filename, int fd, size_t len) {
 
 	// fill offload request
 	struct uwsgi_offload_request uor;
 	uwsgi_offload_setup(&uor, wsgi_req, uwsgi_offload_sendfile_transfer);
 
-	uor.fd = open(filename, O_RDONLY | O_NONBLOCK);
-	if (uor.fd < 0) {
-		uwsgi_error_open(filename);
-		goto error;
+	if (filename) {
+		uor.fd = open(filename, O_RDONLY | O_NONBLOCK);
+		if (uor.fd < 0) {
+			uwsgi_error_open(filename);
+			goto error;
+		}
+	}
+	else {
+		uor.fd = fd;
 	}
 
 	// make a fstat to get the file size
