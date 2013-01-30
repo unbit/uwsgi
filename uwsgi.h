@@ -257,6 +257,7 @@ extern int pivot_root(const char *new_root, const char *put_old);
 #include <sys/un.h>
 
 #include <fcntl.h>
+#define __USE_UNIX98
 #include <pthread.h>
 
 #include <sys/resource.h>
