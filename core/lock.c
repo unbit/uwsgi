@@ -85,6 +85,13 @@ retry:
 	}
 
 #ifdef EOWNERDEAD
+#ifndef PTHREAD_MUTEX_ROBUST_NP
+#define PTHREAD_MUTEX_ROBUST_NP PTHREAD_MUTEX_ROBUST
+#endif
+	if (pthread_mutexattr_setprotocol(&attr, 1)) {
+		uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
+		exit(1);
+	}
 	if (uwsgi_pthread_robust_mutexes_enabled) {
 		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
@@ -614,6 +621,11 @@ ready:
 
 		// cron table lock
 		uwsgi.cron_table_lock = uwsgi_lock_init("cron");
+	}
+
+	if (uwsgi.use_thunder_lock) {
+		// process shared thunder lock
+		uwsgi.the_thunder_lock = uwsgi_lock_init("thunder");	
 	}
 
 	uwsgi.rpc_table_lock = uwsgi_lock_init("rpc");
