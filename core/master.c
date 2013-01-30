@@ -312,29 +312,28 @@ int uwsgi_get_tcp_info(int fd) {
                 }
 
 #if defined(__linux__)
-		uwsgi.shared->load = uwsgi.shared->ti.tcpi_unacked;
-		uwsgi.shared->max_load = uwsgi.shared->ti.tcpi_sacked;
+		uwsgi.shared->load = (uint64_t) uwsgi.shared->ti.tcpi_unacked;
+		uwsgi.shared->max_load = (uint64_t) uwsgi.shared->ti.tcpi_sacked;
 #elif defined(__FreeBSD__)
-		uwsgi.shared->load = uwsgi.shared->ti.__tcpi_unacked;
-		uwsgi.shared->max_load = uwsgi.shared->ti.__tcpi_sacked;
+		uwsgi.shared->load = (uint64_t) uwsgi.shared->ti.__tcpi_unacked;
+		uwsgi.shared->max_load = (uint64_t) uwsgi.shared->ti.__tcpi_sacked;
 #endif
-
 
 		uwsgi.shared->options[UWSGI_OPTION_BACKLOG_STATUS] = uwsgi.shared->load;
 		if (uwsgi.vassal_sos_backlog > 0 && uwsgi.has_emperor) {
-			if ((int) uwsgi.shared->load >= uwsgi.vassal_sos_backlog) {
+			if (uwsgi.shared->load >= (uint64_t) uwsgi.vassal_sos_backlog) {
 				// ask emperor for help
 				char byte = 30;
 				if (write(uwsgi.emperor_fd, &byte, 1) != 1) {
 					uwsgi_error("write()");
 				}
 				else {
-					uwsgi_log("asking emperor for reinforcements (backlog: %d)...\n", (int) uwsgi.shared->load);
+					uwsgi_log("asking emperor for reinforcements (backlog: %llu)...\n", (unsigned long long ) uwsgi.shared->load);
 				}
 			}
 		}
 		if (uwsgi.shared->load >= uwsgi.shared->max_load) {
-			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%d/%d) ***\n", fd, uwsgi.shared->load, uwsgi.shared->max_load);
+			uwsgi_log_verbose("*** uWSGI listen queue of socket %d full !!! (%llu/%llu) ***\n", fd, (unsigned long long ) uwsgi.shared->load, (unsigned long long ) uwsgi.shared->max_load);
 			uwsgi.shared->options[UWSGI_OPTION_BACKLOG_ERRORS]++;
 		}
 
