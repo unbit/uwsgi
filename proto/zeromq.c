@@ -603,6 +603,7 @@ ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *wsgi_req, struct i
 	for (i = 0; i < (int) iov_len; i++) {
 		if (uwsgi_buffer_append(ub, iovec[i].iov_base, iovec[i].iov_len)) {
 			wsgi_req->write_errors++;
+			uwsgi_buffer_destroy(ub);
 			return 0;
 		}
 	}
@@ -610,6 +611,7 @@ ssize_t uwsgi_proto_zeromq_writev_header(struct wsgi_request *wsgi_req, struct i
 	len = uwsgi_proto_zeromq_write(wsgi_req, ub->buf, ub->pos);
 	if (len <= 0) {
 		wsgi_req->write_errors++;
+		uwsgi_buffer_destroy(ub);
 		return 0;
 	}
 

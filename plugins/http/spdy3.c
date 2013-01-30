@@ -444,12 +444,21 @@ static ssize_t spdy_inflate_http_headers(struct http_session *hr) {
 			inflateSetDictionary(&hr->spdy_z_in, (Bytef *) SPDY_dictionary_txt, sizeof(SPDY_dictionary_txt));
 			ret = inflate(&hr->spdy_z_in, Z_NO_FLUSH);
 		}
-		if (ret != Z_OK) return -1;
+		if (ret != Z_OK) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
 		size_t zlen = hr->spdy_z_in.next_out-zbuf;
-		if (uwsgi_buffer_append(ub, (char *) zbuf, zlen)) return -1; 
+		if (uwsgi_buffer_append(ub, (char *) zbuf, zlen)) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
 	}
 
-	if (ub->pos < 4) return -1;
+	if (ub->pos < 4) {
+		uwsgi_buffer_destroy(ub);
+		return -1;
+	}
 
 	uint32_t headers_num = uwsgi_be32(ub->buf);
 	uint32_t i, watermark = ub->pos, pos = 4;
@@ -466,26 +475,45 @@ static ssize_t spdy_inflate_http_headers(struct http_session *hr) {
 	// leave space for header
 	for(i=0;i<headers_num;i++) {
 		// key
-		if (pos + 4 > watermark) return -1;
+		if (pos + 4 > watermark) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
 		uint32_t k_len = uwsgi_be32( ub->buf + pos);
 		pos += 4;
-		if (pos + k_len > watermark) return -1;
+		if (pos + k_len > watermark) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
 		char *k = ub->buf + pos;
 		pos += k_len;	
 
 		// value
-		if (pos + 4 > watermark) return -1;
+		if (pos + 4 > watermark) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
                 uint32_t v_len = uwsgi_be32( ub->buf + pos);
                 pos += 4;
-                if (pos + v_len > watermark) return -1;
+                if (pos + v_len > watermark) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
                 char *v = ub->buf + pos;
                 pos += v_len;	
 
 		uint16_t nk_len = 0;
 		char *cgi_name = spdy_translate(k, k_len, &nk_len);
-		if (!cgi_name) return -1;
+		if (!cgi_name) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
 
-		if (uwsgi_buffer_append_keyval(new_peer->out, cgi_name, nk_len, v, v_len)) return -1;
+		if (uwsgi_buffer_append_keyval(new_peer->out, cgi_name, nk_len, v, v_len)) {
+			uwsgi_buffer_destroy(ub);
+			return -1;
+		}
+
 		if (!uwsgi_strncmp(cgi_name, nk_len, "HTTP_HOST", 9)) {
 			new_peer->key = new_peer->out->buf + (new_peer->out->pos - v_len);
 			new_peer->key_len = v_len;
@@ -498,12 +526,21 @@ static ssize_t spdy_inflate_http_headers(struct http_session *hr) {
 				query_string++;
 				path_info_len = (query_string - path_info) -1;
 				uint16_t query_string_len = v_len - (path_info_len + 1);
-				if (uwsgi_buffer_append_keyval(new_peer->out, "QUERY_STRING", 12, query_string, query_string_len)) return -1;
+				if (uwsgi_buffer_append_keyval(new_peer->out, "QUERY_STRING", 12, query_string, query_string_len)) {
+					free(cgi_name);
+					uwsgi_buffer_destroy(ub);
+					return -1;
+				}
 			}
-			if (uwsgi_buffer_append_keyval(new_peer->out, "PATH_INFO", 9, path_info, path_info_len)) return -1;
+			if (uwsgi_buffer_append_keyval(new_peer->out, "PATH_INFO", 9, path_info, path_info_len)) {
+				free(cgi_name);
+				uwsgi_buffer_destroy(ub);
+				return -1;
+			}
 		}
 		free(cgi_name);
 	}
+	uwsgi_buffer_destroy(ub);
 
 	// find the backend node
 	if (new_peer->key_len == 0) return -1;
