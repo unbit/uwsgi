@@ -65,7 +65,8 @@ int uwsgi_pthread_robust_mutexes_enabled = 1;
 #endif
 
 #ifndef PTHREAD_PRIO_INHERIT
-int pthread_setschedprio (pthread_t __target_thread, int __prio);
+int pthread_mutexattr_setprotocol (pthread_mutexattr_t *__attr,
+                                          int __protocol);
 #define PTHREAD_PRIO_INHERIT 1
 #endif
 
