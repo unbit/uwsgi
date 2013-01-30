@@ -108,7 +108,10 @@
 	peer->connecting = 0;\
 	peer->can_retry = 0;\
         if (peer->static_node) peer->static_node->custom2++;\
-        if (peer->un) peer->un->requests++;\
+        if (peer->un) {\
+		peer->un->requests++;\
+		peer->un->last_requests++;\
+	}\
 
 
 struct corerouter_session;
