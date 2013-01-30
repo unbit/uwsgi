@@ -556,7 +556,7 @@ void log_request(struct wsgi_request *wsgi_req) {
 	if (uwsgi.shared->options[UWSGI_OPTION_LOG_BIG] && (wsgi_req->response_size >= uwsgi.shared->options[UWSGI_OPTION_LOG_BIG])) {
 		goto logit;
 	}
-	if (uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] && (wsgi_req->sendfile_fd > -1 && wsgi_req->sendfile_obj == wsgi_req->async_result)) {
+	if (uwsgi.shared->options[UWSGI_OPTION_LOG_SENDFILE] && wsgi_req->via == UWSGI_VIA_SENDFILE) {
 		goto logit;
 	}
 

@@ -878,28 +878,11 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 		}
 	}
 
-	int tmp_fd = wsgi_req->sendfile_fd;
-	size_t tmp_filesize = wsgi_req->sendfile_fd_size;
-	size_t tmp_chunk = wsgi_req->sendfile_fd_chunk;
-	off_t tmp_pos = wsgi_req->sendfile_fd_pos;
-
-	wsgi_req->sendfile_fd = fd;
-	wsgi_req->sendfile_fd_size = filesize;
-	wsgi_req->sendfile_fd_chunk = chunk;
-	wsgi_req->sendfile_fd_pos = pos;
-
 	UWSGI_RELEASE_GIL
-	uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, wsgi_req->sendfile_fd_pos, wsgi_req->sendfile_fd_size);
+	// fd is closed by the following function
+	uwsgi_response_sendfile_do(wsgi_req, fd, pos, filesize);
 	UWSGI_GET_GIL
 	// revert to old values
-	wsgi_req->sendfile_fd = tmp_fd;
-	wsgi_req->sendfile_fd_size = tmp_filesize;
-	wsgi_req->sendfile_fd_chunk = tmp_chunk;
-	wsgi_req->sendfile_fd_pos = tmp_pos;
-	
-
-	close(fd);
-
 	uwsgi_py_check_write_errors {
         	uwsgi_py_write_exception(wsgi_req);
 		return NULL;

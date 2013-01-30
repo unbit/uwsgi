@@ -181,6 +181,10 @@ sendbody:
 
 int uwsgi_response_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos, size_t len) {
 
+	int can_close = 1;
+
+	if (fd == wsgi_req->sendfile_fd) can_close = 0;
+
 	if (wsgi_req->write_errors) return -1;
 
 	if (!wsgi_req->headers_sent) {
@@ -188,6 +192,7 @@ int uwsgi_response_sendfile_do(struct wsgi_request *wsgi_req, int fd, size_t pos
 		if (ret == UWSGI_OK) goto sendfile;
 		if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
 		wsgi_req->write_errors++;
+		if (can_close) close(fd);
 		return -1;
 	}
 
@@ -198,6 +203,7 @@ sendfile:
 		if (fstat(fd, &st)) {
 			uwsgi_error("fstat()");
 			wsgi_req->write_errors++;
+			if (can_close) close(fd);
 			return -1;
 		}
 		len = st.st_size;
@@ -221,13 +227,18 @@ sendfile:
                                 uwsgi_error("uwsgi_response_sendfile_do()");
                         }
 			wsgi_req->write_errors++;
+			if (can_close) close(fd);
                         return -1;
                 }
                 if (ret == UWSGI_OK) {
                         break;
                 }
                 ret = uwsgi.wait_write_hook(wsgi_req);
-                if (ret < 0) { wsgi_req->write_errors++; return -1;}
+                if (ret < 0) {
+			wsgi_req->write_errors++;
+			if (can_close) close(fd);
+			return -1;
+		}
                 // callback based hook...
                 if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
         }
@@ -235,7 +246,8 @@ sendfile:
         wsgi_req->response_size += wsgi_req->write_pos;
 	// reset for the next write
         wsgi_req->write_pos = 0;
-
+	// close the file descriptor
+	if (can_close) close(fd);
         return UWSGI_OK;
 }
 

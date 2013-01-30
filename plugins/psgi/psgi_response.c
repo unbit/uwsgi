@@ -112,6 +112,7 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 						uwsgi_pl_check_write_errors {
 							// noop
 						}
+						close(wsgi_req->sendfile_fd);
 						return UWSGI_OK;
 					}
 					SvREFCNT_dec(fn);	

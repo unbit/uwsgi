@@ -870,7 +870,6 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 			else {
 				wsgi_req->sendfile_fd = open(RSTRING_PTR(sendfile_path), O_RDONLY);
 				uwsgi_response_sendfile_do(wsgi_req, wsgi_req->sendfile_fd, 0, 0);
-				// we need to close it...
 				close(wsgi_req->sendfile_fd);
 			}
 		}
