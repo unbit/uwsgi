@@ -88,7 +88,10 @@ retry:
 #ifndef PTHREAD_MUTEX_ROBUST_NP
 #define PTHREAD_MUTEX_ROBUST_NP PTHREAD_MUTEX_ROBUST
 #endif
-	if (pthread_mutexattr_setprotocol(&attr, 1)) {
+#ifndef PTHREAD_PRIO_INHERIT
+#define PTHREAD_PRIO_INHERIT 1
+#endif
+	if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) {
 		uwsgi_log("unable to set PTHREAD_PRIO_INHERIT\n");
 		exit(1);
 	}
