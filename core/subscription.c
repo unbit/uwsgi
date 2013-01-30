@@ -91,7 +91,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_lrc(struct uwsgi_sub
 			if (min_rc == 0 || node->reference < min_rc) {
 				min_rc = node->reference;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->requests <= node->requests))
+				if (min_rc == 0 && !(node->next && node->next->reference <= node->reference && node->next->last_requests <= node->last_requests))
 					break;
 			}
 		}
@@ -125,7 +125,7 @@ static struct uwsgi_subscribe_node *uwsgi_subscription_algo_wlrc(struct uwsgi_su
 			if (min_rc == 0 || ref < min_rc) {
 				min_rc = ref;
 				choosen_node = node;
-				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->requests <= node->requests))
+				if (min_rc == 0 && !(node->next && next_node_ref <= ref && node->next->last_requests <= node->last_requests))
 					break;
 			}
 		}
@@ -376,6 +376,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 				node->weight = usr->weight;
 				if (!node->weight)
 					node->weight = 1;
+				node->last_requests = 0;
 				return node;
 			}
 			old_node = node;
@@ -394,6 +395,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		node->modifier1 = usr->modifier1;
 		node->modifier2 = usr->modifier2;
 		node->requests = 0;
+		node->last_requests = 0;
 		node->transferred = 0;
 		node->reference = 0;
 		node->death_mark = 0;
@@ -470,6 +472,7 @@ struct uwsgi_subscribe_node *uwsgi_add_subscribe_node(struct uwsgi_subscribe_slo
 		current_slot->nodes->len = usr->address_len;
 		current_slot->nodes->reference = 0;
 		current_slot->nodes->requests = 0;
+		current_slot->nodes->last_requests = 0;
 		current_slot->nodes->transferred = 0;
 		current_slot->nodes->death_mark = 0;
 		current_slot->nodes->failcnt = 0;
