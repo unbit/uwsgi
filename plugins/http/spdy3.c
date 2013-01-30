@@ -763,7 +763,8 @@ newframe:
 
 
 int uwsgi_spdy_npn(SSL *ssl, const unsigned char **data, unsigned int *len, void *arg) {
-        *data = (const unsigned char *) "\x06spdy/3\x06spdy/2\x08http/1.1\x08http/1.0";
+        //*data = (const unsigned char *) "\x06spdy/3\x06spdy/2\x08http/1.1\x08http/1.0";
+        *data = (const unsigned char *) "\x06spdy/3\x08http/1.1\x08http/1.0";
         *len = strlen((const char *) *data);
         return SSL_TLSEXT_ERR_OK;
 }
