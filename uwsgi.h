@@ -1172,6 +1172,9 @@ struct wsgi_request {
 	char *user_agent;
 	uint16_t user_agent_len;
 
+	char *encoding;
+	uint16_t encoding_len;
+
 	char *referer;
 	uint16_t referer_len;
 
@@ -1784,6 +1787,13 @@ struct uwsgi_server {
 
 	struct uwsgi_dyn_dict *static_expires_path_info;
 	struct uwsgi_dyn_dict *static_expires_path_info_mtime;
+
+	int static_gzip_all;
+	struct uwsgi_string_list *static_gzip_dir;
+	struct uwsgi_string_list *static_gzip_ext;
+#ifdef UWSGI_PCRE
+	struct uwsgi_regexp_list *static_gzip;
+#endif
 
 	int offload_threads;
 	int offload_threads_events;
@@ -2936,6 +2946,7 @@ char *uwsgi_amqp_consume(int, uint64_t *, char **);
 
 int uwsgi_file_serve(struct wsgi_request *, char *, uint16_t, char *, uint16_t, int);
 int uwsgi_starts_with(char *, int, char *, int);
+int uwsgi_static_want_gzip(struct wsgi_request *, char *, size_t, struct stat *);
 
 #ifdef __sun__
 time_t timegm(struct tm *);

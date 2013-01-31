@@ -533,7 +533,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 
 	{"static-expires-path-info", required_argument, 0, "set the Expires header based on PATH_INFO regexp", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_path_info, UWSGI_OPT_MIME},
 	{"static-expires-path-info-mtime", required_argument, 0, "set the Expires header based on PATH_INFO regexp and file mtime", uwsgi_opt_add_regexp_dyn_dict, &uwsgi.static_expires_path_info_mtime, UWSGI_OPT_MIME},
+	{"static-gzip", required_argument, 0, "if the supplied regexp matches the static file translation it will search for a gzip version", uwsgi_opt_add_regexp_list, &uwsgi.static_gzip, UWSGI_OPT_MIME},
 #endif
+	{"static-gzip-all", no_argument, 0, "check for a gzip version of all requested static files", uwsgi_opt_true, &uwsgi.static_gzip_all, UWSGI_OPT_MIME},
+	{"static-gzip-dir", required_argument, 0, "check for a gzip version of all requested static files in the specified dir/prefix", uwsgi_opt_add_string_list, &uwsgi.static_gzip_dir, UWSGI_OPT_MIME},
+	{"static-gzip-prefix", required_argument, 0, "check for a gzip version of all requested static files in the specified dir/prefix", uwsgi_opt_add_string_list, &uwsgi.static_gzip_dir, UWSGI_OPT_MIME},
+	{"static-gzip-ext", required_argument, 0, "check for a gzip version of all requested static files with the specified ext/suffix", uwsgi_opt_add_string_list, &uwsgi.static_gzip_ext, UWSGI_OPT_MIME},
+	{"static-gzip-suffix", required_argument, 0, "check for a gzip version of all requested static files with the specified ext/suffix", uwsgi_opt_add_string_list, &uwsgi.static_gzip_ext, UWSGI_OPT_MIME},
 
 	{"offload-threads", required_argument, 0, "set the number of offload threads to spawn (per-worker, default 0)", uwsgi_opt_set_int, &uwsgi.offload_threads, 0},
 	{"offload-thread", required_argument, 0, "set the number of offload threads to spawn (per-worker, default 0)", uwsgi_opt_set_int, &uwsgi.offload_threads, 0},

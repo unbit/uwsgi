@@ -2,6 +2,59 @@
 
 extern struct uwsgi_server uwsgi;
 
+int uwsgi_static_want_gzip(struct wsgi_request *wsgi_req, char *filename, size_t filename_len, struct stat *st) {
+	// check for filename size
+	if (filename_len + 4 > PATH_MAX) return 0;
+	// check for supported encodings
+	if (!uwsgi_contains_n(wsgi_req->encoding, wsgi_req->encoding_len, "gzip", 4) ) return 0;
+
+	// check for 'all'
+	if (uwsgi.static_gzip_all) goto gzip;
+
+	// check for dirs/prefix
+	struct uwsgi_string_list *usl = uwsgi.static_gzip_dir;
+	while(usl) {
+		if (!uwsgi_starts_with(filename, filename_len, usl->value, usl->len)) {
+			goto gzip;
+		}
+		usl = usl->next;
+	} 
+
+	// check for ext/suffix
+	usl = uwsgi.static_gzip_ext;
+        while(usl) {
+		if (!uwsgi_strncmp(filename + (filename_len - usl->len), usl->len, usl->value, usl->len)) {
+			goto gzip;
+		}
+                usl = usl->next;
+        }
+
+#ifdef UWSGI_PCRE
+	// check for regexp
+	struct uwsgi_regexp_list *url = uwsgi.static_gzip;
+	while(url) {
+		if (uwsgi_regexp_match(url->pattern, url->pattern_extra, filename, filename_len) >= 0) {
+			goto gzip;
+		}
+		url = url->next;
+	}
+#endif
+	return 0;
+
+gzip:
+
+	memcpy(filename + filename_len, ".gz\0", 4);
+	filename_len += 3;
+	
+	if (stat(filename, st)) {
+		filename_len -= 3;
+		filename[filename_len] = 0;
+		return 0;
+	}
+	
+	return 1;
+}
+
 static int set_http_date(time_t t, char *dst) {
 
         static char *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
@@ -429,6 +482,10 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	}
 	// raw
 	else {
+		// here we need to choose if we want the gzip variant;
+		if (uwsgi_static_want_gzip(wsgi_req, real_filename, real_filename_len, st)) {
+			if (uwsgi_response_add_header(wsgi_req, "Content-Encoding", 16, "gzip", 4)) return -1;
+		}
 		// set Content-Length
 		if (uwsgi_response_add_content_length(wsgi_req, st->st_size)) return -1;
 		int size = set_http_date(st->st_mtime, http_last_modified);

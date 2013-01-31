@@ -650,6 +650,7 @@ static int uwsgi_proto_check_14(struct wsgi_request *wsgi_req, char *key, char *
 	return 0;
 }
 
+
 static int uwsgi_proto_check_15(struct wsgi_request *wsgi_req, char *key, char *buf, uint16_t len) {
 	if (!uwsgi_proto_key("SERVER_PROTOCOL", 15)) {
 		wsgi_req->protocol = buf;
@@ -695,6 +696,13 @@ static int uwsgi_proto_check_20(struct wsgi_request *wsgi_req, char *key, char *
 		wsgi_req->remote_addr_len = len;
 		return 0;
 	}
+
+	if (!uwsgi_proto_key("HTTP_ACCEPT_ENCODING", 20)) {
+		wsgi_req->encoding = buf;
+		wsgi_req->encoding_len = len;
+		return 0;
+	}
+
 	return 0;
 }
 
