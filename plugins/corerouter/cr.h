@@ -231,8 +231,6 @@ struct uwsgi_corerouter {
         int socket_num;
         struct uwsgi_socket *to_socket;
 
-	int use_cluster;
-
         struct uwsgi_subscribe_slot **subscriptions;
 
         struct uwsgi_string_list *fallback;

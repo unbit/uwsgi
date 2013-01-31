@@ -32,8 +32,8 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		Py_DECREF(pydictvalue);
         }
 
-        if (wsgi_req->uh.modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
-                wsgi_req->uh.modifier1 = 0;
+        if (wsgi_req->uh->modifier1 == UWSGI_MODIFIER_MANAGE_PATH_INFO) {
+                wsgi_req->uh->modifier1 = 0;
                 pydictkey = PyDict_GetItemString(wsgi_req->async_environ, "SCRIPT_NAME");
                 if (pydictkey) {
                         if (PyString_Check(pydictkey)) {
@@ -49,36 +49,20 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
         }
 
 
-        // if async_post is mapped as a file, directly use it as wsgi.input
-        if (wsgi_req->async_post) {
-#ifdef PYTHREE
-                wsgi_req->async_input = PyFile_FromFd(fileno((FILE *)wsgi_req->async_post), "wsgi_input", "rb", 0, NULL, NULL, NULL, 0);
-#else
-                wsgi_req->async_input = PyFile_FromFile(wsgi_req->async_post, "wsgi_input", "r", NULL);
-#endif
-        }
-        else {
-                // create wsgi.input custom object
-                wsgi_req->async_input = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
-                ((uwsgi_Input*)wsgi_req->async_input)->wsgi_req = wsgi_req;
-                ((uwsgi_Input*)wsgi_req->async_input)->pos = 0;
-                ((uwsgi_Input*)wsgi_req->async_input)->readline_pos = 0;
-                ((uwsgi_Input*)wsgi_req->async_input)->readline_max_size = 0;
-
-        }
+        // create wsgi.input custom object
+        wsgi_req->async_input = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
+        ((uwsgi_Input*)wsgi_req->async_input)->wsgi_req = wsgi_req;
 
 
         PyDict_SetItemString(wsgi_req->async_environ, "wsgi.input", wsgi_req->async_input);
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.file_wrapper", wi->sendfile);
 
-#ifdef UWSGI_ASYNC
 	if (uwsgi.async > 1) {
 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.readable", wi->eventfd_read);
 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.writable", wi->eventfd_write);
 		PyDict_SetItemString(wsgi_req->async_environ, "x-wsgiorg.fdevent.timeout", Py_None);
 	}
-#endif
 
 	PyDict_SetItemString(wsgi_req->async_environ, "wsgi.version", wi->gateway_version);
 
@@ -134,16 +118,6 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 		Py_DECREF(zero);
 	}
 
-	// cache this ?
-	if (uwsgi.cluster_fd >= 0) {
-		zero = PyString_FromString(uwsgi.cluster);
-		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster", zero);
-		Py_DECREF(zero);
-		zero = PyString_FromString(uwsgi.hostname);
-		PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster_node", zero);
-		Py_DECREF(zero);
-	}
-
 	PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", wi->uwsgi_node);
 
 	// call
@@ -185,11 +159,9 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 		if (!wsgi_req->async_placeholder) {
 			goto exception;
 		}
-#ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
 			return UWSGI_AGAIN;
 		}
-#endif
 	}
 
 	pychunk = PyIter_Next(wsgi_req->async_placeholder);

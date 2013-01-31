@@ -28,7 +28,7 @@ struct uwsgi_option ugreen_options[] = {
 };
 
 void u_green_request() {
-	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);
+	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
 	uwsgi.wsgi_req->suspended = 0;
 }
 
@@ -42,14 +42,14 @@ static inline void u_green_schedule_to_req() {
 		uwsgi.wsgi_req->suspended = 1;
 	}
 
-	if (uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->suspend) {
-		uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->suspend(NULL);
+	if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->suspend) {
+		uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->suspend(NULL);
 	}
 
 	swapcontext(&ug.main, &ug.contexts[id] );		
 
-	if (uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->resume) {
-		uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->resume(NULL);
+	if (uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->resume) {
+		uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->resume(NULL);
 	}
 
 	if (uwsgi.wsgi_req->suspended) {
@@ -60,14 +60,14 @@ static inline void u_green_schedule_to_req() {
 
 static inline void u_green_schedule_to_main(struct wsgi_request *wsgi_req) {
 
-	if (uwsgi.p[wsgi_req->uh.modifier1]->suspend) {
-		uwsgi.p[wsgi_req->uh.modifier1]->suspend(wsgi_req);
+	if (uwsgi.p[wsgi_req->uh->modifier1]->suspend) {
+		uwsgi.p[wsgi_req->uh->modifier1]->suspend(wsgi_req);
 	}
 
 	swapcontext(&ug.contexts[wsgi_req->async_id], &ug.main);
 
-	if (uwsgi.p[wsgi_req->uh.modifier1]->resume) {
-		uwsgi.p[wsgi_req->uh.modifier1]->resume(wsgi_req);
+	if (uwsgi.p[wsgi_req->uh->modifier1]->resume) {
+		uwsgi.p[wsgi_req->uh->modifier1]->resume(wsgi_req);
 	}
 
 	uwsgi.wsgi_req = wsgi_req;

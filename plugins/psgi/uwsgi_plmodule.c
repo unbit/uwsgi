@@ -4,9 +4,6 @@ extern struct uwsgi_server uwsgi;
 extern struct uwsgi_plugin psgi_plugin;
 extern struct uwsgi_perl uperl;
 
-#ifdef UWSGI_ASYNC
-
-
 XS(XS_async_sleep) {
 
         dXSARGS;
@@ -75,8 +72,6 @@ XS(XS_wait_fd_write) {
 
 	XSRETURN_UNDEF;
 }
-
-#endif
 
 XS(XS_signal) {
 	dXSARGS;

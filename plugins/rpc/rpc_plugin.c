@@ -10,7 +10,7 @@ int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	uint8_t argc = 0xff;
 
 	/* Standard RPC request */
-        if (!wsgi_req->uh.pktsize) {
+        if (!wsgi_req->uh->pktsize) {
                 uwsgi_log("Invalid RPC request. skip.\n");
                 return -1;
         }
@@ -22,10 +22,10 @@ int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	*/
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("RPC pktsize %d\n", wsgi_req->uh.pktsize);
+	uwsgi_log("RPC pktsize %d\n", wsgi_req->uh->pktsize);
 #endif
 
-	if (uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh.pktsize, argv, argvs, &argc)) {
+	if (uwsgi_parse_array(wsgi_req->buffer, wsgi_req->uh->pktsize, argv, argvs, &argc)) {
                 uwsgi_log("Invalid RPC request. skip.\n");
                 return -1;
 	}
@@ -34,12 +34,12 @@ int uwsgi_rpc_request(struct wsgi_request *wsgi_req) {
 	uwsgi_log("RPC args %d\n", argc-1);
 #endif
 	
-	wsgi_req->uh.pktsize = uwsgi_rpc(argv[0], argc-1, argv+1, argvs+1, wsgi_req->buffer);
+	wsgi_req->uh->pktsize = uwsgi_rpc(argv[0], argc-1, argv+1, argvs+1, wsgi_req->buffer);
 
-	if (wsgi_req->uh.modifier2 == 0) {
-		uwsgi_response_write_body_do(wsgi_req, (char *)&wsgi_req->uh, 4);
+	if (wsgi_req->uh->modifier2 == 0) {
+		uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4);
 	}
-	uwsgi_response_write_body_do(wsgi_req, wsgi_req->buffer, wsgi_req->uh.pktsize);
+	uwsgi_response_write_body_do(wsgi_req, wsgi_req->buffer, wsgi_req->uh->pktsize);
 	
 	return 0;
 }

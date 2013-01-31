@@ -250,7 +250,7 @@ void uwsgi_buffer_destroy(struct uwsgi_buffer *ub) {
 ssize_t uwsgi_buffer_write_simple(struct wsgi_request *wsgi_req, struct uwsgi_buffer *ub) {
 	size_t remains = ub->pos;
 	while(remains) {
-		ssize_t len = write(wsgi_req->poll.fd, ub->buf + (ub->pos - remains), remains);
+		ssize_t len = write(wsgi_req->fd, ub->buf + (ub->pos - remains), remains);
 		if (len <= 0) {
 			return len;
 		}

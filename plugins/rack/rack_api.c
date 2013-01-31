@@ -36,12 +36,9 @@ VALUE rack_uwsgi_log(VALUE *class, VALUE msg) {
 }
 
 VALUE rack_uwsgi_i_am_the_spooler(VALUE *class) {
-#ifdef UWSGI_SPOOLER
         if (uwsgi.i_am_a_spooler) {
                 return Qtrue;
         }
-#endif
-
         return Qfalse;
 }
 
@@ -498,7 +495,6 @@ VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbfilename
 }
 
 
-#ifdef UWSGI_ASYNC
 VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
 
 	Check_Type(arg1, T_FIXNUM);
@@ -533,9 +529,6 @@ VALUE uwsgi_ruby_wait_fd_write(VALUE *class, VALUE arg1, VALUE arg2) {
 
         return Qtrue;
 }
-#endif
-
-
 
 VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
 
@@ -547,7 +540,6 @@ VALUE uwsgi_ruby_async_connect(VALUE *class, VALUE arg) {
 }
 
 
-#ifdef UWSGI_ASYNC
 VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
 
 	Check_Type(arg, T_FIXNUM);
@@ -561,7 +553,6 @@ VALUE uwsgi_ruby_async_sleep(VALUE *class, VALUE arg) {
 
         return Qtrue;
 }
-#endif
 
 VALUE uwsgi_ruby_masterpid(VALUE *class) {
 
@@ -887,11 +878,9 @@ void uwsgi_rack_init_api() {
 	VALUE rb_uwsgi_embedded = rb_define_module("UWSGI");
         uwsgi_rack_api("suspend", uwsgi_ruby_suspend, 0);
         uwsgi_rack_api("masterpid", uwsgi_ruby_masterpid, 0);
-#ifdef UWSGI_ASYNC
         uwsgi_rack_api("async_sleep", uwsgi_ruby_async_sleep, 1);
         uwsgi_rack_api("wait_fd_read", uwsgi_ruby_wait_fd_read, 2);
         uwsgi_rack_api("wait_fd_write", uwsgi_ruby_wait_fd_write, 2);
-#endif
         uwsgi_rack_api("async_connect", uwsgi_ruby_async_connect, 1);
         uwsgi_rack_api("signal", uwsgi_ruby_signal, -1);
         uwsgi_rack_api("register_signal", uwsgi_ruby_register_signal, 3);

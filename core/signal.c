@@ -55,13 +55,11 @@ int uwsgi_signal_handler(uint8_t sig) {
 			set_mule_harakiri(uwsgi.shared->options[UWSGI_OPTION_MULE_HARAKIRI]);
 		}
 	}
-#ifdef UWSGI_SPOOLER
 	else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
 		if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
 			set_spooler_harakiri(uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI]);
 		}
 	}
-#endif
 
 	int ret = uwsgi.p[use->modifier1]->signal_handler(sig, use->handler);
 
@@ -77,13 +75,11 @@ int uwsgi_signal_handler(uint8_t sig) {
 			set_mule_harakiri(0);
 		}
 	}
-#ifdef UWSGI_SPOOLER
 	else if (uwsgi.i_am_a_spooler && (getpid() == uwsgi.i_am_a_spooler->pid)) {
 		if (uwsgi.shared->options[UWSGI_OPTION_SPOOLER_HARAKIRI] > 0) {
 			set_spooler_harakiri(0);
 		}
 	}
-#endif
 
 	return ret;
 }
@@ -457,7 +453,6 @@ void uwsgi_route_signal(uint8_t sig) {
 	else if (!strcmp(use->receiver, "subscribed")) {
 	}
 	// route to spooler
-#ifdef UWSGI_SPOOLER
 	else if (!strcmp(use->receiver, "spooler")) {
 		if (ushared->worker_signal_pipe[0] != -1) {
 			if (uwsgi_signal_send(ushared->spooler_signal_pipe[0], sig)) {
@@ -465,7 +460,6 @@ void uwsgi_route_signal(uint8_t sig) {
 			}
 		}
 	}
-#endif
 	else if (!strcmp(use->receiver, "mules")) {
 		for (i = 0; i < uwsgi.mules_cnt; i++) {
 			if (uwsgi_signal_send(uwsgi.mules[i].signal_pipe[0], sig)) {

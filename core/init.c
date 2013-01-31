@@ -87,7 +87,6 @@ void uwsgi_init_default() {
 	uwsgi.subscribe_freq = 10;
 	uwsgi.subscription_tolerance = 17;
 
-	uwsgi.cluster_fd = -1;
 	uwsgi.cores = 1;
 	uwsgi.threads = 1;
 
@@ -96,6 +95,7 @@ void uwsgi_init_default() {
 	uwsgi.default_app = -1;
 
 	uwsgi.buffer_size = 4096;
+	uwsgi.body_read_warning = 8;
 	uwsgi.numproc = 1;
 
 	uwsgi.forkbomb_delay = 2;
@@ -117,12 +117,11 @@ void uwsgi_init_default() {
 
 	uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] = 60;
 
-#ifdef UWSGI_SPOOLER
 	uwsgi.shared->spooler_frequency = 30;
 
 	uwsgi.shared->spooler_signal_pipe[0] = -1;
 	uwsgi.shared->spooler_signal_pipe[1] = -1;
-#endif
+
 	uwsgi.shared->mule_signal_pipe[0] = -1;
 	uwsgi.shared->mule_signal_pipe[1] = -1;
 
@@ -148,10 +147,8 @@ void uwsgi_init_default() {
 #endif
 
 
-#ifdef UWSGI_MULTICAST
 	uwsgi.multicast_ttl = 1;
 	uwsgi.multicast_loop = 1;
-#endif
 
 	// filling http status codes
 	struct http_status_codes *http_sc;
@@ -159,8 +156,11 @@ void uwsgi_init_default() {
                 http_sc->message_size = strlen(http_sc->message);
         }
 
+	uwsgi.empty = "";
+
+	uwsgi.wait_read_hook = uwsgi_simple_wait_read_hook;
 	uwsgi.wait_write_hook = uwsgi_simple_wait_write_hook;
-	uwsgi.buffer_write_hook = uwsgi_buffer_write_simple;
+
 	uwsgi_websockets_init();
 }
 
@@ -304,7 +304,8 @@ void uwsgi_setup_workers() {
 
 		// this is a trick for avoiding too much memory areas
 		void *ts = uwsgi_calloc_shared(sizeof(void *) * uwsgi.max_apps * uwsgi.cores);
-		void *buffers = uwsgi_malloc_shared(uwsgi.buffer_size * uwsgi.cores);
+		// add 4 bytes for uwsgi header
+		void *buffers = uwsgi_malloc_shared((uwsgi.buffer_size+4) * uwsgi.cores);
 		void *hvec = uwsgi_malloc_shared(sizeof(struct iovec) * uwsgi.vec_size * uwsgi.cores);
 		void *post_buf = NULL;
 		if (uwsgi.post_buffering > 0)
@@ -314,8 +315,8 @@ void uwsgi_setup_workers() {
 		for (j = 0; j < uwsgi.cores; j++) {
 			// allocate shared memory for thread states (required for some language, like python)
 			uwsgi.workers[i].cores[j].ts = ts + ((sizeof(void *) * uwsgi.max_apps) * j);
-			// raw per-request buffer
-			uwsgi.workers[i].cores[j].buffer = buffers + (uwsgi.buffer_size * j);
+			// raw per-request buffer (+4 bytes for uwsgi header)
+			uwsgi.workers[i].cores[j].buffer = buffers + ((uwsgi.buffer_size+4) * j);
 			// iovec for uwsgi vars
 			uwsgi.workers[i].cores[j].hvec = hvec + ((sizeof(struct iovec) * uwsgi.vec_size) * j);
 			if (post_buf)

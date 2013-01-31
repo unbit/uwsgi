@@ -168,7 +168,6 @@ int bind_to_unix(char *socket_name, int listen_queue, int chmod_socket, int abst
 	return serverfd;
 }
 
-#ifdef UWSGI_UDP
 int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	int serverfd;
 	struct sockaddr_in uws_addr;
@@ -176,9 +175,7 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	int bcast = 1;
 	int reuse = 1;
 
-#ifdef UWSGI_MULTICAST
 	struct ip_mreq mc;
-#endif
 
 	udp_port = strchr(socket_name, ':');
 	if (udp_port == NULL) {
@@ -195,7 +192,6 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 	uws_addr.sin_family = AF_INET;
 	uws_addr.sin_port = htons(atoi(udp_port + 1));
 
-#ifdef UWSGI_MULTICAST
 	if (!broadcast && !multicast) {
 		char quad[4];
 		char *first_part = strchr(socket_name, '.');
@@ -206,9 +202,6 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 				multicast = 1;
 			}
 		}
-#else
-	if (!broadcast) {
-#endif
 		if (!strcmp(socket_name, "255.255.255.255")) {
 			broadcast = 1;
 		}
@@ -235,14 +228,12 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 		uwsgi_error("setsockopt()");
 	}
 
-#ifdef UWSGI_MULTICAST
 	if (multicast) {
 		// if multicast is enabled remember to bind to INADDR_ANY
 		uws_addr.sin_addr.s_addr = INADDR_ANY;
 		mc.imr_multiaddr.s_addr = inet_addr(socket_name);
 		mc.imr_interface.s_addr = INADDR_ANY;
 	}
-#endif
 
 	if (broadcast) {
 		if (setsockopt(serverfd, SOL_SOCKET, SO_BROADCAST, &bcast, sizeof(bcast))) {
@@ -258,7 +249,6 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 		return -1;
 	}
 
-#ifdef UWSGI_MULTICAST
 	if (multicast) {
 		uwsgi_log("[uwsgi-mcast] joining multicast group: %s:%d\n", socket_name, ntohs(uws_addr.sin_port));
 		if (setsockopt(serverfd, IPPROTO_IP, IP_MULTICAST_LOOP, &uwsgi.multicast_loop, sizeof(uwsgi.multicast_loop))) {
@@ -274,13 +264,11 @@ int bind_to_udp(char *socket_name, int multicast, int broadcast) {
 		}
 
 	}
-#endif
 
 	udp_port[0] = ':';
 	return serverfd;
 
 }
-#endif
 
 int uwsgi_connectn(char *socket_name, uint16_t len, int timeout, int async) {
 
@@ -1064,7 +1052,7 @@ void uwsgi_add_socket_from_fd(struct uwsgi_socket *uwsgi_sock, int fd) {
 				}
 			}
 		}
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 		else if (gsa.sa->sa_family == AF_INET6) {
 			char *computed_addr;
 			char computed_port[6];
@@ -1380,7 +1368,7 @@ nextsock:
 }
 
 
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 int bind_to_tcp6(char *socket_name, int listen_queue, char *tcp_port) {
 
 	int serverfd;
@@ -1516,7 +1504,7 @@ void uwsgi_setup_shared_sockets() {
 				uwsgi_log("uwsgi shared socket %d bound to UNIX address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
 			}
 			else {
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 				if (shared_sock->name[0] == '[' && tcp_port[-1] == ']') {
 					shared_sock->fd = bind_to_tcp6(shared_sock->name, uwsgi.listen_queue, tcp_port);
 					shared_sock->family = AF_INET6;
@@ -1531,7 +1519,7 @@ void uwsgi_setup_shared_sockets() {
 					// fix socket name
 					shared_sock->name = uwsgi_getsockname(shared_sock->fd);
 					uwsgi_log("uwsgi shared socket %d bound to TCP address %s fd %d\n", uwsgi_get_shared_socket_num(shared_sock), shared_sock->name, shared_sock->fd);
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 				}
 #endif
 			}
@@ -1675,7 +1663,7 @@ void uwsgi_bind_sockets() {
 				uwsgi_log("uwsgi socket %d bound to UNIX address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 			}
 			else {
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 				if (uwsgi_sock->name[0] == '[' && tcp_port[-1] == ']') {
 					uwsgi_sock->fd = bind_to_tcp6(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
 					uwsgi_log("uwsgi socket %d bound to TCP6 address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
@@ -1686,7 +1674,7 @@ void uwsgi_bind_sockets() {
 					uwsgi_sock->fd = bind_to_tcp(uwsgi_sock->name, uwsgi.listen_queue, tcp_port);
 					uwsgi_log("uwsgi socket %d bound to TCP address %s fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 					uwsgi_sock->family = AF_INET;
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 				}
 #endif
 			}
@@ -1762,14 +1750,14 @@ void uwsgi_bind_sockets() {
 	uwsgi_sock = uwsgi.sockets;
 	while (uwsgi_sock) {
 		if (uwsgi_sock->auto_port) {
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 			if (uwsgi_sock->family == AF_INET6) {
 				uwsgi_log("uwsgi socket %d bound to TCP6 address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
 			}
 			else {
 #endif
 				uwsgi_log("uwsgi socket %d bound to TCP address %s (port auto-assigned) fd %d\n", uwsgi_get_socket_num(uwsgi_sock), uwsgi_sock->name, uwsgi_sock->fd);
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 			}
 #endif
 		}
@@ -1814,6 +1802,7 @@ setup_proto:
 			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
                         uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
                         uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+			uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
                         uwsgi_sock->proto_write = uwsgi_proto_base_write;
                         uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
                         uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;
@@ -1822,9 +1811,6 @@ setup_proto:
 				uwsgi_sock->can_offload = 1;
 		}
 		else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
-			if (uwsgi.protocol && (!strcmp(uwsgi.protocol, "fastcgi") || !strcmp(uwsgi.protocol, "fcgi"))) {
-				uwsgi.shared->options[UWSGI_OPTION_CGI_MODE] = 1;
-			}
 			uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
 			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
 			uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
@@ -1843,6 +1829,7 @@ setup_proto:
 			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
 			uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
 			uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+			uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
 			uwsgi_sock->proto_write = uwsgi_proto_base_write;
 			uwsgi_sock->proto_write_headers = uwsgi_proto_base_write;
 			uwsgi_sock->proto_sendfile = uwsgi_proto_base_sendfile;

@@ -21,7 +21,7 @@ static void uwsgi_offload_setup(struct uwsgi_offload_request *uor, struct wsgi_r
 
 	wsgi_req->fd_closed = 1;
 	memset(uor, 0, sizeof(struct uwsgi_offload_request));
-	uor->s = wsgi_req->poll.fd;
+	uor->s = wsgi_req->fd;
 	uor->func = func;
 	// put socket in non-blocking mode
 	uwsgi_socket_nb(uor->s);

@@ -133,8 +133,6 @@ static struct uwsgi_option sslrouter_options[] = {
 
 	{"sslrouter-fallback", required_argument, 0, "fallback to the specified node in case of error", uwsgi_opt_add_string_list, &usr.cr.fallback, 0},
 
-	{"sslrouter-use-cluster", no_argument, 0, "load balance to nodes subscribed to the cluster", uwsgi_opt_true, &usr.cr.use_cluster, 0},
-
 	{"sslrouter-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the sslrouter", uwsgi_opt_corerouter_cs, &usr, 0},
 	{"sslrouter-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_corerouter_use_socket, &usr, 0},
 	{"sslrouter-to", required_argument, 0, "forward requests to the specified uwsgi server (you can specify it multiple times for load balancing)", uwsgi_opt_add_string_list, &usr.cr.static_nodes, 0},

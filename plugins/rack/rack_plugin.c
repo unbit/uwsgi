@@ -76,34 +76,15 @@ VALUE rb_uwsgi_io_init(int argc, VALUE *argv, VALUE self) {
 
 VALUE rb_uwsgi_io_gets(VALUE obj, VALUE args) {
 
-	size_t i;
 	struct wsgi_request *wsgi_req;
-	VALUE line;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
-	char linebuf[4096];
 
-	if (wsgi_req->async_post) {
-		if (fgets(linebuf, 4096, (FILE *) wsgi_req->async_post) == NULL) {
-			return Qnil;
-		}	
-		return rb_str_new2(linebuf);
-	}
+	ssize_t rlen = 0;
 
-	// return a line of body
-	for(i=wsgi_req->buf_pos;i<wsgi_req->post_cl;i++) {
-		if (wsgi_req->post_buffering_buf[i] == '\n') {
-			line = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, (i+1)-wsgi_req->buf_pos);
-			wsgi_req->buf_pos = i+1;
-			return line;
-		}
+	char *buf = uwsgi_request_body_readline(wsgi_req, 0, &rlen);
+	if (buf) {
+		return rb_str_new(buf, rlen);
 	}
-
-	if (wsgi_req->buf_pos < wsgi_req->post_cl) {
-		line = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, wsgi_req->post_cl-wsgi_req->buf_pos);
-                wsgi_req->buf_pos = wsgi_req->post_cl;
-                return line;
-	}
-	
 	return Qnil;
 }
 
@@ -128,101 +109,31 @@ VALUE rb_uwsgi_io_read(VALUE obj, VALUE args) {
 
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
-	VALUE chunk;
-	long chunk_size;
+	long hint = 0;
+	int length_given = 0;
 
 /*
 	When EOF is reached, this method returns nil if length is given and not nil, or "" if length is not given or is nil.
 	If buffer is given, then the read data will be placed into buffer instead of a newly created String object.
 */
 
-	// --- disk buffering ---
-
-	if (wsgi_req->async_post) {
-		// 0 size, read the whole body from the file...
-		if (RARRAY_LEN(args) == 0) {
-			char *tmp_chunk = uwsgi_malloc(wsgi_req->post_cl);
-			size_t rlen = fread(tmp_chunk, 1, wsgi_req->post_cl, (FILE *) wsgi_req->async_post);
-			if (rlen == 0) {
-				free(tmp_chunk);
-				return rb_str_new("", 0);
-			}
-			// return a new string
-			chunk = rb_str_new(tmp_chunk, rlen);
-			free(tmp_chunk);
-			return chunk;
+	if (RARRAY_LEN(args) > 0) {
+		if (RARRAY_PTR(args)[0] != Qnil) {
+			hint = NUM2LONG(RARRAY_PTR(args)[0]); 
+			length_given = 1;
 		}
-		// size specified
-		else if (RARRAY_LEN(args) > 0) {
-			if (RARRAY_PTR(args)[0] == Qnil) {
-				chunk_size = wsgi_req->post_cl;
-			}
-			else {
-				chunk_size = NUM2LONG(RARRAY_PTR(args)[0]);
-				// hack to tolerate broken middlewares
-				if (chunk_size <= 0) {
-					chunk_size = wsgi_req->post_cl;
-				}
-			}
-			char *tmp_chunk = uwsgi_malloc(chunk_size);
-			size_t rlen = fread(tmp_chunk, 1, chunk_size, (FILE *) wsgi_req->async_post);
-			// error, return Qnil
-			if (rlen == 0) {
-				free(tmp_chunk);
-				return Qnil;
-			}
-			// push in the specified buffer
-			if (RARRAY_LEN(args) > 1) {
-                        	rb_str_cat(RARRAY_PTR(args)[1], tmp_chunk, rlen);
-			}
-			// return a new string
-			chunk = rb_str_new(tmp_chunk, rlen);
-			free(tmp_chunk);
-			return chunk;
-                }
-		// never happend...
-		return Qnil;
 	}
 
-	// --- memory buffering ---
-
-	// first check for virtual EOF
-	if (!wsgi_req->post_cl || wsgi_req->buf_pos >= wsgi_req->post_cl) {
-		if (RARRAY_LEN(args) > 0) {
-			if (RARRAY_PTR(args)[0] == Qnil) {
-				return rb_str_new("", 0);
-			}
+	ssize_t rlen = 0;
+	char *buf = uwsgi_request_body_read(wsgi_req, hint, &rlen);
+	if (buf) {
+		if (length_given && buf == uwsgi.empty) {
 			return Qnil;
 		}
-
-		return rb_str_new("", 0);
-	}
-	
-	if (RARRAY_LEN(args) == 0) {
-		chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, wsgi_req->post_cl-wsgi_req->buf_pos);
-		wsgi_req->buf_pos += (wsgi_req->post_cl-wsgi_req->buf_pos);
-		return chunk;
-	}
-	else if (RARRAY_LEN(args) > 0) {
-		if (RARRAY_PTR(args)[0] == Qnil) {
-			chunk_size = wsgi_req->post_cl;
-		}
-		else {
-			chunk_size = NUM2LONG(RARRAY_PTR(args)[0]);
-			// hack to tolerate broken middlewares
-			if (chunk_size <= 0) {
-				chunk_size = wsgi_req->post_cl;
-			}
-		}
-		if (wsgi_req->buf_pos+chunk_size > wsgi_req->post_cl) {
-			chunk_size = wsgi_req->post_cl-wsgi_req->buf_pos;
-		}
 		if (RARRAY_LEN(args) > 1) {
-			rb_str_cat(RARRAY_PTR(args)[1], wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
-		}
-		chunk = rb_str_new(wsgi_req->post_buffering_buf+wsgi_req->buf_pos, chunk_size);
-		wsgi_req->buf_pos+=chunk_size;
-		return chunk;
+                        rb_str_cat(RARRAY_PTR(args)[1], buf, rlen);
+                }
+		return rb_str_new(buf, rlen);
 	}
 
 	return Qnil;
@@ -232,19 +143,7 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 
 	struct wsgi_request *wsgi_req;
 	Data_Get_Struct(obj, struct wsgi_request, wsgi_req);
-
-	if (!wsgi_req->post_cl) {
-		return Qnil;
-	}
-
-	// buffered to disk ?
-	if (wsgi_req->async_post) {
-		rewind((FILE *) wsgi_req->async_post);
-	}
-	// or memory ???
-	else {
-		wsgi_req->buf_pos = 0;
-	}
+	uwsgi_request_body_seek(wsgi_req, 0);
 	return Qnil;
 }
 
@@ -458,9 +357,7 @@ int uwsgi_rack_init(){
 	rb_gc_register_address(&ur.rpc_protector);
 
 
-#ifdef UWSGI_EMBEDDED
 	uwsgi_rack_init_api();	
-#endif
 
 	return 0;
 }
@@ -749,8 +646,8 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	}
 
 	/* Standard RACK request */
-        if (!wsgi_req->uh.pktsize) {
-                uwsgi_log("Invalid RACK request. skip.\n");
+        if (!wsgi_req->uh->pktsize) {
+                uwsgi_log("Empty RACK request. skip.\n");
                 return -1;
         }
 

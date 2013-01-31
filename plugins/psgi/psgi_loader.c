@@ -98,83 +98,30 @@ XS(XS_input_read) {
 
         dXSARGS;
         struct wsgi_request *wsgi_req = current_wsgi_req();
-        int fd = -1;
-        char *tmp_buf;
-        ssize_t bytes = 0, len;
-        size_t remains;
-        SV *read_buf;
 
         psgi_check_args(3);
 
+        SV *read_buf = ST(1);
+        unsigned long arg_len = SvIV(ST(2));
 
-        read_buf = ST(1);
-        len = SvIV(ST(2));
+	ssize_t rlen = 0;
 
-        // return empty string if no post_cl or pos >= post_cl
-        if (!wsgi_req->post_cl || (size_t) wsgi_req->post_pos >= wsgi_req->post_cl) {
-                sv_setpvn(read_buf, "", 0);
-                goto ret;
-        }
-
-        if (wsgi_req->body_as_file) {
-                fd = fileno((FILE *)wsgi_req->async_post);
-        }
-        else if (uwsgi.post_buffering > 0) {
-                fd = -1;
-                if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-                        fd = fileno((FILE *)wsgi_req->async_post);
-                }
-        }
-        else {
-                fd = wsgi_req->poll.fd;
-        }
-        // return the whole input
-        if (len <= 0) {
-                remains = wsgi_req->post_cl;
-        }
-        else {
-                remains = len ;
-        }
-
-        if (remains + wsgi_req->post_pos > wsgi_req->post_cl) {
-                remains = wsgi_req->post_cl - wsgi_req->post_pos;
-        }
-
-        if (remains <= 0) {
-                sv_setpvn(read_buf, "", 0);
-                goto ret;
-        }
-
-        // data in memory ?
-        if (fd == -1) {
-                sv_setpvn(read_buf, wsgi_req->post_buffering_buf, remains);
-                bytes = remains;
-                wsgi_req->post_pos += remains;
+	char *buf = uwsgi_request_body_read(wsgi_req, arg_len, &rlen);
+        if (buf) {
+		sv_setpvn(read_buf, buf, rlen);
 		goto ret;
         }
 
-        tmp_buf = uwsgi_malloc(remains);
-
-        if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-                free(tmp_buf);
-                croak("error waiting for psgi.input data");
-                goto ret;
+        // error ?
+        if (rlen < 0) {
+		croak("error during read(%lu) on psgi.input", arg_len);
+		goto ret;
         }
 
-        bytes = read(fd, tmp_buf, remains);
-        if (bytes < 0) {
-                free(tmp_buf);
-                croak("error reading psgi.input data");
-                goto ret;
-        }
-
-        wsgi_req->post_pos += bytes;
-        sv_setpvn(read_buf, tmp_buf, bytes);
-
-        free(tmp_buf);
+	croak("timeout during read(%lu) on psgi.input", arg_len);
 
 ret:
-        XSRETURN_IV(bytes);
+        XSRETURN_IV(rlen);
 }
 
 
@@ -275,9 +222,7 @@ xs_init(pTHX)
 
 nonworker:
 
-#ifdef UWSGI_EMBEDDED
         init_perl_embedded_module();
-#endif
 
 }
 

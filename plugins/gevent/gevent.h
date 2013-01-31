@@ -1,6 +1,7 @@
 #include "../python/uwsgi_python.h"
 
-int uwsgi_gevent_wait_write_hook(struct wsgi_request *);
+int uwsgi_gevent_wait_write_hook(int, int);
+int uwsgi_gevent_wait_read_hook(int, int);
 
 #define GEVENT_SWITCH PyObject *gswitch = python_call(ugevent.greenlet_switch, ugevent.greenlet_switch_args, 0, NULL); Py_DECREF(gswitch)
 #define GET_CURRENT_GREENLET python_call(ugevent.get_current, ugevent.get_current_args, 0, NULL)

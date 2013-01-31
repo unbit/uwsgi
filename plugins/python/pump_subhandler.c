@@ -101,26 +101,11 @@ void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_
 	PyDict_SetItemString(wsgi_req->async_environ, "headers", headers);
 	Py_DECREF(headers);
 
-        // if async_post is mapped as a file, directly use it as wsgi.input
-        if (wsgi_req->async_post) {
-#ifdef PYTHREE
-                wsgi_req->async_input = PyFile_FromFd(fileno((FILE *)wsgi_req->async_post), "pump_body", "rb", 0, NULL, NULL, NULL, 0);
-#else
-                wsgi_req->async_input = PyFile_FromFile(wsgi_req->async_post, "pump_body", "r", NULL);
-#endif
-        }
-        else {
-                // create wsgi.input custom object
-                wsgi_req->async_input = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
-                ((uwsgi_Input*)wsgi_req->async_input)->wsgi_req = wsgi_req;
-                ((uwsgi_Input*)wsgi_req->async_input)->pos = 0;
-                ((uwsgi_Input*)wsgi_req->async_input)->readline_pos = 0;
-                ((uwsgi_Input*)wsgi_req->async_input)->readline_max_size = 0;
-
-        }
+        // create wsgi.input custom object
+        wsgi_req->async_input = (PyObject *) PyObject_New(uwsgi_Input, &uwsgi_InputType);
+        ((uwsgi_Input*)wsgi_req->async_input)->wsgi_req = wsgi_req;
 
         PyDict_SetItemString(wsgi_req->async_environ, "body", wsgi_req->async_input);
-
 
 	if (wsgi_req->scheme_len > 0) {
 		zero = PyString_FromStringAndSize(wsgi_req->scheme, wsgi_req->scheme_len);
@@ -153,18 +138,7 @@ void *uwsgi_request_subhandler_pump(struct wsgi_request *wsgi_req, struct uwsgi_
                 PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.core", PyInt_FromLong(wsgi_req->async_id));
         }
 
-        // cache this ?
-        if (uwsgi.cluster_fd >= 0) {
-                zero = PyString_FromString(uwsgi.cluster);
-                PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster", zero);
-                Py_DECREF(zero);
-                zero = PyString_FromString(uwsgi.hostname);
-                PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.cluster_node", zero);
-                Py_DECREF(zero);
-        }
-
         PyDict_SetItemString(wsgi_req->async_environ, "uwsgi.node", wi->uwsgi_node);
-
 
 	// call
 
@@ -280,11 +254,11 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 			if (!wsgi_req->async_placeholder) {
 				goto clear;
 			}
-#ifdef UWSGI_ASYNC
+
 			if (uwsgi.async > 1) {
 				return UWSGI_AGAIN;
 			}
-#endif
+
 		}
 		else {
 			uwsgi_log("invalid Pump response.\n"); 

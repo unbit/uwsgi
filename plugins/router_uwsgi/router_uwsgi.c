@@ -7,8 +7,8 @@ int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	struct uwsgi_header *uh = (struct uwsgi_header *) ur->data;
 
-	wsgi_req->uh.modifier1 = uh->modifier1;
-	wsgi_req->uh.modifier2 = uh->modifier2;
+	wsgi_req->uh->modifier1 = uh->modifier1;
+	wsgi_req->uh->modifier2 = uh->modifier2;
 
 	// set appid
 	if (ur->data2_len > 0) {
@@ -46,9 +46,9 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 
 	// ok now if have offload threads, directly use them
         if (wsgi_req->socket->can_offload) {
-		struct uwsgi_buffer *ub = uwsgi_buffer_new(4 + wsgi_req->uh.pktsize);
+		struct uwsgi_buffer *ub = uwsgi_buffer_new(4 + wsgi_req->uh->pktsize);
 		if (ub) {
-			uh->pktsize = wsgi_req->uh.pktsize;
+			uh->pktsize = wsgi_req->uh->pktsize;
 			if (uwsgi_buffer_append(ub, (char *) uh, 4)) goto bad;
 			if (uwsgi_buffer_append(ub, wsgi_req->buffer, uh->pktsize)) goto bad;
                 	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
@@ -67,17 +67,17 @@ bad:
 		return UWSGI_ROUTE_NEXT;
 	}
 
-	int post_fd = wsgi_req->poll.fd;
-	if (wsgi_req->async_post) {
-		post_fd = fileno((FILE*)wsgi_req->async_post);
+	int post_fd = wsgi_req->fd;
+	if (wsgi_req->post_file) {
+		post_fd = fileno(wsgi_req->post_file);
 	}
 
-	if (uwsgi_send_message(uwsgi_fd, uh->modifier1, uh->modifier2, wsgi_req->buffer, wsgi_req->uh.pktsize, post_fd, wsgi_req->post_cl, 0) < 0) {
+	if (uwsgi_send_message(uwsgi_fd, uh->modifier1, uh->modifier2, wsgi_req->buffer, wsgi_req->uh->pktsize, post_fd, wsgi_req->post_cl, 0) < 0) {
 		uwsgi_log("unable to send uwsgi request to host %s", addr);
 		return UWSGI_ROUTE_NEXT;
 	}
 
-	ssize_t ret = uwsgi_pipe(uwsgi_fd, wsgi_req->poll.fd, 0);
+	ssize_t ret = uwsgi_pipe(uwsgi_fd, wsgi_req->fd, 0);
 	if (ret > 0) {
 		wsgi_req->response_size += ret;
 	}

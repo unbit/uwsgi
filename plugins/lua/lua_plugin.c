@@ -285,7 +285,7 @@ static int uwsgi_api_req_fd(lua_State *L) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	
-	lua_pushnumber(L, wsgi_req->poll.fd);
+	lua_pushnumber(L, wsgi_req->fd);
 	return 1;
 }
 
@@ -294,12 +294,10 @@ static int uwsgi_api_lock(lua_State *L) {
 	int lock_num = 0;
 
 	// the spooler cannot lock resources
-#ifdef UWSGI_SPOOLER
 	if (uwsgi.i_am_a_spooler) {
 		lua_pushstring(L, "The spooler cannot lock/unlock resources");
 		lua_error(L);
 	}
-#endif
 
 	if (lua_gettop(L) > 0) {
 		lock_num = lua_isnumber(L, 1) ? lua_tonumber(L, 1) : -1;
@@ -320,12 +318,10 @@ static int uwsgi_api_unlock(lua_State *L) {
 	int lock_num = 0;
 
 	// the spooler cannot lock resources
-#ifdef UWSGI_SPOOLER
 	if (uwsgi.i_am_a_spooler) {
 		lua_pushstring(L, "The spooler cannot lock/unlock resources");
 		lua_error(L);
 	}
-#endif
 
 	if (lua_gettop(L) > 0) {
 		lock_num = lua_isnumber(L, 1) ? lua_tonumber(L, 1) : -1;
@@ -359,39 +355,23 @@ static const luaL_reg uwsgi_api[] = {
 static int uwsgi_lua_input(lua_State *L) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	int fd = wsgi_req->async_post ?
-	  fileno(wsgi_req->async_post) : wsgi_req->poll.fd;
-	ssize_t sum, len, total;
-	char *buf, *ptr;
+	ssize_t sum = 0;
 
 	int n = lua_gettop(L);
 
-	if (!wsgi_req->post_cl) {
-		lua_pushlstring(L, "", 0);
-		return 1;
-	}
-
-	sum = lua_tonumber(L, 2);
-
 	if (n > 1) {
-		uwsgi_log("requested %ld bytes\n", (long) sum);
+		sum = lua_tonumber(L, 2);
 	}
 
-	buf = uwsgi_malloc(sum);
+	ssize_t rlen = 0;
 
-	total = sum;
+        char *buf = uwsgi_request_body_read(wsgi_req, sum, &rlen);
+        if (buf) {
+		lua_pushlstring(L, buf, rlen);
+                return 1;
+        }
 
-	ptr = buf;
-	while(total) {
-		len = read(fd, ptr, total);
-		ptr += len;
-		total -= len;
-	}
-
-	lua_pushlstring(L, buf, sum);
-	free(buf);
-
-	return 1;
+	return 0;
 }
 
 int uwsgi_lua_init(){
@@ -451,7 +431,6 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 	char *ptrbuf;
 	lua_State *L = ulua.L[wsgi_req->async_id];
 
-#ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		if ((i = lua_pcall(L, 0, 1, 0)) == 0) {
 			if (lua_type(L, -1) == LUA_TSTRING) {
@@ -464,17 +443,15 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		}
 		goto clear;
 	}
-#endif
 
 	/* Standard WSAPI request */
-	if (!wsgi_req->uh.pktsize) {
-		uwsgi_log( "Invalid WSAPI request. skip.\n");
-		goto clear2;
+	if (!wsgi_req->uh->pktsize) {
+		uwsgi_log( "Empty lua request. skip.\n");
+		return -1;
 	}
 
 	if (uwsgi_parse_vars(wsgi_req)) {
-		uwsgi_log("Invalid WSAPI request. skip.\n");
-		goto clear2;
+		return -1;
 	}
 
 	// put function in the stack
@@ -547,17 +524,13 @@ int uwsgi_lua_request(struct wsgi_request *wsgi_req) {
 		}
 		lua_pop(L, 1);
 		lua_pushvalue(L, -1);
-#ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
 			return UWSGI_AGAIN;
 		}
-#endif
 	}
 
 clear:
 	lua_pop(L, 4);
-clear2:
-
 	// set frequency
 	lua_gc(L, LUA_GCCOLLECT, 0);
 

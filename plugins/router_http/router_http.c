@@ -58,9 +58,9 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 
 	// pipe the body
 	if (wsgi_req->post_cl > 0) {
-		int post_fd = wsgi_req->poll.fd;
-		if (wsgi_req->async_post) {
-			post_fd = fileno((FILE *)wsgi_req->async_post);
+		int post_fd = wsgi_req->fd;
+		if (wsgi_req->post_file) {
+			post_fd = fileno((FILE *)wsgi_req->post_file);
 		}
 		ret = uwsgi_pipe_sized(post_fd, http_fd, wsgi_req->post_cl, 0);
 		if (ret < 0) {
@@ -72,7 +72,7 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	}
 
 	// pipe the response
-	ret = uwsgi_pipe(http_fd, wsgi_req->poll.fd, 0);
+	ret = uwsgi_pipe(http_fd, wsgi_req->fd, 0);
 	if (ret > 0) {
 		wsgi_req->response_size += ret;
 	}

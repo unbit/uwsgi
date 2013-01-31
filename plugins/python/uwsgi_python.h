@@ -26,13 +26,8 @@
 #define PYTHREE
 #endif
 
-#ifdef UWSGI_THREADING
 #define UWSGI_GET_GIL up.gil_get();
 #define UWSGI_RELEASE_GIL up.gil_release();
-#else
-#define UWSGI_GET_GIL
-#define UWSGI_RELEASE_GIL
-#endif
 
 #ifndef PyVarObject_HEAD_INIT
 #define PyVarObject_HEAD_INIT(x, y) PyObject_HEAD_INIT(x) y,
@@ -85,15 +80,8 @@ PyAPI_FUNC(PyObject *) PyMarshal_ReadObjectFromString(char *, Py_ssize_t);
 
 #define LOADER_MAX              8
 
-#define UWSGI_PY_READLINE_BUFSIZE 1024
-
 typedef struct uwsgi_Input {
         PyObject_HEAD
-        char readline[UWSGI_PY_READLINE_BUFSIZE];
-        size_t readline_size;
-        size_t readline_max_size;
-        size_t readline_pos;
-        size_t pos;
         struct wsgi_request *wsgi_req;
 } uwsgi_Input;
 
@@ -153,7 +141,6 @@ struct uwsgi_python {
 	void (*swap_ts)(struct wsgi_request *, struct uwsgi_app *);
 	void (*reset_ts)(struct wsgi_request *, struct uwsgi_app *);
 
-#ifdef UWSGI_THREADING
 	pthread_key_t upt_save_key;
 	pthread_key_t upt_gil_key;
 	pthread_mutex_t lock_pyloaders;
@@ -162,7 +149,6 @@ struct uwsgi_python {
 	int auto_reload;
 	char *tracebacker;
 	struct uwsgi_string_list *auto_reload_ignore;
-#endif
 
 	PyObject *workers_tuple;
 	PyObject *embedded_dict;
@@ -185,9 +171,6 @@ struct uwsgi_python {
 
 	char *pyrun;
 	int start_response_nodelay;
-
-	ssize_t (*hook_wsgi_input_read)(struct wsgi_request *, char *, size_t, size_t *);
-	ssize_t (*hook_wsgi_input_readline)(struct wsgi_request *, char *, size_t);
 
 	char *programname;
 };
@@ -279,9 +262,6 @@ int uwsgi_python_manage_exceptions(void);
 int uwsgi_python_do_send_headers(struct wsgi_request *);
 void *uwsgi_python_tracebacker_thread(void *);
 PyObject *uwsgi_python_setup_thread(char *);
-
-ssize_t uwsgi_python_hook_simple_input_read(struct wsgi_request *, char *, size_t, size_t *);
-ssize_t uwsgi_python_hook_simple_input_readline(struct wsgi_request *, char *, size_t);
 
 #ifdef UWSGI_PYPY
 #undef UWSGI_MINTERPRETERS

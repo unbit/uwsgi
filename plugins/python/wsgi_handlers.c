@@ -9,88 +9,37 @@ PyObject *uwsgi_Input_iter(PyObject *self) {
         return self;
 }
 
-ssize_t uwsgi_python_hook_simple_input_readline(struct wsgi_request *wsgi_req, char *readline, size_t max_size) {
-	ssize_t rlen = 0;
-	UWSGI_RELEASE_GIL;
-        if (uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-                UWSGI_GET_GIL
-		return 0;
-        }
-
-        if (max_size > 0 && max_size < UWSGI_PY_READLINE_BUFSIZE) {
-                rlen = read(wsgi_req->poll.fd, readline, max_size);
-        }
-        else {
-                rlen = read(wsgi_req->poll.fd, readline, UWSGI_PY_READLINE_BUFSIZE);
-        }
-        UWSGI_GET_GIL;
-	return rlen;
-}
-
-PyObject *uwsgi_Input_getline(uwsgi_Input *self) {
-	size_t i;
-	ssize_t rlen;
+PyObject *uwsgi_Input_getline(uwsgi_Input *self, long hint) {
 	struct wsgi_request *wsgi_req = self->wsgi_req;
-	PyObject *res;
+	ssize_t rlen = 0;
 
-	char *ptr = self->readline;
-
-	if (uwsgi.post_buffering > 0) {
-		ptr = wsgi_req->post_buffering_buf;
-		self->readline_size = wsgi_req->post_cl;
-		if (!self->readline_pos) {
-			self->pos += self->readline_size;
-		}
+	char *buf = uwsgi_request_body_readline(wsgi_req, hint, &rlen);
+	if (buf == uwsgi.empty) {
+		return PyString_FromString("");
+	}
+	if (buf) {
+		return PyString_FromStringAndSize(buf, rlen);
 	}
 
-	if (self->readline_pos > 0 || uwsgi.post_buffering) {
-		for(i=self->readline_pos;i<self->readline_size;i++) {
-			if (ptr[i] == '\n') {
-				res = PyString_FromStringAndSize(ptr+self->readline_pos, (i-self->readline_pos)+1);
-				self->readline_pos = i+1;
-				if (self->readline_pos >= self->readline_size) self->readline_pos = 0;
-				return res;
-			}
-		}
-		res = PyString_FromStringAndSize(ptr + self->readline_pos, self->readline_size - self->readline_pos);
-		self->readline_pos = 0;
-		return res;
-	}
-
-
-	rlen = up.hook_wsgi_input_readline(wsgi_req, self->readline, self->readline_max_size);
 	if (rlen < 0) {
-                return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data (readline/getline)");
+       		return PyErr_Format(PyExc_IOError, "error during readline(%ld) on wsgi.input", hint);
         }
-	else if (rlen == 0) {
-                return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data (readline/getline)");
-	}
 
-	self->readline_size = rlen;
-	self->readline_pos = 0;
-        self->pos += rlen;
-
-	for(i=0;i<(size_t)rlen;i++) {
-		if (self->readline[i] == '\n') {
-			res = PyString_FromStringAndSize(self->readline, i+1);
-			self->readline_pos+= i+1;
-			if (self->readline_pos >= self->readline_size) self->readline_pos = 0;
-			return res;
-		}
-	}
-	self->readline_pos = 0;
-	return PyString_FromStringAndSize(self->readline, self->readline_size);
-	
+	return PyErr_Format(PyExc_IOError, "timeout during readline(%ld) on wsgi.input", hint);
 }
 
 PyObject *uwsgi_Input_next(PyObject* self) {
 
-	if (!((uwsgi_Input *)self)->wsgi_req->post_cl || ((size_t) ((uwsgi_Input *)self)->pos >= ((uwsgi_Input *)self)->wsgi_req->post_cl && !((uwsgi_Input *)self)->readline_pos)) {
+	PyObject *line = uwsgi_Input_getline((uwsgi_Input *)self, 0);
+	if (!line) return NULL;
+
+	if (PyString_Size(line) == 0) {
+		Py_DECREF(line);
 		PyErr_SetNone(PyExc_StopIteration);
 		return NULL;
 	}
 
-	return uwsgi_Input_getline((uwsgi_Input *)self);
+	return line;
 
 }
 
@@ -98,129 +47,77 @@ static void uwsgi_Input_free(uwsgi_Input *self) {
     	PyObject_Del(self);
 }
 
-ssize_t uwsgi_python_hook_simple_input_read(struct wsgi_request *wsgi_req, char *tmp_buf, size_t remains, size_t *tmp_pos) {
-
-	UWSGI_RELEASE_GIL
-
-        while(remains) {
-                if (uwsgi_waitfd(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-                        UWSGI_GET_GIL
-			return 0;
-                }
-
-                ssize_t rlen = read(wsgi_req->poll.fd, tmp_buf+*tmp_pos, remains);
-                if (rlen <= 0) {
-                        UWSGI_GET_GIL
-			return -1;
-                }
-                *tmp_pos += rlen;
-                remains -= rlen;
-        }
-
-        UWSGI_GET_GIL
-	return *tmp_pos;
-
-}
-
 static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 
-	long len = 0;
-	size_t remains;
-	size_t tmp_pos = 0;
-	char *tmp_buf;
-	PyObject *res;
+	long arg_len = 0;
 
-	if (!PyArg_ParseTuple(args, "|l:read", &len)) {
+	if (!PyArg_ParseTuple(args, "|l:read", &arg_len)) {
 		return NULL;
 	}
 
-	// return empty string if no post_cl or pos >= post_cl
-	if ((!self->wsgi_req->post_cl || (size_t) self->pos >= self->wsgi_req->post_cl ) && !self->readline_pos) {
+	struct wsgi_request *wsgi_req = self->wsgi_req;
+	ssize_t rlen = 0;
+
+	char *buf = uwsgi_request_body_read(wsgi_req, arg_len, &rlen);
+	if (buf == uwsgi.empty) {
 		return PyString_FromString("");
 	}
 
-	// some residual data ?
-	if (self->readline_pos && self->readline_size) {
-		if (len > 0) {
-			if ((size_t) len < (self->readline_size - self->readline_pos)) {
-				res = PyString_FromStringAndSize(self->readline + self->readline_pos, len);
-				self->readline_pos+=len;
-				if (self->readline_pos >= self->readline_size) self->readline_pos = 0;
-				return res;	
-			}
-		}
-		self->readline_pos = 0;
-		return PyString_FromStringAndSize(self->readline + self->readline_pos, self->readline_size - self->readline_pos);
+	if (buf) {
+		return PyString_FromStringAndSize(buf, rlen);
 	}
 
-	// return the whole input
-        if (len <= 0) {
-                remains = self->wsgi_req->post_cl;
-        }
-        else {
-                remains = len ;
-        }
-
-	if (remains + self->pos > self->wsgi_req->post_cl) {
-                remains = self->wsgi_req->post_cl - self->pos;
-        }
-
-        if (remains <= 0) {
-                return PyString_FromString("");
-        }
-
-	if (uwsgi.post_buffering > 0) {
-		res = PyString_FromStringAndSize( self->wsgi_req->post_buffering_buf+self->pos, remains);
-		self->pos += remains;
-		return res;
-	}
-
-	tmp_buf = uwsgi_malloc(remains);	
-
-	ssize_t rlen = up.hook_wsgi_input_read(self->wsgi_req, tmp_buf, remains, &tmp_pos);
+	// error ?
 	if (rlen < 0) {
-                free(tmp_buf);
-        	return PyErr_Format(PyExc_IOError, "error reading for wsgi.input data: Content-Length %llu requested %llu received %llu pos %llu+%llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  remains, (unsigned long long) tmp_pos, (unsigned long long) self->pos, (unsigned long long) tmp_pos);
-	}
-	else if (rlen == 0) {
-                free(tmp_buf);
-        	return PyErr_Format(PyExc_IOError, "error waiting for wsgi.input data: Content-Length %llu requested %llu received %llu pos %llu+%llu", (unsigned long long) self->wsgi_req->post_cl, (unsigned long long)  remains, (unsigned long long) tmp_pos, (unsigned long long) self->pos, (unsigned long long) tmp_pos);
+       		return PyErr_Format(PyExc_IOError, "error during read(%ld) on wsgi.input", arg_len);
 	}
 
-	self->pos += tmp_pos;
-	res = PyString_FromStringAndSize(tmp_buf, tmp_pos);
-	free(tmp_buf);
-	return res;
+	// timeout ?
+       	return PyErr_Format(PyExc_IOError, "timeout during read(%ld) on wsgi.input", arg_len);
 		
 }
 
 static PyObject *uwsgi_Input_readline(uwsgi_Input *self, PyObject *args) {
 
-	if (!PyArg_ParseTuple(args, "|l:readline", &((uwsgi_Input *)self)->readline_max_size)) {
+	long hint = 0;
+
+	if (!PyArg_ParseTuple(args, "|l:readline", &hint)) {
                 return NULL;
         }
 
-	if (!((uwsgi_Input *)self)->wsgi_req->post_cl || ((size_t) ((uwsgi_Input *)self)->pos >= ((uwsgi_Input *)self)->wsgi_req->post_cl && !((uwsgi_Input *)self)->readline_pos)) {
+	PyObject *line = uwsgi_Input_getline(self, hint);
+	if (!line) return NULL;
+
+	if (PyString_Size(line) == 0) {
+		Py_DECREF(line);
 		return PyString_FromString("");
 	}
-	return uwsgi_Input_getline(self);
+	return line;
 
 }
 
 static PyObject *uwsgi_Input_readlines(uwsgi_Input *self, PyObject *args) {
 
-	PyObject *res;
+	long hint = 0;
 
-	if (!((uwsgi_Input *)self)->wsgi_req->post_cl || ((size_t) ((uwsgi_Input *)self)->pos >= ((uwsgi_Input *)self)->wsgi_req->post_cl && !((uwsgi_Input *)self)->readline_pos)) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
+        if (!PyArg_ParseTuple(args, "|l:readline", &hint)) {
+                return NULL;
+        }
 
-	res = PyList_New(0);
-	while( ((size_t) ((uwsgi_Input *)self)->pos < ((uwsgi_Input *)self)->wsgi_req->post_cl || ((uwsgi_Input *)self)->readline_pos > 0)) {
-		PyObject *a_line = uwsgi_Input_getline(self);
-		PyList_Append(res, a_line);	
-		Py_DECREF(a_line);
+
+	PyObject *res = PyList_New(0);
+	for(;;) {
+		PyObject *line = uwsgi_Input_getline(self, hint);
+		if (!line) {
+			Py_DECREF(res);
+			return NULL;
+		}
+		if (PyString_Size(line) == 0) {
+			Py_DECREF(line);
+			return res;
+		}
+		PyList_Append(res, line);	
+		Py_DECREF(line);
 	}
 
 	return res;
@@ -234,7 +131,7 @@ static PyObject *uwsgi_Input_close(uwsgi_Input *self, PyObject *args) {
 
 static PyObject *uwsgi_Input_fileno(uwsgi_Input *self, PyObject *args) {
 
-	return PyInt_FromLong(self->wsgi_req->poll.fd);
+	return PyInt_FromLong(self->wsgi_req->fd);
 }
 
 static PyMethodDef uwsgi_Input_methods[] = {
@@ -311,9 +208,6 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
-#ifdef UWSGI_ASYNC
-
-
 PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 	int fd, timeout = 0;
 
@@ -346,7 +240,6 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 
 	return PyString_FromString("");
 }
-#endif
 
 int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
@@ -355,7 +248,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	int tmp_stderr;
 	int free_appid = 0;
 
-#ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		wi = &uwsgi_apps[wsgi_req->app_id];
 		UWSGI_GET_GIL
@@ -380,11 +272,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 		UWSGI_RELEASE_GIL
 		return ret;
 	}
-#endif
-
 
 	/* Standard WSGI request */
-	if (!wsgi_req->uh.pktsize) {
+	if (!wsgi_req->uh->pktsize) {
 		uwsgi_log( "Empty python request. skip.\n");
 		return -1;
 	}
@@ -477,17 +367,13 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
-#ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
 				UWSGI_RELEASE_GIL
 				return UWSGI_AGAIN;
 			}
 			else {
-#endif
 				wsgi_req->switches++;
-#ifdef UWSGI_ASYNC
 			}
-#endif
 		}
 
 
@@ -502,7 +388,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 		/*
 		   sorry that is a hack to avoid the rewrite of PyErr_Print
-		   temporarily map (using dup2) stderr to wsgi_req->poll.fd
+		   temporarily map (using dup2) stderr to wsgi_req->fd
 		   */
 		tmp_stderr = dup(2);
 		if (tmp_stderr < 0) {
@@ -510,7 +396,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 			goto clear;
 		}
 		// map 2 to wsgi_req
-		if (dup2(wsgi_req->poll.fd, 2) < 0) {
+		if (dup2(wsgi_req->fd, 2) < 0) {
 			close(tmp_stderr);
 			uwsgi_error("dup2()");
 			goto clear;
@@ -527,9 +413,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	// this object must be freed/cleared always
-#ifdef UWSGI_ASYNC
 end:
-#endif
 	if (wsgi_req->async_input) {
                 Py_DECREF((PyObject *)wsgi_req->async_input);
         }

@@ -31,7 +31,6 @@ void uwsgi_unblock_signal(int signum) {
 	}
 }
 
-#ifdef UWSGI_SNMP
 void uwsgi_master_manage_snmp(int snmp_fd) {
 	struct sockaddr_in udp_client;
 	socklen_t udp_len = sizeof(udp_client);
@@ -45,9 +44,6 @@ void uwsgi_master_manage_snmp(int snmp_fd) {
 	}
 }
 
-#endif
-
-#ifdef UWSGI_UDP
 void uwsgi_master_manage_udp(int udp_fd) {
 	struct sockaddr_in udp_client;
 	char udp_client_addr[16];
@@ -65,11 +61,9 @@ void uwsgi_master_manage_udp(int udp_fd) {
 		if (inet_ntop(AF_INET, &udp_client.sin_addr.s_addr, udp_client_addr, 16)) {
 			if (uwsgi.wsgi_req->buffer[0] == UWSGI_MODIFIER_MULTICAST_ANNOUNCE) {
 			}
-#ifdef UWSGI_SNMP
 			else if (uwsgi.wsgi_req->buffer[0] == 0x30 && uwsgi.snmp) {
 				manage_snmp(udp_fd, (uint8_t *) uwsgi.wsgi_req->buffer, rlen, &udp_client);
 			}
-#endif
 			else {
 
 				// loop the various udp manager until one returns true
@@ -95,7 +89,6 @@ void uwsgi_master_manage_udp(int udp_fd) {
 
 	}
 }
-#endif
 
 void uwsgi_master_manage_emperor() {
 	char byte;
@@ -392,21 +385,10 @@ int master_loop(char **argv, char **environ) {
 	uint64_t last_request_count = 0;
 
 	pthread_t logger_thread;
-	pthread_t channels_loop;
 
-#ifdef UWSGI_UDP
 	int udp_fd = -1;
-#ifdef UWSGI_MULTICAST
-	char *cluster_opt_buf = NULL;
-	size_t cluster_opt_size = 4;
-#endif
-#endif
-
-
-
-#ifdef UWSGI_SNMP
 	int snmp_fd = -1;
-#endif
+
 	int i = 0;
 	int rlen;
 
@@ -455,11 +437,9 @@ int master_loop(char **argv, char **environ) {
 #endif
 	event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->worker_signal_pipe[0]);
 
-#ifdef UWSGI_SPOOLER
 	if (uwsgi.spoolers) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->spooler_signal_pipe[0]);
 	}
-#endif
 
 	if (uwsgi.mules_cnt > 0) {
 		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.shared->mule_signal_pipe[0]);
@@ -501,18 +481,6 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_cache_start_sweepers();
 	uwsgi_cache_start_sync_servers();
 
-	if (uwsgi.channels) {
-		if (pthread_create(&channels_loop, NULL, uwsgi_channels_loop, NULL)) {
-                        uwsgi_error("pthread_create()");
-                        uwsgi_log("unable to run the channels dispatcher thread !!!\n");
-                }
-                else {
-                        uwsgi_log("channels dispatcher thread enabled\n");
-                }
-
-	}
-
-
 	uwsgi.wsgi_req->buffer = uwsgi.workers[0].cores[0].buffer;
 
 	if (uwsgi.has_emperor) {
@@ -550,11 +518,10 @@ int master_loop(char **argv, char **environ) {
 		}
 	}
 
-#ifdef UWSGI_UDP
 	if (uwsgi.udp_socket) {
 		udp_fd = bind_to_udp(uwsgi.udp_socket, 0, 0);
 		if (udp_fd < 0) {
-			uwsgi_log("unable to bind to udp socket. SNMP and cluster management services will be disabled.\n");
+			uwsgi_log("unable to bind to udp socket. SNMP services will be disabled.\n");
 		}
 		else {
 			uwsgi_log("UDP server enabled.\n");
@@ -562,17 +529,7 @@ int master_loop(char **argv, char **environ) {
 		}
 	}
 
-#ifdef UWSGI_MULTICAST
-	if (uwsgi.cluster) {
-		event_queue_add_fd_read(uwsgi.master_queue, uwsgi.cluster_fd);
-		cluster_opt_buf = uwsgi_setup_clusterbuf(&cluster_opt_size);
-	}
-#endif
-#endif
-
-#ifdef UWSGI_SNMP
 	snmp_fd = uwsgi_setup_snmp();
-#endif
 
 	if (uwsgi.cheap) {
 		uwsgi_add_sockets_to_queue(uwsgi.master_queue, -1);
@@ -886,34 +843,16 @@ int master_loop(char **argv, char **environ) {
 					if (found)
 						continue;
 				}
-#ifdef UWSGI_SNMP
+
 				if (uwsgi.snmp_addr && interesting_fd == snmp_fd) {
 					uwsgi_master_manage_snmp(snmp_fd);
 					goto health_cycle;
 				}
-#endif
 
-#ifdef UWSGI_UDP
 				if (uwsgi.udp_socket && interesting_fd == udp_fd) {
 					uwsgi_master_manage_udp(udp_fd);
 					goto health_cycle;
 				}
-
-#ifdef UWSGI_MULTICAST
-				if (interesting_fd == uwsgi.cluster_fd) {
-
-					if (uwsgi_get_dgram(uwsgi.cluster_fd, &uwsgi.workers[0].cores[0].req)) {
-						goto health_cycle;
-					}
-
-					manage_cluster_message(cluster_opt_buf, cluster_opt_size);
-
-					goto health_cycle;
-				}
-#endif
-
-#endif
-
 
 				int next_iteration = 0;
 
@@ -972,7 +911,6 @@ int master_loop(char **argv, char **environ) {
 					goto health_cycle;
 				}
 
-#ifdef UWSGI_SPOOLER
 				// check for spooler signal
 				if (uwsgi.spoolers) {
 					if (interesting_fd == uwsgi.shared->spooler_signal_pipe[0]) {
@@ -994,7 +932,6 @@ int master_loop(char **argv, char **environ) {
 					}
 
 				}
-#endif
 
 				// check for mules signal
 				if (uwsgi.mules_cnt > 0) {
@@ -1182,7 +1119,6 @@ health_cycle:
 					}
 				}
 			}
-#ifdef UWSGI_SPOOLER
 			struct uwsgi_spooler *uspool = uwsgi.spoolers;
 			while (uspool) {
 				if (uspool->harakiri > 0 && uspool->harakiri < (time_t) uwsgi.current_time) {
@@ -1192,7 +1128,6 @@ health_cycle:
 				}
 				uspool = uspool->next;
 			}
-#endif
 
 #ifdef __linux__
 #ifdef MADV_MERGEABLE
@@ -1202,21 +1137,10 @@ health_cycle:
 #endif
 #endif
 
-#ifdef UWSGI_UDP
-			// check for cluster nodes
-			master_check_cluster_nodes();
-
-			// reannounce myself every 10 cycles
-			if (uwsgi.cluster && uwsgi.cluster_fd >= 0 && !uwsgi.cluster_nodes && (uwsgi.master_cycles % 10) == 0) {
-				uwsgi_cluster_add_me();
-			}
-
 			// resubscribe every 10 cycles by default
 			if (( (uwsgi.subscriptions || uwsgi.subscriptions2) && ((uwsgi.master_cycles % uwsgi.subscribe_freq) == 0 || uwsgi.master_cycles == 1)) && !uwsgi.to_heaven && !uwsgi.to_hell && !uwsgi.workers[0].suspended) {
 				uwsgi_subscribe_all(0, 0);
 			}
-
-#endif
 
 			uwsgi_cache_sync_all();
 
@@ -1251,7 +1175,6 @@ health_cycle:
 		// reload gateways and daemons only on normal workflow (+outworld status)
 		if (!uwsgi.to_heaven && !uwsgi.to_hell) {
 
-#ifdef UWSGI_SPOOLER
 			/* reload the spooler */
 			struct uwsgi_spooler *uspool = uwsgi.spoolers;
 			pid_found = 0;
@@ -1268,7 +1191,6 @@ health_cycle:
 
 			if (pid_found)
 				continue;
-#endif
 
 			if (uwsgi.emperor_pid >= 0) {
 				uwsgi_log_verbose("!!! Emperor died !!!\n");
@@ -1325,7 +1247,6 @@ health_cycle:
 		uwsgi.mywid = find_worker_id(diedpid);
 		if (uwsgi.mywid <= 0) {
 			// check spooler, mules, gateways and daemons
-#ifdef UWSGI_SPOOLER
 			struct uwsgi_spooler *uspool = uwsgi.spoolers;
 			while (uspool) {
 				if (uspool->pid > 0 && diedpid == uspool->pid) {
@@ -1334,7 +1255,6 @@ health_cycle:
 				}
 				uspool = uspool->next;
 			}
-#endif
 
 			for (i = 0; i < uwsgi.mules_cnt; i++) {
 				if (uwsgi.mules[i].pid == diedpid) {

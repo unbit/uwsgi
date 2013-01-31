@@ -7,7 +7,7 @@ uint16_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, u
 
 
 	int i;
-	char *buffer = wsgi_req->buffer + wsgi_req->uh.pktsize;
+	char *buffer = wsgi_req->buffer + wsgi_req->uh->pktsize;
 	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
 	char *ptr = buffer;
 
@@ -61,7 +61,7 @@ uint16_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, u
 uint16_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
 
 
-	char *buffer = wsgi_req->buffer + wsgi_req->uh.pktsize;
+	char *buffer = wsgi_req->buffer + wsgi_req->uh->pktsize;
 	char *watermark = wsgi_req->buffer + uwsgi.buffer_size;
 	char *ptr = buffer;
 
@@ -105,16 +105,7 @@ int uwsgi_proto_base_accept(struct wsgi_request *wsgi_req, int fd) {
 }
 
 void uwsgi_proto_base_close(struct wsgi_request *wsgi_req) {
-
-	if (wsgi_req->async_post) {
-		fclose(wsgi_req->async_post);
-		if (wsgi_req->body_as_file) {
-			close(wsgi_req->poll.fd);
-		}
-	}
-	else {
-		close(wsgi_req->poll.fd);
-	}
+	close(wsgi_req->fd);
 }
 
 struct uwsgi_buffer *uwsgi_proto_base_add_header(struct wsgi_request *wsgi_req, char *k, uint16_t kl, char *v, uint16_t vl) {
@@ -164,7 +155,7 @@ end:
 
 
 int uwsgi_proto_base_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
-        ssize_t wlen = write(wsgi_req->poll.fd, buf+wsgi_req->write_pos, len-wsgi_req->write_pos);
+        ssize_t wlen = write(wsgi_req->fd, buf+wsgi_req->write_pos, len-wsgi_req->write_pos);
         if (wlen > 0) {
                 wsgi_req->write_pos += wlen;
                 if (wsgi_req->write_pos == len) {
@@ -181,7 +172,7 @@ int uwsgi_proto_base_write(struct wsgi_request * wsgi_req, char *buf, size_t len
 }
 
 int uwsgi_proto_base_sendfile(struct wsgi_request * wsgi_req, int fd, size_t pos, size_t len) {
-        ssize_t wlen = uwsgi_sendfile_do(wsgi_req->poll.fd, fd, pos+wsgi_req->write_pos, len-wsgi_req->write_pos);
+        ssize_t wlen = uwsgi_sendfile_do(wsgi_req->fd, fd, pos+wsgi_req->write_pos, len-wsgi_req->write_pos);
         if (wlen > 0) {
                 wsgi_req->write_pos += wlen;
                 if (wsgi_req->write_pos == len) {
@@ -201,3 +192,13 @@ int uwsgi_proto_base_fix_headers(struct wsgi_request * wsgi_req) {
         return uwsgi_buffer_append(wsgi_req->headers, "\r\n", 2);
 }
 
+ssize_t uwsgi_proto_base_read_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	if (wsgi_req->proto_parser_remains > 0) {
+		size_t remains = UMIN(wsgi_req->proto_parser_remains, len);
+		memcpy(buf, wsgi_req->proto_parser_remains_buf, remains);
+		wsgi_req->proto_parser_remains -= remains;
+		wsgi_req->proto_parser_remains_buf += remains;
+		return remains;
+	}
+	return read(wsgi_req->fd, buf, len);
+}

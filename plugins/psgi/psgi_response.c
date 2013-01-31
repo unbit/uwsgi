@@ -11,7 +11,6 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 	char *chitem, *chitem2;
 	SV **harakiri;
 
-#ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 
 		wsgi_req->async_force_again = 0;
@@ -58,7 +57,6 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 
 		return UWSGI_AGAIN;
 	}
-#endif
 
 	if (SvTYPE(response) != SVt_PVAV) {
 		uwsgi_log("invalid PSGI response type\n");
@@ -142,14 +140,12 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
 			}
 
                         chitem = SvPV( chunk, hlen);
-#ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1 && wsgi_req->async_force_again) {
 				SvREFCNT_dec(chunk);
 				wsgi_req->async_status = UWSGI_AGAIN;
 				wsgi_req->async_placeholder = (SV *) *hitem;
 				return UWSGI_AGAIN;
 			}
-#endif
                         if (hlen <= 0) {
 				SvREFCNT_dec(chunk);
                                 break;
@@ -161,13 +157,11 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                                 break;
 			}
 			SvREFCNT_dec(chunk);
-#ifdef UWSGI_ASYNC
 			if (uwsgi.async > 1) {
 				wsgi_req->async_status = UWSGI_AGAIN;
 				wsgi_req->async_placeholder = (SV *) *hitem;
 				return UWSGI_AGAIN;
 			}
-#endif
                 }
 
 

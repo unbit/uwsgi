@@ -1,4 +1,3 @@
-#ifdef UWSGI_SPOOLER
 #include "uwsgi.h"
 
 extern struct uwsgi_server uwsgi;
@@ -584,7 +583,3 @@ void spooler_manage_task(struct uwsgi_spooler *uspool, char *dir, char *task) {
 		}
 	}
 }
-
-#else
-#warning "*** Spooler support is disabled ***"
-#endif

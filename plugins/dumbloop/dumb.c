@@ -22,7 +22,6 @@ static void *dumb_loop_run(void *arg1) {
 	// get the core id (pthreads take a void pointer as argument, so we need this ugly trick)
         long core_id = (long) arg1;
 
-#ifdef UWSGI_THREADING
 	// complete threads setup (this is required for fixing things like UNIX signal handling)
         if (uwsgi.threads > 1) {
 		// wsgi_request mapped to the core
@@ -30,7 +29,6 @@ static void *dumb_loop_run(void *arg1) {
 		// fix it
                 uwsgi_setup_thread_req(core_id, wsgi_req);
         }
-#endif
 
 	// this strign will be passed to the code_string function
 	char *str_core = uwsgi_num2str(core_id);

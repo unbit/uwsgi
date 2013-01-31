@@ -92,7 +92,6 @@ void set_mule_harakiri(int sec) {
 	}
 }
 
-#ifdef UWSGI_SPOOLER
 // set spooler harakiri
 void set_spooler_harakiri(int sec) {
 	if (sec == 0) {
@@ -105,7 +104,6 @@ void set_spooler_harakiri(int sec) {
 		alarm(sec);
 	}
 }
-#endif
 
 
 // daemonize to the specified logfile
@@ -560,13 +558,11 @@ void uwsgi_destroy_request(struct wsgi_request *wsgi_req) {
 
 	wsgi_req->socket->proto_close(wsgi_req);
 
-#ifdef UWSGI_THREADING
 	int foo;
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &foo);
 	}
-#endif
 
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 
@@ -604,11 +600,28 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	}
 
 
-	// close the connection with the webserver
-	if (!wsgi_req->fd_closed || wsgi_req->body_as_file) {
+	// close the connection with the client
+	if (!wsgi_req->fd_closed) {
 		// NOTE, if we close the socket before receiving eventually sent data, socket layer will send a RST
 		wsgi_req->socket->proto_close(wsgi_req);
 	}
+
+	if (wsgi_req->post_file) {
+		fclose(wsgi_req->post_file);
+	}
+
+	if (wsgi_req->post_read_buf) {
+		free(wsgi_req->post_read_buf);
+	}
+
+	if (wsgi_req->post_readline_buf) {
+		free(wsgi_req->post_readline_buf);
+	}
+
+	if (wsgi_req->proto_parser_buf) {
+		free(wsgi_req->proto_parser_buf);
+	}
+
 	uwsgi.workers[0].requests++;
 	uwsgi.workers[uwsgi.mywid].requests++;
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
@@ -616,15 +629,13 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	uwsgi.workers[uwsgi.mywid].delta_requests++;
 
 	// after_request hook
-	if (uwsgi.p[wsgi_req->uh.modifier1]->after_request)
-		uwsgi.p[wsgi_req->uh.modifier1]->after_request(wsgi_req);
+	if (uwsgi.p[wsgi_req->uh->modifier1]->after_request)
+		uwsgi.p[wsgi_req->uh->modifier1]->after_request(wsgi_req);
 
-#ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1) {
 		// now the thread can die...
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &tmp_id);
 	}
-#endif
 
 	// leave harakiri mode
 	if (uwsgi.workers[uwsgi.mywid].harakiri > 0) {
@@ -643,8 +654,6 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->headers_size > 0) {
 		uwsgi.workers[uwsgi.mywid].tx += wsgi_req->headers_size;
 	}
-
-	uwsgi_channels_leave(wsgi_req);
 
 	// defunct process reaper
 	if (uwsgi.shared->options[UWSGI_OPTION_REAPER] == 1 || uwsgi.grunt) {
@@ -832,15 +841,15 @@ long uwsgi_num_from_file(char *filename, int quiet) {
 // setup for a new request
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
-	wsgi_req->poll.events = POLLIN;
-
 	wsgi_req->app_id = uwsgi.default_app;
 
 	wsgi_req->async_id = async_id;
 	wsgi_req->sendfile_fd = -1;
 
 	wsgi_req->hvec = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].hvec;
-	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer;
+	// skip the first 4 bytes;
+	wsgi_req->uh = (struct uwsgi_header *) uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer;
+	wsgi_req->buffer = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].buffer+4;
 
 	if (uwsgi.post_buffering > 0) {
 		wsgi_req->post_buffering_buf = uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].post_buf;
@@ -865,7 +874,6 @@ cycle:
 	}
 }
 
-#ifdef UWSGI_ASYNC
 int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
@@ -875,11 +883,11 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request / 1000000;
 
 	if (!wsgi_req->do_not_add_to_async_queue) {
-		if (event_queue_add_fd_read(uwsgi.async_queue, wsgi_req->poll.fd) < 0)
+		if (event_queue_add_fd_read(uwsgi.async_queue, wsgi_req->fd) < 0)
 			return -1;
 
 		async_add_timeout(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		uwsgi.async_proto_fd_table[wsgi_req->poll.fd] = wsgi_req;
+		uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;
 	}
 
 
@@ -891,10 +899,9 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	return 0;
 }
-#endif
 
 // receive a new request
-int wsgi_req_recv(struct wsgi_request *wsgi_req) {
+int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
 	uwsgi.workers[uwsgi.mywid].busy = 1;
@@ -904,7 +911,13 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 
 	// edge triggered sockets get the whole request during accept() phase
 	if (!wsgi_req->socket->edge_trigger) {
-		if (!uwsgi_parse_packet(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		for(;;) {
+			int ret = wsgi_req->socket->proto(wsgi_req);
+			if (ret == UWSGI_OK) break;
+			if (ret == UWSGI_AGAIN) {
+				ret = uwsgi_wait_read_req(wsgi_req);
+				if (ret <= 0) return -1;	
+			}
 			return -1;
 		}
 	}
@@ -919,7 +932,7 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 		return 0;
 #endif
 
-	wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
+	wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
 
 	return 0;
 }
@@ -928,15 +941,15 @@ int wsgi_req_recv(struct wsgi_request *wsgi_req) {
 // accept a new request
 int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 
-	wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, fd);
+	wsgi_req->fd = wsgi_req->socket->proto_accept(wsgi_req, fd);
 
-	if (wsgi_req->poll.fd < 0) {
+	if (wsgi_req->fd < 0) {
 		return -1;
 	}
 
 	// set close on exec (if not a new socket)
 	if (!wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
-		if (fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC) < 0) {
+		if (fcntl(wsgi_req->fd, F_SETFD, FD_CLOEXEC) < 0) {
 			uwsgi_error("fcntl()");
 		}
 	}
@@ -1007,11 +1020,9 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 		}
 	}
 
-#ifdef UWSGI_THREADING
 	// kill the thread after the request completion
 	if (uwsgi.threads > 1)
 		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &ret);
-#endif
 
 	if (uwsgi.signal_socket > -1 && (interesting_fd == uwsgi.signal_socket || interesting_fd == uwsgi.my_signal_socket)) {
 
@@ -1019,10 +1030,8 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 
 		uwsgi_receive_signal(interesting_fd, "worker", uwsgi.mywid);
 
-#ifdef UWSGI_THREADING
 		if (uwsgi.threads > 1)
 			pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
 		return -1;
 	}
 
@@ -1030,25 +1039,24 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	while (uwsgi_sock) {
 		if (interesting_fd == uwsgi_sock->fd || (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) || (uwsgi_sock->fd_threads && interesting_fd == uwsgi_sock->fd_threads[wsgi_req->async_id])) {
 			wsgi_req->socket = uwsgi_sock;
-			wsgi_req->poll.fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
+			wsgi_req->fd = wsgi_req->socket->proto_accept(wsgi_req, interesting_fd);
 			thunder_unlock;
-			if (wsgi_req->poll.fd < 0) {
-#ifdef UWSGI_THREADING
+			if (wsgi_req->fd < 0) {
 				if (uwsgi.threads > 1)
 					pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
 				return -1;
 			}
 
 			if (!uwsgi_sock->edge_trigger) {
 
 				if (uwsgi.close_on_exec) {
-					if (fcntl(wsgi_req->poll.fd, F_SETFD, FD_CLOEXEC) < 0) {
+					if (fcntl(wsgi_req->fd, F_SETFD, FD_CLOEXEC) < 0) {
 						uwsgi_error("fcntl()");
 					}
 				}
 
 			}
+
 			return 0;
 		}
 
@@ -1056,10 +1064,8 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 	}
 
 	thunder_unlock;
-#ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1)
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &ret);
-#endif
 	return -1;
 }
 
@@ -1563,10 +1569,6 @@ add:
 		if (op->flags & UWSGI_OPT_NO_SERVER) {
 			uwsgi.no_server = 1;
 		}
-		// requires cluster ?
-		if (op->flags & UWSGI_OPT_CLUSTER) {
-			uwsgi.cluster = value;
-		}
 		// requires post_buffering ?
 		if (op->flags & UWSGI_OPT_POST_BUFFERING) {
 			if (!uwsgi.post_buffering)
@@ -1628,7 +1630,7 @@ char *uwsgi_resolve_ip(char *domain) {
 
 	he = gethostbyname(domain);
 	if (!he || !*he->h_addr_list || (he->h_addrtype != AF_INET
-#ifdef UWSGI_IPV6
+#ifdef AF_INET6
 					 && he->h_addrtype != AF_INET6
 #endif
 	    )) {
@@ -3533,51 +3535,6 @@ int uwsgi_send_http_stats(int fd) {
 error:
 	uwsgi_buffer_destroy(ub);
 	return -1;
-}
-
-ssize_t uwsgi_simple_request_read(struct wsgi_request *wsgi_req, char *buf, size_t len) {
-	if (wsgi_req->post_cl == 0)
-		return 0;
-	if ((size_t) wsgi_req->post_pos >= wsgi_req->post_cl)
-		return 0;
-	size_t remains = wsgi_req->post_cl - wsgi_req->post_pos;
-	remains = UMIN(len, remains);
-
-	int fd = -1;
-
-	if (wsgi_req->body_as_file) {
-		fd = fileno((FILE *) wsgi_req->async_post);
-	}
-	else if (uwsgi.post_buffering > 0) {
-		if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-			fd = fileno((FILE *) wsgi_req->async_post);
-		}
-	}
-	else {
-		fd = wsgi_req->poll.fd;
-	}
-
-	// data in memory ?
-	if (fd == -1) {
-		memcpy(buf, wsgi_req->post_buffering_buf + wsgi_req->post_buffering_read, remains);
-		wsgi_req->post_buffering_read += remains;
-		wsgi_req->post_pos += remains;
-		return remains;
-	}
-
-	if (uwsgi_waitfd(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]) <= 0) {
-		uwsgi_log("error waiting for request body");
-		return -1;
-	}
-
-	ssize_t rlen = read(fd, buf, remains);
-	if (rlen < 0) {
-		uwsgi_error("error reading request body:");
-		return -1;
-	}
-
-	wsgi_req->post_pos += rlen;
-	return rlen;
 }
 
 int uwsgi_plugin_modifier1(char *plugin) {

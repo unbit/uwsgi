@@ -287,7 +287,7 @@ int uwsgi_read_response(int fd, struct uwsgi_header *uh, int timeout, char **buf
 	return ret;
 }
 
-int uwsgi_parse_packet(struct wsgi_request *wsgi_req, int timeout) {
+int uwsgi_receive_request(int queue, struct wsgi_request *wsgi_req, int timeout) {
 	int rlen;
 	int status = UWSGI_AGAIN;
 
@@ -295,7 +295,7 @@ int uwsgi_parse_packet(struct wsgi_request *wsgi_req, int timeout) {
 		timeout = 1;
 
 	while (status == UWSGI_AGAIN) {
-		rlen = poll(&wsgi_req->poll, 1, timeout * 1000);
+		//rlen = poll(&wsgi_req->poll, 1, timeout * 1000);
 		if (rlen < 0) {
 			uwsgi_error("poll()");
 			exit(1);
@@ -631,12 +631,11 @@ static int uwsgi_proto_check_14(struct wsgi_request *wsgi_req, char *key, char *
 
 	if (!uwsgi_proto_key("UWSGI_POSTFILE", 14)) {
 		char *postfile = uwsgi_concat2n(buf, len, "", 0);
-		wsgi_req->async_post = fopen(postfile, "r");
-		if (!wsgi_req->async_post) {
+		wsgi_req->post_file = fopen(postfile, "r");
+		if (!wsgi_req->post_file) {
 			uwsgi_error_open(postfile);
 		}
 		free(postfile);
-		wsgi_req->body_as_file = 1;
 		return 0;
 	}
 
@@ -697,6 +696,11 @@ static int uwsgi_proto_check_20(struct wsgi_request *wsgi_req, char *key, char *
 		return 0;
 	}
 
+	if (!uwsgi_proto_key("HTTP_X_FORWARDED_SSL", 20)) {
+		wsgi_req->https = buf;
+                wsgi_req->https_len = len;
+	}
+
 	if (!uwsgi_proto_key("HTTP_ACCEPT_ENCODING", 20)) {
 		wsgi_req->encoding = buf;
 		wsgi_req->encoding_len = len;
@@ -745,7 +749,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	struct uwsgi_dyn_dict *udd;
 
 	ptrbuf = buffer;
-	bufferend = ptrbuf + wsgi_req->uh.pktsize;
+	bufferend = ptrbuf + wsgi_req->uh->pktsize;
 	int i;
 	
 	/* set an HTTP 500 status as default */
@@ -843,17 +847,17 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 next:
 
 
-	if (uwsgi.post_buffering > 0 && !wsgi_req->body_as_file && !wsgi_req->async_post) {
+	// manage post buffering (if needed)
+	if (uwsgi.post_buffering > 0) {
 		// read to disk if post_cl > post_buffering (it will eventually do upload progress...)
-		if (wsgi_req->post_cl >= (size_t) uwsgi.post_buffering) {
-			if (!uwsgi_read_whole_body(wsgi_req, wsgi_req->post_buffering_buf, uwsgi.post_buffering_bufsize)) {
+		if (wsgi_req->post_cl >= uwsgi.post_buffering) {
+			if (uwsgi_postbuffer_do_in_disk(wsgi_req)) {
 				return -1;
 			}
-			wsgi_req->body_as_file = 1;
 		}
 		// on tiny post use memory
 		else {
-			if (!uwsgi_read_whole_body_in_mem(wsgi_req, wsgi_req->post_buffering_buf)) {
+			if (uwsgi_postbuffer_do_in_mem(wsgi_req)) {
 				return -1;
 			}
 		}
@@ -951,19 +955,15 @@ next:
 	while (udd) {
 		// need to build the path ?
 		if (udd->value == NULL) {
-#ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1)
 				pthread_mutex_lock(&uwsgi.lock_static);
-#endif
 			udd->value = uwsgi_malloc(PATH_MAX + 1);
 			if (!realpath(udd->key, udd->value)) {
 				free(udd->value);
 				udd->value = NULL;
 			}
-#ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1)
 				pthread_mutex_unlock(&uwsgi.lock_static);
-#endif
 			if (!udd->value)
 				goto nextcs;
 			udd->vallen = strlen(udd->value);
@@ -983,20 +983,16 @@ nextcs:
 		uwsgi_log("checking for %.*s <-> %.*s %.*s\n", (int)wsgi_req->path_info_len, wsgi_req->path_info, (int)udd->keylen, udd->key, (int) udd->vallen, udd->value);
 #endif
 		if (udd->status == 0) {
-#ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1)
 				pthread_mutex_lock(&uwsgi.lock_static);
-#endif
 			char *real_docroot = uwsgi_malloc(PATH_MAX + 1);
 			if (!realpath(udd->value, real_docroot)) {
 				free(real_docroot);
 				real_docroot = NULL;
 				udd->value = NULL;
 			}
-#ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1)
 				pthread_mutex_unlock(&uwsgi.lock_static);
-#endif
 			if (!real_docroot)
 				goto nextsm;
 			udd->value = real_docroot;
@@ -1020,20 +1016,16 @@ nextsm:
 		uwsgi_log("checking for %.*s <-> %.*s\n", wsgi_req->path_info_len, wsgi_req->path_info, udd->keylen, udd->key);
 #endif
 		if (udd->status == 0) {
-#ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1)
 				pthread_mutex_lock(&uwsgi.lock_static);
-#endif
 			char *real_docroot = uwsgi_malloc(PATH_MAX + 1);
 			if (!realpath(udd->value, real_docroot)) {
 				free(real_docroot);
 				real_docroot = NULL;
 				udd->value = NULL;
 			}
-#ifdef UWSGI_THREADING
 			if (uwsgi.threads > 1)
 				pthread_mutex_unlock(&uwsgi.lock_static);
-#endif
 			if (!real_docroot)
 				goto nextsm2;
 			udd->value = real_docroot;
@@ -1062,52 +1054,6 @@ nextsm2:
 			return -1;
 		}
 		free(real_docroot);
-	}
-
-	return 0;
-}
-
-int uwsgi_ping_node(int node, struct wsgi_request *wsgi_req) {
-
-
-	struct pollfd uwsgi_poll;
-
-	struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[node];
-
-	if (ucn->name[0] == 0) {
-		return 0;
-	}
-
-	if (ucn->status == UWSGI_NODE_OK) {
-		return 0;
-	}
-
-#if defined(__linux__) && defined(SOCK_NONBLOCK) && !defined(OBSOLETE_LINUX_KERNEL)
-	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-#else
-	uwsgi_poll.fd = socket(AF_INET, SOCK_STREAM, 0);
-#endif
-	if (uwsgi_poll.fd < 0) {
-		uwsgi_error("socket()");
-		return -1;
-	}
-
-	if (timed_connect(&uwsgi_poll, (const struct sockaddr *) &ucn->ucn_addr, sizeof(struct sockaddr_in), uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0)) {
-		close(uwsgi_poll.fd);
-		return -1;
-	}
-
-	wsgi_req->uh.modifier1 = UWSGI_MODIFIER_PING;
-	wsgi_req->uh.pktsize = 0;
-	wsgi_req->uh.modifier2 = 0;
-	if (write(uwsgi_poll.fd, wsgi_req, 4) != 4) {
-		uwsgi_error("write()");
-		return -1;
-	}
-
-	uwsgi_poll.events = POLLIN;
-	if (!uwsgi_parse_packet(wsgi_req, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
-		return -1;
 	}
 
 	return 0;
@@ -1183,15 +1129,15 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 
 	uh = (struct uwsgi_header *) buffer;
 
-	wsgi_req->uh.modifier1 = uh->modifier1;
+	wsgi_req->uh->modifier1 = uh->modifier1;
 	/* big endian ? */
 #ifdef __BIG_ENDIAN__
 	uh->pktsize = uwsgi_swap16(uh->pktsize);
 #endif
-	wsgi_req->uh.pktsize = uh->pktsize;
-	wsgi_req->uh.modifier2 = uh->modifier2;
+	wsgi_req->uh->pktsize = uh->pktsize;
+	wsgi_req->uh->modifier2 = uh->modifier2;
 
-	if (wsgi_req->uh.pktsize > uwsgi.buffer_size) {
+	if (wsgi_req->uh->pktsize > uwsgi.buffer_size) {
 		uwsgi_log("invalid uwsgi packet size, probably you need to increase buffer size\n");
 		return -1;
 	}
@@ -1199,7 +1145,7 @@ int uwsgi_get_dgram(int fd, struct wsgi_request *wsgi_req) {
 	wsgi_req->buffer = buffer + 4;
 
 #ifdef UWSGI_DEBUG
-	uwsgi_log("request received %d %d\n", wsgi_req->uh.modifier1, wsgi_req->uh.modifier2);
+	uwsgi_log("request received %d %d\n", wsgi_req->uh->modifier1, wsgi_req->uh->modifier2);
 #endif
 
 	return 0;
@@ -1468,96 +1414,9 @@ uint16_t fcgi_get_record(int fd, char *buf) {
 
 }
 
-char *uwsgi_simple_message_string(char *socket_name, uint8_t modifier1, uint8_t modifier2, char *what, uint16_t what_len, char *buffer, uint16_t * response_len, int timeout) {
-
-	struct wsgi_request msg_req;
-
-	int fd = uwsgi_connect(socket_name, timeout, 0);
-
-	if (fd < 0) {
-		if (response_len)
-			*response_len = 0;
-		return NULL;
-	}
-
-	if (uwsgi_send_message(fd, modifier1, modifier2, what, what_len, -1, 0, timeout) <= 0) {
-		close(fd);
-		if (response_len)
-			*response_len = 0;
-		return NULL;
-	}
-
-	memset(&msg_req, 0, sizeof(struct wsgi_request));
-	msg_req.poll.fd = fd;
-	msg_req.poll.events = POLLIN;
-	msg_req.buffer = buffer;
-
-	if (buffer) {
-		if (!uwsgi_parse_packet(&msg_req, timeout)) {
-			close(fd);
-			if (response_len)
-				*response_len = 0;
-			return NULL;
-		}
-
-		if (response_len)
-			*response_len = msg_req.uh.pktsize;
-	}
-
-	close(fd);
-	return buffer;
-}
-
-int uwsgi_simple_send_string2(char *socket_name, uint8_t modifier1, uint8_t modifier2, char *item1, uint16_t item1_len, char *item2, uint16_t item2_len, int timeout) {
-
-	struct uwsgi_header uh;
-	char strsize1[2], strsize2[2];
-
-	struct iovec iov[5];
-
-	int fd = uwsgi_connect(socket_name, timeout, 0);
-
-	if (fd < 0) {
-		return -1;
-	}
-
-	uh.modifier1 = modifier1;
-	uh.pktsize = 2 + item1_len + 2 + item2_len;
-	uh.modifier2 = modifier2;
-
-	strsize1[0] = (uint8_t) (item1_len & 0xff);
-	strsize1[1] = (uint8_t) ((item1_len >> 8) & 0xff);
-
-	strsize2[0] = (uint8_t) (item2_len & 0xff);
-	strsize2[1] = (uint8_t) ((item2_len >> 8) & 0xff);
-
-	iov[0].iov_base = &uh;
-	iov[0].iov_len = 4;
-
-	iov[1].iov_base = strsize1;
-	iov[1].iov_len = 2;
-
-	iov[2].iov_base = item1;
-	iov[2].iov_len = item1_len;
-
-	iov[3].iov_base = strsize2;
-	iov[3].iov_len = 2;
-
-	iov[4].iov_base = item2;
-	iov[4].iov_len = item2_len;
-
-	if (writev(fd, iov, 5) < 0) {
-		uwsgi_error("writev()");
-	}
-
-	close(fd);
-
-	return 0;
-}
-
 char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
 
-	if (wsgi_req->uh.pktsize + (2 + keylen + 2 + vallen) > uwsgi.buffer_size) {
+	if ((wsgi_req->uh->pktsize + (2 + keylen + 2 + vallen)) > uwsgi.buffer_size) {
 		uwsgi_log("not enough buffer space to add %.*s variable, consider increasing it with the --buffer-size option\n", keylen, key);
 		return NULL;
 	}
@@ -1567,7 +1426,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
 		return NULL;
 	}
 
-	char *ptr = wsgi_req->buffer + wsgi_req->uh.pktsize;
+	char *ptr = wsgi_req->buffer + wsgi_req->uh->pktsize;
 
 	*ptr++ = (uint8_t) (keylen & 0xff);
 	*ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
@@ -1588,7 +1447,7 @@ char *uwsgi_req_append(struct wsgi_request *wsgi_req, char *key, uint16_t keylen
         wsgi_req->hvec[wsgi_req->var_cnt].iov_len = vallen;
 	wsgi_req->var_cnt++;
 
-	wsgi_req->uh.pktsize += (2 + keylen + 2 + vallen);
+	wsgi_req->uh->pktsize += (2 + keylen + 2 + vallen);
 
 	return ptr;
 }

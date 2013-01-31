@@ -426,15 +426,13 @@ int uwsgi_real_file_serve(struct wsgi_request *wsgi_req, char *real_filename, si
 	int mime_type_size = 0;
 	char http_last_modified[49];
 
-#ifdef UWSGI_THREADING
 	if (uwsgi.threads > 1)
 		pthread_mutex_lock(&uwsgi.lock_static);
-#endif
+
 	char *mime_type = uwsgi_get_mime_type(real_filename, real_filename_len, &mime_type_size);
-#ifdef UWSGI_THREADING
+
 	if (uwsgi.threads > 1)
 		pthread_mutex_unlock(&uwsgi.lock_static);
-#endif
 
 	if (wsgi_req->if_modified_since_len) {
 		time_t ims = parse_http_date(wsgi_req->if_modified_since, wsgi_req->if_modified_since_len);

@@ -112,36 +112,17 @@ static int sapi_uwsgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 	
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
-	if (wsgi_req->body_as_file) {
-                fd = fileno((FILE *)wsgi_req->async_post);
-        }
-        else if (uwsgi.post_buffering > 0) {
-                if (wsgi_req->post_cl > (size_t) uwsgi.post_buffering) {
-                        fd = fileno((FILE *)wsgi_req->async_post);
-                }
-        }
-        else {
-                fd = wsgi_req->poll.fd;
-        }
-
-
         count_bytes = MIN(count_bytes, wsgi_req->post_cl - SG(read_post_bytes));
 
-	// data in memory
-	if (fd == -1) {
-		if (count_bytes > 0) {
-			memcpy(buffer, wsgi_req->post_buffering_buf + wsgi_req->post_pos, count_bytes);
-			wsgi_req->post_pos += count_bytes;
-		}
-		return count_bytes;
-	}
-
         while (read_bytes < count_bytes) {
-                len = read(fd, buffer + read_bytes, count_bytes - read_bytes);
-		if (len <= 0) {
-			break;
+		ssize_t rlen = 0;
+		char *buf = uwsgi_request_body_read(wsgi_req, count_bytes - read_bytes, &rlen);
+		if (buf == uwsgi.empty) break;
+		if (buf) {
+			read_bytes += rlen;
+			continue;
 		}
-                read_bytes += len;
+		break;
         }
 
         return read_bytes;

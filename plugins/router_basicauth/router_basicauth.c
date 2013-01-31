@@ -5,9 +5,7 @@
 #ifdef __linux__
 #include <crypt.h>
 #else
-#ifdef UWSGI_THREADING
 pthread_mutex_t ur_basicauth_crypt_mutex;
-#endif
 #endif
 
 extern struct uwsgi_server uwsgi;

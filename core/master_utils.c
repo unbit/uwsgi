@@ -375,35 +375,6 @@ void uwsgi_reload(char **argv) {
 
 }
 
-void master_check_cluster_nodes() {
-
-	int i;
-
-	for (i = 0; i < MAX_CLUSTER_NODES; i++) {
-		struct uwsgi_cluster_node *ucn = &uwsgi.shared->nodes[i];
-
-		if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_STATIC && ucn->status == UWSGI_NODE_FAILED) {
-			// should i retry ?
-			if (uwsgi.master_cycles % ucn->errors == 0) {
-				if (!uwsgi_ping_node(i, uwsgi.wsgi_req)) {
-					ucn->status = UWSGI_NODE_OK;
-					uwsgi_log("re-enabled cluster node %d/%s\n", i, ucn->name);
-				}
-				else {
-					ucn->errors++;
-				}
-			}
-		}
-		else if (ucn->name[0] != 0 && ucn->type == CLUSTER_NODE_DYNAMIC) {
-			// if the last_seen attr is higher than 30 secs ago, mark the node as dead
-			if ((uwsgi.current_time - ucn->last_seen) > 30) {
-				uwsgi_log_verbose("no presence announce in the last 30 seconds by node %s, i assume it is dead.\n", ucn->name);
-				ucn->name[0] = 0;
-			}
-		}
-	}
-}
-
 void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 
 	int i;
@@ -445,14 +416,13 @@ void uwsgi_fixup_fds(int wid, int muleid, struct uwsgi_gateway *ug) {
 					close(uwsgi.workers[i].signal_pipe[1]);
 			}
 		}
-#ifdef UWSGI_SPOOLER
+
 		if (uwsgi.i_am_a_spooler && uwsgi.i_am_a_spooler->pid != getpid()) {
 			if (uwsgi.shared->spooler_signal_pipe[0] != -1)
 				close(uwsgi.shared->spooler_signal_pipe[0]);
 			if (uwsgi.shared->spooler_signal_pipe[1] != -1)
 				close(uwsgi.shared->spooler_signal_pipe[1]);
 		}
-#endif
 
 		if (uwsgi.shared->mule_signal_pipe[0] != -1)
 			close(uwsgi.shared->mule_signal_pipe[0]);
@@ -519,9 +489,6 @@ int uwsgi_respawn_worker(int wid) {
 	uwsgi.workers[wid].delta_requests = 0;
 
 	int i;
-
-	// reset channels subscriptions
-	uwsgi_channels_reset_worker_subscriptions(wid);
 
 	if (uwsgi.threaded_logger) {
 		pthread_mutex_lock(&uwsgi.threaded_logger_lock);
@@ -1163,7 +1130,6 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 	if (uwsgi_stats_list_close(us))
 		goto end;
 
-#ifdef UWSGI_SPOOLER
 	struct uwsgi_spooler *uspool = uwsgi.spoolers;
 	if (uspool) {
 		if (uwsgi_stats_comma(us))
@@ -1202,7 +1168,6 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 		if (uwsgi_stats_list_close(us))
 			goto end;
 	}
-#endif
 
 #ifdef UWSGI_SSL
 	struct uwsgi_legion *legion = NULL;

@@ -257,18 +257,12 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 
         if (!hv_store(env, "psgi.run_once", 13, newSViv(0), 0)) goto clear;
 
-#ifdef UWSGI_ASYNC
         if (uwsgi.async > 1) {
                 if (!hv_store(env, "psgi.nonblocking", 16, newSViv(1), 0)) goto clear;
         }
         else {
-#else
                 if (!hv_store(env, "psgi.nonblocking", 16, newSViv(0), 0)) goto clear;
-#endif
-
-#ifdef UWSGI_ASYNC
         }
-#endif
 
         if (!hv_store(env, "psgi.streaming", 14, newSViv(1), 0)) goto clear;
 
@@ -295,7 +289,7 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	SV *pi = uwsgi_perl_obj_new("uwsgi::input", 12);
         if (!hv_store(env, "psgi.input", 10, pi, 0)) goto clear;
 	
-	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(wsgi_req->body_as_file), 0)) goto clear;
+	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(uwsgi.post_buffering), 0)) goto clear;
 
 	if (uwsgi.threads > 1) {
 		if (!hv_store(env, "psgix.logger", 12,newRV((SV*) ((SV **)wi->responder1)[wsgi_req->async_id]) ,0)) goto clear;
@@ -384,14 +378,13 @@ int uwsgi_perl_init(){
 
 int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 
-#ifdef UWSGI_ASYNC
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
 		return psgi_response(wsgi_req, wsgi_req->async_placeholder);	
 	}
-#endif
+
 	/* Standard PSGI request */
-	if (!wsgi_req->uh.pktsize) {
-		uwsgi_log("Invalid PSGI request. skip.\n");
+	if (!wsgi_req->uh->pktsize) {
+		uwsgi_log("Empty PSGI request. skip.\n");
 		return -1;
 	}
 
@@ -469,13 +462,11 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	}
 
 	while (psgi_response(wsgi_req, wsgi_req->async_result) != UWSGI_OK) {
-#ifdef UWSGI_ASYNC
 		if (uwsgi.async > 1) {
 			FREETMPS;
 			LEAVE;
 			return UWSGI_AGAIN;
 		}
-#endif
 	}
 
 clear2:
@@ -681,12 +672,9 @@ static void uwsgi_perl_atexit() {
         if (uwsgi.workers[uwsgi.mywid].busy)
                 return;
 
-#ifdef UWSGI_ASYNC
         // managing atexit in async mode is a real pain...skip it for now
         if (uwsgi.async > 1)
                 return;
-#endif
-
 realstuff:
 
 	if (uperl.atexit) {

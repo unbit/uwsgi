@@ -23,7 +23,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 	}
 
 	if (wsgi_req->proto_parser_status == PROTO_STATUS_RECV_HDR) {
-		len = read(wsgi_req->poll.fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, 8 - wsgi_req->proto_parser_pos);
+		len = read(wsgi_req->fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, 8 - wsgi_req->proto_parser_pos);
 		if (len <= 0) {
 			free(wsgi_req->proto_parser_buf);
 			uwsgi_error("read()");
@@ -40,9 +40,8 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 			// empty STDIN ?
 			if (fr->type == 5 && rs == 0) {
 				wsgi_req->proto_parser_status = 0;
-				if (wsgi_req->async_post) {
-					rewind(wsgi_req->async_post);
-					wsgi_req->body_as_file = 1;
+				if (wsgi_req->post_file) {
+					rewind(wsgi_req->post_file);
 				}
 				free(wsgi_req->proto_parser_buf);
 				return UWSGI_OK;
@@ -60,7 +59,7 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 		fr = (struct fcgi_record *) wsgi_req->proto_parser_buf;
 		rs = ntohs(fr->cl);
 
-		len = read(wsgi_req->poll.fd, wsgi_req->proto_parser_buf + 8 + wsgi_req->proto_parser_pos, (rs + fr->pad) - wsgi_req->proto_parser_pos);
+		len = read(wsgi_req->fd, wsgi_req->proto_parser_buf + 8 + wsgi_req->proto_parser_pos, (rs + fr->pad) - wsgi_req->proto_parser_pos);
 		if (len <= 0) {
 			free(wsgi_req->proto_parser_buf);
 			uwsgi_error("read()");
@@ -121,22 +120,22 @@ int uwsgi_proto_fastcgi_parser(struct wsgi_request *wsgi_req) {
 #ifdef UWSGI_DEBUG
 						uwsgi_log("keylen %d %.*s vallen %d %.*s\n", keylen, keylen, wsgi_req->proto_parser_buf + 8 + j, vallen, vallen, wsgi_req->proto_parser_buf + 8 + j + keylen);
 #endif
-						wsgi_req->uh.pktsize += proto_base_add_uwsgi_var(wsgi_req, wsgi_req->proto_parser_buf + 8 + j, keylen, wsgi_req->proto_parser_buf + 8 + j + keylen, vallen);
+						wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, wsgi_req->proto_parser_buf + 8 + j, keylen, wsgi_req->proto_parser_buf + 8 + j + keylen, vallen);
 					}
 					j += (keylen + vallen) - 1;
 				}
 			}
 			// stdin
 			else if (fr->type == 5) {
-				if (!wsgi_req->async_post) {
-					wsgi_req->async_post = tmpfile();
-					if (!wsgi_req->async_post) {
+				if (!wsgi_req->post_file) {
+					wsgi_req->post_file = tmpfile();
+					if (!wsgi_req->post_file) {
 						free(wsgi_req->proto_parser_buf);
 						uwsgi_error("tmpfile()");
 						return -1;
 					}
 				}
-				if (!fwrite(wsgi_req->proto_parser_buf + 8, rs, 1, wsgi_req->async_post)) {
+				if (!fwrite(wsgi_req->proto_parser_buf + 8, rs, 1, wsgi_req->post_file)) {
 					free(wsgi_req->proto_parser_buf);
 					uwsgi_error("fwrite()");
 					return -1;
@@ -257,7 +256,7 @@ body:
 
 void uwsgi_proto_fastcgi_close(struct wsgi_request *wsgi_req) {
 
-	if (write(wsgi_req->poll.fd, FCGI_END_REQUEST, 24) <= 0) {
+	if (write(wsgi_req->fd, FCGI_END_REQUEST, 24) <= 0) {
 		uwsgi_req_error("write()");
 	}
 

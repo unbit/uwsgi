@@ -113,19 +113,6 @@ int uwsgi_cr_map_use_to(struct uwsgi_corerouter *ucr, struct corerouter_peer *pe
 	return 0;
 }
 
-int uwsgi_cr_map_use_cluster(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
-#ifdef UWSGI_MULTICAST
-        peer->instance_address = uwsgi_cluster_best_node();
-	if (peer->instance_address) {
-        	peer->instance_address_len = strlen(peer->instance_address);
-	}
-#else
-	uwsgi_log("uWSGI has been built without multicast/clustering support !!!\n");
-#endif
-        return 0;
-}
-
-
 int uwsgi_cr_map_use_static_nodes(struct uwsgi_corerouter *ucr, struct corerouter_peer *peer) {
 		if (!ucr->current_static_node) {
 			ucr->current_static_node = ucr->static_nodes;

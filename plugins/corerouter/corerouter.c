@@ -692,10 +692,6 @@ void uwsgi_corerouter_loop(int id, void *data) {
                         else if (ucr->static_nodes) {
                                 ucr->mapper = uwsgi_cr_map_use_static_nodes;
                         }
-                        else if (ucr->use_cluster) {
-                                ucr->mapper = uwsgi_cr_map_use_cluster;
-                        }
-
 
 	ucr->timeouts = uwsgi_init_rb_timer();
 
@@ -853,8 +849,7 @@ int uwsgi_corerouter_has_backends(struct uwsgi_corerouter *ucr) {
                         ucr->base ||
                         (ucr->code_string_code && ucr->code_string_function) ||
                         ucr->to_socket ||
-                        ucr->static_nodes ||
-                        ucr->use_cluster
+                        ucr->static_nodes
                 ) {
                         return 1;
                 }

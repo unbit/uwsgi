@@ -1,6 +1,4 @@
-#ifdef UWSGI_SNMP
-
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -408,6 +406,3 @@ int uwsgi_setup_snmp(void) {
 
 	return snmp_fd;
 }
-#else
-#warning "*** SNMP support is disabled ***"
-#endif

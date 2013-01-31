@@ -1,6 +1,6 @@
 # uWSGI build system
 
-uwsgi_version = '1.5-dev'
+uwsgi_version = '1.9-dev'
 
 import os
 import re
@@ -60,28 +60,21 @@ report['locking'] = False
 report['event'] = False
 report['timer'] = False
 report['filemonitor'] = False
-report['udp'] = False
 report['pcre'] = False
 report['matheval'] = False
 report['routing'] = False
 report['alarm'] = False
 report['capabilities'] = False
-report['async'] = False
-report['minterpreters'] = False
 report['ini'] = False
 report['yaml'] = False
 report['json'] = False
 report['ldap'] = False
 report['ssl'] = False
 report['zeromq'] = False
-report['snmp'] = False
-report['threading'] = False
 report['xml'] = False
 report['sqlite3'] = False
-report['spooler'] = False
 report['debug'] = False
 report['plugin_dir'] = False
-report['ipv6'] = False
 report['zlib'] = False
 
 compile_queue = None
@@ -453,11 +446,11 @@ class uConf(object):
 
         self.config.read(filename)
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
-            'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile',
-            'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/channels',
-            'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/writer',
+            'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile', 'core/async',
+            'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/spooler', 'core/snmp',
+            'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/reader', 'core/writer',
             'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash',
-            'core/queue', 'core/event', 'core/signal', 'core/cluster', 'core/strings',
+            'core/queue', 'core/event', 'core/signal', 'core/strings', 'core/progress',
             'core/rpc', 'core/gateway', 'core/loop', 'core/rb_timers', 'core/uwsgi']
         # add protocols
         self.gcc_list.append('proto/base')
@@ -778,17 +771,6 @@ class uConf(object):
                 self.ldflags.append('-dynamiclib')
                 self.ldflags.append('-undefined dynamic_lookup')
 
-        if self.get('embedded'):
-            self.cflags.append('-DUWSGI_EMBEDDED')
-
-        if self.get('udp'):
-            report['udp'] = True
-            self.cflags.append("-DUWSGI_UDP")
-
-        if self.get('ipv6'):
-            report['ipv6'] = True
-            self.cflags.append("-DUWSGI_IPV6")
-
         if self.get('blacklist'):
             self.cflags.append('-DUWSGI_BLACKLIST="\\"%s\\""' % self.get('blacklist'))
 
@@ -942,22 +924,6 @@ class uConf(object):
         self.cflags.append('-DUWSGI_VERSION_REVISION="' + uver_rev + '"')
         self.cflags.append('-DUWSGI_VERSION_CUSTOM="\\"' + uver_custom + '\\""')
 
-	
-
-        if self.get('async'):
-            self.cflags.append("-DUWSGI_ASYNC")
-            self.gcc_list.append('core/async')
-            report['async'] = True
-
-        if self.get('multicast'):
-            self.depends_on('multicast', ['udp'])
-            self.cflags.append("-DUWSGI_MULTICAST")
-            report['multicast'] = True
-
-        if self.get('minterpreters'):
-            self.cflags.append("-DUWSGI_MINTERPRETERS")
-            report['minterpreters'] = True
-
         if self.get('ini'):
             self.cflags.append("-DUWSGI_INI")
             self.gcc_list.append('core/ini')
@@ -1044,16 +1010,6 @@ class uConf(object):
                 self.libs.append('-lzmq')
                 report['zeromq'] = True
 
-        if self.get('snmp'):
-            self.depends_on("snmp", ['udp'])
-            self.cflags.append("-DUWSGI_SNMP")
-            self.gcc_list.append('core/snmp')
-            report['snmp'] = True
-
-        if self.get('threading'):
-            self.cflags.append("-DUWSGI_THREADING")
-            report['threading'] = True
-
         if self.get('xml'):
             if self.get('xml') == 'auto':
                 xmlconf = spcall('xml2-config --libs')
@@ -1108,12 +1064,6 @@ class uConf(object):
         if self.get('plugin_dir'):
             self.cflags.append('-DUWSGI_PLUGIN_DIR=\\"%s\\"' % self.get('plugin_dir'))
             report['plugin_dir'] = self.get('plugin_dir')
-
-        if self.get('spooler'):
-            self.depends_on("spooler", ['embedded'])
-            self.cflags.append("-DUWSGI_SPOOLER")
-            self.gcc_list.append('core/spooler')
-            report['spooler'] = True
 
         if self.get('debug'):
             self.cflags.append("-DUWSGI_DEBUG")
