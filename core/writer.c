@@ -260,8 +260,11 @@ sendfile:
 			if (can_close) close(fd);
 			return -1;
 		}
-                // callback based hook...
-                if (ret == UWSGI_AGAIN) return UWSGI_AGAIN;
+		if (ret == 0) {
+                        uwsgi_log("uwsgi_response_sendfile_do() TIMEOUT !!!\n");
+                        wsgi_req->write_errors++;
+                        return -1;
+                }	
         }
 
         wsgi_req->response_size += wsgi_req->write_pos;
