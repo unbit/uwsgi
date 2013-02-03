@@ -64,13 +64,9 @@ struct http_session {
 
 	int force_chunked;
 
-#ifdef UWSGI_SSL
 	int websockets;
-	char *origin;
-	uint16_t origin_len;
 	char *websocket_key;
 	uint16_t websocket_key_len;
-#endif
 
         size_t received_body;
 

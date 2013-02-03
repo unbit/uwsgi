@@ -1,4 +1,4 @@
-#!./uwsgi --https :8443,foobar.crt,foobar.key --http-raw-body --coroae 100 --psgi tests/websocket_echo.pl
+#!./uwsgi --plugins http,0:psgi,coroae --https :443,foobar.crt,foobar.key --http-websockets --coroae 40 --psgi tests/websockets_echo.pl
 
 my $app = sub {
 

@@ -8,6 +8,25 @@ MGVTBL uwsgi_coroae_vtbl = { 0,  0,  0,  0, 0 };
 
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req
 
+static void uwsgi_opt_setup_coroae(char *opt, char *value, void *null) {
+
+        // set async mode
+        uwsgi_opt_set_int(opt, value, &uwsgi.async);
+        if (uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] < 30) {
+                uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT] = 30;
+        }
+        // set loop engine
+        uwsgi.loop = "coroae";
+
+}
+
+
+static struct uwsgi_option coroae_options[] = {
+        {"coroae", required_argument, 0, "a shortcut enabling Coro::AnyEvent loop engine with the specified number of async cores and optimal parameters", uwsgi_opt_setup_coroae, NULL, 0},
+        {0, 0, 0, 0, 0, 0, 0},
+
+};
+
 static struct wsgi_request *coroae_current_wsgi_req(void) {
 	MAGIC *mg;
 	SV *current = CORO_CURRENT;
@@ -362,6 +381,6 @@ static void coroae_init() {
 
 struct uwsgi_plugin coroae_plugin = {
 	.name = "coroae",
-	//.options = coroae_options,
+	.options = coroae_options,
 	.on_load = coroae_init,
 };

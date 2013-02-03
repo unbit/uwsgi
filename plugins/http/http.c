@@ -38,9 +38,7 @@ struct uwsgi_option http_options[] = {
 #endif
 
 	{"http-raw-body", no_argument, 0, "blindly send HTTP body to backends (required for WebSockets and Icecast support in backends)", uwsgi_opt_true, &uhttp.raw_body, 0},
-#ifdef UWSGI_SSL
-	{"http-websockets", no_argument, 0, "automatically handshake websockets connections", uwsgi_opt_true, &uhttp.websockets, 0},
-#endif
+	{"http-websockets", no_argument, 0, "automatically detect websockets connections and put the session in raw mode", uwsgi_opt_true, &uhttp.websockets, 0},
 
 	{"http-use-code-string", required_argument, 0, "use code string as hostname->server mapper for the http router", uwsgi_opt_corerouter_cs, &uhttp, 0},
         {"http-use-socket", optional_argument, 0, "forward request to the specified uwsgi socket", uwsgi_opt_corerouter_use_socket, &uhttp, 0},
@@ -96,7 +94,6 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 		peer->key_len = vallen;
 	}
 
-#ifdef UWSGI_SSL
 	else if (hr->websockets) {
 		if (!uwsgi_strncmp("UPGRADE", 7, hh, keylen)) {
 			if (!uwsgi_strnicmp(val, vallen, "websocket", 9)) {
@@ -111,16 +108,11 @@ int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, uint16_t hhlen
 		else if (!uwsgi_strncmp("SEC_WEBSOCKET_VERSION", 21, hh, keylen)) {
 				hr->websockets++;
 		}
-		else if (!uwsgi_strncmp("ORIGIN", 6, hh, keylen)) {
-			hr->origin = val;
-			hr->origin_len = vallen;
-		}
 		else if (!uwsgi_strncmp("SEC_WEBSOCKET_KEY", 17, hh, keylen)) {
 			hr->websocket_key = val;
 			hr->websocket_key_len = vallen;
 		}
 	}	
-#endif
 
 	else if (!uwsgi_strncmp("CONTENT_LENGTH", 14, hh, keylen)) {
 		hr->content_length = uwsgi_str_num(val, vallen);
@@ -381,50 +373,6 @@ ssize_t hr_instance_write(struct corerouter_peer *peer) {
         return len;
 }
 
-#ifdef UWSGI_SSL
-// here we use the peer input buffer as the main_peer output
-int hr_websocket_handshake(struct corerouter_peer* peer) {
-	char sha1[20];
-	struct http_session *hr = (struct http_session *) peer->session;
-	if (uwsgi_buffer_append(peer->in, "HTTP/1.1 101 Web Socket Protocol Handshake\r\n", 44)) return -1;
-	if (uwsgi_buffer_append(peer->in, "Upgrade: WebSocket\r\n", 20)) return -1;
-	if (uwsgi_buffer_append(peer->in, "Connection: Upgrade\r\n", 21)) return -1;
-	if (uwsgi_buffer_append(peer->in, "Sec-WebSocket-Origin: ", 22)) return -1;
-	if (hr->origin_len > 0) {
-		if (uwsgi_buffer_append(peer->in, hr->origin, hr->origin_len)) return -1;
-	}
-	else {
-		if (uwsgi_buffer_append(peer->in, "*", 1)) return -1;
-	}
-	if (uwsgi_buffer_append(peer->in, "\r\nSec-WebSocket-Accept: ", 24)) return -1;
-	if (!uwsgi_sha1_2n(hr->websocket_key, hr->websocket_key_len, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36, sha1)) return -1;
-	if (uwsgi_buffer_append_base64(peer->in, sha1, 20)) return -1;
-	if (uwsgi_buffer_append(peer->in, "\r\n\r\n", 4)) return -1;
-
-	peer->session->main_peer->out = peer->in;
-	peer->session->main_peer->out_pos = 0;
-	return 0;
-}
-
-ssize_t hr_websocket_handshake_write(struct corerouter_peer *main_peer) {
-	struct http_session *hr = (struct http_session *) main_peer->session;
-	ssize_t len = cr_write(main_peer, "hr_websocket_handshake_write()");
-        // end on empty write
-        if (!len) return 0;
-
-        // ok handshake sent, let's write the uwsgi packet
-        if (cr_write_complete(main_peer)) {
-                // reset the original input buffer
-                main_peer->out->pos = 0;
-		// enable raw body
-		hr->raw_body = 1;
-		cr_write_to_backend(main_peer->session->peers, hr_instance_write);
-        }
-
-        return len;
-}
-#endif
-
 // write to the client
 ssize_t hr_write(struct corerouter_peer *main_peer) {
         ssize_t len = cr_write(main_peer, "hr_write()");
@@ -452,21 +400,11 @@ ssize_t hr_write(struct corerouter_peer *main_peer) {
 
 ssize_t hr_instance_connected(struct corerouter_peer* peer) {
 
-	struct http_session *hr = (struct http_session *) peer->session;
-	
 	cr_peer_connected(peer, "hr_instance_connected()");
 
 	// prepare for write
 	peer->out_pos = 0;
 
-#ifdef UWSGI_SSL
-	if (hr->websockets > 2 && hr->websocket_key_len > 0) {
-		// write websocket handshake
-		if (hr_websocket_handshake(peer)) return -1;
-		cr_write_to_main(peer, hr_websocket_handshake_write);
-		return 1;
-	}
-#endif
 	// change the write hook (we are already monitoring for write)
 	peer->hook_write = hr_instance_write;
 	// and directly call it (optimistic approach...)
@@ -712,6 +650,10 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				break;
         		}
 
+			if (hr->websockets > 2 && hr->websocket_key_len > 0) {
+				hr->raw_body = 1;
+			}
+
                 	cr_connect(new_peer, hr_instance_connected);
 			break;
 		}
@@ -791,12 +733,10 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 	if (uhttp.raw_body) {
 		hr->raw_body = 1;
 	}
-#ifdef UWSGI_SSL
-	// websockets ?
+
 	if (uhttp.websockets) {
-		hr->websockets = 1;
+		hr->websockets = 1;	
 	}
-#endif
 	hr->func_write = hr_write;
 
 	// be sure buffer does not grow over 64k
