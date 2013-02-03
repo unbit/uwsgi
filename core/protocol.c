@@ -810,8 +810,8 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 next:
 
 
-	// manage post buffering (if needed)
-	if (uwsgi.post_buffering > 0) {
+	// manage post buffering (if needed as post_file could be created before)
+	if (uwsgi.post_buffering > 0 && !wsgi_req->post_file) {
 		// read to disk if post_cl > post_buffering (it will eventually do upload progress...)
 		if (wsgi_req->post_cl >= uwsgi.post_buffering) {
 			if (uwsgi_postbuffer_do_in_disk(wsgi_req)) {
