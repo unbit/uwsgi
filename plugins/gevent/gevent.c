@@ -63,8 +63,8 @@ struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
 	PyObject *py_wsgi_req = PyObject_GetAttrString(current_greenlet, "uwsgi_wsgi_req");
 	// not in greenlet
 	if (!py_wsgi_req) {
-		PyErr_Clear();
-		return NULL;
+		uwsgi_log("[BUG] current_wsgi_req NOT FOUND !!!\n");
+		exit(1);
 	}
 	struct wsgi_request *wsgi_req = (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
 	Py_DECREF(py_wsgi_req);

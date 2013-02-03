@@ -4,7 +4,22 @@
 extern struct uwsgi_server uwsgi;
 extern struct uwsgi_perl uperl;
 
+MGVTBL uwsgi_coroae_vtbl = { 0,  0,  0,  0, 0 };
+
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req
+
+static struct wsgi_request *coroae_current_wsgi_req(void) {
+	MAGIC *mg;
+	SV *current = CORO_CURRENT;
+	for (mg = SvMAGIC (current); mg; mg = mg->mg_moremagic) {
+		if (mg->mg_type == PERL_MAGIC_ext + 1 && mg->mg_virtual == &uwsgi_coroae_vtbl) {
+        		return (struct wsgi_request *) mg->mg_ptr;
+		}
+	}	
+	uwsgi_log("[BUG] current_wsgi_req NOT FOUND !!!\n");
+	exit(1);
+}   
+
 
 SV * coroae_coro_new(CV *block) {
 	SV *newobj = NULL;
@@ -18,7 +33,7 @@ SV * coroae_coro_new(CV *block) {
         call_method("new", G_SCALAR);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
         else {
                 newobj = SvREFCNT_inc(POPs);
@@ -41,7 +56,7 @@ static int coroae_wait_fd_read(int fd, int timeout) {
         call_pv("Coro::AnyEvent::readable", G_SCALAR);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
 	else {
 		SV *p_ret = POPs;
@@ -68,7 +83,7 @@ static int coroae_wait_fd_write(int fd, int timeout) {
         call_pv("Coro::AnyEvent::writable", G_SCALAR);
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
 	else {
 		if (SvTRUE(POPs)) {
@@ -176,6 +191,7 @@ edge:
 	CV *async_xs_call = newXS(NULL, XS_coroae_accept_request, "uwsgi::coroae");
 	CvXSUBANY(async_xs_call).any_ptr = wsgi_req;
 	SV *coro_req = coroae_coro_new(async_xs_call);
+	sv_magicext(SvRV(coro_req), 0, PERL_MAGIC_ext + 1, &uwsgi_coroae_vtbl, (const char *)wsgi_req, 0);
 	CORO_READY(coro_req);
 
 	if (uwsgi_sock->edge_trigger) {
@@ -221,8 +237,9 @@ static SV *coroae_add_watcher(int fd, SV *cb) {
 
         SPAGAIN;
 	if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
-		newobj = NULL;
+		// no need to continue...
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
+		exit(1);
         }
 	else {
         	newobj = SvREFCNT_inc(POPs);
@@ -251,7 +268,7 @@ static SV *coroae_condvar_new() {
 
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
                 newobj = NULL;
         }
         else {
@@ -277,7 +294,7 @@ static void coroae_wait_condvar(SV *cv) {
 
         SPAGAIN;
         if(SvTRUE(ERRSV)) {
-                uwsgi_log("[uwsgi-perl error] %s\n", SvPV_nolen(ERRSV));
+                uwsgi_log("[uwsgi-perl error] %s", SvPV_nolen(ERRSV));
         }
         PUTBACK;
         FREETMPS;
@@ -294,7 +311,7 @@ static void coroae_loop() {
                 exit(1);
 	}
 
-	if (!uperl.psgi) {
+	if (!uperl.loaded) {
 		uwsgi_log("no perl/PSGI code loaded (with --psgi), unable to initialize Coro::AnyEvent\n");
 		exit(1);
 	}
@@ -315,6 +332,7 @@ static void coroae_loop() {
 		exit(1);
 	}
 	
+	uwsgi.current_wsgi_req = coroae_current_wsgi_req;
 	uwsgi.wait_write_hook = coroae_wait_fd_write;
         uwsgi.wait_read_hook = coroae_wait_fd_read;
 

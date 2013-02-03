@@ -300,6 +300,72 @@ XS(XS_i_am_the_lord) {
 
 #endif
 
+XS(XS_websocket_handshake) {
+
+	dXSARGS;
+
+        char *key = NULL;
+	STRLEN key_len = 0;
+
+        char *origin = NULL;
+	STRLEN origin_len = 0;
+
+	psgi_check_args(1);
+	
+	key = SvPV(ST(0), key_len);
+
+	if (items > 1) {
+		origin = SvPV(ST(0), origin_len);
+	}
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len)) {
+                croak("unable to complete websocket handshake");
+	}
+
+	XSRETURN_UNDEF;
+}
+
+XS(XS_websocket_send) {
+	dXSARGS;
+
+        char *message = NULL;
+        STRLEN message_len = 0;
+
+	psgi_check_args(1);
+
+	message = SvPV(ST(0), message_len);
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+        if (uwsgi_websocket_send(wsgi_req, message, message_len)) {
+                croak("unable to send websocket message");
+        }
+
+	XSRETURN_UNDEF;
+}
+
+XS(XS_websocket_recv) {
+	dXSARGS;
+
+	psgi_check_args(0);
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
+        if (!ub) {
+        	croak("unable to receive websocket message");
+		XSRETURN_UNDEF;
+        }
+
+	ST(0) = newSVpv(ub->buf, ub->pos);
+	uwsgi_buffer_destroy(ub);
+        sv_2mortal(ST(0));
+
+        XSRETURN(1);
+}
+
+
+
 void init_perl_embedded_module() {
 	psgi_xs(reload);
 	psgi_xs(cache_set);
@@ -317,6 +383,9 @@ void init_perl_embedded_module() {
 #ifdef UWSGI_SSL
 	psgi_xs(i_am_the_lord);
 #endif
+	psgi_xs(websocket_handshake);
+	psgi_xs(websocket_recv);
+	psgi_xs(websocket_send);
 	psgi_xs(postfork);
 	psgi_xs(atexit);
 }

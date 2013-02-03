@@ -45,6 +45,8 @@ struct uwsgi_perl {
 	
 	SV *postfork;
 	SV *atexit;
+
+	int loaded;
 };
 
 void init_perl_embedded_module(void);

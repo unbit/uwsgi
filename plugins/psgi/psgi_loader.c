@@ -437,6 +437,8 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 		PERL_SET_CONTEXT(uperl.main[0]);
 	}
 
+	uperl.loaded = 1;
+
 	return id;
 
 clear:
