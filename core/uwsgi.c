@@ -1882,6 +1882,9 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.log_master)
 		uwsgi_setup_log_master();
 
+	// setup offload engines
+	uwsgi_offload_engines_register_all();
+
 	// setup main loops
 	uwsgi_register_loop("simple", simple_loop);
 	uwsgi_register_loop("async", async_loop);

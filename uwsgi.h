@@ -1413,34 +1413,36 @@ extern "C" {
 #define UWSGI_PROTO_MIN_CHECK 4
 #define UWSGI_PROTO_MAX_CHECK 23
 
-	struct uwsgi_server {
+struct uwsgi_offload_engine;
+
+struct uwsgi_server {
 
 
-		// store the machine hostname
-		char hostname[256];
-		int hostname_len;
+	// store the machine hostname
+	char hostname[256];
+	int hostname_len;
 
-		int (*proto_hooks[UWSGI_PROTO_MAX_CHECK]) (struct wsgi_request *, char *, char *, uint16_t);
+	int (*proto_hooks[UWSGI_PROTO_MAX_CHECK]) (struct wsgi_request *, char *, char *, uint16_t);
 
-		char **orig_argv;
-		char **argv;
-		int argc;
-		int max_procname;
-		int auto_procname;
-		char **environ;
-		char *procname_prefix;
-		char *procname_append;
-		char *procname_master;
-		char *procname;
+	char **orig_argv;
+	char **argv;
+	int argc;
+	int max_procname;
+	int auto_procname;
+	char **environ;
+	char *procname_prefix;
+	char *procname_append;
+	char *procname_master;
+	char *procname;
 
-		char *requested_clock;
-		struct uwsgi_clock *clocks;
-		struct uwsgi_clock *clock;
+	char *requested_clock;
+	struct uwsgi_clock *clocks;
+	struct uwsgi_clock *clock;
 
-		char *empty;
+	char *empty;
 
-		// quiet startup
-		int no_initial_output;
+	// quiet startup
+	int no_initial_output;
 
 		struct uwsgi_string_list *get_list;
 
@@ -1784,6 +1786,9 @@ extern "C" {
 		struct uwsgi_regexp_list *static_gzip;
 #endif
 
+		struct uwsgi_offload_engine *offload_engines;
+		struct uwsgi_offload_engine *offload_engine_sendfile;
+		struct uwsgi_offload_engine *offload_engine_transfer;
 		int offload_threads;
 		int offload_threads_events;
 		struct uwsgi_thread **offload_thread;
@@ -3561,62 +3566,88 @@ void uwsgi_register_embedded_alarms();
 void uwsgi_alarms_init();
 #endif
 
-	struct uwsgi_thread {
-		pthread_t tid;
-		pthread_attr_t tattr;
-		int pipe[2];
-		int queue;
-		ssize_t rlen;
-		void *data;
-		char *buf;
-		off_t pos;
-		size_t len;
-		uint64_t custom0;
-		uint64_t custom1;
-		uint64_t custom2;
-		uint64_t custom3;
-		// linked list for offloaded requests
-		struct uwsgi_offload_request *offload_requests_head;
-		struct uwsgi_offload_request *offload_requests_tail;
-		void (*func) (struct uwsgi_thread *);
-	};
-	struct uwsgi_thread *uwsgi_thread_new(void (*)(struct uwsgi_thread *));
+struct uwsgi_thread {
+	pthread_t tid;
+	pthread_attr_t tattr;
+	int pipe[2];
+	int queue;
+	ssize_t rlen;
+	void *data;
+	char *buf;
+	off_t pos;
+	size_t len;
+	uint64_t custom0;
+	uint64_t custom1;
+	uint64_t custom2;
+	uint64_t custom3;
+	// linked list for offloaded requests
+	struct uwsgi_offload_request *offload_requests_head;
+	struct uwsgi_offload_request *offload_requests_tail;
+	void (*func) (struct uwsgi_thread *);
+};
+struct uwsgi_thread *uwsgi_thread_new(void (*)(struct uwsgi_thread *));
 
-	struct uwsgi_offload_request {
-		// the request socket
-		int s;
-		// the peer
-		int fd;
+struct uwsgi_offload_request {
+	// the request socket
+	int s;
+	// the peer
+	int fd;
+	int fd2;
 
-		// internal state
-		int status;
+	// if set the current request is expected to end leaving
+	// the offload thread do its job
+	uint8_t takeover;
 
-		off_t pos;
-		char *buf;
-		off_t buf_pos;
+	// internal state
+	int status;
 
-		size_t to_write;
-		size_t len;
-		size_t written;
+	// a filename, a socket...
+	char *name;
 
-		// a uwsgi_buffer (will be destroyed at the end of the task)
-		struct uwsgi_buffer *ubuf;
+	off_t pos;
+	char *buf;
+	off_t buf_pos;
 
-		int (*func) (struct uwsgi_thread *, struct uwsgi_offload_request *, int);
+	size_t to_write;
+	size_t len;
+	size_t written;
 
-		struct uwsgi_offload_request *prev;
-		struct uwsgi_offload_request *next;
-	};
+	// a uwsgi_buffer (will be destroyed at the end of the task)
+	struct uwsgi_buffer *ubuf;
 
-	struct uwsgi_thread *uwsgi_offload_thread_start(void);
-	int uwsgi_offload_request_sendfile_do(struct wsgi_request *, char *, int, size_t);
-	int uwsgi_offload_request_net_do(struct wsgi_request *, char *, struct uwsgi_buffer *);
+	struct uwsgi_offload_engine *engine;
 
-	void uwsgi_subscription_set_algo(char *);
-	struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht(void);
+	// this pipe is used for notifications
+	int pipe[2];
 
-	int uwsgi_check_pidfile(char *);
-	void uwsgi_daemons_spawn_all();
+	struct uwsgi_offload_request *prev;
+	struct uwsgi_offload_request *next;
+};
+
+struct uwsgi_offload_engine {
+	char *name;
+	int (*prepare_func)(struct wsgi_request *, struct uwsgi_offload_request *);
+	int (*event_func) (struct uwsgi_thread *, struct uwsgi_offload_request *, int);
+	struct uwsgi_offload_engine *next;	
+};
+
+struct uwsgi_offload_engine *uwsgi_offload_engine_by_name(char *);
+struct uwsgi_offload_engine *uwsgi_offload_register_engine(char *, int (*)(struct wsgi_request *, struct uwsgi_offload_request *), int (*) (struct uwsgi_thread *, struct uwsgi_offload_request *, int));
+
+void uwsgi_offload_setup(struct uwsgi_offload_engine *, struct uwsgi_offload_request *, struct wsgi_request *, uint8_t);
+int uwsgi_offload_run(struct wsgi_request *, struct uwsgi_offload_request *, int *);
+void uwsgi_offload_engines_register_all(void);
+
+struct uwsgi_thread *uwsgi_offload_thread_start(void);
+int uwsgi_offload_request_sendfile_do(struct wsgi_request *, int, size_t);
+int uwsgi_offload_request_net_do(struct wsgi_request *, char *, struct uwsgi_buffer *);
+
+
+void uwsgi_subscription_set_algo(char *);
+struct uwsgi_subscribe_slot **uwsgi_subscription_init_ht(void);
+
+int uwsgi_check_pidfile(char *);
+void uwsgi_daemons_spawn_all();
 
 	int uwsgi_daemon_check_pid_death(pid_t);
 	int uwsgi_daemon_check_pid_reload(pid_t);

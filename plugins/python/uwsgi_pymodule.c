@@ -692,7 +692,8 @@ PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 
 }
 
-PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
+PyObject *py_uwsgi_offload(PyObject * self, PyObject * args) {
+/*
 	size_t len = 0;
 	char *filename = NULL;
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -721,6 +722,8 @@ PyObject *py_uwsgi_offload_transfer(PyObject * self, PyObject * args) {
 		return PyErr_Format(PyExc_ValueError, "unable to offload the request");
 	}
 	UWSGI_GET_GIL
+
+*/
 
 	return PyString_FromString("");
 }
@@ -2464,7 +2467,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"rpc_list", py_uwsgi_rpc_list, METH_VARARGS, ""},
 	{"call", py_uwsgi_call, METH_VARARGS, ""},
 	{"sendfile", py_uwsgi_advanced_sendfile, METH_VARARGS, ""},
-	{"offload_transfer", py_uwsgi_offload_transfer, METH_VARARGS, ""},
+	{"offload", py_uwsgi_offload, METH_VARARGS, ""},
 	{"set_warning_message", py_uwsgi_warning, METH_VARARGS, ""},
 	{"mem", py_uwsgi_mem, METH_VARARGS, ""},
 	{"has_hook", py_uwsgi_has_hook, METH_VARARGS, ""},
