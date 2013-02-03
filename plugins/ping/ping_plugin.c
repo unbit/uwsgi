@@ -77,14 +77,14 @@ int uwsgi_request_ping(struct wsgi_request *wsgi_req) {
 		// TODO: check endianess ?
 		wsgi_req->uh->pktsize = len;
 	}
-	if (write(wsgi_req->fd, wsgi_req, 4) != 4) {
-		uwsgi_error("write()");
+
+	if (uwsgi_response_write_body_do(wsgi_req, (char *) wsgi_req->uh, 4)) {
+		return -1;
 	}
 
 	if (len > 0) {
-		if (write(wsgi_req->fd, uwsgi.shared->warning_message, len)
-				!= len) {
-			uwsgi_error("write()");
+		if (uwsgi_response_write_body_do(wsgi_req, uwsgi.shared->warning_message, len)) {
+			return -1;
 		}
 	}
 
