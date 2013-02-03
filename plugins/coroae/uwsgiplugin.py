@@ -1,4 +1,5 @@
 import os
+import sys
 
 coroapi = None
 
@@ -9,11 +10,11 @@ for p in search_paths:
 
 if not coroapi:
     print "unable to find the Coro perl module !!!"
-    os.exit(1)
+    sys.exit(1)
 
 NAME='coroae'
 CFLAGS = os.popen('perl -MExtUtils::Embed -e ccopts').read().rstrip().split()
-CFLAGS += ['-I%s/Coro' % coroapi]
+CFLAGS += ['-Wno-int-to-pointer-cast', '-Wno-error=int-to-pointer-cast', '-I%s/Coro' % coroapi]
 LDFLAGS = []
 LIBS = []
 

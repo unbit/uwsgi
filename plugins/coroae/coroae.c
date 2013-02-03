@@ -2,6 +2,7 @@
 #include "CoroAPI.h"
 
 extern struct uwsgi_server uwsgi;
+extern struct uwsgi_perl uperl;
 
 #define free_req_queue uwsgi.async_queue_unused_ptr++; uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = wsgi_req
 
@@ -55,7 +56,7 @@ static int coroae_wait_fd_read(int fd, int timeout) {
 	return ret;
 }
 
-int coroae_wait_fd_write(int fd, int timeout) {
+static int coroae_wait_fd_write(int fd, int timeout) {
 	int ret = 0;
         dSP;
         ENTER;
@@ -99,7 +100,7 @@ XS(XS_coroae_accept_request) {
         }
 
 	for(;;) {
-		int ret = coroae_wait_fd_read(wsgi_req->poll.fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		int ret = coroae_wait_fd_read(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		wsgi_req->switches++;
 	
 		if (!ret) {
@@ -118,7 +119,7 @@ XS(XS_coroae_accept_request) {
 request:
 
         for(;;) {
-                wsgi_req->async_status = uwsgi.p[wsgi_req->uh.modifier1]->request(wsgi_req);
+                wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
                 if (wsgi_req->async_status <= UWSGI_OK) {
                         goto end;
                 }
@@ -170,11 +171,6 @@ edge:
                 }
                 goto clear;
         }
-
-// on linux we need to set the socket in non-blocking as it is not inherited
-#ifdef __linux__
-        uwsgi_socket_nb(wsgi_req->poll.fd);
-#endif
 
 	// here we spawn an async {} block
 	CV *async_xs_call = newXS(NULL, XS_coroae_accept_request, "uwsgi::coroae");
@@ -298,6 +294,11 @@ static void coroae_loop() {
                 exit(1);
 	}
 
+	if (!uperl.psgi) {
+		uwsgi_log("no perl/PSGI code loaded (with --psgi), unable to initialize Coro::AnyEvent\n");
+		exit(1);
+	}
+
 	perl_eval_pv("use Coro;", 0);
         if (SvTRUE(ERRSV)) {
 		uwsgi_log("unable to load Coro module\n");
@@ -313,19 +314,20 @@ static void coroae_loop() {
 		uwsgi_log("unable to load Coro::AnyEvent module\n");
 		exit(1);
 	}
+	
+	uwsgi.wait_write_hook = coroae_wait_fd_write;
+        uwsgi.wait_read_hook = coroae_wait_fd_read;
 
 	I_CORO_API("uwsgi::coroae");
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
-		uwsgi_log("sock = %p\n", uwsgi_sock);
 		// check return value here
 		coroae_add_watcher(uwsgi_sock->fd, (SV *) coroae_closure_acceptor(uwsgi_sock));
 		uwsgi_sock = uwsgi_sock->next;
 	};
 
 	SV *condvar = coroae_condvar_new();
-	uwsgi_log("condvar = %p\n", condvar);
 	coroae_wait_condvar(condvar);
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
