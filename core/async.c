@@ -169,7 +169,16 @@ void async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 	}
 	uwsgi.async_waiting_fd_table[fd] = wsgi_req;
 	event_queue_add_fd_read(uwsgi.async_queue, fd);
+}
 
+static int async_wait_fd_read(int fd, int timeout) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	async_add_fd_read(wsgi_req, fd, timeout);
+	if (uwsgi.schedule_to_main) {
+		uwsgi.schedule_to_main(wsgi_req);
+	}
+	if (wsgi_req->async_timed_out) return 0;
+	return 1;
 }
 
 void async_add_timeout(struct wsgi_request *wsgi_req, int timeout) {
@@ -215,6 +224,16 @@ void async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
 }
 
+static int async_wait_fd_write(int fd, int timeout) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	async_add_fd_write(wsgi_req, fd, timeout);
+	if (uwsgi.schedule_to_main) {
+		uwsgi.schedule_to_main(wsgi_req);
+	}
+	if (wsgi_req->async_timed_out) return 0;
+	return 1;
+}
+
 void async_schedule_to_req(void) {
 	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
 }
@@ -243,6 +262,9 @@ void async_loop() {
 	uwsgi.async_runqueue = NULL;
 	uwsgi.async_runqueue_cnt = 0;
 
+	uwsgi.wait_write_hook = async_wait_fd_write;
+        uwsgi.wait_read_hook = async_wait_fd_read;
+
 	if (uwsgi.signal_socket > -1) {
 		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.signal_socket);
 		event_queue_add_fd_read(uwsgi.async_queue, uwsgi.my_signal_socket);
@@ -251,6 +273,10 @@ void async_loop() {
 	// set a default request manager
 	if (!uwsgi.schedule_to_req)
 		uwsgi.schedule_to_req = async_schedule_to_req;
+
+	if (!uwsgi.schedule_to_main) {
+		uwsgi_log("*** WARNING *** async mode without coroutine/greenthread engine loaded !!!\n");
+	}
 
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 

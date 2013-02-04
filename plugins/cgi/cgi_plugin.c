@@ -404,8 +404,8 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 	char *script_name = NULL;
 
 	/* Standard CGI request */
-	if (!wsgi_req->uh.pktsize) {
-		uwsgi_log("Invalid CGI request. skip.\n");
+	if (!wsgi_req->uh->pktsize) {
+		uwsgi_log("Empty CGI request. skip.\n");
 		return -1;
 	}
 
@@ -558,17 +558,13 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		return UWSGI_OK;
 	}
 
-	int send_post_data = 0;
-	if (uwsgi.post_buffering > 0 && wsgi_req->post_cl && !wsgi_req->async_post) {
-		send_post_data = 1;
-		if (pipe(post_pipe)) {
-			if (need_free)
-				free(docroot);
-			close(cgi_pipe[0]);
-			close(cgi_pipe[1]);
-			uwsgi_error("pipe()");
-			return UWSGI_OK;
-		}
+	if (pipe(post_pipe)) {
+		if (need_free)
+			free(docroot);
+		close(cgi_pipe[0]);
+		close(cgi_pipe[1]);
+		uwsgi_error("pipe()");
+		return UWSGI_OK;
 	}
 
 	cgi_pid = fork();
@@ -579,10 +575,8 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 			free(docroot);
 		close(cgi_pipe[0]);
 		close(cgi_pipe[1]);
-		if (send_post_data) {
-			close(post_pipe[0]);
-			close(post_pipe[1]);
-		}
+		close(post_pipe[0]);
+		close(post_pipe[1]);
 		return UWSGI_OK;
 	}
 
@@ -592,23 +586,48 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 			free(docroot);
 
 		close(cgi_pipe[1]);
+		close(post_pipe[0]);
 
-		if (send_post_data) {
-			close(post_pipe[0]);
-			if (write(post_pipe[1], wsgi_req->post_buffering_buf, wsgi_req->post_cl) != (ssize_t) wsgi_req->post_cl) {
-				uwsgi_error("write()");
+		// ok start sending post data...
+		size_t remains = wsgi_req->post_cl;
+		while(remains > 0) {
+			ssize_t rlen = 0;
+			// 8192 is a good value for pipes
+        		char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+			if (buf == uwsgi.empty) break;
+			if (buf) {
+				remains -= rlen;
+			}
+			else {
 				close(post_pipe[1]);
 				goto clear2;			
 			}
-			close(post_pipe[1]);
+
+			// start writing to the subprocess stdin
+			while(rlen > 0) {
+				int ret = uwsgi.wait_write_hook(post_pipe[1], uc.timeout);
+				if (ret <= 0) {
+					close(post_pipe[1]);
+					goto clear2;			
+				}
+				ssize_t wlen = write(post_pipe[1], buf, rlen);
+				if (wlen <= 0) {
+					uwsgi_error("cgi_post_pipe_write()/write()");
+					close(post_pipe[1]);
+					goto clear2;			
+				}
+				rlen -= wlen;
+			}
 		}
+
+		close(post_pipe[1]);
 		// wait for data
 		char *headers_buf = uwsgi_malloc(uc.buffer_size);
 		char *ptr = headers_buf;
-		size_t remains = uc.buffer_size;
+		remains = uc.buffer_size;
 		int completed = 0;
 		while(remains > 0) {
-			int ret = uwsgi_waitfd(cgi_pipe[0], uc.timeout);
+			int ret = uwsgi.wait_read_hook(cgi_pipe[0], uc.timeout);
 			if (ret > 0) {
 				len = read(cgi_pipe[0], ptr, remains);
 				if (len > 0) {
@@ -638,7 +657,7 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		}
 
 		while (!completed) {
-			int ret = uwsgi_waitfd(cgi_pipe[0], uc.timeout);
+			int ret = uwsgi.wait_read_hook(cgi_pipe[0], uc.timeout);
 			if (ret > 0) {
 				len = read(cgi_pipe[0], headers_buf, uc.buffer_size);
 				if (len > 0) {
@@ -665,6 +684,7 @@ clear:
 		free(headers_buf);
 clear2:
 		close(cgi_pipe[0]);
+		close(post_pipe[1]);
 
 		// now wait for process exit/death
 		if (waitpid(cgi_pid, &waitpid_status, 0) < 0) {
@@ -677,37 +697,23 @@ clear2:
 	// close all the fd except wsgi_req->poll.fd and 2;
 
 	for(i=0;i< (int)uwsgi.max_fd;i++) {
-		if (send_post_data) {
-			if (post_pipe[0] == i) {
+		if (post_pipe[0] == i) {
+			continue;
+		}
+		if (wsgi_req->post_file) {
+			if (fileno(wsgi_req->post_file) == i) {
 				continue;
 			}
 		}
-		if (wsgi_req->async_post) {
-			if (fileno((FILE*)wsgi_req->async_post) == i) {
-				continue;
-			}
-		}
-		if (i != wsgi_req->poll.fd && i != 2 && i != cgi_pipe[1]) {
+		if (i != wsgi_req->fd && i != 2 && i != cgi_pipe[1]) {
 			close(i);
 		}
 	}
 
 	// now map wsgi_req->poll.fd (or async_post) to 0 & cgi_pipe[1] to 1
-	if (send_post_data) {
-		if (post_pipe[0] != 0) {
-			dup2(post_pipe[0], 0);
-			close(post_pipe[0]);
-		}
-	}
-	else if (wsgi_req->async_post) {
-		if (fileno((FILE*)wsgi_req->async_post) != 0) {
-			dup2(fileno((FILE*)wsgi_req->async_post), 0);
-			fclose(wsgi_req->async_post);
-		}
-	}
-	else if (wsgi_req->poll.fd != 0) {
-		dup2(wsgi_req->poll.fd, 0);
-		close(wsgi_req->poll.fd);
+	if (post_pipe[0] != 0) {
+		dup2(post_pipe[0], 0);
+		close(post_pipe[0]);
 	}
 
 #ifdef UWSGI_DEBUG
