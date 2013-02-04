@@ -7,15 +7,14 @@ struct ufib {
 	VALUE *fib;
 } ufiber;
 
-VALUE uwsgi_fiber_request() {
 
+VALUE uwsgi_fiber_request() {
 	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
 	uwsgi.wsgi_req->suspended = 0;
-
 	return Qnil;
 }
 
-static inline void fiber_schedule_to_req() {
+static void fiber_schedule_to_req() {
 
 	int id = uwsgi.wsgi_req->async_id;
 
@@ -33,7 +32,7 @@ static inline void fiber_schedule_to_req() {
 
 }
 
-static inline void fiber_schedule_to_main(struct wsgi_request *wsgi_req) {
+static void fiber_schedule_to_main(struct wsgi_request *wsgi_req) {
 
 	rb_fiber_yield(0, NULL);
 	uwsgi.wsgi_req = wsgi_req;
@@ -45,7 +44,7 @@ VALUE protected_async_loop() {
 	return Qnil;
 }
 
-void fiber_loop() {
+static void fiber_loop() {
 
         int error = 0;
 
@@ -66,7 +65,7 @@ void fiber_loop() {
         // never here
 }
 
-int fiber_init() {
+static int fiber_init() {
 	uwsgi_register_loop( (char *) "fiber", fiber_loop);
 	return 0;
 }
