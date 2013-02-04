@@ -17,6 +17,7 @@ struct uwsgi_alarm_curl_opt {
 };
 
 
+#ifdef CURLOPT_MAIL_RCPT
 static void uwsgi_alarm_curl_to(CURL *curl, CURLoption option, char *arg, struct uwsgi_alarm_curl_config *uacc) {
 	uacc->to = arg;
 	struct curl_slist *list = NULL;
@@ -29,6 +30,7 @@ static void uwsgi_alarm_curl_to(CURL *curl, CURLoption option, char *arg, struct
 	}
 	curl_easy_setopt(curl, option, list);
 }
+#endif
 
 static void uwsgi_alarm_curl_ssl(CURL *curl, CURLoption option, char *arg, struct uwsgi_alarm_curl_config *uacc) {
 	curl_easy_setopt(curl, option, (long)CURLUSESSL_ALL);
@@ -44,8 +46,12 @@ static void uwsgi_alarm_curl_set_subject(CURL *curl, CURLoption option, char *ar
 
 static struct uwsgi_alarm_curl_opt uaco[] = {
 	{"url", CURLOPT_URL, NULL},
+#ifdef CURLOPT_MAIL_RCPT
 	{"mail_to", CURLOPT_MAIL_RCPT, uwsgi_alarm_curl_to },
+#endif
+#ifdef CURLOPT_MAIL_FROM
 	{"mail_from", CURLOPT_MAIL_FROM, NULL},
+#endif
 	{"subject", 0, uwsgi_alarm_curl_set_subject},
 	{"ssl", CURLOPT_USE_SSL, uwsgi_alarm_curl_ssl},
 	{"auth_user", CURLOPT_USERNAME, NULL},
