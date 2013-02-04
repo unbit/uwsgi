@@ -9,7 +9,7 @@ struct ufib {
 
 VALUE uwsgi_fiber_request() {
 
-	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);
+	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
 	uwsgi.wsgi_req->suspended = 0;
 
 	return Qnil;

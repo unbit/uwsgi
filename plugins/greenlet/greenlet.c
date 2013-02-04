@@ -17,7 +17,7 @@ struct uwsgi_option greenlet_options[] = {
 
 PyObject *py_uwsgi_greenlet_request(PyObject * self, PyObject *args) {
 
-	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh.modifier1]->request(uwsgi.wsgi_req);
+	uwsgi.wsgi_req->async_status = uwsgi.p[uwsgi.wsgi_req->uh->modifier1]->request(uwsgi.wsgi_req);
 	uwsgi.wsgi_req->suspended = 0;
 
 	Py_DECREF(ugl.gl[uwsgi.wsgi_req->async_id]);

@@ -506,8 +506,8 @@ VALUE uwsgi_ruby_wait_fd_read(VALUE *class, VALUE arg1, VALUE arg2) {
         int fd = NUM2INT(arg1);
         int timeout = NUM2INT(arg2);
 
-        if (fd >= 0) {
-                async_add_fd_read(wsgi_req, fd, timeout);
+        if (async_add_fd_read(wsgi_req, fd, timeout)) {
+		rb_raise(rb_eRuntimeError, "unable to add fd %d to the event queue", fd);
         }
 
         return Qtrue;
@@ -523,8 +523,8 @@ VALUE uwsgi_ruby_wait_fd_write(VALUE *class, VALUE arg1, VALUE arg2) {
         int fd = NUM2INT(arg1);
         int timeout = NUM2INT(arg2);
 
-        if (fd >= 0) {
-                async_add_fd_write(wsgi_req, fd, timeout);
+        if (async_add_fd_write(wsgi_req, fd, timeout)) {
+		rb_raise(rb_eRuntimeError, "unable to add fd %d to the event queue", fd);
         }
 
         return Qtrue;

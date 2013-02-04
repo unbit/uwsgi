@@ -138,12 +138,12 @@ void async_expire_timeouts() {
 
 }
 
-void async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
+int async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
 	struct uwsgi_async_fd *last_uad = NULL, *uad = wsgi_req->waiting_fds;
 
 	if (fd < 0)
-		return;
+		return -1;
 
 	// find first slot
 	while (uad) {
@@ -168,12 +168,15 @@ void async_add_fd_read(struct wsgi_request *wsgi_req, int fd, int timeout) {
 		async_add_timeout(wsgi_req, timeout);
 	}
 	uwsgi.async_waiting_fd_table[fd] = wsgi_req;
-	event_queue_add_fd_read(uwsgi.async_queue, fd);
+	wsgi_req->async_force_again = 1;
+	return event_queue_add_fd_read(uwsgi.async_queue, fd);
 }
 
 static int async_wait_fd_read(int fd, int timeout) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	async_add_fd_read(wsgi_req, fd, timeout);
+	if (async_add_fd_read(wsgi_req, fd, timeout)) {
+		return -1;
+	}
 	if (uwsgi.schedule_to_main) {
 		uwsgi.schedule_to_main(wsgi_req);
 	}
@@ -189,12 +192,12 @@ void async_add_timeout(struct wsgi_request *wsgi_req, int timeout) {
 
 }
 
-void async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
+int async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 
 	struct uwsgi_async_fd *last_uad = NULL, *uad = wsgi_req->waiting_fds;
 
 	if (fd < 0)
-		return;
+		return -1;
 
 	// find first slot
 	while (uad) {
@@ -220,13 +223,15 @@ void async_add_fd_write(struct wsgi_request *wsgi_req, int fd, int timeout) {
 	}
 
 	uwsgi.async_waiting_fd_table[fd] = wsgi_req;
-	event_queue_add_fd_write(uwsgi.async_queue, fd);
-
+	wsgi_req->async_force_again = 1;
+	return event_queue_add_fd_write(uwsgi.async_queue, fd);
 }
 
 static int async_wait_fd_write(int fd, int timeout) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	async_add_fd_write(wsgi_req, fd, timeout);
+	if (async_add_fd_write(wsgi_req, fd, timeout)) {
+		return -1;
+	}
 	if (uwsgi.schedule_to_main) {
 		uwsgi.schedule_to_main(wsgi_req);
 	}

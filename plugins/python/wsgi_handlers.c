@@ -217,8 +217,8 @@ PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if (fd >= 0) {
-		async_add_fd_read(wsgi_req, fd, timeout);
+	if (async_add_fd_read(wsgi_req, fd, timeout)) {
+		return PyErr_Format(PyExc_IOError, "unable to fd %d to the event queue", fd);
 	}
 
 	return PyString_FromString("");
@@ -234,8 +234,8 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 		return NULL;
 	}
 
-	if (fd >= 0) {
-		async_add_fd_write(wsgi_req, fd, timeout);
+	if (async_add_fd_write(wsgi_req, fd, timeout)) {
+		return PyErr_Format(PyExc_IOError, "unable to fd %d to the event queue", fd);
 	}
 
 	return PyString_FromString("");

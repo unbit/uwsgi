@@ -40,11 +40,9 @@ XS(XS_wait_fd_read) {
 		timeout = SvIV(ST(1));
 	} 
 
-        if (fd >= 0) {
-                async_add_fd_read(wsgi_req, fd, timeout);
-        }
-
-	wsgi_req->async_force_again = 1;
+        if (async_add_fd_read(wsgi_req, fd, timeout)) {
+		croak("unable to add fd %d to the event queue", fd);
+	}
 
 	XSRETURN_UNDEF;
 }
@@ -64,8 +62,8 @@ XS(XS_wait_fd_write) {
                 timeout = SvIV(ST(1));
         }
 
-        if (fd >= 0) {
-                async_add_fd_write(wsgi_req, fd, timeout);
+        if (async_add_fd_write(wsgi_req, fd, timeout)) {
+		croak("unable to add fd %d to the event queue", fd);
         }
 
 	wsgi_req->async_force_again = 1;

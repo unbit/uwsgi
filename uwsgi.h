@@ -2486,8 +2486,8 @@ struct wsgi_request *find_first_accepting_wsgi_req(void);
 struct wsgi_request *find_wsgi_req_by_fd(int);
 struct wsgi_request *find_wsgi_req_by_id(int);
 
-void async_add_fd_write(struct wsgi_request *, int, int);
-void async_add_fd_read(struct wsgi_request *, int, int);
+int async_add_fd_write(struct wsgi_request *, int, int);
+int async_add_fd_read(struct wsgi_request *, int, int);
 
 struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 
