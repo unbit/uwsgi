@@ -33,7 +33,7 @@ struct wsgi_request *find_wsgi_req_by_fd(int fd) {
 	return uwsgi.async_waiting_fd_table[fd];
 }
 
-void runqueue_remove(struct uwsgi_async_request *u_request) {
+static void runqueue_remove(struct uwsgi_async_request *u_request) {
 
 	struct uwsgi_async_request *parent = u_request->prev;
 	struct uwsgi_async_request *child = u_request->next;
@@ -58,7 +58,7 @@ void runqueue_remove(struct uwsgi_async_request *u_request) {
 	uwsgi.async_runqueue_cnt--;
 }
 
-void runqueue_push(struct wsgi_request *wsgi_req) {
+static void runqueue_push(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_async_request *uar;
 
@@ -180,7 +180,10 @@ static int async_wait_fd_read(int fd, int timeout) {
 	if (uwsgi.schedule_to_main) {
 		uwsgi.schedule_to_main(wsgi_req);
 	}
-	if (wsgi_req->async_timed_out) return 0;
+	if (wsgi_req->async_timed_out) {
+		wsgi_req->async_timed_out = 0;
+		return 0;
+	}
 	return 1;
 }
 
@@ -235,7 +238,10 @@ static int async_wait_fd_write(int fd, int timeout) {
 	if (uwsgi.schedule_to_main) {
 		uwsgi.schedule_to_main(wsgi_req);
 	}
-	if (wsgi_req->async_timed_out) return 0;
+	if (wsgi_req->async_timed_out) {
+		wsgi_req->async_timed_out = 0;
+		return 0;
+	}
 	return 1;
 }
 
@@ -350,18 +356,6 @@ void async_loop() {
 						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
 						break;
 					}
-// on linux we do not need to reset the socket to blocking state
-#ifndef __linux__
-					/* re-set blocking socket */
-					int arg = uwsgi_sock->arg;
-					arg &= (~O_NONBLOCK);
-					if (fcntl(uwsgi.wsgi_req->fd, F_SETFL, arg) < 0) {
-						uwsgi_error("fcntl()");
-						uwsgi.async_queue_unused_ptr++;
-						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
-						break;
-					}
-#endif
 
 					if (wsgi_req_async_recv(uwsgi.wsgi_req)) {
 						uwsgi.async_queue_unused_ptr++;

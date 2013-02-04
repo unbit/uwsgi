@@ -871,6 +871,59 @@ VALUE rack_uwsgi_send_spool(VALUE *class, VALUE args) {
 
 }
 
+VALUE uwsgi_ruby_websocket_handshake(int argc, VALUE *argv, VALUE *class) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+
+	if (argc < 1) {
+		rb_raise(rb_eRuntimeError, "you neeto specify a valid websocket key");
+		return Qnil;
+	}
+
+        Check_Type(argv[0], T_STRING);
+        char *key = RSTRING_PTR(argv[0]);
+        size_t key_len = RSTRING_LEN(argv[0]);
+
+	char *origin = NULL;
+	size_t origin_len = 0;
+
+	if (argc > 1) {
+		Check_Type(argv[1], T_STRING);
+		origin = RSTRING_PTR(argv[1]);
+        	origin_len = RSTRING_LEN(argv[1]);
+	}
+
+	if (uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len)) {
+        	rb_raise(rb_eRuntimeError, "unable to complete websocket handshake");
+        }
+	return Qnil;
+}
+
+VALUE uwsgi_ruby_websocket_send(VALUE *class, VALUE *msg) {
+	Check_Type(msg, T_STRING);
+	char *message = RSTRING_PTR(msg);
+	size_t message_len = RSTRING_LEN(msg);
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	if (uwsgi_websocket_send(wsgi_req, message, message_len)) {
+                rb_raise(rb_eRuntimeError, "unable to send websocket message");
+        }
+	return Qnil;
+}
+
+VALUE uwsgi_ruby_websocket_recv(VALUE *class) {
+
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
+        if (!ub) {
+                rb_raise(rb_eRuntimeError, "unable to receive websocket message");
+		return Qnil;
+        }
+	VALUE ret = rb_str_new(ub->buf, ub->pos);
+	uwsgi_buffer_destroy(ub);
+	return ret;
+
+}
+
 
 
 void uwsgi_rack_init_api() {
@@ -892,6 +945,10 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("add_timer", rack_uwsgi_add_timer, 2);
         uwsgi_rack_api("add_rb_timer", rack_uwsgi_add_rb_timer, 2);
         uwsgi_rack_api("add_file_monitor", rack_uwsgi_add_file_monitor, 2);
+
+        uwsgi_rack_api("websocket_handshake", uwsgi_ruby_websocket_handshake, -1);
+        uwsgi_rack_api("websocket_send", uwsgi_ruby_websocket_send, 1);
+        uwsgi_rack_api("websocket_recv", uwsgi_ruby_websocket_recv, 0);
 
         uwsgi_rack_api("setprocname", rack_uwsgi_setprocname, 1);
         uwsgi_rack_api("mem", rack_uwsgi_mem, 0);

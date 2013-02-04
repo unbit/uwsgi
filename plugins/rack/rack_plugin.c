@@ -728,10 +728,15 @@ int uwsgi_rack_request(struct wsgi_request *wsgi_req) {
 	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_LENGTH"));
 	rb_hash_delete(env, rb_str_new2("HTTP_CONTENT_TYPE"));
 
-	ret = rb_protect( call_dispatch, env, &error);
-	if (error) {
-		uwsgi_ruby_exception();
-		goto clear;
+	if (ur.unprotected) {
+		ret = call_dispatch(env);
+	}
+	else {
+		ret = rb_protect( call_dispatch, env, &error);
+		if (error) {
+			uwsgi_ruby_exception();
+			goto clear;
+		}
 	}
 
 
