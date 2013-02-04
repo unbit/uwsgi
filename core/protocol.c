@@ -287,43 +287,6 @@ int uwsgi_read_response(int fd, struct uwsgi_header *uh, int timeout, char **buf
 	return ret;
 }
 
-int uwsgi_receive_request(int queue, struct wsgi_request *wsgi_req, int timeout) {
-	int rlen;
-	int status = UWSGI_AGAIN;
-
-	if (!timeout)
-		timeout = 1;
-
-	while (status == UWSGI_AGAIN) {
-		//rlen = poll(&wsgi_req->poll, 1, timeout * 1000);
-		if (rlen < 0) {
-			uwsgi_error("poll()");
-			exit(1);
-		}
-		else if (rlen == 0) {
-			uwsgi_log("timeout. skip request.\n");
-			//close(upoll->fd);
-			return 0;
-		}
-		if (wsgi_req->socket) {
-			status = wsgi_req->socket->proto(wsgi_req);
-		}
-		else {
-			status = uwsgi_proto_uwsgi_parser(wsgi_req);
-		}
-		if (status < 0) {
-			if (status == -1)
-				uwsgi_log_verbose("error parsing request\n");
-			else if (status == -2)
-				uwsgi_log_verbose("open-close packet (ping/check) received\n");
-			//close(upoll->fd);
-			return 0;
-		}
-	}
-
-	return 1;
-}
-
 int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint16_t argvs[], uint8_t * argc) {
 
 	char *ptrbuf, *bufferend;

@@ -324,7 +324,7 @@ void async_loop() {
 					/* re-set blocking socket */
 					int arg = uwsgi_sock->arg;
 					arg &= (~O_NONBLOCK);
-					if (fcntl(uwsgi.wsgi_req->poll.fd, F_SETFL, arg) < 0) {
+					if (fcntl(uwsgi.wsgi_req->fd, F_SETFL, arg) < 0) {
 						uwsgi_error("fcntl()");
 						uwsgi.async_queue_unused_ptr++;
 						uwsgi.async_queue_unused[uwsgi.async_queue_unused_ptr] = uwsgi.wsgi_req;
