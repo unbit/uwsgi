@@ -482,7 +482,8 @@ int uwsgi_respawn_worker(int wid) {
 
 	uwsgi.workers[wid].cheaped = 0;
 	uwsgi.workers[wid].busy = 0;
-	uwsgi.workers[wid].suspended = 0;
+	// SUSPENSION is managed by the user, not the master...
+	//uwsgi.workers[wid].suspended = 0;
 	uwsgi.workers[wid].sig = 0;
 
 	// this is required for various checks
