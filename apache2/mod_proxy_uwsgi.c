@@ -383,7 +383,6 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
     if (u_path_info[0] != '/') {
         delta = 1;
     }
-/*
     int decode_status = ap_unescape_url(url+w_len-delta);
     if (decode_status) {
        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
@@ -391,7 +390,6 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
                       url+w_len-delta);
         return HTTP_INTERNAL_SERVER_ERROR;
     }
-*/
     apr_table_add(r->subprocess_env, "PATH_INFO", url+w_len-delta);
 
 
