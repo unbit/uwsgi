@@ -1,4 +1,18 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
+
+/*
+
+	Plugin for remote access to the uWSGI cache
+
+	For request generating a response containing cache data, we need to make
+	a copy to avoid holding the lock too much in case of blocking/slow writes
+
+	uwsgi_cache_safe_get2() will do the job
+
+	the modifier2 is the command to run. Some command is extremely raw, and generally it is mean
+	for internal uWSGI usage.
+
+*/
 
 extern struct uwsgi_server uwsgi;
 
