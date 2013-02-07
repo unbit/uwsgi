@@ -663,47 +663,48 @@ extern "C" {
 		char key[];
 	} __attribute__ ((__packed__));
 
-	struct uwsgi_cache {
-		char *name;
-		uint16_t name_len;
+struct uwsgi_cache {
+	char *name;
+	uint16_t name_len;
 
-		uint64_t keysize;
-		uint64_t blocks;
-		uint64_t blocksize;
+	uint64_t keysize;
+	uint64_t blocks;
+	uint64_t blocksize;
 
-		struct uwsgi_hash_algo *hash;
-		uint64_t *hashtable;
-		uint32_t hashsize;
+	struct uwsgi_hash_algo *hash;
+	uint64_t *hashtable;
+	uint32_t hashsize;
 
-		uint64_t first_available_block;
-		uint64_t *unused_blocks_stack;
-		uint64_t unused_blocks_stack_ptr;
-		uint8_t use_blocks_bitmap;
-		uint8_t *blocks_bitmap;
+	uint64_t first_available_block;
+	uint64_t *unused_blocks_stack;
+	uint64_t unused_blocks_stack_ptr;
+	uint8_t use_blocks_bitmap;
+	uint8_t *blocks_bitmap;
 
-		uint64_t max_items;
-		uint64_t n_items;
-		struct uwsgi_cache_item *items;
+	uint64_t max_items;
+	uint64_t n_items;
+	struct uwsgi_cache_item *items;
 
-		void *data;
+	void *data;
 
-		uint8_t no_expire;
-		uint64_t full;
-		uint64_t hits;
-		uint64_t miss;
+	uint8_t no_expire;
+	uint64_t full;
+	uint64_t hits;
+	uint64_t miss;
 
-		char *store;
-		uint64_t filesize;
+	char *store;
+	uint64_t filesize;
 
-		int thread_server_fd;
+	int thread_server_fd;
 
-		struct uwsgi_string_list *nodes;
-		struct uwsgi_string_list *sync_nodes;
+	struct uwsgi_string_list *nodes;
+	int udp_node_socket;
+	struct uwsgi_string_list *sync_nodes;
 
-		struct uwsgi_lock_item *lock;
+	struct uwsgi_lock_item *lock;
 
-		struct uwsgi_cache *next;
-	};
+	struct uwsgi_cache *next;
+};
 
 	struct uwsgi_option {
 		char *name;
@@ -2080,7 +2081,6 @@ struct uwsgi_server {
 
 		struct uwsgi_string_list *cache_udp_server;
 		struct uwsgi_string_list *cache_udp_node;
-		int cache_udp_node_socket;
 
 		char *cache_server;
 		int cache_server_threads;
@@ -2609,23 +2609,23 @@ void async_expire_timeouts(void);
 
 	ssize_t uwsgi_send_message(int, uint8_t, uint8_t, char *, uint16_t, int, ssize_t, int);
 
-	int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, uint64_t, uint64_t);
-	int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
-	char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
-	uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
-	struct uwsgi_cache *uwsgi_cache_create(char *);
-	struct uwsgi_cache *uwsgi_cache_by_name(char *);
-	void uwsgi_cache_create_all(void);
-	char *uwsgi_cache_safe_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
+int uwsgi_cache_set2(struct uwsgi_cache *, char *, uint16_t, char *, uint64_t, uint64_t, uint64_t);
+int uwsgi_cache_del2(struct uwsgi_cache *, char *, uint16_t, uint64_t, uint16_t);
+char *uwsgi_cache_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
+uint32_t uwsgi_cache_exists2(struct uwsgi_cache *, char *, uint16_t);
+struct uwsgi_cache *uwsgi_cache_create(char *);
+struct uwsgi_cache *uwsgi_cache_by_name(char *);
+void uwsgi_cache_create_all(void);
+char *uwsgi_cache_safe_get2(struct uwsgi_cache *, char *, uint16_t, uint64_t *);
 
 #define uwsgi_cache_set(x1, x2, x3, x4, x5, x6) uwsgi_cache_set2(uwsgi.caches, x1, x2, x3, x4, x5, x6)
 #define uwsgi_cache_del(x1, x2, x3, x4) uwsgi_cache_del2(uwsgi.caches, x1, x2, x3, x4)
 #define uwsgi_cache_get(x1, x2, x3) uwsgi_cache_get2(uwsgi.caches, x1, x2, x3)
 #define uwsgi_cache_exists(x1, x2) uwsgi_cache_exists2(uwsgi.caches, x1, x2)
 
-	void uwsgi_cache_sync_all(void);
-	void uwsgi_cache_start_sweepers(void);
-	void uwsgi_cache_start_sync_servers(void);
+void uwsgi_cache_sync_all(void);
+void uwsgi_cache_start_sweepers(void);
+void uwsgi_cache_start_sync_servers(void);
 
 
 	void *uwsgi_malloc(size_t);

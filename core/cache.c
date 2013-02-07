@@ -23,7 +23,7 @@ static void cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t
 */
 }
 
-static void cache_send_udp_command(char *, uint16_t, char *, uint16_t, uint64_t, uint8_t);
+static void cache_send_udp_command(struct uwsgi_cache *, char *, uint16_t, char *, uint16_t, uint64_t, uint8_t);
 
 static void cache_sync_hook(char *k, uint16_t kl, char *v, uint16_t vl, void *data) {
 	struct uwsgi_cache *uc = (struct uwsgi_cache *) data;
@@ -138,14 +138,14 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 	}
 
 	uwsgi_log("*** Cache \"%s\" initialized: %lluMB (key: %llu bytes, keys: %llu bytes, data: %llu bytes) preallocated ***\n",
-			uc->name ? uc->name : "default",
+			uc->name,
 			(unsigned long long) uc->filesize / (1024 * 1024),
 			(unsigned long long) sizeof(struct uwsgi_cache_item)+uc->keysize,
 			(unsigned long long) ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items), (unsigned long long) (uc->blocksize * uc->max_items));
 
 	uwsgi_cache_load_files(uc);
 
-	struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
+	struct uwsgi_string_list *usl = uc->nodes;
 	while(usl) {
 		char *port = strchr(usl->value, ':');
 		if (!port) {
@@ -156,16 +156,16 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		struct sockaddr_in *sin = uwsgi_malloc(sizeof(struct sockaddr_in));
 		usl->custom = socket_to_in_addr(usl->value, port, 0, sin);
 		usl->custom_ptr = sin; 
-		uwsgi_log("added cache udp node %s\n", usl->value);
+		uwsgi_log("added udp node %s for cache \"%s\"\n", usl->value, uc->name);
 		usl = usl->next;
 	}
 
-	uwsgi.cache_udp_node_socket = socket(AF_INET, SOCK_DGRAM, 0);
-	if (uwsgi.cache_udp_node_socket < 0) {
+	uc->udp_node_socket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (uc->udp_node_socket < 0) {
 		uwsgi_error("[cache-udp-node] socket()");
 		exit(1);
 	}
-	uwsgi_socket_nb(uwsgi.cache_udp_node_socket);
+	uwsgi_socket_nb(uc->udp_node_socket);
 
 	if (uwsgi.cache_sync) {
 		uwsgi_log("[cache-sync] getting cache dump from %s ...\n", uwsgi.cache_sync);
@@ -340,7 +340,7 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 	}
 
 	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
-                cache_send_udp_command(key, keylen, NULL, 0, 0, 11);
+                cache_send_udp_command(uc, key, keylen, NULL, 0, 0, 11);
         }
 
 	return ret;
@@ -458,7 +458,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 	}
 	
 	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
-		cache_send_udp_command(key, keylen, val, vallen, expires, 10);
+		cache_send_udp_command(uc, key, keylen, val, vallen, expires, 10);
 	}
 
 
@@ -468,7 +468,7 @@ end:
 }
 
 
-static void cache_send_udp_command(char *key, uint16_t keylen, char *val, uint16_t vallen, uint64_t expires, uint8_t cmd) {
+static void cache_send_udp_command(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *val, uint16_t vallen, uint64_t expires, uint8_t cmd) {
 
 		struct uwsgi_header uh;
 		uint8_t u_k[2];
@@ -528,11 +528,11 @@ static void cache_send_udp_command(char *key, uint16_t keylen, char *val, uint16
 		uh.modifier1 = 111;
 		uh.modifier2 = cmd;
 
-		struct uwsgi_string_list *usl = uwsgi.cache_udp_node;
+		struct uwsgi_string_list *usl = uc->nodes;
 		while(usl) {
 			mh.msg_name = usl->custom_ptr;
 			mh.msg_namelen = usl->custom;
-			if (sendmsg(uwsgi.cache_udp_node_socket, &mh, 0) <= 0) {
+			if (sendmsg(uc->udp_node_socket, &mh, 0) <= 0) {
 				uwsgi_error("[cache-udp-node] sendmsg()");
 			}
 			usl = usl->next;
@@ -786,7 +786,7 @@ static void *cache_sweeper_loop(void *ucache) {
                         uwsgi_rwunlock(uc->lock);
                 }
                 if (uwsgi.cache_report_freed_items && freed_items > 0) {
-                        uwsgi_log("freed %llu items for cache \"%s\"\n", (unsigned long long) freed_items, uc->name ? uc->name : "default");
+                        uwsgi_log("freed %llu items for cache \"%s\"\n", (unsigned long long) freed_items, uc->name);
                 }
         };
 
@@ -816,10 +816,10 @@ void uwsgi_cache_start_sweepers() {
 		if (!uwsgi.cache_no_expire && !uc->no_expire) {
                 	if (pthread_create(&cache_sweeper, NULL, cache_sweeper_loop, (void *) uc)) {
                         	uwsgi_error("pthread_create()");
-                        	uwsgi_log("unable to run the sweeper for cache \"%s\" !!!\n", uc->name ? uc->name : "default");
+                        	uwsgi_log("unable to run the sweeper for cache \"%s\" !!!\n", uc->name);
 			}
                 	else {
-                        	uwsgi_log("sweeper thread enabled for cache \"%s\"\n", uc->name ? uc->name : "default");
+                        	uwsgi_log("sweeper thread enabled for cache \"%s\"\n", uc->name);
                 	}
 		}
 		uc = uc->next;
@@ -860,6 +860,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 
 	// default (old-stye) cache ?
 	if (!arg) {
+		uc->name = "default";
 		uc->blocksize = uwsgi.cache_blocksize;
 		if (!uc->blocksize) uc->blocksize = UMAX16;
 		uc->max_items = uwsgi.cache_max_items;
@@ -868,6 +869,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->hashsize = UMAX16;
 		uc->hash = uwsgi_hash_algo_get("djb33x");
 		uc->store = uwsgi.cache_store;
+		uc->nodes = uwsgi.cache_udp_node;
 	}
 	else {
 		char *c_name = NULL;
@@ -878,11 +880,13 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_hashsize = NULL;
 		char *c_keysize = NULL;
 		char *c_store = NULL;
+		char *c_nodes = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
                         "max_items", &c_max_items,
                         "maxitems", &c_max_items,
+                        "items", &c_max_items,
                         "blocksize", &c_blocksize,
                         "blocks", &c_blocks,
                         "hash", &c_hash,
@@ -891,6 +895,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "keysize", &c_keysize,
                         "key_size", &c_keysize,
                         "store", &c_store,
+                        "node", &c_nodes,
+                        "nodes", &c_nodes,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -937,6 +943,14 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		}
 
 		uc->store = c_store;
+
+		if (c_nodes) {
+			char *p = strtok(c_nodes, ";");
+			while(p) {
+				uwsgi_string_new_list(&uc->nodes, p);
+				p = strtok(NULL, ";");
+			}
+		}
 		
 	}
 
