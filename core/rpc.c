@@ -14,8 +14,8 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 
 	uwsgi_lock(uwsgi.rpc_table_lock);
 
-	if (uwsgi.shared->rpc_count < MAX_RPC) {
-		urpc = &uwsgi.shared->rpc_table[uwsgi.shared->rpc_count];
+	if (uwsgi.shared->rpc_count < uwsgi.rpc_max) {
+		urpc = &uwsgi.rpc_table[uwsgi.shared->rpc_count];
 
 		memcpy(urpc->name, name, strlen(name));
 		urpc->modifier1 = modifier1;
@@ -36,13 +36,13 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 uint16_t uwsgi_rpc(char *name, uint8_t argc, char *argv[], uint16_t argvs[], char *output) {
 
 	struct uwsgi_rpc *urpc = NULL;
-	int i;
+	uint64_t i;
 	uint16_t ret = 0;
 
 	for (i = 0; i < uwsgi.shared->rpc_count; i++) {
-		if (uwsgi.shared->rpc_table[i].name[0] != 0) {
-			if (!strcmp(uwsgi.shared->rpc_table[i].name, name)) {
-				urpc = &uwsgi.shared->rpc_table[i];
+		if (uwsgi.rpc_table[i].name[0] != 0) {
+			if (!strcmp(uwsgi.rpc_table[i].name, name)) {
+				urpc = &uwsgi.rpc_table[i];
 				break;
 			}
 		}

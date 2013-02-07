@@ -334,12 +334,12 @@ PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_rpc_list(PyObject * self, PyObject * args) {
 
-	int i;
+	uint64_t i;
 	PyObject *rpc_list = PyTuple_New(uwsgi.shared->rpc_count);
 
 	for (i = 0; i < uwsgi.shared->rpc_count; i++) {
-		if (uwsgi.shared->rpc_table[i].name[0] != 0) {
-			PyTuple_SetItem(rpc_list, i, PyString_FromString(uwsgi.shared->rpc_table[i].name));
+		if (uwsgi.rpc_table[i].name[0] != 0) {
+			PyTuple_SetItem(rpc_list, i, PyString_FromString(uwsgi.rpc_table[i].name));
 		}
 	}
 

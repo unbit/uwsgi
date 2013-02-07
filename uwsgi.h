@@ -2122,6 +2122,10 @@ struct uwsgi_server {
 		struct uwsgi_lock_item *rpc_table_lock;
 		struct uwsgi_lock_item *sa_lock;
 
+		// rpc
+		uint64_t rpc_max;
+		struct uwsgi_rpc *rpc_table;	
+
 		// subscription client
 		int subscribe_freq;
 		int subscription_tolerance;
@@ -2258,8 +2262,7 @@ struct uwsgi_server {
 		struct uwsgi_signal_rb_timer rb_timers[MAX_TIMERS];
 		int rb_timers_cnt;
 
-		struct uwsgi_rpc rpc_table[MAX_RPC];
-		int rpc_count;
+		uint64_t rpc_count;
 
 		int worker_log_pipe[2];
 		// used for request logging
@@ -2669,9 +2672,9 @@ void uwsgi_cache_start_sync_servers(void);
 
 	int uwsgi_start(void *);
 
-	int uwsgi_register_rpc(char *, uint8_t, uint8_t, void *);
-	uint16_t uwsgi_rpc(char *, uint8_t, char **, uint16_t *, char *);
-	char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
+int uwsgi_register_rpc(char *, uint8_t, uint8_t, void *);
+uint16_t uwsgi_rpc(char *, uint8_t, char **, uint16_t *, char *);
+char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
 
 	char *uwsgi_cheap_string(char *, int);
 

@@ -100,7 +100,7 @@ XS(XS_cache_set) {
 	STRLEN keylen;
 	STRLEN vallen;
 
-	if (uwsgi.cache_max_items == 0) goto clear;
+	if (!uwsgi.caches) goto clear;
 	
 	psgi_check_args(2);
 
@@ -122,7 +122,7 @@ XS(XS_cache_get) {
 	STRLEN keylen;
 	uint64_t vallen;
 
-	if (uwsgi.cache_max_items == 0) goto clear;
+	if (!uwsgi.caches) goto clear;
 	
 	psgi_check_args(1);
 
