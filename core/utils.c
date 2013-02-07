@@ -917,6 +917,7 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 			if (ret == UWSGI_AGAIN) {
 				ret = uwsgi_wait_read_req(wsgi_req);
 				if (ret <= 0) return -1;	
+				continue;
 			}
 			return -1;
 		}
