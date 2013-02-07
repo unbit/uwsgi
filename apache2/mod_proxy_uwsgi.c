@@ -217,28 +217,6 @@ static int uwsgi_send_body(request_rec *r, proxy_conn_rec *conn)
     return OK;
 }
 
-static
-apr_status_t ap_proxygetline(apr_bucket_brigade *bb, char *s, int n, request_rec *r,
-                             int fold, int *writen)
-{
-    char *tmp_s = s;
-    apr_status_t rv;
-    apr_size_t len;
-
-    rv = ap_rgetline(&tmp_s, n, &len, r, fold, bb);
-    apr_brigade_cleanup(bb);
-
-    if (rv == APR_SUCCESS) {
-        *writen = (int) len;
-    } else if (rv == APR_ENOSPC) {
-        *writen = n;
-    } else {
-        *writen = -1;
-    }
-
-    return rv;
-}
-
 static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_conf *conf)
 {
 
@@ -258,11 +236,7 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 
 	apr_bucket_brigade *bb = apr_brigade_create(r->pool, c->bucket_alloc);
 
-
-	rc = ap_proxygetline(bb, buffer, sizeof(buffer), rp, 0, &len);
-	if (len == 0) {
-		rc = ap_proxygetline(bb, buffer, sizeof(buffer), rp, 0, &len);
-	}
+	len = ap_getline(buffer, sizeof(buffer), rp, 1);
 
 	if (len <= 0) {
 		// oops
@@ -271,24 +245,10 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec *backend, proxy_server_
 
 	backend->worker->s->read += len;
 
-	if (!apr_date_checkmask(buffer, "HTTP/#.# ###*")) {
+	if (!apr_date_checkmask(buffer, "HTTP/#.# ###*") || len >= sizeof(buffer)-1) {
 		// oops
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
-
-        int major, minor;
-
-        major = buffer[5] - '0';
-        minor = buffer[7] - '0';
-
-        /* If not an HTTP/1 message or
-        * if the status line was > 8192 bytes
-         */
-        if ((major != 1) || (len >= sizeof(buffer)-1)) {
-        	return ap_proxyerror(r, HTTP_BAD_GATEWAY,
-                apr_pstrcat(r->pool, "Corrupt status line returned by remote "
-                            "server: ", buffer, NULL));
-        }
 
         char keepchar = buffer[12];
         buffer[12] = '\0';
