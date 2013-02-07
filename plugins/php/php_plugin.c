@@ -393,14 +393,12 @@ PHP_FUNCTION(uwsgi_rpc) {
 
 	// response must always be freed
         char *response = uwsgi_do_rpc(node, func, num_args - 2, argv, argvs, &size);
-
-        if (size > 0) {
+        if (response) {
 		// here we do not free varargs for performance reasons
 		char *ret = estrndup(response, size);
 		free(response);
 		RETURN_STRING(ret, 0);
         }
-	free(response);
 
 clear:
 	efree(varargs);

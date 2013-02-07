@@ -230,14 +230,12 @@ XS(XS_call) {
 
 	// response must be always freed
         char *response = uwsgi_do_rpc(NULL, func, items-1, argv, argvs, &size);
-
-        if (size > 0) {
+        if (response) {
 		ST(0) = newSVpv(response, size);
         	sv_2mortal(ST(0));
 		free(response);
         	XSRETURN(1);
         }
-	free(response);
 
 	XSRETURN_UNDEF;
 }

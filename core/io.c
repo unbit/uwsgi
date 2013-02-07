@@ -2,6 +2,13 @@
 
 extern struct uwsgi_server uwsgi;
 
+/*
+
+	poll based fd waiter.
+	Use it for blocking areas (like startup functions)
+	DO NOT USE IN REQUEST PLUGINS !!!
+
+*/
 int uwsgi_waitfd_event(int fd, int timeout, int event) {
 
 	int ret;
@@ -32,6 +39,9 @@ int uwsgi_waitfd_event(int fd, int timeout, int event) {
 	return ret;
 }
 
+/*
+	consume data from an fd (blocking)
+*/
 char *uwsgi_read_fd(int fd, size_t *size, int add_zero) {
 
 	char stack_buf[4096];
@@ -63,6 +73,7 @@ char *uwsgi_read_fd(int fd, size_t *size, int add_zero) {
 
 }
 
+// simply read the whole content of a file
 char *uwsgi_simple_file_read(char *filename) {
 
 	struct stat sb;
@@ -101,6 +112,10 @@ end:
 
 }
 
+/*
+	extremely complex function for reading resources (files, url...)
+	need a lot of refactoring...
+*/
 char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_table[]) {
 
 	int fd;
@@ -456,6 +471,7 @@ end:
 	return buffer;
 }
 
+// attach an fd using UNIX sockets
 int *uwsgi_attach_fd(int fd, int *count_ptr, char *code, size_t code_len) {
 
 	struct msghdr msg;
@@ -544,6 +560,7 @@ int *uwsgi_attach_fd(int fd, int *count_ptr, char *code, size_t code_len) {
 	return ret;
 }
 
+// signal free close
 void uwsgi_protected_close(int fd) {
 
 	sigset_t mask, oset;
@@ -559,6 +576,7 @@ void uwsgi_protected_close(int fd) {
 	}
 }
 
+// signal free read
 ssize_t uwsgi_protected_read(int fd, void *buf, size_t len) {
 
 	sigset_t mask, oset;
@@ -577,6 +595,8 @@ ssize_t uwsgi_protected_read(int fd, void *buf, size_t len) {
 	return ret;
 }
 
+
+// pipe datas from a fd to another (blocking)
 ssize_t uwsgi_pipe(int src, int dst, int timeout) {
 	char buf[8192];
 	size_t written = -1;
@@ -633,6 +653,9 @@ timeout:
 	return -1;
 }
 
+/*
+	even if it is marked as non-blocking, so not use in request plugins as it uses poll() and not the hooks
+*/
 int uwsgi_write_nb(int fd, char *buf, size_t remains, int timeout) {
 	char *ptr = buf;
 	while(remains > 0) {
@@ -652,6 +675,39 @@ int uwsgi_write_nb(int fd, char *buf, size_t remains, int timeout) {
 	return 0;
 }
 
+/*
+	this is like uwsgi_write_nb() but with fast initial write and hooked wait (use it in request plugin)
+*/
+int uwsgi_write_true_nb(int fd, char *buf, size_t remains, int timeout) {
+        char *ptr = buf;
+	int ret;
+
+        while(remains > 0) {
+		ssize_t len = write(fd, ptr, remains);
+		if (len > 0) goto written;
+		if (len == 0) return -1;		
+		if (len < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+			return -1;
+		}
+wait:
+                ret = uwsgi.wait_write_hook(fd, timeout);
+                if (ret > 0) {
+			len = write(fd, ptr, remains);
+			if (len > 0) goto written;
+                }
+                return -1;
+written:
+                ptr += len;
+                remains -= len;
+                continue;
+        }
+
+        return 0;
+}
+
+
+// like uwsgi_pipe but with fixed size
 ssize_t uwsgi_pipe_sized(int src, int dst, size_t required, int timeout) {
 	char buf[8192];
 	size_t written = 0;
@@ -709,6 +765,7 @@ timeout:
 }
 
 
+// check if an fd is valid
 int uwsgi_valid_fd(int fd) {
 	int ret = fcntl(fd, F_GETFL);
 	if (ret == 0) {
@@ -765,4 +822,80 @@ int uwsgi_read_nb(int fd, char *buf, size_t remains, int timeout) {
         }
 
         return 0;
+}
+
+/*
+	this is a pretty magic function used for read a full uwsgi response
+	it is true non blocking, so you can use it in request plugins
+	buffer is expected to be at least 4 bytes, rlen is a get/set value
+*/
+
+int uwsgi_read_with_realloc(int fd, char **buffer, size_t *rlen, int timeout) {
+	if (*rlen < 4) return -1;
+	char *buf = *buffer;
+	int ret;
+
+	// start reading the header
+	char *ptr = buf;
+	size_t remains = 4;
+	while(remains > 0) {
+		ssize_t len = read(fd, ptr, remains);
+                if (len > 0) goto readok;
+                if (len == 0) return -1;
+                if (len < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+                        return -1;
+                }
+wait:
+                ret = uwsgi.wait_read_hook(fd, timeout);
+                if (ret > 0) {
+                        len = read(fd, ptr, remains);
+                        if (len > 0) goto readok;
+                }
+                return -1;
+readok:
+                ptr += len;
+                remains -= len;
+                continue;
+        }
+
+	struct uwsgi_header *uh = (struct uwsgi_header *) buf;
+	uint16_t pktsize = uh->pktsize;
+	
+	if (pktsize > *rlen) {
+		char *tmp_buf = realloc(buf, pktsize);
+		if (!tmp_buf) {
+			uwsgi_error("uwsgi_read_with_realloc()/realloc()");
+			return -1;
+		}
+		*buffer = tmp_buf;
+	}
+
+	*rlen = pktsize;
+	// read the body
+	remains = pktsize;
+	ptr = buf;
+	while(remains > 0) {
+                ssize_t len = read(fd, ptr, remains);
+                if (len > 0) goto readok2;
+                if (len == 0) return -1;
+                if (len < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait2;
+                        return -1;
+                }
+wait2:
+                ret = uwsgi.wait_read_hook(fd, timeout);
+                if (ret > 0) {
+                        len = read(fd, ptr, remains);
+                        if (len > 0) goto readok2;
+                }
+                return -1;
+readok2:
+                ptr += len;
+                remains -= len;
+                continue;
+        }
+
+	return 0;
+	
 }

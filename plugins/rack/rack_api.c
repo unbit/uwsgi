@@ -666,14 +666,11 @@ VALUE uwsgi_ruby_do_rpc(int argc, VALUE *rpc_argv, VALUE *class) {
 
 	// response must always be freed
         char *response = uwsgi_do_rpc(node, func, argc - 2, argv, argvs, &size);
-
-        if (size > 0) {
+        if (response) {
                 VALUE ret = rb_str_new(response, size);
                 free(response);
                 return ret;
         }
-	free(response);
-
 clear:
 
         rb_raise(rb_eRuntimeError, "unable to call rpc function");

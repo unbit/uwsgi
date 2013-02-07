@@ -219,6 +219,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"signal-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
 	{"signals-bufsize", required_argument, 0, "set buffer size for signal queue", uwsgi_opt_set_int, &uwsgi.signal_bufsize, 0},
 
+	{"rpc-max", required_argument, 0, "maximum number of rpc slots (default: 64)", uwsgi_opt_set_64bit, &uwsgi.rpc_max, 0},
+
 	{"disable-logging", no_argument, 'L', "disable request logging", uwsgi_opt_dyn_false, (void *) UWSGI_OPTION_LOGGING, 0},
 
 	{"flock", required_argument, 0, "lock the specified file before starting, exit if locked", uwsgi_opt_flock, NULL, UWSGI_OPT_IMMEDIATE},
@@ -2451,6 +2453,9 @@ unsafe:
 			create_signal_pipe(uwsgi.workers[i].signal_pipe);
 		}
 	}
+
+	// allocate rpc structures
+	uwsgi_rpc_init();
 
 	// set masterpid
 	uwsgi.mypid = getpid();

@@ -316,13 +316,12 @@ PyObject *py_uwsgi_call(PyObject * self, PyObject * args) {
 	char *response = uwsgi_do_rpc(NULL, func, argc - 1, argv, argvs, &size);
 	UWSGI_GET_GIL;
 
-	if (size > 0) {
+	if (response) {
 		PyObject *ret = PyString_FromStringAndSize(response, size);
 		free(response);
 		return ret;
 	}
 
-	free(response);
 	Py_INCREF(Py_None);
 	return Py_None;
 
@@ -388,13 +387,12 @@ PyObject *py_uwsgi_rpc(PyObject * self, PyObject * args) {
 	char *response = uwsgi_do_rpc(node, func, argc - 2, argv, argvs, &size);
 	UWSGI_GET_GIL;
 
-	if (size > 0) {
+	if (response) {
                 PyObject *ret = PyString_FromStringAndSize(response, size);
                 free(response);
                 return ret;
         }
 
-	free(response);
 	Py_INCREF(Py_None);
         return Py_None;
 

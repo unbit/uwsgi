@@ -62,7 +62,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 
 	uint8_t i;
 	uint16_t ulen;
-	struct uwsgi_header uh;
+	struct uwsgi_header *uh = NULL;
 	char *buffer = NULL;
 
 	*len = 0;
@@ -75,11 +75,16 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	}
 
 
-	// connect to node
-	int fd = uwsgi_connect(node, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
-
+	// connect to node (async way)
+	int fd = uwsgi_connect(node, 0, 1);
 	if (fd < 0)
 		return NULL;
+
+	// wait for connection;
+	int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+	if (ret <= 0) {
+		return NULL;
+	}
 
 	// prepare a uwsgi array
 	uint16_t buffer_size = 2 + strlen(func);
@@ -89,14 +94,16 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 	}
 
 	// allocate the whole buffer
-	buffer = uwsgi_malloc(65536);
+	buffer = uwsgi_malloc(4+buffer_size);
 
-	uh.modifier1 = 173;
-	uh.pktsize = buffer_size;
-	uh.modifier2 = 0;
+	// set the uwsgi header
+	uh = (struct uwsgi_header *) buffer;
+	uh->modifier1 = 173;
+	uh->pktsize = buffer_size;
+	uh->modifier2 = 0;
 
 	// add func to the array
-	char *bufptr = buffer;
+	char *bufptr = buffer + 4;
 	ulen = strlen(func);
 	*bufptr++ = (uint8_t) (ulen & 0xff);
 	*bufptr++ = (uint8_t) ((ulen >> 8) & 0xff);
@@ -111,33 +118,32 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 		bufptr += ulen;
 	}
 
-	if (write(fd, &uh, 4) != 4) {
-		uwsgi_error("write()");
-		close(fd);
-		free(buffer);
-		return NULL;
+	// ok the reuqest is ready, let's send it in non blocking way
+	if (uwsgi_write_true_nb(fd, buffer, buffer_size+4, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		goto error;
 	}
 
-	if (write(fd, buffer, buffer_size) != buffer_size) {
-		uwsgi_error("write()");
-		close(fd);
-		free(buffer);
-		return NULL;
-	}
-
-	if (uwsgi_read_response(fd, &uh, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], &buffer) < 0) {
-		close(fd);
-		free(buffer);
-		return NULL;
+	// ok time to wait for the response in non blocking way
+	size_t rlen = buffer_size+4;
+	if (uwsgi_read_with_realloc(fd, &buffer, &rlen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		goto error;
 	}
 
 	close(fd);
-
-	*len = uh.pktsize;
+	*len = rlen;
 	if (*len == 0) {
-		free(buffer);
-		return NULL;
+		goto error;
 	}
 	return buffer;
 
+error:
+	close(fd);
+	free(buffer);
+	return NULL;
+
+}
+
+
+void uwsgi_rpc_init() {
+	uwsgi.rpc_table = uwsgi_calloc_shared(sizeof(struct uwsgi_rpc) * uwsgi.rpc_max);
 }

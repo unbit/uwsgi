@@ -2183,12 +2183,12 @@ struct uwsgi_server {
 
 	};
 
-	struct uwsgi_rpc {
-		char name[0xff];
-		void *func;
-		uint8_t args;
-		uint8_t modifier1;
-	};
+struct uwsgi_rpc {
+	char name[0xff];
+	void *func;
+	uint8_t args;
+	uint8_t modifier1;
+};
 
 	struct uwsgi_signal_entry {
 		int wid;
@@ -2675,6 +2675,7 @@ void uwsgi_cache_start_sync_servers(void);
 int uwsgi_register_rpc(char *, uint8_t, uint8_t, void *);
 uint16_t uwsgi_rpc(char *, uint8_t, char **, uint16_t *, char *);
 char *uwsgi_do_rpc(char *, char *, uint8_t, char **, uint16_t *, uint16_t *);
+void uwsgi_rpc_init(void);
 
 	char *uwsgi_cheap_string(char *, int);
 
@@ -2921,13 +2922,16 @@ struct uwsgi_dict {
 
 	void uwsgi_string_del_list(struct uwsgi_string_list **, struct uwsgi_string_list *);
 
-	void uwsgi_init_all_apps(void);
-	void uwsgi_init_worker_mount_apps(void);
-	void uwsgi_socket_nb(int);
-	void uwsgi_socket_b(int);
-	int uwsgi_write_nb(int, char *, size_t, int);
-	int uwsgi_read_nb(int, char *, size_t, int);
-	int uwsgi_read_uh(int fd, struct uwsgi_header *, int);
+void uwsgi_init_all_apps(void);
+void uwsgi_init_worker_mount_apps(void);
+void uwsgi_socket_nb(int);
+void uwsgi_socket_b(int);
+int uwsgi_write_nb(int, char *, size_t, int);
+int uwsgi_read_nb(int, char *, size_t, int);
+int uwsgi_read_uh(int fd, struct uwsgi_header *, int);
+
+int uwsgi_read_with_realloc(int, char **, size_t *, int);
+int uwsgi_write_true_nb(int, char *, size_t, int);
 
 	void uwsgi_destroy_request(struct wsgi_request *);
 
