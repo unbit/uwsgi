@@ -143,7 +143,6 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			(unsigned long long) sizeof(struct uwsgi_cache_item)+uc->keysize,
 			(unsigned long long) ((sizeof(struct uwsgi_cache_item)+uc->keysize) * uc->max_items), (unsigned long long) (uc->blocksize * uc->max_items));
 
-	uwsgi_cache_load_files(uc);
 
 	struct uwsgi_string_list *usl = uc->nodes;
 	while(usl) {
@@ -222,6 +221,8 @@ next:
 		uwsgi_log("[cache-sync] trying with the next sync node...\n");
 		usl = usl->next;
 	}
+
+	uwsgi_cache_load_files(uc);
 }
 
 static inline uint64_t uwsgi_cache_get_index(struct uwsgi_cache *uc, char *key, uint16_t keylen) {
@@ -346,7 +347,7 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 		uc->n_items--;
 	}
 
-	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
+	if (uc->nodes && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
                 cache_send_udp_command(uc, key, keylen, NULL, 0, 0, 11);
         }
 
@@ -464,7 +465,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		ret = 0;
 	}
 	
-	if (uwsgi.cache_udp_node && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
+	if (uc->nodes && ret == 0 && !(flags & UWSGI_CACHE_FLAG_LOCAL)) {
 		cache_send_udp_command(uc, key, keylen, val, vallen, expires, 10);
 	}
 
