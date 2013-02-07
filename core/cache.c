@@ -167,12 +167,13 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 	}
 	uwsgi_socket_nb(uc->udp_node_socket);
 
-	if (uwsgi.cache_sync) {
-		uwsgi_log("[cache-sync] getting cache dump from %s ...\n", uwsgi.cache_sync);
-		int fd = uwsgi_connect(uwsgi.cache_sync, 0, 0);
+	usl = uc->sync_nodes;
+	while(usl) {
+		uwsgi_log("[cache-sync] getting cache dump from %s ...\n", usl->value);
+		int fd = uwsgi_connect(usl->value, 0, 0);
 		if (fd < 0) {
 			uwsgi_log("[cache-sync] unable to connect to the cache server\n");
-			exit(1);
+			goto next;
 		}
 		struct uwsgi_header cuh;
 		cuh.modifier1 = 111;
@@ -180,25 +181,25 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		cuh.pktsize = 0;
 		if (write(fd, &cuh, 4) != 4) {
 			uwsgi_log("[cache-sync] unable to write to the cache server\n");
-			exit(1);
+			goto next;
 		}
 
 		int ret = uwsgi_read_uh(fd, &cuh, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (ret) {
 			uwsgi_log("[cache-sync] unable to read from the cache server\n");
-			exit(1);
+			goto next;
 		}
 
 		if (cuh.modifier1 != 111 || cuh.modifier2 != 7) {
 			uwsgi_log("[cache-sync] invalid uwsgi packet received from the cache server\n");
-			exit(1);
+			goto next;
 		}
 	
 		char *dump_buf = uwsgi_malloc(cuh.pktsize);
 		ret = uwsgi_read_nb(fd, dump_buf, cuh.pktsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (ret) {
                         uwsgi_log("[cache-sync] unable to read from the cache server\n");
-                        exit(1);
+			goto next;
                 }
 
 		uwsgi_hooked_parse(dump_buf, cuh.pktsize, cache_sync_hook, NULL);
@@ -206,14 +207,20 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		ret = uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (ret) {
                         uwsgi_log("[cache-sync] unable to read from the cache server\n");
-                        exit(1);
+			goto next;
                 }
 
 		// reset the hashtable
 		memset(uc->hashtable, 0, sizeof(uint64_t) * UMAX16);
 		// re-fill the hashtable
                 uwsgi_cache_fix(uc);
-
+		break;
+next:
+		if (!usl->next) {
+			exit(1);
+		}
+		uwsgi_log("[cache-sync] trying with the next sync node...\n");
+		usl = usl->next;
 	}
 }
 
@@ -870,6 +877,9 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->hash = uwsgi_hash_algo_get("djb33x");
 		uc->store = uwsgi.cache_store;
 		uc->nodes = uwsgi.cache_udp_node;
+		if (uwsgi.cache_sync) {
+			uwsgi_string_new_list(&uc->sync_nodes, uwsgi.cache_sync);
+		}
 	}
 	else {
 		char *c_name = NULL;
@@ -881,6 +891,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_keysize = NULL;
 		char *c_store = NULL;
 		char *c_nodes = NULL;
+		char *c_sync = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -897,6 +908,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "store", &c_store,
                         "node", &c_nodes,
                         "nodes", &c_nodes,
+                        "sync", &c_sync,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -950,6 +962,14 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 				uwsgi_string_new_list(&uc->nodes, p);
 				p = strtok(NULL, ";");
 			}
+		}
+
+		if (c_sync) {
+			char *p = strtok(c_sync, ";");
+                        while(p) {
+                                uwsgi_string_new_list(&uc->sync_nodes, p);
+                                p = strtok(NULL, ";");
+                        }
 		}
 		
 	}
