@@ -321,3 +321,20 @@ char *uwsgi_strncopy(char *s, int len) {
 
 }
 
+// this move a string back of one char and put a 0 at the end (used in uwsgi parsers for buffer reusing)
+char *uwsgi_cheap_string(char *buf, int len) {
+
+        int i;
+        char *cheap_buf = buf - 1;
+
+
+        for (i = 0; i < len; i++) {
+                *cheap_buf++ = buf[i];
+        }
+
+
+        buf[len - 1] = 0;
+
+        return buf - 1;
+}
+

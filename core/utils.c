@@ -1608,22 +1608,6 @@ void *uwsgi_calloc(size_t size) {
 }
 
 
-char *uwsgi_cheap_string(char *buf, int len) {
-
-	int i;
-	char *cheap_buf = buf - 1;
-
-
-	for (i = 0; i < len; i++) {
-		*cheap_buf++ = buf[i];
-	}
-
-
-	buf[len - 1] = 0;
-
-	return buf - 1;
-}
-
 char *uwsgi_resolve_ip(char *domain) {
 
 	struct hostent *he;
