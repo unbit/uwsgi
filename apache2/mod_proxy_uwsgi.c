@@ -1,6 +1,36 @@
 /*
+        
+*** mod_proxy_uwsgi ***
 
-	 apxs2 -i -c mod_proxy_uwsgi.c
+Copyright 2009-2013 Unbit S.a.s. <info@unbit.it>
+     
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+To build:
+
+apxs2 -i -c mod_proxy_uwsgi.c
+
+To use:
+
+LoadModule proxy_uwsgi_module /usr/lib/apache2/modules/mod_proxy_uwsgi.so
+ProxyPass / uwsgi://127.0.0.1:3031/
+
+Docs:
+
+http://uwsgi-docs.readthedocs.org/en/latest/Apache.html#mod-proxy-uwsgi
 
 */
 #define APR_WANT_MEMFUNC
@@ -353,6 +383,15 @@ static int uwsgi_handler(request_rec *r, proxy_worker *worker,
     if (u_path_info[0] != '/') {
         delta = 1;
     }
+/*
+    int decode_status = ap_unescape_url(url+w_len-delta);
+    if (decode_status) {
+       ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                      "unable to decode uri: %s",
+                      url+w_len-delta);
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+*/
     apr_table_add(r->subprocess_env, "PATH_INFO", url+w_len-delta);
 
 
