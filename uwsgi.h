@@ -694,6 +694,7 @@ struct uwsgi_cache {
 
 	char *store;
 	uint64_t filesize;
+	uint64_t store_sync;
 
 	int thread_server_fd;
 

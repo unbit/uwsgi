@@ -802,19 +802,16 @@ static void *cache_sweeper_loop(void *ucache) {
 }
 
 void uwsgi_cache_sync_all() {
-/*
-	if (uwsgi.cache_store && uwsgi.cache_filesize) {
-                if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
-                        uwsgi_error("msync()");
-                }
-        }
 
-	if (uwsgi.cache_store && uwsgi.cache_filesize && uwsgi.cache_store_sync && ((uwsgi.master_cycles % uwsgi.cache_store_sync) == 0)) {
-                                if (msync(uwsgi.cache_items, uwsgi.cache_filesize, MS_ASYNC)) {
-                                        uwsgi_error("msync()");
-                                }
+	struct uwsgi_cache *uc = uwsgi.caches;
+	while(uc) {
+		if (uc->store && (uwsgi.master_cycles == 0 || (uc->store_sync > 0 && (uwsgi.master_cycles % uc->store_sync) == 0))) {
+                	if (msync(uc->items, uc->filesize, MS_ASYNC)) {
+                        	uwsgi_error("uwsgi_cache_sync_all()/msync()");
                         }
-*/
+		}
+		uc = uc->next;
+	}
 }
 
 void uwsgi_cache_start_sweepers() {
@@ -878,6 +875,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->store = uwsgi.cache_store;
 		uc->nodes = uwsgi.cache_udp_node;
 		uc->udp_servers = uwsgi.cache_udp_server;
+		uc->store_sync = uwsgi.cache_store_sync;
+
 		if (uwsgi.cache_sync) {
 			uwsgi_string_new_list(&uc->sync_nodes, uwsgi.cache_sync);
 		}
@@ -891,6 +890,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_hashsize = NULL;
 		char *c_keysize = NULL;
 		char *c_store = NULL;
+		char *c_store_sync = NULL;
 		char *c_nodes = NULL;
 		char *c_sync = NULL;
 		char *c_udp_servers = NULL;
@@ -908,6 +908,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "keysize", &c_keysize,
                         "key_size", &c_keysize,
                         "store", &c_store,
+                        "store_sync", &c_store_sync,
+                        "storesync", &c_store_sync,
                         "node", &c_nodes,
                         "nodes", &c_nodes,
                         "sync", &c_sync,
@@ -955,6 +957,8 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		if (c_keysize) uc->keysize = uwsgi_n64(c_keysize);
 		if (!uc->keysize) { uwsgi_log("invalid cache keysize for \"%s\"\n", uc->name); exit(1); }
 
+		uc->store_sync = uwsgi.cache_store_sync;
+		if (c_store_sync) { uc->store_sync = uwsgi_n64(c_store_sync); }
 
 		if (uc->blocks < uc->max_items) {
 			uwsgi_log("invalid number of cache blocks for \"%s\", must be higher than max_items (%llu)\n", uc->name, uc->max_items);
