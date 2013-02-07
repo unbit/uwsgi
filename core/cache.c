@@ -695,7 +695,7 @@ void *cache_udp_server_loop(void *ucache) {
 	struct uwsgi_cache *uc = (struct uwsgi_cache *) ucache;
 
         int queue = event_queue_init();
-        struct uwsgi_string_list *usl = uwsgi.cache_udp_server;
+        struct uwsgi_string_list *usl = uc->udp_servers;
         while(usl) {
                 if (strchr(usl->value, ':')) {
                         int fd = bind_to_udp(usl->value, 0, 0);
@@ -705,7 +705,7 @@ void *cache_udp_server_loop(void *ucache) {
                         }
                         uwsgi_socket_nb(fd);
                         event_queue_add_fd_read(queue, fd);
-                        uwsgi_log("*** cache udp server running on %s ***\n", usl->value);
+                        uwsgi_log("*** udp server for cache \"%s\" running on %s ***\n", uc->name, usl->value);
                 }
                 usl = usl->next;
         }
@@ -835,19 +835,18 @@ void uwsgi_cache_start_sweepers() {
 
 void uwsgi_cache_start_sync_servers() {
 
-/*
-
-        if (uwsgi.cache_max_items > 0 && uwsgi.cache_udp_server) {
-                if (pthread_create(&cache_udp_server, NULL, cache_udp_server_loop, NULL)) {
+	struct uwsgi_cache *uc = uwsgi.caches;
+	while(uc) {
+		pthread_t cache_udp_server;
+                if (pthread_create(&cache_udp_server, NULL, cache_udp_server_loop, (void *) uc)) {
                         uwsgi_error("pthread_create()");
                         uwsgi_log("unable to run the cache udp server !!!\n");
                 }
                 else {
-                        uwsgi_log("cache udp server thread enabled\n");
+                        uwsgi_log("udp server thread enabled for cache \"%s\"\n", uc->name);
                 }
+		uc = uc->next;
         }
-
-*/
 }
 
 struct uwsgi_cache *uwsgi_cache_create(char *arg) {
@@ -877,6 +876,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		uc->hash = uwsgi_hash_algo_get("djb33x");
 		uc->store = uwsgi.cache_store;
 		uc->nodes = uwsgi.cache_udp_node;
+		uc->udp_servers = uwsgi.cache_udp_server;
 		if (uwsgi.cache_sync) {
 			uwsgi_string_new_list(&uc->sync_nodes, uwsgi.cache_sync);
 		}
@@ -892,6 +892,7 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
 		char *c_store = NULL;
 		char *c_nodes = NULL;
 		char *c_sync = NULL;
+		char *c_udp_servers = NULL;
 
 		if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
                         "name", &c_name,
@@ -909,6 +910,11 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                         "node", &c_nodes,
                         "nodes", &c_nodes,
                         "sync", &c_sync,
+                        "udp", &c_udp_servers,
+                        "udp_servers", &c_udp_servers,
+                        "udp_server", &c_udp_servers,
+                        "udpservers", &c_udp_servers,
+                        "udpserver", &c_udp_servers,
                 	NULL)) {
 			uwsgi_log("unable to parse cache definition\n");
 			exit(1);
@@ -971,6 +977,14 @@ struct uwsgi_cache *uwsgi_cache_create(char *arg) {
                                 p = strtok(NULL, ";");
                         }
 		}
+
+		if (c_udp_servers) {
+                        char *p = strtok(c_udp_servers, ";");
+                        while(p) {
+                                uwsgi_string_new_list(&uc->udp_servers, p);
+                                p = strtok(NULL, ";");
+                        }
+                }
 		
 	}
 

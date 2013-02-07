@@ -700,6 +700,7 @@ struct uwsgi_cache {
 	struct uwsgi_string_list *nodes;
 	int udp_node_socket;
 	struct uwsgi_string_list *sync_nodes;
+	struct uwsgi_string_list *udp_servers;
 
 	struct uwsgi_lock_item *lock;
 
