@@ -296,9 +296,6 @@ void async_loop() {
 		}
 		else {
 			min_timeout = uwsgi_min_rb_timer(uwsgi.rb_async_timeouts, NULL);
-			if (uwsgi.async_runqueue_cnt) {
-				timeout = 0;
-			}
 			if (min_timeout) {
 				timeout = min_timeout->value - uwsgi_now();
 				if (timeout <= 0) {

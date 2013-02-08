@@ -2995,36 +2995,15 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 
 	char *key;
 	uint64_t valsize;
-	//uint16_t valsize16;
 	Py_ssize_t keylen = 0;
 	char *value = NULL;
-	char *remote = NULL;
-	//char buffer[0xffff];
 	PyObject *ret;
 
-#ifdef UWSGI_DEBUG
-	struct timeval tv, tv2;
-#endif
-
-	if (!PyArg_ParseTuple(args, "s#|s:cache_get", &key, &keylen, &remote)) {
+	if (!PyArg_ParseTuple(args, "s#:cache_get", &key, &keylen)) {
 		return NULL;
 	}
 
-	if (remote && strlen(remote) > 0) {
-		UWSGI_RELEASE_GIL
-		//uwsgi_simple_message_string(remote, 111, 0, key, keylen, buffer, &valsize16, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-		UWSGI_GET_GIL
-/*
-		if (valsize16 > 0) {
-			value = buffer;
-			valsize = valsize16;
-		}
-*/
-	}
-	else if (uwsgi.caches) {
-#ifdef UWSGI_DEBUG
-		gettimeofday(&tv, NULL); 
-#endif
+	if (uwsgi.caches) {
 		UWSGI_RELEASE_GIL
 		uwsgi_rlock(uwsgi.caches->lock);
 		value = uwsgi_cache_get(key, keylen, &valsize);
@@ -3035,22 +3014,12 @@ PyObject *py_uwsgi_cache_get(PyObject * self, PyObject * args) {
 			return Py_None;
 		}
 		char *storage = uwsgi_malloc(valsize);
-#ifdef UWSGI_DEBUG
-		gettimeofday(&tv2, NULL); 
-		if ((tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec) > 30000) {
-			uwsgi_log("[slow] cache get done in %d microseconds (%llu bytes value)\n", (tv2.tv_sec* (1000*1000) + tv2.tv_usec) - (tv.tv_sec* (1000*1000) + tv.tv_usec), (unsigned long long) valsize);
-		}
-#endif
 		memcpy(storage, value, valsize);
 		uwsgi_rwunlock(uwsgi.caches->lock);
 		UWSGI_GET_GIL
 		ret = PyString_FromStringAndSize(storage, valsize);
 		free(storage);
 		return ret;
-	}
-
-	if (value) {
-		return PyString_FromStringAndSize(value, valsize);
 	}
 
 	Py_INCREF(Py_None);
