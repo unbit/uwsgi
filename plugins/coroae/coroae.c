@@ -134,10 +134,10 @@ XS(XS_coroae_accept_request) {
         }
 
 	for(;;) {
-		int ret = coroae_wait_fd_read(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+		int ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		wsgi_req->switches++;
 	
-		if (!ret) {
+		if (ret <= 0) {
 			goto end;
 		}
 	

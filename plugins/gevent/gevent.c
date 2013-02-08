@@ -173,30 +173,13 @@ clear:
 	return Py_None;
 }
 
-PyObject *uwsgi_gevent_wait(PyObject *watcher, PyObject *timer, PyObject *current) {
-
-	PyObject *ret;
-
-	// start the io watcher
-	ret = PyObject_CallMethod(watcher, "start", "OO", current, watcher);
-	if (!ret) return NULL;
-	Py_DECREF(ret);
-
-	// start the timeout handler
-	ret = PyObject_CallMethod(timer, "start", "OO", current, timer);
-	if (!ret) return NULL;
-	Py_DECREF(ret);
-
-	// pass control to the hub
-	return PyObject_CallMethod(ugevent.hub, "switch", NULL);
-}
 
 PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 
 	PyObject *py_wsgi_req = PyTuple_GetItem(args, 0);
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) PyLong_AsLong(py_wsgi_req);
-	int status ;
-	PyObject *ret = NULL, *watcher = NULL, *timer = NULL, *greenlet_switch = NULL;
+
+	PyObject *greenlet_switch = NULL;
 
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	// another hack to retrieve the current wsgi_req;
@@ -204,87 +187,54 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 
 	// if in edge-triggered mode read from socket now !!!
 	if (wsgi_req->socket->edge_trigger) {
-		status = wsgi_req->socket->proto(wsgi_req);
+		int status = wsgi_req->socket->proto(wsgi_req);
 		if (status < 0) {
-			goto clear2;
+			goto end2;
 		}
 		goto request;
 	}
 
-	// create a watcher for request socket
-	watcher = PyObject_CallMethod(ugevent.hub_loop, "io", "ii", wsgi_req->fd, 1);
-	if (!watcher) goto clear1;
-
-	// a timer to implement timeout (thanks Denis)
-	timer = PyObject_CallMethod(ugevent.hub_loop, "timer", "i", uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
-	if (!timer) goto clear0;
-
 	greenlet_switch = PyObject_GetAttrString(current_greenlet, "switch");
 
 	for(;;) {
-		// wait for data in the socket
-		ret = uwsgi_gevent_wait(watcher, timer, greenlet_switch);
-		wsgi_req->switches++;
-		if (!ret) goto clear_and_stop;
+		int ret = uwsgi.wait_read_hook(wsgi_req->fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
+                wsgi_req->switches++;
 
-		// we can safely decref here as watcher and timer has got a +1 for start() method
-		Py_DECREF(ret);
-		if (ret == timer) {
-			uwsgi_log( "timeout. skip request.\n");
-			goto clear_and_stop;
-		}
-		else if (ret == watcher) {
-			status = wsgi_req->socket->proto(wsgi_req);
-			if (status < 0) {
-				goto clear_and_stop;
-			}
-			else if (status == 0) {
-				stop_the_watchers;
-				break;
-			}
-		}
-		else {
-			uwsgi_log("unrecognized gevent event !!!\n");
-			goto clear_and_stop;
-		}
+                if (ret <= 0) {
+                        goto end;
+                }
 
-		stop_the_watchers;
+                int status = wsgi_req->socket->proto(wsgi_req);
+                if (status < 0) {
+                        goto end;
+                }
+                else if (status == 0) {
+                        break;
+                }
 	}
 
 request:
+
 	for(;;) {
 		wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
 		if (wsgi_req->async_status <= UWSGI_OK) {
-			goto clear;
+			goto end;
 		}
 		wsgi_req->switches++;
 		// switch after each yield
 		GEVENT_SWITCH;
 	}
 
-	goto clear;
-
-clear_and_stop:
-
-	stop_the_watchers;
-
-clear:
-	if (wsgi_req->socket->edge_trigger) goto clear2;
-	Py_DECREF(timer);
-clear0:
-	Py_DECREF(watcher);
-clear1:
+end:
 	Py_DECREF(greenlet_switch);
-clear2:
+end2:
 	Py_DECREF(current_greenlet);
 
 	uwsgi_close_request(wsgi_req);
-
 	free_req_queue;
 
 	Py_INCREF(Py_None);
 	return Py_None;
-
 
 }
 
@@ -330,8 +280,6 @@ static void gevent_loop() {
 	}
 
 	uwsgi.current_wsgi_req = uwsgi_gevent_current_wsgi_req;
-	//up.hook_wsgi_input_read =  uwsgi_gevent_hook_input_read;
-	//up.hook_wsgi_input_readline =  uwsgi_gevent_hook_input_readline;
 
 	PyObject *gevent_dict = get_uwsgi_pydict("gevent");
 	if (!gevent_dict) uwsgi_pyexit;
