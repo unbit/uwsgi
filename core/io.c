@@ -188,6 +188,8 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 			exit(1);
 		}
 
+		free(ip);
+
 		uri[0] = '/';
 
 		len = write(fd, "GET ", 4);
@@ -437,13 +439,7 @@ char *uwsgi_open_and_read(char *url, size_t *size, int add_zero, char *magic_tab
 			goto end;
 		}
 
-		buffer = malloc(sb.st_size + add_zero);
-
-		if (!buffer) {
-			uwsgi_error("malloc()");
-			exit(1);
-		}
-
+		buffer = uwsgi_malloc(sb.st_size + add_zero);
 
 		len = read(fd, buffer, sb.st_size);
 		if (len != sb.st_size) {
