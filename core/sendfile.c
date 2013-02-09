@@ -6,35 +6,15 @@ extern struct uwsgi_server uwsgi;
 ssize_t uwsgi_sendfile_do(int sockfd, int filefd, size_t pos, size_t len) {
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)
-
-	int sf_ret;
-
-	off_t sf_len = filesize;
-
-	if (async > 1) {
-		sf_len = chunk;
-		sf_ret = sendfile(filefd, sockfd, *pos, 0, NULL, &sf_len, 0);
-		*pos += sf_len;
-	}
-	else {
-		sf_ret = sendfile(filefd, sockfd, 0, 0, NULL, &sf_len, 0);
-	}
-
-	if (sf_ret < 0) {
-		if (errno != EAGAIN) {
-			uwsgi_error("sendfile()");
-			return 0;
-		}
-	}
-
-	return sf_len;
+	off_t sf_len = len;
+        int sf_ret = sendfile(filefd, sockfd, pos, len, NULL,  &sf_len, 0);
+        if (sf_ret == 0 || (sf_ret == -1 && errno == EAGAIN)) return sf_len;
+        return -1;
 #elif defined(__APPLE__)
 	off_t sf_len = len;
-
 	int sf_ret = sendfile(filefd, sockfd, pos, &sf_len, NULL, 0);
 	if (sf_ret == 0 || (sf_ret == -1 && errno == EAGAIN)) return sf_len;
 	return -1;
-
 #elif defined(__linux__) || defined(__sun__)
 	off_t off = pos;
 	return sendfile(sockfd, filefd, &off, len);
