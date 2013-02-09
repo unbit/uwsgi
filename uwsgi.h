@@ -3768,6 +3768,8 @@ char *uwsgi_upload_progress_create(struct wsgi_request *, int *);
 int uwsgi_upload_progress_update(struct wsgi_request *, int, size_t);
 void uwsgi_upload_progress_destroy(char *, int);
 
+void uwsgi_time_bomb(int, int);
+
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)
 

@@ -40,8 +40,15 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	}
 	uwsgi_log("main gevent watchers stopped for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 
-	if (args) {
-		exit(UWSGI_RELOAD_CODE);
+	int running_cores = 0;
+	for(i=0;i<uwsgi.async;i++) {
+		if (uwsgi.workers[uwsgi.mywid].cores[i].in_request) {
+			running_cores++;
+		}
+	}
+
+	if (running_cores > 0) {
+		uwsgi_log("waiting for %d running requests...\n", running_cores);
 	}
 
 	Py_INCREF(Py_None);
@@ -50,12 +57,16 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 
 static void uwsgi_gevent_gbcw() {
 
+	// already running
+	if (ugevent.destroy) return;
+
 	uwsgi_log("...The work of process %d is done. Seeya!\n", getpid());
+
+	uwsgi_time_bomb(uwsgi.worker_reload_mercy, 0);
 	
 	py_uwsgi_gevent_graceful(NULL, NULL);
 
-	exit(0);
-
+	ugevent.destroy = 1;
 }
 
 struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
@@ -391,6 +402,9 @@ static void gevent_loop() {
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {
 		uwsgi_log("goodbye to the gevent Hub on worker %d (pid: %d)\n", uwsgi.mywid, uwsgi.mypid);
+		if (ugevent.destroy) {
+			exit(0);
+		}
 		exit(UWSGI_RELOAD_CODE);
 	}
 

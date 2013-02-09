@@ -51,5 +51,6 @@ struct uwsgi_gevent {
         PyObject *my_signal_watcher;
         PyObject *signal_watcher;
         PyObject **watchers;
+	int destroy;
 };
 
