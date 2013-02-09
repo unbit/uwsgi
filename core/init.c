@@ -398,6 +398,7 @@ void sanitize_args() {
                 uwsgi.ignore_write_errors = 1;
         }
 
+        if (uwsgi.cheaper_count == 0) uwsgi.cheaper = 0;
 
         if (uwsgi.cheaper_count > 0 && uwsgi.cheaper_count >= uwsgi.numproc) {
                 uwsgi_log("invalid cheaper value: must be lower than processes\n");
