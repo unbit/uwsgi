@@ -321,8 +321,6 @@ extern "C" {
 #define UWSGI_CACHE_FLAG_LOCAL		0x04
 #define UWSGI_CACHE_FLAG_ABSEXPIRE	0x08
 
-#define uwsgi_cache_update_start(x, y, z) uwsgi_cache_set(x, y, "", 0, CACHE_FLAG_UNGETTABLE)
-
 #ifdef UWSGI_SSL
 #include "openssl/conf.h"
 #include "openssl/ssl.h"
@@ -330,53 +328,53 @@ extern "C" {
 #endif
 
 
-	struct uwsgi_buffer {
-		char *buf;
-		size_t pos;
-		size_t len;
-		size_t limit;
-	};
+struct uwsgi_buffer {
+	char *buf;
+	size_t pos;
+	size_t len;
+	size_t limit;
+};
 
-	struct uwsgi_string_list {
+struct uwsgi_string_list {
 
-		char *value;
-		size_t len;
-		uint64_t custom;
-		uint64_t custom2;
-		void *custom_ptr;
-		struct uwsgi_string_list *next;
-	};
+	char *value;
+	size_t len;
+	uint64_t custom;
+	uint64_t custom2;
+	void *custom_ptr;
+	struct uwsgi_string_list *next;
+};
 
-	struct uwsgi_custom_option {
+struct uwsgi_custom_option {
 
-		char *name;
-		char *value;
-		int has_args;
-		struct uwsgi_custom_option *next;
-	};
+	char *name;
+	char *value;
+	int has_args;
+	struct uwsgi_custom_option *next;
+};
 
-	struct uwsgi_lock_item {
-		char *id;
-		void *lock_ptr;
-		int rw;
-		pid_t pid;
-		int can_deadlock;
-		struct uwsgi_lock_item *next;
-	};
+struct uwsgi_lock_item {
+	char *id;
+	void *lock_ptr;
+	int rw;
+	pid_t pid;
+	int can_deadlock;
+	struct uwsgi_lock_item *next;
+};
 
 
-	struct uwsgi_lock_ops {
-		struct uwsgi_lock_item *(*lock_init) (char *);
-		 pid_t(*lock_check) (struct uwsgi_lock_item *);
-		void (*lock) (struct uwsgi_lock_item *);
-		void (*unlock) (struct uwsgi_lock_item *);
+struct uwsgi_lock_ops {
+	struct uwsgi_lock_item *(*lock_init) (char *);
+	pid_t(*lock_check) (struct uwsgi_lock_item *);
+	void (*lock) (struct uwsgi_lock_item *);
+	void (*unlock) (struct uwsgi_lock_item *);
 
-		struct uwsgi_lock_item *(*rwlock_init) (char *);
-		 pid_t(*rwlock_check) (struct uwsgi_lock_item *);
-		void (*rlock) (struct uwsgi_lock_item *);
-		void (*wlock) (struct uwsgi_lock_item *);
-		void (*rwunlock) (struct uwsgi_lock_item *);
-	};
+	struct uwsgi_lock_item *(*rwlock_init) (char *);
+	pid_t(*rwlock_check) (struct uwsgi_lock_item *);
+	void (*rlock) (struct uwsgi_lock_item *);
+	void (*wlock) (struct uwsgi_lock_item *);
+	void (*rwunlock) (struct uwsgi_lock_item *);
+};
 
 #define uwsgi_lock_init(x) uwsgi.lock_ops.lock_init(x)
 #define uwsgi_lock_check(x) uwsgi.lock_ops.lock_check(x)
@@ -642,26 +640,28 @@ extern "C" {
 	void uwsgi_hash_algo_register_all(void);
 
 // maintain alignment here !!!
-	struct uwsgi_cache_item {
-		// item specific flags
-		uint64_t flags;
-		// size of the key
-		uint64_t keysize;
-		// hash of the key
-		uint64_t hash;
-		// size of the value (64bit)
-		uint64_t valsize;
-		// 64bit expiration (0 for immortal)
-		uint64_t expires;
-		// 64bit hits
-		uint64_t hits;
-		// previous same-hash item
-		uint64_t prev;
-		// next same-hash item
-		uint64_t next;
-		// key characters follows...
-		char key[];
-	} __attribute__ ((__packed__));
+struct uwsgi_cache_item {
+	// item specific flags
+	uint64_t flags;
+	// size of the key
+	uint64_t keysize;
+	// hash of the key
+	uint64_t hash;
+	// size of the value (64bit)
+	uint64_t valsize;
+	// block position (in non-bitmap mode maps to the key index)
+	uint64_t first_block;
+	// 64bit expiration (0 for immortal)
+	uint64_t expires;
+	// 64bit hits
+	uint64_t hits;
+	// previous same-hash item
+	uint64_t prev;
+	// next same-hash item
+	uint64_t next;
+	// key characters follows...
+	char key[];
+} __attribute__ ((__packed__));
 
 struct uwsgi_cache {
 	char *name;
@@ -678,8 +678,11 @@ struct uwsgi_cache {
 	uint64_t first_available_block;
 	uint64_t *unused_blocks_stack;
 	uint64_t unused_blocks_stack_ptr;
+
 	uint8_t use_blocks_bitmap;
 	uint8_t *blocks_bitmap;
+	uint64_t blocks_bitmap_pos;
+	uint64_t blocks_bitmap_size;
 
 	uint64_t max_items;
 	uint64_t n_items;
