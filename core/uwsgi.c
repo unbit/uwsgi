@@ -1670,6 +1670,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 uwsgi_error("sigprocmask()");
         }
 
+	signal(SIGCHLD, SIG_DFL);
 	signal(SIGSEGV, uwsgi_segfault);
 	signal(SIGFPE, uwsgi_fpe);
 	signal(SIGHUP, SIG_IGN);
