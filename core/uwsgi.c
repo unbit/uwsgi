@@ -1692,6 +1692,13 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	struct utsname uuts;
 
+	// signal mask is inherited, and sme process manager could make a real mess...
+	sigset_t smask;
+        sigfillset(&smask);
+        if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
+                uwsgi_error("sigprocmask()");
+        }
+
 	signal(SIGSEGV, uwsgi_segfault);
 	signal(SIGFPE, uwsgi_fpe);
 	signal(SIGHUP, SIG_IGN);
