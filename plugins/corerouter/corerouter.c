@@ -395,6 +395,10 @@ void corerouter_close_session(struct uwsgi_corerouter *ucr, struct corerouter_se
 	while(peers) {
 		struct corerouter_peer *tmp_peer = peers;
 		peers = peers->next;
+		// special case here for subscription system
+		if (ucr->subscriptions && tmp_peer->un && tmp_peer->un->len) {
+			tmp_peer->un->reference--;
+		}
 		uwsgi_cr_peer_del(tmp_peer);
 	}
 
