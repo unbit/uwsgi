@@ -2582,24 +2582,14 @@ PyObject *py_uwsgi_cache_set(PyObject * self, PyObject * args) {
 	char *value;
 	Py_ssize_t vallen = 0;
 	Py_ssize_t keylen = 0;
-	char *remote = NULL;
 
 	uint64_t expires = 0;
 
-	if (!PyArg_ParseTuple(args, "s#s#|is:cache_set", &key, &keylen, &value, &vallen, &expires, &remote)) {
+	if (!PyArg_ParseTuple(args, "s#s#|i:cache_set", &key, &keylen, &value, &vallen, &expires)) {
 		return NULL;
 	}
 
-	if ((uint64_t)vallen > uwsgi.caches->blocksize) {
-		return PyErr_Format(PyExc_ValueError, "uWSGI cache items size must be < %llu, requested %llu bytes", (unsigned long long)uwsgi.caches->blocksize, (unsigned long long) vallen);
-	}
-
-	if (remote && strlen(remote) > 0) {
-		UWSGI_RELEASE_GIL
-		//uwsgi_simple_send_string2(remote, 111, 1, key, keylen, value, vallen, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);	
-		UWSGI_GET_GIL
-	}
-	else if (uwsgi.caches) {
+	if (uwsgi.caches) {
 		UWSGI_RELEASE_GIL
 		uwsgi_wlock(uwsgi.caches->lock);
 		if (uwsgi_cache_set(key, keylen, value, vallen, expires, 0)) {
