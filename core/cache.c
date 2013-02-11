@@ -38,7 +38,7 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
 		bitmap_bit = uc->blocks_bitmap_pos % 8;
 	}
 
-	// ok we now have the start position, let's search for contigous blocks
+	// ok we now have the start position, let's search for contiguous blocks
 	uint8_t *bitmap = uc->blocks_bitmap;
 	uint64_t base = 0xffffffffffffffff;
 	uint8_t base_bit = 0;
@@ -125,8 +125,30 @@ static uint64_t cache_mark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64
 }
 
 static void cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t len) {
-	uint64_t needed_blocks = len/8;
-	if (len % 8 > 0) needed_blocks++;
+	uint64_t needed_blocks = len/uc->blocksize;
+        if (len % uc->blocksize > 0) needed_blocks++;
+
+        uint64_t first_byte = index/8;
+        uint8_t first_byte_bit = index % 8;
+        uint64_t last_byte = (index+needed_blocks)/8;
+        uint8_t last_byte_bit = (index+needed_blocks) % 8;
+
+	// here we use XOR (0+0 = 0 | 1+0 = 1 | 0+1 = 1| 1+1 = 0|
+
+        uint8_t mask = 0xff >> first_byte_bit;
+        uc->blocks_bitmap[first_byte] ^= mask;
+
+        uint64_t needed_bytes = (last_byte - first_byte)+1;
+
+        if (needed_bytes > 1) {
+                mask = 0xff << (8 - last_byte_bit);
+                uc->blocks_bitmap[last_byte-1] ^= mask;
+        }
+
+        if (needed_bytes > 2) {
+                uint8_t *ptr = &uc->blocks_bitmap[first_byte+1];
+                memset(ptr, 0, needed_bytes-2);
+        }
 }
 
 static void cache_send_udp_command(struct uwsgi_cache *, char *, uint16_t, char *, uint16_t, uint64_t, uint8_t);
