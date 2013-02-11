@@ -1840,6 +1840,7 @@ struct uwsgi_server {
 		rlim_t evil_reload_on_rss;
 
 		struct uwsgi_string_list *touch_reload;
+		struct uwsgi_string_list *touch_chain_reload;
 		struct uwsgi_string_list *touch_logrotate;
 		struct uwsgi_string_list *touch_logreopen;
 

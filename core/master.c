@@ -1158,7 +1158,21 @@ health_cycle:
 					uwsgi_block_signal(SIGHUP);
 					grace_them_all(0);
 					uwsgi_unblock_signal(SIGHUP);
+					continue;
 				}
+				touched = uwsgi_check_touches(uwsgi.touch_chain_reload);
+				if (touched) {
+					uwsgi_block_signal(SIGHUP);
+                                        uwsgi_log("*** %s has been touched... chain reload !!! ***\n", touched);
+					for(i=1;i<=uwsgi.numproc;i++) {
+						if (uwsgi.workers[i].pid > 0) {
+							kill(uwsgi.workers[i].pid, SIGHUP);
+						}
+					}
+					uwsgi_unblock_signal(SIGHUP);
+                                        continue;
+                                }
+
 			}
 
 			continue;
