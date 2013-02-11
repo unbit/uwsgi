@@ -124,16 +124,9 @@ static uint64_t cache_mark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64
 	return needed_blocks;
 }
 
-static uint64_t cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t len) {
+static void cache_unmark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t len) {
 	uint64_t needed_blocks = len/8;
 	if (len % 8 > 0) needed_blocks++;
-	return needed_blocks;
-/*
-	uint64_t base = index/8;
-	uint64_t bit = index%8;
-	uint64_t blocks = len/uc->blocksize;
-	if (len%uc->blocksize > 0) blocks++;
-*/
 }
 
 static void cache_send_udp_command(struct uwsgi_cache *, char *, uint16_t, char *, uint16_t, uint64_t, uint8_t);
@@ -618,6 +611,25 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		}
 		if (uc->blocks_bitmap) {
 			// we have a special case here, as we need to find a new series of free blocks
+			uint64_t old_first_block = uci->first_block;
+			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
+                        if (uci->first_block == 0xffffffffffffffff) {
+                                uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
+                                uc->full++;
+				uci->first_block = old_first_block;
+                                goto end;
+                        }
+                        // mark used blocks;
+                        uint64_t needed_blocks = cache_mark_blocks(uc, uci->first_block, vallen);
+                        // optimize teh scan
+                        if (uc->blocks_bitmap_pos + (needed_blocks+1) > uc->blocks) {
+                                uc->blocks_bitmap_pos = 0;
+                        }
+                        else {
+                                uc->blocks_bitmap_pos = uci->first_block + needed_blocks + 1;
+                        }
+			// unmark the old blocks
+			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
 		}
 		memcpy(uc->data + (uci->first_block * uc->blocksize), val, vallen);
 		uci->valsize = vallen;
