@@ -846,6 +846,12 @@ next:
 		// only to be safe :P
 		uwsgi.workers[uwsgi.mywid].harakiri = 0;
 
+		// ok, if we are reloading or dying, just continue the master loop
+		// as soon as all of the workers have pid == 0, the action (exit, or reload) is triggered
+		if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) {
+			continue;
+		}
+
 		// if we are stopping workers, just end here
 
 		if (WIFEXITED(waitpid_status) && WEXITSTATUS(waitpid_status) == UWSGI_FAILED_APP_CODE) {
