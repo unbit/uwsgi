@@ -175,7 +175,7 @@ void carbon_push_stats(int retry_cycle) {
 		unsigned long long worker_busyness = 0;
 		unsigned long long total_harakiri = 0;
 
-		wok = carbon_write(&fd, "%s.%s.requests %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, (unsigned long long) uwsgi.workers[0].requests, (unsigned long long) uwsgi.current_time);
+		wok = carbon_write(&fd, "%s%s.%s.requests %llu %llu\n", u_carbon.root_node, uwsgi.hostname, u_carbon.id, (unsigned long long) uwsgi.workers[0].requests, (unsigned long long) uwsgi.current_time);
 		if (!wok) goto clear;
 
 		for(i=1;i<=uwsgi.numproc;i++) {
