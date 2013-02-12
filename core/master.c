@@ -523,7 +523,7 @@ int master_loop(char **argv, char **environ) {
 			}
 		}
 
-		// check for death
+		// check for death (before reload !!!)
 		uwsgi_master_check_death();
 		// check for realod
 		if (uwsgi_master_check_reload(argv)) {
@@ -849,6 +849,8 @@ next:
 		// ok, if we are reloading or dying, just continue the master loop
 		// as soon as all of the workers have pid == 0, the action (exit, or reload) is triggered
 		if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying) {
+			uwsgi_log("worker %d buried after %d seconds\n", uwsgi.mywid, (int) (uwsgi_now()-uwsgi.workers[uwsgi.mywid].cursed_at));
+			uwsgi.workers[uwsgi.mywid].cursed_at = 0;
 			continue;
 		}
 

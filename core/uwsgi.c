@@ -920,11 +920,11 @@ void goodbye_cruel_world() {
 	}
 }
 
-// gracefully destroy
+// brutally destroy
 void kill_them_all(int signum) {
 
 	if (uwsgi_instance_is_dying) return;
-	uwsgi.status.gracefully_destroying = 1;
+	uwsgi.status.brutally_destroying = 1;
 
 	// unsubscribe if needed
 	uwsgi_unsubscribe_all();
@@ -983,7 +983,7 @@ void grace_them_all(int signum) {
 		else if (uwsgi.workers[i].pid > 0) {
 			if (uwsgi.lazy)
 				uwsgi.workers[i].destroy = 1;
-			kill(uwsgi.workers[i].pid, SIGHUP);
+			uwsgi_curse(i, SIGHUP);
 		}
 	}
 
@@ -2320,6 +2320,8 @@ unsafe:
 	if (uwsgi.sockets)
 		uwsgi_log("your server socket listen backlog is limited to %d connections\n", uwsgi.listen_queue);
 #endif
+
+	uwsgi_log("your mercy for graceful operations on workers is %d seconds\n", uwsgi.worker_reload_mercy);
 
 	if (uwsgi.crons) {
 		struct uwsgi_cron *ucron = uwsgi.crons;

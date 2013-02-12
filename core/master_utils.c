@@ -7,12 +7,7 @@ void worker_wakeup() {
 
 void uwsgi_curse(int wid, int sig) {
 	uwsgi.workers[wid].cursed_at = uwsgi_now();
-        if (uwsgi.reload_mercy) {
-        	uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + uwsgi.reload_mercy;
-        }
-        else {
-        	uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + 5;
-        }
+        uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + uwsgi.worker_reload_mercy;
 
 	if (sig) {
 		(void) kill(uwsgi.workers[wid].pid, sig);
@@ -24,7 +19,7 @@ static void uwsgi_signal_spoolers(int signum) {
         struct uwsgi_spooler *uspool = uwsgi.spoolers;
         while (uspool) {
                 if (uspool->pid > 0) {
-                        kill(uspool->pid, SIGKILL);
+                        kill(uspool->pid, signum);
                         uwsgi_log("killing the spooler with pid %d\n", uspool->pid);
                 }
                 uspool = uspool->next;
@@ -34,26 +29,34 @@ static void uwsgi_signal_spoolers(int signum) {
 void uwsgi_destroy_processes() {
 
 	int i;
+	int waitpid_status;
 
         uwsgi_signal_spoolers(SIGKILL);
 
         if (uwsgi.emperor_pid >= 0) {
                 kill(uwsgi.emperor_pid, SIGKILL);
-                waitpid(uwsgi.emperor_pid, &i, 0);
-                uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
+                waitpid(uwsgi.emperor_pid, &waitpid_status, 0);
+		uwsgi_log("The Emperor has been buried (pid: %d)\n", (int) uwsgi.emperor_pid);
         }
 
 
         uwsgi_detach_daemons();
 
         for (i = 0; i < ushared->gateways_cnt; i++) {
-                if (ushared->gateways[i].pid > 0)
+                if (ushared->gateways[i].pid > 0) {
                         kill(ushared->gateways[i].pid, SIGKILL);
+			waitpid(ushared->gateways[i].pid, &waitpid_status, 0);
+			uwsgi_log("gateway \"%s %d\" has been buried (pid: %d)\n", ushared->gateways[i].name, ushared->gateways[i].num, (int) ushared->gateways[i].pid);
+		}
         }
 
+	// TODO mules can be programmed to be gracefully reloaded
         for (i = 0; i < uwsgi.mules_cnt; i++) {
-                if (uwsgi.mules[i].pid > 0)
+                if (uwsgi.mules[i].pid > 0) {
                         kill(uwsgi.mules[i].pid, SIGKILL);
+			waitpid(uwsgi.mules[i].pid, &waitpid_status, 0);
+			uwsgi_log("mule %d has been buried (pid: %d)\n", i, (int) uwsgi.mules[i].pid);
+		}
         }
 }
 
@@ -132,6 +135,7 @@ int uwsgi_calc_cheaper(void) {
 #endif
 			uwsgi.workers[oldest_worker].cheaped = 1;
 			uwsgi.workers[oldest_worker].manage_next_request = 0;
+			// TODO fix here
 			uwsgi.workers[oldest_worker].cursed_at = now;
 			// wakeup task in case of wait
 			(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
