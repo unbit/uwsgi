@@ -5,6 +5,60 @@ extern struct uwsgi_server uwsgi;
 void worker_wakeup() {
 }
 
+void uwsgi_curse(int wid, int sig) {
+	uwsgi.workers[wid].cursed_at = uwsgi_now();
+        if (uwsgi.reload_mercy) {
+        	uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + uwsgi.reload_mercy;
+        }
+        else {
+        	uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + 5;
+        }
+
+	if (sig) {
+		(void) kill(uwsgi.workers[wid].pid, sig);
+	}
+}
+
+static void uwsgi_signal_spoolers(int signum) {
+
+        struct uwsgi_spooler *uspool = uwsgi.spoolers;
+        while (uspool) {
+                if (uspool->pid > 0) {
+                        kill(uspool->pid, SIGKILL);
+                        uwsgi_log("killing the spooler with pid %d\n", uspool->pid);
+                }
+                uspool = uspool->next;
+        }
+
+}
+void uwsgi_destroy_processes() {
+
+	int i;
+
+        uwsgi_signal_spoolers(SIGKILL);
+
+        if (uwsgi.emperor_pid >= 0) {
+                kill(uwsgi.emperor_pid, SIGKILL);
+                waitpid(uwsgi.emperor_pid, &i, 0);
+                uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
+        }
+
+
+        uwsgi_detach_daemons();
+
+        for (i = 0; i < ushared->gateways_cnt; i++) {
+                if (ushared->gateways[i].pid > 0)
+                        kill(ushared->gateways[i].pid, SIGKILL);
+        }
+
+        for (i = 0; i < uwsgi.mules_cnt; i++) {
+                if (uwsgi.mules[i].pid > 0)
+                        kill(uwsgi.mules[i].pid, SIGKILL);
+        }
+}
+
+
+
 void uwsgi_master_cleanup_hooks(void) {
 
 	int j;
@@ -13,7 +67,7 @@ void uwsgi_master_cleanup_hooks(void) {
 	if (uwsgi.mywid > 0)
 		return;
 
-	uwsgi.cleaning = 1;
+	uwsgi.status.is_cleaning = 1;
 
 	for (j = 0; j < uwsgi.gp_cnt; j++) {
 		if (uwsgi.gp[j]->master_cleanup) {
@@ -78,7 +132,7 @@ int uwsgi_calc_cheaper(void) {
 #endif
 			uwsgi.workers[oldest_worker].cheaped = 1;
 			uwsgi.workers[oldest_worker].manage_next_request = 0;
-			uwsgi.workers[oldest_worker].stopped_at = now;
+			uwsgi.workers[oldest_worker].cursed_at = now;
 			// wakeup task in case of wait
 			(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
 		}
@@ -476,7 +530,8 @@ int uwsgi_respawn_worker(int wid) {
 	uwsgi.workers[wid].rss_size = 0;
 	uwsgi.workers[wid].vsz_size = 0;
 	// ... reset stopped_at
-	uwsgi.workers[wid].stopped_at = 0;
+	uwsgi.workers[wid].cursed_at = 0;
+	uwsgi.workers[wid].no_mercy_at = 0;
 
 	// internal statuses should be reset too
 
@@ -540,7 +595,7 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.my_signal_socket = uwsgi.workers[wid].signal_pipe[1];
 
 		if (uwsgi.master_process) {
-			if ((uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.cheap)) {
+			if ((uwsgi.workers[uwsgi.mywid].respawn_count || uwsgi.status.is_cheap)) {
 				for (i = 0; i < 256; i++) {
 					if (uwsgi.p[i]->master_fixup) {
 						uwsgi.p[i]->master_fixup(1);
@@ -1406,3 +1461,20 @@ void trigger_harakiri(int i) {
 	// to avoid races
 
 }
+
+void uwsgi_master_fix_request_counters() {
+	int i;
+	uint64_t total_counter = 0;
+        for (i = 1; i <= uwsgi.numproc;i++) {
+		uint64_t tmp_counter = 0;
+		int j;
+		for(j=0;j<uwsgi.cores;j++) {
+			tmp_counter += uwsgi.workers[i].cores[j].requests;
+		}
+		uwsgi.workers[i].requests = tmp_counter;
+		total_counter += tmp_counter;
+	}
+
+	uwsgi.workers[0].requests = total_counter;
+}
+

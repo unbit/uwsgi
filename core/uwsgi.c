@@ -441,7 +441,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"chdir2", required_argument, 0, "chdir to specified directory after apps loading", uwsgi_opt_set_str, &uwsgi.chdir2, 0},
 	{"lazy", no_argument, 0, "set lazy mode (load apps in workers instead of master)", uwsgi_opt_true, &uwsgi.lazy, 0},
 	{"lazy-apps", no_argument, 0, "load apps in each worker instead of the master", uwsgi_opt_true, &uwsgi.lazy_apps, 0},
-	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.cheap, UWSGI_OPT_MASTER},
+	{"cheap", no_argument, 0, "set cheap mode (spawn workers only after the first request)", uwsgi_opt_true, &uwsgi.status.is_cheap, UWSGI_OPT_MASTER},
 	{"cheaper", required_argument, 0, "set cheaper mode (adaptive process spawning)", uwsgi_opt_set_int, &uwsgi.cheaper_count, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-initial", required_argument, 0, "set the initial number of processes to spawn in cheaper mode", uwsgi_opt_set_int, &uwsgi.cheaper_initial, UWSGI_OPT_MASTER | UWSGI_OPT_CHEAPER},
 	{"cheaper-algo", required_argument, 0, "choose to algorithm used for adaptive process spawning)", uwsgi_opt_set_str, &uwsgi.requested_cheaper_algo, UWSGI_OPT_MASTER},
@@ -900,7 +900,7 @@ void end_me(int signum) {
 
 void simple_goodbye_cruel_world() {
 
-	if (uwsgi.threads > 1 && !uwsgi.to_hell) {
+	if (uwsgi.threads > 1 && !uwsgi_instance_is_dying) {
 		wait_for_threads();
 	}
 
@@ -910,7 +910,7 @@ void simple_goodbye_cruel_world() {
 }
 
 void goodbye_cruel_world() {
-	uwsgi.workers[uwsgi.mywid].stopped_at = uwsgi_now();
+	uwsgi_curse(uwsgi.mywid, 0);
 
 	if (!uwsgi.gbcw_hook) {
 		simple_goodbye_cruel_world();
@@ -920,125 +920,39 @@ void goodbye_cruel_world() {
 	}
 }
 
-static void uwsgi_signal_spoolers(int signum) {
-
-	struct uwsgi_spooler *uspool = uwsgi.spoolers;
-	while (uspool) {
-		if (uspool->pid > 0) {
-			kill(uspool->pid, SIGKILL);
-			uwsgi_log("killing the spooler with pid %d\n", uspool->pid);
-		}
-		uspool = uspool->next;
-	}
-
-}
-
+// gracefully destroy
 void kill_them_all(int signum) {
-	int i;
 
-	if (uwsgi.to_hell == 1)
-		return;
-
-	// count the number of active workers
-	int active_workers = 0;
-	for (i = 1; i <= uwsgi.numproc; i++) {
-		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-			active_workers++;
-		}
-	}
-	uwsgi.marked_workers = active_workers;
-
-	uwsgi.to_hell = 1;
-
-	if (uwsgi.reload_mercy > 0) {
-		uwsgi.master_mercy = uwsgi_now() + uwsgi.reload_mercy;
-	}
-	else {
-		uwsgi.master_mercy = uwsgi_now() + 5;
-	}
-
-	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
+	if (uwsgi_instance_is_dying) return;
+	uwsgi.status.gracefully_destroying = 1;
 
 	// unsubscribe if needed
 	uwsgi_unsubscribe_all();
 
+	uwsgi_log("SIGINT/SIGQUIT received...killing workers...\n");
+
+	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
-		if (uwsgi.workers[i].pid > 0)
-			kill(uwsgi.workers[i].pid, SIGINT);
-	}
+                if (uwsgi.workers[i].pid > 0) {
+                        uwsgi_curse(i, SIGINT);
+                }
+        }
 
-	uwsgi_signal_spoolers(SIGKILL);
-
-	if (uwsgi.emperor_pid >= 0) {
-		kill(uwsgi.emperor_pid, SIGKILL);
-		waitpid(uwsgi.emperor_pid, &i, 0);
-		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
-	}
-
-
-	uwsgi_detach_daemons();
-
-	for (i = 0; i < ushared->gateways_cnt; i++) {
-		if (ushared->gateways[i].pid > 0)
-			kill(ushared->gateways[i].pid, SIGKILL);
-	}
-
-	for (i = 0; i < uwsgi.mules_cnt; i++) {
-		if (uwsgi.mules[i].pid > 0)
-			kill(uwsgi.mules[i].pid, SIGKILL);
-	}
-
+	uwsgi_destroy_processes();
 }
 
+// graceful reload
 void grace_them_all(int signum) {
+	if (uwsgi_instance_is_reloading || uwsgi_instance_is_dying)
+		return;
+
+	uwsgi.status.gracefully_reloading = 1;
+
 	int i;
 	int waitpid_status;
 
-	if (uwsgi.to_heaven == 1 || uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0)
-		return;
 
-	// count the number of active workers
-	int active_workers = 0;
-	for (i = 1; i <= uwsgi.numproc; i++) {
-		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-			active_workers++;
-		}
-	}
-	uwsgi.marked_workers = active_workers;
-
-	if (!uwsgi.lazy)
-		uwsgi.to_heaven = 1;
-	else
-		uwsgi.to_outworld = 1;
-
-	if (uwsgi.reload_mercy > 0) {
-		uwsgi.master_mercy = uwsgi_now() + uwsgi.reload_mercy;
-	}
-	else {
-		// wait max 60 seconds for graceful reload
-		uwsgi.master_mercy = uwsgi_now() + 60;
-	}
-
-	uwsgi_signal_spoolers(SIGKILL);
-
-	if (uwsgi.emperor_pid >= 0) {
-		kill(uwsgi.emperor_pid, SIGKILL);
-		waitpid(uwsgi.emperor_pid, &i, 0);
-		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
-	}
-
-	uwsgi_detach_daemons();
-
-	for (i = 0; i < ushared->gateways_cnt; i++) {
-		if (ushared->gateways[i].pid > 0)
-			kill(ushared->gateways[i].pid, SIGKILL);
-	}
-
-	for (i = 0; i < uwsgi.mules_cnt; i++) {
-		if (uwsgi.mules[i].pid > 0)
-			kill(uwsgi.mules[i].pid, SIGKILL);
-	}
-
+	uwsgi_destroy_processes();
 
 	uwsgi_log("...gracefully killing workers...\n");
 
@@ -1058,12 +972,11 @@ void grace_them_all(int signum) {
 				if (uwsgi.auto_snapshot > 0 && i > uwsgi.auto_snapshot) {
 					uwsgi.workers[i].snapshot = 0;
 					uwsgi.workers[i].destroy = 1;
-					kill(uwsgi.workers[i].pid, SIGHUP);
+					uwsgi_curse(i, SIGHUP);
 				}
 				else {
 					uwsgi.workers[i].snapshot = uwsgi.workers[i].pid;
 					kill(uwsgi.workers[i].pid, SIGURG);
-					uwsgi.lazy_respawned++;
 				}
 			}
 		}
@@ -1075,9 +988,9 @@ void grace_them_all(int signum) {
 	}
 
 	if (uwsgi.auto_snapshot) {
-		uwsgi.respawn_workers = uwsgi.numproc - uwsgi.auto_snapshot;
-		if (!uwsgi.respawn_workers)
-			uwsgi.respawn_workers = 1;
+		uwsgi.respawn_snapshots = uwsgi.numproc - uwsgi.auto_snapshot;
+		if (!uwsgi.respawn_snapshots)
+			uwsgi.respawn_snapshots = 1;
 	}
 
 }
@@ -1096,61 +1009,28 @@ void uwsgi_nuclear_blast() {
 	exit(1);
 }
 
+// brutally reload
 void reap_them_all(int signum) {
-	int i;
 
 	// avoid reace condition in lazy mode
-	if (uwsgi.to_outworld == 1 || uwsgi.lazy_respawned > 0)
+	if (uwsgi_instance_is_reloading)
 		return;
 
+	uwsgi.status.brutally_reloading = 1;
 
 	if (!uwsgi.workers) return;
 
-	// count the number of active workers
-	int active_workers = 0;
-	for (i = 1; i <= uwsgi.numproc; i++) {
-		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-			active_workers++;
-		}
-	}
-	uwsgi.marked_workers = active_workers;
-
-	if (!uwsgi.lazy)
-		uwsgi.to_heaven = 1;
-	else
-		uwsgi.to_outworld = 1;
-
-	uwsgi_detach_daemons();
-
-	for (i = 0; i < ushared->gateways_cnt; i++) {
-		if (ushared->gateways[i].pid > 0)
-			kill(ushared->gateways[i].pid, SIGKILL);
-	}
-
-	for (i = 0; i < uwsgi.mules_cnt; i++) {
-		if (!uwsgi.mules)
-			break;
-		if (uwsgi.mules[i].pid > 0)
-			kill(uwsgi.mules[i].pid, SIGKILL);
-	}
-
-	if (uwsgi.emperor_pid >= 0) {
-		kill(uwsgi.emperor_pid, SIGKILL);
-		waitpid(uwsgi.emperor_pid, &i, 0);
-		uwsgi_log("killing the emperor with pid %d\n", uwsgi.emperor_pid);
-	}
-
-	if (!uwsgi.workers)
-		return;
+	uwsgi_destroy_processes();
 
 	uwsgi_log("...brutally killing workers...\n");
 
 	// unsubscribe if needed
 	uwsgi_unsubscribe_all();
 
+	int i;
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0)
-			kill(uwsgi.workers[i].pid, SIGTERM);
+			uwsgi_curse(i, SIGTERM);
 	}
 }
 
@@ -2403,7 +2283,8 @@ int uwsgi_start(void *v_argv) {
 	if (uwsgi.command_mode) {
 		uwsgi.sockets = NULL;
 		uwsgi.numproc = 1;
-		uwsgi.to_hell = 1;
+		// hack to destroy the instance after command exit
+		uwsgi.status.brutally_destroying = 1;
 	}
 
 #ifndef UWSGI_DEBUG
@@ -2682,7 +2563,7 @@ next2:
 	uwsgi.current_time = uwsgi_now();
 
 	// here we spawn the workers...
-	if (!uwsgi.cheap) {
+	if (!uwsgi.status.is_cheap) {
 		if (uwsgi.cheaper && uwsgi.cheaper_count) {
 			int nproc = uwsgi.cheaper_initial;
 			if (!nproc)

@@ -446,10 +446,10 @@ class uConf(object):
 
         self.config.read(filename)
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
-            'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile', 'core/async',
+            'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile', 'core/async', 'core/master_checks',
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/spooler', 'core/snmp',
             'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/reader', 'core/writer',
-            'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash',
+            'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash', 'core/master_events',
             'core/queue', 'core/event', 'core/signal', 'core/strings', 'core/progress', 'core/timebomb',
             'core/rpc', 'core/gateway', 'core/loop', 'core/rb_timers', 'core/uwsgi']
         # add protocols

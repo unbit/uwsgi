@@ -1421,6 +1421,21 @@ struct uwsgi_cache {
 
 struct uwsgi_offload_engine;
 
+// these are the possible states of an instance
+struct uwsgi_instance_status {
+	int gracefully_reloading;
+	int brutally_reloading;
+	int gracefully_destroying;
+	int brutally_destroying;
+	int chain_reloading;
+	int workers_reloading;
+	int is_cheap;
+	int is_cleaning;
+};
+
+#define uwsgi_instance_is_dying (uwsgi.status.gracefully_destroying || uwsgi.status.brutally_destroying)
+#define uwsgi_instance_is_reloading (uwsgi.status.gracefully_reloading || uwsgi.status.brutally_reloading)
+
 struct uwsgi_server {
 
 
@@ -1450,6 +1465,8 @@ struct uwsgi_server {
 	// quiet startup
 	int no_initial_output;
 
+	struct uwsgi_instance_status status;
+
 		struct uwsgi_string_list *get_list;
 
 		// enable threads
@@ -1474,13 +1491,13 @@ struct uwsgi_server {
 		struct uwsgi_string_list *whitelist;
 
 		int snapshot;
+		int respawn_snapshots;
 
 		// enable auto-snapshotting
 		int auto_snapshot;
 		pid_t restore_snapshot;
 
 
-		int respawn_workers;
 		unsigned int reloads;
 
 		// leave master running as root
@@ -1504,8 +1521,6 @@ struct uwsgi_server {
 		int lazy;
 		// enable lazy-apps mode
 		int lazy_apps;
-		// enable cheap mode
-		int cheap;
 		// enable cheaper mode
 		int cheaper;
 		char *requested_cheaper_algo;
@@ -1559,9 +1574,6 @@ struct uwsgi_server {
 
 		struct uwsgi_string_list *additional_headers;
 		struct uwsgi_string_list *remove_headers;
-
-		// maximum time to wait after a reload
-		time_t master_mercy;
 
 		// set cpu affinity
 		int cpu_affinity;
@@ -1841,6 +1853,8 @@ struct uwsgi_server {
 
 		struct uwsgi_string_list *touch_reload;
 		struct uwsgi_string_list *touch_chain_reload;
+		struct uwsgi_string_list *touch_workers_reload;
+		struct uwsgi_string_list *touch_gracefully_stop;
 		struct uwsgi_string_list *touch_logrotate;
 		struct uwsgi_string_list *touch_logreopen;
 
@@ -1873,18 +1887,9 @@ struct uwsgi_server {
 		char *snmp_addr;
 		char *snmp_community;
 		struct uwsgi_lock_item *snmp_lock;
+		int snmp_fd;
 
-		int to_heaven;
-		int to_hell;
-		int to_outworld;
-
-		int cleaning;
-
-		int marked_workers;
-		int ready_to_die;
-		int ready_to_reload;
-
-		int lazy_respawned;
+		int udp_fd;
 
 		uint16_t buffer_size;
 		int signal_bufsize;
@@ -2363,7 +2368,8 @@ struct uwsgi_rpc {
 		int sig;
 		uint8_t signum;
 
-		time_t stopped_at;
+		time_t cursed_at;
+		time_t no_mercy_at;
 
 		// signals managed by this worker
 		uint64_t signals;
@@ -2461,9 +2467,14 @@ void uwsgi_redirect_to_slash(struct wsgi_request *);
 void manage_snmp(int, uint8_t *, int, struct sockaddr_in *);
 void snmp_init(void);
 
+void uwsgi_master_manage_snmp(int);
+
 int spool_request(struct uwsgi_spooler *uspool, char *, int, int, char *, int, char *, time_t, char *, size_t);
 void spooler(struct uwsgi_spooler *);
 pid_t spooler_start(struct uwsgi_spooler *);
+
+void uwsgi_curse(int, int);
+void uwsgi_destroy_processes(void);
 
 void set_harakiri(int);
 void set_user_harakiri(int);
@@ -3773,6 +3784,28 @@ int uwsgi_upload_progress_update(struct wsgi_request *, int, size_t);
 void uwsgi_upload_progress_destroy(char *, int);
 
 void uwsgi_time_bomb(int, int);
+void uwsgi_master_manage_emperor(void);
+void uwsgi_master_manage_udp(int);
+
+void uwsgi_threaded_logger_spawn(void);
+
+void uwsgi_master_check_idle(void);
+void uwsgi_master_check_workers_deadline(void);
+void uwsgi_master_check_gateways_deadline(void);
+void uwsgi_master_check_mules_deadline(void);
+void uwsgi_master_check_spoolers_deadline(void);
+int uwsgi_master_check_spoolers_death(int);
+int uwsgi_master_check_emperor_death(int);
+int uwsgi_master_check_mules_death(int);
+int uwsgi_master_check_gateways_death(int);
+int uwsgi_master_check_daemons_death(int);
+
+void uwsgi_master_check_death(void);
+int uwsgi_master_check_reload(char **);
+void uwsgi_master_commit_status(void);
+
+void uwsgi_master_fix_request_counters(void);
+int uwsgi_master_manage_events(int);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)

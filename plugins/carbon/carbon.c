@@ -291,7 +291,7 @@ void carbon_master_cycle() {
 
 	if (!u_carbon.servers) return;
 
-	if (uwsgi.current_time - u_carbon.last_update >= u_carbon.freq || uwsgi.cleaning) {
+	if (uwsgi.current_time - u_carbon.last_update >= u_carbon.freq || uwsgi.status.is_cleaning) {
 		// update
 		u_carbon.need_retry = 0;
 		carbon_push_stats(0);
