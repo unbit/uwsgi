@@ -40,7 +40,7 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
 
 	// ok we now have the start position, let's search for contiguous blocks
 	uint8_t *bitmap = uc->blocks_bitmap;
-	uint64_t base = 0xffffffffffffffff;
+	uint64_t base = 0xffffffffffffffffLLU;
 	uint8_t base_bit = 0;
 	uint64_t j;
 	uint64_t found = 0;
@@ -62,12 +62,12 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
 			// used block
                 	if (num & i) {
                                 found = 0;
-                                base = 0xffffffffffffffff;
+                                base = 0xffffffffffffffffLLU;
                                 base_bit = 0;
                         }
 			// free block
                         else {
-                                if (base == 0xffffffffffffffff ) {
+                                if (base == 0xffffffffffffffffLLU ) {
                                         base = j;
 					base_bit = bit_pos;
                                 }
@@ -86,14 +86,14 @@ static uint64_t uwsgi_cache_find_free_blocks(struct uwsgi_cache *uc, uint64_t ne
 		if (j >= need_to_scan) {
 			j = 0;
 			found = 0;
-			base = 0xffffffffffffffff;
+			base = 0xffffffffffffffffLLU;
 			base_bit = 0;
 		}
 	}
 
 	
 	// no more free blocks
-	return 0xffffffffffffffff;
+	return 0xffffffffffffffffLLU;
 }
 
 static uint64_t cache_mark_blocks(struct uwsgi_cache *uc, uint64_t index, uint64_t len) {
@@ -567,7 +567,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 		else {
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
 			//uwsgi_log("first block = %llu\n", uci->first_block);
-			if (uci->first_block == 0xffffffffffffffff) {
+			if (uci->first_block == 0xffffffffffffffffLLU) {
 				uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
                                 uc->full++;
 				if (rollback_mode == 0) {
@@ -635,7 +635,7 @@ int uwsgi_cache_set2(struct uwsgi_cache *uc, char *key, uint16_t keylen, char *v
 			// we have a special case here, as we need to find a new series of free blocks
 			uint64_t old_first_block = uci->first_block;
 			uci->first_block = uwsgi_cache_find_free_blocks(uc, vallen);
-                        if (uci->first_block == 0xffffffffffffffff) {
+                        if (uci->first_block == 0xffffffffffffffffLLU) {
                                 uwsgi_log("*** DANGER cache \"%s\" is FULL !!! ***\n", uc->name);
                                 uc->full++;
 				uci->first_block = old_first_block;
