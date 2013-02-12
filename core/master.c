@@ -1461,7 +1461,7 @@ health_cycle:
 				continue;
 #endif
 
-			if (uwsgi.emperor_pid >= 0) {
+			if (uwsgi.emperor_pid >= 0 && diedpid == uwsgi.emperor_pid) {
 				uwsgi_log_verbose("!!! Emperor died !!!\n");
 				uwsgi_emperor_start();
 				continue;
