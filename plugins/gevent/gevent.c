@@ -226,6 +226,12 @@ PyObject *py_uwsgi_gevent_request(PyObject * self, PyObject * args) {
 
 request:
 
+#ifdef UWSGI_ROUTING
+	if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK) {
+		goto end;
+	}
+#endif
+
 	for(;;) {
 		wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
 		if (wsgi_req->async_status <= UWSGI_OK) {

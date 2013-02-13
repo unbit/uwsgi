@@ -386,6 +386,12 @@ void async_loop() {
 						event_queue_del_fd(uwsgi.async_queue, interesting_fd, event_queue_read());
 						// put request in the runqueue
 						runqueue_push(uwsgi.wsgi_req);
+#ifdef UWSGI_ROUTING
+        					if (uwsgi_apply_routes(uwsgi.wsgi_req) == UWSGI_ROUTE_BREAK) {
+							uwsgi.async_proto_fd_table[interesting_fd] = NULL;
+							close(interesting_fd);
+						}
+#endif
 						continue;
 					}
 					else if (proto_parser_status < 0) {

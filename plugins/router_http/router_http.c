@@ -30,6 +30,17 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 
 	if (uri) free(uri);
 
+	// amount of body to send
+	size_t remains = wsgi_req->post_cl - wsgi_req->proto_parser_remains;
+	// append remaining body...
+	if (wsgi_req->proto_parser_remains > 0) {
+		if (uwsgi_buffer_append(ub, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains)) {
+			uwsgi_log("unable to generate http request for %s\n", addr);
+               		return UWSGI_ROUTE_NEXT;
+		}
+		wsgi_req->proto_parser_remains = 0;
+	}
+
 	// ok now if have offload threads, directly use them
 	if (wsgi_req->socket->can_offload) {
         	if (!uwsgi_offload_request_net_do(wsgi_req, addr, ub)) {
@@ -38,49 +49,10 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
                 }
 	}
 
-	// connect to the http server
-	int http_fd = uwsgi_connect(addr, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT], 0);
-	if (http_fd < 0) {
-		uwsgi_log("unable to connect to host %s\n", addr);
-		free(ub);
-		return UWSGI_ROUTE_NEXT;
-	}
-
-	// send the request
-	if (uwsgi_buffer_send(ub, http_fd)) {
-		uwsgi_log("error routing request to http server %s\n", addr);
-		close(http_fd);
-		uwsgi_buffer_destroy(ub);
-                return UWSGI_ROUTE_NEXT;
-	}
-
-	ssize_t ret;
-
-	// pipe the body
-	if (wsgi_req->post_cl > 0) {
-		int post_fd = wsgi_req->fd;
-		if (wsgi_req->post_file) {
-			post_fd = fileno((FILE *)wsgi_req->post_file);
-		}
-		ret = uwsgi_pipe_sized(post_fd, http_fd, wsgi_req->post_cl, 0);
-		if (ret < 0) {
-			uwsgi_log("error routing request body (%llu bytes) to http server %s\n", (unsigned long long) wsgi_req->post_cl, addr);
-			close(http_fd);
-                	uwsgi_buffer_destroy(ub);
-			return UWSGI_ROUTE_BREAK;
-		}
-	}
-
-	// pipe the response
-	ret = uwsgi_pipe(http_fd, wsgi_req->fd, 0);
-	if (ret > 0) {
-		wsgi_req->response_size += ret;
-	}
-	else {
+	if (uwsgi_proxy_nb(wsgi_req, addr, ub, remains, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
 		uwsgi_log("error routing request to http server %s\n", addr);
 	}
 
-	close(http_fd);
 	uwsgi_buffer_destroy(ub);
 
 	return UWSGI_ROUTE_BREAK;

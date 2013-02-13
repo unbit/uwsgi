@@ -890,8 +890,6 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 		uwsgi.async_proto_fd_table[wsgi_req->fd] = wsgi_req;
 	}
 
-
-
 	// enter harakiri mode
 	if (uwsgi.shared->options[UWSGI_OPTION_HARAKIRI] > 0) {
 		set_harakiri(uwsgi.shared->options[UWSGI_OPTION_HARAKIRI]);

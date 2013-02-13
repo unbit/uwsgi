@@ -3,7 +3,25 @@
 extern struct uwsgi_server uwsgi;
 
 int uwsgi_simple_wait_read_hook(int fd, int timeout) {
-        return uwsgi_waitfd(fd, timeout);
+	struct pollfd upoll;
+	timeout = timeout * 1000;
+
+        upoll.fd = fd;
+        upoll.events = POLLIN;
+        upoll.revents = 0;
+        int ret = poll(&upoll, 1, timeout);
+
+        if (ret > 0) {
+                if (upoll.revents & POLLIN) {
+                        return 1;
+                }
+		return -1;
+        }
+        if (ret < 0) {
+                uwsgi_error("uwsgi_simple_wait_read_hook()/poll()");
+        }
+
+        return ret;
 }
 
 /*

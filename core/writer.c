@@ -277,5 +277,23 @@ sendfile:
 
 
 int uwsgi_simple_wait_write_hook(int fd, int timeout) {
-	return uwsgi_waitfd_write(fd, timeout);
+	struct pollfd upoll;
+        timeout = timeout * 1000;
+
+        upoll.fd = fd;
+        upoll.events = POLLOUT;
+        upoll.revents = 0;
+        int ret = poll(&upoll, 1, timeout);
+
+        if (ret > 0) {
+                if (upoll.revents & POLLOUT) {
+                        return 1;
+                }
+                return -1;
+        }
+        if (ret < 0) {
+                uwsgi_error("uwsgi_simple_wait_write_hook()/poll()");
+        }
+
+        return ret;
 }

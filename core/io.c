@@ -703,6 +703,8 @@ written:
 }
 
 
+
+
 // like uwsgi_pipe but with fixed size
 ssize_t uwsgi_pipe_sized(int src, int dst, size_t required, int timeout) {
 	char buf[8192];
@@ -821,6 +823,35 @@ int uwsgi_read_nb(int fd, char *buf, size_t remains, int timeout) {
 }
 
 /*
+        this is like uwsgi_read_nb() but with fast initial read and hooked wait (use it in request plugin)
+*/
+ssize_t uwsgi_read_true_nb(int fd, char *buf, size_t len, int timeout) {
+        int ret;
+
+	ssize_t rlen = read(fd, buf, len);
+        if (rlen > 0) {
+		return rlen;	
+	}
+        if (rlen == 0) return -1;
+        if (rlen < 0) {
+        	if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) goto wait;
+        }
+        return -1;
+wait:
+        ret = uwsgi.wait_read_hook(fd, timeout);
+        if (ret > 0) {
+        	rlen = read(fd, buf, len);
+                if (rlen > 0) {
+			return rlen;
+                }
+		return -1;
+	}
+        return ret;
+}
+
+
+
+/*
 	this is a pretty magic function used for read a full uwsgi response
 	it is true non blocking, so you can use it in request plugins
 	buffer is expected to be at least 4 bytes, rlen is a get/set value
@@ -894,4 +925,65 @@ readok2:
 
 	return 0;
 	
+}
+
+/*
+
+	this is a commodity (big) function to send a buffer and wsgi_req body to a socket
+	and to receive back data (and send them to the client)
+
+*/
+
+int uwsgi_proxy_nb(struct wsgi_request *wsgi_req, char *addr, struct uwsgi_buffer *ub, size_t remains, int timeout) {
+
+        int fd = uwsgi_connect(addr, 0, 1);
+        if (fd < 0) {
+		return -1;
+        }
+
+        int ret = uwsgi.wait_write_hook(fd, timeout);
+        if (ret <= 0) {
+		goto end;
+        }
+
+        // send the request (+ remaining data)
+	if (ub) {
+        	if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, timeout)) {
+			goto end;
+        	}
+	}
+
+        // send the body
+        while(remains > 0) {
+                ssize_t rlen = 0;
+                char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+                if (!buf) {
+			goto end;
+                }
+                if (buf == uwsgi.empty) break;
+                // write data to the node
+                if (uwsgi_write_true_nb(fd, buf, rlen, timeout)) {
+			goto end;
+                }
+                remains -= rlen;
+        }
+
+        // read the response
+        for(;;) {
+                char buf[8192];
+                ssize_t rlen = uwsgi_read_true_nb(fd, buf, 8192, timeout);
+                if (rlen > 0) {
+                        if (uwsgi_response_write_body_do(wsgi_req, buf, rlen)) {
+                                break;
+                        }
+                        continue;
+                }
+                break;
+        }
+
+	close(fd);
+	return 0;
+end:
+	close(fd);
+	return -1;
 }
