@@ -135,10 +135,7 @@ int uwsgi_calc_cheaper(void) {
 #endif
 			uwsgi.workers[oldest_worker].cheaped = 1;
 			uwsgi.workers[oldest_worker].manage_next_request = 0;
-			// TODO fix here
-			uwsgi.workers[oldest_worker].cursed_at = now;
-			// wakeup task in case of wait
-			(void) kill(uwsgi.workers[oldest_worker].pid, SIGWINCH);
+			uwsgi_curse(oldest_worker, SIGWINCH);
 		}
 	}
 

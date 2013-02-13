@@ -165,23 +165,15 @@ void suspend_resume_them_all(int signum) {
 
 void uwsgi_master_check_mercy() {
 
-	int i, waitpid_status;
+	int i;
 
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cursed_at) {
 			if (uwsgi_now() > uwsgi.workers[i].no_mercy_at) {
 				uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
-				if (!kill(uwsgi.workers[i].pid, SIGKILL)) {
-					if (waitpid(uwsgi.workers[i].pid, &waitpid_status, 0) < 0) {
-						uwsgi_error("uwsgi_master_check_mercy()/waitpid()");
-					}
-				}
-				else {
+				if (kill(uwsgi.workers[i].pid, SIGKILL)) {
 					uwsgi_error("uwsgi_master_check_mercy()/kill()");
 				}
-				uwsgi.workers[i].pid = 0;
-				uwsgi.workers[i].cursed_at = 0;
-				uwsgi.workers[i].no_mercy_at = 0;
 			}
 		}
 	}
@@ -484,6 +476,7 @@ int master_loop(char **argv, char **environ) {
 	uwsgi_check_touches(uwsgi.touch_logrotate);
 	uwsgi_check_touches(uwsgi.touch_logreopen);
 	uwsgi_check_touches(uwsgi.touch_chain_reload);
+	uwsgi_check_touches(uwsgi.touch_workers_reload);
 	uwsgi_check_touches(uwsgi.touch_gracefully_stop);
 
 	// setup cheaper algos (can be stacked)
@@ -529,6 +522,9 @@ int master_loop(char **argv, char **environ) {
 		if (uwsgi_master_check_reload(argv)) {
 			return -1;
 		}
+
+		// check chain reload
+		uwsgi_master_check_chain();
 
 		// check if some worker is taking too much to die...
 		uwsgi_master_check_mercy();
@@ -745,25 +741,34 @@ int master_loop(char **argv, char **environ) {
 			if (!uwsgi_instance_is_reloading && !uwsgi_instance_is_dying) {
 				char *touched = uwsgi_check_touches(uwsgi.touch_reload);
 				if (touched) {
-					uwsgi_log("*** %s has been touched... grace them all !!! ***\n", touched);
+					uwsgi_log_verbose("*** %s has been touched... grace them all !!! ***\n", touched);
 					uwsgi_block_signal(SIGHUP);
 					grace_them_all(0);
 					uwsgi_unblock_signal(SIGHUP);
 					continue;
 				}
-				touched = uwsgi_check_touches(uwsgi.touch_chain_reload);
+				touched = uwsgi_check_touches(uwsgi.touch_workers_reload);
 				if (touched) {
+                                        uwsgi_log_verbose("*** %s has been touched... workers reload !!! ***\n", touched);
 					uwsgi_block_signal(SIGHUP);
-                                        uwsgi_log("*** %s has been touched... chain reload !!! ***\n", touched);
 					for(i=1;i<=uwsgi.numproc;i++) {
 						if (uwsgi.workers[i].pid > 0) {
-							kill(uwsgi.workers[i].pid, SIGHUP);
+							uwsgi_curse(i, SIGHUP);
 						}
 					}
 					uwsgi_unblock_signal(SIGHUP);
                                         continue;
                                 }
-
+				touched = uwsgi_check_touches(uwsgi.touch_chain_reload);
+				if (touched) {
+					if (uwsgi.status.chain_reloading == 0) {
+                                        	uwsgi_log_verbose("*** %s has been touched... chain reload !!! ***\n", touched);
+						uwsgi.status.chain_reloading = 1;
+					}
+					else {
+                                        	uwsgi_log_verbose("*** %s has been touched... but chain reload is already running ***\n", touched);
+					}
+				}
 			}
 
 			continue;
@@ -907,6 +912,11 @@ next:
 		}
 		gettimeofday(&last_respawn, NULL);
 		uwsgi.respawn_delta = last_respawn.tv_sec;
+
+		// are we chain reloading it ?
+		if (uwsgi.status.chain_reloading == uwsgi.mywid) {
+			uwsgi.status.chain_reloading++;
+		}
 
 		// respawn the worker (if needed)
 		if (uwsgi_respawn_worker(uwsgi.mywid))

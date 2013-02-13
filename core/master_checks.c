@@ -32,6 +32,24 @@ int uwsgi_master_check_reload(char **argv) {
 	return 0;
 }
 
+// check for chain reload
+void uwsgi_master_check_chain() {
+	if (!uwsgi.status.chain_reloading) return;
+	if (uwsgi.status.chain_reloading > uwsgi.numproc) {
+		uwsgi.status.chain_reloading = 0;
+                uwsgi_log_verbose("chain reloading complete\n");
+	}
+	int i;
+	uwsgi_block_signal(SIGHUP);
+	for(i=1;i<=uwsgi.numproc;i++) {
+		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].cursed_at == 0 && i == uwsgi.status.chain_reloading) {
+			uwsgi_curse(i, SIGHUP);
+			break;
+		}
+	}
+	uwsgi_unblock_signal(SIGHUP);
+}
+
 
 // special function for assuming all of the workers are dead
 void uwsgi_master_commit_status() {
