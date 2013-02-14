@@ -52,7 +52,7 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	}
 
 	if (running_cores > 0) {
-		uwsgi_log_verbose("waiting for %d running requests...\n", running_cores);
+		uwsgi_log_verbose("waiting for %d running requests on worker %d (pid: %d)...\n", running_cores, uwsgi.mywid, uwsgi.mypid);
 	}
 
 	Py_INCREF(Py_None);
