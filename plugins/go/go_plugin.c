@@ -9,6 +9,7 @@ void (*uwsgi_go_helper_env_add_c)(void *, char *, int, char *, int);
 void (*uwsgi_go_helper_request_c)(void *, struct wsgi_request *);
 int (*uwsgi_go_helper_signal_handler_c)(int, void *);
 void (*uwsgi_go_helper_run_core_c)(int);
+char *(*uwsgi_go_helper_version_c)();
 
 void uwsgi_go_post_fork() {
 	uwsgi_go_helper_post_fork_c();
@@ -43,6 +44,9 @@ int uwsgi_go_init() {
 	uwsgi_go_get_symbol(uwsgi_go_helper_request)
 	uwsgi_go_get_symbol(uwsgi_go_helper_signal_handler)
 	uwsgi_go_get_symbol(uwsgi_go_helper_run_core)
+	uwsgi_go_get_symbol(uwsgi_go_helper_version)
+
+	uwsgi_log("Go version \"%s\" initialized\n", uwsgi_go_helper_version_c());
 
 	// call PostInit()
 	uwsgi_go_helper_post_init_c();

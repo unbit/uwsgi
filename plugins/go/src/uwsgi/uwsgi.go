@@ -29,6 +29,7 @@ import (
 	"strings"
 	"strconv"
 	"io"
+	"runtime"
 )
 
 // this stores the modifier used by the go plugin (default 11)
@@ -384,6 +385,12 @@ func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_req
 			http.DefaultServeMux.ServeHTTP(&w, httpReq)
 		}
 	}
+}
+
+//export uwsgi_go_helper_version
+func uwsgi_go_helper_version() *C.char {
+	v := runtime.Version()
+	return C.CString(v)
 }
 
 //export uwsgi_go_helper_signal_handler
