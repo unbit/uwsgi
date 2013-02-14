@@ -1813,9 +1813,13 @@ setup_proto:
 		else if (requested_protocol && (!strcmp("fastcgi", requested_protocol) || !strcmp("fcgi", requested_protocol))) {
 			uwsgi_sock->proto = uwsgi_proto_fastcgi_parser;
 			uwsgi_sock->proto_accept = uwsgi_proto_base_accept;
-			uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
-			//uwsgi_sock->proto_write_header = uwsgi_proto_fastcgi_write_header;
-			//uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;
+			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
+                        uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
+                        uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
+			uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
+                        uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
+                        uwsgi_sock->proto_write_headers = uwsgi_proto_fastcgi_write;
+                        uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;	
 			uwsgi_sock->proto_close = uwsgi_proto_fastcgi_close;
 		}
 #ifdef UWSGI_ZEROMQ

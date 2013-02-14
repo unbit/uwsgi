@@ -1290,8 +1290,9 @@ struct uwsgi_cache {
 		int headers_hvec;
 
 		uint64_t proto_parser_pos;
-		int proto_parser_status;
+		int64_t proto_parser_status;
 		void *proto_parser_buf;
+		uint64_t proto_parser_buf_size;
 		void *proto_parser_remains_buf;
 		size_t proto_parser_remains;
 
@@ -2705,30 +2706,6 @@ void uwsgi_rpc_init(void);
 
 	char *uwsgi_open_and_read(char *, size_t *, int, char *[]);
 	char *uwsgi_get_last_char(char *, char);
-
-	struct uwsgi_twobytes {
-		uint8_t cl1;
-		uint8_t cl0;
-	} __attribute__ ((__packed__));
-
-	struct fcgi_record {
-		uint8_t version;
-		uint8_t type;
-		uint8_t req1;
-		uint8_t req0;
-		union {
-			uint16_t cl;
-			struct uwsgi_twobytes cl8;
-		};
-		uint8_t pad;
-		uint8_t reserved;
-	} __attribute__ ((__packed__));
-
-#define FCGI_BEGIN_REQUEST "\0\1\0\0\0\0\0\0"
-#define FCGI_END_REQUEST "\1\x06\0\1\0\0\0\0\1\3\0\1\0\x08\0\0\0\0\0\0\0\0\0\0"
-	ssize_t fcgi_send_record(int, uint8_t, uint16_t, char *);
-	ssize_t fcgi_send_param(int, char *, uint16_t, char *, uint16_t);
-	uint16_t fcgi_get_record(int, char *);
 
 	void uwsgi_spawn_daemon(struct uwsgi_daemon *);
 	void uwsgi_detach_daemons();

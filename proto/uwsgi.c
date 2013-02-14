@@ -1,6 +1,6 @@
 /* async uwsgi protocol parser */
 
-#include "../uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
