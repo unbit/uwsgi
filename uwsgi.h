@@ -1265,7 +1265,7 @@ struct uwsgi_cache {
 		int async_plagued;
 
 		int suspended;
-		int write_errors;
+		uint64_t write_errors;
 
 		int *ovector;
 		size_t post_cl;
@@ -1647,7 +1647,7 @@ struct uwsgi_server {
 
 		int ignore_sigpipe;
 		int ignore_write_errors;
-		int write_errors_tolerance;
+		uint64_t write_errors_tolerance;
 		int write_errors_exception_only;
 		int disable_write_exception;
 
@@ -2302,6 +2302,8 @@ struct uwsgi_rpc {
 		uint64_t static_requests;
 		uint64_t routed_requests;
 		uint64_t offloaded_requests;
+
+		uint64_t write_errors;
 
 		pthread_t thread_id;
 
