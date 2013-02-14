@@ -1,4 +1,4 @@
-#!./uwsgi --plugins http,0:rack,fiber --https :443,foobar.crt,foobar.key --http-websockets --fiber --rack tests/websockets_echo.ru
+#!./uwsgi --plugins http,0:rack,fiber --https :443,foobar.crt,foobar.key --http-websockets --fiber --rack tests/websockets_echo.ru --async 100
 
 class WebsocketEcho
 
