@@ -52,8 +52,8 @@ int uwsgi_go_init() {
 
 int uwsgi_go_request(struct wsgi_request *wsgi_req) {
 	/* Standard GO request */
-        if (!wsgi_req->uh.pktsize) {
-                uwsgi_log("Invalid GO request. skip.\n");
+        if (!wsgi_req->uh->pktsize) {
+                uwsgi_log("Empty GO request. skip.\n");
                 return -1;
         }
 
