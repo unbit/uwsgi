@@ -262,6 +262,8 @@ parse:
 				wsgi_req->proto_parser_remains_buf = (wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos) - wsgi_req->proto_parser_remains;
 			}
 			if (http_parse(wsgi_req, ptr)) return -1;
+			wsgi_req->uh->modifier1 = uwsgi.http_modifier1;
+			wsgi_req->uh->modifier2 = uwsgi.http_modifier2;
 			return UWSGI_OK;
 		}
 		else {

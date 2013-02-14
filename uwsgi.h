@@ -1520,6 +1520,8 @@ struct uwsgi_server {
 
 		uint64_t fastcgi_modifier1;
 		uint64_t fastcgi_modifier2;
+		uint64_t http_modifier1;
+		uint64_t http_modifier2;
 
 		// enable lazy mode
 		int lazy;
