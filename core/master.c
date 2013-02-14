@@ -170,10 +170,9 @@ void uwsgi_master_check_mercy() {
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].pid > 0 && uwsgi.workers[i].cursed_at) {
 			if (uwsgi_now() > uwsgi.workers[i].no_mercy_at) {
-				uwsgi_log("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
-				if (kill(uwsgi.workers[i].pid, SIGKILL)) {
-					uwsgi_error("uwsgi_master_check_mercy()/kill()");
-				}
+				uwsgi_log_verbose("worker %d (pid: %d) is taking too much time to die...NO MERCY !!!\n", i, uwsgi.workers[i].pid);
+				// yes that look strangem but we avoid callign it again if we skip waitpid() call below
+				uwsgi_curse(i, SIGKILL);
 			}
 		}
 	}

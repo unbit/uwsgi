@@ -697,6 +697,9 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 	wsgi_req->async_id = tmp_id;
 
+	// yes, this is pretty useless but we cannot ensure all of the plugin have the same behaviour
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
+
 	if (uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS] > 0
 	    && uwsgi.workers[uwsgi.mywid].delta_requests >= uwsgi.shared->options[UWSGI_OPTION_MAX_REQUESTS]
 	    && (end_of_request - (uwsgi.workers[uwsgi.mywid].last_spawn*1000000) >= uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME]*1000000)) {

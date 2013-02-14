@@ -29,26 +29,30 @@ PyObject *py_uwsgi_gevent_graceful(PyObject *self, PyObject *args) {
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
         uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 	
-	uwsgi_log("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+	uwsgi_log_verbose("stopping gevent signals watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	PyObject_CallMethod(ugevent.my_signal_watcher, "stop", NULL);
 	PyObject_CallMethod(ugevent.signal_watcher, "stop", NULL);
 
-	uwsgi_log("stopping gevent sockets watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+	uwsgi_log_verbose("stopping gevent sockets watchers for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	int i,count = uwsgi_count_sockets(uwsgi.sockets);
 	for(i=0;i<count;i++) {
 		PyObject_CallMethod(ugevent.watchers[i], "stop", NULL);
 	}
-	uwsgi_log("main gevent watchers stopped for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
+	uwsgi_log_verbose("main gevent watchers stopped for worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 
 	int running_cores = 0;
 	for(i=0;i<uwsgi.async;i++) {
 		if (uwsgi.workers[uwsgi.mywid].cores[i].in_request) {
+			struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[i].req;
+			uwsgi_log_verbose("worker %d (pid: %d) core %d is managing \"%.*s %.*s\" for %.*s\n", uwsgi.mywid, uwsgi.mypid, i, 
+				wsgi_req->method_len, wsgi_req->method, wsgi_req->uri_len, wsgi_req->uri,
+				wsgi_req->remote_addr_len, wsgi_req->remote_addr);
 			running_cores++;
 		}
 	}
 
 	if (running_cores > 0) {
-		uwsgi_log("waiting for %d running requests...\n", running_cores);
+		uwsgi_log_verbose("waiting for %d running requests...\n", running_cores);
 	}
 
 	Py_INCREF(Py_None);
@@ -162,6 +166,8 @@ edge:
 		if (uwsgi_sock->retry && uwsgi_sock->retry[wsgi_req->async_id]) {
 			goto edge;
 		}	
+		// in case of errors (or thundering herd, just rest it)
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
 		goto clear;
 	}
 
