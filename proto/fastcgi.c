@@ -101,31 +101,39 @@ parse:
 		if (wsgi_req->proto_parser_pos >= sizeof(struct fcgi_record)) {
 			struct fcgi_record *fr = (struct fcgi_record *) wsgi_req->proto_parser_buf;
 			uint16_t fcgi_len = uwsgi_be16((char *)&fr->cl1);
+			uint32_t fcgi_all_len = sizeof(struct fcgi_record) + fcgi_len + fr->pad;
+			uint8_t fcgi_type = fr->type;
 			// if STDIN, end of the loop
-			if (fr->type == 5) return UWSGI_OK;
+			if (fcgi_type == 5) {
+				wsgi_req->uh->modifier1 = uwsgi.fastcgi_modifier1;
+				wsgi_req->uh->modifier2 = uwsgi.fastcgi_modifier2;
+				return UWSGI_OK;
+			}
 			// if we have a full packet, parse it and reset the memory
-			if (wsgi_req->proto_parser_pos >= fcgi_len+sizeof(struct fcgi_record)+fr->pad) {
+			if (wsgi_req->proto_parser_pos >= fcgi_all_len) {
 				// PARAMS ? (ignore other types)
-				if (fr->type == 4) {
+				if (fcgi_type == 4) {
 					if (fastcgi_to_uwsgi(wsgi_req, wsgi_req->proto_parser_buf + sizeof(struct fcgi_record), fcgi_len)) {
 						return -1;
 					}
 				}
-				memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + (fcgi_len+sizeof(struct fcgi_record)+fr->pad), wsgi_req->proto_parser_pos - (fcgi_len+sizeof(struct fcgi_record)+fr->pad));
-				wsgi_req->proto_parser_pos -= (fcgi_len+sizeof(struct fcgi_record)+fr->pad);
+				memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + fcgi_all_len, wsgi_req->proto_parser_pos - fcgi_all_len);
+				wsgi_req->proto_parser_pos -= fcgi_all_len;
 				// end of PARAMS
-				if (fr->type == 4 && fcgi_len == 0) {
+				if (fcgi_type == 4 && fcgi_len == 0) {
+					wsgi_req->uh->modifier1 = uwsgi.fastcgi_modifier1;
+					wsgi_req->uh->modifier2 = uwsgi.fastcgi_modifier2;
 					return UWSGI_OK;
 				}
 			}
-			else if ((fcgi_len+fr->pad) > wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos) {
-				char *tmp_buf = realloc(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf_size + ((fcgi_len+fr->pad) - (wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos)));
+			else if (fcgi_all_len > wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos) {
+				char *tmp_buf = realloc(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf_size + fcgi_all_len - (wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos));
 				if (!tmp_buf) {
 					uwsgi_error("uwsgi_proto_fastcgi_parser()/realloc()");
 					return -1;
 				}
 				wsgi_req->proto_parser_buf = tmp_buf;
-				wsgi_req->proto_parser_buf_size += ((fcgi_len+fr->pad) - (wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos));
+				wsgi_req->proto_parser_buf_size += (fcgi_all_len - (wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos));
 				break;
 			}
 			else {
@@ -138,6 +146,67 @@ parse:
 	}
 	return UWSGI_AGAIN;
 
+}
+
+
+ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request *wsgi_req, char *buf, size_t len) {
+	if (wsgi_req->proto_parser_remains > 0) {
+                size_t remains = UMIN(wsgi_req->proto_parser_remains, len);
+                memcpy(buf, wsgi_req->proto_parser_remains_buf, remains);
+                wsgi_req->proto_parser_remains -= remains;
+                wsgi_req->proto_parser_remains_buf += remains;
+                return remains;
+        }
+
+	ssize_t rlen;
+
+	for(;;) {
+                if (wsgi_req->proto_parser_pos >= sizeof(struct fcgi_record)) {
+                        struct fcgi_record *fr = (struct fcgi_record *) wsgi_req->proto_parser_buf;
+                        uint16_t fcgi_len = uwsgi_be16((char *)&fr->cl1);
+			uint32_t fcgi_all_len = sizeof(struct fcgi_record) + fcgi_len + fr->pad;
+                        uint8_t fcgi_type = fr->type;
+                        // if we have a full packet, parse it and reset the memory
+                        if (wsgi_req->proto_parser_pos >= fcgi_all_len) {
+                                // STDIN ? (ignore other types)
+                                if (fcgi_type == 5) {
+					// copy data to the buf
+					size_t remains = UMIN(fcgi_len, len);
+					memcpy(buf, wsgi_req->proto_parser_buf + sizeof(struct fcgi_record), remains);
+					// copy remaining
+					wsgi_req->proto_parser_remains = fcgi_len - remains;
+					wsgi_req->proto_parser_remains_buf = wsgi_req->proto_parser_buf + sizeof(struct fcgi_record) + remains;
+                                	memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + fcgi_all_len, wsgi_req->proto_parser_pos - fcgi_all_len);
+                                	wsgi_req->proto_parser_pos -= fcgi_all_len;
+					return remains;
+				}
+                                memmove(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf + fcgi_all_len, wsgi_req->proto_parser_pos - fcgi_all_len);
+                                wsgi_req->proto_parser_pos -= fcgi_all_len;
+                        }
+                        else if (fcgi_all_len > wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos) {
+                                char *tmp_buf = realloc(wsgi_req->proto_parser_buf, wsgi_req->proto_parser_buf_size + fcgi_all_len - (wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos));
+                                if (!tmp_buf) {
+                                        uwsgi_error("uwsgi_proto_fastcgi_read_body()/realloc()");
+                                        return -1;
+                                }
+                                wsgi_req->proto_parser_buf = tmp_buf;
+                                wsgi_req->proto_parser_buf_size += fcgi_all_len - (wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos);
+                        }
+			goto gather;
+                }
+                else {
+gather:
+			rlen = read(wsgi_req->fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos,  wsgi_req->proto_parser_buf_size - wsgi_req->proto_parser_pos);
+			if (rlen > 0) {
+				wsgi_req->proto_parser_pos += rlen;
+				continue;
+			}
+			return rlen;
+                }
+        }
+
+	return -1;
+	
 }
 
 // write a STDOUT packet

@@ -389,8 +389,7 @@ func uwsgi_go_helper_request(env *map[string]string, wsgi_req *C.struct_wsgi_req
 
 //export uwsgi_go_helper_version
 func uwsgi_go_helper_version() *C.char {
-	v := runtime.Version()
-	return C.CString(v)
+	return C.CString(runtime.Version())
 }
 
 //export uwsgi_go_helper_signal_handler

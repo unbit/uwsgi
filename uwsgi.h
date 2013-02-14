@@ -1518,6 +1518,9 @@ struct uwsgi_server {
 		int tcp_fast_open;
 		int tcp_fast_open_client;
 
+		uint64_t fastcgi_modifier1;
+		uint64_t fastcgi_modifier2;
+
 		// enable lazy mode
 		int lazy;
 		// enable lazy-apps mode
@@ -2863,11 +2866,12 @@ struct uwsgi_dict {
 
 	int uwsgi_proto_http_parser(struct wsgi_request *);
 
-	int uwsgi_proto_fastcgi_parser(struct wsgi_request *);
-	int uwsgi_proto_fastcgi_write(struct wsgi_request *, char *, size_t);
-	int uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
-	int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *, int, size_t, size_t);
-	void uwsgi_proto_fastcgi_close(struct wsgi_request *);
+int uwsgi_proto_fastcgi_parser(struct wsgi_request *);
+int uwsgi_proto_fastcgi_write(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_fastcgi_write_header(struct wsgi_request *, char *, size_t);
+int uwsgi_proto_fastcgi_sendfile(struct wsgi_request *, int, size_t, size_t);
+void uwsgi_proto_fastcgi_close(struct wsgi_request *);
+ssize_t uwsgi_proto_fastcgi_read_body(struct wsgi_request *, char *, size_t);
 
 
 	int uwsgi_proto_base_accept(struct wsgi_request *, int);

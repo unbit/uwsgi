@@ -1816,7 +1816,7 @@ setup_proto:
 			uwsgi_sock->proto_prepare_headers = uwsgi_proto_base_prepare_headers;
                         uwsgi_sock->proto_add_header = uwsgi_proto_base_add_header;
                         uwsgi_sock->proto_fix_headers = uwsgi_proto_base_fix_headers;
-			uwsgi_sock->proto_read_body = uwsgi_proto_base_read_body;
+			uwsgi_sock->proto_read_body = uwsgi_proto_fastcgi_read_body;
                         uwsgi_sock->proto_write = uwsgi_proto_fastcgi_write;
                         uwsgi_sock->proto_write_headers = uwsgi_proto_fastcgi_write;
                         uwsgi_sock->proto_sendfile = uwsgi_proto_fastcgi_sendfile;	

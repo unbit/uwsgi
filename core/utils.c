@@ -693,6 +693,7 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 
 
 	// reset request
+	wsgi_req->uh->pktsize = 0;
 	tmp_id = wsgi_req->async_id;
 	memset(wsgi_req, 0, sizeof(struct wsgi_request));
 	wsgi_req->async_id = tmp_id;

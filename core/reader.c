@@ -47,12 +47,12 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 
 */
 
-#define uwsgi_read_error(x) uwsgi_log("[uwsgi-body-read] Error reading %llu bytes. Content-Length: %llu consumed: %llu available: %llu message: %s\n",\
+#define uwsgi_read_error(x) uwsgi_log("[uwsgi-body-read] Error reading %llu bytes. Content-Length: %llu consumed: %llu left: %llu message: %s\n",\
 			(unsigned long long) x,\
 			(unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos,\
 			strerror(errno));
 
-#define uwsgi_read_timeout(x) uwsgi_log("[uwsgi-body-read] Timeout reading %llu bytes. Content-Length: %llu consumed: %llu available: %llu\n",\
+#define uwsgi_read_timeout(x) uwsgi_log("[uwsgi-body-read] Timeout reading %llu bytes. Content-Length: %llu consumed: %llu left: %llu\n",\
                         (unsigned long long) x,\
                         (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos);
 

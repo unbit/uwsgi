@@ -39,6 +39,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"uwsgi-socket", required_argument, 's', "bind to the specified UNIX/TCP socket using uwsgi protocol", uwsgi_opt_add_socket, "uwsgi", 0},
 	{"http-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTP protocol", uwsgi_opt_add_socket, "http", 0},
 	{"fastcgi-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using FastCGI protocol", uwsgi_opt_add_socket, "fastcgi", 0},
+	{"fastcgi-modifier1", required_argument, 0, "force the specified modifier1 when using FastCGI protocol", uwsgi_opt_set_64bit, &uwsgi.fastcgi_modifier1, 0},
+	{"fastcgi-modifier2", required_argument, 0, "force the specified modifier2 when using FastCGI protocol", uwsgi_opt_set_64bit, &uwsgi.fastcgi_modifier2, 0},
 	{"protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"socket-protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
