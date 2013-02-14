@@ -2362,7 +2362,6 @@ struct uwsgi_rpc {
 
 		int hijacked;
 		uint64_t hijacked_count;
-		int busy;
 		int cheaped;
 		int suspended;
 		int sig;
@@ -3812,6 +3811,8 @@ int uwsgi_master_manage_events(int);
 
 void uwsgi_block_signal(int);
 void uwsgi_unblock_signal(int);
+
+int uwsgi_worker_is_busy(int);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)

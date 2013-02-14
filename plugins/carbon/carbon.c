@@ -1,4 +1,10 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
+
+/*
+
+	Author:	Łukasz Mierzwa
+
+*/
 
 extern struct uwsgi_server uwsgi;
 
@@ -128,7 +134,7 @@ void carbon_push_stats(int retry_cycle) {
 	for (i = 0; i < uwsgi.numproc; i++) {
 		u_carbon.current_busyness_values[i] = uwsgi.workers[i+1].running_time - u_carbon.last_busyness_values[i];
 		u_carbon.last_busyness_values[i] = uwsgi.workers[i+1].running_time;
-		u_carbon.was_busy[i-1] += uwsgi.workers[i+1].busy;
+		u_carbon.was_busy[i-1] += uwsgi_worker_is_busy(i+1);
 	}
 
 	u_carbon.need_retry = 0;

@@ -1995,14 +1995,14 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		if (uwsgi.workers[i + 1].cheaped) {
 			zero = PyString_FromString("cheap");
 		}
-		else if (uwsgi.workers[i + 1].suspended && !uwsgi.workers[i + 1].busy) {
+		else if (uwsgi.workers[i + 1].suspended && !uwsgi_worker_is_busy(i+1)) {
 			zero = PyString_FromString("pause");
 		}
 		else {
 			if (uwsgi.workers[i + 1].sig) {
 				zero = PyString_FromFormat("sig%d",uwsgi.workers[i + 1].signum);
 			}
-			else if (uwsgi.workers[i + 1].busy) {
+			else if (uwsgi_worker_is_busy(i+1)) {
 				zero = PyString_FromString("busy");
 			}
 			else {

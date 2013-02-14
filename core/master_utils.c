@@ -187,7 +187,7 @@ int uwsgi_cheaper_algo_spare(void) {
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 			// if a non-busy worker is found, the overload_count is decremented and stop the cycle
-			if (uwsgi.workers[i].busy == 0) {
+			if (uwsgi_worker_is_busy(i) == 0) {
 				if (overload_count > 0)
 					overload_count--;
 				goto healthy;
@@ -230,7 +230,7 @@ healthy:
 		for (i = 1; i <= uwsgi.numproc; i++) {
 			if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
 				active_workers++;
-				if (uwsgi.workers[i].busy == 1)
+				if (uwsgi_worker_is_busy(i) == 1)
 					busy_workers++;
 			}
 		}
@@ -537,7 +537,6 @@ int uwsgi_respawn_worker(int wid) {
 	// internal statuses should be reset too
 
 	uwsgi.workers[wid].cheaped = 0;
-	uwsgi.workers[wid].busy = 0;
 	// SUSPENSION is managed by the user, not the master...
 	//uwsgi.workers[wid].suspended = 0;
 	uwsgi.workers[wid].sig = 0;
@@ -578,7 +577,6 @@ int uwsgi_respawn_worker(int wid) {
 		uwsgi.workers[uwsgi.mywid].manage_next_request = 1;
 		/*
 		   uwsgi.workers[uwsgi.mywid].cheaped = 0;
-		   uwsgi.workers[uwsgi.mywid].busy = 0;
 		   uwsgi.workers[uwsgi.mywid].suspended = 0;
 		   uwsgi.workers[uwsgi.mywid].sig = 0;
 		 */
@@ -1034,7 +1032,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			if (uwsgi_stats_keyval_comma(us, "status", "cheap"))
 				goto end;
 		}
-		else if (uwsgi.workers[i + 1].suspended && !uwsgi.workers[i + 1].busy) {
+		else if (uwsgi.workers[i + 1].suspended && !uwsgi_worker_is_busy(i+1)) {
 			if (uwsgi_stats_keyval_comma(us, "status", "pause"))
 				goto end;
 		}
@@ -1043,7 +1041,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 				if (uwsgi_stats_keyvalnum_comma(us, "status", "sig", (unsigned long long) uwsgi.workers[i + 1].signum))
 					goto end;
 			}
-			else if (uwsgi.workers[i + 1].busy) {
+			else if (uwsgi_worker_is_busy(i+1)) {
 				if (uwsgi_stats_keyval_comma(us, "status", "busy"))
 					goto end;
 			}

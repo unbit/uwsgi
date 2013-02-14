@@ -860,7 +860,6 @@ void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_so
 	}
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 0;
-	uwsgi.workers[uwsgi.mywid].busy = 0;
 
 	// now check for suspend request
 	if (uwsgi.workers[uwsgi.mywid].suspended == 1) {
@@ -877,7 +876,6 @@ cycle:
 int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
-	uwsgi.workers[uwsgi.mywid].busy = 1;
 
 	wsgi_req->start_of_request = uwsgi_micros();
 	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request / 1000000;
@@ -902,7 +900,6 @@ int wsgi_req_async_recv(struct wsgi_request *wsgi_req) {
 int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].in_request = 1;
-	uwsgi.workers[uwsgi.mywid].busy = 1;
 
 	wsgi_req->start_of_request = uwsgi_micros();
 	wsgi_req->start_of_request_in_sec = wsgi_req->start_of_request / 1000000;

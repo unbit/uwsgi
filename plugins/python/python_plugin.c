@@ -299,7 +299,7 @@ void uwsgi_python_atexit() {
 		return;
 
 	// if busy do not run atexit hooks
-	if (uwsgi.workers[uwsgi.mywid].busy)
+	if (uwsgi_worker_is_busy(uwsgi.mywid))
 		return;
 
 	// managing atexit in async mode is a real pain...skip it for now

@@ -76,7 +76,7 @@ void uwsgi_master_check_idle() {
 	// security check, stop the check if there are busy workers
 	for (i = 1; i <= uwsgi.numproc; i++) {
 		if (uwsgi.workers[i].cheaped == 0 && uwsgi.workers[i].pid > 0) {
-			if (uwsgi.workers[i].busy == 1) {
+			if (uwsgi_worker_is_busy(i)) {
 				return;
 			}
 		}
@@ -263,6 +263,16 @@ int uwsgi_master_check_daemons_death(int diedpid) {
 	/* reload the daemons */
 	if (uwsgi_daemon_check_pid_reload(diedpid)) {
 		return -1;
+	}
+	return 0;
+}
+
+int uwsgi_worker_is_busy(int wid) {
+	int i;
+	for(i=0;i<uwsgi.cores;i++) {
+		if (uwsgi.workers[wid].cores[i].in_request) {
+			return 1;
+		}
 	}
 	return 0;
 }

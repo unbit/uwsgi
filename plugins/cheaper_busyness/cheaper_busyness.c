@@ -1,4 +1,4 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 /*
 
@@ -195,7 +195,7 @@ int cheaper_busyness_algo(void) {
 	for (i = 0; i < uwsgi.numproc; i++) {
 		if (uwsgi.workers[i+1].cheaped == 0 && uwsgi.workers[i+1].pid > 0) {
 			active_workers++;
-			uwsgi_cheaper_busyness_global.was_busy[i] += uwsgi.workers[i+1].busy;
+			uwsgi_cheaper_busyness_global.was_busy[i] += uwsgi_worker_is_busy(i+1);
 		} else {
 			uwsgi_cheaper_busyness_global.was_busy[i] = 0;
 		}
