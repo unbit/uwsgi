@@ -508,7 +508,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"static-skip-ext", required_argument, 0, "skip specified extension from staticfile checks", uwsgi_opt_add_string_list, &uwsgi.static_skip_ext, UWSGI_OPT_MIME},
 	{"static-index", required_argument, 0, "search for specified file if a directory is requested", uwsgi_opt_add_string_list, &uwsgi.static_index, UWSGI_OPT_MIME},
 	{"static-safe", required_argument, 0, "skip security checks if the file is under the specified path", uwsgi_opt_add_string_list, &uwsgi.static_safe, UWSGI_OPT_MIME},
-	{"static-cache-paths", required_argument, 0, "put resolved paths in the uWSGI cache for the specified amount of seconds", uwsgi_opt_set_int, &uwsgi.static_cache_paths, UWSGI_OPT_MIME|UWSGI_OPT_MASTER},
+	{"static-cache-paths", required_argument, 0, "put resolved paths in the uWSGI cache for the specified amount of seconds", uwsgi_opt_set_int, &uwsgi.use_static_cache_paths, UWSGI_OPT_MIME|UWSGI_OPT_MASTER},
 	{"static-cache-paths-name", required_argument, 0, "use the specified cache for static paths", uwsgi_opt_set_str, &uwsgi.static_cache_paths_name, UWSGI_OPT_MIME|UWSGI_OPT_MASTER},
 	{"mimefile", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
 	{"mime-file", required_argument, 0, "set mime types file path (default /etc/mime.types)", uwsgi_opt_add_string_list, &uwsgi.mime_file, UWSGI_OPT_MIME},
@@ -2172,6 +2172,23 @@ int uwsgi_start(void *v_argv) {
 			exit(1);
 		}
 	}
+
+	if (uwsgi.use_static_cache_paths) {
+		if (uwsgi.static_cache_paths_name) {
+			uwsgi.static_cache_paths = uwsgi_cache_by_name(uwsgi.static_cache_paths_name);
+			if (!uwsgi.static_cache_paths) {
+				uwsgi_log("unable to find cache \"%s\"\n", uwsgi.static_cache_paths_name);
+				exit(1);
+			}
+		}
+		else {
+			if (!uwsgi.caches) {
+                		uwsgi_log("caching of static paths requires uWSGI caching !!!\n");
+                		exit(1);
+			}
+			uwsgi.static_cache_paths = uwsgi.caches;
+		}
+        }
 
 	/* plugin initialization */
 	for (i = 0; i < uwsgi.gp_cnt; i++) {

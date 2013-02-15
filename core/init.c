@@ -428,11 +428,6 @@ void sanitize_args() {
                 exit(1);
         }
 
-        if (uwsgi.static_cache_paths && !uwsgi.caches) {
-                uwsgi_log("caching of static paths requires uWSGI caching !!!\n");
-                exit(1);
-        }
-
 	if (uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME] > 0 && uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME] >= uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]) {
 		uwsgi_log("invalid min-worker-lifetime value (%d), must be lower than max-worker-lifetime (%d)\n",
 			uwsgi.shared->options[UWSGI_OPTION_MIN_WORKER_LIFETIME], uwsgi.shared->options[UWSGI_OPTION_MAX_WORKER_LIFETIME]);

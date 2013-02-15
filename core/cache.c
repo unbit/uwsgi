@@ -973,6 +973,7 @@ static void *cache_sweeper_loop(void *ucache) {
 
         // remove expired cache items TODO use rb_tree timeouts
         for (;;) {
+		sleep(uwsgi.cache_expire_freq);
                 uint64_t freed_items = 0;
                 // skip the first slot
                 for (i = 1; i < uc->max_items; i++) {
@@ -1028,6 +1029,7 @@ void uwsgi_cache_start_sync_servers() {
 
 	struct uwsgi_cache *uc = uwsgi.caches;
 	while(uc) {
+		if (!uc->udp_servers) goto next;		
 		pthread_t cache_udp_server;
                 if (pthread_create(&cache_udp_server, NULL, cache_udp_server_loop, (void *) uc)) {
                         uwsgi_error("pthread_create()");
@@ -1036,6 +1038,7 @@ void uwsgi_cache_start_sync_servers() {
                 else {
                         uwsgi_log("udp server thread enabled for cache \"%s\"\n", uc->name);
                 }
+next:
 		uc = uc->next;
         }
 }

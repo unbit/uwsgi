@@ -52,15 +52,20 @@ static inline void greenlet_schedule_to_main(struct wsgi_request *wsgi_req) {
 }
 
 
-int greenlet_init() {
+static int greenlet_init() {
 	return 0;
 }
 
-void greenlet_init_apps(void) {
+static void greenlet_init_apps(void) {
 
 	if (!ugl.enabled) {
 		return;
 	}
+
+	if (uwsgi.async <= 1) {
+                uwsgi_log("the greenlet loop engine requires async mode\n");
+                exit(1);
+        }
 
 
 	PyGreenlet_Import();

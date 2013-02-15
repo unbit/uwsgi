@@ -2520,8 +2520,6 @@ struct wsgi_request *next_wsgi_req(struct wsgi_request *);
 
 
 void async_add_timeout(struct wsgi_request *, int);
-void async_expire_timeouts(void);
-
 
 	void uwsgi_as_root(void);
 
