@@ -75,31 +75,31 @@ static void uwsgi_opt_sslrouter(char *opt, char *value, void *cr) {
 static void uwsgi_opt_sslrouter2(char *opt, char *value, void *cr) {
         struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
 
-        char *s_addr = NULL;
-        char *s_cert = NULL;
-        char *s_key = NULL;
-        char *s_ciphers = NULL;
-        char *s_clientca = NULL;
+        char *s2_addr = NULL;
+        char *s2_cert = NULL;
+        char *s2_key = NULL;
+        char *s2_ciphers = NULL;
+        char *s2_clientca = NULL;
 
         if (uwsgi_kvlist_parse(value, strlen(value), ',', '=',
-                        "addr", &s_addr,
-                        "cert", &s_cert,
-                        "crt", &s_cert,
-                        "key", &s_key,
-                        "ciphers", &s_ciphers,
-                        "clientca", &s_clientca,
-                        "client_ca", &s_clientca,
+                        "addr", &s2_addr,
+                        "cert", &s2_cert,
+                        "crt", &s2_cert,
+                        "key", &s2_key,
+                        "ciphers", &s2_ciphers,
+                        "clientca", &s2_clientca,
+                        "client_ca", &s2_clientca,
                         NULL)) {
                 uwsgi_log("error parsing --sslrouter option\n");
                 exit(1);
         }
 
-        if (!s_addr || !s_cert || !s_key) {
+        if (!s2_addr || !s2_cert || !s2_key) {
                 uwsgi_log("--sslrouter option needs addr, cert and key items\n");
                 exit(1);
         }
 
-        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(s_addr, ucr->name);
+        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(s2_addr, ucr->name);
         // ok we have the socket, initialize ssl if required
         if (!uwsgi.ssl_initialized) {
                 uwsgi_ssl_init();
@@ -111,7 +111,7 @@ static void uwsgi_opt_sslrouter2(char *opt, char *value, void *cr) {
                 name = uwsgi_concat3(ucr->short_name, "-", ugs->name);
         }
 
-	ugs->ctx = uwsgi_ssl_new_server_context(name, s_cert, s_key, s_ciphers, s_clientca);
+	ugs->ctx = uwsgi_ssl_new_server_context(name, s2_cert, s2_key, s2_ciphers, s2_clientca);
         if (!ugs->ctx) {
                 exit(1);
         }

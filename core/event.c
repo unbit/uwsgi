@@ -108,7 +108,7 @@ int event_queue_interesting_fd_has_error(void *events, int id) {
 
 int event_queue_interesting_fd_is_read(void *events, int id) {
 	port_event_t *pe = (port_event_t *) events;
-	if (pe[id].portev_events = POLLIN) {
+	if (pe[id].portev_events == POLLIN) {
 		return 1;
 	}
 	return 0;
@@ -124,7 +124,7 @@ int event_queue_interesting_fd_is_write(void *events, int id) {
 
 int event_queue_add_fd_read(int eq, int fd) {
 
-	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, (void *) eq)) {
+	if (port_associate(eq, PORT_SOURCE_FD, fd, POLLIN, NULL)) {
 		uwsgi_error("port_associate");
 		return -1;
 	}
@@ -171,6 +171,7 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 	int ret;
 	uint_t nget = 1;
 	timespec_t ts;
+	
 
 	if (timeout >= 0) {
 		ts.tv_sec = timeout;
@@ -187,6 +188,18 @@ int event_queue_wait_multi(int eq, int timeout, void *events, int nevents) {
 			return -1;
 		}
 		return 0;
+	}
+
+	uint_t i;
+	port_event_t *pe = (port_event_t *) events;
+	for(i=0;i<nget;i++) {
+		port_event_t *pe_i = &pe[i];
+		if (pe_i->portev_source == PORT_SOURCE_FD) {
+                	// event must be readded (damn Oracle/Sun why the fu*k you made such a horrible choice ???? why not adding a ONESHOT flag ???)
+                	if (port_associate(eq, pe_i->portev_source, pe_i->portev_object, pe_i->portev_events, NULL)) {
+                        	uwsgi_error("port_associate");
+                	}
+        	}
 	}
 
 	return nget;

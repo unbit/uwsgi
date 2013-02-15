@@ -136,6 +136,10 @@ extern "C" {
 #define __need_IOV_MAX
 #endif
 
+#ifdef __sun__
+#define _XPG4_2
+#define __EXTENSIONS__
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -165,11 +169,6 @@ extern "C" {
 
 #ifdef UWSGI_UUID
 #include <uuid/uuid.h>
-#endif
-
-#ifdef __sun__
-#define _XPG4_2
-#define __EXTENSIONS__
 #endif
 
 #include <string.h>

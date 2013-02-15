@@ -63,33 +63,33 @@ void uwsgi_opt_https(char *opt, char *value, void *cr) {
 void uwsgi_opt_https2(char *opt, char *value, void *cr) {
         struct uwsgi_corerouter *ucr = (struct uwsgi_corerouter *) cr;
 
-	char *s_addr = NULL;
-	char *s_cert = NULL;
-	char *s_key = NULL;
-	char *s_ciphers = NULL;
-	char *s_clientca = NULL;
-	char *s_spdy = NULL;
+	char *s2_addr = NULL;
+	char *s2_cert = NULL;
+	char *s2_key = NULL;
+	char *s2_ciphers = NULL;
+	char *s2_clientca = NULL;
+	char *s2_spdy = NULL;
 
 	if (uwsgi_kvlist_parse(value, strlen(value), ',', '=',
-                        "addr", &s_addr,
-                        "cert", &s_cert,
-                        "crt", &s_cert,
-                        "key", &s_key,
-                        "ciphers", &s_ciphers,
-                        "clientca", &s_clientca,
-                        "client_ca", &s_clientca,
-                        "spdy", &s_spdy,
+                        "addr", &s2_addr,
+                        "cert", &s2_cert,
+                        "crt", &s2_cert,
+                        "key", &s2_key,
+                        "ciphers", &s2_ciphers,
+                        "clientca", &s2_clientca,
+                        "client_ca", &s2_clientca,
+                        "spdy", &s2_spdy,
                 	NULL)) {
 		uwsgi_log("error parsing --https2 option\n");
 		exit(1);
         }
 
-	if (!s_addr || !s_cert || !s_key) {
+	if (!s2_addr || !s2_cert || !s2_key) {
 		uwsgi_log("--https2 option needs addr, cert and key items\n");
 		exit(1);
 	}
 
-        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(s_addr, ucr->name);
+        struct uwsgi_gateway_socket *ugs = uwsgi_new_gateway_socket(s2_addr, ucr->name);
         // ok we have the socket, initialize ssl if required
         if (!uwsgi.ssl_initialized) {
                 uwsgi_ssl_init();
@@ -102,7 +102,7 @@ void uwsgi_opt_https2(char *opt, char *value, void *cr) {
         }
 
 #ifdef UWSGI_SPDY
-	if (s_spdy) {
+	if (s2_spdy) {
         	uhttp.spdy_index = SSL_CTX_get_ex_new_index(0, NULL, NULL, NULL, NULL);
 		uhttp.spdy3_settings = uwsgi_buffer_new(uwsgi.page_size);
 		if (uwsgi_buffer_append(uhttp.spdy3_settings, "\x80\x03\x00\x04\x01", 5)) goto spdyerror;
@@ -120,12 +120,12 @@ void uwsgi_opt_https2(char *opt, char *value, void *cr) {
 	}
 #endif
 
-        ugs->ctx = uwsgi_ssl_new_server_context(name, s_cert, s_key, s_ciphers, s_clientca);
+        ugs->ctx = uwsgi_ssl_new_server_context(name, s2_cert, s2_key, s2_ciphers, s2_clientca);
         if (!ugs->ctx) {
                 exit(1);
         }
 #ifdef UWSGI_SPDY
-	if (s_spdy) {
+	if (s2_spdy) {
         	SSL_CTX_set_info_callback(ugs->ctx, uwsgi_spdy_info_cb);
         	SSL_CTX_set_next_protos_advertised_cb(ugs->ctx, uwsgi_spdy_npn, NULL);
 	}

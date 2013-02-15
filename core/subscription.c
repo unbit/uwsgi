@@ -743,72 +743,72 @@ clear:
 
 void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 
-	char *s_server = NULL;
-	char *s_key = NULL;
-	char *s_socket = NULL;
-	char *s_addr = NULL;
-	char *s_weight = NULL;
-	char *s_sign = NULL;
-	char *s_modifier1 = NULL;
-	char *s_modifier2 = NULL;
-	char *s_check = NULL;
+	char *s2_server = NULL;
+	char *s2_key = NULL;
+	char *s2_socket = NULL;
+	char *s2_addr = NULL;
+	char *s2_weight = NULL;
+	char *s2_sign = NULL;
+	char *s2_modifier1 = NULL;
+	char *s2_modifier2 = NULL;
+	char *s2_check = NULL;
 
 	if (uwsgi_kvlist_parse(arg, strlen(arg), ',', '=',
-                        "server", &s_server,
-                        "key", &s_key,
-                        "socket", &s_socket,
-                        "addr", &s_addr,
-                        "weight", &s_weight,
-                        "modifier1", &s_modifier1,
-                        "modifier2", &s_modifier2,
-                        "sign", &s_sign,
-                        "check", &s_check,
+                        "server", &s2_server,
+                        "key", &s2_key,
+                        "socket", &s2_socket,
+                        "addr", &s2_addr,
+                        "weight", &s2_weight,
+                        "modifier1", &s2_modifier1,
+                        "modifier2", &s2_modifier2,
+                        "sign", &s2_sign,
+                        "check", &s2_check,
 		NULL)) {
 		return;
 	}
 
-	if (!s_server && !s_key) goto end;
+	if (!s2_server && !s2_key) goto end;
 
-	if (s_check) {
-		if (uwsgi_file_exists(s_check)) goto end;
+	if (s2_check) {
+		if (uwsgi_file_exists(s2_check)) goto end;
 	}
 
-	if (s_weight) {
-		uwsgi.weight = atoi(s_weight);
+	if (s2_weight) {
+		uwsgi.weight = atoi(s2_weight);
 	}
 
-	if (s_socket) {
-		struct uwsgi_socket *us = uwsgi_get_socket_by_num(atoi(s_socket));
+	if (s2_socket) {
+		struct uwsgi_socket *us = uwsgi_get_socket_by_num(atoi(s2_socket));
 		if (us) {
-			if (s_addr) {
-				free(s_addr);
+			if (s2_addr) {
+				free(s2_addr);
 			}
-			s_addr = uwsgi_str(us->name);
+			s2_addr = uwsgi_str(us->name);
 		}
 	}
 
 	uint8_t modifier1 = 0;
 	uint8_t modifier2 = 0;
 
-	if (s_modifier1) {
-		modifier1 = atoi(s_modifier1);
+	if (s2_modifier1) {
+		modifier1 = atoi(s2_modifier1);
 	}
 
-	if (s_modifier2) {
-		modifier2 = atoi(s_modifier2);
+	if (s2_modifier2) {
+		modifier2 = atoi(s2_modifier2);
 	}
 
-	uwsgi_send_subscription(s_server, s_key, strlen(s_key), modifier1, modifier2, cmd, s_addr, s_sign);
+	uwsgi_send_subscription(s2_server, s2_key, strlen(s2_key), modifier1, modifier2, cmd, s2_addr, s2_sign);
 end:
-	if (s_server) free(s_server);
-	if (s_key) free(s_key);
-	if (s_socket) free(s_socket);
-	if (s_addr) free(s_addr);
-	if (s_weight) free(s_weight);
-	if (s_modifier1) free(s_modifier1);
-	if (s_modifier2) free(s_modifier2);
-	if (s_sign) free(s_sign);
-	if (s_check) free(s_check);
+	if (s2_server) free(s2_server);
+	if (s2_key) free(s2_key);
+	if (s2_socket) free(s2_socket);
+	if (s2_addr) free(s2_addr);
+	if (s2_weight) free(s2_weight);
+	if (s2_modifier1) free(s2_modifier1);
+	if (s2_modifier2) free(s2_modifier2);
+	if (s2_sign) free(s2_sign);
+	if (s2_check) free(s2_check);
 }
 
 void uwsgi_subscribe_all(uint8_t cmd, int verbose) {

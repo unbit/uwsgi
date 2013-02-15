@@ -14,7 +14,7 @@ int uwsgi_gevent_wait_read_hook(int, int);
 #define stop_the_watchers_and_clear stop_the_watchers\
                         Py_DECREF(current); Py_DECREF(current_greenlet);\
                         Py_DECREF(watcher);\
-                        if (timer) Py_DECREF(timer);
+                        if (timer) {Py_DECREF(timer);}
 
 #define stop_the_io ret = PyObject_CallMethod(watcher, "stop", NULL);\
                     if (ret) { Py_DECREF(ret); }
