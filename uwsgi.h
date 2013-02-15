@@ -15,9 +15,7 @@ extern "C" {
 #define uwsgi_log_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log(x);
 #define uwsgi_error_safe(x)  if (uwsgi.original_log_fd != 2) dup2(uwsgi.original_log_fd, 2) ; uwsgi_log("%s: %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_log_initial if (!uwsgi.no_initial_output) uwsgi_log
-#ifdef UWSGI_ALARM
 #define uwsgi_log_alarm(x, ...) uwsgi_log("[uwsgi-alarm" x, __VA_ARGS__)
-#endif
 #define uwsgi_fatal_error(x) uwsgi_error(x); exit(1);
 #define uwsgi_error_open(x)  uwsgi_log("open(\"%s\"): %s [%s line %d]\n", x, strerror(errno), __FILE__, __LINE__);
 #define uwsgi_req_error(x)  if (wsgi_req->uri_len > 0 && wsgi_req->method_len > 0 && wsgi_req->remote_addr_len > 0) uwsgi_log_verbose("%s: %s [%s line %d] during %.*s %.*s (%.*s)\n", x, strerror(errno), __FILE__, __LINE__,\
@@ -1061,7 +1059,6 @@ struct uwsgi_cache {
 
 #endif
 
-#ifdef UWSGI_ALARM
 	struct uwsgi_alarm;
 	struct uwsgi_alarm_instance {
 		char *name;
@@ -1088,6 +1085,7 @@ struct uwsgi_cache {
 		struct uwsgi_alarm *next;
 	};
 
+#ifdef UWSGI_PCRE
 	struct uwsgi_alarm_ll {
 		struct uwsgi_alarm_instance *alarm;
 		struct uwsgi_alarm_ll *next;
@@ -1619,9 +1617,7 @@ struct uwsgi_server {
 		int loggers_list;
 		int loop_list;
 		int clock_list;
-#ifdef UWSGI_ALARM
 		int alarms_list;
-#endif
 
 		struct wsgi_request *wsgi_req;
 
@@ -1747,14 +1743,14 @@ struct uwsgi_server {
 		struct uwsgi_regexp_list *log_req_route;
 #endif
 
-#ifdef UWSGI_ALARM
 		int alarm_freq;
+		uint64_t alarm_msg_size;
 		struct uwsgi_string_list *alarm_list;
 		struct uwsgi_string_list *alarm_logs_list;
 		struct uwsgi_alarm *alarms;
 		struct uwsgi_alarm_instance *alarm_instances;
 		struct uwsgi_alarm_log *alarm_logs;
-#endif
+		struct uwsgi_thread *alarm_thread;
 
 		int threaded_logger;
 		pthread_mutex_t threaded_logger_lock;
@@ -3565,14 +3561,13 @@ void uwsgi_emperor_simple_do(struct uwsgi_emperor_scanner *, char *, char *, tim
 char *uwsgi_elf_section(char *, char *, size_t *);
 #endif
 
-#ifdef UWSGI_ALARM
 void uwsgi_alarm_log_check(char *, size_t);
 void uwsgi_alarm_run(struct uwsgi_alarm_instance *, char *, size_t);
 void uwsgi_alarm_log_run(struct uwsgi_alarm_log *, char *, size_t);
 void uwsgi_register_alarm(char *, void (*)(struct uwsgi_alarm_instance *), void (*)(struct uwsgi_alarm_instance *, char *, size_t));
 void uwsgi_register_embedded_alarms();
 void uwsgi_alarms_init();
-#endif
+void uwsgi_alarm_trigger(char *, char *, size_t);
 
 struct uwsgi_thread {
 	pthread_t tid;

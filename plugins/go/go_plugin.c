@@ -33,7 +33,7 @@ struct uwsgi_option uwsgi_go_options[] = {
 					uwsgi_log("[uwsgi-go] unable to load " #x " function\n"); exit(1);\
 				}
 
-int uwsgi_go_init() {
+static int uwsgi_go_init() {
 
 	// build the functions table
 
@@ -54,7 +54,7 @@ int uwsgi_go_init() {
 	return 0;
 }
 
-int uwsgi_go_request(struct wsgi_request *wsgi_req) {
+static int uwsgi_go_request(struct wsgi_request *wsgi_req) {
 	/* Standard GO request */
         if (!wsgi_req->uh->pktsize) {
                 uwsgi_log("Empty GO request. skip.\n");
@@ -79,17 +79,17 @@ int uwsgi_go_request(struct wsgi_request *wsgi_req) {
 	return UWSGI_OK;
 }
 
-void uwsgi_go_after_request(struct wsgi_request *wsgi_req) {
+static void uwsgi_go_after_request(struct wsgi_request *wsgi_req) {
 
         log_request(wsgi_req);
 
 }
 
-int uwsgi_go_signal_handler(uint8_t signum, void *handler) {
+static int uwsgi_go_signal_handler(uint8_t signum, void *handler) {
 	return uwsgi_go_helper_signal_handler_c((int)signum, handler);
 }
 
-void goroutines_loop() {
+static void goroutines_loop() {
 	int i;
 	for (i = 1; i < uwsgi.async; i++) {
 		uwsgi_go_helper_run_core_c(i);
@@ -97,7 +97,7 @@ void goroutines_loop() {
 	simple_loop_run_int(0);
 }
 
-void uwsgi_go_on_load() {
+static void uwsgi_go_on_load() {
 	uwsgi_register_loop("goroutines", goroutines_loop);
 }
 

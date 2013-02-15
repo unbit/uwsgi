@@ -52,11 +52,11 @@ class Jabbo : public ConnectionListener{
 		event_queue_add_fd_read(u_thread->queue, fd);
 		event_queue_add_fd_read(u_thread->queue, u_thread->pipe[1]);
 		u_connected = 1;
-		uwsgi_log("[uwsgi-xmpp] connected to the XMPP server\n");
+		uwsgi_log("[uwsgi-alarm-xmpp] connected to the XMPP server\n");
     	}
 
     	virtual void onDisconnect(ConnectionError e) {
-		uwsgi_log("[uwsgi-xmpp] trying reconnect to the XMPP server...\n");
+		uwsgi_log("[uwsgi-alarm-xmpp] trying reconnect to the XMPP server...\n");
 		if (u_connected) {
 			// no need to remove it as it is already closed...
 			//event_queue_del_fd(u_thread->queue, fd, event_queue_read());
@@ -69,12 +69,12 @@ class Jabbo : public ConnectionListener{
     	}
 
 	virtual void onResourceBindError(const Error *error) {
-		uwsgi_log("[uwsgi-xmpp] onResourceBindError(): %s\n", error->text().c_str());
+		uwsgi_log("[uwsgi-alarm-xmpp] onResourceBindError(): %s\n", error->text().c_str());
 		client->disconnect();
 	}
 
 	virtual void onSessionCreateError(const Error *error) {
-		uwsgi_log("[uwsgi-xmpp] onSessionCreateError(): %s\n", error->text().c_str());
+		uwsgi_log("[uwsgi-alarm-xmpp] onSessionCreateError(): %s\n", error->text().c_str());
 		client->disconnect();
 	}
 

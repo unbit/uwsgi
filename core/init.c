@@ -146,9 +146,8 @@ void uwsgi_init_default() {
 	uwsgi.ssl_sessions_timeout = 300;
 #endif
 
-#ifdef UWSGI_ALARM
 	uwsgi.alarm_freq = 3;
-#endif
+	uwsgi.alarm_msg_size = 8192;
 
 
 	uwsgi.multicast_ttl = 1;

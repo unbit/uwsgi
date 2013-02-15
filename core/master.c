@@ -369,10 +369,6 @@ int master_loop(char **argv, char **environ) {
 			uwsgi_threaded_logger_spawn();
 		}
 
-#ifdef UWSGI_ALARM
-		// initialize the alarm subsystem
-		uwsgi_alarms_init();
-#endif
 	}
 
 #ifdef UWSGI_SSL

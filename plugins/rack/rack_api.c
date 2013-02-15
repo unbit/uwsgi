@@ -477,6 +477,15 @@ VALUE rack_uwsgi_add_rb_timer(VALUE *class, VALUE rbsignum, VALUE secs) {
 }
 
 
+VALUE rack_uwsgi_alarm(VALUE *class, VALUE alarm, VALUE msg) {
+
+	Check_Type(alarm, T_STRING);
+	Check_Type(msg, T_STRING);
+
+	uwsgi_alarm_trigger(RSTRING_PTR(alarm), RSTRING_PTR(msg), RSTRING_LEN(msg));
+
+	return Qnil;
+}
 
 VALUE rack_uwsgi_add_file_monitor(VALUE *class, VALUE rbsignum, VALUE rbfilename) {
 
@@ -943,6 +952,8 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("add_rb_timer", rack_uwsgi_add_rb_timer, 2);
         uwsgi_rack_api("add_file_monitor", rack_uwsgi_add_file_monitor, 2);
 
+        uwsgi_rack_api("alarm", rack_uwsgi_alarm, 2);
+
         uwsgi_rack_api("websocket_handshake", uwsgi_ruby_websocket_handshake, -1);
         uwsgi_rack_api("websocket_send", uwsgi_ruby_websocket_send, 1);
         uwsgi_rack_api("websocket_recv", uwsgi_ruby_websocket_recv, 0);
@@ -977,7 +988,7 @@ void uwsgi_rack_init_api() {
 #endif
 	
 
-	if (uwsgi.cache_max_items > 0) {
+	if (uwsgi.caches) {
         	uwsgi_rack_api("cache_get", rack_uwsgi_cache_get, 1);
         	uwsgi_rack_api("cache_get!", rack_uwsgi_cache_get_exc, 1);
         	uwsgi_rack_api("cache_exists", rack_uwsgi_cache_exists, 1);

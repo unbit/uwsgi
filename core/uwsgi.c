@@ -409,16 +409,17 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-route", required_argument, 0, "log to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_route, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"log-req-route", required_argument, 0, "log requests to the specified named logger if regexp applied on logline matches", uwsgi_opt_add_regexp_custom_list, &uwsgi.log_req_route, UWSGI_OPT_REQ_LOG_MASTER},
 #endif
-#ifdef UWSGI_ALARM
-	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+	{"alarm", required_argument, 0, "create a new alarm, syntax: <alarm> <plugin:args>", uwsgi_opt_add_string_list, &uwsgi.alarm_list, UWSGI_OPT_MASTER},
 	{"alarm-freq", required_argument, 0, "tune the anti-loop alam system (default 3 seconds)", uwsgi_opt_set_int, &uwsgi.alarm_freq, 0},
+#ifdef UWSGI_PCRE
 	{"log-alarm", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"alarm-log", required_argument, 0, "raise the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"not-log-alarm", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 	{"not-alarm-log", required_argument, 0, "skip the specified alarm when a log line matches the specified regexp, syntax: <alarm>[,alarm...] <regexp>", uwsgi_opt_add_string_list_custom, &uwsgi.alarm_logs_list, UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
+#endif
 	{"alarm-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
 	{"alarms-list", no_argument, 0, "list enabled alarms", uwsgi_opt_true, &uwsgi.alarms_list, 0},
-#endif
+	{"alarm-msg-size", required_argument, 0, "set the max size of an alarm message (default 8192)", uwsgi_opt_set_64bit, &uwsgi.alarm_msg_size, 0},
 #ifdef UWSGI_ZEROMQ
 	{"log-zeromq", required_argument, 0, "send logs to a zeromq server", uwsgi_opt_set_logger, "zeromq", UWSGI_OPT_MASTER | UWSGI_OPT_LOG_MASTER},
 #endif
@@ -1530,7 +1531,6 @@ static void clocks_list(void) {
 	uwsgi_log("--- end of clocks list ---\n\n");
 }
 
-#ifdef UWSGI_ALARM
 static void alarms_list(void) {
 	struct uwsgi_alarm *alarms = uwsgi.alarms;
 	uwsgi_log("\n*** uWSGI loaded alarms ***\n");
@@ -1540,7 +1540,6 @@ static void alarms_list(void) {
 	}
 	uwsgi_log("--- end of alarms list ---\n\n");
 }
-#endif
 
 static time_t uwsgi_unix_seconds() {
 	return time(NULL);
@@ -1797,12 +1796,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_stats_pusher("file", uwsgi_stats_pusher_file);
 	uwsgi_stats_pusher_setup();
 
-
-#ifdef UWSGI_ALARM
 	// register embedded alarms
 	uwsgi_register_embedded_alarms();
-#endif
-
 
 	/* uWSGI IS CONFIGURED !!! */
 
@@ -1843,10 +1838,8 @@ int main(int argc, char *argv[], char *envp[]) {
 	if (uwsgi.clock_list)
 		clocks_list();
 
-#ifdef UWSGI_ALARM
 	if (uwsgi.alarms_list)
 		alarms_list();
-#endif
 
 	// set the clock
 	if (uwsgi.requested_clock)
@@ -2189,6 +2182,9 @@ int uwsgi_start(void *v_argv) {
 			uwsgi.static_cache_paths = uwsgi.caches;
 		}
         }
+
+        // initialize the alarm subsystem
+        uwsgi_alarms_init();
 
 	/* plugin initialization */
 	for (i = 0; i < uwsgi.gp_cnt; i++) {

@@ -514,6 +514,20 @@ PyObject *py_uwsgi_log_this(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+PyObject *py_uwsgi_alarm(PyObject * self, PyObject * args) {
+	char *alarm = NULL;
+	char *msg = NULL;
+	Py_ssize_t msg_len = 0;
+	if (!PyArg_ParseTuple(args, "ss#:alarm", &alarm, &msg, &msg_len)) {
+                return NULL;
+        }	
+
+	uwsgi_alarm_trigger(alarm, msg, msg_len);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyObject *py_uwsgi_get_logvar(PyObject * self, PyObject * args) {
 
 	char *key = NULL;
@@ -2438,6 +2452,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"log_this_request", py_uwsgi_log_this, METH_VARARGS, ""},
 	{"set_logvar", py_uwsgi_set_logvar, METH_VARARGS, ""},
 	{"get_logvar", py_uwsgi_get_logvar, METH_VARARGS, ""},
+	{"alarm", py_uwsgi_alarm, METH_VARARGS, ""},
 	{"disconnect", py_uwsgi_disconnect, METH_VARARGS, ""},
 	{"grunt", py_uwsgi_grunt, METH_VARARGS, ""},
 	{"lock", py_uwsgi_lock, METH_VARARGS, ""},

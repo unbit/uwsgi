@@ -198,6 +198,24 @@ XS(XS_log) {
 	XSRETURN_UNDEF;
 }
 
+XS(XS_alarm) {
+
+        dXSARGS;
+
+	char *alarm;
+	char *msg;
+	STRLEN msg_len;
+
+        psgi_check_args(2);
+
+	alarm = SvPV_nolen(ST(0));
+	msg = SvPV(ST(1), msg_len);
+
+	uwsgi_alarm_trigger(alarm, msg, msg_len);
+
+        XSRETURN_UNDEF;
+}
+
 XS(XS_async_connect) {
 
 	dXSARGS;
@@ -379,6 +397,7 @@ void init_perl_embedded_module() {
 #ifdef UWSGI_SSL
 	psgi_xs(i_am_the_lord);
 #endif
+	psgi_xs(alarm);
 	psgi_xs(websocket_handshake);
 	psgi_xs(websocket_recv);
 	psgi_xs(websocket_send);

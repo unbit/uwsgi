@@ -1182,10 +1182,8 @@ int uwsgi_master_log(void) {
 
         ssize_t rlen = read(uwsgi.shared->worker_log_pipe[0], uwsgi.log_master_buf, uwsgi.log_master_bufsize);
         if (rlen > 0) {
-#ifdef UWSGI_ALARM
-                uwsgi_alarm_log_check(uwsgi.log_master_buf, rlen);
-#endif
 #ifdef UWSGI_PCRE
+                uwsgi_alarm_log_check(uwsgi.log_master_buf, rlen);
                 struct uwsgi_regexp_list *url = uwsgi.log_drain_rules;
                 while (url) {
                         if (uwsgi_regexp_match(url->pattern, url->pattern_extra, uwsgi.log_master_buf, rlen) >= 0) {

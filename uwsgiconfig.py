@@ -63,7 +63,6 @@ report['filemonitor'] = False
 report['pcre'] = False
 report['matheval'] = False
 report['routing'] = False
-report['alarm'] = False
 report['capabilities'] = False
 report['ini'] = False
 report['yaml'] = False
@@ -448,7 +447,7 @@ class uConf(object):
         self.gcc_list = ['core/utils', 'core/protocol', 'core/socket', 'core/logging', 'core/master', 'core/master_utils', 'core/emperor',
             'core/notify', 'core/mule', 'core/subscription', 'core/stats', 'core/sendfile', 'core/async', 'core/master_checks',
             'core/offload', 'core/io', 'core/static', 'core/websockets', 'core/spooler', 'core/snmp',
-            'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/reader', 'core/writer',
+            'core/setup_utils', 'core/clock', 'core/init', 'core/buffer', 'core/reader', 'core/writer', 'core/alarm',
             'core/plugins', 'core/lock', 'core/cache', 'core/daemons', 'core/errors', 'core/hash', 'core/master_events',
             'core/queue', 'core/event', 'core/signal', 'core/strings', 'core/progress', 'core/timebomb',
             'core/rpc', 'core/gateway', 'core/loop', 'core/rb_timers', 'core/uwsgi']
@@ -817,17 +816,6 @@ class uConf(object):
                 self.gcc_list.append('core/routing')
                 self.cflags.append("-DUWSGI_ROUTING")
                 report['routing'] = True
-
-        if self.get('alarm'):
-            if self.get('alarm') == 'auto':
-                if has_pcre:
-                    self.gcc_list.append('core/alarm')
-                    self.cflags.append("-DUWSGI_ALARM") 
-                    report['alarm'] = True
-            else:
-                self.gcc_list.append('core/alarm')
-                self.cflags.append("-DUWSGI_ALARM")
-                report['alarm'] = True
 
 
         if self.has_include('sys/capability.h') and uwsgi_os == 'Linux':
