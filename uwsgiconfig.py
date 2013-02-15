@@ -456,6 +456,7 @@ class uConf(object):
         self.gcc_list.append('proto/uwsgi')
         self.gcc_list.append('proto/http')
         self.gcc_list.append('proto/fastcgi')
+        self.gcc_list.append('proto/scgi')
         self.include_path = []
 
         self.cflags = ['-O2', '-I.', '-Wall', '-Werror', '-D_LARGEFILE_SOURCE', '-D_FILE_OFFSET_BITS=64'] + os.environ.get("CFLAGS", "").split()

@@ -153,6 +153,16 @@ end:
         return NULL;
 }
 
+struct uwsgi_buffer *uwsgi_proto_base_cgi_prepare_headers(struct wsgi_request *wsgi_req, char *s, uint16_t sl) {
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(7 + 1 + sl + 2);
+	ub = uwsgi_buffer_new(7 + 1 + sl + 2);
+	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
+	return ub;	
+end:
+	uwsgi_buffer_destroy(ub);
+	return NULL;
+}
+
 
 int uwsgi_proto_base_write(struct wsgi_request * wsgi_req, char *buf, size_t len) {
         ssize_t wlen = write(wsgi_req->fd, buf+wsgi_req->write_pos, len-wsgi_req->write_pos);

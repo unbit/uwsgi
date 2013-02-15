@@ -37,12 +37,21 @@ UWSGI_DECLARE_EMBEDDED_PLUGINS;
 static struct uwsgi_option uwsgi_base_options[] = {
 	{"socket", required_argument, 's', "bind to the specified UNIX/TCP socket using default protocol", uwsgi_opt_add_socket, NULL, 0},
 	{"uwsgi-socket", required_argument, 's', "bind to the specified UNIX/TCP socket using uwsgi protocol", uwsgi_opt_add_socket, "uwsgi", 0},
+
 	{"http-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using HTTP protocol", uwsgi_opt_add_socket, "http", 0},
 	{"http-socket-modifier1", required_argument, 0, "force the specified modifier1 when using HTTP protocol", uwsgi_opt_set_64bit, &uwsgi.http_modifier1, 0},
 	{"http-socket-modifier2", required_argument, 0, "force the specified modifier2 when using HTTP protocol", uwsgi_opt_set_64bit, &uwsgi.http_modifier2, 0},
+
 	{"fastcgi-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using FastCGI protocol", uwsgi_opt_add_socket, "fastcgi", 0},
+	{"fastcgi-nph-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using FastCGI protocol (nph mode)", uwsgi_opt_add_socket, "fastcgi-nph", 0},
 	{"fastcgi-modifier1", required_argument, 0, "force the specified modifier1 when using FastCGI protocol", uwsgi_opt_set_64bit, &uwsgi.fastcgi_modifier1, 0},
 	{"fastcgi-modifier2", required_argument, 0, "force the specified modifier2 when using FastCGI protocol", uwsgi_opt_set_64bit, &uwsgi.fastcgi_modifier2, 0},
+
+	{"scgi-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using SCGI protocol", uwsgi_opt_add_socket, "scgi", 0},
+	{"scgi-nph-socket", required_argument, 0, "bind to the specified UNIX/TCP socket using SCGI protocol (nph mode)", uwsgi_opt_add_socket, "scgi-nph", 0},
+	{"scgi-modifier1", required_argument, 0, "force the specified modifier1 when using SCGI protocol", uwsgi_opt_set_64bit, &uwsgi.scgi_modifier1, 0},
+	{"scgi-modifier2", required_argument, 0, "force the specified modifier2 when using SCGI protocol", uwsgi_opt_set_64bit, &uwsgi.scgi_modifier2, 0},
+
 	{"protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"socket-protocol", required_argument, 0, "force the specified protocol for default sockets", uwsgi_opt_set_str, &uwsgi.protocol, 0},
 	{"shared-socket", required_argument, 0, "create a shared sacket for advanced jailing or ipc", uwsgi_opt_add_shared_socket, NULL, 0},
