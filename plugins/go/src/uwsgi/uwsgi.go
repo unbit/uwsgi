@@ -124,6 +124,15 @@ func RegisterSignal(signum int, who string, handler func(int)) bool {
 	return false
 }
 
+func Alarm(alarm string, msg string) {
+	a := C.CString(alarm)
+	defer C.free(unsafe.Pointer(a))
+	m := C.CString(msg)
+	defer C.free(unsafe.Pointer(m))
+        ml := len(msg)
+	C.uwsgi_alarm_trigger(a, m, C.size_t(ml))
+}
+
 // get an item from the cache
 func CacheGet(key string) []byte {
 	if (C.uwsgi.caches) == nil {
