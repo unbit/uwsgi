@@ -137,12 +137,12 @@ struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *wsgi_
 			if (uwsgi_buffer_append(ub, " ", 1)) goto end;
 		}
 		else {
-			ub = uwsgi_buffer_new(8 + 1 + sl + 2);
+			ub = uwsgi_buffer_new(9 + sl + 2);
 			if (uwsgi_buffer_append(ub, "HTTP/1.0 ", 9)) goto end;
 		}
 	}
 	else {
-		ub = uwsgi_buffer_new(7 + 1 + sl + 2);
+		ub = uwsgi_buffer_new(8 + sl + 2);
 		if (uwsgi_buffer_append(ub, "Status: ", 8)) goto end;
 	}
         if (uwsgi_buffer_append(ub, s, sl)) goto end;
@@ -154,8 +154,10 @@ end:
 }
 
 struct uwsgi_buffer *uwsgi_proto_base_cgi_prepare_headers(struct wsgi_request *wsgi_req, char *s, uint16_t sl) {
-	struct uwsgi_buffer *ub = uwsgi_buffer_new(7 + 1 + sl + 2);
-	ub = uwsgi_buffer_new(7 + 1 + sl + 2);
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(8 + sl + 2);
+	ub = uwsgi_buffer_new(8 + sl + 2);
+	if (uwsgi_buffer_append(ub, "Status: ", 8)) goto end;
+        if (uwsgi_buffer_append(ub, s, sl)) goto end;
 	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
 	return ub;	
 end:
