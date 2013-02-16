@@ -603,7 +603,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 
 
 	if (!ucr->socket_timeout)
-		ucr->socket_timeout = 30;
+		ucr->socket_timeout = 60;
 
 	if (!ucr->static_node_gracetime)
 		ucr->static_node_gracetime = 30;

@@ -495,6 +495,9 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"websockets-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
 	{"websocket-ping-freq", required_argument, 0, "set the frequency (in seconds) of websockets automatic ping packets", uwsgi_opt_set_int, &uwsgi.websockets_ping_freq, 0},
 
+	{"websockets-pong-tolerance", required_argument, 0, "set the tolerance (in seconds) of websockets ping/pong subsystem", uwsgi_opt_set_int, &uwsgi.websockets_pong_tolerance, 0},
+	{"websocket-pong-tolerance", required_argument, 0, "set the tolerance (in seconds) of websockets ping/pong subsystem", uwsgi_opt_set_int, &uwsgi.websockets_pong_tolerance, 0},
+
 	{"websockets-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
 	{"websocket-max-size", required_argument, 0, "set the max allowed size of websocket messages (in Kbytes, default 1024)", uwsgi_opt_set_64bit, &uwsgi.websockets_max_size, 0},
 

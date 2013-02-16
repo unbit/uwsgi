@@ -47,19 +47,22 @@ static int uwsgi_websockets_pong(struct wsgi_request *wsgi_req) {
 
 static int uwsgi_websockets_check_pingpong(struct wsgi_request *wsgi_req) {
 	time_t now = uwsgi_now();
-	if (wsgi_req->websocket_last_ping == 0 ||
-                (now - wsgi_req->websocket_last_ping > uwsgi.websockets_ping_freq)) {
-                if (uwsgi_websockets_ping(wsgi_req)) return -1;
-        }
-	else if (wsgi_req->websocket_last_ping > 0) {
-                if (wsgi_req->websocket_last_pong < wsgi_req->websocket_last_ping) {
-                        if (wsgi_req->websocket_last_ping - wsgi_req->websocket_last_pong >
-                                uwsgi.websockets_ping_freq) {
-                                uwsgi_log("[uwsgi-websocket] no PONG received in %d seconds !!!\n", uwsgi.websockets_ping_freq);
-                                return -1;
-                        }
-                }
-        }
+	// first round
+	if (wsgi_req->websocket_last_ping == 0) {
+		return uwsgi_websockets_ping(wsgi_req);
+	}
+	// pong not received ?
+	if (wsgi_req->websocket_last_pong < wsgi_req->websocket_last_ping) {
+		if (wsgi_req->websocket_last_ping - wsgi_req->websocket_last_pong > uwsgi.websockets_pong_tolerance) {
+                                uwsgi_log("[uwsgi-websocket] no PONG received in %d seconds !!!\n", uwsgi.websockets_pong_tolerance);
+				return -1;
+		}
+		return 0;
+	}
+	// pong received, send anther ping
+        if (now - wsgi_req->websocket_last_ping >= uwsgi.websockets_ping_freq) {
+                return uwsgi_websockets_ping(wsgi_req);
+	}
 	return 0;
 }
 
@@ -351,5 +354,6 @@ void uwsgi_websockets_init() {
         uwsgi.websockets_ping = uwsgi_buffer_new(2);
         uwsgi_buffer_append(uwsgi.websockets_ping, "\x89\0", 2);
 	uwsgi.websockets_ping_freq = 30;
+	uwsgi.websockets_pong_tolerance = 3;
 	uwsgi.websockets_max_size = 1024;
 }
