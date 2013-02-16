@@ -1,6 +1,10 @@
-#!./uwsgi --https :8443,foobar.crt,foobar.key --http-raw-body --gevent 100 --channel room001 --processes 4 --module tests.websocket
+#!./uwsgi --https :8443,foobar.crt,foobar.key --http-websockets --gevent 100 --module tests.websocket
 import uwsgi
-import time
+import gevent
+from gevent.queue import JoinableQueue
+from gevent.socket import wait_read
+
+queue = JoinableQueue()
 
 def application(env, sr):
 
@@ -51,9 +55,17 @@ def application(env, sr):
     elif env['PATH_INFO'] == '/foobar/':
 	uwsgi.websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env.get('HTTP_ORIGIN', ''))
         print "websockets..."
-	uwsgi.websocket_channel_join('room001')
         while True:
-            msg = uwsgi.websocket_recv()
-            print len(msg)
-            #uwsgi.websocket_send("hello %s = %s" % (time.time(), msg)) 
-            uwsgi.channel_send('room001', "channel %s = %s" % (time.time(), msg))
+            msg = uwsgi.websocket_recv_nb()
+            if msg:
+                queue.put(msg)
+            else:
+                try:
+                    wait_read(uwsgi.connection_fd(), 0.1)
+                except gevent.socket.timeout:
+                    try:
+                        msg = queue.get_nowait()
+                        uwsgi.websocket_send(msg)
+                    except:
+                        pass
+    return ""

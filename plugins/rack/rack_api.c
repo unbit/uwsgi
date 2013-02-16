@@ -930,6 +930,21 @@ VALUE uwsgi_ruby_websocket_recv(VALUE *class) {
 
 }
 
+VALUE uwsgi_ruby_websocket_recv_nb(VALUE *class) {
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
+        if (!ub) {
+                rb_raise(rb_eRuntimeError, "unable to receive websocket message");
+                return Qnil;
+        }
+        VALUE ret = rb_str_new(ub->buf, ub->pos);
+        uwsgi_buffer_destroy(ub);
+        return ret;
+
+}
+
+
 
 
 void uwsgi_rack_init_api() {
@@ -957,6 +972,7 @@ void uwsgi_rack_init_api() {
         uwsgi_rack_api("websocket_handshake", uwsgi_ruby_websocket_handshake, -1);
         uwsgi_rack_api("websocket_send", uwsgi_ruby_websocket_send, 1);
         uwsgi_rack_api("websocket_recv", uwsgi_ruby_websocket_recv, 0);
+        uwsgi_rack_api("websocket_recv_nb", uwsgi_ruby_websocket_recv_nb, 0);
 
         uwsgi_rack_api("setprocname", rack_uwsgi_setprocname, 1);
         uwsgi_rack_api("mem", rack_uwsgi_mem, 0);

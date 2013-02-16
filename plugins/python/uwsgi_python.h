@@ -267,6 +267,11 @@ PyObject *uwsgi_python_setup_thread(char *);
 #undef UWSGI_MINTERPRETERS
 #endif
 
+#define py_current_wsgi_req() current_wsgi_req();\
+			if (!wsgi_req) {\
+				return PyErr_Format(PyExc_SystemError, "you can call uwsgi api function only from the main callable");\
+			}
+
 #define uwsgi_pyexit {PyErr_Print();exit(1);}
 
 #ifdef __linux__

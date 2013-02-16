@@ -11,7 +11,7 @@ PyObject *py_uwsgi_spit(PyObject * self, PyObject * args) {
 	PyObject *exc_info = NULL;
 	size_t i;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	// avoid double sending of headers
 	if (wsgi_req->headers_sent) {

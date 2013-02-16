@@ -187,7 +187,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 	char *content;
 	size_t content_len;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	data = PyTuple_GetItem(args, 0);
 	if (PyString_Check(data)) {
@@ -211,7 +211,7 @@ PyObject *py_uwsgi_write(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 	int fd, timeout = 0;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
 		return NULL;
@@ -228,7 +228,7 @@ PyObject *py_eventfd_read(PyObject * self, PyObject * args) {
 PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 	int fd, timeout = 0;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	if (!PyArg_ParseTuple(args, "i|i", &fd, &timeout)) {
 		return NULL;
@@ -458,7 +458,7 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 
 PyObject *py_uwsgi_sendfile(PyObject * self, PyObject * args) {
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	if (!PyArg_ParseTuple(args, "O|i:uwsgi_sendfile", &wsgi_req->async_sendfile, &wsgi_req->sendfile_fd_chunk)) {
 		return NULL;

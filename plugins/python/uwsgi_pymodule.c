@@ -5,7 +5,7 @@ extern struct uwsgi_python up;
 
 PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 
-        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	int wait_for_specific_signal = 0;
 	uint8_t uwsgi_signal = 0;
 	int received_signal;
@@ -42,7 +42,7 @@ PyObject *py_uwsgi_signal_wait(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_signal_received(PyObject * self, PyObject * args) {
 
-        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
         return PyInt_FromLong(wsgi_req->signal_received);
 }
@@ -506,7 +506,7 @@ clear:
 
 PyObject *py_uwsgi_log_this(PyObject * self, PyObject * args) {
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	wsgi_req->log_this = 1;
 
@@ -532,7 +532,7 @@ PyObject *py_uwsgi_get_logvar(PyObject * self, PyObject * args) {
 
 	char *key = NULL;
         Py_ssize_t keylen = 0;
-        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	if (!PyArg_ParseTuple(args, "s#:get_logvar", &key, &keylen)) {
                 return NULL;
@@ -554,7 +554,7 @@ PyObject *py_uwsgi_set_logvar(PyObject * self, PyObject * args) {
         Py_ssize_t keylen = 0;
         char *val = NULL;
         Py_ssize_t vallen = 0;
-        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
         if (!PyArg_ParseTuple(args, "s#s#:set_logvar", &key, &keylen, &val, &vallen)) {
                 return NULL;
@@ -677,7 +677,7 @@ PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 	PyObject *data;
 	PyObject *arg1, *arg2;
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	int uwsgi_fd = wsgi_req->fd;
 
@@ -708,7 +708,7 @@ PyObject *py_uwsgi_offload(PyObject * self, PyObject * args) {
 /*
 	size_t len = 0;
 	char *filename = NULL;
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	if (!PyArg_ParseTuple(args, "s|i:offload_transfer", &filename, &len)) {
                 return NULL;
@@ -747,7 +747,7 @@ PyObject *py_uwsgi_advanced_sendfile(PyObject * self, PyObject * args) {
 	size_t chunk = 0;
 	off_t pos = 0;
 	size_t filesize = 0;
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	int fd = -1;
 
@@ -964,7 +964,7 @@ PyObject *py_uwsgi_unlock(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_connection_fd(PyObject * self, PyObject * args) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	return PyInt_FromLong(wsgi_req->fd);
 }
 
@@ -979,7 +979,7 @@ PyObject *py_uwsgi_websocket_handshake(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	UWSGI_RELEASE_GIL
 	int ret = uwsgi_websocket_handshake(wsgi_req, key, key_len, origin, origin_len);
@@ -1001,7 +1001,7 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
                 return NULL;
         }
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	UWSGI_RELEASE_GIL	
 	int ret  = uwsgi_websocket_send(wsgi_req, message, message_len);
@@ -1014,7 +1014,7 @@ PyObject *py_uwsgi_websocket_send(PyObject * self, PyObject * args) {
 }
 
 PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	UWSGI_RELEASE_GIL	
 	struct uwsgi_buffer *ub = uwsgi_websocket_recv(wsgi_req);
 	UWSGI_GET_GIL	
@@ -1025,6 +1025,20 @@ PyObject *py_uwsgi_websocket_recv(PyObject * self, PyObject * args) {
 	PyObject *ret = PyString_FromStringAndSize(ub->buf, ub->pos);
 	uwsgi_buffer_destroy(ub);
 	return ret;
+}
+
+PyObject *py_uwsgi_websocket_recv_nb(PyObject * self, PyObject * args) {
+        struct wsgi_request *wsgi_req = py_current_wsgi_req();
+        UWSGI_RELEASE_GIL
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
+        UWSGI_GET_GIL
+        if (!ub) {
+                return PyErr_Format(PyExc_IOError, "unable to receive websocket message");
+        }
+
+        PyObject *ret = PyString_FromStringAndSize(ub->buf, ub->pos);
+        uwsgi_buffer_destroy(ub);
+        return ret;
 }
 
 
@@ -1634,7 +1648,7 @@ PyObject *py_uwsgi_send_spool(PyObject * self, PyObject * args, PyObject *kw) {
 	char *cur_buf;
 	int i;
 	char spool_filename[1024];
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 	char *priority = NULL;
 	long numprio = 0;
 	time_t at = 0;
@@ -2212,7 +2226,7 @@ PyObject *py_uwsgi_mem(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_cl(PyObject * self, PyObject * args) {
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	return PyLong_FromUnsignedLongLong(wsgi_req->post_cl);
 
@@ -2220,7 +2234,7 @@ PyObject *py_uwsgi_cl(PyObject * self, PyObject * args) {
 
 PyObject *py_uwsgi_disconnect(PyObject * self, PyObject * args) {
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 #ifdef UWSGI_DEBUG
 	uwsgi_log("disconnecting worker %d (pid :%d) from session...\n", uwsgi.mywid, uwsgi.mypid);
@@ -2354,7 +2368,7 @@ PyObject *py_uwsgi_parse_file(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_grunt(PyObject * self, PyObject * args) {
 
 	pid_t grunt_pid;
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	if (uwsgi.grunt) {
 		uwsgi_log("spawning a grunt from worker %d (pid :%d)...\n", uwsgi.mywid, uwsgi.mypid);
@@ -2425,7 +2439,7 @@ static PyMethodDef uwsgi_spooler_methods[] = {
 
 PyObject *py_uwsgi_suspend(PyObject * self, PyObject * args) {
 
-	struct wsgi_request *wsgi_req = current_wsgi_req();
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
 
 	if (uwsgi.schedule_to_main) uwsgi.schedule_to_main(wsgi_req);
 
@@ -2522,6 +2536,7 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	//{"call_hook", py_uwsgi_call_hook, METH_VARARGS, ""},
 
 	{"websocket_recv", py_uwsgi_websocket_recv, METH_VARARGS, ""},
+	{"websocket_recv_nb", py_uwsgi_websocket_recv_nb, METH_VARARGS, ""},
 	{"websocket_send", py_uwsgi_websocket_send, METH_VARARGS, ""},
 	{"websocket_handshake", py_uwsgi_websocket_handshake, METH_VARARGS, ""},
 

@@ -74,15 +74,17 @@ static void uwsgi_gevent_gbcw() {
 }
 
 struct wsgi_request *uwsgi_gevent_current_wsgi_req(void) {
+	struct wsgi_request *wsgi_req = NULL;
 	PyObject *current_greenlet = GET_CURRENT_GREENLET;
 	PyObject *py_wsgi_req = PyObject_GetAttrString(current_greenlet, "uwsgi_wsgi_req");
 	// not in greenlet
 	if (!py_wsgi_req) {
 		uwsgi_log("[BUG] current_wsgi_req NOT FOUND !!!\n");
-		exit(1);
+		goto end;		
 	}
-	struct wsgi_request *wsgi_req = (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
+	wsgi_req = (struct wsgi_request*) PyLong_AsLong(py_wsgi_req);
 	Py_DECREF(py_wsgi_req);
+end:
 	Py_DECREF(current_greenlet);
 	return wsgi_req;
 }
@@ -408,8 +410,13 @@ static void gevent_loop() {
 
 	python_call(ugevent.signal, ge_signal_tuple, 0, NULL);
 
-	if (!PyObject_CallMethod(ugevent.hub, "join", NULL)) {
-		PyErr_Print();
+	for(;;) {
+		if (!PyObject_CallMethod(ugevent.hub, "join", NULL)) {
+			PyErr_Print();
+		}
+		else {
+			break;
+		}
 	}
 
 	if (uwsgi.workers[uwsgi.mywid].manage_next_request == 0) {

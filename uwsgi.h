@@ -2187,7 +2187,6 @@ struct uwsgi_server {
 		struct uwsgi_buffer *websockets_ping;
 		struct uwsgi_buffer *websockets_pong;
 		int websockets_ping_freq;
-		int websockets_pong_freq;
 		uint64_t websockets_max_size;
 
 		int (*wait_write_hook) (int, int);
@@ -3724,12 +3723,11 @@ void uwsgi_subscribe_all(uint8_t, int);
 void uwsgi_websockets_init(void);
 int uwsgi_websocket_send(struct wsgi_request *, char *, size_t);
 struct uwsgi_buffer *uwsgi_websocket_recv(struct wsgi_request *);
+struct uwsgi_buffer *uwsgi_websocket_recv_nb(struct wsgi_request *);
 
 uint16_t uwsgi_be16(char *);
 uint32_t uwsgi_be32(char *);
 uint64_t uwsgi_be64(char *);
-
-int uwsgi_websockets_pong(struct wsgi_request *);
 
 int uwsgi_websocket_handshake(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 

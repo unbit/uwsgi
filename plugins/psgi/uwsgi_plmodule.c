@@ -378,6 +378,25 @@ XS(XS_websocket_recv) {
         XSRETURN(1);
 }
 
+XS(XS_websocket_recv_nb) {
+        dXSARGS;
+
+        psgi_check_args(0);
+
+        struct wsgi_request *wsgi_req = current_wsgi_req();
+        struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
+        if (!ub) {
+                croak("unable to receive websocket message");
+                XSRETURN_UNDEF;
+        }
+
+        ST(0) = newSVpv(ub->buf, ub->pos);
+        uwsgi_buffer_destroy(ub);
+        sv_2mortal(ST(0));
+
+        XSRETURN(1);
+}
+
 
 
 void init_perl_embedded_module() {
@@ -400,6 +419,7 @@ void init_perl_embedded_module() {
 	psgi_xs(alarm);
 	psgi_xs(websocket_handshake);
 	psgi_xs(websocket_recv);
+	psgi_xs(websocket_recv_nb);
 	psgi_xs(websocket_send);
 	psgi_xs(postfork);
 	psgi_xs(atexit);
