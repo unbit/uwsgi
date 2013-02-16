@@ -51,7 +51,6 @@ class WebsocketEcho
 EOF
 
         		return [200, { 'Content-Type' => 'text/html'}, [body]]
-		end
 		else if env['PATH_INFO'] == '/foobar/'
 			UWSGI::websocket_handshake(env['HTTP_SEC_WEBSOCKET_KEY'], env['HTTP_ORIGIN'])
         		puts "websockets..."
