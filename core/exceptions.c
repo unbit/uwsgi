@@ -81,9 +81,11 @@ static void append_backtrace_to_ubuf(uint16_t pos, char *value, uint16_t len, vo
 			break;
 		// text
 		case 3:
-			if (uwsgi_buffer_append(ub, "text/code: \"", 12)) return;
-			if (uwsgi_buffer_append(ub, value, len)) return;
-			if (uwsgi_buffer_append(ub, "\" ", 2)) return;
+			if (len > 0) {
+				if (uwsgi_buffer_append(ub, "text/code: \"", 12)) return;
+				if (uwsgi_buffer_append(ub, value, len)) return;
+				if (uwsgi_buffer_append(ub, "\" ", 2)) return;
+			}
 			break;
 		// custom
 		case 4:
@@ -234,13 +236,15 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 
 	int do_exit = 0;
 
-	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].exceptions++;
-	uwsgi_apps[wsgi_req->app_id].exceptions++;
-
 	if (uwsgi.reload_on_exception) {
 		do_exit = 1;	
 		goto check_catch;
 	}
+
+	if (!wsgi_req) goto log;
+
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].exceptions++;
+	uwsgi_apps[wsgi_req->app_id].exceptions++;
 
 	if (uwsgi.reload_on_exception_type && uwsgi.p[wsgi_req->uh->modifier1]->exception_class) {
 		struct uwsgi_buffer *ub = uwsgi.p[wsgi_req->uh->modifier1]->exception_msg(wsgi_req);
@@ -291,7 +295,7 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
         }
 
 check_catch:
-	if (catch) {
+	if (catch && wsgi_req) {
 		if (uwsgi_exceptions_catch(wsgi_req)) {
 			// for now, just goto, new features could be added
 			goto log;		
