@@ -1875,5 +1875,10 @@ struct uwsgi_plugin pypy_plugin = {
 
 	.code_string = uwsgi_python_code_string,
 
+	.exception_class = uwsgi_python_exception_class,
+	.exception_msg = uwsgi_python_exception_msg,
+	.exception_repr = uwsgi_python_exception_repr,
+	.exception_log = uwsgi_python_exception_log,
+
 
 };

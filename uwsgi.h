@@ -930,6 +930,12 @@ struct uwsgi_cache {
 
 		void (*master_cleanup) (void);
 
+
+		struct uwsgi_buffer* (*backtrace)(struct wsgi_request *);
+                struct uwsgi_buffer* (*exception_class)(struct wsgi_request *);
+                struct uwsgi_buffer* (*exception_msg)(struct wsgi_request *);
+                struct uwsgi_buffer* (*exception_repr)(struct wsgi_request *);
+                void (*exception_log)(struct wsgi_request *);
 	};
 
 #ifdef UWSGI_PCRE
@@ -3298,7 +3304,8 @@ socklen_t socket_to_in_addr6(char *, char *, int, struct sockaddr_in6 *);
 	struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 
 	void uwsgi_write_pidfile(char *);
-	int uwsgi_manage_exception(char *, char *, char *);
+int uwsgi_manage_exception(char *, char *, char *);
+int uwsgi_exceptions_catch(struct wsgi_request *);
 
 	void uwsgi_protected_close(int);
 	ssize_t uwsgi_protected_read(int, void *, size_t);

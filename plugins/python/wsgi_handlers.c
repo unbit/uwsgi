@@ -245,7 +245,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	struct uwsgi_app *wi;
 
-	int tmp_stderr;
 	int free_appid = 0;
 
 	if (wsgi_req->async_status == UWSGI_AGAIN) {
@@ -380,36 +379,8 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	}
 
 	else if (uwsgi.catch_exceptions) {
-
-		// LOCK THIS PART
-
-		uwsgi_500(wsgi_req);
-		if (uwsgi_response_write_headers_do(wsgi_req)) goto clear;
-
-		/*
-		   sorry that is a hack to avoid the rewrite of PyErr_Print
-		   temporarily map (using dup2) stderr to wsgi_req->fd
-		   */
-		tmp_stderr = dup(2);
-		if (tmp_stderr < 0) {
-			uwsgi_error("dup()");
-			goto clear;
-		}
-		// map 2 to wsgi_req
-		if (dup2(wsgi_req->fd, 2) < 0) {
-			close(tmp_stderr);
-			uwsgi_error("dup2()");
-			goto clear;
-		}
-		// print the error
-		UWSGI_GET_GIL
+		uwsgi_exceptions_catch(wsgi_req);
 		PyErr_Print();
-		UWSGI_RELEASE_GIL
-		// ...resume the original stderr, in case of error we are damaged forever !!!
-		if (dup2(tmp_stderr, 2) < 0) {
-			uwsgi_error("dup2()");
-		}
-		close(tmp_stderr);
 	}
 
 	// this object must be freed/cleared always
@@ -422,8 +393,6 @@ end:
         }
 
 	UWSGI_RELEASE_GIL
-
-clear:
 
 	up.reset_ts(wsgi_req, wi);
 

@@ -91,6 +91,89 @@ int uwsgi_python_manage_exceptions(void) {
 	return ret;
 }
 
+struct uwsgi_buffer *uwsgi_python_exception_class(struct wsgi_request *wsgi_req) {
+	PyObject *type = NULL;
+        PyObject *value = NULL;
+        PyObject *traceback = NULL;
+	struct uwsgi_buffer *ub = NULL;
+
+	PyErr_Fetch(&type, &value, &traceback);
+	PyErr_NormalizeException(&type, &value, &traceback);
+
+	char *class = uwsgi_python_get_exception_type(type);
+	if (class) {
+		size_t class_len = strlen(class);
+		ub = uwsgi_buffer_new(class_len);
+		if (uwsgi_buffer_append(ub, class, class_len)) {
+			uwsgi_buffer_destroy(ub);
+			ub = NULL;
+			goto end;
+		}
+	}
+end:
+	PyErr_Restore(type, value, traceback);
+	return ub;
+}
+
+struct uwsgi_buffer *uwsgi_python_exception_msg(struct wsgi_request *wsgi_req) {
+        PyObject *type = NULL;
+        PyObject *value = NULL;
+        PyObject *traceback = NULL;
+        struct uwsgi_buffer *ub = NULL;
+
+        PyErr_Fetch(&type, &value, &traceback);
+        PyErr_NormalizeException(&type, &value, &traceback);
+
+	// value could be NULL ?
+	if (!value) goto end;
+
+        char *msg = PyString_AsString( PyObject_Str(value) );
+        if (msg) {
+                size_t msg_len = strlen(msg);
+                ub = uwsgi_buffer_new(msg_len);
+                if (uwsgi_buffer_append(ub, msg, msg_len)) {
+                        uwsgi_buffer_destroy(ub);
+                        ub = NULL;
+                        goto end;
+                }
+        }
+end:
+        PyErr_Restore(type, value, traceback);
+        return ub;
+}
+
+struct uwsgi_buffer *uwsgi_python_exception_repr(struct wsgi_request *wsgi_req) {
+	
+	struct uwsgi_buffer *ub_class = uwsgi_python_exception_class(wsgi_req);
+	if (!ub_class) return NULL;
+
+	struct uwsgi_buffer *ub_msg = uwsgi_python_exception_msg(wsgi_req);
+	if (!ub_msg) {
+		uwsgi_buffer_destroy(ub_class);
+		return NULL;
+	}
+
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(ub_class->pos + 2 + ub_msg->pos);
+	if (uwsgi_buffer_append(ub, ub_class->buf, ub_class->pos)) goto error;
+	if (uwsgi_buffer_append(ub, ": ", 2)) goto error;
+	if (uwsgi_buffer_append(ub, ub_msg->buf, ub_msg->pos)) goto error;
+
+	uwsgi_buffer_destroy(ub_class);
+	uwsgi_buffer_destroy(ub_msg);
+
+	return ub;
+
+error:
+	uwsgi_buffer_destroy(ub_class);
+	uwsgi_buffer_destroy(ub_msg);
+	uwsgi_buffer_destroy(ub);
+	return NULL;
+}
+
+void uwsgi_python_exception_log(struct wsgi_request *wsgi_req) {
+	PyErr_Print();
+}
+
 PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi_request *wsgi_req) {
 
 	//uwsgi_log("ready to call %p %p\n", callable, args);

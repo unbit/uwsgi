@@ -330,11 +330,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"no-default-app", no_argument, 0, "do not fallback to default app", uwsgi_opt_true, &uwsgi.no_default_app, 0},
 	{"manage-script-name", no_argument, 0, "automatically rewrite SCRIPT_NAME and PATH_INFO", uwsgi_opt_true, &uwsgi.manage_script_name, 0},
 	{"ignore-script-name", no_argument, 0, "ignore SCRIPT_NAME", uwsgi_opt_true, &uwsgi.ignore_script_name, 0},
-	{"catch-exceptions", no_argument, 0, "report exception has http output (discouraged)", uwsgi_opt_true, &uwsgi.catch_exceptions, 0},
+
+	{"catch-exceptions", no_argument, 0, "report exception as http output (discouraged, use only for testing)", uwsgi_opt_true, &uwsgi.catch_exceptions, 0},
 	{"reload-on-exception", no_argument, 0, "reload a worker when an exception is raised", uwsgi_opt_true, &uwsgi.reload_on_exception, 0},
 	{"reload-on-exception-type", required_argument, 0, "reload a worker when a specific exception type is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_type, 0},
 	{"reload-on-exception-value", required_argument, 0, "reload a worker when a specific exception value is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_value, 0},
 	{"reload-on-exception-repr", required_argument, 0, "reload a worker when a specific exception type+value (language-specific) is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_repr, 0},
+
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
 	{"stats-server", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
