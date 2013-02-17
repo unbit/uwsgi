@@ -118,7 +118,11 @@ int uwsgi_exceptions_catch(struct wsgi_request *wsgi_req) {
 	if (uwsgi_buffer_append(ub, wsgi_req->method, wsgi_req->method_len)) goto error;
 	if (uwsgi_buffer_append(ub, " ", 1)) goto error;
 	if (uwsgi_buffer_append(ub, wsgi_req->uri, wsgi_req->uri_len)) goto error;
-	if (uwsgi_buffer_append(ub, "\"\n\n", 3)) goto error;
+	if (uwsgi_buffer_append(ub, "\" (request plugin: \"", 20)) goto error;
+	if (uwsgi_buffer_append(ub, (char *) uwsgi.p[wsgi_req->uh->modifier1]->name, strlen(uwsgi.p[wsgi_req->uh->modifier1]->name))) goto error;
+	if (uwsgi_buffer_append(ub, "\", modifier1: ", 14 )) goto error;
+	if (uwsgi_buffer_num64(ub, wsgi_req->uh->modifier1)) goto error;
+	if (uwsgi_buffer_append(ub, ")\n\n", 3)) goto error;
 
 	if (uwsgi_buffer_append(ub, "Exception: ", 11)) goto error;
                 
