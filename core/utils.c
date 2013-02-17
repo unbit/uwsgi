@@ -3120,49 +3120,6 @@ void uwsgi_write_pidfile(char *pidfile_name) {
 	fclose(pidfile);
 }
 
-int uwsgi_manage_exception(char *type, char *value, char *repr) {
-
-	struct uwsgi_string_list *list = NULL;
-
-	// first manage non fatal case (like signals and alarm)....
-
-	if (uwsgi.reload_on_exception) {
-		return -1;
-	}
-
-	if (type) {
-		list = uwsgi.reload_on_exception_type;
-		while (list) {
-			if (!strcmp(list->value, type)) {
-				return -1;
-			}
-			list = list->next;
-		}
-	}
-
-	if (value) {
-		list = uwsgi.reload_on_exception_value;
-		while (list) {
-			if (!strcmp(list->value, value)) {
-				return -1;
-			}
-			list = list->next;
-		}
-	}
-
-	if (repr) {
-		list = uwsgi.reload_on_exception_repr;
-		while (list) {
-			if (!strcmp(list->value, repr)) {
-				return -1;
-			}
-			list = list->next;
-		}
-	}
-
-	return 0;
-}
-
 char *uwsgi_expand_path(char *dir, int dir_len, char *ptr) {
 	char src[PATH_MAX + 1];
 	memcpy(src, dir, dir_len);

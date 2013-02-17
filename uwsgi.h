@@ -2313,6 +2313,7 @@ struct uwsgi_rpc {
 		uint64_t offloaded_requests;
 
 		uint64_t write_errors;
+		uint64_t exceptions;
 
 		pthread_t thread_id;
 
@@ -2361,8 +2362,6 @@ struct uwsgi_rpc {
 		uint64_t running_time;
 
 		int manage_next_request;
-
-		uint64_t exceptions;
 
 		int destroy;
 
@@ -2621,8 +2620,9 @@ void async_add_timeout(struct wsgi_request *, int);
 #define uwsgi_waitfd(a, b) uwsgi_waitfd_event(a, b, POLLIN)
 #define uwsgi_waitfd_write(a, b) uwsgi_waitfd_event(a, b, POLLOUT)
 
-	int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
-	int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
+int uwsgi_hooked_parse_dict_dgram(int, char *, size_t, uint8_t, uint8_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
+int uwsgi_hooked_parse(char *, size_t, void (*)(char *, uint16_t, char *, uint16_t, void *), void *);
+int uwsgi_hooked_parse_array(char *, size_t, void (*) (uint16_t, char *, uint16_t, void *), void *);
 
 	int uwsgi_get_dgram(int, struct wsgi_request *);
 
@@ -3304,8 +3304,6 @@ socklen_t socket_to_in_addr6(char *, char *, int, struct sockaddr_in6 *);
 	struct uwsgi_lock_item *uwsgi_lock_ipcsem_init(char *);
 
 	void uwsgi_write_pidfile(char *);
-int uwsgi_manage_exception(char *, char *, char *);
-int uwsgi_exceptions_catch(struct wsgi_request *);
 
 	void uwsgi_protected_close(int);
 	ssize_t uwsgi_protected_read(int, void *, size_t);
@@ -3527,32 +3525,33 @@ int uwsgi_exceptions_catch(struct wsgi_request *);
 	void uwsgi_bind_sockets(void);
 	void uwsgi_set_sockets_protocols(void);
 
-	struct uwsgi_buffer *uwsgi_buffer_new(size_t);
-	int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
-	int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
-	int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
-	void uwsgi_buffer_destroy(struct uwsgi_buffer *);
-	int uwsgi_buffer_u8(struct uwsgi_buffer *, uint8_t);
-	int uwsgi_buffer_byte(struct uwsgi_buffer *, char);
-	int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
-	int uwsgi_buffer_u16be(struct uwsgi_buffer *, uint16_t);
-	int uwsgi_buffer_u32be(struct uwsgi_buffer *, uint32_t);
-	int uwsgi_buffer_u32le(struct uwsgi_buffer *, uint32_t);
-	int uwsgi_buffer_u24be(struct uwsgi_buffer *, uint32_t);
-	int uwsgi_buffer_u64be(struct uwsgi_buffer *, uint64_t);
-	int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
-	int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint16_t);
-	int uwsgi_buffer_append_keyval32(struct uwsgi_buffer *, char *, uint32_t, char *, uint32_t);
-	int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t);
-	int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *, void *);
-	int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *, char *, uint16_t, void *);
-	int uwsgi_buffer_decapitate(struct uwsgi_buffer *, size_t);
-	int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t);
-	int uwsgi_buffer_insert(struct uwsgi_buffer *, size_t, char *, size_t);
-	int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t);
-	int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t);
+struct uwsgi_buffer *uwsgi_buffer_new(size_t);
+int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
+int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
+int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
+void uwsgi_buffer_destroy(struct uwsgi_buffer *);
+int uwsgi_buffer_u8(struct uwsgi_buffer *, uint8_t);
+int uwsgi_buffer_byte(struct uwsgi_buffer *, char);
+int uwsgi_buffer_u16le(struct uwsgi_buffer *, uint16_t);
+int uwsgi_buffer_u16be(struct uwsgi_buffer *, uint16_t);
+int uwsgi_buffer_u32be(struct uwsgi_buffer *, uint32_t);
+int uwsgi_buffer_u32le(struct uwsgi_buffer *, uint32_t);
+int uwsgi_buffer_u24be(struct uwsgi_buffer *, uint32_t);
+int uwsgi_buffer_u64be(struct uwsgi_buffer *, uint64_t);
+int uwsgi_buffer_num64(struct uwsgi_buffer *, int64_t);
+int uwsgi_buffer_append_keyval(struct uwsgi_buffer *, char *, uint16_t, char *, uint16_t);
+int uwsgi_buffer_append_keyval32(struct uwsgi_buffer *, char *, uint32_t, char *, uint32_t);
+int uwsgi_buffer_append_keynum(struct uwsgi_buffer *, char *, uint16_t, int64_t);
+int uwsgi_buffer_append_valnum(struct uwsgi_buffer *, int64_t);
+int uwsgi_buffer_append_ipv4(struct uwsgi_buffer *, void *);
+int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *, char *, uint16_t, void *);
+int uwsgi_buffer_decapitate(struct uwsgi_buffer *, size_t);
+int uwsgi_buffer_append_base64(struct uwsgi_buffer *, char *, size_t);
+int uwsgi_buffer_insert(struct uwsgi_buffer *, size_t, char *, size_t);
+int uwsgi_buffer_insert_chunked(struct uwsgi_buffer *, size_t, size_t);
+int uwsgi_buffer_append_chunked(struct uwsgi_buffer *, size_t);
 
-	ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
+ssize_t uwsgi_buffer_write_simple(struct wsgi_request *, struct uwsgi_buffer *);
 
 struct uwsgi_buffer *uwsgi_to_http(struct wsgi_request *, char *, uint16_t, char *, uint16_t);
 
@@ -3801,6 +3800,10 @@ void uwsgi_block_signal(int);
 void uwsgi_unblock_signal(int);
 
 int uwsgi_worker_is_busy(int);
+
+void uwsgi_manage_exception(struct wsgi_request *, int);
+int uwsgi_exceptions_catch(struct wsgi_request *);
+uint64_t uwsgi_worker_exceptions(int);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)

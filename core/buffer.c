@@ -220,6 +220,17 @@ int uwsgi_buffer_append_keynum(struct uwsgi_buffer *ub, char *key, uint16_t keyl
 	return uwsgi_buffer_append(ub, buf, ret);
 }
 
+int uwsgi_buffer_append_valnum(struct uwsgi_buffer *ub, int64_t num) {
+        char buf[sizeof(UMAX64_STR)+1];
+        int ret = snprintf(buf, (sizeof(UMAX64_STR)+1), "%lld", (long long) num);
+        if (ret <= 0 || ret > (int) (sizeof(UMAX64_STR)+1)) {
+                return -1;
+        }
+        if (uwsgi_buffer_u16le(ub, ret)) return -1;
+        return uwsgi_buffer_append(ub, buf, ret);
+}
+
+
 int uwsgi_buffer_append_keyipv4(struct uwsgi_buffer *ub, char *key, uint16_t keylen, void *addr) {
         if (uwsgi_buffer_u16le(ub, keylen)) return -1;
         if (uwsgi_buffer_append(ub, key, keylen)) return -1;

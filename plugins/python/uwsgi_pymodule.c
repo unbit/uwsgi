@@ -1898,58 +1898,6 @@ PyObject *py_uwsgi_async_connect(PyObject * self, PyObject * args) {
 	return PyInt_FromLong(uwsgi_connect(socket_name, 0, 1));
 }
 
-PyObject *py_uwsgi_async_send_message(PyObject * self, PyObject * args) {
-
-	PyObject *pyobj = NULL;
-
-	int uwsgi_fd;
-	int modifier1 = 0;
-	int modifier2 = 0;
-
-	char *encoded;
-	uint16_t esize = 0;
-
-	if (!PyArg_ParseTuple(args, "iiiO:async_send_message", &uwsgi_fd, &modifier1, &modifier2, &pyobj)) {
-		return NULL;
-	}
-
-	if (uwsgi_fd < 0)
-		goto clear;
-
-	// now check for the type of object to send (fallback to marshal)
-	if (PyDict_Check(pyobj)) {
-		encoded = uwsgi_encode_pydict(pyobj, &esize);
-		if (esize > 0) {
-			UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
-			free(encoded);
-		}
-	}
-	else if (PyString_Check(pyobj)) {
-		encoded = PyString_AsString(pyobj);
-		esize = PyString_Size(pyobj);
-		UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
-	}
-#ifndef UWSGI_PYPY
-	else {
-		PyObject *marshalled = PyMarshal_WriteObjectToString(pyobj, 1);
-		if (!marshalled) {
-			PyErr_Print();
-			goto clear;
-		}
-
-		encoded = PyString_AsString(marshalled);
-		esize = PyString_Size(marshalled);
-		UWSGI_RELEASE_GIL uwsgi_send_message(uwsgi_fd, (uint8_t) modifier1, (uint8_t) modifier2, encoded, esize, -1, 0, 0);
-	}
-#endif
-
-      UWSGI_GET_GIL clear:
-
-	Py_INCREF(Py_None);
-	return Py_None;
-
-}
-
 /* uWSGI masterpid */
 PyObject *py_uwsgi_masterpid(PyObject * self, PyObject * args) {
 	if (uwsgi.master_process) {
@@ -2014,7 +1962,7 @@ PyObject *py_uwsgi_workers(PyObject * self, PyObject * args) {
 		}
 		Py_DECREF(zero);
 
-		zero = PyLong_FromUnsignedLongLong(uwsgi.workers[i + 1].exceptions);
+		zero = PyLong_FromUnsignedLongLong(uwsgi_worker_exceptions(i+1));
 		if (PyDict_SetItemString(worker_dict, "exceptions", zero)) {
 			goto clear;
 		}
@@ -2504,7 +2452,6 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 #endif
 	{"async_sleep", py_uwsgi_async_sleep, METH_VARARGS, ""},
 	{"async_connect", py_uwsgi_async_connect, METH_VARARGS, ""},
-	{"async_send_message", py_uwsgi_async_send_message, METH_VARARGS, ""},
 
 	{"green_schedule", py_uwsgi_suspend, METH_VARARGS, ""},
 	{"suspend", py_uwsgi_suspend, METH_VARARGS, ""},

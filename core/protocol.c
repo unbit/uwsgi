@@ -1163,6 +1163,40 @@ int uwsgi_hooked_parse(char *buffer, size_t len, void (*hook) (char *, uint16_t,
 
 }
 
+int uwsgi_hooked_parse_array(char *buffer, size_t len, void (*hook) (uint16_t, char *, uint16_t, void *), void *data) {
+
+        char *ptrbuf, *bufferend;
+        uint16_t valsize = 0;
+        char *value;
+	uint16_t pos = 0;
+
+        ptrbuf = buffer;
+        bufferend = buffer + len;
+
+        while (ptrbuf < bufferend) {
+                if (ptrbuf + 2 > bufferend)
+                        return -1;
+                memcpy(&valsize, ptrbuf, 2);
+#ifdef __BIG_ENDIAN__
+                valsize = uwsgi_swap16(valsize);
+#endif
+                ptrbuf += 2;
+                if (ptrbuf + valsize > bufferend)
+                        return -1;
+
+                // key
+                value = ptrbuf;
+                // now call the hook
+                hook(pos, value, valsize, data);
+                ptrbuf += valsize;
+		pos++;
+        }
+
+        return 0;
+
+}
+
+
 int uwsgi_hooked_parse_dict_dgram(int fd, char *buffer, size_t len, uint8_t modifier1, uint8_t modifier2, void (*hook) (char *, uint16_t, char *, uint16_t, void *), void *data) {
 
 	struct uwsgi_header *uh;

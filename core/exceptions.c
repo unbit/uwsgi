@@ -52,6 +52,55 @@ static void append_vars_to_ubuf(char *key, uint16_t keylen, char *val, uint16_t 
 	if (uwsgi_buffer_append(ub, "\n", 1)) return;
 }
 
+static void append_backtrace_to_ubuf(uint16_t pos, char *value, uint16_t len, void *data) {
+        struct uwsgi_buffer *ub = (struct uwsgi_buffer *) data;
+
+	uint16_t item = 0;
+	if (pos > 0) {
+		item = pos % 5;
+	}
+
+	switch(item) {
+		// filename
+		case 0:
+			if (uwsgi_buffer_append(ub, "filename: \"", 11)) return;
+			if (uwsgi_buffer_append(ub, value, len)) return;
+			if (uwsgi_buffer_append(ub, "\" ", 2)) return;
+			break;
+		// lineno
+		case 1:
+			if (uwsgi_buffer_append(ub, "line: ", 6)) return;
+			if (uwsgi_buffer_append(ub, value, len)) return;
+			if (uwsgi_buffer_append(ub, " ", 1)) return;
+			break;
+		// function
+		case 2:
+			if (uwsgi_buffer_append(ub, "function: \"", 11)) return;
+			if (uwsgi_buffer_append(ub, value, len)) return;
+			if (uwsgi_buffer_append(ub, "\" ", 2)) return;
+			break;
+		// text
+		case 3:
+			if (uwsgi_buffer_append(ub, "text/code: \"", 12)) return;
+			if (uwsgi_buffer_append(ub, value, len)) return;
+			if (uwsgi_buffer_append(ub, "\" ", 2)) return;
+			break;
+		// custom
+		case 4:
+			if (len > 0) {
+				if (uwsgi_buffer_append(ub, "custom: \"", 9)) return;
+                        	if (uwsgi_buffer_append(ub, value, len)) return;
+                        	if (uwsgi_buffer_append(ub, "\" ", 2)) return;
+			}
+			if (uwsgi_buffer_append(ub, "\n", 1)) return;
+			break;
+		default:
+			break;
+	}
+
+}
+
+
 int uwsgi_exceptions_catch(struct wsgi_request *wsgi_req) {
 
 	if (uwsgi_response_prepare_headers(wsgi_req, "500 Internal Server Error", 25)) {
@@ -135,6 +184,35 @@ notavail2:
 
 	if (uwsgi_buffer_append(ub, "\n\n", 2)) goto error;
 
+	if (uwsgi_buffer_append(ub, "Backtrace:\n", 11)) goto error;
+
+        if (uwsgi.p[wsgi_req->uh->modifier1]->backtrace) {
+                struct uwsgi_buffer *ub_exc_bt = uwsgi.p[wsgi_req->uh->modifier1]->backtrace(wsgi_req);
+                if (ub_exc_bt) {
+			struct uwsgi_buffer *parsed_bt = uwsgi_buffer_new(4096);
+			if (uwsgi_hooked_parse_array(ub_exc_bt->buf, ub_exc_bt->pos, append_backtrace_to_ubuf, parsed_bt)) {
+				uwsgi_buffer_destroy(ub_exc_bt);
+				uwsgi_buffer_destroy(parsed_bt);
+                                goto error;
+			}
+			uwsgi_buffer_destroy(ub_exc_bt);
+                        if (uwsgi_buffer_append(ub, parsed_bt->buf, parsed_bt->pos)) {
+                                uwsgi_buffer_destroy(parsed_bt);
+                                goto error;
+                        }
+                        uwsgi_buffer_destroy(parsed_bt);
+                }
+                else {
+                        goto notavail4;
+                }
+        }
+        else {
+notavail4:
+                if (uwsgi_buffer_append(ub, "-Not available-", 15)) goto error;
+        }
+
+        if (uwsgi_buffer_append(ub, "\n\n", 2)) goto error;
+
 	if (uwsgi_hooked_parse(wsgi_req->buffer, wsgi_req->uh->pktsize, append_vars_to_ubuf, ub)) {
 		goto error;
 	}
@@ -150,4 +228,83 @@ error:
 	uwsgi_buffer_destroy(ub);
 	return -1;
 
+}
+
+void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
+
+	int do_exit = 0;
+
+	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].exceptions++;
+	uwsgi_apps[wsgi_req->app_id].exceptions++;
+
+	if (uwsgi.reload_on_exception) {
+		do_exit = 1;	
+		goto check_catch;
+	}
+
+	if (uwsgi.reload_on_exception_type && uwsgi.p[wsgi_req->uh->modifier1]->exception_class) {
+		struct uwsgi_buffer *ub = uwsgi.p[wsgi_req->uh->modifier1]->exception_msg(wsgi_req);
+		if (ub) {
+			struct uwsgi_string_list *usl = uwsgi.reload_on_exception_type;
+			while (usl) {
+				if (!uwsgi_strncmp(usl->value, usl->len, ub->buf, ub->len)) {
+					do_exit = 1;
+					uwsgi_buffer_destroy(ub);
+					goto check_catch;
+				}
+				usl = usl->next;
+			}
+			uwsgi_buffer_destroy(ub);
+		}
+	}
+
+	if (uwsgi.reload_on_exception_value && uwsgi.p[wsgi_req->uh->modifier1]->exception_msg) {
+                struct uwsgi_buffer *ub = uwsgi.p[wsgi_req->uh->modifier1]->exception_msg(wsgi_req);
+		if (ub) {
+			struct uwsgi_string_list *usl = uwsgi.reload_on_exception_value;
+                        while (usl) {
+                                if (!uwsgi_strncmp(usl->value, usl->len, ub->buf, ub->len)) {
+                                        do_exit = 1;
+                                        uwsgi_buffer_destroy(ub);
+                                        goto check_catch;
+                                }
+                                usl = usl->next;
+                        }
+			uwsgi_buffer_destroy(ub);
+		}
+        }
+
+        if (uwsgi.reload_on_exception_repr && uwsgi.p[wsgi_req->uh->modifier1]->exception_repr) {
+                struct uwsgi_buffer *ub = uwsgi.p[wsgi_req->uh->modifier1]->exception_msg(wsgi_req);
+		if (ub) {
+			struct uwsgi_string_list *usl = uwsgi.reload_on_exception_repr;
+                        while (usl) {
+                                if (!uwsgi_strncmp(usl->value, usl->len, ub->buf, ub->len)) {
+                                        do_exit = 1;
+                                        uwsgi_buffer_destroy(ub);
+                                        goto check_catch;
+                                }
+                                usl = usl->next;
+                        }
+			uwsgi_buffer_destroy(ub);
+		}
+        }
+
+check_catch:
+	if (catch) {
+		if (uwsgi_exceptions_catch(wsgi_req)) {
+			// for now, just goto, new features could be added
+			goto log;		
+		}
+	}
+
+log:
+	if (uwsgi.p[wsgi_req->uh->modifier1]->exception_log) {
+		uwsgi.p[wsgi_req->uh->modifier1]->exception_log(wsgi_req);
+	}
+	
+	if (do_exit) {
+		exit(UWSGI_EXCEPTION_CODE);		
+	}
+	
 }

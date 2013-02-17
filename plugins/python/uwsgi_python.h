@@ -34,7 +34,7 @@
 #endif
 
 #define uwsgi_py_write_set_exception(x) if (!uwsgi.disable_write_exception) { PyErr_SetString(PyExc_IOError, "write error"); };
-#define uwsgi_py_write_exception(x) uwsgi_py_write_set_exception(x); PyErr_Print();
+#define uwsgi_py_write_exception(x) uwsgi_py_write_set_exception(x); uwsgi_manage_exception(x, 0);
 
 
 #define uwsgi_py_check_write_errors if (wsgi_req->write_errors > 0 && uwsgi.write_errors_exception_only) {\
@@ -258,7 +258,6 @@ char *uwsgi_pythonize(char *);
 void *uwsgi_python_autoreloader_thread(void *);
 void *uwsgi_python_tracebacker_thread(void *);
 
-int uwsgi_python_manage_exceptions(void);
 int uwsgi_python_do_send_headers(struct wsgi_request *);
 void *uwsgi_python_tracebacker_thread(void *);
 PyObject *uwsgi_python_setup_thread(char *);
@@ -266,6 +265,7 @@ PyObject *uwsgi_python_setup_thread(char *);
 struct uwsgi_buffer *uwsgi_python_exception_class(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_python_exception_msg(struct wsgi_request *);
 struct uwsgi_buffer *uwsgi_python_exception_repr(struct wsgi_request *);
+struct uwsgi_buffer *uwsgi_python_backtrace(struct wsgi_request *);
 void uwsgi_python_exception_log(struct wsgi_request *);
 
 #ifdef UWSGI_PYPY

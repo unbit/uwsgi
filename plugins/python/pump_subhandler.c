@@ -271,7 +271,9 @@ int uwsgi_response_subhandler_pump(struct wsgi_request *wsgi_req) {
 	pychunk = PyIter_Next(wsgi_req->async_placeholder);
 
 	if (!pychunk) {
-		if (PyErr_Occurred()) PyErr_Print();
+		if (PyErr_Occurred()) {
+			uwsgi_manage_exception(wsgi_req, uwsgi.catch_exceptions);
+		}
 		goto clear;
 	}
 

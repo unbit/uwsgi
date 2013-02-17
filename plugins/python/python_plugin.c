@@ -822,11 +822,6 @@ void init_uwsgi_embedded_module() {
 		exit(1);
 	}
 
-	if (PyDict_SetItemString(up.embedded_dict, "message_manager_marshal", Py_None)) {
-		PyErr_Print();
-		exit(1);
-	}
-
 	init_uwsgi_module_advanced(new_uwsgi_module);
 
 	if (uwsgi.spoolers) {
@@ -1879,6 +1874,7 @@ struct uwsgi_plugin pypy_plugin = {
 	.exception_msg = uwsgi_python_exception_msg,
 	.exception_repr = uwsgi_python_exception_repr,
 	.exception_log = uwsgi_python_exception_log,
+	.backtrace = uwsgi_python_backtrace,
 
 
 };

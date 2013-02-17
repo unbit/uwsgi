@@ -5,6 +5,16 @@ extern struct uwsgi_server uwsgi;
 void worker_wakeup() {
 }
 
+uint64_t uwsgi_worker_exceptions(int wid) {
+	uint64_t total = 0;
+	int i;
+	for(i=0;i<uwsgi.cores;i++) {
+		total += uwsgi.workers[wid].cores[i].exceptions;
+	}
+
+	return total;
+}
+
 void uwsgi_curse(int wid, int sig) {
 	uwsgi.workers[wid].cursed_at = uwsgi_now();
         uwsgi.workers[wid].no_mercy_at = uwsgi.workers[wid].cursed_at + uwsgi.worker_reload_mercy;
@@ -1015,7 +1025,7 @@ struct uwsgi_stats *uwsgi_master_generate_stats() {
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "delta_requests", (unsigned long long) uwsgi.workers[i + 1].delta_requests))
 			goto end;
-		if (uwsgi_stats_keylong_comma(us, "exceptions", (unsigned long long) uwsgi.workers[i + 1].exceptions))
+		if (uwsgi_stats_keylong_comma(us, "exceptions", (unsigned long long) uwsgi_worker_exceptions(i + 1)))
 			goto end;
 		if (uwsgi_stats_keylong_comma(us, "harakiri_count", (unsigned long long) uwsgi.workers[i + 1].harakiri_count))
 			goto end;

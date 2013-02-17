@@ -378,11 +378,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 	}
 
-	else if (uwsgi.catch_exceptions) {
-		uwsgi_exceptions_catch(wsgi_req);
-		PyErr_Print();
-	}
-
 	// this object must be freed/cleared always
 end:
 	if (wsgi_req->async_input) {
@@ -413,7 +408,7 @@ void uwsgi_after_request_wsgi(struct wsgi_request *wsgi_req) {
 		UWSGI_GET_GIL
 		PyObject *arh = python_call(up.after_req_hook, up.after_req_hook_args, 0, NULL);
         	if (!arh) {
-			PyErr_Print();
+			uwsgi_manage_exception(wsgi_req, 0);
                 }
 		else {
 			Py_DECREF(arh);

@@ -169,16 +169,7 @@ int uwsgi_response_subhandler_wsgi(struct wsgi_request *wsgi_req) {
 	if (!pychunk) {
 exception:
 		if (PyErr_Occurred()) { 
-			int do_exit = uwsgi_python_manage_exceptions();
-		        if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
-				uwsgi_log("Memory Error detected !!!\n");	
-			}		
-			uwsgi.workers[uwsgi.mywid].exceptions++;
-			uwsgi_apps[wsgi_req->app_id].exceptions++;
-			PyErr_Print();
-			if (do_exit) {
-                        	exit(UWSGI_EXCEPTION_CODE);
-                	}
+			uwsgi_manage_exception(wsgi_req, uwsgi.catch_exceptions);
 		}	
 		goto clear;
 	}
@@ -230,7 +221,7 @@ clear:
 #endif
                         PyObject *close_method_output = PyEval_CallObject(close_method, close_method_args);
                         if (PyErr_Occurred()) {
-                                PyErr_Print();
+                                uwsgi_manage_exception(wsgi_req, 0);
                         }
                         Py_DECREF(close_method_args);
                         Py_XDECREF(close_method_output);
