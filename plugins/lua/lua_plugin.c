@@ -167,14 +167,6 @@ error:
 
 }
 
-static int uwsgi_api_cl(lua_State *L) {
-
-	struct wsgi_request *wsgi_req = current_wsgi_req();
-	
-	lua_pushnumber(L, wsgi_req->post_cl);
-	return 1;
-}
-
 static int uwsgi_api_req_fd(lua_State *L) {
 
 	struct wsgi_request *wsgi_req = current_wsgi_req();
