@@ -40,7 +40,7 @@ void uwsgi_corerouter_setup_sockets(struct uwsgi_corerouter *ucr) {
 					}
 				}
 				else {
-					ugs->port = strchr(ugs->name, ':');
+					ugs->port = strrchr(ugs->name, ':');
 					int current_defer_accept = uwsgi.no_defer_accept;
 					if (ugs->no_defer) {
                         			uwsgi.no_defer_accept = 1;
