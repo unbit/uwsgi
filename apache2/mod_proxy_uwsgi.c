@@ -156,7 +156,7 @@ static int uwsgi_send_headers(request_rec *r, proxy_conn_rec *conn)
     buf[0] = 0;
     buf[1] = (uint8_t) (pktsize & 0xff);
     buf[2] = (uint8_t) ((pktsize >> 8) & 0xff);
-    buf[0] = 0;
+    buf[3] = 0;
 
     return uwsgi_send(conn, buf, headerlen, r);
 }
