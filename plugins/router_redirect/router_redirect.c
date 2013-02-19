@@ -24,6 +24,27 @@ end:
 	return UWSGI_ROUTE_BREAK;
 }
 
+int uwsgi_routing_func_redirect_permanent(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+
+        char *url = NULL;
+
+        if (uwsgi_response_prepare_headers(wsgi_req, "301 Moved Permanently", 21)) goto end;
+
+        char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+
+        url = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
+
+        if (uwsgi_response_add_header(wsgi_req, "Location", 8, url, strlen(url))) goto end;
+        // no need to check the ret value
+        uwsgi_response_write_body_do(wsgi_req, "Moved Permanently", 17);
+end:
+        if (url)
+                free(url);
+        return UWSGI_ROUTE_BREAK;
+}
+
+
 
 int uwsgi_router_redirect(struct uwsgi_route *ur, char *args) {
 
@@ -33,10 +54,22 @@ int uwsgi_router_redirect(struct uwsgi_route *ur, char *args) {
 	return 0;
 }
 
+int uwsgi_router_redirect_permanent(struct uwsgi_route *ur, char *args) {
+
+        ur->func = uwsgi_routing_func_redirect_permanent;
+        ur->data = args;
+        ur->data_len = strlen(args);
+        return 0;
+}
+
+
 
 void router_redirect_register(void) {
 
 	uwsgi_register_router("redirect", uwsgi_router_redirect);
+	uwsgi_register_router("redirect-302", uwsgi_router_redirect);
+	uwsgi_register_router("redirect-permanent", uwsgi_router_redirect_permanent);
+	uwsgi_register_router("redirect-301", uwsgi_router_redirect_permanent);
 }
 
 struct uwsgi_plugin router_redirect_plugin = {
