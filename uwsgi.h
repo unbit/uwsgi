@@ -415,51 +415,55 @@ struct uwsgi_lock_ops {
 	};
 
 #ifdef UWSGI_PCRE
-	struct uwsgi_regexp_list {
+struct uwsgi_regexp_list {
 
-		pcre *pattern;
-		pcre_extra *pattern_extra;
+	pcre *pattern;
+	pcre_extra *pattern_extra;
 
-		uint64_t custom;
-		char *custom_str;
-		void *custom_ptr;
-		struct uwsgi_regexp_list *next;
-	};
+	uint64_t custom;
+	char *custom_str;
+	void *custom_ptr;
+	struct uwsgi_regexp_list *next;
+};
 #endif
 
-	struct uwsgi_rbtree {
-		struct uwsgi_rb_timer *root;
-		struct uwsgi_rb_timer *sentinel;
-	};
+struct uwsgi_rbtree {
+	struct uwsgi_rb_timer *root;
+	struct uwsgi_rb_timer *sentinel;
+};
 
-	struct uwsgi_rb_timer {
-		uint8_t color;
-		struct uwsgi_rb_timer *parent;
-		struct uwsgi_rb_timer *left;
-		struct uwsgi_rb_timer *right;
-		uint64_t value;
-		void *data;
-	};
+struct uwsgi_rb_timer {
+	uint8_t color;
+	struct uwsgi_rb_timer *parent;
+	struct uwsgi_rb_timer *left;
+	struct uwsgi_rb_timer *right;
+	uint64_t value;
+	void *data;
+};
 
-	struct uwsgi_rbtree *uwsgi_init_rb_timer(void);
-	struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
-	struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct uwsgi_rbtree *, uint64_t, void *);
-	void uwsgi_del_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
+struct uwsgi_rbtree *uwsgi_init_rb_timer(void);
+struct uwsgi_rb_timer *uwsgi_min_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
+struct uwsgi_rb_timer *uwsgi_add_rb_timer(struct uwsgi_rbtree *, uint64_t, void *);
+void uwsgi_del_rb_timer(struct uwsgi_rbtree *, struct uwsgi_rb_timer *);
 
 
-	union uwsgi_sockaddr {
-		struct sockaddr sa;
-		struct sockaddr_in sa_in;
-		struct sockaddr_un sa_un;
-		struct sockaddr_in6 sa_in6;
-	};
+union uwsgi_sockaddr {
+	struct sockaddr sa;
+	struct sockaddr_in sa_in;
+	struct sockaddr_un sa_un;
+#ifdef AF_INET6
+	struct sockaddr_in6 sa_in6;
+#endif
+};
 
-	union uwsgi_sockaddr_ptr {
-		struct sockaddr *sa;
-		struct sockaddr_in *sa_in;
-		struct sockaddr_un *sa_un;
-		struct sockaddr_in6 *sa_in6;
-	};
+union uwsgi_sockaddr_ptr {
+	struct sockaddr *sa;
+	struct sockaddr_in *sa_in;
+	struct sockaddr_un *sa_un;
+#ifdef AF_INET6
+	struct sockaddr_in6 *sa_in6;
+#endif
+};
 
 // Gateways are processes (managed by the master) that extends the
 // server core features

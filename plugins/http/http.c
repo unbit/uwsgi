@@ -262,7 +262,8 @@ int http_headers_parse(struct corerouter_peer *peer) {
 #endif
 
 	// REMOTE_ADDR
-	if (uwsgi_buffer_append_keyipv4(out, "REMOTE_ADDR", 11, &hr->ip_addr)) return -1;
+	if (uwsgi_buffer_append_keyval(out, "REMOTE_ADDR", 11, peer->session->client_address, strlen(peer->session->client_address))) return -1;
+	if (uwsgi_buffer_append_keyval(out, "REMOTE_PORT", 11, peer->session->client_port, strlen(peer->session->client_port))) return -1;
 
 	//HEADERS
 	base = ptr;
@@ -712,7 +713,7 @@ ssize_t hr_recv_stud4(struct corerouter_peer * main_peer) {
 			return -1;
 		}
 		// set the passed ip address
-		memcpy(&hr->ip_addr, hr->stud_prefix + 1, 4);
+		memcpy(&main_peer->session->client_sockaddr.sa_in.sin_addr, hr->stud_prefix + 1, 4);
 		
 		// optimistic approach
 		main_peer->hook_read = hr_read;
@@ -743,11 +744,9 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
         cs->main_peer->in->limit = UMAX16;
 
 	if (sa && sa->sa_family == AF_INET) {
-		hr->ip_addr = ((struct sockaddr_in *) sa)->sin_addr.s_addr;
-
 		struct uwsgi_string_list *usl = uhttp.stud_prefix;
 		while(usl) {
-			if (!memcmp(&hr->ip_addr, usl->value, 4)) {
+			if (!memcmp(&cs->client_sockaddr.sa_in.sin_addr, usl->value, 4)) {
 				hr->stud_prefix_remains = 5;
 				cs->main_peer->last_hook_read = hr_recv_stud4;
 				break;

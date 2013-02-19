@@ -571,6 +571,36 @@ struct corerouter_session *corerouter_alloc_session(struct uwsgi_corerouter *ucr
 
 	ucr->active_sessions++;
 
+	// build the client address
+	memcpy(&cs->client_sockaddr, cr_addr, cr_addr_len);
+	switch(cr_addr->sa_family) {
+		case AF_INET:
+			if (inet_ntop(AF_INET, &cs->client_sockaddr.sa_in.sin_addr, cs->client_address, cr_addr_len) == NULL) {
+				uwsgi_error("corerouter_alloc_session/inet_ntop()");
+				memcpy(cs->client_address, "0.0.0.0", 7);
+				cs->client_port[0] = '0';
+				cs->client_port[1] = 0;
+			}
+			uwsgi_num2str2(cs->client_sockaddr.sa_in.sin_port, cs->client_port);
+			break;
+#ifdef AF_INET6
+		case AF_INET6:
+			if (inet_ntop(AF_INET6, &cs->client_sockaddr.sa_in6.sin6_addr, cs->client_address, cr_addr_len) == NULL) {
+				uwsgi_error("corerouter_alloc_session/inet_ntop()");
+				memcpy(cs->client_address, "0.0.0.0", 7);
+				cs->client_port[0] = '0';
+				cs->client_port[1] = 0;
+			}
+			uwsgi_num2str2(cs->client_sockaddr.sa_in6.sin6_port, cs->client_port);
+			break;
+#endif
+		default:
+			memcpy(cs->client_address, "0.0.0.0", 7);
+			cs->client_port[0] = '0';
+			cs->client_port[1] = 0;
+			break;
+	}
+
 	// here we prepare the real session and set the hooks
 	if (ucr->alloc_session(ucr, ugs, cs, cr_addr, cr_addr_len)) {
 		corerouter_close_session(ucr, cs);

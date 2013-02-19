@@ -19,7 +19,6 @@ static struct uwsgi_sslrouter {
 
 struct sslrouter_session {
 	struct corerouter_session session;
-	in_addr_t ip_addr;
 	SSL *ssl;
 };
 
@@ -347,10 +346,6 @@ static int sslrouter_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_ga
 	cs->retry = sr_retry;
 
 	struct sslrouter_session *sr = (struct sslrouter_session *) cs;
-
-	if (sa && sa->sa_family == AF_INET) {
-                sr->ip_addr = ((struct sockaddr_in *) sa)->sin_addr.s_addr;
-        }
 
 	sr->ssl = SSL_new(ugs->ctx);
         SSL_set_fd(sr->ssl, cs->main_peer->fd);

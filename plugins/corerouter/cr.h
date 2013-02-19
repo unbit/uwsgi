@@ -287,6 +287,15 @@ struct corerouter_session {
 
 	// connect after the next successfull write
 	struct corerouter_peer *connect_peer_after_write;
+
+	union uwsgi_sockaddr client_sockaddr;
+#ifdef AF_INET6
+	char client_address[INET6_ADDRSTRLEN];
+#else
+	char client_address[INET_ADDRLEN];
+#endif
+
+	char client_port[6];
 };
 
 void uwsgi_opt_corerouter(char *, char *, void *);

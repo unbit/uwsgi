@@ -118,8 +118,6 @@ struct http_session {
 
         int send_expect_100;
 
-        in_addr_t ip_addr;
-
         // 1 (family) + 4/16 (addr)
         char stud_prefix[17];
         size_t stud_prefix_remains;
