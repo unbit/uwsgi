@@ -121,6 +121,23 @@ int uwsgi_buffer_append(struct uwsgi_buffer *ub, char *buf, size_t len) {
 	return 0;
 }
 
+int uwsgi_buffer_append_json(struct uwsgi_buffer *ub, char *buf, size_t len) {
+	// need to escape \ and "
+	size_t i;
+	for(i=0;i<len;i++) {
+		if (buf[i] == '"') {
+			if (uwsgi_buffer_append(ub, "\\\"", 2)) return -1;
+		}
+		else if (buf[i] == '\\') {
+			if (uwsgi_buffer_append(ub, "\\\\", 2)) return -1;
+		}
+		else {
+			if (uwsgi_buffer_append(ub, buf+i, 1)) return -1;
+		}
+	}
+	return 0;
+}
+
 int uwsgi_buffer_u16le(struct uwsgi_buffer *ub, uint16_t num) {
 	uint8_t buf[2];
 	buf[0] = (uint8_t) (num & 0xff);
