@@ -243,7 +243,7 @@ static ssize_t sr_write(struct corerouter_peer *main_peer) {
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_error("sr_write()");
+                uwsgi_cr_error(main_peer, "sr_write()");
         }
 
         else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
@@ -265,11 +265,11 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
                 int ret2 = SSL_pending(sr->ssl);
                 if (ret2 > 0) {
                         if (uwsgi_buffer_fix(main_peer->in, main_peer->in->len + ret2 )) {
-                                uwsgi_log("[uwsgi-sslrouter] cannot fix the buffer to %d\n", main_peer->in->len + ret2);
+                                uwsgi_cr_log(main_peer, "cannot fix the buffer to %d\n", main_peer->in->len + ret2);
                                 return -1;
                         }
                         if (SSL_read(sr->ssl, main_peer->in->buf + main_peer->in->pos, ret2) != ret2) {
-                                uwsgi_log("[uwsgi-sslrouter] SSL_read() on %d bytes of pending data failed\n", ret2);
+                                uwsgi_cr_log(main_peer, "SSL_read() on %d bytes of pending data failed\n", ret2);
                                 return -1;
                         }
                         // fix the buffer
@@ -322,7 +322,7 @@ static ssize_t sr_read(struct corerouter_peer *main_peer) {
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_error("sr_ssl_read()");
+                uwsgi_cr_error(main_peer, "sr_ssl_read()");
         }
 
         else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {

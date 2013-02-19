@@ -299,7 +299,7 @@ ssize_t hr_ssl_write(struct corerouter_peer *main_peer) {
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_error("hr_ssl_write()");
+                uwsgi_cr_error(main_peer, "hr_ssl_write()");
         }
 
         else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {
@@ -323,11 +323,11 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
                 int ret2 = SSL_pending(hr->ssl);
                 if (ret2 > 0) {
                         if (uwsgi_buffer_fix(main_peer->in, main_peer->in->len + ret2 )) {
-                                uwsgi_log("[uwsgi-https] cannot fix the buffer to %d\n", main_peer->in->len + ret2);
+                                uwsgi_cr_log(main_peer, "cannot fix the buffer to %d\n", main_peer->in->len + ret2);
                                 return -1;
                         }
                         if (SSL_read(hr->ssl, main_peer->in->buf + main_peer->in->pos, ret2) != ret2) {
-                                uwsgi_log("[uwsgi-https] SSL_read() on %d bytes of pending data failed\n", ret2);
+                                uwsgi_cr_log(main_peer, "SSL_read() on %d bytes of pending data failed\n", ret2);
                                 return -1;
                         }
                         // fix the buffer
@@ -355,7 +355,7 @@ ssize_t hr_ssl_read(struct corerouter_peer *main_peer) {
         }
 
         else if (err == SSL_ERROR_SYSCALL) {
-                uwsgi_error("hr_ssl_read()");
+                uwsgi_cr_error(main_peer, "hr_ssl_read()");
         }
 
         else if (err == SSL_ERROR_SSL && uwsgi.ssl_verbose) {

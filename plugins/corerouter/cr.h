@@ -7,6 +7,9 @@
 #define cr_add_timeout_fast(u, x, t) uwsgi_add_rb_timer(u->timeouts, t+u->socket_timeout, x)
 #define cr_del_timeout(u, x) uwsgi_del_rb_timer(u->timeouts, x->timeout); free(x->timeout);
 
+#define uwsgi_cr_error(x, y) uwsgi_log("[uwsgi-%s client_addr: %s client_port: %s] %s: %s [%s line %d]\n", x->session->corerouter->short_name, x->session->client_address, x->session->client_port, y, strerror(errno), __FILE__, __LINE__)
+#define uwsgi_cr_log(x, y, ...) uwsgi_log("[uwsgi-%s client_addr: %s client_port: %s]" y, x->session->corerouter->short_name, x->session->client_address, x->session->client_port, __VA_ARGS__)
+
 #define cr_try_again if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {\
                      	errno = EINPROGRESS;\
                      	return -1;\
@@ -15,7 +18,7 @@
 #define cr_write(peer, f) write(peer->fd, peer->out->buf + peer->out_pos, peer->out->pos - peer->out_pos);\
 	if (len < 0) {\
                 cr_try_again;\
-                uwsgi_error(f);\
+                uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
         peer->out_pos += len;
@@ -23,7 +26,7 @@
 #define cr_write_buf(peer, buf, f) write(peer->fd, buf + buf##_pos, buf->pos - buf##_pos);\
         if (len < 0) {\
                 cr_try_again;\
-                uwsgi_error(f);\
+                uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
         buf##_pos += len;
@@ -45,7 +48,7 @@
 #define cr_read(peer, f) read(peer->fd, peer->in->buf + peer->in->pos, peer->in->len - peer->in->pos);\
 	if (len < 0) {\
                 cr_try_again;\
-                uwsgi_error(f);\
+                uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
         peer->in->pos += len;\
@@ -53,7 +56,7 @@
 #define cr_read_exact(peer, l, f) read(peer->fd, peer->in->buf + peer->in->pos,l - peer->in->pos);\
         if (len < 0) {\
                 cr_try_again;\
-                uwsgi_error(f);\
+                uwsgi_cr_error(peer, f);\
                 return -1;\
         }\
         peer->in->pos += len;\
@@ -97,7 +100,7 @@
 
 #define cr_peer_connected(peer, f) socklen_t solen = sizeof(int);\
         if (getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *) (&peer->soopt), &solen) < 0) {\
-                uwsgi_error(f "/getsockopt()");\
+                uwsgi_cr_error(peer, f "/getsockopt()");\
                 peer->failed = 1;\
                 return -1;\
         }\

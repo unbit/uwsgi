@@ -701,7 +701,7 @@ ssize_t hr_recv_stud4(struct corerouter_peer * main_peer) {
 	ssize_t len = read(main_peer->fd, hr->stud_prefix + hr->stud_prefix_pos, hr->stud_prefix_remains - hr->stud_prefix_pos);
 	if (len < 0) {
                 cr_try_again;
-                uwsgi_error("hr_recv_stud4()");
+                uwsgi_cr_error(main_peer, "hr_recv_stud4()");
                 return -1;
         }
 
@@ -709,7 +709,7 @@ ssize_t hr_recv_stud4(struct corerouter_peer * main_peer) {
 
         if (hr->stud_prefix_pos == hr->stud_prefix_remains) {
 		if (hr->stud_prefix[0] != AF_INET) {
-			uwsgi_log("[uwsgi-http] invalid stud prefix\n");
+			uwsgi_cr_log(main_peer, "invalid stud prefix for address family %d\n", hr->stud_prefix[0]);
 			return -1;
 		}
 		// set the passed ip address
