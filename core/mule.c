@@ -81,7 +81,7 @@ void uwsgi_mule(int id) {
 			for (i = 0; i < 256; i++) {
 				if (uwsgi.p[i]->mule) {
 					if (uwsgi.p[i]->mule(uwsgi.mules[id - 1].patch) == 1) {
-						// never here
+						// never here ?
 						end_me(1);
 					}
 				}

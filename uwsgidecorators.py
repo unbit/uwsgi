@@ -1,4 +1,5 @@
 import uwsgi
+import sys
 from threading import Thread
 
 try:
@@ -170,7 +171,12 @@ class mule_brain(object):
 
     def __call__(self):
         if uwsgi.mule_id() == self.num:
-            self.f()
+            try:
+                self.f()
+            except:
+                exc = sys.exc_info()
+                sys.excepthook(exc[0], exc[1], exc[2])
+                sys.exit(1)
 
 
 class mule_brainloop(mule_brain):
@@ -178,7 +184,12 @@ class mule_brainloop(mule_brain):
     def __call__(self):
         if uwsgi.mule_id() == self.num:
             while True:
-                self.f()
+                try:
+                    self.f()
+                except:
+                    exc = sys.exc_info()
+                    sys.excepthook(exc[0], exc[1], exc[2])
+                    sys.exit(1)
 
 
 class mule(object):

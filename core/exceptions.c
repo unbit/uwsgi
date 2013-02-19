@@ -245,7 +245,7 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 		goto check_catch;
 	}
 
-	if (!wsgi_req) goto log;
+	if (!wsgi_req) goto log2;
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].exceptions++;
 	uwsgi_apps[wsgi_req->app_id].exceptions++;
@@ -311,6 +311,7 @@ log:
 		uwsgi.p[wsgi_req->uh->modifier1]->exception_log(wsgi_req);
 	}
 	
+log2:
 	if (do_exit) {
 		exit(UWSGI_EXCEPTION_CODE);		
 	}

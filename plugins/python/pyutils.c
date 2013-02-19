@@ -208,7 +208,12 @@ PyObject *python_call(PyObject *callable, PyObject *args, int catch, struct wsgi
 	//uwsgi_log("called\n");
 
 	if (PyErr_Occurred()) {
-		uwsgi_manage_exception(wsgi_req, catch);
+		if (wsgi_req) {
+			uwsgi_manage_exception(wsgi_req, catch);
+		}
+		else {
+			PyErr_Print();
+		}
 	}
 
 #ifdef UWSGI_DEBUG
