@@ -336,6 +336,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"reload-on-exception-type", required_argument, 0, "reload a worker when a specific exception type is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_type, 0},
 	{"reload-on-exception-value", required_argument, 0, "reload a worker when a specific exception value is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_value, 0},
 	{"reload-on-exception-repr", required_argument, 0, "reload a worker when a specific exception type+value (language-specific) is raised", uwsgi_opt_add_string_list, &uwsgi.reload_on_exception_repr, 0},
+	{"exception-handler", required_argument, 0, "add an exception handler", uwsgi_opt_add_string_list, &uwsgi.exception_handlers_instance, UWSGI_OPT_MASTER},
 
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
@@ -2196,6 +2197,9 @@ int uwsgi_start(void *v_argv) {
 
         // initialize the alarm subsystem
         uwsgi_alarms_init();
+
+	// initialize the exception handlers
+	uwsgi_exception_setup_handlers();
 
 	/* plugin initialization */
 	for (i = 0; i < uwsgi.gp_cnt; i++) {

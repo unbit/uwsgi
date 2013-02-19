@@ -1689,6 +1689,9 @@ struct uwsgi_server {
 		struct uwsgi_string_list *reload_on_exception_value;
 		struct uwsgi_string_list *reload_on_exception_repr;
 
+		struct uwsgi_exception_handler *exception_handlers;
+		struct uwsgi_string_list *exception_handlers_instance;
+
 
 		int no_default_app;
 		// exit if no-app is loaded
@@ -3803,6 +3806,25 @@ void uwsgi_block_signal(int);
 void uwsgi_unblock_signal(int);
 
 int uwsgi_worker_is_busy(int);
+
+struct uwsgi_exception_handler_instance;
+struct uwsgi_exception_handler {
+	char *name;
+	int (*func)(struct uwsgi_exception_handler_instance *, struct uwsgi_buffer *);
+	struct uwsgi_exception_handler *next;
+};
+
+struct uwsgi_exception_handler_instance {
+	struct uwsgi_exception_handler *handler;
+	int configured;
+	char *arg;
+	uint32_t custom32;
+	uint64_t custom64;
+	void *custom_ptr;
+};
+
+void uwsgi_exception_setup_handlers(void);
+struct uwsgi_exception_handler *uwsgi_exception_handler_by_name(char *);
 
 void uwsgi_manage_exception(struct wsgi_request *, int);
 int uwsgi_exceptions_catch(struct wsgi_request *);

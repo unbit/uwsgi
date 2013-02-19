@@ -15,6 +15,7 @@ extern struct uwsgi_server uwsgi;
 	"unix" -> seconds since the epoch
 	"class" -> the exception class
 	"msg" -> a text message mapped to the extension
+	"repr" -> a text message mapped to the extension in language-specific gergo
 	"wid" -> worker id
 	"core" -> the core generating the exception
 	"pid" -> pid of the worker
@@ -42,6 +43,61 @@ extern struct uwsgi_server uwsgi;
 		to the HTTP client.
 
 */
+
+struct uwsgi_buffer *uwsgi_exception_handler_object(struct wsgi_request *wsgi_req) {
+	struct uwsgi_buffer *ub = uwsgi_buffer_new(4096);
+	if (uwsgi_buffer_append_keyval(ub, "vars", 4, wsgi_req->buffer,wsgi_req->uh->pktsize)) goto error;
+	if (uwsgi.p[wsgi_req->uh->modifier1]->backtrace) {
+                struct uwsgi_buffer *bt = uwsgi.p[wsgi_req->uh->modifier1]->backtrace(wsgi_req);
+		if (bt) {
+			if (uwsgi_buffer_append_keyval(ub, "backtrace", 9, bt->buf, bt->pos)) {
+				uwsgi_buffer_destroy(bt);
+				goto error;
+			} 
+			uwsgi_buffer_destroy(bt);
+		}
+	}
+	if (uwsgi_buffer_append_keynum(ub, "unix", 4, uwsgi_now())) goto error;
+	
+	if (uwsgi.p[wsgi_req->uh->modifier1]->exception_class) {
+		struct uwsgi_buffer *ec = uwsgi.p[wsgi_req->uh->modifier1]->exception_class(wsgi_req);
+		if (ec) {
+			if (uwsgi_buffer_append_keyval(ub, "class", 5, ec->buf, ec->pos)) {
+				uwsgi_buffer_destroy(ec);
+				goto error;
+			}
+			uwsgi_buffer_destroy(ec);
+		}
+	}
+
+	if (uwsgi.p[wsgi_req->uh->modifier1]->exception_msg) {
+                struct uwsgi_buffer *em = uwsgi.p[wsgi_req->uh->modifier1]->exception_msg(wsgi_req);
+                if (em) {
+                        if (uwsgi_buffer_append_keyval(ub, "msg", 3, em->buf, em->pos)) {
+                                uwsgi_buffer_destroy(em);
+                                goto error;
+                        }
+                        uwsgi_buffer_destroy(em);
+                }
+        }
+
+	if (uwsgi.p[wsgi_req->uh->modifier1]->exception_repr) {
+                struct uwsgi_buffer *er = uwsgi.p[wsgi_req->uh->modifier1]->exception_repr(wsgi_req);
+                if (er) {
+                        if (uwsgi_buffer_append_keyval(ub, "repr", 4, er->buf, er->pos)) {
+                                uwsgi_buffer_destroy(er);
+                                goto error;
+                        }
+                        uwsgi_buffer_destroy(er);
+                }
+        }
+
+	return ub;
+	
+error:
+	uwsgi_buffer_destroy(ub);
+	return NULL;
+}
 
 static void append_vars_to_ubuf(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 	struct uwsgi_buffer *ub = (struct uwsgi_buffer *) data;
@@ -236,6 +292,17 @@ error:
 
 }
 
+static void uwsgi_exception_run_handlers(struct uwsgi_buffer *ub) {
+	struct uwsgi_string_list *usl = uwsgi.exception_handlers_instance;
+	while(usl) {
+		struct uwsgi_exception_handler_instance *uehi = (struct uwsgi_exception_handler_instance *) usl->custom_ptr;
+		if (uehi->handler->func(uehi, ub)) {
+			uwsgi_log("[uwsgi-exception] error running the handler \"%s\"\n", usl->value);
+		}
+		usl = usl->next;
+	}
+}
+
 void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 
 	int do_exit = 0;
@@ -243,6 +310,14 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 	if (uwsgi.reload_on_exception) {
 		do_exit = 1;	
 		goto check_catch;
+	}
+
+	if (wsgi_req && uwsgi.exception_handlers_instance) {
+		struct uwsgi_buffer *ehi = uwsgi_exception_handler_object(wsgi_req);
+		if (ehi) {
+			uwsgi_exception_run_handlers(ehi);
+			uwsgi_buffer_destroy(ehi);
+		}
 	}
 
 	if (!wsgi_req) goto log2;
@@ -316,4 +391,131 @@ log2:
 		exit(UWSGI_EXCEPTION_CODE);		
 	}
 	
+}
+
+struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *name, int (*func)(struct uwsgi_exception_handler_instance *, struct uwsgi_buffer *)) {
+	struct uwsgi_exception_handler *old_ueh = NULL, *ueh = uwsgi.exception_handlers;
+	while(ueh) {
+		if (!strcmp(name, ueh->name)) {
+			return NULL;
+		}
+		old_ueh = ueh;
+		ueh = ueh->next;
+	}
+
+	ueh = uwsgi_calloc(sizeof(struct uwsgi_exception_handler));
+	ueh->name = name;
+	ueh->func = func;
+
+	if (old_ueh) {
+		old_ueh->next = ueh;
+	}
+	else {
+		uwsgi.exception_handlers = ueh;
+	}
+
+	return ueh;
+}
+
+struct uwsgi_exception_handler *uwsgi_exception_handler_by_name(char *name) {
+	struct uwsgi_exception_handler *ueh = uwsgi.exception_handlers;
+	while(ueh) {
+		if (!strcmp(name, ueh->name)) {
+			return ueh;
+		}
+		ueh = ueh->next;
+	}
+	return NULL;
+}
+
+static void uwsgi_exception_handler_log_parser_vars(char *key, uint16_t keylen, char *value, uint16_t vallen, void *data) {
+	uwsgi_log("\t%.*s=%.*s\n", keylen, key, vallen, value);
+}
+
+static void uwsgi_exception_handler_log_parser_backtrace(uint16_t pos, char *value, uint16_t vallen, void *data) {
+	uint16_t item = 0;
+        if (pos > 0) {
+                item = pos % 5;
+        }
+
+        switch(item) {
+                // filename
+                case 0:
+			uwsgi_log("\tfilename: \"%.*s\" ", vallen, value);
+                        break;
+                // lineno
+                case 1:
+			uwsgi_log("line: %.*s ", vallen, value);
+                        break;
+                // function
+                case 2:
+			uwsgi_log("function: \"%.*s\" ", vallen, value);
+                        break;
+                // text
+                case 3:
+                        if (vallen > 0) {
+				uwsgi_log("text/code: \"%.*s\" ", vallen, value);
+                        }
+                        break;
+                // custom
+                case 4:
+                        if (vallen > 0) {
+				uwsgi_log("custom: \"%.*s\"", vallen, value);
+                        }
+			uwsgi_log("\n");
+                        break;
+                default:
+                        break;
+        }
+
+}
+
+static void uwsgi_exception_handler_log_parser(char *key, uint16_t keylen, char *value, uint16_t vallen, void *data) {
+	if (!uwsgi_strncmp(key, keylen, "vars", 4)) {
+		uwsgi_log("vars:\n");
+		uwsgi_hooked_parse(value, vallen, uwsgi_exception_handler_log_parser_vars, NULL);
+		uwsgi_log("\n");
+		return;
+	}
+
+	if (!uwsgi_strncmp(key, keylen, "backtrace", 9)) {
+		uwsgi_log("backtrace:\n");
+		uwsgi_hooked_parse_array(value, vallen, uwsgi_exception_handler_log_parser_backtrace, NULL);
+		uwsgi_log("\n");
+		return;
+	}
+}
+
+static int uwsgi_exception_handler_log(struct uwsgi_exception_handler_instance *uehi, struct uwsgi_buffer *ub) {
+	uwsgi_log("\n!!! \"log\" exception handler !!!\n");
+	uwsgi_hooked_parse(ub->buf, ub->pos, uwsgi_exception_handler_log_parser, NULL);
+	uwsgi_log("\n!!! end of \"log\" exception handler output !!!\n");
+	return 0;
+}
+
+void uwsgi_exception_setup_handlers() {
+
+	// register embedded exceptions hander
+	uwsgi_register_exception_handler("log", uwsgi_exception_handler_log);
+
+	struct uwsgi_string_list *usl = uwsgi.exception_handlers_instance;
+	while(usl) {
+		char *handler = uwsgi_str(usl->value);
+		char *colon = strchr(handler, ':');
+		if (colon) {
+			*colon = 0;
+		}
+		struct uwsgi_exception_handler *ueh = uwsgi_exception_handler_by_name(handler);
+		if (!ueh) {
+			uwsgi_log("unable to find exception handler: %s\n", handler);
+			exit(1);
+		}
+		struct uwsgi_exception_handler_instance *uehi = uwsgi_calloc(sizeof(struct uwsgi_exception_handler_instance));
+		uehi->handler = ueh;
+		if (colon) {
+			uehi->arg = colon+1;
+		}
+		usl->custom_ptr = uehi;
+		usl = usl->next;
+	}
 }
