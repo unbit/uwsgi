@@ -57,7 +57,6 @@ struct uwsgi_buffer *uwsgi_exception_handler_object(struct wsgi_request *wsgi_re
 			uwsgi_buffer_destroy(bt);
 		}
 	}
-	if (uwsgi_buffer_append_keynum(ub, "unix", 4, uwsgi_now())) goto error;
 	
 	if (uwsgi.p[wsgi_req->uh->modifier1]->exception_class) {
 		struct uwsgi_buffer *ec = uwsgi.p[wsgi_req->uh->modifier1]->exception_class(wsgi_req);
@@ -91,6 +90,12 @@ struct uwsgi_buffer *uwsgi_exception_handler_object(struct wsgi_request *wsgi_re
                         uwsgi_buffer_destroy(er);
                 }
         }
+
+	if (uwsgi_buffer_append_keynum(ub, "unix", 4, uwsgi_now())) goto error;
+	if (uwsgi_buffer_append_keynum(ub, "wid", 3, uwsgi.mywid)) goto error;
+	if (uwsgi_buffer_append_keynum(ub, "pid", 3, uwsgi.mypid)) goto error;
+	if (uwsgi_buffer_append_keynum(ub, "core", 4, wsgi_req->async_id)) goto error;
+	if (uwsgi_buffer_append_keyval(ub, "node", 4, uwsgi.hostname, uwsgi.hostname_len)) goto error;
 
 	return ub;
 	
@@ -294,11 +299,17 @@ error:
 
 static void uwsgi_exception_run_handlers(struct uwsgi_buffer *ub) {
 	struct uwsgi_string_list *usl = uwsgi.exception_handlers_instance;
+	struct iovec iov[2];
+        iov[1].iov_base = ub->buf;
+        iov[1].iov_len = ub->pos;
 	while(usl) {
 		struct uwsgi_exception_handler_instance *uehi = (struct uwsgi_exception_handler_instance *) usl->custom_ptr;
-		if (uehi->handler->func(uehi, ub)) {
-			uwsgi_log("[uwsgi-exception] error running the handler \"%s\"\n", usl->value);
-		}
+        	iov[0].iov_base = &uehi;
+        	iov[0].iov_len = sizeof(long);
+        	// now send the message to the exception handler thread
+        	if (writev(uwsgi.exception_handler_thread->pipe[0], iov, 2) != (ssize_t) (ub->pos+sizeof(long))) {
+                	uwsgi_error("[uwsgi-exception-handler-error] uwsgi_exception_run_handlers()/writev()");
+        	}
 		usl = usl->next;
 	}
 }
@@ -393,7 +404,7 @@ log2:
 	
 }
 
-struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *name, int (*func)(struct uwsgi_exception_handler_instance *, struct uwsgi_buffer *)) {
+struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *name, int (*func)(struct uwsgi_exception_handler_instance *, char *, size_t)) {
 	struct uwsgi_exception_handler *old_ueh = NULL, *ueh = uwsgi.exception_handlers;
 	while(ueh) {
 		if (!strcmp(name, ueh->name)) {
@@ -428,75 +439,29 @@ struct uwsgi_exception_handler *uwsgi_exception_handler_by_name(char *name) {
 	return NULL;
 }
 
-static void uwsgi_exception_handler_log_parser_vars(char *key, uint16_t keylen, char *value, uint16_t vallen, void *data) {
-	uwsgi_log("\t%.*s=%.*s\n", keylen, key, vallen, value);
-}
-
-static void uwsgi_exception_handler_log_parser_backtrace(uint16_t pos, char *value, uint16_t vallen, void *data) {
-	uint16_t item = 0;
-        if (pos > 0) {
-                item = pos % 5;
-        }
-
-        switch(item) {
-                // filename
-                case 0:
-			uwsgi_log("\tfilename: \"%.*s\" ", vallen, value);
-                        break;
-                // lineno
-                case 1:
-			uwsgi_log("line: %.*s ", vallen, value);
-                        break;
-                // function
-                case 2:
-			uwsgi_log("function: \"%.*s\" ", vallen, value);
-                        break;
-                // text
-                case 3:
-                        if (vallen > 0) {
-				uwsgi_log("text/code: \"%.*s\" ", vallen, value);
+static void uwsgi_exception_handler_thread_loop(struct uwsgi_thread *ut) {
+        char *buf = uwsgi_malloc(uwsgi.exception_handler_msg_size + sizeof(long));
+        for (;;) {
+                int interesting_fd = -1;
+                int ret = event_queue_wait(ut->queue, -1, &interesting_fd);
+                if (ret > 0) {
+                        ssize_t len = read(ut->pipe[1], buf, uwsgi.alarm_msg_size + sizeof(long));
+                        if (len > (ssize_t)(sizeof(long) + 1)) {
+                                size_t msg_size = len - sizeof(long);
+                                char *msg = buf + sizeof(long);
+                                long ptr = 0;
+                                memcpy(&ptr, buf, sizeof(long));
+                                struct uwsgi_exception_handler_instance *uehi = (struct uwsgi_exception_handler_instance *) ptr;
+                                if (!uehi) return;
+				if (uehi->handler->func(uehi, msg, msg_size)) {
+                        		uwsgi_log("[uwsgi-exception] error running the handler \"%s\" args: \"%s\"\n", uehi->handler->name, uehi->arg ? uehi->arg : "");
+                		}
                         }
-                        break;
-                // custom
-                case 4:
-                        if (vallen > 0) {
-				uwsgi_log("custom: \"%.*s\"", vallen, value);
-                        }
-			uwsgi_log("\n");
-                        break;
-                default:
-                        break;
+                }
         }
-
-}
-
-static void uwsgi_exception_handler_log_parser(char *key, uint16_t keylen, char *value, uint16_t vallen, void *data) {
-	if (!uwsgi_strncmp(key, keylen, "vars", 4)) {
-		uwsgi_log("vars:\n");
-		uwsgi_hooked_parse(value, vallen, uwsgi_exception_handler_log_parser_vars, NULL);
-		uwsgi_log("\n");
-		return;
-	}
-
-	if (!uwsgi_strncmp(key, keylen, "backtrace", 9)) {
-		uwsgi_log("backtrace:\n");
-		uwsgi_hooked_parse_array(value, vallen, uwsgi_exception_handler_log_parser_backtrace, NULL);
-		uwsgi_log("\n");
-		return;
-	}
-}
-
-static int uwsgi_exception_handler_log(struct uwsgi_exception_handler_instance *uehi, struct uwsgi_buffer *ub) {
-	uwsgi_log("\n!!! \"log\" exception handler !!!\n");
-	uwsgi_hooked_parse(ub->buf, ub->pos, uwsgi_exception_handler_log_parser, NULL);
-	uwsgi_log("\n!!! end of \"log\" exception handler output !!!\n");
-	return 0;
 }
 
 void uwsgi_exception_setup_handlers() {
-
-	// register embedded exceptions hander
-	uwsgi_register_exception_handler("log", uwsgi_exception_handler_log);
 
 	struct uwsgi_string_list *usl = uwsgi.exception_handlers_instance;
 	while(usl) {
@@ -518,4 +483,12 @@ void uwsgi_exception_setup_handlers() {
 		usl->custom_ptr = uehi;
 		usl = usl->next;
 	}
+
+	// start the exception_handler_thread
+        uwsgi.exception_handler_thread = uwsgi_thread_new(uwsgi_exception_handler_thread_loop);
+        if (!uwsgi.exception_handler_thread) {
+                uwsgi_log("unable to spawn exception handler thread\n");
+                exit(1);
+        }
+
 }

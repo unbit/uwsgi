@@ -329,6 +329,6 @@ void uwsgi_alarm_trigger(char *alarm_instance_name, char *msg, size_t len) {
 
 	// now send the message to the alarm thread
 	if (writev(uwsgi.alarm_thread->pipe[0], iov, 2) != (ssize_t) (len+sizeof(long))) {
-		uwsgi_error("[uwsgi-alarm-error] uwsgi_alarm_trigger()/write()");
+		uwsgi_error("[uwsgi-alarm-error] uwsgi_alarm_trigger()/writev()");
 	}
 }

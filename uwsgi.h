@@ -1691,6 +1691,8 @@ struct uwsgi_server {
 
 		struct uwsgi_exception_handler *exception_handlers;
 		struct uwsgi_string_list *exception_handlers_instance;
+		struct uwsgi_thread *exception_handler_thread;
+		uint64_t exception_handler_msg_size;
 
 
 		int no_default_app;
@@ -3810,7 +3812,7 @@ int uwsgi_worker_is_busy(int);
 struct uwsgi_exception_handler_instance;
 struct uwsgi_exception_handler {
 	char *name;
-	int (*func)(struct uwsgi_exception_handler_instance *, struct uwsgi_buffer *);
+	int (*func)(struct uwsgi_exception_handler_instance *, char *, size_t);
 	struct uwsgi_exception_handler *next;
 };
 
@@ -3829,6 +3831,7 @@ struct uwsgi_exception_handler *uwsgi_exception_handler_by_name(char *);
 void uwsgi_manage_exception(struct wsgi_request *, int);
 int uwsgi_exceptions_catch(struct wsgi_request *);
 uint64_t uwsgi_worker_exceptions(int);
+struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *, int (*)(struct uwsgi_exception_handler_instance *, char *, size_t));
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)

@@ -149,6 +149,7 @@ void uwsgi_init_default() {
 	uwsgi.alarm_freq = 3;
 	uwsgi.alarm_msg_size = 8192;
 
+	uwsgi.exception_handler_msg_size = 65536;
 
 	uwsgi.multicast_ttl = 1;
 	uwsgi.multicast_loop = 1;
