@@ -491,6 +491,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"route-user-agent", required_argument, 0, "add a route based on HTTP_USER_AGENT", uwsgi_opt_add_route, "user_agent", 0},
 	{"route-remote-user", required_argument, 0, "add a route based on REMOTE_USER", uwsgi_opt_add_route, "remote_user", 0},
 	{"route-referer", required_argument, 0, "add a route based on HTTP_REFERER", uwsgi_opt_add_route, "referer", 0},
+	{"route-label", required_argument, 0, "add a routing label (for use with goto)", uwsgi_opt_add_route, NULL, 0},
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif
@@ -1923,6 +1924,10 @@ int main(int argc, char *argv[], char *envp[]) {
 			uwsgi.max_fd = rl.rlim_cur;
 		}
 	}
+
+#ifdef UWSGI_ROUTING
+	uwsgi_routing_dump();
+#endif
 
 	// initialize shared sockets
 	uwsgi_setup_shared_sockets();

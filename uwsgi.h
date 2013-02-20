@@ -1027,44 +1027,50 @@ struct uwsgi_cache {
 // go to the next group of routes
 #define UWSGI_ROUTE_GOON 3
 
-	struct uwsgi_route {
+struct uwsgi_route {
 
-		pcre *pattern;
-		pcre_extra *pattern_extra;
-		int ovn;
-		int *ovector;
+	pcre *pattern;
+	pcre_extra *pattern_extra;
+	int ovn;
+	int *ovector;
 
-		size_t subject;
-		size_t subject_len;
+	char *subject_str;
+	size_t subject;
+	size_t subject_len;
 
-		int (*func) (struct wsgi_request *, struct uwsgi_route *);
+	int (*func) (struct wsgi_request *, struct uwsgi_route *);
 
-		void *data;
-		size_t data_len;
+	void *data;
+	size_t data_len;
 
-		void *data2;
-		size_t data2_len;
+	void *data2;
+	size_t data2_len;
 
-		void *data3;
-		size_t data3_len;
+	void *data3;
+	size_t data3_len;
 
-		// 64bit value for custom usage
-		uint64_t custom;
+	// 64bit value for custom usage
+	uint64_t custom;
 
-		// true ifthis is the last rule of this kind
-		int is_last;
+	// true ifthis is the last rule of this kind
+	int is_last;
 
-		struct uwsgi_route *next;
+	uint64_t pos;
+	char *label;
+	size_t label_len;
 
-	};
+	char *regexp;
+	char *action;
 
-	struct uwsgi_router {
+	struct uwsgi_route *next;
 
-		char *name;
-		int (*func) (struct uwsgi_route *, char *);
-		struct uwsgi_router *next;
+};
 
-	};
+struct uwsgi_router {
+	char *name;
+	int (*func) (struct uwsgi_route *, char *);
+	struct uwsgi_router *next;
+};
 
 #endif
 
@@ -3260,23 +3266,24 @@ socklen_t socket_to_in_addr6(char *, char *, int, struct sockaddr_in6 *);
 
 
 #ifdef UWSGI_CAP
-	void uwsgi_opt_set_cap(char *, char *, void *);
+void uwsgi_opt_set_cap(char *, char *, void *);
 #endif
 #ifdef __linux__
-	void uwsgi_opt_set_unshare(char *, char *, void *);
+void uwsgi_opt_set_unshare(char *, char *, void *);
 #endif
 
-	char *uwsgi_tmpname(char *, char *);
+char *uwsgi_tmpname(char *, char *);
 
 #ifdef UWSGI_ROUTING
-	struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *, char *));
-	void uwsgi_opt_add_route(char *, char *, void *);
-	int uwsgi_apply_routes(struct wsgi_request *);
-	int uwsgi_apply_routes_fast(struct wsgi_request *);
-	void uwsgi_register_embedded_routers(void);
+struct uwsgi_router *uwsgi_register_router(char *, int (*)(struct uwsgi_route *, char *));
+void uwsgi_opt_add_route(char *, char *, void *);
+int uwsgi_apply_routes(struct wsgi_request *);
+int uwsgi_apply_routes_fast(struct wsgi_request *);
+void uwsgi_register_embedded_routers(void);
+void uwsgi_routing_dump();
 #endif
 
-	void uwsgi_reload(char **);
+void uwsgi_reload(char **);
 
 	char *uwsgi_chomp(char *);
 	int uwsgi_file_to_string_list(char *, struct uwsgi_string_list **);

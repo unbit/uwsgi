@@ -1,5 +1,5 @@
 #ifdef UWSGI_ROUTING
-#include "uwsgi.h"
+#include <uwsgi.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -81,6 +81,30 @@ int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req) {
 
 void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
+	struct uwsgi_route *old_ur = NULL,*ur = uwsgi.routes;
+	uint64_t pos = 0;
+	while(ur) {
+		old_ur = ur;
+		ur = ur->next;
+		pos++;
+	}
+	ur = uwsgi_calloc(sizeof(struct uwsgi_route));
+	if (old_ur) {
+		old_ur->next = ur;
+	}
+	else {
+		uwsgi.routes = ur;
+	}
+
+	ur->pos = pos;
+
+	// is it a label ?
+	if (foobar == NULL) {
+		ur->label = value;
+		ur->label_len = strlen(value);
+		return;
+	}
+
 	char *route = uwsgi_str(value);
 
 	char *space = strchr(route, ' ');
@@ -90,22 +114,6 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 	}
 
 	*space = 0;
-
-	struct uwsgi_route *ur = uwsgi.routes;
-	if (!ur) {
-		uwsgi.routes = uwsgi_calloc(sizeof(struct uwsgi_route));
-		ur = uwsgi.routes;
-	}
-	else {
-		while (ur) {
-			if (!ur->next) {
-				ur->next = uwsgi_calloc(sizeof(struct uwsgi_route));
-				ur = ur->next;
-				break;
-			}
-			ur = ur->next;
-		}
-	}
 
 	if (!strcmp(foobar, "http_host")) {
 		ur->subject = offsetof(struct wsgi_request, host);
@@ -140,6 +148,9 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 		ur->subject_len = offsetof(struct wsgi_request, path_info_len);
 	}
 
+	ur->subject_str = foobar;
+	ur->regexp = route;
+
 	if (uwsgi_regexp_build(route, &ur->pattern, &ur->pattern_extra)) {
 		exit(1);
 	}
@@ -150,6 +161,7 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 	}
 
 	char *command = space + 1;
+	ur->action = uwsgi_str(command);
 
 	char *colon = strchr(command, ':');
 	if (!colon) {
@@ -275,16 +287,33 @@ static int uwsgi_router_logvar(struct uwsgi_route *ur, char *arg) {
 // goto route 
 
 static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
-	if (route->custom <= wsgi_req->route_pc) {
-		uwsgi_log("[uwsgi-route] ERROR \"goto\" instruction can only jump forward\n");
+	// find the label
+	struct uwsgi_route *routes = uwsgi.routes;
+	while(routes) {
+		if (!routes->label) goto next;
+		if (!uwsgi_strncmp(routes->label, routes->label_len, route->data, route->data_len)) {
+			wsgi_req->route_goto = routes->pos;
+			goto found;
+		}
+next:
+		routes = routes->next;
+	}
+
+	wsgi_req->route_goto = route->custom;
+	
+found:
+	if (wsgi_req->route_goto <= wsgi_req->route_pc) {
+		wsgi_req->route_goto = 0;
+		uwsgi_log("[uwsgi-route] ERROR \"goto\" instruction can only jump forward (check your label !!!)\n");
 		return UWSGI_ROUTE_BREAK;
 	}
-	wsgi_req->route_goto = route->custom;
 	return UWSGI_ROUTE_NEXT;	
 }
 
 static int uwsgi_router_goto(struct uwsgi_route *ur, char *arg) {
 	ur->func = uwsgi_router_goto_func;
+	ur->data = arg;
+	ur->data_len = strlen(arg);
 	ur->custom = atoi(arg);
         return 0;
 }
@@ -439,5 +468,20 @@ struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi
 
 	return NULL;
 
+}
+
+void uwsgi_routing_dump() {
+	struct uwsgi_route *routes = uwsgi.routes;
+	uwsgi_log("*** dumping internal routing table ***\n");
+	while(routes) {
+		if (routes->label) {
+			uwsgi_log("[rule: %llu] label: %s\n", (unsigned long long ) routes->pos, routes->label);
+		}
+		else {
+			uwsgi_log("[rule: %llu] subject: %s regexp: %s action: %s\n", (unsigned long long ) routes->pos, routes->subject_str, routes->regexp, routes->action);
+		}
+		routes = routes->next;
+	}
+	uwsgi_log("*** end of the internal routing table ***\n");
 }
 #endif
