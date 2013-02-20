@@ -9,11 +9,11 @@ int uwsgi_routing_func_static(struct wsgi_request *wsgi_req, struct uwsgi_route 
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-	char *filename = uwsgi_regexp_apply_ovec(*subject, *subject_len, ur->data, ur->data_len, ur->ovector, ur->ovn);
-	uint16_t filename_len = strlen(filename);
-	
-	uwsgi_file_serve(wsgi_req, filename, filename_len, NULL, 0, 1);
-	free(filename);
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data, ur->data_len);
+        if (!ub) return UWSGI_ROUTE_BREAK;
+
+	uwsgi_file_serve(wsgi_req, ub->buf, ub->pos, NULL, 0, 1);
+	uwsgi_buffer_destroy(ub);
 	return UWSGI_ROUTE_BREAK;
 }
 
