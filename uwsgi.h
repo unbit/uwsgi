@@ -3281,6 +3281,7 @@ int uwsgi_apply_routes(struct wsgi_request *);
 int uwsgi_apply_routes_fast(struct wsgi_request *);
 void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
+struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *, struct uwsgi_route *, char *, uint16_t, char *, size_t);
 #endif
 
 void uwsgi_reload(char **);

@@ -65,7 +65,15 @@ char *uwsgi_regexp_apply_ovec(char *src, int src_n, char *dst, int dst_n, int *o
 	int i;
 	int dollar = 0;
 
-	char *res = uwsgi_malloc(dst_n + (src_n * n) + 1);
+	size_t dollars = n;
+	
+	for(i=0;i<dst_n;i++) {
+		if (dst[i] == '$') {
+			dollars++;
+		}
+	}
+
+	char *res = uwsgi_malloc(dst_n + (src_n * dollars) + 1);
 	char *ptr = res;
 
 	for (i = 0; i < dst_n; i++) {
@@ -79,6 +87,7 @@ char *uwsgi_regexp_apply_ovec(char *src, int src_n, char *dst, int dst_n, int *o
 				}
 			}
 			else {
+				*ptr++ = '$';
 				*ptr++ = dst[i];
 			}
 			dollar = 0;

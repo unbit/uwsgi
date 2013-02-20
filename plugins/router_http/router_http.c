@@ -12,23 +12,24 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 	// get the http address from the route
 	char *addr = ur->data;
 
-	char *uri = NULL;
-	uint16_t uri_len = 0;
+	struct uwsgi_buffer *ub_url = NULL;
 	if (ur->data3_len) {
-		uri = uwsgi_regexp_apply_ovec(wsgi_req->uri, wsgi_req->uri_len, ur->data3, ur->data3_len, ur->ovector, ur->ovn);
-		uri_len = strlen(uri);
+		char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
+        	uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
+		struct uwsgi_buffer *ub_url = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data3, ur->data3_len);
+        	if (!ub_url) return UWSGI_ROUTE_BREAK;
 	}
 
 
 	// convert the wsgi_request to an http proxy request
-	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len, uri, uri_len);	
+	struct uwsgi_buffer *ub = uwsgi_to_http(wsgi_req, ur->data2, ur->data2_len, ub_url ? ub_url->buf : NULL, ub_url ? ub_url->pos : 0);	
 	if (!ub) {
-		if (uri) free(uri);
+		if (ub_url) uwsgi_buffer_destroy(ub_url);
 		uwsgi_log("unable to generate http request for %s\n", addr);
                 return UWSGI_ROUTE_NEXT;
 	}
 
-	if (uri) free(uri);
+	if (ub_url) uwsgi_buffer_destroy(ub_url);
 
 	// amount of body to send
 	size_t remains = wsgi_req->post_cl - wsgi_req->proto_parser_remains;

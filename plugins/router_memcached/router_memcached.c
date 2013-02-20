@@ -59,26 +59,29 @@ static int uwsgi_routing_func_memcached(struct wsgi_request *wsgi_req, struct uw
 	char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
 
-        char *k = uwsgi_regexp_apply_ovec(*subject, *subject_len, urmc->key, urmc->key_len, ur->ovector, ur->ovn);
-	size_t k_len = strlen(k);
+	struct uwsgi_buffer *ub_key = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, urmc->key, urmc->key_len);
+        if (!ub_key) return UWSGI_ROUTE_BREAK;
 
 	int fd = uwsgi_connect(urmc->addr, 0, 1);
-	if (fd < 0) goto end;
+	if (fd < 0) { uwsgi_buffer_destroy(ub_key) ; goto end; }
 
         // wait for connection;
         int ret = uwsgi.wait_write_hook(fd, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
         if (ret <= 0) {
+		uwsgi_buffer_destroy(ub_key) ;
 		close(fd);
 		goto end;
         }
 
 	// build the request and send it
-	char *cmd = uwsgi_concat3n("get ", 4, k, k_len, "\r\n", 2);
-	if (uwsgi_write_true_nb(fd, cmd, 6+k_len, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+	char *cmd = uwsgi_concat3n("get ", 4, ub_key->buf, ub_key->pos, "\r\n", 2);
+	if (uwsgi_write_true_nb(fd, cmd, 6+ub_key->pos, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT])) {
+		uwsgi_buffer_destroy(ub_key);
 		free(cmd);
 		close(fd);
 		goto end;
 	}
+	uwsgi_buffer_destroy(ub_key);
 	free(cmd);
 
 	// ok, start reading the response...
