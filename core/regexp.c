@@ -62,40 +62,49 @@ int uwsgi_regexp_ovector(pcre * pattern, pcre_extra * pattern_extra) {
 
 char *uwsgi_regexp_apply_ovec(char *src, int src_n, char *dst, int dst_n, int *ovector, int n) {
 
-	int i;
-	int dollar = 0;
+        int i;
+        int dollar = 0;
 
-	char *res = uwsgi_malloc(dst_n + (src_n * n) + 1);
-	char *ptr = res;
+        size_t dollars = n;
 
-	for (i = 0; i < dst_n; i++) {
-		if (dollar) {
-			if (isdigit((int) dst[i])) {
-				int pos = (dst[i] - 48);
-				if (pos <= n) {
-					pos = pos * 2;
-					memcpy(ptr, src + ovector[pos], ovector[pos + 1] - ovector[pos]);
-					ptr += ovector[pos + 1] - ovector[pos];
-				}
-			}
-			else {
-				*ptr++ = dst[i];
-			}
-			dollar = 0;
-		}
-		else {
-			if (dst[i] == '$') {
-				dollar = 1;
-			}
-			else {
-				*ptr++ = dst[i];
-			}
-		}
-	}
+        for(i=0;i<dst_n;i++) {
+                if (dst[i] == '$') {
+                        dollars++;
+                }
+        }
 
-	*ptr++ = 0;
+        char *res = uwsgi_malloc(dst_n + (src_n * dollars) + 1);
+        char *ptr = res;
 
-	return res;
+        for (i = 0; i < dst_n; i++) {
+                if (dollar) {
+                        if (isdigit((int) dst[i])) {
+                                int pos = (dst[i] - 48);
+                                if (pos <= n) {
+                                        pos = pos * 2;
+                                        memcpy(ptr, src + ovector[pos], ovector[pos + 1] - ovector[pos]);
+                                        ptr += ovector[pos + 1] - ovector[pos];
+                                }
+                        }
+                        else {
+                                *ptr++ = '$';
+                                *ptr++ = dst[i];
+                        }
+                        dollar = 0;
+                }
+                else {
+                        if (dst[i] == '$') {
+                                dollar = 1;
+                        }
+                        else {
+                                *ptr++ = dst[i];
+                        }
+                }
+        }
+
+        *ptr++ = 0;
+
+        return res;
 }
 
 #endif
