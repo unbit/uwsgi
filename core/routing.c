@@ -287,11 +287,18 @@ static int uwsgi_router_logvar(struct uwsgi_route *ur, char *arg) {
 // goto route 
 
 static int uwsgi_router_goto_func(struct wsgi_request *wsgi_req, struct uwsgi_route *route) {
+	// build the label (if needed)
+	char **subject = (char **) (((char *)(wsgi_req))+route->subject);
+        uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+route->subject_len);
+
+        char *label = uwsgi_regexp_apply_ovec(*subject, *subject_len, route->data, route->data_len, route->ovector, route->ovn);
+	size_t label_len = strlen(label);
+
 	// find the label
 	struct uwsgi_route *routes = uwsgi.routes;
 	while(routes) {
 		if (!routes->label) goto next;
-		if (!uwsgi_strncmp(routes->label, routes->label_len, route->data, route->data_len)) {
+		if (!uwsgi_strncmp(routes->label, routes->label_len, label, label_len)) {
 			wsgi_req->route_goto = routes->pos;
 			goto found;
 		}
@@ -302,6 +309,7 @@ next:
 	wsgi_req->route_goto = route->custom;
 	
 found:
+	free(label);
 	if (wsgi_req->route_goto <= wsgi_req->route_pc) {
 		wsgi_req->route_goto = 0;
 		uwsgi_log("[uwsgi-route] ERROR \"goto\" instruction can only jump forward (check your label !!!)\n");
