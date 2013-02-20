@@ -38,7 +38,7 @@ http_test() {
     if [ "$UPID" != "" ]; then
         echo -e "${bldgre}>>> Spawned PID $UPID, running tests${txtrst}"
         sleep 5
-        curl -I $URL
+        curl -fI $URL
         RET=$?
         if [ $RET != 0 ]; then
             die "${bldred}>>> Error during curl run${txtrst}"
