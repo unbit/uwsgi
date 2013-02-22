@@ -163,8 +163,10 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 	char *p = strtok(list, ",");
 	while (p) {
 		struct uwsgi_alarm_instance *uai = uwsgi_alarm_get_instance(p);
-		if (!uai)
+		if (!uai) {
+			free(list);
 			return -1;
+		}
 		struct uwsgi_alarm_ll *old_uall = NULL, *uall = ual->alarms;
 		while (uall) {
 			old_uall = uall;
@@ -181,6 +183,7 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 		}
 		p = strtok(NULL, ",");
 	}
+	free(list);
 	return 0;
 }
 #endif
