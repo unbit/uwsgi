@@ -324,17 +324,15 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 			uwsgi_log("[cache-sync] invalid uwsgi packet received from the cache server\n");
 			goto next;
 		}
-
+	
 		char *dump_buf = uwsgi_malloc(cuh.pktsize);
 		ret = uwsgi_read_nb(fd, dump_buf, cuh.pktsize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (ret) {
                         uwsgi_log("[cache-sync] unable to read from the cache server\n");
-			free(dump_buf);
 			goto next;
                 }
 
 		uwsgi_hooked_parse(dump_buf, cuh.pktsize, cache_sync_hook, NULL);
-		free(dump_buf);
 
 		ret = uwsgi_read_nb(fd, (char *) uc->items, uc->filesize, uwsgi.shared->options[UWSGI_OPTION_SOCKET_TIMEOUT]);
 		if (ret) {
