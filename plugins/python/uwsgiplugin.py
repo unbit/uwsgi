@@ -28,6 +28,7 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
         # libdir does not exists, try to get it from the venv
         if not os.path.exists(libdir):
             libdir = '%s/lib/python%s/config' % (sys.prefix, get_python_version())
+        print(os.listdir(libdir))
         libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
         if not os.path.exists(libpath): 
             libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
