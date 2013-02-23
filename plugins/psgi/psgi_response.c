@@ -42,7 +42,6 @@ int psgi_response(struct wsgi_request *wsgi_req, AV *response) {
                 		if (SvTRUE(*harakiri)) wsgi_req->async_plagued = 1;
         		}
 
-			SvREFCNT_dec(wsgi_req->async_environ);
         		SvREFCNT_dec(wsgi_req->async_result);
 
 			return UWSGI_OK;
