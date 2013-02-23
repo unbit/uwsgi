@@ -15,7 +15,8 @@ LDFLAGS = []
 if not 'UWSGI_PYTHON_NOLIB' in os.environ:
     LIBS = sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
     if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
-        print os.listdir(sysconfig.get_config_var('LIBPL'))
+        print(os.listdir(sysconfig.get_config_var('LIBPL')))
+        print(sysconfig.get_config_var('LDLIBRARY'))
         LIBS.append('%s/%s' % (sysconfig.get_config_var('LIBPL'), sysconfig.get_config_var('LIBRARY')))
     else:
         try:
