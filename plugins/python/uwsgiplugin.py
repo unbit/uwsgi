@@ -15,13 +15,13 @@ LDFLAGS = []
 if not 'UWSGI_PYTHON_NOLIB' in os.environ:
     LIBS = sysconfig.get_config_var('LIBS').split() + sysconfig.get_config_var('SYSLIBS').split()
     if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
-        print(sysconfig.get_config_var('srcdir'))
-        print(sysconfig.get_config_var('LIBPL'))
-        print(sysconfig.get_config_var('LDLIBRARY'))
-        print(sysconfig.get_config_var('LIBRARY'))
-        print(os.listdir(sysconfig.get_config_var('srcdir')))
-        print(sysconfig.get_config_var('LDLIBRARY'))
-        LIBS.append('%s/%s' % (sysconfig.get_config_var('srcdir'), sysconfig.get_config_var('LIBRARY')))
+        libdir = sysconfig.get_config_var('LIBPL')
+        if not os.path.exists(libdir):
+            libdir = sysconfig.get_config_var('srcdir')
+        libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
+        if not os.path.exists(libpath): 
+            libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
+        LIBS.append(libpath)
     else:
         try:
             LDFLAGS.append("-L%s" % sysconfig.get_config_var('LIBDIR'))
