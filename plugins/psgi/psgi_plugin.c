@@ -62,7 +62,12 @@ SV *uwsgi_perl_call_stream(SV *func) {
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
-        XPUSHs( sv_2mortal(newRV((SV*) ((SV **)wi->responder0)[wsgi_req->async_id])));
+	if (uwsgi.threads > 1) {
+        	XPUSHs( sv_2mortal(newRV((SV*) ((SV **)wi->responder0)[wsgi_req->async_id])));
+	}
+	else {
+        	XPUSHs( sv_2mortal(newRV((SV*) ((SV **)wi->responder0)[0])));
+	}
         PUTBACK;
 
 	call_sv( func, G_SCALAR | G_EVAL);
@@ -296,7 +301,12 @@ SV *build_psgi_env(struct wsgi_request *wsgi_req) {
 	
 	if (!hv_store(env, "psgix.input.buffered", 20, newSViv(wsgi_req->body_as_file), 0)) goto clear;
 
-	if (!hv_store(env, "psgix.logger", 12,newRV((SV*) ((SV **)wi->responder1)[wsgi_req->async_id]) ,0)) goto clear;
+	if (uwsgi.threads > 1) {
+		if (!hv_store(env, "psgix.logger", 12,newRV((SV*) ((SV **)wi->responder1)[wsgi_req->async_id]) ,0)) goto clear;
+	}
+	else {
+		if (!hv_store(env, "psgix.logger", 12,newRV((SV*) ((SV **)wi->responder1)[0]) ,0)) goto clear;
+	}
 
 	if (uwsgi.master_process) {
 		if (!hv_store(env, "psgix.harakiri", 14, newSViv(1), 0)) goto clear;
@@ -431,8 +441,15 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	struct uwsgi_app *wi = &uwsgi_apps[wsgi_req->app_id];
 	wi->requests++;
 
-	if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
-		PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id]);
+	if (uwsgi.threads < 2) {
+		if (((PerlInterpreter **)wi->interpreter)[0] != uperl.main[0]) {
+			PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[0]);
+		}
+	}
+	else {
+		if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
+			PERL_SET_CONTEXT(((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id]);
+		}
 	}
 
 	ENTER;
@@ -441,7 +458,12 @@ int uwsgi_perl_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->async_environ = build_psgi_env(wsgi_req);
 	if (!wsgi_req->async_environ) goto clear;
 
-	wsgi_req->async_result = psgi_call(wsgi_req, ((SV **)wi->callable)[wsgi_req->async_id], wsgi_req->async_environ);
+	if (uwsgi.threads > 1) {
+		wsgi_req->async_result = psgi_call(wsgi_req, ((SV **)wi->callable)[wsgi_req->async_id], wsgi_req->async_environ);
+	}
+	else {
+		wsgi_req->async_result = psgi_call(wsgi_req, ((SV **)wi->callable)[0], wsgi_req->async_environ);
+	}
 	if (!wsgi_req->async_result) goto clear;
 
 	if (SvTYPE((AV *)wsgi_req->async_result) == SVt_PVCV) {
@@ -474,8 +496,15 @@ clear:
 	LEAVE;
 
 	// restore main interpreter if needed
-	if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
-		PERL_SET_CONTEXT(uperl.main[wsgi_req->async_id]);
+	if (uwsgi.threads > 1) {
+		if (((PerlInterpreter **)wi->interpreter)[wsgi_req->async_id] != uperl.main[wsgi_req->async_id]) {
+			PERL_SET_CONTEXT(uperl.main[wsgi_req->async_id]);
+		}
+	}
+	else {
+		if (((PerlInterpreter **)wi->interpreter)[0] != uperl.main[0]) {
+			PERL_SET_CONTEXT(uperl.main[0]);
+		}
 	}
 
 	return UWSGI_OK;
