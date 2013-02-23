@@ -19,6 +19,8 @@ struct uwsgi_option uwsgi_perl_options[] = {
 #ifdef PERL_VERSION_STRING
         {"perl-version", no_argument, 0, "print perl version", uwsgi_opt_print, PERL_VERSION_STRING, UWSGI_OPT_IMMEDIATE},
 #endif
+        {"perl-args", required_argument, 0, "add items (space separated) to @ARGV", uwsgi_opt_set_str, &uperl.argv_items, 0},
+        {"perl-arg", required_argument, 0, "add an item to @ARGV", uwsgi_opt_add_string_list, &uperl.argv_item, 0},
         {0, 0, 0, 0, 0, 0, 0},
 
 };
