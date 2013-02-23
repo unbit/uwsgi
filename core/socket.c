@@ -1826,3 +1826,13 @@ nextsock:
 
 
 }
+
+void uwsgi_tcp_nodelay(int fd) {
+#ifdef TCP_NODELAY
+        int flag = 1;
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int))) {
+                uwsgi_error("uwsgi_tcp_nodelay()/setsockopt()");
+        }
+#endif
+}
+

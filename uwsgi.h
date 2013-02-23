@@ -2089,6 +2089,7 @@ struct uwsgi_server {
 		void (*gbcw_hook) (void);
 
 		int close_on_exec;
+		int tcp_nodelay;
 
 		char *loop;
 		struct uwsgi_loop *loops;
@@ -3817,6 +3818,9 @@ void uwsgi_block_signal(int);
 void uwsgi_unblock_signal(int);
 
 int uwsgi_worker_is_busy(int);
+
+void uwsgi_post_accept(struct wsgi_request *);
+void uwsgi_tcp_nodelay(int);
 
 struct uwsgi_exception_handler_instance;
 struct uwsgi_exception_handler {

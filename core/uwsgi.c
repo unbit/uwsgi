@@ -292,6 +292,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"no-server", no_argument, 0, "force no-server mode", uwsgi_opt_true, &uwsgi.no_server, 0},
 	{"command-mode", no_argument, 0, "force command mode", uwsgi_opt_true, &uwsgi.command_mode, UWSGI_OPT_IMMEDIATE},
 	{"no-defer-accept", no_argument, 0, "disable deferred-accept on sockets", uwsgi_opt_true, &uwsgi.no_defer_accept, 0},
+	{"tcp-nodelay", no_argument, 0, "enable TCP NODELAY on each request", uwsgi_opt_true, &uwsgi.tcp_nodelay, 0},
 	{"so-keepalive", no_argument, 0, "enable TCP KEEPALIVEs", uwsgi_opt_true, &uwsgi.so_keepalive, 0},
 	{"so-send-timeout", no_argument, 0, "set SO_SNDTIMEO", uwsgi_opt_set_int, &uwsgi.so_send_timeout, 0},
 	{"socket-send-timeout", no_argument, 0, "set SO_SNDTIMEO", uwsgi_opt_set_int, &uwsgi.so_send_timeout, 0},

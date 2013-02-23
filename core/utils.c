@@ -938,6 +938,20 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 	return 0;
 }
 
+void uwsgi_post_accept(struct wsgi_request *wsgi_req) {
+
+	// set close on exec (if not a new socket)
+	if (!wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
+		if (fcntl(wsgi_req->fd, F_SETFD, FD_CLOEXEC) < 0) {
+			uwsgi_error("fcntl()");
+		}
+	}
+
+	// enable TCP_NODELAY ?
+	if (uwsgi.tcp_nodelay) {
+		uwsgi_tcp_nodelay(wsgi_req->fd);
+	}
+}
 
 // accept a new request
 int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
@@ -948,12 +962,7 @@ int wsgi_req_simple_accept(struct wsgi_request *wsgi_req, int fd) {
 		return -1;
 	}
 
-	// set close on exec (if not a new socket)
-	if (!wsgi_req->socket->edge_trigger && uwsgi.close_on_exec) {
-		if (fcntl(wsgi_req->fd, F_SETFD, FD_CLOEXEC) < 0) {
-			uwsgi_error("fcntl()");
-		}
-	}
+	uwsgi_post_accept(wsgi_req);
 
 	return 0;
 }
@@ -1049,13 +1058,7 @@ int wsgi_req_accept(int queue, struct wsgi_request *wsgi_req) {
 			}
 
 			if (!uwsgi_sock->edge_trigger) {
-
-				if (uwsgi.close_on_exec) {
-					if (fcntl(wsgi_req->fd, F_SETFD, FD_CLOEXEC) < 0) {
-						uwsgi_error("fcntl()");
-					}
-				}
-
+				uwsgi_post_accept(wsgi_req);
 			}
 
 			return 0;
