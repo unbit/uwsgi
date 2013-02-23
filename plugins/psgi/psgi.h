@@ -23,6 +23,9 @@ struct uwsgi_perl {
 	int no_die_catch;
 	int stacktrace_available;
 
+	char *argv_items;
+	struct uwsgi_string_list *argv_item;
+
 	// this is a pointer to the main list of interpreters (required for signals, rpc....);
         PerlInterpreter **main;
 

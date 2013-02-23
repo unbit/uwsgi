@@ -413,6 +413,23 @@ int init_psgi_app(struct wsgi_request *wsgi_req, char *app, uint16_t app_len, Pe
 			}
 		}
 
+		if (uperl.argv_items || uperl.argv_item) {
+			AV *uperl_argv = GvAV(PL_argvgv);
+			if (uperl.argv_items) {
+				char *argv_list = uwsgi_str(uperl.argv_items);
+				char *p = strtok(argv_list, " ");
+				while(p) {
+					av_push(uperl_argv, newSVpv(p, 0));
+					p = strtok(NULL, " ");
+				}
+			}
+			struct uwsgi_string_list *usl = uperl.argv_item;
+			while(usl) {
+				av_push(uperl_argv, newSVpv(usl->value, usl->len));
+				usl = usl->next;
+			}
+		}
+
 		SV *dollar_zero = get_sv("0", GV_ADD);
 		sv_setsv(dollar_zero, newSVpv(app, app_len));
 
