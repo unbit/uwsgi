@@ -26,14 +26,17 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
     if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
         libdir = sysconfig.get_config_var('LIBPL')
         # libdir does not exists, try to get it from the venv
+        version = get_python_version()
         if not os.path.exists(libdir):
-            libdir = '%s/lib/python%s/config' % (sys.prefix, get_python_version())
-        print(os.listdir(libdir))
+            libdir = '%s/lib/python%s/config' % (sys.prefix, version)
+        if not os.path.exists(libdir) and version.endswith('m'):
+            version = version[:-1]
+            libdir = '%s/lib/python%s/config' % (sys.prefix, version)
         libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
         if not os.path.exists(libpath): 
             libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LIBRARY'))
         if not os.path.exists(libpath): 
-            libpath = '%s/libpython%s.a' % (libdir, get_python_version())
+            libpath = '%s/libpython%s.a' % (libdir, version)
         LIBS.append(libpath)
     else:
         try:
