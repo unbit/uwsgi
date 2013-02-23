@@ -21,7 +21,7 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
         print(sysconfig.get_config_var('LIBRARY'))
         print(os.listdir(sysconfig.get_config_var('LIBPL')))
         print(sysconfig.get_config_var('LDLIBRARY'))
-        LIBS.append('%s/%s' % (sysconfig.get_config_var('LIBPL'), sysconfig.get_config_var('LIBRARY')))
+        LIBS.append('%s/%s' % (sysconfig.get_config_var('srcdir'), sysconfig.get_config_var('LIBRARY')))
     else:
         try:
             LDFLAGS.append("-L%s" % sysconfig.get_config_var('LIBDIR'))
