@@ -2301,7 +2301,8 @@ int uwsgi_start(void *v_argv) {
 		!uwsgi.no_server &&
 		!uwsgi.udp_socket &&
 		!uwsgi.emperor &&
-		!uwsgi.command_mode
+		!uwsgi.command_mode &&
+		!uwsgi.daemons_cnt
 #ifdef UWSGI_SSL
 && !uwsgi.legions
 #endif
