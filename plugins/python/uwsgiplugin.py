@@ -17,6 +17,7 @@ if not 'UWSGI_PYTHON_NOLIB' in os.environ:
     if not sysconfig.get_config_var('Py_ENABLE_SHARED'):
         libdir = sysconfig.get_config_var('LIBPL')
         print("LIBDIR = %s" % libdir)
+        print(os.path.listdir(libdir))
         if not os.path.exists(libdir):
             libdir = sysconfig.get_config_var('srcdir')
         libpath = '%s/%s' % (libdir, sysconfig.get_config_var('LDLIBRARY'))
