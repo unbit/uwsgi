@@ -241,7 +241,7 @@ void uwsgi_cache_init(struct uwsgi_cache *uc) {
 		}
 
 		uwsgi_cache_fix(uc);
-
+		close(cache_fd);
 	}
 	else {
 		uc->items = (struct uwsgi_cache_item *) mmap(NULL, uc->filesize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
