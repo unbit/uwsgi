@@ -100,10 +100,11 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 	while (ptr < watermark) {
 		if (*ptr == '?' && !query_string) {
 			if (watermark + (ptr - base) < (char *)(wsgi_req->proto_parser_buf + uwsgi.buffer_size)) {
-				char *path_info = watermark;
 				uint16_t path_info_len = ptr - base;
+				char *path_info = uwsgi_malloc(path_info_len);
 				http_url_decode(base, &path_info_len, path_info);
 				wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
+				free(path_info);
 			}
 			else {
 				uwsgi_log("not enough space in wsgi_req http proto_parser_buf to encode PATH_INFO, consider tuning it with --buffer-size\n");
@@ -116,10 +117,11 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			
 			if (!query_string) {
 				if (watermark + (ptr - base) < (char *)(wsgi_req->proto_parser_buf + uwsgi.buffer_size)) {
-                                	char *path_info = watermark;
                                 	uint16_t path_info_len = ptr - base;
+					char *path_info = uwsgi_malloc(path_info_len);
                                 	http_url_decode(base, &path_info_len, path_info);
                                 	wsgi_req->uh->pktsize += proto_base_add_uwsgi_var(wsgi_req, "PATH_INFO", 9, path_info, path_info_len);
+					free(path_info);
                         	}
 				else {
 					uwsgi_log("not enough space in wsgi_req http proto_parser_buf to encode PATH_INFO, consider tuning it with --buffer-size\n");
