@@ -2338,9 +2338,9 @@ int uwsgi_start(void *v_argv) {
 #endif
 
 #ifdef UWSGI_UDP
-	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor && !uwsgi.command_mode) {
+	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.udp_socket && !uwsgi.emperor && !uwsgi.command_mode && !uwsgi.daemons_cnt) {
 #else
-	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.emperor && !uwsgi.command_mode) {
+	if (!uwsgi.sockets && !ushared->gateways_cnt && !uwsgi.no_server && !uwsgi.emperor && !uwsgi.command_mode && !uwsgi.daemons_cnt) {
 #endif
 		uwsgi_log("The -s/--socket option is missing and stdin is not a socket.\n");
 		exit(1);
