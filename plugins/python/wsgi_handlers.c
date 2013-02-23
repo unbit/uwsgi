@@ -13,7 +13,9 @@ PyObject *uwsgi_Input_getline(uwsgi_Input *self, long hint) {
 	struct wsgi_request *wsgi_req = self->wsgi_req;
 	ssize_t rlen = 0;
 
+	UWSGI_RELEASE_GIL
 	char *buf = uwsgi_request_body_readline(wsgi_req, hint, &rlen);
+	UWSGI_GET_GIL
 	if (buf == uwsgi.empty) {
 		return PyString_FromString("");
 	}
@@ -58,7 +60,9 @@ static PyObject *uwsgi_Input_read(uwsgi_Input *self, PyObject *args) {
 	struct wsgi_request *wsgi_req = self->wsgi_req;
 	ssize_t rlen = 0;
 
+	UWSGI_RELEASE_GIL
 	char *buf = uwsgi_request_body_read(wsgi_req, arg_len, &rlen);
+	UWSGI_GET_GIL
 	if (buf == uwsgi.empty) {
 		return PyString_FromString("");
 	}
