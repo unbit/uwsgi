@@ -638,6 +638,7 @@ void emperor_add(struct uwsgi_emperor_scanner *ues, char *name, time_t born, cha
 				char *oe = uwsgi_concat2n(*uenvs, strchr(*uenvs, '=') - *uenvs, "", 0);
 				if (unsetenv(oe)) {
 					uwsgi_error("unsetenv()");
+					free(oe);
 					break;
 				}
 				free(oe);

@@ -66,6 +66,10 @@ char *uwsgi_read_fd(int fd, size_t *size, int add_zero) {
 	if (add_zero) {
 		*size = *size + 1;
 		buffer = realloc(buffer, *size);
+		if (!buffer) {
+			uwsgi_error("uwsgi_read_fd()/realloc()");
+			exit(1);
+		}
 		buffer[*size - 1] = 0;
 	}
 
