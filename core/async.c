@@ -2,6 +2,13 @@
 
 extern struct uwsgi_server uwsgi;
 
+void uwsgi_async_queue_is_full(time_t now) {
+	if (now > uwsgi.async_queue_is_full) {
+		uwsgi_log_verbose("[DANGER] async queue is full !!!\n");
+		uwsgi.async_queue_is_full = now;
+	}
+}
+
 void uwsgi_async_init() {
 	int i;
 
@@ -262,7 +269,7 @@ void async_loop() {
 	int is_a_new_connection;
 	int proto_parser_status;
 
-	uint64_t now, last_now = 0;
+	uint64_t now;
 
 	static struct uwsgi_async_request *current_request = NULL, *next_async_request = NULL;
 
@@ -340,10 +347,7 @@ void async_loop() {
 
 					uwsgi.wsgi_req = find_first_available_wsgi_req();
 					if (uwsgi.wsgi_req == NULL) {
-						if (now > last_now) {
-							uwsgi_log("async queue is full !!!\n");
-							last_now = now;
-						}
+						uwsgi_async_queue_is_full((time_t)now);
 						break;
 					}
 

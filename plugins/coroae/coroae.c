@@ -36,10 +36,12 @@ static struct wsgi_request *coroae_current_wsgi_req(void) {
 		}
 	}	
 	uwsgi_log("[BUG] current_wsgi_req NOT FOUND !!!\n");
+	// TODO allow to survive api call error as in the python plugin
 	exit(1);
 }   
 
 
+// create a new coro
 SV * coroae_coro_new(CV *block) {
 	SV *newobj = NULL;
 	dSP;
@@ -179,7 +181,7 @@ edge:
         wsgi_req = find_first_available_wsgi_req();
 
         if (wsgi_req == NULL) {
-                uwsgi_log("async queue is full !!!\n");
+		uwsgi_async_queue_is_full(uwsgi_now());
                 goto clear;
         }
 

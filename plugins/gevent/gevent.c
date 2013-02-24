@@ -144,7 +144,7 @@ edge:
 	wsgi_req = find_first_available_wsgi_req();
 
 	if (wsgi_req == NULL) {
-		uwsgi_log("async queue is full !!!\n");
+		uwsgi_async_queue_is_full(uwsgi_now());
 		goto clear;
 	}
 

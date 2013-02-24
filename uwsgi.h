@@ -1956,6 +1956,8 @@ struct uwsgi_server {
 		int async_queue;
 		int async_nevents;
 
+		time_t async_queue_is_full;
+
 		int max_vars;
 		int vec_size;
 
@@ -3845,6 +3847,8 @@ void uwsgi_manage_exception(struct wsgi_request *, int);
 int uwsgi_exceptions_catch(struct wsgi_request *);
 uint64_t uwsgi_worker_exceptions(int);
 struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *, int (*)(struct uwsgi_exception_handler_instance *, char *, size_t));
+
+void uwsgi_async_queue_is_full(time_t);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)
