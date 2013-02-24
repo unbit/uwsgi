@@ -414,6 +414,23 @@ XS(XS_add_timer) {
         XSRETURN(1);
 }
 
+XS(XS_add_rb_timer) {
+
+        dXSARGS;
+
+        psgi_check_args(2);
+
+        uint8_t uwsgi_signal = SvIV(ST(0));
+        int seconds = SvIV(ST(1));
+
+        if (uwsgi_signal_add_rb_timer(uwsgi_signal, seconds, 0)) {
+                croak("unable to register rb timer");
+                XSRETURN_UNDEF;
+        }
+
+        XSRETURN(1);
+}
+
 
 
 void init_perl_embedded_module() {
@@ -442,5 +459,6 @@ void init_perl_embedded_module() {
 	psgi_xs(atexit);
 
 	psgi_xs(add_timer);
+	psgi_xs(add_rb_timer);
 }
 
