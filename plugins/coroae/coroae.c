@@ -170,6 +170,11 @@ end:
 	XSRETURN(0);
 }
 
+XS(XS_coroae_sighandler) {
+	int sigfd = (int) XSANY.any_ptr;
+	uwsgi_receive_signal(sigfd, "worker", uwsgi.mywid);
+}
+
 XS(XS_coroae_acceptor) {
         dXSARGS;
 	psgi_check_args(0);
@@ -234,6 +239,14 @@ static CV *coroae_closure_acceptor(struct uwsgi_socket *uwsgi_sock) {
 	CvXSUBANY(xsub).any_ptr = uwsgi_sock;
 	return xsub;
 }
+
+static CV *coroae_closure_sighandler(int sigfd) {
+
+        CV *xsub = newXS(NULL, XS_coroae_sighandler, "uwsgi::coroae");
+        CvXSUBANY(xsub).any_ptr = (void *) sigfd;
+        return xsub;
+}
+
 
 
 static SV *coroae_add_watcher(int fd, SV *cb) {
@@ -358,6 +371,12 @@ static void coroae_loop() {
         uwsgi.wait_read_hook = coroae_wait_fd_read;
 
 	I_CORO_API("uwsgi::coroae");
+
+	// create signal watchers
+	if (uwsgi.signal_socket > -1) {
+		coroae_add_watcher(uwsgi.signal_socket, (SV *) coroae_closure_sighandler(uwsgi.signal_socket));
+		coroae_add_watcher(uwsgi.my_signal_socket, (SV *) coroae_closure_sighandler(uwsgi.my_signal_socket));
+	}
 
 	struct uwsgi_socket *uwsgi_sock = uwsgi.sockets;
 	while(uwsgi_sock) {
