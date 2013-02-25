@@ -943,11 +943,11 @@ struct uwsgi_cache {
 	};
 
 #ifdef UWSGI_PCRE
-	int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
-	int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
-	int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
-	int uwsgi_regexp_ovector(pcre *, pcre_extra *);
-	char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
+int uwsgi_regexp_build(char *, pcre **, pcre_extra **);
+int uwsgi_regexp_match(pcre *, pcre_extra *, char *, int);
+int uwsgi_regexp_match_ovec(pcre *, pcre_extra *, char *, int, int *, int);
+int uwsgi_regexp_ovector(pcre *, pcre_extra *);
+char *uwsgi_regexp_apply_ovec(char *, int, char *, int, int *, int);
 #endif
 
 
@@ -957,7 +957,7 @@ struct uwsgi_cache {
 		uint8_t modifier1;
 
 		char mountpoint[0xff];
-		int mountpoint_len;
+		uint8_t mountpoint_len;
 
 		void *interpreter;
 		void *callable;
@@ -969,6 +969,8 @@ struct uwsgi_cache {
 		void *input;
 		void *error;
 		void *stream;
+
+		// custom values you can use for internal purpose
 		void *responder0;
 		void *responder1;
 		void *responder2;
@@ -3849,6 +3851,7 @@ uint64_t uwsgi_worker_exceptions(int);
 struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *, int (*)(struct uwsgi_exception_handler_instance *, char *, size_t));
 
 void uwsgi_async_queue_is_full(time_t);
+char *uwsgi_get_header(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)

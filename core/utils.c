@@ -3703,3 +3703,30 @@ uint64_t uwsgi_be64(char *buf) {
         ptr[7] = (uint8_t) (*src & 0xff);
 	return ret;
 }
+
+char *uwsgi_get_header(struct wsgi_request *wsgi_req, char *hh, uint16_t len, uint16_t *rlen) {
+	char *key = uwsgi_malloc(len + 6);
+	uint16_t key_len = len;
+	char *ptr = key;	
+	*rlen = 0;
+	if (uwsgi_strncmp(hh, len, "Content-Length", 14) && uwsgi_strncmp(hh, len, "Content-Type", 12)) {
+		memcpy(ptr, "HTTP_", 5);
+		ptr+=5;
+		key_len += 5;
+	}
+
+	uint16_t i;
+	for(i=0;i<len;i++) {
+		if (hh[i] == '-') {
+			*ptr++= '_';
+		}
+		else {
+			*ptr++= toupper((int)hh[i]);
+		}
+	}
+
+	char *value = uwsgi_get_var(wsgi_req, key, key_len, rlen); 
+	free(key);
+	return value;
+	
+}
