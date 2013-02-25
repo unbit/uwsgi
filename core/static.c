@@ -368,9 +368,10 @@ char *uwsgi_get_mime_type(char *name, int namelen, int *size) {
 	return NULL;
 }
 
-int uwsgi_append_static_path(char *dir, char *file, int file_len) {
+ssize_t uwsgi_append_static_path(char *dir, size_t dir_len, char *file, size_t file_len) {
 
-	size_t len = strlen(dir);
+
+	size_t len = dir_len;
 
 	if (len + 1 + file_len > PATH_MAX) {
 		return -1;
@@ -379,17 +380,19 @@ int uwsgi_append_static_path(char *dir, char *file, int file_len) {
 	if (dir[len - 1] == '/') {
 		memcpy(dir + len, file, file_len);
 		dir[len + file_len] = 0;
+		len += file_len;
 	}
 	else {
 		dir[len] = '/';
 		memcpy(dir + len + 1, file, file_len);
 		dir[len + 1 + file_len] = 0;
+		len += 1 + file_len;
 	}
 
 	return len;
 }
 
-int uwsgi_static_stat(char *filename, struct stat *st) {
+int uwsgi_static_stat(char *filename, size_t *filename_len, struct stat *st) {
 
 	int ret = stat(filename, st);
 	// if non-existant return -1
@@ -403,12 +406,13 @@ int uwsgi_static_stat(char *filename, struct stat *st) {
 	if (S_ISDIR(st->st_mode)) {
 		struct uwsgi_string_list *usl = uwsgi.static_index;
 		while (usl) {
-			ret = uwsgi_append_static_path(filename, usl->value, usl->len);
-			if (ret >= 0) {
+			ssize_t new_len = uwsgi_append_static_path(filename, *filename_len, usl->value, usl->len);
+			if (new_len >= 0) {
 #ifdef UWSGI_DEBUG
 				uwsgi_log("checking for %s\n", filename);
 #endif
-				if (!uwsgi_static_stat(filename, st)) {
+				if (!uwsgi_static_stat(filename, filename_len, st)) {
+					*filename_len = new_len;
 					return 0;
 				}
 				// reset to original name
@@ -512,7 +516,7 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 
 	struct stat st;
 	char real_filename[PATH_MAX + 1];
-	uint64_t real_filename_len = 0;
+	size_t real_filename_len = 0;
 	char *filename = NULL;
 	size_t filename_len = 0;
 
@@ -532,9 +536,11 @@ int uwsgi_file_serve(struct wsgi_request *wsgi_req, char *document_root, uint16_
 
 	if (uwsgi.static_cache_paths) {
 		uwsgi_rlock(uwsgi.static_cache_paths->lock);
-		char *item = uwsgi_cache_get2(uwsgi.static_cache_paths, filename, filename_len, &real_filename_len);
-		if (item && real_filename_len > 0 && real_filename_len <= PATH_MAX) {
-			memcpy(real_filename, item, real_filename_len);
+		uint64_t item_len;
+		char *item = uwsgi_cache_get2(uwsgi.static_cache_paths, filename, filename_len, &item_len);
+		if (item && item_len > 0 && item_len <= PATH_MAX) {
+			memcpy(real_filename, item, item_len);
+			real_filename_len = item_len;
 			uwsgi_rwunlock(uwsgi.static_cache_paths->lock);
 			goto found;
 		}
@@ -573,7 +579,7 @@ found:
 
 safe:
 
-	if (!uwsgi_static_stat(real_filename, &st)) {
+	if (!uwsgi_static_stat(real_filename, &real_filename_len, &st)) {
 
 		// check for skippable ext
 		struct uwsgi_string_list *sse = uwsgi.static_skip_ext;
