@@ -254,7 +254,9 @@ VALUE rb_uwsgi_io_rewind(VALUE obj, VALUE args) {
 }
 
 #ifdef RUBY19
+#ifdef RUBY_GLOBAL_SETUP
 RUBY_GLOBAL_SETUP
+#endif
 #endif
 
 VALUE uwsgi_require_file(VALUE arg) {
