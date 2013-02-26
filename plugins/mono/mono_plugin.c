@@ -52,6 +52,8 @@ struct uwsgi_mono {
 	char *version;
 	char *assembly_name ;
 
+	uint64_t gc_freq;
+
 	MonoDomain *domain;
 	MonoMethod *create_application_host;
 
@@ -68,6 +70,7 @@ struct uwsgi_mono {
 struct uwsgi_option uwsgi_mono_options[] = {
 
         {"mono-app", required_argument, 0, "load a Mono asp.net app from the specified directory", uwsgi_opt_add_string_list, &umono.app, 0},
+        {"mono-gc-freq", required_argument, 0, "run the Mono GC every <n> requests (default, run after every request)", uwsgi_opt_set_64bit, &umono.gc_freq, 0},
 };
 
 static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
@@ -198,6 +201,10 @@ static int uwsgi_mono_init() {
 		umono.assembly_name = "uwsgi.dll";
 	}
 
+	if (!umono.gc_freq) {
+		umono.gc_freq = 1;
+	}
+
 	mono_config_parse(umono.config);
 
 	umono.domain = mono_jit_init_version("uwsgi", umono.version);
@@ -310,7 +317,9 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 		mono_print_unhandled_exception((MonoObject *)exc);
 	}
 
-	mono_gc_collect (mono_gc_max_generation());
+	if ( uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests % umono.gc_freq == 0) {
+		mono_gc_collect (mono_gc_max_generation());
+	}
 
 	return UWSGI_OK;
 }
