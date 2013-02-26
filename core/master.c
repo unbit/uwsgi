@@ -371,6 +371,9 @@ int master_loop(char **argv, char **environ) {
 
 	}
 
+	uwsgi_alarm_thread_start();
+	uwsgi_exceptions_handler_thread_start();
+
 #ifdef UWSGI_SSL
 	uwsgi_start_legions();
 #endif

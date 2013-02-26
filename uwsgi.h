@@ -3857,6 +3857,9 @@ struct uwsgi_exception_handler *uwsgi_register_exception_handler(char *, int (*)
 void uwsgi_async_queue_is_full(time_t);
 char *uwsgi_get_header(struct wsgi_request *, char *, uint16_t, uint16_t *);
 
+void uwsgi_alarm_thread_start(void);
+void uwsgi_exceptions_handler_thread_start(void);
+
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)
 

@@ -458,6 +458,7 @@ static void uwsgi_exception_handler_thread_loop(struct uwsgi_thread *ut) {
                 		}
                         }
                 }
+		uwsgi_log("STATUS = %d %d %d %d\n", uwsgi.status.gracefully_reloading, uwsgi.status.brutally_reloading, 0, 0);
         }
 }
 
@@ -483,6 +484,9 @@ void uwsgi_exception_setup_handlers() {
 		usl->custom_ptr = uehi;
 		usl = usl->next;
 	}
+}
+
+void uwsgi_exceptions_handler_thread_start() {
 
 	// start the exception_handler_thread
         uwsgi.exception_handler_thread = uwsgi_thread_new(uwsgi_exception_handler_thread_loop);

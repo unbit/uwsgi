@@ -262,7 +262,9 @@ void uwsgi_alarms_init() {
 		usl = usl->next;
 	}
 #endif
+}
 
+void uwsgi_alarm_thread_start() {
 	// start the alarm_threa
 	uwsgi.alarm_thread = uwsgi_thread_new(uwsgi_alarm_thread_loop);
 	if (!uwsgi.alarm_thread) {
