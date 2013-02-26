@@ -4,6 +4,44 @@
 #include <mono/metadata/assembly.h>
 #include <mono/metadata/threads.h>
 #include <mono/metadata/debug-helpers.h>
+#include <mono/metadata/mono-gc.h>
+
+/*
+
+	Mono ASP.NET plugin
+
+	there are various mode of operation (based on security needs)
+
+	(the --mono-key maps to DOCUMENT_ROOT by default)
+
+	1) main-domain application
+
+		--mono-app <directory>
+
+		will create an ApplicationHost on the specified <directory>
+
+		the --mono-key will be searched for that directory
+
+		the application runs on the main domain
+
+	2) dedicated-domain application
+
+		--mono-domain-app <directory>
+
+		the app is created in a new domain and --mono-key is used like in --mono-app
+
+	3) docroot (--mono-key) friendly hosting
+
+		a single ApplicationHost is created with an empty physical_path
+
+		every request is managed as the --mono-key would be the physical path
+
+	TODO
+		Mountpoints
+		Alternatives virtualhosting implementations
+
+
+*/
 
 extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin mono_plugin;
@@ -22,12 +60,15 @@ struct uwsgi_mono {
 	// thunk
 	void (*process_request)(MonoObject *, MonoException **);
 
-	uint32_t handle;
-
 	struct uwsgi_string_list *app;
 	struct uwsgi_string_list *domain_app;
 	
 } umono;
+
+struct uwsgi_option uwsgi_mono_options[] = {
+
+        {"mono-app", required_argument, 0, "load a Mono asp.net app from the specified directory", uwsgi_opt_add_string_list, &umono.app, 0},
+};
 
 static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
@@ -147,7 +188,7 @@ static void uwsgi_mono_add_internal_calls() {
 static int uwsgi_mono_init() {
 
 	// do not initialize mono if no apps are loaded
-	//if (!umono.app && !umono.domain_app) return 0;
+	if (!umono.app && !umono.domain_app) return 0;
 	
 	if (!umono.version) {
 		umono.version = "v4.0.30319";
@@ -204,25 +245,37 @@ static int uwsgi_mono_init() {
 static void uwsgi_mono_init_apps() {
 
 	void *params[3];
-	char *virtual_path = "/";
-	char *physical_path = "/root/provamvc";
-
-	params[0] = mono_string_new(umono.domain, virtual_path);
-	params[1] = mono_string_new(umono.domain, physical_path);
 	params[2] = NULL;
 
-	MonoObject *appHost = mono_object_new(umono.domain, umono.application_class);
-	mono_runtime_invoke(umono.create_application_host, appHost, params, NULL);
-	uwsgi_log("appHost = %p\n", appHost);
-	MonoClass *myclass = mono_object_get_class(appHost);
-	uwsgi_log("classname = %s\n", mono_class_get_name(myclass));
+	struct uwsgi_string_list *usl = umono.app;
 
-	struct uwsgi_app *app = uwsgi_add_app(uwsgi_apps_cnt, mono_plugin.modifier1, "", 0, umono.domain, appHost);
-	// use responder0 for physical_path
-	app->responder0 = uwsgi_str(physical_path);
-	uwsgi_emulate_cow_for_apps(uwsgi_apps_cnt-1);
+	while(usl) {
+
+		int id = uwsgi_apps_cnt;
+
+		time_t now = uwsgi_now();
+
+		params[0] = mono_string_new(umono.domain, "/");
+		params[1] = mono_string_new(umono.domain, usl->value);
+
+		MonoObject *appHost = mono_object_new(umono.domain, umono.application_class);
+		if (!appHost) {
+			uwsgi_log("unable to initialize asp.net ApplicationHost\n");
+			exit(1);
+		}
+		mono_runtime_invoke(umono.create_application_host, appHost, params, NULL);
+
+		struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, "", 0, umono.domain, appHost);
+		app->started_at = now;
+        	app->startup_time = uwsgi_now() - now;
+		uwsgi_log("Mono asp.net app %d (%s) loaded in %d seconds at %p (domain %p)\n", id, "/", (int) app->startup_time, appHost, umono.domain);
+		// use responder0 for physical_path
+		app->responder0 = usl->value;
+		uwsgi_emulate_cow_for_apps(id);
+		mono_gchandle_new (app->callable, 1);
 	
-	uwsgi_log("app = %p %s\n", app, app->responder0);
+		usl = usl->next;
+	}
 }
 
 static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
@@ -251,13 +304,13 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 
 	MonoException *exc = NULL;
 
-	uwsgi_log("callable = %p\n", app->callable);
 	umono.process_request(app->callable, &exc);
 
 	if (exc) {
-		uwsgi_log("exception !!!\n");
 		mono_print_unhandled_exception((MonoObject *)exc);
 	}
+
+	mono_gc_collect (mono_gc_max_generation());
 
 	return UWSGI_OK;
 }
@@ -268,12 +321,22 @@ static void uwsgi_mono_after_request(struct wsgi_request *wsgi_req) {
 
 static void uwsgi_mono_init_thread(int core_id) {
 	mono_thread_attach(umono.domain);
+	// SIGPWR, SIGXCPU: these are used internally by the GC and pthreads.
+	sigset_t smask;
+        sigemptyset(&smask);
+        sigaddset(&smask, SIGXCPU);
+        sigaddset(&smask, SIGPWR);
+        if (sigprocmask(SIG_UNBLOCK, &smask, NULL)) {
+                uwsgi_error("uwsgi_mono_init_thread()/sigprocmask()");
+        }
 }
 
 struct uwsgi_plugin mono_plugin = {
 
 	.name = "mono",
 	.modifier1 = 15,
+
+	.options = uwsgi_mono_options,
 
 	.init = uwsgi_mono_init,
 	.init_apps = uwsgi_mono_init_apps,
