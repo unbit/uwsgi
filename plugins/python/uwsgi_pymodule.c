@@ -704,6 +704,21 @@ PyObject *py_uwsgi_send(PyObject * self, PyObject * args) {
 
 }
 
+#ifdef UWSGI_ROUTING
+static PyObject *py_uwsgi_route(PyObject * self, PyObject * args) {
+	struct wsgi_request *wsgi_req = py_current_wsgi_req();
+	char *router_name = NULL;
+	char *router_args = NULL;
+
+	if (!PyArg_ParseTuple(args, "ss:route", &router_name, &router_args)) {
+                return NULL;
+        }
+
+	int ret = uwsgi_route_api_func(wsgi_req, uwsgi_str(router_name), uwsgi_str(router_args));
+	return PyInt_FromLong(ret);
+}
+#endif
+
 PyObject *py_uwsgi_offload(PyObject * self, PyObject * args) {
 /*
 	size_t len = 0;
@@ -2436,6 +2451,10 @@ static PyMethodDef uwsgi_advanced_methods[] = {
 	{"add_probe", py_uwsgi_add_probe, METH_VARARGS, ""},
 	{"add_rb_timer", py_uwsgi_add_rb_timer, METH_VARARGS, ""},
 	{"add_cron", py_uwsgi_add_cron, METH_VARARGS, ""},
+
+#ifdef UWSGI_ROUTING
+	{"route", py_uwsgi_route, METH_VARARGS, ""},
+#endif
 
 	{"register_rpc", py_uwsgi_register_rpc, METH_VARARGS, ""},
 	{"rpc", py_uwsgi_rpc, METH_VARARGS, ""},

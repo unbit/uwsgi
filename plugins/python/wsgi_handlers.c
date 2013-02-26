@@ -133,6 +133,19 @@ static PyObject *uwsgi_Input_close(uwsgi_Input *self, PyObject *args) {
 	return Py_None;
 }
 
+static PyObject *uwsgi_Input_seek(uwsgi_Input *self, PyObject *args) {
+	long pos = 0;
+
+	if (!PyArg_ParseTuple(args, "l:seek", &pos)) {
+                return NULL;
+        }
+
+	uwsgi_request_body_seek(self->wsgi_req, pos);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 static PyObject *uwsgi_Input_fileno(uwsgi_Input *self, PyObject *args) {
 
 	return PyInt_FromLong(self->wsgi_req->fd);
@@ -144,6 +157,7 @@ static PyMethodDef uwsgi_Input_methods[] = {
 	{ "readlines", (PyCFunction)uwsgi_Input_readlines, METH_VARARGS, 0 },
 // add close to allow mod_wsgi compatibility
 	{ "close",     (PyCFunction)uwsgi_Input_close,     METH_VARARGS, 0 },
+	{ "seek",     (PyCFunction)uwsgi_Input_seek,     METH_VARARGS, 0 },
 	{ "fileno",     (PyCFunction)uwsgi_Input_fileno,     METH_VARARGS, 0 },
 	{ NULL, NULL}
 };

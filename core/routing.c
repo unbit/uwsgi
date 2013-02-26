@@ -258,12 +258,39 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 				last_ur->is_last = 1;
 				return;
 			}
+			break;
 		}
 		r = r->next;
 	}
 
 	uwsgi_log("unable to register route \"%s\"\n", value);
 	exit(1);
+}
+
+int uwsgi_route_api_func(struct wsgi_request *wsgi_req, char *router, char *args) {
+	struct uwsgi_route *ur = NULL;
+	struct uwsgi_router *r = uwsgi.routers;
+	while(r) {
+		if (!strcmp(router, r->name)) {
+			goto found;
+		}
+		r = r->next;
+	}
+	return -1;
+found:
+	ur = uwsgi_calloc(sizeof(struct uwsgi_route));
+	// initialize the virtual route
+	if (r->func(ur, args)) {
+		free(ur);
+		return -1;
+	}
+	// call it
+	int ret = ur->func(wsgi_req, ur);
+	if (ur->free) {
+		ur->free(ur);
+	}
+	free(ur);
+	return ret;
 }
 
 // continue/last route

@@ -30,14 +30,34 @@ int uwsgi_simple_wait_read_hook(int fd, int timeout) {
 
 void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 	if (wsgi_req->post_file) {
+		if (pos < 0) {
+			if (fseek(wsgi_req->post_file, pos, SEEK_CUR)) {
+                        	uwsgi_error("uwsgi_request_body_seek()/fseek()");
+                	}
+			wsgi_req->post_pos = ftell(wsgi_req->post_file);
+			return;
+		}
+
 		if (fseek(wsgi_req->post_file, pos, SEEK_SET)) {
 			uwsgi_error("uwsgi_request_body_seek()/fseek()");
 		}
+		wsgi_req->post_pos = ftell(wsgi_req->post_file);
 		return;
 	}
 
 	if (uwsgi.post_buffering) {
-		wsgi_req->post_pos += pos;
+		if (pos < 0) {
+			if (pos > wsgi_req->post_pos) {
+				wsgi_req->post_pos = 0;
+				return;
+			}
+			wsgi_req->post_pos -= pos;
+			return;
+		}
+		if (pos >= uwsgi.post_buffering) {
+			pos = uwsgi.post_buffering - 1;	
+		}
+		wsgi_req->post_pos = pos;
 	}
 }
 

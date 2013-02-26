@@ -1064,6 +1064,9 @@ struct uwsgi_route {
 	char *regexp;
 	char *action;
 
+	// this is used by virtual route to free resources
+	void (*free)(struct uwsgi_route *);
+
 	struct uwsgi_route *next;
 
 };
@@ -3287,6 +3290,7 @@ int uwsgi_apply_routes_fast(struct wsgi_request *);
 void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *, struct uwsgi_route *, char *, uint16_t, char *, size_t);
+int uwsgi_route_api_func(struct wsgi_request *, char *, char *);
 #endif
 
 void uwsgi_reload(char **);

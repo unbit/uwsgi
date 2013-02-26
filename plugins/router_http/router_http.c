@@ -1,10 +1,10 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 
 #ifdef UWSGI_ROUTING
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	// mark a route request
         wsgi_req->via = UWSGI_VIA_ROUTE;
@@ -60,7 +60,7 @@ int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_route *u
 
 }
 
-int uwsgi_router_http(struct uwsgi_route *ur, char *args) {
+static int uwsgi_router_http(struct uwsgi_route *ur, char *args) {
 
 	ur->func = uwsgi_routing_func_http;
 	ur->data = (void *) args;
@@ -83,7 +83,7 @@ int uwsgi_router_http(struct uwsgi_route *ur, char *args) {
 }
 
 
-void router_http_register(void) {
+static void router_http_register(void) {
 
 	uwsgi_register_router("http", uwsgi_router_http);
 }

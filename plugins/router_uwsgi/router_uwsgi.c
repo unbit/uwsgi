@@ -1,9 +1,9 @@
-#include "../../uwsgi.h"
+#include <uwsgi.h>
 #ifdef UWSGI_ROUTING
 
 extern struct uwsgi_server uwsgi;
 
-int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+static int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	struct uwsgi_header *uh = (struct uwsgi_header *) ur->data;
 
@@ -31,7 +31,7 @@ int uwsgi_routing_func_uwsgi_simple(struct wsgi_request *wsgi_req, struct uwsgi_
 	return UWSGI_ROUTE_CONTINUE;
 }
 
-int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+static int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
 
 	struct uwsgi_header *uh = (struct uwsgi_header *) ur->data;
 	char *addr = ur->data + sizeof(struct uwsgi_header);
@@ -47,9 +47,9 @@ int uwsgi_routing_func_uwsgi_remote(struct wsgi_request *wsgi_req, struct uwsgi_
 	size_t remains = wsgi_req->post_cl - wsgi_req->proto_parser_remains;
 
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(4 + wsgi_req->uh->pktsize + wsgi_req->proto_parser_remains);
-	if (uwsgi_buffer_append(ub, (char *) uh, 4)) goto end;
-	if (uwsgi_buffer_append(ub, wsgi_req->buffer, uh->pktsize)) goto end;
 	uh->pktsize = wsgi_req->uh->pktsize;
+	if (uwsgi_buffer_append(ub, (char *) uh, 4)) goto end;
+	if (uwsgi_buffer_append(ub, wsgi_req->buffer, wsgi_req->uh->pktsize)) goto end;
 	if (wsgi_req->proto_parser_remains > 0) {
                 if (uwsgi_buffer_append(ub, wsgi_req->proto_parser_remains_buf, wsgi_req->proto_parser_remains)) {
 			goto end;
@@ -74,19 +74,23 @@ end:
 
 }
 
-int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
+static void uwsgi_router_uwsgi_free(struct uwsgi_route *ur) {
+	free(ur->data);
+}
+
+static int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 
 	// check for commas
 	char *comma1 = strchr(args, ',');
 	if (!comma1) {
 		uwsgi_log("invalid route syntax: %s\n", args);
-		exit(1);
+		return -1;
 	}
 
 	char *comma2 = strchr(comma1+1, ',');
 	if (!comma2) {
 		uwsgi_log("invalid route syntax: %s\n", args);
-		exit(1);
+		return -1;
 	}
 
 	char *comma3 = strchr(comma2+1, ',');
@@ -102,6 +106,7 @@ int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 		struct uwsgi_header *uh = uwsgi_calloc(sizeof(struct uwsgi_header));
 		ur->func = uwsgi_routing_func_uwsgi_simple;
 		ur->data = (void *) uh;
+		ur->free = uwsgi_router_uwsgi_free;
 
 		uh->modifier1 = atoi(comma1+1);
 		uh->modifier2 = atoi(comma2+1);
@@ -116,6 +121,7 @@ int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 		struct uwsgi_header *uh = uwsgi_calloc(sizeof(struct uwsgi_header) + strlen(args) + 1);
 		ur->func = uwsgi_routing_func_uwsgi_remote;
 		ur->data = (void *) uh;
+		ur->free = uwsgi_router_uwsgi_free;
 
 		uh->modifier1 = atoi(comma1+1);
 		uh->modifier2 = atoi(comma2+1);
@@ -135,7 +141,7 @@ int uwsgi_router_uwsgi(struct uwsgi_route *ur, char *args) {
 }
 
 
-void router_uwsgi_register(void) {
+static void router_uwsgi_register(void) {
 
 	uwsgi_register_router("uwsgi", uwsgi_router_uwsgi);
 }
