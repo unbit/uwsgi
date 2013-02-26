@@ -52,6 +52,8 @@ struct uwsgi_mono {
 	char *version;
 	char *assembly_name ;
 
+	struct uwsgi_string_list *key;
+
 	uint64_t gc_freq;
 
 	MonoDomain *domain;
@@ -71,6 +73,7 @@ struct uwsgi_option uwsgi_mono_options[] = {
 
         {"mono-app", required_argument, 0, "load a Mono asp.net app from the specified directory", uwsgi_opt_add_string_list, &umono.app, 0},
         {"mono-gc-freq", required_argument, 0, "run the Mono GC every <n> requests (default, run after every request)", uwsgi_opt_set_64bit, &umono.gc_freq, 0},
+        {"mono-key", required_argument, 0, "select the ApplicationHost based on the specified CGI var", uwsgi_opt_add_string_list, &umono.key, 0},
 };
 
 static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
@@ -175,10 +178,10 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.uwsgi_req::SendResponseFromMemory", uwsgi_mono_method_SendResponseFromMemory);
 	mono_add_internal_call("uwsgi.uwsgi_req::SendStatus", uwsgi_mono_method_SendStatus);
 	mono_add_internal_call("uwsgi.uwsgi_req::SendUnknownResponseHeader", uwsgi_mono_method_SendUnknownResponseHeader);
+	mono_add_internal_call("uwsgi.uwsgi_req::FlushResponse", uwsgi_mono_method_FlushResponse);
 	mono_add_internal_call("uwsgi.uwsgi_req::GetQueryString", uwsgi_mono_method_GetQueryString);
 	mono_add_internal_call("uwsgi.uwsgi_req::MapPath", uwsgi_mono_method_MapPath);
 	mono_add_internal_call("uwsgi.uwsgi_req::GetHttpVerbName", uwsgi_mono_method_GetHttpVerbName);
-	mono_add_internal_call("uwsgi.uwsgi_req::FlushResponse", uwsgi_mono_method_FlushResponse);
 	mono_add_internal_call("uwsgi.uwsgi_req::GetRawUrl", uwsgi_mono_method_GetRawUrl);
 	mono_add_internal_call("uwsgi.uwsgi_req::GetFilePath", uwsgi_mono_method_GetFilePath);
 	mono_add_internal_call("uwsgi.uwsgi_req::GetUriPath", uwsgi_mono_method_GetUriPath);
