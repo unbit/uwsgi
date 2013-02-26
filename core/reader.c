@@ -47,14 +47,14 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 
 	if (uwsgi.post_buffering) {
 		if (pos < 0) {
-			if (pos > wsgi_req->post_pos) {
+			if (pos > (off_t) wsgi_req->post_pos) {
 				wsgi_req->post_pos = 0;
 				return;
 			}
 			wsgi_req->post_pos -= pos;
 			return;
 		}
-		if (pos >= uwsgi.post_buffering) {
+		if (pos >= (off_t) uwsgi.post_buffering) {
 			pos = uwsgi.post_buffering - 1;	
 		}
 		wsgi_req->post_pos = pos;
