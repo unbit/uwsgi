@@ -447,14 +447,10 @@ int uwsgi_cache_del2(struct uwsgi_cache *uc, char *key, uint16_t keylen, uint64_
 		uci = cache_item(index);
 		uci->keysize = 0;
 		uci->valsize = 0;
-		if (!uc->blocks_bitmap) {
-			// try to return to initial condition...
-			if (index == uc->first_available_block - 1) {
-				uc->first_available_block--;
-				//uwsgi_log("FACI: %llu STACK PTR: %llu\n", (unsigned long long) uwsgi.shared->cache_first_available_block, (unsigned long long) uwsgi.shared->cache_unused_blocks_stack_ptr);
-			}
-		}
-		else {
+		uc->unused_blocks_stack_ptr++;
+		uc->unused_blocks_stack[uc->unused_blocks_stack_ptr] = index;
+		// unmark blocks
+		if (uc->blocks_bitmap) {
 			cache_unmark_blocks(uc, uci->first_block, uci->valsize);
 		}
 		ret = 0;
