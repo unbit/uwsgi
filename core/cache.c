@@ -189,11 +189,6 @@ int uwsgi_cache_del(char *key, uint16_t keylen, uint64_t index) {
 		uci->valsize = 0;
 		uwsgi.shared->cache_unused_stack_ptr++;
 		uwsgi.cache_unused_stack[uwsgi.shared->cache_unused_stack_ptr] = index;
-		// try to return to initial condition...
-		if (index == uwsgi.shared->cache_first_available_item - 1) {
-			uwsgi.shared->cache_first_available_item--;
-			//uwsgi_log("FACI: %llu STACK PTR: %llu\n", (unsigned long long) uwsgi.shared->cache_first_available_item, (unsigned long long) uwsgi.shared->cache_unused_stack_ptr);
-		}
 		ret = 0;
 		// relink collisioned entry
 		if (uci->prev) {
