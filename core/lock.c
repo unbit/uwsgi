@@ -574,8 +574,10 @@ void uwsgi_setup_locking() {
 			uwsgi.lock_ops.rwunlock = uwsgi_rwunlock_ipcsem;
 			uwsgi.lock_size = 8;
 			uwsgi.rwlock_size = 8;
-			return;
+			goto ready;
 		}
+		uwsgi_log("unable to find lock engine \"%s\"\n", uwsgi.lock_engine);
+		exit(1);
 	}
 
 	uwsgi_log_initial("lock engine: %s\n", UWSGI_LOCK_ENGINE_NAME);
@@ -596,6 +598,7 @@ void uwsgi_setup_locking() {
 
 	// application generic lock
 	int i;
+ready:
 	uwsgi.user_lock = uwsgi_malloc(sizeof(void *) * (uwsgi.locks + 1));
 	for (i = 0; i < uwsgi.locks + 1; i++) {
 		uwsgi.user_lock[i] = uwsgi_lock_init(uwsgi_concat2("user ", uwsgi_num2str(i)));
