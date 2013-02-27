@@ -458,7 +458,6 @@ static void uwsgi_exception_handler_thread_loop(struct uwsgi_thread *ut) {
                 		}
                         }
                 }
-		uwsgi_log("STATUS = %d %d %d %d\n", uwsgi.status.gracefully_reloading, uwsgi.status.brutally_reloading, 0, 0);
         }
 }
 

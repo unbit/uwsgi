@@ -411,7 +411,7 @@ int master_loop(char **argv, char **environ) {
 	}
 
 
-	if (uwsgi.requested_stats_pushers) {
+	if (uwsgi.stats_pusher_instances) {
 		if (!uwsgi_thread_new(uwsgi_stats_pusher_loop)) {
 			uwsgi_log("!!! unable to spawn stats pusher thread !!!\n");
 			exit(1);

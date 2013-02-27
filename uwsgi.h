@@ -3359,7 +3359,7 @@ void uwsgi_reload(char **);
 
 	struct uwsgi_stats_pusher {
 		char *name;
-		void (*func) (struct uwsgi_stats_pusher_instance *, char *, size_t);
+		void (*func) (struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
 		struct uwsgi_stats_pusher *next;
 	};
 
@@ -3367,21 +3367,22 @@ void uwsgi_reload(char **);
 		struct uwsgi_stats_pusher *pusher;
 		char *arg;
 		void *data;
+		int raw;	
 		int configured;
 		int freq;
 		time_t last_run;
 		struct uwsgi_stats_pusher_instance *next;
 	};
 
-	struct uwsgi_thread;
-	void uwsgi_stats_pusher_loop(struct uwsgi_thread *);
-	void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *, char *, size_t);
-	void uwsgi_stats_pusher_socket(struct uwsgi_stats_pusher_instance *, char *, size_t);
+struct uwsgi_thread;
+void uwsgi_stats_pusher_loop(struct uwsgi_thread *);
+void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
+void uwsgi_stats_pusher_socket(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
 
-	void uwsgi_stats_pusher_setup(void);
-	void uwsgi_send_stats(int, struct uwsgi_stats *(*func) (void));
-	struct uwsgi_stats *uwsgi_master_generate_stats(void);
-	void uwsgi_register_stats_pusher(char *, void (*)(struct uwsgi_stats_pusher_instance *, char *, size_t));
+void uwsgi_stats_pusher_setup(void);
+void uwsgi_send_stats(int, struct uwsgi_stats *(*func) (void));
+struct uwsgi_stats *uwsgi_master_generate_stats(void);
+struct uwsgi_stats_pusher * uwsgi_register_stats_pusher(char *, void (*)(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t));
 
 	struct uwsgi_stats *uwsgi_stats_new(size_t);
 	int uwsgi_stats_symbol(struct uwsgi_stats *, char);
@@ -3862,6 +3863,8 @@ void uwsgi_exceptions_handler_thread_start(void);
 
 #define uwsgi_response_add_connection_close(x) uwsgi_response_add_header(x, "Connection", 10, "close", 5)
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)
+
+struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *, char *);
 
 #ifdef UWSGI_ZLIB
 #include <zlib.h>
