@@ -99,7 +99,7 @@ retry:
 		exit(1);
 	}
 	if (uwsgi_pthread_robust_mutexes_enabled) {
-		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP)) {
+		if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST)) {
 			uwsgi_log("unable to make the mutex 'robust'\n");
 			exit(1);
 		}
