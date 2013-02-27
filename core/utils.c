@@ -5119,3 +5119,27 @@ void uwsgi_close_all_fds(void) {
 	}
 }
 
+
+
+/*
+        even if it is marked as non-blocking, so not use in request plugins as it uses poll() and not the hooks
+*/
+int uwsgi_write_nb(int fd, char *buf, size_t remains, int timeout) {
+        char *ptr = buf;
+        while(remains > 0) {
+                int ret = uwsgi_waitfd_write(fd, timeout);
+                if (ret > 0) {
+                        ssize_t len = write(fd, ptr, remains);
+                        if (len <= 0) {
+                                return -1;
+                        }
+                        ptr += len;
+                        remains -= len;
+                        continue;
+                }
+                return -1;
+        }
+
+        return 0;
+}
+

@@ -3147,7 +3147,7 @@ struct uwsgi_stats_pusher_instance;
 
 struct uwsgi_stats_pusher {
 	char *name;
-	void (*func)(struct uwsgi_stats_pusher_instance *, char *, size_t);
+	void (*func)(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
 	struct uwsgi_stats_pusher *next;
 };
 
@@ -3155,6 +3155,7 @@ struct uwsgi_stats_pusher_instance {
 	struct uwsgi_stats_pusher *pusher;
 	char *arg;
 	void *data;
+	int raw;
 	int configured;
 	int freq;
 	time_t last_run;
@@ -3163,13 +3164,14 @@ struct uwsgi_stats_pusher_instance {
 
 struct uwsgi_thread;
 void uwsgi_stats_pusher_loop(struct uwsgi_thread *);
-void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *, char *, size_t);
-void uwsgi_stats_pusher_socket(struct uwsgi_stats_pusher_instance *, char *, size_t);
+void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
+void uwsgi_stats_pusher_socket(struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
 
 void uwsgi_stats_pusher_setup(void);
 void uwsgi_send_stats(int, struct uwsgi_stats * (*func)(void));
 struct uwsgi_stats *uwsgi_master_generate_stats(void);
-void uwsgi_register_stats_pusher(char *, void(*) (struct uwsgi_stats_pusher_instance *, char *, size_t));
+struct uwsgi_stats_pusher *uwsgi_register_stats_pusher(char *, void(*) (struct uwsgi_stats_pusher_instance *, time_t, char *, size_t));
+struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *, char *);
 
 struct uwsgi_stats *uwsgi_stats_new(size_t);
 int uwsgi_stats_symbol(struct uwsgi_stats *, char);
@@ -3462,6 +3464,8 @@ void uwsgi_user_unlock(int);
 void simple_loop_run_int(int);
 int uwsgi_valid_fd(int);
 void uwsgi_close_all_fds(void);
+
+int uwsgi_write_nb(int, char *, size_t, int);
 
 void uwsgi_check_emperor(void);
 #ifdef UWSGI_AS_SHARED_LIBRARY

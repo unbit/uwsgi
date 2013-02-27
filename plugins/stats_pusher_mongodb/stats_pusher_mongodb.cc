@@ -12,7 +12,7 @@ struct stats_pusher_mongodb_conf {
 };
 
 
-extern "C" void stats_pusher_mongodb(struct uwsgi_stats_pusher_instance *uspi, char *json, size_t json_len) {
+extern "C" void stats_pusher_mongodb(struct uwsgi_stats_pusher_instance *uspi, time_t now, char *json, size_t json_len) {
 
 	struct stats_pusher_mongodb_conf *spmc = (struct stats_pusher_mongodb_conf *) uspi->data;
 	if (!uspi->configured) {

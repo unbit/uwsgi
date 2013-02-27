@@ -373,7 +373,7 @@ struct uwsgi_stats_pusher *uwsgi_stats_pusher_get(char *name) {
 	return usp;
 }
 
-void uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *pusher, char *arg) {
+struct uwsgi_stats_pusher_instance * uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *pusher, char *arg) {
 	struct uwsgi_stats_pusher_instance *old_uspi = NULL, *uspi = uwsgi.stats_pusher_instances;
 	while (uspi) {
 		old_uspi = uspi;
@@ -389,6 +389,8 @@ void uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *pusher, char *arg) {
 	else {
 		uwsgi.stats_pusher_instances = uspi;
 	}
+
+	return uspi;
 }
 
 void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
@@ -413,12 +415,16 @@ void uwsgi_stats_pusher_loop(struct uwsgi_thread *ut) {
 		while (uspi) {
 			int delta = uspi->freq ? uspi->freq : uwsgi.stats_pusher_default_freq;
 			if ((uspi->last_run + delta) <= now) {
-				if (!us) {
-					us = uwsgi_master_generate_stats();
-					if (!us)
-						goto next;
+				if (uspi->raw) {
+					uspi->pusher->func(uspi, now, NULL, 0);
 				}
-				uspi->pusher->func(uspi, us->base, us->pos);
+				else {
+					if (!us) {
+						us = uwsgi_master_generate_stats();
+						if (!us) goto next;
+					}
+					uspi->pusher->func(uspi, now, us->base, us->pos);
+				}
 				uspi->last_run = now;
 			}
 next:
@@ -456,7 +462,7 @@ void uwsgi_stats_pusher_setup() {
 	}
 }
 
-void uwsgi_register_stats_pusher(char *name, void (*func) (struct uwsgi_stats_pusher_instance *, char *, size_t)) {
+struct uwsgi_stats_pusher *uwsgi_register_stats_pusher(char *name, void (*func) (struct uwsgi_stats_pusher_instance *, time_t, char *, size_t)) {
 
 	struct uwsgi_stats_pusher *pusher = uwsgi.stats_pushers, *old_pusher = NULL;
 
@@ -475,6 +481,8 @@ void uwsgi_register_stats_pusher(char *name, void (*func) (struct uwsgi_stats_pu
 	else {
 		uwsgi.stats_pushers = pusher;
 	}
+
+	return pusher;
 }
 
 struct uwsgi_stats_pusher_file_conf {
@@ -483,7 +491,7 @@ struct uwsgi_stats_pusher_file_conf {
 	char *separator;
 };
 
-void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *uspi, char *json, size_t json_len) {
+void uwsgi_stats_pusher_file(struct uwsgi_stats_pusher_instance *uspi, time_t now, char *json, size_t json_len) {
 	struct uwsgi_stats_pusher_file_conf *uspic = (struct uwsgi_stats_pusher_file_conf *) uspi->data;
 	if (!uspi->configured) {
 		uspic = uwsgi_calloc(sizeof(struct uwsgi_stats_pusher_file_conf));
