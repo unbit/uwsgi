@@ -579,6 +579,8 @@ void uwsgi_setup_locking() {
 			uwsgi.rwlock_size = 8;
 			goto ready;
 		}
+		uwsgi_log("unable to find lock engine \"%s\"\n", uwsgi.lock_engine);
+		exit(1);
 	}
 
 	uwsgi_log_initial("lock engine: %s\n", UWSGI_LOCK_ENGINE_NAME);
