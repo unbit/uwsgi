@@ -324,6 +324,9 @@ extern "C" {
 #include <openssl/err.h>
 #endif
 
+#include <glob.h>
+
+
 
 struct uwsgi_buffer {
 	char *buf;
@@ -3258,19 +3261,20 @@ socklen_t socket_to_in_addr6(char *, char *, int, struct sockaddr_in6 *);
 	void uwsgi_opt_noop(char *, char *, void *);
 
 	void uwsgi_opt_logic(char *, char *, void *);
-	int uwsgi_logic_opt_for(char *, char *);
-	int uwsgi_logic_opt_if_env(char *, char *);
-	int uwsgi_logic_opt_if_not_env(char *, char *);
-	int uwsgi_logic_opt_if_opt(char *, char *);
-	int uwsgi_logic_opt_if_not_opt(char *, char *);
-	int uwsgi_logic_opt_if_exists(char *, char *);
-	int uwsgi_logic_opt_if_not_exists(char *, char *);
-	int uwsgi_logic_opt_if_file(char *, char *);
-	int uwsgi_logic_opt_if_not_file(char *, char *);
-	int uwsgi_logic_opt_if_dir(char *, char *);
-	int uwsgi_logic_opt_if_not_dir(char *, char *);
-	int uwsgi_logic_opt_if_reload(char *, char *);
-	int uwsgi_logic_opt_if_not_reload(char *, char *);
+int uwsgi_logic_opt_for(char *, char *);
+int uwsgi_logic_opt_for_glob(char *, char *);
+int uwsgi_logic_opt_if_env(char *, char *);
+int uwsgi_logic_opt_if_not_env(char *, char *);
+int uwsgi_logic_opt_if_opt(char *, char *);
+int uwsgi_logic_opt_if_not_opt(char *, char *);
+int uwsgi_logic_opt_if_exists(char *, char *);
+int uwsgi_logic_opt_if_not_exists(char *, char *);
+int uwsgi_logic_opt_if_file(char *, char *);
+int uwsgi_logic_opt_if_not_file(char *, char *);
+int uwsgi_logic_opt_if_dir(char *, char *);
+int uwsgi_logic_opt_if_not_dir(char *, char *);
+int uwsgi_logic_opt_if_reload(char *, char *);
+int uwsgi_logic_opt_if_not_reload(char *, char *);
 
 
 #ifdef UWSGI_CAP

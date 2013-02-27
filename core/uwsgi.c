@@ -78,6 +78,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"declare-option", required_argument, 0, "declare a new uWSGI custom option", uwsgi_opt_add_custom_option, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"for", required_argument, 0, "(opt logic) for cycle", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for, UWSGI_OPT_IMMEDIATE},
+	{"for-glob", required_argument, 0, "(opt logic) for cycle (expand glob)", uwsgi_opt_logic, (void *) uwsgi_logic_opt_for_glob, UWSGI_OPT_IMMEDIATE},
 	{"endfor", optional_argument, 0, "(opt logic) end for cycle", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 
 	{"if-opt", required_argument, 0, "(opt logic) check for option", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_opt, UWSGI_OPT_IMMEDIATE},

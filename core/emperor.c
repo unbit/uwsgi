@@ -6,7 +6,6 @@ a supervisor for multiple uWSGI instances
 
 */
 #include "uwsgi.h"
-#include <glob.h>
 
 
 extern struct uwsgi_server uwsgi;
