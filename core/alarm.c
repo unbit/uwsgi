@@ -136,7 +136,7 @@ static struct uwsgi_alarm_instance *uwsgi_alarm_get_instance(char *name) {
 }
 
 
-static int uwsgi_alarm_log_add(char *alarms, char *regexp) {
+static int uwsgi_alarm_log_add(char *alarms, char *regexp, int negate) {
 
 	struct uwsgi_alarm_log *old_ual = NULL, *ual = uwsgi.alarm_logs;
 	while (ual) {
@@ -148,6 +148,7 @@ static int uwsgi_alarm_log_add(char *alarms, char *regexp) {
 	if (uwsgi_regexp_build(regexp, &ual->pattern, &ual->pattern_extra)) {
 		return -1;
 	}
+	ual->negate = negate;
 
 	if (old_ual) {
 		old_ual->next = ual;
@@ -223,7 +224,7 @@ void uwsgi_alarms_init() {
 		*space = 0;
 		char *regexp = space + 1;
 		// here the log-alarm is created
-		if (uwsgi_alarm_log_add(line, regexp)) {
+		if (uwsgi_alarm_log_add(line, regexp, usl->custom)) {
 			uwsgi_log("invalid log-alarm: %s\n", usl->value);
 			exit(1);
 		}
@@ -239,7 +240,12 @@ void uwsgi_alarm_log_check(char *msg, size_t len) {
 	struct uwsgi_alarm_log *ual = uwsgi.alarm_logs;
 	while (ual) {
 		if (uwsgi_regexp_match(ual->pattern, ual->pattern_extra, msg, len) >= 0) {
-			uwsgi_alarm_log_run(ual, msg, len);
+			if (!ual->negate) {
+				uwsgi_alarm_log_run(ual, msg, len);
+			}
+			else {
+				break;
+			}
 		}
 		ual = ual->next;
 	}
