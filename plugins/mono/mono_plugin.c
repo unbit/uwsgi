@@ -24,15 +24,18 @@
 
 		the application runs on the main domain
 
-	2) dedicated-domain application
+	2) dedicated-domain application (can we support threads ?)
 
 		--mono-domain-app <directory>
 
 		the app is created in a new domain and --mono-key is used like in --mono-app
 
-	TODO
-		Mountpoints
-		Alternatives virtualhosting implementations
+	3) dynamic (mono-domain) apps
+
+		this is the default if you do not preload apps.
+
+		The mono-key is checked for already loaded-apps. If it is not available a
+		new ApplicationHost is created
 
 
 */
@@ -48,6 +51,7 @@ struct uwsgi_mono {
 
 	struct uwsgi_string_list *key;
 
+	// GC frequency
 	uint64_t gc_freq;
 
 	// a lock for dynamic apps
