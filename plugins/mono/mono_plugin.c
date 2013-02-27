@@ -50,6 +50,9 @@ struct uwsgi_mono {
 
 	uint64_t gc_freq;
 
+	// a lock for dynamic apps
+        pthread_mutex_t lock_loader;
+
 	MonoDomain *domain;
 	MonoMethod *create_application_host;
 
@@ -219,9 +222,6 @@ static void uwsgi_mono_add_internal_calls() {
 
 static int uwsgi_mono_init() {
 
-	// do not initialize mono if no apps are loaded
-	if (!umono.app && !umono.domain_app) return 0;
-	
 	if (!umono.version) {
 		umono.version = "v4.0.30319";
 	}
@@ -278,19 +278,51 @@ static int uwsgi_mono_init() {
 	return 0;
 }
 
-static void uwsgi_mono_init_apps() {
-
+static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir, uint16_t physicalDir_len, int new_domain) {
 	void *params[3];
-	params[2] = NULL;
+        params[2] = NULL;
+
+	params[0] = mono_string_new(umono.domain, "/");
+	params[1] = mono_string_new_len(umono.domain, physicalDir, physicalDir_len);
+
+	int id = uwsgi_apps_cnt;
+	time_t now = uwsgi_now();
+
+	MonoObject *appHost = mono_object_new(umono.domain, umono.application_class);
+        if (!appHost) {
+        	uwsgi_log("unable to initialize asp.net ApplicationHost\n");
+		return -1;
+	}
+
+	MonoObject *exc = NULL;
+	mono_runtime_invoke(umono.create_application_host, appHost, params, &exc);
+	if (exc) {
+                mono_print_unhandled_exception(exc);
+		return -1;
+        }
+
+	struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, key, key_len, umono.domain, appHost);
+        app->started_at = now;
+        app->startup_time = uwsgi_now() - now;
+	// use a copy of responder0 for physical_path
+	app->responder0 = uwsgi_concat2n(physicalDir, physicalDir_len, "", 0);
+	mono_gchandle_new (app->callable, 1);
+	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (domain %p)\n", id, key_len, key, (int) app->startup_time, appHost, umono.domain);
+
+	// set it as default app if needed
+	if (uwsgi.default_app == -1) {
+		uwsgi.default_app = id;
+	}
+
+	return id;
+}
+
+static void uwsgi_mono_init_apps() {
 
 	struct uwsgi_string_list *usl = umono.app;
 
 	while(usl) {
 
-		int id = uwsgi_apps_cnt;
-
-		time_t now = uwsgi_now();
-	
 		char *mountpoint = usl->value;
 		uint8_t mountpoint_len = usl->len;
 		char *physicalDir = mountpoint;
@@ -305,29 +337,11 @@ static void uwsgi_mono_init_apps() {
 			mountpoint_len = strlen(mountpoint);
 		}
 
-		params[0] = mono_string_new(umono.domain, "/");
-		params[1] = mono_string_new_len(umono.domain, physicalDir, physicalDir_len);
-
-		MonoObject *appHost = mono_object_new(umono.domain, umono.application_class);
-		if (!appHost) {
-			uwsgi_log("unable to initialize asp.net ApplicationHost\n");
+		int id = uwsgi_mono_create_app(mountpoint, mountpoint_len, physicalDir, physicalDir_len, 0);
+		if (id == -1) {
 			exit(1);
 		}
-		mono_runtime_invoke(umono.create_application_host, appHost, params, NULL);
-
-		struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, mountpoint, mountpoint_len, umono.domain, appHost);
-		app->started_at = now;
-        	app->startup_time = uwsgi_now() - now;
-		uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (domain %p)\n", id, mountpoint_len, mountpoint, (int) app->startup_time, appHost, umono.domain);
-		// use responder0 for physical_path
-		app->responder0 = physicalDir;
 		uwsgi_emulate_cow_for_apps(id);
-		mono_gchandle_new (app->callable, 1);
-
-		// set it as default app if needed
-		if (uwsgi.default_app == -1) {
-			uwsgi.default_app = id;
-		}
 	
 		usl = usl->next;
 	}
@@ -363,6 +377,24 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
 
         wsgi_req->app_id = uwsgi_get_app_id(key, key_len, mono_plugin.modifier1);
         // if it is -1, try to load a dynamic app
+        if (wsgi_req->app_id == -1) {
+        	if (uwsgi.threads > 1) {
+                	pthread_mutex_lock(&umono.lock_loader);
+                }
+
+		// check if the mean time, something changed		
+		wsgi_req->app_id = uwsgi_get_app_id(key, key_len, mono_plugin.modifier1);
+
+		if (wsgi_req->app_id == -1) {
+                	wsgi_req->app_id = uwsgi_mono_create_app(key, key_len, key, key_len, 0);
+		}
+
+                if (uwsgi.threads > 1) {
+                	pthread_mutex_unlock(&umono.lock_loader);
+                }
+        }
+
+
         if (wsgi_req->app_id == -1) {
         	uwsgi_500(wsgi_req);
                 uwsgi_log("--- unable to find Mono/ASP.NET application ---\n");
@@ -407,6 +439,24 @@ static void uwsgi_mono_init_thread(int core_id) {
         }
 }
 
+static void uwsgi_mono_pthread_prepare(void) {
+        pthread_mutex_lock(&umono.lock_loader);
+}
+
+static void uwsgi_mono_pthread_parent(void) {
+        pthread_mutex_unlock(&umono.lock_loader);
+}
+
+static void uwsgi_mono_pthread_child(void) {
+        pthread_mutex_init(&umono.lock_loader, NULL);
+}
+
+
+static void uwsgi_mono_enable_threads(void) {
+        pthread_mutex_init(&umono.lock_loader, NULL);
+        pthread_atfork(uwsgi_mono_pthread_prepare, uwsgi_mono_pthread_parent, uwsgi_mono_pthread_child);
+}
+
 struct uwsgi_plugin mono_plugin = {
 
 	.name = "mono",
@@ -421,4 +471,5 @@ struct uwsgi_plugin mono_plugin = {
 	.after_request = uwsgi_mono_after_request,
 
 	.init_thread = uwsgi_mono_init_thread,
+	.enable_threads = uwsgi_mono_enable_threads,
 };
