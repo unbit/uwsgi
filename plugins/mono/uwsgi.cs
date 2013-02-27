@@ -8,114 +8,109 @@ using System.Runtime.CompilerServices;
 
 namespace uwsgi {
 
-class uwsgi_req: HttpWorkerRequest {
+	class uWSGIRequest: HttpWorkerRequest {
 
-	public override string GetAppPath() {
-		return "/";
-	}
+		public override string GetAppPath() {
+			return "/";
+		}
 
-	public override string GetServerVariable(string name) {
-		Console.WriteLine(name);
-		return string.Empty;
-	}
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetServerVariable(string name);
 
-	public override bool IsEntireEntityBodyIsPreloaded() {
-		return false;
-	}
+		public override bool IsEntireEntityBodyIsPreloaded() {
+			return false;
+		}
 
-	public override string GetUnknownRequestHeader(string name) {
-		return GetHeaderByName(name);
-	}
+		public override string GetUnknownRequestHeader(string name) {
+			return GetHeaderByName(name);
+		}
 
-	public override byte[] GetPreloadedEntityBody() {
-		return null;
-	}
+		public override byte[] GetPreloadedEntityBody() {
+			return null;
+		}
 
-
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public string GetHeaderByName(string name);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public string GetHeaderByName(string name);
 	
 
-	public override string GetKnownRequestHeader(int index) {
-		return GetHeaderByName(GetKnownRequestHeaderName(index));
-	}
+		public override string GetKnownRequestHeader(int index) {
+			return GetHeaderByName(GetKnownRequestHeaderName(index));
+		}
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override int GetTotalEntityBodyLength();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override int GetTotalEntityBodyLength();
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override int ReadEntityBody(byte[] buffer, int size);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override int ReadEntityBody(byte[] buffer, int size);
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override string GetFilePath();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetFilePath();
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override string MapPath(string virtualPath);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string MapPath(string virtualPath);
 
-	public override void EndOfRequest() {
-	}
+		public override void EndOfRequest() {
+		}
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override void FlushResponse(bool finalFlush);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override void FlushResponse(bool finalFlush);
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override string GetHttpVerbName();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetHttpVerbName();
 
-	public override string GetHttpVersion() {
-		return "HTTP/1.1";
-	}
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetHttpVersion();
 
-	public override string GetLocalAddress() {
-		return "127.0.0.1";
-	}
+		public override string GetLocalAddress() {
+			return GetServerVariable("SERVER_ADDR");
+		}
 
-	public override int GetLocalPort() {
-		return 8080;
-	}
+		public override int GetLocalPort() {
+			return Convert.ToInt32(GetServerVariable("SERVER_PORT"));
+		}
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override string GetQueryString();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetQueryString();
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override string GetRawUrl();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetRawUrl();
 
-	public override string GetRemoteAddress() {
-		return "127.0.0.1";
-	}
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetRemoteAddress();
 
-	public override int GetRemotePort() {
-		return 8081;
-	}
+		public override int GetRemotePort() {
+			return Convert.ToInt32(GetServerVariable("REMOTE_PORT"));
+		}
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override string GetUriPath();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override string GetUriPath();
 
-	public override void SendKnownResponseHeader (int index, string value) {
-		string headerName = HttpWorkerRequest.GetKnownResponseHeaderName (index);
-                SendUnknownResponseHeader (headerName, value);
-	}
+		public override void SendKnownResponseHeader (int index, string value) {
+			string headerName = HttpWorkerRequest.GetKnownResponseHeaderName (index);
+                	SendUnknownResponseHeader (headerName, value);
+		}
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override void SendResponseFromMemory(byte[] chunk, int length);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override void SendResponseFromMemory(byte[] chunk, int length);
 
-	public override void SendResponseFromFile (IntPtr handle, long offset, long length) {
-		Console.WriteLine("sending a file");
-	}
+		public override void SendResponseFromFile (IntPtr handle, long offset, long length) {
+			Console.WriteLine("sending a file");
+		}
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override void SendResponseFromFile(string filename, long offset, long length);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override void SendResponseFromFile(string filename, long offset, long length);
 	
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override void SendStatus(int status, string msg);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override void SendStatus(int status, string msg);
 
-	[MethodImplAttribute(MethodImplOptions.InternalCall)]
-	extern public override void SendUnknownResponseHeader (string name, string value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public override void SendUnknownResponseHeader (string name, string value);
 
-}
+	}
 
 	public class uWSGIApplicationHost: MarshalByRefObject {
 		public void ProcessRequest() {
-			uwsgi_req ur = new uwsgi_req();
+			uWSGIRequest ur = new uWSGIRequest();
 			HttpRuntime.ProcessRequest(ur);
 		}
 	}

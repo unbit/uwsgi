@@ -107,9 +107,19 @@ static MonoString *uwsgi_mono_method_GetRawUrl(MonoObject *this) {
 	return mono_string_new_len(umono.domain, wsgi_req->uri, wsgi_req->uri_len);
 }
 
+static MonoString *uwsgi_mono_method_GetHttpVersion(MonoObject *this) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	return mono_string_new_len(umono.domain, wsgi_req->protocol, wsgi_req->protocol_len);
+}
+
 static MonoString *uwsgi_mono_method_GetUriPath(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	return mono_string_new_len(umono.domain, wsgi_req->path_info, wsgi_req->path_info_len);
+}
+
+static MonoString *uwsgi_mono_method_GetRemoteAddress(MonoObject *this) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	return mono_string_new_len(umono.domain, wsgi_req->remote_addr, wsgi_req->remote_addr_len);
 }
 
 static void uwsgi_mono_method_SendStatus(MonoObject *this, int code, MonoString *msg) {
@@ -154,6 +164,16 @@ static MonoString *uwsgi_mono_method_GetHeaderByName(MonoObject *this, MonoStrin
 	return mono_string_new(umono.domain, "");
 }
 
+static MonoString *uwsgi_mono_method_GetServerVariable(MonoObject *this, MonoString *key) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	uint16_t rlen = 0;
+	char *value = uwsgi_get_var(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), &rlen);
+	if (value) {
+		return mono_string_new_len(umono.domain, value, rlen);
+	}
+	return mono_string_new(umono.domain, "");
+}
+
 static int uwsgi_mono_method_ReadEntityBody(MonoObject *this, MonoArray *byteArray, int len) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	char *buf = mono_array_addr(byteArray, char, 0);	
@@ -175,20 +195,23 @@ static int uwsgi_mono_method_GetTotalEntityBodyLength(MonoObject *this) {
 }
 
 static void uwsgi_mono_add_internal_calls() {
-	mono_add_internal_call("uwsgi.uwsgi_req::SendResponseFromMemory", uwsgi_mono_method_SendResponseFromMemory);
-	mono_add_internal_call("uwsgi.uwsgi_req::SendStatus", uwsgi_mono_method_SendStatus);
-	mono_add_internal_call("uwsgi.uwsgi_req::SendUnknownResponseHeader", uwsgi_mono_method_SendUnknownResponseHeader);
-	mono_add_internal_call("uwsgi.uwsgi_req::FlushResponse", uwsgi_mono_method_FlushResponse);
-	mono_add_internal_call("uwsgi.uwsgi_req::GetQueryString", uwsgi_mono_method_GetQueryString);
-	mono_add_internal_call("uwsgi.uwsgi_req::MapPath", uwsgi_mono_method_MapPath);
-	mono_add_internal_call("uwsgi.uwsgi_req::GetHttpVerbName", uwsgi_mono_method_GetHttpVerbName);
-	mono_add_internal_call("uwsgi.uwsgi_req::GetRawUrl", uwsgi_mono_method_GetRawUrl);
-	mono_add_internal_call("uwsgi.uwsgi_req::GetFilePath", uwsgi_mono_method_GetFilePath);
-	mono_add_internal_call("uwsgi.uwsgi_req::GetUriPath", uwsgi_mono_method_GetUriPath);
-	mono_add_internal_call("uwsgi.uwsgi_req::SendResponseFromFile", uwsgi_mono_method_SendResponseFromFile);
-	mono_add_internal_call("uwsgi.uwsgi_req::GetHeaderByName", uwsgi_mono_method_GetHeaderByName);
-	mono_add_internal_call("uwsgi.uwsgi_req::ReadEntityBody", uwsgi_mono_method_ReadEntityBody);
-	mono_add_internal_call("uwsgi.uwsgi_req::GetTotalEntityBodyLength", uwsgi_mono_method_GetTotalEntityBodyLength);
+	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromMemory", uwsgi_mono_method_SendResponseFromMemory);
+	mono_add_internal_call("uwsgi.uWSGIRequest::SendStatus", uwsgi_mono_method_SendStatus);
+	mono_add_internal_call("uwsgi.uWSGIRequest::SendUnknownResponseHeader", uwsgi_mono_method_SendUnknownResponseHeader);
+	mono_add_internal_call("uwsgi.uWSGIRequest::FlushResponse", uwsgi_mono_method_FlushResponse);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetQueryString", uwsgi_mono_method_GetQueryString);
+	mono_add_internal_call("uwsgi.uWSGIRequest::MapPath", uwsgi_mono_method_MapPath);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetHttpVerbName", uwsgi_mono_method_GetHttpVerbName);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetRawUrl", uwsgi_mono_method_GetRawUrl);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetFilePath", uwsgi_mono_method_GetFilePath);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetUriPath", uwsgi_mono_method_GetUriPath);
+	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromFile", uwsgi_mono_method_SendResponseFromFile);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetHeaderByName", uwsgi_mono_method_GetHeaderByName);
+	mono_add_internal_call("uwsgi.uWSGIRequest::ReadEntityBody", uwsgi_mono_method_ReadEntityBody);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetTotalEntityBodyLength", uwsgi_mono_method_GetTotalEntityBodyLength);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetHttpVersion", uwsgi_mono_method_GetHttpVersion);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetServerVariable", uwsgi_mono_method_GetServerVariable);
+	mono_add_internal_call("uwsgi.uWSGIRequest::GetRemoteAddress", uwsgi_mono_method_GetRemoteAddress);
 }
 
 static int uwsgi_mono_init() {
