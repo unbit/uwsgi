@@ -30,12 +30,6 @@
 
 		the app is created in a new domain and --mono-key is used like in --mono-app
 
-	3) docroot (--mono-key) friendly hosting
-
-		a single ApplicationHost is created with an empty physical_path
-
-		every request is managed as the --mono-key would be the physical path
-
 	TODO
 		Mountpoints
 		Alternatives virtualhosting implementations
@@ -85,7 +79,6 @@ static MonoString *uwsgi_mono_method_MapPath(MonoObject *this, MonoString *virtu
 	// first we need to get the physical path and append the virtualPath to it
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	struct uwsgi_app *app = &uwsgi_apps[wsgi_req->app_id];
-
 	char *path = uwsgi_concat3n(app->responder0, strlen(app->responder0), "/", 1, mono_string_to_utf8(virtualPath), mono_string_length(virtualPath));
 	MonoString *ret = mono_string_new_len(umono.domain, path, strlen(path));
 	free(path);
@@ -297,9 +290,23 @@ static void uwsgi_mono_init_apps() {
 		int id = uwsgi_apps_cnt;
 
 		time_t now = uwsgi_now();
+	
+		char *mountpoint = usl->value;
+		uint8_t mountpoint_len = usl->len;
+		char *physicalDir = mountpoint;
+		uint8_t physicalDir_len = mountpoint_len;
+
+		char *equal = strchr(mountpoint, '=');
+		if (equal) {
+			physicalDir = equal+1;
+			physicalDir_len = strlen(physicalDir);
+			// ensure NULL char is at end (just for being backward compatible)
+			mountpoint = uwsgi_concat2n(mountpoint, equal - mountpoint, "", 0);
+			mountpoint_len = strlen(mountpoint);
+		}
 
 		params[0] = mono_string_new(umono.domain, "/");
-		params[1] = mono_string_new(umono.domain, usl->value);
+		params[1] = mono_string_new_len(umono.domain, physicalDir, physicalDir_len);
 
 		MonoObject *appHost = mono_object_new(umono.domain, umono.application_class);
 		if (!appHost) {
@@ -308,14 +315,19 @@ static void uwsgi_mono_init_apps() {
 		}
 		mono_runtime_invoke(umono.create_application_host, appHost, params, NULL);
 
-		struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, "", 0, umono.domain, appHost);
+		struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, mountpoint, mountpoint_len, umono.domain, appHost);
 		app->started_at = now;
         	app->startup_time = uwsgi_now() - now;
-		uwsgi_log("Mono asp.net app %d (%s) loaded in %d seconds at %p (domain %p)\n", id, "/", (int) app->startup_time, appHost, umono.domain);
+		uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (domain %p)\n", id, mountpoint_len, mountpoint, (int) app->startup_time, appHost, umono.domain);
 		// use responder0 for physical_path
-		app->responder0 = usl->value;
+		app->responder0 = physicalDir;
 		uwsgi_emulate_cow_for_apps(id);
 		mono_gchandle_new (app->callable, 1);
+
+		// set it as default app if needed
+		if (uwsgi.default_app == -1) {
+			uwsgi.default_app = id;
+		}
 	
 		usl = usl->next;
 	}
@@ -333,7 +345,23 @@ static int uwsgi_mono_request(struct wsgi_request *wsgi_req) {
                 return -1;
         }
 
-        wsgi_req->app_id = uwsgi_get_app_id(wsgi_req->appid, wsgi_req->appid_len, mono_plugin.modifier1);
+	char *key = wsgi_req->document_root;
+	uint16_t key_len = wsgi_req->document_root_len;
+
+	struct uwsgi_string_list *usl = umono.key;
+	while(usl) {
+		key = uwsgi_get_var(wsgi_req, usl->value, usl->len, &key_len);
+		if (key) break;
+		usl = usl->next;
+	}
+
+	// avoid unexpected values
+	if (key == NULL) {
+		key = "";
+		key_len = 0;
+	}
+
+        wsgi_req->app_id = uwsgi_get_app_id(key, key_len, mono_plugin.modifier1);
         // if it is -1, try to load a dynamic app
         if (wsgi_req->app_id == -1) {
         	uwsgi_500(wsgi_req);

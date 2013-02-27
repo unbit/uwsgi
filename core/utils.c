@@ -1163,6 +1163,10 @@ int uwsgi_get_app_id(char *app_name, int app_name_len, int modifier1) {
 		}
 	}
 
+	if (!uwsgi.no_default_app) {
+		return uwsgi.default_app;
+	}
+
 	return -1;
 }
 
