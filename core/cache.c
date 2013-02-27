@@ -269,6 +269,9 @@ int uwsgi_cache_set(char *key, uint16_t keylen, char *val, uint64_t vallen, uint
 			//uwsgi_log("!!! REUSING CACHE SLOT !!! (faci: %llu)\n", (unsigned long long) uwsgi.shared->cache_first_available_item);
 			index = uwsgi.cache_unused_stack[uwsgi.shared->cache_unused_stack_ptr];
 			uwsgi.shared->cache_unused_stack_ptr--;
+			if (index == uwsgi.shared->cache_first_available_item) {
+				uwsgi.shared->cache_first_available_item++;
+			}
 		}
 		else {
 			index = uwsgi.shared->cache_first_available_item;
