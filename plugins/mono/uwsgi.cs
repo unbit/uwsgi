@@ -93,8 +93,11 @@ namespace uwsgi {
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern public override void SendResponseFromMemory(byte[] chunk, int length);
 
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public void SendResponseFromFd(int fd, long offset, long length);
+
 		public override void SendResponseFromFile (IntPtr handle, long offset, long length) {
-			Console.WriteLine("sending a file");
+			SendResponseFromFd(handle.ToInt32(), offset, length);
 		}
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]

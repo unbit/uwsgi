@@ -146,6 +146,15 @@ static void uwsgi_mono_method_FlushResponse(MonoObject *this, int is_final) {
 	uwsgi_response_write_body_do(wsgi_req, "", 0);
 }
 
+static void uwsgi_mono_method_SendResponseFromFd(MonoObject *this, int fd, long offset, long len) {
+	struct wsgi_request *wsgi_req = current_wsgi_req();
+	wsgi_req->sendfile_fd = fd;
+	if (fd >= 0) {
+        	uwsgi_response_sendfile_do(wsgi_req, fd, offset, len);
+	}
+	wsgi_req->sendfile_fd = -1;
+}
+
 static void uwsgi_mono_method_SendResponseFromFile(MonoObject *this, MonoString *filename, long offset, long len) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	int fd = open(mono_string_to_utf8(filename), O_RDONLY);
@@ -206,6 +215,7 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetFilePath", uwsgi_mono_method_GetFilePath);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetUriPath", uwsgi_mono_method_GetUriPath);
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromFile", uwsgi_mono_method_SendResponseFromFile);
+	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromFd", uwsgi_mono_method_SendResponseFromFd);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetHeaderByName", uwsgi_mono_method_GetHeaderByName);
 	mono_add_internal_call("uwsgi.uWSGIRequest::ReadEntityBody", uwsgi_mono_method_ReadEntityBody);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetTotalEntityBodyLength", uwsgi_mono_method_GetTotalEntityBodyLength);
