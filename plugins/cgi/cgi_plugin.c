@@ -591,34 +591,20 @@ int uwsgi_cgi_request(struct wsgi_request *wsgi_req) {
 		// ok start sending post data...
 		size_t remains = wsgi_req->post_cl;
 		while(remains > 0) {
-			ssize_t rlen = 0;
-			// 8192 is a good value for pipes
-        		char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
-			if (buf == uwsgi.empty) break;
-			if (buf) {
-				remains -= rlen;
-			}
-			else {
+                	ssize_t rlen = 0;
+                	char *buf = uwsgi_request_body_read(wsgi_req, 8192, &rlen);
+                	if (!buf) {
 				close(post_pipe[1]);
-				goto clear2;			
-			}
-
-			// start writing to the subprocess stdin
-			while(rlen > 0) {
-				int ret = uwsgi.wait_write_hook(post_pipe[1], uc.timeout);
-				if (ret <= 0) {
-					close(post_pipe[1]);
-					goto clear2;			
-				}
-				ssize_t wlen = write(post_pipe[1], buf, rlen);
-				if (wlen <= 0) {
-					uwsgi_error("cgi_post_pipe_write()/write()");
-					close(post_pipe[1]);
-					goto clear2;			
-				}
-				rlen -= wlen;
-			}
-		}
+				goto clear2;
+                	}
+                	if (buf == uwsgi.empty) break;
+                	// write data to the node
+                	if (uwsgi_write_true_nb(post_pipe[1], buf, rlen, uc.timeout)) {
+				close(post_pipe[1]);
+				goto clear2;
+                	}
+                	remains -= rlen;
+        	}
 
 		close(post_pipe[1]);
 		// wait for data
