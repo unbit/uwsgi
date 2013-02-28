@@ -456,8 +456,10 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 		if (hr->session.can_keepalive) {
 			peer->session->main_peer->disabled = 0;
 			hr->rnrn = 0;
+#ifdef UWSGI_ZLIB
 			hr->can_gzip = 0;
 			hr->has_gzip = 0;
+#endif
 			if (uhttp.keepalive > 1) {
 				int orig_timeout = peer->session->corerouter->socket_timeout;
 				peer->session->corerouter->socket_timeout = uhttp.keepalive;
@@ -465,11 +467,16 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 				peer->session->corerouter->socket_timeout = orig_timeout;
 			}
 		}
+#ifdef UWSGI_ZLIB
 		if (hr->force_chunked || hr->force_gzip) {
+#else
+		if (hr->force_chunked) {
+#endif
 			hr->force_chunked = 0;
 			if (!hr->last_chunked) {
 				hr->last_chunked = uwsgi_buffer_new(5);
 			}
+#ifdef UWSGI_ZLIB
 			if (hr->force_gzip) {
 				hr->force_gzip = 0;
 				size_t zlen = 0;
@@ -484,6 +491,7 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 				if (uwsgi_buffer_u32le(hr->last_chunked, hr->gzip_size)) return -1;
 				if (uwsgi_buffer_append(hr->last_chunked, "\r\n", 2)) return -1;
 			}
+#endif
 			if (uwsgi_buffer_append(hr->last_chunked, "0\r\n\r\n", 5)) return -1;
 			peer->session->main_peer->out = hr->last_chunked;
 			peer->session->main_peer->out_pos = 0;
@@ -499,7 +507,11 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 	}
 
 	// need to parse response headers
+#ifdef UWSGI_ZLIB
 	if (hr->session.can_keepalive || hr->can_gzip) {
+#else
+	if (hr->session.can_keepalive) {
+#endif
 		if (peer->r_parser_status != 4) {
 			int ret = hr_check_response_keepalive(peer);
 			if (ret < 0) return -1;

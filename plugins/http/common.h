@@ -25,8 +25,8 @@ struct uwsgi_http {
         int auto_chunked;
         int auto_gzip;
 
-#ifdef UWSGI_SSL
         int websockets;
+#ifdef UWSGI_SSL
         char *https_session_context;
         int https_export_cert;
 #endif

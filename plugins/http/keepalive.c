@@ -67,7 +67,11 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
                                 if (!colon) return -1;
                                 // security check
                                 if (colon+2 >= buf+len) return -1;
+#ifdef UWSGI_ZLIB
 				if (hr->session.can_keepalive || (uhttp.auto_gzip && hr->can_gzip)) {
+#else
+				if (hr->session.can_keepalive) {
+#endif
 					if (!uwsgi_strnicmp(key, colon-key, "Connection", 10)) {
 						if (!uwsgi_strnicmp(colon+2, h_len-((colon-key)+2), "close", 5)) {
 							goto end;
@@ -83,6 +87,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 						has_size = 1;
 					}
 				}
+#ifdef UWSGI_ZLIB
 				if (uhttp.auto_gzip && hr->can_gzip) {
 					if (!uwsgi_strnicmp(key, colon-key, "Content-Encoding", 16)) {
 						hr->can_gzip = 0;
@@ -93,6 +98,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
                                                 }
 					}
 				}
+#endif
                                 key = NULL;
                                 h_len = 0;
                         }
@@ -109,6 +115,7 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
         }
 
 	if (!has_size) {
+#ifdef UWSGI_ZLIB
 		if (hr->has_gzip) {
 			hr->force_gzip = 1;
 			if (uwsgi_deflate_init(&hr->z, NULL, 0)) {
@@ -148,6 +155,9 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 			hr->session.can_keepalive = hr->session.can_keepalive;
 		}
 		else if (hr->session.can_keepalive) {
+#else
+		if (hr->session.can_keepalive) {
+#endif
 			if (uhttp.auto_chunked) {
 				char cr = buf[len-2];
 				char nl = buf[len-1];

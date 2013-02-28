@@ -1,3 +1,5 @@
+#include <uwsgi.h>
+
 #ifdef UWSGI_SSL
 
 /*
@@ -6,7 +8,6 @@
 
 */
 
-#include <uwsgi.h>
 #include "../corerouter/cr.h"
 
 extern struct uwsgi_server uwsgi;
@@ -378,4 +379,8 @@ struct uwsgi_plugin sslrouter_plugin = {
 	.on_load = sslrouter_setup
 };
 
+#else
+struct uwsgi_plugin sslrouter_plugin = {
+	.name = "sslrouter",
+};
 #endif

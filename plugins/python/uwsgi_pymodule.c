@@ -437,6 +437,7 @@ PyObject *py_uwsgi_signal_registered(PyObject * self, PyObject * args) {
 	return Py_None;
 }
 
+#ifdef UWSGI_SSL
 PyObject *py_uwsgi_i_am_the_lord(PyObject * self, PyObject * args) {
 	char *legion_name = NULL;
 
@@ -452,6 +453,7 @@ PyObject *py_uwsgi_i_am_the_lord(PyObject * self, PyObject * args) {
         Py_INCREF(Py_False);
         return Py_False;
 }
+#endif
 
 PyObject *py_uwsgi_register_signal(PyObject * self, PyObject * args) {
 
