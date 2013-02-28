@@ -19,62 +19,21 @@ ssize_t uwsgi_sendfile_do(int sockfd, int filefd, size_t pos, size_t len) {
 	off_t off = pos;
 	return sendfile(sockfd, filefd, &off, len);
 #else
-	static size_t nosf_buf_size = 0;
-	static char *nosf_buf;
-	char *nosf_buf2;
-
-	ssize_t jlen = 0;
-	ssize_t rlen = 0;
-	ssize_t i = 0;
-
-	if (!nosf_buf) {
-		nosf_buf = malloc(chunk);
-	}
-	else if (chunk != nosf_buf_size) {
-		nosf_buf2 = realloc(nosf_buf, chunk);
-		if (!nosf_buf2) {
-			free(nosf_buf);
+	// for platform not supporting sendfile we need to rely on boring read/write
+	// generally that platforms have very low memory, so use a 8k buffer
+	char buf[8192];
+	if (pos > 0) {
+		if (lseek(filefd, pos, SEEK_SET)) {
+			uwsgi_error("uwsgi_sendfile_do()/seek()");
+			return -1;
 		}
-		nosf_buf = nosf_buf2;
 	}
-
-	if (!nosf_buf) {
-		uwsgi_error("sendfile malloc()/realloc()");
-		return 0;
+	ssize_t rlen = read(filefd, buf, UMIN(len, 8192));
+	if (rlen <= 0) {
+		uwsgi_error("uwsgi_sendfile_do()/read()");
+		return -1;
 	}
-
-	nosf_buf_size = chunk;
-
-	if (async > 1) {
-		jlen = read(filefd, nosf_buf, chunk);
-		if (jlen <= 0) {
-			uwsgi_error("read()");
-			return 0;
-		}
-		jlen = write(sockfd, nosf_buf, jlen);
-		if (jlen <= 0) {
-			uwsgi_error("write()");
-			return 0;
-		}
-		return jlen;
-	}
-
-	while (i < (int) filesize) {
-		jlen = read(filefd, nosf_buf, chunk);
-		if (jlen <= 0) {
-			uwsgi_error("read()");
-			break;
-		}
-		i += jlen;
-		jlen = write(sockfd, nosf_buf, jlen);
-		if (jlen <= 0) {
-			uwsgi_error("write()");
-			break;
-		}
-		rlen += jlen;
-	}
-
-	return rlen;
+	return write(sockfd, buf, rlen);
 #endif
 
 }
