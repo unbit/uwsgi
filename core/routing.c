@@ -74,7 +74,7 @@ error:
 	return NULL;
 }
 
-static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req) {
+static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, uint16_t subject_len) {
 
 	struct uwsgi_route *routes = uwsgi.routes;
         void *goon_func = NULL;
@@ -90,12 +90,17 @@ static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req) {
 		goon_func = NULL;
 		wsgi_req->route_goto = 0;
 
-		char **subject = (char **) (((char *) (wsgi_req)) + routes->subject);
-		uint16_t *subject_len = (uint16_t *) (((char *) (wsgi_req)) + routes->subject_len);
+		if (!subject) {
+			char **subject2 = (char **) (((char *) (wsgi_req)) + routes->subject);
+			uint16_t *subject_len2 = (uint16_t *) (((char *) (wsgi_req)) + routes->subject_len);
+			subject = *subject2 ;
+			subject_len = *subject_len2;
+		}
+
 #ifdef UWSGI_DEBUG
 		uwsgi_log("route subject = %.*s\n", *subject_len, *subject);
 #endif
-		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, *subject, *subject_len, routes->ovector, routes->ovn);
+		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, subject, subject_len, routes->ovector, routes->ovn);
 		if (n >= 0) {
 			wsgi_req->is_routing = 1;
 			int ret = routes->func(wsgi_req, routes);
@@ -133,11 +138,11 @@ int uwsgi_apply_routes(struct wsgi_request *wsgi_req) {
 		return UWSGI_ROUTE_BREAK;
 	}
 
-	return uwsgi_apply_routes_do(wsgi_req);
+	return uwsgi_apply_routes_do(wsgi_req, NULL, 0);
 }
 
 
-int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req) {
+int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *subject, uint16_t subject_len) {
 
 	if (!uwsgi.routes)
 		return UWSGI_ROUTE_CONTINUE;
@@ -146,7 +151,7 @@ int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req) {
 	if (wsgi_req->is_routing)
 		return UWSGI_ROUTE_CONTINUE;
 
-	return uwsgi_apply_routes_do(wsgi_req);
+	return uwsgi_apply_routes_do(wsgi_req, subject, subject_len);
 }
 
 
