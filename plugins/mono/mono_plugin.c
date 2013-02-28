@@ -14,7 +14,7 @@
 
 	(the --mono-key maps to DOCUMENT_ROOT by default)
 
-	1) main-domain application
+	1) static application
 
 		--mono-app <directory>
 
@@ -24,19 +24,16 @@
 
 		the application runs on the main domain
 
-	2) dedicated-domain application (can we support threads ?)
+	2) dynamic applications 
 
-		--mono-domain-app <directory>
+		the app is created on demand using the specified key as the physicalDirectory
 
-		the app is created in a new domain and --mono-key is used like in --mono-app
 
-	3) dynamic (mono-domain) apps
+	TODO:
+		allows mounting apps under subpaths (currently all is mapped to "/")
 
-		this is the default if you do not preload apps.
-
-		The mono-key is checked for already loaded-apps. If it is not available a
-		new ApplicationHost is created
-
+	Thanks to:
+		Robert Jordan for helping me understanding the ApplicationHost internals
 
 */
 
@@ -57,7 +54,7 @@ struct uwsgi_mono {
 	// a lock for dynamic apps
         pthread_mutex_t lock_loader;
 
-	MonoDomain *domain;
+	MonoDomain *main_domain;
 	MonoMethod *create_application_host;
 
 	MonoClass *application_class;
@@ -66,7 +63,8 @@ struct uwsgi_mono {
 	void (*process_request)(MonoObject *, MonoException **);
 
 	struct uwsgi_string_list *app;
-	struct uwsgi_string_list *domain_app;
+	struct uwsgi_string_list *shared_exec;
+	struct uwsgi_string_list *exec;
 	
 } umono;
 
@@ -75,51 +73,56 @@ struct uwsgi_option uwsgi_mono_options[] = {
         {"mono-app", required_argument, 0, "load a Mono asp.net app from the specified directory", uwsgi_opt_add_string_list, &umono.app, 0},
         {"mono-gc-freq", required_argument, 0, "run the Mono GC every <n> requests (default, run after every request)", uwsgi_opt_set_64bit, &umono.gc_freq, 0},
         {"mono-key", required_argument, 0, "select the ApplicationHost based on the specified CGI var", uwsgi_opt_add_string_list, &umono.key, 0},
+        {"mono-version", required_argument, 0, "set the Mono jit version", uwsgi_opt_set_str, &umono.version, 0},
+        {"mono-config", required_argument, 0, "set the Mono config file", uwsgi_opt_set_str, &umono.config, 0},
+        {"mono-assembly", required_argument, 0, "load the specified main assembly (default: uwsgi.dll)", uwsgi_opt_set_str, &umono.assembly_name, 0},
+        {"mono-shared-exec", required_argument, 0, "exec the specified assembly after the main", uwsgi_opt_add_string_list, &umono.shared_exec, 0},
+        {"mono-exec", required_argument, 0, "exec the specified assembly just before app loading", uwsgi_opt_add_string_list, &umono.exec, 0},
 };
 
 static MonoString *uwsgi_mono_method_GetFilePath(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(umono.domain, wsgi_req->path_info, wsgi_req->path_info_len);
+	return mono_string_new_len(mono_domain_get(), wsgi_req->path_info, wsgi_req->path_info_len);
 }
 
 static MonoString *uwsgi_mono_method_MapPath(MonoObject *this, MonoString *virtualPath) {
 	// first we need to get the physical path and append the virtualPath to it
 	struct wsgi_request *wsgi_req = current_wsgi_req();
 	struct uwsgi_app *app = &uwsgi_apps[wsgi_req->app_id];
-	char *path = uwsgi_concat3n(app->responder0, strlen(app->responder0), "/", 1, mono_string_to_utf8(virtualPath), mono_string_length(virtualPath));
-	MonoString *ret = mono_string_new_len(umono.domain, path, strlen(path));
+	char *path = uwsgi_concat3n(app->interpreter, strlen(app->interpreter), "/", 1, mono_string_to_utf8(virtualPath), mono_string_length(virtualPath));
+	MonoString *ret = mono_string_new_len(mono_domain_get(), path, strlen(path));
 	free(path);
 	return ret;
 }
 
 static MonoString *uwsgi_mono_method_GetQueryString(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(umono.domain, wsgi_req->query_string, wsgi_req->query_string_len);
+	return mono_string_new_len(mono_domain_get(), wsgi_req->query_string, wsgi_req->query_string_len);
 }
 
 static MonoString *uwsgi_mono_method_GetHttpVerbName(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(umono.domain, wsgi_req->method, wsgi_req->method_len);
+	return mono_string_new_len(mono_domain_get(), wsgi_req->method, wsgi_req->method_len);
 }
 
 static MonoString *uwsgi_mono_method_GetRawUrl(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(umono.domain, wsgi_req->uri, wsgi_req->uri_len);
+	return mono_string_new_len(mono_domain_get(), wsgi_req->uri, wsgi_req->uri_len);
 }
 
 static MonoString *uwsgi_mono_method_GetHttpVersion(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(umono.domain, wsgi_req->protocol, wsgi_req->protocol_len);
+	return mono_string_new_len(mono_domain_get(), wsgi_req->protocol, wsgi_req->protocol_len);
 }
 
 static MonoString *uwsgi_mono_method_GetUriPath(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(umono.domain, wsgi_req->path_info, wsgi_req->path_info_len);
+	return mono_string_new_len(mono_domain_get(), wsgi_req->path_info, wsgi_req->path_info_len);
 }
 
 static MonoString *uwsgi_mono_method_GetRemoteAddress(MonoObject *this) {
 	struct wsgi_request *wsgi_req = current_wsgi_req();
-	return mono_string_new_len(umono.domain, wsgi_req->remote_addr, wsgi_req->remote_addr_len);
+	return mono_string_new_len(mono_domain_get(), wsgi_req->remote_addr, wsgi_req->remote_addr_len);
 }
 
 static void uwsgi_mono_method_SendStatus(MonoObject *this, int code, MonoString *msg) {
@@ -168,9 +171,9 @@ static MonoString *uwsgi_mono_method_GetHeaderByName(MonoObject *this, MonoStrin
 	uint16_t rlen = 0;
 	char *value = uwsgi_get_header(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), &rlen);
 	if (value) {
-		return mono_string_new_len(umono.domain, value, rlen);
+		return mono_string_new_len(mono_domain_get(), value, rlen);
 	}
-	return mono_string_new(umono.domain, "");
+	return mono_string_new(mono_domain_get(), "");
 }
 
 static MonoString *uwsgi_mono_method_GetServerVariable(MonoObject *this, MonoString *key) {
@@ -178,9 +181,9 @@ static MonoString *uwsgi_mono_method_GetServerVariable(MonoObject *this, MonoStr
 	uint16_t rlen = 0;
 	char *value = uwsgi_get_var(wsgi_req, mono_string_to_utf8(key), mono_string_length(key), &rlen);
 	if (value) {
-		return mono_string_new_len(umono.domain, value, rlen);
+		return mono_string_new_len(mono_domain_get(), value, rlen);
 	}
-	return mono_string_new(umono.domain, "");
+	return mono_string_new(mono_domain_get(), "");
 }
 
 static int uwsgi_mono_method_ReadEntityBody(MonoObject *this, MonoArray *byteArray, int len) {
@@ -240,15 +243,15 @@ static int uwsgi_mono_init() {
 
 	mono_config_parse(umono.config);
 
-	umono.domain = mono_jit_init_version("uwsgi", umono.version);
-	if (!umono.domain) {
+	umono.main_domain = mono_jit_init_version("uwsgi", umono.version);
+	if (!umono.main_domain) {
 		uwsgi_log("unable to initialize Mono JIT\n");
 		exit(1);
 	}
 
 	uwsgi_log("Mono JIT initialized with version %s\n", umono.version);
 
-	MonoAssembly *assembly = mono_domain_assembly_open(umono.domain, umono.assembly_name);
+	MonoAssembly *assembly = mono_domain_assembly_open(umono.main_domain, umono.assembly_name);
 	if (!assembly) {
 		uwsgi_log("unable to load \"%s\" in the Mono domain\n", umono.assembly_name);
 		exit(1);
@@ -257,11 +260,21 @@ static int uwsgi_mono_init() {
 	uwsgi_mono_add_internal_calls();
 
 	MonoImage *image = mono_assembly_get_image(assembly);
-	uwsgi_log("image at %p\n", image);
+	if (!image) {
+		uwsgi_log("unable to get assembly image\n");
+		exit(1);
+	}
 	umono.application_class = mono_class_from_name(image, "uwsgi", "uWSGIApplication");
-	uwsgi_log("class at %p\n", umono.application_class);
+	if (!umono.application_class) {
+		uwsgi_log("unable to get reference to class uwsgi.uWSGIApplication\n");
+		exit(1);
+	}
+
 	MonoMethodDesc *desc = mono_method_desc_new("uwsgi.uWSGIApplication:.ctor(string,string)", 1);
-	uwsgi_log("desc at %p\n", desc);
+	if (!desc) {
+		uwsgi_log("unable to create description for uwsgi.uWSGIApplication:.ctor(string,string)\n");
+		exit(1);
+	}
 	umono.create_application_host = mono_method_desc_search_in_class(desc, umono.application_class);
 	if (!umono.create_application_host) {
 		uwsgi_log("unable to find constructor in uWSGIApplication class\n");
@@ -270,6 +283,10 @@ static int uwsgi_mono_init() {
 	mono_method_desc_free(desc);
 
 	desc = mono_method_desc_new("uwsgi.uWSGIApplication:Request()", 1);
+	if (!desc) {
+		uwsgi_log("unable to create description for uwsgi.uWSGIApplication:Request()\n");
+		exit(1);
+	}
 	MonoMethod *process_request = mono_method_desc_search_in_class(desc, umono.application_class);
 	if (!process_request) {
 		uwsgi_log("unable to find ProcessRequest method in uwsgi_host class\n");
@@ -279,6 +296,28 @@ static int uwsgi_mono_init() {
 
 	umono.process_request = mono_method_get_unmanaged_thunk(process_request);
 
+	struct uwsgi_string_list *usl = umono.shared_exec;
+	while(usl) {
+		char *assembly_name = usl->value;
+		char *argv = "";
+		char *colon = strchr(usl->value, ':');
+		if (colon) {
+			argv = colon+1;
+			assembly_name = uwsgi_concat2n(usl->value, colon-usl->value, "", 0);
+		}
+	
+		MonoAssembly *assembly = mono_domain_assembly_open(umono.main_domain, assembly_name);
+		if (!assembly) {
+			uwsgi_log("unable to load assembly \"%s\"\n", assembly_name);
+			exit(1);
+		}
+		mono_jit_exec(umono.main_domain, assembly, 1, &argv);
+		if (assembly_name != usl->value) {
+			free(assembly_name);
+		}
+		usl = usl->next;
+	}
+
 	return 0;
 }
 
@@ -286,13 +325,13 @@ static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir,
 	void *params[3];
         params[2] = NULL;
 
-	params[0] = mono_string_new(umono.domain, "/");
-	params[1] = mono_string_new_len(umono.domain, physicalDir, physicalDir_len);
+	params[0] = mono_string_new(mono_domain_get(), "/");
+	params[1] = mono_string_new_len(mono_domain_get(), physicalDir, physicalDir_len);
 
 	int id = uwsgi_apps_cnt;
 	time_t now = uwsgi_now();
 
-	MonoObject *appHost = mono_object_new(umono.domain, umono.application_class);
+	MonoObject *appHost = mono_object_new(mono_domain_get(), umono.application_class);
         if (!appHost) {
         	uwsgi_log("unable to initialize asp.net ApplicationHost\n");
 		return -1;
@@ -305,13 +344,12 @@ static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir,
 		return -1;
         }
 
-	struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, key, key_len, umono.domain, appHost);
+	struct uwsgi_app *app = uwsgi_add_app(id, mono_plugin.modifier1, key, key_len, uwsgi_concat2n(physicalDir, physicalDir_len, "", 0), appHost);
         app->started_at = now;
         app->startup_time = uwsgi_now() - now;
-	// use a copy of responder0 for physical_path
-	app->responder0 = uwsgi_concat2n(physicalDir, physicalDir_len, "", 0);
-	mono_gchandle_new (app->callable, 1);
-	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (domain %p)\n", id, key_len, key, (int) app->startup_time, appHost, umono.domain);
+	// get a handlet to appHost
+	mono_gchandle_new(app->callable, 1);
+	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (domain %p)\n", id, key_len, key, (int) app->startup_time, appHost, mono_domain_get());
 
 	// set it as default app if needed
 	if (uwsgi.default_app == -1) {
@@ -429,7 +467,7 @@ static void uwsgi_mono_after_request(struct wsgi_request *wsgi_req) {
 }
 
 static void uwsgi_mono_init_thread(int core_id) {
-	mono_thread_attach(umono.domain);
+	mono_thread_attach(umono.main_domain);
 	// SIGPWR, SIGXCPU: these are used internally by the GC and pthreads.
 	sigset_t smask;
         sigemptyset(&smask);

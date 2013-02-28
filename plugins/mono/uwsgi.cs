@@ -8,6 +8,11 @@ using System.Runtime.CompilerServices;
 
 namespace uwsgi {
 
+	class api {
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public void PostFork();
+	}
+
 	class uWSGIRequest: HttpWorkerRequest {
 
 		public override string GetAppPath() {
