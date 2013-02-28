@@ -19,7 +19,9 @@ struct uwsgi_php {
 	struct uwsgi_string_list *index;
 	struct uwsgi_string_list *set;
 	struct uwsgi_string_list *append_config;
+#ifdef UWSGI_PCRE
 	struct uwsgi_regexp_list *app_bypass;
+#endif
 	struct uwsgi_string_list *vars;
 	char *docroot;
 	char *app;
@@ -52,7 +54,9 @@ struct uwsgi_option uwsgi_php_options[] = {
         {"php-app", required_argument, 0, "force the php file to run at each request", uwsgi_opt_set_str, &uphp.app, 0},
         {"php-app-qs", required_argument, 0, "when in app mode force QUERY_STRING to the specified value + REQUEST_URI", uwsgi_opt_set_str, &uphp.app_qs, 0},
         {"php-fallback", required_argument, 0, "run the specified php script when the request one does not exist", uwsgi_opt_set_str, &uphp.fallback, 0},
+#ifdef UWSGI_PCRE
         {"php-app-bypass", required_argument, 0, "if the regexp matches the uri the --php-app is bypassed", uwsgi_opt_add_regexp_list, &uphp.app_bypass, 0},
+#endif
         {"php-var", required_argument, 0, "add/overwrite a CGI variable at each request", uwsgi_opt_add_string_list, &uphp.vars, 0},
         {"php-dump-config", no_argument, 0, "dump php config (if modified via --php-set or append options)", uwsgi_opt_true, &uphp.dump_config, 0},
         {0, 0, 0, 0, 0, 0, 0},
@@ -107,8 +111,6 @@ static int sapi_uwsgi_send_headers(sapi_headers_struct *sapi_headers)
 static int sapi_uwsgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	uint read_bytes = 0;
-	ssize_t len;
-	int fd = -1;
 	
 	struct wsgi_request *wsgi_req = (struct wsgi_request *) SG(server_context);
 
@@ -656,6 +658,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
 	wsgi_req->document_root_len = strlen(wsgi_req->document_root);
 
 	if (uphp.app) {
+#ifdef UWSGI_PCRE
 		struct uwsgi_regexp_list *bypass = uphp.app_bypass;
 		while (bypass) {
                         if (uwsgi_regexp_match(bypass->pattern, bypass->pattern_extra, wsgi_req->uri, wsgi_req->uri_len) >= 0) {
@@ -663,6 +666,7 @@ int uwsgi_php_request(struct wsgi_request *wsgi_req) {
                         }
                         bypass = bypass->next;
                 }
+#endif
 
 		strcpy(real_filename, uphp.app);	
 		if (wsgi_req->path_info_len == 1 && wsgi_req->path_info[0] == '/') {
@@ -691,7 +695,9 @@ appready:
 		goto secure2;
 	}
 
+#ifdef UWSGI_PCRE
 oldstyle:
+#endif
 
 	filename = uwsgi_concat4n(wsgi_req->document_root, wsgi_req->document_root_len, "/", 1, wsgi_req->path_info, wsgi_req->path_info_len, "", 0);
 
