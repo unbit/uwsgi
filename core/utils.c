@@ -2032,6 +2032,24 @@ int uwsgi_logic_opt_for(char *key, char *value) {
 	return 1;
 }
 
+int uwsgi_logic_opt_for_glob(char *key, char *value) {
+
+	glob_t g;
+	int i;
+        if (glob(uwsgi.logic_opt_data, GLOB_MARK | GLOB_NOCHECK, NULL, &g)) {
+                uwsgi_error("uwsgi_logic_opt_for_glob()");
+                return 0;
+        }
+
+	for (i = 0; i < (int) g.gl_pathc; i++) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", g.gl_pathv[i]), 0);
+        }
+
+	globfree(&g);
+
+        return 1;
+}
+
 void add_exported_option(char *key, char *value, int configured) {
 
 	struct uwsgi_string_list *blacklist = uwsgi.blacklist;
