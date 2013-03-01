@@ -207,11 +207,11 @@ static int uwsgi_mono_method_GetTotalEntityBodyLength(MonoObject *this) {
 }
 
 static void uwsgi_mono_method_api_RegisterSignal(int signum, MonoString *target, MonoObject *func) {
-	mono_gchandle_new(func, 1);
-	if (uwsgi_register_signal(signum, mono_string_to_utf8(target), func, mono_plugin.modifier1)) {
+	//mono_gchandle_new(func, 1);
+	//if (uwsgi_register_signal(signum, mono_string_to_utf8(target), func, mono_plugin.modifier1)) {
 		// raise an exception
 		mono_raise_exception(mono_get_exception_invalid_operation("unable to register signal handler"));
-	}
+	//}
 }
 
 static void uwsgi_mono_method_api_Signal(int signum) {
@@ -244,9 +244,10 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetRemoteAddress", uwsgi_mono_method_GetRemoteAddress);
 
 	// api
-	mono_add_internal_call("uwsgi.api::RegisterSignal", uwsgi_mono_method_api_RegisterSignal);
 	mono_add_internal_call("uwsgi.api::Signal", uwsgi_mono_method_api_Signal);
 	mono_add_internal_call("uwsgi.api::WorkerId", uwsgi_mono_method_api_WorkerId);
+	// currently RegisterSignal is conceptually broken
+	mono_add_internal_call("uwsgi.api::RegisterSignal", uwsgi_mono_method_api_RegisterSignal);
 }
 
 static int uwsgi_mono_init() {
