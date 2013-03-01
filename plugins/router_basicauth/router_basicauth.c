@@ -80,7 +80,7 @@ int uwsgi_routing_func_basicauth(struct wsgi_request *wsgi_req, struct uwsgi_rou
 				}
 			}
 			else {
-				if (!strcmp(auth, ur->data2)) {
+				if (!uwsgi_strncmp(auth, auth_len, ur->data2, ur->data2_len)) {
 					wsgi_req->remote_user = uwsgi_req_append(wsgi_req, "REMOTE_USER", 11, auth, ur->custom); 
 					if (wsgi_req->remote_user)
 						wsgi_req->remote_user_len = ur->custom;

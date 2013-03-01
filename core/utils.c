@@ -3652,7 +3652,7 @@ char *uwsgi_base64_decode(char *buf, size_t len, size_t *d_len) {
 
 	// compute the new size
         *d_len = (((len+3)/4) * 3);
-        char *dst = uwsgi_malloc(*d_len);
+        char *dst = uwsgi_malloc(*d_len + 1);
 
         char *ptr = dst;
         uint8_t *src = (uint8_t *) buf;
@@ -3674,6 +3674,7 @@ char *uwsgi_base64_decode(char *buf, size_t len, size_t *d_len) {
         }
 
 	*d_len = (ptr - dst);
+	*ptr++= 0;
 
         return dst;
 
