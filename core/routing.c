@@ -648,6 +648,17 @@ static int uwsgi_route_condition_islink(struct wsgi_request *wsgi_req, struct uw
 }
 
 
+static int uwsgi_route_condition_isexec(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
+        if (!ub) return -1;
+        if (!access(ub->buf, X_OK)) {
+                uwsgi_buffer_destroy(ub);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        return 0;
+}
+
 
 // register embedded routers
 void uwsgi_register_embedded_routers() {
@@ -670,6 +681,7 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_route_condition("isfile", uwsgi_route_condition_isfile);
         uwsgi_register_route_condition("isdir", uwsgi_route_condition_isdir);
         uwsgi_register_route_condition("islink", uwsgi_route_condition_islink);
+        uwsgi_register_route_condition("isexec", uwsgi_route_condition_isexec);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
