@@ -1422,6 +1422,27 @@ int uwsgi_logic_opt_if_not_dir(char *key, char *value) {
 	return 0;
 }
 
+int uwsgi_logic_opt_if_plugin(char *key, char *value) {
+
+        if (plugin_already_loaded(uwsgi.logic_opt_data)) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+                return 1;
+        }
+
+        return 0;
+}
+
+int uwsgi_logic_opt_if_not_plugin(char *key, char *value) {
+
+        if (!plugin_already_loaded(uwsgi.logic_opt_data)) {
+                add_exported_option(key, uwsgi_substitute(value, "%(_)", uwsgi.logic_opt_data), 0);
+                return 1;
+        }
+
+        return 0;
+}
+
+
 
 int uwsgi_logic_opt_if_exists(char *key, char *value) {
 

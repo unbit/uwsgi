@@ -24,7 +24,7 @@ static void uwsgi_plugin_parse_section(char *filename) {
 }
 #endif
 
-static int plugin_already_loaded(const char *plugin) {
+int plugin_already_loaded(const char *plugin) {
 	int i;
 
 	for (i = 0; i < 256; i++) {

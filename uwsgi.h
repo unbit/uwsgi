@@ -3275,6 +3275,8 @@ int uwsgi_logic_opt_if_dir(char *, char *);
 int uwsgi_logic_opt_if_not_dir(char *, char *);
 int uwsgi_logic_opt_if_reload(char *, char *);
 int uwsgi_logic_opt_if_not_reload(char *, char *);
+int uwsgi_logic_opt_if_plugin(char *, char *);
+int uwsgi_logic_opt_if_not_plugin(char *, char *);
 
 
 #ifdef UWSGI_CAP
@@ -3869,6 +3871,8 @@ void uwsgi_exceptions_handler_thread_start(void);
 #define uwsgi_response_add_content_type(x, y, z) uwsgi_response_add_header(x, "Content-Type", 12, y, z)
 
 struct uwsgi_stats_pusher_instance *uwsgi_stats_pusher_add(struct uwsgi_stats_pusher *, char *);
+
+int plugin_already_loaded(const char *);
 
 #ifdef UWSGI_ZLIB
 #include <zlib.h>
