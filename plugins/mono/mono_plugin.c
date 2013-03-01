@@ -5,6 +5,7 @@
 #include <mono/metadata/threads.h>
 #include <mono/metadata/debug-helpers.h>
 #include <mono/metadata/mono-gc.h>
+#include <mono/metadata/exception.h>
 
 /*
 
@@ -205,7 +206,12 @@ static int uwsgi_mono_method_GetTotalEntityBodyLength(MonoObject *this) {
 	return wsgi_req->post_cl;
 }
 
-static void uwsgi_mono_method_api_RegisterSignal(int signum, MonoString *target, MonoMethod *func) {
+static void uwsgi_mono_method_api_RegisterSignal(int signum, MonoString *target, MonoObject *func) {
+	mono_gchandle_new(func, 1);
+	if (uwsgi_register_signal(signum, mono_string_to_utf8(target), func, mono_plugin.modifier1)) {
+		// raise an exception
+		mono_raise_exception(mono_get_exception_invalid_operation("unable to register signal handler"));
+	}
 }
 
 static void uwsgi_mono_method_api_Signal(int signum) {
@@ -553,6 +559,20 @@ static void uwsgi_mono_post_fork() {
 	}
 }
 
+static int uwsgi_mono_signal_handler(uint8_t sig, void *handler) {
+	void *params[2];
+	int signum = sig;
+	params[0] = &signum;
+	params[1] = NULL;
+	MonoObject *exc = NULL;
+	mono_runtime_delegate_invoke((MonoObject *) handler, params, &exc);
+	if (exc) {
+		mono_print_unhandled_exception(exc);
+		return -1;
+	}
+	return 0;
+}
+
 struct uwsgi_plugin mono_plugin = {
 
 	.name = "mono",
@@ -569,4 +589,6 @@ struct uwsgi_plugin mono_plugin = {
 	.enable_threads = uwsgi_mono_enable_threads,
 
 	.post_fork = uwsgi_mono_post_fork,
+
+	.signal_handler = uwsgi_mono_signal_handler,
 };
