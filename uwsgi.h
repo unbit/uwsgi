@@ -1040,8 +1040,12 @@ struct uwsgi_route {
 	int *ovector;
 
 	char *subject_str;
+	size_t subject_str_len;
 	size_t subject;
 	size_t subject_len;
+
+	int (*if_func)(struct wsgi_request *, struct uwsgi_route *);
+	int if_negate;
 
 	int (*func) (struct wsgi_request *, struct uwsgi_route *);
 
@@ -1072,6 +1076,12 @@ struct uwsgi_route {
 
 	struct uwsgi_route *next;
 
+};
+
+struct uwsgi_route_condition {
+	char *name;
+	int (*func)(struct wsgi_request *, struct uwsgi_route *);
+	struct uwsgi_route_condition *next;
 };
 
 struct uwsgi_router {
@@ -2019,6 +2029,7 @@ struct uwsgi_server {
 #ifdef UWSGI_ROUTING
 		struct uwsgi_router *routers;
 		struct uwsgi_route *routes;
+		struct uwsgi_route_condition *route_conditions;
 #endif
 
 		int single_interpreter;
@@ -3297,6 +3308,7 @@ void uwsgi_register_embedded_routers(void);
 void uwsgi_routing_dump();
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *, struct uwsgi_route *, char *, uint16_t, char *, size_t);
 int uwsgi_route_api_func(struct wsgi_request *, char *, char *);
+struct uwsgi_route_condition *uwsgi_register_route_condition(char *, int (*) (struct wsgi_request *, struct uwsgi_route *));
 #endif
 
 void uwsgi_reload(char **);
@@ -3344,41 +3356,42 @@ void uwsgi_reload(char **);
 	char *uwsgi_expand_path(char *, int, char *);
 	int uwsgi_try_autoload(char *);
 
-	uint64_t uwsgi_micros(void);
-	int uwsgi_is_file(char *);
-	int uwsgi_is_link(char *);
+uint64_t uwsgi_micros(void);
+int uwsgi_is_file(char *);
+int uwsgi_is_dir(char *);
+int uwsgi_is_link(char *);
 
-	void uwsgi_receive_signal(int, char *, int);
-	void uwsgi_exec_atexit(void);
+void uwsgi_receive_signal(int, char *, int);
+void uwsgi_exec_atexit(void);
 
-	struct uwsgi_stats {
-		char *base;
-		off_t pos;
-		size_t tabs;
-		size_t chunk;
-		size_t size;
-		int minified;
-		int dirty;
-	};
+struct uwsgi_stats {
+	char *base;
+	off_t pos;
+	size_t tabs;
+	size_t chunk;
+	size_t size;
+	int minified;
+	int dirty;
+};
 
-	struct uwsgi_stats_pusher_instance;
+struct uwsgi_stats_pusher_instance;
 
-	struct uwsgi_stats_pusher {
-		char *name;
-		void (*func) (struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
-		struct uwsgi_stats_pusher *next;
-	};
+struct uwsgi_stats_pusher {
+	char *name;
+	void (*func) (struct uwsgi_stats_pusher_instance *, time_t, char *, size_t);
+	struct uwsgi_stats_pusher *next;
+};
 
-	struct uwsgi_stats_pusher_instance {
-		struct uwsgi_stats_pusher *pusher;
-		char *arg;
-		void *data;
-		int raw;	
-		int configured;
-		int freq;
-		time_t last_run;
-		struct uwsgi_stats_pusher_instance *next;
-	};
+struct uwsgi_stats_pusher_instance {
+	struct uwsgi_stats_pusher *pusher;
+	char *arg;
+	void *data;
+	int raw;	
+	int configured;
+	int freq;
+	time_t last_run;
+	struct uwsgi_stats_pusher_instance *next;
+};
 
 struct uwsgi_thread;
 void uwsgi_stats_pusher_loop(struct uwsgi_thread *);

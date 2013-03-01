@@ -498,6 +498,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"route-remote-user", required_argument, 0, "add a route based on REMOTE_USER", uwsgi_opt_add_route, "remote_user", 0},
 	{"route-referer", required_argument, 0, "add a route based on HTTP_REFERER", uwsgi_opt_add_route, "referer", 0},
 	{"route-label", required_argument, 0, "add a routing label (for use with goto)", uwsgi_opt_add_route, NULL, 0},
+	{"route-if", required_argument, 0, "add a route based on condition", uwsgi_opt_add_route, "if", 0},
+	{"route-if-not", required_argument, 0, "add a route based on condition (negate version)", uwsgi_opt_add_route, "if-not", 0},
 	{"router-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 	{"routers-list", no_argument, 0, "list enabled routers", uwsgi_opt_true, &uwsgi.router_list, 0},
 #endif

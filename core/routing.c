@@ -5,9 +5,14 @@ extern struct uwsgi_server uwsgi;
 
 struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, struct uwsgi_route *ur, char *subject, uint16_t subject_len, char *data, size_t data_len) {
 
+	char *pass1 = data;
+	size_t pass1_len = data_len;
+
 	// cannot fail
-	char *pass1 = uwsgi_regexp_apply_ovec(subject, subject_len, data, data_len, ur->ovector, ur->ovn);
-	size_t pass1_len = strlen(pass1);
+	if (subject) {
+		pass1 = uwsgi_regexp_apply_ovec(subject, subject_len, data, data_len, ur->ovector, ur->ovn);
+		pass1_len = strlen(pass1);
+	}
 
 	struct uwsgi_buffer *ub = uwsgi_buffer_new(pass1_len);
 	size_t i;
@@ -66,7 +71,13 @@ struct uwsgi_buffer *uwsgi_routing_translate(struct wsgi_request *wsgi_req, stru
 		}
 	}
 
-	free(pass1);
+	// add the final NULL byte (to simplify plugin work)
+	
+	if (uwsgi_buffer_append(ub, "\0", 1)) goto error;
+
+	if (pass1 != data) {
+		free(pass1);
+	}
 	return ub;
 
 error:
@@ -78,6 +89,7 @@ static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, u
 
 	struct uwsgi_route *routes = uwsgi.routes;
         void *goon_func = NULL;
+	int n = -1;
 
 	while (routes) {
 
@@ -90,17 +102,36 @@ static int uwsgi_apply_routes_do(struct wsgi_request *wsgi_req, char *subject, u
 		goon_func = NULL;
 		wsgi_req->route_goto = 0;
 
-		if (!subject) {
-			char **subject2 = (char **) (((char *) (wsgi_req)) + routes->subject);
-			uint16_t *subject_len2 = (uint16_t *) (((char *) (wsgi_req)) + routes->subject_len);
-			subject = *subject2 ;
-			subject_len = *subject_len2;
+		if (!routes->if_func) {
+			if (!subject) {
+				char **subject2 = (char **) (((char *) (wsgi_req)) + routes->subject);
+				uint16_t *subject_len2 = (uint16_t *) (((char *) (wsgi_req)) + routes->subject_len);
+				subject = *subject2 ;
+				subject_len = *subject_len2;
+			}
+			n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, subject, subject_len, routes->ovector, routes->ovn);
+		}
+		else {
+			int ret = routes->if_func(wsgi_req, routes);
+			// error
+			if (ret < 0) {
+				return UWSGI_ROUTE_BREAK;
+			}
+			// true
+			if (!routes->if_negate) {
+				if (ret == 0) {
+					goto next;	
+				}
+				n = ret;
+			}
+			else {
+				if (ret > 0) {
+					goto next;	
+				}
+				n = 1;
+			}
 		}
 
-#ifdef UWSGI_DEBUG
-		uwsgi_log("route subject = %.*s\n", *subject_len, *subject);
-#endif
-		int n = uwsgi_regexp_match_ovec(routes->pattern, routes->pattern_extra, subject, subject_len, routes->ovector, routes->ovn);
 		if (n >= 0) {
 			wsgi_req->is_routing = 1;
 			int ret = routes->func(wsgi_req, routes);
@@ -154,6 +185,15 @@ int uwsgi_apply_routes_fast(struct wsgi_request *wsgi_req, char *subject, uint16
 	return uwsgi_apply_routes_do(wsgi_req, subject, subject_len);
 }
 
+static void *uwsgi_route_get_condition_func(char *name) {
+	struct uwsgi_route_condition *urc = uwsgi.route_conditions;
+	while(urc) {
+		if (!strcmp(urc->name, name)) {
+			return urc->func;
+		}
+	}
+	return NULL;
+}
 
 void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
@@ -191,7 +231,27 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 
 	*space = 0;
 
-	if (!strcmp(foobar, "http_host")) {
+	if (!strcmp(foobar, "if") || !strcmp(foobar, "if-not")) {
+		char *colon = strchr(route, ':');
+		if (!colon) {
+			uwsgi_log("invalid route condition syntax\n");
+                	exit(1);
+		}
+		*colon = 0;
+
+		if (!strcmp(foobar, "if-not")) {
+			ur->if_negate = 1;
+		}
+
+		foobar = colon+1;
+		ur->if_func = uwsgi_route_get_condition_func(route);
+		if (!ur->if_func) {
+			uwsgi_log("unable to find \"%s\" route condition\n", route);
+			exit(1);
+		}
+	}
+
+	else if (!strcmp(foobar, "http_host")) {
 		ur->subject = offsetof(struct wsgi_request, host);
 		ur->subject_len = offsetof(struct wsgi_request, host_len);
 	}
@@ -225,15 +285,18 @@ void uwsgi_opt_add_route(char *opt, char *value, void *foobar) {
 	}
 
 	ur->subject_str = foobar;
+	ur->subject_str_len = strlen(ur->subject_str);
 	ur->regexp = route;
 
-	if (uwsgi_regexp_build(route, &ur->pattern, &ur->pattern_extra)) {
-		exit(1);
-	}
+	if (ur->subject && ur->subject_len) {
+		if (uwsgi_regexp_build(route, &ur->pattern, &ur->pattern_extra)) {
+			exit(1);
+		}
 
-	ur->ovn = uwsgi_regexp_ovector(ur->pattern, ur->pattern_extra);
-	if (ur->ovn > 0) {
-		ur->ovector = uwsgi_calloc(sizeof(int) * (3 * (ur->ovn + 1)));
+		ur->ovn = uwsgi_regexp_ovector(ur->pattern, ur->pattern_extra);
+		if (ur->ovn > 0) {
+			ur->ovector = uwsgi_calloc(sizeof(int) * (3 * (ur->ovn + 1)));
+		}
 	}
 
 	char *command = space + 1;
@@ -540,6 +603,51 @@ static int uwsgi_router_send_crnl(struct uwsgi_route *ur, char *arg) {
         return 0;
 }
 
+static int uwsgi_route_condition_exists(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+	struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
+	if (!ub) return -1;
+	if (uwsgi_file_exists(ub->buf)) {
+		uwsgi_buffer_destroy(ub);
+		return 1;
+	}
+	uwsgi_buffer_destroy(ub);
+	return 0;
+}
+
+static int uwsgi_route_condition_isfile(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
+        if (!ub) return -1;
+        if (uwsgi_is_file(ub->buf)) {
+                uwsgi_buffer_destroy(ub);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        return 0;
+}
+
+static int uwsgi_route_condition_isdir(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
+        if (!ub) return -1;
+        if (uwsgi_is_dir(ub->buf)) {
+                uwsgi_buffer_destroy(ub);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        return 0;
+}
+
+static int uwsgi_route_condition_islink(struct wsgi_request *wsgi_req, struct uwsgi_route *ur) {
+        struct uwsgi_buffer *ub = uwsgi_routing_translate(wsgi_req, ur, NULL, 0, ur->subject_str, ur->subject_str_len);
+        if (!ub) return -1;
+        if (uwsgi_is_link(ub->buf)) {
+                uwsgi_buffer_destroy(ub);
+                return 1;
+        }
+        uwsgi_buffer_destroy(ub);
+        return 0;
+}
+
+
 
 // register embedded routers
 void uwsgi_register_embedded_routers() {
@@ -557,6 +665,11 @@ void uwsgi_register_embedded_routers() {
         uwsgi_register_router("signal", uwsgi_router_signal);
         uwsgi_register_router("send", uwsgi_router_send);
         uwsgi_register_router("send-crnl", uwsgi_router_send_crnl);
+
+        uwsgi_register_route_condition("exists", uwsgi_route_condition_exists);
+        uwsgi_register_route_condition("isfile", uwsgi_route_condition_isfile);
+        uwsgi_register_route_condition("isdir", uwsgi_route_condition_isdir);
+        uwsgi_register_route_condition("islink", uwsgi_route_condition_islink);
 }
 
 struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi_route *, char *)) {
@@ -583,6 +696,30 @@ struct uwsgi_router *uwsgi_register_router(char *name, int (*func) (struct uwsgi
 
 }
 
+struct uwsgi_route_condition *uwsgi_register_route_condition(char *name, int (*func) (struct wsgi_request *, struct uwsgi_route *)) {
+	struct uwsgi_route_condition *old_urc = NULL,*urc = uwsgi.route_conditions;
+	while(urc) {
+		if (!strcmp(urc->name, name)) {
+			return urc;
+		}
+		old_urc = urc;
+		urc = urc->next;
+	}
+
+	urc = uwsgi_calloc(sizeof(struct uwsgi_route_condition));
+	urc->name = name;
+	urc->func = func;
+
+	if (old_urc) {
+		old_urc->next = urc;
+	}
+	else {
+		uwsgi.route_conditions = urc;
+	}
+
+	return urc;
+}
+
 void uwsgi_routing_dump() {
 	struct uwsgi_route *routes = uwsgi.routes;
 	uwsgi_log("*** dumping internal routing table ***\n");
@@ -591,7 +728,7 @@ void uwsgi_routing_dump() {
 			uwsgi_log("[rule: %llu] label: %s\n", (unsigned long long ) routes->pos, routes->label);
 		}
 		else {
-			uwsgi_log("[rule: %llu] subject: %s regexp: %s action: %s\n", (unsigned long long ) routes->pos, routes->subject_str, routes->regexp, routes->action);
+			uwsgi_log("[rule: %llu] subject: %s %s: %s%s action: %s\n", (unsigned long long ) routes->pos, routes->subject_str, routes->if_func ? "func" : "regexp", routes->if_negate ? "!" : "", routes->regexp, routes->action);
 		}
 		routes = routes->next;
 	}
