@@ -8,9 +8,30 @@ using System.Runtime.CompilerServices;
 
 namespace uwsgi {
 
-	class api {
+	public delegate void uWSGIHook();
+	public delegate void uWSGIHook1(int signum);
+
+	public class api {
+		static uWSGIHook postfork_hook = null;
+
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
-		extern public void PostFork();
+		extern public static void RegisterSignal(int signum, string target, uWSGIHook1 func);
+
+		public static void PostFork(uWSGIHook func) {
+			postfork_hook = func;
+		}
+
+		public static void RunPostForkHook() {
+			if (postfork_hook != null) {
+				postfork_hook();
+			}
+		}
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public static int WorkerId();
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern public static void Signal(int signum);
 	}
 
 	class uWSGIRequest: HttpWorkerRequest {

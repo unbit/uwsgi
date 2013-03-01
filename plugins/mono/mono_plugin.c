@@ -58,12 +58,12 @@ struct uwsgi_mono {
 	MonoMethod *create_application_host;
 
 	MonoClass *application_class;
+	MonoClass *api_class;
 
 	// thunk
 	void (*process_request)(MonoObject *, MonoException **);
 
 	struct uwsgi_string_list *app;
-	struct uwsgi_string_list *shared_exec;
 	struct uwsgi_string_list *exec;
 	
 } umono;
@@ -76,7 +76,6 @@ struct uwsgi_option uwsgi_mono_options[] = {
         {"mono-version", required_argument, 0, "set the Mono jit version", uwsgi_opt_set_str, &umono.version, 0},
         {"mono-config", required_argument, 0, "set the Mono config file", uwsgi_opt_set_str, &umono.config, 0},
         {"mono-assembly", required_argument, 0, "load the specified main assembly (default: uwsgi.dll)", uwsgi_opt_set_str, &umono.assembly_name, 0},
-        {"mono-shared-exec", required_argument, 0, "exec the specified assembly after the main", uwsgi_opt_add_string_list, &umono.shared_exec, 0},
         {"mono-exec", required_argument, 0, "exec the specified assembly just before app loading", uwsgi_opt_add_string_list, &umono.exec, 0},
 };
 
@@ -206,7 +205,19 @@ static int uwsgi_mono_method_GetTotalEntityBodyLength(MonoObject *this) {
 	return wsgi_req->post_cl;
 }
 
+static void uwsgi_mono_method_api_RegisterSignal(int signum, MonoString *target, MonoMethod *func) {
+}
+
+static void uwsgi_mono_method_api_Signal(int signum) {
+	uwsgi_signal_send(uwsgi.signal_socket, signum);
+}
+
+static int uwsgi_mono_method_api_WorkerId() {
+	return uwsgi.mywid;
+}
+
 static void uwsgi_mono_add_internal_calls() {
+	// uWSGIRequest
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendResponseFromMemory", uwsgi_mono_method_SendResponseFromMemory);
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendStatus", uwsgi_mono_method_SendStatus);
 	mono_add_internal_call("uwsgi.uWSGIRequest::SendUnknownResponseHeader", uwsgi_mono_method_SendUnknownResponseHeader);
@@ -225,6 +236,11 @@ static void uwsgi_mono_add_internal_calls() {
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetHttpVersion", uwsgi_mono_method_GetHttpVersion);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetServerVariable", uwsgi_mono_method_GetServerVariable);
 	mono_add_internal_call("uwsgi.uWSGIRequest::GetRemoteAddress", uwsgi_mono_method_GetRemoteAddress);
+
+	// api
+	mono_add_internal_call("uwsgi.api::RegisterSignal", uwsgi_mono_method_api_RegisterSignal);
+	mono_add_internal_call("uwsgi.api::Signal", uwsgi_mono_method_api_Signal);
+	mono_add_internal_call("uwsgi.api::WorkerId", uwsgi_mono_method_api_WorkerId);
 }
 
 static int uwsgi_mono_init() {
@@ -241,6 +257,13 @@ static int uwsgi_mono_init() {
 		umono.gc_freq = 1;
 	}
 
+	return 0;
+}
+
+
+static void uwsgi_mono_create_jit() {
+
+
 	mono_config_parse(umono.config);
 
 	umono.main_domain = mono_jit_init_version("uwsgi", umono.version);
@@ -249,7 +272,7 @@ static int uwsgi_mono_init() {
 		exit(1);
 	}
 
-	uwsgi_log("Mono JIT initialized with version %s\n", umono.version);
+	uwsgi_log("Mono JIT initialized on worker %d with version %s\n", uwsgi.mywid, umono.version);
 
 	MonoAssembly *assembly = mono_domain_assembly_open(umono.main_domain, umono.assembly_name);
 	if (!assembly) {
@@ -269,6 +292,12 @@ static int uwsgi_mono_init() {
 		uwsgi_log("unable to get reference to class uwsgi.uWSGIApplication\n");
 		exit(1);
 	}
+
+	umono.api_class = mono_class_from_name(image, "uwsgi", "api");
+        if (!umono.api_class) {
+                uwsgi_log("unable to get reference to class uwsgi.api\n");
+                exit(1);
+        }
 
 	MonoMethodDesc *desc = mono_method_desc_new("uwsgi.uWSGIApplication:.ctor(string,string)", 1);
 	if (!desc) {
@@ -296,7 +325,7 @@ static int uwsgi_mono_init() {
 
 	umono.process_request = mono_method_get_unmanaged_thunk(process_request);
 
-	struct uwsgi_string_list *usl = umono.shared_exec;
+	struct uwsgi_string_list *usl = umono.exec;
 	while(usl) {
 		char *assembly_name = usl->value;
 		char *argv = "";
@@ -318,7 +347,6 @@ static int uwsgi_mono_init() {
 		usl = usl->next;
 	}
 
-	return 0;
 }
 
 static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir, uint16_t physicalDir_len, int new_domain) {
@@ -349,7 +377,7 @@ static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir,
         app->startup_time = uwsgi_now() - now;
 	// get a handlet to appHost
 	mono_gchandle_new(app->callable, 1);
-	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (domain %p)\n", id, key_len, key, (int) app->startup_time, appHost, mono_domain_get());
+	uwsgi_log("Mono asp.net app %d (%.*s) loaded in %d seconds at %p (worker %d)\n", id, key_len, key, (int) app->startup_time, appHost, uwsgi.mywid);
 
 	// set it as default app if needed
 	if (uwsgi.default_app == -1) {
@@ -360,6 +388,10 @@ static int uwsgi_mono_create_app(char *key, uint16_t key_len, char *physicalDir,
 }
 
 static void uwsgi_mono_init_apps() {
+
+	if (!umono.main_domain) {
+		uwsgi_mono_create_jit();
+	}
 
 	struct uwsgi_string_list *usl = umono.app;
 
@@ -499,6 +531,28 @@ static void uwsgi_mono_enable_threads(void) {
         pthread_atfork(uwsgi_mono_pthread_prepare, uwsgi_mono_pthread_parent, uwsgi_mono_pthread_child);
 }
 
+static void uwsgi_mono_post_fork() {
+
+	// yes, ono is not fork-friendly, so we initialize it in the post_fork hook
+	uwsgi_mono_init_apps();
+
+	MonoMethodDesc *desc = mono_method_desc_new("uwsgi.api:RunPostForkHook()", 1);
+        if (!desc) {
+		return;
+        }
+        MonoMethod *method = mono_method_desc_search_in_class(desc, umono.api_class);
+        mono_method_desc_free(desc);
+        if (!method) {
+		return;
+        }
+
+	MonoObject *exc = NULL;
+	mono_runtime_invoke(method, NULL, NULL, &exc);
+	if (exc) {
+		mono_print_unhandled_exception(exc);
+	}
+}
+
 struct uwsgi_plugin mono_plugin = {
 
 	.name = "mono",
@@ -507,11 +561,12 @@ struct uwsgi_plugin mono_plugin = {
 	.options = uwsgi_mono_options,
 
 	.init = uwsgi_mono_init,
-	.init_apps = uwsgi_mono_init_apps,
 
 	.request = uwsgi_mono_request,
 	.after_request = uwsgi_mono_after_request,
 
 	.init_thread = uwsgi_mono_init_thread,
 	.enable_threads = uwsgi_mono_enable_threads,
+
+	.post_fork = uwsgi_mono_post_fork,
 };
