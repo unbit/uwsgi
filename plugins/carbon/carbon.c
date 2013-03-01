@@ -78,7 +78,7 @@ static void carbon_post_init() {
 	if (u_carbon.max_retries <= 0) u_carbon.max_retries = 1;
 	if (u_carbon.retry_delay <= 0) u_carbon.retry_delay = 7;
 	if (!u_carbon.id) { 
-		u_carbon.id = uwsgi_str(uwsgi.sockets->name);
+		u_carbon.id = uwsgi_concat3(uwsgi.hostname, "_", uwsgi.sockets->name);
 
 		for(i=0;i<(int)strlen(u_carbon.id);i++) {
 			if (u_carbon.id[i] == '.') u_carbon.id[i] = '_';
