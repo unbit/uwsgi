@@ -71,6 +71,7 @@ int uwsgi_request_ping(struct wsgi_request *wsgi_req) {
 	uwsgi_log( "PING\n");
 	wsgi_req->uh->modifier2 = 1;
 	wsgi_req->uh->pktsize = 0;
+	wsgi_req->do_not_account = 1;
 
 	len = strlen(uwsgi.shared->warning_message);
 	if (len > 0) {
