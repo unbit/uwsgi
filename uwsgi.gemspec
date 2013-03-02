@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.email       = 'info@unbit.it'
   s.extensions  = ['ext/uwsgi/extconf.rb']
   s.files       = []
-  s.require_paths = ['']
+  s.require_paths = ['.']
   s.executables << 'uwsgi'
   s.homepage    = 'http://projects.unbit.it/uwsgi'
 end
