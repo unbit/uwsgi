@@ -34,10 +34,17 @@ else:
     CFLAGS.append('-I' + archdir + '/' + arch)
     CFLAGS.append('-I' + includedir + '/' + arch)
 
-LDFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LDFLAGS']\"" % rbconfig).read().rstrip().split()
 
+LDFLAGS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LDFLAGS']\"" % rbconfig).read().rstrip().split()
 libpath = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['libdir']\"" % rbconfig).read().rstrip()
-LDFLAGS.append('-L' + libpath )
-os.environ['LD_RUN_PATH'] = libpath
-LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + %s::CONFIG['RUBY_SO_NAME']\"" % rbconfig).read().rstrip().split()
+
+has_shared = os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['ENABLE_SHARED']\"" % rbconfig).read().rstrip()
+
+if has_shared == 'yes':
+    LDFLAGS.append('-L' + libpath )
+    os.environ['LD_RUN_PATH'] = libpath
+    LIBS = os.popen(RUBYPATH + " -e \"require 'rbconfig';print '-l' + %s::CONFIG['RUBY_SO_NAME']\"" % rbconfig).read().rstrip().split()
+else:
+    LIBS = []
+    GCC_LIST.append("%s/%s" % (libpath, os.popen(RUBYPATH + " -e \"require 'rbconfig';print %s::CONFIG['LIBRUBY_A']\"" % rbconfig).read().rstrip()))
 
