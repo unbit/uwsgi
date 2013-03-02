@@ -551,8 +551,8 @@ ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
         if (err == SSL_ERROR_WANT_READ) {
                 if (cs->event_hook_write) {
                         uwsgi_cr_hook_write(cs, NULL);
-                        uwsgi_cr_hook_read(cs, hr_read_ssl_body);
                 }
+                uwsgi_cr_hook_read(cs, hr_read_ssl_body);
                 errno = EINPROGRESS;
                 return -1;
         }
@@ -560,8 +560,8 @@ ssize_t hr_read_ssl_body(struct corerouter_session * cs) {
         else if (err == SSL_ERROR_WANT_WRITE) {
                 if (cs->event_hook_read) {
                         uwsgi_cr_hook_read(cs, NULL);
-                        uwsgi_cr_hook_write(cs, hr_read_ssl_body);
                 }
+                uwsgi_cr_hook_write(cs, hr_read_ssl_body);
                 errno = EINPROGRESS;
                 return -1;
         }
@@ -625,16 +625,16 @@ ssize_t hr_write_ssl_response(struct corerouter_session * cs) {
         if (err == SSL_ERROR_WANT_READ) {
 		if (cs->event_hook_write) {
 			uwsgi_cr_hook_write(cs, NULL);
-			uwsgi_cr_hook_read(cs, hr_write_ssl_response);
 		}
+		uwsgi_cr_hook_read(cs, hr_write_ssl_response);
                 errno = EINPROGRESS;
                 return -1;
         }
         else if (err == SSL_ERROR_WANT_WRITE) {
 		if (cs->event_hook_read) {
 			uwsgi_cr_hook_read(cs, NULL);
-			uwsgi_cr_hook_write(cs, hr_write_ssl_response);
 		}
+		uwsgi_cr_hook_write(cs, hr_write_ssl_response);
                 errno = EINPROGRESS;
                 return -1;
         }
@@ -839,16 +839,16 @@ ssize_t hr_send_expect_continue(struct corerouter_session * cs) {
         	if (err == SSL_ERROR_WANT_READ) {
                 	if (cs->event_hook_write) {
                         	uwsgi_cr_hook_write(cs, NULL);
-                        	uwsgi_cr_hook_read(cs, hr_write_ssl_response);
                 	}
+                        uwsgi_cr_hook_read(cs, hr_write_ssl_response);
                 	errno = EINPROGRESS;
                 	return -1;
         	}
         	else if (err == SSL_ERROR_WANT_WRITE) {
                 	if (cs->event_hook_read) {
                         	uwsgi_cr_hook_read(cs, NULL);
-                        	uwsgi_cr_hook_write(cs, hr_write_ssl_response);
                 	}
+                        uwsgi_cr_hook_write(cs, hr_write_ssl_response);
                 	errno = EINPROGRESS;
                 	return -1;
         	}
@@ -949,8 +949,8 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
 	if (err == SSL_ERROR_WANT_READ) {
                 if (cs->event_hook_write) {
                         uwsgi_cr_hook_write(cs, NULL);
-                        uwsgi_cr_hook_read(cs, hr_recv_http_ssl);
                 }
+                uwsgi_cr_hook_read(cs, hr_recv_http_ssl);
                 errno = EINPROGRESS;
                 return -1;
         }
@@ -958,8 +958,8 @@ ssize_t hr_recv_http_ssl(struct corerouter_session * cs) {
         else if (err == SSL_ERROR_WANT_WRITE) {
                 if (cs->event_hook_read) {
                         uwsgi_cr_hook_read(cs, NULL);
-                        uwsgi_cr_hook_write(cs, hr_recv_http_ssl);
                 }
+                uwsgi_cr_hook_write(cs, hr_recv_http_ssl);
                 errno = EINPROGRESS;
                 return -1;
         }
