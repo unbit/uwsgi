@@ -834,23 +834,7 @@ void uwsgi_corerouter_loop(int id, void *data) {
 				}
 
 				// not having a hook could mean a previous event in the loop cleared it...
-				if (!hook) {
-					// a single event cannot be unexpected..
-					if (nevents == 1) {
-						if (interesting_fd == cr_session->instance_fd) {
-							uwsgi_log("[uwsgi-corerouter] BUG, unexpected event received from backend instance (fd: %d nevents: %d) !!!\n", interesting_fd, nevents);
-						}
-						else if (interesting_fd == cr_session->fd) {
-							uwsgi_log("[uwsgi-corerouter] BUG, unexpected event received from client (fd: %d nevents: %d)!!!\n", interesting_fd, nevents);
-						}
-						else {
-							uwsgi_log("[uwsgi-corerouter] BUG, unexpected event received !!!\n");
-						}
-						corerouter_close_session(ucr, cr_session);
-					}
-					continue;
-				}
-
+				if (!hook) continue;
 				// reset errno (as we use it for internal signalling)
 				errno = 0;
 				ssize_t ret = hook(cr_session);

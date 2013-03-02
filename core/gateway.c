@@ -41,6 +41,10 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop) (int, void *), v
 	return ug;
 }
 
+static void gateway_brutal_end() {
+	_exit(UWSGI_END_CODE);
+}
+
 void gateway_respawn(int id) {
 
 	pid_t gw_pid;
@@ -65,6 +69,7 @@ void gateway_respawn(int id) {
 		}
 #endif
 		uwsgi.mypid = getpid();
+		atexit(gateway_brutal_end);
 		signal(SIGALRM, SIG_IGN);
 		signal(SIGHUP, SIG_IGN);
 		signal(SIGINT, end_me);
@@ -77,7 +82,7 @@ void gateway_respawn(int id) {
 
 		ug->loop(id, ug->data);
 		// never here !!! (i hope)
-		exit(1);
+		_exit(1);
 	}
 
 	ug->pid = gw_pid;
