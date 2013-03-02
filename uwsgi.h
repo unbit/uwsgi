@@ -1265,6 +1265,8 @@ struct uwsgi_router {
 
 		int do_not_add_to_async_queue;
 
+		int do_not_account;
+
 		int status;
 		struct uwsgi_buffer *headers;
 
