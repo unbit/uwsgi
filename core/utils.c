@@ -622,12 +622,14 @@ void uwsgi_close_request(struct wsgi_request *wsgi_req) {
 		free(wsgi_req->proto_parser_buf);
 	}
 
-	uwsgi.workers[0].requests++;
-	uwsgi.workers[uwsgi.mywid].requests++;
-	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
-	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].write_errors += wsgi_req->write_errors;
-	// this is used for MAX_REQUESTS
-	uwsgi.workers[uwsgi.mywid].delta_requests++;
+	if (!wsgi_req->do_not_account) {
+		uwsgi.workers[0].requests++;
+		uwsgi.workers[uwsgi.mywid].requests++;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].requests++;
+		uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].write_errors += wsgi_req->write_errors;
+		// this is used for MAX_REQUESTS
+		uwsgi.workers[uwsgi.mywid].delta_requests++;
+	}
 
 	// after_request hook
 	if (uwsgi.p[wsgi_req->uh->modifier1]->after_request)
