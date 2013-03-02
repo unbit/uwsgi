@@ -1309,6 +1309,9 @@ struct uwsgi_server {
 
 	int reuse_port;
 
+	uint64_t http_modifier1;
+	uint64_t http_modifier2;
+
 	// enable lazy mode
 	int lazy;
 	// enable lazy-apps mode

@@ -338,6 +338,8 @@ int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 				memcpy(post_tail, ptr, remains);
 			}
 			http_parse(wsgi_req, ptr);
+			wsgi_req->uh.modifier1 = uwsgi.http_modifier1;
+			wsgi_req->uh.modifier2 = uwsgi.http_modifier2;
 			//is there a Content_Length ?
 			if (wsgi_req->post_cl > 0) {
 				wsgi_req->async_post = tmpfile();
