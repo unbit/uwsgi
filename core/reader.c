@@ -67,6 +67,10 @@ void uwsgi_request_body_seek(struct wsgi_request *wsgi_req, off_t pos) {
 
 */
 
+#define uwsgi_read_error0(x) uwsgi_log("[uwsgi-body-read] Error reading %llu bytes. Content-Length: %llu consumed: %llu left: %llu message: Client closed connection\n",\
+                        (unsigned long long) x,\
+                        (unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos);
+
 #define uwsgi_read_error(x) uwsgi_log("[uwsgi-body-read] Error reading %llu bytes. Content-Length: %llu consumed: %llu left: %llu message: %s\n",\
 			(unsigned long long) x,\
 			(unsigned long long) wsgi_req->post_cl, (unsigned long long) wsgi_req->post_pos, (unsigned long long) wsgi_req->post_cl-wsgi_req->post_pos,\
@@ -365,7 +369,7 @@ char *uwsgi_request_body_read(struct wsgi_request *wsgi_req, ssize_t hint, ssize
 		// client closed connection...
 		if (len == 0) {
 			*rlen = -1;
-			uwsgi_read_error(remains);
+			uwsgi_read_error0(remains);
 			return NULL;
 		}
 		if (len < 0) {
@@ -387,7 +391,12 @@ wait:
                         	continue;
 			}
 			*rlen = -1;
-			uwsgi_read_error(remains);
+			if (len == 0) {
+				uwsgi_read_error0(remains);
+			}
+			else {
+				uwsgi_read_error(remains);
+			}
 			return NULL;
 		}
 		// 0 means timeout
@@ -428,7 +437,7 @@ int uwsgi_postbuffer_do_in_mem(struct wsgi_request *wsgi_req) {
 			continue;
 		}
                 if (rlen == 0) {
-			uwsgi_read_error(remains);
+			uwsgi_read_error0(remains);
 			return -1; 
 		}
                 if (rlen < 0) {
@@ -499,7 +508,7 @@ int uwsgi_postbuffer_do_in_disk(struct wsgi_request *wsgi_req) {
                 ssize_t rlen = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_buffering_buf, remains);
                 if (rlen > 0) goto write;
                 if (rlen == 0) {
-			uwsgi_read_error(remains);
+			uwsgi_read_error0(remains);
 			goto end;
 		}
                 if (rlen < 0) {
@@ -515,10 +524,13 @@ wait:
                 if (ret > 0) {
 			rlen = wsgi_req->socket->proto_read_body(wsgi_req, wsgi_req->post_buffering_buf, remains);
 			if (rlen > 0) goto write;
-			if (rlen <= 0) {
-				uwsgi_read_error(remains);
-                        	goto end;
+			if (rlen == 0) {
+				uwsgi_read_error0(remains);
 			}
+			else {
+				uwsgi_read_error(remains);
+			}
+                        goto end;
 		}
                 if (ret < 0) {
 			uwsgi_read_error(remains);
