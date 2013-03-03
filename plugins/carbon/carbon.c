@@ -142,6 +142,7 @@ static int carbon_write(int fd, char *fmt,...) {
 
 static void carbon_push_stats(int retry_cycle, time_t now) {
 	struct carbon_server_list *usl = u_carbon.servers_data;
+	if (!u_carbon.servers_data) return;
 	int i;
 	int fd;
 	int wok;
