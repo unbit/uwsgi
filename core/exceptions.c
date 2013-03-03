@@ -316,12 +316,11 @@ static void uwsgi_exception_run_handlers(struct uwsgi_buffer *ub) {
 
 void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 
-	int do_exit = 0;
+	int do_exit = uwsgi.reload_on_exception;
 
-	if (uwsgi.reload_on_exception) {
-		do_exit = 1;	
-		goto check_catch;
-	}
+	if (!wsgi_req) goto log2;
+
+	if (do_exit) goto check_catch;
 
 	if (wsgi_req && uwsgi.exception_handlers_instance) {
 		struct uwsgi_buffer *ehi = uwsgi_exception_handler_object(wsgi_req);
@@ -330,8 +329,6 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 			uwsgi_buffer_destroy(ehi);
 		}
 	}
-
-	if (!wsgi_req) goto log2;
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].exceptions++;
 	uwsgi_apps[wsgi_req->app_id].exceptions++;
@@ -452,13 +449,15 @@ static void uwsgi_exception_handler_thread_loop(struct uwsgi_thread *ut) {
                                 long ptr = 0;
                                 memcpy(&ptr, buf, sizeof(long));
                                 struct uwsgi_exception_handler_instance *uehi = (struct uwsgi_exception_handler_instance *) ptr;
-                                if (!uehi) return;
+                                if (!uehi)
+					break;
 				if (uehi->handler->func(uehi, msg, msg_size)) {
                         		uwsgi_log("[uwsgi-exception] error running the handler \"%s\" args: \"%s\"\n", uehi->handler->name, uehi->arg ? uehi->arg : "");
                 		}
                         }
                 }
         }
+	free(buf);
 }
 
 void uwsgi_exception_setup_handlers() {
@@ -473,8 +472,11 @@ void uwsgi_exception_setup_handlers() {
 		struct uwsgi_exception_handler *ueh = uwsgi_exception_handler_by_name(handler);
 		if (!ueh) {
 			uwsgi_log("unable to find exception handler: %s\n", handler);
+			free(handler);
 			exit(1);
 		}
+		free(handler);
+
 		struct uwsgi_exception_handler_instance *uehi = uwsgi_calloc(sizeof(struct uwsgi_exception_handler_instance));
 		uehi->handler = ueh;
 		if (colon) {
