@@ -4,8 +4,10 @@
 
 struct uwsgi_jvm {
 
-        JNIEnv  *env;
+	JavaVM *vm;
 	JavaVMInitArgs vm_args;
+
+	pthread_key_t env;
 
         struct uwsgi_string_list *classpath;
         struct uwsgi_string_list *classes;
@@ -18,6 +20,7 @@ struct uwsgi_jvm {
 	jmethodID api_rpc_function_mid;
 };
 
+#define ujvm_env ((JNIEnv*)pthread_getspecific(ujvm.env))
 
 jclass uwsgi_jvm_class(char *);
 jobject uwsgi_jvm_ref(jobject);

@@ -48,24 +48,24 @@ static struct uwsgi_option uwsgi_jvm_options[] = {
 // returns 0 if ok, -1 on exception
 int uwsgi_jvm_exception(void) {
 
-	if ((*ujvm.env)->ExceptionOccurred(ujvm.env)) {
-        	(*ujvm.env)->ExceptionDescribe(ujvm.env);
-        	(*ujvm.env)->ExceptionClear(ujvm.env);
+	if ((*ujvm_env)->ExceptionOccurred(ujvm_env)) {
+        	(*ujvm_env)->ExceptionDescribe(ujvm_env);
+        	(*ujvm_env)->ExceptionClear(ujvm_env);
 		return -1;
 	}
 	return 0;
 }
 
 void uwsgi_jvm_clear_exception() {
-	if ((*ujvm.env)->ExceptionOccurred(ujvm.env)) {
-		(*ujvm.env)->ExceptionClear(ujvm.env);
+	if ((*ujvm_env)->ExceptionOccurred(ujvm_env)) {
+		(*ujvm_env)->ExceptionClear(ujvm_env);
 	}
 }
 
 // load/find/get a class
 jclass uwsgi_jvm_class(char *name) {
 
-	jclass my_class = (*ujvm.env)->FindClass(ujvm.env, name);
+	jclass my_class = (*ujvm_env)->FindClass(ujvm_env, name);
 
 	if (uwsgi_jvm_exception()) {
 		return NULL;
@@ -77,31 +77,31 @@ jclass uwsgi_jvm_class(char *name) {
 
 // returns the method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_method_id(jclass cls, char *name, char *signature) {
-	return (*ujvm.env)->GetMethodID(ujvm.env, cls, name, signature);
+	return (*ujvm_env)->GetMethodID(ujvm_env, cls, name, signature);
 }
 
 // returns the static method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_static_method_id(jclass cls, char *name, char *signature) {
-	return (*ujvm.env)->GetStaticMethodID(ujvm.env, cls, name, signature);
+	return (*ujvm_env)->GetStaticMethodID(ujvm_env, cls, name, signature);
 }
 
 jobject uwsgi_jvm_ref(jobject obj) {
-	return (*ujvm.env)->NewGlobalRef(ujvm.env, obj);
+	return (*ujvm_env)->NewGlobalRef(ujvm_env, obj);
 }
 
 void uwsgi_jvm_unref(jobject obj) {
-	(*ujvm.env)->DeleteLocalRef(ujvm.env, obj);
+	(*ujvm_env)->DeleteLocalRef(ujvm_env, obj);
 }
 
 jobject uwsgi_jvm_str(char *str, size_t len) {
 	jobject new_str;
 	if (len > 0) {
 		char *tmp = uwsgi_concat2n(str, len, "", 0);
-		new_str = (*ujvm.env)->NewStringUTF(ujvm.env, tmp);	
+		new_str = (*ujvm_env)->NewStringUTF(ujvm_env, tmp);	
 		free(tmp);
 	}
 	else {
-		new_str = (*ujvm.env)->NewStringUTF(ujvm.env, str);
+		new_str = (*ujvm_env)->NewStringUTF(ujvm_env, str);
 	}
 	
 	return new_str;
@@ -110,7 +110,7 @@ jobject uwsgi_jvm_str(char *str, size_t len) {
 int uwsgi_jvm_call_static(jclass c, jmethodID mid, ...) {
 	va_list args;
 	va_start(args, mid);
-	(*ujvm.env)->CallStaticVoidMethod(ujvm.env, c, mid, args);
+	(*ujvm_env)->CallStaticVoidMethod(ujvm_env, c, mid, args);
 	va_end(args);
         return uwsgi_jvm_exception();
 }
@@ -118,13 +118,13 @@ int uwsgi_jvm_call_static(jclass c, jmethodID mid, ...) {
 int uwsgi_jvm_call(jobject o, jmethodID mid, ...) {
 	va_list args;
 	va_start(args, mid);
-        (*ujvm.env)->CallVoidMethodV(ujvm.env, o, mid, args);
+        (*ujvm_env)->CallVoidMethodV(ujvm_env, o, mid, args);
 	va_end(args);
         return uwsgi_jvm_exception();
 }
 
 jobject uwsgi_jvm_call_objectA(jobject o, jmethodID mid, jvalue *args) {
-	jobject ret = (*ujvm.env)->CallObjectMethodA(ujvm.env, o, mid, args);
+	jobject ret = (*ujvm_env)->CallObjectMethodA(ujvm_env, o, mid, args);
 	if (uwsgi_jvm_exception()) {
 		return NULL;
 	}	
@@ -132,7 +132,7 @@ jobject uwsgi_jvm_call_objectA(jobject o, jmethodID mid, jvalue *args) {
 }
 
 void uwsgi_jvm_throw(char *message) {
-	(*ujvm.env)->ThrowNew(ujvm.env, ujvm.runtime_exception, message);
+	(*ujvm_env)->ThrowNew(ujvm_env, ujvm.runtime_exception, message);
 }
 
 static int uwsgi_jvm_init(void) {
@@ -142,7 +142,6 @@ static int uwsgi_jvm_init(void) {
 
 static void uwsgi_jvm_create(void) {
 
-	JavaVM *jvm;
 	JavaVMOption options[1];
 
         ujvm.vm_args.version = JNI_VERSION_1_2;
@@ -168,23 +167,31 @@ static void uwsgi_jvm_create(void) {
         ujvm.vm_args.options  = options;
         ujvm.vm_args.nOptions = 1;
 
-	if (JNI_CreateJavaVM(&jvm, (void **) &ujvm.env, &ujvm.vm_args)) {
+	JNIEnv  *env;
+	if (pthread_key_create(&ujvm.env, NULL)) {
+        	uwsgi_error("pthread_key_create()");
+                exit(1);
+        }
+
+	if (JNI_CreateJavaVM(&ujvm.vm, (void **) &env, &ujvm.vm_args)) {
 		uwsgi_log("unable to initialize the JVM\n");
 		exit(1);
 	}
 
+	pthread_setspecific(ujvm.env, env);
+
 	char *java_version = NULL;
 	jvmtiEnv *jvmti;
-	if ((*jvm)->GetEnv(jvm, (void **)&jvmti, JVMTI_VERSION) == JNI_OK) {
+	if ((*ujvm.vm)->GetEnv(ujvm.vm, (void **)&jvmti, JVMTI_VERSION) == JNI_OK) {
 		(*jvmti)->GetSystemProperty(jvmti, "java.vm.version", &java_version);
 	}
 
 	if (uwsgi.mywid > 0) {
 		if (java_version) {
-			uwsgi_log("JVM %s initialized at %p (worker: %d pid: %d)\n", java_version, ujvm.env, uwsgi.mywid, (int) uwsgi.mypid);
+			uwsgi_log("JVM %s initialized at %p (worker: %d pid: %d)\n", java_version, ujvm_env, uwsgi.mywid, (int) uwsgi.mypid);
 		}
 		else {
-			uwsgi_log("JVM initialized at %p (worker: %d pid: %d)\n", ujvm.env, uwsgi.mywid, (int) uwsgi.mypid);
+			uwsgi_log("JVM initialized at %p (worker: %d pid: %d)\n", ujvm_env, uwsgi.mywid, (int) uwsgi.mypid);
 		}
 	}
 
@@ -198,7 +205,7 @@ static void uwsgi_jvm_create(void) {
 	if (!uwsgi_class) {
 		exit(1);
 	}
-	(*ujvm.env)->RegisterNatives(ujvm.env, uwsgi_class, uwsgi_jvm_api_methods, sizeof(uwsgi_jvm_api_methods)/sizeof(uwsgi_jvm_api_methods[0]));
+	(*ujvm_env)->RegisterNatives(ujvm_env, uwsgi_class, uwsgi_jvm_api_methods, sizeof(uwsgi_jvm_api_methods)/sizeof(uwsgi_jvm_api_methods[0]));
 	if (uwsgi_jvm_exception()) {
 		exit(1);
 	}
@@ -238,12 +245,12 @@ static void uwsgi_jvm_create(void) {
 
 // get the raw body of a java string
 char *uwsgi_jvm_str2c(jobject obj) {
-    return (char *) (*ujvm.env)->GetStringUTFChars(ujvm.env, obj, NULL);
+    return (char *) (*ujvm_env)->GetStringUTFChars(ujvm_env, obj, NULL);
 }
 
 // return the size of a java string (UTF8)
 size_t uwsgi_jvm_strlen(jobject obj) {
-	return (*ujvm.env)->GetStringUTFLength(ujvm.env, obj);
+	return (*ujvm_env)->GetStringUTFLength(ujvm_env, obj);
 }
 
 static int uwsgi_jvm_signal_handler(uint8_t signum, void *handler) {
@@ -257,20 +264,20 @@ static int uwsgi_jvm_request(struct wsgi_request *wsgi_req) {
 }
 
 void uwsgi_jvm_release_chars(jobject o, char *str) {
-	(*ujvm.env)->ReleaseStringUTFChars(ujvm.env, o, str);
+	(*ujvm_env)->ReleaseStringUTFChars(ujvm_env, o, str);
 }
 
 static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
 	jvalue args[1];
-	jobject str_array = (*ujvm.env)->NewObjectArray(ujvm.env, argc, ujvm.str_class, NULL);
+	jobject str_array = (*ujvm_env)->NewObjectArray(ujvm_env, argc, ujvm.str_class, NULL);
 	uint8_t i;
 	for(i=0;i<argc;i++) {
 		uwsgi_log("%.*s\n", argvs[i], argv[i]);
-		(*ujvm.env)->SetObjectArrayElement(ujvm.env, str_array, i, uwsgi_jvm_str(argv[i], argvs[i]));
+		(*ujvm_env)->SetObjectArrayElement(ujvm_env, str_array, i, uwsgi_jvm_str(argv[i], argvs[i]));
 	}
 	args[0].l = str_array;
 	jobject ret = uwsgi_jvm_call_objectA(func, ujvm.api_rpc_function_mid, args);
-	(*ujvm.env)->DeleteLocalRef(ujvm.env, str_array);
+	(*ujvm_env)->DeleteLocalRef(ujvm_env, str_array);
 	if (ret == NULL) {
 		goto end;
 	}
@@ -279,12 +286,18 @@ static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t ar
 		char *b = uwsgi_jvm_str2c(ret);
 		memcpy(buffer, b, rlen);
 		uwsgi_jvm_release_chars(ret, b);
-		(*ujvm.env)->DeleteLocalRef(ujvm.env, ret);
+		(*ujvm_env)->DeleteLocalRef(ujvm_env, ret);
 		return rlen;
 	}
 end:
-	(*ujvm.env)->DeleteLocalRef(ujvm.env, ret);
+	(*ujvm_env)->DeleteLocalRef(ujvm_env, ret);
 	return 0;
+}
+
+static void uwsgi_jvm_init_thread(int coreid) {
+	JNIEnv *env;
+	(*ujvm.vm)->AttachCurrentThread(ujvm.vm, (void **) &env, NULL);
+	pthread_setspecific(ujvm.env, env);
 }
 
 struct uwsgi_plugin jvm_plugin = {
@@ -300,6 +313,8 @@ struct uwsgi_plugin jvm_plugin = {
 
 	.signal_handler = uwsgi_jvm_signal_handler,
 	.rpc = uwsgi_jvm_rpc,
+
+	.init_thread = uwsgi_jvm_init_thread,
 };
 
 
