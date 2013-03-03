@@ -473,8 +473,11 @@ void uwsgi_exception_setup_handlers() {
 		struct uwsgi_exception_handler *ueh = uwsgi_exception_handler_by_name(handler);
 		if (!ueh) {
 			uwsgi_log("unable to find exception handler: %s\n", handler);
+			free(handler);
 			exit(1);
 		}
+		free(handler);
+
 		struct uwsgi_exception_handler_instance *uehi = uwsgi_calloc(sizeof(struct uwsgi_exception_handler_instance));
 		uehi->handler = ueh;
 		if (colon) {
