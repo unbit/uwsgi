@@ -7,26 +7,23 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 	struct uwsgi_rpc *urpc;
 	int ret = -1;
 
-	if (uwsgi.mywid != 0) {
-		uwsgi_log("you can register RPC functions only in the master\n");
+	if (uwsgi.mywid == 0 && uwsgi.workers[0].pid != uwsgi.mypid) {
+		uwsgi_log("only the master and the workers can register RPC functions\n");
 		return -1;
 	}
 
 	uwsgi_lock(uwsgi.rpc_table_lock);
 
-	if (uwsgi.shared->rpc_count < uwsgi.rpc_max) {
-		uwsgi_log("rpc_max = %d %d\n", uwsgi.rpc_max, uwsgi.shared->rpc_count);
-		urpc = &uwsgi.rpc_table[uwsgi.shared->rpc_count];
-		uwsgi_log("rpc_max = %d\n", uwsgi.rpc_max);
+	if (uwsgi.shared->rpc_count[uwsgi.mywid] < uwsgi.rpc_max) {
+		int pos = (uwsgi.mywid * uwsgi.rpc_max) + uwsgi.shared->rpc_count[uwsgi.mywid];
+		urpc = &uwsgi.rpc_table[pos];
 
-		uwsgi_log("NAME = %s %d %p\n", name, strlen(name), urpc->name);
 		memcpy(urpc->name, name, strlen(name));
-		uwsgi_log("NAME = %s\n", name);
 		urpc->modifier1 = modifier1;
 		urpc->args = args;
 		urpc->func = func;
 
-		uwsgi.shared->rpc_count++;
+		uwsgi.shared->rpc_count[uwsgi.mywid]++;
 
 		ret = 0;
 		uwsgi_log("registered RPC function %s\n", name);
@@ -43,10 +40,12 @@ uint16_t uwsgi_rpc(char *name, uint8_t argc, char *argv[], uint16_t argvs[], cha
 	uint64_t i;
 	uint16_t ret = 0;
 
-	for (i = 0; i < uwsgi.shared->rpc_count; i++) {
-		if (uwsgi.rpc_table[i].name[0] != 0) {
-			if (!strcmp(uwsgi.rpc_table[i].name, name)) {
-				urpc = &uwsgi.rpc_table[i];
+	int pos = (uwsgi.mywid * uwsgi.rpc_max);
+
+	for (i = 0; i < uwsgi.shared->rpc_count[uwsgi.mywid]; i++) {
+		if (uwsgi.rpc_table[pos + i].name[0] != 0) {
+			if (!strcmp(uwsgi.rpc_table[pos + i].name, name)) {
+				urpc = &uwsgi.rpc_table[pos + i];
 				break;
 			}
 		}
@@ -149,6 +148,6 @@ error:
 
 
 void uwsgi_rpc_init() {
-	uwsgi_log("ALLOCATE\n");
-	uwsgi.rpc_table = uwsgi_calloc_shared(sizeof(struct uwsgi_rpc) * uwsgi.rpc_max);
+	uwsgi.rpc_table = uwsgi_calloc_shared((sizeof(struct uwsgi_rpc) * uwsgi.rpc_max) * (uwsgi.numproc+1));
+	uwsgi.shared->rpc_count = uwsgi_calloc_shared(sizeof(uint64_t) * (uwsgi.numproc+1));
 }

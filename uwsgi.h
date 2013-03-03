@@ -2318,7 +2318,7 @@ struct uwsgi_rpc {
 		struct uwsgi_signal_rb_timer rb_timers[MAX_TIMERS];
 		int rb_timers_cnt;
 
-		uint64_t rpc_count;
+		uint64_t *rpc_count;
 
 		int worker_log_pipe[2];
 		// used for request logging

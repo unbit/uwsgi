@@ -5,6 +5,7 @@
 struct uwsgi_jvm {
 
         JNIEnv  *env;
+	JavaVMInitArgs vm_args;
 
         struct uwsgi_string_list *classpath;
         struct uwsgi_string_list *classes;

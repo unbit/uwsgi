@@ -137,34 +137,38 @@ void uwsgi_jvm_throw(char *message) {
 
 static int uwsgi_jvm_init(void) {
 
+	return 0;
+}
+
+static void uwsgi_jvm_create(void) {
+
 	JavaVM *jvm;
-	JavaVMInitArgs vm_args;
 	JavaVMOption options[1];
 
-	vm_args.version = JNI_VERSION_1_2;
+        ujvm.vm_args.version = JNI_VERSION_1_2;
 
-	JNI_GetDefaultJavaVMInitArgs(&vm_args);
+        JNI_GetDefaultJavaVMInitArgs(&ujvm.vm_args);
 
-	options[0].optionString = "-Djava.class.path=.";
+        options[0].optionString = "-Djava.class.path=.";
 
-	char *old_cp = NULL ;
-	struct uwsgi_string_list *cp = ujvm.classpath;
-	while(cp) {
-        	if (old_cp) {
-            		options[0].optionString = uwsgi_concat3(old_cp, ":", cp->value);
-            		free(old_cp);
-        	}
-        	else {
-            		options[0].optionString = uwsgi_concat3(options[0].optionString, ":", cp->value);
-        	}
-        	old_cp = options[0].optionString ;
-        	cp = cp->next;
-	}
+        char *old_cp = NULL ;
+        struct uwsgi_string_list *cp = ujvm.classpath;
+        while(cp) {
+                if (old_cp) {
+                        options[0].optionString = uwsgi_concat3(old_cp, ":", cp->value);
+                        free(old_cp);
+                }
+                else {
+                        options[0].optionString = uwsgi_concat3(options[0].optionString, ":", cp->value);
+                }
+                old_cp = options[0].optionString ;
+                cp = cp->next;
+        }
 
-	vm_args.options  = options;
-	vm_args.nOptions = 1;
+        ujvm.vm_args.options  = options;
+        ujvm.vm_args.nOptions = 1;
 
-	if (JNI_CreateJavaVM(&jvm, (void **) &ujvm.env, &vm_args)) {
+	if (JNI_CreateJavaVM(&jvm, (void **) &ujvm.env, &ujvm.vm_args)) {
 		uwsgi_log("unable to initialize the JVM\n");
 		exit(1);
 	}
@@ -228,9 +232,6 @@ static int uwsgi_jvm_init(void) {
 		usl = usl->next;
 	}
 
-
-	return 1;
-
 }
 
 // get the raw body of a java string
@@ -273,7 +274,7 @@ static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t ar
 		char *b = uwsgi_jvm_str2c(ret);
 		memcpy(buffer, b, rlen);
 		uwsgi_jvm_release_chars(ret, b);
-		 (*ujvm.env)->DeleteLocalRef(ujvm.env, ret);
+		(*ujvm.env)->DeleteLocalRef(ujvm.env, ret);
 		return rlen;
 	}
 end:
@@ -289,6 +290,8 @@ struct uwsgi_plugin jvm_plugin = {
 
 	.init = uwsgi_jvm_init,
 	.options = uwsgi_jvm_options,
+
+	.post_fork = uwsgi_jvm_create,
 
 	.signal_handler = uwsgi_jvm_signal_handler,
 	.rpc = uwsgi_jvm_rpc,

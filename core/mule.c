@@ -56,6 +56,7 @@ void uwsgi_mule(int id) {
 		// avoid race conditions
 		uwsgi.mules[id - 1].id = id;
 		uwsgi.mules[id - 1].pid = getpid();
+		uwsgi.mypid = uwsgi.mules[id - 1].pid;
 
 		uwsgi_fixup_fds(0, id, NULL);
 
