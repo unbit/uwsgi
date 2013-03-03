@@ -316,12 +316,11 @@ static void uwsgi_exception_run_handlers(struct uwsgi_buffer *ub) {
 
 void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 
-	int do_exit = 0;
+	int do_exit = uwsgi.reload_on_exception;
 
-	if (uwsgi.reload_on_exception) {
-		do_exit = 1;	
-		goto check_catch;
-	}
+	if (!wsgi_req) goto log2;
+
+	if (do_exit) goto check_catch;
 
 	if (wsgi_req && uwsgi.exception_handlers_instance) {
 		struct uwsgi_buffer *ehi = uwsgi_exception_handler_object(wsgi_req);
@@ -330,8 +329,6 @@ void uwsgi_manage_exception(struct wsgi_request *wsgi_req,int catch) {
 			uwsgi_buffer_destroy(ehi);
 		}
 	}
-
-	if (!wsgi_req) goto log2;
 
 	uwsgi.workers[uwsgi.mywid].cores[wsgi_req->async_id].exceptions++;
 	uwsgi_apps[wsgi_req->app_id].exceptions++;
