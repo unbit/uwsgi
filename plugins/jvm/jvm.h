@@ -11,12 +11,23 @@ struct uwsgi_jvm {
         struct uwsgi_string_list *main_classes;
 
 	jclass str_class;
+	jclass runtime_exception;
+
+	jmethodID api_signal_handler_mid;
+	jmethodID api_rpc_function_mid;
 };
 
 
 jclass uwsgi_jvm_class(char *);
 jobject uwsgi_jvm_ref(jobject);
 void uwsgi_jvm_unref(jobject);
-int uwsgi_jvm_call_static(jclass, jmethodID);
+int uwsgi_jvm_call_static(jclass, jmethodID, ...);
+int uwsgi_jvm_call(jobject, jmethodID, ...);
 
 void uwsgi_jvm_clear_exception(void);
+char *uwsgi_jvm_str2c(jobject);
+
+void uwsgi_jvm_throw(char *);
+
+jobject uwsgi_jvm_call_objectA(jobject o, jmethodID mid, jvalue *);
+void uwsgi_jvm_release_chars(jobject, char *);

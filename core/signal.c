@@ -96,6 +96,8 @@ int uwsgi_register_signal(uint8_t sig, char *receiver, void *handler, uint8_t mo
 
 	struct uwsgi_signal_entry *use = NULL;
 
+	if (!uwsgi.master_process) return -1;
+
 	if (strlen(receiver) > 63)
 		return -1;
 

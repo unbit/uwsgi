@@ -2167,6 +2167,9 @@ int uwsgi_start(void *v_argv) {
 	// setup locking
 	uwsgi_setup_locking();
 
+	// allocate rpc structures
+        uwsgi_rpc_init();
+
 	// setup sharedarea
 	if (uwsgi.sharedareasize > 0) {
 		uwsgi.sharedarea = uwsgi_calloc_shared(uwsgi.page_size * uwsgi.sharedareasize);
@@ -2392,9 +2395,6 @@ unsafe:
 			create_signal_pipe(uwsgi.workers[i].signal_pipe);
 		}
 	}
-
-	// allocate rpc structures
-	uwsgi_rpc_init();
 
 	// set masterpid
 	uwsgi.mypid = getpid();

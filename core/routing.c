@@ -734,6 +734,7 @@ struct uwsgi_route_condition *uwsgi_register_route_condition(char *name, int (*f
 
 void uwsgi_routing_dump() {
 	struct uwsgi_route *routes = uwsgi.routes;
+	if (!routes) return;
 	uwsgi_log("*** dumping internal routing table ***\n");
 	while(routes) {
 		if (routes->label) {

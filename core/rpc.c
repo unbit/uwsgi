@@ -15,9 +15,13 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 	uwsgi_lock(uwsgi.rpc_table_lock);
 
 	if (uwsgi.shared->rpc_count < uwsgi.rpc_max) {
+		uwsgi_log("rpc_max = %d %d\n", uwsgi.rpc_max, uwsgi.shared->rpc_count);
 		urpc = &uwsgi.rpc_table[uwsgi.shared->rpc_count];
+		uwsgi_log("rpc_max = %d\n", uwsgi.rpc_max);
 
+		uwsgi_log("NAME = %s %d %p\n", name, strlen(name), urpc->name);
 		memcpy(urpc->name, name, strlen(name));
+		uwsgi_log("NAME = %s\n", name);
 		urpc->modifier1 = modifier1;
 		urpc->args = args;
 		urpc->func = func;
@@ -69,7 +73,7 @@ char *uwsgi_do_rpc(char *node, char *func, uint8_t argc, char *argv[], uint16_t 
 
 	if (node == NULL || !strcmp(node, "")) {
 		// allocate the whole buffer
-		buffer = uwsgi_malloc(65536);
+		buffer = uwsgi_malloc(UMAX16);
 		*len = uwsgi_rpc(func, argc, argv, argvs, buffer);
 		return buffer;
 	}
@@ -145,5 +149,6 @@ error:
 
 
 void uwsgi_rpc_init() {
+	uwsgi_log("ALLOCATE\n");
 	uwsgi.rpc_table = uwsgi_calloc_shared(sizeof(struct uwsgi_rpc) * uwsgi.rpc_max);
 }

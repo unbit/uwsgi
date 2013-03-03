@@ -540,7 +540,7 @@ static void uwsgi_mono_enable_threads(void) {
 
 static void uwsgi_mono_post_fork() {
 
-	// yes, ono is not fork-friendly, so we initialize it in the post_fork hook
+	// yes, Mono is not fork-friendly, so we initialize it in the post_fork hook
 	uwsgi_mono_init_apps();
 
 	MonoMethodDesc *desc = mono_method_desc_new("uwsgi.api:RunPostForkHook()", 1);

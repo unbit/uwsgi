@@ -7,6 +7,7 @@ extern "C" {
 #endif
 
 #define UMAX16	65536
+#define UMAX8	256
 
 #define UMAX64_STR "18446744073709551616"
 
@@ -2239,7 +2240,7 @@ struct uwsgi_server {
 	};
 
 struct uwsgi_rpc {
-	char name[0xff];
+	char name[UMAX8];
 	void *func;
 	uint8_t args;
 	uint8_t modifier1;
