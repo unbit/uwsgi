@@ -148,6 +148,7 @@ static time_t parse_http_date(char *date, uint16_t len) {
 
         case 'N':
                 hdtm.tm_mon = 10;
+		break;
 
         case 'D':
                 hdtm.tm_mon = 11;

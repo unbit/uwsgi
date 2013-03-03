@@ -61,7 +61,7 @@ int yaml_get_depth(char *line) {
 	return depth;
 }
 
-char *yaml_get_line(char *yaml, off_t size) {
+char *yaml_get_line(char *yaml, size_t size) {
 
 	off_t i;
 	char *ptr = yaml;
