@@ -452,13 +452,15 @@ static void uwsgi_exception_handler_thread_loop(struct uwsgi_thread *ut) {
                                 long ptr = 0;
                                 memcpy(&ptr, buf, sizeof(long));
                                 struct uwsgi_exception_handler_instance *uehi = (struct uwsgi_exception_handler_instance *) ptr;
-                                if (!uehi) return;
+                                if (!uehi)
+					break;
 				if (uehi->handler->func(uehi, msg, msg_size)) {
                         		uwsgi_log("[uwsgi-exception] error running the handler \"%s\" args: \"%s\"\n", uehi->handler->name, uehi->arg ? uehi->arg : "");
                 		}
                         }
                 }
         }
+	free(buf);
 }
 
 void uwsgi_exception_setup_handlers() {
