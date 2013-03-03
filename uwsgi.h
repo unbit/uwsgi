@@ -2244,6 +2244,7 @@ struct uwsgi_rpc {
 	void *func;
 	uint8_t args;
 	uint8_t modifier1;
+	uint8_t shared;
 };
 
 	struct uwsgi_signal_entry {

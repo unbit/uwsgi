@@ -22,11 +22,27 @@ int uwsgi_register_rpc(char *name, uint8_t modifier1, uint8_t args, void *func) 
 		urpc->modifier1 = modifier1;
 		urpc->args = args;
 		urpc->func = func;
+		urpc->shared = uwsgi.mywid == 0 ? 1 : 0;
 
 		uwsgi.shared->rpc_count[uwsgi.mywid]++;
 
 		ret = 0;
-		uwsgi_log("registered RPC function %s\n", name);
+		if (uwsgi.mywid == 0) {
+			uwsgi_log("registered shared/inherited RPC function \"%s\"\n", name);
+		}
+		else {
+			uwsgi_log("registered RPC function \"%s\" on worker %d\n", name, uwsgi.mywid);
+		}
+	}
+
+	// implement cow
+	if (uwsgi.mywid == 0) {
+		int i;
+		for(i=1;i<=uwsgi.numproc;i++) {
+			uwsgi.shared->rpc_count[i] = uwsgi.shared->rpc_count[0];
+			int pos = (i * uwsgi.rpc_max);
+			memcpy(&uwsgi.rpc_table[pos], uwsgi.rpc_table, sizeof(struct uwsgi_rpc) * uwsgi.rpc_max);
+		}
 	}
 
 	uwsgi_unlock(uwsgi.rpc_table_lock);

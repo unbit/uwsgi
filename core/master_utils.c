@@ -77,7 +77,7 @@ void uwsgi_master_cleanup_hooks(void) {
 	int j;
 
 	// could be an inherited atexit hook
-	if (uwsgi.mywid > 0)
+	if (uwsgi.mypid != uwsgi.workers[0].pid)
 		return;
 
 	uwsgi.status.is_cleaning = 1;
