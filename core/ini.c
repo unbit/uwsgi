@@ -54,7 +54,7 @@ char *ini_get_key(char *key) {
 	return ptr;
 }
 
-char *ini_get_line(char *ini, off_t size) {
+char *ini_get_line(char *ini, size_t size) {
 
 	off_t i;
 	char *ptr = ini;
