@@ -201,11 +201,13 @@ static void uwsgi_alarm_thread_loop(struct uwsgi_thread *ut) {
 				long ptr = 0;
 				memcpy(&ptr, buf, sizeof(long));
 				struct uwsgi_alarm_instance *uai = (struct uwsgi_alarm_instance *) ptr;
-				if (!uai) return;
+				if (!uai)
+					break;
 				uwsgi_alarm_run(uai, msg, msg_size);
 			}
 		}
 	}
+	free(buf);
 }
 
 // initialize alarms, instances and log regexps
