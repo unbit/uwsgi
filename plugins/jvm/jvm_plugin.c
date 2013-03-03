@@ -179,11 +179,13 @@ static void uwsgi_jvm_create(void) {
 		(*jvmti)->GetSystemProperty(jvmti, "java.vm.version", &java_version);
 	}
 
-	if (java_version) {
-		uwsgi_log("JVM %s initialized at %p\n", java_version, ujvm.env);
-	}
-	else {
-		uwsgi_log("JVM initialized at %p\n", ujvm.env);
+	if (uwsgi.mywid > 0) {
+		if (java_version) {
+			uwsgi_log("JVM %s initialized at %p (worker: %d pid: %d)\n", java_version, ujvm.env, uwsgi.mywid, (int) uwsgi.mypid);
+		}
+		else {
+			uwsgi_log("JVM initialized at %p (worker: %d pid: %d)\n", ujvm.env, uwsgi.mywid, (int) uwsgi.mypid);
+		}
 	}
 
 	ujvm.str_class = uwsgi_jvm_class("java/lang/String");
