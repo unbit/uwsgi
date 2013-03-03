@@ -259,13 +259,16 @@ void uwsgi_jvm_release_chars(jobject o, char *str) {
 }
 
 static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[], char *buffer) {
-	jvalue *args = uwsgi_calloc(sizeof(jvalue) * argc+1);	
+	jvalue args[1];
+	jobject str_array = (*ujvm.env)->NewObjectArray(ujvm.env, argc, ujvm.str_class, NULL);
 	uint8_t i;
 	for(i=0;i<argc;i++) {
-		args[i] = (jvalue) uwsgi_jvm_str(argv[i], argvs[i]);
+		uwsgi_log("%.*s\n", argvs[i], argv[i]);
+		(*ujvm.env)->SetObjectArrayElement(ujvm.env, str_array, i, uwsgi_jvm_str(argv[i], argvs[i]));
 	}
+	args[0].l = str_array;
 	jobject ret = uwsgi_jvm_call_objectA(func, ujvm.api_rpc_function_mid, args);
-	free(args);
+	(*ujvm.env)->DeleteLocalRef(ujvm.env, str_array);
 	if (ret == NULL) {
 		goto end;
 	}
