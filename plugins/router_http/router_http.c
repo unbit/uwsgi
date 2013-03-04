@@ -16,7 +16,7 @@ static int uwsgi_routing_func_http(struct wsgi_request *wsgi_req, struct uwsgi_r
 	if (ur->data3_len) {
 		char **subject = (char **) (((char *)(wsgi_req))+ur->subject);
         	uint16_t *subject_len = (uint16_t *)  (((char *)(wsgi_req))+ur->subject_len);
-		struct uwsgi_buffer *ub_url = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data3, ur->data3_len);
+		ub_url = uwsgi_routing_translate(wsgi_req, ur, *subject, *subject_len, ur->data3, ur->data3_len);
         	if (!ub_url) return UWSGI_ROUTE_BREAK;
 	}
 

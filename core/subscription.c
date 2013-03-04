@@ -767,7 +767,7 @@ void uwsgi_subscribe2(char *arg, uint8_t cmd) {
 		return;
 	}
 
-	if (!s2_server && !s2_key) goto end;
+	if (!s2_server || !s2_key) goto end;
 
 	if (s2_check) {
 		if (uwsgi_file_exists(s2_check)) goto end;

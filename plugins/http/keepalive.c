@@ -152,12 +152,9 @@ int http_response_parse(struct http_session *hr, struct uwsgi_buffer *ub, size_t
 					
 				}
 			}
-			hr->session.can_keepalive = hr->session.can_keepalive;
-		}
-		else if (hr->session.can_keepalive) {
-#else
-		if (hr->session.can_keepalive) {
+		} else
 #endif
+		if (hr->session.can_keepalive) {
 			if (uhttp.auto_chunked) {
 				char cr = buf[len-2];
 				char nl = buf[len-1];
