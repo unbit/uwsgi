@@ -2,6 +2,8 @@
 
 #define UWSGI_JVM_REQUEST_HANDLER_RING	1
 
+extern struct uwsgi_jvm ujvm;
+
 struct uwsgi_ring {
 	char *app;
 	jobject handler;
@@ -14,6 +16,9 @@ struct uwsgi_ring {
 	jclass PersistentArrayMap;
 	jmethodID PersistentArrayMap_get;
 	jmethodID PersistentArrayMap_entrySet;
+
+	jclass PersistentVector;
+	jclass PersistentList;
 } uring;
 
 static struct uwsgi_option uwsgi_ring_options[] = {
@@ -65,6 +70,7 @@ static jobject uwsgi_ring_header_get(jobject headers, jobject key) {
 }
 
 static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
+	char status_str[1];
 	uwsgi_log("managing ring request\n");
 	jobject hm = uwsgi_jvm_hashmap();
 	if (!hm) return -1;
@@ -83,21 +89,77 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 	jobject r_status = uwsgi_ring_response_get(response, "status", 6);
 	if (!r_status) goto error;
 
+	if (!uwsgi_jvm_object_is_instance(r_status, ujvm.long_class) && !uwsgi_jvm_object_is_instance(r_status, ujvm.int_class)) {
+		uwsgi_log("invalid ring response status type, must be: java.lang.Long\n");
+		goto error;
+	}
+
+	long n_status = uwsgi_jvm_number2c(r_status);
+	if (n_status == -1) goto error;
+
+	if (uwsgi_num2str2(n_status, status_str) != 3) {
+		goto error;
+	}
+
+	if (uwsgi_response_prepare_headers(wsgi_req, status_str, 3)) goto error;
+
 	jobject r_headers = uwsgi_ring_response_get(response, "headers", 7);
 	if (!r_headers) goto error;
 
-	char *cn = uwsgi_jvm_str2c( uwsgi_jvm_object_class_name(r_headers) );
-	uwsgi_log("headers type = %s\n", cn);
-
-	cn = uwsgi_jvm_str2c( uwsgi_jvm_object_class_name(r_status) );
-	uwsgi_log("status type = %s\n", cn);
+	if (!uwsgi_jvm_object_is_instance(r_headers, uring.PersistentArrayMap)) {
+		uwsgi_log("invalid ring response headers type, must be: clojure.lang.PersistentArrayMap\n");
+		goto error;
+	}
 
 	jobject entries = uwsgi_ring_PersistentArrayMap_iterator(r_headers);
 	if (!entries) goto error;
 
 	while(uwsgi_jvm_iterator_hasNext(entries)) {
 		jobject hh = uwsgi_jvm_iterator_next(entries);
-		uwsgi_log("hh = %p\n", hh);
+		if (!hh) goto error;
+		jobject h_key = uwsgi_jvm_getKey(hh);
+		if (!h_key) goto error;
+		jobject h_value = uwsgi_jvm_getValue(hh);
+		if (!h_value) goto error;
+
+		if (!uwsgi_jvm_object_is_instance(h_key, ujvm.str_class)) {
+			uwsgi_log("headers key must be java/lang/String !!!\n");
+			goto error;
+		}
+
+		if (uwsgi_jvm_object_is_instance(h_value, ujvm.str_class)) {
+			char *c_h_key = uwsgi_jvm_str2c(h_key);
+			uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
+			char *c_h_value = uwsgi_jvm_str2c(h_value);
+                        uint16_t c_h_vallen = uwsgi_jvm_strlen(h_value);
+			int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
+			uwsgi_jvm_release_chars(h_key, c_h_key);
+			uwsgi_jvm_release_chars(h_value, c_h_value);
+			if (ret) goto error;	
+		}
+		else if (uwsgi_jvm_object_is_instance(h_value, uring.PersistentVector) || uwsgi_jvm_object_is_instance(h_value, uring.PersistentList)) {
+			jobject values = uwsgi_jvm_auto_iterator(h_value);
+			if (!values) goto error;
+			while(uwsgi_jvm_iterator_hasNext(values)) {
+				jobject hh_value = uwsgi_jvm_iterator_next(values);
+				if (!uwsgi_jvm_object_is_instance(hh_value, ujvm.str_class)) {
+                        		uwsgi_log("headers value must be java/lang/String !!!\n");
+                        		goto error;
+                		}
+				char *c_h_key = uwsgi_jvm_str2c(h_key);
+				uint16_t c_h_keylen = uwsgi_jvm_strlen(h_key);
+				char *c_h_value = uwsgi_jvm_str2c(hh_value);
+				uint16_t c_h_vallen = uwsgi_jvm_strlen(hh_value);
+				int ret = uwsgi_response_add_header(wsgi_req, c_h_key, c_h_keylen, c_h_value, c_h_vallen);
+				uwsgi_jvm_release_chars(h_key, c_h_key);
+				uwsgi_jvm_release_chars(hh_value, c_h_value);
+				if (ret) goto error;
+			}
+		}
+		else {
+			uwsgi_log("unsupported header value !!! (must be java/lang/String, clojure/lang/PersistentVector or clojure/lang/PersistentList)\n");
+			goto error;
+		}
 	}
 	jobject ct = uwsgi_ring_header_get(r_headers, uwsgi_jvm_str("Content-Type", 0));
 	if (!ct) {
@@ -129,6 +191,16 @@ static int uwsgi_ring_setup() {
 
 	uring.PersistentArrayMap = uwsgi_jvm_class("clojure/lang/PersistentArrayMap");
         if (!uring.PersistentArrayMap) {
+                exit(1);
+        }
+
+	uring.PersistentVector = uwsgi_jvm_class("clojure/lang/PersistentVector");
+        if (!uring.PersistentVector) {
+                exit(1);
+        }
+
+	uring.PersistentList = uwsgi_jvm_class("clojure/lang/PersistentList");
+        if (!uring.PersistentList) {
                 exit(1);
         }
 

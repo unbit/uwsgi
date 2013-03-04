@@ -14,6 +14,8 @@ struct uwsgi_jvm {
         struct uwsgi_string_list *main_classes;
 
 	jclass str_class;
+	jclass long_class;
+	jclass int_class;
 	jclass hashmap_class;
 	jclass set_class;
 	jclass iterator_class;
@@ -62,3 +64,13 @@ int uwsgi_jvm_iterator_hasNext(jobject);
 jobject uwsgi_jvm_iterator_next(jobject);
 
 jobject uwsgi_jvm_iterator(jobject);
+jobject uwsgi_jvm_auto_iterator(jobject);
+
+jobject uwsgi_jvm_getKey(jobject);
+jobject uwsgi_jvm_getValue(jobject);
+
+size_t uwsgi_jvm_strlen(jobject);
+long uwsgi_jvm_number2c(jobject);
+
+long uwsgi_jvm_int2c(jobject);
+long uwsgi_jvm_long2c(jobject);

@@ -117,6 +117,45 @@ jobject uwsgi_jvm_object_class_name(jobject o) {
 	return uwsgi_jvm_call_object(oc, mid);
 }
 
+long uwsgi_jvm_int2c(jobject o) {
+	static jmethodID mid = 0;
+	if (!mid) {
+		mid = uwsgi_jvm_get_method_id(ujvm.int_class, "intValue", "()I");
+		if (!mid) return -1 ;
+	}
+	long value = (*ujvm_env)->CallIntMethod(ujvm_env, o, mid);
+	if (uwsgi_jvm_exception()) {
+		return -1;
+	}
+	return value;
+}
+
+long uwsgi_jvm_long2c(jobject o) {
+        static jmethodID mid = 0;
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.long_class, "longValue", "()J");
+                if (!mid) return -1;
+        }
+        long value = (*ujvm_env)->CallLongMethod(ujvm_env, o, mid);
+        if (uwsgi_jvm_exception()) {
+                return -1;
+        }
+        return value;
+}
+
+
+long uwsgi_jvm_number2c(jobject o) {
+	if (uwsgi_jvm_object_is_instance(o, ujvm.int_class)) {
+		return uwsgi_jvm_int2c(o);
+	}
+
+	if (uwsgi_jvm_object_is_instance(o, ujvm.long_class)) {
+                return uwsgi_jvm_long2c(o);
+        }
+
+	return -1;
+}
+
 // returns the method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_method_id(jclass cls, char *name, char *signature) {
 	jmethodID mid = (*ujvm_env)->GetMethodID(ujvm_env, cls, name, signature);
@@ -191,6 +230,30 @@ jobject uwsgi_jvm_iterator(jobject set) {
                 if (!mid) return 0;
         }
 	return uwsgi_jvm_call_object(set, mid);
+}
+
+jobject uwsgi_jvm_auto_iterator(jobject o) {
+	jclass c = uwsgi_jvm_class_from_object(o);
+	if (!c) return NULL;
+        jmethodID mid = uwsgi_jvm_get_method_id(c, "iterator", "()Ljava/util/Iterator;");
+        if (!mid) return NULL;
+        return uwsgi_jvm_call_object(o, mid);
+}
+
+jobject uwsgi_jvm_getKey(jobject item) {
+	jclass c = uwsgi_jvm_class_from_object(item);
+	if (!c) return NULL;
+	jmethodID mid = uwsgi_jvm_get_method_id(c, "getKey", "()Ljava/lang/Object;");
+	if (!mid) return NULL;
+	return uwsgi_jvm_call_object(item, mid);
+}
+
+jobject uwsgi_jvm_getValue(jobject item) {
+        jclass c = uwsgi_jvm_class_from_object(item);
+        if (!c) return NULL;
+        jmethodID mid = uwsgi_jvm_get_method_id(c, "getValue", "()Ljava/lang/Object;");
+        if (!mid) return NULL;
+        return uwsgi_jvm_call_object(item, mid);
 }
 
 int uwsgi_jvm_iterator_hasNext(jobject iterator) {
@@ -349,6 +412,12 @@ static void uwsgi_jvm_create(void) {
 
 	ujvm.str_class = uwsgi_jvm_class("java/lang/String");
 	if (!ujvm.str_class) exit(1);
+
+	ujvm.int_class = uwsgi_jvm_class("java/lang/Integer");
+	if (!ujvm.int_class) exit(1);
+
+	ujvm.long_class = uwsgi_jvm_class("java/lang/Long");
+	if (!ujvm.long_class) exit(1);
 
 	ujvm.hashmap_class = uwsgi_jvm_class("java/util/HashMap");
 	if (!ujvm.hashmap_class) exit(1);
