@@ -7,6 +7,8 @@ you can get method signatures
 
 This plugin is the core for all of the JVM-based ones
 
+some function (for performance reason) use static vars. They are thread safe in gcc.
+
 */
 
 extern struct uwsgi_server uwsgi;
@@ -72,6 +74,13 @@ void uwsgi_jvm_clear_exception() {
 	}
 }
 
+int uwsgi_jvm_object_is_instance(jobject o, jclass c) {
+	if ((*ujvm_env)->IsInstanceOf(ujvm_env, o, c)) {
+		return 1;
+	}
+	return 0;
+}
+
 // load/find/get a class
 jclass uwsgi_jvm_class(char *name) {
 
@@ -82,17 +91,48 @@ jclass uwsgi_jvm_class(char *name) {
 	}
 
 	return my_class;
-	return uwsgi_jvm_ref(my_class);
+}
+
+// get the class of an object
+jclass uwsgi_jvm_class_from_object(jobject o) {
+	return (*ujvm_env)->GetObjectClass(ujvm_env, o);	
+}
+
+
+// return a java string of the object class name
+jobject uwsgi_jvm_object_class_name(jobject o) {
+	jclass c = uwsgi_jvm_class_from_object(o);
+	jmethodID mid = uwsgi_jvm_get_method_id(c, "getClass", "()Ljava/lang/Class;");
+	if (!mid) return NULL;
+
+	jobject oc = uwsgi_jvm_call_object(o, mid);
+	if (!oc) return NULL;
+
+	jclass c2 = uwsgi_jvm_class_from_object(oc);
+        if (!c2) return NULL;	
+
+	mid = uwsgi_jvm_get_method_id(c2, "getName", "()Ljava/lang/String;");
+        if (!mid) return NULL;
+
+	return uwsgi_jvm_call_object(oc, mid);
 }
 
 // returns the method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_method_id(jclass cls, char *name, char *signature) {
-	return (*ujvm_env)->GetMethodID(ujvm_env, cls, name, signature);
+	jmethodID mid = (*ujvm_env)->GetMethodID(ujvm_env, cls, name, signature);
+	if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+        return mid;
 }
 
 // returns the static method id, given the method name and its signature
 jmethodID uwsgi_jvm_get_static_method_id(jclass cls, char *name, char *signature) {
-	return (*ujvm_env)->GetStaticMethodID(ujvm_env, cls, name, signature);
+	jmethodID mid = (*ujvm_env)->GetStaticMethodID(ujvm_env, cls, name, signature);
+	if (uwsgi_jvm_exception()) {
+		return NULL;
+	}
+	return mid;
 }
 
 jobject uwsgi_jvm_ref(jobject obj) {
@@ -102,6 +142,84 @@ jobject uwsgi_jvm_ref(jobject obj) {
 void uwsgi_jvm_unref(jobject obj) {
 	(*ujvm_env)->DeleteLocalRef(ujvm_env, obj);
 }
+
+jobject uwsgi_jvm_hashmap() {
+	// optimization
+	static jmethodID mid = 0;
+
+	if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.hashmap_class, "<init>", "()V");
+		if (!mid) return NULL;
+        }
+
+	jobject hm = (*ujvm_env)->NewObject(ujvm_env, ujvm.hashmap_class, mid);
+	if (uwsgi_jvm_exception()) {
+		return NULL;
+	}
+	return hm;
+}
+
+int uwsgi_jvm_hashmap_put(jobject hm, jobject key, jobject value) {
+	// optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.hashmap_class, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+                if (!mid) return -1;
+        }
+
+	return uwsgi_jvm_call(hm, mid, key, value);
+}
+
+jobject uwsgi_jvm_hashmap_get(jobject hm, jobject key) {
+        // optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.hashmap_class, "get", "(Ljava/lang/Object;)Ljava/lang/Object;");
+                if (!mid) return NULL;
+        }
+
+        return uwsgi_jvm_call_object(hm, mid, key);
+}
+
+jobject uwsgi_jvm_iterator(jobject set) {
+	// optimization
+        static jmethodID mid = 0;
+	if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.set_class, "iterator", "()Ljava/util/Iterator;");
+                if (!mid) return 0;
+        }
+	return uwsgi_jvm_call_object(set, mid);
+}
+
+int uwsgi_jvm_iterator_hasNext(jobject iterator) {
+	// optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.iterator_class, "hasNext", "()Z");
+                if (!mid) return 0;
+        }
+
+        if (uwsgi_jvm_call_object(iterator, mid)) {
+		return 1;
+	}
+	return 0;
+}
+
+jobject uwsgi_jvm_iterator_next(jobject iterator) {
+        // optimization
+        static jmethodID mid = 0;
+
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.iterator_class, "next", "()Ljava/lang/Object;");
+                if (!mid) return NULL;
+        }
+
+        return uwsgi_jvm_call_object(iterator, mid);
+}
+
 
 jobject uwsgi_jvm_str(char *str, size_t len) {
 	jobject new_str;
@@ -120,7 +238,7 @@ jobject uwsgi_jvm_str(char *str, size_t len) {
 int uwsgi_jvm_call_static(jclass c, jmethodID mid, ...) {
 	va_list args;
 	va_start(args, mid);
-	(*ujvm_env)->CallStaticVoidMethod(ujvm_env, c, mid, args);
+	(*ujvm_env)->CallStaticVoidMethodV(ujvm_env, c, mid, args);
 	va_end(args);
         return uwsgi_jvm_exception();
 }
@@ -132,6 +250,30 @@ int uwsgi_jvm_call(jobject o, jmethodID mid, ...) {
 	va_end(args);
         return uwsgi_jvm_exception();
 }
+
+jobject uwsgi_jvm_call_object_static(jclass c, jmethodID mid, ...) {
+        va_list args;
+        va_start(args, mid);
+        jobject ret = (*ujvm_env)->CallStaticObjectMethodV(ujvm_env, c, mid, args);
+        va_end(args);
+        if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+        return ret;
+}
+
+
+jobject uwsgi_jvm_call_object(jobject o, jmethodID mid, ...) {
+	va_list args;
+	va_start(args, mid);
+        jobject ret = (*ujvm_env)->CallObjectMethodV(ujvm_env, o, mid, args);
+	va_end(args);
+        if (uwsgi_jvm_exception()) {
+                return NULL;
+        }
+        return ret;
+}
+
 
 jobject uwsgi_jvm_call_objectA(jobject o, jmethodID mid, jvalue *args) {
 	jobject ret = (*ujvm_env)->CallObjectMethodA(ujvm_env, o, mid, args);
@@ -208,6 +350,15 @@ static void uwsgi_jvm_create(void) {
 	ujvm.str_class = uwsgi_jvm_class("java/lang/String");
 	if (!ujvm.str_class) exit(1);
 
+	ujvm.hashmap_class = uwsgi_jvm_class("java/util/HashMap");
+	if (!ujvm.hashmap_class) exit(1);
+
+	ujvm.set_class = uwsgi_jvm_class("java/util/Set");
+	if (!ujvm.set_class) exit(1);
+
+	ujvm.iterator_class = uwsgi_jvm_class("java/util/Iterator");
+	if (!ujvm.iterator_class) exit(1);
+
 	ujvm.runtime_exception = uwsgi_jvm_class("java/lang/RuntimeException");
 	if (!ujvm.runtime_exception) exit(1);
 
@@ -238,7 +389,6 @@ static void uwsgi_jvm_create(void) {
 		}
 		jmethodID mid = uwsgi_jvm_get_static_method_id(c, "main", "([Ljava/lang/String;)V");
 		if (!mid) {
-			uwsgi_jvm_clear_exception();
 			mid = uwsgi_jvm_get_static_method_id(c, "main", "()V");
 		}
 		if (!mid) {
