@@ -18,6 +18,9 @@ struct uwsgi_jvm {
 
 	jmethodID api_signal_handler_mid;
 	jmethodID api_rpc_function_mid;
+
+	int (*request_handlers[UMAX8])(struct wsgi_request *);
+	int (*request_handlers_setup[UMAX8])(void);
 };
 
 #define ujvm_env ((JNIEnv*)pthread_getspecific(ujvm.env))
@@ -35,3 +38,5 @@ void uwsgi_jvm_throw(char *);
 
 jobject uwsgi_jvm_call_objectA(jobject o, jmethodID mid, jvalue *);
 void uwsgi_jvm_release_chars(jobject, char *);
+
+int uwsgi_jvm_register_request_handler(uint8_t, int (*)(void), int (*)(struct wsgi_request *));

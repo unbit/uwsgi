@@ -300,16 +300,15 @@ def build_uwsgi(uc, print_only=False):
                     print("Error: plugin '%s' not found" % p)
                     sys.exit(1)
 
+                up = {}
                 try:
-                    import importlib
-                    up = importlib.machinery.SourceFileLoader('uwsgiplugin', '%s/uwsgiplugin.py' % path).load_module()
+                    execfile('%s/uwsgiplugin.py' % path, up)
                 except:
-                    sys.path.insert(0, path)
-                    import uwsgiplugin as up
-                    reload(up)
+                    with open('%s/uwsgiplugin.py' % path) as f:
+                        exec(f.read(), up)
 
                 p_cflags = cflags[:]
-                p_cflags += up.CFLAGS
+                p_cflags += up['CFLAGS']
 
                 try:
                     p_cflags.remove('-Wdeclaration-after-statement')
@@ -337,7 +336,7 @@ def build_uwsgi(uc, print_only=False):
                 except:
                     pass
 
-                for cfile in up.GCC_LIST:
+                for cfile in up['GCC_LIST']:
                     if cfile.endswith('.a'):
                         gcc_list.append(cfile)
                     elif not cfile.endswith('.c') and not cfile.endswith('.cc') and not cfile.endswith('.m'):
@@ -349,7 +348,7 @@ def build_uwsgi(uc, print_only=False):
                             path + '/' + cfile + '.o', path + '/' + cfile)
                         gcc_list.append('%s/%s' % (path, cfile))
 
-                libs += up.LIBS
+                libs += up['LIBS']
 
                 if uwsgi_os == 'Darwin':
                     found_arch = False
@@ -364,13 +363,7 @@ def build_uwsgi(uc, print_only=False):
                         sanitized_ldflags.append(flag)
                     ldflags += sanitized_ldflags
                 else:
-                    ldflags += up.LDFLAGS
-
-                up.CFLAGS = None
-                up.LDFLAGS = None
-                up.LIBS = None
-                up.GCC_LIST = None
-                up.post_build = None
+                    ldflags += up['LDFLAGS']
 
     if uc.get('plugins'):
 

@@ -17,6 +17,7 @@ struct uwsgi_http {
         struct uwsgi_corerouter cr;
 
         uint8_t modifier1;
+        uint8_t modifier2;
         struct uwsgi_string_list *http_vars;
         uint64_t manage_expect;
 

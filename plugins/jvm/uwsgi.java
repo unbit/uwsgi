@@ -2,7 +2,7 @@ import java.io.*;
 
 public class uwsgi {
 
-	public class request_body extends InputStream {
+	public class RequestBody extends InputStream {
 		public native int read();
 		public native int read(byte[] b);
 		public native int available();

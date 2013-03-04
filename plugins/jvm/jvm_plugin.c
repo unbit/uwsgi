@@ -11,6 +11,18 @@ This plugin is the core for all of the JVM-based ones
 
 extern struct uwsgi_server uwsgi;
 struct uwsgi_plugin jvm_plugin;
+struct uwsgi_jvm ujvm;
+
+
+int uwsgi_jvm_register_request_handler(uint8_t modifier2,int (*setup)(void), int (*func)(struct wsgi_request *)) {
+	if (ujvm.request_handlers[modifier2] || ujvm.request_handlers_setup[modifier2]) {
+		uwsgi_log("JVM request_handler for modifier2 %u already registered !!!\n", modifier2);
+		return -1;
+	}
+	ujvm.request_handlers_setup[modifier2] = setup;
+	ujvm.request_handlers[modifier2] = func;
+	return 0;
+}
 
 JNIEXPORT jint JNICALL uwsgi_jvm_api_worker_id(JNIEnv *env, jclass c) {
 	return uwsgi.mywid;
@@ -35,8 +47,6 @@ static JNINativeMethod uwsgi_jvm_api_methods[] = {
 	{"register_rpc", "(Ljava/lang/String;Luwsgi$RpcFunction;)V", (void *) &uwsgi_jvm_api_register_rpc},
 	{"worker_id", "()I", (void *) &uwsgi_jvm_api_worker_id},
 };
-
-struct uwsgi_jvm ujvm;
 
 static struct uwsgi_option uwsgi_jvm_options[] = {
         {"jvm-main-class", required_argument, 0, "load the specified class and call its main() function", uwsgi_opt_add_string_list, &ujvm.main_classes, 0},
@@ -241,6 +251,14 @@ static void uwsgi_jvm_create(void) {
 		usl = usl->next;
 	}
 
+	// load request_handlers setup functions
+	int i;
+	for(i=0;i<UMAX8;i++) {
+		if (ujvm.request_handlers_setup[i]) {
+			ujvm.request_handlers_setup[i]();
+		}
+	}
+
 }
 
 // get the raw body of a java string
@@ -260,7 +278,23 @@ static int uwsgi_jvm_signal_handler(uint8_t signum, void *handler) {
 
 // route request to the specific JVM plugin (identified by modifier2)
 static int uwsgi_jvm_request(struct wsgi_request *wsgi_req) {
-	return UWSGI_OK;
+	uint8_t modifier2 = wsgi_req->uh->modifier2;
+	if (!ujvm.request_handlers[modifier2]) {
+		uwsgi_log("unable to find JVM request handler %u\n", modifier2);
+		return -1;
+	}
+
+	/* Standard JVM request */
+        if (!wsgi_req->uh->pktsize) {
+                uwsgi_log("Empty JVM request. skip.\n");
+                return -1;
+        }
+
+        if (uwsgi_parse_vars(wsgi_req)) {
+                return -1;
+        }
+
+	return ujvm.request_handlers[modifier2](wsgi_req);
 }
 
 void uwsgi_jvm_release_chars(jobject o, char *str) {
@@ -272,7 +306,6 @@ static uint16_t uwsgi_jvm_rpc(void *func, uint8_t argc, char **argv, uint16_t ar
 	jobject str_array = (*ujvm_env)->NewObjectArray(ujvm_env, argc, ujvm.str_class, NULL);
 	uint8_t i;
 	for(i=0;i<argc;i++) {
-		uwsgi_log("%.*s\n", argvs[i], argv[i]);
 		(*ujvm_env)->SetObjectArrayElement(ujvm_env, str_array, i, uwsgi_jvm_str(argv[i], argvs[i]));
 	}
 	args[0].l = str_array;
@@ -300,11 +333,16 @@ static void uwsgi_jvm_init_thread(int coreid) {
 	pthread_setspecific(ujvm.env, env);
 }
 
+static void uwsgi_jvm_after_request(struct wsgi_request *wsgi_req) {
+	log_request(wsgi_req);
+}
+
 struct uwsgi_plugin jvm_plugin = {
 	.name = "jvm",
 	.modifier1 = 8,
 
 	.request = uwsgi_jvm_request,
+	.after_request = uwsgi_jvm_after_request,
 
 	.init = uwsgi_jvm_init,
 	.options = uwsgi_jvm_options,
