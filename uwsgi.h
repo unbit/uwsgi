@@ -2249,12 +2249,12 @@ struct uwsgi_rpc {
 	uint8_t shared;
 };
 
-	struct uwsgi_signal_entry {
-		int wid;
-		uint8_t modifier1;
-		char receiver[64];
-		void *handler;
-	};
+struct uwsgi_signal_entry {
+	int wid;
+	uint8_t modifier1;
+	char receiver[64];
+	void *handler;
+};
 
 	struct uwsgi_snmp_custom_value {
 		uint8_t type;
@@ -2307,7 +2307,8 @@ struct uwsgi_rpc {
 		int mule_signal_pipe[2];
 		int mule_queue_pipe[2];
 
-		struct uwsgi_signal_entry signal_table[256];
+		// 256 items * (uwsgi.numproc + 1)
+		struct uwsgi_signal_entry *signal_table;
 
 		struct uwsgi_fmon files_monitored[64];
 		int files_monitored_cnt;

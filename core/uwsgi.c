@@ -2163,7 +2163,6 @@ int uwsgi_start(void *v_argv) {
 		uwsgi_log("VirtualHosting mode enabled.\n");
 	}
 
-
 	// setup locking
 	uwsgi_setup_locking();
 
