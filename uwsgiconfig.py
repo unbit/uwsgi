@@ -331,8 +331,8 @@ def build_uwsgi(uc, print_only=False):
                     pass
 
                 try:
-                    if up.post_build:
-                        post_build.append(up.post_build)
+                    if up['post_build']:
+                        post_build.append(up['post_build'])
                 except:
                     pass
 
