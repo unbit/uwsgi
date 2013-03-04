@@ -16,6 +16,7 @@ struct uwsgi_jvm {
 	jclass str_class;
 	jclass long_class;
 	jclass int_class;
+	jclass file_class;
 	jclass hashmap_class;
 	jclass set_class;
 	jclass iterator_class;
@@ -74,3 +75,5 @@ long uwsgi_jvm_number2c(jobject);
 
 long uwsgi_jvm_int2c(jobject);
 long uwsgi_jvm_long2c(jobject);
+
+jobject uwsgi_jvm_filename(jobject);

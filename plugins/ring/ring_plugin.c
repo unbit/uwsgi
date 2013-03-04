@@ -32,8 +32,6 @@ static jobject uwsgi_ring_invoke1(jobject o, jobject arg1) {
 
 static jobject uwsgi_ring_keyword(char *key, size_t len) {
 	jobject j_key = uwsgi_jvm_str(key, len);
-	char *cn = uwsgi_jvm_str2c( uwsgi_jvm_object_class_name(j_key) );
-	uwsgi_log("response type = %s\n", cn);
 	if (!j_key) return NULL;
 	return uwsgi_ring_invoke1(uring.keyword, j_key);
 }
@@ -63,10 +61,6 @@ static jobject uwsgi_ring_response_get(jobject r, char *name, size_t len) {
         if (!j_key) return NULL;
 
 	return uwsgi_ring_PersistentArrayMap_get(r, j_key);
-}
-
-static jobject uwsgi_ring_header_get(jobject headers, jobject key) {
-	return uwsgi_ring_PersistentArrayMap_get(headers, key);
 }
 
 static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
@@ -161,16 +155,51 @@ static int uwsgi_ring_request(struct wsgi_request *wsgi_req) {
 			goto error;
 		}
 	}
-	jobject ct = uwsgi_ring_header_get(r_headers, uwsgi_jvm_str("Content-Type", 0));
-	if (!ct) {
-		uwsgi_log("oops\n");
-		goto error;
+
+	jobject r_body = uwsgi_ring_response_get(response, "body", 4);
+        if (!r_body) goto error;
+
+        if (uwsgi_jvm_object_is_instance(r_body, ujvm.str_class)) {
+		char *c_body = uwsgi_jvm_str2c(r_body);
+		size_t c_body_len = uwsgi_jvm_strlen(r_body);
+		uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+		uwsgi_jvm_release_chars(r_body, c_body);
+		return UWSGI_OK;
+        }
+
+	jobject chunks = uwsgi_jvm_auto_iterator(r_body);
+	if (chunks) {
+		while(uwsgi_jvm_iterator_hasNext(chunks)) {
+			jobject chunk = uwsgi_jvm_iterator_next(chunks);
+			if (!uwsgi_jvm_object_is_instance(chunk, ujvm.str_class)) {
+                        	uwsgi_log("body iSeq item must be java/lang/String !!!\n");
+                                goto error;
+                        }
+			char *c_body = uwsgi_jvm_str2c(chunk);
+                	size_t c_body_len = uwsgi_jvm_strlen(chunk);
+                	int ret = uwsgi_response_write_body_do(wsgi_req, c_body, c_body_len);
+                	uwsgi_jvm_release_chars(chunk, c_body);
+			if (ret) goto error;
+		}
+		return UWSGI_OK;
 	}
 
-	uwsgi_log("type = %s\n", uwsgi_jvm_str2c(ct));
+	if (uwsgi_jvm_object_is_instance(r_body, ujvm.file_class)) {
+		jobject j_filename = uwsgi_jvm_filename(r_body);
+		if (!j_filename) goto error;
+		char *c_filename = uwsgi_jvm_str2c(j_filename);
+		int fd = open(c_filename, O_RDONLY);
+		if (fd < 0) {
+			uwsgi_error("clojure/ring->open()");
+			goto error;
+		}
+		uwsgi_response_sendfile_do(wsgi_req, fd, 0, 0);
+		uwsgi_log("sendfile fd = %d\n", fd);
+		uwsgi_jvm_release_chars(j_filename, c_filename);
+		return UWSGI_OK;
+	}
 
-	return UWSGI_OK;
-
+	uwsgi_log("unsupported clojure/ring body type\n");
 error:
 	// destroy the hashmap
 	return -1;

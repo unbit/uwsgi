@@ -240,6 +240,17 @@ jobject uwsgi_jvm_auto_iterator(jobject o) {
         return uwsgi_jvm_call_object(o, mid);
 }
 
+// returns a java string of the filaname
+jobject uwsgi_jvm_filename(jobject o) {
+	// optimization
+        static jmethodID mid = 0;
+        if (!mid) {
+                mid = uwsgi_jvm_get_method_id(ujvm.file_class, "getPath", "()Ljava/lang/String;");
+                if (!mid) return 0;
+        }
+	return uwsgi_jvm_call_object(o, mid);
+}
+
 jobject uwsgi_jvm_getKey(jobject item) {
 	jclass c = uwsgi_jvm_class_from_object(item);
 	if (!c) return NULL;
@@ -418,6 +429,9 @@ static void uwsgi_jvm_create(void) {
 
 	ujvm.long_class = uwsgi_jvm_class("java/lang/Long");
 	if (!ujvm.long_class) exit(1);
+
+	ujvm.file_class = uwsgi_jvm_class("java/io/File");
+	if (!ujvm.file_class) exit(1);
 
 	ujvm.hashmap_class = uwsgi_jvm_class("java/util/HashMap");
 	if (!ujvm.hashmap_class) exit(1);
